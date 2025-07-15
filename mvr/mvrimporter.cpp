@@ -247,8 +247,6 @@ bool MvrImporter::ParseSceneXml(const std::string& sceneXmlPath)
             truss.layer = layerName;
             if (const char* nameAttr = node->Attribute("name")) truss.name = nameAttr;
 
-            intOf(node, "FixtureID", truss.fixtureId);
-            intOf(node, "FixtureIDNumeric", truss.fixtureIdNumeric);
             intOf(node, "UnitNumber", truss.unitNumber);
             intOf(node, "CustomId", truss.customId);
             intOf(node, "CustomIdType", truss.customIdType);
@@ -256,9 +254,6 @@ bool MvrImporter::ParseSceneXml(const std::string& sceneXmlPath)
             truss.gdtfSpec = textOf(node, "GDTFSpec");
             truss.gdtfMode = textOf(node, "GDTFMode");
             truss.function = textOf(node, "Function");
-            truss.position = textOf(node, "Position");
-            auto posIt = scene.positions.find(truss.position);
-            if (posIt != scene.positions.end()) truss.positionName = posIt->second;
 
             if (tinyxml2::XMLElement* geos = node->FirstChildElement("Geometries")) {
                 if (tinyxml2::XMLElement* sym = geos->FirstChildElement("Symbol")) {
