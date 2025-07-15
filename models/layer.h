@@ -1,0 +1,13 @@
+#pragma once
+
+#include <string>
+#include <vector>
+
+// Represents a Layer (grouping element) in MVR
+struct Layer {
+    std::string uuid;
+    std::string name;
+
+    // UUIDs of child objects in this layer
+    std::vector<std::string> childUUIDs;
+};

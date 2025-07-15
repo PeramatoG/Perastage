@@ -1,0 +1,47 @@
+# CMake generation dependency list for this directory.
+C:/Program Files/Microsoft Visual Studio/2022/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-3.31/Modules/CMakeCXXInformation.cmake
+C:/Program Files/Microsoft Visual Studio/2022/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-3.31/Modules/CMakeCommonLanguageInclude.cmake
+C:/Program Files/Microsoft Visual Studio/2022/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-3.31/Modules/CMakeDependentOption.cmake
+C:/Program Files/Microsoft Visual Studio/2022/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-3.31/Modules/CMakeFindDependencyMacro.cmake
+C:/Program Files/Microsoft Visual Studio/2022/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-3.31/Modules/CMakeGenericSystem.cmake
+C:/Program Files/Microsoft Visual Studio/2022/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-3.31/Modules/CMakeInitializeConfigs.cmake
+C:/Program Files/Microsoft Visual Studio/2022/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-3.31/Modules/CMakeLanguageInformation.cmake
+C:/Program Files/Microsoft Visual Studio/2022/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-3.31/Modules/CMakeRCInformation.cmake
+C:/Program Files/Microsoft Visual Studio/2022/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-3.31/Modules/CMakeSystemSpecificInformation.cmake
+C:/Program Files/Microsoft Visual Studio/2022/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-3.31/Modules/CMakeSystemSpecificInitialize.cmake
+C:/Program Files/Microsoft Visual Studio/2022/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-3.31/Modules/Compiler/CMakeCommonCompilerMacros.cmake
+C:/Program Files/Microsoft Visual Studio/2022/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-3.31/Modules/Compiler/MSVC-CXX.cmake
+C:/Program Files/Microsoft Visual Studio/2022/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-3.31/Modules/Compiler/MSVC.cmake
+C:/Program Files/Microsoft Visual Studio/2022/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-3.31/Modules/FindOpenGL.cmake
+C:/Program Files/Microsoft Visual Studio/2022/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-3.31/Modules/FindPackageHandleStandardArgs.cmake
+C:/Program Files/Microsoft Visual Studio/2022/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-3.31/Modules/FindPackageMessage.cmake
+C:/Program Files/Microsoft Visual Studio/2022/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-3.31/Modules/Internal/CMakeCXXLinkerInformation.cmake
+C:/Program Files/Microsoft Visual Studio/2022/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-3.31/Modules/Internal/CMakeCommonLinkerInformation.cmake
+C:/Program Files/Microsoft Visual Studio/2022/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-3.31/Modules/Platform/Linker/Windows-MSVC-CXX.cmake
+C:/Program Files/Microsoft Visual Studio/2022/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-3.31/Modules/Platform/Linker/Windows-MSVC.cmake
+C:/Program Files/Microsoft Visual Studio/2022/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-3.31/Modules/Platform/Windows-Initialize.cmake
+C:/Program Files/Microsoft Visual Studio/2022/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-3.31/Modules/Platform/Windows-MSVC-CXX.cmake
+C:/Program Files/Microsoft Visual Studio/2022/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-3.31/Modules/Platform/Windows-MSVC.cmake
+C:/Program Files/Microsoft Visual Studio/2022/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-3.31/Modules/Platform/Windows.cmake
+C:/Program Files/Microsoft Visual Studio/2022/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-3.31/Modules/Platform/WindowsPaths.cmake
+C:/codigoscpp/Perastage/CMakeLists.txt
+C:/codigoscpp/Perastage/build/x64-windows-msvc-vcpkg/CMakeFiles/3.31.6-msvc6/CMakeCXXCompiler.cmake
+C:/codigoscpp/Perastage/build/x64-windows-msvc-vcpkg/CMakeFiles/3.31.6-msvc6/CMakeRCCompiler.cmake
+C:/codigoscpp/Perastage/build/x64-windows-msvc-vcpkg/CMakeFiles/3.31.6-msvc6/CMakeSystem.cmake
+C:/vcpkg/installed/x64-windows/share/nanosvg/NanoSVGConfig.cmake
+C:/vcpkg/installed/x64-windows/share/nanosvg/NanoSVGConfigVersion.cmake
+C:/vcpkg/installed/x64-windows/share/nanosvg/NanoSVGTargets-debug.cmake
+C:/vcpkg/installed/x64-windows/share/nanosvg/NanoSVGTargets-release.cmake
+C:/vcpkg/installed/x64-windows/share/nanosvg/NanoSVGTargets.cmake
+C:/vcpkg/installed/x64-windows/share/tinyxml2/tinyxml2-config-version.cmake
+C:/vcpkg/installed/x64-windows/share/tinyxml2/tinyxml2-config.cmake
+C:/vcpkg/installed/x64-windows/share/tinyxml2/tinyxml2-shared-targets-debug.cmake
+C:/vcpkg/installed/x64-windows/share/tinyxml2/tinyxml2-shared-targets-release.cmake
+C:/vcpkg/installed/x64-windows/share/tinyxml2/tinyxml2-shared-targets.cmake
+C:/vcpkg/installed/x64-windows/share/wxwidgets/vcpkg-cmake-wrapper.cmake
+C:/vcpkg/installed/x64-windows/share/wxwidgets/wxWidgetsConfig.cmake
+C:/vcpkg/installed/x64-windows/share/wxwidgets/wxWidgetsConfigVersion.cmake
+C:/vcpkg/installed/x64-windows/share/wxwidgets/wxWidgetsTargets-debug.cmake
+C:/vcpkg/installed/x64-windows/share/wxwidgets/wxWidgetsTargets-release.cmake
+C:/vcpkg/installed/x64-windows/share/wxwidgets/wxWidgetsTargets.cmake
+C:/vcpkg/scripts/buildsystems/vcpkg.cmake
