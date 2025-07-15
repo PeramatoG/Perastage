@@ -37,11 +37,15 @@ void FixtureTablePanel::ReloadData()
         wxString name = wxString::FromUTF8(fixture.name);
         wxString fixtureID = wxString::Format("%d", fixture.fixtureId);
         wxString layer = wxString::FromUTF8(fixture.layer);
-        wxString address = "0.0"; // Placeholder until address parsing is implemented
+        wxString address;
+        if (fixture.address.empty())
+            address = wxString::FromUTF8("â€“");
+        else
+            address = wxString::FromUTF8(fixture.address);
         wxString gdtf = wxString::FromUTF8(fixture.gdtfSpec);
 
         wxString pos = wxString::FromUTF8(fixture.position); // Currently a string in struct
-        wxString rot = wxString("0.0°, 0.0°, 0.0°"); // Placeholder until we extract from matrix
+        wxString rot = wxString("0.0Â°, 0.0Â°, 0.0Â°"); // Placeholder until we extract from matrix
 
         row.push_back(name);
         row.push_back(fixtureID);

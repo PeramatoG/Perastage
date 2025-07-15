@@ -6,6 +6,7 @@
 #include <random>
 #include <chrono>
 #include <fstream> // Required for std::ofstream
+#include <cstdlib>
 
 // TinyXML2
 #include <tinyxml2.h>
@@ -95,7 +96,6 @@ bool MvrImporter::ExtractMvrZip(const std::string& mvrPath, const std::string& d
     return true;
 }
 
-// Parses the GeneralSceneDescription.xml file and stores fixtures in the scene data structure
 bool MvrImporter::ParseSceneXml(const std::string& sceneXmlPath)
 {
     tinyxml2::XMLDocument doc;
@@ -129,7 +129,8 @@ bool MvrImporter::ParseSceneXml(const std::string& sceneXmlPath)
     tinyxml2::XMLElement* layersNode = sceneNode->FirstChildElement("Layers");
     if (!layersNode) return true;
 
-    for (tinyxml2::XMLElement* layer = layersNode->FirstChildElement("Layer"); layer; layer = layer->NextSiblingElement("Layer"))
+    for (tinyxml2::XMLElement* layer = layersNode->FirstChildElement("Layer");
+         layer; layer = layer->NextSiblingElement("Layer"))
     {
         const char* layerName = layer->Attribute("name");
         std::string layerStr = layerName ? layerName : "";
@@ -137,81 +138,88 @@ bool MvrImporter::ParseSceneXml(const std::string& sceneXmlPath)
         tinyxml2::XMLElement* childList = layer->FirstChildElement("ChildList");
         if (!childList) continue;
 
-        for (tinyxml2::XMLElement* child = childList->FirstChildElement("Child"); child; child = child->NextSiblingElement("Child"))
+        for (tinyxml2::XMLElement* fixtureNode = childList->FirstChildElement("Fixture");
+             fixtureNode; fixtureNode = fixtureNode->NextSiblingElement("Fixture"))
         {
-            const char* type = child->Attribute("type");
-            const char* uuid = child->Attribute("uuid");
-            if (!type || !uuid) continue;
+            const char* uuidAttr = fixtureNode->Attribute("uuid");
+            if (!uuidAttr) continue;
 
-            std::string typeStr = type;
-            std::string uuidStr = uuid;
+            Fixture fixture;
+            fixture.uuid = uuidAttr;
+            fixture.layer = layerStr;
 
-            if (typeStr == "Fixture")
-            {
-                Fixture fixture;
-                fixture.uuid = uuidStr;
-                fixture.layer = layerStr;
+            auto textOf = [](tinyxml2::XMLElement* parent, const char* name) -> std::string {
+                tinyxml2::XMLElement* n = parent->FirstChildElement(name);
+                return (n && n->GetText()) ? n->GetText() : std::string();
+            };
 
-                tinyxml2::XMLElement* fixtureNode = child->FirstChildElement("Fixture");
-                if (!fixtureNode) continue;
+            auto intOf = [](tinyxml2::XMLElement* parent, const char* name, int& out) {
+                tinyxml2::XMLElement* n = parent->FirstChildElement(name);
+                if (n && n->GetText()) out = std::atoi(n->GetText());
+            };
 
-                // Required attributes
-                const char* fixtureID = fixtureNode->Attribute("fixtureID");
-                if (fixtureID) fixture.fixtureId = std::atoi(fixtureID);
-
-                const char* name = fixtureNode->Attribute("name");
-                if (name) fixture.name = name;
-
-                const char* gdtfSpec = fixtureNode->Attribute("GDTFSpec");
-                if (gdtfSpec) fixture.gdtfSpec = gdtfSpec;
-
-                const char* gdtfMode = fixtureNode->Attribute("GDTFMode");
-                if (gdtfMode) fixture.gdtfMode = gdtfMode;
-
-                const char* focus = fixtureNode->Attribute("focus");
-                if (focus) fixture.focus = focus;
-
-                const char* function = fixtureNode->Attribute("function");
-                if (function) fixture.function = function;
-
-                // Optional attributes
-                fixtureNode->QueryIntAttribute("fixtureIdNumeric", &fixture.fixtureIdNumeric);
-                fixtureNode->QueryIntAttribute("unitNumber", &fixture.unitNumber);
-                fixtureNode->QueryIntAttribute("customId", &fixture.customId);
-                fixtureNode->QueryIntAttribute("customIdType", &fixture.customIdType);
-                fixtureNode->QueryBoolAttribute("dmxInvertPan", &fixture.dmxInvertPan);
-                fixtureNode->QueryBoolAttribute("dmxInvertTilt", &fixture.dmxInvertTilt);
-
-                // Position element
-                tinyxml2::XMLElement* position = fixtureNode->FirstChildElement("Position");
-                if (position && position->GetText())
-                    fixture.position = position->GetText();
-
-                // Addresses element
-                tinyxml2::XMLElement* addresses = fixtureNode->FirstChildElement("Addresses");
-                if (addresses) {
-                    tinyxml2::XMLElement* addr = addresses->FirstChildElement("Address");
-                    if (addr && addr->GetText())
-                        fixture.address = addr->GetText();
+            auto boolOf = [](tinyxml2::XMLElement* parent, const char* name, bool& out) {
+                tinyxml2::XMLElement* n = parent->FirstChildElement(name);
+                if (n && n->GetText()) {
+                    std::string v = n->GetText();
+                    out = (v == "true" || v == "1");
                 }
+            };
 
-                // Transform matrix element
-                tinyxml2::XMLElement* transform = fixtureNode->FirstChildElement("Transform");
-                if (transform) {
-                    const char* matrix = transform->Attribute("matrix");
-                    if (matrix)
-                        fixture.matrixRaw = matrix;
+            const char* nameAttr = fixtureNode->Attribute("name");
+            if (nameAttr) fixture.name = nameAttr;
+
+            intOf(fixtureNode, "FixtureID", fixture.fixtureId);
+            intOf(fixtureNode, "FixtureIDNumeric", fixture.fixtureIdNumeric);
+            intOf(fixtureNode, "UnitNumber", fixture.unitNumber);
+            intOf(fixtureNode, "CustomId", fixture.customId);
+            intOf(fixtureNode, "CustomIdType", fixture.customIdType);
+
+            fixture.gdtfSpec = textOf(fixtureNode, "GDTFSpec");
+            fixture.gdtfMode = textOf(fixtureNode, "GDTFMode");
+            fixture.focus = textOf(fixtureNode, "Focus");
+            fixture.function = textOf(fixtureNode, "Function");
+            fixture.position = textOf(fixtureNode, "Position");
+
+            boolOf(fixtureNode, "DMXInvertPan", fixture.dmxInvertPan);
+            boolOf(fixtureNode, "DMXInvertTilt", fixture.dmxInvertTilt);
+
+            if (tinyxml2::XMLElement* addresses = fixtureNode->FirstChildElement("Addresses")) {
+                tinyxml2::XMLElement* addr = addresses->FirstChildElement("Address");
+                if (addr) {
+                    const char* breakAttr = addr->Attribute("break");
+                    int breakNum = breakAttr ? std::atoi(breakAttr) : 0;
+                    const char* txt = addr->GetText();
+                    if (txt) {
+                        std::string t = txt;
+                        std::string normalized;
+                        if (t.find('.') == std::string::npos) {
+                            int value = std::atoi(t.c_str());
+                            int universe = breakNum + 1;
+                            if (value > 512) {
+                                universe += (value - 1) / 512;
+                                value = (value - 1) % 512 + 1;
+                            }
+                            normalized = std::to_string(universe) + "." + std::to_string(value);
+                        } else {
+                            normalized = t;
+                        }
+                        fixture.address = normalized;
+                    }
                 }
-
-                // Store fixture in scene using its UUID
-                scene.fixtures[fixture.uuid] = fixture;
             }
+
+            if (tinyxml2::XMLElement* matrix = fixtureNode->FirstChildElement("Matrix")) {
+                if (matrix->GetText())
+                    fixture.matrixRaw = matrix->GetText();
+            }
+
+            scene.fixtures[fixture.uuid] = fixture;
         }
     }
 
     return true;
 }
-
 
 
 
