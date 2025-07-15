@@ -1,6 +1,7 @@
 #include "mvrimporter.h"
 #include "configmanager.h"
 #include "matrixutils.h"
+#include "sceneobject.h"
 
 #include <filesystem>
 #include <iostream>
@@ -275,6 +276,39 @@ bool MvrImporter::ParseSceneXml(const std::string& sceneXmlPath)
             scene.trusses[truss.uuid] = truss;
         };
 
+    std::function<void(tinyxml2::XMLElement*, const std::string&)> parseSceneObj =
+        [&](tinyxml2::XMLElement* node, const std::string& layerName) {
+            const char* uuidAttr = node->Attribute("uuid");
+            if (!uuidAttr) return;
+
+            SceneObject obj;
+            obj.uuid = uuidAttr;
+            obj.layer = layerName;
+            if (const char* nameAttr = node->Attribute("name")) obj.name = nameAttr;
+
+            if (tinyxml2::XMLElement* geos = node->FirstChildElement("Geometries")) {
+                if (tinyxml2::XMLElement* g3d = geos->FirstChildElement("Geometry3D")) {
+                    const char* file = g3d->Attribute("fileName");
+                    if (file) obj.modelFile = file;
+                } else if (tinyxml2::XMLElement* sym = geos->FirstChildElement("Symbol")) {
+                    const char* symdef = sym->Attribute("symdef");
+                    if (symdef) {
+                        auto it = scene.symdefFiles.find(symdef);
+                        if (it != scene.symdefFiles.end()) obj.modelFile = it->second;
+                    }
+                }
+            }
+
+            if (tinyxml2::XMLElement* matrix = node->FirstChildElement("Matrix")) {
+                if (const char* txt = matrix->GetText()) {
+                    std::string raw = txt;
+                    MatrixUtils::ParseMatrix(raw, obj.transform);
+                }
+            }
+
+            scene.sceneObjects[obj.uuid] = obj;
+        };
+
     parseChildList = [&](tinyxml2::XMLElement* cl, const std::string& layerName) {
         for (tinyxml2::XMLElement* child = cl->FirstChildElement(); child; child = child->NextSiblingElement()) {
             const char* name = child->Name();
@@ -284,6 +318,8 @@ bool MvrImporter::ParseSceneXml(const std::string& sceneXmlPath)
                 parseFixture(child, layerName);
             } else if (nodeName == "Truss") {
                 parseTruss(child, layerName);
+            } else if (nodeName == "SceneObject") {
+                parseSceneObj(child, layerName);
             } else {
                 if (tinyxml2::XMLElement* inner = child->FirstChildElement("ChildList"))
                     parseChildList(inner, layerName);

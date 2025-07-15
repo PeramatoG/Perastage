@@ -3,6 +3,7 @@
 void MvrScene::Clear() {
     fixtures.clear();
     trusses.clear();
+    sceneObjects.clear();
     layers.clear();
     positions.clear();
     symdefFiles.clear();
