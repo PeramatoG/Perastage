@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include "types.h"
 
 // Represents a lighting fixture object parsed from MVR
 struct Fixture {
@@ -15,6 +16,7 @@ struct Fixture {
     std::string position;         // Position reference UUID or raw vector (if applicable)
     std::string address;          // DMX address in string format (e.g., "1.1")
     std::string matrixRaw;        // Raw matrix string from XML (to be parsed later)
+    Matrix transform;             // Parsed transformation matrix
 
     int fixtureId = 0;            // FixtureID (numeric ID from XML)
     int fixtureIdNumeric = 0;     // Optional numeric ID field (if distinct)
@@ -24,4 +26,7 @@ struct Fixture {
 
     bool dmxInvertPan = false;    // Pan inversion flag
     bool dmxInvertTilt = false;   // Tilt inversion flag
+
+    // Convenience method to access translation as array
+    std::array<float,3> GetPosition() const { return transform.o; }
 };

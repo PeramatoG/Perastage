@@ -1,5 +1,6 @@
 #include "fixturetablepanel.h"
 #include "configmanager.h"
+#include "matrixutils.h"
 
 FixtureTablePanel::FixtureTablePanel(wxWindow* parent)
     : wxPanel(parent, wxID_ANY)
@@ -44,8 +45,11 @@ void FixtureTablePanel::ReloadData()
             address = wxString::FromUTF8(fixture.address);
         wxString gdtf = wxString::FromUTF8(fixture.gdtfSpec);
 
-        wxString pos = wxString::FromUTF8(fixture.position); // Currently a string in struct
-        wxString rot = wxString("0.0°, 0.0°, 0.0°"); // Placeholder until we extract from matrix
+        auto posArr = fixture.GetPosition();
+        wxString pos = wxString::Format("%.1f, %.1f, %.1f", posArr[0], posArr[1], posArr[2]);
+
+        auto euler = MatrixUtils::MatrixToEuler(fixture.transform);
+        wxString rot = wxString::Format("%.1f°, %.1f°, %.1f°", euler[0], euler[1], euler[2]);
 
         row.push_back(name);
         row.push_back(fixtureID);
