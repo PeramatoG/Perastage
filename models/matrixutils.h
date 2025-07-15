@@ -4,7 +4,13 @@
 #include <array>
 #include <sstream>
 #include <cmath>
-#include "models/types.h"
+#include "types.h"
+
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+
+
 
 // Utility functions for handling 4x3 transformation matrices
 namespace MatrixUtils {
