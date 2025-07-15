@@ -23,6 +23,7 @@ void FixtureTablePanel::InitializeTable()
     table->AppendTextColumn("Address (Univ.Ch)", wxDATAVIEW_CELL_INERT, 120);
     table->AppendTextColumn("GDTF", wxDATAVIEW_CELL_INERT, 180);
     table->AppendTextColumn("Position", wxDATAVIEW_CELL_INERT, 150);
+    table->AppendTextColumn("Hang Pos", wxDATAVIEW_CELL_INERT, 120);
     table->AppendTextColumn("Rotation", wxDATAVIEW_CELL_INERT, 150);
 }
 
@@ -47,6 +48,7 @@ void FixtureTablePanel::ReloadData()
 
         auto posArr = fixture.GetPosition();
         wxString pos = wxString::Format("%.1f, %.1f, %.1f", posArr[0], posArr[1], posArr[2]);
+        wxString posName = wxString::FromUTF8(fixture.positionName);
 
         auto euler = MatrixUtils::MatrixToEuler(fixture.transform);
         wxString rot = wxString::Format("%.1f\u00B0, %.1f\u00B0, %.1f\u00B0", euler[0], euler[1], euler[2]);
@@ -57,6 +59,7 @@ void FixtureTablePanel::ReloadData()
         row.push_back(address);
         row.push_back(gdtf);
         row.push_back(pos);
+        row.push_back(posName);
         row.push_back(rot);
 
         table->AppendItem(row);

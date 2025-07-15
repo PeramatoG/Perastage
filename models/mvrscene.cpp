@@ -4,6 +4,8 @@ void MvrScene::Clear() {
     fixtures.clear();
     trusses.clear();
     layers.clear();
+    positions.clear();
+    symdefFiles.clear();
     provider.clear();
     providerVersion.clear();
     versionMajor = 1;

@@ -8,6 +8,7 @@
 #include <chrono>
 #include <fstream> // Required for std::ofstream
 #include <cstdlib>
+#include <functional>
 
 // TinyXML2
 #include <tinyxml2.h>
@@ -128,65 +129,80 @@ bool MvrImporter::ParseSceneXml(const std::string& sceneXmlPath)
     tinyxml2::XMLElement* sceneNode = root->FirstChildElement("Scene");
     if (!sceneNode) return true;
 
-    tinyxml2::XMLElement* layersNode = sceneNode->FirstChildElement("Layers");
-    if (!layersNode) return true;
+    auto textOf = [](tinyxml2::XMLElement* parent, const char* name) -> std::string {
+        tinyxml2::XMLElement* n = parent->FirstChildElement(name);
+        return (n && n->GetText()) ? n->GetText() : std::string();
+    };
 
-    for (tinyxml2::XMLElement* layer = layersNode->FirstChildElement("Layer");
-        layer; layer = layer->NextSiblingElement("Layer"))
-    {
-        const char* layerName = layer->Attribute("name");
-        std::string layerStr = layerName ? layerName : "";
+    auto intOf = [](tinyxml2::XMLElement* parent, const char* name, int& out) {
+        tinyxml2::XMLElement* n = parent->FirstChildElement(name);
+        if (n && n->GetText()) out = std::atoi(n->GetText());
+    };
 
-        tinyxml2::XMLElement* childList = layer->FirstChildElement("ChildList");
-        if (!childList) continue;
+    // ---- Parse AUXData for Symdefs and Positions ----
+    if (tinyxml2::XMLElement* auxNode = sceneNode->FirstChildElement("AUXData")) {
+        for (tinyxml2::XMLElement* pos = auxNode->FirstChildElement("Position");
+             pos; pos = pos->NextSiblingElement("Position")) {
+            const char* uid = pos->Attribute("uuid");
+            const char* name = pos->Attribute("name");
+            if (uid) scene.positions[uid] = name ? name : "";
+        }
 
-        auto textOf = [](tinyxml2::XMLElement* parent, const char* name) -> std::string {
-            tinyxml2::XMLElement* n = parent->FirstChildElement(name);
-            return (n && n->GetText()) ? n->GetText() : std::string();
-            };
+        for (tinyxml2::XMLElement* sym = auxNode->FirstChildElement("Symdef");
+             sym; sym = sym->NextSiblingElement("Symdef")) {
+            const char* uid = sym->Attribute("uuid");
+            if (!uid) continue;
+            std::string file;
+            if (tinyxml2::XMLElement* childList = sym->FirstChildElement("ChildList")) {
+                if (tinyxml2::XMLElement* geo = childList->FirstChildElement("Geometry3D")) {
+                    const char* fname = geo->Attribute("fileName");
+                    if (fname) file = fname;
+                }
+            }
+            if (!file.empty()) scene.symdefFiles[uid] = file;
+        }
+    }
 
-        auto intOf = [](tinyxml2::XMLElement* parent, const char* name, int& out) {
-            tinyxml2::XMLElement* n = parent->FirstChildElement(name);
-            if (n && n->GetText()) out = std::atoi(n->GetText());
-            };
+    // ---- Helper lambdas for object parsing ----
+    std::function<void(tinyxml2::XMLElement*, const std::string&)> parseChildList;
 
-        for (tinyxml2::XMLElement* fixtureNode = childList->FirstChildElement("Fixture");
-            fixtureNode; fixtureNode = fixtureNode->NextSiblingElement("Fixture"))
-        {
-            const char* uuidAttr = fixtureNode->Attribute("uuid");
-            if (!uuidAttr) continue;
+    std::function<void(tinyxml2::XMLElement*, const std::string&)> parseFixture =
+        [&](tinyxml2::XMLElement* node, const std::string& layerName) {
+            const char* uuidAttr = node->Attribute("uuid");
+            if (!uuidAttr) return;
 
             Fixture fixture;
             fixture.uuid = uuidAttr;
-            fixture.layer = layerStr;
+            fixture.layer = layerName;
 
-            const char* nameAttr = fixtureNode->Attribute("name");
-            if (nameAttr) fixture.name = nameAttr;
+            if (const char* nameAttr = node->Attribute("name")) fixture.name = nameAttr;
 
-            intOf(fixtureNode, "FixtureID", fixture.fixtureId);
-            intOf(fixtureNode, "FixtureIDNumeric", fixture.fixtureIdNumeric);
-            intOf(fixtureNode, "UnitNumber", fixture.unitNumber);
-            intOf(fixtureNode, "CustomId", fixture.customId);
-            intOf(fixtureNode, "CustomIdType", fixture.customIdType);
+            intOf(node, "FixtureID", fixture.fixtureId);
+            intOf(node, "FixtureIDNumeric", fixture.fixtureIdNumeric);
+            intOf(node, "UnitNumber", fixture.unitNumber);
+            intOf(node, "CustomId", fixture.customId);
+            intOf(node, "CustomIdType", fixture.customIdType);
 
-            fixture.gdtfSpec = textOf(fixtureNode, "GDTFSpec");
-            fixture.gdtfMode = textOf(fixtureNode, "GDTFMode");
-            fixture.focus = textOf(fixtureNode, "Focus");
-            fixture.function = textOf(fixtureNode, "Function");
-            fixture.position = textOf(fixtureNode, "Position");
+            fixture.gdtfSpec = textOf(node, "GDTFSpec");
+            fixture.gdtfMode = textOf(node, "GDTFMode");
+            fixture.focus = textOf(node, "Focus");
+            fixture.function = textOf(node, "Function");
+            fixture.position = textOf(node, "Position");
+            auto posIt = scene.positions.find(fixture.position);
+            if (posIt != scene.positions.end()) fixture.positionName = posIt->second;
 
-            auto boolOf = [](tinyxml2::XMLElement* parent, const char* name, bool& out) {
-                tinyxml2::XMLElement* n = parent->FirstChildElement(name);
+            auto boolOf = [&](const char* name, bool& out) {
+                tinyxml2::XMLElement* n = node->FirstChildElement(name);
                 if (n && n->GetText()) {
                     std::string v = n->GetText();
                     out = (v == "true" || v == "1");
                 }
-                };
+            };
 
-            boolOf(fixtureNode, "DMXInvertPan", fixture.dmxInvertPan);
-            boolOf(fixtureNode, "DMXInvertTilt", fixture.dmxInvertTilt);
+            boolOf("DMXInvertPan", fixture.dmxInvertPan);
+            boolOf("DMXInvertTilt", fixture.dmxInvertTilt);
 
-            if (tinyxml2::XMLElement* addresses = fixtureNode->FirstChildElement("Addresses")) {
+            if (tinyxml2::XMLElement* addresses = node->FirstChildElement("Addresses")) {
                 tinyxml2::XMLElement* addr = addresses->FirstChildElement("Address");
                 if (addr) {
                     const char* breakAttr = addr->Attribute("break");
@@ -203,8 +219,7 @@ bool MvrImporter::ParseSceneXml(const std::string& sceneXmlPath)
                                 value = (value - 1) % 512 + 1;
                             }
                             normalized = std::to_string(universe) + "." + std::to_string(value);
-                        }
-                        else {
+                        } else {
                             normalized = t;
                         }
                         fixture.address = normalized;
@@ -212,7 +227,7 @@ bool MvrImporter::ParseSceneXml(const std::string& sceneXmlPath)
                 }
             }
 
-            if (tinyxml2::XMLElement* matrix = fixtureNode->FirstChildElement("Matrix")) {
+            if (tinyxml2::XMLElement* matrix = node->FirstChildElement("Matrix")) {
                 if (const char* txt = matrix->GetText()) {
                     fixture.matrixRaw = txt;
                     MatrixUtils::ParseMatrix(fixture.matrixRaw, fixture.transform);
@@ -220,34 +235,42 @@ bool MvrImporter::ParseSceneXml(const std::string& sceneXmlPath)
             }
 
             scene.fixtures[fixture.uuid] = fixture;
-        }
+        };
 
-        // --- Parse Truss objects ---
-        for (tinyxml2::XMLElement* trussNode = childList->FirstChildElement("Truss");
-            trussNode; trussNode = trussNode->NextSiblingElement("Truss"))
-        {
-            const char* uuidAttr = trussNode->Attribute("uuid");
-            if (!uuidAttr) continue;
+    std::function<void(tinyxml2::XMLElement*, const std::string&)> parseTruss =
+        [&](tinyxml2::XMLElement* node, const std::string& layerName) {
+            const char* uuidAttr = node->Attribute("uuid");
+            if (!uuidAttr) return;
 
             Truss truss;
             truss.uuid = uuidAttr;
-            truss.layer = layerStr;
+            truss.layer = layerName;
+            if (const char* nameAttr = node->Attribute("name")) truss.name = nameAttr;
 
-            const char* nameAttr = trussNode->Attribute("name");
-            if (nameAttr) truss.name = nameAttr;
+            intOf(node, "FixtureID", truss.fixtureId);
+            intOf(node, "FixtureIDNumeric", truss.fixtureIdNumeric);
+            intOf(node, "UnitNumber", truss.unitNumber);
+            intOf(node, "CustomId", truss.customId);
+            intOf(node, "CustomIdType", truss.customIdType);
 
-            intOf(trussNode, "FixtureID", truss.fixtureId);
-            intOf(trussNode, "FixtureIDNumeric", truss.fixtureIdNumeric);
-            intOf(trussNode, "UnitNumber", truss.unitNumber);
-            intOf(trussNode, "CustomId", truss.customId);
-            intOf(trussNode, "CustomIdType", truss.customIdType);
+            truss.gdtfSpec = textOf(node, "GDTFSpec");
+            truss.gdtfMode = textOf(node, "GDTFMode");
+            truss.function = textOf(node, "Function");
+            truss.position = textOf(node, "Position");
+            auto posIt = scene.positions.find(truss.position);
+            if (posIt != scene.positions.end()) truss.positionName = posIt->second;
 
-            truss.gdtfSpec = textOf(trussNode, "GDTFSpec");
-            truss.gdtfMode = textOf(trussNode, "GDTFMode");
-            truss.function = textOf(trussNode, "Function");
-            truss.position = textOf(trussNode, "Position");
+            if (tinyxml2::XMLElement* geos = node->FirstChildElement("Geometries")) {
+                if (tinyxml2::XMLElement* sym = geos->FirstChildElement("Symbol")) {
+                    const char* symdef = sym->Attribute("symdef");
+                    if (symdef) {
+                        auto it = scene.symdefFiles.find(symdef);
+                        if (it != scene.symdefFiles.end()) truss.symbolFile = it->second;
+                    }
+                }
+            }
 
-            if (tinyxml2::XMLElement* matrix = trussNode->FirstChildElement("Matrix")) {
+            if (tinyxml2::XMLElement* matrix = node->FirstChildElement("Matrix")) {
                 if (const char* txt = matrix->GetText()) {
                     std::string raw = txt;
                     MatrixUtils::ParseMatrix(raw, truss.transform);
@@ -255,7 +278,40 @@ bool MvrImporter::ParseSceneXml(const std::string& sceneXmlPath)
             }
 
             scene.trusses[truss.uuid] = truss;
+        };
+
+    parseChildList = [&](tinyxml2::XMLElement* cl, const std::string& layerName) {
+        for (tinyxml2::XMLElement* child = cl->FirstChildElement(); child; child = child->NextSiblingElement()) {
+            const char* name = child->Name();
+            if (!name) continue;
+            std::string nodeName = name;
+            if (nodeName == "Fixture") {
+                parseFixture(child, layerName);
+            } else if (nodeName == "Truss") {
+                parseTruss(child, layerName);
+            } else {
+                if (tinyxml2::XMLElement* inner = child->FirstChildElement("ChildList"))
+                    parseChildList(inner, layerName);
+            }
         }
+    };
+
+    tinyxml2::XMLElement* layersNode = sceneNode->FirstChildElement("Layers");
+    if (!layersNode) return true;
+
+    for (tinyxml2::XMLElement* layer = layersNode->FirstChildElement("Layer");
+         layer; layer = layer->NextSiblingElement("Layer")) {
+        const char* layerName = layer->Attribute("name");
+        std::string layerStr = layerName ? layerName : "";
+
+        tinyxml2::XMLElement* childList = layer->FirstChildElement("ChildList");
+        if (childList) parseChildList(childList, layerStr);
+
+        Layer l;
+        const char* uuidAttr = layer->Attribute("uuid");
+        if (uuidAttr) l.uuid = uuidAttr;
+        l.name = layerStr;
+        scene.layers[l.uuid] = l;
     }
 
     return true;
