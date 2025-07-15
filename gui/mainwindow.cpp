@@ -2,6 +2,7 @@
 #include "mvrimporter.h"
 #include "fixturetablepanel.h"
 #include "trusstablepanel.h"
+#include "sceneobjecttablepanel.h"
 #include <wx/notebook.h>
 
 
@@ -30,6 +31,9 @@ void MainWindow::SetupLayout()
 
     trussPanel = new TrussTablePanel(notebook);
     notebook->AddPage(trussPanel, "Trusses");
+
+    sceneObjPanel = new SceneObjectTablePanel(notebook);
+    notebook->AddPage(sceneObjPanel, "Objects");
 
     mainSizer->Add(notebook, 1, wxEXPAND | wxALL, 5);
     SetSizer(mainSizer);
@@ -81,6 +85,8 @@ void MainWindow::OnImportMVR(wxCommandEvent& event)
             fixturePanel->ReloadData();
         if (trussPanel)
             trussPanel->ReloadData();
+        if (sceneObjPanel)
+            sceneObjPanel->ReloadData();
     }
 }
 

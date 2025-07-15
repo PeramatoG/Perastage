@@ -6,6 +6,7 @@
 class wxNotebook;
 class FixtureTablePanel;
 class TrussTablePanel;
+class SceneObjectTablePanel;
 
 // Main application window for GUI components
 class MainWindow : public wxFrame
@@ -20,6 +21,7 @@ private:
     wxNotebook* notebook = nullptr;
     FixtureTablePanel* fixturePanel = nullptr;
     TrussTablePanel* trussPanel = nullptr;
+    SceneObjectTablePanel* sceneObjPanel = nullptr;
 
     void OnImportMVR(wxCommandEvent& event); // Handle the Import MVR action
     void OnClose(wxCommandEvent& event);     // Handle the Close action
