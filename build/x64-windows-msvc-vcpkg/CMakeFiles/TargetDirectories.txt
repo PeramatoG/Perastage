@@ -1,3 +1,0 @@
-C:/codigoscpp/Perastage/build/x64-windows-msvc-vcpkg/CMakeFiles/Perastage.dir
-C:/codigoscpp/Perastage/build/x64-windows-msvc-vcpkg/CMakeFiles/ALL_BUILD.dir
-C:/codigoscpp/Perastage/build/x64-windows-msvc-vcpkg/CMakeFiles/ZERO_CHECK.dir

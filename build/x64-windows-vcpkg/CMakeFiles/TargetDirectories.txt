@@ -1,3 +1,0 @@
-C:/codigoscpp/Perastage/build/x64-windows-vcpkg/CMakeFiles/Perastage.dir
-C:/codigoscpp/Perastage/build/x64-windows-vcpkg/CMakeFiles/edit_cache.dir
-C:/codigoscpp/Perastage/build/x64-windows-vcpkg/CMakeFiles/rebuild_cache.dir
