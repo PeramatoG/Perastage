@@ -14,6 +14,7 @@ struct Fixture {
     std::string layer;            // Layer to which the fixture belongs
 
     std::string position;         // Position reference UUID or raw vector (if applicable)
+    std::string positionName;     // Resolved position name if available
     std::string address;          // DMX address in string format (e.g., "1.1")
     std::string matrixRaw;        // Raw matrix string from XML (to be parsed later)
     Matrix transform;             // Parsed transformation matrix

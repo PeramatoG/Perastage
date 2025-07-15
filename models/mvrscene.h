@@ -14,6 +14,9 @@ public:
     std::unordered_map<std::string, Fixture> fixtures;
     std::unordered_map<std::string, Truss> trusses;
     std::unordered_map<std::string, Layer> layers;
+    // Lookup tables for additional references
+    std::unordered_map<std::string, std::string> positions;   // uuid -> name
+    std::unordered_map<std::string, std::string> symdefFiles; // uuid -> geometry file
 
     std::string provider;
     std::string providerVersion;

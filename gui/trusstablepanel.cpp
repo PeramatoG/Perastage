@@ -20,8 +20,9 @@ void TrussTablePanel::InitializeTable()
     table->AppendTextColumn("Name", wxDATAVIEW_CELL_INERT, 150);
     table->AppendTextColumn("Fixture ID", wxDATAVIEW_CELL_INERT, 90);
     table->AppendTextColumn("Layer", wxDATAVIEW_CELL_INERT, 100);
-    table->AppendTextColumn("GDTF", wxDATAVIEW_CELL_INERT, 180);
+    table->AppendTextColumn("Model File", wxDATAVIEW_CELL_INERT, 180);
     table->AppendTextColumn("Position", wxDATAVIEW_CELL_INERT, 150);
+    table->AppendTextColumn("Hang Pos", wxDATAVIEW_CELL_INERT, 120);
     table->AppendTextColumn("Rotation", wxDATAVIEW_CELL_INERT, 150);
 }
 
@@ -37,7 +38,7 @@ void TrussTablePanel::ReloadData()
         wxString name = wxString::FromUTF8(truss.name);
         wxString fixtureID = wxString::Format("%d", truss.fixtureId);
         wxString layer = wxString::FromUTF8(truss.layer);
-        wxString gdtf = wxString::FromUTF8(truss.gdtfSpec);
+        wxString model = wxString::FromUTF8(truss.symbolFile);
 
         auto posArr = truss.transform.o;
         wxString pos = wxString::Format("%.1f, %.1f, %.1f", posArr[0], posArr[1], posArr[2]);
@@ -48,8 +49,10 @@ void TrussTablePanel::ReloadData()
         row.push_back(name);
         row.push_back(fixtureID);
         row.push_back(layer);
-        row.push_back(gdtf);
+        row.push_back(model);
         row.push_back(pos);
+        wxString posName = wxString::FromUTF8(truss.positionName);
+        row.push_back(posName);
         row.push_back(rot);
 
         table->AppendItem(row);

@@ -10,6 +10,8 @@ struct Truss {
     std::string gdtfSpec;
     std::string gdtfMode;
     std::string position;
+    std::string positionName;
+    std::string symbolFile; // 3D geometry file referenced by the Symbol
     std::string function;
     std::string layer;
 
