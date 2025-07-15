@@ -6,6 +6,7 @@
 #include <random>
 #include <chrono>
 #include <fstream> // Required for std::ofstream
+#include <cstdlib>
 
 // TinyXML2
 #include <tinyxml2.h>
@@ -128,7 +129,8 @@ bool MvrImporter::ParseSceneXml(const std::string& sceneXmlPath)
     tinyxml2::XMLElement* layersNode = sceneNode->FirstChildElement("Layers");
     if (!layersNode) return true;
 
-    for (tinyxml2::XMLElement* layer = layersNode->FirstChildElement("Layer"); layer; layer = layer->NextSiblingElement("Layer"))
+    for (tinyxml2::XMLElement* layer = layersNode->FirstChildElement("Layer");
+         layer; layer = layer->NextSiblingElement("Layer"))
     {
         const char* layerName = layer->Attribute("name");
         std::string layerStr = layerName ? layerName : "";
@@ -136,70 +138,63 @@ bool MvrImporter::ParseSceneXml(const std::string& sceneXmlPath)
         tinyxml2::XMLElement* childList = layer->FirstChildElement("ChildList");
         if (!childList) continue;
 
-        for (tinyxml2::XMLElement* child = childList->FirstChildElement("Child"); child; child = child->NextSiblingElement("Child"))
+        for (tinyxml2::XMLElement* fixtureNode = childList->FirstChildElement("Fixture");
+             fixtureNode; fixtureNode = fixtureNode->NextSiblingElement("Fixture"))
         {
-            const char* type = child->Attribute("type");
-            if (!type || std::string(type) != "Fixture") continue;
-
-            const char* uuid = child->Attribute("uuid");
-            if (!uuid) continue;
+            const char* uuidAttr = fixtureNode->Attribute("uuid");
+            if (!uuidAttr) continue;
 
             Fixture fixture;
-            fixture.uuid = uuid;
+            fixture.uuid = uuidAttr;
             fixture.layer = layerStr;
 
-            tinyxml2::XMLElement* fixtureNode = child->FirstChildElement("Fixture");
-            if (!fixtureNode) continue;
+            auto textOf = [](tinyxml2::XMLElement* parent, const char* name) -> std::string {
+                tinyxml2::XMLElement* n = parent->FirstChildElement(name);
+                return (n && n->GetText()) ? n->GetText() : std::string();
+            };
 
-            // Fixture attributes
-            const char* fixtureID = fixtureNode->Attribute("fixtureID");
-            if (fixtureID) fixture.fixtureId = std::atoi(fixtureID);
+            auto intOf = [](tinyxml2::XMLElement* parent, const char* name, int& out) {
+                tinyxml2::XMLElement* n = parent->FirstChildElement(name);
+                if (n && n->GetText()) out = std::atoi(n->GetText());
+            };
 
-            const char* name = fixtureNode->Attribute("name");
-            if (name) fixture.name = name;
+            auto boolOf = [](tinyxml2::XMLElement* parent, const char* name, bool& out) {
+                tinyxml2::XMLElement* n = parent->FirstChildElement(name);
+                if (n && n->GetText()) {
+                    std::string v = n->GetText();
+                    out = (v == "true" || v == "1");
+                }
+            };
 
-            const char* gdtfSpec = fixtureNode->Attribute("GDTFSpec");
-            if (gdtfSpec) fixture.gdtfSpec = gdtfSpec;
+            const char* nameAttr = fixtureNode->Attribute("name");
+            if (nameAttr) fixture.name = nameAttr;
 
-            const char* gdtfMode = fixtureNode->Attribute("GDTFMode");
-            if (gdtfMode) fixture.gdtfMode = gdtfMode;
+            intOf(fixtureNode, "FixtureID", fixture.fixtureId);
+            intOf(fixtureNode, "FixtureIDNumeric", fixture.fixtureIdNumeric);
+            intOf(fixtureNode, "UnitNumber", fixture.unitNumber);
+            intOf(fixtureNode, "CustomId", fixture.customId);
+            intOf(fixtureNode, "CustomIdType", fixture.customIdType);
 
-            const char* focus = fixtureNode->Attribute("focus");
-            if (focus) fixture.focus = focus;
+            fixture.gdtfSpec = textOf(fixtureNode, "GDTFSpec");
+            fixture.gdtfMode = textOf(fixtureNode, "GDTFMode");
+            fixture.focus = textOf(fixtureNode, "Focus");
+            fixture.function = textOf(fixtureNode, "Function");
+            fixture.position = textOf(fixtureNode, "Position");
 
-            const char* function = fixtureNode->Attribute("function");
-            if (function) fixture.function = function;
+            boolOf(fixtureNode, "DMXInvertPan", fixture.dmxInvertPan);
+            boolOf(fixtureNode, "DMXInvertTilt", fixture.dmxInvertTilt);
 
-            // Optional values
-            fixtureNode->QueryIntAttribute("fixtureIdNumeric", &fixture.fixtureIdNumeric);
-            fixtureNode->QueryIntAttribute("unitNumber", &fixture.unitNumber);
-            fixtureNode->QueryIntAttribute("customId", &fixture.customId);
-            fixtureNode->QueryIntAttribute("customIdType", &fixture.customIdType);
-            fixtureNode->QueryBoolAttribute("dmxInvertPan", &fixture.dmxInvertPan);
-            fixtureNode->QueryBoolAttribute("dmxInvertTilt", &fixture.dmxInvertTilt);
-
-            // Position (reference or raw vector)
-            tinyxml2::XMLElement* position = fixtureNode->FirstChildElement("Position");
-            if (position && position->GetText())
-                fixture.position = position->GetText();
-
-            // DMX address
-            tinyxml2::XMLElement* addresses = fixtureNode->FirstChildElement("Addresses");
-            if (addresses) {
+            if (tinyxml2::XMLElement* addresses = fixtureNode->FirstChildElement("Addresses")) {
                 tinyxml2::XMLElement* addr = addresses->FirstChildElement("Address");
                 if (addr && addr->GetText())
                     fixture.address = addr->GetText();
             }
 
-            // Matrix
-            tinyxml2::XMLElement* transform = fixtureNode->FirstChildElement("Transform");
-            if (transform) {
-                const char* matrix = transform->Attribute("matrix");
-                if (matrix)
-                    fixture.matrixRaw = matrix;
+            if (tinyxml2::XMLElement* matrix = fixtureNode->FirstChildElement("Matrix")) {
+                if (matrix->GetText())
+                    fixture.matrixRaw = matrix->GetText();
             }
 
-            // Save fixture to scene
             scene.fixtures[fixture.uuid] = fixture;
         }
     }
