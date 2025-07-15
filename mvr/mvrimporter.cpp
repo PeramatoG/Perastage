@@ -1,5 +1,6 @@
 #include "mvrimporter.h"
 #include "configmanager.h"
+#include "matrixutils.h"
 
 #include <filesystem>
 #include <iostream>
@@ -210,8 +211,10 @@ bool MvrImporter::ParseSceneXml(const std::string& sceneXmlPath)
             }
 
             if (tinyxml2::XMLElement* matrix = fixtureNode->FirstChildElement("Matrix")) {
-                if (matrix->GetText())
-                    fixture.matrixRaw = matrix->GetText();
+                if (const char* txt = matrix->GetText()) {
+                    fixture.matrixRaw = txt;
+                    MatrixUtils::ParseMatrix(fixture.matrixRaw, fixture.transform);
+                }
             }
 
             scene.fixtures[fixture.uuid] = fixture;
