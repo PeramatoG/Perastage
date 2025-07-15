@@ -186,8 +186,27 @@ bool MvrImporter::ParseSceneXml(const std::string& sceneXmlPath)
 
             if (tinyxml2::XMLElement* addresses = fixtureNode->FirstChildElement("Addresses")) {
                 tinyxml2::XMLElement* addr = addresses->FirstChildElement("Address");
-                if (addr && addr->GetText())
-                    fixture.address = addr->GetText();
+                if (addr) {
+                    const char* breakAttr = addr->Attribute("break");
+                    int breakNum = breakAttr ? std::atoi(breakAttr) : 0;
+                    const char* txt = addr->GetText();
+                    if (txt) {
+                        std::string t = txt;
+                        std::string normalized;
+                        if (t.find('.') == std::string::npos) {
+                            int value = std::atoi(t.c_str());
+                            int universe = breakNum + 1;
+                            if (value > 512) {
+                                universe += (value - 1) / 512;
+                                value = (value - 1) % 512 + 1;
+                            }
+                            normalized = std::to_string(universe) + "." + std::to_string(value);
+                        } else {
+                            normalized = t;
+                        }
+                        fixture.address = normalized;
+                    }
+                }
             }
 
             if (tinyxml2::XMLElement* matrix = fixtureNode->FirstChildElement("Matrix")) {
