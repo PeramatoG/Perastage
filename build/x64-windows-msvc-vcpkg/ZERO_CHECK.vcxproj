@@ -69,7 +69,7 @@
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <Midl>
-      <AdditionalIncludeDirectories>C:\codigoscpp\Perastage\gui;C:\codigoscpp\Perastage\models;C:\codigoscpp\Perastage\core;C:\codigoscpp\Perastage\mvr;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
       <HeaderFileName>%(Filename).h</HeaderFileName>
       <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
@@ -79,7 +79,7 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <Midl>
-      <AdditionalIncludeDirectories>C:\codigoscpp\Perastage\gui;C:\codigoscpp\Perastage\models;C:\codigoscpp\Perastage\core;C:\codigoscpp\Perastage\mvr;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
       <HeaderFileName>%(Filename).h</HeaderFileName>
       <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
@@ -89,7 +89,7 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">
     <Midl>
-      <AdditionalIncludeDirectories>C:\codigoscpp\Perastage\gui;C:\codigoscpp\Perastage\models;C:\codigoscpp\Perastage\core;C:\codigoscpp\Perastage\mvr;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
       <HeaderFileName>%(Filename).h</HeaderFileName>
       <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
@@ -99,7 +99,7 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">
     <Midl>
-      <AdditionalIncludeDirectories>C:\codigoscpp\Perastage\gui;C:\codigoscpp\Perastage\models;C:\codigoscpp\Perastage\core;C:\codigoscpp\Perastage\mvr;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
       <HeaderFileName>%(Filename).h</HeaderFileName>
       <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
@@ -113,7 +113,7 @@
       <BuildInParallel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</BuildInParallel>
       <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Checking Build System</Message>
       <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">setlocal
-"C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -SC:/codigoscpp/Perastage -BC:/codigoscpp/Perastage/build/x64-windows-msvc-vcpkg --check-stamp-list CMakeFiles/generate.stamp.list --vs-solution-file C:/codigoscpp/Perastage/build/x64-windows-msvc-vcpkg/Peraspot.sln
+"C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -SC:/codigoscpp/Perastage -BC:/codigoscpp/Perastage/build/x64-windows-msvc-vcpkg --check-stamp-list CMakeFiles/generate.stamp.list --vs-solution-file C:/codigoscpp/Perastage/build/x64-windows-msvc-vcpkg/Perastage.sln
 if %errorlevel% neq 0 goto :cmEnd
 :cmEnd
 endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
@@ -127,7 +127,7 @@ if %errorlevel% neq 0 goto :VCEnd</Command>
       <BuildInParallel Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</BuildInParallel>
       <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Checking Build System</Message>
       <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">setlocal
-"C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -SC:/codigoscpp/Perastage -BC:/codigoscpp/Perastage/build/x64-windows-msvc-vcpkg --check-stamp-list CMakeFiles/generate.stamp.list --vs-solution-file C:/codigoscpp/Perastage/build/x64-windows-msvc-vcpkg/Peraspot.sln
+"C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -SC:/codigoscpp/Perastage -BC:/codigoscpp/Perastage/build/x64-windows-msvc-vcpkg --check-stamp-list CMakeFiles/generate.stamp.list --vs-solution-file C:/codigoscpp/Perastage/build/x64-windows-msvc-vcpkg/Perastage.sln
 if %errorlevel% neq 0 goto :cmEnd
 :cmEnd
 endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
@@ -141,7 +141,7 @@ if %errorlevel% neq 0 goto :VCEnd</Command>
       <BuildInParallel Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">true</BuildInParallel>
       <Message Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">Checking Build System</Message>
       <Command Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">setlocal
-"C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -SC:/codigoscpp/Perastage -BC:/codigoscpp/Perastage/build/x64-windows-msvc-vcpkg --check-stamp-list CMakeFiles/generate.stamp.list --vs-solution-file C:/codigoscpp/Perastage/build/x64-windows-msvc-vcpkg/Peraspot.sln
+"C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -SC:/codigoscpp/Perastage -BC:/codigoscpp/Perastage/build/x64-windows-msvc-vcpkg --check-stamp-list CMakeFiles/generate.stamp.list --vs-solution-file C:/codigoscpp/Perastage/build/x64-windows-msvc-vcpkg/Perastage.sln
 if %errorlevel% neq 0 goto :cmEnd
 :cmEnd
 endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
@@ -155,7 +155,7 @@ if %errorlevel% neq 0 goto :VCEnd</Command>
       <BuildInParallel Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">true</BuildInParallel>
       <Message Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">Checking Build System</Message>
       <Command Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">setlocal
-"C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -SC:/codigoscpp/Perastage -BC:/codigoscpp/Perastage/build/x64-windows-msvc-vcpkg --check-stamp-list CMakeFiles/generate.stamp.list --vs-solution-file C:/codigoscpp/Perastage/build/x64-windows-msvc-vcpkg/Peraspot.sln
+"C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -SC:/codigoscpp/Perastage -BC:/codigoscpp/Perastage/build/x64-windows-msvc-vcpkg --check-stamp-list CMakeFiles/generate.stamp.list --vs-solution-file C:/codigoscpp/Perastage/build/x64-windows-msvc-vcpkg/Perastage.sln
 if %errorlevel% neq 0 goto :cmEnd
 :cmEnd
 endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone

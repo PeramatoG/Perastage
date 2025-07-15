@@ -29,7 +29,7 @@
 					[
 						0
 					],
-					"name" : "Peraspot",
+					"name" : "Perastage",
 					"targetIndexes" : 
 					[
 						0,
@@ -43,15 +43,15 @@
 				{
 					"directoryIndex" : 0,
 					"id" : "ALL_BUILD::@6890427a1f51a3e7e1df",
-					"jsonFile" : "target-ALL_BUILD-Debug-04978b1780632967563a.json",
+					"jsonFile" : "target-ALL_BUILD-Debug-6e2f13b8fe8bf4193034.json",
 					"name" : "ALL_BUILD",
 					"projectIndex" : 0
 				},
 				{
 					"directoryIndex" : 0,
-					"id" : "Peraspot::@6890427a1f51a3e7e1df",
-					"jsonFile" : "target-Peraspot-Debug-21cb2a118ffe7117817f.json",
-					"name" : "Peraspot",
+					"id" : "Perastage::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-Perastage-Debug-b5b8e516cda1fbf607f0.json",
+					"name" : "Perastage",
 					"projectIndex" : 0
 				},
 				{
@@ -91,7 +91,7 @@
 					[
 						0
 					],
-					"name" : "Peraspot",
+					"name" : "Perastage",
 					"targetIndexes" : 
 					[
 						0,
@@ -105,15 +105,15 @@
 				{
 					"directoryIndex" : 0,
 					"id" : "ALL_BUILD::@6890427a1f51a3e7e1df",
-					"jsonFile" : "target-ALL_BUILD-Release-04978b1780632967563a.json",
+					"jsonFile" : "target-ALL_BUILD-Release-6e2f13b8fe8bf4193034.json",
 					"name" : "ALL_BUILD",
 					"projectIndex" : 0
 				},
 				{
 					"directoryIndex" : 0,
-					"id" : "Peraspot::@6890427a1f51a3e7e1df",
-					"jsonFile" : "target-Peraspot-Release-e4e2f7da99c1ab6c361c.json",
-					"name" : "Peraspot",
+					"id" : "Perastage::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-Perastage-Release-ff747cc9a1065d8442a2.json",
+					"name" : "Perastage",
 					"projectIndex" : 0
 				},
 				{
@@ -153,7 +153,7 @@
 					[
 						0
 					],
-					"name" : "Peraspot",
+					"name" : "Perastage",
 					"targetIndexes" : 
 					[
 						0,
@@ -167,15 +167,15 @@
 				{
 					"directoryIndex" : 0,
 					"id" : "ALL_BUILD::@6890427a1f51a3e7e1df",
-					"jsonFile" : "target-ALL_BUILD-MinSizeRel-04978b1780632967563a.json",
+					"jsonFile" : "target-ALL_BUILD-MinSizeRel-6e2f13b8fe8bf4193034.json",
 					"name" : "ALL_BUILD",
 					"projectIndex" : 0
 				},
 				{
 					"directoryIndex" : 0,
-					"id" : "Peraspot::@6890427a1f51a3e7e1df",
-					"jsonFile" : "target-Peraspot-MinSizeRel-bcafac861c0460f04ee7.json",
-					"name" : "Peraspot",
+					"id" : "Perastage::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-Perastage-MinSizeRel-a064775ae91492753dd1.json",
+					"name" : "Perastage",
 					"projectIndex" : 0
 				},
 				{
@@ -215,7 +215,7 @@
 					[
 						0
 					],
-					"name" : "Peraspot",
+					"name" : "Perastage",
 					"targetIndexes" : 
 					[
 						0,
@@ -229,15 +229,15 @@
 				{
 					"directoryIndex" : 0,
 					"id" : "ALL_BUILD::@6890427a1f51a3e7e1df",
-					"jsonFile" : "target-ALL_BUILD-RelWithDebInfo-04978b1780632967563a.json",
+					"jsonFile" : "target-ALL_BUILD-RelWithDebInfo-6e2f13b8fe8bf4193034.json",
 					"name" : "ALL_BUILD",
 					"projectIndex" : 0
 				},
 				{
 					"directoryIndex" : 0,
-					"id" : "Peraspot::@6890427a1f51a3e7e1df",
-					"jsonFile" : "target-Peraspot-RelWithDebInfo-14a76cecff9dceb5940d.json",
-					"name" : "Peraspot",
+					"id" : "Perastage::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-Perastage-RelWithDebInfo-06092592d0347eb30b2e.json",
+					"name" : "Perastage",
 					"projectIndex" : 0
 				},
 				{

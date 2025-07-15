@@ -663,7 +663,7 @@
 				}
 			],
 			"type" : "STATIC",
-			"value" : "Peraspot"
+			"value" : "Perastage"
 		},
 		{
 			"name" : "CMAKE_PROJECT_VERSION",

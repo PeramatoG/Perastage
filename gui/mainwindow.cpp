@@ -1,6 +1,7 @@
 #include "mainwindow.h"
 #include "mvrimporter.h"
 #include "fixturetablepanel.h"
+#include "trusstablepanel.h"
 #include <wx/notebook.h>
 
 
@@ -27,7 +28,8 @@ void MainWindow::SetupLayout()
     fixturePanel = new FixtureTablePanel(notebook);
     notebook->AddPage(fixturePanel, "Fixtures");
 
-    // Future: notebook->AddPage(new TrussTablePanel(notebook), "Trusses");
+    trussPanel = new TrussTablePanel(notebook);
+    notebook->AddPage(trussPanel, "Trusses");
 
     mainSizer->Add(notebook, 1, wxEXPAND | wxALL, 5);
     SetSizer(mainSizer);
@@ -54,6 +56,7 @@ void MainWindow::CreateMenuBar()
     SetMenuBar(menuBar);
 }
 
+// Handles MVR file selection, import, and updates fixture/truss panels accordingly
 void MainWindow::OnImportMVR(wxCommandEvent& event)
 {
     wxFileDialog openFileDialog(
@@ -76,8 +79,11 @@ void MainWindow::OnImportMVR(wxCommandEvent& event)
         wxMessageBox("MVR file imported successfully.", "Success", wxICON_INFORMATION);
         if (fixturePanel)
             fixturePanel->ReloadData();
+        if (trussPanel)
+            trussPanel->ReloadData();
     }
 }
+
 
 
 void MainWindow::OnClose(wxCommandEvent& event)

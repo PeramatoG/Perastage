@@ -97,6 +97,7 @@ bool MvrImporter::ExtractMvrZip(const std::string& mvrPath, const std::string& d
     return true;
 }
 
+// Parses GeneralSceneDescription.xml and populates fixtures and trusses into the scene model
 bool MvrImporter::ParseSceneXml(const std::string& sceneXmlPath)
 {
     tinyxml2::XMLDocument doc;
@@ -131,7 +132,7 @@ bool MvrImporter::ParseSceneXml(const std::string& sceneXmlPath)
     if (!layersNode) return true;
 
     for (tinyxml2::XMLElement* layer = layersNode->FirstChildElement("Layer");
-         layer; layer = layer->NextSiblingElement("Layer"))
+        layer; layer = layer->NextSiblingElement("Layer"))
     {
         const char* layerName = layer->Attribute("name");
         std::string layerStr = layerName ? layerName : "";
@@ -139,8 +140,18 @@ bool MvrImporter::ParseSceneXml(const std::string& sceneXmlPath)
         tinyxml2::XMLElement* childList = layer->FirstChildElement("ChildList");
         if (!childList) continue;
 
+        auto textOf = [](tinyxml2::XMLElement* parent, const char* name) -> std::string {
+            tinyxml2::XMLElement* n = parent->FirstChildElement(name);
+            return (n && n->GetText()) ? n->GetText() : std::string();
+            };
+
+        auto intOf = [](tinyxml2::XMLElement* parent, const char* name, int& out) {
+            tinyxml2::XMLElement* n = parent->FirstChildElement(name);
+            if (n && n->GetText()) out = std::atoi(n->GetText());
+            };
+
         for (tinyxml2::XMLElement* fixtureNode = childList->FirstChildElement("Fixture");
-             fixtureNode; fixtureNode = fixtureNode->NextSiblingElement("Fixture"))
+            fixtureNode; fixtureNode = fixtureNode->NextSiblingElement("Fixture"))
         {
             const char* uuidAttr = fixtureNode->Attribute("uuid");
             if (!uuidAttr) continue;
@@ -148,24 +159,6 @@ bool MvrImporter::ParseSceneXml(const std::string& sceneXmlPath)
             Fixture fixture;
             fixture.uuid = uuidAttr;
             fixture.layer = layerStr;
-
-            auto textOf = [](tinyxml2::XMLElement* parent, const char* name) -> std::string {
-                tinyxml2::XMLElement* n = parent->FirstChildElement(name);
-                return (n && n->GetText()) ? n->GetText() : std::string();
-            };
-
-            auto intOf = [](tinyxml2::XMLElement* parent, const char* name, int& out) {
-                tinyxml2::XMLElement* n = parent->FirstChildElement(name);
-                if (n && n->GetText()) out = std::atoi(n->GetText());
-            };
-
-            auto boolOf = [](tinyxml2::XMLElement* parent, const char* name, bool& out) {
-                tinyxml2::XMLElement* n = parent->FirstChildElement(name);
-                if (n && n->GetText()) {
-                    std::string v = n->GetText();
-                    out = (v == "true" || v == "1");
-                }
-            };
 
             const char* nameAttr = fixtureNode->Attribute("name");
             if (nameAttr) fixture.name = nameAttr;
@@ -181,6 +174,14 @@ bool MvrImporter::ParseSceneXml(const std::string& sceneXmlPath)
             fixture.focus = textOf(fixtureNode, "Focus");
             fixture.function = textOf(fixtureNode, "Function");
             fixture.position = textOf(fixtureNode, "Position");
+
+            auto boolOf = [](tinyxml2::XMLElement* parent, const char* name, bool& out) {
+                tinyxml2::XMLElement* n = parent->FirstChildElement(name);
+                if (n && n->GetText()) {
+                    std::string v = n->GetText();
+                    out = (v == "true" || v == "1");
+                }
+                };
 
             boolOf(fixtureNode, "DMXInvertPan", fixture.dmxInvertPan);
             boolOf(fixtureNode, "DMXInvertTilt", fixture.dmxInvertTilt);
@@ -202,7 +203,8 @@ bool MvrImporter::ParseSceneXml(const std::string& sceneXmlPath)
                                 value = (value - 1) % 512 + 1;
                             }
                             normalized = std::to_string(universe) + "." + std::to_string(value);
-                        } else {
+                        }
+                        else {
                             normalized = t;
                         }
                         fixture.address = normalized;
@@ -219,13 +221,45 @@ bool MvrImporter::ParseSceneXml(const std::string& sceneXmlPath)
 
             scene.fixtures[fixture.uuid] = fixture;
         }
+
+        // --- Parse Truss objects ---
+        for (tinyxml2::XMLElement* trussNode = childList->FirstChildElement("Truss");
+            trussNode; trussNode = trussNode->NextSiblingElement("Truss"))
+        {
+            const char* uuidAttr = trussNode->Attribute("uuid");
+            if (!uuidAttr) continue;
+
+            Truss truss;
+            truss.uuid = uuidAttr;
+            truss.layer = layerStr;
+
+            const char* nameAttr = trussNode->Attribute("name");
+            if (nameAttr) truss.name = nameAttr;
+
+            intOf(trussNode, "FixtureID", truss.fixtureId);
+            intOf(trussNode, "FixtureIDNumeric", truss.fixtureIdNumeric);
+            intOf(trussNode, "UnitNumber", truss.unitNumber);
+            intOf(trussNode, "CustomId", truss.customId);
+            intOf(trussNode, "CustomIdType", truss.customIdType);
+
+            truss.gdtfSpec = textOf(trussNode, "GDTFSpec");
+            truss.gdtfMode = textOf(trussNode, "GDTFMode");
+            truss.function = textOf(trussNode, "Function");
+            truss.position = textOf(trussNode, "Position");
+
+            if (tinyxml2::XMLElement* matrix = trussNode->FirstChildElement("Matrix")) {
+                if (const char* txt = matrix->GetText()) {
+                    std::string raw = txt;
+                    MatrixUtils::ParseMatrix(raw, truss.transform);
+                }
+            }
+
+            scene.trusses[truss.uuid] = truss;
+        }
     }
 
     return true;
 }
-
-
-
 
 bool MvrImporter::ImportAndRegister(const std::string& filePath)
 {

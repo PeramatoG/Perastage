@@ -4,7 +4,13 @@
     <ClCompile Include="C:\codigoscpp\Perastage\core\configmanager.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="C:\codigoscpp\Perastage\gui\fixturetablepanel.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="C:\codigoscpp\Perastage\gui\mainwindow.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\codigoscpp\Perastage\gui\trusstablepanel.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="C:\codigoscpp\Perastage\main.cpp">
@@ -30,13 +36,25 @@
     <ClInclude Include="C:\codigoscpp\Perastage\core\configmanager.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="C:\codigoscpp\Perastage\core\matrixutils.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\codigoscpp\Perastage\gui\fixturetablepanel.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="C:\codigoscpp\Perastage\gui\mainwindow.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\codigoscpp\Perastage\gui\trusstablepanel.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="C:\codigoscpp\Perastage\models\fixture.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="C:\codigoscpp\Perastage\models\layer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\codigoscpp\Perastage\models\matrixutils.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="C:\codigoscpp\Perastage\models\mvrscene.h">

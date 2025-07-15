@@ -5,6 +5,7 @@
 // Forward declarations for GUI components
 class wxNotebook;
 class FixtureTablePanel;
+class TrussTablePanel;
 
 // Main application window for GUI components
 class MainWindow : public wxFrame
@@ -18,6 +19,7 @@ private:
 
     wxNotebook* notebook = nullptr;
     FixtureTablePanel* fixturePanel = nullptr;
+    TrussTablePanel* trussPanel = nullptr;
 
     void OnImportMVR(wxCommandEvent& event); // Handle the Import MVR action
     void OnClose(wxCommandEvent& event);     // Handle the Close action
