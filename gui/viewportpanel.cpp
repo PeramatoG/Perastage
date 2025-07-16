@@ -2,6 +2,7 @@
 #include "viewportpanel.h"
 #include "vulkanviewport.h"
 #include <wx/sizer.h>
+#include <wx/msgdlg.h>
 
 
 ViewportPanel::ViewportPanel(wxWindow* parent)
@@ -9,8 +10,14 @@ ViewportPanel::ViewportPanel(wxWindow* parent)
 {
     wxBoxSizer* sizer = new wxBoxSizer(wxVERTICAL);
 
-    canvas = new VulkanViewport(this);  // Clase que implementaremos luego
-    sizer->Add(canvas, 1, wxEXPAND | wxALL, 0);
+    try {
+        canvas = new VulkanViewport(this);
+        canvas->InitRenderer();
+        sizer->Add(canvas, 1, wxEXPAND | wxALL, 0);
+    }
+    catch (const std::exception& e) {
+        wxMessageBox(e.what(), "Vulkan Error", wxICON_ERROR);
+    }
 
     SetSizer(sizer);
 }
