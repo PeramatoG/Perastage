@@ -21,6 +21,15 @@ public:
     // Paint handler used to trigger drawing
     void OnPaint(wxPaintEvent& event);
 
+    // Resize handler recreates the swapchain when the window size changes
+    void OnResize(wxSizeEvent& event);
+
+    // Recreates swapchain and related resources
+    void RecreateSwapchain();
+
+    // Cleans up swapchain-dependent resources
+    void CleanupSwapchain();
+
 private:
     // Main Vulkan initialization pipeline
     void InitVulkan();
