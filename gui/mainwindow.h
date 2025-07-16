@@ -1,18 +1,21 @@
 #pragma once
 
 #include <wx/wx.h>
+#include <wx/aui/aui.h>
 
 // Forward declarations for GUI components
 class wxNotebook;
 class FixtureTablePanel;
 class TrussTablePanel;
 class SceneObjectTablePanel;
+class ViewportPanel;
 
 // Main application window for GUI components
 class MainWindow : public wxFrame
 {
 public:
     explicit MainWindow(const wxString& title);
+    ~MainWindow();
 
 private:
     void SetupLayout();         // Set up main window layout
@@ -22,6 +25,8 @@ private:
     FixtureTablePanel* fixturePanel = nullptr;
     TrussTablePanel* trussPanel = nullptr;
     SceneObjectTablePanel* sceneObjPanel = nullptr;
+    wxAuiManager* auiManager = nullptr;
+    ViewportPanel* viewportPanel = nullptr;
 
     void OnImportMVR(wxCommandEvent& event); // Handle the Import MVR action
     void OnClose(wxCommandEvent& event);     // Handle the Close action

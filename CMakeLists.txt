@@ -6,9 +6,10 @@ project(Perastage VERSION 1.0 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# Find wxWidgets via vcpkg using CONFIG mode
-find_package(wxWidgets CONFIG REQUIRED COMPONENTS core base)
+# Find packages via vcpkg using CONFIG mode
+find_package(wxWidgets CONFIG REQUIRED COMPONENTS core base aui)
 find_package(tinyxml2 CONFIG REQUIRED)
+find_package(Vulkan REQUIRED)
 
 # Gather source files
 file(GLOB_RECURSE SRC_FILES
@@ -17,6 +18,7 @@ file(GLOB_RECURSE SRC_FILES
     ${CMAKE_SOURCE_DIR}/models/*.cpp
     ${CMAKE_SOURCE_DIR}/core/*.cpp
     ${CMAKE_SOURCE_DIR}/mvr/*.cpp
+    ${CMAKE_SOURCE_DIR}/render/*.cpp
 )
 
 # Optional: gather headers for IDEs
@@ -25,6 +27,7 @@ file(GLOB_RECURSE HEADER_FILES
     ${CMAKE_SOURCE_DIR}/models/*.h
     ${CMAKE_SOURCE_DIR}/core/*.h
     ${CMAKE_SOURCE_DIR}/mvr/*.h
+    ${CMAKE_SOURCE_DIR}/render/*.h
 )
 
 add_executable(${PROJECT_NAME} ${SRC_FILES} ${HEADER_FILES})
@@ -38,11 +41,14 @@ target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_SOURCE_DIR}/models
     ${CMAKE_SOURCE_DIR}/core
     ${CMAKE_SOURCE_DIR}/mvr
+    ${CMAKE_SOURCE_DIR}/render
 )
 
 # Link required libraries
 target_link_libraries(${PROJECT_NAME} PRIVATE
     wx::core
     wx::base
+    wx::aui
     tinyxml2::tinyxml2
+    Vulkan::Vulkan
 )

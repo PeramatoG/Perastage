@@ -3,6 +3,7 @@
 #include "fixturetablepanel.h"
 #include "trusstablepanel.h"
 #include "sceneobjecttablepanel.h"
+#include "viewportpanel.h"
 #include <wx/notebook.h>
 
 
@@ -12,18 +13,28 @@ EVT_MENU(ID_File_Close, MainWindow::OnClose)
 wxEND_EVENT_TABLE()
 
 MainWindow::MainWindow(const wxString& title)
-    : wxFrame(nullptr, wxID_ANY, title, wxDefaultPosition, wxSize(800, 600))
+    : wxFrame(nullptr, wxID_ANY, title, wxDefaultPosition, wxSize(1600, 600))
 {
     Centre();
     SetupLayout();
+}
+
+MainWindow::~MainWindow()
+{
+    if (auiManager) {
+        auiManager->UnInit();
+        delete auiManager;
+    }
 }
 
 void MainWindow::SetupLayout()
 {
     CreateMenuBar();
 
-    wxBoxSizer* mainSizer = new wxBoxSizer(wxVERTICAL);
+    // Initialize AUI manager for dynamic pane layout
+    auiManager = new wxAuiManager(this);
 
+    // Create notebook with data panels
     notebook = new wxNotebook(this, wxID_ANY);
 
     fixturePanel = new FixtureTablePanel(notebook);
@@ -35,10 +46,26 @@ void MainWindow::SetupLayout()
     sceneObjPanel = new SceneObjectTablePanel(notebook);
     notebook->AddPage(sceneObjPanel, "Objects");
 
-    mainSizer->Add(notebook, 1, wxEXPAND | wxALL, 5);
-    SetSizer(mainSizer);
-}
+    // Add notebook as center pane
+    auiManager->AddPane(notebook, wxAuiPaneInfo()
+        .Name("DataNotebook")
+        .Caption("Data Views")
+        .CenterPane()
+        .PaneBorder(false));
 
+    // Add 3D viewport as a dockable pane on the right
+    viewportPanel = new ViewportPanel(this);
+    auiManager->AddPane(viewportPanel, wxAuiPaneInfo()
+        .Name("3DViewport")
+        .Caption("3D Viewport")
+        .Right()
+        .BestSize(800, 600)
+        .CloseButton(true)
+        .MaximizeButton(true));
+
+    // Apply all changes to layout
+    auiManager->Update();
+}
 
 void MainWindow::CreateMenuBar()
 {
