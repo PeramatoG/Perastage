@@ -24,10 +24,25 @@ VulkanViewport::VulkanViewport(wxWindow* parent)
 void VulkanViewport::OnPaint(wxPaintEvent& event)
 {
     wxPaintDC dc(this); // required for wxWidgets
+
     if (instance == VK_NULL_HANDLE)
+    {
+        // Avoid initializing while the window is still 0x0 which
+        // would trigger an exception in CreateSwapchain.
+        wxSize size = GetClientSize();
+        if (size.GetWidth() == 0 || size.GetHeight() == 0)
+        {
+            event.Skip();
+            return;
+        }
+
         InitRenderer();
+    }
     else
+    {
         DrawFrame();
+    }
+
     event.Skip(false);
 }
 
