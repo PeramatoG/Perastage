@@ -1,6 +1,7 @@
 #pragma once
 
 #include <wx/window.h>
+#include <wx/event.h>
 #include "irenderviewport.h"
 #include <vulkan/vulkan.h>
 
@@ -16,6 +17,9 @@ public:
 
     // Renders the current frame to the swapchain
     void DrawFrame();
+
+    // Paint handler used to trigger drawing
+    void OnPaint(wxPaintEvent& event);
 
 private:
     // Main Vulkan initialization pipeline
@@ -69,4 +73,6 @@ private:
     // Retrieves the native window handle (HWND)
     void* GetNativeWindowHandle();
 #endif
+
+    wxDECLARE_EVENT_TABLE();
 };

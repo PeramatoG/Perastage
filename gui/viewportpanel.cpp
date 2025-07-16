@@ -12,7 +12,7 @@ ViewportPanel::ViewportPanel(wxWindow* parent)
 
     try {
         canvas = new VulkanViewport(this);
-        canvas->InitRenderer();
+        // Renderer will be initialized lazily on the first paint event
         sizer->Add(canvas, 1, wxEXPAND | wxALL, 0);
     }
     catch (const std::exception& e) {

@@ -3,16 +3,32 @@
 #include <vector>
 #include <iostream>
 #include <set>
+#include <algorithm>
+#include <wx/dcclient.h>
 
 #ifdef _WIN32
 #include <windows.h>
 #include <vulkan/vulkan_win32.h>
 #endif
 
+wxBEGIN_EVENT_TABLE(VulkanViewport, IRenderViewport)
+    EVT_PAINT(VulkanViewport::OnPaint)
+wxEND_EVENT_TABLE()
+
 VulkanViewport::VulkanViewport(wxWindow* parent)
     : IRenderViewport(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxBORDER_NONE)
 {
     // Vulkan initialization is deferred until InitRenderer() is called
+}
+
+void VulkanViewport::OnPaint(wxPaintEvent& event)
+{
+    wxPaintDC dc(this); // required for wxWidgets
+    if (instance == VK_NULL_HANDLE)
+        InitRenderer();
+    else
+        DrawFrame();
+    event.Skip(false);
 }
 
 
@@ -408,7 +424,7 @@ void VulkanViewport::RecordCommandBuffers()
         if (vkBeginCommandBuffer(commandBuffers[i], &beginInfo) != VK_SUCCESS)
             throw std::runtime_error("Failed to begin recording command buffer.");
 
-        VkClearValue clearColor = { {{ 0.2f, 0.3f, 0.4f, 1.0f }} }; // background color
+        VkClearValue clearColor = { {{ 0.0f, 0.0f, 0.0f, 1.0f }} }; // base color
 
         VkRenderPassBeginInfo renderPassInfo{};
         renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -420,6 +436,29 @@ void VulkanViewport::RecordCommandBuffers()
         renderPassInfo.pClearValues = &clearColor;
 
         vkCmdBeginRenderPass(commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+        // Simple vertical gradient using clear attachments
+        const uint32_t steps = 16;
+        for (uint32_t s = 0; s < steps; ++s)
+        {
+            float t = static_cast<float>(s) / static_cast<float>(steps - 1);
+            VkClearAttachment attachment{};
+            attachment.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            attachment.colorAttachment = 0;
+            attachment.clearValue.color.float32[0] = 0.1f * (1.0f - t) + 0.8f * t;
+            attachment.clearValue.color.float32[1] = 0.2f * (1.0f - t) + 0.4f * t;
+            attachment.clearValue.color.float32[2] = 0.3f * (1.0f - t) + 0.9f * t;
+            attachment.clearValue.color.float32[3] = 1.0f;
+
+            VkClearRect rect{};
+            rect.baseArrayLayer = 0;
+            rect.layerCount = 1;
+            rect.rect.offset = {0, static_cast<int32_t>(swapchainExtent.height * s / steps)};
+            rect.rect.extent = {swapchainExtent.width, static_cast<uint32_t>(swapchainExtent.height / steps)};
+
+            vkCmdClearAttachments(commandBuffers[i], 1, &attachment, 1, &rect);
+        }
+
         vkCmdEndRenderPass(commandBuffers[i]);
 
         if (vkEndCommandBuffer(commandBuffers[i]) != VK_SUCCESS)
