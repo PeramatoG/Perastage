@@ -13,6 +13,7 @@
 
 wxBEGIN_EVENT_TABLE(VulkanViewport, IRenderViewport)
     EVT_PAINT(VulkanViewport::OnPaint)
+    EVT_SIZE(VulkanViewport::OnResize)
 wxEND_EVENT_TABLE()
 
 VulkanViewport::VulkanViewport(wxWindow* parent)
@@ -46,14 +47,28 @@ void VulkanViewport::OnPaint(wxPaintEvent& event)
     event.Skip(false);
 }
 
+void VulkanViewport::OnResize(wxSizeEvent& event)
+{
+    if (device != VK_NULL_HANDLE)
+    {
+        RecreateSwapchain();
+    }
+
+    event.Skip();
+}
+
 
 VulkanViewport::~VulkanViewport()
 {
     if (device != VK_NULL_HANDLE)
     {
-        if (swapchain != VK_NULL_HANDLE)
+        vkDeviceWaitIdle(device);
+        CleanupSwapchain();
+
+        if (commandPool != VK_NULL_HANDLE)
         {
-            vkDestroySwapchainKHR(device, swapchain, nullptr);
+            vkDestroyCommandPool(device, commandPool, nullptr);
+            commandPool = VK_NULL_HANDLE;
         }
 
         vkDestroyDevice(device, nullptr);
@@ -525,5 +540,55 @@ void VulkanViewport::DrawFrame()
 void VulkanViewport::InitRenderer()
 {
     InitVulkan();
+    DrawFrame();
+}
+
+void VulkanViewport::CleanupSwapchain()
+{
+    for (VkFramebuffer fb : swapchainFramebuffers)
+        vkDestroyFramebuffer(device, fb, nullptr);
+    swapchainFramebuffers.clear();
+
+    if (renderPass != VK_NULL_HANDLE)
+    {
+        vkDestroyRenderPass(device, renderPass, nullptr);
+        renderPass = VK_NULL_HANDLE;
+    }
+
+    for (VkImageView view : swapchainImageViews)
+        vkDestroyImageView(device, view, nullptr);
+    swapchainImageViews.clear();
+
+    if (swapchain != VK_NULL_HANDLE)
+    {
+        vkDestroySwapchainKHR(device, swapchain, nullptr);
+        swapchain = VK_NULL_HANDLE;
+    }
+
+    if (!commandBuffers.empty())
+    {
+        vkFreeCommandBuffers(device, commandPool,
+            static_cast<uint32_t>(commandBuffers.size()), commandBuffers.data());
+        commandBuffers.clear();
+    }
+}
+
+void VulkanViewport::RecreateSwapchain()
+{
+    wxSize size = GetClientSize();
+    if (size.GetWidth() == 0 || size.GetHeight() == 0)
+        return;
+
+    vkDeviceWaitIdle(device);
+
+    CleanupSwapchain();
+
+    CreateSwapchain();
+    CreateImageViews();
+    CreateRenderPass();
+    CreateFramebuffers();
+    CreateCommandBuffers();
+    RecordCommandBuffers();
+
     DrawFrame();
 }
