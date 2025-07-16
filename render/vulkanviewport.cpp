@@ -36,6 +36,7 @@ VulkanViewport::~VulkanViewport()
 }
 
 
+// Initializes Vulkan instance, surface, device and swapchain with complete setup
 void VulkanViewport::InitVulkan()
 {
     // Application info
@@ -47,7 +48,6 @@ void VulkanViewport::InitVulkan()
     appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
     appInfo.apiVersion = VK_API_VERSION_1_2;
 
-    // Required extensions
     std::vector<const char*> extensions = {
 #ifdef _WIN32
         VK_KHR_SURFACE_EXTENSION_NAME,
@@ -68,7 +68,14 @@ void VulkanViewport::InitVulkan()
     PickPhysicalDevice();
     CreateLogicalDevice();
     CreateSwapchain();
+    CreateImageViews();        // Required to access swapchain images
+    CreateRenderPass();        // Needed before creating framebuffers
+    CreateFramebuffers();      // One per swapchain image
+    CreateCommandPool();       // Needed to allocate command buffers
+    CreateCommandBuffers();    // Must match number of framebuffers
+    RecordCommandBuffers();    // Prepares commands to draw frame
 }
+
 
 void VulkanViewport::CreateSurface()
 {
@@ -276,7 +283,193 @@ void VulkanViewport::CreateSwapchain()
     swapchainImageFormat = chosenFormat.format;
 }
 
+// Creates a VkImageView for each swapchain image.
+void VulkanViewport::CreateImageViews()
+{
+    swapchainImageViews.resize(swapchainImages.size());
+
+    for (size_t i = 0; i < swapchainImages.size(); ++i)
+    {
+        VkImageViewCreateInfo viewInfo{};
+        viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+        viewInfo.image = swapchainImages[i];
+        viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+        viewInfo.format = swapchainImageFormat;
+        viewInfo.components = {
+            VK_COMPONENT_SWIZZLE_IDENTITY,
+            VK_COMPONENT_SWIZZLE_IDENTITY,
+            VK_COMPONENT_SWIZZLE_IDENTITY,
+            VK_COMPONENT_SWIZZLE_IDENTITY
+        };
+        viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        viewInfo.subresourceRange.baseMipLevel = 0;
+        viewInfo.subresourceRange.levelCount = 1;
+        viewInfo.subresourceRange.baseArrayLayer = 0;
+        viewInfo.subresourceRange.layerCount = 1;
+
+        if (vkCreateImageView(device, &viewInfo, nullptr, &swapchainImageViews[i]) != VK_SUCCESS)
+        {
+            throw std::runtime_error("Failed to create image views.");
+        }
+    }
+}
+
+// Creates a basic render pass with a single color attachment.
+void VulkanViewport::CreateRenderPass()
+{
+    VkAttachmentDescription colorAttachment{};
+    colorAttachment.format = swapchainImageFormat;
+    colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+    colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+
+    VkAttachmentReference colorRef{};
+    colorRef.attachment = 0;
+    colorRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+    VkSubpassDescription subpass{};
+    subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+    subpass.colorAttachmentCount = 1;
+    subpass.pColorAttachments = &colorRef;
+
+    VkRenderPassCreateInfo renderPassInfo{};
+    renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+    renderPassInfo.attachmentCount = 1;
+    renderPassInfo.pAttachments = &colorAttachment;
+    renderPassInfo.subpassCount = 1;
+    renderPassInfo.pSubpasses = &subpass;
+
+    if (vkCreateRenderPass(device, &renderPassInfo, nullptr, &renderPass) != VK_SUCCESS)
+        throw std::runtime_error("Failed to create render pass.");
+}
+
+// Creates a framebuffer for each swapchain image view.
+void VulkanViewport::CreateFramebuffers()
+{
+    swapchainFramebuffers.resize(swapchainImageViews.size());
+
+    for (size_t i = 0; i < swapchainImageViews.size(); ++i)
+    {
+        VkImageView attachments[] = { swapchainImageViews[i] };
+
+        VkFramebufferCreateInfo fbInfo{};
+        fbInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+        fbInfo.renderPass = renderPass;
+        fbInfo.attachmentCount = 1;
+        fbInfo.pAttachments = attachments;
+        fbInfo.width = swapchainExtent.width;
+        fbInfo.height = swapchainExtent.height;
+        fbInfo.layers = 1;
+
+        if (vkCreateFramebuffer(device, &fbInfo, nullptr, &swapchainFramebuffers[i]) != VK_SUCCESS)
+            throw std::runtime_error("Failed to create framebuffer.");
+    }
+}
+
+// Creates a command pool for graphics commands.
+void VulkanViewport::CreateCommandPool()
+{
+    VkCommandPoolCreateInfo poolInfo{};
+    poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+    poolInfo.queueFamilyIndex = graphicsQueueFamily;
+    poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+
+    if (vkCreateCommandPool(device, &poolInfo, nullptr, &commandPool) != VK_SUCCESS)
+        throw std::runtime_error("Failed to create command pool.");
+}
+
+// Allocates one command buffer per framebuffer.
+void VulkanViewport::CreateCommandBuffers()
+{
+    commandBuffers.resize(swapchainFramebuffers.size());
+
+    VkCommandBufferAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    allocInfo.commandPool = commandPool;
+    allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    allocInfo.commandBufferCount = static_cast<uint32_t>(commandBuffers.size());
+
+    if (vkAllocateCommandBuffers(device, &allocInfo, commandBuffers.data()) != VK_SUCCESS)
+        throw std::runtime_error("Failed to allocate command buffers.");
+}
+
+// Records draw commands into each command buffer to clear the screen.
+void VulkanViewport::RecordCommandBuffers()
+{
+    for (size_t i = 0; i < commandBuffers.size(); ++i)
+    {
+        VkCommandBufferBeginInfo beginInfo{};
+        beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+
+        if (vkBeginCommandBuffer(commandBuffers[i], &beginInfo) != VK_SUCCESS)
+            throw std::runtime_error("Failed to begin recording command buffer.");
+
+        VkClearValue clearColor = { {{ 0.2f, 0.3f, 0.4f, 1.0f }} }; // background color
+
+        VkRenderPassBeginInfo renderPassInfo{};
+        renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+        renderPassInfo.renderPass = renderPass;
+        renderPassInfo.framebuffer = swapchainFramebuffers[i];
+        renderPassInfo.renderArea.offset = { 0, 0 };
+        renderPassInfo.renderArea.extent = swapchainExtent;
+        renderPassInfo.clearValueCount = 1;
+        renderPassInfo.pClearValues = &clearColor;
+
+        vkCmdBeginRenderPass(commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+        vkCmdEndRenderPass(commandBuffers[i]);
+
+        if (vkEndCommandBuffer(commandBuffers[i]) != VK_SUCCESS)
+            throw std::runtime_error("Failed to record command buffer.");
+    }
+}
+
+// Renders the current frame by submitting the recorded command buffer and presenting it.
+void VulkanViewport::DrawFrame()
+{
+    uint32_t imageIndex = 0;
+
+    VkResult result = vkAcquireNextImageKHR(
+        device, swapchain, UINT64_MAX, VK_NULL_HANDLE, VK_NULL_HANDLE, &imageIndex);
+
+    if (result != VK_SUCCESS)
+        throw std::runtime_error("Failed to acquire swapchain image.");
+
+    // Debug info to verify consistency
+    std::cerr << "imageIndex = " << imageIndex << "\n";
+    std::cerr << "swapchainImages.size = " << swapchainImages.size() << "\n";
+    std::cerr << "commandBuffers.size = " << commandBuffers.size() << "\n";
+    std::cerr << "framebuffers.size = " << swapchainFramebuffers.size() << "\n";
+    std::cerr << "imageViews.size = " << swapchainImageViews.size() << "\n";
+
+    // Ensure imageIndex is safe to access
+    if (imageIndex >= commandBuffers.size())
+        throw std::runtime_error("imageIndex out of range for commandBuffers.");
+
+    VkSubmitInfo submitInfo{};
+    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submitInfo.commandBufferCount = 1;
+    submitInfo.pCommandBuffers = &commandBuffers[imageIndex];
+
+    if (vkQueueSubmit(graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE) != VK_SUCCESS)
+        throw std::runtime_error("Failed to submit draw command buffer.");
+
+    VkPresentInfoKHR presentInfo{};
+    presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+    presentInfo.swapchainCount = 1;
+    presentInfo.pSwapchains = &swapchain;
+    presentInfo.pImageIndices = &imageIndex;
+
+    result = vkQueuePresentKHR(presentQueue, &presentInfo);
+    if (result != VK_SUCCESS)
+        throw std::runtime_error("Failed to present swapchain image.");
+}
+
 void VulkanViewport::InitRenderer()
 {
     InitVulkan();
+    DrawFrame();
 }
