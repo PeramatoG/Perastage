@@ -7,6 +7,7 @@
 #include <cmath>
 #include <wx/dcclient.h>
 #include <wx/dcgraph.h>
+#include <wx/dcbuffer.h>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -39,7 +40,7 @@ VulkanViewport::VulkanViewport(wxWindow* parent)
 
 void VulkanViewport::OnPaint(wxPaintEvent& event)
 {
-    wxPaintDC dc(this); // required for wxWidgets
+    wxAutoBufferedPaintDC dc(this); // double buffered to avoid flicker
     wxGCDC gdc(dc);
 
     if (instance == VK_NULL_HANDLE)
@@ -194,7 +195,8 @@ static wxPoint ProjectPoint(const SimpleCamera& cam, const wxSize& size, const V
     float y2 = y * cosPitch - z * sinPitch;
     z = y * sinPitch + z * cosPitch;
 
-    if (z <= 0.01f)
+    // Allow points very close to the camera to avoid disappearing grid lines
+    if (z <= 0.001f)
         return wxPoint(1000000, 1000000);
 
     float f = size.GetWidth() / (2.0f * std::tan(cam.fov * 0.5f));
