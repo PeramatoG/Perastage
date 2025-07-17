@@ -5,6 +5,15 @@
 #include "irenderviewport.h"
 #include <vulkan/vulkan.h>
 
+struct SimpleCamera {
+    float x = 0.0f;
+    float y = 2.0f;
+    float z = 5.0f;
+    float yaw = 0.0f;   // radians
+    float pitch = 0.0f; // radians
+    float fov = 1.0f;   // vertical FOV in radians
+};
+
 // Window-based Vulkan render surface using Vulkan API
 class VulkanViewport : public IRenderViewport
 {
@@ -88,14 +97,7 @@ private:
     void* GetNativeWindowHandle();
 #endif
 
-    struct SimpleCamera {
-        float x = 0.0f;
-        float y = 2.0f;
-        float z = 5.0f;
-        float yaw = 0.0f;   // radians
-        float pitch = 0.0f; // radians
-        float fov = 1.0f;   // vertical FOV in radians
-    } camera;
+    SimpleCamera camera;
 
     bool mouseDragging = false;
     wxPoint lastMousePos;

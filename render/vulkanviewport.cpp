@@ -142,7 +142,7 @@ void VulkanViewport::OnMouseMove(wxMouseEvent& event)
     Refresh();
 }
 
-static wxPoint ProjectPoint(const VulkanViewport::SimpleCamera& cam, const wxSize& size, const Vec3& p)
+static wxPoint ProjectPoint(const SimpleCamera& cam, const wxSize& size, const Vec3& p)
 {
     Vec3 d{ p.x - cam.x, p.y - cam.y, p.z - cam.z };
     float cosYaw = std::cos(cam.yaw);
