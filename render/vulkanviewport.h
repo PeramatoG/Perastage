@@ -31,6 +31,7 @@ public:
     void OnMouseDown(wxMouseEvent& event);
     void OnMouseUp(wxMouseEvent& event);
     void OnMouseMove(wxMouseEvent& event);
+    void OnMouseWheel(wxMouseEvent& event);
 
     // Paint handler used to trigger drawing
     void OnPaint(wxPaintEvent& event);
