@@ -20,7 +20,7 @@ struct Vec3 {
     float z;
 };
 
-wxBEGIN_EVENT_TABLE(VulkanViewport, IRenderViewport)
+wxBEGIN_EVENT_TABLE(VulkanViewport, wxWindow)
     EVT_PAINT(VulkanViewport::OnPaint)
     EVT_SIZE(VulkanViewport::OnResize)
     EVT_KEY_DOWN(VulkanViewport::OnKeyDown)
@@ -33,7 +33,7 @@ wxBEGIN_EVENT_TABLE(VulkanViewport, IRenderViewport)
 wxEND_EVENT_TABLE()
 
 VulkanViewport::VulkanViewport(wxWindow* parent)
-    : IRenderViewport(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxBORDER_NONE)
+    : wxWindow(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxBORDER_NONE)
 {
     // Vulkan initialization is deferred until InitRenderer() is called
     SetBackgroundStyle(wxBG_STYLE_PAINT);
