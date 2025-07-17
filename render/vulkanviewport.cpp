@@ -7,7 +7,6 @@
 #include <cmath>
 #include <wx/dcclient.h>
 #include <wx/dcgraph.h>
-#include <wx/dcbuffer.h>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -44,7 +43,7 @@ VulkanViewport::VulkanViewport(wxWindow* parent)
 
 void VulkanViewport::OnPaint(wxPaintEvent& event)
 {
-    wxAutoBufferedPaintDC dc(this);
+    wxPaintDC dc(this); // required for wxWidgets
     wxGCDC gdc(dc);
 
     if (instance == VK_NULL_HANDLE)
