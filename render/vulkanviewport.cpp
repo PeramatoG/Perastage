@@ -194,7 +194,7 @@ static wxPoint ProjectPoint(const SimpleCamera& cam, const wxSize& size, const V
     float y2 = y * cosPitch - z * sinPitch;
     z = y * sinPitch + z * cosPitch;
 
-    if (z <= 0.01f)
+    if (z <= 0.001f)
         return wxPoint(1000000, 1000000);
 
     float f = size.GetWidth() / (2.0f * std::tan(cam.fov * 0.5f));
