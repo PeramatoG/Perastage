@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <cmath>
 #include <wx/dcclient.h>
+#include <wx/dcgraph.h>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -25,6 +26,7 @@ wxBEGIN_EVENT_TABLE(VulkanViewport, IRenderViewport)
     EVT_LEFT_DOWN(VulkanViewport::OnMouseDown)
     EVT_LEFT_UP(VulkanViewport::OnMouseUp)
     EVT_MOTION(VulkanViewport::OnMouseMove)
+    EVT_MOUSEWHEEL(VulkanViewport::OnMouseWheel)
 wxEND_EVENT_TABLE()
 
 VulkanViewport::VulkanViewport(wxWindow* parent)
@@ -38,6 +40,7 @@ VulkanViewport::VulkanViewport(wxWindow* parent)
 void VulkanViewport::OnPaint(wxPaintEvent& event)
 {
     wxPaintDC dc(this); // required for wxWidgets
+    wxGCDC gdc(dc);
 
     if (instance == VK_NULL_HANDLE)
     {
@@ -57,7 +60,7 @@ void VulkanViewport::OnPaint(wxPaintEvent& event)
         DrawFrame();
     }
 
-    DrawOverlay(dc);
+    DrawOverlay(gdc);
 
     event.Skip(false);
 }
@@ -136,9 +139,44 @@ void VulkanViewport::OnMouseMove(wxMouseEvent& event)
     lastMousePos = pos;
 
     const float sensitivity = 0.005f;
-    camera.yaw += delta.x * sensitivity;
-    camera.pitch += -delta.y * sensitivity;
-    camera.pitch = std::clamp(camera.pitch, -1.5f, 1.5f);
+    if (event.ShiftDown())
+    {
+        const float panScale = 0.01f;
+        float cosYaw = std::cos(camera.yaw);
+        float sinYaw = std::sin(camera.yaw);
+        Vec3 right{ cosYaw, 0.0f, -sinYaw };
+        camera.x -= delta.x * panScale * right.x;
+        camera.y += delta.y * panScale;
+        camera.z -= delta.x * panScale * right.z;
+    }
+    else
+    {
+        camera.yaw += delta.x * sensitivity;
+        camera.pitch += -delta.y * sensitivity;
+        camera.pitch = std::clamp(camera.pitch, -1.5f, 1.5f);
+    }
+    Refresh();
+}
+
+void VulkanViewport::OnMouseWheel(wxMouseEvent& event)
+{
+    int rotation = event.GetWheelRotation();
+    int delta = event.GetWheelDelta();
+    if (delta == 0 || rotation == 0)
+    {
+        event.Skip();
+        return;
+    }
+
+    float steps = static_cast<float>(rotation) / static_cast<float>(delta);
+    const float stepSize = 0.5f;
+    float cosYaw = std::cos(camera.yaw);
+    float sinYaw = std::sin(camera.yaw);
+    Vec3 forward{ sinYaw, 0.0f, cosYaw };
+    camera.x += forward.x * stepSize * steps;
+    camera.y += forward.y * stepSize * steps;
+    camera.z += forward.z * stepSize * steps;
+
     Refresh();
 }
 
@@ -156,7 +194,7 @@ static wxPoint ProjectPoint(const SimpleCamera& cam, const wxSize& size, const V
     float y2 = y * cosPitch - z * sinPitch;
     z = y * sinPitch + z * cosPitch;
 
-    if (z <= 0.1f)
+    if (z <= 0.01f)
         return wxPoint(1000000, 1000000);
 
     float f = size.GetWidth() / (2.0f * std::tan(cam.fov * 0.5f));
@@ -168,9 +206,9 @@ static wxPoint ProjectPoint(const SimpleCamera& cam, const wxSize& size, const V
 void VulkanViewport::DrawOverlay(wxDC& dc)
 {
     wxSize size = GetClientSize();
-    dc.SetPen(wxPen(wxColour(80, 80, 80)));
+    dc.SetPen(wxPen(wxColour(180, 180, 180)));
 
-    const int grid = 10;
+    const int grid = 20;
     for (int i = -grid; i <= grid; ++i)
     {
         Vec3 a{ static_cast<float>(i), 0.0f, -static_cast<float>(grid) };
@@ -597,7 +635,7 @@ void VulkanViewport::RecordCommandBuffers()
         if (vkBeginCommandBuffer(commandBuffers[i], &beginInfo) != VK_SUCCESS)
             throw std::runtime_error("Failed to begin recording command buffer.");
 
-        VkClearValue clearColor = { {{ 0.0f, 0.0f, 0.0f, 1.0f }} }; // base color
+        VkClearValue clearColor = { {{ 0.3f, 0.3f, 0.3f, 1.0f }} }; // base color
 
         VkRenderPassBeginInfo renderPassInfo{};
         renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
