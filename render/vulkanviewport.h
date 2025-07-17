@@ -2,17 +2,11 @@
 
 #include <wx/window.h>
 #include <wx/event.h>
+#include <wx/timer.h>
 #include "irenderviewport.h"
 #include <vulkan/vulkan.h>
+#include "camera.h"
 
-struct SimpleCamera {
-    float x = 0.0f;
-    float y = 2.0f;
-    float z = 5.0f;
-    float yaw = 0.0f;   // radians
-    float pitch = 0.0f; // radians
-    float fov = 1.0f;   // vertical FOV in radians
-};
 
 // Window-based Vulkan render surface using Vulkan API
 class VulkanViewport : public IRenderViewport
@@ -26,7 +20,6 @@ public:
 
     // Renders the current frame to the swapchain
     void DrawFrame();
-    void DrawOverlay(wxDC& dc);
     void OnKeyDown(wxKeyEvent& event);
     void OnMouseDown(wxMouseEvent& event);
     void OnMouseUp(wxMouseEvent& event);
@@ -102,6 +95,11 @@ private:
 
     bool mouseDragging = false;
     wxPoint lastMousePos;
+
+    wxTimer renderTimer;
+
+    void OnRenderTimer(wxTimerEvent&);
+    void OnEraseBackground(wxEraseEvent& event);
 
     wxDECLARE_EVENT_TABLE();
 };

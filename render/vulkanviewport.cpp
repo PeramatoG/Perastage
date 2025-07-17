@@ -7,6 +7,7 @@
 #include <cmath>
 #include <wx/dcclient.h>
 #include <wx/dcgraph.h>
+#include "gridoverlay.h"
 
 #ifdef _WIN32
 #include <windows.h>
@@ -27,6 +28,8 @@ wxBEGIN_EVENT_TABLE(VulkanViewport, IRenderViewport)
     EVT_LEFT_UP(VulkanViewport::OnMouseUp)
     EVT_MOTION(VulkanViewport::OnMouseMove)
     EVT_MOUSEWHEEL(VulkanViewport::OnMouseWheel)
+    EVT_ERASE_BACKGROUND(VulkanViewport::OnEraseBackground)
+    EVT_TIMER(wxID_ANY, VulkanViewport::OnRenderTimer)
 wxEND_EVENT_TABLE()
 
 VulkanViewport::VulkanViewport(wxWindow* parent)
@@ -35,6 +38,9 @@ VulkanViewport::VulkanViewport(wxWindow* parent)
     // Vulkan initialization is deferred until InitRenderer() is called
     SetBackgroundStyle(wxBG_STYLE_PAINT);
     SetFocus();
+
+    renderTimer.SetOwner(this);
+    renderTimer.Start(16);
 }
 
 void VulkanViewport::OnPaint(wxPaintEvent& event)
@@ -60,7 +66,7 @@ void VulkanViewport::OnPaint(wxPaintEvent& event)
         DrawFrame();
     }
 
-    DrawOverlay(gdc);
+    DrawGridAndAxes(gdc, camera, GetClientSize());
 
     event.Skip(false);
 }
@@ -80,8 +86,8 @@ void VulkanViewport::OnKeyDown(wxKeyEvent& event)
     const float step = 0.2f;
     float cosYaw = std::cos(camera.yaw);
     float sinYaw = std::sin(camera.yaw);
-    Vec3 forward{ sinYaw, 0.0f, cosYaw };
-    Vec3 right{ cosYaw, 0.0f, -sinYaw };
+    Vec3 forward{ sinYaw, cosYaw, 0.0f };
+    Vec3 right{ cosYaw, -sinYaw, 0.0f };
 
     switch (event.GetKeyCode())
     {
@@ -144,10 +150,10 @@ void VulkanViewport::OnMouseMove(wxMouseEvent& event)
         const float panScale = 0.01f;
         float cosYaw = std::cos(camera.yaw);
         float sinYaw = std::sin(camera.yaw);
-        Vec3 right{ cosYaw, 0.0f, -sinYaw };
+        Vec3 right{ cosYaw, -sinYaw, 0.0f };
         camera.x -= delta.x * panScale * right.x;
-        camera.y += delta.y * panScale;
-        camera.z -= delta.x * panScale * right.z;
+        camera.y -= delta.x * panScale * right.y;
+        camera.z += delta.y * panScale;
     }
     else
     {
@@ -172,71 +178,23 @@ void VulkanViewport::OnMouseWheel(wxMouseEvent& event)
     const float stepSize = 0.5f;
     float cosYaw = std::cos(camera.yaw);
     float sinYaw = std::sin(camera.yaw);
-    Vec3 forward{ sinYaw, 0.0f, cosYaw };
+    Vec3 forward{ sinYaw, cosYaw, 0.0f };
     camera.x += forward.x * stepSize * steps;
     camera.y += forward.y * stepSize * steps;
-    camera.z += forward.z * stepSize * steps;
 
     Refresh();
 }
 
-static wxPoint ProjectPoint(const SimpleCamera& cam, const wxSize& size, const Vec3& p)
+void VulkanViewport::OnRenderTimer(wxTimerEvent&)
 {
-    Vec3 d{ p.x - cam.x, p.y - cam.y, p.z - cam.z };
-    float cosYaw = std::cos(cam.yaw);
-    float sinYaw = std::sin(cam.yaw);
-    float cosPitch = std::cos(cam.pitch);
-    float sinPitch = std::sin(cam.pitch);
-
-    float x = d.x * cosYaw - d.z * sinYaw;
-    float z = d.x * sinYaw + d.z * cosYaw;
-    float y = d.y;
-    float y2 = y * cosPitch - z * sinPitch;
-    z = y * sinPitch + z * cosPitch;
-
-    if (z <= 0.001f)
-        return wxPoint(1000000, 1000000);
-
-    float f = size.GetWidth() / (2.0f * std::tan(cam.fov * 0.5f));
-    int sx = static_cast<int>(size.GetWidth() / 2.0f + x * f / z);
-    int sy = static_cast<int>(size.GetHeight() / 2.0f - y2 * f / z);
-    return wxPoint(sx, sy);
+    Refresh(false);
 }
 
-void VulkanViewport::DrawOverlay(wxDC& dc)
+void VulkanViewport::OnEraseBackground(wxEraseEvent&)
 {
-    wxSize size = GetClientSize();
-    dc.SetPen(wxPen(wxColour(180, 180, 180)));
-
-    const int grid = 20;
-    for (int i = -grid; i <= grid; ++i)
-    {
-        Vec3 a{ static_cast<float>(i), 0.0f, -static_cast<float>(grid) };
-        Vec3 b{ static_cast<float>(i), 0.0f, static_cast<float>(grid) };
-        wxPoint p1 = ProjectPoint(camera, size, a);
-        wxPoint p2 = ProjectPoint(camera, size, b);
-        if (p1.x < 1000000 && p2.x < 1000000)
-            dc.DrawLine(p1, p2);
-
-        a = { -static_cast<float>(grid), 0.0f, static_cast<float>(i) };
-        b = { static_cast<float>(grid), 0.0f, static_cast<float>(i) };
-        p1 = ProjectPoint(camera, size, a);
-        p2 = ProjectPoint(camera, size, b);
-        if (p1.x < 1000000 && p2.x < 1000000)
-            dc.DrawLine(p1, p2);
-    }
-
-    wxPoint origin = ProjectPoint(camera, size, {0,0,0});
-    dc.SetPen(wxPen(wxColour(255,0,0), 2));
-    wxPoint xAxis = ProjectPoint(camera, size, {1,0,0});
-    if (origin.x < 1000000 && xAxis.x < 1000000) dc.DrawLine(origin, xAxis);
-    dc.SetPen(wxPen(wxColour(0,255,0), 2));
-    wxPoint yAxis = ProjectPoint(camera, size, {0,1,0});
-    if (origin.x < 1000000 && yAxis.x < 1000000) dc.DrawLine(origin, yAxis);
-    dc.SetPen(wxPen(wxColour(0,0,255), 2));
-    wxPoint zAxis = ProjectPoint(camera, size, {0,0,1});
-    if (origin.x < 1000000 && zAxis.x < 1000000) dc.DrawLine(origin, zAxis);
+    // Prevent background clearing to avoid flicker
 }
+
 
 
 VulkanViewport::~VulkanViewport()
