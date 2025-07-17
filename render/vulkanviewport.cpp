@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <cmath>
 #include <wx/dcclient.h>
+#include <wx/dcgraph.h>
 
 #ifdef _WIN32
 #include <windows.h>
