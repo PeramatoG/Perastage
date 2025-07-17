@@ -1,5 +1,6 @@
 // gui/viewportpanel.cpp
 #include "viewportpanel.h"
+#include "glviewport.h"
 #include "vulkanviewport.h"
 #include <wx/sizer.h>
 #include <wx/msgdlg.h>
@@ -11,12 +12,11 @@ ViewportPanel::ViewportPanel(wxWindow* parent)
     wxBoxSizer* sizer = new wxBoxSizer(wxVERTICAL);
 
     try {
-        canvas = new VulkanViewport(this);
-        // Renderer will be initialized lazily on the first paint event
-        sizer->Add(canvas, 1, wxEXPAND | wxALL, 0);
+        canvas = new GLViewport(this);
+        sizer->Add(canvas->GetWindow(), 1, wxEXPAND | wxALL, 0);
     }
     catch (const std::exception& e) {
-        wxMessageBox(e.what(), "Vulkan Error", wxICON_ERROR);
+        wxMessageBox(e.what(), "OpenGL Error", wxICON_ERROR);
     }
 
     SetSizer(sizer);

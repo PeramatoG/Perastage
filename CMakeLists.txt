@@ -10,6 +10,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 find_package(wxWidgets CONFIG REQUIRED COMPONENTS core base aui)
 find_package(tinyxml2 CONFIG REQUIRED)
 find_package(Vulkan REQUIRED)
+find_package(OpenGL REQUIRED)
 
 # Gather source files
 file(GLOB_RECURSE SRC_FILES
@@ -51,4 +52,5 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     wx::aui
     tinyxml2::tinyxml2
     Vulkan::Vulkan
+    OpenGL::GL
 )

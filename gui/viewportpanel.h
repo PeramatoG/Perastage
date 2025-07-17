@@ -3,7 +3,7 @@
 
 #include <wx/panel.h>
 
-class VulkanViewport;
+class IRenderViewport;
 
 class ViewportPanel : public wxPanel
 {
@@ -11,5 +11,5 @@ public:
     explicit ViewportPanel(wxWindow* parent);
 
 private:
-    VulkanViewport* canvas = nullptr;
+    IRenderViewport* canvas = nullptr;
 };
