@@ -4,6 +4,7 @@
 #include <iostream>
 #include <set>
 #include <algorithm>
+#include <cmath>
 #include <wx/dcclient.h>
 
 #ifdef _WIN32
@@ -11,15 +12,27 @@
 #include <vulkan/vulkan_win32.h>
 #endif
 
+struct Vec3 {
+    float x;
+    float y;
+    float z;
+};
+
 wxBEGIN_EVENT_TABLE(VulkanViewport, IRenderViewport)
     EVT_PAINT(VulkanViewport::OnPaint)
     EVT_SIZE(VulkanViewport::OnResize)
+    EVT_KEY_DOWN(VulkanViewport::OnKeyDown)
+    EVT_LEFT_DOWN(VulkanViewport::OnMouseDown)
+    EVT_LEFT_UP(VulkanViewport::OnMouseUp)
+    EVT_MOTION(VulkanViewport::OnMouseMove)
 wxEND_EVENT_TABLE()
 
 VulkanViewport::VulkanViewport(wxWindow* parent)
     : IRenderViewport(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxBORDER_NONE)
 {
     // Vulkan initialization is deferred until InitRenderer() is called
+    SetBackgroundStyle(wxBG_STYLE_PAINT);
+    SetFocus();
 }
 
 void VulkanViewport::OnPaint(wxPaintEvent& event)
@@ -44,6 +57,8 @@ void VulkanViewport::OnPaint(wxPaintEvent& event)
         DrawFrame();
     }
 
+    DrawOverlay(dc);
+
     event.Skip(false);
 }
 
@@ -55,6 +70,134 @@ void VulkanViewport::OnResize(wxSizeEvent& event)
     }
 
     event.Skip();
+}
+
+void VulkanViewport::OnKeyDown(wxKeyEvent& event)
+{
+    const float step = 0.2f;
+    float cosYaw = std::cos(camera.yaw);
+    float sinYaw = std::sin(camera.yaw);
+    Vec3 forward{ sinYaw, 0.0f, cosYaw };
+    Vec3 right{ cosYaw, 0.0f, -sinYaw };
+
+    switch (event.GetKeyCode())
+    {
+    case 'W': case WXK_UP:
+        camera.x += forward.x * step;
+        camera.y += forward.y * step;
+        camera.z += forward.z * step;
+        break;
+    case 'S': case WXK_DOWN:
+        camera.x -= forward.x * step;
+        camera.y -= forward.y * step;
+        camera.z -= forward.z * step;
+        break;
+    case 'A': case WXK_LEFT:
+        camera.x -= right.x * step;
+        camera.y -= right.y * step;
+        camera.z -= right.z * step;
+        break;
+    case 'D': case WXK_RIGHT:
+        camera.x += right.x * step;
+        camera.y += right.y * step;
+        camera.z += right.z * step;
+        break;
+    default:
+        event.Skip();
+        return;
+    }
+    Refresh();
+}
+
+void VulkanViewport::OnMouseDown(wxMouseEvent& event)
+{
+    mouseDragging = true;
+    lastMousePos = event.GetPosition();
+    CaptureMouse();
+}
+
+void VulkanViewport::OnMouseUp(wxMouseEvent& event)
+{
+    if (mouseDragging && HasCapture())
+        ReleaseMouse();
+    mouseDragging = false;
+}
+
+void VulkanViewport::OnMouseMove(wxMouseEvent& event)
+{
+    if (!mouseDragging)
+    {
+        event.Skip();
+        return;
+    }
+
+    wxPoint pos = event.GetPosition();
+    wxPoint delta = pos - lastMousePos;
+    lastMousePos = pos;
+
+    const float sensitivity = 0.005f;
+    camera.yaw += delta.x * sensitivity;
+    camera.pitch += -delta.y * sensitivity;
+    camera.pitch = std::clamp(camera.pitch, -1.5f, 1.5f);
+    Refresh();
+}
+
+static wxPoint ProjectPoint(const VulkanViewport::SimpleCamera& cam, const wxSize& size, const Vec3& p)
+{
+    Vec3 d{ p.x - cam.x, p.y - cam.y, p.z - cam.z };
+    float cosYaw = std::cos(cam.yaw);
+    float sinYaw = std::sin(cam.yaw);
+    float cosPitch = std::cos(cam.pitch);
+    float sinPitch = std::sin(cam.pitch);
+
+    float x = d.x * cosYaw - d.z * sinYaw;
+    float z = d.x * sinYaw + d.z * cosYaw;
+    float y = d.y;
+    float y2 = y * cosPitch - z * sinPitch;
+    z = y * sinPitch + z * cosPitch;
+
+    if (z <= 0.1f)
+        return wxPoint(1000000, 1000000);
+
+    float f = size.GetWidth() / (2.0f * std::tan(cam.fov * 0.5f));
+    int sx = static_cast<int>(size.GetWidth() / 2.0f + x * f / z);
+    int sy = static_cast<int>(size.GetHeight() / 2.0f - y2 * f / z);
+    return wxPoint(sx, sy);
+}
+
+void VulkanViewport::DrawOverlay(wxDC& dc)
+{
+    wxSize size = GetClientSize();
+    dc.SetPen(wxPen(wxColour(80, 80, 80)));
+
+    const int grid = 10;
+    for (int i = -grid; i <= grid; ++i)
+    {
+        Vec3 a{ static_cast<float>(i), 0.0f, -static_cast<float>(grid) };
+        Vec3 b{ static_cast<float>(i), 0.0f, static_cast<float>(grid) };
+        wxPoint p1 = ProjectPoint(camera, size, a);
+        wxPoint p2 = ProjectPoint(camera, size, b);
+        if (p1.x < 1000000 && p2.x < 1000000)
+            dc.DrawLine(p1, p2);
+
+        a = { -static_cast<float>(grid), 0.0f, static_cast<float>(i) };
+        b = { static_cast<float>(grid), 0.0f, static_cast<float>(i) };
+        p1 = ProjectPoint(camera, size, a);
+        p2 = ProjectPoint(camera, size, b);
+        if (p1.x < 1000000 && p2.x < 1000000)
+            dc.DrawLine(p1, p2);
+    }
+
+    wxPoint origin = ProjectPoint(camera, size, {0,0,0});
+    dc.SetPen(wxPen(wxColour(255,0,0), 2));
+    wxPoint xAxis = ProjectPoint(camera, size, {1,0,0});
+    if (origin.x < 1000000 && xAxis.x < 1000000) dc.DrawLine(origin, xAxis);
+    dc.SetPen(wxPen(wxColour(0,255,0), 2));
+    wxPoint yAxis = ProjectPoint(camera, size, {0,1,0});
+    if (origin.x < 1000000 && yAxis.x < 1000000) dc.DrawLine(origin, yAxis);
+    dc.SetPen(wxPen(wxColour(0,0,255), 2));
+    wxPoint zAxis = ProjectPoint(camera, size, {0,0,1});
+    if (origin.x < 1000000 && zAxis.x < 1000000) dc.DrawLine(origin, zAxis);
 }
 
 
@@ -467,28 +610,6 @@ void VulkanViewport::RecordCommandBuffers()
 
         vkCmdBeginRenderPass(commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-        // Simple vertical gradient using clear attachments
-        const uint32_t steps = 16;
-        for (uint32_t s = 0; s < steps; ++s)
-        {
-            float t = static_cast<float>(s) / static_cast<float>(steps - 1);
-            VkClearAttachment attachment{};
-            attachment.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-            attachment.colorAttachment = 0;
-            attachment.clearValue.color.float32[0] = 0.1f * (1.0f - t) + 0.8f * t;
-            attachment.clearValue.color.float32[1] = 0.2f * (1.0f - t) + 0.4f * t;
-            attachment.clearValue.color.float32[2] = 0.3f * (1.0f - t) + 0.9f * t;
-            attachment.clearValue.color.float32[3] = 1.0f;
-
-            VkClearRect rect{};
-            rect.baseArrayLayer = 0;
-            rect.layerCount = 1;
-            rect.rect.offset = {0, static_cast<int32_t>(swapchainExtent.height * s / steps)};
-            rect.rect.extent = {swapchainExtent.width, static_cast<uint32_t>(swapchainExtent.height / steps)};
-
-            vkCmdClearAttachments(commandBuffers[i], 1, &attachment, 1, &rect);
-        }
-
         vkCmdEndRenderPass(commandBuffers[i]);
 
         if (vkEndCommandBuffer(commandBuffers[i]) != VK_SUCCESS)
@@ -506,13 +627,6 @@ void VulkanViewport::DrawFrame()
 
     if (result != VK_SUCCESS)
         throw std::runtime_error("Failed to acquire swapchain image.");
-
-    // Debug info to verify consistency
-    std::cerr << "imageIndex = " << imageIndex << "\n";
-    std::cerr << "swapchainImages.size = " << swapchainImages.size() << "\n";
-    std::cerr << "commandBuffers.size = " << commandBuffers.size() << "\n";
-    std::cerr << "framebuffers.size = " << swapchainFramebuffers.size() << "\n";
-    std::cerr << "imageViews.size = " << swapchainImageViews.size() << "\n";
 
     // Ensure imageIndex is safe to access
     if (imageIndex >= commandBuffers.size())
