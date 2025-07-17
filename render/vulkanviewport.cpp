@@ -27,6 +27,7 @@ wxBEGIN_EVENT_TABLE(VulkanViewport, IRenderViewport)
     EVT_LEFT_UP(VulkanViewport::OnMouseUp)
     EVT_MOTION(VulkanViewport::OnMouseMove)
     EVT_MOUSEWHEEL(VulkanViewport::OnMouseWheel)
+    EVT_TIMER(wxID_ANY, VulkanViewport::OnRenderTimer)
 wxEND_EVENT_TABLE()
 
 VulkanViewport::VulkanViewport(wxWindow* parent)
@@ -35,6 +36,9 @@ VulkanViewport::VulkanViewport(wxWindow* parent)
     // Vulkan initialization is deferred until InitRenderer() is called
     SetBackgroundStyle(wxBG_STYLE_PAINT);
     SetFocus();
+
+    renderTimer.SetOwner(this);
+    renderTimer.Start(16);
 }
 
 void VulkanViewport::OnPaint(wxPaintEvent& event)
@@ -178,6 +182,11 @@ void VulkanViewport::OnMouseWheel(wxMouseEvent& event)
     camera.z += forward.z * stepSize * steps;
 
     Refresh();
+}
+
+void VulkanViewport::OnRenderTimer(wxTimerEvent&)
+{
+    Refresh(false);
 }
 
 static wxPoint ProjectPoint(const SimpleCamera& cam, const wxSize& size, const Vec3& p)

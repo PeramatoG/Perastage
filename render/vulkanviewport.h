@@ -2,6 +2,7 @@
 
 #include <wx/window.h>
 #include <wx/event.h>
+#include <wx/timer.h>
 #include "irenderviewport.h"
 #include <vulkan/vulkan.h>
 
@@ -102,6 +103,10 @@ private:
 
     bool mouseDragging = false;
     wxPoint lastMousePos;
+
+    wxTimer renderTimer;
+
+    void OnRenderTimer(wxTimerEvent&);
 
     wxDECLARE_EVENT_TABLE();
 };
