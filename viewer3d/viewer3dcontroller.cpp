@@ -123,7 +123,6 @@ void Viewer3DController::RenderScene()
 
     // Trusses
     const auto& trusses = SceneDataManager::Instance().GetTrusses();
-    const std::string& base = ConfigManager::Get().GetScene().basePath;
     for (const auto& [uuid, t] : trusses) {
         glPushMatrix();
 
