@@ -8,6 +8,8 @@
 #pragma once
 
 #include "scenedatamanager.h"
+#include "mesh.h"
+#include <unordered_map>
 
 
 class Viewer3DController
@@ -41,4 +43,10 @@ private:
     // Initializes simple lighting for the scene
     void SetupBasicLighting();
     void SetupMaterialFromRGB(float r, float g, float b);
+
+    // Draws a mesh loaded from a 3DS file
+    void DrawMesh(const Mesh& mesh);
+
+    // Cache of already loaded meshes indexed by absolute file path
+    std::unordered_map<std::string, Mesh> m_loadedMeshes;
 };
