@@ -10,6 +10,7 @@
 #include <fstream> // Required for std::ofstream
 #include <cstdlib>
 #include <functional>
+#include "consolepanel.h"
 
 // TinyXML2
 #include <tinyxml2.h>
@@ -28,6 +29,9 @@ bool MvrImporter::ImportFromFile(const std::string& filePath)
         std::cerr << "Invalid MVR file: " << filePath << "\n";
         return false;
     }
+
+    if (ConsolePanel::Instance())
+        ConsolePanel::Instance()->AppendMessage("Importing MVR " + wxString::FromUTF8(filePath));
 
     std::string tempDir = CreateTemporaryDirectory();
     if (!ExtractMvrZip(filePath, tempDir)) {
@@ -108,6 +112,9 @@ bool MvrImporter::ParseSceneXml(const std::string& sceneXmlPath)
         std::cerr << "Failed to load XML: " << sceneXmlPath << "\n";
         return false;
     }
+
+    if (ConsolePanel::Instance())
+        ConsolePanel::Instance()->AppendMessage("Parsing scene XML " + wxString::FromUTF8(sceneXmlPath));
 
     tinyxml2::XMLElement* root = doc.FirstChildElement("GeneralSceneDescription");
     if (!root) {
@@ -344,6 +351,13 @@ bool MvrImporter::ParseSceneXml(const std::string& sceneXmlPath)
         if (uuidAttr) l.uuid = uuidAttr;
         l.name = layerStr;
         scene.layers[l.uuid] = l;
+    }
+
+    if (ConsolePanel::Instance()) {
+        wxString msg = wxString::Format(
+            "Parsed scene: %zu fixtures, %zu trusses, %zu objects",
+            scene.fixtures.size(), scene.trusses.size(), scene.sceneObjects.size());
+        ConsolePanel::Instance()->AppendMessage(msg);
     }
 
     return true;

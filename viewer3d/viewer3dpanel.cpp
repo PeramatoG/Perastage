@@ -49,6 +49,8 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
 {
     wxPaintDC dc(this);
     InitGL();
+    if (ConsolePanel::Instance())
+        ConsolePanel::Instance()->AppendMessage("Viewer paint event");
     Render();
 }
 
