@@ -102,7 +102,12 @@ void Viewer3DController::Update() {
         if (f.gdtfSpec.empty())
             continue;
         std::string gdtfPath = ResolveGdtfPath(base, f.gdtfSpec);
-        if (!gdtfPath.empty() && m_loadedGdtf.find(gdtfPath) == m_loadedGdtf.end()) {
+        if (gdtfPath.empty()) {
+            if (ConsolePanel::Instance())
+                ConsolePanel::Instance()->AppendMessage("GDTF file not found: " + wxString::FromUTF8(f.gdtfSpec));
+            continue;
+        }
+        if (m_loadedGdtf.find(gdtfPath) == m_loadedGdtf.end()) {
             std::vector<GdtfObject> objs;
             if (LoadGdtf(gdtfPath, objs)) {
                 m_loadedGdtf[gdtfPath] = std::move(objs);
