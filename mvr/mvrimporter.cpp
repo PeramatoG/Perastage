@@ -117,6 +117,7 @@ bool MvrImporter::ParseSceneXml(const std::string& sceneXmlPath)
 
     ConfigManager::Get().Reset();
     auto& scene = ConfigManager::Get().GetScene();
+    scene.basePath = fs::path(sceneXmlPath).parent_path().string();
 
     root->QueryIntAttribute("verMajor", &scene.versionMajor);
     root->QueryIntAttribute("verMinor", &scene.versionMinor);

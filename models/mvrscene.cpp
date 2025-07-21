@@ -9,6 +9,7 @@ void MvrScene::Clear() {
     symdefFiles.clear();
     provider.clear();
     providerVersion.clear();
+    basePath.clear();
     versionMajor = 1;
     versionMinor = 6;
 }

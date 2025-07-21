@@ -12,6 +12,10 @@ class MvrScene {
 public:
     void Clear();
 
+    // Base directory where the MVR archive was extracted. All relative
+    // resource paths (e.g. 3D models) are resolved against this path.
+    std::string basePath;
+
     std::unordered_map<std::string, Fixture> fixtures;
     std::unordered_map<std::string, Truss> trusses;
     std::unordered_map<std::string, SceneObject> sceneObjects;

@@ -7,7 +7,12 @@
 
 #include "viewer3dcontroller.h"
 #include "scenedatamanager.h"
+#include "configmanager.h"
+#include "loader3ds.h"
 #include "types.h"
+#include <filesystem>
+
+namespace fs = std::filesystem;
 
 
 #define WIN32_LEAN_AND_MEAN
@@ -30,7 +35,25 @@ Viewer3DController::Viewer3DController() {}
 
 Viewer3DController::~Viewer3DController() {}
 
-void Viewer3DController::Update() {}
+// Loads 3DS models referenced by trusses. Called when the scene is updated.
+void Viewer3DController::Update() {
+    const auto& trusses = SceneDataManager::Instance().GetTrusses();
+    const std::string& base = ConfigManager::Get().GetScene().basePath;
+
+    for (const auto& [uuid, t] : trusses) {
+        if (t.symbolFile.empty())
+            continue;
+
+        std::string path = base.empty() ? t.symbolFile
+                                         : (fs::path(base) / t.symbolFile).string();
+        if (m_loadedMeshes.find(path) == m_loadedMeshes.end()) {
+            Mesh mesh;
+            if (Load3DS(path, mesh)) {
+                m_loadedMeshes[path] = std::move(mesh);
+            }
+        }
+    }
+}
 
 // Renders all scene objects using their transformMatrix
 void Viewer3DController::RenderScene()
@@ -57,6 +80,7 @@ void Viewer3DController::RenderScene()
 
     // Trusses
     const auto& trusses = SceneDataManager::Instance().GetTrusses();
+    const std::string& base = ConfigManager::Get().GetScene().basePath;
     for (const auto& [uuid, t] : trusses) {
         glPushMatrix();
 
@@ -67,7 +91,19 @@ void Viewer3DController::RenderScene()
         matrix[14] *= RENDER_SCALE;
 
         glMultMatrixf(matrix);
-        DrawCube(0.3f, 0.5f, 0.5f);
+
+        if (!t.symbolFile.empty()) {
+            std::string path = base.empty() ? t.symbolFile
+                                             : (fs::path(base) / t.symbolFile).string();
+            auto it = m_loadedMeshes.find(path);
+            if (it != m_loadedMeshes.end()) {
+                DrawMesh(it->second);
+            } else {
+                DrawCube(0.3f, 0.5f, 0.5f);
+            }
+        } else {
+            DrawCube(0.3f, 0.5f, 0.5f);
+        }
 
         glPopMatrix();
     }
@@ -138,6 +174,22 @@ void Viewer3DController::DrawWireframeCube(float size)
     glVertex3f(x1, y0, z0); glVertex3f(x1, y0, z1);
     glVertex3f(x0, y1, z0); glVertex3f(x0, y1, z1);
     glVertex3f(x1, y1, z0); glVertex3f(x1, y1, z1);
+    glEnd();
+}
+
+// Draws a mesh using GL triangles. Vertices are assumed to be in millimeters.
+void Viewer3DController::DrawMesh(const Mesh& mesh)
+{
+    glBegin(GL_TRIANGLES);
+    for (size_t i = 0; i + 2 < mesh.indices.size(); i += 3) {
+        for (int v = 0; v < 3; ++v) {
+            unsigned short idx = mesh.indices[i + v];
+            float x = mesh.vertices[idx * 3] * RENDER_SCALE;
+            float y = mesh.vertices[idx * 3 + 1] * RENDER_SCALE;
+            float z = mesh.vertices[idx * 3 + 2] * RENDER_SCALE;
+            glVertex3f(x, y, z);
+        }
+    }
     glEnd();
 }
 
