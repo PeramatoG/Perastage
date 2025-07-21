@@ -35,11 +35,11 @@ Viewer3DController::Viewer3DController() {}
 
 Viewer3DController::~Viewer3DController() {}
 
-// Loads 3DS models referenced by trusses. Called when the scene is updated.
+// Loads meshes or GDTF models referenced by scene objects. Called when the scene is updated.
 void Viewer3DController::Update() {
-    const auto& trusses = SceneDataManager::Instance().GetTrusses();
     const std::string& base = ConfigManager::Get().GetScene().basePath;
 
+    const auto& trusses = SceneDataManager::Instance().GetTrusses();
     for (const auto& [uuid, t] : trusses) {
         if (t.symbolFile.empty())
             continue;
@@ -53,6 +53,34 @@ void Viewer3DController::Update() {
             }
         }
     }
+
+    const auto& objects = SceneDataManager::Instance().GetSceneObjects();
+    for (const auto& [uuid, obj] : objects) {
+        if (obj.modelFile.empty())
+            continue;
+        std::string path = base.empty() ? obj.modelFile
+                                         : (fs::path(base) / obj.modelFile).string();
+        if (m_loadedMeshes.find(path) == m_loadedMeshes.end()) {
+            Mesh mesh;
+            if (Load3DS(path, mesh)) {
+                m_loadedMeshes[path] = std::move(mesh);
+            }
+        }
+    }
+
+    const auto& fixtures = SceneDataManager::Instance().GetFixtures();
+    for (const auto& [uuid, f] : fixtures) {
+        if (f.gdtfSpec.empty())
+            continue;
+        std::string gdtfPath = base.empty() ? f.gdtfSpec
+                                             : (fs::path(base) / f.gdtfSpec).string();
+        if (m_loadedGdtf.find(gdtfPath) == m_loadedGdtf.end()) {
+            std::vector<GdtfObject> objs;
+            if (LoadGdtf(gdtfPath, objs)) {
+                m_loadedGdtf[gdtfPath] = std::move(objs);
+            }
+        }
+    }
 }
 
 // Renders all scene objects using their transformMatrix
@@ -63,17 +91,32 @@ void Viewer3DController::RenderScene()
 
     // Fixtures
     const auto& fixtures = SceneDataManager::Instance().GetFixtures();
+    const std::string& base = ConfigManager::Get().GetScene().basePath;
     for (const auto& [uuid, f] : fixtures) {
         glPushMatrix();
 
         float matrix[16];
         MatrixToArray(f.transform, matrix);
-        matrix[12] *= RENDER_SCALE;
-        matrix[13] *= RENDER_SCALE;
-        matrix[14] *= RENDER_SCALE;
+        ApplyScaledTransform(matrix);
+
+        auto itg = m_loadedGdtf.find(base.empty() ? f.gdtfSpec
+                                                  : (fs::path(base) / f.gdtfSpec).string());
 
         glMultMatrixf(matrix);
-        DrawCube(0.2f, 0.8f, 0.8f);
+
+        if (itg != m_loadedGdtf.end()) {
+            for (const auto& obj : itg->second) {
+                glPushMatrix();
+                float m2[16];
+                MatrixToArray(obj.transform, m2);
+                ApplyScaledTransform(m2);
+                glMultMatrixf(m2);
+                DrawMesh(obj.mesh);
+                glPopMatrix();
+            }
+        } else {
+            DrawCube(0.2f, 0.8f, 0.8f);
+        }
 
         glPopMatrix();
     }
@@ -114,12 +157,21 @@ void Viewer3DController::RenderScene()
 
         float matrix[16];
         MatrixToArray(m.transform, matrix);
-        matrix[12] *= RENDER_SCALE;
-        matrix[13] *= RENDER_SCALE;
-        matrix[14] *= RENDER_SCALE;
+        ApplyScaledTransform(matrix);
 
         glMultMatrixf(matrix);
-        DrawWireframeCube(0.3f);
+
+        if (!m.modelFile.empty()) {
+            std::string path = base.empty() ? m.modelFile
+                                            : (fs::path(base) / m.modelFile).string();
+            auto it = m_loadedMeshes.find(path);
+            if (it != m_loadedMeshes.end())
+                DrawMesh(it->second);
+            else
+                DrawWireframeCube(0.3f);
+        } else {
+            DrawWireframeCube(0.3f);
+        }
 
         glPopMatrix();
     }

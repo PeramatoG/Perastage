@@ -70,4 +70,21 @@ namespace MatrixUtils {
         return { yaw * toDeg, pitch * toDeg, roll * toDeg };
     }
 
+    inline Matrix Identity()
+    {
+        return Matrix{};
+    }
+
+    inline Matrix Multiply(const Matrix& a, const Matrix& b)
+    {
+        Matrix r;
+        for (int i = 0; i < 3; ++i) {
+            r.u[i] = a.u[i] * b.u[0] + a.v[i] * b.u[1] + a.w[i] * b.u[2];
+            r.v[i] = a.u[i] * b.v[0] + a.v[i] * b.v[1] + a.w[i] * b.v[2];
+            r.w[i] = a.u[i] * b.w[0] + a.v[i] * b.w[1] + a.w[i] * b.w[2];
+            r.o[i] = a.u[i] * b.o[0] + a.v[i] * b.o[1] + a.w[i] * b.o[2] + a.o[i];
+        }
+        return r;
+    }
+
 } // namespace MatrixUtils

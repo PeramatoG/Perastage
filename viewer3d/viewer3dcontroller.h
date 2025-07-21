@@ -9,6 +9,7 @@
 
 #include "scenedatamanager.h"
 #include "mesh.h"
+#include "gdtfloader.h"
 #include <unordered_map>
 
 
@@ -49,4 +50,7 @@ private:
 
     // Cache of already loaded meshes indexed by absolute file path
     std::unordered_map<std::string, Mesh> m_loadedMeshes;
+
+    // Cache of loaded GDTF models indexed by absolute file path
+    std::unordered_map<std::string, std::vector<GdtfObject>> m_loadedGdtf;
 };
