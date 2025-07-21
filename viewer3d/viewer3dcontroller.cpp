@@ -102,15 +102,12 @@ void Viewer3DController::RenderScene()
         auto itg = m_loadedGdtf.find(base.empty() ? f.gdtfSpec
                                                   : (fs::path(base) / f.gdtfSpec).string());
 
-        glMultMatrixf(matrix);
-
         if (itg != m_loadedGdtf.end()) {
             for (const auto& obj : itg->second) {
                 glPushMatrix();
                 float m2[16];
                 MatrixToArray(obj.transform, m2);
                 ApplyScaledTransform(m2);
-                glMultMatrixf(m2);
                 DrawMesh(obj.mesh);
                 glPopMatrix();
             }
@@ -157,8 +154,6 @@ void Viewer3DController::RenderScene()
         float matrix[16];
         MatrixToArray(m.transform, matrix);
         ApplyScaledTransform(matrix);
-
-        glMultMatrixf(matrix);
 
         if (!m.modelFile.empty()) {
             std::string path = base.empty() ? m.modelFile
