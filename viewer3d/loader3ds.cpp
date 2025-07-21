@@ -14,7 +14,10 @@ static bool readChunk(std::ifstream& file, Chunk& c)
     return true;
 }
 
-static void parseMesh(std::ifstream& file, long endPos, Mesh& mesh)
+// Parses a single TRIANGULAR MESH (0x4100) chunk.
+// vertexBase is the current number of vertices already stored in the mesh
+// so we can offset face indices when concatenating multiple objects.
+static void parseMesh(std::ifstream& file, long endPos, Mesh& mesh, size_t vertexBase)
 {
     while(file.tellg() < endPos) {
         Chunk ch; if(!readChunk(file, ch)) return;
@@ -22,23 +25,33 @@ static void parseMesh(std::ifstream& file, long endPos, Mesh& mesh)
         long next = dataStart + ch.length - 6;
         switch(ch.id) {
             case 0x4110: {
-                uint16_t count; file.read(reinterpret_cast<char*>(&count),2);
-                mesh.vertices.resize(count*3);
-                file.read(reinterpret_cast<char*>(mesh.vertices.data()), count*3*sizeof(float));
+                uint16_t count;
+                file.read(reinterpret_cast<char*>(&count), 2);
+
+                size_t start = mesh.vertices.size();
+                mesh.vertices.resize(start + static_cast<size_t>(count) * 3);
+                file.read(reinterpret_cast<char*>(mesh.vertices.data() + start),
+                          static_cast<size_t>(count) * 3 * sizeof(float));
+
                 break;
             }
             case 0x4120: {
-                uint16_t count; file.read(reinterpret_cast<char*>(&count),2);
-                mesh.indices.resize(count*3);
-                for(int i=0;i<count;i++) {
-                    uint16_t a,b,c,flag;
-                    file.read(reinterpret_cast<char*>(&a),2);
-                    file.read(reinterpret_cast<char*>(&b),2);
-                    file.read(reinterpret_cast<char*>(&c),2);
-                    file.read(reinterpret_cast<char*>(&flag),2);
-                    mesh.indices[i*3]=a;
-                    mesh.indices[i*3+1]=b;
-                    mesh.indices[i*3+2]=c;
+                uint16_t count;
+                file.read(reinterpret_cast<char*>(&count), 2);
+
+                size_t start = mesh.indices.size();
+                mesh.indices.resize(start + static_cast<size_t>(count) * 3);
+
+                for (int i = 0; i < count; i++) {
+                    uint16_t a, b, c, flag;
+                    file.read(reinterpret_cast<char*>(&a), 2);
+                    file.read(reinterpret_cast<char*>(&b), 2);
+                    file.read(reinterpret_cast<char*>(&c), 2);
+                    file.read(reinterpret_cast<char*>(&flag), 2);
+
+                    mesh.indices[start + i * 3] = static_cast<unsigned short>(a + vertexBase);
+                    mesh.indices[start + i * 3 + 1] = static_cast<unsigned short>(b + vertexBase);
+                    mesh.indices[start + i * 3 + 2] = static_cast<unsigned short>(c + vertexBase);
                 }
                 break;
             }
@@ -76,7 +89,8 @@ bool Load3DS(const std::string& path, Mesh& outMesh)
                         long md = file.tellg();
                         long me = md + mc.length - 6;
                         if(mc.id == 0x4100) {
-                            parseMesh(file, me, outMesh);
+                            size_t base = outMesh.vertices.size() / 3;
+                            parseMesh(file, me, outMesh, base);
                         } else {
                             file.seekg(me);
                         }
