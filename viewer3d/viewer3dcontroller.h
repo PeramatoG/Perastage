@@ -7,13 +7,8 @@
 
 #pragma once
 
-#include <memory>
-#include <assimp/quaternion.h>
-#include <assimp/vector3.h>
-#include <assimp/types.h>
+#include "scenedatamanager.h"
 
-
-class ThreeModelAssimp;  // Forward declaration
 
 class Viewer3DController
 {
@@ -43,18 +38,7 @@ private:
     // Draws the XYZ axis lines
     void DrawAxes();
 
-    // Converts an aiQuaternion to Euler angles (in degrees)
-    aiVector3D QuaternionToEulerDegrees(const aiQuaternion& q);
-
-    // Applies rotation correction for model rendering based on transform matrix
-    void ApplyRotationCorrectionIfNeeded(const std::shared_ptr<ThreeModelAssimp>& model, const float matrix[16]);
-
     // Initializes simple lighting for the scene
     void SetupBasicLighting();
-
-    // Enables material rendering from aiColor3D
-    void SetupMaterialFromColor(const aiColor3D& color);
-
-    // Enables material rendering from float RGB values
     void SetupMaterialFromRGB(float r, float g, float b);
 };

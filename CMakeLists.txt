@@ -9,7 +9,6 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # Find packages via vcpkg using CONFIG mode
 find_package(wxWidgets CONFIG REQUIRED COMPONENTS core base aui gl)
 find_package(tinyxml2 CONFIG REQUIRED)
-find_package(Vulkan REQUIRED)
 find_package(OpenGL REQUIRED)
 
 # Gather source files
@@ -19,7 +18,6 @@ file(GLOB_RECURSE SRC_FILES
     ${CMAKE_SOURCE_DIR}/models/*.cpp
     ${CMAKE_SOURCE_DIR}/core/*.cpp
     ${CMAKE_SOURCE_DIR}/mvr/*.cpp
-    ${CMAKE_SOURCE_DIR}/render/*.cpp
     ${CMAKE_SOURCE_DIR}/viewer3d/*.cpp
 )
 
@@ -29,7 +27,6 @@ file(GLOB_RECURSE HEADER_FILES
     ${CMAKE_SOURCE_DIR}/models/*.h
     ${CMAKE_SOURCE_DIR}/core/*.h
     ${CMAKE_SOURCE_DIR}/mvr/*.h
-    ${CMAKE_SOURCE_DIR}/render/*.h
     ${CMAKE_SOURCE_DIR}/viewer3d/*.h
 )
 
@@ -44,7 +41,6 @@ target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_SOURCE_DIR}/models
     ${CMAKE_SOURCE_DIR}/core
     ${CMAKE_SOURCE_DIR}/mvr
-    ${CMAKE_SOURCE_DIR}/render
     ${CMAKE_SOURCE_DIR}/viewer3d
 )
 
@@ -55,6 +51,6 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     wx::aui
     wx::gl
     tinyxml2::tinyxml2
-    Vulkan::Vulkan
     OpenGL::GL
+    OpenGL::GLU
 )
