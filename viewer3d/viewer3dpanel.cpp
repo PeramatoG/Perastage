@@ -11,6 +11,7 @@
 #include <GL/glu.h>
 
 #include "viewer3dpanel.h"
+#include "consolepanel.h"
 #include <wx/dcclient.h>
 #include <wx/event.h>
 
