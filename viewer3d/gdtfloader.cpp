@@ -61,6 +61,9 @@ static bool ExtractZip(const std::string& zipPath, const std::string& destDir)
     while ((entry.reset(zipStream.GetNextEntry())), entry) {
         std::string filename = entry->GetName().ToStdString();
         std::string fullPath = destDir + "/" + filename;
+        if (ConsolePanel::Instance())
+            ConsolePanel::Instance()->AppendMessage("GDTF: extracting " +
+                wxString::FromUTF8(filename));
         if (entry->IsDir()) {
             wxFileName::Mkdir(fullPath, wxS_DIR_DEFAULT, wxPATH_MKDIR_FULL);
             continue;
@@ -107,16 +110,29 @@ static void ParseGeometry(tinyxml2::XMLElement* node,
                 if (mit == meshCache.end()) {
                     Mesh mesh;
                     if (Load3DS(path, mesh)) {
+                        if (ConsolePanel::Instance()) {
+                            wxString msg = wxString::Format(
+                                "GDTF: loaded 3DS %s (v=%zu i=%zu)",
+                                wxString::FromUTF8(path),
+                                mesh.vertices.size() / 3,
+                                mesh.indices.size() / 3);
+                            ConsolePanel::Instance()->AppendMessage(msg);
+                        }
                         mit = meshCache.emplace(path, std::move(mesh)).first;
                     } else if (ConsolePanel::Instance()) {
                         ConsolePanel::Instance()->AppendMessage("GDTF: failed to load 3DS " + wxString::FromUTF8(path));
                     }
                 }
                 if (mit != meshCache.end()) {
+                    const char* geomName = node->Attribute("Name");
+                    if (ConsolePanel::Instance() && geomName)
+                        ConsolePanel::Instance()->AppendMessage("GDTF: using geometry " + wxString::FromUTF8(geomName));
                     outObjects.push_back({mit->second, transform});
                 }
             } else if (ConsolePanel::Instance()) {
-                ConsolePanel::Instance()->AppendMessage("GDTF: missing model file " + wxString::FromUTF8(it->second.file));
+                ConsolePanel::Instance()->AppendMessage(
+                    "GDTF: missing model file " + wxString::FromUTF8(it->second.file) +
+                    " in " + wxString::FromUTF8(baseDir));
             }
         }
     }
@@ -143,6 +159,8 @@ bool LoadGdtf(const std::string& gdtfPath, std::vector<GdtfObject>& outObjects)
         if (ConsolePanel::Instance())
             ConsolePanel::Instance()->AppendMessage("GDTF: failed to extract " + wxString::FromUTF8(gdtfPath));
         return false;
+    } else if (ConsolePanel::Instance()) {
+        ConsolePanel::Instance()->AppendMessage("GDTF: extracted to " + wxString::FromUTF8(tempDir));
     }
 
     std::string descPath = tempDir + "/description.xml";
@@ -167,8 +185,14 @@ bool LoadGdtf(const std::string& gdtfPath, std::vector<GdtfObject>& outObjects)
         for (tinyxml2::XMLElement* m = modelList->FirstChildElement("Model"); m; m = m->NextSiblingElement("Model")) {
             const char* name = m->Attribute("Name");
             const char* file = m->Attribute("File");
-            if (name && file)
+            if (name && file) {
                 models[name] = { file };
+                if (ConsolePanel::Instance()) {
+                    ConsolePanel::Instance()->AppendMessage(
+                        "GDTF: model " + wxString::FromUTF8(name) +
+                        " -> " + wxString::FromUTF8(file));
+                }
+            }
         }
     }
 

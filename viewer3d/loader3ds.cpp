@@ -1,6 +1,8 @@
 #include "loader3ds.h"
 #include <fstream>
 #include <cstdint>
+#include "consolepanel.h"
+#include <wx/wx.h>
 
 struct Chunk {
     uint16_t id;
@@ -104,5 +106,17 @@ bool Load3DS(const std::string& path, Mesh& outMesh)
         }
     }
 
-    return !outMesh.vertices.empty() && !outMesh.indices.empty();
+    bool ok = !outMesh.vertices.empty() && !outMesh.indices.empty();
+    if (ConsolePanel::Instance()) {
+        if (ok) {
+            wxString msg = wxString::Format("3DS: %s -> v=%zu i=%zu",
+                                           wxString::FromUTF8(path),
+                                           outMesh.vertices.size()/3,
+                                           outMesh.indices.size()/3);
+            ConsolePanel::Instance()->AppendMessage(msg);
+        } else {
+            ConsolePanel::Instance()->AppendMessage("3DS: parsed but empty " + wxString::FromUTF8(path));
+        }
+    }
+    return ok;
 }
