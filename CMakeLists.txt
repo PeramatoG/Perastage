@@ -20,6 +20,7 @@ file(GLOB_RECURSE SRC_FILES
     ${CMAKE_SOURCE_DIR}/core/*.cpp
     ${CMAKE_SOURCE_DIR}/mvr/*.cpp
     ${CMAKE_SOURCE_DIR}/render/*.cpp
+    ${CMAKE_SOURCE_DIR}/viewer3d/*.cpp
 )
 
 # Optional: gather headers for IDEs
@@ -29,6 +30,7 @@ file(GLOB_RECURSE HEADER_FILES
     ${CMAKE_SOURCE_DIR}/core/*.h
     ${CMAKE_SOURCE_DIR}/mvr/*.h
     ${CMAKE_SOURCE_DIR}/render/*.h
+    ${CMAKE_SOURCE_DIR}/viewer3d/*.h
 )
 
 add_executable(${PROJECT_NAME} ${SRC_FILES} ${HEADER_FILES})
@@ -43,6 +45,7 @@ target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_SOURCE_DIR}/core
     ${CMAKE_SOURCE_DIR}/mvr
     ${CMAKE_SOURCE_DIR}/render
+    ${CMAKE_SOURCE_DIR}/viewer3d
 )
 
 # Link required libraries
