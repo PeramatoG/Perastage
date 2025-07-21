@@ -21,6 +21,22 @@ struct ModelInfo {
     std::string file;
 };
 
+static std::string Find3dsFile(const std::string& baseDir,
+                               const std::string& fileName)
+{
+    fs::path modelsDir = fs::path(baseDir) / "models";
+    if (!fs::exists(modelsDir))
+        return {};
+
+    for (auto& p : fs::recursive_directory_iterator(modelsDir)) {
+        if (!p.is_regular_file())
+            continue;
+        if (p.path().stem() == fileName && p.path().extension() == ".3ds")
+            return p.path().string();
+    }
+    return {};
+}
+
 static std::string CreateTempDir()
 {
     auto now = std::chrono::system_clock::now().time_since_epoch().count();
@@ -78,17 +94,18 @@ static void ParseGeometry(tinyxml2::XMLElement* node,
     if (const char* modelName = node->Attribute("Model")) {
         auto it = models.find(modelName);
         if (it != models.end()) {
-            fs::path file = fs::path(baseDir) / "models" / "3ds" / (it->second.file + ".3ds");
-            std::string path = file.string();
-            auto mit = meshCache.find(path);
-            if (mit == meshCache.end()) {
-                Mesh mesh;
-                if (Load3DS(path, mesh)) {
-                    mit = meshCache.emplace(path, std::move(mesh)).first;
+            std::string path = Find3dsFile(baseDir, it->second.file);
+            if (!path.empty()) {
+                auto mit = meshCache.find(path);
+                if (mit == meshCache.end()) {
+                    Mesh mesh;
+                    if (Load3DS(path, mesh)) {
+                        mit = meshCache.emplace(path, std::move(mesh)).first;
+                    }
                 }
-            }
-            if (mit != meshCache.end()) {
-                outObjects.push_back({mit->second, transform});
+                if (mit != meshCache.end()) {
+                    outObjects.push_back({mit->second, transform});
+                }
             }
         }
     }
