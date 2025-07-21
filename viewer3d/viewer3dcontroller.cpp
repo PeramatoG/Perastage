@@ -23,6 +23,29 @@ namespace fs = std::filesystem;
 
 constexpr float RENDER_SCALE = 0.001f;
 
+static std::string FindFileRecursive(const std::string& baseDir,
+                                     const std::string& fileName)
+{
+    if (baseDir.empty())
+        return {};
+    for (auto& p : fs::recursive_directory_iterator(baseDir)) {
+        if (!p.is_regular_file())
+            continue;
+        if (p.path().filename() == fileName)
+            return p.path().string();
+    }
+    return {};
+}
+
+static std::string ResolveGdtfPath(const std::string& base,
+                                   const std::string& spec)
+{
+    std::string p = base.empty() ? spec : (fs::path(base) / spec).string();
+    if (fs::exists(p))
+        return p;
+    return FindFileRecursive(base, fs::path(spec).filename().string());
+}
+
 static void MatrixToArray(const Matrix& m, float out[16])
 {
     out[0] = m.u[0];  out[1] = m.u[1];  out[2] = m.u[2];  out[3] = 0.0f;
@@ -72,9 +95,8 @@ void Viewer3DController::Update() {
     for (const auto& [uuid, f] : fixtures) {
         if (f.gdtfSpec.empty())
             continue;
-        std::string gdtfPath = base.empty() ? f.gdtfSpec
-                                             : (fs::path(base) / f.gdtfSpec).string();
-        if (m_loadedGdtf.find(gdtfPath) == m_loadedGdtf.end()) {
+        std::string gdtfPath = ResolveGdtfPath(base, f.gdtfSpec);
+        if (!gdtfPath.empty() && m_loadedGdtf.find(gdtfPath) == m_loadedGdtf.end()) {
             std::vector<GdtfObject> objs;
             if (LoadGdtf(gdtfPath, objs)) {
                 m_loadedGdtf[gdtfPath] = std::move(objs);
@@ -99,8 +121,8 @@ void Viewer3DController::RenderScene()
         MatrixToArray(f.transform, matrix);
         ApplyScaledTransform(matrix);
 
-        auto itg = m_loadedGdtf.find(base.empty() ? f.gdtfSpec
-                                                  : (fs::path(base) / f.gdtfSpec).string());
+        std::string gdtfPath = ResolveGdtfPath(base, f.gdtfSpec);
+        auto itg = m_loadedGdtf.find(gdtfPath);
 
         if (itg != m_loadedGdtf.end()) {
             for (const auto& obj : itg->second) {
