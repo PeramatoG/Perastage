@@ -10,6 +10,8 @@
 #include "configmanager.h"
 #include "loader3ds.h"
 #include "types.h"
+#include "consolepanel.h"
+#include <wx/wx.h>
 #include <filesystem>
 
 namespace fs = std::filesystem;
@@ -73,6 +75,8 @@ void Viewer3DController::Update() {
             Mesh mesh;
             if (Load3DS(path, mesh)) {
                 m_loadedMeshes[path] = std::move(mesh);
+            } else if (ConsolePanel::Instance()) {
+                ConsolePanel::Instance()->AppendMessage("Failed to load 3DS: " + wxString::FromUTF8(path));
             }
         }
     }
@@ -87,6 +91,8 @@ void Viewer3DController::Update() {
             Mesh mesh;
             if (Load3DS(path, mesh)) {
                 m_loadedMeshes[path] = std::move(mesh);
+            } else if (ConsolePanel::Instance()) {
+                ConsolePanel::Instance()->AppendMessage("Failed to load 3DS: " + wxString::FromUTF8(path));
             }
         }
     }
@@ -100,6 +106,8 @@ void Viewer3DController::Update() {
             std::vector<GdtfObject> objs;
             if (LoadGdtf(gdtfPath, objs)) {
                 m_loadedGdtf[gdtfPath] = std::move(objs);
+            } else if (ConsolePanel::Instance()) {
+                ConsolePanel::Instance()->AppendMessage("Failed to load GDTF: " + wxString::FromUTF8(gdtfPath));
             }
         }
     }

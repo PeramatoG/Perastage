@@ -4,6 +4,7 @@
 #include "trusstablepanel.h"
 #include "sceneobjecttablepanel.h"
 #include "viewer3dpanel.h"
+#include "consolepanel.h"
 #include <wx/notebook.h>
 
 
@@ -64,6 +65,17 @@ void MainWindow::SetupLayout()
         .CloseButton(true)
         .MaximizeButton(true));
 
+    // Bottom console panel for messages
+    consolePanel = new ConsolePanel(this);
+    ConsolePanel::SetInstance(consolePanel);
+    auiManager->AddPane(consolePanel, wxAuiPaneInfo()
+        .Name("Console")
+        .Caption("Console")
+        .Bottom()
+        .BestSize(-1, 150)
+        .CloseButton(false)
+        .PaneBorder(true));
+
     // Apply all changes to layout
     auiManager->Update();
 }
@@ -106,17 +118,23 @@ void MainWindow::OnImportMVR(wxCommandEvent& event)
     wxString filePath = openFileDialog.GetPath();
     if (!MvrImporter::ImportAndRegister(filePath.ToStdString())) {
         wxMessageBox("Failed to import MVR file.", "Error", wxICON_ERROR);
+        if (consolePanel)
+            consolePanel->AppendMessage("Failed to import " + filePath);
     }
     else {
         wxMessageBox("MVR file imported successfully.", "Success", wxICON_INFORMATION);
+        if (consolePanel)
+            consolePanel->AppendMessage("Imported " + filePath);
         if (fixturePanel)
             fixturePanel->ReloadData();
         if (trussPanel)
             trussPanel->ReloadData();
         if (sceneObjPanel)
             sceneObjPanel->ReloadData();
-        if (viewportPanel)
+        if (viewportPanel) {
             viewportPanel->UpdateScene();
+            viewportPanel->Refresh();
+        }
     }
 }
 
