@@ -3,11 +3,10 @@
 #include <wx/dcgraph.h>
 #include "gridoverlay.h"
 #include <cmath>
-#ifdef __APPLE__
-#include <OpenGL/gl.h>
-#else
+#include <algorithm>
+struct Vec3 { float x; float y; float z; };
 #include <GL/gl.h>
-#endif
+
 
 wxBEGIN_EVENT_TABLE(GLViewport, wxGLCanvas)
     EVT_PAINT(GLViewport::OnPaint)
