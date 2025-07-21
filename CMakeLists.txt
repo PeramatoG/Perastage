@@ -7,7 +7,7 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Find packages via vcpkg using CONFIG mode
-find_package(wxWidgets CONFIG REQUIRED COMPONENTS core base aui)
+find_package(wxWidgets CONFIG REQUIRED COMPONENTS core base aui gl)
 find_package(tinyxml2 CONFIG REQUIRED)
 find_package(Vulkan REQUIRED)
 find_package(OpenGL REQUIRED)
@@ -50,6 +50,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     wx::core
     wx::base
     wx::aui
+    wx::gl
     tinyxml2::tinyxml2
     Vulkan::Vulkan
     OpenGL::GL
