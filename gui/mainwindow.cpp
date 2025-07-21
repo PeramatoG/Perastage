@@ -3,7 +3,7 @@
 #include "fixturetablepanel.h"
 #include "trusstablepanel.h"
 #include "sceneobjecttablepanel.h"
-#include "viewportpanel.h"
+#include "viewer3dpanel.h"
 #include <wx/notebook.h>
 
 
@@ -54,7 +54,8 @@ void MainWindow::SetupLayout()
         .PaneBorder(false));
 
     // Add 3D viewport as a dockable pane on the right
-    viewportPanel = new ViewportPanel(this);
+    viewportPanel = new Viewer3DPanel(this);
+    Viewer3DPanel::SetInstance(viewportPanel);
     auiManager->AddPane(viewportPanel, wxAuiPaneInfo()
         .Name("3DViewport")
         .Caption("3D Viewport")
@@ -114,6 +115,8 @@ void MainWindow::OnImportMVR(wxCommandEvent& event)
             trussPanel->ReloadData();
         if (sceneObjPanel)
             sceneObjPanel->ReloadData();
+        if (viewportPanel)
+            viewportPanel->UpdateScene();
     }
 }
 

@@ -7,19 +7,24 @@
 
 #include "viewer3dcontroller.h"
 #include "scenedatamanager.h"
-#include "threemodelassimp.h"
-#include "compositemodel.h"
+#include "types.h"
 
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <GL/gl.h>
 #include <GL/glu.h>
-#include <assimp/matrix4x4.h>
 #include <iostream>
-#include <wx/math.h>
 
 constexpr float RENDER_SCALE = 0.001f;
+
+static void MatrixToArray(const Matrix& m, float out[16])
+{
+    out[0] = m.u[0];  out[1] = m.u[1];  out[2] = m.u[2];  out[3] = 0.0f;
+    out[4] = m.v[0];  out[5] = m.v[1];  out[6] = m.v[2];  out[7] = 0.0f;
+    out[8] = m.w[0];  out[9] = m.w[1];  out[10] = m.w[2]; out[11] = 0.0f;
+    out[12] = m.o[0]; out[13] = m.o[1]; out[14] = m.o[2]; out[15] = 1.0f;
+}
 
 Viewer3DController::Viewer3DController() {}
 
@@ -38,23 +43,14 @@ void Viewer3DController::RenderScene()
     for (const auto& [uuid, f] : fixtures) {
         glPushMatrix();
 
-        // Apply scaled transformation matrix from GeneralSceneDescription
         float matrix[16];
-        std::copy(std::begin(f.transformMatrix), std::end(f.transformMatrix), matrix);
+        MatrixToArray(f.transform, matrix);
         matrix[12] *= RENDER_SCALE;
         matrix[13] *= RENDER_SCALE;
         matrix[14] *= RENDER_SCALE;
 
         glMultMatrixf(matrix);
-
-        if (f.model) {
-            f.model->Render();
-        }
-
-        else {
-            DrawCube(0.2f, 0.8f, 0.8f); // Placeholder if model is missing
-        }
-
+        DrawCube(0.2f, 0.8f, 0.8f);
 
         glPopMatrix();
     }
@@ -64,52 +60,14 @@ void Viewer3DController::RenderScene()
     for (const auto& [uuid, t] : trusses) {
         glPushMatrix();
 
-        // Apply scaled transformation matrix
         float matrix[16];
-        std::copy(std::begin(t.transformMatrix), std::end(t.transformMatrix), matrix);
+        MatrixToArray(t.transform, matrix);
         matrix[12] *= RENDER_SCALE;
         matrix[13] *= RENDER_SCALE;
         matrix[14] *= RENDER_SCALE;
 
         glMultMatrixf(matrix);
-
-        if (t.model) {
-            // std::cout << "[Render] Rendering truss model: " << t.name << " UUID: " << t.uuid << std::endl;
-            ApplyRotationCorrectionIfNeeded(t.model, matrix);
-
-            /*
-
-            // Convert quaternion to Euler angles (degrees)
-            aiVector3D euler = QuaternionToEulerDegrees(rotation);
-
-            // Convert position from meters to millimeters for display
-            int x_mm = static_cast<int>(matrix[12] * 1000.0f);
-            int y_mm = static_cast<int>(matrix[13] * 1000.0f);
-            int z_mm = static_cast<int>(matrix[14] * 1000.0f);
-
-            std::cout << "[Truss Debug] UUID: " << t.uuid << "\n";
-            std::cout << " - Model: " << t.name << "\n";
-            std::cout << " - Position (mm): x=" << x_mm << ", y=" << y_mm << ", z=" << z_mm << "\n";
-            std::cout << " - Rotation (deg): x=" << euler.x << ", y=" << euler.y << ", z=" << euler.z << "\n";
-
-            std::cout << "[Matrix Debug] Matrix for UUID: " << t.uuid << " (scaled):\n";
-            for (int i = 0; i < 4; ++i) {
-                std::cout << "  ";
-                for (int j = 0; j < 4; ++j) {
-                    std::cout << matrix[j * 4 + i] << " ";
-                }
-                std::cout << "\n";
-            }
-
-            */
-
-            SetupMaterialFromColor(t.color);
-            t.model->render(); // Renders using local offset
-        }
-        else {
-            SetupMaterialFromColor(t.color);
-            DrawCube(t.length * RENDER_SCALE, 0.5f, 0.5f); // Dummy truss
-        }
+        DrawCube(0.3f, 0.5f, 0.5f);
 
         glPopMatrix();
     }
@@ -118,35 +76,21 @@ void Viewer3DController::RenderScene()
     for (const auto& [uuid, m] : meshes) {
         glPushMatrix();
 
-        // Apply scaled transformation matrix
         float matrix[16];
-        std::copy(std::begin(m.transformMatrix), std::end(m.transformMatrix), matrix);
+        MatrixToArray(m.transform, matrix);
         matrix[12] *= RENDER_SCALE;
         matrix[13] *= RENDER_SCALE;
         matrix[14] *= RENDER_SCALE;
 
         glMultMatrixf(matrix);
-
-        if (m.model) {
-            ApplyRotationCorrectionIfNeeded(m.model, matrix);
-            SetupMaterialFromColor(m.color);
-            m.model->render();
-        }
-        else {
-            SetupMaterialFromColor(m.color);
-            DrawWireframeCube(0.3f);
-        }
-
+        DrawWireframeCube(0.3f);
 
         glPopMatrix();
     }
 
     const auto& groups = SceneDataManager::Instance().GetGroupObjects();
     for (const auto& [uuid, g] : groups) {
-        glPushMatrix();
-        ApplyScaledTransform(g.transformMatrix);
-        // DrawWireframeCube(0.4f); // Group color
-        glPopMatrix();
+        (void)uuid; (void)g; // groups not implemented
     }
 
     DrawAxes();
@@ -237,80 +181,6 @@ void Viewer3DController::ApplyScaledTransform(const float matrix[16])
     glMultMatrixf(scaledMatrix);
 }
 
-// Converts an aiQuaternion to Euler angles in degrees
-aiVector3D Viewer3DController::QuaternionToEulerDegrees(const aiQuaternion& q)
-{
-    aiVector3D euler;
-
-    // Roll (X-axis)
-    double sinr_cosp = 2.0 * (q.w * q.x + q.y * q.z);
-    double cosr_cosp = 1.0 - 2.0 * (q.x * q.x + q.y * q.y);
-    euler.x = std::atan2(sinr_cosp, cosr_cosp);
-
-    // Pitch (Y-axis)
-    double sinp = 2.0 * (q.w * q.y - q.z * q.x);
-    if (std::abs(sinp) >= 1.0)
-        euler.y = std::copysign(M_PI / 2.0, sinp); // Use 90 degrees if out of range
-    else
-        euler.y = std::asin(sinp);
-
-    // Yaw (Z-axis)
-    double siny_cosp = 2.0 * (q.w * q.z + q.x * q.y);
-    double cosy_cosp = 1.0 - 2.0 * (q.y * q.y + q.z * q.z);
-    euler.z = std::atan2(siny_cosp, cosy_cosp);
-
-    // Convert radians to degrees
-    constexpr double RAD2DEG = 180.0 / M_PI;
-    euler.x *= RAD2DEG;
-    euler.y *= RAD2DEG;
-    euler.z *= RAD2DEG;
-
-    return euler;
-}
-
-// Applies rotation correction based on the transform matrix and model size
-void Viewer3DController::ApplyRotationCorrectionIfNeeded(const std::shared_ptr<ThreeModelAssimp>& model, const float matrix[16])
-{
-    if (!model) return;
-
-    aiMatrix4x4 trf(
-        matrix[0], matrix[1], matrix[2], matrix[3],
-        matrix[4], matrix[5], matrix[6], matrix[7],
-        matrix[8], matrix[9], matrix[10], matrix[11],
-        matrix[12], matrix[13], matrix[14], matrix[15]
-    );
-
-    aiVector3D scale, position;
-    aiQuaternion rotation;
-    trf.Decompose(scale, rotation, position);
-
-    constexpr float epsilon = 0.001f;
-    bool isRotated =
-        std::abs(rotation.x) > epsilon ||
-        std::abs(rotation.y) > epsilon ||
-        std::abs(rotation.z) > epsilon;
-
-    if (isRotated) {
-        aiVector3D size = model->getSize();
-        aiVector3D correction(0.0f, 0.0f, 0.0f);
-
-        if (std::abs(rotation.z) > std::abs(rotation.x) && std::abs(rotation.z) > std::abs(rotation.y)) {
-            correction.y = -size.y;
-        }
-        else if (std::abs(rotation.x) > std::abs(rotation.y)) {
-            correction.z = -size.z;
-        }
-        else {
-            correction.x = -size.x;
-        }
-
-        glTranslatef(
-            correction.x * RENDER_SCALE,
-            correction.y * RENDER_SCALE,
-            correction.z * RENDER_SCALE
-        );
-    }
-}
 
 // Initializes simple lighting for the scene
 void Viewer3DController::SetupBasicLighting() {
@@ -332,10 +202,6 @@ void Viewer3DController::SetupBasicLighting() {
     glShadeModel(GL_SMOOTH);
 }
 
-
-void Viewer3DController::SetupMaterialFromColor(const aiColor3D& color) {
-    SetupMaterialFromRGB(color.r, color.g, color.b);
-}
 
 void Viewer3DController::SetupMaterialFromRGB(float r, float g, float b) {
     glColor3f(r, g, b);
