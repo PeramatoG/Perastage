@@ -9,6 +9,7 @@ class FixtureTablePanel;
 class TrussTablePanel;
 class SceneObjectTablePanel;
 class Viewer3DPanel;
+class ConsolePanel;
 
 // Main application window for GUI components
 class MainWindow : public wxFrame
@@ -27,6 +28,7 @@ private:
     SceneObjectTablePanel* sceneObjPanel = nullptr;
     wxAuiManager* auiManager = nullptr;
     Viewer3DPanel* viewportPanel = nullptr;
+    ConsolePanel* consolePanel = nullptr;
 
     void OnImportMVR(wxCommandEvent& event); // Handle the Import MVR action
     void OnClose(wxCommandEvent& event);     // Handle the Close action
