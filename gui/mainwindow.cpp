@@ -20,8 +20,16 @@ MainWindow::MainWindow(const wxString& title)
     : wxFrame(nullptr, wxID_ANY, title, wxDefaultPosition, wxSize(1600, 600))
 {
     wxIcon icon;
-    if (!icon.LoadFile("resources/Perastage.ico", wxBITMAP_TYPE_ICO))
-        icon.LoadFile("../resources/Perastage.ico", wxBITMAP_TYPE_ICO);
+    const char* iconPaths[] = {
+        "resources/Perastage.ico",
+        "../resources/Perastage.ico",
+        "../../resources/Perastage.ico"
+    };
+    for (const char* path : iconPaths)
+    {
+        if (icon.LoadFile(path, wxBITMAP_TYPE_ICO))
+            break;
+    }
     if (icon.IsOk())
         SetIcon(icon);
 
