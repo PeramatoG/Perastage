@@ -18,8 +18,12 @@ SceneObjectTablePanel::SceneObjectTablePanel(wxWindow* parent)
 
 void SceneObjectTablePanel::InitializeTable()
 {
-    columnLabels = {"Name", "Layer", "Model File", "Position", "Rotation"};
-    std::vector<int> widths = {150, 100, 180, 150, 150};
+    columnLabels = {"Name", "Layer", "Model File",
+                    "Pos X", "Pos Y", "Pos Z",
+                    "Rot X", "Rot Y", "Rot Z"};
+    std::vector<int> widths = {150, 100, 180,
+                               80, 80, 80,
+                               80, 80, 80};
     for (size_t i = 0; i < columnLabels.size(); ++i)
         table->AppendTextColumn(
             columnLabels[i], wxDATAVIEW_CELL_INERT, widths[i], wxALIGN_LEFT,
@@ -40,16 +44,24 @@ void SceneObjectTablePanel::ReloadData()
         wxString model = wxString::FromUTF8(obj.modelFile);
 
         auto posArr = obj.transform.o;
-        wxString pos = wxString::Format("%.1f, %.1f, %.1f", posArr[0], posArr[1], posArr[2]);
+        wxString posX = wxString::Format("%.3f", posArr[0] / 1000.0f);
+        wxString posY = wxString::Format("%.3f", posArr[1] / 1000.0f);
+        wxString posZ = wxString::Format("%.3f", posArr[2] / 1000.0f);
 
         auto euler = MatrixUtils::MatrixToEuler(obj.transform);
-        wxString rot = wxString::Format("%.1f\u00B0, %.1f\u00B0, %.1f\u00B0", euler[0], euler[1], euler[2]);
+        wxString rotX = wxString::Format("%.1f\u00B0", euler[0]);
+        wxString rotY = wxString::Format("%.1f\u00B0", euler[1]);
+        wxString rotZ = wxString::Format("%.1f\u00B0", euler[2]);
 
         row.push_back(name);
         row.push_back(layer);
         row.push_back(model);
-        row.push_back(pos);
-        row.push_back(rot);
+        row.push_back(posX);
+        row.push_back(posY);
+        row.push_back(posZ);
+        row.push_back(rotX);
+        row.push_back(rotY);
+        row.push_back(rotZ);
 
         table->AppendItem(row);
     }

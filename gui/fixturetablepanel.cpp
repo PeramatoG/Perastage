@@ -26,12 +26,18 @@ void FixtureTablePanel::InitializeTable()
         "Universe",
         "Channel",
         "GDTF",
-        "Position",
+        "Pos X",
+        "Pos Y",
+        "Pos Z",
         "Hang Pos",
-        "Rotation"
+        "Rot X",
+        "Rot Y",
+        "Rot Z"
     };
 
-    std::vector<int> widths = {150, 90, 100, 80, 80, 180, 150, 120, 150};
+    std::vector<int> widths = {150, 90, 100, 80, 80, 180,
+                               80, 80, 80, 120,
+                               80, 80, 80};
     int flags = wxDATAVIEW_COL_RESIZABLE | wxDATAVIEW_COL_SORTABLE;
 
     // Column 0: Name (string)
@@ -125,11 +131,15 @@ void FixtureTablePanel::ReloadData()
         wxString gdtf = wxString::FromUTF8(fixture->gdtfSpec);
 
         auto posArr = fixture->GetPosition();
-        wxString pos = wxString::Format("%.1f, %.1f, %.1f", posArr[0], posArr[1], posArr[2]);
+        wxString posX = wxString::Format("%.3f", posArr[0] / 1000.0f);
+        wxString posY = wxString::Format("%.3f", posArr[1] / 1000.0f);
+        wxString posZ = wxString::Format("%.3f", posArr[2] / 1000.0f);
         wxString posName = wxString::FromUTF8(fixture->positionName);
 
         auto euler = MatrixUtils::MatrixToEuler(fixture->transform);
-        wxString rot = wxString::Format("%.1f\u00B0, %.1f\u00B0, %.1f\u00B0", euler[0], euler[1], euler[2]);
+        wxString rotX = wxString::Format("%.1f\u00B0", euler[0]);
+        wxString rotY = wxString::Format("%.1f\u00B0", euler[1]);
+        wxString rotZ = wxString::Format("%.1f\u00B0", euler[2]);
 
         row.push_back(name);
         row.push_back(fixtureID);
@@ -137,9 +147,13 @@ void FixtureTablePanel::ReloadData()
         row.push_back(universe);
         row.push_back(channel);
         row.push_back(gdtf);
-        row.push_back(pos);
+        row.push_back(posX);
+        row.push_back(posY);
+        row.push_back(posZ);
         row.push_back(posName);
-        row.push_back(rot);
+        row.push_back(rotX);
+        row.push_back(rotY);
+        row.push_back(rotZ);
 
         table->AppendItem(row);
     }
