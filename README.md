@@ -24,6 +24,8 @@ cmake --build build
 ```
 
 The commands above produce the `Perastage` executable in the `build` directory.
+Runtime assets from the `resources` folder are automatically copied next to the
+binary when building.
 
 ## Usage
 
