@@ -416,7 +416,7 @@ void Viewer3DController::SetupBasicLighting() {
     GLfloat ambient[] = { 0.2f, 0.2f, 0.2f, 1.0f };
     GLfloat diffuse[] = { 0.8f, 0.8f, 0.8f, 1.0f };
     GLfloat specular[] = { 1.0f, 1.0f, 1.0f, 1.0f };
-    GLfloat position[] = { 2.0f, 4.0f, 5.0f, 0.0f };
+    GLfloat position[] = { 2.0f, -4.0f, 5.0f, 0.0f };
 
     glLightfv(GL_LIGHT0, GL_AMBIENT, ambient);
     glLightfv(GL_LIGHT0, GL_DIFFUSE, diffuse);
