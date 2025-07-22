@@ -11,6 +11,7 @@
 #include "mesh.h"
 #include "gdtfloader.h"
 #include <unordered_map>
+#include <array>
 #include <wx/dcclient.h>
 #include <wx/gdicmn.h>
 #include <wx/string.h>
@@ -81,4 +82,12 @@ private:
 
     // Cache of loaded GDTF models indexed by absolute file path
     std::unordered_map<std::string, std::vector<GdtfObject>> m_loadedGdtf;
+
+    struct BoundingBox {
+        std::array<float,3> min;
+        std::array<float,3> max;
+    };
+
+    // Precomputed world-space bounds for each fixture by UUID
+    std::unordered_map<std::string, BoundingBox> m_fixtureBounds;
 };
