@@ -43,6 +43,8 @@ target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_SOURCE_DIR}/core
     ${CMAKE_SOURCE_DIR}/mvr
     ${CMAKE_SOURCE_DIR}/viewer3d
+    ${CMAKE_SOURCE_DIR}/resources
+
 )
 
 # Link required libraries
