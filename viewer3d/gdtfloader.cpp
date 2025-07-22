@@ -20,13 +20,6 @@
 
 namespace fs = std::filesystem;
 
-struct GdtfModelInfo {
-    std::string file;
-    float length = 0.0f; // meters
-    float width  = 0.0f; // meters
-    float height = 0.0f; // meters
-};
-
 static bool Has3dsExtension(const fs::path& p)
 {
     std::string ext = p.extension().string();
