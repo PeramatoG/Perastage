@@ -1,12 +1,7 @@
 #include "fixturetablepanel.h"
 #include "configmanager.h"
 #include "matrixutils.h"
-#include <algorithm>
 #include <wx/tokenzr.h>
-
-wxBEGIN_EVENT_TABLE(FixtureTablePanel, wxPanel)
-    EVT_DATAVIEW_COLUMN_HEADER_CLICK(wxID_ANY, FixtureTablePanel::OnColumnHeaderClick)
-wxEND_EVENT_TABLE()
 
 FixtureTablePanel::FixtureTablePanel(wxWindow* parent)
     : wxPanel(parent, wxID_ANY)
@@ -27,14 +22,15 @@ void FixtureTablePanel::InitializeTable()
         "Name",
         "Fixture ID",
         "Layer",
-        "Address (Univ.Ch)",
+        "Universe",
+        "Channel",
         "GDTF",
         "Position",
         "Hang Pos",
         "Rotation"
     };
 
-    std::vector<int> widths = {150, 90, 100, 120, 180, 150, 120, 150};
+    std::vector<int> widths = {150, 90, 100, 80, 80, 180, 150, 120, 150};
     int flags = wxDATAVIEW_COL_RESIZABLE | wxDATAVIEW_COL_SORTABLE;
 
     // Column 0: Name (string)
@@ -48,8 +44,26 @@ void FixtureTablePanel::InitializeTable()
                                           widths[1], wxALIGN_LEFT, flags);
     table->AppendColumn(idColumn);
 
+    // Column 2: Layer (string)
+    table->AppendTextColumn(columnLabels[2], wxDATAVIEW_CELL_INERT, widths[2],
+                            wxALIGN_LEFT, flags);
+
+    // Column 3: Universe (numeric)
+    auto* uniRenderer =
+        new wxDataViewTextRenderer("long", wxDATAVIEW_CELL_INERT, wxALIGN_LEFT);
+    auto* uniColumn = new wxDataViewColumn(columnLabels[3], uniRenderer, 3,
+                                           widths[3], wxALIGN_LEFT, flags);
+    table->AppendColumn(uniColumn);
+
+    // Column 4: Channel (numeric)
+    auto* chRenderer =
+        new wxDataViewTextRenderer("long", wxDATAVIEW_CELL_INERT, wxALIGN_LEFT);
+    auto* chColumn = new wxDataViewColumn(columnLabels[4], chRenderer, 4,
+                                          widths[4], wxALIGN_LEFT, flags);
+    table->AppendColumn(chColumn);
+
     // Remaining columns as regular text
-    for (size_t i = 2; i < columnLabels.size(); ++i)
+    for (size_t i = 5; i < columnLabels.size(); ++i)
         table->AppendTextColumn(columnLabels[i], wxDATAVIEW_CELL_INERT,
                                 widths[i], wxALIGN_LEFT, flags);
 }
@@ -66,11 +80,14 @@ void FixtureTablePanel::ReloadData()
         wxString name = wxString::FromUTF8(fixture.name);
         long fixtureID = static_cast<long>(fixture.fixtureId);
         wxString layer = wxString::FromUTF8(fixture.layer);
-        wxString address;
-        if (fixture.address.empty())
-            address = wxString::FromUTF8("–");
-        else
-            address = wxString::FromUTF8(fixture.address);
+        long universe = 0;
+        long channel = 0;
+        if (!fixture.address.empty())
+        {
+            wxStringTokenizer tk(wxString::FromUTF8(fixture.address), ".");
+            if (tk.HasMoreTokens()) tk.GetNextToken().ToLong(&universe);
+            if (tk.HasMoreTokens()) tk.GetNextToken().ToLong(&channel);
+        }
         wxString gdtf = wxString::FromUTF8(fixture.gdtfSpec);
 
         auto posArr = fixture.GetPosition();
@@ -83,7 +100,8 @@ void FixtureTablePanel::ReloadData()
         row.push_back(name);
         row.push_back(fixtureID);
         row.push_back(layer);
-        row.push_back(address);
+        row.push_back(universe);
+        row.push_back(channel);
         row.push_back(gdtf);
         row.push_back(pos);
         row.push_back(posName);
@@ -95,60 +113,4 @@ void FixtureTablePanel::ReloadData()
     // Let wxDataViewListCtrl manage column headers and sorting
 }
 
-void FixtureTablePanel::OnColumnHeaderClick(wxDataViewEvent& event)
-{
-    if (event.GetColumn() == 3)
-    {
-        addrSortAscending = !addrSortAscending;
-        SortByAddress(addrSortAscending);
-        table->GetColumn(3)->SetSortOrder(addrSortAscending);
-        // Prevent default sorting behaviour
-        event.Veto();
-    }
-    else
-    {
-        // For other columns use default handling
-        event.Skip();
-    }
-}
-
-void FixtureTablePanel::SortByAddress(bool ascending)
-{
-    struct RowData { wxVector<wxVariant> values; };
-    std::vector<RowData> rows;
-    unsigned rowCount = table->GetItemCount();
-    unsigned colCount = table->GetColumnCount();
-
-    for (unsigned r = 0; r < rowCount; ++r)
-    {
-        RowData rd;
-        for (unsigned c = 0; c < colCount; ++c)
-        {
-            wxVariant val;
-            table->GetValue(val, r, c);
-            rd.values.push_back(val);
-        }
-        rows.push_back(std::move(rd));
-    }
-
-    auto parseAddr = [](const wxString& s) {
-        long u = 0, ch = 0;
-        wxStringTokenizer tk(s, ".");
-        if (tk.HasMoreTokens()) tk.GetNextToken().ToLong(&u);
-        if (tk.HasMoreTokens()) tk.GetNextToken().ToLong(&ch);
-        return std::make_pair(u, ch);
-    };
-
-    std::sort(rows.begin(), rows.end(), [&](const RowData& a, const RowData& b) {
-        auto aa = parseAddr(a.values[3].GetString());
-        auto bb = parseAddr(b.values[3].GetString());
-        if (aa.first == bb.first)
-            return ascending ? aa.second < bb.second : aa.second > bb.second;
-        return ascending ? aa.first < bb.first : aa.first > bb.first;
-    });
-
-    table->DeleteAllItems();
-    for (const auto& r : rows)
-        table->AppendItem(r.values);
-}
 
