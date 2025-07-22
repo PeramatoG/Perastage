@@ -2,6 +2,11 @@
 #include "configmanager.h"
 #include "matrixutils.h"
 #include <algorithm>
+#include <wx/tokenzr.h>
+
+wxBEGIN_EVENT_TABLE(FixtureTablePanel, wxPanel)
+    EVT_DATAVIEW_COLUMN_HEADER_CLICK(wxID_ANY, FixtureTablePanel::OnColumnHeaderClick)
+wxEND_EVENT_TABLE()
 
 FixtureTablePanel::FixtureTablePanel(wxWindow* parent)
     : wxPanel(parent, wxID_ANY)
@@ -88,5 +93,62 @@ void FixtureTablePanel::ReloadData()
     }
 
     // Let wxDataViewListCtrl manage column headers and sorting
+}
+
+void FixtureTablePanel::OnColumnHeaderClick(wxDataViewEvent& event)
+{
+    if (event.GetColumn() == 3)
+    {
+        addrSortAscending = !addrSortAscending;
+        SortByAddress(addrSortAscending);
+        table->GetColumn(3)->SetSortOrder(addrSortAscending);
+        // Prevent default sorting behaviour
+        event.Veto();
+    }
+    else
+    {
+        // For other columns use default handling
+        event.Skip();
+    }
+}
+
+void FixtureTablePanel::SortByAddress(bool ascending)
+{
+    struct RowData { wxVector<wxVariant> values; };
+    std::vector<RowData> rows;
+    unsigned rowCount = table->GetItemCount();
+    unsigned colCount = table->GetColumnCount();
+
+    for (unsigned r = 0; r < rowCount; ++r)
+    {
+        RowData rd;
+        for (unsigned c = 0; c < colCount; ++c)
+        {
+            wxVariant val;
+            table->GetValue(val, r, c);
+            rd.values.push_back(val);
+        }
+        rows.push_back(std::move(rd));
+    }
+
+    auto parseAddr = [](const wxString& s) {
+        long u = 0, ch = 0;
+        wxStringTokenizer tk(s, ".");
+        if (tk.HasMoreTokens()) tk.GetNextToken().ToLong(&u);
+        if (tk.HasMoreTokens()) tk.GetNextToken().ToLong(&ch);
+        return std::make_pair(u, ch);
+    };
+
+    std::sort(rows.begin(), rows.end(), [&](const RowData& a, const RowData& b) {
+        auto aa = parseAddr(a.values[3].GetString());
+        auto bb = parseAddr(b.values[3].GetString());
+        if (aa.first == bb.first)
+            return ascending ? aa.second < bb.second : aa.second > bb.second;
+        return ascending ? aa.first < bb.first : aa.first > bb.first;
+    });
+
+    table->DeleteAllItems();
+    for (const auto& r : rows)
+        table->AppendItem(r.values);
 }
 
