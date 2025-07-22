@@ -59,7 +59,9 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
     GetClientSize(&w, &h);
     dc.SetTextForeground(*wxWHITE);
     m_hasHover = m_controller.GetFixtureLabelAt(m_lastMousePos.x, m_lastMousePos.y,
-                                                w, h, m_hoverText, m_hoverPos);
+                                                w, h, m_hoverText, m_hoverPos,
+                                                &m_hoverUuid);
+    m_controller.SetHighlightUuid(m_hasHover ? m_hoverUuid : "");
     if (m_hasHover) {
         dc.DrawText(m_hoverText, m_hoverPos);
     }
@@ -149,7 +151,9 @@ void Viewer3DPanel::OnMouseMove(wxMouseEvent& event)
     int w, h;
     GetClientSize(&w, &h);
     m_hasHover = m_controller.GetFixtureLabelAt(m_lastMousePos.x, m_lastMousePos.y,
-                                                w, h, m_hoverText, m_hoverPos);
+                                                w, h, m_hoverText, m_hoverPos,
+                                                &m_hoverUuid);
+    m_controller.SetHighlightUuid(m_hasHover ? m_hoverUuid : "");
     Refresh();
 }
 

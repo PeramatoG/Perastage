@@ -10,6 +10,7 @@
 #include <wx/glcanvas.h>
 #include "viewer3dcamera.h"
 #include "viewer3dcontroller.h"
+#include <string>
 
 class Viewer3DPanel : public wxGLCanvas
 {
@@ -60,6 +61,7 @@ private:
     bool m_hasHover = false;
     wxPoint m_hoverPos;
     wxString m_hoverText;
+    std::string m_hoverUuid;
 
     Viewer3DController m_controller;
 
