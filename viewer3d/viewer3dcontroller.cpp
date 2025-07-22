@@ -153,10 +153,9 @@ void Viewer3DController::RenderScene()
                 glPushMatrix();
                 float m2[16];
                 MatrixToArray(obj.transform, m2);
-                // GDTF geometry translations are also defined in millimeters,
-                // so we need to apply the same unit conversion as for
-                // fixtures when composing the transform stack.
-                ApplyTransform(m2, true);
+                // GDTF geometry offsets are defined relative to the fixture
+                // in meters. Only the vertex coordinates need unit scaling.
+                ApplyTransform(m2, false);
                 DrawMesh(obj.mesh);
                 glPopMatrix();
             }

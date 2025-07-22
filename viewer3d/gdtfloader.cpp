@@ -16,11 +16,15 @@
 #include <iostream>
 #include <fstream>
 #include <algorithm>
+#include <cfloat>
 
 namespace fs = std::filesystem;
 
-struct ModelInfo {
+struct GdtfModelInfo {
     std::string file;
+    float length = 0.0f; // meters
+    float width  = 0.0f; // meters
+    float height = 0.0f; // meters
 };
 
 static bool Has3dsExtension(const fs::path& p)
@@ -105,7 +109,7 @@ static bool ExtractZip(const std::string& zipPath, const std::string& destDir)
 
 static void ParseGeometry(tinyxml2::XMLElement* node,
                           const Matrix& parent,
-                          const std::unordered_map<std::string, ModelInfo>& models,
+                          const std::unordered_map<std::string, GdtfModelInfo>& models,
                           const std::string& baseDir,
                           std::unordered_map<std::string, Mesh>& meshCache,
                           std::vector<GdtfObject>& outObjects)
@@ -132,6 +136,33 @@ static void ParseGeometry(tinyxml2::XMLElement* node,
                                 mesh.vertices.size() / 3,
                                 mesh.indices.size() / 3);
                             ConsolePanel::Instance()->AppendMessage(msg);
+                        }
+                        // Apply model dimension scaling if provided
+                        float minX = FLT_MAX, minY = FLT_MAX, minZ = FLT_MAX;
+                        float maxX = -FLT_MAX, maxY = -FLT_MAX, maxZ = -FLT_MAX;
+                        for (size_t vi = 0; vi + 2 < mesh.vertices.size(); vi += 3) {
+                            float x = mesh.vertices[vi];
+                            float y = mesh.vertices[vi + 1];
+                            float z = mesh.vertices[vi + 2];
+                            minX = std::min(minX, x); maxX = std::max(maxX, x);
+                            minY = std::min(minY, y); maxY = std::max(maxY, y);
+                            minZ = std::min(minZ, z); maxZ = std::max(maxZ, z);
+                        }
+                        float sizeX = maxX - minX;
+                        float sizeY = maxY - minY;
+                        float sizeZ = maxZ - minZ;
+                        float targetX = it->second.length * 1000.0f; // meters -> mm
+                        float targetY = it->second.width  * 1000.0f;
+                        float targetZ = it->second.height * 1000.0f;
+                        float sx = (targetX > 0.0f && sizeX > 0.0f) ? targetX / sizeX : 1.0f;
+                        float sy = (targetY > 0.0f && sizeY > 0.0f) ? targetY / sizeY : 1.0f;
+                        float sz = (targetZ > 0.0f && sizeZ > 0.0f) ? targetZ / sizeZ : 1.0f;
+                        if (sx != 1.0f || sy != 1.0f || sz != 1.0f) {
+                            for (size_t vi = 0; vi + 2 < mesh.vertices.size(); vi += 3) {
+                                mesh.vertices[vi]     *= sx;
+                                mesh.vertices[vi + 1] *= sy;
+                                mesh.vertices[vi + 2] *= sz;
+                            }
                         }
                         mit = meshCache.emplace(path, std::move(mesh)).first;
                     } else if (ConsolePanel::Instance()) {
@@ -195,17 +226,25 @@ bool LoadGdtf(const std::string& gdtfPath, std::vector<GdtfObject>& outObjects)
         return false;
     }
 
-    std::unordered_map<std::string, ModelInfo> models;
+    std::unordered_map<std::string, GdtfModelInfo> models;
     if (tinyxml2::XMLElement* modelList = ft->FirstChildElement("Models")) {
         for (tinyxml2::XMLElement* m = modelList->FirstChildElement("Model"); m; m = m->NextSiblingElement("Model")) {
             const char* name = m->Attribute("Name");
             const char* file = m->Attribute("File");
             if (name && file) {
-                models[name] = { file };
+                GdtfModelInfo info;
+                info.file = file;
+                m->QueryFloatAttribute("Length", &info.length);
+                m->QueryFloatAttribute("Width", &info.width);
+                m->QueryFloatAttribute("Height", &info.height);
+                models[name] = info;
                 if (ConsolePanel::Instance()) {
-                    ConsolePanel::Instance()->AppendMessage(
-                        "GDTF: model " + wxString::FromUTF8(name) +
-                        " -> " + wxString::FromUTF8(file));
+                    wxString msg = wxString::Format(
+                        "GDTF: model %s -> %s (L=%.3f W=%.3f H=%.3f)",
+                        wxString::FromUTF8(name),
+                        wxString::FromUTF8(file),
+                        info.length, info.width, info.height);
+                    ConsolePanel::Instance()->AppendMessage(msg);
                 }
             }
         }
