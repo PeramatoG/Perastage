@@ -20,7 +20,7 @@ public:
 
 private:
     void SetupLayout();         // Set up main window layout
-    void CreateMenuBar();       // Create the File menu
+    void CreateMenuBar();       // Create menus
 
     wxNotebook* notebook = nullptr;
     FixtureTablePanel* fixturePanel = nullptr;
@@ -30,8 +30,10 @@ private:
     Viewer3DPanel* viewportPanel = nullptr;
     ConsolePanel* consolePanel = nullptr;
 
-    void OnImportMVR(wxCommandEvent& event); // Handle the Import MVR action
-    void OnClose(wxCommandEvent& event);     // Handle the Close action
+    void OnImportMVR(wxCommandEvent& event);       // Handle the Import MVR action
+    void OnClose(wxCommandEvent& event);           // Handle the Close action
+    void OnToggleConsole(wxCommandEvent& event);   // Toggle console panel
+    void OnToggleFixtures(wxCommandEvent& event);  // Toggle fixture panel
 
     wxDECLARE_EVENT_TABLE();
 };
@@ -44,5 +46,7 @@ enum
     ID_File_SaveAs,
     ID_File_ImportMVR,
     ID_File_ExportMVR,
-    ID_File_Close
+    ID_File_Close,
+    ID_View_ToggleConsole,
+    ID_View_ToggleFixtures
 };
