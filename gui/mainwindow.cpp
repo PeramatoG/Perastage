@@ -19,6 +19,12 @@ wxEND_EVENT_TABLE()
 MainWindow::MainWindow(const wxString& title)
     : wxFrame(nullptr, wxID_ANY, title, wxDefaultPosition, wxSize(1600, 600))
 {
+    wxIcon icon;
+    if (!icon.LoadFile("resources/Perastage.ico", wxBITMAP_TYPE_ICO))
+        icon.LoadFile("../resources/Perastage.ico", wxBITMAP_TYPE_ICO);
+    if (icon.IsOk())
+        SetIcon(icon);
+
     Centre();
     SetupLayout();
 }
