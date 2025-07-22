@@ -115,7 +115,8 @@ bool Load3DS(const std::string& path, Mesh& outMesh)
                                            outMesh.indices.size()/3);
             ConsolePanel::Instance()->AppendMessage(msg);
         } else {
-            ConsolePanel::Instance()->AppendMessage("3DS: parsed but empty " + wxString::FromUTF8(path));
+            wxString msg = wxString::Format("3DS: parsed but empty %s", wxString::FromUTF8(path));
+            ConsolePanel::Instance()->AppendMessage(msg);
         }
     }
     return ok;

@@ -8,8 +8,10 @@
 #include "viewer3dcamera.h"
 #include <cmath>
 
+#ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#endif
 #include <GL/glu.h>
 
 Viewer3DCamera::Viewer3DCamera()

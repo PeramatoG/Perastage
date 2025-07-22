@@ -64,8 +64,10 @@ static bool ExtractZip(const std::string& zipPath, const std::string& destDir)
 {
     wxFileInputStream input(zipPath);
     if (!input.IsOk()) {
-        if (ConsolePanel::Instance())
-            ConsolePanel::Instance()->AppendMessage("GDTF: cannot open " + wxString::FromUTF8(zipPath));
+        if (ConsolePanel::Instance()) {
+            wxString msg = wxString::Format("GDTF: cannot open %s", wxString::FromUTF8(zipPath));
+            ConsolePanel::Instance()->AppendMessage(msg);
+        }
         return false;
     }
     wxZipInputStream zipStream(input);
@@ -73,9 +75,10 @@ static bool ExtractZip(const std::string& zipPath, const std::string& destDir)
     while ((entry.reset(zipStream.GetNextEntry())), entry) {
         std::string filename = entry->GetName().ToStdString();
         std::string fullPath = destDir + "/" + filename;
-        if (ConsolePanel::Instance())
-            ConsolePanel::Instance()->AppendMessage("GDTF: extracting " +
-                wxString::FromUTF8(filename));
+        if (ConsolePanel::Instance()) {
+            wxString msg = wxString::Format("GDTF: extracting %s", wxString::FromUTF8(filename));
+            ConsolePanel::Instance()->AppendMessage(msg);
+        }
         if (entry->IsDir()) {
             wxFileName::Mkdir(fullPath, wxS_DIR_DEFAULT, wxPATH_MKDIR_FULL);
             continue;
@@ -83,8 +86,10 @@ static bool ExtractZip(const std::string& zipPath, const std::string& destDir)
         wxFileName::Mkdir(wxFileName(fullPath).GetPath(), wxS_DIR_DEFAULT, wxPATH_MKDIR_FULL);
         std::ofstream output(fullPath, std::ios::binary);
         if (!output.is_open()) {
-            if (ConsolePanel::Instance())
-                ConsolePanel::Instance()->AppendMessage("GDTF: cannot create " + wxString::FromUTF8(fullPath));
+            if (ConsolePanel::Instance()) {
+                wxString msg = wxString::Format("GDTF: cannot create %s", wxString::FromUTF8(fullPath));
+                ConsolePanel::Instance()->AppendMessage(msg);
+            }
             return false;
         }
         char buffer[4096];
@@ -175,19 +180,24 @@ static void ParseGeometry(tinyxml2::XMLElement* node,
                         }
                         mit = meshCache.emplace(path, std::move(mesh)).first;
                     } else if (ConsolePanel::Instance()) {
-                        ConsolePanel::Instance()->AppendMessage("GDTF: failed to load 3DS " + wxString::FromUTF8(path));
+                        wxString msg = wxString::Format("GDTF: failed to load 3DS %s", wxString::FromUTF8(path));
+                        ConsolePanel::Instance()->AppendMessage(msg);
                     }
                 }
                 if (mit != meshCache.end()) {
                     const char* geomName = node->Attribute("Name");
-                    if (ConsolePanel::Instance() && geomName)
-                        ConsolePanel::Instance()->AppendMessage("GDTF: using geometry " + wxString::FromUTF8(geomName));
+                    if (ConsolePanel::Instance() && geomName) {
+                        wxString msg = wxString::Format("GDTF: using geometry %s", wxString::FromUTF8(geomName));
+                        ConsolePanel::Instance()->AppendMessage(msg);
+                    }
                     outObjects.push_back({mit->second, transform});
                 }
             } else if (ConsolePanel::Instance()) {
-                ConsolePanel::Instance()->AppendMessage(
-                    "GDTF: missing model file " + wxString::FromUTF8(it->second.file) +
-                    " in " + wxString::FromUTF8(baseDir));
+                wxString msg = wxString::Format(
+                    "GDTF: missing model file %s in %s",
+                    wxString::FromUTF8(it->second.file),
+                    wxString::FromUTF8(baseDir));
+                ConsolePanel::Instance()->AppendMessage(msg);
             }
         }
     }
@@ -205,24 +215,31 @@ static void ParseGeometry(tinyxml2::XMLElement* node,
 
 bool LoadGdtf(const std::string& gdtfPath, std::vector<GdtfObject>& outObjects)
 {
-    if (ConsolePanel::Instance())
-        ConsolePanel::Instance()->AppendMessage("Loading GDTF " + wxString::FromUTF8(gdtfPath));
+    if (ConsolePanel::Instance()) {
+        wxString msg = wxString::Format("Loading GDTF %s", wxString::FromUTF8(gdtfPath));
+        ConsolePanel::Instance()->AppendMessage(msg);
+    }
 
     outObjects.clear();
     std::string tempDir = CreateTempDir();
     if (!ExtractZip(gdtfPath, tempDir)) {
-        if (ConsolePanel::Instance())
-            ConsolePanel::Instance()->AppendMessage("GDTF: failed to extract " + wxString::FromUTF8(gdtfPath));
+        if (ConsolePanel::Instance()) {
+            wxString msg = wxString::Format("GDTF: failed to extract %s", wxString::FromUTF8(gdtfPath));
+            ConsolePanel::Instance()->AppendMessage(msg);
+        }
         return false;
     } else if (ConsolePanel::Instance()) {
-        ConsolePanel::Instance()->AppendMessage("GDTF: extracted to " + wxString::FromUTF8(tempDir));
+        wxString msg = wxString::Format("GDTF: extracted to %s", wxString::FromUTF8(tempDir));
+        ConsolePanel::Instance()->AppendMessage(msg);
     }
 
     std::string descPath = tempDir + "/description.xml";
     tinyxml2::XMLDocument doc;
     if (doc.LoadFile(descPath.c_str()) != tinyxml2::XML_SUCCESS) {
-        if (ConsolePanel::Instance())
-            ConsolePanel::Instance()->AppendMessage("GDTF: cannot read description.xml in " + wxString::FromUTF8(gdtfPath));
+        if (ConsolePanel::Instance()) {
+            wxString msg = wxString::Format("GDTF: cannot read description.xml in %s", wxString::FromUTF8(gdtfPath));
+            ConsolePanel::Instance()->AppendMessage(msg);
+        }
         return false;
     }
 
@@ -230,8 +247,10 @@ bool LoadGdtf(const std::string& gdtfPath, std::vector<GdtfObject>& outObjects)
     if (ft) ft = ft->FirstChildElement("FixtureType");
     else ft = doc.FirstChildElement("FixtureType");
     if (!ft) {
-        if (ConsolePanel::Instance())
-            ConsolePanel::Instance()->AppendMessage("GDTF: invalid fixture type in " + wxString::FromUTF8(gdtfPath));
+        if (ConsolePanel::Instance()) {
+            wxString msg = wxString::Format("GDTF: invalid fixture type in %s", wxString::FromUTF8(gdtfPath));
+            ConsolePanel::Instance()->AppendMessage(msg);
+        }
         return false;
     }
 

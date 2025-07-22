@@ -30,8 +30,10 @@ bool MvrImporter::ImportFromFile(const std::string& filePath)
         return false;
     }
 
-    if (ConsolePanel::Instance())
-        ConsolePanel::Instance()->AppendMessage("Importing MVR " + wxString::FromUTF8(filePath));
+    if (ConsolePanel::Instance()) {
+        wxString msg = wxString::Format("Importing MVR %s", wxString::FromUTF8(filePath));
+        ConsolePanel::Instance()->AppendMessage(msg);
+    }
 
     std::string tempDir = CreateTemporaryDirectory();
     if (!ExtractMvrZip(filePath, tempDir)) {
@@ -113,8 +115,10 @@ bool MvrImporter::ParseSceneXml(const std::string& sceneXmlPath)
         return false;
     }
 
-    if (ConsolePanel::Instance())
-        ConsolePanel::Instance()->AppendMessage("Parsing scene XML " + wxString::FromUTF8(sceneXmlPath));
+    if (ConsolePanel::Instance()) {
+        wxString msg = wxString::Format("Parsing scene XML %s", wxString::FromUTF8(sceneXmlPath));
+        ConsolePanel::Instance()->AppendMessage(msg);
+    }
 
     tinyxml2::XMLElement* root = doc.FirstChildElement("GeneralSceneDescription");
     if (!root) {

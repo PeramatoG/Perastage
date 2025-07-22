@@ -6,8 +6,9 @@ project(Perastage VERSION 1.0 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# Find packages via vcpkg using CONFIG mode
-find_package(wxWidgets CONFIG REQUIRED COMPONENTS core base aui gl)
+# Find required packages
+find_package(wxWidgets REQUIRED COMPONENTS core base aui gl)
+include(${wxWidgets_USE_FILE})
 find_package(tinyxml2 CONFIG REQUIRED)
 find_package(OpenGL REQUIRED)
 
@@ -46,10 +47,7 @@ target_include_directories(${PROJECT_NAME} PRIVATE
 
 # Link required libraries
 target_link_libraries(${PROJECT_NAME} PRIVATE
-    wx::core
-    wx::base
-    wx::aui
-    wx::gl
+    ${wxWidgets_LIBRARIES}
     tinyxml2::tinyxml2
     OpenGL::GL
     OpenGL::GLU
