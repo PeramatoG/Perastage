@@ -15,7 +15,11 @@
 // Utility functions for handling 4x3 transformation matrices
 namespace MatrixUtils {
 
-    // Parse a matrix string in the format "{a,b,c}{d,e,f}{g,h,i}{j,k,l}".
+    // Parse a matrix string which can be either the MVR 4x3 format
+    // "{a,b,c}{d,e,f}{g,h,i}{j,k,l}" or the GDTF 4x4 format
+    // "{a,b,c,d}{e,f,g,h}{i,j,k,l}{m,n,o,p}". Both are stored row-major
+    // in the files but mathematically defined as column-major. The last
+    // row of the 4x4 representation is usually "0 0 0 1" and is ignored.
     inline bool ParseMatrix(const std::string& text, Matrix& outMatrix)
     {
         std::string cleaned;
@@ -28,27 +32,40 @@ namespace MatrixUtils {
         }
 
         std::stringstream ss(cleaned);
-        float values[12];
-        for (int i = 0; i < 12; ++i) {
-            if (!(ss >> values[i]))
-                return false;
+        std::vector<float> values;
+        float v;
+        while (ss >> v)
+            values.push_back(v);
+
+        if (values.size() == 16) {
+            // GDTF 4x4 matrix. Translation is stored in the fourth column
+            float r[3][3] = {
+                { values[0], values[1], values[2] },
+                { values[4], values[5], values[6] },
+                { values[8], values[9], values[10] }
+            };
+
+            outMatrix.u = { r[0][0], r[1][0], r[2][0] };
+            outMatrix.v = { r[0][1], r[1][1], r[2][1] };
+            outMatrix.w = { r[0][2], r[1][2], r[2][2] };
+            outMatrix.o = { values[3], values[7], values[11] };
+            return true;
+        } else if (values.size() == 12) {
+            // MVR 4x3 matrix
+            float r[3][3] = {
+                { values[0], values[1], values[2] },
+                { values[3], values[4], values[5] },
+                { values[6], values[7], values[8] }
+            };
+
+            outMatrix.u = { r[0][0], r[1][0], r[2][0] };
+            outMatrix.v = { r[0][1], r[1][1], r[2][1] };
+            outMatrix.w = { r[0][2], r[1][2], r[2][2] };
+            outMatrix.o = { values[9], values[10], values[11] };
+            return true;
         }
 
-        // Values are stored row-major in MVR/GDTF but our Matrix
-        // structure stores the basis vectors as columns. Convert by
-        // transposing the rotation part.
-        float r[3][3] = {
-            { values[0], values[1], values[2] },
-            { values[3], values[4], values[5] },
-            { values[6], values[7], values[8] }
-        };
-
-        outMatrix.u = { r[0][0], r[1][0], r[2][0] };
-        outMatrix.v = { r[0][1], r[1][1], r[2][1] };
-        outMatrix.w = { r[0][2], r[1][2], r[2][2] };
-        outMatrix.o = { values[9], values[10], values[11] };
-
-        return true;
+        return false;
     }
 
     // Convert rotation part of matrix to Euler angles (degrees, yaw/pitch/roll)
