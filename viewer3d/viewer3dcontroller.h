@@ -13,6 +13,10 @@
 #include <unordered_map>
 #include <wx/dcclient.h>
 
+// MVR coordinates are defined in millimeters. This constant converts
+// them to meters when rendering.
+static constexpr float RENDER_SCALE = 0.001f;
+
 
 class Viewer3DController
 {
@@ -36,8 +40,10 @@ private:
     // Draws a wireframe cube centered at origin with given size
     void DrawWireframeCube(float size = 0.3f);
 
-    // Applies uniform scaling and then the object's transformation matrix
-    void ApplyScaledTransform(const float matrix[16]);
+    // Applies the object's transformation matrix. When scaleTranslation
+    // is true the translation part is converted from millimeters to
+    // meters using the render scale factor.
+    void ApplyTransform(const float matrix[16], bool scaleTranslation = true);
 
     // Draws the reference grid on the Z=0 plane
     void DrawGrid();
@@ -49,8 +55,10 @@ private:
     void SetupBasicLighting();
     void SetupMaterialFromRGB(float r, float g, float b);
 
-    // Draws a mesh loaded from a 3DS file
-    void DrawMesh(const Mesh& mesh);
+    // Draws a mesh loaded from a 3DS file using the given scale factor
+    // for vertex positions. GDTF models may already be defined in meters
+    // so they can use a scale of 1.0f
+    void DrawMesh(const Mesh& mesh, float scale = RENDER_SCALE);
 
     // Cache of already loaded meshes indexed by absolute file path
     std::unordered_map<std::string, Mesh> m_loadedMeshes;
