@@ -11,6 +11,8 @@
 wxBEGIN_EVENT_TABLE(MainWindow, wxFrame)
 EVT_MENU(ID_File_ImportMVR, MainWindow::OnImportMVR)
 EVT_MENU(ID_File_Close, MainWindow::OnClose)
+EVT_MENU(ID_View_ToggleConsole, MainWindow::OnToggleConsole)
+EVT_MENU(ID_View_ToggleFixtures, MainWindow::OnToggleFixtures)
 wxEND_EVENT_TABLE()
 
 MainWindow::MainWindow(const wxString& title)
@@ -52,7 +54,10 @@ void MainWindow::SetupLayout()
         .Name("DataNotebook")
         .Caption("Data Views")
         .CenterPane()
-        .PaneBorder(false));
+        .PaneBorder(false)
+        .CaptionVisible(true)
+        .CloseButton(true)
+        .MaximizeButton(true));
 
     // Add 3D viewport as a dockable pane on the right
     viewportPanel = new Viewer3DPanel(this);
@@ -73,7 +78,8 @@ void MainWindow::SetupLayout()
         .Caption("Console")
         .Bottom()
         .BestSize(-1, 150)
-        .CloseButton(false)
+        .CloseButton(true)
+        .MaximizeButton(true)
         .PaneBorder(true));
 
     // Apply all changes to layout
@@ -96,6 +102,17 @@ void MainWindow::CreateMenuBar()
     fileMenu->Append(ID_File_Close, "Close\tCtrl+Q");
 
     menuBar->Append(fileMenu, "&File");
+
+    // View menu for toggling panels
+    wxMenu* viewMenu = new wxMenu();
+    viewMenu->AppendCheckItem(ID_View_ToggleConsole, "Console");
+    viewMenu->AppendCheckItem(ID_View_ToggleFixtures, "Fixtures");
+
+    // Initial check states
+    viewMenu->Check(ID_View_ToggleConsole, true);
+    viewMenu->Check(ID_View_ToggleFixtures, true);
+
+    menuBar->Append(viewMenu, "&View");
 
     SetMenuBar(menuBar);
 }
@@ -143,4 +160,29 @@ void MainWindow::OnImportMVR(wxCommandEvent& event)
 void MainWindow::OnClose(wxCommandEvent& event)
 {
     Close(true);
+}
+
+void MainWindow::OnToggleConsole(wxCommandEvent& event)
+{
+    if (!auiManager)
+        return;
+
+    auto& pane = auiManager->GetPane("Console");
+    pane.Show(!pane.IsShown());
+    auiManager->Update();
+
+    // keep menu state in sync
+    GetMenuBar()->Check(ID_View_ToggleConsole, pane.IsShown());
+}
+
+void MainWindow::OnToggleFixtures(wxCommandEvent& event)
+{
+    if (!auiManager)
+        return;
+
+    auto& pane = auiManager->GetPane("DataNotebook");
+    pane.Show(!pane.IsShown());
+    auiManager->Update();
+
+    GetMenuBar()->Check(ID_View_ToggleFixtures, pane.IsShown());
 }
