@@ -9,6 +9,9 @@ SceneObjectTablePanel::SceneObjectTablePanel(wxWindow* parent)
     wxBoxSizer* sizer = new wxBoxSizer(wxVERTICAL);
     table = new wxDataViewListCtrl(this, wxID_ANY);
 
+    table->Bind(wxEVT_DATAVIEW_ITEM_CONTEXT_MENU,
+                &SceneObjectTablePanel::OnContextMenu, this);
+
     InitializeTable();
     ReloadData();
 
@@ -67,4 +70,26 @@ void SceneObjectTablePanel::ReloadData()
     }
 
     // Let wxDataViewListCtrl manage column headers and sorting
+}
+
+void SceneObjectTablePanel::OnContextMenu(wxDataViewEvent& event)
+{
+    wxDataViewItem item = event.GetItem();
+    int col = event.GetColumn();
+    if (!item.IsOk() || col < 0)
+        return;
+
+    int row = table->ItemToRow(item);
+    if (row == wxNOT_FOUND)
+        return;
+
+    wxVariant current;
+    table->GetValue(current, row, col);
+
+    wxTextEntryDialog dlg(this, "Edit value:", columnLabels[col], current.GetString());
+    if (dlg.ShowModal() == wxID_OK)
+    {
+        wxString value = dlg.GetValue();
+        table->SetValue(wxVariant(value), row, col);
+    }
 }

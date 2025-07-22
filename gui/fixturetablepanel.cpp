@@ -10,6 +10,9 @@ FixtureTablePanel::FixtureTablePanel(wxWindow* parent)
     wxBoxSizer* sizer = new wxBoxSizer(wxVERTICAL);
     table = new wxDataViewListCtrl(this, wxID_ANY);
 
+    table->Bind(wxEVT_DATAVIEW_ITEM_CONTEXT_MENU,
+                &FixtureTablePanel::OnContextMenu, this);
+
     InitializeTable();
     ReloadData();
 
@@ -156,9 +159,44 @@ void FixtureTablePanel::ReloadData()
         row.push_back(rotZ);
 
         table->AppendItem(row);
-    }
+}
 
-    // Let wxDataViewListCtrl manage column headers and sorting
+// Let wxDataViewListCtrl manage column headers and sorting
+}
+
+void FixtureTablePanel::OnContextMenu(wxDataViewEvent& event)
+{
+    wxDataViewItem item = event.GetItem();
+    int col = event.GetColumn();
+    if (!item.IsOk() || col < 0)
+        return;
+
+    int row = table->ItemToRow(item);
+    if (row == wxNOT_FOUND)
+        return;
+
+    wxVariant current;
+    table->GetValue(current, row, col);
+
+    wxTextEntryDialog dlg(this, "Edit value:", columnLabels[col], current.GetString());
+    if (dlg.ShowModal() == wxID_OK)
+    {
+        wxString value = dlg.GetValue();
+        wxVariant variant;
+        if (col == 1 || col == 3 || col == 4)
+        {
+            long num;
+            if (value.ToLong(&num))
+                variant = wxVariant(num);
+            else
+                variant = wxVariant(value);
+        }
+        else
+        {
+            variant = wxVariant(value);
+        }
+        table->SetValue(variant, row, col);
+    }
 }
 
 

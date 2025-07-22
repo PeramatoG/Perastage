@@ -15,4 +15,5 @@ private:
     wxDataViewListCtrl* table;
     std::vector<wxString> columnLabels;
     void InitializeTable();
+    void OnContextMenu(wxDataViewEvent& event);
 };
