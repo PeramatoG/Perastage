@@ -40,6 +40,14 @@ private:
     // Draws a wireframe cube centered at origin with given size
     void DrawWireframeCube(float size = 0.3f);
 
+    // Draws a colored mesh with a black outline for a sketch effect
+    void DrawMeshWithOutline(const Mesh& mesh, float r = 1.0f, float g = 1.0f,
+                             float b = 1.0f, float scale = RENDER_SCALE);
+
+    // Draws a colored cube with a black outline
+    void DrawCubeWithOutline(float size = 0.2f, float r = 1.0f, float g = 1.0f,
+                             float b = 1.0f);
+
     // Applies the object's transformation matrix. When scaleTranslation
     // is true the translation part is converted from millimeters to
     // meters using the render scale factor.

@@ -156,7 +156,7 @@ void Viewer3DController::RenderScene()
                 // GDTF geometry offsets are defined relative to the fixture
                 // in meters. Only the vertex coordinates need unit scaling.
                 ApplyTransform(m2, false);
-                DrawMesh(obj.mesh);
+                DrawMeshWithOutline(obj.mesh);
                 glPopMatrix();
             }
         } else {
@@ -164,7 +164,7 @@ void Viewer3DController::RenderScene()
                 ConsolePanel::Instance()->AppendMessage(
                     "GDTF not found, drawing placeholder cube");
             }
-            DrawCube(0.2f, 0.8f, 0.8f);
+            DrawCubeWithOutline(0.2f, 0.8f, 0.8f);
         }
 
         glPopMatrix();
@@ -193,12 +193,12 @@ void Viewer3DController::RenderScene()
                                              : (fs::path(base) / t.symbolFile).string();
             auto it = m_loadedMeshes.find(path);
             if (it != m_loadedMeshes.end()) {
-                DrawMesh(it->second);
+                DrawMeshWithOutline(it->second);
             } else {
-                DrawCube(0.3f, 0.5f, 0.5f);
+                DrawCubeWithOutline(0.3f, 0.5f, 0.5f);
             }
         } else {
-            DrawCube(0.3f, 0.5f, 0.5f);
+            DrawCubeWithOutline(0.3f, 0.5f, 0.5f);
         }
 
         glPopMatrix();
@@ -225,11 +225,11 @@ void Viewer3DController::RenderScene()
                                             : (fs::path(base) / m.modelFile).string();
             auto it = m_loadedMeshes.find(path);
             if (it != m_loadedMeshes.end())
-                DrawMesh(it->second);
+                DrawMeshWithOutline(it->second);
             else
-                DrawWireframeCube(0.3f);
+                DrawCubeWithOutline(0.3f, 0.8f, 0.8f, 0.8f);
         } else {
-            DrawWireframeCube(0.3f);
+            DrawCubeWithOutline(0.3f, 0.8f, 0.8f, 0.8f);
         }
 
         glPopMatrix();
@@ -286,6 +286,39 @@ void Viewer3DController::DrawWireframeCube(float size)
     glVertex3f(x0, y1, z0); glVertex3f(x0, y1, z1);
     glVertex3f(x1, y1, z0); glVertex3f(x1, y1, z1);
     glEnd();
+}
+
+// Draws a colored cube with a black outline
+void Viewer3DController::DrawCubeWithOutline(float size, float r, float g, float b)
+{
+    glEnable(GL_POLYGON_OFFSET_FILL);
+    glPolygonOffset(1.0f, 1.0f);
+    DrawCube(size, r, g, b);
+    glDisable(GL_POLYGON_OFFSET_FILL);
+
+    glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+    glLineWidth(2.0f);
+    DrawCube(size, 0.0f, 0.0f, 0.0f);
+    glLineWidth(1.0f);
+    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+}
+
+// Draws a mesh with a black outline using the given color
+void Viewer3DController::DrawMeshWithOutline(const Mesh& mesh, float r, float g,
+                                             float b, float scale)
+{
+    glEnable(GL_POLYGON_OFFSET_FILL);
+    glPolygonOffset(1.0f, 1.0f);
+    glColor3f(r, g, b);
+    DrawMesh(mesh, scale);
+    glDisable(GL_POLYGON_OFFSET_FILL);
+
+    glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+    glLineWidth(2.0f);
+    glColor3f(0.0f, 0.0f, 0.0f);
+    DrawMesh(mesh, scale);
+    glLineWidth(1.0f);
+    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 }
 
 // Draws a mesh using GL triangles. The optional scale parameter allows
