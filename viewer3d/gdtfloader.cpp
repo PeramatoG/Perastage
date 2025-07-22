@@ -104,8 +104,10 @@ static void ParseGeometry(tinyxml2::XMLElement* node,
                           const Matrix& parent,
                           const std::unordered_map<std::string, GdtfModelInfo>& models,
                           const std::string& baseDir,
+                          const std::unordered_map<std::string, tinyxml2::XMLElement*>& geomMap,
                           std::unordered_map<std::string, Mesh>& meshCache,
-                          std::vector<GdtfObject>& outObjects)
+                          std::vector<GdtfObject>& outObjects,
+                          const char* overrideModel = nullptr)
 {
     Matrix local = MatrixUtils::Identity();
     if (const char* pos = node->Attribute("Position"))
@@ -113,7 +115,21 @@ static void ParseGeometry(tinyxml2::XMLElement* node,
 
     Matrix transform = MatrixUtils::Multiply(parent, local);
 
-    if (const char* modelName = node->Attribute("Model")) {
+    std::string nodeType = node->Name();
+    if (nodeType == "GeometryReference") {
+        const char* refName = node->Attribute("Geometry");
+        if (refName) {
+            auto it = geomMap.find(refName);
+            if (it != geomMap.end()) {
+                const char* m = node->Attribute("Model");
+                ParseGeometry(it->second, transform, models, baseDir, geomMap, meshCache, outObjects, m ? m : overrideModel);
+            }
+        }
+        return;
+    }
+
+    const char* modelName = overrideModel ? overrideModel : node->Attribute("Model");
+    if (modelName) {
         auto it = models.find(modelName);
         if (it != models.end()) {
             std::string path = Find3dsFile(baseDir, it->second.file);
@@ -182,7 +198,7 @@ static void ParseGeometry(tinyxml2::XMLElement* node,
             n=="MediaServerLayer" || n=="MediaServerCamera" || n=="MediaServerMaster" ||
             n=="Display" || n=="GeometryReference" || n=="Laser" || n=="WiringObject" ||
             n=="Inventory" || n=="Structure" || n=="Support" || n=="Magnet") {
-            ParseGeometry(child, transform, models, baseDir, meshCache, outObjects);
+            ParseGeometry(child, transform, models, baseDir, geomMap, meshCache, outObjects);
         }
     }
 }
@@ -245,8 +261,13 @@ bool LoadGdtf(const std::string& gdtfPath, std::vector<GdtfObject>& outObjects)
 
     std::unordered_map<std::string, Mesh> meshCache;
     if (tinyxml2::XMLElement* geoms = ft->FirstChildElement("Geometries")) {
+        std::unordered_map<std::string, tinyxml2::XMLElement*> geomMap;
         for (tinyxml2::XMLElement* g = geoms->FirstChildElement(); g; g = g->NextSiblingElement()) {
-            ParseGeometry(g, MatrixUtils::Identity(), models, tempDir, meshCache, outObjects);
+            if (const char* n = g->Attribute("Name"))
+                geomMap[n] = g;
+        }
+        for (tinyxml2::XMLElement* g = geoms->FirstChildElement(); g; g = g->NextSiblingElement()) {
+            ParseGeometry(g, MatrixUtils::Identity(), models, tempDir, geomMap, meshCache, outObjects);
         }
     }
 
