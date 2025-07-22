@@ -15,10 +15,4 @@ private:
     wxDataViewListCtrl* table;
     std::vector<wxString> columnLabels;
     void InitializeTable(); // Set up columns
-
-    void OnColumnHeaderClick(wxDataViewEvent& event);
-    void SortByAddress(bool ascending);
-    bool addrSortAscending = true;
-
-    wxDECLARE_EVENT_TABLE();
 };
