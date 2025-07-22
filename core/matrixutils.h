@@ -5,7 +5,6 @@
 #include <sstream>
 #include <cmath>
 #include "models/types.h"
-
 // Utility functions for handling 4x3 transformation matrices
 namespace MatrixUtils {
 
