@@ -13,6 +13,8 @@
 #include "consolepanel.h"
 #include <wx/wx.h>
 #include <filesystem>
+#include <cfloat>
+#include <array>
 
 namespace fs = std::filesystem;
 
@@ -55,6 +57,22 @@ static void MatrixToArray(const Matrix& m, float out[16])
     out[4] = m.v[0];  out[5] = m.v[1];  out[6] = m.v[2];  out[7] = 0.0f;
     out[8] = m.w[0];  out[9] = m.w[1];  out[10] = m.w[2]; out[11] = 0.0f;
     out[12] = m.o[0]; out[13] = m.o[1]; out[14] = m.o[2]; out[15] = 1.0f;
+}
+
+struct ScreenRect {
+    double minX = DBL_MAX;
+    double minY = DBL_MAX;
+    double maxX = -DBL_MAX;
+    double maxY = -DBL_MAX;
+};
+
+static std::array<float,3> TransformPoint(const Matrix& m, const std::array<float,3>& p)
+{
+    return {
+        m.u[0]*p[0] + m.v[0]*p[1] + m.w[0]*p[2] + m.o[0],
+        m.u[1]*p[0] + m.v[1]*p[1] + m.w[1]*p[2] + m.o[1],
+        m.u[2]*p[0] + m.v[2]*p[1] + m.w[2]*p[2] + m.o[2]
+    };
 }
 
 Viewer3DController::Viewer3DController() {}
@@ -121,6 +139,64 @@ void Viewer3DController::Update() {
                 ConsolePanel::Instance()->AppendMessage(msg);
             }
         }
+    }
+
+    // Precompute bounding boxes for hover detection
+    m_fixtureBounds.clear();
+    for (const auto& [uuid, f] : fixtures) {
+        Viewer3DController::BoundingBox bb;
+        Matrix fix = f.transform;
+        fix.o[0] *= RENDER_SCALE;
+        fix.o[1] *= RENDER_SCALE;
+        fix.o[2] *= RENDER_SCALE;
+
+        bool found = false;
+        bb.min = {FLT_MAX, FLT_MAX, FLT_MAX};
+        bb.max = {-FLT_MAX, -FLT_MAX, -FLT_MAX};
+
+        std::string gdtfPath = ResolveGdtfPath(base, f.gdtfSpec);
+        auto itg = m_loadedGdtf.find(gdtfPath);
+        if (itg != m_loadedGdtf.end()) {
+            for (const auto& obj : itg->second) {
+                for (size_t vi = 0; vi + 2 < obj.mesh.vertices.size(); vi += 3) {
+                    std::array<float,3> p = {
+                        obj.mesh.vertices[vi] * RENDER_SCALE,
+                        obj.mesh.vertices[vi + 1] * RENDER_SCALE,
+                        obj.mesh.vertices[vi + 2] * RENDER_SCALE
+                    };
+                    p = TransformPoint(obj.transform, p);
+                    p = TransformPoint(fix, p);
+                    bb.min[0] = std::min(bb.min[0], p[0]);
+                    bb.min[1] = std::min(bb.min[1], p[1]);
+                    bb.min[2] = std::min(bb.min[2], p[2]);
+                    bb.max[0] = std::max(bb.max[0], p[0]);
+                    bb.max[1] = std::max(bb.max[1], p[1]);
+                    bb.max[2] = std::max(bb.max[2], p[2]);
+                    found = true;
+                }
+            }
+        }
+
+        if (!found) {
+            float half = 0.1f;
+            std::array<std::array<float,3>,8> corners = {
+                std::array<float,3>{-half,-half,-half}, {half,-half,-half},
+                {-half,half,-half}, {half,half,-half},
+                {-half,-half,half}, {half,-half,half},
+                {-half,half,half}, {half,half,half}
+            };
+            for (const auto& c : corners) {
+                auto p = TransformPoint(fix, c);
+                bb.min[0] = std::min(bb.min[0], p[0]);
+                bb.min[1] = std::min(bb.min[1], p[1]);
+                bb.min[2] = std::min(bb.min[2], p[2]);
+                bb.max[0] = std::max(bb.max[0], p[0]);
+                bb.max[1] = std::max(bb.max[1], p[1]);
+                bb.max[2] = std::max(bb.max[2], p[2]);
+            }
+        }
+
+        m_fixtureBounds[uuid] = bb;
     }
 }
 
@@ -469,22 +545,43 @@ bool Viewer3DController::GetFixtureLabelAt(int mouseX, int mouseY,
     glGetIntegerv(GL_VIEWPORT, viewport);
 
     const auto& fixtures = SceneDataManager::Instance().GetFixtures();
-    const int radius = 8;
+
     for (const auto& [uuid, f] : fixtures) {
-        double sx, sy, sz;
-        double wx = f.transform.o[0] * RENDER_SCALE;
-        double wy = f.transform.o[1] * RENDER_SCALE;
-        double wz = f.transform.o[2] * RENDER_SCALE;
-        if (gluProject(wx, wy, wz, model, proj, viewport, &sx, &sy, &sz) == GL_TRUE) {
-            int x = static_cast<int>(sx);
-            int y = height - static_cast<int>(sy);
-            if (std::abs(mouseX - x) <= radius && std::abs(mouseY - y) <= radius) {
-                outPos.x = x;
-                outPos.y = y;
-                outLabel = f.name.empty() ? wxString::FromUTF8(uuid)
-                                         : wxString::FromUTF8(f.name);
-                return true;
+        auto bit = m_fixtureBounds.find(uuid);
+        if (bit == m_fixtureBounds.end())
+            continue;
+
+        const BoundingBox& bb = bit->second;
+        std::array<std::array<float,3>,8> corners = {
+            std::array<float,3>{bb.min[0], bb.min[1], bb.min[2]},
+            {bb.max[0], bb.min[1], bb.min[2]},
+            {bb.min[0], bb.max[1], bb.min[2]},
+            {bb.max[0], bb.max[1], bb.min[2]},
+            {bb.min[0], bb.min[1], bb.max[2]},
+            {bb.max[0], bb.min[1], bb.max[2]},
+            {bb.min[0], bb.max[1], bb.max[2]},
+            {bb.max[0], bb.max[1], bb.max[2]}
+        };
+
+        ScreenRect rect;
+        for (const auto& c : corners) {
+            double sx, sy, sz;
+            if (gluProject(c[0], c[1], c[2], model, proj, viewport, &sx, &sy, &sz) == GL_TRUE) {
+                rect.minX = std::min(rect.minX, sx);
+                rect.maxX = std::max(rect.maxX, sx);
+                double sy2 = height - sy;
+                rect.minY = std::min(rect.minY, sy2);
+                rect.maxY = std::max(rect.maxY, sy2);
             }
+        }
+
+        if (mouseX >= rect.minX && mouseX <= rect.maxX &&
+            mouseY >= rect.minY && mouseY <= rect.maxY) {
+            outPos.x = static_cast<int>((rect.minX + rect.maxX) * 0.5);
+            outPos.y = static_cast<int>((rect.minY + rect.maxY) * 0.5);
+            outLabel = f.name.empty() ? wxString::FromUTF8(uuid)
+                                     : wxString::FromUTF8(f.name);
+            return true;
         }
     }
     return false;
