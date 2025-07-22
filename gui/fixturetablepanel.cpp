@@ -2,6 +2,7 @@
 #include "configmanager.h"
 #include "matrixutils.h"
 #include <wx/tokenzr.h>
+#include <algorithm>
 
 FixtureTablePanel::FixtureTablePanel(wxWindow* parent)
     : wxPanel(parent, wxID_ANY)
@@ -73,7 +74,40 @@ void FixtureTablePanel::ReloadData()
     table->DeleteAllItems();
 
     const auto& fixtures = ConfigManager::Get().GetScene().fixtures;
+
+    struct Address { long universe; long channel; };
+    auto parseAddress = [](const std::string& addr) -> Address {
+        Address res{0, 0};
+        if (!addr.empty())
+        {
+            size_t dot = addr.find('.');
+            if (dot != std::string::npos)
+            {
+                try { res.universe = std::stol(addr.substr(0, dot)); } catch (...) {}
+                try { res.channel = std::stol(addr.substr(dot + 1)); } catch (...) {}
+            }
+        }
+        return res;
+    };
+
+    std::vector<const Fixture*> sorted;
+    sorted.reserve(fixtures.size());
     for (const auto& [uuid, fixture] : fixtures)
+        sorted.push_back(&fixture);
+
+    std::sort(sorted.begin(), sorted.end(), [&](const Fixture* a, const Fixture* b) {
+        if (a->fixtureId != b->fixtureId)
+            return a->fixtureId < b->fixtureId;
+        if (a->gdtfSpec != b->gdtfSpec)
+            return a->gdtfSpec < b->gdtfSpec;
+        auto addrA = parseAddress(a->address);
+        auto addrB = parseAddress(b->address);
+        if (addrA.universe != addrB.universe)
+            return addrA.universe < addrB.universe;
+        return addrA.channel < addrB.channel;
+    });
+
+    for (const Fixture* fixture : sorted)
     {
         wxVector<wxVariant> row;
 
