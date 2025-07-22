@@ -12,6 +12,8 @@
 #include "gdtfloader.h"
 #include <unordered_map>
 #include <wx/dcclient.h>
+#include <wx/gdicmn.h>
+#include <wx/string.h>
 
 // MVR coordinates are defined in millimeters. This constant converts
 // them to meters when rendering.
@@ -32,6 +34,12 @@ public:
 
     // Draws fixture names at their world positions using a 2D device context
     void DrawFixtureLabels(wxDC& dc, int width, int height);
+
+    // Returns true and outputs label and screen position of the fixture
+    // under the given mouse coordinates (if any)
+    bool GetFixtureLabelAt(int mouseX, int mouseY,
+                           int width, int height,
+                           wxString& outLabel, wxPoint& outPos);
 
 private:
     // Draws a solid cube centered at origin with given size and color

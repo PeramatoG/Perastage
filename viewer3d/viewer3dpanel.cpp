@@ -58,7 +58,11 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
     int w, h;
     GetClientSize(&w, &h);
     dc.SetTextForeground(*wxWHITE);
-    m_controller.DrawFixtureLabels(dc, w, h);
+    m_hasHover = m_controller.GetFixtureLabelAt(m_lastMousePos.x, m_lastMousePos.y,
+                                                w, h, m_hoverText, m_hoverPos);
+    if (m_hasHover) {
+        dc.DrawText(m_hoverText, m_hoverPos);
+    }
 }
 
 // Resize event handler
@@ -122,9 +126,10 @@ void Viewer3DPanel::OnMouseUp(wxMouseEvent& event)
 // Handles mouse movement (orbit or pan)
 void Viewer3DPanel::OnMouseMove(wxMouseEvent& event)
 {
+    wxPoint pos = event.GetPosition();
+
     if (m_dragging && event.Dragging())
     {
-        wxPoint pos = event.GetPosition();
         int dx = pos.x - m_lastMousePos.x;
         int dy = pos.y - m_lastMousePos.y;
 
@@ -136,10 +141,16 @@ void Viewer3DPanel::OnMouseMove(wxMouseEvent& event)
         {
             m_camera.Pan(-dx * 0.01f, dy * 0.01f);
         }
-
-        m_lastMousePos = pos;
-        Refresh();
     }
+
+    m_lastMousePos = pos;
+
+    SetCurrent(*m_glContext);
+    int w, h;
+    GetClientSize(&w, &h);
+    m_hasHover = m_controller.GetFixtureLabelAt(m_lastMousePos.x, m_lastMousePos.y,
+                                                w, h, m_hoverText, m_hoverPos);
+    Refresh();
 }
 
 // Handles mouse wheel (zoom)
