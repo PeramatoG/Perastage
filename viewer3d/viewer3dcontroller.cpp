@@ -79,6 +79,10 @@ Viewer3DController::Viewer3DController() {}
 
 Viewer3DController::~Viewer3DController() {}
 
+void Viewer3DController::SetHighlightUuid(const std::string& uuid) {
+    m_highlightUuid = uuid;
+}
+
 // Loads meshes or GDTF models referenced by scene objects. Called when the scene is updated.
 void Viewer3DController::Update() {
     const std::string& base = ConfigManager::Get().GetScene().basePath;
@@ -212,6 +216,8 @@ void Viewer3DController::RenderScene()
     for (const auto& [uuid, f] : fixtures) {
         glPushMatrix();
 
+        bool highlight = (!m_highlightUuid.empty() && uuid == m_highlightUuid);
+
         float matrix[16];
         MatrixToArray(f.transform, matrix);
         ApplyTransform(matrix, true);
@@ -228,11 +234,11 @@ void Viewer3DController::RenderScene()
                 // GDTF geometry offsets are defined relative to the fixture
                 // in meters. Only the vertex coordinates need unit scaling.
                 ApplyTransform(m2, false);
-                DrawMeshWithOutline(obj.mesh);
+                DrawMeshWithOutline(obj.mesh, 1.0f, 1.0f, 1.0f, RENDER_SCALE, highlight);
                 glPopMatrix();
             }
         } else {
-            DrawCubeWithOutline(0.2f, 0.8f, 0.8f);
+            DrawCubeWithOutline(0.2f, 0.8f, 0.8f, 1.0f, highlight);
         }
 
         glPopMatrix();
@@ -351,16 +357,19 @@ void Viewer3DController::DrawWireframeCube(float size)
 }
 
 // Draws a colored cube with a black outline
-void Viewer3DController::DrawCubeWithOutline(float size, float r, float g, float b)
+void Viewer3DController::DrawCubeWithOutline(float size, float r, float g, float b, bool highlight)
 {
     // Render a slightly expanded cube in black using front face culling to
     // mimic a silhouette outline.
     glEnable(GL_CULL_FACE);
     glCullFace(GL_FRONT);
     glPushMatrix();
-    float outlineScale = 1.03f;
+    float outlineScale = highlight ? 1.1f : 1.03f;
     glScalef(outlineScale, outlineScale, outlineScale);
-    DrawCube(size, 0.0f, 0.0f, 0.0f);
+    if (highlight)
+        DrawCube(size, 0.0f, 1.0f, 0.0f);
+    else
+        DrawCube(size, 0.0f, 0.0f, 0.0f);
     glPopMatrix();
     glCullFace(GL_BACK);
     glDisable(GL_CULL_FACE);
@@ -371,7 +380,7 @@ void Viewer3DController::DrawCubeWithOutline(float size, float r, float g, float
 
 // Draws a mesh with a black outline using the given color
 void Viewer3DController::DrawMeshWithOutline(const Mesh& mesh, float r, float g,
-                                             float b, float scale)
+                                             float b, float scale, bool highlight)
 {
     // Draw the mesh slightly scaled up in black with front face culling to
     // create a silhouette outline. This avoids drawing all internal triangle
@@ -379,9 +388,12 @@ void Viewer3DController::DrawMeshWithOutline(const Mesh& mesh, float r, float g,
     glEnable(GL_CULL_FACE);
     glCullFace(GL_FRONT);
     glPushMatrix();
-    float outlineScale = 1.03f; // small expansion to make the outline visible
+    float outlineScale = highlight ? 1.1f : 1.03f; // expansion for outline
     glScalef(outlineScale, outlineScale, outlineScale);
-    glColor3f(0.0f, 0.0f, 0.0f);
+    if (highlight)
+        glColor3f(0.0f, 1.0f, 0.0f);
+    else
+        glColor3f(0.0f, 0.0f, 0.0f);
     DrawMesh(mesh, scale);
     glPopMatrix();
     glCullFace(GL_BACK);
@@ -535,7 +547,8 @@ void Viewer3DController::DrawFixtureLabels(wxDC& dc, int width, int height)
 
 bool Viewer3DController::GetFixtureLabelAt(int mouseX, int mouseY,
                                            int width, int height,
-                                           wxString& outLabel, wxPoint& outPos)
+                                           wxString& outLabel, wxPoint& outPos,
+                                           std::string* outUuid)
 {
     double model[16];
     double proj[16];
@@ -581,6 +594,8 @@ bool Viewer3DController::GetFixtureLabelAt(int mouseX, int mouseY,
             outPos.y = static_cast<int>((rect.minY + rect.maxY) * 0.5);
             outLabel = f.name.empty() ? wxString::FromUTF8(uuid)
                                      : wxString::FromUTF8(f.name);
+            if (outUuid)
+                *outUuid = uuid;
             return true;
         }
     }

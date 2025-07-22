@@ -12,6 +12,7 @@
 #include "gdtfloader.h"
 #include <unordered_map>
 #include <array>
+#include <string>
 #include <wx/dcclient.h>
 #include <wx/gdicmn.h>
 #include <wx/string.h>
@@ -33,6 +34,9 @@ public:
     // Renders all scene objects
     void RenderScene();
 
+    // Fixture UUID currently highlighted (hovered)
+    void SetHighlightUuid(const std::string& uuid);
+
     // Draws fixture names at their world positions using a 2D device context
     void DrawFixtureLabels(wxDC& dc, int width, int height);
 
@@ -40,7 +44,8 @@ public:
     // under the given mouse coordinates (if any)
     bool GetFixtureLabelAt(int mouseX, int mouseY,
                            int width, int height,
-                           wxString& outLabel, wxPoint& outPos);
+                           wxString& outLabel, wxPoint& outPos,
+                           std::string* outUuid = nullptr);
 
 private:
     // Draws a solid cube centered at origin with given size and color
@@ -51,11 +56,12 @@ private:
 
     // Draws a colored mesh with a black outline for a sketch effect
     void DrawMeshWithOutline(const Mesh& mesh, float r = 1.0f, float g = 1.0f,
-                             float b = 1.0f, float scale = RENDER_SCALE);
+                             float b = 1.0f, float scale = RENDER_SCALE,
+                             bool highlight = false);
 
     // Draws a colored cube with a black outline
     void DrawCubeWithOutline(float size = 0.2f, float r = 1.0f, float g = 1.0f,
-                             float b = 1.0f);
+                             float b = 1.0f, bool highlight = false);
 
     // Applies the object's transformation matrix. When scaleTranslation
     // is true the translation part is converted from millimeters to
@@ -90,4 +96,7 @@ private:
 
     // Precomputed world-space bounds for each fixture by UUID
     std::unordered_map<std::string, BoundingBox> m_fixtureBounds;
+
+    // Currently highlighted fixture UUID
+    std::string m_highlightUuid;
 };
