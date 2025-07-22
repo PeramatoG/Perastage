@@ -111,24 +111,24 @@ void FixtureTablePanel::ReloadData()
     {
         wxVector<wxVariant> row;
 
-        wxString name = wxString::FromUTF8(fixture.name);
-        long fixtureID = static_cast<long>(fixture.fixtureId);
-        wxString layer = wxString::FromUTF8(fixture.layer);
+        wxString name = wxString::FromUTF8(fixture->name);
+        long fixtureID = static_cast<long>(fixture->fixtureId);
+        wxString layer = wxString::FromUTF8(fixture->layer);
         long universe = 0;
         long channel = 0;
-        if (!fixture.address.empty())
+        if (!fixture->address.empty())
         {
-            wxStringTokenizer tk(wxString::FromUTF8(fixture.address), ".");
+            wxStringTokenizer tk(wxString::FromUTF8(fixture->address), ".");
             if (tk.HasMoreTokens()) tk.GetNextToken().ToLong(&universe);
             if (tk.HasMoreTokens()) tk.GetNextToken().ToLong(&channel);
         }
-        wxString gdtf = wxString::FromUTF8(fixture.gdtfSpec);
+        wxString gdtf = wxString::FromUTF8(fixture->gdtfSpec);
 
-        auto posArr = fixture.GetPosition();
+        auto posArr = fixture->GetPosition();
         wxString pos = wxString::Format("%.1f, %.1f, %.1f", posArr[0], posArr[1], posArr[2]);
-        wxString posName = wxString::FromUTF8(fixture.positionName);
+        wxString posName = wxString::FromUTF8(fixture->positionName);
 
-        auto euler = MatrixUtils::MatrixToEuler(fixture.transform);
+        auto euler = MatrixUtils::MatrixToEuler(fixture->transform);
         wxString rot = wxString::Format("%.1f\u00B0, %.1f\u00B0, %.1f\u00B0", euler[0], euler[1], euler[2]);
 
         row.push_back(name);
