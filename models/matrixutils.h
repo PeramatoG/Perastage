@@ -34,9 +34,18 @@ namespace MatrixUtils {
                 return false;
         }
 
-        outMatrix.u = { values[0], values[1], values[2] };
-        outMatrix.v = { values[3], values[4], values[5] };
-        outMatrix.w = { values[6], values[7], values[8] };
+        // Values are stored row-major in MVR/GDTF but our Matrix
+        // structure stores the basis vectors as columns. Convert by
+        // transposing the rotation part.
+        float r[3][3] = {
+            { values[0], values[1], values[2] },
+            { values[3], values[4], values[5] },
+            { values[6], values[7], values[8] }
+        };
+
+        outMatrix.u = { r[0][0], r[1][0], r[2][0] };
+        outMatrix.v = { r[0][1], r[1][1], r[2][1] };
+        outMatrix.w = { r[0][2], r[1][2], r[2][2] };
         outMatrix.o = { values[9], values[10], values[11] };
 
         return true;
