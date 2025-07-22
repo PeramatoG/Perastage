@@ -30,10 +30,23 @@ void FixtureTablePanel::InitializeTable()
     };
 
     std::vector<int> widths = {150, 90, 100, 120, 180, 150, 120, 150};
-    for (size_t i = 0; i < columnLabels.size(); ++i)
-        table->AppendTextColumn(
-            columnLabels[i], wxDATAVIEW_CELL_INERT, widths[i], wxALIGN_LEFT,
-            wxDATAVIEW_COL_RESIZABLE | wxDATAVIEW_COL_SORTABLE);
+    int flags = wxDATAVIEW_COL_RESIZABLE | wxDATAVIEW_COL_SORTABLE;
+
+    // Column 0: Name (string)
+    table->AppendTextColumn(columnLabels[0], wxDATAVIEW_CELL_INERT, widths[0],
+                            wxALIGN_LEFT, flags);
+
+    // Column 1: Fixture ID (numeric for proper sorting)
+    auto* idRenderer =
+        new wxDataViewTextRenderer("long", wxDATAVIEW_CELL_INERT, wxALIGN_LEFT);
+    auto* idColumn = new wxDataViewColumn(columnLabels[1], idRenderer, 1,
+                                          widths[1], wxALIGN_LEFT, flags);
+    table->AppendColumn(idColumn);
+
+    // Remaining columns as regular text
+    for (size_t i = 2; i < columnLabels.size(); ++i)
+        table->AppendTextColumn(columnLabels[i], wxDATAVIEW_CELL_INERT,
+                                widths[i], wxALIGN_LEFT, flags);
 }
 
 void FixtureTablePanel::ReloadData()
@@ -46,7 +59,7 @@ void FixtureTablePanel::ReloadData()
         wxVector<wxVariant> row;
 
         wxString name = wxString::FromUTF8(fixture.name);
-        wxString fixtureID = wxString::Format("%d", fixture.fixtureId);
+        long fixtureID = static_cast<long>(fixture.fixtureId);
         wxString layer = wxString::FromUTF8(fixture.layer);
         wxString address;
         if (fixture.address.empty())
