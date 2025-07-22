@@ -23,8 +23,6 @@ namespace fs = std::filesystem;
 #include <GL/glu.h>
 #include <iostream>
 
-constexpr float RENDER_SCALE = 0.001f;
-
 static std::string FindFileRecursive(const std::string& baseDir,
                                      const std::string& fileName)
 {
@@ -132,7 +130,7 @@ void Viewer3DController::RenderScene()
 
         float matrix[16];
         MatrixToArray(f.transform, matrix);
-        ApplyScaledTransform(matrix);
+        ApplyTransform(matrix, true);
 
         if (ConsolePanel::Instance()) {
             wxString msg = wxString::Format(
@@ -155,7 +153,7 @@ void Viewer3DController::RenderScene()
                 glPushMatrix();
                 float m2[16];
                 MatrixToArray(obj.transform, m2);
-                ApplyScaledTransform(m2);
+                ApplyTransform(m2, false);
                 DrawMesh(obj.mesh);
                 glPopMatrix();
             }
@@ -177,9 +175,7 @@ void Viewer3DController::RenderScene()
 
         float matrix[16];
         MatrixToArray(t.transform, matrix);
-        matrix[12] *= RENDER_SCALE;
-        matrix[13] *= RENDER_SCALE;
-        matrix[14] *= RENDER_SCALE;
+        ApplyTransform(matrix, true);
 
         if (ConsolePanel::Instance()) {
             wxString msg = wxString::Format(
@@ -189,7 +185,6 @@ void Viewer3DController::RenderScene()
             ConsolePanel::Instance()->AppendMessage(msg);
         }
 
-        glMultMatrixf(matrix);
 
         if (!t.symbolFile.empty()) {
             std::string path = base.empty() ? t.symbolFile
@@ -213,7 +208,7 @@ void Viewer3DController::RenderScene()
 
         float matrix[16];
         MatrixToArray(m.transform, matrix);
-        ApplyScaledTransform(matrix);
+        ApplyTransform(matrix, true);
 
         if (ConsolePanel::Instance()) {
             wxString msg = wxString::Format(
@@ -291,16 +286,17 @@ void Viewer3DController::DrawWireframeCube(float size)
     glEnd();
 }
 
-// Draws a mesh using GL triangles. Vertices are assumed to be in millimeters.
-void Viewer3DController::DrawMesh(const Mesh& mesh)
+// Draws a mesh using GL triangles. The optional scale parameter allows
+// converting vertex units (e.g. millimeters) to meters.
+void Viewer3DController::DrawMesh(const Mesh& mesh, float scale)
 {
     glBegin(GL_TRIANGLES);
     for (size_t i = 0; i + 2 < mesh.indices.size(); i += 3) {
         for (int v = 0; v < 3; ++v) {
             unsigned short idx = mesh.indices[i + v];
-            float x = mesh.vertices[idx * 3] * RENDER_SCALE;
-            float y = mesh.vertices[idx * 3 + 1] * RENDER_SCALE;
-            float z = mesh.vertices[idx * 3 + 2] * RENDER_SCALE;
+            float x = mesh.vertices[idx * 3] * scale;
+            float y = mesh.vertices[idx * 3 + 1] * scale;
+            float z = mesh.vertices[idx * 3 + 2] * scale;
             glVertex3f(x, y, z);
         }
     }
@@ -336,15 +332,19 @@ void Viewer3DController::DrawAxes()
     glEnd();
 }
 
-// Applies uniform scaling and then the object's transformation matrix
-void Viewer3DController::ApplyScaledTransform(const float matrix[16])
+// Multiplies the current matrix by the given transform. When
+// scaleTranslation is true the translation part is converted from
+// millimeters to meters using RENDER_SCALE.
+void Viewer3DController::ApplyTransform(const float matrix[16], bool scaleTranslation)
 {
-    float scaledMatrix[16];
-    std::copy(matrix, matrix + 16, scaledMatrix);
-    scaledMatrix[12] *= RENDER_SCALE;
-    scaledMatrix[13] *= RENDER_SCALE;
-    scaledMatrix[14] *= RENDER_SCALE;
-    glMultMatrixf(scaledMatrix);
+    float m[16];
+    std::copy(matrix, matrix + 16, m);
+    if (scaleTranslation) {
+        m[12] *= RENDER_SCALE;
+        m[13] *= RENDER_SCALE;
+        m[14] *= RENDER_SCALE;
+    }
+    glMultMatrixf(m);
 }
 
 
