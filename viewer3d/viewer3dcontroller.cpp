@@ -539,8 +539,12 @@ void Viewer3DController::DrawFixtureLabels(wxDC& dc, int width, int height)
         if (gluProject(wx, wy, wz, model, proj, viewport, &sx, &sy, &sz) == GL_TRUE) {
             int x = static_cast<int>(sx);
             int y = height - static_cast<int>(sy);
-            wxString name = f.name.empty() ? wxString::FromUTF8(uuid) : wxString::FromUTF8(f.name);
-            dc.DrawText(name, x, y);
+            wxString label = f.name.empty() ? wxString::FromUTF8(uuid)
+                                           : wxString::FromUTF8(f.name);
+            label += "\nID: " + wxString::Format("%d", f.fixtureId);
+            if (!f.address.empty())
+                label += "\n" + wxString::FromUTF8(f.address);
+            dc.DrawText(label, x, y);
         }
     }
 }
@@ -592,8 +596,12 @@ bool Viewer3DController::GetFixtureLabelAt(int mouseX, int mouseY,
             mouseY >= rect.minY && mouseY <= rect.maxY) {
             outPos.x = static_cast<int>((rect.minX + rect.maxX) * 0.5);
             outPos.y = static_cast<int>((rect.minY + rect.maxY) * 0.5);
-            outLabel = f.name.empty() ? wxString::FromUTF8(uuid)
-                                     : wxString::FromUTF8(f.name);
+            wxString label = f.name.empty() ? wxString::FromUTF8(uuid)
+                                           : wxString::FromUTF8(f.name);
+            label += "\nID: " + wxString::Format("%d", f.fixtureId);
+            if (!f.address.empty())
+                label += "\n" + wxString::FromUTF8(f.address);
+            outLabel = label;
             if (outUuid)
                 *outUuid = uuid;
             return true;
