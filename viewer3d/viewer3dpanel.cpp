@@ -53,6 +53,11 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
     if (ConsolePanel::Instance())
         ConsolePanel::Instance()->AppendMessage("Viewer paint event");
     Render();
+
+    int w, h;
+    GetClientSize(&w, &h);
+    dc.SetTextForeground(*wxWHITE);
+    m_controller.DrawFixtureLabels(dc, w, h);
 }
 
 // Resize event handler

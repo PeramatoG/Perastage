@@ -373,3 +373,27 @@ void Viewer3DController::SetupMaterialFromRGB(float r, float g, float b) {
     glColor3f(r, g, b);
 }
 
+void Viewer3DController::DrawFixtureLabels(wxDC& dc, int width, int height)
+{
+    double model[16];
+    double proj[16];
+    int viewport[4];
+    glGetDoublev(GL_MODELVIEW_MATRIX, model);
+    glGetDoublev(GL_PROJECTION_MATRIX, proj);
+    glGetIntegerv(GL_VIEWPORT, viewport);
+
+    const auto& fixtures = SceneDataManager::Instance().GetFixtures();
+    for (const auto& [uuid, f] : fixtures) {
+        double sx, sy, sz;
+        double wx = f.transform.o[0] * RENDER_SCALE;
+        double wy = f.transform.o[1] * RENDER_SCALE;
+        double wz = f.transform.o[2] * RENDER_SCALE;
+        if (gluProject(wx, wy, wz, model, proj, viewport, &sx, &sy, &sz) == GL_TRUE) {
+            int x = static_cast<int>(sx);
+            int y = height - static_cast<int>(sy);
+            wxString name = f.name.empty() ? wxString::FromUTF8(uuid) : wxString::FromUTF8(f.name);
+            dc.DrawText(name, x, y);
+        }
+    }
+}
+

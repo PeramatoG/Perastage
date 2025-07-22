@@ -11,6 +11,7 @@
 #include "mesh.h"
 #include "gdtfloader.h"
 #include <unordered_map>
+#include <wx/dcclient.h>
 
 
 class Viewer3DController
@@ -24,6 +25,9 @@ public:
 
     // Renders all scene objects
     void RenderScene();
+
+    // Draws fixture names at their world positions using a 2D device context
+    void DrawFixtureLabels(wxDC& dc, int width, int height);
 
 private:
     // Draws a solid cube centered at origin with given size and color
