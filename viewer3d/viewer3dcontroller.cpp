@@ -17,8 +17,10 @@
 namespace fs = std::filesystem;
 
 
+#ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#endif
 #include <GL/gl.h>
 #include <GL/glu.h>
 #include <iostream>
@@ -74,7 +76,8 @@ void Viewer3DController::Update() {
             if (Load3DS(path, mesh)) {
                 m_loadedMeshes[path] = std::move(mesh);
             } else if (ConsolePanel::Instance()) {
-                ConsolePanel::Instance()->AppendMessage("Failed to load 3DS: " + wxString::FromUTF8(path));
+                wxString msg = wxString::Format("Failed to load 3DS: %s", wxString::FromUTF8(path));
+                ConsolePanel::Instance()->AppendMessage(msg);
             }
         }
     }
@@ -90,7 +93,8 @@ void Viewer3DController::Update() {
             if (Load3DS(path, mesh)) {
                 m_loadedMeshes[path] = std::move(mesh);
             } else if (ConsolePanel::Instance()) {
-                ConsolePanel::Instance()->AppendMessage("Failed to load 3DS: " + wxString::FromUTF8(path));
+                wxString msg = wxString::Format("Failed to load 3DS: %s", wxString::FromUTF8(path));
+                ConsolePanel::Instance()->AppendMessage(msg);
             }
         }
     }
@@ -101,8 +105,10 @@ void Viewer3DController::Update() {
             continue;
         std::string gdtfPath = ResolveGdtfPath(base, f.gdtfSpec);
         if (gdtfPath.empty()) {
-            if (ConsolePanel::Instance())
-                ConsolePanel::Instance()->AppendMessage("GDTF file not found: " + wxString::FromUTF8(f.gdtfSpec));
+            if (ConsolePanel::Instance()) {
+                wxString msg = wxString::Format("GDTF file not found: %s", wxString::FromUTF8(f.gdtfSpec));
+                ConsolePanel::Instance()->AppendMessage(msg);
+            }
             continue;
         }
         if (m_loadedGdtf.find(gdtfPath) == m_loadedGdtf.end()) {
@@ -110,7 +116,8 @@ void Viewer3DController::Update() {
             if (LoadGdtf(gdtfPath, objs)) {
                 m_loadedGdtf[gdtfPath] = std::move(objs);
             } else if (ConsolePanel::Instance()) {
-                ConsolePanel::Instance()->AppendMessage("Failed to load GDTF: " + wxString::FromUTF8(gdtfPath));
+                wxString msg = wxString::Format("Failed to load GDTF: %s", wxString::FromUTF8(gdtfPath));
+                ConsolePanel::Instance()->AppendMessage(msg);
             }
         }
     }
