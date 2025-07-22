@@ -15,12 +15,20 @@
 #include <random>
 #include <iostream>
 #include <fstream>
+#include <algorithm>
 
 namespace fs = std::filesystem;
 
 struct ModelInfo {
     std::string file;
 };
+
+static bool Has3dsExtension(const fs::path& p)
+{
+    std::string ext = p.extension().string();
+    std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char c){ return std::tolower(c); });
+    return ext == ".3ds";
+}
 
 static std::string Find3dsFile(const std::string& baseDir,
                                const std::string& fileName)
@@ -29,10 +37,17 @@ static std::string Find3dsFile(const std::string& baseDir,
     if (!fs::exists(modelsDir))
         return {};
 
+    fs::path namePath = fileName;
+    std::string stem = namePath.stem().string();
+
+    fs::path direct = modelsDir / "3ds" / (stem + ".3ds");
+    if (fs::exists(direct))
+        return direct.string();
+
     for (auto& p : fs::recursive_directory_iterator(modelsDir)) {
         if (!p.is_regular_file())
             continue;
-        if (p.path().stem() == fileName && p.path().extension() == ".3ds")
+        if (p.path().stem() == stem && Has3dsExtension(p.path()))
             return p.path().string();
     }
     return {};
