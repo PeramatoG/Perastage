@@ -75,10 +75,7 @@ static bool ExtractZip(const std::string& zipPath, const std::string& destDir)
     while ((entry.reset(zipStream.GetNextEntry())), entry) {
         std::string filename = entry->GetName().ToStdString();
         std::string fullPath = destDir + "/" + filename;
-        if (ConsolePanel::Instance()) {
-            wxString msg = wxString::Format("GDTF: extracting %s", wxString::FromUTF8(filename));
-            ConsolePanel::Instance()->AppendMessage(msg);
-        }
+        
         if (entry->IsDir()) {
             wxFileName::Mkdir(fullPath, wxS_DIR_DEFAULT, wxPATH_MKDIR_FULL);
             continue;
@@ -143,14 +140,7 @@ static void ParseGeometry(tinyxml2::XMLElement* node,
                 if (mit == meshCache.end()) {
                     Mesh mesh;
                     if (Load3DS(path, mesh)) {
-                        if (ConsolePanel::Instance()) {
-                            wxString msg = wxString::Format(
-                                "GDTF: loaded 3DS %s (v=%zu i=%zu)",
-                                wxString::FromUTF8(path),
-                                mesh.vertices.size() / 3,
-                                mesh.indices.size() / 3);
-                            ConsolePanel::Instance()->AppendMessage(msg);
-                        }
+                        
                         // Apply model dimension scaling if provided
                         float minX = FLT_MAX, minY = FLT_MAX, minZ = FLT_MAX;
                         float maxX = -FLT_MAX, maxY = -FLT_MAX, maxZ = -FLT_MAX;
@@ -185,11 +175,6 @@ static void ParseGeometry(tinyxml2::XMLElement* node,
                     }
                 }
                 if (mit != meshCache.end()) {
-                    const char* geomName = node->Attribute("Name");
-                    if (ConsolePanel::Instance() && geomName) {
-                        wxString msg = wxString::Format("GDTF: using geometry %s", wxString::FromUTF8(geomName));
-                        ConsolePanel::Instance()->AppendMessage(msg);
-                    }
                     outObjects.push_back({mit->second, transform});
                 }
             } else if (ConsolePanel::Instance()) {
@@ -266,14 +251,6 @@ bool LoadGdtf(const std::string& gdtfPath, std::vector<GdtfObject>& outObjects)
                 m->QueryFloatAttribute("Width", &info.width);
                 m->QueryFloatAttribute("Height", &info.height);
                 models[name] = info;
-                if (ConsolePanel::Instance()) {
-                    wxString msg = wxString::Format(
-                        "GDTF: model %s -> %s (L=%.3f W=%.3f H=%.3f)",
-                        wxString::FromUTF8(name),
-                        wxString::FromUTF8(file),
-                        info.length, info.width, info.height);
-                    ConsolePanel::Instance()->AppendMessage(msg);
-                }
             }
         }
     }
