@@ -52,8 +52,7 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
 {
     wxPaintDC dc(this);
     InitGL();
-    if (ConsolePanel::Instance())
-        ConsolePanel::Instance()->AppendMessage("Viewer paint event");
+    // Paint events occur frequently; avoid flooding the log
     Render();
 
     int w, h;

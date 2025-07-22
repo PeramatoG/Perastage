@@ -140,23 +140,11 @@ void Viewer3DController::RenderScene()
         MatrixToArray(f.transform, matrix);
         ApplyTransform(matrix, true);
 
-        if (ConsolePanel::Instance()) {
-            wxString msg = wxString::Format(
-                "Rendering fixture %s at (%.2f, %.2f, %.2f)",
-                wxString::FromUTF8(uuid),
-                f.transform.o[0], f.transform.o[1], f.transform.o[2]);
-            ConsolePanel::Instance()->AppendMessage(msg);
-        }
 
         std::string gdtfPath = ResolveGdtfPath(base, f.gdtfSpec);
         auto itg = m_loadedGdtf.find(gdtfPath);
 
         if (itg != m_loadedGdtf.end()) {
-            if (ConsolePanel::Instance()) {
-                wxString msg = wxString::Format("Using GDTF %s (%zu objects)",
-                    wxString::FromUTF8(gdtfPath), itg->second.size());
-                ConsolePanel::Instance()->AppendMessage(msg);
-            }
             for (const auto& obj : itg->second) {
                 glPushMatrix();
                 float m2[16];
@@ -168,10 +156,6 @@ void Viewer3DController::RenderScene()
                 glPopMatrix();
             }
         } else {
-            if (ConsolePanel::Instance()) {
-                ConsolePanel::Instance()->AppendMessage(
-                    "GDTF not found, drawing placeholder cube");
-            }
             DrawCubeWithOutline(0.2f, 0.8f, 0.8f);
         }
 
@@ -187,13 +171,7 @@ void Viewer3DController::RenderScene()
         MatrixToArray(t.transform, matrix);
         ApplyTransform(matrix, true);
 
-        if (ConsolePanel::Instance()) {
-            wxString msg = wxString::Format(
-                "Rendering truss %s at (%.2f, %.2f, %.2f)",
-                wxString::FromUTF8(uuid),
-                t.transform.o[0], t.transform.o[1], t.transform.o[2]);
-            ConsolePanel::Instance()->AppendMessage(msg);
-        }
+
 
 
         if (!t.symbolFile.empty()) {
@@ -220,13 +198,7 @@ void Viewer3DController::RenderScene()
         MatrixToArray(m.transform, matrix);
         ApplyTransform(matrix, true);
 
-        if (ConsolePanel::Instance()) {
-            wxString msg = wxString::Format(
-                "Rendering object %s at (%.2f, %.2f, %.2f)",
-                wxString::FromUTF8(uuid),
-                m.transform.o[0], m.transform.o[1], m.transform.o[2]);
-            ConsolePanel::Instance()->AppendMessage(msg);
-        }
+
 
         if (!m.modelFile.empty()) {
             std::string path = base.empty() ? m.modelFile
