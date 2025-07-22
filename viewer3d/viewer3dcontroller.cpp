@@ -24,6 +24,7 @@ namespace fs = std::filesystem;
 #include <GL/gl.h>
 #include <GL/glu.h>
 #include <iostream>
+#include <cmath>
 
 static std::string FindFileRecursive(const std::string& baseDir,
                                      const std::string& fileName)
@@ -261,11 +262,17 @@ void Viewer3DController::DrawCube(float size, float r, float g, float b)
 
     glColor3f(r, g, b);
     glBegin(GL_QUADS);
+    glNormal3f(0.0f, 0.0f, 1.0f);
     glVertex3f(x0, y0, z1); glVertex3f(x1, y0, z1); glVertex3f(x1, y1, z1); glVertex3f(x0, y1, z1); // Front
+    glNormal3f(0.0f, 0.0f, -1.0f);
     glVertex3f(x1, y0, z0); glVertex3f(x0, y0, z0); glVertex3f(x0, y1, z0); glVertex3f(x1, y1, z0); // Back
+    glNormal3f(-1.0f, 0.0f, 0.0f);
     glVertex3f(x0, y0, z0); glVertex3f(x0, y0, z1); glVertex3f(x0, y1, z1); glVertex3f(x0, y1, z0); // Left
+    glNormal3f(1.0f, 0.0f, 0.0f);
     glVertex3f(x1, y0, z1); glVertex3f(x1, y0, z0); glVertex3f(x1, y1, z0); glVertex3f(x1, y1, z1); // Right
+    glNormal3f(0.0f, 1.0f, 0.0f);
     glVertex3f(x0, y1, z1); glVertex3f(x1, y1, z1); glVertex3f(x1, y1, z0); glVertex3f(x0, y1, z0); // Top
+    glNormal3f(0.0f, -1.0f, 0.0f);
     glVertex3f(x0, y0, z0); glVertex3f(x1, y0, z0); glVertex3f(x1, y0, z1); glVertex3f(x0, y0, z1); // Bottom
     glEnd();
 }
@@ -303,7 +310,7 @@ void Viewer3DController::DrawCubeWithOutline(float size, float r, float g, float
     glEnable(GL_CULL_FACE);
     glCullFace(GL_FRONT);
     glPushMatrix();
-    float outlineScale = 1.01f;
+    float outlineScale = 1.03f;
     glScalef(outlineScale, outlineScale, outlineScale);
     DrawCube(size, 0.0f, 0.0f, 0.0f);
     glPopMatrix();
@@ -324,7 +331,7 @@ void Viewer3DController::DrawMeshWithOutline(const Mesh& mesh, float r, float g,
     glEnable(GL_CULL_FACE);
     glCullFace(GL_FRONT);
     glPushMatrix();
-    float outlineScale = 1.01f; // small expansion to make the outline visible
+    float outlineScale = 1.03f; // small expansion to make the outline visible
     glScalef(outlineScale, outlineScale, outlineScale);
     glColor3f(0.0f, 0.0f, 0.0f);
     DrawMesh(mesh, scale);
@@ -343,13 +350,43 @@ void Viewer3DController::DrawMesh(const Mesh& mesh, float scale)
 {
     glBegin(GL_TRIANGLES);
     for (size_t i = 0; i + 2 < mesh.indices.size(); i += 3) {
-        for (int v = 0; v < 3; ++v) {
-            unsigned short idx = mesh.indices[i + v];
-            float x = mesh.vertices[idx * 3] * scale;
-            float y = mesh.vertices[idx * 3 + 1] * scale;
-            float z = mesh.vertices[idx * 3 + 2] * scale;
-            glVertex3f(x, y, z);
+        unsigned short i0 = mesh.indices[i];
+        unsigned short i1 = mesh.indices[i + 1];
+        unsigned short i2 = mesh.indices[i + 2];
+
+        float v0x = mesh.vertices[i0 * 3] * scale;
+        float v0y = mesh.vertices[i0 * 3 + 1] * scale;
+        float v0z = mesh.vertices[i0 * 3 + 2] * scale;
+
+        float v1x = mesh.vertices[i1 * 3] * scale;
+        float v1y = mesh.vertices[i1 * 3 + 1] * scale;
+        float v1z = mesh.vertices[i1 * 3 + 2] * scale;
+
+        float v2x = mesh.vertices[i2 * 3] * scale;
+        float v2y = mesh.vertices[i2 * 3 + 1] * scale;
+        float v2z = mesh.vertices[i2 * 3 + 2] * scale;
+
+        float ux = v1x - v0x;
+        float uy = v1y - v0y;
+        float uz = v1z - v0z;
+
+        float vx = v2x - v0x;
+        float vy = v2y - v0y;
+        float vz = v2z - v0z;
+
+        float nx = uy * vz - uz * vy;
+        float ny = uz * vx - ux * vz;
+        float nz = ux * vy - uy * vx;
+
+        float len = std::sqrt(nx * nx + ny * ny + nz * nz);
+        if (len > 0.0f) {
+            nx /= len; ny /= len; nz /= len;
         }
+
+        glNormal3f(nx, ny, nz);
+        glVertex3f(v0x, v0y, v0z);
+        glVertex3f(v1x, v1y, v1z);
+        glVertex3f(v2x, v2y, v2z);
     }
     glEnd();
 }
