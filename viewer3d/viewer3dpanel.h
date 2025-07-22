@@ -56,6 +56,11 @@ private:
     // Renders the full scene
     void Render();
 
+    // Hovered fixture label state
+    bool m_hasHover = false;
+    wxPoint m_hoverPos;
+    wxString m_hoverText;
+
     Viewer3DController m_controller;
 
     wxDECLARE_EVENT_TABLE();
