@@ -13,6 +13,7 @@ EVT_MENU(ID_File_ImportMVR, MainWindow::OnImportMVR)
 EVT_MENU(ID_File_Close, MainWindow::OnClose)
 EVT_MENU(ID_View_ToggleConsole, MainWindow::OnToggleConsole)
 EVT_MENU(ID_View_ToggleFixtures, MainWindow::OnToggleFixtures)
+EVT_MENU(ID_View_ToggleViewport, MainWindow::OnToggleViewport)
 wxEND_EVENT_TABLE()
 
 MainWindow::MainWindow(const wxString& title)
@@ -107,10 +108,12 @@ void MainWindow::CreateMenuBar()
     wxMenu* viewMenu = new wxMenu();
     viewMenu->AppendCheckItem(ID_View_ToggleConsole, "Console");
     viewMenu->AppendCheckItem(ID_View_ToggleFixtures, "Fixtures");
+    viewMenu->AppendCheckItem(ID_View_ToggleViewport, "3D Viewport");
 
     // Initial check states
     viewMenu->Check(ID_View_ToggleConsole, true);
     viewMenu->Check(ID_View_ToggleFixtures, true);
+    viewMenu->Check(ID_View_ToggleViewport, true);
 
     menuBar->Append(viewMenu, "&View");
 
@@ -185,4 +188,16 @@ void MainWindow::OnToggleFixtures(wxCommandEvent& event)
     auiManager->Update();
 
     GetMenuBar()->Check(ID_View_ToggleFixtures, pane.IsShown());
+}
+
+void MainWindow::OnToggleViewport(wxCommandEvent& event)
+{
+    if (!auiManager)
+        return;
+
+    auto& pane = auiManager->GetPane("3DViewport");
+    pane.Show(!pane.IsShown());
+    auiManager->Update();
+
+    GetMenuBar()->Check(ID_View_ToggleViewport, pane.IsShown());
 }

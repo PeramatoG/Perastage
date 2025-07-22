@@ -34,6 +34,7 @@ private:
     void OnClose(wxCommandEvent& event);           // Handle the Close action
     void OnToggleConsole(wxCommandEvent& event);   // Toggle console panel
     void OnToggleFixtures(wxCommandEvent& event);  // Toggle fixture panel
+    void OnToggleViewport(wxCommandEvent& event);  // Toggle 3D viewport
 
     wxDECLARE_EVENT_TABLE();
 };
@@ -48,5 +49,6 @@ enum
     ID_File_ExportMVR,
     ID_File_Close,
     ID_View_ToggleConsole,
-    ID_View_ToggleFixtures
+    ID_View_ToggleFixtures,
+    ID_View_ToggleViewport
 };
