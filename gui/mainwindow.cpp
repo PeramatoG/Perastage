@@ -15,6 +15,7 @@ EVT_MENU(ID_File_Load, MainWindow::OnLoad)
 EVT_MENU(ID_File_Save, MainWindow::OnSave)
 EVT_MENU(ID_File_SaveAs, MainWindow::OnSaveAs)
 EVT_MENU(ID_File_ImportMVR, MainWindow::OnImportMVR)
+EVT_MENU(ID_File_ExportMVR, MainWindow::OnExportMVR)
 EVT_MENU(ID_File_Close, MainWindow::OnClose)
 EVT_MENU(ID_View_ToggleConsole, MainWindow::OnToggleConsole)
 EVT_MENU(ID_View_ToggleFixtures, MainWindow::OnToggleFixtures)
@@ -229,6 +230,33 @@ void MainWindow::OnImportMVR(wxCommandEvent& event)
     }
 }
 
+
+void MainWindow::OnExportMVR(wxCommandEvent& event)
+{
+    wxFileDialog saveFileDialog(
+        this,
+        "Export MVR file",
+        "",
+        "",
+        "MVR files (*.mvr)|*.mvr",
+        wxFD_SAVE | wxFD_OVERWRITE_PROMPT
+    );
+
+    if (saveFileDialog.ShowModal() == wxID_CANCEL)
+        return;
+
+    MvrExporter exporter;
+    wxString path = saveFileDialog.GetPath();
+    if (!exporter.ExportToFile(path.ToStdString())) {
+        wxMessageBox("Failed to export MVR file.", "Error", wxICON_ERROR);
+        if (consolePanel)
+            consolePanel->AppendMessage("Failed to export " + path);
+    } else {
+        wxMessageBox("MVR file exported successfully.", "Success", wxICON_INFORMATION);
+        if (consolePanel)
+            consolePanel->AppendMessage("Exported " + path);
+    }
+}
 
 
 void MainWindow::OnClose(wxCommandEvent& event)
