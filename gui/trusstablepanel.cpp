@@ -16,7 +16,6 @@ TrussTablePanel::TrussTablePanel(wxWindow* parent)
         wxSystemSettings::GetColour(wxSYS_COLOUR_LISTBOX));
 #endif
     table->AssociateModel(&store);
-    store.DecRef();
 
     table->Bind(wxEVT_LEFT_DOWN, &TrussTablePanel::OnLeftDown, this);
     table->Bind(wxEVT_LEFT_UP, &TrussTablePanel::OnLeftUp, this);
