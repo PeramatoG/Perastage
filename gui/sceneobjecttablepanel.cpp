@@ -31,6 +31,12 @@ SceneObjectTablePanel::SceneObjectTablePanel(wxWindow* parent)
     SetSizer(sizer);
 }
 
+SceneObjectTablePanel::~SceneObjectTablePanel()
+{
+    if (table)
+        table->AssociateModel(nullptr);
+}
+
 void SceneObjectTablePanel::InitializeTable()
 {
     columnLabels = {"Name", "Layer", "Model File",

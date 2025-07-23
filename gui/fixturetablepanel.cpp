@@ -35,6 +35,12 @@ FixtureTablePanel::FixtureTablePanel(wxWindow* parent)
     SetSizer(sizer);
 }
 
+FixtureTablePanel::~FixtureTablePanel()
+{
+    if (table)
+        table->AssociateModel(nullptr);
+}
+
 void FixtureTablePanel::InitializeTable()
 {
     columnLabels = {

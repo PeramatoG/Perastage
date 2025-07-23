@@ -10,6 +10,7 @@ class FixtureTablePanel : public wxPanel
 {
 public:
     FixtureTablePanel(wxWindow* parent);
+    ~FixtureTablePanel();
     void ReloadData(); // Refresh content from ConfigManager
     void HighlightFixture(const std::string& uuid);
 
