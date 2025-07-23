@@ -233,6 +233,15 @@ bool LoadGLB(const std::string& path, Mesh& outMesh)
         return true;
     };
 
+    // glTF files use a Y-up coordinate system whereas GDTF specifies Z-up with
+    // Y pointing into the screen. Apply a constant basis change so that models
+    // match the GDTF orientation.
+    Matrix axisConv;
+    axisConv.u = {1.f, 0.f, 0.f};   // X -> X
+    axisConv.v = {0.f, 0.f, 1.f};   // Y -> Z
+    axisConv.w = {0.f, -1.f, 0.f};  // Z -> -Y
+    axisConv.o = {0.f, 0.f, 0.f};
+
     std::function<bool(int,const Matrix&)> parseNode;
     parseNode = [&](int nodeIdx, const Matrix& parent) -> bool {
         if(!doc.contains("nodes")) return false;
@@ -273,7 +282,7 @@ bool LoadGLB(const std::string& path, Mesh& outMesh)
             if(scene.contains("nodes")) {
                 for(const auto& n : scene["nodes"]) {
                     if(n.is_number_integer()) {
-                        if(parseNode(n.get<int>(), MatrixUtils::Identity()))
+                        if(parseNode(n.get<int>(), axisConv))
                             ok = true;
                     }
                 }
@@ -282,7 +291,7 @@ bool LoadGLB(const std::string& path, Mesh& outMesh)
     }
     if(!ok && doc.contains("nodes")) {
         for(size_t i=0;i<doc["nodes"].size(); ++i)
-            if(parseNode(static_cast<int>(i), MatrixUtils::Identity()))
+            if(parseNode(static_cast<int>(i), axisConv))
                 ok = true;
     }
 
