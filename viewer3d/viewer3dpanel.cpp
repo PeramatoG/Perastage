@@ -177,6 +177,12 @@ void Viewer3DPanel::UpdateScene()
     m_controller.Update();
 }
 
+void Viewer3DPanel::SetSelectedFixtures(const std::vector<std::string>& uuids)
+{
+    m_controller.SetSelectedUuids(uuids);
+    Refresh();
+}
+
 static Viewer3DPanel* s_instance = nullptr;
 
 Viewer3DPanel* Viewer3DPanel::Instance()

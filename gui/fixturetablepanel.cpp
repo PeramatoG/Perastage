@@ -24,6 +24,8 @@ FixtureTablePanel::FixtureTablePanel(wxWindow* parent)
     table->Bind(wxEVT_LEFT_DOWN, &FixtureTablePanel::OnLeftDown, this);
     table->Bind(wxEVT_LEFT_UP, &FixtureTablePanel::OnLeftUp, this);
     table->Bind(wxEVT_MOTION, &FixtureTablePanel::OnMouseMove, this);
+    table->Bind(wxEVT_DATAVIEW_SELECTION_CHANGED,
+                &FixtureTablePanel::OnSelectionChanged, this);
 
     table->Bind(wxEVT_DATAVIEW_ITEM_CONTEXT_MENU,
                 &FixtureTablePanel::OnContextMenu, this);
@@ -190,6 +192,9 @@ void FixtureTablePanel::ReloadData()
         table->AppendItem(row);
         rowUuids.push_back(uuid);
     }
+
+    if (Viewer3DPanel::Instance())
+        Viewer3DPanel::Instance()->SetSelectedFixtures({});
 
 // Let wxDataViewListCtrl manage column headers and sorting
 }
@@ -420,6 +425,23 @@ void FixtureTablePanel::OnMouseMove(wxMouseEvent& evt)
         for (int r = minRow; r <= maxRow; ++r)
             table->SelectRow(r);
     }
+    evt.Skip();
+}
+
+void FixtureTablePanel::OnSelectionChanged(wxDataViewEvent& evt)
+{
+    wxDataViewItemArray selections;
+    table->GetSelections(selections);
+    std::vector<std::string> uuids;
+    uuids.reserve(selections.size());
+    for (const auto& it : selections)
+    {
+        int r = table->ItemToRow(it);
+        if (r != wxNOT_FOUND && (size_t)r < rowUuids.size())
+            uuids.push_back(rowUuids[r]);
+    }
+    if (Viewer3DPanel::Instance())
+        Viewer3DPanel::Instance()->SetSelectedFixtures(uuids);
     evt.Skip();
 }
 

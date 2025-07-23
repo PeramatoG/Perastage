@@ -83,6 +83,12 @@ void Viewer3DController::SetHighlightUuid(const std::string& uuid) {
     m_highlightUuid = uuid;
 }
 
+void Viewer3DController::SetSelectedUuids(const std::vector<std::string>& uuids) {
+    m_selectedUuids.clear();
+    for (const auto& u : uuids)
+        m_selectedUuids.insert(u);
+}
+
 // Loads meshes or GDTF models referenced by scene objects. Called when the scene is updated.
 void Viewer3DController::Update() {
     const std::string& base = ConfigManager::Get().GetScene().basePath;
@@ -217,6 +223,7 @@ void Viewer3DController::RenderScene()
         glPushMatrix();
 
         bool highlight = (!m_highlightUuid.empty() && uuid == m_highlightUuid);
+        bool selected = (m_selectedUuids.find(uuid) != m_selectedUuids.end());
 
         float matrix[16];
         MatrixToArray(f.transform, matrix);
@@ -234,11 +241,11 @@ void Viewer3DController::RenderScene()
                 // GDTF geometry offsets are defined relative to the fixture
                 // in meters. Only the vertex coordinates need unit scaling.
                 ApplyTransform(m2, false);
-                DrawMeshWithOutline(obj.mesh, 1.0f, 1.0f, 1.0f, RENDER_SCALE, highlight);
+                DrawMeshWithOutline(obj.mesh, 1.0f, 1.0f, 1.0f, RENDER_SCALE, highlight, selected);
                 glPopMatrix();
             }
         } else {
-            DrawCubeWithOutline(0.2f, 0.8f, 0.8f, 1.0f, highlight);
+            DrawCubeWithOutline(0.2f, 0.8f, 0.8f, 1.0f, highlight, selected);
         }
 
         glPopMatrix();
@@ -357,16 +364,22 @@ void Viewer3DController::DrawWireframeCube(float size)
 }
 
 // Draws a colored cube with a black outline
-void Viewer3DController::DrawCubeWithOutline(float size, float r, float g, float b, bool highlight)
+void Viewer3DController::DrawCubeWithOutline(float size, float r, float g, float b, bool highlight, bool selected)
 {
     // Render a slightly expanded cube in black using front face culling to
     // mimic a silhouette outline.
     glEnable(GL_CULL_FACE);
     glCullFace(GL_FRONT);
     glPushMatrix();
-    float outlineScale = highlight ? 1.1f : 1.03f;
+    float outlineScale = 1.03f;
+    if (selected)
+        outlineScale = 1.15f;
+    else if (highlight)
+        outlineScale = 1.1f;
     glScalef(outlineScale, outlineScale, outlineScale);
-    if (highlight)
+    if (selected)
+        DrawCube(size, 0.0f, 1.0f, 1.0f);
+    else if (highlight)
         DrawCube(size, 0.0f, 1.0f, 0.0f);
     else
         DrawCube(size, 0.0f, 0.0f, 0.0f);
@@ -380,7 +393,8 @@ void Viewer3DController::DrawCubeWithOutline(float size, float r, float g, float
 
 // Draws a mesh with a black outline using the given color
 void Viewer3DController::DrawMeshWithOutline(const Mesh& mesh, float r, float g,
-                                             float b, float scale, bool highlight)
+                                             float b, float scale, bool highlight,
+                                             bool selected)
 {
     // Draw the mesh slightly scaled up in black with front face culling to
     // create a silhouette outline. This avoids drawing all internal triangle
@@ -388,9 +402,15 @@ void Viewer3DController::DrawMeshWithOutline(const Mesh& mesh, float r, float g,
     glEnable(GL_CULL_FACE);
     glCullFace(GL_FRONT);
     glPushMatrix();
-    float outlineScale = highlight ? 1.1f : 1.03f; // expansion for outline
+    float outlineScale = 1.03f; // expansion for outline
+    if (selected)
+        outlineScale = 1.15f;
+    else if (highlight)
+        outlineScale = 1.1f;
     glScalef(outlineScale, outlineScale, outlineScale);
-    if (highlight)
+    if (selected)
+        glColor3f(0.0f, 1.0f, 1.0f);
+    else if (highlight)
         glColor3f(0.0f, 1.0f, 0.0f);
     else
         glColor3f(0.0f, 0.0f, 0.0f);
