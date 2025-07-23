@@ -295,6 +295,9 @@ bool LoadGLB(const std::string& path, Mesh& outMesh)
                 ok = true;
     }
 
+    if (ok)
+        ComputeNormals(outMesh);
+
     if(ConsolePanel::Instance()) {
         wxString msg;
         if(ok) {

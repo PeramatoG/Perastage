@@ -49,7 +49,8 @@ static std::string FindFileRecursive(const std::string& baseDir,
 static std::string NormalizePath(const std::string& p)
 {
     std::string out = p;
-    std::replace(out.begin(), out.end(), '\\', fs::path::preferred_separator);
+    char sep = static_cast<char>(fs::path::preferred_separator);
+    std::replace(out.begin(), out.end(), '\\', sep);
     return out;
 }
 
@@ -496,6 +497,7 @@ void Viewer3DController::DrawMeshWithOutline(const Mesh& mesh, float r, float g,
 void Viewer3DController::DrawMesh(const Mesh& mesh, float scale)
 {
     glBegin(GL_TRIANGLES);
+    bool hasNormals = mesh.normals.size() >= mesh.vertices.size();
     for (size_t i = 0; i + 2 < mesh.indices.size(); i += 3) {
         unsigned short i0 = mesh.indices[i];
         unsigned short i1 = mesh.indices[i + 1];
@@ -513,27 +515,36 @@ void Viewer3DController::DrawMesh(const Mesh& mesh, float scale)
         float v2y = mesh.vertices[i2 * 3 + 1] * scale;
         float v2z = mesh.vertices[i2 * 3 + 2] * scale;
 
-        float ux = v1x - v0x;
-        float uy = v1y - v0y;
-        float uz = v1z - v0z;
+        if (hasNormals) {
+            glNormal3f(mesh.normals[i0 * 3], mesh.normals[i0 * 3 + 1], mesh.normals[i0 * 3 + 2]);
+            glVertex3f(v0x, v0y, v0z);
+            glNormal3f(mesh.normals[i1 * 3], mesh.normals[i1 * 3 + 1], mesh.normals[i1 * 3 + 2]);
+            glVertex3f(v1x, v1y, v1z);
+            glNormal3f(mesh.normals[i2 * 3], mesh.normals[i2 * 3 + 1], mesh.normals[i2 * 3 + 2]);
+            glVertex3f(v2x, v2y, v2z);
+        } else {
+            float ux = v1x - v0x;
+            float uy = v1y - v0y;
+            float uz = v1z - v0z;
 
-        float vx = v2x - v0x;
-        float vy = v2y - v0y;
-        float vz = v2z - v0z;
+            float vx = v2x - v0x;
+            float vy = v2y - v0y;
+            float vz = v2z - v0z;
 
-        float nx = uy * vz - uz * vy;
-        float ny = uz * vx - ux * vz;
-        float nz = ux * vy - uy * vx;
+            float nx = uy * vz - uz * vy;
+            float ny = uz * vx - ux * vz;
+            float nz = ux * vy - uy * vx;
 
-        float len = std::sqrt(nx * nx + ny * ny + nz * nz);
-        if (len > 0.0f) {
-            nx /= len; ny /= len; nz /= len;
+            float len = std::sqrt(nx * nx + ny * ny + nz * nz);
+            if (len > 0.0f) {
+                nx /= len; ny /= len; nz /= len;
+            }
+
+            glNormal3f(nx, ny, nz);
+            glVertex3f(v0x, v0y, v0z);
+            glVertex3f(v1x, v1y, v1z);
+            glVertex3f(v2x, v2y, v2z);
         }
-
-        glNormal3f(nx, ny, nz);
-        glVertex3f(v0x, v0y, v0z);
-        glVertex3f(v1x, v1y, v1z);
-        glVertex3f(v2x, v2y, v2z);
     }
     glEnd();
 }

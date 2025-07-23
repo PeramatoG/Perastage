@@ -107,6 +107,8 @@ bool Load3DS(const std::string& path, Mesh& outMesh)
     }
 
     bool ok = !outMesh.vertices.empty() && !outMesh.indices.empty();
+    if (ok)
+        ComputeNormals(outMesh);
     if (ConsolePanel::Instance()) {
         if (ok) {
             wxString msg = wxString::Format("3DS: %s -> v=%zu i=%zu",
