@@ -10,6 +10,7 @@ class TrussTablePanel : public wxPanel
 {
 public:
     explicit TrussTablePanel(wxWindow* parent);
+    ~TrussTablePanel();
     void ReloadData(); // Refresh from ConfigManager
 
 private:

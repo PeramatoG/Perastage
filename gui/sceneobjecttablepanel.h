@@ -10,6 +10,7 @@ class SceneObjectTablePanel : public wxPanel
 {
 public:
     explicit SceneObjectTablePanel(wxWindow* parent);
+    ~SceneObjectTablePanel();
     void ReloadData();
 
 private:

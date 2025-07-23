@@ -31,6 +31,12 @@ TrussTablePanel::TrussTablePanel(wxWindow* parent)
     SetSizer(sizer);
 }
 
+TrussTablePanel::~TrussTablePanel()
+{
+    if (table)
+        table->AssociateModel(nullptr);
+}
+
 void TrussTablePanel::InitializeTable()
 {
     columnLabels = {"Name", "Layer", "Model File",
