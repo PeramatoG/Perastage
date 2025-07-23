@@ -560,8 +560,11 @@ void Viewer3DController::SetupMaterialFromRGB(float r, float g, float b) {
     glColor3f(r, g, b);
 }
 
-void Viewer3DController::DrawFixtureLabels(wxDC& dc, int width, int height)
+void Viewer3DController::DrawFixtureLabels(wxWindowDC& dc, int width, int height)
 {
+    // wxGraphicsContext::Create() does not provide an overload taking wxDC
+    // directly. Using wxWindowDC ensures the correct overload is selected
+    // and allows creation of the graphics context from the paint device.
     wxGraphicsContext* gc = wxGraphicsContext::Create(dc);
     if (!gc)
         return;
