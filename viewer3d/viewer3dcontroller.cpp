@@ -45,13 +45,22 @@ static std::string FindFileRecursive(const std::string& baseDir,
     return {};
 }
 
+// Replace Windows path separators with the platform preferred one
+static std::string NormalizePath(const std::string& p)
+{
+    std::string out = p;
+    std::replace(out.begin(), out.end(), '\\', fs::path::preferred_separator);
+    return out;
+}
+
 static std::string ResolveGdtfPath(const std::string& base,
                                    const std::string& spec)
 {
-    std::string p = base.empty() ? spec : (fs::path(base) / spec).string();
+    std::string norm = NormalizePath(spec);
+    fs::path p = base.empty() ? fs::path(norm) : fs::path(base) / norm;
     if (fs::exists(p))
-        return p;
-    return FindFileRecursive(base, fs::path(spec).filename().string());
+        return p.string();
+    return FindFileRecursive(base, fs::path(norm).filename().string());
 }
 
 static std::string ResolveModelPath(const std::string& base,
@@ -60,7 +69,8 @@ static std::string ResolveModelPath(const std::string& base,
     if (file.empty())
         return {};
 
-    fs::path p = base.empty() ? fs::path(file) : fs::path(base) / file;
+    std::string norm = NormalizePath(file);
+    fs::path p = base.empty() ? fs::path(norm) : fs::path(base) / norm;
     if (fs::exists(p))
         return p.string();
 
