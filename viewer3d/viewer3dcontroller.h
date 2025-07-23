@@ -41,7 +41,11 @@ public:
     void SetSelectedUuids(const std::vector<std::string>& uuids);
 
     // Draws fixture names at their world positions using a 2D device context
-    void DrawFixtureLabels(wxDC& dc, int width, int height);
+    // Accept a wxWindowDC to allow creating a graphics context on the provided
+    // device context. Using wxDC directly does not match any overload of
+    // wxGraphicsContext::Create() which leads to build errors on some
+    // platforms.
+    void DrawFixtureLabels(wxWindowDC& dc, int width, int height);
 
     // Returns true and outputs label and screen position of the fixture
     // under the given mouse coordinates (if any)
