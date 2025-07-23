@@ -84,6 +84,17 @@ namespace MatrixUtils {
         return { yaw * toDeg, pitch * toDeg, roll * toDeg };
     }
 
+    // Convert matrix to the MVR 4x3 string representation
+    inline std::string FormatMatrix(const Matrix& m)
+    {
+        std::ostringstream ss;
+        ss << "{" << m.u[0] << "," << m.u[1] << "," << m.u[2] << "}"
+           << "{" << m.v[0] << "," << m.v[1] << "," << m.v[2] << "}"
+           << "{" << m.w[0] << "," << m.w[1] << "," << m.w[2] << "}"
+           << "{" << m.o[0] << "," << m.o[1] << "," << m.o[2] << "}";
+        return ss.str();
+    }
+
     inline Matrix Identity()
     {
         return Matrix{};

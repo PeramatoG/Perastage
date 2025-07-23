@@ -2,10 +2,10 @@
 
 #include <string>
 
-// Simple exporter that packages the current scene directory into an MVR (ZIP) file
+// Exports the current scene in ConfigManager into a standards compliant MVR archive
 class MvrExporter
 {
 public:
-    // Export ConfigManager::Get().GetScene() into a .mvr archive at the given path
+    // Serialize the scene and write a .mvr archive at the given path
     bool ExportToFile(const std::string& filePath);
 };

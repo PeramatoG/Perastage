@@ -35,6 +35,7 @@ private:
     void OnSave(wxCommandEvent& event);            // Save project
     void OnSaveAs(wxCommandEvent& event);         // Save project as
     void OnImportMVR(wxCommandEvent& event);       // Handle the Import MVR action
+    void OnExportMVR(wxCommandEvent& event);       // Handle the Export MVR action
     void OnClose(wxCommandEvent& event);           // Handle the Close action
     void OnToggleConsole(wxCommandEvent& event);   // Toggle console panel
     void OnToggleFixtures(wxCommandEvent& event);  // Toggle fixture panel
