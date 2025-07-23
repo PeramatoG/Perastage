@@ -7,7 +7,9 @@
 #include "consolepanel.h"
 #include "configmanager.h"
 #include "mvrexporter.h"
+#include "projectutils.h"
 #include <wx/notebook.h>
+#include <wx/filename.h>
 
 
 wxBEGIN_EVENT_TABLE(MainWindow, wxFrame)
@@ -41,6 +43,7 @@ MainWindow::MainWindow(const wxString& title)
 
     Centre();
     SetupLayout();
+    UpdateTitle();
 }
 
 MainWindow::~MainWindow()
@@ -49,6 +52,7 @@ MainWindow::~MainWindow()
         auiManager->UnInit();
         delete auiManager;
     }
+    ProjectUtils::SaveLastProjectPath(currentProjectPath);
 }
 
 void MainWindow::SetupLayout()
@@ -143,28 +147,14 @@ void MainWindow::CreateMenuBar()
 
 void MainWindow::OnLoad(wxCommandEvent& event)
 {
-    wxFileDialog dlg(this, "Open Project", "", "", "Project files (*.zip)|*.zip", wxFD_OPEN | wxFD_FILE_MUST_EXIST);
+    wxString filter = wxString::Format("Perastage files (*%s)|*%s", ProjectUtils::PROJECT_EXTENSION, ProjectUtils::PROJECT_EXTENSION);
+    wxFileDialog dlg(this, "Open Project", "", "", filter, wxFD_OPEN | wxFD_FILE_MUST_EXIST);
     if (dlg.ShowModal() == wxID_CANCEL)
         return;
 
     wxString path = dlg.GetPath();
-    if (!ConfigManager::Get().LoadProject(path.ToStdString())) {
+    if (!LoadProjectFromPath(path.ToStdString()))
         wxMessageBox("Failed to load project.", "Error", wxICON_ERROR);
-        return;
-    }
-    currentProjectPath = path.ToStdString();
-    if (consolePanel)
-        consolePanel->AppendMessage("Loaded " + path);
-    if (fixturePanel)
-        fixturePanel->ReloadData();
-    if (trussPanel)
-        trussPanel->ReloadData();
-    if (sceneObjPanel)
-        sceneObjPanel->ReloadData();
-    if (viewportPanel) {
-        viewportPanel->UpdateScene();
-        viewportPanel->Refresh();
-    }
 }
 
 void MainWindow::OnSave(wxCommandEvent& event)
@@ -175,21 +165,29 @@ void MainWindow::OnSave(wxCommandEvent& event)
     }
     if (!ConfigManager::Get().SaveProject(currentProjectPath))
         wxMessageBox("Failed to save project.", "Error", wxICON_ERROR);
-    else if (consolePanel)
-        consolePanel->AppendMessage("Saved " + wxString::FromUTF8(currentProjectPath));
+    else {
+        ProjectUtils::SaveLastProjectPath(currentProjectPath);
+        if (consolePanel)
+            consolePanel->AppendMessage("Saved " + wxString::FromUTF8(currentProjectPath));
+    }
 }
 
 void MainWindow::OnSaveAs(wxCommandEvent& event)
 {
-    wxFileDialog dlg(this, "Save Project", "", "", "Project files (*.zip)|*.zip", wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
+    wxString filter = wxString::Format("Perastage files (*%s)|*%s", ProjectUtils::PROJECT_EXTENSION, ProjectUtils::PROJECT_EXTENSION);
+    wxFileDialog dlg(this, "Save Project", "", "", filter, wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
     if (dlg.ShowModal() == wxID_CANCEL)
         return;
 
     currentProjectPath = dlg.GetPath().ToStdString();
     if (!ConfigManager::Get().SaveProject(currentProjectPath))
         wxMessageBox("Failed to save project.", "Error", wxICON_ERROR);
-    else if (consolePanel)
-        consolePanel->AppendMessage("Saved " + dlg.GetPath());
+    else {
+        ProjectUtils::SaveLastProjectPath(currentProjectPath);
+        if (consolePanel)
+            consolePanel->AppendMessage("Saved " + dlg.GetPath());
+    }
+    UpdateTitle();
 }
 
 // Handles MVR file selection, import, and updates fixture/truss panels accordingly
@@ -299,4 +297,57 @@ void MainWindow::OnToggleViewport(wxCommandEvent& event)
     auiManager->Update();
 
     GetMenuBar()->Check(ID_View_ToggleViewport, pane.IsShown());
+}
+
+bool MainWindow::LoadProjectFromPath(const std::string& path)
+{
+    if (!ConfigManager::Get().LoadProject(path))
+        return false;
+
+    currentProjectPath = path;
+    ProjectUtils::SaveLastProjectPath(currentProjectPath);
+
+    if (consolePanel)
+        consolePanel->AppendMessage("Loaded " + wxString::FromUTF8(path));
+    if (fixturePanel)
+        fixturePanel->ReloadData();
+    if (trussPanel)
+        trussPanel->ReloadData();
+    if (sceneObjPanel)
+        sceneObjPanel->ReloadData();
+    if (viewportPanel) {
+        viewportPanel->UpdateScene();
+        viewportPanel->Refresh();
+    }
+    UpdateTitle();
+    return true;
+}
+
+void MainWindow::ResetProject()
+{
+    ConfigManager::Get().Reset();
+    currentProjectPath.clear();
+    if (fixturePanel)
+        fixturePanel->ReloadData();
+    if (trussPanel)
+        trussPanel->ReloadData();
+    if (sceneObjPanel)
+        sceneObjPanel->ReloadData();
+    if (viewportPanel) {
+        viewportPanel->UpdateScene();
+        viewportPanel->Refresh();
+    }
+    UpdateTitle();
+}
+
+void MainWindow::UpdateTitle()
+{
+    wxString title = "Perastage";
+    if (!currentProjectPath.empty()) {
+        wxFileName fn(wxString::FromUTF8(currentProjectPath));
+        title += " - " + fn.GetName();
+    } else {
+        title += " - Untitled";
+    }
+    SetTitle(title);
 }
