@@ -59,6 +59,10 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
     int w, h;
     GetClientSize(&w, &h);
     dc.SetTextForeground(*wxWHITE);
+    // SwapBuffers() within Render() may unset the current context on some
+    // platforms. Ensure it is current before using OpenGL functions in
+    // GetFixtureLabelAt.
+    SetCurrent(*m_glContext);
     m_hasHover = m_controller.GetFixtureLabelAt(m_lastMousePos.x, m_lastMousePos.y,
                                                 w, h, m_hoverText, m_hoverPos,
                                                 &m_hoverUuid);
