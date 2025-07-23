@@ -139,12 +139,15 @@ bool LoadGLB(const std::string& path, Mesh& outMesh)
     outMesh.vertices.resize(posCount * 3);
     for(size_t i=0;i<posCount;i++) {
         const float* src = reinterpret_cast<const float*>(binData.data() + posOff + posStride * i);
-        // glTF uses Y-up with Z forward. Convert to our Z-up system where
-        // positive Y goes into the screen. This keeps a right-handed coordinate
-        // system so composed models match 3DS orientation.
-        outMesh.vertices[i*3]     = src[0];          // X stays the same
-        outMesh.vertices[i*3 + 1] = -src[2];         // Y <- -Z
-        outMesh.vertices[i*3 + 2] =  src[1];         // Z <- Y
+        // The GDTF specification states that models shall be authored using
+        // a right-handed coordinate system with Z pointing up and Y pointing
+        // towards the viewer's screen. 3DS models already follow this scheme
+        // and glTF files included in a GDTF archive are expected to do so as
+        // well. Therefore, unlike typical glTF importers, we do not apply any
+        // additional axis conversion here.
+        outMesh.vertices[i*3]     = src[0]; // X
+        outMesh.vertices[i*3 + 1] = src[1]; // Y
+        outMesh.vertices[i*3 + 2] = src[2]; // Z
     }
 
     outMesh.indices.resize(idxCount);
