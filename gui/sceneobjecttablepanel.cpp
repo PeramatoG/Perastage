@@ -2,6 +2,7 @@
 #include "configmanager.h"
 #include "matrixutils.h"
 #include <algorithm>
+#include <wx/settings.h>
 
 SceneObjectTablePanel::SceneObjectTablePanel(wxWindow* parent)
     : wxPanel(parent, wxID_ANY)
@@ -9,7 +10,10 @@ SceneObjectTablePanel::SceneObjectTablePanel(wxWindow* parent)
     wxBoxSizer* sizer = new wxBoxSizer(wxVERTICAL);
     table = new wxDataViewListCtrl(this, wxID_ANY, wxDefaultPosition,
                                    wxDefaultSize, wxDV_MULTIPLE | wxDV_ROW_LINES);
-    table->EnableAlternateRowColours(true);
+#if defined(wxHAS_GENERIC_DATAVIEWCTRL)
+    table->SetAlternateRowColour(
+        wxSystemSettings::GetColour(wxSYS_COLOUR_LISTBOX));
+#endif
     table->AssociateModel(&store);
     store.DecRef();
 
