@@ -1,9 +1,11 @@
 #include "loaderglb.h"
 #include "consolepanel.h"
 #include "../external/json.hpp"
+#include "../models/matrixutils.h"
 #include <fstream>
 #include <vector>
 #include <algorithm>
+#include <functional>
 #include <wx/wx.h>
 
 using json = nlohmann::json;
@@ -78,20 +80,6 @@ bool LoadGLB(const std::string& path, Mesh& outMesh)
 
     if(!doc.contains("meshes"))
         return false;
-    const auto& meshes = doc["meshes"];
-    if(!meshes.is_array() || meshes.empty())
-        return false;
-    const auto& prims = meshes[0]["primitives"];
-    if(!prims.is_array() || prims.empty())
-        return false;
-    const auto& prim = prims[0];
-    if(!prim.contains("attributes") || !prim.contains("indices"))
-        return false;
-    if(!prim["attributes"].contains("POSITION"))
-        return false;
-
-    int posAccessor = prim["attributes"]["POSITION"].get<int>();
-    int idxAccessor = prim["indices"].get<int>();
 
     auto getAccessorInfo = [&](int idx, size_t& offset, size_t& stride,
                                int& compType, std::string& type, size_t& count) -> bool
@@ -119,54 +107,185 @@ bool LoadGLB(const std::string& path, Mesh& outMesh)
         return true;
     };
 
-    size_t posOff, posStride, posCount; int posCT; std::string posType;
-    if(!getAccessorInfo(posAccessor, posOff, posStride, posCT, posType, posCount))
-        return false;
-    if(posCT != 5126 || posType != "VEC3")
-        return false;
+    auto transformPoint = [](const Matrix& m, const std::array<float,3>& p) {
+        return std::array<float,3>{
+            m.u[0]*p[0] + m.v[0]*p[1] + m.w[0]*p[2] + m.o[0],
+            m.u[1]*p[0] + m.v[1]*p[1] + m.w[1]*p[2] + m.o[1],
+            m.u[2]*p[0] + m.v[2]*p[1] + m.w[2]*p[2] + m.o[2]
+        };
+    };
 
-    size_t idxOff, idxStride, idxCount; int idxCT; std::string idxType;
-    if(!getAccessorInfo(idxAccessor, idxOff, idxStride, idxCT, idxType, idxCount))
-        return false;
-    if(idxType != "SCALAR")
-        return false;
+    auto nodeMatrix = [](const json& node) {
+        Matrix m = MatrixUtils::Identity();
+        if(node.contains("matrix")) {
+            const auto& arr = node["matrix"];
+            if(arr.is_array() && arr.size() == 16) {
+                m.u = {arr[0].get<float>(), arr[1].get<float>(), arr[2].get<float>()};
+                m.v = {arr[4].get<float>(), arr[5].get<float>(), arr[6].get<float>()};
+                m.w = {arr[8].get<float>(), arr[9].get<float>(), arr[10].get<float>()};
+                m.o = {arr[12].get<float>(), arr[13].get<float>(), arr[14].get<float>()};
+            }
+            return m;
+        }
 
-    if(posOff + posStride * posCount > binData.size())
-        return false;
-    if(idxOff + idxStride * idxCount > binData.size())
-        return false;
+        std::array<float,3> t{0.f,0.f,0.f};
+        std::array<float,3> s{1.f,1.f,1.f};
+        std::array<float,4> r{0.f,0.f,0.f,1.f};
 
-    outMesh.vertices.resize(posCount * 3);
-    for(size_t i=0;i<posCount;i++) {
-        const float* src = reinterpret_cast<const float*>(binData.data() + posOff + posStride * i);
-        // The GDTF specification states that models shall be authored using
-        // a right-handed coordinate system with Z pointing up and Y pointing
-        // towards the viewer's screen. 3DS models already follow this scheme
-        // and glTF files included in a GDTF archive are expected to do so as
-        // well. Therefore, unlike typical glTF importers, we do not apply any
-        // additional axis conversion here.
-        outMesh.vertices[i*3]     = src[0]; // X
-        outMesh.vertices[i*3 + 1] = src[1]; // Y
-        outMesh.vertices[i*3 + 2] = src[2]; // Z
-    }
+        if(node.contains("translation")) {
+            const auto& tr = node["translation"];
+            if(tr.is_array() && tr.size() >= 3) {
+                t = {tr[0].get<float>(), tr[1].get<float>(), tr[2].get<float>()};
+            }
+        }
+        if(node.contains("scale")) {
+            const auto& sc = node["scale"];
+            if(sc.is_array() && sc.size() >= 3) {
+                s = {sc[0].get<float>(), sc[1].get<float>(), sc[2].get<float>()};
+            }
+        }
+        if(node.contains("rotation")) {
+            const auto& rot = node["rotation"];
+            if(rot.is_array() && rot.size() >= 4) {
+                r = {rot[0].get<float>(), rot[1].get<float>(), rot[2].get<float>(), rot[3].get<float>()};
+            }
+        }
 
-    outMesh.indices.resize(idxCount);
-    for(size_t i=0;i<idxCount;i++) {
-        if(idxCT == 5123) {
-            uint16_t v = *reinterpret_cast<const uint16_t*>(binData.data() + idxOff + idxStride * i);
-            outMesh.indices[i] = v;
-        } else if(idxCT == 5125) {
-            uint32_t v = *reinterpret_cast<const uint32_t*>(binData.data() + idxOff + idxStride * i);
-            outMesh.indices[i] = static_cast<unsigned short>(v);
-        } else if(idxCT == 5121) {
-            uint8_t v = *(binData.data() + idxOff + idxStride * i);
-            outMesh.indices[i] = v;
-        } else {
+        float x=r[0], y=r[1], z=r[2], w=r[3];
+        float xx=x*x, yy=y*y, zz=z*z;
+        float xy=x*y, xz=x*z, yz=y*z;
+        float wx=w*x, wy=w*y, wz=w*z;
+
+        std::array<float,3> col0{
+            (1.f - 2.f*(yy + zz)) * s[0],
+            (2.f*(xy + wz)) * s[0],
+            (2.f*(xz - wy)) * s[0]
+        };
+        std::array<float,3> col1{
+            (2.f*(xy - wz)) * s[1],
+            (1.f - 2.f*(xx + zz)) * s[1],
+            (2.f*(yz + wx)) * s[1]
+        };
+        std::array<float,3> col2{
+            (2.f*(xz + wy)) * s[2],
+            (2.f*(yz - wx)) * s[2],
+            (1.f - 2.f*(xx + yy)) * s[2]
+        };
+
+        m.u = col0;
+        m.v = col1;
+        m.w = col2;
+        m.o = t;
+        return m;
+    };
+
+    auto readPrimitive = [&](const json& prim, const Matrix& transform) -> bool {
+        if(!prim.contains("attributes") || !prim.contains("indices"))
             return false;
+        if(!prim["attributes"].contains("POSITION"))
+            return false;
+
+        int posAccessor = prim["attributes"]["POSITION"].get<int>();
+        int idxAccessor = prim["indices"].get<int>();
+
+        size_t posOff, posStride, posCount; int posCT; std::string posType;
+        if(!getAccessorInfo(posAccessor, posOff, posStride, posCT, posType, posCount))
+            return false;
+        if(posCT != 5126 || posType != "VEC3")
+            return false;
+
+        size_t idxOff, idxStride, idxCount; int idxCT; std::string idxType;
+        if(!getAccessorInfo(idxAccessor, idxOff, idxStride, idxCT, idxType, idxCount))
+            return false;
+        if(idxType != "SCALAR")
+            return false;
+
+        if(posOff + posStride * posCount > binData.size())
+            return false;
+        if(idxOff + idxStride * idxCount > binData.size())
+            return false;
+
+        size_t base = outMesh.vertices.size() / 3;
+        outMesh.vertices.resize(base*3 + posCount*3);
+        for(size_t i=0;i<posCount;i++) {
+            const float* src = reinterpret_cast<const float*>(binData.data()+posOff+posStride*i);
+            std::array<float,3> p{src[0], src[1], src[2]};
+            p = transformPoint(transform, p);
+            outMesh.vertices[(base+i)*3 + 0] = p[0];
+            outMesh.vertices[(base+i)*3 + 1] = p[1];
+            outMesh.vertices[(base+i)*3 + 2] = p[2];
+        }
+
+        outMesh.indices.resize(outMesh.indices.size() + idxCount);
+        for(size_t i=0;i<idxCount;i++) {
+            unsigned int v = 0;
+            if(idxCT == 5123) {
+                v = *reinterpret_cast<const uint16_t*>(binData.data()+idxOff+idxStride*i);
+            } else if(idxCT == 5125) {
+                v = *reinterpret_cast<const uint32_t*>(binData.data()+idxOff+idxStride*i);
+            } else if(idxCT == 5121) {
+                v = *(binData.data()+idxOff+idxStride*i);
+            } else {
+                return false;
+            }
+            outMesh.indices[outMesh.indices.size()-idxCount+i] = static_cast<unsigned short>(v + base);
+        }
+        return true;
+    };
+
+    std::function<bool(int,const Matrix&)> parseNode;
+    parseNode = [&](int nodeIdx, const Matrix& parent) -> bool {
+        if(!doc.contains("nodes")) return false;
+        const auto& nodes = doc["nodes"];
+        if(nodeIdx < 0 || nodeIdx >= nodes.size()) return false;
+        const auto& node = nodes[nodeIdx];
+        Matrix local = nodeMatrix(node);
+        Matrix transform = MatrixUtils::Multiply(parent, local);
+        bool any = false;
+        if(node.contains("mesh")) {
+            int meshIdx = node["mesh"].get<int>();
+            const auto& meshes = doc["meshes"];
+            if(meshIdx >=0 && meshIdx < meshes.size()) {
+                const auto& mesh = meshes[meshIdx];
+                if(mesh.contains("primitives")) {
+                    for(const auto& p : mesh["primitives"]) {
+                        if(readPrimitive(p, transform))
+                            any = true;
+                    }
+                }
+            }
+        }
+        if(node.contains("children")) {
+            for(const auto& c : node["children"]) {
+                if(c.is_number_integer())
+                    if(parseNode(c.get<int>(), transform))
+                        any = true;
+            }
+        }
+        return any;
+    };
+
+    bool ok = false;
+    if(doc.contains("scenes")) {
+        const auto& scenes = doc["scenes"];
+        if(scenes.is_array() && !scenes.empty()) {
+            const auto& scene = scenes[0];
+            if(scene.contains("nodes")) {
+                for(const auto& n : scene["nodes"]) {
+                    if(n.is_number_integer()) {
+                        if(parseNode(n.get<int>(), MatrixUtils::Identity()))
+                            ok = true;
+                    }
+                }
+            }
         }
     }
+    if(!ok && doc.contains("nodes")) {
+        for(size_t i=0;i<doc["nodes"].size(); ++i)
+            if(parseNode(static_cast<int>(i), MatrixUtils::Identity()))
+                ok = true;
+    }
 
-    bool ok = !outMesh.vertices.empty() && !outMesh.indices.empty();
     if(ConsolePanel::Instance()) {
         wxString msg;
         if(ok) {
