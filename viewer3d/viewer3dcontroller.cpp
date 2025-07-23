@@ -13,6 +13,7 @@
 #include "types.h"
 #include "consolepanel.h"
 #include <wx/wx.h>
+#include <wx/graphics.h>
 #include <algorithm>
 #include <filesystem>
 #include <cfloat>
@@ -561,6 +562,10 @@ void Viewer3DController::SetupMaterialFromRGB(float r, float g, float b) {
 
 void Viewer3DController::DrawFixtureLabels(wxDC& dc, int width, int height)
 {
+    wxGraphicsContext* gc = wxGraphicsContext::Create(dc);
+    if (!gc)
+        return;
+
     double model[16];
     double proj[16];
     int viewport[4];
@@ -574,20 +579,47 @@ void Viewer3DController::DrawFixtureLabels(wxDC& dc, int width, int height)
             continue;
 
         double sx, sy, sz;
-        double wx = f.transform.o[0] * RENDER_SCALE;
-        double wy = f.transform.o[1] * RENDER_SCALE;
-        double wz = f.transform.o[2] * RENDER_SCALE;
-        if (gluProject(wx, wy, wz, model, proj, viewport, &sx, &sy, &sz) == GL_TRUE) {
-            int x = static_cast<int>(sx);
-            int y = height - static_cast<int>(sy);
-            wxString label = f.name.empty() ? wxString::FromUTF8(uuid)
-                                           : wxString::FromUTF8(f.name);
-            label += "\nID: " + wxString::Format("%d", f.fixtureId);
-            if (!f.address.empty())
-                label += "\n" + wxString::FromUTF8(f.address);
-            dc.DrawText(label, x, y);
+        // Use bounding box center if available
+        auto bit = m_fixtureBounds.find(uuid);
+        if (bit != m_fixtureBounds.end()) {
+            const BoundingBox& bb = bit->second;
+            double wx = (bb.min[0] + bb.max[0]) * 0.5;
+            double wy = (bb.min[1] + bb.max[1]) * 0.5;
+            double wz = (bb.min[2] + bb.max[2]) * 0.5;
+            if (gluProject(wx, wy, wz, model, proj, viewport, &sx, &sy, &sz) != GL_TRUE)
+                continue;
+        } else {
+            double wx = f.transform.o[0] * RENDER_SCALE;
+            double wy = f.transform.o[1] * RENDER_SCALE;
+            double wz = f.transform.o[2] * RENDER_SCALE;
+            if (gluProject(wx, wy, wz, model, proj, viewport, &sx, &sy, &sz) != GL_TRUE)
+                continue;
         }
+
+        int x = static_cast<int>(sx);
+        int y = height - static_cast<int>(sy);
+        wxString label = f.name.empty() ? wxString::FromUTF8(uuid)
+                                       : wxString::FromUTF8(f.name);
+        label += "\nID: " + wxString::Format("%d", f.fixtureId);
+        if (!f.address.empty())
+            label += "\n" + wxString::FromUTF8(f.address);
+
+        wxDouble tw, th;
+        gc->GetTextExtent(label, &tw, &th, nullptr, nullptr);
+        const int padding = 4;
+        wxDouble bx = x - padding;
+        wxDouble by = y - padding;
+        wxDouble bw = tw + padding * 2;
+        wxDouble bh = th + padding * 2;
+
+        gc->SetBrush(wxBrush(wxColour(0, 0, 0, 160)));
+        gc->SetPen(wxPen(wxColour(255, 255, 255, 200)));
+        gc->DrawRoundedRectangle(bx, by, bw, bh, 3.0);
+        gc->SetFont(dc.GetFont(), wxColour(255, 255, 255));
+        gc->DrawText(label, bx + padding, by + padding);
     }
+
+    delete gc;
 }
 
 bool Viewer3DController::GetFixtureLabelAt(int mouseX, int mouseY,
