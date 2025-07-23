@@ -2,6 +2,7 @@
 
 #include <wx/wx.h>
 #include <wx/aui/aui.h>
+#include "projectutils.h"
 
 // Forward declarations for GUI components
 class wxNotebook;
@@ -18,9 +19,13 @@ public:
     explicit MainWindow(const wxString& title);
     ~MainWindow();
 
+    bool LoadProjectFromPath(const std::string& path); // Load given project
+    void ResetProject();                               // Clear current project
+
 private:
     void SetupLayout();         // Set up main window layout
     void CreateMenuBar();       // Create menus
+    void UpdateTitle();         // Refresh window title
 
     std::string currentProjectPath;
     wxNotebook* notebook = nullptr;
