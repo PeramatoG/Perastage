@@ -2,13 +2,17 @@
 #include "configmanager.h"
 #include "matrixutils.h"
 #include <wx/tokenzr.h>
+#include <wx/filename.h>
+#include <wx/filedlg.h>
+#include <wx/filename.h>
 #include <algorithm>
 
 FixtureTablePanel::FixtureTablePanel(wxWindow* parent)
     : wxPanel(parent, wxID_ANY)
 {
     wxBoxSizer* sizer = new wxBoxSizer(wxVERTICAL);
-    table = new wxDataViewListCtrl(this, wxID_ANY);
+    table = new wxDataViewListCtrl(this, wxID_ANY, wxDefaultPosition,
+                                   wxDefaultSize, wxDV_MULTIPLE);
 
     table->Bind(wxEVT_DATAVIEW_ITEM_CONTEXT_MENU,
                 &FixtureTablePanel::OnContextMenu, this);
@@ -81,6 +85,7 @@ void FixtureTablePanel::InitializeTable()
 void FixtureTablePanel::ReloadData()
 {
     table->DeleteAllItems();
+    gdtfPaths.clear();
 
     const auto& fixtures = ConfigManager::Get().GetScene().fixtures;
 
@@ -131,7 +136,9 @@ void FixtureTablePanel::ReloadData()
             if (tk.HasMoreTokens()) tk.GetNextToken().ToLong(&universe);
             if (tk.HasMoreTokens()) tk.GetNextToken().ToLong(&channel);
         }
-        wxString gdtf = wxString::FromUTF8(fixture->gdtfSpec);
+        wxString gdtfFull = wxString::FromUTF8(fixture->gdtfSpec);
+        gdtfPaths.push_back(gdtfFull);
+        wxString gdtf = wxFileName(gdtfFull).GetFullName();
 
         auto posArr = fixture->GetPosition();
         wxString posX = wxString::Format("%.3f", posArr[0] / 1000.0f);
@@ -171,31 +178,145 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent& event)
     if (!item.IsOk() || col < 0)
         return;
 
-    int row = table->ItemToRow(item);
-    if (row == wxNOT_FOUND)
+    wxDataViewItemArray selections;
+    table->GetSelections(selections);
+    if (selections.empty())
+        selections.push_back(item);
+
+    // GDTF column opens file dialog
+    if (col == 5)
+    {
+        wxFileDialog fdlg(this, "Select GDTF file", wxEmptyString, wxEmptyString,
+                          "*.gdtf", wxFD_OPEN | wxFD_FILE_MUST_EXIST);
+        if (fdlg.ShowModal() == wxID_OK)
+        {
+            wxString path = fdlg.GetPath();
+            wxString name = fdlg.GetFilename();
+            for (const auto& it : selections)
+            {
+                int r = table->ItemToRow(it);
+                if (r == wxNOT_FOUND)
+                    continue;
+                if ((size_t)r >= gdtfPaths.size())
+                    gdtfPaths.resize(table->GetItemCount());
+                gdtfPaths[r] = path;
+                table->SetValue(wxVariant(name), r, col);
+            }
+        }
+        return;
+    }
+
+    int baseRow = table->ItemToRow(item);
+    if (baseRow == wxNOT_FOUND)
         return;
 
     wxVariant current;
-    table->GetValue(current, row, col);
+    table->GetValue(current, baseRow, col);
 
     wxTextEntryDialog dlg(this, "Edit value:", columnLabels[col], current.GetString());
-    if (dlg.ShowModal() == wxID_OK)
+    if (dlg.ShowModal() != wxID_OK)
+        return;
+
+    wxString value = dlg.GetValue().Trim(true).Trim(false);
+
+    bool intCol = (col == 1 || col == 3 || col == 4);
+    bool numericCol = intCol || (col >= 6 && col <= 8) || (col >= 10 && col <= 12);
+
+    wxArrayString parts = wxSplit(value, ' ');
+
+    if (numericCol)
     {
-        wxString value = dlg.GetValue();
-        wxVariant variant;
-        if (col == 1 || col == 3 || col == 4)
+        if (parts.size() == 0 || parts.size() > 2)
         {
-            long num;
-            if (value.ToLong(&num))
-                variant = wxVariant(num);
-            else
-                variant = wxVariant(value);
+            wxMessageBox("Valor num\xE9rico inv\xE1lido", "Error", wxOK | wxICON_ERROR);
+            return;
         }
-        else
+
+        if (intCol)
         {
-            variant = wxVariant(value);
+            long v1, v2 = 0;
+            if (!parts[0].ToLong(&v1))
+            {
+                wxMessageBox("Valor inv\xE1lido", "Error", wxOK | wxICON_ERROR);
+                return;
+            }
+            if (col == 4 && (v1 < 1 || v1 > 512))
+            {
+                wxMessageBox("Channel fuera de rango (1-512)", "Error", wxOK | wxICON_ERROR);
+                return;
+            }
+            bool interp = false;
+            if (parts.size() == 2)
+            {
+                if (!parts[1].ToLong(&v2))
+                {
+                    wxMessageBox("Valor inv\xE1lido", "Error", wxOK | wxICON_ERROR);
+                    return;
+                }
+                if (col == 4 && (v2 < 1 || v2 > 512))
+                {
+                    wxMessageBox("Channel fuera de rango (1-512)", "Error", wxOK | wxICON_ERROR);
+                    return;
+                }
+                interp = selections.size() > 1;
+            }
+
+            for (size_t i = 0; i < selections.size(); ++i)
+            {
+                long val = v1;
+                if (interp)
+                    val = static_cast<long>(v1 + (double)(v2 - v1) * i / (selections.size() - 1));
+
+                int r = table->ItemToRow(selections[i]);
+                if (r != wxNOT_FOUND)
+                    table->SetValue(wxVariant(val), r, col);
+            }
         }
-        table->SetValue(variant, row, col);
+        else // floating point stored as string
+        {
+            double v1, v2 = 0.0;
+            if (!parts[0].ToDouble(&v1))
+            {
+                wxMessageBox("Valor inv\xE1lido", "Error", wxOK | wxICON_ERROR);
+                return;
+            }
+            bool interp = false;
+            if (parts.size() == 2)
+            {
+                if (!parts[1].ToDouble(&v2))
+                {
+                    wxMessageBox("Valor inv\xE1lido", "Error", wxOK | wxICON_ERROR);
+                    return;
+                }
+                interp = selections.size() > 1;
+            }
+
+            for (size_t i = 0; i < selections.size(); ++i)
+            {
+                double val = v1;
+                if (interp)
+                    val = v1 + (v2 - v1) * i / (selections.size() - 1);
+
+                wxString out;
+                if (col >= 10 && col <= 12)
+                    out = wxString::Format("%.1f\u00B0", val);
+                else
+                    out = wxString::Format("%.3f", val);
+
+                int r = table->ItemToRow(selections[i]);
+                if (r != wxNOT_FOUND)
+                    table->SetValue(wxVariant(out), r, col);
+            }
+        }
+    }
+    else
+    {
+        for (const auto& it : selections)
+        {
+            int r = table->ItemToRow(it);
+            if (r != wxNOT_FOUND)
+                table->SetValue(wxVariant(value), r, col);
+        }
     }
 }
 
