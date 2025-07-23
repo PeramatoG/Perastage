@@ -124,8 +124,8 @@ bool ConfigManager::SaveProject(const std::string& path)
 
     auto addFile = [&](const fs::path& p, const std::string& name)
     {
-        wxZipEntry entry(name);
-        entry.SetMethod(wxZIP_METHOD_DEFLATE);
+        auto* entry = new wxZipEntry(name);
+        entry->SetMethod(wxZIP_METHOD_DEFLATE);
         zip.PutNextEntry(entry);
         std::ifstream in(p, std::ios::binary);
         char buf[4096];

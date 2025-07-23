@@ -30,8 +30,8 @@ bool MvrExporter::ExportToFile(const std::string& filePath)
             continue;
 
         fs::path rel = fs::relative(p.path(), baseDir);
-        wxZipEntry entry(rel.string());
-        entry.SetMethod(wxZIP_METHOD_DEFLATE);
+        auto* entry = new wxZipEntry(rel.string());
+        entry->SetMethod(wxZIP_METHOD_DEFLATE);
         zip.PutNextEntry(entry);
 
         std::ifstream in(p.path(), std::ios::binary);
