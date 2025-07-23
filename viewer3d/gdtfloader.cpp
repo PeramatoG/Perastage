@@ -1,5 +1,6 @@
 #include "gdtfloader.h"
 #include "loader3ds.h"
+#include "loaderglb.h"
 #include "matrixutils.h"
 #include "consolepanel.h"
 
@@ -20,15 +21,20 @@
 
 namespace fs = std::filesystem;
 
-static bool Has3dsExtension(const fs::path& p)
+static std::string ToLower(const std::string& s)
 {
-    std::string ext = p.extension().string();
-    std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char c){ return std::tolower(c); });
-    return ext == ".3ds";
+    std::string t = s;
+    std::transform(t.begin(), t.end(), t.begin(), [](unsigned char c){ return std::tolower(c); });
+    return t;
 }
 
-static std::string Find3dsFile(const std::string& baseDir,
-                               const std::string& fileName)
+static bool HasExtension(const fs::path& p, const std::string& ext)
+{
+    return ToLower(p.extension().string()) == ToLower(ext);
+}
+
+static std::string FindModelFile(const std::string& baseDir,
+                                 const std::string& fileName)
 {
     fs::path modelsDir = fs::path(baseDir) / "models";
     if (!fs::exists(modelsDir))
@@ -36,16 +42,36 @@ static std::string Find3dsFile(const std::string& baseDir,
 
     fs::path namePath = fileName;
     std::string stem = namePath.stem().string();
+    std::string ext = ToLower(namePath.extension().string());
 
-    fs::path direct = modelsDir / "3ds" / (stem + ".3ds");
-    if (fs::exists(direct))
-        return direct.string();
+    auto tryExt = [&](const std::string& e) -> std::string {
+        fs::path d = modelsDir / e.substr(1) / (stem + e);
+        if(fs::exists(d))
+            return d.string();
+        return {};
+    };
+
+    if(!ext.empty()) {
+        std::string res = tryExt(ext);
+        if(!res.empty()) return res;
+    } else {
+        std::string res = tryExt(".3ds");
+        if(!res.empty()) return res;
+        res = tryExt(".glb");
+        if(!res.empty()) return res;
+    }
 
     for (auto& p : fs::recursive_directory_iterator(modelsDir)) {
         if (!p.is_regular_file())
             continue;
-        if (p.path().stem() == stem && Has3dsExtension(p.path()))
+        if (p.path().stem() != stem)
+            continue;
+        if(ext.empty()) {
+            if(HasExtension(p.path(), ".3ds") || HasExtension(p.path(), ".glb"))
+                return p.path().string();
+        } else if(HasExtension(p.path(), ext)) {
             return p.path().string();
+        }
     }
     return {};
 }
@@ -134,12 +160,18 @@ static void ParseGeometry(tinyxml2::XMLElement* node,
     if (modelName) {
         auto it = models.find(modelName);
         if (it != models.end()) {
-            std::string path = Find3dsFile(baseDir, it->second.file);
+            std::string path = FindModelFile(baseDir, it->second.file);
             if (!path.empty()) {
                 auto mit = meshCache.find(path);
                 if (mit == meshCache.end()) {
                     Mesh mesh;
-                    if (Load3DS(path, mesh)) {
+                    bool loaded = false;
+                    if (HasExtension(path, ".3ds"))
+                        loaded = Load3DS(path, mesh);
+                    else if (HasExtension(path, ".glb"))
+                        loaded = LoadGLB(path, mesh);
+
+                    if (loaded) {
                         
                         // Apply model dimension scaling if provided
                         float minX = FLT_MAX, minY = FLT_MAX, minZ = FLT_MAX;
@@ -170,7 +202,7 @@ static void ParseGeometry(tinyxml2::XMLElement* node,
                         }
                         mit = meshCache.emplace(path, std::move(mesh)).first;
                     } else if (ConsolePanel::Instance()) {
-                        wxString msg = wxString::Format("GDTF: failed to load 3DS %s", wxString::FromUTF8(path));
+                        wxString msg = wxString::Format("GDTF: failed to load model %s", wxString::FromUTF8(path));
                         ConsolePanel::Instance()->AppendMessage(msg);
                     }
                 }

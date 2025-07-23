@@ -3,6 +3,8 @@
 Perastage is a cross-platform viewer for **MVR** (My Virtual Rig) scenes based on the
 [GDTF](docs/gdtf-spec.md) standard.  It lets you inspect fixtures, trusses and other
 objects in a 3D viewport and provides table views of all parsed elements.
+Perastage soporta modelos 3D en formatos **3DS** y **GLB** cuando se
+referencian dentro de archivos MVR o GDTF.
 
 ## Build prerequisites
 

@@ -9,9 +9,11 @@
 #include "scenedatamanager.h"
 #include "configmanager.h"
 #include "loader3ds.h"
+#include "loaderglb.h"
 #include "types.h"
 #include "consolepanel.h"
 #include <wx/wx.h>
+#include <algorithm>
 #include <filesystem>
 #include <cfloat>
 #include <array>
@@ -102,10 +104,18 @@ void Viewer3DController::Update() {
                                          : (fs::path(base) / t.symbolFile).string();
         if (m_loadedMeshes.find(path) == m_loadedMeshes.end()) {
             Mesh mesh;
-            if (Load3DS(path, mesh)) {
+            bool loaded = false;
+            std::string ext = fs::path(path).extension().string();
+            std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char c){ return std::tolower(c); });
+            if (ext == ".3ds")
+                loaded = Load3DS(path, mesh);
+            else if (ext == ".glb")
+                loaded = LoadGLB(path, mesh);
+
+            if (loaded) {
                 m_loadedMeshes[path] = std::move(mesh);
             } else if (ConsolePanel::Instance()) {
-                wxString msg = wxString::Format("Failed to load 3DS: %s", wxString::FromUTF8(path));
+                wxString msg = wxString::Format("Failed to load model: %s", wxString::FromUTF8(path));
                 ConsolePanel::Instance()->AppendMessage(msg);
             }
         }
@@ -119,10 +129,18 @@ void Viewer3DController::Update() {
                                          : (fs::path(base) / obj.modelFile).string();
         if (m_loadedMeshes.find(path) == m_loadedMeshes.end()) {
             Mesh mesh;
-            if (Load3DS(path, mesh)) {
+            bool loaded = false;
+            std::string ext = fs::path(path).extension().string();
+            std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char c){ return std::tolower(c); });
+            if (ext == ".3ds")
+                loaded = Load3DS(path, mesh);
+            else if (ext == ".glb")
+                loaded = LoadGLB(path, mesh);
+
+            if (loaded) {
                 m_loadedMeshes[path] = std::move(mesh);
             } else if (ConsolePanel::Instance()) {
-                wxString msg = wxString::Format("Failed to load 3DS: %s", wxString::FromUTF8(path));
+                wxString msg = wxString::Format("Failed to load model: %s", wxString::FromUTF8(path));
                 ConsolePanel::Instance()->AppendMessage(msg);
             }
         }
