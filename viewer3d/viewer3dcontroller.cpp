@@ -569,6 +569,9 @@ void Viewer3DController::DrawFixtureLabels(wxWindowDC& dc, int width, int height
     if (!gc)
         return;
 
+    // GetTextExtent() requires a valid font to be set on the graphics context
+    gc->SetFont(dc.GetFont(), wxColour(255, 255, 255));
+
     double model[16];
     double proj[16];
     int viewport[4];
@@ -618,7 +621,6 @@ void Viewer3DController::DrawFixtureLabels(wxWindowDC& dc, int width, int height
         gc->SetBrush(wxBrush(wxColour(0, 0, 0, 160)));
         gc->SetPen(wxPen(wxColour(255, 255, 255, 200)));
         gc->DrawRoundedRectangle(bx, by, bw, bh, 3.0);
-        gc->SetFont(dc.GetFont(), wxColour(255, 255, 255));
         gc->DrawText(label, bx + padding, by + padding);
     }
 
