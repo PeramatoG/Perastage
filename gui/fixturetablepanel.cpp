@@ -220,15 +220,40 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent& event)
         {
             wxString path = fdlg.GetPath();
             wxString name = fdlg.GetFilename();
+            std::vector<wxString> affectedNames;
+
             for (const auto& it : selections)
             {
                 int r = table->ItemToRow(it);
                 if (r == wxNOT_FOUND)
                     continue;
+
+                // Ensure vector size
                 if ((size_t)r >= gdtfPaths.size())
                     gdtfPaths.resize(table->GetItemCount());
+
+                // Track name for propagation
+                wxVariant nv;
+                table->GetValue(nv, r, 0);
+                affectedNames.push_back(nv.GetString());
+
+                // Update selected row
                 gdtfPaths[r] = path;
                 table->SetValue(wxVariant(name), r, col);
+            }
+
+            // Apply same GDTF to all fixtures sharing the same name
+            for (size_t i = 0; i < table->GetItemCount(); ++i)
+            {
+                wxVariant nv;
+                table->GetValue(nv, i, 0);
+                if (std::find(affectedNames.begin(), affectedNames.end(), nv.GetString()) != affectedNames.end())
+                {
+                    if (i >= gdtfPaths.size())
+                        gdtfPaths.resize(table->GetItemCount());
+                    gdtfPaths[i] = path;
+                    table->SetValue(wxVariant(name), i, col);
+                }
             }
         }
         return;
@@ -454,6 +479,9 @@ void FixtureTablePanel::UpdateSceneData()
         auto it = scene.fixtures.find(rowUuids[i]);
         if (it == scene.fixtures.end())
             continue;
+
+        if (i < gdtfPaths.size())
+            it->second.gdtfSpec = std::string(gdtfPaths[i].mb_str());
 
         wxVariant v;
         double x=0, y=0, z=0;
