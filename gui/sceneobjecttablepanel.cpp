@@ -7,7 +7,8 @@ SceneObjectTablePanel::SceneObjectTablePanel(wxWindow* parent)
     : wxPanel(parent, wxID_ANY)
 {
     wxBoxSizer* sizer = new wxBoxSizer(wxVERTICAL);
-    table = new wxDataViewListCtrl(this, wxID_ANY);
+    table = new wxDataViewListCtrl(this, wxID_ANY, wxDefaultPosition,
+                                   wxDefaultSize, wxDV_MULTIPLE);
 
     table->Bind(wxEVT_DATAVIEW_ITEM_CONTEXT_MENU,
                 &SceneObjectTablePanel::OnContextMenu, this);
@@ -79,6 +80,11 @@ void SceneObjectTablePanel::OnContextMenu(wxDataViewEvent& event)
     if (!item.IsOk() || col < 0)
         return;
 
+    wxDataViewItemArray selections;
+    table->GetSelections(selections);
+    if (selections.empty())
+        selections.push_back(item);
+
     int row = table->ItemToRow(item);
     if (row == wxNOT_FOUND)
         return;
@@ -87,9 +93,63 @@ void SceneObjectTablePanel::OnContextMenu(wxDataViewEvent& event)
     table->GetValue(current, row, col);
 
     wxTextEntryDialog dlg(this, "Edit value:", columnLabels[col], current.GetString());
-    if (dlg.ShowModal() == wxID_OK)
+    if (dlg.ShowModal() != wxID_OK)
+        return;
+
+    wxString value = dlg.GetValue().Trim(true).Trim(false);
+
+    bool numericCol = (col >= 3);
+
+    if (numericCol)
     {
-        wxString value = dlg.GetValue();
-        table->SetValue(wxVariant(value), row, col);
+        wxArrayString parts = wxSplit(value, ' ');
+        if (parts.size() == 0 || parts.size() > 2)
+        {
+            wxMessageBox("Valor num\xE9rico inv\xE1lido", "Error", wxOK | wxICON_ERROR);
+            return;
+        }
+
+        double v1, v2 = 0.0;
+        if (!parts[0].ToDouble(&v1))
+        {
+            wxMessageBox("Valor inv\xE1lido", "Error", wxOK | wxICON_ERROR);
+            return;
+        }
+        bool interp = false;
+        if (parts.size() == 2)
+        {
+            if (!parts[1].ToDouble(&v2))
+            {
+                wxMessageBox("Valor inv\xE1lido", "Error", wxOK | wxICON_ERROR);
+                return;
+            }
+            interp = selections.size() > 1;
+        }
+
+        for (size_t i = 0; i < selections.size(); ++i)
+        {
+            double val = v1;
+            if (interp)
+                val = v1 + (v2 - v1) * i / (selections.size() - 1);
+
+            wxString out;
+            if (col >= 6)
+                out = wxString::Format("%.1f\u00B0", val);
+            else
+                out = wxString::Format("%.3f", val);
+
+            int r = table->ItemToRow(selections[i]);
+            if (r != wxNOT_FOUND)
+                table->SetValue(wxVariant(out), r, col);
+        }
+    }
+    else
+    {
+        for (const auto& it : selections)
+        {
+            int r = table->ItemToRow(it);
+            if (r != wxNOT_FOUND)
+                table->SetValue(wxVariant(value), r, col);
+        }
     }
 }
