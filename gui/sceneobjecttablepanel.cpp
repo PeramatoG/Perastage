@@ -1,6 +1,7 @@
 #include "sceneobjecttablepanel.h"
 #include "configmanager.h"
 #include "matrixutils.h"
+#include "viewer3dpanel.h"
 #include <algorithm>
 #include <wx/settings.h>
 
@@ -14,6 +15,7 @@ SceneObjectTablePanel::SceneObjectTablePanel(wxWindow* parent)
     table->SetAlternateRowColour(
         wxSystemSettings::GetColour(wxSYS_COLOUR_LISTBOX));
 #endif
+    table->EnableAlternateRowColours(true);
     table->AssociateModel(&store);
     store.DecRef();
 
@@ -48,6 +50,7 @@ void SceneObjectTablePanel::InitializeTable()
 void SceneObjectTablePanel::ReloadData()
 {
     table->DeleteAllItems();
+    rowUuids.clear();
     const auto& objs = ConfigManager::Get().GetScene().sceneObjects;
 
     for (const auto& [uuid, obj] : objs)
@@ -79,6 +82,7 @@ void SceneObjectTablePanel::ReloadData()
         row.push_back(rotZ);
 
         table->AppendItem(row);
+        rowUuids.push_back(uuid);
     }
 
     // Let wxDataViewListCtrl manage column headers and sorting
@@ -163,6 +167,13 @@ void SceneObjectTablePanel::OnContextMenu(wxDataViewEvent& event)
                 table->SetValue(wxVariant(value), r, col);
         }
     }
+
+    UpdateSceneData();
+    if (Viewer3DPanel::Instance())
+    {
+        Viewer3DPanel::Instance()->UpdateScene();
+        Viewer3DPanel::Instance()->Refresh();
+    }
 }
 
 void SceneObjectTablePanel::OnLeftDown(wxMouseEvent& evt)
@@ -211,4 +222,25 @@ void SceneObjectTablePanel::OnMouseMove(wxMouseEvent& evt)
             table->SelectRow(r);
     }
     evt.Skip();
+}
+
+void SceneObjectTablePanel::UpdateSceneData()
+{
+    auto& scene = ConfigManager::Get().GetScene();
+    size_t count = std::min((size_t)table->GetItemCount(), rowUuids.size());
+    for (size_t i = 0; i < count; ++i)
+    {
+        auto it = scene.sceneObjects.find(rowUuids[i]);
+        if (it == scene.sceneObjects.end())
+            continue;
+
+        wxVariant v;
+        double x=0, y=0, z=0;
+        table->GetValue(v, i, 3); v.GetString().ToDouble(&x);
+        table->GetValue(v, i, 4); v.GetString().ToDouble(&y);
+        table->GetValue(v, i, 5); v.GetString().ToDouble(&z);
+        it->second.transform.o = {static_cast<float>(x * 1000.0),
+                                  static_cast<float>(y * 1000.0),
+                                  static_cast<float>(z * 1000.0)};
+    }
 }
