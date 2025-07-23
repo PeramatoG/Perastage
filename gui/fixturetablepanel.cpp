@@ -256,6 +256,11 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent& event)
                 }
             }
         }
+        UpdateSceneData();
+        if (Viewer3DPanel::Instance()) {
+            Viewer3DPanel::Instance()->UpdateScene();
+            Viewer3DPanel::Instance()->Refresh();
+        }
         return;
     }
 
