@@ -477,7 +477,7 @@ void Viewer3DController::DrawGrid()
     const float size = 20.0f;
     const float step = 1.0f;
 
-    glColor3f(0.3f, 0.3f, 0.3f);
+    glColor3f(0.35f, 0.35f, 0.35f);
     glLineWidth(1.0f);
     glBegin(GL_LINES);
     for (float i = -size; i <= size; i += step) {
@@ -552,6 +552,9 @@ void Viewer3DController::DrawFixtureLabels(wxDC& dc, int width, int height)
 
     const auto& fixtures = SceneDataManager::Instance().GetFixtures();
     for (const auto& [uuid, f] : fixtures) {
+        if (uuid != m_highlightUuid && m_selectedUuids.find(uuid) == m_selectedUuids.end())
+            continue;
+
         double sx, sy, sz;
         double wx = f.transform.o[0] * RENDER_SCALE;
         double wy = f.transform.o[1] * RENDER_SCALE;

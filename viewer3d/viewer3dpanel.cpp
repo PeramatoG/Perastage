@@ -45,7 +45,7 @@ void Viewer3DPanel::InitGL()
 {
     SetCurrent(*m_glContext);
     glEnable(GL_DEPTH_TEST);
-    glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+    glClearColor(0.08f, 0.08f, 0.08f, 1.0f);
 }
 
 // Paint event handler
@@ -69,9 +69,8 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
     m_controller.SetHighlightUuid(m_hasHover ? m_hoverUuid : "");
     if (FixtureTablePanel::Instance())
         FixtureTablePanel::Instance()->HighlightFixture(m_hasHover ? std::string(m_hoverUuid) : std::string());
-    if (m_hasHover) {
-        dc.DrawText(m_hoverText, m_hoverPos);
-    }
+
+    m_controller.DrawFixtureLabels(dc, w, h);
 }
 
 // Resize event handler
