@@ -11,6 +11,7 @@
 #include "mesh.h"
 #include "gdtfloader.h"
 #include <unordered_map>
+#include <unordered_set>
 #include <array>
 #include <string>
 #include <wx/dcclient.h>
@@ -36,6 +37,7 @@ public:
 
     // Fixture UUID currently highlighted (hovered)
     void SetHighlightUuid(const std::string& uuid);
+    void SetSelectedUuids(const std::vector<std::string>& uuids);
 
     // Draws fixture names at their world positions using a 2D device context
     void DrawFixtureLabels(wxDC& dc, int width, int height);
@@ -57,11 +59,12 @@ private:
     // Draws a colored mesh with a black outline for a sketch effect
     void DrawMeshWithOutline(const Mesh& mesh, float r = 1.0f, float g = 1.0f,
                              float b = 1.0f, float scale = RENDER_SCALE,
-                             bool highlight = false);
+                             bool highlight = false, bool selected = false);
 
     // Draws a colored cube with a black outline
     void DrawCubeWithOutline(float size = 0.2f, float r = 1.0f, float g = 1.0f,
-                             float b = 1.0f, bool highlight = false);
+                             float b = 1.0f, bool highlight = false,
+                             bool selected = false);
 
     // Applies the object's transformation matrix. When scaleTranslation
     // is true the translation part is converted from millimeters to
@@ -99,4 +102,6 @@ private:
 
     // Currently highlighted fixture UUID
     std::string m_highlightUuid;
+    // Currently selected fixture UUIDs
+    std::unordered_set<std::string> m_selectedUuids;
 };

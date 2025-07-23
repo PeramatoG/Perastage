@@ -23,6 +23,7 @@ public:
     bool showGrid = true;
 
     void UpdateScene();
+    void SetSelectedFixtures(const std::vector<std::string>& uuids);
 
     static Viewer3DPanel* Instance();
     static void SetInstance(Viewer3DPanel* panel);
