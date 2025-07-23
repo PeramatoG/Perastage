@@ -5,10 +5,15 @@
 #include "sceneobjecttablepanel.h"
 #include "viewer3dpanel.h"
 #include "consolepanel.h"
+#include "configmanager.h"
+#include "mvrexporter.h"
 #include <wx/notebook.h>
 
 
 wxBEGIN_EVENT_TABLE(MainWindow, wxFrame)
+EVT_MENU(ID_File_Load, MainWindow::OnLoad)
+EVT_MENU(ID_File_Save, MainWindow::OnSave)
+EVT_MENU(ID_File_SaveAs, MainWindow::OnSaveAs)
 EVT_MENU(ID_File_ImportMVR, MainWindow::OnImportMVR)
 EVT_MENU(ID_File_Close, MainWindow::OnClose)
 EVT_MENU(ID_View_ToggleConsole, MainWindow::OnToggleConsole)
@@ -133,6 +138,57 @@ void MainWindow::CreateMenuBar()
     menuBar->Append(viewMenu, "&View");
 
     SetMenuBar(menuBar);
+}
+
+void MainWindow::OnLoad(wxCommandEvent& event)
+{
+    wxFileDialog dlg(this, "Open Project", "", "", "Project files (*.zip)|*.zip", wxFD_OPEN | wxFD_FILE_MUST_EXIST);
+    if (dlg.ShowModal() == wxID_CANCEL)
+        return;
+
+    wxString path = dlg.GetPath();
+    if (!ConfigManager::Get().LoadProject(path.ToStdString())) {
+        wxMessageBox("Failed to load project.", "Error", wxICON_ERROR);
+        return;
+    }
+    currentProjectPath = path.ToStdString();
+    if (consolePanel)
+        consolePanel->AppendMessage("Loaded " + path);
+    if (fixturePanel)
+        fixturePanel->ReloadData();
+    if (trussPanel)
+        trussPanel->ReloadData();
+    if (sceneObjPanel)
+        sceneObjPanel->ReloadData();
+    if (viewportPanel) {
+        viewportPanel->UpdateScene();
+        viewportPanel->Refresh();
+    }
+}
+
+void MainWindow::OnSave(wxCommandEvent& event)
+{
+    if (currentProjectPath.empty()) {
+        OnSaveAs(event);
+        return;
+    }
+    if (!ConfigManager::Get().SaveProject(currentProjectPath))
+        wxMessageBox("Failed to save project.", "Error", wxICON_ERROR);
+    else if (consolePanel)
+        consolePanel->AppendMessage("Saved " + wxString::FromUTF8(currentProjectPath));
+}
+
+void MainWindow::OnSaveAs(wxCommandEvent& event)
+{
+    wxFileDialog dlg(this, "Save Project", "", "", "Project files (*.zip)|*.zip", wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
+    if (dlg.ShowModal() == wxID_CANCEL)
+        return;
+
+    currentProjectPath = dlg.GetPath().ToStdString();
+    if (!ConfigManager::Get().SaveProject(currentProjectPath))
+        wxMessageBox("Failed to save project.", "Error", wxICON_ERROR);
+    else if (consolePanel)
+        consolePanel->AppendMessage("Saved " + dlg.GetPath());
 }
 
 // Handles MVR file selection, import, and updates fixture/truss panels accordingly

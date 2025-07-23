@@ -22,6 +22,7 @@ private:
     void SetupLayout();         // Set up main window layout
     void CreateMenuBar();       // Create menus
 
+    std::string currentProjectPath;
     wxNotebook* notebook = nullptr;
     FixtureTablePanel* fixturePanel = nullptr;
     TrussTablePanel* trussPanel = nullptr;
@@ -30,6 +31,9 @@ private:
     Viewer3DPanel* viewportPanel = nullptr;
     ConsolePanel* consolePanel = nullptr;
 
+    void OnLoad(wxCommandEvent& event);            // Load project
+    void OnSave(wxCommandEvent& event);            // Save project
+    void OnSaveAs(wxCommandEvent& event);         // Save project as
     void OnImportMVR(wxCommandEvent& event);       // Handle the Import MVR action
     void OnClose(wxCommandEvent& event);           // Handle the Close action
     void OnToggleConsole(wxCommandEvent& event);   // Toggle console panel
