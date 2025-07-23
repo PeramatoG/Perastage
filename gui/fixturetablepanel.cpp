@@ -19,7 +19,6 @@ FixtureTablePanel::FixtureTablePanel(wxWindow* parent)
     table->SetAlternateRowColour(
         wxSystemSettings::GetColour(wxSYS_COLOUR_LISTBOX));
 #endif
-    table->EnableAlternateRowColours(true);
     table->AssociateModel(&store);
     store.DecRef();
 
