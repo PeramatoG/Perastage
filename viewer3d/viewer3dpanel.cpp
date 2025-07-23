@@ -27,6 +27,9 @@ EVT_LEFT_DOWN(Viewer3DPanel::OnMouseDown)
 EVT_LEFT_UP(Viewer3DPanel::OnMouseUp)
 EVT_MOTION(Viewer3DPanel::OnMouseMove)
 EVT_MOUSEWHEEL(Viewer3DPanel::OnMouseWheel)
+EVT_KEY_DOWN(Viewer3DPanel::OnKeyDown)
+EVT_ENTER_WINDOW(Viewer3DPanel::OnMouseEnter)
+EVT_LEAVE_WINDOW(Viewer3DPanel::OnMouseLeave)
 EVT_THREAD(wxEVT_VIEWER_REFRESH, Viewer3DPanel::OnThreadRefresh)
 wxEND_EVENT_TABLE()
 
@@ -180,6 +183,56 @@ void Viewer3DPanel::OnMouseWheel(wxMouseEvent& event)
     float delta = (rotation > 0) ? -1.0f : 1.0f;
     m_camera.Zoom(delta);
     Refresh();
+}
+
+void Viewer3DPanel::OnKeyDown(wxKeyEvent& event)
+{
+    if (!m_mouseInside) { event.Skip(); return; }
+
+    switch (event.GetKeyCode()) {
+        case WXK_LEFT:
+            m_camera.Orbit(-5.0f, 0.0f);
+            break;
+        case WXK_RIGHT:
+            m_camera.Orbit(5.0f, 0.0f);
+            break;
+        case WXK_UP:
+            m_camera.Orbit(0.0f, 5.0f);
+            break;
+        case WXK_DOWN:
+            m_camera.Orbit(0.0f, -5.0f);
+            break;
+        case WXK_NUMPAD1: // Front
+            m_camera.SetOrientation(0.0f, 0.0f);
+            break;
+        case WXK_NUMPAD3: // Right
+            m_camera.SetOrientation(90.0f, 0.0f);
+            break;
+        case WXK_NUMPAD7: // Top
+            m_camera.SetOrientation(0.0f, 89.0f);
+            break;
+        case WXK_NUMPAD5: // Reset/isometric
+            m_camera.Reset();
+            break;
+        default:
+            event.Skip();
+            return;
+    }
+
+    Refresh();
+}
+
+void Viewer3DPanel::OnMouseEnter(wxMouseEvent& event)
+{
+    m_mouseInside = true;
+    SetFocus();
+    event.Skip();
+}
+
+void Viewer3DPanel::OnMouseLeave(wxMouseEvent& event)
+{
+    m_mouseInside = false;
+    event.Skip();
 }
 
 // Updates the controller with current scene data

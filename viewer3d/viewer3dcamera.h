@@ -25,6 +25,9 @@ public:
     // Moves the target point laterally (pan)
     void Pan(float deltaX, float deltaY);
 
+    // Sets yaw and pitch directly
+    void SetOrientation(float y, float p);
+
     // Sets the distance directly
     void SetDistance(float d);
 
