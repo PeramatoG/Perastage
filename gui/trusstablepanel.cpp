@@ -8,7 +8,14 @@ TrussTablePanel::TrussTablePanel(wxWindow* parent)
 {
     wxBoxSizer* sizer = new wxBoxSizer(wxVERTICAL);
     table = new wxDataViewListCtrl(this, wxID_ANY, wxDefaultPosition,
-                                   wxDefaultSize, wxDV_MULTIPLE);
+                                   wxDefaultSize, wxDV_MULTIPLE | wxDV_ROW_LINES);
+    table->EnableAlternateRowColours(true);
+    table->AssociateModel(&store);
+    store.DecRef();
+
+    table->Bind(wxEVT_LEFT_DOWN, &TrussTablePanel::OnLeftDown, this);
+    table->Bind(wxEVT_LEFT_UP, &TrussTablePanel::OnLeftUp, this);
+    table->Bind(wxEVT_MOTION, &TrussTablePanel::OnMouseMove, this);
 
     table->Bind(wxEVT_DATAVIEW_ITEM_CONTEXT_MENU,
                 &TrussTablePanel::OnContextMenu, this);
@@ -152,4 +159,52 @@ void TrussTablePanel::OnContextMenu(wxDataViewEvent& event)
                 table->SetValue(wxVariant(value), r, col);
         }
     }
+}
+
+void TrussTablePanel::OnLeftDown(wxMouseEvent& evt)
+{
+    wxDataViewItem item;
+    wxDataViewColumn* col;
+    table->HitTest(evt.GetPosition(), item, col);
+    startRow = table->ItemToRow(item);
+    if (startRow != wxNOT_FOUND)
+    {
+        dragSelecting = true;
+        table->UnselectAll();
+        table->SelectRow(startRow);
+        CaptureMouse();
+    }
+    evt.Skip();
+}
+
+void TrussTablePanel::OnLeftUp(wxMouseEvent& evt)
+{
+    if (dragSelecting)
+    {
+        dragSelecting = false;
+        ReleaseMouse();
+    }
+    evt.Skip();
+}
+
+void TrussTablePanel::OnMouseMove(wxMouseEvent& evt)
+{
+    if (!dragSelecting || !evt.Dragging())
+    {
+        evt.Skip();
+        return;
+    }
+    wxDataViewItem item;
+    wxDataViewColumn* col;
+    table->HitTest(evt.GetPosition(), item, col);
+    int row = table->ItemToRow(item);
+    if (row != wxNOT_FOUND)
+    {
+        int minRow = std::min(startRow, row);
+        int maxRow = std::max(startRow, row);
+        table->UnselectAll();
+        for (int r = minRow; r <= maxRow; ++r)
+            table->SelectRow(r);
+    }
+    evt.Skip();
 }

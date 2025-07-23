@@ -12,7 +12,14 @@ FixtureTablePanel::FixtureTablePanel(wxWindow* parent)
 {
     wxBoxSizer* sizer = new wxBoxSizer(wxVERTICAL);
     table = new wxDataViewListCtrl(this, wxID_ANY, wxDefaultPosition,
-                                   wxDefaultSize, wxDV_MULTIPLE);
+                                   wxDefaultSize, wxDV_MULTIPLE | wxDV_ROW_LINES);
+    table->EnableAlternateRowColours(true);
+    table->AssociateModel(&store);
+    store.DecRef();
+
+    table->Bind(wxEVT_LEFT_DOWN, &FixtureTablePanel::OnLeftDown, this);
+    table->Bind(wxEVT_LEFT_UP, &FixtureTablePanel::OnLeftUp, this);
+    table->Bind(wxEVT_MOTION, &FixtureTablePanel::OnMouseMove, this);
 
     table->Bind(wxEVT_DATAVIEW_ITEM_CONTEXT_MENU,
                 &FixtureTablePanel::OnContextMenu, this);
@@ -86,6 +93,7 @@ void FixtureTablePanel::ReloadData()
 {
     table->DeleteAllItems();
     gdtfPaths.clear();
+    rowUuids.clear();
 
     const auto& fixtures = ConfigManager::Get().GetScene().fixtures;
 
@@ -104,12 +112,14 @@ void FixtureTablePanel::ReloadData()
         return res;
     };
 
-    std::vector<const Fixture*> sorted;
+    std::vector<std::pair<std::string,const Fixture*>> sorted;
     sorted.reserve(fixtures.size());
     for (const auto& [uuid, fixture] : fixtures)
-        sorted.push_back(&fixture);
+        sorted.emplace_back(uuid, &fixture);
 
-    std::sort(sorted.begin(), sorted.end(), [&](const Fixture* a, const Fixture* b) {
+    std::sort(sorted.begin(), sorted.end(), [&](const auto& A, const auto& B) {
+        const Fixture* a = A.second;
+        const Fixture* b = B.second;
         if (a->fixtureId != b->fixtureId)
             return a->fixtureId < b->fixtureId;
         if (a->gdtfSpec != b->gdtfSpec)
@@ -121,8 +131,10 @@ void FixtureTablePanel::ReloadData()
         return addrA.channel < addrB.channel;
     });
 
-    for (const Fixture* fixture : sorted)
+    for (const auto& pair : sorted)
     {
+        const std::string& uuid = pair.first;
+        const Fixture* fixture = pair.second;
         wxVector<wxVariant> row;
 
         wxString name = wxString::FromUTF8(fixture->name);
@@ -166,7 +178,8 @@ void FixtureTablePanel::ReloadData()
         row.push_back(rotZ);
 
         table->AppendItem(row);
-}
+        rowUuids.push_back(uuid);
+    }
 
 // Let wxDataViewListCtrl manage column headers and sorting
 }
@@ -318,6 +331,79 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent& event)
                 table->SetValue(wxVariant(value), r, col);
         }
     }
+}
+
+static FixtureTablePanel* s_instance = nullptr;
+
+FixtureTablePanel* FixtureTablePanel::Instance()
+{
+    return s_instance;
+}
+
+void FixtureTablePanel::SetInstance(FixtureTablePanel* panel)
+{
+    s_instance = panel;
+}
+
+void FixtureTablePanel::HighlightFixture(const std::string& uuid)
+{
+    for (size_t i = 0; i < rowUuids.size(); ++i)
+    {
+        if (!uuid.empty() && rowUuids[i] == uuid)
+            store.SetRowBackgroundColour(i, wxColour(0, 200, 0));
+        else
+            store.ClearRowBackground(i);
+    }
+    table->Refresh();
+}
+
+void FixtureTablePanel::OnLeftDown(wxMouseEvent& evt)
+{
+    wxDataViewItem item;
+    wxDataViewColumn* col;
+    table->HitTest(evt.GetPosition(), item, col);
+    startRow = table->ItemToRow(item);
+    if (startRow != wxNOT_FOUND)
+    {
+        dragSelecting = true;
+        table->UnselectAll();
+        table->SelectRow(startRow);
+        CaptureMouse();
+    }
+    evt.Skip();
+}
+
+void FixtureTablePanel::OnLeftUp(wxMouseEvent& evt)
+{
+    if (dragSelecting)
+    {
+        dragSelecting = false;
+        ReleaseMouse();
+    }
+    evt.Skip();
+}
+
+void FixtureTablePanel::OnMouseMove(wxMouseEvent& evt)
+{
+    if (!dragSelecting || !evt.Dragging())
+    {
+        evt.Skip();
+        return;
+    }
+
+    wxDataViewItem item;
+    wxDataViewColumn* col;
+    table->HitTest(evt.GetPosition(), item, col);
+    int row = table->ItemToRow(item);
+    if (row != wxNOT_FOUND)
+    {
+        int minRow = std::min(startRow, row);
+        int maxRow = std::max(startRow, row);
+        table->UnselectAll();
+        for (int r = minRow; r <= maxRow; ++r)
+            table->SelectRow(r);
+    }
+    evt.Skip();
 }
 
 
