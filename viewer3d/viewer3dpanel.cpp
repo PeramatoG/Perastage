@@ -17,7 +17,9 @@
 #include "fixturetablepanel.h"
 #include <wx/dcclient.h>
 #include <wx/event.h>
+#include <chrono>
 
+wxDEFINE_EVENT(wxEVT_VIEWER_REFRESH, wxThreadEvent);
 wxBEGIN_EVENT_TABLE(Viewer3DPanel, wxGLCanvas)
 EVT_PAINT(Viewer3DPanel::OnPaint)
 EVT_SIZE(Viewer3DPanel::OnResize)
@@ -25,6 +27,7 @@ EVT_LEFT_DOWN(Viewer3DPanel::OnMouseDown)
 EVT_LEFT_UP(Viewer3DPanel::OnMouseUp)
 EVT_MOTION(Viewer3DPanel::OnMouseMove)
 EVT_MOUSEWHEEL(Viewer3DPanel::OnMouseWheel)
+EVT_THREAD(wxEVT_VIEWER_REFRESH, Viewer3DPanel::OnThreadRefresh)
 wxEND_EVENT_TABLE()
 
 
@@ -33,10 +36,15 @@ Viewer3DPanel::Viewer3DPanel(wxWindow* parent)
     m_glContext(new wxGLContext(this))
 {
     SetBackgroundStyle(wxBG_STYLE_CUSTOM);
+    m_threadRunning = true;
+    m_refreshThread = std::thread(&Viewer3DPanel::RefreshLoop, this);
 }
 
 Viewer3DPanel::~Viewer3DPanel()
 {
+    m_threadRunning = false;
+    if (m_refreshThread.joinable())
+        m_refreshThread.join();
     delete m_glContext;
 }
 
@@ -196,4 +204,20 @@ Viewer3DPanel* Viewer3DPanel::Instance()
 void Viewer3DPanel::SetInstance(Viewer3DPanel* panel)
 {
     s_instance = panel;
+}
+
+void Viewer3DPanel::RefreshLoop()
+{
+    using namespace std::chrono_literals;
+    while (m_threadRunning)
+    {
+        wxThreadEvent* evt = new wxThreadEvent(wxEVT_VIEWER_REFRESH);
+        wxQueueEvent(this, evt);
+        std::this_thread::sleep_for(16ms);
+    }
+}
+
+void Viewer3DPanel::OnThreadRefresh(wxThreadEvent& event)
+{
+    Refresh();
 }

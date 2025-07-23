@@ -11,6 +11,11 @@
 #include "viewer3dcamera.h"
 #include "viewer3dcontroller.h"
 #include <string>
+#include <thread>
+#include <atomic>
+#include <wx/thread.h>
+
+wxDECLARE_EVENT(wxEVT_VIEWER_REFRESH, wxThreadEvent);
 
 class Viewer3DPanel : public wxGLCanvas
 {
@@ -65,6 +70,11 @@ private:
     std::string m_hoverUuid;
 
     Viewer3DController m_controller;
+
+    std::atomic<bool> m_threadRunning{false};
+    std::thread m_refreshThread;
+    void RefreshLoop();
+    void OnThreadRefresh(wxThreadEvent& event);
 
     wxDECLARE_EVENT_TABLE();
 };
