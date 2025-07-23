@@ -56,6 +56,7 @@ void MainWindow::SetupLayout()
     notebook = new wxNotebook(this, wxID_ANY);
 
     fixturePanel = new FixtureTablePanel(notebook);
+    FixtureTablePanel::SetInstance(fixturePanel);
     notebook->AddPage(fixturePanel, "Fixtures");
 
     trussPanel = new TrussTablePanel(notebook);

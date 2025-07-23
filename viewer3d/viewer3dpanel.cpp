@@ -14,6 +14,7 @@
 
 #include "viewer3dpanel.h"
 #include "consolepanel.h"
+#include "fixturetablepanel.h"
 #include <wx/dcclient.h>
 #include <wx/event.h>
 
@@ -62,6 +63,8 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
                                                 w, h, m_hoverText, m_hoverPos,
                                                 &m_hoverUuid);
     m_controller.SetHighlightUuid(m_hasHover ? m_hoverUuid : "");
+    if (FixtureTablePanel::Instance())
+        FixtureTablePanel::Instance()->HighlightFixture(m_hasHover ? std::string(m_hoverUuid) : std::string());
     if (m_hasHover) {
         dc.DrawText(m_hoverText, m_hoverPos);
     }
@@ -154,6 +157,8 @@ void Viewer3DPanel::OnMouseMove(wxMouseEvent& event)
                                                 w, h, m_hoverText, m_hoverPos,
                                                 &m_hoverUuid);
     m_controller.SetHighlightUuid(m_hasHover ? m_hoverUuid : "");
+    if (FixtureTablePanel::Instance())
+        FixtureTablePanel::Instance()->HighlightFixture(m_hasHover ? std::string(m_hoverUuid) : std::string());
     Refresh();
 }
 
