@@ -16,6 +16,7 @@
 #include <string>
 #include <wx/dcclient.h>
 #include <wx/gdicmn.h>
+#include <wx/graphics.h>
 #include <wx/string.h>
 
 // MVR coordinates are defined in millimeters. This constant converts
