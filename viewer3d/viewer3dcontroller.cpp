@@ -54,6 +54,36 @@ static std::string ResolveGdtfPath(const std::string& base,
     return FindFileRecursive(base, fs::path(spec).filename().string());
 }
 
+static std::string ResolveModelPath(const std::string& base,
+                                    const std::string& file)
+{
+    if (file.empty())
+        return {};
+
+    fs::path p = base.empty() ? fs::path(file) : fs::path(base) / file;
+    if (fs::exists(p))
+        return p.string();
+
+    if (p.extension().empty()) {
+        fs::path p3ds = p;
+        p3ds += ".3ds";
+        if (fs::exists(p3ds))
+            return p3ds.string();
+
+        fs::path pglb = p;
+        pglb += ".glb";
+        if (fs::exists(pglb))
+            return pglb.string();
+
+        std::string fn3ds = FindFileRecursive(base, p.filename().string() + ".3ds");
+        if (!fn3ds.empty())
+            return fn3ds;
+        return FindFileRecursive(base, p.filename().string() + ".glb");
+    }
+
+    return FindFileRecursive(base, p.filename().string());
+}
+
 static void MatrixToArray(const Matrix& m, float out[16])
 {
     out[0] = m.u[0];  out[1] = m.u[1];  out[2] = m.u[2];  out[3] = 0.0f;
@@ -101,8 +131,9 @@ void Viewer3DController::Update() {
         if (t.symbolFile.empty())
             continue;
 
-        std::string path = base.empty() ? t.symbolFile
-                                         : (fs::path(base) / t.symbolFile).string();
+        std::string path = ResolveModelPath(base, t.symbolFile);
+        if (path.empty())
+            continue;
         if (m_loadedMeshes.find(path) == m_loadedMeshes.end()) {
             Mesh mesh;
             bool loaded = false;
@@ -126,8 +157,9 @@ void Viewer3DController::Update() {
     for (const auto& [uuid, obj] : objects) {
         if (obj.modelFile.empty())
             continue;
-        std::string path = base.empty() ? obj.modelFile
-                                         : (fs::path(base) / obj.modelFile).string();
+        std::string path = ResolveModelPath(base, obj.modelFile);
+        if (path.empty())
+            continue;
         if (m_loadedMeshes.find(path) == m_loadedMeshes.end()) {
             Mesh mesh;
             bool loaded = false;
@@ -283,11 +315,14 @@ void Viewer3DController::RenderScene()
 
 
         if (!t.symbolFile.empty()) {
-            std::string path = base.empty() ? t.symbolFile
-                                             : (fs::path(base) / t.symbolFile).string();
-            auto it = m_loadedMeshes.find(path);
-            if (it != m_loadedMeshes.end()) {
-                DrawMeshWithOutline(it->second);
+            std::string path = ResolveModelPath(base, t.symbolFile);
+            if (!path.empty()) {
+                auto it = m_loadedMeshes.find(path);
+                if (it != m_loadedMeshes.end()) {
+                    DrawMeshWithOutline(it->second);
+                } else {
+                    DrawCubeWithOutline(0.3f, 0.5f, 0.5f);
+                }
             } else {
                 DrawCubeWithOutline(0.3f, 0.5f, 0.5f);
             }
@@ -309,13 +344,16 @@ void Viewer3DController::RenderScene()
 
 
         if (!m.modelFile.empty()) {
-            std::string path = base.empty() ? m.modelFile
-                                            : (fs::path(base) / m.modelFile).string();
-            auto it = m_loadedMeshes.find(path);
-            if (it != m_loadedMeshes.end())
-                DrawMeshWithOutline(it->second);
-            else
+            std::string path = ResolveModelPath(base, m.modelFile);
+            if (!path.empty()) {
+                auto it = m_loadedMeshes.find(path);
+                if (it != m_loadedMeshes.end())
+                    DrawMeshWithOutline(it->second);
+                else
+                    DrawCubeWithOutline(0.3f, 0.8f, 0.8f, 0.8f);
+            } else {
                 DrawCubeWithOutline(0.3f, 0.8f, 0.8f, 0.8f);
+            }
         } else {
             DrawCubeWithOutline(0.3f, 0.8f, 0.8f, 0.8f);
         }
