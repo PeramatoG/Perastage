@@ -94,3 +94,19 @@ float Viewer3DCamera::GetDistance() const
 {
     return distance;
 }
+
+void Viewer3DCamera::SetOrientation(float y, float p)
+{
+    yaw = y;
+    pitch = p;
+    if (pitch > 89.0f) pitch = 89.0f;
+    if (pitch < -89.0f) pitch = -89.0f;
+}
+
+void Viewer3DCamera::Reset()
+{
+    yaw = 45.0f;
+    pitch = 30.0f;
+    distance = 15.0f;
+    targetX = targetY = targetZ = 0.0f;
+}

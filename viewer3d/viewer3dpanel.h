@@ -39,6 +39,7 @@ private:
 
     // Mouse interaction state
     bool m_dragging = false;
+    bool m_mouseInside = false;
     wxPoint m_lastMousePos;
 
     // Type of interaction currently active (Orbit or Pan)
@@ -59,6 +60,9 @@ private:
     void OnMouseUp(wxMouseEvent& event);
     void OnMouseMove(wxMouseEvent& event);
     void OnMouseWheel(wxMouseEvent& event);
+    void OnKeyDown(wxKeyEvent& event);
+    void OnMouseEnter(wxMouseEvent& event);
+    void OnMouseLeave(wxMouseEvent& event);
 
     // Renders the full scene
     void Render();
