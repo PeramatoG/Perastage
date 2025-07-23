@@ -139,9 +139,12 @@ bool LoadGLB(const std::string& path, Mesh& outMesh)
     outMesh.vertices.resize(posCount * 3);
     for(size_t i=0;i<posCount;i++) {
         const float* src = reinterpret_cast<const float*>(binData.data() + posOff + posStride * i);
-        outMesh.vertices[i*3] = src[0];
-        outMesh.vertices[i*3+1] = src[1];
-        outMesh.vertices[i*3+2] = src[2];
+        // glTF uses Y-up with Z forward. Convert to our Z-up system where
+        // positive Y goes into the screen. This keeps a right-handed coordinate
+        // system so composed models match 3DS orientation.
+        outMesh.vertices[i*3]     = src[0];          // X stays the same
+        outMesh.vertices[i*3 + 1] = -src[2];         // Y <- -Z
+        outMesh.vertices[i*3 + 2] =  src[1];         // Z <- Y
     }
 
     outMesh.indices.resize(idxCount);
