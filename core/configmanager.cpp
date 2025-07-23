@@ -1,6 +1,13 @@
 #include "configmanager.h"
+#include "../external/json.hpp"
 #include <fstream>
 #include <sstream>
+#include <filesystem>
+#include <chrono>
+#include "mvrexporter.h"
+#include "mvrimporter.h"
+#include <wx/wfstream.h>
+#include <wx/zipstrm.h>
 
 ConfigManager& ConfigManager::Get()
 {
@@ -58,19 +65,17 @@ bool ConfigManager::LoadFromFile(const std::string& path)
     if (!file.is_open())
         return false;
 
-    configData.clear();
-    std::string line;
-    while (std::getline(file, line))
+    nlohmann::json j;
+    try
     {
-        auto pos = line.find('=');
-        if (pos == std::string::npos)
-            continue;
-
-        std::string key = line.substr(0, pos);
-        std::string value = line.substr(pos + 1);
-        configData[key] = value;
+        file >> j;
+    }
+    catch (...)
+    {
+        return false;
     }
 
+    configData = j.get<std::unordered_map<std::string, std::string>>();
     return true;
 }
 
@@ -80,12 +85,123 @@ bool ConfigManager::SaveToFile(const std::string& path) const
     if (!file.is_open())
         return false;
 
-    for (const auto& [key, value] : configData)
+    nlohmann::json j(configData);
+    file << j.dump(4);
+    return true;
+}
+
+bool ConfigManager::SaveProject(const std::string& path)
+{
+    namespace fs = std::filesystem;
+    fs::path tempDir = fs::temp_directory_path() /
+        ("PerastageProj_" + std::to_string(std::chrono::system_clock::now().time_since_epoch().count()));
+    fs::create_directory(tempDir);
+
+    fs::path configPath = tempDir / "config.json";
+    fs::path scenePath = tempDir / "scene.mvr";
+
+    if (!SaveToFile(configPath.string()))
     {
-        file << key << "=" << value << "\n";
+        fs::remove_all(tempDir);
+        return false;
     }
 
+    MvrExporter exporter;
+    if (!exporter.ExportToFile(scenePath.string()))
+    {
+        fs::remove_all(tempDir);
+        return false;
+    }
+
+    wxFileOutputStream out(path);
+    if (!out.IsOk())
+    {
+        fs::remove_all(tempDir);
+        return false;
+    }
+
+    wxZipOutputStream zip(out);
+
+    auto addFile = [&](const fs::path& p, const std::string& name)
+    {
+        wxZipEntry entry(name);
+        entry.SetMethod(wxZIP_METHOD_DEFLATE);
+        zip.PutNextEntry(entry);
+        std::ifstream in(p, std::ios::binary);
+        char buf[4096];
+        while (in.good())
+        {
+            in.read(buf, sizeof(buf));
+            std::streamsize s = in.gcount();
+            if (s > 0)
+                zip.Write(buf, s);
+        }
+        zip.CloseEntry();
+    };
+
+    addFile(configPath, "config.json");
+    addFile(scenePath, "scene.mvr");
+
+    zip.Close();
+    fs::remove_all(tempDir);
     return true;
+}
+
+bool ConfigManager::LoadProject(const std::string& path)
+{
+    namespace fs = std::filesystem;
+
+    wxFileInputStream in(path);
+    if (!in.IsOk())
+        return false;
+
+    wxZipInputStream zip(in);
+    std::unique_ptr<wxZipEntry> entry;
+
+    fs::path tempDir = fs::temp_directory_path() /
+        ("PerastageProj_" + std::to_string(std::chrono::system_clock::now().time_since_epoch().count()));
+    fs::create_directory(tempDir);
+
+    fs::path configPath;
+    fs::path scenePath;
+
+    while ((entry.reset(zip.GetNextEntry())), entry)
+    {
+        std::string name = entry->GetName().ToStdString();
+        fs::path outPath;
+        if (name == "config.json")
+            outPath = tempDir / "config.json";
+        else if (name == "scene.mvr")
+            outPath = tempDir / "scene.mvr";
+        else
+            continue;
+
+        std::ofstream out(outPath, std::ios::binary);
+        char buf[4096];
+        while (true)
+        {
+            zip.Read(buf, sizeof(buf));
+            size_t bytes = zip.LastRead();
+            if (bytes == 0)
+                break;
+            out.write(buf, bytes);
+        }
+        out.close();
+
+        if (name == "config.json")
+            configPath = outPath;
+        else if (name == "scene.mvr")
+            scenePath = outPath;
+    }
+
+    bool ok = true;
+    if (!configPath.empty())
+        ok &= LoadFromFile(configPath.string());
+    if (!scenePath.empty())
+        ok &= MvrImporter::ImportAndRegister(scenePath.string());
+
+    fs::remove_all(tempDir);
+    return ok;
 }
 
 void ConfigManager::Reset()

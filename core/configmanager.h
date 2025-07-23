@@ -19,7 +19,9 @@ public:
     void RemoveKey(const std::string& key);
     void ClearValues();
 
-    // Save/load configuration file (e.g., JSON, INI, TXT…)
+    bool SaveProject(const std::string& path);
+    bool LoadProject(const std::string& path);
+    // Save/load configuration file (e.g., JSON, INI, TXTâ€¦)
     bool LoadFromFile(const std::string& path);
     bool SaveToFile(const std::string& path) const;
 
