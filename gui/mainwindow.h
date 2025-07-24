@@ -45,6 +45,8 @@ private:
     void OnToggleConsole(wxCommandEvent& event);   // Toggle console panel
     void OnToggleFixtures(wxCommandEvent& event);  // Toggle fixture panel
     void OnToggleViewport(wxCommandEvent& event);  // Toggle 3D viewport
+    void OnShowHelp(wxCommandEvent& event);        // Show help dialog
+    void OnShowAbout(wxCommandEvent& event);       // Show about dialog
 
     wxDECLARE_EVENT_TABLE();
 };
@@ -60,5 +62,7 @@ enum
     ID_File_Close,
     ID_View_ToggleConsole,
     ID_View_ToggleFixtures,
-    ID_View_ToggleViewport
+    ID_View_ToggleViewport,
+    ID_Help_Help,
+    ID_Help_About
 };

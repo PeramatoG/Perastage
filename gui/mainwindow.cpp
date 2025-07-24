@@ -22,6 +22,8 @@ EVT_MENU(ID_File_Close, MainWindow::OnClose)
 EVT_MENU(ID_View_ToggleConsole, MainWindow::OnToggleConsole)
 EVT_MENU(ID_View_ToggleFixtures, MainWindow::OnToggleFixtures)
 EVT_MENU(ID_View_ToggleViewport, MainWindow::OnToggleViewport)
+EVT_MENU(ID_Help_Help, MainWindow::OnShowHelp)
+EVT_MENU(ID_Help_About, MainWindow::OnShowAbout)
 wxEND_EVENT_TABLE()
 
 MainWindow::MainWindow(const wxString& title)
@@ -141,6 +143,13 @@ void MainWindow::CreateMenuBar()
     viewMenu->Check(ID_View_ToggleViewport, true);
 
     menuBar->Append(viewMenu, "&View");
+
+    // Help menu
+    wxMenu* helpMenu = new wxMenu();
+    helpMenu->Append(ID_Help_Help, "Help\tF1");
+    helpMenu->Append(ID_Help_About, "About");
+
+    menuBar->Append(helpMenu, "&Help");
 
     SetMenuBar(menuBar);
 }
@@ -350,4 +359,30 @@ void MainWindow::UpdateTitle()
         title += " - Untitled";
     }
     SetTitle(title);
+}
+
+void MainWindow::OnShowHelp(wxCommandEvent& WXUNUSED(event))
+{
+    const wxString helpText =
+        "Use File → Import MVR to load an .mvr file.\n"
+        "Tables will list fixtures and trusses while the scene is shown in the 3D viewport.\n"
+        "Toggle panels from the View menu.\n\n"
+        "Keyboard controls:\n"
+        "- Arrow keys: orbit the view\n"
+        "- Shift + Arrow keys: pan\n"
+        "- Alt + Up/Down (or Alt + Left/Right): zoom\n"
+        "- Numpad 1/3/7: front, right and top views\n"
+        "- Numpad 5: reset orientation";
+
+    wxMessageBox(helpText, "Perastage Help", wxOK | wxICON_INFORMATION, this);
+}
+
+void MainWindow::OnShowAbout(wxCommandEvent& WXUNUSED(event))
+{
+    const wxString aboutText =
+        "Perastage\n"
+        "Developed by Luisma Peramato (www.luismaperamato.com.ac)\n"
+        "Licensed under the MIT License.";
+
+    wxMessageBox(aboutText, "About Perastage", wxOK | wxICON_INFORMATION, this);
 }
