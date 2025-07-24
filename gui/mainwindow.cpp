@@ -380,8 +380,14 @@ void MainWindow::OnShowHelp(wxCommandEvent& WXUNUSED(event))
 void MainWindow::OnShowAbout(wxCommandEvent& WXUNUSED(event))
 {
     const wxString aboutText =
-        "Perastage\n"
-        "Developed by Luisma Peramato (www.luismaperamato.com.ac)\n"
+        "Perastage v1.0 - MVR scene viewer\n\n"
+        "This application uses:\n"
+        "- wxWidgets\n"
+        "- tinyxml2\n"
+        "- nlohmann-json\n"
+        "- OpenGL\n\n"
+        "Author: Luisma Peramato\n"
+        "https://luismaperamato.com\n\n"
         "Licensed under the MIT License.";
 
     wxMessageBox(aboutText, "About Perastage", wxOK | wxICON_INFORMATION, this);
