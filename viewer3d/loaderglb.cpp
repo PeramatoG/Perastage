@@ -10,6 +10,11 @@
 
 using json = nlohmann::json;
 
+// glTF specification defines distances in meters whereas MVR expects
+// millimeters. Apply a constant scale so that loaded meshes match the
+// coordinate system used for 3DS files and the rest of the viewer.
+static constexpr float GLB_TO_MVR_SCALE = 1000.0f;
+
 static size_t ComponentSize(int compType)
 {
     switch(compType) {
@@ -109,9 +114,9 @@ bool LoadGLB(const std::string& path, Mesh& outMesh)
 
     auto transformPoint = [](const Matrix& m, const std::array<float,3>& p) {
         return std::array<float,3>{
-            m.u[0]*p[0] + m.v[0]*p[1] + m.w[0]*p[2] + m.o[0],
-            m.u[1]*p[0] + m.v[1]*p[1] + m.w[1]*p[2] + m.o[1],
-            m.u[2]*p[0] + m.v[2]*p[1] + m.w[2]*p[2] + m.o[2]
+            (m.u[0]*p[0] + m.v[0]*p[1] + m.w[0]*p[2] + m.o[0]) * GLB_TO_MVR_SCALE,
+            (m.u[1]*p[0] + m.v[1]*p[1] + m.w[1]*p[2] + m.o[1]) * GLB_TO_MVR_SCALE,
+            (m.u[2]*p[0] + m.v[2]*p[1] + m.w[2]*p[2] + m.o[2]) * GLB_TO_MVR_SCALE
         };
     };
 
