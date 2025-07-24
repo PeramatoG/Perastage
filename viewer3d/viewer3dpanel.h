@@ -60,6 +60,7 @@ private:
     void OnMouseUp(wxMouseEvent& event);
     void OnMouseMove(wxMouseEvent& event);
     void OnMouseWheel(wxMouseEvent& event);
+    void OnMouseDClick(wxMouseEvent& event);
     void OnKeyDown(wxKeyEvent& event);
     void OnMouseEnter(wxMouseEvent& event);
     void OnMouseLeave(wxMouseEvent& event);

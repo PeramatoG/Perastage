@@ -489,6 +489,20 @@ void FixtureTablePanel::UpdateSceneData()
             it->second.gdtfSpec = std::string(gdtfPaths[i].mb_str());
 
         wxVariant v;
+        table->GetValue(v, i, 1);
+        long fid = v.GetLong();
+        it->second.fixtureId = static_cast<int>(fid);
+
+        table->GetValue(v, i, 3);
+        long uni = v.GetLong();
+
+        table->GetValue(v, i, 4);
+        long ch = v.GetLong();
+        if (uni>0 && ch>0)
+            it->second.address = wxString::Format("%ld.%ld", uni, ch).ToStdString();
+        else
+            it->second.address.clear();
+
         double x=0, y=0, z=0;
         table->GetValue(v, i, 6); v.GetString().ToDouble(&x);
         table->GetValue(v, i, 7); v.GetString().ToDouble(&y);
