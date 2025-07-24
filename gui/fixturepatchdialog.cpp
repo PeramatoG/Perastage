@@ -3,7 +3,7 @@
 
 FixturePatchDialog::FixturePatchDialog(wxWindow* parent, const Fixture& fixture)
     : wxDialog(parent, wxID_ANY,
-        wxString::Format("Edit fixture %s", wxString::FromUTF8(fixture.name)),
+        wxString::Format("%s", wxString::FromUTF8(fixture.name)),
         wxDefaultPosition, wxDefaultSize)
 {
     wxBoxSizer* sizer = new wxBoxSizer(wxVERTICAL);
