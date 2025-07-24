@@ -15,6 +15,8 @@
 #include "viewer3dpanel.h"
 #include "consolepanel.h"
 #include "fixturetablepanel.h"
+#include "configmanager.h"
+#include "fixturepatchdialog.h"
 #include <wx/dcclient.h>
 #include <wx/event.h>
 #include <chrono>
@@ -26,6 +28,7 @@ EVT_SIZE(Viewer3DPanel::OnResize)
 EVT_LEFT_DOWN(Viewer3DPanel::OnMouseDown)
 EVT_LEFT_UP(Viewer3DPanel::OnMouseUp)
 EVT_MOTION(Viewer3DPanel::OnMouseMove)
+EVT_LEFT_DCLICK(Viewer3DPanel::OnMouseDClick)
 EVT_MOUSEWHEEL(Viewer3DPanel::OnMouseWheel)
 EVT_KEY_DOWN(Viewer3DPanel::OnKeyDown)
 EVT_ENTER_WINDOW(Viewer3DPanel::OnMouseEnter)
@@ -182,6 +185,41 @@ void Viewer3DPanel::OnMouseWheel(wxMouseEvent& event)
     int rotation = event.GetWheelRotation();
     float delta = (rotation > 0) ? -1.0f : 1.0f;
     m_camera.Zoom(delta);
+    Refresh();
+}
+
+void Viewer3DPanel::OnMouseDClick(wxMouseEvent& event)
+{
+    int w, h;
+    GetClientSize(&w, &h);
+    SetCurrent(*m_glContext);
+    wxString label;
+    wxPoint pos;
+    std::string uuid;
+    if (!m_controller.GetFixtureLabelAt(event.GetX(), event.GetY(), w, h, label, pos, &uuid))
+        return;
+
+    auto& scene = ConfigManager::Get().GetScene();
+    auto it = scene.fixtures.find(uuid);
+    if (it == scene.fixtures.end())
+        return;
+
+    FixturePatchDialog dlg(this, it->second);
+    if (dlg.ShowModal() != wxID_OK)
+        return;
+
+    it->second.fixtureId = dlg.GetFixtureId();
+    int uni = dlg.GetUniverse();
+    int ch = dlg.GetChannel();
+    if (uni > 0 && ch > 0)
+        it->second.address = wxString::Format("%d.%d", uni, ch).ToStdString();
+    else
+        it->second.address.clear();
+
+    if (FixtureTablePanel::Instance()) {
+        FixtureTablePanel::Instance()->ReloadData();
+    }
+
     Refresh();
 }
 
