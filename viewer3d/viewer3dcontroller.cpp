@@ -279,6 +279,7 @@ void Viewer3DController::RenderScene()
     DrawGrid();
 
     // Fixtures
+    glShadeModel(GL_FLAT);
     const auto& fixtures = SceneDataManager::Instance().GetFixtures();
     const std::string& base = ConfigManager::Get().GetScene().basePath;
     for (const auto& [uuid, f] : fixtures) {
@@ -313,6 +314,8 @@ void Viewer3DController::RenderScene()
         glPopMatrix();
     }
 
+    glShadeModel(GL_SMOOTH); // keep smooth shading for trusses
+
     // Trusses
     const auto& trusses = SceneDataManager::Instance().GetTrusses();
     for (const auto& [uuid, t] : trusses) {
@@ -343,6 +346,8 @@ void Viewer3DController::RenderScene()
 
         glPopMatrix();
     }
+
+    glShadeModel(GL_FLAT);
 
     const auto& meshes = SceneDataManager::Instance().GetSceneObjects();
     for (const auto& [uuid, m] : meshes) {
