@@ -2,7 +2,9 @@
 #include <wx/tokenzr.h>
 
 FixturePatchDialog::FixturePatchDialog(wxWindow* parent, const Fixture& fixture)
-    : wxDialog(parent, wxID_ANY, "Editar Fixture", wxDefaultPosition, wxDefaultSize)
+    : wxDialog(parent, wxID_ANY,
+        wxString::Format("Edit fixture %s", wxString::FromUTF8(fixture.name)),
+        wxDefaultPosition, wxDefaultSize)
 {
     wxBoxSizer* sizer = new wxBoxSizer(wxVERTICAL);
 

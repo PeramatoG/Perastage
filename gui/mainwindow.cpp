@@ -77,23 +77,26 @@ void MainWindow::SetupLayout()
     sceneObjPanel = new SceneObjectTablePanel(notebook);
     notebook->AddPage(sceneObjPanel, "Objects");
 
-    // Add notebook as center pane
+    // Add notebook on the left so the viewport can occupy
+    // the remaining (and larger) central area
     auiManager->AddPane(notebook, wxAuiPaneInfo()
         .Name("DataNotebook")
         .Caption("Data Views")
-        .CenterPane()
+        .Left()
+        .BestSize(700, 600)
         .PaneBorder(false)
         .CaptionVisible(true)
         .CloseButton(true)
         .MaximizeButton(true));
 
-    // Add 3D viewport as a dockable pane on the right
+    // Add 3D viewport as the main center pane
     viewportPanel = new Viewer3DPanel(this);
     Viewer3DPanel::SetInstance(viewportPanel);
     auiManager->AddPane(viewportPanel, wxAuiPaneInfo()
         .Name("3DViewport")
         .Caption("3D Viewport")
-        .Right()
+        .CenterPane()
+        .PaneBorder(false)
         .BestSize(800, 600)
         .CloseButton(true)
         .MaximizeButton(true));
