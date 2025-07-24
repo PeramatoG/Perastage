@@ -34,3 +34,13 @@ binary when building.
 Run the executable and use **File → Import MVR** to load an `.mvr` file.  The
 application will populate tables with fixtures and trusses and render the scene
 in the 3D viewport.  Additional view panels can be toggled from the **View** menu.
+
+## Keyboard controls
+
+When the mouse pointer is over the 3D viewport you can use the following shortcuts:
+
+- **Arrow keys**: orbit around the scene.
+- **Shift + Arrow keys**: pan the view.
+- **Alt + Up/Down** (or **Alt + Left/Right**): zoom in and out.
+- **Numpad 1/3/7**: front, right and top views.
+- **Numpad 5**: reset to the default orientation.

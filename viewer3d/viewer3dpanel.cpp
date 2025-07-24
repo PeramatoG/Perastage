@@ -189,18 +189,41 @@ void Viewer3DPanel::OnKeyDown(wxKeyEvent& event)
 {
     if (!m_mouseInside) { event.Skip(); return; }
 
+    bool shift = event.ShiftDown();
+    bool alt = event.AltDown();
+
     switch (event.GetKeyCode()) {
         case WXK_LEFT:
-            m_camera.Orbit(-5.0f, 0.0f);
+            if (shift)
+                m_camera.Pan(-0.1f, 0.0f);
+            else if (alt)
+                m_camera.Zoom(-1.0f);
+            else
+                m_camera.Orbit(-5.0f, 0.0f);
             break;
         case WXK_RIGHT:
-            m_camera.Orbit(5.0f, 0.0f);
+            if (shift)
+                m_camera.Pan(0.1f, 0.0f);
+            else if (alt)
+                m_camera.Zoom(1.0f);
+            else
+                m_camera.Orbit(5.0f, 0.0f);
             break;
         case WXK_UP:
-            m_camera.Orbit(0.0f, 5.0f);
+            if (shift)
+                m_camera.Pan(0.0f, 0.1f);
+            else if (alt)
+                m_camera.Zoom(-1.0f);
+            else
+                m_camera.Orbit(0.0f, 5.0f);
             break;
         case WXK_DOWN:
-            m_camera.Orbit(0.0f, -5.0f);
+            if (shift)
+                m_camera.Pan(0.0f, -0.1f);
+            else if (alt)
+                m_camera.Zoom(1.0f);
+            else
+                m_camera.Orbit(0.0f, -5.0f);
             break;
         case WXK_NUMPAD1: // Front
             m_camera.SetOrientation(0.0f, 0.0f);
