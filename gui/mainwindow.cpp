@@ -280,7 +280,8 @@ void MainWindow::OnExportMVR(wxCommandEvent& event)
 
 void MainWindow::OnClose(wxCommandEvent& event)
 {
-    Close(true);
+    // Allow the close event to be vetoed when the user chooses Cancel
+    Close(false);
 }
 
 void MainWindow::OnCloseWindow(wxCloseEvent& event)
