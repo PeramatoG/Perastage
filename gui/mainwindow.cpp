@@ -11,6 +11,7 @@
 #include <wx/notebook.h>
 #include <wx/filename.h>
 #include <cstdlib>
+#include <cstdio>
 
 
 wxBEGIN_EVENT_TABLE(MainWindow, wxFrame)
@@ -287,44 +288,52 @@ void MainWindow::OnExportMVR(wxCommandEvent& event)
 
 void MainWindow::OnDownloadGdtf(wxCommandEvent& WXUNUSED(event))
 {
-    wxTextEntryDialog idDlg(this, "Enter fixture revision ID (rid):", "Download GDTF");
-    if (idDlg.ShowModal() != wxID_OK)
-        return;
-
-    wxString rid = idDlg.GetValue();
-    rid.Trim(true).Trim(false);
-    if (rid.IsEmpty())
-        return;
-
     std::string savedUser = ConfigManager::Get().GetValue("gdtf_username").value_or("");
     std::string savedPass = ConfigManager::Get().GetValue("gdtf_password").value_or("");
 
-    wxTextEntryDialog userDlg(this, "GDTF Share username:", "Download GDTF", wxString::FromUTF8(savedUser));
+    wxTextEntryDialog userDlg(this, "GDTF Share username:", "GDTF Share Login", wxString::FromUTF8(savedUser));
     if (userDlg.ShowModal() != wxID_OK)
         return;
     wxString username = userDlg.GetValue().Trim(true).Trim(false);
     ConfigManager::Get().SetValue("gdtf_username", std::string(username.mb_str()));
 
-    wxTextEntryDialog passDlg(this, "GDTF Share password:", "Download GDTF", wxString::FromUTF8(savedPass), wxOK | wxCANCEL | wxTE_PASSWORD);
+    wxTextEntryDialog passDlg(this, "GDTF Share password:", "GDTF Share Login", wxString::FromUTF8(savedPass), wxOK | wxCANCEL | wxTE_PASSWORD);
     if (passDlg.ShowModal() != wxID_OK)
         return;
     wxString password = passDlg.GetValue();
     ConfigManager::Get().SetValue("gdtf_password", std::string(password.mb_str()));
 
-    wxString url = "https://gdtf-share.com/apis/public/downloadFile.php?rid=" + rid;
+    wxString testCmd = wxString::Format("curl -s -o /dev/null -w '%%{http_code}' -u '%s:%s' https://gdtf-share.com/apis/public/downloadFile.php?rid=1",
+                                       username, password);
+    FILE* testPipe = popen(testCmd.mb_str(), "r");
+    char codeBuf[16] = {0};
+    if (!testPipe || !fgets(codeBuf, sizeof(codeBuf), testPipe)) {
+        if (testPipe) pclose(testPipe);
+        wxMessageBox("Failed to connect to GDTF Share.", "Login Error", wxOK | wxICON_ERROR);
+        return;
+    }
+    pclose(testPipe);
+    int httpCode = std::atoi(codeBuf);
+    if (httpCode == 401 || httpCode == 0) {
+        wxMessageBox("Login failed.", "Login Error", wxOK | wxICON_ERROR);
+        return;
+    }
 
-    wxString outDir = "library/fixtures";
-    wxFileName::Mkdir(outDir, wxS_DIR_DEFAULT, wxPATH_MKDIR_FULL);
-    wxString dest = outDir + "/" + rid + ".gdtf";
+    wxString listCmd = wxString::Format("curl -s -u '%s:%s' https://gdtf-share.com/apis/public/fixtureList.php",
+                                       username, password);
+    FILE* listPipe = popen(listCmd.mb_str(), "r");
+    if (!listPipe) {
+        wxMessageBox("Failed to retrieve fixture list.", "Error", wxOK | wxICON_ERROR);
+        return;
+    }
+    std::string listData;
+    char buf[4096];
+    while (fgets(buf, sizeof(buf), listPipe))
+        listData.append(buf);
+    pclose(listPipe);
 
-    wxString cmd = wxString::Format("curl -fL -u '%s:%s' \"%s\" -o \"%s\"",
-                                    username, password, url, dest);
-    int res = std::system(cmd.mb_str());
-
-    if (res == 0 && wxFileExists(dest))
-        wxMessageBox("Fixture downloaded to " + dest, "Success", wxOK | wxICON_INFORMATION);
-    else
-        wxMessageBox("Failed to download fixture.", "Error", wxOK | wxICON_ERROR);
+    ConfigManager::Get().SetValue("gdtf_fixture_list", listData);
+    wxMessageBox("Fixture list downloaded.", "Success", wxOK | wxICON_INFORMATION);
 }
 
 
