@@ -10,6 +10,7 @@
 #include "projectutils.h"
 #include <wx/notebook.h>
 #include <wx/filename.h>
+#include <cstdlib>
 
 
 wxBEGIN_EVENT_TABLE(MainWindow, wxFrame)
@@ -24,6 +25,7 @@ EVT_CLOSE(MainWindow::OnCloseWindow)
 EVT_MENU(ID_View_ToggleConsole, MainWindow::OnToggleConsole)
 EVT_MENU(ID_View_ToggleFixtures, MainWindow::OnToggleFixtures)
 EVT_MENU(ID_View_ToggleViewport, MainWindow::OnToggleViewport)
+EVT_MENU(ID_Tools_DownloadGdtf, MainWindow::OnDownloadGdtf)
 EVT_MENU(ID_Help_Help, MainWindow::OnShowHelp)
 EVT_MENU(ID_Help_About, MainWindow::OnShowAbout)
 wxEND_EVENT_TABLE()
@@ -151,6 +153,12 @@ void MainWindow::CreateMenuBar()
 
     menuBar->Append(viewMenu, "&View");
 
+    // Tools menu
+    wxMenu* toolsMenu = new wxMenu();
+    toolsMenu->Append(ID_Tools_DownloadGdtf, "Download GDTF fixture...");
+
+    menuBar->Append(toolsMenu, "&Tools");
+
     // Help menu
     wxMenu* helpMenu = new wxMenu();
     helpMenu->Append(ID_Help_Help, "Help\tF1");
@@ -275,6 +283,32 @@ void MainWindow::OnExportMVR(wxCommandEvent& event)
         if (consolePanel)
             consolePanel->AppendMessage("Exported " + path);
     }
+}
+
+void MainWindow::OnDownloadGdtf(wxCommandEvent& WXUNUSED(event))
+{
+    wxTextEntryDialog idDlg(this, "Enter fixture revision ID (rid):", "Download GDTF");
+    if (idDlg.ShowModal() != wxID_OK)
+        return;
+
+    wxString rid = idDlg.GetValue();
+    rid.Trim(true).Trim(false);
+    if (rid.IsEmpty())
+        return;
+
+    wxString url = "https://gdtf-share.com/apis/public/downloadFile.php?rid=" + rid;
+
+    wxString outDir = "library/fixtures";
+    wxFileName::Mkdir(outDir, wxS_DIR_DEFAULT, wxPATH_MKDIR_FULL);
+    wxString dest = outDir + "/" + rid + ".gdtf";
+
+    wxString cmd = wxString::Format("curl -fL \"%s\" -o \"%s\"", url, dest);
+    int res = std::system(cmd.mb_str());
+
+    if (res == 0 && wxFileExists(dest))
+        wxMessageBox("Fixture downloaded to " + dest, "Success", wxOK | wxICON_INFORMATION);
+    else
+        wxMessageBox("Failed to download fixture.", "Error", wxOK | wxICON_ERROR);
 }
 
 
