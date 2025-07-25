@@ -12,6 +12,10 @@
 #include <wx/filename.h>
 #include <cstdlib>
 #include <cstdio>
+#ifdef _WIN32
+#  define popen _popen
+#  define pclose _pclose
+#endif
 
 
 wxBEGIN_EVENT_TABLE(MainWindow, wxFrame)
