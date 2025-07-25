@@ -13,12 +13,14 @@
 
 
 wxBEGIN_EVENT_TABLE(MainWindow, wxFrame)
+EVT_MENU(ID_File_New, MainWindow::OnNew)
 EVT_MENU(ID_File_Load, MainWindow::OnLoad)
 EVT_MENU(ID_File_Save, MainWindow::OnSave)
 EVT_MENU(ID_File_SaveAs, MainWindow::OnSaveAs)
 EVT_MENU(ID_File_ImportMVR, MainWindow::OnImportMVR)
 EVT_MENU(ID_File_ExportMVR, MainWindow::OnExportMVR)
 EVT_MENU(ID_File_Close, MainWindow::OnClose)
+EVT_CLOSE(MainWindow::OnCloseWindow)
 EVT_MENU(ID_View_ToggleConsole, MainWindow::OnToggleConsole)
 EVT_MENU(ID_View_ToggleFixtures, MainWindow::OnToggleFixtures)
 EVT_MENU(ID_View_ToggleViewport, MainWindow::OnToggleViewport)
@@ -123,6 +125,8 @@ void MainWindow::CreateMenuBar()
 
     // File menu
     wxMenu* fileMenu = new wxMenu();
+    fileMenu->Append(ID_File_New, "New\tCtrl+N");
+    fileMenu->AppendSeparator();
     fileMenu->Append(ID_File_Load, "Load\tCtrl+L");
     fileMenu->Append(ID_File_Save, "Save\tCtrl+S");
     fileMenu->Append(ID_File_SaveAs, "Save As...");
@@ -155,6 +159,11 @@ void MainWindow::CreateMenuBar()
     menuBar->Append(helpMenu, "&Help");
 
     SetMenuBar(menuBar);
+}
+
+void MainWindow::OnNew(wxCommandEvent& WXUNUSED(event))
+{
+    ResetProject();
 }
 
 void MainWindow::OnLoad(wxCommandEvent& event)
@@ -272,6 +281,28 @@ void MainWindow::OnExportMVR(wxCommandEvent& event)
 void MainWindow::OnClose(wxCommandEvent& event)
 {
     Close(true);
+}
+
+void MainWindow::OnCloseWindow(wxCloseEvent& event)
+{
+    wxMessageDialog dlg(this,
+        "Do you want to save changes before exiting?",
+        "Exit",
+        wxYES_NO | wxCANCEL | wxICON_QUESTION);
+
+    int res = dlg.ShowModal();
+    if (res == wxID_YES)
+    {
+        wxCommandEvent saveEvt;
+        OnSave(saveEvt);
+    }
+    else if (res == wxID_CANCEL)
+    {
+        event.Veto();
+        return;
+    }
+
+    Destroy();
 }
 
 void MainWindow::OnToggleConsole(wxCommandEvent& event)

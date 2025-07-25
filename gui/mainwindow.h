@@ -36,12 +36,14 @@ private:
     Viewer3DPanel* viewportPanel = nullptr;
     ConsolePanel* consolePanel = nullptr;
 
+    void OnNew(wxCommandEvent& event);             // Start new project
     void OnLoad(wxCommandEvent& event);            // Load project
     void OnSave(wxCommandEvent& event);            // Save project
     void OnSaveAs(wxCommandEvent& event);         // Save project as
     void OnImportMVR(wxCommandEvent& event);       // Handle the Import MVR action
     void OnExportMVR(wxCommandEvent& event);       // Handle the Export MVR action
     void OnClose(wxCommandEvent& event);           // Handle the Close action
+    void OnCloseWindow(wxCloseEvent& event);       // Handle window close
     void OnToggleConsole(wxCommandEvent& event);   // Toggle console panel
     void OnToggleFixtures(wxCommandEvent& event);  // Toggle fixture panel
     void OnToggleViewport(wxCommandEvent& event);  // Toggle 3D viewport
@@ -54,7 +56,8 @@ private:
 // Menu item identifiers
 enum
 {
-    ID_File_Load = wxID_HIGHEST + 1,
+    ID_File_New = wxID_HIGHEST + 1,
+    ID_File_Load,
     ID_File_Save,
     ID_File_SaveAs,
     ID_File_ImportMVR,
