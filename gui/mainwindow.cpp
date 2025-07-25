@@ -296,13 +296,29 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent& WXUNUSED(event))
     if (rid.IsEmpty())
         return;
 
+    std::string savedUser = ConfigManager::Get().GetValue("gdtf_username").value_or("");
+    std::string savedPass = ConfigManager::Get().GetValue("gdtf_password").value_or("");
+
+    wxTextEntryDialog userDlg(this, "GDTF Share username:", "Download GDTF", wxString::FromUTF8(savedUser));
+    if (userDlg.ShowModal() != wxID_OK)
+        return;
+    wxString username = userDlg.GetValue().Trim(true).Trim(false);
+    ConfigManager::Get().SetValue("gdtf_username", std::string(username.mb_str()));
+
+    wxTextEntryDialog passDlg(this, "GDTF Share password:", "Download GDTF", wxString::FromUTF8(savedPass), wxOK | wxCANCEL | wxTE_PASSWORD);
+    if (passDlg.ShowModal() != wxID_OK)
+        return;
+    wxString password = passDlg.GetValue();
+    ConfigManager::Get().SetValue("gdtf_password", std::string(password.mb_str()));
+
     wxString url = "https://gdtf-share.com/apis/public/downloadFile.php?rid=" + rid;
 
     wxString outDir = "library/fixtures";
     wxFileName::Mkdir(outDir, wxS_DIR_DEFAULT, wxPATH_MKDIR_FULL);
     wxString dest = outDir + "/" + rid + ".gdtf";
 
-    wxString cmd = wxString::Format("curl -fL \"%s\" -o \"%s\"", url, dest);
+    wxString cmd = wxString::Format("curl -fL -u '%s:%s' \"%s\" -o \"%s\"",
+                                    username, password, url, dest);
     int res = std::system(cmd.mb_str());
 
     if (res == 0 && wxFileExists(dest))
