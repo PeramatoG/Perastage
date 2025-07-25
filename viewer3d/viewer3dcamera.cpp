@@ -15,7 +15,7 @@
 #include <GL/glu.h>
 
 Viewer3DCamera::Viewer3DCamera()
-    : yaw(0.0f), pitch(30.0f), distance(20.0f),
+    : yaw(0.0f), pitch(20.0f), distance(30.0f),
     targetX(0.0f), targetY(0.0f), targetZ(0.0f),
     minDistance(0.5f), maxDistance(500.0f)
 {
