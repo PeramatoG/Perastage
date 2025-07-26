@@ -51,8 +51,12 @@ void GdtfSearchDialog::ParseList(const std::string& listData)
     }
     try {
         json j = json::parse(listData);
-        if (j.is_object() && j.contains("data"))
-            j = j["data"];
+        if (j.is_object()) {
+            if (j.contains("data"))
+                j = j["data"];
+            if (j.contains("fixtures"))
+                j = j["fixtures"];
+        }
         if (!j.is_array())
             return;
         for (const auto& item : j) {
@@ -127,7 +131,7 @@ void GdtfSearchDialog::UpdateResults()
 
 void GdtfSearchDialog::OnText(wxCommandEvent& WXUNUSED(evt))
 {
-    UpdateResults();
+    // Do not update the results list until the user presses the Search button
 }
 
 void GdtfSearchDialog::OnSearch(wxCommandEvent& WXUNUSED(evt))
