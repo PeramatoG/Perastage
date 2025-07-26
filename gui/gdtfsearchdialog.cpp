@@ -56,6 +56,8 @@ void GdtfSearchDialog::ParseList(const std::string& listData)
                 j = j["data"];
             if (j.contains("fixtures"))
                 j = j["fixtures"];
+            if (j.contains("list"))
+                j = j["list"];
         }
         if (!j.is_array())
             return;
