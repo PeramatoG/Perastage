@@ -1,4 +1,5 @@
 #include "gdtfsearchdialog.h"
+#include "consolepanel.h"
 
 using json = nlohmann::json;
 
@@ -44,6 +45,10 @@ GdtfSearchDialog::GdtfSearchDialog(wxWindow* parent, const std::string& listData
 void GdtfSearchDialog::ParseList(const std::string& listData)
 {
     entries.clear();
+    if (ConsolePanel::Instance()) {
+        wxString msg = wxString::Format("Parse list: %zu bytes", listData.size());
+        ConsolePanel::Instance()->AppendMessage(msg);
+    }
     try {
         json j = json::parse(listData);
         if (j.is_object() && j.contains("data"))
@@ -61,6 +66,10 @@ void GdtfSearchDialog::ParseList(const std::string& listData)
             e.tags = item.value("tags", "");
             e.dateAdded = item.value("dateAdded", item.value("created", item.value("uploadDate", "")));
             entries.push_back(e);
+        }
+        if (ConsolePanel::Instance()) {
+            wxString msg = wxString::Format("Parsed %zu entries", entries.size());
+            ConsolePanel::Instance()->AppendMessage(msg);
         }
     } catch(...) {
         // ignore parse errors
@@ -81,6 +90,10 @@ void GdtfSearchDialog::UpdateResults()
 
     wxString b = normalize(brandCtrl->GetValue());
     wxString m = normalize(modelCtrl->GetValue());
+    if (ConsolePanel::Instance()) {
+        wxString msg = wxString::Format("Filtering brand='%s' model='%s'", b, m);
+        ConsolePanel::Instance()->AppendMessage(msg);
+    }
     for (size_t i = 0; i < entries.size(); ++i) {
         wxString manu = normalize(wxString::FromUTF8(entries[i].manufacturer));
         wxString name = normalize(wxString::FromUTF8(entries[i].name));
@@ -98,6 +111,10 @@ void GdtfSearchDialog::UpdateResults()
             line += " - " + wxString::FromUTF8(entries[i].dateAdded);
         resultList->Append(line);
     }
+    if (ConsolePanel::Instance()) {
+        wxString msg = wxString::Format("Visible results: %zu", visible.size());
+        ConsolePanel::Instance()->AppendMessage(msg);
+    }
 }
 
 void GdtfSearchDialog::OnText(wxCommandEvent& WXUNUSED(evt))
@@ -107,6 +124,8 @@ void GdtfSearchDialog::OnText(wxCommandEvent& WXUNUSED(evt))
 
 void GdtfSearchDialog::OnSearch(wxCommandEvent& WXUNUSED(evt))
 {
+    if (ConsolePanel::Instance())
+        ConsolePanel::Instance()->AppendMessage("Search button pressed");
     UpdateResults();
 }
 
