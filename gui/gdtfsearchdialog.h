@@ -1,5 +1,6 @@
 #pragma once
 #include <wx/wx.h>
+#include <wx/dataview.h>
 #include <vector>
 #include "../external/json.hpp"
 
@@ -30,7 +31,7 @@ private:
     wxTextCtrl* brandCtrl = nullptr;
     wxTextCtrl* modelCtrl = nullptr;
     wxButton* searchBtn = nullptr;
-    wxListBox* resultList = nullptr;
+    wxDataViewListCtrl* resultTable = nullptr;
     std::vector<GdtfEntry> entries;
     std::vector<int> visible;
     int selectedIndex = -1;
