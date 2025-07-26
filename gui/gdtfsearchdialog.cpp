@@ -5,7 +5,9 @@
 using json = nlohmann::json;
 
 GdtfSearchDialog::GdtfSearchDialog(wxWindow* parent, const std::string& listData)
-    : wxDialog(parent, wxID_ANY, "Search GDTF", wxDefaultPosition, wxSize(800,600))
+    : wxDialog(parent, wxID_ANY, "Search GDTF", wxDefaultPosition,
+               wxSize(1000,700),
+               wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER)
 {
     wxBoxSizer* sizer = new wxBoxSizer(wxVERTICAL);
 
@@ -49,7 +51,9 @@ GdtfSearchDialog::GdtfSearchDialog(wxWindow* parent, const std::string& listData
     btnSizer->Add(cancelBtn, 0);
     sizer->Add(btnSizer, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 10);
 
-    SetSizerAndFit(sizer);
+    SetSizer(sizer);
+    SetMinSize(wxSize(800, 600));
+    SetSize(wxSize(1000, 700));
 
     brandCtrl->Bind(wxEVT_TEXT, &GdtfSearchDialog::OnText, this);
     modelCtrl->Bind(wxEVT_TEXT, &GdtfSearchDialog::OnText, this);
