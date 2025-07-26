@@ -7,11 +7,13 @@ GdtfLoginDialog::GdtfLoginDialog(wxWindow* parent, const std::string& user, cons
 
     wxFlexGridSizer* grid = new wxFlexGridSizer(2, 5, 5);
     grid->Add(new wxStaticText(this, wxID_ANY, "Username:"), 0, wxALIGN_CENTER_VERTICAL);
-    userCtrl = new wxTextCtrl(this, wxID_ANY, wxString::FromUTF8(user));
+    userCtrl = new wxTextCtrl(this, wxID_ANY, wxString::FromUTF8(user),
+                              wxDefaultPosition, wxSize(250, -1));
     grid->Add(userCtrl, 1, wxEXPAND);
 
     grid->Add(new wxStaticText(this, wxID_ANY, "Password:"), 0, wxALIGN_CENTER_VERTICAL);
-    passCtrl = new wxTextCtrl(this, wxID_ANY, wxString::FromUTF8(pass), wxDefaultPosition, wxDefaultSize, wxTE_PASSWORD);
+    passCtrl = new wxTextCtrl(this, wxID_ANY, wxString::FromUTF8(pass),
+                              wxDefaultPosition, wxSize(250, -1), wxTE_PASSWORD);
     grid->Add(passCtrl, 1, wxEXPAND);
 
     grid->AddGrowableCol(1, 1);

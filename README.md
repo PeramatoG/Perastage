@@ -35,9 +35,10 @@ Run the executable and use **File → Import MVR** to load an `.mvr` file.  The
 application will populate tables with fixtures and trusses and render the scene
 in the 3D viewport.  Additional view panels can be toggled from the **View** menu.
 The **Tools → Download GDTF fixture** command can download a fixture directly
-from [GDTF‑Share](https://gdtf-share.com) when you provide your user name and
-password.  These credentials are stored with the project so you only need to
-enter them once.  Quick instructions are available under **Help → Help** and
+from [GDTF‑Share](https://gdtf-share.com). It authenticates using the official
+session-based API (`login.php` + `getList.php`) so you simply provide your user
+name (email) and password once and they are stored with the project. Quick
+instructions are available under **Help → Help** and
 licensing information is shown under **Help → About**.
 
 ## Keyboard controls

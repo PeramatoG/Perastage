@@ -11,6 +11,7 @@
 #include "logindialog.h"
 #include <wx/notebook.h>
 #include <wx/filename.h>
+#include <wx/filefn.h>
 #include <cstdlib>
 #include <cstdio>
 #ifdef _WIN32
@@ -304,9 +305,13 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent& WXUNUSED(event))
     ConfigManager::Get().SetValue("gdtf_username", std::string(username.mb_str()));
     ConfigManager::Get().SetValue("gdtf_password", std::string(password.mb_str()));
 
-    wxString testCmd = wxString::Format("curl -s -o /dev/null -w '%%{http_code}' -u '%s:%s' https://gdtf-share.com/apis/public/downloadFile.php?rid=1",
-                                       username, password);
-    FILE* testPipe = popen(testCmd.mb_str(), "r");
+    wxString cookieFile = wxFileName::GetTempDir() + "/gdtf_session.txt";
+    wxString jsonData = wxString::Format("{\"user\":\"%s\",\"password\":\"%s\"}",
+                                         username, password);
+    wxString loginCmd = wxString::Format(
+        "curl -s -o /dev/null -w '%%{http_code}' -c \"%s\" -L -X POST https://gdtf-share.com/apis/public/login.php -H 'Content-Type: application/json' -d '%s'",
+        cookieFile, jsonData);
+    FILE* testPipe = popen(loginCmd.mb_str(), "r");
     char codeBuf[16] = {0};
     if (!testPipe || !fgets(codeBuf, sizeof(codeBuf), testPipe)) {
         if (testPipe) pclose(testPipe);
@@ -315,13 +320,14 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent& WXUNUSED(event))
     }
     pclose(testPipe);
     int httpCode = std::atoi(codeBuf);
-    if (httpCode == 401 || httpCode == 0) {
+    if (httpCode != 200) {
         wxMessageBox("Login failed.", "Login Error", wxOK | wxICON_ERROR);
         return;
     }
 
-    wxString listCmd = wxString::Format("curl -s -u '%s:%s' https://gdtf-share.com/apis/public/fixtureList.php",
-                                       username, password);
+    wxString listCmd = wxString::Format(
+        "curl -s -b \"%s\" https://gdtf-share.com/apis/public/getList.php",
+        cookieFile);
     FILE* listPipe = popen(listCmd.mb_str(), "r");
     if (!listPipe) {
         wxMessageBox("Failed to retrieve fixture list.", "Error", wxOK | wxICON_ERROR);
@@ -334,6 +340,7 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent& WXUNUSED(event))
     pclose(listPipe);
 
     ConfigManager::Get().SetValue("gdtf_fixture_list", listData);
+    wxRemoveFile(cookieFile);
     wxMessageBox("Fixture list downloaded.", "Success", wxOK | wxICON_INFORMATION);
 }
 
