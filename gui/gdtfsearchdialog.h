@@ -8,6 +8,10 @@ struct GdtfEntry {
     std::string name;
     std::string id;
     std::string url;
+    std::string modes;
+    std::string creator;
+    std::string tags;
+    std::string dateAdded;
 };
 
 class GdtfSearchDialog : public wxDialog {
