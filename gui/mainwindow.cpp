@@ -39,7 +39,7 @@ EVT_MENU(ID_Help_About, MainWindow::OnShowAbout)
 wxEND_EVENT_TABLE()
 
 MainWindow::MainWindow(const wxString& title)
-    : wxFrame(nullptr, wxID_ANY, title, wxDefaultPosition, wxSize(1600, 600))
+    : wxFrame(nullptr, wxID_ANY, title, wxDefaultPosition, wxSize(1600, 950))
 {
     wxIcon icon;
     const char* iconPaths[] = {
