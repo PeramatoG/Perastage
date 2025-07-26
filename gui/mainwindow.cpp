@@ -10,6 +10,7 @@
 #include "projectutils.h"
 #include "logindialog.h"
 #include "gdtfsearchdialog.h"
+#include "gdtfnet.h"
 #include <wx/aboutdlg.h>
 #include <wx/notebook.h>
 #include <wx/filename.h>
@@ -307,49 +308,36 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent& WXUNUSED(event))
     ConfigManager::Get().SetValue("gdtf_username", std::string(username.mb_str()));
     ConfigManager::Get().SetValue("gdtf_password", std::string(password.mb_str()));
 
-    wxString cookieFile = wxFileName::GetTempDir() + "/gdtf_session.txt";
-    wxString jsonData = wxString::Format("{\"user\":\"%s\",\"password\":\"%s\"}",
-                                         username, password);
-    wxString loginCmd = wxString::Format(
-        "curl -s -o /dev/null -w '%%{http_code}' -c \"%s\" -L -X POST https://gdtf-share.com/apis/public/login.php -H 'Content-Type: application/json' -d '%s'",
-        cookieFile, jsonData);
+    wxString cookieFileWx = wxFileName::GetTempDir() + "/gdtf_session.txt";
+    std::string cookieFile = std::string(cookieFileWx.mb_str());
+    long httpCode = 0;
     if (consolePanel)
-        consolePanel->AppendMessage("Login command: " + loginCmd);
-    FILE* testPipe = popen(loginCmd.mb_str(), "r");
-    char codeBuf[16] = {0};
-    if (!testPipe || !fgets(codeBuf, sizeof(codeBuf), testPipe)) {
-        if (testPipe) pclose(testPipe);
+        consolePanel->AppendMessage("Logging into GDTF Share using libcurl");
+    if (!GdtfLogin(std::string(username.mb_str()), std::string(password.mb_str()), cookieFile, httpCode)) {
         wxMessageBox("Failed to connect to GDTF Share.", "Login Error", wxOK | wxICON_ERROR);
         if (consolePanel)
             consolePanel->AppendMessage("Login connection failed");
         return;
     }
-    pclose(testPipe);
-    int httpCode = std::atoi(codeBuf);
     if (consolePanel)
-        consolePanel->AppendMessage(wxString::Format("Login HTTP code: %d", httpCode));
+        consolePanel->AppendMessage(wxString::Format("Login HTTP code: %ld", httpCode));
     if (httpCode != 200) {
         wxMessageBox("Login failed.", "Login Error", wxOK | wxICON_ERROR);
         if (consolePanel)
-            consolePanel->AppendMessage("Login failed with code " + wxString::Format("%d", httpCode));
+            consolePanel->AppendMessage("Login failed with code " + wxString::Format("%ld", httpCode));
         return;
     }
 
-    wxString listCmd = wxString::Format(
-        "curl -s -b \"%s\" https://gdtf-share.com/apis/public/getList.php",
-        cookieFile);
     if (consolePanel)
-        consolePanel->AppendMessage("List command: " + listCmd);
-    FILE* listPipe = popen(listCmd.mb_str(), "r");
-    if (!listPipe) {
+        consolePanel->AppendMessage("Retrieving fixture list via libcurl");
+    std::string listData;
+    if (!GdtfGetList(cookieFile, listData)) {
         wxMessageBox("Failed to retrieve fixture list.", "Error", wxOK | wxICON_ERROR);
         return;
     }
-    std::string listData;
-    char buf[4096];
-    while (fgets(buf, sizeof(buf), listPipe))
-        listData.append(buf);
-    pclose(listPipe);
+
+    if (consolePanel)
+        consolePanel->AppendMessage(wxString::Format("Retrieved list size: %zu bytes", listData.size()));
 
     if (consolePanel)
         consolePanel->AppendMessage(wxString::Format("Retrieved list size: %zu bytes", listData.size()));
@@ -369,9 +357,9 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent& WXUNUSED(event))
             wxString dest = saveDlg.GetPath();
             wxString dlCmd;
             if (!url.empty())
-                dlCmd = wxString::Format("curl -s -L -b \"%s\" -o \"%s\" \"%s\"", cookieFile, dest, url);
+                dlCmd = wxString::Format("curl -s -L -b \"%s\" -o \"%s\" \"%s\"", cookieFileWx, dest, url);
             else if (!id.empty())
-                dlCmd = wxString::Format("curl -s -L -b \"%s\" -o \"%s\" https://gdtf-share.com/apis/public/download.php?id=%s", cookieFile, dest, id);
+                dlCmd = wxString::Format("curl -s -L -b \"%s\" -o \"%s\" https://gdtf-share.com/apis/public/download.php?id=%s", cookieFileWx, dest, id);
             else
                 dlCmd.clear();
 
@@ -389,7 +377,7 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent& WXUNUSED(event))
         }
     }
 
-    wxRemoveFile(cookieFile);
+    wxRemoveFile(cookieFileWx);
 }
 
 
