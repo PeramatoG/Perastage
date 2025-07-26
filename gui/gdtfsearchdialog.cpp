@@ -71,8 +71,16 @@ void GdtfSearchDialog::ParseList(const std::string& listData)
             wxString msg = wxString::Format("Parsed %zu entries", entries.size());
             ConsolePanel::Instance()->AppendMessage(msg);
         }
+    } catch(const std::exception& e) {
+        if (ConsolePanel::Instance()) {
+            wxString msg = wxString::Format("JSON parse error: %s", e.what());
+            ConsolePanel::Instance()->AppendMessage(msg);
+            wxString sample = wxString::FromUTF8(listData.substr(0, 200));
+            ConsolePanel::Instance()->AppendMessage("Sample: " + sample);
+        }
     } catch(...) {
-        // ignore parse errors
+        if (ConsolePanel::Instance())
+            ConsolePanel::Instance()->AppendMessage("Unknown JSON parse error");
     }
 }
 
