@@ -9,6 +9,7 @@
 #include "mvrexporter.h"
 #include "projectutils.h"
 #include "logindialog.h"
+#include "gdtfsearchdialog.h"
 #include <wx/notebook.h>
 #include <wx/filename.h>
 #include <wx/filefn.h>
@@ -311,23 +312,33 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent& WXUNUSED(event))
     wxString loginCmd = wxString::Format(
         "curl -s -o /dev/null -w '%%{http_code}' -c \"%s\" -L -X POST https://gdtf-share.com/apis/public/login.php -H 'Content-Type: application/json' -d '%s'",
         cookieFile, jsonData);
+    if (consolePanel)
+        consolePanel->AppendMessage("Login command: " + loginCmd);
     FILE* testPipe = popen(loginCmd.mb_str(), "r");
     char codeBuf[16] = {0};
     if (!testPipe || !fgets(codeBuf, sizeof(codeBuf), testPipe)) {
         if (testPipe) pclose(testPipe);
         wxMessageBox("Failed to connect to GDTF Share.", "Login Error", wxOK | wxICON_ERROR);
+        if (consolePanel)
+            consolePanel->AppendMessage("Login connection failed");
         return;
     }
     pclose(testPipe);
     int httpCode = std::atoi(codeBuf);
+    if (consolePanel)
+        consolePanel->AppendMessage(wxString::Format("Login HTTP code: %d", httpCode));
     if (httpCode != 200) {
         wxMessageBox("Login failed.", "Login Error", wxOK | wxICON_ERROR);
+        if (consolePanel)
+            consolePanel->AppendMessage("Login failed with code " + wxString::Format("%d", httpCode));
         return;
     }
 
     wxString listCmd = wxString::Format(
         "curl -s -b \"%s\" https://gdtf-share.com/apis/public/getList.php",
         cookieFile);
+    if (consolePanel)
+        consolePanel->AppendMessage("List command: " + listCmd);
     FILE* listPipe = popen(listCmd.mb_str(), "r");
     if (!listPipe) {
         wxMessageBox("Failed to retrieve fixture list.", "Error", wxOK | wxICON_ERROR);
@@ -339,9 +350,45 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent& WXUNUSED(event))
         listData.append(buf);
     pclose(listPipe);
 
+    if (consolePanel)
+        consolePanel->AppendMessage(wxString::Format("Retrieved list size: %zu bytes", listData.size()));
+
     ConfigManager::Get().SetValue("gdtf_fixture_list", listData);
+
+    // open search dialog
+    GdtfSearchDialog searchDlg(this, listData);
+    if (searchDlg.ShowModal() == wxID_OK) {
+        wxString url = wxString::FromUTF8(searchDlg.GetSelectedUrl());
+        wxString id = wxString::FromUTF8(searchDlg.GetSelectedId());
+        wxString name = wxString::FromUTF8(searchDlg.GetSelectedName());
+
+        wxFileDialog saveDlg(this, "Save GDTF file", "library/fixtures", name + ".gdtf",
+                             "*.gdtf", wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
+        if (saveDlg.ShowModal() == wxID_OK) {
+            wxString dest = saveDlg.GetPath();
+            wxString dlCmd;
+            if (!url.empty())
+                dlCmd = wxString::Format("curl -s -L -b \"%s\" -o \"%s\" \"%s\"", cookieFile, dest, url);
+            else if (!id.empty())
+                dlCmd = wxString::Format("curl -s -L -b \"%s\" -o \"%s\" https://gdtf-share.com/apis/public/download.php?id=%s", cookieFile, dest, id);
+            else
+                dlCmd.clear();
+
+            if (!dlCmd.empty()) {
+                if (consolePanel)
+                    consolePanel->AppendMessage("Download command: " + dlCmd);
+                int res = system(dlCmd.mb_str());
+                if (res == 0)
+                    wxMessageBox("GDTF downloaded.", "Success", wxOK | wxICON_INFORMATION);
+                else
+                    wxMessageBox("Failed to download GDTF.", "Error", wxOK | wxICON_ERROR);
+            } else {
+                wxMessageBox("Download information missing.", "Error", wxOK | wxICON_ERROR);
+            }
+        }
+    }
+
     wxRemoveFile(cookieFile);
-    wxMessageBox("Fixture list downloaded.", "Success", wxOK | wxICON_INFORMATION);
 }
 
 

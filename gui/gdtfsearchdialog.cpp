@@ -1,0 +1,112 @@
+#include "gdtfsearchdialog.h"
+
+using json = nlohmann::json;
+
+GdtfSearchDialog::GdtfSearchDialog(wxWindow* parent, const std::string& listData)
+    : wxDialog(parent, wxID_ANY, "Search GDTF", wxDefaultPosition, wxSize(500,400))
+{
+    wxBoxSizer* sizer = new wxBoxSizer(wxVERTICAL);
+
+    wxBoxSizer* searchSizer = new wxBoxSizer(wxHORIZONTAL);
+    searchSizer->Add(new wxStaticText(this, wxID_ANY, "Brand:"), 0, wxALIGN_CENTER_VERTICAL|wxRIGHT, 5);
+    brandCtrl = new wxTextCtrl(this, wxID_ANY);
+    searchSizer->Add(brandCtrl, 1, wxRIGHT, 10);
+    searchSizer->Add(new wxStaticText(this, wxID_ANY, "Model:"), 0, wxALIGN_CENTER_VERTICAL|wxRIGHT, 5);
+    modelCtrl = new wxTextCtrl(this, wxID_ANY);
+    searchSizer->Add(modelCtrl, 1);
+    sizer->Add(searchSizer, 0, wxEXPAND | wxALL, 10);
+
+    resultList = new wxListBox(this, wxID_ANY);
+    sizer->Add(resultList, 1, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 10);
+
+    wxBoxSizer* btnSizer = new wxBoxSizer(wxHORIZONTAL);
+    wxButton* downloadBtn = new wxButton(this, wxID_OK, "Download");
+    wxButton* cancelBtn = new wxButton(this, wxID_CANCEL, "Cancel");
+    btnSizer->AddStretchSpacer(1);
+    btnSizer->Add(downloadBtn, 0, wxRIGHT, 5);
+    btnSizer->Add(cancelBtn, 0);
+    sizer->Add(btnSizer, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 10);
+
+    SetSizerAndFit(sizer);
+
+    brandCtrl->Bind(wxEVT_TEXT, &GdtfSearchDialog::OnText, this);
+    modelCtrl->Bind(wxEVT_TEXT, &GdtfSearchDialog::OnText, this);
+    downloadBtn->Bind(wxEVT_BUTTON, &GdtfSearchDialog::OnDownload, this);
+    resultList->Bind(wxEVT_LISTBOX_DCLICK, &GdtfSearchDialog::OnDownload, this);
+
+    ParseList(listData);
+    UpdateResults();
+}
+
+void GdtfSearchDialog::ParseList(const std::string& listData)
+{
+    entries.clear();
+    try {
+        json j = json::parse(listData);
+        if (j.is_object() && j.contains("data"))
+            j = j["data"];
+        if (!j.is_array())
+            return;
+        for (const auto& item : j) {
+            GdtfEntry e;
+            e.manufacturer = item.value("manufacturer", item.value("brand", item.value("mfr", "")));
+            e.name = item.value("name", item.value("model", item.value("fixture", "")));
+            e.id = item.value("id", item.value("fixtureId", item.value("uuid", "")));
+            e.url = item.value("url", item.value("download", item.value("downloadUrl", "")));
+            entries.push_back(e);
+        }
+    } catch(...) {
+        // ignore parse errors
+    }
+}
+
+void GdtfSearchDialog::UpdateResults()
+{
+    resultList->Clear();
+    visible.clear();
+    wxString b = brandCtrl->GetValue().Lower();
+    wxString m = modelCtrl->GetValue().Lower();
+    for (size_t i = 0; i < entries.size(); ++i) {
+        wxString manu = wxString::FromUTF8(entries[i].manufacturer);
+        wxString name = wxString::FromUTF8(entries[i].name);
+        if ((!b.empty() && !manu.Lower().Contains(b)) || (!m.empty() && !name.Lower().Contains(m)))
+            continue;
+        visible.push_back(static_cast<int>(i));
+        resultList->Append(manu + " - " + name);
+    }
+}
+
+void GdtfSearchDialog::OnText(wxCommandEvent& WXUNUSED(evt))
+{
+    UpdateResults();
+}
+
+void GdtfSearchDialog::OnDownload(wxCommandEvent& WXUNUSED(evt))
+{
+    int sel = resultList->GetSelection();
+    if (sel != wxNOT_FOUND && sel < static_cast<int>(visible.size())) {
+        selectedIndex = visible[sel];
+        EndModal(wxID_OK);
+    }
+}
+
+std::string GdtfSearchDialog::GetSelectedId() const
+{
+    if (selectedIndex >= 0 && selectedIndex < static_cast<int>(entries.size()))
+        return entries[selectedIndex].id;
+    return {};
+}
+
+std::string GdtfSearchDialog::GetSelectedUrl() const
+{
+    if (selectedIndex >= 0 && selectedIndex < static_cast<int>(entries.size()))
+        return entries[selectedIndex].url;
+    return {};
+}
+
+std::string GdtfSearchDialog::GetSelectedName() const
+{
+    if (selectedIndex >= 0 && selectedIndex < static_cast<int>(entries.size()))
+        return entries[selectedIndex].name;
+    return {};
+}
