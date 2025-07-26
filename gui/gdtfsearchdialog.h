@@ -20,10 +20,12 @@ private:
     void ParseList(const std::string& listData);
     void UpdateResults();
     void OnText(wxCommandEvent& evt);
+    void OnSearch(wxCommandEvent& evt);
     void OnDownload(wxCommandEvent& evt);
 
     wxTextCtrl* brandCtrl = nullptr;
     wxTextCtrl* modelCtrl = nullptr;
+    wxButton* searchBtn = nullptr;
     wxListBox* resultList = nullptr;
     std::vector<GdtfEntry> entries;
     std::vector<int> visible;
