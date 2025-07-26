@@ -69,6 +69,9 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
     InitGL();
     // Paint events occur frequently; avoid flooding the log
     Render();
+    // Present the rendered 3D scene before drawing overlays. Otherwise the
+    // swap would overwrite the labels drawn on the device context.
+    SwapBuffers();
 
     int w, h;
     GetClientSize(&w, &h);
@@ -105,7 +108,6 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
     m_mouseMoved = false;
 
     m_controller.DrawFixtureLabels(dc, w, h);
-    SwapBuffers();
 }
 
 // Resize event handler
