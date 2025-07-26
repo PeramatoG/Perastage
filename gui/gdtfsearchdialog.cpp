@@ -71,12 +71,20 @@ void GdtfSearchDialog::UpdateResults()
 {
     resultList->Clear();
     visible.clear();
-    wxString b = brandCtrl->GetValue().Lower();
-    wxString m = modelCtrl->GetValue().Lower();
+
+    auto normalize = [](wxString s) {
+        s = s.Lower();
+        s.Replace(" ", "");
+        s.Replace("-", "");
+        return s;
+    };
+
+    wxString b = normalize(brandCtrl->GetValue());
+    wxString m = normalize(modelCtrl->GetValue());
     for (size_t i = 0; i < entries.size(); ++i) {
-        wxString manu = wxString::FromUTF8(entries[i].manufacturer);
-        wxString name = wxString::FromUTF8(entries[i].name);
-        if ((!b.empty() && !manu.Lower().Contains(b)) || (!m.empty() && !name.Lower().Contains(m)))
+        wxString manu = normalize(wxString::FromUTF8(entries[i].manufacturer));
+        wxString name = normalize(wxString::FromUTF8(entries[i].name));
+        if ((!b.empty() && !manu.Contains(b)) || (!m.empty() && !name.Contains(m)))
             continue;
         visible.push_back(static_cast<int>(i));
         wxString line = manu + " - " + name;

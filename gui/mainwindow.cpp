@@ -12,6 +12,7 @@
 #include "gdtfsearchdialog.h"
 #include "gdtfnet.h"
 #include "simplecrypt.h"
+#include "credentialstore.h"
 #include <wx/aboutdlg.h>
 #include <wx/notebook.h>
 #include <wx/filename.h>
@@ -298,9 +299,16 @@ void MainWindow::OnExportMVR(wxCommandEvent& event)
 
 void MainWindow::OnDownloadGdtf(wxCommandEvent& WXUNUSED(event))
 {
-    std::string savedUser = ConfigManager::Get().GetValue("gdtf_username").value_or("");
-    std::string savedPassEnc = ConfigManager::Get().GetValue("gdtf_password").value_or("");
-    std::string savedPass = SimpleCrypt::Decode(savedPassEnc);
+    std::string savedUser;
+    std::string savedPass;
+    if (auto creds = CredentialStore::Load()) {
+        savedUser = creds->username;
+        savedPass = creds->password;
+    } else {
+        std::string savedPassEnc = ConfigManager::Get().GetValue("gdtf_password").value_or("");
+        savedUser = ConfigManager::Get().GetValue("gdtf_username").value_or("");
+        savedPass = SimpleCrypt::Decode(savedPassEnc);
+    }
 
     GdtfLoginDialog loginDlg(this, savedUser, savedPass);
     if (loginDlg.ShowModal() != wxID_OK)
@@ -309,6 +317,10 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent& WXUNUSED(event))
     wxString password = wxString::FromUTF8(loginDlg.GetPassword());
     ConfigManager::Get().SetValue("gdtf_username", std::string(username.mb_str()));
     ConfigManager::Get().SetValue("gdtf_password", SimpleCrypt::Encode(std::string(password.mb_str())));
+    CredentialStore::Save({std::string(username.mb_str()), std::string(password.mb_str())});
+
+    if (!currentProjectPath.empty())
+        ConfigManager::Get().SaveProject(currentProjectPath);
 
     wxString cookieFileWx = wxFileName::GetTempDir() + "/gdtf_session.txt";
     std::string cookieFile = std::string(cookieFileWx.mb_str());
