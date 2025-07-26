@@ -61,16 +61,50 @@ void GdtfSearchDialog::ParseList(const std::string& listData)
         }
         if (!j.is_array())
             return;
+        auto jsonToString = [](const json& v) -> std::string {
+            if (v.is_string())
+                return v.get<std::string>();
+            if (v.is_number())
+                return v.dump();
+            if (v.is_array()) {
+                std::string result;
+                for (size_t i = 0; i < v.size(); ++i) {
+                    if (i > 0)
+                        result += ", ";
+                    const auto& el = v[i];
+                    if (el.is_string())
+                        result += el.get<std::string>();
+                    else if (el.is_object() && el.contains("name") && el["name"].is_string())
+                        result += el["name"].get<std::string>();
+                    else
+                        result += el.dump();
+                }
+                return result;
+            }
+            if (v.is_object())
+                return v.dump();
+            return {};
+        };
+
+        auto getValue = [&](const json& obj, std::initializer_list<const char*> keys) -> std::string {
+            for (const char* k : keys) {
+                auto it = obj.find(k);
+                if (it != obj.end())
+                    return jsonToString(*it);
+            }
+            return {};
+        };
+
         for (const auto& item : j) {
             GdtfEntry e;
-            e.manufacturer = item.value("manufacturer", item.value("brand", item.value("mfr", "")));
-            e.name = item.value("name", item.value("model", item.value("fixture", "")));
-            e.id = item.value("id", item.value("fixtureId", item.value("uuid", "")));
-            e.url = item.value("url", item.value("download", item.value("downloadUrl", "")));
-            e.modes = item.value("modes", item.value("mode", item.value("modeCount", "")));
-            e.creator = item.value("creator", item.value("user", item.value("userName", "")));
-            e.tags = item.value("tags", "");
-            e.dateAdded = item.value("dateAdded", item.value("created", item.value("uploadDate", "")));
+            e.manufacturer = getValue(item, {"manufacturer", "brand", "mfr"});
+            e.name = getValue(item, {"name", "model", "fixture"});
+            e.id = getValue(item, {"id", "fixtureId", "uuid"});
+            e.url = getValue(item, {"url", "download", "downloadUrl"});
+            e.modes = getValue(item, {"modes", "mode", "modeCount"});
+            e.creator = getValue(item, {"creator", "user", "userName"});
+            e.tags = getValue(item, {"tags"});
+            e.dateAdded = getValue(item, {"dateAdded", "created", "uploadDate"});
             entries.push_back(e);
         }
         if (ConsolePanel::Instance()) {
