@@ -8,6 +8,7 @@
 #include "configmanager.h"
 #include "mvrexporter.h"
 #include "projectutils.h"
+#include "logindialog.h"
 #include <wx/notebook.h>
 #include <wx/filename.h>
 #include <cstdlib>
@@ -295,16 +296,12 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent& WXUNUSED(event))
     std::string savedUser = ConfigManager::Get().GetValue("gdtf_username").value_or("");
     std::string savedPass = ConfigManager::Get().GetValue("gdtf_password").value_or("");
 
-    wxTextEntryDialog userDlg(this, "GDTF Share username:", "GDTF Share Login", wxString::FromUTF8(savedUser));
-    if (userDlg.ShowModal() != wxID_OK)
+    GdtfLoginDialog loginDlg(this, savedUser, savedPass);
+    if (loginDlg.ShowModal() != wxID_OK)
         return;
-    wxString username = userDlg.GetValue().Trim(true).Trim(false);
+    wxString username = wxString::FromUTF8(loginDlg.GetUsername()).Trim(true).Trim(false);
+    wxString password = wxString::FromUTF8(loginDlg.GetPassword());
     ConfigManager::Get().SetValue("gdtf_username", std::string(username.mb_str()));
-
-    wxTextEntryDialog passDlg(this, "GDTF Share password:", "GDTF Share Login", wxString::FromUTF8(savedPass), wxOK | wxCANCEL | wxTE_PASSWORD);
-    if (passDlg.ShowModal() != wxID_OK)
-        return;
-    wxString password = passDlg.GetValue();
     ConfigManager::Get().SetValue("gdtf_password", std::string(password.mb_str()));
 
     wxString testCmd = wxString::Format("curl -s -o /dev/null -w '%%{http_code}' -u '%s:%s' https://gdtf-share.com/apis/public/downloadFile.php?rid=1",
