@@ -3,7 +3,7 @@
 using json = nlohmann::json;
 
 GdtfSearchDialog::GdtfSearchDialog(wxWindow* parent, const std::string& listData)
-    : wxDialog(parent, wxID_ANY, "Search GDTF", wxDefaultPosition, wxSize(600,600))
+    : wxDialog(parent, wxID_ANY, "Search GDTF", wxDefaultPosition, wxSize(800,600))
 {
     wxBoxSizer* sizer = new wxBoxSizer(wxVERTICAL);
 
@@ -56,6 +56,10 @@ void GdtfSearchDialog::ParseList(const std::string& listData)
             e.name = item.value("name", item.value("model", item.value("fixture", "")));
             e.id = item.value("id", item.value("fixtureId", item.value("uuid", "")));
             e.url = item.value("url", item.value("download", item.value("downloadUrl", "")));
+            e.modes = item.value("modes", item.value("mode", item.value("modeCount", "")));
+            e.creator = item.value("creator", item.value("user", item.value("userName", "")));
+            e.tags = item.value("tags", "");
+            e.dateAdded = item.value("dateAdded", item.value("created", item.value("uploadDate", "")));
             entries.push_back(e);
         }
     } catch(...) {
@@ -75,7 +79,16 @@ void GdtfSearchDialog::UpdateResults()
         if ((!b.empty() && !manu.Lower().Contains(b)) || (!m.empty() && !name.Lower().Contains(m)))
             continue;
         visible.push_back(static_cast<int>(i));
-        resultList->Append(manu + " - " + name);
+        wxString line = manu + " - " + name;
+        if (!entries[i].modes.empty())
+            line += " - " + wxString::FromUTF8(entries[i].modes);
+        if (!entries[i].creator.empty())
+            line += " - " + wxString::FromUTF8(entries[i].creator);
+        if (!entries[i].tags.empty())
+            line += " - " + wxString::FromUTF8(entries[i].tags);
+        if (!entries[i].dateAdded.empty())
+            line += " - " + wxString::FromUTF8(entries[i].dateAdded);
+        resultList->Append(line);
     }
 }
 

@@ -29,6 +29,7 @@ bool GdtfLogin(const std::string& user,
     curl_easy_setopt(curl, CURLOPT_POSTFIELDS, jsonData.c_str());
     curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
     curl_easy_setopt(curl, CURLOPT_COOKIEJAR, cookieFile.c_str());
+    curl_easy_setopt(curl, CURLOPT_ACCEPT_ENCODING, "");
     curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteToString);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
@@ -56,6 +57,7 @@ bool GdtfGetList(const std::string& cookieFile,
 
     curl_easy_setopt(curl, CURLOPT_URL, "https://gdtf-share.com/apis/public/getList.php");
     curl_easy_setopt(curl, CURLOPT_COOKIEFILE, cookieFile.c_str());
+    curl_easy_setopt(curl, CURLOPT_ACCEPT_ENCODING, "");
     curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteToString);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &listData);
