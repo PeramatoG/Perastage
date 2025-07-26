@@ -1,5 +1,6 @@
 #include "gdtfsearchdialog.h"
 #include "consolepanel.h"
+#include <wx/settings.h>
 
 using json = nlohmann::json;
 
@@ -19,8 +20,26 @@ GdtfSearchDialog::GdtfSearchDialog(wxWindow* parent, const std::string& listData
     searchSizer->Add(searchBtn, 0, wxLEFT, 10);
     sizer->Add(searchSizer, 0, wxEXPAND | wxALL, 10);
 
-    resultList = new wxListBox(this, wxID_ANY);
-    sizer->Add(resultList, 1, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 10);
+    resultTable = new wxDataViewListCtrl(this, wxID_ANY, wxDefaultPosition,
+                                         wxDefaultSize, wxDV_ROW_LINES);
+#if defined(wxHAS_GENERIC_DATAVIEWCTRL)
+    resultTable->SetAlternateRowColour(
+        wxSystemSettings::GetColour(wxSYS_COLOUR_LISTBOX));
+#endif
+    int flags = wxDATAVIEW_COL_RESIZABLE | wxDATAVIEW_COL_SORTABLE;
+    resultTable->AppendTextColumn("Brand", wxDATAVIEW_CELL_INERT, 150,
+                                  wxALIGN_LEFT, flags);
+    resultTable->AppendTextColumn("Model", wxDATAVIEW_CELL_INERT, 200,
+                                  wxALIGN_LEFT, flags);
+    resultTable->AppendTextColumn("Modes", wxDATAVIEW_CELL_INERT, 60,
+                                  wxALIGN_LEFT, flags);
+    resultTable->AppendTextColumn("Creator", wxDATAVIEW_CELL_INERT, 120,
+                                  wxALIGN_LEFT, flags);
+    resultTable->AppendTextColumn("Tags", wxDATAVIEW_CELL_INERT, 150,
+                                  wxALIGN_LEFT, flags);
+    resultTable->AppendTextColumn("Date", wxDATAVIEW_CELL_INERT, 100,
+                                  wxALIGN_LEFT, flags);
+    sizer->Add(resultTable, 1, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 10);
 
     wxBoxSizer* btnSizer = new wxBoxSizer(wxHORIZONTAL);
     wxButton* downloadBtn = new wxButton(this, wxID_OK, "Download");
@@ -36,7 +55,8 @@ GdtfSearchDialog::GdtfSearchDialog(wxWindow* parent, const std::string& listData
     modelCtrl->Bind(wxEVT_TEXT, &GdtfSearchDialog::OnText, this);
     searchBtn->Bind(wxEVT_BUTTON, &GdtfSearchDialog::OnSearch, this);
     downloadBtn->Bind(wxEVT_BUTTON, &GdtfSearchDialog::OnDownload, this);
-    resultList->Bind(wxEVT_LISTBOX_DCLICK, &GdtfSearchDialog::OnDownload, this);
+    resultTable->Bind(wxEVT_DATAVIEW_ITEM_ACTIVATED,
+                      &GdtfSearchDialog::OnDownload, this);
 
     ParseList(listData);
     UpdateResults();
@@ -126,7 +146,7 @@ void GdtfSearchDialog::ParseList(const std::string& listData)
 
 void GdtfSearchDialog::UpdateResults()
 {
-    resultList->Clear();
+    resultTable->DeleteAllItems();
     visible.clear();
 
     auto normalize = [](wxString s) {
@@ -143,21 +163,21 @@ void GdtfSearchDialog::UpdateResults()
         ConsolePanel::Instance()->AppendMessage(msg);
     }
     for (size_t i = 0; i < entries.size(); ++i) {
-        wxString manu = normalize(wxString::FromUTF8(entries[i].manufacturer));
-        wxString name = normalize(wxString::FromUTF8(entries[i].name));
+        wxString manuOrig = wxString::FromUTF8(entries[i].manufacturer);
+        wxString nameOrig = wxString::FromUTF8(entries[i].name);
+        wxString manu = normalize(manuOrig);
+        wxString name = normalize(nameOrig);
         if ((!b.empty() && !manu.Contains(b)) || (!m.empty() && !name.Contains(m)))
             continue;
         visible.push_back(static_cast<int>(i));
-        wxString line = manu + " - " + name;
-        if (!entries[i].modes.empty())
-            line += " - " + wxString::FromUTF8(entries[i].modes);
-        if (!entries[i].creator.empty())
-            line += " - " + wxString::FromUTF8(entries[i].creator);
-        if (!entries[i].tags.empty())
-            line += " - " + wxString::FromUTF8(entries[i].tags);
-        if (!entries[i].dateAdded.empty())
-            line += " - " + wxString::FromUTF8(entries[i].dateAdded);
-        resultList->Append(line);
+        wxVector<wxVariant> row;
+        row.push_back(manuOrig);
+        row.push_back(nameOrig);
+        row.push_back(wxString::FromUTF8(entries[i].modes));
+        row.push_back(wxString::FromUTF8(entries[i].creator));
+        row.push_back(wxString::FromUTF8(entries[i].tags));
+        row.push_back(wxString::FromUTF8(entries[i].dateAdded));
+        resultTable->AppendItem(row);
     }
     if (ConsolePanel::Instance()) {
         wxString msg = wxString::Format("Visible results: %zu", visible.size());
@@ -179,9 +199,10 @@ void GdtfSearchDialog::OnSearch(wxCommandEvent& WXUNUSED(evt))
 
 void GdtfSearchDialog::OnDownload(wxCommandEvent& WXUNUSED(evt))
 {
-    int sel = resultList->GetSelection();
-    if (sel != wxNOT_FOUND && sel < static_cast<int>(visible.size())) {
-        selectedIndex = visible[sel];
+    wxDataViewItem item = resultTable->GetSelection();
+    int row = resultTable->ItemToRow(item);
+    if (row != wxNOT_FOUND && row < static_cast<int>(visible.size())) {
+        selectedIndex = visible[row];
         EndModal(wxID_OK);
     }
 }
