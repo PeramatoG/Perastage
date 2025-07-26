@@ -3,7 +3,7 @@
 using json = nlohmann::json;
 
 GdtfSearchDialog::GdtfSearchDialog(wxWindow* parent, const std::string& listData)
-    : wxDialog(parent, wxID_ANY, "Search GDTF", wxDefaultPosition, wxSize(500,400))
+    : wxDialog(parent, wxID_ANY, "Search GDTF", wxDefaultPosition, wxSize(600,600))
 {
     wxBoxSizer* sizer = new wxBoxSizer(wxVERTICAL);
 
@@ -14,6 +14,8 @@ GdtfSearchDialog::GdtfSearchDialog(wxWindow* parent, const std::string& listData
     searchSizer->Add(new wxStaticText(this, wxID_ANY, "Model:"), 0, wxALIGN_CENTER_VERTICAL|wxRIGHT, 5);
     modelCtrl = new wxTextCtrl(this, wxID_ANY);
     searchSizer->Add(modelCtrl, 1);
+    searchBtn = new wxButton(this, wxID_ANY, "Search");
+    searchSizer->Add(searchBtn, 0, wxLEFT, 10);
     sizer->Add(searchSizer, 0, wxEXPAND | wxALL, 10);
 
     resultList = new wxListBox(this, wxID_ANY);
@@ -31,6 +33,7 @@ GdtfSearchDialog::GdtfSearchDialog(wxWindow* parent, const std::string& listData
 
     brandCtrl->Bind(wxEVT_TEXT, &GdtfSearchDialog::OnText, this);
     modelCtrl->Bind(wxEVT_TEXT, &GdtfSearchDialog::OnText, this);
+    searchBtn->Bind(wxEVT_BUTTON, &GdtfSearchDialog::OnSearch, this);
     downloadBtn->Bind(wxEVT_BUTTON, &GdtfSearchDialog::OnDownload, this);
     resultList->Bind(wxEVT_LISTBOX_DCLICK, &GdtfSearchDialog::OnDownload, this);
 
@@ -77,6 +80,11 @@ void GdtfSearchDialog::UpdateResults()
 }
 
 void GdtfSearchDialog::OnText(wxCommandEvent& WXUNUSED(evt))
+{
+    UpdateResults();
+}
+
+void GdtfSearchDialog::OnSearch(wxCommandEvent& WXUNUSED(evt))
 {
     UpdateResults();
 }
