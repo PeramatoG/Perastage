@@ -74,6 +74,9 @@ private:
     wxString m_hoverText;
     std::string m_hoverUuid;
 
+    // True when the mouse moved since the last paint
+    bool m_mouseMoved = false;
+
     Viewer3DController m_controller;
 
     std::atomic<bool> m_threadRunning{false};
