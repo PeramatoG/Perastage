@@ -94,13 +94,15 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
         m_controller.SetHighlightUuid(m_hoverUuid);
         if (FixtureTablePanel::Instance())
             FixtureTablePanel::Instance()->HighlightFixture(std::string(m_hoverUuid));
-    } else if (!m_hasHover) {
-        // Only clear highlight if we were not already hovering. This prevents
-        // flickering when detection fails intermittently.
+    } else if (!m_hasHover || m_mouseMoved) {
+        // Clear highlight if we were not already hovering or the mouse
+        // moved away from the previous fixture.
+        m_hasHover = false;
         m_controller.SetHighlightUuid("");
         if (FixtureTablePanel::Instance())
             FixtureTablePanel::Instance()->HighlightFixture(std::string());
     }
+    m_mouseMoved = false;
 
     m_controller.DrawFixtureLabels(dc, w, h);
     SwapBuffers();
@@ -185,15 +187,9 @@ void Viewer3DPanel::OnMouseMove(wxMouseEvent& event)
 
     m_lastMousePos = pos;
 
-    SetCurrent(*m_glContext);
-    int w, h;
-    GetClientSize(&w, &h);
-    m_hasHover = m_controller.GetFixtureLabelAt(m_lastMousePos.x, m_lastMousePos.y,
-                                                w, h, m_hoverText, m_hoverPos,
-                                                &m_hoverUuid);
-    m_controller.SetHighlightUuid(m_hasHover ? m_hoverUuid : "");
-    if (FixtureTablePanel::Instance())
-        FixtureTablePanel::Instance()->HighlightFixture(m_hasHover ? std::string(m_hoverUuid) : std::string());
+    // Mark that the mouse has moved so OnPaint can update hover info
+    m_mouseMoved = true;
+
     Refresh();
 }
 
@@ -311,6 +307,12 @@ void Viewer3DPanel::OnMouseEnter(wxMouseEvent& event)
 void Viewer3DPanel::OnMouseLeave(wxMouseEvent& event)
 {
     m_mouseInside = false;
+    m_hasHover = false;
+    m_hoverUuid.clear();
+    m_controller.SetHighlightUuid("");
+    if (FixtureTablePanel::Instance())
+        FixtureTablePanel::Instance()->HighlightFixture(std::string());
+    Refresh();
     event.Skip();
 }
 
