@@ -11,6 +11,7 @@ find_package(wxWidgets REQUIRED COMPONENTS core base aui gl)
 include(${wxWidgets_USE_FILE})
 find_package(tinyxml2 CONFIG REQUIRED)
 find_package(OpenGL REQUIRED)
+find_package(CURL REQUIRED)
 
 # Gather source files
 file(GLOB_RECURSE SRC_FILES
@@ -54,6 +55,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     tinyxml2::tinyxml2
     OpenGL::GL
     OpenGL::GLU
+    CURL::libcurl
 )
 
 # Copy runtime resources (e.g. application icon) next to the executable
