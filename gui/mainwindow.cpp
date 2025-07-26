@@ -11,6 +11,7 @@
 #include "logindialog.h"
 #include "gdtfsearchdialog.h"
 #include "gdtfnet.h"
+#include <wx/aboutdlg.h>
 #include <wx/notebook.h>
 #include <wx/filename.h>
 #include <wx/filefn.h>
@@ -40,7 +41,7 @@ EVT_MENU(ID_Help_About, MainWindow::OnShowAbout)
 wxEND_EVENT_TABLE()
 
 MainWindow::MainWindow(const wxString& title)
-    : wxFrame(nullptr, wxID_ANY, title, wxDefaultPosition, wxSize(1600, 600))
+    : wxFrame(nullptr, wxID_ANY, title, wxDefaultPosition, wxSize(1600, 950))
 {
     wxIcon icon;
     const char* iconPaths[] = {
@@ -516,16 +517,35 @@ void MainWindow::OnShowHelp(wxCommandEvent& WXUNUSED(event))
 
 void MainWindow::OnShowAbout(wxCommandEvent& WXUNUSED(event))
 {
-    const wxString aboutText =
-        "Perastage v1.0 - MVR scene viewer\n\n"
+    wxAboutDialogInfo info;
+    info.SetName("Perastage");
+    info.SetVersion("1.0");
+    info.SetDescription("MVR scene viewer");
+    info.SetWebSite("https://luismaperamato.com", "luismaperamato.com");
+    info.AddDeveloper("Luisma Peramato");
+
+    wxString licence =
         "This application uses:\n"
         "- wxWidgets\n"
         "- tinyxml2\n"
         "- nlohmann-json\n"
         "- OpenGL\n\n"
-        "Author: Luisma Peramato\n"
-        "https://luismaperamato.com\n\n"
         "Licensed under the MIT License.";
+    info.SetLicence(licence);
 
-    wxMessageBox(aboutText, "About Perastage", wxOK | wxICON_INFORMATION, this);
+    wxIcon icon;
+    const char* iconPaths[] = {
+        "resources/Perastage.ico",
+        "../resources/Perastage.ico",
+        "../../resources/Perastage.ico"
+    };
+    for (const char* path : iconPaths)
+    {
+        if (icon.LoadFile(path, wxBITMAP_TYPE_ICO))
+            break;
+    }
+    if (icon.IsOk())
+        info.SetIcon(icon);
+
+    wxAboutBox(info, this);
 }
