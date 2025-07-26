@@ -77,12 +77,30 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
     // context on some platforms. Ensure it is current before using OpenGL
     // functions in GetFixtureLabelAt.
     SetCurrent(*m_glContext);
-    m_hasHover = m_controller.GetFixtureLabelAt(m_lastMousePos.x, m_lastMousePos.y,
-                                                w, h, m_hoverText, m_hoverPos,
-                                                &m_hoverUuid);
-    m_controller.SetHighlightUuid(m_hasHover ? m_hoverUuid : "");
-    if (FixtureTablePanel::Instance())
-        FixtureTablePanel::Instance()->HighlightFixture(m_hasHover ? std::string(m_hoverUuid) : std::string());
+
+    // Only clear the current hover when we are sure the mouse is not over a
+    // fixture. GetFixtureLabelAt may briefly fail while the scene is being
+    // refreshed which caused the tooltip to flicker. Preserve the last valid
+    // hover info unless a new fixture is detected or the mouse moved.
+    wxString newLabel;
+    wxPoint newPos;
+    std::string newUuid;
+    if (m_controller.GetFixtureLabelAt(m_lastMousePos.x, m_lastMousePos.y,
+                                       w, h, newLabel, newPos, &newUuid)) {
+        m_hasHover = true;
+        m_hoverText = newLabel;
+        m_hoverPos = newPos;
+        m_hoverUuid = newUuid;
+        m_controller.SetHighlightUuid(m_hoverUuid);
+        if (FixtureTablePanel::Instance())
+            FixtureTablePanel::Instance()->HighlightFixture(std::string(m_hoverUuid));
+    } else if (!m_hasHover) {
+        // Only clear highlight if we were not already hovering. This prevents
+        // flickering when detection fails intermittently.
+        m_controller.SetHighlightUuid("");
+        if (FixtureTablePanel::Instance())
+            FixtureTablePanel::Instance()->HighlightFixture(std::string());
+    }
 
     m_controller.DrawFixtureLabels(dc, w, h);
     SwapBuffers();
