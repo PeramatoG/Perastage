@@ -39,6 +39,7 @@ private:
 
     // Mouse interaction state
     bool m_dragging = false;
+    bool m_draggedSincePress = false;
     bool m_mouseInside = false;
     wxPoint m_lastMousePos;
 

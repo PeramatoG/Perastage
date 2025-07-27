@@ -151,6 +151,7 @@ void Viewer3DPanel::OnMouseDown(wxMouseEvent& event)
             m_mode = InteractionMode::Orbit;
 
         m_dragging = true;
+        m_draggedSincePress = false;
         m_lastMousePos = event.GetPosition();
         CaptureMouse();
     }
@@ -165,6 +166,22 @@ void Viewer3DPanel::OnMouseUp(wxMouseEvent& event)
         m_mode = InteractionMode::None;
         ReleaseMouse();
     }
+
+    if (event.LeftUp() && !m_draggedSincePress)
+    {
+        int w, h;
+        GetClientSize(&w, &h);
+        SetCurrent(*m_glContext);
+        wxString label;
+        wxPoint pos;
+        if (!m_controller.GetFixtureLabelAt(event.GetX(), event.GetY(), w, h, label, pos))
+        {
+            SetSelectedFixtures({});
+            if (FixtureTablePanel::Instance())
+                FixtureTablePanel::Instance()->ClearSelection();
+        }
+    }
+    m_draggedSincePress = false;
 }
 
 // Handles mouse movement (orbit or pan)
@@ -176,6 +193,8 @@ void Viewer3DPanel::OnMouseMove(wxMouseEvent& event)
     {
         int dx = pos.x - m_lastMousePos.x;
         int dy = pos.y - m_lastMousePos.y;
+
+        m_draggedSincePress = true;
 
         if (m_mode == InteractionMode::Orbit && event.LeftIsDown())
         {
