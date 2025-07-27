@@ -433,6 +433,9 @@ void Viewer3DController::RenderScene()
     for (const auto& [uuid, t] : trusses) {
         glPushMatrix();
 
+        bool highlight = (!m_highlightUuid.empty() && uuid == m_highlightUuid);
+        bool selected = (m_selectedUuids.find(uuid) != m_selectedUuids.end());
+
         float matrix[16];
         MatrixToArray(t.transform, matrix);
         ApplyTransform(matrix, true);
@@ -445,15 +448,16 @@ void Viewer3DController::RenderScene()
             if (!path.empty()) {
                 auto it = m_loadedMeshes.find(path);
                 if (it != m_loadedMeshes.end()) {
-                    DrawMeshWithOutline(it->second);
+                    DrawMeshWithOutline(it->second, 1.0f, 1.0f, 1.0f, RENDER_SCALE,
+                                        highlight, selected);
                 } else {
-                    DrawCubeWithOutline(0.3f, 0.5f, 0.5f);
+                    DrawCubeWithOutline(0.3f, 0.5f, 0.5f, 0.5f, highlight, selected);
                 }
             } else {
-                DrawCubeWithOutline(0.3f, 0.5f, 0.5f);
+                DrawCubeWithOutline(0.3f, 0.5f, 0.5f, 0.5f, highlight, selected);
             }
         } else {
-            DrawCubeWithOutline(0.3f, 0.5f, 0.5f);
+            DrawCubeWithOutline(0.3f, 0.5f, 0.5f, 0.5f, highlight, selected);
         }
 
         glPopMatrix();
@@ -464,6 +468,9 @@ void Viewer3DController::RenderScene()
     const auto& meshes = SceneDataManager::Instance().GetSceneObjects();
     for (const auto& [uuid, m] : meshes) {
         glPushMatrix();
+
+        bool highlight = (!m_highlightUuid.empty() && uuid == m_highlightUuid);
+        bool selected = (m_selectedUuids.find(uuid) != m_selectedUuids.end());
 
         float matrix[16];
         MatrixToArray(m.transform, matrix);
@@ -476,14 +483,15 @@ void Viewer3DController::RenderScene()
             if (!path.empty()) {
                 auto it = m_loadedMeshes.find(path);
                 if (it != m_loadedMeshes.end())
-                    DrawMeshWithOutline(it->second);
+                    DrawMeshWithOutline(it->second, 1.0f, 1.0f, 1.0f, RENDER_SCALE,
+                                        highlight, selected);
                 else
-                    DrawCubeWithOutline(0.3f, 0.8f, 0.8f, 0.8f);
+                    DrawCubeWithOutline(0.3f, 0.8f, 0.8f, 0.8f, highlight, selected);
             } else {
-                DrawCubeWithOutline(0.3f, 0.8f, 0.8f, 0.8f);
+                DrawCubeWithOutline(0.3f, 0.8f, 0.8f, 0.8f, highlight, selected);
             }
         } else {
-            DrawCubeWithOutline(0.3f, 0.8f, 0.8f, 0.8f);
+            DrawCubeWithOutline(0.3f, 0.8f, 0.8f, 0.8f, highlight, selected);
         }
 
         glPopMatrix();
