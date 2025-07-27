@@ -15,6 +15,8 @@
 #include "viewer3dpanel.h"
 #include "consolepanel.h"
 #include "fixturetablepanel.h"
+#include "trusstablepanel.h"
+#include "sceneobjecttablepanel.h"
 #include "configmanager.h"
 #include "fixturepatchdialog.h"
 #include <wx/dcclient.h>
@@ -90,26 +92,67 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
     wxString newLabel;
     wxPoint newPos;
     std::string newUuid;
-    if (m_controller.GetFixtureLabelAt(m_lastMousePos.x, m_lastMousePos.y,
-                                       w, h, newLabel, newPos, &newUuid)) {
+    bool found = false;
+
+    if (FixtureTablePanel::Instance() && FixtureTablePanel::Instance()->IsActivePage()) {
+        found = m_controller.GetFixtureLabelAt(m_lastMousePos.x, m_lastMousePos.y,
+                                               w, h, newLabel, newPos, &newUuid);
+        if (found) {
+            if (TrussTablePanel::Instance())
+                TrussTablePanel::Instance()->HighlightTruss(std::string());
+            if (SceneObjectTablePanel::Instance())
+                SceneObjectTablePanel::Instance()->HighlightObject(std::string());
+        }
+    } else if (TrussTablePanel::Instance() && TrussTablePanel::Instance()->IsActivePage()) {
+        found = m_controller.GetTrussLabelAt(m_lastMousePos.x, m_lastMousePos.y,
+                                             w, h, newLabel, newPos, &newUuid);
+        if (found) {
+            if (FixtureTablePanel::Instance())
+                FixtureTablePanel::Instance()->HighlightFixture(std::string());
+            if (SceneObjectTablePanel::Instance())
+                SceneObjectTablePanel::Instance()->HighlightObject(std::string());
+        }
+    } else if (SceneObjectTablePanel::Instance() && SceneObjectTablePanel::Instance()->IsActivePage()) {
+        found = m_controller.GetSceneObjectLabelAt(m_lastMousePos.x, m_lastMousePos.y,
+                                                  w, h, newLabel, newPos, &newUuid);
+        if (found) {
+            if (FixtureTablePanel::Instance())
+                FixtureTablePanel::Instance()->HighlightFixture(std::string());
+            if (TrussTablePanel::Instance())
+                TrussTablePanel::Instance()->HighlightTruss(std::string());
+        }
+    }
+
+    if (found) {
         m_hasHover = true;
         m_hoverText = newLabel;
         m_hoverPos = newPos;
         m_hoverUuid = newUuid;
         m_controller.SetHighlightUuid(m_hoverUuid);
-        if (FixtureTablePanel::Instance())
+        if (FixtureTablePanel::Instance() && FixtureTablePanel::Instance()->IsActivePage())
             FixtureTablePanel::Instance()->HighlightFixture(std::string(m_hoverUuid));
+        else if (TrussTablePanel::Instance() && TrussTablePanel::Instance()->IsActivePage())
+            TrussTablePanel::Instance()->HighlightTruss(std::string(m_hoverUuid));
+        else if (SceneObjectTablePanel::Instance() && SceneObjectTablePanel::Instance()->IsActivePage())
+            SceneObjectTablePanel::Instance()->HighlightObject(std::string(m_hoverUuid));
     } else if (!m_hasHover || m_mouseMoved) {
-        // Clear highlight if we were not already hovering or the mouse
-        // moved away from the previous fixture.
         m_hasHover = false;
         m_controller.SetHighlightUuid("");
         if (FixtureTablePanel::Instance())
             FixtureTablePanel::Instance()->HighlightFixture(std::string());
+        if (TrussTablePanel::Instance())
+            TrussTablePanel::Instance()->HighlightTruss(std::string());
+        if (SceneObjectTablePanel::Instance())
+            SceneObjectTablePanel::Instance()->HighlightObject(std::string());
     }
     m_mouseMoved = false;
 
-    m_controller.DrawFixtureLabels(dc, w, h);
+    if (FixtureTablePanel::Instance() && FixtureTablePanel::Instance()->IsActivePage())
+        m_controller.DrawFixtureLabels(dc, w, h);
+    else if (TrussTablePanel::Instance() && TrussTablePanel::Instance()->IsActivePage())
+        m_controller.DrawTrussLabels(dc, w, h);
+    else if (SceneObjectTablePanel::Instance() && SceneObjectTablePanel::Instance()->IsActivePage())
+        m_controller.DrawSceneObjectLabels(dc, w, h);
 }
 
 // Resize event handler
@@ -335,6 +378,10 @@ void Viewer3DPanel::OnMouseLeave(wxMouseEvent& event)
     m_controller.SetHighlightUuid("");
     if (FixtureTablePanel::Instance())
         FixtureTablePanel::Instance()->HighlightFixture(std::string());
+    if (TrussTablePanel::Instance())
+        TrussTablePanel::Instance()->HighlightTruss(std::string());
+    if (SceneObjectTablePanel::Instance())
+        SceneObjectTablePanel::Instance()->HighlightObject(std::string());
     Refresh();
     event.Skip();
 }

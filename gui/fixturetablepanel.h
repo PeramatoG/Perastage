@@ -4,6 +4,7 @@
 #include <wx/dataview.h>
 #include <wx/time.h>
 #include <vector>
+#include <string>
 #include "colorstore.h"
 
 class FixtureTablePanel : public wxPanel
@@ -14,6 +15,7 @@ public:
     void ReloadData(); // Refresh content from ConfigManager
     void HighlightFixture(const std::string& uuid);
     void ClearSelection();
+    bool IsActivePage() const;
 
     static FixtureTablePanel* Instance();
     static void SetInstance(FixtureTablePanel* panel);

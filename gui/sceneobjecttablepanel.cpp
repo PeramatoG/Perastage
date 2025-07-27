@@ -4,6 +4,9 @@
 #include "viewer3dpanel.h"
 #include <algorithm>
 #include <wx/settings.h>
+#include <wx/notebook.h>
+
+static SceneObjectTablePanel* s_instance = nullptr;
 
 SceneObjectTablePanel::SceneObjectTablePanel(wxWindow* parent)
     : wxPanel(parent, wxID_ANY)
@@ -247,4 +250,32 @@ void SceneObjectTablePanel::UpdateSceneData()
                                   static_cast<float>(y * 1000.0),
                                   static_cast<float>(z * 1000.0)};
     }
+}
+
+SceneObjectTablePanel* SceneObjectTablePanel::Instance()
+{
+    return s_instance;
+}
+
+void SceneObjectTablePanel::SetInstance(SceneObjectTablePanel* panel)
+{
+    s_instance = panel;
+}
+
+bool SceneObjectTablePanel::IsActivePage() const
+{
+    auto* nb = dynamic_cast<wxNotebook*>(GetParent());
+    return nb && nb->GetPage(nb->GetSelection()) == this;
+}
+
+void SceneObjectTablePanel::HighlightObject(const std::string& uuid)
+{
+    for (size_t i = 0; i < rowUuids.size(); ++i)
+    {
+        if (!uuid.empty() && rowUuids[i] == uuid)
+            store.SetRowBackgroundColour(i, wxColour(0, 200, 0));
+        else
+            store.ClearRowBackground(i);
+    }
+    table->Refresh();
 }

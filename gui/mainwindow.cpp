@@ -95,9 +95,11 @@ void MainWindow::SetupLayout()
     notebook->AddPage(fixturePanel, "Fixtures");
 
     trussPanel = new TrussTablePanel(notebook);
+    TrussTablePanel::SetInstance(trussPanel);
     notebook->AddPage(trussPanel, "Trusses");
 
     sceneObjPanel = new SceneObjectTablePanel(notebook);
+    SceneObjectTablePanel::SetInstance(sceneObjPanel);
     notebook->AddPage(sceneObjPanel, "Objects");
 
     // Add notebook on the left so the viewport can occupy
