@@ -4,6 +4,9 @@
 #include "viewer3dpanel.h"
 #include <algorithm>
 #include <wx/settings.h>
+#include <wx/notebook.h>
+
+static TrussTablePanel* s_instance = nullptr;
 
 TrussTablePanel::TrussTablePanel(wxWindow* parent)
     : wxPanel(parent, wxID_ANY)
@@ -247,4 +250,32 @@ void TrussTablePanel::UpdateSceneData()
                                   static_cast<float>(y * 1000.0),
                                   static_cast<float>(z * 1000.0)};
     }
+}
+
+TrussTablePanel* TrussTablePanel::Instance()
+{
+    return s_instance;
+}
+
+void TrussTablePanel::SetInstance(TrussTablePanel* panel)
+{
+    s_instance = panel;
+}
+
+bool TrussTablePanel::IsActivePage() const
+{
+    auto* nb = dynamic_cast<wxNotebook*>(GetParent());
+    return nb && nb->GetPage(nb->GetSelection()) == this;
+}
+
+void TrussTablePanel::HighlightTruss(const std::string& uuid)
+{
+    for (size_t i = 0; i < rowUuids.size(); ++i)
+    {
+        if (!uuid.empty() && rowUuids[i] == uuid)
+            store.SetRowBackgroundColour(i, wxColour(0, 200, 0));
+        else
+            store.ClearRowBackground(i);
+    }
+    table->Refresh();
 }

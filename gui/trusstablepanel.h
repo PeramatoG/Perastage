@@ -4,6 +4,7 @@
 #include <wx/dataview.h>
 #include <wx/time.h>
 #include <vector>
+#include <string>
 #include "colorstore.h"
 
 class TrussTablePanel : public wxPanel
@@ -12,6 +13,11 @@ public:
     explicit TrussTablePanel(wxWindow* parent);
     ~TrussTablePanel();
     void ReloadData(); // Refresh from ConfigManager
+    void HighlightTruss(const std::string& uuid);
+    bool IsActivePage() const;
+
+    static TrussTablePanel* Instance();
+    static void SetInstance(TrussTablePanel* panel);
 
 private:
     ColorfulDataViewListStore store;

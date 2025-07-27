@@ -8,6 +8,7 @@
 #include <wx/filename.h>
 #include <algorithm>
 #include <wx/settings.h>
+#include <wx/notebook.h>
 
 FixtureTablePanel::FixtureTablePanel(wxWindow* parent)
     : wxPanel(parent, wxID_ANY)
@@ -395,6 +396,12 @@ FixtureTablePanel* FixtureTablePanel::Instance()
 void FixtureTablePanel::SetInstance(FixtureTablePanel* panel)
 {
     s_instance = panel;
+}
+
+bool FixtureTablePanel::IsActivePage() const
+{
+    auto* nb = dynamic_cast<wxNotebook*>(GetParent());
+    return nb && nb->GetPage(nb->GetSelection()) == this;
 }
 
 void FixtureTablePanel::HighlightFixture(const std::string& uuid)

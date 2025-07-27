@@ -270,6 +270,118 @@ void Viewer3DController::Update() {
 
         m_fixtureBounds[uuid] = bb;
     }
+
+    m_trussBounds.clear();
+    for (const auto& [uuid, t] : trusses) {
+        BoundingBox bb;
+        Matrix tm = t.transform;
+        tm.o[0] *= RENDER_SCALE;
+        tm.o[1] *= RENDER_SCALE;
+        tm.o[2] *= RENDER_SCALE;
+
+        bool found = false;
+        bb.min = {FLT_MAX, FLT_MAX, FLT_MAX};
+        bb.max = {-FLT_MAX, -FLT_MAX, -FLT_MAX};
+
+        if (!t.symbolFile.empty()) {
+            std::string path = ResolveModelPath(base, t.symbolFile);
+            auto it = m_loadedMeshes.find(path);
+            if (it != m_loadedMeshes.end()) {
+                for (size_t vi = 0; vi + 2 < it->second.vertices.size(); vi += 3) {
+                    std::array<float,3> p = {
+                        it->second.vertices[vi] * RENDER_SCALE,
+                        it->second.vertices[vi + 1] * RENDER_SCALE,
+                        it->second.vertices[vi + 2] * RENDER_SCALE
+                    };
+                    p = TransformPoint(tm, p);
+                    bb.min[0] = std::min(bb.min[0], p[0]);
+                    bb.min[1] = std::min(bb.min[1], p[1]);
+                    bb.min[2] = std::min(bb.min[2], p[2]);
+                    bb.max[0] = std::max(bb.max[0], p[0]);
+                    bb.max[1] = std::max(bb.max[1], p[1]);
+                    bb.max[2] = std::max(bb.max[2], p[2]);
+                    found = true;
+                }
+            }
+        }
+
+        if (!found) {
+            float half = 0.15f;
+            std::array<std::array<float,3>,8> corners = {
+                std::array<float,3>{-half,-half,-half}, {half,-half,-half},
+                {-half,half,-half}, {half,half,-half},
+                {-half,-half,half}, {half,-half,half},
+                {-half,half,half}, {half,half,half}
+            };
+            for (const auto& c : corners) {
+                auto p = TransformPoint(tm, c);
+                bb.min[0] = std::min(bb.min[0], p[0]);
+                bb.min[1] = std::min(bb.min[1], p[1]);
+                bb.min[2] = std::min(bb.min[2], p[2]);
+                bb.max[0] = std::max(bb.max[0], p[0]);
+                bb.max[1] = std::max(bb.max[1], p[1]);
+                bb.max[2] = std::max(bb.max[2], p[2]);
+            }
+        }
+
+        m_trussBounds[uuid] = bb;
+    }
+
+    m_objectBounds.clear();
+    for (const auto& [uuid, obj] : objects) {
+        BoundingBox bb;
+        Matrix tm = obj.transform;
+        tm.o[0] *= RENDER_SCALE;
+        tm.o[1] *= RENDER_SCALE;
+        tm.o[2] *= RENDER_SCALE;
+
+        bool found = false;
+        bb.min = {FLT_MAX, FLT_MAX, FLT_MAX};
+        bb.max = {-FLT_MAX, -FLT_MAX, -FLT_MAX};
+
+        if (!obj.modelFile.empty()) {
+            std::string path = ResolveModelPath(base, obj.modelFile);
+            auto it = m_loadedMeshes.find(path);
+            if (it != m_loadedMeshes.end()) {
+                for (size_t vi = 0; vi + 2 < it->second.vertices.size(); vi += 3) {
+                    std::array<float,3> p = {
+                        it->second.vertices[vi] * RENDER_SCALE,
+                        it->second.vertices[vi + 1] * RENDER_SCALE,
+                        it->second.vertices[vi + 2] * RENDER_SCALE
+                    };
+                    p = TransformPoint(tm, p);
+                    bb.min[0] = std::min(bb.min[0], p[0]);
+                    bb.min[1] = std::min(bb.min[1], p[1]);
+                    bb.min[2] = std::min(bb.min[2], p[2]);
+                    bb.max[0] = std::max(bb.max[0], p[0]);
+                    bb.max[1] = std::max(bb.max[1], p[1]);
+                    bb.max[2] = std::max(bb.max[2], p[2]);
+                    found = true;
+                }
+            }
+        }
+
+        if (!found) {
+            float half = 0.15f;
+            std::array<std::array<float,3>,8> corners = {
+                std::array<float,3>{-half,-half,-half}, {half,-half,-half},
+                {-half,half,-half}, {half,half,-half},
+                {-half,-half,half}, {half,-half,half},
+                {-half,half,half}, {half,half,half}
+            };
+            for (const auto& c : corners) {
+                auto p = TransformPoint(tm, c);
+                bb.min[0] = std::min(bb.min[0], p[0]);
+                bb.min[1] = std::min(bb.min[1], p[1]);
+                bb.min[2] = std::min(bb.min[2], p[2]);
+                bb.max[0] = std::max(bb.max[0], p[0]);
+                bb.max[1] = std::max(bb.max[1], p[1]);
+                bb.max[2] = std::max(bb.max[2], p[2]);
+            }
+        }
+
+        m_objectBounds[uuid] = bb;
+    }
 }
 
 // Renders all scene objects using their transformMatrix
@@ -743,6 +855,236 @@ bool Viewer3DController::GetFixtureLabelAt(int mouseX, int mouseY,
             label += "\nID: " + wxString::Format("%d", f.fixtureId);
             if (!f.address.empty())
                 label += "\n" + wxString::FromUTF8(f.address);
+            outLabel = label;
+            if (outUuid)
+                *outUuid = uuid;
+            return true;
+        }
+    }
+    return false;
+}
+
+void Viewer3DController::DrawTrussLabels(wxWindowDC& dc, int width, int height)
+{
+    wxGraphicsContext* gc = wxGraphicsContext::Create(dc);
+    if (!gc)
+        return;
+    gc->SetFont(dc.GetFont(), wxColour(255, 255, 255));
+
+    double model[16];
+    double proj[16];
+    int viewport[4];
+    glGetDoublev(GL_MODELVIEW_MATRIX, model);
+    glGetDoublev(GL_PROJECTION_MATRIX, proj);
+    glGetIntegerv(GL_VIEWPORT, viewport);
+
+    const auto& trusses = SceneDataManager::Instance().GetTrusses();
+    for (const auto& [uuid, t] : trusses) {
+        if (uuid != m_highlightUuid)
+            continue;
+
+        double sx, sy, sz;
+        auto bit = m_trussBounds.find(uuid);
+        if (bit != m_trussBounds.end()) {
+            const BoundingBox& bb = bit->second;
+            double wx = (bb.min[0] + bb.max[0]) * 0.5;
+            double wy = (bb.min[1] + bb.max[1]) * 0.5;
+            double wz = (bb.min[2] + bb.max[2]) * 0.5;
+            if (gluProject(wx, wy, wz, model, proj, viewport, &sx, &sy, &sz) != GL_TRUE)
+                continue;
+        } else {
+            double wx = t.transform.o[0] * RENDER_SCALE;
+            double wy = t.transform.o[1] * RENDER_SCALE;
+            double wz = t.transform.o[2] * RENDER_SCALE;
+            if (gluProject(wx, wy, wz, model, proj, viewport, &sx, &sy, &sz) != GL_TRUE)
+                continue;
+        }
+
+        int x = static_cast<int>(sx);
+        int y = height - static_cast<int>(sy);
+        wxString label = t.name.empty() ? wxString::FromUTF8(uuid)
+                                       : wxString::FromUTF8(t.name);
+
+        wxDouble tw, th;
+        gc->GetTextExtent(label, &tw, &th, nullptr, nullptr);
+        const int padding = 4;
+        wxDouble bx = x - padding;
+        wxDouble by = y - padding;
+        wxDouble bw = tw + padding * 2;
+        wxDouble bh = th + padding * 2;
+
+        gc->SetBrush(wxBrush(wxColour(0, 0, 0, 160)));
+        gc->SetPen(wxPen(wxColour(255, 255, 255, 200)));
+        gc->DrawRoundedRectangle(bx, by, bw, bh, 3.0);
+        gc->DrawText(label, bx + padding, by + padding);
+    }
+
+    delete gc;
+}
+
+void Viewer3DController::DrawSceneObjectLabels(wxWindowDC& dc, int width, int height)
+{
+    wxGraphicsContext* gc = wxGraphicsContext::Create(dc);
+    if (!gc)
+        return;
+    gc->SetFont(dc.GetFont(), wxColour(255, 255, 255));
+
+    double model[16];
+    double proj[16];
+    int viewport[4];
+    glGetDoublev(GL_MODELVIEW_MATRIX, model);
+    glGetDoublev(GL_PROJECTION_MATRIX, proj);
+    glGetIntegerv(GL_VIEWPORT, viewport);
+
+    const auto& objs = SceneDataManager::Instance().GetSceneObjects();
+    for (const auto& [uuid, o] : objs) {
+        if (uuid != m_highlightUuid)
+            continue;
+
+        double sx, sy, sz;
+        auto bit = m_objectBounds.find(uuid);
+        if (bit != m_objectBounds.end()) {
+            const BoundingBox& bb = bit->second;
+            double wx = (bb.min[0] + bb.max[0]) * 0.5;
+            double wy = (bb.min[1] + bb.max[1]) * 0.5;
+            double wz = (bb.min[2] + bb.max[2]) * 0.5;
+            if (gluProject(wx, wy, wz, model, proj, viewport, &sx, &sy, &sz) != GL_TRUE)
+                continue;
+        } else {
+            double wx = o.transform.o[0] * RENDER_SCALE;
+            double wy = o.transform.o[1] * RENDER_SCALE;
+            double wz = o.transform.o[2] * RENDER_SCALE;
+            if (gluProject(wx, wy, wz, model, proj, viewport, &sx, &sy, &sz) != GL_TRUE)
+                continue;
+        }
+
+        int x = static_cast<int>(sx);
+        int y = height - static_cast<int>(sy);
+        wxString label = o.name.empty() ? wxString::FromUTF8(uuid)
+                                       : wxString::FromUTF8(o.name);
+
+        wxDouble tw, th;
+        gc->GetTextExtent(label, &tw, &th, nullptr, nullptr);
+        const int padding = 4;
+        wxDouble bx = x - padding;
+        wxDouble by = y - padding;
+        wxDouble bw = tw + padding * 2;
+        wxDouble bh = th + padding * 2;
+
+        gc->SetBrush(wxBrush(wxColour(0, 0, 0, 160)));
+        gc->SetPen(wxPen(wxColour(255, 255, 255, 200)));
+        gc->DrawRoundedRectangle(bx, by, bw, bh, 3.0);
+        gc->DrawText(label, bx + padding, by + padding);
+    }
+
+    delete gc;
+}
+
+bool Viewer3DController::GetTrussLabelAt(int mouseX, int mouseY,
+                                         int width, int height,
+                                         wxString& outLabel, wxPoint& outPos,
+                                         std::string* outUuid)
+{
+    double model[16];
+    double proj[16];
+    int viewport[4];
+    glGetDoublev(GL_MODELVIEW_MATRIX, model);
+    glGetDoublev(GL_PROJECTION_MATRIX, proj);
+    glGetIntegerv(GL_VIEWPORT, viewport);
+
+    const auto& trusses = SceneDataManager::Instance().GetTrusses();
+    for (const auto& [uuid, t] : trusses) {
+        auto bit = m_trussBounds.find(uuid);
+        if (bit == m_trussBounds.end())
+            continue;
+
+        const BoundingBox& bb = bit->second;
+        std::array<std::array<float,3>,8> corners = {
+            std::array<float,3>{bb.min[0], bb.min[1], bb.min[2]},
+            {bb.max[0], bb.min[1], bb.min[2]},
+            {bb.min[0], bb.max[1], bb.min[2]},
+            {bb.max[0], bb.max[1], bb.min[2]},
+            {bb.min[0], bb.min[1], bb.max[2]},
+            {bb.max[0], bb.min[1], bb.max[2]},
+            {bb.min[0], bb.max[1], bb.max[2]},
+            {bb.max[0], bb.max[1], bb.max[2]}
+        };
+
+        ScreenRect rect;
+        for (const auto& c : corners) {
+            double sx, sy, sz;
+            if (gluProject(c[0], c[1], c[2], model, proj, viewport, &sx, &sy, &sz) == GL_TRUE) {
+                rect.minX = std::min(rect.minX, sx);
+                rect.maxX = std::max(rect.maxX, sx);
+                double sy2 = height - sy;
+                rect.minY = std::min(rect.minY, sy2);
+                rect.maxY = std::max(rect.maxY, sy2);
+            }
+        }
+
+        if (mouseX >= rect.minX && mouseX <= rect.maxX &&
+            mouseY >= rect.minY && mouseY <= rect.maxY) {
+            outPos.x = static_cast<int>((rect.minX + rect.maxX) * 0.5);
+            outPos.y = static_cast<int>((rect.minY + rect.maxY) * 0.5);
+            wxString label = t.name.empty() ? wxString::FromUTF8(uuid)
+                                           : wxString::FromUTF8(t.name);
+            outLabel = label;
+            if (outUuid)
+                *outUuid = uuid;
+            return true;
+        }
+    }
+    return false;
+}
+
+bool Viewer3DController::GetSceneObjectLabelAt(int mouseX, int mouseY,
+                                               int width, int height,
+                                               wxString& outLabel, wxPoint& outPos,
+                                               std::string* outUuid)
+{
+    double model[16];
+    double proj[16];
+    int viewport[4];
+    glGetDoublev(GL_MODELVIEW_MATRIX, model);
+    glGetDoublev(GL_PROJECTION_MATRIX, proj);
+    glGetIntegerv(GL_VIEWPORT, viewport);
+
+    const auto& objs = SceneDataManager::Instance().GetSceneObjects();
+    for (const auto& [uuid, o] : objs) {
+        auto bit = m_objectBounds.find(uuid);
+        if (bit == m_objectBounds.end())
+            continue;
+
+        const BoundingBox& bb = bit->second;
+        std::array<std::array<float,3>,8> corners = {
+            std::array<float,3>{bb.min[0], bb.min[1], bb.min[2]},
+            {bb.max[0], bb.min[1], bb.min[2]},
+            {bb.min[0], bb.max[1], bb.min[2]},
+            {bb.max[0], bb.max[1], bb.min[2]},
+            {bb.min[0], bb.min[1], bb.max[2]},
+            {bb.max[0], bb.min[1], bb.max[2]},
+            {bb.min[0], bb.max[1], bb.max[2]},
+            {bb.max[0], bb.max[1], bb.max[2]}
+        };
+
+        ScreenRect rect;
+        for (const auto& c : corners) {
+            double sx, sy, sz;
+            if (gluProject(c[0], c[1], c[2], model, proj, viewport, &sx, &sy, &sz) == GL_TRUE) {
+                rect.minX = std::min(rect.minX, sx);
+                rect.maxX = std::max(rect.maxX, sx);
+                double sy2 = height - sy;
+                rect.minY = std::min(rect.minY, sy2);
+                rect.maxY = std::max(rect.maxY, sy2);
+            }
+        }
+
+        if (mouseX >= rect.minX && mouseX <= rect.maxX &&
+            mouseY >= rect.minY && mouseY <= rect.maxY) {
+            outPos.x = static_cast<int>((rect.minX + rect.maxX) * 0.5);
+            outPos.y = static_cast<int>((rect.minY + rect.maxY) * 0.5);
+            wxString label = o.name.empty() ? wxString::FromUTF8(uuid)
+                                           : wxString::FromUTF8(o.name);
             outLabel = label;
             if (outUuid)
                 *outUuid = uuid;

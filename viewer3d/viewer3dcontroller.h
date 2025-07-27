@@ -46,6 +46,8 @@ public:
     // wxGraphicsContext::Create() which leads to build errors on some
     // platforms.
     void DrawFixtureLabels(wxWindowDC& dc, int width, int height);
+    void DrawTrussLabels(wxWindowDC& dc, int width, int height);
+    void DrawSceneObjectLabels(wxWindowDC& dc, int width, int height);
 
     // Returns true and outputs label and screen position of the fixture
     // under the given mouse coordinates (if any)
@@ -53,6 +55,14 @@ public:
                            int width, int height,
                            wxString& outLabel, wxPoint& outPos,
                            std::string* outUuid = nullptr);
+    bool GetTrussLabelAt(int mouseX, int mouseY,
+                         int width, int height,
+                         wxString& outLabel, wxPoint& outPos,
+                         std::string* outUuid = nullptr);
+    bool GetSceneObjectLabelAt(int mouseX, int mouseY,
+                               int width, int height,
+                               wxString& outLabel, wxPoint& outPos,
+                               std::string* outUuid = nullptr);
 
 private:
     // Draws a solid cube centered at origin with given size and color
@@ -104,6 +114,8 @@ private:
 
     // Precomputed world-space bounds for each fixture by UUID
     std::unordered_map<std::string, BoundingBox> m_fixtureBounds;
+    std::unordered_map<std::string, BoundingBox> m_trussBounds;
+    std::unordered_map<std::string, BoundingBox> m_objectBounds;
 
     // Currently highlighted fixture UUID
     std::string m_highlightUuid;
