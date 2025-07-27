@@ -54,6 +54,8 @@ Viewer3DPanel::Viewer3DPanel(wxWindow* parent)
 
 Viewer3DPanel::~Viewer3DPanel()
 {
+    if (HasCapture())
+        ReleaseMouse();
     m_threadRunning = false;
     if (m_refreshThread.joinable())
         m_refreshThread.join();
