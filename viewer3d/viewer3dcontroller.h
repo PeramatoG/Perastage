@@ -71,15 +71,21 @@ private:
     // Draws a wireframe cube centered at origin with given size
     void DrawWireframeCube(float size = 0.3f);
 
-    // Draws a colored mesh with a black outline for a sketch effect
+    // Draws a colored mesh with a black outline for a sketch effect. The
+    // optional center offset allows scaling around the geometry center
+    // instead of the object origin.
     void DrawMeshWithOutline(const Mesh& mesh, float r = 1.0f, float g = 1.0f,
                              float b = 1.0f, float scale = RENDER_SCALE,
-                             bool highlight = false, bool selected = false);
+                             bool highlight = false, bool selected = false,
+                             float cx = 0.0f, float cy = 0.0f,
+                             float cz = 0.0f);
 
-    // Draws a colored cube with a black outline
+    // Draws a colored cube with a black outline. The optional center offset
+    // behaves like in DrawMeshWithOutline.
     void DrawCubeWithOutline(float size = 0.2f, float r = 1.0f, float g = 1.0f,
                              float b = 1.0f, bool highlight = false,
-                             bool selected = false);
+                             bool selected = false, float cx = 0.0f,
+                             float cy = 0.0f, float cz = 0.0f);
 
     // Applies the object's transformation matrix. When scaleTranslation
     // is true the translation part is converted from millimeters to

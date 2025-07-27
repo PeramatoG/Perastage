@@ -404,6 +404,17 @@ void Viewer3DController::RenderScene()
         MatrixToArray(f.transform, matrix);
         ApplyTransform(matrix, true);
 
+        float cx = 0.0f, cy = 0.0f, cz = 0.0f;
+        auto fbit = m_fixtureBounds.find(uuid);
+        if (fbit != m_fixtureBounds.end()) {
+            cx = (fbit->second.min[0] + fbit->second.max[0]) * 0.5f;
+            cy = (fbit->second.min[1] + fbit->second.max[1]) * 0.5f;
+            cz = (fbit->second.min[2] + fbit->second.max[2]) * 0.5f;
+            cx -= f.transform.o[0] * RENDER_SCALE;
+            cy -= f.transform.o[1] * RENDER_SCALE;
+            cz -= f.transform.o[2] * RENDER_SCALE;
+        }
+
 
         std::string gdtfPath = ResolveGdtfPath(base, f.gdtfSpec);
         auto itg = m_loadedGdtf.find(gdtfPath);
@@ -416,11 +427,13 @@ void Viewer3DController::RenderScene()
                 // GDTF geometry offsets are defined relative to the fixture
                 // in meters. Only the vertex coordinates need unit scaling.
                 ApplyTransform(m2, false);
-                DrawMeshWithOutline(obj.mesh, 1.0f, 1.0f, 1.0f, RENDER_SCALE, highlight, selected);
+                DrawMeshWithOutline(obj.mesh, 1.0f, 1.0f, 1.0f, RENDER_SCALE,
+                                     highlight, selected, cx, cy, cz);
                 glPopMatrix();
             }
         } else {
-            DrawCubeWithOutline(0.2f, 0.8f, 0.8f, 1.0f, highlight, selected);
+            DrawCubeWithOutline(0.2f, 0.8f, 0.8f, 1.0f, highlight, selected,
+                                cx, cy, cz);
         }
 
         glPopMatrix();
@@ -440,6 +453,17 @@ void Viewer3DController::RenderScene()
         MatrixToArray(t.transform, matrix);
         ApplyTransform(matrix, true);
 
+        float cx = 0.0f, cy = 0.0f, cz = 0.0f;
+        auto tbit = m_trussBounds.find(uuid);
+        if (tbit != m_trussBounds.end()) {
+            cx = (tbit->second.min[0] + tbit->second.max[0]) * 0.5f;
+            cy = (tbit->second.min[1] + tbit->second.max[1]) * 0.5f;
+            cz = (tbit->second.min[2] + tbit->second.max[2]) * 0.5f;
+            cx -= t.transform.o[0] * RENDER_SCALE;
+            cy -= t.transform.o[1] * RENDER_SCALE;
+            cz -= t.transform.o[2] * RENDER_SCALE;
+        }
+
 
 
 
@@ -449,15 +473,18 @@ void Viewer3DController::RenderScene()
                 auto it = m_loadedMeshes.find(path);
                 if (it != m_loadedMeshes.end()) {
                     DrawMeshWithOutline(it->second, 1.0f, 1.0f, 1.0f, RENDER_SCALE,
-                                        highlight, selected);
+                                         highlight, selected, cx, cy, cz);
                 } else {
-                    DrawCubeWithOutline(0.3f, 0.5f, 0.5f, 0.5f, highlight, selected);
+                    DrawCubeWithOutline(0.3f, 0.5f, 0.5f, 0.5f,
+                                        highlight, selected, cx, cy, cz);
                 }
             } else {
-                DrawCubeWithOutline(0.3f, 0.5f, 0.5f, 0.5f, highlight, selected);
+                DrawCubeWithOutline(0.3f, 0.5f, 0.5f, 0.5f,
+                                    highlight, selected, cx, cy, cz);
             }
         } else {
-            DrawCubeWithOutline(0.3f, 0.5f, 0.5f, 0.5f, highlight, selected);
+            DrawCubeWithOutline(0.3f, 0.5f, 0.5f, 0.5f,
+                                highlight, selected, cx, cy, cz);
         }
 
         glPopMatrix();
@@ -476,6 +503,17 @@ void Viewer3DController::RenderScene()
         MatrixToArray(m.transform, matrix);
         ApplyTransform(matrix, true);
 
+        float cx = 0.0f, cy = 0.0f, cz = 0.0f;
+        auto obit = m_objectBounds.find(uuid);
+        if (obit != m_objectBounds.end()) {
+            cx = (obit->second.min[0] + obit->second.max[0]) * 0.5f;
+            cy = (obit->second.min[1] + obit->second.max[1]) * 0.5f;
+            cz = (obit->second.min[2] + obit->second.max[2]) * 0.5f;
+            cx -= m.transform.o[0] * RENDER_SCALE;
+            cy -= m.transform.o[1] * RENDER_SCALE;
+            cz -= m.transform.o[2] * RENDER_SCALE;
+        }
+
 
 
         if (!m.modelFile.empty()) {
@@ -484,14 +522,17 @@ void Viewer3DController::RenderScene()
                 auto it = m_loadedMeshes.find(path);
                 if (it != m_loadedMeshes.end())
                     DrawMeshWithOutline(it->second, 1.0f, 1.0f, 1.0f, RENDER_SCALE,
-                                        highlight, selected);
+                                         highlight, selected, cx, cy, cz);
                 else
-                    DrawCubeWithOutline(0.3f, 0.8f, 0.8f, 0.8f, highlight, selected);
+                    DrawCubeWithOutline(0.3f, 0.8f, 0.8f, 0.8f,
+                                        highlight, selected, cx, cy, cz);
             } else {
-                DrawCubeWithOutline(0.3f, 0.8f, 0.8f, 0.8f, highlight, selected);
+                DrawCubeWithOutline(0.3f, 0.8f, 0.8f, 0.8f,
+                                    highlight, selected, cx, cy, cz);
             }
         } else {
-            DrawCubeWithOutline(0.3f, 0.8f, 0.8f, 0.8f, highlight, selected);
+            DrawCubeWithOutline(0.3f, 0.8f, 0.8f, 0.8f,
+                                highlight, selected, cx, cy, cz);
         }
 
         glPopMatrix();
@@ -557,7 +598,10 @@ void Viewer3DController::DrawWireframeCube(float size)
 }
 
 // Draws a colored cube with a black outline
-void Viewer3DController::DrawCubeWithOutline(float size, float r, float g, float b, bool highlight, bool selected)
+void Viewer3DController::DrawCubeWithOutline(float size, float r, float g,
+                                             float b, bool highlight,
+                                             bool selected,
+                                             float cx, float cy, float cz)
 {
     // Render a slightly expanded cube in black using front face culling to
     // mimic a silhouette outline.
@@ -570,13 +614,10 @@ void Viewer3DController::DrawCubeWithOutline(float size, float r, float g, float
     else if (highlight)
         outlineScale = 1.1f;
 
-    // Temporarily remove the current translation so scaling does not
-    // offset the outline from the object position.
-    float m[16];
-    glGetFloatv(GL_MODELVIEW_MATRIX, m);
-    glTranslatef(-m[12], -m[13], -m[14]);
+    // Scale around the provided center offset rather than the object origin
+    glTranslatef(cx, cy, cz);
     glScalef(outlineScale, outlineScale, outlineScale);
-    glTranslatef(m[12], m[13], m[14]);
+    glTranslatef(-cx, -cy, -cz);
     if (selected)
         DrawCube(size, 0.0f, 1.0f, 1.0f);
     else if (highlight)
@@ -594,7 +635,8 @@ void Viewer3DController::DrawCubeWithOutline(float size, float r, float g, float
 // Draws a mesh with a black outline using the given color
 void Viewer3DController::DrawMeshWithOutline(const Mesh& mesh, float r, float g,
                                              float b, float scale, bool highlight,
-                                             bool selected)
+                                             bool selected,
+                                             float cx, float cy, float cz)
 {
     // Draw the mesh slightly scaled up in black with front face culling to
     // create a silhouette outline. This avoids drawing all internal triangle
@@ -608,13 +650,10 @@ void Viewer3DController::DrawMeshWithOutline(const Mesh& mesh, float r, float g,
     else if (highlight)
         outlineScale = 1.1f;
 
-    // Compensate for translation so the outline scales around the
-    // mesh origin instead of moving away from it.
-    float m[16];
-    glGetFloatv(GL_MODELVIEW_MATRIX, m);
-    glTranslatef(-m[12], -m[13], -m[14]);
+    // Scale around the provided center offset
+    glTranslatef(cx, cy, cz);
     glScalef(outlineScale, outlineScale, outlineScale);
-    glTranslatef(m[12], m[13], m[14]);
+    glTranslatef(-cx, -cy, -cz);
     if (selected)
         glColor3f(0.0f, 1.0f, 1.0f);
     else if (highlight)
