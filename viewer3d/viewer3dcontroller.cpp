@@ -569,7 +569,14 @@ void Viewer3DController::DrawCubeWithOutline(float size, float r, float g, float
         outlineScale = 1.15f;
     else if (highlight)
         outlineScale = 1.1f;
+
+    // Temporarily remove the current translation so scaling does not
+    // offset the outline from the object position.
+    float m[16];
+    glGetFloatv(GL_MODELVIEW_MATRIX, m);
+    glTranslatef(-m[12], -m[13], -m[14]);
     glScalef(outlineScale, outlineScale, outlineScale);
+    glTranslatef(m[12], m[13], m[14]);
     if (selected)
         DrawCube(size, 0.0f, 1.0f, 1.0f);
     else if (highlight)
@@ -600,7 +607,14 @@ void Viewer3DController::DrawMeshWithOutline(const Mesh& mesh, float r, float g,
         outlineScale = 1.15f;
     else if (highlight)
         outlineScale = 1.1f;
+
+    // Compensate for translation so the outline scales around the
+    // mesh origin instead of moving away from it.
+    float m[16];
+    glGetFloatv(GL_MODELVIEW_MATRIX, m);
+    glTranslatef(-m[12], -m[13], -m[14]);
     glScalef(outlineScale, outlineScale, outlineScale);
+    glTranslatef(m[12], m[13], m[14]);
     if (selected)
         glColor3f(0.0f, 1.0f, 1.0f);
     else if (highlight)
