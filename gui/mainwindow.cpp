@@ -70,6 +70,7 @@ MainWindow::~MainWindow()
         auiManager->UnInit();
         delete auiManager;
     }
+    SaveCameraSettings();
     ProjectUtils::SaveLastProjectPath(currentProjectPath);
 }
 
@@ -399,6 +400,7 @@ void MainWindow::OnClose(wxCommandEvent& event)
 
 void MainWindow::OnCloseWindow(wxCloseEvent& event)
 {
+    SaveCameraSettings();
     wxMessageDialog dlg(this,
         "Do you want to save changes before exiting?",
         "Exit",
