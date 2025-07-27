@@ -23,6 +23,8 @@ TrussTablePanel::TrussTablePanel(wxWindow* parent)
     table->Bind(wxEVT_LEFT_DOWN, &TrussTablePanel::OnLeftDown, this);
     table->Bind(wxEVT_LEFT_UP, &TrussTablePanel::OnLeftUp, this);
     table->Bind(wxEVT_MOTION, &TrussTablePanel::OnMouseMove, this);
+    table->Bind(wxEVT_DATAVIEW_SELECTION_CHANGED,
+                &TrussTablePanel::OnSelectionChanged, this);
 
     table->Bind(wxEVT_DATAVIEW_ITEM_CONTEXT_MENU,
                 &TrussTablePanel::OnContextMenu, this);
@@ -228,6 +230,23 @@ void TrussTablePanel::OnMouseMove(wxMouseEvent& evt)
         for (int r = minRow; r <= maxRow; ++r)
             table->SelectRow(r);
     }
+    evt.Skip();
+}
+
+void TrussTablePanel::OnSelectionChanged(wxDataViewEvent& evt)
+{
+    wxDataViewItemArray selections;
+    table->GetSelections(selections);
+    std::vector<std::string> uuids;
+    uuids.reserve(selections.size());
+    for (const auto& it : selections)
+    {
+        int r = table->ItemToRow(it);
+        if (r != wxNOT_FOUND && (size_t)r < rowUuids.size())
+            uuids.push_back(rowUuids[r]);
+    }
+    if (Viewer3DPanel::Instance())
+        Viewer3DPanel::Instance()->SetSelectedFixtures(uuids);
     evt.Skip();
 }
 

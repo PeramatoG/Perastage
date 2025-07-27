@@ -27,6 +27,7 @@ private:
     bool dragSelecting = false;
     int startRow = -1;
     void InitializeTable();
+    void OnSelectionChanged(wxDataViewEvent& evt);
     void UpdateSceneData();
     void OnContextMenu(wxDataViewEvent& event);
     void OnLeftDown(wxMouseEvent& evt);
