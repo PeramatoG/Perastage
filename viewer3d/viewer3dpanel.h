@@ -23,6 +23,9 @@ public:
     Viewer3DPanel(wxWindow* parent);
     ~Viewer3DPanel();
 
+    // Loads camera parameters from ConfigManager (delayed initialization)
+    void LoadCameraFromConfig();
+
     // Toggles for rendering options
     bool showAxes = true;
     bool showGrid = true;

@@ -61,6 +61,11 @@ MainWindow::MainWindow(const wxString& title)
 
     Centre();
     SetupLayout();
+
+    // Apply camera settings after layout and config are ready
+    if (viewportPanel)
+        viewportPanel->LoadCameraFromConfig();
+
     UpdateTitle();
 }
 
@@ -110,6 +115,7 @@ void MainWindow::SetupLayout()
     // Add 3D viewport as the main center pane
     viewportPanel = new Viewer3DPanel(this);
     Viewer3DPanel::SetInstance(viewportPanel);
+    viewportPanel->LoadCameraFromConfig();
     auiManager->AddPane(viewportPanel, wxAuiPaneInfo()
         .Name("3DViewport")
         .Caption("3D Viewport")

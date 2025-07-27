@@ -42,12 +42,6 @@ Viewer3DPanel::Viewer3DPanel(wxWindow* parent)
     m_glContext(new wxGLContext(this))
 {
     SetBackgroundStyle(wxBG_STYLE_CUSTOM);
-    ConfigManager& cfg = ConfigManager::Get();
-    m_camera.SetOrientation(cfg.GetFloat("camera_yaw"), cfg.GetFloat("camera_pitch"));
-    m_camera.SetDistance(cfg.GetFloat("camera_distance"));
-    m_camera.SetTarget(cfg.GetFloat("camera_target_x"),
-                       cfg.GetFloat("camera_target_y"),
-                       cfg.GetFloat("camera_target_z"));
     m_threadRunning = true;
     m_refreshThread = std::thread(&Viewer3DPanel::RefreshLoop, this);
 }
@@ -384,3 +378,27 @@ void Viewer3DPanel::OnThreadRefresh(wxThreadEvent& event)
 {
     Refresh();
 }
+
+void Viewer3DPanel::LoadCameraFromConfig()
+{
+    ConfigManager& cfg = ConfigManager::Get();
+
+    float yaw = cfg.GetFloat("camera_yaw");
+    float pitch = cfg.GetFloat("camera_pitch");
+    float dist = cfg.GetFloat("camera_distance");
+    float tx = cfg.GetFloat("camera_target_x");
+    float ty = cfg.GetFloat("camera_target_y");
+    float tz = cfg.GetFloat("camera_target_z");
+
+    m_camera.SetOrientation(yaw, pitch);
+    m_camera.SetDistance(dist);
+    m_camera.SetTarget(tx, ty, tz);
+
+    if (ConsolePanel::Instance()) {
+        wxString msg;
+        msg.Printf("Camera loaded: yaw=%.2f pitch=%.2f dist=%.2f target=(%.2f, %.2f, %.2f)",
+            yaw, pitch, dist, tx, ty, tz);
+        ConsolePanel::Instance()->AppendMessage(msg);
+    }
+}
+
