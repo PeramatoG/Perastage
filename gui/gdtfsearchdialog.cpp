@@ -12,12 +12,12 @@ GdtfSearchDialog::GdtfSearchDialog(wxWindow* parent, const std::string& listData
     wxBoxSizer* sizer = new wxBoxSizer(wxVERTICAL);
 
     wxBoxSizer* searchSizer = new wxBoxSizer(wxHORIZONTAL);
-    searchSizer->Add(new wxStaticText(this, wxID_ANY, "Brand:"), 0, wxALIGN_CENTER_VERTICAL|wxRIGHT, 5);
-    brandCtrl = new wxTextCtrl(this, wxID_ANY);
-    searchSizer->Add(brandCtrl, 1, wxRIGHT, 10);
-    searchSizer->Add(new wxStaticText(this, wxID_ANY, "Model:"), 0, wxALIGN_CENTER_VERTICAL|wxRIGHT, 5);
-    modelCtrl = new wxTextCtrl(this, wxID_ANY);
-    searchSizer->Add(modelCtrl, 1);
+    searchSizer->Add(new wxStaticText(this, wxID_ANY, "Manufacturer:"), 0, wxALIGN_CENTER_VERTICAL|wxRIGHT, 5);
+    manufacturerCtrl = new wxTextCtrl(this, wxID_ANY);
+    searchSizer->Add(manufacturerCtrl, 1, wxRIGHT, 10);
+    searchSizer->Add(new wxStaticText(this, wxID_ANY, "Fixture:"), 0, wxALIGN_CENTER_VERTICAL|wxRIGHT, 5);
+    fixtureCtrl = new wxTextCtrl(this, wxID_ANY);
+    searchSizer->Add(fixtureCtrl, 1);
     searchBtn = new wxButton(this, wxID_ANY, "Search");
     searchSizer->Add(searchBtn, 0, wxLEFT, 10);
     sizer->Add(searchSizer, 0, wxEXPAND | wxALL, 10);
@@ -29,17 +29,25 @@ GdtfSearchDialog::GdtfSearchDialog(wxWindow* parent, const std::string& listData
         wxSystemSettings::GetColour(wxSYS_COLOUR_LISTBOX));
 #endif
     int flags = wxDATAVIEW_COL_RESIZABLE | wxDATAVIEW_COL_SORTABLE;
-    resultTable->AppendTextColumn("Brand", wxDATAVIEW_CELL_INERT, 150,
+    resultTable->AppendTextColumn("Manufacturer", wxDATAVIEW_CELL_INERT, 150,
                                   wxALIGN_LEFT, flags);
-    resultTable->AppendTextColumn("Model", wxDATAVIEW_CELL_INERT, 200,
+    resultTable->AppendTextColumn("Fixture", wxDATAVIEW_CELL_INERT, 200,
                                   wxALIGN_LEFT, flags);
     resultTable->AppendTextColumn("Modes", wxDATAVIEW_CELL_INERT, 60,
                                   wxALIGN_LEFT, flags);
     resultTable->AppendTextColumn("Creator", wxDATAVIEW_CELL_INERT, 120,
                                   wxALIGN_LEFT, flags);
-    resultTable->AppendTextColumn("Tags", wxDATAVIEW_CELL_INERT, 150,
+    resultTable->AppendTextColumn("Uploader", wxDATAVIEW_CELL_INERT, 100,
                                   wxALIGN_LEFT, flags);
-    resultTable->AppendTextColumn("Date", wxDATAVIEW_CELL_INERT, 100,
+    resultTable->AppendTextColumn("Creation Date", wxDATAVIEW_CELL_INERT, 110,
+                                  wxALIGN_LEFT, flags);
+    resultTable->AppendTextColumn("Revision", wxDATAVIEW_CELL_INERT, 90,
+                                  wxALIGN_LEFT, flags);
+    resultTable->AppendTextColumn("Last Modified", wxDATAVIEW_CELL_INERT, 110,
+                                  wxALIGN_LEFT, flags);
+    resultTable->AppendTextColumn("Version", wxDATAVIEW_CELL_INERT, 80,
+                                  wxALIGN_LEFT, flags);
+    resultTable->AppendTextColumn("Rating", wxDATAVIEW_CELL_INERT, 60,
                                   wxALIGN_LEFT, flags);
     sizer->Add(resultTable, 1, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 10);
 
@@ -55,8 +63,8 @@ GdtfSearchDialog::GdtfSearchDialog(wxWindow* parent, const std::string& listData
     SetMinSize(wxSize(800, 600));
     SetSize(wxSize(1000, 700));
 
-    brandCtrl->Bind(wxEVT_TEXT, &GdtfSearchDialog::OnText, this);
-    modelCtrl->Bind(wxEVT_TEXT, &GdtfSearchDialog::OnText, this);
+    manufacturerCtrl->Bind(wxEVT_TEXT, &GdtfSearchDialog::OnText, this);
+    fixtureCtrl->Bind(wxEVT_TEXT, &GdtfSearchDialog::OnText, this);
     searchBtn->Bind(wxEVT_BUTTON, &GdtfSearchDialog::OnSearch, this);
     downloadBtn->Bind(wxEVT_BUTTON, &GdtfSearchDialog::OnDownload, this);
     resultTable->Bind(wxEVT_DATAVIEW_ITEM_ACTIVATED,
@@ -122,13 +130,17 @@ void GdtfSearchDialog::ParseList(const std::string& listData)
         for (const auto& item : j) {
             GdtfEntry e;
             e.manufacturer = getValue(item, {"manufacturer", "brand", "mfr"});
-            e.name = getValue(item, {"name", "model", "fixture"});
-            e.id = getValue(item, {"id", "fixtureId", "uuid"});
+            e.fixture = getValue(item, {"fixture", "name", "model"});
+            e.rid = getValue(item, {"rid", "revisionId"});
             e.url = getValue(item, {"url", "download", "downloadUrl"});
             e.modes = getValue(item, {"modes", "mode", "modeCount"});
             e.creator = getValue(item, {"creator", "user", "userName"});
-            e.tags = getValue(item, {"tags"});
-            e.dateAdded = getValue(item, {"dateAdded", "created", "uploadDate"});
+            e.uploader = getValue(item, {"uploader"});
+            e.creationDate = getValue(item, {"creationDate"});
+            e.revision = getValue(item, {"revision"});
+            e.lastModified = getValue(item, {"lastModified"});
+            e.version = getValue(item, {"version"});
+            e.rating = getValue(item, {"rating"});
             entries.push_back(e);
         }
         if (ConsolePanel::Instance()) {
@@ -160,27 +172,31 @@ void GdtfSearchDialog::UpdateResults()
         return s;
     };
 
-    wxString b = normalize(brandCtrl->GetValue());
-    wxString m = normalize(modelCtrl->GetValue());
+    wxString b = normalize(manufacturerCtrl->GetValue());
+    wxString m = normalize(fixtureCtrl->GetValue());
     if (ConsolePanel::Instance()) {
-        wxString msg = wxString::Format("Filtering brand='%s' model='%s'", b, m);
+        wxString msg = wxString::Format("Filtering manufacturer='%s' fixture='%s'", b, m);
         ConsolePanel::Instance()->AppendMessage(msg);
     }
     for (size_t i = 0; i < entries.size(); ++i) {
         wxString manuOrig = wxString::FromUTF8(entries[i].manufacturer);
-        wxString nameOrig = wxString::FromUTF8(entries[i].name);
+        wxString fixOrig = wxString::FromUTF8(entries[i].fixture);
         wxString manu = normalize(manuOrig);
-        wxString name = normalize(nameOrig);
-        if ((!b.empty() && !manu.Contains(b)) || (!m.empty() && !name.Contains(m)))
+        wxString fix = normalize(fixOrig);
+        if ((!b.empty() && !manu.Contains(b)) || (!m.empty() && !fix.Contains(m)))
             continue;
         visible.push_back(static_cast<int>(i));
         wxVector<wxVariant> row;
         row.push_back(manuOrig);
-        row.push_back(nameOrig);
+        row.push_back(fixOrig);
         row.push_back(wxString::FromUTF8(entries[i].modes));
         row.push_back(wxString::FromUTF8(entries[i].creator));
-        row.push_back(wxString::FromUTF8(entries[i].tags));
-        row.push_back(wxString::FromUTF8(entries[i].dateAdded));
+        row.push_back(wxString::FromUTF8(entries[i].uploader));
+        row.push_back(wxString::FromUTF8(entries[i].creationDate));
+        row.push_back(wxString::FromUTF8(entries[i].revision));
+        row.push_back(wxString::FromUTF8(entries[i].lastModified));
+        row.push_back(wxString::FromUTF8(entries[i].version));
+        row.push_back(wxString::FromUTF8(entries[i].rating));
         resultTable->AppendItem(row);
     }
     if (ConsolePanel::Instance()) {
@@ -214,7 +230,7 @@ void GdtfSearchDialog::OnDownload(wxCommandEvent& WXUNUSED(evt))
 std::string GdtfSearchDialog::GetSelectedId() const
 {
     if (selectedIndex >= 0 && selectedIndex < static_cast<int>(entries.size()))
-        return entries[selectedIndex].id;
+        return entries[selectedIndex].rid;
     return {};
 }
 
@@ -228,6 +244,6 @@ std::string GdtfSearchDialog::GetSelectedUrl() const
 std::string GdtfSearchDialog::GetSelectedName() const
 {
     if (selectedIndex >= 0 && selectedIndex < static_cast<int>(entries.size()))
-        return entries[selectedIndex].name;
+        return entries[selectedIndex].fixture;
     return {};
 }

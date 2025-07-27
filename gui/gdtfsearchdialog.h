@@ -6,13 +6,17 @@
 
 struct GdtfEntry {
     std::string manufacturer;
-    std::string name;
-    std::string id;
+    std::string fixture;
+    std::string rid;
     std::string url;
     std::string modes;
     std::string creator;
-    std::string tags;
-    std::string dateAdded;
+    std::string uploader;
+    std::string creationDate;
+    std::string revision;
+    std::string lastModified;
+    std::string version;
+    std::string rating;
 };
 
 class GdtfSearchDialog : public wxDialog {
@@ -28,8 +32,8 @@ private:
     void OnSearch(wxCommandEvent& evt);
     void OnDownload(wxCommandEvent& evt);
 
-    wxTextCtrl* brandCtrl = nullptr;
-    wxTextCtrl* modelCtrl = nullptr;
+    wxTextCtrl* manufacturerCtrl = nullptr;
+    wxTextCtrl* fixtureCtrl = nullptr;
     wxButton* searchBtn = nullptr;
     wxDataViewListCtrl* resultTable = nullptr;
     std::vector<GdtfEntry> entries;
