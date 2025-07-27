@@ -9,6 +9,17 @@
 #include <wx/wfstream.h>
 #include <wx/zipstrm.h>
 
+ConfigManager::ConfigManager()
+{
+    RegisterVariable("camera_yaw", "float", 45.0f, -180.0f, 180.0f);
+    RegisterVariable("camera_pitch", "float", 30.0f, -89.0f, 89.0f);
+    RegisterVariable("camera_distance", "float", 15.0f, 0.5f, 500.0f);
+    RegisterVariable("camera_target_x", "float", 0.0f, -1000.0f, 1000.0f);
+    RegisterVariable("camera_target_y", "float", 0.0f, -1000.0f, 1000.0f);
+    RegisterVariable("camera_target_z", "float", 0.0f, -1000.0f, 1000.0f);
+    ApplyDefaults();
+}
+
 ConfigManager& ConfigManager::Get()
 {
     static ConfigManager instance;
@@ -45,6 +56,61 @@ void ConfigManager::ClearValues()
     configData.clear();
 }
 
+void ConfigManager::RegisterVariable(const std::string& name, const std::string& type,
+                                     float defVal, float minVal, float maxVal)
+{
+    VariableInfo info;
+    info.type = type;
+    info.defaultValue = defVal;
+    info.value = defVal;
+    info.minValue = minVal;
+    info.maxValue = maxVal;
+    variables[name] = info;
+}
+
+float ConfigManager::GetFloat(const std::string& name) const
+{
+    auto it = variables.find(name);
+    float defVal = 0.0f;
+    if (it != variables.end())
+        defVal = it->second.defaultValue;
+
+    auto valStr = GetValue(name);
+    if (valStr)
+    {
+        try { return std::stof(*valStr); } catch (...) { return defVal; }
+    }
+    return defVal;
+}
+
+void ConfigManager::SetFloat(const std::string& name, float v)
+{
+    auto it = variables.find(name);
+    if (it != variables.end())
+    {
+        if (v < it->second.minValue) v = it->second.minValue;
+        if (v > it->second.maxValue) v = it->second.maxValue;
+        it->second.value = v;
+    }
+    SetValue(name, std::to_string(v));
+}
+
+void ConfigManager::ApplyDefaults()
+{
+    for (auto& [name, info] : variables)
+    {
+        float val = info.defaultValue;
+        auto it = configData.find(name);
+        if (it != configData.end())
+        {
+            try { val = std::stof(it->second); }
+            catch (...) { val = info.defaultValue; }
+        }
+        info.value = val;
+        configData[name] = std::to_string(val);
+    }
+}
+
 // -- Scene access --
 
 MvrScene& ConfigManager::GetScene()
@@ -76,6 +142,7 @@ bool ConfigManager::LoadFromFile(const std::string& path)
     }
 
     configData = j.get<std::unordered_map<std::string, std::string>>();
+    ApplyDefaults();
     return true;
 }
 
@@ -208,4 +275,5 @@ void ConfigManager::Reset()
 {
     configData.clear();
     scene.Clear();
+    ApplyDefaults();
 }

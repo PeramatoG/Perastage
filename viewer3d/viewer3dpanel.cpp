@@ -42,6 +42,12 @@ Viewer3DPanel::Viewer3DPanel(wxWindow* parent)
     m_glContext(new wxGLContext(this))
 {
     SetBackgroundStyle(wxBG_STYLE_CUSTOM);
+    ConfigManager& cfg = ConfigManager::Get();
+    m_camera.SetOrientation(cfg.GetFloat("camera_yaw"), cfg.GetFloat("camera_pitch"));
+    m_camera.SetDistance(cfg.GetFloat("camera_distance"));
+    m_camera.SetTarget(cfg.GetFloat("camera_target_x"),
+                       cfg.GetFloat("camera_target_y"),
+                       cfg.GetFloat("camera_target_z"));
     m_threadRunning = true;
     m_refreshThread = std::thread(&Viewer3DPanel::RefreshLoop, this);
 }

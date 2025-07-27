@@ -51,6 +51,8 @@ private:
     void OnShowHelp(wxCommandEvent& event);        // Show help dialog
     void OnShowAbout(wxCommandEvent& event);       // Show about dialog
 
+    void SaveCameraSettings();
+
     wxDECLARE_EVENT_TABLE();
 };
 
