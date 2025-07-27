@@ -362,7 +362,7 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent& WXUNUSED(event))
     GdtfSearchDialog searchDlg(this, listData);
     if (searchDlg.ShowModal() == wxID_OK) {
         wxString url = wxString::FromUTF8(searchDlg.GetSelectedUrl());
-        wxString id = wxString::FromUTF8(searchDlg.GetSelectedId());
+        wxString rid = wxString::FromUTF8(searchDlg.GetSelectedId());
         wxString name = wxString::FromUTF8(searchDlg.GetSelectedName());
 
         wxFileDialog saveDlg(this, "Save GDTF file", "library/fixtures", name + ".gdtf",
@@ -372,8 +372,8 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent& WXUNUSED(event))
             wxString dlCmd;
             if (!url.empty())
                 dlCmd = wxString::Format("curl -s -L -b \"%s\" -o \"%s\" \"%s\"", cookieFileWx, dest, url);
-            else if (!id.empty())
-                dlCmd = wxString::Format("curl -s -L -b \"%s\" -o \"%s\" https://gdtf-share.com/apis/public/download.php?id=%s", cookieFileWx, dest, id);
+            else if (!rid.empty())
+                dlCmd = wxString::Format("curl -s -L -b \"%s\" -o \"%s\" https://gdtf-share.com/apis/public/downloadFile.php?rid=%s", cookieFileWx, dest, rid);
             else
                 dlCmd.clear();
 
