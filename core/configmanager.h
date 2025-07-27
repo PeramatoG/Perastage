@@ -24,6 +24,10 @@ public:
     // Save/load configuration file (e.g., JSON, INI, TXT…)
     bool LoadFromFile(const std::string& path);
     bool SaveToFile(const std::string& path) const;
+    // Default user configuration path helpers
+    static std::string GetUserConfigFile();
+    bool LoadUserConfig();
+    bool SaveUserConfig() const;
 
     // Access to current MVR scene (modifiable)
     MvrScene& GetScene();

@@ -71,6 +71,7 @@ MainWindow::~MainWindow()
         delete auiManager;
     }
     SaveCameraSettings();
+    ConfigManager::Get().SaveUserConfig();
     ProjectUtils::SaveLastProjectPath(currentProjectPath);
 }
 
@@ -206,6 +207,7 @@ void MainWindow::OnSave(wxCommandEvent& event)
         return;
     }
     SaveCameraSettings();
+    ConfigManager::Get().SaveUserConfig();
     if (!ConfigManager::Get().SaveProject(currentProjectPath))
         wxMessageBox("Failed to save project.", "Error", wxICON_ERROR);
     else {
@@ -224,6 +226,7 @@ void MainWindow::OnSaveAs(wxCommandEvent& event)
 
     currentProjectPath = dlg.GetPath().ToStdString();
     SaveCameraSettings();
+    ConfigManager::Get().SaveUserConfig();
     if (!ConfigManager::Get().SaveProject(currentProjectPath))
         wxMessageBox("Failed to save project.", "Error", wxICON_ERROR);
     else {
@@ -401,6 +404,7 @@ void MainWindow::OnClose(wxCommandEvent& event)
 void MainWindow::OnCloseWindow(wxCloseEvent& event)
 {
     SaveCameraSettings();
+    ConfigManager::Get().SaveUserConfig();
     wxMessageDialog dlg(this,
         "Do you want to save changes before exiting?",
         "Exit",
