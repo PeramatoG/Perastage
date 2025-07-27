@@ -34,6 +34,13 @@ public:
     // Returns current distance
     float GetDistance() const;
 
+    float GetYaw() const { return yaw; }
+    float GetPitch() const { return pitch; }
+    float GetTargetX() const { return targetX; }
+    float GetTargetY() const { return targetY; }
+    float GetTargetZ() const { return targetZ; }
+    void SetTarget(float x, float y, float z) { targetX = x; targetY = y; targetZ = z; }
+
     // Resets camera to default orientation and target
     void Reset();
 

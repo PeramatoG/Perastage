@@ -29,14 +29,29 @@ public:
     MvrScene& GetScene();
     const MvrScene& GetScene() const;
 
+    struct VariableInfo {
+        std::string type;
+        float defaultValue = 0.0f;
+        float value = 0.0f;
+        float minValue = 0.0f;
+        float maxValue = 0.0f;
+    };
+
+    void RegisterVariable(const std::string& name, const std::string& type,
+                          float defVal, float minVal, float maxVal);
+    float GetFloat(const std::string& name) const;
+    void SetFloat(const std::string& name, float v);
+    void ApplyDefaults();
+
     // Clear everything (scene + config)
     void Reset();
 
 private:
-    ConfigManager() = default;
+    ConfigManager();
     ConfigManager(const ConfigManager&) = delete;
     ConfigManager& operator=(const ConfigManager&) = delete;
 
     std::unordered_map<std::string, std::string> configData;
+    std::unordered_map<std::string, VariableInfo> variables;
     MvrScene scene;
 };

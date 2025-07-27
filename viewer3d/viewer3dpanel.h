@@ -33,6 +33,9 @@ public:
     static Viewer3DPanel* Instance();
     static void SetInstance(Viewer3DPanel* panel);
 
+    Viewer3DCamera& GetCamera() { return m_camera; }
+    const Viewer3DCamera& GetCamera() const { return m_camera; }
+
 private:
     wxGLContext* m_glContext;
     Viewer3DCamera m_camera;

@@ -204,6 +204,7 @@ void MainWindow::OnSave(wxCommandEvent& event)
         OnSaveAs(event);
         return;
     }
+    SaveCameraSettings();
     if (!ConfigManager::Get().SaveProject(currentProjectPath))
         wxMessageBox("Failed to save project.", "Error", wxICON_ERROR);
     else {
@@ -221,6 +222,7 @@ void MainWindow::OnSaveAs(wxCommandEvent& event)
         return;
 
     currentProjectPath = dlg.GetPath().ToStdString();
+    SaveCameraSettings();
     if (!ConfigManager::Get().SaveProject(currentProjectPath))
         wxMessageBox("Failed to save project.", "Error", wxICON_ERROR);
     else {
@@ -471,6 +473,13 @@ bool MainWindow::LoadProjectFromPath(const std::string& path)
     if (sceneObjPanel)
         sceneObjPanel->ReloadData();
     if (viewportPanel) {
+        ConfigManager& cfg = ConfigManager::Get();
+        Viewer3DCamera& cam = viewportPanel->GetCamera();
+        cam.SetOrientation(cfg.GetFloat("camera_yaw"), cfg.GetFloat("camera_pitch"));
+        cam.SetDistance(cfg.GetFloat("camera_distance"));
+        cam.SetTarget(cfg.GetFloat("camera_target_x"),
+                      cfg.GetFloat("camera_target_y"),
+                      cfg.GetFloat("camera_target_z"));
         viewportPanel->UpdateScene();
         viewportPanel->Refresh();
     }
@@ -505,6 +514,19 @@ void MainWindow::UpdateTitle()
         title += " - Untitled";
     }
     SetTitle(title);
+}
+
+void MainWindow::SaveCameraSettings()
+{
+    if (!viewportPanel)
+        return;
+    Viewer3DCamera& cam = viewportPanel->GetCamera();
+    ConfigManager::Get().SetFloat("camera_yaw", cam.GetYaw());
+    ConfigManager::Get().SetFloat("camera_pitch", cam.GetPitch());
+    ConfigManager::Get().SetFloat("camera_distance", cam.GetDistance());
+    ConfigManager::Get().SetFloat("camera_target_x", cam.GetTargetX());
+    ConfigManager::Get().SetFloat("camera_target_y", cam.GetTargetY());
+    ConfigManager::Get().SetFloat("camera_target_z", cam.GetTargetZ());
 }
 
 void MainWindow::OnShowHelp(wxCommandEvent& WXUNUSED(event))
