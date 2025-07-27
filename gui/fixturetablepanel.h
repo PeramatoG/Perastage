@@ -13,6 +13,7 @@ public:
     ~FixtureTablePanel();
     void ReloadData(); // Refresh content from ConfigManager
     void HighlightFixture(const std::string& uuid);
+    void ClearSelection();
 
     static FixtureTablePanel* Instance();
     static void SetInstance(FixtureTablePanel* panel);

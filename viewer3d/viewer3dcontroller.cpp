@@ -645,7 +645,7 @@ void Viewer3DController::DrawFixtureLabels(wxWindowDC& dc, int width, int height
 
     const auto& fixtures = SceneDataManager::Instance().GetFixtures();
     for (const auto& [uuid, f] : fixtures) {
-        if (uuid != m_highlightUuid && m_selectedUuids.find(uuid) == m_selectedUuids.end())
+        if (uuid != m_highlightUuid)
             continue;
 
         double sx, sy, sz;

@@ -409,6 +409,11 @@ void FixtureTablePanel::HighlightFixture(const std::string& uuid)
     table->Refresh();
 }
 
+void FixtureTablePanel::ClearSelection()
+{
+    table->UnselectAll();
+}
+
 void FixtureTablePanel::OnLeftDown(wxMouseEvent& evt)
 {
     wxDataViewItem item;
