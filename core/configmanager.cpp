@@ -264,10 +264,10 @@ bool ConfigManager::LoadProject(const std::string& path)
     }
 
     bool ok = true;
-    if (!configPath.empty())
-        ok &= LoadFromFile(configPath.string());
     if (!scenePath.empty())
         ok &= MvrImporter::ImportAndRegister(scenePath.string());
+    if (!configPath.empty())
+        ok &= LoadFromFile(configPath.string());
 
     fs::remove_all(tempDir);
     return ok;
