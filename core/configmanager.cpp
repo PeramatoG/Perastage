@@ -8,6 +8,7 @@
 #include "mvrimporter.h"
 #include <wx/wfstream.h>
 #include <wx/zipstrm.h>
+#include <wx/stdpaths.h>
 
 ConfigManager::ConfigManager()
 {
@@ -17,6 +18,7 @@ ConfigManager::ConfigManager()
     RegisterVariable("camera_target_x", "float", 0.0f, -1000.0f, 1000.0f);
     RegisterVariable("camera_target_y", "float", 0.0f, -1000.0f, 1000.0f);
     RegisterVariable("camera_target_z", "float", 0.0f, -1000.0f, 1000.0f);
+    LoadUserConfig();
     ApplyDefaults();
 }
 
@@ -276,4 +278,23 @@ void ConfigManager::Reset()
     configData.clear();
     scene.Clear();
     ApplyDefaults();
+}
+
+std::string ConfigManager::GetUserConfigFile()
+{
+    wxString dir = wxStandardPaths::Get().GetUserDataDir();
+    std::filesystem::path p = std::filesystem::path(dir.ToStdString());
+    std::filesystem::create_directories(p);
+    p /= "user_config.json";
+    return p.string();
+}
+
+bool ConfigManager::LoadUserConfig()
+{
+    return LoadFromFile(GetUserConfigFile());
+}
+
+bool ConfigManager::SaveUserConfig() const
+{
+    return SaveToFile(GetUserConfigFile());
 }
