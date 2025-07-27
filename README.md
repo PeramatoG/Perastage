@@ -37,7 +37,10 @@ in the 3D viewport.  Additional view panels can be toggled from the **View** men
 The **Tools → Download GDTF fixture** command can download a fixture directly
 from [GDTF‑Share](https://gdtf-share.com). It authenticates using the official
 session-based API (`login.php` + `getList.php`) so you simply provide your user
-name (email) and password once and they are stored with the project. Quick
+name (email) and password once and they are stored with the project. The
+download step relies on the `curl` command line tool; on Windows make sure
+`curl.exe` is invoked instead of the PowerShell `curl` alias.
+Quick
 instructions are available under **Help → Help** and
 licensing information is shown under **Help → About**.
 
