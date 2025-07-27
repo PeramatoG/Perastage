@@ -369,11 +369,16 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent& WXUNUSED(event))
                              "*.gdtf", wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
         if (saveDlg.ShowModal() == wxID_OK) {
             wxString dest = saveDlg.GetPath();
+            wxString curlCmd = "curl";
+#ifdef _WIN32
+            // Ensure the real cURL executable is used instead of the PowerShell alias
+            curlCmd = "curl.exe";
+#endif
             wxString dlCmd;
             if (!url.empty())
-                dlCmd = wxString::Format("curl -s -L -b \"%s\" -o \"%s\" \"%s\"", cookieFileWx, dest, url);
+                dlCmd = wxString::Format("%s -s -L -b \"%s\" -o \"%s\" \"%s\"", curlCmd, cookieFileWx, dest, url);
             else if (!rid.empty())
-                dlCmd = wxString::Format("curl -s -L -b \"%s\" -o \"%s\" https://gdtf-share.com/apis/public/downloadFile.php?rid=%s", cookieFileWx, dest, rid);
+                dlCmd = wxString::Format("%s -s -L -b \"%s\" -o \"%s\" https://gdtf-share.com/apis/public/downloadFile.php?rid=%s", curlCmd, cookieFileWx, dest, rid);
             else
                 dlCmd.clear();
 
