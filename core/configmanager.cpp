@@ -11,9 +11,9 @@
 
 ConfigManager::ConfigManager()
 {
-    RegisterVariable("camera_yaw", "float", 45.0f, -180.0f, 180.0f);
-    RegisterVariable("camera_pitch", "float", 30.0f, -89.0f, 89.0f);
-    RegisterVariable("camera_distance", "float", 15.0f, 0.5f, 500.0f);
+    RegisterVariable("camera_yaw", "float", 0.0f, -180.0f, 180.0f);
+    RegisterVariable("camera_pitch", "float", 20.0f, -89.0f, 89.0f);
+    RegisterVariable("camera_distance", "float", 30.0f, 0.5f, 500.0f);
     RegisterVariable("camera_target_x", "float", 0.0f, -1000.0f, 1000.0f);
     RegisterVariable("camera_target_y", "float", 0.0f, -1000.0f, 1000.0f);
     RegisterVariable("camera_target_z", "float", 0.0f, -1000.0f, 1000.0f);
