@@ -11,4 +11,9 @@ bool GdtfLogin(const std::string& user,
 bool GdtfGetList(const std::string& cookieFile,
                  std::string& listData);
 
+bool GdtfDownload(const std::string& rid,
+                  const std::string& destFile,
+                  const std::string& cookieFile,
+                  long& httpCode);
+
 #endif // GDTFNET_H

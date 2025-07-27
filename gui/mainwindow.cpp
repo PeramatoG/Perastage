@@ -361,7 +361,6 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent& WXUNUSED(event))
     // open search dialog
     GdtfSearchDialog searchDlg(this, listData);
     if (searchDlg.ShowModal() == wxID_OK) {
-        wxString url = wxString::FromUTF8(searchDlg.GetSelectedUrl());
         wxString rid = wxString::FromUTF8(searchDlg.GetSelectedId());
         wxString name = wxString::FromUTF8(searchDlg.GetSelectedName());
 
@@ -369,24 +368,14 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent& WXUNUSED(event))
                              "*.gdtf", wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
         if (saveDlg.ShowModal() == wxID_OK) {
             wxString dest = saveDlg.GetPath();
-            wxString curlCmd = "curl";
-#ifdef _WIN32
-            // Ensure the real cURL executable is used instead of the PowerShell alias
-            curlCmd = "curl.exe";
-#endif
-            wxString dlCmd;
-            if (!url.empty())
-                dlCmd = wxString::Format("%s -s -L -b \"%s\" -o \"%s\" \"%s\"", curlCmd, cookieFileWx, dest, url);
-            else if (!rid.empty())
-                dlCmd = wxString::Format("%s -s -L -b \"%s\" -o \"%s\" https://gdtf-share.com/apis/public/downloadFile.php?rid=%s", curlCmd, cookieFileWx, dest, rid);
-            else
-                dlCmd.clear();
-
-            if (!dlCmd.empty()) {
+            if (!rid.empty()) {
                 if (consolePanel)
-                    consolePanel->AppendMessage("Download command: " + dlCmd);
-                int res = system(dlCmd.mb_str());
-                if (res == 0)
+                    consolePanel->AppendMessage("Downloading via libcurl rid=" + rid);
+                long dlCode = 0;
+                bool ok = GdtfDownload(std::string(rid.mb_str()), std::string(dest.mb_str()), cookieFile, dlCode);
+                if (consolePanel)
+                    consolePanel->AppendMessage(wxString::Format("Download HTTP code: %ld", dlCode));
+                if (ok && dlCode == 200)
                     wxMessageBox("GDTF downloaded.", "Success", wxOK | wxICON_INFORMATION);
                 else
                     wxMessageBox("Failed to download GDTF.", "Error", wxOK | wxICON_ERROR);
