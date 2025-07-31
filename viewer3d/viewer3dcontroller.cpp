@@ -137,27 +137,28 @@ static void DrawText2D(NVGcontext* vg, int font, const std::string& text, int x,
     float bounds[4];
     nvgTextBoxBounds(vg, (float)x, (float)y, 1000.0f,
                      text.c_str(), nullptr, bounds);
+    float textWidth = bounds[2] - bounds[0];
+    float textHeight = bounds[3] - bounds[1];
     const int padding = 4;
 
     nvgBeginPath(vg);
     nvgRect(vg, bounds[0] - padding, bounds[1] - padding,
-                 (bounds[2] - bounds[0]) + padding * 2,
-                 (bounds[3] - bounds[1]) + padding * 2);
+                 textWidth + padding * 2,
+                 textHeight + padding * 2);
     nvgFillColor(vg, nvgRGBAf(0.f, 0.f, 0.f, 0.6f));
     nvgFill(vg);
 
     nvgBeginPath(vg);
     nvgRect(vg, bounds[0] - padding, bounds[1] - padding,
-                 (bounds[2] - bounds[0]) + padding * 2,
-                 (bounds[3] - bounds[1]) + padding * 2);
+                 textWidth + padding * 2,
+                 textHeight + padding * 2);
     nvgStrokeColor(vg, nvgRGBAf(1.f, 1.f, 1.f, 0.8f));
     nvgStrokeWidth(vg, 1.0f);
     nvgStroke(vg);
 
     nvgFillColor(vg, nvgRGBAf(1.f, 1.f, 1.f, 1.f));
-    // Draw multi-line label using the same large width to honour
-    // explicit newlines.
-    nvgTextBox(vg, (float)x, (float)y, 1000.0f,
+    // Draw multi-line label using textWidth to avoid excessive empty space.
+    nvgTextBox(vg, (float)x, (float)y, textWidth,
                text.c_str(), nullptr);
     nvgRestore(vg);
     nvgEndFrame(vg);
