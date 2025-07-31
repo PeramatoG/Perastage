@@ -10,6 +10,7 @@
 #include <wx/filename.h>
 #include <wx/choicdlg.h>
 #include <algorithm>
+#include <unordered_map>
 #include <wx/settings.h>
 #include <wx/notebook.h>
 
@@ -219,6 +220,8 @@ void FixtureTablePanel::ReloadData()
     if (Viewer3DPanel::Instance())
         Viewer3DPanel::Instance()->SetSelectedFixtures({});
 
+    HighlightDuplicateFixtureIds();
+
 // Let wxDataViewListCtrl manage column headers and sorting
 }
 
@@ -282,6 +285,7 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent& event)
             ApplyModeForGdtf(path);
         }
         UpdateSceneData();
+        HighlightDuplicateFixtureIds();
         if (Viewer3DPanel::Instance()) {
             Viewer3DPanel::Instance()->UpdateScene();
             Viewer3DPanel::Instance()->Refresh();
@@ -340,6 +344,7 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent& event)
         }
 
         UpdateSceneData();
+        HighlightDuplicateFixtureIds();
         if (Viewer3DPanel::Instance()) {
             Viewer3DPanel::Instance()->UpdateScene();
             Viewer3DPanel::Instance()->Refresh();
@@ -461,6 +466,7 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent& event)
     }
 
     UpdateSceneData();
+    HighlightDuplicateFixtureIds();
     if (Viewer3DPanel::Instance())
     {
         Viewer3DPanel::Instance()->UpdateScene();
@@ -532,6 +538,8 @@ void FixtureTablePanel::DeleteSelected()
             table->DeleteItem(r);
         }
     }
+
+    HighlightDuplicateFixtureIds();
 
     if (Viewer3DPanel::Instance()) {
         Viewer3DPanel::Instance()->UpdateScene();
@@ -647,6 +655,8 @@ void FixtureTablePanel::UpdateSceneData()
                                   static_cast<float>(y * 1000.0),
                                   static_cast<float>(z * 1000.0)};
     }
+
+    HighlightDuplicateFixtureIds();
 }
 
 void FixtureTablePanel::ApplyModeForGdtf(const wxString& path)
@@ -701,6 +711,33 @@ void FixtureTablePanel::ApplyModeForGdtf(const wxString& path)
                                       : wxString();
         table->SetValue(wxVariant(chStr), i, 7);
     }
+}
+
+void FixtureTablePanel::HighlightDuplicateFixtureIds()
+{
+    // Clear existing text colour highlights
+    for (unsigned i = 0; i < table->GetItemCount(); ++i)
+        store.ClearRowTextColour(i);
+
+    std::unordered_map<long, std::vector<unsigned>> idRows;
+    for (unsigned i = 0; i < table->GetItemCount(); ++i)
+    {
+        wxVariant v;
+        table->GetValue(v, i, 1); // Fixture ID column
+        long id = v.GetLong();
+        idRows[id].push_back(i);
+    }
+
+    for (const auto& it : idRows)
+    {
+        if (it.second.size() > 1)
+        {
+            for (unsigned r : it.second)
+                store.SetRowTextColour(r, *wxRED);
+        }
+    }
+
+    table->Refresh();
 }
 
 
