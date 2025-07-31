@@ -131,9 +131,9 @@ static void DrawText2D(NVGcontext* vg, int font, const std::string& text, int x,
     // Center text for multiline labels
     nvgTextAlign(vg, NVG_ALIGN_CENTER | NVG_ALIGN_MIDDLE);
 
-    // Determine the width and height based on the actual text content so the
-    // background box tightly fits the rendered label. We measure each line
-    // separately to avoid the fixed width imposed by nvgTextBoxBounds.
+    // Determine the width based on the actual text content so the background
+    // box tightly fits the rendered label. We measure each line separately to
+    // avoid the fixed width imposed by nvgTextBoxBounds.
     float lineHeight = 0.0f;
     nvgTextMetrics(vg, nullptr, nullptr, &lineHeight);
 
@@ -153,20 +153,24 @@ static void DrawText2D(NVGcontext* vg, int font, const std::string& text, int x,
     float textHeight = lineHeight * lineCount;
     const int padding = 4;
 
-    float left = x - textWidth * 0.5f;
-    float top  = y - textHeight * 0.5f;
+    // Calculate the exact bounding box for the text using the same alignment
+    // and width that will be used when rendering it. This ensures the
+    // background rectangle matches the visual position of the text.
+    float bounds[4];
+    nvgTextBoxBounds(vg, (float)x, (float)y, textWidth, text.c_str(), nullptr,
+                     bounds);
 
     nvgBeginPath(vg);
-    nvgRect(vg, left - padding, top - padding,
-                 textWidth + padding * 2,
-                 textHeight + padding * 2);
+    nvgRect(vg, bounds[0] - padding, bounds[1] - padding,
+                 (bounds[2] - bounds[0]) + padding * 2,
+                 (bounds[3] - bounds[1]) + padding * 2);
     nvgFillColor(vg, nvgRGBAf(0.f, 0.f, 0.f, 0.6f));
     nvgFill(vg);
 
     nvgBeginPath(vg);
-    nvgRect(vg, left - padding, top - padding,
-                 textWidth + padding * 2,
-                 textHeight + padding * 2);
+    nvgRect(vg, bounds[0] - padding, bounds[1] - padding,
+                 (bounds[2] - bounds[0]) + padding * 2,
+                 (bounds[3] - bounds[1]) + padding * 2);
     nvgStrokeColor(vg, nvgRGBAf(1.f, 1.f, 1.f, 0.8f));
     nvgStrokeWidth(vg, 1.0f);
     nvgStroke(vg);
