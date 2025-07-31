@@ -14,9 +14,7 @@
 #include <unordered_set>
 #include <array>
 #include <string>
-#include <wx/dcclient.h>
 #include <wx/gdicmn.h>
-#include <wx/graphics.h>
 #include <wx/string.h>
 
 // MVR coordinates are defined in millimeters. This constant converts
@@ -40,14 +38,10 @@ public:
     void SetHighlightUuid(const std::string& uuid);
     void SetSelectedUuids(const std::vector<std::string>& uuids);
 
-    // Draws fixture names at their world positions using a 2D device context
-    // Accept a wxWindowDC to allow creating a graphics context on the provided
-    // device context. Using wxDC directly does not match any overload of
-    // wxGraphicsContext::Create() which leads to build errors on some
-    // platforms.
-    void DrawFixtureLabels(wxWindowDC& dc, int width, int height);
-    void DrawTrussLabels(wxWindowDC& dc, int width, int height);
-    void DrawSceneObjectLabels(wxWindowDC& dc, int width, int height);
+    // Draws object names at their projected positions using OpenGL
+    void DrawFixtureLabels(int width, int height);
+    void DrawTrussLabels(int width, int height);
+    void DrawSceneObjectLabels(int width, int height);
 
     // Returns true and outputs label and screen position of the fixture
     // under the given mouse coordinates (if any)

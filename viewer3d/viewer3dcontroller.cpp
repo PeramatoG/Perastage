@@ -13,7 +13,7 @@
 #include "types.h"
 #include "consolepanel.h"
 #include <wx/wx.h>
-#include <wx/graphics.h>
+#include "stb_easy_font.h"
 #include <algorithm>
 #include <filesystem>
 #include <cfloat>
@@ -109,6 +109,65 @@ struct ScreenRect {
     double maxX = -DBL_MAX;
     double maxY = -DBL_MAX;
 };
+
+// Draws a text string at screen coordinates using OpenGL and stb_easy_font
+static void DrawText2D(const std::string& text, int x, int y)
+{
+    if (text.empty())
+        return;
+
+    GLint vp[4];
+    glGetIntegerv(GL_VIEWPORT, vp);
+
+    glMatrixMode(GL_PROJECTION);
+    glPushMatrix();
+    glLoadIdentity();
+    glOrtho(0, vp[2], vp[3], 0, -1, 1);
+    glMatrixMode(GL_MODELVIEW);
+    glPushMatrix();
+    glLoadIdentity();
+
+    glDisable(GL_DEPTH_TEST);
+    glDisable(GL_LIGHTING);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    int tw = stb_easy_font_width((char*)text.c_str());
+    int th = stb_easy_font_height((char*)text.c_str());
+    const int padding = 4;
+
+    glColor4f(0.f, 0.f, 0.f, 0.6f);
+    glBegin(GL_QUADS);
+    glVertex2i(x - padding, y - padding);
+    glVertex2i(x + tw + padding, y - padding);
+    glVertex2i(x + tw + padding, y + th + padding);
+    glVertex2i(x - padding, y + th + padding);
+    glEnd();
+
+    glColor4f(1.f, 1.f, 1.f, 0.8f);
+    glBegin(GL_LINE_LOOP);
+    glVertex2i(x - padding, y - padding);
+    glVertex2i(x + tw + padding, y - padding);
+    glVertex2i(x + tw + padding, y + th + padding);
+    glVertex2i(x - padding, y + th + padding);
+    glEnd();
+
+    char buf[99999];
+    int count = stb_easy_font_print((float)x, (float)y, (char*)text.c_str(), NULL, buf, sizeof(buf));
+    glColor3f(1.f, 1.f, 1.f);
+    glEnableClientState(GL_VERTEX_ARRAY);
+    glVertexPointer(2, GL_FLOAT, 16, buf);
+    glDrawArrays(GL_QUADS, 0, count * 4);
+    glDisableClientState(GL_VERTEX_ARRAY);
+
+    glDisable(GL_BLEND);
+    glEnable(GL_DEPTH_TEST);
+
+    glPopMatrix();
+    glMatrixMode(GL_PROJECTION);
+    glPopMatrix();
+    glMatrixMode(GL_MODELVIEW);
+}
 
 static std::array<float,3> TransformPoint(const Matrix& m, const std::array<float,3>& p)
 {
@@ -797,21 +856,8 @@ void Viewer3DController::SetupMaterialFromRGB(float r, float g, float b) {
     glColor3f(r, g, b);
 }
 
-void Viewer3DController::DrawFixtureLabels(wxWindowDC& dc, int width, int height)
+void Viewer3DController::DrawFixtureLabels(int width, int height)
 {
-    // wxGraphicsContext::Create() does not provide an overload taking wxDC
-    // directly. Using wxWindowDC ensures the correct overload is selected
-    // and allows creation of the graphics context from the paint device.
-    wxGraphicsContext* gc = wxGraphicsContext::Create(dc);
-    if (!gc) {
-        if (ConsolePanel::Instance())
-            ConsolePanel::Instance()->AppendMessage("Failed to create wxGraphicsContext. Labels will not be rendered.");
-        return;
-    }
-
-    // GetTextExtent() requires a valid font to be set on the graphics context
-    gc->SetFont(dc.GetFont(), wxColour(255, 255, 255));
-
     double model[16];
     double proj[16];
     int viewport[4];
@@ -850,21 +896,8 @@ void Viewer3DController::DrawFixtureLabels(wxWindowDC& dc, int width, int height
         if (!f.address.empty())
             label += "\n" + wxString::FromUTF8(f.address);
 
-        wxDouble tw, th;
-        gc->GetTextExtent(label, &tw, &th, nullptr, nullptr);
-        const int padding = 4;
-        wxDouble bx = x - padding;
-        wxDouble by = y - padding;
-        wxDouble bw = tw + padding * 2;
-        wxDouble bh = th + padding * 2;
-
-        gc->SetBrush(wxBrush(wxColour(0, 0, 0, 160)));
-        gc->SetPen(wxPen(wxColour(255, 255, 255, 200)));
-        gc->DrawRoundedRectangle(bx, by, bw, bh, 3.0);
-        gc->DrawText(label, bx + padding, by + padding);
+        DrawText2D(std::string(label.mb_str()), x, y);
     }
-
-    delete gc;
 }
 
 bool Viewer3DController::GetFixtureLabelAt(int mouseX, int mouseY,
@@ -928,12 +961,8 @@ bool Viewer3DController::GetFixtureLabelAt(int mouseX, int mouseY,
     return false;
 }
 
-void Viewer3DController::DrawTrussLabels(wxWindowDC& dc, int width, int height)
+void Viewer3DController::DrawTrussLabels(int width, int height)
 {
-    wxGraphicsContext* gc = wxGraphicsContext::Create(dc);
-    if (!gc)
-        return;
-    gc->SetFont(dc.GetFont(), wxColour(255, 255, 255));
 
     double model[16];
     double proj[16];
@@ -969,29 +998,13 @@ void Viewer3DController::DrawTrussLabels(wxWindowDC& dc, int width, int height)
         wxString label = t.name.empty() ? wxString::FromUTF8(uuid)
                                        : wxString::FromUTF8(t.name);
 
-        wxDouble tw, th;
-        gc->GetTextExtent(label, &tw, &th, nullptr, nullptr);
-        const int padding = 4;
-        wxDouble bx = x - padding;
-        wxDouble by = y - padding;
-        wxDouble bw = tw + padding * 2;
-        wxDouble bh = th + padding * 2;
-
-        gc->SetBrush(wxBrush(wxColour(0, 0, 0, 160)));
-        gc->SetPen(wxPen(wxColour(255, 255, 255, 200)));
-        gc->DrawRoundedRectangle(bx, by, bw, bh, 3.0);
-        gc->DrawText(label, bx + padding, by + padding);
+        DrawText2D(std::string(label.mb_str()), x, y);
     }
 
-    delete gc;
 }
 
-void Viewer3DController::DrawSceneObjectLabels(wxWindowDC& dc, int width, int height)
+void Viewer3DController::DrawSceneObjectLabels(int width, int height)
 {
-    wxGraphicsContext* gc = wxGraphicsContext::Create(dc);
-    if (!gc)
-        return;
-    gc->SetFont(dc.GetFont(), wxColour(255, 255, 255));
 
     double model[16];
     double proj[16];
@@ -1027,21 +1040,8 @@ void Viewer3DController::DrawSceneObjectLabels(wxWindowDC& dc, int width, int he
         wxString label = o.name.empty() ? wxString::FromUTF8(uuid)
                                        : wxString::FromUTF8(o.name);
 
-        wxDouble tw, th;
-        gc->GetTextExtent(label, &tw, &th, nullptr, nullptr);
-        const int padding = 4;
-        wxDouble bx = x - padding;
-        wxDouble by = y - padding;
-        wxDouble bw = tw + padding * 2;
-        wxDouble bh = th + padding * 2;
-
-        gc->SetBrush(wxBrush(wxColour(0, 0, 0, 160)));
-        gc->SetPen(wxPen(wxColour(255, 255, 255, 200)));
-        gc->DrawRoundedRectangle(bx, by, bw, bh, 3.0);
-        gc->DrawText(label, bx + padding, by + padding);
+        DrawText2D(std::string(label.mb_str()), x, y);
     }
-
-    delete gc;
 }
 
 bool Viewer3DController::GetTrussLabelAt(int mouseX, int mouseY,
