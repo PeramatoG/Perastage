@@ -925,6 +925,12 @@ bool Viewer3DController::GetFixtureLabelAt(int mouseX, int mouseY,
 
     const auto& fixtures = SceneDataManager::Instance().GetFixtures();
 
+    bool found = false;
+    double bestDepth = DBL_MAX;
+    wxString bestLabel;
+    wxPoint bestPos;
+    std::string bestUuid;
+
     for (const auto& [uuid, f] : fixtures) {
         auto bit = m_fixtureBounds.find(uuid);
         if (bit == m_fixtureBounds.end())
@@ -943,33 +949,51 @@ bool Viewer3DController::GetFixtureLabelAt(int mouseX, int mouseY,
         };
 
         ScreenRect rect;
+        double minDepth = DBL_MAX;
+        bool visible = false;
         for (const auto& c : corners) {
             double sx, sy, sz;
-            if (gluProject(c[0], c[1], c[2], model, proj, viewport, &sx, &sy, &sz) == GL_TRUE) {
+            if (gluProject(c[0], c[1], c[2], model, proj, viewport,
+                           &sx, &sy, &sz) == GL_TRUE) {
                 rect.minX = std::min(rect.minX, sx);
                 rect.maxX = std::max(rect.maxX, sx);
                 double sy2 = height - sy;
                 rect.minY = std::min(rect.minY, sy2);
                 rect.maxY = std::max(rect.maxY, sy2);
+                if (sz >= 0.0 && sz <= 1.0) {
+                    visible = true;
+                    minDepth = std::min(minDepth, sz);
+                }
             }
         }
 
+        if (!visible)
+            continue;
+
         if (mouseX >= rect.minX && mouseX <= rect.maxX &&
             mouseY >= rect.minY && mouseY <= rect.maxY) {
-            outPos.x = static_cast<int>((rect.minX + rect.maxX) * 0.5);
-            outPos.y = static_cast<int>((rect.minY + rect.maxY) * 0.5);
-            wxString label = f.name.empty() ? wxString::FromUTF8(uuid)
+            if (minDepth < bestDepth) {
+                bestDepth = minDepth;
+                bestPos.x = static_cast<int>((rect.minX + rect.maxX) * 0.5);
+                bestPos.y = static_cast<int>((rect.minY + rect.maxY) * 0.5);
+                bestLabel = f.name.empty() ? wxString::FromUTF8(uuid)
                                            : wxString::FromUTF8(f.name);
-            label += "\nID: " + wxString::Format("%d", f.fixtureId);
-            if (!f.address.empty())
-                label += "\n" + wxString::FromUTF8(f.address);
-            outLabel = label;
-            if (outUuid)
-                *outUuid = uuid;
-            return true;
+                bestLabel += "\nID: " + wxString::Format("%d", f.fixtureId);
+                if (!f.address.empty())
+                    bestLabel += "\n" + wxString::FromUTF8(f.address);
+                bestUuid = uuid;
+                found = true;
+            }
         }
     }
-    return false;
+
+    if (found) {
+        outPos = bestPos;
+        outLabel = bestLabel;
+        if (outUuid)
+            *outUuid = bestUuid;
+    }
+    return found;
 }
 
 void Viewer3DController::DrawTrussLabels(int width, int height)
@@ -1068,6 +1092,11 @@ bool Viewer3DController::GetTrussLabelAt(int mouseX, int mouseY,
     glGetIntegerv(GL_VIEWPORT, viewport);
 
     const auto& trusses = SceneDataManager::Instance().GetTrusses();
+    bool found = false;
+    double bestDepth = DBL_MAX;
+    wxString bestLabel;
+    wxPoint bestPos;
+    std::string bestUuid;
     for (const auto& [uuid, t] : trusses) {
         auto bit = m_trussBounds.find(uuid);
         if (bit == m_trussBounds.end())
@@ -1086,30 +1115,48 @@ bool Viewer3DController::GetTrussLabelAt(int mouseX, int mouseY,
         };
 
         ScreenRect rect;
+        double minDepth = DBL_MAX;
+        bool visible = false;
         for (const auto& c : corners) {
             double sx, sy, sz;
-            if (gluProject(c[0], c[1], c[2], model, proj, viewport, &sx, &sy, &sz) == GL_TRUE) {
+            if (gluProject(c[0], c[1], c[2], model, proj, viewport,
+                           &sx, &sy, &sz) == GL_TRUE) {
                 rect.minX = std::min(rect.minX, sx);
                 rect.maxX = std::max(rect.maxX, sx);
                 double sy2 = height - sy;
                 rect.minY = std::min(rect.minY, sy2);
                 rect.maxY = std::max(rect.maxY, sy2);
+                if (sz >= 0.0 && sz <= 1.0) {
+                    visible = true;
+                    minDepth = std::min(minDepth, sz);
+                }
             }
         }
 
+        if (!visible)
+            continue;
+
         if (mouseX >= rect.minX && mouseX <= rect.maxX &&
             mouseY >= rect.minY && mouseY <= rect.maxY) {
-            outPos.x = static_cast<int>((rect.minX + rect.maxX) * 0.5);
-            outPos.y = static_cast<int>((rect.minY + rect.maxY) * 0.5);
-            wxString label = t.name.empty() ? wxString::FromUTF8(uuid)
+            if (minDepth < bestDepth) {
+                bestDepth = minDepth;
+                bestPos.x = static_cast<int>((rect.minX + rect.maxX) * 0.5);
+                bestPos.y = static_cast<int>((rect.minY + rect.maxY) * 0.5);
+                bestLabel = t.name.empty() ? wxString::FromUTF8(uuid)
                                            : wxString::FromUTF8(t.name);
-            outLabel = label;
-            if (outUuid)
-                *outUuid = uuid;
-            return true;
+                bestUuid = uuid;
+                found = true;
+            }
         }
     }
-    return false;
+
+    if (found) {
+        outPos = bestPos;
+        outLabel = bestLabel;
+        if (outUuid)
+            *outUuid = bestUuid;
+    }
+    return found;
 }
 
 bool Viewer3DController::GetSceneObjectLabelAt(int mouseX, int mouseY,
@@ -1125,6 +1172,11 @@ bool Viewer3DController::GetSceneObjectLabelAt(int mouseX, int mouseY,
     glGetIntegerv(GL_VIEWPORT, viewport);
 
     const auto& objs = SceneDataManager::Instance().GetSceneObjects();
+    bool found = false;
+    double bestDepth = DBL_MAX;
+    wxString bestLabel;
+    wxPoint bestPos;
+    std::string bestUuid;
     for (const auto& [uuid, o] : objs) {
         auto bit = m_objectBounds.find(uuid);
         if (bit == m_objectBounds.end())
@@ -1143,29 +1195,47 @@ bool Viewer3DController::GetSceneObjectLabelAt(int mouseX, int mouseY,
         };
 
         ScreenRect rect;
+        double minDepth = DBL_MAX;
+        bool visible = false;
         for (const auto& c : corners) {
             double sx, sy, sz;
-            if (gluProject(c[0], c[1], c[2], model, proj, viewport, &sx, &sy, &sz) == GL_TRUE) {
+            if (gluProject(c[0], c[1], c[2], model, proj, viewport,
+                           &sx, &sy, &sz) == GL_TRUE) {
                 rect.minX = std::min(rect.minX, sx);
                 rect.maxX = std::max(rect.maxX, sx);
                 double sy2 = height - sy;
                 rect.minY = std::min(rect.minY, sy2);
                 rect.maxY = std::max(rect.maxY, sy2);
+                if (sz >= 0.0 && sz <= 1.0) {
+                    visible = true;
+                    minDepth = std::min(minDepth, sz);
+                }
             }
         }
 
+        if (!visible)
+            continue;
+
         if (mouseX >= rect.minX && mouseX <= rect.maxX &&
             mouseY >= rect.minY && mouseY <= rect.maxY) {
-            outPos.x = static_cast<int>((rect.minX + rect.maxX) * 0.5);
-            outPos.y = static_cast<int>((rect.minY + rect.maxY) * 0.5);
-            wxString label = o.name.empty() ? wxString::FromUTF8(uuid)
+            if (minDepth < bestDepth) {
+                bestDepth = minDepth;
+                bestPos.x = static_cast<int>((rect.minX + rect.maxX) * 0.5);
+                bestPos.y = static_cast<int>((rect.minY + rect.maxY) * 0.5);
+                bestLabel = o.name.empty() ? wxString::FromUTF8(uuid)
                                            : wxString::FromUTF8(o.name);
-            outLabel = label;
-            if (outUuid)
-                *outUuid = uuid;
-            return true;
+                bestUuid = uuid;
+                found = true;
+            }
         }
     }
-    return false;
+
+    if (found) {
+        outPos = bestPos;
+        outLabel = bestLabel;
+        if (outUuid)
+            *outUuid = bestUuid;
+    }
+    return found;
 }
 
