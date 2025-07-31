@@ -3,6 +3,7 @@
 #include <string>
 #include <unordered_map>
 #include <optional>
+#include <vector>
 #include "mvrscene.h"
 
 // Singleton to manage configuration and MVR scene data globally
@@ -50,6 +51,14 @@ public:
     // Clear everything (scene + config)
     void Reset();
 
+    // --- Undo/Redo support ---
+    void PushUndoState();
+    bool CanUndo() const;
+    bool CanRedo() const;
+    void Undo();
+    void Redo();
+    void ClearHistory();
+
 private:
     ConfigManager();
     ConfigManager(const ConfigManager&) = delete;
@@ -58,4 +67,7 @@ private:
     std::unordered_map<std::string, std::string> configData;
     std::unordered_map<std::string, VariableInfo> variables;
     MvrScene scene;
+    std::vector<MvrScene> undoStack;
+    std::vector<MvrScene> redoStack;
+    size_t maxHistory = 20;
 };
