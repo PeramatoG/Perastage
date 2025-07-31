@@ -56,6 +56,7 @@ private:
 
     void OnUndo(wxCommandEvent& event);            // Undo action placeholder
     void OnRedo(wxCommandEvent& event);            // Redo action placeholder
+    void OnAddFixture(wxCommandEvent& event);      // Add fixture from GDTF
     void OnDelete(wxCommandEvent& event);          // Delete selected items
 
     void SaveCameraSettings();
@@ -84,5 +85,6 @@ enum
     ID_Select_Objects,
     ID_Edit_Undo,
     ID_Edit_Redo,
+    ID_Edit_AddFixture,
     ID_Edit_Delete
 };
