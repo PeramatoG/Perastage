@@ -131,25 +131,40 @@ static void DrawText2D(NVGcontext* vg, int font, const std::string& text, int x,
     // Center text for multiline labels
     nvgTextAlign(vg, NVG_ALIGN_CENTER | NVG_ALIGN_MIDDLE);
 
-    // Compute bounds taking into account explicit line breaks.
-    // Use a very large width to avoid automatic wrapping so that
-    // only '\n' characters trigger a new line.
-    float bounds[4];
-    nvgTextBoxBounds(vg, (float)x, (float)y, 1000.0f,
-                     text.c_str(), nullptr, bounds);
-    float textWidth = bounds[2] - bounds[0];
-    float textHeight = bounds[3] - bounds[1];
+    // Determine the width and height based on the actual text content so the
+    // background box tightly fits the rendered label. We measure each line
+    // separately to avoid the fixed width imposed by nvgTextBoxBounds.
+    float lineHeight = 0.0f;
+    nvgTextMetrics(vg, nullptr, nullptr, &lineHeight);
+
+    float textWidth = 0.0f;
+    size_t start = 0;
+    while (start <= text.size()) {
+        size_t end = text.find('\n', start);
+        std::string line = text.substr(start, end - start);
+        float lb[4];
+        nvgTextBounds(vg, 0.f, 0.f, line.c_str(), nullptr, lb);
+        textWidth = std::max(textWidth, lb[2] - lb[0]);
+        if (end == std::string::npos)
+            break;
+        start = end + 1;
+    }
+    int lineCount = 1 + std::count(text.begin(), text.end(), '\n');
+    float textHeight = lineHeight * lineCount;
     const int padding = 4;
 
+    float left = x - textWidth * 0.5f;
+    float top  = y - textHeight * 0.5f;
+
     nvgBeginPath(vg);
-    nvgRect(vg, bounds[0] - padding, bounds[1] - padding,
+    nvgRect(vg, left - padding, top - padding,
                  textWidth + padding * 2,
                  textHeight + padding * 2);
     nvgFillColor(vg, nvgRGBAf(0.f, 0.f, 0.f, 0.6f));
     nvgFill(vg);
 
     nvgBeginPath(vg);
-    nvgRect(vg, bounds[0] - padding, bounds[1] - padding,
+    nvgRect(vg, left - padding, top - padding,
                  textWidth + padding * 2,
                  textHeight + padding * 2);
     nvgStrokeColor(vg, nvgRGBAf(1.f, 1.f, 1.f, 0.8f));
