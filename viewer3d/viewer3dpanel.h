@@ -84,6 +84,9 @@ private:
     // True when the mouse moved since the last paint
     bool m_mouseMoved = false;
 
+    // True once OpenGL/GLEW initialization has been performed
+    bool m_glInitialized = false;
+
     Viewer3DController m_controller;
 
     std::atomic<bool> m_threadRunning{false};

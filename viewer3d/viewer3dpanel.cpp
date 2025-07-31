@@ -9,6 +9,7 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #endif
+#include <GL/glew.h>
 #include <GL/gl.h>
 #include <GL/glu.h>
 
@@ -21,6 +22,7 @@
 #include "fixturepatchdialog.h"
 #include <wx/dcclient.h>
 #include <wx/event.h>
+#include <wx/log.h>
 #include <chrono>
 
 wxDEFINE_EVENT(wxEVT_VIEWER_REFRESH, wxThreadEvent);
@@ -62,6 +64,17 @@ Viewer3DPanel::~Viewer3DPanel()
 void Viewer3DPanel::InitGL()
 {
     SetCurrent(*m_glContext);
+    if (!m_glInitialized) {
+        glewExperimental = GL_TRUE;
+        GLenum err = glewInit();
+        if (err != GLEW_OK) {
+            wxLogError("GLEW initialization failed: %s",
+                       reinterpret_cast<const char*>(glewGetErrorString(err)));
+        }
+        m_controller.InitializeGL();
+        m_glInitialized = true;
+    }
+
     glEnable(GL_DEPTH_TEST);
     glClearColor(0.08f, 0.08f, 0.08f, 1.0f);
 }
