@@ -22,3 +22,8 @@ struct GdtfModelInfo {
 
 // Loads the models defined in a GDTF file. Returns true on success.
 bool LoadGdtf(const std::string& gdtfPath, std::vector<GdtfObject>& outObjects);
+
+// Returns the number of DMX channels used by the given mode in a GDTF file.
+// Returns -1 when the mode cannot be found or the file cannot be parsed.
+int GetGdtfModeChannelCount(const std::string& gdtfPath,
+                            const std::string& modeName);
