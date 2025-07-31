@@ -38,4 +38,5 @@ private:
     void OnMouseMove(wxMouseEvent& evt);
     void OnSelectionChanged(wxDataViewEvent& evt);
     void UpdateSceneData();
+    void ApplyModeForGdtf(const wxString& path);
 };
