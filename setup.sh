@@ -21,7 +21,7 @@ cd vcpkg
 cd ..
 
 # Install required libraries using vcpkg
-./vcpkg/vcpkg install wxwidgets:x64-linux tinyxml2:x64-linux opengl
+./vcpkg/vcpkg install wxwidgets:x64-linux tinyxml2:x64-linux opengl nanovg:x64-linux
 
 # Create build directory and configure the project with CMake
 mkdir -p build

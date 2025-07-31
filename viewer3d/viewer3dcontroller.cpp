@@ -13,7 +13,12 @@
 #include "types.h"
 #include "consolepanel.h"
 #include <wx/wx.h>
-#include "stb_easy_font.h"
+#include <GL/glew.h>
+#include <GL/gl.h>
+#include <GL/glu.h>
+#define NANOVG_GL2_IMPLEMENTATION
+#include <nanovg.h>
+#include <nanovg_gl.h>
 #include <algorithm>
 #include <filesystem>
 #include <cfloat>
@@ -26,13 +31,11 @@ namespace fs = std::filesystem;
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #endif
-#include <GL/gl.h>
-#include <GL/glu.h>
 #include <iostream>
 #include <cmath>
 
-// Scale factor for on-screen labels drawn with stb_easy_font
-static constexpr float LABEL_SCALE = 1.5f;
+// Font size for on-screen labels drawn with NanoVG
+static constexpr float LABEL_FONT_SIZE = 18.0f;
 static std::string FindFileRecursive(const std::string& baseDir,
                                      const std::string& fileName)
 {
@@ -112,67 +115,44 @@ struct ScreenRect {
     double maxY = -DBL_MAX;
 };
 
-// Draws a text string at screen coordinates using OpenGL and stb_easy_font
-static void DrawText2D(const std::string& text, int x, int y)
+// Draws a text string at screen coordinates using NanoVG
+static void DrawText2D(NVGcontext* vg, int font, const std::string& text, int x, int y)
 {
-    if (text.empty())
+    if (!vg || font < 0 || text.empty())
         return;
 
     GLint vp[4];
     glGetIntegerv(GL_VIEWPORT, vp);
 
-    glMatrixMode(GL_PROJECTION);
-    glPushMatrix();
-    glLoadIdentity();
-    glOrtho(0, vp[2], vp[3], 0, -1, 1);
-    glMatrixMode(GL_MODELVIEW);
-    glPushMatrix();
-    glLoadIdentity();
-    // Enlarge labels by scaling around their anchor point
-    glTranslatef(static_cast<float>(x), static_cast<float>(y), 0.0f);
-    glScalef(LABEL_SCALE, LABEL_SCALE, 1.0f);
-    glTranslatef(-static_cast<float>(x), -static_cast<float>(y), 0.0f);
+    nvgBeginFrame(vg, vp[2], vp[3], 1.0f);
+    nvgSave(vg);
+    nvgFontSize(vg, LABEL_FONT_SIZE);
+    nvgFontFaceId(vg, font);
+    nvgTextAlign(vg, NVG_ALIGN_LEFT | NVG_ALIGN_TOP);
 
-    glDisable(GL_DEPTH_TEST);
-    glDisable(GL_LIGHTING);
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-    int tw = stb_easy_font_width((char*)text.c_str());
-    int th = stb_easy_font_height((char*)text.c_str());
+    float bounds[4];
+    nvgTextBounds(vg, (float)x, (float)y, text.c_str(), nullptr, bounds);
     const int padding = 4;
 
-    glColor4f(0.f, 0.f, 0.f, 0.6f);
-    glBegin(GL_QUADS);
-    glVertex2i(x - padding, y - padding);
-    glVertex2i(x + tw + padding, y - padding);
-    glVertex2i(x + tw + padding, y + th + padding);
-    glVertex2i(x - padding, y + th + padding);
-    glEnd();
+    nvgBeginPath(vg);
+    nvgRect(vg, bounds[0] - padding, bounds[1] - padding,
+                 (bounds[2] - bounds[0]) + padding * 2,
+                 (bounds[3] - bounds[1]) + padding * 2);
+    nvgFillColor(vg, nvgRGBAf(0.f, 0.f, 0.f, 0.6f));
+    nvgFill(vg);
 
-    glColor4f(1.f, 1.f, 1.f, 0.8f);
-    glBegin(GL_LINE_LOOP);
-    glVertex2i(x - padding, y - padding);
-    glVertex2i(x + tw + padding, y - padding);
-    glVertex2i(x + tw + padding, y + th + padding);
-    glVertex2i(x - padding, y + th + padding);
-    glEnd();
+    nvgBeginPath(vg);
+    nvgRect(vg, bounds[0] - padding, bounds[1] - padding,
+                 (bounds[2] - bounds[0]) + padding * 2,
+                 (bounds[3] - bounds[1]) + padding * 2);
+    nvgStrokeColor(vg, nvgRGBAf(1.f, 1.f, 1.f, 0.8f));
+    nvgStrokeWidth(vg, 1.0f);
+    nvgStroke(vg);
 
-    char buf[99999];
-    int count = stb_easy_font_print((float)x, (float)y, (char*)text.c_str(), NULL, buf, sizeof(buf));
-    glColor3f(1.f, 1.f, 1.f);
-    glEnableClientState(GL_VERTEX_ARRAY);
-    glVertexPointer(2, GL_FLOAT, 16, buf);
-    glDrawArrays(GL_QUADS, 0, count * 4);
-    glDisableClientState(GL_VERTEX_ARRAY);
-
-    glDisable(GL_BLEND);
-    glEnable(GL_DEPTH_TEST);
-
-    glPopMatrix();
-    glMatrixMode(GL_PROJECTION);
-    glPopMatrix();
-    glMatrixMode(GL_MODELVIEW);
+    nvgFillColor(vg, nvgRGBAf(1.f, 1.f, 1.f, 1.f));
+    nvgText(vg, (float)x, (float)y, text.c_str(), nullptr);
+    nvgRestore(vg);
+    nvgEndFrame(vg);
 }
 
 static std::array<float,3> TransformPoint(const Matrix& m, const std::array<float,3>& p)
@@ -184,9 +164,34 @@ static std::array<float,3> TransformPoint(const Matrix& m, const std::array<floa
     };
 }
 
-Viewer3DController::Viewer3DController() {}
+Viewer3DController::Viewer3DController() {
+    m_vg = nvgCreateGL2(NVG_ANTIALIAS | NVG_STENCIL_STROKES);
+    if (m_vg) {
+        const char* fontPaths[] = {
+#ifdef _WIN32
+            "C:/Windows/Fonts/arial.ttf",
+#endif
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+            nullptr
+        };
+        for (const char** p = fontPaths; *p; ++p) {
+            if (fs::exists(*p)) {
+                m_font = nvgCreateFont(m_vg, "sans", *p);
+                if (m_font >= 0)
+                    break;
+            }
+        }
+        if (m_font < 0)
+            std::cerr << "Failed to load font for labels" << std::endl;
+    } else {
+        std::cerr << "Failed to create NanoVG context" << std::endl;
+    }
+}
 
-Viewer3DController::~Viewer3DController() {}
+Viewer3DController::~Viewer3DController() {
+    if (m_vg)
+        nvgDeleteGL2(m_vg);
+}
 
 void Viewer3DController::SetHighlightUuid(const std::string& uuid) {
     m_highlightUuid = uuid;
@@ -902,7 +907,7 @@ void Viewer3DController::DrawFixtureLabels(int width, int height)
         if (!f.address.empty())
             label += "\n" + wxString::FromUTF8(f.address);
 
-        DrawText2D(std::string(label.mb_str()), x, y);
+        DrawText2D(m_vg, m_font, std::string(label.mb_str()), x, y);
     }
 }
 
@@ -1004,7 +1009,7 @@ void Viewer3DController::DrawTrussLabels(int width, int height)
         wxString label = t.name.empty() ? wxString::FromUTF8(uuid)
                                        : wxString::FromUTF8(t.name);
 
-        DrawText2D(std::string(label.mb_str()), x, y);
+        DrawText2D(m_vg, m_font, std::string(label.mb_str()), x, y);
     }
 
 }
@@ -1046,7 +1051,7 @@ void Viewer3DController::DrawSceneObjectLabels(int width, int height)
         wxString label = o.name.empty() ? wxString::FromUTF8(uuid)
                                        : wxString::FromUTF8(o.name);
 
-        DrawText2D(std::string(label.mb_str()), x, y);
+        DrawText2D(m_vg, m_font, std::string(label.mb_str()), x, y);
     }
 }
 
