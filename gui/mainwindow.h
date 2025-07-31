@@ -50,6 +50,9 @@ private:
     void OnToggleViewport(wxCommandEvent& event);  // Toggle 3D viewport
     void OnShowHelp(wxCommandEvent& event);        // Show help dialog
     void OnShowAbout(wxCommandEvent& event);       // Show about dialog
+    void OnSelectFixtures(wxCommandEvent& event);  // Switch to fixtures tab
+    void OnSelectTrusses(wxCommandEvent& event);   // Switch to trusses tab
+    void OnSelectObjects(wxCommandEvent& event);   // Switch to objects tab
 
     void SaveCameraSettings();
 
@@ -71,5 +74,8 @@ enum
     ID_View_ToggleViewport,
     ID_Tools_DownloadGdtf,
     ID_Help_Help,
-    ID_Help_About
+    ID_Help_About,
+    ID_Select_Fixtures,
+    ID_Select_Trusses,
+    ID_Select_Objects
 };
