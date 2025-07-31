@@ -7,6 +7,7 @@
 
 #include "viewer3dcamera.h"
 #include <cmath>
+#include <algorithm>
 
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
@@ -59,8 +60,12 @@ void Viewer3DCamera::Orbit(float deltaYaw, float deltaPitch)
 // Adjusts distance
 void Viewer3DCamera::Zoom(float deltaSteps)
 {
-    // Use exponential zoom scale for better control
-    float factor = std::pow(1.1f, deltaSteps); // 10% per step
+    // Use exponential zoom scale. Increase sensitivity when the camera
+    // is far from the target so wheel scrolling covers large distances
+    // more quickly.
+    float base = 1.1f + 0.1f *
+                 std::clamp(distance / 200.0f, 0.0f, 1.0f);
+    float factor = std::pow(base, deltaSteps);
     distance *= factor;
 
     if (distance < minDistance) distance = minDistance;
