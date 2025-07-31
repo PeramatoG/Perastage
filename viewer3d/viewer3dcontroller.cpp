@@ -31,6 +31,8 @@ namespace fs = std::filesystem;
 #include <iostream>
 #include <cmath>
 
+// Scale factor for on-screen labels drawn with stb_easy_font
+static constexpr float LABEL_SCALE = 1.5f;
 static std::string FindFileRecursive(const std::string& baseDir,
                                      const std::string& fileName)
 {
@@ -126,6 +128,10 @@ static void DrawText2D(const std::string& text, int x, int y)
     glMatrixMode(GL_MODELVIEW);
     glPushMatrix();
     glLoadIdentity();
+    // Enlarge labels by scaling around their anchor point
+    glTranslatef(static_cast<float>(x), static_cast<float>(y), 0.0f);
+    glScalef(LABEL_SCALE, LABEL_SCALE, 1.0f);
+    glTranslatef(-static_cast<float>(x), -static_cast<float>(y), 0.0f);
 
     glDisable(GL_DEPTH_TEST);
     glDisable(GL_LIGHTING);
