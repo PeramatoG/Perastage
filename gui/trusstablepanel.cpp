@@ -44,10 +44,10 @@ TrussTablePanel::~TrussTablePanel()
 
 void TrussTablePanel::InitializeTable()
 {
-    columnLabels = {"Name", "Layer", "Model File",
+    columnLabels = {"Name", "Layer", "Model File", "Hang Pos",
                     "Pos X", "Pos Y", "Pos Z",
                     "Rot X", "Rot Y", "Rot Z"};
-    std::vector<int> widths = {150, 100, 180,
+    std::vector<int> widths = {150, 100, 180, 120,
                                80, 80, 80,
                                80, 80, 80};
     for (size_t i = 0; i < columnLabels.size(); ++i)
@@ -83,6 +83,8 @@ void TrussTablePanel::ReloadData()
         row.push_back(name);
         row.push_back(layer);
         row.push_back(model);
+        wxString posName = wxString::FromUTF8(truss.positionName);
+        row.push_back(posName);
         row.push_back(posX);
         row.push_back(posY);
         row.push_back(posZ);
@@ -122,7 +124,7 @@ void TrussTablePanel::OnContextMenu(wxDataViewEvent& event)
 
     wxString value = dlg.GetValue().Trim(true).Trim(false);
 
-    bool numericCol = (col >= 3);
+    bool numericCol = (col >= 4);
 
     if (numericCol)
     {
@@ -157,7 +159,7 @@ void TrussTablePanel::OnContextMenu(wxDataViewEvent& event)
                 val = v1 + (v2 - v1) * i / (selections.size() - 1);
 
             wxString out;
-            if (col >= 6)
+            if (col >= 7)
                 out = wxString::Format("%.1f\u00B0", val);
             else
                 out = wxString::Format("%.3f", val);
@@ -264,9 +266,9 @@ void TrussTablePanel::UpdateSceneData()
 
         wxVariant v;
         double x=0, y=0, z=0;
-        table->GetValue(v, i, 3); v.GetString().ToDouble(&x);
-        table->GetValue(v, i, 4); v.GetString().ToDouble(&y);
-        table->GetValue(v, i, 5); v.GetString().ToDouble(&z);
+        table->GetValue(v, i, 4); v.GetString().ToDouble(&x);
+        table->GetValue(v, i, 5); v.GetString().ToDouble(&y);
+        table->GetValue(v, i, 6); v.GetString().ToDouble(&z);
         it->second.transform.o = {static_cast<float>(x * 1000.0),
                                   static_cast<float>(y * 1000.0),
                                   static_cast<float>(z * 1000.0)};

@@ -5,6 +5,9 @@ Perastage is a cross-platform viewer for **MVR** (My Virtual Rig) scenes based o
 objects in a 3D viewport and provides table views of all parsed elements.
 Perastage soporta modelos 3D en formatos **3DS** y **GLB** cuando se
 referencian dentro de archivos MVR o GDTF.
+Las posiciones de colgado (Hang Positions) definidas en los nodos
+`<Position>` de MVR se importan y se muestran en las tablas de
+fixtures y trusses.
 
 ## Build prerequisites
 

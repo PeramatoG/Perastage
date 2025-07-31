@@ -154,6 +154,7 @@ bool MvrExporter::ExportToFile(const std::string& filePath)
             if(!t.gdtfSpec.empty()) { tinyxml2::XMLElement* e=doc.NewElement("GDTFSpec"); e->SetText(t.gdtfSpec.c_str()); te->InsertEndChild(e); resourceFiles.insert(t.gdtfSpec); }
             if(!t.gdtfMode.empty()) { tinyxml2::XMLElement* e=doc.NewElement("GDTFMode"); e->SetText(t.gdtfMode.c_str()); te->InsertEndChild(e); }
             if(!t.function.empty()) { tinyxml2::XMLElement* e=doc.NewElement("Function"); e->SetText(t.function.c_str()); te->InsertEndChild(e); }
+            if(!t.position.empty()) { tinyxml2::XMLElement* e=doc.NewElement("Position"); e->SetText(t.position.c_str()); te->InsertEndChild(e); }
 
             if(!t.symbolFile.empty()) {
                 tinyxml2::XMLElement* geos = doc.NewElement("Geometries");
