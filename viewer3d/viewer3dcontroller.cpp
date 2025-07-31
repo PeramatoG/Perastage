@@ -131,8 +131,12 @@ static void DrawText2D(NVGcontext* vg, int font, const std::string& text, int x,
     // Center text for multiline labels
     nvgTextAlign(vg, NVG_ALIGN_CENTER | NVG_ALIGN_MIDDLE);
 
+    // Compute bounds taking into account explicit line breaks.
+    // Use a very large width to avoid automatic wrapping so that
+    // only '\n' characters trigger a new line.
     float bounds[4];
-    nvgTextBounds(vg, (float)x, (float)y, text.c_str(), nullptr, bounds);
+    nvgTextBoxBounds(vg, (float)x, (float)y, 1000.0f,
+                     text.c_str(), nullptr, bounds);
     const int padding = 4;
 
     nvgBeginPath(vg);
@@ -151,7 +155,10 @@ static void DrawText2D(NVGcontext* vg, int font, const std::string& text, int x,
     nvgStroke(vg);
 
     nvgFillColor(vg, nvgRGBAf(1.f, 1.f, 1.f, 1.f));
-    nvgText(vg, (float)x, (float)y, text.c_str(), nullptr);
+    // Draw multi-line label using the same large width to honour
+    // explicit newlines.
+    nvgTextBox(vg, (float)x, (float)y, 1000.0f,
+               text.c_str(), nullptr);
     nvgRestore(vg);
     nvgEndFrame(vg);
 }
