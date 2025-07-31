@@ -278,6 +278,8 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent& event)
                     table->SetValue(wxVariant(name), i, col);
                 }
             }
+
+            ApplyModeForGdtf(path);
         }
         UpdateSceneData();
         if (Viewer3DPanel::Instance()) {
@@ -644,6 +646,60 @@ void FixtureTablePanel::UpdateSceneData()
         it->second.transform.o = {static_cast<float>(x * 1000.0),
                                   static_cast<float>(y * 1000.0),
                                   static_cast<float>(z * 1000.0)};
+    }
+}
+
+void FixtureTablePanel::ApplyModeForGdtf(const wxString& path)
+{
+    if (path.empty())
+        return;
+
+    std::vector<std::string> modes = GetGdtfModes(path.ToStdString());
+    if (modes.empty())
+        return;
+
+    auto toLower = [](const std::string& s) {
+        std::string out(s);
+        std::transform(out.begin(), out.end(), out.begin(),
+                       [](unsigned char c) { return std::tolower(c); });
+        return out;
+    };
+
+    for (size_t i = 0; i < gdtfPaths.size() && i < (size_t)table->GetItemCount(); ++i)
+    {
+        if (gdtfPaths[i] != path)
+            continue;
+
+        wxVariant v;
+        table->GetValue(v, i, 6);
+        wxString currWx = v.GetString();
+        std::string curr = std::string(currWx.mb_str());
+
+        std::string chosen = curr;
+        bool found = std::find(modes.begin(), modes.end(), curr) != modes.end();
+        if (!found)
+        {
+            for (const std::string& m : modes)
+            {
+                std::string low = toLower(m);
+                if (low == "default" || low == "standard")
+                {
+                    chosen = m;
+                    found = true;
+                    break;
+                }
+            }
+            if (!found)
+                chosen = modes.front();
+        }
+
+        if (chosen != curr)
+            table->SetValue(wxVariant(wxString::FromUTF8(chosen)), i, 6);
+
+        int chCount = GetGdtfModeChannelCount(path.ToStdString(), chosen);
+        wxString chStr = chCount >= 0 ? wxString::Format("%d", chCount)
+                                      : wxString();
+        table->SetValue(wxVariant(chStr), i, 7);
     }
 }
 
