@@ -54,6 +54,10 @@ private:
     void OnSelectTrusses(wxCommandEvent& event);   // Switch to trusses tab
     void OnSelectObjects(wxCommandEvent& event);   // Switch to objects tab
 
+    void OnUndo(wxCommandEvent& event);            // Undo action placeholder
+    void OnRedo(wxCommandEvent& event);            // Redo action placeholder
+    void OnDelete(wxCommandEvent& event);          // Delete selected items
+
     void SaveCameraSettings();
 
     wxDECLARE_EVENT_TABLE();
@@ -77,5 +81,8 @@ enum
     ID_Help_About,
     ID_Select_Fixtures,
     ID_Select_Trusses,
-    ID_Select_Objects
+    ID_Select_Objects,
+    ID_Edit_Undo,
+    ID_Edit_Redo,
+    ID_Edit_Delete
 };

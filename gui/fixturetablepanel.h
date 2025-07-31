@@ -16,6 +16,7 @@ public:
     void HighlightFixture(const std::string& uuid);
     void ClearSelection();
     bool IsActivePage() const;
+    void DeleteSelected();
 
     static FixtureTablePanel* Instance();
     static void SetInstance(FixtureTablePanel* panel);
