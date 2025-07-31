@@ -5,8 +5,15 @@
 class ColorfulDataViewListStore : public wxDataViewListStore {
 public:
     std::vector<wxDataViewItemAttr> rowAttrs;
+    std::vector<std::vector<wxDataViewItemAttr>> cellAttrs;
 
     bool GetAttrByRow(unsigned row, unsigned col, wxDataViewItemAttr& attr) const override {
+        if (row < cellAttrs.size() && col < cellAttrs[row].size() &&
+            !cellAttrs[row][col].IsDefault()) {
+            attr = cellAttrs[row][col];
+            return true;
+        }
+
         if (row < rowAttrs.size() && !rowAttrs[row].IsDefault()) {
             attr = rowAttrs[row];
             return true;
@@ -17,27 +24,33 @@ public:
     void AppendItem(const wxVector<wxVariant>& values, wxUIntPtr data = 0) {
         wxDataViewListStore::AppendItem(values, data);
         rowAttrs.emplace_back();
+        cellAttrs.emplace_back();
     }
 
     void PrependItem(const wxVector<wxVariant>& values, wxUIntPtr data = 0) {
         wxDataViewListStore::PrependItem(values, data);
         rowAttrs.insert(rowAttrs.begin(), wxDataViewItemAttr());
+        cellAttrs.insert(cellAttrs.begin(), std::vector<wxDataViewItemAttr>());
     }
 
     void InsertItem(unsigned row, const wxVector<wxVariant>& values, wxUIntPtr data = 0) {
         wxDataViewListStore::InsertItem(row, values, data);
         rowAttrs.insert(rowAttrs.begin() + row, wxDataViewItemAttr());
+        cellAttrs.insert(cellAttrs.begin() + row, std::vector<wxDataViewItemAttr>());
     }
 
     void DeleteItem(unsigned row) {
         wxDataViewListStore::DeleteItem(row);
         if (row < rowAttrs.size())
             rowAttrs.erase(rowAttrs.begin() + row);
+        if (row < cellAttrs.size())
+            cellAttrs.erase(cellAttrs.begin() + row);
     }
 
     void DeleteAllItems() {
         wxDataViewListStore::DeleteAllItems();
         rowAttrs.clear();
+        cellAttrs.clear();
     }
 
     void SetRowBackgroundColour(unsigned row, const wxColour& colour) {
@@ -78,5 +91,21 @@ public:
                 rowAttrs[row].SetBackgroundColour(bg);
             RowChanged(row);
         }
+    }
+
+    void SetCellTextColour(unsigned row, unsigned col, const wxColour& colour) {
+        if (row >= cellAttrs.size())
+            cellAttrs.resize(row + 1);
+        if (col >= cellAttrs[row].size())
+            cellAttrs[row].resize(col + 1);
+        cellAttrs[row][col].SetColour(colour);
+        RowChanged(row);
+    }
+
+    void ClearCellTextColour(unsigned row, unsigned col) {
+        if (row >= cellAttrs.size() || col >= cellAttrs[row].size())
+            return;
+        cellAttrs[row][col] = wxDataViewItemAttr();
+        RowChanged(row);
     }
 };
