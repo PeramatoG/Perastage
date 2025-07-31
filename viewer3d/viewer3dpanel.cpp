@@ -271,9 +271,16 @@ void Viewer3DPanel::OnMouseMove(wxMouseEvent& event)
 // Handles mouse wheel (zoom)
 void Viewer3DPanel::OnMouseWheel(wxMouseEvent& event)
 {
+    // wxWidgets may report multiple wheel detents in a single event.
+    // Use the ratio of the rotation to the wheel delta to scale zoom
+    // steps accordingly so that large scrolls result in proportionally
+    // larger zoom changes.
     int rotation = event.GetWheelRotation();
-    float delta = (rotation > 0) ? -1.0f : 1.0f;
-    m_camera.Zoom(delta);
+    int deltaWheel = event.GetWheelDelta();
+    float steps = 0.0f;
+    if (deltaWheel != 0)
+        steps = -static_cast<float>(rotation) / static_cast<float>(deltaWheel);
+    m_camera.Zoom(steps);
     Refresh();
 }
 
