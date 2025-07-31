@@ -107,11 +107,14 @@ void MainWindow::SetupLayout()
 
     // Add notebook on the left so the viewport can occupy
     // the remaining (and larger) central area
+    int halfWidth = GetClientSize().GetWidth() / 2;
+
     auiManager->AddPane(notebook, wxAuiPaneInfo()
         .Name("DataNotebook")
         .Caption("Data Views")
         .Left()
-        .BestSize(700, 600)
+        .BestSize(halfWidth, 600)
+        .MinSize(wxSize(halfWidth, 600))
         .PaneBorder(false)
         .CaptionVisible(true)
         .CloseButton(true)
@@ -128,7 +131,8 @@ void MainWindow::SetupLayout()
         .Dockable(true)
         .CaptionVisible(true)
         .PaneBorder(false)
-        .BestSize(800, 600)
+        .BestSize(halfWidth, 600)
+        .MinSize(wxSize(halfWidth, 600))
         .CloseButton(true)
         .MaximizeButton(true));
 
