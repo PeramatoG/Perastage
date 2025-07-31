@@ -40,6 +40,9 @@ EVT_MENU(ID_View_ToggleViewport, MainWindow::OnToggleViewport)
 EVT_MENU(ID_Tools_DownloadGdtf, MainWindow::OnDownloadGdtf)
 EVT_MENU(ID_Help_Help, MainWindow::OnShowHelp)
 EVT_MENU(ID_Help_About, MainWindow::OnShowAbout)
+EVT_MENU(ID_Select_Fixtures, MainWindow::OnSelectFixtures)
+EVT_MENU(ID_Select_Trusses, MainWindow::OnSelectTrusses)
+EVT_MENU(ID_Select_Objects, MainWindow::OnSelectObjects)
 wxEND_EVENT_TABLE()
 
 MainWindow::MainWindow(const wxString& title)
@@ -143,6 +146,14 @@ void MainWindow::SetupLayout()
 
     // Apply all changes to layout
     auiManager->Update();
+
+    // Keyboard shortcuts to switch notebook pages
+    wxAcceleratorEntry entries[3];
+    entries[0].Set(wxACCEL_NORMAL, (int)'1', ID_Select_Fixtures);
+    entries[1].Set(wxACCEL_NORMAL, (int)'2', ID_Select_Trusses);
+    entries[2].Set(wxACCEL_NORMAL, (int)'3', ID_Select_Objects);
+    wxAcceleratorTable accel(3, entries);
+    SetAcceleratorTable(accel);
 }
 
 void MainWindow::CreateMenuBar()
@@ -556,7 +567,8 @@ void MainWindow::OnShowHelp(wxCommandEvent& WXUNUSED(event))
         "- Shift + Arrow keys: pan\n"
         "- Alt + Up/Down (or Alt + Left/Right): zoom\n"
         "- Numpad 1/3/7: front, right and top views\n"
-        "- Numpad 5: reset orientation";
+        "- Numpad 5: reset orientation\n"
+        "- 1/2/3: show Fixtures, Trusses or Objects tables";
 
     wxMessageBox(helpText, "Perastage Help", wxOK | wxICON_INFORMATION, this);
 }
@@ -594,4 +606,22 @@ void MainWindow::OnShowAbout(wxCommandEvent& WXUNUSED(event))
         info.SetIcon(icon);
 
     wxAboutBox(info, this);
+}
+
+void MainWindow::OnSelectFixtures(wxCommandEvent& WXUNUSED(event))
+{
+    if (notebook)
+        notebook->ChangeSelection(0);
+}
+
+void MainWindow::OnSelectTrusses(wxCommandEvent& WXUNUSED(event))
+{
+    if (notebook)
+        notebook->ChangeSelection(1);
+}
+
+void MainWindow::OnSelectObjects(wxCommandEvent& WXUNUSED(event))
+{
+    if (notebook)
+        notebook->ChangeSelection(2);
 }

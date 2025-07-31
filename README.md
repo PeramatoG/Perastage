@@ -53,3 +53,4 @@ When the mouse pointer is over the 3D viewport you can use the following shortcu
 - **Alt + Up/Down** (or **Alt + Left/Right**): zoom in and out.
 - **Numpad 1/3/7**: front, right and top views.
 - **Numpad 5**: reset to the default orientation.
+- **1/2/3**: show the Fixtures, Trusses or Objects tables.
