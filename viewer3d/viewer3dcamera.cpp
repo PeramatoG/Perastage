@@ -66,10 +66,34 @@ void Viewer3DCamera::Zoom(float deltaSteps)
     float base = 1.1f + 0.1f *
                  std::clamp(distance / 200.0f, 0.0f, 1.0f);
     float factor = std::pow(base, deltaSteps);
-    distance *= factor;
 
-    if (distance < minDistance) distance = minDistance;
-    if (distance > maxDistance) distance = maxDistance;
+    float newDistance = distance * factor;
+
+    if (newDistance < minDistance)
+    {
+        // Continue moving forward once we reach the minimum distance
+        // by translating the target in the viewing direction so that
+        // zooming in keeps advancing the camera.
+        float radYaw = yaw * 3.14159265f / 180.0f;
+        float radPitch = pitch * 3.14159265f / 180.0f;
+
+        float forwardX = -cosf(radPitch) * sinf(radYaw);
+        float forwardY =  cosf(radPitch) * cosf(radYaw);
+        float forwardZ = -sinf(radPitch);
+
+        float overshoot = minDistance - newDistance;
+
+        targetX += overshoot * forwardX;
+        targetY += overshoot * forwardY;
+        targetZ += overshoot * forwardZ;
+
+        distance = minDistance;
+    }
+    else
+    {
+        distance = newDistance;
+        if (distance > maxDistance) distance = maxDistance;
+    }
 }
 
 
