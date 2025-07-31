@@ -165,6 +165,19 @@ static std::array<float,3> TransformPoint(const Matrix& m, const std::array<floa
 }
 
 Viewer3DController::Viewer3DController() {
+    // Actual initialization of OpenGL-dependent resources is delayed
+    // until a valid context is available.
+}
+
+Viewer3DController::~Viewer3DController() {
+    if (m_vg)
+        nvgDeleteGL2(m_vg);
+}
+
+void Viewer3DController::InitializeGL() {
+    if (m_vg)
+        return; // Already initialized
+
     m_vg = nvgCreateGL2(NVG_ANTIALIAS | NVG_STENCIL_STROKES);
     if (m_vg) {
         const char* fontPaths[] = {
@@ -174,6 +187,7 @@ Viewer3DController::Viewer3DController() {
             "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
             nullptr
         };
+
         for (const char** p = fontPaths; *p; ++p) {
             if (fs::exists(*p)) {
                 m_font = nvgCreateFont(m_vg, "sans", *p);
@@ -186,11 +200,6 @@ Viewer3DController::Viewer3DController() {
     } else {
         std::cerr << "Failed to create NanoVG context" << std::endl;
     }
-}
-
-Viewer3DController::~Viewer3DController() {
-    if (m_vg)
-        nvgDeleteGL2(m_vg);
 }
 
 void Viewer3DController::SetHighlightUuid(const std::string& uuid) {

@@ -30,6 +30,9 @@ public:
     Viewer3DController();
     ~Viewer3DController();
 
+    // Initializes OpenGL-dependent resources (NanoVG context, fonts)
+    void InitializeGL();
+
     // Updates the internal logic if needed (e.g. animation, camera)
     void Update();
 
