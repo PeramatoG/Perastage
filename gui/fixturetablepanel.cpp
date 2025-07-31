@@ -312,13 +312,30 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent& event)
             return;
 
         wxString sel = dlg.GetStringSelection();
-        table->SetValue(wxVariant(sel), r, col);
 
-        int chCount = GetGdtfModeChannelCount(gdtfPath.ToStdString(),
-                                              sel.ToStdString());
-        wxString chStr = chCount >= 0 ? wxString::Format("%d", chCount)
-                                      : wxString();
-        table->SetValue(wxVariant(chStr), r, 7);
+        wxDataViewItemArray modeSelections;
+        table->GetSelections(modeSelections);
+        if (modeSelections.empty())
+            modeSelections.push_back(item);
+
+        for (const auto& itSel : modeSelections)
+        {
+            int sr = table->ItemToRow(itSel);
+            if (sr == wxNOT_FOUND)
+                continue;
+            if ((size_t)sr >= gdtfPaths.size())
+                continue;
+            if (gdtfPaths[sr] != gdtfPath)
+                continue;
+
+            table->SetValue(wxVariant(sel), sr, col);
+
+            int chCount = GetGdtfModeChannelCount(gdtfPath.ToStdString(),
+                                                  sel.ToStdString());
+            wxString chStr = chCount >= 0 ? wxString::Format("%d", chCount)
+                                          : wxString();
+            table->SetValue(wxVariant(chStr), sr, 7);
+        }
 
         UpdateSceneData();
         if (Viewer3DPanel::Instance()) {
