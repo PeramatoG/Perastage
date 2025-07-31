@@ -7,6 +7,7 @@
 #include <wx/filename.h>
 #include <wx/filedlg.h>
 #include <wx/filename.h>
+#include <wx/choicdlg.h>
 #include <algorithm>
 #include <wx/settings.h>
 #include <wx/notebook.h>
@@ -268,6 +269,47 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent& event)
                 }
             }
         }
+        UpdateSceneData();
+        if (Viewer3DPanel::Instance()) {
+            Viewer3DPanel::Instance()->UpdateScene();
+            Viewer3DPanel::Instance()->Refresh();
+        }
+        return;
+    }
+
+    // Mode column shows available modes of the selected GDTF
+    if (col == 6)
+    {
+        int r = table->ItemToRow(item);
+        if (r == wxNOT_FOUND)
+            return;
+
+        wxString gdtfPath;
+        if ((size_t)r < gdtfPaths.size())
+            gdtfPath = gdtfPaths[r];
+
+        std::vector<std::string> modes =
+            GetGdtfModes(gdtfPath.ToStdString());
+        if (modes.size() <= 1)
+            return;
+
+        wxArrayString choices;
+        for (const auto& m : modes)
+            choices.push_back(wxString::FromUTF8(m));
+
+        wxSingleChoiceDialog dlg(this, "Select DMX mode", "DMX Mode", choices);
+        if (dlg.ShowModal() != wxID_OK)
+            return;
+
+        wxString sel = dlg.GetStringSelection();
+        table->SetValue(wxVariant(sel), r, col);
+
+        int chCount = GetGdtfModeChannelCount(gdtfPath.ToStdString(),
+                                              sel.ToStdString());
+        wxString chStr = chCount >= 0 ? wxString::Format("%d", chCount)
+                                      : wxString();
+        table->SetValue(wxVariant(chStr), r, 7);
+
         UpdateSceneData();
         if (Viewer3DPanel::Instance()) {
             Viewer3DPanel::Instance()->UpdateScene();

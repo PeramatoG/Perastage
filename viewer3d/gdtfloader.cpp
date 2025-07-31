@@ -357,3 +357,41 @@ int GetGdtfModeChannelCount(const std::string& gdtfPath,
     return -1;
 }
 
+std::vector<std::string> GetGdtfModes(const std::string& gdtfPath)
+{
+    std::vector<std::string> result;
+    if (gdtfPath.empty())
+        return result;
+
+    std::string tempDir = CreateTempDir();
+    if (!ExtractZip(gdtfPath, tempDir))
+        return result;
+
+    std::string descPath = tempDir + "/description.xml";
+    tinyxml2::XMLDocument doc;
+    if (doc.LoadFile(descPath.c_str()) != tinyxml2::XML_SUCCESS)
+        return result;
+
+    tinyxml2::XMLElement* ft = doc.FirstChildElement("GDTF");
+    if (ft)
+        ft = ft->FirstChildElement("FixtureType");
+    else
+        ft = doc.FirstChildElement("FixtureType");
+    if (!ft)
+        return result;
+
+    tinyxml2::XMLElement* modes = ft->FirstChildElement("DMXModes");
+    if (!modes)
+        return result;
+
+    for (tinyxml2::XMLElement* m = modes->FirstChildElement("DMXMode");
+         m; m = m->NextSiblingElement("DMXMode"))
+    {
+        const char* name = m->Attribute("Name");
+        if (name)
+            result.push_back(name);
+    }
+
+    return result;
+}
+
