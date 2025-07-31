@@ -704,76 +704,39 @@ void Viewer3DController::DrawWireframeCube(float size)
     glEnd();
 }
 
-// Draws a colored cube with a black outline
+// Draws a colored cube. If selected or highlighted it is tinted
+// in cyan or green respectively instead of its original color.
 void Viewer3DController::DrawCubeWithOutline(float size, float r, float g,
                                              float b, bool highlight,
                                              bool selected,
                                              float cx, float cy, float cz)
 {
-    // Render a slightly expanded cube in black using front face culling to
-    // mimic a silhouette outline.
-    glEnable(GL_CULL_FACE);
-    glCullFace(GL_FRONT);
-    glPushMatrix();
-    float outlineScale = 1.03f;
-    if (selected)
-        outlineScale = 1.15f;
-    else if (highlight)
-        outlineScale = 1.1f;
+    (void)cx; (void)cy; (void)cz; // parameters no longer used
 
-    // Scale around the provided center offset rather than the object origin
-    glTranslatef(cx, cy, cz);
-    glScalef(outlineScale, outlineScale, outlineScale);
-    glTranslatef(-cx, -cy, -cz);
     if (selected)
         DrawCube(size, 0.0f, 1.0f, 1.0f);
     else if (highlight)
         DrawCube(size, 0.0f, 1.0f, 0.0f);
     else
-        DrawCube(size, 0.0f, 0.0f, 0.0f);
-    glPopMatrix();
-    glCullFace(GL_BACK);
-    glDisable(GL_CULL_FACE);
-
-    // Actual colored cube
-    DrawCube(size, r, g, b);
+        DrawCube(size, r, g, b);
 }
 
-// Draws a mesh with a black outline using the given color
+// Draws a mesh using the given color. When selected or highlighted the
+// mesh is rendered entirely in cyan or green respectively.
 void Viewer3DController::DrawMeshWithOutline(const Mesh& mesh, float r, float g,
                                              float b, float scale, bool highlight,
                                              bool selected,
                                              float cx, float cy, float cz)
 {
-    // Draw the mesh slightly scaled up in black with front face culling to
-    // create a silhouette outline. This avoids drawing all internal triangle
-    // edges in black like a wireframe.
-    glEnable(GL_CULL_FACE);
-    glCullFace(GL_FRONT);
-    glPushMatrix();
-    float outlineScale = 1.03f; // expansion for outline
-    if (selected)
-        outlineScale = 1.15f;
-    else if (highlight)
-        outlineScale = 1.1f;
+    (void)cx; (void)cy; (void)cz; // parameters kept for compatibility
 
-    // Scale around the provided center offset
-    glTranslatef(cx, cy, cz);
-    glScalef(outlineScale, outlineScale, outlineScale);
-    glTranslatef(-cx, -cy, -cz);
     if (selected)
         glColor3f(0.0f, 1.0f, 1.0f);
     else if (highlight)
         glColor3f(0.0f, 1.0f, 0.0f);
     else
-        glColor3f(0.0f, 0.0f, 0.0f);
-    DrawMesh(mesh, scale);
-    glPopMatrix();
-    glCullFace(GL_BACK);
-    glDisable(GL_CULL_FACE);
+        glColor3f(r, g, b);
 
-    // Draw the actual mesh on top
-    glColor3f(r, g, b);
     DrawMesh(mesh, scale);
 }
 
