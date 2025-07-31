@@ -53,6 +53,7 @@ void FixtureTablePanel::InitializeTable()
         "Universe",
         "Channel",
         "GDTF",
+        "Mode",
         "Pos X",
         "Pos Y",
         "Pos Z",
@@ -62,7 +63,7 @@ void FixtureTablePanel::InitializeTable()
         "Rot Z"
     };
 
-    std::vector<int> widths = {150, 90, 100, 80, 80, 180,
+    std::vector<int> widths = {150, 90, 100, 80, 80, 180, 120,
                                80, 80, 80, 120,
                                80, 80, 80};
     int flags = wxDATAVIEW_COL_RESIZABLE | wxDATAVIEW_COL_SORTABLE;
@@ -164,6 +165,7 @@ void FixtureTablePanel::ReloadData()
         wxString gdtfFull = wxString::FromUTF8(fixture->gdtfSpec);
         gdtfPaths.push_back(gdtfFull);
         wxString gdtf = wxFileName(gdtfFull).GetFullName();
+        wxString mode = wxString::FromUTF8(fixture->gdtfMode);
 
         auto posArr = fixture->GetPosition();
         wxString posX = wxString::Format("%.3f", posArr[0] / 1000.0f);
@@ -182,6 +184,7 @@ void FixtureTablePanel::ReloadData()
         row.push_back(universe);
         row.push_back(channel);
         row.push_back(gdtf);
+        row.push_back(mode);
         row.push_back(posX);
         row.push_back(posY);
         row.push_back(posZ);
@@ -279,7 +282,7 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent& event)
     wxString value = dlg.GetValue().Trim(true).Trim(false);
 
     bool intCol = (col == 1 || col == 3 || col == 4);
-    bool numericCol = intCol || (col >= 6 && col <= 8) || (col >= 10 && col <= 12);
+    bool numericCol = intCol || (col >= 7 && col <= 9) || (col >= 11 && col <= 13);
 
     wxArrayString parts = wxSplit(value, ' ');
 
@@ -357,7 +360,7 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent& event)
                     val = v1 + (v2 - v1) * i / (selections.size() - 1);
 
                 wxString out;
-                if (col >= 10 && col <= 12)
+                if (col >= 11 && col <= 13)
                     out = wxString::Format("%.1f\u00B0", val);
                 else
                     out = wxString::Format("%.3f", val);
@@ -548,15 +551,19 @@ void FixtureTablePanel::UpdateSceneData()
 
         table->GetValue(v, i, 4);
         long ch = v.GetLong();
+
+        table->GetValue(v, i, 6);
+        it->second.gdtfMode = std::string(v.GetString().mb_str());
+
         if (uni>0 && ch>0)
             it->second.address = wxString::Format("%ld.%ld", uni, ch).ToStdString();
         else
             it->second.address.clear();
 
         double x=0, y=0, z=0;
-        table->GetValue(v, i, 6); v.GetString().ToDouble(&x);
-        table->GetValue(v, i, 7); v.GetString().ToDouble(&y);
-        table->GetValue(v, i, 8); v.GetString().ToDouble(&z);
+        table->GetValue(v, i, 7); v.GetString().ToDouble(&x);
+        table->GetValue(v, i, 8); v.GetString().ToDouble(&y);
+        table->GetValue(v, i, 9); v.GetString().ToDouble(&z);
         it->second.transform.o = {static_cast<float>(x * 1000.0),
                                   static_cast<float>(y * 1000.0),
                                   static_cast<float>(z * 1000.0)};
