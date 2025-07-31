@@ -421,6 +421,39 @@ void FixtureTablePanel::ClearSelection()
     table->UnselectAll();
 }
 
+void FixtureTablePanel::DeleteSelected()
+{
+    wxDataViewItemArray selections;
+    table->GetSelections(selections);
+    if (selections.empty())
+        return;
+
+    std::vector<int> rows;
+    rows.reserve(selections.size());
+    for (const auto& it : selections) {
+        int r = table->ItemToRow(it);
+        if (r != wxNOT_FOUND)
+            rows.push_back(r);
+    }
+    std::sort(rows.begin(), rows.end(), std::greater<int>());
+
+    auto& scene = ConfigManager::Get().GetScene();
+    for (int r : rows) {
+        if ((size_t)r < rowUuids.size()) {
+            scene.fixtures.erase(rowUuids[r]);
+            rowUuids.erase(rowUuids.begin() + r);
+            if ((size_t)r < gdtfPaths.size())
+                gdtfPaths.erase(gdtfPaths.begin() + r);
+            table->DeleteItem(r);
+        }
+    }
+
+    if (Viewer3DPanel::Instance()) {
+        Viewer3DPanel::Instance()->UpdateScene();
+        Viewer3DPanel::Instance()->Refresh();
+    }
+}
+
 void FixtureTablePanel::OnLeftDown(wxMouseEvent& evt)
 {
     wxDataViewItem item;

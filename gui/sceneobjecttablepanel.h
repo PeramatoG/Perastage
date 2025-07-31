@@ -15,6 +15,7 @@ public:
     void ReloadData();
     void HighlightObject(const std::string& uuid);
     bool IsActivePage() const;
+    void DeleteSelected();
 
     static SceneObjectTablePanel* Instance();
     static void SetInstance(SceneObjectTablePanel* panel);

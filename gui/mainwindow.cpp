@@ -34,6 +34,9 @@ EVT_MENU(ID_File_ImportMVR, MainWindow::OnImportMVR)
 EVT_MENU(ID_File_ExportMVR, MainWindow::OnExportMVR)
 EVT_MENU(ID_File_Close, MainWindow::OnClose)
 EVT_CLOSE(MainWindow::OnCloseWindow)
+EVT_MENU(ID_Edit_Undo, MainWindow::OnUndo)
+EVT_MENU(ID_Edit_Redo, MainWindow::OnRedo)
+EVT_MENU(ID_Edit_Delete, MainWindow::OnDelete)
 EVT_MENU(ID_View_ToggleConsole, MainWindow::OnToggleConsole)
 EVT_MENU(ID_View_ToggleFixtures, MainWindow::OnToggleFixtures)
 EVT_MENU(ID_View_ToggleViewport, MainWindow::OnToggleViewport)
@@ -178,6 +181,15 @@ void MainWindow::CreateMenuBar()
     fileMenu->Append(ID_File_Close, "Close\tCtrl+Q");
 
     menuBar->Append(fileMenu, "&File");
+
+    // Edit menu
+    wxMenu* editMenu = new wxMenu();
+    editMenu->Append(ID_Edit_Undo, "Undo\tCtrl+Z");
+    editMenu->Append(ID_Edit_Redo, "Redo\tCtrl+Y");
+    editMenu->AppendSeparator();
+    editMenu->Append(ID_Edit_Delete, "Delete\tDel");
+
+    menuBar->Append(editMenu, "&Edit");
 
     // View menu for toggling panels
     wxMenu* viewMenu = new wxMenu();
@@ -628,4 +640,24 @@ void MainWindow::OnSelectObjects(wxCommandEvent& WXUNUSED(event))
 {
     if (notebook)
         notebook->ChangeSelection(2);
+}
+
+void MainWindow::OnUndo(wxCommandEvent& WXUNUSED(event))
+{
+    wxMessageBox("Undo not implemented.", "Info", wxOK | wxICON_INFORMATION, this);
+}
+
+void MainWindow::OnRedo(wxCommandEvent& WXUNUSED(event))
+{
+    wxMessageBox("Redo not implemented.", "Info", wxOK | wxICON_INFORMATION, this);
+}
+
+void MainWindow::OnDelete(wxCommandEvent& WXUNUSED(event))
+{
+    if (fixturePanel && fixturePanel->IsActivePage())
+        fixturePanel->DeleteSelected();
+    else if (trussPanel && trussPanel->IsActivePage())
+        trussPanel->DeleteSelected();
+    else if (sceneObjPanel && sceneObjPanel->IsActivePage())
+        sceneObjPanel->DeleteSelected();
 }

@@ -15,6 +15,7 @@ public:
     void ReloadData(); // Refresh from ConfigManager
     void HighlightTruss(const std::string& uuid);
     bool IsActivePage() const;
+    void DeleteSelected();
 
     static TrussTablePanel* Instance();
     static void SetInstance(TrussTablePanel* panel);
