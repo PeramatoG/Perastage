@@ -3,6 +3,7 @@
 #include "matrixutils.h"
 #include "viewer3dpanel.h"
 #include "gdtfloader.h"
+#include "addressdialog.h"
 #include <filesystem>
 #include <wx/tokenzr.h>
 #include <wx/filename.h>
@@ -346,6 +347,52 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent& event)
         UpdateSceneData();
         HighlightDuplicateFixtureIds();
         if (Viewer3DPanel::Instance()) {
+            Viewer3DPanel::Instance()->UpdateScene();
+            Viewer3DPanel::Instance()->Refresh();
+        }
+        return;
+    }
+
+    // Channel column edits both universe and channel
+    if (col == 4)
+    {
+        int r = table->ItemToRow(item);
+        if (r == wxNOT_FOUND)
+            return;
+
+        wxVariant vUni, vCh;
+        table->GetValue(vUni, r, 3);
+        table->GetValue(vCh, r, 4);
+        AddressDialog dlg(this, vUni.GetLong(), vCh.GetLong());
+        if (dlg.ShowModal() != wxID_OK)
+            return;
+
+        int newUni = dlg.GetUniverse();
+        int newCh = dlg.GetChannel();
+        if (newCh < 1 || newCh > 512)
+        {
+            wxMessageBox("Channel fuera de rango (1-512)", "Error", wxOK | wxICON_ERROR);
+            return;
+        }
+
+        wxDataViewItemArray adrSelections;
+        table->GetSelections(adrSelections);
+        if (adrSelections.empty())
+            adrSelections.push_back(item);
+        for (const auto& itSel : adrSelections)
+        {
+            int row = table->ItemToRow(itSel);
+            if (row != wxNOT_FOUND)
+            {
+                table->SetValue(wxVariant(newUni), row, 3);
+                table->SetValue(wxVariant(newCh), row, 4);
+            }
+        }
+
+        UpdateSceneData();
+        HighlightDuplicateFixtureIds();
+        if (Viewer3DPanel::Instance())
+        {
             Viewer3DPanel::Instance()->UpdateScene();
             Viewer3DPanel::Instance()->Refresh();
         }
