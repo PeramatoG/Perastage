@@ -128,7 +128,8 @@ static void DrawText2D(NVGcontext* vg, int font, const std::string& text, int x,
     nvgSave(vg);
     nvgFontSize(vg, LABEL_FONT_SIZE);
     nvgFontFaceId(vg, font);
-    nvgTextAlign(vg, NVG_ALIGN_LEFT | NVG_ALIGN_TOP);
+    // Center text for multiline labels
+    nvgTextAlign(vg, NVG_ALIGN_CENTER | NVG_ALIGN_MIDDLE);
 
     float bounds[4];
     nvgTextBounds(vg, (float)x, (float)y, text.c_str(), nullptr, bounds);
