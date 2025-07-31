@@ -2,6 +2,7 @@
 #include "configmanager.h"
 #include "matrixutils.h"
 #include "viewer3dpanel.h"
+#include "gdtfloader.h"
 #include <wx/tokenzr.h>
 #include <wx/filename.h>
 #include <wx/filedlg.h>
@@ -54,6 +55,7 @@ void FixtureTablePanel::InitializeTable()
         "Channel",
         "GDTF",
         "Mode",
+        "Ch Count",
         "Pos X",
         "Pos Y",
         "Pos Z",
@@ -63,7 +65,7 @@ void FixtureTablePanel::InitializeTable()
         "Rot Z"
     };
 
-    std::vector<int> widths = {150, 90, 100, 80, 80, 180, 120,
+    std::vector<int> widths = {150, 90, 100, 80, 80, 180, 120, 80,
                                80, 80, 80, 120,
                                80, 80, 80};
     int flags = wxDATAVIEW_COL_RESIZABLE | wxDATAVIEW_COL_SORTABLE;
@@ -167,6 +169,11 @@ void FixtureTablePanel::ReloadData()
         wxString gdtf = wxFileName(gdtfFull).GetFullName();
         wxString mode = wxString::FromUTF8(fixture->gdtfMode);
 
+        int chCount = GetGdtfModeChannelCount(gdtfFull.ToStdString(),
+                                              fixture->gdtfMode);
+        wxString chCountStr = chCount >= 0 ? wxString::Format("%d", chCount)
+                                           : wxString();
+
         auto posArr = fixture->GetPosition();
         wxString posX = wxString::Format("%.3f", posArr[0] / 1000.0f);
         wxString posY = wxString::Format("%.3f", posArr[1] / 1000.0f);
@@ -185,6 +192,7 @@ void FixtureTablePanel::ReloadData()
         row.push_back(channel);
         row.push_back(gdtf);
         row.push_back(mode);
+        row.push_back(chCountStr);
         row.push_back(posX);
         row.push_back(posY);
         row.push_back(posZ);
@@ -282,7 +290,7 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent& event)
     wxString value = dlg.GetValue().Trim(true).Trim(false);
 
     bool intCol = (col == 1 || col == 3 || col == 4);
-    bool numericCol = intCol || (col >= 7 && col <= 9) || (col >= 11 && col <= 13);
+    bool numericCol = intCol || (col >= 8 && col <= 10) || (col >= 12 && col <= 14);
 
     wxArrayString parts = wxSplit(value, ' ');
 
@@ -360,7 +368,7 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent& event)
                     val = v1 + (v2 - v1) * i / (selections.size() - 1);
 
                 wxString out;
-                if (col >= 11 && col <= 13)
+                if (col >= 12 && col <= 14)
                     out = wxString::Format("%.1f\u00B0", val);
                 else
                     out = wxString::Format("%.3f", val);
@@ -561,9 +569,9 @@ void FixtureTablePanel::UpdateSceneData()
             it->second.address.clear();
 
         double x=0, y=0, z=0;
-        table->GetValue(v, i, 7); v.GetString().ToDouble(&x);
-        table->GetValue(v, i, 8); v.GetString().ToDouble(&y);
-        table->GetValue(v, i, 9); v.GetString().ToDouble(&z);
+        table->GetValue(v, i, 8); v.GetString().ToDouble(&x);
+        table->GetValue(v, i, 9); v.GetString().ToDouble(&y);
+        table->GetValue(v, i, 10); v.GetString().ToDouble(&z);
         it->second.transform.o = {static_cast<float>(x * 1000.0),
                                   static_cast<float>(y * 1000.0),
                                   static_cast<float>(z * 1000.0)};

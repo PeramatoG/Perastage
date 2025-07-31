@@ -309,3 +309,51 @@ bool LoadGdtf(const std::string& gdtfPath, std::vector<GdtfObject>& outObjects)
     return !outObjects.empty();
 }
 
+int GetGdtfModeChannelCount(const std::string& gdtfPath,
+                            const std::string& modeName)
+{
+    if (gdtfPath.empty() || modeName.empty())
+        return -1;
+
+    std::string tempDir = CreateTempDir();
+    if (!ExtractZip(gdtfPath, tempDir))
+        return -1;
+
+    std::string descPath = tempDir + "/description.xml";
+    tinyxml2::XMLDocument doc;
+    if (doc.LoadFile(descPath.c_str()) != tinyxml2::XML_SUCCESS)
+        return -1;
+
+    tinyxml2::XMLElement* ft = doc.FirstChildElement("GDTF");
+    if (ft)
+        ft = ft->FirstChildElement("FixtureType");
+    else
+        ft = doc.FirstChildElement("FixtureType");
+    if (!ft)
+        return -1;
+
+    tinyxml2::XMLElement* modes = ft->FirstChildElement("DMXModes");
+    if (!modes)
+        return -1;
+
+    for (tinyxml2::XMLElement* m = modes->FirstChildElement("DMXMode");
+         m; m = m->NextSiblingElement("DMXMode"))
+    {
+        const char* name = m->Attribute("Name");
+        if (name && modeName == name)
+        {
+            tinyxml2::XMLElement* channels = m->FirstChildElement("DMXChannels");
+            int count = 0;
+            if (channels)
+            {
+                for (tinyxml2::XMLElement* c = channels->FirstChildElement("DMXChannel");
+                     c; c = c->NextSiblingElement("DMXChannel"))
+                    ++count;
+            }
+            return count;
+        }
+    }
+
+    return -1;
+}
+
