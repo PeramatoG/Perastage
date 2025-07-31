@@ -18,6 +18,10 @@ AddFixtureDialog::AddFixtureDialog(wxWindow* parent,
     nameCtrl = new wxTextCtrl(this, wxID_ANY, defaultName);
     grid->Add(nameCtrl, 1, wxEXPAND);
 
+    grid->Add(new wxStaticText(this, wxID_ANY, "Fixture ID:"), 0, wxALIGN_CENTER_VERTICAL);
+    idCtrl = new wxTextCtrl(this, wxID_ANY, "0");
+    grid->Add(idCtrl, 1, wxEXPAND);
+
     grid->Add(new wxStaticText(this, wxID_ANY, "Mode:"), 0, wxALIGN_CENTER_VERTICAL);
     wxArrayString choices;
     for (const auto& m : modes)
@@ -40,6 +44,12 @@ int AddFixtureDialog::GetUnitCount() const {
 
 std::string AddFixtureDialog::GetFixtureName() const {
     return std::string(nameCtrl->GetValue().mb_str());
+}
+
+int AddFixtureDialog::GetFixtureId() const {
+    long v = 0;
+    idCtrl->GetValue().ToLong(&v);
+    return static_cast<int>(v);
 }
 
 std::string AddFixtureDialog::GetMode() const {

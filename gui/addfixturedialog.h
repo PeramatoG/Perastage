@@ -10,9 +10,11 @@ public:
                      const std::vector<std::string>& modes);
     int GetUnitCount() const;
     std::string GetFixtureName() const;
+    int GetFixtureId() const;
     std::string GetMode() const;
 private:
     wxSpinCtrl* unitsCtrl = nullptr;
     wxTextCtrl* nameCtrl = nullptr;
+    wxTextCtrl* idCtrl = nullptr;
     wxChoice* modeCtrl = nullptr;
 };

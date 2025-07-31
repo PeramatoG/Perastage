@@ -723,6 +723,7 @@ void MainWindow::OnAddFixture(wxCommandEvent& WXUNUSED(event))
 
     int count = dlg.GetUnitCount();
     std::string name = dlg.GetFixtureName();
+    int startId = dlg.GetFixtureId();
     std::string mode = dlg.GetMode();
 
     namespace fs = std::filesystem;
@@ -738,13 +739,19 @@ void MainWindow::OnAddFixture(wxCommandEvent& WXUNUSED(event))
             spec = fs::relative(abs, b).string();
     }
 
+    int maxId = 0;
+    for (const auto& [uuid, fix] : scene.fixtures)
+        if (fix.fixtureId > maxId)
+            maxId = fix.fixtureId;
+    if (startId <= 0)
+        startId = maxId + 1;
+
     for (int i = 0; i < count; ++i) {
         Fixture f;
         f.uuid = wxString::Format("uuid_%lld_%d",
                                 static_cast<long long>(std::chrono::steady_clock::now().time_since_epoch().count()), i).ToStdString();
         f.name = name;
-        if (count > 1)
-            f.name += " " + std::to_string(i + 1);
+        f.fixtureId = startId + i;
         f.gdtfSpec = spec;
         f.gdtfMode = mode;
         scene.fixtures[f.uuid] = f;
