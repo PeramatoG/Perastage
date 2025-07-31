@@ -12,6 +12,15 @@ include(${wxWidgets_USE_FILE})
 find_package(tinyxml2 CONFIG REQUIRED)
 find_package(OpenGL REQUIRED)
 find_package(CURL REQUIRED)
+find_library(GLEW_LIBRARY GLEW)
+if(NOT GLEW_LIBRARY)
+    message(FATAL_ERROR "GLEW not found")
+endif()
+find_path(NANOVG_INCLUDE_DIR nanovg.h)
+find_library(NANOVG_LIBRARY nanovg)
+if(NOT NANOVG_INCLUDE_DIR OR NOT NANOVG_LIBRARY)
+    message(FATAL_ERROR "NanoVG not found")
+endif()
 
 # Gather source files
 file(GLOB_RECURSE SRC_FILES
@@ -46,7 +55,7 @@ target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_SOURCE_DIR}/external
     ${CMAKE_SOURCE_DIR}/viewer3d
     ${CMAKE_SOURCE_DIR}/resources
-
+    ${NANOVG_INCLUDE_DIR}
 )
 
 # Link required libraries
@@ -56,6 +65,8 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     OpenGL::GL
     OpenGL::GLU
     CURL::libcurl
+    ${GLEW_LIBRARY}
+    ${NANOVG_LIBRARY}
 )
 
 # Copy runtime resources (e.g. application icon) next to the executable

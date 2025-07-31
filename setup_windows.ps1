@@ -12,7 +12,7 @@ if (-Not (Test-Path '.\vcpkg.exe')) {
 cd ..
 
 # Install required libraries
-.\vcpkg\vcpkg.exe install wxwidgets:x64-windows tinyxml2:x64-windows opengl
+.\vcpkg\vcpkg.exe install wxwidgets:x64-windows tinyxml2:x64-windows opengl nanovg:x64-windows
 
 # Configure and build with CMake
 if (-Not (Test-Path 'build')) {

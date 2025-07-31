@@ -17,6 +17,8 @@
 #include <wx/gdicmn.h>
 #include <wx/string.h>
 
+struct NVGcontext;
+
 // MVR coordinates are defined in millimeters. This constant converts
 // them to meters when rendering.
 static constexpr float RENDER_SCALE = 0.001f;
@@ -121,4 +123,9 @@ private:
     std::string m_highlightUuid;
     // Currently selected fixture UUIDs
     std::unordered_set<std::string> m_selectedUuids;
+
+    // NanoVG context used to render on-screen labels
+    NVGcontext* m_vg = nullptr;
+    // Font handle for label rendering
+    int m_font = -1;
 };
