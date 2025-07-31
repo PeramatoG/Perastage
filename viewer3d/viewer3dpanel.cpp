@@ -78,7 +78,6 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
 
     int w, h;
     GetClientSize(&w, &h);
-    dc.SetTextForeground(*wxWHITE);
 
     wxString newLabel;
     wxPoint newPos;
@@ -143,11 +142,11 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
 
     // Draw labels before swapping buffers to avoid losing them
     if (FixtureTablePanel::Instance() && FixtureTablePanel::Instance()->IsActivePage())
-        m_controller.DrawFixtureLabels(dc, w, h);
+        m_controller.DrawFixtureLabels(w, h);
     else if (TrussTablePanel::Instance() && TrussTablePanel::Instance()->IsActivePage())
-        m_controller.DrawTrussLabels(dc, w, h);
+        m_controller.DrawTrussLabels(w, h);
     else if (SceneObjectTablePanel::Instance() && SceneObjectTablePanel::Instance()->IsActivePage())
-        m_controller.DrawSceneObjectLabels(dc, w, h);
+        m_controller.DrawSceneObjectLabels(w, h);
 
     SwapBuffers(); // Swap after drawing labels to ensure they are visible
 }
