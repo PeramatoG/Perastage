@@ -222,6 +222,22 @@ void MainWindow::CreateMenuBar()
 
 void MainWindow::OnNew(wxCommandEvent& WXUNUSED(event))
 {
+    wxMessageDialog dlg(this,
+        "Do you want to save changes before creating a new project?",
+        "New Project",
+        wxYES_NO | wxCANCEL | wxICON_QUESTION);
+
+    int res = dlg.ShowModal();
+    if (res == wxID_YES)
+    {
+        wxCommandEvent saveEvt;
+        OnSave(saveEvt);
+    }
+    else if (res == wxID_CANCEL)
+    {
+        return;
+    }
+
     ResetProject();
 }
 
