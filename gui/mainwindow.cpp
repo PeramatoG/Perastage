@@ -722,7 +722,7 @@ void MainWindow::OnAddFixture(wxCommandEvent& WXUNUSED(event))
         return;
 
     int count = dlg.GetUnitCount();
-    std::string name = dlg.GetName();
+    std::string name = dlg.GetFixtureName();
     std::string mode = dlg.GetMode();
 
     namespace fs = std::filesystem;
