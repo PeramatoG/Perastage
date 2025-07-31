@@ -19,7 +19,9 @@ public:
     // Adjusts yaw and pitch angles
     void Orbit(float deltaYaw, float deltaPitch);
 
-    // Zooms in or out
+    // Zooms in or out. When zooming in beyond the minimum
+    // distance the camera keeps moving forward in the
+    // viewing direction.
     void Zoom(float deltaDistance);
 
     // Moves the target point laterally (pan)
