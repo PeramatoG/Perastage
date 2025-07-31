@@ -62,8 +62,25 @@ void TrussTablePanel::ReloadData()
     rowUuids.clear();
     const auto& trusses = ConfigManager::Get().GetScene().trusses;
 
+    std::vector<std::pair<std::string, const Truss*>> sorted;
+    sorted.reserve(trusses.size());
     for (const auto& [uuid, truss] : trusses)
+        sorted.emplace_back(uuid, &truss);
+
+    std::sort(sorted.begin(), sorted.end(), [](const auto& A, const auto& B) {
+        const Truss* a = A.second;
+        const Truss* b = B.second;
+        if (a->layer != b->layer)
+            return a->layer < b->layer;
+        if (a->positionName != b->positionName)
+            return a->positionName < b->positionName;
+        return a->name < b->name;
+    });
+
+    for (const auto& pair : sorted)
     {
+        const std::string& uuid = pair.first;
+        const Truss& truss = *pair.second;
         wxVector<wxVariant> row;
 
         wxString name = wxString::FromUTF8(truss.name);
