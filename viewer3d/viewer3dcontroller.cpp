@@ -803,8 +803,11 @@ void Viewer3DController::DrawFixtureLabels(wxWindowDC& dc, int width, int height
     // directly. Using wxWindowDC ensures the correct overload is selected
     // and allows creation of the graphics context from the paint device.
     wxGraphicsContext* gc = wxGraphicsContext::Create(dc);
-    if (!gc)
+    if (!gc) {
+        if (ConsolePanel::Instance())
+            ConsolePanel::Instance()->AppendMessage("Failed to create wxGraphicsContext. Labels will not be rendered.");
         return;
+    }
 
     // GetTextExtent() requires a valid font to be set on the graphics context
     gc->SetFont(dc.GetFont(), wxColour(255, 255, 255));

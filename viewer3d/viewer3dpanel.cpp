@@ -71,24 +71,15 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
 {
     wxPaintDC dc(this);
     InitGL();
-    // Paint events occur frequently; avoid flooding the log
     Render();
-    // Present the rendered 3D scene before drawing overlays. Otherwise the
-    // swap would overwrite the labels drawn on the device context.
-    SwapBuffers();
+
+    // Ensure the OpenGL context is current before drawing overlays
+    SetCurrent(*m_glContext);
 
     int w, h;
     GetClientSize(&w, &h);
     dc.SetTextForeground(*wxWHITE);
-    // Render() doesn't swap buffers anymore, but it may unset the current
-    // context on some platforms. Ensure it is current before using OpenGL
-    // functions in GetFixtureLabelAt.
-    SetCurrent(*m_glContext);
 
-    // Only clear the current hover when we are sure the mouse is not over a
-    // fixture. GetFixtureLabelAt may briefly fail while the scene is being
-    // refreshed which caused the tooltip to flicker. Preserve the last valid
-    // hover info unless a new fixture is detected or the mouse moved.
     wxString newLabel;
     wxPoint newPos;
     std::string newUuid;
@@ -96,25 +87,27 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
 
     if (FixtureTablePanel::Instance() && FixtureTablePanel::Instance()->IsActivePage()) {
         found = m_controller.GetFixtureLabelAt(m_lastMousePos.x, m_lastMousePos.y,
-                                               w, h, newLabel, newPos, &newUuid);
+            w, h, newLabel, newPos, &newUuid);
         if (found) {
             if (TrussTablePanel::Instance())
                 TrussTablePanel::Instance()->HighlightTruss(std::string());
             if (SceneObjectTablePanel::Instance())
                 SceneObjectTablePanel::Instance()->HighlightObject(std::string());
         }
-    } else if (TrussTablePanel::Instance() && TrussTablePanel::Instance()->IsActivePage()) {
+    }
+    else if (TrussTablePanel::Instance() && TrussTablePanel::Instance()->IsActivePage()) {
         found = m_controller.GetTrussLabelAt(m_lastMousePos.x, m_lastMousePos.y,
-                                             w, h, newLabel, newPos, &newUuid);
+            w, h, newLabel, newPos, &newUuid);
         if (found) {
             if (FixtureTablePanel::Instance())
                 FixtureTablePanel::Instance()->HighlightFixture(std::string());
             if (SceneObjectTablePanel::Instance())
                 SceneObjectTablePanel::Instance()->HighlightObject(std::string());
         }
-    } else if (SceneObjectTablePanel::Instance() && SceneObjectTablePanel::Instance()->IsActivePage()) {
+    }
+    else if (SceneObjectTablePanel::Instance() && SceneObjectTablePanel::Instance()->IsActivePage()) {
         found = m_controller.GetSceneObjectLabelAt(m_lastMousePos.x, m_lastMousePos.y,
-                                                  w, h, newLabel, newPos, &newUuid);
+            w, h, newLabel, newPos, &newUuid);
         if (found) {
             if (FixtureTablePanel::Instance())
                 FixtureTablePanel::Instance()->HighlightFixture(std::string());
@@ -135,7 +128,8 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
             TrussTablePanel::Instance()->HighlightTruss(std::string(m_hoverUuid));
         else if (SceneObjectTablePanel::Instance() && SceneObjectTablePanel::Instance()->IsActivePage())
             SceneObjectTablePanel::Instance()->HighlightObject(std::string(m_hoverUuid));
-    } else if (!m_hasHover || m_mouseMoved) {
+    }
+    else if (!m_hasHover || m_mouseMoved) {
         m_hasHover = false;
         m_controller.SetHighlightUuid("");
         if (FixtureTablePanel::Instance())
@@ -147,12 +141,15 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
     }
     m_mouseMoved = false;
 
+    // Draw labels before swapping buffers to avoid losing them
     if (FixtureTablePanel::Instance() && FixtureTablePanel::Instance()->IsActivePage())
         m_controller.DrawFixtureLabels(dc, w, h);
     else if (TrussTablePanel::Instance() && TrussTablePanel::Instance()->IsActivePage())
         m_controller.DrawTrussLabels(dc, w, h);
     else if (SceneObjectTablePanel::Instance() && SceneObjectTablePanel::Instance()->IsActivePage())
         m_controller.DrawSceneObjectLabels(dc, w, h);
+
+    SwapBuffers(); // Swap after drawing labels to ensure they are visible
 }
 
 // Resize event handler
