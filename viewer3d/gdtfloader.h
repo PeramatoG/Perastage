@@ -27,3 +27,7 @@ bool LoadGdtf(const std::string& gdtfPath, std::vector<GdtfObject>& outObjects);
 // Returns -1 when the mode cannot be found or the file cannot be parsed.
 int GetGdtfModeChannelCount(const std::string& gdtfPath,
                             const std::string& modeName);
+
+// Returns the list of DMX mode names defined in a GDTF file. Returns an empty
+// vector when the file cannot be parsed or contains no modes.
+std::vector<std::string> GetGdtfModes(const std::string& gdtfPath);
