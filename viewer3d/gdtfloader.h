@@ -31,3 +31,7 @@ int GetGdtfModeChannelCount(const std::string& gdtfPath,
 // Returns the list of DMX mode names defined in a GDTF file. Returns an empty
 // vector when the file cannot be parsed or contains no modes.
 std::vector<std::string> GetGdtfModes(const std::string& gdtfPath);
+
+// Returns the fixture type name defined in a GDTF file. Returns an empty
+// string when the name cannot be determined or the file cannot be parsed.
+std::string GetGdtfFixtureName(const std::string& gdtfPath);

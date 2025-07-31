@@ -10,15 +10,20 @@
 #include "projectutils.h"
 #include "logindialog.h"
 #include "gdtfsearchdialog.h"
+#include "addfixturedialog.h"
+#include "gdtfloader.h"
 #include "gdtfnet.h"
 #include "simplecrypt.h"
 #include "credentialstore.h"
+#include "fixture.h"
 #include <wx/aboutdlg.h>
 #include <wx/notebook.h>
 #include <wx/filename.h>
 #include <wx/filefn.h>
 #include <cstdlib>
 #include <cstdio>
+#include <filesystem>
+#include <chrono>
 #ifdef _WIN32
 #  define popen _popen
 #  define pclose _pclose
@@ -36,6 +41,7 @@ EVT_MENU(ID_File_Close, MainWindow::OnClose)
 EVT_CLOSE(MainWindow::OnCloseWindow)
 EVT_MENU(ID_Edit_Undo, MainWindow::OnUndo)
 EVT_MENU(ID_Edit_Redo, MainWindow::OnRedo)
+EVT_MENU(ID_Edit_AddFixture, MainWindow::OnAddFixture)
 EVT_MENU(ID_Edit_Delete, MainWindow::OnDelete)
 EVT_MENU(ID_View_ToggleConsole, MainWindow::OnToggleConsole)
 EVT_MENU(ID_View_ToggleFixtures, MainWindow::OnToggleFixtures)
@@ -186,6 +192,8 @@ void MainWindow::CreateMenuBar()
     wxMenu* editMenu = new wxMenu();
     editMenu->Append(ID_Edit_Undo, "Undo\tCtrl+Z");
     editMenu->Append(ID_Edit_Redo, "Redo\tCtrl+Y");
+    editMenu->AppendSeparator();
+    editMenu->Append(ID_Edit_AddFixture, "Add fixture...");
     editMenu->AppendSeparator();
     editMenu->Append(ID_Edit_Delete, "Delete\tDel");
 
@@ -688,6 +696,62 @@ void MainWindow::OnRedo(wxCommandEvent& WXUNUSED(event))
         trussPanel->ReloadData();
     if (sceneObjPanel)
         sceneObjPanel->ReloadData();
+    if (viewportPanel) {
+        viewportPanel->UpdateScene();
+        viewportPanel->Refresh();
+    }
+}
+
+void MainWindow::OnAddFixture(wxCommandEvent& WXUNUSED(event))
+{
+    wxFileDialog fdlg(this, "Select GDTF file", "library/fixtures", wxEmptyString,
+                      "*.gdtf", wxFD_OPEN | wxFD_FILE_MUST_EXIST);
+    if (fdlg.ShowModal() != wxID_OK)
+        return;
+
+    wxString gdtfPathWx = fdlg.GetPath();
+    std::string gdtfPath = std::string(gdtfPathWx.mb_str());
+
+    std::string defaultName = GetGdtfFixtureName(gdtfPath);
+    if (defaultName.empty())
+        defaultName = wxFileName(gdtfPathWx).GetName().ToStdString();
+
+    std::vector<std::string> modes = GetGdtfModes(gdtfPath);
+    AddFixtureDialog dlg(this, wxString::FromUTF8(defaultName), modes);
+    if (dlg.ShowModal() != wxID_OK)
+        return;
+
+    int count = dlg.GetUnitCount();
+    std::string name = dlg.GetName();
+    std::string mode = dlg.GetMode();
+
+    namespace fs = std::filesystem;
+    ConfigManager& cfg = ConfigManager::Get();
+    cfg.PushUndoState();
+    auto& scene = cfg.GetScene();
+    std::string base = scene.basePath;
+    std::string spec = gdtfPath;
+    if (!base.empty()) {
+        fs::path abs = fs::absolute(gdtfPath);
+        fs::path b = fs::absolute(base);
+        if (abs.string().rfind(b.string(), 0) == 0)
+            spec = fs::relative(abs, b).string();
+    }
+
+    for (int i = 0; i < count; ++i) {
+        Fixture f;
+        f.uuid = wxString::Format("uuid_%lld_%d",
+                                static_cast<long long>(std::chrono::steady_clock::now().time_since_epoch().count()), i).ToStdString();
+        f.name = name;
+        if (count > 1)
+            f.name += " " + std::to_string(i + 1);
+        f.gdtfSpec = spec;
+        f.gdtfMode = mode;
+        scene.fixtures[f.uuid] = f;
+    }
+
+    if (fixturePanel)
+        fixturePanel->ReloadData();
     if (viewportPanel) {
         viewportPanel->UpdateScene();
         viewportPanel->Refresh();

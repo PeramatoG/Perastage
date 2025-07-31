@@ -395,3 +395,37 @@ std::vector<std::string> GetGdtfModes(const std::string& gdtfPath)
     return result;
 }
 
+std::string GetGdtfFixtureName(const std::string& gdtfPath)
+{
+    if (gdtfPath.empty())
+        return {};
+
+    std::string tempDir = CreateTempDir();
+    if (!ExtractZip(gdtfPath, tempDir))
+        return {};
+
+    std::string descPath = tempDir + "/description.xml";
+    tinyxml2::XMLDocument doc;
+    if (doc.LoadFile(descPath.c_str()) != tinyxml2::XML_SUCCESS)
+        return {};
+
+    tinyxml2::XMLElement* ft = doc.FirstChildElement("GDTF");
+    if (ft)
+        ft = ft->FirstChildElement("FixtureType");
+    else
+        ft = doc.FirstChildElement("FixtureType");
+    if (!ft)
+        return {};
+
+    const char* nameAttr = ft->Attribute("Name");
+    if (nameAttr)
+        return nameAttr;
+    const char* shortName = ft->Attribute("ShortName");
+    if (shortName)
+        return shortName;
+    const char* longName = ft->Attribute("LongName");
+    if (longName)
+        return longName;
+    return {};
+}
+
