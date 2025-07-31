@@ -3,6 +3,7 @@
 #include "matrixutils.h"
 #include "viewer3dpanel.h"
 #include "gdtfloader.h"
+#include <filesystem>
 #include <wx/tokenzr.h>
 #include <wx/filename.h>
 #include <wx/filedlg.h>
@@ -11,6 +12,8 @@
 #include <algorithm>
 #include <wx/settings.h>
 #include <wx/notebook.h>
+
+namespace fs = std::filesystem;
 
 FixtureTablePanel::FixtureTablePanel(wxWindow* parent)
     : wxPanel(parent, wxID_ANY)
@@ -165,7 +168,14 @@ void FixtureTablePanel::ReloadData()
             if (tk.HasMoreTokens()) tk.GetNextToken().ToLong(&universe);
             if (tk.HasMoreTokens()) tk.GetNextToken().ToLong(&channel);
         }
-        wxString gdtfFull = wxString::FromUTF8(fixture->gdtfSpec);
+        std::string fullPath;
+        if (!fixture->gdtfSpec.empty()) {
+            const std::string& base = ConfigManager::Get().GetScene().basePath;
+            fs::path p = base.empty() ? fs::path(fixture->gdtfSpec)
+                                     : fs::path(base) / fixture->gdtfSpec;
+            fullPath = p.string();
+        }
+        wxString gdtfFull = wxString::FromUTF8(fullPath);
         gdtfPaths.push_back(gdtfFull);
         wxString gdtf = wxFileName(gdtfFull).GetFullName();
         wxString mode = wxString::FromUTF8(fixture->gdtfMode);
