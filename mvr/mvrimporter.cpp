@@ -267,6 +267,10 @@ bool MvrImporter::ParseSceneXml(const std::string& sceneXmlPath)
             truss.gdtfSpec = textOf(node, "GDTFSpec");
             truss.gdtfMode = textOf(node, "GDTFMode");
             truss.function = textOf(node, "Function");
+            truss.position = textOf(node, "Position");
+            auto posItT = scene.positions.find(truss.position);
+            if (posItT != scene.positions.end())
+                truss.positionName = posItT->second;
 
             if (tinyxml2::XMLElement* geos = node->FirstChildElement("Geometries")) {
                 if (tinyxml2::XMLElement* sym = geos->FirstChildElement("Symbol")) {

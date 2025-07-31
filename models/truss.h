@@ -13,6 +13,10 @@ struct Truss {
     std::string function;
     std::string layer;
 
+    // Optional hang position reference
+    std::string position;      // Position UUID or raw vector
+    std::string positionName;  // Resolved name from AUXData
+
     int unitNumber = 0;
     int customId = 0;
     int customIdType = 0;
