@@ -28,13 +28,11 @@ public:
 private:
     void ParseList(const std::string& listData);
     void UpdateResults();
-    void OnText(wxCommandEvent& evt);
     void OnSearch(wxCommandEvent& evt);
     void OnDownload(wxCommandEvent& evt);
 
     wxTextCtrl* manufacturerCtrl = nullptr;
     wxTextCtrl* fixtureCtrl = nullptr;
-    wxButton* searchBtn = nullptr;
     wxDataViewListCtrl* resultTable = nullptr;
     std::vector<GdtfEntry> entries;
     std::vector<int> visible;
