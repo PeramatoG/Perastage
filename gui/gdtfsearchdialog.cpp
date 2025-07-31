@@ -13,13 +13,13 @@ GdtfSearchDialog::GdtfSearchDialog(wxWindow* parent, const std::string& listData
 
     wxBoxSizer* searchSizer = new wxBoxSizer(wxHORIZONTAL);
     searchSizer->Add(new wxStaticText(this, wxID_ANY, "Manufacturer:"), 0, wxALIGN_CENTER_VERTICAL|wxRIGHT, 5);
-    manufacturerCtrl = new wxTextCtrl(this, wxID_ANY);
+    manufacturerCtrl = new wxTextCtrl(this, wxID_ANY, "", wxDefaultPosition,
+                                     wxDefaultSize, wxTE_PROCESS_ENTER);
     searchSizer->Add(manufacturerCtrl, 1, wxRIGHT, 10);
     searchSizer->Add(new wxStaticText(this, wxID_ANY, "Fixture:"), 0, wxALIGN_CENTER_VERTICAL|wxRIGHT, 5);
-    fixtureCtrl = new wxTextCtrl(this, wxID_ANY);
+    fixtureCtrl = new wxTextCtrl(this, wxID_ANY, "", wxDefaultPosition,
+                                 wxDefaultSize, wxTE_PROCESS_ENTER);
     searchSizer->Add(fixtureCtrl, 1);
-    searchBtn = new wxButton(this, wxID_ANY, "Search");
-    searchSizer->Add(searchBtn, 0, wxLEFT, 10);
     sizer->Add(searchSizer, 0, wxEXPAND | wxALL, 10);
 
     resultTable = new wxDataViewListCtrl(this, wxID_ANY, wxDefaultPosition,
@@ -63,9 +63,8 @@ GdtfSearchDialog::GdtfSearchDialog(wxWindow* parent, const std::string& listData
     SetMinSize(wxSize(800, 600));
     SetSize(wxSize(1000, 700));
 
-    manufacturerCtrl->Bind(wxEVT_TEXT, &GdtfSearchDialog::OnText, this);
-    fixtureCtrl->Bind(wxEVT_TEXT, &GdtfSearchDialog::OnText, this);
-    searchBtn->Bind(wxEVT_BUTTON, &GdtfSearchDialog::OnSearch, this);
+    manufacturerCtrl->Bind(wxEVT_TEXT_ENTER, &GdtfSearchDialog::OnSearch, this);
+    fixtureCtrl->Bind(wxEVT_TEXT_ENTER, &GdtfSearchDialog::OnSearch, this);
     downloadBtn->Bind(wxEVT_BUTTON, &GdtfSearchDialog::OnDownload, this);
     resultTable->Bind(wxEVT_DATAVIEW_ITEM_ACTIVATED,
                       &GdtfSearchDialog::OnDownload, this);
@@ -205,15 +204,10 @@ void GdtfSearchDialog::UpdateResults()
     }
 }
 
-void GdtfSearchDialog::OnText(wxCommandEvent& WXUNUSED(evt))
-{
-    // Do not update the results list until the user presses the Search button
-}
-
 void GdtfSearchDialog::OnSearch(wxCommandEvent& WXUNUSED(evt))
 {
     if (ConsolePanel::Instance())
-        ConsolePanel::Instance()->AppendMessage("Search button pressed");
+        ConsolePanel::Instance()->AppendMessage("Search triggered");
     UpdateResults();
 }
 
