@@ -38,7 +38,7 @@ int AddFixtureDialog::GetUnitCount() const {
     return unitsCtrl->GetValue();
 }
 
-std::string AddFixtureDialog::GetName() const {
+std::string AddFixtureDialog::GetFixtureName() const {
     return std::string(nameCtrl->GetValue().mb_str());
 }
 
