@@ -12,15 +12,8 @@ include(${wxWidgets_USE_FILE})
 find_package(tinyxml2 CONFIG REQUIRED)
 find_package(OpenGL REQUIRED)
 find_package(CURL REQUIRED)
-find_library(GLEW_LIBRARY GLEW)
-if(NOT GLEW_LIBRARY)
-    message(FATAL_ERROR "GLEW not found")
-endif()
-find_path(NANOVG_INCLUDE_DIR nanovg.h)
-find_library(NANOVG_LIBRARY nanovg)
-if(NOT NANOVG_INCLUDE_DIR OR NOT NANOVG_LIBRARY)
-    message(FATAL_ERROR "NanoVG not found")
-endif()
+find_package(GLEW REQUIRED)
+find_package(nanovg CONFIG REQUIRED)
 
 # Gather source files
 file(GLOB_RECURSE SRC_FILES
@@ -64,9 +57,9 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     tinyxml2::tinyxml2
     OpenGL::GL
     OpenGL::GLU
+    GLEW::GLEW
     CURL::libcurl
-    ${GLEW_LIBRARY}
-    ${NANOVG_LIBRARY}
+    nanovg::nanovg
 )
 
 # Copy runtime resources (e.g. application icon) next to the executable
