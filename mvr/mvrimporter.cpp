@@ -23,6 +23,16 @@
 
 namespace fs = std::filesystem;
 
+static std::string Trim(const std::string& s)
+{
+    const char* ws = " \t\r\n";
+    size_t start = s.find_first_not_of(ws);
+    if (start == std::string::npos)
+        return {};
+    size_t end = s.find_last_not_of(ws);
+    return s.substr(start, end - start + 1);
+}
+
 bool MvrImporter::ImportFromFile(const std::string& filePath)
 {
     if (!fs::exists(filePath) || fs::path(filePath).extension() != ".mvr") {
@@ -144,7 +154,9 @@ bool MvrImporter::ParseSceneXml(const std::string& sceneXmlPath)
 
     auto textOf = [](tinyxml2::XMLElement* parent, const char* name) -> std::string {
         tinyxml2::XMLElement* n = parent->FirstChildElement(name);
-        return (n && n->GetText()) ? n->GetText() : std::string();
+        if (n && n->GetText())
+            return Trim(n->GetText());
+        return {};
     };
 
     auto intOf = [](tinyxml2::XMLElement* parent, const char* name, int& out) {
