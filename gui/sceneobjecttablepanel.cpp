@@ -252,7 +252,9 @@ void SceneObjectTablePanel::OnSelectionChanged(wxDataViewEvent& evt)
 
 void SceneObjectTablePanel::UpdateSceneData()
 {
-    auto& scene = ConfigManager::Get().GetScene();
+    ConfigManager& cfg = ConfigManager::Get();
+    cfg.PushUndoState();
+    auto& scene = cfg.GetScene();
     size_t count = std::min((size_t)table->GetItemCount(), rowUuids.size());
     for (size_t i = 0; i < count; ++i)
     {
@@ -305,6 +307,9 @@ void SceneObjectTablePanel::DeleteSelected()
     table->GetSelections(selections);
     if (selections.empty())
         return;
+
+    ConfigManager& cfg = ConfigManager::Get();
+    cfg.PushUndoState();
 
     std::vector<int> rows;
     rows.reserve(selections.size());

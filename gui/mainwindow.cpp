@@ -644,12 +644,38 @@ void MainWindow::OnSelectObjects(wxCommandEvent& WXUNUSED(event))
 
 void MainWindow::OnUndo(wxCommandEvent& WXUNUSED(event))
 {
-    wxMessageBox("Undo not implemented.", "Info", wxOK | wxICON_INFORMATION, this);
+    ConfigManager& cfg = ConfigManager::Get();
+    if (!cfg.CanUndo())
+        return;
+    cfg.Undo();
+    if (fixturePanel)
+        fixturePanel->ReloadData();
+    if (trussPanel)
+        trussPanel->ReloadData();
+    if (sceneObjPanel)
+        sceneObjPanel->ReloadData();
+    if (viewportPanel) {
+        viewportPanel->UpdateScene();
+        viewportPanel->Refresh();
+    }
 }
 
 void MainWindow::OnRedo(wxCommandEvent& WXUNUSED(event))
 {
-    wxMessageBox("Redo not implemented.", "Info", wxOK | wxICON_INFORMATION, this);
+    ConfigManager& cfg = ConfigManager::Get();
+    if (!cfg.CanRedo())
+        return;
+    cfg.Redo();
+    if (fixturePanel)
+        fixturePanel->ReloadData();
+    if (trussPanel)
+        trussPanel->ReloadData();
+    if (sceneObjPanel)
+        sceneObjPanel->ReloadData();
+    if (viewportPanel) {
+        viewportPanel->UpdateScene();
+        viewportPanel->Refresh();
+    }
 }
 
 void MainWindow::OnDelete(wxCommandEvent& WXUNUSED(event))

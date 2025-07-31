@@ -428,6 +428,9 @@ void FixtureTablePanel::DeleteSelected()
     if (selections.empty())
         return;
 
+    ConfigManager& cfg = ConfigManager::Get();
+    cfg.PushUndoState();
+
     std::vector<int> rows;
     rows.reserve(selections.size());
     for (const auto& it : selections) {
@@ -522,7 +525,9 @@ void FixtureTablePanel::OnSelectionChanged(wxDataViewEvent& evt)
 
 void FixtureTablePanel::UpdateSceneData()
 {
-    auto& scene = ConfigManager::Get().GetScene();
+    ConfigManager& cfg = ConfigManager::Get();
+    cfg.PushUndoState();
+    auto& scene = cfg.GetScene();
     size_t count = std::min((size_t)table->GetItemCount(), rowUuids.size());
     for (size_t i = 0; i < count; ++i)
     {

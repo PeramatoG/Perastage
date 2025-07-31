@@ -270,6 +270,8 @@ bool ConfigManager::LoadProject(const std::string& path)
         ok &= LoadFromFile(configPath.string());
 
     fs::remove_all(tempDir);
+    if (ok)
+        ClearHistory();
     return ok;
 }
 
@@ -278,6 +280,7 @@ void ConfigManager::Reset()
     configData.clear();
     scene.Clear();
     ApplyDefaults();
+    ClearHistory();
 }
 
 std::string ConfigManager::GetUserConfigFile()
@@ -297,4 +300,46 @@ bool ConfigManager::LoadUserConfig()
 bool ConfigManager::SaveUserConfig() const
 {
     return SaveToFile(GetUserConfigFile());
+}
+
+void ConfigManager::PushUndoState()
+{
+    undoStack.push_back(scene);
+    if (undoStack.size() > maxHistory)
+        undoStack.erase(undoStack.begin());
+    redoStack.clear();
+}
+
+bool ConfigManager::CanUndo() const
+{
+    return !undoStack.empty();
+}
+
+bool ConfigManager::CanRedo() const
+{
+    return !redoStack.empty();
+}
+
+void ConfigManager::Undo()
+{
+    if (undoStack.empty())
+        return;
+    redoStack.push_back(scene);
+    scene = undoStack.back();
+    undoStack.pop_back();
+}
+
+void ConfigManager::Redo()
+{
+    if (redoStack.empty())
+        return;
+    undoStack.push_back(scene);
+    scene = redoStack.back();
+    redoStack.pop_back();
+}
+
+void ConfigManager::ClearHistory()
+{
+    undoStack.clear();
+    redoStack.clear();
 }
