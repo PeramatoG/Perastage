@@ -716,8 +716,10 @@ void FixtureTablePanel::ApplyModeForGdtf(const wxString& path)
 void FixtureTablePanel::HighlightDuplicateFixtureIds()
 {
     // Clear existing text colour highlights
-    for (unsigned i = 0; i < table->GetItemCount(); ++i)
+    for (unsigned i = 0; i < table->GetItemCount(); ++i) {
         store.ClearRowTextColour(i);
+        store.ClearCellTextColour(i, 1); // Fixture ID column
+    }
 
     std::unordered_map<long, std::vector<unsigned>> idRows;
     for (unsigned i = 0; i < table->GetItemCount(); ++i)
@@ -733,7 +735,7 @@ void FixtureTablePanel::HighlightDuplicateFixtureIds()
         if (it.second.size() > 1)
         {
             for (unsigned r : it.second)
-                store.SetRowTextColour(r, *wxRED);
+                store.SetCellTextColour(r, 1, *wxRED);
         }
     }
 
