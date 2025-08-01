@@ -4,6 +4,7 @@
 #include "viewer3dpanel.h"
 #include "gdtfloader.h"
 #include "addressdialog.h"
+#include "patchmanager.h"
 #include <filesystem>
 #include <wx/tokenzr.h>
 #include <wx/filename.h>
@@ -369,9 +370,9 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent& event)
 
         int newUni = dlg.GetUniverse();
         int newCh = dlg.GetChannel();
-        if (newCh < 1 || newCh > 512)
+        if (newCh < 1 || newCh > 255)
         {
-            wxMessageBox("Channel fuera de rango (1-512)", "Error", wxOK | wxICON_ERROR);
+            wxMessageBox("Channel fuera de rango (1-255)", "Error", wxOK | wxICON_ERROR);
             return;
         }
 
@@ -379,14 +380,39 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent& event)
         table->GetSelections(adrSelections);
         if (adrSelections.empty())
             adrSelections.push_back(item);
-        for (const auto& itSel : adrSelections)
-        {
+
+        std::vector<int> selectedRows;
+        for (const auto& itSel : adrSelections) {
             int row = table->ItemToRow(itSel);
             if (row != wxNOT_FOUND)
-            {
-                table->SetValue(wxVariant(newUni), row, 3);
-                table->SetValue(wxVariant(newCh), row, 4);
-            }
+                selectedRows.push_back(row);
+        }
+
+        std::vector<int> orderedRows;
+        for (int idx : selectionOrder)
+            if (std::find(selectedRows.begin(), selectedRows.end(), idx) != selectedRows.end())
+                orderedRows.push_back(idx);
+        for (int idx : selectedRows)
+            if (std::find(orderedRows.begin(), orderedRows.end(), idx) == orderedRows.end())
+                orderedRows.push_back(idx);
+
+        std::vector<int> counts;
+        counts.reserve(orderedRows.size());
+        for (int row : orderedRows) {
+            wxVariant vCount;
+            table->GetValue(vCount, row, 7);
+            long c = 1;
+            if (!vCount.GetString().ToLong(&c))
+                c = 1;
+            if (c < 1)
+                c = 1;
+            counts.push_back(static_cast<int>(c));
+        }
+
+        auto addrs = PatchManager::SequentialPatch(counts, newUni, newCh);
+        for (size_t i = 0; i < orderedRows.size() && i < addrs.size(); ++i) {
+            table->SetValue(wxVariant(addrs[i].universe), orderedRows[i], 3);
+            table->SetValue(wxVariant(addrs[i].channel), orderedRows[i], 4);
         }
 
         UpdateSceneData();
@@ -603,6 +629,7 @@ void FixtureTablePanel::HighlightPatchConflicts()
 void FixtureTablePanel::ClearSelection()
 {
     table->UnselectAll();
+    selectionOrder.clear();
 }
 
 void FixtureTablePanel::DeleteSelected()
@@ -632,6 +659,15 @@ void FixtureTablePanel::DeleteSelected()
             if ((size_t)r < gdtfPaths.size())
                 gdtfPaths.erase(gdtfPaths.begin() + r);
             table->DeleteItem(r);
+            for (auto itSel = selectionOrder.begin(); itSel != selectionOrder.end(); ) {
+                if (*itSel == r)
+                    itSel = selectionOrder.erase(itSel);
+                else {
+                    if (*itSel > r)
+                        --(*itSel);
+                    ++itSel;
+                }
+            }
         }
     }
 
@@ -696,14 +732,28 @@ void FixtureTablePanel::OnSelectionChanged(wxDataViewEvent& evt)
 {
     wxDataViewItemArray selections;
     table->GetSelections(selections);
+    std::vector<int> currentRows;
+    currentRows.reserve(selections.size());
     std::vector<std::string> uuids;
     uuids.reserve(selections.size());
     for (const auto& it : selections)
     {
         int r = table->ItemToRow(it);
-        if (r != wxNOT_FOUND && (size_t)r < rowUuids.size())
+        if (r != wxNOT_FOUND && (size_t)r < rowUuids.size()) {
+            currentRows.push_back(r);
             uuids.push_back(rowUuids[r]);
+        }
     }
+    // Preserve existing order but drop unselected rows
+    std::vector<int> newOrder;
+    for (int r : selectionOrder)
+        if (std::find(currentRows.begin(), currentRows.end(), r) != currentRows.end())
+            newOrder.push_back(r);
+    // Append newly selected rows in the order reported
+    for (int r : currentRows)
+        if (std::find(newOrder.begin(), newOrder.end(), r) == newOrder.end())
+            newOrder.push_back(r);
+    selectionOrder.swap(newOrder);
     if (Viewer3DPanel::Instance())
         Viewer3DPanel::Instance()->SetSelectedFixtures(uuids);
     evt.Skip();
