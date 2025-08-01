@@ -301,6 +301,28 @@ bool MvrImporter::ParseSceneXml(const std::string& sceneXmlPath)
                 }
             }
 
+            if (tinyxml2::XMLElement* ud = node->FirstChildElement("UserData")) {
+                for (tinyxml2::XMLElement* data = ud->FirstChildElement("Data"); data; data = data->NextSiblingElement("Data")) {
+                    if (tinyxml2::XMLElement* info = data->FirstChildElement("TrussInfo")) {
+                        if (tinyxml2::XMLElement* m = info->FirstChildElement("Manufacturer"))
+                            if (m->GetText()) truss.manufacturer = Trim(m->GetText());
+                        if (tinyxml2::XMLElement* mo = info->FirstChildElement("Model"))
+                            if (mo->GetText()) truss.model = Trim(mo->GetText());
+                        if (tinyxml2::XMLElement* len = info->FirstChildElement("Length"))
+                            if (len->GetText()) truss.lengthMm = std::stof(len->GetText());
+                        if (tinyxml2::XMLElement* wid = info->FirstChildElement("Width"))
+                            if (wid->GetText()) truss.widthMm = std::stof(wid->GetText());
+                        if (tinyxml2::XMLElement* hei = info->FirstChildElement("Height"))
+                            if (hei->GetText()) truss.heightMm = std::stof(hei->GetText());
+                        if (tinyxml2::XMLElement* wei = info->FirstChildElement("Weight"))
+                            if (wei->GetText()) truss.weightKg = std::stof(wei->GetText());
+                        if (tinyxml2::XMLElement* cs = info->FirstChildElement("CrossSection"))
+                            if (cs->GetText()) truss.crossSection = Trim(cs->GetText());
+                        break;
+                    }
+                }
+            }
+
             scene.trusses[truss.uuid] = truss;
         };
 

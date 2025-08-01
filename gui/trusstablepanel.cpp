@@ -46,10 +46,14 @@ void TrussTablePanel::InitializeTable()
 {
     columnLabels = {"Name", "Layer", "Model File", "Hang Pos",
                     "Pos X", "Pos Y", "Pos Z",
-                    "Rot X", "Rot Y", "Rot Z"};
+                    "Rot X", "Rot Y", "Rot Z",
+                    "Manufacturer", "Model",
+                    "Length (m)", "Weight (kg)"};
     std::vector<int> widths = {150, 100, 180, 120,
                                80, 80, 80,
-                               80, 80, 80};
+                               80, 80, 80,
+                               120, 120,
+                               90, 90};
     for (size_t i = 0; i < columnLabels.size(); ++i)
         table->AppendTextColumn(
             columnLabels[i], wxDATAVIEW_CELL_INERT, widths[i], wxALIGN_LEFT,
@@ -108,6 +112,14 @@ void TrussTablePanel::ReloadData()
         row.push_back(rotX);
         row.push_back(rotY);
         row.push_back(rotZ);
+        wxString manuf = wxString::FromUTF8(truss.manufacturer);
+        wxString modelName = wxString::FromUTF8(truss.model);
+        wxString len = wxString::Format("%.2f", truss.lengthMm / 1000.0f);
+        wxString weight = wxString::Format("%.2f", truss.weightKg);
+        row.push_back(manuf);
+        row.push_back(modelName);
+        row.push_back(len);
+        row.push_back(weight);
 
         table->AppendItem(row);
         rowUuids.push_back(uuid);
@@ -141,7 +153,7 @@ void TrussTablePanel::OnContextMenu(wxDataViewEvent& event)
 
     wxString value = dlg.GetValue().Trim(true).Trim(false);
 
-    bool numericCol = (col >= 4);
+    bool numericCol = (col >= 4 && col <= 9);
 
     if (numericCol)
     {

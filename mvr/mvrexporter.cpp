@@ -175,6 +175,31 @@ bool MvrExporter::ExportToFile(const std::string& filePath)
             mat->SetText(mstr.c_str());
             te->InsertEndChild(mat);
 
+            bool hasMeta = !t.manufacturer.empty() || !t.model.empty() ||
+                           t.lengthMm != 0.0f || t.widthMm != 0.0f ||
+                           t.heightMm != 0.0f || t.weightKg != 0.0f ||
+                           !t.crossSection.empty();
+            if (hasMeta) {
+                tinyxml2::XMLElement* ud = doc.NewElement("UserData");
+                tinyxml2::XMLElement* data = doc.NewElement("Data");
+                data->SetAttribute("provider", "Perastage");
+                data->SetAttribute("ver", "1.0");
+                tinyxml2::XMLElement* info = doc.NewElement("TrussInfo");
+                info->SetAttribute("uuid", t.uuid.c_str());
+                auto addTxt = [&](const char* n, const std::string& v){ if(!v.empty()){ tinyxml2::XMLElement* e=doc.NewElement(n); e->SetText(v.c_str()); info->InsertEndChild(e);} };
+                auto addNum = [&](const char* n, float v, const char* unit){ if(v!=0.0f){ tinyxml2::XMLElement* e=doc.NewElement(n); e->SetAttribute("unit", unit); e->SetText(std::to_string(v).c_str()); info->InsertEndChild(e);} };
+                addTxt("Manufacturer", t.manufacturer);
+                addTxt("Model", t.model);
+                addNum("Length", t.lengthMm, "mm");
+                addNum("Width", t.widthMm, "mm");
+                addNum("Height", t.heightMm, "mm");
+                addNum("Weight", t.weightKg, "kg");
+                addTxt("CrossSection", t.crossSection);
+                data->InsertEndChild(info);
+                ud->InsertEndChild(data);
+                te->InsertEndChild(ud);
+            }
+
             childList->InsertEndChild(te);
         }
 
