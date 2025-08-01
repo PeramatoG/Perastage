@@ -62,7 +62,18 @@ void SceneObjectTablePanel::ReloadData()
     rowUuids.clear();
     const auto& objs = ConfigManager::Get().GetScene().sceneObjects;
 
-    for (const auto& [uuid, obj] : objs)
+    // Copy objects into a sortable vector
+    std::vector<std::pair<std::string, SceneObject>> sortedObjs(objs.begin(), objs.end());
+
+    // Sort by layer and then by name
+    std::sort(sortedObjs.begin(), sortedObjs.end(),
+        [](const auto& a, const auto& b) {
+            if (a.second.layer == b.second.layer)
+                return a.second.name < b.second.name;
+            return a.second.layer < b.second.layer;
+        });
+
+    for (const auto& [uuid, obj] : sortedObjs)
     {
         wxVector<wxVariant> row;
 
