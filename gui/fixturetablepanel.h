@@ -30,6 +30,7 @@ private:
 
     bool dragSelecting = false;
     int startRow = -1;
+    std::vector<int> selectionOrder;
 
     void InitializeTable(); // Set up columns
     void OnContextMenu(wxDataViewEvent& event);
