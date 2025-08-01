@@ -16,6 +16,7 @@
 #include "simplecrypt.h"
 #include "credentialstore.h"
 #include "exporttrussdialog.h"
+#include "exportobjectdialog.h"
 #include <set>
 #include <fstream>
 #include "fixture.h"
@@ -51,6 +52,7 @@ EVT_MENU(ID_View_ToggleFixtures, MainWindow::OnToggleFixtures)
 EVT_MENU(ID_View_ToggleViewport, MainWindow::OnToggleViewport)
 EVT_MENU(ID_Tools_DownloadGdtf, MainWindow::OnDownloadGdtf)
 EVT_MENU(ID_Tools_ExportTruss, MainWindow::OnExportTruss)
+EVT_MENU(ID_Tools_ExportSceneObject, MainWindow::OnExportSceneObject)
 EVT_MENU(ID_Help_Help, MainWindow::OnShowHelp)
 EVT_MENU(ID_Help_About, MainWindow::OnShowAbout)
 EVT_MENU(ID_Select_Fixtures, MainWindow::OnSelectFixtures)
@@ -220,6 +222,7 @@ void MainWindow::CreateMenuBar()
     wxMenu* toolsMenu = new wxMenu();
     toolsMenu->Append(ID_Tools_DownloadGdtf, "Download GDTF fixture...");
     toolsMenu->Append(ID_Tools_ExportTruss, "Export Truss...");
+    toolsMenu->Append(ID_Tools_ExportSceneObject, "Export Scene Object...");
 
     menuBar->Append(toolsMenu, "&Tools");
 
@@ -507,6 +510,58 @@ void MainWindow::OnExportTruss(wxCommandEvent& WXUNUSED(event))
     out.close();
 
     wxMessageBox("Truss exported successfully.", "Export Truss", wxOK | wxICON_INFORMATION);
+}
+
+void MainWindow::OnExportSceneObject(wxCommandEvent& WXUNUSED(event))
+{
+    namespace fs = std::filesystem;
+    const auto& scene = ConfigManager::Get().GetScene();
+    const auto& objs = scene.sceneObjects;
+    std::set<std::string> names;
+    for (const auto& [uuid, obj] : objs)
+        if (!obj.name.empty())
+            names.insert(obj.name);
+    if (names.empty()) {
+        wxMessageBox("No scene objects available.", "Export Scene Object", wxOK | wxICON_INFORMATION);
+        return;
+    }
+    std::vector<std::string> list(names.begin(), names.end());
+    ExportObjectDialog dlg(this, list);
+    if (dlg.ShowModal() != wxID_OK)
+        return;
+
+    std::string sel = dlg.GetSelectedName();
+    const SceneObject* chosen = nullptr;
+    for (const auto& [uuid, obj] : objs) {
+        if (obj.name == sel) { chosen = &obj; break; }
+    }
+    if (!chosen || chosen->modelFile.empty())
+        return;
+
+    fs::path src = chosen->modelFile;
+    if (src.is_relative() && !scene.basePath.empty())
+        src = fs::path(scene.basePath) / src;
+    if (!fs::exists(src)) {
+        wxMessageBox("Model file not found.", "Error", wxOK | wxICON_ERROR);
+        return;
+    }
+
+    wxString defName = wxString::FromUTF8(sel) + wxString(src.extension().string());
+    wxFileDialog saveDlg(this, "Save Object", "", defName,
+                         wxString("*") + wxString(src.extension().string()),
+                         wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
+    if (saveDlg.ShowModal() != wxID_OK)
+        return;
+
+    fs::path dest = std::string(saveDlg.GetPath().mb_str());
+    std::error_code ec;
+    fs::copy_file(src, dest, fs::copy_options::overwrite_existing, ec);
+    if (ec) {
+        wxMessageBox("Failed to copy file.", "Error", wxOK | wxICON_ERROR);
+        return;
+    }
+
+    wxMessageBox("Object exported successfully.", "Export Scene Object", wxOK | wxICON_INFORMATION);
 }
 
 
