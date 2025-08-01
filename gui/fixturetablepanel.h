@@ -40,4 +40,5 @@ private:
     void UpdateSceneData();
     void ApplyModeForGdtf(const wxString& path);
     void HighlightDuplicateFixtureIds();
+    void HighlightPatchConflicts();
 };
