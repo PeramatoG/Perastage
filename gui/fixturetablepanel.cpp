@@ -370,10 +370,11 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent& event)
 
         int newUni = dlg.GetUniverse();
         int newCh = dlg.GetChannel();
-        if (newCh < 1 || newCh > 255)
-        {
-            wxMessageBox("Channel fuera de rango (1-255)", "Error", wxOK | wxICON_ERROR);
-            return;
+        if (newCh < 1)
+            newCh = 1;
+        if (newCh > 512) {
+            newUni += (newCh - 1) / 512;
+            newCh = 1;
         }
 
         wxDataViewItemArray adrSelections;
@@ -447,7 +448,7 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent& event)
     {
         if (parts.size() == 0 || parts.size() > 2)
         {
-            wxMessageBox("Valor num\xE9rico inv\xE1lido", "Error", wxOK | wxICON_ERROR);
+            wxMessageBox("Invalid numeric value", "Error", wxOK | wxICON_ERROR);
             return;
         }
 
@@ -456,12 +457,12 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent& event)
             long v1, v2 = 0;
             if (!parts[0].ToLong(&v1))
             {
-                wxMessageBox("Valor inv\xE1lido", "Error", wxOK | wxICON_ERROR);
+                wxMessageBox("Invalid value", "Error", wxOK | wxICON_ERROR);
                 return;
             }
             if (col == 4 && (v1 < 1 || v1 > 512))
             {
-                wxMessageBox("Channel fuera de rango (1-512)", "Error", wxOK | wxICON_ERROR);
+                wxMessageBox("Channel out of range (1-512)", "Error", wxOK | wxICON_ERROR);
                 return;
             }
             bool interp = false;
@@ -469,12 +470,12 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent& event)
             {
                 if (!parts[1].ToLong(&v2))
                 {
-                    wxMessageBox("Valor inv\xE1lido", "Error", wxOK | wxICON_ERROR);
+                    wxMessageBox("Invalid value", "Error", wxOK | wxICON_ERROR);
                     return;
                 }
                 if (col == 4 && (v2 < 1 || v2 > 512))
                 {
-                    wxMessageBox("Channel fuera de rango (1-512)", "Error", wxOK | wxICON_ERROR);
+                    wxMessageBox("Channel out of range (1-512)", "Error", wxOK | wxICON_ERROR);
                     return;
                 }
                 interp = selections.size() > 1;
@@ -496,7 +497,7 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent& event)
             double v1, v2 = 0.0;
             if (!parts[0].ToDouble(&v1))
             {
-                wxMessageBox("Valor inv\xE1lido", "Error", wxOK | wxICON_ERROR);
+                wxMessageBox("Invalid value", "Error", wxOK | wxICON_ERROR);
                 return;
             }
             bool interp = false;
@@ -504,7 +505,7 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent& event)
             {
                 if (!parts[1].ToDouble(&v2))
                 {
-                    wxMessageBox("Valor inv\xE1lido", "Error", wxOK | wxICON_ERROR);
+                    wxMessageBox("Invalid value", "Error", wxOK | wxICON_ERROR);
                     return;
                 }
                 interp = selections.size() > 1;
