@@ -551,6 +551,55 @@ void FixtureTablePanel::HighlightFixture(const std::string& uuid)
     table->Refresh();
 }
 
+void FixtureTablePanel::HighlightPatchConflicts()
+{
+    // Clear previous highlighting on Universe and Channel columns
+    for (unsigned i = 0; i < table->GetItemCount(); ++i) {
+        store.ClearCellTextColour(i, 3);
+        store.ClearCellTextColour(i, 4);
+    }
+
+    struct PatchInfo { int start; int end; unsigned row; };
+    std::unordered_map<int, std::vector<PatchInfo>> uniMap;
+
+    for (unsigned i = 0; i < table->GetItemCount(); ++i) {
+        wxVariant v;
+        table->GetValue(v, i, 3);
+        long uni = v.GetLong();
+        table->GetValue(v, i, 4);
+        long ch = v.GetLong();
+        table->GetValue(v, i, 7);
+        long count = 1;
+        if (!v.GetString().ToLong(&count))
+            count = 1;
+
+        if (uni <= 0 || ch <= 0 || count <= 0)
+            continue;
+
+        PatchInfo info{static_cast<int>(ch), static_cast<int>(ch + count - 1), i};
+        uniMap[static_cast<int>(uni)].push_back(info);
+    }
+
+    for (auto& [uni, vec] : uniMap) {
+        std::sort(vec.begin(), vec.end(), [](const PatchInfo& a, const PatchInfo& b){
+            return a.start < b.start;
+        });
+
+        for (size_t i = 0; i < vec.size(); ++i) {
+            for (size_t j = i + 1; j < vec.size(); ++j) {
+                if (vec[j].start <= vec[i].end) {
+                    store.SetCellTextColour(vec[i].row, 3, *wxRED);
+                    store.SetCellTextColour(vec[i].row, 4, *wxRED);
+                    store.SetCellTextColour(vec[j].row, 3, *wxRED);
+                    store.SetCellTextColour(vec[j].row, 4, *wxRED);
+                } else {
+                    break;
+                }
+            }
+        }
+    }
+}
+
 void FixtureTablePanel::ClearSelection()
 {
     table->UnselectAll();
@@ -786,6 +835,7 @@ void FixtureTablePanel::HighlightDuplicateFixtureIds()
         }
     }
 
+    HighlightPatchConflicts();
     table->Refresh();
 }
 
