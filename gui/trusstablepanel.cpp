@@ -3,6 +3,7 @@
 #include "matrixutils.h"
 #include "viewer3dpanel.h"
 #include <algorithm>
+#include <unordered_map>
 #include <wx/settings.h>
 #include <wx/notebook.h>
 
@@ -287,13 +288,35 @@ void TrussTablePanel::UpdateSceneData()
     cfg.PushUndoState();
     auto& scene = cfg.GetScene();
     size_t count = std::min((size_t)table->GetItemCount(), rowUuids.size());
+
+    struct Dim { float len; float weight; };
+    std::unordered_map<std::string, Dim> dims;
+
+    auto makeKey = [](const std::string& n,
+                      const std::string& m,
+                      const std::string& mo) {
+        return n + "\x1F" + m + "\x1F" + mo;
+    };
+
+    // First pass: update scene data from the table and track changed groups
     for (size_t i = 0; i < count; ++i)
     {
         auto it = scene.trusses.find(rowUuids[i]);
         if (it == scene.trusses.end())
             continue;
 
+        Truss old = it->second;
         wxVariant v;
+
+        table->GetValue(v, i, 0);
+        it->second.name = std::string(v.GetString().mb_str());
+        table->GetValue(v, i, 1);
+        it->second.layer = std::string(v.GetString().mb_str());
+        table->GetValue(v, i, 2);
+        it->second.symbolFile = std::string(v.GetString().mb_str());
+        table->GetValue(v, i, 3);
+        it->second.positionName = std::string(v.GetString().mb_str());
+
         double x=0, y=0, z=0;
         table->GetValue(v, i, 4); v.GetString().ToDouble(&x);
         table->GetValue(v, i, 5); v.GetString().ToDouble(&y);
@@ -301,6 +324,64 @@ void TrussTablePanel::UpdateSceneData()
         it->second.transform.o = {static_cast<float>(x * 1000.0),
                                   static_cast<float>(y * 1000.0),
                                   static_cast<float>(z * 1000.0)};
+
+        table->GetValue(v, i, 10);
+        it->second.manufacturer = std::string(v.GetString().mb_str());
+        table->GetValue(v, i, 11);
+        it->second.model = std::string(v.GetString().mb_str());
+
+        double len=0.0, weight=0.0;
+        table->GetValue(v, i, 12); v.GetString().ToDouble(&len);
+        table->GetValue(v, i, 13); v.GetString().ToDouble(&weight);
+        it->second.lengthMm = static_cast<float>(len * 1000.0);
+        it->second.weightKg = static_cast<float>(weight);
+
+        std::string key = makeKey(it->second.name,
+                                  it->second.manufacturer,
+                                  it->second.model);
+
+        // If any relevant value changed, update canonical dimensions
+        if (old.name != it->second.name ||
+            old.manufacturer != it->second.manufacturer ||
+            old.model != it->second.model ||
+            old.lengthMm != it->second.lengthMm ||
+            old.weightKg != it->second.weightKg)
+        {
+            dims[key] = {it->second.lengthMm, it->second.weightKg};
+        }
+        else if (!dims.count(key))
+        {
+            dims[key] = {it->second.lengthMm, it->second.weightKg};
+        }
+    }
+
+    // Second pass: apply canonical dimensions to all members of each group
+    for (size_t i = 0; i < count; ++i)
+    {
+        auto it = scene.trusses.find(rowUuids[i]);
+        if (it == scene.trusses.end())
+            continue;
+
+        std::string key = makeKey(it->second.name,
+                                  it->second.manufacturer,
+                                  it->second.model);
+
+        auto dit = dims.find(key);
+        if (dit == dims.end())
+            continue;
+
+        float lenMm = dit->second.len;
+        float weightKg = dit->second.weight;
+
+        if (it->second.lengthMm != lenMm || it->second.weightKg != weightKg)
+        {
+            it->second.lengthMm = lenMm;
+            it->second.weightKg = weightKg;
+            wxString lenStr = wxString::Format("%.2f", lenMm / 1000.0f);
+            wxString weiStr = wxString::Format("%.2f", weightKg);
+            table->SetValue(wxVariant(lenStr), i, 12);
+            table->SetValue(wxVariant(weiStr), i, 13);
+        }
     }
 }
 
