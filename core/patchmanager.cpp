@@ -15,7 +15,7 @@ std::vector<PatchAddress> SequentialPatch(const std::vector<int>& channelCounts,
         if (count < 1)
             count = 1;
 
-        if (ch + count - 1 > 255) {
+        if (ch + count - 1 > 512) {
             ++uni;
             ch = 1;
         }
@@ -23,7 +23,7 @@ std::vector<PatchAddress> SequentialPatch(const std::vector<int>& channelCounts,
         result.push_back({uni, ch});
 
         ch += count;
-        if (ch > 255) {
+        if (ch > 512) {
             ++uni;
             ch = 1;
         }

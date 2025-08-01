@@ -148,14 +148,14 @@ void TrussTablePanel::OnContextMenu(wxDataViewEvent& event)
         wxArrayString parts = wxSplit(value, ' ');
         if (parts.size() == 0 || parts.size() > 2)
         {
-            wxMessageBox("Valor num\xE9rico inv\xE1lido", "Error", wxOK | wxICON_ERROR);
+            wxMessageBox("Invalid numeric value", "Error", wxOK | wxICON_ERROR);
             return;
         }
 
         double v1, v2 = 0.0;
         if (!parts[0].ToDouble(&v1))
         {
-            wxMessageBox("Valor inv\xE1lido", "Error", wxOK | wxICON_ERROR);
+            wxMessageBox("Invalid value", "Error", wxOK | wxICON_ERROR);
             return;
         }
         bool interp = false;
@@ -163,7 +163,7 @@ void TrussTablePanel::OnContextMenu(wxDataViewEvent& event)
         {
             if (!parts[1].ToDouble(&v2))
             {
-                wxMessageBox("Valor inv\xE1lido", "Error", wxOK | wxICON_ERROR);
+                wxMessageBox("Invalid value", "Error", wxOK | wxICON_ERROR);
                 return;
             }
             interp = selections.size() > 1;
