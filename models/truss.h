@@ -13,6 +13,15 @@ struct Truss {
     std::string function;
     std::string layer;
 
+    // Metadata fields
+    std::string manufacturer;
+    std::string model;
+    float lengthMm = 0.0f;
+    float widthMm = 0.0f;
+    float heightMm = 0.0f;
+    float weightKg = 0.0f;
+    std::string crossSection;
+
     // Optional hang position reference
     std::string position;      // Position UUID or raw vector
     std::string positionName;  // Resolved name from AUXData

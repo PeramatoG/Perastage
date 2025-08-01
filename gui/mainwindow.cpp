@@ -15,6 +15,9 @@
 #include "gdtfnet.h"
 #include "simplecrypt.h"
 #include "credentialstore.h"
+#include "exporttrussdialog.h"
+#include <set>
+#include <fstream>
 #include "fixture.h"
 #include <wx/aboutdlg.h>
 #include <wx/notebook.h>
@@ -47,6 +50,7 @@ EVT_MENU(ID_View_ToggleConsole, MainWindow::OnToggleConsole)
 EVT_MENU(ID_View_ToggleFixtures, MainWindow::OnToggleFixtures)
 EVT_MENU(ID_View_ToggleViewport, MainWindow::OnToggleViewport)
 EVT_MENU(ID_Tools_DownloadGdtf, MainWindow::OnDownloadGdtf)
+EVT_MENU(ID_Tools_ExportTruss, MainWindow::OnExportTruss)
 EVT_MENU(ID_Help_Help, MainWindow::OnShowHelp)
 EVT_MENU(ID_Help_About, MainWindow::OnShowAbout)
 EVT_MENU(ID_Select_Fixtures, MainWindow::OnSelectFixtures)
@@ -215,6 +219,7 @@ void MainWindow::CreateMenuBar()
     // Tools menu
     wxMenu* toolsMenu = new wxMenu();
     toolsMenu->Append(ID_Tools_DownloadGdtf, "Download GDTF fixture...");
+    toolsMenu->Append(ID_Tools_ExportTruss, "Export Truss...");
 
     menuBar->Append(toolsMenu, "&Tools");
 
@@ -453,6 +458,55 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent& WXUNUSED(event))
     }
 
     wxRemoveFile(cookieFileWx);
+}
+
+
+void MainWindow::OnExportTruss(wxCommandEvent& WXUNUSED(event))
+{
+    const auto& trusses = ConfigManager::Get().GetScene().trusses;
+    std::set<std::string> names;
+    for (const auto& [uuid, t] : trusses)
+        names.insert(t.name);
+    if (names.empty()) {
+        wxMessageBox("No truss data available.", "Export Truss", wxOK | wxICON_INFORMATION);
+        return;
+    }
+    std::vector<std::string> list(names.begin(), names.end());
+    ExportTrussDialog dlg(this, list);
+    if (dlg.ShowModal() != wxID_OK)
+        return;
+
+    std::string sel = dlg.GetSelectedName();
+    const Truss* chosen = nullptr;
+    for (const auto& [uuid, t] : trusses) {
+        if (t.name == sel) { chosen = &t; break; }
+    }
+    if (!chosen)
+        return;
+
+    wxFileDialog saveDlg(this, "Save Truss", "", wxString::FromUTF8(sel) + ".gtruss",
+                         "*.gtruss", wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
+    if (saveDlg.ShowModal() != wxID_OK)
+        return;
+
+    std::ofstream out(std::string(saveDlg.GetPath().mb_str()));
+    if (!out.is_open()) {
+        wxMessageBox("Failed to write file.", "Error", wxOK | wxICON_ERROR);
+        return;
+    }
+    out << "{\n";
+    out << "  \"Name\": \"" << chosen->name << "\",\n";
+    out << "  \"Manufacturer\": \"" << chosen->manufacturer << "\",\n";
+    out << "  \"Model\": \"" << chosen->model << "\",\n";
+    out << "  \"Length_mm\": " << chosen->lengthMm << ",\n";
+    out << "  \"Width_mm\": " << chosen->widthMm << ",\n";
+    out << "  \"Height_mm\": " << chosen->heightMm << ",\n";
+    out << "  \"Weight_kg\": " << chosen->weightKg << ",\n";
+    out << "  \"CrossSection\": \"" << chosen->crossSection << "\"\n";
+    out << "}\n";
+    out.close();
+
+    wxMessageBox("Truss exported successfully.", "Export Truss", wxOK | wxICON_INFORMATION);
 }
 
 
