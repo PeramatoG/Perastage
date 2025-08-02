@@ -35,3 +35,9 @@ std::vector<std::string> GetGdtfModes(const std::string& gdtfPath);
 // Returns the fixture type name defined in a GDTF file. Returns an empty
 // string when the name cannot be determined or the file cannot be parsed.
 std::string GetGdtfFixtureName(const std::string& gdtfPath);
+
+// Parses weight and power consumption from a GDTF file. Returns true if the
+// file could be read. Values are set to zero when not specified.
+bool GetGdtfProperties(const std::string& gdtfPath,
+                       float& outWeightKg,
+                       float& outPowerW);

@@ -429,3 +429,49 @@ std::string GetGdtfFixtureName(const std::string& gdtfPath)
     return {};
 }
 
+bool GetGdtfProperties(const std::string& gdtfPath,
+                       float& outWeightKg,
+                       float& outPowerW)
+{
+    outWeightKg = 0.0f;
+    outPowerW = 0.0f;
+    if (gdtfPath.empty())
+        return false;
+
+    std::string tempDir = CreateTempDir();
+    if (!ExtractZip(gdtfPath, tempDir))
+        return false;
+
+    std::string descPath = tempDir + "/description.xml";
+    tinyxml2::XMLDocument doc;
+    if (doc.LoadFile(descPath.c_str()) != tinyxml2::XML_SUCCESS)
+        return false;
+
+    tinyxml2::XMLElement* ft = doc.FirstChildElement("GDTF");
+    if (ft)
+        ft = ft->FirstChildElement("FixtureType");
+    else
+        ft = doc.FirstChildElement("FixtureType");
+    if (!ft)
+        return false;
+
+    tinyxml2::XMLElement* phys = ft->FirstChildElement("PhysicalDescriptions");
+    if (!phys)
+        return true;
+    tinyxml2::XMLElement* props = phys->FirstChildElement("Properties");
+    if (!props)
+        return true;
+
+    if (tinyxml2::XMLElement* w = props->FirstChildElement("Weight")) {
+        if (const char* v = w->Attribute("Value"))
+            outWeightKg = std::stof(v);
+    }
+
+    if (tinyxml2::XMLElement* pc = props->FirstChildElement("PowerConsumption")) {
+        if (const char* v = pc->Attribute("Value"))
+            outPowerW = std::stof(v);
+    }
+
+    return true;
+}
+

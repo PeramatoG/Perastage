@@ -17,6 +17,9 @@
 #include "credentialstore.h"
 #include "exporttrussdialog.h"
 #include "exportobjectdialog.h"
+#include "exportfixturedialog.h"
+#include <wx/wfstream.h>
+#include <wx/zipstrm.h>
 #include <set>
 #include <fstream>
 #include "fixture.h"
@@ -51,6 +54,7 @@ EVT_MENU(ID_View_ToggleConsole, MainWindow::OnToggleConsole)
 EVT_MENU(ID_View_ToggleFixtures, MainWindow::OnToggleFixtures)
 EVT_MENU(ID_View_ToggleViewport, MainWindow::OnToggleViewport)
 EVT_MENU(ID_Tools_DownloadGdtf, MainWindow::OnDownloadGdtf)
+EVT_MENU(ID_Tools_ExportFixture, MainWindow::OnExportFixture)
 EVT_MENU(ID_Tools_ExportTruss, MainWindow::OnExportTruss)
 EVT_MENU(ID_Tools_ExportSceneObject, MainWindow::OnExportSceneObject)
 EVT_MENU(ID_Help_Help, MainWindow::OnShowHelp)
@@ -221,6 +225,7 @@ void MainWindow::CreateMenuBar()
     // Tools menu
     wxMenu* toolsMenu = new wxMenu();
     toolsMenu->Append(ID_Tools_DownloadGdtf, "Download GDTF fixture...");
+    toolsMenu->Append(ID_Tools_ExportFixture, "Export Fixture...");
     toolsMenu->Append(ID_Tools_ExportTruss, "Export Truss...");
     toolsMenu->Append(ID_Tools_ExportSceneObject, "Export Scene Object...");
 
@@ -510,6 +515,160 @@ void MainWindow::OnExportTruss(wxCommandEvent& WXUNUSED(event))
     out.close();
 
     wxMessageBox("Truss exported successfully.", "Export Truss", wxOK | wxICON_INFORMATION);
+}
+
+void MainWindow::OnExportFixture(wxCommandEvent& WXUNUSED(event))
+{
+    namespace fs = std::filesystem;
+    auto createTempDir = []() {
+        auto now = std::chrono::system_clock::now().time_since_epoch().count();
+        std::string folderName = "GDTF_" + std::to_string(now);
+        fs::path base = fs::temp_directory_path();
+        fs::path full = base / folderName;
+        fs::create_directory(full);
+        return full.string();
+    };
+    auto extractZip = [](const std::string& zipPath, const std::string& destDir) {
+        wxFileInputStream input(zipPath);
+        if (!input.IsOk())
+            return false;
+        wxZipInputStream zipStream(input);
+        std::unique_ptr<wxZipEntry> entry;
+        while ((entry.reset(zipStream.GetNextEntry())), entry) {
+            std::string filename = entry->GetName().ToStdString();
+            std::string fullPath = destDir + "/" + filename;
+            if (entry->IsDir()) {
+                wxFileName::Mkdir(fullPath, wxS_DIR_DEFAULT, wxPATH_MKDIR_FULL);
+                continue;
+            }
+            wxFileName::Mkdir(wxFileName(fullPath).GetPath(), wxS_DIR_DEFAULT, wxPATH_MKDIR_FULL);
+            std::ofstream output(fullPath, std::ios::binary);
+            if (!output.is_open())
+                return false;
+            char buffer[4096];
+            while (true) {
+                zipStream.Read(buffer, sizeof(buffer));
+                size_t bytes = zipStream.LastRead();
+                if (bytes == 0)
+                    break;
+                output.write(buffer, bytes);
+            }
+            output.close();
+        }
+        return true;
+    };
+    const auto& fixtures = ConfigManager::Get().GetScene().fixtures;
+    std::set<std::string> names;
+    for (const auto& [uuid, f] : fixtures)
+        if (!f.name.empty())
+            names.insert(f.name);
+    if (names.empty()) {
+        wxMessageBox("No fixture data available.", "Export Fixture", wxOK | wxICON_INFORMATION);
+        return;
+    }
+    std::vector<std::string> list(names.begin(), names.end());
+    ExportFixtureDialog dlg(this, list);
+    if (dlg.ShowModal() != wxID_OK)
+        return;
+
+    std::string sel = dlg.GetSelectedName();
+    const Fixture* chosen = nullptr;
+    for (const auto& [uuid, f] : fixtures) {
+        if (f.name == sel) { chosen = &f; break; }
+    }
+    if (!chosen || chosen->gdtfSpec.empty())
+        return;
+
+    fs::path src = chosen->gdtfSpec;
+    const std::string& base = ConfigManager::Get().GetScene().basePath;
+    if (src.is_relative() && !base.empty())
+        src = fs::path(base) / src;
+    if (!fs::exists(src)) {
+        wxMessageBox("GDTF file not found.", "Error", wxOK | wxICON_ERROR);
+        return;
+    }
+
+    wxFileDialog saveDlg(this, "Save Fixture", "", wxString::FromUTF8(sel) + ".gdtf",
+                         "*.gdtf", wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
+    if (saveDlg.ShowModal() != wxID_OK)
+        return;
+
+    std::string tempDir = createTempDir();
+    if (!extractZip(src.string(), tempDir)) {
+        wxMessageBox("Failed to read GDTF.", "Error", wxOK | wxICON_ERROR);
+        return;
+    }
+
+    fs::path descPath = fs::path(tempDir) / "description.xml";
+    tinyxml2::XMLDocument doc;
+    if (doc.LoadFile(descPath.string().c_str()) != tinyxml2::XML_SUCCESS) {
+        fs::remove_all(tempDir);
+        wxMessageBox("Failed to parse description.xml.", "Error", wxOK | wxICON_ERROR);
+        return;
+    }
+
+    tinyxml2::XMLElement* ft = doc.FirstChildElement("GDTF");
+    if (ft)
+        ft = ft->FirstChildElement("FixtureType");
+    else
+        ft = doc.FirstChildElement("FixtureType");
+    if (!ft) {
+        fs::remove_all(tempDir);
+        wxMessageBox("Invalid GDTF file.", "Error", wxOK | wxICON_ERROR);
+        return;
+    }
+
+    tinyxml2::XMLElement* phys = ft->FirstChildElement("PhysicalDescriptions");
+    if (!phys)
+        phys = ft->InsertEndChild(doc.NewElement("PhysicalDescriptions"))->ToElement();
+    tinyxml2::XMLElement* props = phys->FirstChildElement("Properties");
+    if (!props)
+        props = phys->InsertEndChild(doc.NewElement("Properties"))->ToElement();
+
+    if (chosen->weightKg != 0.0f) {
+        tinyxml2::XMLElement* w = props->FirstChildElement("Weight");
+        if (!w)
+            w = props->InsertEndChild(doc.NewElement("Weight"))->ToElement();
+        w->SetAttribute("Value", chosen->weightKg);
+    }
+
+    if (chosen->powerConsumptionW != 0.0f) {
+        tinyxml2::XMLElement* pc = props->FirstChildElement("PowerConsumption");
+        if (!pc)
+            pc = props->InsertEndChild(doc.NewElement("PowerConsumption"))->ToElement();
+        pc->SetAttribute("Value", chosen->powerConsumptionW);
+    }
+
+    doc.SaveFile(descPath.string().c_str());
+
+    wxFileOutputStream out(std::string(saveDlg.GetPath().mb_str()));
+    if (!out.IsOk()) {
+        fs::remove_all(tempDir);
+        wxMessageBox("Failed to write file.", "Error", wxOK | wxICON_ERROR);
+        return;
+    }
+    wxZipOutputStream zip(out);
+    for (auto& p : fs::recursive_directory_iterator(tempDir)) {
+        if (!p.is_regular_file())
+            continue;
+        std::string rel = fs::relative(p.path(), tempDir).string();
+        auto* entry = new wxZipEntry(rel);
+        entry->SetMethod(wxZIP_METHOD_DEFLATE);
+        zip.PutNextEntry(entry);
+        std::ifstream in(p.path(), std::ios::binary);
+        char buf[4096];
+        while (in.good()) {
+            in.read(buf, sizeof(buf));
+            std::streamsize s = in.gcount();
+            if (s > 0)
+                zip.Write(buf, s);
+        }
+        zip.CloseEntry();
+    }
+    zip.Close();
+    fs::remove_all(tempDir);
+
+    wxMessageBox("Fixture exported successfully.", "Export Fixture", wxOK | wxICON_INFORMATION);
 }
 
 void MainWindow::OnExportSceneObject(wxCommandEvent& WXUNUSED(event))
@@ -830,6 +989,9 @@ void MainWindow::OnAddFixture(wxCommandEvent& WXUNUSED(event))
     if (dlg.ShowModal() != wxID_OK)
         return;
 
+    float weight = 0.0f, power = 0.0f;
+    GetGdtfProperties(gdtfPath, weight, power);
+
     int count = dlg.GetUnitCount();
     std::string name = dlg.GetFixtureName();
     int startId = dlg.GetFixtureId();
@@ -863,6 +1025,8 @@ void MainWindow::OnAddFixture(wxCommandEvent& WXUNUSED(event))
         f.fixtureId = startId + i;
         f.gdtfSpec = spec;
         f.gdtfMode = mode;
+        f.weightKg = weight;
+        f.powerConsumptionW = power;
         scene.fixtures[f.uuid] = f;
     }
 
