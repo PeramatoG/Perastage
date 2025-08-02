@@ -62,6 +62,7 @@ void FixtureTablePanel::InitializeTable()
         "Layer",
         "Universe",
         "Channel",
+        "Model file",
         "Type",
         "Mode",
         "Ch Count",
@@ -76,7 +77,7 @@ void FixtureTablePanel::InitializeTable()
         "Weight (kg)"
     };
 
-    std::vector<int> widths = {150, 90, 100, 80, 80, 180, 120, 80,
+    std::vector<int> widths = {150, 90, 100, 80, 80, 180, 180, 120, 80,
                                80, 80, 80, 120,
                                80, 80, 80,
                                100, 100};
@@ -212,6 +213,7 @@ void FixtureTablePanel::ReloadData()
         row.push_back(layer);
         row.push_back(universe);
         row.push_back(channel);
+        row.push_back(gdtf);
         row.push_back(type);
         row.push_back(mode);
         row.push_back(chCountStr);
@@ -251,7 +253,7 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent& event)
     if (selections.empty())
         selections.push_back(item);
 
-    // Type/GDTF column opens file dialog
+    // Model file column opens file dialog
     if (col == 5)
     {
         wxFileDialog fdlg(this, "Select GDTF file", wxEmptyString, wxEmptyString,
@@ -264,6 +266,7 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent& event)
             wxString typeName = wxString::FromUTF8(GetGdtfFixtureName(std::string(path.mb_str())));
             if (typeName.empty())
                 typeName = fdlg.GetFilename();
+            wxString fileName = fdlg.GetFilename();
 
             for (const auto& itSel : selections)
             {
@@ -275,12 +278,13 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent& event)
                     gdtfPaths.resize(table->GetItemCount());
 
                 gdtfPaths[r] = path;
-                table->SetValue(wxVariant(typeName), r, col);
+                table->SetValue(wxVariant(fileName), r, 5);
+                table->SetValue(wxVariant(typeName), r, 6);
 
                 wxString pstr = wxString::Format("%.1f", p);
                 wxString wstr = wxString::Format("%.2f", w);
-                table->SetValue(wxVariant(pstr), r, 15);
-                table->SetValue(wxVariant(wstr), r, 16);
+                table->SetValue(wxVariant(pstr), r, 16);
+                table->SetValue(wxVariant(wstr), r, 17);
             }
 
             ApplyModeForGdtf(path);
@@ -295,7 +299,7 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent& event)
     }
 
     // Mode column shows available modes of the selected GDTF
-    if (col == 6)
+    if (col == 7)
     {
         int r = table->ItemToRow(item);
         if (r == wxNOT_FOUND)
@@ -341,7 +345,7 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent& event)
                                                   sel.ToStdString());
             wxString chStr = chCount >= 0 ? wxString::Format("%d", chCount)
                                           : wxString();
-            table->SetValue(wxVariant(chStr), sr, 7);
+            table->SetValue(wxVariant(chStr), sr, 8);
         }
 
         UpdateSceneData();
@@ -400,7 +404,7 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent& event)
         counts.reserve(orderedRows.size());
         for (int row : orderedRows) {
             wxVariant vCount;
-            table->GetValue(vCount, row, 7);
+            table->GetValue(vCount, row, 8);
             long c = 1;
             if (!vCount.GetString().ToLong(&c))
                 c = 1;
@@ -439,7 +443,7 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent& event)
     wxString value = dlg.GetValue().Trim(true).Trim(false);
 
     bool intCol = (col == 1 || col == 3 || col == 4);
-    bool numericCol = intCol || (col >= 8 && col <= 10) || (col >= 12 && col <= 16);
+    bool numericCol = intCol || (col >= 9 && col <= 11) || (col >= 13 && col <= 17);
 
     wxArrayString parts = wxSplit(value, ' ');
 
@@ -517,7 +521,7 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent& event)
                     val = v1 + (v2 - v1) * i / (selections.size() - 1);
 
                 wxString out;
-                if (col >= 12 && col <= 14)
+                if (col >= 13 && col <= 15)
                     out = wxString::Format("%.1f\u00B0", val);
                 else
                     out = wxString::Format("%.3f", val);
@@ -594,7 +598,7 @@ void FixtureTablePanel::HighlightPatchConflicts()
         long uni = v.GetLong();
         table->GetValue(v, i, 4);
         long ch = v.GetLong();
-        table->GetValue(v, i, 7);
+        table->GetValue(v, i, 8);
         long count = 1;
         if (!v.GetString().ToLong(&count))
             count = 1;
@@ -689,7 +693,7 @@ void FixtureTablePanel::OnItemActivated(wxDataViewEvent& event)
         return;
     }
 
-    // Reuse same logic as context menu for Type and Mode columns
+    // Reuse same logic as context menu for Model file and Mode columns
     if (col == 5)
     {
         wxDataViewItemArray selections;
@@ -707,6 +711,7 @@ void FixtureTablePanel::OnItemActivated(wxDataViewEvent& event)
             wxString typeName = wxString::FromUTF8(GetGdtfFixtureName(std::string(path.mb_str())));
             if (typeName.empty())
                 typeName = fdlg.GetFilename();
+            wxString fileName = fdlg.GetFilename();
 
             for (const auto& itSel : selections)
             {
@@ -718,12 +723,13 @@ void FixtureTablePanel::OnItemActivated(wxDataViewEvent& event)
                     gdtfPaths.resize(table->GetItemCount());
 
                 gdtfPaths[r] = path;
-                table->SetValue(wxVariant(typeName), r, col);
+                table->SetValue(wxVariant(fileName), r, 5);
+                table->SetValue(wxVariant(typeName), r, 6);
 
                 wxString pstr = wxString::Format("%.1f", p);
                 wxString wstr = wxString::Format("%.2f", w);
-                table->SetValue(wxVariant(pstr), r, 15);
-                table->SetValue(wxVariant(wstr), r, 16);
+                table->SetValue(wxVariant(pstr), r, 16);
+                table->SetValue(wxVariant(wstr), r, 17);
             }
 
             ApplyModeForGdtf(path);
@@ -737,7 +743,7 @@ void FixtureTablePanel::OnItemActivated(wxDataViewEvent& event)
         return;
     }
 
-    if (col == 6)
+    if (col == 7)
     {
         int r = table->ItemToRow(item);
         if (r == wxNOT_FOUND)
@@ -790,7 +796,7 @@ void FixtureTablePanel::OnItemActivated(wxDataViewEvent& event)
             int chCount = GetGdtfModeChannelCount(gdtfPath.ToStdString(), sel.ToStdString());
             wxString chStr = chCount >= 0 ? wxString::Format("%d", chCount)
                                           : wxString();
-            table->SetValue(wxVariant(chStr), sr, 7);
+            table->SetValue(wxVariant(chStr), sr, 8);
         }
 
         UpdateSceneData();
@@ -914,10 +920,10 @@ void FixtureTablePanel::UpdateSceneData()
         table->GetValue(v, i, 4);
         long ch = v.GetLong();
 
-        table->GetValue(v, i, 5);
+        table->GetValue(v, i, 6);
         it->second.typeName = std::string(v.GetString().mb_str());
 
-        table->GetValue(v, i, 6);
+        table->GetValue(v, i, 7);
         it->second.gdtfMode = std::string(v.GetString().mb_str());
 
         if (uni>0 && ch>0)
@@ -926,19 +932,19 @@ void FixtureTablePanel::UpdateSceneData()
             it->second.address.clear();
 
         double x=0, y=0, z=0;
-        table->GetValue(v, i, 8); v.GetString().ToDouble(&x);
-        table->GetValue(v, i, 9); v.GetString().ToDouble(&y);
-        table->GetValue(v, i, 10); v.GetString().ToDouble(&z);
+        table->GetValue(v, i, 9); v.GetString().ToDouble(&x);
+        table->GetValue(v, i, 10); v.GetString().ToDouble(&y);
+        table->GetValue(v, i, 11); v.GetString().ToDouble(&z);
         it->second.transform.o = {static_cast<float>(x * 1000.0),
                                   static_cast<float>(y * 1000.0),
                                   static_cast<float>(z * 1000.0)};
 
-        table->GetValue(v, i, 15);
+        table->GetValue(v, i, 16);
         double pw = 0.0;
         v.GetString().ToDouble(&pw);
         it->second.powerConsumptionW = static_cast<float>(pw);
 
-        table->GetValue(v, i, 16);
+        table->GetValue(v, i, 17);
         double wt = 0.0;
         v.GetString().ToDouble(&wt);
         it->second.weightKg = static_cast<float>(wt);
@@ -969,7 +975,7 @@ void FixtureTablePanel::ApplyModeForGdtf(const wxString& path)
             continue;
 
         wxVariant v;
-        table->GetValue(v, i, 6);
+        table->GetValue(v, i, 7);
         wxString currWx = v.GetString();
         std::string curr = std::string(currWx.mb_str());
 
@@ -992,12 +998,12 @@ void FixtureTablePanel::ApplyModeForGdtf(const wxString& path)
         }
 
         if (chosen != curr)
-            table->SetValue(wxVariant(wxString::FromUTF8(chosen)), i, 6);
+            table->SetValue(wxVariant(wxString::FromUTF8(chosen)), i, 7);
 
         int chCount = GetGdtfModeChannelCount(path.ToStdString(), chosen);
         wxString chStr = chCount >= 0 ? wxString::Format("%d", chCount)
                                       : wxString();
-        table->SetValue(wxVariant(chStr), i, 7);
+        table->SetValue(wxVariant(chStr), i, 8);
     }
 }
 
