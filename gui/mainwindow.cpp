@@ -485,7 +485,7 @@ void MainWindow::OnExportTruss(wxCommandEvent& WXUNUSED(event))
     if (dlg.ShowModal() != wxID_OK)
         return;
 
-    std::string sel = dlg.GetSelectedName();
+    std::string sel = dlg.GetSelectedType();
     const Truss* chosen = nullptr;
     for (const auto& [uuid, t] : trusses) {
         if (t.name == sel) { chosen = &t; break; }
@@ -559,23 +559,23 @@ void MainWindow::OnExportFixture(wxCommandEvent& WXUNUSED(event))
         return true;
     };
     const auto& fixtures = ConfigManager::Get().GetScene().fixtures;
-    std::set<std::string> names;
+    std::set<std::string> types;
     for (const auto& [uuid, f] : fixtures)
-        if (!f.instanceName.empty())
-            names.insert(f.instanceName);
-    if (names.empty()) {
+        if (!f.typeName.empty())
+            types.insert(f.typeName);
+    if (types.empty()) {
         wxMessageBox("No fixture data available.", "Export Fixture", wxOK | wxICON_INFORMATION);
         return;
     }
-    std::vector<std::string> list(names.begin(), names.end());
+    std::vector<std::string> list(types.begin(), types.end());
     ExportFixtureDialog dlg(this, list);
     if (dlg.ShowModal() != wxID_OK)
         return;
 
-    std::string sel = dlg.GetSelectedName();
+    std::string sel = dlg.GetSelectedType();
     const Fixture* chosen = nullptr;
     for (const auto& [uuid, f] : fixtures) {
-        if (f.instanceName == sel) { chosen = &f; break; }
+        if (f.typeName == sel) { chosen = &f; break; }
     }
     if (!chosen || chosen->gdtfSpec.empty())
         return;
