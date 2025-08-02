@@ -38,6 +38,8 @@ FixtureTablePanel::FixtureTablePanel(wxWindow* parent)
 
     table->Bind(wxEVT_DATAVIEW_ITEM_CONTEXT_MENU,
                 &FixtureTablePanel::OnContextMenu, this);
+    table->Bind(wxEVT_DATAVIEW_ITEM_ACTIVATED,
+                &FixtureTablePanel::OnItemActivated, this);
 
     InitializeTable();
     ReloadData();
@@ -675,6 +677,132 @@ void FixtureTablePanel::DeleteSelected()
         Viewer3DPanel::Instance()->UpdateScene();
         Viewer3DPanel::Instance()->Refresh();
     }
+}
+
+void FixtureTablePanel::OnItemActivated(wxDataViewEvent& event)
+{
+    wxDataViewItem item = event.GetItem();
+    int col = event.GetColumn();
+    if (!item.IsOk() || col < 0)
+    {
+        event.Skip();
+        return;
+    }
+
+    // Reuse same logic as context menu for Type and Mode columns
+    if (col == 5)
+    {
+        wxDataViewItemArray selections;
+        table->GetSelections(selections);
+        if (selections.empty())
+            selections.push_back(item);
+
+        wxFileDialog fdlg(this, "Select GDTF file", wxEmptyString, wxEmptyString,
+                          "*.gdtf", wxFD_OPEN | wxFD_FILE_MUST_EXIST);
+        if (fdlg.ShowModal() == wxID_OK)
+        {
+            wxString path = fdlg.GetPath();
+            float w = 0.0f, p = 0.0f;
+            GetGdtfProperties(std::string(path.mb_str()), w, p);
+            wxString typeName = wxString::FromUTF8(GetGdtfFixtureName(std::string(path.mb_str())));
+            if (typeName.empty())
+                typeName = fdlg.GetFilename();
+
+            for (const auto& itSel : selections)
+            {
+                int r = table->ItemToRow(itSel);
+                if (r == wxNOT_FOUND)
+                    continue;
+
+                if ((size_t)r >= gdtfPaths.size())
+                    gdtfPaths.resize(table->GetItemCount());
+
+                gdtfPaths[r] = path;
+                table->SetValue(wxVariant(typeName), r, col);
+
+                wxString pstr = wxString::Format("%.1f", p);
+                wxString wstr = wxString::Format("%.2f", w);
+                table->SetValue(wxVariant(pstr), r, 15);
+                table->SetValue(wxVariant(wstr), r, 16);
+            }
+
+            ApplyModeForGdtf(path);
+        }
+        UpdateSceneData();
+        HighlightDuplicateFixtureIds();
+        if (Viewer3DPanel::Instance()) {
+            Viewer3DPanel::Instance()->UpdateScene();
+            Viewer3DPanel::Instance()->Refresh();
+        }
+        return;
+    }
+
+    if (col == 6)
+    {
+        int r = table->ItemToRow(item);
+        if (r == wxNOT_FOUND)
+        {
+            event.Skip();
+            return;
+        }
+
+        wxString gdtfPath;
+        if ((size_t)r < gdtfPaths.size())
+            gdtfPath = gdtfPaths[r];
+
+        std::vector<std::string> modes = GetGdtfModes(gdtfPath.ToStdString());
+        if (modes.size() <= 1)
+        {
+            event.Skip();
+            return;
+        }
+
+        wxArrayString choices;
+        for (const auto& m : modes)
+            choices.push_back(wxString::FromUTF8(m));
+
+        wxSingleChoiceDialog dlg(this, "Select DMX mode", "DMX Mode", choices);
+        if (dlg.ShowModal() != wxID_OK)
+        {
+            event.Skip();
+            return;
+        }
+
+        wxString sel = dlg.GetStringSelection();
+
+        wxDataViewItemArray modeSelections;
+        table->GetSelections(modeSelections);
+        if (modeSelections.empty())
+            modeSelections.push_back(item);
+
+        for (const auto& itSel : modeSelections)
+        {
+            int sr = table->ItemToRow(itSel);
+            if (sr == wxNOT_FOUND)
+                continue;
+            if ((size_t)sr >= gdtfPaths.size())
+                continue;
+            if (gdtfPaths[sr] != gdtfPath)
+                continue;
+
+            table->SetValue(wxVariant(sel), sr, col);
+
+            int chCount = GetGdtfModeChannelCount(gdtfPath.ToStdString(), sel.ToStdString());
+            wxString chStr = chCount >= 0 ? wxString::Format("%d", chCount)
+                                          : wxString();
+            table->SetValue(wxVariant(chStr), sr, 7);
+        }
+
+        UpdateSceneData();
+        HighlightDuplicateFixtureIds();
+        if (Viewer3DPanel::Instance()) {
+            Viewer3DPanel::Instance()->UpdateScene();
+            Viewer3DPanel::Instance()->Refresh();
+        }
+        return;
+    }
+
+    event.Skip();
 }
 
 void FixtureTablePanel::OnLeftDown(wxMouseEvent& evt)
