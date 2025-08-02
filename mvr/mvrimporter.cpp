@@ -2,6 +2,7 @@
 #include "configmanager.h"
 #include "matrixutils.h"
 #include "sceneobject.h"
+#include "gdtfloader.h"
 
 #include <filesystem>
 #include <iostream>
@@ -200,7 +201,8 @@ bool MvrImporter::ParseSceneXml(const std::string& sceneXmlPath)
             fixture.uuid = uuidAttr;
             fixture.layer = layerName;
 
-            if (const char* nameAttr = node->Attribute("name")) fixture.name = nameAttr;
+            if (const char* nameAttr = node->Attribute("name"))
+                fixture.instanceName = nameAttr;
 
             intOf(node, "FixtureID", fixture.fixtureId);
             intOf(node, "FixtureIDNumeric", fixture.fixtureIdNumeric);
@@ -213,6 +215,11 @@ bool MvrImporter::ParseSceneXml(const std::string& sceneXmlPath)
             fixture.focus = textOf(node, "Focus");
             fixture.function = textOf(node, "Function");
             fixture.position = textOf(node, "Position");
+            if (!fixture.gdtfSpec.empty()) {
+                fs::path p = scene.basePath.empty() ? fs::path(fixture.gdtfSpec)
+                                                   : fs::path(scene.basePath) / fixture.gdtfSpec;
+                fixture.typeName = GetGdtfFixtureName(p.string());
+            }
             auto posIt = scene.positions.find(fixture.position);
             if (posIt != scene.positions.end()) fixture.positionName = posIt->second;
 

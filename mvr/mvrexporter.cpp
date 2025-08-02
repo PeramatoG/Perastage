@@ -96,8 +96,8 @@ bool MvrExporter::ExportToFile(const std::string& filePath)
                 continue;
             tinyxml2::XMLElement* fe = doc.NewElement("Fixture");
             fe->SetAttribute("uuid", f.uuid.c_str());
-            if (!f.name.empty())
-                fe->SetAttribute("name", f.name.c_str());
+            if (!f.instanceName.empty())
+                fe->SetAttribute("name", f.instanceName.c_str());
 
             auto addInt = [&](const char* n, int v){ if(v!=0){ tinyxml2::XMLElement* e=doc.NewElement(n); e->SetText(std::to_string(v).c_str()); fe->InsertEndChild(e);} };
             auto addStr = [&](const char* n,const std::string& s){ if(!s.empty()){ tinyxml2::XMLElement* e=doc.NewElement(n); e->SetText(s.c_str()); fe->InsertEndChild(e);} };

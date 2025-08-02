@@ -561,8 +561,8 @@ void MainWindow::OnExportFixture(wxCommandEvent& WXUNUSED(event))
     const auto& fixtures = ConfigManager::Get().GetScene().fixtures;
     std::set<std::string> names;
     for (const auto& [uuid, f] : fixtures)
-        if (!f.name.empty())
-            names.insert(f.name);
+        if (!f.instanceName.empty())
+            names.insert(f.instanceName);
     if (names.empty()) {
         wxMessageBox("No fixture data available.", "Export Fixture", wxOK | wxICON_INFORMATION);
         return;
@@ -575,7 +575,7 @@ void MainWindow::OnExportFixture(wxCommandEvent& WXUNUSED(event))
     std::string sel = dlg.GetSelectedName();
     const Fixture* chosen = nullptr;
     for (const auto& [uuid, f] : fixtures) {
-        if (f.name == sel) { chosen = &f; break; }
+        if (f.instanceName == sel) { chosen = &f; break; }
     }
     if (!chosen || chosen->gdtfSpec.empty())
         return;
@@ -1022,7 +1022,8 @@ void MainWindow::OnAddFixture(wxCommandEvent& WXUNUSED(event))
         Fixture f;
         f.uuid = wxString::Format("uuid_%lld_%d",
                                 static_cast<long long>(std::chrono::steady_clock::now().time_since_epoch().count()), i).ToStdString();
-        f.name = name;
+        f.instanceName = name;
+        f.typeName = defaultName;
         f.fixtureId = startId + i;
         f.gdtfSpec = spec;
         f.gdtfMode = mode;

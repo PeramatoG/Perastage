@@ -60,7 +60,7 @@ void FixtureTablePanel::InitializeTable()
         "Layer",
         "Universe",
         "Channel",
-        "GDTF",
+        "Type",
         "Mode",
         "Ch Count",
         "Pos X",
@@ -163,7 +163,7 @@ void FixtureTablePanel::ReloadData()
         const Fixture* fixture = pair.second;
         wxVector<wxVariant> row;
 
-        wxString name = wxString::FromUTF8(fixture->name);
+        wxString name = wxString::FromUTF8(fixture->instanceName);
         long fixtureID = static_cast<long>(fixture->fixtureId);
         wxString layer = wxString::FromUTF8(fixture->layer);
         long universe = 0;
@@ -184,6 +184,9 @@ void FixtureTablePanel::ReloadData()
         wxString gdtfFull = wxString::FromUTF8(fullPath);
         gdtfPaths.push_back(gdtfFull);
         wxString gdtf = wxFileName(gdtfFull).GetFullName();
+        wxString type = wxString::FromUTF8(fixture->typeName);
+        if (type.empty())
+            type = gdtf;
         wxString mode = wxString::FromUTF8(fixture->gdtfMode);
 
         int chCount = GetGdtfModeChannelCount(gdtfFull.ToStdString(),
@@ -207,7 +210,7 @@ void FixtureTablePanel::ReloadData()
         row.push_back(layer);
         row.push_back(universe);
         row.push_back(channel);
-        row.push_back(gdtf);
+        row.push_back(type);
         row.push_back(mode);
         row.push_back(chCountStr);
         row.push_back(posX);
@@ -246,7 +249,7 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent& event)
     if (selections.empty())
         selections.push_back(item);
 
-    // GDTF column opens file dialog
+    // Type/GDTF column opens file dialog
     if (col == 5)
     {
         wxFileDialog fdlg(this, "Select GDTF file", wxEmptyString, wxEmptyString,
@@ -254,64 +257,31 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent& event)
         if (fdlg.ShowModal() == wxID_OK)
         {
             wxString path = fdlg.GetPath();
-            wxString name = fdlg.GetFilename();
-            std::vector<wxString> affectedNames;
+            float w = 0.0f, p = 0.0f;
+            GetGdtfProperties(std::string(path.mb_str()), w, p);
+            wxString typeName = wxString::FromUTF8(GetGdtfFixtureName(std::string(path.mb_str())));
+            if (typeName.empty())
+                typeName = fdlg.GetFilename();
 
-            for (const auto& it : selections)
+            for (const auto& itSel : selections)
             {
-                int r = table->ItemToRow(it);
+                int r = table->ItemToRow(itSel);
                 if (r == wxNOT_FOUND)
                     continue;
 
-                // Ensure vector size
                 if ((size_t)r >= gdtfPaths.size())
                     gdtfPaths.resize(table->GetItemCount());
 
-                // Track name for propagation
-                wxVariant nv;
-                table->GetValue(nv, r, 0);
-                affectedNames.push_back(nv.GetString());
-
-                // Update selected row
                 gdtfPaths[r] = path;
-                table->SetValue(wxVariant(name), r, col);
-            }
+                table->SetValue(wxVariant(typeName), r, col);
 
-            // Apply same GDTF to all fixtures sharing the same name
-            for (size_t i = 0; i < table->GetItemCount(); ++i)
-            {
-                wxVariant nv;
-                table->GetValue(nv, i, 0);
-                if (std::find(affectedNames.begin(), affectedNames.end(), nv.GetString()) != affectedNames.end())
-                {
-                    if (i >= gdtfPaths.size())
-                        gdtfPaths.resize(table->GetItemCount());
-                    gdtfPaths[i] = path;
-                    table->SetValue(wxVariant(name), i, col);
-                }
-            }
-
-            ApplyModeForGdtf(path);
-            float w = 0.0f, p = 0.0f;
-            GetGdtfProperties(std::string(path.mb_str()), w, p);
-            for (const auto& itSel : selections) {
-                int r = table->ItemToRow(itSel);
-                if (r == wxNOT_FOUND) continue;
                 wxString pstr = wxString::Format("%.1f", p);
                 wxString wstr = wxString::Format("%.2f", w);
                 table->SetValue(wxVariant(pstr), r, 15);
                 table->SetValue(wxVariant(wstr), r, 16);
             }
-            for (size_t i = 0; i < table->GetItemCount(); ++i) {
-                wxVariant nv;
-                table->GetValue(nv, i, 0);
-                if (std::find(affectedNames.begin(), affectedNames.end(), nv.GetString()) != affectedNames.end()) {
-                    wxString pstr = wxString::Format("%.1f", p);
-                    wxString wstr = wxString::Format("%.2f", w);
-                    table->SetValue(wxVariant(pstr), i, 15);
-                    table->SetValue(wxVariant(wstr), i, 16);
-                }
-            }
+
+            ApplyModeForGdtf(path);
         }
         UpdateSceneData();
         HighlightDuplicateFixtureIds();
@@ -803,6 +773,9 @@ void FixtureTablePanel::UpdateSceneData()
             it->second.gdtfSpec = std::string(gdtfPaths[i].mb_str());
 
         wxVariant v;
+        table->GetValue(v, i, 0);
+        it->second.instanceName = std::string(v.GetString().mb_str());
+
         table->GetValue(v, i, 1);
         long fid = v.GetLong();
         it->second.fixtureId = static_cast<int>(fid);
@@ -812,6 +785,9 @@ void FixtureTablePanel::UpdateSceneData()
 
         table->GetValue(v, i, 4);
         long ch = v.GetLong();
+
+        table->GetValue(v, i, 5);
+        it->second.typeName = std::string(v.GetString().mb_str());
 
         table->GetValue(v, i, 6);
         it->second.gdtfMode = std::string(v.GetString().mb_str());
