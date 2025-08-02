@@ -901,8 +901,8 @@ void Viewer3DController::DrawFixtureLabels(int width, int height)
 
         int x = static_cast<int>(sx);
         int y = height - static_cast<int>(sy);
-        wxString label = f.name.empty() ? wxString::FromUTF8(uuid)
-                                       : wxString::FromUTF8(f.name);
+        wxString label = f.instanceName.empty() ? wxString::FromUTF8(uuid)
+                                                : wxString::FromUTF8(f.instanceName);
         label += "\nID: " + wxString::Format("%d", f.fixtureId);
         if (!f.address.empty())
             label += "\n" + wxString::FromUTF8(f.address);
@@ -976,8 +976,8 @@ bool Viewer3DController::GetFixtureLabelAt(int mouseX, int mouseY,
                 bestDepth = minDepth;
                 bestPos.x = static_cast<int>((rect.minX + rect.maxX) * 0.5);
                 bestPos.y = static_cast<int>((rect.minY + rect.maxY) * 0.5);
-                bestLabel = f.name.empty() ? wxString::FromUTF8(uuid)
-                                           : wxString::FromUTF8(f.name);
+                bestLabel = f.instanceName.empty() ? wxString::FromUTF8(uuid)
+                                                   : wxString::FromUTF8(f.instanceName);
                 bestLabel += "\nID: " + wxString::Format("%d", f.fixtureId);
                 if (!f.address.empty())
                     bestLabel += "\n" + wxString::FromUTF8(f.address);
