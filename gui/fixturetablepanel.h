@@ -34,6 +34,7 @@ private:
 
     void InitializeTable(); // Set up columns
     void OnContextMenu(wxDataViewEvent& event);
+    void OnItemActivated(wxDataViewEvent& event);
     void OnLeftDown(wxMouseEvent& evt);
     void OnLeftUp(wxMouseEvent& evt);
     void OnMouseMove(wxMouseEvent& evt);
