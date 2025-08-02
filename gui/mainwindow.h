@@ -43,6 +43,7 @@ private:
     void OnImportMVR(wxCommandEvent& event);       // Handle the Import MVR action
     void OnExportMVR(wxCommandEvent& event);       // Handle the Export MVR action
     void OnExportTruss(wxCommandEvent& event);     // Export truss metadata
+    void OnExportFixture(wxCommandEvent& event);   // Export fixture GDTF
     void OnExportSceneObject(wxCommandEvent& event); // Export scene object model
     void OnDownloadGdtf(wxCommandEvent& event);    // Download fixture from GDTF Share
     void OnClose(wxCommandEvent& event);           // Handle the Close action
@@ -80,6 +81,7 @@ enum
     ID_View_ToggleFixtures,
     ID_View_ToggleViewport,
     ID_Tools_DownloadGdtf,
+    ID_Tools_ExportFixture,
     ID_Tools_ExportTruss,
     ID_Tools_ExportSceneObject,
     ID_Help_Help,

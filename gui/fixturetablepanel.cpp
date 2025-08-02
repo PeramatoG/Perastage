@@ -69,12 +69,15 @@ void FixtureTablePanel::InitializeTable()
         "Hang Pos",
         "Rot X",
         "Rot Y",
-        "Rot Z"
+        "Rot Z",
+        "Power (W)",
+        "Weight (kg)"
     };
 
     std::vector<int> widths = {150, 90, 100, 80, 80, 180, 120, 80,
                                80, 80, 80, 120,
-                               80, 80, 80};
+                               80, 80, 80,
+                               100, 100};
     int flags = wxDATAVIEW_COL_RESIZABLE | wxDATAVIEW_COL_SORTABLE;
 
     // Column 0: Name (string)
@@ -214,6 +217,10 @@ void FixtureTablePanel::ReloadData()
         row.push_back(rotX);
         row.push_back(rotY);
         row.push_back(rotZ);
+        wxString power = wxString::Format("%.1f", fixture->powerConsumptionW);
+        wxString weight = wxString::Format("%.2f", fixture->weightKg);
+        row.push_back(power);
+        row.push_back(weight);
 
         table->AppendItem(row);
         rowUuids.push_back(uuid);
@@ -285,6 +292,26 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent& event)
             }
 
             ApplyModeForGdtf(path);
+            float w = 0.0f, p = 0.0f;
+            GetGdtfProperties(std::string(path.mb_str()), w, p);
+            for (const auto& itSel : selections) {
+                int r = table->ItemToRow(itSel);
+                if (r == wxNOT_FOUND) continue;
+                wxString pstr = wxString::Format("%.1f", p);
+                wxString wstr = wxString::Format("%.2f", w);
+                table->SetValue(wxVariant(pstr), r, 15);
+                table->SetValue(wxVariant(wstr), r, 16);
+            }
+            for (size_t i = 0; i < table->GetItemCount(); ++i) {
+                wxVariant nv;
+                table->GetValue(nv, i, 0);
+                if (std::find(affectedNames.begin(), affectedNames.end(), nv.GetString()) != affectedNames.end()) {
+                    wxString pstr = wxString::Format("%.1f", p);
+                    wxString wstr = wxString::Format("%.2f", w);
+                    table->SetValue(wxVariant(pstr), i, 15);
+                    table->SetValue(wxVariant(wstr), i, 16);
+                }
+            }
         }
         UpdateSceneData();
         HighlightDuplicateFixtureIds();
@@ -440,7 +467,7 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent& event)
     wxString value = dlg.GetValue().Trim(true).Trim(false);
 
     bool intCol = (col == 1 || col == 3 || col == 4);
-    bool numericCol = intCol || (col >= 8 && col <= 10) || (col >= 12 && col <= 14);
+    bool numericCol = intCol || (col >= 8 && col <= 10) || (col >= 12 && col <= 16);
 
     wxArrayString parts = wxSplit(value, ' ');
 
@@ -801,6 +828,16 @@ void FixtureTablePanel::UpdateSceneData()
         it->second.transform.o = {static_cast<float>(x * 1000.0),
                                   static_cast<float>(y * 1000.0),
                                   static_cast<float>(z * 1000.0)};
+
+        table->GetValue(v, i, 15);
+        double pw = 0.0;
+        v.GetString().ToDouble(&pw);
+        it->second.powerConsumptionW = static_cast<float>(pw);
+
+        table->GetValue(v, i, 16);
+        double wt = 0.0;
+        v.GetString().ToDouble(&wt);
+        it->second.weightKg = static_cast<float>(wt);
     }
 
     HighlightDuplicateFixtureIds();
