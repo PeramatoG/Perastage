@@ -485,7 +485,7 @@ void MainWindow::OnExportTruss(wxCommandEvent& WXUNUSED(event))
     if (dlg.ShowModal() != wxID_OK)
         return;
 
-    std::string sel = dlg.GetSelectedType();
+    std::string sel = dlg.GetSelectedName();
     const Truss* chosen = nullptr;
     for (const auto& [uuid, t] : trusses) {
         if (t.name == sel) { chosen = &t; break; }
