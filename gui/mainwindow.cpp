@@ -30,6 +30,7 @@
 #include <cstdlib>
 #include <cstdio>
 #include <filesystem>
+#include <tinyxml2.h>
 #include <chrono>
 #ifdef _WIN32
 #  define popen _popen
