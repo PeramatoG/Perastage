@@ -266,7 +266,8 @@ void MainWindow::OnNew(wxCommandEvent& WXUNUSED(event))
 void MainWindow::OnLoad(wxCommandEvent& event)
 {
     wxString filter = wxString::Format("Perastage files (*%s)|*%s", ProjectUtils::PROJECT_EXTENSION, ProjectUtils::PROJECT_EXTENSION);
-    wxFileDialog dlg(this, "Open Project", "", "", filter, wxFD_OPEN | wxFD_FILE_MUST_EXIST);
+    wxString projDir = wxString::FromUTF8(ProjectUtils::GetDefaultLibraryPath("projects"));
+    wxFileDialog dlg(this, "Open Project", projDir, "", filter, wxFD_OPEN | wxFD_FILE_MUST_EXIST);
     if (dlg.ShowModal() == wxID_CANCEL)
         return;
 
@@ -295,7 +296,8 @@ void MainWindow::OnSave(wxCommandEvent& event)
 void MainWindow::OnSaveAs(wxCommandEvent& event)
 {
     wxString filter = wxString::Format("Perastage files (*%s)|*%s", ProjectUtils::PROJECT_EXTENSION, ProjectUtils::PROJECT_EXTENSION);
-    wxFileDialog dlg(this, "Save Project", "", "", filter, wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
+    wxString projDir = wxString::FromUTF8(ProjectUtils::GetDefaultLibraryPath("projects"));
+    wxFileDialog dlg(this, "Save Project", projDir, "", filter, wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
     if (dlg.ShowModal() == wxID_CANCEL)
         return;
 
@@ -315,10 +317,11 @@ void MainWindow::OnSaveAs(wxCommandEvent& event)
 // Handles MVR file selection, import, and updates fixture/truss panels accordingly
 void MainWindow::OnImportMVR(wxCommandEvent& event)
 {
+    wxString miscDir = wxString::FromUTF8(ProjectUtils::GetDefaultLibraryPath("misc"));
     wxFileDialog openFileDialog(
         this,
         "Import MVR file",
-        "",
+        miscDir,
         "",
         "MVR files (*.mvr)|*.mvr",
         wxFD_OPEN | wxFD_FILE_MUST_EXIST
@@ -353,10 +356,11 @@ void MainWindow::OnImportMVR(wxCommandEvent& event)
 
 void MainWindow::OnExportMVR(wxCommandEvent& event)
 {
+    wxString miscDir = wxString::FromUTF8(ProjectUtils::GetDefaultLibraryPath("misc"));
     wxFileDialog saveFileDialog(
         this,
         "Export MVR file",
-        "",
+        miscDir,
         "",
         "MVR files (*.mvr)|*.mvr",
         wxFD_SAVE | wxFD_OVERWRITE_PROMPT
@@ -445,7 +449,8 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent& WXUNUSED(event))
         wxString rid = wxString::FromUTF8(searchDlg.GetSelectedId());
         wxString name = wxString::FromUTF8(searchDlg.GetSelectedName());
 
-        wxFileDialog saveDlg(this, "Save GDTF file", "library/fixtures", name + ".gdtf",
+        wxString fixDir = wxString::FromUTF8(ProjectUtils::GetDefaultLibraryPath("fixtures"));
+        wxFileDialog saveDlg(this, "Save GDTF file", fixDir, name + ".gdtf",
                              "*.gdtf", wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
         if (saveDlg.ShowModal() == wxID_OK) {
             wxString dest = saveDlg.GetPath();
@@ -493,7 +498,8 @@ void MainWindow::OnExportTruss(wxCommandEvent& WXUNUSED(event))
     if (!chosen)
         return;
 
-    wxFileDialog saveDlg(this, "Save Truss", "", wxString::FromUTF8(sel) + ".gtruss",
+    wxString trussDir = wxString::FromUTF8(ProjectUtils::GetDefaultLibraryPath("trusses"));
+    wxFileDialog saveDlg(this, "Save Truss", trussDir, wxString::FromUTF8(sel) + ".gtruss",
                          "*.gtruss", wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
     if (saveDlg.ShowModal() != wxID_OK)
         return;
@@ -589,7 +595,8 @@ void MainWindow::OnExportFixture(wxCommandEvent& WXUNUSED(event))
         return;
     }
 
-    wxFileDialog saveDlg(this, "Save Fixture", "", wxString::FromUTF8(sel) + ".gdtf",
+    wxString fixDir = wxString::FromUTF8(ProjectUtils::GetDefaultLibraryPath("fixtures"));
+    wxFileDialog saveDlg(this, "Save Fixture", fixDir, wxString::FromUTF8(sel) + ".gdtf",
                          "*.gdtf", wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
     if (saveDlg.ShowModal() != wxID_OK)
         return;
@@ -707,7 +714,8 @@ void MainWindow::OnExportSceneObject(wxCommandEvent& WXUNUSED(event))
     }
 
     wxString defName = wxString::FromUTF8(sel) + wxString(src.extension().string());
-    wxFileDialog saveDlg(this, "Save Object", "", defName,
+    wxString objDir = wxString::FromUTF8(ProjectUtils::GetDefaultLibraryPath("scene objects"));
+    wxFileDialog saveDlg(this, "Save Object", objDir, defName,
                          wxString("*") + wxString(src.extension().string()),
                          wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
     if (saveDlg.ShowModal() != wxID_OK)
@@ -973,7 +981,8 @@ void MainWindow::OnRedo(wxCommandEvent& WXUNUSED(event))
 
 void MainWindow::OnAddFixture(wxCommandEvent& WXUNUSED(event))
 {
-    wxFileDialog fdlg(this, "Select GDTF file", "library/fixtures", wxEmptyString,
+    wxString fixDir = wxString::FromUTF8(ProjectUtils::GetDefaultLibraryPath("fixtures"));
+    wxFileDialog fdlg(this, "Select GDTF file", fixDir, wxEmptyString,
                       "*.gdtf", wxFD_OPEN | wxFD_FILE_MUST_EXIST);
     if (fdlg.ShowModal() != wxID_OK)
         return;
