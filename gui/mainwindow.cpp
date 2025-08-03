@@ -28,8 +28,8 @@
 #include <wx/filename.h>
 #include <wx/filefn.h>
 #include <cstdlib>
-#include <cstdio>
 #include <filesystem>
+#include <cstdio>
 #include <tinyxml2.h>
 #include <chrono>
 #ifdef _WIN32
@@ -266,7 +266,11 @@ void MainWindow::OnNew(wxCommandEvent& WXUNUSED(event))
 void MainWindow::OnLoad(wxCommandEvent& event)
 {
     wxString filter = wxString::Format("Perastage files (*%s)|*%s", ProjectUtils::PROJECT_EXTENSION, ProjectUtils::PROJECT_EXTENSION);
-    wxString projDir = wxString::FromUTF8(ProjectUtils::GetDefaultLibraryPath("projects"));
+    wxString projDir;
+    if (auto last = ProjectUtils::LoadLastProjectPath())
+        projDir = wxString::FromUTF8(std::filesystem::path(*last).parent_path().string());
+    else
+        projDir = wxString::FromUTF8(ProjectUtils::GetDefaultLibraryPath("projects"));
     wxFileDialog dlg(this, "Open Project", projDir, "", filter, wxFD_OPEN | wxFD_FILE_MUST_EXIST);
     if (dlg.ShowModal() == wxID_CANCEL)
         return;
@@ -296,7 +300,13 @@ void MainWindow::OnSave(wxCommandEvent& event)
 void MainWindow::OnSaveAs(wxCommandEvent& event)
 {
     wxString filter = wxString::Format("Perastage files (*%s)|*%s", ProjectUtils::PROJECT_EXTENSION, ProjectUtils::PROJECT_EXTENSION);
-    wxString projDir = wxString::FromUTF8(ProjectUtils::GetDefaultLibraryPath("projects"));
+    wxString projDir;
+    if (!currentProjectPath.empty())
+        projDir = wxString::FromUTF8(std::filesystem::path(currentProjectPath).parent_path().string());
+    else if (auto last = ProjectUtils::LoadLastProjectPath())
+        projDir = wxString::FromUTF8(std::filesystem::path(*last).parent_path().string());
+    else
+        projDir = wxString::FromUTF8(ProjectUtils::GetDefaultLibraryPath("projects"));
     wxFileDialog dlg(this, "Save Project", projDir, "", filter, wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
     if (dlg.ShowModal() == wxID_CANCEL)
         return;
