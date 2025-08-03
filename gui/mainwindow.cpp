@@ -11,6 +11,7 @@
 #include "logindialog.h"
 #include "gdtfsearchdialog.h"
 #include "addfixturedialog.h"
+#include "selectfixturetypedialog.h"
 #include "gdtfloader.h"
 #include "gdtfnet.h"
 #include "simplecrypt.h"
@@ -21,6 +22,7 @@
 #include <wx/wfstream.h>
 #include <wx/zipstrm.h>
 #include <set>
+#include <map>
 #include <fstream>
 #include "fixture.h"
 #include <wx/aboutdlg.h>
@@ -991,18 +993,61 @@ void MainWindow::OnRedo(wxCommandEvent& WXUNUSED(event))
 
 void MainWindow::OnAddFixture(wxCommandEvent& WXUNUSED(event))
 {
-    wxString fixDir = wxString::FromUTF8(ProjectUtils::GetDefaultLibraryPath("fixtures"));
-    wxFileDialog fdlg(this, "Select GDTF file", fixDir, wxEmptyString,
-                      "*.gdtf", wxFD_OPEN | wxFD_FILE_MUST_EXIST);
-    if (fdlg.ShowModal() != wxID_OK)
-        return;
+    ConfigManager& cfg = ConfigManager::Get();
+    auto& scene = cfg.GetScene();
 
-    wxString gdtfPathWx = fdlg.GetPath();
-    std::string gdtfPath = std::string(gdtfPathWx.mb_str());
+    std::string gdtfPath;
+    std::string defaultName;
 
-    std::string defaultName = GetGdtfFixtureName(gdtfPath);
-    if (defaultName.empty())
-        defaultName = wxFileName(gdtfPathWx).GetName().ToStdString();
+    if (!scene.fixtures.empty()) {
+        std::map<std::string, std::string> typeToSpec;
+        for (const auto& [uuid, f] : scene.fixtures)
+            if (!f.typeName.empty() && !f.gdtfSpec.empty())
+                typeToSpec.try_emplace(f.typeName, f.gdtfSpec);
+        std::vector<std::string> types;
+        types.reserve(typeToSpec.size());
+        for (const auto& [name, spec] : typeToSpec)
+            types.push_back(name);
+
+        SelectFixtureTypeDialog chooseDlg(this, types);
+        int dlgRes = chooseDlg.ShowModal();
+        if (dlgRes == wxID_CANCEL)
+            return;
+        if (dlgRes == wxID_OPEN) {
+            wxString fixDir = wxString::FromUTF8(ProjectUtils::GetDefaultLibraryPath("fixtures"));
+            wxFileDialog fdlg(this, "Select GDTF file", fixDir, wxEmptyString,
+                              "*.gdtf", wxFD_OPEN | wxFD_FILE_MUST_EXIST);
+            if (fdlg.ShowModal() != wxID_OK)
+                return;
+            wxString gdtfPathWx = fdlg.GetPath();
+            gdtfPath = std::string(gdtfPathWx.mb_str());
+            defaultName = GetGdtfFixtureName(gdtfPath);
+            if (defaultName.empty())
+                defaultName = wxFileName(gdtfPathWx).GetName().ToStdString();
+        } else {
+            int sel = chooseDlg.GetSelection();
+            if (sel < 0 || sel >= static_cast<int>(types.size()))
+                return;
+            defaultName = types[sel];
+            std::string spec = typeToSpec[defaultName];
+            namespace fs = std::filesystem;
+            if (fs::path(spec).is_absolute())
+                gdtfPath = spec;
+            else
+                gdtfPath = (fs::path(scene.basePath) / spec).string();
+        }
+    } else {
+        wxString fixDir = wxString::FromUTF8(ProjectUtils::GetDefaultLibraryPath("fixtures"));
+        wxFileDialog fdlg(this, "Select GDTF file", fixDir, wxEmptyString,
+                          "*.gdtf", wxFD_OPEN | wxFD_FILE_MUST_EXIST);
+        if (fdlg.ShowModal() != wxID_OK)
+            return;
+        wxString gdtfPathWx = fdlg.GetPath();
+        gdtfPath = std::string(gdtfPathWx.mb_str());
+        defaultName = GetGdtfFixtureName(gdtfPath);
+        if (defaultName.empty())
+            defaultName = wxFileName(gdtfPathWx).GetName().ToStdString();
+    }
 
     std::vector<std::string> modes = GetGdtfModes(gdtfPath);
     AddFixtureDialog dlg(this, wxString::FromUTF8(defaultName), modes);
@@ -1018,10 +1063,9 @@ void MainWindow::OnAddFixture(wxCommandEvent& WXUNUSED(event))
     std::string mode = dlg.GetMode();
 
     namespace fs = std::filesystem;
-    ConfigManager& cfg = ConfigManager::Get();
     cfg.PushUndoState();
-    auto& scene = cfg.GetScene();
-    std::string base = scene.basePath;
+    auto& sceneRef = cfg.GetScene();
+    std::string base = sceneRef.basePath;
     std::string spec = gdtfPath;
     if (!base.empty()) {
         fs::path abs = fs::absolute(gdtfPath);
@@ -1031,7 +1075,7 @@ void MainWindow::OnAddFixture(wxCommandEvent& WXUNUSED(event))
     }
 
     int maxId = 0;
-    for (const auto& [uuid, fix] : scene.fixtures)
+    for (const auto& [uuid, fix] : sceneRef.fixtures)
         if (fix.fixtureId > maxId)
             maxId = fix.fixtureId;
     if (startId <= 0)
@@ -1048,7 +1092,7 @@ void MainWindow::OnAddFixture(wxCommandEvent& WXUNUSED(event))
         f.gdtfMode = mode;
         f.weightKg = weight;
         f.powerConsumptionW = power;
-        scene.fixtures[f.uuid] = f;
+        sceneRef.fixtures[f.uuid] = f;
     }
 
     if (fixturePanel)
