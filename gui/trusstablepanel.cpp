@@ -29,6 +29,8 @@ TrussTablePanel::TrussTablePanel(wxWindow* parent)
 
     table->Bind(wxEVT_DATAVIEW_ITEM_CONTEXT_MENU,
                 &TrussTablePanel::OnContextMenu, this);
+    table->Bind(wxEVT_DATAVIEW_COLUMN_SORTED,
+                &TrussTablePanel::OnColumnSorted, this);
 
     InitializeTable();
     ReloadData();
@@ -122,7 +124,7 @@ void TrussTablePanel::ReloadData()
         row.push_back(len);
         row.push_back(weight);
 
-        table->AppendItem(row);
+        store.AppendItem(row, rowUuids.size());
         rowUuids.push_back(uuid);
     }
 
@@ -140,6 +142,15 @@ void TrussTablePanel::OnContextMenu(wxDataViewEvent& event)
     table->GetSelections(selections);
     if (selections.empty())
         selections.push_back(item);
+
+    std::vector<std::string> selectedUuids;
+    for (const auto& it : selections)
+    {
+        int r = table->ItemToRow(it);
+        if (r != wxNOT_FOUND && (size_t)r < rowUuids.size())
+            selectedUuids.push_back(rowUuids[r]);
+    }
+    std::vector<std::string> oldOrder = rowUuids;
 
     int row = table->ItemToRow(item);
     if (row == wxNOT_FOUND)
@@ -208,6 +219,8 @@ void TrussTablePanel::OnContextMenu(wxDataViewEvent& event)
                 table->SetValue(wxVariant(value), r, col);
         }
     }
+
+    ResyncRows(oldOrder, selectedUuids);
 
     UpdateSceneData();
     if (Viewer3DPanel::Instance())
@@ -445,4 +458,47 @@ void TrussTablePanel::DeleteSelected()
         Viewer3DPanel::Instance()->UpdateScene();
         Viewer3DPanel::Instance()->Refresh();
     }
+
+    std::vector<std::string> order = rowUuids;
+    ResyncRows(order, {});
+}
+
+void TrussTablePanel::ResyncRows(const std::vector<std::string>& oldOrder,
+                                 const std::vector<std::string>& selectedUuids)
+{
+    unsigned int count = table->GetItemCount();
+    std::vector<std::string> newOrder(count);
+    for (unsigned int i = 0; i < count; ++i)
+    {
+        wxDataViewItem it = table->RowToItem(i);
+        unsigned long idx = store.GetItemData(it);
+        if (idx < oldOrder.size())
+            newOrder[i] = oldOrder[idx];
+        store.SetItemData(it, i);
+    }
+    rowUuids.swap(newOrder);
+
+    table->UnselectAll();
+    for (const auto& uuid : selectedUuids)
+    {
+        auto pos = std::find(rowUuids.begin(), rowUuids.end(), uuid);
+        if (pos != rowUuids.end())
+            table->SelectRow(static_cast<int>(pos - rowUuids.begin()));
+    }
+}
+
+void TrussTablePanel::OnColumnSorted(wxDataViewEvent& event)
+{
+    wxDataViewItemArray selections;
+    table->GetSelections(selections);
+    std::vector<std::string> selectedUuids;
+    for (const auto& it : selections)
+    {
+        int r = table->ItemToRow(it);
+        if (r != wxNOT_FOUND && (size_t)r < rowUuids.size())
+            selectedUuids.push_back(rowUuids[r]);
+    }
+    std::vector<std::string> oldOrder = rowUuids;
+    ResyncRows(oldOrder, selectedUuids);
+    event.Skip();
 }
