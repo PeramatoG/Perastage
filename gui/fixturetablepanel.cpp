@@ -517,7 +517,7 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
     }
   } else {
     if (col == 1 && selections.size() > 1) {
-      int spacePos = value.FindLast(' ');
+      int spacePos = value.find_last_of(' ');
       long baseNum = 0;
       if (spacePos != wxNOT_FOUND && value.Mid(spacePos + 1).ToLong(&baseNum)) {
         wxString prefix = value.Left(spacePos);
