@@ -297,6 +297,9 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent& event)
                 table->SetValue(wxVariant(wstr), r, 17);
             }
 
+            PropagateTypeValues(selections, 16);
+            PropagateTypeValues(selections, 17);
+
             ApplyModeForGdtf(path);
         }
         UpdateSceneData();
@@ -551,7 +554,7 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent& event)
                 table->SetValue(wxVariant(value), r, col);
         }
     }
-
+    PropagateTypeValues(selections, col);
     UpdateSceneData();
     HighlightDuplicateFixtureIds();
     if (Viewer3DPanel::Instance())
@@ -743,6 +746,9 @@ void FixtureTablePanel::OnItemActivated(wxDataViewEvent& event)
                 table->SetValue(wxVariant(wstr), r, 17);
             }
 
+            PropagateTypeValues(selections, 16);
+            PropagateTypeValues(selections, 17);
+
             ApplyModeForGdtf(path);
         }
         UpdateSceneData();
@@ -900,6 +906,34 @@ void FixtureTablePanel::OnSelectionChanged(wxDataViewEvent& evt)
     if (Viewer3DPanel::Instance())
         Viewer3DPanel::Instance()->SetSelectedFixtures(uuids);
     evt.Skip();
+}
+
+void FixtureTablePanel::PropagateTypeValues(const wxDataViewItemArray& selections, int col)
+{
+    if (col != 16 && col != 17)
+        return;
+
+    std::unordered_map<std::string, wxString> typeValues;
+    for (const auto& it : selections)
+    {
+        int r = table->ItemToRow(it);
+        if (r == wxNOT_FOUND)
+            continue;
+        wxVariant vType, vVal;
+        table->GetValue(vType, r, 2);
+        table->GetValue(vVal, r, col);
+        typeValues[std::string(vType.GetString().mb_str())] = vVal.GetString();
+    }
+
+    unsigned int rowCount = table->GetItemCount();
+    for (unsigned int i = 0; i < rowCount; ++i)
+    {
+        wxVariant vType;
+        table->GetValue(vType, i, 2);
+        auto it = typeValues.find(std::string(vType.GetString().mb_str()));
+        if (it != typeValues.end())
+            table->SetValue(wxVariant(it->second), i, col);
+    }
 }
 
 void FixtureTablePanel::UpdateSceneData()
