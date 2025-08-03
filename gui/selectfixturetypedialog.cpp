@@ -14,14 +14,15 @@ SelectFixtureTypeDialog::SelectFixtureTypeDialog(wxWindow* parent, const std::ve
         listCtrl->SetSelection(0);
     sizer->Add(listCtrl, 1, wxALL | wxEXPAND, 5);
 
-    wxStdDialogButtonSizer* btnSizer = new wxStdDialogButtonSizer();
-    btnSizer->AddButton(new wxButton(this, wxID_OPEN, "Add from file..."));
-    btnSizer->AddButton(new wxButton(this, wxID_OK));
-    btnSizer->AddButton(new wxButton(this, wxID_CANCEL));
-    btnSizer->Realize();
-    sizer->Add(btnSizer, 0, wxALIGN_RIGHT | wxALL, 5);
+    wxBoxSizer* btnSizer = new wxBoxSizer(wxHORIZONTAL);
+    btnSizer->Add(new wxButton(this, wxID_OPEN, "Add from file..."), 0, wxRIGHT, 5);
+    btnSizer->AddStretchSpacer();
+    btnSizer->Add(new wxButton(this, wxID_OK), 0, wxRIGHT, 5);
+    btnSizer->Add(new wxButton(this, wxID_CANCEL), 0);
+    sizer->Add(btnSizer, 0, wxEXPAND | wxALL, 5);
 
     SetSizerAndFit(sizer);
+    SetSize(wxSize(400, GetSize().GetHeight()));
 }
 
 int SelectFixtureTypeDialog::GetSelection() const

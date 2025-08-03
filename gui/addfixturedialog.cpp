@@ -36,6 +36,7 @@ AddFixtureDialog::AddFixtureDialog(wxWindow* parent,
     sizer->Add(CreateSeparatedButtonSizer(wxOK | wxCANCEL), 0, wxALL | wxEXPAND, 10);
 
     SetSizerAndFit(sizer);
+    SetSize(wxSize(450, GetSize().GetHeight()));
 }
 
 int AddFixtureDialog::GetUnitCount() const {
