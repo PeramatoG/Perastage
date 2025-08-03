@@ -1,5 +1,6 @@
 #include "projectutils.h"
 #include <wx/stdpaths.h>
+#include <wx/filename.h>
 #include <filesystem>
 #include <fstream>
 
@@ -39,7 +40,11 @@ std::optional<std::string> LoadLastProjectPath()
 
 std::string GetDefaultLibraryPath(const std::string& subdir)
 {
-    fs::path p = fs::path("library") / subdir;
+    // Resolve the library directory relative to the executable location to
+    // avoid relying on the current working directory at runtime.
+    wxFileName exe(wxStandardPaths::Get().GetExecutablePath());
+    fs::path base = fs::path(exe.GetPath().ToStdString());
+    fs::path p = base / "library" / subdir;
     if (fs::exists(p))
         return p.string();
     return {};
