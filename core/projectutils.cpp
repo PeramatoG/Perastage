@@ -37,5 +37,13 @@ std::optional<std::string> LoadLastProjectPath()
     return path;
 }
 
+std::string GetDefaultLibraryPath(const std::string& subdir)
+{
+    fs::path p = fs::path("library") / subdir;
+    if (fs::exists(p))
+        return p.string();
+    return {};
+}
+
 } // namespace ProjectUtils
 

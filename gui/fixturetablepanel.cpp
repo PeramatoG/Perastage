@@ -5,6 +5,7 @@
 #include "gdtfloader.h"
 #include "addressdialog.h"
 #include "patchmanager.h"
+#include "projectutils.h"
 #include <filesystem>
 #include <wx/tokenzr.h>
 #include <wx/filename.h>
@@ -264,7 +265,8 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent& event)
     // Model file column opens file dialog
     if (col == 9)
     {
-        wxFileDialog fdlg(this, "Select GDTF file", wxEmptyString, wxEmptyString,
+        wxString fixDir = wxString::FromUTF8(ProjectUtils::GetDefaultLibraryPath("fixtures"));
+        wxFileDialog fdlg(this, "Select GDTF file", fixDir, wxEmptyString,
                           "*.gdtf", wxFD_OPEN | wxFD_FILE_MUST_EXIST);
         if (fdlg.ShowModal() == wxID_OK)
         {
@@ -709,7 +711,8 @@ void FixtureTablePanel::OnItemActivated(wxDataViewEvent& event)
         if (selections.empty())
             selections.push_back(item);
 
-        wxFileDialog fdlg(this, "Select GDTF file", wxEmptyString, wxEmptyString,
+        wxString fixDir = wxString::FromUTF8(ProjectUtils::GetDefaultLibraryPath("fixtures"));
+        wxFileDialog fdlg(this, "Select GDTF file", fixDir, wxEmptyString,
                           "*.gdtf", wxFD_OPEN | wxFD_FILE_MUST_EXIST);
         if (fdlg.ShowModal() == wxID_OK)
         {
