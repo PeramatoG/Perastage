@@ -15,7 +15,9 @@ SelectFixtureTypeDialog::SelectFixtureTypeDialog(wxWindow* parent, const std::ve
     sizer->Add(listCtrl, 1, wxALL | wxEXPAND, 5);
 
     wxBoxSizer* btnSizer = new wxBoxSizer(wxHORIZONTAL);
-    btnSizer->Add(new wxButton(this, wxID_OPEN, "Add from file..."), 0, wxRIGHT, 5);
+    auto* openBtn = new wxButton(this, wxID_OPEN, "Add from file...");
+    openBtn->Bind(wxEVT_BUTTON, &SelectFixtureTypeDialog::OnOpen, this);
+    btnSizer->Add(openBtn, 0, wxRIGHT, 5);
     btnSizer->AddStretchSpacer();
     btnSizer->Add(new wxButton(this, wxID_OK), 0, wxRIGHT, 5);
     btnSizer->Add(new wxButton(this, wxID_CANCEL), 0);
@@ -28,4 +30,9 @@ SelectFixtureTypeDialog::SelectFixtureTypeDialog(wxWindow* parent, const std::ve
 int SelectFixtureTypeDialog::GetSelection() const
 {
     return listCtrl->GetSelection();
+}
+
+void SelectFixtureTypeDialog::OnOpen(wxCommandEvent&)
+{
+    EndModal(wxID_OPEN);
 }
