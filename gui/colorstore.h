@@ -124,7 +124,7 @@ public:
       wxString s2 = v2.GetString();
 
       auto parse = [](const wxString &s, wxString &prefix, long &num) {
-        int pos = s.FindLast(' ');
+        int pos = s.find_last_of(' ');
         if (pos != wxNOT_FOUND && s.Mid(pos + 1).ToLong(&num)) {
           prefix = s.Left(pos);
           return true;
