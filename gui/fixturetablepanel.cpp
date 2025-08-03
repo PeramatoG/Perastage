@@ -39,6 +39,8 @@ FixtureTablePanel::FixtureTablePanel(wxWindow *parent)
               &FixtureTablePanel::OnContextMenu, this);
   table->Bind(wxEVT_DATAVIEW_ITEM_ACTIVATED,
               &FixtureTablePanel::OnItemActivated, this);
+  table->Bind(wxEVT_DATAVIEW_COLUMN_SORTED,
+              &FixtureTablePanel::OnColumnSorted, this);
 
   InitializeTable();
   ReloadData();
@@ -223,7 +225,7 @@ void FixtureTablePanel::ReloadData() {
     row.push_back(power);
     row.push_back(weight);
 
-    table->AppendItem(row);
+    store.AppendItem(row, rowUuids.size());
     rowUuids.push_back(uuid);
   }
 
@@ -245,6 +247,14 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
   table->GetSelections(selections);
   if (selections.empty())
     selections.push_back(item);
+
+  std::vector<std::string> selectedUuids;
+  for (const auto &itSel : selections) {
+    int r = table->ItemToRow(itSel);
+    if (r != wxNOT_FOUND && (size_t)r < rowUuids.size())
+      selectedUuids.push_back(rowUuids[r]);
+  }
+  std::vector<std::string> oldOrder = rowUuids;
 
   // Model file column opens file dialog
   if (col == 9) {
@@ -285,6 +295,7 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
 
       ApplyModeForGdtf(path);
     }
+    ResyncRows(oldOrder, selectedUuids);
     UpdateSceneData();
     HighlightDuplicateFixtureIds();
     if (Viewer3DPanel::Instance()) {
@@ -341,6 +352,7 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
       table->SetValue(wxVariant(chStr), sr, 8);
     }
 
+    ResyncRows(oldOrder, selectedUuids);
     UpdateSceneData();
     HighlightDuplicateFixtureIds();
     if (Viewer3DPanel::Instance()) {
@@ -413,6 +425,7 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
       table->SetValue(wxVariant(addrs[i].channel), orderedRows[i], 6);
     }
 
+    ResyncRows(oldOrder, selectedUuids);
     UpdateSceneData();
     HighlightDuplicateFixtureIds();
     if (Viewer3DPanel::Instance()) {
@@ -561,6 +574,7 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
     }
   }
   PropagateTypeValues(selections, col);
+  ResyncRows(oldOrder, selectedUuids);
   UpdateSceneData();
   HighlightDuplicateFixtureIds();
   if (Viewer3DPanel::Instance()) {
@@ -695,6 +709,9 @@ void FixtureTablePanel::DeleteSelected() {
     Viewer3DPanel::Instance()->UpdateScene();
     Viewer3DPanel::Instance()->Refresh();
   }
+
+  std::vector<std::string> order = rowUuids;
+  ResyncRows(order, {});
 }
 
 void FixtureTablePanel::OnItemActivated(wxDataViewEvent &event) {
@@ -705,13 +722,21 @@ void FixtureTablePanel::OnItemActivated(wxDataViewEvent &event) {
     return;
   }
 
+  wxDataViewItemArray selections;
+  table->GetSelections(selections);
+  if (selections.empty())
+    selections.push_back(item);
+
+  std::vector<std::string> selectedUuids;
+  for (const auto &itSel : selections) {
+    int r = table->ItemToRow(itSel);
+    if (r != wxNOT_FOUND && (size_t)r < rowUuids.size())
+      selectedUuids.push_back(rowUuids[r]);
+  }
+  std::vector<std::string> oldOrder = rowUuids;
+
   // Reuse same logic as context menu for Model file and Mode columns
   if (col == 9) {
-    wxDataViewItemArray selections;
-    table->GetSelections(selections);
-    if (selections.empty())
-      selections.push_back(item);
-
     wxString fixDir =
         wxString::FromUTF8(ProjectUtils::GetDefaultLibraryPath("fixtures"));
     wxFileDialog fdlg(this, "Select GDTF file", fixDir, wxEmptyString, "*.gdtf",
@@ -749,6 +774,7 @@ void FixtureTablePanel::OnItemActivated(wxDataViewEvent &event) {
 
       ApplyModeForGdtf(path);
     }
+    ResyncRows(oldOrder, selectedUuids);
     UpdateSceneData();
     HighlightDuplicateFixtureIds();
     if (Viewer3DPanel::Instance()) {
@@ -787,12 +813,7 @@ void FixtureTablePanel::OnItemActivated(wxDataViewEvent &event) {
 
     wxString sel = dlg.GetStringSelection();
 
-    wxDataViewItemArray modeSelections;
-    table->GetSelections(modeSelections);
-    if (modeSelections.empty())
-      modeSelections.push_back(item);
-
-    for (const auto &itSel : modeSelections) {
+    for (const auto &itSel : selections) {
       int sr = table->ItemToRow(itSel);
       if (sr == wxNOT_FOUND)
         continue;
@@ -810,6 +831,7 @@ void FixtureTablePanel::OnItemActivated(wxDataViewEvent &event) {
       table->SetValue(wxVariant(chStr), sr, 8);
     }
 
+    ResyncRows(oldOrder, selectedUuids);
     UpdateSceneData();
     HighlightDuplicateFixtureIds();
     if (Viewer3DPanel::Instance()) {
@@ -1057,4 +1079,39 @@ void FixtureTablePanel::HighlightDuplicateFixtureIds() {
 
   HighlightPatchConflicts();
   table->Refresh();
+}
+
+void FixtureTablePanel::ResyncRows(const std::vector<std::string>& oldOrder,
+                                   const std::vector<std::string>& selectedUuids) {
+  unsigned int count = table->GetItemCount();
+  std::vector<std::string> newOrder(count);
+  for (unsigned int i = 0; i < count; ++i) {
+    wxDataViewItem it = table->RowToItem(i);
+    unsigned long idx = store.GetItemData(it);
+    if (idx < oldOrder.size())
+      newOrder[i] = oldOrder[idx];
+    store.SetItemData(it, i);
+  }
+  rowUuids.swap(newOrder);
+
+  table->UnselectAll();
+  for (const auto& uuid : selectedUuids) {
+    auto pos = std::find(rowUuids.begin(), rowUuids.end(), uuid);
+    if (pos != rowUuids.end())
+      table->SelectRow(static_cast<int>(pos - rowUuids.begin()));
+  }
+}
+
+void FixtureTablePanel::OnColumnSorted(wxDataViewEvent& event) {
+  wxDataViewItemArray selections;
+  table->GetSelections(selections);
+  std::vector<std::string> selectedUuids;
+  for (const auto& it : selections) {
+    int r = table->ItemToRow(it);
+    if (r != wxNOT_FOUND && (size_t)r < rowUuids.size())
+      selectedUuids.push_back(rowUuids[r]);
+  }
+  std::vector<std::string> oldOrder = rowUuids;
+  ResyncRows(oldOrder, selectedUuids);
+  event.Skip();
 }
