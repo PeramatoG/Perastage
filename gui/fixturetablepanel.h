@@ -39,6 +39,7 @@ private:
     void OnLeftUp(wxMouseEvent& evt);
     void OnMouseMove(wxMouseEvent& evt);
     void OnSelectionChanged(wxDataViewEvent& evt);
+    void PropagateTypeValues(const wxDataViewItemArray& selections, int col);
     void UpdateSceneData();
     void ApplyModeForGdtf(const wxString& path);
     void HighlightDuplicateFixtureIds();
