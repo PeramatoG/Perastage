@@ -1,9 +1,7 @@
 #include "tableprinter.h"
 #include "columnselectiondialog.h"
 #include <wx/dataview.h>
-#include <wx/pdfdoc.h>
-#include <wx/filename.h>
-#include <wx/utils.h>
+#include <wx/html/htmprint.h>
 #include <algorithm>
 
 namespace TablePrinter {
@@ -25,66 +23,44 @@ void Print(wxWindow* parent, wxDataViewListCtrl* table)
     if (selCols.empty())
         return;
 
-    wxPdfDocument pdf;
-    double margin = 10.0;
-    pdf.SetMargins(margin, margin, margin);
-    pdf.SetAutoPageBreak(true, margin);
-    pdf.AddPage();
-    pdf.SetFont("Helvetica", "", 8);
+    static wxHtmlEasyPrinting printer("Table Printer", parent);
+    printer.SetParentWindow(parent);
+    printer.SetStandardFonts(8, "Helvetica", "Courier");
+    auto *pageSetup = printer.GetPageSetupData();
+    pageSetup->SetMarginTopLeft(wxPoint(5, 5));
+    pageSetup->SetMarginBottomRight(wxPoint(5, 5));
 
-    std::vector<double> colWidths(selCols.size(), 0.0);
-    for (size_t i = 0; i < selCols.size(); ++i) {
-        int c = selCols[i];
-        double w = pdf.GetStringWidth(table->GetColumn(c)->GetTitle()) + 2.0;
-        colWidths[i] = std::max(colWidths[i], w);
-    }
-    for (unsigned int r = 0; r < table->GetItemCount(); ++r) {
-        for (size_t i = 0; i < selCols.size(); ++i) {
-            int c = selCols[i];
-            wxVariant val;
-            table->GetValue(val, r, c);
-            double w = pdf.GetStringWidth(val.GetString()) + 2.0;
-            colWidths[i] = std::max(colWidths[i], w);
-        }
-    }
+    auto EscapeHtml = [](const wxString &text) {
+        wxString s(text);
+        s.Replace("&", "&amp;");
+        s.Replace("<", "&lt;");
+        s.Replace(">", "&gt;");
+        s.Replace("\"", "&quot;");
+        return s;
+    };
 
-    double availWidth = pdf.GetPageWidth() - pdf.GetLeftMargin() - pdf.GetRightMargin();
-    double totalWidth = 0.0;
-    for (double w : colWidths)
-        totalWidth += w;
-    if (totalWidth > 0 && totalWidth > availWidth) {
-        double scale = availWidth / totalWidth;
-        for (double &w : colWidths)
-            w *= scale;
-    }
+    wxString html;
+    html << "<html><body style=\"margin:5px;\">";
+    html << "<table border=\"1\" cellspacing=\"0\" cellpadding=\"2\" style=\"border-collapse:collapse;\">";
 
-    double cellHeight = pdf.GetFontSize() + 2.0;
-
-    pdf.SetFillColour(200, 200, 200);
-    for (size_t i = 0; i < selCols.size(); ++i) {
-        int c = selCols[i];
-        pdf.Cell(colWidths[i], cellHeight, table->GetColumn(c)->GetTitle(), wxPDF_BORDER_FRAME, 0, wxPDF_ALIGN_LEFT, true);
-    }
-    pdf.Ln(cellHeight);
+    html << "<tr bgcolor=\"#C8C8C8\">";
+    for (int c : selCols)
+        html << "<th style=\"white-space:nowrap;\">" << EscapeHtml(table->GetColumn(c)->GetTitle()) << "</th>";
+    html << "</tr>";
 
     for (unsigned int r = 0; r < table->GetItemCount(); ++r) {
-        if (r % 2 == 0)
-            pdf.SetFillColour(242, 242, 242);
-        else
-            pdf.SetFillColour(255, 255, 255);
-        for (size_t i = 0; i < selCols.size(); ++i) {
-            int c = selCols[i];
+        html << wxString::Format("<tr bgcolor=\"%s\">", (r % 2 == 0) ? "#F2F2F2" : "#FFFFFF");
+        for (int c : selCols) {
             wxVariant val;
             table->GetValue(val, r, c);
-            pdf.Cell(colWidths[i], cellHeight, val.GetString(), wxPDF_BORDER_FRAME, 0, wxPDF_ALIGN_LEFT, true);
+            html << "<td style=\"white-space:nowrap;\">" << EscapeHtml(val.GetString()) << "</td>";
         }
-        pdf.Ln(cellHeight);
+        html << "</tr>";
     }
 
-    wxString tmp = wxFileName::CreateTempFileName("tableprinter");
-    wxString path = tmp + ".pdf";
-    pdf.SaveAsFile(path);
-    wxLaunchDefaultApplication(path);
+    html << "</table></body></html>";
+
+    printer.PreviewText(html);
 }
 
 } // namespace TablePrinter
