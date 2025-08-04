@@ -14,6 +14,7 @@
 #include <thread>
 #include <atomic>
 #include <wx/thread.h>
+#include <vector>
 
 wxDECLARE_EVENT(wxEVT_VIEWER_REFRESH, wxThreadEvent);
 

@@ -24,6 +24,7 @@
 #include <wx/event.h>
 #include <wx/log.h>
 #include <chrono>
+#include <algorithm>
 
 wxDEFINE_EVENT(wxEVT_VIEWER_REFRESH, wxThreadEvent);
 wxBEGIN_EVENT_TABLE(Viewer3DPanel, wxGLCanvas)
@@ -228,11 +229,80 @@ void Viewer3DPanel::OnMouseUp(wxMouseEvent& event)
         SetCurrent(*m_glContext);
         wxString label;
         wxPoint pos;
-        if (!m_controller.GetFixtureLabelAt(event.GetX(), event.GetY(), w, h, label, pos))
+        std::string uuid;
+        bool found = false;
+        if (FixtureTablePanel::Instance() && FixtureTablePanel::Instance()->IsActivePage())
+            found = m_controller.GetFixtureLabelAt(event.GetX(), event.GetY(), w, h, label, pos, &uuid);
+        else if (TrussTablePanel::Instance() && TrussTablePanel::Instance()->IsActivePage())
+            found = m_controller.GetTrussLabelAt(event.GetX(), event.GetY(), w, h, label, pos, &uuid);
+        else if (SceneObjectTablePanel::Instance() && SceneObjectTablePanel::Instance()->IsActivePage())
+            found = m_controller.GetSceneObjectLabelAt(event.GetX(), event.GetY(), w, h, label, pos, &uuid);
+
+        if (found)
+        {
+            bool additive = event.ShiftDown() || event.ControlDown();
+            std::vector<std::string> selection;
+            if (FixtureTablePanel::Instance() && FixtureTablePanel::Instance()->IsActivePage())
+            {
+                if (additive)
+                    selection = FixtureTablePanel::Instance()->GetSelectedUuids();
+                if (additive)
+                {
+                    auto it = std::find(selection.begin(), selection.end(), uuid);
+                    if (it != selection.end())
+                        selection.erase(it);
+                    else
+                        selection.push_back(uuid);
+                }
+                else
+                    selection = {uuid};
+                SetSelectedFixtures(selection);
+                FixtureTablePanel::Instance()->SelectByUuid(selection);
+            }
+            else if (TrussTablePanel::Instance() && TrussTablePanel::Instance()->IsActivePage())
+            {
+                if (additive)
+                    selection = TrussTablePanel::Instance()->GetSelectedUuids();
+                if (additive)
+                {
+                    auto it = std::find(selection.begin(), selection.end(), uuid);
+                    if (it != selection.end())
+                        selection.erase(it);
+                    else
+                        selection.push_back(uuid);
+                }
+                else
+                    selection = {uuid};
+                SetSelectedFixtures(selection);
+                TrussTablePanel::Instance()->SelectByUuid(selection);
+            }
+            else if (SceneObjectTablePanel::Instance() && SceneObjectTablePanel::Instance()->IsActivePage())
+            {
+                if (additive)
+                    selection = SceneObjectTablePanel::Instance()->GetSelectedUuids();
+                if (additive)
+                {
+                    auto it = std::find(selection.begin(), selection.end(), uuid);
+                    if (it != selection.end())
+                        selection.erase(it);
+                    else
+                        selection.push_back(uuid);
+                }
+                else
+                    selection = {uuid};
+                SetSelectedFixtures(selection);
+                SceneObjectTablePanel::Instance()->SelectByUuid(selection);
+            }
+        }
+        else
         {
             SetSelectedFixtures({});
-            if (FixtureTablePanel::Instance())
+            if (FixtureTablePanel::Instance() && FixtureTablePanel::Instance()->IsActivePage())
                 FixtureTablePanel::Instance()->ClearSelection();
+            else if (TrussTablePanel::Instance() && TrussTablePanel::Instance()->IsActivePage())
+                TrussTablePanel::Instance()->ClearSelection();
+            else if (SceneObjectTablePanel::Instance() && SceneObjectTablePanel::Instance()->IsActivePage())
+                SceneObjectTablePanel::Instance()->ClearSelection();
         }
     }
     m_draggedSincePress = false;
