@@ -290,6 +290,11 @@ void TrussTablePanel::OnSelectionChanged(wxDataViewEvent& evt)
         if (r != wxNOT_FOUND && (size_t)r < rowUuids.size())
             uuids.push_back(rowUuids[r]);
     }
+    ConfigManager& cfg = ConfigManager::Get();
+    if (uuids != cfg.GetSelectedTrusses()) {
+        cfg.PushUndoState();
+        cfg.SetSelectedTrusses(uuids);
+    }
     if (Viewer3DPanel::Instance())
         Viewer3DPanel::Instance()->SetSelectedFixtures(uuids);
     evt.Skip();

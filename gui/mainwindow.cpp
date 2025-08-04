@@ -1061,14 +1061,28 @@ void MainWindow::OnUndo(wxCommandEvent &WXUNUSED(event)) {
   if (!cfg.CanUndo())
     return;
   cfg.Undo();
-  if (fixturePanel)
+  if (fixturePanel) {
     fixturePanel->ReloadData();
-  if (trussPanel)
+    fixturePanel->SelectByUuid(cfg.GetSelectedFixtures());
+  }
+  if (trussPanel) {
     trussPanel->ReloadData();
-  if (sceneObjPanel)
+    trussPanel->SelectByUuid(cfg.GetSelectedTrusses());
+  }
+  if (sceneObjPanel) {
     sceneObjPanel->ReloadData();
+    sceneObjPanel->SelectByUuid(cfg.GetSelectedSceneObjects());
+  }
   if (viewportPanel) {
     viewportPanel->UpdateScene();
+    if (fixturePanel && fixturePanel->IsActivePage())
+      viewportPanel->SetSelectedFixtures(cfg.GetSelectedFixtures());
+    else if (trussPanel && trussPanel->IsActivePage())
+      viewportPanel->SetSelectedFixtures(cfg.GetSelectedTrusses());
+    else if (sceneObjPanel && sceneObjPanel->IsActivePage())
+      viewportPanel->SetSelectedFixtures(cfg.GetSelectedSceneObjects());
+    else
+      viewportPanel->SetSelectedFixtures({});
     viewportPanel->Refresh();
   }
 }
@@ -1078,14 +1092,28 @@ void MainWindow::OnRedo(wxCommandEvent &WXUNUSED(event)) {
   if (!cfg.CanRedo())
     return;
   cfg.Redo();
-  if (fixturePanel)
+  if (fixturePanel) {
     fixturePanel->ReloadData();
-  if (trussPanel)
+    fixturePanel->SelectByUuid(cfg.GetSelectedFixtures());
+  }
+  if (trussPanel) {
     trussPanel->ReloadData();
-  if (sceneObjPanel)
+    trussPanel->SelectByUuid(cfg.GetSelectedTrusses());
+  }
+  if (sceneObjPanel) {
     sceneObjPanel->ReloadData();
+    sceneObjPanel->SelectByUuid(cfg.GetSelectedSceneObjects());
+  }
   if (viewportPanel) {
     viewportPanel->UpdateScene();
+    if (fixturePanel && fixturePanel->IsActivePage())
+      viewportPanel->SetSelectedFixtures(cfg.GetSelectedFixtures());
+    else if (trussPanel && trussPanel->IsActivePage())
+      viewportPanel->SetSelectedFixtures(cfg.GetSelectedTrusses());
+    else if (sceneObjPanel && sceneObjPanel->IsActivePage())
+      viewportPanel->SetSelectedFixtures(cfg.GetSelectedSceneObjects());
+    else
+      viewportPanel->SetSelectedFixtures({});
     viewportPanel->Refresh();
   }
 }

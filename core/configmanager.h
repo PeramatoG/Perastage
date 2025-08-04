@@ -34,6 +34,14 @@ public:
     MvrScene& GetScene();
     const MvrScene& GetScene() const;
 
+    // Current selections for different object types
+    const std::vector<std::string>& GetSelectedFixtures() const;
+    void SetSelectedFixtures(const std::vector<std::string>& uuids);
+    const std::vector<std::string>& GetSelectedTrusses() const;
+    void SetSelectedTrusses(const std::vector<std::string>& uuids);
+    const std::vector<std::string>& GetSelectedSceneObjects() const;
+    void SetSelectedSceneObjects(const std::vector<std::string>& uuids);
+
     struct VariableInfo {
         std::string type;
         float defaultValue = 0.0f;
@@ -77,7 +85,20 @@ private:
     std::unordered_map<std::string, std::string> configData;
     std::unordered_map<std::string, VariableInfo> variables;
     MvrScene scene;
-    std::vector<MvrScene> undoStack;
-    std::vector<MvrScene> redoStack;
+
+    // Selection state
+    std::vector<std::string> selectedFixtures;
+    std::vector<std::string> selectedTrusses;
+    std::vector<std::string> selectedSceneObjects;
+
+    struct Snapshot {
+        MvrScene scene;
+        std::vector<std::string> selFixtures;
+        std::vector<std::string> selTrusses;
+        std::vector<std::string> selSceneObjects;
+    };
+
+    std::vector<Snapshot> undoStack;
+    std::vector<Snapshot> redoStack;
     size_t maxHistory = 20;
 };

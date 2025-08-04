@@ -271,6 +271,11 @@ void SceneObjectTablePanel::OnSelectionChanged(wxDataViewEvent& evt)
         if (r != wxNOT_FOUND && (size_t)r < rowUuids.size())
             uuids.push_back(rowUuids[r]);
     }
+    ConfigManager& cfg = ConfigManager::Get();
+    if (uuids != cfg.GetSelectedSceneObjects()) {
+        cfg.PushUndoState();
+        cfg.SetSelectedSceneObjects(uuids);
+    }
     if (Viewer3DPanel::Instance())
         Viewer3DPanel::Instance()->SetSelectedFixtures(uuids);
     evt.Skip();
