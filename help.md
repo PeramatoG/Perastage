@@ -4,6 +4,22 @@ Perastage is a high-performance, cross-platform viewer for MVR (My Virtual Rig) 
 
 ## Getting Started
 
+- Use **File → Import MVR** to load an `.mvr` file.
+- Tables list fixtures and trusses while the scene is shown in the 3D viewport.
+- Toggle panels from the **View** menu.
+
+## Keyboard Controls
+
+| Keys | Action |
+| ---- | ------ |
+| Arrow keys | orbit the view |
+| Shift + Arrow keys | pan |
+| Alt + Up/Down or Alt + Left/Right | zoom |
+| Numpad 1/3/7 | front, right and top views |
+| Numpad 5 | reset orientation |
+| 1/2/3 | show Fixtures, Trusses or Objects tables |
+=======
+
 1. Launch the application.
 2. Use **File → Import MVR** to load an `.mvr` file.
 3. Navigate through the 3D viewport and explore scene elements via:
@@ -106,3 +122,4 @@ Settings are stored using a modular configuration manager. It supports saving an
 - MVR Specification: `docs/mvr-spec.md`
 - GDTF Specification: `docs/gdtf-spec.md`
 - License: `LICENSE.txt`
+
