@@ -937,6 +937,11 @@ void FixtureTablePanel::OnSelectionChanged(wxDataViewEvent &evt) {
     if (std::find(newOrder.begin(), newOrder.end(), r) == newOrder.end())
       newOrder.push_back(r);
   selectionOrder.swap(newOrder);
+  ConfigManager &cfg = ConfigManager::Get();
+  if (uuids != cfg.GetSelectedFixtures()) {
+    cfg.PushUndoState();
+    cfg.SetSelectedFixtures(uuids);
+  }
   if (Viewer3DPanel::Instance())
     Viewer3DPanel::Instance()->SetSelectedFixtures(uuids);
   evt.Skip();

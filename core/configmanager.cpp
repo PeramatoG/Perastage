@@ -204,6 +204,30 @@ const MvrScene& ConfigManager::GetScene() const
     return scene;
 }
 
+const std::vector<std::string>& ConfigManager::GetSelectedFixtures() const {
+    return selectedFixtures;
+}
+
+void ConfigManager::SetSelectedFixtures(const std::vector<std::string>& uuids) {
+    selectedFixtures = uuids;
+}
+
+const std::vector<std::string>& ConfigManager::GetSelectedTrusses() const {
+    return selectedTrusses;
+}
+
+void ConfigManager::SetSelectedTrusses(const std::vector<std::string>& uuids) {
+    selectedTrusses = uuids;
+}
+
+const std::vector<std::string>& ConfigManager::GetSelectedSceneObjects() const {
+    return selectedSceneObjects;
+}
+
+void ConfigManager::SetSelectedSceneObjects(const std::vector<std::string>& uuids) {
+    selectedSceneObjects = uuids;
+}
+
 // -- Persistence --
 
 bool ConfigManager::LoadFromFile(const std::string& path)
@@ -351,7 +375,12 @@ bool ConfigManager::LoadProject(const std::string& path)
 
     fs::remove_all(tempDir);
     if (ok)
+    {
         ClearHistory();
+        selectedFixtures.clear();
+        selectedTrusses.clear();
+        selectedSceneObjects.clear();
+    }
     return ok;
 }
 
@@ -360,6 +389,9 @@ void ConfigManager::Reset()
     configData.clear();
     scene.Clear();
     ApplyDefaults();
+    selectedFixtures.clear();
+    selectedTrusses.clear();
+    selectedSceneObjects.clear();
     ClearHistory();
 }
 
@@ -384,7 +416,8 @@ bool ConfigManager::SaveUserConfig() const
 
 void ConfigManager::PushUndoState()
 {
-    undoStack.push_back(scene);
+    Snapshot snap{scene, selectedFixtures, selectedTrusses, selectedSceneObjects};
+    undoStack.push_back(std::move(snap));
     if (undoStack.size() > maxHistory)
         undoStack.erase(undoStack.begin());
     redoStack.clear();
@@ -404,8 +437,13 @@ void ConfigManager::Undo()
 {
     if (undoStack.empty())
         return;
-    redoStack.push_back(scene);
-    scene = undoStack.back();
+    Snapshot current{scene, selectedFixtures, selectedTrusses, selectedSceneObjects};
+    redoStack.push_back(std::move(current));
+    const Snapshot& snap = undoStack.back();
+    scene = snap.scene;
+    selectedFixtures = snap.selFixtures;
+    selectedTrusses = snap.selTrusses;
+    selectedSceneObjects = snap.selSceneObjects;
     undoStack.pop_back();
 }
 
@@ -413,8 +451,13 @@ void ConfigManager::Redo()
 {
     if (redoStack.empty())
         return;
-    undoStack.push_back(scene);
-    scene = redoStack.back();
+    Snapshot current{scene, selectedFixtures, selectedTrusses, selectedSceneObjects};
+    undoStack.push_back(std::move(current));
+    const Snapshot& snap = redoStack.back();
+    scene = snap.scene;
+    selectedFixtures = snap.selFixtures;
+    selectedTrusses = snap.selTrusses;
+    selectedSceneObjects = snap.selSceneObjects;
     redoStack.pop_back();
 }
 

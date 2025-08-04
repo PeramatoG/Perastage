@@ -238,6 +238,7 @@ void Viewer3DPanel::OnMouseUp(wxMouseEvent& event)
         else if (SceneObjectTablePanel::Instance() && SceneObjectTablePanel::Instance()->IsActivePage())
             found = m_controller.GetSceneObjectLabelAt(event.GetX(), event.GetY(), w, h, label, pos, &uuid);
 
+        ConfigManager& cfg = ConfigManager::Get();
         if (found)
         {
             bool additive = event.ShiftDown() || event.ControlDown();
@@ -256,6 +257,10 @@ void Viewer3DPanel::OnMouseUp(wxMouseEvent& event)
                 }
                 else
                     selection = {uuid};
+                if (selection != cfg.GetSelectedFixtures()) {
+                    cfg.PushUndoState();
+                    cfg.SetSelectedFixtures(selection);
+                }
                 SetSelectedFixtures(selection);
                 FixtureTablePanel::Instance()->SelectByUuid(selection);
             }
@@ -273,6 +278,10 @@ void Viewer3DPanel::OnMouseUp(wxMouseEvent& event)
                 }
                 else
                     selection = {uuid};
+                if (selection != cfg.GetSelectedTrusses()) {
+                    cfg.PushUndoState();
+                    cfg.SetSelectedTrusses(selection);
+                }
                 SetSelectedFixtures(selection);
                 TrussTablePanel::Instance()->SelectByUuid(selection);
             }
@@ -290,19 +299,43 @@ void Viewer3DPanel::OnMouseUp(wxMouseEvent& event)
                 }
                 else
                     selection = {uuid};
+                if (selection != cfg.GetSelectedSceneObjects()) {
+                    cfg.PushUndoState();
+                    cfg.SetSelectedSceneObjects(selection);
+                }
                 SetSelectedFixtures(selection);
                 SceneObjectTablePanel::Instance()->SelectByUuid(selection);
             }
         }
         else
         {
-            SetSelectedFixtures({});
-            if (FixtureTablePanel::Instance() && FixtureTablePanel::Instance()->IsActivePage())
+            if (FixtureTablePanel::Instance() && FixtureTablePanel::Instance()->IsActivePage()) {
+                if (!cfg.GetSelectedFixtures().empty()) {
+                    cfg.PushUndoState();
+                    cfg.SetSelectedFixtures({});
+                }
+                SetSelectedFixtures({});
                 FixtureTablePanel::Instance()->ClearSelection();
-            else if (TrussTablePanel::Instance() && TrussTablePanel::Instance()->IsActivePage())
+            }
+            else if (TrussTablePanel::Instance() && TrussTablePanel::Instance()->IsActivePage()) {
+                if (!cfg.GetSelectedTrusses().empty()) {
+                    cfg.PushUndoState();
+                    cfg.SetSelectedTrusses({});
+                }
+                SetSelectedFixtures({});
                 TrussTablePanel::Instance()->ClearSelection();
-            else if (SceneObjectTablePanel::Instance() && SceneObjectTablePanel::Instance()->IsActivePage())
+            }
+            else if (SceneObjectTablePanel::Instance() && SceneObjectTablePanel::Instance()->IsActivePage()) {
+                if (!cfg.GetSelectedSceneObjects().empty()) {
+                    cfg.PushUndoState();
+                    cfg.SetSelectedSceneObjects({});
+                }
+                SetSelectedFixtures({});
                 SceneObjectTablePanel::Instance()->ClearSelection();
+            }
+            else {
+                SetSelectedFixtures({});
+            }
         }
     }
     m_draggedSincePress = false;
