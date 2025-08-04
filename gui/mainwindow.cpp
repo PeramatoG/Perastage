@@ -801,15 +801,20 @@ void MainWindow::OnPrintTable(wxCommandEvent &WXUNUSED(event)) {
 
   wxString choice = dlg.GetStringSelection();
   wxDataViewListCtrl *ctrl = nullptr;
-  if (choice == "Fixtures" && fixturePanel)
+  TablePrinter::TableType type = TablePrinter::TableType::Fixtures;
+  if (choice == "Fixtures" && fixturePanel) {
     ctrl = fixturePanel->GetTableCtrl();
-  else if (choice == "Trusses" && trussPanel)
+    type = TablePrinter::TableType::Fixtures;
+  } else if (choice == "Trusses" && trussPanel) {
     ctrl = trussPanel->GetTableCtrl();
-  else if (choice == "Objects" && sceneObjPanel)
+    type = TablePrinter::TableType::Trusses;
+  } else if (choice == "Objects" && sceneObjPanel) {
     ctrl = sceneObjPanel->GetTableCtrl();
+    type = TablePrinter::TableType::SceneObjects;
+  }
 
   if (ctrl)
-    TablePrinter::Print(this, ctrl);
+    TablePrinter::Print(this, ctrl, type);
 }
 
 void MainWindow::OnClose(wxCommandEvent &event) {

@@ -1,12 +1,13 @@
 #include "tableprinter.h"
 #include "columnselectiondialog.h"
+#include "configmanager.h"
 #include <wx/dataview.h>
 #include <wx/html/htmprint.h>
 #include <algorithm>
 
 namespace TablePrinter {
 
-void Print(wxWindow* parent, wxDataViewListCtrl* table)
+void Print(wxWindow* parent, wxDataViewListCtrl* table, TableType type)
 {
     if (!table)
         return;
@@ -15,13 +16,40 @@ void Print(wxWindow* parent, wxDataViewListCtrl* table)
     for (unsigned int i = 0; i < table->GetColumnCount(); ++i)
         cols.push_back(std::string(table->GetColumn(i)->GetTitle().ToUTF8()));
 
-    ColumnSelectionDialog dlg(parent, cols);
+    std::vector<std::string> saved;
+    switch (type)
+    {
+    case TableType::Fixtures: saved = ConfigManager::Get().GetFixturePrintColumns(); break;
+    case TableType::Trusses: saved = ConfigManager::Get().GetTrussPrintColumns(); break;
+    case TableType::SceneObjects: saved = ConfigManager::Get().GetSceneObjectPrintColumns(); break;
+    }
+
+    std::vector<int> defaultIdx;
+    for (const auto& name : saved)
+    {
+        auto it = std::find(cols.begin(), cols.end(), name);
+        if (it != cols.end())
+            defaultIdx.push_back(static_cast<int>(std::distance(cols.begin(), it)));
+    }
+
+    ColumnSelectionDialog dlg(parent, cols, defaultIdx);
     if (dlg.ShowModal() != wxID_OK)
         return;
 
     std::vector<int> selCols = dlg.GetSelectedColumns();
     if (selCols.empty())
         return;
+
+    std::vector<std::string> toSave;
+    for (int c : selCols)
+        toSave.push_back(cols[c]);
+
+    switch (type)
+    {
+    case TableType::Fixtures: ConfigManager::Get().SetFixturePrintColumns(toSave); break;
+    case TableType::Trusses: ConfigManager::Get().SetTrussPrintColumns(toSave); break;
+    case TableType::SceneObjects: ConfigManager::Get().SetSceneObjectPrintColumns(toSave); break;
+    }
 
     static wxHtmlEasyPrinting printer("Table Printer", parent);
     printer.SetParentWindow(parent);

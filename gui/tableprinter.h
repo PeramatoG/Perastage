@@ -7,5 +7,6 @@ class wxWindow;
 class wxDataViewListCtrl;
 
 namespace TablePrinter {
-void Print(wxWindow* parent, wxDataViewListCtrl* table);
+enum class TableType { Fixtures, Trusses, SceneObjects };
+void Print(wxWindow* parent, wxDataViewListCtrl* table, TableType type);
 }
