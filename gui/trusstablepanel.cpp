@@ -426,6 +426,32 @@ void TrussTablePanel::HighlightTruss(const std::string& uuid)
     table->Refresh();
 }
 
+void TrussTablePanel::ClearSelection() {
+    table->UnselectAll();
+}
+
+std::vector<std::string> TrussTablePanel::GetSelectedUuids() const {
+    wxDataViewItemArray selections;
+    table->GetSelections(selections);
+    std::vector<std::string> uuids;
+    uuids.reserve(selections.size());
+    for (const auto& it : selections) {
+        int r = table->ItemToRow(it);
+        if (r != wxNOT_FOUND && (size_t)r < rowUuids.size())
+            uuids.push_back(rowUuids[r]);
+    }
+    return uuids;
+}
+
+void TrussTablePanel::SelectByUuid(const std::vector<std::string>& uuids) {
+    table->UnselectAll();
+    for (const auto& u : uuids) {
+        auto pos = std::find(rowUuids.begin(), rowUuids.end(), u);
+        if (pos != rowUuids.end())
+            table->SelectRow(static_cast<int>(pos - rowUuids.begin()));
+    }
+}
+
 void TrussTablePanel::DeleteSelected()
 {
     wxDataViewItemArray selections;

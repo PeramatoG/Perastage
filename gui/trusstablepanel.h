@@ -14,6 +14,9 @@ public:
     ~TrussTablePanel();
     void ReloadData(); // Refresh from ConfigManager
     void HighlightTruss(const std::string& uuid);
+    void ClearSelection();
+    std::vector<std::string> GetSelectedUuids() const;
+    void SelectByUuid(const std::vector<std::string>& uuids);
     bool IsActivePage() const;
     void DeleteSelected();
     wxDataViewListCtrl* GetTableCtrl() const { return table; }

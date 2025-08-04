@@ -664,6 +664,32 @@ void FixtureTablePanel::ClearSelection() {
   selectionOrder.clear();
 }
 
+std::vector<std::string> FixtureTablePanel::GetSelectedUuids() const {
+  wxDataViewItemArray selections;
+  table->GetSelections(selections);
+  std::vector<std::string> uuids;
+  uuids.reserve(selections.size());
+  for (const auto &it : selections) {
+    int r = table->ItemToRow(it);
+    if (r != wxNOT_FOUND && (size_t)r < rowUuids.size())
+      uuids.push_back(rowUuids[r]);
+  }
+  return uuids;
+}
+
+void FixtureTablePanel::SelectByUuid(const std::vector<std::string>& uuids) {
+  table->UnselectAll();
+  selectionOrder.clear();
+  for (const auto &u : uuids) {
+    auto pos = std::find(rowUuids.begin(), rowUuids.end(), u);
+    if (pos != rowUuids.end()) {
+      int row = static_cast<int>(pos - rowUuids.begin());
+      table->SelectRow(row);
+      selectionOrder.push_back(row);
+    }
+  }
+}
+
 void FixtureTablePanel::DeleteSelected() {
   wxDataViewItemArray selections;
   table->GetSelections(selections);
