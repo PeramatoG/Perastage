@@ -48,6 +48,14 @@ public:
     void SetFloat(const std::string& name, float v);
     void ApplyDefaults();
 
+    // Column printing preferences
+    std::vector<std::string> GetFixturePrintColumns() const;
+    void SetFixturePrintColumns(const std::vector<std::string>& cols);
+    std::vector<std::string> GetTrussPrintColumns() const;
+    void SetTrussPrintColumns(const std::vector<std::string>& cols);
+    std::vector<std::string> GetSceneObjectPrintColumns() const;
+    void SetSceneObjectPrintColumns(const std::vector<std::string>& cols);
+
     // Clear everything (scene + config)
     void Reset();
 
@@ -63,6 +71,8 @@ private:
     ConfigManager();
     ConfigManager(const ConfigManager&) = delete;
     ConfigManager& operator=(const ConfigManager&) = delete;
+
+    void ApplyColumnDefaults();
 
     std::unordered_map<std::string, std::string> configData;
     std::unordered_map<std::string, VariableInfo> variables;
