@@ -58,6 +58,7 @@ wxBEGIN_EVENT_TABLE(MainWindow, wxFrame)
   EVT_MENU(ID_File_ImportMVR, MainWindow::OnImportMVR)
   EVT_MENU(ID_File_ExportMVR, MainWindow::OnExportMVR)
   EVT_MENU(ID_File_PrintTable, MainWindow::OnPrintTable)
+  EVT_MENU(ID_File_ExportCSV, MainWindow::OnExportCSV)
   EVT_MENU(ID_File_Close, MainWindow::OnClose)
   EVT_CLOSE(MainWindow::OnCloseWindow)
   EVT_MENU(ID_Edit_Undo, MainWindow::OnUndo)
@@ -205,6 +206,7 @@ void MainWindow::CreateMenuBar() {
   fileMenu->Append(ID_File_ImportMVR, "Import MVR...");
   fileMenu->Append(ID_File_ExportMVR, "Export MVR...");
   fileMenu->Append(ID_File_PrintTable, "Print Table...");
+  fileMenu->Append(ID_File_ExportCSV, "Export CSV...");
   fileMenu->AppendSeparator();
   fileMenu->Append(ID_File_Close, "Close\tCtrl+Q");
 
@@ -815,6 +817,39 @@ void MainWindow::OnPrintTable(wxCommandEvent &WXUNUSED(event)) {
 
   if (ctrl)
     TablePrinter::Print(this, ctrl, type);
+}
+
+void MainWindow::OnExportCSV(wxCommandEvent &WXUNUSED(event)) {
+  wxArrayString options;
+  if (fixturePanel)
+    options.Add("Fixtures");
+  if (trussPanel)
+    options.Add("Trusses");
+  if (sceneObjPanel)
+    options.Add("Objects");
+  if (options.IsEmpty())
+    return;
+
+  wxSingleChoiceDialog dlg(this, "Select table", "Export CSV", options);
+  if (dlg.ShowModal() != wxID_OK)
+    return;
+
+  wxString choice = dlg.GetStringSelection();
+  wxDataViewListCtrl *ctrl = nullptr;
+  TablePrinter::TableType type = TablePrinter::TableType::Fixtures;
+  if (choice == "Fixtures" && fixturePanel) {
+    ctrl = fixturePanel->GetTableCtrl();
+    type = TablePrinter::TableType::Fixtures;
+  } else if (choice == "Trusses" && trussPanel) {
+    ctrl = trussPanel->GetTableCtrl();
+    type = TablePrinter::TableType::Trusses;
+  } else if (choice == "Objects" && sceneObjPanel) {
+    ctrl = sceneObjPanel->GetTableCtrl();
+    type = TablePrinter::TableType::SceneObjects;
+  }
+
+  if (ctrl)
+    TablePrinter::ExportCSV(this, ctrl, type);
 }
 
 void MainWindow::OnClose(wxCommandEvent &event) {
