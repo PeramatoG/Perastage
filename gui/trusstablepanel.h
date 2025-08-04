@@ -16,6 +16,7 @@ public:
     void HighlightTruss(const std::string& uuid);
     bool IsActivePage() const;
     void DeleteSelected();
+    wxDataViewListCtrl* GetTableCtrl() const { return table; }
 
     static TrussTablePanel* Instance();
     static void SetInstance(TrussTablePanel* panel);

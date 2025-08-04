@@ -45,6 +45,7 @@ private:
     void OnExportTruss(wxCommandEvent& event);     // Export truss metadata
     void OnExportFixture(wxCommandEvent& event);   // Export fixture GDTF
     void OnExportSceneObject(wxCommandEvent& event); // Export scene object model
+    void OnPrintTable(wxCommandEvent& event);        // Print selected table
     void OnDownloadGdtf(wxCommandEvent& event);    // Download fixture from GDTF Share
     void OnClose(wxCommandEvent& event);           // Handle the Close action
     void OnCloseWindow(wxCloseEvent& event);       // Handle window close
@@ -78,6 +79,7 @@ enum
     ID_File_SaveAs,
     ID_File_ImportMVR,
     ID_File_ExportMVR,
+    ID_File_PrintTable,
     ID_File_Close,
     ID_View_ToggleConsole,
     ID_View_ToggleFixtures,

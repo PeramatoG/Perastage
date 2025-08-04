@@ -17,6 +17,7 @@ public:
     void ClearSelection();
     bool IsActivePage() const;
     void DeleteSelected();
+    wxDataViewListCtrl* GetTableCtrl() const { return table; }
 
     static FixtureTablePanel* Instance();
     static void SetInstance(FixtureTablePanel* panel);
