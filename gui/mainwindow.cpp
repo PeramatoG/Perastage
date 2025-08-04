@@ -1061,6 +1061,8 @@ void MainWindow::OnUndo(wxCommandEvent &WXUNUSED(event)) {
   if (!cfg.CanUndo())
     return;
   cfg.Undo();
+  if (consolePanel)
+    consolePanel->AppendMessage("Undo");
   if (fixturePanel) {
     fixturePanel->ReloadData();
     fixturePanel->SelectByUuid(cfg.GetSelectedFixtures());
@@ -1092,6 +1094,8 @@ void MainWindow::OnRedo(wxCommandEvent &WXUNUSED(event)) {
   if (!cfg.CanRedo())
     return;
   cfg.Redo();
+  if (consolePanel)
+    consolePanel->AppendMessage("Redo");
   if (fixturePanel) {
     fixturePanel->ReloadData();
     fixturePanel->SelectByUuid(cfg.GetSelectedFixtures());

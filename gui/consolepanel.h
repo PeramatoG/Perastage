@@ -17,4 +17,6 @@ public:
 
 private:
     wxTextCtrl* m_textCtrl = nullptr;
+    bool m_autoScroll = true;
+    void OnScroll(wxScrollWinEvent& event);
 };
