@@ -60,6 +60,8 @@ private:
     void OnUndo(wxCommandEvent& event);            // Undo action placeholder
     void OnRedo(wxCommandEvent& event);            // Redo action placeholder
     void OnAddFixture(wxCommandEvent& event);      // Add fixture from GDTF
+    void OnAddTruss(wxCommandEvent& event);        // Add truss from library
+    void OnAddSceneObject(wxCommandEvent& event);  // Add generic scene object
     void OnDelete(wxCommandEvent& event);          // Delete selected items
 
     void SaveCameraSettings();
@@ -92,5 +94,7 @@ enum
     ID_Edit_Undo,
     ID_Edit_Redo,
     ID_Edit_AddFixture,
+    ID_Edit_AddTruss,
+    ID_Edit_AddSceneObject,
     ID_Edit_Delete
 };
