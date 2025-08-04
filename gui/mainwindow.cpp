@@ -12,6 +12,7 @@
 #include "gdtfsearchdialog.h"
 #include "addfixturedialog.h"
 #include "selectfixturetypedialog.h"
+#include "selectnamedialog.h"
 #include "gdtfloader.h"
 #include "gdtfnet.h"
 #include "simplecrypt.h"
@@ -1112,14 +1113,51 @@ void MainWindow::OnAddTruss(wxCommandEvent& WXUNUSED(event))
     ConfigManager& cfg = ConfigManager::Get();
     auto& scene = cfg.GetScene();
 
-    wxString trussDir = wxString::FromUTF8(ProjectUtils::GetDefaultLibraryPath("trusses"));
-    wxFileDialog dlg(this, "Select Truss file", trussDir, wxEmptyString,
-                     "*.gtruss", wxFD_OPEN | wxFD_FILE_MUST_EXIST);
-    if (dlg.ShowModal() != wxID_OK)
-        return;
+    std::string path;
+    std::string defaultName;
 
-    wxFileName fn(dlg.GetPath());
-    wxString nameWx = wxGetTextFromUser("Enter truss name:", "Add Truss", fn.GetName(), this);
+    if (!scene.trusses.empty()) {
+        std::map<std::string, std::string> nameToFile;
+        for (const auto& [uuid, t] : scene.trusses)
+            if (!t.name.empty() && !t.symbolFile.empty())
+                nameToFile.try_emplace(t.name, t.symbolFile);
+        std::vector<std::string> names;
+        names.reserve(nameToFile.size());
+        for (const auto& [n, _] : nameToFile)
+            names.push_back(n);
+
+        SelectNameDialog chooseDlg(this, names, "Select Truss", "Choose a truss:");
+        int dlgRes = chooseDlg.ShowModal();
+        if (dlgRes == wxID_CANCEL)
+            return;
+        if (dlgRes == wxID_OPEN) {
+            wxString trussDir = wxString::FromUTF8(ProjectUtils::GetDefaultLibraryPath("trusses"));
+            wxFileDialog fdlg(this, "Select Truss file", trussDir, wxEmptyString,
+                              "*.gtruss", wxFD_OPEN | wxFD_FILE_MUST_EXIST);
+            if (fdlg.ShowModal() != wxID_OK)
+                return;
+            wxFileName fn(fdlg.GetPath());
+            defaultName = fn.GetName().ToStdString();
+            path = std::string(fdlg.GetPath().mb_str());
+        } else {
+            int sel = chooseDlg.GetSelection();
+            if (sel < 0 || sel >= static_cast<int>(names.size()))
+                return;
+            defaultName = names[sel];
+            path = nameToFile[defaultName];
+        }
+    } else {
+        wxString trussDir = wxString::FromUTF8(ProjectUtils::GetDefaultLibraryPath("trusses"));
+        wxFileDialog fdlg(this, "Select Truss file", trussDir, wxEmptyString,
+                          "*.gtruss", wxFD_OPEN | wxFD_FILE_MUST_EXIST);
+        if (fdlg.ShowModal() != wxID_OK)
+            return;
+        wxFileName fn(fdlg.GetPath());
+        defaultName = fn.GetName().ToStdString();
+        path = std::string(fdlg.GetPath().mb_str());
+    }
+
+    wxString nameWx = wxGetTextFromUser("Enter truss name:", "Add Truss", wxString::FromUTF8(defaultName), this);
     if (nameWx.IsEmpty())
         return;
 
@@ -1128,7 +1166,6 @@ void MainWindow::OnAddTruss(wxCommandEvent& WXUNUSED(event))
     Truss t;
     t.uuid = wxString::Format("uuid_%lld", static_cast<long long>(std::chrono::steady_clock::now().time_since_epoch().count())).ToStdString();
     t.name = std::string(nameWx.mb_str());
-    std::string path = std::string(dlg.GetPath().mb_str());
     std::string base = scene.basePath;
     if (!base.empty()) {
         fs::path abs = fs::absolute(path);
@@ -1152,14 +1189,51 @@ void MainWindow::OnAddSceneObject(wxCommandEvent& WXUNUSED(event))
     ConfigManager& cfg = ConfigManager::Get();
     auto& scene = cfg.GetScene();
 
-    wxString objDir = wxString::FromUTF8(ProjectUtils::GetDefaultLibraryPath("scene objects"));
-    wxFileDialog dlg(this, "Select Object file", objDir, wxEmptyString,
-                     "*.*", wxFD_OPEN | wxFD_FILE_MUST_EXIST);
-    if (dlg.ShowModal() != wxID_OK)
-        return;
+    std::string path;
+    std::string defaultName;
 
-    wxFileName fn(dlg.GetPath());
-    wxString nameWx = wxGetTextFromUser("Enter object name:", "Add Scene Object", fn.GetName(), this);
+    if (!scene.sceneObjects.empty()) {
+        std::map<std::string, std::string> nameToFile;
+        for (const auto& [uuid, o] : scene.sceneObjects)
+            if (!o.name.empty() && !o.modelFile.empty())
+                nameToFile.try_emplace(o.name, o.modelFile);
+        std::vector<std::string> names;
+        names.reserve(nameToFile.size());
+        for (const auto& [n, _] : nameToFile)
+            names.push_back(n);
+
+        SelectNameDialog chooseDlg(this, names, "Select Scene Object", "Choose an object:");
+        int dlgRes = chooseDlg.ShowModal();
+        if (dlgRes == wxID_CANCEL)
+            return;
+        if (dlgRes == wxID_OPEN) {
+            wxString objDir = wxString::FromUTF8(ProjectUtils::GetDefaultLibraryPath("scene objects"));
+            wxFileDialog fdlg(this, "Select Object file", objDir, wxEmptyString,
+                              "*.*", wxFD_OPEN | wxFD_FILE_MUST_EXIST);
+            if (fdlg.ShowModal() != wxID_OK)
+                return;
+            wxFileName fn(fdlg.GetPath());
+            defaultName = fn.GetName().ToStdString();
+            path = std::string(fdlg.GetPath().mb_str());
+        } else {
+            int sel = chooseDlg.GetSelection();
+            if (sel < 0 || sel >= static_cast<int>(names.size()))
+                return;
+            defaultName = names[sel];
+            path = nameToFile[defaultName];
+        }
+    } else {
+        wxString objDir = wxString::FromUTF8(ProjectUtils::GetDefaultLibraryPath("scene objects"));
+        wxFileDialog fdlg(this, "Select Object file", objDir, wxEmptyString,
+                          "*.*", wxFD_OPEN | wxFD_FILE_MUST_EXIST);
+        if (fdlg.ShowModal() != wxID_OK)
+            return;
+        wxFileName fn(fdlg.GetPath());
+        defaultName = fn.GetName().ToStdString();
+        path = std::string(fdlg.GetPath().mb_str());
+    }
+
+    wxString nameWx = wxGetTextFromUser("Enter object name:", "Add Scene Object", wxString::FromUTF8(defaultName), this);
     if (nameWx.IsEmpty())
         return;
 
@@ -1168,7 +1242,6 @@ void MainWindow::OnAddSceneObject(wxCommandEvent& WXUNUSED(event))
     SceneObject obj;
     obj.uuid = wxString::Format("uuid_%lld", static_cast<long long>(std::chrono::steady_clock::now().time_since_epoch().count())).ToStdString();
     obj.name = std::string(nameWx.mb_str());
-    std::string path = std::string(dlg.GetPath().mb_str());
     std::string base = scene.basePath;
     if (!base.empty()) {
         fs::path abs = fs::absolute(path);
