@@ -26,10 +26,12 @@
 #include <map>
 #include <fstream>
 #include "fixture.h"
-#include <wx/aboutdlg.h>
 #include <wx/notebook.h>
 #include <wx/filename.h>
 #include <wx/filefn.h>
+#include <wx/iconbndl.h>
+#include <wx/statbmp.h>
+#include <wx/textctrl.h>
 #include <cstdlib>
 #include <filesystem>
 #include <cstdio>
@@ -909,49 +911,54 @@ void MainWindow::OnShowHelp(wxCommandEvent& WXUNUSED(event))
 
 void MainWindow::OnShowAbout(wxCommandEvent& WXUNUSED(event))
 {
-    wxAboutDialogInfo info;
-    info.SetName("Perastage");
-    info.SetVersion("1.0");
-    info.SetDescription("High-performance MVR scene viewer with 3D rendering support.");
-    info.SetWebSite("https://luismaperamato.com", "luismaperamato.com");
-    info.AddDeveloper("Luisma Peramato");
+    wxDialog dlg(this, wxID_ANY, "About Perastage");
 
-    // License information
-    wxString licenseText =
-        "This application makes use of the following open-source libraries:\n\n"
-        "  • wxWidgets\n"
-        "  • tinyxml2\n"
-        "  • nlohmann-json\n"
-        "  • OpenGL (or Vulkan backend)\n\n"
-        "This software is licensed under the MIT License.";
-    info.SetLicence(licenseText);
+    wxBoxSizer* sizer = new wxBoxSizer(wxVERTICAL);
 
-    // Attempt to load the highest resolution icon available
-    wxIcon icon;
+    // Load the largest available icon
+    wxIconBundle bundle;
     const wxString iconPaths[] = {
-        "resources/Perastage.png",        // Prefer high-res PNG
-        "../resources/Perastage.png",
-        "../../resources/Perastage.png",
-        "resources/Perastage.ico",        // Fallback to ICO
+        "resources/Perastage.ico",
         "../resources/Perastage.ico",
         "../../resources/Perastage.ico"
     };
-
     for (const wxString& path : iconPaths)
     {
         if (wxFileExists(path))
-        {
-            wxBitmapType type = path.EndsWith(".png") ? wxBITMAP_TYPE_PNG : wxBITMAP_TYPE_ICO;
-            if (icon.LoadFile(path, type))
-            {
-                info.SetIcon(icon);
-                break;
-            }
-        }
+            bundle.AddIcon(path, wxBITMAP_TYPE_ICO);
     }
 
-    // Show the About dialog
-    wxAboutBox(info, this);
+    wxIcon icon = bundle.GetIcon(wxSize(256, 256));
+    if (icon.IsOk())
+    {
+        wxStaticBitmap* iconCtrl = new wxStaticBitmap(&dlg, wxID_ANY, wxBitmap(icon));
+        sizer->Add(iconCtrl, 0, wxALIGN_CENTER | wxALL, 10);
+    }
+
+    wxString aboutText =
+        "Perastage 1.0\n"
+        "High-performance MVR scene viewer with 3D rendering support.\n"
+        "Website: https://luismaperamato.com\n"
+        "Developer: Luisma Peramato\n\n"
+        "This application makes use of the following open-source libraries:\n"
+        "  - wxWidgets\n"
+        "  - tinyxml2\n"
+        "  - nlohmann-json\n"
+        "  - OpenGL (or Vulkan backend)\n\n"
+        "This software is licensed under the MIT License.";
+
+    wxTextCtrl* textCtrl = new wxTextCtrl(&dlg, wxID_ANY, aboutText,
+                                         wxDefaultPosition, wxDefaultSize,
+                                         wxTE_MULTILINE | wxTE_READONLY | wxBORDER_NONE);
+    textCtrl->SetBackgroundColour(dlg.GetBackgroundColour());
+    sizer->Add(textCtrl, 1, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 10);
+
+    wxStdDialogButtonSizer* btnSizer = dlg.CreateStdDialogButtonSizer(wxOK);
+    if (btnSizer)
+        sizer->Add(btnSizer, 0, wxALIGN_CENTER | wxALL, 5);
+
+    dlg.SetSizerAndFit(sizer);
+    dlg.ShowModal();
 }
 
 
