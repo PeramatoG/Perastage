@@ -1,8 +1,9 @@
 # Perastage Help
 
-Perastage is a high-performance MVR scene viewer with 3D rendering support.
+Perastage is a high-performance, cross-platform viewer for MVR (My Virtual Rig) scenes with 3D rendering, scene analysis and editable tabular data interfaces. It is designed for lighting professionals and developers working with the GDTF and MVR standards.
 
 ## Getting Started
+
 - Use **File → Import MVR** to load an `.mvr` file.
 - Tables list fixtures and trusses while the scene is shown in the 3D viewport.
 - Toggle panels from the **View** menu.
@@ -17,3 +18,108 @@ Perastage is a high-performance MVR scene viewer with 3D rendering support.
 | Numpad 1/3/7 | front, right and top views |
 | Numpad 5 | reset orientation |
 | 1/2/3 | show Fixtures, Trusses or Objects tables |
+=======
+
+1. Launch the application.
+2. Use **File → Import MVR** to load an `.mvr` file.
+3. Navigate through the 3D viewport and explore scene elements via:
+   - Fixtures Table
+   - Trusses Table
+   - Objects Table
+
+Use the **View** menu to toggle visibility of side panels and tables.
+
+## Keyboard Shortcuts
+
+| Key Combination      | Function                      |
+|----------------------|-------------------------------|
+| Arrow Keys           | Orbit camera                  |
+| Shift + Arrow Keys   | Pan camera                    |
+| Alt + Arrow Keys     | Zoom in/out                   |
+| Numpad 1 / 3 / 7     | Front, Right, Top views       |
+| Numpad 5             | Reset camera orientation      |
+| 1 / 2 / 3            | Switch between tables         |
+
+## Panels and Dialogs
+
+### Fixture Table
+- Displays all parsed fixture objects from the MVR file.
+- Columns include: Name, Fixture Type, Mode, Address, Layer, Position.
+- Context menu options:
+  - Edit Address (via `AddressDialog`)
+  - Replace Fixture (via `AddFixtureDialog`)
+  - Export to GDTF (`ExportFixtureDialog`)
+
+### Truss Table
+- Displays imported trusses with geometry, dimensions, and metadata.
+- Export functionality provided by `ExportTrussDialog`.
+
+### Console Panel
+- Displays status messages and logs.
+- Can be toggled from the View menu.
+
+## File Menu Options
+
+| Menu Option            | Description                              |
+|------------------------|------------------------------------------|
+| Import MVR             | Load an `.mvr` scene file                |
+| Export GDTF            | Export selected fixtures                 |
+| Export MVR Objects     | Save selected elements into a new file   |
+| Recent Files           | Access previously opened scenes          |
+| Exit                   | Close the application                    |
+
+## View Menu
+
+| Menu Option          | Description                       |
+|----------------------|-----------------------------------|
+| Fixtures Table       | Toggle fixture list panel         |
+| Trusses Table        | Toggle truss list panel           |
+| Console Output       | Show/hide output log              |
+| 3D Viewport          | Enable or disable 3D rendering    |
+
+## Configuration Management
+
+Settings are stored using a modular configuration manager. It supports saving and restoring:
+
+- Panel visibility states
+- Last used file paths
+- View mode preferences
+
+## File Format Support
+
+- MVR 1.6: Import of scenes, positions, trusses, fixtures
+- GDTF: Supports embedded fixture definitions
+- 3DS / GLB: 3D model formats used in MVR/GDTF
+
+## Experimental and Planned Features
+
+- Grouping and filtering by Layer or Group
+- Cell-level editing within tables
+- Multi-object export dialogs
+- Vulkan-based renderer (in progress)
+- Runtime graphics backend selection
+
+## Developer Information
+
+- Organized codebase:
+  - `core/`: logic and data handling
+  - `gui/`: user interface components
+  - `render/`: future rendering backend
+- Developed with C++20 and CMake
+- Uses `wxWidgets`, `tinyxml2`, and other open libraries
+
+## Troubleshooting
+
+- If the 3D viewport does not display:
+  - Confirm OpenGL libraries are installed
+  - Ensure the MVR contains valid geometry and GDTF references
+- If objects do not appear in tables:
+  - Verify the MVR contains proper object definitions
+  - Check the console for warnings or errors
+
+## Additional Documentation
+
+- MVR Specification: `docs/mvr-spec.md`
+- GDTF Specification: `docs/gdtf-spec.md`
+- License: `LICENSE.txt`
+
