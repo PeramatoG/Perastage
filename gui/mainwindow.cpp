@@ -5,6 +5,7 @@
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <iterator>
 #include <map>
 #include <set>
 #include <tinyxml2.h>
@@ -12,6 +13,7 @@
 #include <wx/filefn.h>
 #include <wx/filename.h>
 #include <wx/iconbndl.h>
+#include <wx/html/htmlwin.h>
 #include <wx/notebook.h>
 #include <wx/statbmp.h>
 #include <wx/textctrl.h>
@@ -38,6 +40,7 @@
 #include "selectfixturetypedialog.h"
 #include "selectnamedialog.h"
 #include "simplecrypt.h"
+#include "markdown.h"
 #include "trusstablepanel.h"
 #include "viewer3dpanel.h"
 #ifdef _WIN32
@@ -905,19 +908,30 @@ void MainWindow::SaveCameraSettings() {
 }
 
 void MainWindow::OnShowHelp(wxCommandEvent &WXUNUSED(event)) {
-  const wxString helpText = "Use File → Import MVR to load an .mvr file.\n"
-                            "Tables will list fixtures and trusses while the "
-                            "scene is shown in the 3D viewport.\n"
-                            "Toggle panels from the View menu.\n\n"
-                            "Keyboard controls:\n"
-                            "- Arrow keys: orbit the view\n"
-                            "- Shift + Arrow keys: pan\n"
-                            "- Alt + Up/Down (or Alt + Left/Right): zoom\n"
-                            "- Numpad 1/3/7: front, right and top views\n"
-                            "- Numpad 5: reset orientation\n"
-                            "- 1/2/3: show Fixtures, Trusses or Objects tables";
+  // Attempt to load the Markdown help file from the application directory.
+  wxFileName helpPath(wxGetCwd(), "help.md");
+  if (helpPath.Exists()) {
+    // Read the file contents.
+    std::ifstream in(helpPath.GetFullPath().ToStdString());
+    std::string markdown((std::istreambuf_iterator<char>(in)),
+                         std::istreambuf_iterator<char>());
+    std::string html = MarkdownToHtml(markdown);
 
-  wxMessageBox(helpText, "Perastage Help", wxOK | wxICON_INFORMATION, this);
+    // Create a dialog containing a wxHtmlWindow to render the generated HTML.
+    wxDialog dlg(this, wxID_ANY, "Perastage Help", wxDefaultPosition,
+                 wxSize(600, 400));
+    wxBoxSizer *sizer = new wxBoxSizer(wxVERTICAL);
+    wxHtmlWindow *htmlWin =
+        new wxHtmlWindow(&dlg, wxID_ANY, wxDefaultPosition, wxDefaultSize,
+                         wxHW_SCROLLBAR_AUTO);
+    htmlWin->SetPage(html);
+    sizer->Add(htmlWin, 1, wxEXPAND | wxALL, 5);
+    dlg.SetSizerAndFit(sizer);
+    dlg.ShowModal();
+  } else {
+    wxMessageBox("help.md file not found", "Perastage Help",
+                 wxOK | wxICON_ERROR, this);
+  }
 }
 
 void MainWindow::OnShowAbout(wxCommandEvent &WXUNUSED(event)) {
