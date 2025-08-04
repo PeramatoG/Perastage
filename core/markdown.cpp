@@ -71,17 +71,17 @@ std::string MarkdownToHtml(const std::string &markdown) {
     auto flushTable = [&]() {
         if (!inTable)
             return;
-        out << "<table>\n";
+        out << "<table border=\"1\" cellspacing=\"0\" cellpadding=\"4\" style=\"border-collapse:collapse;\">\n";
         if (!tableHeaders.empty()) {
             out << "<tr>";
             for (const auto &h : tableHeaders)
-                out << "<th>" << ProcessBold(h) << "</th>";
+                out << "<th style=\"border:1px solid #ccc;padding:4px;\">" << ProcessBold(h) << "</th>";
             out << "</tr>\n";
         }
         for (const auto &row : tableRows) {
             out << "<tr>";
             for (const auto &c : row)
-                out << "<td>" << ProcessBold(c) << "</td>";
+                out << "<td style=\"border:1px solid #ccc;padding:4px;\">" << ProcessBold(c) << "</td>";
             out << "</tr>\n";
         }
         out << "</table>\n";
