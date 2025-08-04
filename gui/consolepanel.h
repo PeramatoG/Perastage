@@ -1,6 +1,7 @@
 #pragma once
 
 #include <wx/wx.h>
+#include <wx/scrollwin.h>
 
 // Simple panel to display log messages in a console-like view
 class ConsolePanel : public wxPanel

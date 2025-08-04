@@ -11,7 +11,18 @@ ConsolePanel::ConsolePanel(wxWindow* parent)
     m_textCtrl->SetForegroundColour(wxColour(200, 200, 200));
     wxFont font(10, wxFONTFAMILY_TELETYPE, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL);
     m_textCtrl->SetFont(font);
-    m_textCtrl->Bind(wxEVT_SCROLLWIN, &ConsolePanel::OnScroll, this);
+    const wxEventTypeTag<wxScrollWinEvent> scrollEvents[] = {
+        wxEVT_SCROLLWIN_TOP,
+        wxEVT_SCROLLWIN_BOTTOM,
+        wxEVT_SCROLLWIN_LINEUP,
+        wxEVT_SCROLLWIN_LINEDOWN,
+        wxEVT_SCROLLWIN_PAGEUP,
+        wxEVT_SCROLLWIN_PAGEDOWN,
+        wxEVT_SCROLLWIN_THUMBTRACK,
+        wxEVT_SCROLLWIN_THUMBRELEASE
+    };
+    for (const auto& evt : scrollEvents)
+        m_textCtrl->Bind(evt, &ConsolePanel::OnScroll, this);
     sizer->Add(m_textCtrl, 1, wxEXPAND | wxALL, 5);
     SetSizer(sizer);
 }
