@@ -52,6 +52,8 @@ EVT_CLOSE(MainWindow::OnCloseWindow)
 EVT_MENU(ID_Edit_Undo, MainWindow::OnUndo)
 EVT_MENU(ID_Edit_Redo, MainWindow::OnRedo)
 EVT_MENU(ID_Edit_AddFixture, MainWindow::OnAddFixture)
+EVT_MENU(ID_Edit_AddTruss, MainWindow::OnAddTruss)
+EVT_MENU(ID_Edit_AddSceneObject, MainWindow::OnAddSceneObject)
 EVT_MENU(ID_Edit_Delete, MainWindow::OnDelete)
 EVT_MENU(ID_View_ToggleConsole, MainWindow::OnToggleConsole)
 EVT_MENU(ID_View_ToggleFixtures, MainWindow::OnToggleFixtures)
@@ -207,6 +209,8 @@ void MainWindow::CreateMenuBar()
     editMenu->Append(ID_Edit_Redo, "Redo\tCtrl+Y");
     editMenu->AppendSeparator();
     editMenu->Append(ID_Edit_AddFixture, "Add fixture...");
+    editMenu->Append(ID_Edit_AddTruss, "Add truss...");
+    editMenu->Append(ID_Edit_AddSceneObject, "Add scene object...");
     editMenu->AppendSeparator();
     editMenu->Append(ID_Edit_Delete, "Delete\tDel");
 
@@ -1097,6 +1101,86 @@ void MainWindow::OnAddFixture(wxCommandEvent& WXUNUSED(event))
 
     if (fixturePanel)
         fixturePanel->ReloadData();
+    if (viewportPanel) {
+        viewportPanel->UpdateScene();
+        viewportPanel->Refresh();
+    }
+}
+
+void MainWindow::OnAddTruss(wxCommandEvent& WXUNUSED(event))
+{
+    ConfigManager& cfg = ConfigManager::Get();
+    auto& scene = cfg.GetScene();
+
+    wxString trussDir = wxString::FromUTF8(ProjectUtils::GetDefaultLibraryPath("trusses"));
+    wxFileDialog dlg(this, "Select Truss file", trussDir, wxEmptyString,
+                     "*.gtruss", wxFD_OPEN | wxFD_FILE_MUST_EXIST);
+    if (dlg.ShowModal() != wxID_OK)
+        return;
+
+    wxFileName fn(dlg.GetPath());
+    wxString nameWx = wxGetTextFromUser("Enter truss name:", "Add Truss", fn.GetName(), this);
+    if (nameWx.IsEmpty())
+        return;
+
+    namespace fs = std::filesystem;
+    cfg.PushUndoState();
+    Truss t;
+    t.uuid = wxString::Format("uuid_%lld", static_cast<long long>(std::chrono::steady_clock::now().time_since_epoch().count())).ToStdString();
+    t.name = std::string(nameWx.mb_str());
+    std::string path = std::string(dlg.GetPath().mb_str());
+    std::string base = scene.basePath;
+    if (!base.empty()) {
+        fs::path abs = fs::absolute(path);
+        fs::path b = fs::absolute(base);
+        if (abs.string().rfind(b.string(), 0) == 0)
+            path = fs::relative(abs, b).string();
+    }
+    t.symbolFile = path;
+    scene.trusses[t.uuid] = t;
+
+    if (trussPanel)
+        trussPanel->ReloadData();
+    if (viewportPanel) {
+        viewportPanel->UpdateScene();
+        viewportPanel->Refresh();
+    }
+}
+
+void MainWindow::OnAddSceneObject(wxCommandEvent& WXUNUSED(event))
+{
+    ConfigManager& cfg = ConfigManager::Get();
+    auto& scene = cfg.GetScene();
+
+    wxString objDir = wxString::FromUTF8(ProjectUtils::GetDefaultLibraryPath("scene objects"));
+    wxFileDialog dlg(this, "Select Object file", objDir, wxEmptyString,
+                     "*.*", wxFD_OPEN | wxFD_FILE_MUST_EXIST);
+    if (dlg.ShowModal() != wxID_OK)
+        return;
+
+    wxFileName fn(dlg.GetPath());
+    wxString nameWx = wxGetTextFromUser("Enter object name:", "Add Scene Object", fn.GetName(), this);
+    if (nameWx.IsEmpty())
+        return;
+
+    namespace fs = std::filesystem;
+    cfg.PushUndoState();
+    SceneObject obj;
+    obj.uuid = wxString::Format("uuid_%lld", static_cast<long long>(std::chrono::steady_clock::now().time_since_epoch().count())).ToStdString();
+    obj.name = std::string(nameWx.mb_str());
+    std::string path = std::string(dlg.GetPath().mb_str());
+    std::string base = scene.basePath;
+    if (!base.empty()) {
+        fs::path abs = fs::absolute(path);
+        fs::path b = fs::absolute(base);
+        if (abs.string().rfind(b.string(), 0) == 0)
+            path = fs::relative(abs, b).string();
+    }
+    obj.modelFile = path;
+    scene.sceneObjects[obj.uuid] = obj;
+
+    if (sceneObjPanel)
+        sceneObjPanel->ReloadData();
     if (viewportPanel) {
         viewportPanel->UpdateScene();
         viewportPanel->Refresh();
