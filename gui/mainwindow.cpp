@@ -912,35 +912,48 @@ void MainWindow::OnShowAbout(wxCommandEvent& WXUNUSED(event))
     wxAboutDialogInfo info;
     info.SetName("Perastage");
     info.SetVersion("1.0");
-    info.SetDescription("MVR scene viewer");
+    info.SetDescription("High-performance MVR scene viewer with 3D rendering support.");
     info.SetWebSite("https://luismaperamato.com", "luismaperamato.com");
     info.AddDeveloper("Luisma Peramato");
 
-    wxString licence =
-        "This application uses:\n"
-        "- wxWidgets\n"
-        "- tinyxml2\n"
-        "- nlohmann-json\n"
-        "- OpenGL\n\n"
-        "Licensed under the MIT License.";
-    info.SetLicence(licence);
+    // License information
+    wxString licenseText =
+        "This application makes use of the following open-source libraries:\n\n"
+        "  • wxWidgets\n"
+        "  • tinyxml2\n"
+        "  • nlohmann-json\n"
+        "  • OpenGL (or Vulkan backend)\n\n"
+        "This software is licensed under the MIT License.";
+    info.SetLicence(licenseText);
 
+    // Attempt to load the highest resolution icon available
     wxIcon icon;
-    const char* iconPaths[] = {
-        "resources/Perastage.ico",
+    const wxString iconPaths[] = {
+        "resources/Perastage.png",        // Prefer high-res PNG
+        "../resources/Perastage.png",
+        "../../resources/Perastage.png",
+        "resources/Perastage.ico",        // Fallback to ICO
         "../resources/Perastage.ico",
         "../../resources/Perastage.ico"
     };
-    for (const char* path : iconPaths)
-    {
-        if (icon.LoadFile(path, wxBITMAP_TYPE_ICO))
-            break;
-    }
-    if (icon.IsOk())
-        info.SetIcon(icon);
 
+    for (const wxString& path : iconPaths)
+    {
+        if (wxFileExists(path))
+        {
+            wxBitmapType type = path.EndsWith(".png") ? wxBITMAP_TYPE_PNG : wxBITMAP_TYPE_ICO;
+            if (icon.LoadFile(path, type))
+            {
+                info.SetIcon(icon);
+                break;
+            }
+        }
+    }
+
+    // Show the About dialog
     wxAboutBox(info, this);
 }
+
 
 void MainWindow::OnSelectFixtures(wxCommandEvent& WXUNUSED(event))
 {
