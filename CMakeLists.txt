@@ -7,7 +7,7 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Find required packages
-find_package(wxWidgets REQUIRED COMPONENTS core base aui gl)
+find_package(wxWidgets REQUIRED COMPONENTS core base aui gl html)
 include(${wxWidgets_USE_FILE})
 find_package(tinyxml2 CONFIG REQUIRED)
 find_package(OpenGL REQUIRED)
@@ -24,6 +24,9 @@ file(GLOB_RECURSE SRC_FILES
     ${CMAKE_SOURCE_DIR}/mvr/*.cpp
     ${CMAKE_SOURCE_DIR}/viewer3d/*.cpp
 )
+
+# Explicitly ensure markdown conversion source is included
+list(APPEND SRC_FILES ${CMAKE_SOURCE_DIR}/core/markdown.cpp)
 
 # Optional: gather headers for IDEs
 file(GLOB_RECURSE HEADER_FILES
