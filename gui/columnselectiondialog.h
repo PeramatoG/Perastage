@@ -15,6 +15,8 @@ public:
 private:
     void OnUp(wxCommandEvent& evt);
     void OnDown(wxCommandEvent& evt);
+    void OnSelectAll(wxCommandEvent& evt);
+    void OnDeselectAll(wxCommandEvent& evt);
 
     wxCheckListBox* list = nullptr;
     std::vector<int> indices; // maps list items to original column indices

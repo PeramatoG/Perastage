@@ -40,11 +40,21 @@ ColumnSelectionDialog::ColumnSelectionDialog(wxWindow* parent,
     listSizer->Add(btnSizer, 0, wxLEFT, 5);
 
     mainSizer->Add(listSizer, 1, wxEXPAND | wxALL, 10);
-    mainSizer->Add(CreateSeparatedButtonSizer(wxOK | wxCANCEL), 0, wxEXPAND | wxALL, 10);
+
+    wxBoxSizer* selSizer = new wxBoxSizer(wxHORIZONTAL);
+    wxButton* selectAllBtn = new wxButton(this, wxID_ANY, "Select All");
+    wxButton* deselectAllBtn = new wxButton(this, wxID_ANY, "Deselect All");
+    selSizer->Add(selectAllBtn, 0, wxRIGHT, 5);
+    selSizer->Add(deselectAllBtn, 0);
+    mainSizer->Add(selSizer, 0, wxALIGN_LEFT | wxLEFT | wxRIGHT | wxBOTTOM, 10);
+
+    mainSizer->Add(CreateSeparatedButtonSizer(wxOK | wxCANCEL), 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 10);
     SetSizerAndFit(mainSizer);
 
     upBtn->Bind(wxEVT_BUTTON, &ColumnSelectionDialog::OnUp, this);
     downBtn->Bind(wxEVT_BUTTON, &ColumnSelectionDialog::OnDown, this);
+    selectAllBtn->Bind(wxEVT_BUTTON, &ColumnSelectionDialog::OnSelectAll, this);
+    deselectAllBtn->Bind(wxEVT_BUTTON, &ColumnSelectionDialog::OnDeselectAll, this);
 }
 
 void ColumnSelectionDialog::OnUp(wxCommandEvent&)
@@ -87,4 +97,16 @@ std::vector<int> ColumnSelectionDialog::GetSelectedColumns() const
             res.push_back(indices[i]);
     }
     return res;
+}
+
+void ColumnSelectionDialog::OnSelectAll(wxCommandEvent&)
+{
+    for (unsigned int i = 0; i < list->GetCount(); ++i)
+        list->Check(i, true);
+}
+
+void ColumnSelectionDialog::OnDeselectAll(wxCommandEvent&)
+{
+    for (unsigned int i = 0; i < list->GetCount(); ++i)
+        list->Check(i, false);
 }
