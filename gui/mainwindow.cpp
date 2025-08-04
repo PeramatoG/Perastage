@@ -919,16 +919,18 @@ void MainWindow::OnShowHelp(wxCommandEvent &WXUNUSED(event)) {
                          std::istreambuf_iterator<char>());
     std::string html = MarkdownToHtml(markdown);
 
-    // Create a dialog containing a wxHtmlWindow to render the generated HTML.
+    // Create a resizable dialog containing a wxHtmlWindow to render the
+    // generated HTML.
     wxDialog dlg(this, wxID_ANY, "Perastage Help", wxDefaultPosition,
-                 wxSize(600, 400));
+                 wxSize(800, 600),
+                 wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER);
     wxBoxSizer *sizer = new wxBoxSizer(wxVERTICAL);
     wxHtmlWindow *htmlWin =
         new wxHtmlWindow(&dlg, wxID_ANY, wxDefaultPosition, wxDefaultSize,
                          wxHW_SCROLLBAR_AUTO);
     htmlWin->SetPage(html);
     sizer->Add(htmlWin, 1, wxEXPAND | wxALL, 5);
-    dlg.SetSizerAndFit(sizer);
+    dlg.SetSizer(sizer);
     dlg.ShowModal();
   } else {
     wxMessageBox("help.md file not found", "Perastage Help",
