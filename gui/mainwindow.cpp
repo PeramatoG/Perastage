@@ -16,6 +16,7 @@
 #include <wx/html/htmlwin.h>
 #include <wx/notebook.h>
 #include <wx/statbmp.h>
+#include <wx/stdpaths.h>
 #include <wx/textctrl.h>
 #include <wx/wfstream.h>
 #include <wx/zipstrm.h>
@@ -908,8 +909,9 @@ void MainWindow::SaveCameraSettings() {
 }
 
 void MainWindow::OnShowHelp(wxCommandEvent &WXUNUSED(event)) {
-  // Attempt to load the Markdown help file from the application directory.
-  wxFileName helpPath(wxGetCwd(), "help.md");
+  // Attempt to load the Markdown help file located alongside the executable.
+  wxFileName helpPath(wxStandardPaths::Get().GetExecutablePath());
+  helpPath.SetFullName("help.md");
   if (helpPath.Exists()) {
     // Read the file contents.
     std::ifstream in(helpPath.GetFullPath().ToStdString());
