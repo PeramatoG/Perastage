@@ -14,6 +14,7 @@ find_package(OpenGL REQUIRED)
 find_package(CURL REQUIRED)
 find_package(GLEW REQUIRED)
 find_package(nanovg CONFIG REQUIRED)
+find_package(wxpdfdoc CONFIG REQUIRED)
 
 # Gather source files
 file(GLOB_RECURSE SRC_FILES
@@ -63,6 +64,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     GLEW::GLEW
     CURL::libcurl
     nanovg::nanovg
+    wxpdfdoc::wxpdfdoc
 )
 
 # Copy runtime resources (e.g. application icon) next to the executable
