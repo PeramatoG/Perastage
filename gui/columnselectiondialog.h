@@ -7,7 +7,9 @@
 
 class ColumnSelectionDialog : public wxDialog {
 public:
-    ColumnSelectionDialog(wxWindow* parent, const std::vector<std::string>& columns);
+    ColumnSelectionDialog(wxWindow* parent,
+                          const std::vector<std::string>& columns,
+                          const std::vector<int>& selected = {});
     std::vector<int> GetSelectedColumns() const;
 
 private:

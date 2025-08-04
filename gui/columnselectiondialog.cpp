@@ -1,16 +1,32 @@
 #include "columnselectiondialog.h"
 #include <wx/sizer.h>
 
-ColumnSelectionDialog::ColumnSelectionDialog(wxWindow* parent, const std::vector<std::string>& columns)
+ColumnSelectionDialog::ColumnSelectionDialog(wxWindow* parent,
+                                             const std::vector<std::string>& columns,
+                                             const std::vector<int>& selected)
     : wxDialog(parent, wxID_ANY, "Select Columns", wxDefaultPosition, wxDefaultSize)
 {
     wxBoxSizer* mainSizer = new wxBoxSizer(wxVERTICAL);
     wxBoxSizer* listSizer = new wxBoxSizer(wxHORIZONTAL);
 
     list = new wxCheckListBox(this, wxID_ANY);
+
+    std::vector<bool> marked(columns.size(), false);
+    // First append preselected columns in the provided order
+    for (int idx : selected) {
+        if (idx < 0 || static_cast<size_t>(idx) >= columns.size())
+            continue;
+        list->Append(wxString::FromUTF8(columns[idx]));
+        list->Check(list->GetCount() - 1, true);
+        indices.push_back(idx);
+        marked[idx] = true;
+    }
+    // Append remaining columns unchecked
     for (size_t i = 0; i < columns.size(); ++i) {
+        if (marked[i])
+            continue;
         list->Append(wxString::FromUTF8(columns[i]));
-        list->Check(i, true);
+        list->Check(list->GetCount() - 1, selected.empty());
         indices.push_back(static_cast<int>(i));
     }
 
