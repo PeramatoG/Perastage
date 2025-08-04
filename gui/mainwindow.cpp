@@ -42,6 +42,7 @@
 #include "selectnamedialog.h"
 #include "simplecrypt.h"
 #include "markdown.h"
+#include "tableprinter.h"
 #include "trusstablepanel.h"
 #include "viewer3dpanel.h"
 #ifdef _WIN32
@@ -56,6 +57,7 @@ wxBEGIN_EVENT_TABLE(MainWindow, wxFrame)
   EVT_MENU(ID_File_SaveAs, MainWindow::OnSaveAs)
   EVT_MENU(ID_File_ImportMVR, MainWindow::OnImportMVR)
   EVT_MENU(ID_File_ExportMVR, MainWindow::OnExportMVR)
+  EVT_MENU(ID_File_PrintTable, MainWindow::OnPrintTable)
   EVT_MENU(ID_File_Close, MainWindow::OnClose)
   EVT_CLOSE(MainWindow::OnCloseWindow)
   EVT_MENU(ID_Edit_Undo, MainWindow::OnUndo)
@@ -202,6 +204,7 @@ void MainWindow::CreateMenuBar() {
   fileMenu->AppendSeparator();
   fileMenu->Append(ID_File_ImportMVR, "Import MVR...");
   fileMenu->Append(ID_File_ExportMVR, "Export MVR...");
+  fileMenu->Append(ID_File_PrintTable, "Print Table...");
   fileMenu->AppendSeparator();
   fileMenu->Append(ID_File_Close, "Close\tCtrl+Q");
 
@@ -779,6 +782,34 @@ void MainWindow::OnExportSceneObject(wxCommandEvent &WXUNUSED(event)) {
 
   wxMessageBox("Object exported successfully.", "Export Scene Object",
                wxOK | wxICON_INFORMATION);
+}
+
+void MainWindow::OnPrintTable(wxCommandEvent &WXUNUSED(event)) {
+  wxArrayString options;
+  if (fixturePanel)
+    options.Add("Fixtures");
+  if (trussPanel)
+    options.Add("Trusses");
+  if (sceneObjPanel)
+    options.Add("Objects");
+  if (options.IsEmpty())
+    return;
+
+  wxSingleChoiceDialog dlg(this, "Select table", "Print Table", options);
+  if (dlg.ShowModal() != wxID_OK)
+    return;
+
+  wxString choice = dlg.GetStringSelection();
+  wxDataViewListCtrl *ctrl = nullptr;
+  if (choice == "Fixtures" && fixturePanel)
+    ctrl = fixturePanel->GetTableCtrl();
+  else if (choice == "Trusses" && trussPanel)
+    ctrl = trussPanel->GetTableCtrl();
+  else if (choice == "Objects" && sceneObjPanel)
+    ctrl = sceneObjPanel->GetTableCtrl();
+
+  if (ctrl)
+    TablePrinter::Print(this, ctrl);
 }
 
 void MainWindow::OnClose(wxCommandEvent &event) {

@@ -1,0 +1,74 @@
+#include "columnselectiondialog.h"
+#include <wx/sizer.h>
+
+ColumnSelectionDialog::ColumnSelectionDialog(wxWindow* parent, const std::vector<std::string>& columns)
+    : wxDialog(parent, wxID_ANY, "Select Columns", wxDefaultPosition, wxDefaultSize)
+{
+    wxBoxSizer* mainSizer = new wxBoxSizer(wxVERTICAL);
+    wxBoxSizer* listSizer = new wxBoxSizer(wxHORIZONTAL);
+
+    list = new wxCheckListBox(this, wxID_ANY);
+    for (size_t i = 0; i < columns.size(); ++i) {
+        list->Append(wxString::FromUTF8(columns[i]));
+        list->Check(i, true);
+        indices.push_back(static_cast<int>(i));
+    }
+
+    listSizer->Add(list, 1, wxEXPAND);
+
+    wxBoxSizer* btnSizer = new wxBoxSizer(wxVERTICAL);
+    wxButton* upBtn = new wxButton(this, wxID_ANY, "Up");
+    wxButton* downBtn = new wxButton(this, wxID_ANY, "Down");
+    btnSizer->Add(upBtn, 0, wxEXPAND | wxBOTTOM, 5);
+    btnSizer->Add(downBtn, 0, wxEXPAND);
+    listSizer->Add(btnSizer, 0, wxLEFT, 5);
+
+    mainSizer->Add(listSizer, 1, wxEXPAND | wxALL, 10);
+    mainSizer->Add(CreateSeparatedButtonSizer(wxOK | wxCANCEL), 0, wxEXPAND | wxALL, 10);
+    SetSizerAndFit(mainSizer);
+
+    upBtn->Bind(wxEVT_BUTTON, &ColumnSelectionDialog::OnUp, this);
+    downBtn->Bind(wxEVT_BUTTON, &ColumnSelectionDialog::OnDown, this);
+}
+
+void ColumnSelectionDialog::OnUp(wxCommandEvent&)
+{
+    int sel = list->GetSelection();
+    if (sel == wxNOT_FOUND || sel == 0)
+        return;
+    wxString item = list->GetString(sel);
+    bool checked = list->IsChecked(sel);
+    int idx = indices[sel];
+    list->Delete(sel);
+    list->Insert(item, sel - 1);
+    list->Check(sel - 1, checked);
+    list->SetSelection(sel - 1);
+    indices.erase(indices.begin() + sel);
+    indices.insert(indices.begin() + sel - 1, idx);
+}
+
+void ColumnSelectionDialog::OnDown(wxCommandEvent&)
+{
+    int sel = list->GetSelection();
+    if (sel == wxNOT_FOUND || sel == static_cast<int>(list->GetCount()) - 1)
+        return;
+    wxString item = list->GetString(sel);
+    bool checked = list->IsChecked(sel);
+    int idx = indices[sel];
+    list->Delete(sel);
+    list->Insert(item, sel + 1);
+    list->Check(sel + 1, checked);
+    list->SetSelection(sel + 1);
+    indices.erase(indices.begin() + sel);
+    indices.insert(indices.begin() + sel + 1, idx);
+}
+
+std::vector<int> ColumnSelectionDialog::GetSelectedColumns() const
+{
+    std::vector<int> res;
+    for (unsigned int i = 0; i < list->GetCount(); ++i) {
+        if (list->IsChecked(i))
+            res.push_back(indices[i]);
+    }
+    return res;
+}

@@ -16,6 +16,7 @@ public:
     void HighlightObject(const std::string& uuid);
     bool IsActivePage() const;
     void DeleteSelected();
+    wxDataViewListCtrl* GetTableCtrl() const { return table; }
 
     static SceneObjectTablePanel* Instance();
     static void SetInstance(SceneObjectTablePanel* panel);
