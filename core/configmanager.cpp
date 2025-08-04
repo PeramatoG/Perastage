@@ -10,6 +10,33 @@
 #include <wx/zipstrm.h>
 #include <wx/stdpaths.h>
 
+static std::vector<std::string> SplitCSV(const std::string& s)
+{
+    std::vector<std::string> result;
+    std::stringstream ss(s);
+    std::string item;
+    while (std::getline(ss, item, ','))
+    {
+        size_t start = item.find_first_not_of(" \t");
+        size_t end = item.find_last_not_of(" \t");
+        if (start != std::string::npos)
+            result.push_back(item.substr(start, end - start + 1));
+    }
+    return result;
+}
+
+static std::string JoinCSV(const std::vector<std::string>& items)
+{
+    std::string out;
+    for (size_t i = 0; i < items.size(); ++i)
+    {
+        if (i > 0)
+            out += ',';
+        out += items[i];
+    }
+    return out;
+}
+
 ConfigManager::ConfigManager()
 {
     RegisterVariable("camera_yaw", "float", 0.0f, -180.0f, 180.0f);
@@ -19,6 +46,7 @@ ConfigManager::ConfigManager()
     RegisterVariable("camera_target_y", "float", 0.0f, -1000.0f, 1000.0f);
     RegisterVariable("camera_target_z", "float", 0.0f, -1000.0f, 1000.0f);
     LoadUserConfig();
+    ApplyColumnDefaults();
     ApplyDefaults();
 }
 
@@ -113,6 +141,57 @@ void ConfigManager::ApplyDefaults()
     }
 }
 
+void ConfigManager::ApplyColumnDefaults()
+{
+    if (!HasKey("fixture_print_columns"))
+        SetValue("fixture_print_columns",
+                 "Fixture ID,Name,Type,Layer,Hang Pos,Universe,Channel,Mode,Ch Count");
+    if (!HasKey("truss_print_columns"))
+        SetValue("truss_print_columns",
+                 "Name,Layer,Hang Pos,Manufacturer,Model");
+    if (!HasKey("sceneobject_print_columns"))
+        SetValue("sceneobject_print_columns", "Name,Layer");
+}
+
+std::vector<std::string> ConfigManager::GetFixturePrintColumns() const
+{
+    auto val = GetValue("fixture_print_columns");
+    if (val)
+        return SplitCSV(*val);
+    return {};
+}
+
+void ConfigManager::SetFixturePrintColumns(const std::vector<std::string>& cols)
+{
+    SetValue("fixture_print_columns", JoinCSV(cols));
+}
+
+std::vector<std::string> ConfigManager::GetTrussPrintColumns() const
+{
+    auto val = GetValue("truss_print_columns");
+    if (val)
+        return SplitCSV(*val);
+    return {};
+}
+
+void ConfigManager::SetTrussPrintColumns(const std::vector<std::string>& cols)
+{
+    SetValue("truss_print_columns", JoinCSV(cols));
+}
+
+std::vector<std::string> ConfigManager::GetSceneObjectPrintColumns() const
+{
+    auto val = GetValue("sceneobject_print_columns");
+    if (val)
+        return SplitCSV(*val);
+    return {};
+}
+
+void ConfigManager::SetSceneObjectPrintColumns(const std::vector<std::string>& cols)
+{
+    SetValue("sceneobject_print_columns", JoinCSV(cols));
+}
+
 // -- Scene access --
 
 MvrScene& ConfigManager::GetScene()
@@ -144,6 +223,7 @@ bool ConfigManager::LoadFromFile(const std::string& path)
     }
 
     configData = j.get<std::unordered_map<std::string, std::string>>();
+    ApplyColumnDefaults();
     ApplyDefaults();
     return true;
 }
