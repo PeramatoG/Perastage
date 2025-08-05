@@ -889,6 +889,30 @@ void FixtureTablePanel::OnItemActivated(wxDataViewEvent &event) {
     }
     return;
   }
+  {
+    int r = table->ItemToRow(item);
+    if (r != wxNOT_FOUND && (size_t)r < gdtfPaths.size()) {
+      wxString gdtfPath = gdtfPaths[r];
+      wxVariant modeVar;
+      table->GetValue(modeVar, r, 7);
+      wxString modeStr = modeVar.GetString();
+      if (!gdtfPath.empty() && !modeStr.empty()) {
+        auto channels =
+            GetGdtfModeChannels(gdtfPath.ToStdString(), modeStr.ToStdString());
+        if (!channels.empty()) {
+          wxString msg;
+          for (const auto &ch : channels) {
+            wxString func = wxString::FromUTF8(ch.function);
+            if (func.empty())
+              func = "-";
+            msg += wxString::Format("%d: %s\n", ch.channel, func);
+          }
+          wxMessageBox(msg, "DMX Channels", wxOK | wxICON_INFORMATION, this);
+          return;
+        }
+      }
+    }
+  }
 
   event.Skip();
 }

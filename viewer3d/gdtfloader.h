@@ -20,6 +20,12 @@ struct GdtfModelInfo {
     float height = 0.0f; // meters
 };
 
+// Simple representation of a DMX channel/function pair
+struct GdtfChannelInfo {
+    int channel = 0;           // DMX channel number (coarse)
+    std::string function;      // Associated function/attribute
+};
+
 // Loads the models defined in a GDTF file. Returns true on success.
 bool LoadGdtf(const std::string& gdtfPath, std::vector<GdtfObject>& outObjects);
 
@@ -27,6 +33,13 @@ bool LoadGdtf(const std::string& gdtfPath, std::vector<GdtfObject>& outObjects);
 // Returns -1 when the mode cannot be found or the file cannot be parsed.
 int GetGdtfModeChannelCount(const std::string& gdtfPath,
                             const std::string& modeName);
+
+// Returns the list of DMX channels and their functions for a mode in a GDTF
+// file. The channel number corresponds to the first Offset value when
+// available, otherwise the sequential index is used.
+std::vector<GdtfChannelInfo> GetGdtfModeChannels(
+    const std::string& gdtfPath,
+    const std::string& modeName);
 
 // Returns the list of DMX mode names defined in a GDTF file. Returns an empty
 // vector when the file cannot be parsed or contains no modes.
