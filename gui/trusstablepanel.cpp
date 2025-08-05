@@ -2,6 +2,7 @@
 #include "configmanager.h"
 #include "matrixutils.h"
 #include "viewer3dpanel.h"
+#include "layerpanel.h"
 #include <algorithm>
 #include <unordered_map>
 #include <wx/settings.h>
@@ -129,6 +130,8 @@ void TrussTablePanel::ReloadData()
     }
 
     // Let wxDataViewListCtrl manage column headers and sorting
+    if (LayerPanel::Instance())
+        LayerPanel::Instance()->ReloadLayers();
 }
 
 void TrussTablePanel::OnContextMenu(wxDataViewEvent& event)

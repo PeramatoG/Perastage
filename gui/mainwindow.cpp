@@ -48,6 +48,7 @@ class wxZipStreamLink;
 #include "tableprinter.h"
 #include "trusstablepanel.h"
 #include "viewer3dpanel.h"
+#include "layerpanel.h"
 #ifdef _WIN32
 #define popen _popen
 #define pclose _pclose
@@ -105,6 +106,9 @@ wxEND_EVENT_TABLE()
   // Apply camera settings after layout and config are ready
   if (viewportPanel)
     viewportPanel->LoadCameraFromConfig();
+
+  if (layerPanel)
+    layerPanel->ReloadLayers();
 
   UpdateTitle();
 }
@@ -182,6 +186,17 @@ void MainWindow::SetupLayout() {
                                         .CloseButton(true)
                                         .MaximizeButton(true)
                                         .PaneBorder(true));
+
+  layerPanel = new LayerPanel(this);
+  LayerPanel::SetInstance(layerPanel);
+  auiManager->AddPane(layerPanel, wxAuiPaneInfo()
+                                     .Name("LayerPanel")
+                                     .Caption("Layers")
+                                     .Right()
+                                     .BestSize(200, 300)
+                                     .CloseButton(true)
+                                     .MaximizeButton(true)
+                                     .PaneBorder(true));
 
   // Apply all changes to layout
   auiManager->Update();

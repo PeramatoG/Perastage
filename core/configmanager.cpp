@@ -193,6 +193,31 @@ void ConfigManager::SetSceneObjectPrintColumns(const std::vector<std::string>& c
     SetValue("sceneobject_print_columns", JoinCSV(cols));
 }
 
+std::unordered_set<std::string> ConfigManager::GetHiddenLayers() const
+{
+    std::unordered_set<std::string> out;
+    auto val = GetValue("hidden_layers");
+    if (val)
+    {
+        for (const auto& s : SplitCSV(*val))
+            out.insert(s);
+    }
+    return out;
+}
+
+void ConfigManager::SetHiddenLayers(const std::unordered_set<std::string>& layers)
+{
+    std::vector<std::string> v(layers.begin(), layers.end());
+    SetValue("hidden_layers", JoinCSV(v));
+}
+
+bool ConfigManager::IsLayerVisible(const std::string& layer) const
+{
+    std::string name = layer.empty() ? DEFAULT_LAYER_NAME : layer;
+    auto hidden = GetHiddenLayers();
+    return hidden.find(name) == hidden.end();
+}
+
 // -- Scene access --
 
 MvrScene& ConfigManager::GetScene()

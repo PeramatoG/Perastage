@@ -2,6 +2,7 @@
 #include "configmanager.h"
 #include "matrixutils.h"
 #include "viewer3dpanel.h"
+#include "layerpanel.h"
 #include <algorithm>
 #include <wx/settings.h>
 #include <wx/notebook.h>
@@ -108,6 +109,8 @@ void SceneObjectTablePanel::ReloadData()
     }
 
     // Let wxDataViewListCtrl manage column headers and sorting
+    if (LayerPanel::Instance())
+        LayerPanel::Instance()->ReloadLayers();
 }
 
 void SceneObjectTablePanel::OnContextMenu(wxDataViewEvent& event)
