@@ -447,7 +447,9 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
   if (dlg.ShowModal() != wxID_OK)
     return;
 
-  wxString value = dlg.GetValue().Trim(true).Trim(false);
+  wxString raw = dlg.GetValue();
+  bool trailingSpace = raw.EndsWith(" ");
+  wxString value = raw.Trim(true).Trim(false);
 
   bool intCol = (col == 0 || col == 5 || col == 6);
   bool numericCol =
@@ -473,6 +475,7 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
         return;
       }
       bool interp = false;
+      bool sequential = false;
       if (parts.size() == 2) {
         if (!parts[1].ToLong(&v2)) {
           wxMessageBox("Invalid value", "Error", wxOK | wxICON_ERROR);
@@ -484,17 +487,37 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
           return;
         }
         interp = selections.size() > 1;
+      } else if (trailingSpace) {
+        sequential = selections.size() > 1;
       }
 
-      for (size_t i = 0; i < selections.size(); ++i) {
+      std::vector<int> selectedRows;
+      selectedRows.reserve(selections.size());
+      for (const auto &it : selections) {
+        int r = table->ItemToRow(it);
+        if (r != wxNOT_FOUND)
+          selectedRows.push_back(r);
+      }
+
+      std::vector<int> orderedRows;
+      for (int idx : selectionOrder)
+        if (std::find(selectedRows.begin(), selectedRows.end(), idx) !=
+            selectedRows.end())
+          orderedRows.push_back(idx);
+      for (int idx : selectedRows)
+        if (std::find(orderedRows.begin(), orderedRows.end(), idx) ==
+            orderedRows.end())
+          orderedRows.push_back(idx);
+
+      for (size_t i = 0; i < orderedRows.size(); ++i) {
         long val = v1;
         if (interp)
           val = static_cast<long>(v1 + (double)(v2 - v1) * i /
-                                           (selections.size() - 1));
+                                           (orderedRows.size() - 1));
+        else if (sequential)
+          val = v1 + static_cast<long>(i);
 
-        int r = table->ItemToRow(selections[i]);
-        if (r != wxNOT_FOUND)
-          table->SetValue(wxVariant(val), r, col);
+        table->SetValue(wxVariant(val), orderedRows[i], col);
       }
     } else // floating point stored as string
     {
