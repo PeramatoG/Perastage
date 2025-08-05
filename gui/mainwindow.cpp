@@ -19,6 +19,7 @@
 #include <wx/statbmp.h>
 #include <wx/stdpaths.h>
 #include <wx/textctrl.h>
+#include <wx/numdlg.h>
 #include <wx/wfstream.h>
 class wxZipStreamLink;
 #include <wx/zipstrm.h>
@@ -1321,20 +1322,13 @@ void MainWindow::OnAddTruss(wxCommandEvent &WXUNUSED(event)) {
     path = std::string(fdlg.GetPath().mb_str());
   }
 
-  wxString nameWx = wxGetTextFromUser("Enter truss name:", "Add Truss",
-                                      wxString::FromUTF8(defaultName), this);
-  if (nameWx.IsEmpty())
+  long qty = wxGetNumberFromUser("Enter truss quantity:", wxEmptyString,
+                                 "Add Truss", 1, 1, 1000, this);
+  if (qty <= 0)
     return;
 
   namespace fs = std::filesystem;
   cfg.PushUndoState("add truss");
-  Truss t;
-  t.uuid = wxString::Format(
-               "uuid_%lld",
-               static_cast<long long>(
-                   std::chrono::steady_clock::now().time_since_epoch().count()))
-               .ToStdString();
-  t.name = std::string(nameWx.mb_str());
   std::string base = scene.basePath;
   if (!base.empty()) {
     fs::path abs = fs::absolute(path);
@@ -1342,8 +1336,21 @@ void MainWindow::OnAddTruss(wxCommandEvent &WXUNUSED(event)) {
     if (abs.string().rfind(b.string(), 0) == 0)
       path = fs::relative(abs, b).string();
   }
-  t.symbolFile = path;
-  scene.trusses[t.uuid] = t;
+
+  auto baseId =
+      std::chrono::steady_clock::now().time_since_epoch().count();
+  for (long i = 0; i < qty; ++i) {
+    Truss t;
+    t.uuid = wxString::Format("uuid_%lld",
+                              static_cast<long long>(baseId + i))
+                 .ToStdString();
+    if (qty > 1)
+      t.name = defaultName + " " + std::to_string(i + 1);
+    else
+      t.name = defaultName;
+    t.symbolFile = path;
+    scene.trusses[t.uuid] = t;
+  }
 
   if (trussPanel)
     trussPanel->ReloadData();
@@ -1404,21 +1411,13 @@ void MainWindow::OnAddSceneObject(wxCommandEvent &WXUNUSED(event)) {
     path = std::string(fdlg.GetPath().mb_str());
   }
 
-  wxString nameWx = wxGetTextFromUser("Enter object name:", "Add Scene Object",
-                                      wxString::FromUTF8(defaultName), this);
-  if (nameWx.IsEmpty())
+  long qty = wxGetNumberFromUser("Enter object quantity:", wxEmptyString,
+                                 "Add Scene Object", 1, 1, 1000, this);
+  if (qty <= 0)
     return;
 
   namespace fs = std::filesystem;
   cfg.PushUndoState("add scene object");
-  SceneObject obj;
-  obj.uuid =
-      wxString::Format(
-          "uuid_%lld",
-          static_cast<long long>(
-              std::chrono::steady_clock::now().time_since_epoch().count()))
-          .ToStdString();
-  obj.name = std::string(nameWx.mb_str());
   std::string base = scene.basePath;
   if (!base.empty()) {
     fs::path abs = fs::absolute(path);
@@ -1426,8 +1425,21 @@ void MainWindow::OnAddSceneObject(wxCommandEvent &WXUNUSED(event)) {
     if (abs.string().rfind(b.string(), 0) == 0)
       path = fs::relative(abs, b).string();
   }
-  obj.modelFile = path;
-  scene.sceneObjects[obj.uuid] = obj;
+
+  auto baseId =
+      std::chrono::steady_clock::now().time_since_epoch().count();
+  for (long i = 0; i < qty; ++i) {
+    SceneObject obj;
+    obj.uuid = wxString::Format("uuid_%lld",
+                                static_cast<long long>(baseId + i))
+                   .ToStdString();
+    if (qty > 1)
+      obj.name = defaultName + " " + std::to_string(i + 1);
+    else
+      obj.name = defaultName;
+    obj.modelFile = path;
+    scene.sceneObjects[obj.uuid] = obj;
+  }
 
   if (sceneObjPanel)
     sceneObjPanel->ReloadData();
