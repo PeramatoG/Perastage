@@ -8,6 +8,7 @@
 #include "projectutils.h"
 #include "viewer3dpanel.h"
 #include "layerpanel.h"
+#include "stringutils.h"
 #include <algorithm>
 #include <filesystem>
 #include <unordered_map>
@@ -150,7 +151,7 @@ void FixtureTablePanel::ReloadData() {
     if (a->fixtureId != b->fixtureId)
       return a->fixtureId < b->fixtureId;
     if (a->gdtfSpec != b->gdtfSpec)
-      return a->gdtfSpec < b->gdtfSpec;
+      return StringUtils::NaturalLess(a->gdtfSpec, b->gdtfSpec);
     auto addrA = parseAddress(a->address);
     auto addrB = parseAddress(b->address);
     if (addrA.universe != addrB.universe)
