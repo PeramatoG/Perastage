@@ -1,7 +1,12 @@
 #include "layerpanel.h"
 #include "configmanager.h"
 #include "viewer3dpanel.h"
+#include "fixturetablepanel.h"
+#include "trusstablepanel.h"
+#include "sceneobjecttablepanel.h"
 #include <set>
+#include <chrono>
+#include <algorithm>
 
 LayerPanel* LayerPanel::s_instance = nullptr;
 
@@ -11,10 +16,20 @@ LayerPanel::LayerPanel(wxWindow* parent)
     list = new wxCheckListBox(this, wxID_ANY);
     wxBoxSizer* sizer = new wxBoxSizer(wxVERTICAL);
     sizer->Add(list, 1, wxEXPAND | wxALL, 5);
+
+    wxBoxSizer* btnSizer = new wxBoxSizer(wxHORIZONTAL);
+    auto* addBtn = new wxButton(this, wxID_ADD, "Add");
+    auto* delBtn = new wxButton(this, wxID_DELETE, "Delete");
+    btnSizer->Add(addBtn, 0, wxALL, 5);
+    btnSizer->Add(delBtn, 0, wxALL, 5);
+    sizer->Add(btnSizer, 0, wxALIGN_LEFT);
+
     SetSizer(sizer);
 
     list->Bind(wxEVT_CHECKLISTBOX, &LayerPanel::OnCheck, this);
     list->Bind(wxEVT_LISTBOX, &LayerPanel::OnSelect, this);
+    addBtn->Bind(wxEVT_BUTTON, &LayerPanel::OnAddLayer, this);
+    delBtn->Bind(wxEVT_BUTTON, &LayerPanel::OnDeleteLayer, this);
 
     ReloadLayers();
 }
@@ -89,6 +104,134 @@ void LayerPanel::OnSelect(wxCommandEvent& evt)
     if (idx >= 0 && idx < static_cast<int>(list->GetCount())) {
         wxString wname = list->GetString(idx);
         ConfigManager::Get().SetCurrentLayer(wname.ToStdString());
+    }
+}
+
+void LayerPanel::OnAddLayer(wxCommandEvent&)
+{
+    wxTextEntryDialog dlg(this, "Enter new layer name:", "Add Layer");
+    if (dlg.ShowModal() != wxID_OK)
+        return;
+    std::string name = dlg.GetValue().ToStdString();
+    if (name.empty() || name == DEFAULT_LAYER_NAME)
+        return;
+
+    ConfigManager& cfg = ConfigManager::Get();
+    auto& scene = cfg.GetScene();
+    for (const auto& [uuid, layer] : scene.layers)
+        if (layer.name == name)
+        {
+            wxMessageBox("Layer already exists.", "Add Layer", wxOK | wxICON_ERROR, this);
+            return;
+        }
+
+    cfg.PushUndoState("add layer");
+    Layer layer;
+    auto baseId = std::chrono::steady_clock::now().time_since_epoch().count();
+    layer.uuid = wxString::Format("layer_%lld", static_cast<long long>(baseId)).ToStdString();
+    layer.name = name;
+    scene.layers[layer.uuid] = layer;
+    cfg.SetCurrentLayer(name);
+    ReloadLayers();
+}
+
+void LayerPanel::OnDeleteLayer(wxCommandEvent&)
+{
+    if (!list)
+        return;
+    int sel = list->GetSelection();
+    if (sel == wxNOT_FOUND)
+        return;
+    wxString wname = list->GetString(sel);
+    std::string name = wname.ToStdString();
+    if (name == DEFAULT_LAYER_NAME)
+    {
+        wxMessageBox("Cannot delete default layer.", "Delete Layer", wxOK | wxICON_ERROR, this);
+        return;
+    }
+
+    ConfigManager& cfg = ConfigManager::Get();
+    auto& scene = cfg.GetScene();
+    std::string layerUuid;
+    for (const auto& [uuid, layer] : scene.layers)
+        if (layer.name == name)
+        {
+            layerUuid = uuid;
+            break;
+        }
+    if (layerUuid.empty())
+        return;
+
+    bool empty = true;
+    for (const auto& [u, f] : scene.fixtures)
+        if (f.layer == name) { empty = false; break; }
+    if (empty)
+        for (const auto& [u, t] : scene.trusses)
+            if (t.layer == name) { empty = false; break; }
+    if (empty)
+        for (const auto& [u, o] : scene.sceneObjects)
+            if (o.layer == name) { empty = false; break; }
+
+    if (!empty)
+    {
+        int res = wxMessageBox("Layer is not empty. Delete all elements?",
+                               "Delete Layer", wxYES_NO | wxICON_WARNING, this);
+        if (res != wxYES)
+            return;
+    }
+
+    cfg.PushUndoState("delete layer");
+
+    for (auto it = scene.fixtures.begin(); it != scene.fixtures.end();) {
+        if (it->second.layer == name)
+            it = scene.fixtures.erase(it);
+        else
+            ++it;
+    }
+    for (auto it = scene.trusses.begin(); it != scene.trusses.end();) {
+        if (it->second.layer == name)
+            it = scene.trusses.erase(it);
+        else
+            ++it;
+    }
+    for (auto it = scene.sceneObjects.begin(); it != scene.sceneObjects.end();) {
+        if (it->second.layer == name)
+            it = scene.sceneObjects.erase(it);
+        else
+            ++it;
+    }
+
+    scene.layers.erase(layerUuid);
+
+    auto hidden = cfg.GetHiddenLayers();
+    hidden.erase(name);
+    cfg.SetHiddenLayers(hidden);
+    if (cfg.GetCurrentLayer() == name)
+        cfg.SetCurrentLayer(DEFAULT_LAYER_NAME);
+
+    auto selFix = cfg.GetSelectedFixtures();
+    selFix.erase(std::remove_if(selFix.begin(), selFix.end(),
+        [&](const std::string& u){ return scene.fixtures.find(u) == scene.fixtures.end(); }), selFix.end());
+    cfg.SetSelectedFixtures(selFix);
+    auto selTr = cfg.GetSelectedTrusses();
+    selTr.erase(std::remove_if(selTr.begin(), selTr.end(),
+        [&](const std::string& u){ return scene.trusses.find(u) == scene.trusses.end(); }), selTr.end());
+    cfg.SetSelectedTrusses(selTr);
+    auto selObj = cfg.GetSelectedSceneObjects();
+    selObj.erase(std::remove_if(selObj.begin(), selObj.end(),
+        [&](const std::string& u){ return scene.sceneObjects.find(u) == scene.sceneObjects.end(); }), selObj.end());
+    cfg.SetSelectedSceneObjects(selObj);
+
+    ReloadLayers();
+    if (FixtureTablePanel::Instance())
+        FixtureTablePanel::Instance()->ReloadData();
+    if (TrussTablePanel::Instance())
+        TrussTablePanel::Instance()->ReloadData();
+    if (SceneObjectTablePanel::Instance())
+        SceneObjectTablePanel::Instance()->ReloadData();
+    if (Viewer3DPanel::Instance()) {
+        Viewer3DPanel::Instance()->UpdateScene();
+        Viewer3DPanel::Instance()->Refresh();
     }
 }
 
