@@ -3,7 +3,8 @@
 #include <string>
 #include <vector>
 #include "mesh.h"
-#include "types.h"
+// Use the Matrix definition shared by model code
+#include "../models/types.h"
 
 struct GdtfObject {
     Mesh mesh;
