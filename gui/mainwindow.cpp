@@ -999,6 +999,8 @@ bool MainWindow::LoadProjectFromPath(const std::string &path) {
     viewportPanel->UpdateScene();
     viewportPanel->Refresh();
   }
+  if (layerPanel)
+    layerPanel->ReloadLayers();
   UpdateTitle();
   return true;
 }
@@ -1016,6 +1018,8 @@ void MainWindow::ResetProject() {
     viewportPanel->UpdateScene();
     viewportPanel->Refresh();
   }
+  if (layerPanel)
+    layerPanel->ReloadLayers();
   UpdateTitle();
 }
 
@@ -1269,19 +1273,20 @@ void MainWindow::OnAddFixture(wxCommandEvent &WXUNUSED(event)) {
 
   auto baseId =
       std::chrono::steady_clock::now().time_since_epoch().count();
-  bool hasDefaultLayer = false;
+  std::string layerName = cfg.GetCurrentLayer();
+  bool hasLayer = false;
   for (const auto &[uid, layer] : sceneRef.layers) {
-    if (layer.name == DEFAULT_LAYER_NAME) {
-      hasDefaultLayer = true;
+    if (layer.name == layerName) {
+      hasLayer = true;
       break;
     }
   }
-  if (!hasDefaultLayer) {
+  if (!hasLayer) {
     Layer layer;
     layer.uuid =
         wxString::Format("layer_%lld", static_cast<long long>(baseId))
             .ToStdString();
-    layer.name = DEFAULT_LAYER_NAME;
+    layer.name = layerName;
     sceneRef.layers[layer.uuid] = layer;
   }
 
@@ -1302,7 +1307,7 @@ void MainWindow::OnAddFixture(wxCommandEvent &WXUNUSED(event)) {
     f.fixtureId = startId + i;
     f.gdtfSpec = spec;
     f.gdtfMode = mode;
-    f.layer = DEFAULT_LAYER_NAME;
+    f.layer = layerName;
     f.weightKg = weight;
     f.powerConsumptionW = power;
     sceneRef.fixtures[f.uuid] = f;
@@ -1382,19 +1387,19 @@ void MainWindow::OnAddTruss(wxCommandEvent &WXUNUSED(event)) {
   }
 
   auto baseId = std::chrono::steady_clock::now().time_since_epoch().count();
-
-  bool hasDefaultLayer = false;
+  std::string layerName = cfg.GetCurrentLayer();
+  bool hasLayer = false;
   for (const auto &[uid, layer] : scene.layers) {
-    if (layer.name == DEFAULT_LAYER_NAME) {
-      hasDefaultLayer = true;
+    if (layer.name == layerName) {
+      hasLayer = true;
       break;
     }
   }
-  if (!hasDefaultLayer) {
+  if (!hasLayer) {
     Layer layer;
     layer.uuid = wxString::Format("layer_%lld", static_cast<long long>(baseId))
                      .ToStdString();
-    layer.name = DEFAULT_LAYER_NAME;
+    layer.name = layerName;
     scene.layers[layer.uuid] = layer;
   }
 
@@ -1407,7 +1412,7 @@ void MainWindow::OnAddTruss(wxCommandEvent &WXUNUSED(event)) {
     else
       t.name = defaultName;
     t.symbolFile = path;
-    t.layer = DEFAULT_LAYER_NAME;
+    t.layer = layerName;
     scene.trusses[t.uuid] = t;
   }
 
@@ -1486,19 +1491,20 @@ void MainWindow::OnAddSceneObject(wxCommandEvent &WXUNUSED(event)) {
   }
 
   auto baseId = std::chrono::steady_clock::now().time_since_epoch().count();
-  bool hasDefaultLayer = false;
+  std::string layerName = cfg.GetCurrentLayer();
+  bool hasLayer = false;
   for (const auto &[uid, layer] : scene.layers) {
-    if (layer.name == DEFAULT_LAYER_NAME) {
-      hasDefaultLayer = true;
+    if (layer.name == layerName) {
+      hasLayer = true;
       break;
     }
   }
-  if (!hasDefaultLayer) {
+  if (!hasLayer) {
     Layer layer;
     layer.uuid =
         wxString::Format("layer_%lld", static_cast<long long>(baseId))
             .ToStdString();
-    layer.name = DEFAULT_LAYER_NAME;
+    layer.name = layerName;
     scene.layers[layer.uuid] = layer;
   }
 
@@ -1511,7 +1517,7 @@ void MainWindow::OnAddSceneObject(wxCommandEvent &WXUNUSED(event)) {
     else
       obj.name = defaultName;
     obj.modelFile = path;
-    obj.layer = DEFAULT_LAYER_NAME;
+    obj.layer = layerName;
     scene.sceneObjects[obj.uuid] = obj;
   }
 
