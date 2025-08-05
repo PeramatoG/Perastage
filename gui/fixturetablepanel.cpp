@@ -459,101 +459,134 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
   bool intCol = (col == 0 || col == 5 || col == 6);
   bool numericCol =
       intCol || (col >= 10 && col <= 12) || (col >= 13 && col <= 17);
+  bool relative = false;
+  double delta = 0.0;
+  if (!intCol && col >= 10 && col <= 15 && !value.empty() &&
+      (value[0] == '+' || value[0] == '-')) {
+    wxString numStr = value.Mid(1);
+    if (numStr.ToDouble(&delta)) {
+      if (value[0] == '-')
+        delta = -delta;
+      relative = true;
+    }
+  }
 
   wxArrayString parts = wxSplit(value, ' ');
 
   if (numericCol) {
-    if (parts.size() == 0 || parts.size() > 2) {
-      wxMessageBox("Invalid numeric value", "Error", wxOK | wxICON_ERROR);
-      return;
-    }
+    if (relative) {
+      for (const auto &it : selections) {
+        int r = table->ItemToRow(it);
+        if (r == wxNOT_FOUND)
+          continue;
+        wxVariant cv;
+        table->GetValue(cv, r, col);
+        wxString cur = cv.GetString();
+        if (col >= 13 && col <= 15)
+          cur.Replace("\u00B0", "");
+        double curVal = 0.0;
+        cur.ToDouble(&curVal);
+        double newVal = curVal + delta;
+        wxString out;
+        if (col >= 13 && col <= 15)
+          out = wxString::Format("%.1f\u00B0", newVal);
+        else
+          out = wxString::Format("%.3f", newVal);
+        table->SetValue(wxVariant(out), r, col);
+      }
+    } else {
+      if (parts.size() == 0 || parts.size() > 2) {
+        wxMessageBox("Invalid numeric value", "Error", wxOK | wxICON_ERROR);
+        return;
+      }
 
-    if (intCol) {
-      long v1, v2 = 0;
-      if (!parts[0].ToLong(&v1)) {
-        wxMessageBox("Invalid value", "Error", wxOK | wxICON_ERROR);
-        return;
-      }
-      if (col == 6 && (v1 < 1 || v1 > 512)) {
-        wxMessageBox("Channel out of range (1-512)", "Error",
-                     wxOK | wxICON_ERROR);
-        return;
-      }
-      bool interp = false;
-      bool sequential = false;
-      if (parts.size() == 2) {
-        if (!parts[1].ToLong(&v2)) {
+      if (intCol) {
+        long v1, v2 = 0;
+        if (!parts[0].ToLong(&v1)) {
           wxMessageBox("Invalid value", "Error", wxOK | wxICON_ERROR);
           return;
         }
-        if (col == 6 && (v2 < 1 || v2 > 512)) {
+        if (col == 6 && (v1 < 1 || v1 > 512)) {
           wxMessageBox("Channel out of range (1-512)", "Error",
                        wxOK | wxICON_ERROR);
           return;
         }
-        interp = selections.size() > 1;
-      } else if (trailingSpace) {
-        sequential = selections.size() > 1;
-      }
+        bool interp = false;
+        bool sequential = false;
+        if (parts.size() == 2) {
+          if (!parts[1].ToLong(&v2)) {
+            wxMessageBox("Invalid value", "Error", wxOK | wxICON_ERROR);
+            return;
+          }
+          if (col == 6 && (v2 < 1 || v2 > 512)) {
+            wxMessageBox("Channel out of range (1-512)", "Error",
+                         wxOK | wxICON_ERROR);
+            return;
+          }
+          interp = selections.size() > 1;
+        } else if (trailingSpace) {
+          sequential = selections.size() > 1;
+        }
 
-      std::vector<int> selectedRows;
-      selectedRows.reserve(selections.size());
-      for (const auto &it : selections) {
-        int r = table->ItemToRow(it);
-        if (r != wxNOT_FOUND)
-          selectedRows.push_back(r);
-      }
+        std::vector<int> selectedRows;
+        selectedRows.reserve(selections.size());
+        for (const auto &it : selections) {
+          int r = table->ItemToRow(it);
+          if (r != wxNOT_FOUND)
+            selectedRows.push_back(r);
+        }
 
-      std::vector<int> orderedRows;
-      for (int idx : selectionOrder)
-        if (std::find(selectedRows.begin(), selectedRows.end(), idx) !=
-            selectedRows.end())
-          orderedRows.push_back(idx);
-      for (int idx : selectedRows)
-        if (std::find(orderedRows.begin(), orderedRows.end(), idx) ==
-            orderedRows.end())
-          orderedRows.push_back(idx);
+        std::vector<int> orderedRows;
+        for (int idx : selectionOrder)
+          if (std::find(selectedRows.begin(), selectedRows.end(), idx) !=
+              selectedRows.end())
+            orderedRows.push_back(idx);
+        for (int idx : selectedRows)
+          if (std::find(orderedRows.begin(), orderedRows.end(), idx) ==
+              orderedRows.end())
+            orderedRows.push_back(idx);
 
-      for (size_t i = 0; i < orderedRows.size(); ++i) {
-        long val = v1;
-        if (interp)
-          val = static_cast<long>(v1 + (double)(v2 - v1) * i /
-                                           (orderedRows.size() - 1));
-        else if (sequential)
-          val = v1 + static_cast<long>(i);
+        for (size_t i = 0; i < orderedRows.size(); ++i) {
+          long val = v1;
+          if (interp)
+            val = static_cast<long>(v1 + (double)(v2 - v1) * i /
+                                             (orderedRows.size() - 1));
+          else if (sequential)
+            val = v1 + static_cast<long>(i);
 
-        table->SetValue(wxVariant(val), orderedRows[i], col);
-      }
-    } else // floating point stored as string
-    {
-      double v1, v2 = 0.0;
-      if (!parts[0].ToDouble(&v1)) {
-        wxMessageBox("Invalid value", "Error", wxOK | wxICON_ERROR);
-        return;
-      }
-      bool interp = false;
-      if (parts.size() == 2) {
-        if (!parts[1].ToDouble(&v2)) {
+          table->SetValue(wxVariant(val), orderedRows[i], col);
+        }
+      } else // floating point stored as string
+      {
+        double v1, v2 = 0.0;
+        if (!parts[0].ToDouble(&v1)) {
           wxMessageBox("Invalid value", "Error", wxOK | wxICON_ERROR);
           return;
         }
-        interp = selections.size() > 1;
-      }
+        bool interp = false;
+        if (parts.size() == 2) {
+          if (!parts[1].ToDouble(&v2)) {
+            wxMessageBox("Invalid value", "Error", wxOK | wxICON_ERROR);
+            return;
+          }
+          interp = selections.size() > 1;
+        }
 
-      for (size_t i = 0; i < selections.size(); ++i) {
-        double val = v1;
-        if (interp)
-          val = v1 + (v2 - v1) * i / (selections.size() - 1);
+        for (size_t i = 0; i < selections.size(); ++i) {
+          double val = v1;
+          if (interp)
+            val = v1 + (v2 - v1) * i / (selections.size() - 1);
 
-        wxString out;
-        if (col >= 13 && col <= 15)
-          out = wxString::Format("%.1f\u00B0", val);
-        else
-          out = wxString::Format("%.3f", val);
+          wxString out;
+          if (col >= 13 && col <= 15)
+            out = wxString::Format("%.1f\u00B0", val);
+          else
+            out = wxString::Format("%.3f", val);
 
-        int r = table->ItemToRow(selections[i]);
-        if (r != wxNOT_FOUND)
-          table->SetValue(wxVariant(out), r, col);
+          int r = table->ItemToRow(selections[i]);
+          if (r != wxNOT_FOUND)
+            table->SetValue(wxVariant(out), r, col);
+        }
       }
     }
   } else {
