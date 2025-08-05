@@ -18,6 +18,7 @@
 #include <fstream>
 #include <algorithm>
 #include <cfloat>
+#include <sstream>
 
 namespace fs = std::filesystem;
 
@@ -356,7 +357,23 @@ int GetGdtfModeChannelCount(const std::string& gdtfPath,
             {
                 for (tinyxml2::XMLElement* c = channels->FirstChildElement("DMXChannel");
                      c; c = c->NextSiblingElement("DMXChannel"))
-                    ++count;
+                {
+                    const char* offset = c->Attribute("Offset");
+                    if (!offset || !*offset || std::string(offset) == "None")
+                        continue;
+                    std::string offStr = offset;
+                    std::stringstream ss(offStr);
+                    std::string token;
+                    while (std::getline(ss, token, ','))
+                    {
+                        token.erase(0, token.find_first_not_of(" \t\r\n"));
+                        token.erase(token.find_last_not_of(" \t\r\n") + 1);
+                        if (token.empty())
+                            continue;
+                        try { std::stoi(token); ++count; }
+                        catch (...) { /* ignore invalid */ }
+                    }
+                }
             }
             return count;
         }
