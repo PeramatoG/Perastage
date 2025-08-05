@@ -93,16 +93,27 @@ static void DrawMesh(const Mesh& mesh, float scale)
     }
     glEnd();
 
-    // draw vertices as small points to highlight geometry
+    // draw edges in a slightly darker color
     glDisable(GL_LIGHTING);
-    glPointSize(3.0f);
-    glColor3f(0.8f,0.2f,0.2f);
-    glBegin(GL_POINTS);
-    for (size_t i = 0; i + 2 < mesh.vertices.size(); i += 3) {
-        float vx = mesh.vertices[i] * scale;
-        float vy = mesh.vertices[i+1] * scale;
-        float vz = mesh.vertices[i+2] * scale;
-        glVertex3f(vx, vy, vz);
+    glColor3f(0.3f,0.3f,0.3f);
+    glBegin(GL_LINES);
+    for (size_t i = 0; i + 2 < mesh.indices.size(); i += 3) {
+        unsigned short i0 = mesh.indices[i];
+        unsigned short i1 = mesh.indices[i+1];
+        unsigned short i2 = mesh.indices[i+2];
+        float v0x = mesh.vertices[i0*3] * scale;
+        float v0y = mesh.vertices[i0*3+1] * scale;
+        float v0z = mesh.vertices[i0*3+2] * scale;
+        float v1x = mesh.vertices[i1*3] * scale;
+        float v1y = mesh.vertices[i1*3+1] * scale;
+        float v1z = mesh.vertices[i1*3+2] * scale;
+        float v2x = mesh.vertices[i2*3] * scale;
+        float v2y = mesh.vertices[i2*3+1] * scale;
+        float v2z = mesh.vertices[i2*3+2] * scale;
+
+        glVertex3f(v0x, v0y, v0z); glVertex3f(v1x, v1y, v1z);
+        glVertex3f(v1x, v1y, v1z); glVertex3f(v2x, v2y, v2z);
+        glVertex3f(v2x, v2y, v2z); glVertex3f(v0x, v0y, v0z);
     }
     glEnd();
     glEnable(GL_LIGHTING);
