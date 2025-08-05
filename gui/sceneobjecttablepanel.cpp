@@ -150,48 +150,86 @@ void SceneObjectTablePanel::OnContextMenu(wxDataViewEvent& event)
     wxString value = dlg.GetValue().Trim(true).Trim(false);
 
     bool numericCol = (col >= 3);
+    bool relative = false;
+    double delta = 0.0;
+    if (numericCol && col <= 8 && !value.empty() && (value[0] == '+' || value[0] == '-'))
+    {
+        wxString numStr = value.Mid(1);
+        if (numStr.ToDouble(&delta))
+        {
+            if (value[0] == '-')
+                delta = -delta;
+            relative = true;
+        }
+    }
 
     if (numericCol)
     {
-        wxArrayString parts = wxSplit(value, ' ');
-        if (parts.size() == 0 || parts.size() > 2)
+        if (relative)
         {
-            wxMessageBox("Invalid numeric value", "Error", wxOK | wxICON_ERROR);
-            return;
+            for (const auto& it : selections)
+            {
+                int r = table->ItemToRow(it);
+                if (r == wxNOT_FOUND)
+                    continue;
+                wxVariant cv;
+                table->GetValue(cv, r, col);
+                wxString cur = cv.GetString();
+                if (col >= 6)
+                    cur.Replace("\u00B0", "");
+                double curVal = 0.0;
+                cur.ToDouble(&curVal);
+                double newVal = curVal + delta;
+                wxString out;
+                if (col >= 6)
+                    out = wxString::Format("%.1f\u00B0", newVal);
+                else
+                    out = wxString::Format("%.3f", newVal);
+                table->SetValue(wxVariant(out), r, col);
+            }
         }
+        else
+        {
+            wxArrayString parts = wxSplit(value, ' ');
+            if (parts.size() == 0 || parts.size() > 2)
+            {
+                wxMessageBox("Invalid numeric value", "Error", wxOK | wxICON_ERROR);
+                return;
+            }
 
-        double v1, v2 = 0.0;
-        if (!parts[0].ToDouble(&v1))
-        {
-            wxMessageBox("Invalid value", "Error", wxOK | wxICON_ERROR);
-            return;
-        }
-        bool interp = false;
-        if (parts.size() == 2)
-        {
-            if (!parts[1].ToDouble(&v2))
+            double v1, v2 = 0.0;
+            if (!parts[0].ToDouble(&v1))
             {
                 wxMessageBox("Invalid value", "Error", wxOK | wxICON_ERROR);
                 return;
             }
-            interp = selections.size() > 1;
-        }
+            bool interp = false;
+            if (parts.size() == 2)
+            {
+                if (!parts[1].ToDouble(&v2))
+                {
+                    wxMessageBox("Invalid value", "Error", wxOK | wxICON_ERROR);
+                    return;
+                }
+                interp = selections.size() > 1;
+            }
 
-        for (size_t i = 0; i < selections.size(); ++i)
-        {
-            double val = v1;
-            if (interp)
-                val = v1 + (v2 - v1) * i / (selections.size() - 1);
+            for (size_t i = 0; i < selections.size(); ++i)
+            {
+                double val = v1;
+                if (interp)
+                    val = v1 + (v2 - v1) * i / (selections.size() - 1);
 
-            wxString out;
-            if (col >= 6)
-                out = wxString::Format("%.1f\u00B0", val);
-            else
-                out = wxString::Format("%.3f", val);
+                wxString out;
+                if (col >= 6)
+                    out = wxString::Format("%.1f\u00B0", val);
+                else
+                    out = wxString::Format("%.3f", val);
 
-            int r = table->ItemToRow(selections[i]);
-            if (r != wxNOT_FOUND)
-                table->SetValue(wxVariant(out), r, col);
+                int r = table->ItemToRow(selections[i]);
+                if (r != wxNOT_FOUND)
+                    table->SetValue(wxVariant(out), r, col);
+            }
         }
     }
     else
