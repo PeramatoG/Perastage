@@ -1024,14 +1024,19 @@ void FixtureTablePanel::ResyncRows(const std::vector<std::string>& oldOrder,
                                    const std::vector<std::string>& selectedUuids) {
   unsigned int count = table->GetItemCount();
   std::vector<std::string> newOrder(count);
+  std::vector<wxString> newPaths(count);
   for (unsigned int i = 0; i < count; ++i) {
     wxDataViewItem it = table->RowToItem(i);
     unsigned long idx = store.GetItemData(it);
-    if (idx < oldOrder.size())
+    if (idx < oldOrder.size()) {
       newOrder[i] = oldOrder[idx];
+      if (idx < gdtfPaths.size())
+        newPaths[i] = gdtfPaths[idx];
+    }
     store.SetItemData(it, i);
   }
   rowUuids.swap(newOrder);
+  gdtfPaths.swap(newPaths);
 
   table->UnselectAll();
   for (const auto& uuid : selectedUuids) {
