@@ -82,7 +82,8 @@ void SceneObjectTablePanel::ReloadData()
         wxVector<wxVariant> row;
 
         wxString name = wxString::FromUTF8(obj.name);
-        wxString layer = wxString::FromUTF8(obj.layer);
+        wxString layer = obj.layer == DEFAULT_LAYER_NAME ? wxString()
+                                                          : wxString::FromUTF8(obj.layer);
         wxString model = wxString::FromUTF8(obj.modelFile);
 
         auto posArr = obj.transform.o;

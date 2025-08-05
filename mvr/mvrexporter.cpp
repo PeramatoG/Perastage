@@ -82,7 +82,151 @@ bool MvrExporter::ExportToFile(const std::string& filePath)
     // ---- Layers ----
     tinyxml2::XMLElement* layersNode = doc.NewElement("Layers");
 
+    auto exportFixture = [&](tinyxml2::XMLElement* parent, const Fixture& f) {
+        tinyxml2::XMLElement* fe = doc.NewElement("Fixture");
+        fe->SetAttribute("uuid", f.uuid.c_str());
+        if (!f.instanceName.empty())
+            fe->SetAttribute("name", f.instanceName.c_str());
+
+        auto addInt = [&](const char* n, int v){ if(v!=0){ tinyxml2::XMLElement* e=doc.NewElement(n); e->SetText(std::to_string(v).c_str()); fe->InsertEndChild(e);} };
+        auto addStr = [&](const char* n,const std::string& s){ if(!s.empty()){ tinyxml2::XMLElement* e=doc.NewElement(n); e->SetText(s.c_str()); fe->InsertEndChild(e);} };
+
+        addInt("FixtureID", f.fixtureId);
+        addInt("FixtureIDNumeric", f.fixtureIdNumeric);
+        addInt("UnitNumber", f.unitNumber);
+        addInt("CustomId", f.customId);
+        addInt("CustomIdType", f.customIdType);
+        addStr("GDTFSpec", f.gdtfSpec);
+        if(!f.gdtfSpec.empty()) resourceFiles.insert(f.gdtfSpec);
+        addStr("GDTFMode", f.gdtfMode);
+        addStr("Focus", f.focus);
+        addStr("Function", f.function);
+        addStr("Position", f.position);
+
+        if (f.dmxInvertPan) { tinyxml2::XMLElement* e = doc.NewElement("DMXInvertPan"); e->SetText("true"); fe->InsertEndChild(e); }
+        if (f.dmxInvertTilt) { tinyxml2::XMLElement* e = doc.NewElement("DMXInvertTilt"); e->SetText("true"); fe->InsertEndChild(e); }
+
+        if (!f.address.empty()) {
+            auto [u,c] = ParseAddress(f.address);
+            int brk = (u>0)?u-1:0;
+            while (c>512) { c-=512; ++brk; }
+            tinyxml2::XMLElement* addresses = doc.NewElement("Addresses");
+            tinyxml2::XMLElement* addr = doc.NewElement("Address");
+            addr->SetAttribute("break", brk);
+            addr->SetText(std::to_string(c).c_str());
+            addresses->InsertEndChild(addr);
+            fe->InsertEndChild(addresses);
+        }
+
+        std::string mstr = MatrixUtils::FormatMatrix(f.transform);
+        tinyxml2::XMLElement* mat = doc.NewElement("Matrix");
+        mat->SetText(mstr.c_str());
+        fe->InsertEndChild(mat);
+
+        parent->InsertEndChild(fe);
+    };
+
+    auto exportTruss = [&](tinyxml2::XMLElement* parent, const Truss& t) {
+        tinyxml2::XMLElement* te = doc.NewElement("Truss");
+        te->SetAttribute("uuid", t.uuid.c_str());
+        if (!t.name.empty())
+            te->SetAttribute("name", t.name.c_str());
+
+        auto addInt = [&](const char* n,int v){ if(v!=0){ tinyxml2::XMLElement* e=doc.NewElement(n); e->SetText(std::to_string(v).c_str()); te->InsertEndChild(e);} };
+        addInt("UnitNumber", t.unitNumber);
+        addInt("CustomId", t.customId);
+        addInt("CustomIdType", t.customIdType);
+
+        if(!t.gdtfSpec.empty()) { tinyxml2::XMLElement* e=doc.NewElement("GDTFSpec"); e->SetText(t.gdtfSpec.c_str()); te->InsertEndChild(e); resourceFiles.insert(t.gdtfSpec); }
+        if(!t.gdtfMode.empty()) { tinyxml2::XMLElement* e=doc.NewElement("GDTFMode"); e->SetText(t.gdtfMode.c_str()); te->InsertEndChild(e); }
+        if(!t.function.empty()) { tinyxml2::XMLElement* e=doc.NewElement("Function"); e->SetText(t.function.c_str()); te->InsertEndChild(e); }
+        if(!t.position.empty()) { tinyxml2::XMLElement* e=doc.NewElement("Position"); e->SetText(t.position.c_str()); te->InsertEndChild(e); }
+
+        if(!t.symbolFile.empty()) {
+            tinyxml2::XMLElement* geos = doc.NewElement("Geometries");
+            tinyxml2::XMLElement* sym = doc.NewElement("Symbol");
+            for (const auto& [sUuid, file] : scene.symdefFiles) {
+                if (file == t.symbolFile) {
+                    sym->SetAttribute("symdef", sUuid.c_str());
+                    break;
+                }
+            }
+            geos->InsertEndChild(sym);
+            te->InsertEndChild(geos);
+            resourceFiles.insert(t.symbolFile);
+        }
+
+        std::string mstr = MatrixUtils::FormatMatrix(t.transform);
+        tinyxml2::XMLElement* mat = doc.NewElement("Matrix");
+        mat->SetText(mstr.c_str());
+        te->InsertEndChild(mat);
+
+        bool hasMeta = !t.manufacturer.empty() || !t.model.empty() ||
+                       t.lengthMm != 0.0f || t.widthMm != 0.0f ||
+                       t.heightMm != 0.0f || t.weightKg != 0.0f ||
+                       !t.crossSection.empty();
+        if (hasMeta) {
+            tinyxml2::XMLElement* ud = doc.NewElement("UserData");
+            tinyxml2::XMLElement* data = doc.NewElement("Data");
+            data->SetAttribute("provider", "Perastage");
+            data->SetAttribute("ver", "1.0");
+            tinyxml2::XMLElement* info = doc.NewElement("TrussInfo");
+            info->SetAttribute("uuid", t.uuid.c_str());
+            auto addTxt = [&](const char* n, const std::string& v){ if(!v.empty()){ tinyxml2::XMLElement* e=doc.NewElement(n); e->SetText(v.c_str()); info->InsertEndChild(e);} };
+            auto addNum = [&](const char* n, float v, const char* unit){ if(v!=0.0f){ tinyxml2::XMLElement* e=doc.NewElement(n); e->SetAttribute("unit", unit); e->SetText(std::to_string(v).c_str()); info->InsertEndChild(e);} };
+            addTxt("Manufacturer", t.manufacturer);
+            addTxt("Model", t.model);
+            addNum("Length", t.lengthMm, "mm");
+            addNum("Width", t.widthMm, "mm");
+            addNum("Height", t.heightMm, "mm");
+            addNum("Weight", t.weightKg, "kg");
+            addTxt("CrossSection", t.crossSection);
+            data->InsertEndChild(info);
+            ud->InsertEndChild(data);
+            te->InsertEndChild(ud);
+        }
+
+        parent->InsertEndChild(te);
+    };
+
+    auto exportSceneObject = [&](tinyxml2::XMLElement* parent, const SceneObject& obj) {
+        tinyxml2::XMLElement* oe = doc.NewElement("SceneObject");
+        oe->SetAttribute("uuid", obj.uuid.c_str());
+        if (!obj.name.empty())
+            oe->SetAttribute("name", obj.name.c_str());
+
+        if(!obj.modelFile.empty()) {
+            tinyxml2::XMLElement* geos = doc.NewElement("Geometries");
+            bool usedSym=false;
+            for (const auto& [sUuid,file] : scene.symdefFiles) {
+                if(file==obj.modelFile) {
+                    tinyxml2::XMLElement* sym = doc.NewElement("Symbol");
+                    sym->SetAttribute("symdef", sUuid.c_str());
+                    geos->InsertEndChild(sym);
+                    usedSym=true;
+                    break;
+                }
+            }
+            if(!usedSym) {
+                tinyxml2::XMLElement* g3d = doc.NewElement("Geometry3D");
+                g3d->SetAttribute("fileName", obj.modelFile.c_str());
+                geos->InsertEndChild(g3d);
+            }
+            oe->InsertEndChild(geos);
+            resourceFiles.insert(obj.modelFile);
+        }
+
+        std::string mstr = MatrixUtils::FormatMatrix(obj.transform);
+        tinyxml2::XMLElement* mat = doc.NewElement("Matrix");
+        mat->SetText(mstr.c_str());
+        oe->InsertEndChild(mat);
+
+        parent->InsertEndChild(oe);
+    };
+
     for (const auto& [layerUuid, layer] : scene.layers) {
+        if (layer.name == DEFAULT_LAYER_NAME)
+            continue;
         tinyxml2::XMLElement* layerElem = doc.NewElement("Layer");
         if (!layerUuid.empty())
             layerElem->SetAttribute("uuid", layerUuid.c_str());
@@ -91,155 +235,22 @@ bool MvrExporter::ExportToFile(const std::string& filePath)
 
         tinyxml2::XMLElement* childList = doc.NewElement("ChildList");
 
-        // Fixtures in this layer
         for (const auto& [uid, f] : scene.fixtures) {
             if (f.layer != layer.name)
                 continue;
-            tinyxml2::XMLElement* fe = doc.NewElement("Fixture");
-            fe->SetAttribute("uuid", f.uuid.c_str());
-            if (!f.instanceName.empty())
-                fe->SetAttribute("name", f.instanceName.c_str());
-
-            auto addInt = [&](const char* n, int v){ if(v!=0){ tinyxml2::XMLElement* e=doc.NewElement(n); e->SetText(std::to_string(v).c_str()); fe->InsertEndChild(e);} };
-            auto addStr = [&](const char* n,const std::string& s){ if(!s.empty()){ tinyxml2::XMLElement* e=doc.NewElement(n); e->SetText(s.c_str()); fe->InsertEndChild(e);} };
-
-            addInt("FixtureID", f.fixtureId);
-            addInt("FixtureIDNumeric", f.fixtureIdNumeric);
-            addInt("UnitNumber", f.unitNumber);
-            addInt("CustomId", f.customId);
-            addInt("CustomIdType", f.customIdType);
-            addStr("GDTFSpec", f.gdtfSpec);
-            if(!f.gdtfSpec.empty()) resourceFiles.insert(f.gdtfSpec);
-            addStr("GDTFMode", f.gdtfMode);
-            addStr("Focus", f.focus);
-            addStr("Function", f.function);
-            addStr("Position", f.position);
-
-            if (f.dmxInvertPan) { tinyxml2::XMLElement* e = doc.NewElement("DMXInvertPan"); e->SetText("true"); fe->InsertEndChild(e); }
-            if (f.dmxInvertTilt) { tinyxml2::XMLElement* e = doc.NewElement("DMXInvertTilt"); e->SetText("true"); fe->InsertEndChild(e); }
-
-            if (!f.address.empty()) {
-                auto [u,c] = ParseAddress(f.address);
-                int brk = (u>0)?u-1:0;
-                while (c>512) { c-=512; ++brk; }
-                tinyxml2::XMLElement* addresses = doc.NewElement("Addresses");
-                tinyxml2::XMLElement* addr = doc.NewElement("Address");
-                addr->SetAttribute("break", brk);
-                addr->SetText(std::to_string(c).c_str());
-                addresses->InsertEndChild(addr);
-                fe->InsertEndChild(addresses);
-            }
-
-            std::string mstr = MatrixUtils::FormatMatrix(f.transform);
-            tinyxml2::XMLElement* mat = doc.NewElement("Matrix");
-            mat->SetText(mstr.c_str());
-            fe->InsertEndChild(mat);
-
-            childList->InsertEndChild(fe);
+            exportFixture(childList, f);
         }
 
-        // Trusses in this layer
         for (const auto& [uid, t] : scene.trusses) {
             if (t.layer != layer.name)
                 continue;
-            tinyxml2::XMLElement* te = doc.NewElement("Truss");
-            te->SetAttribute("uuid", t.uuid.c_str());
-            if (!t.name.empty())
-                te->SetAttribute("name", t.name.c_str());
-
-            auto addInt = [&](const char* n,int v){ if(v!=0){ tinyxml2::XMLElement* e=doc.NewElement(n); e->SetText(std::to_string(v).c_str()); te->InsertEndChild(e);} };
-            addInt("UnitNumber", t.unitNumber);
-            addInt("CustomId", t.customId);
-            addInt("CustomIdType", t.customIdType);
-
-            if(!t.gdtfSpec.empty()) { tinyxml2::XMLElement* e=doc.NewElement("GDTFSpec"); e->SetText(t.gdtfSpec.c_str()); te->InsertEndChild(e); resourceFiles.insert(t.gdtfSpec); }
-            if(!t.gdtfMode.empty()) { tinyxml2::XMLElement* e=doc.NewElement("GDTFMode"); e->SetText(t.gdtfMode.c_str()); te->InsertEndChild(e); }
-            if(!t.function.empty()) { tinyxml2::XMLElement* e=doc.NewElement("Function"); e->SetText(t.function.c_str()); te->InsertEndChild(e); }
-            if(!t.position.empty()) { tinyxml2::XMLElement* e=doc.NewElement("Position"); e->SetText(t.position.c_str()); te->InsertEndChild(e); }
-
-            if(!t.symbolFile.empty()) {
-                tinyxml2::XMLElement* geos = doc.NewElement("Geometries");
-                tinyxml2::XMLElement* sym = doc.NewElement("Symbol");
-                for (const auto& [sUuid, file] : scene.symdefFiles) {
-                    if (file == t.symbolFile) {
-                        sym->SetAttribute("symdef", sUuid.c_str());
-                        break;
-                    }
-                }
-                geos->InsertEndChild(sym);
-                te->InsertEndChild(geos);
-                resourceFiles.insert(t.symbolFile);
-            }
-
-            std::string mstr = MatrixUtils::FormatMatrix(t.transform);
-            tinyxml2::XMLElement* mat = doc.NewElement("Matrix");
-            mat->SetText(mstr.c_str());
-            te->InsertEndChild(mat);
-
-            bool hasMeta = !t.manufacturer.empty() || !t.model.empty() ||
-                           t.lengthMm != 0.0f || t.widthMm != 0.0f ||
-                           t.heightMm != 0.0f || t.weightKg != 0.0f ||
-                           !t.crossSection.empty();
-            if (hasMeta) {
-                tinyxml2::XMLElement* ud = doc.NewElement("UserData");
-                tinyxml2::XMLElement* data = doc.NewElement("Data");
-                data->SetAttribute("provider", "Perastage");
-                data->SetAttribute("ver", "1.0");
-                tinyxml2::XMLElement* info = doc.NewElement("TrussInfo");
-                info->SetAttribute("uuid", t.uuid.c_str());
-                auto addTxt = [&](const char* n, const std::string& v){ if(!v.empty()){ tinyxml2::XMLElement* e=doc.NewElement(n); e->SetText(v.c_str()); info->InsertEndChild(e);} };
-                auto addNum = [&](const char* n, float v, const char* unit){ if(v!=0.0f){ tinyxml2::XMLElement* e=doc.NewElement(n); e->SetAttribute("unit", unit); e->SetText(std::to_string(v).c_str()); info->InsertEndChild(e);} };
-                addTxt("Manufacturer", t.manufacturer);
-                addTxt("Model", t.model);
-                addNum("Length", t.lengthMm, "mm");
-                addNum("Width", t.widthMm, "mm");
-                addNum("Height", t.heightMm, "mm");
-                addNum("Weight", t.weightKg, "kg");
-                addTxt("CrossSection", t.crossSection);
-                data->InsertEndChild(info);
-                ud->InsertEndChild(data);
-                te->InsertEndChild(ud);
-            }
-
-            childList->InsertEndChild(te);
+            exportTruss(childList, t);
         }
 
-        // SceneObjects in this layer
         for (const auto& [uid, obj] : scene.sceneObjects) {
             if (obj.layer != layer.name)
                 continue;
-            tinyxml2::XMLElement* oe = doc.NewElement("SceneObject");
-            oe->SetAttribute("uuid", obj.uuid.c_str());
-            if (!obj.name.empty())
-                oe->SetAttribute("name", obj.name.c_str());
-
-            if(!obj.modelFile.empty()) {
-                tinyxml2::XMLElement* geos = doc.NewElement("Geometries");
-                bool usedSym=false;
-                for (const auto& [sUuid,file] : scene.symdefFiles) {
-                    if(file==obj.modelFile) {
-                        tinyxml2::XMLElement* sym = doc.NewElement("Symbol");
-                        sym->SetAttribute("symdef", sUuid.c_str());
-                        geos->InsertEndChild(sym);
-                        usedSym=true;
-                        break;
-                    }
-                }
-                if(!usedSym) {
-                    tinyxml2::XMLElement* g3d = doc.NewElement("Geometry3D");
-                    g3d->SetAttribute("fileName", obj.modelFile.c_str());
-                    geos->InsertEndChild(g3d);
-                }
-                oe->InsertEndChild(geos);
-                resourceFiles.insert(obj.modelFile);
-            }
-
-            std::string mstr = MatrixUtils::FormatMatrix(obj.transform);
-            tinyxml2::XMLElement* mat = doc.NewElement("Matrix");
-            mat->SetText(mstr.c_str());
-            oe->InsertEndChild(mat);
-
-            childList->InsertEndChild(oe);
+            exportSceneObject(childList, obj);
         }
 
         if (childList->FirstChild())
@@ -247,6 +258,23 @@ bool MvrExporter::ExportToFile(const std::string& filePath)
 
         layersNode->InsertEndChild(layerElem);
     }
+
+    // Objects with no layer
+    tinyxml2::XMLElement* rootChildList = doc.NewElement("ChildList");
+    for (const auto& [uid, f] : scene.fixtures) {
+        if (f.layer == DEFAULT_LAYER_NAME || f.layer.empty())
+            exportFixture(rootChildList, f);
+    }
+    for (const auto& [uid, t] : scene.trusses) {
+        if (t.layer == DEFAULT_LAYER_NAME || t.layer.empty())
+            exportTruss(rootChildList, t);
+    }
+    for (const auto& [uid, obj] : scene.sceneObjects) {
+        if (obj.layer == DEFAULT_LAYER_NAME || obj.layer.empty())
+            exportSceneObject(rootChildList, obj);
+    }
+    if (rootChildList->FirstChild())
+        layersNode->InsertEndChild(rootChildList);
 
     sceneNode->InsertEndChild(layersNode);
 
