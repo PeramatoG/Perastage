@@ -92,6 +92,21 @@ static void DrawMesh(const Mesh& mesh, float scale)
         }
     }
     glEnd();
+
+    // draw vertices as small points to highlight geometry
+    glDisable(GL_LIGHTING);
+    glPointSize(3.0f);
+    glColor3f(0.8f,0.2f,0.2f);
+    glBegin(GL_POINTS);
+    for (size_t i = 0; i + 2 < mesh.vertices.size(); i += 3) {
+        float vx = mesh.vertices[i] * scale;
+        float vy = mesh.vertices[i+1] * scale;
+        float vz = mesh.vertices[i+2] * scale;
+        glVertex3f(vx, vy, vz);
+    }
+    glEnd();
+    glEnable(GL_LIGHTING);
+    glColor3f(1.0f,1.0f,1.0f);
 }
 
 wxBEGIN_EVENT_TABLE(FixturePreviewPanel, wxGLCanvas)
@@ -129,6 +144,9 @@ void FixturePreviewPanel::InitGL()
         m_glInitialized = true;
     }
     glEnable(GL_DEPTH_TEST);
+    glEnable(GL_LIGHTING);
+    glEnable(GL_LIGHT0);
+    glEnable(GL_COLOR_MATERIAL);
     glClearColor(0.08f,0.08f,0.08f,1.0f);
 }
 
@@ -184,6 +202,12 @@ void FixturePreviewPanel::Render()
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
     m_camera.Apply();
+    float lightPos[4] = {0.f, 0.f, 1.f, 0.f};
+    float lightDiffuse[4] = {1.f,1.f,1.f,1.f};
+    float lightAmbient[4] = {0.2f,0.2f,0.2f,1.f};
+    glLightfv(GL_LIGHT0, GL_POSITION, lightPos);
+    glLightfv(GL_LIGHT0, GL_DIFFUSE, lightDiffuse);
+    glLightfv(GL_LIGHT0, GL_AMBIENT, lightAmbient);
     glColor3f(1.0f,1.0f,1.0f);
     if(m_hasModel){
         for(const auto& obj : m_objects){
