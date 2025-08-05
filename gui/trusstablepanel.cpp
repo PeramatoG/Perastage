@@ -3,6 +3,7 @@
 #include "matrixutils.h"
 #include "viewer3dpanel.h"
 #include "layerpanel.h"
+#include "stringutils.h"
 #include <algorithm>
 #include <unordered_map>
 #include <wx/settings.h>
@@ -75,14 +76,14 @@ void TrussTablePanel::ReloadData()
     for (const auto& [uuid, truss] : trusses)
         sorted.emplace_back(uuid, &truss);
 
-    std::sort(sorted.begin(), sorted.end(), [](const auto& A, const auto& B) {
-        const Truss* a = A.second;
-        const Truss* b = B.second;
-        if (a->layer != b->layer)
-            return a->layer < b->layer;
-        if (a->positionName != b->positionName)
-            return a->positionName < b->positionName;
-        return a->name < b->name;
+    std::sort(sorted.begin(), sorted.end(), [](const auto &A, const auto &B) {
+      const Truss *a = A.second;
+      const Truss *b = B.second;
+      if (a->layer != b->layer)
+        return StringUtils::NaturalLess(a->layer, b->layer);
+      if (a->positionName != b->positionName)
+        return StringUtils::NaturalLess(a->positionName, b->positionName);
+      return StringUtils::NaturalLess(a->name, b->name);
     });
 
     for (const auto& pair : sorted)

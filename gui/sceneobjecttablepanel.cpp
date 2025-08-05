@@ -3,6 +3,7 @@
 #include "matrixutils.h"
 #include "viewer3dpanel.h"
 #include "layerpanel.h"
+#include "stringutils.h"
 #include <algorithm>
 #include <wx/settings.h>
 #include <wx/notebook.h>
@@ -68,12 +69,12 @@ void SceneObjectTablePanel::ReloadData()
     // Copy objects into a sortable vector
     std::vector<std::pair<std::string, SceneObject>> sortedObjs(objs.begin(), objs.end());
 
-    // Sort by layer and then by name
+    // Sort by layer and then by name using natural sort for numeric suffixes
     std::sort(sortedObjs.begin(), sortedObjs.end(),
-        [](const auto& a, const auto& b) {
+        [](const auto &a, const auto &b) {
             if (a.second.layer == b.second.layer)
-                return a.second.name < b.second.name;
-            return a.second.layer < b.second.layer;
+                return StringUtils::NaturalLess(a.second.name, b.second.name);
+            return StringUtils::NaturalLess(a.second.layer, b.second.layer);
         });
 
     for (const auto& [uuid, obj] : sortedObjs)
