@@ -388,6 +388,11 @@ bool MvrImporter::ParseSceneXml(const std::string& sceneXmlPath)
     tinyxml2::XMLElement* layersNode = sceneNode->FirstChildElement("Layers");
     if (!layersNode) return true;
 
+    for (tinyxml2::XMLElement* cl = layersNode->FirstChildElement("ChildList");
+         cl; cl = cl->NextSiblingElement("ChildList")) {
+        parseChildList(cl, DEFAULT_LAYER_NAME);
+    }
+
     for (tinyxml2::XMLElement* layer = layersNode->FirstChildElement("Layer");
          layer; layer = layer->NextSiblingElement("Layer")) {
         const char* layerName = layer->Attribute("name");
@@ -400,6 +405,20 @@ bool MvrImporter::ParseSceneXml(const std::string& sceneXmlPath)
         const char* uuidAttr = layer->Attribute("uuid");
         if (uuidAttr) l.uuid = uuidAttr;
         l.name = layerStr;
+        scene.layers[l.uuid] = l;
+    }
+
+    bool hasDefaultLayer = false;
+    for (const auto& [uid, layer] : scene.layers) {
+        if (layer.name == DEFAULT_LAYER_NAME) {
+            hasDefaultLayer = true;
+            break;
+        }
+    }
+    if (!hasDefaultLayer) {
+        Layer l;
+        l.uuid = "layer_default";
+        l.name = DEFAULT_LAYER_NAME;
         scene.layers[l.uuid] = l;
     }
 

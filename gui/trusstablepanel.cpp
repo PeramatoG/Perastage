@@ -93,7 +93,8 @@ void TrussTablePanel::ReloadData()
         wxVector<wxVariant> row;
 
         wxString name = wxString::FromUTF8(truss.name);
-        wxString layer = wxString::FromUTF8(truss.layer);
+        wxString layer = truss.layer == DEFAULT_LAYER_NAME ? wxString()
+                                                            : wxString::FromUTF8(truss.layer);
         wxString model = wxString::FromUTF8(truss.symbolFile);
 
         auto posArr = truss.transform.o;

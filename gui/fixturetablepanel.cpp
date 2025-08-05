@@ -166,7 +166,8 @@ void FixtureTablePanel::ReloadData() {
 
     wxString name = wxString::FromUTF8(fixture->instanceName);
     long fixtureID = static_cast<long>(fixture->fixtureId);
-    wxString layer = wxString::FromUTF8(fixture->layer);
+    wxString layer = fixture->layer == DEFAULT_LAYER_NAME ? wxString()
+                                                            : wxString::FromUTF8(fixture->layer);
     long universe = 0;
     long channel = 0;
     if (!fixture->address.empty()) {
