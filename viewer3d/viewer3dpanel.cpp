@@ -258,7 +258,7 @@ void Viewer3DPanel::OnMouseUp(wxMouseEvent& event)
                 else
                     selection = {uuid};
                 if (selection != cfg.GetSelectedFixtures()) {
-                    cfg.PushUndoState();
+                    cfg.PushUndoState("fixture selection");
                     cfg.SetSelectedFixtures(selection);
                 }
                 SetSelectedFixtures(selection);
@@ -279,7 +279,7 @@ void Viewer3DPanel::OnMouseUp(wxMouseEvent& event)
                 else
                     selection = {uuid};
                 if (selection != cfg.GetSelectedTrusses()) {
-                    cfg.PushUndoState();
+                    cfg.PushUndoState("truss selection");
                     cfg.SetSelectedTrusses(selection);
                 }
                 SetSelectedFixtures(selection);
@@ -300,7 +300,7 @@ void Viewer3DPanel::OnMouseUp(wxMouseEvent& event)
                 else
                     selection = {uuid};
                 if (selection != cfg.GetSelectedSceneObjects()) {
-                    cfg.PushUndoState();
+                    cfg.PushUndoState("scene object selection");
                     cfg.SetSelectedSceneObjects(selection);
                 }
                 SetSelectedFixtures(selection);
@@ -311,7 +311,7 @@ void Viewer3DPanel::OnMouseUp(wxMouseEvent& event)
         {
             if (FixtureTablePanel::Instance() && FixtureTablePanel::Instance()->IsActivePage()) {
                 if (!cfg.GetSelectedFixtures().empty()) {
-                    cfg.PushUndoState();
+                    cfg.PushUndoState("fixture selection");
                     cfg.SetSelectedFixtures({});
                 }
                 SetSelectedFixtures({});
@@ -319,7 +319,7 @@ void Viewer3DPanel::OnMouseUp(wxMouseEvent& event)
             }
             else if (TrussTablePanel::Instance() && TrussTablePanel::Instance()->IsActivePage()) {
                 if (!cfg.GetSelectedTrusses().empty()) {
-                    cfg.PushUndoState();
+                    cfg.PushUndoState("truss selection");
                     cfg.SetSelectedTrusses({});
                 }
                 SetSelectedFixtures({});
@@ -327,7 +327,7 @@ void Viewer3DPanel::OnMouseUp(wxMouseEvent& event)
             }
             else if (SceneObjectTablePanel::Instance() && SceneObjectTablePanel::Instance()->IsActivePage()) {
                 if (!cfg.GetSelectedSceneObjects().empty()) {
-                    cfg.PushUndoState();
+                    cfg.PushUndoState("scene object selection");
                     cfg.SetSelectedSceneObjects({});
                 }
                 SetSelectedFixtures({});

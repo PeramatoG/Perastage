@@ -68,11 +68,11 @@ public:
     void Reset();
 
     // --- Undo/Redo support ---
-    void PushUndoState();
+    void PushUndoState(const std::string& description = "");
     bool CanUndo() const;
     bool CanRedo() const;
-    void Undo();
-    void Redo();
+    std::string Undo();
+    std::string Redo();
     void ClearHistory();
 
 private:
@@ -96,6 +96,7 @@ private:
         std::vector<std::string> selFixtures;
         std::vector<std::string> selTrusses;
         std::vector<std::string> selSceneObjects;
+        std::string description;
     };
 
     std::vector<Snapshot> undoStack;

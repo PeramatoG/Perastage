@@ -292,7 +292,7 @@ void TrussTablePanel::OnSelectionChanged(wxDataViewEvent& evt)
     }
     ConfigManager& cfg = ConfigManager::Get();
     if (uuids != cfg.GetSelectedTrusses()) {
-        cfg.PushUndoState();
+        cfg.PushUndoState("truss selection");
         cfg.SetSelectedTrusses(uuids);
     }
     if (Viewer3DPanel::Instance())
@@ -303,7 +303,7 @@ void TrussTablePanel::OnSelectionChanged(wxDataViewEvent& evt)
 void TrussTablePanel::UpdateSceneData()
 {
     ConfigManager& cfg = ConfigManager::Get();
-    cfg.PushUndoState();
+    cfg.PushUndoState("edit truss");
     auto& scene = cfg.GetScene();
     size_t count = std::min((size_t)table->GetItemCount(), rowUuids.size());
 
@@ -465,7 +465,7 @@ void TrussTablePanel::DeleteSelected()
         return;
 
     ConfigManager& cfg = ConfigManager::Get();
-    cfg.PushUndoState();
+    cfg.PushUndoState("delete truss");
 
     std::vector<int> rows;
     rows.reserve(selections.size());
