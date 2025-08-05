@@ -28,6 +28,7 @@ LayerPanel::LayerPanel(wxWindow* parent)
 
     list->Bind(wxEVT_CHECKLISTBOX, &LayerPanel::OnCheck, this);
     list->Bind(wxEVT_LISTBOX, &LayerPanel::OnSelect, this);
+    list->Bind(wxEVT_LISTBOX_DCLICK, &LayerPanel::OnRenameLayer, this);
     addBtn->Bind(wxEVT_BUTTON, &LayerPanel::OnAddLayer, this);
     delBtn->Bind(wxEVT_BUTTON, &LayerPanel::OnDeleteLayer, this);
 
@@ -221,6 +222,82 @@ void LayerPanel::OnDeleteLayer(wxCommandEvent&)
     selObj.erase(std::remove_if(selObj.begin(), selObj.end(),
         [&](const std::string& u){ return scene.sceneObjects.find(u) == scene.sceneObjects.end(); }), selObj.end());
     cfg.SetSelectedSceneObjects(selObj);
+
+    ReloadLayers();
+    if (FixtureTablePanel::Instance())
+        FixtureTablePanel::Instance()->ReloadData();
+    if (TrussTablePanel::Instance())
+        TrussTablePanel::Instance()->ReloadData();
+    if (SceneObjectTablePanel::Instance())
+        SceneObjectTablePanel::Instance()->ReloadData();
+    if (Viewer3DPanel::Instance()) {
+        Viewer3DPanel::Instance()->UpdateScene();
+        Viewer3DPanel::Instance()->Refresh();
+    }
+}
+
+void LayerPanel::OnRenameLayer(wxCommandEvent& evt)
+{
+    if (!list)
+        return;
+    int idx = evt.GetInt();
+    if (idx == wxNOT_FOUND)
+        return;
+
+    wxString oldW = list->GetString(idx);
+    std::string oldName = oldW.ToStdString();
+    if (oldName == DEFAULT_LAYER_NAME)
+    {
+        wxMessageBox("Cannot rename default layer.", "Rename Layer", wxOK | wxICON_ERROR, this);
+        return;
+    }
+
+    wxTextEntryDialog dlg(this, "Enter new layer name:", "Rename Layer", oldW);
+    if (dlg.ShowModal() != wxID_OK)
+        return;
+    std::string newName = dlg.GetValue().ToStdString();
+    if (newName.empty() || newName == DEFAULT_LAYER_NAME || newName == oldName)
+        return;
+
+    ConfigManager& cfg = ConfigManager::Get();
+    auto& scene = cfg.GetScene();
+
+    // check duplicate
+    for (const auto& [u, layer] : scene.layers)
+        if (layer.name == newName)
+        {
+            wxMessageBox("Layer already exists.", "Rename Layer", wxOK | wxICON_ERROR, this);
+            return;
+        }
+
+    std::string layerUuid;
+    for (const auto& [uuid, layer] : scene.layers)
+        if (layer.name == oldName)
+        {
+            layerUuid = uuid;
+            break;
+        }
+    if (layerUuid.empty())
+        return;
+
+    cfg.PushUndoState("rename layer");
+
+    scene.layers[layerUuid].name = newName;
+    auto rename = [&](auto& container){
+        for (auto& [u, obj] : container)
+            if (obj.layer == oldName)
+                obj.layer = newName;
+    };
+    rename(scene.fixtures);
+    rename(scene.trusses);
+    rename(scene.sceneObjects);
+
+    auto hidden = cfg.GetHiddenLayers();
+    if (hidden.erase(oldName))
+        hidden.insert(newName);
+    cfg.SetHiddenLayers(hidden);
+    if (cfg.GetCurrentLayer() == oldName)
+        cfg.SetCurrentLayer(newName);
 
     ReloadLayers();
     if (FixtureTablePanel::Instance())
