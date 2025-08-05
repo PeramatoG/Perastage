@@ -1267,6 +1267,24 @@ void MainWindow::OnAddFixture(wxCommandEvent &WXUNUSED(event)) {
       spec = fs::relative(abs, b).string();
   }
 
+  auto baseId =
+      std::chrono::steady_clock::now().time_since_epoch().count();
+  bool hasDefaultLayer = false;
+  for (const auto &[uid, layer] : sceneRef.layers) {
+    if (layer.name == DEFAULT_LAYER_NAME) {
+      hasDefaultLayer = true;
+      break;
+    }
+  }
+  if (!hasDefaultLayer) {
+    Layer layer;
+    layer.uuid =
+        wxString::Format("layer_%lld", static_cast<long long>(baseId))
+            .ToStdString();
+    layer.name = DEFAULT_LAYER_NAME;
+    sceneRef.layers[layer.uuid] = layer;
+  }
+
   int maxId = 0;
   for (const auto &[uuid, fix] : sceneRef.fixtures)
     if (fix.fixtureId > maxId)
@@ -1276,18 +1294,15 @@ void MainWindow::OnAddFixture(wxCommandEvent &WXUNUSED(event)) {
 
   for (int i = 0; i < count; ++i) {
     Fixture f;
-    f.uuid =
-        wxString::Format(
-            "uuid_%lld_%d",
-            static_cast<long long>(
-                std::chrono::steady_clock::now().time_since_epoch().count()),
-            i)
-            .ToStdString();
+    f.uuid = wxString::Format("uuid_%lld_%d",
+                              static_cast<long long>(baseId), i)
+                 .ToStdString();
     f.instanceName = name;
     f.typeName = defaultName;
     f.fixtureId = startId + i;
     f.gdtfSpec = spec;
     f.gdtfMode = mode;
+    f.layer = DEFAULT_LAYER_NAME;
     f.weightKg = weight;
     f.powerConsumptionW = power;
     sceneRef.fixtures[f.uuid] = f;
@@ -1471,6 +1486,22 @@ void MainWindow::OnAddSceneObject(wxCommandEvent &WXUNUSED(event)) {
   }
 
   auto baseId = std::chrono::steady_clock::now().time_since_epoch().count();
+  bool hasDefaultLayer = false;
+  for (const auto &[uid, layer] : scene.layers) {
+    if (layer.name == DEFAULT_LAYER_NAME) {
+      hasDefaultLayer = true;
+      break;
+    }
+  }
+  if (!hasDefaultLayer) {
+    Layer layer;
+    layer.uuid =
+        wxString::Format("layer_%lld", static_cast<long long>(baseId))
+            .ToStdString();
+    layer.name = DEFAULT_LAYER_NAME;
+    scene.layers[layer.uuid] = layer;
+  }
+
   for (long i = 0; i < qty; ++i) {
     SceneObject obj;
     obj.uuid = wxString::Format("uuid_%lld", static_cast<long long>(baseId + i))
@@ -1480,6 +1511,7 @@ void MainWindow::OnAddSceneObject(wxCommandEvent &WXUNUSED(event)) {
     else
       obj.name = defaultName;
     obj.modelFile = path;
+    obj.layer = DEFAULT_LAYER_NAME;
     scene.sceneObjects[obj.uuid] = obj;
   }
 
