@@ -1,7 +1,8 @@
-#include "fixturepreviewpanel.h"
 #include <GL/glew.h>
 #include <GL/gl.h>
 #include <GL/glu.h>
+#include <wx/wx.h>
+#include "fixturepreviewpanel.h"
 #include <cfloat>
 
 static constexpr float RENDER_SCALE = 0.001f;
