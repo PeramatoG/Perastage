@@ -503,6 +503,8 @@ void Viewer3DController::RenderScene()
     const auto& fixtures = SceneDataManager::Instance().GetFixtures();
     const std::string& base = ConfigManager::Get().GetScene().basePath;
     for (const auto& [uuid, f] : fixtures) {
+        if (!ConfigManager::Get().IsLayerVisible(f.layer))
+            continue;
         glPushMatrix();
 
         bool highlight = (!m_highlightUuid.empty() && uuid == m_highlightUuid);
@@ -552,6 +554,8 @@ void Viewer3DController::RenderScene()
     // Trusses
     const auto& trusses = SceneDataManager::Instance().GetTrusses();
     for (const auto& [uuid, t] : trusses) {
+        if (!ConfigManager::Get().IsLayerVisible(t.layer))
+            continue;
         glPushMatrix();
 
         bool highlight = (!m_highlightUuid.empty() && uuid == m_highlightUuid);
@@ -602,6 +606,8 @@ void Viewer3DController::RenderScene()
 
     const auto& meshes = SceneDataManager::Instance().GetSceneObjects();
     for (const auto& [uuid, m] : meshes) {
+        if (!ConfigManager::Get().IsLayerVisible(m.layer))
+            continue;
         glPushMatrix();
 
         bool highlight = (!m_highlightUuid.empty() && uuid == m_highlightUuid);
@@ -879,6 +885,8 @@ void Viewer3DController::DrawFixtureLabels(int width, int height)
 
     const auto& fixtures = SceneDataManager::Instance().GetFixtures();
     for (const auto& [uuid, f] : fixtures) {
+        if (!ConfigManager::Get().IsLayerVisible(f.layer))
+            continue;
         if (uuid != m_highlightUuid)
             continue;
 
@@ -933,6 +941,8 @@ bool Viewer3DController::GetFixtureLabelAt(int mouseX, int mouseY,
     std::string bestUuid;
 
     for (const auto& [uuid, f] : fixtures) {
+        if (!ConfigManager::Get().IsLayerVisible(f.layer))
+            continue;
         auto bit = m_fixtureBounds.find(uuid);
         if (bit == m_fixtureBounds.end())
             continue;
@@ -1009,6 +1019,8 @@ void Viewer3DController::DrawTrussLabels(int width, int height)
 
     const auto& trusses = SceneDataManager::Instance().GetTrusses();
     for (const auto& [uuid, t] : trusses) {
+        if (!ConfigManager::Get().IsLayerVisible(t.layer))
+            continue;
         if (uuid != m_highlightUuid)
             continue;
 
@@ -1051,6 +1063,8 @@ void Viewer3DController::DrawSceneObjectLabels(int width, int height)
 
     const auto& objs = SceneDataManager::Instance().GetSceneObjects();
     for (const auto& [uuid, o] : objs) {
+        if (!ConfigManager::Get().IsLayerVisible(o.layer))
+            continue;
         if (uuid != m_highlightUuid)
             continue;
 
@@ -1099,6 +1113,8 @@ bool Viewer3DController::GetTrussLabelAt(int mouseX, int mouseY,
     wxPoint bestPos;
     std::string bestUuid;
     for (const auto& [uuid, t] : trusses) {
+        if (!ConfigManager::Get().IsLayerVisible(t.layer))
+            continue;
         auto bit = m_trussBounds.find(uuid);
         if (bit == m_trussBounds.end())
             continue;
@@ -1179,6 +1195,8 @@ bool Viewer3DController::GetSceneObjectLabelAt(int mouseX, int mouseY,
     wxPoint bestPos;
     std::string bestUuid;
     for (const auto& [uuid, o] : objs) {
+        if (!ConfigManager::Get().IsLayerVisible(o.layer))
+            continue;
         auto bit = m_objectBounds.find(uuid);
         if (bit == m_objectBounds.end())
             continue;

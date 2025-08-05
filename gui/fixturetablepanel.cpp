@@ -7,6 +7,7 @@
 #include "patchmanager.h"
 #include "projectutils.h"
 #include "viewer3dpanel.h"
+#include "layerpanel.h"
 #include <algorithm>
 #include <filesystem>
 #include <unordered_map>
@@ -236,6 +237,8 @@ void FixtureTablePanel::ReloadData() {
   HighlightDuplicateFixtureIds();
 
   // Let wxDataViewListCtrl manage column headers and sorting
+  if (LayerPanel::Instance())
+    LayerPanel::Instance()->ReloadLayers();
 }
 
 void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {

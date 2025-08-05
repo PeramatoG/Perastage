@@ -2,9 +2,12 @@
 
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <optional>
 #include <vector>
 #include "mvrscene.h"
+
+inline constexpr const char* DEFAULT_LAYER_NAME = "No Layer";
 
 // Singleton to manage configuration and MVR scene data globally
 class ConfigManager
@@ -63,6 +66,11 @@ public:
     void SetTrussPrintColumns(const std::vector<std::string>& cols);
     std::vector<std::string> GetSceneObjectPrintColumns() const;
     void SetSceneObjectPrintColumns(const std::vector<std::string>& cols);
+
+    // Layer visibility management
+    std::unordered_set<std::string> GetHiddenLayers() const;
+    void SetHiddenLayers(const std::unordered_set<std::string>& layers);
+    bool IsLayerVisible(const std::string& layer) const;
 
     // Clear everything (scene + config)
     void Reset();

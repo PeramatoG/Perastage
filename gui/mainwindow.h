@@ -11,6 +11,7 @@ class TrussTablePanel;
 class SceneObjectTablePanel;
 class Viewer3DPanel;
 class ConsolePanel;
+class LayerPanel;
 
 // Main application window for GUI components
 class MainWindow : public wxFrame
@@ -35,6 +36,7 @@ private:
     wxAuiManager* auiManager = nullptr;
     Viewer3DPanel* viewportPanel = nullptr;
     ConsolePanel* consolePanel = nullptr;
+    LayerPanel* layerPanel = nullptr;
 
     void OnNew(wxCommandEvent& event);             // Start new project
     void OnLoad(wxCommandEvent& event);            // Load project
