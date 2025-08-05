@@ -19,6 +19,7 @@
 // wxWidgets zip support
 #include <wx/wx.h>
 #include <wx/wfstream.h>
+class wxZipStreamLink;
 #include <wx/zipstrm.h>
 #include <wx/filename.h>
 

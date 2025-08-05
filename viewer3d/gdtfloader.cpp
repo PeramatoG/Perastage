@@ -7,6 +7,7 @@
 #include <tinyxml2.h>
 #include <wx/wx.h>
 #include <wx/wfstream.h>
+class wxZipStreamLink;
 #include <wx/zipstrm.h>
 #include <wx/filename.h>
 

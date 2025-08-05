@@ -7,6 +7,7 @@
 #include "mvrexporter.h"
 #include "mvrimporter.h"
 #include <wx/wfstream.h>
+class wxZipStreamLink;
 #include <wx/zipstrm.h>
 #include <wx/stdpaths.h>
 
