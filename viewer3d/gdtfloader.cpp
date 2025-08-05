@@ -395,6 +395,76 @@ std::vector<std::string> GetGdtfModes(const std::string& gdtfPath)
     return result;
 }
 
+std::vector<GdtfChannelInfo> GetGdtfModeChannels(
+    const std::string& gdtfPath,
+    const std::string& modeName)
+{
+    std::vector<GdtfChannelInfo> result;
+    if (gdtfPath.empty() || modeName.empty())
+        return result;
+
+    std::string tempDir = CreateTempDir();
+    if (!ExtractZip(gdtfPath, tempDir))
+        return result;
+
+    std::string descPath = tempDir + "/description.xml";
+    tinyxml2::XMLDocument doc;
+    if (doc.LoadFile(descPath.c_str()) != tinyxml2::XML_SUCCESS)
+        return result;
+
+    tinyxml2::XMLElement* ft = doc.FirstChildElement("GDTF");
+    if (ft)
+        ft = ft->FirstChildElement("FixtureType");
+    else
+        ft = doc.FirstChildElement("FixtureType");
+    if (!ft)
+        return result;
+
+    tinyxml2::XMLElement* modes = ft->FirstChildElement("DMXModes");
+    if (!modes)
+        return result;
+
+    for (tinyxml2::XMLElement* m = modes->FirstChildElement("DMXMode");
+         m; m = m->NextSiblingElement("DMXMode"))
+    {
+        const char* name = m->Attribute("Name");
+        if (!name || modeName != name)
+            continue;
+
+        tinyxml2::XMLElement* channels = m->FirstChildElement("DMXChannels");
+        if (!channels)
+            break;
+
+        for (tinyxml2::XMLElement* c = channels->FirstChildElement("DMXChannel");
+             c; c = c->NextSiblingElement("DMXChannel"))
+        {
+            GdtfChannelInfo info;
+
+            if (const char* offset = c->Attribute("Offset"))
+            {
+                std::string offStr = offset;
+                size_t comma = offStr.find(',');
+                std::string first = offStr.substr(0, comma);
+                try { info.channel = std::stoi(first); }
+                catch (...) { info.channel = 0; }
+            }
+            if (info.channel == 0)
+                info.channel = static_cast<int>(result.size()) + 1;
+
+            if (tinyxml2::XMLElement* lc = c->FirstChildElement("LogicalChannel"))
+            {
+                if (const char* attr = lc->Attribute("Attribute"))
+                    info.function = attr;
+            }
+
+            result.push_back(info);
+        }
+        break;
+    }
+
+    return result;
+}
+
 std::string GetGdtfFixtureName(const std::string& gdtfPath)
 {
     if (gdtfPath.empty())
