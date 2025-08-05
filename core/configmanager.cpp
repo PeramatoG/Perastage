@@ -49,6 +49,7 @@ ConfigManager::ConfigManager()
     LoadUserConfig();
     ApplyColumnDefaults();
     ApplyDefaults();
+    currentLayer = DEFAULT_LAYER_NAME;
 }
 
 ConfigManager& ConfigManager::Get()
@@ -216,6 +217,19 @@ bool ConfigManager::IsLayerVisible(const std::string& layer) const
     std::string name = layer.empty() ? DEFAULT_LAYER_NAME : layer;
     auto hidden = GetHiddenLayers();
     return hidden.find(name) == hidden.end();
+}
+
+const std::string& ConfigManager::GetCurrentLayer() const
+{
+    return currentLayer;
+}
+
+void ConfigManager::SetCurrentLayer(const std::string& name)
+{
+    if (name.empty())
+        currentLayer = DEFAULT_LAYER_NAME;
+    else
+        currentLayer = name;
 }
 
 // -- Scene access --
@@ -418,6 +432,7 @@ void ConfigManager::Reset()
     selectedFixtures.clear();
     selectedTrusses.clear();
     selectedSceneObjects.clear();
+    currentLayer = DEFAULT_LAYER_NAME;
     ClearHistory();
 }
 

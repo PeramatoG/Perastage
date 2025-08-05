@@ -14,6 +14,7 @@ LayerPanel::LayerPanel(wxWindow* parent)
     SetSizer(sizer);
 
     list->Bind(wxEVT_CHECKLISTBOX, &LayerPanel::OnCheck, this);
+    list->Bind(wxEVT_LISTBOX, &LayerPanel::OnSelect, this);
 
     ReloadLayers();
 }
@@ -48,11 +49,22 @@ void LayerPanel::ReloadLayers()
     names.insert(DEFAULT_LAYER_NAME);
 
     auto hidden = ConfigManager::Get().GetHiddenLayers();
+    std::string current = ConfigManager::Get().GetCurrentLayer();
     int idx = 0;
+    int sel = -1;
     for (const auto& n : names) {
         list->Append(wxString::FromUTF8(n));
         list->Check(idx, hidden.find(n) == hidden.end());
+        if (n == current)
+            sel = idx;
         ++idx;
+    }
+    if (sel < 0 && list->GetCount() > 0)
+        sel = 0;
+    if (sel >= 0) {
+        list->SetSelection(sel);
+        wxString wname = list->GetString(sel);
+        ConfigManager::Get().SetCurrentLayer(wname.ToStdString());
     }
 }
 
@@ -69,5 +81,14 @@ void LayerPanel::OnCheck(wxCommandEvent& evt)
     ConfigManager::Get().SetHiddenLayers(hidden);
     if (Viewer3DPanel::Instance())
         Viewer3DPanel::Instance()->Refresh();
+}
+
+void LayerPanel::OnSelect(wxCommandEvent& evt)
+{
+    int idx = evt.GetInt();
+    if (idx >= 0 && idx < static_cast<int>(list->GetCount())) {
+        wxString wname = list->GetString(idx);
+        ConfigManager::Get().SetCurrentLayer(wname.ToStdString());
+    }
 }
 

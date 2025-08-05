@@ -72,6 +72,10 @@ public:
     void SetHiddenLayers(const std::unordered_set<std::string>& layers);
     bool IsLayerVisible(const std::string& layer) const;
 
+    // Currently selected layer name
+    const std::string& GetCurrentLayer() const;
+    void SetCurrentLayer(const std::string& name);
+
     // Clear everything (scene + config)
     void Reset();
 
@@ -110,4 +114,6 @@ private:
     std::vector<Snapshot> undoStack;
     std::vector<Snapshot> redoStack;
     size_t maxHistory = 20;
+
+    std::string currentLayer = DEFAULT_LAYER_NAME;
 };

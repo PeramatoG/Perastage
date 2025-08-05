@@ -14,6 +14,7 @@ public:
 
 private:
     void OnCheck(wxCommandEvent& evt);
+    void OnSelect(wxCommandEvent& evt);
     wxCheckListBox* list = nullptr;
     static LayerPanel* s_instance;
 };
