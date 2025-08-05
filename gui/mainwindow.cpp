@@ -13,17 +13,17 @@
 #include <wx/aboutdlg.h>
 #include <wx/filefn.h>
 #include <wx/filename.h>
-#include <wx/iconbndl.h>
 #include <wx/html/htmlwin.h>
+#include <wx/iconbndl.h>
 #include <wx/notebook.h>
+#include <wx/numdlg.h>
 #include <wx/statbmp.h>
 #include <wx/stdpaths.h>
 #include <wx/textctrl.h>
-#include <wx/numdlg.h>
 #include <wx/wfstream.h>
 class wxZipStreamLink;
-#include <wx/zipstrm.h>
 #include <wx/log.h>
+#include <wx/zipstrm.h>
 
 #include "addfixturedialog.h"
 #include "configmanager.h"
@@ -37,7 +37,9 @@ class wxZipStreamLink;
 #include "gdtfloader.h"
 #include "gdtfnet.h"
 #include "gdtfsearchdialog.h"
+#include "layerpanel.h"
 #include "logindialog.h"
+#include "markdown.h"
 #include "mvrexporter.h"
 #include "mvrimporter.h"
 #include "projectutils.h"
@@ -45,46 +47,73 @@ class wxZipStreamLink;
 #include "selectfixturetypedialog.h"
 #include "selectnamedialog.h"
 #include "simplecrypt.h"
-#include "markdown.h"
 #include "tableprinter.h"
 #include "trusstablepanel.h"
 #include "viewer3dpanel.h"
-#include "layerpanel.h"
 #ifdef _WIN32
 #define popen _popen
 #define pclose _pclose
 #endif
 
-wxBEGIN_EVENT_TABLE(MainWindow, wxFrame)
-  EVT_MENU(ID_File_New, MainWindow::OnNew)
-  EVT_MENU(ID_File_Load, MainWindow::OnLoad)
-  EVT_MENU(ID_File_Save, MainWindow::OnSave)
-  EVT_MENU(ID_File_SaveAs, MainWindow::OnSaveAs)
-  EVT_MENU(ID_File_ImportMVR, MainWindow::OnImportMVR)
-  EVT_MENU(ID_File_ExportMVR, MainWindow::OnExportMVR)
-  EVT_MENU(ID_File_PrintTable, MainWindow::OnPrintTable)
-  EVT_MENU(ID_File_ExportCSV, MainWindow::OnExportCSV)
-  EVT_MENU(ID_File_Close, MainWindow::OnClose)
-  EVT_CLOSE(MainWindow::OnCloseWindow)
-  EVT_MENU(ID_Edit_Undo, MainWindow::OnUndo)
-  EVT_MENU(ID_Edit_Redo, MainWindow::OnRedo)
-  EVT_MENU(ID_Edit_AddFixture, MainWindow::OnAddFixture)
-  EVT_MENU(ID_Edit_AddTruss, MainWindow::OnAddTruss)
-  EVT_MENU(ID_Edit_AddSceneObject, MainWindow::OnAddSceneObject)
-  EVT_MENU(ID_Edit_Delete, MainWindow::OnDelete)
-  EVT_MENU(ID_View_ToggleConsole, MainWindow::OnToggleConsole)
-  EVT_MENU(ID_View_ToggleFixtures, MainWindow::OnToggleFixtures)
-  EVT_MENU(ID_View_ToggleViewport, MainWindow::OnToggleViewport)
-  EVT_MENU(ID_Tools_DownloadGdtf, MainWindow::OnDownloadGdtf)
-  EVT_MENU(ID_Tools_ExportFixture, MainWindow::OnExportFixture)
-  EVT_MENU(ID_Tools_ExportTruss, MainWindow::OnExportTruss)
-  EVT_MENU(ID_Tools_ExportSceneObject, MainWindow::OnExportSceneObject)
-  EVT_MENU(ID_Help_Help, MainWindow::OnShowHelp)
-  EVT_MENU(ID_Help_About, MainWindow::OnShowAbout)
-  EVT_MENU(ID_Select_Fixtures, MainWindow::OnSelectFixtures)
-  EVT_MENU(ID_Select_Trusses, MainWindow::OnSelectTrusses)
-  EVT_MENU(ID_Select_Objects, MainWindow::OnSelectObjects)
-wxEND_EVENT_TABLE()
+wxBEGIN_EVENT_TABLE(MainWindow, wxFrame) EVT_MENU(
+    ID_File_New,
+    MainWindow::
+        OnNew) EVT_MENU(ID_File_Load,
+                        MainWindow::
+                            OnLoad) EVT_MENU(ID_File_Save,
+                                             MainWindow::
+                                                 OnSave) EVT_MENU(ID_File_SaveAs,
+                                                                  MainWindow::
+                                                                      OnSaveAs)
+    EVT_MENU(ID_File_ImportMVR, MainWindow::OnImportMVR) EVT_MENU(
+        ID_File_ExportMVR,
+        MainWindow::
+            OnExportMVR) EVT_MENU(ID_File_PrintTable,
+                                  MainWindow::
+                                      OnPrintTable) EVT_MENU(ID_File_ExportCSV,
+                                                             MainWindow::
+                                                                 OnExportCSV)
+        EVT_MENU(ID_File_Close, MainWindow::OnClose) EVT_CLOSE(
+            MainWindow::
+                OnCloseWindow) EVT_MENU(ID_Edit_Undo,
+                                        MainWindow::
+                                            OnUndo) EVT_MENU(ID_Edit_Redo,
+                                                             MainWindow::OnRedo)
+            EVT_MENU(ID_Edit_AddFixture, MainWindow::OnAddFixture) EVT_MENU(
+                ID_Edit_AddTruss,
+                MainWindow::OnAddTruss) EVT_MENU(ID_Edit_AddSceneObject,
+                                                 MainWindow::OnAddSceneObject)
+                EVT_MENU(ID_Edit_Delete, MainWindow::OnDelete) EVT_MENU(
+                    ID_View_ToggleConsole,
+                    MainWindow::
+                        OnToggleConsole) EVT_MENU(ID_View_ToggleFixtures,
+                                                  MainWindow::OnToggleFixtures)
+                    EVT_MENU(
+                        ID_View_ToggleViewport,
+                        MainWindow::
+                            OnToggleViewport) EVT_MENU(ID_Tools_DownloadGdtf,
+                                                       MainWindow::
+                                                           OnDownloadGdtf)
+                        EVT_MENU(
+                            ID_Tools_ExportFixture,
+                            MainWindow::
+                                OnExportFixture) EVT_MENU(ID_Tools_ExportTruss,
+                                                          MainWindow::
+                                                              OnExportTruss)
+                            EVT_MENU(ID_Tools_ExportSceneObject,
+                                     MainWindow::OnExportSceneObject)
+                                EVT_MENU(ID_Help_Help, MainWindow::OnShowHelp)
+                                    EVT_MENU(ID_Help_About,
+                                             MainWindow::OnShowAbout)
+                                        EVT_MENU(ID_Select_Fixtures,
+                                                 MainWindow::OnSelectFixtures)
+                                            EVT_MENU(
+                                                ID_Select_Trusses,
+                                                MainWindow::OnSelectTrusses)
+                                                EVT_MENU(
+                                                    ID_Select_Objects,
+                                                    MainWindow::OnSelectObjects)
+                                                    wxEND_EVENT_TABLE()
 
                                                         MainWindow::MainWindow(
                                                             const wxString
@@ -191,13 +220,13 @@ void MainWindow::SetupLayout() {
   layerPanel = new LayerPanel(this);
   LayerPanel::SetInstance(layerPanel);
   auiManager->AddPane(layerPanel, wxAuiPaneInfo()
-                                     .Name("LayerPanel")
-                                     .Caption("Layers")
-                                     .Right()
-                                     .BestSize(200, 300)
-                                     .CloseButton(true)
-                                     .MaximizeButton(true)
-                                     .PaneBorder(true));
+                                      .Name("LayerPanel")
+                                      .Caption("Layers")
+                                      .Right()
+                                      .BestSize(200, 300)
+                                      .CloseButton(true)
+                                      .MaximizeButton(true)
+                                      .PaneBorder(true));
 
   // Apply all changes to layout
   auiManager->Update();
@@ -594,7 +623,8 @@ void MainWindow::OnExportFixture(wxCommandEvent &WXUNUSED(event)) {
   auto extractZip = [](const std::string &zipPath, const std::string &destDir) {
     if (!fs::exists(zipPath)) {
       if (ConsolePanel::Instance()) {
-        wxString msg = wxString::Format("GDTF: cannot open %s", wxString::FromUTF8(zipPath));
+        wxString msg = wxString::Format("GDTF: cannot open %s",
+                                        wxString::FromUTF8(zipPath));
         ConsolePanel::Instance()->AppendMessage(msg);
       }
       return false;
@@ -603,7 +633,8 @@ void MainWindow::OnExportFixture(wxCommandEvent &WXUNUSED(event)) {
     wxFileInputStream input(zipPath);
     if (!input.IsOk()) {
       if (ConsolePanel::Instance()) {
-        wxString msg = wxString::Format("GDTF: cannot open %s", wxString::FromUTF8(zipPath));
+        wxString msg = wxString::Format("GDTF: cannot open %s",
+                                        wxString::FromUTF8(zipPath));
         ConsolePanel::Instance()->AppendMessage(msg);
       }
       return false;
@@ -1025,12 +1056,10 @@ void MainWindow::OnShowHelp(wxCommandEvent &WXUNUSED(event)) {
     // Create a resizable dialog containing a wxHtmlWindow to render the
     // generated HTML.
     wxDialog dlg(this, wxID_ANY, "Perastage Help", wxDefaultPosition,
-                 wxSize(800, 600),
-                 wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER);
+                 wxSize(800, 600), wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER);
     wxBoxSizer *sizer = new wxBoxSizer(wxVERTICAL);
-    wxHtmlWindow *htmlWin =
-        new wxHtmlWindow(&dlg, wxID_ANY, wxDefaultPosition, wxDefaultSize,
-                         wxHW_SCROLLBAR_AUTO);
+    wxHtmlWindow *htmlWin = new wxHtmlWindow(
+        &dlg, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxHW_SCROLLBAR_AUTO);
     htmlWin->SetPage(html);
     sizer->Add(htmlWin, 1, wxEXPAND | wxALL, 5);
     dlg.SetSizer(sizer);
@@ -1337,18 +1366,33 @@ void MainWindow::OnAddTruss(wxCommandEvent &WXUNUSED(event)) {
       path = fs::relative(abs, b).string();
   }
 
-  auto baseId =
-      std::chrono::steady_clock::now().time_since_epoch().count();
+  auto baseId = std::chrono::steady_clock::now().time_since_epoch().count();
+
+  bool hasDefaultLayer = false;
+  for (const auto &[uid, layer] : scene.layers) {
+    if (layer.name == DEFAULT_LAYER_NAME) {
+      hasDefaultLayer = true;
+      break;
+    }
+  }
+  if (!hasDefaultLayer) {
+    Layer layer;
+    layer.uuid = wxString::Format("layer_%lld", static_cast<long long>(baseId))
+                     .ToStdString();
+    layer.name = DEFAULT_LAYER_NAME;
+    scene.layers[layer.uuid] = layer;
+  }
+
   for (long i = 0; i < qty; ++i) {
     Truss t;
-    t.uuid = wxString::Format("uuid_%lld",
-                              static_cast<long long>(baseId + i))
+    t.uuid = wxString::Format("uuid_%lld", static_cast<long long>(baseId + i))
                  .ToStdString();
     if (qty > 1)
       t.name = defaultName + " " + std::to_string(i + 1);
     else
       t.name = defaultName;
     t.symbolFile = path;
+    t.layer = DEFAULT_LAYER_NAME;
     scene.trusses[t.uuid] = t;
   }
 
@@ -1426,12 +1470,10 @@ void MainWindow::OnAddSceneObject(wxCommandEvent &WXUNUSED(event)) {
       path = fs::relative(abs, b).string();
   }
 
-  auto baseId =
-      std::chrono::steady_clock::now().time_since_epoch().count();
+  auto baseId = std::chrono::steady_clock::now().time_since_epoch().count();
   for (long i = 0; i < qty; ++i) {
     SceneObject obj;
-    obj.uuid = wxString::Format("uuid_%lld",
-                                static_cast<long long>(baseId + i))
+    obj.uuid = wxString::Format("uuid_%lld", static_cast<long long>(baseId + i))
                    .ToStdString();
     if (qty > 1)
       obj.name = defaultName + " " + std::to_string(i + 1);
