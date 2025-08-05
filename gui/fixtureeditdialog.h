@@ -6,6 +6,7 @@
 #include <string>
 
 class FixtureTablePanel;
+class FixturePreviewPanel;
 
 class FixtureEditDialog : public wxDialog {
 public:
@@ -28,6 +29,7 @@ private:
     wxTextCtrl* chCountCtrl = nullptr;
     wxTextCtrl* modelCtrl = nullptr;
     wxTextCtrl* channelList = nullptr;
+    FixturePreviewPanel* preview = nullptr;
     bool applied = false;
 };
 

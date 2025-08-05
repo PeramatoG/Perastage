@@ -3,14 +3,16 @@
 #include "gdtfloader.h"
 #include "projectutils.h"
 #include "viewer3dpanel.h"
+#include "fixturepreviewpanel.h"
 #include <wx/filedlg.h>
 #include <wx/filename.h>
 
 FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
     : wxDialog(p, wxID_ANY, "Edit Fixture", wxDefaultPosition,
-               wxSize(450, 600)),
+               wxSize(700, 600)),
       panel(p), row(r) {
   wxBoxSizer *topSizer = new wxBoxSizer(wxVERTICAL);
+  wxBoxSizer *hSizer = new wxBoxSizer(wxHORIZONTAL);
   wxFlexGridSizer *grid = new wxFlexGridSizer(2, 5, 5);
   grid->AddGrowableCol(1, 1);
 
@@ -59,11 +61,17 @@ FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
     }
   }
 
-  topSizer->Add(grid, 0, wxALL | wxEXPAND, 10);
+  hSizer->Add(grid, 1, wxALL | wxEXPAND, 10);
 
+  wxBoxSizer *rightSizer = new wxBoxSizer(wxVERTICAL);
+  preview = new FixturePreviewPanel(this);
+  rightSizer->Add(preview, 1, wxEXPAND | wxBOTTOM, 5);
   channelList = new wxTextCtrl(this, wxID_ANY, "", wxDefaultPosition,
                                wxSize(-1, 150), wxTE_MULTILINE | wxTE_READONLY);
-  topSizer->Add(channelList, 1, wxLEFT | wxRIGHT | wxBOTTOM | wxEXPAND, 10);
+  rightSizer->Add(channelList, 1, wxEXPAND);
+  hSizer->Add(rightSizer, 1, wxTOP | wxBOTTOM | wxRIGHT | wxEXPAND, 10);
+
+  topSizer->Add(hSizer, 1, wxEXPAND);
 
   wxStdDialogButtonSizer *btns = new wxStdDialogButtonSizer();
   btns->AddButton(new wxButton(this, wxID_APPLY));
@@ -80,6 +88,10 @@ FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
 
   SetSizerAndFit(topSizer);
   UpdateChannels();
+  if (preview) {
+    wxString gdtfPath = modelCtrl ? modelCtrl->GetValue() : wxString();
+    preview->LoadFixture(std::string(gdtfPath.mb_str()));
+  }
 }
 
 void FixtureEditDialog::OnBrowse(wxCommandEvent &) {
@@ -91,6 +103,8 @@ void FixtureEditDialog::OnBrowse(wxCommandEvent &) {
     return;
   wxString path = fdlg.GetPath();
   modelCtrl->SetValue(path);
+  if (preview)
+    preview->LoadFixture(std::string(path.mb_str()));
   // update type/power/weight fields
   if (ctrls.size() > 2) {
     wxString typeName =
@@ -124,6 +138,8 @@ void FixtureEditDialog::OnModeChanged(wxCommandEvent &) { UpdateChannels(); }
 void FixtureEditDialog::UpdateChannels() {
   wxString gdtfPath = modelCtrl ? modelCtrl->GetValue() : wxString();
   wxString mode = modeChoice ? modeChoice->GetStringSelection() : wxString();
+  if (preview)
+    preview->LoadFixture(std::string(gdtfPath.mb_str()));
   if (gdtfPath.empty() || mode.empty()) {
     channelList->SetValue("");
     if (chCountCtrl)
