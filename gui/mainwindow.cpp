@@ -8,6 +8,7 @@
 #include <iterator>
 #include <map>
 #include <set>
+#include <string>
 #include <tinyxml2.h>
 #include <wx/aboutdlg.h>
 #include <wx/filefn.h>
@@ -1060,9 +1061,9 @@ void MainWindow::OnUndo(wxCommandEvent &WXUNUSED(event)) {
   ConfigManager &cfg = ConfigManager::Get();
   if (!cfg.CanUndo())
     return;
-  cfg.Undo();
+  std::string action = cfg.Undo();
   if (consolePanel)
-    consolePanel->AppendMessage("Undo");
+    consolePanel->AppendMessage(action.empty() ? "Undo" : "Undo " + action);
   if (fixturePanel) {
     fixturePanel->ReloadData();
     fixturePanel->SelectByUuid(cfg.GetSelectedFixtures());
@@ -1093,9 +1094,9 @@ void MainWindow::OnRedo(wxCommandEvent &WXUNUSED(event)) {
   ConfigManager &cfg = ConfigManager::Get();
   if (!cfg.CanRedo())
     return;
-  cfg.Redo();
+  std::string action = cfg.Redo();
   if (consolePanel)
-    consolePanel->AppendMessage("Redo");
+    consolePanel->AppendMessage(action.empty() ? "Redo" : "Redo " + action);
   if (fixturePanel) {
     fixturePanel->ReloadData();
     fixturePanel->SelectByUuid(cfg.GetSelectedFixtures());
@@ -1195,7 +1196,7 @@ void MainWindow::OnAddFixture(wxCommandEvent &WXUNUSED(event)) {
   std::string mode = dlg.GetMode();
 
   namespace fs = std::filesystem;
-  cfg.PushUndoState();
+  cfg.PushUndoState("add fixture");
   auto &sceneRef = cfg.GetScene();
   std::string base = sceneRef.basePath;
   std::string spec = gdtfPath;
@@ -1296,7 +1297,7 @@ void MainWindow::OnAddTruss(wxCommandEvent &WXUNUSED(event)) {
     return;
 
   namespace fs = std::filesystem;
-  cfg.PushUndoState();
+  cfg.PushUndoState("add truss");
   Truss t;
   t.uuid = wxString::Format(
                "uuid_%lld",
@@ -1379,7 +1380,7 @@ void MainWindow::OnAddSceneObject(wxCommandEvent &WXUNUSED(event)) {
     return;
 
   namespace fs = std::filesystem;
-  cfg.PushUndoState();
+  cfg.PushUndoState("add scene object");
   SceneObject obj;
   obj.uuid =
       wxString::Format(

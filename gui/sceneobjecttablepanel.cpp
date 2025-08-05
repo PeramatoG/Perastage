@@ -273,7 +273,7 @@ void SceneObjectTablePanel::OnSelectionChanged(wxDataViewEvent& evt)
     }
     ConfigManager& cfg = ConfigManager::Get();
     if (uuids != cfg.GetSelectedSceneObjects()) {
-        cfg.PushUndoState();
+        cfg.PushUndoState("scene object selection");
         cfg.SetSelectedSceneObjects(uuids);
     }
     if (Viewer3DPanel::Instance())
@@ -284,7 +284,7 @@ void SceneObjectTablePanel::OnSelectionChanged(wxDataViewEvent& evt)
 void SceneObjectTablePanel::UpdateSceneData()
 {
     ConfigManager& cfg = ConfigManager::Get();
-    cfg.PushUndoState();
+    cfg.PushUndoState("edit scene object");
     auto& scene = cfg.GetScene();
     size_t count = std::min((size_t)table->GetItemCount(), rowUuids.size());
     for (size_t i = 0; i < count; ++i)
@@ -366,7 +366,7 @@ void SceneObjectTablePanel::DeleteSelected()
         return;
 
     ConfigManager& cfg = ConfigManager::Get();
-    cfg.PushUndoState();
+    cfg.PushUndoState("delete scene object");
 
     std::vector<int> rows;
     rows.reserve(selections.size());

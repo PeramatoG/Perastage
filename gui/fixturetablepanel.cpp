@@ -697,7 +697,7 @@ void FixtureTablePanel::DeleteSelected() {
     return;
 
   ConfigManager &cfg = ConfigManager::Get();
-  cfg.PushUndoState();
+  cfg.PushUndoState("delete fixture");
 
   std::vector<int> rows;
   rows.reserve(selections.size());
@@ -939,7 +939,7 @@ void FixtureTablePanel::OnSelectionChanged(wxDataViewEvent &evt) {
   selectionOrder.swap(newOrder);
   ConfigManager &cfg = ConfigManager::Get();
   if (uuids != cfg.GetSelectedFixtures()) {
-    cfg.PushUndoState();
+    cfg.PushUndoState("fixture selection");
     cfg.SetSelectedFixtures(uuids);
   }
   if (Viewer3DPanel::Instance())
@@ -975,7 +975,7 @@ void FixtureTablePanel::PropagateTypeValues(
 
 void FixtureTablePanel::UpdateSceneData() {
   ConfigManager &cfg = ConfigManager::Get();
-  cfg.PushUndoState();
+  cfg.PushUndoState("edit fixture");
   auto &scene = cfg.GetScene();
   size_t count = std::min((size_t)table->GetItemCount(), rowUuids.size());
   for (size_t i = 0; i < count; ++i) {
