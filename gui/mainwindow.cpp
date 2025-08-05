@@ -21,6 +21,7 @@
 #include <wx/textctrl.h>
 #include <wx/wfstream.h>
 #include <wx/zipstrm.h>
+#include <wx/log.h>
 
 #include "addfixturedialog.h"
 #include "configmanager.h"
@@ -574,9 +575,22 @@ void MainWindow::OnExportFixture(wxCommandEvent &WXUNUSED(event)) {
     return full.string();
   };
   auto extractZip = [](const std::string &zipPath, const std::string &destDir) {
-    wxFileInputStream input(zipPath);
-    if (!input.IsOk())
+    if (!fs::exists(zipPath)) {
+      if (ConsolePanel::Instance()) {
+        wxString msg = wxString::Format("GDTF: cannot open %s", wxString::FromUTF8(zipPath));
+        ConsolePanel::Instance()->AppendMessage(msg);
+      }
       return false;
+    }
+    wxLogNull logNo;
+    wxFileInputStream input(zipPath);
+    if (!input.IsOk()) {
+      if (ConsolePanel::Instance()) {
+        wxString msg = wxString::Format("GDTF: cannot open %s", wxString::FromUTF8(zipPath));
+        ConsolePanel::Instance()->AppendMessage(msg);
+      }
+      return false;
+    }
     wxZipInputStream zipStream(input);
     std::unique_ptr<wxZipEntry> entry;
     while ((entry.reset(zipStream.GetNextEntry())), entry) {

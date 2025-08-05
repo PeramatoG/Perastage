@@ -88,6 +88,14 @@ static std::string CreateTempDir()
 
 static bool ExtractZip(const std::string& zipPath, const std::string& destDir)
 {
+    if (!fs::exists(zipPath)) {
+        if (ConsolePanel::Instance()) {
+            wxString msg = wxString::Format("GDTF: cannot open %s", wxString::FromUTF8(zipPath));
+            ConsolePanel::Instance()->AppendMessage(msg);
+        }
+        return false;
+    }
+    wxLogNull logNo;
     wxFileInputStream input(zipPath);
     if (!input.IsOk()) {
         if (ConsolePanel::Instance()) {
