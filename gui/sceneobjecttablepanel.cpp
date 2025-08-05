@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <wx/settings.h>
 #include <wx/notebook.h>
+#include <wx/choicdlg.h>
 
 static SceneObjectTablePanel* s_instance = nullptr;
 
@@ -143,6 +144,33 @@ void SceneObjectTablePanel::OnContextMenu(wxDataViewEvent& event)
 
     wxVariant current;
     table->GetValue(current, row, col);
+    
+    if (col == 1)
+    {
+        auto layers = ConfigManager::Get().GetLayerNames();
+        wxArrayString choices;
+        for (const auto& n : layers)
+            choices.push_back(wxString::FromUTF8(n));
+        wxSingleChoiceDialog sdlg(this, "Select layer", "Layer", choices);
+        if (sdlg.ShowModal() != wxID_OK)
+            return;
+        wxString sel = sdlg.GetStringSelection();
+        wxString val = sel == wxString::FromUTF8(DEFAULT_LAYER_NAME) ? wxString() : sel;
+        for (const auto& itSel : selections)
+        {
+            int r = table->ItemToRow(itSel);
+            if (r != wxNOT_FOUND)
+                table->SetValue(wxVariant(val), r, col);
+        }
+        ResyncRows(oldOrder, selectedUuids);
+        UpdateSceneData();
+        if (Viewer3DPanel::Instance())
+        {
+            Viewer3DPanel::Instance()->UpdateScene();
+            Viewer3DPanel::Instance()->Refresh();
+        }
+        return;
+    }
 
     wxTextEntryDialog dlg(this, "Edit value:", columnLabels[col], current.GetString());
     if (dlg.ShowModal() != wxID_OK)
@@ -337,6 +365,12 @@ void SceneObjectTablePanel::UpdateSceneData()
             continue;
 
         wxVariant v;
+        table->GetValue(v, i, 1);
+        std::string layerStr = std::string(v.GetString().mb_str());
+        if (layerStr.empty())
+            it->second.layer.clear();
+        else
+            it->second.layer = layerStr;
         double x=0, y=0, z=0;
         table->GetValue(v, i, 3); v.GetString().ToDouble(&x);
         table->GetValue(v, i, 4); v.GetString().ToDouble(&y);

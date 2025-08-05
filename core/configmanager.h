@@ -72,6 +72,9 @@ public:
     void SetHiddenLayers(const std::unordered_set<std::string>& layers);
     bool IsLayerVisible(const std::string& layer) const;
 
+    // Retrieve all existing layer names
+    std::vector<std::string> GetLayerNames() const;
+
     // Currently selected layer name
     const std::string& GetCurrentLayer() const;
     void SetCurrentLayer(const std::string& name);

@@ -4,6 +4,7 @@
 #include <sstream>
 #include <filesystem>
 #include <chrono>
+#include <set>
 #include "mvrexporter.h"
 #include "mvrimporter.h"
 #include <wx/wfstream.h>
@@ -217,6 +218,22 @@ bool ConfigManager::IsLayerVisible(const std::string& layer) const
     std::string name = layer.empty() ? DEFAULT_LAYER_NAME : layer;
     auto hidden = GetHiddenLayers();
     return hidden.find(name) == hidden.end();
+}
+
+std::vector<std::string> ConfigManager::GetLayerNames() const
+{
+    std::set<std::string> names;
+    for (const auto& [uuid, layer] : scene.layers)
+        names.insert(layer.name);
+    auto collect = [&](const std::string& ln) {
+        if (!ln.empty())
+            names.insert(ln);
+    };
+    for (const auto& [u, f] : scene.fixtures) collect(f.layer);
+    for (const auto& [u, t] : scene.trusses) collect(t.layer);
+    for (const auto& [u, o] : scene.sceneObjects) collect(o.layer);
+    names.insert(DEFAULT_LAYER_NAME);
+    return {names.begin(), names.end()};
 }
 
 const std::string& ConfigManager::GetCurrentLayer() const

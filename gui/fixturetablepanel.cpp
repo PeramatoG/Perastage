@@ -368,6 +368,33 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
     return;
   }
 
+  // Layer column uses existing layer list
+  if (col == 3) {
+    auto layers = ConfigManager::Get().GetLayerNames();
+    wxArrayString choices;
+    for (const auto& n : layers)
+        choices.push_back(wxString::FromUTF8(n));
+    wxSingleChoiceDialog dlg(this, "Select layer", "Layer", choices);
+    if (dlg.ShowModal() != wxID_OK)
+        return;
+    wxString sel = dlg.GetStringSelection();
+    wxString val = sel == wxString::FromUTF8(DEFAULT_LAYER_NAME) ? wxString() : sel;
+    for (const auto& itSel : selections) {
+        int r = table->ItemToRow(itSel);
+        if (r != wxNOT_FOUND)
+            table->SetValue(wxVariant(val), r, col);
+    }
+    PropagateTypeValues(selections, col);
+    ResyncRows(oldOrder, selectedUuids);
+    UpdateSceneData();
+    HighlightDuplicateFixtureIds();
+    if (Viewer3DPanel::Instance()) {
+      Viewer3DPanel::Instance()->UpdateScene();
+      Viewer3DPanel::Instance()->Refresh();
+    }
+    return;
+  }
+
   // Channel column edits both universe and channel
   if (col == 6) {
     int r = table->ItemToRow(item);
@@ -939,6 +966,13 @@ void FixtureTablePanel::UpdateSceneData() {
     table->GetValue(v, i, 0);
     long fid = v.GetLong();
     it->second.fixtureId = static_cast<int>(fid);
+
+    table->GetValue(v, i, 3);
+    std::string layerStr = std::string(v.GetString().mb_str());
+    if (layerStr.empty())
+      it->second.layer.clear();
+    else
+      it->second.layer = layerStr;
 
     table->GetValue(v, i, 5);
     long uni = v.GetLong();

@@ -8,6 +8,7 @@
 #include <unordered_map>
 #include <wx/settings.h>
 #include <wx/notebook.h>
+#include <wx/choicdlg.h>
 
 static TrussTablePanel* s_instance = nullptr;
 
@@ -163,6 +164,34 @@ void TrussTablePanel::OnContextMenu(wxDataViewEvent& event)
 
     wxVariant current;
     table->GetValue(current, row, col);
+
+    // Layer column uses a dropdown of existing layers
+    if (col == 1)
+    {
+        auto layers = ConfigManager::Get().GetLayerNames();
+        wxArrayString choices;
+        for (const auto& n : layers)
+            choices.push_back(wxString::FromUTF8(n));
+        wxSingleChoiceDialog sdlg(this, "Select layer", "Layer", choices);
+        if (sdlg.ShowModal() != wxID_OK)
+            return;
+        wxString sel = sdlg.GetStringSelection();
+        wxString val = sel == wxString::FromUTF8(DEFAULT_LAYER_NAME) ? wxString() : sel;
+        for (const auto& itSel : selections)
+        {
+            int r = table->ItemToRow(itSel);
+            if (r != wxNOT_FOUND)
+                table->SetValue(wxVariant(val), r, col);
+        }
+        ResyncRows(oldOrder, selectedUuids);
+        UpdateSceneData();
+        if (Viewer3DPanel::Instance())
+        {
+            Viewer3DPanel::Instance()->UpdateScene();
+            Viewer3DPanel::Instance()->Refresh();
+        }
+        return;
+    }
 
     wxTextEntryDialog dlg(this, "Edit value:", columnLabels[col], current.GetString());
     if (dlg.ShowModal() != wxID_OK)
@@ -372,7 +401,11 @@ void TrussTablePanel::UpdateSceneData()
         table->GetValue(v, i, 0);
         it->second.name = std::string(v.GetString().mb_str());
         table->GetValue(v, i, 1);
-        it->second.layer = std::string(v.GetString().mb_str());
+        std::string layerStr = std::string(v.GetString().mb_str());
+        if (layerStr.empty())
+            it->second.layer.clear();
+        else
+            it->second.layer = layerStr;
         table->GetValue(v, i, 2);
         it->second.symbolFile = std::string(v.GetString().mb_str());
         table->GetValue(v, i, 3);
