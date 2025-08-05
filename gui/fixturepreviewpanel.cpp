@@ -10,6 +10,9 @@
 #include <wx/wx.h>
 #include "fixturepreviewpanel.h"
 #include <cfloat>
+#include <array>
+#include <algorithm>
+#include <cmath>
 
 static constexpr float RENDER_SCALE = 0.001f;
 

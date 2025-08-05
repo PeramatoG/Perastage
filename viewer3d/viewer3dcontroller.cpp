@@ -10,7 +10,8 @@
 #include "configmanager.h"
 #include "loader3ds.h"
 #include "loaderglb.h"
-#include "types.h"
+// Include shared Matrix type used throughout models
+#include "../models/types.h"
 #include "consolepanel.h"
 #include <wx/wx.h>
 #include <GL/glew.h>
