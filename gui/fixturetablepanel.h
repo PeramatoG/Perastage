@@ -7,6 +7,8 @@
 #include <string>
 #include "colorstore.h"
 
+class FixtureEditDialog; // forward declaration
+
 class FixtureTablePanel : public wxPanel
 {
 public:
@@ -25,6 +27,8 @@ public:
     static void SetInstance(FixtureTablePanel* panel);
 
 private:
+    friend class FixtureEditDialog; // allow dialog to access internals
+
     ColorfulDataViewListStore store;
     wxDataViewListCtrl* table;
     std::vector<wxString> columnLabels;

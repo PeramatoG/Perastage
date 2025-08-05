@@ -1,6 +1,7 @@
 #include "fixturetablepanel.h"
 #include "addressdialog.h"
 #include "configmanager.h"
+#include "fixtureeditdialog.h"
 #include "gdtfloader.h"
 #include "matrixutils.h"
 #include "patchmanager.h"
@@ -765,156 +766,16 @@ void FixtureTablePanel::DeleteSelected() {
 
 void FixtureTablePanel::OnItemActivated(wxDataViewEvent &event) {
   wxDataViewItem item = event.GetItem();
-  int col = event.GetColumn();
-  if (!item.IsOk() || col < 0) {
+  if (!item.IsOk()) {
     event.Skip();
     return;
   }
-
-  wxDataViewItemArray selections;
-  table->GetSelections(selections);
-  if (selections.empty())
-    selections.push_back(item);
-
-  std::vector<std::string> selectedUuids;
-  for (const auto &itSel : selections) {
-    int r = table->ItemToRow(itSel);
-    if (r != wxNOT_FOUND && (size_t)r < rowUuids.size())
-      selectedUuids.push_back(rowUuids[r]);
-  }
-  std::vector<std::string> oldOrder = rowUuids;
-
-  // Reuse same logic as context menu for Model file and Mode columns
-  if (col == 9) {
-    wxString fixDir =
-        wxString::FromUTF8(ProjectUtils::GetDefaultLibraryPath("fixtures"));
-    wxFileDialog fdlg(this, "Select GDTF file", fixDir, wxEmptyString, "*.gdtf",
-                      wxFD_OPEN | wxFD_FILE_MUST_EXIST);
-    if (fdlg.ShowModal() == wxID_OK) {
-      wxString path = fdlg.GetPath();
-      float w = 0.0f, p = 0.0f;
-      GetGdtfProperties(std::string(path.mb_str()), w, p);
-      wxString typeName =
-          wxString::FromUTF8(GetGdtfFixtureName(std::string(path.mb_str())));
-      if (typeName.empty())
-        typeName = fdlg.GetFilename();
-      wxString fileName = fdlg.GetFilename();
-
-      for (const auto &itSel : selections) {
-        int r = table->ItemToRow(itSel);
-        if (r == wxNOT_FOUND)
-          continue;
-
-        if ((size_t)r >= gdtfPaths.size())
-          gdtfPaths.resize(table->GetItemCount());
-
-        gdtfPaths[r] = path;
-        table->SetValue(wxVariant(fileName), r, 9);
-        table->SetValue(wxVariant(typeName), r, 2);
-
-        wxString pstr = wxString::Format("%.1f", p);
-        wxString wstr = wxString::Format("%.2f", w);
-        table->SetValue(wxVariant(pstr), r, 16);
-        table->SetValue(wxVariant(wstr), r, 17);
-      }
-
-      PropagateTypeValues(selections, 16);
-      PropagateTypeValues(selections, 17);
-
-      ApplyModeForGdtf(path);
-    }
-    ResyncRows(oldOrder, selectedUuids);
-    UpdateSceneData();
-    HighlightDuplicateFixtureIds();
-    if (Viewer3DPanel::Instance()) {
-      Viewer3DPanel::Instance()->UpdateScene();
-      Viewer3DPanel::Instance()->Refresh();
-    }
+  int r = table->ItemToRow(item);
+  if (r == wxNOT_FOUND)
     return;
-  }
 
-  if (col == 7) {
-    int r = table->ItemToRow(item);
-    if (r == wxNOT_FOUND) {
-      event.Skip();
-      return;
-    }
-
-    wxString gdtfPath;
-    if ((size_t)r < gdtfPaths.size())
-      gdtfPath = gdtfPaths[r];
-
-    std::vector<std::string> modes = GetGdtfModes(gdtfPath.ToStdString());
-    if (modes.size() <= 1) {
-      event.Skip();
-      return;
-    }
-
-    wxArrayString choices;
-    for (const auto &m : modes)
-      choices.push_back(wxString::FromUTF8(m));
-
-    wxSingleChoiceDialog dlg(this, "Select DMX mode", "DMX Mode", choices);
-    if (dlg.ShowModal() != wxID_OK) {
-      event.Skip();
-      return;
-    }
-
-    wxString sel = dlg.GetStringSelection();
-
-    for (const auto &itSel : selections) {
-      int sr = table->ItemToRow(itSel);
-      if (sr == wxNOT_FOUND)
-        continue;
-      if ((size_t)sr >= gdtfPaths.size())
-        continue;
-      if (gdtfPaths[sr] != gdtfPath)
-        continue;
-
-      table->SetValue(wxVariant(sel), sr, col);
-
-      int chCount =
-          GetGdtfModeChannelCount(gdtfPath.ToStdString(), sel.ToStdString());
-      wxString chStr =
-          chCount >= 0 ? wxString::Format("%d", chCount) : wxString();
-      table->SetValue(wxVariant(chStr), sr, 8);
-    }
-
-    ResyncRows(oldOrder, selectedUuids);
-    UpdateSceneData();
-    HighlightDuplicateFixtureIds();
-    if (Viewer3DPanel::Instance()) {
-      Viewer3DPanel::Instance()->UpdateScene();
-      Viewer3DPanel::Instance()->Refresh();
-    }
-    return;
-  }
-  {
-    int r = table->ItemToRow(item);
-    if (r != wxNOT_FOUND && (size_t)r < gdtfPaths.size()) {
-      wxString gdtfPath = gdtfPaths[r];
-      wxVariant modeVar;
-      table->GetValue(modeVar, r, 7);
-      wxString modeStr = modeVar.GetString();
-      if (!gdtfPath.empty() && !modeStr.empty()) {
-        auto channels =
-            GetGdtfModeChannels(gdtfPath.ToStdString(), modeStr.ToStdString());
-        if (!channels.empty()) {
-          wxString msg;
-          for (const auto &ch : channels) {
-            wxString func = wxString::FromUTF8(ch.function);
-            if (func.empty())
-              func = "-";
-            msg += wxString::Format("%d: %s\n", ch.channel, func);
-          }
-          wxMessageBox(msg, "DMX Channels", wxOK | wxICON_INFORMATION, this);
-          return;
-        }
-      }
-    }
-  }
-
-  event.Skip();
+  FixtureEditDialog dlg(this, r);
+  dlg.ShowModal();
 }
 
 void FixtureTablePanel::OnLeftDown(wxMouseEvent &evt) {
