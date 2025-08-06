@@ -72,6 +72,22 @@ bool MvrImporter::ImportFromFile(const std::string& filePath)
 
     fs::path sceneFile = fs::u8path(tempDir) / "GeneralSceneDescription.xml";
     if (!fs::exists(sceneFile)) {
+        // Some MVR packages may store the file with a different case.
+        std::string target = "generalscenedescription.xml";
+        for (const auto& entry : fs::directory_iterator(fs::u8path(tempDir))) {
+            if (entry.is_regular_file()) {
+                std::string name = entry.path().filename().string();
+                std::string lower = name;
+                std::transform(lower.begin(), lower.end(), lower.begin(),
+                               [](unsigned char c) { return std::tolower(c); });
+                if (lower == target) {
+                    sceneFile = entry.path();
+                    break;
+                }
+            }
+        }
+    }
+    if (!fs::exists(sceneFile)) {
         std::cerr << "Missing GeneralSceneDescription.xml in MVR.\n";
         return false;
     }
