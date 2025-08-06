@@ -404,7 +404,8 @@ void MainWindow::OnImportMVR(wxCommandEvent &event) {
     return;
 
   wxString filePath = openFileDialog.GetPath();
-  if (!MvrImporter::ImportAndRegister(filePath.ToStdString())) {
+  std::string pathUtf8 = filePath.ToUTF8().data();
+  if (!MvrImporter::ImportAndRegister(pathUtf8)) {
     wxMessageBox("Failed to import MVR file.", "Error", wxICON_ERROR);
     if (consolePanel)
       consolePanel->AppendMessage("Failed to import " + filePath);
@@ -1271,8 +1272,7 @@ void MainWindow::OnAddFixture(wxCommandEvent &WXUNUSED(event)) {
       spec = fs::relative(abs, b).string();
   }
 
-  auto baseId =
-      std::chrono::steady_clock::now().time_since_epoch().count();
+  auto baseId = std::chrono::steady_clock::now().time_since_epoch().count();
   std::string layerName = cfg.GetCurrentLayer();
   bool hasLayer = false;
   for (const auto &[uid, layer] : sceneRef.layers) {
@@ -1283,9 +1283,8 @@ void MainWindow::OnAddFixture(wxCommandEvent &WXUNUSED(event)) {
   }
   if (!hasLayer) {
     Layer layer;
-    layer.uuid =
-        wxString::Format("layer_%lld", static_cast<long long>(baseId))
-            .ToStdString();
+    layer.uuid = wxString::Format("layer_%lld", static_cast<long long>(baseId))
+                     .ToStdString();
     layer.name = layerName;
     sceneRef.layers[layer.uuid] = layer;
   }
@@ -1299,8 +1298,7 @@ void MainWindow::OnAddFixture(wxCommandEvent &WXUNUSED(event)) {
 
   for (int i = 0; i < count; ++i) {
     Fixture f;
-    f.uuid = wxString::Format("uuid_%lld_%d",
-                              static_cast<long long>(baseId), i)
+    f.uuid = wxString::Format("uuid_%lld_%d", static_cast<long long>(baseId), i)
                  .ToStdString();
     f.instanceName = name;
     f.typeName = defaultName;
@@ -1501,9 +1499,8 @@ void MainWindow::OnAddSceneObject(wxCommandEvent &WXUNUSED(event)) {
   }
   if (!hasLayer) {
     Layer layer;
-    layer.uuid =
-        wxString::Format("layer_%lld", static_cast<long long>(baseId))
-            .ToStdString();
+    layer.uuid = wxString::Format("layer_%lld", static_cast<long long>(baseId))
+                     .ToStdString();
     layer.name = layerName;
     scene.layers[layer.uuid] = layer;
   }
