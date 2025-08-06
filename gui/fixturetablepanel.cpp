@@ -3,6 +3,7 @@
 #include "configmanager.h"
 #include "fixtureeditdialog.h"
 #include "gdtfloader.h"
+#include "gdtfdictionary.h"
 #include "matrixutils.h"
 #include "patchmanager.h"
 #include "projectutils.h"
@@ -1011,6 +1012,9 @@ void FixtureTablePanel::UpdateSceneData() {
     double wt = 0.0;
     v.GetString().ToDouble(&wt);
     it->second.weightKg = static_cast<float>(wt);
+
+    // Update dictionary with chosen GDTF for this type
+    GdtfDictionary::Update(it->second.typeName, it->second.gdtfSpec);
   }
 
   HighlightDuplicateFixtureIds();
