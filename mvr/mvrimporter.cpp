@@ -27,6 +27,13 @@ class wxZipStreamLink;
 
 namespace fs = std::filesystem;
 
+// Helper to convert between std::u8string and std::string without
+// losing the underlying UTF-8 byte sequence.
+static std::string ToString(const std::u8string& s)
+{
+    return std::string(s.begin(), s.end());
+}
+
 static std::string Trim(const std::string& s)
 {
     const char* ws = " \t\r\n";
@@ -50,13 +57,15 @@ bool MvrImporter::ImportFromFile(const std::string& filePath)
     }
 
     if (ConsolePanel::Instance()) {
+        std::string pathUtf8 = ToString(path.u8string());
         wxString msg = wxString::Format("Importing MVR %s",
-                                        wxString::FromUTF8(path.u8string()));
+                                        wxString::FromUTF8(pathUtf8.c_str()));
         ConsolePanel::Instance()->AppendMessage(msg);
     }
 
     std::string tempDir = CreateTemporaryDirectory();
-    if (!ExtractMvrZip(path.u8string(), tempDir)) {
+    std::string mvrPath = ToString(path.u8string());
+    if (!ExtractMvrZip(mvrPath, tempDir)) {
         std::cerr << "Failed to extract MVR file.\n";
         return false;
     }
@@ -67,7 +76,8 @@ bool MvrImporter::ImportFromFile(const std::string& filePath)
         return false;
     }
 
-    return ParseSceneXml(sceneFile.u8string());
+    std::string scenePath = ToString(sceneFile.u8string());
+    return ParseSceneXml(scenePath);
 }
 
 std::string MvrImporter::CreateTemporaryDirectory()
@@ -99,17 +109,19 @@ bool MvrImporter::ExtractMvrZip(const std::string& mvrPath, const std::string& d
         fs::path fullPath = fs::u8path(destDir) / fs::u8path(filename);
 
         if (entry->IsDir()) {
-            wxFileName::Mkdir(wxString::FromUTF8(fullPath.u8string()),
+            std::string dirUtf8 = ToString(fullPath.u8string());
+            wxFileName::Mkdir(wxString::FromUTF8(dirUtf8.c_str()),
                               wxS_DIR_DEFAULT, wxPATH_MKDIR_FULL);
             continue;
         }
 
-        wxFileName::Mkdir(wxString::FromUTF8(fullPath.parent_path().u8string()),
+        std::string parentUtf8 = ToString(fullPath.parent_path().u8string());
+        wxFileName::Mkdir(wxString::FromUTF8(parentUtf8.c_str()),
                           wxS_DIR_DEFAULT, wxPATH_MKDIR_FULL);
 
         std::ofstream output(fullPath, std::ios::binary);
         if (!output.is_open()) {
-            std::cerr << "Cannot create file: " << fullPath.u8string() << "\n";
+            std::cerr << "Cannot create file: " << ToString(fullPath.u8string()) << "\n";
             return false;
         }
 
@@ -139,7 +151,7 @@ bool MvrImporter::ParseSceneXml(const std::string& sceneXmlPath)
     }
 
     if (ConsolePanel::Instance()) {
-        wxString msg = wxString::Format("Parsing scene XML %s", wxString::FromUTF8(sceneXmlPath));
+        wxString msg = wxString::Format("Parsing scene XML %s", wxString::FromUTF8(sceneXmlPath.c_str()));
         ConsolePanel::Instance()->AppendMessage(msg);
     }
 
@@ -151,7 +163,7 @@ bool MvrImporter::ParseSceneXml(const std::string& sceneXmlPath)
 
     ConfigManager::Get().Reset();
     auto& scene = ConfigManager::Get().GetScene();
-    scene.basePath = fs::u8path(sceneXmlPath).parent_path().u8string();
+    scene.basePath = ToString(fs::u8path(sceneXmlPath).parent_path().u8string());
 
     root->QueryIntAttribute("verMajor", &scene.versionMajor);
     root->QueryIntAttribute("verMinor", &scene.versionMinor);
@@ -231,7 +243,8 @@ bool MvrImporter::ParseSceneXml(const std::string& sceneXmlPath)
                 fs::path p = scene.basePath.empty()
                                ? fs::u8path(fixture.gdtfSpec)
                                : fs::u8path(scene.basePath) / fs::u8path(fixture.gdtfSpec);
-                fixture.typeName = GetGdtfFixtureName(p.u8string());
+                std::string gdtfPath = ToString(p.u8string());
+                fixture.typeName = GetGdtfFixtureName(gdtfPath);
             }
             auto posIt = scene.positions.find(fixture.position);
             if (posIt != scene.positions.end()) fixture.positionName = posIt->second;
