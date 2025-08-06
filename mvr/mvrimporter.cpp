@@ -1,6 +1,7 @@
 #include "mvrimporter.h"
 #include "configmanager.h"
 #include "gdtfloader.h"
+#include "gdtfdictionary.h"
 #include "matrixutils.h"
 #include "sceneobject.h"
 
@@ -15,6 +16,7 @@
 #include <iostream>
 #include <random>
 #include <string>
+#include <unordered_map>
 
 // TinyXML2
 #include <tinyxml2.h>
@@ -22,6 +24,7 @@
 // wxWidgets zip support
 #include <wx/wfstream.h>
 #include <wx/wx.h>
+#include <wx/choicdlg.h>
 class wxZipStreamLink;
 #include <wx/filename.h>
 #include <wx/zipstrm.h>
@@ -252,6 +255,9 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath) {
       out = std::atoi(n->GetText());
   };
 
+  // Track user's selection for types encountered during import
+  std::unordered_map<std::string, std::string> chosenGdtf;
+
   // ---- Parse AUXData for Symdefs and Positions ----
   if (tinyxml2::XMLElement *auxNode = sceneNode->FirstChildElement("AUXData")) {
     for (tinyxml2::XMLElement *pos = auxNode->FirstChildElement("Position");
@@ -318,6 +324,32 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath) {
                   : fs::u8path(scene.basePath) / fs::u8path(fixture.gdtfSpec);
           std::string gdtfPath = ToString(p.u8string());
           fixture.typeName = GetGdtfFixtureName(gdtfPath);
+
+          if (!fixture.typeName.empty()) {
+            auto dictPath = GdtfDictionary::Get(fixture.typeName);
+            if (dictPath) {
+              auto itChoice = chosenGdtf.find(fixture.typeName);
+              std::string chosen;
+              if (itChoice == chosenGdtf.end()) {
+                wxArrayString opts;
+                opts.Add(wxString::FromUTF8(gdtfPath));
+                opts.Add(wxString::FromUTF8(*dictPath));
+                wxSingleChoiceDialog dlg(nullptr,
+                    wxString::Format("Seleccione GDTF para type %s", wxString::FromUTF8(fixture.typeName)),
+                    "GDTF", opts);
+                int res = dlg.ShowModal() == wxID_OK ? dlg.GetSelection() : 0;
+                chosen = (res == 1) ? *dictPath : gdtfPath;
+                chosenGdtf[fixture.typeName] = chosen;
+              } else {
+                chosen = itChoice->second;
+              }
+              if (chosen != gdtfPath)
+                fixture.gdtfSpec = chosen;
+              gdtfPath = chosen;
+            }
+            GdtfDictionary::Update(fixture.typeName, gdtfPath);
+            fixture.gdtfSpec = gdtfPath;
+          }
         }
         auto posIt = scene.positions.find(fixture.position);
         if (posIt != scene.positions.end())
