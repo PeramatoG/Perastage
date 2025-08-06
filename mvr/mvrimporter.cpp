@@ -184,6 +184,18 @@ bool MvrImporter::ParseSceneXml(const std::string& sceneXmlPath)
     root->QueryIntAttribute("verMajor", &scene.versionMajor);
     root->QueryIntAttribute("verMinor", &scene.versionMinor);
 
+    // Warn if the MVR file uses a newer version than we officially support.
+    // The importer still attempts to parse the file so that documents with a
+    // higher minor version (e.g. 1.5) remain usable.
+    constexpr int SUPPORTED_MAJOR = 1;
+    constexpr int SUPPORTED_MINOR = 6;
+    if (scene.versionMajor != SUPPORTED_MAJOR ||
+        scene.versionMinor > SUPPORTED_MINOR) {
+        std::cerr << "Warning: unsupported MVR version "
+                  << scene.versionMajor << '.' << scene.versionMinor
+                  << ". Results may be incomplete.\n";
+    }
+
     const char* provider = root->Attribute("provider");
     const char* version = root->Attribute("providerVersion");
 
