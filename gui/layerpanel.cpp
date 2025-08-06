@@ -68,7 +68,16 @@ void LayerPanel::ReloadLayers()
     std::string current = ConfigManager::Get().GetCurrentLayer();
     int idx = 0;
     int sel = -1;
+    if (names.find(DEFAULT_LAYER_NAME) != names.end()) {
+        list->Append(wxString::FromUTF8(DEFAULT_LAYER_NAME));
+        list->Check(idx, hidden.find(DEFAULT_LAYER_NAME) == hidden.end());
+        if (current == DEFAULT_LAYER_NAME)
+            sel = idx;
+        ++idx;
+    }
     for (const auto& n : names) {
+        if (n == DEFAULT_LAYER_NAME)
+            continue;
         list->Append(wxString::FromUTF8(n));
         list->Check(idx, hidden.find(n) == hidden.end());
         if (n == current)
