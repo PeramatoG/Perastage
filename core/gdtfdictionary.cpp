@@ -3,6 +3,8 @@
 #include "../external/json.hpp"
 #include <filesystem>
 #include <fstream>
+#include <algorithm>
+#include <cctype>
 
 namespace fs = std::filesystem;
 
@@ -61,18 +63,40 @@ void Save(const std::unordered_map<std::string, std::string>& dict)
     out << j.dump(4);
 }
 
+static std::string Trim(const std::string& s)
+{
+    const char* ws = " \t\r\n";
+    size_t start = s.find_first_not_of(ws);
+    if (start == std::string::npos)
+        return {};
+    size_t end = s.find_last_not_of(ws);
+    return s.substr(start, end - start + 1);
+}
+
+static std::string ToLower(const std::string& s)
+{
+    std::string out = s;
+    std::transform(out.begin(), out.end(), out.begin(),
+                   [](unsigned char c) { return std::tolower(c); });
+    return out;
+}
+
 std::optional<std::string> Get(const std::string& type)
 {
     auto dict = Load();
-    auto it = dict.find(type);
-    if (it == dict.end())
-        return std::nullopt;
-    if (!fs::exists(it->second)) {
-        dict.erase(it);
-        Save(dict);
-        return std::nullopt;
+    std::string target = ToLower(Trim(type));
+    for (auto it = dict.begin(); it != dict.end(); ++it) {
+        std::string key = ToLower(Trim(it->first));
+        if (key != target)
+            continue;
+        if (!fs::exists(it->second)) {
+            dict.erase(it);
+            Save(dict);
+            return std::nullopt;
+        }
+        return it->second;
     }
-    return it->second;
+    return std::nullopt;
 }
 
 void Update(const std::string& type, const std::string& gdtfPath)
