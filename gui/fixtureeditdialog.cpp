@@ -1,9 +1,10 @@
 #include "fixtureeditdialog.h"
+#include "fixturepreviewpanel.h"
 #include "fixturetablepanel.h"
+#include "gdtfdictionary.h"
 #include "gdtfloader.h"
 #include "projectutils.h"
 #include "viewer3dpanel.h"
-#include "fixturepreviewpanel.h"
 #include <wx/filedlg.h>
 #include <wx/filename.h>
 
@@ -206,6 +207,15 @@ void FixtureEditDialog::ApplyChanges() {
           table->SetValue(wxVariant(txt), row, i);
         }
       }
+    }
+  }
+  if (!gdtfPath.empty()) {
+    wxTextCtrl *typeCtrl = nullptr;
+    if (ctrls.size() > 2)
+      typeCtrl = wxDynamicCast(ctrls[2], wxTextCtrl);
+    if (typeCtrl) {
+      GdtfDictionary::Update(std::string(typeCtrl->GetValue().mb_str()),
+                             std::string(gdtfPath.mb_str()));
     }
   }
   panel->ApplyModeForGdtf(gdtfPath);
