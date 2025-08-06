@@ -295,15 +295,18 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
         wxString wstr = wxString::Format("%.2f", w);
         table->SetValue(wxVariant(pstr), r, 16);
         table->SetValue(wxVariant(wstr), r, 17);
+
+        // Update dictionary with the final type name for this row
+        wxVariant typeVal;
+        table->GetValue(typeVal, r, 2);
+        GdtfDictionary::Update(std::string(typeVal.GetString().mb_str()),
+                               std::string(path.mb_str()));
       }
 
       PropagateTypeValues(selections, 16);
       PropagateTypeValues(selections, 17);
 
       ApplyModeForGdtf(path);
-
-      GdtfDictionary::Update(std::string(typeName.mb_str()),
-                             std::string(path.mb_str()));
     }
     ResyncRows(oldOrder, selectedUuids);
     UpdateSceneData();
