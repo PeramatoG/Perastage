@@ -13,6 +13,7 @@
 #include <functional>
 #include <algorithm>
 #include <cctype>
+#include <string>
 #include "consolepanel.h"
 
 // TinyXML2
@@ -44,6 +45,14 @@ static std::string Trim(const std::string& s)
     return s.substr(start, end - start + 1);
 }
 
+// Helper to log errors both to stderr and the application's console panel.
+static void LogMessage(const std::string& msg)
+{
+    std::cerr << msg << '\n';
+    if (ConsolePanel::Instance())
+        ConsolePanel::Instance()->AppendMessage(wxString::FromUTF8(msg.c_str()));
+}
+
 bool MvrImporter::ImportFromFile(const std::string& filePath)
 {
     // Use UTF-8 aware filesystem paths to support non-ASCII file names
@@ -52,7 +61,7 @@ bool MvrImporter::ImportFromFile(const std::string& filePath)
     std::transform(ext.begin(), ext.end(), ext.begin(),
                    [](unsigned char c) { return std::tolower(c); });
     if (!fs::exists(path) || ext != ".mvr") {
-        std::cerr << "Invalid MVR file: " << filePath << "\n";
+        LogMessage("Invalid MVR file: " + filePath);
         return false;
     }
 
@@ -66,7 +75,7 @@ bool MvrImporter::ImportFromFile(const std::string& filePath)
     std::string tempDir = CreateTemporaryDirectory();
     std::string mvrPath = ToString(path.u8string());
     if (!ExtractMvrZip(mvrPath, tempDir)) {
-        std::cerr << "Failed to extract MVR file.\n";
+        LogMessage("Failed to extract MVR file.");
         return false;
     }
 
@@ -88,7 +97,7 @@ bool MvrImporter::ImportFromFile(const std::string& filePath)
         }
     }
     if (!fs::exists(sceneFile)) {
-        std::cerr << "Missing GeneralSceneDescription.xml in MVR.\n";
+        LogMessage("Missing GeneralSceneDescription.xml in MVR.");
         return false;
     }
 
@@ -112,7 +121,7 @@ bool MvrImporter::ExtractMvrZip(const std::string& mvrPath, const std::string& d
 {
     wxFileInputStream input(wxString::FromUTF8(mvrPath.c_str()));
     if (!input.IsOk()) {
-        std::cerr << "Failed to open MVR file.\n";
+        LogMessage("Failed to open MVR file.");
         return false;
     }
 
@@ -137,7 +146,7 @@ bool MvrImporter::ExtractMvrZip(const std::string& mvrPath, const std::string& d
 
         std::ofstream output(fullPath, std::ios::binary);
         if (!output.is_open()) {
-            std::cerr << "Cannot create file: " << ToString(fullPath.u8string()) << "\n";
+            LogMessage("Cannot create file: " + ToString(fullPath.u8string()));
             return false;
         }
 
@@ -162,7 +171,7 @@ bool MvrImporter::ParseSceneXml(const std::string& sceneXmlPath)
     tinyxml2::XMLDocument doc;
     tinyxml2::XMLError result = doc.LoadFile(sceneXmlPath.c_str());
     if (result != tinyxml2::XML_SUCCESS) {
-        std::cerr << "Failed to load XML: " << sceneXmlPath << "\n";
+        LogMessage("Failed to load XML: " + sceneXmlPath);
         return false;
     }
 
@@ -173,7 +182,7 @@ bool MvrImporter::ParseSceneXml(const std::string& sceneXmlPath)
 
     tinyxml2::XMLElement* root = doc.FirstChildElement("GeneralSceneDescription");
     if (!root) {
-        std::cerr << "Missing GeneralSceneDescription node\n";
+        LogMessage("Missing GeneralSceneDescription node");
         return false;
     }
 
@@ -191,9 +200,10 @@ bool MvrImporter::ParseSceneXml(const std::string& sceneXmlPath)
     constexpr int SUPPORTED_MINOR = 6;
     if (scene.versionMajor != SUPPORTED_MAJOR ||
         scene.versionMinor > SUPPORTED_MINOR) {
-        std::cerr << "Warning: unsupported MVR version "
-                  << scene.versionMajor << '.' << scene.versionMinor
-                  << ". Results may be incomplete.\n";
+        LogMessage("Warning: unsupported MVR version " +
+                   std::to_string(scene.versionMajor) + "." +
+                   std::to_string(scene.versionMinor) +
+                   ". Results may be incomplete.");
     }
 
     const char* provider = root->Attribute("provider");
@@ -201,6 +211,13 @@ bool MvrImporter::ParseSceneXml(const std::string& sceneXmlPath)
 
     if (provider) scene.provider = provider;
     if (version) scene.providerVersion = version;
+
+    std::string provInfo = "MVR provider: " +
+        std::string(provider ? provider : "unknown") +
+        ", version: " + std::string(version ? version : "unknown") +
+        ", file MVR version: " + std::to_string(scene.versionMajor) +
+        "." + std::to_string(scene.versionMinor);
+    LogMessage(provInfo);
 
     tinyxml2::XMLElement* sceneNode = root->FirstChildElement("Scene");
     if (!sceneNode) return true;
