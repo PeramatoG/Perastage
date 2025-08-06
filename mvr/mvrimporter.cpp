@@ -17,6 +17,8 @@
 #include <random>
 #include <string>
 #include <unordered_map>
+#include <vector>
+#include <unordered_set>
 
 // TinyXML2
 #include <tinyxml2.h>
@@ -24,7 +26,6 @@
 // wxWidgets zip support
 #include <wx/wfstream.h>
 #include <wx/wx.h>
-#include <wx/choicdlg.h>
 class wxZipStreamLink;
 #include <wx/filename.h>
 #include <wx/zipstrm.h>
@@ -51,6 +52,56 @@ static void LogMessage(const std::string &msg) {
   std::cerr << msg << '\n';
   if (ConsolePanel::Instance())
     ConsolePanel::Instance()->AppendMessage(wxString::FromUTF8(msg.c_str()));
+}
+
+struct GdtfConflict {
+  std::string type;
+  std::string mvrPath;
+  std::string appPath;
+};
+
+static std::unordered_map<std::string, std::string>
+PromptGdtfConflicts(const std::vector<GdtfConflict> &conflicts) {
+  std::unordered_map<std::string, std::string> chosen;
+  if (conflicts.empty())
+    return chosen;
+
+  wxDialog dlg(nullptr, wxID_ANY, "GDTF conflicts");
+  wxBoxSizer *topSizer = new wxBoxSizer(wxVERTICAL);
+  wxFlexGridSizer *grid = new wxFlexGridSizer(3, 5, 5);
+  grid->Add(new wxStaticText(&dlg, wxID_ANY, "Type"));
+  grid->Add(new wxStaticText(&dlg, wxID_ANY, "MVR"));
+  grid->Add(new wxStaticText(&dlg, wxID_ANY, "App"));
+
+  std::vector<wxRadioButton *> mvrBtns;
+  std::vector<wxRadioButton *> appBtns;
+  for (const auto &c : conflicts) {
+    grid->Add(new wxStaticText(&dlg, wxID_ANY,
+                               wxString::FromUTF8(c.type.c_str())));
+    wxRadioButton *mvr =
+        new wxRadioButton(&dlg, wxID_ANY, "", wxDefaultPosition, wxDefaultSize,
+                          wxRB_GROUP);
+    wxRadioButton *app = new wxRadioButton(&dlg, wxID_ANY, "");
+    mvr->SetValue(true);
+    grid->Add(mvr, 0, wxALIGN_CENTER);
+    grid->Add(app, 0, wxALIGN_CENTER);
+    mvrBtns.push_back(mvr);
+    appBtns.push_back(app);
+  }
+
+  topSizer->Add(grid, 1, wxALL, 10);
+  topSizer->Add(dlg.CreateSeparatedButtonSizer(wxOK | wxCANCEL), 0,
+                wxEXPAND | wxALL, 10);
+  dlg.SetSizerAndFit(topSizer);
+
+  if (dlg.ShowModal() != wxID_OK)
+    return chosen;
+
+  for (size_t i = 0; i < conflicts.size(); ++i) {
+    const auto &c = conflicts[i];
+    chosen[c.type] = mvrBtns[i]->GetValue() ? c.mvrPath : c.appPath;
+  }
+  return chosen;
 }
 
 bool MvrImporter::ImportFromFile(const std::string &filePath) {
@@ -255,8 +306,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath) {
       out = std::atoi(n->GetText());
   };
 
-  // Track user's selection for types encountered during import
-  std::unordered_map<std::string, std::string> chosenGdtf;
+  std::vector<GdtfConflict> gdtfConflicts;
+  std::unordered_set<std::string> conflictTypes;
 
   // ---- Parse AUXData for Symdefs and Positions ----
   if (tinyxml2::XMLElement *auxNode = sceneNode->FirstChildElement("AUXData")) {
@@ -318,36 +369,20 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath) {
         fixture.function = textOf(node, "Function");
         fixture.position = textOf(node, "Position");
         if (!fixture.gdtfSpec.empty()) {
-          fs::path p =
-              scene.basePath.empty()
-                  ? fs::u8path(fixture.gdtfSpec)
-                  : fs::u8path(scene.basePath) / fs::u8path(fixture.gdtfSpec);
+          fs::path p = scene.basePath.empty()
+                           ? fs::u8path(fixture.gdtfSpec)
+                           : fs::u8path(scene.basePath) /
+                                 fs::u8path(fixture.gdtfSpec);
           std::string gdtfPath = ToString(p.u8string());
           fixture.typeName = GetGdtfFixtureName(gdtfPath);
 
           if (!fixture.typeName.empty()) {
-            auto dictPath = GdtfDictionary::Get(fixture.typeName);
-            if (dictPath) {
-              auto itChoice = chosenGdtf.find(fixture.typeName);
-              std::string chosen;
-              if (itChoice == chosenGdtf.end()) {
-                wxArrayString opts;
-                opts.Add(wxString::FromUTF8(gdtfPath));
-                opts.Add(wxString::FromUTF8(*dictPath));
-                wxSingleChoiceDialog dlg(nullptr,
-                    wxString::Format("Seleccione GDTF para type %s", wxString::FromUTF8(fixture.typeName)),
-                    "GDTF", opts);
-                int res = dlg.ShowModal() == wxID_OK ? dlg.GetSelection() : 0;
-                chosen = (res == 1) ? *dictPath : gdtfPath;
-                chosenGdtf[fixture.typeName] = chosen;
-              } else {
-                chosen = itChoice->second;
+            if (auto dictPath = GdtfDictionary::Get(fixture.typeName)) {
+              if (conflictTypes.insert(fixture.typeName).second) {
+                gdtfConflicts.push_back(
+                    {fixture.typeName, gdtfPath, *dictPath});
               }
-              if (chosen != gdtfPath)
-                fixture.gdtfSpec = chosen;
-              gdtfPath = chosen;
             }
-            GdtfDictionary::Update(fixture.typeName, gdtfPath);
             fixture.gdtfSpec = gdtfPath;
           }
         }
@@ -570,6 +605,15 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath) {
         l.uuid = uuidAttr;
       l.name = layerStr;
       scene.layers[l.uuid] = l;
+    }
+  }
+
+  if (!gdtfConflicts.empty()) {
+    auto choices = PromptGdtfConflicts(gdtfConflicts);
+    for (auto &[uid, f] : scene.fixtures) {
+      auto it = choices.find(f.typeName);
+      if (it != choices.end())
+        f.gdtfSpec = it->second;
     }
   }
 

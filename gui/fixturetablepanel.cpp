@@ -301,6 +301,9 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
       PropagateTypeValues(selections, 17);
 
       ApplyModeForGdtf(path);
+
+      GdtfDictionary::Update(std::string(typeName.mb_str()),
+                             std::string(path.mb_str()));
     }
     ResyncRows(oldOrder, selectedUuids);
     UpdateSceneData();
@@ -1013,8 +1016,6 @@ void FixtureTablePanel::UpdateSceneData() {
     v.GetString().ToDouble(&wt);
     it->second.weightKg = static_cast<float>(wt);
 
-    // Update dictionary with chosen GDTF for this type
-    GdtfDictionary::Update(it->second.typeName, it->second.gdtfSpec);
   }
 
   HighlightDuplicateFixtureIds();
