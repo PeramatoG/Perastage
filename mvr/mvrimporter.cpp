@@ -104,7 +104,8 @@ PromptGdtfConflicts(const std::vector<GdtfConflict> &conflicts) {
   return chosen;
 }
 
-bool MvrImporter::ImportFromFile(const std::string &filePath) {
+bool MvrImporter::ImportFromFile(const std::string &filePath,
+                                 bool promptConflicts) {
   LogMessage("Starting MVR import: " + filePath);
 
   // Treat the incoming path as UTF-8 to preserve any non-ASCII characters
@@ -163,7 +164,7 @@ bool MvrImporter::ImportFromFile(const std::string &filePath) {
 
   LogMessage("Found scene description: " + ToString(sceneFile.u8string()));
   std::string scenePath = ToString(sceneFile.u8string());
-  return ParseSceneXml(scenePath);
+  return ParseSceneXml(scenePath, promptConflicts);
 }
 
 std::string MvrImporter::CreateTemporaryDirectory() {
@@ -229,7 +230,8 @@ bool MvrImporter::ExtractMvrZip(const std::string &mvrPath,
 
 // Parses GeneralSceneDescription.xml and populates fixtures and trusses into
 // the scene model
-bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath) {
+bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
+                                bool promptConflicts) {
   LogMessage("Loading scene XML: " + sceneXmlPath);
 
   tinyxml2::XMLDocument doc;
@@ -608,7 +610,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath) {
     }
   }
 
-  if (!gdtfConflicts.empty()) {
+  if (promptConflicts && !gdtfConflicts.empty()) {
     auto choices = PromptGdtfConflicts(gdtfConflicts);
     for (auto &[uid, f] : scene.fixtures) {
       auto it = choices.find(f.typeName);
@@ -644,7 +646,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath) {
   return true;
 }
 
-bool MvrImporter::ImportAndRegister(const std::string &filePath) {
+bool MvrImporter::ImportAndRegister(const std::string &filePath,
+                                    bool promptConflicts) {
   MvrImporter importer;
-  return importer.ImportFromFile(filePath);
+  return importer.ImportFromFile(filePath, promptConflicts);
 }

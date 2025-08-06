@@ -426,7 +426,7 @@ bool ConfigManager::LoadProject(const std::string& path)
 
     bool ok = true;
     if (!scenePath.empty())
-        ok &= MvrImporter::ImportAndRegister(scenePath.string());
+        ok &= MvrImporter::ImportAndRegister(scenePath.string(), false);
     if (!configPath.empty())
         ok &= LoadFromFile(configPath.string());
 
