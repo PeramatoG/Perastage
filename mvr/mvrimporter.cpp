@@ -376,7 +376,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                            : fs::u8path(scene.basePath) /
                                  fs::u8path(fixture.gdtfSpec);
           std::string gdtfPath = ToString(p.u8string());
-          fixture.typeName = GetGdtfFixtureName(gdtfPath);
+          fixture.typeName = Trim(GetGdtfFixtureName(gdtfPath));
 
           if (!fixture.typeName.empty()) {
             if (auto dictPath = GdtfDictionary::Get(fixture.typeName)) {
