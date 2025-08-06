@@ -55,8 +55,11 @@ static void LogMessage(const std::string& msg)
 
 bool MvrImporter::ImportFromFile(const std::string& filePath)
 {
-    // Use UTF-8 aware filesystem paths to support non-ASCII file names
-    fs::path path = fs::u8path(filePath);
+    // Use the native filesystem encoding so paths coming from the
+    // operating system (e.g. Windows ANSI code pages) are handled
+    // correctly.  std::filesystem::path will perform the appropriate
+    // conversion to and from wide strings on each platform.
+    fs::path path(filePath);
     std::string ext = path.extension().string();
     std::transform(ext.begin(), ext.end(), ext.begin(),
                    [](unsigned char c) { return std::tolower(c); });
@@ -74,16 +77,17 @@ bool MvrImporter::ImportFromFile(const std::string& filePath)
 
     std::string tempDir = CreateTemporaryDirectory();
     std::string mvrPath = ToString(path.u8string());
+    fs::path tempPath(tempDir);
     if (!ExtractMvrZip(mvrPath, tempDir)) {
         LogMessage("Failed to extract MVR file.");
         return false;
     }
 
-    fs::path sceneFile = fs::u8path(tempDir) / "GeneralSceneDescription.xml";
+    fs::path sceneFile = tempPath / "GeneralSceneDescription.xml";
     if (!fs::exists(sceneFile)) {
         // Some MVR packages may store the file with a different case.
         std::string target = "generalscenedescription.xml";
-        for (const auto& entry : fs::directory_iterator(fs::u8path(tempDir))) {
+        for (const auto& entry : fs::directory_iterator(tempPath)) {
             if (entry.is_regular_file()) {
                 std::string name = entry.path().filename().string();
                 std::string lower = name;
@@ -114,7 +118,9 @@ std::string MvrImporter::CreateTemporaryDirectory()
     fs::path fullPath = tempBase / folderName;
 
     fs::create_directory(fullPath);
-    return fullPath.string();
+    // Return the path encoded as UTF-8 so it can safely be converted back
+    // using fs::u8path or passed to wxWidgets APIs expecting UTF-8 strings.
+    return ToString(fullPath.u8string());
 }
 
 bool MvrImporter::ExtractMvrZip(const std::string& mvrPath, const std::string& destDir)
