@@ -39,32 +39,35 @@ static std::string Trim(const std::string& s)
 
 bool MvrImporter::ImportFromFile(const std::string& filePath)
 {
-    std::string ext = fs::path(filePath).extension().string();
+    // Use UTF-8 aware filesystem paths to support non-ASCII file names
+    fs::path path = fs::u8path(filePath);
+    std::string ext = path.extension().string();
     std::transform(ext.begin(), ext.end(), ext.begin(),
                    [](unsigned char c) { return std::tolower(c); });
-    if (!fs::exists(filePath) || ext != ".mvr") {
+    if (!fs::exists(path) || ext != ".mvr") {
         std::cerr << "Invalid MVR file: " << filePath << "\n";
         return false;
     }
 
     if (ConsolePanel::Instance()) {
-        wxString msg = wxString::Format("Importing MVR %s", wxString::FromUTF8(filePath));
+        wxString msg = wxString::Format("Importing MVR %s",
+                                        wxString::FromUTF8(path.u8string()));
         ConsolePanel::Instance()->AppendMessage(msg);
     }
 
     std::string tempDir = CreateTemporaryDirectory();
-    if (!ExtractMvrZip(filePath, tempDir)) {
+    if (!ExtractMvrZip(path.u8string(), tempDir)) {
         std::cerr << "Failed to extract MVR file.\n";
         return false;
     }
 
-    std::string sceneFile = tempDir + "/GeneralSceneDescription.xml";
+    fs::path sceneFile = fs::u8path(tempDir) / "GeneralSceneDescription.xml";
     if (!fs::exists(sceneFile)) {
         std::cerr << "Missing GeneralSceneDescription.xml in MVR.\n";
         return false;
     }
 
-    return ParseSceneXml(sceneFile);
+    return ParseSceneXml(sceneFile.u8string());
 }
 
 std::string MvrImporter::CreateTemporaryDirectory()
@@ -81,7 +84,7 @@ std::string MvrImporter::CreateTemporaryDirectory()
 
 bool MvrImporter::ExtractMvrZip(const std::string& mvrPath, const std::string& destDir)
 {
-    wxFileInputStream input(mvrPath);
+    wxFileInputStream input(wxString::FromUTF8(mvrPath.c_str()));
     if (!input.IsOk()) {
         std::cerr << "Failed to open MVR file.\n";
         return false;
@@ -91,19 +94,22 @@ bool MvrImporter::ExtractMvrZip(const std::string& mvrPath, const std::string& d
     std::unique_ptr<wxZipEntry> entry;
 
     while ((entry.reset(zipStream.GetNextEntry())), entry) {
-        std::string filename = entry->GetName().ToStdString();
-        std::string fullPath = destDir + "/" + filename;
+        // Extract entry names using UTF-8 to preserve special characters
+        std::string filename = entry->GetName().ToUTF8().data();
+        fs::path fullPath = fs::u8path(destDir) / fs::u8path(filename);
 
         if (entry->IsDir()) {
-            wxFileName::Mkdir(fullPath, wxS_DIR_DEFAULT, wxPATH_MKDIR_FULL);
+            wxFileName::Mkdir(wxString::FromUTF8(fullPath.u8string()),
+                              wxS_DIR_DEFAULT, wxPATH_MKDIR_FULL);
             continue;
         }
 
-        wxFileName::Mkdir(wxFileName(fullPath).GetPath(), wxS_DIR_DEFAULT, wxPATH_MKDIR_FULL);
+        wxFileName::Mkdir(wxString::FromUTF8(fullPath.parent_path().u8string()),
+                          wxS_DIR_DEFAULT, wxPATH_MKDIR_FULL);
 
         std::ofstream output(fullPath, std::ios::binary);
         if (!output.is_open()) {
-            std::cerr << "Cannot create file: " << fullPath << "\n";
+            std::cerr << "Cannot create file: " << fullPath.u8string() << "\n";
             return false;
         }
 
@@ -145,7 +151,7 @@ bool MvrImporter::ParseSceneXml(const std::string& sceneXmlPath)
 
     ConfigManager::Get().Reset();
     auto& scene = ConfigManager::Get().GetScene();
-    scene.basePath = fs::path(sceneXmlPath).parent_path().string();
+    scene.basePath = fs::u8path(sceneXmlPath).parent_path().u8string();
 
     root->QueryIntAttribute("verMajor", &scene.versionMajor);
     root->QueryIntAttribute("verMinor", &scene.versionMinor);
@@ -222,9 +228,10 @@ bool MvrImporter::ParseSceneXml(const std::string& sceneXmlPath)
             fixture.function = textOf(node, "Function");
             fixture.position = textOf(node, "Position");
             if (!fixture.gdtfSpec.empty()) {
-                fs::path p = scene.basePath.empty() ? fs::path(fixture.gdtfSpec)
-                                                   : fs::path(scene.basePath) / fixture.gdtfSpec;
-                fixture.typeName = GetGdtfFixtureName(p.string());
+                fs::path p = scene.basePath.empty()
+                               ? fs::u8path(fixture.gdtfSpec)
+                               : fs::u8path(scene.basePath) / fs::u8path(fixture.gdtfSpec);
+                fixture.typeName = GetGdtfFixtureName(p.u8string());
             }
             auto posIt = scene.positions.find(fixture.position);
             if (posIt != scene.positions.end()) fixture.positionName = posIt->second;
