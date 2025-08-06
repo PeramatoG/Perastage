@@ -11,6 +11,8 @@
 #include <fstream> // Required for std::ofstream
 #include <cstdlib>
 #include <functional>
+#include <algorithm>
+#include <cctype>
 #include "consolepanel.h"
 
 // TinyXML2
@@ -37,7 +39,10 @@ static std::string Trim(const std::string& s)
 
 bool MvrImporter::ImportFromFile(const std::string& filePath)
 {
-    if (!fs::exists(filePath) || fs::path(filePath).extension() != ".mvr") {
+    std::string ext = fs::path(filePath).extension().string();
+    std::transform(ext.begin(), ext.end(), ext.begin(),
+                   [](unsigned char c) { return std::tolower(c); });
+    if (!fs::exists(filePath) || ext != ".mvr") {
         std::cerr << "Invalid MVR file: " << filePath << "\n";
         return false;
     }
