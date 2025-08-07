@@ -284,6 +284,9 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
         if (r == wxNOT_FOUND)
           continue;
 
+        wxVariant prevType;
+        table->GetValue(prevType, r, 2);
+
         if ((size_t)r >= gdtfPaths.size())
           gdtfPaths.resize(table->GetItemCount());
 
@@ -296,10 +299,8 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
         table->SetValue(wxVariant(pstr), r, 16);
         table->SetValue(wxVariant(wstr), r, 17);
 
-        // Update dictionary with the final type name for this row
-        wxVariant typeVal;
-        table->GetValue(typeVal, r, 2);
-        GdtfDictionary::Update(std::string(typeVal.GetString().mb_str()),
+        // Update dictionary with the previous type name for this row
+        GdtfDictionary::Update(std::string(prevType.GetString().mb_str()),
                                std::string(path.mb_str()));
       }
 

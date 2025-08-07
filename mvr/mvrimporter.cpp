@@ -615,13 +615,21 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         auto choices = PromptGdtfConflicts(gdtfConflicts);
         for (auto &[uid, f] : scene.fixtures) {
           auto it = choices.find(f.typeName);
-          if (it != choices.end())
+          if (it != choices.end()) {
             f.gdtfSpec = it->second;
+            std::string parsed = Trim(GetGdtfFixtureName(f.gdtfSpec));
+            if (!parsed.empty())
+              f.typeName = parsed;
+          }
         }
       } else {
         for (auto &[uid, f] : scene.fixtures) {
-          if (auto dictPath = GdtfDictionary::Get(f.typeName))
+          if (auto dictPath = GdtfDictionary::Get(f.typeName)) {
             f.gdtfSpec = *dictPath;
+            std::string parsed = Trim(GetGdtfFixtureName(f.gdtfSpec));
+            if (!parsed.empty())
+              f.typeName = parsed;
+          }
         }
       }
     }
