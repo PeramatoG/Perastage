@@ -20,6 +20,8 @@ struct Fixture {
     std::string matrixRaw;        // Raw matrix string from XML (to be parsed later)
     Matrix transform;             // Parsed transformation matrix
 
+    std::string color;            // Hex RGB color (e.g., "#RRGGBB")
+
     int fixtureId = 0;            // FixtureID (numeric ID from XML)
     int fixtureIdNumeric = 0;     // Optional numeric ID field (if distinct)
     int unitNumber = 0;           // Unit number (if available)

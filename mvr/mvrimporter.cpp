@@ -16,6 +16,9 @@
 #include <iostream>
 #include <random>
 #include <string>
+#include <sstream>
+#include <iomanip>
+#include <cmath>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -366,6 +369,40 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         fixture.focus = textOf(node, "Focus");
         fixture.function = textOf(node, "Function");
         fixture.position = textOf(node, "Position");
+        if (tinyxml2::XMLElement *colorNode = node->FirstChildElement("Color")) {
+          if (const char *txt = colorNode->GetText()) {
+            std::string t = txt;
+            std::replace(t.begin(), t.end(), ',', ' ');
+            std::stringstream ss(t);
+            double x = 0.0, y = 0.0, Yv = 0.0;
+            if (ss >> x >> y >> Yv && y > 0.0) {
+              double X = x * (Yv / y);
+              double Z = (1.0 - x - y) * (Yv / y);
+              double r = 3.2406 * X - 1.5372 * Yv - 0.4986 * Z;
+              double g = -0.9689 * X + 1.8758 * Yv + 0.0415 * Z;
+              double b = 0.0557 * X - 0.2040 * Yv + 1.0570 * Z;
+              auto gamma = [](double c) {
+                c = std::max(0.0, c);
+                return c <= 0.0031308 ? 12.92 * c
+                                      : 1.055 * std::pow(c, 1.0 / 2.4) - 0.055;
+              };
+              r = gamma(r);
+              g = gamma(g);
+              b = gamma(b);
+              r = std::clamp(r, 0.0, 1.0);
+              g = std::clamp(g, 0.0, 1.0);
+              b = std::clamp(b, 0.0, 1.0);
+              int R = static_cast<int>(std::round(r * 255.0));
+              int G = static_cast<int>(std::round(g * 255.0));
+              int B = static_cast<int>(std::round(b * 255.0));
+              std::ostringstream os;
+              os << '#'
+                 << std::uppercase << std::hex << std::setfill('0')
+                 << std::setw(2) << R << std::setw(2) << G << std::setw(2) << B;
+              fixture.color = os.str();
+            }
+          }
+        }
         if (!fixture.gdtfSpec.empty()) {
           fs::path p =
               scene.basePath.empty()
