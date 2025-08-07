@@ -63,10 +63,11 @@ void FixtureTablePanel::InitializeTable() {
                   "Hang Pos",   "Universe",   "Channel", "Mode",
                   "Ch Count",   "Model file", "Pos X",   "Pos Y",
                   "Pos Z",      "Rot X",      "Rot Y",   "Rot Z",
-                  "Power (W)",  "Weight (kg)"};
+                  "Power (W)",  "Weight (kg)", "Color"};
 
   std::vector<int> widths = {90,  150, 180, 100, 120, 80, 80, 120, 80,
-                             180, 80,  80,  80,  80,  80, 80, 100, 100};
+                             180, 80,  80,  80,  80,  80, 80, 100, 100,
+                             80};
   int flags = wxDATAVIEW_COL_RESIZABLE | wxDATAVIEW_COL_SORTABLE;
 
   // Column 0: Fixture ID (numeric for proper sorting)
@@ -229,6 +230,8 @@ void FixtureTablePanel::ReloadData() {
     wxString weight = wxString::Format("%.2f", fixture->weightKg);
     row.push_back(power);
     row.push_back(weight);
+    wxString color = wxString::FromUTF8(fixture->color);
+    row.push_back(color);
 
     store.AppendItem(row, rowUuids.size());
     rowUuids.push_back(uuid);
