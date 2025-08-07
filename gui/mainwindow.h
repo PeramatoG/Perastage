@@ -42,6 +42,7 @@ private:
     void OnLoad(wxCommandEvent& event);            // Load project
     void OnSave(wxCommandEvent& event);            // Save project
     void OnSaveAs(wxCommandEvent& event);         // Save project as
+    void OnImportRider(wxCommandEvent& event);    // Import fixtures/trusses from rider
     void OnImportMVR(wxCommandEvent& event);       // Handle the Import MVR action
     void OnExportMVR(wxCommandEvent& event);       // Handle the Export MVR action
     void OnExportTruss(wxCommandEvent& event);     // Export truss metadata
@@ -80,6 +81,7 @@ enum
     ID_File_Load,
     ID_File_Save,
     ID_File_SaveAs,
+    ID_File_ImportRider,
     ID_File_ImportMVR,
     ID_File_ExportMVR,
     ID_File_PrintTable,
