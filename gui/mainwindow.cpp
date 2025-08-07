@@ -42,6 +42,7 @@ class wxZipStreamLink;
 #include "markdown.h"
 #include "mvrexporter.h"
 #include "mvrimporter.h"
+#include "riderimporter.h"
 #include "projectutils.h"
 #include "sceneobjecttablepanel.h"
 #include "selectfixturetypedialog.h"
@@ -65,7 +66,8 @@ wxBEGIN_EVENT_TABLE(MainWindow, wxFrame) EVT_MENU(
                                                  OnSave) EVT_MENU(ID_File_SaveAs,
                                                                   MainWindow::
                                                                       OnSaveAs)
-    EVT_MENU(ID_File_ImportMVR, MainWindow::OnImportMVR) EVT_MENU(
+    EVT_MENU(ID_File_ImportRider, MainWindow::OnImportRider) EVT_MENU(
+        ID_File_ImportMVR, MainWindow::OnImportMVR) EVT_MENU(
         ID_File_ExportMVR,
         MainWindow::
             OnExportMVR) EVT_MENU(ID_File_PrintTable,
@@ -251,6 +253,7 @@ void MainWindow::CreateMenuBar() {
   fileMenu->Append(ID_File_Save, "Save\tCtrl+S");
   fileMenu->Append(ID_File_SaveAs, "Save As...");
   fileMenu->AppendSeparator();
+  fileMenu->Append(ID_File_ImportRider, "Import Rider...");
   fileMenu->Append(ID_File_ImportMVR, "Import MVR...");
   fileMenu->Append(ID_File_ExportMVR, "Export MVR...");
   fileMenu->Append(ID_File_PrintTable, "Print Table...");
@@ -389,6 +392,36 @@ void MainWindow::OnSaveAs(wxCommandEvent &event) {
       consolePanel->AppendMessage("Saved " + dlg.GetPath());
   }
   UpdateTitle();
+}
+
+// Import fixtures and trusses from a rider (.txt/.pdf)
+void MainWindow::OnImportRider(wxCommandEvent &event) {
+  wxString miscDir =
+      wxString::FromUTF8(ProjectUtils::GetDefaultLibraryPath("misc"));
+  wxFileDialog dlg(this, "Import Rider", miscDir, "",
+                   "Rider files (*.txt;*.pdf)|*.txt;*.pdf",
+                   wxFD_OPEN | wxFD_FILE_MUST_EXIST);
+  if (dlg.ShowModal() == wxID_CANCEL)
+    return;
+
+  std::string pathUtf8 = dlg.GetPath().ToStdString();
+  if (!RiderImporter::Import(pathUtf8)) {
+    wxMessageBox("Failed to import rider.", "Error", wxICON_ERROR);
+    if (consolePanel)
+      consolePanel->AppendMessage("Failed to import " + dlg.GetPath());
+  } else {
+    wxMessageBox("Rider imported successfully.", "Success", wxICON_INFORMATION);
+    if (consolePanel)
+      consolePanel->AppendMessage("Imported " + dlg.GetPath());
+    if (fixturePanel)
+      fixturePanel->ReloadData();
+    if (trussPanel)
+      trussPanel->ReloadData();
+    if (viewportPanel) {
+      viewportPanel->UpdateScene();
+      viewportPanel->Refresh();
+    }
+  }
 }
 
 // Handles MVR file selection, import, and updates fixture/truss panels

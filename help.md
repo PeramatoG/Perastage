@@ -45,6 +45,7 @@ Perastage is a high-performance, cross-platform viewer for MVR (My Virtual Rig) 
 
 | Menu Option        | Description                            |
 |--------------------|----------------------------------------|
+| Import Rider       | Load fixture/truss info from .txt/.pdf |
 | Import MVR         | Load an `.mvr` scene file              |
 | Export GDTF        | Export selected fixtures               |
 | Export MVR Objects | Save selected elements into a new file |
