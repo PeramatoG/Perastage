@@ -20,6 +20,10 @@ FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
   auto *table = panel->table; // friend access
   ctrls.resize(panel->columnLabels.size(), nullptr);
 
+  wxVariant initType;
+  table->GetValue(initType, row, 2);
+  originalType = initType.GetString();
+
   for (size_t i = 0; i < panel->columnLabels.size(); ++i) {
     grid->Add(new wxStaticText(this, wxID_ANY, panel->columnLabels[i]), 0,
               wxALIGN_CENTER_VERTICAL);
@@ -210,13 +214,8 @@ void FixtureEditDialog::ApplyChanges() {
     }
   }
   if (!gdtfPath.empty()) {
-    wxTextCtrl *typeCtrl = nullptr;
-    if (ctrls.size() > 2)
-      typeCtrl = wxDynamicCast(ctrls[2], wxTextCtrl);
-    if (typeCtrl) {
-      GdtfDictionary::Update(std::string(typeCtrl->GetValue().mb_str()),
-                             std::string(gdtfPath.mb_str()));
-    }
+    GdtfDictionary::Update(std::string(originalType.mb_str()),
+                           std::string(gdtfPath.mb_str()));
   }
   panel->ApplyModeForGdtf(gdtfPath);
   panel->ResyncRows(oldOrder, selectedUuids);

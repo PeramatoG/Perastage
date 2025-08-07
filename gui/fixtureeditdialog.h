@@ -31,5 +31,6 @@ private:
     wxTextCtrl* channelList = nullptr;
     FixturePreviewPanel* preview = nullptr;
     bool applied = false;
+    wxString originalType;
 };
 
