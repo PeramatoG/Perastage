@@ -1,8 +1,30 @@
 #include "gdtfsearchdialog.h"
 #include "consolepanel.h"
 #include <wx/settings.h>
+#include <wx/datetime.h>
 
 using json = nlohmann::json;
+
+namespace {
+wxString FormatTimestamp(const std::string& ts)
+{
+    if (ts.empty())
+        return {};
+
+    try {
+        long long val = std::stoll(ts);
+        if (val > 1000000000000LL)
+            val /= 1000; // milliseconds to seconds
+        wxDateTime dt(static_cast<time_t>(val));
+        return dt.FormatISOCombined(' ');
+    } catch (...) {
+        wxDateTime dt;
+        if (dt.ParseISOCombined(ts.c_str()))
+            return dt.FormatISOCombined(' ');
+    }
+    return wxString::FromUTF8(ts);
+}
+} // namespace
 
 GdtfSearchDialog::GdtfSearchDialog(wxWindow* parent, const std::string& listData)
     : wxDialog(parent, wxID_ANY, "Search GDTF", wxDefaultPosition,
@@ -191,9 +213,9 @@ void GdtfSearchDialog::UpdateResults()
         row.push_back(wxString::FromUTF8(entries[i].modes));
         row.push_back(wxString::FromUTF8(entries[i].creator));
         row.push_back(wxString::FromUTF8(entries[i].uploader));
-        row.push_back(wxString::FromUTF8(entries[i].creationDate));
+        row.push_back(FormatTimestamp(entries[i].creationDate));
         row.push_back(wxString::FromUTF8(entries[i].revision));
-        row.push_back(wxString::FromUTF8(entries[i].lastModified));
+        row.push_back(FormatTimestamp(entries[i].lastModified));
         row.push_back(wxString::FromUTF8(entries[i].version));
         row.push_back(wxString::FromUTF8(entries[i].rating));
         resultTable->AppendItem(row);
