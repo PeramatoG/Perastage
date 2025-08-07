@@ -23,23 +23,23 @@ static fs::path GetDictFile()
     return file;
 }
 
-std::unordered_map<std::string, std::string> Load()
+std::optional<std::unordered_map<std::string, std::string>> Load()
 {
     std::unordered_map<std::string, std::string> dict;
     fs::path file = GetDictFile();
     if (file.empty())
-        return dict;
+        return std::nullopt;
     std::ifstream in(file);
     if (!in.is_open())
-        return dict;
+        return std::nullopt;
     nlohmann::json j;
     try {
         in >> j;
     } catch (...) {
-        return dict;
+        return std::nullopt;
     }
     if (!j.is_object())
-        return dict;
+        return std::nullopt;
     for (auto it = j.begin(); it != j.end(); ++it) {
         if (it.value().is_string())
             dict[it.key()] = it.value().get<std::string>();
@@ -63,7 +63,10 @@ void Save(const std::unordered_map<std::string, std::string>& dict)
 
 std::optional<std::string> Get(const std::string& type)
 {
-    auto dict = Load();
+    auto dictOpt = Load();
+    if (!dictOpt)
+        return std::nullopt;
+    auto& dict = *dictOpt;
     auto it = dict.find(type);
     if (it == dict.end())
         return std::nullopt;
@@ -92,7 +95,10 @@ void Update(const std::string& type, const std::string& gdtfPath)
     } catch (...) {
         // ignore copy errors
     }
-    auto dict = Load();
+    auto dictOpt = Load();
+    if (!dictOpt)
+        return; // avoid overwriting existing dictionary on load failure
+    auto& dict = *dictOpt;
     dict[type] = dest.string();
     Save(dict);
 }
