@@ -1,7 +1,7 @@
 #include "mvrimporter.h"
 #include "configmanager.h"
-#include "gdtfloader.h"
 #include "gdtfdictionary.h"
+#include "gdtfloader.h"
 #include "matrixutils.h"
 #include "sceneobject.h"
 
@@ -17,8 +17,8 @@
 #include <random>
 #include <string>
 #include <unordered_map>
-#include <vector>
 #include <unordered_set>
+#include <vector>
 
 // TinyXML2
 #include <tinyxml2.h>
@@ -76,11 +76,10 @@ PromptGdtfConflicts(const std::vector<GdtfConflict> &conflicts) {
   std::vector<wxRadioButton *> mvrBtns;
   std::vector<wxRadioButton *> appBtns;
   for (const auto &c : conflicts) {
-    grid->Add(new wxStaticText(&dlg, wxID_ANY,
-                               wxString::FromUTF8(c.type.c_str())));
-    wxRadioButton *mvr =
-        new wxRadioButton(&dlg, wxID_ANY, "", wxDefaultPosition, wxDefaultSize,
-                          wxRB_GROUP);
+    grid->Add(
+        new wxStaticText(&dlg, wxID_ANY, wxString::FromUTF8(c.type.c_str())));
+    wxRadioButton *mvr = new wxRadioButton(
+        &dlg, wxID_ANY, "", wxDefaultPosition, wxDefaultSize, wxRB_GROUP);
     wxRadioButton *app = new wxRadioButton(&dlg, wxID_ANY, "");
     mvr->SetValue(true);
     grid->Add(mvr, 0, wxALIGN_CENTER);
@@ -308,9 +307,6 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
       out = std::atoi(n->GetText());
   };
 
-  std::vector<GdtfConflict> gdtfConflicts;
-  std::unordered_set<std::string> conflictTypes;
-
   // ---- Parse AUXData for Symdefs and Positions ----
   if (tinyxml2::XMLElement *auxNode = sceneNode->FirstChildElement("AUXData")) {
     for (tinyxml2::XMLElement *pos = auxNode->FirstChildElement("Position");
@@ -371,22 +367,14 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         fixture.function = textOf(node, "Function");
         fixture.position = textOf(node, "Position");
         if (!fixture.gdtfSpec.empty()) {
-          fs::path p = scene.basePath.empty()
-                           ? fs::u8path(fixture.gdtfSpec)
-                           : fs::u8path(scene.basePath) /
-                                 fs::u8path(fixture.gdtfSpec);
+          fs::path p =
+              scene.basePath.empty()
+                  ? fs::u8path(fixture.gdtfSpec)
+                  : fs::u8path(scene.basePath) / fs::u8path(fixture.gdtfSpec);
           std::string gdtfPath = ToString(p.u8string());
           fixture.typeName = Trim(GetGdtfFixtureName(gdtfPath));
-
-          if (!fixture.typeName.empty()) {
-            if (auto dictPath = GdtfDictionary::Get(fixture.typeName)) {
-              if (conflictTypes.insert(fixture.typeName).second) {
-                gdtfConflicts.push_back(
-                    {fixture.typeName, gdtfPath, *dictPath});
-              }
-            }
+          if (!fixture.typeName.empty())
             fixture.gdtfSpec = gdtfPath;
-          }
         }
         auto posIt = scene.positions.find(fixture.position);
         if (posIt != scene.positions.end())
@@ -597,8 +585,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
 
     tinyxml2::XMLElement *childList = layer->FirstChildElement("ChildList");
     if (childList)
-      parseChildList(childList,
-                    isDefaultLayer ? DEFAULT_LAYER_NAME : layerStr);
+      parseChildList(childList, isDefaultLayer ? DEFAULT_LAYER_NAME : layerStr);
 
     if (!isDefaultLayer) {
       Layer l;
@@ -610,12 +597,33 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
     }
   }
 
-  if (promptConflicts && !gdtfConflicts.empty()) {
-    auto choices = PromptGdtfConflicts(gdtfConflicts);
-    for (auto &[uid, f] : scene.fixtures) {
-      auto it = choices.find(f.typeName);
-      if (it != choices.end())
-        f.gdtfSpec = it->second;
+  // After parsing the entire scene, resolve any GDTF conflicts using the
+  // dictionary. This occurs before rendering so user choices are applied to
+  // the final scene data.
+  {
+    std::vector<GdtfConflict> gdtfConflicts;
+    std::unordered_set<std::string> conflictTypes;
+    for (const auto &[uid, f] : scene.fixtures) {
+      if (auto dictPath = GdtfDictionary::Get(f.typeName)) {
+        if (conflictTypes.insert(f.typeName).second) {
+          gdtfConflicts.push_back({f.typeName, f.gdtfSpec, *dictPath});
+        }
+      }
+    }
+    if (!gdtfConflicts.empty()) {
+      if (promptConflicts) {
+        auto choices = PromptGdtfConflicts(gdtfConflicts);
+        for (auto &[uid, f] : scene.fixtures) {
+          auto it = choices.find(f.typeName);
+          if (it != choices.end())
+            f.gdtfSpec = it->second;
+        }
+      } else {
+        for (auto &[uid, f] : scene.fixtures) {
+          if (auto dictPath = GdtfDictionary::Get(f.typeName))
+            f.gdtfSpec = *dictPath;
+        }
+      }
     }
   }
 
