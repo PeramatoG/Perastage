@@ -6,7 +6,7 @@
 
 namespace GdtfDictionary {
     // Loads the dictionary file into a map of type -> gdtf absolute path
-    std::unordered_map<std::string, std::string> Load();
+    std::optional<std::unordered_map<std::string, std::string>> Load();
     // Saves the dictionary map back to disk
     void Save(const std::unordered_map<std::string, std::string>& dict);
     // Returns the stored gdtf path for a given type if it exists and file exists.
