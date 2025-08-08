@@ -70,6 +70,7 @@ private:
     void OnDelete(wxCommandEvent& event);          // Delete selected items
 
     void SaveCameraSettings();
+    void ApplySavedLayout();
 
     wxDECLARE_EVENT_TABLE();
 };

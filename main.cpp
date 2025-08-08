@@ -30,5 +30,6 @@ bool MyApp::OnInit() {
     mainWindow->ResetProject();
 
   mainWindow->Show(true);
+  mainWindow->ShowFullScreen(true);
   return true;
 }
