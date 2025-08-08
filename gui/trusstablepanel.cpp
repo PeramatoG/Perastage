@@ -6,7 +6,6 @@
 #include "stringutils.h"
 #include <algorithm>
 #include <unordered_map>
-#include <wx/settings.h>
 #include <wx/notebook.h>
 #include <wx/choicdlg.h>
 
@@ -18,8 +17,7 @@ TrussTablePanel::TrussTablePanel(wxWindow* parent)
     wxBoxSizer* sizer = new wxBoxSizer(wxVERTICAL);
     table = new wxDataViewListCtrl(this, wxID_ANY, wxDefaultPosition,
                                    wxDefaultSize, wxDV_MULTIPLE | wxDV_ROW_LINES);
-    table->SetAlternateRowColour(
-        wxSystemSettings::GetColour(wxSYS_COLOUR_LISTBOX));
+    table->EnableAlternateRowColours(true);
     table->AssociateModel(&store);
 
     table->Bind(wxEVT_LEFT_DOWN, &TrussTablePanel::OnLeftDown, this);
