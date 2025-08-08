@@ -135,6 +135,8 @@ wxBEGIN_EVENT_TABLE(MainWindow, wxFrame) EVT_MENU(
   Centre();
   SetupLayout();
 
+  ApplySavedLayout();
+
   // Apply camera settings after layout and config are ready
   if (viewportPanel)
     viewportPanel->LoadCameraFromConfig();
@@ -1013,6 +1015,8 @@ bool MainWindow::LoadProjectFromPath(const std::string &path) {
   currentProjectPath = path;
   ProjectUtils::SaveLastProjectPath(currentProjectPath);
 
+  ApplySavedLayout();
+
   if (consolePanel)
     consolePanel->AppendMessage("Loaded " + wxString::FromUTF8(path));
   if (fixturePanel)
@@ -1069,15 +1073,28 @@ void MainWindow::UpdateTitle() {
 }
 
 void MainWindow::SaveCameraSettings() {
-  if (!viewportPanel)
+  if (viewportPanel) {
+    Viewer3DCamera &cam = viewportPanel->GetCamera();
+    ConfigManager::Get().SetFloat("camera_yaw", cam.GetYaw());
+    ConfigManager::Get().SetFloat("camera_pitch", cam.GetPitch());
+    ConfigManager::Get().SetFloat("camera_distance", cam.GetDistance());
+    ConfigManager::Get().SetFloat("camera_target_x", cam.GetTargetX());
+    ConfigManager::Get().SetFloat("camera_target_y", cam.GetTargetY());
+    ConfigManager::Get().SetFloat("camera_target_z", cam.GetTargetZ());
+  }
+  if (auiManager) {
+    ConfigManager::Get().SetValue(
+        "layout_perspective", auiManager->SavePerspective().ToStdString());
+  }
+}
+
+void MainWindow::ApplySavedLayout() {
+  if (!auiManager)
     return;
-  Viewer3DCamera &cam = viewportPanel->GetCamera();
-  ConfigManager::Get().SetFloat("camera_yaw", cam.GetYaw());
-  ConfigManager::Get().SetFloat("camera_pitch", cam.GetPitch());
-  ConfigManager::Get().SetFloat("camera_distance", cam.GetDistance());
-  ConfigManager::Get().SetFloat("camera_target_x", cam.GetTargetX());
-  ConfigManager::Get().SetFloat("camera_target_y", cam.GetTargetY());
-  ConfigManager::Get().SetFloat("camera_target_z", cam.GetTargetZ());
+  if (auto val = ConfigManager::Get().GetValue("layout_perspective")) {
+    auiManager->LoadPerspective(*val, true);
+    auiManager->Update();
+  }
 }
 
 void MainWindow::OnShowHelp(wxCommandEvent &WXUNUSED(event)) {
