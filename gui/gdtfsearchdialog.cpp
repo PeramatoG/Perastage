@@ -1,6 +1,8 @@
 #include "gdtfsearchdialog.h"
 #include "consolepanel.h"
 #include <wx/datetime.h>
+#include <wx/colour.h>
+#include <wx/settings.h>
 
 using json = nlohmann::json;
 
@@ -45,7 +47,12 @@ GdtfSearchDialog::GdtfSearchDialog(wxWindow* parent, const std::string& listData
 
     resultTable = new wxDataViewListCtrl(this, wxID_ANY, wxDefaultPosition,
                                          wxDefaultSize, wxDV_ROW_LINES);
+#if wxCHECK_VERSION(3,1,5)
     resultTable->EnableAlternateRowColors(true);
+#else
+    wxColour alt = wxSystemSettings::GetColour(wxSYS_COLOUR_LISTBOX).ChangeLightness(110);
+    resultTable->SetAlternateRowColour(alt);
+#endif
     int flags = wxDATAVIEW_COL_RESIZABLE | wxDATAVIEW_COL_SORTABLE;
     resultTable->AppendTextColumn("Manufacturer", wxDATAVIEW_CELL_INERT, 150,
                                   wxALIGN_LEFT, flags);
