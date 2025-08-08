@@ -8,6 +8,8 @@
 #include <unordered_map>
 #include <wx/notebook.h>
 #include <wx/choicdlg.h>
+#include <wx/colour.h>
+#include <wx/settings.h>
 
 static TrussTablePanel* s_instance = nullptr;
 
@@ -17,7 +19,12 @@ TrussTablePanel::TrussTablePanel(wxWindow* parent)
     wxBoxSizer* sizer = new wxBoxSizer(wxVERTICAL);
     table = new wxDataViewListCtrl(this, wxID_ANY, wxDefaultPosition,
                                    wxDefaultSize, wxDV_MULTIPLE | wxDV_ROW_LINES);
+#if wxCHECK_VERSION(3,1,5)
     table->EnableAlternateRowColors(true);
+#else
+    wxColour alt = wxSystemSettings::GetColour(wxSYS_COLOUR_LISTBOX).ChangeLightness(110);
+    table->SetAlternateRowColour(alt);
+#endif
     table->AssociateModel(&store);
 
     table->Bind(wxEVT_LEFT_DOWN, &TrussTablePanel::OnLeftDown, this);
