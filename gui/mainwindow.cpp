@@ -25,6 +25,9 @@ class wxZipStreamLink;
 #include <wx/log.h>
 #include <wx/zipstrm.h>
 
+#include "../external/json.hpp"
+
+using json = nlohmann::json;
 #include "addfixturedialog.h"
 #include "configmanager.h"
 #include "consolepanel.h"
@@ -116,6 +119,68 @@ wxBEGIN_EVENT_TABLE(MainWindow, wxFrame) EVT_MENU(
                                                     ID_Select_Objects,
                                                     MainWindow::OnSelectObjects)
                                                     wxEND_EVENT_TABLE()
+
+static bool LoadTrussArchive(const std::string& archivePath, Truss& outTruss)
+{
+    namespace fs = std::filesystem;
+    wxFileInputStream input(archivePath);
+    if (!input.IsOk())
+        return false;
+    wxZipInputStream zip(input);
+    std::unique_ptr<wxZipEntry> entry;
+    std::string meta;
+    fs::path baseDir = fs::path(archivePath).parent_path();
+    while ((entry.reset(zip.GetNextEntry())), entry) {
+        std::string name = entry->GetName().ToStdString();
+        if (entry->IsDir())
+            continue;
+        if (name.size() >= 5 && name.substr(name.size() - 5) == ".json") {
+            std::string contents;
+            char buf[4096];
+            while (true) {
+                zip.Read(buf, sizeof(buf));
+                size_t bytes = zip.LastRead();
+                if (bytes == 0)
+                    break;
+                contents.append(buf, bytes);
+            }
+            meta = std::move(contents);
+        } else if (name.size() >= 4 &&
+                   (name.substr(name.size() - 4) == ".3ds" ||
+                    name.substr(name.size() - 4) == ".glb")) {
+            fs::path dest = baseDir / fs::path(name).filename();
+            wxFileName::Mkdir(dest.parent_path().string(), wxS_DIR_DEFAULT,
+                              wxPATH_MKDIR_FULL);
+            std::ofstream out(dest, std::ios::binary);
+            if (!out.is_open())
+                return false;
+            char buf[4096];
+            while (true) {
+                zip.Read(buf, sizeof(buf));
+                size_t bytes = zip.LastRead();
+                if (bytes == 0)
+                    break;
+                out.write(buf, bytes);
+            }
+            out.close();
+            outTruss.symbolFile = dest.string();
+        }
+    }
+    if (meta.empty() || outTruss.symbolFile.empty())
+        return false;
+    json j = json::parse(meta, nullptr, false);
+    if (j.is_discarded())
+        return false;
+    outTruss.name = j.value("Name", "");
+    outTruss.manufacturer = j.value("Manufacturer", "");
+    outTruss.model = j.value("Model", "");
+    outTruss.lengthMm = j.value("Length_mm", 0.0f);
+    outTruss.widthMm = j.value("Width_mm", 0.0f);
+    outTruss.heightMm = j.value("Height_mm", 0.0f);
+    outTruss.weightKg = j.value("Weight_kg", 0.0f);
+    outTruss.crossSection = j.value("CrossSection", "");
+    return true;
+}
 
                                                         MainWindow::MainWindow(
                                                             const wxString
@@ -625,22 +690,57 @@ void MainWindow::OnExportTruss(wxCommandEvent &WXUNUSED(event)) {
   if (saveDlg.ShowModal() != wxID_OK)
     return;
 
-  std::ofstream out(std::string(saveDlg.GetPath().mb_str()));
-  if (!out.is_open()) {
+  namespace fs = std::filesystem;
+  std::string modelPath = chosen->symbolFile;
+  const auto &scene = ConfigManager::Get().GetScene();
+  if (fs::path(modelPath).is_relative() && !scene.basePath.empty())
+    modelPath = (fs::path(scene.basePath) / modelPath).string();
+  if (!fs::exists(modelPath)) {
+    wxMessageBox("Model file not found.", "Error", wxOK | wxICON_ERROR);
+    return;
+  }
+
+  wxFileOutputStream out(std::string(saveDlg.GetPath().mb_str()));
+  if (!out.IsOk()) {
     wxMessageBox("Failed to write file.", "Error", wxOK | wxICON_ERROR);
     return;
   }
-  out << "{\n";
-  out << "  \"Name\": \"" << chosen->name << "\",\n";
-  out << "  \"Manufacturer\": \"" << chosen->manufacturer << "\",\n";
-  out << "  \"Model\": \"" << chosen->model << "\",\n";
-  out << "  \"Length_mm\": " << chosen->lengthMm << ",\n";
-  out << "  \"Width_mm\": " << chosen->widthMm << ",\n";
-  out << "  \"Height_mm\": " << chosen->heightMm << ",\n";
-  out << "  \"Weight_kg\": " << chosen->weightKg << ",\n";
-  out << "  \"CrossSection\": \"" << chosen->crossSection << "\"\n";
-  out << "}\n";
-  out.close();
+
+  wxZipOutputStream zip(out);
+  json j = {
+      {"Name", chosen->name},
+      {"Manufacturer", chosen->manufacturer},
+      {"Model", chosen->model},
+      {"Length_mm", chosen->lengthMm},
+      {"Width_mm", chosen->widthMm},
+      {"Height_mm", chosen->heightMm},
+      {"Weight_kg", chosen->weightKg},
+      {"CrossSection", chosen->crossSection}
+  };
+  std::string meta = j.dump(2);
+  auto *metaEntry = new wxZipEntry("Truss.json");
+  metaEntry->SetMethod(wxZIP_METHOD_DEFLATE);
+  zip.PutNextEntry(metaEntry);
+  zip.Write(meta.c_str(), meta.size());
+
+  fs::path mp(modelPath);
+  auto *modelEntry = new wxZipEntry(mp.filename().string());
+  modelEntry->SetMethod(wxZIP_METHOD_DEFLATE);
+  zip.PutNextEntry(modelEntry);
+  std::ifstream modelIn(modelPath, std::ios::binary);
+  if (!modelIn.is_open()) {
+    wxMessageBox("Failed to read model file.", "Error", wxOK | wxICON_ERROR);
+    return;
+  }
+  char buffer[4096];
+  while (true) {
+    modelIn.read(buffer, sizeof(buffer));
+    std::streamsize bytes = modelIn.gcount();
+    if (bytes <= 0)
+      break;
+    zip.Write(buffer, bytes);
+  }
+  modelIn.close();
 
   wxMessageBox("Truss exported successfully.", "Export Truss",
                wxOK | wxICON_INFORMATION);
@@ -1434,20 +1534,34 @@ void MainWindow::OnAddTruss(wxCommandEvent &WXUNUSED(event)) {
     path = std::string(fdlg.GetPath().mb_str());
   }
 
+  Truss baseTruss;
+  namespace fs = std::filesystem;
+  if (fs::path(path).extension() == ".gtruss") {
+    if (!LoadTrussArchive(path, baseTruss)) {
+      wxMessageBox("Failed to read truss file.", "Error", wxOK | wxICON_ERROR);
+      return;
+    }
+    if (!baseTruss.name.empty())
+      defaultName = baseTruss.name;
+  } else {
+    baseTruss.symbolFile = path;
+  }
+
   long qty = wxGetNumberFromUser("Enter truss quantity:", wxEmptyString,
                                  "Add Truss", 1, 1, 1000, this);
   if (qty <= 0)
     return;
 
-  namespace fs = std::filesystem;
   cfg.PushUndoState("add truss");
   std::string base = scene.basePath;
+  std::string modelPath = baseTruss.symbolFile;
   if (!base.empty()) {
-    fs::path abs = fs::absolute(path);
+    fs::path abs = fs::absolute(modelPath);
     fs::path b = fs::absolute(base);
     if (abs.string().rfind(b.string(), 0) == 0)
-      path = fs::relative(abs, b).string();
+      modelPath = fs::relative(abs, b).string();
   }
+  baseTruss.symbolFile = modelPath;
 
   auto baseId = std::chrono::steady_clock::now().time_since_epoch().count();
   std::string layerName = cfg.GetCurrentLayer();
@@ -1467,14 +1581,13 @@ void MainWindow::OnAddTruss(wxCommandEvent &WXUNUSED(event)) {
   }
 
   for (long i = 0; i < qty; ++i) {
-    Truss t;
+    Truss t = baseTruss;
     t.uuid = wxString::Format("uuid_%lld", static_cast<long long>(baseId + i))
                  .ToStdString();
     if (qty > 1)
       t.name = defaultName + " " + std::to_string(i + 1);
     else
       t.name = defaultName;
-    t.symbolFile = path;
     t.layer = layerName;
     scene.trusses[t.uuid] = t;
   }
