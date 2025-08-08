@@ -13,6 +13,7 @@
 #include <algorithm>
 #include <filesystem>
 #include <unordered_map>
+#include <wx/settings.h>
 #include <wx/choicdlg.h>
 #include <wx/filedlg.h>
 #include <wx/filename.h>
@@ -27,6 +28,9 @@ FixtureTablePanel::FixtureTablePanel(wxWindow *parent)
   table = new wxDataViewListCtrl(this, wxID_ANY, wxDefaultPosition,
                                  wxDefaultSize, wxDV_MULTIPLE | wxDV_ROW_LINES);
   table->AssociateModel(&store);
+  table->SetRowHighlightColour(wxSystemSettings::GetColour(wxSYS_COLOUR_HIGHLIGHT));
+  table->SetRowSelectedTextColour(
+      wxSystemSettings::GetColour(wxSYS_COLOUR_HIGHLIGHTTEXT));
 
   table->SetAlternateRowColour(wxColour(40, 40, 40));
 
