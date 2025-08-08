@@ -42,6 +42,35 @@ std::string ExtractPdfText(const std::string &path) {
     try {
         PdfMemDocument doc(path.c_str());
         std::string out;
+#if PODOFO_VERSION >= PODOFO_MAKE_VERSION(0,10,0)
+        auto &pages = doc.GetPages();
+        for (unsigned i = 0; i < pages.GetCount(); ++i) {
+            auto &page = pages.GetPageAt(i);
+            PdfContentStreamReader reader(page);
+            PdfContent content;
+            while (reader.TryReadNext(content)) {
+                if (content.GetType() != PdfContentType::Operator)
+                    continue;
+                const auto &keyword = content.GetKeyword();
+                const auto &stack = content.GetStack();
+                if (stack.GetSize() == 0)
+                    continue;
+                const PdfVariant &var = stack[0];
+                if ((keyword == "Tj" || keyword == "'" || keyword == "\"") && var.IsString()) {
+                    out += std::string(var.GetString().GetString());
+                    out += '\n';
+                } else if (keyword == "TJ" && var.IsArray()) {
+                    const PdfArray &arr = var.GetArray();
+                    for (const auto &el : arr) {
+                        if (el.IsString())
+                            out += std::string(el.GetString().GetString());
+                    }
+                    out += '\n';
+                }
+            }
+            out += '\n';
+        }
+#else
         for (int i = 0; i < doc.GetPageCount(); ++i) {
             PdfPage *page = doc.GetPage(i);
             PdfContentsTokenizer tokenizer(page);
@@ -70,6 +99,7 @@ std::string ExtractPdfText(const std::string &path) {
             }
             out += '\n';
         }
+#endif
         return out;
     } catch (const PdfError &) {
         return {};
