@@ -11,6 +11,7 @@
 #include <vector>
 
 #ifdef _WIN32
+#define NOMINMAX
 #define popen _popen
 #define pclose _pclose
 #include <windows.h>
