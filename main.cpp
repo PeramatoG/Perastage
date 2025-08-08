@@ -14,6 +14,11 @@ bool MyApp::OnInit() {
   // Enable support for common image formats used by the app
   wxInitAllImageHandlers();
 
+  // Force dark mode when supported by the wxWidgets version in use
+#if wxCHECK_VERSION(3, 3, 0)
+  SetAppearance(wxApp::Appearance::Dark);
+#endif
+
   // Enable dark mode for Windows (if supported by wxWidgets)
   wxSystemOptions::SetOption("msw.useDarkMode", 1);
 
