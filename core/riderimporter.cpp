@@ -20,6 +20,8 @@
 #include <podofo/podofo.h>
 
 #include "configmanager.h"
+#include "gdtfdictionary.h"
+#include "gdtfloader.h"
 #include "fixture.h"
 #include "truss.h"
 
@@ -254,7 +256,13 @@ bool RiderImporter::Import(const std::string &path) {
         Fixture f;
         f.uuid = GenerateUuid();
         f.instanceName = part + " " + std::to_string(++counter);
-        f.typeName = "Dummy";
+        f.typeName = part;
+        if (auto dictPath = GdtfDictionary::Get(f.typeName)) {
+          f.gdtfSpec = *dictPath;
+          std::string parsed = Trim(GetGdtfFixtureName(f.gdtfSpec));
+          if (!parsed.empty())
+            f.typeName = parsed;
+        }
         f.layer = layer;
         f.positionName = currentHang;
         scene.fixtures[f.uuid] = f;
