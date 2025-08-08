@@ -92,6 +92,13 @@ void PDFParser::parseFixtureAndTrussList(const QString& textContent, QList<Fixtu
         QRegularExpressionMatch positionMatch = positionHeaderRegex.match(line);
         if (positionMatch.hasMatch()) {
             currentPosition = positionMatch.captured(1).toUpper();
+            // Some documents start listing fixtures directly under position headers
+            // without a preceding section like "Iluminacion". In that case the
+            // parser never enters the Fixtures section and those items are ignored.
+            // Assume that any detected position header implies fixture listing when
+            // no section has been set yet.
+            if (currentSection.isEmpty())
+                currentSection = "Fixtures";
             continue;
         }
 
