@@ -71,6 +71,7 @@ private:
 
     void SaveCameraSettings();
     void ApplySavedLayout();
+    void UpdateViewMenuChecks();
 
     wxDECLARE_EVENT_TABLE();
 };
