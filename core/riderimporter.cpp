@@ -4,6 +4,9 @@
 #include <regex>
 #include <sstream>
 #include <random>
+#include <algorithm>
+#include <cctype>
+#include <cstdio>
 
 #include <podofo/podofo.h>
 
@@ -101,10 +104,23 @@ std::string ExtractPdfText(const std::string &path) {
             out += '\n';
         }
 #endif
-        return out;
+        if (!out.empty())
+            return out;
     } catch (const PdfError &) {
-        return {};
+        // fall through to pdftotext fallback
     }
+
+    // Fallback to the external "pdftotext" command if PoDoFo failed
+    std::string cmd = "pdftotext -layout \"" + path + "\" -";
+    FILE *pipe = popen(cmd.c_str(), "r");
+    if (!pipe)
+        return {};
+    char buffer[256];
+    std::string out;
+    while (fgets(buffer, sizeof(buffer), pipe))
+        out += buffer;
+    pclose(pipe);
+    return out;
 }
 } // namespace
 
@@ -126,27 +142,61 @@ bool RiderImporter::Import(const std::string &path) {
     auto &scene = cfg.GetScene();
     std::string layer = cfg.GetCurrentLayer();
 
-    std::regex trussRe("truss\\s*(\\d+(?:\\.\\d+)?)m", std::regex::icase);
-    std::regex fixtureRe("fixture\\s+([A-Za-z0-9_-]+)", std::regex::icase);
+    std::regex trussRe("truss[^\n]*?(\\d+(?:\\.\\d+)?)\\s*m", std::regex::icase);
+    std::regex fixtureLineRe("^(\\d+)\\s+(.+)$");
     std::istringstream iss(text);
     std::string line;
+    bool inFixtures = false;
+    bool inRigging = false;
     while (std::getline(iss, line)) {
+        std::string lower = line;
+        std::transform(lower.begin(), lower.end(), lower.begin(),
+                       [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+
+        if (lower.find("ilumin") != std::string::npos ||
+            lower.find("robotica") != std::string::npos ||
+            lower.find("convencion") != std::string::npos) {
+            inFixtures = true;
+            inRigging = false;
+            continue;
+        }
+        if (lower.find("rigging") != std::string::npos) {
+            inFixtures = false;
+            inRigging = true;
+            continue;
+        }
+        if (lower.find("sonido") != std::string::npos ||
+            lower.find("audio") != std::string::npos ||
+            lower.find("control de p.a.") != std::string::npos ||
+            lower.find("monitores") != std::string::npos ||
+            lower.find("microfon") != std::string::npos ||
+            lower.find("video") != std::string::npos ||
+            lower.find("pantalla") != std::string::npos ||
+            lower.find("realizacion") != std::string::npos) {
+            inFixtures = false;
+            inRigging = false;
+            continue;
+        }
+
         std::smatch m;
-        if (std::regex_search(line, m, trussRe)) {
+        if (inRigging && std::regex_search(lower, m, trussRe)) {
             Truss t;
             t.uuid = GenerateUuid();
             t.name = "Truss";
             t.layer = layer;
             t.lengthMm = std::stof(m[1]) * 1000.0f;
             scene.trusses[t.uuid] = t;
-        }
-        if (std::regex_search(line, m, fixtureRe)) {
-            Fixture f;
-            f.uuid = GenerateUuid();
-            f.instanceName = m[1];
-            f.typeName = "Dummy";
-            f.layer = layer;
-            scene.fixtures[f.uuid] = f;
+        } else if (inFixtures && std::regex_match(line, m, fixtureLineRe)) {
+            int quantity = std::stoi(m[1]);
+            std::string desc = m[2];
+            for (int i = 0; i < quantity; ++i) {
+                Fixture f;
+                f.uuid = GenerateUuid();
+                f.instanceName = desc + " " + std::to_string(i + 1);
+                f.typeName = "Dummy";
+                f.layer = layer;
+                scene.fixtures[f.uuid] = f;
+            }
         }
     }
 
