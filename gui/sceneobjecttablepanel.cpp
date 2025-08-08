@@ -17,8 +17,8 @@ SceneObjectTablePanel::SceneObjectTablePanel(wxWindow* parent)
     table = new wxDataViewListCtrl(this, wxID_ANY, wxDefaultPosition,
                                    wxDefaultSize, wxDV_MULTIPLE | wxDV_ROW_LINES);
     table->AssociateModel(&store);
-    table->EnableAlternateRowColours(true);
-    table->SetAlternateRowColour(wxColour(240, 240, 240));
+
+    table->SetAlternateRowColour(wxColour(40, 40, 40));
 
     table->Bind(wxEVT_LEFT_DOWN, &SceneObjectTablePanel::OnLeftDown, this);
     table->Bind(wxEVT_LEFT_UP, &SceneObjectTablePanel::OnLeftUp, this);
