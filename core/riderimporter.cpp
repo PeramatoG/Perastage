@@ -171,8 +171,9 @@ bool RiderImporter::Import(const std::string &path) {
 
     std::regex trussRe("truss[^\n]*?(\\d+(?:\\.\\d+)?)\\s*m", std::regex::icase);
     std::regex fixtureLineRe("^\\s*(?:[-*]\\s*)?(\\d+)\\s+(.+)$");
-    std::regex hangLineRe("^\\s*(LX\\d+|floor)\\s*:?\\s*$", std::regex::icase);
-    std::regex hangFindRe("(LX\\d+|floor)", std::regex::icase);
+    // Allow matching generic hang positions like LX1, FLOOR or EFECTOS
+    std::regex hangLineRe("^\\s*(LX\\d+|floor|efectos?)\\s*:?\\s*$", std::regex::icase);
+    std::regex hangFindRe("(LX\\d+|floor|efectos?)", std::regex::icase);
     std::istringstream iss(text);
     std::string line;
     bool inFixtures = false;
@@ -213,9 +214,20 @@ bool RiderImporter::Import(const std::string &path) {
         std::smatch m;
         std::smatch hm;
         if (std::regex_match(line, hm, hangLineRe)) {
-            currentHang = hm[1];
-            std::transform(currentHang.begin(), currentHang.end(), currentHang.begin(),
-                           [](unsigned char c){ return static_cast<char>(std::toupper(c)); });
+            std::string captured = hm[1];
+            std::string capturedLower = captured;
+            std::transform(capturedLower.begin(), capturedLower.end(), capturedLower.begin(),
+                           [](unsigned char c){ return static_cast<char>(std::tolower(c)); });
+            if (capturedLower.find("efecto") != std::string::npos) {
+                currentHang = "FLOOR";
+            } else {
+                currentHang = captured;
+                std::transform(currentHang.begin(), currentHang.end(), currentHang.begin(),
+                               [](unsigned char c){ return static_cast<char>(std::toupper(c)); });
+            }
+            // If we weren't in any section yet, assume fixtures when a hang position appears
+            if (!inRigging && !inFixtures)
+                inFixtures = true;
             continue;
         }
         if (inRigging && std::regex_search(lower, m, trussRe)) {
