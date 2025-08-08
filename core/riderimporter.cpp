@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cstdio>
+#include <vector>
 
 #ifdef _WIN32
 #define popen _popen
@@ -33,6 +34,26 @@ std::string GenerateUuid() {
         if (g) out.push_back('-');
         for (int i=0;i<groups[g];++i)
             out.push_back(v[dist(rng)]);
+    }
+    return out;
+}
+
+std::string Trim(const std::string &s) {
+    size_t start = s.find_first_not_of(" \t\r\n");
+    if (start == std::string::npos)
+        return {};
+    size_t end = s.find_last_not_of(" \t\r\n");
+    return s.substr(start, end - start + 1);
+}
+
+std::vector<std::string> SplitPlus(const std::string &s) {
+    std::vector<std::string> out;
+    std::istringstream ss(s);
+    std::string item;
+    while (std::getline(ss, item, '+')) {
+        item = Trim(item);
+        if (!item.empty())
+            out.push_back(item);
     }
     return out;
 }
@@ -148,11 +169,14 @@ bool RiderImporter::Import(const std::string &path) {
     std::string layer = cfg.GetCurrentLayer();
 
     std::regex trussRe("truss[^\n]*?(\\d+(?:\\.\\d+)?)\\s*m", std::regex::icase);
-    std::regex fixtureLineRe("^(\\d+)\\s+(.+)$");
+    std::regex fixtureLineRe("^\\s*(?:[-*]\\s*)?(\\d+)\\s+(.+)$");
+    std::regex hangLineRe("^\\s*(LX\\d+|floor)\\s*:?\\s*$", std::regex::icase);
+    std::regex hangFindRe("(LX\\d+|floor)", std::regex::icase);
     std::istringstream iss(text);
     std::string line;
     bool inFixtures = false;
     bool inRigging = false;
+    std::string currentHang;
     while (std::getline(iss, line)) {
         std::string lower = line;
         std::transform(lower.begin(), lower.end(), lower.begin(),
@@ -184,23 +208,55 @@ bool RiderImporter::Import(const std::string &path) {
         }
 
         std::smatch m;
+        std::smatch hm;
+        if (std::regex_match(line, hm, hangLineRe)) {
+            currentHang = hm[1];
+            std::transform(currentHang.begin(), currentHang.end(), currentHang.begin(),
+                           [](unsigned char c){ return static_cast<char>(std::toupper(c)); });
+            continue;
+        }
         if (inRigging && std::regex_search(lower, m, trussRe)) {
-            Truss t;
-            t.uuid = GenerateUuid();
-            t.name = "Truss";
-            t.layer = layer;
-            t.lengthMm = std::stof(m[1]) * 1000.0f;
-            scene.trusses[t.uuid] = t;
+            float length = std::stof(m[1]) * 1000.0f;
+            std::string hang = currentHang;
+            if (std::regex_search(line, hm, hangFindRe)) {
+                hang = hm[1];
+                std::transform(hang.begin(), hang.end(), hang.begin(),
+                               [](unsigned char c){ return static_cast<char>(std::toupper(c)); });
+            }
+            int full = static_cast<int>(length) / 3000;
+            float rem = length - full * 3000.0f;
+            for (int i = 0; i < full; ++i) {
+                Truss t;
+                t.uuid = GenerateUuid();
+                t.name = "Truss";
+                t.layer = layer;
+                t.lengthMm = 3000.0f;
+                t.positionName = hang;
+                scene.trusses[t.uuid] = t;
+            }
+            if (rem > 0.0f) {
+                Truss t;
+                t.uuid = GenerateUuid();
+                t.name = "Truss";
+                t.layer = layer;
+                t.lengthMm = rem;
+                t.positionName = hang;
+                scene.trusses[t.uuid] = t;
+            }
         } else if (inFixtures && std::regex_match(line, m, fixtureLineRe)) {
             int quantity = std::stoi(m[1]);
-            std::string desc = m[2];
-            for (int i = 0; i < quantity; ++i) {
-                Fixture f;
-                f.uuid = GenerateUuid();
-                f.instanceName = desc + " " + std::to_string(i + 1);
-                f.typeName = "Dummy";
-                f.layer = layer;
-                scene.fixtures[f.uuid] = f;
+            std::string desc = Trim(m[2]);
+            auto parts = SplitPlus(desc);
+            for (const auto &part : parts) {
+                for (int i = 0; i < quantity; ++i) {
+                    Fixture f;
+                    f.uuid = GenerateUuid();
+                    f.instanceName = part + " " + std::to_string(i + 1);
+                    f.typeName = "Dummy";
+                    f.layer = layer;
+                    f.positionName = currentHang;
+                    scene.fixtures[f.uuid] = f;
+                }
             }
         }
     }
