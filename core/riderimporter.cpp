@@ -70,6 +70,22 @@ std::string ReadTextFile(const std::string &path) {
 }
 
 std::string ExtractPdfText(const std::string &path) {
+  // Try using the external "pdftotext" command first for better layout
+  {
+    std::string cmd = "pdftotext -layout \"" + path + "\" -";
+    FILE *pipe = popen(cmd.c_str(), "r");
+    if (pipe) {
+      char buffer[256];
+      std::string out;
+      while (fgets(buffer, sizeof(buffer), pipe))
+        out += buffer;
+      pclose(pipe);
+      if (!out.empty())
+        return out;
+    }
+  }
+
+  // Fallback to PoDoFo if pdftotext is unavailable or fails
   try {
     PdfMemDocument doc;
     doc.Load(path.c_str());
@@ -138,20 +154,8 @@ std::string ExtractPdfText(const std::string &path) {
     if (!out.empty())
       return out;
   } catch (const PdfError &) {
-    // fall through to pdftotext fallback
   }
-
-  // Fallback to the external "pdftotext" command if PoDoFo failed
-  std::string cmd = "pdftotext -layout \"" + path + "\" -";
-  FILE *pipe = popen(cmd.c_str(), "r");
-  if (!pipe)
-    return {};
-  char buffer[256];
-  std::string out;
-  while (fgets(buffer, sizeof(buffer), pipe))
-    out += buffer;
-  pclose(pipe);
-  return out;
+  return {};
 }
 } // namespace
 
