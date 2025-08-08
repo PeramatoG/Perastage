@@ -8,6 +8,11 @@
 #include <cctype>
 #include <cstdio>
 
+#ifdef _WIN32
+#define popen _popen
+#define pclose _pclose
+#endif
+
 #include <podofo/podofo.h>
 
 #include "configmanager.h"
