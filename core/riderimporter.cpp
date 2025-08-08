@@ -40,7 +40,8 @@ std::string ReadTextFile(const std::string &path) {
 
 std::string ExtractPdfText(const std::string &path) {
     try {
-        PdfMemDocument doc(path.c_str());
+        PdfMemDocument doc;
+        doc.Load(path.c_str());
         std::string out;
 #if PODOFO_VERSION >= PODOFO_MAKE_VERSION(0,10,0)
         auto &pages = doc.GetPages();
