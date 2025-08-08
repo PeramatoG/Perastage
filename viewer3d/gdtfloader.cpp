@@ -371,7 +371,7 @@ int GetGdtfModeChannelCount(const std::string& gdtfPath,
                         token.erase(token.find_last_not_of(" \t\r\n") + 1);
                         if (token.empty())
                             continue;
-                        try { std::stoi(token); ++count; }
+                        try { (void)std::stoi(token); ++count; }
                         catch (...) { /* ignore invalid */ }
                     }
                 }
