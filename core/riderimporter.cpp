@@ -75,23 +75,27 @@ std::string ExtractPdfText(const std::string &path) {
   {
     std::string cmd = "pdftotext -layout \"" + path + "\" -";
 #ifdef _WIN32
-    SECURITY_ATTRIBUTES sa;
-    ZeroMemory(&sa, sizeof(sa));
+    SECURITY_ATTRIBUTES sa{};
     sa.nLength = sizeof(sa);
     sa.bInheritHandle = TRUE;
     HANDLE readPipe = NULL, writePipe = NULL;
     if (CreatePipe(&readPipe, &writePipe, &sa, 0)) {
-      STARTUPINFOA si;
-      ZeroMemory(&si, sizeof(si));
+      STARTUPINFOA si{};
       si.cb = sizeof(si);
-      si.dwFlags |= STARTF_USESTDHANDLES | STARTF_USESHOWWINDOW;
+      si.dwFlags |= STARTF_USESTDHANDLES;
+#ifdef STARTF_USESHOWWINDOW
+      si.dwFlags |= STARTF_USESHOWWINDOW;
       si.wShowWindow = SW_HIDE;
+#endif
       si.hStdOutput = writePipe;
       si.hStdError = writePipe;
-      PROCESS_INFORMATION pi;
-      ZeroMemory(&pi, sizeof(pi));
+      PROCESS_INFORMATION pi{};
       std::string cmdline = "cmd /c " + cmd;
-      if (CreateProcessA(NULL, cmdline.data(), NULL, NULL, TRUE, CREATE_NO_WINDOW,
+      DWORD creationFlags = 0;
+#ifdef CREATE_NO_WINDOW
+      creationFlags |= CREATE_NO_WINDOW;
+#endif
+      if (CreateProcessA(NULL, cmdline.data(), NULL, NULL, TRUE, creationFlags,
                          NULL, NULL, &si, &pi)) {
         CloseHandle(writePipe);
         char buffer[256];
