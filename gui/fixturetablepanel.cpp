@@ -18,8 +18,6 @@
 #include <wx/filename.h>
 #include <wx/notebook.h>
 #include <wx/tokenzr.h>
-#include <wx/colour.h>
-#include <wx/settings.h>
 
 namespace fs = std::filesystem;
 
@@ -28,12 +26,6 @@ FixtureTablePanel::FixtureTablePanel(wxWindow *parent)
   wxBoxSizer *sizer = new wxBoxSizer(wxVERTICAL);
   table = new wxDataViewListCtrl(this, wxID_ANY, wxDefaultPosition,
                                  wxDefaultSize, wxDV_MULTIPLE | wxDV_ROW_LINES);
-#if wxCHECK_VERSION(3,1,5)
-  table->EnableAlternateRowColors(true);
-#else
-  wxColour alt = wxSystemSettings::GetColour(wxSYS_COLOUR_LISTBOX).ChangeLightness(110);
-  table->SetAlternateRowColour(alt);
-#endif
   table->AssociateModel(&store);
 
   table->Bind(wxEVT_LEFT_DOWN, &FixtureTablePanel::OnLeftDown, this);
