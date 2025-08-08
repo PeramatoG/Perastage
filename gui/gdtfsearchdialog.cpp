@@ -45,7 +45,7 @@ GdtfSearchDialog::GdtfSearchDialog(wxWindow* parent, const std::string& listData
 
     resultTable = new wxDataViewListCtrl(this, wxID_ANY, wxDefaultPosition,
                                          wxDefaultSize, wxDV_ROW_LINES);
-    resultTable->EnableAlternateRowColours(true);
+    resultTable->EnableAlternateRowColors(true);
     int flags = wxDATAVIEW_COL_RESIZABLE | wxDATAVIEW_COL_SORTABLE;
     resultTable->AppendTextColumn("Manufacturer", wxDATAVIEW_CELL_INERT, 150,
                                   wxALIGN_LEFT, flags);
