@@ -30,7 +30,7 @@ bool MyApp::OnInit() {
     mainWindow->ResetProject();
 
   mainWindow->Show(true);
-  // Show the window in full screen but keep the menu bar visible
-  mainWindow->ShowFullScreen(true, wxFULLSCREEN_ALL & ~wxFULLSCREEN_NOMENUBAR);
+  // Start maximized so minimize and restore buttons remain available
+  mainWindow->Maximize(true);
   return true;
 }

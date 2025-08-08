@@ -1095,6 +1095,21 @@ void MainWindow::ApplySavedLayout() {
     auiManager->LoadPerspective(*val, true);
     auiManager->Update();
   }
+  UpdateViewMenuChecks();
+}
+
+void MainWindow::UpdateViewMenuChecks() {
+  if (!auiManager || !GetMenuBar())
+    return;
+
+  auto &consolePane = auiManager->GetPane("Console");
+  GetMenuBar()->Check(ID_View_ToggleConsole, consolePane.IsShown());
+
+  auto &dataPane = auiManager->GetPane("DataNotebook");
+  GetMenuBar()->Check(ID_View_ToggleFixtures, dataPane.IsShown());
+
+  auto &viewPane = auiManager->GetPane("3DViewport");
+  GetMenuBar()->Check(ID_View_ToggleViewport, viewPane.IsShown());
 }
 
 void MainWindow::OnShowHelp(wxCommandEvent &WXUNUSED(event)) {
