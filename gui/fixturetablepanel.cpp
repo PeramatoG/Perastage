@@ -27,10 +27,8 @@ FixtureTablePanel::FixtureTablePanel(wxWindow *parent)
   wxBoxSizer *sizer = new wxBoxSizer(wxVERTICAL);
   table = new wxDataViewListCtrl(this, wxID_ANY, wxDefaultPosition,
                                  wxDefaultSize, wxDV_MULTIPLE | wxDV_ROW_LINES);
-#if defined(wxHAS_GENERIC_DATAVIEWCTRL)
   table->SetAlternateRowColour(
       wxSystemSettings::GetColour(wxSYS_COLOUR_LISTBOX));
-#endif
   table->AssociateModel(&store);
 
   table->Bind(wxEVT_LEFT_DOWN, &FixtureTablePanel::OnLeftDown, this);
