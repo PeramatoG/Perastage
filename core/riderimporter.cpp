@@ -13,6 +13,7 @@
 #ifdef _WIN32
 #define popen _popen
 #define pclose _pclose
+#include <windows.h>
 #endif
 
 #include <podofo/podofo.h>
@@ -73,6 +74,45 @@ std::string ExtractPdfText(const std::string &path) {
   // Try using the external "pdftotext" command first for better layout
   {
     std::string cmd = "pdftotext -layout \"" + path + "\" -";
+#ifdef _WIN32
+    SECURITY_ATTRIBUTES sa;
+    ZeroMemory(&sa, sizeof(sa));
+    sa.nLength = sizeof(sa);
+    sa.bInheritHandle = TRUE;
+    HANDLE readPipe = NULL, writePipe = NULL;
+    if (CreatePipe(&readPipe, &writePipe, &sa, 0)) {
+      STARTUPINFOA si;
+      ZeroMemory(&si, sizeof(si));
+      si.cb = sizeof(si);
+      si.dwFlags |= STARTF_USESTDHANDLES | STARTF_USESHOWWINDOW;
+      si.wShowWindow = SW_HIDE;
+      si.hStdOutput = writePipe;
+      si.hStdError = writePipe;
+      PROCESS_INFORMATION pi;
+      ZeroMemory(&pi, sizeof(pi));
+      std::string cmdline = "cmd /c " + cmd;
+      if (CreateProcessA(NULL, cmdline.data(), NULL, NULL, TRUE, CREATE_NO_WINDOW,
+                         NULL, NULL, &si, &pi)) {
+        CloseHandle(writePipe);
+        char buffer[256];
+        DWORD readBytes = 0;
+        std::string out;
+        while (ReadFile(readPipe, buffer, sizeof(buffer), &readBytes, NULL) &&
+               readBytes) {
+          out.append(buffer, readBytes);
+        }
+        CloseHandle(readPipe);
+        WaitForSingleObject(pi.hProcess, INFINITE);
+        CloseHandle(pi.hProcess);
+        CloseHandle(pi.hThread);
+        if (!out.empty())
+          return out;
+      } else {
+        CloseHandle(readPipe);
+        CloseHandle(writePipe);
+      }
+    }
+#else
     FILE *pipe = popen(cmd.c_str(), "r");
     if (pipe) {
       char buffer[256];
@@ -83,6 +123,7 @@ std::string ExtractPdfText(const std::string &path) {
       if (!out.empty())
         return out;
     }
+#endif
   }
 
   // Fallback to PoDoFo if pdftotext is unavailable or fails
