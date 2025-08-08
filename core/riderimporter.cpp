@@ -8,6 +8,7 @@
 #include <cctype>
 #include <cstdio>
 #include <vector>
+#include <unordered_map>
 
 #ifdef _WIN32
 #define popen _popen
@@ -177,6 +178,7 @@ bool RiderImporter::Import(const std::string &path) {
     bool inFixtures = false;
     bool inRigging = false;
     std::string currentHang;
+    std::unordered_map<std::string, int> nameCounters;
     while (std::getline(iss, line)) {
         std::string lower = line;
         std::transform(lower.begin(), lower.end(), lower.begin(),
@@ -201,7 +203,8 @@ bool RiderImporter::Import(const std::string &path) {
             lower.find("microfon") != std::string::npos ||
             lower.find("video") != std::string::npos ||
             lower.find("pantalla") != std::string::npos ||
-            lower.find("realizacion") != std::string::npos) {
+            lower.find("realizacion") != std::string::npos ||
+            lower.find("control") != std::string::npos) {
             inFixtures = false;
             inRigging = false;
             continue;
@@ -244,14 +247,22 @@ bool RiderImporter::Import(const std::string &path) {
                 scene.trusses[t.uuid] = t;
             }
         } else if (inFixtures && std::regex_match(line, m, fixtureLineRe)) {
-            int quantity = std::stoi(m[1]);
+            int baseQuantity = std::stoi(m[1]);
             std::string desc = Trim(m[2]);
             auto parts = SplitPlus(desc);
-            for (const auto &part : parts) {
+            for (const auto &partRaw : parts) {
+                std::smatch pm;
+                std::string part = partRaw;
+                int quantity = baseQuantity;
+                if (std::regex_match(partRaw, pm, fixtureLineRe)) {
+                    quantity = std::stoi(pm[1]);
+                    part = Trim(pm[2]);
+                }
+                int &counter = nameCounters[part];
                 for (int i = 0; i < quantity; ++i) {
                     Fixture f;
                     f.uuid = GenerateUuid();
-                    f.instanceName = part + " " + std::to_string(i + 1);
+                    f.instanceName = part + " " + std::to_string(++counter);
                     f.typeName = "Dummy";
                     f.layer = layer;
                     f.positionName = currentHang;
