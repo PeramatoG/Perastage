@@ -58,6 +58,7 @@ std::string ExtractPdfText(const std::string &path) {
         CloseHandle(pi.hProcess);
         CloseHandle(pi.hThread);
         if (!out.empty()) {
+          wxLogMessage("Using pdftotext to extract text from '%s'", path.c_str());
           return out;
         }
         wxLogDebug("pdftotext returned empty output for '%s'; falling back to PoDoFo",
@@ -78,6 +79,7 @@ std::string ExtractPdfText(const std::string &path) {
         out += buffer;
       pclose(pipe);
       if (!out.empty()) {
+        wxLogMessage("Using pdftotext to extract text from '%s'", path.c_str());
         return out;
       }
       wxLogDebug("pdftotext returned empty output for '%s'; falling back to PoDoFo",
@@ -207,6 +209,7 @@ std::string ExtractPdfText(const std::string &path) {
     if (!out.empty()) {
       if (!out.empty() && out.back() == '\n')
         out.pop_back();
+      wxLogMessage("Using PoDoFo to extract text from '%s'", path.c_str());
       return out;
     }
   } catch (const PdfError &e) {
