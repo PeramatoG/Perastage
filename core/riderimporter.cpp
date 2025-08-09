@@ -85,6 +85,11 @@ bool RiderImporter::Import(const std::string &path) {
   auto &scene = cfg.GetScene();
   std::string layer = cfg.GetCurrentLayer();
 
+  // Full truss line like: "3 TRUSS 40X40 14m PARA PUENTES LX"
+  std::regex trussLineRe(
+      "^\\s*(?:[-*]\\s*)?(\\d+)\\s+truss\\s+([^\\n]*?)\\s+(\\d+(?:\\.\\d+)?)\\s*m(?:\\s+para\\s+(.+))?",
+      std::regex::icase);
+  // Generic catch-all to find any truss mention with a length
   std::regex trussRe("truss[^\n]*?(\\d+(?:\\.\\d+)?)\\s*m", std::regex::icase);
   std::regex fixtureLineRe("^\\s*(?:[-*]\\s*)?(\\d+)\\s+(.+)$");
   std::regex quantityOnlyRe("^\\s*(?:[-*]\\s*)?(\\d+)\\s*$");
@@ -195,6 +200,42 @@ bool RiderImporter::Import(const std::string &path) {
       if (!desc.empty())
         addFixtures(pendingQuantity, desc);
       havePending = false;
+    } else if (inRigging && std::regex_match(line, m, trussLineRe)) {
+      int quantity = std::stoi(m[1]);
+      std::string model = Trim(m[2]);
+      float length = std::stof(m[3]) * 1000.0f;
+      std::string hang = currentHang;
+      if (m.size() > 4 && m[4].matched)
+        hang = Trim(m[4]);
+      std::transform(hang.begin(), hang.end(), hang.begin(),
+                     [](unsigned char c) { return static_cast<char>(std::toupper(c)); });
+      if (hang.rfind("PUENTES ", 0) == 0)
+        hang = Trim(hang.substr(8));
+      else if (hang.rfind("PUENTE ", 0) == 0)
+        hang = Trim(hang.substr(7));
+      if (hang == "LX") {
+        for (int i = 0; i < quantity; ++i) {
+          Truss t;
+          t.uuid = GenerateUuid();
+          t.name = "Truss";
+          t.layer = layer;
+          t.model = "Truss " + model;
+          t.lengthMm = length;
+          t.positionName = "LX" + std::to_string(i + 1);
+          scene.trusses[t.uuid] = t;
+        }
+      } else {
+        for (int i = 0; i < quantity; ++i) {
+          Truss t;
+          t.uuid = GenerateUuid();
+          t.name = "Truss";
+          t.layer = layer;
+          t.model = "Truss " + model;
+          t.lengthMm = length;
+          t.positionName = hang;
+          scene.trusses[t.uuid] = t;
+        }
+      }
     } else if (inRigging && std::regex_search(lower, m, trussRe)) {
       float length = std::stof(m[1]) * 1000.0f;
       std::string hang = currentHang;
