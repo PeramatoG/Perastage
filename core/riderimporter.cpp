@@ -2,7 +2,6 @@
 
 #include <algorithm>
 #include <cctype>
-#include <cstdio>
 #include <fstream>
 #include <random>
 #include <regex>
@@ -10,14 +9,7 @@
 #include <unordered_map>
 #include <vector>
 
-#ifdef _WIN32
-#define NOMINMAX
-#define popen _popen
-#define pclose _pclose
-#include <windows.h>
-#endif
-
-#include <podofo/podofo.h>
+#include "pdftext.h"
 
 #include "configmanager.h"
 #include "gdtfdictionary.h"
@@ -25,7 +17,6 @@
 #include "fixture.h"
 #include "truss.h"
 
-using namespace PoDoFo;
 
 namespace {
 // Generate a random UUID4 string
@@ -73,138 +64,7 @@ std::string ReadTextFile(const std::string &path) {
   return ss.str();
 }
 
-std::string ExtractPdfText(const std::string &path) {
-  // Try using the external "pdftotext" command first for better layout
-  {
-    std::string cmd = "pdftotext -layout \"" + path + "\" -";
-#ifdef _WIN32
-    SECURITY_ATTRIBUTES sa{};
-    sa.nLength = sizeof(sa);
-    sa.bInheritHandle = TRUE;
-    HANDLE readPipe = NULL, writePipe = NULL;
-    if (CreatePipe(&readPipe, &writePipe, &sa, 0)) {
-      STARTUPINFOA si{};
-      si.cb = sizeof(si);
-      si.dwFlags |= STARTF_USESTDHANDLES;
-#ifdef STARTF_USESHOWWINDOW
-      si.dwFlags |= STARTF_USESHOWWINDOW;
-      si.wShowWindow = SW_HIDE;
-#endif
-      si.hStdOutput = writePipe;
-      si.hStdError = writePipe;
-      PROCESS_INFORMATION pi{};
-      std::string cmdline = "cmd /c " + cmd;
-      DWORD creationFlags = 0;
-#ifdef CREATE_NO_WINDOW
-      creationFlags |= CREATE_NO_WINDOW;
-#endif
-      if (CreateProcessA(NULL, cmdline.data(), NULL, NULL, TRUE, creationFlags,
-                         NULL, NULL, &si, &pi)) {
-        CloseHandle(writePipe);
-        char buffer[256];
-        DWORD readBytes = 0;
-        std::string out;
-        while (ReadFile(readPipe, buffer, sizeof(buffer), &readBytes, NULL) &&
-               readBytes) {
-          out.append(buffer, readBytes);
-        }
-        CloseHandle(readPipe);
-        WaitForSingleObject(pi.hProcess, INFINITE);
-        CloseHandle(pi.hProcess);
-        CloseHandle(pi.hThread);
-        if (!out.empty())
-          return out;
-      } else {
-        CloseHandle(readPipe);
-        CloseHandle(writePipe);
-      }
-    }
-#else
-    FILE *pipe = popen(cmd.c_str(), "r");
-    if (pipe) {
-      char buffer[256];
-      std::string out;
-      while (fgets(buffer, sizeof(buffer), pipe))
-        out += buffer;
-      pclose(pipe);
-      if (!out.empty())
-        return out;
-    }
-#endif
-  }
-
-  // Fallback to PoDoFo if pdftotext is unavailable or fails
-  try {
-    PdfMemDocument doc;
-    doc.Load(path.c_str());
-    std::string out;
-#if PODOFO_VERSION >= PODOFO_MAKE_VERSION(0, 10, 0)
-    auto &pages = doc.GetPages();
-    for (unsigned i = 0; i < pages.GetCount(); ++i) {
-      auto &page = pages.GetPageAt(i);
-      PdfContentStreamReader reader(page);
-      PdfContent content;
-      while (reader.TryReadNext(content)) {
-        if (content.GetType() != PdfContentType::Operator)
-          continue;
-        const auto &keyword = content.GetKeyword();
-        const auto &stack = content.GetStack();
-        if (stack.GetSize() == 0)
-          continue;
-        const PdfVariant &var = stack[0];
-        if ((keyword == "Tj" || keyword == "'" || keyword == "\"") &&
-            var.IsString()) {
-          out += std::string(var.GetString().GetString());
-          out += '\n';
-        } else if (keyword == "TJ" && var.IsArray()) {
-          const PdfArray &arr = var.GetArray();
-          for (const auto &el : arr) {
-            if (el.IsString())
-              out += std::string(el.GetString().GetString());
-          }
-          out += '\n';
-        }
-      }
-      out += '\n';
-    }
-#else
-    for (int i = 0; i < doc.GetPageCount(); ++i) {
-      PdfPage *page = doc.GetPage(i);
-      PdfContentsTokenizer tokenizer(page);
-      EPdfContentsType type;
-      const char *token = nullptr;
-      PdfVariant var;
-      std::string lastString;
-      while (tokenizer.ReadNext(type, token, var)) {
-        if (type == ePdfContentsType_Variant && var.IsString()) {
-          lastString = var.GetString().GetStringUtf8();
-        } else if (type == ePdfContentsType_Variant && var.IsArray()) {
-          const PdfArray &arr = var.GetArray();
-          for (const auto &el : arr) {
-            if (el.IsString())
-              out += el.GetString().GetStringUtf8();
-          }
-        } else if (type == ePdfContentsType_Keyword) {
-          if ((!strcmp(token, "Tj") || !strcmp(token, "'") ||
-               !strcmp(token, "\"")) &&
-              !lastString.empty()) {
-            out += lastString;
-            out += '\n';
-            lastString.clear();
-          } else if (!strcmp(token, "TJ")) {
-            out += '\n';
-          }
-        }
-      }
-      out += '\n';
-    }
-#endif
-    if (!out.empty())
-      return out;
-  } catch (const PdfError &) {
-  }
-  return {};
-}
+// ExtractPdfText moved to pdftext.cpp
 } // namespace
 
 bool RiderImporter::Import(const std::string &path) {
