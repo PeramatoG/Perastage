@@ -1,6 +1,8 @@
 #include "preferencesdialog.h"
 #include "configmanager.h"
 
+#include <wx/notebook.h>
+
 PreferencesDialog::PreferencesDialog(wxWindow *parent)
     : wxDialog(parent, wxID_ANY, "Preferences", wxDefaultPosition,
                wxDefaultSize) {
