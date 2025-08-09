@@ -45,8 +45,9 @@ using json = nlohmann::json;
 #include "markdown.h"
 #include "mvrexporter.h"
 #include "mvrimporter.h"
-#include "riderimporter.h"
+#include "preferencesdialog.h"
 #include "projectutils.h"
+#include "riderimporter.h"
 #include "sceneobjecttablepanel.h"
 #include "selectfixturetypedialog.h"
 #include "selectnamedialog.h"
@@ -61,55 +62,55 @@ using json = nlohmann::json;
 
 wxBEGIN_EVENT_TABLE(MainWindow, wxFrame) EVT_MENU(
     ID_File_New,
-    MainWindow::
-        OnNew) EVT_MENU(ID_File_Load,
+    MainWindow::OnNew) EVT_MENU(ID_File_Load,
+                                MainWindow::OnLoad) EVT_MENU(ID_File_Save,
+                                                             MainWindow::OnSave)
+    EVT_MENU(ID_File_SaveAs, MainWindow::OnSaveAs) EVT_MENU(
+        ID_File_ImportRider,
+        MainWindow::OnImportRider) EVT_MENU(ID_File_ImportMVR,
+                                            MainWindow::OnImportMVR)
+        EVT_MENU(ID_File_ExportMVR, MainWindow::OnExportMVR) EVT_MENU(
+            ID_File_PrintTable,
+            MainWindow::OnPrintTable) EVT_MENU(ID_File_ExportCSV,
+                                               MainWindow::OnExportCSV)
+            EVT_MENU(ID_File_Close, MainWindow::OnClose) EVT_CLOSE(
+                MainWindow::
+                    OnCloseWindow) EVT_MENU(ID_Edit_Undo,
+                                            MainWindow::
+                                                OnUndo) EVT_MENU(ID_Edit_Redo,
+                                                                 MainWindow::
+                                                                     OnRedo)
+                EVT_MENU(ID_Edit_AddFixture, MainWindow::OnAddFixture) EVT_MENU(
+                    ID_Edit_AddTruss,
+                    MainWindow::OnAddTruss) EVT_MENU(ID_Edit_AddSceneObject,
+                                                     MainWindow::
+                                                         OnAddSceneObject)
+                    EVT_MENU(ID_Edit_Delete, MainWindow::OnDelete) EVT_MENU(
+                        ID_View_ToggleConsole,
                         MainWindow::
-                            OnLoad) EVT_MENU(ID_File_Save,
-                                             MainWindow::
-                                                 OnSave) EVT_MENU(ID_File_SaveAs,
-                                                                  MainWindow::
-                                                                      OnSaveAs)
-    EVT_MENU(ID_File_ImportRider, MainWindow::OnImportRider) EVT_MENU(
-        ID_File_ImportMVR, MainWindow::OnImportMVR) EVT_MENU(
-        ID_File_ExportMVR,
-        MainWindow::
-            OnExportMVR) EVT_MENU(ID_File_PrintTable,
-                                  MainWindow::
-                                      OnPrintTable) EVT_MENU(ID_File_ExportCSV,
-                                                             MainWindow::
-                                                                 OnExportCSV)
-        EVT_MENU(ID_File_Close, MainWindow::OnClose) EVT_CLOSE(
-            MainWindow::
-                OnCloseWindow) EVT_MENU(ID_Edit_Undo,
-                                        MainWindow::
-                                            OnUndo) EVT_MENU(ID_Edit_Redo,
-                                                             MainWindow::OnRedo)
-            EVT_MENU(ID_Edit_AddFixture, MainWindow::OnAddFixture) EVT_MENU(
-                ID_Edit_AddTruss,
-                MainWindow::OnAddTruss) EVT_MENU(ID_Edit_AddSceneObject,
-                                                 MainWindow::OnAddSceneObject)
-                EVT_MENU(ID_Edit_Delete, MainWindow::OnDelete) EVT_MENU(
-                    ID_View_ToggleConsole,
-                    MainWindow::
-                        OnToggleConsole) EVT_MENU(ID_View_ToggleFixtures,
-                                                  MainWindow::OnToggleFixtures)
-                    EVT_MENU(
-                        ID_View_ToggleViewport,
-                        MainWindow::
-                            OnToggleViewport) EVT_MENU(ID_Tools_DownloadGdtf,
-                                                       MainWindow::
-                                                           OnDownloadGdtf)
+                            OnToggleConsole) EVT_MENU(ID_View_ToggleFixtures,
+                                                      MainWindow::
+                                                          OnToggleFixtures)
                         EVT_MENU(
-                            ID_Tools_ExportFixture,
+                            ID_View_ToggleViewport,
                             MainWindow::
-                                OnExportFixture) EVT_MENU(ID_Tools_ExportTruss,
-                                                          MainWindow::
-                                                              OnExportTruss)
-                            EVT_MENU(ID_Tools_ExportSceneObject,
-                                     MainWindow::OnExportSceneObject)
-                                EVT_MENU(ID_Help_Help, MainWindow::OnShowHelp)
-                                    EVT_MENU(ID_Help_About,
-                                             MainWindow::OnShowAbout)
+                                OnToggleViewport) EVT_MENU(ID_Tools_DownloadGdtf,
+                                                           MainWindow::
+                                                               OnDownloadGdtf)
+                            EVT_MENU(
+                                ID_Tools_ExportFixture,
+                                MainWindow::
+                                    OnExportFixture) EVT_MENU(ID_Tools_ExportTruss,
+                                                              MainWindow::
+                                                                  OnExportTruss)
+                                EVT_MENU(ID_Tools_ExportSceneObject,
+                                         MainWindow::OnExportSceneObject)
+                                    EVT_MENU(
+                                        ID_Help_Help,
+                                        MainWindow::
+                                            OnShowHelp) EVT_MENU(ID_Help_About,
+                                                                 MainWindow::
+                                                                     OnShowAbout)
                                         EVT_MENU(ID_Select_Fixtures,
                                                  MainWindow::OnSelectFixtures)
                                             EVT_MENU(
@@ -118,73 +119,77 @@ wxBEGIN_EVENT_TABLE(MainWindow, wxFrame) EVT_MENU(
                                                 EVT_MENU(
                                                     ID_Select_Objects,
                                                     MainWindow::OnSelectObjects)
-                                                    wxEND_EVENT_TABLE()
+                                                    EVT_MENU(
+                                                        ID_Edit_Preferences,
+                                                        MainWindow::
+                                                            OnPreferences)
+                                                        wxEND_EVENT_TABLE()
 
-static bool LoadTrussArchive(const std::string& archivePath, Truss& outTruss)
-{
-    namespace fs = std::filesystem;
-    wxFileInputStream input(archivePath);
-    if (!input.IsOk())
+                                                            static bool LoadTrussArchive(
+                                                                const std::string
+                                                                    &archivePath,
+                                                                Truss
+                                                                    &outTruss) {
+  namespace fs = std::filesystem;
+  wxFileInputStream input(archivePath);
+  if (!input.IsOk())
+    return false;
+  wxZipInputStream zip(input);
+  std::unique_ptr<wxZipEntry> entry;
+  std::string meta;
+  fs::path baseDir = fs::path(archivePath).parent_path();
+  while ((entry.reset(zip.GetNextEntry())), entry) {
+    std::string name = entry->GetName().ToStdString();
+    if (entry->IsDir())
+      continue;
+    if (name.size() >= 5 && name.substr(name.size() - 5) == ".json") {
+      std::string contents;
+      char buf[4096];
+      while (true) {
+        zip.Read(buf, sizeof(buf));
+        size_t bytes = zip.LastRead();
+        if (bytes == 0)
+          break;
+        contents.append(buf, bytes);
+      }
+      meta = std::move(contents);
+    } else if (name.size() >= 4 && (name.substr(name.size() - 4) == ".3ds" ||
+                                    name.substr(name.size() - 4) == ".glb")) {
+      fs::path dest = baseDir / fs::path(name).filename();
+      wxFileName::Mkdir(dest.parent_path().string(), wxS_DIR_DEFAULT,
+                        wxPATH_MKDIR_FULL);
+      std::ofstream out(dest, std::ios::binary);
+      if (!out.is_open())
         return false;
-    wxZipInputStream zip(input);
-    std::unique_ptr<wxZipEntry> entry;
-    std::string meta;
-    fs::path baseDir = fs::path(archivePath).parent_path();
-    while ((entry.reset(zip.GetNextEntry())), entry) {
-        std::string name = entry->GetName().ToStdString();
-        if (entry->IsDir())
-            continue;
-        if (name.size() >= 5 && name.substr(name.size() - 5) == ".json") {
-            std::string contents;
-            char buf[4096];
-            while (true) {
-                zip.Read(buf, sizeof(buf));
-                size_t bytes = zip.LastRead();
-                if (bytes == 0)
-                    break;
-                contents.append(buf, bytes);
-            }
-            meta = std::move(contents);
-        } else if (name.size() >= 4 &&
-                   (name.substr(name.size() - 4) == ".3ds" ||
-                    name.substr(name.size() - 4) == ".glb")) {
-            fs::path dest = baseDir / fs::path(name).filename();
-            wxFileName::Mkdir(dest.parent_path().string(), wxS_DIR_DEFAULT,
-                              wxPATH_MKDIR_FULL);
-            std::ofstream out(dest, std::ios::binary);
-            if (!out.is_open())
-                return false;
-            char buf[4096];
-            while (true) {
-                zip.Read(buf, sizeof(buf));
-                size_t bytes = zip.LastRead();
-                if (bytes == 0)
-                    break;
-                out.write(buf, bytes);
-            }
-            out.close();
-            outTruss.symbolFile = dest.string();
-        }
+      char buf[4096];
+      while (true) {
+        zip.Read(buf, sizeof(buf));
+        size_t bytes = zip.LastRead();
+        if (bytes == 0)
+          break;
+        out.write(buf, bytes);
+      }
+      out.close();
+      outTruss.symbolFile = dest.string();
     }
-    if (meta.empty() || outTruss.symbolFile.empty())
-        return false;
-    json j = json::parse(meta, nullptr, false);
-    if (j.is_discarded())
-        return false;
-    outTruss.name = j.value("Name", "");
-    outTruss.manufacturer = j.value("Manufacturer", "");
-    outTruss.model = j.value("Model", "");
-    outTruss.lengthMm = j.value("Length_mm", 0.0f);
-    outTruss.widthMm = j.value("Width_mm", 0.0f);
-    outTruss.heightMm = j.value("Height_mm", 0.0f);
-    outTruss.weightKg = j.value("Weight_kg", 0.0f);
-    outTruss.crossSection = j.value("CrossSection", "");
-    return true;
+  }
+  if (meta.empty() || outTruss.symbolFile.empty())
+    return false;
+  json j = json::parse(meta, nullptr, false);
+  if (j.is_discarded())
+    return false;
+  outTruss.name = j.value("Name", "");
+  outTruss.manufacturer = j.value("Manufacturer", "");
+  outTruss.model = j.value("Model", "");
+  outTruss.lengthMm = j.value("Length_mm", 0.0f);
+  outTruss.widthMm = j.value("Width_mm", 0.0f);
+  outTruss.heightMm = j.value("Height_mm", 0.0f);
+  outTruss.weightKg = j.value("Weight_kg", 0.0f);
+  outTruss.crossSection = j.value("CrossSection", "");
+  return true;
 }
 
-                                                        MainWindow::MainWindow(
-                                                            const wxString
-                                                                &title)
+MainWindow::MainWindow(const wxString &title)
     : wxFrame(nullptr, wxID_ANY, title, wxDefaultPosition, wxSize(1600, 950)) {
   wxIcon icon;
   const char *iconPaths[] = {"resources/Perastage.ico",
@@ -340,6 +345,8 @@ void MainWindow::CreateMenuBar() {
   editMenu->Append(ID_Edit_AddSceneObject, "Add scene object...");
   editMenu->AppendSeparator();
   editMenu->Append(ID_Edit_Delete, "Delete\tDel");
+  editMenu->AppendSeparator();
+  editMenu->Append(ID_Edit_Preferences, "Preferences...");
 
   menuBar->Append(editMenu, "&Edit");
 
@@ -708,15 +715,10 @@ void MainWindow::OnExportTruss(wxCommandEvent &WXUNUSED(event)) {
 
   wxZipOutputStream zip(out);
   json j = {
-      {"Name", chosen->name},
-      {"Manufacturer", chosen->manufacturer},
-      {"Model", chosen->model},
-      {"Length_mm", chosen->lengthMm},
-      {"Width_mm", chosen->widthMm},
-      {"Height_mm", chosen->heightMm},
-      {"Weight_kg", chosen->weightKg},
-      {"CrossSection", chosen->crossSection}
-  };
+      {"Name", chosen->name},          {"Manufacturer", chosen->manufacturer},
+      {"Model", chosen->model},        {"Length_mm", chosen->lengthMm},
+      {"Width_mm", chosen->widthMm},   {"Height_mm", chosen->heightMm},
+      {"Weight_kg", chosen->weightKg}, {"CrossSection", chosen->crossSection}};
   std::string meta = j.dump(2);
   auto *metaEntry = new wxZipEntry("Truss.json");
   metaEntry->SetMethod(wxZIP_METHOD_DEFLATE);
@@ -1183,8 +1185,8 @@ void MainWindow::SaveCameraSettings() {
     ConfigManager::Get().SetFloat("camera_target_z", cam.GetTargetZ());
   }
   if (auiManager) {
-    ConfigManager::Get().SetValue(
-        "layout_perspective", auiManager->SavePerspective().ToStdString());
+    ConfigManager::Get().SetValue("layout_perspective",
+                                  auiManager->SavePerspective().ToStdString());
   }
 }
 
@@ -1285,6 +1287,13 @@ void MainWindow::OnSelectTrusses(wxCommandEvent &WXUNUSED(event)) {
 void MainWindow::OnSelectObjects(wxCommandEvent &WXUNUSED(event)) {
   if (notebook)
     notebook->ChangeSelection(2);
+}
+
+void MainWindow::OnPreferences(wxCommandEvent &WXUNUSED(event)) {
+  PreferencesDialog dlg(this);
+  if (dlg.ShowModal() == wxID_OK) {
+    ConfigManager::Get().SaveUserConfig();
+  }
 }
 
 void MainWindow::OnUndo(wxCommandEvent &WXUNUSED(event)) {
