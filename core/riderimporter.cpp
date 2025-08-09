@@ -6,6 +6,7 @@
 #include <fstream>
 #include <random>
 #include <regex>
+#include <iomanip>
 #include <sstream>
 #include <unordered_map>
 #include <vector>
@@ -228,6 +229,16 @@ bool RiderImporter::Import(const std::string &path) {
       else if (hang.rfind("PUENTE ", 0) == 0)
         hang = Trim(hang.substr(7));
 
+      auto formatLength = [](float mm) {
+        std::ostringstream oss;
+        oss << std::fixed << std::setprecision(2) << mm / 1000.0f;
+        std::string s = oss.str();
+        // remove trailing zeros and optional decimal point
+        s.erase(s.find_last_not_of('0') + 1, std::string::npos);
+        if (!s.empty() && s.back() == '.') s.pop_back();
+        return s + "M";
+      };
+
       auto addTrussPieces = [&](const std::string &posName) {
         float remaining = length;
         std::array<float, 4> sizes = {3000.0f, 2000.0f, 1000.0f, 500.0f};
@@ -236,13 +247,14 @@ bool RiderImporter::Import(const std::string &path) {
           for (int j = 0; j < count; ++j) {
             Truss t;
             t.uuid = GenerateUuid();
-            t.name = "Truss";
             t.layer = layer;
-            t.model = "Truss " + model;
             t.lengthMm = s;
             t.widthMm = width;
             t.heightMm = height;
             t.positionName = posName;
+            std::string sizeStr = formatLength(s);
+            t.name = "TRUSS " + model + " " + sizeStr;
+            t.model = t.name;
             scene.trusses[t.uuid] = t;
           }
           remaining -= count * s;
@@ -250,13 +262,14 @@ bool RiderImporter::Import(const std::string &path) {
         if (remaining > 1.0f) {
           Truss t;
           t.uuid = GenerateUuid();
-          t.name = "Truss";
           t.layer = layer;
-          t.model = "Truss " + model;
           t.lengthMm = remaining;
           t.widthMm = width;
           t.heightMm = height;
           t.positionName = posName;
+          std::string sizeStr = formatLength(remaining);
+          t.name = "TRUSS " + model + " " + sizeStr;
+          t.model = t.name;
           scene.trusses[t.uuid] = t;
         }
       };
@@ -278,6 +291,15 @@ bool RiderImporter::Import(const std::string &path) {
             [](unsigned char c) { return static_cast<char>(std::toupper(c)); });
       }
 
+      auto formatLength = [](float mm) {
+        std::ostringstream oss;
+        oss << std::fixed << std::setprecision(2) << mm / 1000.0f;
+        std::string s = oss.str();
+        s.erase(s.find_last_not_of('0') + 1, std::string::npos);
+        if (!s.empty() && s.back() == '.') s.pop_back();
+        return s + "M";
+      };
+
       float width = 400.0f;
       float height = 400.0f;
       float remaining = length;
@@ -287,12 +309,14 @@ bool RiderImporter::Import(const std::string &path) {
         for (int j = 0; j < count; ++j) {
           Truss t;
           t.uuid = GenerateUuid();
-          t.name = "Truss";
           t.layer = layer;
           t.lengthMm = s;
           t.widthMm = width;
           t.heightMm = height;
           t.positionName = hang;
+          std::string sizeStr = formatLength(s);
+          t.name = "TRUSS " + sizeStr;
+          t.model = t.name;
           scene.trusses[t.uuid] = t;
         }
         remaining -= count * s;
@@ -300,12 +324,14 @@ bool RiderImporter::Import(const std::string &path) {
       if (remaining > 1.0f) {
         Truss t;
         t.uuid = GenerateUuid();
-        t.name = "Truss";
         t.layer = layer;
         t.lengthMm = remaining;
         t.widthMm = width;
         t.heightMm = height;
         t.positionName = hang;
+        std::string sizeStr = formatLength(remaining);
+        t.name = "TRUSS " + sizeStr;
+        t.model = t.name;
         scene.trusses[t.uuid] = t;
       }
     } else if (inFixtures && std::regex_match(line, m, fixtureLineRe)) {
