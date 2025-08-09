@@ -85,10 +85,9 @@ bool RiderImporter::Import(const std::string &path) {
   auto &scene = cfg.GetScene();
   std::string layer = cfg.GetCurrentLayer();
 
-  // Keywords that should be treated as trusses when parsing
-  const std::string trussKeywords =
-      "(?:truss|pantalla(?:s)?(?:\\s+laterales)?|screen|telon|escenografia|"
-      "backdrop(?:s)?)";
+  // Keywords that identify truss entries. Screens or drapes themselves are
+  // ignored; only explicit truss mentions are parsed.
+  const std::string trussKeywords = "(?:truss)";
   // Full truss line like: "3 TRUSS 40X40 14m PARA PUENTES LX"
   std::regex trussLineRe(
       "^\\s*(?:[-*]\\s*)?(\\d+)\\s+" + trussKeywords +
