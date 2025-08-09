@@ -33,6 +33,8 @@ namespace fs = std::filesystem;
 #endif
 #include <cmath>
 #include <iostream>
+#include <iomanip>
+#include <sstream>
 
 // Font size for on-screen labels drawn with NanoVG
 static constexpr float LABEL_FONT_SIZE = 18.0f;
@@ -94,6 +96,16 @@ static std::string ResolveModelPath(const std::string &base,
   }
 
   return FindFileRecursive(base, p.filename().string());
+}
+
+static std::string FormatMeters(float mm) {
+  std::ostringstream oss;
+  oss << std::fixed << std::setprecision(2) << mm / 1000.0f;
+  std::string s = oss.str();
+  s.erase(s.find_last_not_of('0') + 1, std::string::npos);
+  if (!s.empty() && s.back() == '.')
+    s.pop_back();
+  return s;
 }
 
 static void MatrixToArray(const Matrix &m, float out[16]) {
@@ -1139,6 +1151,9 @@ void Viewer3DController::DrawTrussLabels(int width, int height) {
     int y = height - static_cast<int>(sy);
     wxString label =
         t.name.empty() ? wxString::FromUTF8(uuid) : wxString::FromUTF8(t.name);
+    float baseHeight = t.transform.o[2] - t.heightMm * 0.5f;
+    std::string hStr = FormatMeters(baseHeight);
+    label += wxString::Format("\nh = %s m", hStr.c_str());
 
     DrawText2D(m_vg, m_font, std::string(label.mb_str()), x, y);
   }
@@ -1253,6 +1268,9 @@ bool Viewer3DController::GetTrussLabelAt(int mouseX, int mouseY, int width,
         bestPos.y = static_cast<int>((rect.minY + rect.maxY) * 0.5);
         bestLabel = t.name.empty() ? wxString::FromUTF8(uuid)
                                    : wxString::FromUTF8(t.name);
+        float baseHeight = t.transform.o[2] - t.heightMm * 0.5f;
+        std::string hStr = FormatMeters(baseHeight);
+        bestLabel += wxString::Format("\nh = %s m", hStr.c_str());
         bestUuid = uuid;
         found = true;
       }
