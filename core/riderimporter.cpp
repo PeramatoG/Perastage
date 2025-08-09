@@ -1,6 +1,7 @@
 #include "riderimporter.h"
 
 #include <algorithm>
+#include <array>
 #include <cctype>
 #include <fstream>
 #include <random>
@@ -12,11 +13,10 @@
 #include "pdftext.h"
 
 #include "configmanager.h"
+#include "fixture.h"
 #include "gdtfdictionary.h"
 #include "gdtfloader.h"
-#include "fixture.h"
 #include "truss.h"
-
 
 namespace {
 // Generate a random UUID4 string
@@ -85,12 +85,18 @@ bool RiderImporter::Import(const std::string &path) {
   auto &scene = cfg.GetScene();
   std::string layer = cfg.GetCurrentLayer();
 
+  // Keywords that should be treated as trusses when parsing
+  const std::string trussKeywords =
+      "(?:truss|pantalla(?:s)?(?:\\s+laterales)?|screen|telon|escenografia|"
+      "backdrop(?:s)?)";
   // Full truss line like: "3 TRUSS 40X40 14m PARA PUENTES LX"
   std::regex trussLineRe(
-      "^\\s*(?:[-*]\\s*)?(\\d+)\\s+truss\\s+([^\\n]*?)\\s+(\\d+(?:\\.\\d+)?)\\s*m(?:\\s+para\\s+(.+))?",
+      "^\\s*(?:[-*]\\s*)?(\\d+)\\s+" + trussKeywords +
+          "\\s+([^\\n]*?)\\s+(\\d+(?:\\.\\d+)?)\\s*m(?:\\s+para\\s+(.+))?",
       std::regex::icase);
   // Generic catch-all to find any truss mention with a length
-  std::regex trussRe("truss[^\n]*?(\\d+(?:\\.\\d+)?)\\s*m", std::regex::icase);
+  std::regex trussRe(trussKeywords + "[^\\n]*?(\\d+(?:\\.\\d+)?)\\s*m",
+                     std::regex::icase);
   std::regex fixtureLineRe("^\\s*(?:[-*]\\s*)?(\\d+)\\s+(.+)$");
   std::regex quantityOnlyRe("^\\s*(?:[-*]\\s*)?(\\d+)\\s*$");
   // Allow matching generic hang positions like LX1, FLOOR or EFECTOS
@@ -163,7 +169,6 @@ bool RiderImporter::Import(const std::string &path) {
         lower.find("monitores") != std::string::npos ||
         lower.find("microfon") != std::string::npos ||
         lower.find("video") != std::string::npos ||
-        lower.find("pantalla") != std::string::npos ||
         lower.find("realizacion") != std::string::npos ||
         lower.find("control") != std::string::npos) {
       inFixtures = false;
@@ -200,43 +205,71 @@ bool RiderImporter::Import(const std::string &path) {
       if (!desc.empty())
         addFixtures(pendingQuantity, desc);
       havePending = false;
-    } else if (inRigging && std::regex_match(line, m, trussLineRe)) {
+    } else if (std::regex_match(line, m, trussLineRe)) {
       int quantity = std::stoi(m[1]);
       std::string model = Trim(m[2]);
       float length = std::stof(m[3]) * 1000.0f;
+      float width = 400.0f;
+      float height = 400.0f;
+      std::smatch dm;
+      if (std::regex_search(
+              model, dm,
+              std::regex("(\\d+(?:\\.\\d+)?)\\s*[xX]\\s*(\\d+(?:\\.\\d+)?)"))) {
+        width = std::stof(dm[1]) * 10.0f;
+        height = std::stof(dm[2]) * 10.0f;
+      }
       std::string hang = currentHang;
       if (m.size() > 4 && m[4].matched)
         hang = Trim(m[4]);
-      std::transform(hang.begin(), hang.end(), hang.begin(),
-                     [](unsigned char c) { return static_cast<char>(std::toupper(c)); });
+      std::transform(
+          hang.begin(), hang.end(), hang.begin(),
+          [](unsigned char c) { return static_cast<char>(std::toupper(c)); });
       if (hang.rfind("PUENTES ", 0) == 0)
         hang = Trim(hang.substr(8));
       else if (hang.rfind("PUENTE ", 0) == 0)
         hang = Trim(hang.substr(7));
+
+      auto addTrussPieces = [&](const std::string &posName) {
+        float remaining = length;
+        std::array<float, 4> sizes = {3000.0f, 2000.0f, 1000.0f, 500.0f};
+        for (float s : sizes) {
+          int count = static_cast<int>(remaining / s);
+          for (int j = 0; j < count; ++j) {
+            Truss t;
+            t.uuid = GenerateUuid();
+            t.name = "Truss";
+            t.layer = layer;
+            t.model = "Truss " + model;
+            t.lengthMm = s;
+            t.widthMm = width;
+            t.heightMm = height;
+            t.positionName = posName;
+            scene.trusses[t.uuid] = t;
+          }
+          remaining -= count * s;
+        }
+        if (remaining > 1.0f) {
+          Truss t;
+          t.uuid = GenerateUuid();
+          t.name = "Truss";
+          t.layer = layer;
+          t.model = "Truss " + model;
+          t.lengthMm = remaining;
+          t.widthMm = width;
+          t.heightMm = height;
+          t.positionName = posName;
+          scene.trusses[t.uuid] = t;
+        }
+      };
+
       if (hang == "LX") {
-        for (int i = 0; i < quantity; ++i) {
-          Truss t;
-          t.uuid = GenerateUuid();
-          t.name = "Truss";
-          t.layer = layer;
-          t.model = "Truss " + model;
-          t.lengthMm = length;
-          t.positionName = "LX" + std::to_string(i + 1);
-          scene.trusses[t.uuid] = t;
-        }
+        for (int i = 0; i < quantity; ++i)
+          addTrussPieces("LX" + std::to_string(i + 1));
       } else {
-        for (int i = 0; i < quantity; ++i) {
-          Truss t;
-          t.uuid = GenerateUuid();
-          t.name = "Truss";
-          t.layer = layer;
-          t.model = "Truss " + model;
-          t.lengthMm = length;
-          t.positionName = hang;
-          scene.trusses[t.uuid] = t;
-        }
+        for (int i = 0; i < quantity; ++i)
+          addTrussPieces(hang);
       }
-    } else if (inRigging && std::regex_search(lower, m, trussRe)) {
+    } else if (std::regex_search(lower, m, trussRe)) {
       float length = std::stof(m[1]) * 1000.0f;
       std::string hang = currentHang;
       if (std::regex_search(line, hm, hangFindRe)) {
@@ -245,23 +278,34 @@ bool RiderImporter::Import(const std::string &path) {
             hang.begin(), hang.end(), hang.begin(),
             [](unsigned char c) { return static_cast<char>(std::toupper(c)); });
       }
-      int full = static_cast<int>(length) / 3000;
-      float rem = length - full * 3000.0f;
-      for (int i = 0; i < full; ++i) {
-        Truss t;
-        t.uuid = GenerateUuid();
-        t.name = "Truss";
-        t.layer = layer;
-        t.lengthMm = 3000.0f;
-        t.positionName = hang;
-        scene.trusses[t.uuid] = t;
+
+      float width = 400.0f;
+      float height = 400.0f;
+      float remaining = length;
+      std::array<float, 4> sizes = {3000.0f, 2000.0f, 1000.0f, 500.0f};
+      for (float s : sizes) {
+        int count = static_cast<int>(remaining / s);
+        for (int j = 0; j < count; ++j) {
+          Truss t;
+          t.uuid = GenerateUuid();
+          t.name = "Truss";
+          t.layer = layer;
+          t.lengthMm = s;
+          t.widthMm = width;
+          t.heightMm = height;
+          t.positionName = hang;
+          scene.trusses[t.uuid] = t;
+        }
+        remaining -= count * s;
       }
-      if (rem > 0.0f) {
+      if (remaining > 1.0f) {
         Truss t;
         t.uuid = GenerateUuid();
         t.name = "Truss";
         t.layer = layer;
-        t.lengthMm = rem;
+        t.lengthMm = remaining;
+        t.widthMm = width;
+        t.heightMm = height;
         t.positionName = hang;
         scene.trusses[t.uuid] = t;
       }
