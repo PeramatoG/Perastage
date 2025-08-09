@@ -13,8 +13,8 @@
 // Include shared Matrix type used throughout models
 #include "../models/types.h"
 #include "consolepanel.h"
-#include <GL/glew.h>
 #include <GL/gl.h>
+#include <GL/glew.h>
 #include <GL/glu.h>
 #include <wx/wx.h>
 #define NANOVG_GL2_IMPLEMENTATION
@@ -422,18 +422,18 @@ void Viewer3DController::Update() {
     }
 
     if (!found) {
-      float halfx = (t.lengthMm > 0 ? t.lengthMm * RENDER_SCALE * 0.5f : 0.15f);
+      float len = (t.lengthMm > 0 ? t.lengthMm * RENDER_SCALE : 0.3f);
       float halfy = (t.heightMm > 0 ? t.heightMm * RENDER_SCALE * 0.5f : 0.15f);
       float halfz = (t.widthMm > 0 ? t.widthMm * RENDER_SCALE * 0.5f : 0.15f);
       std::array<std::array<float, 3>, 8> corners = {
-          std::array<float, 3>{-halfx, -halfy, -halfz},
-          {halfx, -halfy, -halfz},
-          {-halfx, halfy, -halfz},
-          {halfx, halfy, -halfz},
-          {-halfx, -halfy, halfz},
-          {halfx, -halfy, halfz},
-          {-halfx, halfy, halfz},
-          {halfx, halfy, halfz}};
+          std::array<float, 3>{0.0f, -halfy, -halfz},
+          {len, -halfy, -halfz},
+          {0.0f, halfy, -halfz},
+          {len, halfy, -halfz},
+          {0.0f, -halfy, halfz},
+          {len, -halfy, halfz},
+          {0.0f, halfy, halfz},
+          {len, halfy, halfz}};
       for (const auto &c : corners) {
         auto p = TransformPoint(tm, c);
         bb.min[0] = std::min(bb.min[0], p[0]);
@@ -752,11 +752,12 @@ void Viewer3DController::DrawWireframeCube(float size) {
   glEnd();
 }
 
-// Draws a wireframe box centered at origin with given dimensions
+// Draws a wireframe box whose origin sits at the left end of the span.
+// The box extends along +X for the given length and is centered in Y/Z.
 void Viewer3DController::DrawWireframeBox(float length, float height,
                                           float width, bool highlight,
                                           bool selected) {
-  float x0 = -length * 0.5f, x1 = length * 0.5f;
+  float x0 = 0.0f, x1 = length;
   float y0 = -height * 0.5f, y1 = height * 0.5f;
   float z0 = -width * 0.5f, z1 = width * 0.5f;
 

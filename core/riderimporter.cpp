@@ -8,6 +8,7 @@
 #include <functional>
 #include <iomanip>
 #include <limits>
+#include <numeric>
 #include <random>
 #include <regex>
 #include <sstream>
@@ -353,6 +354,8 @@ bool RiderImporter::Import(const std::string &path) {
 
       auto addTrussPieces = [&](const std::string &posName) {
         auto pieces = SplitTrussSymmetric(length);
+        float total = std::accumulate(pieces.begin(), pieces.end(), 0.0f);
+        float x = -0.5f * total;
         for (float s : pieces) {
           Truss t;
           t.uuid = GenerateUuid();
@@ -361,12 +364,14 @@ bool RiderImporter::Import(const std::string &path) {
           t.widthMm = width;
           t.heightMm = height;
           t.positionName = posName;
+          t.transform.o[0] = x;
           t.transform.o[1] = getHangPos(posName);
           t.transform.o[2] = getHangHeight(posName);
           std::string sizeStr = formatLength(s);
           t.name = "TRUSS " + model + " " + sizeStr;
           t.model = t.name;
           scene.trusses[t.uuid] = t;
+          x += s;
         }
       };
 
@@ -400,6 +405,8 @@ bool RiderImporter::Import(const std::string &path) {
       float width = 400.0f;
       float height = 400.0f;
       auto pieces = SplitTrussSymmetric(length);
+      float total = std::accumulate(pieces.begin(), pieces.end(), 0.0f);
+      float x = -0.5f * total;
       for (float s : pieces) {
         Truss t;
         t.uuid = GenerateUuid();
@@ -408,12 +415,14 @@ bool RiderImporter::Import(const std::string &path) {
         t.widthMm = width;
         t.heightMm = height;
         t.positionName = hang;
+        t.transform.o[0] = x;
         t.transform.o[1] = getHangPos(hang);
         t.transform.o[2] = getHangHeight(hang);
         std::string sizeStr = formatLength(s);
         t.name = "TRUSS " + sizeStr;
         t.model = t.name;
         scene.trusses[t.uuid] = t;
+        x += s;
       }
     } else if (inFixtures && std::regex_match(line, m, fixtureLineRe)) {
       int baseQuantity = std::stoi(m[1]);
