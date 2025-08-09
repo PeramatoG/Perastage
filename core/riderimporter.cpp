@@ -366,7 +366,7 @@ bool RiderImporter::Import(const std::string &path) {
           t.positionName = posName;
           t.transform.o[0] = x;
           t.transform.o[1] = getHangPos(posName);
-          t.transform.o[2] = getHangHeight(posName);
+          t.transform.o[2] = getHangHeight(posName) + t.heightMm * 0.5f;
           std::string sizeStr = formatLength(s);
           t.name = "TRUSS " + model + " " + sizeStr;
           t.model = t.name;
@@ -417,7 +417,7 @@ bool RiderImporter::Import(const std::string &path) {
         t.positionName = hang;
         t.transform.o[0] = x;
         t.transform.o[1] = getHangPos(hang);
-        t.transform.o[2] = getHangHeight(hang);
+        t.transform.o[2] = getHangHeight(hang) + t.heightMm * 0.5f;
         std::string sizeStr = formatLength(s);
         t.name = "TRUSS " + sizeStr;
         t.model = t.name;
