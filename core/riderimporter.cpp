@@ -6,15 +6,15 @@
 #include <cmath>
 #include <fstream>
 #include <functional>
+#include <iomanip>
+#include <limits>
 #include <random>
 #include <regex>
-#include <iomanip>
 #include <sstream>
 #include <tuple>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
-#include <limits>
 
 #include "pdftext.h"
 
@@ -79,10 +79,9 @@ std::vector<float> SplitTrussSymmetric(float total) {
   float leftover = total - discrete;
 
   std::vector<float> best;
-  std::tuple<int, int, float> bestCost{
-      std::numeric_limits<int>::max(),
-      std::numeric_limits<int>::max(),
-      std::numeric_limits<float>::max()};
+  std::tuple<int, int, float> bestCost{std::numeric_limits<int>::max(),
+                                       std::numeric_limits<int>::max(),
+                                       std::numeric_limits<float>::max()};
 
   std::vector<float> current;
   std::vector<std::vector<float>> halfCombs;
@@ -168,6 +167,20 @@ bool RiderImporter::Import(const std::string &path) {
   auto &scene = cfg.GetScene();
   std::string layer = cfg.GetCurrentLayer();
 
+  auto getHangHeight = [&](const std::string &posName) {
+    if (posName.rfind("LX", 0) == 0) {
+      try {
+        int idx = std::stoi(posName.substr(2));
+        if (idx >= 1 && idx <= 6) {
+          return cfg.GetFloat("rider_lx" + std::to_string(idx) + "_height") *
+                 1000.0f;
+        }
+      } catch (...) {
+      }
+    }
+    return 0.0f;
+  };
+
   // Keywords that identify truss entries. Screens or drapes themselves are
   // ignored; only explicit truss mentions are parsed.
   const std::string trussKeywords = "(?:truss)";
@@ -218,6 +231,7 @@ bool RiderImporter::Import(const std::string &path) {
         }
         f.layer = layer;
         f.positionName = currentHang;
+        f.transform.o[2] = getHangHeight(currentHang);
         scene.fixtures[f.uuid] = f;
       }
     }
@@ -317,7 +331,8 @@ bool RiderImporter::Import(const std::string &path) {
         std::string s = oss.str();
         // remove trailing zeros and optional decimal point
         s.erase(s.find_last_not_of('0') + 1, std::string::npos);
-        if (!s.empty() && s.back() == '.') s.pop_back();
+        if (!s.empty() && s.back() == '.')
+          s.pop_back();
         return s + "M";
       };
 
@@ -331,6 +346,7 @@ bool RiderImporter::Import(const std::string &path) {
           t.widthMm = width;
           t.heightMm = height;
           t.positionName = posName;
+          t.transform.o[2] = getHangHeight(posName);
           std::string sizeStr = formatLength(s);
           t.name = "TRUSS " + model + " " + sizeStr;
           t.model = t.name;
@@ -360,7 +376,8 @@ bool RiderImporter::Import(const std::string &path) {
         oss << std::fixed << std::setprecision(2) << mm / 1000.0f;
         std::string s = oss.str();
         s.erase(s.find_last_not_of('0') + 1, std::string::npos);
-        if (!s.empty() && s.back() == '.') s.pop_back();
+        if (!s.empty() && s.back() == '.')
+          s.pop_back();
         return s + "M";
       };
 
@@ -375,6 +392,7 @@ bool RiderImporter::Import(const std::string &path) {
         t.widthMm = width;
         t.heightMm = height;
         t.positionName = hang;
+        t.transform.o[2] = getHangHeight(hang);
         std::string sizeStr = formatLength(s);
         t.name = "TRUSS " + sizeStr;
         t.model = t.name;
