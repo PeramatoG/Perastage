@@ -55,14 +55,17 @@ std::string ExtractPdfText(const std::string &path) {
         }
         CloseHandle(readPipe);
         WaitForSingleObject(pi.hProcess, INFINITE);
+        DWORD exitCode = 1;
+        GetExitCodeProcess(pi.hProcess, &exitCode);
         CloseHandle(pi.hProcess);
         CloseHandle(pi.hThread);
-        if (!out.empty()) {
+        if (exitCode == 0 && !out.empty()) {
           wxLogMessage("Using pdftotext to extract text from '%s'", path.c_str());
           return out;
         }
-        wxLogDebug("pdftotext returned empty output for '%s'; falling back to PoDoFo",
-                   path.c_str());
+        wxLogDebug(
+            "pdftotext failed (exit code %lu) for '%s'; falling back to PoDoFo",
+            exitCode, path.c_str());
       } else {
         CloseHandle(readPipe);
         CloseHandle(writePipe);
@@ -77,13 +80,14 @@ std::string ExtractPdfText(const std::string &path) {
       std::string out;
       while (fgets(buffer, sizeof(buffer), pipe))
         out += buffer;
-      pclose(pipe);
-      if (!out.empty()) {
+      int status = pclose(pipe);
+      if (status == 0 && !out.empty()) {
         wxLogMessage("Using pdftotext to extract text from '%s'", path.c_str());
         return out;
       }
-      wxLogDebug("pdftotext returned empty output for '%s'; falling back to PoDoFo",
-                 path.c_str());
+      wxLogDebug(
+          "pdftotext failed (exit status %d) for '%s'; falling back to PoDoFo",
+          status, path.c_str());
     } else {
       wxLogDebug("pdftotext execution failed for '%s'; falling back to PoDoFo",
                  path.c_str());
