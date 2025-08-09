@@ -37,8 +37,7 @@ binary when building.
 Run the executable and use **File → Import MVR** to load an `.mvr` file or
 **File → Import Rider** to parse basic fixture/truss information from `.txt`
 or `.pdf` riders (an example PDF is included under `docs/`) and create dummy
-placeholders. PDF parsing uses the `pdftotext` command when available and
-falls back to PoDoFo otherwise. The application will populate tables with fixtures and trusses
+placeholders. PDF parsing relies solely on the PoDoFo library. The application will populate tables with fixtures and trusses
 and render the scene in the 3D viewport.  Additional view panels can be
 toggled from the **View** menu.
 The fixtures table automatically marks patch conflicts in red when two fixtures

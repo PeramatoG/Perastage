@@ -1,101 +1,17 @@
 #include "pdftext.h"
 
-#include <cstdio>
 #include <string>
 #include <wx/log.h>
-
-#ifdef _WIN32
-#define NOMINMAX
-#define popen _popen
-#define pclose _pclose
-#include <windows.h>
-#endif
 
 #include <podofo/podofo.h>
 #include <algorithm>
 #include <cmath>
 #include <vector>
+#include <limits>
 
 using namespace PoDoFo;
 
 std::string ExtractPdfText(const std::string &path) {
-  // Try using the external "pdftotext" command first for better layout
-  {
-    std::string cmd = "pdftotext -layout \"" + path + "\" -";
-#ifdef _WIN32
-    SECURITY_ATTRIBUTES sa{};
-    sa.nLength = sizeof(sa);
-    sa.bInheritHandle = TRUE;
-    HANDLE readPipe = NULL, writePipe = NULL;
-    if (CreatePipe(&readPipe, &writePipe, &sa, 0)) {
-      STARTUPINFOA si{};
-      si.cb = sizeof(si);
-      si.dwFlags |= STARTF_USESTDHANDLES;
-#ifdef STARTF_USESHOWWINDOW
-      si.dwFlags |= STARTF_USESHOWWINDOW;
-      si.wShowWindow = SW_HIDE;
-#endif
-      si.hStdOutput = writePipe;
-      si.hStdError = writePipe;
-      PROCESS_INFORMATION pi{};
-      std::string cmdline = "cmd /c " + cmd;
-      DWORD creationFlags = 0;
-#ifdef CREATE_NO_WINDOW
-      creationFlags |= CREATE_NO_WINDOW;
-#endif
-      if (CreateProcessA(NULL, cmdline.data(), NULL, NULL, TRUE, creationFlags,
-                         NULL, NULL, &si, &pi)) {
-        CloseHandle(writePipe);
-        char buffer[256];
-        DWORD readBytes = 0;
-        std::string out;
-        while (ReadFile(readPipe, buffer, sizeof(buffer), &readBytes, NULL) &&
-               readBytes) {
-          out.append(buffer, readBytes);
-        }
-        CloseHandle(readPipe);
-        WaitForSingleObject(pi.hProcess, INFINITE);
-        DWORD exitCode = 1;
-        GetExitCodeProcess(pi.hProcess, &exitCode);
-        CloseHandle(pi.hProcess);
-        CloseHandle(pi.hThread);
-        if (exitCode == 0 && !out.empty()) {
-          wxLogMessage("Using pdftotext to extract text from '%s'", path.c_str());
-          return out;
-        }
-        wxLogDebug(
-            "pdftotext failed (exit code %lu) for '%s'; falling back to PoDoFo",
-            exitCode, path.c_str());
-      } else {
-        CloseHandle(readPipe);
-        CloseHandle(writePipe);
-        wxLogDebug("pdftotext execution failed for '%s'; falling back to PoDoFo",
-                   path.c_str());
-      }
-    }
-#else
-    FILE *pipe = popen(cmd.c_str(), "r");
-    if (pipe) {
-      char buffer[256];
-      std::string out;
-      while (fgets(buffer, sizeof(buffer), pipe))
-        out += buffer;
-      int status = pclose(pipe);
-      if (status == 0 && !out.empty()) {
-        wxLogMessage("Using pdftotext to extract text from '%s'", path.c_str());
-        return out;
-      }
-      wxLogDebug(
-          "pdftotext failed (exit status %d) for '%s'; falling back to PoDoFo",
-          status, path.c_str());
-    } else {
-      wxLogDebug("pdftotext execution failed for '%s'; falling back to PoDoFo",
-                 path.c_str());
-    }
-#endif
-  }
-
-  // Fallback to PoDoFo if pdftotext is unavailable or fails
   try {
     PdfMemDocument doc;
     doc.Load(path.c_str());
@@ -210,12 +126,9 @@ std::string ExtractPdfText(const std::string &path) {
       out += '\n';
     }
 #endif
-    if (!out.empty()) {
-      if (!out.empty() && out.back() == '\n')
-        out.pop_back();
-      wxLogMessage("Using PoDoFo to extract text from '%s'", path.c_str());
-      return out;
-    }
+    if (!out.empty() && out.back() == '\n')
+      out.pop_back();
+    return out;
   } catch (const PdfError &e) {
     wxLogError("PoDoFo failed to extract text from '%s': %s", path.c_str(),
                e.what());
