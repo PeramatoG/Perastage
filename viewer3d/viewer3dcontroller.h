@@ -67,8 +67,9 @@ private:
   void DrawWireframeCube(float size = 0.3f);
 
   // Draws a wireframe box with independent dimensions. Length corresponds
-  // to the X axis, height to Y and width to Z. The box is centered at
-  // the origin and tinted based on selection/highlight state.
+  // to the X axis, height to Y and width to Z. The box's origin is at the
+  // left end (X = 0) and it is centered in Y/Z. It is tinted based on
+  // selection/highlight state.
   void DrawWireframeBox(float length, float height, float width,
                         bool highlight = false, bool selected = false);
 
