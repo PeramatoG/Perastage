@@ -181,6 +181,20 @@ bool RiderImporter::Import(const std::string &path) {
     return 0.0f;
   };
 
+  auto getHangPos = [&](const std::string &posName) {
+    if (posName.rfind("LX", 0) == 0) {
+      try {
+        int idx = std::stoi(posName.substr(2));
+        if (idx >= 1 && idx <= 6) {
+          return cfg.GetFloat("rider_lx" + std::to_string(idx) + "_pos") *
+                 1000.0f;
+        }
+      } catch (...) {
+      }
+    }
+    return 0.0f;
+  };
+
   // Keywords that identify truss entries. Screens or drapes themselves are
   // ignored; only explicit truss mentions are parsed.
   const std::string trussKeywords = "(?:truss)";
@@ -231,6 +245,7 @@ bool RiderImporter::Import(const std::string &path) {
         }
         f.layer = layer;
         f.positionName = currentHang;
+        f.transform.o[1] = getHangPos(currentHang);
         f.transform.o[2] = getHangHeight(currentHang);
         scene.fixtures[f.uuid] = f;
       }
@@ -346,6 +361,7 @@ bool RiderImporter::Import(const std::string &path) {
           t.widthMm = width;
           t.heightMm = height;
           t.positionName = posName;
+          t.transform.o[1] = getHangPos(posName);
           t.transform.o[2] = getHangHeight(posName);
           std::string sizeStr = formatLength(s);
           t.name = "TRUSS " + model + " " + sizeStr;
@@ -392,6 +408,7 @@ bool RiderImporter::Import(const std::string &path) {
         t.widthMm = width;
         t.heightMm = height;
         t.positionName = hang;
+        t.transform.o[1] = getHangPos(hang);
         t.transform.o[2] = getHangHeight(hang);
         std::string sizeStr = formatLength(s);
         t.name = "TRUSS " + sizeStr;
