@@ -1,7 +1,10 @@
 add_executable(pdf_text_test pdf_text_test.cpp ../core/pdftext.cpp)
 
 # Link with pdftext and podofo
-find_package(podofo CONFIG REQUIRED)
+# Guard against re-finding podofo when already provided by the parent project
+if(NOT TARGET podofo::podofo)
+    find_package(podofo CONFIG REQUIRED)
+endif()
 
 target_link_libraries(pdf_text_test PRIVATE podofo::podofo)
 
