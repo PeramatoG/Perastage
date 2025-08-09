@@ -8,5 +8,6 @@ public:
   PreferencesDialog(wxWindow *parent);
 
 private:
-  std::array<wxTextCtrl *, 6> lxCtrls{};
+  std::array<wxTextCtrl *, 6> lxHeightCtrls{};
+  std::array<wxTextCtrl *, 6> lxPosCtrls{};
 };

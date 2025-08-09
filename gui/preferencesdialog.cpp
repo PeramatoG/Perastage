@@ -12,18 +12,27 @@ PreferencesDialog::PreferencesDialog(wxWindow *parent)
   // Rider Import page
   wxPanel *riderPanel = new wxPanel(book);
   wxBoxSizer *riderSizer = new wxBoxSizer(wxVERTICAL);
-  wxFlexGridSizer *grid = new wxFlexGridSizer(2, 5, 5);
+  wxFlexGridSizer *grid = new wxFlexGridSizer(4, 5, 5);
   grid->AddGrowableCol(1, 1);
+  grid->AddGrowableCol(3, 1);
 
   ConfigManager &cfg = ConfigManager::Get();
   for (int i = 0; i < 6; ++i) {
-    wxString label = wxString::Format("LX%d height (m):", i + 1);
-    grid->Add(new wxStaticText(riderPanel, wxID_ANY, label), 0,
+    wxString labelH = wxString::Format("LX%d height (m):", i + 1);
+    grid->Add(new wxStaticText(riderPanel, wxID_ANY, labelH), 0,
               wxALIGN_CENTER_VERTICAL);
-    double val = cfg.GetFloat("rider_lx" + std::to_string(i + 1) + "_height");
-    lxCtrls[i] =
-        new wxTextCtrl(riderPanel, wxID_ANY, wxString::Format("%.2f", val));
-    grid->Add(lxCtrls[i], 1, wxEXPAND);
+    double valH = cfg.GetFloat("rider_lx" + std::to_string(i + 1) + "_height");
+    lxHeightCtrls[i] = new wxTextCtrl(riderPanel, wxID_ANY,
+                                      wxString::Format("%.2f", valH));
+    grid->Add(lxHeightCtrls[i], 1, wxEXPAND);
+
+    wxString labelP = wxString::Format("LX%d position (m):", i + 1);
+    grid->Add(new wxStaticText(riderPanel, wxID_ANY, labelP), 0,
+              wxALIGN_CENTER_VERTICAL);
+    double valP = cfg.GetFloat("rider_lx" + std::to_string(i + 1) + "_pos");
+    lxPosCtrls[i] = new wxTextCtrl(riderPanel, wxID_ANY,
+                                   wxString::Format("%.2f", valP));
+    grid->Add(lxPosCtrls[i], 1, wxEXPAND);
   }
   riderSizer->Add(grid, 1, wxALL | wxEXPAND, 10);
   riderPanel->SetSizer(riderSizer);
@@ -41,9 +50,13 @@ PreferencesDialog::PreferencesDialog(wxWindow *parent)
       ConfigManager &cfg = ConfigManager::Get();
       for (int i = 0; i < 6; ++i) {
         double v = 0.0;
-        lxCtrls[i]->GetValue().ToDouble(&v);
+        lxHeightCtrls[i]->GetValue().ToDouble(&v);
         cfg.SetFloat("rider_lx" + std::to_string(i + 1) + "_height",
                      static_cast<float>(v));
+        double p = 0.0;
+        lxPosCtrls[i]->GetValue().ToDouble(&p);
+        cfg.SetFloat("rider_lx" + std::to_string(i + 1) + "_pos",
+                     static_cast<float>(p));
       }
     }
     evt.Skip();
