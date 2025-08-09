@@ -131,7 +131,7 @@ bool RiderImporter::Import(const std::string &path) {
   };
   while (std::getline(iss, line)) {
     // Remove Windows carriage returns to allow regexes anchored with '$' to
-    // match lines extracted from tools like pdftotext.
+    // match lines extracted from external tools.
     line.erase(std::remove(line.begin(), line.end(), '\r'), line.end());
     std::string lower = line;
     std::transform(
