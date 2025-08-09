@@ -3,13 +3,18 @@
 #include <algorithm>
 #include <array>
 #include <cctype>
+#include <cmath>
 #include <fstream>
+#include <functional>
 #include <random>
 #include <regex>
 #include <iomanip>
 #include <sstream>
+#include <tuple>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
+#include <limits>
 
 #include "pdftext.h"
 
@@ -63,6 +68,83 @@ std::string ReadTextFile(const std::string &path) {
   std::ostringstream ss;
   ss << ifs.rdbuf();
   return ss.str();
+}
+
+std::vector<float> SplitTrussSymmetric(float total) {
+  const std::array<float, 4> sizes = {3000.0f, 2000.0f, 1000.0f, 500.0f};
+  const std::array<float, 5> centers = {0.0f, 500.0f, 1000.0f, 2000.0f,
+                                        3000.0f};
+
+  float discrete = std::floor(total / 500.0f) * 500.0f;
+  float leftover = total - discrete;
+
+  std::vector<float> best;
+  std::tuple<int, int, float> bestCost{
+      std::numeric_limits<int>::max(),
+      std::numeric_limits<int>::max(),
+      std::numeric_limits<float>::max()};
+
+  std::vector<float> current;
+  std::vector<std::vector<float>> halfCombs;
+  std::function<void(float, size_t)> dfs = [&](float target, size_t idx) {
+    if (target < -1e-3f)
+      return;
+    if (std::abs(target) < 1e-3f) {
+      halfCombs.push_back(current);
+      return;
+    }
+    for (size_t i = idx; i < sizes.size(); ++i) {
+      current.push_back(sizes[i]);
+      dfs(target - sizes[i], i);
+      current.pop_back();
+    }
+  };
+
+  for (float c : centers) {
+    if (c > discrete)
+      continue;
+    float rem = discrete - c;
+    if (std::fmod(rem, 1000.0f) != 0.0f)
+      continue;
+    float half = rem / 2.0f;
+    halfCombs.clear();
+    current.clear();
+    dfs(half, 0);
+    for (const auto &left : halfCombs) {
+      std::vector<float> pieces;
+      pieces.insert(pieces.end(), left.begin(), left.end());
+      if (c > 0.0f)
+        pieces.push_back(c);
+      for (auto it = left.rbegin(); it != left.rend(); ++it)
+        pieces.push_back(*it);
+
+      int pieceCount = static_cast<int>(pieces.size());
+      std::unordered_set<int> distinct;
+      float minPiece = std::numeric_limits<float>::max();
+      for (float s : pieces) {
+        distinct.insert(static_cast<int>(s));
+        if (s < minPiece)
+          minPiece = s;
+      }
+      std::tuple<int, int, float> cost{
+          pieceCount, static_cast<int>(distinct.size()), -minPiece};
+      if (cost < bestCost) {
+        bestCost = cost;
+        best = pieces;
+      }
+    }
+  }
+
+  if (best.empty() && discrete > 0.0f)
+    best.push_back(discrete);
+
+  if (leftover > 1.0f)
+    best.push_back(leftover);
+
+  if (best.empty())
+    best.push_back(total);
+
+  return best;
 }
 
 // ExtractPdfText moved to pdftext.cpp
@@ -240,34 +322,16 @@ bool RiderImporter::Import(const std::string &path) {
       };
 
       auto addTrussPieces = [&](const std::string &posName) {
-        float remaining = length;
-        std::array<float, 4> sizes = {3000.0f, 2000.0f, 1000.0f, 500.0f};
-        for (float s : sizes) {
-          int count = static_cast<int>(remaining / s);
-          for (int j = 0; j < count; ++j) {
-            Truss t;
-            t.uuid = GenerateUuid();
-            t.layer = layer;
-            t.lengthMm = s;
-            t.widthMm = width;
-            t.heightMm = height;
-            t.positionName = posName;
-            std::string sizeStr = formatLength(s);
-            t.name = "TRUSS " + model + " " + sizeStr;
-            t.model = t.name;
-            scene.trusses[t.uuid] = t;
-          }
-          remaining -= count * s;
-        }
-        if (remaining > 1.0f) {
+        auto pieces = SplitTrussSymmetric(length);
+        for (float s : pieces) {
           Truss t;
           t.uuid = GenerateUuid();
           t.layer = layer;
-          t.lengthMm = remaining;
+          t.lengthMm = s;
           t.widthMm = width;
           t.heightMm = height;
           t.positionName = posName;
-          std::string sizeStr = formatLength(remaining);
+          std::string sizeStr = formatLength(s);
           t.name = "TRUSS " + model + " " + sizeStr;
           t.model = t.name;
           scene.trusses[t.uuid] = t;
@@ -302,34 +366,16 @@ bool RiderImporter::Import(const std::string &path) {
 
       float width = 400.0f;
       float height = 400.0f;
-      float remaining = length;
-      std::array<float, 4> sizes = {3000.0f, 2000.0f, 1000.0f, 500.0f};
-      for (float s : sizes) {
-        int count = static_cast<int>(remaining / s);
-        for (int j = 0; j < count; ++j) {
-          Truss t;
-          t.uuid = GenerateUuid();
-          t.layer = layer;
-          t.lengthMm = s;
-          t.widthMm = width;
-          t.heightMm = height;
-          t.positionName = hang;
-          std::string sizeStr = formatLength(s);
-          t.name = "TRUSS " + sizeStr;
-          t.model = t.name;
-          scene.trusses[t.uuid] = t;
-        }
-        remaining -= count * s;
-      }
-      if (remaining > 1.0f) {
+      auto pieces = SplitTrussSymmetric(length);
+      for (float s : pieces) {
         Truss t;
         t.uuid = GenerateUuid();
         t.layer = layer;
-        t.lengthMm = remaining;
+        t.lengthMm = s;
         t.widthMm = width;
         t.heightMm = height;
         t.positionName = hang;
-        std::string sizeStr = formatLength(remaining);
+        std::string sizeStr = formatLength(s);
         t.name = "TRUSS " + sizeStr;
         t.model = t.name;
         scene.trusses[t.uuid] = t;
