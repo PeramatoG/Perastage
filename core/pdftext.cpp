@@ -2,6 +2,7 @@
 
 #include <cstdio>
 #include <string>
+#include <wx/log.h>
 
 #ifdef _WIN32
 #define NOMINMAX
@@ -56,11 +57,16 @@ std::string ExtractPdfText(const std::string &path) {
         WaitForSingleObject(pi.hProcess, INFINITE);
         CloseHandle(pi.hProcess);
         CloseHandle(pi.hThread);
-        if (!out.empty())
+        if (!out.empty()) {
           return out;
+        }
+        wxLogDebug("pdftotext returned empty output for '%s'; falling back to PoDoFo",
+                   path.c_str());
       } else {
         CloseHandle(readPipe);
         CloseHandle(writePipe);
+        wxLogDebug("pdftotext execution failed for '%s'; falling back to PoDoFo",
+                   path.c_str());
       }
     }
 #else
@@ -71,8 +77,14 @@ std::string ExtractPdfText(const std::string &path) {
       while (fgets(buffer, sizeof(buffer), pipe))
         out += buffer;
       pclose(pipe);
-      if (!out.empty())
+      if (!out.empty()) {
         return out;
+      }
+      wxLogDebug("pdftotext returned empty output for '%s'; falling back to PoDoFo",
+                 path.c_str());
+    } else {
+      wxLogDebug("pdftotext execution failed for '%s'; falling back to PoDoFo",
+                 path.c_str());
     }
 #endif
   }
@@ -197,7 +209,9 @@ std::string ExtractPdfText(const std::string &path) {
         out.pop_back();
       return out;
     }
-  } catch (const PdfError &) {
+  } catch (const PdfError &e) {
+    wxLogError("PoDoFo failed to extract text from '%s': %s", path.c_str(),
+               e.what());
   }
   return {};
 }
