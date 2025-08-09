@@ -13,8 +13,8 @@
 // Include shared Matrix type used throughout models
 #include "../models/types.h"
 #include "consolepanel.h"
-#include <GL/gl.h>
 #include <GL/glew.h>
+#include <GL/gl.h>
 #include <GL/glu.h>
 #include <wx/wx.h>
 #define NANOVG_GL2_IMPLEMENTATION
