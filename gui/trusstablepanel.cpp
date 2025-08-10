@@ -244,6 +244,17 @@ void TrussTablePanel::OnContextMenu(wxDataViewEvent& event)
             bool parsedOk = false;
             wxString manuf, modelNameWx, lenStr, widStr, heiStr, weightStr;
             std::string modelKey;
+
+            // Remember the existing model name so the dictionary maps
+            // rider-provided names to the selected model file.  This is
+            // read before any table values are overwritten by parsed data.
+            {
+                wxVariant mv;
+                table->GetValue(mv, row, 11);
+                modelNameWx = mv.GetString();
+                modelKey = std::string(modelNameWx.ToUTF8());
+            }
+
             if (fs::path(archivePath).extension() == ".gtruss" &&
                 LoadTrussArchive(archivePath, parsed))
             {
@@ -258,15 +269,7 @@ void TrussTablePanel::OnContextMenu(wxDataViewEvent& event)
                                ? wxString::Format("%.2f", parsed.heightMm / 1000.0f)
                                : wxString();
                 weightStr = wxString::Format("%.2f", parsed.weightKg);
-                modelKey = parsed.model;
                 parsedOk = true;
-            }
-            if (!parsedOk)
-            {
-                wxVariant mv;
-                table->GetValue(mv, row, 11);
-                modelNameWx = mv.GetString();
-                modelKey = std::string(modelNameWx.ToUTF8());
             }
             wxString fileName =
                 wxFileName(wxString::FromUTF8(archivePath)).GetFullName();
@@ -292,15 +295,28 @@ void TrussTablePanel::OnContextMenu(wxDataViewEvent& event)
                     table->SetValue(wxVariant(weightStr), r, 15);
                 }
             }
+            // Apply the model file to any other rows that share the original
+            // model name from the rider.  This lets multiple trusses with the
+            // same rider-specified model get updated in one action and ensures
+            // the dictionary entry uses that rider key.
             for (unsigned int i = 0; i < table->GetItemCount(); ++i)
             {
                 wxVariant mv;
                 table->GetValue(mv, i, 11);
-                if (mv.GetString() == modelNameWx)
+                if (mv.GetString() == wxString::FromUTF8(modelKey))
                 {
                     modelPaths[i] = wxString::FromUTF8(archivePath);
                     symbolPaths[i] = wxString::FromUTF8(geomPath);
                     table->SetValue(wxVariant(fileName), i, 2);
+                    if (parsedOk)
+                    {
+                        table->SetValue(wxVariant(manuf), i, 10);
+                        table->SetValue(wxVariant(modelNameWx), i, 11);
+                        table->SetValue(wxVariant(lenStr), i, 12);
+                        table->SetValue(wxVariant(widStr), i, 13);
+                        table->SetValue(wxVariant(heiStr), i, 14);
+                        table->SetValue(wxVariant(weightStr), i, 15);
+                    }
                 }
             }
             TrussDictionary::Update(modelKey, archivePath);
