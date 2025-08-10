@@ -58,12 +58,12 @@ void TrussTablePanel::InitializeTable()
                     "Pos X", "Pos Y", "Pos Z",
                     "Rot X", "Rot Y", "Rot Z",
                     "Manufacturer", "Model",
-                    "Length (m)", "Weight (kg)"};
+                    "Length (m)", "Width (m)", "Height (m)", "Weight (kg)"};
     std::vector<int> widths = {150, 100, 180, 120,
                                80, 80, 80,
                                80, 80, 80,
                                120, 120,
-                               90, 90};
+                               90, 90, 90, 90};
     for (size_t i = 0; i < columnLabels.size(); ++i)
         table->AppendTextColumn(
             columnLabels[i], wxDATAVIEW_CELL_INERT, widths[i], wxALIGN_LEFT,
@@ -148,10 +148,18 @@ void TrussTablePanel::ReloadData()
         wxString manuf = wxString::FromUTF8(truss.manufacturer);
         wxString modelName = wxString::FromUTF8(truss.model);
         wxString len = wxString::Format("%.2f", truss.lengthMm / 1000.0f);
+        wxString wid = truss.widthMm > 0.0f
+                           ? wxString::Format("%.2f", truss.widthMm / 1000.0f)
+                           : wxString();
+        wxString hei = truss.heightMm > 0.0f
+                            ? wxString::Format("%.2f", truss.heightMm / 1000.0f)
+                            : wxString();
         wxString weight = wxString::Format("%.2f", truss.weightKg);
         row.push_back(manuf);
         row.push_back(modelName);
         row.push_back(len);
+        row.push_back(wid);
+        row.push_back(hei);
         row.push_back(weight);
 
         store.AppendItem(row, rowUuids.size());
@@ -234,7 +242,7 @@ void TrussTablePanel::OnContextMenu(wxDataViewEvent& event)
             std::string geomPath = archivePath;
             Truss parsed;
             bool parsedOk = false;
-            wxString manuf, modelNameWx, lenStr, weightStr;
+            wxString manuf, modelNameWx, lenStr, widStr, heiStr, weightStr;
             std::string modelKey;
             if (fs::path(archivePath).extension() == ".gtruss" &&
                 LoadTrussArchive(archivePath, parsed))
@@ -243,6 +251,12 @@ void TrussTablePanel::OnContextMenu(wxDataViewEvent& event)
                 manuf = wxString::FromUTF8(parsed.manufacturer);
                 modelNameWx = wxString::FromUTF8(parsed.model);
                 lenStr = wxString::Format("%.2f", parsed.lengthMm / 1000.0f);
+                widStr = parsed.widthMm > 0.0f
+                              ? wxString::Format("%.2f", parsed.widthMm / 1000.0f)
+                              : wxString();
+                heiStr = parsed.heightMm > 0.0f
+                               ? wxString::Format("%.2f", parsed.heightMm / 1000.0f)
+                               : wxString();
                 weightStr = wxString::Format("%.2f", parsed.weightKg);
                 modelKey = parsed.model;
                 parsedOk = true;
@@ -273,7 +287,9 @@ void TrussTablePanel::OnContextMenu(wxDataViewEvent& event)
                     table->SetValue(wxVariant(manuf), r, 10);
                     table->SetValue(wxVariant(modelNameWx), r, 11);
                     table->SetValue(wxVariant(lenStr), r, 12);
-                    table->SetValue(wxVariant(weightStr), r, 13);
+                    table->SetValue(wxVariant(widStr), r, 13);
+                    table->SetValue(wxVariant(heiStr), r, 14);
+                    table->SetValue(wxVariant(weightStr), r, 15);
                 }
             }
             for (unsigned int i = 0; i < table->GetItemCount(); ++i)
@@ -485,7 +501,12 @@ void TrussTablePanel::UpdateSceneData()
     auto& scene = cfg.GetScene();
     size_t count = std::min((size_t)table->GetItemCount(), rowUuids.size());
 
-    struct Dim { float len; float weight; };
+    struct Dim {
+        float len;
+        float wid;
+        float hei;
+        float weight;
+    };
     std::unordered_map<std::string, Dim> dims;
 
     auto makeKey = [](const std::string& n,
@@ -542,10 +563,14 @@ void TrussTablePanel::UpdateSceneData()
         table->GetValue(v, i, 11);
         it->second.model = std::string(v.GetString().mb_str());
 
-        double len=0.0, weight=0.0;
+        double len=0.0, wid=0.0, hei=0.0, weight=0.0;
         table->GetValue(v, i, 12); v.GetString().ToDouble(&len);
-        table->GetValue(v, i, 13); v.GetString().ToDouble(&weight);
+        table->GetValue(v, i, 13); v.GetString().ToDouble(&wid);
+        table->GetValue(v, i, 14); v.GetString().ToDouble(&hei);
+        table->GetValue(v, i, 15); v.GetString().ToDouble(&weight);
         it->second.lengthMm = static_cast<float>(len * 1000.0);
+        it->second.widthMm = static_cast<float>(wid * 1000.0);
+        it->second.heightMm = static_cast<float>(hei * 1000.0);
         it->second.weightKg = static_cast<float>(weight);
 
         std::string key = makeKey(it->second.name,
@@ -557,13 +582,17 @@ void TrussTablePanel::UpdateSceneData()
             old.manufacturer != it->second.manufacturer ||
             old.model != it->second.model ||
             old.lengthMm != it->second.lengthMm ||
+            old.widthMm != it->second.widthMm ||
+            old.heightMm != it->second.heightMm ||
             old.weightKg != it->second.weightKg)
         {
-            dims[key] = {it->second.lengthMm, it->second.weightKg};
+            dims[key] = {it->second.lengthMm, it->second.widthMm,
+                         it->second.heightMm, it->second.weightKg};
         }
         else if (!dims.count(key))
         {
-            dims[key] = {it->second.lengthMm, it->second.weightKg};
+            dims[key] = {it->second.lengthMm, it->second.widthMm,
+                         it->second.heightMm, it->second.weightKg};
         }
     }
 
@@ -583,16 +612,29 @@ void TrussTablePanel::UpdateSceneData()
             continue;
 
         float lenMm = dit->second.len;
+        float widMm = dit->second.wid;
+        float heiMm = dit->second.hei;
         float weightKg = dit->second.weight;
 
-        if (it->second.lengthMm != lenMm || it->second.weightKg != weightKg)
+        if (it->second.lengthMm != lenMm || it->second.widthMm != widMm ||
+            it->second.heightMm != heiMm || it->second.weightKg != weightKg)
         {
             it->second.lengthMm = lenMm;
+            it->second.widthMm = widMm;
+            it->second.heightMm = heiMm;
             it->second.weightKg = weightKg;
             wxString lenStr = wxString::Format("%.2f", lenMm / 1000.0f);
+            wxString widStr = widMm > 0.0f
+                                   ? wxString::Format("%.2f", widMm / 1000.0f)
+                                   : wxString();
+            wxString heiStr = heiMm > 0.0f
+                                   ? wxString::Format("%.2f", heiMm / 1000.0f)
+                                   : wxString();
             wxString weiStr = wxString::Format("%.2f", weightKg);
             table->SetValue(wxVariant(lenStr), i, 12);
-            table->SetValue(wxVariant(weiStr), i, 13);
+            table->SetValue(wxVariant(widStr), i, 13);
+            table->SetValue(wxVariant(heiStr), i, 14);
+            table->SetValue(wxVariant(weiStr), i, 15);
         }
     }
 }
