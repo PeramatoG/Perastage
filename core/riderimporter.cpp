@@ -24,6 +24,7 @@
 #include "gdtfdictionary.h"
 #include "gdtfloader.h"
 #include "truss.h"
+#include "trussdictionary.h"
 
 namespace {
 // Generate a random UUID4 string
@@ -370,6 +371,8 @@ bool RiderImporter::Import(const std::string &path) {
           std::string sizeStr = formatLength(s);
           t.name = "TRUSS " + model + " " + sizeStr;
           t.model = t.name;
+          if (auto dictPath = TrussDictionary::Get(t.model))
+            t.symbolFile = *dictPath;
           scene.trusses[t.uuid] = t;
           x += s;
         }
@@ -421,6 +424,8 @@ bool RiderImporter::Import(const std::string &path) {
         std::string sizeStr = formatLength(s);
         t.name = "TRUSS " + sizeStr;
         t.model = t.name;
+        if (auto dictPath = TrussDictionary::Get(t.model))
+          t.symbolFile = *dictPath;
         scene.trusses[t.uuid] = t;
         x += s;
       }

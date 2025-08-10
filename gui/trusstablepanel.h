@@ -29,6 +29,7 @@ private:
     wxDataViewListCtrl* table;
     std::vector<wxString> columnLabels;
     std::vector<std::string> rowUuids;
+    std::vector<wxString> modelPaths;
     bool dragSelecting = false;
     int startRow = -1;
     void InitializeTable(); // Set up columns

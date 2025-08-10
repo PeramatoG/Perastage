@@ -4,12 +4,19 @@
 #include "viewer3dpanel.h"
 #include "layerpanel.h"
 #include "stringutils.h"
+#include "projectutils.h"
+#include "trussdictionary.h"
+#include "trussloader.h"
+#include <filesystem>
+#include <wx/filedlg.h>
+#include <wx/filename.h>
 #include <algorithm>
 #include <unordered_map>
 #include <wx/notebook.h>
 #include <wx/choicdlg.h>
 
 static TrussTablePanel* s_instance = nullptr;
+namespace fs = std::filesystem;
 
 TrussTablePanel::TrussTablePanel(wxWindow* parent)
     : wxPanel(parent, wxID_ANY)
@@ -67,6 +74,7 @@ void TrussTablePanel::ReloadData()
 {
     table->DeleteAllItems();
     rowUuids.clear();
+    modelPaths.clear();
     const auto& trusses = ConfigManager::Get().GetScene().trusses;
 
     std::vector<std::pair<std::string, const Truss*>> sorted;
@@ -93,7 +101,16 @@ void TrussTablePanel::ReloadData()
         wxString name = wxString::FromUTF8(truss.name);
         wxString layer = truss.layer == DEFAULT_LAYER_NAME ? wxString()
                                                             : wxString::FromUTF8(truss.layer);
-        wxString model = wxString::FromUTF8(truss.symbolFile);
+        std::string fullPath;
+        if (!truss.symbolFile.empty()) {
+            const std::string &base = ConfigManager::Get().GetScene().basePath;
+            fs::path p = base.empty() ? fs::path(truss.symbolFile)
+                                     : fs::path(base) / truss.symbolFile;
+            fullPath = p.string();
+        }
+        wxString modelFull = wxString::FromUTF8(fullPath);
+        modelPaths.push_back(modelFull);
+        wxString model = wxFileName(modelFull).GetFullName();
 
         auto posArr = truss.transform.o;
         wxString posX = wxString::Format("%.3f", posArr[0] / 1000.0f);
@@ -186,6 +203,81 @@ void TrussTablePanel::OnContextMenu(wxDataViewEvent& event)
         {
             Viewer3DPanel::Instance()->UpdateScene();
             Viewer3DPanel::Instance()->Refresh();
+        }
+        return;
+    }
+
+    // Model File column opens file dialog
+    if (col == 2)
+    {
+        wxString trussDir =
+            wxString::FromUTF8(ProjectUtils::GetDefaultLibraryPath("trusses"));
+        wxFileDialog fdlg(this, "Select Truss Model", trussDir, wxEmptyString,
+                          "Truss files (*.gtruss;*.3ds;*.glb)|*.gtruss;*.3ds;*.glb|All files|*.*",
+                          wxFD_OPEN | wxFD_FILE_MUST_EXIST);
+        if (fdlg.ShowModal() == wxID_OK)
+        {
+            wxString selPath = fdlg.GetPath();
+            std::string pathUtf8(selPath.ToUTF8());
+            Truss parsed;
+            bool parsedOk = false;
+            wxString manuf, modelNameWx, lenStr, weightStr;
+            std::string modelKey;
+            if (fs::path(pathUtf8).extension() == ".gtruss" &&
+                LoadTrussArchive(pathUtf8, parsed))
+            {
+                pathUtf8 = parsed.symbolFile;
+                manuf = wxString::FromUTF8(parsed.manufacturer);
+                modelNameWx = wxString::FromUTF8(parsed.model);
+                lenStr = wxString::Format("%.2f", parsed.lengthMm / 1000.0f);
+                weightStr = wxString::Format("%.2f", parsed.weightKg);
+                modelKey = parsed.model;
+                parsedOk = true;
+            }
+            if (!parsedOk)
+            {
+                wxVariant mv;
+                table->GetValue(mv, row, 11);
+                modelNameWx = mv.GetString();
+                modelKey = std::string(modelNameWx.ToUTF8());
+            }
+            wxString fileName =
+                wxFileName(wxString::FromUTF8(pathUtf8)).GetFullName();
+            if (modelPaths.size() < table->GetItemCount())
+                modelPaths.resize(table->GetItemCount());
+            for (const auto& itSel : selections)
+            {
+                int r = table->ItemToRow(itSel);
+                if (r == wxNOT_FOUND)
+                    continue;
+                modelPaths[r] = wxString::FromUTF8(pathUtf8);
+                table->SetValue(wxVariant(fileName), r, 2);
+                if (parsedOk)
+                {
+                    table->SetValue(wxVariant(manuf), r, 10);
+                    table->SetValue(wxVariant(modelNameWx), r, 11);
+                    table->SetValue(wxVariant(lenStr), r, 12);
+                    table->SetValue(wxVariant(weightStr), r, 13);
+                }
+            }
+            for (unsigned int i = 0; i < table->GetItemCount(); ++i)
+            {
+                wxVariant mv;
+                table->GetValue(mv, i, 11);
+                if (mv.GetString() == modelNameWx)
+                {
+                    modelPaths[i] = wxString::FromUTF8(pathUtf8);
+                    table->SetValue(wxVariant(fileName), i, 2);
+                }
+            }
+            TrussDictionary::Update(modelKey, pathUtf8);
+            ResyncRows(oldOrder, selectedUuids);
+            UpdateSceneData();
+            if (Viewer3DPanel::Instance())
+            {
+                Viewer3DPanel::Instance()->UpdateScene();
+                Viewer3DPanel::Instance()->Refresh();
+            }
         }
         return;
     }
@@ -403,8 +495,12 @@ void TrussTablePanel::UpdateSceneData()
             it->second.layer.clear();
         else
             it->second.layer = layerStr;
-        table->GetValue(v, i, 2);
-        it->second.symbolFile = std::string(v.GetString().mb_str());
+        if (i < modelPaths.size())
+            it->second.symbolFile = std::string(modelPaths[i].ToUTF8());
+        else {
+            table->GetValue(v, i, 2);
+            it->second.symbolFile = std::string(v.GetString().ToUTF8());
+        }
         table->GetValue(v, i, 3);
         it->second.positionName = std::string(v.GetString().mb_str());
 
@@ -554,6 +650,8 @@ void TrussTablePanel::DeleteSelected()
         if ((size_t)r < rowUuids.size()) {
             scene.trusses.erase(rowUuids[r]);
             rowUuids.erase(rowUuids.begin() + r);
+            if ((size_t)r < modelPaths.size())
+                modelPaths.erase(modelPaths.begin() + r);
             table->DeleteItem(r);
         }
     }
@@ -572,15 +670,20 @@ void TrussTablePanel::ResyncRows(const std::vector<std::string>& oldOrder,
 {
     unsigned int count = table->GetItemCount();
     std::vector<std::string> newOrder(count);
+    std::vector<wxString> newPaths(count);
     for (unsigned int i = 0; i < count; ++i)
     {
         wxDataViewItem it = table->RowToItem(i);
         unsigned long idx = store.GetItemData(it);
-        if (idx < oldOrder.size())
+        if (idx < oldOrder.size()) {
             newOrder[i] = oldOrder[idx];
+            if (idx < modelPaths.size())
+                newPaths[i] = modelPaths[idx];
+        }
         store.SetItemData(it, i);
     }
     rowUuids.swap(newOrder);
+    modelPaths.swap(newPaths);
 
     table->UnselectAll();
     for (const auto& uuid : selectedUuids)
