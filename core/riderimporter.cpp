@@ -234,6 +234,7 @@ bool RiderImporter::Import(const std::string &path) {
   std::string line;
   bool inFixtures = false;
   bool inRigging = false;
+  bool inControl = false;
   std::string currentHang;
   std::unordered_map<std::string, int> nameCounters;
   int pendingQuantity = 0;
@@ -279,20 +280,6 @@ bool RiderImporter::Import(const std::string &path) {
         lower.begin(), lower.end(), lower.begin(),
         [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
 
-    if (lower.find("ilumin") != std::string::npos ||
-        lower.find("robotica") != std::string::npos ||
-        lower.find("convencion") != std::string::npos) {
-      inFixtures = true;
-      inRigging = false;
-      havePending = false;
-      continue;
-    }
-    if (lower.find("rigging") != std::string::npos) {
-      inFixtures = false;
-      inRigging = true;
-      havePending = false;
-      continue;
-    }
     if (lower.find("sonido") != std::string::npos ||
         lower.find("audio") != std::string::npos ||
         lower.find("control de p.a.") != std::string::npos ||
@@ -302,6 +289,22 @@ bool RiderImporter::Import(const std::string &path) {
         lower.find("realizacion") != std::string::npos ||
         lower.find("control") != std::string::npos) {
       inFixtures = false;
+      inRigging = false;
+      inControl = lower.find("control") != std::string::npos;
+      havePending = false;
+      continue;
+    }
+    if (lower.find("rigging") != std::string::npos) {
+      inFixtures = false;
+      inRigging = true;
+      inControl = false;
+      havePending = false;
+      continue;
+    }
+    if (!inControl && (lower.find("ilumin") != std::string::npos ||
+                       lower.find("robotica") != std::string::npos ||
+                       lower.find("convencion") != std::string::npos)) {
+      inFixtures = true;
       inRigging = false;
       havePending = false;
       continue;
