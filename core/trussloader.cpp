@@ -14,6 +14,7 @@ bool LoadTrussArchive(const std::string &archivePath, Truss &outTruss) {
   wxFileInputStream input(archivePath);
   if (!input.IsOk())
     return false;
+  outTruss.modelFile = archivePath;
   wxZipInputStream zip(input);
   std::unique_ptr<wxZipEntry> entry;
   std::string meta;
