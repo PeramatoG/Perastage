@@ -671,15 +671,18 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
             std::string parsed = Trim(GetGdtfFixtureName(f.gdtfSpec));
             if (!parsed.empty())
               f.typeName = parsed;
-            if (auto dictEntry = GdtfDictionary::Get(typeKey))
-              f.gdtfMode = dictEntry->mode;
+            if (auto dictEntry = GdtfDictionary::Get(typeKey)) {
+              if (f.gdtfMode.empty())
+                f.gdtfMode = dictEntry->mode;
+            }
           }
         }
       } else {
         for (auto &[uid, f] : scene.fixtures) {
           if (auto dictEntry = GdtfDictionary::Get(f.typeName)) {
             f.gdtfSpec = dictEntry->path;
-            f.gdtfMode = dictEntry->mode;
+            if (f.gdtfMode.empty())
+              f.gdtfMode = dictEntry->mode;
             std::string parsed = Trim(GetGdtfFixtureName(f.gdtfSpec));
             if (!parsed.empty())
               f.typeName = parsed;
