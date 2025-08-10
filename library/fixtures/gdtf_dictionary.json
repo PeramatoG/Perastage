@@ -14,6 +14,18 @@
         "mode": "Shapes",
         "path": "C:\\codigoscpp\\Perastage\\out\\build\\x64-debug\\library\\fixtures\\Aleda B-EYE K10.gdtf"
     },
+    "MARK BEAM 201": {
+        "mode": "Standard",
+        "path": "C:\\codigoscpp\\Perastage\\out\\build\\x64-debug\\library\\fixtures\\Sharpy.gdtf"
+    },
+    "MARTIN MAC AXIOM HYBRID": {
+        "mode": "Basic",
+        "path": "C:\\codigoscpp\\Perastage\\out\\build\\x64-debug\\library\\fixtures\\MAC Axiom Hybrid.gdtf"
+    },
+    "MARTIN MAC QUANTUM WASH": {
+        "mode": "Basic",
+        "path": "C:\\codigoscpp\\Perastage\\out\\build\\x64-debug\\library\\fixtures\\MAC Quantum Wash.gdtf"
+    },
     "PIXEL STROBE 400 RGB": {
         "mode": "2ch d001",
         "path": "C:\\codigoscpp\\Perastage\\out\\build\\x64-debug\\library\\fixtures\\PIXEL STROBE 400 RGB.gdtf"
@@ -41,6 +53,10 @@
     },
     "SunRise 2IP": {
         "path": "C:\\codigoscpp\\Perastage\\out\\build\\x64-debug\\library\\fixtures\\Sunrise2IP.gdtf"
+    },
+    "TOUR HAZER II": {
+        "mode": "Default",
+        "path": "C:\\codigoscpp\\Perastage\\out\\build\\x64-debug\\library\\fixtures\\Tour Hazer II.gdtf"
     },
     "XBEAM 17 CMY": {
         "mode": "6ch A001",
