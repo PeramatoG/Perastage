@@ -491,7 +491,13 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
 
         if (tinyxml2::XMLElement *geos =
                 node->FirstChildElement("Geometries")) {
-          if (tinyxml2::XMLElement *sym = geos->FirstChildElement("Symbol")) {
+          if (tinyxml2::XMLElement *g3d =
+                  geos->FirstChildElement("Geometry3D")) {
+            const char *file = g3d->Attribute("fileName");
+            if (file)
+              truss.symbolFile = file;
+          } else if (tinyxml2::XMLElement *sym =
+                         geos->FirstChildElement("Symbol")) {
             const char *symdef = sym->Attribute("symdef");
             if (symdef) {
               auto it = scene.symdefFiles.find(symdef);
