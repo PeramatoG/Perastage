@@ -367,7 +367,10 @@ bool RiderImporter::Import(const std::string &path) {
           t.positionName = posName;
           t.transform.o[0] = x;
           t.transform.o[1] = getHangPos(posName);
-          t.transform.o[2] = getHangHeight(posName) + t.heightMm * 0.5f;
+          // Position dummy truss so its base sits at the hang height.
+          // Real truss models are inserted from their bottom, so using the
+          // raw hang height keeps the base aligned when swapping models.
+          t.transform.o[2] = getHangHeight(posName);
           std::string sizeStr = formatLength(s);
           t.name = "TRUSS " + model + " " + sizeStr;
           t.model = t.name;
@@ -420,7 +423,9 @@ bool RiderImporter::Import(const std::string &path) {
         t.positionName = hang;
         t.transform.o[0] = x;
         t.transform.o[1] = getHangPos(hang);
-        t.transform.o[2] = getHangHeight(hang) + t.heightMm * 0.5f;
+        // Store the hang height directly so the base matches real models
+        // that are inserted from the bottom.
+        t.transform.o[2] = getHangHeight(hang);
         std::string sizeStr = formatLength(s);
         t.name = "TRUSS " + sizeStr;
         t.model = t.name;
