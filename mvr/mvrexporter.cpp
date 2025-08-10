@@ -69,7 +69,8 @@ bool MvrExporter::ExportToFile(const std::string& filePath)
         if (!file.empty()) {
             tinyxml2::XMLElement* cl = doc.NewElement("ChildList");
             tinyxml2::XMLElement* g3d = doc.NewElement("Geometry3D");
-            g3d->SetAttribute("fileName", file.c_str());
+            std::string fname = fs::path(file).filename().generic_string();
+            g3d->SetAttribute("fileName", fname.c_str());
             cl->InsertEndChild(g3d);
             sym->InsertEndChild(cl);
             resourceFiles.insert(file);
@@ -144,14 +145,22 @@ bool MvrExporter::ExportToFile(const std::string& filePath)
 
         if(!t.symbolFile.empty()) {
             tinyxml2::XMLElement* geos = doc.NewElement("Geometries");
-            tinyxml2::XMLElement* sym = doc.NewElement("Symbol");
+            bool usedSym=false;
             for (const auto& [sUuid, file] : scene.symdefFiles) {
                 if (file == t.symbolFile) {
+                    tinyxml2::XMLElement* sym = doc.NewElement("Symbol");
                     sym->SetAttribute("symdef", sUuid.c_str());
+                    geos->InsertEndChild(sym);
+                    usedSym=true;
                     break;
                 }
             }
-            geos->InsertEndChild(sym);
+            if(!usedSym) {
+                tinyxml2::XMLElement* g3d = doc.NewElement("Geometry3D");
+                std::string fname = fs::path(t.symbolFile).filename().generic_string();
+                g3d->SetAttribute("fileName", fname.c_str());
+                geos->InsertEndChild(g3d);
+            }
             te->InsertEndChild(geos);
             resourceFiles.insert(t.symbolFile);
         }
