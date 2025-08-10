@@ -192,7 +192,7 @@ void FixtureTablePanel::ReloadData() {
     wxString mode = wxString::FromUTF8(fixture->gdtfMode);
 
     int chCount =
-        GetGdtfModeChannelCount(gdtfFull.ToStdString(), fixture->gdtfMode);
+        GetGdtfModeChannelCount(std::string(gdtfFull.ToUTF8()), fixture->gdtfMode);
     wxString chCountStr =
         chCount >= 0 ? wxString::Format("%d", chCount) : wxString();
 
@@ -272,9 +272,10 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
     if (fdlg.ShowModal() == wxID_OK) {
       wxString path = fdlg.GetPath();
       float w = 0.0f, p = 0.0f;
-      GetGdtfProperties(std::string(path.mb_str()), w, p);
+      std::string pathUtf8(path.ToUTF8());
+      GetGdtfProperties(pathUtf8, w, p);
       wxString typeName =
-          wxString::FromUTF8(GetGdtfFixtureName(std::string(path.mb_str())));
+          wxString::FromUTF8(GetGdtfFixtureName(pathUtf8));
       if (typeName.empty())
         typeName = fdlg.GetFilename();
       wxString fileName = fdlg.GetFilename();
@@ -300,8 +301,8 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
         table->SetValue(wxVariant(wstr), r, 17);
 
         // Update dictionary with the previous type name for this row
-        GdtfDictionary::Update(std::string(prevType.GetString().mb_str()),
-                               std::string(path.mb_str()));
+        GdtfDictionary::Update(std::string(prevType.GetString().ToUTF8()),
+                               pathUtf8);
       }
 
       PropagateTypeValues(selections, 16);
@@ -329,7 +330,8 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
     if ((size_t)r < gdtfPaths.size())
       gdtfPath = gdtfPaths[r];
 
-    std::vector<std::string> modes = GetGdtfModes(gdtfPath.ToStdString());
+      std::vector<std::string> modes =
+          GetGdtfModes(std::string(gdtfPath.ToUTF8()));
     if (modes.size() <= 1)
       return;
 
@@ -359,8 +361,8 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
 
       table->SetValue(wxVariant(sel), sr, col);
 
-      int chCount =
-          GetGdtfModeChannelCount(gdtfPath.ToStdString(), sel.ToStdString());
+      int chCount = GetGdtfModeChannelCount(std::string(gdtfPath.ToUTF8()),
+                                            std::string(sel.ToUTF8()));
       wxString chStr =
           chCount >= 0 ? wxString::Format("%d", chCount) : wxString();
       table->SetValue(wxVariant(chStr), sr, 8);
@@ -941,14 +943,14 @@ void FixtureTablePanel::PropagateTypeValues(
     wxVariant vType, vVal;
     table->GetValue(vType, r, 2);
     table->GetValue(vVal, r, col);
-    typeValues[std::string(vType.GetString().mb_str())] = vVal.GetString();
+    typeValues[std::string(vType.GetString().ToUTF8())] = vVal.GetString();
   }
 
   unsigned int rowCount = table->GetItemCount();
   for (unsigned int i = 0; i < rowCount; ++i) {
     wxVariant vType;
     table->GetValue(vType, i, 2);
-    auto it = typeValues.find(std::string(vType.GetString().mb_str()));
+    auto it = typeValues.find(std::string(vType.GetString().ToUTF8()));
     if (it != typeValues.end())
       table->SetValue(wxVariant(it->second), i, col);
   }
@@ -965,18 +967,18 @@ void FixtureTablePanel::UpdateSceneData() {
       continue;
 
     if (i < gdtfPaths.size())
-      it->second.gdtfSpec = std::string(gdtfPaths[i].mb_str());
+      it->second.gdtfSpec = std::string(gdtfPaths[i].ToUTF8());
 
     wxVariant v;
     table->GetValue(v, i, 1);
-    it->second.instanceName = std::string(v.GetString().mb_str());
+    it->second.instanceName = std::string(v.GetString().ToUTF8());
 
     table->GetValue(v, i, 0);
     long fid = v.GetLong();
     it->second.fixtureId = static_cast<int>(fid);
 
     table->GetValue(v, i, 3);
-    std::string layerStr = std::string(v.GetString().mb_str());
+    std::string layerStr = std::string(v.GetString().ToUTF8());
     if (layerStr.empty())
       it->second.layer.clear();
     else
@@ -989,10 +991,10 @@ void FixtureTablePanel::UpdateSceneData() {
     long ch = v.GetLong();
 
     table->GetValue(v, i, 2);
-    it->second.typeName = std::string(v.GetString().mb_str());
+    it->second.typeName = std::string(v.GetString().ToUTF8());
 
     table->GetValue(v, i, 7);
-    it->second.gdtfMode = std::string(v.GetString().mb_str());
+    it->second.gdtfMode = std::string(v.GetString().ToUTF8());
 
     if (uni > 0 && ch > 0)
       it->second.address = wxString::Format("%ld.%ld", uni, ch).ToStdString();
@@ -1029,7 +1031,7 @@ void FixtureTablePanel::ApplyModeForGdtf(const wxString &path) {
   if (path.empty())
     return;
 
-  std::vector<std::string> modes = GetGdtfModes(path.ToStdString());
+  std::vector<std::string> modes = GetGdtfModes(std::string(path.ToUTF8()));
   if (modes.empty())
     return;
 
@@ -1048,7 +1050,7 @@ void FixtureTablePanel::ApplyModeForGdtf(const wxString &path) {
     wxVariant v;
     table->GetValue(v, i, 7);
     wxString currWx = v.GetString();
-    std::string curr = std::string(currWx.mb_str());
+    std::string curr = std::string(currWx.ToUTF8());
 
     std::string chosen = curr;
     bool found = std::find(modes.begin(), modes.end(), curr) != modes.end();
@@ -1068,7 +1070,7 @@ void FixtureTablePanel::ApplyModeForGdtf(const wxString &path) {
     if (chosen != curr)
       table->SetValue(wxVariant(wxString::FromUTF8(chosen)), i, 7);
 
-    int chCount = GetGdtfModeChannelCount(path.ToStdString(), chosen);
+    int chCount = GetGdtfModeChannelCount(std::string(path.ToUTF8()), chosen);
     wxString chStr =
         chCount >= 0 ? wxString::Format("%d", chCount) : wxString();
     table->SetValue(wxVariant(chStr), i, 8);
