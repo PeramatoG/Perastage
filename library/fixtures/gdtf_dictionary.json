@@ -1,5 +1,5 @@
 {
-    "Aleda Wash K10": {
+    "Aleda B-EYE K10": {
         "mode": "Shapes",
         "path": "C:\\codigoscpp\\Perastage\\out\\build\\x64-debug\\library\\fixtures\\Aleda B-EYE K10.gdtf"
     },
@@ -11,10 +11,11 @@
         "path": "C:\\codigoscpp\\Perastage\\out\\build\\x64-debug\\library\\fixtures\\Custom@Light_Instr_Chauvet_Color_Strike_M.gdtf"
     },
     "LITELEES B-EYE L10R (LIBRERÍA K10)": {
-        "path": "C:\\codigoscpp\\Perastage\\out\\build\\x64-debug\\library\\fixtures\\Aleda Wash K10.gdtf"
+        "mode": "Shapes",
+        "path": "C:\\codigoscpp\\Perastage\\out\\build\\x64-debug\\library\\fixtures\\Aleda B-EYE K10.gdtf"
     },
     "PIXEL STROBE 400 RGB": {
-        "mode": "8ch",
+        "mode": "2ch d001",
         "path": "C:\\codigoscpp\\Perastage\\out\\build\\x64-debug\\library\\fixtures\\PIXEL STROBE 400 RGB.gdtf"
     },
     "PROLIGHT BLINDER 2 PRO": {
