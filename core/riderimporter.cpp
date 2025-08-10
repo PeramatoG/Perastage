@@ -535,24 +535,31 @@ bool RiderImporter::Import(const std::string &path) {
       counts[f->typeName]++;
     }
 
-    // Build left side (including center if odd) cycling through types
+    // Build ordering ensuring odd counts place one fixture at the center
     int total = static_cast<int>(fixturesVec.size());
-    int half = (total + 1) / 2;
+    std::vector<std::string> center;
+    for (const std::string &t : types) {
+      if (counts[t] % 2 == 1) {
+        center.push_back(t);
+        counts[t]--; // leave an even number for pairing
+      }
+    }
+
+    int pairsPerSide = (total - static_cast<int>(center.size())) / 2;
     std::vector<std::string> left;
     size_t idx = 0;
-    while (static_cast<int>(left.size()) < half) {
+    while (static_cast<int>(left.size()) < pairsPerSide) {
       const std::string &t = types[idx % types.size()];
       if (counts[t] > 0) {
         left.push_back(t);
-        counts[t]--;
+        counts[t] -= 2; // use one pair of this type
       }
       ++idx;
     }
 
     std::vector<std::string> order = left;
+    order.insert(order.end(), center.begin(), center.end());
     std::vector<std::string> right = left;
-    if (total % 2 == 1)
-      right.pop_back();
     std::reverse(right.begin(), right.end());
     order.insert(order.end(), right.begin(), right.end());
 
