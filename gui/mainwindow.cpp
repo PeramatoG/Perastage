@@ -57,6 +57,7 @@ using json = nlohmann::json;
 #include "tableprinter.h"
 #include "trusstablepanel.h"
 #include "trussloader.h"
+#include "autopatcher.h"
 #include "viewer3dpanel.h"
 #ifdef _WIN32
 #define popen _popen
@@ -930,123 +931,13 @@ void MainWindow::OnExportSceneObject(wxCommandEvent &WXUNUSED(event)) {
 }
 
 void MainWindow::OnAutoPatch(wxCommandEvent &WXUNUSED(event)) {
-  namespace fs = std::filesystem;
   ConfigManager &cfg = ConfigManager::Get();
-  auto &scene = cfg.GetScene();
-
-  struct FixInfo {
-    std::string uuid;
-    int ch;
-  };
-
-  std::map<std::string, std::map<std::string, std::vector<FixInfo>>> groups;
-  for (auto &[uuid, f] : scene.fixtures) {
-    if (f.fixtureId <= 0)
-      continue;
-    std::string fullPath;
-    if (!f.gdtfSpec.empty()) {
-      fs::path p = scene.basePath.empty() ? fs::path(f.gdtfSpec)
-                                          : fs::path(scene.basePath) / f.gdtfSpec;
-      fullPath = p.string();
-    }
-    int chCount = GetGdtfModeChannelCount(fullPath, f.gdtfMode);
-    if (chCount < 1)
-      chCount = 1;
-    std::string hang = f.positionName;
-    std::string typeKey = f.typeName + "|" + f.gdtfSpec + "|" + f.gdtfMode;
-    groups[hang][typeKey].push_back({uuid, chCount});
-  }
-
-  if (groups.empty())
-    return;
-
   cfg.PushUndoState("auto patch");
-
-  std::vector<std::string> hangOrder;
-  for (const auto &kv : groups)
-    hangOrder.push_back(kv.first);
-  auto hangComp = [](const std::string &a, const std::string &b) {
-    auto parseLX = [](const std::string &s) {
-      if (s.size() >= 3 && s[0] == 'L' && s[1] == 'X') {
-        size_t idx = 2;
-        while (idx < s.size() && std::isdigit(static_cast<unsigned char>(s[idx])))
-          ++idx;
-        if (idx > 2)
-          return std::stoi(s.substr(2, idx - 2));
-      }
-      return -1;
-    };
-    int ax = parseLX(a);
-    int bx = parseLX(b);
-    if (ax >= 0 && bx >= 0)
-      return ax < bx;
-    if (ax >= 0)
-      return true;
-    if (bx >= 0)
-      return false;
-    return a < b;
-  };
-  std::sort(hangOrder.begin(), hangOrder.end(), hangComp);
-
-  int universe = 1;
-  int channel = 1;
-  for (const auto &hang : hangOrder) {
-    auto &typeMap = groups[hang];
-    struct Group {
-      std::vector<FixInfo> *fixtures;
-      int chPerFixture;
-      int totalChannels;
-    };
-    std::vector<Group> order;
-    for (auto &kv : typeMap) {
-      int chPer = kv.second.empty() ? 1 : kv.second[0].ch;
-      order.push_back({&kv.second, chPer,
-                       chPer * static_cast<int>(kv.second.size())});
-    }
-    std::sort(order.begin(), order.end(), [](const Group &A, const Group &B) {
-      return A.totalChannels > B.totalChannels;
-    });
-
-    for (auto &g : order) {
-      while (!g.fixtures->empty()) {
-        int remaining = 512 - channel + 1;
-        int groupChannels =
-            g.chPerFixture * static_cast<int>(g.fixtures->size());
-        if (groupChannels <= remaining) {
-          for (auto &fi : *g.fixtures) {
-            scene.fixtures[fi.uuid].address =
-                std::to_string(universe) + "." + std::to_string(channel);
-            channel += g.chPerFixture;
-          }
-          g.fixtures->clear();
-        } else if (groupChannels <= 512) {
-          ++universe;
-          channel = 1;
-        } else {
-          int fit = remaining / g.chPerFixture;
-          if (fit == 0) {
-            ++universe;
-            channel = 1;
-          } else {
-            for (int i = 0; i < fit; ++i) {
-              auto fi = (*g.fixtures)[i];
-              scene.fixtures[fi.uuid].address =
-                  std::to_string(universe) + "." + std::to_string(channel);
-              channel += g.chPerFixture;
-            }
-            g.fixtures->erase(g.fixtures->begin(),
-                              g.fixtures->begin() + fit);
-            ++universe;
-            channel = 1;
-          }
-        }
-      }
-    }
-  }
-
+  AutoPatcher::AutoPatch(cfg.GetScene());
   if (fixturePanel)
     fixturePanel->ReloadData();
 }
+
 
 void MainWindow::OnPrintTable(wxCommandEvent &WXUNUSED(event)) {
   wxArrayString options;
