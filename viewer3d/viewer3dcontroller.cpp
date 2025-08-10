@@ -38,6 +38,8 @@ namespace fs = std::filesystem;
 
 // Font size for on-screen labels drawn with NanoVG
 static constexpr float LABEL_FONT_SIZE = 18.0f;
+// Maximum width for on-screen labels before wrapping
+static constexpr float LABEL_MAX_WIDTH = 300.0f;
 static std::string FindFileRecursive(const std::string &baseDir,
                                      const std::string &fileName) {
   if (baseDir.empty())
@@ -152,9 +154,8 @@ static void DrawText2D(NVGcontext *vg, int font, const std::string &text, int x,
 
   // Determine the width based on the actual text content so the background
   // box tightly fits the rendered label. We measure each line separately to
-  // avoid the fixed width imposed by nvgTextBoxBounds.
-  float lineHeight = 0.0f;
-  nvgTextMetrics(vg, nullptr, nullptr, &lineHeight);
+  // avoid the fixed width imposed by nvgTextBoxBounds and clamp to a maximum
+  // so long names wrap instead of growing indefinitely.
 
   float textWidth = 0.0f;
   size_t start = 0;
@@ -168,8 +169,7 @@ static void DrawText2D(NVGcontext *vg, int font, const std::string &text, int x,
       break;
     start = end + 1;
   }
-  int lineCount = 1 + std::count(text.begin(), text.end(), '\n');
-  float textHeight = lineHeight * lineCount;
+  textWidth = std::min(textWidth, LABEL_MAX_WIDTH);
   const int padding = 4;
 
   // Calculate the exact bounding box for the text using the same alignment
