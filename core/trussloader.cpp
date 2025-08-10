@@ -5,6 +5,7 @@
 #include <wx/filename.h>
 #include <filesystem>
 #include <fstream>
+#include <random>
 #include <memory>
 
 using nlohmann::json;
@@ -18,8 +19,16 @@ bool LoadTrussArchive(const std::string &archivePath, Truss &outTruss) {
   wxZipInputStream zip(input);
   std::unique_ptr<wxZipEntry> entry;
   std::string meta;
-  fs::path baseDir = fs::temp_directory_path() /
-                     fs::unique_path("perastage-truss-%%%%%%");
+  fs::path baseDir = fs::temp_directory_path();
+  std::string uniqueName = "perastage-truss-";
+  {
+    static const char hex[] = "0123456789abcdef";
+    std::random_device rd;
+    std::uniform_int_distribution<int> dist(0, 15);
+    for (int i = 0; i < 6; ++i)
+      uniqueName += hex[dist(rd)];
+  }
+  baseDir /= uniqueName;
   wxFileName::Mkdir(baseDir.string(), wxS_DIR_DEFAULT, wxPATH_MKDIR_FULL);
   while ((entry.reset(zip.GetNextEntry())), entry) {
     std::string name = entry->GetName().ToStdString();
