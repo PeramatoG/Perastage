@@ -1,7 +1,6 @@
 enable_testing()
 
-find_package(podofo CONFIG)
-if(podofo_FOUND)
+if(TARGET podofo::podofo)
     add_executable(pdf_text_test pdf_text_test.cpp ../core/pdftext.cpp)
     target_link_libraries(pdf_text_test PRIVATE podofo::podofo)
     target_include_directories(pdf_text_test PRIVATE ../core)
