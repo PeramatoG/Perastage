@@ -9,16 +9,16 @@
 #include <algorithm>
 #include <cctype>
 #include <chrono>
+#include <cmath>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream> // Required for std::ofstream
 #include <functional>
+#include <iomanip>
 #include <iostream>
 #include <random>
-#include <string>
 #include <sstream>
-#include <iomanip>
-#include <cmath>
+#include <string>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -369,7 +369,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         fixture.focus = textOf(node, "Focus");
         fixture.function = textOf(node, "Function");
         fixture.position = textOf(node, "Position");
-        if (tinyxml2::XMLElement *colorNode = node->FirstChildElement("Color")) {
+        if (tinyxml2::XMLElement *colorNode =
+                node->FirstChildElement("Color")) {
           if (const char *txt = colorNode->GetText()) {
             std::string t = txt;
             std::replace(t.begin(), t.end(), ',', ' ');
@@ -396,8 +397,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
               int G = static_cast<int>(std::round(g * 255.0));
               int B = static_cast<int>(std::round(b * 255.0));
               std::ostringstream os;
-              os << '#'
-                 << std::uppercase << std::hex << std::setfill('0')
+              os << '#' << std::uppercase << std::hex << std::setfill('0')
                  << std::setw(2) << R << std::setw(2) << G << std::setw(2) << B;
               fixture.color = os.str();
             }
@@ -542,6 +542,13 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                       info->FirstChildElement("CrossSection"))
                 if (cs->GetText())
                   truss.crossSection = Trim(cs->GetText());
+              if (tinyxml2::XMLElement *mf =
+                      info->FirstChildElement("ModelFile"))
+                if (mf->GetText())
+                  truss.modelFile = Trim(mf->GetText());
+              if (tinyxml2::XMLElement *hp = info->FirstChildElement("HangPos"))
+                if (hp->GetText())
+                  truss.positionName = Trim(hp->GetText());
               break;
             }
           }
