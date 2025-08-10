@@ -1023,7 +1023,8 @@ void Viewer3DController::DrawFixtureLabels(int width, int height) {
     if (!f.address.empty())
       label += "\n" + wxString::FromUTF8(f.address);
 
-    DrawText2D(m_vg, m_font, std::string(label.mb_str()), x, y);
+    auto utf8 = label.ToUTF8();
+    DrawText2D(m_vg, m_font, std::string(utf8.data(), utf8.length()), x, y);
   }
 }
 
@@ -1155,7 +1156,8 @@ void Viewer3DController::DrawTrussLabels(int width, int height) {
     std::string hStr = FormatMeters(baseHeight);
     label += wxString::Format("\nh = %s m", hStr.c_str());
 
-    DrawText2D(m_vg, m_font, std::string(label.mb_str()), x, y);
+    auto utf8 = label.ToUTF8();
+    DrawText2D(m_vg, m_font, std::string(utf8.data(), utf8.length()), x, y);
   }
 }
 
@@ -1199,7 +1201,8 @@ void Viewer3DController::DrawSceneObjectLabels(int width, int height) {
     wxString label =
         o.name.empty() ? wxString::FromUTF8(uuid) : wxString::FromUTF8(o.name);
 
-    DrawText2D(m_vg, m_font, std::string(label.mb_str()), x, y);
+    auto utf8 = label.ToUTF8();
+    DrawText2D(m_vg, m_font, std::string(utf8.data(), utf8.length()), x, y);
   }
 }
 
