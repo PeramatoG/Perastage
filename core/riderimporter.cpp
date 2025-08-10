@@ -486,6 +486,114 @@ bool RiderImporter::Import(const std::string &path) {
     }
   }
 
+  // Distribute fixtures along their hang positions using available truss
+  // information. Fixtures are arranged symmetrically and alternately by type,
+  // leaving a 0.2 m margin at the ends of the truss and placing them on the
+  // front-bottom side. When truss data is missing, a default width of 0.4 m is
+  // assumed and fixtures are spaced 0.5 m apart around the origin.
+  struct TrussInfo {
+    float startX = 0.0f;
+    float endX = 0.0f;
+    float y = 0.0f;
+    float z = 0.0f;
+    float width = 400.0f;
+    bool found = false;
+  };
+  std::unordered_map<std::string, TrussInfo> trussInfo;
+  for (const auto &[uuid, t] : scene.trusses) {
+    auto &info = trussInfo[t.positionName];
+    float start = t.transform.o[0];
+    float end = start + t.lengthMm;
+    if (!info.found) {
+      info.startX = start;
+      info.endX = end;
+      info.y = t.transform.o[1];
+      info.z = t.transform.o[2];
+      info.width = t.widthMm > 0.0f ? t.widthMm : info.width;
+      info.found = true;
+    } else {
+      info.startX = std::min(info.startX, start);
+      info.endX = std::max(info.endX, end);
+    }
+  }
+
+  std::unordered_map<std::string, std::vector<Fixture *>> fixturesByPos;
+  for (auto &[uuid, f] : scene.fixtures)
+    fixturesByPos[f.positionName].push_back(&f);
+
+  const float margin = 200.0f; // 0.2 m at each end
+  for (auto &[pos, fixturesVec] : fixturesByPos) {
+    if (fixturesVec.empty())
+      continue;
+
+    // Count fixtures by type
+    std::unordered_map<std::string, int> counts;
+    std::vector<std::string> types;
+    for (Fixture *f : fixturesVec) {
+      if (!counts.count(f->typeName))
+        types.push_back(f->typeName);
+      counts[f->typeName]++;
+    }
+
+    // Build left side (including center if odd) cycling through types
+    int total = static_cast<int>(fixturesVec.size());
+    int half = (total + 1) / 2;
+    std::vector<std::string> left;
+    size_t idx = 0;
+    while (static_cast<int>(left.size()) < half) {
+      const std::string &t = types[idx % types.size()];
+      if (counts[t] > 0) {
+        left.push_back(t);
+        counts[t]--;
+      }
+      ++idx;
+    }
+
+    std::vector<std::string> order = left;
+    std::vector<std::string> right = left;
+    if (total % 2 == 1)
+      right.pop_back();
+    std::reverse(right.begin(), right.end());
+    order.insert(order.end(), right.begin(), right.end());
+
+    // Map fixtures by type for assignment
+    std::unordered_map<std::string, std::vector<Fixture *>> byType;
+    for (Fixture *f : fixturesVec)
+      byType[f->typeName].push_back(f);
+    for (auto &[type, vec] : byType)
+      std::reverse(vec.begin(), vec.end());
+
+    std::vector<Fixture *> ordered;
+    ordered.reserve(total);
+    for (const std::string &t : order) {
+      auto &vec = byType[t];
+      if (vec.empty())
+        continue;
+      ordered.push_back(vec.back());
+      vec.pop_back();
+    }
+
+    TrussInfo info;
+    auto it = trussInfo.find(pos);
+    if (it != trussInfo.end())
+      info = it->second;
+    float startX = info.found ? info.startX + margin :
+                                -0.5f * ((total - 1) * 500.0f);
+    float endX = info.found ? info.endX - margin :
+                              0.5f * ((total - 1) * 500.0f);
+    float baseY = info.found ? info.y : getHangPos(pos);
+    float baseZ = info.found ? info.z : getHangHeight(pos);
+    float width = info.found ? info.width : 400.0f;
+    float step = (total > 1) ? (endX - startX) / (total - 1) : 0.0f;
+
+    for (int i = 0; i < total && i < static_cast<int>(ordered.size()); ++i) {
+      Fixture *f = ordered[i];
+      f->transform.o[0] = startX + i * step;
+      f->transform.o[1] = baseY - width * 0.5f;
+      f->transform.o[2] = baseZ;
+    }
+  }
+
   cfg.PushUndoState("import rider");
   return true;
 }
