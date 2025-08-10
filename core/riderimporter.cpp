@@ -255,8 +255,9 @@ bool RiderImporter::Import(const std::string &path) {
         f.uuid = GenerateUuid();
         f.instanceName = part + " " + std::to_string(++counter);
         f.typeName = part;
-        if (auto dictPath = GdtfDictionary::Get(f.typeName)) {
-          f.gdtfSpec = *dictPath;
+        if (auto dictEntry = GdtfDictionary::Get(f.typeName)) {
+          f.gdtfSpec = dictEntry->path;
+          f.gdtfMode = dictEntry->mode;
           std::string parsed = Trim(GetGdtfFixtureName(f.gdtfSpec));
           if (!parsed.empty())
             f.typeName = parsed;

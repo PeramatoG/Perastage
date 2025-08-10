@@ -654,9 +654,9 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
     std::vector<GdtfConflict> gdtfConflicts;
     std::unordered_set<std::string> conflictTypes;
     for (const auto &[uid, f] : scene.fixtures) {
-      if (auto dictPath = GdtfDictionary::Get(f.typeName)) {
+      if (auto dictEntry = GdtfDictionary::Get(f.typeName)) {
         if (conflictTypes.insert(f.typeName).second) {
-          gdtfConflicts.push_back({f.typeName, f.gdtfSpec, *dictPath});
+          gdtfConflicts.push_back({f.typeName, f.gdtfSpec, dictEntry->path});
         }
       }
     }
@@ -664,18 +664,22 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
       if (promptConflicts) {
         auto choices = PromptGdtfConflicts(gdtfConflicts);
         for (auto &[uid, f] : scene.fixtures) {
-          auto it = choices.find(f.typeName);
+          auto typeKey = f.typeName;
+          auto it = choices.find(typeKey);
           if (it != choices.end()) {
             f.gdtfSpec = it->second;
             std::string parsed = Trim(GetGdtfFixtureName(f.gdtfSpec));
             if (!parsed.empty())
               f.typeName = parsed;
+            if (auto dictEntry = GdtfDictionary::Get(typeKey))
+              f.gdtfMode = dictEntry->mode;
           }
         }
       } else {
         for (auto &[uid, f] : scene.fixtures) {
-          if (auto dictPath = GdtfDictionary::Get(f.typeName)) {
-            f.gdtfSpec = *dictPath;
+          if (auto dictEntry = GdtfDictionary::Get(f.typeName)) {
+            f.gdtfSpec = dictEntry->path;
+            f.gdtfMode = dictEntry->mode;
             std::string parsed = Trim(GetGdtfFixtureName(f.gdtfSpec));
             if (!parsed.empty())
               f.typeName = parsed;

@@ -5,13 +5,18 @@
 #include <unordered_map>
 
 namespace GdtfDictionary {
-    // Loads the dictionary file into a map of type -> gdtf absolute path
-    std::optional<std::unordered_map<std::string, std::string>> Load();
+    struct Entry {
+        std::string path;
+        std::string mode;
+    };
+
+    // Loads the dictionary file into a map of type -> {gdtf absolute path, default mode}
+    std::optional<std::unordered_map<std::string, Entry>> Load();
     // Saves the dictionary map back to disk
-    void Save(const std::unordered_map<std::string, std::string>& dict);
-    // Returns the stored gdtf path for a given type if it exists and file exists.
+    void Save(const std::unordered_map<std::string, Entry>& dict);
+    // Returns the stored entry for a given type if it exists and file exists.
     // If the file is missing, the entry is removed and std::nullopt returned.
-    std::optional<std::string> Get(const std::string& type);
+    std::optional<Entry> Get(const std::string& type);
     // Copies the gdtf file into the fixtures library and updates the dictionary
-    void Update(const std::string& type, const std::string& gdtfPath);
+    void Update(const std::string& type, const std::string& gdtfPath, const std::string& mode = {});
 }
