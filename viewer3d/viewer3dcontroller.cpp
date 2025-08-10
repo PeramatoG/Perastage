@@ -435,17 +435,17 @@ void Viewer3DController::Update() {
 
     if (!found) {
       float len = (t.lengthMm > 0 ? t.lengthMm * RENDER_SCALE : 0.3f);
-      float halfy = (t.heightMm > 0 ? t.heightMm * RENDER_SCALE * 0.5f : 0.15f);
-      float halfz = (t.widthMm > 0 ? t.widthMm * RENDER_SCALE * 0.5f : 0.15f);
+      float halfy = (t.widthMm > 0 ? t.widthMm * RENDER_SCALE * 0.5f : 0.15f);
+      float z1 = (t.heightMm > 0 ? t.heightMm * RENDER_SCALE : 0.3f);
       std::array<std::array<float, 3>, 8> corners = {
-          std::array<float, 3>{0.0f, -halfy, -halfz},
-          {len, -halfy, -halfz},
-          {0.0f, halfy, -halfz},
-          {len, halfy, -halfz},
-          {0.0f, -halfy, halfz},
-          {len, -halfy, halfz},
-          {0.0f, halfy, halfz},
-          {len, halfy, halfz}};
+          std::array<float, 3>{0.0f, -halfy, 0.0f},
+          {len, -halfy, 0.0f},
+          {0.0f, halfy, 0.0f},
+          {len, halfy, 0.0f},
+          {0.0f, -halfy, z1},
+          {len, -halfy, z1},
+          {0.0f, halfy, z1},
+          {len, halfy, z1}};
       for (const auto &c : corners) {
         auto p = TransformPoint(tm, c);
         bb.min[0] = std::min(bb.min[0], p[0]);
@@ -770,8 +770,8 @@ void Viewer3DController::DrawWireframeBox(float length, float height,
                                           float width, bool highlight,
                                           bool selected) {
   float x0 = 0.0f, x1 = length;
-  float y0 = -height * 0.5f, y1 = height * 0.5f;
-  float z0 = -width * 0.5f, z1 = width * 0.5f;
+  float y0 = -width * 0.5f, y1 = width * 0.5f;
+  float z0 = 0.0f, z1 = height;
 
   if (selected)
     glColor3f(0.0f, 1.0f, 1.0f);
