@@ -97,82 +97,79 @@ void GdtfSearchDialog::ParseList(const std::string& listData)
         wxString msg = wxString::Format("Parse list: %zu bytes", listData.size());
         ConsolePanel::Instance()->AppendMessage(msg);
     }
-    try {
-        json j = json::parse(listData);
-        if (j.is_object()) {
-            if (j.contains("data"))
-                j = j["data"];
-            if (j.contains("fixtures"))
-                j = j["fixtures"];
-            if (j.contains("list"))
-                j = j["list"];
-        }
-        if (!j.is_array())
-            return;
-        auto jsonToString = [](const json& v) -> std::string {
-            if (v.is_string())
-                return v.get<std::string>();
-            if (v.is_number())
-                return v.dump();
-            if (v.is_array()) {
-                std::string result;
-                for (size_t i = 0; i < v.size(); ++i) {
-                    if (i > 0)
-                        result += ", ";
-                    const auto& el = v[i];
-                    if (el.is_string())
-                        result += el.get<std::string>();
-                    else if (el.is_object() && el.contains("name") && el["name"].is_string())
-                        result += el["name"].get<std::string>();
-                    else
-                        result += el.dump();
-                }
-                return result;
-            }
-            if (v.is_object())
-                return v.dump();
-            return {};
-        };
-
-        auto getValue = [&](const json& obj, std::initializer_list<const char*> keys) -> std::string {
-            for (const char* k : keys) {
-                auto it = obj.find(k);
-                if (it != obj.end())
-                    return jsonToString(*it);
-            }
-            return {};
-        };
-
-        for (const auto& item : j) {
-            GdtfEntry e;
-            e.manufacturer = getValue(item, {"manufacturer", "brand", "mfr"});
-            e.fixture = getValue(item, {"fixture", "name", "model"});
-            e.rid = getValue(item, {"rid", "revisionId"});
-            e.url = getValue(item, {"url", "download", "downloadUrl"});
-            e.modes = getValue(item, {"modes", "mode", "modeCount"});
-            e.creator = getValue(item, {"creator", "user", "userName"});
-            e.uploader = getValue(item, {"uploader"});
-            e.creationDate = getValue(item, {"creationDate"});
-            e.revision = getValue(item, {"revision"});
-            e.lastModified = getValue(item, {"lastModified"});
-            e.version = getValue(item, {"version"});
-            e.rating = getValue(item, {"rating"});
-            entries.push_back(e);
-        }
+    json j = json::parse(listData, nullptr, false);
+    if (j.is_discarded()) {
         if (ConsolePanel::Instance()) {
-            wxString msg = wxString::Format("Parsed %zu entries", entries.size());
-            ConsolePanel::Instance()->AppendMessage(msg);
-        }
-    } catch(const std::exception& e) {
-        if (ConsolePanel::Instance()) {
-            wxString msg = wxString::Format("JSON parse error: %s", e.what());
-            ConsolePanel::Instance()->AppendMessage(msg);
+            ConsolePanel::Instance()->AppendMessage("JSON parse error");
             wxString sample = wxString::FromUTF8(listData.substr(0, 200));
             ConsolePanel::Instance()->AppendMessage("Sample: " + sample);
         }
-    } catch(...) {
-        if (ConsolePanel::Instance())
-            ConsolePanel::Instance()->AppendMessage("Unknown JSON parse error");
+        return;
+    }
+    if (j.is_object()) {
+        if (j.contains("data"))
+            j = j["data"];
+        if (j.contains("fixtures"))
+            j = j["fixtures"];
+        if (j.contains("list"))
+            j = j["list"];
+    }
+    if (!j.is_array())
+        return;
+
+    auto jsonToString = [](const json& v) -> std::string {
+        if (v.is_string())
+            return v.get<std::string>();
+        if (v.is_number())
+            return v.dump();
+        if (v.is_array()) {
+            std::string result;
+            for (size_t i = 0; i < v.size(); ++i) {
+                if (i > 0)
+                    result += ", ";
+                const auto& el = v[i];
+                if (el.is_string())
+                    result += el.get<std::string>();
+                else if (el.is_object() && el.contains("name") && el["name"].is_string())
+                    result += el["name"].get<std::string>();
+                else
+                    result += el.dump();
+            }
+            return result;
+        }
+        if (v.is_object())
+            return v.dump();
+        return {};
+    };
+
+    auto getValue = [&](const json& obj, std::initializer_list<const char*> keys) -> std::string {
+        for (const char* k : keys) {
+            auto it = obj.find(k);
+            if (it != obj.end())
+                return jsonToString(*it);
+        }
+        return {};
+    };
+
+    for (const auto& item : j) {
+        GdtfEntry e;
+        e.manufacturer = getValue(item, {"manufacturer", "brand", "mfr"});
+        e.fixture = getValue(item, {"fixture", "name", "model"});
+        e.rid = getValue(item, {"rid", "revisionId"});
+        e.url = getValue(item, {"url", "download", "downloadUrl"});
+        e.modes = getValue(item, {"modes", "mode", "modeCount"});
+        e.creator = getValue(item, {"creator", "user", "userName"});
+        e.uploader = getValue(item, {"uploader"});
+        e.creationDate = getValue(item, {"creationDate"});
+        e.revision = getValue(item, {"revision"});
+        e.lastModified = getValue(item, {"lastModified"});
+        e.version = getValue(item, {"version"});
+        e.rating = getValue(item, {"rating"});
+        entries.push_back(e);
+    }
+    if (ConsolePanel::Instance()) {
+        wxString msg = wxString::Format("Parsed %zu entries", entries.size());
+        ConsolePanel::Instance()->AppendMessage(msg);
     }
 }
 
