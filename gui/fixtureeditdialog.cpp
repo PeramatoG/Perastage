@@ -95,7 +95,7 @@ FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
   UpdateChannels();
   if (preview) {
     wxString gdtfPath = modelCtrl ? modelCtrl->GetValue() : wxString();
-    preview->LoadFixture(std::string(gdtfPath.mb_str()));
+    preview->LoadFixture(std::string(gdtfPath.ToUTF8()));
   }
 }
 
@@ -109,16 +109,16 @@ void FixtureEditDialog::OnBrowse(wxCommandEvent &) {
   wxString path = fdlg.GetPath();
   modelCtrl->SetValue(path);
   if (preview)
-    preview->LoadFixture(std::string(path.mb_str()));
+    preview->LoadFixture(std::string(path.ToUTF8()));
   // update type/power/weight fields
   if (ctrls.size() > 2) {
     wxString typeName =
-        wxString::FromUTF8(GetGdtfFixtureName(std::string(path.mb_str())));
+        wxString::FromUTF8(GetGdtfFixtureName(std::string(path.ToUTF8())));
     if (typeName.empty())
       typeName = fdlg.GetFilename();
     static_cast<wxTextCtrl *>(ctrls[2])->SetValue(typeName);
     float w = 0.f, p = 0.f;
-    GetGdtfProperties(std::string(path.mb_str()), w, p);
+    GetGdtfProperties(std::string(path.ToUTF8()), w, p);
     if (ctrls.size() > 16)
       static_cast<wxTextCtrl *>(ctrls[16])->SetValue(
           wxString::Format("%.1f", p));
@@ -129,7 +129,7 @@ void FixtureEditDialog::OnBrowse(wxCommandEvent &) {
   // repopulate modes
   if (modeChoice) {
     modeChoice->Clear();
-    auto modes = GetGdtfModes(std::string(path.mb_str()));
+    auto modes = GetGdtfModes(std::string(path.ToUTF8()));
     for (const auto &m : modes)
       modeChoice->Append(wxString::FromUTF8(m));
     if (!modeChoice->IsEmpty())
@@ -144,15 +144,15 @@ void FixtureEditDialog::UpdateChannels() {
   wxString gdtfPath = modelCtrl ? modelCtrl->GetValue() : wxString();
   wxString mode = modeChoice ? modeChoice->GetStringSelection() : wxString();
   if (preview)
-    preview->LoadFixture(std::string(gdtfPath.mb_str()));
+    preview->LoadFixture(std::string(gdtfPath.ToUTF8()));
   if (gdtfPath.empty() || mode.empty()) {
     channelList->SetValue("");
     if (chCountCtrl)
       chCountCtrl->SetValue("");
     return;
   }
-  auto channels = GetGdtfModeChannels(std::string(gdtfPath.mb_str()),
-                                      std::string(mode.mb_str()));
+  auto channels = GetGdtfModeChannels(std::string(gdtfPath.ToUTF8()),
+                                      std::string(mode.ToUTF8()));
   wxString msg;
   for (const auto &ch : channels) {
     wxString func = wxString::FromUTF8(ch.function);
@@ -161,8 +161,8 @@ void FixtureEditDialog::UpdateChannels() {
     msg += wxString::Format("%d: %s\n", ch.channel, func);
   }
   channelList->SetValue(msg);
-  int chCount = GetGdtfModeChannelCount(std::string(gdtfPath.mb_str()),
-                                        std::string(mode.mb_str()));
+  int chCount = GetGdtfModeChannelCount(std::string(gdtfPath.ToUTF8()),
+                                        std::string(mode.ToUTF8()));
   if (chCountCtrl)
     chCountCtrl->SetValue(chCount >= 0 ? wxString::Format("%d", chCount)
                                        : wxString());
@@ -214,8 +214,8 @@ void FixtureEditDialog::ApplyChanges() {
     }
   }
   if (!gdtfPath.empty()) {
-    GdtfDictionary::Update(std::string(originalType.mb_str()),
-                           std::string(gdtfPath.mb_str()));
+    GdtfDictionary::Update(std::string(originalType.ToUTF8()),
+                           std::string(gdtfPath.ToUTF8()));
   }
   panel->ApplyModeForGdtf(gdtfPath);
   panel->ResyncRows(oldOrder, selectedUuids);
