@@ -18,7 +18,9 @@ bool LoadTrussArchive(const std::string &archivePath, Truss &outTruss) {
   wxZipInputStream zip(input);
   std::unique_ptr<wxZipEntry> entry;
   std::string meta;
-  fs::path baseDir = fs::path(archivePath).parent_path();
+  fs::path baseDir = fs::temp_directory_path() /
+                     fs::unique_path("perastage-truss-%%%%%%");
+  wxFileName::Mkdir(baseDir.string(), wxS_DIR_DEFAULT, wxPATH_MKDIR_FULL);
   while ((entry.reset(zip.GetNextEntry())), entry) {
     std::string name = entry->GetName().ToStdString();
     if (entry->IsDir())
