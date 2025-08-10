@@ -280,6 +280,8 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
         typeName = fdlg.GetFilename();
       wxString fileName = fdlg.GetFilename();
 
+      std::vector<std::string> prevTypes;
+
       for (const auto &itSel : selections) {
         int r = table->ItemToRow(itSel);
         if (r == wxNOT_FOUND)
@@ -287,6 +289,7 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
 
         wxVariant prevType;
         table->GetValue(prevType, r, 2);
+        prevTypes.push_back(std::string(prevType.GetString().ToUTF8()));
 
         if ((size_t)r >= gdtfPaths.size())
           gdtfPaths.resize(table->GetItemCount());
@@ -299,16 +302,28 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
         wxString wstr = wxString::Format("%.2f", w);
         table->SetValue(wxVariant(pstr), r, 16);
         table->SetValue(wxVariant(wstr), r, 17);
-
-        // Update dictionary with the previous type name for this row
-        GdtfDictionary::Update(std::string(prevType.GetString().ToUTF8()),
-                               pathUtf8);
       }
 
       PropagateTypeValues(selections, 16);
       PropagateTypeValues(selections, 17);
 
-      ApplyModeForGdtf(path);
+      wxString dictMode;
+      if (!prevTypes.empty()) {
+        if (auto entry = GdtfDictionary::Get(prevTypes[0]))
+          dictMode = wxString::FromUTF8(entry->mode);
+      }
+      ApplyModeForGdtf(path, dictMode);
+
+      // Update dictionary with final mode for each previous type
+      for (size_t idx = 0; idx < selections.size(); ++idx) {
+        int r = table->ItemToRow(selections[idx]);
+        if (r == wxNOT_FOUND)
+          continue;
+        wxVariant modeVar;
+        table->GetValue(modeVar, r, 7);
+        GdtfDictionary::Update(prevTypes[idx], pathUtf8,
+                               std::string(modeVar.GetString().ToUTF8()));
+      }
     }
     ResyncRows(oldOrder, selectedUuids);
     UpdateSceneData();
@@ -366,7 +381,14 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
       wxString chStr =
           chCount >= 0 ? wxString::Format("%d", chCount) : wxString();
       table->SetValue(wxVariant(chStr), sr, 8);
+
+      wxVariant typeVar;
+      table->GetValue(typeVar, sr, 2);
+      GdtfDictionary::Update(std::string(typeVar.GetString().ToUTF8()),
+                             std::string(gdtfPath.ToUTF8()),
+                             std::string(sel.ToUTF8()));
     }
+    ApplyModeForGdtf(gdtfPath, sel);
 
     ResyncRows(oldOrder, selectedUuids);
     UpdateSceneData();
@@ -1027,7 +1049,8 @@ void FixtureTablePanel::UpdateSceneData() {
   HighlightDuplicateFixtureIds();
 }
 
-void FixtureTablePanel::ApplyModeForGdtf(const wxString &path) {
+void FixtureTablePanel::ApplyModeForGdtf(const wxString &path,
+                                         const wxString &preferredMode) {
   if (path.empty())
     return;
 
@@ -1052,19 +1075,28 @@ void FixtureTablePanel::ApplyModeForGdtf(const wxString &path) {
     wxString currWx = v.GetString();
     std::string curr = std::string(currWx.ToUTF8());
 
-    std::string chosen = curr;
-    bool found = std::find(modes.begin(), modes.end(), curr) != modes.end();
-    if (!found) {
-      for (const std::string &m : modes) {
-        std::string low = toLower(m);
-        if (low == "default" || low == "standard") {
-          chosen = m;
-          found = true;
-          break;
+    std::string chosen;
+    if (!preferredMode.empty()) {
+      std::string pref = std::string(preferredMode.ToUTF8());
+      if (std::find(modes.begin(), modes.end(), pref) != modes.end())
+        chosen = pref;
+    }
+
+    if (chosen.empty()) {
+      chosen = curr;
+      bool found = std::find(modes.begin(), modes.end(), curr) != modes.end();
+      if (!found) {
+        for (const std::string &m : modes) {
+          std::string low = toLower(m);
+          if (low == "default" || low == "standard") {
+            chosen = m;
+            found = true;
+            break;
+          }
         }
+        if (!found)
+          chosen = modes.front();
       }
-      if (!found)
-        chosen = modes.front();
     }
 
     if (chosen != curr)

@@ -51,7 +51,7 @@ private:
     void OnSelectionChanged(wxDataViewEvent& evt);
     void PropagateTypeValues(const wxDataViewItemArray& selections, int col);
     void UpdateSceneData();
-    void ApplyModeForGdtf(const wxString& path);
+    void ApplyModeForGdtf(const wxString& path, const wxString& preferredMode = wxString());
     void HighlightDuplicateFixtureIds();
     void HighlightPatchConflicts();
 };

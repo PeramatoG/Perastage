@@ -214,10 +214,13 @@ void FixtureEditDialog::ApplyChanges() {
     }
   }
   if (!gdtfPath.empty()) {
+    std::string mode =
+        modeChoice ? std::string(modeChoice->GetStringSelection().ToUTF8()) :
+                     std::string();
     GdtfDictionary::Update(std::string(originalType.ToUTF8()),
-                           std::string(gdtfPath.ToUTF8()));
+                           std::string(gdtfPath.ToUTF8()), mode);
+    panel->ApplyModeForGdtf(gdtfPath, wxString::FromUTF8(mode));
   }
-  panel->ApplyModeForGdtf(gdtfPath);
   panel->ResyncRows(oldOrder, selectedUuids);
   panel->UpdateSceneData();
   panel->HighlightDuplicateFixtureIds();
