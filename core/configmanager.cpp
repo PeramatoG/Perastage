@@ -54,6 +54,12 @@ ConfigManager::ConfigManager() {
   RegisterVariable("rider_lx4_pos", "float", 6.0f, -100.0f, 100.0f);
   RegisterVariable("rider_lx5_pos", "float", 8.0f, -100.0f, 100.0f);
   RegisterVariable("rider_lx6_pos", "float", 10.0f, -100.0f, 100.0f);
+  RegisterVariable("rider_lx1_margin", "float", 0.2f, 0.0f, 10.0f);
+  RegisterVariable("rider_lx2_margin", "float", 0.2f, 0.0f, 10.0f);
+  RegisterVariable("rider_lx3_margin", "float", 0.2f, 0.0f, 10.0f);
+  RegisterVariable("rider_lx4_margin", "float", 0.2f, 0.0f, 10.0f);
+  RegisterVariable("rider_lx5_margin", "float", 0.2f, 0.0f, 10.0f);
+  RegisterVariable("rider_lx6_margin", "float", 0.2f, 0.0f, 10.0f);
   LoadUserConfig();
   ApplyColumnDefaults();
   ApplyDefaults();

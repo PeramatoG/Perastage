@@ -199,6 +199,20 @@ bool RiderImporter::Import(const std::string &path) {
     return 0.0f;
   };
 
+  auto getHangMargin = [&](const std::string &posName) {
+    if (posName.rfind("LX", 0) == 0) {
+      try {
+        int idx = std::stoi(posName.substr(2));
+        if (idx >= 1 && idx <= 6) {
+          return cfg.GetFloat("rider_lx" + std::to_string(idx) + "_margin") *
+                 1000.0f;
+        }
+      } catch (...) {
+      }
+    }
+    return 200.0f;
+  };
+
   // Keywords that identify truss entries. Screens or drapes themselves are
   // ignored; only explicit truss mentions are parsed.
   const std::string trussKeywords = "(?:truss)";
@@ -488,9 +502,9 @@ bool RiderImporter::Import(const std::string &path) {
 
   // Distribute fixtures along their hang positions using available truss
   // information. Fixtures are arranged symmetrically and alternately by type,
-  // leaving a 0.2 m margin at the ends of the truss and placing them on the
-  // front-bottom side. When truss data is missing, a default width of 0.4 m is
-  // assumed and fixtures are spaced 0.5 m apart around the origin.
+  // leaving a configurable margin at the ends of the truss and placing them on
+  // the front-bottom side. When truss data is missing, a default width of 0.4 m
+  // is assumed and fixtures are spaced 0.5 m apart around the origin.
   struct TrussInfo {
     float startX = 0.0f;
     float endX = 0.0f;
@@ -521,7 +535,6 @@ bool RiderImporter::Import(const std::string &path) {
   for (auto &[uuid, f] : scene.fixtures)
     fixturesByPos[f.positionName].push_back(&f);
 
-  const float margin = 200.0f; // 0.2 m at each end
   for (auto &[pos, fixturesVec] : fixturesByPos) {
     if (fixturesVec.empty())
       continue;
@@ -584,6 +597,7 @@ bool RiderImporter::Import(const std::string &path) {
     auto it = trussInfo.find(pos);
     if (it != trussInfo.end())
       info = it->second;
+    float margin = getHangMargin(pos);
     float startX = info.found ? info.startX + margin :
                                 -0.5f * ((total - 1) * 500.0f);
     float endX = info.found ? info.endX - margin :
