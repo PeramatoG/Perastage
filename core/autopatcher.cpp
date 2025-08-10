@@ -16,6 +16,7 @@ void AutoPatch(MvrScene &scene, int startUniverse, int startChannel) {
         int channels;
         float x;
         float y;
+        std::string type;
     };
 
     std::vector<FixtureInfo> fixtures;
@@ -33,12 +34,15 @@ void AutoPatch(MvrScene &scene, int startUniverse, int startChannel) {
         if (chCount <= 0)
             continue; // skip fixtures without a valid channel count
         auto pos = f.GetPosition();
-        fixtures.push_back({pair.first, chCount, pos[0], pos[1]});
+        fixtures.push_back({pair.first, chCount, pos[0], pos[1], f.typeName});
     }
 
     std::sort(fixtures.begin(), fixtures.end(), [](const FixtureInfo &a, const FixtureInfo &b) {
-        if (a.y == b.y)
-            return a.x < b.x;
+        if (a.y == b.y) {
+            if (a.type == b.type)
+                return a.x < b.x;
+            return a.type < b.type;
+        }
         return a.y < b.y;
     });
 
