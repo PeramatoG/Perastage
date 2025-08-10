@@ -42,12 +42,12 @@ ConfigManager::ConfigManager() {
   RegisterVariable("camera_target_x", "float", 0.0f, -1000.0f, 1000.0f);
   RegisterVariable("camera_target_y", "float", 0.0f, -1000.0f, 1000.0f);
   RegisterVariable("camera_target_z", "float", 0.0f, -1000.0f, 1000.0f);
-  RegisterVariable("rider_lx1_height", "float", 6.0f, 0.0f, 100.0f);
-  RegisterVariable("rider_lx2_height", "float", 5.5f, 0.0f, 100.0f);
-  RegisterVariable("rider_lx3_height", "float", 5.0f, 0.0f, 100.0f);
-  RegisterVariable("rider_lx4_height", "float", 4.5f, 0.0f, 100.0f);
-  RegisterVariable("rider_lx5_height", "float", 4.0f, 0.0f, 100.0f);
-  RegisterVariable("rider_lx6_height", "float", 3.5f, 0.0f, 100.0f);
+  RegisterVariable("rider_lx1_height", "float", 10.0f, 0.0f, 100.0f);
+  RegisterVariable("rider_lx2_height", "float", 9.5f, 0.0f, 100.0f);
+  RegisterVariable("rider_lx3_height", "float", 9.0f, 0.0f, 100.0f);
+  RegisterVariable("rider_lx4_height", "float", 8.5f, 0.0f, 100.0f);
+  RegisterVariable("rider_lx5_height", "float", 9.0f, 0.0f, 100.0f);
+  RegisterVariable("rider_lx6_height", "float", 8.5f, 0.0f, 100.0f);
   RegisterVariable("rider_lx1_pos", "float", -2.0f, -100.0f, 100.0f);
   RegisterVariable("rider_lx2_pos", "float", 2.0f, -100.0f, 100.0f);
   RegisterVariable("rider_lx3_pos", "float", 4.0f, -100.0f, 100.0f);
