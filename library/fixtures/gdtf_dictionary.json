@@ -1,4 +1,8 @@
 {
+    "Aleda Wash K10": {
+        "mode": "Shapes",
+        "path": "C:\\codigoscpp\\Perastage\\out\\build\\x64-debug\\library\\fixtures\\Aleda B-EYE K10.gdtf"
+    },
     "BLINDER 2 PRO": {
         "mode": "2ch d001",
         "path": "C:\\codigoscpp\\Perastage\\out\\build\\x64-debug\\library\\fixtures\\BLINDER 2 PRO.gdtf"
@@ -8,6 +12,22 @@
     },
     "LITELEES B-EYE L10R (LIBRERÍA K10)": {
         "path": "C:\\codigoscpp\\Perastage\\out\\build\\x64-debug\\library\\fixtures\\Aleda Wash K10.gdtf"
+    },
+    "PIXEL STROBE 400 RGB": {
+        "mode": "8ch",
+        "path": "C:\\codigoscpp\\Perastage\\out\\build\\x64-debug\\library\\fixtures\\PIXEL STROBE 400 RGB.gdtf"
+    },
+    "PROLIGHT BLINDER 2 PRO": {
+        "mode": "2ch d001",
+        "path": "C:\\codigoscpp\\Perastage\\out\\build\\x64-debug\\library\\fixtures\\BLINDER 2 PRO.gdtf"
+    },
+    "PROLIGHT PIXEL STROBE 400 RGB": {
+        "mode": "8ch",
+        "path": "C:\\codigoscpp\\Perastage\\out\\build\\x64-debug\\library\\fixtures\\PIXEL STROBE 400 RGB.gdtf"
+    },
+    "PROLIGHT X BEAM 17 CMY": {
+        "mode": "25ch",
+        "path": "C:\\codigoscpp\\Perastage\\out\\build\\x64-debug\\library\\fixtures\\XBEAM 17 CMY.gdtf"
     },
     "Robin Spiider": {
         "path": "C:\\codigoscpp\\Perastage\\out\\build\\x64-debug\\library\\fixtures\\Robin Spiider.gdtf"
@@ -20,5 +40,9 @@
     },
     "SunRise 2IP": {
         "path": "C:\\codigoscpp\\Perastage\\out\\build\\x64-debug\\library\\fixtures\\Sunrise2IP.gdtf"
+    },
+    "XBEAM 17 CMY": {
+        "mode": "6ch A001",
+        "path": "C:\\codigoscpp\\Perastage\\out\\build\\x64-debug\\library\\fixtures\\BLINDER 2 PRO.gdtf"
     }
 }
