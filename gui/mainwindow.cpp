@@ -1491,6 +1491,7 @@ void MainWindow::OnAddTruss(wxCommandEvent &WXUNUSED(event)) {
       defaultName = baseTruss.name;
   } else {
     baseTruss.symbolFile = path;
+    baseTruss.modelFile = path;
   }
 
   long qty = wxGetNumberFromUser("Enter truss quantity:", wxEmptyString,
@@ -1508,6 +1509,16 @@ void MainWindow::OnAddTruss(wxCommandEvent &WXUNUSED(event)) {
       modelPath = fs::relative(abs, b).string();
   }
   baseTruss.symbolFile = modelPath;
+  if (!baseTruss.modelFile.empty()) {
+    std::string archiveRel = baseTruss.modelFile;
+    if (!base.empty()) {
+      fs::path absM = fs::absolute(archiveRel);
+      fs::path b = fs::absolute(base);
+      if (absM.string().rfind(b.string(), 0) == 0)
+        archiveRel = fs::relative(absM, b).string();
+    }
+    baseTruss.modelFile = archiveRel;
+  }
 
   auto baseId = std::chrono::steady_clock::now().time_since_epoch().count();
   std::string layerName = cfg.GetCurrentLayer();

@@ -25,6 +25,8 @@
 #include "gdtfloader.h"
 #include "truss.h"
 #include "trussdictionary.h"
+#include "trussloader.h"
+#include <filesystem>
 
 namespace {
 // Generate a random UUID4 string
@@ -374,8 +376,28 @@ bool RiderImporter::Import(const std::string &path) {
           std::string sizeStr = formatLength(s);
           t.name = "TRUSS " + model + " " + sizeStr;
           t.model = t.name;
-          if (auto dictPath = TrussDictionary::Get(t.model))
-            t.symbolFile = *dictPath;
+          if (auto dictPath = TrussDictionary::Get(t.model)) {
+            namespace fs = std::filesystem;
+            if (fs::path(*dictPath).extension() == ".gtruss") {
+              Truss parsed;
+              if (LoadTrussArchive(*dictPath, parsed)) {
+                t.symbolFile = parsed.symbolFile;
+                t.modelFile = parsed.modelFile;
+                t.manufacturer = parsed.manufacturer;
+                t.lengthMm = parsed.lengthMm;
+                t.widthMm = parsed.widthMm;
+                t.heightMm = parsed.heightMm;
+                t.weightKg = parsed.weightKg;
+                t.crossSection = parsed.crossSection;
+              } else {
+                t.symbolFile = *dictPath;
+                t.modelFile = *dictPath;
+              }
+            } else {
+              t.symbolFile = *dictPath;
+              t.modelFile = *dictPath;
+            }
+          }
           scene.trusses[t.uuid] = t;
           x += s;
         }
@@ -429,8 +451,28 @@ bool RiderImporter::Import(const std::string &path) {
         std::string sizeStr = formatLength(s);
         t.name = "TRUSS " + sizeStr;
         t.model = t.name;
-        if (auto dictPath = TrussDictionary::Get(t.model))
-          t.symbolFile = *dictPath;
+        if (auto dictPath = TrussDictionary::Get(t.model)) {
+          namespace fs = std::filesystem;
+          if (fs::path(*dictPath).extension() == ".gtruss") {
+            Truss parsed;
+            if (LoadTrussArchive(*dictPath, parsed)) {
+              t.symbolFile = parsed.symbolFile;
+              t.modelFile = parsed.modelFile;
+              t.manufacturer = parsed.manufacturer;
+              t.lengthMm = parsed.lengthMm;
+              t.widthMm = parsed.widthMm;
+              t.heightMm = parsed.heightMm;
+              t.weightKg = parsed.weightKg;
+              t.crossSection = parsed.crossSection;
+            } else {
+              t.symbolFile = *dictPath;
+              t.modelFile = *dictPath;
+            }
+          } else {
+            t.symbolFile = *dictPath;
+            t.modelFile = *dictPath;
+          }
+        }
         scene.trusses[t.uuid] = t;
         x += s;
       }
