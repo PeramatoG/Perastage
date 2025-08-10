@@ -12,9 +12,10 @@ PreferencesDialog::PreferencesDialog(wxWindow *parent)
   // Rider Import page
   wxPanel *riderPanel = new wxPanel(book);
   wxBoxSizer *riderSizer = new wxBoxSizer(wxVERTICAL);
-  wxFlexGridSizer *grid = new wxFlexGridSizer(4, 5, 5);
+  wxFlexGridSizer *grid = new wxFlexGridSizer(6, 5, 5);
   grid->AddGrowableCol(1, 1);
   grid->AddGrowableCol(3, 1);
+  grid->AddGrowableCol(5, 1);
 
   ConfigManager &cfg = ConfigManager::Get();
   for (int i = 0; i < 6; ++i) {
@@ -33,6 +34,14 @@ PreferencesDialog::PreferencesDialog(wxWindow *parent)
     lxPosCtrls[i] = new wxTextCtrl(riderPanel, wxID_ANY,
                                    wxString::Format("%.2f", valP));
     grid->Add(lxPosCtrls[i], 1, wxEXPAND);
+
+    wxString labelM = wxString::Format("LX%d margin (m):", i + 1);
+    grid->Add(new wxStaticText(riderPanel, wxID_ANY, labelM), 0,
+              wxALIGN_CENTER_VERTICAL);
+    double valM = cfg.GetFloat("rider_lx" + std::to_string(i + 1) + "_margin");
+    lxMarginCtrls[i] = new wxTextCtrl(riderPanel, wxID_ANY,
+                                      wxString::Format("%.2f", valM));
+    grid->Add(lxMarginCtrls[i], 1, wxEXPAND);
   }
   riderSizer->Add(grid, 1, wxALL | wxEXPAND, 10);
   riderPanel->SetSizer(riderSizer);
@@ -57,6 +66,10 @@ PreferencesDialog::PreferencesDialog(wxWindow *parent)
         lxPosCtrls[i]->GetValue().ToDouble(&p);
         cfg.SetFloat("rider_lx" + std::to_string(i + 1) + "_pos",
                      static_cast<float>(p));
+        double m = 0.0;
+        lxMarginCtrls[i]->GetValue().ToDouble(&m);
+        cfg.SetFloat("rider_lx" + std::to_string(i + 1) + "_margin",
+                     static_cast<float>(m));
       }
     }
     evt.Skip();

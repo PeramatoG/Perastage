@@ -10,4 +10,5 @@ public:
 private:
   std::array<wxTextCtrl *, 6> lxHeightCtrls{};
   std::array<wxTextCtrl *, 6> lxPosCtrls{};
+  std::array<wxTextCtrl *, 6> lxMarginCtrls{};
 };
