@@ -43,6 +43,10 @@ namespace fs = std::filesystem;
 static constexpr float LABEL_FONT_SIZE = 18.0f;
 // Maximum width for on-screen labels before wrapping
 static constexpr float LABEL_MAX_WIDTH = 300.0f;
+// Width of fixture labels in meters for the 2D view
+static constexpr float LABEL_WORLD_WIDTH = 0.5f;
+// Pixels per meter used by the 2D view
+static constexpr float PIXELS_PER_METER = 25.0f;
 static std::string FindFileRecursive(const std::string &baseDir,
                                      const std::string &fileName) {
   if (baseDir.empty())
@@ -139,11 +143,11 @@ struct ScreenRect {
   double maxY = -DBL_MAX;
 };
 
-// Draws a text string at screen coordinates using NanoVG. The font size is
-// specified in pixels so labels remain a constant screen size regardless of
-// the current zoom level.
+// Draws a text string at screen coordinates using NanoVG. The font size and
+// maximum width are specified in pixels.
 static void DrawText2D(NVGcontext *vg, int font, const std::string &text, int x,
-                       int y, float fontSize = LABEL_FONT_SIZE) {
+                       int y, float fontSize = LABEL_FONT_SIZE,
+                       float maxWidth = LABEL_MAX_WIDTH) {
   if (!vg || font < 0 || text.empty())
     return;
 
@@ -174,7 +178,7 @@ static void DrawText2D(NVGcontext *vg, int font, const std::string &text, int x,
       break;
     start = end + 1;
   }
-  textWidth = std::min(textWidth, LABEL_MAX_WIDTH);
+  textWidth = std::min(textWidth, maxWidth);
   const int padding = 4;
 
   // Calculate the exact bounding box for the text using the same alignment
@@ -1083,8 +1087,9 @@ void Viewer3DController::DrawAllFixtureLabels(int width, int height,
       label += "\n" + wxString::FromUTF8(f.address);
 
     auto utf8 = label.ToUTF8();
+    float maxWidth = LABEL_WORLD_WIDTH * PIXELS_PER_METER * zoom;
     DrawText2D(m_vg, m_font, std::string(utf8.data(), utf8.length()), x, y,
-               LABEL_FONT_SIZE * 0.6f * zoom);
+               LABEL_FONT_SIZE * 0.6f * zoom, maxWidth);
   }
 }
 
