@@ -23,6 +23,15 @@ Perastage is a high-performance, cross-platform viewer for MVR (My Virtual Rig) 
 | Numpad 5             | Reset camera orientation      |
 | 1 / 2 / 3            | Switch between tables         |
 
+### 2D Viewer
+
+| Key Combination   | Function        |
+|-------------------|-----------------|
+| Mouse drag        | Pan view        |
+| Mouse wheel       | Zoom in/out     |
+| Arrow Keys        | Pan view        |
+| Alt + Arrow Keys  | Zoom in/out     |
+
 ## Panels and Dialogs
 
 ### Fixture Table

@@ -65,6 +65,13 @@ When the mouse pointer is over the 3D viewport you can use the following shortcu
 - **Numpad 5**: reset to the default orientation.
 - **1/2/3**: show the Fixtures, Trusses or Objects tables.
 
+In the 2D viewer these controls are available:
+
+- **Mouse drag**: pan the view.
+- **Mouse wheel**: zoom in and out.
+- **Arrow keys**: pan the view.
+- **Alt + Arrow keys**: zoom in and out.
+
 ## Licencias de terceros
 
 Consulta [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md) para ver las licencias de las dependencias incluidas.

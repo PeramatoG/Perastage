@@ -21,5 +21,20 @@ public:
 private:
     void OnPaint(wxPaintEvent& event);
 
+    void OnMouseDown(wxMouseEvent& event);
+    void OnMouseUp(wxMouseEvent& event);
+    void OnMouseMove(wxMouseEvent& event);
+    void OnMouseWheel(wxMouseEvent& event);
+    void OnKeyDown(wxKeyEvent& event);
+    void OnMouseEnter(wxMouseEvent& event);
+    void OnMouseLeave(wxMouseEvent& event);
+
+    bool m_dragging = false;
+    wxPoint m_lastMousePos;
+    float m_offsetX = 0.0f;
+    float m_offsetY = 0.0f;
+    float m_zoom = 1.0f;
+    bool m_mouseInside = false;
+
     wxDECLARE_EVENT_TABLE();
 };
