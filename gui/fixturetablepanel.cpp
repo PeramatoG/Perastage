@@ -1050,6 +1050,9 @@ void FixtureTablePanel::UpdateSceneData() {
   }
 
   HighlightDuplicateFixtureIds();
+
+  if (SummaryPanel::Instance())
+    SummaryPanel::Instance()->ShowFixtureSummary();
 }
 
 void FixtureTablePanel::ApplyModeForGdtf(const wxString &path,

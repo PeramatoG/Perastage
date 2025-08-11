@@ -8,8 +8,8 @@ SummaryPanel::SummaryPanel(wxWindow* parent)
     : wxPanel(parent, wxID_ANY)
 {
     table = new wxDataViewListCtrl(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxDV_ROW_LINES);
-    table->AppendTextColumn("Type", wxDATAVIEW_CELL_INERT, 150, wxALIGN_LEFT, wxDATAVIEW_COL_RESIZABLE);
     table->AppendTextColumn("Count", wxDATAVIEW_CELL_INERT, 60, wxALIGN_LEFT, wxDATAVIEW_COL_RESIZABLE);
+    table->AppendTextColumn("Type", wxDATAVIEW_CELL_INERT, 150, wxALIGN_LEFT, wxDATAVIEW_COL_RESIZABLE);
     wxBoxSizer* sizer = new wxBoxSizer(wxVERTICAL);
     sizer->Add(table, 1, wxEXPAND | wxALL, 5);
     SetSizer(sizer);
@@ -31,8 +31,8 @@ void SummaryPanel::ShowSummary(const std::vector<std::pair<std::string,int>>& it
     table->DeleteAllItems();
     for (const auto& [name, count] : items) {
         wxVector<wxVariant> row;
-        row.push_back(wxString::FromUTF8(name));
         row.push_back(wxVariant(static_cast<long>(count)));
+        row.push_back(wxString::FromUTF8(name));
         table->AppendItem(row);
     }
 }

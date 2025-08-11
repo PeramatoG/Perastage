@@ -379,6 +379,9 @@ void SceneObjectTablePanel::UpdateSceneData()
                                   static_cast<float>(y * 1000.0),
                                   static_cast<float>(z * 1000.0)};
     }
+
+    if (SummaryPanel::Instance())
+        SummaryPanel::Instance()->ShowSceneObjectSummary();
 }
 
 SceneObjectTablePanel* SceneObjectTablePanel::Instance()
