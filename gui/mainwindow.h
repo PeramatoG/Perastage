@@ -12,6 +12,7 @@ class SceneObjectTablePanel;
 class Viewer3DPanel;
 class ConsolePanel;
 class LayerPanel;
+class SummaryPanel;
 
 // Main application window for GUI components
 class MainWindow : public wxFrame {
@@ -36,6 +37,7 @@ private:
   Viewer3DPanel *viewportPanel = nullptr;
   ConsolePanel *consolePanel = nullptr;
   LayerPanel *layerPanel = nullptr;
+  SummaryPanel *summaryPanel = nullptr;
 
   void OnNew(wxCommandEvent &event);    // Start new project
   void OnLoad(wxCommandEvent &event);   // Load project
@@ -63,6 +65,7 @@ private:
   void OnSelectFixtures(wxCommandEvent &event); // Switch to fixtures tab
   void OnSelectTrusses(wxCommandEvent &event);  // Switch to trusses tab
   void OnSelectObjects(wxCommandEvent &event);  // Switch to objects tab
+  void OnNotebookPageChanged(wxBookCtrlEvent &event); // Update summary panel
 
   void OnPreferences(wxCommandEvent &event); // Show preferences dialog
 

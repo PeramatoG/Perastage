@@ -9,6 +9,7 @@
 #include "projectutils.h"
 #include "viewer3dpanel.h"
 #include "layerpanel.h"
+#include "summarypanel.h"
 #include "stringutils.h"
 #include <algorithm>
 #include <filesystem>
@@ -242,6 +243,8 @@ void FixtureTablePanel::ReloadData() {
   // Let wxDataViewListCtrl manage column headers and sorting
   if (LayerPanel::Instance())
     LayerPanel::Instance()->ReloadLayers();
+  if (SummaryPanel::Instance())
+    SummaryPanel::Instance()->ShowFixtureSummary();
 }
 
 void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
