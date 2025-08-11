@@ -20,6 +20,8 @@ public:
     static Viewer2DPanel* Instance();
     static void SetInstance(Viewer2DPanel* panel);
 
+    void UpdateScene();
+
 private:
     void InitGL();
     void Render();

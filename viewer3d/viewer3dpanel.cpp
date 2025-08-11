@@ -511,7 +511,7 @@ void Viewer3DPanel::UpdateScene()
 {
     m_controller.Update();
     if (Viewer2DPanel::Instance())
-        Viewer2DPanel::Instance()->Refresh();
+        Viewer2DPanel::Instance()->UpdateScene();
 }
 
 void Viewer3DPanel::SetSelectedFixtures(const std::vector<std::string>& uuids)
