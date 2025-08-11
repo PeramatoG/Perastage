@@ -60,6 +60,8 @@ private:
   void OnToggleConsole(wxCommandEvent &event);  // Toggle console panel
   void OnToggleFixtures(wxCommandEvent &event); // Toggle fixture panel
   void OnToggleViewport(wxCommandEvent &event); // Toggle 3D viewport
+  void OnToggleLayers(wxCommandEvent &event);   // Toggle layer panel
+  void OnToggleSummary(wxCommandEvent &event);  // Toggle summary panel
   void OnShowHelp(wxCommandEvent &event);       // Show help dialog
   void OnShowAbout(wxCommandEvent &event);      // Show about dialog
   void OnSelectFixtures(wxCommandEvent &event); // Switch to fixtures tab
@@ -98,6 +100,8 @@ enum {
   ID_View_ToggleConsole,
   ID_View_ToggleFixtures,
   ID_View_ToggleViewport,
+  ID_View_ToggleLayers,
+  ID_View_ToggleSummary,
   ID_Tools_DownloadGdtf,
   ID_Tools_ExportFixture,
   ID_Tools_ExportTruss,
