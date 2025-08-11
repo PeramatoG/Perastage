@@ -10,6 +10,7 @@ class FixtureTablePanel;
 class TrussTablePanel;
 class SceneObjectTablePanel;
 class Viewer3DPanel;
+class Viewer2DPanel;
 class ConsolePanel;
 class LayerPanel;
 class SummaryPanel;
@@ -35,6 +36,7 @@ private:
   SceneObjectTablePanel *sceneObjPanel = nullptr;
   wxAuiManager *auiManager = nullptr;
   Viewer3DPanel *viewportPanel = nullptr;
+  Viewer2DPanel *viewport2DPanel = nullptr;
   ConsolePanel *consolePanel = nullptr;
   LayerPanel *layerPanel = nullptr;
   SummaryPanel *summaryPanel = nullptr;
@@ -71,6 +73,7 @@ private:
 
   void OnPreferences(wxCommandEvent &event);        // Show preferences dialog
   void OnApplyDefaultLayout(wxCommandEvent &event); // Reset to default layout
+  void OnApply2DLayout(wxCommandEvent &event);      // Apply 2D layout
 
   void OnUndo(wxCommandEvent &event);           // Undo action placeholder
   void OnRedo(wxCommandEvent &event);           // Redo action placeholder
@@ -83,6 +86,7 @@ private:
   void ApplySavedLayout();
   void UpdateViewMenuChecks();
   std::string defaultLayoutPerspective;
+  std::string default2DLayoutPerspective;
 
   wxDECLARE_EVENT_TABLE();
 };
@@ -105,6 +109,7 @@ enum {
   ID_View_ToggleLayers,
   ID_View_ToggleSummary,
   ID_View_Layout_Default,
+  ID_View_Layout_2D,
   ID_Tools_DownloadGdtf,
   ID_Tools_ExportFixture,
   ID_Tools_ExportTruss,
