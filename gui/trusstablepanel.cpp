@@ -170,7 +170,7 @@ void TrussTablePanel::ReloadData()
     // Let wxDataViewListCtrl manage column headers and sorting
     if (LayerPanel::Instance())
         LayerPanel::Instance()->ReloadLayers();
-    if (SummaryPanel::Instance())
+    if (SummaryPanel::Instance() && IsActivePage())
         SummaryPanel::Instance()->ShowTrussSummary();
 }
 
@@ -657,7 +657,7 @@ void TrussTablePanel::UpdateSceneData()
         }
     }
 
-    if (SummaryPanel::Instance())
+    if (SummaryPanel::Instance() && IsActivePage())
         SummaryPanel::Instance()->ShowTrussSummary();
 }
 

@@ -112,7 +112,7 @@ void SceneObjectTablePanel::ReloadData()
     // Let wxDataViewListCtrl manage column headers and sorting
     if (LayerPanel::Instance())
         LayerPanel::Instance()->ReloadLayers();
-    if (SummaryPanel::Instance())
+    if (SummaryPanel::Instance() && IsActivePage())
         SummaryPanel::Instance()->ShowSceneObjectSummary();
 }
 
@@ -380,7 +380,7 @@ void SceneObjectTablePanel::UpdateSceneData()
                                   static_cast<float>(z * 1000.0)};
     }
 
-    if (SummaryPanel::Instance())
+    if (SummaryPanel::Instance() && IsActivePage())
         SummaryPanel::Instance()->ShowSceneObjectSummary();
 }
 
