@@ -62,6 +62,7 @@ private:
   void OnToggleConsole(wxCommandEvent &event);        // Toggle console panel
   void OnToggleFixtures(wxCommandEvent &event);       // Toggle fixture panel
   void OnToggleViewport(wxCommandEvent &event);       // Toggle 3D viewport
+  void OnToggleViewport2D(wxCommandEvent &event);     // Toggle 2D viewport
   void OnToggleLayers(wxCommandEvent &event);         // Toggle layer panel
   void OnToggleSummary(wxCommandEvent &event);        // Toggle summary panel
   void OnShowHelp(wxCommandEvent &event);             // Show help dialog
@@ -106,6 +107,7 @@ enum {
   ID_View_ToggleConsole,
   ID_View_ToggleFixtures,
   ID_View_ToggleViewport,
+  ID_View_ToggleViewport2D,
   ID_View_ToggleLayers,
   ID_View_ToggleSummary,
   ID_View_Layout_Default,

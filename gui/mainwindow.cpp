@@ -59,8 +59,8 @@ using json = nlohmann::json;
 #include "tableprinter.h"
 #include "trussloader.h"
 #include "trusstablepanel.h"
-#include "viewer3dpanel.h"
 #include "viewer2dpanel.h"
+#include "viewer3dpanel.h"
 #ifdef _WIN32
 #define popen _popen
 #define pclose _pclose
@@ -104,56 +104,61 @@ wxBEGIN_EVENT_TABLE(MainWindow, wxFrame) EVT_MENU(
                     MainWindow::
                         OnToggleConsole) EVT_MENU(ID_View_ToggleFixtures,
                                                   MainWindow::OnToggleFixtures)
-                    EVT_MENU(ID_View_ToggleViewport, MainWindow::OnToggleViewport) EVT_MENU(
-                        ID_View_ToggleLayers,
+                    EVT_MENU(
+                        ID_View_ToggleViewport,
                         MainWindow::
-                            OnToggleLayers) EVT_MENU(ID_View_ToggleSummary,
-                                                     MainWindow::
-                                                         OnToggleSummary)
-                        EVT_MENU(
-                            ID_View_Layout_Default,
+                            OnToggleViewport) EVT_MENU(ID_View_ToggleViewport2D,
+                                                       MainWindow::
+                                                           OnToggleViewport2D)
+                        EVT_MENU(ID_View_ToggleLayers, MainWindow::OnToggleLayers) EVT_MENU(
+                            ID_View_ToggleSummary,
                             MainWindow::
-                                OnApplyDefaultLayout) EVT_MENU(
-                            ID_View_Layout_2D,
-                            MainWindow::OnApply2DLayout) EVT_MENU(ID_Tools_DownloadGdtf,
-                                                               MainWindow::
-                                                                   OnDownloadGdtf)
+                                OnToggleSummary) EVT_MENU(ID_View_Layout_Default,
+                                                          MainWindow::
+                                                              OnApplyDefaultLayout)
                             EVT_MENU(
-                                ID_Tools_ExportFixture,
+                                ID_View_Layout_2D,
                                 MainWindow::
-                                    OnExportFixture) EVT_MENU(ID_Tools_ExportTruss,
+                                    OnApply2DLayout) EVT_MENU(ID_Tools_DownloadGdtf,
                                                               MainWindow::
-                                                                  OnExportTruss)
-                                EVT_MENU(ID_Tools_ExportSceneObject,
-                                         MainWindow::OnExportSceneObject)
-                                    EVT_MENU(
-                                        ID_Tools_AutoPatch,
-                                        MainWindow::
-                                            OnAutoPatch) EVT_MENU(ID_Help_Help,
+                                                                  OnDownloadGdtf)
+                                EVT_MENU(
+                                    ID_Tools_ExportFixture,
+                                    MainWindow::
+                                        OnExportFixture) EVT_MENU(ID_Tools_ExportTruss,
                                                                   MainWindow::
-                                                                      OnShowHelp)
-                                        EVT_MENU(ID_Help_About,
-                                                 MainWindow::OnShowAbout)
-                                            EVT_MENU(
-                                                ID_Select_Fixtures,
-                                                MainWindow::OnSelectFixtures)
-                                                EVT_MENU(
-                                                    ID_Select_Trusses,
-                                                    MainWindow::OnSelectTrusses)
+                                                                      OnExportTruss)
+                                    EVT_MENU(ID_Tools_ExportSceneObject,
+                                             MainWindow::OnExportSceneObject)
+                                        EVT_MENU(
+                                            ID_Tools_AutoPatch,
+                                            MainWindow::
+                                                OnAutoPatch) EVT_MENU(ID_Help_Help,
+                                                                      MainWindow::
+                                                                          OnShowHelp)
+                                            EVT_MENU(ID_Help_About,
+                                                     MainWindow::OnShowAbout)
+                                                EVT_MENU(ID_Select_Fixtures,
+                                                         MainWindow::
+                                                             OnSelectFixtures)
                                                     EVT_MENU(
-                                                        ID_Select_Objects,
+                                                        ID_Select_Trusses,
                                                         MainWindow::
-                                                            OnSelectObjects)
+                                                            OnSelectTrusses)
                                                         EVT_MENU(
-                                                            ID_Edit_Preferences,
+                                                            ID_Select_Objects,
                                                             MainWindow::
-                                                                OnPreferences)
-                                                            wxEND_EVENT_TABLE()
-
+                                                                OnSelectObjects)
+                                                            EVT_MENU(
+                                                                ID_Edit_Preferences,
                                                                 MainWindow::
-                                                                    MainWindow(
-                                                                        const wxString
-                                                                            &title)
+                                                                    OnPreferences)
+                                                                wxEND_EVENT_TABLE()
+
+                                                                    MainWindow::
+                                                                        MainWindow(
+                                                                            const wxString
+                                                                                &title)
     : wxFrame(nullptr, wxID_ANY, title, wxDefaultPosition, wxSize(1600, 950)) {
   wxIcon icon;
   const char *iconPaths[] = {"resources/Perastage.ico",
@@ -248,17 +253,17 @@ void MainWindow::SetupLayout() {
   viewport2DPanel = new Viewer2DPanel(this);
   Viewer2DPanel::SetInstance(viewport2DPanel);
   auiManager->AddPane(viewport2DPanel, wxAuiPaneInfo()
-                                         .Name("2DViewport")
-                                         .Caption("2D Viewport")
-                                         .Center()
-                                         .Dockable(true)
-                                         .CaptionVisible(true)
-                                         .PaneBorder(false)
-                                         .BestSize(halfWidth, 600)
-                                         .MinSize(wxSize(halfWidth, 600))
-                                         .CloseButton(true)
-                                         .MaximizeButton(true)
-                                         .Hide());
+                                           .Name("2DViewport")
+                                           .Caption("2D Viewport")
+                                           .Center()
+                                           .Dockable(true)
+                                           .CaptionVisible(true)
+                                           .PaneBorder(false)
+                                           .BestSize(halfWidth, 600)
+                                           .MinSize(wxSize(halfWidth, 600))
+                                           .CloseButton(true)
+                                           .MaximizeButton(true)
+                                           .Hide());
 
   // Bottom console panel for messages
   consolePanel = new ConsolePanel(this);
@@ -371,6 +376,7 @@ void MainWindow::CreateMenuBar() {
   viewMenu->AppendCheckItem(ID_View_ToggleConsole, "Console");
   viewMenu->AppendCheckItem(ID_View_ToggleFixtures, "Fixtures");
   viewMenu->AppendCheckItem(ID_View_ToggleViewport, "3D Viewport");
+  viewMenu->AppendCheckItem(ID_View_ToggleViewport2D, "2D Viewport");
   viewMenu->AppendCheckItem(ID_View_ToggleLayers, "Layers");
   viewMenu->AppendCheckItem(ID_View_ToggleSummary, "Summary");
 
@@ -378,6 +384,7 @@ void MainWindow::CreateMenuBar() {
   viewMenu->Check(ID_View_ToggleConsole, true);
   viewMenu->Check(ID_View_ToggleFixtures, true);
   viewMenu->Check(ID_View_ToggleViewport, true);
+  viewMenu->Check(ID_View_ToggleViewport2D, false);
   viewMenu->Check(ID_View_ToggleLayers, true);
   viewMenu->Check(ID_View_ToggleSummary, true);
 
@@ -1136,20 +1143,22 @@ void MainWindow::OnToggleFixtures(wxCommandEvent &event) {
 void MainWindow::OnToggleViewport(wxCommandEvent &event) {
   if (!auiManager)
     return;
-
-  auto &pane3d = auiManager->GetPane("3DViewport");
-  auto &pane2d = auiManager->GetPane("2DViewport");
-  wxAuiPaneInfo *pane = nullptr;
-  if (pane2d.IsShown())
-    pane = &pane2d;
-  else
-    pane = &pane3d;
-
-  pane->Show(!pane->IsShown());
+  auto &pane = auiManager->GetPane("3DViewport");
+  pane.Show(!pane.IsShown());
   auiManager->Update();
 
-  bool shown = pane->IsShown();
-  GetMenuBar()->Check(ID_View_ToggleViewport, shown);
+  GetMenuBar()->Check(ID_View_ToggleViewport, pane.IsShown());
+}
+
+void MainWindow::OnToggleViewport2D(wxCommandEvent &event) {
+  if (!auiManager)
+    return;
+
+  auto &pane = auiManager->GetPane("2DViewport");
+  pane.Show(!pane.IsShown());
+  auiManager->Update();
+
+  GetMenuBar()->Check(ID_View_ToggleViewport2D, pane.IsShown());
 }
 
 void MainWindow::OnToggleLayers(wxCommandEvent &event) {
@@ -1308,9 +1317,10 @@ void MainWindow::UpdateViewMenuChecks() {
   GetMenuBar()->Check(ID_View_ToggleFixtures, dataPane.IsShown());
 
   auto &viewPane3D = auiManager->GetPane("3DViewport");
+  GetMenuBar()->Check(ID_View_ToggleViewport, viewPane3D.IsShown());
+
   auto &viewPane2D = auiManager->GetPane("2DViewport");
-  bool viewShown = viewPane3D.IsShown() || viewPane2D.IsShown();
-  GetMenuBar()->Check(ID_View_ToggleViewport, viewShown);
+  GetMenuBar()->Check(ID_View_ToggleViewport2D, viewPane2D.IsShown());
 
   auto &layerPane = auiManager->GetPane("LayerPanel");
   GetMenuBar()->Check(ID_View_ToggleLayers, layerPane.IsShown());
