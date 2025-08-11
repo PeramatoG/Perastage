@@ -96,10 +96,13 @@ wxBEGIN_EVENT_TABLE(MainWindow, wxFrame) EVT_MENU(
                             OnToggleConsole) EVT_MENU(ID_View_ToggleFixtures,
                                                       MainWindow::
                                                           OnToggleFixtures)
-                        EVT_MENU(
-                            ID_View_ToggleViewport,
-                            MainWindow::
-                                OnToggleViewport) EVT_MENU(ID_Tools_DownloadGdtf,
+                        EVT_MENU(ID_View_ToggleViewport,
+                                 MainWindow::OnToggleViewport) EVT_MENU(
+                            ID_View_ToggleLayers,
+                            MainWindow::OnToggleLayers) EVT_MENU(
+                            ID_View_ToggleSummary,
+                            MainWindow::OnToggleSummary) EVT_MENU(
+                            ID_Tools_DownloadGdtf,
                                                            MainWindow::
                                                                OnDownloadGdtf)
                             EVT_MENU(
@@ -315,11 +318,15 @@ void MainWindow::CreateMenuBar() {
   viewMenu->AppendCheckItem(ID_View_ToggleConsole, "Console");
   viewMenu->AppendCheckItem(ID_View_ToggleFixtures, "Fixtures");
   viewMenu->AppendCheckItem(ID_View_ToggleViewport, "3D Viewport");
+  viewMenu->AppendCheckItem(ID_View_ToggleLayers, "Layers");
+  viewMenu->AppendCheckItem(ID_View_ToggleSummary, "Summary");
 
   // Initial check states
   viewMenu->Check(ID_View_ToggleConsole, true);
   viewMenu->Check(ID_View_ToggleFixtures, true);
   viewMenu->Check(ID_View_ToggleViewport, true);
+  viewMenu->Check(ID_View_ToggleLayers, true);
+  viewMenu->Check(ID_View_ToggleSummary, true);
 
   menuBar->Append(viewMenu, "&View");
 
@@ -1080,6 +1087,28 @@ void MainWindow::OnToggleViewport(wxCommandEvent &event) {
   GetMenuBar()->Check(ID_View_ToggleViewport, pane.IsShown());
 }
 
+void MainWindow::OnToggleLayers(wxCommandEvent &event) {
+  if (!auiManager)
+    return;
+
+  auto &pane = auiManager->GetPane("LayerPanel");
+  pane.Show(!pane.IsShown());
+  auiManager->Update();
+
+  GetMenuBar()->Check(ID_View_ToggleLayers, pane.IsShown());
+}
+
+void MainWindow::OnToggleSummary(wxCommandEvent &event) {
+  if (!auiManager)
+    return;
+
+  auto &pane = auiManager->GetPane("SummaryPanel");
+  pane.Show(!pane.IsShown());
+  auiManager->Update();
+
+  GetMenuBar()->Check(ID_View_ToggleSummary, pane.IsShown());
+}
+
 bool MainWindow::LoadProjectFromPath(const std::string &path) {
   if (!ConfigManager::Get().LoadProject(path))
     return false;
@@ -1167,6 +1196,11 @@ void MainWindow::ApplySavedLayout() {
     auiManager->LoadPerspective(*val, true);
     auiManager->Update();
   }
+  auto &summaryPane = auiManager->GetPane("SummaryPanel");
+  if (!summaryPane.IsShown()) {
+    summaryPane.Show();
+    auiManager->Update();
+  }
   UpdateViewMenuChecks();
 }
 
@@ -1182,6 +1216,12 @@ void MainWindow::UpdateViewMenuChecks() {
 
   auto &viewPane = auiManager->GetPane("3DViewport");
   GetMenuBar()->Check(ID_View_ToggleViewport, viewPane.IsShown());
+
+  auto &layerPane = auiManager->GetPane("LayerPanel");
+  GetMenuBar()->Check(ID_View_ToggleLayers, layerPane.IsShown());
+
+  auto &summaryPane = auiManager->GetPane("SummaryPanel");
+  GetMenuBar()->Check(ID_View_ToggleSummary, summaryPane.IsShown());
 }
 
 void MainWindow::OnShowHelp(wxCommandEvent &WXUNUSED(event)) {
