@@ -6,8 +6,8 @@
 */
 
 #include "viewer2dpanel.h"
-#include <GL/glew.h>
 #include <GL/gl.h>
+#include <GL/glew.h>
 #include <GL/glu.h>
 #include <cmath>
 #include <algorithm>
