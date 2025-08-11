@@ -237,6 +237,8 @@ bool RiderImporter::Import(const std::string &path) {
   bool inControl = false;
   std::string currentHang;
   std::unordered_map<std::string, int> nameCounters;
+  std::vector<std::string> typeOrder;
+  std::unordered_set<std::string> seenTypes;
   int pendingQuantity = 0;
   bool havePending = false;
 
@@ -262,6 +264,10 @@ bool RiderImporter::Import(const std::string &path) {
           std::string parsed = Trim(GetGdtfFixtureName(f.gdtfSpec));
           if (!parsed.empty())
             f.typeName = parsed;
+        }
+        if (!seenTypes.count(f.typeName)) {
+          typeOrder.push_back(f.typeName);
+          seenTypes.insert(f.typeName);
         }
         f.layer = layer;
         f.positionName = currentHang;
@@ -617,6 +623,24 @@ bool RiderImporter::Import(const std::string &path) {
       f->transform.o[1] = baseY - width * 0.5f;
       f->transform.o[2] = baseZ;
     }
+  }
+
+  // Assign fixture IDs grouped by type in the order encountered.
+  std::unordered_map<std::string, std::vector<Fixture *>> fixturesByType;
+  for (auto &[uuid, f] : scene.fixtures)
+    fixturesByType[f.typeName].push_back(&f);
+
+  int baseId = 100;
+  for (const std::string &type : typeOrder) {
+    auto it = fixturesByType.find(type);
+    if (it == fixturesByType.end())
+      continue;
+    auto &vec = it->second;
+    for (size_t i = 0; i < vec.size(); ++i) {
+      vec[i]->fixtureId = baseId + static_cast<int>(i);
+      vec[i]->unitNumber = static_cast<int>(i) + 1;
+    }
+    baseId = ((baseId + static_cast<int>(vec.size()) + 99) / 100) * 100;
   }
 
   cfg.PushUndoState("import rider");

@@ -1,0 +1,4 @@
+Iluminacion
+LX1:
+105 Spot
+5 Wash
