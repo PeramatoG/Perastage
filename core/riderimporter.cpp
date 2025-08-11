@@ -23,6 +23,7 @@
 #include "fixture.h"
 #include "gdtfdictionary.h"
 #include "gdtfloader.h"
+#include "autopatcher.h"
 #include "truss.h"
 #include "trussdictionary.h"
 #include "trussloader.h"
@@ -643,6 +644,9 @@ bool RiderImporter::Import(const std::string &path) {
     baseId = ((baseId + static_cast<int>(vec.size()) + 99) / 100) * 100;
   }
 
+  auto autoPref = cfg.GetValue("rider_autopatch");
+  if (!autoPref || *autoPref != "0")
+    AutoPatcher::AutoPatch(scene);
   cfg.PushUndoState("import rider");
   return true;
 }

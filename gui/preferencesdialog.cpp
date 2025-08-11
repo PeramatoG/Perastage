@@ -2,6 +2,7 @@
 #include "configmanager.h"
 
 #include <wx/notebook.h>
+#include <wx/checkbox.h>
 
 PreferencesDialog::PreferencesDialog(wxWindow *parent)
     : wxDialog(parent, wxID_ANY, "Preferences", wxDefaultPosition,
@@ -12,12 +13,17 @@ PreferencesDialog::PreferencesDialog(wxWindow *parent)
   // Rider Import page
   wxPanel *riderPanel = new wxPanel(book);
   wxBoxSizer *riderSizer = new wxBoxSizer(wxVERTICAL);
+  ConfigManager &cfg = ConfigManager::Get();
+  autopatchCheck = new wxCheckBox(riderPanel, wxID_ANY,
+                                  "Auto patch after import");
+  auto autoVal = cfg.GetValue("rider_autopatch");
+  autopatchCheck->SetValue(!autoVal || *autoVal != "0");
+  riderSizer->Add(autopatchCheck, 0, wxALL, 10);
   wxFlexGridSizer *grid = new wxFlexGridSizer(6, 5, 5);
   grid->AddGrowableCol(1, 1);
   grid->AddGrowableCol(3, 1);
   grid->AddGrowableCol(5, 1);
 
-  ConfigManager &cfg = ConfigManager::Get();
   for (int i = 0; i < 6; ++i) {
     wxString labelH = wxString::Format("LX%d height (m):", i + 1);
     grid->Add(new wxStaticText(riderPanel, wxID_ANY, labelH), 0,
@@ -71,6 +77,7 @@ PreferencesDialog::PreferencesDialog(wxWindow *parent)
         cfg.SetFloat("rider_lx" + std::to_string(i + 1) + "_margin",
                      static_cast<float>(m));
       }
+      cfg.SetValue("rider_autopatch", autopatchCheck->GetValue() ? "1" : "0");
     }
     evt.Skip();
   });

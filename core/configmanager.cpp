@@ -61,6 +61,8 @@ ConfigManager::ConfigManager() {
   RegisterVariable("rider_lx5_margin", "float", 0.2f, 0.0f, 10.0f);
   RegisterVariable("rider_lx6_margin", "float", 0.2f, 0.0f, 10.0f);
   LoadUserConfig();
+  if (!HasKey("rider_autopatch"))
+    SetValue("rider_autopatch", "1");
   ApplyColumnDefaults();
   ApplyDefaults();
   currentLayer = DEFAULT_LAYER_NAME;
@@ -428,6 +430,8 @@ bool ConfigManager::LoadProject(const std::string &path) {
 void ConfigManager::Reset() {
   configData.clear();
   scene.Clear();
+  if (!HasKey("rider_autopatch"))
+    SetValue("rider_autopatch", "1");
   ApplyDefaults();
   selectedFixtures.clear();
   selectedTrusses.clear();
