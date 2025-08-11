@@ -11,30 +11,30 @@
 #include <windows.h>
 #endif
 
-#include <GL/glew.h>
 #include <GL/gl.h>
+#include <GL/glew.h>
 #include <GL/glu.h>
 
-#include "viewer3dcontroller.h"
 #include "configmanager.h"
 #include "loader3ds.h"
 #include "loaderglb.h"
 #include "scenedatamanager.h"
+#include "viewer3dcontroller.h"
 // Include shared Matrix type used throughout models
 #include "../models/types.h"
 #include "consolepanel.h"
 
 #include <wx/wx.h>
 #define NANOVG_GL2_IMPLEMENTATION
-#include <nanovg.h>
-#include <nanovg_gl.h>
 #include <algorithm>
 #include <array>
 #include <cfloat>
-#include <filesystem>
 #include <cmath>
-#include <iostream>
+#include <filesystem>
 #include <iomanip>
+#include <iostream>
+#include <nanovg.h>
+#include <nanovg_gl.h>
 #include <sstream>
 
 namespace fs = std::filesystem;
@@ -44,7 +44,6 @@ static constexpr float LABEL_FONT_SIZE = 18.0f;
 // Maximum width for on-screen labels before wrapping
 static constexpr float LABEL_MAX_WIDTH = 300.0f;
 // Width of fixture labels in meters for the 2D view
-static constexpr float LABEL_WORLD_WIDTH = 0.5f;
 // Pixels per meter used by the 2D view
 static constexpr float PIXELS_PER_METER = 25.0f;
 static std::string FindFileRecursive(const std::string &baseDir,
@@ -147,7 +146,8 @@ struct ScreenRect {
 // maximum width are specified in pixels.
 static void DrawText2D(NVGcontext *vg, int font, const std::string &text, int x,
                        int y, float fontSize = LABEL_FONT_SIZE,
-                       float maxWidth = LABEL_MAX_WIDTH) {
+                       float maxWidth = LABEL_MAX_WIDTH,
+                       bool drawBorder = true) {
   if (!vg || font < 0 || text.empty())
     return;
 
@@ -178,7 +178,8 @@ static void DrawText2D(NVGcontext *vg, int font, const std::string &text, int x,
       break;
     start = end + 1;
   }
-  textWidth = std::min(textWidth, maxWidth);
+  if (maxWidth > 0.0f)
+    textWidth = std::min(textWidth, maxWidth);
   const int padding = 4;
 
   // Calculate the exact bounding box for the text using the same alignment
@@ -195,13 +196,15 @@ static void DrawText2D(NVGcontext *vg, int font, const std::string &text, int x,
   nvgFillColor(vg, nvgRGBAf(0.f, 0.f, 0.f, 0.6f));
   nvgFill(vg);
 
-  nvgBeginPath(vg);
-  nvgRect(vg, bounds[0] - padding, bounds[1] - padding,
-          (bounds[2] - bounds[0]) + padding * 2,
-          (bounds[3] - bounds[1]) + padding * 2);
-  nvgStrokeColor(vg, nvgRGBAf(1.f, 1.f, 1.f, 0.8f));
-  nvgStrokeWidth(vg, 1.0f);
-  nvgStroke(vg);
+  if (drawBorder) {
+    nvgBeginPath(vg);
+    nvgRect(vg, bounds[0] - padding, bounds[1] - padding,
+            (bounds[2] - bounds[0]) + padding * 2,
+            (bounds[3] - bounds[1]) + padding * 2);
+    nvgStrokeColor(vg, nvgRGBAf(1.f, 1.f, 1.f, 0.8f));
+    nvgStrokeWidth(vg, 1.0f);
+    nvgStroke(vg);
+  }
 
   nvgFillColor(vg, nvgRGBAf(1.f, 1.f, 1.f, 1.f));
   // Draw multi-line label using textWidth to avoid excessive empty space.
@@ -1059,20 +1062,17 @@ void Viewer3DController::DrawAllFixtureLabels(int width, int height,
       continue;
 
     double wx, wy, wz;
-    float labelWorldWidth = LABEL_WORLD_WIDTH;
     auto bit = m_fixtureBounds.find(uuid);
     if (bit != m_fixtureBounds.end()) {
       const BoundingBox &bb = bit->second;
       wx = (bb.min[0] + bb.max[0]) * 0.5;
       wy = bb.min[1];
       wz = (bb.min[2] + bb.max[2]) * 0.5;
-      labelWorldWidth = bb.max[0] - bb.min[0];
     } else {
       wx = f.transform.o[0] * RENDER_SCALE;
       wy = f.transform.o[1] * RENDER_SCALE;
       wz = f.transform.o[2] * RENDER_SCALE;
     }
-    labelWorldWidth = std::max(labelWorldWidth, 0.1f);
 
     double sx, sy, sz;
     if (gluProject(wx, wy, wz, model, proj, viewport, &sx, &sy, &sz) != GL_TRUE)
@@ -1087,14 +1087,14 @@ void Viewer3DController::DrawAllFixtureLabels(int width, int height,
                          ? wxString::FromUTF8(uuid)
                          : wxString::FromUTF8(f.instanceName);
     label += "\nID: " + wxString::Format("%d", f.fixtureId);
-    if (!f.address.empty())
-      label += "\n" + wxString::FromUTF8(f.address);
+    wxString addr =
+        f.address.empty() ? wxString() : wxString::FromUTF8(f.address);
+    label += "\n" + addr;
 
     auto utf8 = label.ToUTF8();
-    float maxWidth = labelWorldWidth * PIXELS_PER_METER * zoom;
-    float fontSize = maxWidth * 0.4f;
+    float fontSize = LABEL_FONT_SIZE * zoom;
     DrawText2D(m_vg, m_font, std::string(utf8.data(), utf8.length()), x, y,
-               fontSize, maxWidth);
+               fontSize, 0.0f, false);
   }
 }
 
@@ -1166,8 +1166,9 @@ bool Viewer3DController::GetFixtureLabelAt(int mouseX, int mouseY, int width,
         bestLabel = f.instanceName.empty() ? wxString::FromUTF8(uuid)
                                            : wxString::FromUTF8(f.instanceName);
         bestLabel += "\nID: " + wxString::Format("%d", f.fixtureId);
-        if (!f.address.empty())
-          bestLabel += "\n" + wxString::FromUTF8(f.address);
+        wxString addr =
+            f.address.empty() ? wxString() : wxString::FromUTF8(f.address);
+        bestLabel += "\n" + addr;
         bestUuid = uuid;
         found = true;
       }
