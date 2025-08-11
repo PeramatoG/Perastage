@@ -243,7 +243,7 @@ void FixtureTablePanel::ReloadData() {
   // Let wxDataViewListCtrl manage column headers and sorting
   if (LayerPanel::Instance())
     LayerPanel::Instance()->ReloadLayers();
-  if (SummaryPanel::Instance())
+  if (SummaryPanel::Instance() && IsActivePage())
     SummaryPanel::Instance()->ShowFixtureSummary();
 }
 
@@ -1051,7 +1051,7 @@ void FixtureTablePanel::UpdateSceneData() {
 
   HighlightDuplicateFixtureIds();
 
-  if (SummaryPanel::Instance())
+  if (SummaryPanel::Instance() && IsActivePage())
     SummaryPanel::Instance()->ShowFixtureSummary();
 }
 
