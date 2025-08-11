@@ -59,6 +59,12 @@ void Viewer2DPanel::SetInstance(Viewer2DPanel* panel)
     g_instance = panel;
 }
 
+void Viewer2DPanel::UpdateScene()
+{
+    m_controller.Update();
+    Refresh();
+}
+
 void Viewer2DPanel::InitGL()
 {
     SetCurrent(*m_glContext);
