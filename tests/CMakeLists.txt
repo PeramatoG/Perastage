@@ -40,6 +40,8 @@ add_executable(riderimporter_fixtureid_test rider_import_fixtureid_test.cpp
                riderimporter_stubs.cpp
                gdtfloader_stub.cpp
                ../core/riderimporter.cpp
+               ../core/autopatcher.cpp
+               ../core/patchmanager.cpp
                ../core/configmanager.cpp
                ../core/projectutils.cpp
                ../models/mvrscene.cpp
@@ -53,3 +55,22 @@ target_link_libraries(riderimporter_fixtureid_test PRIVATE ${wxWidgets_LIBRARIES
 add_test(NAME RiderImporterFixtureIds COMMAND riderimporter_fixtureid_test
          ${CMAKE_CURRENT_SOURCE_DIR}/data/rider_fixtureid_basic.txt
          ${CMAKE_CURRENT_SOURCE_DIR}/data/rider_fixtureid_over100.txt)
+
+add_executable(rider_autopatch_test rider_autopatch_test.cpp
+               riderimporter_stubs.cpp
+               gdtfloader_onech_stub.cpp
+               ../core/riderimporter.cpp
+               ../core/autopatcher.cpp
+               ../core/patchmanager.cpp
+               ../core/configmanager.cpp
+               ../core/projectutils.cpp
+               ../models/mvrscene.cpp
+               ../models/fixture.cpp
+               ../models/truss.cpp
+               ../models/sceneobject.cpp
+               ../models/layer.cpp)
+target_include_directories(rider_autopatch_test PRIVATE
+                           . ../core ../models ../mvr ../gui ../external)
+target_link_libraries(rider_autopatch_test PRIVATE ${wxWidgets_LIBRARIES})
+add_test(NAME RiderAutoPatch COMMAND rider_autopatch_test
+         ${CMAKE_CURRENT_SOURCE_DIR}/data/rider_fixtureid_basic.txt)
