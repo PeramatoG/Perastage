@@ -107,7 +107,8 @@ PromptGdtfConflicts(const std::vector<GdtfConflict> &conflicts) {
 }
 
 bool MvrImporter::ImportFromFile(const std::string &filePath,
-                                 bool promptConflicts) {
+                                 bool promptConflicts,
+                                 bool applyDictionary) {
   LogMessage("Starting MVR import: " + filePath);
 
   // Treat the incoming path as UTF-8 to preserve any non-ASCII characters
@@ -166,7 +167,7 @@ bool MvrImporter::ImportFromFile(const std::string &filePath,
 
   LogMessage("Found scene description: " + ToString(sceneFile.u8string()));
   std::string scenePath = ToString(sceneFile.u8string());
-  return ParseSceneXml(scenePath, promptConflicts);
+  return ParseSceneXml(scenePath, promptConflicts, applyDictionary);
 }
 
 std::string MvrImporter::CreateTemporaryDirectory() {
@@ -233,7 +234,8 @@ bool MvrImporter::ExtractMvrZip(const std::string &mvrPath,
 // Parses GeneralSceneDescription.xml and populates fixtures and trusses into
 // the scene model
 bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
-                                bool promptConflicts) {
+                                bool promptConflicts,
+                                bool applyDictionary) {
   LogMessage("Loading scene XML: " + sceneXmlPath);
 
   tinyxml2::XMLDocument doc;
@@ -648,9 +650,9 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
   }
 
   // After parsing the entire scene, resolve any GDTF conflicts using the
-  // dictionary. This occurs before rendering so user choices are applied to
-  // the final scene data.
-  {
+  // dictionary only if requested. This occurs before rendering so user choices
+  // are applied to the final scene data.
+  if (applyDictionary) {
     std::vector<GdtfConflict> gdtfConflicts;
     std::unordered_set<std::string> conflictTypes;
     for (const auto &[uid, f] : scene.fixtures) {
@@ -720,7 +722,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
 }
 
 bool MvrImporter::ImportAndRegister(const std::string &filePath,
-                                    bool promptConflicts) {
+                                    bool promptConflicts,
+                                    bool applyDictionary) {
   MvrImporter importer;
-  return importer.ImportFromFile(filePath, promptConflicts);
+  return importer.ImportFromFile(filePath, promptConflicts, applyDictionary);
 }
