@@ -2,19 +2,16 @@
  * File: viewer2dpanel.cpp
  * Author: Luisma Peramato
  * License: MIT
- * Description: Implementation of a simple 2D viewer panel.
- */
+ * Description: Implementation of a top-down OpenGL viewer sharing 3D models.
+*/
 
 #include "viewer2dpanel.h"
-#include <wx/dcbuffer.h>
+#include <GL/glew.h>
+#include <GL/gl.h>
+#include <GL/glu.h>
 #include <cmath>
 #include <algorithm>
-#include <array>
-#include "scenedatamanager.h"
-#include "configmanager.h"
 
-// MVR coordinates are in millimeters. Convert to meters for rendering.
-static constexpr float RENDER_SCALE = 0.001f;
 // Pixels per meter at default zoom level.
 static constexpr float PIXELS_PER_METER = 25.0f;
 
@@ -22,7 +19,7 @@ namespace {
 Viewer2DPanel* g_instance = nullptr;
 }
 
-wxBEGIN_EVENT_TABLE(Viewer2DPanel, wxPanel)
+wxBEGIN_EVENT_TABLE(Viewer2DPanel, wxGLCanvas)
     EVT_PAINT(Viewer2DPanel::OnPaint)
     EVT_LEFT_DOWN(Viewer2DPanel::OnMouseDown)
     EVT_LEFT_UP(Viewer2DPanel::OnMouseUp)
@@ -34,9 +31,15 @@ wxBEGIN_EVENT_TABLE(Viewer2DPanel, wxPanel)
 wxEND_EVENT_TABLE()
 
 Viewer2DPanel::Viewer2DPanel(wxWindow* parent)
-    : wxPanel(parent, wxID_ANY)
+    : wxGLCanvas(parent, wxID_ANY, nullptr, wxDefaultPosition, wxDefaultSize, wxFULL_REPAINT_ON_RESIZE)
 {
-    SetBackgroundStyle(wxBG_STYLE_PAINT);
+    SetBackgroundStyle(wxBG_STYLE_CUSTOM);
+    m_glContext = new wxGLContext(this);
+}
+
+Viewer2DPanel::~Viewer2DPanel()
+{
+    delete m_glContext;
 }
 
 Viewer2DPanel* Viewer2DPanel::Instance()
@@ -49,103 +52,52 @@ void Viewer2DPanel::SetInstance(Viewer2DPanel* panel)
     g_instance = panel;
 }
 
-void Viewer2DPanel::OnPaint(wxPaintEvent& WXUNUSED(event))
+void Viewer2DPanel::InitGL()
 {
-    wxAutoBufferedPaintDC dc(this);
+    SetCurrent(*m_glContext);
+    if (!m_glInitialized)
+    {
+        glewExperimental = GL_TRUE;
+        glewInit();
+        m_controller.InitializeGL();
+        glEnable(GL_DEPTH_TEST);
+        glClearColor(0.08f, 0.08f, 0.08f, 1.0f);
+        m_glInitialized = true;
+    }
+}
+
+void Viewer2DPanel::Render()
+{
     int w, h;
     GetClientSize(&w, &h);
 
-    dc.SetBackground(wxBrush(wxColour(20, 20, 20)));
-    dc.Clear();
+    glViewport(0, 0, w, h);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    float originX = w / 2.0f + m_offsetX * m_zoom;
-    float originY = h / 2.0f + m_offsetY * m_zoom;
-    int step = std::max(1, static_cast<int>(25 * m_zoom));
-
-    dc.SetPen(wxPen(wxColour(60, 60, 60)));
-    for (int x = static_cast<int>(originX); x < w; x += step)
-        dc.DrawLine(x, 0, x, h);
-    for (int x = static_cast<int>(originX) - step; x >= 0; x -= step)
-        dc.DrawLine(x, 0, x, h);
-    for (int y = static_cast<int>(originY); y < h; y += step)
-        dc.DrawLine(0, y, w, y);
-    for (int y = static_cast<int>(originY) - step; y >= 0; y -= step)
-        dc.DrawLine(0, y, w, y);
-
-    // Draw scene elements
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
     float ppm = PIXELS_PER_METER * m_zoom;
+    float halfW = static_cast<float>(w) / ppm * 0.5f;
+    float halfH = static_cast<float>(h) / ppm * 0.5f;
+    float offX = m_offsetX / PIXELS_PER_METER;
+    float offY = m_offsetY / PIXELS_PER_METER;
+    glOrtho(-halfW - offX, halfW - offX, -halfH - offY, halfH - offY, -100.0f, 100.0f);
 
-    // Fixtures
-    dc.SetPen(wxPen(wxColour(200, 200, 200)));
-    dc.SetBrush(wxBrush(wxColour(200, 200, 200)));
-    const auto &fixtures = SceneDataManager::Instance().GetFixtures();
-    for (const auto &[uuid, f] : fixtures)
-    {
-        if (!ConfigManager::Get().IsLayerVisible(f.layer))
-            continue;
-        float wxm = f.transform.o[0] * RENDER_SCALE;
-        float wym = f.transform.o[1] * RENDER_SCALE;
-        int sx = static_cast<int>(originX + wxm * ppm);
-        int sy = static_cast<int>(originY + wym * ppm);
-        int r = std::max(2, static_cast<int>(3 * m_zoom));
-        dc.DrawCircle(sx, sy, r);
-    }
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
+    gluLookAt(0.0, 0.0, 10.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0);
 
-    // Trusses
-    dc.SetPen(wxPen(wxColour(100, 100, 255)));
-    dc.SetBrush(*wxTRANSPARENT_BRUSH);
-    const auto &trusses = SceneDataManager::Instance().GetTrusses();
-    for (const auto &[uuid, t] : trusses)
-    {
-        if (!ConfigManager::Get().IsLayerVisible(t.layer))
-            continue;
-        float len = (t.lengthMm > 0 ? t.lengthMm : 400.0f) * RENDER_SCALE;
-        float wid = (t.widthMm > 0 ? t.widthMm : 400.0f) * RENDER_SCALE;
+    m_controller.RenderScene();
 
-        std::array<std::array<float, 2>, 4> corners = {
-            std::array<float, 2>{-0.5f * len, -0.5f * wid},
-            {0.5f * len, -0.5f * wid},
-            {0.5f * len, 0.5f * wid},
-            {-0.5f * len, 0.5f * wid}};
-        float cx = t.transform.o[0] * RENDER_SCALE;
-        float cy = t.transform.o[1] * RENDER_SCALE;
-        float ux = t.transform.u[0];
-        float uy = t.transform.u[1];
-        float vx = t.transform.v[0];
-        float vy = t.transform.v[1];
-        std::array<wxPoint, 4> pts;
-        for (int i = 0; i < 4; ++i)
-        {
-            float wxm = cx + corners[i][0] * ux + corners[i][1] * vx;
-            float wym = cy + corners[i][0] * uy + corners[i][1] * vy;
-            int sx = static_cast<int>(originX + wxm * ppm);
-            int sy = static_cast<int>(originY + wym * ppm);
-            pts[i] = wxPoint(sx, sy);
-        }
-        dc.DrawPolygon(4, pts.data());
-    }
+    glFlush();
+    SwapBuffers();
+}
 
-    // Scene objects
-    dc.SetPen(wxPen(wxColour(255, 255, 0)));
-    dc.SetBrush(wxBrush(wxColour(255, 255, 0)));
-    const auto &objects = SceneDataManager::Instance().GetSceneObjects();
-    for (const auto &[uuid, o] : objects)
-    {
-        if (!ConfigManager::Get().IsLayerVisible(o.layer))
-            continue;
-        float wxm = o.transform.o[0] * RENDER_SCALE;
-        float wym = o.transform.o[1] * RENDER_SCALE;
-        int sx = static_cast<int>(originX + wxm * ppm);
-        int sy = static_cast<int>(originY + wym * ppm);
-        int size = std::max(2, static_cast<int>(4 * m_zoom));
-        dc.DrawRectangle(sx - size / 2, sy - size / 2, size, size);
-    }
-
-    // Axes
-    dc.SetPen(wxPen(*wxRED_PEN));
-    dc.DrawLine(0, static_cast<int>(originY), w, static_cast<int>(originY));
-    dc.SetPen(wxPen(*wxGREEN_PEN));
-    dc.DrawLine(static_cast<int>(originX), 0, static_cast<int>(originX), h);
+void Viewer2DPanel::OnPaint(wxPaintEvent& WXUNUSED(event))
+{
+    wxPaintDC dc(this);
+    InitGL();
+    Render();
 }
 
 void Viewer2DPanel::OnMouseDown(wxMouseEvent& event)
