@@ -5,6 +5,15 @@
  * Description: Implementation of 3D viewer logic.
  */
 
+#ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#endif
+
+#include <GL/glew.h>
+#include <GL/gl.h>
+#include <GL/glu.h>
+
 #include "viewer3dcontroller.h"
 #include "configmanager.h"
 #include "loader3ds.h"
@@ -13,28 +22,21 @@
 // Include shared Matrix type used throughout models
 #include "../models/types.h"
 #include "consolepanel.h"
-#include <GL/glew.h>
-#include <GL/gl.h>
-#include <GL/glu.h>
+
 #include <wx/wx.h>
 #define NANOVG_GL2_IMPLEMENTATION
+#include <nanovg.h>
+#include <nanovg_gl.h>
 #include <algorithm>
 #include <array>
 #include <cfloat>
 #include <filesystem>
-#include <nanovg.h>
-#include <nanovg_gl.h>
-
-namespace fs = std::filesystem;
-
-#ifdef _WIN32
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
-#endif
 #include <cmath>
 #include <iostream>
 #include <iomanip>
 #include <sstream>
+
+namespace fs = std::filesystem;
 
 // Font size for on-screen labels drawn with NanoVG
 static constexpr float LABEL_FONT_SIZE = 18.0f;

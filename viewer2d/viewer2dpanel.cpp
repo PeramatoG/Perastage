@@ -5,10 +5,17 @@
  * Description: Implementation of a top-down OpenGL viewer sharing 3D models.
 */
 
-#include "viewer2dpanel.h"
+#ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+#include <windows.h>
+#endif
+
 #include <GL/glew.h>
 #include <GL/gl.h>
 #include <GL/glu.h>
+
+#include "viewer2dpanel.h"
 #include <cmath>
 #include <algorithm>
 
