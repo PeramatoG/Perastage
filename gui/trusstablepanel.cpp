@@ -3,6 +3,7 @@
 #include "matrixutils.h"
 #include "viewer3dpanel.h"
 #include "layerpanel.h"
+#include "summarypanel.h"
 #include "stringutils.h"
 #include "projectutils.h"
 #include "trussdictionary.h"
@@ -169,6 +170,8 @@ void TrussTablePanel::ReloadData()
     // Let wxDataViewListCtrl manage column headers and sorting
     if (LayerPanel::Instance())
         LayerPanel::Instance()->ReloadLayers();
+    if (SummaryPanel::Instance())
+        SummaryPanel::Instance()->ShowTrussSummary();
 }
 
 void TrussTablePanel::OnContextMenu(wxDataViewEvent& event)

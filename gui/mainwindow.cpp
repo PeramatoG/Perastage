@@ -43,6 +43,7 @@ using json = nlohmann::json;
 #include "gdtfnet.h"
 #include "gdtfsearchdialog.h"
 #include "layerpanel.h"
+#include "summarypanel.h"
 #include "logindialog.h"
 #include "markdown.h"
 #include "mvrexporter.h"
@@ -177,6 +178,8 @@ void MainWindow::SetupLayout() {
 
   // Create notebook with data panels
   notebook = new wxNotebook(this, wxID_ANY);
+  notebook->Bind(wxEVT_NOTEBOOK_PAGE_CHANGED,
+                 &MainWindow::OnNotebookPageChanged, this);
 
   fixturePanel = new FixtureTablePanel(notebook);
   FixtureTablePanel::SetInstance(fixturePanel);
@@ -244,8 +247,23 @@ void MainWindow::SetupLayout() {
                                       .MaximizeButton(true)
                                       .PaneBorder(true));
 
+  summaryPanel = new SummaryPanel(this);
+  SummaryPanel::SetInstance(summaryPanel);
+  auiManager->AddPane(summaryPanel, wxAuiPaneInfo()
+                                      .Name("SummaryPanel")
+                                      .Caption("Summary")
+                                      .Right()
+                                      .Row(1)
+                                      .BestSize(200, 150)
+                                      .CloseButton(true)
+                                      .MaximizeButton(true)
+                                      .PaneBorder(true));
+
   // Apply all changes to layout
   auiManager->Update();
+
+  if (summaryPanel)
+    summaryPanel->ShowFixtureSummary();
 
   // Keyboard shortcuts to switch notebook pages
   wxAcceleratorEntry entries[3];
@@ -1239,6 +1257,21 @@ void MainWindow::OnSelectTrusses(wxCommandEvent &WXUNUSED(event)) {
 void MainWindow::OnSelectObjects(wxCommandEvent &WXUNUSED(event)) {
   if (notebook)
     notebook->ChangeSelection(2);
+}
+
+void MainWindow::OnNotebookPageChanged(wxBookCtrlEvent &event) {
+  if (!summaryPanel) {
+    event.Skip();
+    return;
+  }
+  int sel = event.GetSelection();
+  if (notebook->GetPage(sel) == fixturePanel)
+    summaryPanel->ShowFixtureSummary();
+  else if (notebook->GetPage(sel) == trussPanel)
+    summaryPanel->ShowTrussSummary();
+  else if (notebook->GetPage(sel) == sceneObjPanel)
+    summaryPanel->ShowSceneObjectSummary();
+  event.Skip();
 }
 
 void MainWindow::OnPreferences(wxCommandEvent &WXUNUSED(event)) {
