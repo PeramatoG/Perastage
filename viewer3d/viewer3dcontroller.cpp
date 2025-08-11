@@ -25,6 +25,7 @@
 #include "consolepanel.h"
 
 #include <wx/wx.h>
+#include <wx/tokenzr.h>
 #define NANOVG_GL2_IMPLEMENTATION
 #include <algorithm>
 #include <array>
@@ -39,8 +40,10 @@
 
 namespace fs = std::filesystem;
 
-// Font size for on-screen labels drawn with NanoVG
-static constexpr float LABEL_FONT_SIZE = 18.0f;
+// Font size for on-screen labels drawn with NanoVG in the 3D viewer
+static constexpr float LABEL_FONT_SIZE_3D = 18.0f;
+// Font size for labels in the 2D top-down viewer
+static constexpr float LABEL_FONT_SIZE_2D = 2.0f;
 // Maximum width for on-screen labels before wrapping
 static constexpr float LABEL_MAX_WIDTH = 300.0f;
 // Width of fixture labels in meters for the 2D view
@@ -142,10 +145,28 @@ struct ScreenRect {
   double maxY = -DBL_MAX;
 };
 
+// Inserts a line break every two words in the provided text.
+static wxString WrapEveryTwoWords(const wxString &text) {
+  wxStringTokenizer tk(text, " ");
+  wxString result;
+  int count = 0;
+  while (tk.HasMoreTokens()) {
+    if (count > 0) {
+      if (count % 2 == 0)
+        result += "\n";
+      else
+        result += " ";
+    }
+    result += tk.GetNextToken();
+    ++count;
+  }
+  return result;
+}
+
 // Draws a text string at screen coordinates using NanoVG. The font size and
 // maximum width are specified in pixels.
 static void DrawText2D(NVGcontext *vg, int font, const std::string &text, int x,
-                       int y, float fontSize = LABEL_FONT_SIZE,
+                       int y, float fontSize = LABEL_FONT_SIZE_3D,
                        float maxWidth = LABEL_MAX_WIDTH,
                        bool drawBorder = true) {
   if (!vg || font < 0 || text.empty())
@@ -1083,16 +1104,17 @@ void Viewer3DController::DrawAllFixtureLabels(int width, int height,
     // label sits just below the fixture.
     int y = height - static_cast<int>(sy) + 10;
 
-    wxString label = f.instanceName.empty()
-                         ? wxString::FromUTF8(uuid)
-                         : wxString::FromUTF8(f.instanceName);
+    wxString baseName = f.instanceName.empty()
+                            ? wxString::FromUTF8(uuid)
+                            : wxString::FromUTF8(f.instanceName);
+    wxString label = WrapEveryTwoWords(baseName);
     label += "\nID: " + wxString::Format("%d", f.fixtureId);
     wxString addr =
         f.address.empty() ? wxString() : wxString::FromUTF8(f.address);
     label += "\n" + addr;
 
     auto utf8 = label.ToUTF8();
-    float fontSize = LABEL_FONT_SIZE * zoom;
+    float fontSize = LABEL_FONT_SIZE_2D * zoom;
     DrawText2D(m_vg, m_font, std::string(utf8.data(), utf8.length()), x, y,
                fontSize, 0.0f, false);
   }
