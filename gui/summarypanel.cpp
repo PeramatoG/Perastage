@@ -31,7 +31,8 @@ void SummaryPanel::ShowSummary(const std::vector<std::pair<std::string,int>>& it
     table->DeleteAllItems();
     for (const auto& [name, count] : items) {
         wxVector<wxVariant> row;
-        row.push_back(wxVariant(static_cast<long>(count)));
+        // Append the count as a string so it renders correctly in the text column
+        row.push_back(wxString::Format("%d", count));
         row.push_back(wxString::FromUTF8(name));
         table->AppendItem(row);
     }
