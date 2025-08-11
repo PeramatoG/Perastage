@@ -9,6 +9,14 @@
 #include <wx/dcbuffer.h>
 #include <cmath>
 #include <algorithm>
+#include <array>
+#include "scenedatamanager.h"
+#include "configmanager.h"
+
+// MVR coordinates are in millimeters. Convert to meters for rendering.
+static constexpr float RENDER_SCALE = 0.001f;
+// Pixels per meter at default zoom level.
+static constexpr float PIXELS_PER_METER = 25.0f;
 
 namespace {
 Viewer2DPanel* g_instance = nullptr;
@@ -64,6 +72,76 @@ void Viewer2DPanel::OnPaint(wxPaintEvent& WXUNUSED(event))
     for (int y = static_cast<int>(originY) - step; y >= 0; y -= step)
         dc.DrawLine(0, y, w, y);
 
+    // Draw scene elements
+    float ppm = PIXELS_PER_METER * m_zoom;
+
+    // Fixtures
+    dc.SetPen(wxPen(wxColour(200, 200, 200)));
+    dc.SetBrush(wxBrush(wxColour(200, 200, 200)));
+    const auto &fixtures = SceneDataManager::Instance().GetFixtures();
+    for (const auto &[uuid, f] : fixtures)
+    {
+        if (!ConfigManager::Get().IsLayerVisible(f.layer))
+            continue;
+        float wxm = f.transform.o[0] * RENDER_SCALE;
+        float wym = f.transform.o[1] * RENDER_SCALE;
+        int sx = static_cast<int>(originX + wxm * ppm);
+        int sy = static_cast<int>(originY + wym * ppm);
+        int r = std::max(2, static_cast<int>(3 * m_zoom));
+        dc.DrawCircle(sx, sy, r);
+    }
+
+    // Trusses
+    dc.SetPen(wxPen(wxColour(100, 100, 255)));
+    dc.SetBrush(*wxTRANSPARENT_BRUSH);
+    const auto &trusses = SceneDataManager::Instance().GetTrusses();
+    for (const auto &[uuid, t] : trusses)
+    {
+        if (!ConfigManager::Get().IsLayerVisible(t.layer))
+            continue;
+        float len = (t.lengthMm > 0 ? t.lengthMm : 400.0f) * RENDER_SCALE;
+        float wid = (t.widthMm > 0 ? t.widthMm : 400.0f) * RENDER_SCALE;
+
+        std::array<std::array<float, 2>, 4> corners = {
+            std::array<float, 2>{-0.5f * len, -0.5f * wid},
+            {0.5f * len, -0.5f * wid},
+            {0.5f * len, 0.5f * wid},
+            {-0.5f * len, 0.5f * wid}};
+        float cx = t.transform.o[0] * RENDER_SCALE;
+        float cy = t.transform.o[1] * RENDER_SCALE;
+        float ux = t.transform.u[0];
+        float uy = t.transform.u[1];
+        float vx = t.transform.v[0];
+        float vy = t.transform.v[1];
+        std::array<wxPoint, 4> pts;
+        for (int i = 0; i < 4; ++i)
+        {
+            float wxm = cx + corners[i][0] * ux + corners[i][1] * vx;
+            float wym = cy + corners[i][0] * uy + corners[i][1] * vy;
+            int sx = static_cast<int>(originX + wxm * ppm);
+            int sy = static_cast<int>(originY + wym * ppm);
+            pts[i] = wxPoint(sx, sy);
+        }
+        dc.DrawPolygon(4, pts.data());
+    }
+
+    // Scene objects
+    dc.SetPen(wxPen(wxColour(255, 255, 0)));
+    dc.SetBrush(wxBrush(wxColour(255, 255, 0)));
+    const auto &objects = SceneDataManager::Instance().GetSceneObjects();
+    for (const auto &[uuid, o] : objects)
+    {
+        if (!ConfigManager::Get().IsLayerVisible(o.layer))
+            continue;
+        float wxm = o.transform.o[0] * RENDER_SCALE;
+        float wym = o.transform.o[1] * RENDER_SCALE;
+        int sx = static_cast<int>(originX + wxm * ppm);
+        int sy = static_cast<int>(originY + wym * ppm);
+        int size = std::max(2, static_cast<int>(4 * m_zoom));
+        dc.DrawRectangle(sx - size / 2, sy - size / 2, size, size);
+    }
+
+    // Axes
     dc.SetPen(wxPen(*wxRED_PEN));
     dc.DrawLine(0, static_cast<int>(originY), w, static_cast<int>(originY));
     dc.SetPen(wxPen(*wxGREEN_PEN));

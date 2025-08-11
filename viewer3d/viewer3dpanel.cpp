@@ -20,6 +20,7 @@
 #include "sceneobjecttablepanel.h"
 #include "configmanager.h"
 #include "fixturepatchdialog.h"
+#include "viewer2dpanel.h"
 #include <wx/dcclient.h>
 #include <wx/event.h>
 #include <wx/log.h>
@@ -509,6 +510,8 @@ void Viewer3DPanel::OnMouseLeave(wxMouseEvent& event)
 void Viewer3DPanel::UpdateScene()
 {
     m_controller.Update();
+    if (Viewer2DPanel::Instance())
+        Viewer2DPanel::Instance()->Refresh();
 }
 
 void Viewer3DPanel::SetSelectedFixtures(const std::vector<std::string>& uuids)
