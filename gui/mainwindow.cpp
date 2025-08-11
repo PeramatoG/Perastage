@@ -60,6 +60,7 @@ using json = nlohmann::json;
 #include "trussloader.h"
 #include "trusstablepanel.h"
 #include "viewer3dpanel.h"
+#include "viewer2dpanel.h"
 #ifdef _WIN32
 #define popen _popen
 #define pclose _pclose
@@ -112,7 +113,9 @@ wxBEGIN_EVENT_TABLE(MainWindow, wxFrame) EVT_MENU(
                         EVT_MENU(
                             ID_View_Layout_Default,
                             MainWindow::
-                                OnApplyDefaultLayout) EVT_MENU(ID_Tools_DownloadGdtf,
+                                OnApplyDefaultLayout) EVT_MENU(
+                            ID_View_Layout_2D,
+                            MainWindow::OnApply2DLayout) EVT_MENU(ID_Tools_DownloadGdtf,
                                                                MainWindow::
                                                                    OnDownloadGdtf)
                             EVT_MENU(
@@ -242,6 +245,21 @@ void MainWindow::SetupLayout() {
                                          .CloseButton(true)
                                          .MaximizeButton(true));
 
+  viewport2DPanel = new Viewer2DPanel(this);
+  Viewer2DPanel::SetInstance(viewport2DPanel);
+  auiManager->AddPane(viewport2DPanel, wxAuiPaneInfo()
+                                         .Name("2DViewport")
+                                         .Caption("2D Viewport")
+                                         .Center()
+                                         .Dockable(true)
+                                         .CaptionVisible(true)
+                                         .PaneBorder(false)
+                                         .BestSize(halfWidth, 600)
+                                         .MinSize(wxSize(halfWidth, 600))
+                                         .CloseButton(true)
+                                         .MaximizeButton(true)
+                                         .Hide());
+
   // Bottom console panel for messages
   consolePanel = new ConsolePanel(this);
   ConsolePanel::SetInstance(consolePanel);
@@ -288,6 +306,17 @@ void MainWindow::SetupLayout() {
     cfg.SetValue("layout_default", defaultLayoutPerspective);
   else if (auto val = cfg.GetValue("layout_default"))
     defaultLayoutPerspective = *val;
+
+  // Generate default perspective for 2D viewer
+  auto &pane3d = auiManager->GetPane("3DViewport");
+  auto &pane2d = auiManager->GetPane("2DViewport");
+  pane3d.Hide();
+  pane2d.Show();
+  auiManager->Update();
+  default2DLayoutPerspective = auiManager->SavePerspective().ToStdString();
+  pane2d.Hide();
+  pane3d.Show();
+  auiManager->Update();
 
   if (summaryPanel)
     summaryPanel->ShowFixtureSummary();
@@ -354,6 +383,7 @@ void MainWindow::CreateMenuBar() {
 
   wxMenu *layoutMenu = new wxMenu();
   layoutMenu->Append(ID_View_Layout_Default, "Default");
+  layoutMenu->Append(ID_View_Layout_2D, "2D");
   viewMenu->AppendSubMenu(layoutMenu, "Layout");
 
   menuBar->Append(viewMenu, "&View");
@@ -1107,11 +1137,19 @@ void MainWindow::OnToggleViewport(wxCommandEvent &event) {
   if (!auiManager)
     return;
 
-  auto &pane = auiManager->GetPane("3DViewport");
-  pane.Show(!pane.IsShown());
+  auto &pane3d = auiManager->GetPane("3DViewport");
+  auto &pane2d = auiManager->GetPane("2DViewport");
+  wxAuiPaneInfo *pane = nullptr;
+  if (pane2d.IsShown())
+    pane = &pane2d;
+  else
+    pane = &pane3d;
+
+  pane->Show(!pane->IsShown());
   auiManager->Update();
 
-  GetMenuBar()->Check(ID_View_ToggleViewport, pane.IsShown());
+  bool shown = pane->IsShown();
+  GetMenuBar()->Check(ID_View_ToggleViewport, shown);
 }
 
 void MainWindow::OnToggleLayers(wxCommandEvent &event) {
@@ -1149,6 +1187,18 @@ void MainWindow::OnApplyDefaultLayout(wxCommandEvent &WXUNUSED(event)) {
   auiManager->Update();
 
   cfg.SetValue("layout_perspective", perspective);
+  UpdateViewMenuChecks();
+}
+
+void MainWindow::OnApply2DLayout(wxCommandEvent &WXUNUSED(event)) {
+  if (!auiManager)
+    return;
+
+  auiManager->LoadPerspective(default2DLayoutPerspective, true);
+  auiManager->Update();
+
+  ConfigManager &cfg = ConfigManager::Get();
+  cfg.SetValue("layout_perspective", default2DLayoutPerspective);
   UpdateViewMenuChecks();
 }
 
@@ -1257,8 +1307,10 @@ void MainWindow::UpdateViewMenuChecks() {
   auto &dataPane = auiManager->GetPane("DataNotebook");
   GetMenuBar()->Check(ID_View_ToggleFixtures, dataPane.IsShown());
 
-  auto &viewPane = auiManager->GetPane("3DViewport");
-  GetMenuBar()->Check(ID_View_ToggleViewport, viewPane.IsShown());
+  auto &viewPane3D = auiManager->GetPane("3DViewport");
+  auto &viewPane2D = auiManager->GetPane("2DViewport");
+  bool viewShown = viewPane3D.IsShown() || viewPane2D.IsShown();
+  GetMenuBar()->Check(ID_View_ToggleViewport, viewShown);
 
   auto &layerPane = auiManager->GetPane("LayerPanel");
   GetMenuBar()->Check(ID_View_ToggleLayers, layerPane.IsShown());

@@ -24,6 +24,7 @@ file(GLOB_RECURSE SRC_FILES
     ${CMAKE_SOURCE_DIR}/core/*.cpp
     ${CMAKE_SOURCE_DIR}/mvr/*.cpp
     ${CMAKE_SOURCE_DIR}/viewer3d/*.cpp
+    ${CMAKE_SOURCE_DIR}/viewer2d/*.cpp
 )
 
 # Explicitly ensure markdown conversion source is included
@@ -36,6 +37,7 @@ file(GLOB_RECURSE HEADER_FILES
     ${CMAKE_SOURCE_DIR}/core/*.h
     ${CMAKE_SOURCE_DIR}/mvr/*.h
     ${CMAKE_SOURCE_DIR}/viewer3d/*.h
+    ${CMAKE_SOURCE_DIR}/viewer2d/*.h
 )
 
 add_executable(${PROJECT_NAME} ${SRC_FILES} ${HEADER_FILES})
@@ -51,6 +53,7 @@ target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_SOURCE_DIR}/mvr
     ${CMAKE_SOURCE_DIR}/external
     ${CMAKE_SOURCE_DIR}/viewer3d
+    ${CMAKE_SOURCE_DIR}/viewer2d
     ${CMAKE_SOURCE_DIR}/resources
     ${NANOVG_INCLUDE_DIR}
 )
