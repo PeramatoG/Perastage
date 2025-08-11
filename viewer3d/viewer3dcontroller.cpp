@@ -1036,9 +1036,11 @@ void Viewer3DController::DrawFixtureLabels(int width, int height) {
 // Renders labels for all fixtures in the current scene. Each label displays the
 // fixture's instance name (or UUID), numeric ID and DMX address. Labels are
 // placed slightly below the fixture's bounding box so they appear attached to
-// the bottom of the fixture in the 2D top-down view. Their size is specified in
-// screen-space pixels to remain constant when zooming.
-void Viewer3DController::DrawAllFixtureLabels(int width, int height) {
+// the bottom of the fixture in the 2D top-down view. The optional zoom parameter
+// scales the font size so labels grow and shrink like regular geometry when
+// zooming the 2D view.
+void Viewer3DController::DrawAllFixtureLabels(int width, int height,
+                                              float zoom) {
   double model[16];
   double proj[16];
   int viewport[4];
@@ -1082,7 +1084,7 @@ void Viewer3DController::DrawAllFixtureLabels(int width, int height) {
 
     auto utf8 = label.ToUTF8();
     DrawText2D(m_vg, m_font, std::string(utf8.data(), utf8.length()), x, y,
-               LABEL_FONT_SIZE * 0.6f);
+               LABEL_FONT_SIZE * 0.6f * zoom);
   }
 }
 
