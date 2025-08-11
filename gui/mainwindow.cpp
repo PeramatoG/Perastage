@@ -1,16 +1,16 @@
 #include "mainwindow.h"
 
+#include <algorithm>
+#include <cctype>
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
-#include <algorithm>
 #include <iterator>
 #include <map>
 #include <set>
 #include <string>
-#include <cctype>
 #include <tinyxml2.h>
 #include <wx/aboutdlg.h>
 #include <wx/filefn.h>
@@ -31,6 +31,7 @@ class wxZipStreamLink;
 
 using json = nlohmann::json;
 #include "addfixturedialog.h"
+#include "autopatcher.h"
 #include "configmanager.h"
 #include "consolepanel.h"
 #include "credentialstore.h"
@@ -43,7 +44,6 @@ using json = nlohmann::json;
 #include "gdtfnet.h"
 #include "gdtfsearchdialog.h"
 #include "layerpanel.h"
-#include "summarypanel.h"
 #include "logindialog.h"
 #include "markdown.h"
 #include "mvrexporter.h"
@@ -55,10 +55,10 @@ using json = nlohmann::json;
 #include "selectfixturetypedialog.h"
 #include "selectnamedialog.h"
 #include "simplecrypt.h"
+#include "summarypanel.h"
 #include "tableprinter.h"
-#include "trusstablepanel.h"
 #include "trussloader.h"
-#include "autopatcher.h"
+#include "trusstablepanel.h"
 #include "viewer3dpanel.h"
 #ifdef _WIN32
 #define popen _popen
@@ -67,44 +67,54 @@ using json = nlohmann::json;
 
 wxBEGIN_EVENT_TABLE(MainWindow, wxFrame) EVT_MENU(
     ID_File_New,
-    MainWindow::OnNew) EVT_MENU(ID_File_Load,
-                                MainWindow::OnLoad) EVT_MENU(ID_File_Save,
-                                                             MainWindow::OnSave)
-    EVT_MENU(ID_File_SaveAs, MainWindow::OnSaveAs) EVT_MENU(
-        ID_File_ImportRider,
-        MainWindow::OnImportRider) EVT_MENU(ID_File_ImportMVR,
-                                            MainWindow::OnImportMVR)
-        EVT_MENU(ID_File_ExportMVR, MainWindow::OnExportMVR) EVT_MENU(
-            ID_File_PrintTable,
-            MainWindow::OnPrintTable) EVT_MENU(ID_File_ExportCSV,
-                                               MainWindow::OnExportCSV)
-            EVT_MENU(ID_File_Close, MainWindow::OnClose) EVT_CLOSE(
-                MainWindow::
-                    OnCloseWindow) EVT_MENU(ID_Edit_Undo,
-                                            MainWindow::
-                                                OnUndo) EVT_MENU(ID_Edit_Redo,
-                                                                 MainWindow::
-                                                                     OnRedo)
-                EVT_MENU(ID_Edit_AddFixture, MainWindow::OnAddFixture) EVT_MENU(
-                    ID_Edit_AddTruss,
-                    MainWindow::OnAddTruss) EVT_MENU(ID_Edit_AddSceneObject,
-                                                     MainWindow::
-                                                         OnAddSceneObject)
-                    EVT_MENU(ID_Edit_Delete, MainWindow::OnDelete) EVT_MENU(
-                        ID_View_ToggleConsole,
+    MainWindow::
+        OnNew) EVT_MENU(ID_File_Load,
                         MainWindow::
-                            OnToggleConsole) EVT_MENU(ID_View_ToggleFixtures,
-                                                      MainWindow::
-                                                          OnToggleFixtures)
-                        EVT_MENU(ID_View_ToggleViewport,
-                                 MainWindow::OnToggleViewport) EVT_MENU(
-                            ID_View_ToggleLayers,
-                            MainWindow::OnToggleLayers) EVT_MENU(
-                            ID_View_ToggleSummary,
-                            MainWindow::OnToggleSummary) EVT_MENU(
-                            ID_Tools_DownloadGdtf,
-                                                           MainWindow::
-                                                               OnDownloadGdtf)
+                            OnLoad) EVT_MENU(ID_File_Save,
+                                             MainWindow::
+                                                 OnSave) EVT_MENU(ID_File_SaveAs,
+                                                                  MainWindow::
+                                                                      OnSaveAs)
+    EVT_MENU(ID_File_ImportRider, MainWindow::OnImportRider) EVT_MENU(
+        ID_File_ImportMVR,
+        MainWindow::
+            OnImportMVR) EVT_MENU(ID_File_ExportMVR,
+                                  MainWindow::
+                                      OnExportMVR) EVT_MENU(ID_File_PrintTable,
+                                                            MainWindow::
+                                                                OnPrintTable)
+        EVT_MENU(ID_File_ExportCSV, MainWindow::OnExportCSV) EVT_MENU(
+            ID_File_Close,
+            MainWindow::
+                OnClose) EVT_CLOSE(MainWindow::
+                                       OnCloseWindow) EVT_MENU(ID_Edit_Undo,
+                                                               MainWindow::
+                                                                   OnUndo)
+            EVT_MENU(ID_Edit_Redo, MainWindow::OnRedo) EVT_MENU(
+                ID_Edit_AddFixture,
+                MainWindow::
+                    OnAddFixture) EVT_MENU(ID_Edit_AddTruss,
+                                           MainWindow::
+                                               OnAddTruss) EVT_MENU(ID_Edit_AddSceneObject,
+                                                                    MainWindow::
+                                                                        OnAddSceneObject)
+                EVT_MENU(ID_Edit_Delete, MainWindow::OnDelete) EVT_MENU(
+                    ID_View_ToggleConsole,
+                    MainWindow::
+                        OnToggleConsole) EVT_MENU(ID_View_ToggleFixtures,
+                                                  MainWindow::OnToggleFixtures)
+                    EVT_MENU(ID_View_ToggleViewport, MainWindow::OnToggleViewport) EVT_MENU(
+                        ID_View_ToggleLayers,
+                        MainWindow::
+                            OnToggleLayers) EVT_MENU(ID_View_ToggleSummary,
+                                                     MainWindow::
+                                                         OnToggleSummary)
+                        EVT_MENU(
+                            ID_View_Layout_Default,
+                            MainWindow::
+                                OnApplyDefaultLayout) EVT_MENU(ID_Tools_DownloadGdtf,
+                                                               MainWindow::
+                                                                   OnDownloadGdtf)
                             EVT_MENU(
                                 ID_Tools_ExportFixture,
                                 MainWindow::
@@ -112,30 +122,35 @@ wxBEGIN_EVENT_TABLE(MainWindow, wxFrame) EVT_MENU(
                                                               MainWindow::
                                                                   OnExportTruss)
                                 EVT_MENU(ID_Tools_ExportSceneObject,
-                                         MainWindow::OnExportSceneObject) EVT_MENU(
-                                    ID_Tools_AutoPatch,
-                                    MainWindow::OnAutoPatch)
+                                         MainWindow::OnExportSceneObject)
                                     EVT_MENU(
-                                        ID_Help_Help,
+                                        ID_Tools_AutoPatch,
                                         MainWindow::
-                                            OnShowHelp) EVT_MENU(ID_Help_About,
-                                                                 MainWindow::
-                                                                     OnShowAbout)
-                                        EVT_MENU(ID_Select_Fixtures,
-                                                 MainWindow::OnSelectFixtures)
+                                            OnAutoPatch) EVT_MENU(ID_Help_Help,
+                                                                  MainWindow::
+                                                                      OnShowHelp)
+                                        EVT_MENU(ID_Help_About,
+                                                 MainWindow::OnShowAbout)
                                             EVT_MENU(
-                                                ID_Select_Trusses,
-                                                MainWindow::OnSelectTrusses)
+                                                ID_Select_Fixtures,
+                                                MainWindow::OnSelectFixtures)
                                                 EVT_MENU(
-                                                    ID_Select_Objects,
-                                                    MainWindow::OnSelectObjects)
+                                                    ID_Select_Trusses,
+                                                    MainWindow::OnSelectTrusses)
                                                     EVT_MENU(
-                                                        ID_Edit_Preferences,
+                                                        ID_Select_Objects,
                                                         MainWindow::
-                                                            OnPreferences)
-                                                        wxEND_EVENT_TABLE()
+                                                            OnSelectObjects)
+                                                        EVT_MENU(
+                                                            ID_Edit_Preferences,
+                                                            MainWindow::
+                                                                OnPreferences)
+                                                            wxEND_EVENT_TABLE()
 
-MainWindow::MainWindow(const wxString &title)
+                                                                MainWindow::
+                                                                    MainWindow(
+                                                                        const wxString
+                                                                            &title)
     : wxFrame(nullptr, wxID_ANY, title, wxDefaultPosition, wxSize(1600, 950)) {
   wxIcon icon;
   const char *iconPaths[] = {"resources/Perastage.ico",
@@ -253,18 +268,26 @@ void MainWindow::SetupLayout() {
   summaryPanel = new SummaryPanel(this);
   SummaryPanel::SetInstance(summaryPanel);
   auiManager->AddPane(summaryPanel, wxAuiPaneInfo()
-                                      .Name("SummaryPanel")
-                                      .Caption("Summary")
-                                      .Right()
-                                      .Row(1)
-                                      .Position(0)
-                                      .BestSize(200, 150)
-                                      .CloseButton(true)
-                                      .MaximizeButton(true)
-                                      .PaneBorder(true));
+                                        .Name("SummaryPanel")
+                                        .Caption("Summary")
+                                        .Right()
+                                        .Row(1)
+                                        .Position(0)
+                                        .BestSize(200, 150)
+                                        .CloseButton(true)
+                                        .MaximizeButton(true)
+                                        .PaneBorder(true));
 
   // Apply all changes to layout
   auiManager->Update();
+
+  // Save the initial layout as default if none stored yet
+  ConfigManager &cfg = ConfigManager::Get();
+  defaultLayoutPerspective = auiManager->SavePerspective().ToStdString();
+  if (!cfg.HasKey("layout_default"))
+    cfg.SetValue("layout_default", defaultLayoutPerspective);
+  else if (auto val = cfg.GetValue("layout_default"))
+    defaultLayoutPerspective = *val;
 
   if (summaryPanel)
     summaryPanel->ShowFixtureSummary();
@@ -328,6 +351,10 @@ void MainWindow::CreateMenuBar() {
   viewMenu->Check(ID_View_ToggleViewport, true);
   viewMenu->Check(ID_View_ToggleLayers, true);
   viewMenu->Check(ID_View_ToggleSummary, true);
+
+  wxMenu *layoutMenu = new wxMenu();
+  layoutMenu->Append(ID_View_Layout_Default, "Default");
+  viewMenu->AppendSubMenu(layoutMenu, "Layout");
 
   menuBar->Append(viewMenu, "&View");
 
@@ -964,7 +991,6 @@ void MainWindow::OnAutoPatch(wxCommandEvent &WXUNUSED(event)) {
     fixturePanel->ReloadData();
 }
 
-
 void MainWindow::OnPrintTable(wxCommandEvent &WXUNUSED(event)) {
   wxArrayString options;
   if (fixturePanel)
@@ -1108,6 +1134,22 @@ void MainWindow::OnToggleSummary(wxCommandEvent &event) {
   auiManager->Update();
 
   GetMenuBar()->Check(ID_View_ToggleSummary, pane.IsShown());
+}
+
+void MainWindow::OnApplyDefaultLayout(wxCommandEvent &WXUNUSED(event)) {
+  if (!auiManager)
+    return;
+
+  ConfigManager &cfg = ConfigManager::Get();
+  std::string perspective = defaultLayoutPerspective;
+  if (auto val = cfg.GetValue("layout_default"))
+    perspective = *val;
+
+  auiManager->LoadPerspective(perspective, true);
+  auiManager->Update();
+
+  cfg.SetValue("layout_perspective", perspective);
+  UpdateViewMenuChecks();
 }
 
 bool MainWindow::LoadProjectFromPath(const std::string &path) {
