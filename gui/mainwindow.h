@@ -57,19 +57,20 @@ private:
   OnDownloadGdtf(wxCommandEvent &event);   // Download fixture from GDTF Share
   void OnClose(wxCommandEvent &event);     // Handle the Close action
   void OnCloseWindow(wxCloseEvent &event); // Handle window close
-  void OnToggleConsole(wxCommandEvent &event);  // Toggle console panel
-  void OnToggleFixtures(wxCommandEvent &event); // Toggle fixture panel
-  void OnToggleViewport(wxCommandEvent &event); // Toggle 3D viewport
-  void OnToggleLayers(wxCommandEvent &event);   // Toggle layer panel
-  void OnToggleSummary(wxCommandEvent &event);  // Toggle summary panel
-  void OnShowHelp(wxCommandEvent &event);       // Show help dialog
-  void OnShowAbout(wxCommandEvent &event);      // Show about dialog
-  void OnSelectFixtures(wxCommandEvent &event); // Switch to fixtures tab
-  void OnSelectTrusses(wxCommandEvent &event);  // Switch to trusses tab
-  void OnSelectObjects(wxCommandEvent &event);  // Switch to objects tab
+  void OnToggleConsole(wxCommandEvent &event);        // Toggle console panel
+  void OnToggleFixtures(wxCommandEvent &event);       // Toggle fixture panel
+  void OnToggleViewport(wxCommandEvent &event);       // Toggle 3D viewport
+  void OnToggleLayers(wxCommandEvent &event);         // Toggle layer panel
+  void OnToggleSummary(wxCommandEvent &event);        // Toggle summary panel
+  void OnShowHelp(wxCommandEvent &event);             // Show help dialog
+  void OnShowAbout(wxCommandEvent &event);            // Show about dialog
+  void OnSelectFixtures(wxCommandEvent &event);       // Switch to fixtures tab
+  void OnSelectTrusses(wxCommandEvent &event);        // Switch to trusses tab
+  void OnSelectObjects(wxCommandEvent &event);        // Switch to objects tab
   void OnNotebookPageChanged(wxBookCtrlEvent &event); // Update summary panel
 
-  void OnPreferences(wxCommandEvent &event); // Show preferences dialog
+  void OnPreferences(wxCommandEvent &event);        // Show preferences dialog
+  void OnApplyDefaultLayout(wxCommandEvent &event); // Reset to default layout
 
   void OnUndo(wxCommandEvent &event);           // Undo action placeholder
   void OnRedo(wxCommandEvent &event);           // Redo action placeholder
@@ -81,6 +82,7 @@ private:
   void SaveCameraSettings();
   void ApplySavedLayout();
   void UpdateViewMenuChecks();
+  std::string defaultLayoutPerspective;
 
   wxDECLARE_EVENT_TABLE();
 };
@@ -102,6 +104,7 @@ enum {
   ID_View_ToggleViewport,
   ID_View_ToggleLayers,
   ID_View_ToggleSummary,
+  ID_View_Layout_Default,
   ID_Tools_DownloadGdtf,
   ID_Tools_ExportFixture,
   ID_Tools_ExportTruss,
