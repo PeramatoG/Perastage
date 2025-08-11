@@ -1,0 +1,4 @@
+Iluminacion
+LX1:
+2 Spot
+3 Wash
