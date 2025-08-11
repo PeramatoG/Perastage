@@ -45,7 +45,9 @@ public:
   void DrawFixtureLabels(int width, int height);
   void DrawTrussLabels(int width, int height);
   void DrawSceneObjectLabels(int width, int height);
-  void DrawAllFixtureLabels(int width, int height);
+  // Renders labels for all fixtures using a font size that scales with the
+  // provided zoom factor so labels behave like scene geometry.
+  void DrawAllFixtureLabels(int width, int height, float zoom = 1.0f);
 
   // Returns true and outputs label and screen position of the fixture
   // under the given mouse coordinates (if any)

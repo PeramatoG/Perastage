@@ -102,9 +102,10 @@ void Viewer2DPanel::Render()
 
     m_controller.RenderScene();
 
-    // Draw fixed-size labels for all fixtures after rendering the scene so
-    // they appear on top of geometry.
-    m_controller.DrawAllFixtureLabels(w, h);
+    // Draw labels for all fixtures after rendering the scene so they appear on
+    // top of geometry. Scale the label size with the current zoom so they behave
+    // like regular scene objects instead of remaining a constant screen size.
+    m_controller.DrawAllFixtureLabels(w, h, m_zoom);
 
     glFlush();
     SwapBuffers();
