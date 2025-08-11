@@ -1,8 +1,11 @@
 #include <cassert>
 #include <filesystem>
+#include <fstream>
 #include <wx/init.h>
 
 #include "../core/configmanager.h"
+#include "../core/gdtfdictionary.h"
+#include "../core/projectutils.h"
 #include "../models/fixture.h"
 #include "../models/truss.h"
 #include "../models/sceneobject.h"
@@ -19,7 +22,17 @@ int main() {
     Layer layer; layer.uuid = "layer1"; layer.name = "Layer1";
     scene.layers[layer.uuid] = layer;
 
-    Fixture f; f.uuid = "fx1"; f.instanceName = "Fixture"; f.layer = layer.name; scene.fixtures[f.uuid] = f;
+    // Prepare dummy GDTF files
+    std::filesystem::path tempDir = std::filesystem::temp_directory_path() / "gdtf_roundtrip";
+    std::filesystem::create_directories(tempDir);
+    std::ofstream(tempDir / "orig.gdtf") << "orig";
+    std::ofstream(tempDir / "dict.gdtf") << "dict";
+    scene.basePath = tempDir.string();
+
+    // Dictionary entry that should NOT be applied on load
+    GdtfDictionary::Update("FixtureType", (tempDir / "dict.gdtf").string(), "");
+
+    Fixture f; f.uuid = "fx1"; f.instanceName = "Fixture"; f.layer = layer.name; f.typeName = "FixtureType"; f.gdtfSpec = "orig.gdtf"; scene.fixtures[f.uuid] = f;
     Truss t; t.uuid = "tr1"; t.name = "Truss"; t.layer = layer.name; scene.trusses[t.uuid] = t;
     SceneObject o; o.uuid = "obj1"; o.name = "Object"; o.layer = layer.name; scene.sceneObjects[o.uuid] = o;
 
@@ -38,6 +51,12 @@ int main() {
     assert(scene2.trusses.at("tr1").name == "Truss");
     assert(scene2.sceneObjects.at("obj1").name == "Object");
 
+    const auto &loaded = scene2.fixtures.at("fx1");
+    assert(std::filesystem::path(loaded.gdtfSpec).filename() == "orig.gdtf");
+
     std::filesystem::remove(temp);
+    std::filesystem::remove(ProjectUtils::GetDefaultLibraryPath("fixtures") + "/dict.gdtf");
+    GdtfDictionary::Save({});
+    std::filesystem::remove_all(tempDir);
     return 0;
 }

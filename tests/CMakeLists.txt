@@ -2,7 +2,7 @@ enable_testing()
 
 if(TARGET podofo::podofo)
     add_executable(pdf_text_test pdf_text_test.cpp ../core/pdftext.cpp)
-    target_link_libraries(pdf_text_test PRIVATE podofo::podofo)
+    target_link_libraries(pdf_text_test PRIVATE podofo::podofo ${wxWidgets_LIBRARIES})
     target_include_directories(pdf_text_test PRIVATE ../core)
     add_test(NAME PdfTextComparison
              COMMAND pdf_text_test
@@ -23,13 +23,15 @@ add_executable(save_load_roundtrip_test save_load_roundtrip_test.cpp
                ../core/trussdictionary.cpp
                ../mvr/mvrimporter.cpp
                ../mvr/mvrexporter.cpp
+               gdtfloader_stub.cpp
+               consolepanel_stub.cpp
                ../models/mvrscene.cpp
                ../models/fixture.cpp
                ../models/truss.cpp
                ../models/sceneobject.cpp
                ../models/layer.cpp)
 target_include_directories(save_load_roundtrip_test PRIVATE
-                           ../core ../models ../mvr ../gui ../external)
+                           . ../core ../models ../mvr ../gui ../external)
 target_link_libraries(save_load_roundtrip_test PRIVATE
                       ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
 add_test(NAME SaveLoadRoundtrip COMMAND save_load_roundtrip_test)
