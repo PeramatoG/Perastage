@@ -656,6 +656,9 @@ void TrussTablePanel::UpdateSceneData()
             table->SetValue(wxVariant(weiStr), i, 15);
         }
     }
+
+    if (SummaryPanel::Instance())
+        SummaryPanel::Instance()->ShowTrussSummary();
 }
 
 TrussTablePanel* TrussTablePanel::Instance()

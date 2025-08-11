@@ -257,6 +257,7 @@ void MainWindow::SetupLayout() {
                                       .Caption("Summary")
                                       .Right()
                                       .Row(1)
+                                      .Position(0)
                                       .BestSize(200, 150)
                                       .CloseButton(true)
                                       .MaximizeButton(true)
