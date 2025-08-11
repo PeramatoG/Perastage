@@ -45,6 +45,7 @@ public:
   void DrawFixtureLabels(int width, int height);
   void DrawTrussLabels(int width, int height);
   void DrawSceneObjectLabels(int width, int height);
+  void DrawAllFixtureLabels(int width, int height);
 
   // Returns true and outputs label and screen position of the fixture
   // under the given mouse coordinates (if any)

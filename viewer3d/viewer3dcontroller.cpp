@@ -139,9 +139,11 @@ struct ScreenRect {
   double maxY = -DBL_MAX;
 };
 
-// Draws a text string at screen coordinates using NanoVG
+// Draws a text string at screen coordinates using NanoVG. The font size is
+// specified in pixels so labels remain a constant screen size regardless of
+// the current zoom level.
 static void DrawText2D(NVGcontext *vg, int font, const std::string &text, int x,
-                       int y) {
+                       int y, float fontSize = LABEL_FONT_SIZE) {
   if (!vg || font < 0 || text.empty())
     return;
 
@@ -150,7 +152,7 @@ static void DrawText2D(NVGcontext *vg, int font, const std::string &text, int x,
 
   nvgBeginFrame(vg, vp[2], vp[3], 1.0f);
   nvgSave(vg);
-  nvgFontSize(vg, LABEL_FONT_SIZE);
+  nvgFontSize(vg, fontSize);
   nvgFontFaceId(vg, font);
   // Center text for multiline labels
   nvgTextAlign(vg, NVG_ALIGN_CENTER | NVG_ALIGN_MIDDLE);
@@ -1028,6 +1030,59 @@ void Viewer3DController::DrawFixtureLabels(int width, int height) {
 
     auto utf8 = label.ToUTF8();
     DrawText2D(m_vg, m_font, std::string(utf8.data(), utf8.length()), x, y);
+  }
+}
+
+// Renders labels for all fixtures in the current scene. Each label displays the
+// fixture's instance name (or UUID), numeric ID and DMX address. Labels are
+// placed slightly below the fixture's bounding box so they appear attached to
+// the bottom of the fixture in the 2D top-down view. Their size is specified in
+// screen-space pixels to remain constant when zooming.
+void Viewer3DController::DrawAllFixtureLabels(int width, int height) {
+  double model[16];
+  double proj[16];
+  int viewport[4];
+  glGetDoublev(GL_MODELVIEW_MATRIX, model);
+  glGetDoublev(GL_PROJECTION_MATRIX, proj);
+  glGetIntegerv(GL_VIEWPORT, viewport);
+
+  const auto &fixtures = SceneDataManager::Instance().GetFixtures();
+  for (const auto &[uuid, f] : fixtures) {
+    if (!ConfigManager::Get().IsLayerVisible(f.layer))
+      continue;
+
+    double wx, wy, wz;
+    auto bit = m_fixtureBounds.find(uuid);
+    if (bit != m_fixtureBounds.end()) {
+      const BoundingBox &bb = bit->second;
+      wx = (bb.min[0] + bb.max[0]) * 0.5;
+      wy = bb.min[1];
+      wz = (bb.min[2] + bb.max[2]) * 0.5;
+    } else {
+      wx = f.transform.o[0] * RENDER_SCALE;
+      wy = f.transform.o[1] * RENDER_SCALE;
+      wz = f.transform.o[2] * RENDER_SCALE;
+    }
+
+    double sx, sy, sz;
+    if (gluProject(wx, wy, wz, model, proj, viewport, &sx, &sy, &sz) != GL_TRUE)
+      continue;
+
+    int x = static_cast<int>(sx);
+    // Convert OpenGL's origin to top-left and move a few pixels downward so the
+    // label sits just below the fixture.
+    int y = height - static_cast<int>(sy) + 10;
+
+    wxString label = f.instanceName.empty()
+                         ? wxString::FromUTF8(uuid)
+                         : wxString::FromUTF8(f.instanceName);
+    label += "\nID: " + wxString::Format("%d", f.fixtureId);
+    if (!f.address.empty())
+      label += "\n" + wxString::FromUTF8(f.address);
+
+    auto utf8 = label.ToUTF8();
+    DrawText2D(m_vg, m_font, std::string(utf8.data(), utf8.length()), x, y,
+               LABEL_FONT_SIZE * 0.6f);
   }
 }
 
