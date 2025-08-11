@@ -1040,8 +1040,9 @@ void Viewer3DController::DrawFixtureLabels(int width, int height) {
 // Renders labels for all fixtures in the current scene. Each label displays the
 // fixture's instance name (or UUID), numeric ID and DMX address. Labels are
 // placed slightly below the fixture's bounding box so they appear attached to
-// the bottom of the fixture in the 2D top-down view. The optional zoom parameter
-// scales the font size so labels grow and shrink like regular geometry when
+// the bottom of the fixture in the 2D top-down view. The label width derives
+// from the fixture bounds so the drawn tag roughly matches the fixture size,
+// and the optional zoom parameter scales the label like regular geometry when
 // zooming the 2D view.
 void Viewer3DController::DrawAllFixtureLabels(int width, int height,
                                               float zoom) {
@@ -1058,17 +1059,20 @@ void Viewer3DController::DrawAllFixtureLabels(int width, int height,
       continue;
 
     double wx, wy, wz;
+    float labelWorldWidth = LABEL_WORLD_WIDTH;
     auto bit = m_fixtureBounds.find(uuid);
     if (bit != m_fixtureBounds.end()) {
       const BoundingBox &bb = bit->second;
       wx = (bb.min[0] + bb.max[0]) * 0.5;
       wy = bb.min[1];
       wz = (bb.min[2] + bb.max[2]) * 0.5;
+      labelWorldWidth = bb.max[0] - bb.min[0];
     } else {
       wx = f.transform.o[0] * RENDER_SCALE;
       wy = f.transform.o[1] * RENDER_SCALE;
       wz = f.transform.o[2] * RENDER_SCALE;
     }
+    labelWorldWidth = std::max(labelWorldWidth, 0.1f);
 
     double sx, sy, sz;
     if (gluProject(wx, wy, wz, model, proj, viewport, &sx, &sy, &sz) != GL_TRUE)
@@ -1087,9 +1091,10 @@ void Viewer3DController::DrawAllFixtureLabels(int width, int height,
       label += "\n" + wxString::FromUTF8(f.address);
 
     auto utf8 = label.ToUTF8();
-    float maxWidth = LABEL_WORLD_WIDTH * PIXELS_PER_METER * zoom;
+    float maxWidth = labelWorldWidth * PIXELS_PER_METER * zoom;
+    float fontSize = maxWidth * 0.4f;
     DrawText2D(m_vg, m_font, std::string(utf8.data(), utf8.length()), x, y,
-               LABEL_FONT_SIZE * 0.6f * zoom, maxWidth);
+               fontSize, maxWidth);
   }
 }
 
