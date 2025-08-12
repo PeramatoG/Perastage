@@ -1,27 +1,33 @@
 #pragma once
 
-#include <wx/wx.h>
-#include <wx/clrpicker.h>
 #include "viewer2dpanel.h"
+#include <wx/clrpicker.h>
+#include <wx/wx.h>
 
 class Viewer2DRenderPanel : public wxPanel {
 public:
-    explicit Viewer2DRenderPanel(wxWindow* parent);
+  explicit Viewer2DRenderPanel(wxWindow *parent);
 
-    static Viewer2DRenderPanel* Instance();
-    static void SetInstance(Viewer2DRenderPanel* p);
+  static Viewer2DRenderPanel *Instance();
+  static void SetInstance(Viewer2DRenderPanel *p);
 
 private:
-    void OnRadio(wxCommandEvent& evt);
-    void OnShowGrid(wxCommandEvent& evt);
-    void OnGridStyle(wxCommandEvent& evt);
-    void OnGridColor(wxColourPickerEvent& evt);
-    void OnDrawAbove(wxCommandEvent& evt);
+  void OnRadio(wxCommandEvent &evt);
+  void OnShowGrid(wxCommandEvent &evt);
+  void OnGridStyle(wxCommandEvent &evt);
+  void OnGridColor(wxColourPickerEvent &evt);
+  void OnDrawAbove(wxCommandEvent &evt);
+  void OnShowLabelName(wxCommandEvent &evt);
+  void OnShowLabelId(wxCommandEvent &evt);
+  void OnShowLabelAddress(wxCommandEvent &evt);
 
-    wxRadioBox* m_radio = nullptr;
-    wxCheckBox* m_showGrid = nullptr;
-    wxRadioBox* m_gridStyle = nullptr;
-    wxColourPickerCtrl* m_gridColor = nullptr;
-    wxCheckBox* m_drawAbove = nullptr;
-    static Viewer2DRenderPanel* s_instance;
+  wxRadioBox *m_radio = nullptr;
+  wxCheckBox *m_showGrid = nullptr;
+  wxRadioBox *m_gridStyle = nullptr;
+  wxColourPickerCtrl *m_gridColor = nullptr;
+  wxCheckBox *m_drawAbove = nullptr;
+  wxCheckBox *m_showLabelName = nullptr;
+  wxCheckBox *m_showLabelId = nullptr;
+  wxCheckBox *m_showLabelAddress = nullptr;
+  static Viewer2DRenderPanel *s_instance;
 };
