@@ -38,6 +38,7 @@
 #include <nanovg.h>
 #include <nanovg_gl.h>
 #include <sstream>
+#include <random>
 
 namespace fs = std::filesystem;
 
@@ -556,11 +557,30 @@ void Viewer3DController::Update() {
 }
 
 // Renders all scene objects using their transformMatrix
-void Viewer3DController::RenderScene(bool wireframe) {
+void Viewer3DController::RenderScene(bool wireframe,
+                                     Viewer2DRenderMode mode) {
   if (wireframe)
     glDisable(GL_LIGHTING);
   else
     SetupBasicLighting();
+  static std::mt19937 rng(42);
+  static std::uniform_real_distribution<float> dist(0.2f, 0.9f);
+  auto getTypeColor = [&](const std::string &key) {
+    auto it = m_typeColors.find(key);
+    if (it != m_typeColors.end())
+      return it->second;
+    std::array<float, 3> c{dist(rng), dist(rng), dist(rng)};
+    m_typeColors[key] = c;
+    return c;
+  };
+  auto getLayerColor = [&](const std::string &key) {
+    auto it = m_layerColors.find(key);
+    if (it != m_layerColors.end())
+      return it->second;
+    std::array<float, 3> c{dist(rng), dist(rng), dist(rng)};
+    m_layerColors[key] = c;
+    return c;
+  };
   DrawGrid();
   const std::string &base = ConfigManager::Get().GetScene().basePath;
 
@@ -600,23 +620,31 @@ void Viewer3DController::RenderScene(bool wireframe) {
       cz -= m.transform.o[2] * RENDER_SCALE;
     }
 
+    float r = 1.0f, g = 1.0f, b = 1.0f;
+    if (wireframe && mode == Viewer2DRenderMode::ByLayer) {
+      auto c = getLayerColor(m.layer);
+      r = c[0];
+      g = c[1];
+      b = c[2];
+    }
+
     if (!m.modelFile.empty()) {
       std::string path = ResolveModelPath(base, m.modelFile);
       if (!path.empty()) {
         auto it = m_loadedMeshes.find(path);
         if (it != m_loadedMeshes.end())
-          DrawMeshWithOutline(it->second, 1.0f, 1.0f, 1.0f, RENDER_SCALE,
-                              highlight, selected, cx, cy, cz, wireframe);
+          DrawMeshWithOutline(it->second, r, g, b, RENDER_SCALE, highlight,
+                              selected, cx, cy, cz, wireframe, mode);
         else
-          DrawCubeWithOutline(0.3f, 0.8f, 0.8f, 0.8f, highlight, selected, cx,
-                              cy, cz, wireframe);
+          DrawCubeWithOutline(0.3f, r, g, b, highlight, selected, cx, cy, cz,
+                              wireframe, mode);
       } else {
-        DrawCubeWithOutline(0.3f, 0.8f, 0.8f, 0.8f, highlight, selected, cx, cy,
-                            cz, wireframe);
+        DrawCubeWithOutline(0.3f, r, g, b, highlight, selected, cx, cy, cz,
+                            wireframe, mode);
       }
     } else {
-      DrawCubeWithOutline(0.3f, 0.8f, 0.8f, 0.8f, highlight, selected, cx, cy,
-                          cz, wireframe);
+      DrawCubeWithOutline(0.3f, r, g, b, highlight, selected, cx, cy, cz,
+                          wireframe, mode);
     }
 
     glPopMatrix();
@@ -658,13 +686,21 @@ void Viewer3DController::RenderScene(bool wireframe) {
       cz -= t.transform.o[2] * RENDER_SCALE;
     }
 
+    float r = 1.0f, g = 1.0f, b = 1.0f;
+    if (wireframe && mode == Viewer2DRenderMode::ByLayer) {
+      auto c = getLayerColor(t.layer);
+      r = c[0];
+      g = c[1];
+      b = c[2];
+    }
+
     if (!t.symbolFile.empty()) {
       std::string path = ResolveModelPath(base, t.symbolFile);
       if (!path.empty()) {
         auto it = m_loadedMeshes.find(path);
         if (it != m_loadedMeshes.end()) {
-          DrawMeshWithOutline(it->second, 1.0f, 1.0f, 1.0f, RENDER_SCALE,
-                              highlight, selected, cx, cy, cz, wireframe);
+          DrawMeshWithOutline(it->second, r, g, b, RENDER_SCALE, highlight,
+                              selected, cx, cy, cz, wireframe, mode);
         } else {
           float len = t.lengthMm * RENDER_SCALE;
           float wid = (t.widthMm > 0 ? t.widthMm : 400.0f) * RENDER_SCALE;
@@ -723,6 +759,21 @@ void Viewer3DController::RenderScene(bool wireframe) {
       cz -= f.transform.o[2] * RENDER_SCALE;
     }
 
+    float r = 1.0f, g = 1.0f, b = 1.0f;
+    if (wireframe) {
+      if (mode == Viewer2DRenderMode::ByFixtureType) {
+        auto c = getTypeColor(f.gdtfSpec);
+        r = c[0];
+        g = c[1];
+        b = c[2];
+      } else if (mode == Viewer2DRenderMode::ByLayer) {
+        auto c = getLayerColor(f.layer);
+        r = c[0];
+        g = c[1];
+        b = c[2];
+      }
+    }
+
     std::string gdtfPath = ResolveGdtfPath(base, f.gdtfSpec);
     auto itg = m_loadedGdtf.find(gdtfPath);
 
@@ -734,13 +785,13 @@ void Viewer3DController::RenderScene(bool wireframe) {
         // GDTF geometry offsets are defined relative to the fixture
         // in meters. Only the vertex coordinates need unit scaling.
         ApplyTransform(m2, false);
-        DrawMeshWithOutline(obj.mesh, 1.0f, 1.0f, 1.0f, RENDER_SCALE, highlight,
-                            selected, cx, cy, cz, wireframe);
+        DrawMeshWithOutline(obj.mesh, r, g, b, RENDER_SCALE, highlight,
+                            selected, cx, cy, cz, wireframe, mode);
         glPopMatrix();
       }
     } else {
-      DrawCubeWithOutline(0.2f, 0.8f, 0.8f, 1.0f, highlight, selected, cx, cy,
-                          cz, wireframe);
+      DrawCubeWithOutline(0.2f, r, g, b, highlight, selected, cx, cy, cz,
+                          wireframe, mode);
     }
 
     glPopMatrix();
@@ -851,7 +902,9 @@ void Viewer3DController::DrawWireframeCube(float size, float r, float g,
 // The box extends along +X for the given length and is centered in Y/Z.
 void Viewer3DController::DrawWireframeBox(float length, float height,
                                           float width, bool highlight,
-                                          bool selected, bool wireframe) {
+                                          bool selected, bool wireframe,
+                                          Viewer2DRenderMode mode) {
+  (void)mode;
   float x0 = 0.0f, x1 = length;
   float y0 = -width * 0.5f, y1 = width * 0.5f;
   float z0 = 0.0f, z1 = height;
@@ -938,13 +991,23 @@ void Viewer3DController::DrawWireframeBox(float length, float height,
 void Viewer3DController::DrawCubeWithOutline(float size, float r, float g,
                                              float b, bool highlight,
                                              bool selected, float cx, float cy,
-                                             float cz, bool wireframe) {
+                                             float cz, bool wireframe,
+                                             Viewer2DRenderMode mode) {
   (void)cx;
   (void)cy;
   (void)cz; // parameters no longer used
 
   if (wireframe) {
+    if (mode == Viewer2DRenderMode::Wireframe) {
+      DrawWireframeCube(size, 0.0f, 0.0f, 0.0f);
+      return;
+    }
     DrawWireframeCube(size, 0.0f, 0.0f, 0.0f);
+    glEnable(GL_POLYGON_OFFSET_FILL);
+    glPolygonOffset(1.0f, 1.0f);
+    glColor3f(r, g, b);
+    DrawCube(size, r, g, b);
+    glDisable(GL_POLYGON_OFFSET_FILL);
     return;
   }
 
@@ -962,7 +1025,8 @@ void Viewer3DController::DrawMeshWithOutline(const Mesh &mesh, float r, float g,
                                              float b, float scale,
                                              bool highlight, bool selected,
                                              float cx, float cy, float cz,
-                                             bool wireframe) {
+                                             bool wireframe,
+                                             Viewer2DRenderMode mode) {
   (void)cx;
   (void)cy;
   (void)cz; // parameters kept for compatibility
@@ -972,12 +1036,13 @@ void Viewer3DController::DrawMeshWithOutline(const Mesh &mesh, float r, float g,
     glColor3f(0.0f, 0.0f, 0.0f);
     DrawMeshWireframe(mesh, scale);
     glLineWidth(1.0f);
-
-    glEnable(GL_POLYGON_OFFSET_FILL);
-    glPolygonOffset(1.0f, 1.0f);
-    glColor3f(1.0f, 1.0f, 1.0f);
-    DrawMesh(mesh, scale);
-    glDisable(GL_POLYGON_OFFSET_FILL);
+    if (mode != Viewer2DRenderMode::Wireframe) {
+      glEnable(GL_POLYGON_OFFSET_FILL);
+      glPolygonOffset(1.0f, 1.0f);
+      glColor3f(r, g, b);
+      DrawMesh(mesh, scale);
+      glDisable(GL_POLYGON_OFFSET_FILL);
+    }
     return;
   }
 

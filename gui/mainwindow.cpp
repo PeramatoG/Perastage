@@ -60,6 +60,7 @@ using json = nlohmann::json;
 #include "trussloader.h"
 #include "trusstablepanel.h"
 #include "viewer2dpanel.h"
+#include "viewer2drenderpanel.h"
 #include "viewer3dpanel.h"
 #ifdef _WIN32
 #define popen _popen
@@ -110,7 +111,7 @@ wxBEGIN_EVENT_TABLE(MainWindow, wxFrame) EVT_MENU(
                             OnToggleViewport) EVT_MENU(ID_View_ToggleViewport2D,
                                                        MainWindow::
                                                            OnToggleViewport2D)
-                        EVT_MENU(ID_View_ToggleLayers, MainWindow::OnToggleLayers) EVT_MENU(
+                        EVT_MENU(ID_View_ToggleRender2D, MainWindow::OnToggleRender2D) EVT_MENU(ID_View_ToggleLayers, MainWindow::OnToggleLayers) EVT_MENU(
                             ID_View_ToggleSummary,
                             MainWindow::
                                 OnToggleSummary) EVT_MENU(ID_View_Layout_Default,
@@ -301,6 +302,20 @@ void MainWindow::SetupLayout() {
                                         .MaximizeButton(true)
                                         .PaneBorder(true));
 
+  viewport2DRenderPanel = new Viewer2DRenderPanel(this);
+  Viewer2DRenderPanel::SetInstance(viewport2DRenderPanel);
+  auiManager->AddPane(viewport2DRenderPanel, wxAuiPaneInfo()
+                                            .Name("2DRenderOptions")
+                                            .Caption("2D Render Options")
+                                            .Right()
+                                            .Row(1)
+                                            .Position(1)
+                                            .BestSize(200, 100)
+                                            .CloseButton(true)
+                                            .MaximizeButton(true)
+                                            .PaneBorder(true)
+                                            .Hide());
+
   // Apply all changes to layout
   auiManager->Update();
 
@@ -315,10 +330,13 @@ void MainWindow::SetupLayout() {
   // Generate default perspective for 2D viewer
   auto &pane3d = auiManager->GetPane("3DViewport");
   auto &pane2d = auiManager->GetPane("2DViewport");
+  auto &paneRender = auiManager->GetPane("2DRenderOptions");
   pane3d.Hide();
   pane2d.Show();
+  paneRender.Show();
   auiManager->Update();
   default2DLayoutPerspective = auiManager->SavePerspective().ToStdString();
+  paneRender.Hide();
   pane2d.Hide();
   pane3d.Show();
   auiManager->Update();
@@ -377,6 +395,7 @@ void MainWindow::CreateMenuBar() {
   viewMenu->AppendCheckItem(ID_View_ToggleFixtures, "Fixtures");
   viewMenu->AppendCheckItem(ID_View_ToggleViewport, "3D Viewport");
   viewMenu->AppendCheckItem(ID_View_ToggleViewport2D, "2D Viewport");
+  viewMenu->AppendCheckItem(ID_View_ToggleRender2D, "2D Render Options");
   viewMenu->AppendCheckItem(ID_View_ToggleLayers, "Layers");
   viewMenu->AppendCheckItem(ID_View_ToggleSummary, "Summary");
 
@@ -385,6 +404,7 @@ void MainWindow::CreateMenuBar() {
   viewMenu->Check(ID_View_ToggleFixtures, true);
   viewMenu->Check(ID_View_ToggleViewport, true);
   viewMenu->Check(ID_View_ToggleViewport2D, false);
+  viewMenu->Check(ID_View_ToggleRender2D, false);
   viewMenu->Check(ID_View_ToggleLayers, true);
   viewMenu->Check(ID_View_ToggleSummary, true);
 
@@ -1161,6 +1181,17 @@ void MainWindow::OnToggleViewport2D(wxCommandEvent &event) {
   GetMenuBar()->Check(ID_View_ToggleViewport2D, pane.IsShown());
 }
 
+void MainWindow::OnToggleRender2D(wxCommandEvent &event) {
+  if (!auiManager)
+    return;
+
+  auto &pane = auiManager->GetPane("2DRenderOptions");
+  pane.Show(!pane.IsShown());
+  auiManager->Update();
+
+  GetMenuBar()->Check(ID_View_ToggleRender2D, pane.IsShown());
+}
+
 void MainWindow::OnToggleLayers(wxCommandEvent &event) {
   if (!auiManager)
     return;
@@ -1321,6 +1352,9 @@ void MainWindow::UpdateViewMenuChecks() {
 
   auto &viewPane2D = auiManager->GetPane("2DViewport");
   GetMenuBar()->Check(ID_View_ToggleViewport2D, viewPane2D.IsShown());
+
+  auto &renderPane = auiManager->GetPane("2DRenderOptions");
+  GetMenuBar()->Check(ID_View_ToggleRender2D, renderPane.IsShown());
 
   auto &layerPane = auiManager->GetPane("LayerPanel");
   GetMenuBar()->Check(ID_View_ToggleLayers, layerPane.IsShown());
