@@ -31,6 +31,13 @@ enum class Viewer2DRenderMode {
   ByLayer
 };
 
+// Available orientations for the 2D viewer
+enum class Viewer2DView {
+  Top = 0,
+  Front,
+  Side
+};
+
 class Viewer3DController {
 public:
   Viewer3DController();
@@ -46,7 +53,8 @@ public:
   // and geometry is drawn using black lines only. The optional mode controls
   // coloring when rendering the simplified 2D view.
   void RenderScene(bool wireframe = false,
-                   Viewer2DRenderMode mode = Viewer2DRenderMode::White);
+                   Viewer2DRenderMode mode = Viewer2DRenderMode::White,
+                   Viewer2DView view = Viewer2DView::Top);
 
   // Fixture UUID currently highlighted (hovered)
   void SetHighlightUuid(const std::string &uuid);
@@ -121,7 +129,8 @@ private:
   void ApplyTransform(const float matrix[16], bool scaleTranslation = true);
 
   // Draws the reference grid on the Z=0 plane
-  void DrawGrid(int style, float r, float g, float b);
+  void DrawGrid(int style, float r, float g, float b,
+                Viewer2DView view = Viewer2DView::Top);
 
   // Draws the XYZ axis lines
   void DrawAxes();

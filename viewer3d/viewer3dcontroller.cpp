@@ -604,7 +604,8 @@ void Viewer3DController::Update() {
 }
 
 // Renders all scene objects using their transformMatrix
-void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode) {
+void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
+                                     Viewer2DView view) {
   if (wireframe)
     glDisable(GL_LIGHTING);
   else
@@ -632,7 +633,7 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode) {
   const float gridR = 0.35f;
   const float gridG = 0.35f;
   const float gridB = 0.35f;
-  DrawGrid(gridStyle, gridR, gridG, gridB);
+  DrawGrid(gridStyle, gridR, gridG, gridB, view);
   const std::string &base = ConfigManager::Get().GetScene().basePath;
 
   // Scene objects first
@@ -1203,8 +1204,9 @@ void Viewer3DController::DrawMesh(const Mesh &mesh, float scale) {
   glEnd();
 }
 
-// Draws the ground grid on the Z=0 plane
-void Viewer3DController::DrawGrid(int style, float r, float g, float b) {
+// Draws the reference grid on one of the principal planes
+void Viewer3DController::DrawGrid(int style, float r, float g, float b,
+                                  Viewer2DView view) {
   const float size = 20.0f;
   const float step = 1.0f;
 
@@ -1213,18 +1215,45 @@ void Viewer3DController::DrawGrid(int style, float r, float g, float b) {
     glLineWidth(1.0f);
     glBegin(GL_LINES);
     for (float i = -size; i <= size; i += step) {
-      glVertex3f(i, -size, 0.0f);
-      glVertex3f(i, size, 0.0f);
-      glVertex3f(-size, i, 0.0f);
-      glVertex3f(size, i, 0.0f);
+      switch (view) {
+      case Viewer2DView::Top:
+        glVertex3f(i, -size, 0.0f);
+        glVertex3f(i, size, 0.0f);
+        glVertex3f(-size, i, 0.0f);
+        glVertex3f(size, i, 0.0f);
+        break;
+      case Viewer2DView::Front:
+        glVertex3f(i, 0.0f, -size);
+        glVertex3f(i, 0.0f, size);
+        glVertex3f(-size, 0.0f, i);
+        glVertex3f(size, 0.0f, i);
+        break;
+      case Viewer2DView::Side:
+        glVertex3f(0.0f, i, -size);
+        glVertex3f(0.0f, i, size);
+        glVertex3f(0.0f, -size, i);
+        glVertex3f(0.0f, size, i);
+        break;
+      }
     }
     glEnd();
   } else if (style == 1) {
     glPointSize(3.0f);
     glBegin(GL_POINTS);
     for (float x = -size; x <= size; x += step) {
-      for (float y = -size; y <= size; y += step)
-        glVertex3f(x, y, 0.0f);
+      for (float y = -size; y <= size; y += step) {
+        switch (view) {
+        case Viewer2DView::Top:
+          glVertex3f(x, y, 0.0f);
+          break;
+        case Viewer2DView::Front:
+          glVertex3f(x, 0.0f, y);
+          break;
+        case Viewer2DView::Side:
+          glVertex3f(0.0f, x, y);
+          break;
+        }
+      }
     }
     glEnd();
   } else {
@@ -1233,10 +1262,26 @@ void Viewer3DController::DrawGrid(int style, float r, float g, float b) {
     glBegin(GL_LINES);
     for (float x = -size; x <= size; x += step) {
       for (float y = -size; y <= size; y += step) {
-        glVertex3f(x - half, y, 0.0f);
-        glVertex3f(x + half, y, 0.0f);
-        glVertex3f(x, y - half, 0.0f);
-        glVertex3f(x, y + half, 0.0f);
+        switch (view) {
+        case Viewer2DView::Top:
+          glVertex3f(x - half, y, 0.0f);
+          glVertex3f(x + half, y, 0.0f);
+          glVertex3f(x, y - half, 0.0f);
+          glVertex3f(x, y + half, 0.0f);
+          break;
+        case Viewer2DView::Front:
+          glVertex3f(x - half, 0.0f, y);
+          glVertex3f(x + half, 0.0f, y);
+          glVertex3f(x, 0.0f, y - half);
+          glVertex3f(x, 0.0f, y + half);
+          break;
+        case Viewer2DView::Side:
+          glVertex3f(0.0f, x - half, y);
+          glVertex3f(0.0f, x + half, y);
+          glVertex3f(0.0f, x, y - half);
+          glVertex3f(0.0f, x, y + half);
+          break;
+        }
       }
     }
     glEnd();
