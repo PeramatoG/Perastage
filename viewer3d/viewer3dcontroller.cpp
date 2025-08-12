@@ -11,8 +11,8 @@
 #include <windows.h>
 #endif
 
-#include <GL/glew.h>
 #include <GL/gl.h>
+#include <GL/glew.h>
 #include <GL/glu.h>
 
 #include "configmanager.h"
@@ -24,8 +24,8 @@
 #include "../models/types.h"
 #include "consolepanel.h"
 
-#include <wx/wx.h>
 #include <wx/tokenzr.h>
+#include <wx/wx.h>
 #define NANOVG_GL2_IMPLEMENTATION
 #include <algorithm>
 #include <array>
@@ -168,7 +168,8 @@ static wxString WrapEveryTwoWords(const wxString &text) {
 static void DrawText2D(NVGcontext *vg, int font, const std::string &text, int x,
                        int y, float fontSize = LABEL_FONT_SIZE_3D,
                        float maxWidth = LABEL_MAX_WIDTH,
-                       bool drawBorder = true) {
+                       bool drawBackground = true, bool drawBorder = true,
+                       NVGcolor textColor = nvgRGBAf(1.f, 1.f, 1.f, 1.f)) {
   if (!vg || font < 0 || text.empty())
     return;
 
@@ -210,12 +211,14 @@ static void DrawText2D(NVGcontext *vg, int font, const std::string &text, int x,
   nvgTextBoxBounds(vg, (float)x, (float)y, textWidth, text.c_str(), nullptr,
                    bounds);
 
-  nvgBeginPath(vg);
-  nvgRect(vg, bounds[0] - padding, bounds[1] - padding,
-          (bounds[2] - bounds[0]) + padding * 2,
-          (bounds[3] - bounds[1]) + padding * 2);
-  nvgFillColor(vg, nvgRGBAf(0.f, 0.f, 0.f, 0.6f));
-  nvgFill(vg);
+  if (drawBackground) {
+    nvgBeginPath(vg);
+    nvgRect(vg, bounds[0] - padding, bounds[1] - padding,
+            (bounds[2] - bounds[0]) + padding * 2,
+            (bounds[3] - bounds[1]) + padding * 2);
+    nvgFillColor(vg, nvgRGBAf(0.f, 0.f, 0.f, 0.6f));
+    nvgFill(vg);
+  }
 
   if (drawBorder) {
     nvgBeginPath(vg);
@@ -227,7 +230,7 @@ static void DrawText2D(NVGcontext *vg, int font, const std::string &text, int x,
     nvgStroke(vg);
   }
 
-  nvgFillColor(vg, nvgRGBAf(1.f, 1.f, 1.f, 1.f));
+  nvgFillColor(vg, textColor);
   // Draw multi-line label using textWidth to avoid excessive empty space.
   nvgTextBox(vg, (float)x, (float)y, textWidth, text.c_str(), nullptr);
   nvgRestore(vg);
@@ -552,8 +555,11 @@ void Viewer3DController::Update() {
 }
 
 // Renders all scene objects using their transformMatrix
-void Viewer3DController::RenderScene() {
-  SetupBasicLighting();
+void Viewer3DController::RenderScene(bool wireframe) {
+  if (wireframe)
+    glDisable(GL_LIGHTING);
+  else
+    SetupBasicLighting();
   DrawGrid();
 
   // Fixtures
@@ -595,12 +601,12 @@ void Viewer3DController::RenderScene() {
         // in meters. Only the vertex coordinates need unit scaling.
         ApplyTransform(m2, false);
         DrawMeshWithOutline(obj.mesh, 1.0f, 1.0f, 1.0f, RENDER_SCALE, highlight,
-                            selected, cx, cy, cz);
+                            selected, cx, cy, cz, wireframe);
         glPopMatrix();
       }
     } else {
       DrawCubeWithOutline(0.2f, 0.8f, 0.8f, 1.0f, highlight, selected, cx, cy,
-                          cz);
+                          cz, wireframe);
     }
 
     glPopMatrix();
@@ -639,24 +645,24 @@ void Viewer3DController::RenderScene() {
         auto it = m_loadedMeshes.find(path);
         if (it != m_loadedMeshes.end()) {
           DrawMeshWithOutline(it->second, 1.0f, 1.0f, 1.0f, RENDER_SCALE,
-                              highlight, selected, cx, cy, cz);
+                              highlight, selected, cx, cy, cz, wireframe);
         } else {
           float len = t.lengthMm * RENDER_SCALE;
           float wid = (t.widthMm > 0 ? t.widthMm : 400.0f) * RENDER_SCALE;
           float hei = (t.heightMm > 0 ? t.heightMm : 400.0f) * RENDER_SCALE;
-          DrawWireframeBox(len, hei, wid, highlight, selected);
+          DrawWireframeBox(len, hei, wid, highlight, selected, wireframe);
         }
       } else {
         float len = t.lengthMm * RENDER_SCALE;
         float wid = (t.widthMm > 0 ? t.widthMm : 400.0f) * RENDER_SCALE;
         float hei = (t.heightMm > 0 ? t.heightMm : 400.0f) * RENDER_SCALE;
-        DrawWireframeBox(len, hei, wid, highlight, selected);
+        DrawWireframeBox(len, hei, wid, highlight, selected, wireframe);
       }
     } else {
       float len = t.lengthMm * RENDER_SCALE;
       float wid = (t.widthMm > 0 ? t.widthMm : 400.0f) * RENDER_SCALE;
       float hei = (t.heightMm > 0 ? t.heightMm : 400.0f) * RENDER_SCALE;
-      DrawWireframeBox(len, hei, wid, highlight, selected);
+      DrawWireframeBox(len, hei, wid, highlight, selected, wireframe);
     }
 
     glPopMatrix();
@@ -694,17 +700,17 @@ void Viewer3DController::RenderScene() {
         auto it = m_loadedMeshes.find(path);
         if (it != m_loadedMeshes.end())
           DrawMeshWithOutline(it->second, 1.0f, 1.0f, 1.0f, RENDER_SCALE,
-                              highlight, selected, cx, cy, cz);
+                              highlight, selected, cx, cy, cz, wireframe);
         else
           DrawCubeWithOutline(0.3f, 0.8f, 0.8f, 0.8f, highlight, selected, cx,
-                              cy, cz);
+                              cy, cz, wireframe);
       } else {
         DrawCubeWithOutline(0.3f, 0.8f, 0.8f, 0.8f, highlight, selected, cx, cy,
-                            cz);
+                            cz, wireframe);
       }
     } else {
       DrawCubeWithOutline(0.3f, 0.8f, 0.8f, 0.8f, highlight, selected, cx, cy,
-                          cz);
+                          cz, wireframe);
     }
 
     glPopMatrix();
@@ -761,14 +767,15 @@ void Viewer3DController::DrawCube(float size, float r, float g, float b) {
   glEnd();
 }
 
-// Draws a wireframe cube centered at origin with given size
-void Viewer3DController::DrawWireframeCube(float size) {
+// Draws a wireframe cube centered at origin with given size and color
+void Viewer3DController::DrawWireframeCube(float size, float r, float g,
+                                           float b) {
   float half = size / 2.0f;
   float x0 = -half, x1 = half;
   float y0 = -half, y1 = half;
   float z0 = -half, z1 = half;
 
-  glColor3f(1.0f, 1.0f, 0.0f);
+  glColor3f(r, g, b);
   glBegin(GL_LINES);
   glVertex3f(x0, y0, z0);
   glVertex3f(x1, y0, z0);
@@ -801,12 +808,14 @@ void Viewer3DController::DrawWireframeCube(float size) {
 // The box extends along +X for the given length and is centered in Y/Z.
 void Viewer3DController::DrawWireframeBox(float length, float height,
                                           float width, bool highlight,
-                                          bool selected) {
+                                          bool selected, bool wireframe) {
   float x0 = 0.0f, x1 = length;
   float y0 = -width * 0.5f, y1 = width * 0.5f;
   float z0 = 0.0f, z1 = height;
 
-  if (selected)
+  if (wireframe)
+    glColor3f(0.0f, 0.0f, 0.0f);
+  else if (selected)
     glColor3f(0.0f, 1.0f, 1.0f);
   else if (highlight)
     glColor3f(0.0f, 1.0f, 0.0f);
@@ -846,10 +855,15 @@ void Viewer3DController::DrawWireframeBox(float length, float height,
 void Viewer3DController::DrawCubeWithOutline(float size, float r, float g,
                                              float b, bool highlight,
                                              bool selected, float cx, float cy,
-                                             float cz) {
+                                             float cz, bool wireframe) {
   (void)cx;
   (void)cy;
   (void)cz; // parameters no longer used
+
+  if (wireframe) {
+    DrawWireframeCube(size, 0.0f, 0.0f, 0.0f);
+    return;
+  }
 
   if (selected)
     DrawCube(size, 0.0f, 1.0f, 1.0f);
@@ -864,10 +878,17 @@ void Viewer3DController::DrawCubeWithOutline(float size, float r, float g,
 void Viewer3DController::DrawMeshWithOutline(const Mesh &mesh, float r, float g,
                                              float b, float scale,
                                              bool highlight, bool selected,
-                                             float cx, float cy, float cz) {
+                                             float cx, float cy, float cz,
+                                             bool wireframe) {
   (void)cx;
   (void)cy;
   (void)cz; // parameters kept for compatibility
+
+  if (wireframe) {
+    glColor3f(0.0f, 0.0f, 0.0f);
+    DrawMeshWireframe(mesh, scale);
+    return;
+  }
 
   if (selected)
     glColor3f(0.0f, 1.0f, 1.0f);
@@ -877,6 +898,39 @@ void Viewer3DController::DrawMeshWithOutline(const Mesh &mesh, float r, float g,
     glColor3f(r, g, b);
 
   DrawMesh(mesh, scale);
+}
+
+// Draws a mesh using GL triangles. The optional scale parameter allows
+// converting vertex units (e.g. millimeters) to meters.
+void Viewer3DController::DrawMeshWireframe(const Mesh &mesh, float scale) {
+  glBegin(GL_LINES);
+  for (size_t i = 0; i + 2 < mesh.indices.size(); i += 3) {
+    unsigned short i0 = mesh.indices[i];
+    unsigned short i1 = mesh.indices[i + 1];
+    unsigned short i2 = mesh.indices[i + 2];
+
+    float v0x = mesh.vertices[i0 * 3] * scale;
+    float v0y = mesh.vertices[i0 * 3 + 1] * scale;
+    float v0z = mesh.vertices[i0 * 3 + 2] * scale;
+
+    float v1x = mesh.vertices[i1 * 3] * scale;
+    float v1y = mesh.vertices[i1 * 3 + 1] * scale;
+    float v1z = mesh.vertices[i1 * 3 + 2] * scale;
+
+    float v2x = mesh.vertices[i2 * 3] * scale;
+    float v2y = mesh.vertices[i2 * 3 + 1] * scale;
+    float v2z = mesh.vertices[i2 * 3 + 2] * scale;
+
+    glVertex3f(v0x, v0y, v0z);
+    glVertex3f(v1x, v1y, v1z);
+
+    glVertex3f(v1x, v1y, v1z);
+    glVertex3f(v2x, v2y, v2z);
+
+    glVertex3f(v2x, v2y, v2z);
+    glVertex3f(v0x, v0y, v0z);
+  }
+  glEnd();
 }
 
 // Draws a mesh using GL triangles. The optional scale parameter allows
@@ -1116,7 +1170,7 @@ void Viewer3DController::DrawAllFixtureLabels(int width, int height,
     auto utf8 = label.ToUTF8();
     float fontSize = LABEL_FONT_SIZE_2D * zoom;
     DrawText2D(m_vg, m_font, std::string(utf8.data(), utf8.length()), x, y,
-               fontSize, 0.0f, false);
+               fontSize, 0.0f, false, false, nvgRGBAf(0.f, 0.f, 0.f, 1.f));
   }
 }
 
