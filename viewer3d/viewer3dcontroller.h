@@ -34,8 +34,9 @@ public:
   // Updates the internal logic if needed (e.g. animation, camera)
   void Update();
 
-  // Renders all scene objects
-  void RenderScene();
+  // Renders all scene objects. When wireframe is true lighting is disabled
+  // and geometry is drawn using black lines only.
+  void RenderScene(bool wireframe = false);
 
   // Fixture UUID currently highlighted (hovered)
   void SetHighlightUuid(const std::string &uuid);
@@ -67,15 +68,17 @@ private:
   void DrawCube(float size = 0.2f, float r = 1.0f, float g = 1.0f,
                 float b = 1.0f);
 
-  // Draws a wireframe cube centered at origin with given size
-  void DrawWireframeCube(float size = 0.3f);
+  // Draws a wireframe cube centered at origin with given size and color
+  void DrawWireframeCube(float size = 0.3f, float r = 1.0f, float g = 1.0f,
+                         float b = 0.0f);
 
   // Draws a wireframe box with independent dimensions. Length corresponds
   // to the X axis, width to Y and height to Z. The box's origin is at the
   // left end (X = 0), centered in Y and resting on Z = 0 so its base aligns
   // with the ground. It is tinted based on selection/highlight state.
   void DrawWireframeBox(float length, float height, float width,
-                        bool highlight = false, bool selected = false);
+                        bool highlight = false, bool selected = false,
+                        bool wireframe = false);
 
   // Draws a colored mesh. When selected or highlighted the mesh is tinted
   // in cyan or green. The optional center offset parameters are kept for
@@ -83,14 +86,19 @@ private:
   void DrawMeshWithOutline(const Mesh &mesh, float r = 1.0f, float g = 1.0f,
                            float b = 1.0f, float scale = RENDER_SCALE,
                            bool highlight = false, bool selected = false,
-                           float cx = 0.0f, float cy = 0.0f, float cz = 0.0f);
+                           float cx = 0.0f, float cy = 0.0f, float cz = 0.0f,
+                           bool wireframe = false);
+
+  // Draws only the mesh edges for wireframe rendering
+  void DrawMeshWireframe(const Mesh &mesh, float scale = RENDER_SCALE);
 
   // Draws a colored cube tinted when selected or highlighted. The optional
   // center offset parameters are unused and kept for compatibility.
   void DrawCubeWithOutline(float size = 0.2f, float r = 1.0f, float g = 1.0f,
                            float b = 1.0f, bool highlight = false,
                            bool selected = false, float cx = 0.0f,
-                           float cy = 0.0f, float cz = 0.0f);
+                           float cy = 0.0f, float cz = 0.0f,
+                           bool wireframe = false);
 
   // Applies the object's transformation matrix. When scaleTranslation
   // is true the translation part is converted from millimeters to
