@@ -581,7 +581,16 @@ void Viewer3DController::RenderScene(bool wireframe,
     m_layerColors[key] = c;
     return c;
   };
-  DrawGrid();
+  ConfigManager &cfg = ConfigManager::Get();
+  bool showGrid = cfg.GetFloat("grid_show") != 0.0f;
+  int gridStyle = static_cast<int>(cfg.GetFloat("grid_style"));
+  float gridR = cfg.GetFloat("grid_color_r");
+  float gridG = cfg.GetFloat("grid_color_g");
+  float gridB = cfg.GetFloat("grid_color_b");
+  bool gridAbove = cfg.GetFloat("grid_draw_above") != 0.0f;
+
+  if (showGrid && !gridAbove)
+    DrawGrid(gridStyle, gridR, gridG, gridB);
   const std::string &base = ConfigManager::Get().GetScene().basePath;
 
   // Scene objects first
@@ -801,6 +810,12 @@ void Viewer3DController::RenderScene(bool wireframe,
   for (const auto &[uuid, g] : groups) {
     (void)uuid;
     (void)g; // groups not implemented
+  }
+
+  if (showGrid && gridAbove) {
+    glDisable(GL_DEPTH_TEST);
+    DrawGrid(gridStyle, gridR, gridG, gridB);
+    glEnable(GL_DEPTH_TEST);
   }
 
   DrawAxes();
@@ -1155,20 +1170,43 @@ void Viewer3DController::DrawMesh(const Mesh &mesh, float scale) {
 }
 
 // Draws the ground grid on the Z=0 plane
-void Viewer3DController::DrawGrid() {
+void Viewer3DController::DrawGrid(int style, float r, float g, float b) {
   const float size = 20.0f;
   const float step = 1.0f;
 
-  glColor3f(0.35f, 0.35f, 0.35f);
-  glLineWidth(1.0f);
-  glBegin(GL_LINES);
-  for (float i = -size; i <= size; i += step) {
-    glVertex3f(i, -size, 0.0f);
-    glVertex3f(i, size, 0.0f);
-    glVertex3f(-size, i, 0.0f);
-    glVertex3f(size, i, 0.0f);
+  glColor3f(r, g, b);
+  if (style == 0) {
+    glLineWidth(1.0f);
+    glBegin(GL_LINES);
+    for (float i = -size; i <= size; i += step) {
+      glVertex3f(i, -size, 0.0f);
+      glVertex3f(i, size, 0.0f);
+      glVertex3f(-size, i, 0.0f);
+      glVertex3f(size, i, 0.0f);
+    }
+    glEnd();
+  } else if (style == 1) {
+    glPointSize(3.0f);
+    glBegin(GL_POINTS);
+    for (float x = -size; x <= size; x += step) {
+      for (float y = -size; y <= size; y += step)
+        glVertex3f(x, y, 0.0f);
+    }
+    glEnd();
+  } else {
+    float half = step * 0.2f;
+    glLineWidth(1.0f);
+    glBegin(GL_LINES);
+    for (float x = -size; x <= size; x += step) {
+      for (float y = -size; y <= size; y += step) {
+        glVertex3f(x - half, y, 0.0f);
+        glVertex3f(x + half, y, 0.0f);
+        glVertex3f(x, y - half, 0.0f);
+        glVertex3f(x, y + half, 0.0f);
+      }
+    }
+    glEnd();
   }
-  glEnd();
 }
 
 // Draws the XYZ axes centered at origin
