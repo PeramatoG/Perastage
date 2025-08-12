@@ -1179,6 +1179,8 @@ void MainWindow::OnToggleViewport2D(wxCommandEvent &event) {
   auiManager->Update();
 
   GetMenuBar()->Check(ID_View_ToggleViewport2D, pane.IsShown());
+  if (pane.IsShown() && Viewer2DPanel::Instance())
+    Viewer2DPanel::Instance()->UpdateScene();
 }
 
 void MainWindow::OnToggleRender2D(wxCommandEvent &event) {
