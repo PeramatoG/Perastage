@@ -10,6 +10,8 @@ class Viewer2DRenderPanel : public wxScrolledWindow {
 public:
   explicit Viewer2DRenderPanel(wxWindow *parent);
 
+  void ApplyConfig();
+
   static Viewer2DRenderPanel *Instance();
   static void SetInstance(Viewer2DRenderPanel *p);
 

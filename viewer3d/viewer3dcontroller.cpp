@@ -938,17 +938,18 @@ void Viewer3DController::DrawWireframeCube(float size, float r, float g,
   glVertex3f(x1, y1, z1);
   glEnd();
   glLineWidth(1.0f);
-
-  glEnable(GL_POLYGON_OFFSET_FILL);
-  glPolygonOffset(1.0f, 1.0f);
-  glColor3f(1.0f, 1.0f, 1.0f);
-  glBegin(GL_QUADS);
-  glVertex3f(x0, y0, z1);
-  glVertex3f(x1, y0, z1);
-  glVertex3f(x1, y1, z1);
-  glVertex3f(x0, y1, z1);
-  glEnd();
-  glDisable(GL_POLYGON_OFFSET_FILL);
+  if (mode != Viewer2DRenderMode::Wireframe) {
+    glEnable(GL_POLYGON_OFFSET_FILL);
+    glPolygonOffset(1.0f, 1.0f);
+    glColor3f(1.0f, 1.0f, 1.0f);
+    glBegin(GL_QUADS);
+    glVertex3f(x0, y0, z1);
+    glVertex3f(x1, y0, z1);
+    glVertex3f(x1, y1, z1);
+    glVertex3f(x0, y1, z1);
+    glEnd();
+    glDisable(GL_POLYGON_OFFSET_FILL);
+  }
 }
 
 // Draws a wireframe box whose origin sits at the left end of the span.
@@ -992,17 +993,18 @@ void Viewer3DController::DrawWireframeBox(float length, float height,
     glVertex3f(x1, y1, z1);
     glEnd();
     glLineWidth(1.0f);
-
-    glEnable(GL_POLYGON_OFFSET_FILL);
-    glPolygonOffset(1.0f, 1.0f);
-    glColor3f(1.0f, 1.0f, 1.0f);
-    glBegin(GL_QUADS);
-    glVertex3f(x0, y0, z1);
-    glVertex3f(x1, y0, z1);
-    glVertex3f(x1, y1, z1);
-    glVertex3f(x0, y1, z1);
-    glEnd();
-    glDisable(GL_POLYGON_OFFSET_FILL);
+    if (mode != Viewer2DRenderMode::Wireframe) {
+      glEnable(GL_POLYGON_OFFSET_FILL);
+      glPolygonOffset(1.0f, 1.0f);
+      glColor3f(1.0f, 1.0f, 1.0f);
+      glBegin(GL_QUADS);
+      glVertex3f(x0, y0, z1);
+      glVertex3f(x1, y0, z1);
+      glVertex3f(x1, y1, z1);
+      glVertex3f(x0, y1, z1);
+      glEnd();
+      glDisable(GL_POLYGON_OFFSET_FILL);
+    }
     return;
   } else if (selected)
     glColor3f(0.0f, 1.0f, 1.0f);

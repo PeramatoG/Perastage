@@ -16,6 +16,7 @@
 #include <GL/glu.h>
 
 #include "viewer2dpanel.h"
+#include "configmanager.h"
 #include <algorithm>
 #include <cmath>
 
@@ -62,6 +63,26 @@ void Viewer2DPanel::SetRenderMode(Viewer2DRenderMode mode) {
 void Viewer2DPanel::SetView(Viewer2DView view) {
   m_view = view;
   Refresh();
+}
+
+void Viewer2DPanel::LoadViewFromConfig() {
+  ConfigManager &cfg = ConfigManager::Get();
+  m_offsetX = cfg.GetFloat("view2d_offset_x");
+  m_offsetY = cfg.GetFloat("view2d_offset_y");
+  m_zoom = cfg.GetFloat("view2d_zoom");
+  m_renderMode = static_cast<Viewer2DRenderMode>(
+      static_cast<int>(cfg.GetFloat("view2d_render_mode")));
+  m_view = static_cast<Viewer2DView>(
+      static_cast<int>(cfg.GetFloat("view2d_view")));
+}
+
+void Viewer2DPanel::SaveViewToConfig() const {
+  ConfigManager &cfg = ConfigManager::Get();
+  cfg.SetFloat("view2d_offset_x", m_offsetX);
+  cfg.SetFloat("view2d_offset_y", m_offsetY);
+  cfg.SetFloat("view2d_zoom", m_zoom);
+  cfg.SetFloat("view2d_render_mode", static_cast<float>(m_renderMode));
+  cfg.SetFloat("view2d_view", static_cast<float>(m_view));
 }
 
 void Viewer2DPanel::InitGL() {

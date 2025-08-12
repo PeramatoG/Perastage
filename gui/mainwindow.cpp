@@ -253,6 +253,7 @@ void MainWindow::SetupLayout() {
 
   viewport2DPanel = new Viewer2DPanel(this);
   Viewer2DPanel::SetInstance(viewport2DPanel);
+  viewport2DPanel->LoadViewFromConfig();
   auiManager->AddPane(viewport2DPanel, wxAuiPaneInfo()
                                            .Name("2DViewport")
                                            .Caption("2D Viewport")
@@ -263,8 +264,10 @@ void MainWindow::SetupLayout() {
                                            .BestSize(halfWidth, 600)
                                            .MinSize(wxSize(halfWidth, 600))
                                            .CloseButton(true)
-                                           .MaximizeButton(true)
-                                           .Hide());
+                                            .MaximizeButton(true)
+                                            .Hide());
+
+  viewport2DPanel->UpdateScene();
 
   // Bottom console panel for messages
   consolePanel = new ConsolePanel(this);
@@ -1273,6 +1276,13 @@ bool MainWindow::LoadProjectFromPath(const std::string &path) {
     viewportPanel->UpdateScene();
     viewportPanel->Refresh();
   }
+  if (viewport2DPanel) {
+    viewport2DPanel->LoadViewFromConfig();
+    viewport2DPanel->UpdateScene();
+    viewport2DPanel->Refresh();
+  }
+  if (viewport2DRenderPanel)
+    viewport2DRenderPanel->ApplyConfig();
   if (layerPanel)
     layerPanel->ReloadLayers();
   UpdateTitle();
@@ -1292,6 +1302,13 @@ void MainWindow::ResetProject() {
     viewportPanel->UpdateScene();
     viewportPanel->Refresh();
   }
+  if (viewport2DPanel) {
+    viewport2DPanel->LoadViewFromConfig();
+    viewport2DPanel->UpdateScene();
+    viewport2DPanel->Refresh();
+  }
+  if (viewport2DRenderPanel)
+    viewport2DRenderPanel->ApplyConfig();
   if (layerPanel)
     layerPanel->ReloadLayers();
   UpdateTitle();
@@ -1318,6 +1335,8 @@ void MainWindow::SaveCameraSettings() {
     ConfigManager::Get().SetFloat("camera_target_y", cam.GetTargetY());
     ConfigManager::Get().SetFloat("camera_target_z", cam.GetTargetZ());
   }
+  if (viewport2DPanel)
+    viewport2DPanel->SaveViewToConfig();
   if (auiManager) {
     ConfigManager::Get().SetValue("layout_perspective",
                                   auiManager->SavePerspective().ToStdString());

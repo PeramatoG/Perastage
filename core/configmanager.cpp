@@ -75,6 +75,11 @@ ConfigManager::ConfigManager() {
   RegisterVariable("label_font_size_dmx", "float", 2.0f, 1.0f, 5.0f);
   RegisterVariable("label_offset_distance", "float", 0.4f, 0.0f, 5.0f);
   RegisterVariable("label_offset_angle", "float", 135.0f, 0.0f, 360.0f);
+  RegisterVariable("view2d_offset_x", "float", 0.0f, -1000.0f, 1000.0f);
+  RegisterVariable("view2d_offset_y", "float", 0.0f, -1000.0f, 1000.0f);
+  RegisterVariable("view2d_zoom", "float", 1.0f, 0.1f, 100.0f);
+  RegisterVariable("view2d_render_mode", "float", 1.0f, 0.0f, 3.0f);
+  RegisterVariable("view2d_view", "float", 0.0f, 0.0f, 2.0f);
   LoadUserConfig();
   if (!HasKey("rider_autopatch"))
     SetValue("rider_autopatch", "1");
