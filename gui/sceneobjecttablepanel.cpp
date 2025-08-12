@@ -375,9 +375,25 @@ void SceneObjectTablePanel::UpdateSceneData()
         table->GetValue(v, i, 3); v.GetString().ToDouble(&x);
         table->GetValue(v, i, 4); v.GetString().ToDouble(&y);
         table->GetValue(v, i, 5); v.GetString().ToDouble(&z);
-        it->second.transform.o = {static_cast<float>(x * 1000.0),
-                                  static_cast<float>(y * 1000.0),
-                                  static_cast<float>(z * 1000.0)};
+
+        double rx=0, ry=0, rz=0;
+        table->GetValue(v, i, 6); {
+            wxString s = v.GetString(); s.Replace("\u00B0", ""); s.ToDouble(&rx);
+        }
+        table->GetValue(v, i, 7); {
+            wxString s = v.GetString(); s.Replace("\u00B0", ""); s.ToDouble(&ry);
+        }
+        table->GetValue(v, i, 8); {
+            wxString s = v.GetString(); s.Replace("\u00B0", ""); s.ToDouble(&rz);
+        }
+
+        Matrix rot = MatrixUtils::EulerToMatrix(static_cast<float>(rx),
+                                                static_cast<float>(ry),
+                                                static_cast<float>(rz));
+        rot.o = {static_cast<float>(x * 1000.0),
+                  static_cast<float>(y * 1000.0),
+                  static_cast<float>(z * 1000.0)};
+        it->second.transform = rot;
     }
 
     if (SummaryPanel::Instance() && IsActivePage())

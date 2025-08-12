@@ -84,6 +84,28 @@ namespace MatrixUtils {
         return { yaw * toDeg, pitch * toDeg, roll * toDeg };
     }
 
+    // Build a rotation matrix from Euler angles in degrees (yaw/pitch/roll)
+    inline Matrix EulerToMatrix(float yawDeg, float pitchDeg, float rollDeg)
+    {
+        const float toRad = static_cast<float>(M_PI) / 180.0f;
+        float yaw = yawDeg * toRad;
+        float pitch = pitchDeg * toRad;
+        float roll = rollDeg * toRad;
+
+        float cy = std::cos(yaw);
+        float sy = std::sin(yaw);
+        float cp = std::cos(pitch);
+        float sp = std::sin(pitch);
+        float cr = std::cos(roll);
+        float sr = std::sin(roll);
+
+        Matrix m;
+        m.u = { cy * cp, cy * sp * sr - sy * cr, cy * sp * cr + sy * sr };
+        m.v = { sy * cp, sy * sp * sr + cy * cr, sy * sp * cr - cy * sr };
+        m.w = { -sp,     cp * sr,                 cp * cr                 };
+        return m;
+    }
+
     // Convert matrix to the MVR 4x3 string representation
     inline std::string FormatMatrix(const Matrix& m)
     {
