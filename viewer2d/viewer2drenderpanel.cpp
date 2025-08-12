@@ -83,7 +83,7 @@ void Viewer2DRenderPanel::SetInstance(Viewer2DRenderPanel *p) {
 void Viewer2DRenderPanel::OnRadio(wxCommandEvent &evt) {
   if (auto *vp = Viewer2DPanel::Instance()) {
     vp->SetRenderMode(static_cast<Viewer2DRenderMode>(m_radio->GetSelection()));
-    vp->UpdateScene();
+    vp->UpdateScene(false);
   }
   evt.Skip();
 }
@@ -92,7 +92,7 @@ void Viewer2DRenderPanel::OnShowGrid(wxCommandEvent &evt) {
   ConfigManager::Get().SetFloat("grid_show",
                                 m_showGrid->GetValue() ? 1.0f : 0.0f);
   if (auto *vp = Viewer2DPanel::Instance())
-    vp->UpdateScene();
+    vp->UpdateScene(false);
   evt.Skip();
 }
 
@@ -100,7 +100,7 @@ void Viewer2DRenderPanel::OnGridStyle(wxCommandEvent &evt) {
   ConfigManager::Get().SetFloat(
       "grid_style", static_cast<float>(m_gridStyle->GetSelection()));
   if (auto *vp = Viewer2DPanel::Instance())
-    vp->UpdateScene();
+    vp->UpdateScene(false);
   evt.Skip();
 }
 
@@ -111,7 +111,7 @@ void Viewer2DRenderPanel::OnGridColor(wxColourPickerEvent &evt) {
   cfg.SetFloat("grid_color_g", c.Green() / 255.0f);
   cfg.SetFloat("grid_color_b", c.Blue() / 255.0f);
   if (auto *vp = Viewer2DPanel::Instance())
-    vp->UpdateScene();
+    vp->UpdateScene(false);
   evt.Skip();
 }
 
@@ -119,7 +119,7 @@ void Viewer2DRenderPanel::OnDrawAbove(wxCommandEvent &evt) {
   ConfigManager::Get().SetFloat("grid_draw_above",
                                 m_drawAbove->GetValue() ? 1.0f : 0.0f);
   if (auto *vp = Viewer2DPanel::Instance())
-    vp->UpdateScene();
+    vp->UpdateScene(false);
   evt.Skip();
 }
 
@@ -127,7 +127,7 @@ void Viewer2DRenderPanel::OnShowLabelName(wxCommandEvent &evt) {
   ConfigManager::Get().SetFloat("label_show_name",
                                 m_showLabelName->GetValue() ? 1.0f : 0.0f);
   if (auto *vp = Viewer2DPanel::Instance())
-    vp->UpdateScene();
+    vp->UpdateScene(false);
   evt.Skip();
 }
 
@@ -135,7 +135,7 @@ void Viewer2DRenderPanel::OnShowLabelId(wxCommandEvent &evt) {
   ConfigManager::Get().SetFloat("label_show_id",
                                 m_showLabelId->GetValue() ? 1.0f : 0.0f);
   if (auto *vp = Viewer2DPanel::Instance())
-    vp->UpdateScene();
+    vp->UpdateScene(false);
   evt.Skip();
 }
 
@@ -143,6 +143,6 @@ void Viewer2DRenderPanel::OnShowLabelAddress(wxCommandEvent &evt) {
   ConfigManager::Get().SetFloat("label_show_dmx",
                                 m_showLabelAddress->GetValue() ? 1.0f : 0.0f);
   if (auto *vp = Viewer2DPanel::Instance())
-    vp->UpdateScene();
+    vp->UpdateScene(false);
   evt.Skip();
 }
