@@ -2,10 +2,11 @@
 
 #include "viewer2dpanel.h"
 #include <wx/clrpicker.h>
+#include <wx/scrolwin.h>
 #include <wx/spinctrl.h>
 #include <wx/wx.h>
 
-class Viewer2DRenderPanel : public wxPanel {
+class Viewer2DRenderPanel : public wxScrolledWindow {
 public:
   explicit Viewer2DRenderPanel(wxWindow *parent);
 

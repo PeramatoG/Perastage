@@ -628,15 +628,11 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode) {
     return c;
   };
   ConfigManager &cfg = ConfigManager::Get();
-  bool showGrid = cfg.GetFloat("grid_show") != 0.0f;
-  int gridStyle = static_cast<int>(cfg.GetFloat("grid_style"));
-  float gridR = cfg.GetFloat("grid_color_r");
-  float gridG = cfg.GetFloat("grid_color_g");
-  float gridB = cfg.GetFloat("grid_color_b");
-  bool gridAbove = cfg.GetFloat("grid_draw_above") != 0.0f;
-
-  if (showGrid && !gridAbove)
-    DrawGrid(gridStyle, gridR, gridG, gridB);
+  const int gridStyle = 0;
+  const float gridR = 0.35f;
+  const float gridG = 0.35f;
+  const float gridB = 0.35f;
+  DrawGrid(gridStyle, gridR, gridG, gridB);
   const std::string &base = ConfigManager::Get().GetScene().basePath;
 
   // Scene objects first
@@ -856,12 +852,6 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode) {
   for (const auto &[uuid, g] : groups) {
     (void)uuid;
     (void)g; // groups not implemented
-  }
-
-  if (showGrid && gridAbove) {
-    glDisable(GL_DEPTH_TEST);
-    DrawGrid(gridStyle, gridR, gridG, gridB);
-    glEnable(GL_DEPTH_TEST);
   }
 
   DrawAxes();

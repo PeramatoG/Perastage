@@ -5,7 +5,9 @@
 
 Viewer2DRenderPanel *Viewer2DRenderPanel::s_instance = nullptr;
 
-Viewer2DRenderPanel::Viewer2DRenderPanel(wxWindow *parent) : wxPanel(parent) {
+Viewer2DRenderPanel::Viewer2DRenderPanel(wxWindow *parent)
+    : wxScrolledWindow(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize,
+                       wxVSCROLL) {
   SetInstance(this);
   ConfigManager &cfg = ConfigManager::Get();
   wxString choices[] = {"Wireframe", "White", "By device type", "By layer"};
@@ -106,7 +108,10 @@ Viewer2DRenderPanel::Viewer2DRenderPanel(wxWindow *parent) : wxPanel(parent) {
 
   sizer->Add(labelBox, 0, wxALL, 5);
 
-  SetSizerAndFit(sizer);
+  SetSizer(sizer);
+  FitInside();
+  SetScrollRate(0, 10);
+  Layout();
 }
 
 Viewer2DRenderPanel *Viewer2DRenderPanel::Instance() { return s_instance; }
