@@ -1446,9 +1446,13 @@ void Viewer3DController::DrawAllFixtureLabels(int width, int height,
                               ? wxString::FromUTF8(uuid)
                               : wxString::FromUTF8(f.instanceName);
       wxString wrapped = WrapEveryTwoWords(baseName);
-      auto utf8 = wrapped.ToUTF8();
-      lines.push_back(
-          {m_font, std::string(utf8.data(), utf8.length()), nameSize});
+      wxStringTokenizer nameLines(wrapped, "\n");
+      while (nameLines.HasMoreTokens()) {
+        wxString line = nameLines.GetNextToken();
+        auto utf8 = line.ToUTF8();
+        lines.push_back(
+            {m_font, std::string(utf8.data(), utf8.length()), nameSize});
+      }
     }
     if (showId) {
       wxString idLine = "ID: " + wxString::Format("%d", f.fixtureId);
