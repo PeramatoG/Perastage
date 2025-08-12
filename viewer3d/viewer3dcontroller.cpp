@@ -1059,7 +1059,7 @@ void Viewer3DController::DrawCubeWithOutline(float size, float r, float g,
     }
     DrawWireframeCube(size, 0.0f, 0.0f, 0.0f, mode);
     glEnable(GL_POLYGON_OFFSET_FILL);
-    glPolygonOffset(1.0f, 1.0f);
+    glPolygonOffset(-1.0f, -1.0f);
     glColor3f(r, g, b);
     DrawCube(size, r, g, b);
     glDisable(GL_POLYGON_OFFSET_FILL);
@@ -1094,7 +1094,7 @@ void Viewer3DController::DrawMeshWithOutline(const Mesh &mesh, float r, float g,
     glLineWidth(1.0f);
     if (mode != Viewer2DRenderMode::Wireframe) {
       glEnable(GL_POLYGON_OFFSET_FILL);
-      glPolygonOffset(1.0f, 1.0f);
+      glPolygonOffset(-1.0f, -1.0f);
       glColor3f(r, g, b);
       DrawMesh(mesh, scale);
       glDisable(GL_POLYGON_OFFSET_FILL);
