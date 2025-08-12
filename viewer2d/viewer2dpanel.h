@@ -37,6 +37,7 @@ private:
     void OnKeyDown(wxKeyEvent& event);
     void OnMouseEnter(wxMouseEvent& event);
     void OnMouseLeave(wxMouseEvent& event);
+    void OnResize(wxSizeEvent& event);
 
     bool m_dragging = false;
     wxPoint m_lastMousePos;

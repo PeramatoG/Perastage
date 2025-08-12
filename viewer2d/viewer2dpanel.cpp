@@ -33,7 +33,7 @@ wxBEGIN_EVENT_TABLE(Viewer2DPanel, wxGLCanvas) EVT_PAINT(Viewer2DPanel::OnPaint)
             EVT_KEY_DOWN(Viewer2DPanel::OnKeyDown)
                 EVT_ENTER_WINDOW(Viewer2DPanel::OnMouseEnter)
                     EVT_LEAVE_WINDOW(Viewer2DPanel::OnMouseLeave)
-                        wxEND_EVENT_TABLE()
+                        EVT_SIZE(Viewer2DPanel::OnResize) wxEND_EVENT_TABLE()
 
                             Viewer2DPanel::Viewer2DPanel(wxWindow *parent)
     : wxGLCanvas(parent, wxID_ANY, nullptr, wxDefaultPosition, wxDefaultSize,
@@ -201,5 +201,10 @@ void Viewer2DPanel::OnMouseEnter(wxMouseEvent &event) {
 
 void Viewer2DPanel::OnMouseLeave(wxMouseEvent &event) {
   m_mouseInside = false;
+  event.Skip();
+}
+
+void Viewer2DPanel::OnResize(wxSizeEvent &event) {
+  Refresh();
   event.Skip();
 }
