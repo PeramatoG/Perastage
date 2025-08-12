@@ -29,6 +29,7 @@
 #define NANOVG_GL2_IMPLEMENTATION
 #include <algorithm>
 #include <array>
+#include <vector>
 #include <cfloat>
 #include <cmath>
 #include <filesystem>
@@ -561,13 +562,23 @@ void Viewer3DController::RenderScene(bool wireframe) {
   else
     SetupBasicLighting();
   DrawGrid();
-
-  // Fixtures
-  glShadeModel(GL_FLAT);
-  const auto &fixtures = SceneDataManager::Instance().GetFixtures();
   const std::string &base = ConfigManager::Get().GetScene().basePath;
-  for (const auto &[uuid, f] : fixtures) {
-    if (!ConfigManager::Get().IsLayerVisible(f.layer))
+
+  // Scene objects first
+  glShadeModel(GL_FLAT);
+  const auto &sceneObjects = SceneDataManager::Instance().GetSceneObjects();
+  std::vector<const std::pair<const std::string, SceneObject> *> sortedObjs;
+  sortedObjs.reserve(sceneObjects.size());
+  for (const auto &obj : sceneObjects)
+    sortedObjs.push_back(&obj);
+  std::sort(sortedObjs.begin(), sortedObjs.end(),
+            [](const auto *a, const auto *b) {
+              return a->second.transform.o[2] < b->second.transform.o[2];
+            });
+  for (const auto *entry : sortedObjs) {
+    const auto &uuid = entry->first;
+    const auto &m = entry->second;
+    if (!ConfigManager::Get().IsLayerVisible(m.layer))
       continue;
     glPushMatrix();
 
@@ -575,48 +586,56 @@ void Viewer3DController::RenderScene(bool wireframe) {
     bool selected = (m_selectedUuids.find(uuid) != m_selectedUuids.end());
 
     float matrix[16];
-    MatrixToArray(f.transform, matrix);
+    MatrixToArray(m.transform, matrix);
     ApplyTransform(matrix, true);
 
     float cx = 0.0f, cy = 0.0f, cz = 0.0f;
-    auto fbit = m_fixtureBounds.find(uuid);
-    if (fbit != m_fixtureBounds.end()) {
-      cx = (fbit->second.min[0] + fbit->second.max[0]) * 0.5f;
-      cy = (fbit->second.min[1] + fbit->second.max[1]) * 0.5f;
-      cz = (fbit->second.min[2] + fbit->second.max[2]) * 0.5f;
-      cx -= f.transform.o[0] * RENDER_SCALE;
-      cy -= f.transform.o[1] * RENDER_SCALE;
-      cz -= f.transform.o[2] * RENDER_SCALE;
+    auto obit = m_objectBounds.find(uuid);
+    if (obit != m_objectBounds.end()) {
+      cx = (obit->second.min[0] + obit->second.max[0]) * 0.5f;
+      cy = (obit->second.min[1] + obit->second.max[1]) * 0.5f;
+      cz = (obit->second.min[2] + obit->second.max[2]) * 0.5f;
+      cx -= m.transform.o[0] * RENDER_SCALE;
+      cy -= m.transform.o[1] * RENDER_SCALE;
+      cz -= m.transform.o[2] * RENDER_SCALE;
     }
 
-    std::string gdtfPath = ResolveGdtfPath(base, f.gdtfSpec);
-    auto itg = m_loadedGdtf.find(gdtfPath);
-
-    if (itg != m_loadedGdtf.end()) {
-      for (const auto &obj : itg->second) {
-        glPushMatrix();
-        float m2[16];
-        MatrixToArray(obj.transform, m2);
-        // GDTF geometry offsets are defined relative to the fixture
-        // in meters. Only the vertex coordinates need unit scaling.
-        ApplyTransform(m2, false);
-        DrawMeshWithOutline(obj.mesh, 1.0f, 1.0f, 1.0f, RENDER_SCALE, highlight,
-                            selected, cx, cy, cz, wireframe);
-        glPopMatrix();
+    if (!m.modelFile.empty()) {
+      std::string path = ResolveModelPath(base, m.modelFile);
+      if (!path.empty()) {
+        auto it = m_loadedMeshes.find(path);
+        if (it != m_loadedMeshes.end())
+          DrawMeshWithOutline(it->second, 1.0f, 1.0f, 1.0f, RENDER_SCALE,
+                              highlight, selected, cx, cy, cz, wireframe);
+        else
+          DrawCubeWithOutline(0.3f, 0.8f, 0.8f, 0.8f, highlight, selected, cx,
+                              cy, cz, wireframe);
+      } else {
+        DrawCubeWithOutline(0.3f, 0.8f, 0.8f, 0.8f, highlight, selected, cx, cy,
+                            cz, wireframe);
       }
     } else {
-      DrawCubeWithOutline(0.2f, 0.8f, 0.8f, 1.0f, highlight, selected, cx, cy,
+      DrawCubeWithOutline(0.3f, 0.8f, 0.8f, 0.8f, highlight, selected, cx, cy,
                           cz, wireframe);
     }
 
     glPopMatrix();
   }
 
+  // Trusses next
   glShadeModel(GL_SMOOTH); // keep smooth shading for trusses
-
-  // Trusses
   const auto &trusses = SceneDataManager::Instance().GetTrusses();
-  for (const auto &[uuid, t] : trusses) {
+  std::vector<const std::pair<const std::string, Truss> *> sortedTrusses;
+  sortedTrusses.reserve(trusses.size());
+  for (const auto &t : trusses)
+    sortedTrusses.push_back(&t);
+  std::sort(sortedTrusses.begin(), sortedTrusses.end(),
+            [](const auto *a, const auto *b) {
+              return a->second.transform.o[2] < b->second.transform.o[2];
+            });
+  for (const auto *entry : sortedTrusses) {
+    const auto &uuid = entry->first;
+    const auto &t = entry->second;
     if (!ConfigManager::Get().IsLayerVisible(t.layer))
       continue;
     glPushMatrix();
@@ -668,11 +687,21 @@ void Viewer3DController::RenderScene(bool wireframe) {
     glPopMatrix();
   }
 
+  // Fixtures last
   glShadeModel(GL_FLAT);
-
-  const auto &meshes = SceneDataManager::Instance().GetSceneObjects();
-  for (const auto &[uuid, m] : meshes) {
-    if (!ConfigManager::Get().IsLayerVisible(m.layer))
+  const auto &fixtures = SceneDataManager::Instance().GetFixtures();
+  std::vector<const std::pair<const std::string, Fixture> *> sortedFixtures;
+  sortedFixtures.reserve(fixtures.size());
+  for (const auto &f : fixtures)
+    sortedFixtures.push_back(&f);
+  std::sort(sortedFixtures.begin(), sortedFixtures.end(),
+            [](const auto *a, const auto *b) {
+              return a->second.transform.o[2] < b->second.transform.o[2];
+            });
+  for (const auto *entry : sortedFixtures) {
+    const auto &uuid = entry->first;
+    const auto &f = entry->second;
+    if (!ConfigManager::Get().IsLayerVisible(f.layer))
       continue;
     glPushMatrix();
 
@@ -680,36 +709,37 @@ void Viewer3DController::RenderScene(bool wireframe) {
     bool selected = (m_selectedUuids.find(uuid) != m_selectedUuids.end());
 
     float matrix[16];
-    MatrixToArray(m.transform, matrix);
+    MatrixToArray(f.transform, matrix);
     ApplyTransform(matrix, true);
 
     float cx = 0.0f, cy = 0.0f, cz = 0.0f;
-    auto obit = m_objectBounds.find(uuid);
-    if (obit != m_objectBounds.end()) {
-      cx = (obit->second.min[0] + obit->second.max[0]) * 0.5f;
-      cy = (obit->second.min[1] + obit->second.max[1]) * 0.5f;
-      cz = (obit->second.min[2] + obit->second.max[2]) * 0.5f;
-      cx -= m.transform.o[0] * RENDER_SCALE;
-      cy -= m.transform.o[1] * RENDER_SCALE;
-      cz -= m.transform.o[2] * RENDER_SCALE;
+    auto fbit = m_fixtureBounds.find(uuid);
+    if (fbit != m_fixtureBounds.end()) {
+      cx = (fbit->second.min[0] + fbit->second.max[0]) * 0.5f;
+      cy = (fbit->second.min[1] + fbit->second.max[1]) * 0.5f;
+      cz = (fbit->second.min[2] + fbit->second.max[2]) * 0.5f;
+      cx -= f.transform.o[0] * RENDER_SCALE;
+      cy -= f.transform.o[1] * RENDER_SCALE;
+      cz -= f.transform.o[2] * RENDER_SCALE;
     }
 
-    if (!m.modelFile.empty()) {
-      std::string path = ResolveModelPath(base, m.modelFile);
-      if (!path.empty()) {
-        auto it = m_loadedMeshes.find(path);
-        if (it != m_loadedMeshes.end())
-          DrawMeshWithOutline(it->second, 1.0f, 1.0f, 1.0f, RENDER_SCALE,
-                              highlight, selected, cx, cy, cz, wireframe);
-        else
-          DrawCubeWithOutline(0.3f, 0.8f, 0.8f, 0.8f, highlight, selected, cx,
-                              cy, cz, wireframe);
-      } else {
-        DrawCubeWithOutline(0.3f, 0.8f, 0.8f, 0.8f, highlight, selected, cx, cy,
-                            cz, wireframe);
+    std::string gdtfPath = ResolveGdtfPath(base, f.gdtfSpec);
+    auto itg = m_loadedGdtf.find(gdtfPath);
+
+    if (itg != m_loadedGdtf.end()) {
+      for (const auto &obj : itg->second) {
+        glPushMatrix();
+        float m2[16];
+        MatrixToArray(obj.transform, m2);
+        // GDTF geometry offsets are defined relative to the fixture
+        // in meters. Only the vertex coordinates need unit scaling.
+        ApplyTransform(m2, false);
+        DrawMeshWithOutline(obj.mesh, 1.0f, 1.0f, 1.0f, RENDER_SCALE, highlight,
+                            selected, cx, cy, cz, wireframe);
+        glPopMatrix();
       }
     } else {
-      DrawCubeWithOutline(0.3f, 0.8f, 0.8f, 0.8f, highlight, selected, cx, cy,
+      DrawCubeWithOutline(0.2f, 0.8f, 0.8f, 1.0f, highlight, selected, cx, cy,
                           cz, wireframe);
     }
 
