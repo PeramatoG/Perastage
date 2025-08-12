@@ -59,6 +59,11 @@ void Viewer2DPanel::SetRenderMode(Viewer2DRenderMode mode) {
   Refresh();
 }
 
+void Viewer2DPanel::SetView(Viewer2DView view) {
+  m_view = view;
+  Refresh();
+}
+
 void Viewer2DPanel::InitGL() {
   SetCurrent(*m_glContext);
   if (!m_glInitialized) {
@@ -90,9 +95,19 @@ void Viewer2DPanel::Render() {
 
   glMatrixMode(GL_MODELVIEW);
   glLoadIdentity();
-  gluLookAt(0.0, 0.0, 10.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0);
+  switch (m_view) {
+  case Viewer2DView::Top:
+    gluLookAt(0.0, 0.0, 10.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0);
+    break;
+  case Viewer2DView::Front:
+    gluLookAt(0.0, -10.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0);
+    break;
+  case Viewer2DView::Side:
+    gluLookAt(10.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0);
+    break;
+  }
 
-  m_controller.RenderScene(true, m_renderMode);
+  m_controller.RenderScene(true, m_renderMode, m_view);
 
   // Draw labels for all fixtures after rendering the scene so they appear on
   // top of geometry. Scale the label size with the current zoom so they behave

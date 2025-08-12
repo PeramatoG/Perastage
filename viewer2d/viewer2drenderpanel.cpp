@@ -16,6 +16,12 @@ Viewer2DRenderPanel::Viewer2DRenderPanel(wxWindow *parent)
   m_radio->SetSelection(1); // default to White
   m_radio->Bind(wxEVT_RADIOBOX, &Viewer2DRenderPanel::OnRadio, this);
 
+  wxString viewChoices[] = {"Top", "Front", "Side"};
+  m_view = new wxRadioBox(this, wxID_ANY, "View", wxDefaultPosition,
+                          wxDefaultSize, 3, viewChoices, 1, wxRA_SPECIFY_COLS);
+  m_view->SetSelection(0);
+  m_view->Bind(wxEVT_RADIOBOX, &Viewer2DRenderPanel::OnView, this);
+
   m_showGrid = new wxCheckBox(this, wxID_ANY, "Show grid");
   m_showGrid->SetValue(cfg.GetFloat("grid_show") != 0.0f);
   m_showGrid->Bind(wxEVT_CHECKBOX, &Viewer2DRenderPanel::OnShowGrid, this);
@@ -72,6 +78,7 @@ Viewer2DRenderPanel::Viewer2DRenderPanel(wxWindow *parent)
 
   auto *sizer = new wxBoxSizer(wxVERTICAL);
   sizer->Add(m_radio, 0, wxALL, 5);
+  sizer->Add(m_view, 0, wxALL, 5);
 
   auto *gridBox = new wxStaticBoxSizer(wxVERTICAL, this, "Grid");
   gridBox->Add(m_showGrid, 0, wxALL, 5);
@@ -209,5 +216,13 @@ void Viewer2DRenderPanel::OnLabelAddressSize(wxSpinEvent &evt) {
       static_cast<float>(m_labelAddressSize->GetValue()));
   if (auto *vp = Viewer2DPanel::Instance())
     vp->UpdateScene(false);
+  evt.Skip();
+}
+
+void Viewer2DRenderPanel::OnView(wxCommandEvent &evt) {
+  if (auto *vp = Viewer2DPanel::Instance()) {
+    vp->SetView(static_cast<Viewer2DView>(m_view->GetSelection()));
+    vp->UpdateScene(false);
+  }
   evt.Skip();
 }

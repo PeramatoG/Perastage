@@ -24,6 +24,9 @@ public:
   void SetRenderMode(Viewer2DRenderMode mode);
   Viewer2DRenderMode GetRenderMode() const { return m_renderMode; }
 
+  void SetView(Viewer2DView view);
+  Viewer2DView GetView() const { return m_view; }
+
 private:
   void InitGL();
   void Render();
@@ -49,6 +52,7 @@ private:
   bool m_glInitialized = false;
   Viewer3DController m_controller;
   Viewer2DRenderMode m_renderMode = Viewer2DRenderMode::White;
+  Viewer2DView m_view = Viewer2DView::Top;
 
   wxDECLARE_EVENT_TABLE();
 };

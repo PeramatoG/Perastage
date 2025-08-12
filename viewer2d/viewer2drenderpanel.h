@@ -25,8 +25,10 @@ private:
   void OnLabelNameSize(wxSpinEvent &evt);
   void OnLabelIdSize(wxSpinEvent &evt);
   void OnLabelAddressSize(wxSpinEvent &evt);
+  void OnView(wxCommandEvent &evt);
 
   wxRadioBox *m_radio = nullptr;
+  wxRadioBox *m_view = nullptr;
   wxCheckBox *m_showGrid = nullptr;
   wxRadioBox *m_gridStyle = nullptr;
   wxColourPickerCtrl *m_gridColor = nullptr;
