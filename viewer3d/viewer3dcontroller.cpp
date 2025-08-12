@@ -44,8 +44,6 @@ namespace fs = std::filesystem;
 
 // Font size for on-screen labels drawn with NanoVG in the 3D viewer
 static constexpr float LABEL_FONT_SIZE_3D = 18.0f;
-// Font size for labels in the 2D top-down viewer
-static constexpr float LABEL_FONT_SIZE_2D = 2.0f;
 // Maximum width for on-screen labels before wrapping
 static constexpr float LABEL_MAX_WIDTH = 300.0f;
 // Width of fixture labels in meters for the 2D view
@@ -235,6 +233,55 @@ static void DrawText2D(NVGcontext *vg, int font, const std::string &text, int x,
   nvgFillColor(vg, textColor);
   // Draw multi-line label using textWidth to avoid excessive empty space.
   nvgTextBox(vg, (float)x, (float)y, textWidth, text.c_str(), nullptr);
+  nvgRestore(vg);
+  nvgEndFrame(vg);
+}
+
+struct LabelLine2D {
+  int font;
+  std::string text;
+  float size;
+};
+
+static void
+DrawLabelLines2D(NVGcontext *vg, const std::vector<LabelLine2D> &lines, int x,
+                 int y, NVGcolor textColor = nvgRGBAf(1.f, 1.f, 1.f, 1.f)) {
+  if (!vg || lines.empty())
+    return;
+
+  GLint vp[4];
+  glGetIntegerv(GL_VIEWPORT, vp);
+  nvgBeginFrame(vg, vp[2], vp[3], 1.0f);
+  nvgSave(vg);
+
+  const float lineSpacing = 2.0f;
+  std::vector<float> heights(lines.size());
+  for (size_t i = 0; i < lines.size(); ++i) {
+    nvgFontSize(vg, lines[i].size);
+    nvgFontFaceId(vg, lines[i].font);
+    nvgTextAlign(vg, NVG_ALIGN_CENTER | NVG_ALIGN_TOP);
+    float bounds[4];
+    nvgTextBounds(vg, 0.f, 0.f, lines[i].text.c_str(), nullptr, bounds);
+    heights[i] = bounds[3] - bounds[1];
+  }
+
+  float totalHeight = 0.0f;
+  for (size_t i = 0; i < heights.size(); ++i) {
+    totalHeight += heights[i];
+    if (i + 1 < heights.size())
+      totalHeight += lineSpacing;
+  }
+
+  float currentY = y - totalHeight * 0.5f;
+  for (size_t i = 0; i < lines.size(); ++i) {
+    nvgFontSize(vg, lines[i].size);
+    nvgFontFaceId(vg, lines[i].font);
+    nvgTextAlign(vg, NVG_ALIGN_CENTER | NVG_ALIGN_TOP);
+    nvgFillColor(vg, textColor);
+    nvgText(vg, (float)x, currentY, lines[i].text.c_str(), nullptr);
+    currentY += heights[i] + lineSpacing;
+  }
+
   nvgRestore(vg);
   nvgEndFrame(vg);
 }
@@ -1273,6 +1320,9 @@ void Viewer3DController::DrawFixtureLabels(int width, int height) {
   bool showName = cfg.GetFloat("label_show_name") != 0.0f;
   bool showId = cfg.GetFloat("label_show_id") != 0.0f;
   bool showDmx = cfg.GetFloat("label_show_dmx") != 0.0f;
+  float nameSize = cfg.GetFloat("label_font_size_name") * zoom;
+  float idSize = cfg.GetFloat("label_font_size_id") * zoom;
+  float dmxSize = cfg.GetFloat("label_font_size_dmx") * zoom;
 
   const auto &fixtures = SceneDataManager::Instance().GetFixtures();
   for (const auto &[uuid, f] : fixtures) {
@@ -1345,6 +1395,9 @@ void Viewer3DController::DrawAllFixtureLabels(int width, int height,
   bool showName = cfg.GetFloat("label_show_name") != 0.0f;
   bool showId = cfg.GetFloat("label_show_id") != 0.0f;
   bool showDmx = cfg.GetFloat("label_show_dmx") != 0.0f;
+  float nameSize = cfg.GetFloat("label_font_size_name") * zoom;
+  float idSize = cfg.GetFloat("label_font_size_id") * zoom;
+  float dmxSize = cfg.GetFloat("label_font_size_dmx") * zoom;
 
   const auto &fixtures = SceneDataManager::Instance().GetFixtures();
   for (const auto &[uuid, f] : fixtures) {
@@ -1373,30 +1426,32 @@ void Viewer3DController::DrawAllFixtureLabels(int width, int height,
     // label sits just below the fixture.
     int y = height - static_cast<int>(sy) + 10;
 
-    wxString label;
+    std::vector<LabelLine2D> lines;
     if (showName) {
       wxString baseName = f.instanceName.empty()
                               ? wxString::FromUTF8(uuid)
                               : wxString::FromUTF8(f.instanceName);
-      label = WrapEveryTwoWords(baseName);
+      wxString wrapped = WrapEveryTwoWords(baseName);
+      auto utf8 = wrapped.ToUTF8();
+      lines.push_back(
+          {m_font, std::string(utf8.data(), utf8.length()), nameSize});
     }
     if (showId) {
-      if (!label.empty())
-        label += "\n";
-      label += "ID: " + wxString::Format("%d", f.fixtureId);
+      wxString idLine = "ID: " + wxString::Format("%d", f.fixtureId);
+      auto utf8 = idLine.ToUTF8();
+      lines.push_back(
+          {m_font, std::string(utf8.data(), utf8.length()), idSize});
     }
     if (showDmx && !f.address.empty()) {
-      if (!label.empty())
-        label += "\n";
-      label += wxString::FromUTF8(f.address);
+      wxString addrLine = wxString::FromUTF8(f.address);
+      auto utf8 = addrLine.ToUTF8();
+      lines.push_back(
+          {m_font, std::string(utf8.data(), utf8.length()), dmxSize});
     }
-    if (label.empty())
+    if (lines.empty())
       continue;
 
-    auto utf8 = label.ToUTF8();
-    float fontSize = LABEL_FONT_SIZE_2D * zoom;
-    DrawText2D(m_vg, m_font, std::string(utf8.data(), utf8.length()), x, y,
-               fontSize, 0.0f, false, false, nvgRGBAf(0.f, 0.f, 0.f, 1.f));
+    DrawLabelLines2D(m_vg, lines, x, y, nvgRGBAf(0.f, 0.f, 0.f, 1.f));
   }
 }
 

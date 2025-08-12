@@ -40,16 +40,33 @@ Viewer2DRenderPanel::Viewer2DRenderPanel(wxWindow *parent) : wxPanel(parent) {
   m_showLabelName->SetValue(cfg.GetFloat("label_show_name") != 0.0f);
   m_showLabelName->Bind(wxEVT_CHECKBOX, &Viewer2DRenderPanel::OnShowLabelName,
                         this);
+  m_labelNameSize = new wxSpinCtrl(this, wxID_ANY);
+  m_labelNameSize->SetRange(1, 5);
+  m_labelNameSize->SetValue(
+      static_cast<int>(cfg.GetFloat("label_font_size_name")));
+  m_labelNameSize->Bind(wxEVT_SPINCTRL, &Viewer2DRenderPanel::OnLabelNameSize,
+                        this);
 
   m_showLabelId = new wxCheckBox(this, wxID_ANY, "Show ID");
   m_showLabelId->SetValue(cfg.GetFloat("label_show_id") != 0.0f);
   m_showLabelId->Bind(wxEVT_CHECKBOX, &Viewer2DRenderPanel::OnShowLabelId,
+                      this);
+  m_labelIdSize = new wxSpinCtrl(this, wxID_ANY);
+  m_labelIdSize->SetRange(1, 5);
+  m_labelIdSize->SetValue(static_cast<int>(cfg.GetFloat("label_font_size_id")));
+  m_labelIdSize->Bind(wxEVT_SPINCTRL, &Viewer2DRenderPanel::OnLabelIdSize,
                       this);
 
   m_showLabelAddress = new wxCheckBox(this, wxID_ANY, "Show DMX address");
   m_showLabelAddress->SetValue(cfg.GetFloat("label_show_dmx") != 0.0f);
   m_showLabelAddress->Bind(wxEVT_CHECKBOX,
                            &Viewer2DRenderPanel::OnShowLabelAddress, this);
+  m_labelAddressSize = new wxSpinCtrl(this, wxID_ANY);
+  m_labelAddressSize->SetRange(1, 5);
+  m_labelAddressSize->SetValue(
+      static_cast<int>(cfg.GetFloat("label_font_size_dmx")));
+  m_labelAddressSize->Bind(wxEVT_SPINCTRL,
+                           &Viewer2DRenderPanel::OnLabelAddressSize, this);
 
   auto *sizer = new wxBoxSizer(wxVERTICAL);
   sizer->Add(m_radio, 0, wxALL, 5);
@@ -66,9 +83,27 @@ Viewer2DRenderPanel::Viewer2DRenderPanel(wxWindow *parent) : wxPanel(parent) {
   sizer->Add(gridBox, 0, wxALL, 5);
 
   auto *labelBox = new wxStaticBoxSizer(wxVERTICAL, this, "Labels");
-  labelBox->Add(m_showLabelName, 0, wxALL, 5);
-  labelBox->Add(m_showLabelId, 0, wxALL, 5);
-  labelBox->Add(m_showLabelAddress, 0, wxALL, 5);
+  auto *nameSizer = new wxBoxSizer(wxHORIZONTAL);
+  nameSizer->Add(m_showLabelName, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 5);
+  nameSizer->Add(new wxStaticText(this, wxID_ANY, "Size"), 0,
+                 wxALIGN_CENTER_VERTICAL | wxRIGHT, 5);
+  nameSizer->Add(m_labelNameSize, 0);
+  labelBox->Add(nameSizer, 0, wxALL, 5);
+
+  auto *idSizer = new wxBoxSizer(wxHORIZONTAL);
+  idSizer->Add(m_showLabelId, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 5);
+  idSizer->Add(new wxStaticText(this, wxID_ANY, "Size"), 0,
+               wxALIGN_CENTER_VERTICAL | wxRIGHT, 5);
+  idSizer->Add(m_labelIdSize, 0);
+  labelBox->Add(idSizer, 0, wxALL, 5);
+
+  auto *addrSizer = new wxBoxSizer(wxHORIZONTAL);
+  addrSizer->Add(m_showLabelAddress, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 5);
+  addrSizer->Add(new wxStaticText(this, wxID_ANY, "Size"), 0,
+                 wxALIGN_CENTER_VERTICAL | wxRIGHT, 5);
+  addrSizer->Add(m_labelAddressSize, 0);
+  labelBox->Add(addrSizer, 0, wxALL, 5);
+
   sizer->Add(labelBox, 0, wxALL, 5);
 
   SetSizerAndFit(sizer);
@@ -142,6 +177,31 @@ void Viewer2DRenderPanel::OnShowLabelId(wxCommandEvent &evt) {
 void Viewer2DRenderPanel::OnShowLabelAddress(wxCommandEvent &evt) {
   ConfigManager::Get().SetFloat("label_show_dmx",
                                 m_showLabelAddress->GetValue() ? 1.0f : 0.0f);
+  if (auto *vp = Viewer2DPanel::Instance())
+    vp->UpdateScene(false);
+  evt.Skip();
+}
+
+void Viewer2DRenderPanel::OnLabelNameSize(wxSpinEvent &evt) {
+  ConfigManager::Get().SetFloat(
+      "label_font_size_name", static_cast<float>(m_labelNameSize->GetValue()));
+  if (auto *vp = Viewer2DPanel::Instance())
+    vp->UpdateScene(false);
+  evt.Skip();
+}
+
+void Viewer2DRenderPanel::OnLabelIdSize(wxSpinEvent &evt) {
+  ConfigManager::Get().SetFloat("label_font_size_id",
+                                static_cast<float>(m_labelIdSize->GetValue()));
+  if (auto *vp = Viewer2DPanel::Instance())
+    vp->UpdateScene(false);
+  evt.Skip();
+}
+
+void Viewer2DRenderPanel::OnLabelAddressSize(wxSpinEvent &evt) {
+  ConfigManager::Get().SetFloat(
+      "label_font_size_dmx",
+      static_cast<float>(m_labelAddressSize->GetValue()));
   if (auto *vp = Viewer2DPanel::Instance())
     vp->UpdateScene(false);
   evt.Skip();
