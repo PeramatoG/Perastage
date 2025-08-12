@@ -78,9 +78,11 @@ private:
   void DrawCube(float size = 0.2f, float r = 1.0f, float g = 1.0f,
                 float b = 1.0f);
 
-  // Draws a wireframe cube centered at origin with given size and color
+  // Draws a wireframe cube centered at origin with given size and color.
+  // Line thickness is reduced only for the pure wireframe render mode.
   void DrawWireframeCube(float size = 0.3f, float r = 1.0f, float g = 1.0f,
-                         float b = 0.0f);
+                         float b = 0.0f,
+                         Viewer2DRenderMode mode = Viewer2DRenderMode::White);
 
   // Draws a wireframe box with independent dimensions. Length corresponds
   // to the X axis, width to Y and height to Z. The box's origin is at the
