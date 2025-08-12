@@ -60,6 +60,13 @@ ConfigManager::ConfigManager() {
   RegisterVariable("rider_lx4_margin", "float", 0.2f, 0.0f, 10.0f);
   RegisterVariable("rider_lx5_margin", "float", 0.2f, 0.0f, 10.0f);
   RegisterVariable("rider_lx6_margin", "float", 0.2f, 0.0f, 10.0f);
+  // Grid rendering options
+  RegisterVariable("grid_show", "float", 1.0f, 0.0f, 1.0f);
+  RegisterVariable("grid_style", "float", 0.0f, 0.0f, 2.0f);
+  RegisterVariable("grid_color_r", "float", 0.35f, 0.0f, 1.0f);
+  RegisterVariable("grid_color_g", "float", 0.35f, 0.0f, 1.0f);
+  RegisterVariable("grid_color_b", "float", 0.35f, 0.0f, 1.0f);
+  RegisterVariable("grid_draw_above", "float", 0.0f, 0.0f, 1.0f);
   LoadUserConfig();
   if (!HasKey("rider_autopatch"))
     SetValue("rider_autopatch", "1");

@@ -121,7 +121,7 @@ private:
   void ApplyTransform(const float matrix[16], bool scaleTranslation = true);
 
   // Draws the reference grid on the Z=0 plane
-  void DrawGrid();
+  void DrawGrid(int style, float r, float g, float b);
 
   // Draws the XYZ axis lines
   void DrawAxes();
