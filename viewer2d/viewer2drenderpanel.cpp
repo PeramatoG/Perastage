@@ -8,7 +8,7 @@ Viewer2DRenderPanel::Viewer2DRenderPanel(wxWindow* parent) : wxPanel(parent) {
     SetInstance(this);
     wxString choices[] = {"Wireframe", "White", "By device type", "By layer"};
     m_radio = new wxRadioBox(this, wxID_ANY, "Render mode", wxDefaultPosition,
-                             wxDefaultSize, 4, choices, 1, wxRA_SPECIFY_ROWS);
+                             wxDefaultSize, 4, choices, 1, wxRA_SPECIFY_COLS);
     m_radio->SetSelection(1); // default to White
     m_radio->Bind(wxEVT_RADIOBOX, &Viewer2DRenderPanel::OnRadio, this);
     auto* sizer = new wxBoxSizer(wxVERTICAL);
