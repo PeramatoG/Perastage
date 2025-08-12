@@ -23,6 +23,14 @@ struct NVGcontext;
 // them to meters when rendering.
 static constexpr float RENDER_SCALE = 0.001f;
 
+// Rendering options for the simplified 2D top-down view
+enum class Viewer2DRenderMode {
+  Wireframe = 0,
+  White,
+  ByFixtureType,
+  ByLayer
+};
+
 class Viewer3DController {
 public:
   Viewer3DController();
@@ -35,8 +43,10 @@ public:
   void Update();
 
   // Renders all scene objects. When wireframe is true lighting is disabled
-  // and geometry is drawn using black lines only.
-  void RenderScene(bool wireframe = false);
+  // and geometry is drawn using black lines only. The optional mode controls
+  // coloring when rendering the simplified 2D view.
+  void RenderScene(bool wireframe = false,
+                   Viewer2DRenderMode mode = Viewer2DRenderMode::White);
 
   // Fixture UUID currently highlighted (hovered)
   void SetHighlightUuid(const std::string &uuid);
@@ -78,7 +88,8 @@ private:
   // with the ground. It is tinted based on selection/highlight state.
   void DrawWireframeBox(float length, float height, float width,
                         bool highlight = false, bool selected = false,
-                        bool wireframe = false);
+                        bool wireframe = false,
+                        Viewer2DRenderMode mode = Viewer2DRenderMode::White);
 
   // Draws a colored mesh. When selected or highlighted the mesh is tinted
   // in cyan or green. The optional center offset parameters are kept for
@@ -87,7 +98,8 @@ private:
                            float b = 1.0f, float scale = RENDER_SCALE,
                            bool highlight = false, bool selected = false,
                            float cx = 0.0f, float cy = 0.0f, float cz = 0.0f,
-                           bool wireframe = false);
+                           bool wireframe = false,
+                           Viewer2DRenderMode mode = Viewer2DRenderMode::White);
 
   // Draws only the mesh edges for wireframe rendering
   void DrawMeshWireframe(const Mesh &mesh, float scale = RENDER_SCALE);
@@ -98,7 +110,8 @@ private:
                            float b = 1.0f, bool highlight = false,
                            bool selected = false, float cx = 0.0f,
                            float cy = 0.0f, float cz = 0.0f,
-                           bool wireframe = false);
+                           bool wireframe = false,
+                           Viewer2DRenderMode mode = Viewer2DRenderMode::White);
 
   // Applies the object's transformation matrix. When scaleTranslation
   // is true the translation part is converted from millimeters to
@@ -135,6 +148,10 @@ private:
   std::unordered_map<std::string, BoundingBox> m_fixtureBounds;
   std::unordered_map<std::string, BoundingBox> m_trussBounds;
   std::unordered_map<std::string, BoundingBox> m_objectBounds;
+
+  // Randomly assigned colors for fixture types and layers in 2D view
+  std::unordered_map<std::string, std::array<float, 3>> m_typeColors;
+  std::unordered_map<std::string, std::array<float, 3>> m_layerColors;
 
   // Currently highlighted fixture UUID
   std::string m_highlightUuid;
