@@ -239,76 +239,6 @@ static void DrawText2D(NVGcontext *vg, int font, const std::string &text, int x,
   nvgEndFrame(vg);
 }
 
-struct LabelPart {
-  std::string text;
-  float size = LABEL_FONT_SIZE_3D;
-  int font = -1;
-  NVGcolor color = nvgRGBAf(1.f, 1.f, 1.f, 1.f);
-};
-
-static void DrawLabelParts(NVGcontext *vg, const std::vector<LabelPart> &parts,
-                           int x, int y, bool drawBackground = true,
-                           bool drawBorder = true) {
-  if (!vg || parts.empty())
-    return;
-
-  GLint vp[4];
-  glGetIntegerv(GL_VIEWPORT, vp);
-  nvgBeginFrame(vg, vp[2], vp[3], 1.0f);
-  nvgSave(vg);
-  nvgTextAlign(vg, NVG_ALIGN_CENTER | NVG_ALIGN_TOP);
-
-  float maxWidth = 0.f;
-  float totalHeight = 0.f;
-  std::vector<float> heights;
-  heights.reserve(parts.size());
-  for (const auto &p : parts) {
-    nvgFontFaceId(vg, p.font);
-    nvgFontSize(vg, p.size);
-    float b[4];
-    nvgTextBounds(vg, 0.f, 0.f, p.text.c_str(), nullptr, b);
-    float w = b[2] - b[0];
-    float h = b[3] - b[1];
-    maxWidth = std::max(maxWidth, w);
-    heights.push_back(h);
-    totalHeight += h;
-  }
-
-  float top = y - totalHeight * 0.5f;
-  const float padding = 4.f;
-  float boxX = x - maxWidth * 0.5f - padding;
-  float boxY = top - padding;
-  float boxW = maxWidth + padding * 2.f;
-  float boxH = totalHeight + padding * 2.f;
-
-  if (drawBackground) {
-    nvgBeginPath(vg);
-    nvgRect(vg, boxX, boxY, boxW, boxH);
-    nvgFillColor(vg, nvgRGBAf(0.f, 0.f, 0.f, 0.6f));
-    nvgFill(vg);
-  }
-  if (drawBorder) {
-    nvgBeginPath(vg);
-    nvgRect(vg, boxX, boxY, boxW, boxH);
-    nvgStrokeColor(vg, nvgRGBAf(1.f, 1.f, 1.f, 0.8f));
-    nvgStrokeWidth(vg, 1.0f);
-    nvgStroke(vg);
-  }
-
-  float offset = 0.f;
-  for (size_t i = 0; i < parts.size(); ++i) {
-    const auto &p = parts[i];
-    nvgFontFaceId(vg, p.font);
-    nvgFontSize(vg, p.size);
-    nvgFillColor(vg, p.color);
-    nvgText(vg, (float)x, top + offset, p.text.c_str(), nullptr);
-    offset += heights[i];
-  }
-
-  nvgRestore(vg);
-  nvgEndFrame(vg);
-}
-
 static std::array<float, 3> TransformPoint(const Matrix &m,
                                            const std::array<float, 3> &p) {
   return {m.u[0] * p[0] + m.v[0] * p[1] + m.w[0] * p[2] + m.o[0],
@@ -332,56 +262,19 @@ void Viewer3DController::InitializeGL() {
 
   m_vg = nvgCreateGL2(NVG_ANTIALIAS | NVG_STENCIL_STROKES);
   if (m_vg) {
-    const char *regularPaths[] = {
+    const char *fontPaths[] = {
 #ifdef _WIN32
         "C:/Windows/Fonts/arial.ttf",
 #endif
         "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", nullptr};
-    const char *boldPaths[] = {
-#ifdef _WIN32
-        "C:/Windows/Fonts/arialbd.ttf",
-#endif
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", nullptr};
-    const char *italicPaths[] = {
-#ifdef _WIN32
-        "C:/Windows/Fonts/ariali.ttf",
-#endif
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Oblique.ttf", nullptr};
-    const char *boldItalicPaths[] = {
-#ifdef _WIN32
-        "C:/Windows/Fonts/arialbi.ttf",
-#endif
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans-BoldOblique.ttf", nullptr};
 
-    for (const char **p = regularPaths; *p; ++p) {
+    for (const char **p = fontPaths; *p; ++p) {
       if (fs::exists(*p)) {
         m_font = nvgCreateFont(m_vg, "sans", *p);
         if (m_font >= 0)
           break;
       }
     }
-    for (const char **p = boldPaths; *p; ++p) {
-      if (fs::exists(*p)) {
-        m_fontBold = nvgCreateFont(m_vg, "sans-bold", *p);
-        if (m_fontBold >= 0)
-          break;
-      }
-    }
-    for (const char **p = italicPaths; *p; ++p) {
-      if (fs::exists(*p)) {
-        m_fontItalic = nvgCreateFont(m_vg, "sans-italic", *p);
-        if (m_fontItalic >= 0)
-          break;
-      }
-    }
-    for (const char **p = boldItalicPaths; *p; ++p) {
-      if (fs::exists(*p)) {
-        m_fontBoldItalic = nvgCreateFont(m_vg, "sans-bold-italic", *p);
-        if (m_fontBoldItalic >= 0)
-          break;
-      }
-    }
-
     if (m_font < 0)
       std::cerr << "Failed to load font for labels" << std::endl;
   } else {
@@ -1301,7 +1194,7 @@ void Viewer3DController::DrawGrid(int style, float r, float g, float b) {
     }
     glEnd();
   } else {
-    float half = step * 0.1f;
+    float half = step * 0.2f;
     glLineWidth(1.0f);
     glBegin(GL_LINES);
     for (float x = -size; x <= size; x += step) {
@@ -1408,47 +1301,15 @@ void Viewer3DController::DrawFixtureLabels(int width, int height) {
 
     int x = static_cast<int>(sx);
     int y = height - static_cast<int>(sy);
-    ConfigManager &cfg = ConfigManager::Get();
-    bool showName = cfg.GetFloat("label_show_name") != 0.0f;
-    bool showId = cfg.GetFloat("label_show_id") != 0.0f;
-    bool showPatch = cfg.GetFloat("label_show_patch") != 0.0f;
-    std::vector<LabelPart> parts;
-    if (showName) {
-      wxString nm = f.instanceName.empty() ? wxString::FromUTF8(uuid)
-                                           : wxString::FromUTF8(f.instanceName);
-      auto u = nm.ToUTF8();
-      parts.push_back({std::string(u.data(), u.length()),
-                       cfg.GetFloat("label_name_size"),
-                       GetFontHandle(cfg.GetFloat("label_name_bold") != 0.0f,
-                                     cfg.GetFloat("label_name_italic") != 0.0f),
-                       nvgRGBAf(cfg.GetFloat("label_name_color_r"),
-                                cfg.GetFloat("label_name_color_g"),
-                                cfg.GetFloat("label_name_color_b"), 1.f)});
-    }
-    if (showId) {
-      wxString id = "ID: " + wxString::Format("%d", f.fixtureId);
-      auto u = id.ToUTF8();
-      parts.push_back({std::string(u.data(), u.length()),
-                       cfg.GetFloat("label_id_size"),
-                       GetFontHandle(cfg.GetFloat("label_id_bold") != 0.0f,
-                                     cfg.GetFloat("label_id_italic") != 0.0f),
-                       nvgRGBAf(cfg.GetFloat("label_id_color_r"),
-                                cfg.GetFloat("label_id_color_g"),
-                                cfg.GetFloat("label_id_color_b"), 1.f)});
-    }
-    if (showPatch && !f.address.empty()) {
-      wxString addr = wxString::FromUTF8(f.address);
-      auto u = addr.ToUTF8();
-      parts.push_back({std::string(u.data(), u.length()),
-                       cfg.GetFloat("label_patch_size"),
-                       GetFontHandle(cfg.GetFloat("label_patch_bold") != 0.0f,
-                                     cfg.GetFloat("label_patch_italic") != 0.0f),
-                       nvgRGBAf(cfg.GetFloat("label_patch_color_r"),
-                                cfg.GetFloat("label_patch_color_g"),
-                                cfg.GetFloat("label_patch_color_b"), 1.f)});
-    }
-    if (!parts.empty())
-      DrawLabelParts(m_vg, parts, x, y);
+    wxString label = f.instanceName.empty()
+                         ? wxString::FromUTF8(uuid)
+                         : wxString::FromUTF8(f.instanceName);
+    label += "\nID: " + wxString::Format("%d", f.fixtureId);
+    if (!f.address.empty())
+      label += "\n" + wxString::FromUTF8(f.address);
+
+    auto utf8 = label.ToUTF8();
+    DrawText2D(m_vg, m_font, std::string(utf8.data(), utf8.length()), x, y);
   }
 }
 
@@ -1491,51 +1352,23 @@ void Viewer3DController::DrawAllFixtureLabels(int width, int height,
       continue;
 
     int x = static_cast<int>(sx);
+    // Convert OpenGL's origin to top-left and move a few pixels downward so the
+    // label sits just below the fixture.
     int y = height - static_cast<int>(sy) + 10;
-    ConfigManager &cfg = ConfigManager::Get();
-    bool showName = cfg.GetFloat("label_show_name") != 0.0f;
-    bool showId = cfg.GetFloat("label_show_id") != 0.0f;
-    bool showPatch = cfg.GetFloat("label_show_patch") != 0.0f;
-    std::vector<LabelPart> parts;
-    if (showName) {
-      wxString baseName = f.instanceName.empty()
-                              ? wxString::FromUTF8(uuid)
-                              : wxString::FromUTF8(f.instanceName);
-      wxString nm = WrapEveryTwoWords(baseName);
-      auto u = nm.ToUTF8();
-      parts.push_back({std::string(u.data(), u.length()),
-                       cfg.GetFloat("label_name_size") * zoom,
-                       GetFontHandle(cfg.GetFloat("label_name_bold") != 0.0f,
-                                     cfg.GetFloat("label_name_italic") != 0.0f),
-                       nvgRGBAf(cfg.GetFloat("label_name_color_r"),
-                                cfg.GetFloat("label_name_color_g"),
-                                cfg.GetFloat("label_name_color_b"), 1.f)});
-    }
-    if (showId) {
-      wxString id = "ID: " + wxString::Format("%d", f.fixtureId);
-      auto u = id.ToUTF8();
-      parts.push_back({std::string(u.data(), u.length()),
-                       cfg.GetFloat("label_id_size") * zoom,
-                       GetFontHandle(cfg.GetFloat("label_id_bold") != 0.0f,
-                                     cfg.GetFloat("label_id_italic") != 0.0f),
-                       nvgRGBAf(cfg.GetFloat("label_id_color_r"),
-                                cfg.GetFloat("label_id_color_g"),
-                                cfg.GetFloat("label_id_color_b"), 1.f)});
-    }
-    if (showPatch) {
-      wxString addr =
-          f.address.empty() ? wxString() : wxString::FromUTF8(f.address);
-      auto u = addr.ToUTF8();
-      parts.push_back({std::string(u.data(), u.length()),
-                       cfg.GetFloat("label_patch_size") * zoom,
-                       GetFontHandle(cfg.GetFloat("label_patch_bold") != 0.0f,
-                                     cfg.GetFloat("label_patch_italic") != 0.0f),
-                       nvgRGBAf(cfg.GetFloat("label_patch_color_r"),
-                                cfg.GetFloat("label_patch_color_g"),
-                                cfg.GetFloat("label_patch_color_b"), 1.f)});
-    }
-    if (!parts.empty())
-      DrawLabelParts(m_vg, parts, x, y, false, false);
+
+    wxString baseName = f.instanceName.empty()
+                            ? wxString::FromUTF8(uuid)
+                            : wxString::FromUTF8(f.instanceName);
+    wxString label = WrapEveryTwoWords(baseName);
+    label += "\nID: " + wxString::Format("%d", f.fixtureId);
+    wxString addr =
+        f.address.empty() ? wxString() : wxString::FromUTF8(f.address);
+    label += "\n" + addr;
+
+    auto utf8 = label.ToUTF8();
+    float fontSize = LABEL_FONT_SIZE_2D * zoom;
+    DrawText2D(m_vg, m_font, std::string(utf8.data(), utf8.length()), x, y,
+               fontSize, 0.0f, false, false, nvgRGBAf(0.f, 0.f, 0.f, 1.f));
   }
 }
 
@@ -1604,28 +1437,12 @@ bool Viewer3DController::GetFixtureLabelAt(int mouseX, int mouseY, int width,
         bestDepth = minDepth;
         bestPos.x = static_cast<int>((rect.minX + rect.maxX) * 0.5);
         bestPos.y = static_cast<int>((rect.minY + rect.maxY) * 0.5);
-        ConfigManager &cfg = ConfigManager::Get();
-        bool showName = cfg.GetFloat("label_show_name") != 0.0f;
-        bool showId = cfg.GetFloat("label_show_id") != 0.0f;
-        bool showPatch = cfg.GetFloat("label_show_patch") != 0.0f;
-        bestLabel.clear();
-        if (showName) {
-          bestLabel = f.instanceName.empty() ? wxString::FromUTF8(uuid)
-                                             : wxString::FromUTF8(f.instanceName);
-        }
-        if (showId) {
-          if (!bestLabel.empty())
-            bestLabel += "\n";
-          bestLabel += "ID: " + wxString::Format("%d", f.fixtureId);
-        }
-        if (showPatch) {
-          wxString addr = f.address.empty() ? wxString() : wxString::FromUTF8(f.address);
-          if (!addr.empty()) {
-            if (!bestLabel.empty())
-              bestLabel += "\n";
-            bestLabel += addr;
-          }
-        }
+        bestLabel = f.instanceName.empty() ? wxString::FromUTF8(uuid)
+                                           : wxString::FromUTF8(f.instanceName);
+        bestLabel += "\nID: " + wxString::Format("%d", f.fixtureId);
+        wxString addr =
+            f.address.empty() ? wxString() : wxString::FromUTF8(f.address);
+        bestLabel += "\n" + addr;
         bestUuid = uuid;
         found = true;
       }
@@ -1639,16 +1456,6 @@ bool Viewer3DController::GetFixtureLabelAt(int mouseX, int mouseY, int width,
       *outUuid = bestUuid;
   }
   return found;
-}
-
-int Viewer3DController::GetFontHandle(bool bold, bool italic) const {
-  if (bold && italic && m_fontBoldItalic >= 0)
-    return m_fontBoldItalic;
-  if (bold && m_fontBold >= 0)
-    return m_fontBold;
-  if (italic && m_fontItalic >= 0)
-    return m_fontItalic;
-  return m_font;
 }
 
 void Viewer3DController::DrawTrussLabels(int width, int height) {
