@@ -853,6 +853,12 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
     (void)g; // groups not implemented
   }
 
+  if (showGrid && gridOnTop) {
+    glDisable(GL_DEPTH_TEST);
+    DrawGrid(gridStyle, gridR, gridG, gridB, view);
+    glEnable(GL_DEPTH_TEST);
+  }
+
   DrawAxes();
 }
 
@@ -947,12 +953,6 @@ void Viewer3DController::DrawWireframeCube(float size, float r, float g,
     glVertex3f(x0, y1, z1);
     glEnd();
     glDisable(GL_POLYGON_OFFSET_FILL);
-  }
-
-  if (showGrid && gridOnTop) {
-    glDisable(GL_DEPTH_TEST);
-    DrawGrid(gridStyle, gridR, gridG, gridB, view);
-    glEnable(GL_DEPTH_TEST);
   }
 }
 
