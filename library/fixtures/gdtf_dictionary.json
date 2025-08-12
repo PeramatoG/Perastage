@@ -10,9 +10,21 @@
     "Chauvet Color Strike M": {
         "path": "C:\\codigoscpp\\Perastage\\out\\build\\x64-debug\\library\\fixtures\\Custom@Light_Instr_Chauvet_Color_Strike_M.gdtf"
     },
+    "Elan Strobe 1000 RGBW (Bulb=LED)": {
+        "mode": "16-Channel Mode",
+        "path": "C:\\codigoscpp\\Perastage\\out\\build\\x64-debug\\library\\fixtures\\Strobe 1000 RGBW.gdtf"
+    },
     "LITELEES B-EYE L10R (LIBRERÍA K10)": {
         "mode": "Shapes",
         "path": "C:\\codigoscpp\\Perastage\\out\\build\\x64-debug\\library\\fixtures\\Aleda B-EYE K10.gdtf"
+    },
+    "MAC Quantum Profile": {
+        "mode": "Extended",
+        "path": "C:\\codigoscpp\\Perastage\\out\\build\\x64-debug\\library\\fixtures\\MAC Quantum Profile.gdtf"
+    },
+    "MAC Quantum Wash": {
+        "mode": "Basic",
+        "path": "C:\\codigoscpp\\Perastage\\out\\build\\x64-debug\\library\\fixtures\\MAC Quantum Wash.gdtf"
     },
     "MARK BEAM 201": {
         "mode": "Standard",
@@ -25,6 +37,10 @@
     "MARTIN MAC QUANTUM WASH": {
         "mode": "Basic",
         "path": "C:\\codigoscpp\\Perastage\\out\\build\\x64-debug\\library\\fixtures\\MAC Quantum Wash.gdtf"
+    },
+    "Molefay Four Light (Bulb=DXK)": {
+        "mode": "8CH Standard Mode",
+        "path": "C:\\codigoscpp\\Perastage\\out\\build\\x64-debug\\library\\fixtures\\BLINDER 400.gdtf"
     },
     "PIXEL STROBE 400 RGB": {
         "mode": "2ch d001",
@@ -42,7 +58,12 @@
         "mode": "25ch",
         "path": "C:\\codigoscpp\\Perastage\\out\\build\\x64-debug\\library\\fixtures\\XBEAM 17 CMY.gdtf"
     },
+    "Robin MegaPointe (Bulb=Sirius HRI 475W)": {
+        "mode": "Mode 1 - Standard 16 - bit",
+        "path": "C:\\codigoscpp\\Perastage\\out\\build\\x64-debug\\library\\fixtures\\Robin MegaPointe.gdtf"
+    },
     "Robin Spiider": {
+        "mode": "Mode 3 - Advanced",
         "path": "C:\\codigoscpp\\Perastage\\out\\build\\x64-debug\\library\\fixtures\\Robin Spiider.gdtf"
     },
     "Robin iEsprite": {
@@ -51,7 +72,23 @@
     "Robin iSpiiderX": {
         "path": "C:\\codigoscpp\\Perastage\\out\\build\\x64-debug\\library\\fixtures\\Robin iSpiiderX.gdtf"
     },
+    "Sharpy": {
+        "mode": "Vector",
+        "path": "C:\\codigoscpp\\Perastage\\out\\build\\x64-debug\\library\\fixtures\\Sharpy.gdtf"
+    },
+    "Spiider (Bulb=LED)": {
+        "mode": "Mode 10 - Pattern full RGBW",
+        "path": "C:\\codigoscpp\\Perastage\\out\\build\\x64-debug\\library\\fixtures\\Robin Spiider.gdtf"
+    },
+    "Strobe 1000 RGBW": {
+        "mode": "7-Channel Mode",
+        "path": "C:\\codigoscpp\\Perastage\\out\\build\\x64-debug\\library\\fixtures\\Strobe 1000 RGBW.gdtf"
+    },
     "SunRise 2IP": {
+        "path": "C:\\codigoscpp\\Perastage\\out\\build\\x64-debug\\library\\fixtures\\Sunrise2IP.gdtf"
+    },
+    "Sunrise2IP": {
+        "mode": "BASIC",
         "path": "C:\\codigoscpp\\Perastage\\out\\build\\x64-debug\\library\\fixtures\\Sunrise2IP.gdtf"
     },
     "TOUR HAZER II": {
@@ -61,5 +98,21 @@
     "XBEAM 17 CMY": {
         "mode": "6ch A001",
         "path": "C:\\codigoscpp\\Perastage\\out\\build\\x64-debug\\library\\fixtures\\BLINDER 2 PRO.gdtf"
+    },
+    "cegadoras": {
+        "mode": "STANDARD",
+        "path": "C:\\codigoscpp\\Perastage\\out\\build\\x64-debug\\library\\fixtures\\Sunrise2IP.gdtf"
+    },
+    "quantum spot": {
+        "mode": "Basic",
+        "path": "C:\\codigoscpp\\Perastage\\out\\build\\x64-debug\\library\\fixtures\\MAC Quantum Profile.gdtf"
+    },
+    "quantum wash": {
+        "mode": "Basic",
+        "path": "C:\\codigoscpp\\Perastage\\out\\build\\x64-debug\\library\\fixtures\\MAC Quantum Wash.gdtf"
+    },
+    "sharpy": {
+        "mode": "Standard",
+        "path": "C:\\codigoscpp\\Perastage\\out\\build\\x64-debug\\library\\fixtures\\Sharpy.gdtf"
     }
 }

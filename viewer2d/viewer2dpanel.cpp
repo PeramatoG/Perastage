@@ -11,8 +11,8 @@
 #include <windows.h>
 #endif
 
-#include <GL/gl.h>
 #include <GL/glew.h>
+#include <GL/gl.h>
 #include <GL/glu.h>
 
 #include "viewer2dpanel.h"
