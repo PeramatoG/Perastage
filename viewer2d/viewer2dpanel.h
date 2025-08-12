@@ -27,6 +27,9 @@ public:
   void SetView(Viewer2DView view);
   Viewer2DView GetView() const { return m_view; }
 
+  void LoadViewFromConfig();
+  void SaveViewToConfig() const;
+
 private:
   void InitGL();
   void Render();

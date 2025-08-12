@@ -13,13 +13,13 @@ Viewer2DRenderPanel::Viewer2DRenderPanel(wxWindow *parent)
   wxString choices[] = {"Wireframe", "White", "By device type", "By layer"};
   m_radio = new wxRadioBox(this, wxID_ANY, "Render mode", wxDefaultPosition,
                            wxDefaultSize, 4, choices, 1, wxRA_SPECIFY_COLS);
-  m_radio->SetSelection(1); // default to White
+  m_radio->SetSelection(static_cast<int>(cfg.GetFloat("view2d_render_mode")));
   m_radio->Bind(wxEVT_RADIOBOX, &Viewer2DRenderPanel::OnRadio, this);
 
   wxString viewChoices[] = {"Top", "Front", "Side"};
   m_view = new wxRadioBox(this, wxID_ANY, "View", wxDefaultPosition,
                           wxDefaultSize, 3, viewChoices, 1, wxRA_SPECIFY_COLS);
-  m_view->SetSelection(0);
+  m_view->SetSelection(static_cast<int>(cfg.GetFloat("view2d_view")));
   m_view->Bind(wxEVT_RADIOBOX, &Viewer2DRenderPanel::OnView, this);
 
   m_showGrid = new wxCheckBox(this, wxID_ANY, "Show grid");
@@ -119,6 +119,7 @@ Viewer2DRenderPanel::Viewer2DRenderPanel(wxWindow *parent)
   FitInside();
   SetScrollRate(0, 10);
   Layout();
+  ApplyConfig();
 }
 
 Viewer2DRenderPanel *Viewer2DRenderPanel::Instance() { return s_instance; }
@@ -127,7 +128,36 @@ void Viewer2DRenderPanel::SetInstance(Viewer2DRenderPanel *p) {
   s_instance = p;
 }
 
+void Viewer2DRenderPanel::ApplyConfig() {
+  ConfigManager &cfg = ConfigManager::Get();
+  m_radio->SetSelection(static_cast<int>(cfg.GetFloat("view2d_render_mode")));
+  m_view->SetSelection(static_cast<int>(cfg.GetFloat("view2d_view")));
+  m_showGrid->SetValue(cfg.GetFloat("grid_show") != 0.0f);
+  m_gridStyle->SetSelection(static_cast<int>(cfg.GetFloat("grid_style")));
+  int rr = static_cast<int>(cfg.GetFloat("grid_color_r") * 255.0f);
+  int gg = static_cast<int>(cfg.GetFloat("grid_color_g") * 255.0f);
+  int bb = static_cast<int>(cfg.GetFloat("grid_color_b") * 255.0f);
+  m_gridColor->SetColour(wxColour(rr, gg, bb));
+  m_drawAbove->SetValue(cfg.GetFloat("grid_draw_above") != 0.0f);
+  m_showLabelName->SetValue(cfg.GetFloat("label_show_name") != 0.0f);
+  m_labelNameSize->SetValue(
+      static_cast<int>(cfg.GetFloat("label_font_size_name")));
+  m_showLabelId->SetValue(cfg.GetFloat("label_show_id") != 0.0f);
+  m_labelIdSize->SetValue(static_cast<int>(cfg.GetFloat("label_font_size_id")));
+  m_showLabelAddress->SetValue(cfg.GetFloat("label_show_dmx") != 0.0f);
+  m_labelAddressSize->SetValue(
+      static_cast<int>(cfg.GetFloat("label_font_size_dmx")));
+  if (auto *vp = Viewer2DPanel::Instance()) {
+    vp->SetRenderMode(
+        static_cast<Viewer2DRenderMode>(m_radio->GetSelection()));
+    vp->SetView(static_cast<Viewer2DView>(m_view->GetSelection()));
+    vp->UpdateScene(false);
+  }
+}
+
 void Viewer2DRenderPanel::OnRadio(wxCommandEvent &evt) {
+  ConfigManager::Get().SetFloat(
+      "view2d_render_mode", static_cast<float>(m_radio->GetSelection()));
   if (auto *vp = Viewer2DPanel::Instance()) {
     vp->SetRenderMode(static_cast<Viewer2DRenderMode>(m_radio->GetSelection()));
     vp->UpdateScene(false);
@@ -220,6 +250,8 @@ void Viewer2DRenderPanel::OnLabelAddressSize(wxSpinEvent &evt) {
 }
 
 void Viewer2DRenderPanel::OnView(wxCommandEvent &evt) {
+  ConfigManager::Get().SetFloat("view2d_view",
+                                static_cast<float>(m_view->GetSelection()));
   if (auto *vp = Viewer2DPanel::Instance()) {
     vp->SetView(static_cast<Viewer2DView>(m_view->GetSelection()));
     vp->UpdateScene(false);
