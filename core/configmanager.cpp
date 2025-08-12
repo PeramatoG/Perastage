@@ -70,6 +70,9 @@ ConfigManager::ConfigManager() {
   RegisterVariable("label_show_name", "float", 1.0f, 0.0f, 1.0f);
   RegisterVariable("label_show_id", "float", 1.0f, 0.0f, 1.0f);
   RegisterVariable("label_show_dmx", "float", 1.0f, 0.0f, 1.0f);
+  RegisterVariable("label_font_size_name", "float", 2.0f, 1.0f, 5.0f);
+  RegisterVariable("label_font_size_id", "float", 2.0f, 1.0f, 5.0f);
+  RegisterVariable("label_font_size_dmx", "float", 2.0f, 1.0f, 5.0f);
   LoadUserConfig();
   if (!HasKey("rider_autopatch"))
     SetValue("rider_autopatch", "1");

@@ -2,6 +2,7 @@
 
 #include "viewer2dpanel.h"
 #include <wx/clrpicker.h>
+#include <wx/spinctrl.h>
 #include <wx/wx.h>
 
 class Viewer2DRenderPanel : public wxPanel {
@@ -20,6 +21,9 @@ private:
   void OnShowLabelName(wxCommandEvent &evt);
   void OnShowLabelId(wxCommandEvent &evt);
   void OnShowLabelAddress(wxCommandEvent &evt);
+  void OnLabelNameSize(wxSpinEvent &evt);
+  void OnLabelIdSize(wxSpinEvent &evt);
+  void OnLabelAddressSize(wxSpinEvent &evt);
 
   wxRadioBox *m_radio = nullptr;
   wxCheckBox *m_showGrid = nullptr;
@@ -29,5 +33,8 @@ private:
   wxCheckBox *m_showLabelName = nullptr;
   wxCheckBox *m_showLabelId = nullptr;
   wxCheckBox *m_showLabelAddress = nullptr;
+  wxSpinCtrl *m_labelNameSize = nullptr;
+  wxSpinCtrl *m_labelIdSize = nullptr;
+  wxSpinCtrl *m_labelAddressSize = nullptr;
   static Viewer2DRenderPanel *s_instance;
 };
