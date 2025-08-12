@@ -67,6 +67,28 @@ ConfigManager::ConfigManager() {
   RegisterVariable("grid_color_g", "float", 0.35f, 0.0f, 1.0f);
   RegisterVariable("grid_color_b", "float", 0.35f, 0.0f, 1.0f);
   RegisterVariable("grid_draw_above", "float", 0.0f, 0.0f, 1.0f);
+  // Label rendering options
+  RegisterVariable("label_show_name", "float", 1.0f, 0.0f, 1.0f);
+  RegisterVariable("label_show_id", "float", 1.0f, 0.0f, 1.0f);
+  RegisterVariable("label_show_patch", "float", 1.0f, 0.0f, 1.0f);
+  RegisterVariable("label_name_size", "float", 18.0f, 1.0f, 100.0f);
+  RegisterVariable("label_id_size", "float", 18.0f, 1.0f, 100.0f);
+  RegisterVariable("label_patch_size", "float", 18.0f, 1.0f, 100.0f);
+  RegisterVariable("label_name_bold", "float", 0.0f, 0.0f, 1.0f);
+  RegisterVariable("label_id_bold", "float", 0.0f, 0.0f, 1.0f);
+  RegisterVariable("label_patch_bold", "float", 0.0f, 0.0f, 1.0f);
+  RegisterVariable("label_name_italic", "float", 0.0f, 0.0f, 1.0f);
+  RegisterVariable("label_id_italic", "float", 0.0f, 0.0f, 1.0f);
+  RegisterVariable("label_patch_italic", "float", 0.0f, 0.0f, 1.0f);
+  RegisterVariable("label_name_color_r", "float", 1.0f, 0.0f, 1.0f);
+  RegisterVariable("label_name_color_g", "float", 1.0f, 0.0f, 1.0f);
+  RegisterVariable("label_name_color_b", "float", 1.0f, 0.0f, 1.0f);
+  RegisterVariable("label_id_color_r", "float", 1.0f, 0.0f, 1.0f);
+  RegisterVariable("label_id_color_g", "float", 1.0f, 0.0f, 1.0f);
+  RegisterVariable("label_id_color_b", "float", 1.0f, 0.0f, 1.0f);
+  RegisterVariable("label_patch_color_r", "float", 1.0f, 0.0f, 1.0f);
+  RegisterVariable("label_patch_color_g", "float", 1.0f, 0.0f, 1.0f);
+  RegisterVariable("label_patch_color_b", "float", 1.0f, 0.0f, 1.0f);
   LoadUserConfig();
   if (!HasKey("rider_autopatch"))
     SetValue("rider_autopatch", "1");

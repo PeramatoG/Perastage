@@ -162,6 +162,11 @@ private:
 
   // NanoVG context used to render on-screen labels
   NVGcontext *m_vg = nullptr;
-  // Font handle for label rendering
+  // Font handles for label rendering
   int m_font = -1;
+  int m_fontBold = -1;
+  int m_fontItalic = -1;
+  int m_fontBoldItalic = -1;
+
+  int GetFontHandle(bool bold, bool italic) const;
 };
