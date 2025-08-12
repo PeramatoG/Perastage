@@ -1320,6 +1320,11 @@ void Viewer3DController::DrawFixtureLabels(int width, int height) {
   bool showName = cfg.GetFloat("label_show_name") != 0.0f;
   bool showId = cfg.GetFloat("label_show_id") != 0.0f;
   bool showDmx = cfg.GetFloat("label_show_dmx") != 0.0f;
+  // The 3D view does not scale labels with any zoom factor, but the
+  // configuration values are multiplied by a zoom parameter in the 2D view.
+  // Use a fixed zoom of 1.0f here so that the code compiles and label sizes
+  // are consistent with the configured defaults.
+  float zoom = 1.0f;
   float nameSize = cfg.GetFloat("label_font_size_name") * zoom;
   float idSize = cfg.GetFloat("label_font_size_id") * zoom;
   float dmxSize = cfg.GetFloat("label_font_size_dmx") * zoom;
