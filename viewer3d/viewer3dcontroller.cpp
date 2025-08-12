@@ -1194,7 +1194,7 @@ void Viewer3DController::DrawGrid(int style, float r, float g, float b) {
     }
     glEnd();
   } else {
-    float half = step * 0.2f;
+    float half = step * 0.1f;
     glLineWidth(1.0f);
     glBegin(GL_LINES);
     for (float x = -size; x <= size; x += step) {
