@@ -775,6 +775,7 @@ void Viewer3DController::DrawWireframeCube(float size, float r, float g,
   float y0 = -half, y1 = half;
   float z0 = -half, z1 = half;
 
+  glLineWidth(2.0f);
   glColor3f(r, g, b);
   glBegin(GL_LINES);
   glVertex3f(x0, y0, z0);
@@ -802,6 +803,18 @@ void Viewer3DController::DrawWireframeCube(float size, float r, float g,
   glVertex3f(x1, y1, z0);
   glVertex3f(x1, y1, z1);
   glEnd();
+  glLineWidth(1.0f);
+
+  glEnable(GL_POLYGON_OFFSET_FILL);
+  glPolygonOffset(1.0f, 1.0f);
+  glColor3f(1.0f, 1.0f, 1.0f);
+  glBegin(GL_QUADS);
+  glVertex3f(x0, y0, z1);
+  glVertex3f(x1, y0, z1);
+  glVertex3f(x1, y1, z1);
+  glVertex3f(x0, y1, z1);
+  glEnd();
+  glDisable(GL_POLYGON_OFFSET_FILL);
 }
 
 // Draws a wireframe box whose origin sits at the left end of the span.
@@ -813,9 +826,49 @@ void Viewer3DController::DrawWireframeBox(float length, float height,
   float y0 = -width * 0.5f, y1 = width * 0.5f;
   float z0 = 0.0f, z1 = height;
 
-  if (wireframe)
+  if (wireframe) {
+    glLineWidth(2.0f);
     glColor3f(0.0f, 0.0f, 0.0f);
-  else if (selected)
+    glBegin(GL_LINES);
+    glVertex3f(x0, y0, z0);
+    glVertex3f(x1, y0, z0);
+    glVertex3f(x0, y1, z0);
+    glVertex3f(x1, y1, z0);
+    glVertex3f(x0, y0, z1);
+    glVertex3f(x1, y0, z1);
+    glVertex3f(x0, y1, z1);
+    glVertex3f(x1, y1, z1);
+    glVertex3f(x0, y0, z0);
+    glVertex3f(x0, y1, z0);
+    glVertex3f(x1, y0, z0);
+    glVertex3f(x1, y1, z0);
+    glVertex3f(x0, y0, z1);
+    glVertex3f(x0, y1, z1);
+    glVertex3f(x1, y0, z1);
+    glVertex3f(x1, y1, z1);
+    glVertex3f(x0, y0, z0);
+    glVertex3f(x0, y0, z1);
+    glVertex3f(x1, y0, z0);
+    glVertex3f(x1, y0, z1);
+    glVertex3f(x0, y1, z0);
+    glVertex3f(x0, y1, z1);
+    glVertex3f(x1, y1, z0);
+    glVertex3f(x1, y1, z1);
+    glEnd();
+    glLineWidth(1.0f);
+
+    glEnable(GL_POLYGON_OFFSET_FILL);
+    glPolygonOffset(1.0f, 1.0f);
+    glColor3f(1.0f, 1.0f, 1.0f);
+    glBegin(GL_QUADS);
+    glVertex3f(x0, y0, z1);
+    glVertex3f(x1, y0, z1);
+    glVertex3f(x1, y1, z1);
+    glVertex3f(x0, y1, z1);
+    glEnd();
+    glDisable(GL_POLYGON_OFFSET_FILL);
+    return;
+  } else if (selected)
     glColor3f(0.0f, 1.0f, 1.0f);
   else if (highlight)
     glColor3f(0.0f, 1.0f, 0.0f);
@@ -885,8 +938,16 @@ void Viewer3DController::DrawMeshWithOutline(const Mesh &mesh, float r, float g,
   (void)cz; // parameters kept for compatibility
 
   if (wireframe) {
+    glLineWidth(2.0f);
     glColor3f(0.0f, 0.0f, 0.0f);
     DrawMeshWireframe(mesh, scale);
+    glLineWidth(1.0f);
+
+    glEnable(GL_POLYGON_OFFSET_FILL);
+    glPolygonOffset(1.0f, 1.0f);
+    glColor3f(1.0f, 1.0f, 1.0f);
+    DrawMesh(mesh, scale);
+    glDisable(GL_POLYGON_OFFSET_FILL);
     return;
   }
 
