@@ -128,7 +128,16 @@ void Viewer2DPanel::Render() {
     break;
   }
 
-  m_controller.RenderScene(true, m_renderMode, m_view);
+  ConfigManager &cfg = ConfigManager::Get();
+  bool showGrid = cfg.GetFloat("grid_show") != 0.0f;
+  int gridStyle = static_cast<int>(cfg.GetFloat("grid_style"));
+  float gridR = cfg.GetFloat("grid_color_r");
+  float gridG = cfg.GetFloat("grid_color_g");
+  float gridB = cfg.GetFloat("grid_color_b");
+  bool drawAbove = cfg.GetFloat("grid_draw_above") != 0.0f;
+
+  m_controller.RenderScene(true, m_renderMode, m_view, showGrid, gridStyle,
+                           gridR, gridG, gridB, drawAbove);
 
   // Draw labels for all fixtures after rendering the scene so they appear on
   // top of geometry. Scale the label size with the current zoom so they behave

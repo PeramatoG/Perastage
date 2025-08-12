@@ -52,9 +52,20 @@ public:
   // Renders all scene objects. When wireframe is true lighting is disabled
   // and geometry is drawn using black lines only. The optional mode controls
   // coloring when rendering the simplified 2D view.
+  // Renders all scene objects. When wireframe is true lighting is disabled
+  // and geometry is drawn using black lines only. The optional mode and view
+  // parameters control coloring and orientation for the simplified 2D view.
+  // Grid rendering can be customized for the 2D viewer through the additional
+  // parameters. The 3D viewer relies on the defaults and remains unaffected.
   void RenderScene(bool wireframe = false,
                    Viewer2DRenderMode mode = Viewer2DRenderMode::White,
-                   Viewer2DView view = Viewer2DView::Top);
+                   Viewer2DView view = Viewer2DView::Top,
+                   bool showGrid = true,
+                   int gridStyle = 0,
+                   float gridR = 0.35f,
+                   float gridG = 0.35f,
+                   float gridB = 0.35f,
+                   bool gridOnTop = false);
 
   // Fixture UUID currently highlighted (hovered)
   void SetHighlightUuid(const std::string &uuid);

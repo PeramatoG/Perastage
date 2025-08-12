@@ -605,7 +605,9 @@ void Viewer3DController::Update() {
 
 // Renders all scene objects using their transformMatrix
 void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
-                                     Viewer2DView view) {
+                                     Viewer2DView view, bool showGrid,
+                                     int gridStyle, float gridR, float gridG,
+                                     float gridB, bool gridOnTop) {
   if (wireframe)
     glDisable(GL_LIGHTING);
   else
@@ -628,12 +630,8 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
     m_layerColors[key] = c;
     return c;
   };
-  ConfigManager &cfg = ConfigManager::Get();
-  const int gridStyle = 0;
-  const float gridR = 0.35f;
-  const float gridG = 0.35f;
-  const float gridB = 0.35f;
-  DrawGrid(gridStyle, gridR, gridG, gridB, view);
+  if (showGrid && !gridOnTop)
+    DrawGrid(gridStyle, gridR, gridG, gridB, view);
   const std::string &base = ConfigManager::Get().GetScene().basePath;
 
   // Scene objects first
@@ -949,6 +947,12 @@ void Viewer3DController::DrawWireframeCube(float size, float r, float g,
     glVertex3f(x0, y1, z1);
     glEnd();
     glDisable(GL_POLYGON_OFFSET_FILL);
+  }
+
+  if (showGrid && gridOnTop) {
+    glDisable(GL_DEPTH_TEST);
+    DrawGrid(gridStyle, gridR, gridG, gridB, view);
+    glEnable(GL_DEPTH_TEST);
   }
 }
 
