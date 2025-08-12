@@ -1381,12 +1381,12 @@ void Viewer3DController::DrawFixtureLabels(int width, int height) {
 }
 
 // Renders labels for all fixtures in the current scene. Each label displays the
-// fixture's instance name (or UUID), numeric ID and DMX address. Labels are
-// placed slightly below the fixture's bounding box so they appear attached to
-// the bottom of the fixture in the 2D top-down view. The label width derives
-// from the fixture bounds so the drawn tag roughly matches the fixture size,
-// and the optional zoom parameter scales the label like regular geometry when
-// zooming the 2D view.
+// fixture's instance name (or UUID), numeric ID and DMX address. The label
+// position is determined by a configurable distance and angle from the fixture
+// center so that, by default, labels appear slightly below the fixture in the
+// 2D top-down view. The label width derives from the fixture bounds so the
+// drawn tag roughly matches the fixture size, and the optional zoom parameter
+// scales the label like regular geometry when zooming the 2D view.
 void Viewer3DController::DrawAllFixtureLabels(int width, int height,
                                               float zoom) {
   double model[16];
@@ -1403,6 +1403,12 @@ void Viewer3DController::DrawAllFixtureLabels(int width, int height,
   float nameSize = cfg.GetFloat("label_font_size_name") * zoom;
   float idSize = cfg.GetFloat("label_font_size_id") * zoom;
   float dmxSize = cfg.GetFloat("label_font_size_dmx") * zoom;
+  float labelDist = cfg.GetFloat("label_offset_distance");
+  float labelAngle = cfg.GetFloat("label_offset_angle");
+  constexpr float deg2rad = 3.14159265358979323846f / 180.0f;
+  float angRad = labelAngle * deg2rad;
+  float offX = labelDist * std::sin(angRad);
+  float offY = labelDist * std::cos(angRad);
 
   const auto &fixtures = SceneDataManager::Instance().GetFixtures();
   for (const auto &[uuid, f] : fixtures) {
@@ -1413,12 +1419,16 @@ void Viewer3DController::DrawAllFixtureLabels(int width, int height,
     auto bit = m_fixtureBounds.find(uuid);
     if (bit != m_fixtureBounds.end()) {
       const BoundingBox &bb = bit->second;
-      wx = (bb.min[0] + bb.max[0]) * 0.5;
-      wy = bb.min[1];
+      double cx = (bb.min[0] + bb.max[0]) * 0.5;
+      double cy = (bb.min[1] + bb.max[1]) * 0.5;
+      wx = cx + offX;
+      wy = cy + offY;
       wz = (bb.min[2] + bb.max[2]) * 0.5;
     } else {
-      wx = f.transform.o[0] * RENDER_SCALE;
-      wy = f.transform.o[1] * RENDER_SCALE;
+      double cx = f.transform.o[0] * RENDER_SCALE;
+      double cy = f.transform.o[1] * RENDER_SCALE;
+      wx = cx + offX;
+      wy = cy + offY;
       wz = f.transform.o[2] * RENDER_SCALE;
     }
 
@@ -1427,9 +1437,8 @@ void Viewer3DController::DrawAllFixtureLabels(int width, int height,
       continue;
 
     int x = static_cast<int>(sx);
-    // Convert OpenGL's origin to top-left and move a few pixels downward so the
-    // label sits just below the fixture.
-    int y = height - static_cast<int>(sy) + 10;
+    // Convert OpenGL's origin to top-left.
+    int y = height - static_cast<int>(sy);
 
     std::vector<LabelLine2D> lines;
     if (showName) {

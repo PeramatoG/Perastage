@@ -73,6 +73,8 @@ ConfigManager::ConfigManager() {
   RegisterVariable("label_font_size_name", "float", 2.0f, 1.0f, 5.0f);
   RegisterVariable("label_font_size_id", "float", 2.0f, 1.0f, 5.0f);
   RegisterVariable("label_font_size_dmx", "float", 2.0f, 1.0f, 5.0f);
+  RegisterVariable("label_offset_distance", "float", 0.5f, 0.0f, 5.0f);
+  RegisterVariable("label_offset_angle", "float", 180.0f, 0.0f, 360.0f);
   LoadUserConfig();
   if (!HasKey("rider_autopatch"))
     SetValue("rider_autopatch", "1");
