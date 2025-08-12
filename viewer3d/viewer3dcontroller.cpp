@@ -11,8 +11,8 @@
 #include <windows.h>
 #endif
 
-#include <GL/glew.h>
 #include <GL/gl.h>
+#include <GL/glew.h>
 #include <GL/glu.h>
 
 #include "configmanager.h"
@@ -29,7 +29,6 @@
 #define NANOVG_GL2_IMPLEMENTATION
 #include <algorithm>
 #include <array>
-#include <vector>
 #include <cfloat>
 #include <cmath>
 #include <filesystem>
@@ -37,8 +36,9 @@
 #include <iostream>
 #include <nanovg.h>
 #include <nanovg_gl.h>
-#include <sstream>
 #include <random>
+#include <sstream>
+#include <vector>
 
 namespace fs = std::filesystem;
 
@@ -557,8 +557,7 @@ void Viewer3DController::Update() {
 }
 
 // Renders all scene objects using their transformMatrix
-void Viewer3DController::RenderScene(bool wireframe,
-                                     Viewer2DRenderMode mode) {
+void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode) {
   if (wireframe)
     glDisable(GL_LIGHTING);
   else
@@ -925,8 +924,7 @@ void Viewer3DController::DrawWireframeBox(float length, float height,
   float z0 = 0.0f, z1 = height;
 
   if (wireframe) {
-    float lineWidth =
-        (mode == Viewer2DRenderMode::Wireframe) ? 1.0f : 2.0f;
+    float lineWidth = (mode == Viewer2DRenderMode::Wireframe) ? 1.0f : 2.0f;
     glLineWidth(lineWidth);
     glColor3f(0.0f, 0.0f, 0.0f);
     glBegin(GL_LINES);
@@ -1049,8 +1047,7 @@ void Viewer3DController::DrawMeshWithOutline(const Mesh &mesh, float r, float g,
   (void)cz; // parameters kept for compatibility
 
   if (wireframe) {
-    float lineWidth =
-        (mode == Viewer2DRenderMode::Wireframe) ? 1.0f : 2.0f;
+    float lineWidth = (mode == Viewer2DRenderMode::Wireframe) ? 1.0f : 2.0f;
     glLineWidth(lineWidth);
     glColor3f(0.0f, 0.0f, 0.0f);
     DrawMeshWireframe(mesh, scale);
@@ -1272,9 +1269,14 @@ void Viewer3DController::DrawFixtureLabels(int width, int height) {
   glGetDoublev(GL_PROJECTION_MATRIX, proj);
   glGetIntegerv(GL_VIEWPORT, viewport);
 
+  ConfigManager &cfg = ConfigManager::Get();
+  bool showName = cfg.GetFloat("label_show_name") != 0.0f;
+  bool showId = cfg.GetFloat("label_show_id") != 0.0f;
+  bool showDmx = cfg.GetFloat("label_show_dmx") != 0.0f;
+
   const auto &fixtures = SceneDataManager::Instance().GetFixtures();
   for (const auto &[uuid, f] : fixtures) {
-    if (!ConfigManager::Get().IsLayerVisible(f.layer))
+    if (!cfg.IsLayerVisible(f.layer))
       continue;
     if (uuid != m_highlightUuid)
       continue;
@@ -1301,12 +1303,22 @@ void Viewer3DController::DrawFixtureLabels(int width, int height) {
 
     int x = static_cast<int>(sx);
     int y = height - static_cast<int>(sy);
-    wxString label = f.instanceName.empty()
-                         ? wxString::FromUTF8(uuid)
-                         : wxString::FromUTF8(f.instanceName);
-    label += "\nID: " + wxString::Format("%d", f.fixtureId);
-    if (!f.address.empty())
-      label += "\n" + wxString::FromUTF8(f.address);
+    wxString label;
+    if (showName)
+      label = f.instanceName.empty() ? wxString::FromUTF8(uuid)
+                                     : wxString::FromUTF8(f.instanceName);
+    if (showId) {
+      if (!label.empty())
+        label += "\n";
+      label += "ID: " + wxString::Format("%d", f.fixtureId);
+    }
+    if (showDmx && !f.address.empty()) {
+      if (!label.empty())
+        label += "\n";
+      label += wxString::FromUTF8(f.address);
+    }
+    if (label.empty())
+      continue;
 
     auto utf8 = label.ToUTF8();
     DrawText2D(m_vg, m_font, std::string(utf8.data(), utf8.length()), x, y);
@@ -1329,9 +1341,14 @@ void Viewer3DController::DrawAllFixtureLabels(int width, int height,
   glGetDoublev(GL_PROJECTION_MATRIX, proj);
   glGetIntegerv(GL_VIEWPORT, viewport);
 
+  ConfigManager &cfg = ConfigManager::Get();
+  bool showName = cfg.GetFloat("label_show_name") != 0.0f;
+  bool showId = cfg.GetFloat("label_show_id") != 0.0f;
+  bool showDmx = cfg.GetFloat("label_show_dmx") != 0.0f;
+
   const auto &fixtures = SceneDataManager::Instance().GetFixtures();
   for (const auto &[uuid, f] : fixtures) {
-    if (!ConfigManager::Get().IsLayerVisible(f.layer))
+    if (!cfg.IsLayerVisible(f.layer))
       continue;
 
     double wx, wy, wz;
@@ -1356,14 +1373,25 @@ void Viewer3DController::DrawAllFixtureLabels(int width, int height,
     // label sits just below the fixture.
     int y = height - static_cast<int>(sy) + 10;
 
-    wxString baseName = f.instanceName.empty()
-                            ? wxString::FromUTF8(uuid)
-                            : wxString::FromUTF8(f.instanceName);
-    wxString label = WrapEveryTwoWords(baseName);
-    label += "\nID: " + wxString::Format("%d", f.fixtureId);
-    wxString addr =
-        f.address.empty() ? wxString() : wxString::FromUTF8(f.address);
-    label += "\n" + addr;
+    wxString label;
+    if (showName) {
+      wxString baseName = f.instanceName.empty()
+                              ? wxString::FromUTF8(uuid)
+                              : wxString::FromUTF8(f.instanceName);
+      label = WrapEveryTwoWords(baseName);
+    }
+    if (showId) {
+      if (!label.empty())
+        label += "\n";
+      label += "ID: " + wxString::Format("%d", f.fixtureId);
+    }
+    if (showDmx && !f.address.empty()) {
+      if (!label.empty())
+        label += "\n";
+      label += wxString::FromUTF8(f.address);
+    }
+    if (label.empty())
+      continue;
 
     auto utf8 = label.ToUTF8();
     float fontSize = LABEL_FONT_SIZE_2D * zoom;
@@ -1382,6 +1410,10 @@ bool Viewer3DController::GetFixtureLabelAt(int mouseX, int mouseY, int width,
   glGetDoublev(GL_MODELVIEW_MATRIX, model);
   glGetDoublev(GL_PROJECTION_MATRIX, proj);
   glGetIntegerv(GL_VIEWPORT, viewport);
+  ConfigManager &cfg = ConfigManager::Get();
+  bool showName = cfg.GetFloat("label_show_name") != 0.0f;
+  bool showId = cfg.GetFloat("label_show_id") != 0.0f;
+  bool showDmx = cfg.GetFloat("label_show_dmx") != 0.0f;
 
   const auto &fixtures = SceneDataManager::Instance().GetFixtures();
 
@@ -1392,7 +1424,7 @@ bool Viewer3DController::GetFixtureLabelAt(int mouseX, int mouseY, int width,
   std::string bestUuid;
 
   for (const auto &[uuid, f] : fixtures) {
-    if (!ConfigManager::Get().IsLayerVisible(f.layer))
+    if (!cfg.IsLayerVisible(f.layer))
       continue;
     auto bit = m_fixtureBounds.find(uuid);
     if (bit == m_fixtureBounds.end())
@@ -1434,15 +1466,26 @@ bool Viewer3DController::GetFixtureLabelAt(int mouseX, int mouseY, int width,
     if (mouseX >= rect.minX && mouseX <= rect.maxX && mouseY >= rect.minY &&
         mouseY <= rect.maxY) {
       if (minDepth < bestDepth) {
+        wxString label;
+        if (showName)
+          label = f.instanceName.empty() ? wxString::FromUTF8(uuid)
+                                         : wxString::FromUTF8(f.instanceName);
+        if (showId) {
+          if (!label.empty())
+            label += "\n";
+          label += "ID: " + wxString::Format("%d", f.fixtureId);
+        }
+        if (showDmx && !f.address.empty()) {
+          if (!label.empty())
+            label += "\n";
+          label += wxString::FromUTF8(f.address);
+        }
+        if (label.empty())
+          continue;
         bestDepth = minDepth;
         bestPos.x = static_cast<int>((rect.minX + rect.maxX) * 0.5);
         bestPos.y = static_cast<int>((rect.minY + rect.maxY) * 0.5);
-        bestLabel = f.instanceName.empty() ? wxString::FromUTF8(uuid)
-                                           : wxString::FromUTF8(f.instanceName);
-        bestLabel += "\nID: " + wxString::Format("%d", f.fixtureId);
-        wxString addr =
-            f.address.empty() ? wxString() : wxString::FromUTF8(f.address);
-        bestLabel += "\n" + addr;
+        bestLabel = label;
         bestUuid = uuid;
         found = true;
       }
