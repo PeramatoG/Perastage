@@ -1,6 +1,7 @@
 #include "layerpanel.h"
 #include "configmanager.h"
 #include "viewer3dpanel.h"
+#include "viewer2dpanel.h"
 #include "fixturetablepanel.h"
 #include "trusstablepanel.h"
 #include "sceneobjecttablepanel.h"
@@ -106,6 +107,8 @@ void LayerPanel::OnCheck(wxCommandEvent& evt)
     ConfigManager::Get().SetHiddenLayers(hidden);
     if (Viewer3DPanel::Instance())
         Viewer3DPanel::Instance()->Refresh();
+    if (Viewer2DPanel::Instance())
+        Viewer2DPanel::Instance()->Refresh();
 }
 
 void LayerPanel::OnSelect(wxCommandEvent& evt)

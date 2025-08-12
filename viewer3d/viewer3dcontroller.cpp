@@ -856,7 +856,7 @@ void Viewer3DController::DrawWireframeCube(float size, float r, float g,
   float y0 = -half, y1 = half;
   float z0 = -half, z1 = half;
 
-  glLineWidth(2.0f);
+  glLineWidth(1.0f);
   glColor3f(r, g, b);
   glBegin(GL_LINES);
   glVertex3f(x0, y0, z0);
@@ -910,7 +910,7 @@ void Viewer3DController::DrawWireframeBox(float length, float height,
   float z0 = 0.0f, z1 = height;
 
   if (wireframe) {
-    glLineWidth(2.0f);
+    glLineWidth(1.0f);
     glColor3f(0.0f, 0.0f, 0.0f);
     glBegin(GL_LINES);
     glVertex3f(x0, y0, z0);
@@ -1032,7 +1032,7 @@ void Viewer3DController::DrawMeshWithOutline(const Mesh &mesh, float r, float g,
   (void)cz; // parameters kept for compatibility
 
   if (wireframe) {
-    glLineWidth(2.0f);
+    glLineWidth(1.0f);
     glColor3f(0.0f, 0.0f, 0.0f);
     DrawMeshWireframe(mesh, scale);
     glLineWidth(1.0f);
