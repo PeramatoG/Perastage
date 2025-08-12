@@ -11,8 +11,8 @@
 #include <windows.h>
 #endif
 
-#include <GL/glew.h>
 #include <GL/gl.h>
+#include <GL/glew.h>
 #include <GL/glu.h>
 
 #include "viewer2dpanel.h"
@@ -48,8 +48,9 @@ Viewer2DPanel *Viewer2DPanel::Instance() { return g_instance; }
 
 void Viewer2DPanel::SetInstance(Viewer2DPanel *panel) { g_instance = panel; }
 
-void Viewer2DPanel::UpdateScene() {
-  m_controller.Update();
+void Viewer2DPanel::UpdateScene(bool reload) {
+  if (reload)
+    m_controller.Update();
   Refresh();
 }
 
