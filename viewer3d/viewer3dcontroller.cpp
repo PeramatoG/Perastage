@@ -705,19 +705,19 @@ void Viewer3DController::RenderScene(bool wireframe,
           float len = t.lengthMm * RENDER_SCALE;
           float wid = (t.widthMm > 0 ? t.widthMm : 400.0f) * RENDER_SCALE;
           float hei = (t.heightMm > 0 ? t.heightMm : 400.0f) * RENDER_SCALE;
-          DrawWireframeBox(len, hei, wid, highlight, selected, wireframe);
+          DrawWireframeBox(len, hei, wid, highlight, selected, wireframe, mode);
         }
       } else {
         float len = t.lengthMm * RENDER_SCALE;
         float wid = (t.widthMm > 0 ? t.widthMm : 400.0f) * RENDER_SCALE;
         float hei = (t.heightMm > 0 ? t.heightMm : 400.0f) * RENDER_SCALE;
-        DrawWireframeBox(len, hei, wid, highlight, selected, wireframe);
+        DrawWireframeBox(len, hei, wid, highlight, selected, wireframe, mode);
       }
     } else {
       float len = t.lengthMm * RENDER_SCALE;
       float wid = (t.widthMm > 0 ? t.widthMm : 400.0f) * RENDER_SCALE;
       float hei = (t.heightMm > 0 ? t.heightMm : 400.0f) * RENDER_SCALE;
-      DrawWireframeBox(len, hei, wid, highlight, selected, wireframe);
+      DrawWireframeBox(len, hei, wid, highlight, selected, wireframe, mode);
     }
 
     glPopMatrix();
@@ -850,13 +850,14 @@ void Viewer3DController::DrawCube(float size, float r, float g, float b) {
 
 // Draws a wireframe cube centered at origin with given size and color
 void Viewer3DController::DrawWireframeCube(float size, float r, float g,
-                                           float b) {
+                                           float b, Viewer2DRenderMode mode) {
   float half = size / 2.0f;
   float x0 = -half, x1 = half;
   float y0 = -half, y1 = half;
   float z0 = -half, z1 = half;
 
-  glLineWidth(1.0f);
+  float lineWidth = (mode == Viewer2DRenderMode::Wireframe) ? 1.0f : 2.0f;
+  glLineWidth(lineWidth);
   glColor3f(r, g, b);
   glBegin(GL_LINES);
   glVertex3f(x0, y0, z0);
@@ -904,13 +905,14 @@ void Viewer3DController::DrawWireframeBox(float length, float height,
                                           float width, bool highlight,
                                           bool selected, bool wireframe,
                                           Viewer2DRenderMode mode) {
-  (void)mode;
   float x0 = 0.0f, x1 = length;
   float y0 = -width * 0.5f, y1 = width * 0.5f;
   float z0 = 0.0f, z1 = height;
 
   if (wireframe) {
-    glLineWidth(1.0f);
+    float lineWidth =
+        (mode == Viewer2DRenderMode::Wireframe) ? 1.0f : 2.0f;
+    glLineWidth(lineWidth);
     glColor3f(0.0f, 0.0f, 0.0f);
     glBegin(GL_LINES);
     glVertex3f(x0, y0, z0);
@@ -999,10 +1001,10 @@ void Viewer3DController::DrawCubeWithOutline(float size, float r, float g,
 
   if (wireframe) {
     if (mode == Viewer2DRenderMode::Wireframe) {
-      DrawWireframeCube(size, 0.0f, 0.0f, 0.0f);
+      DrawWireframeCube(size, 0.0f, 0.0f, 0.0f, mode);
       return;
     }
-    DrawWireframeCube(size, 0.0f, 0.0f, 0.0f);
+    DrawWireframeCube(size, 0.0f, 0.0f, 0.0f, mode);
     glEnable(GL_POLYGON_OFFSET_FILL);
     glPolygonOffset(1.0f, 1.0f);
     glColor3f(r, g, b);
@@ -1032,7 +1034,9 @@ void Viewer3DController::DrawMeshWithOutline(const Mesh &mesh, float r, float g,
   (void)cz; // parameters kept for compatibility
 
   if (wireframe) {
-    glLineWidth(1.0f);
+    float lineWidth =
+        (mode == Viewer2DRenderMode::Wireframe) ? 1.0f : 2.0f;
+    glLineWidth(lineWidth);
     glColor3f(0.0f, 0.0f, 0.0f);
     DrawMeshWireframe(mesh, scale);
     glLineWidth(1.0f);
