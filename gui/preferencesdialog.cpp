@@ -3,6 +3,7 @@
 
 #include <wx/notebook.h>
 #include <wx/checkbox.h>
+#include <wx/radiobut.h>
 
 PreferencesDialog::PreferencesDialog(wxWindow *parent)
     : wxDialog(parent, wxID_ANY, "Preferences", wxDefaultPosition,
@@ -19,6 +20,18 @@ PreferencesDialog::PreferencesDialog(wxWindow *parent)
   auto autoVal = cfg.GetValue("rider_autopatch");
   autopatchCheck->SetValue(!autoVal || *autoVal != "0");
   riderSizer->Add(autopatchCheck, 0, wxALL, 10);
+  layerPosRadio =
+      new wxRadioButton(riderPanel, wxID_ANY,
+                        "Auto-create layers by position", wxDefaultPosition,
+                        wxDefaultSize, wxRB_GROUP);
+  layerTypeRadio = new wxRadioButton(riderPanel, wxID_ANY,
+                                     "Auto-create layers by fixture type");
+  auto modeVal = cfg.GetValue("rider_layer_mode");
+  bool byType = modeVal && *modeVal == "type";
+  layerTypeRadio->SetValue(byType);
+  layerPosRadio->SetValue(!byType);
+  riderSizer->Add(layerPosRadio, 0, wxLEFT | wxRIGHT | wxBOTTOM, 10);
+  riderSizer->Add(layerTypeRadio, 0, wxLEFT | wxRIGHT | wxBOTTOM, 10);
   wxFlexGridSizer *grid = new wxFlexGridSizer(6, 5, 5);
   grid->AddGrowableCol(1, 1);
   grid->AddGrowableCol(3, 1);
@@ -74,10 +87,12 @@ PreferencesDialog::PreferencesDialog(wxWindow *parent)
                      static_cast<float>(p));
         double m = 0.0;
         lxMarginCtrls[i]->GetValue().ToDouble(&m);
-        cfg.SetFloat("rider_lx" + std::to_string(i + 1) + "_margin",
+      cfg.SetFloat("rider_lx" + std::to_string(i + 1) + "_margin",
                      static_cast<float>(m));
       }
       cfg.SetValue("rider_autopatch", autopatchCheck->GetValue() ? "1" : "0");
+      cfg.SetValue("rider_layer_mode",
+                   layerTypeRadio->GetValue() ? "type" : "position");
     }
     evt.Skip();
   });

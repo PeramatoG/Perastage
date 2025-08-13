@@ -1,0 +1,7 @@
+Iluminacion
+LX1:
+1 Spot
+LX2:
+1 Wash
+Rigging
+1 TRUSS 40X40 2m LX1

@@ -74,3 +74,22 @@ target_include_directories(rider_autopatch_test PRIVATE
 target_link_libraries(rider_autopatch_test PRIVATE ${wxWidgets_LIBRARIES})
 add_test(NAME RiderAutoPatch COMMAND rider_autopatch_test
          ${CMAKE_CURRENT_SOURCE_DIR}/data/rider_fixtureid_basic.txt)
+
+add_executable(rider_layer_mode_test rider_layer_mode_test.cpp
+               riderimporter_stubs.cpp
+               gdtfloader_stub.cpp
+               ../core/riderimporter.cpp
+               ../core/autopatcher.cpp
+               ../core/patchmanager.cpp
+               ../core/configmanager.cpp
+               ../core/projectutils.cpp
+               ../models/mvrscene.cpp
+               ../models/fixture.cpp
+               ../models/truss.cpp
+               ../models/sceneobject.cpp
+               ../models/layer.cpp)
+target_include_directories(rider_layer_mode_test PRIVATE
+                           . ../core ../models ../mvr ../gui ../external)
+target_link_libraries(rider_layer_mode_test PRIVATE ${wxWidgets_LIBRARIES})
+add_test(NAME RiderLayerMode COMMAND rider_layer_mode_test
+         ${CMAKE_CURRENT_SOURCE_DIR}/data/rider_layer_mode.txt)

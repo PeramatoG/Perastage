@@ -170,7 +170,9 @@ bool RiderImporter::Import(const std::string &path) {
 
   ConfigManager &cfg = ConfigManager::Get();
   auto &scene = cfg.GetScene();
-  std::string layer = cfg.GetCurrentLayer();
+  std::string defaultLayer = cfg.GetCurrentLayer();
+  auto modeVal = cfg.GetValue("rider_layer_mode");
+  bool layerByType = modeVal && *modeVal == "type";
 
   auto getHangHeight = [&](const std::string &posName) {
     if (posName.rfind("LX", 0) == 0) {
@@ -270,7 +272,15 @@ bool RiderImporter::Import(const std::string &path) {
           typeOrder.push_back(f.typeName);
           seenTypes.insert(f.typeName);
         }
-        f.layer = layer;
+        std::string fLayer = defaultLayer;
+        if (layerByType) {
+          if (!f.typeName.empty())
+            fLayer = f.typeName;
+        } else {
+          if (!currentHang.empty())
+            fLayer = currentHang;
+        }
+        f.layer = fLayer;
         f.positionName = currentHang;
         f.transform.o[1] = getHangPos(currentHang);
         f.transform.o[2] = getHangHeight(currentHang);
@@ -387,7 +397,10 @@ bool RiderImporter::Import(const std::string &path) {
         for (float s : pieces) {
           Truss t;
           t.uuid = GenerateUuid();
-          t.layer = layer;
+          std::string tLayer = defaultLayer;
+          if (!posName.empty())
+            tLayer = posName;
+          t.layer = tLayer;
           t.lengthMm = s;
           t.widthMm = width;
           t.heightMm = height;
@@ -463,7 +476,10 @@ bool RiderImporter::Import(const std::string &path) {
       for (float s : pieces) {
         Truss t;
         t.uuid = GenerateUuid();
-        t.layer = layer;
+        std::string tLayer = defaultLayer;
+        if (!hang.empty())
+          tLayer = hang;
+        t.layer = tLayer;
         t.lengthMm = s;
         t.widthMm = width;
         t.heightMm = height;
