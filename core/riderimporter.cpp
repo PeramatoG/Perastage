@@ -19,11 +19,11 @@
 
 #include "pdftext.h"
 
+#include "autopatcher.h"
 #include "configmanager.h"
 #include "fixture.h"
 #include "gdtfdictionary.h"
 #include "gdtfloader.h"
-#include "autopatcher.h"
 #include "truss.h"
 #include "trussdictionary.h"
 #include "trussloader.h"
@@ -275,10 +275,10 @@ bool RiderImporter::Import(const std::string &path) {
         std::string fLayer = defaultLayer;
         if (layerByType) {
           if (!f.typeName.empty())
-            fLayer = f.typeName;
+            fLayer = "fix " + f.typeName;
         } else {
           if (!currentHang.empty())
-            fLayer = currentHang;
+            fLayer = "pos " + currentHang;
         }
         f.layer = fLayer;
         f.positionName = currentHang;
@@ -398,8 +398,13 @@ bool RiderImporter::Import(const std::string &path) {
           Truss t;
           t.uuid = GenerateUuid();
           std::string tLayer = defaultLayer;
-          if (!posName.empty())
-            tLayer = posName;
+          if (layerByType) {
+            if (!posName.empty())
+              tLayer = "truss " + posName;
+          } else {
+            if (!posName.empty())
+              tLayer = "pos " + posName;
+          }
           t.layer = tLayer;
           t.lengthMm = s;
           t.widthMm = width;
@@ -477,8 +482,13 @@ bool RiderImporter::Import(const std::string &path) {
         Truss t;
         t.uuid = GenerateUuid();
         std::string tLayer = defaultLayer;
-        if (!hang.empty())
-          tLayer = hang;
+        if (layerByType) {
+          if (!hang.empty())
+            tLayer = "truss " + hang;
+        } else {
+          if (!hang.empty())
+            tLayer = "pos " + hang;
+        }
         t.layer = tLayer;
         t.lengthMm = s;
         t.widthMm = width;
@@ -625,10 +635,10 @@ bool RiderImporter::Import(const std::string &path) {
     if (it != trussInfo.end())
       info = it->second;
     float margin = getHangMargin(pos);
-    float startX = info.found ? info.startX + margin :
-                                -0.5f * ((total - 1) * 500.0f);
-    float endX = info.found ? info.endX - margin :
-                              0.5f * ((total - 1) * 500.0f);
+    float startX =
+        info.found ? info.startX + margin : -0.5f * ((total - 1) * 500.0f);
+    float endX =
+        info.found ? info.endX - margin : 0.5f * ((total - 1) * 500.0f);
     float baseY = info.found ? info.y : getHangPos(pos);
     float baseZ = info.found ? info.z : getHangHeight(pos);
     float width = info.found ? info.width : 400.0f;
