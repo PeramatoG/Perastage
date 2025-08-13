@@ -19,6 +19,7 @@
 #include <wx/filename.h>
 #include <wx/notebook.h>
 #include <wx/tokenzr.h>
+#include <wx/colordlg.h>
 
 namespace fs = std::filesystem;
 
@@ -509,6 +510,32 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
 
   wxVariant current;
   table->GetValue(current, baseRow, col);
+
+  if (col == 18) {
+    wxColourData data;
+    data.SetChooseFull(true);
+    wxColour initial(current.GetString());
+    data.SetColour(initial);
+    wxColourDialog cdlg(this, &data);
+    if (cdlg.ShowModal() != wxID_OK)
+      return;
+    wxColour selCol = cdlg.GetColourData().GetColour();
+    wxString value = selCol.GetAsString(wxC2S_HTML_SYNTAX);
+    for (const auto &it : selections) {
+      int r = table->ItemToRow(it);
+      if (r != wxNOT_FOUND)
+        table->SetValue(wxVariant(value), r, col);
+    }
+    PropagateTypeValues(selections, col);
+    ResyncRows(oldOrder, selectedUuids);
+    UpdateSceneData();
+    HighlightDuplicateFixtureIds();
+    if (Viewer3DPanel::Instance()) {
+      Viewer3DPanel::Instance()->UpdateScene();
+      Viewer3DPanel::Instance()->Refresh();
+    }
+    return;
+  }
 
   wxTextEntryDialog dlg(this, "Edit value:", columnLabels[col],
                         current.GetString());
