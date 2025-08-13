@@ -1072,6 +1072,9 @@ void FixtureTablePanel::UpdateSceneData() {
     v.GetString().ToDouble(&wt);
     it->second.weightKg = static_cast<float>(wt);
 
+    table->GetValue(v, i, 18);
+    it->second.color = std::string(v.GetString().ToUTF8());
+
   }
 
   HighlightDuplicateFixtureIds();

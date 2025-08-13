@@ -7,6 +7,7 @@
 #include "viewer3dpanel.h"
 #include <wx/filedlg.h>
 #include <wx/filename.h>
+#include <wx/clrpicker.h>
 
 FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
     : wxDialog(p, wxID_ANY, "Edit Fixture", wxDefaultPosition,
@@ -59,6 +60,11 @@ FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
       browse->Bind(wxEVT_BUTTON, &FixtureEditDialog::OnBrowse, this);
       ctrls[i] = modelCtrl;
       grid->Add(hs, 1, wxEXPAND);
+    } else if (i == 18) {
+      wxColour initial(v.GetString());
+      auto *picker = new wxColourPickerCtrl(this, wxID_ANY, initial);
+      ctrls[i] = picker;
+      grid->Add(picker, 1, wxEXPAND);
     } else {
       wxTextCtrl *tc = new wxTextCtrl(this, wxID_ANY, v.GetString());
       ctrls[i] = tc;
@@ -199,6 +205,12 @@ void FixtureEditDialog::ApplyChanges() {
       if ((size_t)row >= panel->gdtfPaths.size())
         panel->gdtfPaths.resize(row + 1);
       panel->gdtfPaths[row] = gdtfPath;
+    } else if (i == 18) {
+      auto *picker = wxDynamicCast(ctrls[i], wxColourPickerCtrl);
+      if (picker) {
+        wxString col = picker->GetColour().GetAsString(wxC2S_HTML_SYNTAX);
+        table->SetValue(wxVariant(col), row, i);
+      }
     } else {
       wxTextCtrl *tc = wxDynamicCast(ctrls[i], wxTextCtrl);
       if (tc) {
