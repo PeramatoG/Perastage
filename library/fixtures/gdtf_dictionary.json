@@ -7,6 +7,10 @@
         "mode": "2ch d001",
         "path": "C:\\codigoscpp\\Perastage\\out\\build\\x64-debug\\library\\fixtures\\BLINDER 2 PRO.gdtf"
     },
+    "Blinder 2": {
+        "mode": "STANDARD",
+        "path": "C:\\codigoscpp\\Perastage\\out\\build\\x64-debug\\library\\fixtures\\Sunrise2IP.gdtf"
+    },
     "Chauvet Color Strike M": {
         "path": "C:\\codigoscpp\\Perastage\\out\\build\\x64-debug\\library\\fixtures\\Custom@Light_Instr_Chauvet_Color_Strike_M.gdtf"
     },
@@ -76,6 +80,10 @@
         "mode": "Vector",
         "path": "C:\\codigoscpp\\Perastage\\out\\build\\x64-debug\\library\\fixtures\\Sharpy.gdtf"
     },
+    "Spiider": {
+        "mode": "Mode 10 - Pattern full RGBW",
+        "path": "C:\\codigoscpp\\Perastage\\out\\build\\x64-debug\\library\\fixtures\\Robin Spiider.gdtf"
+    },
     "Spiider (Bulb=LED)": {
         "mode": "Mode 10 - Pattern full RGBW",
         "path": "C:\\codigoscpp\\Perastage\\out\\build\\x64-debug\\library\\fixtures\\Robin Spiider.gdtf"
@@ -88,7 +96,7 @@
         "path": "C:\\codigoscpp\\Perastage\\out\\build\\x64-debug\\library\\fixtures\\Sunrise2IP.gdtf"
     },
     "Sunrise2IP": {
-        "mode": "BASIC",
+        "mode": "UNO",
         "path": "C:\\codigoscpp\\Perastage\\out\\build\\x64-debug\\library\\fixtures\\Sunrise2IP.gdtf"
     },
     "TOUR HAZER II": {
