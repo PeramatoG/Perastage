@@ -83,6 +83,8 @@ ConfigManager::ConfigManager() {
   LoadUserConfig();
   if (!HasKey("rider_autopatch"))
     SetValue("rider_autopatch", "1");
+  if (!HasKey("rider_layer_mode"))
+    SetValue("rider_layer_mode", "position");
   ApplyColumnDefaults();
   ApplyDefaults();
   currentLayer = DEFAULT_LAYER_NAME;

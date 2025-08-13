@@ -12,4 +12,6 @@ private:
   std::array<wxTextCtrl *, 6> lxPosCtrls{};
   std::array<wxTextCtrl *, 6> lxMarginCtrls{};
   wxCheckBox *autopatchCheck = nullptr;
+  wxRadioButton *layerPosRadio = nullptr;
+  wxRadioButton *layerTypeRadio = nullptr;
 };
