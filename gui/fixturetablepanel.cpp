@@ -249,9 +249,13 @@ void FixtureTablePanel::ReloadData() {
         dc.SelectObject(wxNullBitmap);
       }
       wxDataViewIconText iconText(color, bmp);
-      row.push_back(wxVariant(iconText));
+      wxVariant var;
+      var << iconText;
+      row.push_back(var);
     } else {
-      row.push_back(wxVariant(wxDataViewIconText()));
+      wxVariant var;
+      var << wxDataViewIconText();
+      row.push_back(var);
     }
 
     store.AppendItem(row, rowUuids.size());
@@ -543,10 +547,21 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
       return;
     wxColour selCol = cdlg.GetColourData().GetColour();
     wxString value = selCol.GetAsString(wxC2S_HTML_SYNTAX);
+    wxBitmap bmp(16, 16);
+    {
+      wxMemoryDC dc(bmp);
+      dc.SetPen(*wxTRANSPARENT_PEN);
+      dc.SetBrush(wxBrush(selCol));
+      dc.DrawRectangle(0, 0, 16, 16);
+      dc.SelectObject(wxNullBitmap);
+    }
+    wxDataViewIconText iconText(value, bmp);
+    wxVariant var;
+    var << iconText;
     for (const auto &it : selections) {
       int r = table->ItemToRow(it);
       if (r != wxNOT_FOUND)
-        table->SetValue(wxVariant(value), r, col);
+        table->SetValue(var, r, col);
     }
     PropagateTypeValues(selections, col);
     ResyncRows(oldOrder, selectedUuids);
