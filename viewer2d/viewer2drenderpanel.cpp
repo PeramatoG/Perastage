@@ -11,6 +11,15 @@ const std::array<const char *, 3> DIST_KEYS = {"label_offset_distance_top",
 const std::array<const char *, 3> ANGLE_KEYS = {"label_offset_angle_top",
                                                 "label_offset_angle_front",
                                                 "label_offset_angle_side"};
+const std::array<const char *, 3> NAME_KEYS = {"label_show_name_top",
+                                               "label_show_name_front",
+                                               "label_show_name_side"};
+const std::array<const char *, 3> ID_KEYS = {"label_show_id_top",
+                                             "label_show_id_front",
+                                             "label_show_id_side"};
+const std::array<const char *, 3> DMX_KEYS = {"label_show_dmx_top",
+                                              "label_show_dmx_front",
+                                              "label_show_dmx_side"};
 } // namespace
 
 Viewer2DRenderPanel *Viewer2DRenderPanel::s_instance = nullptr;
@@ -55,7 +64,8 @@ Viewer2DRenderPanel::Viewer2DRenderPanel(wxWindow *parent)
   m_drawAbove->Bind(wxEVT_CHECKBOX, &Viewer2DRenderPanel::OnDrawAbove, this);
 
   m_showLabelName = new wxCheckBox(this, wxID_ANY, "Show name");
-  m_showLabelName->SetValue(cfg.GetFloat("label_show_name") != 0.0f);
+  m_showLabelName->SetValue(
+      cfg.GetFloat(NAME_KEYS[m_view->GetSelection()]) != 0.0f);
   m_showLabelName->Bind(wxEVT_CHECKBOX, &Viewer2DRenderPanel::OnShowLabelName,
                         this);
   m_labelNameSize =
@@ -74,7 +84,8 @@ Viewer2DRenderPanel::Viewer2DRenderPanel(wxWindow *parent)
                         this);
 
   m_showLabelId = new wxCheckBox(this, wxID_ANY, "Show ID");
-  m_showLabelId->SetValue(cfg.GetFloat("label_show_id") != 0.0f);
+  m_showLabelId->SetValue(
+      cfg.GetFloat(ID_KEYS[m_view->GetSelection()]) != 0.0f);
   m_showLabelId->Bind(wxEVT_CHECKBOX, &Viewer2DRenderPanel::OnShowLabelId,
                       this);
   m_labelIdSize =
@@ -92,7 +103,8 @@ Viewer2DRenderPanel::Viewer2DRenderPanel(wxWindow *parent)
                       this);
 
   m_showLabelAddress = new wxCheckBox(this, wxID_ANY, "Show DMX address");
-  m_showLabelAddress->SetValue(cfg.GetFloat("label_show_dmx") != 0.0f);
+  m_showLabelAddress->SetValue(
+      cfg.GetFloat(DMX_KEYS[m_view->GetSelection()]) != 0.0f);
   m_showLabelAddress->Bind(wxEVT_CHECKBOX,
                            &Viewer2DRenderPanel::OnShowLabelAddress, this);
   m_labelAddressSize =
@@ -217,15 +229,15 @@ void Viewer2DRenderPanel::ApplyConfig() {
   int bb = static_cast<int>(cfg.GetFloat("grid_color_b") * 255.0f);
   m_gridColor->SetColour(wxColour(rr, gg, bb));
   m_drawAbove->SetValue(cfg.GetFloat("grid_draw_above") != 0.0f);
-  m_showLabelName->SetValue(cfg.GetFloat("label_show_name") != 0.0f);
+  int viewIndex = m_view->GetSelection();
+  m_showLabelName->SetValue(cfg.GetFloat(NAME_KEYS[viewIndex]) != 0.0f);
   m_labelNameSize->SetValue(
       static_cast<int>(cfg.GetFloat("label_font_size_name")));
-  m_showLabelId->SetValue(cfg.GetFloat("label_show_id") != 0.0f);
+  m_showLabelId->SetValue(cfg.GetFloat(ID_KEYS[viewIndex]) != 0.0f);
   m_labelIdSize->SetValue(static_cast<int>(cfg.GetFloat("label_font_size_id")));
-  m_showLabelAddress->SetValue(cfg.GetFloat("label_show_dmx") != 0.0f);
+  m_showLabelAddress->SetValue(cfg.GetFloat(DMX_KEYS[viewIndex]) != 0.0f);
   m_labelAddressSize->SetValue(
       static_cast<int>(cfg.GetFloat("label_font_size_dmx")));
-  int viewIndex = m_view->GetSelection();
   m_labelOffsetDistance->SetValue(cfg.GetFloat(DIST_KEYS[viewIndex]));
   m_labelOffsetAngle->SetValue(
       static_cast<int>(cfg.GetFloat(ANGLE_KEYS[viewIndex])));
@@ -282,7 +294,8 @@ void Viewer2DRenderPanel::OnDrawAbove(wxCommandEvent &evt) {
 }
 
 void Viewer2DRenderPanel::OnShowLabelName(wxCommandEvent &evt) {
-  ConfigManager::Get().SetFloat("label_show_name",
+  int view = m_view->GetSelection();
+  ConfigManager::Get().SetFloat(NAME_KEYS[view],
                                 m_showLabelName->GetValue() ? 1.0f : 0.0f);
   if (auto *vp = Viewer2DPanel::Instance())
     vp->UpdateScene(false);
@@ -290,7 +303,8 @@ void Viewer2DRenderPanel::OnShowLabelName(wxCommandEvent &evt) {
 }
 
 void Viewer2DRenderPanel::OnShowLabelId(wxCommandEvent &evt) {
-  ConfigManager::Get().SetFloat("label_show_id",
+  int view = m_view->GetSelection();
+  ConfigManager::Get().SetFloat(ID_KEYS[view],
                                 m_showLabelId->GetValue() ? 1.0f : 0.0f);
   if (auto *vp = Viewer2DPanel::Instance())
     vp->UpdateScene(false);
@@ -298,8 +312,9 @@ void Viewer2DRenderPanel::OnShowLabelId(wxCommandEvent &evt) {
 }
 
 void Viewer2DRenderPanel::OnShowLabelAddress(wxCommandEvent &evt) {
-  ConfigManager::Get().SetFloat("label_show_dmx",
-                                m_showLabelAddress->GetValue() ? 1.0f : 0.0f);
+  int view = m_view->GetSelection();
+  ConfigManager::Get().SetFloat(
+      DMX_KEYS[view], m_showLabelAddress->GetValue() ? 1.0f : 0.0f);
   if (auto *vp = Viewer2DPanel::Instance())
     vp->UpdateScene(false);
   evt.Skip();
@@ -354,6 +369,9 @@ void Viewer2DRenderPanel::OnView(wxCommandEvent &evt) {
   cfg.SetFloat("view2d_view", static_cast<float>(sel));
   m_labelOffsetDistance->SetValue(cfg.GetFloat(DIST_KEYS[sel]));
   m_labelOffsetAngle->SetValue(static_cast<int>(cfg.GetFloat(ANGLE_KEYS[sel])));
+  m_showLabelName->SetValue(cfg.GetFloat(NAME_KEYS[sel]) != 0.0f);
+  m_showLabelId->SetValue(cfg.GetFloat(ID_KEYS[sel]) != 0.0f);
+  m_showLabelAddress->SetValue(cfg.GetFloat(DMX_KEYS[sel]) != 0.0f);
   if (auto *vp = Viewer2DPanel::Instance()) {
     vp->SetView(static_cast<Viewer2DView>(sel));
     vp->UpdateScene(false);
