@@ -412,10 +412,12 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                   : fs::u8path(scene.basePath) / fs::u8path(fixture.gdtfSpec);
           std::string gdtfPath = ToString(p.u8string());
           fixture.typeName = Trim(GetGdtfFixtureName(gdtfPath));
-          if (!fixture.typeName.empty())
-            fixture.gdtfSpec = gdtfPath;
-        }
-        auto posIt = scene.positions.find(fixture.position);
+        if (!fixture.typeName.empty())
+          fixture.gdtfSpec = gdtfPath;
+        if (fixture.color.empty())
+          fixture.color = GetGdtfModelColor(gdtfPath);
+      }
+      auto posIt = scene.positions.find(fixture.position);
         if (posIt != scene.positions.end())
           fixture.positionName = posIt->second;
 

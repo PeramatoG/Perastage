@@ -1613,6 +1613,7 @@ void MainWindow::OnAddFixture(wxCommandEvent &WXUNUSED(event)) {
 
   float weight = 0.0f, power = 0.0f;
   GetGdtfProperties(gdtfPath, weight, power);
+  std::string defaultColor = GetGdtfModelColor(gdtfPath);
 
   int count = dlg.GetUnitCount();
   std::string name = dlg.GetFixtureName();
@@ -1667,6 +1668,7 @@ void MainWindow::OnAddFixture(wxCommandEvent &WXUNUSED(event)) {
     f.layer = layerName;
     f.weightKg = weight;
     f.powerConsumptionW = power;
+    f.color = defaultColor;
     sceneRef.fixtures[f.uuid] = f;
   }
 

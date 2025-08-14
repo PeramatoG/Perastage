@@ -571,3 +571,65 @@ bool GetGdtfProperties(const std::string& gdtfPath,
     return true;
 }
 
+std::string GetGdtfModelColor(const std::string& gdtfPath)
+{
+    if (gdtfPath.empty())
+        return {};
+
+    std::string tempDir = CreateTempDir();
+    if (!ExtractZip(gdtfPath, tempDir))
+        return {};
+
+    std::string descPath = tempDir + "/description.xml";
+    tinyxml2::XMLDocument doc;
+    if (doc.LoadFile(descPath.c_str()) != tinyxml2::XML_SUCCESS)
+        return {};
+
+    tinyxml2::XMLElement* ft = doc.FirstChildElement("GDTF");
+    if (ft)
+        ft = ft->FirstChildElement("FixtureType");
+    else
+        ft = doc.FirstChildElement("FixtureType");
+    if (!ft)
+        return {};
+
+    tinyxml2::XMLElement* models = ft->FirstChildElement("Models");
+    if (!models)
+        return {};
+    tinyxml2::XMLElement* model = models->FirstChildElement("Model");
+    if (!model)
+        return {};
+    const char* attr = model->Attribute("Color");
+    if (!attr)
+        return {};
+
+    std::string t = attr;
+    std::replace(t.begin(), t.end(), ',', ' ');
+    std::stringstream ss(t);
+    double x = 0.0, y = 0.0, Yv = 0.0;
+    if (!(ss >> x >> y >> Yv) || y <= 0.0)
+        return {};
+    double X = x * (Yv / y);
+    double Z = (1.0 - x - y) * (Yv / y);
+    double r = 3.2406 * X - 1.5372 * Yv - 0.4986 * Z;
+    double g = -0.9689 * X + 1.8758 * Yv + 0.0415 * Z;
+    double b = 0.0557 * X - 0.2040 * Yv + 1.0570 * Z;
+    auto gamma = [](double c) {
+        c = std::max(0.0, c);
+        return c <= 0.0031308 ? 12.92 * c
+                               : 1.055 * std::pow(c, 1.0/2.4) - 0.055;
+    };
+    r = gamma(r);
+    g = gamma(g);
+    b = gamma(b);
+    r = std::clamp(r, 0.0, 1.0);
+    g = std::clamp(g, 0.0, 1.0);
+    b = std::clamp(b, 0.0, 1.0);
+    int R = static_cast<int>(std::round(r * 255.0));
+    int G = static_cast<int>(std::round(g * 255.0));
+    int B = static_cast<int>(std::round(b * 255.0));
+    std::ostringstream os;
+    os << '#' << std::uppercase << std::hex << std::setfill('0')
+       << std::setw(2) << R << std::setw(2) << G << std::setw(2) << B;
+    return os.str();
+}
