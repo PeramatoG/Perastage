@@ -19,7 +19,7 @@ int main() {
     cfg.Reset();
     MvrScene &scene = cfg.GetScene();
 
-    Layer layer; layer.uuid = "layer1"; layer.name = "Layer1";
+    Layer layer; layer.uuid = "layer1"; layer.name = "Layer1"; layer.color = "#112233";
     scene.layers[layer.uuid] = layer;
 
     // Prepare dummy GDTF files
@@ -32,7 +32,7 @@ int main() {
     // Dictionary entry that should NOT be applied on load
     GdtfDictionary::Update("FixtureType", (tempDir / "dict.gdtf").string(), "");
 
-    Fixture f; f.uuid = "fx1"; f.instanceName = "Fixture"; f.layer = layer.name; f.typeName = "FixtureType"; f.gdtfSpec = "orig.gdtf"; scene.fixtures[f.uuid] = f;
+    Fixture f; f.uuid = "fx1"; f.instanceName = "Fixture"; f.layer = layer.name; f.typeName = "FixtureType"; f.gdtfSpec = "orig.gdtf"; f.color = "#445566"; scene.fixtures[f.uuid] = f;
     Truss t; t.uuid = "tr1"; t.name = "Truss"; t.layer = layer.name; scene.trusses[t.uuid] = t;
     SceneObject o; o.uuid = "obj1"; o.name = "Object"; o.layer = layer.name; scene.sceneObjects[o.uuid] = o;
 
@@ -50,6 +50,8 @@ int main() {
     assert(scene2.fixtures.at("fx1").instanceName == "Fixture");
     assert(scene2.trusses.at("tr1").name == "Truss");
     assert(scene2.sceneObjects.at("obj1").name == "Object");
+    assert(scene2.fixtures.at("fx1").color == "#445566");
+    assert(scene2.layers.at("layer1").color == "#112233");
 
     const auto &loaded = scene2.fixtures.at("fx1");
     assert(std::filesystem::path(loaded.gdtfSpec).filename() == "orig.gdtf");
