@@ -25,6 +25,11 @@ public:
   bool LoadProjectFromPath(const std::string &path); // Load given project
   void ResetProject();                               // Clear current project
 
+  static MainWindow *Instance();
+  static void SetInstance(MainWindow *inst);
+
+  void EnableShortcuts(bool enable);
+
 private:
   void SetupLayout();   // Set up main window layout
   void CreateMenuBar(); // Create menus
@@ -42,6 +47,8 @@ private:
   ConsolePanel *consolePanel = nullptr;
   LayerPanel *layerPanel = nullptr;
   SummaryPanel *summaryPanel = nullptr;
+
+  wxAcceleratorTable m_accel;
 
   void OnNew(wxCommandEvent &event);    // Start new project
   void OnLoad(wxCommandEvent &event);   // Load project
@@ -95,6 +102,7 @@ private:
   std::string defaultLayoutPerspective;
   std::string default2DLayoutPerspective;
 
+  static MainWindow *s_instance;
   wxDECLARE_EVENT_TABLE();
 };
 

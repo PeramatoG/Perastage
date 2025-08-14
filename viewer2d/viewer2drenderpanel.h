@@ -30,6 +30,9 @@ private:
   void OnLabelOffsetDistance(wxSpinDoubleEvent &evt);
   void OnLabelOffsetAngle(wxSpinEvent &evt);
   void OnView(wxCommandEvent &evt);
+  void OnBeginTextEdit(wxFocusEvent &evt);
+  void OnEndTextEdit(wxFocusEvent &evt);
+  void OnTextEnter(wxCommandEvent &evt);
 
   wxRadioBox *m_radio = nullptr;
   wxRadioBox *m_view = nullptr;

@@ -1456,8 +1456,23 @@ void Viewer3DController::DrawAllFixtureLabels(int width, int height,
   float labelAngle = cfg.GetFloat(angleKeys[viewIdx]);
   constexpr float deg2rad = 3.14159265358979323846f / 180.0f;
   float angRad = labelAngle * deg2rad;
-  float offX = labelDist * std::sin(angRad);
-  float offY = labelDist * std::cos(angRad);
+  float offX = 0.0f;
+  float offY = 0.0f;
+  float offZ = 0.0f;
+  switch (static_cast<Viewer2DView>(viewIdx)) {
+  case Viewer2DView::Top:
+    offX = labelDist * std::sin(angRad);
+    offY = labelDist * std::cos(angRad);
+    break;
+  case Viewer2DView::Front:
+    offX = labelDist * std::sin(angRad);
+    offZ = labelDist * std::cos(angRad);
+    break;
+  case Viewer2DView::Side:
+    offY = -labelDist * std::sin(angRad);
+    offZ = labelDist * std::cos(angRad);
+    break;
+  }
 
   const auto &fixtures = SceneDataManager::Instance().GetFixtures();
   for (const auto &[uuid, f] : fixtures) {
@@ -1470,15 +1485,17 @@ void Viewer3DController::DrawAllFixtureLabels(int width, int height,
       const BoundingBox &bb = bit->second;
       double cx = (bb.min[0] + bb.max[0]) * 0.5;
       double cy = (bb.min[1] + bb.max[1]) * 0.5;
+      double cz = (bb.min[2] + bb.max[2]) * 0.5;
       wx = cx + offX;
       wy = cy + offY;
-      wz = (bb.min[2] + bb.max[2]) * 0.5;
+      wz = cz + offZ;
     } else {
       double cx = f.transform.o[0] * RENDER_SCALE;
       double cy = f.transform.o[1] * RENDER_SCALE;
+      double cz = f.transform.o[2] * RENDER_SCALE;
       wx = cx + offX;
       wy = cy + offY;
-      wz = f.transform.o[2] * RENDER_SCALE;
+      wz = cz + offZ;
     }
 
     double sx, sy, sz;
