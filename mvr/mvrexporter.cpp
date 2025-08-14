@@ -465,6 +465,14 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     if (!layer.name.empty())
       layerElem->SetAttribute("name", layer.name.c_str());
 
+    if (!layer.color.empty() && layer.color.size() == 7 &&
+        layer.color[0] == '#') {
+      std::string cie = HexToCie(layer.color);
+      tinyxml2::XMLElement *col = doc.NewElement("Color");
+      col->SetText(cie.c_str());
+      layerElem->InsertEndChild(col);
+    }
+
     tinyxml2::XMLElement *childList = doc.NewElement("ChildList");
 
     for (const auto &[uid, f] : scene.fixtures) {
