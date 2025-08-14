@@ -636,6 +636,33 @@ std::string GetGdtfModelColor(const std::string& gdtfPath)
     return os.str();
 }
 
+static bool ZipDir(const std::string& srcDir, const std::string& dstZip)
+{
+    wxFileOutputStream output(dstZip);
+    if (!output.IsOk())
+        return false;
+    wxZipOutputStream zip(output);
+    for (auto& p : fs::recursive_directory_iterator(srcDir)) {
+        if (!p.is_regular_file())
+            continue;
+        fs::path rel = fs::relative(p.path(), srcDir);
+        auto* e = new wxZipEntry(rel.generic_string());
+        e->SetMethod(wxZIP_METHOD_DEFLATE);
+        zip.PutNextEntry(e);
+        std::ifstream in(p.path(), std::ios::binary);
+        char buf[4096];
+        while (in.good()) {
+            in.read(buf, sizeof(buf));
+            std::streamsize s = in.gcount();
+            if (s > 0)
+                zip.Write(buf, s);
+        }
+        zip.CloseEntry();
+    }
+    zip.Close();
+    return true;
+}
+
 static std::string HexToCie(const std::string& hex)
 {
     if (hex.size() != 7 || hex[0] != '#')
