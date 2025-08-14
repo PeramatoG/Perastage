@@ -1225,7 +1225,7 @@ void MainWindow::OnToggleSummary(wxCommandEvent &event) {
 
 void MainWindow::OnPaneClose(wxAuiManagerEvent &event) {
   event.Skip();
-  wxCallAfter(&MainWindow::UpdateViewMenuChecks, this);
+  CallAfter(&MainWindow::UpdateViewMenuChecks);
 }
 
 void MainWindow::OnApplyDefaultLayout(wxCommandEvent &WXUNUSED(event)) {
