@@ -14,6 +14,7 @@
 #include <algorithm>
 #include <filesystem>
 #include <unordered_map>
+#include <unordered_set>
 #include <wx/choicdlg.h>
 #include <wx/colordlg.h>
 #include <wx/dcmemory.h>
@@ -1073,6 +1074,7 @@ void FixtureTablePanel::UpdateSceneData() {
   ConfigManager &cfg = ConfigManager::Get();
   cfg.PushUndoState("edit fixture");
   auto &scene = cfg.GetScene();
+  std::unordered_set<std::string> updatedSpecs;
   size_t count = std::min((size_t)table->GetItemCount(), rowUuids.size());
   for (size_t i = 0; i < count; ++i) {
     auto it = scene.fixtures.find(rowUuids[i]);
@@ -1160,6 +1162,15 @@ void FixtureTablePanel::UpdateSceneData() {
 
     table->GetValue(v, i, 18);
     it->second.color = std::string(v.GetString().ToUTF8());
+
+    if (!it->second.color.empty() && !it->second.gdtfSpec.empty()) {
+      std::string gdtfPath = it->second.gdtfSpec;
+      fs::path p = gdtfPath;
+      if (p.is_relative() && !scene.basePath.empty())
+        gdtfPath = (fs::path(scene.basePath) / p).string();
+      if (updatedSpecs.insert(gdtfPath).second)
+        SetGdtfModelColor(gdtfPath, it->second.color);
+    }
   }
 
   HighlightDuplicateFixtureIds();
