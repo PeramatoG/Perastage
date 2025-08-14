@@ -480,6 +480,7 @@ void MainWindow::OnSave(wxCommandEvent &event) {
     OnSaveAs(event);
     return;
   }
+  SyncSceneData();
   SaveCameraSettings();
   ConfigManager::Get().SaveUserConfig();
   if (!ConfigManager::Get().SaveProject(currentProjectPath))
@@ -512,6 +513,7 @@ void MainWindow::OnSaveAs(wxCommandEvent &event) {
     return;
 
   currentProjectPath = dlg.GetPath().ToStdString();
+  SyncSceneData();
   SaveCameraSettings();
   ConfigManager::Get().SaveUserConfig();
   if (!ConfigManager::Get().SaveProject(currentProjectPath))
@@ -600,6 +602,7 @@ void MainWindow::OnExportMVR(wxCommandEvent &event) {
   if (saveFileDialog.ShowModal() == wxID_CANCEL)
     return;
 
+  SyncSceneData();
   MvrExporter exporter;
   wxString path = saveFileDialog.GetPath();
   if (!exporter.ExportToFile(path.ToStdString())) {
@@ -1382,6 +1385,15 @@ void MainWindow::UpdateViewMenuChecks() {
 
   auto &summaryPane = auiManager->GetPane("SummaryPanel");
   GetMenuBar()->Check(ID_View_ToggleSummary, summaryPane.IsShown());
+}
+
+void MainWindow::SyncSceneData() {
+  if (fixturePanel)
+    fixturePanel->UpdateSceneData();
+  if (trussPanel)
+    trussPanel->UpdateSceneData();
+  if (sceneObjPanel)
+    sceneObjPanel->UpdateSceneData();
 }
 
 void MainWindow::OnShowHelp(wxCommandEvent &WXUNUSED(event)) {

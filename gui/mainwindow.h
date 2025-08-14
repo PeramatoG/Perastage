@@ -89,6 +89,7 @@ private:
   void SaveCameraSettings();
   void ApplySavedLayout();
   void UpdateViewMenuChecks();
+  void SyncSceneData();
   std::string defaultLayoutPerspective;
   std::string default2DLayoutPerspective;
 
