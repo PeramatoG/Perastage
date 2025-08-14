@@ -26,6 +26,8 @@ public:
     static FixtureTablePanel* Instance();
     static void SetInstance(FixtureTablePanel* panel);
 
+    void UpdateSceneData();
+
 private:
     friend class FixtureEditDialog; // allow dialog to access internals
 
@@ -50,7 +52,6 @@ private:
     void OnMouseMove(wxMouseEvent& evt);
     void OnSelectionChanged(wxDataViewEvent& evt);
     void PropagateTypeValues(const wxDataViewItemArray& selections, int col);
-    void UpdateSceneData();
     void ApplyModeForGdtf(const wxString& path, const wxString& preferredMode = wxString());
     void HighlightDuplicateFixtureIds();
     void HighlightPatchConflicts();
