@@ -35,6 +35,12 @@ public:
 
 private:
     wxTextCtrl* m_textCtrl = nullptr;
+    wxTextCtrl* m_inputCtrl = nullptr;
     bool m_autoScroll = true;
     void OnScroll(wxScrollWinEvent& event);
+    void OnCommandEnter(wxCommandEvent& event);
+    void OnInputFocus(wxFocusEvent& event);
+    void OnInputKillFocus(wxFocusEvent& event);
+    void OnInputKeyDown(wxKeyEvent& event);
+    void ProcessCommand(const wxString& cmd);
 };
