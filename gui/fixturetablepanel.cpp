@@ -20,6 +20,7 @@
 #include <wx/notebook.h>
 #include <wx/tokenzr.h>
 #include <wx/colordlg.h>
+#include <wx/dcmemory.h>
 
 namespace fs = std::filesystem;
 
@@ -106,10 +107,17 @@ void FixtureTablePanel::InitializeTable() {
                                         widths[6], wxALIGN_LEFT, flags);
   table->AppendColumn(chColumn);
 
-  // Remaining columns as regular text
-  for (size_t i = 7; i < columnLabels.size(); ++i)
+  // Columns 7 to second last as regular text
+  for (size_t i = 7; i < columnLabels.size() - 1; ++i)
     table->AppendTextColumn(columnLabels[i], wxDATAVIEW_CELL_INERT, widths[i],
                             wxALIGN_LEFT, flags);
+
+  // Last column (Color) uses icon+text to show a colored square
+  auto *colorRenderer = new wxDataViewIconTextRenderer();
+  auto *colorColumn = new wxDataViewColumn(
+      columnLabels.back(), colorRenderer, columnLabels.size() - 1,
+      widths.back(), wxALIGN_LEFT, flags);
+  table->AppendColumn(colorColumn);
 }
 
 void FixtureTablePanel::ReloadData() {
@@ -230,7 +238,21 @@ void FixtureTablePanel::ReloadData() {
     row.push_back(power);
     row.push_back(weight);
     wxString color = wxString::FromUTF8(fixture->color);
-    row.push_back(color);
+    if (!color.IsEmpty()) {
+      wxColour col(color);
+      wxBitmap bmp(16, 16);
+      {
+        wxMemoryDC dc(bmp);
+        dc.SetPen(*wxTRANSPARENT_PEN);
+        dc.SetBrush(wxBrush(col));
+        dc.DrawRectangle(0, 0, 16, 16);
+        dc.SelectObject(wxNullBitmap);
+      }
+      wxDataViewIconText iconText(color, bmp);
+      row.push_back(wxVariant(iconText));
+    } else {
+      row.push_back(wxVariant(wxDataViewIconText()));
+    }
 
     store.AppendItem(row, rowUuids.size());
     rowUuids.push_back(uuid);
