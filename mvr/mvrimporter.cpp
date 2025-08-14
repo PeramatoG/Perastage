@@ -408,6 +408,16 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
           if (const char *txt = colorNode->GetText())
             fixture.color = CieToHex(txt);
         }
+        if (tinyxml2::XMLElement *pcNode =
+                node->FirstChildElement("PowerConsumption")) {
+          if (const char *txt = pcNode->GetText())
+            fixture.powerConsumptionW = std::stof(txt);
+        }
+        if (tinyxml2::XMLElement *wNode =
+                node->FirstChildElement("Weight")) {
+          if (const char *txt = wNode->GetText())
+            fixture.weightKg = std::stof(txt);
+        }
         if (!fixture.gdtfSpec.empty()) {
           fs::path p =
               scene.basePath.empty()
@@ -419,6 +429,13 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
           fixture.gdtfSpec = gdtfPath;
         if (fixture.color.empty())
           fixture.color = GetGdtfModelColor(gdtfPath);
+        float gw = 0.0f, gp = 0.0f;
+        if (GetGdtfProperties(gdtfPath, gw, gp)) {
+          if (fixture.weightKg == 0.0f)
+            fixture.weightKg = gw;
+          if (fixture.powerConsumptionW == 0.0f)
+            fixture.powerConsumptionW = gp;
+        }
       }
       auto posIt = scene.positions.find(fixture.position);
         if (posIt != scene.positions.end())

@@ -21,6 +21,12 @@ class wxZipStreamLink;
 
 namespace fs = std::filesystem;
 
+struct GdtfOverrides {
+  std::string color;
+  float weightKg = 0.0f;
+  float powerW = 0.0f;
+};
+
 static std::pair<int, int> ParseAddress(const std::string &addr) {
   size_t dot = addr.find('.');
   if (dot == std::string::npos)
@@ -135,8 +141,8 @@ static bool ZipDir(const std::string &srcDir, const std::string &dstZip) {
   return true;
 }
 
-static std::string CreateColoredGdtf(const std::string &gdtfPath,
-                                     const std::string &hexColor) {
+static std::string CreatePatchedGdtf(const std::string &gdtfPath,
+                                     const GdtfOverrides &ov) {
   std::string tempDir = CreateTempDir();
   if (!ExtractZip(gdtfPath, tempDir))
     return {};
@@ -151,13 +157,35 @@ static std::string CreateColoredGdtf(const std::string &gdtfPath,
     ft = doc.FirstChildElement("FixtureType");
   if (!ft)
     return {};
-  tinyxml2::XMLElement *models = ft->FirstChildElement("Models");
-  if (!models)
-    return {};
-  std::string cie = HexToCie(hexColor);
-  for (tinyxml2::XMLElement *m = models->FirstChildElement("Model"); m;
-       m = m->NextSiblingElement("Model"))
-    m->SetAttribute("Color", cie.c_str());
+  if (!ov.color.empty()) {
+    tinyxml2::XMLElement *models = ft->FirstChildElement("Models");
+    if (models) {
+      std::string cie = HexToCie(ov.color);
+      for (tinyxml2::XMLElement *m = models->FirstChildElement("Model"); m;
+           m = m->NextSiblingElement("Model"))
+        m->SetAttribute("Color", cie.c_str());
+    }
+  }
+  if (ov.weightKg != 0.0f || ov.powerW != 0.0f) {
+    tinyxml2::XMLElement *phys = ft->FirstChildElement("PhysicalDescriptions");
+    if (!phys)
+      phys = ft->InsertNewChildElement("PhysicalDescriptions");
+    tinyxml2::XMLElement *props = phys->FirstChildElement("Properties");
+    if (!props)
+      props = phys->InsertNewChildElement("Properties");
+    if (ov.weightKg != 0.0f) {
+      tinyxml2::XMLElement *w = props->FirstChildElement("Weight");
+      if (!w)
+        w = props->InsertNewChildElement("Weight");
+      w->SetAttribute("Value", ov.weightKg);
+    }
+    if (ov.powerW != 0.0f) {
+      tinyxml2::XMLElement *p = props->FirstChildElement("PowerConsumption");
+      if (!p)
+        p = props->InsertNewChildElement("PowerConsumption");
+      p->SetAttribute("Value", ov.powerW);
+    }
+  }
   doc.SaveFile(descPath.c_str());
   std::string outPath = tempDir + ".gdtf";
   if (!ZipDir(tempDir, outPath))
@@ -175,7 +203,7 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
   wxZipOutputStream zip(output);
 
   std::set<std::string> resourceFiles;
-  std::unordered_map<std::string, std::string> gdtfColorOverrides;
+  std::unordered_map<std::string, GdtfOverrides> gdtfOverrides;
 
   tinyxml2::XMLDocument doc;
   doc.InsertEndChild(doc.NewDeclaration());
@@ -241,6 +269,14 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
         fe->InsertEndChild(e);
       }
     };
+    auto addNum = [&](const char *n, float v, const char *unit) {
+      if (v != 0.0f) {
+        tinyxml2::XMLElement *e = doc.NewElement(n);
+        e->SetAttribute("unit", unit);
+        e->SetText(v);
+        fe->InsertEndChild(e);
+      }
+    };
 
     addInt("FixtureID", f.fixtureId);
     addInt("FixtureIDNumeric", f.fixtureIdNumeric);
@@ -250,12 +286,24 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     addStr("GDTFSpec", f.gdtfSpec);
     if (!f.gdtfSpec.empty())
       resourceFiles.insert(f.gdtfSpec);
-    if (!f.color.empty() && !f.gdtfSpec.empty())
-      gdtfColorOverrides[f.gdtfSpec] = f.color;
+    if (!f.gdtfSpec.empty() &&
+        (!f.color.empty() || f.weightKg != 0.0f ||
+         f.powerConsumptionW != 0.0f)) {
+      auto &ov = gdtfOverrides[f.gdtfSpec];
+      if (!f.color.empty())
+        ov.color = f.color;
+      if (f.weightKg != 0.0f)
+        ov.weightKg = f.weightKg;
+      if (f.powerConsumptionW != 0.0f)
+        ov.powerW = f.powerConsumptionW;
+    }
     addStr("GDTFMode", f.gdtfMode);
     addStr("Focus", f.focus);
     addStr("Function", f.function);
     addStr("Position", f.position);
+
+    addNum("PowerConsumption", f.powerConsumptionW, "W");
+    addNum("Weight", f.weightKg, "kg");
 
     if (!f.color.empty() && f.color.size() == 7 && f.color[0] == '#') {
       std::string cie = HexToCie(f.color);
@@ -540,9 +588,9 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     if (!fs::exists(src))
       continue;
 
-    auto cit = gdtfColorOverrides.find(rel);
-    if (cit != gdtfColorOverrides.end()) {
-      std::string tmp = CreateColoredGdtf(src.string(), cit->second);
+    auto cit = gdtfOverrides.find(rel);
+    if (cit != gdtfOverrides.end()) {
+      std::string tmp = CreatePatchedGdtf(src.string(), cit->second);
       if (!tmp.empty())
         src = tmp;
     }
