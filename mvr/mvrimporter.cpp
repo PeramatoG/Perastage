@@ -6,6 +6,7 @@
 #include "sceneobject.h"
 
 #include "consolepanel.h"
+#include "logger.h"
 #include <algorithm>
 #include <cctype>
 #include <chrono>
@@ -83,10 +84,17 @@ static std::string CieToHex(const std::string &cie) {
 }
 
 // Helper to log errors both to stderr and the application's console panel.
+// Log a message to both the log file and the application's console panel.
+// Console updates are queued to the GUI thread to avoid blocking.
 static void LogMessage(const std::string &msg) {
-  std::cerr << msg << '\n';
-  if (ConsolePanel::Instance())
-    ConsolePanel::Instance()->AppendMessage(wxString::FromUTF8(msg.c_str()));
+  Logger::Instance().Log(msg);
+  if (ConsolePanel::Instance() && wxTheApp) {
+    wxString wmsg = wxString::FromUTF8(msg.c_str());
+    wxTheApp->CallAfter([wmsg]() {
+      if (ConsolePanel::Instance())
+        ConsolePanel::Instance()->AppendMessage(wmsg);
+    });
+  }
 }
 
 struct GdtfConflict {
@@ -141,8 +149,6 @@ PromptGdtfConflicts(const std::vector<GdtfConflict> &conflicts) {
 bool MvrImporter::ImportFromFile(const std::string &filePath,
                                  bool promptConflicts,
                                  bool applyDictionary) {
-  LogMessage("Starting MVR import: " + filePath);
-
   // Treat the incoming path as UTF-8 to preserve any non-ASCII characters
   fs::path path = fs::u8path(filePath);
 
@@ -159,17 +165,9 @@ bool MvrImporter::ImportFromFile(const std::string &filePath,
     return false;
   }
 
-  if (ConsolePanel::Instance()) {
-    std::string pathUtf8 = ToString(path.u8string());
-    wxString msg = wxString::Format("Importing MVR %s",
-                                    wxString::FromUTF8(pathUtf8.c_str()));
-    ConsolePanel::Instance()->AppendMessage(msg);
-  }
-
   std::string tempDir = CreateTemporaryDirectory();
   std::string mvrPath = ToString(path.u8string());
   fs::path tempPath(tempDir);
-  LogMessage("Extracting MVR to temporary directory: " + tempDir);
   if (!ExtractMvrZip(mvrPath, tempDir)) {
     LogMessage("Failed to extract MVR file.");
     return false;
@@ -197,7 +195,6 @@ bool MvrImporter::ImportFromFile(const std::string &filePath,
     return false;
   }
 
-  LogMessage("Found scene description: " + ToString(sceneFile.u8string()));
   std::string scenePath = ToString(sceneFile.u8string());
   return ParseSceneXml(scenePath, promptConflicts, applyDictionary);
 }
@@ -268,19 +265,11 @@ bool MvrImporter::ExtractMvrZip(const std::string &mvrPath,
 bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                                 bool promptConflicts,
                                 bool applyDictionary) {
-  LogMessage("Loading scene XML: " + sceneXmlPath);
-
   tinyxml2::XMLDocument doc;
   tinyxml2::XMLError result = doc.LoadFile(sceneXmlPath.c_str());
   if (result != tinyxml2::XML_SUCCESS) {
     LogMessage("Failed to load XML: " + sceneXmlPath);
     return false;
-  }
-
-  if (ConsolePanel::Instance()) {
-    wxString msg = wxString::Format("Parsing scene XML %s",
-                                    wxString::FromUTF8(sceneXmlPath.c_str()));
-    ConsolePanel::Instance()->AppendMessage(msg);
   }
 
   tinyxml2::XMLElement *root = doc.FirstChildElement("GeneralSceneDescription");
@@ -316,13 +305,6 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
     scene.provider = provider;
   if (version)
     scene.providerVersion = version;
-
-  std::string provInfo =
-      "MVR provider: " + std::string(provider ? provider : "unknown") +
-      ", version: " + std::string(version ? version : "unknown") +
-      ", file MVR version: " + std::to_string(scene.versionMajor) + "." +
-      std::to_string(scene.versionMinor);
-  LogMessage(provInfo);
 
   tinyxml2::XMLElement *sceneNode = root->FirstChildElement("Scene");
   if (!sceneNode) {
@@ -740,11 +722,6 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
       std::to_string(scene.trusses.size()) + " trusses, " +
       std::to_string(scene.sceneObjects.size()) + " objects";
   LogMessage(summary);
-  if (ConsolePanel::Instance()) {
-    ConsolePanel::Instance()->AppendMessage(
-        wxString::FromUTF8(summary.c_str()));
-  }
-
   return true;
 }
 

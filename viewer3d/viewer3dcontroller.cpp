@@ -23,6 +23,7 @@
 // Include shared Matrix type used throughout models
 #include "../models/types.h"
 #include "consolepanel.h"
+#include "logger.h"
 
 #include <wx/tokenzr.h>
 #include <wx/wx.h>
@@ -323,9 +324,9 @@ void Viewer3DController::InitializeGL() {
       }
     }
     if (m_font < 0)
-      std::cerr << "Failed to load font for labels" << std::endl;
+      Logger::Instance().Log("Failed to load font for labels");
   } else {
-    std::cerr << "Failed to create NanoVG context" << std::endl;
+    Logger::Instance().Log("Failed to create NanoVG context");
   }
 }
 
