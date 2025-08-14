@@ -1021,7 +1021,7 @@ void FixtureTablePanel::OnSelectionChanged(wxDataViewEvent &evt) {
 
 void FixtureTablePanel::PropagateTypeValues(
     const wxDataViewItemArray &selections, int col) {
-  if (col != 16 && col != 17)
+  if (col != 16 && col != 17 && col != 18)
     return;
 
   std::unordered_map<std::string, wxString> typeValues;

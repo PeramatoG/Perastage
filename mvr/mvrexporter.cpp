@@ -13,6 +13,9 @@ class wxZipStreamLink;
 #include <filesystem>
 #include <fstream>
 #include <set>
+#include <sstream>
+#include <iomanip>
+#include <cmath>
 
 namespace fs = std::filesystem;
 
@@ -120,6 +123,36 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     addStr("Focus", f.focus);
     addStr("Function", f.function);
     addStr("Position", f.position);
+
+    if (!f.color.empty() && f.color.size() == 7 && f.color[0] == '#') {
+      unsigned int rgb = 0;
+      std::istringstream iss(f.color.substr(1));
+      iss >> std::hex >> rgb;
+      unsigned int R = (rgb >> 16) & 0xFF;
+      unsigned int G = (rgb >> 8) & 0xFF;
+      unsigned int B = rgb & 0xFF;
+      auto invGamma = [](double c) {
+        return c <= 0.04045 ? c / 12.92
+                            : std::pow((c + 0.055) / 1.055, 2.4);
+      };
+      double r = invGamma(R / 255.0);
+      double g = invGamma(G / 255.0);
+      double b = invGamma(B / 255.0);
+      double X = 0.4124 * r + 0.3576 * g + 0.1805 * b;
+      double Y = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+      double Z = 0.0193 * r + 0.1192 * g + 0.9505 * b;
+      double sum = X + Y + Z;
+      double x = 0.0, y = 0.0;
+      if (sum > 0.0) {
+        x = X / sum;
+        y = Y / sum;
+      }
+      std::ostringstream colStr;
+      colStr << std::fixed << std::setprecision(6) << x << "," << y << "," << Y;
+      tinyxml2::XMLElement *col = doc.NewElement("Color");
+      col->SetText(colStr.str().c_str());
+      fe->InsertEndChild(col);
+    }
 
     if (f.dmxInvertPan) {
       tinyxml2::XMLElement *e = doc.NewElement("DMXInvertPan");
