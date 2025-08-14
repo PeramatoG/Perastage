@@ -72,6 +72,14 @@ In the 2D viewer these controls are available:
 - **Arrow keys**: pan the view.
 - **Alt + Arrow keys**: zoom in and out.
 
+## License
+
+This project is licensed under the GNU General Public License v3.0 (GPL v3) – see the LICENSE.txt file for details.
+
+## Authors
+
+- Luis Manuel Peramato García (Luisma Peramato)
+
 ## Licencias de terceros
 
-Consulta [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md) para ver las licencias de las dependencias incluidas.
+Perastage uses third-party libraries under permissive licenses that are compatible with GPL v3. Consulta [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md) para ver las licencias de las dependencias incluidas.

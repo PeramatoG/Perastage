@@ -114,4 +114,4 @@ Settings are stored using a modular configuration manager. It supports saving an
 
 - MVR Specification: `docs/mvr-spec.md`
 - GDTF Specification: `docs/gdtf-spec.md`
-- License: `LICENSE.txt`
+- License: `LICENSE.txt` (GPL v3)
