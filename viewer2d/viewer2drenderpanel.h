@@ -4,7 +4,6 @@
 #include <wx/clrpicker.h>
 #include <wx/scrolwin.h>
 #include <wx/spinctrl.h>
-#include <wx/spinctrld.h>
 #include <wx/wx.h>
 
 class Viewer2DRenderPanel : public wxScrolledWindow {
