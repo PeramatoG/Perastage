@@ -195,11 +195,16 @@ void ConsolePanel::ProcessCommand(const wxString& cmdWx)
         auto removeId = [&](int id){
             auto it = current.begin();
             while (it != current.end()) {
-                const auto& map = fixtures ? scene.fixtures : scene.trusses;
-                auto fit = map.find(*it);
                 int fid = -1;
-                if (fit != map.end())
-                    fid = fixtures ? fit->second.fixtureId : fit->second.unitNumber;
+                if (fixtures) {
+                    auto fit = scene.fixtures.find(*it);
+                    if (fit != scene.fixtures.end())
+                        fid = fit->second.fixtureId;
+                } else {
+                    auto fit = scene.trusses.find(*it);
+                    if (fit != scene.trusses.end())
+                        fid = fit->second.unitNumber;
+                }
                 if (fid == id)
                     it = current.erase(it);
                 else
