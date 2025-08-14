@@ -2,25 +2,25 @@
 #include "addressdialog.h"
 #include "configmanager.h"
 #include "fixtureeditdialog.h"
-#include "gdtfloader.h"
 #include "gdtfdictionary.h"
+#include "gdtfloader.h"
+#include "layerpanel.h"
 #include "matrixutils.h"
 #include "patchmanager.h"
 #include "projectutils.h"
-#include "viewer3dpanel.h"
-#include "layerpanel.h"
-#include "summarypanel.h"
 #include "stringutils.h"
+#include "summarypanel.h"
+#include "viewer3dpanel.h"
 #include <algorithm>
 #include <filesystem>
 #include <unordered_map>
 #include <wx/choicdlg.h>
+#include <wx/colordlg.h>
+#include <wx/dcmemory.h>
 #include <wx/filedlg.h>
 #include <wx/filename.h>
 #include <wx/notebook.h>
 #include <wx/tokenzr.h>
-#include <wx/colordlg.h>
-#include <wx/dcmemory.h>
 
 namespace fs = std::filesystem;
 
@@ -43,8 +43,8 @@ FixtureTablePanel::FixtureTablePanel(wxWindow *parent)
               &FixtureTablePanel::OnContextMenu, this);
   table->Bind(wxEVT_DATAVIEW_ITEM_ACTIVATED,
               &FixtureTablePanel::OnItemActivated, this);
-  table->Bind(wxEVT_DATAVIEW_COLUMN_SORTED,
-              &FixtureTablePanel::OnColumnSorted, this);
+  table->Bind(wxEVT_DATAVIEW_COLUMN_SORTED, &FixtureTablePanel::OnColumnSorted,
+              this);
 
   InitializeTable();
   ReloadData();
@@ -59,15 +59,14 @@ FixtureTablePanel::~FixtureTablePanel() {
 }
 
 void FixtureTablePanel::InitializeTable() {
-  columnLabels = {"Fixture ID", "Name",       "Type",    "Layer",
-                  "Hang Pos",   "Universe",   "Channel", "Mode",
-                  "Ch Count",   "Model file", "Pos X",   "Pos Y",
-                  "Pos Z",      "Rot X",      "Rot Y",   "Rot Z",
+  columnLabels = {"Fixture ID", "Name",        "Type",    "Layer",
+                  "Hang Pos",   "Universe",    "Channel", "Mode",
+                  "Ch Count",   "Model file",  "Pos X",   "Pos Y",
+                  "Pos Z",      "Rot X",       "Rot Y",   "Rot Z",
                   "Power (W)",  "Weight (kg)", "Color"};
 
-  std::vector<int> widths = {90,  150, 180, 100, 120, 80, 80, 120, 80,
-                             180, 80,  80,  80,  80,  80, 80, 100, 100,
-                             80};
+  std::vector<int> widths = {90, 150, 180, 100, 120, 80, 80,  120, 80, 180,
+                             80, 80,  80,  80,  80,  80, 100, 100, 80};
   int flags = wxDATAVIEW_COL_RESIZABLE | wxDATAVIEW_COL_SORTABLE;
 
   // Column 0: Fixture ID (numeric for proper sorting)
@@ -114,9 +113,9 @@ void FixtureTablePanel::InitializeTable() {
 
   // Last column (Color) uses icon+text to show a colored square
   auto *colorRenderer = new wxDataViewIconTextRenderer();
-  auto *colorColumn = new wxDataViewColumn(
-      columnLabels.back(), colorRenderer, columnLabels.size() - 1,
-      widths.back(), wxALIGN_LEFT, flags);
+  auto *colorColumn = new wxDataViewColumn(columnLabels.back(), colorRenderer,
+                                           columnLabels.size() - 1,
+                                           widths.back(), wxALIGN_LEFT, flags);
   table->AppendColumn(colorColumn);
 }
 
@@ -175,8 +174,9 @@ void FixtureTablePanel::ReloadData() {
 
     wxString name = wxString::FromUTF8(fixture->instanceName);
     long fixtureID = static_cast<long>(fixture->fixtureId);
-    wxString layer = fixture->layer == DEFAULT_LAYER_NAME ? wxString()
-                                                            : wxString::FromUTF8(fixture->layer);
+    wxString layer = fixture->layer == DEFAULT_LAYER_NAME
+                         ? wxString()
+                         : wxString::FromUTF8(fixture->layer);
     long universe = 0;
     long channel = 0;
     if (!fixture->address.empty()) {
@@ -201,8 +201,8 @@ void FixtureTablePanel::ReloadData() {
       type = gdtf;
     wxString mode = wxString::FromUTF8(fixture->gdtfMode);
 
-    int chCount =
-        GetGdtfModeChannelCount(std::string(gdtfFull.ToUTF8()), fixture->gdtfMode);
+    int chCount = GetGdtfModeChannelCount(std::string(gdtfFull.ToUTF8()),
+                                          fixture->gdtfMode);
     wxString chCountStr =
         chCount >= 0 ? wxString::Format("%d", chCount) : wxString();
 
@@ -304,8 +304,7 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
       float w = 0.0f, p = 0.0f;
       std::string pathUtf8(path.ToUTF8());
       GetGdtfProperties(pathUtf8, w, p);
-      wxString typeName =
-          wxString::FromUTF8(GetGdtfFixtureName(pathUtf8));
+      wxString typeName = wxString::FromUTF8(GetGdtfFixtureName(pathUtf8));
       if (typeName.empty())
         typeName = fdlg.GetFilename();
       wxString fileName = fdlg.GetFilename();
@@ -375,8 +374,8 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
     if ((size_t)r < gdtfPaths.size())
       gdtfPath = gdtfPaths[r];
 
-      std::vector<std::string> modes =
-          GetGdtfModes(std::string(gdtfPath.ToUTF8()));
+    std::vector<std::string> modes =
+        GetGdtfModes(std::string(gdtfPath.ToUTF8()));
     if (modes.size() <= 1)
       return;
 
@@ -434,17 +433,18 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
   if (col == 3) {
     auto layers = ConfigManager::Get().GetLayerNames();
     wxArrayString choices;
-    for (const auto& n : layers)
-        choices.push_back(wxString::FromUTF8(n));
+    for (const auto &n : layers)
+      choices.push_back(wxString::FromUTF8(n));
     wxSingleChoiceDialog dlg(this, "Select layer", "Layer", choices);
     if (dlg.ShowModal() != wxID_OK)
-        return;
+      return;
     wxString sel = dlg.GetStringSelection();
-    wxString val = sel == wxString::FromUTF8(DEFAULT_LAYER_NAME) ? wxString() : sel;
-    for (const auto& itSel : selections) {
-        int r = table->ItemToRow(itSel);
-        if (r != wxNOT_FOUND)
-            table->SetValue(wxVariant(val), r, col);
+    wxString val =
+        sel == wxString::FromUTF8(DEFAULT_LAYER_NAME) ? wxString() : sel;
+    for (const auto &itSel : selections) {
+      int r = table->ItemToRow(itSel);
+      if (r != wxNOT_FOUND)
+        table->SetValue(wxVariant(val), r, col);
     }
     PropagateTypeValues(selections, col);
     ResyncRows(oldOrder, selectedUuids);
@@ -865,7 +865,7 @@ std::vector<std::string> FixtureTablePanel::GetSelectedUuids() const {
   return uuids;
 }
 
-void FixtureTablePanel::SelectByUuid(const std::vector<std::string>& uuids) {
+void FixtureTablePanel::SelectByUuid(const std::vector<std::string> &uuids) {
   table->UnselectAll();
   selectionOrder.clear();
   for (const auto &u : uuids) {
@@ -1024,6 +1024,34 @@ void FixtureTablePanel::PropagateTypeValues(
   if (col != 16 && col != 17 && col != 18)
     return;
 
+  if (col == 18) {
+    std::unordered_map<std::string, wxDataViewIconText> typeValues;
+    for (const auto &it : selections) {
+      int r = table->ItemToRow(it);
+      if (r == wxNOT_FOUND)
+        continue;
+      wxVariant vType, vVal;
+      table->GetValue(vType, r, 2);
+      table->GetValue(vVal, r, col);
+      wxDataViewIconText iconText;
+      vVal >> iconText;
+      typeValues[std::string(vType.GetString().ToUTF8())] = iconText;
+    }
+
+    unsigned int rowCount = table->GetItemCount();
+    for (unsigned int i = 0; i < rowCount; ++i) {
+      wxVariant vType;
+      table->GetValue(vType, i, 2);
+      auto it = typeValues.find(std::string(vType.GetString().ToUTF8()));
+      if (it != typeValues.end()) {
+        wxVariant v;
+        v << it->second;
+        table->SetValue(v, i, col);
+      }
+    }
+    return;
+  }
+
   std::unordered_map<std::string, wxString> typeValues;
   for (const auto &it : selections) {
     int r = table->ItemToRow(it);
@@ -1118,11 +1146,9 @@ void FixtureTablePanel::UpdateSceneData() {
       s.ToDouble(&rz);
     }
 
-    Matrix rot = MatrixUtils::EulerToMatrix(static_cast<float>(rx),
-                                            static_cast<float>(ry),
-                                            static_cast<float>(rz));
-    rot.o = {static_cast<float>(x * 1000.0),
-             static_cast<float>(y * 1000.0),
+    Matrix rot = MatrixUtils::EulerToMatrix(
+        static_cast<float>(rx), static_cast<float>(ry), static_cast<float>(rz));
+    rot.o = {static_cast<float>(x * 1000.0), static_cast<float>(y * 1000.0),
              static_cast<float>(z * 1000.0)};
     it->second.transform = rot;
 
@@ -1137,8 +1163,9 @@ void FixtureTablePanel::UpdateSceneData() {
     it->second.weightKg = static_cast<float>(wt);
 
     table->GetValue(v, i, 18);
-    it->second.color = std::string(v.GetString().ToUTF8());
-
+    wxDataViewIconText iconText;
+    v >> iconText;
+    it->second.color = std::string(iconText.GetText().ToUTF8());
   }
 
   HighlightDuplicateFixtureIds();
@@ -1233,8 +1260,9 @@ void FixtureTablePanel::HighlightDuplicateFixtureIds() {
   table->Refresh();
 }
 
-void FixtureTablePanel::ResyncRows(const std::vector<std::string>& oldOrder,
-                                   const std::vector<std::string>& selectedUuids) {
+void FixtureTablePanel::ResyncRows(
+    const std::vector<std::string> &oldOrder,
+    const std::vector<std::string> &selectedUuids) {
   unsigned int count = table->GetItemCount();
   std::vector<std::string> newOrder(count);
   std::vector<wxString> newPaths(count);
@@ -1252,18 +1280,18 @@ void FixtureTablePanel::ResyncRows(const std::vector<std::string>& oldOrder,
   gdtfPaths.swap(newPaths);
 
   table->UnselectAll();
-  for (const auto& uuid : selectedUuids) {
+  for (const auto &uuid : selectedUuids) {
     auto pos = std::find(rowUuids.begin(), rowUuids.end(), uuid);
     if (pos != rowUuids.end())
       table->SelectRow(static_cast<int>(pos - rowUuids.begin()));
   }
 }
 
-void FixtureTablePanel::OnColumnSorted(wxDataViewEvent& event) {
+void FixtureTablePanel::OnColumnSorted(wxDataViewEvent &event) {
   wxDataViewItemArray selections;
   table->GetSelections(selections);
   std::vector<std::string> selectedUuids;
-  for (const auto& it : selections) {
+  for (const auto &it : selections) {
     int r = table->ItemToRow(it);
     if (r != wxNOT_FOUND && (size_t)r < rowUuids.size())
       selectedUuids.push_back(rowUuids[r]);
