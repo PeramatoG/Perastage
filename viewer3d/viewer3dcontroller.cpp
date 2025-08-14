@@ -11,8 +11,8 @@
 #include <windows.h>
 #endif
 
-#include <GL/glew.h>
 #include <GL/gl.h>
+#include <GL/glew.h>
 #include <GL/glu.h>
 
 #include "configmanager.h"
@@ -1445,8 +1445,15 @@ void Viewer3DController::DrawAllFixtureLabels(int width, int height,
   float nameSize = cfg.GetFloat("label_font_size_name") * zoom;
   float idSize = cfg.GetFloat("label_font_size_id") * zoom;
   float dmxSize = cfg.GetFloat("label_font_size_dmx") * zoom;
-  float labelDist = cfg.GetFloat("label_offset_distance");
-  float labelAngle = cfg.GetFloat("label_offset_angle");
+  const std::array<const char *, 3> distKeys = {"label_offset_distance_top",
+                                                "label_offset_distance_front",
+                                                "label_offset_distance_side"};
+  const std::array<const char *, 3> angleKeys = {"label_offset_angle_top",
+                                                 "label_offset_angle_front",
+                                                 "label_offset_angle_side"};
+  int viewIdx = static_cast<int>(cfg.GetFloat("view2d_view"));
+  float labelDist = cfg.GetFloat(distKeys[viewIdx]);
+  float labelAngle = cfg.GetFloat(angleKeys[viewIdx]);
   constexpr float deg2rad = 3.14159265358979323846f / 180.0f;
   float angRad = labelAngle * deg2rad;
   float offX = labelDist * std::sin(angRad);
