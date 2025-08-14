@@ -67,6 +67,12 @@ using json = nlohmann::json;
 #define pclose _pclose
 #endif
 
+MainWindow *MainWindow::s_instance = nullptr;
+
+MainWindow *MainWindow::Instance() { return s_instance; }
+
+void MainWindow::SetInstance(MainWindow *inst) { s_instance = inst; }
+
 wxBEGIN_EVENT_TABLE(MainWindow, wxFrame) EVT_MENU(
     ID_File_New,
     MainWindow::
@@ -161,6 +167,7 @@ wxBEGIN_EVENT_TABLE(MainWindow, wxFrame) EVT_MENU(
                                                                             const wxString
                                                                                 &title)
     : wxFrame(nullptr, wxID_ANY, title, wxDefaultPosition, wxSize(1600, 950)) {
+  SetInstance(this);
   wxIcon icon;
   const char *iconPaths[] = {"resources/Perastage.ico",
                              "../resources/Perastage.ico",
@@ -353,8 +360,8 @@ void MainWindow::SetupLayout() {
   entries[0].Set(wxACCEL_NORMAL, (int)'1', ID_Select_Fixtures);
   entries[1].Set(wxACCEL_NORMAL, (int)'2', ID_Select_Trusses);
   entries[2].Set(wxACCEL_NORMAL, (int)'3', ID_Select_Objects);
-  wxAcceleratorTable accel(3, entries);
-  SetAcceleratorTable(accel);
+  m_accel = wxAcceleratorTable(3, entries);
+  SetAcceleratorTable(m_accel);
 }
 
 void MainWindow::CreateMenuBar() {
@@ -1936,4 +1943,11 @@ void MainWindow::OnDelete(wxCommandEvent &WXUNUSED(event)) {
     trussPanel->DeleteSelected();
   else if (sceneObjPanel && sceneObjPanel->IsActivePage())
     sceneObjPanel->DeleteSelected();
+}
+
+void MainWindow::EnableShortcuts(bool enable) {
+  if (enable)
+    SetAcceleratorTable(m_accel);
+  else
+    SetAcceleratorTable(wxAcceleratorTable());
 }
