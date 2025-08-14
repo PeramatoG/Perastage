@@ -76,6 +76,21 @@ Viewer2DRenderPanel::Viewer2DRenderPanel(wxWindow *parent)
   m_labelAddressSize->Bind(wxEVT_SPINCTRL,
                            &Viewer2DRenderPanel::OnLabelAddressSize, this);
 
+  m_labelOffsetDistance = new wxSpinCtrlDouble(this, wxID_ANY);
+  m_labelOffsetDistance->SetRange(0.0, 1.0);
+  m_labelOffsetDistance->SetIncrement(0.1);
+  m_labelOffsetDistance->SetDigits(2);
+  m_labelOffsetDistance->SetValue(cfg.GetFloat("label_offset_distance"));
+  m_labelOffsetDistance->Bind(wxEVT_SPINCTRLDOUBLE,
+                              &Viewer2DRenderPanel::OnLabelOffsetDistance, this);
+
+  m_labelOffsetAngle = new wxSpinCtrl(this, wxID_ANY);
+  m_labelOffsetAngle->SetRange(0, 360);
+  m_labelOffsetAngle->SetValue(
+      static_cast<int>(cfg.GetFloat("label_offset_angle")));
+  m_labelOffsetAngle->Bind(wxEVT_SPINCTRL,
+                           &Viewer2DRenderPanel::OnLabelOffsetAngle, this);
+
   auto *sizer = new wxBoxSizer(wxVERTICAL);
   sizer->Add(m_radio, 0, wxALL, 5);
   sizer->Add(m_view, 0, wxALL, 5);
@@ -113,6 +128,18 @@ Viewer2DRenderPanel::Viewer2DRenderPanel(wxWindow *parent)
   addrSizer->Add(m_labelAddressSize, 0);
   labelBox->Add(addrSizer, 0, wxALL, 5);
 
+  auto *distSizer = new wxBoxSizer(wxHORIZONTAL);
+  distSizer->Add(new wxStaticText(this, wxID_ANY, "Distance"), 0,
+                 wxALIGN_CENTER_VERTICAL | wxRIGHT, 5);
+  distSizer->Add(m_labelOffsetDistance, 0);
+  labelBox->Add(distSizer, 0, wxALL, 5);
+
+  auto *angleSizer = new wxBoxSizer(wxHORIZONTAL);
+  angleSizer->Add(new wxStaticText(this, wxID_ANY, "Angle"), 0,
+                  wxALIGN_CENTER_VERTICAL | wxRIGHT, 5);
+  angleSizer->Add(m_labelOffsetAngle, 0);
+  labelBox->Add(angleSizer, 0, wxALL, 5);
+
   sizer->Add(labelBox, 0, wxALL, 5);
 
   SetSizer(sizer);
@@ -147,6 +174,9 @@ void Viewer2DRenderPanel::ApplyConfig() {
   m_showLabelAddress->SetValue(cfg.GetFloat("label_show_dmx") != 0.0f);
   m_labelAddressSize->SetValue(
       static_cast<int>(cfg.GetFloat("label_font_size_dmx")));
+  m_labelOffsetDistance->SetValue(cfg.GetFloat("label_offset_distance"));
+  m_labelOffsetAngle->SetValue(
+      static_cast<int>(cfg.GetFloat("label_offset_angle")));
   if (auto *vp = Viewer2DPanel::Instance()) {
     vp->SetRenderMode(
         static_cast<Viewer2DRenderMode>(m_radio->GetSelection()));
@@ -244,6 +274,24 @@ void Viewer2DRenderPanel::OnLabelAddressSize(wxSpinEvent &evt) {
   ConfigManager::Get().SetFloat(
       "label_font_size_dmx",
       static_cast<float>(m_labelAddressSize->GetValue()));
+  if (auto *vp = Viewer2DPanel::Instance())
+    vp->UpdateScene(false);
+  evt.Skip();
+}
+
+void Viewer2DRenderPanel::OnLabelOffsetDistance(wxSpinDoubleEvent &evt) {
+  ConfigManager::Get().SetFloat(
+      "label_offset_distance",
+      static_cast<float>(m_labelOffsetDistance->GetValue()));
+  if (auto *vp = Viewer2DPanel::Instance())
+    vp->UpdateScene(false);
+  evt.Skip();
+}
+
+void Viewer2DRenderPanel::OnLabelOffsetAngle(wxSpinEvent &evt) {
+  ConfigManager::Get().SetFloat(
+      "label_offset_angle",
+      static_cast<float>(m_labelOffsetAngle->GetValue()));
   if (auto *vp = Viewer2DPanel::Instance())
     vp->UpdateScene(false);
   evt.Skip();

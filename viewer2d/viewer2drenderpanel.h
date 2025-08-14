@@ -4,6 +4,7 @@
 #include <wx/clrpicker.h>
 #include <wx/scrolwin.h>
 #include <wx/spinctrl.h>
+#include <wx/spinctrld.h>
 #include <wx/wx.h>
 
 class Viewer2DRenderPanel : public wxScrolledWindow {
@@ -27,6 +28,8 @@ private:
   void OnLabelNameSize(wxSpinEvent &evt);
   void OnLabelIdSize(wxSpinEvent &evt);
   void OnLabelAddressSize(wxSpinEvent &evt);
+  void OnLabelOffsetDistance(wxSpinDoubleEvent &evt);
+  void OnLabelOffsetAngle(wxSpinEvent &evt);
   void OnView(wxCommandEvent &evt);
 
   wxRadioBox *m_radio = nullptr;
@@ -41,5 +44,7 @@ private:
   wxSpinCtrl *m_labelNameSize = nullptr;
   wxSpinCtrl *m_labelIdSize = nullptr;
   wxSpinCtrl *m_labelAddressSize = nullptr;
+  wxSpinCtrlDouble *m_labelOffsetDistance = nullptr;
+  wxSpinCtrl *m_labelOffsetAngle = nullptr;
   static Viewer2DRenderPanel *s_instance;
 };
