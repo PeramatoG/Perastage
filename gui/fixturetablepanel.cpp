@@ -1025,7 +1025,7 @@ void FixtureTablePanel::PropagateTypeValues(
     return;
 
   if (col == 18) {
-    std::unordered_map<std::string, wxDataViewIconText> typeValues;
+    std::unordered_map<std::string, wxVariant> typeValues;
     for (const auto &it : selections) {
       int r = table->ItemToRow(it);
       if (r == wxNOT_FOUND)
@@ -1033,9 +1033,7 @@ void FixtureTablePanel::PropagateTypeValues(
       wxVariant vType, vVal;
       table->GetValue(vType, r, 2);
       table->GetValue(vVal, r, col);
-      wxDataViewIconText iconText;
-      vVal >> iconText;
-      typeValues[std::string(vType.GetString().ToUTF8())] = iconText;
+      typeValues[std::string(vType.GetString().ToUTF8())] = vVal;
     }
 
     unsigned int rowCount = table->GetItemCount();
@@ -1044,9 +1042,7 @@ void FixtureTablePanel::PropagateTypeValues(
       table->GetValue(vType, i, 2);
       auto it = typeValues.find(std::string(vType.GetString().ToUTF8()));
       if (it != typeValues.end()) {
-        wxVariant v;
-        v << it->second;
-        table->SetValue(v, i, col);
+        table->SetValue(it->second, i, col);
       }
     }
     return;
@@ -1163,9 +1159,7 @@ void FixtureTablePanel::UpdateSceneData() {
     it->second.weightKg = static_cast<float>(wt);
 
     table->GetValue(v, i, 18);
-    wxDataViewIconText iconText;
-    v >> iconText;
-    it->second.color = std::string(iconText.GetText().ToUTF8());
+    it->second.color = std::string(v.GetString().ToUTF8());
   }
 
   HighlightDuplicateFixtureIds();
