@@ -1439,12 +1439,15 @@ void Viewer3DController::DrawAllFixtureLabels(int width, int height,
   glGetIntegerv(GL_VIEWPORT, viewport);
 
   ConfigManager &cfg = ConfigManager::Get();
-  bool showName = cfg.GetFloat("label_show_name") != 0.0f;
-  bool showId = cfg.GetFloat("label_show_id") != 0.0f;
-  bool showDmx = cfg.GetFloat("label_show_dmx") != 0.0f;
-  float nameSize = cfg.GetFloat("label_font_size_name") * zoom;
-  float idSize = cfg.GetFloat("label_font_size_id") * zoom;
-  float dmxSize = cfg.GetFloat("label_font_size_dmx") * zoom;
+  const std::array<const char *, 3> nameKeys = {"label_show_name_top",
+                                               "label_show_name_front",
+                                               "label_show_name_side"};
+  const std::array<const char *, 3> idKeys = {"label_show_id_top",
+                                             "label_show_id_front",
+                                             "label_show_id_side"};
+  const std::array<const char *, 3> dmxKeys = {"label_show_dmx_top",
+                                              "label_show_dmx_front",
+                                              "label_show_dmx_side"};
   const std::array<const char *, 3> distKeys = {"label_offset_distance_top",
                                                 "label_offset_distance_front",
                                                 "label_offset_distance_side"};
@@ -1452,6 +1455,12 @@ void Viewer3DController::DrawAllFixtureLabels(int width, int height,
                                                  "label_offset_angle_front",
                                                  "label_offset_angle_side"};
   int viewIdx = static_cast<int>(cfg.GetFloat("view2d_view"));
+  bool showName = cfg.GetFloat(nameKeys[viewIdx]) != 0.0f;
+  bool showId = cfg.GetFloat(idKeys[viewIdx]) != 0.0f;
+  bool showDmx = cfg.GetFloat(dmxKeys[viewIdx]) != 0.0f;
+  float nameSize = cfg.GetFloat("label_font_size_name") * zoom;
+  float idSize = cfg.GetFloat("label_font_size_id") * zoom;
+  float dmxSize = cfg.GetFloat("label_font_size_dmx") * zoom;
   float labelDist = cfg.GetFloat(distKeys[viewIdx]);
   float labelAngle = cfg.GetFloat(angleKeys[viewIdx]);
   constexpr float deg2rad = 3.14159265358979323846f / 180.0f;
