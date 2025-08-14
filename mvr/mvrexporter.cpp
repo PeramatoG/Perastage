@@ -16,6 +16,8 @@ class wxZipStreamLink;
 #include <sstream>
 #include <iomanip>
 #include <cmath>
+#include <unordered_map>
+#include <chrono>
 
 namespace fs = std::filesystem;
 
@@ -35,6 +37,134 @@ static std::pair<int, int> ParseAddress(const std::string &addr) {
   return {u, c};
 }
 
+static std::string HexToCie(const std::string &hex) {
+  if (hex.size() != 7 || hex[0] != '#')
+    return {};
+  unsigned int rgb = 0;
+  std::istringstream iss(hex.substr(1));
+  iss >> std::hex >> rgb;
+  unsigned int R = (rgb >> 16) & 0xFF;
+  unsigned int G = (rgb >> 8) & 0xFF;
+  unsigned int B = rgb & 0xFF;
+  auto invGamma = [](double c) {
+    return c <= 0.04045 ? c / 12.92
+                        : std::pow((c + 0.055) / 1.055, 2.4);
+  };
+  double r = invGamma(R / 255.0);
+  double g = invGamma(G / 255.0);
+  double b = invGamma(B / 255.0);
+  double X = 0.4124 * r + 0.3576 * g + 0.1805 * b;
+  double Y = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  double Z = 0.0193 * r + 0.1192 * g + 0.9505 * b;
+  double sum = X + Y + Z;
+  double x = 0.0, y = 0.0;
+  if (sum > 0.0) {
+    x = X / sum;
+    y = Y / sum;
+  }
+  std::ostringstream colStr;
+  colStr << std::fixed << std::setprecision(6) << x << "," << y << "," << Y;
+  return colStr.str();
+}
+
+static std::string CreateTempDir() {
+  auto now = std::chrono::system_clock::now().time_since_epoch().count();
+  fs::path base = fs::temp_directory_path();
+  fs::path full = base / ("GDTF_" + std::to_string(now));
+  fs::create_directory(full);
+  return full.string();
+}
+
+static bool ExtractZip(const std::string &zipPath, const std::string &destDir) {
+  if (!fs::exists(zipPath))
+    return false;
+  wxLogNull logNo;
+  wxFileInputStream input(zipPath);
+  if (!input.IsOk())
+    return false;
+  wxZipInputStream zipStream(input);
+  std::unique_ptr<wxZipEntry> entry;
+  while ((entry.reset(zipStream.GetNextEntry())), entry) {
+    std::string filename = entry->GetName().ToStdString();
+    std::string fullPath = destDir + "/" + filename;
+    if (entry->IsDir()) {
+      wxFileName::Mkdir(fullPath, wxS_DIR_DEFAULT, wxPATH_MKDIR_FULL);
+      continue;
+    }
+    wxFileName::Mkdir(wxFileName(fullPath).GetPath(), wxS_DIR_DEFAULT,
+                      wxPATH_MKDIR_FULL);
+    std::ofstream output(fullPath, std::ios::binary);
+    if (!output.is_open())
+      return false;
+    char buffer[4096];
+    while (true) {
+      zipStream.Read(buffer, sizeof(buffer));
+      size_t bytes = zipStream.LastRead();
+      if (bytes == 0)
+        break;
+      output.write(buffer, bytes);
+    }
+    output.close();
+  }
+  return true;
+}
+
+static bool ZipDir(const std::string &srcDir, const std::string &dstZip) {
+  wxFileOutputStream output(dstZip);
+  if (!output.IsOk())
+    return false;
+  wxZipOutputStream zip(output);
+  for (auto &p : fs::recursive_directory_iterator(srcDir)) {
+    if (!p.is_regular_file())
+      continue;
+    fs::path rel = fs::relative(p.path(), srcDir);
+    auto *e = new wxZipEntry(rel.generic_string());
+    e->SetMethod(wxZIP_METHOD_DEFLATE);
+    zip.PutNextEntry(e);
+    std::ifstream in(p.path(), std::ios::binary);
+    char buf[4096];
+    while (in.good()) {
+      in.read(buf, sizeof(buf));
+      std::streamsize s = in.gcount();
+      if (s > 0)
+        zip.Write(buf, s);
+    }
+    zip.CloseEntry();
+  }
+  zip.Close();
+  return true;
+}
+
+static std::string CreateColoredGdtf(const std::string &gdtfPath,
+                                     const std::string &hexColor) {
+  std::string tempDir = CreateTempDir();
+  if (!ExtractZip(gdtfPath, tempDir))
+    return {};
+  std::string descPath = tempDir + "/description.xml";
+  tinyxml2::XMLDocument doc;
+  if (doc.LoadFile(descPath.c_str()) != tinyxml2::XML_SUCCESS)
+    return {};
+  tinyxml2::XMLElement *ft = doc.FirstChildElement("GDTF");
+  if (ft)
+    ft = ft->FirstChildElement("FixtureType");
+  else
+    ft = doc.FirstChildElement("FixtureType");
+  if (!ft)
+    return {};
+  tinyxml2::XMLElement *models = ft->FirstChildElement("Models");
+  if (!models)
+    return {};
+  std::string cie = HexToCie(hexColor);
+  for (tinyxml2::XMLElement *m = models->FirstChildElement("Model"); m;
+       m = m->NextSiblingElement("Model"))
+    m->SetAttribute("Color", cie.c_str());
+  doc.SaveFile(descPath.c_str());
+  std::string outPath = tempDir + ".gdtf";
+  if (!ZipDir(tempDir, outPath))
+    return {};
+  return outPath;
+}
+
 bool MvrExporter::ExportToFile(const std::string &filePath) {
   const auto &scene = ConfigManager::Get().GetScene();
 
@@ -45,6 +175,7 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
   wxZipOutputStream zip(output);
 
   std::set<std::string> resourceFiles;
+  std::unordered_map<std::string, std::string> gdtfColorOverrides;
 
   tinyxml2::XMLDocument doc;
   doc.InsertEndChild(doc.NewDeclaration());
@@ -119,38 +250,17 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     addStr("GDTFSpec", f.gdtfSpec);
     if (!f.gdtfSpec.empty())
       resourceFiles.insert(f.gdtfSpec);
+    if (!f.color.empty() && !f.gdtfSpec.empty())
+      gdtfColorOverrides[f.gdtfSpec] = f.color;
     addStr("GDTFMode", f.gdtfMode);
     addStr("Focus", f.focus);
     addStr("Function", f.function);
     addStr("Position", f.position);
 
     if (!f.color.empty() && f.color.size() == 7 && f.color[0] == '#') {
-      unsigned int rgb = 0;
-      std::istringstream iss(f.color.substr(1));
-      iss >> std::hex >> rgb;
-      unsigned int R = (rgb >> 16) & 0xFF;
-      unsigned int G = (rgb >> 8) & 0xFF;
-      unsigned int B = rgb & 0xFF;
-      auto invGamma = [](double c) {
-        return c <= 0.04045 ? c / 12.92
-                            : std::pow((c + 0.055) / 1.055, 2.4);
-      };
-      double r = invGamma(R / 255.0);
-      double g = invGamma(G / 255.0);
-      double b = invGamma(B / 255.0);
-      double X = 0.4124 * r + 0.3576 * g + 0.1805 * b;
-      double Y = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-      double Z = 0.0193 * r + 0.1192 * g + 0.9505 * b;
-      double sum = X + Y + Z;
-      double x = 0.0, y = 0.0;
-      if (sum > 0.0) {
-        x = X / sum;
-        y = Y / sum;
-      }
-      std::ostringstream colStr;
-      colStr << std::fixed << std::setprecision(6) << x << "," << y << "," << Y;
+      std::string cie = HexToCie(f.color);
       tinyxml2::XMLElement *col = doc.NewElement("Color");
-      col->SetText(colStr.str().c_str());
+      col->SetText(cie.c_str());
       fe->InsertEndChild(col);
     }
 
@@ -421,6 +531,13 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
       src = fs::path(scene.basePath) / rel;
     if (!fs::exists(src))
       continue;
+
+    auto cit = gdtfColorOverrides.find(rel);
+    if (cit != gdtfColorOverrides.end()) {
+      std::string tmp = CreateColoredGdtf(src.string(), cit->second);
+      if (!tmp.empty())
+        src = tmp;
+    }
 
     fs::path entryName =
         fs::path(rel).is_absolute() ? fs::path(rel).filename() : fs::path(rel);

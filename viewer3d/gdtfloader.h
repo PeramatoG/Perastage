@@ -57,3 +57,8 @@ std::string GetGdtfFixtureName(const std::string& gdtfPath);
 bool GetGdtfProperties(const std::string& gdtfPath,
                        float& outWeightKg,
                        float& outPowerW);
+
+// Returns the default model color defined in a GDTF file as a hex RGB string
+// (e.g., "#RRGGBB"). Returns an empty string when no color is specified or
+// the file cannot be parsed.
+std::string GetGdtfModelColor(const std::string& gdtfPath);
