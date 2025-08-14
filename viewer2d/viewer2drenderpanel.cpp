@@ -3,6 +3,15 @@
 #include "configmanager.h"
 #include <array>
 
+namespace {
+const std::array<const char *, 3> DIST_KEYS = {"label_offset_distance_top",
+                                               "label_offset_distance_front",
+                                               "label_offset_distance_side"};
+const std::array<const char *, 3> ANGLE_KEYS = {"label_offset_angle_top",
+                                                "label_offset_angle_front",
+                                                "label_offset_angle_side"};
+} // namespace
+
 Viewer2DRenderPanel *Viewer2DRenderPanel::s_instance = nullptr;
 
 Viewer2DRenderPanel::Viewer2DRenderPanel(wxWindow *parent)
@@ -80,14 +89,15 @@ Viewer2DRenderPanel::Viewer2DRenderPanel(wxWindow *parent)
   m_labelOffsetDistance->SetRange(0.0, 1.0);
   m_labelOffsetDistance->SetIncrement(0.1);
   m_labelOffsetDistance->SetDigits(2);
-  m_labelOffsetDistance->SetValue(cfg.GetFloat("label_offset_distance"));
-  m_labelOffsetDistance->Bind(wxEVT_SPINCTRLDOUBLE,
-                              &Viewer2DRenderPanel::OnLabelOffsetDistance, this);
+  m_labelOffsetDistance->SetValue(
+      cfg.GetFloat(DIST_KEYS[m_view->GetSelection()]));
+  m_labelOffsetDistance->Bind(
+      wxEVT_SPINCTRLDOUBLE, &Viewer2DRenderPanel::OnLabelOffsetDistance, this);
 
   m_labelOffsetAngle = new wxSpinCtrl(this, wxID_ANY);
   m_labelOffsetAngle->SetRange(0, 360);
   m_labelOffsetAngle->SetValue(
-      static_cast<int>(cfg.GetFloat("label_offset_angle")));
+      static_cast<int>(cfg.GetFloat(ANGLE_KEYS[m_view->GetSelection()])));
   m_labelOffsetAngle->Bind(wxEVT_SPINCTRL,
                            &Viewer2DRenderPanel::OnLabelOffsetAngle, this);
 
@@ -174,20 +184,20 @@ void Viewer2DRenderPanel::ApplyConfig() {
   m_showLabelAddress->SetValue(cfg.GetFloat("label_show_dmx") != 0.0f);
   m_labelAddressSize->SetValue(
       static_cast<int>(cfg.GetFloat("label_font_size_dmx")));
-  m_labelOffsetDistance->SetValue(cfg.GetFloat("label_offset_distance"));
+  int viewIndex = m_view->GetSelection();
+  m_labelOffsetDistance->SetValue(cfg.GetFloat(DIST_KEYS[viewIndex]));
   m_labelOffsetAngle->SetValue(
-      static_cast<int>(cfg.GetFloat("label_offset_angle")));
+      static_cast<int>(cfg.GetFloat(ANGLE_KEYS[viewIndex])));
   if (auto *vp = Viewer2DPanel::Instance()) {
-    vp->SetRenderMode(
-        static_cast<Viewer2DRenderMode>(m_radio->GetSelection()));
+    vp->SetRenderMode(static_cast<Viewer2DRenderMode>(m_radio->GetSelection()));
     vp->SetView(static_cast<Viewer2DView>(m_view->GetSelection()));
     vp->UpdateScene(false);
   }
 }
 
 void Viewer2DRenderPanel::OnRadio(wxCommandEvent &evt) {
-  ConfigManager::Get().SetFloat(
-      "view2d_render_mode", static_cast<float>(m_radio->GetSelection()));
+  ConfigManager::Get().SetFloat("view2d_render_mode",
+                                static_cast<float>(m_radio->GetSelection()));
   if (auto *vp = Viewer2DPanel::Instance()) {
     vp->SetRenderMode(static_cast<Viewer2DRenderMode>(m_radio->GetSelection()));
     vp->UpdateScene(false);
@@ -280,28 +290,31 @@ void Viewer2DRenderPanel::OnLabelAddressSize(wxSpinEvent &evt) {
 }
 
 void Viewer2DRenderPanel::OnLabelOffsetDistance(wxSpinDoubleEvent &evt) {
+  int view = m_view->GetSelection();
   ConfigManager::Get().SetFloat(
-      "label_offset_distance",
-      static_cast<float>(m_labelOffsetDistance->GetValue()));
+      DIST_KEYS[view], static_cast<float>(m_labelOffsetDistance->GetValue()));
   if (auto *vp = Viewer2DPanel::Instance())
     vp->UpdateScene(false);
   evt.Skip();
 }
 
 void Viewer2DRenderPanel::OnLabelOffsetAngle(wxSpinEvent &evt) {
+  int view = m_view->GetSelection();
   ConfigManager::Get().SetFloat(
-      "label_offset_angle",
-      static_cast<float>(m_labelOffsetAngle->GetValue()));
+      ANGLE_KEYS[view], static_cast<float>(m_labelOffsetAngle->GetValue()));
   if (auto *vp = Viewer2DPanel::Instance())
     vp->UpdateScene(false);
   evt.Skip();
 }
 
 void Viewer2DRenderPanel::OnView(wxCommandEvent &evt) {
-  ConfigManager::Get().SetFloat("view2d_view",
-                                static_cast<float>(m_view->GetSelection()));
+  int sel = m_view->GetSelection();
+  ConfigManager &cfg = ConfigManager::Get();
+  cfg.SetFloat("view2d_view", static_cast<float>(sel));
+  m_labelOffsetDistance->SetValue(cfg.GetFloat(DIST_KEYS[sel]));
+  m_labelOffsetAngle->SetValue(static_cast<int>(cfg.GetFloat(ANGLE_KEYS[sel])));
   if (auto *vp = Viewer2DPanel::Instance()) {
-    vp->SetView(static_cast<Viewer2DView>(m_view->GetSelection()));
+    vp->SetView(static_cast<Viewer2DView>(sel));
     vp->UpdateScene(false);
   }
   evt.Skip();
