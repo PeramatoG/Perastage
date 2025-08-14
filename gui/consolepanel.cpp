@@ -25,6 +25,7 @@
 #include "matrixutils.h"
 #include <algorithm>
 #include <cctype>
+#include <exception>
 #include <sstream>
 #include <vector>
 
@@ -156,6 +157,10 @@ void ConsolePanel::ProcessCommand(const wxString& cmdWx)
     cmd = trim(cmd);
     if (cmd.empty())
         return;
+
+    AppendMessage(wxString("> ") + cmdWx);
+
+    try {
     std::string lower = cmd;
     std::transform(lower.begin(), lower.end(), lower.begin(), [](unsigned char c){ return std::tolower(c); });
 
@@ -176,6 +181,7 @@ void ConsolePanel::ProcessCommand(const wxString& cmdWx)
             Viewer3DPanel::Instance()->SetSelectedFixtures({});
         if (Viewer3DPanel::Instance())
             Viewer3DPanel::Instance()->Refresh();
+        AppendMessage("OK");
         return;
     }
 
@@ -332,6 +338,7 @@ void ConsolePanel::ProcessCommand(const wxString& cmdWx)
             if (TrussTablePanel::Instance()) TrussTablePanel::Instance()->Refresh();
         }
         if (Viewer3DPanel::Instance()) Viewer3DPanel::Instance()->Refresh();
+        AppendMessage("OK");
         return;
     }
 
@@ -346,12 +353,18 @@ void ConsolePanel::ProcessCommand(const wxString& cmdWx)
         if (!cmdWord.empty()) {
             if (cmdWord[0] == 'f') {
                 handleSelection(true, false, tokens);
+                AppendMessage("OK");
                 return;
             }
             if (cmdWord[0] == 't') {
                 handleSelection(false, true, tokens);
+                AppendMessage("OK");
                 return;
             }
         }
+    }
+    AppendMessage("Syntax error");
+    } catch (const std::exception& e) {
+        AppendMessage(wxString::Format("Error: %s", e.what()));
     }
 }

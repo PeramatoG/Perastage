@@ -198,12 +198,12 @@ void SceneObjectTablePanel::OnContextMenu(wxDataViewEvent& event)
     bool numericCol = (col >= 3);
     bool relative = false;
     double delta = 0.0;
-    if (numericCol && col <= 8 && !value.empty() && (value[0] == '+' || value[0] == '-'))
+    if (numericCol && col <= 8 && (value.StartsWith("++") || value.StartsWith("--")))
     {
-        wxString numStr = value.Mid(1);
+        wxString numStr = value.Mid(2);
         if (numStr.ToDouble(&delta))
         {
-            if (value[0] == '-')
+            if (value.StartsWith("--"))
                 delta = -delta;
             relative = true;
         }

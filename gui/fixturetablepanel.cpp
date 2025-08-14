@@ -607,11 +607,11 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
       intCol || (col >= 10 && col <= 12) || (col >= 13 && col <= 17);
   bool relative = false;
   double delta = 0.0;
-  if (!intCol && col >= 10 && col <= 15 && !value.empty() &&
-      (value[0] == '+' || value[0] == '-')) {
-    wxString numStr = value.Mid(1);
+  if (!intCol && col >= 10 && col <= 15 &&
+      (value.StartsWith("++") || value.StartsWith("--"))) {
+    wxString numStr = value.Mid(2);
     if (numStr.ToDouble(&delta)) {
-      if (value[0] == '-')
+      if (value.StartsWith("--"))
         delta = -delta;
       relative = true;
     }

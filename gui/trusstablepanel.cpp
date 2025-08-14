@@ -361,12 +361,12 @@ void TrussTablePanel::OnContextMenu(wxDataViewEvent& event)
     bool numericCol = (col >= 4 && col <= 9);
     bool relative = false;
     double delta = 0.0;
-    if (numericCol && !value.empty() && (value[0] == '+' || value[0] == '-'))
+    if (numericCol && (value.StartsWith("++") || value.StartsWith("--")))
     {
-        wxString numStr = value.Mid(1);
+        wxString numStr = value.Mid(2);
         if (numStr.ToDouble(&delta))
         {
-            if (value[0] == '-')
+            if (value.StartsWith("--"))
                 delta = -delta;
             relative = true;
         }
