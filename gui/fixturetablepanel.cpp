@@ -1162,7 +1162,17 @@ void FixtureTablePanel::UpdateSceneData() {
     it->second.weightKg = static_cast<float>(wt);
 
     table->GetValue(v, i, 18);
-    it->second.color = std::string(v.GetString().ToUTF8());
+    if (v.GetType() == "wxDataViewIconText") {
+      wxDataViewIconText icon;
+      icon << v;
+      wxString txt = icon.GetText();
+      if (!txt.IsEmpty())
+        it->second.color = std::string(txt.ToUTF8());
+      else
+        it->second.color.clear();
+    } else {
+      it->second.color = std::string(v.GetString().ToUTF8());
+    }
 
     if (!it->second.color.empty() && !it->second.gdtfSpec.empty()) {
       std::string gdtfPath = it->second.gdtfSpec;
