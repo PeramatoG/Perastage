@@ -24,6 +24,8 @@ public:
     static SceneObjectTablePanel* Instance();
     static void SetInstance(SceneObjectTablePanel* panel);
 
+    void UpdateSceneData();
+
 private:
     ColorfulDataViewListStore store;
     wxDataViewListCtrl* table;
@@ -33,7 +35,6 @@ private:
     int startRow = -1;
     void InitializeTable();
     void OnSelectionChanged(wxDataViewEvent& evt);
-    void UpdateSceneData();
     void OnContextMenu(wxDataViewEvent& event);
     void OnColumnSorted(wxDataViewEvent& event);
     void ResyncRows(const std::vector<std::string>& oldOrder,
