@@ -1,5 +1,6 @@
 #include "mainwindow.h"
 #include "projectutils.h"
+#include "logger.h"
 #include <wx/sysopt.h>
 #include <wx/wx.h>
 
@@ -13,6 +14,9 @@ wxIMPLEMENT_APP(MyApp);
 bool MyApp::OnInit() {
   // Enable support for common image formats used by the app
   wxInitAllImageHandlers();
+
+  // Initialize logging system (overwrites log file each launch)
+  Logger::Instance();
 
   // Force dark mode when supported by the wxWidgets version in use
 #if wxCHECK_VERSION(3, 3, 0)

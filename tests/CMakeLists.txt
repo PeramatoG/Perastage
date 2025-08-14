@@ -23,6 +23,7 @@ add_executable(save_load_roundtrip_test save_load_roundtrip_test.cpp
                ../core/trussdictionary.cpp
                ../mvr/mvrimporter.cpp
                ../mvr/mvrexporter.cpp
+               ../core/logger.cpp
                gdtfloader_stub.cpp
                consolepanel_stub.cpp
                ../models/mvrscene.cpp
