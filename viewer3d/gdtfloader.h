@@ -62,3 +62,9 @@ bool GetGdtfProperties(const std::string& gdtfPath,
 // (e.g., "#RRGGBB"). Returns an empty string when no color is specified or
 // the file cannot be parsed.
 std::string GetGdtfModelColor(const std::string& gdtfPath);
+
+// Updates the default model color in a GDTF file. The color should be
+// provided as a HTML-style hex string (e.g. "#RRGGBB"). Returns true on
+// success.
+bool SetGdtfModelColor(const std::string& gdtfPath,
+                       const std::string& hexColor);

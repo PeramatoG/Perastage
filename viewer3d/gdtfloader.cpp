@@ -20,6 +20,8 @@ class wxZipStreamLink;
 #include <algorithm>
 #include <cfloat>
 #include <sstream>
+#include <cmath>
+#include <iomanip>
 
 namespace fs = std::filesystem;
 
@@ -632,4 +634,73 @@ std::string GetGdtfModelColor(const std::string& gdtfPath)
     os << '#' << std::uppercase << std::hex << std::setfill('0')
        << std::setw(2) << R << std::setw(2) << G << std::setw(2) << B;
     return os.str();
+}
+
+static std::string HexToCie(const std::string& hex)
+{
+    if (hex.size() != 7 || hex[0] != '#')
+        return {};
+    unsigned int rgb = 0;
+    std::istringstream iss(hex.substr(1));
+    iss >> std::hex >> rgb;
+    unsigned int R = (rgb >> 16) & 0xFF;
+    unsigned int G = (rgb >> 8) & 0xFF;
+    unsigned int B = rgb & 0xFF;
+    auto invGamma = [](double c) {
+        return c <= 0.04045 ? c / 12.92
+                            : std::pow((c + 0.055) / 1.055, 2.4);
+    };
+    double r = invGamma(R / 255.0);
+    double g = invGamma(G / 255.0);
+    double b = invGamma(B / 255.0);
+    double X = 0.4124 * r + 0.3576 * g + 0.1805 * b;
+    double Y = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    double Z = 0.0193 * r + 0.1192 * g + 0.9505 * b;
+    double sum = X + Y + Z;
+    double x = 0.0, y = 0.0;
+    if (sum > 0.0) {
+        x = X / sum;
+        y = Y / sum;
+    }
+    std::ostringstream colStr;
+    colStr << std::fixed << std::setprecision(6) << x << "," << y << "," << Y;
+    return colStr.str();
+}
+
+bool SetGdtfModelColor(const std::string& gdtfPath,
+                       const std::string& hexColor)
+{
+    if (gdtfPath.empty())
+        return false;
+
+    std::string tempDir = CreateTempDir();
+    if (!ExtractZip(gdtfPath, tempDir))
+        return false;
+
+    std::string descPath = tempDir + "/description.xml";
+    tinyxml2::XMLDocument doc;
+    if (doc.LoadFile(descPath.c_str()) != tinyxml2::XML_SUCCESS)
+        return false;
+
+    tinyxml2::XMLElement* ft = doc.FirstChildElement("GDTF");
+    if (ft)
+        ft = ft->FirstChildElement("FixtureType");
+    else
+        ft = doc.FirstChildElement("FixtureType");
+    if (!ft)
+        return false;
+
+    tinyxml2::XMLElement* models = ft->FirstChildElement("Models");
+    if (!models)
+        return false;
+
+    std::string cie = HexToCie(hexColor);
+    for (tinyxml2::XMLElement* m = models->FirstChildElement("Model"); m;
+         m = m->NextSiblingElement("Model"))
+        m->SetAttribute("Color", cie.c_str());
+
+    doc.SaveFile(descPath.c_str());
+    bool ok = ZipDir(tempDir, gdtfPath);
+    fs::remove_all(tempDir);
+    return ok;
 }
