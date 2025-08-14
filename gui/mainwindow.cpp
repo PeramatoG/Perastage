@@ -202,6 +202,7 @@ void MainWindow::SetupLayout() {
 
   // Initialize AUI manager for dynamic pane layout
   auiManager = new wxAuiManager(this);
+  Bind(wxEVT_AUI_PANE_CLOSE, &MainWindow::OnPaneClose, this);
 
   // Create notebook with data panels
   notebook = new wxNotebook(this, wxID_ANY);
@@ -1220,6 +1221,11 @@ void MainWindow::OnToggleSummary(wxCommandEvent &event) {
   auiManager->Update();
 
   GetMenuBar()->Check(ID_View_ToggleSummary, pane.IsShown());
+}
+
+void MainWindow::OnPaneClose(wxAuiManagerEvent &event) {
+  event.Skip();
+  wxCallAfter(&MainWindow::UpdateViewMenuChecks, this);
 }
 
 void MainWindow::OnApplyDefaultLayout(wxCommandEvent &WXUNUSED(event)) {

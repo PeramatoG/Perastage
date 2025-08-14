@@ -86,6 +86,8 @@ private:
   void OnAddSceneObject(wxCommandEvent &event); // Add generic scene object
   void OnDelete(wxCommandEvent &event);         // Delete selected items
 
+  void OnPaneClose(wxAuiManagerEvent &event); // Keep View menu in sync
+
   void SaveCameraSettings();
   void ApplySavedLayout();
   void UpdateViewMenuChecks();
