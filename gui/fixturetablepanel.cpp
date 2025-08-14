@@ -8,6 +8,7 @@
 #include "matrixutils.h"
 #include "patchmanager.h"
 #include "projectutils.h"
+#include "consolepanel.h"
 #include "stringutils.h"
 #include "summarypanel.h"
 #include "viewer3dpanel.h"
@@ -1170,6 +1171,14 @@ void FixtureTablePanel::UpdateSceneData() {
         gdtfPath = (fs::path(scene.basePath) / p).string();
       if (updatedSpecs.insert(gdtfPath).second)
         SetGdtfModelColor(gdtfPath, it->second.color);
+    }
+
+    if (ConsolePanel::Instance()) {
+      wxString msg = wxString::Format(
+          "Updated fixture %s (UUID %s)",
+          wxString::FromUTF8(it->second.instanceName.c_str()),
+          wxString::FromUTF8(it->second.uuid.c_str()));
+      ConsolePanel::Instance()->AppendMessage(msg);
     }
   }
 

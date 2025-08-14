@@ -8,6 +8,7 @@
 #include "projectutils.h"
 #include "trussdictionary.h"
 #include "trussloader.h"
+#include "consolepanel.h"
 #include <filesystem>
 #include <wx/filedlg.h>
 #include <wx/filename.h>
@@ -628,6 +629,14 @@ void TrussTablePanel::UpdateSceneData()
         {
             dims[key] = {it->second.lengthMm, it->second.widthMm,
                          it->second.heightMm, it->second.weightKg};
+        }
+
+        if (ConsolePanel::Instance()) {
+            wxString msg = wxString::Format(
+                "Updated truss %s (UUID %s)",
+                wxString::FromUTF8(it->second.name.c_str()),
+                wxString::FromUTF8(it->second.uuid.c_str()));
+            ConsolePanel::Instance()->AppendMessage(msg);
         }
     }
 
