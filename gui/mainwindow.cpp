@@ -72,6 +72,7 @@ using json = nlohmann::json;
 #include "selectfixturetypedialog.h"
 #include "selectnamedialog.h"
 #include "simplecrypt.h"
+#include "splashscreen.h"
 #include "summarypanel.h"
 #include "tableprinter.h"
 #include "trussloader.h"
@@ -129,13 +130,13 @@ wxBEGIN_EVENT_TABLE(MainWindow, wxFrame) EVT_MENU(
                     MainWindow::
                         OnToggleConsole) EVT_MENU(ID_View_ToggleFixtures,
                                                   MainWindow::OnToggleFixtures)
-                    EVT_MENU(
-                        ID_View_ToggleViewport,
+                    EVT_MENU(ID_View_ToggleViewport, MainWindow::OnToggleViewport) EVT_MENU(
+                        ID_View_ToggleViewport2D,
                         MainWindow::
-                            OnToggleViewport) EVT_MENU(ID_View_ToggleViewport2D,
-                                                       MainWindow::
-                                                           OnToggleViewport2D)
-                        EVT_MENU(ID_View_ToggleRender2D, MainWindow::OnToggleRender2D) EVT_MENU(ID_View_ToggleLayers, MainWindow::OnToggleLayers) EVT_MENU(
+                            OnToggleViewport2D) EVT_MENU(ID_View_ToggleRender2D,
+                                                         MainWindow::
+                                                             OnToggleRender2D)
+                        EVT_MENU(ID_View_ToggleLayers, MainWindow::OnToggleLayers) EVT_MENU(
                             ID_View_ToggleSummary,
                             MainWindow::
                                 OnToggleSummary) EVT_MENU(ID_View_Layout_Default,
@@ -153,32 +154,34 @@ wxBEGIN_EVENT_TABLE(MainWindow, wxFrame) EVT_MENU(
                                         OnExportFixture) EVT_MENU(ID_Tools_ExportTruss,
                                                                   MainWindow::
                                                                       OnExportTruss)
-                                    EVT_MENU(ID_Tools_ExportSceneObject,
-                                             MainWindow::OnExportSceneObject)
-                                        EVT_MENU(
-                                            ID_Tools_AutoPatch,
-                                            MainWindow::
-                                                OnAutoPatch) EVT_MENU(ID_Help_Help,
-                                                                      MainWindow::
-                                                                          OnShowHelp)
-                                            EVT_MENU(ID_Help_About,
-                                                     MainWindow::OnShowAbout)
-                                                EVT_MENU(ID_Select_Fixtures,
+                                    EVT_MENU(
+                                        ID_Tools_ExportSceneObject,
+                                        MainWindow::
+                                            OnExportSceneObject) EVT_MENU(ID_Tools_AutoPatch,
+                                                                          MainWindow::
+                                                                              OnAutoPatch)
+                                        EVT_MENU(ID_Help_Help, MainWindow::OnShowHelp) EVT_MENU(
+                                            ID_Help_About, MainWindow::
+                                                               OnShowAbout)
+                                            EVT_MENU(ID_Select_Fixtures,
+                                                     MainWindow::
+                                                         OnSelectFixtures)
+                                                EVT_MENU(ID_Select_Trusses,
                                                          MainWindow::
-                                                             OnSelectFixtures)
+                                                             OnSelectTrusses)
                                                     EVT_MENU(
-                                                        ID_Select_Trusses,
+                                                        ID_Select_Objects,
                                                         MainWindow::
-                                                            OnSelectTrusses)
+                                                            OnSelectObjects)
                                                         EVT_MENU(
-                                                            ID_Select_Objects,
+                                                            ID_Edit_Preferences,
                                                             MainWindow::
-                                                                OnSelectObjects)
-                                                            EVT_MENU(
-                                                                ID_Edit_Preferences,
+                                                                OnPreferences)
+                                                            EVT_COMMAND(
+                                                                wxID_ANY,
+                                                                EVT_PROJECT_LOADED,
                                                                 MainWindow::
-                                                                    OnPreferences)
-                                                                EVT_COMMAND(wxID_ANY, EVT_PROJECT_LOADED, MainWindow::OnProjectLoaded)
+                                                                    OnProjectLoaded)
                                                                 wxEND_EVENT_TABLE()
 
                                                                     MainWindow::
@@ -366,16 +369,16 @@ void MainWindow::Ensure2DViewport() {
   viewport2DRenderPanel = new Viewer2DRenderPanel(this);
   Viewer2DRenderPanel::SetInstance(viewport2DRenderPanel);
   auiManager->AddPane(viewport2DRenderPanel, wxAuiPaneInfo()
-                                            .Name("2DRenderOptions")
-                                            .Caption("2D Render Options")
-                                            .Right()
-                                            .Row(1)
-                                            .Position(1)
-                                            .BestSize(200, 100)
-                                            .CloseButton(true)
-                                            .MaximizeButton(true)
-                                            .PaneBorder(true)
-                                            .Hide());
+                                                 .Name("2DRenderOptions")
+                                                 .Caption("2D Render Options")
+                                                 .Right()
+                                                 .Row(1)
+                                                 .Position(1)
+                                                 .BestSize(200, 100)
+                                                 .CloseButton(true)
+                                                 .MaximizeButton(true)
+                                                 .PaneBorder(true)
+                                                 .Hide());
 
   auiManager->Update();
 
@@ -1484,6 +1487,7 @@ void MainWindow::OnProjectLoaded(wxCommandEvent &event) {
   } else {
     ResetProject();
   }
+  SplashScreen::Hide();
 }
 
 void MainWindow::OnShowHelp(wxCommandEvent &WXUNUSED(event)) {
@@ -1528,7 +1532,8 @@ void MainWindow::OnShowAbout(wxCommandEvent &WXUNUSED(event)) {
   info.SetDescription(description);
   info.SetWebSite("https://luismaperamato.com");
   info.AddDeveloper("Luisma Peramato");
-  info.SetLicence("This software is licensed under the GNU General Public License v3.0.");
+  info.SetLicence(
+      "This software is licensed under the GNU General Public License v3.0.");
 
   // Load the largest available icon
   wxIconBundle bundle;
