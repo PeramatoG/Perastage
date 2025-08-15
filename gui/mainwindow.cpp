@@ -85,6 +85,7 @@ using json = nlohmann::json;
 #endif
 
 MainWindow *MainWindow::s_instance = nullptr;
+wxDEFINE_EVENT(EVT_PROJECT_LOADED, wxCommandEvent);
 
 MainWindow *MainWindow::Instance() { return s_instance; }
 
@@ -177,6 +178,7 @@ wxBEGIN_EVENT_TABLE(MainWindow, wxFrame) EVT_MENU(
                                                                 ID_Edit_Preferences,
                                                                 MainWindow::
                                                                     OnPreferences)
+                                                                EVT_COMMAND(wxID_ANY, EVT_PROJECT_LOADED, MainWindow::OnProjectLoaded)
                                                                 wxEND_EVENT_TABLE()
 
                                                                     MainWindow::
@@ -260,40 +262,6 @@ void MainWindow::SetupLayout() {
                                     .CloseButton(true)
                                     .MaximizeButton(true));
 
-  // Add 3D viewport as the main center pane
-  viewportPanel = new Viewer3DPanel(this);
-  Viewer3DPanel::SetInstance(viewportPanel);
-  viewportPanel->LoadCameraFromConfig();
-  auiManager->AddPane(viewportPanel, wxAuiPaneInfo()
-                                         .Name("3DViewport")
-                                         .Caption("3D Viewport")
-                                         .Center()
-                                         .Dockable(true)
-                                         .CaptionVisible(true)
-                                         .PaneBorder(false)
-                                         .BestSize(halfWidth, 600)
-                                         .MinSize(wxSize(halfWidth, 600))
-                                         .CloseButton(true)
-                                         .MaximizeButton(true));
-
-  viewport2DPanel = new Viewer2DPanel(this);
-  Viewer2DPanel::SetInstance(viewport2DPanel);
-  viewport2DPanel->LoadViewFromConfig();
-  auiManager->AddPane(viewport2DPanel, wxAuiPaneInfo()
-                                           .Name("2DViewport")
-                                           .Caption("2D Viewport")
-                                           .Center()
-                                           .Dockable(true)
-                                           .CaptionVisible(true)
-                                           .PaneBorder(false)
-                                           .BestSize(halfWidth, 600)
-                                           .MinSize(wxSize(halfWidth, 600))
-                                           .CloseButton(true)
-                                            .MaximizeButton(true)
-                                            .Hide());
-
-  viewport2DPanel->UpdateScene();
-
   // Bottom console panel for messages
   consolePanel = new ConsolePanel(this);
   ConsolePanel::SetInstance(consolePanel);
@@ -330,6 +298,71 @@ void MainWindow::SetupLayout() {
                                         .MaximizeButton(true)
                                         .PaneBorder(true));
 
+  // Apply all changes to layout
+  auiManager->Update();
+
+  if (summaryPanel)
+    summaryPanel->ShowFixtureSummary();
+
+  // Keyboard shortcuts to switch notebook pages
+  wxAcceleratorEntry entries[3];
+  entries[0].Set(wxACCEL_NORMAL, (int)'1', ID_Select_Fixtures);
+  entries[1].Set(wxACCEL_NORMAL, (int)'2', ID_Select_Trusses);
+  entries[2].Set(wxACCEL_NORMAL, (int)'3', ID_Select_Objects);
+  m_accel = wxAcceleratorTable(3, entries);
+  SetAcceleratorTable(m_accel);
+}
+
+void MainWindow::Ensure3DViewport() {
+  if (viewportPanel)
+    return;
+  int halfWidth = GetClientSize().GetWidth() / 2;
+  viewportPanel = new Viewer3DPanel(this);
+  Viewer3DPanel::SetInstance(viewportPanel);
+  viewportPanel->LoadCameraFromConfig();
+  auiManager->AddPane(viewportPanel, wxAuiPaneInfo()
+                                         .Name("3DViewport")
+                                         .Caption("3D Viewport")
+                                         .Center()
+                                         .Dockable(true)
+                                         .CaptionVisible(true)
+                                         .PaneBorder(false)
+                                         .BestSize(halfWidth, 600)
+                                         .MinSize(wxSize(halfWidth, 600))
+                                         .CloseButton(true)
+                                         .MaximizeButton(true));
+  auiManager->Update();
+  if (defaultLayoutPerspective.empty()) {
+    ConfigManager &cfg = ConfigManager::Get();
+    defaultLayoutPerspective = auiManager->SavePerspective().ToStdString();
+    if (!cfg.HasKey("layout_default"))
+      cfg.SetValue("layout_default", defaultLayoutPerspective);
+    else if (auto val = cfg.GetValue("layout_default"))
+      defaultLayoutPerspective = *val;
+  }
+}
+
+void MainWindow::Ensure2DViewport() {
+  if (viewport2DPanel)
+    return;
+  int halfWidth = GetClientSize().GetWidth() / 2;
+  viewport2DPanel = new Viewer2DPanel(this);
+  Viewer2DPanel::SetInstance(viewport2DPanel);
+  viewport2DPanel->LoadViewFromConfig();
+  auiManager->AddPane(viewport2DPanel, wxAuiPaneInfo()
+                                           .Name("2DViewport")
+                                           .Caption("2D Viewport")
+                                           .Center()
+                                           .Dockable(true)
+                                           .CaptionVisible(true)
+                                           .PaneBorder(false)
+                                           .BestSize(halfWidth, 600)
+                                           .MinSize(wxSize(halfWidth, 600))
+                                           .CloseButton(true)
+                                           .MaximizeButton(true)
+                                           .Hide());
+  viewport2DPanel->UpdateScene();
+
   viewport2DRenderPanel = new Viewer2DRenderPanel(this);
   Viewer2DRenderPanel::SetInstance(viewport2DRenderPanel);
   auiManager->AddPane(viewport2DRenderPanel, wxAuiPaneInfo()
@@ -344,41 +377,22 @@ void MainWindow::SetupLayout() {
                                             .PaneBorder(true)
                                             .Hide());
 
-  // Apply all changes to layout
   auiManager->Update();
 
-  // Save the initial layout as default if none stored yet
-  ConfigManager &cfg = ConfigManager::Get();
-  defaultLayoutPerspective = auiManager->SavePerspective().ToStdString();
-  if (!cfg.HasKey("layout_default"))
-    cfg.SetValue("layout_default", defaultLayoutPerspective);
-  else if (auto val = cfg.GetValue("layout_default"))
-    defaultLayoutPerspective = *val;
-
-  // Generate default perspective for 2D viewer
-  auto &pane3d = auiManager->GetPane("3DViewport");
-  auto &pane2d = auiManager->GetPane("2DViewport");
-  auto &paneRender = auiManager->GetPane("2DRenderOptions");
-  pane3d.Hide();
-  pane2d.Show();
-  paneRender.Show();
-  auiManager->Update();
-  default2DLayoutPerspective = auiManager->SavePerspective().ToStdString();
-  paneRender.Hide();
-  pane2d.Hide();
-  pane3d.Show();
-  auiManager->Update();
-
-  if (summaryPanel)
-    summaryPanel->ShowFixtureSummary();
-
-  // Keyboard shortcuts to switch notebook pages
-  wxAcceleratorEntry entries[3];
-  entries[0].Set(wxACCEL_NORMAL, (int)'1', ID_Select_Fixtures);
-  entries[1].Set(wxACCEL_NORMAL, (int)'2', ID_Select_Trusses);
-  entries[2].Set(wxACCEL_NORMAL, (int)'3', ID_Select_Objects);
-  m_accel = wxAcceleratorTable(3, entries);
-  SetAcceleratorTable(m_accel);
+  if (default2DLayoutPerspective.empty()) {
+    auto &pane3d = auiManager->GetPane("3DViewport");
+    auto &pane2d = auiManager->GetPane("2DViewport");
+    auto &paneRender = auiManager->GetPane("2DRenderOptions");
+    pane3d.Hide();
+    pane2d.Show();
+    paneRender.Show();
+    auiManager->Update();
+    default2DLayoutPerspective = auiManager->SavePerspective().ToStdString();
+    paneRender.Hide();
+    pane2d.Hide();
+    pane3d.Show();
+    auiManager->Update();
+  }
 }
 
 void MainWindow::CreateMenuBar() {
@@ -1194,6 +1208,7 @@ void MainWindow::OnToggleFixtures(wxCommandEvent &event) {
 void MainWindow::OnToggleViewport(wxCommandEvent &event) {
   if (!auiManager)
     return;
+  Ensure3DViewport();
   auto &pane = auiManager->GetPane("3DViewport");
   pane.Show(!pane.IsShown());
   auiManager->Update();
@@ -1204,7 +1219,7 @@ void MainWindow::OnToggleViewport(wxCommandEvent &event) {
 void MainWindow::OnToggleViewport2D(wxCommandEvent &event) {
   if (!auiManager)
     return;
-
+  Ensure2DViewport();
   auto &pane = auiManager->GetPane("2DViewport");
   pane.Show(!pane.IsShown());
   auiManager->Update();
@@ -1217,7 +1232,7 @@ void MainWindow::OnToggleViewport2D(wxCommandEvent &event) {
 void MainWindow::OnToggleRender2D(wxCommandEvent &event) {
   if (!auiManager)
     return;
-
+  Ensure2DViewport();
   auto &pane = auiManager->GetPane("2DRenderOptions");
   pane.Show(!pane.IsShown());
   auiManager->Update();
@@ -1255,7 +1270,7 @@ void MainWindow::OnPaneClose(wxAuiManagerEvent &event) {
 void MainWindow::OnApplyDefaultLayout(wxCommandEvent &WXUNUSED(event)) {
   if (!auiManager)
     return;
-
+  Ensure3DViewport();
   ConfigManager &cfg = ConfigManager::Get();
   std::string perspective = defaultLayoutPerspective;
   if (auto val = cfg.GetValue("layout_default"))
@@ -1271,7 +1286,7 @@ void MainWindow::OnApplyDefaultLayout(wxCommandEvent &WXUNUSED(event)) {
 void MainWindow::OnApply2DLayout(wxCommandEvent &WXUNUSED(event)) {
   if (!auiManager)
     return;
-
+  Ensure2DViewport();
   auiManager->LoadPerspective(default2DLayoutPerspective, true);
   auiManager->Update();
 
@@ -1283,6 +1298,8 @@ void MainWindow::OnApply2DLayout(wxCommandEvent &WXUNUSED(event)) {
 bool MainWindow::LoadProjectFromPath(const std::string &path) {
   if (!ConfigManager::Get().LoadProject(path))
     return false;
+
+  Ensure3DViewport();
 
   currentProjectPath = path;
   ProjectUtils::SaveLastProjectPath(currentProjectPath);
@@ -1424,6 +1441,49 @@ void MainWindow::SyncSceneData() {
     trussPanel->UpdateSceneData();
   if (sceneObjPanel)
     sceneObjPanel->UpdateSceneData();
+}
+
+void MainWindow::OnProjectLoaded(wxCommandEvent &event) {
+  bool loaded = event.GetInt() != 0;
+  std::string path = event.GetString().ToStdString();
+  Ensure3DViewport();
+  if (loaded && !path.empty()) {
+    currentProjectPath = path;
+    ProjectUtils::SaveLastProjectPath(currentProjectPath);
+    ApplySavedLayout();
+    if (consolePanel)
+      consolePanel->AppendMessage("Loaded " + wxString::FromUTF8(path));
+    if (fixturePanel)
+      fixturePanel->ReloadData();
+    if (trussPanel)
+      trussPanel->ReloadData();
+    if (sceneObjPanel)
+      sceneObjPanel->ReloadData();
+    if (viewportPanel) {
+      ConfigManager &cfg = ConfigManager::Get();
+      Viewer3DCamera &cam = viewportPanel->GetCamera();
+      cam.SetOrientation(cfg.GetFloat("camera_yaw"),
+                         cfg.GetFloat("camera_pitch"));
+      cam.SetDistance(cfg.GetFloat("camera_distance"));
+      cam.SetTarget(cfg.GetFloat("camera_target_x"),
+                    cfg.GetFloat("camera_target_y"),
+                    cfg.GetFloat("camera_target_z"));
+      viewportPanel->UpdateScene();
+      viewportPanel->Refresh();
+    }
+    if (viewport2DPanel) {
+      viewport2DPanel->LoadViewFromConfig();
+      viewport2DPanel->UpdateScene();
+      viewport2DPanel->Refresh();
+    }
+    if (viewport2DRenderPanel)
+      viewport2DRenderPanel->ApplyConfig();
+    if (layerPanel)
+      layerPanel->ReloadLayers();
+    UpdateTitle();
+  } else {
+    ResetProject();
+  }
 }
 
 void MainWindow::OnShowHelp(wxCommandEvent &WXUNUSED(event)) {
