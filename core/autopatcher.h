@@ -21,8 +21,10 @@
 
 namespace AutoPatcher {
 // Automatically assign DMX addresses to fixtures in the scene.
-// Fixtures are patched sequentially starting at the given universe and channel.
-// The order is front-to-back (Y axis), prioritizing fixtures by type within each
-// hang position so identical types are consecutive, and finally left-to-right (X axis).
+// Fixtures are grouped by hang position and type to keep identical fixtures
+// together. Groups are patched sequentially starting at the given universe and
+// channel, advancing to a new universe when a whole group would otherwise be
+// split. The order is front-to-back (Y axis), then by hang position, then by
+// type, and finally left-to-right (X axis).
 void AutoPatch(MvrScene &scene, int startUniverse = 1, int startChannel = 1);
-}
+} // namespace AutoPatcher

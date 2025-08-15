@@ -32,30 +32,37 @@ int main() {
   Fixture a;
   a.uuid = "a";
   a.typeName = "Spot";
+  a.gdtfMode = "400"; // uses 400 channels
+  a.positionName = "Front";
   a.transform.o[0] = 0.0f;
   a.transform.o[1] = 0.0f;
   scene.fixtures[a.uuid] = a;
 
-  Fixture b;
-  b.uuid = "b";
-  b.typeName = "Wash";
-  b.transform.o[0] = 1.0f;
-  b.transform.o[1] = 0.0f;
-  scene.fixtures[b.uuid] = b;
+  Fixture b1;
+  b1.uuid = "b1";
+  b1.typeName = "Wash";
+  b1.gdtfMode = "100"; // uses 100 channels
+  b1.positionName = "Front";
+  b1.transform.o[0] = 1.0f;
+  b1.transform.o[1] = 0.0f;
+  scene.fixtures[b1.uuid] = b1;
 
-  Fixture c;
-  c.uuid = "c";
-  c.typeName = "Spot";
-  c.transform.o[0] = 2.0f;
-  c.transform.o[1] = 0.0f;
-  scene.fixtures[c.uuid] = c;
+  Fixture b2;
+  b2.uuid = "b2";
+  b2.typeName = "Wash";
+  b2.gdtfMode = "100"; // uses 100 channels
+  b2.positionName = "Front";
+  b2.transform.o[0] = 2.0f;
+  b2.transform.o[1] = 0.0f;
+  scene.fixtures[b2.uuid] = b2;
 
   AutoPatcher::AutoPatch(scene);
 
-  // Spot fixtures should be patched first and consecutively
+  // Fixture a occupies channels 1-400 in universe 1. The Wash fixtures should
+  // start in a new universe together instead of being split across universes.
   assert(scene.fixtures["a"].address == "1.1");
-  assert(scene.fixtures["c"].address == "1.2");
-  assert(scene.fixtures["b"].address == "1.3");
+  assert(scene.fixtures["b1"].address == "2.1");
+  assert(scene.fixtures["b2"].address == "2.101");
 
   return 0;
 }

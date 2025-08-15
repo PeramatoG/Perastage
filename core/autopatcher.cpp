@@ -16,8 +16,8 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "autopatcher.h"
-#include "patchmanager.h"
 #include "gdtfloader.h"
+#include "patchmanager.h"
 #include <algorithm>
 #include <filesystem>
 #include <string>
@@ -28,54 +28,96 @@ namespace fs = std::filesystem;
 namespace AutoPatcher {
 
 void AutoPatch(MvrScene &scene, int startUniverse, int startChannel) {
-    struct FixtureInfo {
-        std::string uuid;
-        int channels;
-        float x;
-        float y;
-        std::string type;
-    };
+  struct FixtureInfo {
+    std::string uuid;
+    int channels;
+    float x;
+    float y;
+    std::string type;
+    std::string hang;
+  };
 
-    std::vector<FixtureInfo> fixtures;
-    fixtures.reserve(scene.fixtures.size());
+  std::vector<FixtureInfo> fixtures;
+  fixtures.reserve(scene.fixtures.size());
 
-    for (auto &pair : scene.fixtures) {
-        auto &f = pair.second;
-        std::string fullPath;
-        if (!f.gdtfSpec.empty()) {
-            fs::path p = scene.basePath.empty() ? fs::path(f.gdtfSpec)
-                                               : fs::path(scene.basePath) / f.gdtfSpec;
-            fullPath = p.string();
-        }
-        int chCount = GetGdtfModeChannelCount(fullPath, f.gdtfMode);
-        if (chCount <= 0)
-            continue; // skip fixtures without a valid channel count
-        auto pos = f.GetPosition();
-        fixtures.push_back({pair.first, chCount, pos[0], pos[1], f.typeName});
+  for (auto &pair : scene.fixtures) {
+    auto &f = pair.second;
+    std::string fullPath;
+    if (!f.gdtfSpec.empty()) {
+      fs::path p = scene.basePath.empty()
+                       ? fs::path(f.gdtfSpec)
+                       : fs::path(scene.basePath) / f.gdtfSpec;
+      fullPath = p.string();
+    }
+    int chCount = GetGdtfModeChannelCount(fullPath, f.gdtfMode);
+    if (chCount <= 0)
+      continue; // skip fixtures without a valid channel count
+    auto pos = f.GetPosition();
+    fixtures.push_back(
+        {pair.first, chCount, pos[0], pos[1], f.typeName, f.positionName});
+  }
+
+  std::sort(fixtures.begin(), fixtures.end(),
+            [](const FixtureInfo &a, const FixtureInfo &b) {
+              if (a.y == b.y) {
+                if (a.hang == b.hang) {
+                  if (a.type == b.type)
+                    return a.x < b.x;
+                  return a.type < b.type;
+                }
+                return a.hang < b.hang;
+              }
+              return a.y < b.y;
+            });
+
+  struct Group {
+    std::vector<size_t> indices;
+    int total = 0;
+  };
+
+  std::vector<Group> groups;
+  for (size_t i = 0; i < fixtures.size(); ++i) {
+    const auto &f = fixtures[i];
+    if (groups.empty()) {
+      groups.push_back({{i}, f.channels});
+      continue;
     }
 
-    std::sort(fixtures.begin(), fixtures.end(), [](const FixtureInfo &a, const FixtureInfo &b) {
-        if (a.y == b.y) {
-            if (a.type == b.type)
-                return a.x < b.x;
-            return a.type < b.type;
-        }
-        return a.y < b.y;
-    });
-
-    std::vector<int> counts;
-    counts.reserve(fixtures.size());
-    for (const auto &f : fixtures)
-        counts.push_back(f.channels);
-
-    auto addresses = PatchManager::SequentialPatch(counts, startUniverse, startChannel);
-
-    for (size_t i = 0; i < fixtures.size(); ++i) {
-        const auto &addr = addresses[i];
-        scene.fixtures[fixtures[i].uuid].address =
-            std::to_string(addr.universe) + "." + std::to_string(addr.channel);
+    const auto &last = fixtures[groups.back().indices.front()];
+    if (last.hang == f.hang && last.type == f.type) {
+      groups.back().indices.push_back(i);
+      groups.back().total += f.channels;
+    } else {
+      groups.push_back({{i}, f.channels});
     }
+  }
+
+  int uni = startUniverse < 1 ? 1 : startUniverse;
+  int ch = startChannel < 1 ? 1 : startChannel;
+
+  for (const auto &g : groups) {
+    if (g.total <= 512 && ch + g.total - 1 > 512) {
+      ++uni;
+      ch = 1;
+    }
+
+    for (size_t idx : g.indices) {
+      const auto &f = fixtures[idx];
+      if (ch + f.channels - 1 > 512) {
+        ++uni;
+        ch = 1;
+      }
+
+      scene.fixtures[f.uuid].address =
+          std::to_string(uni) + "." + std::to_string(ch);
+
+      ch += f.channels;
+      if (ch > 512) {
+        ++uni;
+        ch = 1;
+      }
+    }
+  }
 }
 
 } // namespace AutoPatcher
-

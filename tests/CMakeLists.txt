@@ -26,6 +26,12 @@ add_executable(autopatcher_test autopatcher_test.cpp
 target_include_directories(autopatcher_test PRIVATE ../core ../models ../viewer3d)
 add_test(NAME AutoPatchTypeGrouping COMMAND autopatcher_test)
 
+add_executable(autopatcher_grouping_test autopatcher_grouping_test.cpp
+               ../core/autopatcher.cpp
+               ../core/patchmanager.cpp)
+target_include_directories(autopatcher_grouping_test PRIVATE ../core ../models ../viewer3d)
+add_test(NAME AutoPatchGroupIntegrity COMMAND autopatcher_grouping_test)
+
 add_executable(save_load_roundtrip_test save_load_roundtrip_test.cpp
                ../core/configmanager.cpp
                ../core/projectutils.cpp
