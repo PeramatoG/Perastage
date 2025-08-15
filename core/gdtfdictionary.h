@@ -23,11 +23,11 @@
 
 namespace GdtfDictionary {
     struct Entry {
-        std::string path;
+        std::string path; // absolute path inside fixtures library
         std::string mode;
     };
 
-    // Loads the dictionary file into a map of type -> {gdtf absolute path, default mode}
+    // Loads the dictionary file into a map of type -> {gdtf path in library, default mode}
     std::optional<std::unordered_map<std::string, Entry>> Load();
     // Saves the dictionary map back to disk
     void Save(const std::unordered_map<std::string, Entry>& dict);
