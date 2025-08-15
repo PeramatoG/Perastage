@@ -91,6 +91,10 @@ void ConsolePanel::OnCommandEnter(wxCommandEvent &event) {
   wxString cmd = m_inputCtrl ? m_inputCtrl->GetValue() : wxString();
   if (cmd.StartsWith(">>> "))
     cmd = cmd.Mid(4);
+  if (!cmd.IsEmpty()) {
+    m_history.push_back(cmd);
+    m_historyIndex = m_history.size();
+  }
   if (m_inputCtrl) {
     m_inputCtrl->SetValue(">>> ");
     m_inputCtrl->SetInsertionPointEnd();
@@ -132,6 +136,25 @@ void ConsolePanel::OnInputKeyDown(wxKeyEvent &event) {
     m_inputCtrl->SetInsertionPoint(4);
     return;
   }
+  if (code == WXK_UP) {
+    if (!m_history.empty() && m_historyIndex > 0) {
+      m_historyIndex--;
+      m_inputCtrl->SetValue(">>> " + m_history[m_historyIndex]);
+      m_inputCtrl->SetInsertionPointEnd();
+    }
+    return;
+  }
+  if (code == WXK_DOWN) {
+    if (m_historyIndex + 1 < m_history.size()) {
+      m_historyIndex++;
+      m_inputCtrl->SetValue(">>> " + m_history[m_historyIndex]);
+    } else {
+      m_historyIndex = m_history.size();
+      m_inputCtrl->SetValue(">>> ");
+    }
+    m_inputCtrl->SetInsertionPointEnd();
+    return;
+  }
   event.Skip();
 }
 
@@ -158,7 +181,7 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
   if (cmd.empty())
     return;
 
-  AppendMessage(wxString("> ") + cmdWx);
+  AppendMessage(cmdWx);
 
   try {
     std::string lower = cmd;
