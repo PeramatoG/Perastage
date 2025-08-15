@@ -19,6 +19,7 @@
 
 #include <wx/wx.h>
 #include <wx/scrolwin.h>
+#include <vector>
 
 // Simple panel to display log messages in a console-like view
 class ConsolePanel : public wxPanel
@@ -37,6 +38,8 @@ private:
     wxTextCtrl* m_textCtrl = nullptr;
     wxTextCtrl* m_inputCtrl = nullptr;
     bool m_autoScroll = true;
+    std::vector<wxString> m_history;
+    size_t m_historyIndex = 0;
     void OnScroll(wxScrollWinEvent& event);
     void OnCommandEnter(wxCommandEvent& event);
     void OnInputFocus(wxFocusEvent& event);
