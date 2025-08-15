@@ -34,10 +34,6 @@ wxIMPLEMENT_APP(MyApp);
 bool MyApp::OnInit() {
   // Enable support for common image formats used by the app
   wxInitAllImageHandlers();
-  SplashScreen::Show();
-
-  // Initialize logging system (overwrites log file each launch)
-  Logger::Instance();
 
   // Force dark mode when supported by the wxWidgets version in use
 #if wxCHECK_VERSION(3, 3, 0)
@@ -47,11 +43,19 @@ bool MyApp::OnInit() {
   // Enable dark mode for Windows (if supported by wxWidgets)
   wxSystemOptions::SetOption("msw.useDarkMode", 1);
 
+  SplashScreen::Show();
+  SplashScreen::SetMessage("Initializing logger...");
+
+  // Initialize logging system (overwrites log file each launch)
+  Logger::Instance();
+
+  SplashScreen::SetMessage("Creating main window...");
   MainWindow *mainWindow = new MainWindow("Perastage");
   mainWindow->Show(true);
   // Start maximized so minimize and restore buttons remain available
   mainWindow->Maximize(true);
 
+  SplashScreen::SetMessage("Loading last project...");
   std::thread([mainWindow]() {
     auto last = ProjectUtils::LoadLastProjectPath();
     bool loaded = false;
