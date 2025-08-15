@@ -1,8 +1,8 @@
 {	
-    "TRUSS 2M": "C:\\codigoscpp\\Perastage\\out\\build\\x64-debug\\library\\trusses\\FK40Q H-200.gtruss",
-    "TRUSS 3M": "C:\\codigoscpp\\Perastage\\out\\build\\x64-debug\\library\\trusses\\FK40Q H-300.gtruss",
-    "TRUSS 40X40 2M": "C:\\codigoscpp\\Perastage\\out\\build\\x64-debug\\library\\trusses\\FK40Q H-200.gtruss",
-    "TRUSS 40X40 3M": "C:\\codigoscpp\\Perastage\\out\\build\\x64-debug\\library\\trusses\\FK40Q H-300.gtruss",
-    "TRUSS 40X40 PRO 2M": "C:\\codigoscpp\\Perastage\\out\\build\\x64-debug\\library\\trusses\\FK40Q H-200.gtruss",
-    "TRUSS 40X40 PRO 3M": "C:\\codigoscpp\\Perastage\\out\\build\\x64-debug\\library\\trusses\\FK40Q H-300.gtruss"
+    "TRUSS 2M": "FK40Q H-200.gtruss",
+    "TRUSS 3M": "FK40Q H-300.gtruss",
+    "TRUSS 40X40 2M": "FK40Q H-200.gtruss",
+    "TRUSS 40X40 3M": "FK40Q H-300.gtruss",
+    "TRUSS 40X40 PRO 2M": "FK40Q H-200.gtruss",
+    "TRUSS 40X40 PRO 3M": "FK40Q H-300.gtruss"
 }
