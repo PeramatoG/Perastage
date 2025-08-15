@@ -137,6 +137,20 @@ static std::string FormatMeters(float mm) {
   return s;
 }
 
+static bool HexToRGB(const std::string &hex, float &r, float &g, float &b) {
+  if (hex.size() != 7 || hex[0] != '#')
+    return false;
+  unsigned int value = 0;
+  std::istringstream iss(hex.substr(1));
+  iss >> std::hex >> value;
+  if (iss.fail())
+    return false;
+  r = ((value >> 16) & 0xFF) / 255.0f;
+  g = ((value >> 8) & 0xFF) / 255.0f;
+  b = (value & 0xFF) / 255.0f;
+  return true;
+}
+
 static void MatrixToArray(const Matrix &m, float out[16]) {
   out[0] = m.u[0];
   out[1] = m.u[1];
@@ -632,11 +646,16 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
     SetupBasicLighting();
   static std::mt19937 rng(42);
   static std::uniform_real_distribution<float> dist(0.2f, 0.9f);
-  auto getTypeColor = [&](const std::string &key) {
+  auto getTypeColor = [&](const std::string &key, const std::string &hex) {
     auto it = m_typeColors.find(key);
     if (it != m_typeColors.end())
       return it->second;
-    std::array<float, 3> c{dist(rng), dist(rng), dist(rng)};
+    std::array<float, 3> c;
+    if (!hex.empty() && HexToRGB(hex, c[0], c[1], c[2])) {
+      m_typeColors[key] = c;
+      return c;
+    }
+    c = {dist(rng), dist(rng), dist(rng)};
     m_typeColors[key] = c;
     return c;
   };
@@ -830,7 +849,7 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
     float r = 1.0f, g = 1.0f, b = 1.0f;
     if (wireframe) {
       if (mode == Viewer2DRenderMode::ByFixtureType) {
-        auto c = getTypeColor(f.gdtfSpec);
+        auto c = getTypeColor(f.gdtfSpec, f.color);
         r = c[0];
         g = c[1];
         b = c[2];
