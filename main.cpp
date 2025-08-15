@@ -18,6 +18,8 @@
 #include "mainwindow.h"
 #include "projectutils.h"
 #include "logger.h"
+#include "configmanager.h"
+#include <thread>
 #include <wx/sysopt.h>
 #include <wx/wx.h>
 
@@ -44,14 +46,23 @@ bool MyApp::OnInit() {
   wxSystemOptions::SetOption("msw.useDarkMode", 1);
 
   MainWindow *mainWindow = new MainWindow("Perastage");
-  bool loaded = false;
-  if (auto last = ProjectUtils::LoadLastProjectPath())
-    loaded = mainWindow->LoadProjectFromPath(*last);
-  if (!loaded)
-    mainWindow->ResetProject();
-
   mainWindow->Show(true);
   // Start maximized so minimize and restore buttons remain available
   mainWindow->Maximize(true);
+
+  std::thread([mainWindow]() {
+    auto last = ProjectUtils::LoadLastProjectPath();
+    bool loaded = false;
+    std::string path;
+    if (last) {
+      path = *last;
+      loaded = ConfigManager::Get().LoadProject(path);
+    }
+    wxCommandEvent evt(EVT_PROJECT_LOADED);
+    evt.SetInt(loaded ? 1 : 0);
+    evt.SetString(path);
+    wxQueueEvent(mainWindow, evt.Clone());
+  }).detach();
+
   return true;
 }

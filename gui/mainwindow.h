@@ -21,6 +21,8 @@
 #include <wx/aui/aui.h>
 #include <wx/wx.h>
 
+wxDECLARE_EVENT(EVT_PROJECT_LOADED, wxCommandEvent);
+
 // Forward declarations for GUI components
 class wxNotebook;
 class FixtureTablePanel;
@@ -51,6 +53,9 @@ private:
   void SetupLayout();   // Set up main window layout
   void CreateMenuBar(); // Create menus
   void UpdateTitle();   // Refresh window title
+  void Ensure3DViewport();
+  void Ensure2DViewport();
+  void OnProjectLoaded(wxCommandEvent &event);
 
   std::string currentProjectPath;
   wxNotebook *notebook = nullptr;
