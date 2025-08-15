@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 3.21)
 project(PerastageTests LANGUAGES CXX)
 
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
 find_package(wxWidgets REQUIRED COMPONENTS core base aui gl html)
 include(${wxWidgets_USE_FILE})
 find_package(tinyxml2 CONFIG REQUIRED)
@@ -43,6 +46,32 @@ target_include_directories(save_load_roundtrip_test PRIVATE
 target_link_libraries(save_load_roundtrip_test PRIVATE
                       ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
 add_test(NAME SaveLoadRoundtrip COMMAND save_load_roundtrip_test)
+
+add_executable(rider_save_roundtrip_test rider_save_roundtrip_test.cpp
+               pdftext_stub.cpp
+               gdtfloader_stub.cpp
+               consolepanel_stub.cpp
+               trussloader_stub.cpp
+               ../core/riderimporter.cpp
+               ../core/autopatcher.cpp
+               ../core/patchmanager.cpp
+               ../core/configmanager.cpp
+               ../core/projectutils.cpp
+               ../core/gdtfdictionary.cpp
+               ../core/trussdictionary.cpp
+               ../mvr/mvrimporter.cpp
+               ../mvr/mvrexporter.cpp
+               ../core/logger.cpp
+               ../models/mvrscene.cpp
+               ../models/fixture.cpp
+               ../models/truss.cpp
+               ../models/sceneobject.cpp
+               ../models/layer.cpp)
+target_include_directories(rider_save_roundtrip_test PRIVATE
+                           . ../core ../models ../mvr ../gui ../external)
+target_link_libraries(rider_save_roundtrip_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
+add_test(NAME RiderSaveRoundtrip COMMAND rider_save_roundtrip_test
+         ${CMAKE_CURRENT_SOURCE_DIR}/data/rider_fixtureid_basic.txt)
 
 add_executable(riderimporter_fixtureid_test rider_import_fixtureid_test.cpp
                riderimporter_stubs.cpp
