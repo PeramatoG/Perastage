@@ -647,14 +647,17 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
   static std::mt19937 rng(42);
   static std::uniform_real_distribution<float> dist(0.2f, 0.9f);
   auto getTypeColor = [&](const std::string &key, const std::string &hex) {
-    auto it = m_typeColors.find(key);
-    if (it != m_typeColors.end())
-      return it->second;
     std::array<float, 3> c;
+    // Always honor user-specified colors, updating the cache if needed
     if (!hex.empty() && HexToRGB(hex, c[0], c[1], c[2])) {
       m_typeColors[key] = c;
       return c;
     }
+
+    auto it = m_typeColors.find(key);
+    if (it != m_typeColors.end())
+      return it->second;
+
     c = {dist(rng), dist(rng), dist(rng)};
     m_typeColors[key] = c;
     return c;
