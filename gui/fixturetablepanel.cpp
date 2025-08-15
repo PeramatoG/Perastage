@@ -29,6 +29,7 @@
 #include "stringutils.h"
 #include "summarypanel.h"
 #include "viewer3dpanel.h"
+#include "viewer2dpanel.h"
 #include <algorithm>
 #include <filesystem>
 #include <unordered_map>
@@ -379,6 +380,8 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
     if (Viewer3DPanel::Instance()) {
       Viewer3DPanel::Instance()->UpdateScene();
       Viewer3DPanel::Instance()->Refresh();
+    } else if (Viewer2DPanel::Instance()) {
+      Viewer2DPanel::Instance()->UpdateScene();
     }
     return;
   }
@@ -444,6 +447,8 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
     if (Viewer3DPanel::Instance()) {
       Viewer3DPanel::Instance()->UpdateScene();
       Viewer3DPanel::Instance()->Refresh();
+    } else if (Viewer2DPanel::Instance()) {
+      Viewer2DPanel::Instance()->UpdateScene();
     }
     return;
   }
@@ -472,6 +477,8 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
     if (Viewer3DPanel::Instance()) {
       Viewer3DPanel::Instance()->UpdateScene();
       Viewer3DPanel::Instance()->Refresh();
+    } else if (Viewer2DPanel::Instance()) {
+      Viewer2DPanel::Instance()->UpdateScene();
     }
     return;
   }
@@ -545,6 +552,8 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
     if (Viewer3DPanel::Instance()) {
       Viewer3DPanel::Instance()->UpdateScene();
       Viewer3DPanel::Instance()->Refresh();
+    } else if (Viewer2DPanel::Instance()) {
+      Viewer2DPanel::Instance()->UpdateScene();
     }
     return;
   }
@@ -589,6 +598,8 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
     if (Viewer3DPanel::Instance()) {
       Viewer3DPanel::Instance()->UpdateScene();
       Viewer3DPanel::Instance()->Refresh();
+    } else if (Viewer2DPanel::Instance()) {
+      Viewer2DPanel::Instance()->UpdateScene();
     }
     return;
   }
@@ -787,6 +798,8 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
   if (Viewer3DPanel::Instance()) {
     Viewer3DPanel::Instance()->UpdateScene();
     Viewer3DPanel::Instance()->Refresh();
+  } else if (Viewer2DPanel::Instance()) {
+    Viewer2DPanel::Instance()->UpdateScene();
   }
 }
 
@@ -941,7 +954,12 @@ void FixtureTablePanel::DeleteSelected() {
   if (Viewer3DPanel::Instance()) {
     Viewer3DPanel::Instance()->UpdateScene();
     Viewer3DPanel::Instance()->Refresh();
+  } else if (Viewer2DPanel::Instance()) {
+    Viewer2DPanel::Instance()->UpdateScene();
   }
+
+  if (SummaryPanel::Instance())
+    SummaryPanel::Instance()->ShowFixtureSummary();
 
   std::vector<std::string> order = rowUuids;
   ResyncRows(order, {});
