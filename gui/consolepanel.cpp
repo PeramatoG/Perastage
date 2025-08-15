@@ -326,14 +326,20 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
         float ang = (vals.size() > 1 && n > 1)
                         ? start + (end - start) * (float)i / (float)(n - 1)
                         : start;
+        int eAxis = 0;
+        switch (axis) {
+        case 0: eAxis = 2; break; // roll (X)
+        case 1: eAxis = 1; break; // pitch (Y)
+        default: eAxis = 0; break; // yaw (Z)
+        }
         if (fixtures) {
           auto it = scene.fixtures.find(sel[i]);
           if (it != scene.fixtures.end()) {
             auto e = MatrixUtils::MatrixToEuler(it->second.transform);
             if (relative)
-              e[axis] += ang;
+              e[eAxis] += ang;
             else
-              e[axis] = ang;
+              e[eAxis] = ang;
             Matrix m = MatrixUtils::EulerToMatrix(e[0], e[1], e[2]);
             m.o = it->second.transform.o;
             it->second.transform = m;
@@ -343,9 +349,9 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
           if (it != scene.trusses.end()) {
             auto e = MatrixUtils::MatrixToEuler(it->second.transform);
             if (relative)
-              e[axis] += ang;
+              e[eAxis] += ang;
             else
-              e[axis] = ang;
+              e[eAxis] = ang;
             Matrix m = MatrixUtils::EulerToMatrix(e[0], e[1], e[2]);
             m.o = it->second.transform.o;
             it->second.transform = m;
