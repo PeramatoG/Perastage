@@ -68,9 +68,14 @@ std::optional<std::unordered_map<std::string, std::string>> Load() {
       out << "{}";
     return dict;
   }
+  fs::path dir = file.parent_path();
   for (auto it = j.begin(); it != j.end(); ++it) {
-    if (it.value().is_string())
-      dict[it.key()] = it.value().get<std::string>();
+    if (it.value().is_string()) {
+      fs::path p = fs::u8path(it.value().get<std::string>());
+      if (!p.is_absolute())
+        p = dir / p;
+      dict[it.key()] = p.string();
+    }
   }
   return dict;
 }
@@ -80,8 +85,10 @@ void Save(const std::unordered_map<std::string, std::string> &dict) {
   if (file.empty())
     return;
   nlohmann::json j;
-  for (const auto &[model, path] : dict)
-    j[model] = path;
+  for (const auto &[model, path] : dict) {
+    fs::path p = fs::u8path(path);
+    j[model] = p.filename().string();
+  }
   std::ofstream out(file);
   if (!out.is_open())
     return;
