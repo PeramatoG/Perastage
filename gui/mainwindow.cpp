@@ -1487,6 +1487,7 @@ void MainWindow::OnProjectLoaded(wxCommandEvent &event) {
   } else {
     ResetProject();
   }
+  SplashScreen::SetMessage("Ready");
   SplashScreen::Hide();
 }
 
