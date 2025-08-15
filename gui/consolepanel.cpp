@@ -374,14 +374,18 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
       return vals;
     };
 
-    auto isCmd = [](const std::string &tok) {
+    auto isCmd = [](const std::string &tok, bool allowAxis) {
       if (tok.empty())
         return false;
       std::string l = tok;
       std::transform(l.begin(), l.end(), l.begin(),
                      [](unsigned char c) { return std::tolower(c); });
-      return l == "clear" || l == "pos" || l == "rot" || l == "x" ||
-             l == "y" || l == "z" || l[0] == 'f' || l[0] == 't';
+      if (l == "clear" || l == "pos" || l == "rot" || l[0] == 'f' ||
+          l[0] == 't')
+        return true;
+      if (allowAxis && (l == "x" || l == "y" || l == "z"))
+        return true;
+      return false;
     };
 
     std::stringstream ts(lower);
@@ -397,7 +401,8 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
       std::transform(lw.begin(), lw.end(), lw.begin(),
                      [](unsigned char c) { return std::tolower(c); });
       size_t j = i + 1;
-      while (j < tokens.size() && !isCmd(tokens[j]))
+      bool allowAxis = (lw != "pos" && lw != "rot");
+      while (j < tokens.size() && !isCmd(tokens[j], allowAxis))
         ++j;
 
       if (lw == "clear") {
