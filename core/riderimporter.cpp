@@ -444,9 +444,17 @@ bool RiderImporter::Import(const std::string &path) {
                 t.symbolFile = parsed.symbolFile;
                 t.modelFile = parsed.modelFile;
                 t.manufacturer = parsed.manufacturer;
-                t.lengthMm = parsed.lengthMm;
-                t.widthMm = parsed.widthMm;
-                t.heightMm = parsed.heightMm;
+                // Only overwrite dimensions if the loaded model provides
+                // meaningful values.  Some rider truss entries in the
+                // dictionary may contain zero sizes which would otherwise
+                // break fixture distribution.  Keep the dummy dimensions in
+                // that case so spacing remains correct.
+                if (parsed.lengthMm > 0.0f)
+                  t.lengthMm = parsed.lengthMm;
+                if (parsed.widthMm > 0.0f)
+                  t.widthMm = parsed.widthMm;
+                if (parsed.heightMm > 0.0f)
+                  t.heightMm = parsed.heightMm;
                 t.weightKg = parsed.weightKg;
                 t.crossSection = parsed.crossSection;
               } else {
@@ -527,9 +535,12 @@ bool RiderImporter::Import(const std::string &path) {
               t.symbolFile = parsed.symbolFile;
               t.modelFile = parsed.modelFile;
               t.manufacturer = parsed.manufacturer;
-              t.lengthMm = parsed.lengthMm;
-              t.widthMm = parsed.widthMm;
-              t.heightMm = parsed.heightMm;
+              if (parsed.lengthMm > 0.0f)
+                t.lengthMm = parsed.lengthMm;
+              if (parsed.widthMm > 0.0f)
+                t.widthMm = parsed.widthMm;
+              if (parsed.heightMm > 0.0f)
+                t.heightMm = parsed.heightMm;
               t.weightKg = parsed.weightKg;
               t.crossSection = parsed.crossSection;
             } else {
