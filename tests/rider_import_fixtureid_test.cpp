@@ -50,8 +50,8 @@ int main(int argc, char **argv) {
     std::sort(washIds.begin(), washIds.end());
     assert(spotIds.size() == 2);
     assert(washIds.size() == 3);
-    assert(spotIds[0] == 100 && spotIds[1] == 101);
-    assert(washIds[0] == 200 && washIds[2] == 202);
+    assert(spotIds[0] == 101 && spotIds[1] == 102);
+    assert(washIds[0] == 201 && washIds[2] == 203);
 
     // Second test: more than 100 fixtures of one type
     cfg.Reset();
@@ -73,11 +73,11 @@ int main(int argc, char **argv) {
         }
     }
     assert(spotCount == 105);
-    assert(minSpot == 100);
-    assert(maxSpot == 204);
+    assert(minSpot == 101);
+    assert(maxSpot == 205);
     assert(washCount == 5);
-    assert(minWash == 300);
-    assert(maxWash == 304);
+    assert(minWash == 301);
+    assert(maxWash == 305);
 
     return 0;
 }

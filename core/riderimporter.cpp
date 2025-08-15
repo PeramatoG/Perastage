@@ -669,22 +669,46 @@ bool RiderImporter::Import(const std::string &path) {
     }
   }
 
-  // Assign fixture IDs grouped by type in the order encountered.
+  // Assign fixture IDs and instance names grouped by type, ordering fixtures
+  // from left to right within each hang position and front to back across
+  // positions. IDs start at 101, 201, ...
   std::unordered_map<std::string, std::vector<Fixture *>> fixturesByType;
   for (auto &[uuid, f] : scene.fixtures)
     fixturesByType[f.typeName].push_back(&f);
 
-  int baseId = 100;
+  auto baseName = [](const std::string &name) {
+    size_t space = name.find_last_of(' ');
+    if (space == std::string::npos)
+      return name;
+    bool numeric = true;
+    for (size_t i = space + 1; i < name.size(); ++i) {
+      if (!std::isdigit(static_cast<unsigned char>(name[i]))) {
+        numeric = false;
+        break;
+      }
+    }
+    return numeric ? name.substr(0, space) : name;
+  };
+
+  int baseId = 101;
   for (const std::string &type : typeOrder) {
     auto it = fixturesByType.find(type);
     if (it == fixturesByType.end())
       continue;
     auto &vec = it->second;
+    std::sort(vec.begin(), vec.end(), [](Fixture *a, Fixture *b) {
+      if (std::abs(a->transform.o[1] - b->transform.o[1]) < 1e-3f)
+        return a->transform.o[0] < b->transform.o[0];
+      return a->transform.o[1] < b->transform.o[1];
+    });
+    std::string prefix = vec.empty() ? type : baseName(vec.front()->instanceName);
     for (size_t i = 0; i < vec.size(); ++i) {
       vec[i]->fixtureId = baseId + static_cast<int>(i);
       vec[i]->unitNumber = static_cast<int>(i) + 1;
+      vec[i]->instanceName = prefix + " " + std::to_string(i + 1);
     }
-    baseId = ((baseId + static_cast<int>(vec.size()) + 99) / 100) * 100;
+    baseId =
+        ((baseId - 1 + static_cast<int>(vec.size()) + 99) / 100) * 100 + 1;
   }
 
   auto autoPref = cfg.GetValue("rider_autopatch");
