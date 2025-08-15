@@ -15,10 +15,11 @@
  * You should have received a copy of the GNU General Public License
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
+#include "configmanager.h"
+#include "logger.h"
 #include "mainwindow.h"
 #include "projectutils.h"
-#include "logger.h"
-#include "configmanager.h"
+#include "splashscreen.h"
 #include <thread>
 #include <wx/sysopt.h>
 #include <wx/wx.h>
@@ -33,6 +34,7 @@ wxIMPLEMENT_APP(MyApp);
 bool MyApp::OnInit() {
   // Enable support for common image formats used by the app
   wxInitAllImageHandlers();
+  SplashScreen::Show();
 
   // Initialize logging system (overwrites log file each launch)
   Logger::Instance();
