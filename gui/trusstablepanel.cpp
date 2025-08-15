@@ -76,7 +76,7 @@ void TrussTablePanel::InitializeTable()
 {
     columnLabels = {"Name", "Layer", "Model File", "Hang Pos",
                     "Pos X", "Pos Y", "Pos Z",
-                    "Rot X", "Rot Y", "Rot Z",
+                    "Roll (X)", "Pitch (Y)", "Yaw (Z)",
                     "Manufacturer", "Model",
                     "Length (m)", "Width (m)", "Height (m)", "Weight (kg)"};
     std::vector<int> widths = {150, 100, 180, 120,
@@ -150,9 +150,9 @@ void TrussTablePanel::ReloadData()
         wxString posZ = wxString::Format("%.3f", posArr[2] / 1000.0f);
 
         auto euler = MatrixUtils::MatrixToEuler(truss.transform);
-        wxString rotX = wxString::Format("%.1f\u00B0", euler[0]);
-        wxString rotY = wxString::Format("%.1f\u00B0", euler[1]);
-        wxString rotZ = wxString::Format("%.1f\u00B0", euler[2]);
+        wxString roll = wxString::Format("%.1f\u00B0", euler[2]);
+        wxString pitch = wxString::Format("%.1f\u00B0", euler[1]);
+        wxString yaw = wxString::Format("%.1f\u00B0", euler[0]);
 
         row.push_back(name);
         row.push_back(layer);
@@ -162,9 +162,9 @@ void TrussTablePanel::ReloadData()
         row.push_back(posX);
         row.push_back(posY);
         row.push_back(posZ);
-        row.push_back(rotX);
-        row.push_back(rotY);
-        row.push_back(rotZ);
+        row.push_back(roll);
+        row.push_back(pitch);
+        row.push_back(yaw);
         wxString manuf = wxString::FromUTF8(truss.manufacturer);
         wxString modelName = wxString::FromUTF8(truss.model);
         wxString len = wxString::Format("%.2f", truss.lengthMm / 1000.0f);
@@ -605,20 +605,20 @@ void TrussTablePanel::UpdateSceneData()
         table->GetValue(v, i, 5); v.GetString().ToDouble(&y);
         table->GetValue(v, i, 6); v.GetString().ToDouble(&z);
 
-        double rx=0, ry=0, rz=0;
+        double roll=0, pitch=0, yaw=0;
         table->GetValue(v, i, 7); {
-            wxString s = v.GetString(); s.Replace("\u00B0", ""); s.ToDouble(&rx);
+            wxString s = v.GetString(); s.Replace("\u00B0", ""); s.ToDouble(&roll);
         }
         table->GetValue(v, i, 8); {
-            wxString s = v.GetString(); s.Replace("\u00B0", ""); s.ToDouble(&ry);
+            wxString s = v.GetString(); s.Replace("\u00B0", ""); s.ToDouble(&pitch);
         }
         table->GetValue(v, i, 9); {
-            wxString s = v.GetString(); s.Replace("\u00B0", ""); s.ToDouble(&rz);
+            wxString s = v.GetString(); s.Replace("\u00B0", ""); s.ToDouble(&yaw);
         }
 
-        Matrix rot = MatrixUtils::EulerToMatrix(static_cast<float>(rx),
-                                                static_cast<float>(ry),
-                                                static_cast<float>(rz));
+        Matrix rot = MatrixUtils::EulerToMatrix(static_cast<float>(yaw),
+                                                static_cast<float>(pitch),
+                                                static_cast<float>(roll));
         rot.o = {static_cast<float>(x * 1000.0),
                  static_cast<float>(y * 1000.0),
                  static_cast<float>(z * 1000.0)};

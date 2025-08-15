@@ -37,6 +37,8 @@ Perastage is a high-performance, cross-platform viewer for MVR (My Virtual Rig) 
 ### Fixture Table
 - Displays all parsed fixture objects from the MVR file.
 - Columns include: Name, Fixture Type, Mode, Address, Layer, Position.
+- Rotation columns are labeled **Roll (X)**, **Pitch (Y)** and **Yaw (Z)** and
+  are applied in Z/Y/X order.
 - Context menu options:
   - Edit Address (via `AddressDialog`)
   - Replace Fixture (via `AddFixtureDialog`)
@@ -44,7 +46,12 @@ Perastage is a high-performance, cross-platform viewer for MVR (My Virtual Rig) 
 
 ### Truss Table
 - Displays imported trusses with geometry, dimensions, and metadata.
+- Rotation columns are labeled **Roll (X)**, **Pitch (Y)** and **Yaw (Z)**.
 - Export functionality provided by `ExportTrussDialog`.
+
+### Objects Table
+- Lists generic scene objects and their transforms.
+- Rotation columns are labeled **Roll (X)**, **Pitch (Y)** and **Yaw (Z)**.
 
 ### Console Panel
 - Displays status messages and logs.
