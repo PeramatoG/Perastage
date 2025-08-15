@@ -98,6 +98,7 @@ private:
   void OnSelectTrusses(wxCommandEvent &event);        // Switch to trusses tab
   void OnSelectObjects(wxCommandEvent &event);        // Switch to objects tab
   void OnNotebookPageChanged(wxBookCtrlEvent &event); // Update summary panel
+  void RefreshSummary();                              // Refresh summary counts
 
   void OnPreferences(wxCommandEvent &event);        // Show preferences dialog
   void OnApplyDefaultLayout(wxCommandEvent &event); // Reset to default layout

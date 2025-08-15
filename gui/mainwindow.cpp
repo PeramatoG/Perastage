@@ -1502,18 +1502,20 @@ void MainWindow::OnSelectObjects(wxCommandEvent &WXUNUSED(event)) {
 }
 
 void MainWindow::OnNotebookPageChanged(wxBookCtrlEvent &event) {
-  if (!summaryPanel) {
-    event.Skip();
+  RefreshSummary();
+  event.Skip();
+}
+
+void MainWindow::RefreshSummary() {
+  if (!summaryPanel || !notebook)
     return;
-  }
-  int sel = event.GetSelection();
+  int sel = notebook->GetSelection();
   if (notebook->GetPage(sel) == fixturePanel)
     summaryPanel->ShowFixtureSummary();
   else if (notebook->GetPage(sel) == trussPanel)
     summaryPanel->ShowTrussSummary();
   else if (notebook->GetPage(sel) == sceneObjPanel)
     summaryPanel->ShowSceneObjectSummary();
-  event.Skip();
 }
 
 void MainWindow::OnPreferences(wxCommandEvent &WXUNUSED(event)) {
@@ -1554,6 +1556,7 @@ void MainWindow::OnUndo(wxCommandEvent &WXUNUSED(event)) {
       viewportPanel->SetSelectedFixtures({});
     viewportPanel->Refresh();
   }
+  RefreshSummary();
 }
 
 void MainWindow::OnRedo(wxCommandEvent &WXUNUSED(event)) {
@@ -1587,6 +1590,7 @@ void MainWindow::OnRedo(wxCommandEvent &WXUNUSED(event)) {
       viewportPanel->SetSelectedFixtures({});
     viewportPanel->Refresh();
   }
+  RefreshSummary();
 }
 
 void MainWindow::OnAddFixture(wxCommandEvent &WXUNUSED(event)) {
@@ -1720,6 +1724,7 @@ void MainWindow::OnAddFixture(wxCommandEvent &WXUNUSED(event)) {
     viewportPanel->UpdateScene();
     viewportPanel->Refresh();
   }
+  RefreshSummary();
 }
 
 void MainWindow::OnAddTruss(wxCommandEvent &WXUNUSED(event)) {
@@ -1847,6 +1852,7 @@ void MainWindow::OnAddTruss(wxCommandEvent &WXUNUSED(event)) {
     viewportPanel->UpdateScene();
     viewportPanel->Refresh();
   }
+  RefreshSummary();
 }
 
 void MainWindow::OnAddSceneObject(wxCommandEvent &WXUNUSED(event)) {
@@ -1951,6 +1957,7 @@ void MainWindow::OnAddSceneObject(wxCommandEvent &WXUNUSED(event)) {
     viewportPanel->UpdateScene();
     viewportPanel->Refresh();
   }
+  RefreshSummary();
 }
 
 void MainWindow::OnDelete(wxCommandEvent &WXUNUSED(event)) {
