@@ -41,6 +41,7 @@
 #include "fixture.h"
 #include "gdtfdictionary.h"
 #include "gdtfloader.h"
+#include "layer.h"
 #include "truss.h"
 #include "trussdictionary.h"
 #include "trussloader.h"
@@ -233,6 +234,25 @@ bool RiderImporter::Import(const std::string &path) {
     return 200.0f;
   };
 
+  auto addToLayer = [&](const std::string &lname, const std::string &uid) {
+    std::string name = lname.empty() ? DEFAULT_LAYER_NAME : lname;
+    Layer *layerPtr = nullptr;
+    for (auto &[id, layer] : scene.layers) {
+      if (layer.name == name) {
+        layerPtr = &layer;
+        break;
+      }
+    }
+    if (!layerPtr) {
+      Layer l;
+      l.uuid = name == DEFAULT_LAYER_NAME ? "layer_default" : GenerateUuid();
+      l.name = name;
+      auto [it, inserted] = scene.layers.emplace(l.uuid, l);
+      layerPtr = &it->second;
+    }
+    layerPtr->childUUIDs.push_back(uid);
+  };
+
   // Keywords that identify truss entries. Screens or drapes themselves are
   // ignored; only explicit truss mentions are parsed.
   const std::string trussKeywords = "(?:truss)";
@@ -302,6 +322,7 @@ bool RiderImporter::Import(const std::string &path) {
         f.transform.o[1] = getHangPos(currentHang);
         f.transform.o[2] = getHangHeight(currentHang);
         scene.fixtures[f.uuid] = f;
+        addToLayer(f.layer, f.uuid);
       }
     }
   };
@@ -467,6 +488,7 @@ bool RiderImporter::Import(const std::string &path) {
             }
           }
           scene.trusses[t.uuid] = t;
+          addToLayer(t.layer, t.uuid);
           x += s;
         }
       };
@@ -553,6 +575,7 @@ bool RiderImporter::Import(const std::string &path) {
           }
         }
         scene.trusses[t.uuid] = t;
+        addToLayer(t.layer, t.uuid);
         x += s;
       }
     } else if (inFixtures && std::regex_match(line, m, fixtureLineRe)) {
@@ -720,6 +743,20 @@ bool RiderImporter::Import(const std::string &path) {
     }
     baseId =
         ((baseId - 1 + static_cast<int>(vec.size()) + 99) / 100) * 100 + 1;
+  }
+
+  bool hasDefaultLayer = false;
+  for (const auto &[uid, layer] : scene.layers) {
+    if (layer.name == DEFAULT_LAYER_NAME) {
+      hasDefaultLayer = true;
+      break;
+    }
+  }
+  if (!hasDefaultLayer) {
+    Layer l;
+    l.uuid = "layer_default";
+    l.name = DEFAULT_LAYER_NAME;
+    scene.layers[l.uuid] = l;
   }
 
   auto autoPref = cfg.GetValue("rider_autopatch");
