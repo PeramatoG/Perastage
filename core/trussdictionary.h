@@ -22,9 +22,9 @@
 #include <unordered_map>
 
 namespace TrussDictionary {
-    // Loads the dictionary file into a map of model -> absolute path
+    // Loads the dictionary file into a map of model -> path inside truss library
     std::optional<std::unordered_map<std::string, std::string>> Load();
-    // Saves the dictionary map back to disk
+    // Saves the dictionary map back to disk storing only filenames
     void Save(const std::unordered_map<std::string, std::string>& dict);
     // Returns stored path for a model if exists and file exists; removes missing entries
     std::optional<std::string> Get(const std::string& model);

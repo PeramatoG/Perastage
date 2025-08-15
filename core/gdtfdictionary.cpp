@@ -68,13 +68,24 @@ std::optional<std::unordered_map<std::string, Entry>> Load() {
       out << "{}";
     return dict;
   }
+  fs::path dir = file.parent_path();
   for (auto it = j.begin(); it != j.end(); ++it) {
     if (it.value().is_string()) {
-      dict[it.key()] = {it.value().get<std::string>(), ""};
+      fs::path p = fs::u8path(it.value().get<std::string>());
+      if (!p.is_absolute())
+        p = dir / p;
+      dict[it.key()] = {p.string(), ""};
     } else if (it.value().is_object()) {
       Entry e;
-      if (it.value().contains("path") && it.value()["path"].is_string())
-        e.path = it.value()["path"].get<std::string>();
+      std::string fname;
+      if (it.value().contains("file") && it.value()["file"].is_string())
+        fname = it.value()["file"].get<std::string>();
+      else if (it.value().contains("path") && it.value()["path"].is_string())
+        fname = it.value()["path"].get<std::string>();
+      fs::path p = fs::u8path(fname);
+      if (!p.is_absolute())
+        p = dir / p;
+      e.path = p.string();
       if (it.value().contains("mode") && it.value()["mode"].is_string())
         e.mode = it.value()["mode"].get<std::string>();
       dict[it.key()] = e;
@@ -90,7 +101,8 @@ void Save(const std::unordered_map<std::string, Entry> &dict) {
   nlohmann::json j;
   for (const auto &[type, entry] : dict) {
     nlohmann::json obj;
-    obj["path"] = entry.path;
+    fs::path p = fs::u8path(entry.path);
+    obj["file"] = p.filename().string();
     if (!entry.mode.empty())
       obj["mode"] = entry.mode;
     j[type] = obj;
