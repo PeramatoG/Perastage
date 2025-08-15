@@ -45,6 +45,8 @@ ConsolePanel::ConsolePanel(wxWindow *parent) : wxPanel(parent, wxID_ANY) {
   m_inputCtrl->Bind(wxEVT_SET_FOCUS, &ConsolePanel::OnInputFocus, this);
   m_inputCtrl->Bind(wxEVT_KILL_FOCUS, &ConsolePanel::OnInputKillFocus, this);
   m_inputCtrl->Bind(wxEVT_KEY_DOWN, &ConsolePanel::OnInputKeyDown, this);
+  m_inputCtrl->SetValue(">>> ");
+  m_inputCtrl->SetInsertionPointEnd();
   const wxEventTypeTag<wxScrollWinEvent> scrollEvents[] = {
       wxEVT_SCROLLWIN_TOP,        wxEVT_SCROLLWIN_BOTTOM,
       wxEVT_SCROLLWIN_LINEUP,     wxEVT_SCROLLWIN_LINEDOWN,
@@ -87,14 +89,20 @@ void ConsolePanel::OnScroll(wxScrollWinEvent &event) {
 
 void ConsolePanel::OnCommandEnter(wxCommandEvent &event) {
   wxString cmd = m_inputCtrl ? m_inputCtrl->GetValue() : wxString();
-  if (m_inputCtrl)
-    m_inputCtrl->Clear();
+  if (cmd.StartsWith(">>> "))
+    cmd = cmd.Mid(4);
+  if (m_inputCtrl) {
+    m_inputCtrl->SetValue(">>> ");
+    m_inputCtrl->SetInsertionPointEnd();
+  }
   ProcessCommand(cmd);
 }
 
 void ConsolePanel::OnInputFocus(wxFocusEvent &event) {
   if (MainWindow::Instance())
     MainWindow::Instance()->EnableShortcuts(false);
+  if (m_inputCtrl)
+    m_inputCtrl->SetInsertionPointEnd();
   event.Skip();
 }
 
@@ -105,12 +113,23 @@ void ConsolePanel::OnInputKillFocus(wxFocusEvent &event) {
 }
 
 void ConsolePanel::OnInputKeyDown(wxKeyEvent &event) {
-  if (event.GetKeyCode() == WXK_ESCAPE) {
+  int code = event.GetKeyCode();
+  long pos = m_inputCtrl ? m_inputCtrl->GetInsertionPoint() : 0;
+  if (code == WXK_ESCAPE) {
     if (MainWindow::Instance())
       MainWindow::Instance()->EnableShortcuts(true);
-    m_inputCtrl->Clear();
+    m_inputCtrl->SetValue(">>> ");
+    m_inputCtrl->SetInsertionPointEnd();
     if (m_textCtrl)
       m_textCtrl->SetFocus();
+    return;
+  }
+  if ((code == WXK_BACK || code == WXK_LEFT) && pos <= 4) {
+    m_inputCtrl->SetInsertionPoint(4);
+    return;
+  }
+  if (code == WXK_HOME) {
+    m_inputCtrl->SetInsertionPoint(4);
     return;
   }
   event.Skip();
@@ -238,7 +257,8 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
     };
 
     auto applyPos = [&](const std::vector<std::string> &sel, bool fixtures,
-                        int axis, const std::vector<float> &vals) {
+                        int axis, const std::vector<float> &vals,
+                        bool relative) {
       if (sel.empty() || vals.empty())
         return;
       auto &scene = cfg.GetScene();
@@ -252,18 +272,27 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
         v *= 1000.0f;
         if (fixtures) {
           auto it = scene.fixtures.find(sel[i]);
-          if (it != scene.fixtures.end())
-            it->second.transform.o[axis] = v;
+          if (it != scene.fixtures.end()) {
+            if (relative)
+              it->second.transform.o[axis] += v;
+            else
+              it->second.transform.o[axis] = v;
+          }
         } else {
           auto it = scene.trusses.find(sel[i]);
-          if (it != scene.trusses.end())
-            it->second.transform.o[axis] = v;
+          if (it != scene.trusses.end()) {
+            if (relative)
+              it->second.transform.o[axis] += v;
+            else
+              it->second.transform.o[axis] = v;
+          }
         }
       }
     };
 
     auto applyRot = [&](const std::vector<std::string> &sel, bool fixtures,
-                        int axis, const std::vector<float> &vals) {
+                        int axis, const std::vector<float> &vals,
+                        bool relative) {
       if (sel.empty() || vals.empty())
         return;
       auto &scene = cfg.GetScene();
@@ -278,7 +307,10 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
           auto it = scene.fixtures.find(sel[i]);
           if (it != scene.fixtures.end()) {
             auto e = MatrixUtils::MatrixToEuler(it->second.transform);
-            e[axis] = ang;
+            if (relative)
+              e[axis] += ang;
+            else
+              e[axis] = ang;
             Matrix m = MatrixUtils::EulerToMatrix(e[0], e[1], e[2]);
             m.o = it->second.transform.o;
             it->second.transform = m;
@@ -287,7 +319,10 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
           auto it = scene.trusses.find(sel[i]);
           if (it != scene.trusses.end()) {
             auto e = MatrixUtils::MatrixToEuler(it->second.transform);
-            e[axis] = ang;
+            if (relative)
+              e[axis] += ang;
+            else
+              e[axis] = ang;
             Matrix m = MatrixUtils::EulerToMatrix(e[0], e[1], e[2]);
             m.o = it->second.transform.o;
             it->second.transform = m;
@@ -296,14 +331,34 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
       }
     };
 
+    auto parseVals = [&](const std::string &s, bool &relative) {
+      relative = false;
+      std::string str = trim(s);
+      float sign = 1.0f;
+      if (str.rfind("++", 0) == 0) {
+        relative = true;
+        str = trim(str.substr(2));
+      } else if (str.rfind("--", 0) == 0) {
+        relative = true;
+        sign = -1.0f;
+        str = trim(str.substr(2));
+      }
+      std::stringstream ss(str);
+      std::vector<float> vals;
+      float v;
+      while (ss >> v)
+        vals.push_back(sign * v);
+      return vals;
+    };
+
     auto isCmd = [](const std::string &tok) {
       if (tok.empty())
         return false;
       std::string l = tok;
       std::transform(l.begin(), l.end(), l.begin(),
                      [](unsigned char c) { return std::tolower(c); });
-      return l == "clear" || l == "pos" || l == "rot" || l[0] == 'f' ||
-             l[0] == 't';
+      return l == "clear" || l == "pos" || l == "rot" || l == "x" ||
+             l == "y" || l == "z" || l[0] == 'f' || l[0] == 't';
     };
 
     std::stringstream ts(lower);
@@ -353,15 +408,12 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
         if (rest.find(',') != std::string::npos) {
           auto parts = split(rest, ',');
           for (size_t idx = 0; idx < parts.size() && idx < 3; ++idx) {
-            std::stringstream ps(parts[idx]);
-            std::vector<float> vals;
-            float v;
-            while (ps >> v)
-              vals.push_back(v);
+            bool rel = false;
+            auto vals = parseVals(parts[idx], rel);
             if (isRot)
-              applyRot(sel, fixtures, (int)idx, vals);
+              applyRot(sel, fixtures, (int)idx, vals, rel);
             else
-              applyPos(sel, fixtures, (int)idx, vals);
+              applyPos(sel, fixtures, (int)idx, vals, rel);
           }
         } else {
           std::stringstream ps(rest);
@@ -377,14 +429,67 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
             else
               axis = 2;
           }
-          std::vector<float> vals;
-          float v;
-          while (ps >> v)
-            vals.push_back(v);
+          std::string valsStr;
+          std::getline(ps, valsStr);
+          valsStr = trim(valsStr);
+          bool rel = false;
+          auto vals = parseVals(valsStr, rel);
           if (isRot)
-            applyRot(sel, fixtures, axis, vals);
+            applyRot(sel, fixtures, axis, vals, rel);
           else
-            applyPos(sel, fixtures, axis, vals);
+            applyPos(sel, fixtures, axis, vals, rel);
+        }
+        if (fixtures) {
+          if (FixtureTablePanel::Instance())
+            FixtureTablePanel::Instance()->ReloadData();
+        } else {
+          if (TrussTablePanel::Instance())
+            TrussTablePanel::Instance()->ReloadData();
+        }
+        if (Viewer3DPanel::Instance()) {
+          Viewer3DPanel::Instance()->UpdateScene();
+          Viewer3DPanel::Instance()->Refresh();
+        }
+      } else if (lw == "x" || lw == "y" || lw == "z") {
+        cfg.PushUndoState("cli pos");
+        std::string rest;
+        for (size_t k = i + 1; k < j; ++k) {
+          if (k > i + 1)
+            rest += ' ';
+          rest += tokens[k];
+        }
+        std::vector<std::string> selFixtures = cfg.GetSelectedFixtures();
+        std::vector<std::string> selTrusses = cfg.GetSelectedTrusses();
+        bool fixtures = !selFixtures.empty();
+        std::vector<std::string> &sel = fixtures ? selFixtures : selTrusses;
+        int axis = (lw == "x") ? 0 : (lw == "y" ? 1 : 2);
+        bool rel = false;
+        auto vals = parseVals(rest, rel);
+        applyPos(sel, fixtures, axis, vals, rel);
+        if (fixtures) {
+          if (FixtureTablePanel::Instance())
+            FixtureTablePanel::Instance()->ReloadData();
+        } else {
+          if (TrussTablePanel::Instance())
+            TrussTablePanel::Instance()->ReloadData();
+        }
+        if (Viewer3DPanel::Instance()) {
+          Viewer3DPanel::Instance()->UpdateScene();
+          Viewer3DPanel::Instance()->Refresh();
+        }
+      } else if (!lw.empty() && (std::isdigit(lw[0]) || lw[0] == '-' ||
+                                 lw[0] == '+') &&
+                 word.find(',') != std::string::npos) {
+        cfg.PushUndoState("cli pos");
+        std::vector<std::string> selFixtures = cfg.GetSelectedFixtures();
+        std::vector<std::string> selTrusses = cfg.GetSelectedTrusses();
+        bool fixtures = !selFixtures.empty();
+        std::vector<std::string> &sel = fixtures ? selFixtures : selTrusses;
+        auto parts = split(word, ',');
+        for (size_t idx = 0; idx < parts.size() && idx < 3; ++idx) {
+          bool rel = false;
+          auto vals = parseVals(parts[idx], rel);
+          applyPos(sel, fixtures, (int)idx, vals, rel);
         }
         if (fixtures) {
           if (FixtureTablePanel::Instance())
