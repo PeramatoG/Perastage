@@ -18,6 +18,7 @@
 #include "fixturetablepanel.h"
 #include "addressdialog.h"
 #include "configmanager.h"
+#include "consolepanel.h"
 #include "fixtureeditdialog.h"
 #include "gdtfdictionary.h"
 #include "gdtfloader.h"
@@ -25,11 +26,10 @@
 #include "matrixutils.h"
 #include "patchmanager.h"
 #include "projectutils.h"
-#include "consolepanel.h"
 #include "stringutils.h"
 #include "summarypanel.h"
-#include "viewer3dpanel.h"
 #include "viewer2dpanel.h"
+#include "viewer3dpanel.h"
 #include <algorithm>
 #include <filesystem>
 #include <unordered_map>
@@ -1111,6 +1111,8 @@ void FixtureTablePanel::UpdateSceneData() {
   cfg.PushUndoState("edit fixture");
   auto &scene = cfg.GetScene();
   std::unordered_set<std::string> updatedSpecs;
+  size_t updatedCount = 0;
+  wxString firstName, firstUuid;
   size_t count = std::min((size_t)table->GetItemCount(), rowUuids.size());
   for (size_t i = 0; i < count; ++i) {
     auto it = scene.fixtures.find(rowUuids[i]);
@@ -1219,12 +1221,23 @@ void FixtureTablePanel::UpdateSceneData() {
     }
 
     if (ConsolePanel::Instance()) {
-      wxString msg = wxString::Format(
-          "Updated fixture %s (UUID %s)",
-          wxString::FromUTF8(it->second.instanceName.c_str()),
-          wxString::FromUTF8(it->second.uuid.c_str()));
-      ConsolePanel::Instance()->AppendMessage(msg);
+      ++updatedCount;
+      if (updatedCount == 1) {
+        firstName = wxString::FromUTF8(it->second.instanceName.c_str());
+        firstUuid = wxString::FromUTF8(it->second.uuid.c_str());
+      }
     }
+  }
+
+  if (ConsolePanel::Instance()) {
+    wxString msg;
+    if (updatedCount == 1)
+      msg = wxString::Format("Updated fixture %s (UUID %s)", firstName,
+                             firstUuid);
+    else if (updatedCount > 1)
+      msg = wxString::Format("Updated %zu fixtures", updatedCount);
+    if (!msg.empty())
+      ConsolePanel::Instance()->AppendMessage(msg);
   }
 
   HighlightDuplicateFixtureIds();
