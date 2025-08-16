@@ -444,6 +444,7 @@ bool ConfigManager::SaveProject(const std::string &path) {
 
   zip.Close();
   fs::remove_all(tempDir);
+  savedRevision = revision;
   return true;
 }
 
@@ -506,6 +507,8 @@ bool ConfigManager::LoadProject(const std::string &path) {
     selectedFixtures.clear();
     selectedTrusses.clear();
     selectedSceneObjects.clear();
+    revision = 0;
+    savedRevision = 0;
   }
   return ok;
 }
@@ -521,6 +524,8 @@ void ConfigManager::Reset() {
   selectedSceneObjects.clear();
   currentLayer = DEFAULT_LAYER_NAME;
   ClearHistory();
+  revision = 0;
+  savedRevision = 0;
 }
 
 std::string ConfigManager::GetUserConfigFile() {
@@ -546,6 +551,7 @@ void ConfigManager::PushUndoState(const std::string &description) {
   if (undoStack.size() > maxHistory)
     undoStack.erase(undoStack.begin());
   redoStack.clear();
+  ++revision;
 }
 
 bool ConfigManager::CanUndo() const { return !undoStack.empty(); }
@@ -563,6 +569,8 @@ std::string ConfigManager::Undo() {
   selectedTrusses = snap.selTrusses;
   selectedSceneObjects = snap.selSceneObjects;
   undoStack.pop_back();
+  if (revision > 0)
+    --revision;
   return snap.description;
 }
 
@@ -577,6 +585,7 @@ std::string ConfigManager::Redo() {
   selectedTrusses = snap.selTrusses;
   selectedSceneObjects = snap.selSceneObjects;
   redoStack.pop_back();
+  ++revision;
   return snap.description;
 }
 
@@ -584,3 +593,7 @@ void ConfigManager::ClearHistory() {
   undoStack.clear();
   redoStack.clear();
 }
+
+bool ConfigManager::IsDirty() const { return revision != savedRevision; }
+
+void ConfigManager::MarkSaved() { savedRevision = revision; }

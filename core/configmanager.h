@@ -111,6 +111,10 @@ public:
     std::string Redo();
     void ClearHistory();
 
+    // Track unsaved changes
+    bool IsDirty() const;
+    void MarkSaved();
+
 private:
     ConfigManager();
     ConfigManager(const ConfigManager&) = delete;
@@ -138,6 +142,9 @@ private:
     std::vector<Snapshot> undoStack;
     std::vector<Snapshot> redoStack;
     size_t maxHistory = 20;
+
+    size_t revision = 0;
+    size_t savedRevision = 0;
 
     std::string currentLayer = DEFAULT_LAYER_NAME;
 };
