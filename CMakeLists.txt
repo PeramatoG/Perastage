@@ -30,6 +30,11 @@ file(GLOB_RECURSE SRC_FILES
 # Explicitly ensure markdown conversion source is included
 list(APPEND SRC_FILES ${CMAKE_SOURCE_DIR}/core/markdown.cpp)
 
+# On Windows, include application icon resources
+if (WIN32)
+    list(APPEND SRC_FILES ${CMAKE_SOURCE_DIR}/resources/Perastage.rc)
+endif()
+
 # Optional: gather headers for IDEs
 file(GLOB_RECURSE HEADER_FILES
     ${CMAKE_SOURCE_DIR}/gui/*.h
