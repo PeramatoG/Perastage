@@ -27,6 +27,7 @@
 #include "viewer3dcontroller.h"
 #include <wx/glcanvas.h>
 #include <wx/wx.h>
+#include <string>
 
 class Viewer2DPanel : public wxGLCanvas {
 public:
@@ -43,6 +44,10 @@ public:
 
   void SetView(Viewer2DView view);
   Viewer2DView GetView() const { return m_view; }
+
+  // Update cached color for a specific layer so user selections are applied
+  // immediately to the 2D renderer.
+  void SetLayerColor(const std::string &layer, const std::string &hex);
 
   void LoadViewFromConfig();
   void SaveViewToConfig() const;
