@@ -272,6 +272,37 @@ bool ConfigManager::IsLayerVisible(const std::string &layer) const {
   return hidden.find(name) == hidden.end();
 }
 
+void ConfigManager::SetLayerColor(const std::string &layer,
+                                  const std::string &color) {
+  std::string name = layer.empty() ? DEFAULT_LAYER_NAME : layer;
+  std::string layerUuid;
+  for (auto &[uuid, l] : scene.layers) {
+    if (l.name == name) {
+      layerUuid = uuid;
+      break;
+    }
+  }
+  if (layerUuid.empty()) {
+    Layer l;
+    l.name = name;
+    l.color = color;
+    l.uuid = "layer_" + std::to_string(scene.layers.size() + 1);
+    scene.layers[l.uuid] = l;
+  } else {
+    scene.layers[layerUuid].color = color;
+  }
+}
+
+std::optional<std::string>
+ConfigManager::GetLayerColor(const std::string &layer) const {
+  std::string name = layer.empty() ? DEFAULT_LAYER_NAME : layer;
+  for (const auto &[uuid, l] : scene.layers) {
+    if (l.name == name && !l.color.empty())
+      return l.color;
+  }
+  return std::nullopt;
+}
+
 std::vector<std::string> ConfigManager::GetLayerNames() const {
   std::set<std::string> names;
   for (const auto &[uuid, layer] : scene.layers)

@@ -109,6 +109,9 @@ public:
                              wxString &outLabel, wxPoint &outPos,
                              std::string *outUuid = nullptr);
 
+  // Update cached layer color for rendering
+  void SetLayerColor(const std::string &layer, const std::string &hex);
+
 private:
   // Draws a solid cube centered at origin with given size and color
   void DrawCube(float size = 0.2f, float r = 1.0f, float g = 1.0f,

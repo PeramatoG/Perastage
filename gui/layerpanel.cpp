@@ -25,13 +25,20 @@
 #include <set>
 #include <chrono>
 #include <algorithm>
+#include <wx/dcmemory.h>
 
 LayerPanel* LayerPanel::s_instance = nullptr;
 
 LayerPanel::LayerPanel(wxWindow* parent)
     : wxPanel(parent, wxID_ANY)
 {
-    list = new wxCheckListBox(this, wxID_ANY);
+    list = new wxDataViewListCtrl(this, wxID_ANY);
+    list->AppendToggleColumn("Visible");
+    list->AppendTextColumn("Layer");
+    auto* colorRenderer = new wxDataViewIconTextRenderer();
+    auto* colorColumn = new wxDataViewColumn("Color", colorRenderer, 2, 40, wxALIGN_CENTER);
+    list->AppendColumn(colorColumn);
+
     wxBoxSizer* sizer = new wxBoxSizer(wxVERTICAL);
     sizer->Add(list, 1, wxEXPAND | wxALL, 5);
 
@@ -44,9 +51,10 @@ LayerPanel::LayerPanel(wxWindow* parent)
 
     SetSizer(sizer);
 
-    list->Bind(wxEVT_CHECKLISTBOX, &LayerPanel::OnCheck, this);
-    list->Bind(wxEVT_LISTBOX, &LayerPanel::OnSelect, this);
-    list->Bind(wxEVT_LISTBOX_DCLICK, &LayerPanel::OnRenameLayer, this);
+    list->Bind(wxEVT_DATAVIEW_ITEM_VALUE_CHANGED, &LayerPanel::OnCheck, this);
+    list->Bind(wxEVT_DATAVIEW_SELECTION_CHANGED, &LayerPanel::OnSelect, this);
+    list->Bind(wxEVT_DATAVIEW_ITEM_CONTEXT_MENU, &LayerPanel::OnContext, this);
+    list->Bind(wxEVT_DATAVIEW_ITEM_ACTIVATED, &LayerPanel::OnRenameLayer, this);
     addBtn->Bind(wxEVT_BUTTON, &LayerPanel::OnAddLayer, this);
     delBtn->Bind(wxEVT_BUTTON, &LayerPanel::OnDeleteLayer, this);
 
@@ -66,7 +74,7 @@ void LayerPanel::SetInstance(LayerPanel* p)
 void LayerPanel::ReloadLayers()
 {
     if (!list) return;
-    list->Clear();
+    list->DeleteAllItems();
 
     std::set<std::string> names;
     auto& scene = ConfigManager::Get().GetScene();
@@ -86,38 +94,58 @@ void LayerPanel::ReloadLayers()
     std::string current = ConfigManager::Get().GetCurrentLayer();
     int idx = 0;
     int sel = -1;
-    if (names.find(DEFAULT_LAYER_NAME) != names.end()) {
-        list->Append(wxString::FromUTF8(DEFAULT_LAYER_NAME));
-        list->Check(idx, hidden.find(DEFAULT_LAYER_NAME) == hidden.end());
-        if (current == DEFAULT_LAYER_NAME)
-            sel = idx;
-        ++idx;
-    }
-    for (const auto& n : names) {
-        if (n == DEFAULT_LAYER_NAME)
-            continue;
-        list->Append(wxString::FromUTF8(n));
-        list->Check(idx, hidden.find(n) == hidden.end());
+
+    auto addRow = [&](const std::string& n){
+        bool vis = hidden.find(n) == hidden.end();
+        wxVector<wxVariant> cols;
+        cols.push_back(wxVariant(vis));
+        cols.push_back(wxVariant(wxString::FromUTF8(n)));
+        wxBitmap bmp(16,16);
+        wxColour c;
+        auto opt = ConfigManager::Get().GetLayerColor(n);
+        if (opt)
+            c.Set(wxString::FromUTF8(opt->c_str()));
+        else
+            c.Set(128,128,128);
+        wxMemoryDC dc(bmp);
+        dc.SetBrush(wxBrush(c));
+        dc.SetPen(*wxBLACK_PEN);
+        dc.DrawRectangle(0,0,16,16);
+        dc.SelectObject(wxNullBitmap);
+        wxDataViewIconText icon("", bmp);
+        cols.push_back(wxVariant(icon));
+        list->AppendItem(cols);
         if (n == current)
             sel = idx;
         ++idx;
+    };
+
+    if (names.find(DEFAULT_LAYER_NAME) != names.end()) {
+        addRow(DEFAULT_LAYER_NAME);
+        names.erase(DEFAULT_LAYER_NAME);
     }
-    if (sel < 0 && list->GetCount() > 0)
+    for (const auto& n : names)
+        addRow(n);
+
+    if (sel < 0 && list->GetItemCount() > 0)
         sel = 0;
     if (sel >= 0) {
-        list->SetSelection(sel);
-        wxString wname = list->GetString(sel);
+        list->SelectRow(sel);
+        wxString wname = list->GetTextValue(sel,1);
         ConfigManager::Get().SetCurrentLayer(wname.ToStdString());
     }
 }
 
-void LayerPanel::OnCheck(wxCommandEvent& evt)
+void LayerPanel::OnCheck(wxDataViewEvent& evt)
 {
-    int idx = evt.GetInt();
-    wxString wname = list->GetString(idx);
+    unsigned int idx = list->ItemToRow(evt.GetItem());
+    wxString wname = list->GetTextValue(idx,1);
     std::string name = wname.ToStdString();
+    wxVariant v;
+    list->GetValue(v, idx, 0);
+    bool checked = v.GetBool();
     auto hidden = ConfigManager::Get().GetHiddenLayers();
-    if (list->IsChecked(idx))
+    if (checked)
         hidden.erase(name);
     else
         hidden.insert(name);
@@ -128,13 +156,47 @@ void LayerPanel::OnCheck(wxCommandEvent& evt)
         Viewer2DPanel::Instance()->Refresh();
 }
 
-void LayerPanel::OnSelect(wxCommandEvent& evt)
+void LayerPanel::OnSelect(wxDataViewEvent& evt)
 {
-    int idx = evt.GetInt();
-    if (idx >= 0 && idx < static_cast<int>(list->GetCount())) {
-        wxString wname = list->GetString(idx);
-        ConfigManager::Get().SetCurrentLayer(wname.ToStdString());
+    unsigned int idx = list->ItemToRow(evt.GetItem());
+    if (idx == wxNOT_FOUND)
+        return;
+    wxString wname = list->GetTextValue(idx,1);
+    ConfigManager::Get().SetCurrentLayer(wname.ToStdString());
+}
+
+void LayerPanel::OnContext(wxDataViewEvent& evt)
+{
+    unsigned int idx = list->ItemToRow(evt.GetItem());
+    if (idx == wxNOT_FOUND)
+        return;
+    wxString wname = list->GetTextValue(idx,1);
+    std::string name = wname.ToStdString();
+    wxColourData data;
+    if (auto c = ConfigManager::Get().GetLayerColor(name))
+        data.SetColour(wxColour(wxString::FromUTF8(c->c_str())));
+    wxColourDialog dlg(this, &data);
+    if (dlg.ShowModal() != wxID_OK)
+        return;
+    wxColour col = dlg.GetColourData().GetColour();
+    std::string hex = wxString::Format("#%02X%02X%02X", col.Red(), col.Green(), col.Blue()).ToStdString();
+    ConfigManager::Get().PushUndoState("change layer color");
+    ConfigManager::Get().SetLayerColor(name, hex);
+    wxBitmap bmp(16,16);
+    wxMemoryDC dc(bmp);
+    dc.SetBrush(wxBrush(col));
+    dc.SetPen(*wxBLACK_PEN);
+    dc.DrawRectangle(0,0,16,16);
+    dc.SelectObject(wxNullBitmap);
+    wxDataViewIconText icon("", bmp);
+    wxVariant vv(icon);
+    list->SetValue(vv, idx, 2);
+    if (Viewer3DPanel::Instance()) {
+        Viewer3DPanel::Instance()->SetLayerColor(name, hex);
+        Viewer3DPanel::Instance()->Refresh();
     }
+    if (Viewer2DPanel::Instance())
+        Viewer2DPanel::Instance()->Refresh();
 }
 
 void LayerPanel::OnAddLayer(wxCommandEvent&)
@@ -169,10 +231,10 @@ void LayerPanel::OnDeleteLayer(wxCommandEvent&)
 {
     if (!list)
         return;
-    int sel = list->GetSelection();
+    int sel = list->GetSelectedRow();
     if (sel == wxNOT_FOUND)
         return;
-    wxString wname = list->GetString(sel);
+    wxString wname = list->GetTextValue(sel,1);
     std::string name = wname.ToStdString();
     if (name == DEFAULT_LAYER_NAME)
     {
@@ -265,15 +327,15 @@ void LayerPanel::OnDeleteLayer(wxCommandEvent&)
     }
 }
 
-void LayerPanel::OnRenameLayer(wxCommandEvent& evt)
+void LayerPanel::OnRenameLayer(wxDataViewEvent& evt)
 {
     if (!list)
         return;
-    int idx = evt.GetInt();
+    unsigned int idx = list->ItemToRow(evt.GetItem());
     if (idx == wxNOT_FOUND)
         return;
 
-    wxString oldW = list->GetString(idx);
+    wxString oldW = list->GetTextValue(idx,1);
     std::string oldName = oldW.ToStdString();
     if (oldName == DEFAULT_LAYER_NAME)
     {

@@ -50,6 +50,7 @@ public:
 
     void UpdateScene();
     void SetSelectedFixtures(const std::vector<std::string>& uuids);
+    void SetLayerColor(const std::string& layer, const std::string& hex);
 
     static Viewer3DPanel* Instance();
     static void SetInstance(Viewer3DPanel* panel);
