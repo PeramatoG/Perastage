@@ -67,6 +67,7 @@ private:
     void OnLeftDown(wxMouseEvent& evt);
     void OnLeftUp(wxMouseEvent& evt);
     void OnMouseMove(wxMouseEvent& evt);
+    void OnCaptureLost(wxMouseCaptureLostEvent& evt);
     void OnSelectionChanged(wxDataViewEvent& evt);
     void PropagateTypeValues(const wxDataViewItemArray& selections, int col);
     void ApplyModeForGdtf(const wxString& path, const wxString& preferredMode = wxString());

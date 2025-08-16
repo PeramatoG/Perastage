@@ -90,6 +90,7 @@ private:
     void OnKeyDown(wxKeyEvent& event);
     void OnMouseEnter(wxMouseEvent& event);
     void OnMouseLeave(wxMouseEvent& event);
+    void OnCaptureLost(wxMouseCaptureLostEvent& event);
 
     // Renders the full scene
     void Render();

@@ -66,6 +66,8 @@ FixtureTablePanel::FixtureTablePanel(wxWindow *parent)
   table->Bind(wxEVT_DATAVIEW_COLUMN_SORTED, &FixtureTablePanel::OnColumnSorted,
               this);
 
+  Bind(wxEVT_MOUSE_CAPTURE_LOST, &FixtureTablePanel::OnCaptureLost, this);
+
   InitializeTable();
   ReloadData();
 
@@ -999,6 +1001,10 @@ void FixtureTablePanel::OnLeftUp(wxMouseEvent &evt) {
     ReleaseMouse();
   }
   evt.Skip();
+}
+
+void FixtureTablePanel::OnCaptureLost(wxMouseCaptureLostEvent &WXUNUSED(evt)) {
+  dragSelecting = false;
 }
 
 void FixtureTablePanel::OnMouseMove(wxMouseEvent &evt) {

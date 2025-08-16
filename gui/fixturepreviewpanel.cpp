@@ -144,6 +144,7 @@ wxBEGIN_EVENT_TABLE(FixturePreviewPanel, wxGLCanvas)
     EVT_LEFT_UP(FixturePreviewPanel::OnMouseUp)
     EVT_MOTION(FixturePreviewPanel::OnMouseMove)
     EVT_MOUSEWHEEL(FixturePreviewPanel::OnMouseWheel)
+    EVT_MOUSE_CAPTURE_LOST(FixturePreviewPanel::OnCaptureLost)
 wxEND_EVENT_TABLE()
 
 FixturePreviewPanel::FixturePreviewPanel(wxWindow* parent)
@@ -278,6 +279,11 @@ void FixturePreviewPanel::OnMouseUp(wxMouseEvent&)
         m_dragging = false;
         if(HasCapture()) ReleaseMouse();
     }
+}
+
+void FixturePreviewPanel::OnCaptureLost(wxMouseCaptureLostEvent& WXUNUSED(evt))
+{
+    m_dragging = false;
 }
 
 void FixturePreviewPanel::OnMouseMove(wxMouseEvent& evt)

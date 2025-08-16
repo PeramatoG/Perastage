@@ -59,6 +59,8 @@ TrussTablePanel::TrussTablePanel(wxWindow* parent)
     table->Bind(wxEVT_DATAVIEW_COLUMN_SORTED,
                 &TrussTablePanel::OnColumnSorted, this);
 
+    Bind(wxEVT_MOUSE_CAPTURE_LOST, &TrussTablePanel::OnCaptureLost, this);
+
     InitializeTable();
     ReloadData();
 
@@ -498,6 +500,11 @@ void TrussTablePanel::OnLeftUp(wxMouseEvent& evt)
         ReleaseMouse();
     }
     evt.Skip();
+}
+
+void TrussTablePanel::OnCaptureLost(wxMouseCaptureLostEvent& WXUNUSED(evt))
+{
+    dragSelecting = false;
 }
 
 void TrussTablePanel::OnMouseMove(wxMouseEvent& evt)
