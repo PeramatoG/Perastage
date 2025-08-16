@@ -245,13 +245,13 @@ void Viewer2DPanel::OnKeyDown(wxKeyEvent &event) {
     if (alt)
       m_zoom *= 1.1f;
     else
-      m_offsetY += panStep;
+      m_offsetY -= panStep;
     break;
   case WXK_DOWN:
     if (alt)
       m_zoom /= 1.1f;
     else
-      m_offsetY -= panStep;
+      m_offsetY += panStep;
     break;
   default:
     event.Skip();
