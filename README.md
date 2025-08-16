@@ -53,7 +53,8 @@ Additional panels—such as console, layers or summary—can be enabled from the
 The Fixtures table highlights patch conflicts in red when two fixtures share a
 universe and channel range. The **Tools → Auto patch** command assigns addresses
 automatically to the selected fixtures. **Tools → Auto color** applies random
-colors to fixtures and layers. Data can be exported to MVR, CSV or printed using
+colors per fixture type and assigns light gray to layers prefixed with "truss".
+Data can be exported to MVR, CSV or printed using
 the options in the **File** menu.
 
 The **Tools → Download GDTF fixture** option downloads fixtures directly from
@@ -66,7 +67,8 @@ stored with the project. Downloading relies on the `curl` command-line tool.
 1. Import an `.mvr` file with **File → Import MVR**.
 2. Press **1** to display the Fixtures table and select several items.
 3. Run **Tools → Auto patch** to assign addresses.
-4. Use **Tools → Auto color** if you want random fixture and layer colors.
+4. Use **Tools → Auto color** if you want colors by fixture type and light gray
+   truss layers.
 5. Export the table with **File → Export CSV** to obtain a patch list.
 6. Navigate the scene using the keyboard shortcuts described below.
 

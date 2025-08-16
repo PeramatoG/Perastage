@@ -1104,6 +1104,7 @@ void MainWindow::OnAutoColor(wxCommandEvent &WXUNUSED(event)) {
     return wxString::Format("#%02X%02X%02X", dist(rng), dist(rng), dist(rng))
         .ToStdString();
   };
+  const std::string trussColor = "#D3D3D3";
 
   std::set<std::string> layerNames;
   for (const auto &[uuid, layer] : scene.layers)
@@ -1119,23 +1120,37 @@ void MainWindow::OnAutoColor(wxCommandEvent &WXUNUSED(event)) {
   for (const auto &name : layerNames) {
     auto current = cfg.GetLayerColor(name);
     if (!current || current->empty()) {
-      std::string c = randHex();
+      std::string lower = name;
+      std::transform(lower.begin(), lower.end(), lower.begin(),
+                     [](unsigned char c) { return std::tolower(c); });
+      std::string c = lower.rfind("truss", 0) == 0 ? trussColor : randHex();
       cfg.SetLayerColor(name, c);
       if (Viewer3DPanel::Instance())
         Viewer3DPanel::Instance()->SetLayerColor(name, c);
     }
   }
 
+  std::map<std::string, std::string> typeColors;
   for (auto &[uuid, f] : scene.fixtures) {
-    if (f.color.empty())
+    if (!f.gdtfSpec.empty()) {
+      auto it = typeColors.find(f.gdtfSpec);
+      if (it == typeColors.end()) {
+        std::string c = f.color.empty() ? randHex() : f.color;
+        typeColors[f.gdtfSpec] = c;
+        f.color = c;
+      } else {
+        f.color = it->second;
+      }
+    } else if (f.color.empty()) {
       f.color = randHex();
-    if (!f.color.empty() && !f.gdtfSpec.empty()) {
-      std::string gdtfPath = f.gdtfSpec;
-      std::filesystem::path p = gdtfPath;
-      if (p.is_relative() && !scene.basePath.empty())
-        gdtfPath = (std::filesystem::path(scene.basePath) / p).string();
-      SetGdtfModelColor(gdtfPath, f.color);
     }
+  }
+  for (const auto &[spec, color] : typeColors) {
+    std::string gdtfPath = spec;
+    std::filesystem::path p = gdtfPath;
+    if (p.is_relative() && !scene.basePath.empty())
+      gdtfPath = (std::filesystem::path(scene.basePath) / p).string();
+    SetGdtfModelColor(gdtfPath, color);
   }
 
   if (fixturePanel)

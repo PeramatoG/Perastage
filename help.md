@@ -128,7 +128,7 @@ Perastage is a high-performance, cross-platform viewer for MVR (My Virtual Rig) 
 | Export Truss          | Export selected trusses                       |
 | Export Scene Object   | Export selected scene object model            |
 | Auto patch            | Assign addresses automatically to fixtures   |
-| Auto color            | Assign random colors to fixtures and layers  |
+| Auto color            | Assign colors by fixture type; truss layers become light gray |
 
 ## Console Commands
 
@@ -169,7 +169,7 @@ Values are in meters for position and degrees for rotation.
 3. Open the Console panel and run `f 1 4` followed by `pos z ++1` to raise
    fixtures 1–4 by one meter.
 4. Choose **Tools → Auto patch** to assign DMX addresses.
-5. Choose **Tools → Auto color** to apply random colors.
+5. Choose **Tools → Auto color** to color fixtures by type and set truss layers to light gray.
 6. Enable **View → Summary** to review fixture counts.
 7. Export data with **File → Export CSV**.
 
