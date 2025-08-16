@@ -1467,7 +1467,14 @@ void MainWindow::ApplySavedLayout() {
   if (!auiManager)
     return;
   if (auto val = ConfigManager::Get().GetValue("layout_perspective")) {
-    auiManager->LoadPerspective(*val, true);
+    const std::string &perspective = *val;
+    // Ensure viewports exist before loading the saved perspective
+    if (perspective.find("3DViewport") != std::string::npos)
+      Ensure3DViewport();
+    if (perspective.find("2DViewport") != std::string::npos ||
+        perspective.find("2DRenderOptions") != std::string::npos)
+      Ensure2DViewport();
+    auiManager->LoadPerspective(perspective, true);
     auiManager->Update();
   }
   auto &summaryPane = auiManager->GetPane("SummaryPanel");
