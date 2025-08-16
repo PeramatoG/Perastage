@@ -2,21 +2,21 @@
 
 Perastage is a cross-platform viewer for **MVR** (My Virtual Rig) scenes based on
 the [GDTF](docs/gdtf-spec.md) standard. It lets you inspect fixtures, trusses and
-other objects in a 3D viewport and provides tabular views of all parsed
-elements. Perastage soporta modelos 3D en formatos **3DS** y **GLB** cuando se
-referencian dentro de archivos MVR o GDTF. Las posiciones de colgado (Hang
-Positions) definidas en los nodos `<Position>` de MVR se importan y se muestran
-en las tablas de fixtures y trusses.
+other objects in a 3D viewport and provides tabular views of all parsed elements.
+Perastage supports 3D models in **3DS** and **GLB** formats when referenced inside
+MVR or GDTF files. Hanging positions defined in MVR `<Position>` nodes are
+imported and displayed in the fixture and truss tables.
 
 ## Features
 
-- Importación de escenas **MVR 1.6** y riders en `.txt` o `.pdf`.
-- Visores simultáneos **3D** y **2D** con disposición personalizable.
-- Tablas de Fixtures, Trusses y Objetos con edición y detección de conflictos de patch.
-- Panel de **consola** para comandos y edición numérica de posiciones y rotaciones.
-- Paneles de **capas** y **resumen** para organizar y revisar el estado de la escena.
-- Gestión de proyectos: crear, cargar, guardar y exportar a MVR, CSV o impresión.
-- Herramientas para descargar fixtures GDTF, exportar fixtures/trusses/objetos y **auto‑patch** de direcciones.
+- Import **MVR 1.6** scenes and riders in `.txt` or `.pdf` format.
+- Simultaneous **3D** and **2D** viewers with a customizable layout.
+- Fixture, Truss and Object tables with editing and patch conflict detection.
+- **Console** panel for commands and numeric editing of positions and rotations.
+- **Layer** and **summary** panels to organize and review the scene state.
+- Project management: create, load, save and export to MVR, CSV or print.
+- Tools to download GDTF fixtures, export fixtures/trusses/objects and perform
+  address **auto‑patching**.
 
 ## Build prerequisites
 
@@ -44,31 +44,29 @@ binary when building.
 ## Usage
 
 Run the executable and use **File → Import MVR** to load an `.mvr` file or
-**File → Import Rider** to parse basic fixture/truss information from `.txt`
-o `.pdf` riders (un ejemplo de PDF se incluye en `docs/`). Las tablas de
-Fixtures, Trusses y Objects se rellenan automáticamente y la escena se muestra
-en el visor 3D. Paneles adicionales —como consola, capas o resumen— se pueden
-activar desde el menú **View** y la disposición de paneles se guarda entre
-sesiones.
+**File → Import Rider** to parse basic fixture/truss information from `.txt` or
+`.pdf` riders (a sample PDF is included in `docs/`). The Fixtures, Trusses and
+Objects tables are filled automatically and the scene is shown in the 3D viewer.
+Additional panels—such as console, layers or summary—can be enabled from the
+**View** menu and the panel layout is saved between sessions.
 
-La tabla de fixtures marca en rojo los conflictos de patch cuando dos fixtures
-comparten universo y rango de canales. El comando **Tools → Auto patch**
-asigna direcciones automáticamente a las fixtures seleccionadas. Los datos
-pueden exportarse a MVR, CSV o impresión mediante las opciones del menú **File**.
+The Fixtures table highlights patch conflicts in red when two fixtures share a
+universe and channel range. The **Tools → Auto patch** command assigns addresses
+automatically to the selected fixtures. Data can be exported to MVR, CSV or
+printed using the options in the **File** menu.
 
-La opción **Tools → Download GDTF fixture** descarga fixtures directamente de
-[GDTF‑Share](https://gdtf-share.com) usando la API oficial (`login.php` +
-`getList.php`). Solo es necesario introducir usuario y contraseña una vez; se
-almacenan con el proyecto. La descarga depende de la herramienta de línea de
-comandos `curl`.
+The **Tools → Download GDTF fixture** option downloads fixtures directly from
+[GDTF‑Share](https://gdtf-share.com) using the official API (`login.php` +
+`getList.php`). You only need to enter your username and password once; they are
+stored with the project. Downloading relies on the `curl` command-line tool.
 
-### Ejemplo rápido
+### Quick Example
 
-1. Importa un archivo `.mvr` con **File → Import MVR**.
-2. Pulsa **1** para mostrar la tabla de fixtures y selecciona varios elementos.
-3. Ejecuta **Tools → Auto patch** para asignarles direcciones.
-4. Exporta la tabla con **File → Export CSV** para obtener un listado de patch.
-5. Navega por la escena con los atajos de teclado descritos abajo.
+1. Import an `.mvr` file with **File → Import MVR**.
+2. Press **1** to display the Fixtures table and select several items.
+3. Run **Tools → Auto patch** to assign addresses.
+4. Export the table with **File → Export CSV** to obtain a patch list.
+5. Navigate the scene using the keyboard shortcuts described below.
 
 ## Keyboard controls
 
@@ -106,6 +104,9 @@ This project is licensed under the GNU General Public License v3.0 (GPL v3) – 
 
 - Luis Manuel Peramato García (Luisma Peramato)
 
-## Licencias de terceros
+## Third-Party Licenses
 
-Perastage uses third-party libraries under permissive licenses that are compatible with GPL v3. Consulta [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md) para ver las licencias de las dependencias incluidas.
+Perastage uses third-party libraries under permissive licenses that are
+compatible with GPL v3. See
+[THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md) for the licenses of the
+included dependencies.

@@ -129,13 +129,47 @@ Perastage is a high-performance, cross-platform viewer for MVR (My Virtual Rig) 
 | Export Scene Object   | Export selected scene object model            |
 | Auto patch            | Assign addresses automatically to fixtures   |
 
+## Console Commands
+
+The Console panel provides a lightweight command-line interface for precise
+editing. Commands operate on the current selection of fixtures or trusses.
+
+### Selection
+
+- `f <ids>` – select fixture IDs. Use `+` or `-` to add or remove IDs and pairs
+  of numbers to define ranges.
+- `t <ids>` – select truss IDs.
+- `clear` – clear all selections.
+
+Examples:
+
+```
+f 1 4             # select fixtures 1 through 4
+f + 6 8           # add fixtures 6 through 8
+f - 2             # remove fixture 2
+t 1 3             # select trusses 1 through 3
+clear             # clear selection
+```
+
+### Position and Rotation
+
+- `pos x 1.5` – set the X position of selected items to 1.5 m.
+- `pos 0 0 5` – set X/Y/Z directly.
+- `x ++0.5` – move items 0.5 m along X (use `--` to subtract).
+- `rot z 90` – set yaw to 90°.
+- `rot ++45` – add 45° to the current rotation on all axes.
+
+Values are in meters for position and degrees for rotation.
+
 ## Example Workflow
 
 1. Import an `.mvr` scene via **File → Import MVR**.
 2. Press **1** to show the Fixtures table and select fixtures.
-3. Choose **Tools → Auto patch** to assign DMX addresses.
-4. Enable **View → Summary** to review fixture counts.
-5. Export data with **File → Export CSV**.
+3. Open the Console panel and run `f 1 4` followed by `pos z ++1` to raise
+   fixtures 1–4 by one meter.
+4. Choose **Tools → Auto patch** to assign DMX addresses.
+5. Enable **View → Summary** to review fixture counts.
+6. Export data with **File → Export CSV**.
 
 ## Configuration Management
 
