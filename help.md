@@ -14,23 +14,37 @@ Perastage is a high-performance, cross-platform viewer for MVR (My Virtual Rig) 
 
 ## Keyboard Shortcuts
 
-| Key Combination      | Function                      |
-|----------------------|-------------------------------|
-| Arrow Keys           | Orbit camera                  |
-| Shift + Arrow Keys   | Pan camera                    |
-| Alt + Arrow Keys     | Zoom in/out                   |
-| Numpad 1 / 3 / 7     | Front, Right, Top views       |
-| Numpad 5             | Reset camera orientation      |
-| 1 / 2 / 3            | Switch between tables         |
+### Global
+
+| Key Combination | Function             |
+|-----------------|----------------------|
+| Ctrl+N          | New project          |
+| Ctrl+L          | Load project         |
+| Ctrl+S          | Save project         |
+| Ctrl+Q          | Close application    |
+| Ctrl+Z / Ctrl+Y | Undo / Redo          |
+| Del             | Delete selection     |
+| F1              | Open help            |
+| 1 / 2 / 3       | Switch between tables|
+
+### 3D Viewer
+
+| Key Combination    | Function                 |
+|--------------------|--------------------------|
+| Arrow Keys         | Orbit camera             |
+| Shift + Arrow Keys | Pan camera               |
+| Alt + Arrow Keys   | Zoom in/out              |
+| Numpad 1 / 3 / 7   | Front, Right, Top views  |
+| Numpad 5           | Reset camera orientation |
 
 ### 2D Viewer
 
-| Key Combination   | Function        |
-|-------------------|-----------------|
-| Mouse drag        | Pan view        |
-| Mouse wheel       | Zoom in/out     |
-| Arrow Keys        | Pan view        |
-| Alt + Arrow Keys  | Zoom in/out     |
+| Key Combination  | Function    |
+|------------------|-------------|
+| Mouse drag       | Pan view    |
+| Mouse wheel      | Zoom in/out |
+| Arrow Keys       | Pan view    |
+| Alt + Arrow Keys | Zoom in/out |
 
 ## Panels and Dialogs
 
@@ -57,25 +71,71 @@ Perastage is a high-performance, cross-platform viewer for MVR (My Virtual Rig) 
 - Displays status messages and logs.
 - Can be toggled from the View menu.
 
+### Layer Panel
+- Lists scene layers and lets you choose the active layer for new objects.
+
+### Summary Panel
+- Provides counts and basic statistics for fixtures, trusses and objects.
+
 ## File Menu Options
 
-| Menu Option        | Description                            |
-|--------------------|----------------------------------------|
-| Import Rider       | Load fixture/truss info from .txt/.pdf |
-| Import MVR         | Load an `.mvr` scene file              |
-| Export GDTF        | Export selected fixtures               |
-| Export MVR Objects | Save selected elements into a new file |
-| Recent Files       | Access previously opened scenes        |
-| Exit               | Close the application                  |
+| Menu Option   | Description                                |
+|---------------|--------------------------------------------|
+| New           | Start a new project (`Ctrl+N`)             |
+| Load          | Open an existing project (`Ctrl+L`)        |
+| Save          | Save the current project (`Ctrl+S`)        |
+| Save As       | Save project under a new name              |
+| Import Rider  | Load fixture/truss info from `.txt`/`.pdf` |
+| Import MVR    | Load an `.mvr` scene file                  |
+| Export MVR    | Write current scene to MVR                 |
+| Print Table   | Print one of the data tables               |
+| Export CSV    | Export table data to CSV                   |
+| Recent Files  | Access previously opened scenes            |
+| Close         | Close the application (`Ctrl+Q`)           |
+
+## Edit Menu
+
+| Menu Option        | Description                                |
+|--------------------|--------------------------------------------|
+| Undo               | Revert last change (`Ctrl+Z`)               |
+| Redo               | Reapply last change (`Ctrl+Y`)              |
+| Add fixture        | Insert a new fixture                        |
+| Add truss          | Insert a new truss                          |
+| Add scene object   | Insert a generic scene object               |
+| Delete             | Remove selected items (`Del`)              |
+| Preferences        | Open configuration dialog                   |
 
 ## View Menu
 
-| Menu Option      | Description                     |
-|------------------|---------------------------------|
-| Fixtures Table   | Toggle fixture list panel       |
-| Trusses Table    | Toggle truss list panel         |
-| Console Output   | Show/hide output log            |
-| 3D Viewport      | Enable or disable 3D rendering  |
+| Menu Option        | Description                                  |
+|--------------------|----------------------------------------------|
+| Console            | Show/hide console output                     |
+| Fixtures           | Toggle table notebook (Fixtures/Trusses/Objects) |
+| 3D Viewport        | Enable or disable 3D rendering               |
+| 2D Viewport        | Enable or disable top-down view              |
+| 2D Render Options  | Show/hide render options for 2D view          |
+| Layers             | Toggle layer panel                           |
+| Summary            | Toggle summary panel                         |
+| Layout → Default   | Restore default panel layout                 |
+| Layout → 2D        | Activate preset 2D layout                    |
+
+## Tools Menu
+
+| Menu Option           | Description                                   |
+|-----------------------|-----------------------------------------------|
+| Download GDTF fixture | Fetch a fixture from GDTF‑Share               |
+| Export Fixture        | Export selected fixtures to GDTF              |
+| Export Truss          | Export selected trusses                       |
+| Export Scene Object   | Export selected scene object model            |
+| Auto patch            | Assign addresses automatically to fixtures   |
+
+## Example Workflow
+
+1. Import an `.mvr` scene via **File → Import MVR**.
+2. Press **1** to show the Fixtures table and select fixtures.
+3. Choose **Tools → Auto patch** to assign DMX addresses.
+4. Enable **View → Summary** to review fixture counts.
+5. Export data with **File → Export CSV**.
 
 ## Configuration Management
 
