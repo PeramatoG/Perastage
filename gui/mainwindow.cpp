@@ -314,6 +314,9 @@ void MainWindow::SetupLayout() {
   entries[2].Set(wxACCEL_NORMAL, (int)'3', ID_Select_Objects);
   m_accel = wxAcceleratorTable(3, entries);
   SetAcceleratorTable(m_accel);
+
+  // Ensure the View menu reflects the actual pane visibility
+  UpdateViewMenuChecks();
 }
 
 void MainWindow::Ensure3DViewport() {
@@ -443,15 +446,6 @@ void MainWindow::CreateMenuBar() {
   viewMenu->AppendCheckItem(ID_View_ToggleRender2D, "2D Render Options");
   viewMenu->AppendCheckItem(ID_View_ToggleLayers, "Layers");
   viewMenu->AppendCheckItem(ID_View_ToggleSummary, "Summary");
-
-  // Initial check states
-  viewMenu->Check(ID_View_ToggleConsole, true);
-  viewMenu->Check(ID_View_ToggleFixtures, true);
-  viewMenu->Check(ID_View_ToggleViewport, true);
-  viewMenu->Check(ID_View_ToggleViewport2D, false);
-  viewMenu->Check(ID_View_ToggleRender2D, false);
-  viewMenu->Check(ID_View_ToggleLayers, true);
-  viewMenu->Check(ID_View_ToggleSummary, true);
 
   wxMenu *layoutMenu = new wxMenu();
   layoutMenu->Append(ID_View_Layout_Default, "Default");
