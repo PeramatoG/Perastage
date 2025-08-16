@@ -479,22 +479,37 @@ void MainWindow::CreateMenuBar() {
 }
 
 void MainWindow::OnNew(wxCommandEvent &WXUNUSED(event)) {
-  wxMessageDialog dlg(
-      this, "Do you want to save changes before creating a new project?",
-      "New Project", wxYES_NO | wxCANCEL | wxICON_QUESTION);
+  if (ConfigManager::Get().IsDirty()) {
+    wxMessageDialog dlg(
+        this, "Do you want to save changes before creating a new project?",
+        "New Project", wxYES_NO | wxCANCEL | wxICON_QUESTION);
 
-  int res = dlg.ShowModal();
-  if (res == wxID_YES) {
-    wxCommandEvent saveEvt;
-    OnSave(saveEvt);
-  } else if (res == wxID_CANCEL) {
-    return;
+    int res = dlg.ShowModal();
+    if (res == wxID_YES) {
+      wxCommandEvent saveEvt;
+      OnSave(saveEvt);
+    } else if (res == wxID_CANCEL) {
+      return;
+    }
   }
 
   ResetProject();
 }
 
 void MainWindow::OnLoad(wxCommandEvent &event) {
+  if (ConfigManager::Get().IsDirty()) {
+    wxMessageDialog dlg(
+        this, "Do you want to save changes before loading a project?",
+        "Open Project", wxYES_NO | wxCANCEL | wxICON_QUESTION);
+    int res = dlg.ShowModal();
+    if (res == wxID_YES) {
+      wxCommandEvent saveEvt;
+      OnSave(saveEvt);
+    } else if (res == wxID_CANCEL) {
+      return;
+    }
+  }
+
   wxString filter = wxString::Format("Perastage files (*%s)|*%s",
                                      ProjectUtils::PROJECT_EXTENSION,
                                      ProjectUtils::PROJECT_EXTENSION);
@@ -1237,16 +1252,18 @@ void MainWindow::OnClose(wxCommandEvent &event) {
 void MainWindow::OnCloseWindow(wxCloseEvent &event) {
   SaveCameraSettings();
   ConfigManager::Get().SaveUserConfig();
-  wxMessageDialog dlg(this, "Do you want to save changes before exiting?",
-                      "Exit", wxYES_NO | wxCANCEL | wxICON_QUESTION);
+  if (ConfigManager::Get().IsDirty()) {
+    wxMessageDialog dlg(this, "Do you want to save changes before exiting?",
+                        "Exit", wxYES_NO | wxCANCEL | wxICON_QUESTION);
 
-  int res = dlg.ShowModal();
-  if (res == wxID_YES) {
-    wxCommandEvent saveEvt;
-    OnSave(saveEvt);
-  } else if (res == wxID_CANCEL) {
-    event.Veto();
-    return;
+    int res = dlg.ShowModal();
+    if (res == wxID_YES) {
+      wxCommandEvent saveEvt;
+      OnSave(saveEvt);
+    } else if (res == wxID_CANCEL) {
+      event.Veto();
+      return;
+    }
   }
 
   Destroy();
