@@ -18,7 +18,8 @@
 #pragma once
 
 #include <wx/wx.h>
-#include <wx/checklst.h>
+#include <wx/dataview.h>
+#include <wx/colordlg.h>
 
 class LayerPanel : public wxPanel
 {
@@ -30,12 +31,13 @@ public:
     static void SetInstance(LayerPanel* p);
 
 private:
-    void OnCheck(wxCommandEvent& evt);
-    void OnSelect(wxCommandEvent& evt);
+    void OnCheck(wxDataViewEvent& evt);
+    void OnSelect(wxDataViewEvent& evt);
+    void OnContext(wxDataViewEvent& evt);
     void OnAddLayer(wxCommandEvent& evt);
     void OnDeleteLayer(wxCommandEvent& evt);
-    void OnRenameLayer(wxCommandEvent& evt);
-    wxCheckListBox* list = nullptr;
+    void OnRenameLayer(wxDataViewEvent& evt);
+    wxDataViewListCtrl* list = nullptr;
     static LayerPanel* s_instance;
 };
 

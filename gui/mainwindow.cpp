@@ -27,6 +27,7 @@
 #include <iterator>
 #include <map>
 #include <set>
+#include <random>
 #include <string>
 #include <tinyxml2.h>
 #include <wx/aboutdlg.h>
@@ -157,9 +158,11 @@ wxBEGIN_EVENT_TABLE(MainWindow, wxFrame) EVT_MENU(
                                     EVT_MENU(
                                         ID_Tools_ExportSceneObject,
                                         MainWindow::
-                                            OnExportSceneObject) EVT_MENU(ID_Tools_AutoPatch,
+    OnExportSceneObject) EVT_MENU(ID_Tools_AutoPatch,
                                                                           MainWindow::
-                                                                              OnAutoPatch)
+                                                                              OnAutoPatch) EVT_MENU(ID_Tools_AutoColor,
+                                                                          MainWindow::
+                                                                              OnAutoColor)
                                         EVT_MENU(ID_Help_Help, MainWindow::OnShowHelp) EVT_MENU(
                                             ID_Help_About, MainWindow::
                                                                OnShowAbout)
@@ -461,6 +464,7 @@ void MainWindow::CreateMenuBar() {
   toolsMenu->Append(ID_Tools_ExportTruss, "Export Truss...");
   toolsMenu->Append(ID_Tools_ExportSceneObject, "Export Scene Object...");
   toolsMenu->Append(ID_Tools_AutoPatch, "Auto patch");
+  toolsMenu->Append(ID_Tools_AutoColor, "Auto color");
 
   menuBar->Append(toolsMenu, "&Tools");
 
@@ -1088,6 +1092,60 @@ void MainWindow::OnAutoPatch(wxCommandEvent &WXUNUSED(event)) {
   AutoPatcher::AutoPatch(cfg.GetScene());
   if (fixturePanel)
     fixturePanel->ReloadData();
+}
+
+void MainWindow::OnAutoColor(wxCommandEvent &WXUNUSED(event)) {
+  ConfigManager &cfg = ConfigManager::Get();
+  cfg.PushUndoState("auto color");
+  auto &scene = cfg.GetScene();
+  std::mt19937 rng(std::random_device{}());
+  std::uniform_int_distribution<int> dist(0, 255);
+  auto randHex = [&]() {
+    return wxString::Format("#%02X%02X%02X", dist(rng), dist(rng), dist(rng))
+        .ToStdString();
+  };
+
+  std::set<std::string> layerNames;
+  for (const auto &[uuid, layer] : scene.layers)
+    layerNames.insert(layer.name);
+  for (const auto &[u, f] : scene.fixtures)
+    layerNames.insert(f.layer);
+  for (const auto &[u, t] : scene.trusses)
+    layerNames.insert(t.layer);
+  for (const auto &[u, o] : scene.sceneObjects)
+    layerNames.insert(o.layer);
+  layerNames.insert(DEFAULT_LAYER_NAME);
+
+  for (const auto &name : layerNames) {
+    auto current = cfg.GetLayerColor(name);
+    if (!current || current->empty()) {
+      std::string c = randHex();
+      cfg.SetLayerColor(name, c);
+      if (Viewer3DPanel::Instance())
+        Viewer3DPanel::Instance()->SetLayerColor(name, c);
+    }
+  }
+
+  for (auto &[uuid, f] : scene.fixtures) {
+    if (f.color.empty())
+      f.color = randHex();
+    if (!f.color.empty() && !f.gdtfSpec.empty()) {
+      std::string gdtfPath = f.gdtfSpec;
+      std::filesystem::path p = gdtfPath;
+      if (p.is_relative() && !scene.basePath.empty())
+        gdtfPath = (std::filesystem::path(scene.basePath) / p).string();
+      SetGdtfModelColor(gdtfPath, f.color);
+    }
+  }
+
+  if (fixturePanel)
+    fixturePanel->ReloadData();
+  if (layerPanel)
+    layerPanel->ReloadLayers();
+  if (Viewer3DPanel::Instance()) {
+    Viewer3DPanel::Instance()->UpdateScene();
+    Viewer3DPanel::Instance()->Refresh();
+  }
 }
 
 void MainWindow::OnPrintTable(wxCommandEvent &WXUNUSED(event)) {

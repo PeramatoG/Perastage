@@ -84,6 +84,7 @@ private:
   void OnExportFixture(wxCommandEvent &event);     // Export fixture GDTF
   void OnExportSceneObject(wxCommandEvent &event); // Export scene object model
   void OnAutoPatch(wxCommandEvent &event);         // Auto patch fixtures
+  void OnAutoColor(wxCommandEvent &event);         // Auto assign colors
   void OnPrintTable(wxCommandEvent &event);        // Print selected table
   void OnExportCSV(wxCommandEvent &event);         // Export table to CSV
   void
@@ -155,6 +156,7 @@ enum {
   ID_Tools_ExportTruss,
   ID_Tools_ExportSceneObject,
   ID_Tools_AutoPatch,
+  ID_Tools_AutoColor,
   ID_Help_Help,
   ID_Help_About,
   ID_Select_Fixtures,

@@ -537,6 +537,11 @@ void Viewer3DPanel::SetSelectedFixtures(const std::vector<std::string>& uuids)
     Refresh();
 }
 
+void Viewer3DPanel::SetLayerColor(const std::string& layer, const std::string& hex)
+{
+    m_controller.SetLayerColor(layer, hex);
+}
+
 static Viewer3DPanel* s_instance = nullptr;
 
 Viewer3DPanel* Viewer3DPanel::Instance()

@@ -666,7 +666,13 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
     auto it = m_layerColors.find(key);
     if (it != m_layerColors.end())
       return it->second;
-    std::array<float, 3> c{dist(rng), dist(rng), dist(rng)};
+    std::array<float, 3> c;
+    auto opt = ConfigManager::Get().GetLayerColor(key);
+    if (opt && HexToRGB(*opt, c[0], c[1], c[2])) {
+      m_layerColors[key] = c;
+      return c;
+    }
+    c = {dist(rng), dist(rng), dist(rng)};
     m_layerColors[key] = c;
     return c;
   };
@@ -1943,4 +1949,13 @@ bool Viewer3DController::GetSceneObjectLabelAt(int mouseX, int mouseY,
       *outUuid = bestUuid;
   }
   return found;
+}
+
+void Viewer3DController::SetLayerColor(const std::string &layer,
+                                       const std::string &hex) {
+  std::array<float, 3> c;
+  if (HexToRGB(hex, c[0], c[1], c[2]))
+    m_layerColors[layer] = c;
+  else
+    m_layerColors.erase(layer);
 }

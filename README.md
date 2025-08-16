@@ -15,8 +15,8 @@ imported and displayed in the fixture and truss tables.
 - **Console** panel for commands and numeric editing of positions and rotations.
 - **Layer** and **summary** panels to organize and review the scene state.
 - Project management: create, load, save and export to MVR, CSV or print.
-- Tools to download GDTF fixtures, export fixtures/trusses/objects and perform
-  address **auto‑patching**.
+- Tools to download GDTF fixtures, export fixtures/trusses/objects, perform
+  address **auto‑patching** and assign random colors.
 
 ## Build prerequisites
 
@@ -52,8 +52,9 @@ Additional panels—such as console, layers or summary—can be enabled from the
 
 The Fixtures table highlights patch conflicts in red when two fixtures share a
 universe and channel range. The **Tools → Auto patch** command assigns addresses
-automatically to the selected fixtures. Data can be exported to MVR, CSV or
-printed using the options in the **File** menu.
+automatically to the selected fixtures. **Tools → Auto color** applies random
+colors to fixtures and layers. Data can be exported to MVR, CSV or printed using
+the options in the **File** menu.
 
 The **Tools → Download GDTF fixture** option downloads fixtures directly from
 [GDTF‑Share](https://gdtf-share.com) using the official API (`login.php` +
@@ -65,8 +66,9 @@ stored with the project. Downloading relies on the `curl` command-line tool.
 1. Import an `.mvr` file with **File → Import MVR**.
 2. Press **1** to display the Fixtures table and select several items.
 3. Run **Tools → Auto patch** to assign addresses.
-4. Export the table with **File → Export CSV** to obtain a patch list.
-5. Navigate the scene using the keyboard shortcuts described below.
+4. Use **Tools → Auto color** if you want random fixture and layer colors.
+5. Export the table with **File → Export CSV** to obtain a patch list.
+6. Navigate the scene using the keyboard shortcuts described below.
 
 ## Keyboard controls
 
