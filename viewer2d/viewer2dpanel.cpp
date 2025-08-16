@@ -82,6 +82,13 @@ void Viewer2DPanel::SetView(Viewer2DView view) {
   Refresh();
 }
 
+void Viewer2DPanel::SetLayerColor(const std::string &layer,
+                                  const std::string &hex) {
+  // Forward the updated color to the shared controller so the 2D view
+  // reflects the user's choice immediately.
+  m_controller.SetLayerColor(layer, hex);
+}
+
 void Viewer2DPanel::LoadViewFromConfig() {
   ConfigManager &cfg = ConfigManager::Get();
   m_offsetX = cfg.GetFloat("view2d_offset_x");

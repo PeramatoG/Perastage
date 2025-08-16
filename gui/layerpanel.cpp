@@ -195,8 +195,10 @@ void LayerPanel::OnContext(wxDataViewEvent& evt)
         Viewer3DPanel::Instance()->SetLayerColor(name, hex);
         Viewer3DPanel::Instance()->Refresh();
     }
-    if (Viewer2DPanel::Instance())
+    if (Viewer2DPanel::Instance()) {
+        Viewer2DPanel::Instance()->SetLayerColor(name, hex);
         Viewer2DPanel::Instance()->Refresh();
+    }
 }
 
 void LayerPanel::OnAddLayer(wxCommandEvent&)
