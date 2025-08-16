@@ -1468,25 +1468,32 @@ void MainWindow::UpdateViewMenuChecks() {
     return;
 
   auto &consolePane = auiManager->GetPane("Console");
-  GetMenuBar()->Check(ID_View_ToggleConsole, consolePane.IsShown());
+  GetMenuBar()->Check(ID_View_ToggleConsole,
+                      consolePane.IsOk() && consolePane.IsShown());
 
   auto &dataPane = auiManager->GetPane("DataNotebook");
-  GetMenuBar()->Check(ID_View_ToggleFixtures, dataPane.IsShown());
+  GetMenuBar()->Check(ID_View_ToggleFixtures,
+                      dataPane.IsOk() && dataPane.IsShown());
 
   auto &viewPane3D = auiManager->GetPane("3DViewport");
-  GetMenuBar()->Check(ID_View_ToggleViewport, viewPane3D.IsShown());
+  GetMenuBar()->Check(ID_View_ToggleViewport,
+                      viewPane3D.IsOk() && viewPane3D.IsShown());
 
   auto &viewPane2D = auiManager->GetPane("2DViewport");
-  GetMenuBar()->Check(ID_View_ToggleViewport2D, viewPane2D.IsShown());
+  GetMenuBar()->Check(ID_View_ToggleViewport2D,
+                      viewPane2D.IsOk() && viewPane2D.IsShown());
 
   auto &renderPane = auiManager->GetPane("2DRenderOptions");
-  GetMenuBar()->Check(ID_View_ToggleRender2D, renderPane.IsShown());
+  GetMenuBar()->Check(ID_View_ToggleRender2D,
+                      renderPane.IsOk() && renderPane.IsShown());
 
   auto &layerPane = auiManager->GetPane("LayerPanel");
-  GetMenuBar()->Check(ID_View_ToggleLayers, layerPane.IsShown());
+  GetMenuBar()->Check(ID_View_ToggleLayers,
+                      layerPane.IsOk() && layerPane.IsShown());
 
   auto &summaryPane = auiManager->GetPane("SummaryPanel");
-  GetMenuBar()->Check(ID_View_ToggleSummary, summaryPane.IsShown());
+  GetMenuBar()->Check(ID_View_ToggleSummary,
+                      summaryPane.IsOk() && summaryPane.IsShown());
 }
 
 void MainWindow::SyncSceneData() {
