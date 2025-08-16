@@ -51,7 +51,8 @@ wxBEGIN_EVENT_TABLE(Viewer2DPanel, wxGLCanvas) EVT_PAINT(Viewer2DPanel::OnPaint)
             EVT_KEY_DOWN(Viewer2DPanel::OnKeyDown)
                 EVT_ENTER_WINDOW(Viewer2DPanel::OnMouseEnter)
                     EVT_LEAVE_WINDOW(Viewer2DPanel::OnMouseLeave)
-                        EVT_SIZE(Viewer2DPanel::OnResize) wxEND_EVENT_TABLE()
+                        EVT_MOUSE_CAPTURE_LOST(Viewer2DPanel::OnCaptureLost)
+                            EVT_SIZE(Viewer2DPanel::OnResize) wxEND_EVENT_TABLE()
 
                             Viewer2DPanel::Viewer2DPanel(wxWindow *parent)
     : wxGLCanvas(parent, wxID_ANY, nullptr, wxDefaultPosition, wxDefaultSize,
@@ -192,6 +193,10 @@ void Viewer2DPanel::OnMouseUp(wxMouseEvent &event) {
     if (HasCapture())
       ReleaseMouse();
   }
+}
+
+void Viewer2DPanel::OnCaptureLost(wxMouseCaptureLostEvent &WXUNUSED(event)) {
+  m_dragging = false;
 }
 
 void Viewer2DPanel::OnMouseMove(wxMouseEvent &event) {

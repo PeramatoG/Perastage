@@ -40,6 +40,7 @@ private:
     void OnMouseUp(wxMouseEvent& evt);
     void OnMouseMove(wxMouseEvent& evt);
     void OnMouseWheel(wxMouseEvent& evt);
+    void OnCaptureLost(wxMouseCaptureLostEvent& evt);
 
     void InitGL();
     void Render();

@@ -50,6 +50,8 @@ SceneObjectTablePanel::SceneObjectTablePanel(wxWindow* parent)
     table->Bind(wxEVT_DATAVIEW_COLUMN_SORTED,
                 &SceneObjectTablePanel::OnColumnSorted, this);
 
+    Bind(wxEVT_MOUSE_CAPTURE_LOST, &SceneObjectTablePanel::OnCaptureLost, this);
+
     InitializeTable();
     ReloadData();
 
@@ -332,6 +334,11 @@ void SceneObjectTablePanel::OnLeftUp(wxMouseEvent& evt)
         ReleaseMouse();
     }
     evt.Skip();
+}
+
+void SceneObjectTablePanel::OnCaptureLost(wxMouseCaptureLostEvent& WXUNUSED(evt))
+{
+    dragSelecting = false;
 }
 
 void SceneObjectTablePanel::OnMouseMove(wxMouseEvent& evt)

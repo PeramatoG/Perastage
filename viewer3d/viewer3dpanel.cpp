@@ -56,6 +56,7 @@ EVT_MOUSEWHEEL(Viewer3DPanel::OnMouseWheel)
 EVT_KEY_DOWN(Viewer3DPanel::OnKeyDown)
 EVT_ENTER_WINDOW(Viewer3DPanel::OnMouseEnter)
 EVT_LEAVE_WINDOW(Viewer3DPanel::OnMouseLeave)
+EVT_MOUSE_CAPTURE_LOST(Viewer3DPanel::OnCaptureLost)
 EVT_THREAD(wxEVT_VIEWER_REFRESH, Viewer3DPanel::OnThreadRefresh)
 wxEND_EVENT_TABLE()
 
@@ -357,6 +358,12 @@ void Viewer3DPanel::OnMouseUp(wxMouseEvent& event)
         }
     }
     m_draggedSincePress = false;
+}
+
+void Viewer3DPanel::OnCaptureLost(wxMouseCaptureLostEvent& WXUNUSED(event))
+{
+    m_dragging = false;
+    m_mode = InteractionMode::None;
 }
 
 // Handles mouse movement (orbit or pan)
