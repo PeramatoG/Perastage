@@ -24,6 +24,7 @@
 #include <algorithm>
 #include <functional>
 #include <wx/wx.h>
+#include <optional>
 
 using json = nlohmann::json;
 
@@ -58,33 +59,45 @@ static size_t TypeCount(const std::string& type)
     return 0;
 }
 
-bool LoadGLB(const std::string& path, Mesh& outMesh)
+struct GLBFile
 {
-    outMesh.vertices.clear();
-    outMesh.indices.clear();
+    json doc;
+    std::vector<unsigned char> binData;
+};
 
+static std::optional<GLBFile> ParseGLBFile(const std::string& path, std::string& error)
+{
     std::ifstream file(path, std::ios::binary);
-    if(!file.is_open())
-        return false;
+    if (!file.is_open()) {
+        error = "No se puede abrir el archivo";
+        return std::nullopt;
+    }
 
-    uint32_t magic=0, version=0, length=0;
-    if(!file.read(reinterpret_cast<char*>(&magic),4)) return false;
-    if(!file.read(reinterpret_cast<char*>(&version),4)) return false;
-    if(!file.read(reinterpret_cast<char*>(&length),4)) return false;
-    if(magic != 0x46546C67 || version != 2)
-        return false;
+    uint32_t magic = 0, version = 0, length = 0;
+    if (!file.read(reinterpret_cast<char*>(&magic), 4) ||
+        !file.read(reinterpret_cast<char*>(&version), 4) ||
+        !file.read(reinterpret_cast<char*>(&length), 4)) {
+        error = "Cabecera GLB incompleta";
+        return std::nullopt;
+    }
+    if (magic != 0x46546C67 || version != 2) {
+        error = "Formato GLB no reconocido";
+        return std::nullopt;
+    }
 
     std::string jsonText;
     std::vector<unsigned char> binData;
 
-    while(file.tellg() < static_cast<std::streampos>(length)) {
-        uint32_t chunkLength=0, chunkType=0;
-        if(!file.read(reinterpret_cast<char*>(&chunkLength),4)) break;
-        if(!file.read(reinterpret_cast<char*>(&chunkType),4)) break;
-        if(chunkType == 0x4E4F534A) { // JSON
+    while (file.tellg() < static_cast<std::streampos>(length)) {
+        uint32_t chunkLength = 0, chunkType = 0;
+        if (!file.read(reinterpret_cast<char*>(&chunkLength), 4) ||
+            !file.read(reinterpret_cast<char*>(&chunkType), 4))
+            break;
+
+        if (chunkType == 0x4E4F534A) { // JSON
             jsonText.resize(chunkLength);
             file.read(jsonText.data(), chunkLength);
-        } else if(chunkType == 0x004E4942) { // BIN
+        } else if (chunkType == 0x004E4942) { // BIN
             binData.resize(chunkLength);
             file.read(reinterpret_cast<char*>(binData.data()), chunkLength);
         } else {
@@ -93,12 +106,42 @@ bool LoadGLB(const std::string& path, Mesh& outMesh)
     }
     file.close();
 
-    if(jsonText.empty() || binData.empty())
-        return false;
+    if (jsonText.empty() || binData.empty()) {
+        error = "Chunks JSON/BIN ausentes";
+        return std::nullopt;
+    }
 
     json doc = json::parse(jsonText, nullptr, false);
-    if(doc.is_discarded())
+    if (doc.is_discarded()) {
+        error = "JSON de escena inválido";
+        return std::nullopt;
+    }
+
+    GLBFile result;
+    result.doc = std::move(doc);
+    result.binData = std::move(binData);
+    return result;
+}
+
+bool LoadGLB(const std::string& path, Mesh& outMesh)
+{
+    outMesh.vertices.clear();
+    outMesh.indices.clear();
+
+    std::string parseError;
+    auto glbFile = ParseGLBFile(path, parseError);
+    if (!glbFile) {
+        if (ConsolePanel::Instance()) {
+            ConsolePanel::Instance()->AppendMessage(
+                wxString::Format("GLB: %s (se omite carga - %s)",
+                                 wxString::FromUTF8(path),
+                                 wxString::FromUTF8(parseError)));
+        }
         return false;
+    }
+
+    const json& doc = glbFile->doc;
+    const auto& binData = glbFile->binData;
 
     if(!doc.contains("meshes"))
         return false;
@@ -180,7 +223,7 @@ bool LoadGLB(const std::string& path, Mesh& outMesh)
         };
     };
 
-    auto nodeMatrix = [](const json& node) {
+    auto nodeMatrix = [&readFloat](const json& node) {
         Matrix m = MatrixUtils::Identity();
         if(!node.is_object())
             return m;
@@ -260,7 +303,7 @@ bool LoadGLB(const std::string& path, Mesh& outMesh)
     auto readPrimitive = [&](const json& prim, const Matrix& transform) -> bool {
         if(!prim.contains("attributes") || !prim.contains("indices"))
             return false;
-        const auto* attributes = prim.find("attributes");
+        auto attributes = prim.find("attributes");
         if(attributes == prim.end() || !attributes->is_object())
             return false;
         auto posIt = attributes->find("POSITION");
@@ -271,7 +314,7 @@ bool LoadGLB(const std::string& path, Mesh& outMesh)
         if(!readInt(*posIt, posAccessor))
             return false;
         int idxAccessor = 0;
-        const auto* idxIt = prim.find("indices");
+        auto idxIt = prim.find("indices");
         if(idxIt == prim.end() || !readInt(*idxIt, idxAccessor))
             return false;
 
