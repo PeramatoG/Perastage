@@ -103,12 +103,40 @@ bool LoadGLB(const std::string& path, Mesh& outMesh)
     if(!doc.contains("meshes"))
         return false;
 
+    auto readInt = [](const json& j, int& out) {
+        if(!j.is_number_integer())
+            return false;
+        out = j.get<int>();
+        return true;
+    };
+
+    auto readSize = [](const json& j, size_t& out) {
+        if(!j.is_number_integer())
+            return false;
+        out = j.get<size_t>();
+        return true;
+    };
+
+    auto readString = [](const json& j, std::string& out) {
+        if(!j.is_string())
+            return false;
+        out = j.get<std::string>();
+        return true;
+    };
+
+    auto readFloat = [](const json& j, float& out) {
+        if(!(j.is_number_float() || j.is_number_integer()))
+            return false;
+        out = j.get<float>();
+        return true;
+    };
+
     auto getAccessorInfo = [&](int idx, size_t& offset, size_t& stride,
                                int& compType, std::string& type, size_t& count) -> bool
     {
         if(idx < 0 || !doc.contains("accessors")) return false;
         const auto& accs = doc["accessors"];
-        if(idx >= accs.size()) return false;
+        if(!accs.is_array() || idx >= accs.size()) return false;
         const auto& acc = accs[idx];
         if(!acc.contains("componentType") || !acc["componentType"].is_number_integer())
             return false;
@@ -124,13 +152,22 @@ bool LoadGLB(const std::string& path, Mesh& outMesh)
         size_t viewIdx = acc["bufferView"].get<size_t>();
         if(!doc.contains("bufferViews")) return false;
         const auto& views = doc["bufferViews"];
-        if(viewIdx >= views.size()) return false;
+        if(!views.is_array() || viewIdx >= views.size()) return false;
         const auto& view = views[viewIdx];
-        offset = view.value("byteOffset", 0) + accOffset;
-        stride = view.value("byteStride", 0);
+        size_t viewOffset = 0;
+        if(view.contains("byteOffset") && !readSize(view["byteOffset"], viewOffset))
+            return false;
+        offset = viewOffset + accOffset;
+        stride = 0;
+        if(view.contains("byteStride")) {
+            if(!readSize(view["byteStride"], stride))
+                return false;
+        }
         if(stride == 0)
             stride = ComponentSize(compType) * TypeCount(type);
-        size_t bufferIdx = view.value("buffer", 0);
+        size_t bufferIdx = 0;
+        if(view.contains("buffer") && !readSize(view["buffer"], bufferIdx))
+            return false;
         if(bufferIdx != 0) return false; // only single embedded buffer supported
         return true;
     };
@@ -145,13 +182,20 @@ bool LoadGLB(const std::string& path, Mesh& outMesh)
 
     auto nodeMatrix = [](const json& node) {
         Matrix m = MatrixUtils::Identity();
+        if(!node.is_object())
+            return m;
         if(node.contains("matrix")) {
             const auto& arr = node["matrix"];
             if(arr.is_array() && arr.size() == 16) {
-                m.u = {arr[0].get<float>(), arr[1].get<float>(), arr[2].get<float>()};
-                m.v = {arr[4].get<float>(), arr[5].get<float>(), arr[6].get<float>()};
-                m.w = {arr[8].get<float>(), arr[9].get<float>(), arr[10].get<float>()};
-                m.o = {arr[12].get<float>(), arr[13].get<float>(), arr[14].get<float>()};
+                std::array<float, 16> vals{};
+                for(size_t i = 0; i < 16; ++i) {
+                    if(!readFloat(arr[i], vals[i]))
+                        return m;
+                }
+                m.u = {vals[0], vals[1], vals[2]};
+                m.v = {vals[4], vals[5], vals[6]};
+                m.w = {vals[8], vals[9], vals[10]};
+                m.o = {vals[12], vals[13], vals[14]};
             }
             return m;
         }
@@ -163,19 +207,25 @@ bool LoadGLB(const std::string& path, Mesh& outMesh)
         if(node.contains("translation")) {
             const auto& tr = node["translation"];
             if(tr.is_array() && tr.size() >= 3) {
-                t = {tr[0].get<float>(), tr[1].get<float>(), tr[2].get<float>()};
+                float x = 0, y = 0, z = 0;
+                if(readFloat(tr[0], x) && readFloat(tr[1], y) && readFloat(tr[2], z))
+                    t = {x, y, z};
             }
         }
         if(node.contains("scale")) {
             const auto& sc = node["scale"];
             if(sc.is_array() && sc.size() >= 3) {
-                s = {sc[0].get<float>(), sc[1].get<float>(), sc[2].get<float>()};
+                float x = 1, y = 1, z = 1;
+                if(readFloat(sc[0], x) && readFloat(sc[1], y) && readFloat(sc[2], z))
+                    s = {x, y, z};
             }
         }
         if(node.contains("rotation")) {
             const auto& rot = node["rotation"];
             if(rot.is_array() && rot.size() >= 4) {
-                r = {rot[0].get<float>(), rot[1].get<float>(), rot[2].get<float>(), rot[3].get<float>()};
+                float x = 0, y = 0, z = 0, w = 1;
+                if(readFloat(rot[0], x) && readFloat(rot[1], y) && readFloat(rot[2], z) && readFloat(rot[3], w))
+                    r = {x, y, z, w};
             }
         }
 
@@ -210,11 +260,20 @@ bool LoadGLB(const std::string& path, Mesh& outMesh)
     auto readPrimitive = [&](const json& prim, const Matrix& transform) -> bool {
         if(!prim.contains("attributes") || !prim.contains("indices"))
             return false;
-        if(!prim["attributes"].contains("POSITION"))
+        const auto* attributes = prim.find("attributes");
+        if(attributes == prim.end() || !attributes->is_object())
+            return false;
+        auto posIt = attributes->find("POSITION");
+        if(posIt == attributes->end())
             return false;
 
-        int posAccessor = prim["attributes"]["POSITION"].get<int>();
-        int idxAccessor = prim["indices"].get<int>();
+        int posAccessor = 0;
+        if(!readInt(*posIt, posAccessor))
+            return false;
+        int idxAccessor = 0;
+        const auto* idxIt = prim.find("indices");
+        if(idxIt == prim.end() || !readInt(*idxIt, idxAccessor))
+            return false;
 
         size_t posOff, posStride, posCount; int posCT; std::string posType;
         if(!getAccessorInfo(posAccessor, posOff, posStride, posCT, posType, posCount))
@@ -274,29 +333,38 @@ bool LoadGLB(const std::string& path, Mesh& outMesh)
     parseNode = [&](int nodeIdx, const Matrix& parent) -> bool {
         if(!doc.contains("nodes")) return false;
         const auto& nodes = doc["nodes"];
-        if(nodeIdx < 0 || nodeIdx >= nodes.size()) return false;
+        if(!nodes.is_array() || nodeIdx < 0 || nodeIdx >= nodes.size()) return false;
         const auto& node = nodes[nodeIdx];
+        if(!node.is_object()) return false;
         Matrix local = nodeMatrix(node);
         Matrix transform = MatrixUtils::Multiply(parent, local);
         bool any = false;
         if(node.contains("mesh")) {
-            int meshIdx = node["mesh"].get<int>();
-            const auto& meshes = doc["meshes"];
-            if(meshIdx >=0 && meshIdx < meshes.size()) {
-                const auto& mesh = meshes[meshIdx];
-                if(mesh.contains("primitives")) {
-                    for(const auto& p : mesh["primitives"]) {
-                        if(readPrimitive(p, transform))
-                            any = true;
+            int meshIdx = 0;
+            if(readInt(node["mesh"], meshIdx) && meshIdx >=0 && doc.contains("meshes")) {
+                const auto& meshes = doc["meshes"];
+                if(meshes.is_array() && meshIdx < meshes.size()) {
+                    const auto& mesh = meshes[meshIdx];
+                    if(mesh.contains("primitives")) {
+                        const auto& prims = mesh["primitives"];
+                        if(prims.is_array()) {
+                            for(const auto& p : prims) {
+                                if(readPrimitive(p, transform))
+                                    any = true;
+                            }
+                        }
                     }
                 }
             }
         }
         if(node.contains("children")) {
-            for(const auto& c : node["children"]) {
-                if(c.is_number_integer())
-                    if(parseNode(c.get<int>(), transform))
-                        any = true;
+            const auto& children = node["children"];
+            if(children.is_array()) {
+                for(const auto& c : children) {
+                    if(c.is_number_integer())
+                        if(parseNode(c.get<int>(), transform))
+                            any = true;
+                }
             }
         }
         return any;
@@ -307,7 +375,7 @@ bool LoadGLB(const std::string& path, Mesh& outMesh)
         const auto& scenes = doc["scenes"];
         if(scenes.is_array() && !scenes.empty()) {
             const auto& scene = scenes[0];
-            if(scene.contains("nodes")) {
+            if(scene.contains("nodes") && scene["nodes"].is_array()) {
                 for(const auto& n : scene["nodes"]) {
                     if(n.is_number_integer()) {
                         if(parseNode(n.get<int>(), axisConv))
@@ -318,9 +386,12 @@ bool LoadGLB(const std::string& path, Mesh& outMesh)
         }
     }
     if(!ok && doc.contains("nodes")) {
-        for(size_t i=0;i<doc["nodes"].size(); ++i)
-            if(parseNode(static_cast<int>(i), axisConv))
-                ok = true;
+        const auto& nodes = doc["nodes"];
+        if(nodes.is_array()) {
+            for(size_t i=0;i<nodes.size(); ++i)
+                if(parseNode(static_cast<int>(i), axisConv))
+                    ok = true;
+        }
     }
 
     if (ok)
