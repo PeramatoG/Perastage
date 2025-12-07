@@ -22,6 +22,7 @@
 #include "splashscreen.h"
 #include <thread>
 #include <wx/sysopt.h>
+#include <wx/weakref.h>
 #include <wx/wx.h>
 
 class MyApp : public wxApp {
@@ -56,7 +57,9 @@ bool MyApp::OnInit() {
   mainWindow->Maximize(true);
 
   SplashScreen::SetMessage("Loading last project...");
-  std::thread([mainWindow]() {
+  wxWeakRef<MainWindow> mainWindowRef(mainWindow);
+
+  std::thread([mainWindowRef]() {
     auto last = ProjectUtils::LoadLastProjectPath();
     bool loaded = false;
     std::string path;
@@ -64,10 +67,12 @@ bool MyApp::OnInit() {
       path = *last;
       loaded = ConfigManager::Get().LoadProject(path);
     }
-    wxCommandEvent evt(EVT_PROJECT_LOADED);
-    evt.SetInt(loaded ? 1 : 0);
-    evt.SetString(path);
-    wxQueueEvent(mainWindow, evt.Clone());
+    if (mainWindowRef) {
+      wxCommandEvent evt(EVT_PROJECT_LOADED);
+      evt.SetInt(loaded ? 1 : 0);
+      evt.SetString(path);
+      wxQueueEvent(mainWindowRef.get(), evt.Clone());
+    }
   }).detach();
 
   return true;
