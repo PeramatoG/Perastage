@@ -138,20 +138,18 @@ bool LoadGLB(const std::string& path, Mesh& outMesh)
         const auto& accs = doc["accessors"];
         if(!accs.is_array() || idx >= accs.size()) return false;
         const auto& acc = accs[idx];
-        if(!acc.contains("componentType") || !readInt(acc["componentType"], compType))
+        if(!acc.contains("componentType") || !acc["componentType"].is_number_integer())
             return false;
-        if(!acc.contains("type") || !readString(acc["type"], type))
+        if(!acc.contains("type") || !acc["type"].is_string())
             return false;
-        if(!acc.contains("count") || !readSize(acc["count"], count))
+        if(!acc.contains("count") || !acc["count"].is_number_integer())
             return false;
-        size_t accOffset = 0;
-        if(acc.contains("byteOffset")) {
-            if(!readSize(acc["byteOffset"], accOffset))
-                return false;
-        }
-        if(!acc.contains("bufferView")) return false;
-        size_t viewIdx = 0;
-        if(!readSize(acc["bufferView"], viewIdx)) return false;
+        compType = acc["componentType"].get<int>();
+        type = acc["type"].get<std::string>();
+        count = acc["count"].get<size_t>();
+        size_t accOffset = acc.value("byteOffset", 0);
+        if(!acc.contains("bufferView") || !acc["bufferView"].is_number_integer()) return false;
+        size_t viewIdx = acc["bufferView"].get<size_t>();
         if(!doc.contains("bufferViews")) return false;
         const auto& views = doc["bufferViews"];
         if(!views.is_array() || viewIdx >= views.size()) return false;
