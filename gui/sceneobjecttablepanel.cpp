@@ -61,8 +61,6 @@ SceneObjectTablePanel::SceneObjectTablePanel(wxWindow* parent)
 
 SceneObjectTablePanel::~SceneObjectTablePanel()
 {
-    if (table)
-        table->AssociateModel(nullptr);
 }
 
 void SceneObjectTablePanel::InitializeTable()
