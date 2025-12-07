@@ -70,8 +70,6 @@ TrussTablePanel::TrussTablePanel(wxWindow* parent)
 
 TrussTablePanel::~TrussTablePanel()
 {
-    if (table)
-        table->AssociateModel(nullptr);
 }
 
 void TrussTablePanel::InitializeTable()

@@ -76,8 +76,6 @@ FixtureTablePanel::FixtureTablePanel(wxWindow *parent)
 }
 
 FixtureTablePanel::~FixtureTablePanel() {
-  if (table)
-    table->AssociateModel(nullptr);
 }
 
 void FixtureTablePanel::InitializeTable() {

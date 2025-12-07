@@ -376,8 +376,14 @@ bool ConfigManager::LoadFromFile(const std::string &path) {
   } catch (...) {
     return false;
   }
+  if (!j.is_object())
+    return false;
 
-  configData = j.get<std::unordered_map<std::string, std::string>>();
+  try {
+    configData = j.get<std::unordered_map<std::string, std::string>>();
+  } catch (...) {
+    return false;
+  }
   ApplyColumnDefaults();
   ApplyDefaults();
   return true;
