@@ -29,6 +29,23 @@ class wxZipStreamLink;
 #include <wx/stdpaths.h>
 #include <wx/zipstrm.h>
 
+namespace {
+
+class RevisionGuard {
+public:
+  explicit RevisionGuard(ConfigManager &cfg)
+      : cfg(cfg), previous(cfg.suppressRevision) {
+    cfg.suppressRevision = true;
+  }
+  ~RevisionGuard() { cfg.suppressRevision = previous; }
+
+private:
+  ConfigManager &cfg;
+  bool previous;
+};
+
+} // namespace
+
 static std::vector<std::string> SplitCSV(const std::string &s) {
   std::vector<std::string> result;
   std::stringstream ss(s);
@@ -53,6 +70,7 @@ static std::string JoinCSV(const std::vector<std::string> &items) {
 }
 
 ConfigManager::ConfigManager() {
+  RevisionGuard guard(*this);
   RegisterVariable("camera_yaw", "float", 0.0f, -180.0f, 180.0f);
   RegisterVariable("camera_pitch", "float", 20.0f, -89.0f, 89.0f);
   RegisterVariable("camera_distance", "float", 30.0f, 0.5f, 500.0f);
@@ -128,7 +146,13 @@ ConfigManager &ConfigManager::Get() {
 // -- Config key-value access --
 
 void ConfigManager::SetValue(const std::string &key, const std::string &value) {
+  auto it = configData.find(key);
+  if (it != configData.end() && it->second == value)
+    return;
+
   configData[key] = value;
+  if (!suppressRevision)
+    ++revision;
 }
 
 std::optional<std::string>
@@ -143,9 +167,19 @@ bool ConfigManager::HasKey(const std::string &key) const {
   return configData.find(key) != configData.end();
 }
 
-void ConfigManager::RemoveKey(const std::string &key) { configData.erase(key); }
+void ConfigManager::RemoveKey(const std::string &key) {
+  size_t erased = configData.erase(key);
+  if (erased > 0 && !suppressRevision)
+    ++revision;
+}
 
-void ConfigManager::ClearValues() { configData.clear(); }
+void ConfigManager::ClearValues() {
+  if (configData.empty())
+    return;
+  configData.clear();
+  if (!suppressRevision)
+    ++revision;
+}
 
 void ConfigManager::RegisterVariable(const std::string &name,
                                      const std::string &type, float defVal,
@@ -366,6 +400,7 @@ void ConfigManager::SetSelectedSceneObjects(
 // -- Persistence --
 
 bool ConfigManager::LoadFromFile(const std::string &path) {
+  RevisionGuard guard(*this);
   std::ifstream file(path);
   if (!file.is_open())
     return false;
@@ -520,6 +555,7 @@ bool ConfigManager::LoadProject(const std::string &path) {
 }
 
 void ConfigManager::Reset() {
+  RevisionGuard guard(*this);
   configData.clear();
   scene.Clear();
   if (!HasKey("rider_autopatch"))

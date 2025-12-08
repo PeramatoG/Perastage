@@ -146,5 +146,7 @@ private:
     size_t revision = 0;
     size_t savedRevision = 0;
 
+    bool suppressRevision = false;
+
     std::string currentLayer = DEFAULT_LAYER_NAME;
 };
