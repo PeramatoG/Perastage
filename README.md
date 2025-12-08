@@ -73,6 +73,6 @@ Tests cover key functionality such as auto‑patch grouping, rider import orderi
 
 ## Authors and license
 
-Perastage was created by **Pablo Rodríguez** and **Luis Mariñas** with help from contributors.  The project is released under the [GNU General Public License v3.0](./LICENSE.txt).  Third‑party libraries bundled with the project are licensed under their respective licences (see `THIRD_PARTY_LICENSES.md` and the `licenses` folder).
+Perastage was created by **Peramato**.  The project is released under the [GNU General Public License v3.0](./LICENSE.txt).  Third‑party libraries bundled with the project are licensed under their respective licences (see `THIRD_PARTY_LICENSES.md` and the `licenses` folder).
 
 We welcome contributions!  Feel free to open issues or pull requests on GitHub for bug reports, feature requests or improvements.
