@@ -57,13 +57,28 @@ std::optional<std::string> LoadLastProjectPath()
 
 std::string GetDefaultLibraryPath(const std::string& subdir)
 {
-    // Resolve the library directory relative to the executable location to
-    // avoid relying on the current working directory at runtime.
+    // Prefer the library alongside the executable, regardless of where the
+    // project lives on disk.
     wxFileName exe(wxStandardPaths::Get().GetExecutablePath());
-    fs::path base = fs::path(exe.GetPath().ToStdString());
-    fs::path p = base / "library" / subdir;
-    if (fs::exists(p))
-        return p.string();
+    fs::path exeBase = fs::path(exe.GetPath().ToStdString());
+    fs::path exeLib = exeBase / "library" / subdir;
+    if (fs::exists(exeLib))
+        return exeLib.string();
+
+    // When running from the build tree, the current working directory may
+    // still contain the checked-out resources. Fall back to that before
+    // creating any folders.
+    fs::path cwdLib = fs::current_path() / "library" / subdir;
+    if (fs::exists(cwdLib))
+        return cwdLib.string();
+
+    // As a last resort, create the directory next to the executable so
+    // callers still receive a usable absolute path.
+    std::error_code ec;
+    fs::create_directories(exeLib, ec);
+    if (!ec)
+        return exeLib.string();
+
     return {};
 }
 
