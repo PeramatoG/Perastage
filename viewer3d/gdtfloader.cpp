@@ -35,12 +35,33 @@ class wxZipStreamLink;
 #include <iostream>
 #include <fstream>
 #include <algorithm>
+#include <memory>
 #include <cfloat>
 #include <sstream>
 #include <cmath>
 #include <iomanip>
 
 namespace fs = std::filesystem;
+
+struct GdtfCacheEntry
+{
+    fs::file_time_type timestamp;
+    std::string extractedDir;
+    std::unique_ptr<tinyxml2::XMLDocument> doc;
+    tinyxml2::XMLElement* fixtureType = nullptr;
+    std::vector<std::string> modes;
+    std::unordered_map<std::string, std::vector<GdtfChannelInfo>> modeChannels;
+    std::unordered_map<std::string, int> modeChannelCounts;
+    std::unordered_map<std::string, Mesh> meshCache;
+    std::string fixtureName;
+    bool propertiesParsed = false;
+    float weightKg = 0.0f;
+    float powerW = 0.0f;
+    bool modelColorParsed = false;
+    std::string modelColor;
+};
+
+static std::unordered_map<std::string, GdtfCacheEntry> g_gdtfCache;
 
 static std::string ToLower(const std::string& s)
 {
@@ -157,6 +178,226 @@ static bool ExtractZip(const std::string& zipPath, const std::string& destDir)
     return true;
 }
 
+static tinyxml2::XMLElement* GetFixtureType(tinyxml2::XMLDocument& doc)
+{
+    tinyxml2::XMLElement* ft = doc.FirstChildElement("GDTF");
+    if (ft)
+        ft = ft->FirstChildElement("FixtureType");
+    else
+        ft = doc.FirstChildElement("FixtureType");
+    return ft;
+}
+
+static std::string GetFixtureNameFromXml(tinyxml2::XMLElement* ft)
+{
+    if (!ft)
+        return {};
+    if (const char* nameAttr = ft->Attribute("Name"))
+        return nameAttr;
+    if (const char* shortName = ft->Attribute("ShortName"))
+        return shortName;
+    if (const char* longName = ft->Attribute("LongName"))
+        return longName;
+    return {};
+}
+
+static void ParseModes(tinyxml2::XMLElement* ft,
+                      std::vector<std::string>& modes,
+                      std::unordered_map<std::string, std::vector<GdtfChannelInfo>>& modeChannels,
+                      std::unordered_map<std::string, int>& modeChannelCounts)
+{
+    modes.clear();
+    modeChannels.clear();
+    modeChannelCounts.clear();
+    if (!ft)
+        return;
+    tinyxml2::XMLElement* modesNode = ft->FirstChildElement("DMXModes");
+    if (!modesNode)
+        return;
+
+    for (tinyxml2::XMLElement* m = modesNode->FirstChildElement("DMXMode");
+         m; m = m->NextSiblingElement("DMXMode"))
+    {
+        const char* name = m->Attribute("Name");
+        if (!name)
+            continue;
+        modes.push_back(name);
+
+        std::vector<GdtfChannelInfo> channelsVec;
+        int count = 0;
+        if (tinyxml2::XMLElement* channels = m->FirstChildElement("DMXChannels")) {
+            for (tinyxml2::XMLElement* c = channels->FirstChildElement("DMXChannel");
+                 c; c = c->NextSiblingElement("DMXChannel"))
+            {
+                GdtfChannelInfo info;
+                if (const char* offset = c->Attribute("Offset"))
+                {
+                    std::string offStr = offset;
+                    size_t comma = offStr.find(',');
+                    std::string first = offStr.substr(0, comma);
+                    try { info.channel = std::stoi(first); }
+                    catch (...) { info.channel = 0; }
+                }
+                if (info.channel == 0)
+                    info.channel = static_cast<int>(channelsVec.size()) + 1;
+
+                if (tinyxml2::XMLElement* lc = c->FirstChildElement("LogicalChannel"))
+                {
+                    if (const char* attr = lc->Attribute("Attribute"))
+                        info.function = attr;
+                }
+
+                channelsVec.push_back(info);
+
+                if (const char* offset = c->Attribute("Offset")) {
+                    std::string offStr = offset;
+                    if (!offStr.empty() && offStr != "None") {
+                        std::stringstream ss(offStr);
+                        std::string token;
+                        while (std::getline(ss, token, ',')) {
+                            token.erase(0, token.find_first_not_of(" \t\r\n"));
+                            token.erase(token.find_last_not_of(" \t\r\n") + 1);
+                            if (token.empty())
+                                continue;
+                            try { (void)std::stoi(token); ++count; }
+                            catch (...) { /* ignore invalid */ }
+                        }
+                    }
+                }
+            }
+        }
+
+        modeChannels.emplace(name, std::move(channelsVec));
+        modeChannelCounts[name] = count;
+    }
+}
+
+static void ParseProperties(tinyxml2::XMLElement* ft, float& weightKg, float& powerW)
+{
+    weightKg = 0.0f;
+    powerW = 0.0f;
+    if (!ft)
+        return;
+    tinyxml2::XMLElement* phys = ft->FirstChildElement("PhysicalDescriptions");
+    if (!phys)
+        return;
+    tinyxml2::XMLElement* props = phys->FirstChildElement("Properties");
+    if (!props)
+        return;
+
+    if (tinyxml2::XMLElement* w = props->FirstChildElement("Weight")) {
+        if (const char* v = w->Attribute("Value"))
+            weightKg = std::stof(v);
+    }
+
+    if (tinyxml2::XMLElement* pc = props->FirstChildElement("PowerConsumption")) {
+        if (const char* v = pc->Attribute("Value"))
+            powerW = std::stof(v);
+    }
+}
+
+static std::string ParseModelColor(tinyxml2::XMLElement* ft)
+{
+    if (!ft)
+        return {};
+
+    tinyxml2::XMLElement* models = ft->FirstChildElement("Models");
+    if (!models)
+        return {};
+    tinyxml2::XMLElement* model = models->FirstChildElement("Model");
+    if (!model)
+        return {};
+    const char* attr = model->Attribute("Color");
+    if (!attr)
+        return {};
+
+    std::string t = attr;
+    std::replace(t.begin(), t.end(), ',', ' ');
+    std::stringstream ss(t);
+    double x = 0.0, y = 0.0, Yv = 0.0;
+    if (!(ss >> x >> y >> Yv) || y <= 0.0)
+        return {};
+    double X = x * (Yv / y);
+    double Z = (1.0 - x - y) * (Yv / y);
+    double r = 3.2406 * X - 1.5372 * Yv - 0.4986 * Z;
+    double g = -0.9689 * X + 1.8758 * Yv + 0.0415 * Z;
+    double b = 0.0557 * X - 0.2040 * Yv + 1.0570 * Z;
+    auto gamma = [](double c) {
+        c = std::max(0.0, c);
+        return c <= 0.0031308 ? 12.92 * c
+                               : 1.055 * std::pow(c, 1.0/2.4) - 0.055;
+    };
+    r = gamma(r);
+    g = gamma(g);
+    b = gamma(b);
+    r = std::clamp(r, 0.0, 1.0);
+    g = std::clamp(g, 0.0, 1.0);
+    b = std::clamp(b, 0.0, 1.0);
+    int R = static_cast<int>(std::round(r * 255.0));
+    int G = static_cast<int>(std::round(g * 255.0));
+    int B = static_cast<int>(std::round(b * 255.0));
+    std::ostringstream os;
+    os << '#' << std::uppercase << std::hex << std::setfill('0')
+       << std::setw(2) << R << std::setw(2) << G << std::setw(2) << B;
+    return os.str();
+}
+
+static GdtfCacheEntry* GetCachedGdtf(const std::string& gdtfPath)
+{
+    if (gdtfPath.empty())
+        return nullptr;
+
+    std::error_code ec;
+    fs::path absPath = fs::absolute(gdtfPath, ec);
+    if (ec)
+        return nullptr;
+    auto timestamp = fs::last_write_time(absPath, ec);
+    if (ec)
+        return nullptr;
+
+    auto it = g_gdtfCache.find(absPath.string());
+    if (it != g_gdtfCache.end()) {
+        if (it->second.timestamp == timestamp && it->second.doc && it->second.fixtureType) {
+            return &it->second;
+        }
+
+        fs::remove_all(it->second.extractedDir, ec);
+        g_gdtfCache.erase(it);
+    }
+
+    GdtfCacheEntry entry;
+    entry.timestamp = timestamp;
+    entry.extractedDir = CreateTempDir();
+
+    if (!ExtractZip(absPath.string(), entry.extractedDir)) {
+        fs::remove_all(entry.extractedDir, ec);
+        return nullptr;
+    }
+
+    entry.doc = std::make_unique<tinyxml2::XMLDocument>();
+    std::string descPath = entry.extractedDir + "/description.xml";
+    if (entry.doc->LoadFile(descPath.c_str()) != tinyxml2::XML_SUCCESS) {
+        fs::remove_all(entry.extractedDir, ec);
+        return nullptr;
+    }
+
+    entry.fixtureType = GetFixtureType(*entry.doc);
+    if (!entry.fixtureType) {
+        fs::remove_all(entry.extractedDir, ec);
+        return nullptr;
+    }
+
+    entry.fixtureName = GetFixtureNameFromXml(entry.fixtureType);
+    ParseModes(entry.fixtureType, entry.modes, entry.modeChannels, entry.modeChannelCounts);
+    ParseProperties(entry.fixtureType, entry.weightKg, entry.powerW);
+    entry.propertiesParsed = true;
+    entry.modelColor = ParseModelColor(entry.fixtureType);
+    entry.modelColorParsed = true;
+
+    auto res = g_gdtfCache.emplace(absPath.string(), std::move(entry));
+    return res.second ? &res.first->second : nullptr;
+}
+
 static void ParseGeometry(tinyxml2::XMLElement* node,
                           const Matrix& parent,
                           const std::unordered_map<std::string, GdtfModelInfo>& models,
@@ -267,38 +508,16 @@ bool LoadGdtf(const std::string& gdtfPath, std::vector<GdtfObject>& outObjects)
     }
 
     outObjects.clear();
-    std::string tempDir = CreateTempDir();
-    if (!ExtractZip(gdtfPath, tempDir)) {
+    GdtfCacheEntry* entry = GetCachedGdtf(gdtfPath);
+    if (!entry || !entry->fixtureType) {
         if (ConsolePanel::Instance()) {
-            wxString msg = wxString::Format("GDTF: failed to extract %s", wxString::FromUTF8(gdtfPath));
-            ConsolePanel::Instance()->AppendMessage(msg);
-        }
-        return false;
-    } else if (ConsolePanel::Instance()) {
-        wxString msg = wxString::Format("GDTF: extracted to %s", wxString::FromUTF8(tempDir));
-        ConsolePanel::Instance()->AppendMessage(msg);
-    }
-
-    std::string descPath = tempDir + "/description.xml";
-    tinyxml2::XMLDocument doc;
-    if (doc.LoadFile(descPath.c_str()) != tinyxml2::XML_SUCCESS) {
-        if (ConsolePanel::Instance()) {
-            wxString msg = wxString::Format("GDTF: cannot read description.xml in %s", wxString::FromUTF8(gdtfPath));
+            wxString msg = wxString::Format("GDTF: failed to load %s", wxString::FromUTF8(gdtfPath));
             ConsolePanel::Instance()->AppendMessage(msg);
         }
         return false;
     }
 
-    tinyxml2::XMLElement* ft = doc.FirstChildElement("GDTF");
-    if (ft) ft = ft->FirstChildElement("FixtureType");
-    else ft = doc.FirstChildElement("FixtureType");
-    if (!ft) {
-        if (ConsolePanel::Instance()) {
-            wxString msg = wxString::Format("GDTF: invalid fixture type in %s", wxString::FromUTF8(gdtfPath));
-            ConsolePanel::Instance()->AppendMessage(msg);
-        }
-        return false;
-    }
+    tinyxml2::XMLElement* ft = entry->fixtureType;
 
     std::unordered_map<std::string, GdtfModelInfo> models;
     if (tinyxml2::XMLElement* modelList = ft->FirstChildElement("Models")) {
@@ -316,7 +535,7 @@ bool LoadGdtf(const std::string& gdtfPath, std::vector<GdtfObject>& outObjects)
         }
     }
 
-    std::unordered_map<std::string, Mesh> meshCache;
+    std::unordered_map<std::string, Mesh>& meshCache = entry->meshCache;
     if (tinyxml2::XMLElement* geoms = ft->FirstChildElement("Geometries")) {
         std::unordered_map<std::string, tinyxml2::XMLElement*> geomMap;
         for (tinyxml2::XMLElement* g = geoms->FirstChildElement(); g; g = g->NextSiblingElement()) {
@@ -324,7 +543,7 @@ bool LoadGdtf(const std::string& gdtfPath, std::vector<GdtfObject>& outObjects)
                 geomMap[n] = g;
         }
         for (tinyxml2::XMLElement* g = geoms->FirstChildElement(); g; g = g->NextSiblingElement()) {
-            ParseGeometry(g, MatrixUtils::Identity(), models, tempDir, geomMap, meshCache, outObjects);
+            ParseGeometry(g, MatrixUtils::Identity(), models, entry->extractedDir, geomMap, meshCache, outObjects);
         }
     }
 
@@ -344,62 +563,19 @@ int GetGdtfModeChannelCount(const std::string& gdtfPath,
     if (gdtfPath.empty() || modeName.empty())
         return -1;
 
-    std::string tempDir = CreateTempDir();
-    if (!ExtractZip(gdtfPath, tempDir))
+    GdtfCacheEntry* entry = GetCachedGdtf(gdtfPath);
+    if (!entry)
         return -1;
 
-    std::string descPath = tempDir + "/description.xml";
-    tinyxml2::XMLDocument doc;
-    if (doc.LoadFile(descPath.c_str()) != tinyxml2::XML_SUCCESS)
+    auto countIt = entry->modeChannelCounts.find(modeName);
+    if (countIt != entry->modeChannelCounts.end())
+        return countIt->second;
+
+    auto it = entry->modeChannels.find(modeName);
+    if (it == entry->modeChannels.end())
         return -1;
 
-    tinyxml2::XMLElement* ft = doc.FirstChildElement("GDTF");
-    if (ft)
-        ft = ft->FirstChildElement("FixtureType");
-    else
-        ft = doc.FirstChildElement("FixtureType");
-    if (!ft)
-        return -1;
-
-    tinyxml2::XMLElement* modes = ft->FirstChildElement("DMXModes");
-    if (!modes)
-        return -1;
-
-    for (tinyxml2::XMLElement* m = modes->FirstChildElement("DMXMode");
-         m; m = m->NextSiblingElement("DMXMode"))
-    {
-        const char* name = m->Attribute("Name");
-        if (name && modeName == name)
-        {
-            tinyxml2::XMLElement* channels = m->FirstChildElement("DMXChannels");
-            int count = 0;
-            if (channels)
-            {
-                for (tinyxml2::XMLElement* c = channels->FirstChildElement("DMXChannel");
-                     c; c = c->NextSiblingElement("DMXChannel"))
-                {
-                    const char* offset = c->Attribute("Offset");
-                    if (!offset || !*offset || std::string(offset) == "None")
-                        continue;
-                    std::string offStr = offset;
-                    std::stringstream ss(offStr);
-                    std::string token;
-                    while (std::getline(ss, token, ','))
-                    {
-                        token.erase(0, token.find_first_not_of(" \t\r\n"));
-                        token.erase(token.find_last_not_of(" \t\r\n") + 1);
-                        if (token.empty())
-                            continue;
-                        try { (void)std::stoi(token); ++count; }
-                        catch (...) { /* ignore invalid */ }
-                    }
-                }
-            }
-            return count;
-        }
-    }
-
-    return -1;
+    return static_cast<int>(it->second.size());
 }
 
 std::vector<std::string> GetGdtfModes(const std::string& gdtfPath)
@@ -408,36 +584,11 @@ std::vector<std::string> GetGdtfModes(const std::string& gdtfPath)
     if (gdtfPath.empty())
         return result;
 
-    std::string tempDir = CreateTempDir();
-    if (!ExtractZip(gdtfPath, tempDir))
+    GdtfCacheEntry* entry = GetCachedGdtf(gdtfPath);
+    if (!entry)
         return result;
 
-    std::string descPath = tempDir + "/description.xml";
-    tinyxml2::XMLDocument doc;
-    if (doc.LoadFile(descPath.c_str()) != tinyxml2::XML_SUCCESS)
-        return result;
-
-    tinyxml2::XMLElement* ft = doc.FirstChildElement("GDTF");
-    if (ft)
-        ft = ft->FirstChildElement("FixtureType");
-    else
-        ft = doc.FirstChildElement("FixtureType");
-    if (!ft)
-        return result;
-
-    tinyxml2::XMLElement* modes = ft->FirstChildElement("DMXModes");
-    if (!modes)
-        return result;
-
-    for (tinyxml2::XMLElement* m = modes->FirstChildElement("DMXMode");
-         m; m = m->NextSiblingElement("DMXMode"))
-    {
-        const char* name = m->Attribute("Name");
-        if (name)
-            result.push_back(name);
-    }
-
-    return result;
+    return entry->modes;
 }
 
 std::vector<GdtfChannelInfo> GetGdtfModeChannels(
@@ -448,65 +599,13 @@ std::vector<GdtfChannelInfo> GetGdtfModeChannels(
     if (gdtfPath.empty() || modeName.empty())
         return result;
 
-    std::string tempDir = CreateTempDir();
-    if (!ExtractZip(gdtfPath, tempDir))
+    GdtfCacheEntry* entry = GetCachedGdtf(gdtfPath);
+    if (!entry)
         return result;
 
-    std::string descPath = tempDir + "/description.xml";
-    tinyxml2::XMLDocument doc;
-    if (doc.LoadFile(descPath.c_str()) != tinyxml2::XML_SUCCESS)
-        return result;
-
-    tinyxml2::XMLElement* ft = doc.FirstChildElement("GDTF");
-    if (ft)
-        ft = ft->FirstChildElement("FixtureType");
-    else
-        ft = doc.FirstChildElement("FixtureType");
-    if (!ft)
-        return result;
-
-    tinyxml2::XMLElement* modes = ft->FirstChildElement("DMXModes");
-    if (!modes)
-        return result;
-
-    for (tinyxml2::XMLElement* m = modes->FirstChildElement("DMXMode");
-         m; m = m->NextSiblingElement("DMXMode"))
-    {
-        const char* name = m->Attribute("Name");
-        if (!name || modeName != name)
-            continue;
-
-        tinyxml2::XMLElement* channels = m->FirstChildElement("DMXChannels");
-        if (!channels)
-            break;
-
-        for (tinyxml2::XMLElement* c = channels->FirstChildElement("DMXChannel");
-             c; c = c->NextSiblingElement("DMXChannel"))
-        {
-            GdtfChannelInfo info;
-
-            if (const char* offset = c->Attribute("Offset"))
-            {
-                std::string offStr = offset;
-                size_t comma = offStr.find(',');
-                std::string first = offStr.substr(0, comma);
-                try { info.channel = std::stoi(first); }
-                catch (...) { info.channel = 0; }
-            }
-            if (info.channel == 0)
-                info.channel = static_cast<int>(result.size()) + 1;
-
-            if (tinyxml2::XMLElement* lc = c->FirstChildElement("LogicalChannel"))
-            {
-                if (const char* attr = lc->Attribute("Attribute"))
-                    info.function = attr;
-            }
-
-            result.push_back(info);
-        }
-        break;
-    }
-
+    auto it = entry->modeChannels.find(modeName);
+    if (it != entry->modeChannels.end())
+        result = it->second;
     return result;
 }
 
@@ -515,33 +614,11 @@ std::string GetGdtfFixtureName(const std::string& gdtfPath)
     if (gdtfPath.empty())
         return {};
 
-    std::string tempDir = CreateTempDir();
-    if (!ExtractZip(gdtfPath, tempDir))
+    GdtfCacheEntry* entry = GetCachedGdtf(gdtfPath);
+    if (!entry)
         return {};
 
-    std::string descPath = tempDir + "/description.xml";
-    tinyxml2::XMLDocument doc;
-    if (doc.LoadFile(descPath.c_str()) != tinyxml2::XML_SUCCESS)
-        return {};
-
-    tinyxml2::XMLElement* ft = doc.FirstChildElement("GDTF");
-    if (ft)
-        ft = ft->FirstChildElement("FixtureType");
-    else
-        ft = doc.FirstChildElement("FixtureType");
-    if (!ft)
-        return {};
-
-    const char* nameAttr = ft->Attribute("Name");
-    if (nameAttr)
-        return nameAttr;
-    const char* shortName = ft->Attribute("ShortName");
-    if (shortName)
-        return shortName;
-    const char* longName = ft->Attribute("LongName");
-    if (longName)
-        return longName;
-    return {};
+    return entry->fixtureName;
 }
 
 bool GetGdtfProperties(const std::string& gdtfPath,
@@ -553,41 +630,13 @@ bool GetGdtfProperties(const std::string& gdtfPath,
     if (gdtfPath.empty())
         return false;
 
-    std::string tempDir = CreateTempDir();
-    if (!ExtractZip(gdtfPath, tempDir))
+    GdtfCacheEntry* entry = GetCachedGdtf(gdtfPath);
+    if (!entry)
         return false;
 
-    std::string descPath = tempDir + "/description.xml";
-    tinyxml2::XMLDocument doc;
-    if (doc.LoadFile(descPath.c_str()) != tinyxml2::XML_SUCCESS)
-        return false;
-
-    tinyxml2::XMLElement* ft = doc.FirstChildElement("GDTF");
-    if (ft)
-        ft = ft->FirstChildElement("FixtureType");
-    else
-        ft = doc.FirstChildElement("FixtureType");
-    if (!ft)
-        return false;
-
-    tinyxml2::XMLElement* phys = ft->FirstChildElement("PhysicalDescriptions");
-    if (!phys)
-        return true;
-    tinyxml2::XMLElement* props = phys->FirstChildElement("Properties");
-    if (!props)
-        return true;
-
-    if (tinyxml2::XMLElement* w = props->FirstChildElement("Weight")) {
-        if (const char* v = w->Attribute("Value"))
-            outWeightKg = std::stof(v);
-    }
-
-    if (tinyxml2::XMLElement* pc = props->FirstChildElement("PowerConsumption")) {
-        if (const char* v = pc->Attribute("Value"))
-            outPowerW = std::stof(v);
-    }
-
-    return true;
+    outWeightKg = entry->weightKg;
+    outPowerW = entry->powerW;
+    return entry->propertiesParsed;
 }
 
 std::string GetGdtfModelColor(const std::string& gdtfPath)
@@ -595,62 +644,11 @@ std::string GetGdtfModelColor(const std::string& gdtfPath)
     if (gdtfPath.empty())
         return {};
 
-    std::string tempDir = CreateTempDir();
-    if (!ExtractZip(gdtfPath, tempDir))
+    GdtfCacheEntry* entry = GetCachedGdtf(gdtfPath);
+    if (!entry)
         return {};
 
-    std::string descPath = tempDir + "/description.xml";
-    tinyxml2::XMLDocument doc;
-    if (doc.LoadFile(descPath.c_str()) != tinyxml2::XML_SUCCESS)
-        return {};
-
-    tinyxml2::XMLElement* ft = doc.FirstChildElement("GDTF");
-    if (ft)
-        ft = ft->FirstChildElement("FixtureType");
-    else
-        ft = doc.FirstChildElement("FixtureType");
-    if (!ft)
-        return {};
-
-    tinyxml2::XMLElement* models = ft->FirstChildElement("Models");
-    if (!models)
-        return {};
-    tinyxml2::XMLElement* model = models->FirstChildElement("Model");
-    if (!model)
-        return {};
-    const char* attr = model->Attribute("Color");
-    if (!attr)
-        return {};
-
-    std::string t = attr;
-    std::replace(t.begin(), t.end(), ',', ' ');
-    std::stringstream ss(t);
-    double x = 0.0, y = 0.0, Yv = 0.0;
-    if (!(ss >> x >> y >> Yv) || y <= 0.0)
-        return {};
-    double X = x * (Yv / y);
-    double Z = (1.0 - x - y) * (Yv / y);
-    double r = 3.2406 * X - 1.5372 * Yv - 0.4986 * Z;
-    double g = -0.9689 * X + 1.8758 * Yv + 0.0415 * Z;
-    double b = 0.0557 * X - 0.2040 * Yv + 1.0570 * Z;
-    auto gamma = [](double c) {
-        c = std::max(0.0, c);
-        return c <= 0.0031308 ? 12.92 * c
-                               : 1.055 * std::pow(c, 1.0/2.4) - 0.055;
-    };
-    r = gamma(r);
-    g = gamma(g);
-    b = gamma(b);
-    r = std::clamp(r, 0.0, 1.0);
-    g = std::clamp(g, 0.0, 1.0);
-    b = std::clamp(b, 0.0, 1.0);
-    int R = static_cast<int>(std::round(r * 255.0));
-    int G = static_cast<int>(std::round(g * 255.0));
-    int B = static_cast<int>(std::round(b * 255.0));
-    std::ostringstream os;
-    os << '#' << std::uppercase << std::hex << std::setfill('0')
-       << std::setw(2) << R << std::setw(2) << G << std::setw(2) << B;
-    return os.str();
+    return entry->modelColor;
 }
 
 static bool ZipDir(const std::string& srcDir, const std::string& dstZip)
