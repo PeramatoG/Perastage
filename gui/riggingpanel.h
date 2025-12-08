@@ -20,6 +20,8 @@
 #include <wx/dataview.h>
 #include <wx/wx.h>
 
+class ColorfulDataViewListStore;
+
 // Panel that summarizes rigging information grouped by position
 class RiggingPanel : public wxPanel {
 public:
@@ -32,4 +34,5 @@ public:
 
 private:
   wxDataViewListCtrl *table = nullptr;
+  ColorfulDataViewListStore *store = nullptr;
 };
