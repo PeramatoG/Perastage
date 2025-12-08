@@ -34,6 +34,7 @@ class Viewer2DRenderPanel;
 class ConsolePanel;
 class LayerPanel;
 class SummaryPanel;
+class RiggingPanel;
 
 // Main application window for GUI components
 class MainWindow : public wxFrame {
@@ -69,6 +70,7 @@ private:
   ConsolePanel *consolePanel = nullptr;
   LayerPanel *layerPanel = nullptr;
   SummaryPanel *summaryPanel = nullptr;
+  RiggingPanel *riggingPanel = nullptr;
 
   wxAcceleratorTable m_accel;
 
@@ -98,6 +100,7 @@ private:
   void OnToggleRender2D(wxCommandEvent &event);       // Toggle 2D render panel
   void OnToggleLayers(wxCommandEvent &event);         // Toggle layer panel
   void OnToggleSummary(wxCommandEvent &event);        // Toggle summary panel
+  void OnToggleRigging(wxCommandEvent &event);        // Toggle rigging panel
   void OnShowHelp(wxCommandEvent &event);             // Show help dialog
   void OnShowAbout(wxCommandEvent &event);            // Show about dialog
   void OnSelectFixtures(wxCommandEvent &event);       // Switch to fixtures tab
@@ -105,6 +108,7 @@ private:
   void OnSelectObjects(wxCommandEvent &event);        // Switch to objects tab
   void OnNotebookPageChanged(wxBookCtrlEvent &event); // Update summary panel
   void RefreshSummary();                              // Refresh summary counts
+  void RefreshRigging();                              // Refresh rigging summary
 
   void OnPreferences(wxCommandEvent &event);        // Show preferences dialog
   void OnApplyDefaultLayout(wxCommandEvent &event); // Reset to default layout
@@ -151,6 +155,7 @@ enum {
   ID_View_ToggleRender2D,
   ID_View_ToggleLayers,
   ID_View_ToggleSummary,
+  ID_View_ToggleRigging,
   ID_View_Layout_Default,
   ID_View_Layout_2D,
   ID_Tools_DownloadGdtf,

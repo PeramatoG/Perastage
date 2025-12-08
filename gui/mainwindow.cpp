@@ -68,6 +68,7 @@ using json = nlohmann::json;
 #include "mvrimporter.h"
 #include "preferencesdialog.h"
 #include "projectutils.h"
+#include "riggingpanel.h"
 #include "riderimporter.h"
 #include "sceneobjecttablepanel.h"
 #include "selectfixturetypedialog.h"
@@ -140,9 +141,11 @@ wxBEGIN_EVENT_TABLE(MainWindow, wxFrame) EVT_MENU(
                         EVT_MENU(ID_View_ToggleLayers, MainWindow::OnToggleLayers) EVT_MENU(
                             ID_View_ToggleSummary,
                             MainWindow::
-                                OnToggleSummary) EVT_MENU(ID_View_Layout_Default,
-                                                          MainWindow::
-                                                              OnApplyDefaultLayout)
+                                OnToggleSummary) EVT_MENU(ID_View_ToggleRigging,
+                                                          MainWindow::OnToggleRigging) EVT_MENU(
+                            ID_View_Layout_Default,
+                                                      MainWindow::
+                                                          OnApplyDefaultLayout)
                             EVT_MENU(
                                 ID_View_Layout_2D,
                                 MainWindow::
@@ -305,11 +308,26 @@ void MainWindow::SetupLayout() {
                                         .MaximizeButton(true)
                                         .PaneBorder(true));
 
+  riggingPanel = new RiggingPanel(this);
+  RiggingPanel::SetInstance(riggingPanel);
+  auiManager->AddPane(riggingPanel, wxAuiPaneInfo()
+                                        .Name("RiggingPanel")
+                                        .Caption("Rigging")
+                                        .Right()
+                                        .Row(1)
+                                        .Position(1)
+                                        .BestSize(250, 200)
+                                        .CloseButton(true)
+                                        .MaximizeButton(true)
+                                        .PaneBorder(true));
+
   // Apply all changes to layout
   auiManager->Update();
 
   if (summaryPanel)
     summaryPanel->ShowFixtureSummary();
+  if (riggingPanel)
+    riggingPanel->RefreshData();
 
   // Keyboard shortcuts to switch notebook pages
   wxAcceleratorEntry entries[3];
@@ -450,6 +468,7 @@ void MainWindow::CreateMenuBar() {
   viewMenu->AppendCheckItem(ID_View_ToggleRender2D, "2D Render Options");
   viewMenu->AppendCheckItem(ID_View_ToggleLayers, "Layers");
   viewMenu->AppendCheckItem(ID_View_ToggleSummary, "Summary");
+  viewMenu->AppendCheckItem(ID_View_ToggleRigging, "Rigging");
 
   wxMenu *layoutMenu = new wxMenu();
   layoutMenu->Append(ID_View_Layout_Default, "3D Layout");
@@ -1345,6 +1364,20 @@ void MainWindow::OnToggleSummary(wxCommandEvent &event) {
   GetMenuBar()->Check(ID_View_ToggleSummary, pane.IsShown());
 }
 
+void MainWindow::OnToggleRigging(wxCommandEvent &event) {
+  if (!auiManager)
+    return;
+
+  auto &pane = auiManager->GetPane("RiggingPanel");
+  pane.Show(!pane.IsShown());
+  auiManager->Update();
+
+  if (pane.IsShown())
+    RefreshRigging();
+
+  GetMenuBar()->Check(ID_View_ToggleRigging, pane.IsShown());
+}
+
 void MainWindow::OnPaneClose(wxAuiManagerEvent &event) {
   event.Skip();
   CallAfter(&MainWindow::UpdateViewMenuChecks);
@@ -1497,6 +1530,11 @@ void MainWindow::ApplySavedLayout() {
     summaryPane.Show();
     auiManager->Update();
   }
+  auto &riggingPane = auiManager->GetPane("RiggingPanel");
+  if (!riggingPane.IsShown()) {
+    riggingPane.Show();
+    auiManager->Update();
+  }
   UpdateViewMenuChecks();
 }
 
@@ -1531,6 +1569,10 @@ void MainWindow::UpdateViewMenuChecks() {
   auto &summaryPane = auiManager->GetPane("SummaryPanel");
   GetMenuBar()->Check(ID_View_ToggleSummary,
                       summaryPane.IsOk() && summaryPane.IsShown());
+
+  auto &riggingPane = auiManager->GetPane("RiggingPanel");
+  GetMenuBar()->Check(ID_View_ToggleRigging,
+                      riggingPane.IsOk() && riggingPane.IsShown());
 }
 
 void MainWindow::SyncSceneData() {
@@ -1579,6 +1621,7 @@ void MainWindow::OnProjectLoaded(wxCommandEvent &event) {
       viewport2DRenderPanel->ApplyConfig();
     if (layerPanel)
       layerPanel->ReloadLayers();
+    RefreshSummary();
     ConfigManager::Get().MarkSaved();
     UpdateTitle();
   } else {
@@ -1670,15 +1713,22 @@ void MainWindow::OnNotebookPageChanged(wxBookCtrlEvent &event) {
 }
 
 void MainWindow::RefreshSummary() {
-  if (!summaryPanel || !notebook)
-    return;
-  int sel = notebook->GetSelection();
-  if (notebook->GetPage(sel) == fixturePanel)
-    summaryPanel->ShowFixtureSummary();
-  else if (notebook->GetPage(sel) == trussPanel)
-    summaryPanel->ShowTrussSummary();
-  else if (notebook->GetPage(sel) == sceneObjPanel)
-    summaryPanel->ShowSceneObjectSummary();
+  if (summaryPanel && notebook) {
+    int sel = notebook->GetSelection();
+    if (notebook->GetPage(sel) == fixturePanel)
+      summaryPanel->ShowFixtureSummary();
+    else if (notebook->GetPage(sel) == trussPanel)
+      summaryPanel->ShowTrussSummary();
+    else if (notebook->GetPage(sel) == sceneObjPanel)
+      summaryPanel->ShowSceneObjectSummary();
+  }
+
+  RefreshRigging();
+}
+
+void MainWindow::RefreshRigging() {
+  if (riggingPanel)
+    riggingPanel->RefreshData();
 }
 
 void MainWindow::OnPreferences(wxCommandEvent &WXUNUSED(event)) {
