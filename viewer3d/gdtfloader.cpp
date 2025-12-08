@@ -62,6 +62,7 @@ struct GdtfCacheEntry
     bool modelColorParsed = false;
     std::string modelColor;
     std::unordered_set<std::string> missingModelsLogged;
+    std::unordered_set<std::string> failedModelLoads;
     size_t emptyGeometryLogCount = 0;
 };
 
@@ -523,6 +524,7 @@ static void ParseGeometry(tinyxml2::XMLElement* node,
                           std::unordered_map<std::string, Mesh>& meshCache,
                           std::vector<GdtfObject>& outObjects,
                           std::unordered_set<std::string>* missingModels,
+                          std::unordered_set<std::string>* failedModelLoads,
                           const char* overrideModel = nullptr)
 {
     Matrix local = MatrixUtils::Identity();
@@ -538,7 +540,7 @@ static void ParseGeometry(tinyxml2::XMLElement* node,
             auto it = geomMap.find(refName);
             if (it != geomMap.end()) {
                 const char* m = node->Attribute("Model");
-                ParseGeometry(it->second, transform, models, baseDir, geomMap, meshCache, outObjects, missingModels, m ? m : overrideModel);
+                ParseGeometry(it->second, transform, models, baseDir, geomMap, meshCache, outObjects, missingModels, failedModelLoads, m ? m : overrideModel);
             }
         }
         return;
@@ -552,46 +554,55 @@ static void ParseGeometry(tinyxml2::XMLElement* node,
             if (!path.empty()) {
                 auto mit = meshCache.find(path);
                 if (mit == meshCache.end()) {
-                    Mesh mesh;
-                    bool loaded = false;
-                    if (HasExtension(path, ".3ds"))
-                        loaded = Load3DS(path, mesh);
-                    else if (HasExtension(path, ".glb"))
-                        loaded = LoadGLB(path, mesh);
+                    bool alreadyFailed = failedModelLoads && failedModelLoads->find(path) != failedModelLoads->end();
+                    if (!alreadyFailed) {
+                        Mesh mesh;
+                        bool loaded = false;
+                        if (HasExtension(path, ".3ds"))
+                            loaded = Load3DS(path, mesh);
+                        else if (HasExtension(path, ".glb"))
+                            loaded = LoadGLB(path, mesh);
 
-                    if (loaded) {
-                        
-                        // Apply model dimension scaling if provided
-                        float minX = FLT_MAX, minY = FLT_MAX, minZ = FLT_MAX;
-                        float maxX = -FLT_MAX, maxY = -FLT_MAX, maxZ = -FLT_MAX;
-                        for (size_t vi = 0; vi + 2 < mesh.vertices.size(); vi += 3) {
-                            float x = mesh.vertices[vi];
-                            float y = mesh.vertices[vi + 1];
-                            float z = mesh.vertices[vi + 2];
-                            minX = std::min(minX, x); maxX = std::max(maxX, x);
-                            minY = std::min(minY, y); maxY = std::max(maxY, y);
-                            minZ = std::min(minZ, z); maxZ = std::max(maxZ, z);
-                        }
-                        float sizeX = maxX - minX;
-                        float sizeY = maxY - minY;
-                        float sizeZ = maxZ - minZ;
-                        float targetX = it->second.length * 1000.0f; // meters -> mm
-                        float targetY = it->second.width  * 1000.0f;
-                        float targetZ = it->second.height * 1000.0f;
-                        float sx = (targetX > 0.0f && sizeX > 0.0f) ? targetX / sizeX : 1.0f;
-                        float sy = (targetY > 0.0f && sizeY > 0.0f) ? targetY / sizeY : 1.0f;
-                        float sz = (targetZ > 0.0f && sizeZ > 0.0f) ? targetZ / sizeZ : 1.0f;
-                        if (sx != 1.0f || sy != 1.0f || sz != 1.0f) {
+                        if (loaded) {
+
+                            // Apply model dimension scaling if provided
+                            float minX = FLT_MAX, minY = FLT_MAX, minZ = FLT_MAX;
+                            float maxX = -FLT_MAX, maxY = -FLT_MAX, maxZ = -FLT_MAX;
                             for (size_t vi = 0; vi + 2 < mesh.vertices.size(); vi += 3) {
-                                mesh.vertices[vi]     *= sx;
-                                mesh.vertices[vi + 1] *= sy;
-                                mesh.vertices[vi + 2] *= sz;
+                                float x = mesh.vertices[vi];
+                                float y = mesh.vertices[vi + 1];
+                                float z = mesh.vertices[vi + 2];
+                                minX = std::min(minX, x); maxX = std::max(maxX, x);
+                                minY = std::min(minY, y); maxY = std::max(maxY, y);
+                                minZ = std::min(minZ, z); maxZ = std::max(maxZ, z);
+                            }
+                            float sizeX = maxX - minX;
+                            float sizeY = maxY - minY;
+                            float sizeZ = maxZ - minZ;
+                            float targetX = it->second.length * 1000.0f; // meters -> mm
+                            float targetY = it->second.width  * 1000.0f;
+                            float targetZ = it->second.height * 1000.0f;
+                            float sx = (targetX > 0.0f && sizeX > 0.0f) ? targetX / sizeX : 1.0f;
+                            float sy = (targetY > 0.0f && sizeY > 0.0f) ? targetY / sizeY : 1.0f;
+                            float sz = (targetZ > 0.0f && sizeZ > 0.0f) ? targetZ / sizeZ : 1.0f;
+                            if (sx != 1.0f || sy != 1.0f || sz != 1.0f) {
+                                for (size_t vi = 0; vi + 2 < mesh.vertices.size(); vi += 3) {
+                                    mesh.vertices[vi]     *= sx;
+                                    mesh.vertices[vi + 1] *= sy;
+                                    mesh.vertices[vi + 2] *= sz;
+                                }
+                            }
+                            mit = meshCache.emplace(path, std::move(mesh)).first;
+                        } else {
+                            bool shouldLog = true;
+                            if (failedModelLoads)
+                                shouldLog = failedModelLoads->insert(path).second;
+
+                            if (shouldLog && ConsolePanel::Instance()) {
+                                wxString msg = wxString::Format("GDTF: failed to load model %s", wxString::FromUTF8(path));
+                                ConsolePanel::Instance()->AppendMessage(msg);
                             }
                         }
-                        mit = meshCache.emplace(path, std::move(mesh)).first;
-                    } else if (ConsolePanel::Instance()) {
-                        wxString msg = wxString::Format("GDTF: failed to load model %s", wxString::FromUTF8(path));
-                        ConsolePanel::Instance()->AppendMessage(msg);
                     }
                 }
                 if (mit != meshCache.end()) {
@@ -616,7 +627,7 @@ static void ParseGeometry(tinyxml2::XMLElement* node,
             n=="MediaServerLayer" || n=="MediaServerCamera" || n=="MediaServerMaster" ||
             n=="Display" || n=="GeometryReference" || n=="Laser" || n=="WiringObject" ||
             n=="Inventory" || n=="Structure" || n=="Support" || n=="Magnet") {
-            ParseGeometry(child, transform, models, baseDir, geomMap, meshCache, outObjects, missingModels);
+            ParseGeometry(child, transform, models, baseDir, geomMap, meshCache, outObjects, missingModels, failedModelLoads);
         }
     }
 }
@@ -685,6 +696,7 @@ bool LoadGdtf(const std::string& gdtfPath,
 
     std::unordered_map<std::string, Mesh>& meshCache = entry->meshCache;
     std::unordered_set<std::string>* missingModels = &entry->missingModelsLogged;
+    std::unordered_set<std::string>* failedModelLoads = &entry->failedModelLoads;
     if (tinyxml2::XMLElement* geoms = ft->FirstChildElement("Geometries")) {
         std::unordered_map<std::string, tinyxml2::XMLElement*> geomMap;
         for (tinyxml2::XMLElement* g = geoms->FirstChildElement(); g; g = g->NextSiblingElement()) {
@@ -692,7 +704,7 @@ bool LoadGdtf(const std::string& gdtfPath,
                 geomMap[n] = g;
         }
         for (tinyxml2::XMLElement* g = geoms->FirstChildElement(); g; g = g->NextSiblingElement()) {
-            ParseGeometry(g, MatrixUtils::Identity(), models, entry->extractedDir, geomMap, meshCache, outObjects, missingModels);
+            ParseGeometry(g, MatrixUtils::Identity(), models, entry->extractedDir, geomMap, meshCache, outObjects, missingModels, failedModelLoads);
         }
     }
 
