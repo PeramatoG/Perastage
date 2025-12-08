@@ -377,6 +377,20 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
   std::function<void(tinyxml2::XMLElement *, const std::string &)>
       parseChildList;
 
+  auto ensurePositionEntry = [&](const std::string &positionId)
+      -> std::string {
+    if (positionId.empty())
+      return {};
+
+    auto it = scene.positions.find(positionId);
+    if (it != scene.positions.end())
+      return it->second;
+
+    // Create a placeholder entry so the position is preserved on export.
+    scene.positions[positionId] = positionId;
+    return positionId;
+  };
+
   std::function<void(tinyxml2::XMLElement *, const std::string &)>
       parseFixture = [&](tinyxml2::XMLElement *node,
                          const std::string &layerName) {
@@ -402,6 +416,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         fixture.focus = textOf(node, "Focus");
         fixture.function = textOf(node, "Function");
         fixture.position = textOf(node, "Position");
+        fixture.positionName = ensurePositionEntry(fixture.position);
         if (tinyxml2::XMLElement *colorNode =
                 node->FirstChildElement("Color")) {
           if (const char *txt = colorNode->GetText())
@@ -508,9 +523,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         truss.gdtfMode = textOf(node, "GDTFMode");
         truss.function = textOf(node, "Function");
         truss.position = textOf(node, "Position");
-        auto posItT = scene.positions.find(truss.position);
-        if (posItT != scene.positions.end())
-          truss.positionName = posItT->second;
+        truss.positionName = ensurePositionEntry(truss.position);
 
         if (tinyxml2::XMLElement *geos =
                 node->FirstChildElement("Geometries")) {
