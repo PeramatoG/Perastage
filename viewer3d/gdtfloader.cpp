@@ -64,6 +64,14 @@ struct GdtfCacheEntry
 
 static std::unordered_map<std::string, GdtfCacheEntry> g_gdtfCache;
 static std::unordered_map<std::string, fs::file_time_type> g_failedGdtfCache;
+static std::unordered_map<std::string, size_t> g_gdtfFailedAttempts;
+
+struct MissingModelLog
+{
+    size_t count = 0;
+    std::string file;
+    std::string baseDir;
+};
 
 static bool ExtractZip(const std::string& zipPath, const std::string& destDir);
 
@@ -478,7 +486,7 @@ static void ParseGeometry(tinyxml2::XMLElement* node,
             auto it = geomMap.find(refName);
             if (it != geomMap.end()) {
                 const char* m = node->Attribute("Model");
-                ParseGeometry(it->second, transform, models, baseDir, geomMap, meshCache, outObjects, m ? m : overrideModel);
+                ParseGeometry(it->second, transform, models, baseDir, geomMap, meshCache, outObjects, missingModelCounts, m ? m : overrideModel);
             }
         }
         return;
@@ -573,12 +581,25 @@ bool LoadGdtf(const std::string& gdtfPath, std::vector<GdtfObject>& outObjects)
         ConsolePanel::Instance()->AppendMessage(msg);
     }
     if (!entry || !entry->fixtureType) {
-        if (!cachedFailure && ConsolePanel::Instance()) {
-            wxString msg = wxString::Format("GDTF: failed to load %s", wxString::FromUTF8(gdtfPath));
-            ConsolePanel::Instance()->AppendMessage(msg);
+        size_t failureCount = ++g_gdtfFailedAttempts[cacheKey];
+        if (ConsolePanel::Instance()) {
+            if (cachedFailure) {
+                if (failureCount == 2) {
+                    wxString msg = wxString::Format(
+                        "Failed to load GDTF %s (repeated %zu times, suppressing further messages)",
+                        wxString::FromUTF8(gdtfPath),
+                        failureCount);
+                    ConsolePanel::Instance()->AppendMessage(msg);
+                }
+            } else {
+                wxString msg = wxString::Format("GDTF: failed to load %s", wxString::FromUTF8(gdtfPath));
+                ConsolePanel::Instance()->AppendMessage(msg);
+            }
         }
         return false;
     }
+
+    g_gdtfFailedAttempts.erase(cacheKey);
 
     tinyxml2::XMLElement* ft = entry->fixtureType;
 
