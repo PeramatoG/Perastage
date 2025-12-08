@@ -1535,7 +1535,9 @@ void Viewer3DController::DrawGrid(int style, float r, float g, float b,
     }
     glEnd();
   } else if (style == 1) {
-    glPointSize(3.0f);
+    GLboolean pointSmooth = glIsEnabled(GL_POINT_SMOOTH);
+    glDisable(GL_POINT_SMOOTH);
+    glPointSize(1.0f);
     glBegin(GL_POINTS);
     for (float x = -size; x <= size; x += step) {
       for (float y = -size; y <= size; y += step) {
@@ -1556,6 +1558,8 @@ void Viewer3DController::DrawGrid(int style, float r, float g, float b,
       }
     }
     glEnd();
+    if (pointSmooth)
+      glEnable(GL_POINT_SMOOTH);
   } else {
     float half = step * 0.1f;
     glLineWidth(1.0f);
