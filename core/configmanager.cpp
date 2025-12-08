@@ -29,22 +29,14 @@ class wxZipStreamLink;
 #include <wx/stdpaths.h>
 #include <wx/zipstrm.h>
 
-namespace {
+ConfigManager::RevisionGuard::RevisionGuard(ConfigManager &cfg)
+    : cfg(cfg), previous(cfg.suppressRevision) {
+  cfg.suppressRevision = true;
+}
 
-class RevisionGuard {
-public:
-  explicit RevisionGuard(ConfigManager &cfg)
-      : cfg(cfg), previous(cfg.suppressRevision) {
-    cfg.suppressRevision = true;
-  }
-  ~RevisionGuard() { cfg.suppressRevision = previous; }
-
-private:
-  ConfigManager &cfg;
-  bool previous;
-};
-
-} // namespace
+ConfigManager::RevisionGuard::~RevisionGuard() {
+  cfg.suppressRevision = previous;
+}
 
 static std::vector<std::string> SplitCSV(const std::string &s) {
   std::vector<std::string> result;

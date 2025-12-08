@@ -116,6 +116,16 @@ public:
     void MarkSaved();
 
 private:
+    class RevisionGuard {
+    public:
+        explicit RevisionGuard(ConfigManager &cfg);
+        ~RevisionGuard();
+
+    private:
+        ConfigManager &cfg;
+        bool previous;
+    };
+
     ConfigManager();
     ConfigManager(const ConfigManager&) = delete;
     ConfigManager& operator=(const ConfigManager&) = delete;
