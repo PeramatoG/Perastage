@@ -34,7 +34,7 @@
 
 #include "viewer2dpanel.h"
 #include "configmanager.h"
-#include "viewer2d/canvas2d.h"
+#include "canvas2d.h"
 #include <algorithm>
 #include <cmath>
 #include <vector>

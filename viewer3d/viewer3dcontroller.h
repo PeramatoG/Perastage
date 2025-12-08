@@ -27,7 +27,7 @@
 #include "gdtfloader.h"
 #include "mesh.h"
 #include "scenedatamanager.h"
-#include "viewer2d/canvas2d.h"
+#include "canvas2d.h"
 #include <array>
 #include <string>
 #include <unordered_map>

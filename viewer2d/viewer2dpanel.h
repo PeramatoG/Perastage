@@ -25,7 +25,7 @@
 #pragma once
 
 #include "viewer3dcontroller.h"
-#include "viewer2d/canvas2d.h"
+#include "canvas2d.h"
 #include <wx/glcanvas.h>
 #include <wx/wx.h>
 #include <string>
