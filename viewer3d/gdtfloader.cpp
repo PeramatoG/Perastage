@@ -38,6 +38,7 @@ class wxZipStreamLink;
 #include <algorithm>
 #include <memory>
 #include <cfloat>
+#include <cstdint>
 #include <sstream>
 #include <cmath>
 #include <iomanip>
@@ -392,7 +393,8 @@ static std::string ParseModelColor(tinyxml2::XMLElement* ft)
 static GdtfCacheEntry* GetCachedGdtf(const std::string& gdtfPath,
                                      bool* cachedFailure = nullptr,
                                      bool* fromCache = nullptr,
-                                     std::string* failureReason = nullptr)
+                                     std::string* failureReason = nullptr,
+                                     std::string* outStableKey = nullptr)
 {
     auto setReason = [&](const std::string& reason) {
         if (failureReason)
@@ -416,6 +418,7 @@ static GdtfCacheEntry* GetCachedGdtf(const std::string& gdtfPath,
         setReason("Cannot resolve absolute GDTF path");
         return nullptr;
     }
+
     auto timestamp = fs::last_write_time(absPath, ec);
     if (ec)
     {
@@ -423,22 +426,43 @@ static GdtfCacheEntry* GetCachedGdtf(const std::string& gdtfPath,
         return nullptr;
     }
 
-    auto failedIt = g_failedGdtfCache.find(absPath.string());
-    if (failedIt != g_failedGdtfCache.end()) {
-        if (failedIt->second == timestamp) {
-            if (cachedFailure)
-                *cachedFailure = true;
-            auto reasonIt = g_gdtfFailureReasons.find(absPath.string());
-            if (reasonIt != g_gdtfFailureReasons.end())
-                setReason(reasonIt->second);
-            return nullptr;
+    std::ifstream file(absPath, std::ios::binary);
+    if (!file.is_open())
+    {
+        setReason("Cannot open GDTF file for hashing");
+        return nullptr;
+    }
+    uint64_t hash = 14695981039346656037ull;
+    const uint64_t prime = 1099511628211ull;
+    char buffer[4096];
+    while (file.good()) {
+        file.read(buffer, sizeof(buffer));
+        std::streamsize read = file.gcount();
+        for (std::streamsize i = 0; i < read; ++i) {
+            hash ^= static_cast<unsigned char>(buffer[i]);
+            hash *= prime;
         }
-        g_failedGdtfCache.erase(failedIt);
+    }
+    std::ostringstream oss;
+    oss << absPath.filename().string() << '|'
+        << std::hex << std::setw(16) << std::setfill('0') << hash;
+    std::string stableKey = oss.str();
+    if (outStableKey)
+        *outStableKey = stableKey;
+
+    auto failedIt = g_failedGdtfCache.find(stableKey);
+    if (failedIt != g_failedGdtfCache.end()) {
+        if (cachedFailure)
+            *cachedFailure = true;
+        auto reasonIt = g_gdtfFailureReasons.find(stableKey);
+        if (reasonIt != g_gdtfFailureReasons.end())
+            setReason(reasonIt->second);
+        return nullptr;
     }
 
-    auto it = g_gdtfCache.find(absPath.string());
+    auto it = g_gdtfCache.find(stableKey);
     if (it != g_gdtfCache.end()) {
-        if (it->second.timestamp == timestamp && it->second.doc && it->second.fixtureType) {
+        if (it->second.doc && it->second.fixtureType) {
             if (fromCache)
                 *fromCache = true;
             return &it->second;
@@ -452,9 +476,9 @@ static GdtfCacheEntry* GetCachedGdtf(const std::string& gdtfPath,
     entry.timestamp = timestamp;
     TempExtraction extraction(absPath.string());
     if (!extraction.IsValid()) {
-        g_failedGdtfCache[absPath.string()] = timestamp;
+        g_failedGdtfCache[stableKey] = timestamp;
         setReason("Unable to extract GDTF archive (corrupted or unreadable file)");
-        g_gdtfFailureReasons[absPath.string()] = failureReason ? *failureReason : "unknown error";
+        g_gdtfFailureReasons[stableKey] = failureReason ? *failureReason : "unknown error";
         return nullptr;
     }
     entry.extractedDir = extraction.Release();
@@ -463,18 +487,18 @@ static GdtfCacheEntry* GetCachedGdtf(const std::string& gdtfPath,
     std::string descPath = entry.extractedDir + "/description.xml";
     if (entry.doc->LoadFile(descPath.c_str()) != tinyxml2::XML_SUCCESS) {
         fs::remove_all(entry.extractedDir, ec);
-        g_failedGdtfCache[absPath.string()] = timestamp;
+        g_failedGdtfCache[stableKey] = timestamp;
         setReason("Missing or invalid description.xml inside GDTF file");
-        g_gdtfFailureReasons[absPath.string()] = failureReason ? *failureReason : "unknown error";
+        g_gdtfFailureReasons[stableKey] = failureReason ? *failureReason : "unknown error";
         return nullptr;
     }
 
     entry.fixtureType = GetFixtureType(*entry.doc);
     if (!entry.fixtureType) {
         fs::remove_all(entry.extractedDir, ec);
-        g_failedGdtfCache[absPath.string()] = timestamp;
+        g_failedGdtfCache[stableKey] = timestamp;
         setReason("GDTF description.xml is missing a <FixtureType> element");
-        g_gdtfFailureReasons[absPath.string()] = failureReason ? *failureReason : "unknown error";
+        g_gdtfFailureReasons[stableKey] = failureReason ? *failureReason : "unknown error";
         return nullptr;
     }
 
@@ -485,9 +509,9 @@ static GdtfCacheEntry* GetCachedGdtf(const std::string& gdtfPath,
     entry.modelColor = ParseModelColor(entry.fixtureType);
     entry.modelColorParsed = true;
 
-    auto res = g_gdtfCache.emplace(absPath.string(), std::move(entry));
-    g_failedGdtfCache.erase(absPath.string());
-    g_gdtfFailureReasons.erase(absPath.string());
+    auto res = g_gdtfCache.emplace(stableKey, std::move(entry));
+    g_failedGdtfCache.erase(stableKey);
+    g_gdtfFailureReasons.erase(stableKey);
     return res.second ? &res.first->second : nullptr;
 }
 
@@ -603,18 +627,16 @@ bool LoadGdtf(const std::string& gdtfPath, std::vector<GdtfObject>& outObjects)
     bool cachedFailure = false;
     bool fromCache = false;
     std::string failureReason;
-    std::error_code cacheKeyEc;
-    fs::path cachePath = fs::absolute(gdtfPath, cacheKeyEc);
-    std::string cacheKey = cacheKeyEc ? gdtfPath : cachePath.string();
+    std::string cacheKey;
 
-    GdtfCacheEntry* entry = GetCachedGdtf(gdtfPath, &cachedFailure, &fromCache, &failureReason);
+    GdtfCacheEntry* entry = GetCachedGdtf(gdtfPath, &cachedFailure, &fromCache, &failureReason, &cacheKey);
 
     if (!fromCache && !cachedFailure && ConsolePanel::Instance()) {
         wxString msg = wxString::Format("Loading GDTF %s", wxString::FromUTF8(gdtfPath));
         ConsolePanel::Instance()->AppendMessage(msg);
     }
     if (!entry || !entry->fixtureType) {
-        size_t failureCount = ++g_gdtfFailedAttempts[cacheKey];
+        size_t failureCount = ++g_gdtfFailedAttempts[cacheKey.empty() ? gdtfPath : cacheKey];
         if (ConsolePanel::Instance()) {
             if (cachedFailure) {
                 if (failureCount == 2) {
@@ -635,7 +657,7 @@ bool LoadGdtf(const std::string& gdtfPath, std::vector<GdtfObject>& outObjects)
         return false;
     }
 
-    g_gdtfFailedAttempts.erase(cacheKey);
+    g_gdtfFailedAttempts.erase(cacheKey.empty() ? gdtfPath : cacheKey);
 
     tinyxml2::XMLElement* ft = entry->fixtureType;
 
