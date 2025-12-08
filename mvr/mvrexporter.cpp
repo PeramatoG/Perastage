@@ -212,6 +212,24 @@ static std::string CreatePatchedGdtf(const std::string &gdtfPath,
 
 bool MvrExporter::ExportToFile(const std::string &filePath) {
   const auto &scene = ConfigManager::Get().GetScene();
+  auto positions = scene.positions;
+
+  auto ensurePositionEntry = [&](const std::string &positionId,
+                                 const std::string &nameHint) {
+    if (positionId.empty())
+      return;
+
+    auto it = positions.find(positionId);
+    if (it == positions.end())
+      positions[positionId] = nameHint;
+    else if (it->second.empty() && !nameHint.empty())
+      it->second = nameHint;
+  };
+
+  for (const auto &[uid, fixture] : scene.fixtures)
+    ensurePositionEntry(fixture.position, fixture.positionName);
+  for (const auto &[uid, truss] : scene.trusses)
+    ensurePositionEntry(truss.position, truss.positionName);
 
   wxFileOutputStream output(filePath);
   if (!output.IsOk())
@@ -239,7 +257,7 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
 
   // ---- AUXData ----
   tinyxml2::XMLElement *aux = doc.NewElement("AUXData");
-  for (const auto &[uuid, name] : scene.positions) {
+  for (const auto &[uuid, name] : positions) {
     tinyxml2::XMLElement *pos = doc.NewElement("Position");
     pos->SetAttribute("uuid", uuid.c_str());
     if (!name.empty())
@@ -401,7 +419,7 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
       e->SetText(t.position.c_str());
       te->InsertEndChild(e);
     } else if (!t.positionName.empty()) {
-      for (const auto &[puuid, pname] : scene.positions) {
+      for (const auto &[puuid, pname] : positions) {
         if (pname == t.positionName) {
           tinyxml2::XMLElement *e = doc.NewElement("Position");
           e->SetText(puuid.c_str());
