@@ -65,6 +65,7 @@ struct GdtfCacheEntry
 static std::unordered_map<std::string, GdtfCacheEntry> g_gdtfCache;
 static std::unordered_map<std::string, fs::file_time_type> g_failedGdtfCache;
 static std::unordered_map<std::string, size_t> g_gdtfFailedAttempts;
+static std::unordered_map<std::string, std::string> g_gdtfFailureReasons;
 
 struct MissingModelLog
 {
@@ -388,28 +389,46 @@ static std::string ParseModelColor(tinyxml2::XMLElement* ft)
 
 static GdtfCacheEntry* GetCachedGdtf(const std::string& gdtfPath,
                                      bool* cachedFailure = nullptr,
-                                     bool* fromCache = nullptr)
+                                     bool* fromCache = nullptr,
+                                     std::string* failureReason = nullptr)
 {
+    auto setReason = [&](const std::string& reason) {
+        if (failureReason)
+            *failureReason = reason;
+    };
+
     if (cachedFailure)
         *cachedFailure = false;
     if (fromCache)
         *fromCache = false;
     if (gdtfPath.empty())
+    {
+        setReason("Empty GDTF path");
         return nullptr;
+    }
 
     std::error_code ec;
     fs::path absPath = fs::absolute(gdtfPath, ec);
     if (ec)
+    {
+        setReason("Cannot resolve absolute GDTF path");
         return nullptr;
+    }
     auto timestamp = fs::last_write_time(absPath, ec);
     if (ec)
+    {
+        setReason("Cannot read GDTF file metadata");
         return nullptr;
+    }
 
     auto failedIt = g_failedGdtfCache.find(absPath.string());
     if (failedIt != g_failedGdtfCache.end()) {
         if (failedIt->second == timestamp) {
             if (cachedFailure)
                 *cachedFailure = true;
+            auto reasonIt = g_gdtfFailureReasons.find(absPath.string());
+            if (reasonIt != g_gdtfFailureReasons.end())
+                setReason(reasonIt->second);
             return nullptr;
         }
         g_failedGdtfCache.erase(failedIt);
@@ -432,6 +451,8 @@ static GdtfCacheEntry* GetCachedGdtf(const std::string& gdtfPath,
     TempExtraction extraction(absPath.string());
     if (!extraction.IsValid()) {
         g_failedGdtfCache[absPath.string()] = timestamp;
+        setReason("Unable to extract GDTF archive (corrupted or unreadable file)");
+        g_gdtfFailureReasons[absPath.string()] = failureReason ? *failureReason : "unknown error";
         return nullptr;
     }
     entry.extractedDir = extraction.Release();
@@ -441,6 +462,8 @@ static GdtfCacheEntry* GetCachedGdtf(const std::string& gdtfPath,
     if (entry.doc->LoadFile(descPath.c_str()) != tinyxml2::XML_SUCCESS) {
         fs::remove_all(entry.extractedDir, ec);
         g_failedGdtfCache[absPath.string()] = timestamp;
+        setReason("Missing or invalid description.xml inside GDTF file");
+        g_gdtfFailureReasons[absPath.string()] = failureReason ? *failureReason : "unknown error";
         return nullptr;
     }
 
@@ -448,6 +471,8 @@ static GdtfCacheEntry* GetCachedGdtf(const std::string& gdtfPath,
     if (!entry.fixtureType) {
         fs::remove_all(entry.extractedDir, ec);
         g_failedGdtfCache[absPath.string()] = timestamp;
+        setReason("GDTF description.xml is missing a <FixtureType> element");
+        g_gdtfFailureReasons[absPath.string()] = failureReason ? *failureReason : "unknown error";
         return nullptr;
     }
 
@@ -460,6 +485,7 @@ static GdtfCacheEntry* GetCachedGdtf(const std::string& gdtfPath,
 
     auto res = g_gdtfCache.emplace(absPath.string(), std::move(entry));
     g_failedGdtfCache.erase(absPath.string());
+    g_gdtfFailureReasons.erase(absPath.string());
     return res.second ? &res.first->second : nullptr;
 }
 
@@ -574,11 +600,12 @@ bool LoadGdtf(const std::string& gdtfPath, std::vector<GdtfObject>& outObjects)
     outObjects.clear();
     bool cachedFailure = false;
     bool fromCache = false;
+    std::string failureReason;
     std::error_code cacheKeyEc;
     fs::path cachePath = fs::absolute(gdtfPath, cacheKeyEc);
     std::string cacheKey = cacheKeyEc ? gdtfPath : cachePath.string();
 
-    GdtfCacheEntry* entry = GetCachedGdtf(gdtfPath, &cachedFailure, &fromCache);
+    GdtfCacheEntry* entry = GetCachedGdtf(gdtfPath, &cachedFailure, &fromCache, &failureReason);
 
     if (!fromCache && !cachedFailure && ConsolePanel::Instance()) {
         wxString msg = wxString::Format("Loading GDTF %s", wxString::FromUTF8(gdtfPath));
@@ -590,13 +617,16 @@ bool LoadGdtf(const std::string& gdtfPath, std::vector<GdtfObject>& outObjects)
             if (cachedFailure) {
                 if (failureCount == 2) {
                     wxString msg = wxString::Format(
-                        "Failed to load GDTF %s (repeated %zu times, suppressing further messages)",
+                        "Failed to load GDTF %s: %s (repeated %zu times, suppressing further messages)",
                         wxString::FromUTF8(gdtfPath),
+                        wxString::FromUTF8(failureReason.empty() ? "unknown error" : failureReason),
                         failureCount);
                     ConsolePanel::Instance()->AppendMessage(msg);
                 }
             } else {
-                wxString msg = wxString::Format("GDTF: failed to load %s", wxString::FromUTF8(gdtfPath));
+                wxString msg = wxString::Format("GDTF: failed to load %s: %s",
+                                               wxString::FromUTF8(gdtfPath),
+                                               wxString::FromUTF8(failureReason.empty() ? "unknown error" : failureReason));
                 ConsolePanel::Instance()->AppendMessage(msg);
             }
         }
@@ -640,6 +670,13 @@ bool LoadGdtf(const std::string& gdtfPath, std::vector<GdtfObject>& outObjects)
         wxString msg = wxString::Format("GDTF: loaded %zu objects from %s",
                                        outObjects.size(),
                                        wxString::FromUTF8(gdtfPath));
+        ConsolePanel::Instance()->AppendMessage(msg);
+    }
+
+    if (outObjects.empty() && ConsolePanel::Instance()) {
+        wxString msg = wxString::Format(
+            "GDTF: loaded %s but no geometry with models was found",
+            wxString::FromUTF8(gdtfPath));
         ConsolePanel::Instance()->AppendMessage(msg);
     }
 
