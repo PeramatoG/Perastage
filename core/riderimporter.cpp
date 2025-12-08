@@ -26,7 +26,6 @@
 #include <iomanip>
 #include <limits>
 #include <numeric>
-#include <random>
 #include <regex>
 #include <sstream>
 #include <tuple>
@@ -45,25 +44,10 @@
 #include "truss.h"
 #include "trussdictionary.h"
 #include "trussloader.h"
+#include "uuidutils.h"
 #include <filesystem>
 
 namespace {
-// Generate a random UUID4 string
-std::string GenerateUuid() {
-  static std::mt19937_64 rng{std::random_device{}()};
-  static std::uniform_int_distribution<int> dist(0, 15);
-  const char *v = "0123456789abcdef";
-  int groups[] = {8, 4, 4, 4, 12};
-  std::string out;
-  for (int g = 0; g < 5; ++g) {
-    if (g)
-      out.push_back('-');
-    for (int i = 0; i < groups[g]; ++i)
-      out.push_back(v[dist(rng)]);
-  }
-  return out;
-}
-
 std::string Trim(const std::string &s) {
   size_t start = s.find_first_not_of(" \t\r\n");
   if (start == std::string::npos)
