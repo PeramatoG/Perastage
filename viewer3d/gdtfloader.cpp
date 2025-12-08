@@ -60,6 +60,8 @@ struct GdtfCacheEntry
     float powerW = 0.0f;
     bool modelColorParsed = false;
     std::string modelColor;
+    std::unordered_set<std::string> missingModelsLogged;
+    size_t emptyGeometryLogCount = 0;
 };
 
 static std::unordered_map<std::string, GdtfCacheEntry> g_gdtfCache;
@@ -654,7 +656,7 @@ bool LoadGdtf(const std::string& gdtfPath, std::vector<GdtfObject>& outObjects)
     }
 
     std::unordered_map<std::string, Mesh>& meshCache = entry->meshCache;
-    std::unordered_set<std::string> missingModels;
+    std::unordered_set<std::string>* missingModels = &entry->missingModelsLogged;
     if (tinyxml2::XMLElement* geoms = ft->FirstChildElement("Geometries")) {
         std::unordered_map<std::string, tinyxml2::XMLElement*> geomMap;
         for (tinyxml2::XMLElement* g = geoms->FirstChildElement(); g; g = g->NextSiblingElement()) {
@@ -662,7 +664,7 @@ bool LoadGdtf(const std::string& gdtfPath, std::vector<GdtfObject>& outObjects)
                 geomMap[n] = g;
         }
         for (tinyxml2::XMLElement* g = geoms->FirstChildElement(); g; g = g->NextSiblingElement()) {
-            ParseGeometry(g, MatrixUtils::Identity(), models, entry->extractedDir, geomMap, meshCache, outObjects, &missingModels);
+            ParseGeometry(g, MatrixUtils::Identity(), models, entry->extractedDir, geomMap, meshCache, outObjects, missingModels);
         }
     }
 
@@ -674,10 +676,21 @@ bool LoadGdtf(const std::string& gdtfPath, std::vector<GdtfObject>& outObjects)
     }
 
     if (outObjects.empty() && ConsolePanel::Instance()) {
-        wxString msg = wxString::Format(
-            "GDTF: loaded %s but no geometry with models was found",
-            wxString::FromUTF8(gdtfPath));
-        ConsolePanel::Instance()->AppendMessage(msg);
+        size_t count = ++entry->emptyGeometryLogCount;
+        if (count == 1) {
+            wxString msg = wxString::Format(
+                "GDTF: loaded %s but no geometry with models was found",
+                wxString::FromUTF8(gdtfPath));
+            ConsolePanel::Instance()->AppendMessage(msg);
+        } else if (count == 2) {
+            wxString msg = wxString::Format(
+                "GDTF: loaded %s but no geometry with models was found (repeated %zu times, suppressing further messages)",
+                wxString::FromUTF8(gdtfPath),
+                count);
+            ConsolePanel::Instance()->AppendMessage(msg);
+        }
+    } else if (!outObjects.empty()) {
+        entry->emptyGeometryLogCount = 0;
     }
 
     return !outObjects.empty();
