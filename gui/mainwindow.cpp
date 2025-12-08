@@ -220,11 +220,12 @@ wxBEGIN_EVENT_TABLE(MainWindow, wxFrame) EVT_MENU(
 }
 
 MainWindow::~MainWindow() {
+  SaveCameraSettings();
   if (auiManager) {
     auiManager->UnInit();
     delete auiManager;
+    auiManager = nullptr;
   }
-  SaveCameraSettings();
   ConfigManager::Get().SaveUserConfig();
   ProjectUtils::SaveLastProjectPath(currentProjectPath);
 }
