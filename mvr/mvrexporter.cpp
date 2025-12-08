@@ -18,6 +18,7 @@
 #include "mvrexporter.h"
 #include "configmanager.h"
 #include "matrixutils.h"
+#include "uuidutils.h"
 
 #include <wx/wfstream.h>
 #include <wx/wx.h>
@@ -214,18 +215,37 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
   const auto &scene = ConfigManager::Get().GetScene();
   auto positions = scene.positions;
 
+  std::unordered_map<std::string, std::string> positionByName;
+  for (const auto &[uuid, name] : positions) {
+    if (!name.empty())
+      positionByName[name] = uuid;
+  }
+
   auto ensurePositionEntry = [&](const std::string &positionId,
                                  const std::string &nameHint) {
-    if (positionId.empty())
+    if (!positionId.empty()) {
+      auto it = positions.find(positionId);
+      if (it == positions.end()) {
+        positions[positionId] = nameHint;
+      } else if (!nameHint.empty() && it->second != nameHint) {
+        // Refresh the stored name so Hang Position edits are preserved on export.
+        it->second = nameHint;
+      }
+      if (!nameHint.empty())
+        positionByName.try_emplace(nameHint, positionId);
+      return;
+    }
+
+    if (nameHint.empty())
       return;
 
-    auto it = positions.find(positionId);
-    if (it == positions.end()) {
-      positions[positionId] = nameHint;
-    } else if (!nameHint.empty() && it->second != nameHint) {
-      // Refresh the stored name so Hang Position edits are preserved on export.
-      it->second = nameHint;
-    }
+    auto byName = positionByName.find(nameHint);
+    if (byName != positionByName.end())
+      return;
+
+    std::string newUuid = GenerateUuid();
+    positions[newUuid] = nameHint;
+    positionByName[nameHint] = newUuid;
   };
 
   for (const auto &[uid, fixture] : scene.fixtures)
