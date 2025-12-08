@@ -26,6 +26,8 @@
 #include <wx/wx.h>
 #include <optional>
 
+constexpr bool kLogGlbMessages = false;
+
 using json = nlohmann::json;
 
 // glTF specification defines distances in meters whereas MVR expects
@@ -131,7 +133,7 @@ bool LoadGLB(const std::string& path, Mesh& outMesh)
     std::string parseError;
     auto glbFile = ParseGLBFile(path, parseError);
     if (!glbFile) {
-        if (ConsolePanel::Instance()) {
+        if (kLogGlbMessages && ConsolePanel::Instance()) {
             ConsolePanel::Instance()->AppendMessage(
                 wxString::Format("GLB: %s (se omite carga - %s)",
                                  wxString::FromUTF8(path),
@@ -440,7 +442,7 @@ bool LoadGLB(const std::string& path, Mesh& outMesh)
     if (ok)
         ComputeNormals(outMesh);
 
-    if(ConsolePanel::Instance()) {
+    if(kLogGlbMessages && ConsolePanel::Instance()) {
         wxString msg;
         if(ok) {
             msg = wxString::Format("GLB: %s -> v=%zu i=%zu",

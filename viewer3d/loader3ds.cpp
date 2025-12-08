@@ -21,6 +21,8 @@
 #include "consolepanel.h"
 #include <wx/wx.h>
 
+constexpr bool kLog3dsMessages = false;
+
 struct Chunk {
     uint16_t id;
     uint32_t length;
@@ -126,7 +128,7 @@ bool Load3DS(const std::string& path, Mesh& outMesh)
     bool ok = !outMesh.vertices.empty() && !outMesh.indices.empty();
     if (ok)
         ComputeNormals(outMesh);
-    if (ConsolePanel::Instance()) {
+    if (kLog3dsMessages && ConsolePanel::Instance()) {
         if (ok) {
             wxString msg = wxString::Format("3DS: %s -> v=%zu i=%zu",
                                            wxString::FromUTF8(path),
