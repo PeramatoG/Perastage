@@ -34,11 +34,66 @@
 
 #include "viewer2dpanel.h"
 #include "configmanager.h"
+#include "viewer2d/canvas2d.h"
 #include <algorithm>
 #include <cmath>
+#include <vector>
 
 // Pixels per meter at default zoom level.
 static constexpr float PIXELS_PER_METER = 25.0f;
+
+namespace {
+CanvasStroke MakeGridStroke(float r, float g, float b) {
+  CanvasStroke stroke;
+  stroke.color = {r, g, b, 1.0f};
+  stroke.width = 1.0f;
+  return stroke;
+}
+
+// Emit grid primitives to a canvas so the command buffer records the same
+// visual information shown by the OpenGL renderer. Coordinates are expressed in
+// the 2D world space after the camera orientation has been applied.
+void EmitGrid(ICanvas2D &canvas, int style, Viewer2DView view, float r, float g,
+              float b) {
+  const float size = 20.0f;
+  const float step = 1.0f;
+  auto stroke = MakeGridStroke(r, g, b);
+
+  if (style == 0) {
+    for (float i = -size; i <= size; i += step) {
+      switch (view) {
+      case Viewer2DView::Top:
+        canvas.DrawLine(i, -size, i, size, stroke);
+        canvas.DrawLine(-size, i, size, i, stroke);
+        break;
+      case Viewer2DView::Front:
+        canvas.DrawLine(i, -size, i, size, stroke);
+        canvas.DrawLine(-size, i, size, i, stroke);
+        break;
+      case Viewer2DView::Side:
+        canvas.DrawLine(i, -size, i, size, stroke);
+        canvas.DrawLine(-size, i, size, i, stroke);
+        break;
+      }
+    }
+  } else if (style == 1) {
+    for (float x = -size; x <= size; x += step) {
+      for (float y = -size; y <= size; y += step) {
+        std::vector<float> pt = {x, y};
+        canvas.DrawCircle(pt[0], pt[1], 0.05f, stroke, nullptr);
+      }
+    }
+  } else {
+    float half = step * 0.1f;
+    for (float x = -size; x <= size; x += step) {
+      for (float y = -size; y <= size; y += step) {
+        canvas.DrawLine(x - half, y, x + half, y, stroke);
+        canvas.DrawLine(x, y - half, x, y + half, stroke);
+      }
+    }
+  }
+}
+} // namespace
 
 namespace {
 Viewer2DPanel *g_instance = nullptr;
@@ -110,6 +165,8 @@ void Viewer2DPanel::SaveViewToConfig() const {
   cfg.SetFloat("view2d_view", static_cast<float>(m_view));
 }
 
+void Viewer2DPanel::RequestFrameCapture() { m_captureNextFrame = true; }
+
 void Viewer2DPanel::InitGL() {
   SetCurrent(*m_glContext);
   if (!m_glInitialized) {
@@ -160,6 +217,23 @@ void Viewer2DPanel::Render() {
   float gridG = cfg.GetFloat("grid_color_g");
   float gridB = cfg.GetFloat("grid_color_b");
   bool drawAbove = cfg.GetFloat("grid_draw_above") != 0.0f;
+
+  // Optional capture path: record grid information so future exporters can
+  // rebuild it without affecting on-screen rendering.
+  if (m_captureNextFrame) {
+    m_lastCapturedFrame.Clear();
+    auto recordingCanvas = CreateRecordingCanvas(m_lastCapturedFrame);
+    CanvasTransform transform{};
+    transform.scale = 1.0f;
+    transform.offsetX = -offX;
+    transform.offsetY = -offY;
+    recordingCanvas->BeginFrame();
+    recordingCanvas->SetTransform(transform);
+    if (showGrid)
+      EmitGrid(*recordingCanvas, gridStyle, m_view, gridR, gridG, gridB);
+    recordingCanvas->EndFrame();
+    m_captureNextFrame = false;
+  }
 
   m_controller.RenderScene(true, m_renderMode, m_view, showGrid, gridStyle,
                            gridR, gridG, gridB, drawAbove);
