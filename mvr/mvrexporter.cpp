@@ -220,10 +220,12 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
       return;
 
     auto it = positions.find(positionId);
-    if (it == positions.end())
+    if (it == positions.end()) {
       positions[positionId] = nameHint;
-    else if (it->second.empty() && !nameHint.empty())
+    } else if (!nameHint.empty() && it->second != nameHint) {
+      // Refresh the stored name so Hang Position edits are preserved on export.
       it->second = nameHint;
+    }
   };
 
   for (const auto &[uid, fixture] : scene.fixtures)
@@ -335,7 +337,16 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     addStr("GDTFMode", f.gdtfMode);
     addStr("Focus", f.focus);
     addStr("Function", f.function);
-    addStr("Position", f.position);
+    if (!f.position.empty()) {
+      addStr("Position", f.position);
+    } else if (!f.positionName.empty()) {
+      for (const auto &[puuid, pname] : positions) {
+        if (pname == f.positionName) {
+          addStr("Position", puuid);
+          break;
+        }
+      }
+    }
 
     addNum("PowerConsumption", f.powerConsumptionW, "W");
     addNum("Weight", f.weightKg, "kg");
