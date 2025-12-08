@@ -452,8 +452,8 @@ void MainWindow::CreateMenuBar() {
   viewMenu->AppendCheckItem(ID_View_ToggleSummary, "Summary");
 
   wxMenu *layoutMenu = new wxMenu();
-  layoutMenu->Append(ID_View_Layout_Default, "Default");
-  layoutMenu->Append(ID_View_Layout_2D, "2D");
+  layoutMenu->Append(ID_View_Layout_Default, "3D Layout");
+  layoutMenu->Append(ID_View_Layout_2D, "2D Layout");
   viewMenu->AppendSubMenu(layoutMenu, "Layout");
 
   menuBar->Append(viewMenu, "&View");
