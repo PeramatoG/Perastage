@@ -504,36 +504,56 @@ void Viewer3DController::Update() {
     }
   }
 
+  std::vector<std::pair<std::string, std::string>> gdtfErrors;
+
   const auto &fixtures = SceneDataManager::Instance().GetFixtures();
   for (const auto &[uuid, f] : fixtures) {
     if (f.gdtfSpec.empty())
       continue;
     std::string gdtfPath = ResolveGdtfPath(base, f.gdtfSpec);
     if (gdtfPath.empty()) {
-      if (ConsolePanel::Instance()) {
-        wxString msg = wxString::Format("GDTF file not found: %s",
-                                        wxString::FromUTF8(f.gdtfSpec));
-        ConsolePanel::Instance()->AppendMessage(msg);
-      }
+      gdtfErrors.emplace_back(f.gdtfSpec, "GDTF file not found");
       continue;
     }
-    if (m_failedGdtfReasons.find(gdtfPath) != m_failedGdtfReasons.end())
+    auto failedIt = m_failedGdtfReasons.find(gdtfPath);
+    if (failedIt != m_failedGdtfReasons.end()) {
+      gdtfErrors.emplace_back(gdtfPath, failedIt->second);
       continue;
+    }
     if (m_loadedGdtf.find(gdtfPath) == m_loadedGdtf.end()) {
       std::vector<GdtfObject> objs;
-      if (LoadGdtf(gdtfPath, objs)) {
+      std::string gdtfError;
+      if (LoadGdtf(gdtfPath, objs, &gdtfError)) {
         m_loadedGdtf[gdtfPath] = std::move(objs);
       } else {
-        std::string reason = "Failed to load GDTF";
-        if (ConsolePanel::Instance()) {
-          wxString msg = wxString::Format("Failed to load GDTF: %s",
-                                          wxString::FromUTF8(gdtfPath));
-          ConsolePanel::Instance()->AppendMessage(msg);
-          auto utf8 = msg.ToUTF8();
-          reason.assign(utf8.data(), utf8.length());
-        }
+        std::string reason = gdtfError.empty() ? "Failed to load GDTF"
+                                               : gdtfError;
         m_failedGdtfReasons[gdtfPath] = std::move(reason);
+        gdtfErrors.emplace_back(gdtfPath, m_failedGdtfReasons[gdtfPath]);
       }
+    }
+  }
+
+  if (!gdtfErrors.empty() && ConsolePanel::Instance()) {
+    std::unordered_map<std::string, std::pair<std::string, size_t>> summaries;
+    for (const auto &entry : gdtfErrors) {
+      auto &summary = summaries[entry.first];
+      if (summary.first.empty())
+        summary.first = entry.second;
+      ++summary.second;
+    }
+
+    for (const auto &[path, info] : summaries) {
+      wxString reason = wxString::FromUTF8(info.first);
+      wxString gdtfPath = wxString::FromUTF8(path);
+      wxString msg;
+      if (info.second > 1) {
+        msg = wxString::Format("Failed to load GDTF %s (%zu fixtures): %s",
+                               gdtfPath, info.second, reason);
+      } else {
+        msg = wxString::Format("Failed to load GDTF %s: %s", gdtfPath, reason);
+      }
+      ConsolePanel::Instance()->AppendMessage(msg);
     }
   }
 

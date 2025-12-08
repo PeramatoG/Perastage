@@ -45,7 +45,9 @@ struct GdtfChannelInfo {
 };
 
 // Loads the models defined in a GDTF file. Returns true on success.
-bool LoadGdtf(const std::string& gdtfPath, std::vector<GdtfObject>& outObjects);
+bool LoadGdtf(const std::string& gdtfPath,
+              std::vector<GdtfObject>& outObjects,
+              std::string* outError = nullptr);
 
 // Returns the number of DMX addresses used by the given mode in a GDTF file.
 // Channels using more than one byte contribute multiple addresses to this
