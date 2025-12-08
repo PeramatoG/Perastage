@@ -195,6 +195,10 @@ private:
   // Cache of failed GDTF loads with their failure reason, indexed by absolute
   // file path
   std::unordered_map<std::string, std::string> m_failedGdtfReasons;
+  // Tracks the last reported fixture counts per failed GDTF path to avoid
+  // repeating identical console messages every update
+  std::unordered_map<std::string, size_t> m_reportedGdtfFailureCounts;
+  std::unordered_map<std::string, std::string> m_reportedGdtfFailureReasons;
   std::string m_lastSceneBasePath;
 
   struct BoundingBox {

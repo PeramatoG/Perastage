@@ -444,6 +444,8 @@ void Viewer3DController::Update() {
   if (m_lastSceneBasePath != base) {
     m_loadedGdtf.clear();
     m_failedGdtfReasons.clear();
+    m_reportedGdtfFailureCounts.clear();
+    m_reportedGdtfFailureReasons.clear();
     m_lastSceneBasePath = base;
   }
 
@@ -504,7 +506,8 @@ void Viewer3DController::Update() {
     }
   }
 
-  std::vector<std::pair<std::string, std::string>> gdtfErrors;
+  std::unordered_map<std::string, size_t> gdtfErrorCounts;
+  std::unordered_map<std::string, std::string> gdtfErrorReasons;
 
   const auto &fixtures = SceneDataManager::Instance().GetFixtures();
   for (const auto &[uuid, f] : fixtures) {
@@ -512,12 +515,14 @@ void Viewer3DController::Update() {
       continue;
     std::string gdtfPath = ResolveGdtfPath(base, f.gdtfSpec);
     if (gdtfPath.empty()) {
-      gdtfErrors.emplace_back(f.gdtfSpec, "GDTF file not found");
+      ++gdtfErrorCounts[f.gdtfSpec];
+      gdtfErrorReasons[f.gdtfSpec] = "GDTF file not found";
       continue;
     }
     auto failedIt = m_failedGdtfReasons.find(gdtfPath);
     if (failedIt != m_failedGdtfReasons.end()) {
-      gdtfErrors.emplace_back(gdtfPath, failedIt->second);
+      ++gdtfErrorCounts[gdtfPath];
+      gdtfErrorReasons[gdtfPath] = failedIt->second;
       continue;
     }
     if (m_loadedGdtf.find(gdtfPath) == m_loadedGdtf.end()) {
@@ -529,31 +534,39 @@ void Viewer3DController::Update() {
         std::string reason = gdtfError.empty() ? "Failed to load GDTF"
                                                : gdtfError;
         m_failedGdtfReasons[gdtfPath] = std::move(reason);
-        gdtfErrors.emplace_back(gdtfPath, m_failedGdtfReasons[gdtfPath]);
+        ++gdtfErrorCounts[gdtfPath];
+        gdtfErrorReasons[gdtfPath] = m_failedGdtfReasons[gdtfPath];
       }
     }
   }
 
-  if (!gdtfErrors.empty() && ConsolePanel::Instance()) {
-    std::unordered_map<std::string, std::pair<std::string, size_t>> summaries;
-    for (const auto &entry : gdtfErrors) {
-      auto &summary = summaries[entry.first];
-      if (summary.first.empty())
-        summary.first = entry.second;
-      ++summary.second;
-    }
+  if (!gdtfErrorCounts.empty() && ConsolePanel::Instance()) {
+    for (const auto &[path, count] : gdtfErrorCounts) {
+      auto reasonIt = gdtfErrorReasons.find(path);
+      const std::string &reasonStr =
+          reasonIt != gdtfErrorReasons.end() ? reasonIt->second : "Unknown";
 
-    for (const auto &[path, info] : summaries) {
-      wxString reason = wxString::FromUTF8(info.first);
+      auto prevCountIt = m_reportedGdtfFailureCounts.find(path);
+      auto prevReasonIt = m_reportedGdtfFailureReasons.find(path);
+      bool sameCount = prevCountIt != m_reportedGdtfFailureCounts.end() &&
+                       prevCountIt->second == count;
+      bool sameReason = prevReasonIt != m_reportedGdtfFailureReasons.end() &&
+                        prevReasonIt->second == reasonStr;
+      if (sameCount && sameReason)
+        continue;
+
+      wxString reason = wxString::FromUTF8(reasonStr);
       wxString gdtfPath = wxString::FromUTF8(path);
       wxString msg;
-      if (info.second > 1) {
+      if (count > 1) {
         msg = wxString::Format("Failed to load GDTF %s (%zu fixtures): %s",
-                               gdtfPath, info.second, reason);
+                               gdtfPath, count, reason);
       } else {
         msg = wxString::Format("Failed to load GDTF %s: %s", gdtfPath, reason);
       }
       ConsolePanel::Instance()->AppendMessage(msg);
+      m_reportedGdtfFailureCounts[path] = count;
+      m_reportedGdtfFailureReasons[path] = reasonStr;
     }
   }
 
