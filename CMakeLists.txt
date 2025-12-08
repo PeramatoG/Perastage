@@ -17,7 +17,7 @@ find_package(nanovg CONFIG REQUIRED)
 find_package(podofo CONFIG REQUIRED)
 
 # Gather source files
-file(GLOB_RECURSE SRC_FILES
+file(GLOB_RECURSE SRC_FILES CONFIGURE_DEPENDS
     ${CMAKE_SOURCE_DIR}/main.cpp
     ${CMAKE_SOURCE_DIR}/gui/*.cpp
     ${CMAKE_SOURCE_DIR}/models/*.cpp
@@ -29,6 +29,7 @@ file(GLOB_RECURSE SRC_FILES
 
 # Explicitly ensure markdown conversion source is included
 list(APPEND SRC_FILES ${CMAKE_SOURCE_DIR}/core/markdown.cpp)
+list(APPEND SRC_FILES ${CMAKE_SOURCE_DIR}/core/uuidutils.cpp)
 
 # On Windows, include application icon resources
 if (WIN32)
