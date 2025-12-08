@@ -479,37 +479,38 @@ void MainWindow::CreateMenuBar() {
   SetMenuBar(menuBar);
 }
 
-void MainWindow::OnNew(wxCommandEvent &WXUNUSED(event)) {
-  if (ConfigManager::Get().IsDirty()) {
-    wxMessageDialog dlg(
-        this, "Do you want to save changes before creating a new project?",
-        "New Project", wxYES_NO | wxCANCEL | wxICON_QUESTION);
+bool MainWindow::ConfirmSaveIfDirty(const wxString &actionLabel,
+                                    const wxString &dialogTitle) {
+  if (!ConfigManager::Get().IsDirty())
+    return true;
 
-    int res = dlg.ShowModal();
-    if (res == wxID_YES) {
-      wxCommandEvent saveEvt;
-      OnSave(saveEvt);
-    } else if (res == wxID_CANCEL) {
-      return;
-    }
+  wxMessageDialog dlg(
+      this,
+      wxString::Format("Do you want to save changes before %s?", actionLabel),
+      dialogTitle, wxYES_NO | wxCANCEL | wxICON_QUESTION);
+
+  int res = dlg.ShowModal();
+  if (res == wxID_YES) {
+    wxCommandEvent saveEvt;
+    OnSave(saveEvt);
+    return !ConfigManager::Get().IsDirty();
   }
+  if (res == wxID_CANCEL)
+    return false;
+
+  return true;
+}
+
+void MainWindow::OnNew(wxCommandEvent &WXUNUSED(event)) {
+  if (!ConfirmSaveIfDirty("creating a new project", "New Project"))
+    return;
 
   ResetProject();
 }
 
 void MainWindow::OnLoad(wxCommandEvent &event) {
-  if (ConfigManager::Get().IsDirty()) {
-    wxMessageDialog dlg(
-        this, "Do you want to save changes before loading a project?",
-        "Open Project", wxYES_NO | wxCANCEL | wxICON_QUESTION);
-    int res = dlg.ShowModal();
-    if (res == wxID_YES) {
-      wxCommandEvent saveEvt;
-      OnSave(saveEvt);
-    } else if (res == wxID_CANCEL) {
-      return;
-    }
-  }
+  if (!ConfirmSaveIfDirty("loading a project", "Open Project"))
+    return;
 
   wxString filter = wxString::Format("Perastage files (*%s)|*%s",
                                      ProjectUtils::PROJECT_EXTENSION,
@@ -1253,18 +1254,9 @@ void MainWindow::OnClose(wxCommandEvent &event) {
 void MainWindow::OnCloseWindow(wxCloseEvent &event) {
   SaveCameraSettings();
   ConfigManager::Get().SaveUserConfig();
-  if (ConfigManager::Get().IsDirty()) {
-    wxMessageDialog dlg(this, "Do you want to save changes before exiting?",
-                        "Exit", wxYES_NO | wxCANCEL | wxICON_QUESTION);
-
-    int res = dlg.ShowModal();
-    if (res == wxID_YES) {
-      wxCommandEvent saveEvt;
-      OnSave(saveEvt);
-    } else if (res == wxID_CANCEL) {
-      event.Veto();
-      return;
-    }
+  if (!ConfirmSaveIfDirty("exiting", "Exit")) {
+    event.Veto();
+    return;
   }
 
   if (viewportPanel)
@@ -1426,12 +1418,14 @@ bool MainWindow::LoadProjectFromPath(const std::string &path) {
     viewport2DRenderPanel->ApplyConfig();
   if (layerPanel)
     layerPanel->ReloadLayers();
+  ConfigManager::Get().MarkSaved();
   UpdateTitle();
   return true;
 }
 
 void MainWindow::ResetProject() {
   ConfigManager::Get().Reset();
+  ConfigManager::Get().MarkSaved();
   currentProjectPath.clear();
   if (fixturePanel)
     fixturePanel->ReloadData();
@@ -1585,6 +1579,7 @@ void MainWindow::OnProjectLoaded(wxCommandEvent &event) {
       viewport2DRenderPanel->ApplyConfig();
     if (layerPanel)
       layerPanel->ReloadLayers();
+    ConfigManager::Get().MarkSaved();
     UpdateTitle();
   } else {
     ResetProject();

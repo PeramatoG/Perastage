@@ -123,6 +123,8 @@ private:
   void ApplySavedLayout();
   void UpdateViewMenuChecks();
   void SyncSceneData();
+  bool ConfirmSaveIfDirty(const wxString &actionLabel,
+                          const wxString &dialogTitle);
   std::string defaultLayoutPerspective;
   std::string default2DLayoutPerspective;
 
