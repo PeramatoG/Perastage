@@ -41,6 +41,9 @@ public:
     Viewer3DPanel(wxWindow* parent);
     ~Viewer3DPanel();
 
+    // Stop the refresh thread. Safe to call multiple times.
+    void StopRefreshThread();
+
     // Loads camera parameters from ConfigManager (delayed initialization)
     void LoadCameraFromConfig();
 
