@@ -106,6 +106,9 @@ void RiggingPanel::RefreshData() {
       entry.hasZeroWeightTruss = true;
   }
 
+  // Ensure both the view and the custom store start from a clean state so
+  // text colours get recalculated on every refresh.
+  store->DeleteAllItems();
   table->DeleteAllItems();
   for (const auto &[position, totals] : rows) {
     float totalWeight = totals.fixtureWeight + totals.trussWeight;
@@ -141,4 +144,9 @@ void RiggingPanel::RefreshData() {
   }
 
   AutoSizeColumns(table);
+
+  // Force a repaint so colour changes are visible immediately after the
+  // refresh is triggered (e.g. after loading/importing data or editing
+  // weights in the tables).
+  table->Refresh();
 }
