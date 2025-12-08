@@ -192,6 +192,10 @@ private:
 
   // Cache of loaded GDTF models indexed by absolute file path
   std::unordered_map<std::string, std::vector<GdtfObject>> m_loadedGdtf;
+  // Cache of failed GDTF loads with their failure reason, indexed by absolute
+  // file path
+  std::unordered_map<std::string, std::string> m_failedGdtfReasons;
+  std::string m_lastSceneBasePath;
 
   struct BoundingBox {
     std::array<float, 3> min;
