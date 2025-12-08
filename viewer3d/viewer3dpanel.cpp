@@ -74,10 +74,16 @@ Viewer3DPanel::~Viewer3DPanel()
 {
     if (HasCapture())
         ReleaseMouse();
+    StopRefreshThread();
+    delete m_glContext;
+    SetInstance(nullptr);
+}
+
+void Viewer3DPanel::StopRefreshThread()
+{
     m_threadRunning = false;
     if (m_refreshThread.joinable())
         m_refreshThread.join();
-    delete m_glContext;
 }
 
 // Initializes OpenGL basic settings
