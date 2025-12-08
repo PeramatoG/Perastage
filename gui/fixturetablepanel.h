@@ -48,7 +48,7 @@ public:
 private:
     friend class FixtureEditDialog; // allow dialog to access internals
 
-    ColorfulDataViewListStore store;
+    ColorfulDataViewListStore* store;
     wxDataViewListCtrl* table;
     std::vector<wxString> columnLabels;
     std::vector<wxString> gdtfPaths; // Stores full GDTF paths per row
