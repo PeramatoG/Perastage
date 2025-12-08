@@ -41,10 +41,12 @@ namespace fs = std::filesystem;
 TrussTablePanel::TrussTablePanel(wxWindow* parent)
     : wxPanel(parent, wxID_ANY)
 {
+    store = new ColorfulDataViewListStore();
     wxBoxSizer* sizer = new wxBoxSizer(wxVERTICAL);
     table = new wxDataViewListCtrl(this, wxID_ANY, wxDefaultPosition,
                                    wxDefaultSize, wxDV_MULTIPLE | wxDV_ROW_LINES);
-    table->AssociateModel(&store);
+    table->AssociateModel(store);
+    store->DecRef();
 
     table->SetAlternateRowColour(wxColour(40, 40, 40));
 
@@ -70,6 +72,7 @@ TrussTablePanel::TrussTablePanel(wxWindow* parent)
 
 TrussTablePanel::~TrussTablePanel()
 {
+    store = nullptr;
 }
 
 void TrussTablePanel::InitializeTable()
@@ -182,7 +185,7 @@ void TrussTablePanel::ReloadData()
         row.push_back(hei);
         row.push_back(weight);
 
-        store.AppendItem(row, rowUuids.size());
+        store->AppendItem(row, rowUuids.size());
         rowUuids.push_back(uuid);
     }
 
@@ -742,9 +745,9 @@ void TrussTablePanel::HighlightTruss(const std::string& uuid)
     for (size_t i = 0; i < rowUuids.size(); ++i)
     {
         if (!uuid.empty() && rowUuids[i] == uuid)
-            store.SetRowBackgroundColour(i, wxColour(0, 200, 0));
+            store->SetRowBackgroundColour(i, wxColour(0, 200, 0));
         else
-            store.ClearRowBackground(i);
+            store->ClearRowBackground(i);
     }
     table->Refresh();
 }
@@ -832,7 +835,7 @@ void TrussTablePanel::ResyncRows(const std::vector<std::string>& oldOrder,
     for (unsigned int i = 0; i < count; ++i)
     {
         wxDataViewItem it = table->RowToItem(i);
-        unsigned long idx = store.GetItemData(it);
+        unsigned long idx = store->GetItemData(it);
         if (idx < oldOrder.size()) {
             newOrder[i] = oldOrder[idx];
             if (idx < modelPaths.size())
@@ -840,7 +843,7 @@ void TrussTablePanel::ResyncRows(const std::vector<std::string>& oldOrder,
             if (idx < symbolPaths.size())
                 newSymPaths[i] = symbolPaths[idx];
         }
-        store.SetItemData(it, i);
+        store->SetItemData(it, i);
     }
     rowUuids.swap(newOrder);
     modelPaths.swap(newPaths);

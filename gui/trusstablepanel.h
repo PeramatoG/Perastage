@@ -44,7 +44,7 @@ public:
     void UpdateSceneData();
 
 private:
-    ColorfulDataViewListStore store;
+    ColorfulDataViewListStore* store;
     wxDataViewListCtrl* table;
     std::vector<wxString> columnLabels;
     std::vector<std::string> rowUuids;

@@ -46,10 +46,12 @@ namespace fs = std::filesystem;
 
 FixtureTablePanel::FixtureTablePanel(wxWindow *parent)
     : wxPanel(parent, wxID_ANY) {
+  store = new ColorfulDataViewListStore();
   wxBoxSizer *sizer = new wxBoxSizer(wxVERTICAL);
   table = new wxDataViewListCtrl(this, wxID_ANY, wxDefaultPosition,
                                  wxDefaultSize, wxDV_MULTIPLE | wxDV_ROW_LINES);
-  table->AssociateModel(&store);
+  table->AssociateModel(store);
+  store->DecRef();
 
   table->SetAlternateRowColour(wxColour(40, 40, 40));
 
@@ -76,6 +78,7 @@ FixtureTablePanel::FixtureTablePanel(wxWindow *parent)
 }
 
 FixtureTablePanel::~FixtureTablePanel() {
+  store = nullptr;
 }
 
 void FixtureTablePanel::InitializeTable() {
@@ -278,7 +281,7 @@ void FixtureTablePanel::ReloadData() {
       row.push_back(var);
     }
 
-    store.AppendItem(row, rowUuids.size());
+    store->AppendItem(row, rowUuids.size());
     rowUuids.push_back(uuid);
   }
 
@@ -819,9 +822,9 @@ bool FixtureTablePanel::IsActivePage() const {
 void FixtureTablePanel::HighlightFixture(const std::string &uuid) {
   for (size_t i = 0; i < rowUuids.size(); ++i) {
     if (!uuid.empty() && rowUuids[i] == uuid)
-      store.SetRowBackgroundColour(i, wxColour(0, 200, 0));
+      store->SetRowBackgroundColour(i, wxColour(0, 200, 0));
     else
-      store.ClearRowBackground(i);
+      store->ClearRowBackground(i);
   }
   table->Refresh();
 }
@@ -829,8 +832,8 @@ void FixtureTablePanel::HighlightFixture(const std::string &uuid) {
 void FixtureTablePanel::HighlightPatchConflicts() {
   // Clear previous highlighting on Universe and Channel columns
   for (unsigned i = 0; i < table->GetItemCount(); ++i) {
-    store.ClearCellTextColour(i, 5);
-    store.ClearCellTextColour(i, 6);
+    store->ClearCellTextColour(i, 5);
+    store->ClearCellTextColour(i, 6);
   }
 
   struct PatchInfo {
@@ -867,10 +870,10 @@ void FixtureTablePanel::HighlightPatchConflicts() {
     for (size_t i = 0; i < vec.size(); ++i) {
       for (size_t j = i + 1; j < vec.size(); ++j) {
         if (vec[j].start <= vec[i].end) {
-          store.SetCellTextColour(vec[i].row, 5, *wxRED);
-          store.SetCellTextColour(vec[i].row, 6, *wxRED);
-          store.SetCellTextColour(vec[j].row, 5, *wxRED);
-          store.SetCellTextColour(vec[j].row, 6, *wxRED);
+          store->SetCellTextColour(vec[i].row, 5, *wxRED);
+          store->SetCellTextColour(vec[i].row, 6, *wxRED);
+          store->SetCellTextColour(vec[j].row, 5, *wxRED);
+          store->SetCellTextColour(vec[j].row, 6, *wxRED);
         } else {
           break;
         }
@@ -1314,8 +1317,8 @@ void FixtureTablePanel::ApplyModeForGdtf(const wxString &path,
 void FixtureTablePanel::HighlightDuplicateFixtureIds() {
   // Clear existing text colour highlights
   for (unsigned i = 0; i < table->GetItemCount(); ++i) {
-    store.ClearRowTextColour(i);
-    store.ClearCellTextColour(i, 0); // Fixture ID column
+    store->ClearRowTextColour(i);
+    store->ClearCellTextColour(i, 0); // Fixture ID column
   }
 
   std::unordered_map<long, std::vector<unsigned>> idRows;
@@ -1329,7 +1332,7 @@ void FixtureTablePanel::HighlightDuplicateFixtureIds() {
   for (const auto &it : idRows) {
     if (it.second.size() > 1) {
       for (unsigned r : it.second)
-        store.SetCellTextColour(r, 0, *wxRED);
+        store->SetCellTextColour(r, 0, *wxRED);
     }
   }
 
@@ -1345,13 +1348,13 @@ void FixtureTablePanel::ResyncRows(
   std::vector<wxString> newPaths(count);
   for (unsigned int i = 0; i < count; ++i) {
     wxDataViewItem it = table->RowToItem(i);
-    unsigned long idx = store.GetItemData(it);
+    unsigned long idx = store->GetItemData(it);
     if (idx < oldOrder.size()) {
       newOrder[i] = oldOrder[idx];
       if (idx < gdtfPaths.size())
         newPaths[i] = gdtfPaths[idx];
     }
-    store.SetItemData(it, i);
+    store->SetItemData(it, i);
   }
   rowUuids.swap(newOrder);
   gdtfPaths.swap(newPaths);

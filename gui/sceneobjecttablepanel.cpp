@@ -32,10 +32,12 @@ static SceneObjectTablePanel* s_instance = nullptr;
 SceneObjectTablePanel::SceneObjectTablePanel(wxWindow* parent)
     : wxPanel(parent, wxID_ANY)
 {
+    store = new ColorfulDataViewListStore();
     wxBoxSizer* sizer = new wxBoxSizer(wxVERTICAL);
     table = new wxDataViewListCtrl(this, wxID_ANY, wxDefaultPosition,
                                    wxDefaultSize, wxDV_MULTIPLE | wxDV_ROW_LINES);
-    table->AssociateModel(&store);
+    table->AssociateModel(store);
+    store->DecRef();
 
     table->SetAlternateRowColour(wxColour(40, 40, 40));
 
@@ -61,6 +63,7 @@ SceneObjectTablePanel::SceneObjectTablePanel(wxWindow* parent)
 
 SceneObjectTablePanel::~SceneObjectTablePanel()
 {
+    store = nullptr;
 }
 
 void SceneObjectTablePanel::InitializeTable()
@@ -123,7 +126,7 @@ void SceneObjectTablePanel::ReloadData()
         row.push_back(pitch);
         row.push_back(yaw);
 
-        store.AppendItem(row, rowUuids.size());
+        store->AppendItem(row, rowUuids.size());
         rowUuids.push_back(uuid);
     }
 
@@ -452,9 +455,9 @@ void SceneObjectTablePanel::HighlightObject(const std::string& uuid)
     for (size_t i = 0; i < rowUuids.size(); ++i)
     {
         if (!uuid.empty() && rowUuids[i] == uuid)
-            store.SetRowBackgroundColour(i, wxColour(0, 200, 0));
+            store->SetRowBackgroundColour(i, wxColour(0, 200, 0));
         else
-            store.ClearRowBackground(i);
+            store->ClearRowBackground(i);
     }
     table->Refresh();
 }
@@ -536,10 +539,10 @@ void SceneObjectTablePanel::ResyncRows(const std::vector<std::string>& oldOrder,
     for (unsigned int i = 0; i < count; ++i)
     {
         wxDataViewItem it = table->RowToItem(i);
-        unsigned long idx = store.GetItemData(it);
+        unsigned long idx = store->GetItemData(it);
         if (idx < oldOrder.size())
             newOrder[i] = oldOrder[idx];
-        store.SetItemData(it, i);
+        store->SetItemData(it, i);
     }
     rowUuids.swap(newOrder);
 
