@@ -16,14 +16,51 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "projectutils.h"
-#include <wx/stdpaths.h>
-#include <wx/filename.h>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <wx/filename.h>
+#include <wx/stdpaths.h>
 
 namespace fs = std::filesystem;
 
 namespace ProjectUtils {
+
+namespace {
+
+void CopyLibrarySubdir(const fs::path& source, const fs::path& destination)
+{
+    std::error_code ec;
+    bool destinationExists = fs::exists(destination, ec);
+    ec.clear();
+    bool destinationEmpty = destinationExists ? fs::is_empty(destination, ec) : true;
+
+    if (!destinationExists)
+        fs::create_directories(destination, ec);
+
+    if ((destinationEmpty || !destinationExists) && fs::exists(source)) {
+        ec.clear();
+        fs::copy(source, destination,
+                 fs::copy_options::recursive | fs::copy_options::update_existing, ec);
+    }
+}
+
+} // namespace
+
+fs::path GetBaseLibraryPath(const std::string& subdir)
+{
+    wxFileName exe(wxStandardPaths::Get().GetExecutablePath());
+    fs::path exeBase = fs::path(exe.GetPath().ToStdString());
+    fs::path baseLib = exeBase / "library" / subdir;
+
+    if (!fs::exists(baseLib)) {
+        fs::path cwdLib = fs::current_path() / "library" / subdir;
+        if (fs::exists(cwdLib))
+            baseLib = cwdLib;
+    }
+
+    return baseLib;
+}
 
 std::string GetLastProjectPathFile()
 {
@@ -57,29 +94,36 @@ std::optional<std::string> LoadLastProjectPath()
 
 std::string GetDefaultLibraryPath(const std::string& subdir)
 {
-    // Prefer the library alongside the executable, regardless of where the
-    // project lives on disk.
-    wxFileName exe(wxStandardPaths::Get().GetExecutablePath());
-    fs::path exeBase = fs::path(exe.GetPath().ToStdString());
-    fs::path exeLib = exeBase / "library" / subdir;
-    if (fs::exists(exeLib))
-        return exeLib.string();
+    if (const char* envPath = std::getenv("PERASTAGE_LIBRARY_PATH")) {
+        if (*envPath != '\0') {
+            fs::path envBase = fs::u8path(envPath) / subdir;
+            std::error_code ec;
+            fs::create_directories(envBase, ec);
+            if (!ec)
+                return fs::absolute(envBase).string();
+        }
+    }
 
-    // When running from the build tree, the current working directory may
-    // still contain the checked-out resources. Fall back to that before
-    // creating any folders.
-    fs::path cwdLib = fs::current_path() / "library" / subdir;
-    if (fs::exists(cwdLib))
-        return cwdLib.string();
+#ifdef NDEBUG
+    fs::path baseLib = GetBaseLibraryPath(subdir);
+    fs::path userLib = fs::path(wxStandardPaths::Get().GetUserDataDir().ToStdString()) /
+                      "library" / subdir;
 
-    // As a last resort, create the directory next to the executable so
-    // callers still receive a usable absolute path.
+    CopyLibrarySubdir(baseLib, userLib);
+
+    return userLib.string();
+#else
+    fs::path baseLib = GetBaseLibraryPath(subdir);
+    if (fs::exists(baseLib))
+        return baseLib.string();
+
     std::error_code ec;
-    fs::create_directories(exeLib, ec);
+    fs::create_directories(baseLib, ec);
     if (!ec)
-        return exeLib.string();
+        return baseLib.string();
 
     return {};
+#endif
 }
 
 } // namespace ProjectUtils
