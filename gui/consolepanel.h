@@ -38,6 +38,9 @@ private:
     wxTextCtrl* m_textCtrl = nullptr;
     wxTextCtrl* m_inputCtrl = nullptr;
     bool m_autoScroll = true;
+    wxString m_lastMessage;
+    size_t m_repeatCount = 0;
+    long m_lastLineStart = 0;
     std::vector<wxString> m_history;
     size_t m_historyIndex = 0;
     void OnScroll(wxScrollWinEvent& event);

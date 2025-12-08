@@ -62,7 +62,21 @@ ConsolePanel::ConsolePanel(wxWindow *parent) : wxPanel(parent, wxID_ANY) {
 void ConsolePanel::AppendMessage(const wxString &msg) {
   if (!m_textCtrl)
     return;
-  m_textCtrl->AppendText(msg + "\n");
+
+  if (msg == m_lastMessage) {
+    m_repeatCount++;
+    wxString combined = wxString::Format("%s (repeated %zu times)", msg,
+                                        m_repeatCount);
+    long endPos = m_textCtrl->GetLastPosition();
+    if (m_lastLineStart < endPos)
+      m_textCtrl->Remove(m_lastLineStart, endPos);
+    m_textCtrl->AppendText(combined + "\n");
+  } else {
+    m_lastMessage = msg;
+    m_repeatCount = 1;
+    m_lastLineStart = m_textCtrl->GetLastPosition();
+    m_textCtrl->AppendText(msg + "\n");
+  }
   if (m_autoScroll)
     m_textCtrl->ShowPosition(m_textCtrl->GetLastPosition());
 }
