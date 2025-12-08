@@ -1,116 +1,78 @@
-# Perastage
+# Perastage – MVR/GDTF Scene Viewer and Rider Importer
 
-Perastage is a cross-platform viewer for **MVR** (My Virtual Rig) scenes based on
-the [GDTF](docs/gdtf-spec.md) standard. It lets you inspect fixtures, trusses and
-other objects in a 3D viewport and provides tabular views of all parsed elements.
-Perastage supports 3D models in **3DS** and **GLB** formats when referenced inside
-MVR or GDTF files. Hanging positions defined in MVR `<Position>` nodes are
-imported and displayed in the fixture and truss tables.
+**Perastage** is a cross‑platform viewer and editor for *My Virtual Rig (MVR)* scenes and the *General Device Type Format (GDTF)*.  It is designed for lighting designers and technicians who need to inspect, patch and export shows.  Written in modern C++20 using **wxWidgets** for the UI and **OpenGL** for rendering, the application runs on Windows, Linux and macOS and is released under the GPL v3 licence.
 
 ## Features
 
-- Import **MVR 1.6** scenes and riders in `.txt` or `.pdf` format.
-- Simultaneous **3D** and **2D** viewers with a customizable layout.
-- Fixture, Truss and Object tables with editing and patch conflict detection.
-- **Console** panel for commands and numeric editing of positions and rotations.
-- **Layer** and **summary** panels to organize and review the scene state.
-- Project management: create, load, save and export to MVR, CSV or print.
-- Tools to download GDTF fixtures, export fixtures/trusses/objects, perform
-  address **auto‑patching** and assign random colors.
+- **Import MVR 1.6 files** – load complete scenes including fixtures, trusses and generic objects.
+- **Rider import** – parse simple technical riders (plain text or PDF) to create dummy fixtures and trusses 【889267130405454†L21-L26】.
+- **3D and 2D viewers** – inspect the rig from any angle with the OpenGL‑based 3D view or switch to a top‑down 2D plan.
+- **Fixture, truss and object tables** – browse all elements of the scene in sortable, searchable lists and export them to CSV.
+- **Console panel** – view log messages, warnings and errors in a built‑in console.
+- **Layer and summary panels** – organise objects into layers and view a summary of universe usage and object counts.
+- **Auto‑patching** – automatically assign DMX universes and channels to fixtures grouped by hang position and type 【472218670938363†L21-L30】.
+- **Random colouring** – apply random colours to fixtures to aid visual distinction.
+- **Search and download GDTF fixtures** – look up fixtures in the GDTF library (requires internet access) and insert them into the scene.
+- **Project management** – create new projects, load existing ones, save your work and export to MVR or CSV.
+- **Export tools** – export selected trusses, objects or entire scenes back to MVR or as CSV lists.
+- **Integrated help** – view this document and other help files inside the application via the built‑in Markdown viewer.
 
 ## Build prerequisites
 
-* CMake **3.21** or newer
-* A C++20 compiler
-* [wxWidgets](https://www.wxwidgets.org/) with AUI and OpenGL components
-* [tinyxml2](https://github.com/leethomason/tinyxml2)
-* OpenGL development libraries
+Perastage uses CMake to manage its build.  You need a C++20‑capable compiler and the following libraries:
 
-Packages can be installed manually or via [vcpkg](https://github.com/microsoft/vcpkg).
-Setup scripts (`setup.sh` for Linux and `setup_windows.ps1` for Windows) are provided
-as examples of how to fetch the dependencies and build the project using CMake.
+- **wxWidgets** (built with the OpenGL, AUI and HTML components) – cross‑platform GUI toolkit.
+- **tinyxml2** – XML parser for reading MVR and GDTF files.
+- **OpenGL** and **GLEW** – for rendering the 3D and 2D views.
+- **libcurl** – used by the GDTF downloader.
+- **nanovg** – vector graphics library for 2D drawing.
+- **PoDoFo** – used to extract text from PDF rider files.
 
-## Building
+On Windows and Linux the easiest way to fetch and build these dependencies is to run the provided setup scripts:
 
 ```bash
-cmake -S . -B build
-cmake --build build
+# Linux/macOS
+./setup.sh
+
+# Windows (PowerShell)
+./setup_windows.ps1
 ```
 
-The commands above produce the `Perastage` executable in the `build` directory.
-Runtime assets from the `resources` folder are automatically copied next to the
-binary when building.
+These scripts use `vcpkg` or system package managers to install the necessary libraries, configure CMake and build the Perastage binary in a `build` folder.  You can also configure and build manually:
+
+```bash
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --config Release
+```
+
+The resulting executable (`Perastage` on Linux/macOS or `Perastage.exe` on Windows) will be placed in the build output directory along with `resources`, `help.md`, `LICENSE.txt` and other runtime files.
 
 ## Usage
 
-Run the executable and use **File → Import MVR** to load an `.mvr` file or
-**File → Import Rider** to parse basic fixture/truss information from `.txt` or
-`.pdf` riders (a sample PDF is included in `docs/`). The Fixtures, Trusses and
-Objects tables are filled automatically and the scene is shown in the 3D viewer.
-Additional panels—such as console, layers or summary—can be enabled from the
-**View** menu and the panel layout is saved between sessions.
+1. **Run the application** by launching the built executable.  The first time it runs it creates a preferences file in your home directory.
+2. **Import a scene** via *File → Import MVR…* to open an existing MVR 1.6 file, or use *File → Import Rider…* to parse a technical rider (plain text or PDF) and automatically create dummy fixtures and trusses.
+3. **Navigate the scene** using the 3D or 2D viewer tabs.  The 3D viewer supports orbit (left mouse), pan (middle mouse) and zoom (scroll wheel) controls.  Keyboard shortcuts like **W/A/S/D** move the camera; check the *Help → Keyboard Shortcuts* menu for details.
+4. **Inspect the scene** using the *Fixtures*, *Trusses* and *Objects* tables.  You can sort by any column, search for items, and export the current view to CSV.
+5. **Auto‑patch your fixtures** by clicking *Tools → Auto‑Patch*.  This feature groups fixtures by hang position and type, then assigns universes and channels in order to minimise patch conflicts【472218670938363†L21-L30】.
+6. **Randomise fixture colours** via *Tools → Random Colour* to improve visual differentiation.
+7. **Add or edit fixtures** through the *Add Fixture* button or by double‑clicking a row in the fixtures table.  You can choose a fixture type from the downloaded GDTF dictionary, assign positions, patch information and colour.
+8. **Export your work** using *File → Export to MVR* to save the current project as an MVR file, or *File → Export CSV* to export the tables for further processing.
+9. **Save projects** and reopen them later via *File → Save Project* and *File → Open Project*; Perastage stores project data in a portable JSON format inside the `library/projects` folder.
 
-The Fixtures table highlights patch conflicts in red when two fixtures share a
-universe and channel range. The **Tools → Auto patch** command assigns addresses
-automatically to the selected fixtures. **Tools → Auto color** applies random
-colors per fixture type and assigns light gray to layers prefixed with "truss".
-Data can be exported to MVR, CSV or printed using
-the options in the **File** menu.
+## Running the tests
 
-The **Tools → Download GDTF fixture** option downloads fixtures directly from
-[GDTF‑Share](https://gdtf-share.com) using the official API (`login.php` +
-`getList.php`). You only need to enter your username and password once; they are
-stored with the project. Downloading relies on the `curl` command-line tool.
+This repository includes a suite of Catch2 unit tests under the `tests` directory.  After configuring the build with CMake, you can run them using ctest:
 
-### Quick Example
+```bash
+cmake --build build --target tests
+cd build
+ctest
+```
 
-1. Import an `.mvr` file with **File → Import MVR**.
-2. Press **1** to display the Fixtures table and select several items.
-3. Run **Tools → Auto patch** to assign addresses.
-4. Use **Tools → Auto color** if you want colors by fixture type and light gray
-   truss layers.
-5. Export the table with **File → Export CSV** to obtain a patch list.
-6. Navigate the scene using the keyboard shortcuts described below.
+Tests cover key functionality such as auto‑patch grouping, rider import ordering and PDF text extraction.
 
-## Keyboard controls
+## Authors and license
 
-### Global
+Perastage was created by **Pablo Rodríguez** and **Luis Mariñas** with help from contributors.  The project is released under the [GNU General Public License v3.0](./LICENSE.txt).  Third‑party libraries bundled with the project are licensed under their respective licences (see `THIRD_PARTY_LICENSES.md` and the `licenses` folder).
 
-- **Ctrl+N**: new project.
-- **Ctrl+L**: load project.
-- **Ctrl+S**: save project.
-- **Ctrl+Q**: close the application.
-- **Ctrl+Z / Ctrl+Y**: undo / redo.
-- **Del**: delete selection.
-- **F1**: open help.
-- **1/2/3**: show the Fixtures, Trusses or Objects tables.
-
-### 3D viewport
-
-- **Arrow keys**: orbit around the scene.
-- **Shift + Arrow keys**: pan the view.
-- **Alt + Up/Down** (or **Alt + Left/Right**): zoom in and out.
-- **Numpad 1/3/7**: front, right and top views.
-- **Numpad 5**: reset to the default orientation.
-
-### 2D viewer
-
-- **Mouse drag**: pan the view.
-- **Mouse wheel**: zoom in and out.
-- **Arrow keys**: pan the view.
-- **Alt + Arrow keys**: zoom in and out.
-
-## License
-
-This project is licensed under the GNU General Public License v3.0 (GPL v3) – see the LICENSE.txt file for details.
-
-## Authors
-
-- Luis Manuel Peramato García (Luisma Peramato)
-
-## Third-Party Licenses
-
-Perastage uses third-party libraries under permissive licenses that are
-compatible with GPL v3. See
-[THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md) for the licenses of the
-included dependencies.
+We welcome contributions!  Feel free to open issues or pull requests on GitHub for bug reports, feature requests or improvements.
