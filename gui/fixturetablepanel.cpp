@@ -1144,6 +1144,11 @@ void FixtureTablePanel::UpdateSceneData() {
     else
       it->second.layer = layerStr;
 
+    table->GetValue(v, i, 4);
+    it->second.positionName = std::string(v.GetString().ToUTF8());
+    if (!it->second.position.empty())
+      scene.positions[it->second.position] = it->second.positionName;
+
     table->GetValue(v, i, 5);
     long uni = v.GetLong();
 
