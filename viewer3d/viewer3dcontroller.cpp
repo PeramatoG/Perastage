@@ -508,6 +508,8 @@ void Viewer3DController::Update() {
 
   std::unordered_map<std::string, size_t> gdtfErrorCounts;
   std::unordered_map<std::string, std::string> gdtfErrorReasons;
+  std::unordered_set<std::string> processedGdtfPaths;
+  std::unordered_set<std::string> missingGdtfSpecs;
 
   const auto &fixtures = SceneDataManager::Instance().GetFixtures();
   for (const auto &[uuid, f] : fixtures) {
@@ -517,12 +519,22 @@ void Viewer3DController::Update() {
     if (gdtfPath.empty()) {
       ++gdtfErrorCounts[f.gdtfSpec];
       gdtfErrorReasons[f.gdtfSpec] = "GDTF file not found";
+      if (!missingGdtfSpecs.insert(f.gdtfSpec).second)
+        continue;
       continue;
     }
     auto failedIt = m_failedGdtfReasons.find(gdtfPath);
     if (failedIt != m_failedGdtfReasons.end()) {
       ++gdtfErrorCounts[gdtfPath];
       gdtfErrorReasons[gdtfPath] = failedIt->second;
+      continue;
+    }
+    if (processedGdtfPaths.find(gdtfPath) != processedGdtfPaths.end()) {
+      auto reasonIt = m_failedGdtfReasons.find(gdtfPath);
+      if (reasonIt != m_failedGdtfReasons.end()) {
+        ++gdtfErrorCounts[gdtfPath];
+        gdtfErrorReasons[gdtfPath] = reasonIt->second;
+      }
       continue;
     }
     if (m_loadedGdtf.find(gdtfPath) == m_loadedGdtf.end()) {
@@ -538,6 +550,7 @@ void Viewer3DController::Update() {
         gdtfErrorReasons[gdtfPath] = m_failedGdtfReasons[gdtfPath];
       }
     }
+    processedGdtfPaths.insert(gdtfPath);
   }
 
   if (!gdtfErrorCounts.empty() && ConsolePanel::Instance()) {
