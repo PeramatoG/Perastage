@@ -58,35 +58,42 @@ Viewer2DRenderPanel::Viewer2DRenderPanel(wxWindow *parent)
   m_view->SetSelection(static_cast<int>(cfg.GetFloat("view2d_view")));
   m_view->Bind(wxEVT_RADIOBOX, &Viewer2DRenderPanel::OnView, this);
 
-  m_showGrid = new wxCheckBox(this, wxID_ANY, "Show grid");
+  auto *gridBox = new wxStaticBoxSizer(wxVERTICAL, this, "Grid");
+  wxWindow *gridBoxParent = gridBox->GetStaticBox();
+
+  m_showGrid = new wxCheckBox(gridBoxParent, wxID_ANY, "Show grid");
   m_showGrid->SetValue(cfg.GetFloat("grid_show") != 0.0f);
   m_showGrid->Bind(wxEVT_CHECKBOX, &Viewer2DRenderPanel::OnShowGrid, this);
 
   wxString gridChoices[] = {"Lines", "Points", "Crosses"};
-  m_gridStyle =
-      new wxRadioBox(this, wxID_ANY, "Grid style", wxDefaultPosition,
-                     wxDefaultSize, 3, gridChoices, 1, wxRA_SPECIFY_COLS);
+  m_gridStyle = new wxRadioBox(gridBoxParent, wxID_ANY, "Grid style",
+                               wxDefaultPosition, wxDefaultSize, 3,
+                               gridChoices, 1, wxRA_SPECIFY_COLS);
   m_gridStyle->SetSelection(static_cast<int>(cfg.GetFloat("grid_style")));
   m_gridStyle->Bind(wxEVT_RADIOBOX, &Viewer2DRenderPanel::OnGridStyle, this);
 
   int rr = static_cast<int>(cfg.GetFloat("grid_color_r") * 255.0f);
   int gg = static_cast<int>(cfg.GetFloat("grid_color_g") * 255.0f);
   int bb = static_cast<int>(cfg.GetFloat("grid_color_b") * 255.0f);
-  m_gridColor = new wxColourPickerCtrl(this, wxID_ANY, wxColour(rr, gg, bb));
+  m_gridColor =
+      new wxColourPickerCtrl(gridBoxParent, wxID_ANY, wxColour(rr, gg, bb));
   m_gridColor->Bind(wxEVT_COLOURPICKER_CHANGED,
                     &Viewer2DRenderPanel::OnGridColor, this);
 
-  m_drawAbove = new wxCheckBox(this, wxID_ANY, "Draw grid on top");
+  m_drawAbove = new wxCheckBox(gridBoxParent, wxID_ANY, "Draw grid on top");
   m_drawAbove->SetValue(cfg.GetFloat("grid_draw_above") != 0.0f);
   m_drawAbove->Bind(wxEVT_CHECKBOX, &Viewer2DRenderPanel::OnDrawAbove, this);
 
-  m_showLabelName = new wxCheckBox(this, wxID_ANY, "Show name");
+  auto *labelBox = new wxStaticBoxSizer(wxVERTICAL, this, "Labels");
+  wxWindow *labelBoxParent = labelBox->GetStaticBox();
+
+  m_showLabelName = new wxCheckBox(labelBoxParent, wxID_ANY, "Show name");
   m_showLabelName->SetValue(
       cfg.GetFloat(NAME_KEYS[m_view->GetSelection()]) != 0.0f);
   m_showLabelName->Bind(wxEVT_CHECKBOX, &Viewer2DRenderPanel::OnShowLabelName,
                         this);
-  m_labelNameSize =
-      new wxSpinCtrl(this, wxID_ANY, "", wxDefaultPosition, wxDefaultSize,
+  m_labelNameSize = new wxSpinCtrl(labelBoxParent, wxID_ANY, "",
+                                   wxDefaultPosition, wxDefaultSize,
                      wxSP_ARROW_KEYS | wxTE_PROCESS_ENTER);
   m_labelNameSize->SetRange(1, 5);
   m_labelNameSize->SetValue(
@@ -100,13 +107,13 @@ Viewer2DRenderPanel::Viewer2DRenderPanel(wxWindow *parent)
   m_labelNameSize->Bind(wxEVT_TEXT_ENTER, &Viewer2DRenderPanel::OnTextEnter,
                         this);
 
-  m_showLabelId = new wxCheckBox(this, wxID_ANY, "Show ID");
+  m_showLabelId = new wxCheckBox(labelBoxParent, wxID_ANY, "Show ID");
   m_showLabelId->SetValue(
       cfg.GetFloat(ID_KEYS[m_view->GetSelection()]) != 0.0f);
   m_showLabelId->Bind(wxEVT_CHECKBOX, &Viewer2DRenderPanel::OnShowLabelId,
                       this);
-  m_labelIdSize =
-      new wxSpinCtrl(this, wxID_ANY, "", wxDefaultPosition, wxDefaultSize,
+  m_labelIdSize = new wxSpinCtrl(labelBoxParent, wxID_ANY, "",
+                                 wxDefaultPosition, wxDefaultSize,
                      wxSP_ARROW_KEYS | wxTE_PROCESS_ENTER);
   m_labelIdSize->SetRange(1, 5);
   m_labelIdSize->SetValue(static_cast<int>(cfg.GetFloat("label_font_size_id")));
@@ -119,13 +126,14 @@ Viewer2DRenderPanel::Viewer2DRenderPanel(wxWindow *parent)
   m_labelIdSize->Bind(wxEVT_TEXT_ENTER, &Viewer2DRenderPanel::OnTextEnter,
                       this);
 
-  m_showLabelAddress = new wxCheckBox(this, wxID_ANY, "Show DMX address");
+  m_showLabelAddress =
+      new wxCheckBox(labelBoxParent, wxID_ANY, "Show DMX address");
   m_showLabelAddress->SetValue(
       cfg.GetFloat(DMX_KEYS[m_view->GetSelection()]) != 0.0f);
   m_showLabelAddress->Bind(wxEVT_CHECKBOX,
                            &Viewer2DRenderPanel::OnShowLabelAddress, this);
-  m_labelAddressSize =
-      new wxSpinCtrl(this, wxID_ANY, "", wxDefaultPosition, wxDefaultSize,
+  m_labelAddressSize = new wxSpinCtrl(labelBoxParent, wxID_ANY, "",
+                                      wxDefaultPosition, wxDefaultSize,
                      wxSP_ARROW_KEYS | wxTE_PROCESS_ENTER);
   m_labelAddressSize->SetRange(1, 5);
   m_labelAddressSize->SetValue(
@@ -140,7 +148,7 @@ Viewer2DRenderPanel::Viewer2DRenderPanel(wxWindow *parent)
                            &Viewer2DRenderPanel::OnTextEnter, this);
 
   m_labelOffsetDistance = new wxSpinCtrlDouble(
-      this, wxID_ANY, "", wxDefaultPosition, wxDefaultSize,
+      labelBoxParent, wxID_ANY, "", wxDefaultPosition, wxDefaultSize,
       wxSP_ARROW_KEYS | wxTE_PROCESS_ENTER);
   m_labelOffsetDistance->SetRange(0.0, 1.0);
   m_labelOffsetDistance->SetIncrement(0.1);
@@ -156,8 +164,8 @@ Viewer2DRenderPanel::Viewer2DRenderPanel(wxWindow *parent)
   m_labelOffsetDistance->Bind(wxEVT_TEXT_ENTER,
                               &Viewer2DRenderPanel::OnTextEnter, this);
 
-  m_labelOffsetAngle =
-      new wxSpinCtrl(this, wxID_ANY, "", wxDefaultPosition, wxDefaultSize,
+  m_labelOffsetAngle = new wxSpinCtrl(labelBoxParent, wxID_ANY, "",
+                                      wxDefaultPosition, wxDefaultSize,
                      wxSP_ARROW_KEYS | wxTE_PROCESS_ENTER);
   m_labelOffsetAngle->SetRange(0, 360);
   m_labelOffsetAngle->SetValue(
@@ -175,47 +183,45 @@ Viewer2DRenderPanel::Viewer2DRenderPanel(wxWindow *parent)
   sizer->Add(m_radio, 0, wxALL, 5);
   sizer->Add(m_view, 0, wxALL, 5);
 
-  auto *gridBox = new wxStaticBoxSizer(wxVERTICAL, this, "Grid");
   gridBox->Add(m_showGrid, 0, wxALL, 5);
   gridBox->Add(m_gridStyle, 0, wxALL, 5);
   auto *colorSizer = new wxBoxSizer(wxHORIZONTAL);
-  colorSizer->Add(new wxStaticText(this, wxID_ANY, "Color"), 0,
+  colorSizer->Add(new wxStaticText(gridBoxParent, wxID_ANY, "Color"), 0,
                   wxALIGN_CENTER_VERTICAL | wxRIGHT, 5);
   colorSizer->Add(m_gridColor, 0);
   gridBox->Add(colorSizer, 0, wxALL, 5);
   gridBox->Add(m_drawAbove, 0, wxALL, 5);
   sizer->Add(gridBox, 0, wxALL, 5);
 
-  auto *labelBox = new wxStaticBoxSizer(wxVERTICAL, this, "Labels");
   auto *nameSizer = new wxBoxSizer(wxHORIZONTAL);
   nameSizer->Add(m_showLabelName, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 5);
-  nameSizer->Add(new wxStaticText(this, wxID_ANY, "Size"), 0,
+  nameSizer->Add(new wxStaticText(labelBoxParent, wxID_ANY, "Size"), 0,
                  wxALIGN_CENTER_VERTICAL | wxRIGHT, 5);
   nameSizer->Add(m_labelNameSize, 0);
   labelBox->Add(nameSizer, 0, wxALL, 5);
 
   auto *idSizer = new wxBoxSizer(wxHORIZONTAL);
   idSizer->Add(m_showLabelId, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 5);
-  idSizer->Add(new wxStaticText(this, wxID_ANY, "Size"), 0,
+  idSizer->Add(new wxStaticText(labelBoxParent, wxID_ANY, "Size"), 0,
                wxALIGN_CENTER_VERTICAL | wxRIGHT, 5);
   idSizer->Add(m_labelIdSize, 0);
   labelBox->Add(idSizer, 0, wxALL, 5);
 
   auto *addrSizer = new wxBoxSizer(wxHORIZONTAL);
   addrSizer->Add(m_showLabelAddress, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 5);
-  addrSizer->Add(new wxStaticText(this, wxID_ANY, "Size"), 0,
+  addrSizer->Add(new wxStaticText(labelBoxParent, wxID_ANY, "Size"), 0,
                  wxALIGN_CENTER_VERTICAL | wxRIGHT, 5);
   addrSizer->Add(m_labelAddressSize, 0);
   labelBox->Add(addrSizer, 0, wxALL, 5);
 
   auto *distSizer = new wxBoxSizer(wxHORIZONTAL);
-  distSizer->Add(new wxStaticText(this, wxID_ANY, "Distance"), 0,
+  distSizer->Add(new wxStaticText(labelBoxParent, wxID_ANY, "Distance"), 0,
                  wxALIGN_CENTER_VERTICAL | wxRIGHT, 5);
   distSizer->Add(m_labelOffsetDistance, 0);
   labelBox->Add(distSizer, 0, wxALL, 5);
 
   auto *angleSizer = new wxBoxSizer(wxHORIZONTAL);
-  angleSizer->Add(new wxStaticText(this, wxID_ANY, "Angle"), 0,
+  angleSizer->Add(new wxStaticText(labelBoxParent, wxID_ANY, "Angle"), 0,
                   wxALIGN_CENTER_VERTICAL | wxRIGHT, 5);
   angleSizer->Add(m_labelOffsetAngle, 0);
   labelBox->Add(angleSizer, 0, wxALL, 5);
