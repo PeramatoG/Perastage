@@ -52,7 +52,6 @@ set_target_properties(${PROJECT_NAME} PROPERTIES WIN32_EXECUTABLE TRUE)
 
 # Include project directories
 target_include_directories(${PROJECT_NAME} PRIVATE
-    ${CMAKE_SOURCE_DIR}
     ${CMAKE_SOURCE_DIR}/gui
     ${CMAKE_SOURCE_DIR}/models
     ${CMAKE_SOURCE_DIR}/core
