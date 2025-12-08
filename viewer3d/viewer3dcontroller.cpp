@@ -441,6 +441,12 @@ void Viewer3DController::SetSelectedUuids(
 void Viewer3DController::Update() {
   const std::string &base = ConfigManager::Get().GetScene().basePath;
 
+  if (m_lastSceneBasePath != base) {
+    m_loadedGdtf.clear();
+    m_failedGdtfReasons.clear();
+    m_lastSceneBasePath = base;
+  }
+
   const auto &trusses = SceneDataManager::Instance().GetTrusses();
   for (const auto &[uuid, t] : trusses) {
     if (t.symbolFile.empty())
@@ -511,14 +517,22 @@ void Viewer3DController::Update() {
       }
       continue;
     }
+    if (m_failedGdtfReasons.find(gdtfPath) != m_failedGdtfReasons.end())
+      continue;
     if (m_loadedGdtf.find(gdtfPath) == m_loadedGdtf.end()) {
       std::vector<GdtfObject> objs;
       if (LoadGdtf(gdtfPath, objs)) {
         m_loadedGdtf[gdtfPath] = std::move(objs);
-      } else if (ConsolePanel::Instance()) {
-        wxString msg = wxString::Format("Failed to load GDTF: %s",
-                                        wxString::FromUTF8(gdtfPath));
-        ConsolePanel::Instance()->AppendMessage(msg);
+      } else {
+        std::string reason = "Failed to load GDTF";
+        if (ConsolePanel::Instance()) {
+          wxString msg = wxString::Format("Failed to load GDTF: %s",
+                                          wxString::FromUTF8(gdtfPath));
+          ConsolePanel::Instance()->AppendMessage(msg);
+          auto utf8 = msg.ToUTF8();
+          reason.assign(utf8.data(), utf8.length());
+        }
+        m_failedGdtfReasons[gdtfPath] = std::move(reason);
       }
     }
   }
