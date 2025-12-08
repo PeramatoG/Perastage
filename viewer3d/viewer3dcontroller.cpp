@@ -26,6 +26,7 @@
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include <windows.h>
+#undef DrawText // Avoid conflict with Windows GDI macro of the same name
 #endif
 
 #include <GL/glew.h>
