@@ -21,6 +21,7 @@
 #include "viewer3dpanel.h"
 #include "viewer2dpanel.h"
 #include "layerpanel.h"
+#include "riggingpanel.h"
 #include "summarypanel.h"
 #include "stringutils.h"
 #include "projectutils.h"
@@ -724,6 +725,9 @@ void TrussTablePanel::UpdateSceneData()
 
     if (SummaryPanel::Instance() && IsActivePage())
         SummaryPanel::Instance()->ShowTrussSummary();
+
+    if (RiggingPanel::Instance())
+        RiggingPanel::Instance()->RefreshData();
 }
 
 TrussTablePanel* TrussTablePanel::Instance()

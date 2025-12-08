@@ -661,6 +661,7 @@ void MainWindow::OnImportMVR(wxCommandEvent &event) {
       trussPanel->ReloadData();
     if (sceneObjPanel)
       sceneObjPanel->ReloadData();
+    RefreshRigging();
     if (viewportPanel) {
       viewportPanel->UpdateScene();
       viewportPanel->Refresh();
@@ -1622,6 +1623,7 @@ void MainWindow::OnProjectLoaded(wxCommandEvent &event) {
     if (layerPanel)
       layerPanel->ReloadLayers();
     RefreshSummary();
+    RefreshRigging();
     ConfigManager::Get().MarkSaved();
     UpdateTitle();
   } else {

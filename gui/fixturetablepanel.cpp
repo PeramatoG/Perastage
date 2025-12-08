@@ -26,6 +26,7 @@
 #include "matrixutils.h"
 #include "patchmanager.h"
 #include "projectutils.h"
+#include "riggingpanel.h"
 #include "stringutils.h"
 #include "summarypanel.h"
 #include "viewer2dpanel.h"
@@ -1254,6 +1255,9 @@ void FixtureTablePanel::UpdateSceneData() {
   }
 
   HighlightDuplicateFixtureIds();
+
+  if (RiggingPanel::Instance())
+    RiggingPanel::Instance()->RefreshData();
 
   if (SummaryPanel::Instance() && IsActivePage())
     SummaryPanel::Instance()->ShowFixtureSummary();
