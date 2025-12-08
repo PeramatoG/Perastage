@@ -63,6 +63,8 @@ struct GdtfCacheEntry
 
 static std::unordered_map<std::string, GdtfCacheEntry> g_gdtfCache;
 
+static bool ExtractZip(const std::string& zipPath, const std::string& destDir);
+
 static std::string ToLower(const std::string& s)
 {
     std::string t = s;
@@ -138,8 +140,10 @@ struct TempExtraction
 
     ~TempExtraction()
     {
-        if (!dir.empty())
-            fs::remove_all(dir, std::error_code());
+        if (!dir.empty()) {
+            std::error_code ec;
+            fs::remove_all(dir, ec);
+        }
     }
 
     bool IsValid() const { return extracted; }
