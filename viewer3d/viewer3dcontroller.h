@@ -27,6 +27,7 @@
 #include "gdtfloader.h"
 #include "mesh.h"
 #include "scenedatamanager.h"
+#include "viewer2d/canvas2d.h"
 #include <array>
 #include <string>
 #include <unordered_map>
@@ -170,6 +171,17 @@ private:
   void SetupBasicLighting();
   void SetupMaterialFromRGB(float r, float g, float b);
 
+  // Helpers used only when recording the 2D view to a canvas command buffer.
+  std::array<float, 2> ProjectToCanvas(const std::array<float, 3> &p) const;
+  void RecordLine(const std::array<float, 3> &a, const std::array<float, 3> &b,
+                  const CanvasStroke &stroke) const;
+  void RecordPolyline(const std::vector<std::array<float, 3>> &points,
+                      const CanvasStroke &stroke) const;
+  void RecordPolygon(const std::vector<std::array<float, 3>> &points,
+                     const CanvasStroke &stroke, const CanvasFill *fill) const;
+  void RecordText(float x, float y, const std::string &text,
+                  const CanvasTextStyle &style) const;
+
   // Draws a mesh loaded from a 3DS file using the given scale factor
   // for vertex positions. GDTF models may already be defined in meters
   // so they can use a scale of 1.0f
@@ -204,4 +216,20 @@ private:
   NVGcontext *m_vg = nullptr;
   // Font handle for label rendering
   int m_font = -1;
+
+  // Optional capture target used by the 2D viewer to record drawing commands
+  // without altering the OpenGL on-screen output. When null, no recording
+  // takes place and the render path behaves as before.
+  ICanvas2D *m_captureCanvas = nullptr;
+  Viewer2DView m_captureView = Viewer2DView::Top;
+
+public:
+  // Enables recording of all primitives drawn during the next RenderScene
+  // call. The caller owns the canvas lifetime and is responsible for calling
+  // BeginFrame/EndFrame. Recording is disabled automatically after each
+  // render pass by resetting the canvas to nullptr.
+  void SetCaptureCanvas(ICanvas2D *canvas, Viewer2DView view) {
+    m_captureCanvas = canvas;
+    m_captureView = view;
+  }
 };

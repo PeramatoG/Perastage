@@ -218,21 +218,19 @@ void Viewer2DPanel::Render() {
   float gridB = cfg.GetFloat("grid_color_b");
   bool drawAbove = cfg.GetFloat("grid_draw_above") != 0.0f;
 
-  // Optional capture path: record grid information so future exporters can
-  // rebuild it without affecting on-screen rendering.
+  std::unique_ptr<ICanvas2D> recordingCanvas;
   if (m_captureNextFrame) {
     m_lastCapturedFrame.Clear();
-    auto recordingCanvas = CreateRecordingCanvas(m_lastCapturedFrame);
+    recordingCanvas = CreateRecordingCanvas(m_lastCapturedFrame);
     CanvasTransform transform{};
     transform.scale = 1.0f;
     transform.offsetX = -offX;
     transform.offsetY = -offY;
     recordingCanvas->BeginFrame();
     recordingCanvas->SetTransform(transform);
-    if (showGrid)
-      EmitGrid(*recordingCanvas, gridStyle, m_view, gridR, gridG, gridB);
-    recordingCanvas->EndFrame();
-    m_captureNextFrame = false;
+    m_controller.SetCaptureCanvas(recordingCanvas.get(), m_view);
+  } else {
+    m_controller.SetCaptureCanvas(nullptr, m_view);
   }
 
   m_controller.RenderScene(true, m_renderMode, m_view, showGrid, gridStyle,
@@ -242,6 +240,12 @@ void Viewer2DPanel::Render() {
   // top of geometry. Scale the label size with the current zoom so they behave
   // like regular scene objects instead of remaining a constant screen size.
   m_controller.DrawAllFixtureLabels(w, h, m_zoom);
+
+  if (recordingCanvas) {
+    recordingCanvas->EndFrame();
+    m_captureNextFrame = false;
+    m_controller.SetCaptureCanvas(nullptr, m_view);
+  }
 
   glFlush();
   SwapBuffers();

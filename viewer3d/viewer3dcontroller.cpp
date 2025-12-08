@@ -325,6 +325,69 @@ static std::array<float, 3> TransformPoint(const Matrix &m,
           m.u[2] * p[0] + m.v[2] * p[1] + m.w[2] * p[2] + m.o[2]};
 }
 
+// Maps a 3D point expressed in meters to the 2D canvas coordinates used by the
+// simplified viewer. The mapping mirrors the orthographic camera setup in
+// Render() so exporters can rebuild the same projection.
+std::array<float, 2>
+Viewer3DController::ProjectToCanvas(const std::array<float, 3> &p) const {
+  switch (m_captureView) {
+  case Viewer2DView::Top:
+    return {p[0], p[1]};
+  case Viewer2DView::Front:
+    return {p[0], p[2]};
+  case Viewer2DView::Side:
+    return {p[1], p[2]};
+  }
+  return {p[0], p[1]};
+}
+
+void Viewer3DController::RecordLine(const std::array<float, 3> &a,
+                                    const std::array<float, 3> &b,
+                                    const CanvasStroke &stroke) const {
+  if (!m_captureCanvas)
+    return;
+  auto p0 = ProjectToCanvas(a);
+  auto p1 = ProjectToCanvas(b);
+  m_captureCanvas->DrawLine(p0[0], p0[1], p1[0], p1[1], stroke);
+}
+
+void Viewer3DController::RecordPolyline(
+    const std::vector<std::array<float, 3>> &points,
+    const CanvasStroke &stroke) const {
+  if (!m_captureCanvas || points.size() < 2)
+    return;
+  std::vector<float> flat;
+  flat.reserve(points.size() * 2);
+  for (const auto &p : points) {
+    auto q = ProjectToCanvas(p);
+    flat.push_back(q[0]);
+    flat.push_back(q[1]);
+  }
+  m_captureCanvas->DrawPolyline(flat, stroke);
+}
+
+void Viewer3DController::RecordPolygon(
+    const std::vector<std::array<float, 3>> &points,
+    const CanvasStroke &stroke, const CanvasFill *fill) const {
+  if (!m_captureCanvas || points.size() < 3)
+    return;
+  std::vector<float> flat;
+  flat.reserve(points.size() * 2);
+  for (const auto &p : points) {
+    auto q = ProjectToCanvas(p);
+    flat.push_back(q[0]);
+    flat.push_back(q[1]);
+  }
+  m_captureCanvas->DrawPolygon(flat, stroke, fill);
+}
+
+void Viewer3DController::RecordText(float x, float y, const std::string &text,
+                                    const CanvasTextStyle &style) const {
+  if (!m_captureCanvas)
+    return;
+  m_captureCanvas->DrawText(x, y, text, style);
+}
+
 Viewer3DController::Viewer3DController() {
   // Actual initialization of OpenGL-dependent resources is delayed
   // until a valid context is available.
@@ -961,6 +1024,9 @@ void Viewer3DController::DrawWireframeCube(float size, float r, float g,
   float lineWidth = (mode == Viewer2DRenderMode::Wireframe) ? 1.0f : 2.0f;
   glLineWidth(lineWidth);
   glColor3f(r, g, b);
+  CanvasStroke stroke;
+  stroke.color = {r, g, b, 1.0f};
+  stroke.width = lineWidth;
   glBegin(GL_LINES);
   glVertex3f(x0, y0, z0);
   glVertex3f(x1, y0, z0);
@@ -987,6 +1053,17 @@ void Viewer3DController::DrawWireframeCube(float size, float r, float g,
   glVertex3f(x1, y1, z0);
   glVertex3f(x1, y1, z1);
   glEnd();
+  if (m_captureCanvas) {
+    std::vector<std::array<float, 3>> verts = {{x0, y0, z0}, {x1, y0, z0},
+                                               {x0, y1, z0}, {x1, y1, z0},
+                                               {x0, y0, z1}, {x1, y0, z1},
+                                               {x0, y1, z1}, {x1, y1, z1}};
+    const int edges[12][2] = {{0, 1}, {2, 3}, {4, 5}, {6, 7}, {0, 2},
+                              {1, 3}, {4, 6}, {5, 7}, {0, 4}, {1, 5},
+                              {2, 6}, {3, 7}};
+    for (auto &e : edges)
+      RecordLine(verts[e[0]], verts[e[1]], stroke);
+  }
   glLineWidth(1.0f);
   if (mode != Viewer2DRenderMode::Wireframe) {
     glEnable(GL_POLYGON_OFFSET_FILL);
@@ -1016,6 +1093,9 @@ void Viewer3DController::DrawWireframeBox(float length, float height,
     float lineWidth = (mode == Viewer2DRenderMode::Wireframe) ? 1.0f : 2.0f;
     glLineWidth(lineWidth);
     glColor3f(0.0f, 0.0f, 0.0f);
+    CanvasStroke stroke;
+    stroke.color = {0.0f, 0.0f, 0.0f, 1.0f};
+    stroke.width = lineWidth;
     glBegin(GL_LINES);
     glVertex3f(x0, y0, z0);
     glVertex3f(x1, y0, z0);
@@ -1042,6 +1122,17 @@ void Viewer3DController::DrawWireframeBox(float length, float height,
     glVertex3f(x1, y1, z0);
     glVertex3f(x1, y1, z1);
     glEnd();
+    if (m_captureCanvas) {
+      std::vector<std::array<float, 3>> verts = {{x0, y0, z0}, {x1, y0, z0},
+                                                 {x0, y1, z0}, {x1, y1, z0},
+                                                 {x0, y0, z1}, {x1, y0, z1},
+                                                 {x0, y1, z1}, {x1, y1, z1}};
+      const int edges[12][2] = {{0, 1}, {2, 3}, {4, 5}, {6, 7}, {0, 2},
+                                {1, 3}, {4, 6}, {5, 7}, {0, 4}, {1, 5},
+                                {2, 6}, {3, 7}};
+      for (auto &e : edges)
+        RecordLine(verts[e[0]], verts[e[1]], stroke);
+    }
     glLineWidth(1.0f);
     if (mode != Viewer2DRenderMode::Wireframe) {
       glEnable(GL_POLYGON_OFFSET_FILL);
@@ -1062,6 +1153,15 @@ void Viewer3DController::DrawWireframeBox(float length, float height,
     glColor3f(0.0f, 1.0f, 0.0f);
   else
     glColor3f(1.0f, 1.0f, 0.0f);
+
+  CanvasStroke stroke;
+  stroke.width = 1.0f;
+  if (selected)
+    stroke.color = {0.0f, 1.0f, 1.0f, 1.0f};
+  else if (highlight)
+    stroke.color = {0.0f, 1.0f, 0.0f, 1.0f};
+  else
+    stroke.color = {1.0f, 1.0f, 0.0f, 1.0f};
 
   glBegin(GL_LINES);
   glVertex3f(x0, y0, z0);
@@ -1089,6 +1189,17 @@ void Viewer3DController::DrawWireframeBox(float length, float height,
   glVertex3f(x1, y1, z0);
   glVertex3f(x1, y1, z1);
   glEnd();
+  if (m_captureCanvas) {
+    std::vector<std::array<float, 3>> verts = {{x0, y0, z0}, {x1, y0, z0},
+                                               {x0, y1, z0}, {x1, y1, z0},
+                                               {x0, y0, z1}, {x1, y0, z1},
+                                               {x0, y1, z1}, {x1, y1, z1}};
+    const int edges[12][2] = {{0, 1}, {2, 3}, {4, 5}, {6, 7}, {0, 2},
+                              {1, 3}, {4, 6}, {5, 7}, {0, 4}, {1, 5},
+                              {2, 6}, {3, 7}};
+    for (auto &e : edges)
+      RecordLine(verts[e[0]], verts[e[1]], stroke);
+  }
 }
 
 // Draws a colored cube. If selected or highlighted it is tinted
@@ -1140,7 +1251,27 @@ void Viewer3DController::DrawMeshWithOutline(const Mesh &mesh, float r, float g,
     float lineWidth = (mode == Viewer2DRenderMode::Wireframe) ? 1.0f : 2.0f;
     glLineWidth(lineWidth);
     glColor3f(0.0f, 0.0f, 0.0f);
+    CanvasStroke stroke;
+    stroke.color = {0.0f, 0.0f, 0.0f, 1.0f};
+    stroke.width = lineWidth;
     DrawMeshWireframe(mesh, scale);
+    if (m_captureCanvas && mode != Viewer2DRenderMode::Wireframe) {
+      CanvasFill fill;
+      fill.color = {r, g, b, 1.0f};
+      for (size_t i = 0; i + 2 < mesh.indices.size(); i += 3) {
+        unsigned short i0 = mesh.indices[i];
+        unsigned short i1 = mesh.indices[i + 1];
+        unsigned short i2 = mesh.indices[i + 2];
+        std::vector<std::array<float, 3>> pts = {
+            {mesh.vertices[i0 * 3] * scale, mesh.vertices[i0 * 3 + 1] * scale,
+             mesh.vertices[i0 * 3 + 2] * scale},
+            {mesh.vertices[i1 * 3] * scale, mesh.vertices[i1 * 3 + 1] * scale,
+             mesh.vertices[i1 * 3 + 2] * scale},
+            {mesh.vertices[i2 * 3] * scale, mesh.vertices[i2 * 3 + 1] * scale,
+             mesh.vertices[i2 * 3 + 2] * scale}};
+        RecordPolygon(pts, stroke, &fill);
+      }
+    }
     glLineWidth(1.0f);
     if (mode != Viewer2DRenderMode::Wireframe) {
       glEnable(GL_POLYGON_OFFSET_FILL);
@@ -1160,6 +1291,26 @@ void Viewer3DController::DrawMeshWithOutline(const Mesh &mesh, float r, float g,
     glColor3f(r, g, b);
 
   DrawMesh(mesh, scale);
+  if (m_captureCanvas) {
+    CanvasStroke stroke;
+    stroke.color = {r, g, b, 1.0f};
+    stroke.width = 0.0f;
+    CanvasFill fill;
+    fill.color = {r, g, b, 1.0f};
+    for (size_t i = 0; i + 2 < mesh.indices.size(); i += 3) {
+      unsigned short i0 = mesh.indices[i];
+      unsigned short i1 = mesh.indices[i + 1];
+      unsigned short i2 = mesh.indices[i + 2];
+      std::vector<std::array<float, 3>> pts = {
+          {mesh.vertices[i0 * 3] * scale, mesh.vertices[i0 * 3 + 1] * scale,
+           mesh.vertices[i0 * 3 + 2] * scale},
+          {mesh.vertices[i1 * 3] * scale, mesh.vertices[i1 * 3 + 1] * scale,
+           mesh.vertices[i1 * 3 + 2] * scale},
+          {mesh.vertices[i2 * 3] * scale, mesh.vertices[i2 * 3 + 1] * scale,
+           mesh.vertices[i2 * 3 + 2] * scale}};
+      RecordPolygon(pts, stroke, &fill);
+    }
+  }
 }
 
 // Draws a mesh using GL triangles. The optional scale parameter allows
@@ -1193,6 +1344,29 @@ void Viewer3DController::DrawMeshWireframe(const Mesh &mesh, float scale) {
     glVertex3f(v0x, v0y, v0z);
   }
   glEnd();
+  if (m_captureCanvas) {
+    CanvasStroke stroke;
+    stroke.color = {0.0f, 0.0f, 0.0f, 1.0f};
+    stroke.width = 1.0f;
+    for (size_t i = 0; i + 2 < mesh.indices.size(); i += 3) {
+      unsigned short i0 = mesh.indices[i];
+      unsigned short i1 = mesh.indices[i + 1];
+      unsigned short i2 = mesh.indices[i + 2];
+
+      std::array<float, 3> p0 = {mesh.vertices[i0 * 3] * scale,
+                                 mesh.vertices[i0 * 3 + 1] * scale,
+                                 mesh.vertices[i0 * 3 + 2] * scale};
+      std::array<float, 3> p1 = {mesh.vertices[i1 * 3] * scale,
+                                 mesh.vertices[i1 * 3 + 1] * scale,
+                                 mesh.vertices[i1 * 3 + 2] * scale};
+      std::array<float, 3> p2 = {mesh.vertices[i2 * 3] * scale,
+                                 mesh.vertices[i2 * 3 + 1] * scale,
+                                 mesh.vertices[i2 * 3 + 2] * scale};
+      RecordLine(p0, p1, stroke);
+      RecordLine(p1, p2, stroke);
+      RecordLine(p2, p0, stroke);
+    }
+  }
 }
 
 // Draws a mesh using GL triangles. The optional scale parameter allows
@@ -1262,6 +1436,10 @@ void Viewer3DController::DrawGrid(int style, float r, float g, float b,
   const float size = 20.0f;
   const float step = 1.0f;
 
+  CanvasStroke stroke;
+  stroke.color = {r, g, b, 1.0f};
+  stroke.width = 1.0f;
+
   glColor3f(r, g, b);
   if (style == 0) {
     glLineWidth(1.0f);
@@ -1273,18 +1451,24 @@ void Viewer3DController::DrawGrid(int style, float r, float g, float b,
         glVertex3f(i, size, 0.0f);
         glVertex3f(-size, i, 0.0f);
         glVertex3f(size, i, 0.0f);
+        RecordLine({i, -size, 0.0f}, {i, size, 0.0f}, stroke);
+        RecordLine({-size, i, 0.0f}, {size, i, 0.0f}, stroke);
         break;
       case Viewer2DView::Front:
         glVertex3f(i, 0.0f, -size);
         glVertex3f(i, 0.0f, size);
         glVertex3f(-size, 0.0f, i);
         glVertex3f(size, 0.0f, i);
+        RecordLine({i, 0.0f, -size}, {i, 0.0f, size}, stroke);
+        RecordLine({-size, 0.0f, i}, {size, 0.0f, i}, stroke);
         break;
       case Viewer2DView::Side:
         glVertex3f(0.0f, i, -size);
         glVertex3f(0.0f, i, size);
         glVertex3f(0.0f, -size, i);
         glVertex3f(0.0f, size, i);
+        RecordLine({0.0f, i, -size}, {0.0f, i, size}, stroke);
+        RecordLine({0.0f, -size, i}, {0.0f, size, i}, stroke);
         break;
       }
     }
@@ -1297,12 +1481,15 @@ void Viewer3DController::DrawGrid(int style, float r, float g, float b,
         switch (view) {
         case Viewer2DView::Top:
           glVertex3f(x, y, 0.0f);
+          RecordLine({x, y, 0.0f}, {x, y, 0.0f}, stroke);
           break;
         case Viewer2DView::Front:
           glVertex3f(x, 0.0f, y);
+          RecordLine({x, 0.0f, y}, {x, 0.0f, y}, stroke);
           break;
         case Viewer2DView::Side:
           glVertex3f(0.0f, x, y);
+          RecordLine({0.0f, x, y}, {0.0f, x, y}, stroke);
           break;
         }
       }
@@ -1320,18 +1507,24 @@ void Viewer3DController::DrawGrid(int style, float r, float g, float b,
           glVertex3f(x + half, y, 0.0f);
           glVertex3f(x, y - half, 0.0f);
           glVertex3f(x, y + half, 0.0f);
+          RecordLine({x - half, y, 0.0f}, {x + half, y, 0.0f}, stroke);
+          RecordLine({x, y - half, 0.0f}, {x, y + half, 0.0f}, stroke);
           break;
         case Viewer2DView::Front:
           glVertex3f(x - half, 0.0f, y);
           glVertex3f(x + half, 0.0f, y);
           glVertex3f(x, 0.0f, y - half);
           glVertex3f(x, 0.0f, y + half);
+          RecordLine({x - half, 0.0f, y}, {x + half, 0.0f, y}, stroke);
+          RecordLine({x, 0.0f, y - half}, {x, 0.0f, y + half}, stroke);
           break;
         case Viewer2DView::Side:
           glVertex3f(0.0f, x - half, y);
           glVertex3f(0.0f, x + half, y);
           glVertex3f(0.0f, x, y - half);
           glVertex3f(0.0f, x, y + half);
+          RecordLine({0.0f, x - half, y}, {0.0f, x + half, y}, stroke);
+          RecordLine({0.0f, x, y - half}, {0.0f, x, y + half}, stroke);
           break;
         }
       }
@@ -1354,6 +1547,16 @@ void Viewer3DController::DrawAxes() {
   glVertex3f(0.0f, 0.0f, 0.0f);
   glVertex3f(0.0f, 0.0f, 1.0f); // Z
   glEnd();
+  if (m_captureCanvas) {
+    CanvasStroke stroke;
+    stroke.width = 2.0f;
+    stroke.color = {1.0f, 0.0f, 0.0f, 1.0f};
+    RecordLine({0.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f}, stroke);
+    stroke.color = {0.0f, 1.0f, 0.0f, 1.0f};
+    RecordLine({0.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}, stroke);
+    stroke.color = {0.0f, 0.0f, 1.0f, 1.0f};
+    RecordLine({0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 1.0f}, stroke);
+  }
 }
 
 // Multiplies the current matrix by the given transform. When
@@ -1588,6 +1791,33 @@ void Viewer3DController::DrawAllFixtureLabels(int width, int height,
     }
     if (lines.empty())
       continue;
+
+    if (m_captureCanvas) {
+      std::vector<float> heights;
+      heights.reserve(lines.size());
+      for (const auto &ln : lines)
+        heights.push_back(ln.size);
+      const float lineSpacing = 2.0f;
+      float totalHeight = 0.0f;
+      for (size_t i = 0; i < heights.size(); ++i) {
+        totalHeight += heights[i];
+        if (i + 1 < heights.size())
+          totalHeight += lineSpacing;
+      }
+      auto anchor = ProjectToCanvas({static_cast<float>(wx), static_cast<float>(wy),
+                                     static_cast<float>(wz)});
+      float currentY = anchor[1] - totalHeight * 0.5f;
+      for (size_t i = 0; i < lines.size(); ++i) {
+        CanvasTextStyle style;
+        style.fontFamily = "sans";
+        style.fontSize = lines[i].size;
+        style.color = {0.0f, 0.0f, 0.0f, 1.0f};
+        style.hAlign = CanvasTextStyle::HorizontalAlign::Center;
+        style.vAlign = CanvasTextStyle::VerticalAlign::Top;
+        RecordText(anchor[0], currentY, lines[i].text, style);
+        currentY += heights[i] + lineSpacing;
+      }
+    }
 
     DrawLabelLines2D(m_vg, lines, x, y, nvgRGBAf(0.f, 0.f, 0.f, 1.f));
   }
