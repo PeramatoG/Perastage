@@ -128,6 +128,36 @@ static std::string CreateTempDir()
     return full.string();
 }
 
+struct TempExtraction
+{
+    explicit TempExtraction(const std::string& zipPath)
+    {
+        dir = CreateTempDir();
+        extracted = ExtractZip(zipPath, dir);
+    }
+
+    ~TempExtraction()
+    {
+        if (!dir.empty())
+            fs::remove_all(dir, std::error_code());
+    }
+
+    bool IsValid() const { return extracted; }
+
+    std::string Release()
+    {
+        std::string out = std::move(dir);
+        dir.clear();
+        return out;
+    }
+
+    const std::string& Path() const { return dir; }
+
+private:
+    std::string dir;
+    bool extracted = false;
+};
+
 static bool ExtractZip(const std::string& zipPath, const std::string& destDir)
 {
     if (!fs::exists(zipPath)) {
@@ -367,12 +397,10 @@ static GdtfCacheEntry* GetCachedGdtf(const std::string& gdtfPath)
 
     GdtfCacheEntry entry;
     entry.timestamp = timestamp;
-    entry.extractedDir = CreateTempDir();
-
-    if (!ExtractZip(absPath.string(), entry.extractedDir)) {
-        fs::remove_all(entry.extractedDir, ec);
+    TempExtraction extraction(absPath.string());
+    if (!extraction.IsValid())
         return nullptr;
-    }
+    entry.extractedDir = extraction.Release();
 
     entry.doc = std::make_unique<tinyxml2::XMLDocument>();
     std::string descPath = entry.extractedDir + "/description.xml";
@@ -715,11 +743,11 @@ bool SetGdtfModelColor(const std::string& gdtfPath,
     if (gdtfPath.empty())
         return false;
 
-    std::string tempDir = CreateTempDir();
-    if (!ExtractZip(gdtfPath, tempDir))
+    TempExtraction extraction(gdtfPath);
+    if (!extraction.IsValid())
         return false;
 
-    std::string descPath = tempDir + "/description.xml";
+    std::string descPath = extraction.Path() + "/description.xml";
     tinyxml2::XMLDocument doc;
     if (doc.LoadFile(descPath.c_str()) != tinyxml2::XML_SUCCESS)
         return false;
@@ -742,7 +770,6 @@ bool SetGdtfModelColor(const std::string& gdtfPath,
         m->SetAttribute("Color", cie.c_str());
 
     doc.SaveFile(descPath.c_str());
-    bool ok = ZipDir(tempDir, gdtfPath);
-    fs::remove_all(tempDir);
+    bool ok = ZipDir(extraction.Path(), gdtfPath);
     return ok;
 }
