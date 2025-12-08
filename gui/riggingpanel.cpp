@@ -80,6 +80,8 @@ void RiggingPanel::RefreshData() {
     int trusses = 0;
     float fixtureWeight = 0.0f;
     float trussWeight = 0.0f;
+    bool hasZeroWeightFixture = false;
+    bool hasZeroWeightTruss = false;
   };
 
   std::map<std::string, Totals> rows;
@@ -90,6 +92,8 @@ void RiggingPanel::RefreshData() {
     auto &entry = rows[pos];
     entry.fixtures++;
     entry.fixtureWeight += fixture.weightKg;
+    if (fixture.weightKg <= 0.0f)
+      entry.hasZeroWeightFixture = true;
   }
 
   for (const auto &[uuid, truss] : scene.trusses) {
@@ -98,6 +102,8 @@ void RiggingPanel::RefreshData() {
     auto &entry = rows[pos];
     entry.trusses++;
     entry.trussWeight += truss.weightKg;
+    if (truss.weightKg <= 0.0f)
+      entry.hasZeroWeightTruss = true;
   }
 
   table->DeleteAllItems();
@@ -115,8 +121,10 @@ void RiggingPanel::RefreshData() {
 
     const bool fixtureCountZero = totals.fixtures == 0;
     const bool trussCountZero = totals.trusses == 0;
-    const bool fixtureWeightZero = totals.fixtureWeight <= 0.0f;
-    const bool trussWeightZero = totals.trussWeight <= 0.0f;
+    const bool fixtureWeightZero =
+        totals.fixtureWeight <= 0.0f || totals.hasZeroWeightFixture;
+    const bool trussWeightZero =
+        totals.trussWeight <= 0.0f || totals.hasZeroWeightTruss;
 
     if (fixtureCountZero)
       store->SetCellTextColour(rowIndex, 1, *wxRED);
