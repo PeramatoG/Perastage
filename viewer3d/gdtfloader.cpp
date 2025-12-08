@@ -716,10 +716,22 @@ bool LoadGdtf(const std::string& gdtfPath,
     }
 
     if (outObjects.empty()) {
+        constexpr const char* kEmptyGeometryReason = "No geometry with models found";
+        size_t count = ++entry->emptyGeometryLogCount;
+        std::string extractionDir = entry->extractedDir;
+        auto timestamp = entry->timestamp;
+
+        if (!cacheKey.empty()) {
+            g_failedGdtfCache[cacheKey] = timestamp;
+            g_gdtfFailureReasons[cacheKey] = kEmptyGeometryReason;
+            g_gdtfCache.erase(cacheKey);
+            std::error_code ec;
+            fs::remove_all(extractionDir, ec);
+        }
+
         if (outError)
-            *outError = "No geometry with models found";
+            *outError = kEmptyGeometryReason;
         else if (ConsolePanel::Instance()) {
-            size_t count = ++entry->emptyGeometryLogCount;
             if (count == 1) {
                 wxString msg = wxString::Format(
                     "GDTF: loaded %s but no geometry with models was found",
@@ -733,11 +745,11 @@ bool LoadGdtf(const std::string& gdtfPath,
                 ConsolePanel::Instance()->AppendMessage(msg);
             }
         }
-    } else if (!outObjects.empty()) {
-        entry->emptyGeometryLogCount = 0;
+        return false;
     }
 
-    return !outObjects.empty();
+    entry->emptyGeometryLogCount = 0;
+    return true;
 }
 
 int GetGdtfModeChannelCount(const std::string& gdtfPath,
