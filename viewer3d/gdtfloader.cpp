@@ -486,7 +486,7 @@ static void ParseGeometry(tinyxml2::XMLElement* node,
             auto it = geomMap.find(refName);
             if (it != geomMap.end()) {
                 const char* m = node->Attribute("Model");
-                ParseGeometry(it->second, transform, models, baseDir, geomMap, meshCache, outObjects, missingModelCounts, m ? m : overrideModel);
+                ParseGeometry(it->second, transform, models, baseDir, geomMap, meshCache, outObjects, missingModels, m ? m : overrideModel);
             }
         }
         return;
@@ -574,6 +574,10 @@ bool LoadGdtf(const std::string& gdtfPath, std::vector<GdtfObject>& outObjects)
     outObjects.clear();
     bool cachedFailure = false;
     bool fromCache = false;
+    std::error_code cacheKeyEc;
+    fs::path cachePath = fs::absolute(gdtfPath, cacheKeyEc);
+    std::string cacheKey = cacheKeyEc ? gdtfPath : cachePath.string();
+
     GdtfCacheEntry* entry = GetCachedGdtf(gdtfPath, &cachedFailure, &fromCache);
 
     if (!fromCache && !cachedFailure && ConsolePanel::Instance()) {
