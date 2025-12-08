@@ -25,6 +25,7 @@
 #pragma once
 
 #include "viewer3dcontroller.h"
+#include "viewer2d/canvas2d.h"
 #include <wx/glcanvas.h>
 #include <wx/wx.h>
 #include <string>
@@ -52,6 +53,14 @@ public:
   void LoadViewFromConfig();
   void SaveViewToConfig() const;
 
+  // Request that the next paint pass stores every 2D drawing command in
+  // m_lastCapturedFrame. The on-screen result is unchanged.
+  void RequestFrameCapture();
+
+  // Accessor for the last recorded set of drawing commands. The buffer is
+  // cleared and re-populated on every requested capture.
+  const CommandBuffer &GetLastCapturedFrame() const { return m_lastCapturedFrame; }
+
 private:
   void InitGL();
   void Render();
@@ -73,6 +82,9 @@ private:
   float m_offsetY = 0.0f;
   float m_zoom = 1.0f;
   bool m_mouseInside = false;
+
+  bool m_captureNextFrame = false;
+  CommandBuffer m_lastCapturedFrame;
 
   wxGLContext *m_glContext = nullptr;
   bool m_glInitialized = false;

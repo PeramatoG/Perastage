@@ -37,7 +37,13 @@ The application is built with **wxWidgets** for the user interface and **OpenGL*
 
 - **Viewers**
   - **3D viewer** based on OpenGL to inspect imported trusses, fixtures and scene objects.
-  - **2D viewer** for plan-style views.
+  - **2D viewer** for plan-style views. The 2D panel can optionally record the
+    drawing steps for the next paint pass. Call `Viewer2DPanel::RequestFrameCapture()`
+    before the next refresh and retrieve the resulting `CommandBuffer` through
+    `GetLastCapturedFrame()` to obtain an ordered list of drawing commands ready
+    for vector backends. All primitives drawn in the 2D view (grid, scene geometry,
+    axes and labels) are preserved in draw order so an exporter can reproduce the
+    exact frame the user saw on screen.
   - Camera and navigation helpers in the 3D viewer.
 
 - **GUI helpers**
