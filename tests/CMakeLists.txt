@@ -59,6 +59,7 @@ add_executable(rider_save_roundtrip_test rider_save_roundtrip_test.cpp
                consolepanel_stub.cpp
                trussloader_stub.cpp
                ../core/riderimporter.cpp
+               ../core/uuidutils.cpp
                ../core/autopatcher.cpp
                ../core/patchmanager.cpp
                ../core/configmanager.cpp
@@ -83,6 +84,7 @@ add_executable(riderimporter_fixtureid_test rider_import_fixtureid_test.cpp
                riderimporter_stubs.cpp
                gdtfloader_stub.cpp
                ../core/riderimporter.cpp
+               ../core/uuidutils.cpp
                ../core/autopatcher.cpp
                ../core/patchmanager.cpp
                ../core/configmanager.cpp
@@ -103,6 +105,7 @@ add_executable(rider_import_order_test rider_import_order_test.cpp
                riderimporter_stubs.cpp
                gdtfloader_stub.cpp
                ../core/riderimporter.cpp
+               ../core/uuidutils.cpp
                ../core/autopatcher.cpp
                ../core/patchmanager.cpp
                ../core/configmanager.cpp
@@ -122,6 +125,7 @@ add_executable(rider_autopatch_test rider_autopatch_test.cpp
                riderimporter_stubs.cpp
                gdtfloader_onech_stub.cpp
                ../core/riderimporter.cpp
+               ../core/uuidutils.cpp
                ../core/autopatcher.cpp
                ../core/patchmanager.cpp
                ../core/configmanager.cpp
@@ -141,6 +145,7 @@ add_executable(rider_layer_mode_test rider_layer_mode_test.cpp
                riderimporter_stubs.cpp
                gdtfloader_stub.cpp
                ../core/riderimporter.cpp
+               ../core/uuidutils.cpp
                ../core/autopatcher.cpp
                ../core/patchmanager.cpp
                ../core/configmanager.cpp
