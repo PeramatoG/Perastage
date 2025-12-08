@@ -1,126 +1,134 @@
 {
-    "Aleda B-EYE K10": {
-        "mode": "Shapes",
-        "path": "Aleda B-EYE K10.gdtf"
-    },
-    "BLINDER 2 PRO": {
-        "mode": "2ch d001",
-        "path": "BLINDER 2 PRO.gdtf"
-    },
-    "Blinder 2": {
-        "mode": "STANDARD",
-        "path": "Sunrise2IP.gdtf"
-    },
-    "Chauvet Color Strike M": {
-        "path": "Custom@Light_Instr_Chauvet_Color_Strike_M.gdtf"
-    },
-    "Elan Strobe 1000 RGBW (Bulb=LED)": {
-        "mode": "16-Channel Mode",
-        "path": "Strobe 1000 RGBW.gdtf"
-    },
-    "LITELEES B-EYE L10R (LIBRERÍA K10)": {
-        "mode": "Shapes",
-        "path": "Aleda B-EYE K10.gdtf"
-    },
-    "MAC Quantum Profile": {
-        "mode": "Extended",
-        "path": "MAC Quantum Profile.gdtf"
-    },
-    "MAC Quantum Wash": {
-        "mode": "Basic",
-        "path": "MAC Quantum Wash.gdtf"
-    },
-    "MARK BEAM 201": {
-        "mode": "Standard",
-        "path": "Sharpy.gdtf"
-    },
-    "MARTIN MAC AXIOM HYBRID": {
-        "mode": "Basic",
-        "path": "MAC Axiom Hybrid.gdtf"
-    },
-    "MARTIN MAC QUANTUM WASH": {
-        "mode": "Basic",
-        "path": "MAC Quantum Wash.gdtf"
-    },
-    "Molefay Four Light (Bulb=DXK)": {
-        "mode": "8CH Standard Mode",
-        "path": "BLINDER 400.gdtf"
-    },
-    "PIXEL STROBE 400 RGB": {
-        "mode": "2ch d001",
-        "path": "PIXEL STROBE 400 RGB.gdtf"
-    },
-    "PROLIGHT BLINDER 2 PRO": {
-        "mode": "2ch d001",
-        "path": "BLINDER 2 PRO.gdtf"
-    },
-    "PROLIGHT PIXEL STROBE 400 RGB": {
-        "mode": "8ch",
-        "path": "PIXEL STROBE 400 RGB.gdtf"
-    },
-    "PROLIGHT X BEAM 17 CMY": {
-        "mode": "25ch",
-        "path": "XBEAM 17 CMY.gdtf"
-    },
-    "Robin MegaPointe (Bulb=Sirius HRI 475W)": {
-        "mode": "Mode 1 - Standard 16 - bit",
-        "path": "Robin MegaPointe.gdtf"
-    },
-    "Robin Spiider": {
-        "mode": "Mode 3 - Advanced",
-        "path": "Robin Spiider.gdtf"
-    },
-    "Robin iEsprite": {
-        "path": "Robin iEsprite.gdtf"
-    },
-    "Robin iSpiiderX": {
-        "path": "Robin iSpiiderX.gdtf"
-    },
-    "Sharpy": {
-        "mode": "Vector",
-        "path": "Sharpy.gdtf"
-    },
-    "Spiider": {
-        "mode": "Mode 10 - Pattern full RGBW",
-        "path": "Robin Spiider.gdtf"
-    },
-    "Spiider (Bulb=LED)": {
-        "mode": "Mode 10 - Pattern full RGBW",
-        "path": "Robin Spiider.gdtf"
-    },
-    "Strobe 1000 RGBW": {
-        "mode": "7-Channel Mode",
-        "path": "Strobe 1000 RGBW.gdtf"
-    },
-    "SunRise 2IP": {
-        "path": "Sunrise2IP.gdtf"
-    },
-    "Sunrise2IP": {
-        "mode": "UNO",
-        "path": "Sunrise2IP.gdtf"
-    },
-    "TOUR HAZER II": {
-        "mode": "Default",
-        "path": "Tour Hazer II.gdtf"
-    },
-    "XBEAM 17 CMY": {
-        "mode": "6ch A001",
-        "path": "BLINDER 2 PRO.gdtf"
-    },
-    "cegadoras": {
-        "mode": "STANDARD",
-        "path": "Sunrise2IP.gdtf"
-    },
-    "quantum spot": {
-        "mode": "Basic",
-        "path": "MAC Quantum Profile.gdtf"
-    },
-    "quantum wash": {
-        "mode": "Basic",
-        "path": "MAC Quantum Wash.gdtf"
-    },
-    "sharpy": {
-        "mode": "Standard",
-        "path": "Sharpy.gdtf"
-    }
+  "Aleda B-EYE K10": {
+    "file": "Aleda B-EYE K10.gdtf",
+    "mode": "Shapes"
+  },
+  "BLINDER 2 PRO": {
+    "file": "BLINDER 2 PRO.gdtf",
+    "mode": "2ch d001"
+  },
+  "Blinder 2": {
+    "file": "Sunrise2IP.gdtf",
+    "mode": "STANDARD"
+  },
+  "Chauvet Color Strike M": {
+    "file": "Custom@Light_Instr_Chauvet_Color_Strike_M.gdtf"
+  },
+  "Elan Strobe 1000 RGBW (Bulb=LED)": {
+    "file": "Strobe 1000 RGBW.gdtf",
+    "mode": "16-Channel Mode"
+  },
+  "LITELEES B-EYE L10R (LIBRERÍA K10)": {
+    "file": "Aleda B-EYE K10.gdtf",
+    "mode": "Shapes"
+  },
+  "MAC Quantum Profile": {
+    "file": "MAC Quantum Profile.gdtf",
+    "mode": "Extended"
+  },
+  "MAC Quantum Wash": {
+    "file": "MAC Quantum Wash.gdtf",
+    "mode": "Basic"
+  },
+  "MARK BEAM 201": {
+    "file": "Sharpy.gdtf",
+    "mode": "Standard"
+  },
+  "MARTIN MAC AXIOM HYBRID": {
+    "file": "MAC Axiom Hybrid.gdtf",
+    "mode": "Basic"
+  },
+  "MARTIN MAC QUANTUM WASH": {
+    "file": "MAC Quantum Wash.gdtf",
+    "mode": "Basic"
+  },
+  "Mac Viper Profile": {
+    "file": "MAC Viper Profile.gdtf",
+    "mode": "Basic"
+  },
+  "Megapointe": {
+    "file": "Robin MegaPointe.gdtf",
+    "mode": "Mode 1 - Standard 16 - bit"
+  },
+  "Molefay Four Light (Bulb=DXK)": {
+    "file": "BLINDER 400.gdtf",
+    "mode": "8CH Standard Mode"
+  },
+  "PIXEL STROBE 400 RGB": {
+    "file": "PIXEL STROBE 400 RGB.gdtf",
+    "mode": "2ch d001"
+  },
+  "PROLIGHT BLINDER 2 PRO": {
+    "file": "BLINDER 2 PRO.gdtf",
+    "mode": "2ch d001"
+  },
+  "PROLIGHT PIXEL STROBE 400 RGB": {
+    "file": "PIXEL STROBE 400 RGB.gdtf",
+    "mode": "8ch"
+  },
+  "PROLIGHT X BEAM 17 CMY": {
+    "file": "XBEAM 17 CMY.gdtf",
+    "mode": "25ch"
+  },
+  "Robin MegaPointe (Bulb=Sirius HRI 475W)": {
+    "file": "Robin MegaPointe.gdtf",
+    "mode": "Mode 1 - Standard 16 - bit"
+  },
+  "Robin Spiider": {
+    "file": "Robin Spiider.gdtf",
+    "mode": "Mode 3 - Advanced"
+  },
+  "Robin iEsprite": {
+    "file": "Robin iEsprite.gdtf"
+  },
+  "Robin iSpiiderX": {
+    "file": "Robin iSpiiderX.gdtf"
+  },
+  "Sharpy": {
+    "file": "Sharpy.gdtf",
+    "mode": "Vector"
+  },
+  "Spiider": {
+    "file": "Robin Spiider.gdtf",
+    "mode": "Mode 10 - Pattern full RGBW"
+  },
+  "Spiider (Bulb=LED)": {
+    "file": "Robin Spiider.gdtf",
+    "mode": "Mode 10 - Pattern full RGBW"
+  },
+  "Strobe 1000 RGBW": {
+    "file": "Strobe 1000 RGBW.gdtf",
+    "mode": "7-Channel Mode"
+  },
+  "SunRise 2IP": {
+    "file": "Sunrise2IP.gdtf"
+  },
+  "Sunrise2IP": {
+    "file": "Sunrise2IP.gdtf",
+    "mode": "UNO"
+  },
+  "TOUR HAZER II": {
+    "file": "Tour Hazer II.gdtf",
+    "mode": "Default"
+  },
+  "XBEAM 17 CMY": {
+    "file": "BLINDER 2 PRO.gdtf",
+    "mode": "6ch A001"
+  },
+  "cegadoras": {
+    "file": "Sunrise2IP.gdtf",
+    "mode": "STANDARD"
+  },
+  "quantum spot": {
+    "file": "MAC Quantum Profile.gdtf",
+    "mode": "Basic"
+  },
+  "quantum wash": {
+    "file": "MAC Quantum Wash.gdtf",
+    "mode": "Basic"
+  },
+  "sharpy": {
+    "file": "Sharpy.gdtf",
+    "mode": "Standard"
+  }
 }
