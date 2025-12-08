@@ -607,6 +607,8 @@ void TrussTablePanel::UpdateSceneData()
         }
         table->GetValue(v, i, 3);
         it->second.positionName = std::string(v.GetString().mb_str());
+        if (!it->second.position.empty())
+            scene.positions[it->second.position] = it->second.positionName;
 
         double x=0, y=0, z=0;
         table->GetValue(v, i, 4); v.GetString().ToDouble(&x);
