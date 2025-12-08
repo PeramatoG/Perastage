@@ -32,9 +32,16 @@ static fs::path GetDictFile() {
   fs::create_directories(dir);
   fs::path file = dir / "gdtf_dictionary.json";
   if (!fs::exists(file)) {
-    std::ofstream create(file);
-    if (create.is_open())
-      create << "{}";
+    fs::path baseLib = ProjectUtils::GetBaseLibraryPath("fixtures");
+    fs::path baseFile = baseLib / "gdtf_dictionary.json";
+    std::error_code ec;
+    if (fs::exists(baseFile))
+      fs::copy_file(baseFile, file, fs::copy_options::overwrite_existing, ec);
+    if (!fs::exists(file)) {
+      std::ofstream create(file);
+      if (create.is_open())
+        create << "{}";
+    }
   }
   return file;
 }

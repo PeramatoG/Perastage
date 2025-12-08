@@ -17,8 +17,9 @@
  */
 #pragma once
 
-#include <string>
+#include <filesystem>
 #include <optional>
+#include <string>
 
 namespace ProjectUtils {
     inline constexpr const char* PROJECT_EXTENSION = ".pstg";
@@ -26,6 +27,9 @@ namespace ProjectUtils {
     std::string GetLastProjectPathFile();
     bool SaveLastProjectPath(const std::string& path);
     std::optional<std::string> LoadLastProjectPath();
+
+    // Path containing the built-in library shipped with the executable.
+    std::filesystem::path GetBaseLibraryPath(const std::string& subdir);
 
     // Returns the path to a library subdirectory if it exists, otherwise empty.
     std::string GetDefaultLibraryPath(const std::string& subdir);
