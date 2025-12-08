@@ -28,14 +28,14 @@ public:
     // Set applyDictionary=true to resolve GDTF conflicts using the dictionary
     bool ImportFromFile(const std::string& filePath,
                         bool promptConflicts = true,
-                        bool applyDictionary = false);
+                        bool applyDictionary = true);
 
     // Static interface for use outside the import module (e.g. GUI)
     // Allows the caller to decide whether dictionary conflicts should prompt
     // or whether the dictionary should be applied at all
     static bool ImportAndRegister(const std::string& filePath,
                                   bool promptConflicts = true,
-                                  bool applyDictionary = false);
+                                  bool applyDictionary = true);
 
 private:
     // Creates a temporary directory for extracting the contents of the MVR archive
