@@ -63,6 +63,14 @@ struct GdtfCacheEntry
 
 static std::unordered_map<std::string, GdtfCacheEntry> g_gdtfCache;
 static std::unordered_map<std::string, fs::file_time_type> g_failedGdtfCache;
+static std::unordered_map<std::string, size_t> g_gdtfFailedAttempts;
+
+struct MissingModelLog
+{
+    size_t count = 0;
+    std::string file;
+    std::string baseDir;
+};
 
 static bool ExtractZip(const std::string& zipPath, const std::string& destDir);
 
@@ -455,6 +463,7 @@ static void ParseGeometry(tinyxml2::XMLElement* node,
                           const std::unordered_map<std::string, tinyxml2::XMLElement*>& geomMap,
                           std::unordered_map<std::string, Mesh>& meshCache,
                           std::vector<GdtfObject>& outObjects,
+                          std::unordered_map<std::string, MissingModelLog>& missingModelCounts,
                           const char* overrideModel = nullptr)
 {
     Matrix local = MatrixUtils::Identity();
@@ -470,7 +479,7 @@ static void ParseGeometry(tinyxml2::XMLElement* node,
             auto it = geomMap.find(refName);
             if (it != geomMap.end()) {
                 const char* m = node->Attribute("Model");
-                ParseGeometry(it->second, transform, models, baseDir, geomMap, meshCache, outObjects, m ? m : overrideModel);
+                ParseGeometry(it->second, transform, models, baseDir, geomMap, meshCache, outObjects, missingModelCounts, m ? m : overrideModel);
             }
         }
         return;
@@ -529,12 +538,12 @@ static void ParseGeometry(tinyxml2::XMLElement* node,
                 if (mit != meshCache.end()) {
                     outObjects.push_back({mit->second, transform});
                 }
-            } else if (ConsolePanel::Instance()) {
-                wxString msg = wxString::Format(
-                    "GDTF: missing model file %s in %s",
-                    wxString::FromUTF8(it->second.file),
-                    wxString::FromUTF8(baseDir));
-                ConsolePanel::Instance()->AppendMessage(msg);
+            } else {
+                auto key = baseDir + "|" + it->second.file;
+                auto& log = missingModelCounts[key];
+                log.count++;
+                log.file = it->second.file;
+                log.baseDir = baseDir;
             }
         }
     }
@@ -545,28 +554,43 @@ static void ParseGeometry(tinyxml2::XMLElement* node,
             n=="MediaServerLayer" || n=="MediaServerCamera" || n=="MediaServerMaster" ||
             n=="Display" || n=="GeometryReference" || n=="Laser" || n=="WiringObject" ||
             n=="Inventory" || n=="Structure" || n=="Support" || n=="Magnet") {
-            ParseGeometry(child, transform, models, baseDir, geomMap, meshCache, outObjects);
+            ParseGeometry(child, transform, models, baseDir, geomMap, meshCache, outObjects, missingModelCounts);
         }
     }
 }
 
 bool LoadGdtf(const std::string& gdtfPath, std::vector<GdtfObject>& outObjects)
 {
-    if (ConsolePanel::Instance()) {
+    outObjects.clear();
+    std::error_code keyEc;
+    fs::path cacheKeyPath = fs::absolute(gdtfPath, keyEc);
+    std::string cacheKey = keyEc ? gdtfPath : cacheKeyPath.string();
+    bool cachedFailure = false;
+    GdtfCacheEntry* entry = GetCachedGdtf(gdtfPath, &cachedFailure);
+    if (ConsolePanel::Instance() && !cachedFailure) {
         wxString msg = wxString::Format("Loading GDTF %s", wxString::FromUTF8(gdtfPath));
         ConsolePanel::Instance()->AppendMessage(msg);
     }
-
-    outObjects.clear();
-    bool cachedFailure = false;
-    GdtfCacheEntry* entry = GetCachedGdtf(gdtfPath, &cachedFailure);
     if (!entry || !entry->fixtureType) {
-        if (!cachedFailure && ConsolePanel::Instance()) {
-            wxString msg = wxString::Format("GDTF: failed to load %s", wxString::FromUTF8(gdtfPath));
-            ConsolePanel::Instance()->AppendMessage(msg);
+        size_t failureCount = ++g_gdtfFailedAttempts[cacheKey];
+        if (ConsolePanel::Instance()) {
+            if (cachedFailure) {
+                if (failureCount == 2) {
+                    wxString msg = wxString::Format(
+                        "Failed to load GDTF %s (repeated %zu times, suppressing further messages)",
+                        wxString::FromUTF8(gdtfPath),
+                        failureCount);
+                    ConsolePanel::Instance()->AppendMessage(msg);
+                }
+            } else {
+                wxString msg = wxString::Format("GDTF: failed to load %s", wxString::FromUTF8(gdtfPath));
+                ConsolePanel::Instance()->AppendMessage(msg);
+            }
         }
         return false;
     }
+
+    g_gdtfFailedAttempts.erase(cacheKey);
 
     tinyxml2::XMLElement* ft = entry->fixtureType;
 
@@ -587,6 +611,7 @@ bool LoadGdtf(const std::string& gdtfPath, std::vector<GdtfObject>& outObjects)
     }
 
     std::unordered_map<std::string, Mesh>& meshCache = entry->meshCache;
+    std::unordered_map<std::string, MissingModelLog> missingModelCounts;
     if (tinyxml2::XMLElement* geoms = ft->FirstChildElement("Geometries")) {
         std::unordered_map<std::string, tinyxml2::XMLElement*> geomMap;
         for (tinyxml2::XMLElement* g = geoms->FirstChildElement(); g; g = g->NextSiblingElement()) {
@@ -594,7 +619,27 @@ bool LoadGdtf(const std::string& gdtfPath, std::vector<GdtfObject>& outObjects)
                 geomMap[n] = g;
         }
         for (tinyxml2::XMLElement* g = geoms->FirstChildElement(); g; g = g->NextSiblingElement()) {
-            ParseGeometry(g, MatrixUtils::Identity(), models, entry->extractedDir, geomMap, meshCache, outObjects);
+            ParseGeometry(g,
+                          MatrixUtils::Identity(),
+                          models,
+                          entry->extractedDir,
+                          geomMap,
+                          meshCache,
+                          outObjects,
+                          missingModelCounts);
+        }
+    }
+
+    if (ConsolePanel::Instance()) {
+        for (auto& [_, info] : missingModelCounts) {
+            wxString msg = wxString::Format(
+                "GDTF: missing model file %s in %s",
+                wxString::FromUTF8(info.file),
+                wxString::FromUTF8(info.baseDir));
+            if (info.count > 1) {
+                msg += wxString::Format(" (repeated %zu times)", info.count);
+            }
+            ConsolePanel::Instance()->AppendMessage(msg);
         }
     }
 
