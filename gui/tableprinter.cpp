@@ -37,12 +37,13 @@ void Print(wxWindow* parent, wxDataViewListCtrl* table, TableType type)
         cols.push_back(std::string(table->GetColumn(i)->GetTitle().ToUTF8()));
 
     std::vector<std::string> saved;
-    switch (type)
-    {
-    case TableType::Fixtures: saved = ConfigManager::Get().GetFixturePrintColumns(); break;
-    case TableType::Trusses: saved = ConfigManager::Get().GetTrussPrintColumns(); break;
-    case TableType::SceneObjects: saved = ConfigManager::Get().GetSceneObjectPrintColumns(); break;
-    }
+  switch (type)
+  {
+  case TableType::Fixtures: saved = ConfigManager::Get().GetFixturePrintColumns(); break;
+  case TableType::Trusses: saved = ConfigManager::Get().GetTrussPrintColumns(); break;
+  case TableType::Supports: saved = ConfigManager::Get().GetSupportPrintColumns(); break;
+  case TableType::SceneObjects: saved = ConfigManager::Get().GetSceneObjectPrintColumns(); break;
+  }
 
     std::vector<int> defaultIdx;
     for (const auto& name : saved)
@@ -64,12 +65,13 @@ void Print(wxWindow* parent, wxDataViewListCtrl* table, TableType type)
     for (int c : selCols)
         toSave.push_back(cols[c]);
 
-    switch (type)
-    {
-    case TableType::Fixtures: ConfigManager::Get().SetFixturePrintColumns(toSave); break;
-    case TableType::Trusses: ConfigManager::Get().SetTrussPrintColumns(toSave); break;
-    case TableType::SceneObjects: ConfigManager::Get().SetSceneObjectPrintColumns(toSave); break;
-    }
+  switch (type)
+  {
+  case TableType::Fixtures: ConfigManager::Get().SetFixturePrintColumns(toSave); break;
+  case TableType::Trusses: ConfigManager::Get().SetTrussPrintColumns(toSave); break;
+  case TableType::Supports: ConfigManager::Get().SetSupportPrintColumns(toSave); break;
+  case TableType::SceneObjects: ConfigManager::Get().SetSceneObjectPrintColumns(toSave); break;
+  }
 
     static wxHtmlEasyPrinting printer("Table Printer", parent);
     printer.SetParentWindow(parent);
@@ -121,12 +123,13 @@ void ExportCSV(wxWindow* parent, wxDataViewListCtrl* table, TableType type)
         cols.push_back(std::string(table->GetColumn(i)->GetTitle().ToUTF8()));
 
     std::vector<std::string> saved;
-    switch (type)
-    {
-    case TableType::Fixtures: saved = ConfigManager::Get().GetFixturePrintColumns(); break;
-    case TableType::Trusses: saved = ConfigManager::Get().GetTrussPrintColumns(); break;
-    case TableType::SceneObjects: saved = ConfigManager::Get().GetSceneObjectPrintColumns(); break;
-    }
+  switch (type)
+  {
+  case TableType::Fixtures: saved = ConfigManager::Get().GetFixturePrintColumns(); break;
+  case TableType::Trusses: saved = ConfigManager::Get().GetTrussPrintColumns(); break;
+  case TableType::Supports: saved = ConfigManager::Get().GetSupportPrintColumns(); break;
+  case TableType::SceneObjects: saved = ConfigManager::Get().GetSceneObjectPrintColumns(); break;
+  }
 
     std::vector<int> defaultIdx;
     for (const auto& name : saved)
@@ -148,12 +151,13 @@ void ExportCSV(wxWindow* parent, wxDataViewListCtrl* table, TableType type)
     for (int c : selCols)
         toSave.push_back(cols[c]);
 
-    switch (type)
-    {
-    case TableType::Fixtures: ConfigManager::Get().SetFixturePrintColumns(toSave); break;
-    case TableType::Trusses: ConfigManager::Get().SetTrussPrintColumns(toSave); break;
-    case TableType::SceneObjects: ConfigManager::Get().SetSceneObjectPrintColumns(toSave); break;
-    }
+  switch (type)
+  {
+  case TableType::Fixtures: ConfigManager::Get().SetFixturePrintColumns(toSave); break;
+  case TableType::Trusses: ConfigManager::Get().SetTrussPrintColumns(toSave); break;
+  case TableType::Supports: ConfigManager::Get().SetSupportPrintColumns(toSave); break;
+  case TableType::SceneObjects: ConfigManager::Get().SetSceneObjectPrintColumns(toSave); break;
+  }
 
     wxFileDialog saveDlg(parent, "Export CSV", "", "", "CSV files (*.csv)|*.csv|All files (*.*)|*.*",
                          wxFD_SAVE | wxFD_OVERWRITE_PROMPT);

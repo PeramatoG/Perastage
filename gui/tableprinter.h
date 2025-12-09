@@ -24,7 +24,7 @@ class wxWindow;
 class wxDataViewListCtrl;
 
 namespace TablePrinter {
-enum class TableType { Fixtures, Trusses, SceneObjects };
+enum class TableType { Fixtures, Trusses, Supports, SceneObjects };
 void Print(wxWindow* parent, wxDataViewListCtrl* table, TableType type);
 void ExportCSV(wxWindow* parent, wxDataViewListCtrl* table, TableType type);
 }

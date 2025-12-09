@@ -27,6 +27,7 @@ wxDECLARE_EVENT(EVT_PROJECT_LOADED, wxCommandEvent);
 class wxNotebook;
 class FixtureTablePanel;
 class TrussTablePanel;
+class MotorTablePanel;
 class SceneObjectTablePanel;
 class Viewer3DPanel;
 class Viewer2DPanel;
@@ -62,6 +63,7 @@ private:
   wxNotebook *notebook = nullptr;
   FixtureTablePanel *fixturePanel = nullptr;
   TrussTablePanel *trussPanel = nullptr;
+  MotorTablePanel *motorPanel = nullptr;
   SceneObjectTablePanel *sceneObjPanel = nullptr;
   wxAuiManager *auiManager = nullptr;
   Viewer3DPanel *viewportPanel = nullptr;
@@ -105,6 +107,7 @@ private:
   void OnShowAbout(wxCommandEvent &event);            // Show about dialog
   void OnSelectFixtures(wxCommandEvent &event);       // Switch to fixtures tab
   void OnSelectTrusses(wxCommandEvent &event);        // Switch to trusses tab
+  void OnSelectSupports(wxCommandEvent &event);       // Switch to supports tab
   void OnSelectObjects(wxCommandEvent &event);        // Switch to objects tab
   void OnNotebookPageChanged(wxBookCtrlEvent &event); // Update summary panel
   void RefreshSummary();                              // Refresh summary counts
@@ -168,6 +171,7 @@ enum {
   ID_Help_About,
   ID_Select_Fixtures,
   ID_Select_Trusses,
+  ID_Select_Supports,
   ID_Select_Objects,
   ID_Edit_Undo,
   ID_Edit_Redo,
