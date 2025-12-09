@@ -66,9 +66,9 @@ HoistTablePanel::HoistTablePanel(wxWindow *parent)
 HoistTablePanel::~HoistTablePanel() { store = nullptr; }
 
 void HoistTablePanel::InitializeTable() {
-  columnLabels = {"Hoist ID",    "Name",       "Type",       "Rigging Point",
-                  "Layer",       "Hang Pos",   "Pos X",      "Pos Y",
-                  "Pos Z",       "Roll (X)",   "Pitch (Y)",  "Yaw (Z)",
+  columnLabels = {"Hoist ID",    "Name",       "Type",      "Symbol",
+                  "Layer",       "Hang Pos",   "Pos X",     "Pos Y",
+                  "Pos Z",       "Roll (X)",   "Pitch (Y)", "Yaw (Z)",
                   "Chain Length (m)", "Capacity (kg)", "Weight (kg)"};
   std::vector<int> widths = {70,  150, 120, 120, 100, 120, 80,  80,
                              80,  80,  80,  80,  110, 110, 100};
@@ -82,11 +82,11 @@ void HoistTablePanel::InitializeTable() {
 void HoistTablePanel::ReloadData() {
   table->DeleteAllItems();
   rowUuids.clear();
-  const auto &supports = ConfigManager::Get().GetScene().supports;
+  auto &supports = ConfigManager::Get().GetScene().supports;
 
-  std::vector<std::pair<std::string, const Support *>> sorted;
+  std::vector<std::pair<std::string, Support *>> sorted;
   sorted.reserve(supports.size());
-  for (const auto &[uuid, support] : supports)
+  for (auto &[uuid, support] : supports)
     sorted.emplace_back(uuid, &support);
 
   std::sort(sorted.begin(), sorted.end(), [](const auto &A, const auto &B) {
@@ -102,13 +102,14 @@ void HoistTablePanel::ReloadData() {
   int hoistId = 1;
   for (const auto &pair : sorted) {
     const std::string &uuid = pair.first;
-    const Support &support = *pair.second;
+    Support &support = *pair.second;
     wxVector<wxVariant> row;
 
     row.push_back(wxVariant(hoistId));
     wxString name = wxString::FromUTF8(support.name);
     wxString type = wxString::FromUTF8(support.function);
-    wxString rigging = wxString::FromUTF8(support.riggingPoint);
+    support.symbol = NormalizeHoistSymbol(support.symbol);
+    wxString symbol = wxString::FromUTF8(support.symbol);
     wxString layer = support.layer == DEFAULT_LAYER_NAME
                          ? wxString()
                          : wxString::FromUTF8(support.layer);
@@ -130,7 +131,7 @@ void HoistTablePanel::ReloadData() {
 
     row.push_back(name);
     row.push_back(type);
-    row.push_back(rigging);
+    row.push_back(symbol);
     row.push_back(layer);
     row.push_back(posName);
     row.push_back(posX);
@@ -179,6 +180,32 @@ void HoistTablePanel::OnContextMenu(wxDataViewEvent &event) {
 
   wxVariant current;
   table->GetValue(current, row, col);
+
+  if (col == 3) {
+    wxArrayString choices;
+    for (const auto &option : GetHoistSymbolOptions())
+      choices.push_back(wxString::FromUTF8(option));
+
+    wxSingleChoiceDialog sdlg(this, "Select symbol", "Symbol", choices);
+    sdlg.SetStringSelection(current.GetString());
+    if (sdlg.ShowModal() != wxID_OK)
+      return;
+    wxString sel = sdlg.GetStringSelection();
+    for (const auto &itSel : selections) {
+      int r = table->ItemToRow(itSel);
+      if (r != wxNOT_FOUND)
+        table->SetValue(wxVariant(sel), r, col);
+    }
+    ResyncRows(oldOrder, selectedUuids);
+    UpdateSceneData();
+    if (Viewer3DPanel::Instance()) {
+      Viewer3DPanel::Instance()->UpdateScene();
+      Viewer3DPanel::Instance()->Refresh();
+    } else if (Viewer2DPanel::Instance()) {
+      Viewer2DPanel::Instance()->UpdateScene();
+    }
+    return;
+  }
 
   if (col == 4) {
     auto layers = ConfigManager::Get().GetLayerNames();
@@ -387,7 +414,8 @@ void HoistTablePanel::UpdateSceneData() {
     it->second.function = std::string(v.GetString().ToUTF8());
 
     table->GetValue(v, i, 3);
-    it->second.riggingPoint = std::string(v.GetString().ToUTF8());
+    it->second.symbol =
+        NormalizeHoistSymbol(std::string(v.GetString().ToUTF8()));
 
     table->GetValue(v, i, 4);
     std::string layerStr = std::string(v.GetString().ToUTF8());
