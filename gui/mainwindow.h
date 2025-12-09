@@ -27,7 +27,7 @@ wxDECLARE_EVENT(EVT_PROJECT_LOADED, wxCommandEvent);
 class wxNotebook;
 class FixtureTablePanel;
 class TrussTablePanel;
-class MotorTablePanel;
+class HoistTablePanel;
 class SceneObjectTablePanel;
 class Viewer3DPanel;
 class Viewer2DPanel;
@@ -63,7 +63,7 @@ private:
   wxNotebook *notebook = nullptr;
   FixtureTablePanel *fixturePanel = nullptr;
   TrussTablePanel *trussPanel = nullptr;
-  MotorTablePanel *motorPanel = nullptr;
+  HoistTablePanel *hoistPanel = nullptr;
   SceneObjectTablePanel *sceneObjPanel = nullptr;
   wxAuiManager *auiManager = nullptr;
   Viewer3DPanel *viewportPanel = nullptr;
