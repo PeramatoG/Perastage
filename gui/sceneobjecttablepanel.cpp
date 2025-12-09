@@ -16,13 +16,14 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "sceneobjecttablepanel.h"
+#include "columnutils.h"
 #include "configmanager.h"
-#include "matrixutils.h"
-#include "viewer3dpanel.h"
-#include "viewer2dpanel.h"
 #include "layerpanel.h"
-#include "summarypanel.h"
+#include "matrixutils.h"
 #include "stringutils.h"
+#include "summarypanel.h"
+#include "viewer2dpanel.h"
+#include "viewer3dpanel.h"
 #include <algorithm>
 #include <wx/notebook.h>
 #include <wx/choicdlg.h>
@@ -78,6 +79,7 @@ void SceneObjectTablePanel::InitializeTable()
         table->AppendTextColumn(
             columnLabels[i], wxDATAVIEW_CELL_INERT, widths[i], wxALIGN_LEFT,
             wxDATAVIEW_COL_RESIZABLE | wxDATAVIEW_COL_SORTABLE);
+    ColumnUtils::EnforceMinColumnWidth(table);
 }
 
 void SceneObjectTablePanel::ReloadData()

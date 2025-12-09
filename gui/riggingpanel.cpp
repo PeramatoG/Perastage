@@ -21,6 +21,7 @@
 #include <string>
 
 #include "colorstore.h"
+#include "columnutils.h"
 #include "configmanager.h"
 
 namespace {
@@ -50,6 +51,8 @@ RiggingPanel::RiggingPanel(wxWindow *parent) : wxPanel(parent, wxID_ANY) {
   table->AppendTextColumn("Total Weight (kg)", wxDATAVIEW_CELL_INERT,
                           wxCOL_WIDTH_AUTOSIZE, wxALIGN_RIGHT,
                           wxDATAVIEW_COL_RESIZABLE);
+
+  ColumnUtils::EnforceMinColumnWidth(table);
 
   auto *sizer = new wxBoxSizer(wxVERTICAL);
   sizer->Add(table, 1, wxEXPAND | wxALL, 5);

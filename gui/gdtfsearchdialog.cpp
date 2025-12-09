@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "gdtfsearchdialog.h"
+#include "columnutils.h"
 #include "consolepanel.h"
 #include <wx/datetime.h>
 
@@ -83,6 +84,7 @@ GdtfSearchDialog::GdtfSearchDialog(wxWindow* parent, const std::string& listData
                                   wxALIGN_LEFT, flags);
     resultTable->AppendTextColumn("Rating", wxDATAVIEW_CELL_INERT, 60,
                                   wxALIGN_LEFT, flags);
+    ColumnUtils::EnforceMinColumnWidth(resultTable);
     sizer->Add(resultTable, 1, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 10);
 
     wxBoxSizer* btnSizer = new wxBoxSizer(wxHORIZONTAL);

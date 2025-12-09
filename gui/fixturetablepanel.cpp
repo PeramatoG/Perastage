@@ -17,6 +17,7 @@
  */
 #include "fixturetablepanel.h"
 #include "addressdialog.h"
+#include "columnutils.h"
 #include "configmanager.h"
 #include "consolepanel.h"
 #include "fixtureeditdialog.h"
@@ -141,6 +142,8 @@ void FixtureTablePanel::InitializeTable() {
                                            columnLabels.size() - 1,
                                            widths.back(), wxALIGN_LEFT, flags);
   table->AppendColumn(colorColumn);
+
+  ColumnUtils::EnforceMinColumnWidth(table);
 }
 
 void FixtureTablePanel::ReloadData() {

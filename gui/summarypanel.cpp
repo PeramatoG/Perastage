@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "summarypanel.h"
+#include "columnutils.h"
 #include "configmanager.h"
 #include <map>
 
@@ -27,6 +28,7 @@ SummaryPanel::SummaryPanel(wxWindow* parent)
     table = new wxDataViewListCtrl(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxDV_ROW_LINES);
     table->AppendTextColumn("Count", wxDATAVIEW_CELL_INERT, 60, wxALIGN_LEFT, wxDATAVIEW_COL_RESIZABLE);
     table->AppendTextColumn("Type", wxDATAVIEW_CELL_INERT, 150, wxALIGN_LEFT, wxDATAVIEW_COL_RESIZABLE);
+    ColumnUtils::EnforceMinColumnWidth(table);
     wxBoxSizer* sizer = new wxBoxSizer(wxVERTICAL);
     sizer->Add(table, 1, wxEXPAND | wxALL, 5);
     SetSizer(sizer);
