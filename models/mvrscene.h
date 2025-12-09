@@ -22,6 +22,7 @@
 #include "fixture.h"
 #include "truss.h"
 #include "sceneobject.h"
+#include "support.h"
 #include "layer.h"
 
 // Represents the full scene structure from an MVR file
@@ -35,6 +36,7 @@ public:
 
     std::unordered_map<std::string, Fixture> fixtures;
     std::unordered_map<std::string, Truss> trusses;
+    std::unordered_map<std::string, Support> supports;
     std::unordered_map<std::string, SceneObject> sceneObjects;
     std::unordered_map<std::string, Layer> layers;
     // Lookup tables for additional references

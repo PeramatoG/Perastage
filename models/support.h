@@ -15,19 +15,27 @@
  * You should have received a copy of the GNU General Public License
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
-#include "mvrscene.h"
+#pragma once
 
-void MvrScene::Clear() {
-    fixtures.clear();
-    trusses.clear();
-    supports.clear();
-    sceneObjects.clear();
-    layers.clear();
-    positions.clear();
-    symdefFiles.clear();
-    provider.clear();
-    providerVersion.clear();
-    basePath.clear();
-    versionMajor = 1;
-    versionMinor = 6;
-}
+#include <string>
+#include "types.h"
+
+// Represents a rigging support/hoist parsed from MVR
+struct Support {
+    std::string uuid;
+    std::string name;
+    std::string gdtfSpec;
+    std::string gdtfMode;
+    std::string function;
+    float chainLength = 0.0f;
+    std::string position;
+    std::string positionName;
+    std::string layer;
+
+    float capacityKg = 0.0f;
+    float weightKg = 0.0f;
+    std::string riggingPoint;
+
+    Matrix transform;
+};
+

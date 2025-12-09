@@ -18,6 +18,7 @@
 #include "mvrexporter.h"
 #include "configmanager.h"
 #include "matrixutils.h"
+#include "support.h"
 #include "uuidutils.h"
 
 #include <wx/wfstream.h>
@@ -252,6 +253,8 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     ensurePositionEntry(fixture.position, fixture.positionName);
   for (const auto &[uid, truss] : scene.trusses)
     ensurePositionEntry(truss.position, truss.positionName);
+  for (const auto &[uid, support] : scene.supports)
+    ensurePositionEntry(support.position, support.positionName);
 
   wxFileOutputStream output(filePath);
   if (!output.IsOk())
@@ -534,6 +537,86 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     parent->InsertEndChild(te);
   };
 
+  auto exportSupport = [&](tinyxml2::XMLElement *parent, const Support &s) {
+    tinyxml2::XMLElement *se = doc.NewElement("Support");
+    se->SetAttribute("uuid", s.uuid.c_str());
+    if (!s.name.empty())
+      se->SetAttribute("name", s.name.c_str());
+
+    auto addStr = [&](const char *n, const std::string &v) {
+      if (!v.empty()) {
+        tinyxml2::XMLElement *e = doc.NewElement(n);
+        e->SetText(v.c_str());
+        se->InsertEndChild(e);
+      }
+    };
+
+    if (!s.gdtfSpec.empty()) {
+      addStr("GDTFSpec", s.gdtfSpec);
+      resourceFiles.insert(s.gdtfSpec);
+    }
+    addStr("GDTFMode", s.gdtfMode);
+    addStr("Function", s.function);
+
+    if (s.chainLength > 0.0f) {
+      tinyxml2::XMLElement *len = doc.NewElement("ChainLength");
+      len->SetAttribute("unit", "m");
+      len->SetText(s.chainLength);
+      se->InsertEndChild(len);
+    }
+
+    if (!s.position.empty()) {
+      addStr("Position", s.position);
+    } else if (!s.positionName.empty()) {
+      for (const auto &[puuid, pname] : positions) {
+        if (pname == s.positionName) {
+          addStr("Position", puuid);
+          break;
+        }
+      }
+    }
+
+    std::string mstr = MatrixUtils::FormatMatrix(s.transform);
+    tinyxml2::XMLElement *mat = doc.NewElement("Matrix");
+    mat->SetText(mstr.c_str());
+    se->InsertEndChild(mat);
+
+    bool hasMeta = s.capacityKg != 0.0f || s.weightKg != 0.0f ||
+                   !s.riggingPoint.empty();
+    if (hasMeta) {
+      tinyxml2::XMLElement *ud = doc.NewElement("UserData");
+      tinyxml2::XMLElement *data = doc.NewElement("Data");
+      data->SetAttribute("provider", "Perastage");
+      data->SetAttribute("ver", "1.0");
+      tinyxml2::XMLElement *info = doc.NewElement("MotorInfo");
+      info->SetAttribute("uuid", s.uuid.c_str());
+
+      auto addNum = [&](const char *n, float v, const char *unit) {
+        if (v != 0.0f) {
+          tinyxml2::XMLElement *e = doc.NewElement(n);
+          e->SetAttribute("unit", unit);
+          e->SetText(std::to_string(v).c_str());
+          info->InsertEndChild(e);
+        }
+      };
+
+      addNum("Capacity", s.capacityKg, "kg");
+      addNum("Weight", s.weightKg, "kg");
+
+      if (!s.riggingPoint.empty()) {
+        tinyxml2::XMLElement *rp = doc.NewElement("RiggingPoint");
+        rp->SetText(s.riggingPoint.c_str());
+        info->InsertEndChild(rp);
+      }
+
+      data->InsertEndChild(info);
+      ud->InsertEndChild(data);
+      se->InsertEndChild(ud);
+    }
+
+    parent->InsertEndChild(se);
+  };
+
   auto exportSceneObject = [&](tinyxml2::XMLElement *parent,
                                const SceneObject &obj) {
     tinyxml2::XMLElement *oe = doc.NewElement("SceneObject");
@@ -601,6 +684,12 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
       exportTruss(childList, t);
     }
 
+    for (const auto &[uid, s] : scene.supports) {
+      if (s.layer != layer.name)
+        continue;
+      exportSupport(childList, s);
+    }
+
     for (const auto &[uid, obj] : scene.sceneObjects) {
       if (obj.layer != layer.name)
         continue;
@@ -622,6 +711,10 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
   for (const auto &[uid, t] : scene.trusses) {
     if (t.layer == DEFAULT_LAYER_NAME || t.layer.empty())
       exportTruss(rootChildList, t);
+  }
+  for (const auto &[uid, s] : scene.supports) {
+    if (s.layer == DEFAULT_LAYER_NAME || s.layer.empty())
+      exportSupport(rootChildList, s);
   }
   for (const auto &[uid, obj] : scene.sceneObjects) {
     if (obj.layer == DEFAULT_LAYER_NAME || obj.layer.empty())

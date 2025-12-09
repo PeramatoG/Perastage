@@ -59,6 +59,8 @@ public:
     void SetSelectedFixtures(const std::vector<std::string>& uuids);
     const std::vector<std::string>& GetSelectedTrusses() const;
     void SetSelectedTrusses(const std::vector<std::string>& uuids);
+    const std::vector<std::string>& GetSelectedSupports() const;
+    void SetSelectedSupports(const std::vector<std::string>& uuids);
     const std::vector<std::string>& GetSelectedSceneObjects() const;
     void SetSelectedSceneObjects(const std::vector<std::string>& uuids);
 
@@ -81,6 +83,8 @@ public:
     void SetFixturePrintColumns(const std::vector<std::string>& cols);
     std::vector<std::string> GetTrussPrintColumns() const;
     void SetTrussPrintColumns(const std::vector<std::string>& cols);
+    std::vector<std::string> GetSupportPrintColumns() const;
+    void SetSupportPrintColumns(const std::vector<std::string>& cols);
     std::vector<std::string> GetSceneObjectPrintColumns() const;
     void SetSceneObjectPrintColumns(const std::vector<std::string>& cols);
 
@@ -139,12 +143,14 @@ private:
     // Selection state
     std::vector<std::string> selectedFixtures;
     std::vector<std::string> selectedTrusses;
+    std::vector<std::string> selectedSupports;
     std::vector<std::string> selectedSceneObjects;
 
     struct Snapshot {
         MvrScene scene;
         std::vector<std::string> selFixtures;
         std::vector<std::string> selTrusses;
+        std::vector<std::string> selSupports;
         std::vector<std::string> selSceneObjects;
         std::string description;
     };
