@@ -64,6 +64,7 @@ using json = nlohmann::json;
 #include "layerpanel.h"
 #include "logindialog.h"
 #include "markdown.h"
+#include "motortablepanel.h"
 #include "mvrexporter.h"
 #include "mvrimporter.h"
 #include "preferencesdialog.h"
@@ -175,10 +176,13 @@ wxBEGIN_EVENT_TABLE(MainWindow, wxFrame) EVT_MENU(
                                                 EVT_MENU(ID_Select_Trusses,
                                                          MainWindow::
                                                              OnSelectTrusses)
-                                                    EVT_MENU(
-                                                        ID_Select_Objects,
-                                                        MainWindow::
-                                                            OnSelectObjects)
+                                                    EVT_MENU(ID_Select_Supports,
+                                                             MainWindow::
+                                                                 OnSelectSupports)
+                                                        EVT_MENU(
+                                                            ID_Select_Objects,
+                                                            MainWindow::
+                                                                OnSelectObjects)
                                                         EVT_MENU(
                                                             ID_Edit_Preferences,
                                                             MainWindow::
@@ -252,6 +256,10 @@ void MainWindow::SetupLayout() {
   trussPanel = new TrussTablePanel(notebook);
   TrussTablePanel::SetInstance(trussPanel);
   notebook->AddPage(trussPanel, "Trusses");
+
+  motorPanel = new MotorTablePanel(notebook);
+  MotorTablePanel::SetInstance(motorPanel);
+  notebook->AddPage(motorPanel, "Motors");
 
   sceneObjPanel = new SceneObjectTablePanel(notebook);
   SceneObjectTablePanel::SetInstance(sceneObjPanel);
@@ -330,11 +338,12 @@ void MainWindow::SetupLayout() {
     riggingPanel->RefreshData();
 
   // Keyboard shortcuts to switch notebook pages
-  wxAcceleratorEntry entries[3];
+  wxAcceleratorEntry entries[4];
   entries[0].Set(wxACCEL_NORMAL, (int)'1', ID_Select_Fixtures);
   entries[1].Set(wxACCEL_NORMAL, (int)'2', ID_Select_Trusses);
-  entries[2].Set(wxACCEL_NORMAL, (int)'3', ID_Select_Objects);
-  m_accel = wxAcceleratorTable(3, entries);
+  entries[2].Set(wxACCEL_NORMAL, (int)'3', ID_Select_Supports);
+  entries[3].Set(wxACCEL_NORMAL, (int)'4', ID_Select_Objects);
+  m_accel = wxAcceleratorTable(4, entries);
   SetAcceleratorTable(m_accel);
 
   // Ensure the View menu reflects the actual pane visibility
@@ -1206,6 +1215,8 @@ void MainWindow::OnPrintTable(wxCommandEvent &WXUNUSED(event)) {
     options.Add("Fixtures");
   if (trussPanel)
     options.Add("Trusses");
+  if (motorPanel)
+    options.Add("Motors");
   if (sceneObjPanel)
     options.Add("Objects");
   if (options.IsEmpty())
@@ -1224,6 +1235,9 @@ void MainWindow::OnPrintTable(wxCommandEvent &WXUNUSED(event)) {
   } else if (choice == "Trusses" && trussPanel) {
     ctrl = trussPanel->GetTableCtrl();
     type = TablePrinter::TableType::Trusses;
+  } else if (choice == "Motors" && motorPanel) {
+    ctrl = motorPanel->GetTableCtrl();
+    type = TablePrinter::TableType::Supports;
   } else if (choice == "Objects" && sceneObjPanel) {
     ctrl = sceneObjPanel->GetTableCtrl();
     type = TablePrinter::TableType::SceneObjects;
@@ -1239,6 +1253,8 @@ void MainWindow::OnExportCSV(wxCommandEvent &WXUNUSED(event)) {
     options.Add("Fixtures");
   if (trussPanel)
     options.Add("Trusses");
+  if (motorPanel)
+    options.Add("Motors");
   if (sceneObjPanel)
     options.Add("Objects");
   if (options.IsEmpty())
@@ -1257,6 +1273,9 @@ void MainWindow::OnExportCSV(wxCommandEvent &WXUNUSED(event)) {
   } else if (choice == "Trusses" && trussPanel) {
     ctrl = trussPanel->GetTableCtrl();
     type = TablePrinter::TableType::Trusses;
+  } else if (choice == "Motors" && motorPanel) {
+    ctrl = motorPanel->GetTableCtrl();
+    type = TablePrinter::TableType::Supports;
   } else if (choice == "Objects" && sceneObjPanel) {
     ctrl = sceneObjPanel->GetTableCtrl();
     type = TablePrinter::TableType::SceneObjects;
@@ -1581,6 +1600,8 @@ void MainWindow::SyncSceneData() {
     fixturePanel->UpdateSceneData();
   if (trussPanel)
     trussPanel->UpdateSceneData();
+  if (motorPanel)
+    motorPanel->UpdateSceneData();
   if (sceneObjPanel)
     sceneObjPanel->UpdateSceneData();
 }
@@ -1599,6 +1620,8 @@ void MainWindow::OnProjectLoaded(wxCommandEvent &event) {
       fixturePanel->ReloadData();
     if (trussPanel)
       trussPanel->ReloadData();
+    if (motorPanel)
+      motorPanel->ReloadData();
     if (sceneObjPanel)
       sceneObjPanel->ReloadData();
     if (viewportPanel) {
@@ -1704,9 +1727,14 @@ void MainWindow::OnSelectTrusses(wxCommandEvent &WXUNUSED(event)) {
     notebook->ChangeSelection(1);
 }
 
-void MainWindow::OnSelectObjects(wxCommandEvent &WXUNUSED(event)) {
+void MainWindow::OnSelectSupports(wxCommandEvent &WXUNUSED(event)) {
   if (notebook)
     notebook->ChangeSelection(2);
+}
+
+void MainWindow::OnSelectObjects(wxCommandEvent &WXUNUSED(event)) {
+  if (notebook)
+    notebook->ChangeSelection(3);
 }
 
 void MainWindow::OnNotebookPageChanged(wxBookCtrlEvent &event) {
@@ -1721,6 +1749,8 @@ void MainWindow::RefreshSummary() {
       summaryPanel->ShowFixtureSummary();
     else if (notebook->GetPage(sel) == trussPanel)
       summaryPanel->ShowTrussSummary();
+    else if (notebook->GetPage(sel) == motorPanel)
+      summaryPanel->ShowFixtureSummary();
     else if (notebook->GetPage(sel) == sceneObjPanel)
       summaryPanel->ShowSceneObjectSummary();
   }
@@ -1755,6 +1785,10 @@ void MainWindow::OnUndo(wxCommandEvent &WXUNUSED(event)) {
     trussPanel->ReloadData();
     trussPanel->SelectByUuid(cfg.GetSelectedTrusses());
   }
+  if (motorPanel) {
+    motorPanel->ReloadData();
+    motorPanel->SelectByUuid(cfg.GetSelectedSupports());
+  }
   if (sceneObjPanel) {
     sceneObjPanel->ReloadData();
     sceneObjPanel->SelectByUuid(cfg.GetSelectedSceneObjects());
@@ -1765,6 +1799,8 @@ void MainWindow::OnUndo(wxCommandEvent &WXUNUSED(event)) {
       viewportPanel->SetSelectedFixtures(cfg.GetSelectedFixtures());
     else if (trussPanel && trussPanel->IsActivePage())
       viewportPanel->SetSelectedFixtures(cfg.GetSelectedTrusses());
+    else if (motorPanel && motorPanel->IsActivePage())
+      viewportPanel->SetSelectedFixtures(cfg.GetSelectedSupports());
     else if (sceneObjPanel && sceneObjPanel->IsActivePage())
       viewportPanel->SetSelectedFixtures(cfg.GetSelectedSceneObjects());
     else
@@ -1789,6 +1825,10 @@ void MainWindow::OnRedo(wxCommandEvent &WXUNUSED(event)) {
     trussPanel->ReloadData();
     trussPanel->SelectByUuid(cfg.GetSelectedTrusses());
   }
+  if (motorPanel) {
+    motorPanel->ReloadData();
+    motorPanel->SelectByUuid(cfg.GetSelectedSupports());
+  }
   if (sceneObjPanel) {
     sceneObjPanel->ReloadData();
     sceneObjPanel->SelectByUuid(cfg.GetSelectedSceneObjects());
@@ -1799,6 +1839,8 @@ void MainWindow::OnRedo(wxCommandEvent &WXUNUSED(event)) {
       viewportPanel->SetSelectedFixtures(cfg.GetSelectedFixtures());
     else if (trussPanel && trussPanel->IsActivePage())
       viewportPanel->SetSelectedFixtures(cfg.GetSelectedTrusses());
+    else if (motorPanel && motorPanel->IsActivePage())
+      viewportPanel->SetSelectedFixtures(cfg.GetSelectedSupports());
     else if (sceneObjPanel && sceneObjPanel->IsActivePage())
       viewportPanel->SetSelectedFixtures(cfg.GetSelectedSceneObjects());
     else
@@ -2180,6 +2222,8 @@ void MainWindow::OnDelete(wxCommandEvent &WXUNUSED(event)) {
     fixturePanel->DeleteSelected();
   else if (trussPanel && trussPanel->IsActivePage())
     trussPanel->DeleteSelected();
+  else if (motorPanel && motorPanel->IsActivePage())
+    motorPanel->DeleteSelected();
   else if (sceneObjPanel && sceneObjPanel->IsActivePage())
     sceneObjPanel->DeleteSelected();
 }
