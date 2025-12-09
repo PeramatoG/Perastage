@@ -16,18 +16,19 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "trusstablepanel.h"
+#include "columnutils.h"
 #include "configmanager.h"
-#include "matrixutils.h"
-#include "viewer3dpanel.h"
-#include "viewer2dpanel.h"
+#include "consolepanel.h"
 #include "layerpanel.h"
-#include "riggingpanel.h"
-#include "summarypanel.h"
-#include "stringutils.h"
+#include "matrixutils.h"
 #include "projectutils.h"
+#include "riggingpanel.h"
+#include "stringutils.h"
+#include "summarypanel.h"
 #include "trussdictionary.h"
 #include "trussloader.h"
-#include "consolepanel.h"
+#include "viewer2dpanel.h"
+#include "viewer3dpanel.h"
 #include <filesystem>
 #include <wx/filedlg.h>
 #include <wx/filename.h>
@@ -92,6 +93,7 @@ void TrussTablePanel::InitializeTable()
         table->AppendTextColumn(
             columnLabels[i], wxDATAVIEW_CELL_INERT, widths[i], wxALIGN_LEFT,
             wxDATAVIEW_COL_RESIZABLE | wxDATAVIEW_COL_SORTABLE);
+    ColumnUtils::EnforceMinColumnWidth(table);
 }
 
 void TrussTablePanel::ReloadData()

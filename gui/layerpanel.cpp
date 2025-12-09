@@ -16,12 +16,13 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "layerpanel.h"
+#include "columnutils.h"
 #include "configmanager.h"
-#include "viewer3dpanel.h"
-#include "viewer2dpanel.h"
 #include "fixturetablepanel.h"
-#include "trusstablepanel.h"
 #include "sceneobjecttablepanel.h"
+#include "trusstablepanel.h"
+#include "viewer2dpanel.h"
+#include "viewer3dpanel.h"
 #include <set>
 #include <chrono>
 #include <algorithm>
@@ -38,6 +39,7 @@ LayerPanel::LayerPanel(wxWindow* parent)
     auto* colorRenderer = new wxDataViewIconTextRenderer();
     auto* colorColumn = new wxDataViewColumn("Color", colorRenderer, 2, 40, wxALIGN_CENTER);
     list->AppendColumn(colorColumn);
+    ColumnUtils::EnforceMinColumnWidth(list);
 
     wxBoxSizer* sizer = new wxBoxSizer(wxVERTICAL);
     sizer->Add(list, 1, wxEXPAND | wxALL, 5);
