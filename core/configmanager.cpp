@@ -237,6 +237,9 @@ void ConfigManager::ApplyColumnDefaults() {
         "Fixture ID,Name,Type,Layer,Hang Pos,Universe,Channel,Mode,Ch Count");
   if (!HasKey("truss_print_columns"))
     SetValue("truss_print_columns", "Name,Layer,Hang Pos,Manufacturer,Model");
+  if (!HasKey("support_print_columns"))
+    SetValue("support_print_columns",
+             "Motor ID,Name,Type,Rigging Point,Layer,Hang Pos,Pos X,Pos Y,Pos Z,Roll (X),Pitch (Y),Yaw (Z),Chain Length (m),Capacity (kg),Weight (kg)");
   if (!HasKey("sceneobject_print_columns"))
     SetValue("sceneobject_print_columns", "Name,Layer");
 }
@@ -262,6 +265,18 @@ std::vector<std::string> ConfigManager::GetTrussPrintColumns() const {
 
 void ConfigManager::SetTrussPrintColumns(const std::vector<std::string> &cols) {
   SetValue("truss_print_columns", JoinCSV(cols));
+}
+
+std::vector<std::string> ConfigManager::GetSupportPrintColumns() const {
+  auto val = GetValue("support_print_columns");
+  if (val)
+    return SplitCSV(*val);
+  return {};
+}
+
+void ConfigManager::SetSupportPrintColumns(
+    const std::vector<std::string> &cols) {
+  SetValue("support_print_columns", JoinCSV(cols));
 }
 
 std::vector<std::string> ConfigManager::GetSceneObjectPrintColumns() const {
@@ -341,6 +356,8 @@ std::vector<std::string> ConfigManager::GetLayerNames() const {
     collect(f.layer);
   for (const auto &[u, t] : scene.trusses)
     collect(t.layer);
+  for (const auto &[u, s] : scene.supports)
+    collect(s.layer);
   for (const auto &[u, o] : scene.sceneObjects)
     collect(o.layer);
   names.insert(DEFAULT_LAYER_NAME);
@@ -378,6 +395,14 @@ const std::vector<std::string> &ConfigManager::GetSelectedTrusses() const {
 
 void ConfigManager::SetSelectedTrusses(const std::vector<std::string> &uuids) {
   selectedTrusses = uuids;
+}
+
+const std::vector<std::string> &ConfigManager::GetSelectedSupports() const {
+  return selectedSupports;
+}
+
+void ConfigManager::SetSelectedSupports(const std::vector<std::string> &uuids) {
+  selectedSupports = uuids;
 }
 
 const std::vector<std::string> &ConfigManager::GetSelectedSceneObjects() const {
@@ -539,6 +564,7 @@ bool ConfigManager::LoadProject(const std::string &path) {
     ClearHistory();
     selectedFixtures.clear();
     selectedTrusses.clear();
+    selectedSupports.clear();
     selectedSceneObjects.clear();
     revision = 0;
     savedRevision = 0;
@@ -555,6 +581,7 @@ void ConfigManager::Reset() {
   ApplyDefaults();
   selectedFixtures.clear();
   selectedTrusses.clear();
+  selectedSupports.clear();
   selectedSceneObjects.clear();
   currentLayer = DEFAULT_LAYER_NAME;
   ClearHistory();
@@ -579,8 +606,8 @@ bool ConfigManager::SaveUserConfig() const {
 }
 
 void ConfigManager::PushUndoState(const std::string &description) {
-  Snapshot snap{scene, selectedFixtures, selectedTrusses, selectedSceneObjects,
-                description};
+  Snapshot snap{scene, selectedFixtures, selectedTrusses, selectedSupports,
+                selectedSceneObjects, description};
   undoStack.push_back(std::move(snap));
   if (undoStack.size() > maxHistory)
     undoStack.erase(undoStack.begin());
@@ -597,10 +624,12 @@ std::string ConfigManager::Undo() {
     return {};
   const Snapshot snap = undoStack.back();
   redoStack.push_back({scene, selectedFixtures, selectedTrusses,
-                       selectedSceneObjects, snap.description});
+                       selectedSupports, selectedSceneObjects,
+                       snap.description});
   scene = snap.scene;
   selectedFixtures = snap.selFixtures;
   selectedTrusses = snap.selTrusses;
+  selectedSupports = snap.selSupports;
   selectedSceneObjects = snap.selSceneObjects;
   undoStack.pop_back();
   if (revision > 0)
@@ -613,10 +642,12 @@ std::string ConfigManager::Redo() {
     return {};
   const Snapshot snap = redoStack.back();
   undoStack.push_back({scene, selectedFixtures, selectedTrusses,
-                       selectedSceneObjects, snap.description});
+                       selectedSupports, selectedSceneObjects,
+                       snap.description});
   scene = snap.scene;
   selectedFixtures = snap.selFixtures;
   selectedTrusses = snap.selTrusses;
+  selectedSupports = snap.selSupports;
   selectedSceneObjects = snap.selSceneObjects;
   redoStack.pop_back();
   ++revision;

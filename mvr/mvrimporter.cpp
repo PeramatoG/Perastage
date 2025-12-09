@@ -21,6 +21,7 @@
 #include "gdtfloader.h"
 #include "matrixutils.h"
 #include "sceneobject.h"
+#include "support.h"
 
 #include "consolepanel.h"
 #include "logger.h"
@@ -593,6 +594,86 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         scene.trusses[truss.uuid] = truss;
       };
 
+  std::function<void(tinyxml2::XMLElement *, const std::string &)> parseSupport =
+      [&](tinyxml2::XMLElement *node, const std::string &layerName) {
+        const char *uuidAttr = node->Attribute("uuid");
+        if (!uuidAttr)
+          return;
+
+        Support support;
+        support.uuid = uuidAttr;
+        support.layer = layerName;
+
+        if (const char *nameAttr = node->Attribute("name"))
+          support.name = nameAttr;
+
+        tinyxml2::XMLElement *childList = node->FirstChildElement("ChildList");
+        auto readText = [&](const char *name) -> std::string {
+          tinyxml2::XMLElement *parent = childList ? childList : node;
+          if (!parent)
+            return {};
+          if (tinyxml2::XMLElement *el = parent->FirstChildElement(name)) {
+            if (const char *txt = el->GetText())
+              return Trim(txt);
+          }
+          return {};
+        };
+
+        support.gdtfSpec = readText("GDTFSpec");
+        support.gdtfMode = readText("GDTFMode");
+        support.function = readText("Function");
+        std::string chainText = readText("ChainLength");
+        if (!chainText.empty()) {
+          try {
+            support.chainLength = std::stof(chainText);
+          } catch (...) {
+            support.chainLength = 0.0f;
+          }
+        }
+
+        support.position = readText("Position");
+        support.positionName = ensurePositionEntry(support.position);
+
+        if (tinyxml2::XMLElement *matrix = node->FirstChildElement("Matrix")) {
+          if (const char *txt = matrix->GetText()) {
+            std::string raw = txt;
+            MatrixUtils::ParseMatrix(raw, support.transform);
+          }
+        }
+
+        if (tinyxml2::XMLElement *ud = node->FirstChildElement("UserData")) {
+          for (tinyxml2::XMLElement *data = ud->FirstChildElement("Data"); data;
+               data = data->NextSiblingElement("Data")) {
+            if (tinyxml2::XMLElement *info =
+                    data->FirstChildElement("MotorInfo")) {
+              auto readFloat = [&](const char *name, float &out) {
+                if (tinyxml2::XMLElement *e = info->FirstChildElement(name)) {
+                  if (const char *txt = e->GetText()) {
+                    try {
+                      out = std::stof(txt);
+                    } catch (...) {
+                    }
+                  }
+                }
+              };
+              readFloat("Capacity", support.capacityKg);
+              readFloat("Weight", support.weightKg);
+              if (tinyxml2::XMLElement *rp =
+                      info->FirstChildElement("RiggingPoint")) {
+                if (const char *txt = rp->GetText())
+                  support.riggingPoint = Trim(txt);
+              }
+            }
+          }
+        }
+
+        auto posIt = scene.positions.find(support.position);
+        if (posIt != scene.positions.end())
+          support.positionName = posIt->second;
+
+        scene.supports[support.uuid] = support;
+      };
+
   std::function<void(tinyxml2::XMLElement *, const std::string &)>
       parseSceneObj = [&](tinyxml2::XMLElement *node,
                           const std::string &layerName) {
@@ -645,6 +726,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         parseFixture(child, layerName);
       } else if (nodeName == "Truss") {
         parseTruss(child, layerName);
+      } else if (nodeName == "Support") {
+        parseSupport(child, layerName);
       } else if (nodeName == "SceneObject") {
         parseSceneObj(child, layerName);
       } else {
@@ -750,6 +833,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
   std::string summary =
       "Parsed scene: " + std::to_string(scene.fixtures.size()) + " fixtures, " +
       std::to_string(scene.trusses.size()) + " trusses, " +
+      std::to_string(scene.supports.size()) + " supports, " +
       std::to_string(scene.sceneObjects.size()) + " objects";
   LogMessage(summary);
   return true;
