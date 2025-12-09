@@ -187,7 +187,10 @@ void HoistTablePanel::OnContextMenu(wxDataViewEvent &event) {
       choices.push_back(wxString::FromUTF8(option));
 
     wxSingleChoiceDialog sdlg(this, "Select symbol", "Symbol", choices);
-    sdlg.SetStringSelection(current.GetString());
+    // With the following code:
+    int selIdx = choices.Index(current.GetString());
+    if (selIdx != wxNOT_FOUND)
+        sdlg.SetSelection(selIdx);
     if (sdlg.ShowModal() != wxID_OK)
       return;
     wxString sel = sdlg.GetStringSelection();
