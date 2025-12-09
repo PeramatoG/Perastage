@@ -42,10 +42,15 @@ RiggingPanel::RiggingPanel(wxWindow *parent) : wxPanel(parent, wxID_ANY) {
                           wxALIGN_RIGHT, wxDATAVIEW_COL_RESIZABLE);
   table->AppendTextColumn("Trusses", wxDATAVIEW_CELL_INERT, wxCOL_WIDTH_AUTOSIZE,
                           wxALIGN_RIGHT, wxDATAVIEW_COL_RESIZABLE);
+  table->AppendTextColumn("Supports", wxDATAVIEW_CELL_INERT, wxCOL_WIDTH_AUTOSIZE,
+                          wxALIGN_RIGHT, wxDATAVIEW_COL_RESIZABLE);
   table->AppendTextColumn("Fixture Weight (kg)", wxDATAVIEW_CELL_INERT,
                           wxCOL_WIDTH_AUTOSIZE, wxALIGN_RIGHT,
                           wxDATAVIEW_COL_RESIZABLE);
   table->AppendTextColumn("Truss Weight (kg)", wxDATAVIEW_CELL_INERT,
+                          wxCOL_WIDTH_AUTOSIZE, wxALIGN_RIGHT,
+                          wxDATAVIEW_COL_RESIZABLE);
+  table->AppendTextColumn("Support Weight (kg)", wxDATAVIEW_CELL_INERT,
                           wxCOL_WIDTH_AUTOSIZE, wxALIGN_RIGHT,
                           wxDATAVIEW_COL_RESIZABLE);
   table->AppendTextColumn("Total Weight (kg)", wxDATAVIEW_CELL_INERT,
@@ -81,10 +86,13 @@ void RiggingPanel::RefreshData() {
   struct Totals {
     int fixtures = 0;
     int trusses = 0;
+    int supports = 0;
     float fixtureWeight = 0.0f;
     float trussWeight = 0.0f;
+    float supportWeight = 0.0f;
     bool hasZeroWeightFixture = false;
     bool hasZeroWeightTruss = false;
+    bool hasZeroWeightSupport = false;
   };
 
   std::map<std::string, Totals> rows;
@@ -109,41 +117,61 @@ void RiggingPanel::RefreshData() {
       entry.hasZeroWeightTruss = true;
   }
 
+  for (const auto &[uuid, support] : scene.supports) {
+    std::string pos = support.positionName.empty() ? UNASSIGNED_POSITION
+                                                   : support.positionName;
+    auto &entry = rows[pos];
+    entry.supports++;
+    entry.supportWeight += support.weightKg;
+    if (support.weightKg <= 0.0f)
+      entry.hasZeroWeightSupport = true;
+  }
+
   // Ensure both the view and the custom store start from a clean state so
   // text colours get recalculated on every refresh.
   store->DeleteAllItems();
   table->DeleteAllItems();
   for (const auto &[position, totals] : rows) {
-    float totalWeight = totals.fixtureWeight + totals.trussWeight;
+    float totalWeight =
+        totals.fixtureWeight + totals.trussWeight + totals.supportWeight;
     wxVector<wxVariant> row;
     row.push_back(wxString::FromUTF8(position));
     row.push_back(wxString::Format("%d", totals.fixtures));
     row.push_back(wxString::Format("%d", totals.trusses));
+    row.push_back(wxString::Format("%d", totals.supports));
     row.push_back(wxString::Format("%.2f", totals.fixtureWeight));
     row.push_back(wxString::Format("%.2f", totals.trussWeight));
+    row.push_back(wxString::Format("%.2f", totals.supportWeight));
     row.push_back(wxString::Format("%.2f", totalWeight));
     unsigned int rowIndex = table->GetItemCount();
     table->AppendItem(row);
 
     const bool fixtureCountZero = totals.fixtures == 0;
     const bool trussCountZero = totals.trusses == 0;
+    const bool supportCountZero = totals.supports == 0;
     const bool fixtureWeightZero =
         totals.fixtureWeight <= 0.0f || totals.hasZeroWeightFixture;
     const bool trussWeightZero =
         totals.trussWeight <= 0.0f || totals.hasZeroWeightTruss;
+    const bool supportWeightZero =
+        totals.supportWeight <= 0.0f || totals.hasZeroWeightSupport;
 
     if (fixtureCountZero)
       store->SetCellTextColour(rowIndex, 1, *wxRED);
     if (trussCountZero)
       store->SetCellTextColour(rowIndex, 2, *wxRED);
-    if (fixtureWeightZero)
+    if (supportCountZero)
       store->SetCellTextColour(rowIndex, 3, *wxRED);
-    if (trussWeightZero)
+    if (fixtureWeightZero)
       store->SetCellTextColour(rowIndex, 4, *wxRED);
-
-    if (fixtureCountZero || trussCountZero || fixtureWeightZero ||
-        trussWeightZero)
+    if (trussWeightZero)
       store->SetCellTextColour(rowIndex, 5, *wxRED);
+    if (supportWeightZero)
+      store->SetCellTextColour(rowIndex, 6, *wxRED);
+
+    if (fixtureCountZero || trussCountZero || supportCountZero ||
+        fixtureWeightZero || trussWeightZero || supportWeightZero)
+      store->SetCellTextColour(rowIndex, 7, *wxRED);
   }
 
   AutoSizeColumns(table);
