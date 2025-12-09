@@ -582,7 +582,7 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     se->InsertEndChild(mat);
 
     bool hasMeta = s.capacityKg != 0.0f || s.weightKg != 0.0f ||
-                   !s.riggingPoint.empty();
+                   !s.symbol.empty();
     if (hasMeta) {
       tinyxml2::XMLElement *ud = doc.NewElement("UserData");
       tinyxml2::XMLElement *data = doc.NewElement("Data");
@@ -603,9 +603,10 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
       addNum("Capacity", s.capacityKg, "kg");
       addNum("Weight", s.weightKg, "kg");
 
-      if (!s.riggingPoint.empty()) {
+      if (!s.symbol.empty()) {
         tinyxml2::XMLElement *rp = doc.NewElement("RiggingPoint");
-        rp->SetText(s.riggingPoint.c_str());
+        std::string symbol = NormalizeHoistSymbol(s.symbol);
+        rp->SetText(symbol.c_str());
         info->InsertEndChild(rp);
       }
 

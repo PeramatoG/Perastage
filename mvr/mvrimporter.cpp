@@ -663,7 +663,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
               if (tinyxml2::XMLElement *rp =
                       info->FirstChildElement("RiggingPoint")) {
                 if (const char *txt = rp->GetText())
-                  support.riggingPoint = Trim(txt);
+                  support.symbol = NormalizeHoistSymbol(Trim(txt));
               }
             }
           }

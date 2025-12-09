@@ -17,10 +17,13 @@
  */
 #pragma once
 
+#include <algorithm>
+#include <array>
+#include <cctype>
 #include <string>
 #include "types.h"
 
-// Represents a rigging support/hoist parsed from MVR
+// Represents a hoist parsed from MVR
 struct Support {
     std::string uuid;
     std::string name;
@@ -34,8 +37,48 @@ struct Support {
 
     float capacityKg = 0.0f;
     float weightKg = 0.0f;
-    std::string riggingPoint;
+    // Hoist symbol/category. Limited to values returned by GetHoistSymbolOptions().
+    std::string symbol = "Lighting";
 
     Matrix transform;
 };
+
+inline const std::array<std::string, 5> &GetHoistSymbolOptions() {
+    static const std::array<std::string, 5> options = {
+        "Lighting", "Audio", "Video", "Scenic", "Extra"};
+    return options;
+}
+
+inline std::string NormalizeHoistSymbol(const std::string &rawValue) {
+    auto trimmed = rawValue;
+    auto trimSpaces = [](std::string &s) {
+        auto notSpace = [](unsigned char ch) { return !std::isspace(ch); };
+        s.erase(s.begin(), std::find_if(s.begin(), s.end(), notSpace));
+        s.erase(std::find_if(s.rbegin(), s.rend(), notSpace).base(), s.end());
+    };
+    trimSpaces(trimmed);
+
+    if (trimmed.empty())
+        return "Lighting";
+
+    try {
+        if (std::stod(trimmed) == 0.0)
+            return "Lighting";
+    } catch (...) {
+    }
+
+    auto lower = trimmed;
+    std::transform(lower.begin(), lower.end(), lower.begin(),
+                   [](unsigned char c) { return std::tolower(c); });
+
+    for (const auto &opt : GetHoistSymbolOptions()) {
+        auto optLower = opt;
+        std::transform(optLower.begin(), optLower.end(), optLower.begin(),
+                       [](unsigned char c) { return std::tolower(c); });
+        if (lower == optLower)
+            return opt;
+    }
+
+    return "Extra";
+}
 
