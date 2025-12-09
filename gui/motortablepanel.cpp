@@ -151,7 +151,7 @@ void MotorTablePanel::ReloadData() {
   if (LayerPanel::Instance())
     LayerPanel::Instance()->ReloadLayers();
   if (SummaryPanel::Instance() && IsActivePage())
-    SummaryPanel::Instance()->ShowSupportSummary();
+    SummaryPanel::Instance()->ShowFixtureSummary();
 }
 
 void MotorTablePanel::OnContextMenu(wxDataViewEvent &event) {
@@ -453,7 +453,7 @@ void MotorTablePanel::UpdateSceneData() {
   }
 
   if (SummaryPanel::Instance() && IsActivePage())
-    SummaryPanel::Instance()->ShowSupportSummary();
+    SummaryPanel::Instance()->ShowFixtureSummary();
 }
 
 MotorTablePanel *MotorTablePanel::Instance() { return s_instance; }
@@ -527,7 +527,7 @@ void MotorTablePanel::DeleteSelected() {
   }
 
   if (SummaryPanel::Instance())
-    SummaryPanel::Instance()->ShowSupportSummary();
+    SummaryPanel::Instance()->ShowFixtureSummary();
 
   if (Viewer3DPanel::Instance()) {
     Viewer3DPanel::Instance()->UpdateScene();
