@@ -15,7 +15,7 @@
  * You should have received a copy of the GNU General Public License
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
-#include "motortablepanel.h"
+#include "hoisttablepanel.h"
 
 #include "columnutils.h"
 #include "configmanager.h"
@@ -30,9 +30,9 @@
 #include <wx/choicdlg.h>
 #include <wx/notebook.h>
 
-static MotorTablePanel *s_instance = nullptr;
+static HoistTablePanel *s_instance = nullptr;
 
-MotorTablePanel::MotorTablePanel(wxWindow *parent)
+HoistTablePanel::HoistTablePanel(wxWindow *parent)
     : wxPanel(parent, wxID_ANY) {
   store = new ColorfulDataViewListStore();
   wxBoxSizer *sizer = new wxBoxSizer(wxVERTICAL);
@@ -43,18 +43,18 @@ MotorTablePanel::MotorTablePanel(wxWindow *parent)
 
   table->SetAlternateRowColour(wxColour(40, 40, 40));
 
-  table->Bind(wxEVT_LEFT_DOWN, &MotorTablePanel::OnLeftDown, this);
-  table->Bind(wxEVT_LEFT_UP, &MotorTablePanel::OnLeftUp, this);
-  table->Bind(wxEVT_MOTION, &MotorTablePanel::OnMouseMove, this);
+  table->Bind(wxEVT_LEFT_DOWN, &HoistTablePanel::OnLeftDown, this);
+  table->Bind(wxEVT_LEFT_UP, &HoistTablePanel::OnLeftUp, this);
+  table->Bind(wxEVT_MOTION, &HoistTablePanel::OnMouseMove, this);
   table->Bind(wxEVT_DATAVIEW_SELECTION_CHANGED,
-              &MotorTablePanel::OnSelectionChanged, this);
+              &HoistTablePanel::OnSelectionChanged, this);
 
-  table->Bind(wxEVT_DATAVIEW_ITEM_CONTEXT_MENU, &MotorTablePanel::OnContextMenu,
+  table->Bind(wxEVT_DATAVIEW_ITEM_CONTEXT_MENU, &HoistTablePanel::OnContextMenu,
               this);
-  table->Bind(wxEVT_DATAVIEW_COLUMN_SORTED, &MotorTablePanel::OnColumnSorted,
+  table->Bind(wxEVT_DATAVIEW_COLUMN_SORTED, &HoistTablePanel::OnColumnSorted,
               this);
 
-  Bind(wxEVT_MOUSE_CAPTURE_LOST, &MotorTablePanel::OnCaptureLost, this);
+  Bind(wxEVT_MOUSE_CAPTURE_LOST, &HoistTablePanel::OnCaptureLost, this);
 
   InitializeTable();
   ReloadData();
@@ -63,10 +63,10 @@ MotorTablePanel::MotorTablePanel(wxWindow *parent)
   SetSizer(sizer);
 }
 
-MotorTablePanel::~MotorTablePanel() { store = nullptr; }
+HoistTablePanel::~HoistTablePanel() { store = nullptr; }
 
-void MotorTablePanel::InitializeTable() {
-  columnLabels = {"Motor ID",    "Name",       "Type",       "Rigging Point",
+void HoistTablePanel::InitializeTable() {
+  columnLabels = {"Hoist ID",    "Name",       "Type",       "Rigging Point",
                   "Layer",       "Hang Pos",   "Pos X",      "Pos Y",
                   "Pos Z",       "Roll (X)",   "Pitch (Y)",  "Yaw (Z)",
                   "Chain Length (m)", "Capacity (kg)", "Weight (kg)"};
@@ -79,7 +79,7 @@ void MotorTablePanel::InitializeTable() {
   ColumnUtils::EnforceMinColumnWidth(table);
 }
 
-void MotorTablePanel::ReloadData() {
+void HoistTablePanel::ReloadData() {
   table->DeleteAllItems();
   rowUuids.clear();
   const auto &supports = ConfigManager::Get().GetScene().supports;
@@ -99,13 +99,13 @@ void MotorTablePanel::ReloadData() {
     return StringUtils::NaturalLess(a->name, b->name);
   });
 
-  int motorId = 1;
+  int hoistId = 1;
   for (const auto &pair : sorted) {
     const std::string &uuid = pair.first;
     const Support &support = *pair.second;
     wxVector<wxVariant> row;
 
-    row.push_back(wxVariant(motorId));
+    row.push_back(wxVariant(hoistId));
     wxString name = wxString::FromUTF8(support.name);
     wxString type = wxString::FromUTF8(support.function);
     wxString rigging = wxString::FromUTF8(support.riggingPoint);
@@ -145,7 +145,7 @@ void MotorTablePanel::ReloadData() {
 
     store->AppendItem(row, rowUuids.size());
     rowUuids.push_back(uuid);
-    ++motorId;
+    ++hoistId;
   }
 
   if (LayerPanel::Instance())
@@ -154,7 +154,7 @@ void MotorTablePanel::ReloadData() {
     SummaryPanel::Instance()->ShowFixtureSummary();
 }
 
-void MotorTablePanel::OnContextMenu(wxDataViewEvent &event) {
+void HoistTablePanel::OnContextMenu(wxDataViewEvent &event) {
   wxDataViewItem item = event.GetItem();
   int col = event.GetColumn();
   if (!item.IsOk() || col < 0)
@@ -304,7 +304,7 @@ void MotorTablePanel::OnContextMenu(wxDataViewEvent &event) {
   }
 }
 
-void MotorTablePanel::OnLeftDown(wxMouseEvent &evt) {
+void HoistTablePanel::OnLeftDown(wxMouseEvent &evt) {
   wxDataViewItem item;
   wxDataViewColumn *col;
   table->HitTest(evt.GetPosition(), item, col);
@@ -318,7 +318,7 @@ void MotorTablePanel::OnLeftDown(wxMouseEvent &evt) {
   evt.Skip();
 }
 
-void MotorTablePanel::OnLeftUp(wxMouseEvent &evt) {
+void HoistTablePanel::OnLeftUp(wxMouseEvent &evt) {
   if (dragSelecting) {
     dragSelecting = false;
     ReleaseMouse();
@@ -326,11 +326,11 @@ void MotorTablePanel::OnLeftUp(wxMouseEvent &evt) {
   evt.Skip();
 }
 
-void MotorTablePanel::OnCaptureLost(wxMouseCaptureLostEvent &WXUNUSED(evt)) {
+void HoistTablePanel::OnCaptureLost(wxMouseCaptureLostEvent &WXUNUSED(evt)) {
   dragSelecting = false;
 }
 
-void MotorTablePanel::OnMouseMove(wxMouseEvent &evt) {
+void HoistTablePanel::OnMouseMove(wxMouseEvent &evt) {
   if (!dragSelecting || !evt.Dragging()) {
     evt.Skip();
     return;
@@ -349,7 +349,7 @@ void MotorTablePanel::OnMouseMove(wxMouseEvent &evt) {
   evt.Skip();
 }
 
-void MotorTablePanel::OnSelectionChanged(wxDataViewEvent &evt) {
+void HoistTablePanel::OnSelectionChanged(wxDataViewEvent &evt) {
   wxDataViewItemArray selections;
   table->GetSelections(selections);
   std::vector<std::string> uuids;
@@ -369,7 +369,7 @@ void MotorTablePanel::OnSelectionChanged(wxDataViewEvent &evt) {
   evt.Skip();
 }
 
-void MotorTablePanel::UpdateSceneData() {
+void HoistTablePanel::UpdateSceneData() {
   ConfigManager &cfg = ConfigManager::Get();
   cfg.PushUndoState("edit support");
   auto &scene = cfg.GetScene();
@@ -456,16 +456,16 @@ void MotorTablePanel::UpdateSceneData() {
     SummaryPanel::Instance()->ShowFixtureSummary();
 }
 
-MotorTablePanel *MotorTablePanel::Instance() { return s_instance; }
+HoistTablePanel *HoistTablePanel::Instance() { return s_instance; }
 
-void MotorTablePanel::SetInstance(MotorTablePanel *panel) { s_instance = panel; }
+void HoistTablePanel::SetInstance(HoistTablePanel *panel) { s_instance = panel; }
 
-bool MotorTablePanel::IsActivePage() const {
+bool HoistTablePanel::IsActivePage() const {
   auto *nb = dynamic_cast<wxNotebook *>(GetParent());
   return nb && nb->GetPage(nb->GetSelection()) == this;
 }
 
-void MotorTablePanel::HighlightMotor(const std::string &uuid) {
+void HoistTablePanel::HighlightHoist(const std::string &uuid) {
   for (size_t i = 0; i < rowUuids.size(); ++i) {
     if (!uuid.empty() && rowUuids[i] == uuid)
       store->SetRowBackgroundColour(i, wxColour(0, 200, 0));
@@ -475,9 +475,9 @@ void MotorTablePanel::HighlightMotor(const std::string &uuid) {
   table->Refresh();
 }
 
-void MotorTablePanel::ClearSelection() { table->UnselectAll(); }
+void HoistTablePanel::ClearSelection() { table->UnselectAll(); }
 
-std::vector<std::string> MotorTablePanel::GetSelectedUuids() const {
+std::vector<std::string> HoistTablePanel::GetSelectedUuids() const {
   wxDataViewItemArray selections;
   table->GetSelections(selections);
   std::vector<std::string> uuids;
@@ -490,7 +490,7 @@ std::vector<std::string> MotorTablePanel::GetSelectedUuids() const {
   return uuids;
 }
 
-void MotorTablePanel::SelectByUuid(const std::vector<std::string> &uuids) {
+void HoistTablePanel::SelectByUuid(const std::vector<std::string> &uuids) {
   table->UnselectAll();
   for (const auto &u : uuids) {
     auto pos = std::find(rowUuids.begin(), rowUuids.end(), u);
@@ -499,7 +499,7 @@ void MotorTablePanel::SelectByUuid(const std::vector<std::string> &uuids) {
   }
 }
 
-void MotorTablePanel::DeleteSelected() {
+void HoistTablePanel::DeleteSelected() {
   wxDataViewItemArray selections;
   table->GetSelections(selections);
   if (selections.empty())
@@ -540,7 +540,7 @@ void MotorTablePanel::DeleteSelected() {
   ResyncRows(order, {});
 }
 
-void MotorTablePanel::ResyncRows(const std::vector<std::string> &oldOrder,
+void HoistTablePanel::ResyncRows(const std::vector<std::string> &oldOrder,
                                  const std::vector<std::string> &selectedUuids) {
   unsigned int count = table->GetItemCount();
   std::vector<std::string> newOrder(count);
@@ -561,7 +561,7 @@ void MotorTablePanel::ResyncRows(const std::vector<std::string> &oldOrder,
   }
 }
 
-void MotorTablePanel::OnColumnSorted(wxDataViewEvent &event) {
+void HoistTablePanel::OnColumnSorted(wxDataViewEvent &event) {
   wxDataViewItemArray selections;
   table->GetSelections(selections);
   std::vector<std::string> selectedUuids;

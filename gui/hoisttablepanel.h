@@ -23,13 +23,13 @@
 #include <vector>
 #include "colorstore.h"
 
-class MotorTablePanel : public wxPanel {
+class HoistTablePanel : public wxPanel {
 public:
-  explicit MotorTablePanel(wxWindow *parent);
-  ~MotorTablePanel();
+  explicit HoistTablePanel(wxWindow *parent);
+  ~HoistTablePanel();
 
   void ReloadData();
-  void HighlightMotor(const std::string &uuid);
+  void HighlightHoist(const std::string &uuid);
   void ClearSelection();
   std::vector<std::string> GetSelectedUuids() const;
   void SelectByUuid(const std::vector<std::string> &uuids);
@@ -37,8 +37,8 @@ public:
   void DeleteSelected();
   wxDataViewListCtrl *GetTableCtrl() const { return table; }
 
-  static MotorTablePanel *Instance();
-  static void SetInstance(MotorTablePanel *panel);
+  static HoistTablePanel *Instance();
+  static void SetInstance(HoistTablePanel *panel);
 
   void UpdateSceneData();
 

@@ -588,7 +588,7 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
       tinyxml2::XMLElement *data = doc.NewElement("Data");
       data->SetAttribute("provider", "Perastage");
       data->SetAttribute("ver", "1.0");
-      tinyxml2::XMLElement *info = doc.NewElement("MotorInfo");
+      tinyxml2::XMLElement *info = doc.NewElement("HoistInfo");
       info->SetAttribute("uuid", s.uuid.c_str());
 
       auto addNum = [&](const char *n, float v, const char *unit) {

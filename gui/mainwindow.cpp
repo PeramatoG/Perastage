@@ -64,7 +64,7 @@ using json = nlohmann::json;
 #include "layerpanel.h"
 #include "logindialog.h"
 #include "markdown.h"
-#include "motortablepanel.h"
+#include "hoisttablepanel.h"
 #include "mvrexporter.h"
 #include "mvrimporter.h"
 #include "preferencesdialog.h"
@@ -257,9 +257,9 @@ void MainWindow::SetupLayout() {
   TrussTablePanel::SetInstance(trussPanel);
   notebook->AddPage(trussPanel, "Trusses");
 
-  motorPanel = new MotorTablePanel(notebook);
-  MotorTablePanel::SetInstance(motorPanel);
-  notebook->AddPage(motorPanel, "Motors");
+  hoistPanel = new HoistTablePanel(notebook);
+  HoistTablePanel::SetInstance(hoistPanel);
+  notebook->AddPage(hoistPanel, "Hoists");
 
   sceneObjPanel = new SceneObjectTablePanel(notebook);
   SceneObjectTablePanel::SetInstance(sceneObjPanel);
@@ -1215,8 +1215,8 @@ void MainWindow::OnPrintTable(wxCommandEvent &WXUNUSED(event)) {
     options.Add("Fixtures");
   if (trussPanel)
     options.Add("Trusses");
-  if (motorPanel)
-    options.Add("Motors");
+  if (hoistPanel)
+    options.Add("Hoists");
   if (sceneObjPanel)
     options.Add("Objects");
   if (options.IsEmpty())
@@ -1235,8 +1235,8 @@ void MainWindow::OnPrintTable(wxCommandEvent &WXUNUSED(event)) {
   } else if (choice == "Trusses" && trussPanel) {
     ctrl = trussPanel->GetTableCtrl();
     type = TablePrinter::TableType::Trusses;
-  } else if (choice == "Motors" && motorPanel) {
-    ctrl = motorPanel->GetTableCtrl();
+  } else if (choice == "Hoists" && hoistPanel) {
+    ctrl = hoistPanel->GetTableCtrl();
     type = TablePrinter::TableType::Supports;
   } else if (choice == "Objects" && sceneObjPanel) {
     ctrl = sceneObjPanel->GetTableCtrl();
@@ -1253,8 +1253,8 @@ void MainWindow::OnExportCSV(wxCommandEvent &WXUNUSED(event)) {
     options.Add("Fixtures");
   if (trussPanel)
     options.Add("Trusses");
-  if (motorPanel)
-    options.Add("Motors");
+  if (hoistPanel)
+    options.Add("Hoists");
   if (sceneObjPanel)
     options.Add("Objects");
   if (options.IsEmpty())
@@ -1273,8 +1273,8 @@ void MainWindow::OnExportCSV(wxCommandEvent &WXUNUSED(event)) {
   } else if (choice == "Trusses" && trussPanel) {
     ctrl = trussPanel->GetTableCtrl();
     type = TablePrinter::TableType::Trusses;
-  } else if (choice == "Motors" && motorPanel) {
-    ctrl = motorPanel->GetTableCtrl();
+  } else if (choice == "Hoists" && hoistPanel) {
+    ctrl = hoistPanel->GetTableCtrl();
     type = TablePrinter::TableType::Supports;
   } else if (choice == "Objects" && sceneObjPanel) {
     ctrl = sceneObjPanel->GetTableCtrl();
@@ -1600,8 +1600,8 @@ void MainWindow::SyncSceneData() {
     fixturePanel->UpdateSceneData();
   if (trussPanel)
     trussPanel->UpdateSceneData();
-  if (motorPanel)
-    motorPanel->UpdateSceneData();
+  if (hoistPanel)
+    hoistPanel->UpdateSceneData();
   if (sceneObjPanel)
     sceneObjPanel->UpdateSceneData();
 }
@@ -1620,8 +1620,8 @@ void MainWindow::OnProjectLoaded(wxCommandEvent &event) {
       fixturePanel->ReloadData();
     if (trussPanel)
       trussPanel->ReloadData();
-    if (motorPanel)
-      motorPanel->ReloadData();
+    if (hoistPanel)
+      hoistPanel->ReloadData();
     if (sceneObjPanel)
       sceneObjPanel->ReloadData();
     if (viewportPanel) {
@@ -1749,7 +1749,7 @@ void MainWindow::RefreshSummary() {
       summaryPanel->ShowFixtureSummary();
     else if (notebook->GetPage(sel) == trussPanel)
       summaryPanel->ShowTrussSummary();
-    else if (notebook->GetPage(sel) == motorPanel)
+    else if (notebook->GetPage(sel) == hoistPanel)
       summaryPanel->ShowFixtureSummary();
     else if (notebook->GetPage(sel) == sceneObjPanel)
       summaryPanel->ShowSceneObjectSummary();
@@ -1785,9 +1785,9 @@ void MainWindow::OnUndo(wxCommandEvent &WXUNUSED(event)) {
     trussPanel->ReloadData();
     trussPanel->SelectByUuid(cfg.GetSelectedTrusses());
   }
-  if (motorPanel) {
-    motorPanel->ReloadData();
-    motorPanel->SelectByUuid(cfg.GetSelectedSupports());
+  if (hoistPanel) {
+    hoistPanel->ReloadData();
+    hoistPanel->SelectByUuid(cfg.GetSelectedSupports());
   }
   if (sceneObjPanel) {
     sceneObjPanel->ReloadData();
@@ -1799,7 +1799,7 @@ void MainWindow::OnUndo(wxCommandEvent &WXUNUSED(event)) {
       viewportPanel->SetSelectedFixtures(cfg.GetSelectedFixtures());
     else if (trussPanel && trussPanel->IsActivePage())
       viewportPanel->SetSelectedFixtures(cfg.GetSelectedTrusses());
-    else if (motorPanel && motorPanel->IsActivePage())
+    else if (hoistPanel && hoistPanel->IsActivePage())
       viewportPanel->SetSelectedFixtures(cfg.GetSelectedSupports());
     else if (sceneObjPanel && sceneObjPanel->IsActivePage())
       viewportPanel->SetSelectedFixtures(cfg.GetSelectedSceneObjects());
@@ -1825,9 +1825,9 @@ void MainWindow::OnRedo(wxCommandEvent &WXUNUSED(event)) {
     trussPanel->ReloadData();
     trussPanel->SelectByUuid(cfg.GetSelectedTrusses());
   }
-  if (motorPanel) {
-    motorPanel->ReloadData();
-    motorPanel->SelectByUuid(cfg.GetSelectedSupports());
+  if (hoistPanel) {
+    hoistPanel->ReloadData();
+    hoistPanel->SelectByUuid(cfg.GetSelectedSupports());
   }
   if (sceneObjPanel) {
     sceneObjPanel->ReloadData();
@@ -1839,7 +1839,7 @@ void MainWindow::OnRedo(wxCommandEvent &WXUNUSED(event)) {
       viewportPanel->SetSelectedFixtures(cfg.GetSelectedFixtures());
     else if (trussPanel && trussPanel->IsActivePage())
       viewportPanel->SetSelectedFixtures(cfg.GetSelectedTrusses());
-    else if (motorPanel && motorPanel->IsActivePage())
+    else if (hoistPanel && hoistPanel->IsActivePage())
       viewportPanel->SetSelectedFixtures(cfg.GetSelectedSupports());
     else if (sceneObjPanel && sceneObjPanel->IsActivePage())
       viewportPanel->SetSelectedFixtures(cfg.GetSelectedSceneObjects());
@@ -2222,8 +2222,8 @@ void MainWindow::OnDelete(wxCommandEvent &WXUNUSED(event)) {
     fixturePanel->DeleteSelected();
   else if (trussPanel && trussPanel->IsActivePage())
     trussPanel->DeleteSelected();
-  else if (motorPanel && motorPanel->IsActivePage())
-    motorPanel->DeleteSelected();
+  else if (hoistPanel && hoistPanel->IsActivePage())
+    hoistPanel->DeleteSelected();
   else if (sceneObjPanel && sceneObjPanel->IsActivePage())
     sceneObjPanel->DeleteSelected();
 }

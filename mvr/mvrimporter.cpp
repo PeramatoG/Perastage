@@ -644,8 +644,10 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         if (tinyxml2::XMLElement *ud = node->FirstChildElement("UserData")) {
           for (tinyxml2::XMLElement *data = ud->FirstChildElement("Data"); data;
                data = data->NextSiblingElement("Data")) {
-            if (tinyxml2::XMLElement *info =
-                    data->FirstChildElement("MotorInfo")) {
+            tinyxml2::XMLElement *info = data->FirstChildElement("HoistInfo");
+            if (!info)
+              info = data->FirstChildElement("MotorInfo"); // Legacy name
+            if (info) {
               auto readFloat = [&](const char *name, float &out) {
                 if (tinyxml2::XMLElement *e = info->FirstChildElement(name)) {
                   if (const char *txt = e->GetText()) {
