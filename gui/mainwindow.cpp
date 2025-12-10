@@ -274,7 +274,7 @@ void MainWindow::SetupLayout() {
                                     .Caption("Data Views")
                                     .Left()
                                     .BestSize(halfWidth, 600)
-                                    .MinSize(wxSize(halfWidth, 600))
+                                    .MinSize(wxSize(200, 300))
                                     .PaneBorder(false)
                                     .CaptionVisible(true)
                                     .CloseButton(true)
@@ -365,7 +365,7 @@ void MainWindow::Ensure3DViewport() {
                                          .CaptionVisible(true)
                                          .PaneBorder(false)
                                          .BestSize(halfWidth, 600)
-                                         .MinSize(wxSize(halfWidth, 600))
+                                         .MinSize(wxSize(200, 600))
                                          .CloseButton(true)
                                          .MaximizeButton(true));
   auiManager->Update();
@@ -394,7 +394,7 @@ void MainWindow::Ensure2DViewport() {
                                            .CaptionVisible(true)
                                            .PaneBorder(false)
                                            .BestSize(halfWidth, 600)
-                                           .MinSize(wxSize(halfWidth, 600))
+                                           .MinSize(wxSize(200, 600))
                                            .CloseButton(true)
                                            .MaximizeButton(true)
                                            .Hide());
@@ -1532,30 +1532,47 @@ void MainWindow::SaveCameraSettings() {
 }
 
 void MainWindow::ApplySavedLayout() {
-  if (!auiManager)
-    return;
-  if (auto val = ConfigManager::Get().GetValue("layout_perspective")) {
-    const std::string &perspective = *val;
-    // Ensure viewports exist before loading the saved perspective
-    if (perspective.find("3DViewport") != std::string::npos)
-      Ensure3DViewport();
-    if (perspective.find("2DViewport") != std::string::npos ||
-        perspective.find("2DRenderOptions") != std::string::npos)
-      Ensure2DViewport();
-    auiManager->LoadPerspective(perspective, true);
+    if (!auiManager)
+        return;
+
+    // Load stored layout perspective if it exists
+    if (auto val = ConfigManager::Get().GetValue("layout_perspective")) {
+        const std::string& perspective = *val;
+
+        // Ensure viewports exist before loading the saved perspective
+        if (perspective.find("3DViewport") != std::string::npos)
+            Ensure3DViewport();
+        if (perspective.find("2DViewport") != std::string::npos ||
+            perspective.find("2DRenderOptions") != std::string::npos)
+            Ensure2DViewport();
+
+        auiManager->LoadPerspective(perspective, true);
+    }
+
+    // Re-apply hard-coded minimum sizes so they are not overridden by the saved perspective
+    auto& dataPane = auiManager->GetPane("DataNotebook");
+    if (dataPane.IsOk())
+        dataPane.MinSize(wxSize(250, 300));
+
+    auto& view3dPane = auiManager->GetPane("3DViewport");
+    if (view3dPane.IsOk())
+        view3dPane.MinSize(wxSize(250, 600));
+
+    auto& view2dPane = auiManager->GetPane("2DViewport");
+    if (view2dPane.IsOk())
+        view2dPane.MinSize(wxSize(250, 600));
+
+    // Ensure always-visible panels
+    auto& summaryPane = auiManager->GetPane("SummaryPanel");
+    if (summaryPane.IsOk() && !summaryPane.IsShown())
+        summaryPane.Show();
+
+    auto& riggingPane = auiManager->GetPane("RiggingPanel");
+    if (riggingPane.IsOk() && !riggingPane.IsShown())
+        riggingPane.Show();
+
     auiManager->Update();
-  }
-  auto &summaryPane = auiManager->GetPane("SummaryPanel");
-  if (!summaryPane.IsShown()) {
-    summaryPane.Show();
-    auiManager->Update();
-  }
-  auto &riggingPane = auiManager->GetPane("RiggingPanel");
-  if (!riggingPane.IsShown()) {
-    riggingPane.Show();
-    auiManager->Update();
-  }
-  UpdateViewMenuChecks();
+    UpdateViewMenuChecks();
 }
 
 void MainWindow::UpdateViewMenuChecks() {
