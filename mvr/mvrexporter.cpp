@@ -292,6 +292,9 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
   for (const auto &[uuid, file] : scene.symdefFiles) {
     tinyxml2::XMLElement *sym = doc.NewElement("Symdef");
     sym->SetAttribute("uuid", uuid.c_str());
+    auto tit = scene.symdefTypes.find(uuid);
+    if (tit != scene.symdefTypes.end() && !tit->second.empty())
+      sym->SetAttribute("geometryType", tit->second.c_str());
     if (!file.empty()) {
       tinyxml2::XMLElement *cl = doc.NewElement("ChildList");
       tinyxml2::XMLElement *g3d = doc.NewElement("Geometry3D");
