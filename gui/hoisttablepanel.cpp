@@ -21,6 +21,7 @@
 #include "configmanager.h"
 #include "layerpanel.h"
 #include "matrixutils.h"
+#include "riggingpanel.h"
 #include "stringutils.h"
 #include "summarypanel.h"
 #include "support.h"
@@ -151,8 +152,10 @@ void HoistTablePanel::ReloadData() {
 
   if (LayerPanel::Instance())
     LayerPanel::Instance()->ReloadLayers();
-  if (SummaryPanel::Instance() && IsActivePage())
+  if (SummaryPanel::Instance())
     SummaryPanel::Instance()->ShowFixtureSummary();
+  if (RiggingPanel::Instance())
+    RiggingPanel::Instance()->RefreshData();
 }
 
 void HoistTablePanel::OnContextMenu(wxDataViewEvent &event) {
@@ -483,8 +486,10 @@ void HoistTablePanel::UpdateSceneData() {
     it->second.weightKg = static_cast<float>(weight);
   }
 
-  if (SummaryPanel::Instance() && IsActivePage())
+  if (SummaryPanel::Instance())
     SummaryPanel::Instance()->ShowFixtureSummary();
+  if (RiggingPanel::Instance())
+    RiggingPanel::Instance()->RefreshData();
 }
 
 HoistTablePanel *HoistTablePanel::Instance() { return s_instance; }

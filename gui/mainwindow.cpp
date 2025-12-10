@@ -638,10 +638,13 @@ void MainWindow::OnImportRider(wxCommandEvent &event) {
       fixturePanel->ReloadData();
     if (trussPanel)
       trussPanel->ReloadData();
+    if (hoistPanel)
+      hoistPanel->ReloadData();
     if (viewportPanel) {
       viewportPanel->UpdateScene();
       viewportPanel->Refresh();
     }
+    RefreshSummary();
   }
 }
 
@@ -672,9 +675,11 @@ void MainWindow::OnImportMVR(wxCommandEvent &event) {
       fixturePanel->ReloadData();
     if (trussPanel)
       trussPanel->ReloadData();
+    if (hoistPanel)
+      hoistPanel->ReloadData();
     if (sceneObjPanel)
       sceneObjPanel->ReloadData();
-    RefreshRigging();
+    RefreshSummary();
     if (viewportPanel) {
       viewportPanel->UpdateScene();
       viewportPanel->Refresh();
@@ -1517,6 +1522,8 @@ bool MainWindow::LoadProjectFromPath(const std::string &path) {
     fixturePanel->ReloadData();
   if (trussPanel)
     trussPanel->ReloadData();
+  if (hoistPanel)
+    hoistPanel->ReloadData();
   if (sceneObjPanel)
     sceneObjPanel->ReloadData();
   if (viewportPanel) {
@@ -1540,6 +1547,8 @@ bool MainWindow::LoadProjectFromPath(const std::string &path) {
     viewport2DRenderPanel->ApplyConfig();
   if (layerPanel)
     layerPanel->ReloadLayers();
+  RefreshSummary();
+  RefreshRigging();
   ConfigManager::Get().MarkSaved();
   UpdateTitle();
   return true;
@@ -1553,6 +1562,8 @@ void MainWindow::ResetProject() {
     fixturePanel->ReloadData();
   if (trussPanel)
     trussPanel->ReloadData();
+  if (hoistPanel)
+    hoistPanel->ReloadData();
   if (sceneObjPanel)
     sceneObjPanel->ReloadData();
   if (viewportPanel) {
@@ -1568,6 +1579,8 @@ void MainWindow::ResetProject() {
     viewport2DRenderPanel->ApplyConfig();
   if (layerPanel)
     layerPanel->ReloadLayers();
+  RefreshSummary();
+  RefreshRigging();
   UpdateTitle();
 }
 
