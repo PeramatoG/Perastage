@@ -1849,7 +1849,7 @@ void MainWindow::RefreshSummary() {
     else if (notebook->GetPage(sel) == trussPanel)
       summaryPanel->ShowTrussSummary();
     else if (notebook->GetPage(sel) == hoistPanel)
-      summaryPanel->ShowFixtureSummary();
+      summaryPanel->ShowHoistSummary();
     else if (notebook->GetPage(sel) == sceneObjPanel)
       summaryPanel->ShowSceneObjectSummary();
   }

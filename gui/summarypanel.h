@@ -27,6 +27,7 @@ public:
 
     void ShowFixtureSummary();
     void ShowTrussSummary();
+    void ShowHoistSummary();
     void ShowSceneObjectSummary();
 
     static SummaryPanel* Instance();
