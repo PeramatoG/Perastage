@@ -1254,7 +1254,7 @@ void MainWindow::OnConvertToHoist(wxCommandEvent &WXUNUSED(event)) {
     s.layer = fixture.layer;
     s.capacityKg = 0.0f;
     s.weightKg = fixture.weightKg;
-    s.symbol = "Lighting";
+    s.hoistFunction = NormalizeHoistFunction(s.function);
     s.transform = fixture.transform;
 
     scene.supports[s.uuid] = s;
