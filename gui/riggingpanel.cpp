@@ -17,6 +17,7 @@
  */
 #include "riggingpanel.h"
 
+#include <cmath>
 #include <map>
 #include <string>
 
@@ -26,6 +27,10 @@
 
 namespace {
 constexpr const char *UNASSIGNED_POSITION = "Unassigned";
+
+float CeilToNearestTens(float value) {
+  return std::ceil(value / 10.0f) * 10.0f;
+}
 }
 
 static RiggingPanel *s_instance = nullptr;
@@ -54,6 +59,9 @@ RiggingPanel::RiggingPanel(wxWindow *parent) : wxPanel(parent, wxID_ANY) {
                           wxCOL_WIDTH_AUTOSIZE, wxALIGN_RIGHT,
                           wxDATAVIEW_COL_RESIZABLE);
   table->AppendTextColumn("Total Weight (kg)", wxDATAVIEW_CELL_INERT,
+                          wxCOL_WIDTH_AUTOSIZE, wxALIGN_RIGHT,
+                          wxDATAVIEW_COL_RESIZABLE);
+  table->AppendTextColumn("Total Weight +5% (kg)", wxDATAVIEW_CELL_INERT,
                           wxCOL_WIDTH_AUTOSIZE, wxALIGN_RIGHT,
                           wxDATAVIEW_COL_RESIZABLE);
 
@@ -134,6 +142,9 @@ void RiggingPanel::RefreshData() {
   for (const auto &[position, totals] : rows) {
     float totalWeight =
         totals.fixtureWeight + totals.trussWeight + totals.hoistWeight;
+    float roundedTotalWeight = CeilToNearestTens(totalWeight);
+    float roundedFivePercentIncrease =
+        CeilToNearestTens(roundedTotalWeight * 1.05f);
     wxVector<wxVariant> row;
     row.push_back(wxString::FromUTF8(position));
     row.push_back(wxString::Format("%d", totals.fixtures));
@@ -143,6 +154,7 @@ void RiggingPanel::RefreshData() {
     row.push_back(wxString::Format("%.2f", totals.trussWeight));
     row.push_back(wxString::Format("%.2f", totals.hoistWeight));
     row.push_back(wxString::Format("%.2f", totalWeight));
+    row.push_back(wxString::Format("%.2f", roundedFivePercentIncrease));
     unsigned int rowIndex = table->GetItemCount();
     table->AppendItem(row);
 
@@ -170,8 +182,10 @@ void RiggingPanel::RefreshData() {
       store->SetCellTextColour(rowIndex, 6, *wxRED);
 
     if (fixtureCountZero || trussCountZero || hoistCountZero ||
-        fixtureWeightZero || trussWeightZero || hoistWeightZero)
+        fixtureWeightZero || trussWeightZero || hoistWeightZero) {
       store->SetCellTextColour(rowIndex, 7, *wxRED);
+      store->SetCellTextColour(rowIndex, 8, *wxRED);
+    }
   }
 
   AutoSizeColumns(table);
