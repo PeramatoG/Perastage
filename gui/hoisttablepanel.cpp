@@ -30,6 +30,7 @@
 #include <algorithm>
 #include <wx/choicdlg.h>
 #include <wx/notebook.h>
+#include <wx/wupdlock.h> // freeze/thaw UI during batch edits
 
 static HoistTablePanel *s_instance = nullptr;
 
@@ -163,6 +164,14 @@ void HoistTablePanel::OnContextMenu(wxDataViewEvent &event) {
   int col = event.GetColumn();
   if (!item.IsOk() || col < 0)
     return;
+
+  // Freeze UI updates while performing bulk table modifications. Without
+  // freezing, wxDataViewListCtrl repaints after each SetValue call and resort
+  // operation, which can cause noticeable lag when editing many rows at once.
+  // wxWindowUpdateLocker automatically calls Freeze() on the given window and
+  // Thaw() when it goes out of scope, ensuring that the table redraw only once
+  // after all modifications are complete.
+  wxWindowUpdateLocker locker(table);
 
   wxDataViewItemArray selections;
   table->GetSelections(selections);

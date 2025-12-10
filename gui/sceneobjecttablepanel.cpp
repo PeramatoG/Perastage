@@ -27,6 +27,7 @@
 #include <algorithm>
 #include <wx/notebook.h>
 #include <wx/choicdlg.h>
+#include <wx/wupdlock.h> // freeze/thaw UI during batch edits
 
 static SceneObjectTablePanel* s_instance = nullptr;
 
@@ -145,6 +146,12 @@ void SceneObjectTablePanel::OnContextMenu(wxDataViewEvent& event)
     int col = event.GetColumn();
     if (!item.IsOk() || col < 0)
         return;
+
+    // Freeze UI updates while performing bulk table modifications. Without
+    // freezing, the control repaints after each SetValue call or resort,
+    // causing noticeable lag when updating multiple rows. The locker
+    // automatically unfreezes the table when it goes out of scope.
+    wxWindowUpdateLocker locker(table);
 
     wxDataViewItemArray selections;
     table->GetSelections(selections);

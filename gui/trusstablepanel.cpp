@@ -36,6 +36,7 @@
 #include <unordered_map>
 #include <wx/notebook.h>
 #include <wx/choicdlg.h>
+#include <wx/wupdlock.h> // freeze/thaw UI during batch edits
 
 static TrussTablePanel* s_instance = nullptr;
 namespace fs = std::filesystem;
@@ -205,6 +206,12 @@ void TrussTablePanel::OnContextMenu(wxDataViewEvent& event)
     int col = event.GetColumn();
     if (!item.IsOk() || col < 0)
         return;
+
+    // Freeze UI updates while performing bulk table modifications to avoid
+    // excessive repaints. This RAII locker calls Freeze() on the table and
+    // Thaw() automatically when it is destroyed at the end of the function,
+    // improving responsiveness during edits.
+    wxWindowUpdateLocker locker(table);
 
     wxDataViewItemArray selections;
     table->GetSelections(selections);
