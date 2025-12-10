@@ -78,6 +78,7 @@ using json = nlohmann::json;
 #include "splashscreen.h"
 #include "summarypanel.h"
 #include "tableprinter.h"
+#include "support.h"
 #include "trussloader.h"
 #include "trusstablepanel.h"
 #include "viewer2dpanel.h"
@@ -162,11 +163,13 @@ wxBEGIN_EVENT_TABLE(MainWindow, wxFrame) EVT_MENU(
                                     EVT_MENU(
                                         ID_Tools_ExportSceneObject,
                                         MainWindow::
-    OnExportSceneObject) EVT_MENU(ID_Tools_AutoPatch,
+                                    OnExportSceneObject) EVT_MENU(ID_Tools_AutoPatch,
                                                                           MainWindow::
                                                                               OnAutoPatch) EVT_MENU(ID_Tools_AutoColor,
                                                                           MainWindow::
-                                                                              OnAutoColor)
+                                                                              OnAutoColor) EVT_MENU(ID_Tools_ConvertToHoist,
+                                                                          MainWindow::
+                                                                              OnConvertToHoist)
                                         EVT_MENU(ID_Help_Help, MainWindow::OnShowHelp) EVT_MENU(
                                             ID_Help_About, MainWindow::
                                                                OnShowAbout)
@@ -494,6 +497,7 @@ void MainWindow::CreateMenuBar() {
   toolsMenu->Append(ID_Tools_ExportSceneObject, "Export Scene Object...");
   toolsMenu->Append(ID_Tools_AutoPatch, "Auto patch");
   toolsMenu->Append(ID_Tools_AutoColor, "Auto color");
+  toolsMenu->Append(ID_Tools_ConvertToHoist, "Convert to Hoist");
 
   menuBar->Append(toolsMenu, "&Tools");
 
@@ -1207,6 +1211,71 @@ void MainWindow::OnAutoColor(wxCommandEvent &WXUNUSED(event)) {
     Viewer3DPanel::Instance()->UpdateScene();
     Viewer3DPanel::Instance()->Refresh();
   }
+}
+
+void MainWindow::OnConvertToHoist(wxCommandEvent &WXUNUSED(event)) {
+  ConfigManager &cfg = ConfigManager::Get();
+  const auto selected = cfg.GetSelectedFixtures();
+  if (selected.empty()) {
+    wxMessageBox("Please select fixtures to convert first.", "Convert to Hoist",
+                 wxOK | wxICON_INFORMATION);
+    return;
+  }
+
+  cfg.PushUndoState("convert fixtures to hoists");
+  auto &scene = cfg.GetScene();
+
+  auto baseId = std::chrono::steady_clock::now().time_since_epoch().count();
+  int idx = 0;
+  std::vector<std::string> newIds;
+  for (const auto &uuid : selected) {
+    auto it = scene.fixtures.find(uuid);
+    if (it == scene.fixtures.end())
+      continue;
+
+    const auto &fixture = it->second;
+
+    Support s;
+    s.uuid = wxString::Format("uuid_%lld_%d", static_cast<long long>(baseId),
+                             idx++)
+                .ToStdString();
+    s.name = fixture.instanceName;
+    s.gdtfSpec = fixture.gdtfSpec;
+    s.gdtfMode = fixture.gdtfMode;
+    s.function = fixture.function.empty() ? "Hoist" : fixture.function;
+    s.chainLength = 0.0f;
+    s.position = fixture.position;
+    s.positionName = fixture.positionName;
+    s.layer = fixture.layer;
+    s.capacityKg = 0.0f;
+    s.weightKg = fixture.weightKg;
+    s.symbol = "Lighting";
+    s.transform = fixture.transform;
+
+    scene.supports[s.uuid] = s;
+    newIds.push_back(s.uuid);
+  }
+
+  for (const auto &uuid : selected)
+    scene.fixtures.erase(uuid);
+
+  cfg.SetSelectedSupports(newIds);
+  cfg.SetSelectedFixtures({});
+
+  if (fixturePanel)
+    fixturePanel->ReloadData();
+  if (hoistPanel)
+    hoistPanel->ReloadData();
+  if (viewportPanel) {
+    viewportPanel->UpdateScene();
+    viewportPanel->Refresh();
+  }
+  RefreshSummary();
+  RefreshRigging();
+
+  wxMessageBox(wxString::Format("Converted %zu fixture(s) to hoists.",
+                                newIds.size()),
+               "Convert to Hoist", wxOK | wxICON_INFORMATION);
 }
 
 void MainWindow::OnPrintTable(wxCommandEvent &WXUNUSED(event)) {
