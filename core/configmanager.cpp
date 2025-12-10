@@ -239,7 +239,7 @@ void ConfigManager::ApplyColumnDefaults() {
     SetValue("truss_print_columns", "Name,Layer,Hang Pos,Manufacturer,Model");
   if (!HasKey("support_print_columns"))
     SetValue("support_print_columns",
-             "Hoist ID,Name,Type,Symbol,Layer,Hang Pos,Pos X,Pos Y,Pos Z,Roll (X),Pitch (Y),Yaw (Z),Chain Length (m),Capacity (kg),Weight (kg)");
+             "Hoist ID,Name,Type,Function,Layer,Hang Pos,Pos X,Pos Y,Pos Z,Roll (X),Pitch (Y),Yaw (Z),Chain Length (m),Capacity (kg),Weight (kg)");
   if (!HasKey("sceneobject_print_columns"))
     SetValue("sceneobject_print_columns", "Name,Layer");
 }

@@ -626,6 +626,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         support.gdtfSpec = readText("GDTFSpec");
         support.gdtfMode = readText("GDTFMode");
         support.function = readText("Function");
+        support.hoistFunction = NormalizeHoistFunction(support.function);
         std::string chainText = readText("ChainLength");
         if (!chainText.empty()) {
           try {
@@ -667,12 +668,17 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
               if (tinyxml2::XMLElement *rp =
                       info->FirstChildElement("RiggingPoint")) {
                 if (const char *txt = rp->GetText())
-                  support.symbol = NormalizeHoistSymbol(Trim(txt));
+                  support.hoistFunction = NormalizeHoistFunction(Trim(txt));
               }
             }
           }
         }
 
+        if (support.hoistFunction.empty())
+          support.hoistFunction = NormalizeHoistFunction(support.function);
+
+        if (support.function.empty())
+          support.function = support.hoistFunction;
         auto posIt = scene.positions.find(support.position);
         if (posIt != scene.positions.end())
           support.positionName = posIt->second;

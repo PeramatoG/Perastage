@@ -37,19 +37,19 @@ struct Support {
 
     float capacityKg = 0.0f;
     float weightKg = 0.0f;
-    // Hoist symbol/category. Limited to values returned by GetHoistSymbolOptions().
-    std::string symbol = "Lighting";
+    // Hoist function/category. Defaults to values returned by GetHoistFunctionOptions().
+    std::string hoistFunction = "Lighting";
 
     Matrix transform;
 };
 
-inline const std::array<std::string, 5> &GetHoistSymbolOptions() {
+inline const std::array<std::string, 5> &GetHoistFunctionOptions() {
     static const std::array<std::string, 5> options = {
         "Lighting", "Audio", "Video", "Scenic", "Extra"};
     return options;
 }
 
-inline std::string NormalizeHoistSymbol(const std::string &rawValue) {
+inline std::string NormalizeHoistFunction(const std::string &rawValue) {
     auto trimmed = rawValue;
     auto trimSpaces = [](std::string &s) {
         auto notSpace = [](unsigned char ch) { return !std::isspace(ch); };
@@ -71,7 +71,7 @@ inline std::string NormalizeHoistSymbol(const std::string &rawValue) {
     std::transform(lower.begin(), lower.end(), lower.begin(),
                    [](unsigned char c) { return std::tolower(c); });
 
-    for (const auto &opt : GetHoistSymbolOptions()) {
+    for (const auto &opt : GetHoistFunctionOptions()) {
         auto optLower = opt;
         std::transform(optLower.begin(), optLower.end(), optLower.begin(),
                        [](unsigned char c) { return std::tolower(c); });
@@ -79,6 +79,6 @@ inline std::string NormalizeHoistSymbol(const std::string &rawValue) {
             return opt;
     }
 
-    return "Extra";
+    return trimmed;
 }
 
