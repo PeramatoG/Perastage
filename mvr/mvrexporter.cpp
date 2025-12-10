@@ -559,7 +559,8 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
       resourceFiles.insert(s.gdtfSpec);
     }
     addStr("GDTFMode", s.gdtfMode);
-    addStr("Function", s.function);
+    std::string functionValue = s.hoistFunction.empty() ? s.function : s.hoistFunction;
+    addStr("Function", functionValue);
 
     if (s.chainLength > 0.0f) {
       tinyxml2::XMLElement *len = doc.NewElement("ChainLength");
@@ -585,7 +586,7 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     se->InsertEndChild(mat);
 
     bool hasMeta = s.capacityKg != 0.0f || s.weightKg != 0.0f ||
-                   !s.symbol.empty();
+                   !s.hoistFunction.empty();
     if (hasMeta) {
       tinyxml2::XMLElement *ud = doc.NewElement("UserData");
       tinyxml2::XMLElement *data = doc.NewElement("Data");
@@ -606,10 +607,10 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
       addNum("Capacity", s.capacityKg, "kg");
       addNum("Weight", s.weightKg, "kg");
 
-      if (!s.symbol.empty()) {
+      if (!s.hoistFunction.empty()) {
         tinyxml2::XMLElement *rp = doc.NewElement("RiggingPoint");
-        std::string symbol = NormalizeHoistSymbol(s.symbol);
-        rp->SetText(symbol.c_str());
+        std::string hoistFunction = NormalizeHoistFunction(s.hoistFunction);
+        rp->SetText(hoistFunction.c_str());
         info->InsertEndChild(rp);
       }
 

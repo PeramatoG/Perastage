@@ -67,7 +67,7 @@ HoistTablePanel::HoistTablePanel(wxWindow *parent)
 HoistTablePanel::~HoistTablePanel() { store = nullptr; }
 
 void HoistTablePanel::InitializeTable() {
-  columnLabels = {"Hoist ID",    "Name",       "Type",      "Symbol",
+  columnLabels = {"Hoist ID",    "Name",       "Type",      "Function",
                   "Layer",       "Hang Pos",   "Pos X",     "Pos Y",
                   "Pos Z",       "Roll (X)",   "Pitch (Y)", "Yaw (Z)",
                   "Chain Length (m)", "Capacity (kg)", "Weight (kg)"};
@@ -109,8 +109,8 @@ void HoistTablePanel::ReloadData() {
     row.push_back(wxVariant(hoistId));
     wxString name = wxString::FromUTF8(support.name);
     wxString type = wxString::FromUTF8(support.function);
-    support.symbol = NormalizeHoistSymbol(support.symbol);
-    wxString symbol = wxString::FromUTF8(support.symbol);
+    support.hoistFunction = NormalizeHoistFunction(support.hoistFunction);
+    wxString hoistFunction = wxString::FromUTF8(support.hoistFunction);
     wxString layer = support.layer == DEFAULT_LAYER_NAME
                          ? wxString()
                          : wxString::FromUTF8(support.layer);
@@ -132,7 +132,7 @@ void HoistTablePanel::ReloadData() {
 
     row.push_back(name);
     row.push_back(type);
-    row.push_back(symbol);
+    row.push_back(hoistFunction);
     row.push_back(layer);
     row.push_back(posName);
     row.push_back(posX);
@@ -186,17 +186,29 @@ void HoistTablePanel::OnContextMenu(wxDataViewEvent &event) {
 
   if (col == 3) {
     wxArrayString choices;
-    for (const auto &option : GetHoistSymbolOptions())
+    for (const auto &option : GetHoistFunctionOptions())
       choices.push_back(wxString::FromUTF8(option));
+    choices.push_back("Other...");
 
-    wxSingleChoiceDialog sdlg(this, "Select symbol", "Symbol", choices);
+    wxSingleChoiceDialog sdlg(this, "Select function", "Function", choices);
     // With the following code:
     int selIdx = choices.Index(current.GetString());
     if (selIdx != wxNOT_FOUND)
         sdlg.SetSelection(selIdx);
+    else
+        sdlg.SetSelection(static_cast<int>(choices.size() - 1));
     if (sdlg.ShowModal() != wxID_OK)
       return;
     wxString sel = sdlg.GetStringSelection();
+    if (sel == "Other...") {
+      wxTextEntryDialog otherDlg(this, "Enter function", "Function",
+                                 current.GetString());
+      if (otherDlg.ShowModal() != wxID_OK)
+        return;
+      sel = otherDlg.GetValue().Trim(true).Trim(false);
+      if (sel.empty())
+        return;
+    }
     for (const auto &itSel : selections) {
       int r = table->ItemToRow(itSel);
       if (r != wxNOT_FOUND)
@@ -420,8 +432,8 @@ void HoistTablePanel::UpdateSceneData() {
     it->second.function = std::string(v.GetString().ToUTF8());
 
     table->GetValue(v, i, 3);
-    it->second.symbol =
-        NormalizeHoistSymbol(std::string(v.GetString().ToUTF8()));
+    it->second.hoistFunction =
+        NormalizeHoistFunction(std::string(v.GetString().ToUTF8()));
 
     table->GetValue(v, i, 4);
     std::string layerStr = std::string(v.GetString().ToUTF8());
