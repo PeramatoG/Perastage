@@ -360,6 +360,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
       if (!uid)
         continue;
       std::string file;
+      if (const char *type = sym->Attribute("geometryType"))
+        scene.symdefTypes[uid] = Trim(type);
       if (tinyxml2::XMLElement *childList =
               sym->FirstChildElement("ChildList")) {
         if (tinyxml2::XMLElement *geo =
@@ -367,6 +369,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
           const char *fname = geo->Attribute("fileName");
           if (fname)
             file = fname;
+          if (const char *type = geo->Attribute("geometryType"))
+            scene.symdefTypes[uid] = Trim(type);
         }
       }
       if (!file.empty())
@@ -689,6 +693,11 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         if (const char *nameAttr = node->Attribute("name"))
           obj.name = nameAttr;
 
+        std::string geometryType;
+
+        if (const char *typeAttr = node->Attribute("geometryType"))
+          geometryType = Trim(typeAttr);
+
         if (tinyxml2::XMLElement *geos =
                 node->FirstChildElement("Geometries")) {
           if (tinyxml2::XMLElement *g3d =
@@ -696,6 +705,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
             const char *file = g3d->Attribute("fileName");
             if (file)
               obj.modelFile = file;
+            if (const char *type = g3d->Attribute("geometryType"))
+              geometryType = Trim(type);
           } else if (tinyxml2::XMLElement *sym =
                          geos->FirstChildElement("Symbol")) {
             const char *symdef = sym->Attribute("symdef");
@@ -703,6 +714,9 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
               auto it = scene.symdefFiles.find(symdef);
               if (it != scene.symdefFiles.end())
                 obj.modelFile = it->second;
+              auto tit = scene.symdefTypes.find(symdef);
+              if (tit != scene.symdefTypes.end())
+                geometryType = tit->second;
             }
           }
         }
@@ -714,7 +728,20 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
           }
         }
 
-        scene.sceneObjects[obj.uuid] = obj;
+        auto typeLower = geometryType;
+        std::transform(typeLower.begin(), typeLower.end(), typeLower.begin(),
+                       [](unsigned char c) { return std::tolower(c); });
+
+        if (typeLower == "support") {
+          Support support;
+          support.uuid = obj.uuid;
+          support.name = obj.name;
+          support.layer = obj.layer;
+          support.transform = obj.transform;
+          scene.supports[support.uuid] = support;
+        } else {
+          scene.sceneObjects[obj.uuid] = obj;
+        }
       };
 
   parseChildList = [&](tinyxml2::XMLElement *cl, const std::string &layerName) {

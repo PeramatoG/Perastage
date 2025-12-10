@@ -42,6 +42,7 @@ public:
     // Lookup tables for additional references
     std::unordered_map<std::string, std::string> positions;   // uuid -> name
     std::unordered_map<std::string, std::string> symdefFiles; // uuid -> geometry file
+    std::unordered_map<std::string, std::string> symdefTypes; // uuid -> geometry type
 
     std::string provider;
     std::string providerVersion;
