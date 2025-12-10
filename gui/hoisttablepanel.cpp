@@ -153,7 +153,7 @@ void HoistTablePanel::ReloadData() {
   if (LayerPanel::Instance())
     LayerPanel::Instance()->ReloadLayers();
   if (SummaryPanel::Instance())
-    SummaryPanel::Instance()->ShowFixtureSummary();
+    SummaryPanel::Instance()->ShowHoistSummary();
   if (RiggingPanel::Instance())
     RiggingPanel::Instance()->RefreshData();
 }
@@ -487,7 +487,7 @@ void HoistTablePanel::UpdateSceneData() {
   }
 
   if (SummaryPanel::Instance())
-    SummaryPanel::Instance()->ShowFixtureSummary();
+    SummaryPanel::Instance()->ShowHoistSummary();
   if (RiggingPanel::Instance())
     RiggingPanel::Instance()->RefreshData();
 }
@@ -563,7 +563,7 @@ void HoistTablePanel::DeleteSelected() {
   }
 
   if (SummaryPanel::Instance())
-    SummaryPanel::Instance()->ShowFixtureSummary();
+    SummaryPanel::Instance()->ShowHoistSummary();
 
   if (Viewer3DPanel::Instance()) {
     Viewer3DPanel::Instance()->UpdateScene();

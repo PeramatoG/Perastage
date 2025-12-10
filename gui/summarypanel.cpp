@@ -61,21 +61,6 @@ void SummaryPanel::ShowFixtureSummary()
 {
     if (!table) return;
 
-    auto addSection = [&](const std::string& title,
-                          const std::vector<std::pair<std::string, int>>& items) {
-        wxVector<wxVariant> header;
-        header.push_back(wxVariant());
-        header.push_back(wxString::FromUTF8(title));
-        table->AppendItem(header);
-
-        for (const auto& [name, count] : items) {
-            wxVector<wxVariant> row;
-            row.push_back(wxString::Format("%d", count));
-            row.push_back(wxString::FromUTF8(name));
-            table->AppendItem(row);
-        }
-    };
-
     table->DeleteAllItems();
 
     std::map<std::string, int> fixtureCounts;
@@ -84,22 +69,7 @@ void SummaryPanel::ShowFixtureSummary()
         fixtureCounts[fix.typeName]++;
     std::vector<std::pair<std::string, int>> fixtureItems(fixtureCounts.begin(), fixtureCounts.end());
 
-    addSection("Fixtures", fixtureItems);
-
-    wxVector<wxVariant> spacer;
-    spacer.push_back(wxVariant());
-    spacer.push_back(wxVariant());
-    table->AppendItem(spacer);
-
-    std::map<std::string, int> hoistCounts;
-    const auto& supports = ConfigManager::Get().GetScene().supports;
-    for (const auto& [uuid, support] : supports) {
-        std::string type = support.function.empty() ? "Hoist" : support.function;
-        hoistCounts[type]++;
-    }
-    std::vector<std::pair<std::string, int>> hoistItems(hoistCounts.begin(), hoistCounts.end());
-
-    addSection("Hoists", hoistItems);
+    ShowSummary(fixtureItems);
 }
 
 void SummaryPanel::ShowTrussSummary()
@@ -110,6 +80,21 @@ void SummaryPanel::ShowTrussSummary()
         counts[truss.model]++;
     std::vector<std::pair<std::string,int>> items(counts.begin(), counts.end());
     ShowSummary(items);
+}
+
+void SummaryPanel::ShowHoistSummary()
+{
+    if (!table) return;
+
+    std::map<std::string, int> hoistCounts;
+    const auto& supports = ConfigManager::Get().GetScene().supports;
+    for (const auto& [uuid, support] : supports) {
+        std::string type = support.function.empty() ? "Hoist" : support.function;
+        hoistCounts[type]++;
+    }
+    std::vector<std::pair<std::string, int>> hoistItems(hoistCounts.begin(), hoistCounts.end());
+
+    ShowSummary(hoistItems);
 }
 
 void SummaryPanel::ShowSceneObjectSummary()
