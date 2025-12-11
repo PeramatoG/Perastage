@@ -180,3 +180,24 @@ target_link_libraries(rider_layer_mode_test PRIVATE ${wxWidgets_LIBRARIES})
 add_test(NAME RiderLayerMode COMMAND rider_layer_mode_test
          ${CMAKE_CURRENT_SOURCE_DIR}/data/rider_layer_mode.txt)
 set_library_env(RiderLayerMode)
+
+add_executable(rider_import_benchmark rider_import_benchmark.cpp
+               riderimporter_stubs.cpp
+               gdtfloader_stub.cpp
+               ../core/riderimporter.cpp
+               ../core/uuidutils.cpp
+               ../core/autopatcher.cpp
+               ../core/patchmanager.cpp
+               ../core/configmanager.cpp
+               ../core/projectutils.cpp
+               ../models/mvrscene.cpp
+               ../models/fixture.cpp
+               ../models/truss.cpp
+               ../models/sceneobject.cpp
+               ../models/layer.cpp)
+target_include_directories(rider_import_benchmark PRIVATE
+                           . ../core ../models ../mvr ../gui ../external)
+target_link_libraries(rider_import_benchmark PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
+add_test(NAME RiderImportBenchmark COMMAND rider_import_benchmark
+         ${CMAKE_CURRENT_SOURCE_DIR}/data/rider_large.txt 1)
+set_library_env(RiderImportBenchmark)
