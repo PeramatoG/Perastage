@@ -90,6 +90,7 @@ private:
   void OnAutoPatch(wxCommandEvent &event);         // Auto patch fixtures
   void OnAutoColor(wxCommandEvent &event);         // Auto assign colors
   void OnConvertToHoist(wxCommandEvent &event);    // Convert fixtures to hoists
+  void OnPrintPlan(wxCommandEvent &event);         // Print 2D plan to PDF
   void OnPrintTable(wxCommandEvent &event);        // Print selected table
   void OnExportCSV(wxCommandEvent &event);         // Export table to CSV
   void
@@ -149,6 +150,7 @@ enum {
   ID_File_ImportRider,
   ID_File_ImportMVR,
   ID_File_ExportMVR,
+  ID_File_PrintPlan,
   ID_File_PrintTable,
   ID_File_ExportCSV,
   ID_File_Close,
