@@ -76,6 +76,9 @@ void AutoPatch(MvrScene &scene, int startUniverse, int startChannel) {
   };
 
   std::vector<Group> groups;
+  // Reserve upfront to avoid repeated reallocations when processing large
+  // rigs where fixtures.size() can be in the hundreds.
+  groups.reserve(fixtures.size());
   for (size_t i = 0; i < fixtures.size(); ++i) {
     const auto &f = fixtures[i];
     if (groups.empty()) {
