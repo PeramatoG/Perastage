@@ -31,6 +31,7 @@
 #include <tuple>
 #include <unordered_map>
 #include <unordered_set>
+#include <string_view>
 #include <vector>
 
 #include "pdftext.h"
@@ -81,6 +82,19 @@ std::vector<std::string> SplitPlus(const std::string &s) {
       out.push_back(item);
   }
   return out;
+}
+
+// Performs a case-insensitive substring search without lowercasing the entire
+// haystack. This keeps the per-line processing in Import() cheap while still
+// matching section headers regardless of their capitalization.
+bool ContainsCaseInsensitive(std::string_view haystack,
+                             std::string_view needle) {
+  auto it = std::search(haystack.begin(), haystack.end(), needle.begin(),
+                        needle.end(), [](char a, char b) {
+                          return std::tolower(static_cast<unsigned char>(a)) ==
+                                 std::tolower(static_cast<unsigned char>(b));
+                        });
+  return it != haystack.end();
 }
 
 std::string ReadTextFile(const std::string &path) {
@@ -317,35 +331,30 @@ bool RiderImporter::Import(const std::string &path) {
     // Remove Windows carriage returns to allow regexes anchored with '$' to
     // match lines extracted from external tools.
     line.erase(std::remove(line.begin(), line.end(), '\r'), line.end());
-    std::string lower = line;
-    std::transform(
-        lower.begin(), lower.end(), lower.begin(),
-        [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-
-    if (lower.find("sonido") != std::string::npos ||
-        lower.find("audio") != std::string::npos ||
-        lower.find("control de p.a.") != std::string::npos ||
-        lower.find("monitores") != std::string::npos ||
-        lower.find("microfon") != std::string::npos ||
-        lower.find("video") != std::string::npos ||
-        lower.find("realizacion") != std::string::npos ||
-        lower.find("control") != std::string::npos) {
+    if (ContainsCaseInsensitive(line, "sonido") ||
+        ContainsCaseInsensitive(line, "audio") ||
+        ContainsCaseInsensitive(line, "control de p.a.") ||
+        ContainsCaseInsensitive(line, "monitores") ||
+        ContainsCaseInsensitive(line, "microfon") ||
+        ContainsCaseInsensitive(line, "video") ||
+        ContainsCaseInsensitive(line, "realizacion") ||
+        ContainsCaseInsensitive(line, "control")) {
       inFixtures = false;
       inRigging = false;
-      inControl = lower.find("control") != std::string::npos;
+      inControl = ContainsCaseInsensitive(line, "control");
       havePending = false;
       continue;
     }
-    if (lower.find("rigging") != std::string::npos) {
+    if (ContainsCaseInsensitive(line, "rigging")) {
       inFixtures = false;
       inRigging = true;
       inControl = false;
       havePending = false;
       continue;
     }
-    if (!inControl && (lower.find("ilumin") != std::string::npos ||
-                       lower.find("robotica") != std::string::npos ||
-                       lower.find("convencion") != std::string::npos)) {
+    if (!inControl && (ContainsCaseInsensitive(line, "ilumin") ||
+                       ContainsCaseInsensitive(line, "robotica") ||
+                       ContainsCaseInsensitive(line, "convencion"))) {
       inFixtures = true;
       inRigging = false;
       havePending = false;
@@ -357,11 +366,7 @@ bool RiderImporter::Import(const std::string &path) {
     if (std::regex_match(line, hm, kHangLineRe)) {
       havePending = false;
       std::string captured = hm[1];
-      std::string capturedLower = captured;
-      std::transform(
-          capturedLower.begin(), capturedLower.end(), capturedLower.begin(),
-          [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-      if (capturedLower.find("efecto") != std::string::npos) {
+      if (ContainsCaseInsensitive(captured, "efecto")) {
         currentHang = "FLOOR";
       } else {
         currentHang = captured;
@@ -487,7 +492,7 @@ bool RiderImporter::Import(const std::string &path) {
         for (int i = 0; i < quantity; ++i)
           addTrussPieces(hang);
       }
-    } else if (std::regex_search(lower, m, kTrussRe)) {
+    } else if (std::regex_search(line, m, kTrussRe)) {
       float length = std::stof(m[1]) * 1000.0f;
       std::string hang = currentHang;
       if (std::regex_search(line, hm, kHangFindRe)) {
