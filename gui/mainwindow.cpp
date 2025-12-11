@@ -1312,9 +1312,13 @@ void MainWindow::OnPrintPlan(wxCommandEvent &WXUNUSED(event)) {
   }
 
   PlanPrintOptions opts; // Defaults to A3 portrait.
+  std::filesystem::path outputPath(
+      std::filesystem::path(outputPathWx.ToStdWstring()));
+  wxString outputPathDisplay = outputPathWx;
 
   viewport2DPanel->CaptureFrameAsync(
-      [this, opts, outputPathWx](CommandBuffer buffer, Viewer2DViewState state) {
+      [this, opts, outputPath, outputPathDisplay](CommandBuffer buffer,
+                                                  Viewer2DViewState state) {
         if (buffer.commands.empty()) {
           wxMessageBox("Unable to capture the 2D view for printing.",
                        "Print Plan", wxOK | wxICON_ERROR);
@@ -1323,21 +1327,19 @@ void MainWindow::OnPrintPlan(wxCommandEvent &WXUNUSED(event)) {
 
         // Run the PDF generation off the UI thread to avoid freezing the
         // window while writing potentially large plans to disk.
-        std::thread([this, buffer = std::move(buffer), state, opts,
-                     outputPathWx]() {
-          std::filesystem::path outputPath =
-              std::filesystem::path(outputPathWx.ToStdWstring());
+        std::thread([this, buffer = std::move(buffer), state, opts, outputPath,
+                     outputPathDisplay]() {
           PlanExportResult res =
               ExportPlanToPdf(buffer, state, opts, outputPath);
 
-          wxTheApp->CallAfter([this, res, outputPathWx]() {
+          wxTheApp->CallAfter([this, res, outputPathDisplay]() {
             if (!res.success) {
               wxString msg = "Failed to generate PDF plan: " +
                              wxString::FromUTF8(res.message);
               wxMessageBox(msg, "Print Plan", wxOK | wxICON_ERROR, this);
             } else {
               wxMessageBox(wxString::Format("Plan saved to %s",
-                                            outputPathWx),
+                                            outputPathDisplay),
                            "Print Plan", wxOK | wxICON_INFORMATION, this);
             }
           });
