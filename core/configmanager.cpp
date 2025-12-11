@@ -231,7 +231,9 @@ bool TryParseFloat(const std::string &text, float &out) {
   auto *end = trimmed.data() + trimmed.size();
 
   auto result = std::from_chars(begin, end, out);
-  return result.ec == std::errc{};
+  // Success requires the conversion to finish without errors and consume the
+  // entire trimmed token so trailing garbage is rejected.
+  return result.ec == std::errc{} && result.ptr == end;
 }
 } // namespace
 
