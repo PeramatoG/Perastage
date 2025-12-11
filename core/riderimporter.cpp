@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <array>
 #include <cctype>
+#include <charconv>
 #include <cmath>
 #include <fstream>
 #include <functional>
@@ -28,10 +29,10 @@
 #include <numeric>
 #include <regex>
 #include <sstream>
+#include <string_view>
 #include <tuple>
 #include <unordered_map>
 #include <unordered_set>
-#include <string_view>
 #include <vector>
 
 #include "pdftext.h"
@@ -70,6 +71,33 @@ std::string Trim(const std::string &s) {
     return {};
   size_t end = s.find_last_not_of(" \t\r\n");
   return s.substr(start, end - start + 1);
+}
+
+bool TryParseFloat(const std::string &text, float &out) {
+  if (text.empty())
+    return false;
+
+  const auto first =
+      std::find_if_not(text.begin(), text.end(), [](unsigned char c) {
+        return std::isspace(c);
+      });
+  if (first == text.end())
+    return false;
+  const auto last =
+      std::find_if_not(text.rbegin(), text.rend(), [](unsigned char c) {
+        return std::isspace(c);
+      }).base();
+  std::string_view trimmed(&(*first), static_cast<size_t>(last - first));
+
+  float value = 0.0f;
+  auto begin = trimmed.data();
+  auto end = trimmed.data() + trimmed.size();
+  auto result = std::from_chars(begin, end, value);
+  if (result.ec == std::errc{} && result.ptr == end) {
+    out = value;
+    return true;
+  }
+  return false;
 }
 
 std::vector<std::string> SplitPlus(const std::string &s) {
@@ -388,15 +416,22 @@ bool RiderImporter::Import(const std::string &path) {
     } else if (std::regex_match(line, m, kTrussLineRe)) {
       int quantity = std::stoi(m[1]);
       std::string model = Trim(m[2]);
-      float length = std::stof(m[3]) * 1000.0f;
+      float length = 0.0f;
+      if (!TryParseFloat(m[3], length))
+        continue;
+      length *= 1000.0f;
       float width = 400.0f;
       float height = 400.0f;
       std::smatch dm;
       if (std::regex_search(
               model, dm,
               std::regex("(\\d+(?:\\.\\d+)?)\\s*[xX]\\s*(\\d+(?:\\.\\d+)?)"))) {
-        width = std::stof(dm[1]) * 10.0f;
-        height = std::stof(dm[2]) * 10.0f;
+        float parsed = 0.0f;
+        if (TryParseFloat(dm[1], parsed))
+          width = parsed * 10.0f;
+        parsed = 0.0f;
+        if (TryParseFloat(dm[2], parsed))
+          height = parsed * 10.0f;
       }
       std::string hang = currentHang;
       if (m.size() > 4 && m[4].matched)
@@ -493,7 +528,10 @@ bool RiderImporter::Import(const std::string &path) {
           addTrussPieces(hang);
       }
     } else if (std::regex_search(line, m, kTrussRe)) {
-      float length = std::stof(m[1]) * 1000.0f;
+      float length = 0.0f;
+      if (!TryParseFloat(m[1], length))
+        continue;
+      length *= 1000.0f;
       std::string hang = currentHang;
       if (std::regex_search(line, hm, kHangFindRe)) {
         hang = hm[1];

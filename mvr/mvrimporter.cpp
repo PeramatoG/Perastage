@@ -27,6 +27,7 @@
 #include "logger.h"
 #include <algorithm>
 #include <cctype>
+#include <charconv>
 #include <chrono>
 #include <cmath>
 #include <cstdlib>
@@ -38,6 +39,7 @@
 #include <random>
 #include <sstream>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -67,6 +69,33 @@ static std::string Trim(const std::string &s) {
     return {};
   size_t end = s.find_last_not_of(ws);
   return s.substr(start, end - start + 1);
+}
+
+static bool TryParseFloat(const std::string &text, float &out) {
+  if (text.empty())
+    return false;
+
+  const auto first =
+      std::find_if_not(text.begin(), text.end(), [](unsigned char c) {
+        return std::isspace(c);
+      });
+  if (first == text.end())
+    return false;
+  const auto last =
+      std::find_if_not(text.rbegin(), text.rend(), [](unsigned char c) {
+        return std::isspace(c);
+      }).base();
+  std::string_view trimmed(&(*first), static_cast<size_t>(last - first));
+
+  float value = 0.0f;
+  auto begin = trimmed.data();
+  auto end = trimmed.data() + trimmed.size();
+  auto result = std::from_chars(begin, end, value);
+  if (result.ec == std::errc{} && result.ptr == end) {
+    out = value;
+    return true;
+  }
+  return false;
 }
 
 static std::string CieToHex(const std::string &cie) {
@@ -429,13 +458,19 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         }
         if (tinyxml2::XMLElement *pcNode =
                 node->FirstChildElement("PowerConsumption")) {
-          if (const char *txt = pcNode->GetText())
-            fixture.powerConsumptionW = std::stof(txt);
+          if (const char *txt = pcNode->GetText()) {
+            float parsed = 0.0f;
+            if (TryParseFloat(txt, parsed))
+              fixture.powerConsumptionW = parsed;
+          }
         }
         if (tinyxml2::XMLElement *wNode =
                 node->FirstChildElement("Weight")) {
-          if (const char *txt = wNode->GetText())
-            fixture.weightKg = std::stof(txt);
+          if (const char *txt = wNode->GetText()) {
+            float parsed = 0.0f;
+            if (TryParseFloat(txt, parsed))
+              fixture.weightKg = parsed;
+          }
         }
         if (!fixture.gdtfSpec.empty()) {
           fs::path p =
@@ -568,17 +603,33 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                 if (mo->GetText())
                   truss.model = Trim(mo->GetText());
               if (tinyxml2::XMLElement *len = info->FirstChildElement("Length"))
-                if (len->GetText())
-                  truss.lengthMm = std::stof(len->GetText());
+                if (len->GetText()) {
+                  float parsed = 0.0f;
+                  if (TryParseFloat(len->GetText(), parsed))
+                    truss.lengthMm = parsed;
+                }
               if (tinyxml2::XMLElement *wid = info->FirstChildElement("Width"))
-                if (wid->GetText())
-                  truss.widthMm = std::stof(wid->GetText());
+                if (wid->GetText()) {
+                  float parsed = 0.0f;
+                  if (TryParseFloat(wid->GetText(), parsed))
+                    truss.widthMm = parsed;
+                  else
+                    truss.widthMm = 400.0f;
+                }
               if (tinyxml2::XMLElement *hei = info->FirstChildElement("Height"))
-                if (hei->GetText())
-                  truss.heightMm = std::stof(hei->GetText());
+                if (hei->GetText()) {
+                  float parsed = 0.0f;
+                  if (TryParseFloat(hei->GetText(), parsed))
+                    truss.heightMm = parsed;
+                  else
+                    truss.heightMm = 400.0f;
+                }
               if (tinyxml2::XMLElement *wei = info->FirstChildElement("Weight"))
-                if (wei->GetText())
-                  truss.weightKg = std::stof(wei->GetText());
+                if (wei->GetText()) {
+                  float parsed = 0.0f;
+                  if (TryParseFloat(wei->GetText(), parsed))
+                    truss.weightKg = parsed;
+                }
               if (tinyxml2::XMLElement *cs =
                       info->FirstChildElement("CrossSection"))
                 if (cs->GetText())
@@ -629,11 +680,11 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         support.hoistFunction = NormalizeHoistFunction(support.function);
         std::string chainText = readText("ChainLength");
         if (!chainText.empty()) {
-          try {
-            support.chainLength = std::stof(chainText);
-          } catch (...) {
+          float parsed = 0.0f;
+          if (TryParseFloat(chainText, parsed))
+            support.chainLength = parsed;
+          else
             support.chainLength = 0.0f;
-          }
         }
 
         support.position = readText("Position");
@@ -656,10 +707,9 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
               auto readFloat = [&](const char *name, float &out) {
                 if (tinyxml2::XMLElement *e = info->FirstChildElement(name)) {
                   if (const char *txt = e->GetText()) {
-                    try {
-                      out = std::stof(txt);
-                    } catch (...) {
-                    }
+                    float parsed = 0.0f;
+                    if (TryParseFloat(txt, parsed))
+                      out = parsed;
                   }
                 }
               };

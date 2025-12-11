@@ -21,6 +21,9 @@
 #include "matrixutils.h"
 #include "consolepanel.h"
 
+#include <cctype>
+#include <charconv>
+#include <string_view>
 #include <tinyxml2.h>
 #include <wx/wx.h>
 #include <wx/wfstream.h>
@@ -44,6 +47,34 @@ class wxZipStreamLink;
 #include <iomanip>
 
 namespace fs = std::filesystem;
+
+namespace {
+bool TryParseFloat(const std::string& text, float& out)
+{
+    if (text.empty())
+        return false;
+
+    const auto first = std::find_if_not(text.begin(), text.end(), [](unsigned char c) {
+        return std::isspace(c);
+    });
+    if (first == text.end())
+        return false;
+    const auto last = std::find_if_not(text.rbegin(), text.rend(), [](unsigned char c) {
+        return std::isspace(c);
+    }).base();
+    std::string_view trimmed(&(*first), static_cast<size_t>(last - first));
+
+    float value = 0.0f;
+    auto begin = trimmed.data();
+    auto end = trimmed.data() + trimmed.size();
+    auto result = std::from_chars(begin, end, value);
+    if (result.ec == std::errc{} && result.ptr == end) {
+        out = value;
+        return true;
+    }
+    return false;
+}
+} // namespace
 
 struct GdtfCacheEntry
 {
@@ -335,13 +366,19 @@ static void ParseProperties(tinyxml2::XMLElement* ft, float& weightKg, float& po
         return;
 
     if (tinyxml2::XMLElement* w = props->FirstChildElement("Weight")) {
-        if (const char* v = w->Attribute("Value"))
-            weightKg = std::stof(v);
+        if (const char* v = w->Attribute("Value")) {
+            float parsed = 0.0f;
+            if (TryParseFloat(v, parsed))
+                weightKg = parsed;
+        }
     }
 
     if (tinyxml2::XMLElement* pc = props->FirstChildElement("PowerConsumption")) {
-        if (const char* v = pc->Attribute("Value"))
-            powerW = std::stof(v);
+        if (const char* v = pc->Attribute("Value")) {
+            float parsed = 0.0f;
+            if (TryParseFloat(v, parsed))
+                powerW = parsed;
+        }
     }
 }
 
