@@ -29,6 +29,53 @@ class wxZipStreamLink;
 #include <wx/stdpaths.h>
 #include <wx/zipstrm.h>
 
+namespace {
+class TempDir {
+public:
+  explicit TempDir(const std::string &prefix) {
+    namespace fs = std::filesystem;
+    auto stamp = std::chrono::system_clock::now().time_since_epoch().count();
+    path = fs::temp_directory_path() / (prefix + std::to_string(stamp));
+    created = std::filesystem::create_directory(path);
+  }
+
+  TempDir(const TempDir &) = delete;
+  TempDir &operator=(const TempDir &) = delete;
+
+  TempDir(TempDir &&other) noexcept
+      : path(std::move(other.path)), created(other.created) {
+    other.created = false;
+  }
+
+  TempDir &operator=(TempDir &&other) noexcept {
+    if (this != &other) {
+      Cleanup();
+      path = std::move(other.path);
+      created = other.created;
+      other.created = false;
+    }
+    return *this;
+  }
+
+  ~TempDir() { Cleanup(); }
+
+  bool Valid() const { return created; }
+  const std::filesystem::path &Path() const { return path; }
+
+private:
+  void Cleanup() {
+    if (created) {
+      std::error_code ec;
+      std::filesystem::remove_all(path, ec);
+      created = false;
+    }
+  }
+
+  std::filesystem::path path;
+  bool created = false;
+};
+} // namespace
+
 ConfigManager::RevisionGuard::RevisionGuard(ConfigManager &cfg)
     : cfg(cfg), previous(cfg.suppressRevision) {
   cfg.suppressRevision = true;
@@ -453,30 +500,24 @@ bool ConfigManager::SaveToFile(const std::string &path) const {
 
 bool ConfigManager::SaveProject(const std::string &path) {
   namespace fs = std::filesystem;
-  fs::path tempDir =
-      fs::temp_directory_path() /
-      ("PerastageProj_" +
-       std::to_string(
-           std::chrono::system_clock::now().time_since_epoch().count()));
-  fs::create_directory(tempDir);
+  TempDir tempDir("PerastageProj_");
+  if (!tempDir.Valid())
+    return false;
 
-  fs::path configPath = tempDir / "config.json";
-  fs::path scenePath = tempDir / "scene.mvr";
+  fs::path configPath = tempDir.Path() / "config.json";
+  fs::path scenePath = tempDir.Path() / "scene.mvr";
 
   if (!SaveToFile(configPath.string())) {
-    fs::remove_all(tempDir);
     return false;
   }
 
   MvrExporter exporter;
   if (!exporter.ExportToFile(scenePath.string())) {
-    fs::remove_all(tempDir);
     return false;
   }
 
   wxFileOutputStream out(path);
   if (!out.IsOk()) {
-    fs::remove_all(tempDir);
     return false;
   }
 
@@ -501,7 +542,6 @@ bool ConfigManager::SaveProject(const std::string &path) {
   addFile(scenePath, "scene.mvr");
 
   zip.Close();
-  fs::remove_all(tempDir);
   savedRevision = revision;
   return true;
 }
@@ -516,12 +556,9 @@ bool ConfigManager::LoadProject(const std::string &path) {
   wxZipInputStream zip(in);
   std::unique_ptr<wxZipEntry> entry;
 
-  fs::path tempDir =
-      fs::temp_directory_path() /
-      ("PerastageProj_" +
-       std::to_string(
-           std::chrono::system_clock::now().time_since_epoch().count()));
-  fs::create_directory(tempDir);
+  TempDir tempDir("PerastageProj_");
+  if (!tempDir.Valid())
+    return false;
 
   fs::path configPath;
   fs::path scenePath;
@@ -530,9 +567,9 @@ bool ConfigManager::LoadProject(const std::string &path) {
     std::string name = entry->GetName().ToStdString();
     fs::path outPath;
     if (name == "config.json")
-      outPath = tempDir / "config.json";
+      outPath = tempDir.Path() / "config.json";
     else if (name == "scene.mvr")
-      outPath = tempDir / "scene.mvr";
+      outPath = tempDir.Path() / "scene.mvr";
     else
       continue;
 
@@ -559,7 +596,6 @@ bool ConfigManager::LoadProject(const std::string &path) {
   if (!configPath.empty())
     ok &= LoadFromFile(configPath.string());
 
-  fs::remove_all(tempDir);
   if (ok) {
     ClearHistory();
     selectedFixtures.clear();

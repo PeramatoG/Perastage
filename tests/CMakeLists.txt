@@ -39,6 +39,13 @@ target_include_directories(autopatcher_grouping_test PRIVATE ../core ../models .
 add_test(NAME AutoPatchGroupIntegrity COMMAND autopatcher_grouping_test)
 set_library_env(AutoPatchGroupIntegrity)
 
+add_executable(autopatcher_universe_wrap_test autopatcher_universe_wrap_test.cpp
+               ../core/autopatcher.cpp
+               ../core/patchmanager.cpp)
+target_include_directories(autopatcher_universe_wrap_test PRIVATE ../core ../models ../viewer3d)
+add_test(NAME AutoPatchUniverseWrap COMMAND autopatcher_universe_wrap_test)
+set_library_env(AutoPatchUniverseWrap)
+
 add_executable(save_load_roundtrip_test save_load_roundtrip_test.cpp
                ../core/configmanager.cpp
                ../core/projectutils.cpp

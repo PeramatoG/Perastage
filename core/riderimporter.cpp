@@ -48,6 +48,21 @@
 #include <filesystem>
 
 namespace {
+// Precompiled regexes used by RiderImporter. Keeping them static avoids paying
+// the compilation cost on every import call and makes keyword matching cheap
+// even when processing large riders.
+static const std::regex kTrussLineRe(
+    "^\\s*(?:[-*]\\s*)?(\\d+)\\s+(?:truss)\\s+([^\\n]*?)\\s+(\\d+(?:\\.\\d+)?)\\s*m(?:\\s+para\\s+(.+))?",
+    std::regex::icase);
+static const std::regex kTrussRe(
+    "(?:truss)[^\\n]*?(\\d+(?:\\.\\d+)?)\\s*m", std::regex::icase);
+static const std::regex kFixtureLineRe("^\\s*(?:[-*]\\s*)?(\\d+)\\s+(.+)$",
+                                       std::regex::icase);
+static const std::regex kQuantityOnlyRe("^\\s*(?:[-*]\\s*)?(\\d+)\\s*$");
+static const std::regex kHangLineRe("^\\s*(LX\\d+|floor|efectos?)\\s*:?\\s*$",
+                                    std::regex::icase);
+static const std::regex kHangFindRe("(LX\\d+|floor|efectos?)",
+                                    std::regex::icase);
 std::string Trim(const std::string &s) {
   size_t start = s.find_first_not_of(" \t\r\n");
   if (start == std::string::npos)
@@ -218,42 +233,29 @@ bool RiderImporter::Import(const std::string &path) {
     return 200.0f;
   };
 
+  std::unordered_map<std::string, Layer *> layerLookup;
+  layerLookup.reserve(scene.layers.size() + 4);
+  for (auto &[id, layer] : scene.layers)
+    layerLookup.emplace(layer.name, &layer);
+
   auto addToLayer = [&](const std::string &lname, const std::string &uid) {
     std::string name = lname.empty() ? DEFAULT_LAYER_NAME : lname;
     Layer *layerPtr = nullptr;
-    for (auto &[id, layer] : scene.layers) {
-      if (layer.name == name) {
-        layerPtr = &layer;
-        break;
-      }
-    }
-    if (!layerPtr) {
+    auto it = layerLookup.find(name);
+    if (it != layerLookup.end()) {
+      layerPtr = it->second;
+    } else {
       Layer l;
       l.uuid = name == DEFAULT_LAYER_NAME ? "layer_default" : GenerateUuid();
       l.name = name;
-      auto [it, inserted] = scene.layers.emplace(l.uuid, l);
-      layerPtr = &it->second;
+      auto [insertedIt, inserted] =
+          scene.layers.emplace(l.uuid, std::move(l));
+      layerPtr = &insertedIt->second;
+      layerLookup.emplace(layerPtr->name, layerPtr);
     }
     layerPtr->childUUIDs.push_back(uid);
   };
 
-  // Keywords that identify truss entries. Screens or drapes themselves are
-  // ignored; only explicit truss mentions are parsed.
-  const std::string trussKeywords = "(?:truss)";
-  // Full truss line like: "3 TRUSS 40X40 14m PARA PUENTES LX"
-  std::regex trussLineRe(
-      "^\\s*(?:[-*]\\s*)?(\\d+)\\s+" + trussKeywords +
-          "\\s+([^\\n]*?)\\s+(\\d+(?:\\.\\d+)?)\\s*m(?:\\s+para\\s+(.+))?",
-      std::regex::icase);
-  // Generic catch-all to find any truss mention with a length
-  std::regex trussRe(trussKeywords + "[^\\n]*?(\\d+(?:\\.\\d+)?)\\s*m",
-                     std::regex::icase);
-  std::regex fixtureLineRe("^\\s*(?:[-*]\\s*)?(\\d+)\\s+(.+)$");
-  std::regex quantityOnlyRe("^\\s*(?:[-*]\\s*)?(\\d+)\\s*$");
-  // Allow matching generic hang positions like LX1, FLOOR or EFECTOS
-  std::regex hangLineRe("^\\s*(LX\\d+|floor|efectos?)\\s*:?\\s*$",
-                        std::regex::icase);
-  std::regex hangFindRe("(LX\\d+|floor|efectos?)", std::regex::icase);
   std::istringstream iss(text);
   std::string line;
   bool inFixtures = false;
@@ -262,6 +264,7 @@ bool RiderImporter::Import(const std::string &path) {
   std::string currentHang;
   std::unordered_map<std::string, int> nameCounters;
   std::vector<std::string> typeOrder;
+  typeOrder.reserve(16);
   std::unordered_set<std::string> seenTypes;
   int pendingQuantity = 0;
   bool havePending = false;
@@ -272,7 +275,7 @@ bool RiderImporter::Import(const std::string &path) {
       std::smatch pm;
       std::string part = partRaw;
       int quantity = baseQuantity;
-      if (std::regex_match(partRaw, pm, fixtureLineRe)) {
+      if (std::regex_match(partRaw, pm, kFixtureLineRe)) {
         quantity = std::stoi(pm[1]);
         part = Trim(pm[2]);
       }
@@ -351,7 +354,7 @@ bool RiderImporter::Import(const std::string &path) {
 
     std::smatch m;
     std::smatch hm;
-    if (std::regex_match(line, hm, hangLineRe)) {
+    if (std::regex_match(line, hm, kHangLineRe)) {
       havePending = false;
       std::string captured = hm[1];
       std::string capturedLower = captured;
@@ -377,7 +380,7 @@ bool RiderImporter::Import(const std::string &path) {
       if (!desc.empty())
         addFixtures(pendingQuantity, desc);
       havePending = false;
-    } else if (std::regex_match(line, m, trussLineRe)) {
+    } else if (std::regex_match(line, m, kTrussLineRe)) {
       int quantity = std::stoi(m[1]);
       std::string model = Trim(m[2]);
       float length = std::stof(m[3]) * 1000.0f;
@@ -471,7 +474,7 @@ bool RiderImporter::Import(const std::string &path) {
               t.modelFile = *dictPath;
             }
           }
-          scene.trusses[t.uuid] = t;
+          scene.trusses.emplace(t.uuid, std::move(t));
           addToLayer(t.layer, t.uuid);
           x += s;
         }
@@ -484,10 +487,10 @@ bool RiderImporter::Import(const std::string &path) {
         for (int i = 0; i < quantity; ++i)
           addTrussPieces(hang);
       }
-    } else if (std::regex_search(lower, m, trussRe)) {
+    } else if (std::regex_search(lower, m, kTrussRe)) {
       float length = std::stof(m[1]) * 1000.0f;
       std::string hang = currentHang;
-      if (std::regex_search(line, hm, hangFindRe)) {
+      if (std::regex_search(line, hm, kHangFindRe)) {
         hang = hm[1];
         std::transform(
             hang.begin(), hang.end(), hang.begin(),
@@ -558,15 +561,15 @@ bool RiderImporter::Import(const std::string &path) {
             t.modelFile = *dictPath;
           }
         }
-        scene.trusses[t.uuid] = t;
+        scene.trusses.emplace(t.uuid, std::move(t));
         addToLayer(t.layer, t.uuid);
         x += s;
       }
-    } else if (inFixtures && std::regex_match(line, m, fixtureLineRe)) {
+    } else if (inFixtures && std::regex_match(line, m, kFixtureLineRe)) {
       int baseQuantity = std::stoi(m[1]);
       std::string desc = Trim(m[2]);
       addFixtures(baseQuantity, desc);
-    } else if (inFixtures && std::regex_match(line, m, quantityOnlyRe)) {
+    } else if (inFixtures && std::regex_match(line, m, kQuantityOnlyRe)) {
       pendingQuantity = std::stoi(m[1]);
       havePending = true;
     }
@@ -604,6 +607,7 @@ bool RiderImporter::Import(const std::string &path) {
   }
 
   std::unordered_map<std::string, std::vector<Fixture *>> fixturesByPos;
+  fixturesByPos.reserve(scene.fixtures.size());
   for (auto &[uuid, f] : scene.fixtures)
     fixturesByPos[f.positionName].push_back(&f);
 
