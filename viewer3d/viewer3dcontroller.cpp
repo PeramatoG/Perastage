@@ -848,23 +848,32 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
       b = c[2];
     }
 
+    Matrix captureTransform = m.transform;
+    captureTransform.o[0] *= RENDER_SCALE;
+    captureTransform.o[1] *= RENDER_SCALE;
+    captureTransform.o[2] *= RENDER_SCALE;
+    auto applyCapture = [captureTransform](const std::array<float, 3> &p) {
+      return TransformPoint(captureTransform, p);
+    };
+
     if (!m.modelFile.empty()) {
       std::string path = ResolveModelPath(base, m.modelFile);
       if (!path.empty()) {
         auto it = m_loadedMeshes.find(path);
         if (it != m_loadedMeshes.end())
           DrawMeshWithOutline(it->second, r, g, b, RENDER_SCALE, highlight,
-                              selected, cx, cy, cz, wireframe, mode);
+                              selected, cx, cy, cz, wireframe, mode,
+                              applyCapture);
         else
           DrawCubeWithOutline(0.3f, r, g, b, highlight, selected, cx, cy, cz,
-                              wireframe, mode);
+                              wireframe, mode, applyCapture);
       } else {
         DrawCubeWithOutline(0.3f, r, g, b, highlight, selected, cx, cy, cz,
-                            wireframe, mode);
+                            wireframe, mode, applyCapture);
       }
     } else {
       DrawCubeWithOutline(0.3f, r, g, b, highlight, selected, cx, cy, cz,
-                          wireframe, mode);
+                          wireframe, mode, applyCapture);
     }
 
     glPopMatrix();
@@ -914,30 +923,42 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
       b = c[2];
     }
 
+    Matrix captureTransform = t.transform;
+    captureTransform.o[0] *= RENDER_SCALE;
+    captureTransform.o[1] *= RENDER_SCALE;
+    captureTransform.o[2] *= RENDER_SCALE;
+    auto applyCapture = [captureTransform](const std::array<float, 3> &p) {
+      return TransformPoint(captureTransform, p);
+    };
+
     if (!t.symbolFile.empty()) {
       std::string path = ResolveModelPath(base, t.symbolFile);
       if (!path.empty()) {
         auto it = m_loadedMeshes.find(path);
         if (it != m_loadedMeshes.end()) {
           DrawMeshWithOutline(it->second, r, g, b, RENDER_SCALE, highlight,
-                              selected, cx, cy, cz, wireframe, mode);
+                              selected, cx, cy, cz, wireframe, mode,
+                              applyCapture);
         } else {
           float len = t.lengthMm * RENDER_SCALE;
           float wid = (t.widthMm > 0 ? t.widthMm : 400.0f) * RENDER_SCALE;
           float hei = (t.heightMm > 0 ? t.heightMm : 400.0f) * RENDER_SCALE;
-          DrawWireframeBox(len, hei, wid, highlight, selected, wireframe, mode);
+          DrawWireframeBox(len, hei, wid, highlight, selected, wireframe, mode,
+                           applyCapture);
         }
       } else {
         float len = t.lengthMm * RENDER_SCALE;
         float wid = (t.widthMm > 0 ? t.widthMm : 400.0f) * RENDER_SCALE;
         float hei = (t.heightMm > 0 ? t.heightMm : 400.0f) * RENDER_SCALE;
-        DrawWireframeBox(len, hei, wid, highlight, selected, wireframe, mode);
+        DrawWireframeBox(len, hei, wid, highlight, selected, wireframe, mode,
+                         applyCapture);
       }
     } else {
       float len = t.lengthMm * RENDER_SCALE;
       float wid = (t.widthMm > 0 ? t.widthMm : 400.0f) * RENDER_SCALE;
       float hei = (t.heightMm > 0 ? t.heightMm : 400.0f) * RENDER_SCALE;
-      DrawWireframeBox(len, hei, wid, highlight, selected, wireframe, mode);
+      DrawWireframeBox(len, hei, wid, highlight, selected, wireframe, mode,
+                       applyCapture);
     }
 
     glPopMatrix();
@@ -994,6 +1015,11 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
       }
     }
 
+    Matrix fixtureTransform = f.transform;
+    fixtureTransform.o[0] *= RENDER_SCALE;
+    fixtureTransform.o[1] *= RENDER_SCALE;
+    fixtureTransform.o[2] *= RENDER_SCALE;
+
     std::string gdtfPath = ResolveGdtfPath(base, f.gdtfSpec);
     auto itg = m_loadedGdtf.find(gdtfPath);
 
@@ -1005,13 +1031,19 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
         // GDTF geometry offsets are defined relative to the fixture
         // in meters. Only the vertex coordinates need unit scaling.
         ApplyTransform(m2, false);
+        auto applyCapture = [fixtureTransform, objTransform = obj.transform](
+                                const std::array<float, 3> &p) {
+          auto local = TransformPoint(objTransform, p);
+          return TransformPoint(fixtureTransform, local);
+        };
         DrawMeshWithOutline(obj.mesh, r, g, b, RENDER_SCALE, highlight,
-                            selected, cx, cy, cz, wireframe, mode);
+                            selected, cx, cy, cz, wireframe, mode,
+                            applyCapture);
         glPopMatrix();
       }
     } else {
       DrawCubeWithOutline(0.2f, r, g, b, highlight, selected, cx, cy, cz,
-                          wireframe, mode);
+                          wireframe, mode, applyCapture);
     }
 
     glPopMatrix();
@@ -1075,8 +1107,10 @@ void Viewer3DController::DrawCube(float size, float r, float g, float b) {
 }
 
 // Draws a wireframe cube centered at origin with given size and color
-void Viewer3DController::DrawWireframeCube(float size, float r, float g,
-                                           float b, Viewer2DRenderMode mode) {
+void Viewer3DController::DrawWireframeCube(
+    float size, float r, float g, float b, Viewer2DRenderMode mode,
+    const std::function<std::array<float, 3>(const std::array<float, 3> &)> &
+        captureTransform) {
   float half = size / 2.0f;
   float x0 = -half, x1 = half;
   float y0 = -half, y1 = half;
@@ -1119,6 +1153,10 @@ void Viewer3DController::DrawWireframeCube(float size, float r, float g,
                                                {x0, y1, z0}, {x1, y1, z0},
                                                {x0, y0, z1}, {x1, y0, z1},
                                                {x0, y1, z1}, {x1, y1, z1}};
+    if (captureTransform) {
+      for (auto &p : verts)
+        p = captureTransform(p);
+    }
     const int edges[12][2] = {{0, 1}, {2, 3}, {4, 5}, {6, 7}, {0, 2},
                               {1, 3}, {4, 6}, {5, 7}, {0, 4}, {1, 5},
                               {2, 6}, {3, 7}};
@@ -1142,10 +1180,11 @@ void Viewer3DController::DrawWireframeCube(float size, float r, float g,
 
 // Draws a wireframe box whose origin sits at the left end of the span.
 // The box extends along +X for the given length and is centered in Y/Z.
-void Viewer3DController::DrawWireframeBox(float length, float height,
-                                          float width, bool highlight,
-                                          bool selected, bool wireframe,
-                                          Viewer2DRenderMode mode) {
+void Viewer3DController::DrawWireframeBox(
+    float length, float height, float width, bool highlight, bool selected,
+    bool wireframe, Viewer2DRenderMode mode,
+    const std::function<std::array<float, 3>(const std::array<float, 3> &)> &
+        captureTransform) {
   float x0 = 0.0f, x1 = length;
   float y0 = -width * 0.5f, y1 = width * 0.5f;
   float z0 = 0.0f, z1 = height;
@@ -1255,6 +1294,10 @@ void Viewer3DController::DrawWireframeBox(float length, float height,
                                                {x0, y1, z0}, {x1, y1, z0},
                                                {x0, y0, z1}, {x1, y0, z1},
                                                {x0, y1, z1}, {x1, y1, z1}};
+    if (captureTransform) {
+      for (auto &p : verts)
+        p = captureTransform(p);
+    }
     const int edges[12][2] = {{0, 1}, {2, 3}, {4, 5}, {6, 7}, {0, 2},
                               {1, 3}, {4, 6}, {5, 7}, {0, 4}, {1, 5},
                               {2, 6}, {3, 7}};
@@ -1265,21 +1308,21 @@ void Viewer3DController::DrawWireframeBox(float length, float height,
 
 // Draws a colored cube. If selected or highlighted it is tinted
 // in cyan or green respectively instead of its original color.
-void Viewer3DController::DrawCubeWithOutline(float size, float r, float g,
-                                             float b, bool highlight,
-                                             bool selected, float cx, float cy,
-                                             float cz, bool wireframe,
-                                             Viewer2DRenderMode mode) {
+void Viewer3DController::DrawCubeWithOutline(
+    float size, float r, float g, float b, bool highlight, bool selected,
+    float cx, float cy, float cz, bool wireframe, Viewer2DRenderMode mode,
+    const std::function<std::array<float, 3>(const std::array<float, 3> &)> &
+        captureTransform) {
   (void)cx;
   (void)cy;
   (void)cz; // parameters no longer used
 
   if (wireframe) {
     if (mode == Viewer2DRenderMode::Wireframe) {
-      DrawWireframeCube(size, 0.0f, 0.0f, 0.0f, mode);
+      DrawWireframeCube(size, 0.0f, 0.0f, 0.0f, mode, captureTransform);
       return;
     }
-    DrawWireframeCube(size, 0.0f, 0.0f, 0.0f, mode);
+    DrawWireframeCube(size, 0.0f, 0.0f, 0.0f, mode, captureTransform);
     glEnable(GL_POLYGON_OFFSET_FILL);
     glPolygonOffset(-1.0f, -1.0f);
     glColor3f(r, g, b);
@@ -1298,12 +1341,12 @@ void Viewer3DController::DrawCubeWithOutline(float size, float r, float g,
 
 // Draws a mesh using the given color. When selected or highlighted the
 // mesh is rendered entirely in cyan or green respectively.
-void Viewer3DController::DrawMeshWithOutline(const Mesh &mesh, float r, float g,
-                                             float b, float scale,
-                                             bool highlight, bool selected,
-                                             float cx, float cy, float cz,
-                                             bool wireframe,
-                                             Viewer2DRenderMode mode) {
+void Viewer3DController::DrawMeshWithOutline(
+    const Mesh &mesh, float r, float g, float b, float scale, bool highlight,
+    bool selected, float cx, float cy, float cz, bool wireframe,
+    Viewer2DRenderMode mode,
+    const std::function<std::array<float, 3>(const std::array<float, 3> &)> &
+        captureTransform) {
   (void)cx;
   (void)cy;
   (void)cz; // parameters kept for compatibility
@@ -1330,6 +1373,10 @@ void Viewer3DController::DrawMeshWithOutline(const Mesh &mesh, float r, float g,
              mesh.vertices[i1 * 3 + 2] * scale},
             {mesh.vertices[i2 * 3] * scale, mesh.vertices[i2 * 3 + 1] * scale,
              mesh.vertices[i2 * 3 + 2] * scale}};
+        if (captureTransform) {
+          for (auto &p : pts)
+            p = captureTransform(p);
+        }
         RecordPolygon(pts, stroke, &fill);
       }
     }
@@ -1423,6 +1470,11 @@ void Viewer3DController::DrawMeshWireframe(const Mesh &mesh, float scale) {
       std::array<float, 3> p2 = {mesh.vertices[i2 * 3] * scale,
                                  mesh.vertices[i2 * 3 + 1] * scale,
                                  mesh.vertices[i2 * 3 + 2] * scale};
+      if (captureTransform) {
+        p0 = captureTransform(p0);
+        p1 = captureTransform(p1);
+        p2 = captureTransform(p2);
+      }
       RecordLine(p0, p1, stroke);
       RecordLine(p1, p2, stroke);
       RecordLine(p2, p0, stroke);

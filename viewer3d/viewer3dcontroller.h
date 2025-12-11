@@ -122,7 +122,10 @@ private:
   // Line thickness is reduced only for the pure wireframe render mode.
   void DrawWireframeCube(float size = 0.3f, float r = 1.0f, float g = 1.0f,
                          float b = 0.0f,
-                         Viewer2DRenderMode mode = Viewer2DRenderMode::White);
+                         Viewer2DRenderMode mode = Viewer2DRenderMode::White,
+                         const std::function<std::array<float, 3>(
+                             const std::array<float, 3> &)> &captureTransform =
+                             {});
 
   // Draws a wireframe box with independent dimensions. Length corresponds
   // to the X axis, width to Y and height to Z. The box's origin is at the
@@ -131,7 +134,10 @@ private:
   void DrawWireframeBox(float length, float height, float width,
                         bool highlight = false, bool selected = false,
                         bool wireframe = false,
-                        Viewer2DRenderMode mode = Viewer2DRenderMode::White);
+                        Viewer2DRenderMode mode = Viewer2DRenderMode::White,
+                        const std::function<std::array<float, 3>(
+                            const std::array<float, 3> &)> &captureTransform =
+                            {});
 
   // Draws a colored mesh. When selected or highlighted the mesh is tinted
   // in cyan or green. The optional center offset parameters are kept for
@@ -141,7 +147,10 @@ private:
                            bool highlight = false, bool selected = false,
                            float cx = 0.0f, float cy = 0.0f, float cz = 0.0f,
                            bool wireframe = false,
-                           Viewer2DRenderMode mode = Viewer2DRenderMode::White);
+                           Viewer2DRenderMode mode = Viewer2DRenderMode::White,
+                           const std::function<std::array<float, 3>(
+                               const std::array<float, 3> &)> &captureTransform =
+                               {});
 
   // Draws only the mesh edges for wireframe rendering
   void DrawMeshWireframe(const Mesh &mesh, float scale = RENDER_SCALE);
@@ -153,7 +162,10 @@ private:
                            bool selected = false, float cx = 0.0f,
                            float cy = 0.0f, float cz = 0.0f,
                            bool wireframe = false,
-                           Viewer2DRenderMode mode = Viewer2DRenderMode::White);
+                           Viewer2DRenderMode mode = Viewer2DRenderMode::White,
+                           const std::function<std::array<float, 3>(
+                               const std::array<float, 3> &)> &captureTransform =
+                               {});
 
   // Applies the object's transformation matrix. When scaleTranslation
   // is true the translation part is converted from millimeters to
