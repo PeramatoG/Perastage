@@ -332,8 +332,41 @@ void MainWindow::SetupLayout() {
                                         .MaximizeButton(true)
                                         .PaneBorder(true));
 
+  Ensure3DViewport();
+  Ensure2DViewport();
+
   // Apply all changes to layout
   auiManager->Update();
+
+  if (defaultLayoutPerspective.empty()) {
+    ConfigManager &cfg = ConfigManager::Get();
+    defaultLayoutPerspective = auiManager->SavePerspective().ToStdString();
+    if (auto val = cfg.GetValue("layout_default"))
+      defaultLayoutPerspective = *val;
+    else
+      cfg.SetValue("layout_default", defaultLayoutPerspective);
+  }
+
+  if (default2DLayoutPerspective.empty()) {
+    auto &pane3d = auiManager->GetPane("3DViewport");
+    auto &pane2d = auiManager->GetPane("2DViewport");
+    auto &paneRender = auiManager->GetPane("2DRenderOptions");
+    bool pane3dWasShown = pane3d.IsShown();
+    bool pane2dWasShown = pane2d.IsShown();
+    bool paneRenderWasShown = paneRender.IsShown();
+    pane3d.Hide();
+    pane2d.Show();
+    paneRender.Show();
+    auiManager->Update();
+    default2DLayoutPerspective = auiManager->SavePerspective().ToStdString();
+    if (!paneRenderWasShown)
+      paneRender.Hide();
+    if (!pane2dWasShown)
+      pane2d.Hide();
+    if (pane3dWasShown)
+      pane3d.Show();
+    auiManager->Update();
+  }
 
   if (summaryPanel)
     summaryPanel->ShowFixtureSummary();
@@ -372,24 +405,17 @@ void MainWindow::Ensure3DViewport() {
                                          .CloseButton(true)
                                          .MaximizeButton(true));
   auiManager->Update();
-  if (defaultLayoutPerspective.empty()) {
-    ConfigManager &cfg = ConfigManager::Get();
-    defaultLayoutPerspective = auiManager->SavePerspective().ToStdString();
-    if (!cfg.HasKey("layout_default"))
-      cfg.SetValue("layout_default", defaultLayoutPerspective);
-    else if (auto val = cfg.GetValue("layout_default"))
-      defaultLayoutPerspective = *val;
-  }
 }
 
 void MainWindow::Ensure2DViewport() {
-  if (viewport2DPanel)
+  if (viewport2DPanel && viewport2DRenderPanel)
     return;
   int halfWidth = GetClientSize().GetWidth() / 2;
-  viewport2DPanel = new Viewer2DPanel(this);
-  Viewer2DPanel::SetInstance(viewport2DPanel);
-  viewport2DPanel->LoadViewFromConfig();
-  auiManager->AddPane(viewport2DPanel, wxAuiPaneInfo()
+  if (!viewport2DPanel) {
+    viewport2DPanel = new Viewer2DPanel(this);
+    Viewer2DPanel::SetInstance(viewport2DPanel);
+    viewport2DPanel->LoadViewFromConfig();
+    auiManager->AddPane(viewport2DPanel, wxAuiPaneInfo()
                                            .Name("2DViewport")
                                            .Caption("2D Viewport")
                                            .Center()
@@ -401,11 +427,13 @@ void MainWindow::Ensure2DViewport() {
                                            .CloseButton(true)
                                            .MaximizeButton(true)
                                            .Hide());
-  viewport2DPanel->UpdateScene();
+    viewport2DPanel->UpdateScene();
+  }
 
-  viewport2DRenderPanel = new Viewer2DRenderPanel(this);
-  Viewer2DRenderPanel::SetInstance(viewport2DRenderPanel);
-  auiManager->AddPane(viewport2DRenderPanel, wxAuiPaneInfo()
+  if (!viewport2DRenderPanel) {
+    viewport2DRenderPanel = new Viewer2DRenderPanel(this);
+    Viewer2DRenderPanel::SetInstance(viewport2DRenderPanel);
+    auiManager->AddPane(viewport2DRenderPanel, wxAuiPaneInfo()
                                                  .Name("2DRenderOptions")
                                                  .Caption("2D Render Options")
                                                  .Right()
@@ -416,23 +444,9 @@ void MainWindow::Ensure2DViewport() {
                                                  .MaximizeButton(true)
                                                  .PaneBorder(true)
                                                  .Hide());
+  }
 
   auiManager->Update();
-
-  if (default2DLayoutPerspective.empty()) {
-    auto &pane3d = auiManager->GetPane("3DViewport");
-    auto &pane2d = auiManager->GetPane("2DViewport");
-    auto &paneRender = auiManager->GetPane("2DRenderOptions");
-    pane3d.Hide();
-    pane2d.Show();
-    paneRender.Show();
-    auiManager->Update();
-    default2DLayoutPerspective = auiManager->SavePerspective().ToStdString();
-    paneRender.Hide();
-    pane2d.Hide();
-    pane3d.Show();
-    auiManager->Update();
-  }
 }
 
 void MainWindow::CreateMenuBar() {
@@ -1404,7 +1418,8 @@ void MainWindow::OnToggleFixtures(wxCommandEvent &event) {
 void MainWindow::OnToggleViewport(wxCommandEvent &event) {
   if (!auiManager)
     return;
-  Ensure3DViewport();
+  if (!viewportPanel)
+    Ensure3DViewport();
   auto &pane = auiManager->GetPane("3DViewport");
   pane.Show(!pane.IsShown());
   auiManager->Update();
@@ -1415,7 +1430,8 @@ void MainWindow::OnToggleViewport(wxCommandEvent &event) {
 void MainWindow::OnToggleViewport2D(wxCommandEvent &event) {
   if (!auiManager)
     return;
-  Ensure2DViewport();
+  if (!viewport2DPanel || !viewport2DRenderPanel)
+    Ensure2DViewport();
   auto &pane = auiManager->GetPane("2DViewport");
   pane.Show(!pane.IsShown());
   auiManager->Update();
@@ -1428,7 +1444,8 @@ void MainWindow::OnToggleViewport2D(wxCommandEvent &event) {
 void MainWindow::OnToggleRender2D(wxCommandEvent &event) {
   if (!auiManager)
     return;
-  Ensure2DViewport();
+  if (!viewport2DPanel || !viewport2DRenderPanel)
+    Ensure2DViewport();
   auto &pane = auiManager->GetPane("2DRenderOptions");
   pane.Show(!pane.IsShown());
   auiManager->Update();
@@ -1480,7 +1497,8 @@ void MainWindow::OnPaneClose(wxAuiManagerEvent &event) {
 void MainWindow::OnApplyDefaultLayout(wxCommandEvent &WXUNUSED(event)) {
   if (!auiManager)
     return;
-  Ensure3DViewport();
+  if (!viewportPanel)
+    Ensure3DViewport();
   ConfigManager &cfg = ConfigManager::Get();
   std::string perspective = defaultLayoutPerspective;
   if (auto val = cfg.GetValue("layout_default"))
@@ -1496,7 +1514,8 @@ void MainWindow::OnApplyDefaultLayout(wxCommandEvent &WXUNUSED(event)) {
 void MainWindow::OnApply2DLayout(wxCommandEvent &WXUNUSED(event)) {
   if (!auiManager)
     return;
-  Ensure2DViewport();
+  if (!viewport2DPanel || !viewport2DRenderPanel)
+    Ensure2DViewport();
   auiManager->LoadPerspective(default2DLayoutPerspective, true);
   auiManager->Update();
 
@@ -1509,7 +1528,8 @@ bool MainWindow::LoadProjectFromPath(const std::string &path) {
   if (!ConfigManager::Get().LoadProject(path))
     return false;
 
-  Ensure3DViewport();
+  if (!viewportPanel)
+    Ensure3DViewport();
 
   currentProjectPath = path;
   ProjectUtils::SaveLastProjectPath(currentProjectPath);
@@ -1614,47 +1634,49 @@ void MainWindow::SaveCameraSettings() {
 }
 
 void MainWindow::ApplySavedLayout() {
-    if (!auiManager)
-        return;
+  if (!auiManager)
+    return;
 
-    // Load stored layout perspective if it exists
-    if (auto val = ConfigManager::Get().GetValue("layout_perspective")) {
-        const std::string& perspective = *val;
+  if (!viewportPanel)
+    Ensure3DViewport();
+  if (!viewport2DPanel || !viewport2DRenderPanel)
+    Ensure2DViewport();
 
-        // Ensure viewports exist before loading the saved perspective
-        if (perspective.find("3DViewport") != std::string::npos)
-            Ensure3DViewport();
-        if (perspective.find("2DViewport") != std::string::npos ||
-            perspective.find("2DRenderOptions") != std::string::npos)
-            Ensure2DViewport();
+  std::string perspective;
+  if (auto val = ConfigManager::Get().GetValue("layout_perspective")) {
+    perspective = *val;
+  }
 
-        auiManager->LoadPerspective(perspective, true);
-    }
+  if (perspective.empty())
+    perspective = defaultLayoutPerspective;
 
-    // Re-apply hard-coded minimum sizes so they are not overridden by the saved perspective
-    auto& dataPane = auiManager->GetPane("DataNotebook");
-    if (dataPane.IsOk())
-        dataPane.MinSize(wxSize(250, 300));
+  if (!perspective.empty())
+    auiManager->LoadPerspective(perspective, true);
 
-    auto& view3dPane = auiManager->GetPane("3DViewport");
-    if (view3dPane.IsOk())
-        view3dPane.MinSize(wxSize(250, 600));
+  // Re-apply hard-coded minimum sizes so they are not overridden by the saved perspective
+  auto &dataPane = auiManager->GetPane("DataNotebook");
+  if (dataPane.IsOk())
+    dataPane.MinSize(wxSize(250, 300));
 
-    auto& view2dPane = auiManager->GetPane("2DViewport");
-    if (view2dPane.IsOk())
-        view2dPane.MinSize(wxSize(250, 600));
+  auto &view3dPane = auiManager->GetPane("3DViewport");
+  if (view3dPane.IsOk())
+    view3dPane.MinSize(wxSize(250, 600));
 
-    // Ensure always-visible panels
-    auto& summaryPane = auiManager->GetPane("SummaryPanel");
-    if (summaryPane.IsOk() && !summaryPane.IsShown())
-        summaryPane.Show();
+  auto &view2dPane = auiManager->GetPane("2DViewport");
+  if (view2dPane.IsOk())
+    view2dPane.MinSize(wxSize(250, 600));
 
-    auto& riggingPane = auiManager->GetPane("RiggingPanel");
-    if (riggingPane.IsOk() && !riggingPane.IsShown())
-        riggingPane.Show();
+  // Ensure always-visible panels
+  auto &summaryPane = auiManager->GetPane("SummaryPanel");
+  if (summaryPane.IsOk() && !summaryPane.IsShown())
+    summaryPane.Show();
 
-    auiManager->Update();
-    UpdateViewMenuChecks();
+  auto &riggingPane = auiManager->GetPane("RiggingPanel");
+  if (riggingPane.IsOk() && !riggingPane.IsShown())
+    riggingPane.Show();
+
+  auiManager->Update();
+  UpdateViewMenuChecks();
 }
 
 void MainWindow::UpdateViewMenuChecks() {
@@ -1708,7 +1730,8 @@ void MainWindow::SyncSceneData() {
 void MainWindow::OnProjectLoaded(wxCommandEvent &event) {
   bool loaded = event.GetInt() != 0;
   std::string path = event.GetString().ToStdString();
-  Ensure3DViewport();
+  if (!viewportPanel)
+    Ensure3DViewport();
   if (loaded && !path.empty()) {
     currentProjectPath = path;
     ProjectUtils::SaveLastProjectPath(currentProjectPath);
