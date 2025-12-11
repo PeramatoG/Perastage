@@ -71,6 +71,9 @@ Only the most important directories are listed here.
 - `licenses/` – License texts for third‑party libraries used by Perastage.
 - `CMakeLists.txt` – Top-level CMake build script.
 
+See `docs/rider_benchmark.md` for the reproducible rider import benchmark that
+tracks execution time and memory usage on a large synthetic rider.
+
 For a more detailed description of every file, see the separate `perastage_tree.md` document.
 
 ---
