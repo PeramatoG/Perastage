@@ -29,8 +29,10 @@
 #include <set>
 #include <random>
 #include <string>
+#include <thread>
 #include <tinyxml2.h>
 #include <wx/aboutdlg.h>
+#include <wx/app.h>
 #include <wx/filefn.h>
 #include <wx/filename.h>
 #include <wx/html/htmlwin.h>
@@ -1304,17 +1306,33 @@ void MainWindow::OnPrintPlan(wxCommandEvent &WXUNUSED(event)) {
   viewport2DPanel->Refresh();
   viewport2DPanel->Update();
 
-  const CommandBuffer &buffer = viewport2DPanel->GetLastCapturedFrame();
+  CommandBuffer buffer = viewport2DPanel->GetLastCapturedFrame();
+  if (buffer.commands.empty()) {
+    wxMessageBox("Unable to capture the 2D view for printing.", "Print Plan",
+                 wxOK | wxICON_ERROR);
+    return;
+  }
+
   Viewer2DViewState state = viewport2DPanel->GetViewState();
   PlanPrintOptions opts; // Defaults to A3 portrait.
+  std::string outputPath = dlg.GetPath().ToStdString();
 
-  if (!ExportPlanToPdf(buffer, state, opts, dlg.GetPath().ToStdString())) {
-    wxMessageBox("Failed to generate PDF plan.", "Print Plan",
-                 wxOK | wxICON_ERROR);
-  } else {
-    wxMessageBox(wxString::Format("Plan saved to %s", dlg.GetPath()),
-                 "Print Plan", wxOK | wxICON_INFORMATION);
-  }
+  // Run the PDF generation off the UI thread to avoid freezing the window while
+  // writing potentially large plans to disk.
+  std::thread([this, buffer = std::move(buffer), state, opts, outputPath]() {
+    bool ok = ExportPlanToPdf(buffer, state, opts, outputPath);
+
+    wxCallAfter([this, ok, outputPath]() {
+      if (!ok) {
+        wxMessageBox("Failed to generate PDF plan.", "Print Plan",
+                     wxOK | wxICON_ERROR, this);
+      } else {
+        wxMessageBox(wxString::Format("Plan saved to %s",
+                                      wxString::FromUTF8(outputPath)),
+                     "Print Plan", wxOK | wxICON_INFORMATION, this);
+      }
+    });
+  }).detach();
 }
 
 void MainWindow::OnPrintTable(wxCommandEvent &WXUNUSED(event)) {
