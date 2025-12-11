@@ -1323,7 +1323,7 @@ void MainWindow::OnPrintPlan(wxCommandEvent &WXUNUSED(event)) {
   std::thread([this, buffer = std::move(buffer), state, opts, outputPath]() {
     bool ok = ExportPlanToPdf(buffer, state, opts, outputPath);
 
-    wxCallAfter([this, ok, outputPath]() {
+    wxTheApp->CallAfter([this, ok, outputPath]() {
       if (!ok) {
         wxMessageBox("Failed to generate PDF plan.", "Print Plan",
                      wxOK | wxICON_ERROR, this);
