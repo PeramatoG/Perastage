@@ -2,14 +2,14 @@
 
 ## Issue summary
 
-Selecting **Print plan** could freeze the application for minutes and never generate the PDF. Closing the app revealed a flood of `std::invalid_argument` exceptions coming from the C++ runtime. The 2D print flow pulled camera/grid values from the persisted configuration using `std::stof`, so any user-edited or empty entries triggered an exception on every lookup. The rendering loop hits those lookups thousands of times while capturing the plan, so the repeated exceptions caused the apparent hang and prevented the PDF from being written.
+Selecting **Print plan** could freeze the application and never generate the PDF. Closing the app showed a flood of `std::invalid_argument` exceptions from `std::stof` while reading camera and grid settings. Every invalid or empty numeric entry triggered an exception on each lookup, and the 2D render loop performs thousands of lookups while capturing the plan. The repeated exceptions overwhelmed the export path and blocked PDF generation.
 
 ## Fixes
 
-- Replaced exception-driven numeric parsing in `ConfigManager` with a safe, non-throwing `std::from_chars` helper. Invalid or blank values now fall back to defaults without generating exceptions.
-- Hardened the PDF exporter with validation for viewport data, paper size, and output paths, returning detailed error messages instead of failing silently.
-- Updated the **Print plan** action to validate the destination file and surface exporter errors back to the user.
+- Added a safe `std::from_chars`-based parsing helper in `ConfigManager` so malformed numeric values are trimmed, parsed without exceptions, and replaced with defaults when invalid.
+- Hardened the PDF exporter with checks for empty buffers, missing/invalid destinations, unusable margins, and non-finite viewport data, reporting descriptive errors instead of failing silently.
+- Updated the **Print plan** action to trim the chosen path, keep the UI responsive by exporting off the main thread, and show the exporter’s success or error message to the user.
 
 ## Result
 
-Printing the plan now completes without flooding the log with `std::invalid_argument` exceptions. Invalid configuration entries are ignored safely, and users receive clear feedback if an export problem occurs.
+Plan printing completes without flooding the log or stalling. Invalid configuration entries are ignored safely, and users receive clear feedback when an export problem occurs.

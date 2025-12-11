@@ -35,7 +35,7 @@ struct PlanPrintOptions {
 
 struct PlanExportResult {
   bool success = false;
-  std::string errorMessage;
+  std::string message;
 };
 
 // Writes the captured 2D drawing commands to a vector PDF that mirrors the

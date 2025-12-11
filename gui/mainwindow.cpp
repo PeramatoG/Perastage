@@ -1335,7 +1335,7 @@ void MainWindow::OnPrintPlan(wxCommandEvent &WXUNUSED(event)) {
     wxTheApp->CallAfter([this, res, outputPathWx]() {
       if (!res.success) {
         wxString msg = "Failed to generate PDF plan: " +
-                       wxString::FromUTF8(res.errorMessage);
+                       wxString::FromUTF8(res.message);
         wxMessageBox(msg, "Print Plan", wxOK | wxICON_ERROR, this);
       } else {
         wxMessageBox(wxString::Format("Plan saved to %s",
