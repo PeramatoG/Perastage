@@ -1311,39 +1311,38 @@ void MainWindow::OnPrintPlan(wxCommandEvent &WXUNUSED(event)) {
     return;
   }
 
-  viewport2DPanel->RequestFrameCapture();
-  viewport2DPanel->Refresh();
-  viewport2DPanel->Update();
-
-  CommandBuffer buffer = viewport2DPanel->GetLastCapturedFrame();
-  if (buffer.commands.empty()) {
-    wxMessageBox("Unable to capture the 2D view for printing.", "Print Plan",
-                 wxOK | wxICON_ERROR);
-    return;
-  }
-
-  Viewer2DViewState state = viewport2DPanel->GetViewState();
   PlanPrintOptions opts; // Defaults to A3 portrait.
 
-  // Run the PDF generation off the UI thread to avoid freezing the window while
-  // writing potentially large plans to disk.
-  std::thread([this, buffer = std::move(buffer), state, opts, outputPathWx]() {
-    std::filesystem::path outputPath =
-        std::filesystem::path(outputPathWx.ToStdWstring());
-    PlanExportResult res = ExportPlanToPdf(buffer, state, opts, outputPath);
+  viewport2DPanel->CaptureFrameAsync(
+      [this, opts, outputPathWx](CommandBuffer buffer, Viewer2DViewState state) {
+        if (buffer.commands.empty()) {
+          wxMessageBox("Unable to capture the 2D view for printing.",
+                       "Print Plan", wxOK | wxICON_ERROR);
+          return;
+        }
 
-    wxTheApp->CallAfter([this, res, outputPathWx]() {
-      if (!res.success) {
-        wxString msg = "Failed to generate PDF plan: " +
-                       wxString::FromUTF8(res.message);
-        wxMessageBox(msg, "Print Plan", wxOK | wxICON_ERROR, this);
-      } else {
-        wxMessageBox(wxString::Format("Plan saved to %s",
-                                      outputPathWx),
-                     "Print Plan", wxOK | wxICON_INFORMATION, this);
-      }
-    });
-  }).detach();
+        // Run the PDF generation off the UI thread to avoid freezing the
+        // window while writing potentially large plans to disk.
+        std::thread([this, buffer = std::move(buffer), state, opts,
+                     outputPathWx]() {
+          std::filesystem::path outputPath =
+              std::filesystem::path(outputPathWx.ToStdWstring());
+          PlanExportResult res =
+              ExportPlanToPdf(buffer, state, opts, outputPath);
+
+          wxTheApp->CallAfter([this, res, outputPathWx]() {
+            if (!res.success) {
+              wxString msg = "Failed to generate PDF plan: " +
+                             wxString::FromUTF8(res.message);
+              wxMessageBox(msg, "Print Plan", wxOK | wxICON_ERROR, this);
+            } else {
+              wxMessageBox(wxString::Format("Plan saved to %s",
+                                            outputPathWx),
+                           "Print Plan", wxOK | wxICON_INFORMATION, this);
+            }
+          });
+        }).detach();
+      });
 }
 
 void MainWindow::OnPrintTable(wxCommandEvent &WXUNUSED(event)) {

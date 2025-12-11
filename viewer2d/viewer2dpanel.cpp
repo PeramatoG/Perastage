@@ -167,6 +167,13 @@ void Viewer2DPanel::SaveViewToConfig() const {
 
 void Viewer2DPanel::RequestFrameCapture() { m_captureNextFrame = true; }
 
+void Viewer2DPanel::CaptureFrameAsync(
+    std::function<void(CommandBuffer, Viewer2DViewState)> callback) {
+  m_captureCallback = std::move(callback);
+  RequestFrameCapture();
+  Refresh();
+}
+
 Viewer2DViewState Viewer2DPanel::GetViewState() const {
   int w = 0;
   int h = 0;
@@ -260,6 +267,16 @@ void Viewer2DPanel::Render() {
     recordingCanvas->EndFrame();
     m_captureNextFrame = false;
     m_controller.SetCaptureCanvas(nullptr, m_view);
+
+    if (m_captureCallback) {
+      // Capture buffer and state copies before invoking the callback to avoid
+      // lifetime issues once the next frame is rendered.
+      auto callback = std::move(m_captureCallback);
+      CommandBuffer bufferCopy = m_lastCapturedFrame;
+      Viewer2DViewState stateCopy = GetViewState();
+
+      callback(std::move(bufferCopy), stateCopy);
+    }
   }
 
   glFlush();
