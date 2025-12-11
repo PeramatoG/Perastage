@@ -1020,6 +1020,11 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
     fixtureTransform.o[1] *= RENDER_SCALE;
     fixtureTransform.o[2] *= RENDER_SCALE;
 
+    auto applyFixtureCapture = [fixtureTransform](
+                                const std::array<float, 3> &p) {
+      return TransformPoint(fixtureTransform, p);
+    };
+
     std::string gdtfPath = ResolveGdtfPath(base, f.gdtfSpec);
     auto itg = m_loadedGdtf.find(gdtfPath);
 
@@ -1043,7 +1048,7 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
       }
     } else {
       DrawCubeWithOutline(0.2f, r, g, b, highlight, selected, cx, cy, cz,
-                          wireframe, mode, applyCapture);
+                          wireframe, mode, applyFixtureCapture);
     }
 
     glPopMatrix();
@@ -1358,7 +1363,7 @@ void Viewer3DController::DrawMeshWithOutline(
     CanvasStroke stroke;
     stroke.color = {0.0f, 0.0f, 0.0f, 1.0f};
     stroke.width = lineWidth;
-    DrawMeshWireframe(mesh, scale);
+    DrawMeshWireframe(mesh, scale, captureTransform);
     if (m_captureCanvas && mode != Viewer2DRenderMode::Wireframe) {
       CanvasFill fill;
       fill.color = {r, g, b, 1.0f};
@@ -1423,7 +1428,10 @@ void Viewer3DController::DrawMeshWithOutline(
 
 // Draws a mesh using GL triangles. The optional scale parameter allows
 // converting vertex units (e.g. millimeters) to meters.
-void Viewer3DController::DrawMeshWireframe(const Mesh &mesh, float scale) {
+void Viewer3DController::DrawMeshWireframe(
+    const Mesh &mesh, float scale,
+    const std::function<std::array<float, 3>(const std::array<float, 3> &)> &
+        captureTransform) {
   glBegin(GL_LINES);
   for (size_t i = 0; i + 2 < mesh.indices.size(); i += 3) {
     unsigned short i0 = mesh.indices[i];
