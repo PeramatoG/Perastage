@@ -28,6 +28,7 @@
 #include "viewer3dcontroller.h"
 #include <wx/glcanvas.h>
 #include <wx/wx.h>
+#include <functional>
 #include <string>
 
 // Current viewport information used to rebuild the same projection when
@@ -68,6 +69,13 @@ public:
   // m_lastCapturedFrame. The on-screen result is unchanged.
   void RequestFrameCapture();
 
+  // Ask the panel to capture the next rendered frame and forward both the
+  // recorded drawing commands and the view state to the provided callback.
+  // The capture occurs on the UI thread during the following paint event;
+  // the callback is invoked immediately afterwards.
+  void CaptureFrameAsync(
+      std::function<void(CommandBuffer, Viewer2DViewState)> callback);
+
   // Accessor for the last recorded set of drawing commands. The buffer is
   // cleared and re-populated on every requested capture.
   const CommandBuffer &GetLastCapturedFrame() const { return m_lastCapturedFrame; }
@@ -100,6 +108,7 @@ private:
 
   bool m_captureNextFrame = false;
   CommandBuffer m_lastCapturedFrame;
+  std::function<void(CommandBuffer, Viewer2DViewState)> m_captureCallback;
 
   wxGLContext *m_glContext = nullptr;
   bool m_glInitialized = false;
