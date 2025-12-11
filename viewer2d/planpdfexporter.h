@@ -33,10 +33,16 @@ struct PlanPrintOptions {
   bool landscape = false;
 };
 
+struct PlanExportResult {
+  bool success = false;
+  std::string errorMessage;
+};
+
 // Writes the captured 2D drawing commands to a vector PDF that mirrors the
-// current viewport state. Returns true on success.
-bool ExportPlanToPdf(const CommandBuffer &buffer,
-                    const Viewer2DViewState &viewState,
-                    const PlanPrintOptions &options,
-                    const std::filesystem::path &outputPath);
+// current viewport state. Returns structured information so callers can surface
+// meaningful errors to the user.
+PlanExportResult ExportPlanToPdf(const CommandBuffer &buffer,
+                                 const Viewer2DViewState &viewState,
+                                 const PlanPrintOptions &options,
+                                 const std::filesystem::path &outputPath);
 
