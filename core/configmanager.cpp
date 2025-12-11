@@ -22,8 +22,12 @@
 #include <chrono>
 #include <filesystem>
 #include <fstream>
+#include <charconv>
 #include <set>
 #include <sstream>
+#include <string_view>
+#include <cctype>
+#include <algorithm>
 #include <wx/wfstream.h>
 class wxZipStreamLink;
 #include <wx/stdpaths.h>
@@ -202,6 +206,35 @@ ConfigManager::GetValue(const std::string &key) const {
   return std::nullopt;
 }
 
+namespace {
+bool TryParseFloat(const std::string &text, float &out) {
+  // Avoid throwing exceptions on malformed values by using from_chars.
+  // This keeps hot paths free of costly exception handling when config
+  // entries are empty or contain unexpected characters.
+  if (text.empty())
+    return false;
+
+  // Allow leading and trailing spaces that may appear in user edited files.
+  const auto first =
+      std::find_if_not(text.begin(), text.end(), [](unsigned char c) {
+        return std::isspace(c);
+      });
+  if (first == text.end())
+    return false;
+  const auto last =
+      std::find_if_not(text.rbegin(), text.rend(), [](unsigned char c) {
+        return std::isspace(c);
+      }).base();
+  std::string_view trimmed(&(*first), static_cast<size_t>(last - first));
+
+  auto *begin = trimmed.data();
+  auto *end = trimmed.data() + trimmed.size();
+
+  auto result = std::from_chars(begin, end, out);
+  return result.ec == std::errc{};
+}
+} // namespace
+
 bool ConfigManager::HasKey(const std::string &key) const {
   return configData.find(key) != configData.end();
 }
@@ -240,11 +273,10 @@ float ConfigManager::GetFloat(const std::string &name) const {
 
   auto valStr = GetValue(name);
   if (valStr) {
-    try {
-      return std::stof(*valStr);
-    } catch (...) {
-      return defVal;
-    }
+    float parsed = 0.0f;
+    if (TryParseFloat(*valStr, parsed))
+      return parsed;
+    return defVal;
   }
   return defVal;
 }
@@ -266,11 +298,10 @@ void ConfigManager::ApplyDefaults() {
     float val = info.defaultValue;
     auto it = configData.find(name);
     if (it != configData.end()) {
-      try {
-        val = std::stof(it->second);
-      } catch (...) {
-        val = info.defaultValue;
-      }
+      float parsed = 0.0f;
+      if (!TryParseFloat(it->second, parsed))
+        parsed = info.defaultValue;
+      val = parsed;
     }
     info.value = val;
     configData[name] = std::to_string(val);

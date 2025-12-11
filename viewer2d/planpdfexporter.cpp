@@ -27,6 +27,7 @@
 #include <string>
 #include <type_traits>
 #include <vector>
+#include <system_error>
 
 namespace {
 
@@ -203,12 +204,40 @@ void AppendText(std::ostringstream &out, const Point &pos, const TextCommand &cm
 
 } // namespace
 
-bool ExportPlanToPdf(const CommandBuffer &buffer,
-                    const Viewer2DViewState &viewState,
-                    const PlanPrintOptions &options,
-                    const std::filesystem::path &outputPath) {
-  if (buffer.commands.empty())
-    return false;
+PlanExportResult ExportPlanToPdf(const CommandBuffer &buffer,
+                                 const Viewer2DViewState &viewState,
+                                 const PlanPrintOptions &options,
+                                 const std::filesystem::path &outputPath) {
+  PlanExportResult result{};
+
+  if (buffer.commands.empty()) {
+    result.errorMessage = "No drawing commands captured for export.";
+    return result;
+  }
+
+  if (outputPath.empty() || outputPath.filename().empty()) {
+    result.errorMessage = "No output file was provided for the PDF plan.";
+    return result;
+  }
+
+  auto parent = outputPath.parent_path();
+  std::error_code pathEc;
+  if (!parent.empty() && !std::filesystem::exists(parent, pathEc)) {
+    result.errorMessage = pathEc ?
+        "Unable to verify the selected folder for the PDF plan." :
+        "The selected folder does not exist.";
+    return result;
+  }
+
+  if (viewState.viewportWidth <= 0 || viewState.viewportHeight <= 0) {
+    result.errorMessage = "The 2D viewport is not ready for export.";
+    return result;
+  }
+
+  if (!std::isfinite(viewState.zoom) || viewState.zoom <= 0.0f) {
+    result.errorMessage = "Invalid zoom value provided for export.";
+    return result;
+  }
 
   (void)viewState.view; // Orientation reserved for future layout tweaks.
 
@@ -217,8 +246,10 @@ bool ExportPlanToPdf(const CommandBuffer &buffer,
   double margin = options.marginPt;
   double drawW = pageW - margin * 2.0;
   double drawH = pageH - margin * 2.0;
-  if (drawW <= 0.0 || drawH <= 0.0)
-    return false;
+  if (drawW <= 0.0 || drawH <= 0.0) {
+    result.errorMessage = "The selected paper size and margins leave no space for drawing.";
+    return result;
+  }
 
   double ppm = PIXELS_PER_METER * static_cast<double>(viewState.zoom);
   double halfW = static_cast<double>(viewState.viewportWidth) / ppm * 0.5;
@@ -231,8 +262,10 @@ bool ExportPlanToPdf(const CommandBuffer &buffer,
   double maxY = halfH - offY;
   double width = maxX - minX;
   double height = maxY - minY;
-  if (width <= 0.0 || height <= 0.0)
-    return false;
+  if (width <= 0.0 || height <= 0.0) {
+    result.errorMessage = "Viewport dimensions are invalid for export.";
+    return result;
+  }
 
   double scale = std::min(drawW / width, drawH / height);
   double offsetX = margin + (drawW - width * scale) * 0.5;
@@ -325,27 +358,38 @@ bool ExportPlanToPdf(const CommandBuffer &buffer,
   objects.push_back({"<< /Type /Pages /Kids [3 0 R] /Count 1 >>"});
   objects.push_back({"<< /Type /Catalog /Pages 4 0 R >>"});
 
-  std::ofstream file(outputPath, std::ios::binary);
-  if (!file.is_open())
-    return false;
+  try {
+    std::ofstream file(outputPath, std::ios::binary);
+    if (!file.is_open()) {
+      result.errorMessage = "Unable to open the destination file for writing.";
+      return result;
+    }
 
-  file << "%PDF-1.4\n";
-  std::vector<long> offsets;
-  offsets.reserve(objects.size());
-  for (size_t i = 0; i < objects.size(); ++i) {
-    offsets.push_back(static_cast<long>(file.tellp()));
-    file << (i + 1) << " 0 obj\n" << objects[i].body << "\nendobj\n";
+    file << "%PDF-1.4\n";
+    std::vector<long> offsets;
+    offsets.reserve(objects.size());
+    for (size_t i = 0; i < objects.size(); ++i) {
+      offsets.push_back(static_cast<long>(file.tellp()));
+      file << (i + 1) << " 0 obj\n" << objects[i].body << "\nendobj\n";
+    }
+
+    long xrefPos = static_cast<long>(file.tellp());
+    file << "xref\n0 " << (objects.size() + 1)
+         << "\n0000000000 65535 f \n";
+    for (long off : offsets) {
+      file << std::setw(10) << std::setfill('0') << off << " 00000 n \n";
+    }
+    file << "trailer\n<< /Size " << (objects.size() + 1)
+         << " /Root 5 0 R >>\nstartxref\n" << xrefPos << "\n%%EOF";
+  } catch (const std::exception &ex) {
+    result.errorMessage = std::string("Failed to generate PDF content: ") + ex.what();
+    return result;
+  } catch (...) {
+    result.errorMessage = "An unknown error occurred while generating the PDF plan.";
+    return result;
   }
 
-  long xrefPos = static_cast<long>(file.tellp());
-  file << "xref\n0 " << (objects.size() + 1)
-       << "\n0000000000 65535 f \n";
-  for (long off : offsets) {
-    file << std::setw(10) << std::setfill('0') << off << " 00000 n \n";
-  }
-  file << "trailer\n<< /Size " << (objects.size() + 1)
-       << " /Root 5 0 R >>\nstartxref\n" << xrefPos << "\n%%EOF";
-
-  return true;
+  result.success = true;
+  return result;
 }
 
