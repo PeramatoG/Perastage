@@ -24,11 +24,22 @@
 
 #pragma once
 
-#include "viewer3dcontroller.h"
 #include "canvas2d.h"
+#include "viewer3dcontroller.h"
 #include <wx/glcanvas.h>
 #include <wx/wx.h>
 #include <string>
+
+// Current viewport information used to rebuild the same projection when
+// exporting or printing the 2D view.
+struct Viewer2DViewState {
+  float offsetPixelsX = 0.0f;
+  float offsetPixelsY = 0.0f;
+  float zoom = 1.0f;
+  int viewportWidth = 0;
+  int viewportHeight = 0;
+  Viewer2DView view = Viewer2DView::Top;
+};
 
 class Viewer2DPanel : public wxGLCanvas {
 public:
@@ -60,6 +71,10 @@ public:
   // Accessor for the last recorded set of drawing commands. The buffer is
   // cleared and re-populated on every requested capture.
   const CommandBuffer &GetLastCapturedFrame() const { return m_lastCapturedFrame; }
+
+  // Accessor for the current viewport state so exporters can match what the
+  // user is seeing on screen.
+  Viewer2DViewState GetViewState() const;
 
 private:
   void InitGL();

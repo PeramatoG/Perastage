@@ -78,6 +78,7 @@ using json = nlohmann::json;
 #include "splashscreen.h"
 #include "summarypanel.h"
 #include "tableprinter.h"
+#include "planpdfexporter.h"
 #include "support.h"
 #include "trussloader.h"
 #include "trusstablepanel.h"
@@ -111,10 +112,11 @@ wxBEGIN_EVENT_TABLE(MainWindow, wxFrame) EVT_MENU(
         MainWindow::
             OnImportMVR) EVT_MENU(ID_File_ExportMVR,
                                   MainWindow::
-                                      OnExportMVR) EVT_MENU(ID_File_PrintTable,
+                                      OnExportMVR) EVT_MENU(ID_File_PrintPlan,
                                                             MainWindow::
-                                                                OnPrintTable)
-        EVT_MENU(ID_File_ExportCSV, MainWindow::OnExportCSV) EVT_MENU(
+                                                                OnPrintPlan)
+        EVT_MENU(ID_File_PrintTable, MainWindow::OnPrintTable) EVT_MENU(
+            ID_File_ExportCSV, MainWindow::OnExportCSV) EVT_MENU(
             ID_File_Close,
             MainWindow::
                 OnClose) EVT_CLOSE(MainWindow::
@@ -449,6 +451,7 @@ void MainWindow::CreateMenuBar() {
   fileMenu->Append(ID_File_ImportRider, "Import Rider...");
   fileMenu->Append(ID_File_ImportMVR, "Import MVR...");
   fileMenu->Append(ID_File_ExportMVR, "Export MVR...");
+  fileMenu->Append(ID_File_PrintPlan, "Print Plan...");
   fileMenu->Append(ID_File_PrintTable, "Print Table...");
   fileMenu->Append(ID_File_ExportCSV, "Export CSV...");
   fileMenu->AppendSeparator();
@@ -1281,6 +1284,37 @@ void MainWindow::OnConvertToHoist(wxCommandEvent &WXUNUSED(event)) {
   wxMessageBox(wxString::Format("Converted %zu fixture(s) to hoists.",
                                 newIds.size()),
                "Convert to Hoist", wxOK | wxICON_INFORMATION);
+}
+
+void MainWindow::OnPrintPlan(wxCommandEvent &WXUNUSED(event)) {
+  Ensure2DViewport();
+  if (!viewport2DPanel) {
+    wxMessageBox("2D viewport is not available.", "Print Plan",
+                 wxOK | wxICON_ERROR);
+    return;
+  }
+
+  wxFileDialog dlg(this, "Save plan as", "", "plan.pdf",
+                   "PDF files (*.pdf)|*.pdf",
+                   wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
+  if (dlg.ShowModal() != wxID_OK)
+    return;
+
+  viewport2DPanel->RequestFrameCapture();
+  viewport2DPanel->Refresh();
+  viewport2DPanel->Update();
+
+  const CommandBuffer &buffer = viewport2DPanel->GetLastCapturedFrame();
+  Viewer2DViewState state = viewport2DPanel->GetViewState();
+  PlanPrintOptions opts; // Defaults to A3 portrait.
+
+  if (!ExportPlanToPdf(buffer, state, opts, dlg.GetPath().ToStdString())) {
+    wxMessageBox("Failed to generate PDF plan.", "Print Plan",
+                 wxOK | wxICON_ERROR);
+  } else {
+    wxMessageBox(wxString::Format("Plan saved to %s", dlg.GetPath()),
+                 "Print Plan", wxOK | wxICON_INFORMATION);
+  }
 }
 
 void MainWindow::OnPrintTable(wxCommandEvent &WXUNUSED(event)) {

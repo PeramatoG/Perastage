@@ -167,6 +167,21 @@ void Viewer2DPanel::SaveViewToConfig() const {
 
 void Viewer2DPanel::RequestFrameCapture() { m_captureNextFrame = true; }
 
+Viewer2DViewState Viewer2DPanel::GetViewState() const {
+  int w = 0;
+  int h = 0;
+  const_cast<Viewer2DPanel *>(this)->GetClientSize(&w, &h);
+
+  Viewer2DViewState state{};
+  state.offsetPixelsX = m_offsetX;
+  state.offsetPixelsY = m_offsetY;
+  state.zoom = m_zoom;
+  state.viewportWidth = w;
+  state.viewportHeight = h;
+  state.view = m_view;
+  return state;
+}
+
 void Viewer2DPanel::InitGL() {
   SetCurrent(*m_glContext);
   if (!m_glInitialized) {
