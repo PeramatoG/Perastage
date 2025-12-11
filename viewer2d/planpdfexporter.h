@@ -20,6 +20,7 @@
 
 #include "canvas2d.h"
 #include "viewer2dpanel.h"
+#include <filesystem>
 #include <string>
 
 // Options describing the paper size and orientation for the PDF export. A3
@@ -37,5 +38,5 @@ struct PlanPrintOptions {
 bool ExportPlanToPdf(const CommandBuffer &buffer,
                     const Viewer2DViewState &viewState,
                     const PlanPrintOptions &options,
-                    const std::string &outputPath);
+                    const std::filesystem::path &outputPath);
 

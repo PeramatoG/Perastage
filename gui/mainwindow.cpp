@@ -1316,20 +1316,22 @@ void MainWindow::OnPrintPlan(wxCommandEvent &WXUNUSED(event)) {
 
   Viewer2DViewState state = viewport2DPanel->GetViewState();
   PlanPrintOptions opts; // Defaults to A3 portrait.
-  std::string outputPath = dlg.GetPath().ToStdString();
 
   // Run the PDF generation off the UI thread to avoid freezing the window while
   // writing potentially large plans to disk.
-  std::thread([this, buffer = std::move(buffer), state, opts, outputPath]() {
+  wxString outputPathWx = dlg.GetPath();
+  std::thread([this, buffer = std::move(buffer), state, opts, outputPathWx]() {
+    std::filesystem::path outputPath =
+        std::filesystem::path(outputPathWx.ToStdWstring());
     bool ok = ExportPlanToPdf(buffer, state, opts, outputPath);
 
-    wxTheApp->CallAfter([this, ok, outputPath]() {
+    wxTheApp->CallAfter([this, ok, outputPathWx]() {
       if (!ok) {
         wxMessageBox("Failed to generate PDF plan.", "Print Plan",
                      wxOK | wxICON_ERROR, this);
       } else {
         wxMessageBox(wxString::Format("Plan saved to %s",
-                                      wxString::FromUTF8(outputPath)),
+                                      outputPathWx),
                      "Print Plan", wxOK | wxICON_INFORMATION, this);
       }
     });
