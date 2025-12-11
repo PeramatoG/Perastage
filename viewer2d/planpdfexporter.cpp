@@ -20,6 +20,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <filesystem>
 #include <fstream>
 #include <iomanip>
 #include <sstream>
@@ -205,7 +206,7 @@ void AppendText(std::ostringstream &out, const Point &pos, const TextCommand &cm
 bool ExportPlanToPdf(const CommandBuffer &buffer,
                     const Viewer2DViewState &viewState,
                     const PlanPrintOptions &options,
-                    const std::string &outputPath) {
+                    const std::filesystem::path &outputPath) {
   if (buffer.commands.empty())
     return false;
 
