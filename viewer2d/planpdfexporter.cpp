@@ -210,32 +210,37 @@ PlanExportResult ExportPlanToPdf(const CommandBuffer &buffer,
                                  const std::filesystem::path &outputPath) {
   PlanExportResult result{};
 
+  // Nothing to write if the render pass did not produce commands.
   if (buffer.commands.empty()) {
-    result.errorMessage = "No drawing commands captured for export.";
+    result.message = "Nothing to export";
     return result;
   }
 
+  // Fail fast when the output location is not usable to avoid performing any
+  // rendering work that cannot be saved.
   if (outputPath.empty() || outputPath.filename().empty()) {
-    result.errorMessage = "No output file was provided for the PDF plan.";
+    result.message = "No output file was provided for the PDF plan.";
     return result;
   }
 
-  auto parent = outputPath.parent_path();
+  const auto parent = outputPath.parent_path();
   std::error_code pathEc;
   if (!parent.empty() && !std::filesystem::exists(parent, pathEc)) {
-    result.errorMessage = pathEc ?
-        "Unable to verify the selected folder for the PDF plan." :
-        "The selected folder does not exist.";
+    result.message = pathEc ?
+                      "Unable to verify the selected folder for the PDF plan." :
+                      "The selected folder does not exist.";
     return result;
   }
 
+  // Validate viewport dimensions before calculating scales to avoid divide by
+  // zero and produce a clear explanation for the caller.
   if (viewState.viewportWidth <= 0 || viewState.viewportHeight <= 0) {
-    result.errorMessage = "The 2D viewport is not ready for export.";
+    result.message = "The 2D viewport is not ready for export.";
     return result;
   }
 
   if (!std::isfinite(viewState.zoom) || viewState.zoom <= 0.0f) {
-    result.errorMessage = "Invalid zoom value provided for export.";
+    result.message = "Invalid zoom value provided for export.";
     return result;
   }
 
@@ -246,8 +251,9 @@ PlanExportResult ExportPlanToPdf(const CommandBuffer &buffer,
   double margin = options.marginPt;
   double drawW = pageW - margin * 2.0;
   double drawH = pageH - margin * 2.0;
+  // Ensure the paper configuration leaves a drawable area.
   if (drawW <= 0.0 || drawH <= 0.0) {
-    result.errorMessage = "The selected paper size and margins leave no space for drawing.";
+    result.message = "The selected paper size and margins leave no space for drawing.";
     return result;
   }
 
@@ -263,7 +269,7 @@ PlanExportResult ExportPlanToPdf(const CommandBuffer &buffer,
   double width = maxX - minX;
   double height = maxY - minY;
   if (width <= 0.0 || height <= 0.0) {
-    result.errorMessage = "Viewport dimensions are invalid for export.";
+    result.message = "Viewport dimensions are invalid for export.";
     return result;
   }
 
@@ -361,7 +367,7 @@ PlanExportResult ExportPlanToPdf(const CommandBuffer &buffer,
   try {
     std::ofstream file(outputPath, std::ios::binary);
     if (!file.is_open()) {
-      result.errorMessage = "Unable to open the destination file for writing.";
+      result.message = "Unable to open the destination file for writing.";
       return result;
     }
 
@@ -382,10 +388,10 @@ PlanExportResult ExportPlanToPdf(const CommandBuffer &buffer,
     file << "trailer\n<< /Size " << (objects.size() + 1)
          << " /Root 5 0 R >>\nstartxref\n" << xrefPos << "\n%%EOF";
   } catch (const std::exception &ex) {
-    result.errorMessage = std::string("Failed to generate PDF content: ") + ex.what();
+    result.message = std::string("Failed to generate PDF content: ") + ex.what();
     return result;
   } catch (...) {
-    result.errorMessage = "An unknown error occurred while generating the PDF plan.";
+    result.message = "An unknown error occurred while generating the PDF plan.";
     return result;
   }
 
