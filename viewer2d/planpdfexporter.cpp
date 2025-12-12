@@ -20,6 +20,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cctype>
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
@@ -27,6 +28,7 @@
 #include <string>
 #include <system_error>
 #include <type_traits>
+#include <unordered_map>
 #include <vector>
 
 #include <zlib.h>
@@ -92,18 +94,25 @@ struct Transform {
   double offsetY = 0.0;
 };
 
+struct Mapping {
+  double minX = 0.0;
+  double minY = 0.0;
+  double scale = 1.0;
+  double offsetX = 0.0;
+  double offsetY = 0.0;
+  double pageHeight = 0.0;
+  bool flipY = true;
+};
+
 Point Apply(const Transform &t, double x, double y) {
   return {x * t.scale + t.offsetX, y * t.scale + t.offsetY};
 }
 
-Point MapToPage(double x, double y, double minX, double minY, double scale,
-                double offsetX, double offsetY, double pageHeight) {
-  double px = offsetX + (x - minX) * scale;
-  double py = offsetY + (y - minY) * scale;
-  // Mirror the Y axis so the PDF uses the same top-left origin as the 2D
-  // viewer. The OpenGL canvas grows upwards, while the PDF coordinate space
-  // grows upwards from the bottom-left corner.
-  py = pageHeight - py;
+Point MapWithMapping(double x, double y, const Mapping &mapping) {
+  double px = mapping.offsetX + (x - mapping.minX) * mapping.scale;
+  double py = mapping.offsetY + (y - mapping.minY) * mapping.scale;
+  if (mapping.flipY)
+    py = mapping.pageHeight - py;
   return {px, py};
 }
 
@@ -294,6 +303,92 @@ void AppendText(std::ostringstream &out, const FloatFormatter &fmt,
   out << ") Tj\nET\n";
 }
 
+std::string RenderCommandsToStream(const std::vector<CanvasCommand> &commands,
+                                   const Mapping &mapping,
+                                   const FloatFormatter &formatter) {
+  Transform current{};
+  std::vector<Transform> stack;
+  std::ostringstream content;
+  GraphicsStateCache stateCache;
+
+  auto mapPoint = [&](double x, double y) {
+    auto applied = Apply(current, x, y);
+    return MapWithMapping(applied.x, applied.y, mapping);
+  };
+
+  for (const auto &cmd : commands) {
+    std::visit(
+        [&](auto &&c) {
+          using T = std::decay_t<decltype(c)>;
+          if constexpr (std::is_same_v<T, SaveCommand>) {
+            stack.push_back(current);
+          } else if constexpr (std::is_same_v<T, RestoreCommand>) {
+            if (!stack.empty()) {
+              current = stack.back();
+              stack.pop_back();
+            }
+          } else if constexpr (std::is_same_v<T, TransformCommand>) {
+            current.scale = c.transform.scale;
+            current.offsetX = c.transform.offsetX;
+            current.offsetY = c.transform.offsetY;
+          } else if constexpr (std::is_same_v<T, LineCommand>) {
+            auto pa = mapPoint(c.x0, c.y0);
+            auto pb = mapPoint(c.x1, c.y1);
+            AppendLine(content, stateCache, formatter, pa, pb, c.stroke);
+          } else if constexpr (std::is_same_v<T, PolylineCommand>) {
+            std::vector<Point> pts;
+            pts.reserve(c.points.size() / 2);
+            for (size_t i = 0; i + 1 < c.points.size(); i += 2)
+              pts.push_back(mapPoint(c.points[i], c.points[i + 1]));
+            AppendPolyline(content, stateCache, formatter, pts, c.stroke);
+          } else if constexpr (std::is_same_v<T, PolygonCommand>) {
+            std::vector<Point> pts;
+            pts.reserve(c.points.size() / 2);
+            for (size_t i = 0; i + 1 < c.points.size(); i += 2)
+              pts.push_back(mapPoint(c.points[i], c.points[i + 1]));
+            const CanvasFill *fill = c.hasFill ? &c.fill : nullptr;
+            AppendPolygon(content, stateCache, formatter, pts, c.stroke, fill);
+          } else if constexpr (std::is_same_v<T, RectangleCommand>) {
+            auto origin = mapPoint(c.x, c.y);
+            double w = c.w * current.scale * mapping.scale;
+            double h = c.h * current.scale * mapping.scale;
+            const CanvasFill *fill = c.hasFill ? &c.fill : nullptr;
+            AppendRectangle(content, stateCache, formatter, origin, w, h,
+                            c.stroke, fill);
+          } else if constexpr (std::is_same_v<T, CircleCommand>) {
+            auto center = mapPoint(c.cx, c.cy);
+            double radius = c.radius * current.scale * mapping.scale;
+            const CanvasFill *fill = c.hasFill ? &c.fill : nullptr;
+            AppendCircle(content, stateCache, formatter, center, radius,
+                         c.stroke, fill);
+          } else if constexpr (std::is_same_v<T, TextCommand>) {
+            auto pos = mapPoint(c.x, c.y);
+            AppendText(content, formatter, pos, c, c.style);
+          } else if constexpr (std::is_same_v<T, BeginSymbolCommand> ||
+                               std::is_same_v<T, EndSymbolCommand> ||
+                               std::is_same_v<T, PlaceSymbolCommand>) {
+            // Symbol control commands are handled at a higher level.
+          }
+        },
+        cmd);
+  }
+
+  return content.str();
+}
+
+std::string MakePdfName(const std::string &key) {
+  std::string name = "X";
+  for (char ch : key) {
+    if (std::isalnum(static_cast<unsigned char>(ch)))
+      name.push_back(ch);
+    else
+      name.push_back('_');
+  }
+  if (name.size() == 1)
+    name += "Obj";
+  return name;
+}
+
 } // namespace
 
 PlanExportResult ExportPlanToPdf(const CommandBuffer &buffer,
@@ -369,82 +464,78 @@ PlanExportResult ExportPlanToPdf(const CommandBuffer &buffer,
   double offsetX = margin + (drawW - width * scale) * 0.5;
   double offsetY = margin + (drawH - height * scale) * 0.5;
 
-  Transform current{};
-  std::vector<Transform> stack;
-  std::ostringstream content;
   FloatFormatter formatter(options.floatPrecision);
-  GraphicsStateCache stateCache;
+
+  struct SymbolPlacement {
+    std::string key;
+    CanvasTransform transform{};
+  };
+
+  std::vector<CanvasCommand> mainCommands;
+  std::unordered_map<std::string, std::vector<CanvasCommand>> symbolDefinitions;
+  std::vector<SymbolPlacement> placements;
+  std::string capturingKey;
+  std::vector<CanvasCommand> captureBuffer;
 
   for (const auto &cmd : buffer.commands) {
-    std::visit(
-        [&](auto &&c) {
-          using T = std::decay_t<decltype(c)>;
-          if constexpr (std::is_same_v<T, SaveCommand>) {
-            stack.push_back(current);
-          } else if constexpr (std::is_same_v<T, RestoreCommand>) {
-            if (!stack.empty()) {
-              current = stack.back();
-              stack.pop_back();
-            }
-          } else if constexpr (std::is_same_v<T, TransformCommand>) {
-            current.scale = c.transform.scale;
-            current.offsetX = c.transform.offsetX;
-            current.offsetY = c.transform.offsetY;
-          } else if constexpr (std::is_same_v<T, LineCommand>) {
-            auto a = Apply(current, c.x0, c.y0);
-            auto b = Apply(current, c.x1, c.y1);
-            auto pa = MapToPage(a.x, a.y, minX, minY, scale, offsetX, offsetY,
-                                pageH);
-            auto pb = MapToPage(b.x, b.y, minX, minY, scale, offsetX, offsetY,
-                                pageH);
-            AppendLine(content, stateCache, formatter, pa, pb, c.stroke);
-          } else if constexpr (std::is_same_v<T, PolylineCommand>) {
-            std::vector<Point> pts;
-            pts.reserve(c.points.size() / 2);
-            for (size_t i = 0; i + 1 < c.points.size(); i += 2) {
-              auto p = Apply(current, c.points[i], c.points[i + 1]);
-              pts.push_back(MapToPage(p.x, p.y, minX, minY, scale, offsetX,
-                                      offsetY, pageH));
-            }
-            AppendPolyline(content, stateCache, formatter, pts, c.stroke);
-          } else if constexpr (std::is_same_v<T, PolygonCommand>) {
-            std::vector<Point> pts;
-            pts.reserve(c.points.size() / 2);
-            for (size_t i = 0; i + 1 < c.points.size(); i += 2) {
-              auto p = Apply(current, c.points[i], c.points[i + 1]);
-              pts.push_back(MapToPage(p.x, p.y, minX, minY, scale, offsetX,
-                                      offsetY, pageH));
-            }
-            const CanvasFill *fill = c.hasFill ? &c.fill : nullptr;
-            AppendPolygon(content, stateCache, formatter, pts, c.stroke, fill);
-          } else if constexpr (std::is_same_v<T, RectangleCommand>) {
-            auto o = Apply(current, c.x, c.y);
-            auto mapped =
-                MapToPage(o.x, o.y, minX, minY, scale, offsetX, offsetY, pageH);
-            double w = c.w * current.scale * scale;
-            double h = c.h * current.scale * scale;
-            const CanvasFill *fill = c.hasFill ? &c.fill : nullptr;
-            AppendRectangle(content, stateCache, formatter, mapped, w, h,
-                            c.stroke, fill);
-          } else if constexpr (std::is_same_v<T, CircleCommand>) {
-            auto c0 = Apply(current, c.cx, c.cy);
-            auto mapped = MapToPage(c0.x, c0.y, minX, minY, scale, offsetX,
-                                    offsetY, pageH);
-            double radius = c.radius * current.scale * scale;
-            const CanvasFill *fill = c.hasFill ? &c.fill : nullptr;
-            AppendCircle(content, stateCache, formatter, mapped, radius,
-                         c.stroke, fill);
-          } else if constexpr (std::is_same_v<T, TextCommand>) {
-            auto p = Apply(current, c.x, c.y);
-            auto mapped = MapToPage(p.x, p.y, minX, minY, scale, offsetX,
-                                    offsetY, pageH);
-            AppendText(content, formatter, mapped, c, c.style);
-          }
-        },
-        cmd);
+    if (const auto *begin = std::get_if<BeginSymbolCommand>(&cmd)) {
+      capturingKey = begin->key;
+      captureBuffer.clear();
+      continue;
+    }
+    if (const auto *end = std::get_if<EndSymbolCommand>(&cmd)) {
+      if (!capturingKey.empty() && capturingKey == end->key &&
+          !symbolDefinitions.count(capturingKey)) {
+        symbolDefinitions.emplace(capturingKey, captureBuffer);
+      }
+      capturingKey.clear();
+      captureBuffer.clear();
+      continue;
+    }
+    if (const auto *place = std::get_if<PlaceSymbolCommand>(&cmd)) {
+      placements.push_back({place->key, place->transform});
+      continue;
+    }
+
+    if (!capturingKey.empty()) {
+      captureBuffer.push_back(cmd);
+      continue;
+    }
+
+    mainCommands.push_back(cmd);
   }
 
-  std::string contentStr = content.str();
+  Mapping pageMapping{minX, minY, scale, offsetX, offsetY, pageH, true};
+  std::string contentStr = RenderCommandsToStream(mainCommands, pageMapping,
+                                                 formatter);
+
+  std::unordered_map<std::string, std::string> xObjectNames;
+  std::unordered_map<std::string, size_t> xObjectIds;
+  Mapping symbolMapping{};
+  symbolMapping.flipY = false;
+
+  for (const auto &entry : symbolDefinitions) {
+    xObjectNames.emplace(entry.first, MakePdfName(entry.first));
+  }
+
+  std::ostringstream placementStream;
+  for (const auto &placement : placements) {
+    auto nameIt = xObjectNames.find(placement.key);
+    if (nameIt == xObjectNames.end())
+      continue;
+
+    double a = placement.transform.scale * scale;
+    double d = -placement.transform.scale * scale;
+    double e = scale * (placement.transform.offsetX - minX) + offsetX;
+    double f = pageH - offsetY - scale * (placement.transform.offsetY - minY);
+
+    placementStream << "q\n" << formatter.Format(a) << " 0 0 "
+                    << formatter.Format(d) << ' ' << formatter.Format(e) << ' '
+                    << formatter.Format(f) << " cm\n/" << nameIt->second
+                    << " Do\nQ\n";
+  }
+
+  contentStr += placementStream.str();
   std::string compressedContent;
   bool useCompression = false;
   if (options.compressStreams) {
@@ -455,6 +546,29 @@ PlanExportResult ExportPlanToPdf(const CommandBuffer &buffer,
   }
   std::vector<PdfObject> objects;
   objects.push_back({"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"});
+
+  for (const auto &entry : symbolDefinitions) {
+    std::string symbolContent =
+        RenderCommandsToStream(entry.second, symbolMapping, formatter);
+    std::string compressedSymbol;
+    bool compressed = false;
+    if (options.compressStreams) {
+      std::string error;
+      compressed = PdfDeflater::Compress(symbolContent, compressedSymbol, error);
+    }
+    const std::string &symbolStream = compressed ? compressedSymbol : symbolContent;
+    std::ostringstream xobj;
+    xobj << "<< /Type /XObject /Subtype /Form /BBox [0 0 "
+         << formatter.Format(width) << ' ' << formatter.Format(height)
+         << "] /Resources << /Font << /F1 1 0 R >> >> /Length "
+         << symbolStream.size();
+    if (compressed)
+      xobj << " /Filter /FlateDecode";
+    xobj << " >>\nstream\n" << symbolStream << "endstream";
+    objects.push_back({xobj.str()});
+    xObjectIds[entry.first] = objects.size();
+  }
+
   std::ostringstream contentObj;
   const std::string &streamData = useCompression ? compressedContent : contentStr;
   contentObj << "<< /Length " << streamData.size();
@@ -463,14 +577,35 @@ PlanExportResult ExportPlanToPdf(const CommandBuffer &buffer,
   contentObj << " >>\nstream\n" << streamData << "endstream";
   objects.push_back({contentObj.str()});
 
+  std::ostringstream resources;
+  resources << "<< /Font << /F1 1 0 R >>";
+  if (!xObjectIds.empty()) {
+    resources << " /XObject << ";
+    for (const auto &entry : xObjectIds) {
+      auto nameIt = xObjectNames.find(entry.first);
+      if (nameIt == xObjectNames.end())
+        continue;
+      resources << '/' << nameIt->second << ' ' << entry.second << " 0 R ";
+    }
+    resources << ">>";
+  }
+  resources << " >>";
+
   std::ostringstream pageObj;
-  pageObj << "<< /Type /Page /Parent 4 0 R /MediaBox [0 0 "
-          << formatter.Format(pageW)
-          << ' ' << formatter.Format(pageH)
-          << "] /Contents 2 0 R /Resources << /Font << /F1 1 0 R >> >> >>";
+  size_t contentIndex = objects.size();
+  size_t pageIndex = contentIndex + 1;
+  size_t pagesIndex = pageIndex + 1;
+  size_t catalogIndex = pagesIndex + 1;
+
+  pageObj << "<< /Type /Page /Parent " << pagesIndex << " 0 R /MediaBox [0 0 "
+          << formatter.Format(pageW) << ' ' << formatter.Format(pageH)
+          << "] /Contents " << contentIndex << " 0 R /Resources "
+          << resources.str() << " >>";
   objects.push_back({pageObj.str()});
-  objects.push_back({"<< /Type /Pages /Kids [3 0 R] /Count 1 >>"});
-  objects.push_back({"<< /Type /Catalog /Pages 4 0 R >>"});
+  objects.push_back({"<< /Type /Pages /Kids [" + std::to_string(pageIndex) +
+                    " 0 R] /Count 1 >>"});
+  objects.push_back({"<< /Type /Catalog /Pages " + std::to_string(pagesIndex) +
+                    " 0 R >>"});
 
   try {
     std::ofstream file(outputPath, std::ios::binary);
@@ -494,7 +629,8 @@ PlanExportResult ExportPlanToPdf(const CommandBuffer &buffer,
       file << std::setw(10) << std::setfill('0') << off << " 00000 n \n";
     }
     file << "trailer\n<< /Size " << (objects.size() + 1)
-         << " /Root 5 0 R >>\nstartxref\n" << xrefPos << "\n%%EOF";
+         << " /Root " << catalogIndex
+         << " 0 R >>\nstartxref\n" << xrefPos << "\n%%EOF";
     result.success = true;
   } catch (const std::exception &ex) {
     result.message = std::string("Failed to generate PDF content: ") + ex.what();
