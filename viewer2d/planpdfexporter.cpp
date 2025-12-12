@@ -121,6 +121,14 @@ class GraphicsStateCache {
 public:
   void SetStroke(std::ostringstream &out, const CanvasStroke &stroke,
                  const FloatFormatter &fmt) {
+    if (!joinStyleSet_) {
+      out << "1 j\n";
+      joinStyleSet_ = true;
+    }
+    if (!capStyleSet_) {
+      out << "1 J\n";
+      capStyleSet_ = true;
+    }
     if (!hasStrokeColor_ || !SameColor(stroke.color, strokeColor_)) {
       out << fmt.Format(stroke.color.r) << ' ' << fmt.Format(stroke.color.g) << ' '
           << fmt.Format(stroke.color.b) << " RG\n";
@@ -156,6 +164,8 @@ private:
   bool hasStrokeColor_ = false;
   bool hasFillColor_ = false;
   bool hasLineWidth_ = false;
+  bool joinStyleSet_ = false;
+  bool capStyleSet_ = false;
 };
 
 void AppendLine(std::ostringstream &out, GraphicsStateCache &cache,
