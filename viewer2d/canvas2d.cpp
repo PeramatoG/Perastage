@@ -32,6 +32,7 @@
 #include <limits>
 #include <optional>
 #include <unordered_map>
+#include <unordered_set>
 
 namespace {
 // Applies a stroke color and width to the OpenGL state for immediate mode
@@ -65,6 +66,14 @@ public:
 
   void SetSourceKey(const std::string &key) override {
     (void)key;
+  }
+
+  void BeginSymbol(const std::string &key) override { (void)key; }
+  void EndSymbol(const std::string &key) override { (void)key; }
+  void PlaceSymbol(const std::string &key,
+                   const CanvasTransform &transform) override {
+    (void)key;
+    (void)transform;
   }
 
   void DrawLine(float x0, float y0, float x1, float y1,
@@ -178,20 +187,30 @@ public:
   void BeginFrame() override {
     m_buffer.Clear();
     m_pendingGroup.reset();
+    m_transformStack.clear();
+    m_currentTransform = {};
+    m_definedSymbols.clear();
+    m_capturingSymbol.clear();
   }
   void EndFrame() override { FlushPendingGroup(); }
 
   void Save() override {
     FlushPendingGroup();
     PushCommand(SaveCommand{}, {});
+    m_transformStack.push_back(m_currentTransform);
   }
   void Restore() override {
     FlushPendingGroup();
     PushCommand(RestoreCommand{}, {});
+    if (!m_transformStack.empty()) {
+      m_currentTransform = m_transformStack.back();
+      m_transformStack.pop_back();
+    }
   }
   void SetTransform(const CanvasTransform &transform) override {
     FlushPendingGroup();
     PushCommand(TransformCommand{transform}, {});
+    m_currentTransform = transform;
   }
 
   void SetSourceKey(const std::string &key) override {
@@ -247,6 +266,27 @@ public:
     if (m_simplifyFootprints)
       FlushPendingGroup();
     PushCommand(TextCommand{x, y, text, style}, {});
+  }
+
+  void BeginSymbol(const std::string &key) override {
+    if (m_simplifyFootprints)
+      FlushPendingGroup();
+    m_buffer.currentSourceKey = key.empty() ? "unknown" : key;
+    m_capturingSymbol = key;
+  }
+
+  void EndSymbol(const std::string &key) override {
+    if (m_capturingSymbol != key)
+      return;
+    FlushPendingGroup();
+    m_capturingSymbol.clear();
+  }
+
+  void PlaceSymbol(const std::string &key,
+                   const CanvasTransform &transform) override {
+    if (m_simplifyFootprints)
+      FlushPendingGroup();
+    PushCommand(PlaceSymbolCommand{key, transform}, {});
   }
 
 private:
@@ -315,12 +355,26 @@ private:
     auto meta = m_pendingGroup->metadata;
     m_pendingGroup.reset();
 
+    if (!m_capturingSymbol.empty() && m_capturingSymbol == key) {
+      PushCommandsWithSource(cmds, meta, key);
+      return;
+    }
+
     auto simplified = TrySimplify(key, cmds, meta);
+    bool newSymbol = m_definedSymbols.insert(key).second;
+    if (newSymbol)
+      PushCommand(BeginSymbolCommand{key}, {});
+
     if (simplified) {
       PushCommandsWithSource(simplified->first, simplified->second, key);
     } else {
       PushCommandsWithSource(cmds, meta, key);
     }
+
+    if (newSymbol)
+      PushCommand(EndSymbolCommand{key}, {});
+
+    PushCommand(PlaceSymbolCommand{key, m_currentTransform}, {});
   }
 
   std::optional<std::pair<std::vector<CanvasCommand>,
@@ -647,6 +701,10 @@ private:
   bool m_simplifyFootprints = false;
   std::optional<PendingGroup> m_pendingGroup;
   std::unordered_map<std::string, FootprintTemplate> m_footprintCache;
+  std::unordered_set<std::string> m_definedSymbols;
+  std::vector<CanvasTransform> m_transformStack;
+  CanvasTransform m_currentTransform{};
+  std::string m_capturingSymbol;
 };
 
 class MultiCanvas : public ICanvas2D {
@@ -676,6 +734,19 @@ public:
   void SetSourceKey(const std::string &key) override {
     for (auto *c : m_canvases)
       c->SetSourceKey(key);
+  }
+  void BeginSymbol(const std::string &key) override {
+    for (auto *c : m_canvases)
+      c->BeginSymbol(key);
+  }
+  void EndSymbol(const std::string &key) override {
+    for (auto *c : m_canvases)
+      c->EndSymbol(key);
+  }
+  void PlaceSymbol(const std::string &key,
+                   const CanvasTransform &transform) override {
+    for (auto *c : m_canvases)
+      c->PlaceSymbol(key, transform);
   }
   void DrawLine(float x0, float y0, float x1, float y1,
                 const CanvasStroke &stroke) override {

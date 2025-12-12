@@ -81,6 +81,10 @@ public:
   virtual void Restore() = 0;
   virtual void SetTransform(const CanvasTransform &transform) = 0;
   virtual void SetSourceKey(const std::string &key) = 0;
+  virtual void BeginSymbol(const std::string &key) = 0;
+  virtual void EndSymbol(const std::string &key) = 0;
+  virtual void PlaceSymbol(const std::string &key,
+                           const CanvasTransform &transform) = 0;
 
   virtual void DrawLine(float x0, float y0, float x1, float y1,
                         const CanvasStroke &stroke) = 0;
@@ -157,11 +161,22 @@ struct CommandMetadata {
 struct SaveCommand {};
 struct RestoreCommand {};
 struct TransformCommand { CanvasTransform transform; };
+struct BeginSymbolCommand {
+  std::string key;
+};
+struct EndSymbolCommand {
+  std::string key;
+};
+struct PlaceSymbolCommand {
+  std::string key;
+  CanvasTransform transform{};
+};
 
 using CanvasCommand =
     std::variant<LineCommand, PolylineCommand, PolygonCommand,
                  RectangleCommand, CircleCommand, TextCommand, SaveCommand,
-                 RestoreCommand, TransformCommand>;
+                 RestoreCommand, TransformCommand, BeginSymbolCommand,
+                 EndSymbolCommand, PlaceSymbolCommand>;
 
 // Container preserving the order of issued drawing commands. It is deliberately
 // lightweight so it can be handed over to future SVG/PDF/printing code without
