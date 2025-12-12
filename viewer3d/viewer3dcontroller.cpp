@@ -1000,11 +1000,14 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
       continue;
     glPushMatrix();
 
+    std::string fixtureCaptureKey;
     if (m_captureCanvas) {
-      std::string key = !f.typeName.empty()
-                            ? f.typeName
-                            : (!f.gdtfSpec.empty() ? f.gdtfSpec : "unknown");
-      m_captureCanvas->SetSourceKey(key);
+      fixtureCaptureKey = !f.typeName.empty()
+                              ? f.typeName
+                              : (!f.gdtfSpec.empty() ? f.gdtfSpec : "unknown");
+      // Default to the whole fixture key; individual GDTF parts will override
+      // this key below so outlines remain visible in captured PDFs.
+      m_captureCanvas->SetSourceKey(fixtureCaptureKey);
     }
 
     bool highlight = (!m_highlightUuid.empty() && uuid == m_highlightUuid);
@@ -1054,8 +1057,15 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
     auto itg = m_loadedGdtf.find(gdtfPath);
 
     if (itg != m_loadedGdtf.end()) {
+      size_t partIndex = 0;
       for (const auto &obj : itg->second) {
         glPushMatrix();
+        if (m_captureCanvas) {
+          // Capture each GDTF geometry as its own source so fills do not hide
+          // outlines from sibling parts when exported to PDF.
+          m_captureCanvas->SetSourceKey(fixtureCaptureKey + "_part" +
+                                        std::to_string(partIndex));
+        }
         float m2[16];
         MatrixToArray(obj.transform, m2);
         // GDTF geometry offsets are defined relative to the fixture
@@ -1070,6 +1080,7 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
                             selected, cx, cy, cz, wireframe, mode,
                             applyCapture);
         glPopMatrix();
+        ++partIndex;
       }
     } else {
       DrawCubeWithOutline(0.2f, r, g, b, highlight, selected, cx, cy, cz,
