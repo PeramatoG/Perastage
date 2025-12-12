@@ -479,12 +479,12 @@ std::string RenderCommandsToStream(
 
     for (size_t idx : run) {
       auto meta = getMeta(idx);
-      if (meta.hasStroke)
-        EmitCommandStroke(content, stateCache, formatter, mapping, current,
-                          commands[idx]);
       if (meta.hasFill)
         EmitCommandFill(content, stateCache, formatter, mapping, current,
                         commands[idx]);
+      if (meta.hasStroke)
+        EmitCommandStroke(content, stateCache, formatter, mapping, current,
+                          commands[idx]);
     }
   }
 
