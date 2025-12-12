@@ -145,6 +145,7 @@ ConfigManager::ConfigManager() {
   RegisterVariable("grid_color_g", "float", 0.35f, 0.0f, 1.0f);
   RegisterVariable("grid_color_b", "float", 0.35f, 0.0f, 1.0f);
   RegisterVariable("grid_draw_above", "float", 0.0f, 0.0f, 1.0f);
+  RegisterVariable("print_include_grid", "float", 1.0f, 0.0f, 1.0f);
   RegisterVariable("label_show_name", "float", 1.0f, 0.0f, 1.0f);
   RegisterVariable("label_show_id", "float", 1.0f, 0.0f, 1.0f);
   RegisterVariable("label_show_dmx", "float", 1.0f, 0.0f, 1.0f);

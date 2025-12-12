@@ -1604,24 +1604,30 @@ void Viewer3DController::DrawGrid(int style, float r, float g, float b,
         glVertex3f(i, size, 0.0f);
         glVertex3f(-size, i, 0.0f);
         glVertex3f(size, i, 0.0f);
-        RecordLine({i, -size, 0.0f}, {i, size, 0.0f}, stroke);
-        RecordLine({-size, i, 0.0f}, {size, i, 0.0f}, stroke);
+        if (m_captureCanvas && m_captureIncludeGrid) {
+          RecordLine({i, -size, 0.0f}, {i, size, 0.0f}, stroke);
+          RecordLine({-size, i, 0.0f}, {size, i, 0.0f}, stroke);
+        }
         break;
       case Viewer2DView::Front:
         glVertex3f(i, 0.0f, -size);
         glVertex3f(i, 0.0f, size);
         glVertex3f(-size, 0.0f, i);
         glVertex3f(size, 0.0f, i);
-        RecordLine({i, 0.0f, -size}, {i, 0.0f, size}, stroke);
-        RecordLine({-size, 0.0f, i}, {size, 0.0f, i}, stroke);
+        if (m_captureCanvas && m_captureIncludeGrid) {
+          RecordLine({i, 0.0f, -size}, {i, 0.0f, size}, stroke);
+          RecordLine({-size, 0.0f, i}, {size, 0.0f, i}, stroke);
+        }
         break;
       case Viewer2DView::Side:
         glVertex3f(0.0f, i, -size);
         glVertex3f(0.0f, i, size);
         glVertex3f(0.0f, -size, i);
         glVertex3f(0.0f, size, i);
-        RecordLine({0.0f, i, -size}, {0.0f, i, size}, stroke);
-        RecordLine({0.0f, -size, i}, {0.0f, size, i}, stroke);
+        if (m_captureCanvas && m_captureIncludeGrid) {
+          RecordLine({0.0f, i, -size}, {0.0f, i, size}, stroke);
+          RecordLine({0.0f, -size, i}, {0.0f, size, i}, stroke);
+        }
         break;
       }
     }
@@ -1636,15 +1642,18 @@ void Viewer3DController::DrawGrid(int style, float r, float g, float b,
         switch (view) {
         case Viewer2DView::Top:
           glVertex3f(x, y, 0.0f);
-          RecordLine({x, y, 0.0f}, {x, y, 0.0f}, stroke);
+          if (m_captureCanvas && m_captureIncludeGrid)
+            RecordLine({x, y, 0.0f}, {x, y, 0.0f}, stroke);
           break;
         case Viewer2DView::Front:
           glVertex3f(x, 0.0f, y);
-          RecordLine({x, 0.0f, y}, {x, 0.0f, y}, stroke);
+          if (m_captureCanvas && m_captureIncludeGrid)
+            RecordLine({x, 0.0f, y}, {x, 0.0f, y}, stroke);
           break;
         case Viewer2DView::Side:
           glVertex3f(0.0f, x, y);
-          RecordLine({0.0f, x, y}, {0.0f, x, y}, stroke);
+          if (m_captureCanvas && m_captureIncludeGrid)
+            RecordLine({0.0f, x, y}, {0.0f, x, y}, stroke);
           break;
         }
       }
@@ -1664,24 +1673,30 @@ void Viewer3DController::DrawGrid(int style, float r, float g, float b,
           glVertex3f(x + half, y, 0.0f);
           glVertex3f(x, y - half, 0.0f);
           glVertex3f(x, y + half, 0.0f);
-          RecordLine({x - half, y, 0.0f}, {x + half, y, 0.0f}, stroke);
-          RecordLine({x, y - half, 0.0f}, {x, y + half, 0.0f}, stroke);
+          if (m_captureCanvas && m_captureIncludeGrid) {
+            RecordLine({x - half, y, 0.0f}, {x + half, y, 0.0f}, stroke);
+            RecordLine({x, y - half, 0.0f}, {x, y + half, 0.0f}, stroke);
+          }
           break;
         case Viewer2DView::Front:
           glVertex3f(x - half, 0.0f, y);
           glVertex3f(x + half, 0.0f, y);
           glVertex3f(x, 0.0f, y - half);
           glVertex3f(x, 0.0f, y + half);
-          RecordLine({x - half, 0.0f, y}, {x + half, 0.0f, y}, stroke);
-          RecordLine({x, 0.0f, y - half}, {x, 0.0f, y + half}, stroke);
+          if (m_captureCanvas && m_captureIncludeGrid) {
+            RecordLine({x - half, 0.0f, y}, {x + half, 0.0f, y}, stroke);
+            RecordLine({x, 0.0f, y - half}, {x, 0.0f, y + half}, stroke);
+          }
           break;
         case Viewer2DView::Side:
           glVertex3f(0.0f, x - half, y);
           glVertex3f(0.0f, x + half, y);
           glVertex3f(0.0f, x, y - half);
           glVertex3f(0.0f, x, y + half);
-          RecordLine({0.0f, x - half, y}, {0.0f, x + half, y}, stroke);
-          RecordLine({0.0f, x, y - half}, {0.0f, x, y + half}, stroke);
+          if (m_captureCanvas && m_captureIncludeGrid) {
+            RecordLine({0.0f, x - half, y}, {0.0f, x + half, y}, stroke);
+            RecordLine({0.0f, x, y - half}, {0.0f, x, y + half}, stroke);
+          }
           break;
         }
       }

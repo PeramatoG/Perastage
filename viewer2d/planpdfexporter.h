@@ -34,6 +34,7 @@ struct PlanPrintOptions {
   bool compressStreams = true;
   int floatPrecision = 3;
   bool useSimplifiedFootprints = true;
+  bool printIncludeGrid = true;
 };
 
 struct PlanExportResult {

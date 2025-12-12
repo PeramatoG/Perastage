@@ -225,9 +225,10 @@ void Viewer2DPanel::RequestFrameCapture() { m_captureNextFrame = true; }
 
 void Viewer2DPanel::CaptureFrameAsync(
     std::function<void(CommandBuffer, Viewer2DViewState)> callback,
-    bool useSimplifiedFootprints) {
+    bool useSimplifiedFootprints, bool includeGridInCapture) {
   m_captureCallback = std::move(callback);
   m_useSimplifiedFootprints = useSimplifiedFootprints;
+  m_captureIncludeGrid = includeGridInCapture;
   RequestFrameCapture();
   Refresh();
 }
@@ -313,7 +314,8 @@ void Viewer2DPanel::Render() {
     transform.offsetY = 0.0f;
     recordingCanvas->BeginFrame();
     recordingCanvas->SetTransform(transform);
-    m_controller.SetCaptureCanvas(recordingCanvas.get(), m_view);
+    m_controller.SetCaptureCanvas(recordingCanvas.get(), m_view,
+                                  m_captureIncludeGrid);
   } else {
     m_controller.SetCaptureCanvas(nullptr, m_view);
   }
