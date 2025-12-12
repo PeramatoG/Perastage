@@ -64,6 +64,8 @@ public:
     ApplyTransform();
   }
 
+  void SetDepthHint(float depth) override { (void)depth; }
+
   void SetSourceKey(const std::string &key) override {
     (void)key;
   }
@@ -191,6 +193,7 @@ public:
     m_currentTransform = {};
     m_definedSymbols.clear();
     m_capturingSymbol.clear();
+    m_currentDepthHint.reset();
   }
   void EndFrame() override { FlushPendingGroup(); }
 
@@ -212,6 +215,8 @@ public:
     PushCommand(TransformCommand{transform}, {});
     m_currentTransform = transform;
   }
+
+  void SetDepthHint(float depth) override { m_currentDepthHint = depth; }
 
   void SetSourceKey(const std::string &key) override {
     if (m_simplifyFootprints)
@@ -317,20 +322,35 @@ private:
     if (!m_pendingGroup)
       m_pendingGroup = PendingGroup{m_buffer.currentSourceKey, {}, {}};
 
+    CommandMetadata enriched = meta;
+    if (m_currentDepthHint) {
+      enriched.hasDepth = true;
+      enriched.depth = *m_currentDepthHint;
+    }
     m_pendingGroup->commands.emplace_back(std::move(cmd));
-    m_pendingGroup->metadata.push_back(meta);
+    m_pendingGroup->metadata.push_back(enriched);
   }
 
   void PushCommand(const CanvasCommand &cmd, const CommandMetadata &meta) {
+    CommandMetadata enriched = meta;
+    if (m_currentDepthHint) {
+      enriched.hasDepth = true;
+      enriched.depth = *m_currentDepthHint;
+    }
     m_buffer.commands.push_back(cmd);
     m_buffer.sources.push_back(m_buffer.currentSourceKey);
-    m_buffer.metadata.push_back(meta);
+    m_buffer.metadata.push_back(enriched);
   }
 
   void PushCommand(CanvasCommand &&cmd, const CommandMetadata &meta) {
+    CommandMetadata enriched = meta;
+    if (m_currentDepthHint) {
+      enriched.hasDepth = true;
+      enriched.depth = *m_currentDepthHint;
+    }
     m_buffer.commands.emplace_back(std::move(cmd));
     m_buffer.sources.push_back(m_buffer.currentSourceKey);
-    m_buffer.metadata.push_back(meta);
+    m_buffer.metadata.push_back(enriched);
   }
 
   void PushCommandsWithSource(const std::vector<CanvasCommand> &cmds,
@@ -702,6 +722,7 @@ private:
   std::optional<PendingGroup> m_pendingGroup;
   std::unordered_map<std::string, FootprintTemplate> m_footprintCache;
   std::unordered_set<std::string> m_definedSymbols;
+  std::optional<float> m_currentDepthHint;
   std::vector<CanvasTransform> m_transformStack;
   CanvasTransform m_currentTransform{};
   std::string m_capturingSymbol;
@@ -730,6 +751,11 @@ public:
   void SetTransform(const CanvasTransform &transform) override {
     for (auto *c : m_canvases)
       c->SetTransform(transform);
+  }
+
+  void SetDepthHint(float depth) override {
+    for (auto *c : m_canvases)
+      c->SetDepthHint(depth);
   }
   void SetSourceKey(const std::string &key) override {
     for (auto *c : m_canvases)

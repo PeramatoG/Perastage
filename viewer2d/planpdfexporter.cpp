@@ -422,36 +422,70 @@ std::string RenderCommandsToStream(
     }
   };
 
-  for (size_t i = 0; i < commands.size(); ++i) {
-    const auto &cmd = commands[i];
+  auto getMeta = [&](size_t idx) -> CommandMetadata {
+    if (idx < metadata.size())
+      return metadata[idx];
+    return {};
+  };
 
-    bool isBarrier = std::visit(
+  auto isBarrier = [](const CanvasCommand &cmd) {
+    return std::visit(
         [&](auto &&c) {
           using T = std::decay_t<decltype(c)>;
           return std::is_same_v<T, SaveCommand> || std::is_same_v<T, RestoreCommand> ||
                  std::is_same_v<T, TransformCommand> ||
                  std::is_same_v<T, BeginSymbolCommand> ||
-                  std::is_same_v<T, EndSymbolCommand> ||
-                  std::is_same_v<T, PlaceSymbolCommand> ||
-                  std::is_same_v<T, TextCommand>;
+                 std::is_same_v<T, EndSymbolCommand> ||
+                 std::is_same_v<T, PlaceSymbolCommand> ||
+                 std::is_same_v<T, TextCommand>;
         },
         cmd);
+  };
 
-    if (isBarrier) {
-      std::visit(handleBarrier, cmd);
+  size_t i = 0;
+  while (i < commands.size()) {
+    if (isBarrier(commands[i])) {
+      std::visit(handleBarrier, commands[i]);
+      ++i;
       continue;
     }
 
-    // The on-screen 2D renderer draws outlines before filling the geometry in
-    // wireframe-derived modes (see Viewer3DController::DrawMeshWithOutline). To
-    // reproduce the same visual result in the PDF export we must respect that
-    // order so fills can intentionally cover strokes when required.
-    if (metadata[i].hasStroke)
-      EmitCommandStroke(content, stateCache, formatter, mapping, current,
-                        commands[i]);
-    if (metadata[i].hasFill)
-      EmitCommandFill(content, stateCache, formatter, mapping, current,
-                      commands[i]);
+    size_t runStart = i;
+    while (i < commands.size() && !isBarrier(commands[i]))
+      ++i;
+
+    std::vector<size_t> run;
+    run.reserve(i - runStart);
+    bool runHasDepth = false;
+    for (size_t idx = runStart; idx < i; ++idx) {
+      run.push_back(idx);
+      runHasDepth = runHasDepth || getMeta(idx).hasDepth;
+    }
+
+    if (runHasDepth) {
+      std::stable_sort(run.begin(), run.end(), [&](size_t a, size_t b) {
+        auto ma = getMeta(a);
+        auto mb = getMeta(b);
+        if (ma.hasDepth && mb.hasDepth) {
+          if (std::abs(ma.depth - mb.depth) > 1e-6f)
+            return ma.depth > mb.depth; // Farther first
+          return a < b;
+        }
+        if (ma.hasDepth != mb.hasDepth)
+          return ma.hasDepth;
+        return a < b;
+      });
+    }
+
+    for (size_t idx : run) {
+      auto meta = getMeta(idx);
+      if (meta.hasStroke)
+        EmitCommandStroke(content, stateCache, formatter, mapping, current,
+                          commands[idx]);
+      if (meta.hasFill)
+        EmitCommandFill(content, stateCache, formatter, mapping, current,
+                        commands[idx]);
+    }
   }
 
   return content.str();
