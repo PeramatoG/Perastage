@@ -62,9 +62,10 @@ Point MapToPage(double x, double y, double minX, double minY, double scale,
                 double offsetX, double offsetY, double pageHeight) {
   double px = offsetX + (x - minX) * scale;
   double py = offsetY + (y - minY) * scale;
-  // Keep the same top-left origin as the 2D viewer so the PDF matches the
-  // on-screen layout.
-  (void)pageHeight; // Retained for future layout tweaks.
+  // Mirror the Y axis so the PDF uses the same top-left origin as the 2D
+  // viewer. The OpenGL canvas grows upwards, while the PDF coordinate space
+  // grows upwards from the bottom-left corner.
+  py = pageHeight - py;
   return {px, py};
 }
 
