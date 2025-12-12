@@ -448,8 +448,12 @@ PlanExportResult ExportPlanToPdf(const CommandBuffer &buffer,
   double ppm = PIXELS_PER_METER * static_cast<double>(viewState.zoom);
   double halfW = static_cast<double>(viewState.viewportWidth) / ppm * 0.5;
   double halfH = static_cast<double>(viewState.viewportHeight) / ppm * 0.5;
-  double offX = static_cast<double>(viewState.offsetPixelsX) / PIXELS_PER_METER;
-  double offY = static_cast<double>(viewState.offsetPixelsY) / PIXELS_PER_METER;
+  // The stored offsets are expressed in screen pixels normalized by the zoom
+  // factor (see Viewer2DPanel::OnMouseMove). Convert them back to world-space
+  // meters by accounting for both the pixel density and the current zoom so the
+  // printed plan covers exactly the same region shown on screen.
+  double offX = static_cast<double>(viewState.offsetPixelsX) / ppm;
+  double offY = static_cast<double>(viewState.offsetPixelsY) / ppm;
   double minX = -halfW - offX;
   double maxX = halfW - offX;
   double minY = -halfH - offY;
