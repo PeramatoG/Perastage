@@ -1313,6 +1313,8 @@ void MainWindow::OnPrintPlan(wxCommandEvent &WXUNUSED(event)) {
   }
 
   PlanPrintOptions opts; // Defaults to A3 portrait.
+  opts.printIncludeGrid =
+      ConfigManager::Get().GetFloat("print_include_grid") != 0.0f;
   std::filesystem::path outputPath(
       std::filesystem::path(outputPathWx.ToStdWstring()));
   wxString outputPathDisplay = outputPathWx;
@@ -1368,7 +1370,7 @@ void MainWindow::OnPrintPlan(wxCommandEvent &WXUNUSED(event)) {
           });
         }).detach();
       },
-      opts.useSimplifiedFootprints);
+      opts.useSimplifiedFootprints, opts.printIncludeGrid);
 }
 
 void MainWindow::OnPrintTable(wxCommandEvent &WXUNUSED(event)) {

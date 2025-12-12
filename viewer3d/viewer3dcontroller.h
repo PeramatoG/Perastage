@@ -245,14 +245,17 @@ private:
   // takes place and the render path behaves as before.
   ICanvas2D *m_captureCanvas = nullptr;
   Viewer2DView m_captureView = Viewer2DView::Top;
+  bool m_captureIncludeGrid = true;
 
 public:
   // Enables recording of all primitives drawn during the next RenderScene
   // call. The caller owns the canvas lifetime and is responsible for calling
   // BeginFrame/EndFrame. Recording is disabled automatically after each
   // render pass by resetting the canvas to nullptr.
-  void SetCaptureCanvas(ICanvas2D *canvas, Viewer2DView view) {
+  void SetCaptureCanvas(ICanvas2D *canvas, Viewer2DView view,
+                        bool includeGrid = true) {
     m_captureCanvas = canvas;
     m_captureView = view;
+    m_captureIncludeGrid = includeGrid;
   }
 };

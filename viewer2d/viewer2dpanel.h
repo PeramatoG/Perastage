@@ -75,7 +75,8 @@ public:
   // the callback is invoked immediately afterwards.
   void CaptureFrameAsync(
       std::function<void(CommandBuffer, Viewer2DViewState)> callback,
-      bool useSimplifiedFootprints = false);
+      bool useSimplifiedFootprints = false,
+      bool includeGridInCapture = true);
 
   // Accessor for the last recorded set of drawing commands. The buffer is
   // cleared and re-populated on every requested capture.
@@ -113,6 +114,7 @@ private:
 
   bool m_captureNextFrame = false;
   bool m_useSimplifiedFootprints = false;
+  bool m_captureIncludeGrid = true;
   CommandBuffer m_lastCapturedFrame;
   std::function<void(CommandBuffer, Viewer2DViewState)> m_captureCallback;
   std::string m_lastFixtureDebugReport;
