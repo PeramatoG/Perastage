@@ -146,6 +146,12 @@ ConfigManager::ConfigManager() {
   RegisterVariable("grid_color_b", "float", 0.35f, 0.0f, 1.0f);
   RegisterVariable("grid_draw_above", "float", 0.0f, 0.0f, 1.0f);
   RegisterVariable("print_include_grid", "float", 1.0f, 0.0f, 1.0f);
+  RegisterVariable("print_plan_page_size", "float", 0.0f, 0.0f, 1.0f,
+                   {"print_page_size"});
+  RegisterVariable("print_plan_landscape", "float", 0.0f, 0.0f, 1.0f,
+                   {"print_landscape"});
+  RegisterVariable("print_use_simplified_footprints", "float", 0.0f, 0.0f,
+                   1.0f, {"use_simplified_footprints"});
   RegisterVariable("label_show_name", "float", 1.0f, 0.0f, 1.0f);
   RegisterVariable("label_show_id", "float", 1.0f, 0.0f, 1.0f);
   RegisterVariable("label_show_dmx", "float", 1.0f, 0.0f, 1.0f);
@@ -190,11 +196,23 @@ ConfigManager &ConfigManager::Get() {
 // -- Config key-value access --
 
 void ConfigManager::SetValue(const std::string &key, const std::string &value) {
+  std::string newValue = value;
+
+  auto var = variables.find(key);
+  if (var != variables.end() && var->second.type == "float") {
+    float parsed = 0.0f;
+    if (TryParseFloat(value, parsed)) {
+      parsed = std::clamp(parsed, var->second.minValue, var->second.maxValue);
+      var->second.value = parsed;
+      newValue = std::to_string(parsed);
+    }
+  }
+
   auto it = configData.find(key);
-  if (it != configData.end() && it->second == value)
+  if (it != configData.end() && it->second == newValue)
     return;
 
-  configData[key] = value;
+  configData[key] = newValue;
   if (!suppressRevision)
     ++revision;
 }
@@ -258,13 +276,15 @@ void ConfigManager::ClearValues() {
 
 void ConfigManager::RegisterVariable(const std::string &name,
                                      const std::string &type, float defVal,
-                                     float minVal, float maxVal) {
+                                     float minVal, float maxVal,
+                                     std::vector<std::string> legacyNames) {
   VariableInfo info;
   info.type = type;
   info.defaultValue = defVal;
   info.value = defVal;
   info.minValue = minVal;
   info.maxValue = maxVal;
+  info.legacyNames = std::move(legacyNames);
   variables[name] = info;
 }
 
@@ -287,10 +307,7 @@ float ConfigManager::GetFloat(const std::string &name) const {
 void ConfigManager::SetFloat(const std::string &name, float v) {
   auto it = variables.find(name);
   if (it != variables.end()) {
-    if (v < it->second.minValue)
-      v = it->second.minValue;
-    if (v > it->second.maxValue)
-      v = it->second.maxValue;
+    v = std::clamp(v, it->second.minValue, it->second.maxValue);
     it->second.value = v;
   }
   SetValue(name, std::to_string(v));
@@ -299,13 +316,29 @@ void ConfigManager::SetFloat(const std::string &name, float v) {
 void ConfigManager::ApplyDefaults() {
   for (auto &[name, info] : variables) {
     float val = info.defaultValue;
-    auto it = configData.find(name);
-    if (it != configData.end()) {
-      float parsed = 0.0f;
-      if (!TryParseFloat(it->second, parsed))
-        parsed = info.defaultValue;
-      val = parsed;
+    const std::string *raw = nullptr;
+
+    for (const auto &legacyName : info.legacyNames) {
+      auto itLegacy = configData.find(legacyName);
+      if (itLegacy != configData.end()) {
+        raw = &itLegacy->second;
+        break;
+      }
     }
+
+    if (!raw) {
+      auto it = configData.find(name);
+      if (it != configData.end())
+        raw = &it->second;
+    }
+
+    if (raw) {
+      float parsed = 0.0f;
+      if (TryParseFloat(*raw, parsed))
+        val = parsed;
+    }
+
+    val = std::clamp(val, info.minValue, info.maxValue);
     info.value = val;
     configData[name] = std::to_string(val);
   }
