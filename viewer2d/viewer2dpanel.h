@@ -80,6 +80,10 @@ public:
   // cleared and re-populated on every requested capture.
   const CommandBuffer &GetLastCapturedFrame() const { return m_lastCapturedFrame; }
 
+  // Returns the most recent per-fixture debug report generated during frame
+  // capture. The string is empty when no report was produced.
+  std::string GetLastFixtureDebugReport() const { return m_lastFixtureDebugReport; }
+
   // Accessor for the current viewport state so exporters can match what the
   // user is seeing on screen.
   Viewer2DViewState GetViewState() const;
@@ -109,6 +113,7 @@ private:
   bool m_captureNextFrame = false;
   CommandBuffer m_lastCapturedFrame;
   std::function<void(CommandBuffer, Viewer2DViewState)> m_captureCallback;
+  std::string m_lastFixtureDebugReport;
 
   wxGLContext *m_glContext = nullptr;
   bool m_glInitialized = false;
