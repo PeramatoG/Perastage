@@ -400,34 +400,6 @@ std::string RenderCommandsToStream(
   std::ostringstream content;
   GraphicsStateCache stateCache;
 
-  std::vector<size_t> group;
-  std::string currentSource;
-
-  auto flushGroup = [&]() {
-    if (group.empty())
-      return;
-
-    for (size_t idx : group) {
-      if (metadata[idx].hasStroke)
-        EmitCommandStroke(content, stateCache, formatter, mapping, current,
-                          commands[idx]);
-    }
-
-    for (size_t idx : group) {
-      if (metadata[idx].hasFill)
-        EmitCommandFill(content, stateCache, formatter, mapping, current,
-                        commands[idx]);
-    }
-
-    for (size_t idx : group) {
-      if (metadata[idx].hasStroke && !metadata[idx].hasFill)
-        EmitCommandStroke(content, stateCache, formatter, mapping, current,
-                          commands[idx]);
-    }
-
-    group.clear();
-  };
-
   auto handleBarrier = [&](const auto &cmd) {
     using T = std::decay_t<decltype(cmd)>;
     if constexpr (std::is_same_v<T, SaveCommand>) {
@@ -459,30 +431,24 @@ std::string RenderCommandsToStream(
           return std::is_same_v<T, SaveCommand> || std::is_same_v<T, RestoreCommand> ||
                  std::is_same_v<T, TransformCommand> ||
                  std::is_same_v<T, BeginSymbolCommand> ||
-                 std::is_same_v<T, EndSymbolCommand> ||
-                 std::is_same_v<T, PlaceSymbolCommand> ||
-                 std::is_same_v<T, TextCommand>;
+                  std::is_same_v<T, EndSymbolCommand> ||
+                  std::is_same_v<T, PlaceSymbolCommand> ||
+                  std::is_same_v<T, TextCommand>;
         },
         cmd);
 
     if (isBarrier) {
-      flushGroup();
       std::visit(handleBarrier, cmd);
       continue;
     }
 
-    if (group.empty())
-      currentSource = sources[i];
-
-    if (sources[i] != currentSource) {
-      flushGroup();
-      currentSource = sources[i];
-    }
-
-    group.push_back(i);
+    if (metadata[i].hasFill)
+      EmitCommandFill(content, stateCache, formatter, mapping, current,
+                      commands[i]);
+    if (metadata[i].hasStroke)
+      EmitCommandStroke(content, stateCache, formatter, mapping, current,
+                        commands[i]);
   }
-
-  flushGroup();
 
   return content.str();
 }
