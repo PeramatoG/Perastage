@@ -31,6 +31,7 @@ struct PlanPrintOptions {
   double pageHeightPt = 1191.0; // 420 mm in PostScript points
   double marginPt = 36.0;       // Half an inch margin for readability
   bool landscape = false;
+  bool compressStreams = true;
 };
 
 struct PlanExportResult {

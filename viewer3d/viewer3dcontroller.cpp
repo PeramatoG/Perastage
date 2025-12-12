@@ -826,6 +826,13 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
       continue;
     glPushMatrix();
 
+    if (m_captureCanvas) {
+      std::string key = m.modelFile.empty() ? m.name : m.modelFile;
+      if (key.empty())
+        key = "scene_object";
+      m_captureCanvas->SetSourceKey(key);
+    }
+
     bool highlight = (!m_highlightUuid.empty() && uuid == m_highlightUuid);
     bool selected = (m_selectedUuids.find(uuid) != m_selectedUuids.end());
 
@@ -900,6 +907,13 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
     if (!ConfigManager::Get().IsLayerVisible(t.layer))
       continue;
     glPushMatrix();
+
+    if (m_captureCanvas) {
+      std::string key = t.model.empty() ? t.name : t.model;
+      if (key.empty())
+        key = "truss";
+      m_captureCanvas->SetSourceKey(key);
+    }
 
     bool highlight = (!m_highlightUuid.empty() && uuid == m_highlightUuid);
     bool selected = (m_selectedUuids.find(uuid) != m_selectedUuids.end());
@@ -986,6 +1000,13 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
       continue;
     glPushMatrix();
 
+    if (m_captureCanvas) {
+      std::string key = !f.typeName.empty()
+                            ? f.typeName
+                            : (!f.gdtfSpec.empty() ? f.gdtfSpec : "unknown");
+      m_captureCanvas->SetSourceKey(key);
+    }
+
     bool highlight = (!m_highlightUuid.empty() && uuid == m_highlightUuid);
     bool selected = (m_selectedUuids.find(uuid) != m_selectedUuids.end());
 
@@ -1056,6 +1077,9 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
     }
 
     glPopMatrix();
+
+    if (m_captureCanvas)
+      m_captureCanvas->SetSourceKey("unknown");
   }
 
   const auto &groups = SceneDataManager::Instance().GetGroupObjects();

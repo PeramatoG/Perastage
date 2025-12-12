@@ -58,6 +58,10 @@ public:
     ApplyTransform();
   }
 
+  void SetSourceKey(const std::string &key) override {
+    (void)key;
+  }
+
   void DrawLine(float x0, float y0, float x1, float y1,
                 const CanvasStroke &stroke) override {
     ApplyStroke(stroke);
@@ -165,23 +169,38 @@ class RecordingCanvas : public ICanvas2D {
 public:
   explicit RecordingCanvas(CommandBuffer &buffer) : m_buffer(buffer) {}
 
-  void BeginFrame() override { m_buffer.commands.clear(); }
+  void BeginFrame() override {
+    m_buffer.Clear();
+  }
   void EndFrame() override {}
 
-  void Save() override { m_buffer.commands.emplace_back(SaveCommand{}); }
-  void Restore() override { m_buffer.commands.emplace_back(RestoreCommand{}); }
+  void Save() override {
+    m_buffer.commands.emplace_back(SaveCommand{});
+    m_buffer.sources.push_back(m_buffer.currentSourceKey);
+  }
+  void Restore() override {
+    m_buffer.commands.emplace_back(RestoreCommand{});
+    m_buffer.sources.push_back(m_buffer.currentSourceKey);
+  }
   void SetTransform(const CanvasTransform &transform) override {
     m_buffer.commands.emplace_back(TransformCommand{transform});
+    m_buffer.sources.push_back(m_buffer.currentSourceKey);
+  }
+
+  void SetSourceKey(const std::string &key) override {
+    m_buffer.currentSourceKey = key.empty() ? "unknown" : key;
   }
 
   void DrawLine(float x0, float y0, float x1, float y1,
                 const CanvasStroke &stroke) override {
     m_buffer.commands.emplace_back(LineCommand{x0, y0, x1, y1, stroke});
+    m_buffer.sources.push_back(m_buffer.currentSourceKey);
   }
 
   void DrawPolyline(const std::vector<float> &points,
                     const CanvasStroke &stroke) override {
     m_buffer.commands.emplace_back(PolylineCommand{points, stroke});
+    m_buffer.sources.push_back(m_buffer.currentSourceKey);
   }
 
   void DrawPolygon(const std::vector<float> &points, const CanvasStroke &stroke,
@@ -192,6 +211,7 @@ public:
       cmd.hasFill = true;
     }
     m_buffer.commands.emplace_back(std::move(cmd));
+    m_buffer.sources.push_back(m_buffer.currentSourceKey);
   }
 
   void DrawRectangle(float x, float y, float w, float h,
@@ -203,6 +223,7 @@ public:
       cmd.hasFill = true;
     }
     m_buffer.commands.emplace_back(std::move(cmd));
+    m_buffer.sources.push_back(m_buffer.currentSourceKey);
   }
 
   void DrawCircle(float cx, float cy, float radius, const CanvasStroke &stroke,
@@ -213,11 +234,13 @@ public:
       cmd.hasFill = true;
     }
     m_buffer.commands.emplace_back(std::move(cmd));
+    m_buffer.sources.push_back(m_buffer.currentSourceKey);
   }
 
   void DrawText(float x, float y, const std::string &text,
                 const CanvasTextStyle &style) override {
     m_buffer.commands.emplace_back(TextCommand{x, y, text, style});
+    m_buffer.sources.push_back(m_buffer.currentSourceKey);
   }
 
 private:
@@ -247,6 +270,10 @@ public:
   void SetTransform(const CanvasTransform &transform) override {
     for (auto *c : m_canvases)
       c->SetTransform(transform);
+  }
+  void SetSourceKey(const std::string &key) override {
+    for (auto *c : m_canvases)
+      c->SetSourceKey(key);
   }
   void DrawLine(float x0, float y0, float x1, float y1,
                 const CanvasStroke &stroke) override {
