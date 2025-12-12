@@ -408,19 +408,13 @@ std::string RenderCommandsToStream(
       return;
 
     for (size_t idx : group) {
-      if (metadata[idx].hasStroke)
-        EmitCommandStroke(content, stateCache, formatter, mapping, current,
-                          commands[idx]);
-    }
-
-    for (size_t idx : group) {
       if (metadata[idx].hasFill)
         EmitCommandFill(content, stateCache, formatter, mapping, current,
                         commands[idx]);
     }
 
     for (size_t idx : group) {
-      if (metadata[idx].hasStroke && !metadata[idx].hasFill)
+      if (metadata[idx].hasStroke)
         EmitCommandStroke(content, stateCache, formatter, mapping, current,
                           commands[idx]);
     }
