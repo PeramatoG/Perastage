@@ -1421,6 +1421,10 @@ void Viewer3DController::DrawMeshWithOutline(
            mesh.vertices[i1 * 3 + 2] * scale},
           {mesh.vertices[i2 * 3] * scale, mesh.vertices[i2 * 3 + 1] * scale,
            mesh.vertices[i2 * 3 + 2] * scale}};
+      if (captureTransform) {
+        for (auto &p : pts)
+          p = captureTransform(p);
+      }
       RecordPolygon(pts, stroke, &fill);
     }
   }
