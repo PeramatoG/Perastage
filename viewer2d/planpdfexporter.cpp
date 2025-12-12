@@ -442,12 +442,16 @@ std::string RenderCommandsToStream(
       continue;
     }
 
-    if (metadata[i].hasFill)
-      EmitCommandFill(content, stateCache, formatter, mapping, current,
-                      commands[i]);
+    // The on-screen 2D renderer draws outlines before filling the geometry in
+    // wireframe-derived modes (see Viewer3DController::DrawMeshWithOutline). To
+    // reproduce the same visual result in the PDF export we must respect that
+    // order so fills can intentionally cover strokes when required.
     if (metadata[i].hasStroke)
       EmitCommandStroke(content, stateCache, formatter, mapping, current,
                         commands[i]);
+    if (metadata[i].hasFill)
+      EmitCommandFill(content, stateCache, formatter, mapping, current,
+                      commands[i]);
   }
 
   return content.str();
