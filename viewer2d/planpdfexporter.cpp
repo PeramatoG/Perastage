@@ -568,6 +568,8 @@ PlanExportResult ExportPlanToPdf(const CommandBuffer &buffer,
   double maxX = halfW - offX;
   double minY = -halfH - offY;
   double maxY = halfH - offY;
+  double width = maxX - minX;
+  double height = maxY - minY;
   if (width <= 0.0 || height <= 0.0) {
     result.message = "Viewport dimensions are invalid for export.";
     return result;
