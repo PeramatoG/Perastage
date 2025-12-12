@@ -17,6 +17,7 @@
  */
 #include "preferencesdialog.h"
 #include "configmanager.h"
+#include "print/PlanPrintSettings.h"
 
 #include <wx/notebook.h>
 #include <wx/checkbox.h>
@@ -28,10 +29,11 @@ PreferencesDialog::PreferencesDialog(wxWindow *parent)
   wxBoxSizer *topSizer = new wxBoxSizer(wxVERTICAL);
   wxNotebook *book = new wxNotebook(this, wxID_ANY);
 
+  ConfigManager &cfg = ConfigManager::Get();
+
   // Rider Import page
   wxPanel *riderPanel = new wxPanel(book);
   wxBoxSizer *riderSizer = new wxBoxSizer(wxVERTICAL);
-  ConfigManager &cfg = ConfigManager::Get();
   autopatchCheck = new wxCheckBox(riderPanel, wxID_ANY,
                                   "Auto patch after import");
   auto autoVal = cfg.GetValue("rider_autopatch");
@@ -84,14 +86,56 @@ PreferencesDialog::PreferencesDialog(wxWindow *parent)
 
   book->AddPage(riderPanel, "Rider Import");
 
+  // Plan printing page
+  wxPanel *planPanel = new wxPanel(book);
+  wxBoxSizer *planSizer = new wxBoxSizer(wxVERTICAL);
+
+  wxStaticBoxSizer *pageSizeSizer =
+      new wxStaticBoxSizer(wxVERTICAL, planPanel, "Page size");
+  pageSizeA3Radio = new wxRadioButton(planPanel, wxID_ANY, "A3", wxDefaultPosition,
+                                      wxDefaultSize, wxRB_GROUP);
+  pageSizeA4Radio = new wxRadioButton(planPanel, wxID_ANY, "A4");
+  pageSizeSizer->Add(pageSizeA3Radio, 0, wxALL, 5);
+  pageSizeSizer->Add(pageSizeA4Radio, 0, wxALL, 5);
+  planSizer->Add(pageSizeSizer, 0, wxEXPAND | wxALL, 10);
+
+  wxStaticBoxSizer *orientationSizer = new wxStaticBoxSizer(
+      wxVERTICAL, planPanel, "Orientation");
+  portraitRadio = new wxRadioButton(planPanel, wxID_ANY, "Portrait",
+                                    wxDefaultPosition, wxDefaultSize,
+                                    wxRB_GROUP);
+  landscapeRadio = new wxRadioButton(planPanel, wxID_ANY, "Landscape");
+  orientationSizer->Add(portraitRadio, 0, wxALL, 5);
+  orientationSizer->Add(landscapeRadio, 0, wxALL, 5);
+  planSizer->Add(orientationSizer, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM,
+                 10);
+
+  includeGridCheck = new wxCheckBox(planPanel, wxID_ANY, "Include grid");
+  planSizer->Add(includeGridCheck, 0, wxLEFT | wxRIGHT | wxBOTTOM, 10);
+
+  wxStaticBoxSizer *elementsSizer =
+      new wxStaticBoxSizer(wxVERTICAL, planPanel, "Elements detail");
+  detailedRadio = new wxRadioButton(planPanel, wxID_ANY, "Detailed",
+                                    wxDefaultPosition, wxDefaultSize,
+                                    wxRB_GROUP);
+  schematicRadio = new wxRadioButton(planPanel, wxID_ANY, "Schematic");
+  elementsSizer->Add(detailedRadio, 0, wxALL, 5);
+  elementsSizer->Add(schematicRadio, 0, wxALL, 5);
+  planSizer->Add(elementsSizer, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 10);
+
+  LoadPlanPrintSettings(print::PlanPrintSettings::LoadFromConfig(cfg));
+
+  planPanel->SetSizer(planSizer);
+  book->AddPage(planPanel, "Plan Printing");
+
   topSizer->Add(book, 1, wxEXPAND | wxALL, 5);
-  topSizer->Add(CreateSeparatedButtonSizer(wxOK | wxCANCEL), 0,
+  topSizer->Add(CreateSeparatedButtonSizer(wxOK | wxCANCEL | wxAPPLY), 0,
                 wxALL | wxEXPAND, 5);
 
   SetSizerAndFit(topSizer);
 
   Bind(wxEVT_BUTTON, [this](wxCommandEvent &evt) {
-    if (evt.GetId() == wxID_OK) {
+    if (evt.GetId() == wxID_OK || evt.GetId() == wxID_APPLY) {
       ConfigManager &cfg = ConfigManager::Get();
       for (int i = 0; i < 6; ++i) {
         double v = 0.0;
@@ -104,13 +148,37 @@ PreferencesDialog::PreferencesDialog(wxWindow *parent)
                      static_cast<float>(p));
         double m = 0.0;
         lxMarginCtrls[i]->GetValue().ToDouble(&m);
-      cfg.SetFloat("rider_lx" + std::to_string(i + 1) + "_margin",
+        cfg.SetFloat("rider_lx" + std::to_string(i + 1) + "_margin",
                      static_cast<float>(m));
       }
       cfg.SetValue("rider_autopatch", autopatchCheck->GetValue() ? "1" : "0");
       cfg.SetValue("rider_layer_mode",
                    layerTypeRadio->GetValue() ? "type" : "position");
+
+      print::PlanPrintSettings planSettings;
+      SavePlanPrintSettings(planSettings);
+      planSettings.SaveToConfig(cfg);
     }
     evt.Skip();
   });
+}
+
+void PreferencesDialog::LoadPlanPrintSettings(
+    const print::PlanPrintSettings &settings) {
+  pageSizeA3Radio->SetValue(settings.pageSize == print::PageSize::A3);
+  pageSizeA4Radio->SetValue(settings.pageSize == print::PageSize::A4);
+  landscapeRadio->SetValue(settings.landscape);
+  portraitRadio->SetValue(!settings.landscape);
+  includeGridCheck->SetValue(settings.includeGrid);
+  detailedRadio->SetValue(settings.detailedFootprints);
+  schematicRadio->SetValue(!settings.detailedFootprints);
+}
+
+void PreferencesDialog::SavePlanPrintSettings(
+    print::PlanPrintSettings &settings) {
+  settings.pageSize = pageSizeA4Radio->GetValue() ? print::PageSize::A4
+                                                  : print::PageSize::A3;
+  settings.landscape = landscapeRadio->GetValue();
+  settings.includeGrid = includeGridCheck->GetValue();
+  settings.detailedFootprints = detailedRadio->GetValue();
 }
