@@ -286,9 +286,9 @@ void AppendCircle(std::ostringstream &out, GraphicsStateCache &cache,
 
 void AppendText(std::ostringstream &out, const FloatFormatter &fmt,
                 const Point &pos, const TextCommand &cmd,
-                const CanvasTextStyle &style) {
+                const CanvasTextStyle &style, double scaledFontSize) {
   (void)cmd;
-  out << "BT\n/F1 " << fmt.Format(style.fontSize) << " Tf\n";
+  out << "BT\n/F1 " << fmt.Format(scaledFontSize) << " Tf\n";
   out << fmt.Format(style.color.r) << ' ' << fmt.Format(style.color.g) << ' '
       << fmt.Format(style.color.b) << " rg\n";
   out << fmt.Format(pos.x) << ' ' << fmt.Format(pos.y) << " Td\n";
@@ -297,7 +297,7 @@ void AppendText(std::ostringstream &out, const FloatFormatter &fmt,
     if (ch == '(' || ch == ')' || ch == '\\')
       out << '\\';
     if (ch == '\n') {
-      out << ") Tj\n0 " << -style.fontSize << " Td\n(";
+      out << ") Tj\n0 " << -scaledFontSize << " Td\n(";
       continue;
     }
     out << ch;
@@ -458,7 +458,8 @@ std::string RenderCommandsToStream(
       current.offsetY = cmd.transform.offsetY;
     } else if constexpr (std::is_same_v<T, TextCommand>) {
       auto pos = MapPointWithTransform(cmd.x, cmd.y, current, mapping);
-      AppendText(content, formatter, pos, cmd, cmd.style);
+      double scaledFontSize = cmd.style.fontSize * current.scale * mapping.scale;
+      AppendText(content, formatter, pos, cmd, cmd.style, scaledFontSize);
     } else {
       // Symbol control commands are handled at a higher level but must preserve
       // ordering relative to drawing commands.
