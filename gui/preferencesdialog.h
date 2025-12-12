@@ -20,6 +20,10 @@
 #include <array>
 #include <wx/wx.h>
 
+namespace print {
+class PlanPrintSettings;
+}
+
 class PreferencesDialog : public wxDialog {
 public:
   PreferencesDialog(wxWindow *parent);
@@ -31,4 +35,14 @@ private:
   wxCheckBox *autopatchCheck = nullptr;
   wxRadioButton *layerPosRadio = nullptr;
   wxRadioButton *layerTypeRadio = nullptr;
+  wxRadioButton *pageSizeA3Radio = nullptr;
+  wxRadioButton *pageSizeA4Radio = nullptr;
+  wxRadioButton *portraitRadio = nullptr;
+  wxRadioButton *landscapeRadio = nullptr;
+  wxCheckBox *includeGridCheck = nullptr;
+  wxRadioButton *detailedRadio = nullptr;
+  wxRadioButton *schematicRadio = nullptr;
+
+  void LoadPlanPrintSettings(const print::PlanPrintSettings &settings);
+  void SavePlanPrintSettings(print::PlanPrintSettings &settings);
 };
