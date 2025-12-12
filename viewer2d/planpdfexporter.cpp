@@ -202,28 +202,15 @@ void AppendPolygon(std::ostringstream &out, GraphicsStateCache &cache,
   };
 
   if (stroke.width > 0.0f) {
-    CanvasStroke outlineStroke = stroke;
-    outlineStroke.color = {0.0f, 0.0f, 0.0f, 1.0f};
-    outlineStroke.width = 2.0f;
-    cache.SetStroke(out, outlineStroke, fmt);
+    cache.SetStroke(out, stroke, fmt);
     emitPath();
     out << "S\n";
   }
 
   if (fill) {
     cache.SetFill(out, *fill, fmt);
-    if (stroke.width > 0.0f) {
-      cache.SetStroke(out, stroke, fmt);
-      emitPath();
-      out << "B\n";
-    } else {
-      emitPath();
-      out << "f\n";
-    }
-  } else if (stroke.width > 0.0f) {
-    cache.SetStroke(out, stroke, fmt);
     emitPath();
-    out << "S\n";
+    out << "f\n";
   }
 }
 
