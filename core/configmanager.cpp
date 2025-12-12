@@ -34,6 +34,8 @@ class wxZipStreamLink;
 #include <wx/zipstrm.h>
 
 namespace {
+bool TryParseFloat(const std::string &text, float &out);
+
 class TempDir {
 public:
   explicit TempDir(const std::string &prefix) {
