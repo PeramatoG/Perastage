@@ -81,6 +81,7 @@ using json = nlohmann::json;
 #include "splashscreen.h"
 #include "summarypanel.h"
 #include "tableprinter.h"
+#include "print/PlanPrintSettings.h"
 #include "planpdfexporter.h"
 #include "print_diagnostics.h"
 #include "support.h"
@@ -1312,9 +1313,15 @@ void MainWindow::OnPrintPlan(wxCommandEvent &WXUNUSED(event)) {
     return;
   }
 
+  print::PlanPrintSettings settings =
+      print::PlanPrintSettings::LoadFromConfig(ConfigManager::Get());
+
   PlanPrintOptions opts; // Defaults to A3 portrait.
-  opts.printIncludeGrid =
-      ConfigManager::Get().GetFloat("print_include_grid") != 0.0f;
+  opts.landscape = settings.landscape;
+  opts.printIncludeGrid = settings.includeGrid;
+  opts.useSimplifiedFootprints = !settings.detailedFootprints;
+  opts.pageWidthPt = settings.PageWidthPt();
+  opts.pageHeightPt = settings.PageHeightPt();
   std::filesystem::path outputPath(
       std::filesystem::path(outputPathWx.ToStdWstring()));
   wxString outputPathDisplay = outputPathWx;

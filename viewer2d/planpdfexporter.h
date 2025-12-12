@@ -23,13 +23,15 @@
 #include <filesystem>
 #include <string>
 
+constexpr double kMmToPt = 72.0 / 25.4;
+
 // Options describing the paper size and orientation for the PDF export. A3
 // portrait is used by default but callers can override the values to support
 // additional formats and orientations later on.
 struct PlanPrintOptions {
-  double pageWidthPt = 842.0;  // 297 mm in PostScript points
-  double pageHeightPt = 1191.0; // 420 mm in PostScript points
-  double marginPt = 36.0;       // Half an inch margin for readability
+  double pageWidthPt = 297.0 * kMmToPt;  // A3 portrait width
+  double pageHeightPt = 420.0 * kMmToPt; // A3 portrait height
+  double marginPt = 36.0;                // Half an inch margin for readability
   bool landscape = false;
   bool compressStreams = true;
   int floatPrecision = 3;
