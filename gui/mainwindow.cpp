@@ -1336,6 +1336,18 @@ void MainWindow::OnPrintPlan(wxCommandEvent &WXUNUSED(event)) {
                        wxOK | wxICON_INFORMATION, this);
         }
 
+        std::string fixtureReport;
+        if (viewport2DPanel)
+          fixtureReport = viewport2DPanel->GetLastFixtureDebugReport();
+        if (!fixtureReport.empty()) {
+          wxLogMessage("%s", wxString::FromUTF8(fixtureReport));
+          if (showDiagnosticsBox) {
+            wxMessageBox(wxString::FromUTF8(fixtureReport),
+                         "Print Plan fixture debug", wxOK | wxICON_INFORMATION,
+                         this);
+          }
+        }
+
         // Run the PDF generation off the UI thread to avoid freezing the
         // window while writing potentially large plans to disk.
         std::thread([this, buffer = std::move(buffer), state, opts, outputPath,

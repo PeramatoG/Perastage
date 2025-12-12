@@ -177,14 +177,17 @@ public:
   void Save() override {
     m_buffer.commands.emplace_back(SaveCommand{});
     m_buffer.sources.push_back(m_buffer.currentSourceKey);
+    m_buffer.metadata.push_back({});
   }
   void Restore() override {
     m_buffer.commands.emplace_back(RestoreCommand{});
     m_buffer.sources.push_back(m_buffer.currentSourceKey);
+    m_buffer.metadata.push_back({});
   }
   void SetTransform(const CanvasTransform &transform) override {
     m_buffer.commands.emplace_back(TransformCommand{transform});
     m_buffer.sources.push_back(m_buffer.currentSourceKey);
+    m_buffer.metadata.push_back({});
   }
 
   void SetSourceKey(const std::string &key) override {
@@ -195,12 +198,14 @@ public:
                 const CanvasStroke &stroke) override {
     m_buffer.commands.emplace_back(LineCommand{x0, y0, x1, y1, stroke});
     m_buffer.sources.push_back(m_buffer.currentSourceKey);
+    m_buffer.metadata.push_back({stroke.width > 0.0f, false});
   }
 
   void DrawPolyline(const std::vector<float> &points,
                     const CanvasStroke &stroke) override {
     m_buffer.commands.emplace_back(PolylineCommand{points, stroke});
     m_buffer.sources.push_back(m_buffer.currentSourceKey);
+    m_buffer.metadata.push_back({stroke.width > 0.0f, false});
   }
 
   void DrawPolygon(const std::vector<float> &points, const CanvasStroke &stroke,
@@ -212,6 +217,7 @@ public:
     }
     m_buffer.commands.emplace_back(std::move(cmd));
     m_buffer.sources.push_back(m_buffer.currentSourceKey);
+    m_buffer.metadata.push_back({stroke.width > 0.0f, fill != nullptr});
   }
 
   void DrawRectangle(float x, float y, float w, float h,
@@ -224,6 +230,7 @@ public:
     }
     m_buffer.commands.emplace_back(std::move(cmd));
     m_buffer.sources.push_back(m_buffer.currentSourceKey);
+    m_buffer.metadata.push_back({stroke.width > 0.0f, fill != nullptr});
   }
 
   void DrawCircle(float cx, float cy, float radius, const CanvasStroke &stroke,
@@ -235,12 +242,14 @@ public:
     }
     m_buffer.commands.emplace_back(std::move(cmd));
     m_buffer.sources.push_back(m_buffer.currentSourceKey);
+    m_buffer.metadata.push_back({stroke.width > 0.0f, fill != nullptr});
   }
 
   void DrawText(float x, float y, const std::string &text,
                 const CanvasTextStyle &style) override {
     m_buffer.commands.emplace_back(TextCommand{x, y, text, style});
     m_buffer.sources.push_back(m_buffer.currentSourceKey);
+    m_buffer.metadata.push_back({});
   }
 
 private:

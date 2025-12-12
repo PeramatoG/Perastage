@@ -149,6 +149,11 @@ struct TextCommand {
   CanvasTextStyle style{};
 };
 
+struct CommandMetadata {
+  bool hasStroke = false;
+  bool hasFill = false;
+};
+
 struct SaveCommand {};
 struct RestoreCommand {};
 struct TransformCommand { CanvasTransform transform; };
@@ -164,12 +169,14 @@ using CanvasCommand =
 struct CommandBuffer {
   std::vector<CanvasCommand> commands;
   std::vector<std::string> sources;
+  std::vector<CommandMetadata> metadata;
 
   std::string currentSourceKey = "unknown";
 
   void Clear() {
     commands.clear();
     sources.clear();
+    metadata.clear();
     currentSourceKey = "unknown";
   }
 };

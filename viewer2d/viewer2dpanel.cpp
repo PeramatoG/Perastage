@@ -37,6 +37,8 @@
 #include "canvas2d.h"
 #include <algorithm>
 #include <cmath>
+#include <map>
+#include <sstream>
 #include <vector>
 
 // Pixels per meter at default zoom level.
@@ -92,6 +94,60 @@ void EmitGrid(ICanvas2D &canvas, int style, Viewer2DView view, float r, float g,
       }
     }
   }
+}
+
+std::string BuildFixtureDebugReport(const CommandBuffer &buffer,
+                                    const std::string &debugKey) {
+  if (debugKey.empty())
+    return {};
+
+  size_t polygonCount = 0;
+  size_t filledPolygons = 0;
+  size_t strokedPolygons = 0;
+  std::map<int, size_t> histogram;
+
+  auto getMeta = [&](size_t idx) -> CommandMetadata {
+    if (idx < buffer.metadata.size())
+      return buffer.metadata[idx];
+    return {};
+  };
+
+  for (size_t i = 0; i < buffer.commands.size(); ++i) {
+    if (i >= buffer.sources.size())
+      break;
+    if (buffer.sources[i] != debugKey)
+      continue;
+
+    const auto &cmd = buffer.commands[i];
+    const auto meta = getMeta(i);
+    auto addEntry = [&](int vertices) {
+      ++polygonCount;
+      ++histogram[vertices];
+      if (meta.hasFill)
+        ++filledPolygons;
+      if (meta.hasStroke)
+        ++strokedPolygons;
+    };
+
+    if (std::holds_alternative<PolygonCommand>(cmd)) {
+      const auto &poly = std::get<PolygonCommand>(cmd);
+      addEntry(static_cast<int>(poly.points.size() / 2));
+    } else if (std::holds_alternative<RectangleCommand>(cmd)) {
+      addEntry(4);
+    }
+  }
+
+  if (polygonCount == 0)
+    return {};
+
+  std::ostringstream out;
+  out << "Fixture capture debug ['" << debugKey << "']: polygons="
+      << polygonCount << ", filled=" << filledPolygons
+      << ", stroked=" << strokedPolygons << "\nVertex histogram:";
+  for (const auto &[verts, count] : histogram)
+    out << ' ' << verts << "->" << count;
+
+  return out.str();
 }
 } // namespace
 
@@ -271,6 +327,18 @@ void Viewer2DPanel::Render() {
     recordingCanvas->EndFrame();
     m_captureNextFrame = false;
     m_controller.SetCaptureCanvas(nullptr, m_view);
+
+    m_lastFixtureDebugReport.clear();
+    if (auto debugKey = ConfigManager::Get().GetValue(
+            "print_plan_fixture_debug_key")) {
+      if (!debugKey->empty()) {
+        m_lastFixtureDebugReport =
+            BuildFixtureDebugReport(m_lastCapturedFrame, *debugKey);
+        if (!m_lastFixtureDebugReport.empty()) {
+          wxLogMessage("%s", wxString::FromUTF8(m_lastFixtureDebugReport));
+        }
+      }
+    }
 
     if (m_captureCallback) {
       // Capture buffer and state copies before invoking the callback to avoid
