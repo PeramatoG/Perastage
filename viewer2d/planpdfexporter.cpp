@@ -76,6 +76,13 @@ void AppendStroke(std::ostringstream &out, const CanvasStroke &stroke) {
   out << FormatFloat(stroke.width) << " w\n";
 }
 
+CanvasStroke ScaleStroke(const CanvasStroke &stroke, double transformScale,
+                         double pageScale) {
+  CanvasStroke scaled = stroke;
+  scaled.width = stroke.width * transformScale * pageScale;
+  return scaled;
+}
+
 void AppendFill(std::ostringstream &out, const CanvasFill &fill) {
   out << FormatFloat(fill.color.r) << ' ' << FormatFloat(fill.color.g) << ' '
       << FormatFloat(fill.color.b) << " rg\n";
@@ -305,7 +312,8 @@ PlanExportResult ExportPlanToPdf(const CommandBuffer &buffer,
                                 pageH);
             auto pb = MapToPage(b.x, b.y, minX, minY, scale, offsetX, offsetY,
                                 pageH);
-            AppendLine(content, pa, pb, c.stroke);
+            CanvasStroke stroke = ScaleStroke(c.stroke, current.scale, scale);
+            AppendLine(content, pa, pb, stroke);
           } else if constexpr (std::is_same_v<T, PolylineCommand>) {
             std::vector<Point> pts;
             pts.reserve(c.points.size() / 2);
@@ -314,7 +322,8 @@ PlanExportResult ExportPlanToPdf(const CommandBuffer &buffer,
               pts.push_back(MapToPage(p.x, p.y, minX, minY, scale, offsetX,
                                       offsetY, pageH));
             }
-            AppendPolyline(content, pts, c.stroke);
+            CanvasStroke stroke = ScaleStroke(c.stroke, current.scale, scale);
+            AppendPolyline(content, pts, stroke);
           } else if constexpr (std::is_same_v<T, PolygonCommand>) {
             std::vector<Point> pts;
             pts.reserve(c.points.size() / 2);
@@ -324,7 +333,8 @@ PlanExportResult ExportPlanToPdf(const CommandBuffer &buffer,
                                       offsetY, pageH));
             }
             const CanvasFill *fill = c.hasFill ? &c.fill : nullptr;
-            AppendPolygon(content, pts, c.stroke, fill);
+            CanvasStroke stroke = ScaleStroke(c.stroke, current.scale, scale);
+            AppendPolygon(content, pts, stroke, fill);
           } else if constexpr (std::is_same_v<T, RectangleCommand>) {
             auto o = Apply(current, c.x, c.y);
             auto mapped =
@@ -332,14 +342,16 @@ PlanExportResult ExportPlanToPdf(const CommandBuffer &buffer,
             double w = c.w * current.scale * scale;
             double h = c.h * current.scale * scale;
             const CanvasFill *fill = c.hasFill ? &c.fill : nullptr;
-            AppendRectangle(content, mapped, w, h, c.stroke, fill);
+            CanvasStroke stroke = ScaleStroke(c.stroke, current.scale, scale);
+            AppendRectangle(content, mapped, w, h, stroke, fill);
           } else if constexpr (std::is_same_v<T, CircleCommand>) {
             auto c0 = Apply(current, c.cx, c.cy);
             auto mapped = MapToPage(c0.x, c0.y, minX, minY, scale, offsetX,
                                     offsetY, pageH);
             double radius = c.radius * current.scale * scale;
             const CanvasFill *fill = c.hasFill ? &c.fill : nullptr;
-            AppendCircle(content, mapped, radius, c.stroke, fill);
+            CanvasStroke stroke = ScaleStroke(c.stroke, current.scale, scale);
+            AppendCircle(content, mapped, radius, stroke, fill);
           } else if constexpr (std::is_same_v<T, TextCommand>) {
             auto p = Apply(current, c.x, c.y);
             auto mapped = MapToPage(p.x, p.y, minX, minY, scale, offsetX,
