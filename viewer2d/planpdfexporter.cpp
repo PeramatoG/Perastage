@@ -36,6 +36,9 @@
 namespace {
 
 constexpr float PIXELS_PER_METER = 25.0f;
+// Matches the tighter line spacing used by the on-screen 2D viewer when
+// rendering multi-line text labels.
+constexpr float PDF_TEXT_LINE_HEIGHT_FACTOR = 0.8f;
 
 struct PdfObject {
   std::string body;
@@ -288,6 +291,7 @@ void AppendText(std::ostringstream &out, const FloatFormatter &fmt,
                 const Point &pos, const TextCommand &cmd,
                 const CanvasTextStyle &style) {
   (void)cmd;
+  const double lineAdvance = -style.fontSize * PDF_TEXT_LINE_HEIGHT_FACTOR;
   out << "BT\n/F1 " << fmt.Format(style.fontSize) << " Tf\n";
   out << fmt.Format(style.color.r) << ' ' << fmt.Format(style.color.g) << ' '
       << fmt.Format(style.color.b) << " rg\n";
@@ -297,7 +301,7 @@ void AppendText(std::ostringstream &out, const FloatFormatter &fmt,
     if (ch == '(' || ch == ')' || ch == '\\')
       out << '\\';
     if (ch == '\n') {
-      out << ") Tj\n0 " << -style.fontSize << " Td\n(";
+      out << ") Tj\n0 " << fmt.Format(lineAdvance) << " Td\n(";
       continue;
     }
     out << ch;
