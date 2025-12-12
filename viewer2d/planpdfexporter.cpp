@@ -506,7 +506,7 @@ PlanExportResult ExportPlanToPdf(const CommandBuffer &buffer,
     mainCommands.push_back(cmd);
   }
 
-  Mapping pageMapping{minX, minY, scale, offsetX, offsetY, pageH, true};
+  Mapping pageMapping{minX, minY, scale, offsetX, offsetY, pageH, false};
   std::string contentStr = RenderCommandsToStream(mainCommands, pageMapping,
                                                  formatter);
 
@@ -526,9 +526,9 @@ PlanExportResult ExportPlanToPdf(const CommandBuffer &buffer,
       continue;
 
     double a = placement.transform.scale * scale;
-    double d = -placement.transform.scale * scale;
+    double d = placement.transform.scale * scale;
     double e = scale * (placement.transform.offsetX - minX) + offsetX;
-    double f = pageH - offsetY - scale * (placement.transform.offsetY - minY);
+    double f = offsetY + scale * (placement.transform.offsetY - minY);
 
     placementStream << "q\n" << formatter.Format(a) << " 0 0 "
                     << formatter.Format(d) << ' ' << formatter.Format(e) << ' '
