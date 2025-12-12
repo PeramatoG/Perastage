@@ -112,7 +112,8 @@ Point MapWithMapping(double x, double y, const Mapping &mapping) {
   double px = mapping.offsetX + (x - mapping.minX) * mapping.scale;
   double py = mapping.offsetY + (y - mapping.minY) * mapping.scale;
   if (mapping.flipY)
-    py = mapping.pageHeight - py;
+    py = mapping.pageHeight - mapping.offsetY -
+         (y - mapping.minY) * mapping.scale;
   return {px, py};
 }
 
