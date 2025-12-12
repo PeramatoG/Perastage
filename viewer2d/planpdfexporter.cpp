@@ -218,18 +218,21 @@ void AppendRectangle(std::ostringstream &out, GraphicsStateCache &cache,
                      const FloatFormatter &fmt, const Point &origin, double w,
                      double h, const CanvasStroke &stroke,
                      const CanvasFill *fill) {
-  if (fill)
-    cache.SetFill(out, *fill, fmt);
-  out << fmt.Format(origin.x) << ' ' << fmt.Format(origin.y) << ' '
-      << fmt.Format(w) << ' ' << fmt.Format(h) << " re\n";
-  if (fill && stroke.width > 0.0f) {
+  auto emitRect = [&]() {
+    out << fmt.Format(origin.x) << ' ' << fmt.Format(origin.y) << ' '
+        << fmt.Format(w) << ' ' << fmt.Format(h) << " re\n";
+  };
+
+  if (stroke.width > 0.0f) {
     cache.SetStroke(out, stroke, fmt);
-    out << "B\n";
-  } else if (fill) {
-    out << "f\n";
-  } else if (stroke.width > 0.0f) {
-    cache.SetStroke(out, stroke, fmt);
+    emitRect();
     out << "S\n";
+  }
+
+  if (fill) {
+    cache.SetFill(out, *fill, fmt);
+    emitRect();
+    out << "f\n";
   }
 }
 
@@ -252,31 +255,32 @@ void AppendCircle(std::ostringstream &out, GraphicsStateCache &cache,
   Point p10{center.x + c, center.y - radius};
   Point p11{center.x + radius, center.y - c};
 
-  if (fill)
-    cache.SetFill(out, *fill, fmt);
+  auto emitCircle = [&]() {
+    out << fmt.Format(p0.x) << ' ' << fmt.Format(p0.y) << " m\n"
+        << fmt.Format(p1.x) << ' ' << fmt.Format(p1.y) << ' '
+        << fmt.Format(p2.x) << ' ' << fmt.Format(p2.y) << ' '
+        << fmt.Format(p3.x) << ' ' << fmt.Format(p3.y) << " c\n"
+        << fmt.Format(p4.x) << ' ' << fmt.Format(p4.y) << ' '
+        << fmt.Format(p5.x) << ' ' << fmt.Format(p5.y) << ' '
+        << fmt.Format(p6.x) << ' ' << fmt.Format(p6.y) << " c\n"
+        << fmt.Format(p7.x) << ' ' << fmt.Format(p7.y) << ' '
+        << fmt.Format(p8.x) << ' ' << fmt.Format(p8.y) << ' '
+        << fmt.Format(p9.x) << ' ' << fmt.Format(p9.y) << " c\n"
+        << fmt.Format(p10.x) << ' ' << fmt.Format(p10.y) << ' '
+        << fmt.Format(p11.x) << ' ' << fmt.Format(p11.y) << ' '
+        << fmt.Format(p0.x) << ' ' << fmt.Format(p0.y) << " c\n";
+  };
 
-  out << fmt.Format(p0.x) << ' ' << fmt.Format(p0.y) << " m\n"
-      << fmt.Format(p1.x) << ' ' << fmt.Format(p1.y) << ' ' << fmt.Format(p2.x)
-      << ' ' << fmt.Format(p2.y) << ' ' << fmt.Format(p3.x) << ' '
-      << fmt.Format(p3.y) << " c\n"
-      << fmt.Format(p4.x) << ' ' << fmt.Format(p4.y) << ' ' << fmt.Format(p5.x)
-      << ' ' << fmt.Format(p5.y) << ' ' << fmt.Format(p6.x) << ' '
-      << fmt.Format(p6.y) << " c\n"
-      << fmt.Format(p7.x) << ' ' << fmt.Format(p7.y) << ' ' << fmt.Format(p8.x)
-      << ' ' << fmt.Format(p8.y) << ' ' << fmt.Format(p9.x) << ' '
-      << fmt.Format(p9.y) << " c\n"
-      << fmt.Format(p10.x) << ' ' << fmt.Format(p10.y) << ' '
-      << fmt.Format(p11.x) << ' ' << fmt.Format(p11.y) << ' '
-      << fmt.Format(p0.x) << ' ' << fmt.Format(p0.y) << " c\n";
-
-  if (fill && stroke.width > 0.0f) {
+  if (stroke.width > 0.0f) {
     cache.SetStroke(out, stroke, fmt);
-    out << "B\n";
-  } else if (fill) {
-    out << "f\n";
-  } else if (stroke.width > 0.0f) {
-    cache.SetStroke(out, stroke, fmt);
+    emitCircle();
     out << "S\n";
+  }
+
+  if (fill) {
+    cache.SetFill(out, *fill, fmt);
+    emitCircle();
+    out << "f\n";
   }
 }
 
