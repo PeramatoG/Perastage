@@ -17,7 +17,7 @@
  */
 #include "PlanPrintSettings.h"
 
-#include "core/configmanager.h"
+#include "configmanager.h"
 
 namespace {
 constexpr double kMmToPoints = 72.0 / 25.4;
