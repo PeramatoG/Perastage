@@ -346,11 +346,34 @@ Viewer3DController::ProjectToCanvas(const std::array<float, 3> &p) const {
   return {p[0], p[1]};
 }
 
+float Viewer3DController::DepthForPoint(const std::array<float, 3> &p) const {
+  switch (m_captureView) {
+  case Viewer2DView::Top:
+    return -p[2];
+  case Viewer2DView::Front:
+    return p[1];
+  case Viewer2DView::Side:
+    return p[0];
+  }
+  return -p[2];
+}
+
+float Viewer3DController::AverageDepth(
+    const std::vector<std::array<float, 3>> &points) const {
+  if (points.empty())
+    return 0.0f;
+  float accum = 0.0f;
+  for (const auto &p : points)
+    accum += DepthForPoint(p);
+  return accum / static_cast<float>(points.size());
+}
+
 void Viewer3DController::RecordLine(const std::array<float, 3> &a,
                                     const std::array<float, 3> &b,
                                     const CanvasStroke &stroke) const {
   if (!m_captureCanvas)
     return;
+  m_captureCanvas->SetDepthHint(0.5f * (DepthForPoint(a) + DepthForPoint(b)));
   auto p0 = ProjectToCanvas(a);
   auto p1 = ProjectToCanvas(b);
   m_captureCanvas->DrawLine(p0[0], p0[1], p1[0], p1[1], stroke);
@@ -361,6 +384,7 @@ void Viewer3DController::RecordPolyline(
     const CanvasStroke &stroke) const {
   if (!m_captureCanvas || points.size() < 2)
     return;
+  m_captureCanvas->SetDepthHint(AverageDepth(points));
   std::vector<float> flat;
   flat.reserve(points.size() * 2);
   for (const auto &p : points) {
@@ -376,6 +400,7 @@ void Viewer3DController::RecordPolygon(
     const CanvasStroke &stroke, const CanvasFill *fill) const {
   if (!m_captureCanvas || points.size() < 3)
     return;
+  m_captureCanvas->SetDepthHint(AverageDepth(points));
   std::vector<float> flat;
   flat.reserve(points.size() * 2);
   for (const auto &p : points) {

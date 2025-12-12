@@ -188,6 +188,8 @@ private:
 
   // Helpers used only when recording the 2D view to a canvas command buffer.
   std::array<float, 2> ProjectToCanvas(const std::array<float, 3> &p) const;
+  float DepthForPoint(const std::array<float, 3> &p) const;
+  float AverageDepth(const std::vector<std::array<float, 3>> &points) const;
   void RecordLine(const std::array<float, 3> &a, const std::array<float, 3> &b,
                   const CanvasStroke &stroke) const;
   void RecordPolyline(const std::vector<std::array<float, 3>> &points,

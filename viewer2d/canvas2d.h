@@ -80,6 +80,7 @@ public:
   virtual void Save() = 0;
   virtual void Restore() = 0;
   virtual void SetTransform(const CanvasTransform &transform) = 0;
+  virtual void SetDepthHint(float depth) = 0;
   virtual void SetSourceKey(const std::string &key) = 0;
   virtual void BeginSymbol(const std::string &key) = 0;
   virtual void EndSymbol(const std::string &key) = 0;
@@ -156,6 +157,8 @@ struct TextCommand {
 struct CommandMetadata {
   bool hasStroke = false;
   bool hasFill = false;
+  bool hasDepth = false;
+  float depth = 0.0f;
 };
 
 struct SaveCommand {};
