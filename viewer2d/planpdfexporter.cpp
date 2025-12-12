@@ -407,16 +407,22 @@ std::string RenderCommandsToStream(
     if (group.empty())
       return;
 
+    // Draw wireframe strokes first so that subsequent fills can cover
+    // interior edges from other polygons in the same group.
     for (size_t idx : group) {
-      if (metadata[idx].hasFill)
-        EmitCommandFill(content, stateCache, formatter, mapping, current,
-                        commands[idx]);
-    }
-
-    for (size_t idx : group) {
-      if (metadata[idx].hasStroke)
+      if (metadata[idx].hasStroke) {
         EmitCommandStroke(content, stateCache, formatter, mapping, current,
                           commands[idx]);
+      }
+    }
+
+    // Draw fills after strokes to hide any interior wireframe lines from the
+    // same group, matching the viewer's drawing order.
+    for (size_t idx : group) {
+      if (metadata[idx].hasFill) {
+        EmitCommandFill(content, stateCache, formatter, mapping, current,
+                        commands[idx]);
+      }
     }
 
     group.clear();
