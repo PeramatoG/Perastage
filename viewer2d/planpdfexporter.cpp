@@ -568,6 +568,8 @@ PlanExportResult ExportPlanToPdf(const CommandBuffer &buffer,
   double maxX = halfW - offX;
   double minY = -halfH - offY;
   double maxY = halfH - offY;
+  double width = maxX - minX;
+  double height = maxY - minY;
   if (width <= 0.0 || height <= 0.0) {
     result.message = "Viewport dimensions are invalid for export.";
     return result;
@@ -579,16 +581,20 @@ PlanExportResult ExportPlanToPdf(const CommandBuffer &buffer,
 
   FloatFormatter formatter(options.floatPrecision);
 
-  struct SymbolDefinition {
+  struct SymbolPlacement {
+    std::string key;
+    CanvasTransform transform{};
+  };
+
+  struct CommandGroup {
     std::vector<CanvasCommand> commands;
     std::vector<CommandMetadata> metadata;
     std::vector<std::string> sources;
   };
 
-  std::vector<CanvasCommand> finalCommands;
-  std::vector<CommandMetadata> finalMetadata;
-  std::vector<std::string> finalSources;
-  std::unordered_map<std::string, SymbolDefinition> symbolDefinitions;
+  CommandGroup mainCommands;
+  std::unordered_map<std::string, CommandGroup> symbolDefinitions;
+  std::vector<SymbolPlacement> placements;
   std::string capturingKey;
   std::vector<CanvasCommand> captureBuffer;
   std::vector<CommandMetadata> captureMetadata;
@@ -610,13 +616,17 @@ PlanExportResult ExportPlanToPdf(const CommandBuffer &buffer,
       if (!capturingKey.empty() && capturingKey == end->key &&
           !symbolDefinitions.count(capturingKey)) {
         symbolDefinitions.emplace(capturingKey,
-                                  SymbolDefinition{captureBuffer, captureMetadata,
-                                                   captureSources});
+                                  CommandGroup{captureBuffer, captureMetadata,
+                                               captureSources});
       }
       capturingKey.clear();
       captureBuffer.clear();
       captureMetadata.clear();
       captureSources.clear();
+      continue;
+    }
+    if (const auto *place = std::get_if<PlaceSymbolCommand>(&cmd)) {
+      placements.push_back({place->key, place->transform});
       continue;
     }
 
@@ -627,47 +637,43 @@ PlanExportResult ExportPlanToPdf(const CommandBuffer &buffer,
       continue;
     }
 
-    if (const auto *place = std::get_if<PlaceSymbolCommand>(&cmd)) {
-      auto it = symbolDefinitions.find(place->key);
-      if (it == symbolDefinitions.end())
-        continue;
-
-      finalCommands.push_back(SaveCommand{});
-      finalMetadata.push_back({});
-      finalSources.push_back(source);
-
-      finalCommands.push_back(TransformCommand{place->transform});
-      finalMetadata.push_back({});
-      finalSources.push_back(source);
-
-      const auto &def = it->second;
-      for (size_t j = 0; j < def.commands.size(); ++j) {
-        finalCommands.push_back(def.commands[j]);
-        if (j < def.metadata.size())
-          finalMetadata.push_back(def.metadata[j]);
-        else
-          finalMetadata.push_back({});
-        if (j < def.sources.size())
-          finalSources.push_back(def.sources[j]);
-        else
-          finalSources.push_back(source);
-      }
-
-      finalCommands.push_back(RestoreCommand{});
-      finalMetadata.push_back({});
-      finalSources.push_back(source);
-      continue;
-    }
-
-    finalCommands.push_back(cmd);
-    finalMetadata.push_back(meta);
-    finalSources.push_back(source);
+    mainCommands.commands.push_back(cmd);
+    mainCommands.metadata.push_back(meta);
+    mainCommands.sources.push_back(source);
   }
 
   Mapping pageMapping{minX, minY, scale, offsetX, offsetY, pageH, false};
-  std::string contentStr =
-      RenderCommandsToStream(finalCommands, finalMetadata, finalSources,
-                             pageMapping, formatter);
+  std::string contentStr = RenderCommandsToStream(
+      mainCommands.commands, mainCommands.metadata, mainCommands.sources,
+      pageMapping, formatter);
+
+  std::unordered_map<std::string, std::string> xObjectNames;
+  std::unordered_map<std::string, size_t> xObjectIds;
+  Mapping symbolMapping{};
+  symbolMapping.flipY = false;
+
+  for (const auto &entry : symbolDefinitions) {
+    xObjectNames.emplace(entry.first, MakePdfName(entry.first));
+  }
+
+  std::ostringstream placementStream;
+  for (const auto &placement : placements) {
+    auto nameIt = xObjectNames.find(placement.key);
+    if (nameIt == xObjectNames.end())
+      continue;
+
+    double a = placement.transform.scale * scale;
+    double d = placement.transform.scale * scale;
+    double e = scale * (placement.transform.offsetX - minX) + offsetX;
+    double f = offsetY + scale * (placement.transform.offsetY - minY);
+
+    placementStream << "q\n" << formatter.Format(a) << " 0 0 "
+                    << formatter.Format(d) << ' ' << formatter.Format(e) << ' '
+                    << formatter.Format(f) << " cm\n/" << nameIt->second
+                    << " Do\nQ\n";
+  }
+
+  contentStr += placementStream.str();
   std::string compressedContent;
   bool useCompression = false;
   if (options.compressStreams) {
@@ -679,6 +685,29 @@ PlanExportResult ExportPlanToPdf(const CommandBuffer &buffer,
   std::vector<PdfObject> objects;
   objects.push_back({"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"});
 
+  for (const auto &entry : symbolDefinitions) {
+    std::string symbolContent =
+        RenderCommandsToStream(entry.second.commands, entry.second.metadata,
+                               entry.second.sources, symbolMapping, formatter);
+    std::string compressedSymbol;
+    bool compressed = false;
+    if (options.compressStreams) {
+      std::string error;
+      compressed = PdfDeflater::Compress(symbolContent, compressedSymbol, error);
+    }
+    const std::string &symbolStream = compressed ? compressedSymbol : symbolContent;
+    std::ostringstream xobj;
+    xobj << "<< /Type /XObject /Subtype /Form /BBox [0 0 "
+         << formatter.Format(width) << ' ' << formatter.Format(height)
+         << "] /Resources << /Font << /F1 1 0 R >> >> /Length "
+         << symbolStream.size();
+    if (compressed)
+      xobj << " /Filter /FlateDecode";
+    xobj << " >>\nstream\n" << symbolStream << "endstream";
+    objects.push_back({xobj.str()});
+    xObjectIds[entry.first] = objects.size();
+  }
+
   std::ostringstream contentObj;
   const std::string &streamData = useCompression ? compressedContent : contentStr;
   contentObj << "<< /Length " << streamData.size();
@@ -689,6 +718,17 @@ PlanExportResult ExportPlanToPdf(const CommandBuffer &buffer,
 
   std::ostringstream resources;
   resources << "<< /Font << /F1 1 0 R >>";
+  if (!xObjectIds.empty()) {
+    resources << " /XObject << ";
+    for (const auto &entry : xObjectIds) {
+      auto nameIt = xObjectNames.find(entry.first);
+      if (nameIt == xObjectNames.end())
+        continue;
+      resources << '/' << nameIt->second << ' ' << entry.second << " 0 R ";
+    }
+    resources << ">>";
+  }
+  resources << " >>";
 
   std::ostringstream pageObj;
   size_t contentIndex = objects.size();
