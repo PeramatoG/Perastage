@@ -337,7 +337,11 @@ Viewer3DController::ProjectToCanvas(const std::array<float, 3> &p) const {
   case Viewer2DView::Front:
     return {p[0], p[2]};
   case Viewer2DView::Side:
-    return {p[1], p[2]};
+    // The side camera looks towards +X with +Z as the up vector, which makes
+    // the screen X axis point towards -Y in world space. Mirror the Y
+    // coordinate accordingly so the recorded commands match the on-screen
+    // orientation used by the 2D viewer.
+    return {-p[1], p[2]};
   }
   return {p[0], p[1]};
 }
