@@ -224,8 +224,10 @@ void Viewer2DPanel::SaveViewToConfig() const {
 void Viewer2DPanel::RequestFrameCapture() { m_captureNextFrame = true; }
 
 void Viewer2DPanel::CaptureFrameAsync(
-    std::function<void(CommandBuffer, Viewer2DViewState)> callback) {
+    std::function<void(CommandBuffer, Viewer2DViewState)> callback,
+    bool useSimplifiedFootprints) {
   m_captureCallback = std::move(callback);
+  m_useSimplifiedFootprints = useSimplifiedFootprints;
   RequestFrameCapture();
   Refresh();
 }
@@ -299,7 +301,8 @@ void Viewer2DPanel::Render() {
   std::unique_ptr<ICanvas2D> recordingCanvas;
   if (m_captureNextFrame) {
     m_lastCapturedFrame.Clear();
-    recordingCanvas = CreateRecordingCanvas(m_lastCapturedFrame);
+    recordingCanvas =
+        CreateRecordingCanvas(m_lastCapturedFrame, m_useSimplifiedFootprints);
     // The recorded commands operate in the same world-space coordinates used by
     // the OpenGL renderer. We keep the transform identity so the exporter can
     // apply the viewport offsets/zoom exactly once using the captured

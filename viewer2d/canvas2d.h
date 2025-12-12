@@ -184,7 +184,9 @@ struct CommandBuffer {
 // Factory helpers implemented in canvas2d.cpp so callers do not need to know
 // the concrete canvas classes.
 std::unique_ptr<ICanvas2D> CreateRasterCanvas(const CanvasTransform &transform);
-std::unique_ptr<ICanvas2D> CreateRecordingCanvas(CommandBuffer &buffer);
+std::unique_ptr<ICanvas2D> CreateRecordingCanvas(CommandBuffer &buffer,
+                                                 bool simplifyFootprints =
+                                                     false);
 std::unique_ptr<ICanvas2D> CreateMultiCanvas(
     const std::vector<ICanvas2D *> &canvases);
 

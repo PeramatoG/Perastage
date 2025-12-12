@@ -26,7 +26,12 @@
 
 #include <GL/gl.h>
 #include <wx/glcanvas.h>
+#include <algorithm>
+#include <array>
 #include <cmath>
+#include <limits>
+#include <optional>
+#include <unordered_map>
 
 namespace {
 // Applies a stroke color and width to the OpenGL state for immediate mode
@@ -167,45 +172,43 @@ private:
 
 class RecordingCanvas : public ICanvas2D {
 public:
-  explicit RecordingCanvas(CommandBuffer &buffer) : m_buffer(buffer) {}
+  RecordingCanvas(CommandBuffer &buffer, bool simplifyFootprints)
+      : m_buffer(buffer), m_simplifyFootprints(simplifyFootprints) {}
 
   void BeginFrame() override {
     m_buffer.Clear();
+    m_pendingGroup.reset();
   }
-  void EndFrame() override {}
+  void EndFrame() override { FlushPendingGroup(); }
 
   void Save() override {
-    m_buffer.commands.emplace_back(SaveCommand{});
-    m_buffer.sources.push_back(m_buffer.currentSourceKey);
-    m_buffer.metadata.push_back({});
+    FlushPendingGroup();
+    PushCommand(SaveCommand{}, {});
   }
   void Restore() override {
-    m_buffer.commands.emplace_back(RestoreCommand{});
-    m_buffer.sources.push_back(m_buffer.currentSourceKey);
-    m_buffer.metadata.push_back({});
+    FlushPendingGroup();
+    PushCommand(RestoreCommand{}, {});
   }
   void SetTransform(const CanvasTransform &transform) override {
-    m_buffer.commands.emplace_back(TransformCommand{transform});
-    m_buffer.sources.push_back(m_buffer.currentSourceKey);
-    m_buffer.metadata.push_back({});
+    FlushPendingGroup();
+    PushCommand(TransformCommand{transform}, {});
   }
 
   void SetSourceKey(const std::string &key) override {
+    if (m_simplifyFootprints)
+      FlushPendingGroup();
     m_buffer.currentSourceKey = key.empty() ? "unknown" : key;
   }
 
   void DrawLine(float x0, float y0, float x1, float y1,
                 const CanvasStroke &stroke) override {
-    m_buffer.commands.emplace_back(LineCommand{x0, y0, x1, y1, stroke});
-    m_buffer.sources.push_back(m_buffer.currentSourceKey);
-    m_buffer.metadata.push_back({stroke.width > 0.0f, false});
+    AddCommand(LineCommand{x0, y0, x1, y1, stroke},
+               {stroke.width > 0.0f, false});
   }
 
   void DrawPolyline(const std::vector<float> &points,
                     const CanvasStroke &stroke) override {
-    m_buffer.commands.emplace_back(PolylineCommand{points, stroke});
-    m_buffer.sources.push_back(m_buffer.currentSourceKey);
-    m_buffer.metadata.push_back({stroke.width > 0.0f, false});
+    AddCommand(PolylineCommand{points, stroke}, {stroke.width > 0.0f, false});
   }
 
   void DrawPolygon(const std::vector<float> &points, const CanvasStroke &stroke,
@@ -215,9 +218,7 @@ public:
       cmd.fill = *fill;
       cmd.hasFill = true;
     }
-    m_buffer.commands.emplace_back(std::move(cmd));
-    m_buffer.sources.push_back(m_buffer.currentSourceKey);
-    m_buffer.metadata.push_back({stroke.width > 0.0f, fill != nullptr});
+    AddCommand(std::move(cmd), {stroke.width > 0.0f, fill != nullptr});
   }
 
   void DrawRectangle(float x, float y, float w, float h,
@@ -228,9 +229,7 @@ public:
       cmd.fill = *fill;
       cmd.hasFill = true;
     }
-    m_buffer.commands.emplace_back(std::move(cmd));
-    m_buffer.sources.push_back(m_buffer.currentSourceKey);
-    m_buffer.metadata.push_back({stroke.width > 0.0f, fill != nullptr});
+    AddCommand(std::move(cmd), {stroke.width > 0.0f, fill != nullptr});
   }
 
   void DrawCircle(float cx, float cy, float radius, const CanvasStroke &stroke,
@@ -240,20 +239,414 @@ public:
       cmd.fill = *fill;
       cmd.hasFill = true;
     }
-    m_buffer.commands.emplace_back(std::move(cmd));
-    m_buffer.sources.push_back(m_buffer.currentSourceKey);
-    m_buffer.metadata.push_back({stroke.width > 0.0f, fill != nullptr});
+    AddCommand(std::move(cmd), {stroke.width > 0.0f, fill != nullptr});
   }
 
   void DrawText(float x, float y, const std::string &text,
                 const CanvasTextStyle &style) override {
-    m_buffer.commands.emplace_back(TextCommand{x, y, text, style});
-    m_buffer.sources.push_back(m_buffer.currentSourceKey);
-    m_buffer.metadata.push_back({});
+    if (m_simplifyFootprints)
+      FlushPendingGroup();
+    PushCommand(TextCommand{x, y, text, style}, {});
   }
 
 private:
+  struct PendingGroup {
+    std::string key;
+    std::vector<CanvasCommand> commands;
+    std::vector<CommandMetadata> metadata;
+  };
+
+  struct FootprintTemplate {
+    enum class Shape { Rectangle, Circle, Hull } shape = Shape::Rectangle;
+    float baseWidth = 0.0f;
+    float baseHeight = 0.0f;
+    float radius = 0.0f;
+    std::vector<std::array<float, 2>> hull;
+    CanvasStroke stroke{};
+    CanvasFill fill{};
+    bool hasFill = false;
+    bool hasStroke = false;
+  };
+
+  void AddCommand(CanvasCommand &&cmd, const CommandMetadata &meta) {
+    if (!m_simplifyFootprints) {
+      PushCommand(std::move(cmd), meta);
+      return;
+    }
+
+    if (!m_pendingGroup)
+      m_pendingGroup = PendingGroup{m_buffer.currentSourceKey, {}, {}};
+
+    m_pendingGroup->commands.emplace_back(std::move(cmd));
+    m_pendingGroup->metadata.push_back(meta);
+  }
+
+  void PushCommand(const CanvasCommand &cmd, const CommandMetadata &meta) {
+    m_buffer.commands.push_back(cmd);
+    m_buffer.sources.push_back(m_buffer.currentSourceKey);
+    m_buffer.metadata.push_back(meta);
+  }
+
+  void PushCommand(CanvasCommand &&cmd, const CommandMetadata &meta) {
+    m_buffer.commands.emplace_back(std::move(cmd));
+    m_buffer.sources.push_back(m_buffer.currentSourceKey);
+    m_buffer.metadata.push_back(meta);
+  }
+
+  void PushCommandsWithSource(const std::vector<CanvasCommand> &cmds,
+                              const std::vector<CommandMetadata> &meta,
+                              const std::string &key) {
+    std::string prevKey = m_buffer.currentSourceKey;
+    m_buffer.currentSourceKey = key;
+    for (size_t i = 0; i < cmds.size(); ++i) {
+      PushCommand(cmds[i], meta[i]);
+    }
+    m_buffer.currentSourceKey = prevKey;
+  }
+
+  void FlushPendingGroup() {
+    if (!m_simplifyFootprints)
+      return;
+    if (!m_pendingGroup || m_pendingGroup->commands.empty())
+      return;
+
+    const std::string key = m_pendingGroup->key;
+    auto cmds = m_pendingGroup->commands;
+    auto meta = m_pendingGroup->metadata;
+    m_pendingGroup.reset();
+
+    auto simplified = TrySimplify(key, cmds, meta);
+    if (simplified) {
+      PushCommandsWithSource(simplified->first, simplified->second, key);
+    } else {
+      PushCommandsWithSource(cmds, meta, key);
+    }
+  }
+
+  std::optional<std::pair<std::vector<CanvasCommand>,
+                          std::vector<CommandMetadata>>>
+  TrySimplify(const std::string &key, const std::vector<CanvasCommand> &cmds,
+              const std::vector<CommandMetadata> &meta) {
+    if (key.empty() || key == "unknown")
+      return std::nullopt;
+
+    auto points = CollectPoints(cmds);
+    if (points.size() < 3)
+      return std::nullopt;
+
+    auto styles = ExtractStyles(cmds, meta);
+    if (!styles.has_value())
+      return std::nullopt;
+
+    auto centroid = ComputeCentroid(points);
+    float angle = ComputeOrientation(points, centroid);
+    auto axis = UnitVector(angle);
+    auto perp = std::array<float, 2>{-axis[1], axis[0]};
+
+    float minAxis = std::numeric_limits<float>::max();
+    float maxAxis = std::numeric_limits<float>::lowest();
+    float minPerp = std::numeric_limits<float>::max();
+    float maxPerp = std::numeric_limits<float>::lowest();
+    for (const auto &p : points) {
+      float da = Dot(p, axis);
+      float dp = Dot(p, perp);
+      minAxis = std::min(minAxis, da);
+      maxAxis = std::max(maxAxis, da);
+      minPerp = std::min(minPerp, dp);
+      maxPerp = std::max(maxPerp, dp);
+    }
+
+    float width = maxAxis - minAxis;
+    float height = maxPerp - minPerp;
+    if (width <= 0.0f || height <= 0.0f)
+      return std::nullopt;
+
+    auto hull = ComputeHull(points);
+    if (hull.size() < 3)
+      return std::nullopt;
+    float hullArea = std::fabs(ComputePolygonArea(hull));
+    float rectArea = width * height;
+
+    FootprintTemplate *tpl = nullptr;
+    auto it = m_footprintCache.find(key);
+    if (it == m_footprintCache.end()) {
+      FootprintTemplate entry;
+      entry.stroke = styles->stroke;
+      entry.hasStroke = styles->hasStroke;
+      if (styles->fill)
+        entry.fill = *styles->fill;
+      entry.hasFill = styles->fill.has_value();
+
+      float aspectDiff = std::fabs(width - height) /
+                         std::max(width, height);
+      if (aspectDiff < 0.1f) {
+        entry.shape = FootprintTemplate::Shape::Circle;
+        entry.radius = (width + height) * 0.25f;
+        entry.baseWidth = entry.baseHeight = std::max(width, height);
+      } else if (rectArea > 0.0f && hullArea / rectArea < 0.6f) {
+        entry.shape = FootprintTemplate::Shape::Hull;
+        entry.baseWidth = width;
+        entry.baseHeight = height;
+        entry.hull = NormalizePoints(hull, centroid, angle);
+      } else {
+        entry.shape = FootprintTemplate::Shape::Rectangle;
+        entry.baseWidth = width;
+        entry.baseHeight = height;
+      }
+      tpl = &m_footprintCache.emplace(key, std::move(entry)).first->second;
+    } else {
+      tpl = &it->second;
+    }
+
+    if (!tpl)
+      return std::nullopt;
+
+    std::vector<CanvasCommand> simplified;
+    std::vector<CommandMetadata> simplifiedMeta;
+
+    switch (tpl->shape) {
+    case FootprintTemplate::Shape::Circle: {
+      float radius = std::max(width, height) * 0.5f;
+      CircleCommand circle{centroid[0], centroid[1], radius, tpl->stroke,
+                           tpl->fill, tpl->hasFill};
+      simplified.emplace_back(circle);
+      simplifiedMeta.push_back({tpl->hasStroke, tpl->hasFill});
+      break;
+    }
+    case FootprintTemplate::Shape::Rectangle: {
+      float hw = width * 0.5f;
+      float hh = height * 0.5f;
+      std::vector<float> pts = {
+          -hw, -hh, hw, -hh, hw, hh, -hw, hh};
+      auto rotated = RotateAndTranslate(pts, centroid, angle);
+      PolygonCommand poly{rotated, tpl->stroke, tpl->fill, tpl->hasFill};
+      simplified.emplace_back(std::move(poly));
+      simplifiedMeta.push_back({tpl->hasStroke, tpl->hasFill});
+      break;
+    }
+    case FootprintTemplate::Shape::Hull: {
+      if (tpl->baseWidth <= 0.0f || tpl->baseHeight <= 0.0f ||
+          tpl->hull.empty())
+        return std::nullopt;
+      float sx = width / tpl->baseWidth;
+      float sy = height / tpl->baseHeight;
+      if (sx <= 0.0f || sy <= 0.0f)
+        return std::nullopt;
+      std::vector<float> local;
+      local.reserve(tpl->hull.size() * 2);
+      for (const auto &p : tpl->hull) {
+        local.push_back(p[0] * sx);
+        local.push_back(p[1] * sy);
+      }
+      auto rotated = RotateAndTranslate(local, centroid, angle);
+      PolygonCommand poly{rotated, tpl->stroke, tpl->fill, tpl->hasFill};
+      simplified.emplace_back(std::move(poly));
+      simplifiedMeta.push_back({tpl->hasStroke, tpl->hasFill});
+      break;
+    }
+    }
+
+    return std::make_pair(std::move(simplified), std::move(simplifiedMeta));
+  }
+
+  static std::array<float, 2>
+  ComputeCentroid(const std::vector<std::array<float, 2>> &pts) {
+    std::array<float, 2> c{0.0f, 0.0f};
+    for (const auto &p : pts) {
+      c[0] += p[0];
+      c[1] += p[1];
+    }
+    c[0] /= static_cast<float>(pts.size());
+    c[1] /= static_cast<float>(pts.size());
+    return c;
+  }
+
+  static float ComputeOrientation(const std::vector<std::array<float, 2>> &pts,
+                                  const std::array<float, 2> &centroid) {
+    float sumXX = 0.0f, sumXY = 0.0f, sumYY = 0.0f;
+    for (const auto &p : pts) {
+      float dx = p[0] - centroid[0];
+      float dy = p[1] - centroid[1];
+      sumXX += dx * dx;
+      sumXY += dx * dy;
+      sumYY += dy * dy;
+    }
+    float a = sumXX / pts.size();
+    float b = sumXY / pts.size();
+    float c = sumYY / pts.size();
+
+    float trace = a + c;
+    float det = a * c - b * b;
+    float angle = 0.0f;
+    if (det < 1e-6f) {
+      angle = 0.0f;
+    } else {
+      float term = std::sqrt(std::max(0.0f, (trace * trace) / 4.0f - det));
+      float lambda1 = trace / 2.0f + term;
+      float vx = (lambda1 - c);
+      float vy = b;
+      if (std::abs(vx) < 1e-6f && std::abs(vy) < 1e-6f)
+        angle = 0.0f;
+      else
+        angle = std::atan2(vy, vx);
+    }
+    return angle;
+  }
+
+  static std::array<float, 2> UnitVector(float angle) {
+    return {std::cos(angle), std::sin(angle)};
+  }
+
+  static float Dot(const std::array<float, 2> &p, const std::array<float, 2> &q) {
+    return p[0] * q[0] + p[1] * q[1];
+  }
+
+  static std::vector<std::array<float, 2>>
+  CollectPoints(const std::vector<CanvasCommand> &cmds) {
+    std::vector<std::array<float, 2>> pts;
+    auto addPoint = [&pts](float x, float y) { pts.push_back({x, y}); };
+
+    for (const auto &cmd : cmds) {
+      if (auto line = std::get_if<LineCommand>(&cmd)) {
+        addPoint(line->x0, line->y0);
+        addPoint(line->x1, line->y1);
+      } else if (auto pl = std::get_if<PolylineCommand>(&cmd)) {
+        for (size_t i = 0; i + 1 < pl->points.size(); i += 2)
+          addPoint(pl->points[i], pl->points[i + 1]);
+      } else if (auto pg = std::get_if<PolygonCommand>(&cmd)) {
+        for (size_t i = 0; i + 1 < pg->points.size(); i += 2)
+          addPoint(pg->points[i], pg->points[i + 1]);
+      } else if (auto rc = std::get_if<RectangleCommand>(&cmd)) {
+        addPoint(rc->x, rc->y);
+        addPoint(rc->x + rc->w, rc->y);
+        addPoint(rc->x + rc->w, rc->y + rc->h);
+        addPoint(rc->x, rc->y + rc->h);
+      } else if (auto cc = std::get_if<CircleCommand>(&cmd)) {
+        constexpr int kSegments = 12;
+        constexpr float kPi = 3.14159265358979323846f;
+        for (int i = 0; i < kSegments; ++i) {
+          float ang = static_cast<float>(i) / kSegments * 2.0f * kPi;
+          addPoint(cc->cx + cc->radius * std::cos(ang),
+                   cc->cy + cc->radius * std::sin(ang));
+        }
+      }
+    }
+
+    return pts;
+  }
+
+  struct StyleInfo {
+    CanvasStroke stroke{};
+    bool hasStroke = false;
+    std::optional<CanvasFill> fill;
+  };
+
+  static std::optional<StyleInfo>
+  ExtractStyles(const std::vector<CanvasCommand> &cmds,
+                const std::vector<CommandMetadata> &meta) {
+    for (size_t i = 0; i < cmds.size(); ++i) {
+      if (auto poly = std::get_if<PolygonCommand>(&cmds[i]))
+        return StyleInfo{poly->stroke, meta[i].hasStroke,
+                         poly->hasFill ? std::optional(poly->fill)
+                                        : std::optional<CanvasFill>()};
+      if (auto rect = std::get_if<RectangleCommand>(&cmds[i]))
+        return StyleInfo{rect->stroke, meta[i].hasStroke,
+                         rect->hasFill ? std::optional(rect->fill)
+                                       : std::optional<CanvasFill>()};
+      if (auto circ = std::get_if<CircleCommand>(&cmds[i]))
+        return StyleInfo{circ->stroke, meta[i].hasStroke,
+                         circ->hasFill ? std::optional(circ->fill)
+                                       : std::optional<CanvasFill>()};
+      if (auto pl = std::get_if<PolylineCommand>(&cmds[i]))
+        return StyleInfo{pl->stroke, meta[i].hasStroke,
+                         std::optional<CanvasFill>()};
+      if (auto ln = std::get_if<LineCommand>(&cmds[i]))
+        return StyleInfo{ln->stroke, meta[i].hasStroke,
+                         std::optional<CanvasFill>()};
+    }
+    return std::nullopt;
+  }
+
+  static std::vector<std::array<float, 2>>
+  ComputeHull(std::vector<std::array<float, 2>> pts) {
+    if (pts.size() < 3)
+      return pts;
+    std::sort(pts.begin(), pts.end(), [](const auto &a, const auto &b) {
+      if (a[0] == b[0])
+        return a[1] < b[1];
+      return a[0] < b[0];
+    });
+
+    auto cross = [](const std::array<float, 2> &o, const std::array<float, 2> &a,
+                    const std::array<float, 2> &b) {
+      return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+    };
+
+    std::vector<std::array<float, 2>> hull(pts.size() * 2);
+    size_t k = 0;
+    for (size_t i = 0; i < pts.size(); ++i) {
+      while (k >= 2 && cross(hull[k - 2], hull[k - 1], pts[i]) <= 0)
+        --k;
+      hull[k++] = pts[i];
+    }
+    for (size_t i = pts.size() - 1, t = k + 1; i > 0; --i) {
+      while (k >= t && cross(hull[k - 2], hull[k - 1], pts[i - 1]) <= 0)
+        --k;
+      hull[k++] = pts[i - 1];
+    }
+    hull.resize(k ? k - 1 : 0);
+    return hull;
+  }
+
+  static float ComputePolygonArea(const std::vector<std::array<float, 2>> &pts) {
+    if (pts.size() < 3)
+      return 0.0f;
+    float area = 0.0f;
+    for (size_t i = 0; i < pts.size(); ++i) {
+      const auto &p0 = pts[i];
+      const auto &p1 = pts[(i + 1) % pts.size()];
+      area += p0[0] * p1[1] - p1[0] * p0[1];
+    }
+    return area * 0.5f;
+  }
+
+  static std::vector<std::array<float, 2>>
+  NormalizePoints(const std::vector<std::array<float, 2>> &pts,
+                  const std::array<float, 2> &center, float angle) {
+    auto axis = UnitVector(angle);
+    auto perp = std::array<float, 2>{-axis[1], axis[0]};
+    std::vector<std::array<float, 2>> out;
+    out.reserve(pts.size());
+    for (const auto &p : pts) {
+      float dx = p[0] - center[0];
+      float dy = p[1] - center[1];
+      out.push_back({dx * axis[0] + dy * axis[1], dx * perp[0] + dy * perp[1]});
+    }
+    return out;
+  }
+
+  static std::vector<float>
+  RotateAndTranslate(const std::vector<float> &pts,
+                     const std::array<float, 2> &center, float angle) {
+    auto axis = UnitVector(angle);
+    auto perp = std::array<float, 2>{-axis[1], axis[0]};
+    std::vector<float> out;
+    out.reserve(pts.size());
+    for (size_t i = 0; i + 1 < pts.size(); i += 2) {
+      float x = pts[i];
+      float y = pts[i + 1];
+      float rx = x * axis[0] + y * perp[0];
+      float ry = x * axis[1] + y * perp[1];
+      out.push_back(rx + center[0]);
+      out.push_back(ry + center[1]);
+    }
+    return out;
+  }
+
   CommandBuffer &m_buffer;
+  bool m_simplifyFootprints = false;
+  std::optional<PendingGroup> m_pendingGroup;
+  std::unordered_map<std::string, FootprintTemplate> m_footprintCache;
 };
 
 class MultiCanvas : public ICanvas2D {
@@ -324,8 +717,9 @@ std::unique_ptr<ICanvas2D> CreateRasterCanvas(const CanvasTransform &transform) 
   return std::make_unique<RasterCanvas>(transform);
 }
 
-std::unique_ptr<ICanvas2D> CreateRecordingCanvas(CommandBuffer &buffer) {
-  return std::make_unique<RecordingCanvas>(buffer);
+std::unique_ptr<ICanvas2D> CreateRecordingCanvas(CommandBuffer &buffer,
+                                                 bool simplifyFootprints) {
+  return std::make_unique<RecordingCanvas>(buffer, simplifyFootprints);
 }
 
 std::unique_ptr<ICanvas2D> CreateMultiCanvas(

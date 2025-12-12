@@ -33,6 +33,7 @@ struct PlanPrintOptions {
   bool landscape = false;
   bool compressStreams = true;
   int floatPrecision = 3;
+  bool useSimplifiedFootprints = true;
 };
 
 struct PlanExportResult {
