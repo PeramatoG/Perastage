@@ -40,6 +40,13 @@ constexpr float PIXELS_PER_METER = 25.0f;
 // rendering multi-line text labels.
 constexpr float PDF_TEXT_LINE_HEIGHT_FACTOR = 0.8f;
 
+double ComputeTextLineAdvance(const CanvasTextStyle &style) {
+  // Negative because PDF moves the text cursor downward with a negative y
+  // translation. The factor keeps spacing consistent with the 2D viewer's
+  // tighter multi-line layout.
+  return -style.fontSize * PDF_TEXT_LINE_HEIGHT_FACTOR;
+}
+
 struct PdfObject {
   std::string body;
 };
@@ -291,7 +298,7 @@ void AppendText(std::ostringstream &out, const FloatFormatter &fmt,
                 const Point &pos, const TextCommand &cmd,
                 const CanvasTextStyle &style) {
   (void)cmd;
-  const double lineAdvance = -style.fontSize * PDF_TEXT_LINE_HEIGHT_FACTOR;
+  const double lineAdvance = ComputeTextLineAdvance(style);
   out << "BT\n/F1 " << fmt.Format(style.fontSize) << " Tf\n";
   out << fmt.Format(style.color.r) << ' ' << fmt.Format(style.color.g) << ' '
       << fmt.Format(style.color.b) << " rg\n";
