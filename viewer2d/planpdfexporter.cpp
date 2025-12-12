@@ -37,8 +37,9 @@ namespace {
 
 constexpr float PIXELS_PER_METER = 25.0f;
 // Matches the tighter line spacing used by the on-screen 2D viewer when
-// rendering multi-line text labels.
-constexpr float PDF_TEXT_LINE_HEIGHT_FACTOR = 0.8f;
+// rendering multi-line text labels. Slightly below 1.0 to mirror the compact
+// leading applied in the live view.
+constexpr float PDF_TEXT_LINE_HEIGHT_FACTOR = 0.78f;
 
 double ComputeTextLineAdvance(const CanvasTextStyle &style) {
   // Negative because PDF moves the text cursor downward with a negative y
