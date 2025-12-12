@@ -1367,7 +1367,8 @@ void MainWindow::OnPrintPlan(wxCommandEvent &WXUNUSED(event)) {
             }
           });
         }).detach();
-      });
+      },
+      opts.useSimplifiedFootprints);
 }
 
 void MainWindow::OnPrintTable(wxCommandEvent &WXUNUSED(event)) {
