@@ -305,75 +305,184 @@ void AppendText(std::ostringstream &out, const FloatFormatter &fmt,
   out << ") Tj\nET\n";
 }
 
-std::string RenderCommandsToStream(const std::vector<CanvasCommand> &commands,
-                                   const Mapping &mapping,
-                                   const FloatFormatter &formatter) {
+Point MapPointWithTransform(double x, double y, const Transform &current,
+                            const Mapping &mapping) {
+  auto applied = Apply(current, x, y);
+  return MapWithMapping(applied.x, applied.y, mapping);
+}
+
+void EmitCommandStroke(std::ostringstream &content, GraphicsStateCache &cache,
+                       const FloatFormatter &formatter, const Mapping &mapping,
+                       const Transform &current, const CanvasCommand &command) {
+  std::visit(
+      [&](auto &&c) {
+        using T = std::decay_t<decltype(c)>;
+        if constexpr (std::is_same_v<T, LineCommand>) {
+          auto pa = MapPointWithTransform(c.x0, c.y0, current, mapping);
+          auto pb = MapPointWithTransform(c.x1, c.y1, current, mapping);
+          AppendLine(content, cache, formatter, pa, pb, c.stroke);
+        } else if constexpr (std::is_same_v<T, PolylineCommand>) {
+          std::vector<Point> pts;
+          pts.reserve(c.points.size() / 2);
+          for (size_t i = 0; i + 1 < c.points.size(); i += 2)
+            pts.push_back(
+                MapPointWithTransform(c.points[i], c.points[i + 1], current,
+                                      mapping));
+          AppendPolyline(content, cache, formatter, pts, c.stroke);
+        } else if constexpr (std::is_same_v<T, PolygonCommand>) {
+          std::vector<Point> pts;
+          pts.reserve(c.points.size() / 2);
+          for (size_t i = 0; i + 1 < c.points.size(); i += 2)
+            pts.push_back(
+                MapPointWithTransform(c.points[i], c.points[i + 1], current,
+                                      mapping));
+          AppendPolygon(content, cache, formatter, pts, c.stroke, nullptr);
+        } else if constexpr (std::is_same_v<T, RectangleCommand>) {
+          auto origin = MapPointWithTransform(c.x, c.y, current, mapping);
+          double w = c.w * current.scale * mapping.scale;
+          double h = c.h * current.scale * mapping.scale;
+          AppendRectangle(content, cache, formatter, origin, w, h, c.stroke,
+                          nullptr);
+        } else if constexpr (std::is_same_v<T, CircleCommand>) {
+          auto center = MapPointWithTransform(c.cx, c.cy, current, mapping);
+          double radius = c.radius * current.scale * mapping.scale;
+          AppendCircle(content, cache, formatter, center, radius, c.stroke,
+                       nullptr);
+        }
+      },
+      command);
+}
+
+void EmitCommandFill(std::ostringstream &content, GraphicsStateCache &cache,
+                     const FloatFormatter &formatter, const Mapping &mapping,
+                     const Transform &current, const CanvasCommand &command) {
+  std::visit(
+      [&](auto &&c) {
+        using T = std::decay_t<decltype(c)>;
+        if constexpr (std::is_same_v<T, PolygonCommand>) {
+          std::vector<Point> pts;
+          pts.reserve(c.points.size() / 2);
+          for (size_t i = 0; i + 1 < c.points.size(); i += 2)
+            pts.push_back(
+                MapPointWithTransform(c.points[i], c.points[i + 1], current,
+                                      mapping));
+          CanvasStroke disabledStroke = c.stroke;
+          disabledStroke.width = 0.0f;
+          AppendPolygon(content, cache, formatter, pts, disabledStroke,
+                        &c.fill);
+        } else if constexpr (std::is_same_v<T, RectangleCommand>) {
+          auto origin = MapPointWithTransform(c.x, c.y, current, mapping);
+          double w = c.w * current.scale * mapping.scale;
+          double h = c.h * current.scale * mapping.scale;
+          CanvasStroke disabledStroke = c.stroke;
+          disabledStroke.width = 0.0f;
+          AppendRectangle(content, cache, formatter, origin, w, h,
+                          disabledStroke, &c.fill);
+        } else if constexpr (std::is_same_v<T, CircleCommand>) {
+          auto center = MapPointWithTransform(c.cx, c.cy, current, mapping);
+          double radius = c.radius * current.scale * mapping.scale;
+          CanvasStroke disabledStroke = c.stroke;
+          disabledStroke.width = 0.0f;
+          AppendCircle(content, cache, formatter, center, radius,
+                       disabledStroke, &c.fill);
+        }
+      },
+      command);
+}
+
+std::string RenderCommandsToStream(
+    const std::vector<CanvasCommand> &commands,
+    const std::vector<CommandMetadata> &metadata,
+    const std::vector<std::string> &sources, const Mapping &mapping,
+    const FloatFormatter &formatter) {
   Transform current{};
   std::vector<Transform> stack;
   std::ostringstream content;
   GraphicsStateCache stateCache;
 
-  auto mapPoint = [&](double x, double y) {
-    auto applied = Apply(current, x, y);
-    return MapWithMapping(applied.x, applied.y, mapping);
+  std::vector<size_t> group;
+  std::string currentSource;
+
+  auto flushGroup = [&]() {
+    if (group.empty())
+      return;
+
+    for (size_t idx : group) {
+      if (metadata[idx].hasStroke)
+        EmitCommandStroke(content, stateCache, formatter, mapping, current,
+                          commands[idx]);
+    }
+
+    for (size_t idx : group) {
+      if (metadata[idx].hasFill)
+        EmitCommandFill(content, stateCache, formatter, mapping, current,
+                        commands[idx]);
+    }
+
+    for (size_t idx : group) {
+      if (metadata[idx].hasStroke && !metadata[idx].hasFill)
+        EmitCommandStroke(content, stateCache, formatter, mapping, current,
+                          commands[idx]);
+    }
+
+    group.clear();
   };
 
-  for (const auto &cmd : commands) {
-    std::visit(
+  auto handleBarrier = [&](const auto &cmd) {
+    using T = std::decay_t<decltype(cmd)>;
+    if constexpr (std::is_same_v<T, SaveCommand>) {
+      stack.push_back(current);
+    } else if constexpr (std::is_same_v<T, RestoreCommand>) {
+      if (!stack.empty()) {
+        current = stack.back();
+        stack.pop_back();
+      }
+    } else if constexpr (std::is_same_v<T, TransformCommand>) {
+      current.scale = cmd.transform.scale;
+      current.offsetX = cmd.transform.offsetX;
+      current.offsetY = cmd.transform.offsetY;
+    } else if constexpr (std::is_same_v<T, TextCommand>) {
+      auto pos = MapPointWithTransform(cmd.x, cmd.y, current, mapping);
+      AppendText(content, formatter, pos, cmd, cmd.style);
+    } else {
+      // Symbol control commands are handled at a higher level but must preserve
+      // ordering relative to drawing commands.
+    }
+  };
+
+  for (size_t i = 0; i < commands.size(); ++i) {
+    const auto &cmd = commands[i];
+
+    bool isBarrier = std::visit(
         [&](auto &&c) {
           using T = std::decay_t<decltype(c)>;
-          if constexpr (std::is_same_v<T, SaveCommand>) {
-            stack.push_back(current);
-          } else if constexpr (std::is_same_v<T, RestoreCommand>) {
-            if (!stack.empty()) {
-              current = stack.back();
-              stack.pop_back();
-            }
-          } else if constexpr (std::is_same_v<T, TransformCommand>) {
-            current.scale = c.transform.scale;
-            current.offsetX = c.transform.offsetX;
-            current.offsetY = c.transform.offsetY;
-          } else if constexpr (std::is_same_v<T, LineCommand>) {
-            auto pa = mapPoint(c.x0, c.y0);
-            auto pb = mapPoint(c.x1, c.y1);
-            AppendLine(content, stateCache, formatter, pa, pb, c.stroke);
-          } else if constexpr (std::is_same_v<T, PolylineCommand>) {
-            std::vector<Point> pts;
-            pts.reserve(c.points.size() / 2);
-            for (size_t i = 0; i + 1 < c.points.size(); i += 2)
-              pts.push_back(mapPoint(c.points[i], c.points[i + 1]));
-            AppendPolyline(content, stateCache, formatter, pts, c.stroke);
-          } else if constexpr (std::is_same_v<T, PolygonCommand>) {
-            std::vector<Point> pts;
-            pts.reserve(c.points.size() / 2);
-            for (size_t i = 0; i + 1 < c.points.size(); i += 2)
-              pts.push_back(mapPoint(c.points[i], c.points[i + 1]));
-            const CanvasFill *fill = c.hasFill ? &c.fill : nullptr;
-            AppendPolygon(content, stateCache, formatter, pts, c.stroke, fill);
-          } else if constexpr (std::is_same_v<T, RectangleCommand>) {
-            auto origin = mapPoint(c.x, c.y);
-            double w = c.w * current.scale * mapping.scale;
-            double h = c.h * current.scale * mapping.scale;
-            const CanvasFill *fill = c.hasFill ? &c.fill : nullptr;
-            AppendRectangle(content, stateCache, formatter, origin, w, h,
-                            c.stroke, fill);
-          } else if constexpr (std::is_same_v<T, CircleCommand>) {
-            auto center = mapPoint(c.cx, c.cy);
-            double radius = c.radius * current.scale * mapping.scale;
-            const CanvasFill *fill = c.hasFill ? &c.fill : nullptr;
-            AppendCircle(content, stateCache, formatter, center, radius,
-                         c.stroke, fill);
-          } else if constexpr (std::is_same_v<T, TextCommand>) {
-            auto pos = mapPoint(c.x, c.y);
-            AppendText(content, formatter, pos, c, c.style);
-          } else if constexpr (std::is_same_v<T, BeginSymbolCommand> ||
-                               std::is_same_v<T, EndSymbolCommand> ||
-                               std::is_same_v<T, PlaceSymbolCommand>) {
-            // Symbol control commands are handled at a higher level.
-          }
+          return std::is_same_v<T, SaveCommand> || std::is_same_v<T, RestoreCommand> ||
+                 std::is_same_v<T, TransformCommand> ||
+                 std::is_same_v<T, BeginSymbolCommand> ||
+                 std::is_same_v<T, EndSymbolCommand> ||
+                 std::is_same_v<T, PlaceSymbolCommand> ||
+                 std::is_same_v<T, TextCommand>;
         },
         cmd);
+
+    if (isBarrier) {
+      flushGroup();
+      std::visit(handleBarrier, cmd);
+      continue;
+    }
+
+    if (group.empty())
+      currentSource = sources[i];
+
+    if (sources[i] != currentSource) {
+      flushGroup();
+      currentSource = sources[i];
+    }
+
+    group.push_back(i);
   }
+
+  flushGroup();
 
   return content.str();
 }
@@ -473,25 +582,43 @@ PlanExportResult ExportPlanToPdf(const CommandBuffer &buffer,
     CanvasTransform transform{};
   };
 
-  std::vector<CanvasCommand> mainCommands;
-  std::unordered_map<std::string, std::vector<CanvasCommand>> symbolDefinitions;
+  struct CommandGroup {
+    std::vector<CanvasCommand> commands;
+    std::vector<CommandMetadata> metadata;
+    std::vector<std::string> sources;
+  };
+
+  CommandGroup mainCommands;
+  std::unordered_map<std::string, CommandGroup> symbolDefinitions;
   std::vector<SymbolPlacement> placements;
   std::string capturingKey;
   std::vector<CanvasCommand> captureBuffer;
+  std::vector<CommandMetadata> captureMetadata;
+  std::vector<std::string> captureSources;
 
-  for (const auto &cmd : buffer.commands) {
+  for (size_t i = 0; i < buffer.commands.size(); ++i) {
+    const auto &cmd = buffer.commands[i];
+    const auto &meta = buffer.metadata[i];
+    const auto &source = buffer.sources[i];
+
     if (const auto *begin = std::get_if<BeginSymbolCommand>(&cmd)) {
       capturingKey = begin->key;
       captureBuffer.clear();
+      captureMetadata.clear();
+      captureSources.clear();
       continue;
     }
     if (const auto *end = std::get_if<EndSymbolCommand>(&cmd)) {
       if (!capturingKey.empty() && capturingKey == end->key &&
           !symbolDefinitions.count(capturingKey)) {
-        symbolDefinitions.emplace(capturingKey, captureBuffer);
+        symbolDefinitions.emplace(capturingKey,
+                                  CommandGroup{captureBuffer, captureMetadata,
+                                               captureSources});
       }
       capturingKey.clear();
       captureBuffer.clear();
+      captureMetadata.clear();
+      captureSources.clear();
       continue;
     }
     if (const auto *place = std::get_if<PlaceSymbolCommand>(&cmd)) {
@@ -501,15 +628,20 @@ PlanExportResult ExportPlanToPdf(const CommandBuffer &buffer,
 
     if (!capturingKey.empty()) {
       captureBuffer.push_back(cmd);
+      captureMetadata.push_back(meta);
+      captureSources.push_back(source);
       continue;
     }
 
-    mainCommands.push_back(cmd);
+    mainCommands.commands.push_back(cmd);
+    mainCommands.metadata.push_back(meta);
+    mainCommands.sources.push_back(source);
   }
 
   Mapping pageMapping{minX, minY, scale, offsetX, offsetY, pageH, false};
-  std::string contentStr = RenderCommandsToStream(mainCommands, pageMapping,
-                                                 formatter);
+  std::string contentStr = RenderCommandsToStream(
+      mainCommands.commands, mainCommands.metadata, mainCommands.sources,
+      pageMapping, formatter);
 
   std::unordered_map<std::string, std::string> xObjectNames;
   std::unordered_map<std::string, size_t> xObjectIds;
@@ -551,7 +683,8 @@ PlanExportResult ExportPlanToPdf(const CommandBuffer &buffer,
 
   for (const auto &entry : symbolDefinitions) {
     std::string symbolContent =
-        RenderCommandsToStream(entry.second, symbolMapping, formatter);
+        RenderCommandsToStream(entry.second.commands, entry.second.metadata,
+                               entry.second.sources, symbolMapping, formatter);
     std::string compressedSymbol;
     bool compressed = false;
     if (options.compressStreams) {
