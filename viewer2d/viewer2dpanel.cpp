@@ -244,10 +244,14 @@ void Viewer2DPanel::Render() {
   if (m_captureNextFrame) {
     m_lastCapturedFrame.Clear();
     recordingCanvas = CreateRecordingCanvas(m_lastCapturedFrame);
+    // The recorded commands operate in the same world-space coordinates used by
+    // the OpenGL renderer. We keep the transform identity so the exporter can
+    // apply the viewport offsets/zoom exactly once using the captured
+    // ViewState, matching the 2D on-screen projection.
     CanvasTransform transform{};
     transform.scale = 1.0f;
-    transform.offsetX = -offX;
-    transform.offsetY = -offY;
+    transform.offsetX = 0.0f;
+    transform.offsetY = 0.0f;
     recordingCanvas->BeginFrame();
     recordingCanvas->SetTransform(transform);
     m_controller.SetCaptureCanvas(recordingCanvas.get(), m_view);
