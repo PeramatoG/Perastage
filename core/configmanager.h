@@ -70,10 +70,12 @@ public:
         float value = 0.0f;
         float minValue = 0.0f;
         float maxValue = 0.0f;
+        std::vector<std::string> legacyNames;
     };
 
     void RegisterVariable(const std::string& name, const std::string& type,
-                          float defVal, float minVal, float maxVal);
+                          float defVal, float minVal, float maxVal,
+                          std::vector<std::string> legacyNames = {});
     float GetFloat(const std::string& name) const;
     void SetFloat(const std::string& name, float v);
     void ApplyDefaults();
