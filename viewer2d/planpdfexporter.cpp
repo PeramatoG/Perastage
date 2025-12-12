@@ -62,8 +62,10 @@ Point MapToPage(double x, double y, double minX, double minY, double scale,
                 double offsetX, double offsetY, double pageHeight) {
   double px = offsetX + (x - minX) * scale;
   double py = offsetY + (y - minY) * scale;
-  // Flip Y because PDF origin is at the bottom-left.
-  return {px, pageHeight - py};
+  // Keep the same top-left origin as the 2D viewer so the PDF matches the
+  // on-screen layout.
+  (void)pageHeight; // Retained for future layout tweaks.
+  return {px, py};
 }
 
 void AppendStroke(std::ostringstream &out, const CanvasStroke &stroke) {
