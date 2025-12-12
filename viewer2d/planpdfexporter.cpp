@@ -311,6 +311,10 @@ Point MapPointWithTransform(double x, double y, const Transform &current,
   return MapWithMapping(applied.x, applied.y, mapping);
 }
 
+// Emits only the stroke portion of a drawing command. Keeping strokes and
+// fills in separate functions allows the caller to control layering
+// explicitly, which is required to match the on-screen 2D viewer where fills
+// occlude internal wireframe edges within the same group.
 void EmitCommandStroke(std::ostringstream &content, GraphicsStateCache &cache,
                        const FloatFormatter &formatter, const Mapping &mapping,
                        const Transform &current, const CanvasCommand &command) {
@@ -353,6 +357,9 @@ void EmitCommandStroke(std::ostringstream &content, GraphicsStateCache &cache,
       command);
 }
 
+// Emits only the fill portion of a drawing command. Stroke width is forced to
+// zero to ensure no outlines leak back in when rendering fills as a separate
+// pass.
 void EmitCommandFill(std::ostringstream &content, GraphicsStateCache &cache,
                      const FloatFormatter &formatter, const Mapping &mapping,
                      const Transform &current, const CanvasCommand &command) {
@@ -407,23 +414,31 @@ std::string RenderCommandsToStream(
     if (group.empty())
       return;
 
-    // Draw wireframe strokes first so that subsequent fills can cover
-    // interior edges from other polygons in the same group.
+    // Use dedicated buffers for strokes and fills so layering is explicit and
+    // future exporters can reorder or post-process the layers independently.
+    std::ostringstream strokeLayer;
+    std::ostringstream fillLayer;
+
+    // Render all strokes first. They will be visually pushed underneath by the
+    // subsequent fill layer, mirroring how the real-time viewer relies on
+    // depth testing to hide internal wireframe segments.
     for (size_t idx : group) {
-      if (metadata[idx].hasStroke) {
-        EmitCommandStroke(content, stateCache, formatter, mapping, current,
-                          commands[idx]);
-      }
+      if (!metadata[idx].hasStroke)
+        continue;
+      EmitCommandStroke(strokeLayer, stateCache, formatter, mapping, current,
+                        commands[idx]);
     }
 
-    // Draw fills after strokes to hide any interior wireframe lines from the
-    // same group, matching the viewer's drawing order.
+    // Render fills afterwards so they sit on top of any wireframe lines from
+    // the same piece, matching the 2D viewer's occlusion behavior.
     for (size_t idx : group) {
-      if (metadata[idx].hasFill) {
-        EmitCommandFill(content, stateCache, formatter, mapping, current,
-                        commands[idx]);
-      }
+      if (!metadata[idx].hasFill)
+        continue;
+      EmitCommandFill(fillLayer, stateCache, formatter, mapping, current,
+                      commands[idx]);
     }
+
+    content << strokeLayer.str() << fillLayer.str();
 
     group.clear();
   };
