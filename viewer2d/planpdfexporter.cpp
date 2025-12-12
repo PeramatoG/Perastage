@@ -39,11 +39,20 @@ struct PdfObject {
   std::string body;
 };
 
-std::string FormatFloat(double v) {
-  std::ostringstream ss;
-  ss << std::fixed << std::setprecision(3) << v;
-  return ss.str();
-}
+class FloatFormatter {
+public:
+  explicit FloatFormatter(int precision)
+      : precision_(std::clamp(precision, 0, 6)) {}
+
+  std::string Format(double value) const {
+    std::ostringstream ss;
+    ss << std::fixed << std::setprecision(precision_) << value;
+    return ss.str();
+  }
+
+private:
+  int precision_;
+};
 
 class PdfDeflater {
 public:
@@ -98,82 +107,129 @@ Point MapToPage(double x, double y, double minX, double minY, double scale,
   return {px, py};
 }
 
-void AppendStroke(std::ostringstream &out, const CanvasStroke &stroke) {
-  out << FormatFloat(stroke.color.r) << ' ' << FormatFloat(stroke.color.g) << ' '
-      << FormatFloat(stroke.color.b) << " RG\n";
-  out << FormatFloat(stroke.width) << " w\n";
-}
+class GraphicsStateCache {
+public:
+  void SetStroke(std::ostringstream &out, const CanvasStroke &stroke,
+                 const FloatFormatter &fmt) {
+    if (!hasStrokeColor_ || !SameColor(stroke.color, strokeColor_)) {
+      out << fmt.Format(stroke.color.r) << ' ' << fmt.Format(stroke.color.g) << ' '
+          << fmt.Format(stroke.color.b) << " RG\n";
+      strokeColor_ = stroke.color;
+      hasStrokeColor_ = true;
+    }
+    if (!hasLineWidth_ || std::abs(stroke.width - lineWidth_) > 1e-6) {
+      out << fmt.Format(stroke.width) << " w\n";
+      lineWidth_ = stroke.width;
+      hasLineWidth_ = true;
+    }
+  }
 
-void AppendFill(std::ostringstream &out, const CanvasFill &fill) {
-  out << FormatFloat(fill.color.r) << ' ' << FormatFloat(fill.color.g) << ' '
-      << FormatFloat(fill.color.b) << " rg\n";
-}
+  void SetFill(std::ostringstream &out, const CanvasFill &fill,
+               const FloatFormatter &fmt) {
+    if (!hasFillColor_ || !SameColor(fill.color, fillColor_)) {
+      out << fmt.Format(fill.color.r) << ' ' << fmt.Format(fill.color.g) << ' '
+          << fmt.Format(fill.color.b) << " rg\n";
+      fillColor_ = fill.color;
+      hasFillColor_ = true;
+    }
+  }
 
-void AppendLine(std::ostringstream &out, const Point &a, const Point &b,
+private:
+  static bool SameColor(const CanvasColor &a, const CanvasColor &b) {
+    return std::abs(a.r - b.r) < 1e-6 && std::abs(a.g - b.g) < 1e-6 &&
+           std::abs(a.b - b.b) < 1e-6;
+  }
+
+  CanvasColor strokeColor_{};
+  CanvasColor fillColor_{};
+  double lineWidth_ = -1.0;
+  bool hasStrokeColor_ = false;
+  bool hasFillColor_ = false;
+  bool hasLineWidth_ = false;
+};
+
+void AppendLine(std::ostringstream &out, GraphicsStateCache &cache,
+                const FloatFormatter &fmt, const Point &a, const Point &b,
                 const CanvasStroke &stroke) {
-  AppendStroke(out, stroke);
-  out << FormatFloat(a.x) << ' ' << FormatFloat(a.y) << " m\n"
-      << FormatFloat(b.x) << ' ' << FormatFloat(b.y) << " l\nS\n";
+  cache.SetStroke(out, stroke, fmt);
+  out << fmt.Format(a.x) << ' ' << fmt.Format(a.y) << " m\n"
+      << fmt.Format(b.x) << ' ' << fmt.Format(b.y) << " l\nS\n";
 }
 
-void AppendPolyline(std::ostringstream &out, const std::vector<Point> &pts,
+void AppendPolyline(std::ostringstream &out, GraphicsStateCache &cache,
+                    const FloatFormatter &fmt, const std::vector<Point> &pts,
                     const CanvasStroke &stroke) {
   if (pts.size() < 2)
     return;
-  AppendStroke(out, stroke);
-  out << FormatFloat(pts[0].x) << ' ' << FormatFloat(pts[0].y) << " m\n";
+  cache.SetStroke(out, stroke, fmt);
+  out << fmt.Format(pts[0].x) << ' ' << fmt.Format(pts[0].y) << " m\n";
   for (size_t i = 1; i < pts.size(); ++i) {
-    out << FormatFloat(pts[i].x) << ' ' << FormatFloat(pts[i].y) << " l\n";
+    out << fmt.Format(pts[i].x) << ' ' << fmt.Format(pts[i].y) << " l\n";
   }
   out << "S\n";
 }
 
-void AppendPolygon(std::ostringstream &out, const std::vector<Point> &pts,
+void AppendPolygon(std::ostringstream &out, GraphicsStateCache &cache,
+                   const FloatFormatter &fmt, const std::vector<Point> &pts,
                    const CanvasStroke &stroke, const CanvasFill *fill) {
   if (pts.size() < 3)
     return;
   auto emitPath = [&]() {
-    out << FormatFloat(pts[0].x) << ' ' << FormatFloat(pts[0].y) << " m\n";
+    out << fmt.Format(pts[0].x) << ' ' << fmt.Format(pts[0].y) << " m\n";
     for (size_t i = 1; i < pts.size(); ++i)
-      out << FormatFloat(pts[i].x) << ' ' << FormatFloat(pts[i].y) << " l\n";
+      out << fmt.Format(pts[i].x) << ' ' << fmt.Format(pts[i].y) << " l\n";
     out << "h\n";
   };
 
-  if (fill)
-    AppendFill(out, *fill);
+  if (stroke.width > 0.0f) {
+    CanvasStroke outlineStroke = stroke;
+    outlineStroke.color = {0.0f, 0.0f, 0.0f, 1.0f};
+    outlineStroke.width = 2.0f;
+    cache.SetStroke(out, outlineStroke, fmt);
+    emitPath();
+    out << "S\n";
+  }
 
-  emitPath();
-  if (fill && stroke.width > 0.0f) {
-    AppendStroke(out, stroke);
-    out << "B\n";
-  } else if (fill) {
-    out << "f\n";
-  } else {
-    AppendStroke(out, stroke);
+  if (fill) {
+    cache.SetFill(out, *fill, fmt);
+    if (stroke.width > 0.0f) {
+      cache.SetStroke(out, stroke, fmt);
+      emitPath();
+      out << "B\n";
+    } else {
+      emitPath();
+      out << "f\n";
+    }
+  } else if (stroke.width > 0.0f) {
+    cache.SetStroke(out, stroke, fmt);
+    emitPath();
     out << "S\n";
   }
 }
 
-void AppendRectangle(std::ostringstream &out, const Point &origin, double w,
+void AppendRectangle(std::ostringstream &out, GraphicsStateCache &cache,
+                     const FloatFormatter &fmt, const Point &origin, double w,
                      double h, const CanvasStroke &stroke,
                      const CanvasFill *fill) {
   if (fill)
-    AppendFill(out, *fill);
-  out << FormatFloat(origin.x) << ' ' << FormatFloat(origin.y) << ' '
-      << FormatFloat(w) << ' ' << FormatFloat(h) << " re\n";
+    cache.SetFill(out, *fill, fmt);
+  out << fmt.Format(origin.x) << ' ' << fmt.Format(origin.y) << ' '
+      << fmt.Format(w) << ' ' << fmt.Format(h) << " re\n";
   if (fill && stroke.width > 0.0f) {
-    AppendStroke(out, stroke);
+    cache.SetStroke(out, stroke, fmt);
     out << "B\n";
   } else if (fill) {
     out << "f\n";
-  } else {
-    AppendStroke(out, stroke);
+  } else if (stroke.width > 0.0f) {
+    cache.SetStroke(out, stroke, fmt);
     out << "S\n";
   }
 }
 
-void AppendCircle(std::ostringstream &out, const Point &center, double radius,
-                  const CanvasStroke &stroke, const CanvasFill *fill) {
+void AppendCircle(std::ostringstream &out, GraphicsStateCache &cache,
+                  const FloatFormatter &fmt, const Point &center,
+                  double radius, const CanvasStroke &stroke,
+                  const CanvasFill *fill) {
   // Approximate circle with 4 cubic Beziers.
   const double c = radius * 0.552284749831; // 4*(sqrt(2)-1)/3
   Point p0{center.x + radius, center.y};
@@ -190,40 +246,41 @@ void AppendCircle(std::ostringstream &out, const Point &center, double radius,
   Point p11{center.x + radius, center.y - c};
 
   if (fill)
-    AppendFill(out, *fill);
+    cache.SetFill(out, *fill, fmt);
 
-  out << FormatFloat(p0.x) << ' ' << FormatFloat(p0.y) << " m\n"
-      << FormatFloat(p1.x) << ' ' << FormatFloat(p1.y) << ' ' << FormatFloat(p2.x)
-      << ' ' << FormatFloat(p2.y) << ' ' << FormatFloat(p3.x) << ' '
-      << FormatFloat(p3.y) << " c\n"
-      << FormatFloat(p4.x) << ' ' << FormatFloat(p4.y) << ' ' << FormatFloat(p5.x)
-      << ' ' << FormatFloat(p5.y) << ' ' << FormatFloat(p6.x) << ' '
-      << FormatFloat(p6.y) << " c\n"
-      << FormatFloat(p7.x) << ' ' << FormatFloat(p7.y) << ' ' << FormatFloat(p8.x)
-      << ' ' << FormatFloat(p8.y) << ' ' << FormatFloat(p9.x) << ' '
-      << FormatFloat(p9.y) << " c\n"
-      << FormatFloat(p10.x) << ' ' << FormatFloat(p10.y) << ' '
-      << FormatFloat(p11.x) << ' ' << FormatFloat(p11.y) << ' '
-      << FormatFloat(p0.x) << ' ' << FormatFloat(p0.y) << " c\n";
+  out << fmt.Format(p0.x) << ' ' << fmt.Format(p0.y) << " m\n"
+      << fmt.Format(p1.x) << ' ' << fmt.Format(p1.y) << ' ' << fmt.Format(p2.x)
+      << ' ' << fmt.Format(p2.y) << ' ' << fmt.Format(p3.x) << ' '
+      << fmt.Format(p3.y) << " c\n"
+      << fmt.Format(p4.x) << ' ' << fmt.Format(p4.y) << ' ' << fmt.Format(p5.x)
+      << ' ' << fmt.Format(p5.y) << ' ' << fmt.Format(p6.x) << ' '
+      << fmt.Format(p6.y) << " c\n"
+      << fmt.Format(p7.x) << ' ' << fmt.Format(p7.y) << ' ' << fmt.Format(p8.x)
+      << ' ' << fmt.Format(p8.y) << ' ' << fmt.Format(p9.x) << ' '
+      << fmt.Format(p9.y) << " c\n"
+      << fmt.Format(p10.x) << ' ' << fmt.Format(p10.y) << ' '
+      << fmt.Format(p11.x) << ' ' << fmt.Format(p11.y) << ' '
+      << fmt.Format(p0.x) << ' ' << fmt.Format(p0.y) << " c\n";
 
   if (fill && stroke.width > 0.0f) {
-    AppendStroke(out, stroke);
+    cache.SetStroke(out, stroke, fmt);
     out << "B\n";
   } else if (fill) {
     out << "f\n";
-  } else {
-    AppendStroke(out, stroke);
+  } else if (stroke.width > 0.0f) {
+    cache.SetStroke(out, stroke, fmt);
     out << "S\n";
   }
 }
 
-void AppendText(std::ostringstream &out, const Point &pos, const TextCommand &cmd,
+void AppendText(std::ostringstream &out, const FloatFormatter &fmt,
+                const Point &pos, const TextCommand &cmd,
                 const CanvasTextStyle &style) {
   (void)cmd;
-  out << "BT\n/F1 " << FormatFloat(style.fontSize) << " Tf\n";
-  out << FormatFloat(style.color.r) << ' ' << FormatFloat(style.color.g) << ' '
-      << FormatFloat(style.color.b) << " rg\n";
-  out << FormatFloat(pos.x) << ' ' << FormatFloat(pos.y) << " Td\n";
+  out << "BT\n/F1 " << fmt.Format(style.fontSize) << " Tf\n";
+  out << fmt.Format(style.color.r) << ' ' << fmt.Format(style.color.g) << ' '
+      << fmt.Format(style.color.b) << " rg\n";
+  out << fmt.Format(pos.x) << ' ' << fmt.Format(pos.y) << " Td\n";
   out << "(";
   for (char ch : cmd.text) {
     if (ch == '(' || ch == ')' || ch == '\\')
@@ -315,6 +372,8 @@ PlanExportResult ExportPlanToPdf(const CommandBuffer &buffer,
   Transform current{};
   std::vector<Transform> stack;
   std::ostringstream content;
+  FloatFormatter formatter(options.floatPrecision);
+  GraphicsStateCache stateCache;
 
   for (const auto &cmd : buffer.commands) {
     std::visit(
@@ -338,7 +397,7 @@ PlanExportResult ExportPlanToPdf(const CommandBuffer &buffer,
                                 pageH);
             auto pb = MapToPage(b.x, b.y, minX, minY, scale, offsetX, offsetY,
                                 pageH);
-            AppendLine(content, pa, pb, c.stroke);
+            AppendLine(content, stateCache, formatter, pa, pb, c.stroke);
           } else if constexpr (std::is_same_v<T, PolylineCommand>) {
             std::vector<Point> pts;
             pts.reserve(c.points.size() / 2);
@@ -347,7 +406,7 @@ PlanExportResult ExportPlanToPdf(const CommandBuffer &buffer,
               pts.push_back(MapToPage(p.x, p.y, minX, minY, scale, offsetX,
                                       offsetY, pageH));
             }
-            AppendPolyline(content, pts, c.stroke);
+            AppendPolyline(content, stateCache, formatter, pts, c.stroke);
           } else if constexpr (std::is_same_v<T, PolygonCommand>) {
             std::vector<Point> pts;
             pts.reserve(c.points.size() / 2);
@@ -357,7 +416,7 @@ PlanExportResult ExportPlanToPdf(const CommandBuffer &buffer,
                                       offsetY, pageH));
             }
             const CanvasFill *fill = c.hasFill ? &c.fill : nullptr;
-            AppendPolygon(content, pts, c.stroke, fill);
+            AppendPolygon(content, stateCache, formatter, pts, c.stroke, fill);
           } else if constexpr (std::is_same_v<T, RectangleCommand>) {
             auto o = Apply(current, c.x, c.y);
             auto mapped =
@@ -365,19 +424,21 @@ PlanExportResult ExportPlanToPdf(const CommandBuffer &buffer,
             double w = c.w * current.scale * scale;
             double h = c.h * current.scale * scale;
             const CanvasFill *fill = c.hasFill ? &c.fill : nullptr;
-            AppendRectangle(content, mapped, w, h, c.stroke, fill);
+            AppendRectangle(content, stateCache, formatter, mapped, w, h,
+                            c.stroke, fill);
           } else if constexpr (std::is_same_v<T, CircleCommand>) {
             auto c0 = Apply(current, c.cx, c.cy);
             auto mapped = MapToPage(c0.x, c0.y, minX, minY, scale, offsetX,
                                     offsetY, pageH);
             double radius = c.radius * current.scale * scale;
             const CanvasFill *fill = c.hasFill ? &c.fill : nullptr;
-            AppendCircle(content, mapped, radius, c.stroke, fill);
+            AppendCircle(content, stateCache, formatter, mapped, radius,
+                         c.stroke, fill);
           } else if constexpr (std::is_same_v<T, TextCommand>) {
             auto p = Apply(current, c.x, c.y);
             auto mapped = MapToPage(p.x, p.y, minX, minY, scale, offsetX,
                                     offsetY, pageH);
-            AppendText(content, mapped, c, c.style);
+            AppendText(content, formatter, mapped, c, c.style);
           }
         },
         cmd);
@@ -403,8 +464,9 @@ PlanExportResult ExportPlanToPdf(const CommandBuffer &buffer,
   objects.push_back({contentObj.str()});
 
   std::ostringstream pageObj;
-  pageObj << "<< /Type /Page /Parent 4 0 R /MediaBox [0 0 " << FormatFloat(pageW)
-          << ' ' << FormatFloat(pageH)
+  pageObj << "<< /Type /Page /Parent 4 0 R /MediaBox [0 0 "
+          << formatter.Format(pageW)
+          << ' ' << formatter.Format(pageH)
           << "] /Contents 2 0 R /Resources << /Font << /F1 1 0 R >> >> >>";
   objects.push_back({pageObj.str()});
   objects.push_back({"<< /Type /Pages /Kids [3 0 R] /Count 1 >>"});

@@ -32,6 +32,7 @@ struct PlanPrintOptions {
   double marginPt = 36.0;       // Half an inch margin for readability
   bool landscape = false;
   bool compressStreams = true;
+  int floatPrecision = 3;
 };
 
 struct PlanExportResult {
