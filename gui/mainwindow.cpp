@@ -82,6 +82,7 @@ using json = nlohmann::json;
 #include "summarypanel.h"
 #include "tableprinter.h"
 #include "planpdfexporter.h"
+#include "print_diagnostics.h"
 #include "support.h"
 #include "trussloader.h"
 #include "trusstablepanel.h"
@@ -1323,6 +1324,16 @@ void MainWindow::OnPrintPlan(wxCommandEvent &WXUNUSED(event)) {
           wxMessageBox("Unable to capture the 2D view for printing.",
                        "Print Plan", wxOK | wxICON_ERROR);
           return;
+        }
+
+        std::string diagnostics = BuildPrintDiagnostics(buffer);
+        wxLogMessage("%s", wxString::FromUTF8(diagnostics));
+        bool showDiagnosticsBox =
+            ConfigManager::Get().GetFloat("print_plan_diagnostics_popup") !=
+            0.0f;
+        if (showDiagnosticsBox) {
+          wxMessageBox(wxString::FromUTF8(diagnostics), "Print Plan diagnostics",
+                       wxOK | wxICON_INFORMATION, this);
         }
 
         // Run the PDF generation off the UI thread to avoid freezing the

@@ -80,6 +80,7 @@ public:
   virtual void Save() = 0;
   virtual void Restore() = 0;
   virtual void SetTransform(const CanvasTransform &transform) = 0;
+  virtual void SetSourceKey(const std::string &key) = 0;
 
   virtual void DrawLine(float x0, float y0, float x1, float y1,
                         const CanvasStroke &stroke) = 0;
@@ -162,7 +163,15 @@ using CanvasCommand =
 // pulling in rendering dependencies.
 struct CommandBuffer {
   std::vector<CanvasCommand> commands;
-  void Clear() { commands.clear(); }
+  std::vector<std::string> sources;
+
+  std::string currentSourceKey = "unknown";
+
+  void Clear() {
+    commands.clear();
+    sources.clear();
+    currentSourceKey = "unknown";
+  }
 };
 
 // Factory helpers implemented in canvas2d.cpp so callers do not need to know

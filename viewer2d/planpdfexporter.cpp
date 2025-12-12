@@ -25,9 +25,11 @@
 #include <iomanip>
 #include <sstream>
 #include <string>
+#include <system_error>
 #include <type_traits>
 #include <vector>
-#include <system_error>
+
+#include <zlib.h>
 
 namespace {
 
@@ -42,6 +44,33 @@ std::string FormatFloat(double v) {
   ss << std::fixed << std::setprecision(3) << v;
   return ss.str();
 }
+
+class PdfDeflater {
+public:
+  static bool Compress(const std::string &input, std::string &output,
+                       std::string &error) {
+    if (input.empty()) {
+      output.clear();
+      return true;
+    }
+
+    uLongf bound = compressBound(input.size());
+    std::string compressed;
+    compressed.resize(bound);
+
+    int zres = compress2(reinterpret_cast<Bytef *>(compressed.data()), &bound,
+                         reinterpret_cast<const Bytef *>(input.data()),
+                         input.size(), Z_BEST_SPEED);
+    if (zres != Z_OK) {
+      error = "compress2 failed";
+      return false;
+    }
+
+    compressed.resize(bound);
+    output.swap(compressed);
+    return true;
+  }
+};
 
 struct Point {
   double x = 0.0;
@@ -72,8 +101,6 @@ Point MapToPage(double x, double y, double minX, double minY, double scale,
 void AppendStroke(std::ostringstream &out, const CanvasStroke &stroke) {
   out << FormatFloat(stroke.color.r) << ' ' << FormatFloat(stroke.color.g) << ' '
       << FormatFloat(stroke.color.b) << " RG\n";
-  out << FormatFloat(stroke.color.r) << ' ' << FormatFloat(stroke.color.g) << ' '
-      << FormatFloat(stroke.color.b) << " rg\n";
   out << FormatFloat(stroke.width) << " w\n";
 }
 
@@ -105,12 +132,17 @@ void AppendPolygon(std::ostringstream &out, const std::vector<Point> &pts,
                    const CanvasStroke &stroke, const CanvasFill *fill) {
   if (pts.size() < 3)
     return;
+  auto emitPath = [&]() {
+    out << FormatFloat(pts[0].x) << ' ' << FormatFloat(pts[0].y) << " m\n";
+    for (size_t i = 1; i < pts.size(); ++i)
+      out << FormatFloat(pts[i].x) << ' ' << FormatFloat(pts[i].y) << " l\n";
+    out << "h\n";
+  };
+
   if (fill)
     AppendFill(out, *fill);
-  out << FormatFloat(pts[0].x) << ' ' << FormatFloat(pts[0].y) << " m\n";
-  for (size_t i = 1; i < pts.size(); ++i)
-    out << FormatFloat(pts[i].x) << ' ' << FormatFloat(pts[i].y) << " l\n";
-  out << "h\n";
+
+  emitPath();
   if (fill && stroke.width > 0.0f) {
     AppendStroke(out, stroke);
     out << "B\n";
@@ -352,11 +384,22 @@ PlanExportResult ExportPlanToPdf(const CommandBuffer &buffer,
   }
 
   std::string contentStr = content.str();
+  std::string compressedContent;
+  bool useCompression = false;
+  if (options.compressStreams) {
+    std::string error;
+    if (PdfDeflater::Compress(contentStr, compressedContent, error)) {
+      useCompression = true;
+    }
+  }
   std::vector<PdfObject> objects;
   objects.push_back({"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"});
   std::ostringstream contentObj;
-  contentObj << "<< /Length " << contentStr.size() << " >>\nstream\n"
-             << contentStr << "endstream";
+  const std::string &streamData = useCompression ? compressedContent : contentStr;
+  contentObj << "<< /Length " << streamData.size();
+  if (useCompression)
+    contentObj << " /Filter /FlateDecode";
+  contentObj << " >>\nstream\n" << streamData << "endstream";
   objects.push_back({contentObj.str()});
 
   std::ostringstream pageObj;
@@ -390,6 +433,7 @@ PlanExportResult ExportPlanToPdf(const CommandBuffer &buffer,
     }
     file << "trailer\n<< /Size " << (objects.size() + 1)
          << " /Root 5 0 R >>\nstartxref\n" << xrefPos << "\n%%EOF";
+    result.success = true;
   } catch (const std::exception &ex) {
     result.message = std::string("Failed to generate PDF content: ") + ex.what();
     return result;
@@ -398,7 +442,6 @@ PlanExportResult ExportPlanToPdf(const CommandBuffer &buffer,
     return result;
   }
 
-  result.success = true;
   return result;
 }
 

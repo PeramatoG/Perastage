@@ -15,6 +15,7 @@ find_package(CURL REQUIRED)
 find_package(GLEW REQUIRED)
 find_package(nanovg CONFIG REQUIRED)
 find_package(podofo CONFIG REQUIRED)
+find_package(ZLIB REQUIRED)
 
 # Gather source files
 file(GLOB_RECURSE SRC_FILES CONFIGURE_DEPENDS
@@ -74,6 +75,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     CURL::libcurl
     nanovg::nanovg
     podofo::podofo
+    ZLIB::ZLIB
 )
 
 enable_testing()
