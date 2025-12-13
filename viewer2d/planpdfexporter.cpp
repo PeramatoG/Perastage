@@ -26,6 +26,7 @@
 #include <iomanip>
 #include <sstream>
 #include <string>
+#include <string_view>
 #include <system_error>
 #include <type_traits>
 #include <unordered_map>
@@ -298,12 +299,67 @@ void AppendCircle(std::ostringstream &out, GraphicsStateCache &cache,
 void AppendText(std::ostringstream &out, const FloatFormatter &fmt,
                 const Point &pos, const TextCommand &cmd,
                 const CanvasTextStyle &style) {
-  (void)cmd;
+  const auto glyphWidth = [](char ch) {
+    static const std::unordered_map<char, int> widths = {
+        {' ', 278}, {'!', 278}, {'"', 355}, {'#', 556}, {'$', 556},
+        {'%', 889}, {'&', 667}, {'\'', 191}, {'(', 333}, {')', 333},
+        {'*', 389}, {'+', 584}, {',', 278}, {'-', 333}, {'.', 278},
+        {'/', 278}, {'0', 556}, {'1', 556}, {'2', 556}, {'3', 556},
+        {'4', 556}, {'5', 556}, {'6', 556}, {'7', 556}, {'8', 556},
+        {'9', 556}, {':', 278}, {';', 278}, {'<', 584}, {'=', 584},
+        {'>', 584}, {'?', 556}, {'@', 1015}, {'A', 667}, {'B', 667},
+        {'C', 722}, {'D', 722}, {'E', 667}, {'F', 611}, {'G', 778},
+        {'H', 722}, {'I', 278}, {'J', 500}, {'K', 667}, {'L', 556},
+        {'M', 833}, {'N', 722}, {'O', 778}, {'P', 667}, {'Q', 778},
+        {'R', 722}, {'S', 667}, {'T', 611}, {'U', 722}, {'V', 667},
+        {'W', 944}, {'X', 667}, {'Y', 667}, {'Z', 611}, {'[', 278},
+        {'\\', 278}, {']', 278}, {'^', 469}, {'_', 556}, {'`', 333},
+        {'a', 556}, {'b', 556}, {'c', 500}, {'d', 556}, {'e', 556},
+        {'f', 278}, {'g', 556}, {'h', 556}, {'i', 222}, {'j', 222},
+        {'k', 500}, {'l', 222}, {'m', 833}, {'n', 556}, {'o', 556},
+        {'p', 556}, {'q', 556}, {'r', 333}, {'s', 500}, {'t', 278},
+        {'u', 556}, {'v', 500}, {'w', 722}, {'x', 500}, {'y', 500},
+        {'z', 500}, {'{', 334}, {'|', 260}, {'}', 334}, {'~', 584},
+    };
+    auto it = widths.find(ch);
+    if (it != widths.end())
+      return it->second;
+    return 600; // Reasonable fallback for unknown glyphs
+  };
+
+  auto measureLineWidth = [&](std::string_view line) {
+    int units = 0;
+    for (char ch : line)
+      units += glyphWidth(ch);
+    return (units / 1000.0) * style.fontSize;
+  };
+
+  double maxLineWidth = 0.0;
+  size_t lineStart = 0;
+  for (size_t i = 0; i <= cmd.text.size(); ++i) {
+    if (i == cmd.text.size() || cmd.text[i] == '\n') {
+      maxLineWidth = std::max(
+          maxLineWidth,
+          measureLineWidth(std::string_view(cmd.text).substr(lineStart,
+                                                              i - lineStart)));
+      lineStart = i + 1;
+    }
+  }
+
+  double horizontalOffset = 0.0;
+  if (style.hAlign == CanvasTextStyle::HorizontalAlign::Center)
+    horizontalOffset = -maxLineWidth / 2.0;
+
+  double verticalOffset = 0.0;
+  if (style.vAlign == CanvasTextStyle::VerticalAlign::Top)
+    verticalOffset = style.fontSize;
+
   const double lineAdvance = ComputeTextLineAdvance(style);
   out << "BT\n/F1 " << fmt.Format(style.fontSize) << " Tf\n";
   out << fmt.Format(style.color.r) << ' ' << fmt.Format(style.color.g) << ' '
       << fmt.Format(style.color.b) << " rg\n";
-  out << fmt.Format(pos.x) << ' ' << fmt.Format(pos.y) << " Td\n";
+  out << fmt.Format(pos.x + horizontalOffset) << ' '
+      << fmt.Format(pos.y + verticalOffset) << " Td\n";
   out << "(";
   for (char ch : cmd.text) {
     if (ch == '(' || ch == ')' || ch == '\\')
