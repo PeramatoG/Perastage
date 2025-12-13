@@ -1980,12 +1980,12 @@ void Viewer3DController::DrawAllFixtureLabels(int width, int height,
       heights.reserve(lines.size());
       for (const auto &ln : lines)
         heights.push_back(ln.size);
-      const float lineSpacing = 2.0f;
+      const float lineSpacingWorld = 2.0f / (PIXELS_PER_METER * zoom);
       float totalHeight = 0.0f;
       for (size_t i = 0; i < heights.size(); ++i) {
         totalHeight += heights[i];
         if (i + 1 < heights.size())
-          totalHeight += lineSpacing;
+          totalHeight += lineSpacingWorld;
       }
       auto anchor = ProjectToCanvas({static_cast<float>(wx), static_cast<float>(wy),
                                      static_cast<float>(wz)});
@@ -1998,7 +1998,7 @@ void Viewer3DController::DrawAllFixtureLabels(int width, int height,
         style.hAlign = CanvasTextStyle::HorizontalAlign::Center;
         style.vAlign = CanvasTextStyle::VerticalAlign::Top;
         RecordText(anchor[0], currentY, lines[i].text, style);
-        currentY += heights[i] + lineSpacing;
+        currentY += heights[i] + lineSpacingWorld;
       }
     }
 
