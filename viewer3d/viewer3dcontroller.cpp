@@ -1985,31 +1985,34 @@ void Viewer3DController::DrawAllFixtureLabels(int width, int height,
     if (m_captureCanvas) {
       std::string labelSourceKey = "label:" + uuid;
       m_captureCanvas->SetSourceKey(labelSourceKey);
-      constexpr float kPdfTextAscent = 0.718f;
-      constexpr float kPdfTextDescent = 0.207f;
-      constexpr float kPdfLineHeight = 0.78f;
-
-      const auto lineHeight = [](float fontSize) {
-        return fontSize * (kPdfTextAscent + kPdfTextDescent);
-      };
 
       const float pxToWorld = 1.0f / (PIXELS_PER_METER * zoom);
       const float lineSpacingWorld = 2.0f * pxToWorld;
-      std::vector<float> advances;
+
       std::vector<float> worldFontSizes;
-      advances.reserve(lines.size());
+      std::vector<float> lineHeightsWorld;
       worldFontSizes.reserve(lines.size());
+      lineHeightsWorld.reserve(lines.size());
+
+      // Measure each line with NanoVG so the PDF layout matches the on-screen
+      // rendering. Measurements happen in pixel space and are converted to the
+      // world-space units consumed by the PDF exporter.
+      for (const auto &ln : lines) {
+        worldFontSizes.push_back(ln.size * pxToWorld);
+        nvgFontSize(m_vg, ln.size);
+        nvgFontFaceId(m_vg, m_font);
+        nvgTextAlign(m_vg, NVG_ALIGN_CENTER | NVG_ALIGN_TOP);
+        float bounds[4];
+        nvgTextBounds(m_vg, 0.f, 0.f, ln.text.c_str(), nullptr, bounds);
+        lineHeightsWorld.push_back((bounds[3] - bounds[1]) * pxToWorld);
+      }
 
       float totalHeight = 0.0f;
-      for (const auto &ln : lines) {
-        const float worldSize = ln.size * pxToWorld;
-        worldFontSizes.push_back(worldSize);
-        const float height = lineHeight(worldSize);
-        advances.push_back(height * kPdfLineHeight + lineSpacingWorld);
-        totalHeight += height;
+      for (size_t i = 0; i < lineHeightsWorld.size(); ++i) {
+        totalHeight += lineHeightsWorld[i];
+        if (i + 1 < lineHeightsWorld.size())
+          totalHeight += lineSpacingWorld;
       }
-      if (!advances.empty())
-        totalHeight += std::accumulate(advances.begin(), advances.end() - 1, 0.0f);
 
       auto anchor = ProjectToCanvas({static_cast<float>(wx), static_cast<float>(wy),
                                      static_cast<float>(wz)});
@@ -2031,7 +2034,7 @@ void Viewer3DController::DrawAllFixtureLabels(int width, int height,
         }
         RecordText(anchor[0], currentY, lines[i].text, style);
         if (i + 1 < lines.size())
-          currentY -= advances[i];
+          currentY -= lineHeightsWorld[i] + lineSpacingWorld;
       }
     }
 
