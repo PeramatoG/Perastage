@@ -32,6 +32,7 @@
 #include <GL/glew.h>
 #include <GL/gl.h>
 #include <GL/glu.h>
+#include <cstdlib>
 #include <numeric>
 
 #include "configmanager.h"
@@ -69,6 +70,11 @@ static constexpr float LABEL_MAX_WIDTH = 300.0f;
 // Width of fixture labels in meters for the 2D view
 // Pixels per meter used by the 2D view
 static constexpr float PIXELS_PER_METER = 25.0f;
+
+static bool ShouldTraceLabelOrder() {
+  static const bool enabled = std::getenv("PERASTAGE_TRACE_LABELS") != nullptr;
+  return enabled;
+}
 static std::string FindFileRecursive(const std::string &baseDir,
                                      const std::string &fileName) {
   if (baseDir.empty())
@@ -1977,6 +1983,8 @@ void Viewer3DController::DrawAllFixtureLabels(int width, int height,
       continue;
 
     if (m_captureCanvas) {
+      std::string labelSourceKey = "label:" + uuid;
+      m_captureCanvas->SetSourceKey(labelSourceKey);
       constexpr float kPdfTextAscent = 0.718f;
       constexpr float kPdfTextDescent = 0.207f;
       constexpr float kPdfLineHeight = 0.78f;
@@ -2013,9 +2021,17 @@ void Viewer3DController::DrawAllFixtureLabels(int width, int height,
         style.color = {0.0f, 0.0f, 0.0f, 1.0f};
         style.hAlign = CanvasTextStyle::HorizontalAlign::Center;
         style.vAlign = CanvasTextStyle::VerticalAlign::Top;
+        if (ShouldTraceLabelOrder()) {
+          std::ostringstream trace;
+          trace << "[label-capture] fixture=" << uuid << " source="
+                << labelSourceKey << " text=\"" << lines[i].text << "\" x="
+                << anchor[0] << " y=" << currentY << " size=" << style.fontSize
+                << " vAlign=Top";
+          Logger::Instance().Log(trace.str());
+        }
         RecordText(anchor[0], currentY, lines[i].text, style);
         if (i + 1 < lines.size())
-          currentY += advances[i];
+          currentY -= advances[i];
       }
     }
 
