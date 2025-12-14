@@ -1809,6 +1809,52 @@ void Viewer3DController::DrawFixtureLabels(int width, int height) {
   float idSize = cfg.GetFloat("label_font_size_id") * zoom;
   float dmxSize = cfg.GetFloat("label_font_size_dmx") * zoom;
 
+  const auto computeFixtureCenter = [&](const std::string &uuid,
+                                        const Fixture &f) {
+    auto bit = m_fixtureBounds.find(uuid);
+    if (bit != m_fixtureBounds.end()) {
+      const BoundingBox &bb = bit->second;
+      return std::array<double, 3>{(bb.min[0] + bb.max[0]) * 0.5,
+                                   (bb.min[1] + bb.max[1]) * 0.5,
+                                   (bb.min[2] + bb.max[2]) * 0.5};
+    }
+
+    // Fallback to an estimated center using a small cube around the fixture's
+    // origin. This keeps label offsets measured from the fixture midpoint even
+    // if bounds were not precomputed for some reason.
+    Matrix fix = f.transform;
+    fix.o[0] *= RENDER_SCALE;
+    fix.o[1] *= RENDER_SCALE;
+    fix.o[2] *= RENDER_SCALE;
+
+    BoundingBox bb;
+    bb.min = {FLT_MAX, FLT_MAX, FLT_MAX};
+    bb.max = {-FLT_MAX, -FLT_MAX, -FLT_MAX};
+    const float half = 0.1f;
+    const std::array<std::array<float, 3>, 8> corners = {
+        std::array<float, 3>{-half, -half, -half},
+        {half, -half, -half},
+        {-half, half, -half},
+        {half, half, -half},
+        {-half, -half, half},
+        {half, -half, half},
+        {-half, half, half},
+        {half, half, half}};
+    for (const auto &c : corners) {
+      auto p = TransformPoint(fix, c);
+      bb.min[0] = std::min(bb.min[0], p[0]);
+      bb.min[1] = std::min(bb.min[1], p[1]);
+      bb.min[2] = std::min(bb.min[2], p[2]);
+      bb.max[0] = std::max(bb.max[0], p[0]);
+      bb.max[1] = std::max(bb.max[1], p[1]);
+      bb.max[2] = std::max(bb.max[2], p[2]);
+    }
+
+    return std::array<double, 3>{(bb.min[0] + bb.max[0]) * 0.5,
+                                 (bb.min[1] + bb.max[1]) * 0.5,
+                                 (bb.min[2] + bb.max[2]) * 0.5};
+  };
+
   const auto &fixtures = SceneDataManager::Instance().GetFixtures();
   for (const auto &[uuid, f] : fixtures) {
     if (!cfg.IsLayerVisible(f.layer))
@@ -1926,24 +1972,10 @@ void Viewer3DController::DrawAllFixtureLabels(int width, int height,
     if (!cfg.IsLayerVisible(f.layer))
       continue;
 
-    double wx, wy, wz;
-    auto bit = m_fixtureBounds.find(uuid);
-    if (bit != m_fixtureBounds.end()) {
-      const BoundingBox &bb = bit->second;
-      double cx = (bb.min[0] + bb.max[0]) * 0.5;
-      double cy = (bb.min[1] + bb.max[1]) * 0.5;
-      double cz = (bb.min[2] + bb.max[2]) * 0.5;
-      wx = cx + offX;
-      wy = cy + offY;
-      wz = cz + offZ;
-    } else {
-      double cx = f.transform.o[0] * RENDER_SCALE;
-      double cy = f.transform.o[1] * RENDER_SCALE;
-      double cz = f.transform.o[2] * RENDER_SCALE;
-      wx = cx + offX;
-      wy = cy + offY;
-      wz = cz + offZ;
-    }
+    auto center = computeFixtureCenter(uuid, f);
+    double wx = center[0] + offX;
+    double wy = center[1] + offY;
+    double wz = center[2] + offZ;
 
     double sx, sy, sz;
     if (gluProject(wx, wy, wz, model, proj, viewport, &sx, &sy, &sz) != GL_TRUE)
