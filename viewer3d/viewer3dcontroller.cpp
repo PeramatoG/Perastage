@@ -1933,6 +1933,20 @@ void Viewer3DController::DrawAllFixtureLabels(int width, int height,
       double cx = (bb.min[0] + bb.max[0]) * 0.5;
       double cy = (bb.min[1] + bb.max[1]) * 0.5;
       double cz = (bb.min[2] + bb.max[2]) * 0.5;
+
+      // Anchor label offsets from the top of the fixture relative to the active
+      // view so the distance matches the PDF output expectation. Top view uses
+      // +Y as "up" while front/side views share +Z.
+      switch (static_cast<Viewer2DView>(viewIdx)) {
+      case Viewer2DView::Top:
+        cy = bb.max[1];
+        break;
+      case Viewer2DView::Front:
+      case Viewer2DView::Side:
+        cz = bb.max[2];
+        break;
+      }
+
       wx = cx + offX;
       wy = cy + offY;
       wz = cz + offZ;
