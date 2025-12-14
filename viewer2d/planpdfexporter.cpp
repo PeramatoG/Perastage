@@ -352,6 +352,16 @@ void AppendText(std::ostringstream &out, const FloatFormatter &fmt,
   };
 
   const double scaledFontSize = style.fontSize * scale;
+  const double ascent = scaledFontSize * PDF_TEXT_ASCENT_FACTOR;
+  const double descent = scaledFontSize * PDF_TEXT_DESCENT_FACTOR;
+  const double lineAdvanceMagnitude =
+      std::abs(ComputeTextLineAdvance(scaledFontSize));
+
+  size_t numLines = 1;
+  for (char ch : cmd.text) {
+    if (ch == '\n')
+      ++numLines;
+  }
 
   double maxLineWidth = 0.0;
   size_t lineStart = 0;
@@ -372,13 +382,27 @@ void AppendText(std::ostringstream &out, const FloatFormatter &fmt,
     horizontalOffset = -maxLineWidth;
 
   double verticalOffset = 0.0;
-  if (style.vAlign == CanvasTextStyle::VerticalAlign::Top)
-    verticalOffset = -scaledFontSize * PDF_TEXT_ASCENT_FACTOR;
+  const double textHeight = ascent + descent +
+                            lineAdvanceMagnitude * (numLines > 0 ? numLines - 1
+                                                                  : 0);
+  switch (style.vAlign) {
+  case CanvasTextStyle::VerticalAlign::Baseline:
+    verticalOffset = 0.0;
+    break;
+  case CanvasTextStyle::VerticalAlign::Middle:
+    verticalOffset = ascent - textHeight * 0.5;
+    break;
+  case CanvasTextStyle::VerticalAlign::Top:
+    verticalOffset = ascent;
+    break;
+  case CanvasTextStyle::VerticalAlign::Bottom:
+    verticalOffset = ascent - textHeight;
+    break;
+  }
 
   // Always advance downward for successive lines to mirror the on-screen
   // rendering, even if upstream metrics change sign conventions.
-  const double lineAdvance =
-      -std::abs(ComputeTextLineAdvance(scaledFontSize));
+  const double lineAdvance = -lineAdvanceMagnitude;
   out << "BT\n/F1 " << fmt.Format(scaledFontSize) << " Tf\n";
   out << fmt.Format(style.color.r) << ' ' << fmt.Format(style.color.g) << ' '
       << fmt.Format(style.color.b) << " rg\n";
