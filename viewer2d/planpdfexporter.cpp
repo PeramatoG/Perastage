@@ -37,16 +37,17 @@
 namespace {
 
 constexpr float PIXELS_PER_METER = 25.0f;
-// Matches the tighter line spacing used by the on-screen 2D viewer when
-// rendering multi-line text labels. Slightly below 1.0 to mirror the compact
-// leading applied in the live view.
-constexpr float PDF_TEXT_LINE_HEIGHT_FACTOR = 0.78f;
+// Helvetica font metrics used for aligning PDF text the same way NanoVG does on
+// screen. Values are expressed in font units over 1000 to match PDF's internal
+// measurements.
+constexpr float PDF_TEXT_ASCENT_FACTOR = 0.718f;  // 718 / 1000
+constexpr float PDF_TEXT_DESCENT_FACTOR = 0.207f; // 207 / 1000
 
 double ComputeTextLineAdvance(const CanvasTextStyle &style) {
   // Negative because PDF moves the text cursor downward with a negative y
-  // translation. The factor keeps spacing consistent with the 2D viewer's
-  // tighter multi-line layout.
-  return -style.fontSize * PDF_TEXT_LINE_HEIGHT_FACTOR;
+  // translation. Line advance mirrors the ascent + descent used by the
+  // on-screen viewer when positioning multi-line labels.
+  return -style.fontSize * (PDF_TEXT_ASCENT_FACTOR + PDF_TEXT_DESCENT_FACTOR);
 }
 
 struct PdfObject {
@@ -349,10 +350,26 @@ void AppendText(std::ostringstream &out, const FloatFormatter &fmt,
   double horizontalOffset = 0.0;
   if (style.hAlign == CanvasTextStyle::HorizontalAlign::Center)
     horizontalOffset = -maxLineWidth / 2.0;
+  else if (style.hAlign == CanvasTextStyle::HorizontalAlign::Right)
+    horizontalOffset = -maxLineWidth;
 
   double verticalOffset = 0.0;
-  if (style.vAlign == CanvasTextStyle::VerticalAlign::Top)
-    verticalOffset = style.fontSize;
+  switch (style.vAlign) {
+  case CanvasTextStyle::VerticalAlign::Top:
+    verticalOffset = style.fontSize * PDF_TEXT_ASCENT_FACTOR;
+    break;
+  case CanvasTextStyle::VerticalAlign::Middle:
+    verticalOffset =
+        style.fontSize * (PDF_TEXT_ASCENT_FACTOR - PDF_TEXT_DESCENT_FACTOR) /
+        2.0;
+    break;
+  case CanvasTextStyle::VerticalAlign::Bottom:
+    verticalOffset = -style.fontSize * PDF_TEXT_DESCENT_FACTOR;
+    break;
+  case CanvasTextStyle::VerticalAlign::Baseline:
+  default:
+    break;
+  }
 
   const double lineAdvance = ComputeTextLineAdvance(style);
   out << "BT\n/F1 " << fmt.Format(style.fontSize) << " Tf\n";
