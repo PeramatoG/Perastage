@@ -37,11 +37,15 @@
 namespace {
 
 constexpr float PIXELS_PER_METER = 25.0f;
-// Helvetica font metrics used for aligning PDF text the same way NanoVG does on
-// screen. Values are expressed in font units over 1000 to match PDF's internal
-// measurements.
-constexpr float PDF_TEXT_ASCENT_FACTOR = 0.718f;  // 718 / 1000
-constexpr float PDF_TEXT_DESCENT_FACTOR = 0.207f; // 207 / 1000
+// Matches the tighter line spacing used by the on-screen 2D viewer when
+// rendering multi-line text labels. Slightly below 1.0 to mirror the compact
+// leading applied in the live view.
+constexpr float PDF_TEXT_LINE_HEIGHT_FACTOR = 0.78f;
+// Approximates the ascent of the standard Helvetica font used by PDF viewers
+// (718 units over 1000). Used to align top-anchored text consistently with the
+// on-screen NanoVG rendering that places text relative to its bounding box top
+// edge.
+constexpr float PDF_TEXT_ASCENT_FACTOR = 0.718f;
 
 double ComputeTextLineAdvance(const CanvasTextStyle &style) {
   // Negative because PDF moves the text cursor downward with a negative y
@@ -354,22 +358,8 @@ void AppendText(std::ostringstream &out, const FloatFormatter &fmt,
     horizontalOffset = -maxLineWidth;
 
   double verticalOffset = 0.0;
-  switch (style.vAlign) {
-  case CanvasTextStyle::VerticalAlign::Top:
-    verticalOffset = style.fontSize * PDF_TEXT_ASCENT_FACTOR;
-    break;
-  case CanvasTextStyle::VerticalAlign::Middle:
-    verticalOffset =
-        style.fontSize * (PDF_TEXT_ASCENT_FACTOR - PDF_TEXT_DESCENT_FACTOR) /
-        2.0;
-    break;
-  case CanvasTextStyle::VerticalAlign::Bottom:
-    verticalOffset = -style.fontSize * PDF_TEXT_DESCENT_FACTOR;
-    break;
-  case CanvasTextStyle::VerticalAlign::Baseline:
-  default:
-    break;
-  }
+  if (style.vAlign == CanvasTextStyle::VerticalAlign::Top)
+    verticalOffset = -style.fontSize * PDF_TEXT_ASCENT_FACTOR;
 
   const double lineAdvance = ComputeTextLineAdvance(style);
   out << "BT\n/F1 " << fmt.Format(style.fontSize) << " Tf\n";
