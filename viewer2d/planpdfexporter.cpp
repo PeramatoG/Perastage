@@ -372,12 +372,8 @@ void AppendText(std::ostringstream &out, const FloatFormatter &fmt,
     horizontalOffset = -maxLineWidth;
 
   double verticalOffset = 0.0;
-  // Recorded fixture labels provide the text's top edge as the anchor. To keep
-  // the PDF export aligned with the on-screen 2D view, place the PDF text
-  // baseline at that same anchor instead of offsetting by the font ascent.
-  // This avoids shifting the entire label downward relative to its fixture.
   if (style.vAlign == CanvasTextStyle::VerticalAlign::Top)
-    verticalOffset = 0.0;
+    verticalOffset = -scaledFontSize * PDF_TEXT_ASCENT_FACTOR;
 
   // Always advance downward for successive lines to mirror the on-screen
   // rendering, even if upstream metrics change sign conventions.
