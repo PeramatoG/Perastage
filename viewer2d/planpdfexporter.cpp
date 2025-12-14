@@ -46,6 +46,9 @@ constexpr float PDF_TEXT_LINE_HEIGHT_FACTOR = 0.78f;
 // on-screen NanoVG rendering that places text relative to its bounding box top
 // edge.
 constexpr float PDF_TEXT_ASCENT_FACTOR = 0.718f;
+// Complements the ascent factor using Helvetica's 207 unit descent to align the
+// PDF export's baseline with the on-screen text metrics.
+constexpr float PDF_TEXT_DESCENT_FACTOR = 0.207f;
 
 double ComputeTextLineAdvance(const CanvasTextStyle &style) {
   // Negative because PDF moves the text cursor downward with a negative y
