@@ -41,6 +41,11 @@ constexpr float PIXELS_PER_METER = 25.0f;
 // rendering multi-line text labels. Slightly below 1.0 to mirror the compact
 // leading applied in the live view.
 constexpr float PDF_TEXT_LINE_HEIGHT_FACTOR = 0.78f;
+// Approximates the ascent of the standard Helvetica font used by PDF viewers
+// (718 units over 1000). Used to align top-anchored text consistently with the
+// on-screen NanoVG rendering that places text relative to its bounding box top
+// edge.
+constexpr float PDF_TEXT_ASCENT_FACTOR = 0.718f;
 
 double ComputeTextLineAdvance(const CanvasTextStyle &style) {
   // Negative because PDF moves the text cursor downward with a negative y
@@ -352,7 +357,7 @@ void AppendText(std::ostringstream &out, const FloatFormatter &fmt,
 
   double verticalOffset = 0.0;
   if (style.vAlign == CanvasTextStyle::VerticalAlign::Top)
-    verticalOffset = style.fontSize;
+    verticalOffset = style.fontSize * PDF_TEXT_ASCENT_FACTOR;
 
   const double lineAdvance = ComputeTextLineAdvance(style);
   out << "BT\n/F1 " << fmt.Format(style.fontSize) << " Tf\n";
