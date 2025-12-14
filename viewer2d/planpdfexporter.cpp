@@ -27,12 +27,15 @@
 #include <sstream>
 #include <string>
 #include <string_view>
+#include <cstdlib>
 #include <system_error>
 #include <type_traits>
 #include <unordered_map>
 #include <vector>
 
 #include <zlib.h>
+
+#include "core/logger.h"
 
 namespace {
 
@@ -49,6 +52,11 @@ constexpr float PDF_TEXT_ASCENT_FACTOR = 0.718f;
 // Complements the ascent factor using Helvetica's 207 unit descent to align the
 // PDF export's baseline with the on-screen text metrics.
 constexpr float PDF_TEXT_DESCENT_FACTOR = 0.207f;
+
+static bool ShouldTraceLabelOrder() {
+  static const bool enabled = std::getenv("PERASTAGE_TRACE_LABELS") != nullptr;
+  return enabled;
+}
 
 double ComputeTextLineAdvance(double fontSize) {
   // Negative because PDF moves the text cursor downward with a negative y
@@ -527,7 +535,7 @@ std::string RenderCommandsToStream(
     group.clear();
   };
 
-  auto handleBarrier = [&](const auto &cmd) {
+  auto handleBarrier = [&](const auto &cmd, size_t idx) {
     using T = std::decay_t<decltype(cmd)>;
     if constexpr (std::is_same_v<T, SaveCommand>) {
       stack.push_back(current);
@@ -542,6 +550,29 @@ std::string RenderCommandsToStream(
       current.offsetY = cmd.transform.offsetY;
     } else if constexpr (std::is_same_v<T, TextCommand>) {
       auto pos = MapPointWithTransform(cmd.x, cmd.y, current, mapping);
+      if (ShouldTraceLabelOrder()) {
+        std::ostringstream trace;
+        trace << "[label-replay] index=" << idx;
+        if (idx < sources.size())
+          trace << " source=" << sources[idx];
+        trace << " text=\"" << cmd.text << "\" x=" << pos.x << " y="
+              << pos.y << " size=" << cmd.style.fontSize << " vAlign=";
+        switch (cmd.style.vAlign) {
+        case CanvasTextStyle::VerticalAlign::Baseline:
+          trace << "Baseline";
+          break;
+        case CanvasTextStyle::VerticalAlign::Middle:
+          trace << "Middle";
+          break;
+        case CanvasTextStyle::VerticalAlign::Top:
+          trace << "Top";
+          break;
+        case CanvasTextStyle::VerticalAlign::Bottom:
+          trace << "Bottom";
+          break;
+        }
+        Logger::Instance().Log(trace.str());
+      }
       AppendText(content, formatter, pos, cmd, cmd.style, mapping.scale);
     } else {
       // Symbol control commands are handled at a higher level but must preserve
@@ -566,7 +597,8 @@ std::string RenderCommandsToStream(
 
     if (isBarrier) {
       flushGroup();
-      std::visit(handleBarrier, cmd);
+      std::visit([&](const auto &barrierCmd) { handleBarrier(barrierCmd, i); },
+                 cmd);
       continue;
     }
 
