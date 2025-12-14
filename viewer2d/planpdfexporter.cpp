@@ -373,7 +373,7 @@ void AppendText(std::ostringstream &out, const FloatFormatter &fmt,
 
   double verticalOffset = 0.0;
   if (style.vAlign == CanvasTextStyle::VerticalAlign::Top)
-    verticalOffset = scaledFontSize * PDF_TEXT_ASCENT_FACTOR;
+    verticalOffset = -scaledFontSize * PDF_TEXT_ASCENT_FACTOR;
 
   // Always advance downward for successive lines to mirror the on-screen
   // rendering, even if upstream metrics change sign conventions.
