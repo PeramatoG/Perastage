@@ -35,7 +35,7 @@
 
 #include <zlib.h>
 
-#include "core/logger.h"
+#include "logger.h"
 
 namespace {
 
