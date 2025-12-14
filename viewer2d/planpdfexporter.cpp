@@ -54,7 +54,8 @@ double ComputeTextLineAdvance(const CanvasTextStyle &style) {
   // Negative because PDF moves the text cursor downward with a negative y
   // translation. Line advance mirrors the ascent + descent used by the
   // on-screen viewer when positioning multi-line labels.
-  return -style.fontSize * (PDF_TEXT_ASCENT_FACTOR + PDF_TEXT_DESCENT_FACTOR);
+  return -style.fontSize * (PDF_TEXT_ASCENT_FACTOR + PDF_TEXT_DESCENT_FACTOR) *
+         PDF_TEXT_LINE_HEIGHT_FACTOR;
 }
 
 struct PdfObject {

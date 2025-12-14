@@ -32,6 +32,7 @@
 #include <GL/glew.h>
 #include <GL/gl.h>
 #include <GL/glu.h>
+#include <numeric>
 
 #include "configmanager.h"
 #include "loader3ds.h"
@@ -1976,17 +1977,27 @@ void Viewer3DController::DrawAllFixtureLabels(int width, int height,
       continue;
 
     if (m_captureCanvas) {
-      std::vector<float> heights;
-      heights.reserve(lines.size());
-      for (const auto &ln : lines)
-        heights.push_back(ln.size);
+      constexpr float kPdfTextAscent = 0.718f;
+      constexpr float kPdfTextDescent = 0.207f;
+      constexpr float kPdfLineHeight = 0.78f;
+
+      const auto lineHeight = [](float fontSize) {
+        return fontSize * (kPdfTextAscent + kPdfTextDescent);
+      };
+
       const float lineSpacingWorld = 2.0f / (PIXELS_PER_METER * zoom);
+      std::vector<float> advances;
+      advances.reserve(lines.size());
+
       float totalHeight = 0.0f;
-      for (size_t i = 0; i < heights.size(); ++i) {
-        totalHeight += heights[i];
-        if (i + 1 < heights.size())
-          totalHeight += lineSpacingWorld;
+      for (const auto &ln : lines) {
+        const float height = lineHeight(ln.size);
+        advances.push_back(height * kPdfLineHeight + lineSpacingWorld);
+        totalHeight += height;
       }
+      if (!advances.empty())
+        totalHeight += std::accumulate(advances.begin(), advances.end() - 1, 0.0f);
+
       auto anchor = ProjectToCanvas({static_cast<float>(wx), static_cast<float>(wy),
                                      static_cast<float>(wz)});
       float currentY = anchor[1] - totalHeight * 0.5f;
@@ -1998,7 +2009,8 @@ void Viewer3DController::DrawAllFixtureLabels(int width, int height,
         style.hAlign = CanvasTextStyle::HorizontalAlign::Center;
         style.vAlign = CanvasTextStyle::VerticalAlign::Top;
         RecordText(anchor[0], currentY, lines[i].text, style);
-        currentY += heights[i] + lineSpacingWorld;
+        if (i + 1 < lines.size())
+          currentY += advances[i];
       }
     }
 
