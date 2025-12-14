@@ -357,7 +357,7 @@ void AppendText(std::ostringstream &out, const FloatFormatter &fmt,
 
   double verticalOffset = 0.0;
   if (style.vAlign == CanvasTextStyle::VerticalAlign::Top)
-    verticalOffset = style.fontSize * PDF_TEXT_ASCENT_FACTOR;
+    verticalOffset = -style.fontSize * PDF_TEXT_ASCENT_FACTOR;
 
   const double lineAdvance = ComputeTextLineAdvance(style);
   out << "BT\n/F1 " << fmt.Format(style.fontSize) << " Tf\n";
