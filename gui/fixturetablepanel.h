@@ -63,7 +63,8 @@ private:
     void OnItemActivated(wxDataViewEvent& event);
     void OnColumnSorted(wxDataViewEvent& event);
     void ResyncRows(const std::vector<std::string>& oldOrder,
-                    const std::vector<std::string>& selectedUuids);
+                    const std::vector<std::string>& selectedUuids,
+                    const std::vector<wxString>* oldPaths = nullptr);
     void OnLeftDown(wxMouseEvent& evt);
     void OnLeftUp(wxMouseEvent& evt);
     void OnMouseMove(wxMouseEvent& evt);

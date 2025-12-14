@@ -926,6 +926,9 @@ void FixtureTablePanel::DeleteSelected() {
   ConfigManager &cfg = ConfigManager::Get();
   cfg.PushUndoState("delete fixture");
 
+  std::vector<std::string> oldOrder = rowUuids;
+  std::vector<wxString> oldPaths = gdtfPaths;
+
   std::vector<int> rows;
   rows.reserve(selections.size());
   for (const auto &it : selections) {
@@ -968,8 +971,7 @@ void FixtureTablePanel::DeleteSelected() {
   if (SummaryPanel::Instance())
     SummaryPanel::Instance()->ShowFixtureSummary();
 
-  std::vector<std::string> order = rowUuids;
-  ResyncRows(order, {});
+  ResyncRows(oldOrder, {}, &oldPaths);
 }
 
 void FixtureTablePanel::OnItemActivated(wxDataViewEvent &event) {
@@ -1354,17 +1356,19 @@ void FixtureTablePanel::HighlightDuplicateFixtureIds() {
 
 void FixtureTablePanel::ResyncRows(
     const std::vector<std::string> &oldOrder,
-    const std::vector<std::string> &selectedUuids) {
+    const std::vector<std::string> &selectedUuids,
+    const std::vector<wxString> *oldPaths) {
   unsigned int count = table->GetItemCount();
   std::vector<std::string> newOrder(count);
   std::vector<wxString> newPaths(count);
+  const auto &paths = oldPaths ? *oldPaths : gdtfPaths;
   for (unsigned int i = 0; i < count; ++i) {
     wxDataViewItem it = table->RowToItem(i);
     unsigned long idx = store->GetItemData(it);
     if (idx < oldOrder.size()) {
       newOrder[i] = oldOrder[idx];
-      if (idx < gdtfPaths.size())
-        newPaths[i] = gdtfPaths[idx];
+      if (idx < paths.size())
+        newPaths[i] = paths[idx];
     }
     store->SetItemData(it, i);
   }
