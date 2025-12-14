@@ -49,9 +49,9 @@ constexpr float PDF_TEXT_ASCENT_FACTOR = 0.718f;
 
 double ComputeTextLineAdvance(const CanvasTextStyle &style) {
   // Negative because PDF moves the text cursor downward with a negative y
-  // translation. The factor keeps spacing consistent with the 2D viewer's
-  // tighter multi-line layout.
-  return -style.fontSize * PDF_TEXT_LINE_HEIGHT_FACTOR;
+  // translation. Line advance mirrors the ascent + descent used by the
+  // on-screen viewer when positioning multi-line labels.
+  return -style.fontSize * (PDF_TEXT_ASCENT_FACTOR + PDF_TEXT_DESCENT_FACTOR);
 }
 
 struct PdfObject {
@@ -354,6 +354,8 @@ void AppendText(std::ostringstream &out, const FloatFormatter &fmt,
   double horizontalOffset = 0.0;
   if (style.hAlign == CanvasTextStyle::HorizontalAlign::Center)
     horizontalOffset = -maxLineWidth / 2.0;
+  else if (style.hAlign == CanvasTextStyle::HorizontalAlign::Right)
+    horizontalOffset = -maxLineWidth;
 
   double verticalOffset = 0.0;
   if (style.vAlign == CanvasTextStyle::VerticalAlign::Top)
