@@ -50,11 +50,11 @@ constexpr float PDF_TEXT_ASCENT_FACTOR = 0.718f;
 // PDF export's baseline with the on-screen text metrics.
 constexpr float PDF_TEXT_DESCENT_FACTOR = 0.207f;
 
-double ComputeTextLineAdvance(const CanvasTextStyle &style) {
+double ComputeTextLineAdvance(double fontSize) {
   // Negative because PDF moves the text cursor downward with a negative y
   // translation. Line advance mirrors the ascent + descent used by the
   // on-screen viewer when positioning multi-line labels.
-  return -style.fontSize * (PDF_TEXT_ASCENT_FACTOR + PDF_TEXT_DESCENT_FACTOR) *
+  return -fontSize * (PDF_TEXT_ASCENT_FACTOR + PDF_TEXT_DESCENT_FACTOR) *
          PDF_TEXT_LINE_HEIGHT_FACTOR;
 }
 
@@ -307,7 +307,7 @@ void AppendCircle(std::ostringstream &out, GraphicsStateCache &cache,
 
 void AppendText(std::ostringstream &out, const FloatFormatter &fmt,
                 const Point &pos, const TextCommand &cmd,
-                const CanvasTextStyle &style) {
+                const CanvasTextStyle &style, double scale) {
   const auto glyphWidth = [](char ch) {
     static const std::unordered_map<char, int> widths = {
         {' ', 278}, {'!', 278}, {'"', 355}, {'#', 556}, {'$', 556},
@@ -340,8 +340,10 @@ void AppendText(std::ostringstream &out, const FloatFormatter &fmt,
     int units = 0;
     for (char ch : line)
       units += glyphWidth(ch);
-    return (units / 1000.0) * style.fontSize;
+    return (units / 1000.0) * style.fontSize * scale;
   };
+
+  const double scaledFontSize = style.fontSize * scale;
 
   double maxLineWidth = 0.0;
   size_t lineStart = 0;
@@ -363,10 +365,10 @@ void AppendText(std::ostringstream &out, const FloatFormatter &fmt,
 
   double verticalOffset = 0.0;
   if (style.vAlign == CanvasTextStyle::VerticalAlign::Top)
-    verticalOffset = -style.fontSize * PDF_TEXT_ASCENT_FACTOR;
+    verticalOffset = -scaledFontSize * PDF_TEXT_ASCENT_FACTOR;
 
-  const double lineAdvance = ComputeTextLineAdvance(style);
-  out << "BT\n/F1 " << fmt.Format(style.fontSize) << " Tf\n";
+  const double lineAdvance = ComputeTextLineAdvance(scaledFontSize);
+  out << "BT\n/F1 " << fmt.Format(scaledFontSize) << " Tf\n";
   out << fmt.Format(style.color.r) << ' ' << fmt.Format(style.color.g) << ' '
       << fmt.Format(style.color.b) << " rg\n";
   out << fmt.Format(pos.x + horizontalOffset) << ' '
@@ -537,7 +539,7 @@ std::string RenderCommandsToStream(
       current.offsetY = cmd.transform.offsetY;
     } else if constexpr (std::is_same_v<T, TextCommand>) {
       auto pos = MapPointWithTransform(cmd.x, cmd.y, current, mapping);
-      AppendText(content, formatter, pos, cmd, cmd.style);
+      AppendText(content, formatter, pos, cmd, cmd.style, mapping.scale);
     } else {
       // Symbol control commands are handled at a higher level but must preserve
       // ordering relative to drawing commands.

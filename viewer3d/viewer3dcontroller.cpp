@@ -1985,13 +1985,18 @@ void Viewer3DController::DrawAllFixtureLabels(int width, int height,
         return fontSize * (kPdfTextAscent + kPdfTextDescent);
       };
 
-      const float lineSpacingWorld = 2.0f / (PIXELS_PER_METER * zoom);
+      const float pxToWorld = 1.0f / (PIXELS_PER_METER * zoom);
+      const float lineSpacingWorld = 2.0f * pxToWorld;
       std::vector<float> advances;
+      std::vector<float> worldFontSizes;
       advances.reserve(lines.size());
+      worldFontSizes.reserve(lines.size());
 
       float totalHeight = 0.0f;
       for (const auto &ln : lines) {
-        const float height = lineHeight(ln.size);
+        const float worldSize = ln.size * pxToWorld;
+        worldFontSizes.push_back(worldSize);
+        const float height = lineHeight(worldSize);
         advances.push_back(height * kPdfLineHeight + lineSpacingWorld);
         totalHeight += height;
       }
@@ -2004,7 +2009,7 @@ void Viewer3DController::DrawAllFixtureLabels(int width, int height,
       for (size_t i = 0; i < lines.size(); ++i) {
         CanvasTextStyle style;
         style.fontFamily = "sans";
-        style.fontSize = lines[i].size;
+        style.fontSize = worldFontSizes[i];
         style.color = {0.0f, 0.0f, 0.0f, 1.0f};
         style.hAlign = CanvasTextStyle::HorizontalAlign::Center;
         style.vAlign = CanvasTextStyle::VerticalAlign::Top;
