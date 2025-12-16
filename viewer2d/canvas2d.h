@@ -49,6 +49,13 @@ struct CanvasFill {
 struct CanvasTextStyle {
   std::string fontFamily;
   float fontSize = 12.0f;
+  // Optional font metrics measured at capture time (expressed in the same
+  // logical units as the scene). When provided they allow exporters to align
+  // text using the exact ascender/descender reported by the live renderer
+  // instead of relying on generic font constants.
+  float ascent = 0.0f;
+  float descent = 0.0f;
+  float lineHeight = 0.0f;
   CanvasColor color{};
   enum class HorizontalAlign { Left, Center, Right } hAlign =
       HorizontalAlign::Left;
@@ -204,4 +211,3 @@ std::unique_ptr<ICanvas2D> CreateRecordingCanvas(CommandBuffer &buffer,
                                                      false);
 std::unique_ptr<ICanvas2D> CreateMultiCanvas(
     const std::vector<ICanvas2D *> &canvases);
-
