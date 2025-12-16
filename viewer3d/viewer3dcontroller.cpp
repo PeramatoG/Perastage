@@ -2005,8 +2005,12 @@ void Viewer3DController::DrawAllFixtureLabels(int width, int height,
 
       std::vector<float> worldFontSizes;
       std::vector<float> lineHeightsWorld;
+      std::vector<float> ascentsWorld;
+      std::vector<float> descentsWorld;
       worldFontSizes.reserve(lines.size());
       lineHeightsWorld.reserve(lines.size());
+      ascentsWorld.reserve(lines.size());
+      descentsWorld.reserve(lines.size());
 
       // Measure each line with NanoVG so the PDF layout matches the on-screen
       // rendering. Measurements happen in pixel space and are converted to the
@@ -2019,6 +2023,12 @@ void Viewer3DController::DrawAllFixtureLabels(int width, int height,
         float bounds[4];
         nvgTextBounds(m_vg, 0.f, 0.f, ln.text.c_str(), nullptr, bounds);
         lineHeightsWorld.push_back((bounds[3] - bounds[1]) * pxToWorld);
+        float ascender = 0.0f;
+        float descender = 0.0f;
+        float lineh = 0.0f;
+        nvgTextMetrics(m_vg, &ascender, &descender, &lineh);
+        ascentsWorld.push_back(ascender * pxToWorld);
+        descentsWorld.push_back(-descender * pxToWorld);
       }
 
       float totalHeight = 0.0f;
@@ -2051,6 +2061,9 @@ void Viewer3DController::DrawAllFixtureLabels(int width, int height,
         CanvasTextStyle style;
         style.fontFamily = "sans";
         style.fontSize = worldFontSizes[i];
+        style.ascent = ascentsWorld[i];
+        style.descent = descentsWorld[i];
+        style.lineHeight = ascentsWorld[i] + descentsWorld[i];
         style.color = {0.0f, 0.0f, 0.0f, 1.0f};
         style.hAlign = CanvasTextStyle::HorizontalAlign::Center;
         style.vAlign = CanvasTextStyle::VerticalAlign::Top;

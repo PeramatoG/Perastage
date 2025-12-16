@@ -352,6 +352,12 @@ void AppendText(std::ostringstream &out, const FloatFormatter &fmt,
   };
 
   const double scaledFontSize = style.fontSize * scale;
+  const double ascent =
+      style.ascent > 0.0f ? style.ascent * scale
+                          : scaledFontSize * PDF_TEXT_ASCENT_FACTOR;
+  const double descent =
+      style.descent > 0.0f ? style.descent * scale
+                           : scaledFontSize * PDF_TEXT_DESCENT_FACTOR;
 
   double maxLineWidth = 0.0;
   size_t lineStart = 0;
@@ -372,13 +378,25 @@ void AppendText(std::ostringstream &out, const FloatFormatter &fmt,
     horizontalOffset = -maxLineWidth;
 
   double verticalOffset = 0.0;
-  if (style.vAlign == CanvasTextStyle::VerticalAlign::Top)
-    verticalOffset = -scaledFontSize * PDF_TEXT_ASCENT_FACTOR;
+  switch (style.vAlign) {
+  case CanvasTextStyle::VerticalAlign::Top:
+    verticalOffset = -ascent;
+    break;
+  case CanvasTextStyle::VerticalAlign::Middle:
+    verticalOffset = -(ascent - descent) * 0.5;
+    break;
+  case CanvasTextStyle::VerticalAlign::Bottom:
+    verticalOffset = descent;
+    break;
+  case CanvasTextStyle::VerticalAlign::Baseline:
+    break;
+  }
 
   // Always advance downward for successive lines to mirror the on-screen
   // rendering, even if upstream metrics change sign conventions.
   const double lineAdvance =
-      -std::abs(ComputeTextLineAdvance(scaledFontSize));
+      style.lineHeight > 0.0f ? -std::abs(style.lineHeight * scale)
+                              : -std::abs(ComputeTextLineAdvance(scaledFontSize));
   out << "BT\n/F1 " << fmt.Format(scaledFontSize) << " Tf\n";
   out << fmt.Format(style.color.r) << ' ' << fmt.Format(style.color.g) << ' '
       << fmt.Format(style.color.b) << " rg\n";
@@ -908,4 +926,3 @@ PlanExportResult ExportPlanToPdf(const CommandBuffer &buffer,
 
   return result;
 }
-
