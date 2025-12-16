@@ -787,7 +787,7 @@ PlanExportResult ExportPlanToPdf(const CommandBuffer &buffer,
     mainCommands.sources.push_back(source);
   }
 
-  Mapping pageMapping{minX, minY, scale, offsetX, offsetY, pageH, false};
+  Mapping pageMapping{minX, minY, scale, offsetX, offsetY, pageH, true};
   std::string contentStr = RenderCommandsToStream(
       mainCommands.commands, mainCommands.metadata, mainCommands.sources,
       pageMapping, formatter);
