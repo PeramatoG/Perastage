@@ -2028,8 +2028,24 @@ void Viewer3DController::DrawAllFixtureLabels(int width, int height,
           totalHeight += lineSpacingWorld;
       }
 
-      auto anchor = ProjectToCanvas({static_cast<float>(wx), static_cast<float>(wy),
-                                     static_cast<float>(wz)});
+      auto toPlan2D = [](double wx, double wy, double wz, Viewer2DView view) {
+        switch (view) {
+        case Viewer2DView::Top:
+          return std::array<float, 2>{static_cast<float>(wx),
+                                      static_cast<float>(wy)};
+        case Viewer2DView::Front:
+          return std::array<float, 2>{static_cast<float>(wx),
+                                      static_cast<float>(wz)};
+        case Viewer2DView::Side:
+          return std::array<float, 2>{static_cast<float>(-wy),
+                                      static_cast<float>(wz)};
+        }
+        return std::array<float, 2>{static_cast<float>(wx),
+                                    static_cast<float>(wy)};
+      };
+
+      auto anchor =
+          toPlan2D(wx, wy, wz, static_cast<Viewer2DView>(viewIdx));
       float currentY = anchor[1] - totalHeight * 0.5f;
       for (size_t i = 0; i < lines.size(); ++i) {
         CanvasTextStyle style;
