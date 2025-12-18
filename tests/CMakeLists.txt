@@ -51,6 +51,7 @@ add_executable(save_load_roundtrip_test save_load_roundtrip_test.cpp
                ../core/projectutils.cpp
                ../core/gdtfdictionary.cpp
                ../core/trussdictionary.cpp
+               ../core/uuidutils.cpp
                ../mvr/mvrimporter.cpp
                ../mvr/mvrexporter.cpp
                ../core/logger.cpp
