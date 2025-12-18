@@ -595,6 +595,8 @@ std::string RenderCommandsToStream(
         Logger::Instance().Log(trace.str());
       }
       AppendText(content, formatter, pos, cmd, cmd.style, mapping.scale);
+    } else if constexpr (std::is_same_v<T, SymbolInstanceCommand>) {
+      // TODO: Replay cached symbol instances once exporters understand them.
     } else {
       // Symbol control commands are handled at a higher level but must preserve
       // ordering relative to drawing commands.
@@ -612,6 +614,7 @@ std::string RenderCommandsToStream(
                  std::is_same_v<T, BeginSymbolCommand> ||
                  std::is_same_v<T, EndSymbolCommand> ||
                  std::is_same_v<T, PlaceSymbolCommand> ||
+                 std::is_same_v<T, SymbolInstanceCommand> ||
                  std::is_same_v<T, TextCommand>;
         },
         cmd);
