@@ -2056,7 +2056,11 @@ void Viewer3DController::DrawAllFixtureLabels(int width, int height,
 
       auto anchor =
           toPlan2D(wx, wy, wz, static_cast<Viewer2DView>(viewIdx));
-      float currentY = anchor[1] - totalHeight * 0.5f;
+      // The PDF exporter flips the Y axis, so advance the capture cursor in
+      // the opposite direction from the on-screen stacking. Start from the
+      // top edge of the block so the final layout remains vertically centered
+      // around the same anchor after the flip.
+      float currentY = anchor[1] + totalHeight * 0.5f;
       for (size_t i = 0; i < lines.size(); ++i) {
         CanvasTextStyle style;
         style.fontFamily = "sans";
@@ -2075,7 +2079,8 @@ void Viewer3DController::DrawAllFixtureLabels(int width, int height,
                 << " vAlign=Baseline";
           Logger::Instance().Log(trace.str());
         }
-        RecordText(anchor[0], currentY + style.ascent, lines[i].text, style);
+        RecordText(anchor[0], currentY - lineHeightsWorld[i] + style.ascent,
+                   lines[i].text, style);
         if (i + 1 < lines.size())
           currentY -= lineHeightsWorld[i] + lineSpacingWorld;
       }
