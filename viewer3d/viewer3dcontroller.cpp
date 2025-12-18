@@ -2066,16 +2066,16 @@ void Viewer3DController::DrawAllFixtureLabels(int width, int height,
         style.lineHeight = ascentsWorld[i] + descentsWorld[i];
         style.color = {0.0f, 0.0f, 0.0f, 1.0f};
         style.hAlign = CanvasTextStyle::HorizontalAlign::Center;
-        style.vAlign = CanvasTextStyle::VerticalAlign::Top;
+        style.vAlign = CanvasTextStyle::VerticalAlign::Baseline;
         if (ShouldTraceLabelOrder()) {
           std::ostringstream trace;
           trace << "[label-capture] fixture=" << uuid << " source="
                 << labelSourceKey << " text=\"" << lines[i].text << "\" x="
-                << anchor[0] << " y=" << currentY << " size=" << style.fontSize
-                << " vAlign=Top";
+                << anchor[0] << " y=" << currentY + style.ascent
+                << " size=" << style.fontSize << " vAlign=Baseline";
           Logger::Instance().Log(trace.str());
         }
-        RecordText(anchor[0], currentY, lines[i].text, style);
+        RecordText(anchor[0], currentY + style.ascent, lines[i].text, style);
         if (i + 1 < lines.size())
           currentY -= lineHeightsWorld[i] + lineSpacingWorld;
       }
