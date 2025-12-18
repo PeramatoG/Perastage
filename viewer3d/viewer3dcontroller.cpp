@@ -2056,6 +2056,10 @@ void Viewer3DController::DrawAllFixtureLabels(int width, int height,
 
       auto anchor =
           toPlan2D(wx, wy, wz, static_cast<Viewer2DView>(viewIdx));
+      // The PDF exporter flips the Y axis relative to the on-screen label
+      // layout. Advance the capture cursor in the positive direction so the
+      // recorded positions mirror the viewer's downward stacking once the
+      // export mapping inverts Y.
       float currentY = anchor[1] - totalHeight * 0.5f;
       for (size_t i = 0; i < lines.size(); ++i) {
         CanvasTextStyle style;
@@ -2077,7 +2081,7 @@ void Viewer3DController::DrawAllFixtureLabels(int width, int height,
         }
         RecordText(anchor[0], currentY + style.ascent, lines[i].text, style);
         if (i + 1 < lines.size())
-          currentY -= lineHeightsWorld[i] + lineSpacingWorld;
+          currentY += lineHeightsWorld[i] + lineSpacingWorld;
       }
     }
 
