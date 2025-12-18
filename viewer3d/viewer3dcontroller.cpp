@@ -2056,7 +2056,11 @@ void Viewer3DController::DrawAllFixtureLabels(int width, int height,
 
       auto anchor =
           toPlan2D(wx, wy, wz, static_cast<Viewer2DView>(viewIdx));
-      float currentY = anchor[1] - totalHeight * 0.5f;
+      // The PDF exporter flips the Y axis, so stack labels upward in world
+      // space to preserve the on-screen downward order once the flip is
+      // applied. Start from the top edge of the block to keep the group
+      // centered around the same anchor as the 2D viewer.
+      float currentTop = anchor[1] + totalHeight * 0.5f;
       for (size_t i = 0; i < lines.size(); ++i) {
         CanvasTextStyle style;
         style.fontFamily = "sans";
@@ -2067,17 +2071,18 @@ void Viewer3DController::DrawAllFixtureLabels(int width, int height,
         style.color = {0.0f, 0.0f, 0.0f, 1.0f};
         style.hAlign = CanvasTextStyle::HorizontalAlign::Center;
         style.vAlign = CanvasTextStyle::VerticalAlign::Baseline;
+        float baseline = currentTop - style.ascent;
         if (ShouldTraceLabelOrder()) {
           std::ostringstream trace;
           trace << "[label-capture] fixture=" << uuid << " source="
                 << labelSourceKey << " text=\"" << lines[i].text << "\" x="
-                << anchor[0] << " y=" << currentY << " size=" << style.fontSize
-                << " vAlign=Baseline";
+                << anchor[0] << " baseline=" << baseline
+                << " size=" << style.fontSize << " vAlign=Baseline";
           Logger::Instance().Log(trace.str());
         }
-        RecordText(anchor[0], currentY + style.ascent, lines[i].text, style);
+        RecordText(anchor[0], baseline, lines[i].text, style);
         if (i + 1 < lines.size())
-          currentY -= lineHeightsWorld[i] + lineSpacingWorld;
+          currentTop -= lineHeightsWorld[i] + lineSpacingWorld;
       }
     }
 
