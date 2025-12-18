@@ -40,17 +40,12 @@
 namespace {
 
 constexpr float PIXELS_PER_METER = 25.0f;
-// Matches the tighter line spacing used by the on-screen 2D viewer when
-// rendering multi-line text labels. Slightly below 1.0 to mirror the compact
-// leading applied in the live view.
-constexpr float PDF_TEXT_LINE_HEIGHT_FACTOR = 0.78f;
 // Approximates the ascent of the standard Helvetica font used by PDF viewers
-// (718 units over 1000). Used to align top-anchored text consistently with the
-// on-screen NanoVG rendering that places text relative to its bounding box top
-// edge.
+// (718 units over 1000). Used as a fallback when capture-time metrics are not
+// available from the live renderer.
 constexpr float PDF_TEXT_ASCENT_FACTOR = 0.718f;
-// Complements the ascent factor using Helvetica's 207 unit descent to align the
-// PDF export's baseline with the on-screen text metrics.
+// Complements the ascent factor using Helvetica's 207 unit descent as a
+// fallback for text that does not provide explicit metrics.
 constexpr float PDF_TEXT_DESCENT_FACTOR = 0.207f;
 
 static bool ShouldTraceLabelOrder() {
@@ -58,12 +53,11 @@ static bool ShouldTraceLabelOrder() {
   return enabled;
 }
 
-double ComputeTextLineAdvance(double fontSize) {
+double ComputeTextLineAdvance(double ascent, double descent) {
   // Negative because PDF moves the text cursor downward with a negative y
-  // translation. Line advance mirrors the ascent + descent used by the
+  // translation. The advance mirrors the ascent + descent used by the
   // on-screen viewer when positioning multi-line labels.
-  return -fontSize * (PDF_TEXT_ASCENT_FACTOR + PDF_TEXT_DESCENT_FACTOR) *
-         PDF_TEXT_LINE_HEIGHT_FACTOR;
+  return -(ascent + descent);
 }
 
 struct PdfObject {
@@ -358,6 +352,10 @@ void AppendText(std::ostringstream &out, const FloatFormatter &fmt,
   const double descent =
       style.descent > 0.0f ? style.descent * scale
                            : scaledFontSize * PDF_TEXT_DESCENT_FACTOR;
+  const double measuredLineHeight =
+      style.lineHeight > 0.0f ? style.lineHeight * scale : (ascent + descent);
+  const double extraSpacing =
+      style.lineHeight > 0.0f ? style.extraLineSpacing * scale : 0.0;
 
   double maxLineWidth = 0.0;
   size_t lineStart = 0;
@@ -394,9 +392,14 @@ void AppendText(std::ostringstream &out, const FloatFormatter &fmt,
 
   // Always advance downward for successive lines to mirror the on-screen
   // rendering, even if upstream metrics change sign conventions.
-  const double lineAdvance =
-      style.lineHeight > 0.0f ? -std::abs(style.lineHeight * scale)
-                              : -std::abs(ComputeTextLineAdvance(scaledFontSize));
+  double lineAdvance = 0.0;
+  if (style.lineHeight > 0.0f) {
+    lineAdvance = -(measuredLineHeight + extraSpacing);
+  } else {
+    lineAdvance = ComputeTextLineAdvance(ascent, descent);
+  }
+  if (lineAdvance > 0.0)
+    lineAdvance = -lineAdvance;
   out << "BT\n/F1 " << fmt.Format(scaledFontSize) << " Tf\n";
   out << fmt.Format(style.color.r) << ' ' << fmt.Format(style.color.g) << ' '
       << fmt.Format(style.color.b) << " rg\n";
