@@ -49,6 +49,7 @@ private:
   void OnView(wxCommandEvent &evt);
   void OnBeginTextEdit(wxFocusEvent &evt);
   void OnEndTextEdit(wxFocusEvent &evt);
+  void OnTextChange(wxCommandEvent &evt);
   void OnTextEnter(wxCommandEvent &evt);
 
   wxRadioBox *m_radio = nullptr;
