@@ -2056,23 +2056,24 @@ void Viewer3DController::DrawAllFixtureLabels(int width, int height,
 
       auto anchor =
           toPlan2D(wx, wy, wz, static_cast<Viewer2DView>(viewIdx));
-      // The PDF exporter flips the Y axis relative to the on-screen label
-      // layout. Advance the capture cursor in the positive direction so the
-      // recorded positions mirror the viewer's downward stacking once the
-      // export mapping inverts Y.
-      float currentY = anchor[1] - totalHeight * 0.5f;
+      // Start from the top of the label block instead of the bottom.
+      // We subtract the ascent from currentY so the baseline matches the
+      // top-aligned position.
+      // After recording each line, we move downward by the full line height
+      // plus spacing.
+      float currentY = anchor[1] + totalHeight * 0.5f;
       for (size_t i = 0; i < lines.size(); ++i) {
         CanvasTextStyle style;
         style.fontFamily = "sans";
         style.fontSize = worldFontSizes[i];
         style.ascent = ascentsWorld[i];
         style.descent = descentsWorld[i];
-        style.lineHeight = ascentsWorld[i] + descentsWorld[i];
+        style.lineHeight = lineHeightsWorld[i];
         style.extraLineSpacing = lineSpacingWorld;
         style.color = {0.0f, 0.0f, 0.0f, 1.0f};
         style.hAlign = CanvasTextStyle::HorizontalAlign::Center;
         style.vAlign = CanvasTextStyle::VerticalAlign::Baseline;
-        float baseline = currentY - lineHeightsWorld[i] + style.ascent;
+        float baseline = currentY - style.ascent;
         if (ShouldTraceLabelOrder()) {
           std::ostringstream trace;
           trace << "[label-capture] fixture=" << uuid << " source="
@@ -2083,7 +2084,7 @@ void Viewer3DController::DrawAllFixtureLabels(int width, int height,
         }
         RecordText(anchor[0], baseline, lines[i].text, style);
         if (i + 1 < lines.size())
-          currentY += lineHeightsWorld[i] + lineSpacingWorld;
+          currentY -= lineHeightsWorld[i] + lineSpacingWorld;
       }
     }
 
