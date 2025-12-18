@@ -2056,11 +2056,11 @@ void Viewer3DController::DrawAllFixtureLabels(int width, int height,
 
       auto anchor =
           toPlan2D(wx, wy, wz, static_cast<Viewer2DView>(viewIdx));
-      // The PDF exporter flips the Y axis, so stack labels upward in world
-      // space to preserve the on-screen downward order once the flip is
-      // applied. Start from the top edge of the block to keep the group
-      // centered around the same anchor as the 2D viewer.
-      float currentTop = anchor[1] + totalHeight * 0.5f;
+      // The PDF exporter flips the Y axis relative to the on-screen label
+      // layout. Advance the capture cursor in the positive direction so the
+      // recorded positions mirror the viewer's downward stacking once the
+      // export mapping inverts Y.
+      float currentY = anchor[1] - totalHeight * 0.5f;
       for (size_t i = 0; i < lines.size(); ++i) {
         CanvasTextStyle style;
         style.fontFamily = "sans";
@@ -2080,9 +2080,10 @@ void Viewer3DController::DrawAllFixtureLabels(int width, int height,
                 << " size=" << style.fontSize << " vAlign=Baseline";
           Logger::Instance().Log(trace.str());
         }
-        RecordText(anchor[0], baseline, lines[i].text, style);
+        RecordText(anchor[0], currentY - lineHeightsWorld[i] + style.ascent,
+                   lines[i].text, style);
         if (i + 1 < lines.size())
-          currentTop -= lineHeightsWorld[i] + lineSpacingWorld;
+          currentY += lineHeightsWorld[i] + lineSpacingWorld;
       }
     }
 
