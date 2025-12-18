@@ -2075,7 +2075,7 @@ void Viewer3DController::DrawAllFixtureLabels(int width, int height,
                 << " vAlign=Middle";
           Logger::Instance().Log(trace.str());
         }
-        RecordText(anchor[0], currentY, lines[i].text, style);
+        RecordText(anchor[0], currentY + style.ascent, lines[i].text, style);
         if (i + 1 < lines.size())
           currentY -= lineHeightsWorld[i] + lineSpacingWorld;
       }
