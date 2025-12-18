@@ -18,6 +18,7 @@
 
 #pragma once
 
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <variant>
@@ -72,6 +73,20 @@ struct CanvasTransform {
   float scale = 1.0f;  // Uniform scale applied after the camera zoom
   float offsetX = 0.0f; // Translation applied after scaling
   float offsetY = 0.0f;
+};
+
+// Simple 2D affine transform expressed as a 2x3 matrix. This is intended to be
+// reusable by commands that need full control over rotation, scaling and
+// translation in a single structure.
+struct Transform2D {
+  float a = 1.0f;
+  float b = 0.0f;
+  float c = 0.0f;
+  float d = 1.0f;
+  float tx = 0.0f;
+  float ty = 0.0f;
+
+  static Transform2D Identity() { return Transform2D{}; }
 };
 
 // Abstract interface representing a 2D drawing surface. The coordinate space
@@ -179,12 +194,17 @@ struct PlaceSymbolCommand {
   std::string key;
   CanvasTransform transform{};
 };
+struct SymbolInstanceCommand {
+  uint32_t symbolId = 0;
+  Transform2D transform = Transform2D::Identity();
+  // TODO: Add style overrides when cached symbol instances need them.
+};
 
 using CanvasCommand =
     std::variant<LineCommand, PolylineCommand, PolygonCommand,
                  RectangleCommand, CircleCommand, TextCommand, SaveCommand,
                  RestoreCommand, TransformCommand, BeginSymbolCommand,
-                 EndSymbolCommand, PlaceSymbolCommand>;
+                 EndSymbolCommand, PlaceSymbolCommand, SymbolInstanceCommand>;
 
 // Container preserving the order of issued drawing commands. It is deliberately
 // lightweight so it can be handed over to future SVG/PDF/printing code without

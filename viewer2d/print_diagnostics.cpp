@@ -158,6 +158,8 @@ std::string CommandName(const CanvasCommand &cmd) {
           return "Restore";
         else if constexpr (std::is_same_v<T, TransformCommand>)
           return "Transform";
+        else if constexpr (std::is_same_v<T, SymbolInstanceCommand>)
+          return "SymbolInstance";
         else
           return "Unknown";
       },
@@ -180,6 +182,8 @@ size_t EstimateBytes(const CanvasCommand &cmd) {
           return EstimateCircleBytes(value);
         else if constexpr (std::is_same_v<T, TextCommand>)
           return EstimateTextBytes(value);
+        else if constexpr (std::is_same_v<T, SymbolInstanceCommand>)
+          return static_cast<size_t>(0);
         else
           return static_cast<size_t>(0);
       },
