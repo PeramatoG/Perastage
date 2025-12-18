@@ -104,6 +104,7 @@ Viewer2DRenderPanel::Viewer2DRenderPanel(wxWindow *parent)
                         this);
   m_labelNameSize->Bind(wxEVT_KILL_FOCUS, &Viewer2DRenderPanel::OnEndTextEdit,
                         this);
+  m_labelNameSize->Bind(wxEVT_TEXT, &Viewer2DRenderPanel::OnTextChange, this);
   m_labelNameSize->Bind(wxEVT_TEXT_ENTER, &Viewer2DRenderPanel::OnTextEnter,
                         this);
 
@@ -123,6 +124,7 @@ Viewer2DRenderPanel::Viewer2DRenderPanel(wxWindow *parent)
                       this);
   m_labelIdSize->Bind(wxEVT_KILL_FOCUS, &Viewer2DRenderPanel::OnEndTextEdit,
                       this);
+  m_labelIdSize->Bind(wxEVT_TEXT, &Viewer2DRenderPanel::OnTextChange, this);
   m_labelIdSize->Bind(wxEVT_TEXT_ENTER, &Viewer2DRenderPanel::OnTextEnter,
                       this);
 
@@ -144,6 +146,8 @@ Viewer2DRenderPanel::Viewer2DRenderPanel(wxWindow *parent)
                            &Viewer2DRenderPanel::OnBeginTextEdit, this);
   m_labelAddressSize->Bind(wxEVT_KILL_FOCUS,
                            &Viewer2DRenderPanel::OnEndTextEdit, this);
+  m_labelAddressSize->Bind(wxEVT_TEXT, &Viewer2DRenderPanel::OnTextChange,
+                           this);
   m_labelAddressSize->Bind(wxEVT_TEXT_ENTER,
                            &Viewer2DRenderPanel::OnTextEnter, this);
 
@@ -161,6 +165,8 @@ Viewer2DRenderPanel::Viewer2DRenderPanel(wxWindow *parent)
                               &Viewer2DRenderPanel::OnBeginTextEdit, this);
   m_labelOffsetDistance->Bind(wxEVT_KILL_FOCUS,
                               &Viewer2DRenderPanel::OnEndTextEdit, this);
+  m_labelOffsetDistance->Bind(wxEVT_TEXT, &Viewer2DRenderPanel::OnTextChange,
+                              this);
   m_labelOffsetDistance->Bind(wxEVT_TEXT_ENTER,
                               &Viewer2DRenderPanel::OnTextEnter, this);
 
@@ -176,6 +182,8 @@ Viewer2DRenderPanel::Viewer2DRenderPanel(wxWindow *parent)
                            &Viewer2DRenderPanel::OnBeginTextEdit, this);
   m_labelOffsetAngle->Bind(wxEVT_KILL_FOCUS,
                            &Viewer2DRenderPanel::OnEndTextEdit, this);
+  m_labelOffsetAngle->Bind(wxEVT_TEXT, &Viewer2DRenderPanel::OnTextChange,
+                           this);
   m_labelOffsetAngle->Bind(wxEVT_TEXT_ENTER, &Viewer2DRenderPanel::OnTextEnter,
                            this);
 
@@ -411,6 +419,12 @@ void Viewer2DRenderPanel::OnBeginTextEdit(wxFocusEvent &evt) {
 void Viewer2DRenderPanel::OnEndTextEdit(wxFocusEvent &evt) {
   if (auto *mw = MainWindow::Instance())
     mw->EnableShortcuts(true);
+  evt.Skip();
+}
+
+void Viewer2DRenderPanel::OnTextChange(wxCommandEvent &evt) {
+  if (auto *mw = MainWindow::Instance())
+    mw->EnableShortcuts(false);
   evt.Skip();
 }
 
