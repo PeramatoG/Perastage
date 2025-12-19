@@ -1155,7 +1155,8 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
 
     bool suppressCapture = false;
     const bool useSymbolInstancing =
-        ((m_captureView == Viewer2DView::Bottom ||
+        (m_captureUseSymbols &&
+         (m_captureView == Viewer2DView::Bottom ||
           m_captureView == Viewer2DView::Top ||
           m_captureView == Viewer2DView::Front ||
           m_captureView == Viewer2DView::Side) &&
