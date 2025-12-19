@@ -1155,9 +1155,9 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
 
     bool suppressCapture = false;
     const bool useSymbolInstancing =
-        m_captureCanvas != nullptr ||
         (m_captureView == Viewer2DView::Bottom && !highlight && !selected);
-    if (useSymbolInstancing) {
+    bool placedInstance = false;
+    if (useSymbolInstancing && m_captureCanvas) {
       std::string modelKey = NormalizeModelKey(gdtfPath);
       if (modelKey.empty() && !f.gdtfSpec.empty())
         modelKey = NormalizeModelKey(f.gdtfSpec);
@@ -1242,9 +1242,10 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
             BuildInstanceTransform2D(fixtureTransform, m_captureView);
         m_captureCanvas->PlaceSymbolInstance(symbol.symbolId,
                                              instanceTransform);
-        suppressCapture = true;
+        placedInstance = true;
       }
     }
+    suppressCapture = placedInstance;
 
     auto drawFixtureGeometry = [&]() {
       if (itg != m_loadedGdtf.end()) {
