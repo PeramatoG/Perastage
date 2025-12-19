@@ -1511,8 +1511,6 @@ std::array<float, 3> Viewer3DController::AdjustColor(float r, float g,
                                                      float b) const {
   if (!m_darkMode)
     return {r, g, b};
-  if (r == 0.0f && g == 0.0f && b == 0.0f)
-    return {1.0f, 1.0f, 1.0f};
   return {r, g, b};
 }
 
