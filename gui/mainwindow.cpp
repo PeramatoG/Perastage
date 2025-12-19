@@ -1346,16 +1346,12 @@ void MainWindow::OnPrintPlan(wxCommandEvent &WXUNUSED(event)) {
   opts.useSimplifiedFootprints = !settings.detailedFootprints;
   opts.pageWidthPt = settings.PageWidthPt();
   opts.pageHeightPt = settings.PageHeightPt();
-  std::shared_ptr<const SymbolDefinitionSnapshot> symbolSnapshot = nullptr;
-  if (viewport2DPanel) {
-    symbolSnapshot = viewport2DPanel->GetBottomSymbolCacheSnapshot();
-  }
   std::filesystem::path outputPath(
       std::filesystem::path(outputPathWx.ToStdWstring()));
   wxString outputPathDisplay = outputPathWx;
 
   viewport2DPanel->CaptureFrameAsync(
-      [this, opts, outputPath, outputPathDisplay, symbolSnapshot](
+      [this, opts, outputPath, outputPathDisplay](
           CommandBuffer buffer, Viewer2DViewState state) {
         if (buffer.commands.empty()) {
           wxMessageBox("Unable to capture the 2D view for printing.",
@@ -1383,6 +1379,11 @@ void MainWindow::OnPrintPlan(wxCommandEvent &WXUNUSED(event)) {
                          "Print Plan fixture debug", wxOK | wxICON_INFORMATION,
                          this);
           }
+        }
+
+        std::shared_ptr<const SymbolDefinitionSnapshot> symbolSnapshot = nullptr;
+        if (viewport2DPanel) {
+          symbolSnapshot = viewport2DPanel->GetBottomSymbolCacheSnapshot();
         }
 
         // Run the PDF generation off the UI thread to avoid freezing the
