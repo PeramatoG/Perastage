@@ -356,7 +356,8 @@ struct LabelLine2D {
 
 static void
 DrawLabelLines2D(NVGcontext *vg, const std::vector<LabelLine2D> &lines, int x,
-                 int y, NVGcolor textColor = nvgRGBAf(1.f, 1.f, 1.f, 1.f)) {
+                 int y, NVGcolor textColor = nvgRGBAf(1.f, 1.f, 1.f, 1.f),
+                 bool outline = false) {
   if (!vg || lines.empty())
     return;
 
@@ -388,6 +389,18 @@ DrawLabelLines2D(NVGcontext *vg, const std::vector<LabelLine2D> &lines, int x,
     nvgFontSize(vg, lines[i].size);
     nvgFontFaceId(vg, lines[i].font);
     nvgTextAlign(vg, NVG_ALIGN_CENTER | NVG_ALIGN_TOP);
+    if (outline) {
+      nvgFillColor(vg, nvgRGBAf(0.f, 0.f, 0.f, 1.f));
+      const std::array<std::array<float, 2>, 8> offsets = {
+          std::array<float, 2>{-1.f, 0.f}, std::array<float, 2>{1.f, 0.f},
+          std::array<float, 2>{0.f, -1.f}, std::array<float, 2>{0.f, 1.f},
+          std::array<float, 2>{-1.f, -1.f}, std::array<float, 2>{1.f, -1.f},
+          std::array<float, 2>{-1.f, 1.f}, std::array<float, 2>{1.f, 1.f}};
+      for (const auto &offset : offsets) {
+        nvgText(vg, static_cast<float>(x) + offset[0], currentY + offset[1],
+                lines[i].text.c_str(), nullptr);
+      }
+    }
     nvgFillColor(vg, textColor);
     nvgText(vg, (float)x, currentY, lines[i].text.c_str(), nullptr);
     currentY += heights[i] + lineSpacing;
@@ -2567,7 +2580,7 @@ void Viewer3DController::DrawAllFixtureLabels(int width, int height,
     NVGcolor textColor =
         m_darkMode ? nvgRGBAf(1.f, 1.f, 1.f, 1.f)
                    : nvgRGBAf(0.f, 0.f, 0.f, 1.f);
-    DrawLabelLines2D(m_vg, lines, x, y, textColor);
+    DrawLabelLines2D(m_vg, lines, x, y, textColor, m_darkMode);
   }
 }
 
