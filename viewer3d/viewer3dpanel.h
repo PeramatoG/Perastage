@@ -27,6 +27,7 @@
 #include <wx/glcanvas.h>
 #include "viewer3dcamera.h"
 #include "viewer3dcontroller.h"
+#include <memory>
 #include <string>
 #include <thread>
 #include <atomic>
@@ -54,6 +55,8 @@ public:
     void UpdateScene();
     void SetSelectedFixtures(const std::vector<std::string>& uuids);
     void SetLayerColor(const std::string& layer, const std::string& hex);
+    std::shared_ptr<const SymbolDefinitionSnapshot>
+    GetBottomSymbolCacheSnapshot() const;
 
     static Viewer3DPanel* Instance();
     static void SetInstance(Viewer3DPanel* panel);
@@ -119,4 +122,3 @@ private:
 
     wxDECLARE_EVENT_TABLE();
 };
-

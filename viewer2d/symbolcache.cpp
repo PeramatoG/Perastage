@@ -36,3 +36,11 @@ const SymbolDefinition *SymbolCache::GetById(uint32_t id) const {
   return &defIt->second;
 }
 
+std::shared_ptr<SymbolDefinitionSnapshot> SymbolCache::Snapshot() const {
+  auto snapshot = std::make_shared<SymbolDefinitionSnapshot>();
+  snapshot->reserve(definitions_.size());
+  for (const auto &entry : definitions_) {
+    snapshot->emplace(entry.second.symbolId, entry.second);
+  }
+  return snapshot;
+}

@@ -24,7 +24,6 @@
 #include <filesystem>
 #include <memory>
 #include <string>
-#include <unordered_map>
 
 constexpr double kMmToPt = 72.0 / 25.4;
 
@@ -46,9 +45,6 @@ struct PlanExportResult {
   bool success = false;
   std::string message;
 };
-
-using SymbolDefinitionSnapshot =
-    std::unordered_map<uint32_t, SymbolDefinition>;
 
 // Writes the captured 2D drawing commands to a vector PDF that mirrors the
 // current viewport state. Returns structured information so callers can surface

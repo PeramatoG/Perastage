@@ -26,6 +26,7 @@
 #include <fstream>
 #include <iterator>
 #include <map>
+#include <memory>
 #include <set>
 #include <random>
 #include <string>
@@ -1322,13 +1323,15 @@ void MainWindow::OnPrintPlan(wxCommandEvent &WXUNUSED(event)) {
   opts.useSimplifiedFootprints = !settings.detailedFootprints;
   opts.pageWidthPt = settings.PageWidthPt();
   opts.pageHeightPt = settings.PageHeightPt();
+  std::shared_ptr<const SymbolDefinitionSnapshot> symbolSnapshot =
+      viewportPanel ? viewportPanel->GetBottomSymbolCacheSnapshot() : nullptr;
   std::filesystem::path outputPath(
       std::filesystem::path(outputPathWx.ToStdWstring()));
   wxString outputPathDisplay = outputPathWx;
 
   viewport2DPanel->CaptureFrameAsync(
-      [this, opts, outputPath, outputPathDisplay](CommandBuffer buffer,
-                                                  Viewer2DViewState state) {
+      [this, opts, outputPath, outputPathDisplay, symbolSnapshot](
+          CommandBuffer buffer, Viewer2DViewState state) {
         if (buffer.commands.empty()) {
           wxMessageBox("Unable to capture the 2D view for printing.",
                        "Print Plan", wxOK | wxICON_ERROR);
@@ -1360,9 +1363,9 @@ void MainWindow::OnPrintPlan(wxCommandEvent &WXUNUSED(event)) {
         // Run the PDF generation off the UI thread to avoid freezing the
         // window while writing potentially large plans to disk.
         std::thread([this, buffer = std::move(buffer), state, opts, outputPath,
-                     outputPathDisplay]() {
+                     outputPathDisplay, symbolSnapshot]() {
           PlanExportResult res =
-              ExportPlanToPdf(buffer, state, opts, outputPath);
+              ExportPlanToPdf(buffer, state, opts, outputPath, symbolSnapshot);
 
           wxTheApp->CallAfter([this, res, outputPathDisplay]() {
             if (!res.success) {

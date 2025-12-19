@@ -2688,3 +2688,8 @@ void Viewer3DController::SetLayerColor(const std::string &layer,
   else
     m_layerColors.erase(layer);
 }
+
+std::shared_ptr<const SymbolDefinitionSnapshot>
+Viewer3DController::GetBottomSymbolCacheSnapshot() const {
+  return m_bottomSymbolCache.Snapshot();
+}

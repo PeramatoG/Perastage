@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <functional>
+#include <memory>
 #include <string>
 #include <unordered_map>
 
@@ -59,6 +60,9 @@ struct SymbolDefinition {
   CommandBuffer localCommands{};
 };
 
+using SymbolDefinitionSnapshot =
+    std::unordered_map<uint32_t, SymbolDefinition>;
+
 class SymbolCache {
 public:
   using BuilderFn = std::function<SymbolDefinition(const SymbolKey &, uint32_t)>;
@@ -66,6 +70,7 @@ public:
   const SymbolDefinition &GetOrCreate(const SymbolKey &key,
                                       const BuilderFn &builder);
   const SymbolDefinition *GetById(uint32_t id) const;
+  std::shared_ptr<SymbolDefinitionSnapshot> Snapshot() const;
 
   uint64_t HitCount() const { return hits_; }
   uint64_t MissCount() const { return misses_; }
@@ -77,4 +82,3 @@ private:
   uint64_t hits_ = 0;
   uint64_t misses_ = 0;
 };
-
