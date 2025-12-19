@@ -28,6 +28,7 @@
 #include "mesh.h"
 #include "scenedatamanager.h"
 #include "canvas2d.h"
+#include "symbolcache.h"
 #include <array>
 #include <string>
 #include <unordered_map>
@@ -53,7 +54,8 @@ enum class Viewer2DRenderMode {
 enum class Viewer2DView {
   Top = 0,
   Front,
-  Side
+  Side,
+  Bottom
 };
 
 class Viewer3DController {
@@ -112,6 +114,8 @@ public:
 
   // Update cached layer color for rendering
   void SetLayerColor(const std::string &layer, const std::string &hex);
+  const SymbolCache &GetBottomSymbolCache() const { return m_bottomSymbolCache; }
+  SymbolCache &GetBottomSymbolCache() { return m_bottomSymbolCache; }
 
 private:
   // Draws a solid cube centered at origin with given size and color
@@ -246,6 +250,8 @@ private:
   ICanvas2D *m_captureCanvas = nullptr;
   Viewer2DView m_captureView = Viewer2DView::Top;
   bool m_captureIncludeGrid = true;
+  bool m_captureOnly = false;
+  SymbolCache m_bottomSymbolCache;
 
 public:
   // Enables recording of all primitives drawn during the next RenderScene

@@ -89,6 +89,8 @@ struct Transform2D {
   static Transform2D Identity() { return Transform2D{}; }
 };
 
+class SymbolCache;
+
 // Abstract interface representing a 2D drawing surface. The coordinate space
 // is always the logical world space used by the 2D viewer after applying the
 // active view orientation and camera transform. Implementations may draw on
@@ -108,6 +110,8 @@ public:
   virtual void EndSymbol(const std::string &key) = 0;
   virtual void PlaceSymbol(const std::string &key,
                            const CanvasTransform &transform) = 0;
+  virtual void PlaceSymbolInstance(uint32_t symbolId,
+                                   const Transform2D &transform) = 0;
 
   virtual void DrawLine(float x0, float y0, float x1, float y1,
                         const CanvasStroke &stroke) = 0;
@@ -232,3 +236,6 @@ std::unique_ptr<ICanvas2D> CreateRecordingCanvas(CommandBuffer &buffer,
                                                      false);
 std::unique_ptr<ICanvas2D> CreateMultiCanvas(
     const std::vector<ICanvas2D *> &canvases);
+
+void ReplayCommandBuffer(const CommandBuffer &buffer, ICanvas2D &canvas,
+                         const SymbolCache *symbolCache = nullptr);
