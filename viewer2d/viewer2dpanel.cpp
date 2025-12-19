@@ -311,8 +311,7 @@ void Viewer2DPanel::Render() {
   std::unique_ptr<ICanvas2D> recordingCanvas;
   if (m_captureNextFrame) {
     m_lastCapturedFrame.Clear();
-    recordingCanvas =
-        CreateRecordingCanvas(m_lastCapturedFrame, m_useSimplifiedFootprints);
+    recordingCanvas = CreateRecordingCanvas(m_lastCapturedFrame, false);
     // The recorded commands operate in the same world-space coordinates used by
     // the OpenGL renderer. We keep the transform identity so the exporter can
     // apply the viewport offsets/zoom exactly once using the captured
@@ -324,7 +323,8 @@ void Viewer2DPanel::Render() {
     recordingCanvas->BeginFrame();
     recordingCanvas->SetTransform(transform);
     m_controller.SetCaptureCanvas(recordingCanvas.get(), m_view,
-                                  m_captureIncludeGrid);
+                                  m_captureIncludeGrid,
+                                  m_useSimplifiedFootprints);
   } else {
     m_controller.SetCaptureCanvas(nullptr, m_view);
   }

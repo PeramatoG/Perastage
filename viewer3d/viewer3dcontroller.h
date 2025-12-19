@@ -254,6 +254,7 @@ private:
   Viewer2DView m_captureView = Viewer2DView::Top;
   bool m_captureIncludeGrid = true;
   bool m_captureOnly = false;
+  bool m_captureUseSymbols = false;
   SymbolCache m_bottomSymbolCache;
 
 public:
@@ -262,9 +263,11 @@ public:
   // BeginFrame/EndFrame. Recording is disabled automatically after each
   // render pass by resetting the canvas to nullptr.
   void SetCaptureCanvas(ICanvas2D *canvas, Viewer2DView view,
-                        bool includeGrid = true) {
+                        bool includeGrid = true,
+                        bool useSymbolInstancing = false) {
     m_captureCanvas = canvas;
     m_captureView = view;
     m_captureIncludeGrid = includeGrid;
+    m_captureUseSymbols = canvas ? useSymbolInstancing : false;
   }
 };
