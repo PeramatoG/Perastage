@@ -919,6 +919,19 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
   if (showGrid && !gridOnTop)
     DrawGrid(gridStyle, gridR, gridG, gridB, view);
   const std::string &base = ConfigManager::Get().GetScene().basePath;
+  auto resolveSymbolView = [](Viewer2DView viewKind) {
+    switch (viewKind) {
+    case Viewer2DView::Top:
+      return SymbolViewKind::Top;
+    case Viewer2DView::Front:
+      return SymbolViewKind::Front;
+    case Viewer2DView::Side:
+      return SymbolViewKind::Left;
+    case Viewer2DView::Bottom:
+    default:
+      return SymbolViewKind::Bottom;
+    }
+  };
 
   // Scene objects first
   glShadeModel(GL_FLAT);
@@ -938,11 +951,12 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
       continue;
     glPushMatrix();
 
+    std::string objectCaptureKey;
     if (m_captureCanvas) {
-      std::string key = m.modelFile.empty() ? m.name : m.modelFile;
-      if (key.empty())
-        key = "scene_object";
-      m_captureCanvas->SetSourceKey(key);
+      objectCaptureKey = m.modelFile.empty() ? m.name : m.modelFile;
+      if (objectCaptureKey.empty())
+        objectCaptureKey = "scene_object";
+      m_captureCanvas->SetSourceKey(objectCaptureKey);
     }
 
     bool highlight = (!m_highlightUuid.empty() && uuid == m_highlightUuid);
@@ -979,24 +993,107 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
       return TransformPoint(captureTransform, p);
     };
 
+    const Mesh *objectMesh = nullptr;
+    std::string objectPath;
     if (!m.modelFile.empty()) {
-      std::string path = ResolveModelPath(base, m.modelFile);
-      if (!path.empty()) {
-        auto it = m_loadedMeshes.find(path);
+      objectPath = ResolveModelPath(base, m.modelFile);
+      if (!objectPath.empty()) {
+        auto it = m_loadedMeshes.find(objectPath);
         if (it != m_loadedMeshes.end())
-          DrawMeshWithOutline(it->second, r, g, b, RENDER_SCALE, highlight,
-                              selected, cx, cy, cz, wireframe, mode,
-                              applyCapture);
-        else
-          DrawCubeWithOutline(0.3f, r, g, b, highlight, selected, cx, cy, cz,
-                              wireframe, mode, applyCapture);
-      } else {
-        DrawCubeWithOutline(0.3f, r, g, b, highlight, selected, cx, cy, cz,
-                            wireframe, mode, applyCapture);
+          objectMesh = &it->second;
       }
+    }
+
+    auto drawSceneObjectGeometry =
+        [&](const std::function<std::array<float, 3>(
+                const std::array<float, 3> &)> &captureTransform,
+            bool isHighlighted, bool isSelected) {
+          if (objectMesh) {
+            DrawMeshWithOutline(*objectMesh, r, g, b, RENDER_SCALE,
+                                isHighlighted, isSelected, cx, cy, cz,
+                                wireframe, mode, captureTransform);
+          } else {
+            DrawCubeWithOutline(0.3f, r, g, b, isHighlighted, isSelected, cx,
+                                cy, cz, wireframe, mode, captureTransform);
+          }
+        };
+
+    bool suppressCapture = false;
+    const bool useSymbolInstancing =
+        (m_captureUseSymbols &&
+         (m_captureView == Viewer2DView::Bottom ||
+          m_captureView == Viewer2DView::Top ||
+          m_captureView == Viewer2DView::Front ||
+          m_captureView == Viewer2DView::Side) &&
+         !highlight && !selected);
+    bool placedInstance = false;
+    if (useSymbolInstancing && m_captureCanvas) {
+      std::string modelKey;
+      if (!objectPath.empty())
+        modelKey = NormalizeModelKey(objectPath);
+      else if (!m.modelFile.empty())
+        modelKey = NormalizeModelKey(m.modelFile);
+      if (modelKey.empty() && !m.name.empty())
+        modelKey = m.name;
+
+      if (!modelKey.empty()) {
+        SymbolKey symbolKey;
+        symbolKey.modelKey = "object:" + modelKey;
+        symbolKey.viewKind = resolveSymbolView(m_captureView);
+        symbolKey.styleVersion = 1;
+
+        const auto &symbol =
+            m_bottomSymbolCache.GetOrCreate(symbolKey, [&](const SymbolKey &,
+                                                           uint32_t symbolId) {
+              SymbolDefinition definition{};
+              definition.symbolId = symbolId;
+              auto localCanvas =
+                  CreateRecordingCanvas(definition.localCommands, false);
+              CanvasTransform transform{};
+              localCanvas->BeginFrame();
+              localCanvas->SetTransform(transform);
+
+              ICanvas2D *prevCanvas = m_captureCanvas;
+              Viewer2DView prevView = m_captureView;
+              bool prevCaptureOnly = m_captureOnly;
+              bool prevIncludeGrid = m_captureIncludeGrid;
+              m_captureCanvas = localCanvas.get();
+              m_captureView = prevView;
+              m_captureOnly = true;
+              m_captureIncludeGrid = false;
+
+              m_captureCanvas->SetSourceKey(
+                  objectCaptureKey.empty() ? "scene_object" : objectCaptureKey);
+              drawSceneObjectGeometry({}, false, false);
+              localCanvas->EndFrame();
+              definition.bounds =
+                  ComputeSymbolBounds(definition.localCommands);
+
+              m_captureCanvas = prevCanvas;
+              m_captureView = prevView;
+              m_captureOnly = prevCaptureOnly;
+              m_captureIncludeGrid = prevIncludeGrid;
+              return definition;
+            });
+
+        Transform2D instanceTransform =
+            BuildInstanceTransform2D(captureTransform, m_captureView);
+        m_captureCanvas->PlaceSymbolInstance(symbol.symbolId, instanceTransform);
+        placedInstance = true;
+      }
+    }
+    suppressCapture = placedInstance;
+
+    if (suppressCapture) {
+      ICanvas2D *prevCanvas = m_captureCanvas;
+      bool prevCaptureOnly = m_captureOnly;
+      m_captureCanvas = nullptr;
+      m_captureOnly = false;
+      drawSceneObjectGeometry(applyCapture, highlight, selected);
+      m_captureCanvas = prevCanvas;
+      m_captureOnly = prevCaptureOnly;
     } else {
-      DrawCubeWithOutline(0.3f, r, g, b, highlight, selected, cx, cy, cz,
-                          wireframe, mode, applyCapture);
+      drawSceneObjectGeometry(applyCapture, highlight, selected);
     }
 
     glPopMatrix();
@@ -1020,11 +1117,12 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
       continue;
     glPushMatrix();
 
+    std::string trussCaptureKey;
     if (m_captureCanvas) {
-      std::string key = t.model.empty() ? t.name : t.model;
-      if (key.empty())
-        key = "truss";
-      m_captureCanvas->SetSourceKey(key);
+      trussCaptureKey = t.model.empty() ? t.name : t.model;
+      if (trussCaptureKey.empty())
+        trussCaptureKey = "truss";
+      m_captureCanvas->SetSourceKey(trussCaptureKey);
     }
 
     bool highlight = (!m_highlightUuid.empty() && uuid == m_highlightUuid);
@@ -1061,34 +1159,121 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
       return TransformPoint(captureTransform, p);
     };
 
+    const Mesh *trussMesh = nullptr;
+    std::string trussPath;
     if (!t.symbolFile.empty()) {
-      std::string path = ResolveModelPath(base, t.symbolFile);
-      if (!path.empty()) {
-        auto it = m_loadedMeshes.find(path);
-        if (it != m_loadedMeshes.end()) {
-          DrawMeshWithOutline(it->second, r, g, b, RENDER_SCALE, highlight,
-                              selected, cx, cy, cz, wireframe, mode,
-                              applyCapture);
-        } else {
-          float len = t.lengthMm * RENDER_SCALE;
-          float wid = (t.widthMm > 0 ? t.widthMm : 400.0f) * RENDER_SCALE;
-          float hei = (t.heightMm > 0 ? t.heightMm : 400.0f) * RENDER_SCALE;
-          DrawWireframeBox(len, hei, wid, highlight, selected, wireframe, mode,
-                           applyCapture);
-        }
-      } else {
-        float len = t.lengthMm * RENDER_SCALE;
-        float wid = (t.widthMm > 0 ? t.widthMm : 400.0f) * RENDER_SCALE;
-        float hei = (t.heightMm > 0 ? t.heightMm : 400.0f) * RENDER_SCALE;
-        DrawWireframeBox(len, hei, wid, highlight, selected, wireframe, mode,
-                         applyCapture);
+      trussPath = ResolveModelPath(base, t.symbolFile);
+      if (!trussPath.empty()) {
+        auto it = m_loadedMeshes.find(trussPath);
+        if (it != m_loadedMeshes.end())
+          trussMesh = &it->second;
       }
+    }
+
+    float trussLen = t.lengthMm * RENDER_SCALE;
+    float trussWid = (t.widthMm > 0 ? t.widthMm : 400.0f) * RENDER_SCALE;
+    float trussHei = (t.heightMm > 0 ? t.heightMm : 400.0f) * RENDER_SCALE;
+    float trussWidthMm = (t.widthMm > 0 ? t.widthMm : 400.0f);
+    float trussHeightMm = (t.heightMm > 0 ? t.heightMm : 400.0f);
+
+    auto drawTrussGeometry =
+        [&](const std::function<std::array<float, 3>(
+                const std::array<float, 3> &)> &captureTransform,
+            bool isHighlighted, bool isSelected) {
+          if (trussMesh) {
+            DrawMeshWithOutline(*trussMesh, r, g, b, RENDER_SCALE,
+                                isHighlighted, isSelected, cx, cy, cz,
+                                wireframe, mode, captureTransform);
+          } else {
+            DrawWireframeBox(trussLen, trussHei, trussWid, isHighlighted,
+                             isSelected, wireframe, mode, captureTransform);
+          }
+        };
+
+    bool suppressCapture = false;
+    const bool useSymbolInstancing =
+        (m_captureUseSymbols &&
+         (m_captureView == Viewer2DView::Bottom ||
+          m_captureView == Viewer2DView::Top ||
+          m_captureView == Viewer2DView::Front ||
+          m_captureView == Viewer2DView::Side) &&
+         !highlight && !selected);
+    bool placedInstance = false;
+    if (useSymbolInstancing && m_captureCanvas) {
+      std::string modelKey;
+      if (!trussPath.empty())
+        modelKey = NormalizeModelKey(trussPath);
+      else if (!t.symbolFile.empty())
+        modelKey = NormalizeModelKey(t.symbolFile);
+      if (modelKey.empty() && !trussMesh) {
+        std::ostringstream boxKey;
+        boxKey << "box:" << t.lengthMm << "x" << trussWidthMm << "x"
+               << trussHeightMm;
+        modelKey = boxKey.str();
+      }
+      if (modelKey.empty() && !t.model.empty())
+        modelKey = t.model;
+      if (modelKey.empty() && !t.name.empty())
+        modelKey = t.name;
+
+      if (!modelKey.empty()) {
+        SymbolKey symbolKey;
+        symbolKey.modelKey = "truss:" + modelKey;
+        symbolKey.viewKind = resolveSymbolView(m_captureView);
+        symbolKey.styleVersion = 1;
+
+        const auto &symbol =
+            m_bottomSymbolCache.GetOrCreate(symbolKey, [&](const SymbolKey &,
+                                                           uint32_t symbolId) {
+              SymbolDefinition definition{};
+              definition.symbolId = symbolId;
+              auto localCanvas =
+                  CreateRecordingCanvas(definition.localCommands, false);
+              CanvasTransform transform{};
+              localCanvas->BeginFrame();
+              localCanvas->SetTransform(transform);
+
+              ICanvas2D *prevCanvas = m_captureCanvas;
+              Viewer2DView prevView = m_captureView;
+              bool prevCaptureOnly = m_captureOnly;
+              bool prevIncludeGrid = m_captureIncludeGrid;
+              m_captureCanvas = localCanvas.get();
+              m_captureView = prevView;
+              m_captureOnly = true;
+              m_captureIncludeGrid = false;
+
+              m_captureCanvas->SetSourceKey(
+                  trussCaptureKey.empty() ? "truss" : trussCaptureKey);
+              drawTrussGeometry({}, false, false);
+              localCanvas->EndFrame();
+              definition.bounds =
+                  ComputeSymbolBounds(definition.localCommands);
+
+              m_captureCanvas = prevCanvas;
+              m_captureView = prevView;
+              m_captureOnly = prevCaptureOnly;
+              m_captureIncludeGrid = prevIncludeGrid;
+              return definition;
+            });
+
+        Transform2D instanceTransform =
+            BuildInstanceTransform2D(captureTransform, m_captureView);
+        m_captureCanvas->PlaceSymbolInstance(symbol.symbolId, instanceTransform);
+        placedInstance = true;
+      }
+    }
+    suppressCapture = placedInstance;
+
+    if (suppressCapture) {
+      ICanvas2D *prevCanvas = m_captureCanvas;
+      bool prevCaptureOnly = m_captureOnly;
+      m_captureCanvas = nullptr;
+      m_captureOnly = false;
+      drawTrussGeometry(applyCapture, highlight, selected);
+      m_captureCanvas = prevCanvas;
+      m_captureOnly = prevCaptureOnly;
     } else {
-      float len = t.lengthMm * RENDER_SCALE;
-      float wid = (t.widthMm > 0 ? t.widthMm : 400.0f) * RENDER_SCALE;
-      float hei = (t.heightMm > 0 ? t.heightMm : 400.0f) * RENDER_SCALE;
-      DrawWireframeBox(len, hei, wid, highlight, selected, wireframe, mode,
-                       applyCapture);
+      drawTrussGeometry(applyCapture, highlight, selected);
     }
 
     glPopMatrix();
@@ -1185,20 +1370,6 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
         modelKey = f.typeName;
 
       if (!modelKey.empty()) {
-        auto resolveSymbolView = [](Viewer2DView viewKind) {
-          switch (viewKind) {
-          case Viewer2DView::Top:
-            return SymbolViewKind::Top;
-          case Viewer2DView::Front:
-            return SymbolViewKind::Front;
-          case Viewer2DView::Side:
-            return SymbolViewKind::Left;
-          case Viewer2DView::Bottom:
-          default:
-            return SymbolViewKind::Bottom;
-          }
-        };
-
         SymbolKey symbolKey;
         symbolKey.modelKey = modelKey;
         symbolKey.viewKind = resolveSymbolView(m_captureView);
