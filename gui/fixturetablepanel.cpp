@@ -51,6 +51,7 @@ namespace {
 struct RangeParts {
   wxArrayString parts;
   bool usedSeparator = false;
+  bool trailingSeparator = false;
 };
 
 bool IsNumChar(char c) {
@@ -63,24 +64,33 @@ RangeParts SplitRangeParts(const wxString &value) {
   std::string normalized;
   normalized.reserve(lower.size() + 4);
   bool usedSeparator = false;
+  bool trailingSeparator = false;
   for (size_t i = 0; i < lower.size();) {
     if (lower.compare(i, 4, "thru") == 0) {
       normalized.push_back(' ');
       usedSeparator = true;
+      trailingSeparator = true;
       i += 4;
       continue;
     }
     if (lower[i] == 't') {
       char prev = (i > 0) ? lower[i - 1] : '\0';
       char next = (i + 1 < lower.size()) ? lower[i + 1] : '\0';
-      if (IsNumChar(prev) || IsNumChar(next)) {
+      bool standalone =
+          (i == 0 || std::isspace(static_cast<unsigned char>(prev))) &&
+          (i + 1 >= lower.size() ||
+           std::isspace(static_cast<unsigned char>(next)));
+      if (standalone || IsNumChar(prev) || IsNumChar(next)) {
         normalized.push_back(' ');
         usedSeparator = true;
+        trailingSeparator = true;
         i += 1;
         continue;
       }
     }
     normalized.push_back(lower[i]);
+    if (!std::isspace(static_cast<unsigned char>(lower[i])))
+      trailingSeparator = false;
     i += 1;
   }
   wxArrayString rawParts = wxSplit(wxString(normalized), ' ');
@@ -88,7 +98,7 @@ RangeParts SplitRangeParts(const wxString &value) {
   for (const auto &part : rawParts)
     if (!part.IsEmpty())
       parts.push_back(part);
-  return {parts, usedSeparator};
+  return {parts, usedSeparator, trailingSeparator};
 }
 } // namespace
 
@@ -709,7 +719,8 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
         wxMessageBox("Invalid numeric value", "Error", wxOK | wxICON_ERROR);
         return;
       }
-      if (range.usedSeparator && parts.size() != 2) {
+      if (range.usedSeparator && parts.size() != 2 &&
+          !(parts.size() == 1 && range.trailingSeparator)) {
         wxMessageBox("Invalid numeric value", "Error", wxOK | wxICON_ERROR);
         return;
       }
@@ -738,7 +749,8 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
             return;
           }
           interp = selections.size() > 1;
-        } else if (trailingSpace && !range.usedSeparator) {
+        } else if ((trailingSpace && !range.usedSeparator) ||
+                   (range.usedSeparator && range.trailingSeparator)) {
           sequential = selections.size() > 1;
         }
 
@@ -778,18 +790,23 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
           return;
         }
         bool interp = false;
+        bool sequential = false;
         if (parts.size() == 2) {
           if (!parts[1].ToDouble(&v2)) {
             wxMessageBox("Invalid value", "Error", wxOK | wxICON_ERROR);
             return;
           }
           interp = selections.size() > 1;
+        } else if (range.usedSeparator && range.trailingSeparator) {
+          sequential = selections.size() > 1;
         }
 
         for (size_t i = 0; i < selections.size(); ++i) {
           double val = v1;
           if (interp)
             val = v1 + (v2 - v1) * i / (selections.size() - 1);
+          else if (sequential)
+            val = v1 + static_cast<double>(i);
 
           wxString out;
           if (col >= 13 && col <= 15)
