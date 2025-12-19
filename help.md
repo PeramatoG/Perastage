@@ -77,6 +77,28 @@ Perastage is a high-performance, cross-platform viewer for MVR (My Virtual Rig) 
 ### Summary Panel
 - Provides counts and basic statistics for fixtures, trusses and objects.
 
+### 2D Render Options Panel
+- Controls the 2D viewport render mode, grid appearance, and label visibility.
+- Default settings (from current configuration defaults):
+  - Render mode: **By device type**
+  - Dark mode: **On**
+  - View: **Top**
+  - Grid: **Shown**, style **Lines**, color **35% gray**, draw-above **Off**
+  - Labels: **Name/ID/DMX shown**, sizes **3/2/4**, offset distance **0.5**,
+    offset angle **180°**
+
+### Table Editing Shortcuts
+- **Apply one value to all selected rows:** enter a single number (or text).
+- **Interpolate across selections:** enter a start and end value (for example
+  `1 12` or `1 thru 12`) to spread values across the selection.
+- **Sequential values:** end with a trailing space (for example `100␠`) or a
+  trailing range token (for example `100 t`) to increment values by 1 across
+  the selection.
+- **Range separators:** `t` or `thru` can be used with or without spaces (for
+  example `1t10`, `1 t 10`, `1 thru 10`).
+- **Relative edits (position/rotation columns):** use `++` or `--` prefixes
+  (for example `++0.5` or `--15`) to add or subtract from existing values.
+
 ## File Menu Options
 
 | Menu Option   | Description                                |

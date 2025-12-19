@@ -48,6 +48,8 @@ The application is built with **wxWidgets** for the user interface and **OpenGL*
 
 - **GUI helpers**
   - Tables for fixtures, trusses and scene objects.
+  - Multi-edit shortcuts in tables, including range interpolation (`1 10`,
+    `1 thru 10`) and sequential fills with trailing separators.
   - Summary and console panels.
   - Dialogs for preferences, login, fixture type selection, GDTF search, export options, etc.
 
