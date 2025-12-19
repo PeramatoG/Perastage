@@ -298,8 +298,10 @@ void Viewer2DRenderPanel::OnRadio(wxCommandEvent &evt) {
 void Viewer2DRenderPanel::OnDarkMode(wxCommandEvent &evt) {
   ConfigManager::Get().SetFloat("view2d_dark_mode",
                                 m_darkMode->GetValue() ? 1.0f : 0.0f);
-  if (auto *vp = Viewer2DPanel::Instance())
+  if (auto *vp = Viewer2DPanel::Instance()) {
     vp->UpdateScene(false);
+    vp->Update();
+  }
   evt.Skip();
 }
 
