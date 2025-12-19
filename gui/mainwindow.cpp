@@ -457,7 +457,6 @@ void MainWindow::CreateMenuBar() {
   fileMenu->Append(ID_File_Save, "Save\tCtrl+S");
   fileMenu->Append(ID_File_SaveAs, "Save As...");
   fileMenu->AppendSeparator();
-  fileMenu->Append(ID_File_ImportRider, "Import Rider...");
   fileMenu->Append(ID_File_ImportMVR, "Import MVR...");
   fileMenu->Append(ID_File_ExportMVR, "Export MVR...");
   fileMenu->Append(ID_File_PrintPlan, "Print Plan...");
@@ -504,7 +503,7 @@ void MainWindow::CreateMenuBar() {
   // Tools menu
   wxMenu *toolsMenu = new wxMenu();
   toolsMenu->Append(ID_Tools_DownloadGdtf, "Download GDTF fixture...");
-  toolsMenu->Append(ID_Tools_ImportRiderText, "Import rider from text...");
+  toolsMenu->Append(ID_Tools_ImportRiderText, "Create from text...");
   toolsMenu->Append(ID_Tools_ExportFixture, "Export Fixture...");
   toolsMenu->Append(ID_Tools_ExportTruss, "Export Truss...");
   toolsMenu->Append(ID_Tools_ExportSceneObject, "Export Scene Object...");

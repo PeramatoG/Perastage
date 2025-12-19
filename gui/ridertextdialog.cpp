@@ -37,7 +37,7 @@ wxEND_EVENT_TABLE()
 RiderTextDialog::RiderTextDialog(wxWindow *parent,
                                  const wxString &initialText,
                                  const wxString &initialSource)
-    : wxDialog(parent, wxID_ANY, "Import rider from text",
+    : wxDialog(parent, wxID_ANY, "Create rider from text",
                wxDefaultPosition, wxSize(720, 520),
                wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER),
       sourceLabel(initialSource) {
@@ -49,8 +49,7 @@ RiderTextDialog::RiderTextDialog(wxWindow *parent,
                           : wxString::Format("Loaded: %s", sourceLabel);
   sourceText = new wxStaticText(this, wxID_ANY, sourceTextLabel);
   headerSizer->Add(sourceText, 1, wxALIGN_CENTER_VERTICAL | wxRIGHT, 8);
-  wxButton *loadButton =
-      new wxButton(this, ID_RiderText_Load, "Import rider...");
+  wxButton *loadButton = new wxButton(this, ID_RiderText_Load, "Load rider...");
   headerSizer->Add(loadButton, 0);
   mainSizer->Add(headerSizer, 0, wxEXPAND | wxALL, 8);
 
