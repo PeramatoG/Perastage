@@ -665,7 +665,6 @@ void MainWindow::OnImportRiderText(wxCommandEvent &WXUNUSED(event)) {
   if (dlg.ShowModal() != wxID_OK)
     return;
 
-  wxMessageBox("Rider imported successfully.", "Success", wxICON_INFORMATION);
   if (consolePanel)
     consolePanel->AppendMessage("Imported rider from text.");
   if (fixturePanel)
