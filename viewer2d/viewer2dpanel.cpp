@@ -307,6 +307,12 @@ void Viewer2DPanel::Render() {
   }
 
   ConfigManager &cfg = ConfigManager::Get();
+  bool darkMode = cfg.GetFloat("view2d_dark_mode") != 0.0f;
+  m_controller.SetDarkMode(darkMode);
+  if (darkMode)
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+  else
+    glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
   bool showGrid = cfg.GetFloat("grid_show") != 0.0f;
   int gridStyle = static_cast<int>(cfg.GetFloat("grid_style"));
   float gridR = cfg.GetFloat("grid_color_r");

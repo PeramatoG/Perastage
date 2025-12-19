@@ -34,6 +34,7 @@ public:
 
 private:
   void OnRadio(wxCommandEvent &evt);
+  void OnDarkMode(wxCommandEvent &evt);
   void OnShowGrid(wxCommandEvent &evt);
   void OnGridStyle(wxCommandEvent &evt);
   void OnGridColor(wxColourPickerEvent &evt);
@@ -53,6 +54,7 @@ private:
   void OnTextEnter(wxCommandEvent &evt);
 
   wxRadioBox *m_radio = nullptr;
+  wxCheckBox *m_darkMode = nullptr;
   wxRadioBox *m_view = nullptr;
   wxCheckBox *m_showGrid = nullptr;
   wxRadioBox *m_gridStyle = nullptr;
