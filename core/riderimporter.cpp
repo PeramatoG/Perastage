@@ -213,17 +213,27 @@ std::vector<float> SplitTrussSymmetric(float total) {
 // ExtractPdfText moved to pdftext.cpp
 } // namespace
 
+std::string RiderImporter::LoadText(const std::string &path) {
+  if (path.size() < 4)
+    return {};
+  std::string ext = path.substr(path.size() - 4);
+  for (auto &c : ext)
+    c = static_cast<char>(std::tolower(c));
+  if (ext == ".txt")
+    return ReadTextFile(path);
+  if (ext == ".pdf")
+    return ExtractPdfText(path);
+  return {};
+}
+
 bool RiderImporter::Import(const std::string &path) {
-  std::string text;
-  if (path.size() >= 4) {
-    std::string ext = path.substr(path.size() - 4);
-    for (auto &c : ext)
-      c = static_cast<char>(std::tolower(c));
-    if (ext == ".txt")
-      text = ReadTextFile(path);
-    else if (ext == ".pdf")
-      text = ExtractPdfText(path);
-  }
+  std::string text = LoadText(path);
+  if (text.empty())
+    return false;
+  return ImportText(text);
+}
+
+bool RiderImporter::ImportText(const std::string &text) {
   if (text.empty())
     return false;
 
