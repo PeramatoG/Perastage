@@ -419,16 +419,16 @@ static Transform2D BuildInstanceTransform2D(const Matrix &m, Viewer2DView view) 
   case Viewer2DView::Front:
     t.a = m.u[0];
     t.b = m.u[2];
-    t.c = m.v[0];
-    t.d = m.v[2];
+    t.c = m.w[0];
+    t.d = m.w[2];
     t.tx = m.o[0];
     t.ty = m.o[2];
     break;
   case Viewer2DView::Side:
-    t.a = -m.u[1];
-    t.b = m.u[2];
-    t.c = -m.v[1];
-    t.d = m.v[2];
+    t.a = -m.v[1];
+    t.b = m.v[2];
+    t.c = -m.w[1];
+    t.d = m.w[2];
     t.tx = -m.o[1];
     t.ty = m.o[2];
     break;
