@@ -19,9 +19,12 @@
 #pragma once
 
 #include "canvas2d.h"
+#include "symbolcache.h"
 #include "viewer2dpanel.h"
 #include <filesystem>
+#include <memory>
 #include <string>
+#include <unordered_map>
 
 constexpr double kMmToPt = 72.0 / 25.4;
 
@@ -44,11 +47,15 @@ struct PlanExportResult {
   std::string message;
 };
 
+using SymbolDefinitionSnapshot =
+    std::unordered_map<uint32_t, SymbolDefinition>;
+
 // Writes the captured 2D drawing commands to a vector PDF that mirrors the
 // current viewport state. Returns structured information so callers can surface
 // meaningful errors to the user.
 PlanExportResult ExportPlanToPdf(const CommandBuffer &buffer,
                                  const Viewer2DViewState &viewState,
                                  const PlanPrintOptions &options,
-                                 const std::filesystem::path &outputPath);
-
+                                 const std::filesystem::path &outputPath,
+                                 std::shared_ptr<const SymbolDefinitionSnapshot>
+                                     symbolSnapshot = nullptr);
