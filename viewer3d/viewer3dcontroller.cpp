@@ -1505,6 +1505,22 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
   DrawAxes();
 }
 
+void Viewer3DController::SetDarkMode(bool enabled) { m_darkMode = enabled; }
+
+std::array<float, 3> Viewer3DController::AdjustColor(float r, float g,
+                                                     float b) const {
+  if (!m_darkMode)
+    return {r, g, b};
+  if (r == 0.0f && g == 0.0f && b == 0.0f)
+    return {1.0f, 1.0f, 1.0f};
+  return {r, g, b};
+}
+
+void Viewer3DController::SetGLColor(float r, float g, float b) const {
+  auto adjusted = AdjustColor(r, g, b);
+  glColor3f(adjusted[0], adjusted[1], adjusted[2]);
+}
+
 // Draws a solid cube centered at origin with given size and color
 void Viewer3DController::DrawCube(float size, float r, float g, float b) {
   float half = size / 2.0f;
@@ -1513,7 +1529,7 @@ void Viewer3DController::DrawCube(float size, float r, float g, float b) {
   float z0 = -half, z1 = half;
 
   if (!m_captureOnly) {
-    glColor3f(r, g, b);
+    SetGLColor(r, g, b);
     glBegin(GL_QUADS);
     glNormal3f(0.0f, 0.0f, 1.0f);
     glVertex3f(x0, y0, z1);
@@ -1562,7 +1578,7 @@ void Viewer3DController::DrawWireframeCube(
   float lineWidth = (mode == Viewer2DRenderMode::Wireframe) ? 1.0f : 2.0f;
   if (!m_captureOnly) {
     glLineWidth(lineWidth);
-    glColor3f(r, g, b);
+    SetGLColor(r, g, b);
   }
   CanvasStroke stroke;
   stroke.color = {r, g, b, 1.0f};
@@ -1614,7 +1630,7 @@ void Viewer3DController::DrawWireframeCube(
   if (mode != Viewer2DRenderMode::Wireframe) {
     glEnable(GL_POLYGON_OFFSET_FILL);
     glPolygonOffset(1.0f, 1.0f);
-    glColor3f(1.0f, 1.0f, 1.0f);
+    SetGLColor(1.0f, 1.0f, 1.0f);
     glBegin(GL_QUADS);
     glVertex3f(x0, y0, z1);
     glVertex3f(x1, y0, z1);
@@ -1640,7 +1656,7 @@ void Viewer3DController::DrawWireframeBox(
     float lineWidth = (mode == Viewer2DRenderMode::Wireframe) ? 1.0f : 2.0f;
     if (!m_captureOnly) {
       glLineWidth(lineWidth);
-      glColor3f(0.0f, 0.0f, 0.0f);
+      SetGLColor(0.0f, 0.0f, 0.0f);
     }
     CanvasStroke stroke;
     stroke.color = {0.0f, 0.0f, 0.0f, 1.0f};
@@ -1689,7 +1705,7 @@ void Viewer3DController::DrawWireframeBox(
       if (mode != Viewer2DRenderMode::Wireframe) {
         glEnable(GL_POLYGON_OFFSET_FILL);
         glPolygonOffset(1.0f, 1.0f);
-        glColor3f(1.0f, 1.0f, 1.0f);
+        SetGLColor(1.0f, 1.0f, 1.0f);
         glBegin(GL_QUADS);
         glVertex3f(x0, y0, z1);
         glVertex3f(x1, y0, z1);
@@ -1702,11 +1718,11 @@ void Viewer3DController::DrawWireframeBox(
     return;
   } else if (!m_captureOnly) {
     if (selected)
-      glColor3f(0.0f, 1.0f, 1.0f);
+      SetGLColor(0.0f, 1.0f, 1.0f);
     else if (highlight)
-      glColor3f(0.0f, 1.0f, 0.0f);
+      SetGLColor(0.0f, 1.0f, 0.0f);
     else
-      glColor3f(1.0f, 1.0f, 0.0f);
+      SetGLColor(1.0f, 1.0f, 0.0f);
   }
 
   CanvasStroke stroke;
@@ -1809,7 +1825,7 @@ void Viewer3DController::DrawCubeWithOutline(
     if (!m_captureOnly) {
       glEnable(GL_POLYGON_OFFSET_FILL);
       glPolygonOffset(-1.0f, -1.0f);
-      glColor3f(r, g, b);
+      SetGLColor(r, g, b);
       DrawCube(size, r, g, b);
       glDisable(GL_POLYGON_OFFSET_FILL);
     }
@@ -1840,7 +1856,7 @@ void Viewer3DController::DrawMeshWithOutline(
     float lineWidth = (mode == Viewer2DRenderMode::Wireframe) ? 1.0f : 2.0f;
     if (!m_captureOnly) {
       glLineWidth(lineWidth);
-      glColor3f(0.0f, 0.0f, 0.0f);
+      SetGLColor(0.0f, 0.0f, 0.0f);
     }
     CanvasStroke stroke;
     stroke.color = {0.0f, 0.0f, 0.0f, 1.0f};
@@ -1872,7 +1888,7 @@ void Viewer3DController::DrawMeshWithOutline(
       if (mode != Viewer2DRenderMode::Wireframe) {
         glEnable(GL_POLYGON_OFFSET_FILL);
         glPolygonOffset(-1.0f, -1.0f);
-        glColor3f(r, g, b);
+        SetGLColor(r, g, b);
         DrawMesh(mesh, scale);
         glDisable(GL_POLYGON_OFFSET_FILL);
       }
@@ -1882,11 +1898,11 @@ void Viewer3DController::DrawMeshWithOutline(
 
   if (!m_captureOnly) {
     if (selected)
-      glColor3f(0.0f, 1.0f, 1.0f);
+      SetGLColor(0.0f, 1.0f, 1.0f);
     else if (highlight)
-      glColor3f(0.0f, 1.0f, 0.0f);
+      SetGLColor(0.0f, 1.0f, 0.0f);
     else
-      glColor3f(r, g, b);
+      SetGLColor(r, g, b);
 
     DrawMesh(mesh, scale);
   }
@@ -2055,7 +2071,7 @@ void Viewer3DController::DrawGrid(int style, float r, float g, float b,
   stroke.color = {r, g, b, 1.0f};
   stroke.width = 1.0f;
 
-  glColor3f(r, g, b);
+  SetGLColor(r, g, b);
   if (style == 0) {
     glLineWidth(1.0f);
     glBegin(GL_LINES);
@@ -2174,13 +2190,13 @@ void Viewer3DController::DrawGrid(int style, float r, float g, float b,
 void Viewer3DController::DrawAxes() {
   glLineWidth(2.0f);
   glBegin(GL_LINES);
-  glColor3f(1.0f, 0.0f, 0.0f);
+  SetGLColor(1.0f, 0.0f, 0.0f);
   glVertex3f(0.0f, 0.0f, 0.0f);
   glVertex3f(1.0f, 0.0f, 0.0f); // X
-  glColor3f(0.0f, 1.0f, 0.0f);
+  SetGLColor(0.0f, 1.0f, 0.0f);
   glVertex3f(0.0f, 0.0f, 0.0f);
   glVertex3f(0.0f, 1.0f, 0.0f); // Y
-  glColor3f(0.0f, 0.0f, 1.0f);
+  SetGLColor(0.0f, 0.0f, 1.0f);
   glVertex3f(0.0f, 0.0f, 0.0f);
   glVertex3f(0.0f, 0.0f, 1.0f); // Z
   glEnd();
@@ -2232,7 +2248,7 @@ void Viewer3DController::SetupBasicLighting() {
 }
 
 void Viewer3DController::SetupMaterialFromRGB(float r, float g, float b) {
-  glColor3f(r, g, b);
+  SetGLColor(r, g, b);
 }
 
 void Viewer3DController::DrawFixtureLabels(int width, int height) {
@@ -2550,7 +2566,10 @@ void Viewer3DController::DrawAllFixtureLabels(int width, int height,
       }
     }
 
-    DrawLabelLines2D(m_vg, lines, x, y, nvgRGBAf(0.f, 0.f, 0.f, 1.f));
+    NVGcolor textColor =
+        m_darkMode ? nvgRGBAf(1.f, 1.f, 1.f, 1.f)
+                   : nvgRGBAf(0.f, 0.f, 0.f, 1.f);
+    DrawLabelLines2D(m_vg, lines, x, y, textColor);
   }
 }
 

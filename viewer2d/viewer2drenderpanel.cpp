@@ -52,6 +52,10 @@ Viewer2DRenderPanel::Viewer2DRenderPanel(wxWindow *parent)
   m_radio->SetSelection(static_cast<int>(cfg.GetFloat("view2d_render_mode")));
   m_radio->Bind(wxEVT_RADIOBOX, &Viewer2DRenderPanel::OnRadio, this);
 
+  m_darkMode = new wxCheckBox(this, wxID_ANY, "Dark mode");
+  m_darkMode->SetValue(cfg.GetFloat("view2d_dark_mode") != 0.0f);
+  m_darkMode->Bind(wxEVT_CHECKBOX, &Viewer2DRenderPanel::OnDarkMode, this);
+
   wxString viewChoices[] = {"Top", "Front", "Side"};
   m_view = new wxRadioBox(this, wxID_ANY, "View", wxDefaultPosition,
                           wxDefaultSize, 3, viewChoices, 1, wxRA_SPECIFY_COLS);
@@ -189,6 +193,7 @@ Viewer2DRenderPanel::Viewer2DRenderPanel(wxWindow *parent)
 
   auto *sizer = new wxBoxSizer(wxVERTICAL);
   sizer->Add(m_radio, 0, wxALL, 5);
+  sizer->Add(m_darkMode, 0, wxALL, 5);
   sizer->Add(m_view, 0, wxALL, 5);
 
   gridBox->Add(m_showGrid, 0, wxALL, 5);
@@ -252,6 +257,7 @@ void Viewer2DRenderPanel::SetInstance(Viewer2DRenderPanel *p) {
 void Viewer2DRenderPanel::ApplyConfig() {
   ConfigManager &cfg = ConfigManager::Get();
   m_radio->SetSelection(static_cast<int>(cfg.GetFloat("view2d_render_mode")));
+  m_darkMode->SetValue(cfg.GetFloat("view2d_dark_mode") != 0.0f);
   m_view->SetSelection(static_cast<int>(cfg.GetFloat("view2d_view")));
   m_showGrid->SetValue(cfg.GetFloat("grid_show") != 0.0f);
   m_gridStyle->SetSelection(static_cast<int>(cfg.GetFloat("grid_style")));
@@ -286,6 +292,14 @@ void Viewer2DRenderPanel::OnRadio(wxCommandEvent &evt) {
     vp->SetRenderMode(static_cast<Viewer2DRenderMode>(m_radio->GetSelection()));
     vp->UpdateScene(false);
   }
+  evt.Skip();
+}
+
+void Viewer2DRenderPanel::OnDarkMode(wxCommandEvent &evt) {
+  ConfigManager::Get().SetFloat("view2d_dark_mode",
+                                m_darkMode->GetValue() ? 1.0f : 0.0f);
+  if (auto *vp = Viewer2DPanel::Instance())
+    vp->UpdateScene(false);
   evt.Skip();
 }
 

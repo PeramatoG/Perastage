@@ -88,6 +88,9 @@ public:
                    float gridB = 0.35f,
                    bool gridOnTop = false);
 
+  // Enables color tweaks for dark mode in the 2D viewer only.
+  void SetDarkMode(bool enabled);
+
   // Fixture UUID currently highlighted (hovered)
   void SetHighlightUuid(const std::string &uuid);
   void SetSelectedUuids(const std::vector<std::string> &uuids);
@@ -192,6 +195,8 @@ private:
   // Initializes simple lighting for the scene
   void SetupBasicLighting();
   void SetupMaterialFromRGB(float r, float g, float b);
+  void SetGLColor(float r, float g, float b) const;
+  std::array<float, 3> AdjustColor(float r, float g, float b) const;
 
   // Helpers used only when recording the 2D view to a canvas command buffer.
   std::array<float, 2> ProjectToCanvas(const std::array<float, 3> &p) const;
@@ -256,6 +261,7 @@ private:
   bool m_captureOnly = false;
   bool m_captureUseSymbols = false;
   SymbolCache m_bottomSymbolCache;
+  bool m_darkMode = false;
 
 public:
   // Enables recording of all primitives drawn during the next RenderScene
