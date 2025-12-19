@@ -229,6 +229,12 @@ void Viewer2DPanel::CaptureFrameAsync(
     bool useSimplifiedFootprints, bool includeGridInCapture) {
   m_captureCallback = std::move(callback);
   m_useSimplifiedFootprints = useSimplifiedFootprints;
+  if (!m_useSimplifiedFootprints &&
+      (m_view == Viewer2DView::Front || m_view == Viewer2DView::Side)) {
+    // Front/side printouts should still use cached fixture symbols so repeated
+    // fixtures are emitted as reusable PDF symbols like in top/bottom views.
+    m_useSimplifiedFootprints = true;
+  }
   m_captureIncludeGrid = includeGridInCapture;
   RequestFrameCapture();
   Refresh();
