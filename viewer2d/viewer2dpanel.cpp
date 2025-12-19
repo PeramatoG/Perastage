@@ -249,6 +249,11 @@ Viewer2DViewState Viewer2DPanel::GetViewState() const {
   return state;
 }
 
+std::shared_ptr<const SymbolDefinitionSnapshot>
+Viewer2DPanel::GetBottomSymbolCacheSnapshot() const {
+  return m_controller.GetBottomSymbolCacheSnapshot();
+}
+
 void Viewer2DPanel::InitGL() {
   SetCurrent(*m_glContext);
   if (!m_glInitialized) {
