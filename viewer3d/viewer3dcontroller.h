@@ -30,6 +30,7 @@
 #include "canvas2d.h"
 #include "symbolcache.h"
 #include <array>
+#include <memory>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -116,6 +117,8 @@ public:
   void SetLayerColor(const std::string &layer, const std::string &hex);
   const SymbolCache &GetBottomSymbolCache() const { return m_bottomSymbolCache; }
   SymbolCache &GetBottomSymbolCache() { return m_bottomSymbolCache; }
+  std::shared_ptr<const SymbolDefinitionSnapshot>
+  GetBottomSymbolCacheSnapshot() const;
 
 private:
   // Draws a solid cube centered at origin with given size and color

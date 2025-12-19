@@ -555,6 +555,12 @@ void Viewer3DPanel::SetLayerColor(const std::string& layer, const std::string& h
     m_controller.SetLayerColor(layer, hex);
 }
 
+std::shared_ptr<const SymbolDefinitionSnapshot>
+Viewer3DPanel::GetBottomSymbolCacheSnapshot() const
+{
+    return m_controller.GetBottomSymbolCacheSnapshot();
+}
+
 static Viewer3DPanel* s_instance = nullptr;
 
 Viewer3DPanel* Viewer3DPanel::Instance()
@@ -605,4 +611,3 @@ void Viewer3DPanel::LoadCameraFromConfig()
         ConsolePanel::Instance()->AppendMessage(msg);
     }
 }
-
