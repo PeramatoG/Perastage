@@ -65,6 +65,7 @@ void EmitGrid(ICanvas2D &canvas, int style, Viewer2DView view, float r, float g,
     for (float i = -size; i <= size; i += step) {
       switch (view) {
       case Viewer2DView::Top:
+      case Viewer2DView::Bottom:
         canvas.DrawLine(i, -size, i, size, stroke);
         canvas.DrawLine(-size, i, size, i, stroke);
         break;
@@ -282,6 +283,9 @@ void Viewer2DPanel::Render() {
   switch (m_view) {
   case Viewer2DView::Top:
     gluLookAt(0.0, 0.0, 10.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0);
+    break;
+  case Viewer2DView::Bottom:
+    gluLookAt(0.0, 0.0, -10.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0);
     break;
   case Viewer2DView::Front:
     gluLookAt(0.0, -10.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0);

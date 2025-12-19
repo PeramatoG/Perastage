@@ -18,6 +18,8 @@
 
 #include "canvas2d.h"
 
+#include "symbolcache.h"
+
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
@@ -73,6 +75,11 @@ public:
   void PlaceSymbol(const std::string &key,
                    const CanvasTransform &transform) override {
     (void)key;
+    (void)transform;
+  }
+  void PlaceSymbolInstance(uint32_t symbolId,
+                           const Transform2D &transform) override {
+    (void)symbolId;
     (void)transform;
   }
 
@@ -287,6 +294,13 @@ public:
     if (m_simplifyFootprints)
       FlushPendingGroup();
     PushCommand(PlaceSymbolCommand{key, transform}, {});
+  }
+
+  void PlaceSymbolInstance(uint32_t symbolId,
+                           const Transform2D &transform) override {
+    if (m_simplifyFootprints)
+      FlushPendingGroup();
+    PushCommand(SymbolInstanceCommand{symbolId, transform}, {});
   }
 
 private:
@@ -748,6 +762,11 @@ public:
     for (auto *c : m_canvases)
       c->PlaceSymbol(key, transform);
   }
+  void PlaceSymbolInstance(uint32_t symbolId,
+                           const Transform2D &transform) override {
+    for (auto *c : m_canvases)
+      c->PlaceSymbolInstance(symbolId, transform);
+  }
   void DrawLine(float x0, float y0, float x1, float y1,
                 const CanvasStroke &stroke) override {
     for (auto *c : m_canvases)
@@ -801,3 +820,104 @@ std::unique_ptr<ICanvas2D> CreateMultiCanvas(
   return multi;
 }
 
+namespace {
+Transform2D ComposeTransform(const Transform2D &a, const Transform2D &b) {
+  Transform2D out;
+  out.a = a.a * b.a + a.c * b.b;
+  out.b = a.b * b.a + a.d * b.b;
+  out.c = a.a * b.c + a.c * b.d;
+  out.d = a.b * b.c + a.d * b.d;
+  out.tx = a.a * b.tx + a.c * b.ty + a.tx;
+  out.ty = a.b * b.tx + a.d * b.ty + a.ty;
+  return out;
+}
+
+SymbolPoint ApplyTransformPoint(const Transform2D &t, float x, float y) {
+  return {t.a * x + t.c * y + t.tx, t.b * x + t.d * y + t.ty};
+}
+
+void ReplayCommandsWithTransform(const CommandBuffer &buffer, ICanvas2D &canvas,
+                                 const Transform2D &transform,
+                                 const SymbolCache *symbolCache) {
+  for (const auto &cmd : buffer.commands) {
+    if (const auto *line = std::get_if<LineCommand>(&cmd)) {
+      auto p0 = ApplyTransformPoint(transform, line->x0, line->y0);
+      auto p1 = ApplyTransformPoint(transform, line->x1, line->y1);
+      canvas.DrawLine(p0.x, p0.y, p1.x, p1.y, line->stroke);
+    } else if (const auto *polyline = std::get_if<PolylineCommand>(&cmd)) {
+      std::vector<float> pts;
+      pts.reserve(polyline->points.size());
+      for (size_t i = 0; i + 1 < polyline->points.size(); i += 2) {
+        auto p =
+            ApplyTransformPoint(transform, polyline->points[i],
+                                polyline->points[i + 1]);
+        pts.push_back(p.x);
+        pts.push_back(p.y);
+      }
+      canvas.DrawPolyline(pts, polyline->stroke);
+    } else if (const auto *poly = std::get_if<PolygonCommand>(&cmd)) {
+      std::vector<float> pts;
+      pts.reserve(poly->points.size());
+      for (size_t i = 0; i + 1 < poly->points.size(); i += 2) {
+        auto p =
+            ApplyTransformPoint(transform, poly->points[i], poly->points[i + 1]);
+        pts.push_back(p.x);
+        pts.push_back(p.y);
+      }
+      canvas.DrawPolygon(pts, poly->stroke, poly->hasFill ? &poly->fill : nullptr);
+    } else if (const auto *rect = std::get_if<RectangleCommand>(&cmd)) {
+      std::vector<float> pts = {rect->x, rect->y, rect->x + rect->w, rect->y,
+                                rect->x + rect->w, rect->y + rect->h, rect->x,
+                                rect->y + rect->h};
+      std::vector<float> transformed;
+      transformed.reserve(pts.size());
+      for (size_t i = 0; i + 1 < pts.size(); i += 2) {
+        auto p = ApplyTransformPoint(transform, pts[i], pts[i + 1]);
+        transformed.push_back(p.x);
+        transformed.push_back(p.y);
+      }
+      canvas.DrawPolygon(transformed, rect->stroke,
+                         rect->hasFill ? &rect->fill : nullptr);
+    } else if (const auto *circle = std::get_if<CircleCommand>(&cmd)) {
+      auto center = ApplyTransformPoint(transform, circle->cx, circle->cy);
+      float sx = std::sqrt(transform.a * transform.a + transform.b * transform.b);
+      float sy = std::sqrt(transform.c * transform.c + transform.d * transform.d);
+      float scale = (sx + sy) * 0.5f;
+      canvas.DrawCircle(center.x, center.y, circle->radius * scale,
+                        circle->stroke, circle->hasFill ? &circle->fill : nullptr);
+    } else if (const auto *text = std::get_if<TextCommand>(&cmd)) {
+      auto p = ApplyTransformPoint(transform, text->x, text->y);
+      canvas.DrawText(p.x, p.y, text->text, text->style);
+    } else if (const auto *save = std::get_if<SaveCommand>(&cmd)) {
+      (void)save;
+      canvas.Save();
+    } else if (const auto *restore = std::get_if<RestoreCommand>(&cmd)) {
+      (void)restore;
+      canvas.Restore();
+    } else if (const auto *tf = std::get_if<TransformCommand>(&cmd)) {
+      canvas.SetTransform(tf->transform);
+    } else if (const auto *begin = std::get_if<BeginSymbolCommand>(&cmd)) {
+      canvas.BeginSymbol(begin->key);
+    } else if (const auto *end = std::get_if<EndSymbolCommand>(&cmd)) {
+      canvas.EndSymbol(end->key);
+    } else if (const auto *place = std::get_if<PlaceSymbolCommand>(&cmd)) {
+      canvas.PlaceSymbol(place->key, place->transform);
+    } else if (const auto *instance = std::get_if<SymbolInstanceCommand>(&cmd)) {
+      if (!symbolCache)
+        continue;
+      const auto *symbol = symbolCache->GetById(instance->symbolId);
+      if (!symbol)
+        continue;
+      Transform2D combined = ComposeTransform(transform, instance->transform);
+      ReplayCommandsWithTransform(symbol->localCommands, canvas, combined,
+                                  symbolCache);
+    }
+  }
+}
+} // namespace
+
+void ReplayCommandBuffer(const CommandBuffer &buffer, ICanvas2D &canvas,
+                         const SymbolCache *symbolCache) {
+  ReplayCommandsWithTransform(buffer, canvas, Transform2D::Identity(),
+                              symbolCache);
+}

@@ -96,6 +96,14 @@ static std::string NormalizePath(const std::string &p) {
   return out;
 }
 
+static std::string NormalizeModelKey(const std::string &p) {
+  if (p.empty())
+    return {};
+  fs::path path(p);
+  path = path.lexically_normal();
+  return NormalizePath(path.string());
+}
+
 static std::string ResolveGdtfPath(const std::string &base,
                                    const std::string &spec) {
   std::string norm = NormalizePath(spec);
@@ -133,6 +141,54 @@ static std::string ResolveModelPath(const std::string &base,
   }
 
   return FindFileRecursive(base, p.filename().string());
+}
+
+static SymbolBounds ComputeSymbolBounds(const CommandBuffer &buffer) {
+  SymbolBounds bounds{};
+  bool hasPoint = false;
+
+  auto addPoint = [&](float x, float y) {
+    if (!hasPoint) {
+      bounds.min = {x, y};
+      bounds.max = {x, y};
+      hasPoint = true;
+      return;
+    }
+    bounds.min.x = std::min(bounds.min.x, x);
+    bounds.min.y = std::min(bounds.min.y, y);
+    bounds.max.x = std::max(bounds.max.x, x);
+    bounds.max.y = std::max(bounds.max.y, y);
+  };
+
+  auto addPoints = [&](const std::vector<float> &points) {
+    for (size_t i = 0; i + 1 < points.size(); i += 2)
+      addPoint(points[i], points[i + 1]);
+  };
+
+  for (const auto &cmd : buffer.commands) {
+    if (const auto *line = std::get_if<LineCommand>(&cmd)) {
+      addPoint(line->x0, line->y0);
+      addPoint(line->x1, line->y1);
+    } else if (const auto *polyline = std::get_if<PolylineCommand>(&cmd)) {
+      addPoints(polyline->points);
+    } else if (const auto *poly = std::get_if<PolygonCommand>(&cmd)) {
+      addPoints(poly->points);
+    } else if (const auto *rect = std::get_if<RectangleCommand>(&cmd)) {
+      addPoint(rect->x, rect->y);
+      addPoint(rect->x + rect->w, rect->y);
+      addPoint(rect->x + rect->w, rect->y + rect->h);
+      addPoint(rect->x, rect->y + rect->h);
+    } else if (const auto *circle = std::get_if<CircleCommand>(&cmd)) {
+      addPoint(circle->cx - circle->radius, circle->cy - circle->radius);
+      addPoint(circle->cx + circle->radius, circle->cy + circle->radius);
+    }
+  }
+
+  if (!hasPoint) {
+    bounds.min = {};
+    bounds.max = {};
+  }
+  return bounds;
 }
 
 static std::string FormatMeters(float mm) {
@@ -333,6 +389,38 @@ static std::array<float, 3> TransformPoint(const Matrix &m,
           m.u[2] * p[0] + m.v[2] * p[1] + m.w[2] * p[2] + m.o[2]};
 }
 
+static Transform2D BuildInstanceTransform2D(const Matrix &m, Viewer2DView view) {
+  Transform2D t{};
+  switch (view) {
+  case Viewer2DView::Top:
+  case Viewer2DView::Bottom:
+    t.a = m.u[0];
+    t.b = m.u[1];
+    t.c = m.v[0];
+    t.d = m.v[1];
+    t.tx = m.o[0];
+    t.ty = m.o[1];
+    break;
+  case Viewer2DView::Front:
+    t.a = m.u[0];
+    t.b = m.u[2];
+    t.c = m.v[0];
+    t.d = m.v[2];
+    t.tx = m.o[0];
+    t.ty = m.o[2];
+    break;
+  case Viewer2DView::Side:
+    t.a = -m.u[1];
+    t.b = m.u[2];
+    t.c = -m.v[1];
+    t.d = m.v[2];
+    t.tx = -m.o[1];
+    t.ty = m.o[2];
+    break;
+  }
+  return t;
+}
+
 // Maps a 3D point expressed in meters to the 2D canvas coordinates used by the
 // simplified viewer. The mapping mirrors the orthographic camera setup in
 // Render() so exporters can rebuild the same projection.
@@ -340,6 +428,8 @@ std::array<float, 2>
 Viewer3DController::ProjectToCanvas(const std::array<float, 3> &p) const {
   switch (m_captureView) {
   case Viewer2DView::Top:
+    return {p[0], p[1]};
+  case Viewer2DView::Bottom:
     return {p[0], p[1]};
   case Viewer2DView::Front:
     return {p[0], p[2]};
@@ -1056,42 +1146,136 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
     fixtureTransform.o[2] *= RENDER_SCALE;
 
     auto applyFixtureCapture = [fixtureTransform](
-                                const std::array<float, 3> &p) {
+                                   const std::array<float, 3> &p) {
       return TransformPoint(fixtureTransform, p);
     };
 
     std::string gdtfPath = ResolveGdtfPath(base, f.gdtfSpec);
     auto itg = m_loadedGdtf.find(gdtfPath);
 
-    if (itg != m_loadedGdtf.end()) {
-      size_t partIndex = 0;
-      for (const auto &obj : itg->second) {
-        glPushMatrix();
-        if (m_captureCanvas) {
-          // Capture each GDTF geometry as its own source so fills do not hide
-          // outlines from sibling parts when exported to PDF.
-          m_captureCanvas->SetSourceKey(fixtureCaptureKey + "_part" +
-                                        std::to_string(partIndex));
-        }
-        float m2[16];
-        MatrixToArray(obj.transform, m2);
-        // GDTF geometry offsets are defined relative to the fixture
-        // in meters. Only the vertex coordinates need unit scaling.
-        ApplyTransform(m2, false);
-        auto applyCapture = [fixtureTransform, objTransform = obj.transform](
-                                const std::array<float, 3> &p) {
-          auto local = TransformPoint(objTransform, p);
-          return TransformPoint(fixtureTransform, local);
-        };
-        DrawMeshWithOutline(obj.mesh, r, g, b, RENDER_SCALE, highlight,
-                            selected, cx, cy, cz, wireframe, mode,
-                            applyCapture);
-        glPopMatrix();
-        ++partIndex;
+    bool suppressCapture = false;
+    const bool useSymbolInstancing =
+        m_captureCanvas && m_captureView == Viewer2DView::Bottom && !highlight &&
+        !selected;
+    if (useSymbolInstancing) {
+      std::string modelKey = NormalizeModelKey(gdtfPath);
+      if (modelKey.empty() && !f.gdtfSpec.empty())
+        modelKey = NormalizeModelKey(f.gdtfSpec);
+      if (modelKey.empty() && !f.typeName.empty())
+        modelKey = f.typeName;
+
+      if (!modelKey.empty()) {
+        SymbolKey symbolKey;
+        symbolKey.modelKey = modelKey;
+        symbolKey.viewKind = SymbolViewKind::Bottom;
+        symbolKey.styleVersion = 1;
+
+        const auto &symbol =
+            m_bottomSymbolCache.GetOrCreate(symbolKey, [&](const SymbolKey &,
+                                                         uint32_t symbolId) {
+              SymbolDefinition definition{};
+              definition.symbolId = symbolId;
+              auto localCanvas =
+                  CreateRecordingCanvas(definition.localCommands, false);
+              CanvasTransform transform{};
+              localCanvas->BeginFrame();
+              localCanvas->SetTransform(transform);
+
+              ICanvas2D *prevCanvas = m_captureCanvas;
+              Viewer2DView prevView = m_captureView;
+              bool prevCaptureOnly = m_captureOnly;
+              bool prevIncludeGrid = m_captureIncludeGrid;
+              m_captureCanvas = localCanvas.get();
+              m_captureView = prevView;
+              m_captureOnly = true;
+              m_captureIncludeGrid = false;
+
+              if (itg != m_loadedGdtf.end()) {
+                size_t partIndex = 0;
+                for (const auto &obj : itg->second) {
+                  m_captureCanvas->SetSourceKey(fixtureCaptureKey + "_part" +
+                                                std::to_string(partIndex));
+                  auto applyCapture =
+                      [objTransform = obj.transform](
+                          const std::array<float, 3> &p) {
+                        return TransformPoint(objTransform, p);
+                      };
+                  DrawMeshWithOutline(obj.mesh, r, g, b, RENDER_SCALE, false,
+                                      false, 0.0f, 0.0f, 0.0f, wireframe, mode,
+                                      applyCapture);
+                  ++partIndex;
+                }
+              } else {
+                m_captureCanvas->SetSourceKey(fixtureCaptureKey);
+                DrawCubeWithOutline(0.2f, r, g, b, false, false, 0.0f, 0.0f,
+                                    0.0f, wireframe, mode,
+                                    [](const std::array<float, 3> &p) {
+                                      return p;
+                                    });
+              }
+
+              localCanvas->EndFrame();
+              definition.bounds = ComputeSymbolBounds(definition.localCommands);
+
+              m_captureCanvas = prevCanvas;
+              m_captureView = prevView;
+              m_captureOnly = prevCaptureOnly;
+              m_captureIncludeGrid = prevIncludeGrid;
+              return definition;
+            });
+
+        Transform2D instanceTransform =
+            BuildInstanceTransform2D(fixtureTransform, m_captureView);
+        m_captureCanvas->PlaceSymbolInstance(symbol.symbolId,
+                                             instanceTransform);
+        suppressCapture = true;
       }
+    }
+
+    auto drawFixtureGeometry = [&]() {
+      if (itg != m_loadedGdtf.end()) {
+        size_t partIndex = 0;
+        for (const auto &obj : itg->second) {
+          glPushMatrix();
+          if (m_captureCanvas) {
+            // Capture each GDTF geometry as its own source so fills do not hide
+            // outlines from sibling parts when exported to PDF.
+            m_captureCanvas->SetSourceKey(fixtureCaptureKey + "_part" +
+                                          std::to_string(partIndex));
+          }
+          float m2[16];
+          MatrixToArray(obj.transform, m2);
+          // GDTF geometry offsets are defined relative to the fixture
+          // in meters. Only the vertex coordinates need unit scaling.
+          ApplyTransform(m2, false);
+          auto applyCapture =
+              [fixtureTransform, objTransform = obj.transform](
+                  const std::array<float, 3> &p) {
+                auto local = TransformPoint(objTransform, p);
+                return TransformPoint(fixtureTransform, local);
+              };
+          DrawMeshWithOutline(obj.mesh, r, g, b, RENDER_SCALE, highlight,
+                              selected, cx, cy, cz, wireframe, mode,
+                              applyCapture);
+          glPopMatrix();
+          ++partIndex;
+        }
+      } else {
+        DrawCubeWithOutline(0.2f, r, g, b, highlight, selected, cx, cy, cz,
+                            wireframe, mode, applyFixtureCapture);
+      }
+    };
+
+    if (suppressCapture) {
+      ICanvas2D *prevCanvas = m_captureCanvas;
+      bool prevCaptureOnly = m_captureOnly;
+      m_captureCanvas = nullptr;
+      m_captureOnly = false;
+      drawFixtureGeometry();
+      m_captureCanvas = prevCanvas;
+      m_captureOnly = prevCaptureOnly;
     } else {
-      DrawCubeWithOutline(0.2f, r, g, b, highlight, selected, cx, cy, cz,
-                          wireframe, mode, applyFixtureCapture);
+      drawFixtureGeometry();
     }
 
     glPopMatrix();
@@ -1122,39 +1306,41 @@ void Viewer3DController::DrawCube(float size, float r, float g, float b) {
   float y0 = -half, y1 = half;
   float z0 = -half, z1 = half;
 
-  glColor3f(r, g, b);
-  glBegin(GL_QUADS);
-  glNormal3f(0.0f, 0.0f, 1.0f);
-  glVertex3f(x0, y0, z1);
-  glVertex3f(x1, y0, z1);
-  glVertex3f(x1, y1, z1);
-  glVertex3f(x0, y1, z1); // Front
-  glNormal3f(0.0f, 0.0f, -1.0f);
-  glVertex3f(x1, y0, z0);
-  glVertex3f(x0, y0, z0);
-  glVertex3f(x0, y1, z0);
-  glVertex3f(x1, y1, z0); // Back
-  glNormal3f(-1.0f, 0.0f, 0.0f);
-  glVertex3f(x0, y0, z0);
-  glVertex3f(x0, y0, z1);
-  glVertex3f(x0, y1, z1);
-  glVertex3f(x0, y1, z0); // Left
-  glNormal3f(1.0f, 0.0f, 0.0f);
-  glVertex3f(x1, y0, z1);
-  glVertex3f(x1, y0, z0);
-  glVertex3f(x1, y1, z0);
-  glVertex3f(x1, y1, z1); // Right
-  glNormal3f(0.0f, 1.0f, 0.0f);
-  glVertex3f(x0, y1, z1);
-  glVertex3f(x1, y1, z1);
-  glVertex3f(x1, y1, z0);
-  glVertex3f(x0, y1, z0); // Top
-  glNormal3f(0.0f, -1.0f, 0.0f);
-  glVertex3f(x0, y0, z0);
-  glVertex3f(x1, y0, z0);
-  glVertex3f(x1, y0, z1);
-  glVertex3f(x0, y0, z1); // Bottom
-  glEnd();
+  if (!m_captureOnly) {
+    glColor3f(r, g, b);
+    glBegin(GL_QUADS);
+    glNormal3f(0.0f, 0.0f, 1.0f);
+    glVertex3f(x0, y0, z1);
+    glVertex3f(x1, y0, z1);
+    glVertex3f(x1, y1, z1);
+    glVertex3f(x0, y1, z1); // Front
+    glNormal3f(0.0f, 0.0f, -1.0f);
+    glVertex3f(x1, y0, z0);
+    glVertex3f(x0, y0, z0);
+    glVertex3f(x0, y1, z0);
+    glVertex3f(x1, y1, z0); // Back
+    glNormal3f(-1.0f, 0.0f, 0.0f);
+    glVertex3f(x0, y0, z0);
+    glVertex3f(x0, y0, z1);
+    glVertex3f(x0, y1, z1);
+    glVertex3f(x0, y1, z0); // Left
+    glNormal3f(1.0f, 0.0f, 0.0f);
+    glVertex3f(x1, y0, z1);
+    glVertex3f(x1, y0, z0);
+    glVertex3f(x1, y1, z0);
+    glVertex3f(x1, y1, z1); // Right
+    glNormal3f(0.0f, 1.0f, 0.0f);
+    glVertex3f(x0, y1, z1);
+    glVertex3f(x1, y1, z1);
+    glVertex3f(x1, y1, z0);
+    glVertex3f(x0, y1, z0); // Top
+    glNormal3f(0.0f, -1.0f, 0.0f);
+    glVertex3f(x0, y0, z0);
+    glVertex3f(x1, y0, z0);
+    glVertex3f(x1, y0, z1);
+    glVertex3f(x0, y0, z1); // Bottom
+    glEnd();
+  }
 }
 
 // Draws a wireframe cube centered at origin with given size and color
@@ -1168,37 +1354,41 @@ void Viewer3DController::DrawWireframeCube(
   float z0 = -half, z1 = half;
 
   float lineWidth = (mode == Viewer2DRenderMode::Wireframe) ? 1.0f : 2.0f;
-  glLineWidth(lineWidth);
-  glColor3f(r, g, b);
+  if (!m_captureOnly) {
+    glLineWidth(lineWidth);
+    glColor3f(r, g, b);
+  }
   CanvasStroke stroke;
   stroke.color = {r, g, b, 1.0f};
   stroke.width = lineWidth;
-  glBegin(GL_LINES);
-  glVertex3f(x0, y0, z0);
-  glVertex3f(x1, y0, z0);
-  glVertex3f(x0, y1, z0);
-  glVertex3f(x1, y1, z0);
-  glVertex3f(x0, y0, z1);
-  glVertex3f(x1, y0, z1);
-  glVertex3f(x0, y1, z1);
-  glVertex3f(x1, y1, z1);
-  glVertex3f(x0, y0, z0);
-  glVertex3f(x0, y1, z0);
-  glVertex3f(x1, y0, z0);
-  glVertex3f(x1, y1, z0);
-  glVertex3f(x0, y0, z1);
-  glVertex3f(x0, y1, z1);
-  glVertex3f(x1, y0, z1);
-  glVertex3f(x1, y1, z1);
-  glVertex3f(x0, y0, z0);
-  glVertex3f(x0, y0, z1);
-  glVertex3f(x1, y0, z0);
-  glVertex3f(x1, y0, z1);
-  glVertex3f(x0, y1, z0);
-  glVertex3f(x0, y1, z1);
-  glVertex3f(x1, y1, z0);
-  glVertex3f(x1, y1, z1);
-  glEnd();
+  if (!m_captureOnly) {
+    glBegin(GL_LINES);
+    glVertex3f(x0, y0, z0);
+    glVertex3f(x1, y0, z0);
+    glVertex3f(x0, y1, z0);
+    glVertex3f(x1, y1, z0);
+    glVertex3f(x0, y0, z1);
+    glVertex3f(x1, y0, z1);
+    glVertex3f(x0, y1, z1);
+    glVertex3f(x1, y1, z1);
+    glVertex3f(x0, y0, z0);
+    glVertex3f(x0, y1, z0);
+    glVertex3f(x1, y0, z0);
+    glVertex3f(x1, y1, z0);
+    glVertex3f(x0, y0, z1);
+    glVertex3f(x0, y1, z1);
+    glVertex3f(x1, y0, z1);
+    glVertex3f(x1, y1, z1);
+    glVertex3f(x0, y0, z0);
+    glVertex3f(x0, y0, z1);
+    glVertex3f(x1, y0, z0);
+    glVertex3f(x1, y0, z1);
+    glVertex3f(x0, y1, z0);
+    glVertex3f(x0, y1, z1);
+    glVertex3f(x1, y1, z0);
+    glVertex3f(x1, y1, z1);
+    glEnd();
+  }
   if (m_captureCanvas) {
     std::vector<std::array<float, 3>> verts = {{x0, y0, z0}, {x1, y0, z0},
                                                {x0, y1, z0}, {x1, y1, z0},
@@ -1242,11 +1432,87 @@ void Viewer3DController::DrawWireframeBox(
 
   if (wireframe) {
     float lineWidth = (mode == Viewer2DRenderMode::Wireframe) ? 1.0f : 2.0f;
-    glLineWidth(lineWidth);
-    glColor3f(0.0f, 0.0f, 0.0f);
+    if (!m_captureOnly) {
+      glLineWidth(lineWidth);
+      glColor3f(0.0f, 0.0f, 0.0f);
+    }
     CanvasStroke stroke;
     stroke.color = {0.0f, 0.0f, 0.0f, 1.0f};
     stroke.width = lineWidth;
+    if (!m_captureOnly) {
+      glBegin(GL_LINES);
+      glVertex3f(x0, y0, z0);
+      glVertex3f(x1, y0, z0);
+      glVertex3f(x0, y1, z0);
+      glVertex3f(x1, y1, z0);
+      glVertex3f(x0, y0, z1);
+      glVertex3f(x1, y0, z1);
+      glVertex3f(x0, y1, z1);
+      glVertex3f(x1, y1, z1);
+      glVertex3f(x0, y0, z0);
+      glVertex3f(x0, y1, z0);
+      glVertex3f(x1, y0, z0);
+      glVertex3f(x1, y1, z0);
+      glVertex3f(x0, y0, z1);
+      glVertex3f(x0, y1, z1);
+      glVertex3f(x1, y0, z1);
+      glVertex3f(x1, y1, z1);
+      glVertex3f(x0, y0, z0);
+      glVertex3f(x0, y0, z1);
+      glVertex3f(x1, y0, z0);
+      glVertex3f(x1, y0, z1);
+      glVertex3f(x0, y1, z0);
+      glVertex3f(x0, y1, z1);
+      glVertex3f(x1, y1, z0);
+      glVertex3f(x1, y1, z1);
+      glEnd();
+    }
+    if (m_captureCanvas) {
+      std::vector<std::array<float, 3>> verts = {{x0, y0, z0}, {x1, y0, z0},
+                                                 {x0, y1, z0}, {x1, y1, z0},
+                                                 {x0, y0, z1}, {x1, y0, z1},
+                                                 {x0, y1, z1}, {x1, y1, z1}};
+      const int edges[12][2] = {{0, 1}, {2, 3}, {4, 5}, {6, 7}, {0, 2},
+                                {1, 3}, {4, 6}, {5, 7}, {0, 4}, {1, 5},
+                                {2, 6}, {3, 7}};
+      for (auto &e : edges)
+        RecordLine(verts[e[0]], verts[e[1]], stroke);
+    }
+    if (!m_captureOnly) {
+      glLineWidth(1.0f);
+      if (mode != Viewer2DRenderMode::Wireframe) {
+        glEnable(GL_POLYGON_OFFSET_FILL);
+        glPolygonOffset(1.0f, 1.0f);
+        glColor3f(1.0f, 1.0f, 1.0f);
+        glBegin(GL_QUADS);
+        glVertex3f(x0, y0, z1);
+        glVertex3f(x1, y0, z1);
+        glVertex3f(x1, y1, z1);
+        glVertex3f(x0, y1, z1);
+        glEnd();
+        glDisable(GL_POLYGON_OFFSET_FILL);
+      }
+    }
+    return;
+  } else if (!m_captureOnly) {
+    if (selected)
+      glColor3f(0.0f, 1.0f, 1.0f);
+    else if (highlight)
+      glColor3f(0.0f, 1.0f, 0.0f);
+    else
+      glColor3f(1.0f, 1.0f, 0.0f);
+  }
+
+  CanvasStroke stroke;
+  stroke.width = 1.0f;
+  if (selected)
+    stroke.color = {0.0f, 1.0f, 1.0f, 1.0f};
+  else if (highlight)
+    stroke.color = {0.0f, 1.0f, 0.0f, 1.0f};
+  else
+    stroke.color = {1.0f, 1.0f, 0.0f, 1.0f};
+
+  if (!m_captureOnly) {
     glBegin(GL_LINES);
     glVertex3f(x0, y0, z0);
     glVertex3f(x1, y0, z0);
@@ -1273,73 +1539,7 @@ void Viewer3DController::DrawWireframeBox(
     glVertex3f(x1, y1, z0);
     glVertex3f(x1, y1, z1);
     glEnd();
-    if (m_captureCanvas) {
-      std::vector<std::array<float, 3>> verts = {{x0, y0, z0}, {x1, y0, z0},
-                                                 {x0, y1, z0}, {x1, y1, z0},
-                                                 {x0, y0, z1}, {x1, y0, z1},
-                                                 {x0, y1, z1}, {x1, y1, z1}};
-      const int edges[12][2] = {{0, 1}, {2, 3}, {4, 5}, {6, 7}, {0, 2},
-                                {1, 3}, {4, 6}, {5, 7}, {0, 4}, {1, 5},
-                                {2, 6}, {3, 7}};
-      for (auto &e : edges)
-        RecordLine(verts[e[0]], verts[e[1]], stroke);
-    }
-    glLineWidth(1.0f);
-    if (mode != Viewer2DRenderMode::Wireframe) {
-      glEnable(GL_POLYGON_OFFSET_FILL);
-      glPolygonOffset(1.0f, 1.0f);
-      glColor3f(1.0f, 1.0f, 1.0f);
-      glBegin(GL_QUADS);
-      glVertex3f(x0, y0, z1);
-      glVertex3f(x1, y0, z1);
-      glVertex3f(x1, y1, z1);
-      glVertex3f(x0, y1, z1);
-      glEnd();
-      glDisable(GL_POLYGON_OFFSET_FILL);
-    }
-    return;
-  } else if (selected)
-    glColor3f(0.0f, 1.0f, 1.0f);
-  else if (highlight)
-    glColor3f(0.0f, 1.0f, 0.0f);
-  else
-    glColor3f(1.0f, 1.0f, 0.0f);
-
-  CanvasStroke stroke;
-  stroke.width = 1.0f;
-  if (selected)
-    stroke.color = {0.0f, 1.0f, 1.0f, 1.0f};
-  else if (highlight)
-    stroke.color = {0.0f, 1.0f, 0.0f, 1.0f};
-  else
-    stroke.color = {1.0f, 1.0f, 0.0f, 1.0f};
-
-  glBegin(GL_LINES);
-  glVertex3f(x0, y0, z0);
-  glVertex3f(x1, y0, z0);
-  glVertex3f(x0, y1, z0);
-  glVertex3f(x1, y1, z0);
-  glVertex3f(x0, y0, z1);
-  glVertex3f(x1, y0, z1);
-  glVertex3f(x0, y1, z1);
-  glVertex3f(x1, y1, z1);
-  glVertex3f(x0, y0, z0);
-  glVertex3f(x0, y1, z0);
-  glVertex3f(x1, y0, z0);
-  glVertex3f(x1, y1, z0);
-  glVertex3f(x0, y0, z1);
-  glVertex3f(x0, y1, z1);
-  glVertex3f(x1, y0, z1);
-  glVertex3f(x1, y1, z1);
-  glVertex3f(x0, y0, z0);
-  glVertex3f(x0, y0, z1);
-  glVertex3f(x1, y0, z0);
-  glVertex3f(x1, y0, z1);
-  glVertex3f(x0, y1, z0);
-  glVertex3f(x0, y1, z1);
-  glVertex3f(x1, y1, z0);
-  glVertex3f(x1, y1, z1);
-  glEnd();
+  }
   if (m_captureCanvas) {
     std::vector<std::array<float, 3>> verts = {{x0, y0, z0}, {x1, y0, z0},
                                                {x0, y1, z0}, {x1, y1, z0},
@@ -1374,11 +1574,13 @@ void Viewer3DController::DrawCubeWithOutline(
       return;
     }
     DrawWireframeCube(size, 0.0f, 0.0f, 0.0f, mode, captureTransform);
-    glEnable(GL_POLYGON_OFFSET_FILL);
-    glPolygonOffset(-1.0f, -1.0f);
-    glColor3f(r, g, b);
-    DrawCube(size, r, g, b);
-    glDisable(GL_POLYGON_OFFSET_FILL);
+    if (!m_captureOnly) {
+      glEnable(GL_POLYGON_OFFSET_FILL);
+      glPolygonOffset(-1.0f, -1.0f);
+      glColor3f(r, g, b);
+      DrawCube(size, r, g, b);
+      glDisable(GL_POLYGON_OFFSET_FILL);
+    }
     return;
   }
 
@@ -1404,8 +1606,10 @@ void Viewer3DController::DrawMeshWithOutline(
 
   if (wireframe) {
     float lineWidth = (mode == Viewer2DRenderMode::Wireframe) ? 1.0f : 2.0f;
-    glLineWidth(lineWidth);
-    glColor3f(0.0f, 0.0f, 0.0f);
+    if (!m_captureOnly) {
+      glLineWidth(lineWidth);
+      glColor3f(0.0f, 0.0f, 0.0f);
+    }
     CanvasStroke stroke;
     stroke.color = {0.0f, 0.0f, 0.0f, 1.0f};
     stroke.width = lineWidth;
@@ -1431,25 +1635,29 @@ void Viewer3DController::DrawMeshWithOutline(
         RecordPolygon(pts, stroke, &fill);
       }
     }
-    glLineWidth(1.0f);
-    if (mode != Viewer2DRenderMode::Wireframe) {
-      glEnable(GL_POLYGON_OFFSET_FILL);
-      glPolygonOffset(-1.0f, -1.0f);
-      glColor3f(r, g, b);
-      DrawMesh(mesh, scale);
-      glDisable(GL_POLYGON_OFFSET_FILL);
+    if (!m_captureOnly) {
+      glLineWidth(1.0f);
+      if (mode != Viewer2DRenderMode::Wireframe) {
+        glEnable(GL_POLYGON_OFFSET_FILL);
+        glPolygonOffset(-1.0f, -1.0f);
+        glColor3f(r, g, b);
+        DrawMesh(mesh, scale);
+        glDisable(GL_POLYGON_OFFSET_FILL);
+      }
     }
     return;
   }
 
-  if (selected)
-    glColor3f(0.0f, 1.0f, 1.0f);
-  else if (highlight)
-    glColor3f(0.0f, 1.0f, 0.0f);
-  else
-    glColor3f(r, g, b);
+  if (!m_captureOnly) {
+    if (selected)
+      glColor3f(0.0f, 1.0f, 1.0f);
+    else if (highlight)
+      glColor3f(0.0f, 1.0f, 0.0f);
+    else
+      glColor3f(r, g, b);
 
-  DrawMesh(mesh, scale);
+    DrawMesh(mesh, scale);
+  }
   if (m_captureCanvas) {
     CanvasStroke stroke;
     stroke.color = {r, g, b, 1.0f};
@@ -1482,34 +1690,36 @@ void Viewer3DController::DrawMeshWireframe(
     const Mesh &mesh, float scale,
     const std::function<std::array<float, 3>(const std::array<float, 3> &)> &
         captureTransform) {
-  glBegin(GL_LINES);
-  for (size_t i = 0; i + 2 < mesh.indices.size(); i += 3) {
-    unsigned short i0 = mesh.indices[i];
-    unsigned short i1 = mesh.indices[i + 1];
-    unsigned short i2 = mesh.indices[i + 2];
+  if (!m_captureOnly) {
+    glBegin(GL_LINES);
+    for (size_t i = 0; i + 2 < mesh.indices.size(); i += 3) {
+      unsigned short i0 = mesh.indices[i];
+      unsigned short i1 = mesh.indices[i + 1];
+      unsigned short i2 = mesh.indices[i + 2];
 
-    float v0x = mesh.vertices[i0 * 3] * scale;
-    float v0y = mesh.vertices[i0 * 3 + 1] * scale;
-    float v0z = mesh.vertices[i0 * 3 + 2] * scale;
+      float v0x = mesh.vertices[i0 * 3] * scale;
+      float v0y = mesh.vertices[i0 * 3 + 1] * scale;
+      float v0z = mesh.vertices[i0 * 3 + 2] * scale;
 
-    float v1x = mesh.vertices[i1 * 3] * scale;
-    float v1y = mesh.vertices[i1 * 3 + 1] * scale;
-    float v1z = mesh.vertices[i1 * 3 + 2] * scale;
+      float v1x = mesh.vertices[i1 * 3] * scale;
+      float v1y = mesh.vertices[i1 * 3 + 1] * scale;
+      float v1z = mesh.vertices[i1 * 3 + 2] * scale;
 
-    float v2x = mesh.vertices[i2 * 3] * scale;
-    float v2y = mesh.vertices[i2 * 3 + 1] * scale;
-    float v2z = mesh.vertices[i2 * 3 + 2] * scale;
+      float v2x = mesh.vertices[i2 * 3] * scale;
+      float v2y = mesh.vertices[i2 * 3 + 1] * scale;
+      float v2z = mesh.vertices[i2 * 3 + 2] * scale;
 
-    glVertex3f(v0x, v0y, v0z);
-    glVertex3f(v1x, v1y, v1z);
+      glVertex3f(v0x, v0y, v0z);
+      glVertex3f(v1x, v1y, v1z);
 
-    glVertex3f(v1x, v1y, v1z);
-    glVertex3f(v2x, v2y, v2z);
+      glVertex3f(v1x, v1y, v1z);
+      glVertex3f(v2x, v2y, v2z);
 
-    glVertex3f(v2x, v2y, v2z);
-    glVertex3f(v0x, v0y, v0z);
+      glVertex3f(v2x, v2y, v2z);
+      glVertex3f(v0x, v0y, v0z);
+    }
+    glEnd();
   }
-  glEnd();
   if (m_captureCanvas) {
     CanvasStroke stroke;
     stroke.color = {0.0f, 0.0f, 0.0f, 1.0f};
@@ -1543,62 +1753,64 @@ void Viewer3DController::DrawMeshWireframe(
 // Draws a mesh using GL triangles. The optional scale parameter allows
 // converting vertex units (e.g. millimeters) to meters.
 void Viewer3DController::DrawMesh(const Mesh &mesh, float scale) {
-  glBegin(GL_TRIANGLES);
-  bool hasNormals = mesh.normals.size() >= mesh.vertices.size();
-  for (size_t i = 0; i + 2 < mesh.indices.size(); i += 3) {
-    unsigned short i0 = mesh.indices[i];
-    unsigned short i1 = mesh.indices[i + 1];
-    unsigned short i2 = mesh.indices[i + 2];
+  if (!m_captureOnly) {
+    glBegin(GL_TRIANGLES);
+    bool hasNormals = mesh.normals.size() >= mesh.vertices.size();
+    for (size_t i = 0; i + 2 < mesh.indices.size(); i += 3) {
+      unsigned short i0 = mesh.indices[i];
+      unsigned short i1 = mesh.indices[i + 1];
+      unsigned short i2 = mesh.indices[i + 2];
 
-    float v0x = mesh.vertices[i0 * 3] * scale;
-    float v0y = mesh.vertices[i0 * 3 + 1] * scale;
-    float v0z = mesh.vertices[i0 * 3 + 2] * scale;
+      float v0x = mesh.vertices[i0 * 3] * scale;
+      float v0y = mesh.vertices[i0 * 3 + 1] * scale;
+      float v0z = mesh.vertices[i0 * 3 + 2] * scale;
 
-    float v1x = mesh.vertices[i1 * 3] * scale;
-    float v1y = mesh.vertices[i1 * 3 + 1] * scale;
-    float v1z = mesh.vertices[i1 * 3 + 2] * scale;
+      float v1x = mesh.vertices[i1 * 3] * scale;
+      float v1y = mesh.vertices[i1 * 3 + 1] * scale;
+      float v1z = mesh.vertices[i1 * 3 + 2] * scale;
 
-    float v2x = mesh.vertices[i2 * 3] * scale;
-    float v2y = mesh.vertices[i2 * 3 + 1] * scale;
-    float v2z = mesh.vertices[i2 * 3 + 2] * scale;
+      float v2x = mesh.vertices[i2 * 3] * scale;
+      float v2y = mesh.vertices[i2 * 3 + 1] * scale;
+      float v2z = mesh.vertices[i2 * 3 + 2] * scale;
 
-    if (hasNormals) {
-      glNormal3f(mesh.normals[i0 * 3], mesh.normals[i0 * 3 + 1],
-                 mesh.normals[i0 * 3 + 2]);
-      glVertex3f(v0x, v0y, v0z);
-      glNormal3f(mesh.normals[i1 * 3], mesh.normals[i1 * 3 + 1],
-                 mesh.normals[i1 * 3 + 2]);
-      glVertex3f(v1x, v1y, v1z);
-      glNormal3f(mesh.normals[i2 * 3], mesh.normals[i2 * 3 + 1],
-                 mesh.normals[i2 * 3 + 2]);
-      glVertex3f(v2x, v2y, v2z);
-    } else {
-      float ux = v1x - v0x;
-      float uy = v1y - v0y;
-      float uz = v1z - v0z;
+      if (hasNormals) {
+        glNormal3f(mesh.normals[i0 * 3], mesh.normals[i0 * 3 + 1],
+                   mesh.normals[i0 * 3 + 2]);
+        glVertex3f(v0x, v0y, v0z);
+        glNormal3f(mesh.normals[i1 * 3], mesh.normals[i1 * 3 + 1],
+                   mesh.normals[i1 * 3 + 2]);
+        glVertex3f(v1x, v1y, v1z);
+        glNormal3f(mesh.normals[i2 * 3], mesh.normals[i2 * 3 + 1],
+                   mesh.normals[i2 * 3 + 2]);
+        glVertex3f(v2x, v2y, v2z);
+      } else {
+        float ux = v1x - v0x;
+        float uy = v1y - v0y;
+        float uz = v1z - v0z;
 
-      float vx = v2x - v0x;
-      float vy = v2y - v0y;
-      float vz = v2z - v0z;
+        float vx = v2x - v0x;
+        float vy = v2y - v0y;
+        float vz = v2z - v0z;
 
-      float nx = uy * vz - uz * vy;
-      float ny = uz * vx - ux * vz;
-      float nz = ux * vy - uy * vx;
+        float nx = uy * vz - uz * vy;
+        float ny = uz * vx - ux * vz;
+        float nz = ux * vy - uy * vx;
 
-      float len = std::sqrt(nx * nx + ny * ny + nz * nz);
-      if (len > 0.0f) {
-        nx /= len;
-        ny /= len;
-        nz /= len;
+        float len = std::sqrt(nx * nx + ny * ny + nz * nz);
+        if (len > 0.0f) {
+          nx /= len;
+          ny /= len;
+          nz /= len;
+        }
+
+        glNormal3f(nx, ny, nz);
+        glVertex3f(v0x, v0y, v0z);
+        glVertex3f(v1x, v1y, v1z);
+        glVertex3f(v2x, v2y, v2z);
       }
-
-      glNormal3f(nx, ny, nz);
-      glVertex3f(v0x, v0y, v0z);
-      glVertex3f(v1x, v1y, v1z);
-      glVertex3f(v2x, v2y, v2z);
     }
+    glEnd();
   }
-  glEnd();
 }
 
 // Draws the reference grid on one of the principal planes
@@ -1618,6 +1830,7 @@ void Viewer3DController::DrawGrid(int style, float r, float g, float b,
     for (float i = -size; i <= size; i += step) {
       switch (view) {
       case Viewer2DView::Top:
+      case Viewer2DView::Bottom:
         glVertex3f(i, -size, 0.0f);
         glVertex3f(i, size, 0.0f);
         glVertex3f(-size, i, 0.0f);
@@ -1659,6 +1872,7 @@ void Viewer3DController::DrawGrid(int style, float r, float g, float b,
       for (float y = -size; y <= size; y += step) {
         switch (view) {
         case Viewer2DView::Top:
+        case Viewer2DView::Bottom:
           glVertex3f(x, y, 0.0f);
           if (m_captureCanvas && m_captureIncludeGrid)
             RecordLine({x, y, 0.0f}, {x, y, 0.0f}, stroke);
@@ -1687,6 +1901,7 @@ void Viewer3DController::DrawGrid(int style, float r, float g, float b,
       for (float y = -size; y <= size; y += step) {
         switch (view) {
         case Viewer2DView::Top:
+        case Viewer2DView::Bottom:
           glVertex3f(x - half, y, 0.0f);
           glVertex3f(x + half, y, 0.0f);
           glVertex3f(x, y - half, 0.0f);
@@ -1877,21 +2092,26 @@ void Viewer3DController::DrawAllFixtureLabels(int width, int height,
   glGetIntegerv(GL_VIEWPORT, viewport);
 
   ConfigManager &cfg = ConfigManager::Get();
-  const std::array<const char *, 3> nameKeys = {"label_show_name_top",
+  const std::array<const char *, 4> nameKeys = {"label_show_name_top",
                                                "label_show_name_front",
-                                               "label_show_name_side"};
-  const std::array<const char *, 3> idKeys = {"label_show_id_top",
+                                               "label_show_name_side",
+                                               "label_show_name_top"};
+  const std::array<const char *, 4> idKeys = {"label_show_id_top",
                                              "label_show_id_front",
-                                             "label_show_id_side"};
-  const std::array<const char *, 3> dmxKeys = {"label_show_dmx_top",
+                                             "label_show_id_side",
+                                             "label_show_id_top"};
+  const std::array<const char *, 4> dmxKeys = {"label_show_dmx_top",
                                               "label_show_dmx_front",
-                                              "label_show_dmx_side"};
-  const std::array<const char *, 3> distKeys = {"label_offset_distance_top",
+                                              "label_show_dmx_side",
+                                              "label_show_dmx_top"};
+  const std::array<const char *, 4> distKeys = {"label_offset_distance_top",
                                                 "label_offset_distance_front",
-                                                "label_offset_distance_side"};
-  const std::array<const char *, 3> angleKeys = {"label_offset_angle_top",
+                                                "label_offset_distance_side",
+                                                "label_offset_distance_top"};
+  const std::array<const char *, 4> angleKeys = {"label_offset_angle_top",
                                                  "label_offset_angle_front",
-                                                 "label_offset_angle_side"};
+                                                 "label_offset_angle_side",
+                                                 "label_offset_angle_top"};
   int viewIdx = static_cast<int>(cfg.GetFloat("view2d_view"));
   bool showName = cfg.GetFloat(nameKeys[viewIdx]) != 0.0f;
   bool showId = cfg.GetFloat(idKeys[viewIdx]) != 0.0f;
@@ -1908,6 +2128,10 @@ void Viewer3DController::DrawAllFixtureLabels(int width, int height,
   float offZ = 0.0f;
   switch (static_cast<Viewer2DView>(viewIdx)) {
   case Viewer2DView::Top:
+    offX = labelDist * std::sin(angRad);
+    offY = labelDist * std::cos(angRad);
+    break;
+  case Viewer2DView::Bottom:
     offX = labelDist * std::sin(angRad);
     offY = labelDist * std::cos(angRad);
     break;
@@ -1939,6 +2163,9 @@ void Viewer3DController::DrawAllFixtureLabels(int width, int height,
       // +Y as "up" while front/side views share +Z.
       switch (static_cast<Viewer2DView>(viewIdx)) {
       case Viewer2DView::Top:
+        cy = bb.max[1];
+        break;
+      case Viewer2DView::Bottom:
         cy = bb.max[1];
         break;
       case Viewer2DView::Front:
@@ -2041,6 +2268,9 @@ void Viewer3DController::DrawAllFixtureLabels(int width, int height,
       auto toPlan2D = [](double wx, double wy, double wz, Viewer2DView view) {
         switch (view) {
         case Viewer2DView::Top:
+          return std::array<float, 2>{static_cast<float>(wx),
+                                      static_cast<float>(wy)};
+        case Viewer2DView::Bottom:
           return std::array<float, 2>{static_cast<float>(wx),
                                       static_cast<float>(wy)};
         case Viewer2DView::Front:
