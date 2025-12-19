@@ -33,6 +33,7 @@
 #include "viewer2dpanel.h"
 #include "viewer3dpanel.h"
 #include <algorithm>
+#include <cctype>
 #include <filesystem>
 #include <unordered_map>
 #include <unordered_set>
@@ -45,6 +46,51 @@
 #include <wx/tokenzr.h>
 
 namespace fs = std::filesystem;
+
+namespace {
+struct RangeParts {
+  wxArrayString parts;
+  bool usedSeparator = false;
+};
+
+bool IsNumChar(char c) {
+  return std::isdigit(static_cast<unsigned char>(c)) || c == '.' || c == '-' ||
+         c == '+';
+}
+
+RangeParts SplitRangeParts(const wxString &value) {
+  std::string lower = value.Lower().ToStdString();
+  std::string normalized;
+  normalized.reserve(lower.size() + 4);
+  bool usedSeparator = false;
+  for (size_t i = 0; i < lower.size();) {
+    if (lower.compare(i, 4, "thru") == 0) {
+      normalized.push_back(' ');
+      usedSeparator = true;
+      i += 4;
+      continue;
+    }
+    if (lower[i] == 't') {
+      char prev = (i > 0) ? lower[i - 1] : '\0';
+      char next = (i + 1 < lower.size()) ? lower[i + 1] : '\0';
+      if (IsNumChar(prev) || IsNumChar(next)) {
+        normalized.push_back(' ');
+        usedSeparator = true;
+        i += 1;
+        continue;
+      }
+    }
+    normalized.push_back(lower[i]);
+    i += 1;
+  }
+  wxArrayString rawParts = wxSplit(wxString(normalized), ' ');
+  wxArrayString parts;
+  for (const auto &part : rawParts)
+    if (!part.IsEmpty())
+      parts.push_back(part);
+  return {parts, usedSeparator};
+}
+} // namespace
 
 FixtureTablePanel::FixtureTablePanel(wxWindow *parent)
     : wxPanel(parent, wxID_ANY) {
@@ -635,8 +681,6 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
     }
   }
 
-  wxArrayString parts = wxSplit(value, ' ');
-
   if (numericCol) {
     if (relative) {
       for (const auto &it : selections) {
@@ -659,7 +703,13 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
         table->SetValue(wxVariant(out), r, col);
       }
     } else {
+      RangeParts range = SplitRangeParts(value);
+      wxArrayString parts = range.parts;
       if (parts.size() == 0 || parts.size() > 2) {
+        wxMessageBox("Invalid numeric value", "Error", wxOK | wxICON_ERROR);
+        return;
+      }
+      if (range.usedSeparator && parts.size() != 2) {
         wxMessageBox("Invalid numeric value", "Error", wxOK | wxICON_ERROR);
         return;
       }
@@ -688,7 +738,7 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
             return;
           }
           interp = selections.size() > 1;
-        } else if (trailingSpace) {
+        } else if (trailingSpace && !range.usedSeparator) {
           sequential = selections.size() > 1;
         }
 
