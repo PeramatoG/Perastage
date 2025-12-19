@@ -44,9 +44,10 @@ RiderTextDialog::RiderTextDialog(wxWindow *parent,
   wxBoxSizer *mainSizer = new wxBoxSizer(wxVERTICAL);
 
   wxBoxSizer *headerSizer = new wxBoxSizer(wxHORIZONTAL);
-  sourceText = new wxStaticText(
-      this, wxID_ANY,
-      sourceLabel.empty() ? "No source loaded." : "Loaded: " + sourceLabel);
+  const wxString sourceTextLabel =
+      sourceLabel.empty() ? wxString("No source loaded.")
+                          : wxString::Format("Loaded: %s", sourceLabel);
+  sourceText = new wxStaticText(this, wxID_ANY, sourceTextLabel);
   headerSizer->Add(sourceText, 1, wxALIGN_CENTER_VERTICAL | wxRIGHT, 8);
   wxButton *loadButton =
       new wxButton(this, ID_RiderText_Load, "Import rider...");
@@ -89,7 +90,7 @@ void RiderTextDialog::OnLoadFromFile(wxCommandEvent &WXUNUSED(event)) {
   }
   sourceLabel = dlg.GetFilename();
   if (sourceText)
-    sourceText->SetLabel("Loaded: " + sourceLabel);
+    sourceText->SetLabel(wxString::Format("Loaded: %s", sourceLabel));
   textCtrl->ChangeValue(wxString::FromUTF8(text));
 }
 
