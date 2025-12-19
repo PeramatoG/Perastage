@@ -75,6 +75,7 @@ using json = nlohmann::json;
 #include "projectutils.h"
 #include "riggingpanel.h"
 #include "riderimporter.h"
+#include "ridertextdialog.h"
 #include "sceneobjecttablepanel.h"
 #include "selectfixturetypedialog.h"
 #include "selectnamedialog.h"
@@ -171,13 +172,15 @@ wxBEGIN_EVENT_TABLE(MainWindow, wxFrame) EVT_MENU(
                                     EVT_MENU(
                                         ID_Tools_ExportSceneObject,
                                         MainWindow::
-                                    OnExportSceneObject) EVT_MENU(ID_Tools_AutoPatch,
+                                      OnExportSceneObject) EVT_MENU(ID_Tools_AutoPatch,
                                                                           MainWindow::
                                                                               OnAutoPatch) EVT_MENU(ID_Tools_AutoColor,
                                                                           MainWindow::
                                                                               OnAutoColor) EVT_MENU(ID_Tools_ConvertToHoist,
                                                                           MainWindow::
                                                                               OnConvertToHoist)
+                                        EVT_MENU(ID_Tools_ImportRiderText,
+                                                 MainWindow::OnImportRiderText)
                                         EVT_MENU(ID_Help_Help, MainWindow::OnShowHelp) EVT_MENU(
                                             ID_Help_About, MainWindow::
                                                                OnShowAbout)
@@ -501,6 +504,7 @@ void MainWindow::CreateMenuBar() {
   // Tools menu
   wxMenu *toolsMenu = new wxMenu();
   toolsMenu->Append(ID_Tools_DownloadGdtf, "Download GDTF fixture...");
+  toolsMenu->Append(ID_Tools_ImportRiderText, "Import rider from text...");
   toolsMenu->Append(ID_Tools_ExportFixture, "Export Fixture...");
   toolsMenu->Append(ID_Tools_ExportTruss, "Export Truss...");
   toolsMenu->Append(ID_Tools_ExportSceneObject, "Export Scene Object...");
@@ -655,6 +659,27 @@ void MainWindow::OnImportRider(wxCommandEvent &event) {
     }
     RefreshSummary();
   }
+}
+
+void MainWindow::OnImportRiderText(wxCommandEvent &WXUNUSED(event)) {
+  RiderTextDialog dlg(this);
+  if (dlg.ShowModal() != wxID_OK)
+    return;
+
+  wxMessageBox("Rider imported successfully.", "Success", wxICON_INFORMATION);
+  if (consolePanel)
+    consolePanel->AppendMessage("Imported rider from text.");
+  if (fixturePanel)
+    fixturePanel->ReloadData();
+  if (trussPanel)
+    trussPanel->ReloadData();
+  if (hoistPanel)
+    hoistPanel->ReloadData();
+  if (viewportPanel) {
+    viewportPanel->UpdateScene();
+    viewportPanel->Refresh();
+  }
+  RefreshSummary();
 }
 
 // Handles MVR file selection, import, and updates fixture/truss panels

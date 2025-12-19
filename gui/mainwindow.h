@@ -82,6 +82,7 @@ private:
   void OnSaveAs(wxCommandEvent &event); // Save project as
   void
   OnImportRider(wxCommandEvent &event);    // Import fixtures/trusses from rider
+  void OnImportRiderText(wxCommandEvent &event); // Import rider from text editor
   void OnImportMVR(wxCommandEvent &event); // Handle the Import MVR action
   void OnExportMVR(wxCommandEvent &event); // Handle the Export MVR action
   void OnExportTruss(wxCommandEvent &event);       // Export truss metadata
@@ -165,6 +166,7 @@ enum {
   ID_View_Layout_Default,
   ID_View_Layout_2D,
   ID_Tools_DownloadGdtf,
+  ID_Tools_ImportRiderText,
   ID_Tools_ExportFixture,
   ID_Tools_ExportTruss,
   ID_Tools_ExportSceneObject,

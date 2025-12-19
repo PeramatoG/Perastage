@@ -17,15 +17,24 @@
  */
 #pragma once
 
-#include <string>
+#include <wx/dialog.h>
 
-// Parses simple rider files (.txt/.pdf) to create dummy fixtures and trusses
-class RiderImporter {
+class wxTextCtrl;
+class wxStaticText;
+
+class RiderTextDialog : public wxDialog {
 public:
-    // Import rider located at path. Returns true on success.
-    static bool Import(const std::string& path);
-    // Load rider file into text. Returns empty string on failure.
-    static std::string LoadText(const std::string& path);
-    // Import from raw rider text. Returns true on success.
-    static bool ImportText(const std::string& text);
+  explicit RiderTextDialog(wxWindow *parent,
+                           const wxString &initialText = wxEmptyString,
+                           const wxString &initialSource = wxEmptyString);
+
+private:
+  void OnLoadFromFile(wxCommandEvent &event);
+  void OnApply(wxCommandEvent &event);
+
+  wxTextCtrl *textCtrl = nullptr;
+  wxStaticText *sourceText = nullptr;
+  wxString sourceLabel;
+
+  wxDECLARE_EVENT_TABLE();
 };
