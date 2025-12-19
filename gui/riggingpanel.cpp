@@ -158,22 +158,10 @@ void RiggingPanel::RefreshData() {
     unsigned int rowIndex = table->GetItemCount();
     table->AppendItem(row);
 
-    const bool fixtureCountZero = totals.fixtures == 0;
-    const bool trussCountZero = totals.trusses == 0;
-    const bool hoistCountZero = totals.hoists == 0;
-    const bool fixtureWeightZero =
-        totals.fixtureWeight <= 0.0f || totals.hasZeroWeightFixture;
-    const bool trussWeightZero =
-        totals.trussWeight <= 0.0f || totals.hasZeroWeightTruss;
-    const bool hoistWeightZero =
-        totals.hoistWeight <= 0.0f || totals.hasZeroWeightHoist;
+    const bool fixtureWeightZero = totals.hasZeroWeightFixture;
+    const bool trussWeightZero = totals.hasZeroWeightTruss;
+    const bool hoistWeightZero = totals.hasZeroWeightHoist;
 
-    if (fixtureCountZero)
-      store->SetCellTextColour(rowIndex, 1, *wxRED);
-    if (trussCountZero)
-      store->SetCellTextColour(rowIndex, 2, *wxRED);
-    if (hoistCountZero)
-      store->SetCellTextColour(rowIndex, 3, *wxRED);
     if (fixtureWeightZero)
       store->SetCellTextColour(rowIndex, 4, *wxRED);
     if (trussWeightZero)
@@ -181,8 +169,7 @@ void RiggingPanel::RefreshData() {
     if (hoistWeightZero)
       store->SetCellTextColour(rowIndex, 6, *wxRED);
 
-    if (fixtureCountZero || trussCountZero || hoistCountZero ||
-        fixtureWeightZero || trussWeightZero || hoistWeightZero) {
+    if (fixtureWeightZero || trussWeightZero || hoistWeightZero) {
       store->SetCellTextColour(rowIndex, 7, *wxRED);
       store->SetCellTextColour(rowIndex, 8, *wxRED);
     }
