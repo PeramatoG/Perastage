@@ -31,6 +31,7 @@
 #include <system_error>
 #include <type_traits>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 #include <zlib.h>
@@ -125,6 +126,12 @@ struct Mapping {
   double offsetY = 0.0;
   double pageHeight = 0.0;
   bool flipY = true;
+};
+
+struct RenderOptions {
+  bool includeText = true;
+  const std::unordered_map<std::string, std::string> *symbolKeyNames = nullptr;
+  const std::unordered_map<uint32_t, std::string> *symbolIdNames = nullptr;
 };
 
 Point Apply(const Transform &t, double x, double y) {
@@ -424,6 +431,77 @@ Point MapPointWithTransform(double x, double y, const Transform &current,
   return MapWithMapping(applied.x, applied.y, mapping);
 }
 
+Transform2D TransformFromCanvas(const CanvasTransform &transform) {
+  Transform2D out{};
+  out.a = transform.scale;
+  out.d = transform.scale;
+  out.tx = transform.offsetX;
+  out.ty = transform.offsetY;
+  return out;
+}
+
+void AppendSymbolInstance(std::ostringstream &out, const FloatFormatter &fmt,
+                          const Mapping &mapping,
+                          const Transform2D &transform,
+                          const std::string &name) {
+  double translateX = mapping.scale * transform.tx +
+                      mapping.offsetX - mapping.minX * mapping.scale;
+  double translateY = mapping.scale * transform.ty +
+                      mapping.offsetY - mapping.minY * mapping.scale;
+  out << "q\n" << fmt.Format(transform.a) << ' ' << fmt.Format(transform.b)
+      << ' ' << fmt.Format(transform.c) << ' ' << fmt.Format(transform.d)
+      << ' ' << fmt.Format(translateX) << ' ' << fmt.Format(translateY)
+      << " cm\n/" << name << " Do\nQ\n";
+}
+
+SymbolBounds ComputeSymbolBounds(const std::vector<CanvasCommand> &commands) {
+  SymbolBounds bounds{};
+  bool hasPoint = false;
+
+  auto addPoint = [&](float x, float y) {
+    if (!hasPoint) {
+      bounds.min = {x, y};
+      bounds.max = {x, y};
+      hasPoint = true;
+      return;
+    }
+    bounds.min.x = std::min(bounds.min.x, x);
+    bounds.min.y = std::min(bounds.min.y, y);
+    bounds.max.x = std::max(bounds.max.x, x);
+    bounds.max.y = std::max(bounds.max.y, y);
+  };
+
+  auto addPoints = [&](const std::vector<float> &points) {
+    for (size_t i = 0; i + 1 < points.size(); i += 2)
+      addPoint(points[i], points[i + 1]);
+  };
+
+  for (const auto &cmd : commands) {
+    if (const auto *line = std::get_if<LineCommand>(&cmd)) {
+      addPoint(line->x0, line->y0);
+      addPoint(line->x1, line->y1);
+    } else if (const auto *polyline = std::get_if<PolylineCommand>(&cmd)) {
+      addPoints(polyline->points);
+    } else if (const auto *poly = std::get_if<PolygonCommand>(&cmd)) {
+      addPoints(poly->points);
+    } else if (const auto *rect = std::get_if<RectangleCommand>(&cmd)) {
+      addPoint(rect->x, rect->y);
+      addPoint(rect->x + rect->w, rect->y);
+      addPoint(rect->x + rect->w, rect->y + rect->h);
+      addPoint(rect->x, rect->y + rect->h);
+    } else if (const auto *circle = std::get_if<CircleCommand>(&cmd)) {
+      addPoint(circle->cx - circle->radius, circle->cy - circle->radius);
+      addPoint(circle->cx + circle->radius, circle->cy + circle->radius);
+    }
+  }
+
+  if (!hasPoint) {
+    bounds.min = {};
+    bounds.max = {};
+  }
+  return bounds;
+}
+
 // Emits only the stroke portion of a drawing command. Keeping strokes and
 // fills in separate functions allows the caller to control layering
 // explicitly, which is required to match the on-screen 2D viewer where fills
@@ -514,7 +592,7 @@ std::string RenderCommandsToStream(
     const std::vector<CanvasCommand> &commands,
     const std::vector<CommandMetadata> &metadata,
     const std::vector<std::string> &sources, const Mapping &mapping,
-    const FloatFormatter &formatter) {
+    const FloatFormatter &formatter, const RenderOptions &options) {
   Transform current{};
   std::vector<Transform> stack;
   std::ostringstream content;
@@ -570,6 +648,8 @@ std::string RenderCommandsToStream(
       current.offsetX = cmd.transform.offsetX;
       current.offsetY = cmd.transform.offsetY;
     } else if constexpr (std::is_same_v<T, TextCommand>) {
+      if (!options.includeText)
+        return;
       auto pos = MapPointWithTransform(cmd.x, cmd.y, current, mapping);
       if (ShouldTraceLabelOrder()) {
         std::ostringstream trace;
@@ -595,8 +675,22 @@ std::string RenderCommandsToStream(
         Logger::Instance().Log(trace.str());
       }
       AppendText(content, formatter, pos, cmd, cmd.style, mapping.scale);
+    } else if constexpr (std::is_same_v<T, PlaceSymbolCommand>) {
+      if (!options.symbolKeyNames)
+        return;
+      auto nameIt = options.symbolKeyNames->find(cmd.key);
+      if (nameIt == options.symbolKeyNames->end())
+        return;
+      Transform2D local = TransformFromCanvas(cmd.transform);
+      AppendSymbolInstance(content, formatter, mapping, local, nameIt->second);
     } else if constexpr (std::is_same_v<T, SymbolInstanceCommand>) {
-      // TODO: Replay cached symbol instances once exporters understand them.
+      if (!options.symbolIdNames)
+        return;
+      auto nameIt = options.symbolIdNames->find(cmd.symbolId);
+      if (nameIt == options.symbolIdNames->end())
+        return;
+      AppendSymbolInstance(content, formatter, mapping, cmd.transform,
+                           nameIt->second);
     } else {
       // Symbol control commands are handled at a higher level but must preserve
       // ordering relative to drawing commands.
@@ -655,12 +749,22 @@ std::string MakePdfName(const std::string &key) {
   return name;
 }
 
+std::string MakeSymbolKeyName(const std::string &key) {
+  return "K" + MakePdfName(key);
+}
+
+std::string MakeSymbolIdName(uint32_t symbolId) {
+  return "S" + std::to_string(symbolId);
+}
+
 } // namespace
 
 PlanExportResult ExportPlanToPdf(const CommandBuffer &buffer,
                                  const Viewer2DViewState &viewState,
                                  const PlanPrintOptions &options,
-                                 const std::filesystem::path &outputPath) {
+                                 const std::filesystem::path &outputPath,
+                                 std::shared_ptr<const SymbolDefinitionSnapshot>
+                                     symbolSnapshot) {
   PlanExportResult result{};
 
   // Nothing to write if the render pass did not produce commands.
@@ -732,11 +836,6 @@ PlanExportResult ExportPlanToPdf(const CommandBuffer &buffer,
 
   FloatFormatter formatter(options.floatPrecision);
 
-  struct SymbolPlacement {
-    std::string key;
-    CanvasTransform transform{};
-  };
-
   struct CommandGroup {
     std::vector<CanvasCommand> commands;
     std::vector<CommandMetadata> metadata;
@@ -745,7 +844,8 @@ PlanExportResult ExportPlanToPdf(const CommandBuffer &buffer,
 
   CommandGroup mainCommands;
   std::unordered_map<std::string, CommandGroup> symbolDefinitions;
-  std::vector<SymbolPlacement> placements;
+  std::unordered_set<uint32_t> usedSymbolIds;
+  std::unordered_set<std::string> usedSymbolKeys;
   std::string capturingKey;
   std::vector<CanvasCommand> captureBuffer;
   std::vector<CommandMetadata> captureMetadata;
@@ -777,8 +877,10 @@ PlanExportResult ExportPlanToPdf(const CommandBuffer &buffer,
       continue;
     }
     if (const auto *place = std::get_if<PlaceSymbolCommand>(&cmd)) {
-      placements.push_back({place->key, place->transform});
-      continue;
+      usedSymbolKeys.insert(place->key);
+    }
+    if (const auto *instance = std::get_if<SymbolInstanceCommand>(&cmd)) {
+      usedSymbolIds.insert(instance->symbolId);
     }
 
     if (!capturingKey.empty()) {
@@ -794,37 +896,33 @@ PlanExportResult ExportPlanToPdf(const CommandBuffer &buffer,
   }
 
   Mapping pageMapping{minX, minY, scale, offsetX, offsetY, pageH, false};
-  std::string contentStr = RenderCommandsToStream(
-      mainCommands.commands, mainCommands.metadata, mainCommands.sources,
-      pageMapping, formatter);
-
-  std::unordered_map<std::string, std::string> xObjectNames;
-  std::unordered_map<std::string, size_t> xObjectIds;
-  Mapping symbolMapping{};
-  symbolMapping.flipY = false;
+  std::unordered_map<std::string, std::string> xObjectKeyNames;
+  std::unordered_map<uint32_t, std::string> xObjectIdNames;
+  std::unordered_map<std::string, size_t> xObjectKeyIds;
+  std::unordered_map<uint32_t, size_t> xObjectIdIds;
 
   for (const auto &entry : symbolDefinitions) {
-    xObjectNames.emplace(entry.first, MakePdfName(entry.first));
-  }
-
-  std::ostringstream placementStream;
-  for (const auto &placement : placements) {
-    auto nameIt = xObjectNames.find(placement.key);
-    if (nameIt == xObjectNames.end())
+    if (usedSymbolKeys.count(entry.first) == 0)
       continue;
-
-    double a = placement.transform.scale * scale;
-    double d = placement.transform.scale * scale;
-    double e = scale * (placement.transform.offsetX - minX) + offsetX;
-    double f = offsetY + scale * (placement.transform.offsetY - minY);
-
-    placementStream << "q\n" << formatter.Format(a) << " 0 0 "
-                    << formatter.Format(d) << ' ' << formatter.Format(e) << ' '
-                    << formatter.Format(f) << " cm\n/" << nameIt->second
-                    << " Do\nQ\n";
+    xObjectKeyNames.emplace(entry.first, MakeSymbolKeyName(entry.first));
   }
 
-  contentStr += placementStream.str();
+  if (symbolSnapshot) {
+    for (uint32_t symbolId : usedSymbolIds) {
+      if (symbolSnapshot->count(symbolId) == 0)
+        continue;
+      xObjectIdNames.emplace(symbolId, MakeSymbolIdName(symbolId));
+    }
+  }
+
+  RenderOptions mainOptions{};
+  mainOptions.includeText = true;
+  mainOptions.symbolKeyNames = &xObjectKeyNames;
+  mainOptions.symbolIdNames = &xObjectIdNames;
+  std::string contentStr =
+      RenderCommandsToStream(mainCommands.commands, mainCommands.metadata,
+                             mainCommands.sources, pageMapping, formatter,
+                             mainOptions);
   std::string compressedContent;
   bool useCompression = false;
   if (options.compressStreams) {
@@ -836,27 +934,70 @@ PlanExportResult ExportPlanToPdf(const CommandBuffer &buffer,
   std::vector<PdfObject> objects;
   objects.push_back({"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"});
 
-  for (const auto &entry : symbolDefinitions) {
+  Mapping symbolMapping{};
+  symbolMapping.scale = scale;
+  symbolMapping.flipY = false;
+
+  auto appendSymbolObject = [&](const std::string &name,
+                                const std::vector<CanvasCommand> &commands,
+                                const std::vector<CommandMetadata> &metadata,
+                                const std::vector<std::string> &sources,
+                                const SymbolBounds &bounds) {
+    RenderOptions symbolOptions{};
+    symbolOptions.includeText = false;
     std::string symbolContent =
-        RenderCommandsToStream(entry.second.commands, entry.second.metadata,
-                               entry.second.sources, symbolMapping, formatter);
+        RenderCommandsToStream(commands, metadata, sources, symbolMapping,
+                               formatter, symbolOptions);
     std::string compressedSymbol;
     bool compressed = false;
     if (options.compressStreams) {
       std::string error;
       compressed = PdfDeflater::Compress(symbolContent, compressedSymbol, error);
     }
-    const std::string &symbolStream = compressed ? compressedSymbol : symbolContent;
+    const std::string &symbolStream =
+        compressed ? compressedSymbol : symbolContent;
+    double minX = bounds.min.x * scale;
+    double minY = bounds.min.y * scale;
+    double maxX = bounds.max.x * scale;
+    double maxY = bounds.max.y * scale;
+    if (minX > maxX)
+      std::swap(minX, maxX);
+    if (minY > maxY)
+      std::swap(minY, maxY);
     std::ostringstream xobj;
-    xobj << "<< /Type /XObject /Subtype /Form /BBox [0 0 "
-         << formatter.Format(width) << ' ' << formatter.Format(height)
-         << "] /Resources << /Font << /F1 1 0 R >> >> /Length "
-         << symbolStream.size();
+    xobj << "<< /Type /XObject /Subtype /Form /BBox ["
+         << formatter.Format(minX) << ' ' << formatter.Format(minY) << ' '
+         << formatter.Format(maxX) << ' ' << formatter.Format(maxY)
+         << "] /Resources << >> /Length " << symbolStream.size();
     if (compressed)
       xobj << " /Filter /FlateDecode";
     xobj << " >>\nstream\n" << symbolStream << "endstream";
     objects.push_back({xobj.str()});
-    xObjectIds[entry.first] = objects.size();
+    return objects.size();
+  };
+
+  for (const auto &entry : symbolDefinitions) {
+    auto nameIt = xObjectKeyNames.find(entry.first);
+    if (nameIt == xObjectKeyNames.end())
+      continue;
+    SymbolBounds bounds = ComputeSymbolBounds(entry.second.commands);
+    xObjectKeyIds[entry.first] =
+        appendSymbolObject(nameIt->second, entry.second.commands,
+                           entry.second.metadata, entry.second.sources, bounds);
+  }
+
+  if (symbolSnapshot) {
+    for (uint32_t symbolId : usedSymbolIds) {
+      auto nameIt = xObjectIdNames.find(symbolId);
+      if (nameIt == xObjectIdNames.end())
+        continue;
+      const auto &definition = symbolSnapshot->at(symbolId);
+      xObjectIdIds[symbolId] =
+          appendSymbolObject(nameIt->second, definition.localCommands.commands,
+                             definition.localCommands.metadata,
+                             definition.localCommands.sources,
+                             definition.bounds);
+    }
   }
 
   std::ostringstream contentObj;
@@ -869,11 +1010,17 @@ PlanExportResult ExportPlanToPdf(const CommandBuffer &buffer,
 
   std::ostringstream resources;
   resources << "<< /Font << /F1 1 0 R >>";
-  if (!xObjectIds.empty()) {
+  if (!xObjectKeyIds.empty() || !xObjectIdIds.empty()) {
     resources << " /XObject << ";
-    for (const auto &entry : xObjectIds) {
-      auto nameIt = xObjectNames.find(entry.first);
-      if (nameIt == xObjectNames.end())
+    for (const auto &entry : xObjectKeyIds) {
+      auto nameIt = xObjectKeyNames.find(entry.first);
+      if (nameIt == xObjectKeyNames.end())
+        continue;
+      resources << '/' << nameIt->second << ' ' << entry.second << " 0 R ";
+    }
+    for (const auto &entry : xObjectIdIds) {
+      auto nameIt = xObjectIdNames.find(entry.first);
+      if (nameIt == xObjectIdNames.end())
         continue;
       resources << '/' << nameIt->second << ' ' << entry.second << " 0 R ";
     }
