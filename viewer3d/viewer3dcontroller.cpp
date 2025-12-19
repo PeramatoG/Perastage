@@ -1155,8 +1155,8 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
 
     bool suppressCapture = false;
     const bool useSymbolInstancing =
-        m_captureCanvas && m_captureView == Viewer2DView::Bottom && !highlight &&
-        !selected;
+        m_captureCanvas != nullptr ||
+        (m_captureView == Viewer2DView::Bottom && !highlight && !selected);
     if (useSymbolInstancing) {
       std::string modelKey = NormalizeModelKey(gdtfPath);
       if (modelKey.empty() && !f.gdtfSpec.empty())
@@ -1165,9 +1165,23 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
         modelKey = f.typeName;
 
       if (!modelKey.empty()) {
+        auto resolveSymbolView = [](Viewer2DView viewKind) {
+          switch (viewKind) {
+          case Viewer2DView::Top:
+            return SymbolViewKind::Top;
+          case Viewer2DView::Front:
+            return SymbolViewKind::Front;
+          case Viewer2DView::Side:
+            return SymbolViewKind::Left;
+          case Viewer2DView::Bottom:
+          default:
+            return SymbolViewKind::Bottom;
+          }
+        };
+
         SymbolKey symbolKey;
         symbolKey.modelKey = modelKey;
-        symbolKey.viewKind = SymbolViewKind::Bottom;
+        symbolKey.viewKind = resolveSymbolView(m_captureView);
         symbolKey.styleVersion = 1;
 
         const auto &symbol =
