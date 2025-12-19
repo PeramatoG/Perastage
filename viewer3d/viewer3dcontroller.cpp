@@ -1594,6 +1594,32 @@ void Viewer3DController::DrawCubeWithOutline(
       return;
     }
     DrawWireframeCube(size, 0.0f, 0.0f, 0.0f, mode, captureTransform);
+    if (m_captureCanvas) {
+      float half = size / 2.0f;
+      float x0 = -half, x1 = half;
+      float y0 = -half, y1 = half;
+      float z0 = -half, z1 = half;
+      std::vector<std::array<float, 3>> verts = {
+          {x0, y0, z0}, {x1, y0, z0}, {x0, y1, z0}, {x1, y1, z0},
+          {x0, y0, z1}, {x1, y0, z1}, {x0, y1, z1}, {x1, y1, z1}};
+      if (captureTransform) {
+        for (auto &p : verts)
+          p = captureTransform(p);
+      }
+      float lineWidth = (mode == Viewer2DRenderMode::Wireframe) ? 1.0f : 2.0f;
+      CanvasStroke stroke;
+      stroke.color = {0.0f, 0.0f, 0.0f, 1.0f};
+      stroke.width = lineWidth;
+      CanvasFill fill;
+      fill.color = {r, g, b, 1.0f};
+      const int faces[6][4] = {{0, 1, 3, 2}, {4, 5, 7, 6}, {0, 1, 5, 4},
+                               {2, 3, 7, 6}, {0, 2, 6, 4}, {1, 3, 7, 5}};
+      for (const auto &face : faces) {
+        std::vector<std::array<float, 3>> pts = {
+            verts[face[0]], verts[face[1]], verts[face[2]], verts[face[3]]};
+        RecordPolygon(pts, stroke, &fill);
+      }
+    }
     if (!m_captureOnly) {
       glEnable(GL_POLYGON_OFFSET_FILL);
       glPolygonOffset(-1.0f, -1.0f);
