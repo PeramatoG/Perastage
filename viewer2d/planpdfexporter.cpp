@@ -471,39 +471,27 @@ SymbolBounds ComputeSymbolBounds(const std::vector<CanvasCommand> &commands) {
     bounds.max.y = std::max(bounds.max.y, y);
   };
 
-  auto addPointWithPadding = [&](float x, float y, float padding) {
-    if (padding <= 0.0f) {
-      addPoint(x, y);
-      return;
-    }
-    addPoint(x - padding, y - padding);
-    addPoint(x + padding, y + padding);
+  auto addPoints = [&](const std::vector<float> &points) {
+    for (size_t i = 0; i + 1 < points.size(); i += 2)
+      addPoint(points[i], points[i + 1]);
   };
 
   for (const auto &cmd : commands) {
     if (const auto *line = std::get_if<LineCommand>(&cmd)) {
-      float pad = std::max(0.0f, line->stroke.width) * 0.5f;
-      addPointWithPadding(line->x0, line->y0, pad);
-      addPointWithPadding(line->x1, line->y1, pad);
+      addPoint(line->x0, line->y0);
+      addPoint(line->x1, line->y1);
     } else if (const auto *polyline = std::get_if<PolylineCommand>(&cmd)) {
-      float pad = std::max(0.0f, polyline->stroke.width) * 0.5f;
-      for (size_t i = 0; i + 1 < polyline->points.size(); i += 2)
-        addPointWithPadding(polyline->points[i], polyline->points[i + 1], pad);
+      addPoints(polyline->points);
     } else if (const auto *poly = std::get_if<PolygonCommand>(&cmd)) {
-      float pad = std::max(0.0f, poly->stroke.width) * 0.5f;
-      for (size_t i = 0; i + 1 < poly->points.size(); i += 2)
-        addPointWithPadding(poly->points[i], poly->points[i + 1], pad);
+      addPoints(poly->points);
     } else if (const auto *rect = std::get_if<RectangleCommand>(&cmd)) {
-      float pad = std::max(0.0f, rect->stroke.width) * 0.5f;
-      addPointWithPadding(rect->x, rect->y, pad);
-      addPointWithPadding(rect->x + rect->w, rect->y, pad);
-      addPointWithPadding(rect->x + rect->w, rect->y + rect->h, pad);
-      addPointWithPadding(rect->x, rect->y + rect->h, pad);
+      addPoint(rect->x, rect->y);
+      addPoint(rect->x + rect->w, rect->y);
+      addPoint(rect->x + rect->w, rect->y + rect->h);
+      addPoint(rect->x, rect->y + rect->h);
     } else if (const auto *circle = std::get_if<CircleCommand>(&cmd)) {
-      float pad = std::max(0.0f, circle->stroke.width) * 0.5f;
-      float radius = circle->radius + pad;
-      addPoint(circle->cx - radius, circle->cy - radius);
-      addPoint(circle->cx + radius, circle->cy + radius);
+      addPoint(circle->cx - circle->radius, circle->cy - circle->radius);
+      addPoint(circle->cx + circle->radius, circle->cy + circle->radius);
     }
   }
 
