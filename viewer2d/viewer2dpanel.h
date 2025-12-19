@@ -29,6 +29,7 @@
 #include <wx/glcanvas.h>
 #include <wx/wx.h>
 #include <functional>
+#include <memory>
 #include <string>
 
 // Current viewport information used to rebuild the same projection when
@@ -89,6 +90,9 @@ public:
   // Accessor for the current viewport state so exporters can match what the
   // user is seeing on screen.
   Viewer2DViewState GetViewState() const;
+
+  std::shared_ptr<const SymbolDefinitionSnapshot>
+  GetBottomSymbolCacheSnapshot() const;
 
 private:
   void InitGL();

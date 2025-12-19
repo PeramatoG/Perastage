@@ -1347,8 +1347,10 @@ void MainWindow::OnPrintPlan(wxCommandEvent &WXUNUSED(event)) {
   opts.useSimplifiedFootprints = !settings.detailedFootprints;
   opts.pageWidthPt = settings.PageWidthPt();
   opts.pageHeightPt = settings.PageHeightPt();
-  std::shared_ptr<const SymbolDefinitionSnapshot> symbolSnapshot =
-      viewportPanel ? viewportPanel->GetBottomSymbolCacheSnapshot() : nullptr;
+  std::shared_ptr<const SymbolDefinitionSnapshot> symbolSnapshot = nullptr;
+  if (viewport2DPanel) {
+    symbolSnapshot = viewport2DPanel->GetBottomSymbolCacheSnapshot();
+  }
   std::filesystem::path outputPath(
       std::filesystem::path(outputPathWx.ToStdWstring()));
   wxString outputPathDisplay = outputPathWx;
