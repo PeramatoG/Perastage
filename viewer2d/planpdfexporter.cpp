@@ -471,27 +471,42 @@ SymbolBounds ComputeSymbolBounds(const std::vector<CanvasCommand> &commands) {
     bounds.max.y = std::max(bounds.max.y, y);
   };
 
-  auto addPoints = [&](const std::vector<float> &points) {
+  auto addPointWithPadding = [&](float x, float y, float padding) {
+    if (padding <= 0.0f) {
+      addPoint(x, y);
+      return;
+    }
+    addPoint(x - padding, y - padding);
+    addPoint(x + padding, y + padding);
+  };
+
+  auto addPoints = [&](const std::vector<float> &points, float padding) {
     for (size_t i = 0; i + 1 < points.size(); i += 2)
-      addPoint(points[i], points[i + 1]);
+      addPointWithPadding(points[i], points[i + 1], padding);
   };
 
   for (const auto &cmd : commands) {
     if (const auto *line = std::get_if<LineCommand>(&cmd)) {
-      addPoint(line->x0, line->y0);
-      addPoint(line->x1, line->y1);
+      float padding = line->stroke.width * 0.5f;
+      addPointWithPadding(line->x0, line->y0, padding);
+      addPointWithPadding(line->x1, line->y1, padding);
     } else if (const auto *polyline = std::get_if<PolylineCommand>(&cmd)) {
-      addPoints(polyline->points);
+      float padding = polyline->stroke.width * 0.5f;
+      addPoints(polyline->points, padding);
     } else if (const auto *poly = std::get_if<PolygonCommand>(&cmd)) {
-      addPoints(poly->points);
+      float padding = poly->stroke.width * 0.5f;
+      addPoints(poly->points, padding);
     } else if (const auto *rect = std::get_if<RectangleCommand>(&cmd)) {
-      addPoint(rect->x, rect->y);
-      addPoint(rect->x + rect->w, rect->y);
-      addPoint(rect->x + rect->w, rect->y + rect->h);
-      addPoint(rect->x, rect->y + rect->h);
+      float padding = rect->stroke.width * 0.5f;
+      addPoint(rect->x - padding, rect->y - padding);
+      addPoint(rect->x + rect->w + padding, rect->y - padding);
+      addPoint(rect->x + rect->w + padding, rect->y + rect->h + padding);
+      addPoint(rect->x - padding, rect->y + rect->h + padding);
     } else if (const auto *circle = std::get_if<CircleCommand>(&cmd)) {
-      addPoint(circle->cx - circle->radius, circle->cy - circle->radius);
-      addPoint(circle->cx + circle->radius, circle->cy + circle->radius);
+      float padding = circle->stroke.width * 0.5f;
+      float radius = circle->radius + padding;
+      addPoint(circle->cx - radius, circle->cy - radius);
+      addPoint(circle->cx + radius, circle->cy + radius);
     }
   }
 
