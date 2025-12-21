@@ -238,6 +238,7 @@ bool RiderImporter::ImportText(const std::string &text) {
     return false;
 
   ConfigManager &cfg = ConfigManager::Get();
+  cfg.PushUndoState("import rider");
   auto &scene = cfg.GetScene();
   std::string defaultLayer = cfg.GetCurrentLayer();
   auto modeVal = cfg.GetValue("rider_layer_mode");
@@ -803,6 +804,5 @@ bool RiderImporter::ImportText(const std::string &text) {
   auto autoPref = cfg.GetValue("rider_autopatch");
   if (!autoPref || *autoPref != "0")
     AutoPatcher::AutoPatch(scene);
-  cfg.PushUndoState("import rider");
   return true;
 }
