@@ -28,6 +28,8 @@
 #include <filesystem>
 #include <vector>
 
+#include <wx/filename.h>
+
 namespace {
 struct FixtureRow {
   std::string name;
@@ -397,9 +399,7 @@ void DictionaryEditDialog::OnItemActivated(wxDataViewEvent &event) {
   int row = table->ItemToRow(item);
   if (row == wxNOT_FOUND)
     return;
-  int col = -1;
-  if (auto *column = event.GetColumn())
-    col = column->GetModelColumn();
+  int col = event.GetColumn();
   if (IsFixturesPage()) {
     if (col == 2) {
       if (static_cast<size_t>(row) >= fixturePaths.size())
