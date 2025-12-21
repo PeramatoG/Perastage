@@ -18,8 +18,10 @@
 #include "trussdictionary.h"
 #include "../external/json.hpp"
 #include "projectutils.h"
+#include <algorithm>
 #include <filesystem>
 #include <fstream>
+#include <vector>
 
 namespace fs = std::filesystem;
 
@@ -92,7 +94,13 @@ void Save(const std::unordered_map<std::string, std::string> &dict) {
   if (file.empty())
     return;
   nlohmann::json j;
-  for (const auto &[model, path] : dict) {
+  std::vector<std::string> keys;
+  keys.reserve(dict.size());
+  for (const auto &[model, path] : dict)
+    keys.push_back(model);
+  std::sort(keys.begin(), keys.end());
+  for (const auto &model : keys) {
+    const auto &path = dict.at(model);
     fs::path p = fs::u8path(path);
     j[model] = p.filename().string();
   }
@@ -143,4 +151,3 @@ void Update(const std::string &model, const std::string &modelPath) {
 }
 
 } // namespace TrussDictionary
-

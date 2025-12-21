@@ -96,6 +96,7 @@ private:
   void OnExportCSV(wxCommandEvent &event);         // Export table to CSV
   void
   OnDownloadGdtf(wxCommandEvent &event);   // Download fixture from GDTF Share
+  void OnEditDictionaries(wxCommandEvent &event); // Edit fixture/truss dictionaries
   void OnClose(wxCommandEvent &event);     // Handle the Close action
   void OnCloseWindow(wxCloseEvent &event); // Handle window close
   void OnToggleConsole(wxCommandEvent &event);        // Toggle console panel
@@ -166,6 +167,7 @@ enum {
   ID_View_Layout_Default,
   ID_View_Layout_2D,
   ID_Tools_DownloadGdtf,
+  ID_Tools_EditDictionaries,
   ID_Tools_ImportRiderText,
   ID_Tools_ExportFixture,
   ID_Tools_ExportTruss,
