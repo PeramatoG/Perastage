@@ -277,7 +277,6 @@ void Viewer2DPanel::Render() {
   GetClientSize(&w, &h);
 
   glViewport(0, 0, w, h);
-  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
   glMatrixMode(GL_PROJECTION);
   glLoadIdentity();
@@ -313,6 +312,7 @@ void Viewer2DPanel::Render() {
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
   else
     glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
   bool showGrid = cfg.GetFloat("grid_show") != 0.0f;
   int gridStyle = static_cast<int>(cfg.GetFloat("grid_style"));
   float gridR = cfg.GetFloat("grid_color_r");
