@@ -7,16 +7,21 @@
         "file": "BLINDER 2 PRO.gdtf",
         "mode": "2ch d001"
     },
+    "Beam 201": {
+        "file": "Sharpy.gdtf",
+        "mode": "Standard"
+    },
+    "Beam201": {
+        "file": "Sharpy.gdtf",
+        "mode": "Standard"
+    },
     "Blinder 2": {
         "file": "Sunrise2IP.gdtf",
         "mode": "STANDARD"
     },
     "Chauvet Color Strike M": {
-        "file": "Custom@Light_Instr_Chauvet_Color_Strike_M.gdtf"
-    },
-    "Elan Strobe 1000 RGBW (Bulb=LED)": {
-        "file": "Strobe 1000 RGBW.gdtf",
-        "mode": "16-Channel Mode"
+        "file": "Custom@Light_Instr_Chauvet_Color_Strike_M.gdtf",
+        "mode": "Default"
     },
     "Era 800 Performance (Bulb=LED 6500K)": {
         "file": "ERA 800 Performance.gdtf",
@@ -62,10 +67,6 @@
         "file": "Robin MegaPointe.gdtf",
         "mode": "Mode 1 - Standard 16 - bit"
     },
-    "Molefay Four Light (Bulb=DXK)": {
-        "file": "BLINDER 400.gdtf",
-        "mode": "8CH Standard Mode"
-    },
     "PIXEL STROBE 400 RGB": {
         "file": "PIXEL STROBE 400 RGB.gdtf",
         "mode": "2ch d001"
@@ -95,10 +96,12 @@
         "mode": "Mode 3 - Advanced"
     },
     "Robin iEsprite": {
-        "file": "Robin iEsprite.gdtf"
+        "file": "Robin iEsprite.gdtf",
+        "mode": "Mode 1 - Standard 16 bit"
     },
     "Robin iSpiiderX": {
-        "file": "Robin iSpiiderX.gdtf"
+        "file": "Robin iSpiiderX.gdtf",
+        "mode": "Mode 3 - Advanced"
     },
     "Sharpy": {
         "file": "Sharpy.gdtf",
@@ -112,12 +115,9 @@
         "file": "Robin Spiider.gdtf",
         "mode": "Mode 10 - Pattern full RGBW"
     },
-    "Strobe 1000 RGBW": {
-        "file": "Strobe 1000 RGBW.gdtf",
-        "mode": "7-Channel Mode"
-    },
     "SunRise 2IP": {
-        "file": "Sunrise2IP.gdtf"
+        "file": "Sunrise2IP.gdtf",
+        "mode": "UNO"
     },
     "Sunrise2IP": {
         "file": "Sunrise2IP.gdtf",
