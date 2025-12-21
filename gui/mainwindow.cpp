@@ -1944,22 +1944,22 @@ void MainWindow::OnShowAbout(wxCommandEvent &WXUNUSED(event)) {
 
 void MainWindow::OnSelectFixtures(wxCommandEvent &WXUNUSED(event)) {
   if (notebook)
-    notebook->ChangeSelection(0);
+    notebook->SetSelection(0);
 }
 
 void MainWindow::OnSelectTrusses(wxCommandEvent &WXUNUSED(event)) {
   if (notebook)
-    notebook->ChangeSelection(1);
+    notebook->SetSelection(1);
 }
 
 void MainWindow::OnSelectSupports(wxCommandEvent &WXUNUSED(event)) {
   if (notebook)
-    notebook->ChangeSelection(2);
+    notebook->SetSelection(2);
 }
 
 void MainWindow::OnSelectObjects(wxCommandEvent &WXUNUSED(event)) {
   if (notebook)
-    notebook->ChangeSelection(3);
+    notebook->SetSelection(3);
 }
 
 void MainWindow::OnNotebookPageChanged(wxBookCtrlEvent &event) {
