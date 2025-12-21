@@ -27,10 +27,15 @@
 #include "projectutils.h"
 #include "riderimporter.h"
 
-enum { ID_RiderText_Load = wxID_HIGHEST + 4200, ID_RiderText_Apply };
+enum {
+  ID_RiderText_Load = wxID_HIGHEST + 4200,
+  ID_RiderText_Example,
+  ID_RiderText_Apply
+};
 
 wxBEGIN_EVENT_TABLE(RiderTextDialog, wxDialog)
 EVT_BUTTON(ID_RiderText_Load, RiderTextDialog::OnLoadFromFile)
+EVT_BUTTON(ID_RiderText_Example, RiderTextDialog::OnLoadExample)
 EVT_BUTTON(ID_RiderText_Apply, RiderTextDialog::OnApply)
 wxEND_EVENT_TABLE()
 
@@ -51,6 +56,9 @@ RiderTextDialog::RiderTextDialog(wxWindow *parent,
   headerSizer->Add(sourceText, 1, wxALIGN_CENTER_VERTICAL | wxRIGHT, 8);
   wxButton *loadButton = new wxButton(this, ID_RiderText_Load, "Load rider...");
   headerSizer->Add(loadButton, 0);
+  wxButton *exampleButton =
+      new wxButton(this, ID_RiderText_Example, "Use example");
+  headerSizer->Add(exampleButton, 0, wxLEFT, 8);
   mainSizer->Add(headerSizer, 0, wxEXPAND | wxALL, 8);
 
   textCtrl = new wxTextCtrl(this, wxID_ANY, initialText,
@@ -92,6 +100,35 @@ void RiderTextDialog::OnLoadFromFile(wxCommandEvent &WXUNUSED(event)) {
     sourceText->SetLabel(wxString::Format("Loaded: %s", sourceLabel));
   textCtrl->ChangeValue(wxString::FromUTF8(text));
   wxMessageBox("Rider imported successfully.", "Success", wxICON_INFORMATION);
+}
+
+void RiderTextDialog::OnLoadExample(wxCommandEvent &WXUNUSED(event)) {
+  const wxString exampleText =
+      "Lx1\n"
+      "8 Blinder 2\n"
+      "8 Spiider\n"
+      "6 Megapointe\n"
+      "\n"
+      "lx2\n"
+      "6 Megapointe\n"
+      "6 Mac Viper Profile\n"
+      "6 Spiider\n"
+      "4 Elan strobe\n"
+      "\n"
+      "lx3\n"
+      "6 Megapointe\n"
+      "6 Mac Viper Profile\n"
+      "6 Spiider\n"
+      "4 Elan strobe\n"
+      "\n"
+      "rigging\n"
+      "1 truss lx1 14 metros\n"
+      "1 truss lx2 12 metros\n"
+      "1 truss lx3 12 metros\n";
+  textCtrl->ChangeValue(exampleText);
+  sourceLabel = "Example text";
+  if (sourceText)
+    sourceText->SetLabel(wxString::Format("Loaded: %s", sourceLabel));
 }
 
 void RiderTextDialog::OnApply(wxCommandEvent &WXUNUSED(event)) {
