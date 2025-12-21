@@ -57,6 +57,7 @@ using json = nlohmann::json;
 #include "configmanager.h"
 #include "consolepanel.h"
 #include "credentialstore.h"
+#include "dictionaryeditdialog.h"
 #include "exportfixturedialog.h"
 #include "exportobjectdialog.h"
 #include "exporttrussdialog.h"
@@ -163,6 +164,8 @@ wxBEGIN_EVENT_TABLE(MainWindow, wxFrame) EVT_MENU(
                                     OnApply2DLayout) EVT_MENU(ID_Tools_DownloadGdtf,
                                                               MainWindow::
                                                                   OnDownloadGdtf)
+                                EVT_MENU(ID_Tools_EditDictionaries,
+                                         MainWindow::OnEditDictionaries)
                                 EVT_MENU(
                                     ID_Tools_ExportFixture,
                                     MainWindow::
@@ -503,6 +506,7 @@ void MainWindow::CreateMenuBar() {
   // Tools menu
   wxMenu *toolsMenu = new wxMenu();
   toolsMenu->Append(ID_Tools_DownloadGdtf, "Download GDTF fixture...");
+  toolsMenu->Append(ID_Tools_EditDictionaries, "Edit dictionaries...");
   toolsMenu->Append(ID_Tools_ImportRiderText, "Create from text...");
   toolsMenu->Append(ID_Tools_ExportFixture, "Export Fixture...");
   toolsMenu->Append(ID_Tools_ExportTruss, "Export Truss...");
@@ -847,6 +851,11 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
   }
 
   wxRemoveFile(cookieFileWx);
+}
+
+void MainWindow::OnEditDictionaries(wxCommandEvent &WXUNUSED(event)) {
+  DictionaryEditDialog dlg(this);
+  dlg.ShowModal();
 }
 
 void MainWindow::OnExportTruss(wxCommandEvent &WXUNUSED(event)) {
