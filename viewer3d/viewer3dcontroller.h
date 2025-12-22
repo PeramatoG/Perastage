@@ -206,8 +206,14 @@ private:
                       const CanvasStroke &stroke) const;
   void RecordPolygon(const std::vector<std::array<float, 3>> &points,
                      const CanvasStroke &stroke, const CanvasFill *fill) const;
+  void RecordPolygonsWithOptionalCull(
+      const std::vector<std::vector<std::array<float, 3>>> &polygons,
+      const CanvasStroke &stroke, const CanvasFill *fill) const;
   void RecordText(float x, float y, const std::string &text,
                   const CanvasTextStyle &style) const;
+  float CaptureDepth(const std::array<float, 3> &p) const;
+  std::vector<bool> CullHiddenPolygons(
+      const std::vector<std::vector<std::array<float, 3>>> &polygons) const;
 
   // Draws a mesh loaded from a 3DS file using the given scale factor
   // for vertex positions. GDTF models may already be defined in meters
