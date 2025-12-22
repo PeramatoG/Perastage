@@ -17,6 +17,7 @@
  */
 #include "configmanager.h"
 #include "../external/json.hpp"
+#include "layouts/LayoutManager.h"
 #include "mvrexporter.h"
 #include "mvrimporter.h"
 #include <chrono>
@@ -188,6 +189,7 @@ ConfigManager::ConfigManager() {
     SetValue("rider_layer_mode", "position");
   ApplyColumnDefaults();
   ApplyDefaults();
+  layouts::LayoutManager::Get().LoadFromConfig(*this);
   currentLayer = DEFAULT_LAYER_NAME;
 }
 
@@ -555,6 +557,7 @@ bool ConfigManager::LoadFromFile(const std::string &path) {
   }
   ApplyColumnDefaults();
   ApplyDefaults();
+  layouts::LayoutManager::Get().LoadFromConfig(*this);
   return true;
 }
 
@@ -685,6 +688,7 @@ void ConfigManager::Reset() {
   if (!HasKey("rider_autopatch"))
     SetValue("rider_autopatch", "1");
   ApplyDefaults();
+  layouts::LayoutManager::Get().ResetToDefault(*this);
   selectedFixtures.clear();
   selectedTrusses.clear();
   selectedSupports.clear();

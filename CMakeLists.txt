@@ -23,6 +23,7 @@ file(GLOB_RECURSE SRC_FILES CONFIGURE_DEPENDS
     ${CMAKE_SOURCE_DIR}/gui/*.cpp
     ${CMAKE_SOURCE_DIR}/models/*.cpp
     ${CMAKE_SOURCE_DIR}/core/*.cpp
+    ${CMAKE_SOURCE_DIR}/core/layouts/*.cpp
     ${CMAKE_SOURCE_DIR}/core/print/*.cpp
     ${CMAKE_SOURCE_DIR}/mvr/*.cpp
     ${CMAKE_SOURCE_DIR}/viewer3d/*.cpp
@@ -43,6 +44,7 @@ file(GLOB_RECURSE HEADER_FILES
     ${CMAKE_SOURCE_DIR}/gui/*.h
     ${CMAKE_SOURCE_DIR}/models/*.h
     ${CMAKE_SOURCE_DIR}/core/*.h
+    ${CMAKE_SOURCE_DIR}/core/layouts/*.h
     ${CMAKE_SOURCE_DIR}/core/print/*.h
     ${CMAKE_SOURCE_DIR}/mvr/*.h
     ${CMAKE_SOURCE_DIR}/viewer3d/*.h
