@@ -41,9 +41,64 @@ print::PageSize PageSizeFromString(const std::string &value) {
 }
 
 nlohmann::json ToJson(const LayoutDefinition &layout) {
-  return nlohmann::json{{"name", layout.name},
-                        {"pageSize", PageSizeToString(layout.pageSetup.pageSize)},
-                        {"landscape", layout.pageSetup.landscape}};
+  nlohmann::json data{{"name", layout.name},
+                      {"pageSize", PageSizeToString(layout.pageSetup.pageSize)},
+                      {"landscape", layout.pageSetup.landscape}};
+  if (layout.hasView2dState) {
+    const auto &state = layout.view2dState;
+    data["view2dState"] = {
+        {"offsetPixelsX", state.offsetPixelsX},
+        {"offsetPixelsY", state.offsetPixelsY},
+        {"zoom", state.zoom},
+        {"viewportWidth", state.viewportWidth},
+        {"viewportHeight", state.viewportHeight},
+        {"view", state.view},
+        {"renderMode", state.renderMode},
+        {"darkMode", state.darkMode},
+        {"showGrid", state.showGrid},
+        {"gridStyle", state.gridStyle},
+        {"gridColorR", state.gridColorR},
+        {"gridColorG", state.gridColorG},
+        {"gridColorB", state.gridColorB},
+        {"gridDrawAbove", state.gridDrawAbove},
+        {"showLabelName", state.showLabelName},
+        {"showLabelId", state.showLabelId},
+        {"showLabelDmx", state.showLabelDmx},
+        {"labelFontSizeName", state.labelFontSizeName},
+        {"labelFontSizeId", state.labelFontSizeId},
+        {"labelFontSizeDmx", state.labelFontSizeDmx},
+        {"labelOffsetDistance", state.labelOffsetDistance},
+        {"labelOffsetAngle", state.labelOffsetAngle},
+        {"hiddenLayers", state.hiddenLayers},
+        {"frameWidth", state.frameWidth},
+        {"frameHeight", state.frameHeight},
+    };
+  }
+  return data;
+}
+
+void ReadBoolArray(const nlohmann::json &obj, const char *key,
+                   std::array<bool, 3> &out) {
+  auto it = obj.find(key);
+  if (it == obj.end() || !it->is_array())
+    return;
+  for (size_t idx = 0; idx < out.size() && idx < it->size(); ++idx) {
+    const auto &entry = (*it)[idx];
+    if (entry.is_boolean())
+      out[idx] = entry.get<bool>();
+  }
+}
+
+void ReadFloatArray(const nlohmann::json &obj, const char *key,
+                    std::array<float, 3> &out) {
+  auto it = obj.find(key);
+  if (it == obj.end() || !it->is_array())
+    return;
+  for (size_t idx = 0; idx < out.size() && idx < it->size(); ++idx) {
+    const auto &entry = (*it)[idx];
+    if (entry.is_number())
+      out[idx] = entry.get<float>();
+  }
 }
 
 bool ParseLayout(const nlohmann::json &value, LayoutDefinition &out) {
@@ -67,6 +122,81 @@ bool ParseLayout(const nlohmann::json &value, LayoutDefinition &out) {
       landscapeIt != value.end() && landscapeIt->is_boolean()
           ? landscapeIt->get<bool>()
           : false;
+
+  out.hasView2dState = false;
+  const auto viewStateIt = value.find("view2dState");
+  if (viewStateIt != value.end() && viewStateIt->is_object()) {
+    const auto &viewObj = *viewStateIt;
+    Layout2DViewState state;
+    if (auto it = viewObj.find("offsetPixelsX"); it != viewObj.end() && it->is_number())
+      state.offsetPixelsX = it->get<float>();
+    if (auto it = viewObj.find("offsetPixelsY"); it != viewObj.end() && it->is_number())
+      state.offsetPixelsY = it->get<float>();
+    if (auto it = viewObj.find("zoom"); it != viewObj.end() && it->is_number())
+      state.zoom = it->get<float>();
+    if (auto it = viewObj.find("viewportWidth");
+        it != viewObj.end() && it->is_number_integer())
+      state.viewportWidth = it->get<int>();
+    if (auto it = viewObj.find("viewportHeight");
+        it != viewObj.end() && it->is_number_integer())
+      state.viewportHeight = it->get<int>();
+    if (auto it = viewObj.find("view"); it != viewObj.end() && it->is_number())
+      state.view = it->get<int>();
+    if (auto it = viewObj.find("renderMode");
+        it != viewObj.end() && it->is_number())
+      state.renderMode = it->get<int>();
+    if (auto it = viewObj.find("darkMode");
+        it != viewObj.end() && it->is_boolean())
+      state.darkMode = it->get<bool>();
+    if (auto it = viewObj.find("showGrid");
+        it != viewObj.end() && it->is_boolean())
+      state.showGrid = it->get<bool>();
+    if (auto it = viewObj.find("gridStyle");
+        it != viewObj.end() && it->is_number())
+      state.gridStyle = it->get<int>();
+    if (auto it = viewObj.find("gridColorR");
+        it != viewObj.end() && it->is_number())
+      state.gridColorR = it->get<float>();
+    if (auto it = viewObj.find("gridColorG");
+        it != viewObj.end() && it->is_number())
+      state.gridColorG = it->get<float>();
+    if (auto it = viewObj.find("gridColorB");
+        it != viewObj.end() && it->is_number())
+      state.gridColorB = it->get<float>();
+    if (auto it = viewObj.find("gridDrawAbove");
+        it != viewObj.end() && it->is_boolean())
+      state.gridDrawAbove = it->get<bool>();
+    ReadBoolArray(viewObj, "showLabelName", state.showLabelName);
+    ReadBoolArray(viewObj, "showLabelId", state.showLabelId);
+    ReadBoolArray(viewObj, "showLabelDmx", state.showLabelDmx);
+    if (auto it = viewObj.find("labelFontSizeName");
+        it != viewObj.end() && it->is_number())
+      state.labelFontSizeName = it->get<float>();
+    if (auto it = viewObj.find("labelFontSizeId");
+        it != viewObj.end() && it->is_number())
+      state.labelFontSizeId = it->get<float>();
+    if (auto it = viewObj.find("labelFontSizeDmx");
+        it != viewObj.end() && it->is_number())
+      state.labelFontSizeDmx = it->get<float>();
+    ReadFloatArray(viewObj, "labelOffsetDistance", state.labelOffsetDistance);
+    ReadFloatArray(viewObj, "labelOffsetAngle", state.labelOffsetAngle);
+    if (auto it = viewObj.find("hiddenLayers");
+        it != viewObj.end() && it->is_array()) {
+      state.hiddenLayers.clear();
+      for (const auto &entry : *it) {
+        if (entry.is_string())
+          state.hiddenLayers.push_back(entry.get<std::string>());
+      }
+    }
+    if (auto it = viewObj.find("frameWidth");
+        it != viewObj.end() && it->is_number_integer())
+      state.frameWidth = it->get<int>();
+    if (auto it = viewObj.find("frameHeight");
+        it != viewObj.end() && it->is_number_integer())
+      state.frameHeight = it->get<int>();
+    out.view2dState = std::move(state);
+    out.hasView2dState = true;
+  }
 
   return true;
 }
@@ -106,6 +236,14 @@ bool LayoutManager::RemoveLayout(const std::string &name) {
 bool LayoutManager::SetLayoutOrientation(const std::string &name,
                                          bool landscape) {
   if (!layouts.SetLayoutOrientation(name, landscape))
+    return false;
+  SyncToConfig();
+  return true;
+}
+
+bool LayoutManager::UpdateLayout2DViewState(const std::string &name,
+                                            const Layout2DViewState &state) {
+  if (!layouts.UpdateLayout2DViewState(name, state))
     return false;
   SyncToConfig();
   return true;

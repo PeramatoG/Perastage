@@ -146,6 +146,7 @@ private:
   void UpdateViewMenuChecks();
   void OnLayoutSelected(wxCommandEvent &event);
   void ActivateLayoutView(const std::string &layoutName);
+  void PersistLayout2DViewState();
   void SyncSceneData();
   bool ConfirmSaveIfDirty(const wxString &actionLabel,
                           const wxString &dialogTitle);
@@ -153,6 +154,7 @@ private:
   std::string default2DLayoutPerspective;
   std::string layoutModePerspective;
   bool layoutModeActive = false;
+  std::string activeLayoutName;
 
   inline static MainWindow *s_instance = nullptr;
   wxDECLARE_EVENT_TABLE();
