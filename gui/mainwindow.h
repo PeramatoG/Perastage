@@ -35,6 +35,7 @@ class Viewer2DRenderPanel;
 class ConsolePanel;
 class LayerPanel;
 class LayoutPanel;
+class LayoutViewerPanel;
 class SummaryPanel;
 class RiggingPanel;
 
@@ -73,6 +74,7 @@ private:
   ConsolePanel *consolePanel = nullptr;
   LayerPanel *layerPanel = nullptr;
   LayoutPanel *layoutPanel = nullptr;
+  LayoutViewerPanel *layoutViewerPanel = nullptr;
   SummaryPanel *summaryPanel = nullptr;
   RiggingPanel *riggingPanel = nullptr;
 

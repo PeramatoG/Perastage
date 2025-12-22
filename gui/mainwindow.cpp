@@ -67,6 +67,7 @@ using json = nlohmann::json;
 #include "gdtfnet.h"
 #include "gdtfsearchdialog.h"
 #include "layoutpanel.h"
+#include "layoutviewerpanel.h"
 #include "layerpanel.h"
 #include "logindialog.h"
 #include "markdown.h"
@@ -95,6 +96,7 @@ using json = nlohmann::json;
 #include "viewer2dpanel.h"
 #include "viewer2drenderpanel.h"
 #include "viewer3dpanel.h"
+#include "layouts/LayoutManager.h"
 #ifdef _WIN32
 #define popen _popen
 #define pclose _pclose
@@ -341,6 +343,20 @@ void MainWindow::SetupLayout() {
                                        .CloseButton(true)
                                        .MaximizeButton(true)
                                        .PaneBorder(true));
+
+  layoutViewerPanel = new LayoutViewerPanel(this);
+  auiManager->AddPane(layoutViewerPanel, wxAuiPaneInfo()
+                                            .Name("LayoutViewer")
+                                            .Caption("Layout Viewer")
+                                            .Center()
+                                            .Dockable(true)
+                                            .CaptionVisible(true)
+                                            .PaneBorder(false)
+                                            .BestSize(halfWidth, 600)
+                                            .MinSize(wxSize(200, 300))
+                                            .CloseButton(true)
+                                            .MaximizeButton(true)
+                                            .Hide());
 
   summaryPanel = new SummaryPanel(this);
   SummaryPanel::SetInstance(summaryPanel);
@@ -1889,8 +1905,21 @@ void MainWindow::ActivateLayoutView(const std::string &layoutName) {
   if (!auiManager || layoutName.empty())
     return;
 
+  if (layoutViewerPanel) {
+    const auto &layouts = layouts::LayoutManager::Get().GetLayouts().Items();
+    for (const auto &layout : layouts) {
+      if (layout.name == layoutName) {
+        layoutViewerPanel->SetLayoutDefinition(layout);
+        break;
+      }
+    }
+  }
+
   Ensure2DViewport();
   auiManager->LoadPerspective(default2DLayoutPerspective, true);
+  auto &layoutViewerPane = auiManager->GetPane("LayoutViewer");
+  if (layoutViewerPane.IsOk())
+    layoutViewerPane.Show();
   auiManager->Update();
 
   ConfigManager::Get().SetValue("layout_perspective",
