@@ -512,11 +512,205 @@ void Viewer3DController::RecordPolygon(
   m_captureCanvas->DrawPolygon(flat, stroke, fill);
 }
 
+void Viewer3DController::RecordPolygonsWithOptionalCull(
+    const std::vector<std::vector<std::array<float, 3>>> &polygons,
+    const CanvasStroke &stroke, const CanvasFill *fill) const {
+  if (!m_captureCanvas)
+    return;
+  if (!m_captureOnly && !m_captureCullHidden) {
+    for (const auto &poly : polygons)
+      RecordPolygon(poly, stroke, fill);
+    return;
+  }
+  auto keep = CullHiddenPolygons(polygons);
+  for (size_t i = 0; i < polygons.size(); ++i) {
+    if (i < keep.size() && keep[i])
+      RecordPolygon(polygons[i], stroke, fill);
+  }
+}
+
 void Viewer3DController::RecordText(float x, float y, const std::string &text,
                                     const CanvasTextStyle &style) const {
   if (!m_captureCanvas)
     return;
   m_captureCanvas->DrawText(x, y, text, style);
+}
+
+float Viewer3DController::CaptureDepth(const std::array<float, 3> &p) const {
+  switch (m_captureView) {
+  case Viewer2DView::Top:
+    return p[2];
+  case Viewer2DView::Bottom:
+    return -p[2];
+  case Viewer2DView::Front:
+    return p[1];
+  case Viewer2DView::Side:
+    return p[0];
+  }
+  return p[2];
+}
+
+std::vector<bool> Viewer3DController::CullHiddenPolygons(
+    const std::vector<std::vector<std::array<float, 3>>> &polygons) const {
+  struct CaptureTriangle {
+    std::array<float, 2> p0;
+    std::array<float, 2> p1;
+    std::array<float, 2> p2;
+    float d0 = 0.0f;
+    float d1 = 0.0f;
+    float d2 = 0.0f;
+    size_t polygonIndex = 0;
+  };
+
+  std::vector<CaptureTriangle> triangles;
+  triangles.reserve(polygons.size() * 2);
+
+  float minX = std::numeric_limits<float>::infinity();
+  float minY = std::numeric_limits<float>::infinity();
+  float maxX = -std::numeric_limits<float>::infinity();
+  float maxY = -std::numeric_limits<float>::infinity();
+
+  for (size_t polyIndex = 0; polyIndex < polygons.size(); ++polyIndex) {
+    const auto &poly = polygons[polyIndex];
+    if (poly.size() < 3)
+      continue;
+    for (size_t i = 1; i + 1 < poly.size(); ++i) {
+      CaptureTriangle tri;
+      tri.polygonIndex = polyIndex;
+      tri.p0 = ProjectToCanvas(poly[0]);
+      tri.p1 = ProjectToCanvas(poly[i]);
+      tri.p2 = ProjectToCanvas(poly[i + 1]);
+      tri.d0 = CaptureDepth(poly[0]);
+      tri.d1 = CaptureDepth(poly[i]);
+      tri.d2 = CaptureDepth(poly[i + 1]);
+
+      minX = std::min(minX, std::min({tri.p0[0], tri.p1[0], tri.p2[0]}));
+      minY = std::min(minY, std::min({tri.p0[1], tri.p1[1], tri.p2[1]}));
+      maxX = std::max(maxX, std::max({tri.p0[0], tri.p1[0], tri.p2[0]}));
+      maxY = std::max(maxY, std::max({tri.p0[1], tri.p1[1], tri.p2[1]}));
+      triangles.push_back(tri);
+    }
+  }
+
+  std::vector<bool> keep(polygons.size(), true);
+  if (triangles.empty())
+    return keep;
+
+  const float width = maxX - minX;
+  const float height = maxY - minY;
+  if (width <= 1e-6f || height <= 1e-6f)
+    return keep;
+
+  int gridW = 128;
+  int gridH = 128;
+  if (width > height) {
+    gridH = std::max(16, static_cast<int>(gridW * (height / width)));
+  } else {
+    gridW = std::max(16, static_cast<int>(gridH * (width / height)));
+  }
+
+  const float invW = 1.0f / width;
+  const float invH = 1.0f / height;
+  const float cellW = width / static_cast<float>(gridW);
+  const float cellH = height / static_cast<float>(gridH);
+
+  std::vector<float> depthBuffer(
+      static_cast<size_t>(gridW * gridH),
+      -std::numeric_limits<float>::infinity());
+
+  auto barycentric = [](const std::array<float, 2> &p,
+                        const std::array<float, 2> &a,
+                        const std::array<float, 2> &b,
+                        const std::array<float, 2> &c, float &w0, float &w1,
+                        float &w2) -> bool {
+    float denom = (b[1] - c[1]) * (a[0] - c[0]) +
+                  (c[0] - b[0]) * (a[1] - c[1]);
+    if (std::abs(denom) < 1e-8f)
+      return false;
+    w0 = ((b[1] - c[1]) * (p[0] - c[0]) +
+          (c[0] - b[0]) * (p[1] - c[1])) /
+         denom;
+    w1 = ((c[1] - a[1]) * (p[0] - c[0]) +
+          (a[0] - c[0]) * (p[1] - c[1])) /
+         denom;
+    w2 = 1.0f - w0 - w1;
+    return w0 >= -1e-4f && w1 >= -1e-4f && w2 >= -1e-4f;
+  };
+
+  for (const auto &tri : triangles) {
+    float triMinX = std::min({tri.p0[0], tri.p1[0], tri.p2[0]});
+    float triMinY = std::min({tri.p0[1], tri.p1[1], tri.p2[1]});
+    float triMaxX = std::max({tri.p0[0], tri.p1[0], tri.p2[0]});
+    float triMaxY = std::max({tri.p0[1], tri.p1[1], tri.p2[1]});
+
+    int minXi = std::clamp(static_cast<int>((triMinX - minX) * invW * gridW), 0,
+                           gridW - 1);
+    int maxXi = std::clamp(static_cast<int>((triMaxX - minX) * invW * gridW), 0,
+                           gridW - 1);
+    int minYi = std::clamp(static_cast<int>((triMinY - minY) * invH * gridH), 0,
+                           gridH - 1);
+    int maxYi = std::clamp(static_cast<int>((triMaxY - minY) * invH * gridH), 0,
+                           gridH - 1);
+
+    for (int y = minYi; y <= maxYi; ++y) {
+      float py = minY + (static_cast<float>(y) + 0.5f) * cellH;
+      for (int x = minXi; x <= maxXi; ++x) {
+        float px = minX + (static_cast<float>(x) + 0.5f) * cellW;
+        float w0 = 0.0f, w1 = 0.0f, w2 = 0.0f;
+        if (!barycentric({px, py}, tri.p0, tri.p1, tri.p2, w0, w1, w2))
+          continue;
+        float depth = w0 * tri.d0 + w1 * tri.d1 + w2 * tri.d2;
+        size_t idx = static_cast<size_t>(y * gridW + x);
+        if (depth > depthBuffer[idx])
+          depthBuffer[idx] = depth;
+      }
+    }
+  }
+
+  const float epsilon = 1e-4f;
+  std::vector<bool> visible(polygons.size(), false);
+
+  for (const auto &tri : triangles) {
+    if (visible[tri.polygonIndex])
+      continue;
+    float triMinX = std::min({tri.p0[0], tri.p1[0], tri.p2[0]});
+    float triMinY = std::min({tri.p0[1], tri.p1[1], tri.p2[1]});
+    float triMaxX = std::max({tri.p0[0], tri.p1[0], tri.p2[0]});
+    float triMaxY = std::max({tri.p0[1], tri.p1[1], tri.p2[1]});
+
+    int minXi = std::clamp(static_cast<int>((triMinX - minX) * invW * gridW), 0,
+                           gridW - 1);
+    int maxXi = std::clamp(static_cast<int>((triMaxX - minX) * invW * gridW), 0,
+                           gridW - 1);
+    int minYi = std::clamp(static_cast<int>((triMinY - minY) * invH * gridH), 0,
+                           gridH - 1);
+    int maxYi = std::clamp(static_cast<int>((triMaxY - minY) * invH * gridH), 0,
+                           gridH - 1);
+
+    bool sampled = false;
+    for (int y = minYi; y <= maxYi && !visible[tri.polygonIndex]; ++y) {
+      float py = minY + (static_cast<float>(y) + 0.5f) * cellH;
+      for (int x = minXi; x <= maxXi; ++x) {
+        float px = minX + (static_cast<float>(x) + 0.5f) * cellW;
+        float w0 = 0.0f, w1 = 0.0f, w2 = 0.0f;
+        if (!barycentric({px, py}, tri.p0, tri.p1, tri.p2, w0, w1, w2))
+          continue;
+        sampled = true;
+        float depth = w0 * tri.d0 + w1 * tri.d1 + w2 * tri.d2;
+        size_t idx = static_cast<size_t>(y * gridW + x);
+        if (depthBuffer[idx] <= depth + epsilon) {
+          visible[tri.polygonIndex] = true;
+          break;
+        }
+      }
+    }
+    if (!sampled)
+      visible[tri.polygonIndex] = true;
+  }
+
+  for (size_t i = 0; i < keep.size(); ++i)
+    keep[i] = visible[i];
+  return keep;
 }
 
 Viewer3DController::Viewer3DController() {
@@ -1839,8 +2033,7 @@ void Viewer3DController::DrawCubeWithOutline(
             verts[face[0]], verts[face[1]], verts[face[2]], verts[face[3]]};
         polygons.push_back(std::move(pts));
       }
-      for (const auto &poly : polygons)
-        RecordPolygon(poly, stroke, &fill);
+      RecordPolygonsWithOptionalCull(polygons, stroke, &fill);
     }
     if (!m_captureOnly) {
       glEnable(GL_POLYGON_OFFSET_FILL);
@@ -1881,12 +2074,11 @@ void Viewer3DController::DrawMeshWithOutline(
     CanvasStroke stroke;
     stroke.color = {0.0f, 0.0f, 0.0f, 1.0f};
     stroke.width = lineWidth;
-    DrawMeshWireframe(mesh, scale, captureTransform, true);
-
-    if (m_captureCanvas && mode != Viewer2DRenderMode::Wireframe) {
-      CanvasFill fill;
-      fill.color = {r, g, b, 1.0f};
-      std::vector<std::vector<std::array<float, 3>>> polygons;
+    const bool shouldCullCapture =
+        m_captureCanvas && (m_captureOnly || m_captureCullHidden);
+    std::vector<std::vector<std::array<float, 3>>> polygons;
+    std::vector<bool> visible;
+    if (shouldCullCapture) {
       polygons.reserve(mesh.indices.size() / 3);
       for (size_t i = 0; i + 2 < mesh.indices.size(); i += 3) {
         unsigned short i0 = mesh.indices[i];
@@ -1905,8 +2097,55 @@ void Viewer3DController::DrawMeshWithOutline(
         }
         polygons.push_back(std::move(pts));
       }
-      for (const auto &poly : polygons)
-        RecordPolygon(poly, stroke, &fill);
+      visible = CullHiddenPolygons(polygons);
+    }
+
+    DrawMeshWireframe(mesh, scale, captureTransform, !shouldCullCapture);
+
+    if (m_captureCanvas) {
+      if (shouldCullCapture) {
+        for (size_t i = 0; i < polygons.size(); ++i) {
+          if (i < visible.size() && !visible[i])
+            continue;
+          const auto &tri = polygons[i];
+          if (tri.size() < 3)
+            continue;
+          RecordLine(tri[0], tri[1], stroke);
+          RecordLine(tri[1], tri[2], stroke);
+          RecordLine(tri[2], tri[0], stroke);
+        }
+        if (mode != Viewer2DRenderMode::Wireframe) {
+          CanvasFill fill;
+          fill.color = {r, g, b, 1.0f};
+          for (size_t i = 0; i < polygons.size(); ++i) {
+            if (i < visible.size() && !visible[i])
+              continue;
+            RecordPolygon(polygons[i], stroke, &fill);
+          }
+        }
+      } else if (mode != Viewer2DRenderMode::Wireframe) {
+        CanvasFill fill;
+        fill.color = {r, g, b, 1.0f};
+        polygons.reserve(mesh.indices.size() / 3);
+        for (size_t i = 0; i + 2 < mesh.indices.size(); i += 3) {
+          unsigned short i0 = mesh.indices[i];
+          unsigned short i1 = mesh.indices[i + 1];
+          unsigned short i2 = mesh.indices[i + 2];
+          std::vector<std::array<float, 3>> pts = {
+              {mesh.vertices[i0 * 3] * scale, mesh.vertices[i0 * 3 + 1] * scale,
+               mesh.vertices[i0 * 3 + 2] * scale},
+              {mesh.vertices[i1 * 3] * scale, mesh.vertices[i1 * 3 + 1] * scale,
+               mesh.vertices[i1 * 3 + 2] * scale},
+              {mesh.vertices[i2 * 3] * scale, mesh.vertices[i2 * 3 + 1] * scale,
+               mesh.vertices[i2 * 3 + 2] * scale}};
+          if (captureTransform) {
+            for (auto &p : pts)
+              p = captureTransform(p);
+          }
+          polygons.push_back(std::move(pts));
+        }
+        RecordPolygonsWithOptionalCull(polygons, stroke, &fill);
+      }
     }
     if (!m_captureOnly) {
       glLineWidth(1.0f);
@@ -1956,8 +2195,7 @@ void Viewer3DController::DrawMeshWithOutline(
       }
       polygons.push_back(std::move(pts));
     }
-    for (const auto &poly : polygons)
-      RecordPolygon(poly, stroke, &fill);
+    RecordPolygonsWithOptionalCull(polygons, stroke, &fill);
   }
 }
 
