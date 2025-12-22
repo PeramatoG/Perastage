@@ -125,6 +125,7 @@ private:
   void OnPreferences(wxCommandEvent &event);        // Show preferences dialog
   void OnApplyDefaultLayout(wxCommandEvent &event); // Reset to default layout
   void OnApply2DLayout(wxCommandEvent &event);      // Apply 2D layout
+  void OnApplyLayoutModeLayout(wxCommandEvent &event); // Apply layout mode
 
   void OnUndo(wxCommandEvent &event);           // Undo action placeholder
   void OnRedo(wxCommandEvent &event);           // Redo action placeholder
@@ -137,6 +138,7 @@ private:
 
   void SaveCameraSettings();
   void ApplySavedLayout();
+  void ApplyLayoutModePerspective();
   void UpdateViewMenuChecks();
   void OnLayoutSelected(wxCommandEvent &event);
   void ActivateLayoutView(const std::string &layoutName);
@@ -145,6 +147,7 @@ private:
                           const wxString &dialogTitle);
   std::string defaultLayoutPerspective;
   std::string default2DLayoutPerspective;
+  std::string layoutModePerspective;
 
   static MainWindow *s_instance;
   wxDECLARE_EVENT_TABLE();
@@ -174,6 +177,7 @@ enum {
   ID_View_ToggleRigging,
   ID_View_Layout_Default,
   ID_View_Layout_2D,
+  ID_View_Layout_Mode,
   ID_Tools_DownloadGdtf,
   ID_Tools_EditDictionaries,
   ID_Tools_ImportRiderText,
