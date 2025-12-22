@@ -19,3 +19,4 @@
 
 ConsolePanel* ConsolePanel::Instance() { return nullptr; }
 void ConsolePanel::AppendMessage(const wxString&) {}
+void ConsolePanel::SetInstance(ConsolePanel*) {}
