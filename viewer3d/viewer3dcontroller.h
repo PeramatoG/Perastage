@@ -267,7 +267,6 @@ private:
   bool m_captureIncludeGrid = true;
   bool m_captureOnly = false;
   bool m_captureUseSymbols = false;
-  bool m_captureCullHidden = false;
   SymbolCache m_bottomSymbolCache;
   bool m_darkMode = false;
 
@@ -283,6 +282,5 @@ public:
     m_captureView = view;
     m_captureIncludeGrid = includeGrid;
     m_captureUseSymbols = canvas ? useSymbolInstancing : false;
-    m_captureCullHidden = canvas ? useSymbolInstancing : false;
   }
 };
