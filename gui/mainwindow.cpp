@@ -1382,12 +1382,9 @@ void MainWindow::OnPrintPlan(wxCommandEvent &WXUNUSED(event)) {
 
         std::string diagnostics = BuildPrintDiagnostics(buffer);
         wxLogMessage("%s", wxString::FromUTF8(diagnostics));
-        bool showDiagnosticsBox =
-            ConfigManager::Get().GetFloat("print_plan_diagnostics_popup") !=
-            0.0f;
-        if (showDiagnosticsBox) {
-          wxMessageBox(wxString::FromUTF8(diagnostics), "Print Plan diagnostics",
-                       wxOK | wxICON_INFORMATION, this);
+        if (ConsolePanel::Instance()) {
+          ConsolePanel::Instance()->AppendMessage(
+              wxString::FromUTF8(diagnostics));
         }
 
         std::string fixtureReport;
@@ -1395,10 +1392,9 @@ void MainWindow::OnPrintPlan(wxCommandEvent &WXUNUSED(event)) {
           fixtureReport = viewport2DPanel->GetLastFixtureDebugReport();
         if (!fixtureReport.empty()) {
           wxLogMessage("%s", wxString::FromUTF8(fixtureReport));
-          if (showDiagnosticsBox) {
-            wxMessageBox(wxString::FromUTF8(fixtureReport),
-                         "Print Plan fixture debug", wxOK | wxICON_INFORMATION,
-                         this);
+          if (ConsolePanel::Instance()) {
+            ConsolePanel::Instance()->AppendMessage(
+                wxString::FromUTF8(fixtureReport));
           }
         }
 
