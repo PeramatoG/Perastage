@@ -1693,6 +1693,12 @@ void MainWindow::OnApplyDefaultLayout(wxCommandEvent &WXUNUSED(event)) {
     perspective = *val;
 
   auiManager->LoadPerspective(perspective, true);
+  auto &layoutPane = auiManager->GetPane("LayoutPanel");
+  if (layoutPane.IsOk())
+    layoutPane.Hide();
+  auto &layoutViewerPane = auiManager->GetPane("LayoutViewer");
+  if (layoutViewerPane.IsOk())
+    layoutViewerPane.Hide();
   auiManager->Update();
 
   cfg.SetValue("layout_perspective", perspective);
@@ -1704,6 +1710,12 @@ void MainWindow::OnApply2DLayout(wxCommandEvent &WXUNUSED(event)) {
     return;
   Ensure2DViewport();
   auiManager->LoadPerspective(default2DLayoutPerspective, true);
+  auto &layoutPane = auiManager->GetPane("LayoutPanel");
+  if (layoutPane.IsOk())
+    layoutPane.Hide();
+  auto &layoutViewerPane = auiManager->GetPane("LayoutViewer");
+  if (layoutViewerPane.IsOk())
+    layoutViewerPane.Hide();
   auiManager->Update();
 
   ConfigManager &cfg = ConfigManager::Get();
@@ -1830,6 +1842,13 @@ void MainWindow::ApplySavedLayout() {
     // Load stored layout perspective if it exists
     if (auto val = ConfigManager::Get().GetValue("layout_perspective")) {
         const std::string& perspective = *val;
+        bool isLayoutMode = false;
+        if (layoutModePerspective.empty()) {
+            if (auto layoutVal = ConfigManager::Get().GetValue("layout_layout_mode"))
+                layoutModePerspective = *layoutVal;
+        }
+        if (!layoutModePerspective.empty() && perspective == layoutModePerspective)
+            isLayoutMode = true;
 
         // Ensure viewports exist before loading the saved perspective
         if (perspective.find("3DViewport") != std::string::npos)
@@ -1839,6 +1858,14 @@ void MainWindow::ApplySavedLayout() {
             Ensure2DViewport();
 
         auiManager->LoadPerspective(perspective, true);
+        if (!isLayoutMode) {
+            auto &layoutPane = auiManager->GetPane("LayoutPanel");
+            if (layoutPane.IsOk())
+                layoutPane.Hide();
+            auto &layoutViewerPane = auiManager->GetPane("LayoutViewer");
+            if (layoutViewerPane.IsOk())
+                layoutViewerPane.Hide();
+        }
     }
 
     // Re-apply hard-coded minimum sizes so they are not overridden by the saved perspective
@@ -1872,11 +1899,11 @@ void MainWindow::ApplyLayoutModePerspective() {
     auiManager->LoadPerspective(layoutModePerspective, true);
 
   const int clientWidth = GetClientSize().GetWidth();
-  const int layoutPanelWidth = std::max(480, clientWidth / 3);
+  const int layoutPanelWidth = std::max(260, clientWidth / 4);
   auto &layoutPane = auiManager->GetPane("LayoutPanel");
   if (layoutPane.IsOk())
     layoutPane.Left().BestSize(layoutPanelWidth, 600).MinSize(
-        wxSize(std::max(360, layoutPanelWidth - 120), 300));
+        wxSize(200, 300));
 
   auto &layoutViewerPane = auiManager->GetPane("LayoutViewer");
   if (layoutViewerPane.IsOk())
