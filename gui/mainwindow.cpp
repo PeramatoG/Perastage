@@ -103,128 +103,62 @@ using json = nlohmann::json;
 #define pclose _pclose
 #endif
 
-MainWindow *MainWindow::s_instance = nullptr;
 wxDEFINE_EVENT(EVT_PROJECT_LOADED, wxCommandEvent);
 
 MainWindow *MainWindow::Instance() { return s_instance; }
 
 void MainWindow::SetInstance(MainWindow *inst) { s_instance = inst; }
 
-wxBEGIN_EVENT_TABLE(MainWindow, wxFrame) EVT_MENU(
-    ID_File_New,
-    MainWindow::
-        OnNew) EVT_MENU(ID_File_Load,
-                        MainWindow::
-                            OnLoad) EVT_MENU(ID_File_Save,
-                                             MainWindow::
-                                                 OnSave) EVT_MENU(ID_File_SaveAs,
-                                                                  MainWindow::
-                                                                      OnSaveAs)
-    EVT_MENU(ID_File_ImportRider, MainWindow::OnImportRider) EVT_MENU(
-        ID_File_ImportMVR,
-        MainWindow::
-            OnImportMVR) EVT_MENU(ID_File_ExportMVR,
-                                  MainWindow::
-                                      OnExportMVR)
-    EVT_MENU(ID_File_PrintViewer2D, MainWindow::OnPrintViewer2D)
-        EVT_MENU(ID_File_PrintTable, MainWindow::OnPrintTable) EVT_MENU(
-            ID_File_ExportCSV, MainWindow::OnExportCSV) EVT_MENU(
-            ID_File_Close,
-            MainWindow::
-                OnClose) EVT_CLOSE(MainWindow::
-                                       OnCloseWindow) EVT_MENU(ID_Edit_Undo,
-                                                               MainWindow::
-                                                                   OnUndo)
-            EVT_MENU(ID_Edit_Redo, MainWindow::OnRedo) EVT_MENU(
-                ID_Edit_AddFixture,
-                MainWindow::
-                    OnAddFixture) EVT_MENU(ID_Edit_AddTruss,
-                                           MainWindow::
-                                               OnAddTruss) EVT_MENU(ID_Edit_AddSceneObject,
-                                                                    MainWindow::
-                                                                        OnAddSceneObject)
-                EVT_MENU(ID_Edit_Delete, MainWindow::OnDelete) EVT_MENU(
-                    ID_View_ToggleConsole,
-                    MainWindow::
-                        OnToggleConsole) EVT_MENU(ID_View_ToggleFixtures,
-                                                  MainWindow::OnToggleFixtures)
-                    EVT_MENU(ID_View_ToggleViewport, MainWindow::OnToggleViewport) EVT_MENU(
-                        ID_View_ToggleViewport2D,
-                        MainWindow::
-                            OnToggleViewport2D) EVT_MENU(ID_View_ToggleRender2D,
-                                                         MainWindow::
-                                                             OnToggleRender2D)
-                        EVT_MENU(ID_View_ToggleLayers, MainWindow::OnToggleLayers) EVT_MENU(
-                            ID_View_ToggleLayouts, MainWindow::OnToggleLayouts) EVT_MENU(
-                            ID_View_ToggleSummary,
-                            MainWindow::
-                                OnToggleSummary) EVT_MENU(ID_View_ToggleRigging,
-                                                          MainWindow::OnToggleRigging) EVT_MENU(
-                            ID_View_Layout_Default,
-                                                      MainWindow::
-                                                          OnApplyDefaultLayout)
-                            EVT_MENU(
-                                ID_View_Layout_2D,
-                                MainWindow::
-                                    OnApply2DLayout)
-                                EVT_MENU(
-                                    ID_View_Layout_Mode,
-                                    MainWindow::
-                                        OnApplyLayoutModeLayout)
-                                    EVT_MENU(ID_Tools_DownloadGdtf,
-                                                              MainWindow::
-                                                                  OnDownloadGdtf)
-                                EVT_MENU(ID_Tools_EditDictionaries,
-                                         MainWindow::OnEditDictionaries)
-                                EVT_MENU(
-                                    ID_Tools_ExportFixture,
-                                    MainWindow::
-                                        OnExportFixture) EVT_MENU(ID_Tools_ExportTruss,
-                                                                  MainWindow::
-                                                                      OnExportTruss)
-                                    EVT_MENU(
-                                        ID_Tools_ExportSceneObject,
-                                        MainWindow::
-                                      OnExportSceneObject) EVT_MENU(ID_Tools_AutoPatch,
-                                                                          MainWindow::
-                                                                              OnAutoPatch) EVT_MENU(ID_Tools_AutoColor,
-                                                                          MainWindow::
-                                                                              OnAutoColor) EVT_MENU(ID_Tools_ConvertToHoist,
-                                                                          MainWindow::
-                                                                              OnConvertToHoist)
-                                        EVT_MENU(ID_Tools_ImportRiderText,
-                                                 MainWindow::OnImportRiderText)
-                                        EVT_MENU(ID_Help_Help, MainWindow::OnShowHelp) EVT_MENU(
-                                            ID_Help_About, MainWindow::
-                                                               OnShowAbout)
-                                            EVT_MENU(ID_Select_Fixtures,
-                                                     MainWindow::
-                                                         OnSelectFixtures)
-                                                EVT_MENU(ID_Select_Trusses,
-                                                         MainWindow::
-                                                             OnSelectTrusses)
-                                                    EVT_MENU(ID_Select_Supports,
-                                                             MainWindow::
-                                                                 OnSelectSupports)
-                                                        EVT_MENU(
-                                                            ID_Select_Objects,
-                                                            MainWindow::
-                                                                OnSelectObjects)
-                                                        EVT_MENU(
-                                                            ID_Edit_Preferences,
-                                                            MainWindow::
-                                                                OnPreferences)
-                                                            EVT_COMMAND(
-                                                                wxID_ANY,
-                                                                EVT_PROJECT_LOADED,
-                                                                MainWindow::
-                                                                    OnProjectLoaded)
-                                                            EVT_COMMAND(
-                                                                wxID_ANY,
-                                                                EVT_LAYOUT_SELECTED,
-                                                                MainWindow::
-                                                                    OnLayoutSelected)
-                                                                wxEND_EVENT_TABLE()
+wxBEGIN_EVENT_TABLE(MainWindow, wxFrame)
+EVT_MENU(ID_File_New, MainWindow::OnNew)
+EVT_MENU(ID_File_Load, MainWindow::OnLoad)
+EVT_MENU(ID_File_Save, MainWindow::OnSave)
+EVT_MENU(ID_File_SaveAs, MainWindow::OnSaveAs)
+EVT_MENU(ID_File_ImportRider, MainWindow::OnImportRider)
+EVT_MENU(ID_File_ImportMVR, MainWindow::OnImportMVR)
+EVT_MENU(ID_File_ExportMVR, MainWindow::OnExportMVR)
+EVT_MENU(ID_File_PrintViewer2D, MainWindow::OnPrintViewer2D)
+EVT_MENU(ID_File_PrintTable, MainWindow::OnPrintTable)
+EVT_MENU(ID_File_ExportCSV, MainWindow::OnExportCSV)
+EVT_MENU(ID_File_Close, MainWindow::OnClose)
+EVT_CLOSE(MainWindow::OnCloseWindow)
+EVT_MENU(ID_Edit_Undo, MainWindow::OnUndo)
+EVT_MENU(ID_Edit_Redo, MainWindow::OnRedo)
+EVT_MENU(ID_Edit_AddFixture, MainWindow::OnAddFixture)
+EVT_MENU(ID_Edit_AddTruss, MainWindow::OnAddTruss)
+EVT_MENU(ID_Edit_AddSceneObject, MainWindow::OnAddSceneObject)
+EVT_MENU(ID_Edit_Delete, MainWindow::OnDelete)
+EVT_MENU(ID_View_ToggleConsole, MainWindow::OnToggleConsole)
+EVT_MENU(ID_View_ToggleFixtures, MainWindow::OnToggleFixtures)
+EVT_MENU(ID_View_ToggleViewport, MainWindow::OnToggleViewport)
+EVT_MENU(ID_View_ToggleViewport2D, MainWindow::OnToggleViewport2D)
+EVT_MENU(ID_View_ToggleRender2D, MainWindow::OnToggleRender2D)
+EVT_MENU(ID_View_ToggleLayers, MainWindow::OnToggleLayers)
+EVT_MENU(ID_View_ToggleLayouts, MainWindow::OnToggleLayouts)
+EVT_MENU(ID_View_ToggleSummary, MainWindow::OnToggleSummary)
+EVT_MENU(ID_View_ToggleRigging, MainWindow::OnToggleRigging)
+EVT_MENU(ID_View_Layout_Default, MainWindow::OnApplyDefaultLayout)
+EVT_MENU(ID_View_Layout_2D, MainWindow::OnApply2DLayout)
+EVT_MENU(ID_View_Layout_Mode, MainWindow::OnApplyLayoutModeLayout)
+EVT_MENU(ID_Tools_DownloadGdtf, MainWindow::OnDownloadGdtf)
+EVT_MENU(ID_Tools_EditDictionaries, MainWindow::OnEditDictionaries)
+EVT_MENU(ID_Tools_ExportFixture, MainWindow::OnExportFixture)
+EVT_MENU(ID_Tools_ExportTruss, MainWindow::OnExportTruss)
+EVT_MENU(ID_Tools_ExportSceneObject, MainWindow::OnExportSceneObject)
+EVT_MENU(ID_Tools_AutoPatch, MainWindow::OnAutoPatch)
+EVT_MENU(ID_Tools_AutoColor, MainWindow::OnAutoColor)
+EVT_MENU(ID_Tools_ConvertToHoist, MainWindow::OnConvertToHoist)
+EVT_MENU(ID_Tools_ImportRiderText, MainWindow::OnImportRiderText)
+EVT_MENU(ID_Help_Help, MainWindow::OnShowHelp)
+EVT_MENU(ID_Help_About, MainWindow::OnShowAbout)
+EVT_MENU(ID_Select_Fixtures, MainWindow::OnSelectFixtures)
+EVT_MENU(ID_Select_Trusses, MainWindow::OnSelectTrusses)
+EVT_MENU(ID_Select_Supports, MainWindow::OnSelectSupports)
+EVT_MENU(ID_Select_Objects, MainWindow::OnSelectObjects)
+EVT_MENU(ID_Edit_Preferences, MainWindow::OnPreferences)
+EVT_COMMAND(wxID_ANY, EVT_PROJECT_LOADED, MainWindow::OnProjectLoaded)
+EVT_COMMAND(wxID_ANY, EVT_LAYOUT_SELECTED, MainWindow::OnLayoutSelected)
+wxEND_EVENT_TABLE()
 
                                                                     MainWindow::
                                                                         MainWindow(

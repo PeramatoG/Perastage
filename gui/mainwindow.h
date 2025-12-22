@@ -152,7 +152,7 @@ private:
   std::string layoutModePerspective;
   bool layoutModeActive = false;
 
-  static MainWindow *s_instance;
+  inline static MainWindow *s_instance = nullptr;
   wxDECLARE_EVENT_TABLE();
 };
 
