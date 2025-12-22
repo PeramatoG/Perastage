@@ -72,6 +72,18 @@ bool LayoutCollection::SetLayoutOrientation(const std::string &name,
   return false;
 }
 
+bool LayoutCollection::UpdateLayout2DViewState(const std::string &name,
+                                               const Layout2DViewState &state) {
+  for (auto &layout : layouts) {
+    if (layout.name == name) {
+      layout.view2dState = state;
+      layout.hasView2dState = true;
+      return true;
+    }
+  }
+  return false;
+}
+
 void LayoutCollection::ReplaceAll(std::vector<LayoutDefinition> updated) {
   if (updated.empty()) {
     layouts = {DefaultLayout()};
@@ -85,6 +97,7 @@ LayoutDefinition LayoutCollection::DefaultLayout() {
   layout.name = "Layout 1";
   layout.pageSetup.pageSize = print::PageSize::A4;
   layout.pageSetup.landscape = false;
+  layout.hasView2dState = false;
   return layout;
 }
 

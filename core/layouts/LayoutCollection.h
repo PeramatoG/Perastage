@@ -17,6 +17,7 @@
  */
 #pragma once
 
+#include <array>
 #include <string>
 #include <vector>
 
@@ -24,9 +25,43 @@
 
 namespace layouts {
 
+struct Layout2DViewState {
+  float offsetPixelsX = 0.0f;
+  float offsetPixelsY = 0.0f;
+  float zoom = 1.0f;
+  int viewportWidth = 0;
+  int viewportHeight = 0;
+  int view = 0;
+
+  int renderMode = 2;
+  bool darkMode = true;
+  bool showGrid = true;
+  int gridStyle = 0;
+  float gridColorR = 0.35f;
+  float gridColorG = 0.35f;
+  float gridColorB = 0.35f;
+  bool gridDrawAbove = false;
+
+  std::array<bool, 3> showLabelName = {true, true, true};
+  std::array<bool, 3> showLabelId = {true, true, true};
+  std::array<bool, 3> showLabelDmx = {true, true, true};
+  float labelFontSizeName = 3.0f;
+  float labelFontSizeId = 2.0f;
+  float labelFontSizeDmx = 4.0f;
+  std::array<float, 3> labelOffsetDistance = {0.5f, 0.5f, 0.5f};
+  std::array<float, 3> labelOffsetAngle = {180.0f, 180.0f, 180.0f};
+
+  std::vector<std::string> hiddenLayers;
+
+  int frameWidth = 0;
+  int frameHeight = 0;
+};
+
 struct LayoutDefinition {
   std::string name;
   print::PageSetup pageSetup;
+  Layout2DViewState view2dState;
+  bool hasView2dState = false;
 };
 
 class LayoutCollection {
@@ -41,6 +76,8 @@ public:
                     const std::string &newName);
   bool RemoveLayout(const std::string &name);
   bool SetLayoutOrientation(const std::string &name, bool landscape);
+  bool UpdateLayout2DViewState(const std::string &name,
+                               const Layout2DViewState &state);
 
   void ReplaceAll(std::vector<LayoutDefinition> layouts);
 
