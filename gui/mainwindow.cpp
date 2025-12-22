@@ -344,7 +344,8 @@ void MainWindow::SetupLayout() {
                                        .Right()
                                        .Row(0)
                                        .Position(1)
-                                       .BestSize(200, 260)
+                                       .BestSize(260, 260)
+                                       .MinSize(wxSize(240, 200))
                                        .CloseButton(true)
                                        .MaximizeButton(true)
                                        .PaneBorder(true));
@@ -1878,6 +1879,14 @@ void MainWindow::ApplyLayoutModePerspective() {
 
   if (!layoutModePerspective.empty())
     auiManager->LoadPerspective(layoutModePerspective, true);
+
+  auto &layoutPane = auiManager->GetPane("LayoutPanel");
+  if (layoutPane.IsOk())
+    layoutPane.Left();
+
+  auto &layoutViewerPane = auiManager->GetPane("LayoutViewer");
+  if (layoutViewerPane.IsOk())
+    layoutViewerPane.Right();
 
   auto showPane = [this](const char *name) {
     auto &pane = auiManager->GetPane(name);
