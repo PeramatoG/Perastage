@@ -1880,13 +1880,16 @@ void MainWindow::ApplyLayoutModePerspective() {
   if (!layoutModePerspective.empty())
     auiManager->LoadPerspective(layoutModePerspective, true);
 
+  const int clientWidth = GetClientSize().GetWidth();
+  const int layoutPanelWidth = std::max(480, clientWidth / 3);
   auto &layoutPane = auiManager->GetPane("LayoutPanel");
   if (layoutPane.IsOk())
-    layoutPane.Left();
+    layoutPane.Left().BestSize(layoutPanelWidth, 600).MinSize(
+        wxSize(std::max(360, layoutPanelWidth - 120), 300));
 
   auto &layoutViewerPane = auiManager->GetPane("LayoutViewer");
   if (layoutViewerPane.IsOk())
-    layoutViewerPane.Right();
+    layoutViewerPane.Center().MinSize(wxSize(400, 300));
 
   auto showPane = [this](const char *name) {
     auto &pane = auiManager->GetPane(name);
