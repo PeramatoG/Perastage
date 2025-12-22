@@ -165,7 +165,12 @@ wxBEGIN_EVENT_TABLE(MainWindow, wxFrame) EVT_MENU(
                             EVT_MENU(
                                 ID_View_Layout_2D,
                                 MainWindow::
-                                    OnApply2DLayout) EVT_MENU(ID_Tools_DownloadGdtf,
+                                    OnApply2DLayout)
+                                EVT_MENU(
+                                    ID_View_Layout_Mode,
+                                    MainWindow::
+                                        OnApplyLayoutModeLayout)
+                                    EVT_MENU(ID_Tools_DownloadGdtf,
                                                               MainWindow::
                                                                   OnDownloadGdtf)
                                 EVT_MENU(ID_Tools_EditDictionaries,
@@ -538,6 +543,7 @@ void MainWindow::CreateMenuBar() {
   wxMenu *layoutMenu = new wxMenu();
   layoutMenu->Append(ID_View_Layout_Default, "3D Layout View");
   layoutMenu->Append(ID_View_Layout_2D, "2D Layout View");
+  layoutMenu->Append(ID_View_Layout_Mode, "Layout Mode View");
   viewMenu->AppendSubMenu(layoutMenu, "Layout Views");
 
   menuBar->Append(viewMenu, "&View");
@@ -1704,6 +1710,10 @@ void MainWindow::OnApply2DLayout(wxCommandEvent &WXUNUSED(event)) {
   UpdateViewMenuChecks();
 }
 
+void MainWindow::OnApplyLayoutModeLayout(wxCommandEvent &WXUNUSED(event)) {
+  ApplyLayoutModePerspective();
+}
+
 bool MainWindow::LoadProjectFromPath(const std::string &path) {
   if (!ConfigManager::Get().LoadProject(path))
     return false;
@@ -1856,6 +1866,50 @@ void MainWindow::ApplySavedLayout() {
     UpdateViewMenuChecks();
 }
 
+void MainWindow::ApplyLayoutModePerspective() {
+  if (!auiManager)
+    return;
+
+  ConfigManager &cfg = ConfigManager::Get();
+  if (layoutModePerspective.empty()) {
+    if (auto val = cfg.GetValue("layout_layout_mode"))
+      layoutModePerspective = *val;
+  }
+
+  if (!layoutModePerspective.empty())
+    auiManager->LoadPerspective(layoutModePerspective, true);
+
+  auto showPane = [this](const char *name) {
+    auto &pane = auiManager->GetPane(name);
+    if (pane.IsOk())
+      pane.Show();
+  };
+  auto hidePane = [this](const char *name) {
+    auto &pane = auiManager->GetPane(name);
+    if (pane.IsOk())
+      pane.Hide();
+  };
+
+  showPane("LayoutPanel");
+  showPane("LayoutViewer");
+
+  hidePane("3DViewport");
+  hidePane("2DViewport");
+  hidePane("2DRenderOptions");
+  hidePane("DataNotebook");
+  hidePane("Console");
+  hidePane("LayerPanel");
+  hidePane("SummaryPanel");
+  hidePane("RiggingPanel");
+
+  auiManager->Update();
+
+  layoutModePerspective = auiManager->SavePerspective().ToStdString();
+  cfg.SetValue("layout_layout_mode", layoutModePerspective);
+  cfg.SetValue("layout_perspective", layoutModePerspective);
+  UpdateViewMenuChecks();
+}
+
 void MainWindow::UpdateViewMenuChecks() {
   if (!auiManager || !GetMenuBar())
     return;
@@ -1915,16 +1969,7 @@ void MainWindow::ActivateLayoutView(const std::string &layoutName) {
     }
   }
 
-  Ensure2DViewport();
-  auiManager->LoadPerspective(default2DLayoutPerspective, true);
-  auto &layoutViewerPane = auiManager->GetPane("LayoutViewer");
-  if (layoutViewerPane.IsOk())
-    layoutViewerPane.Show();
-  auiManager->Update();
-
-  ConfigManager::Get().SetValue("layout_perspective",
-                                default2DLayoutPerspective);
-  UpdateViewMenuChecks();
+  ApplyLayoutModePerspective();
 }
 
 void MainWindow::SyncSceneData() {
