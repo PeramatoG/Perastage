@@ -148,6 +148,7 @@ private:
   std::string defaultLayoutPerspective;
   std::string default2DLayoutPerspective;
   std::string layoutModePerspective;
+  bool layoutModeActive = false;
 
   static MainWindow *s_instance;
   wxDECLARE_EVENT_TABLE();
