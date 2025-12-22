@@ -1900,10 +1900,6 @@ void Viewer3DController::DrawWireframeBox(
                                                  {x0, y1, z0}, {x1, y1, z0},
                                                  {x0, y0, z1}, {x1, y0, z1},
                                                  {x0, y1, z1}, {x1, y1, z1}};
-      if (captureTransform) {
-        for (auto &p : verts)
-          p = captureTransform(p);
-      }
       const int edges[12][2] = {{0, 1}, {2, 3}, {4, 5}, {6, 7}, {0, 2},
                                 {1, 3}, {4, 6}, {5, 7}, {0, 4}, {1, 5},
                                 {2, 6}, {3, 7}};
@@ -2074,11 +2070,11 @@ void Viewer3DController::DrawMeshWithOutline(
     CanvasStroke stroke;
     stroke.color = {0.0f, 0.0f, 0.0f, 1.0f};
     stroke.width = lineWidth;
-    const bool shouldCullCapture =
-        m_captureCanvas && (m_captureOnly || m_captureCullHidden);
-    std::vector<std::vector<std::array<float, 3>>> polygons;
-    std::vector<bool> visible;
-    if (shouldCullCapture) {
+    DrawMeshWireframe(mesh, scale, captureTransform);
+    if (m_captureCanvas && mode != Viewer2DRenderMode::Wireframe) {
+      CanvasFill fill;
+      fill.color = {r, g, b, 1.0f};
+      std::vector<std::vector<std::array<float, 3>>> polygons;
       polygons.reserve(mesh.indices.size() / 3);
       for (size_t i = 0; i + 2 < mesh.indices.size(); i += 3) {
         unsigned short i0 = mesh.indices[i];
@@ -2097,55 +2093,7 @@ void Viewer3DController::DrawMeshWithOutline(
         }
         polygons.push_back(std::move(pts));
       }
-      visible = CullHiddenPolygons(polygons);
-    }
-
-    DrawMeshWireframe(mesh, scale, captureTransform, !shouldCullCapture);
-
-    if (m_captureCanvas) {
-      if (shouldCullCapture) {
-        for (size_t i = 0; i < polygons.size(); ++i) {
-          if (i < visible.size() && !visible[i])
-            continue;
-          const auto &tri = polygons[i];
-          if (tri.size() < 3)
-            continue;
-          RecordLine(tri[0], tri[1], stroke);
-          RecordLine(tri[1], tri[2], stroke);
-          RecordLine(tri[2], tri[0], stroke);
-        }
-        if (mode != Viewer2DRenderMode::Wireframe) {
-          CanvasFill fill;
-          fill.color = {r, g, b, 1.0f};
-          for (size_t i = 0; i < polygons.size(); ++i) {
-            if (i < visible.size() && !visible[i])
-              continue;
-            RecordPolygon(polygons[i], stroke, &fill);
-          }
-        }
-      } else if (mode != Viewer2DRenderMode::Wireframe) {
-        CanvasFill fill;
-        fill.color = {r, g, b, 1.0f};
-        polygons.reserve(mesh.indices.size() / 3);
-        for (size_t i = 0; i + 2 < mesh.indices.size(); i += 3) {
-          unsigned short i0 = mesh.indices[i];
-          unsigned short i1 = mesh.indices[i + 1];
-          unsigned short i2 = mesh.indices[i + 2];
-          std::vector<std::array<float, 3>> pts = {
-              {mesh.vertices[i0 * 3] * scale, mesh.vertices[i0 * 3 + 1] * scale,
-               mesh.vertices[i0 * 3 + 2] * scale},
-              {mesh.vertices[i1 * 3] * scale, mesh.vertices[i1 * 3 + 1] * scale,
-               mesh.vertices[i1 * 3 + 2] * scale},
-              {mesh.vertices[i2 * 3] * scale, mesh.vertices[i2 * 3 + 1] * scale,
-               mesh.vertices[i2 * 3 + 2] * scale}};
-          if (captureTransform) {
-            for (auto &p : pts)
-              p = captureTransform(p);
-          }
-          polygons.push_back(std::move(pts));
-        }
-        RecordPolygonsWithOptionalCull(polygons, stroke, &fill);
-      }
+      RecordPolygonsWithOptionalCull(polygons, stroke, &fill);
     }
     if (!m_captureOnly) {
       glLineWidth(1.0f);
@@ -2204,8 +2152,7 @@ void Viewer3DController::DrawMeshWithOutline(
 void Viewer3DController::DrawMeshWireframe(
     const Mesh &mesh, float scale,
     const std::function<std::array<float, 3>(const std::array<float, 3> &)> &
-        captureTransform,
-    bool captureLines) {
+        captureTransform) {
   if (!m_captureOnly) {
     glBegin(GL_LINES);
     for (size_t i = 0; i + 2 < mesh.indices.size(); i += 3) {
@@ -2236,7 +2183,7 @@ void Viewer3DController::DrawMeshWireframe(
     }
     glEnd();
   }
-  if (m_captureCanvas && captureLines) {
+  if (m_captureCanvas) {
     CanvasStroke stroke;
     stroke.color = {0.0f, 0.0f, 0.0f, 1.0f};
     stroke.width = 1.0f;
