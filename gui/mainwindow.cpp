@@ -1854,15 +1854,6 @@ void MainWindow::ApplySavedLayout() {
     if (view2dPane.IsOk())
         view2dPane.MinSize(wxSize(250, 600));
 
-    // Ensure always-visible panels
-    auto& summaryPane = auiManager->GetPane("SummaryPanel");
-    if (summaryPane.IsOk() && !summaryPane.IsShown())
-        summaryPane.Show();
-
-    auto& riggingPane = auiManager->GetPane("RiggingPanel");
-    if (riggingPane.IsOk() && !riggingPane.IsShown())
-        riggingPane.Show();
-
     auiManager->Update();
     UpdateViewMenuChecks();
 }
