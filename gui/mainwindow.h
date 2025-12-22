@@ -79,6 +79,7 @@ private:
   SummaryPanel *summaryPanel = nullptr;
   RiggingPanel *riggingPanel = nullptr;
   wxAuiToolBar *fileToolBar = nullptr;
+  wxAuiToolBar *layoutToolBar = nullptr;
 
   wxAcceleratorTable m_accel;
 
@@ -135,6 +136,7 @@ private:
   void OnAddTruss(wxCommandEvent &event);       // Add truss from library
   void OnAddSceneObject(wxCommandEvent &event); // Add generic scene object
   void OnDelete(wxCommandEvent &event);         // Delete selected items
+  void OnLayout2DView(wxCommandEvent &event);   // Layout 2D view placeholder
 
   void OnPaneClose(wxAuiManagerEvent &event); // Keep View menu in sync
 
@@ -181,6 +183,7 @@ enum {
   ID_View_Layout_Default,
   ID_View_Layout_2D,
   ID_View_Layout_Mode,
+  ID_View_Layout_2DView,
   ID_Tools_DownloadGdtf,
   ID_Tools_EditDictionaries,
   ID_Tools_ImportRiderText,

@@ -154,6 +154,7 @@ EVT_MENU(ID_View_ToggleRigging, MainWindow::OnToggleRigging)
 EVT_MENU(ID_View_Layout_Default, MainWindow::OnApplyDefaultLayout)
 EVT_MENU(ID_View_Layout_2D, MainWindow::OnApply2DLayout)
 EVT_MENU(ID_View_Layout_Mode, MainWindow::OnApplyLayoutModeLayout)
+EVT_MENU(ID_View_Layout_2DView, MainWindow::OnLayout2DView)
 EVT_MENU(ID_Tools_DownloadGdtf, MainWindow::OnDownloadGdtf)
 EVT_MENU(ID_Tools_EditDictionaries, MainWindow::OnEditDictionaries)
 EVT_MENU(ID_Tools_ExportFixture, MainWindow::OnExportFixture)
@@ -415,6 +416,26 @@ void MainWindow::CreateToolBars() {
                        .RightDockable(false)
                        .Row(0)
                        .Position(0));
+
+  layoutToolBar = new wxAuiToolBar(this, wxID_ANY, wxDefaultPosition,
+                                   wxDefaultSize,
+                                   wxAUI_TB_DEFAULT_STYLE | wxAUI_TB_HORIZONTAL);
+  layoutToolBar->SetToolBitmapSize(wxSize(24, 24));
+  layoutToolBar->AddTool(ID_View_Layout_2DView, "Vista 2D",
+                         loadToolbarIcon("panel-top-bottom-dashed",
+                                         wxART_MISSING_IMAGE),
+                         "Vista 2D en layout");
+  layoutToolBar->Realize();
+  auiManager->AddPane(
+      layoutToolBar, wxAuiPaneInfo()
+                         .Name("LayoutToolbar")
+                         .Caption("Layout")
+                         .ToolbarPane()
+                         .Top()
+                         .LeftDockable(false)
+                         .RightDockable(false)
+                         .Row(1)
+                         .Position(0));
 }
 
 void MainWindow::Ensure3DViewport() {
@@ -1706,6 +1727,12 @@ void MainWindow::OnApplyDefaultLayout(wxCommandEvent &WXUNUSED(event)) {
   auto &layoutViewerPane = auiManager->GetPane("LayoutViewer");
   if (layoutViewerPane.IsOk())
     layoutViewerPane.Hide();
+  auto &layoutToolbarPane = auiManager->GetPane("LayoutToolbar");
+  if (layoutToolbarPane.IsOk())
+    layoutToolbarPane.Hide();
+  auto &fileToolbarPane = auiManager->GetPane("FileToolbar");
+  if (fileToolbarPane.IsOk())
+    fileToolbarPane.Show();
   auiManager->Update();
 
   cfg.SetValue("layout_perspective", perspective);
@@ -1724,6 +1751,12 @@ void MainWindow::OnApply2DLayout(wxCommandEvent &WXUNUSED(event)) {
   auto &layoutViewerPane = auiManager->GetPane("LayoutViewer");
   if (layoutViewerPane.IsOk())
     layoutViewerPane.Hide();
+  auto &layoutToolbarPane = auiManager->GetPane("LayoutToolbar");
+  if (layoutToolbarPane.IsOk())
+    layoutToolbarPane.Hide();
+  auto &fileToolbarPane = auiManager->GetPane("FileToolbar");
+  if (fileToolbarPane.IsOk())
+    fileToolbarPane.Show();
   auiManager->Update();
 
   ConfigManager &cfg = ConfigManager::Get();
@@ -1939,6 +1972,8 @@ void MainWindow::ApplyLayoutModePerspective() {
 
   showPane("LayoutPanel");
   showPane("LayoutViewer");
+  showPane("FileToolbar");
+  showPane("LayoutToolbar");
 
   hidePane("3DViewport");
   hidePane("2DViewport");
@@ -1957,6 +1992,8 @@ void MainWindow::ApplyLayoutModePerspective() {
   layoutModeActive = true;
   UpdateViewMenuChecks();
 }
+
+void MainWindow::OnLayout2DView(wxCommandEvent &WXUNUSED(event)) {}
 
 void MainWindow::UpdateViewMenuChecks() {
   if (!auiManager || !GetMenuBar())

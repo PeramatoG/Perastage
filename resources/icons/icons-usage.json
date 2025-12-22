@@ -5,6 +5,7 @@
     "Save": "outline/save.svg",
     "Save As": "outline/save-all.svg",
     "Import MVR": "outline/file-input.svg",
-    "Export MVR": "outline/file-output.svg"
+    "Export MVR": "outline/file-output.svg",
+    "Layout 2D View": "outline/panel-top-bottom-dashed.svg"
   }
 }
