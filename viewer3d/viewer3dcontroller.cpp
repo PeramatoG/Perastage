@@ -38,6 +38,7 @@
 #include "configmanager.h"
 #include "loader3ds.h"
 #include "loaderglb.h"
+#include "layouts/LayoutCollection.h"
 #include "scenedatamanager.h"
 #include "viewer3dcontroller.h"
 // Include shared Matrix type used throughout models
@@ -961,7 +962,7 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
   for (const auto *entry : sortedObjs) {
     const auto &uuid = entry->first;
     const auto &m = entry->second;
-    if (!ConfigManager::Get().IsLayerVisible(m.layer))
+    if (!IsLayerVisible(m.layer))
       continue;
     glPushMatrix();
 
@@ -1127,7 +1128,7 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
   for (const auto *entry : sortedTrusses) {
     const auto &uuid = entry->first;
     const auto &t = entry->second;
-    if (!ConfigManager::Get().IsLayerVisible(t.layer))
+    if (!IsLayerVisible(t.layer))
       continue;
     glPushMatrix();
 
@@ -1307,7 +1308,7 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
   for (const auto *entry : sortedFixtures) {
     const auto &uuid = entry->first;
     const auto &f = entry->second;
-    if (!ConfigManager::Get().IsLayerVisible(f.layer))
+    if (!IsLayerVisible(f.layer))
       continue;
     glPushMatrix();
 
@@ -2286,7 +2287,7 @@ void Viewer3DController::DrawFixtureLabels(int width, int height) {
 
   const auto &fixtures = SceneDataManager::Instance().GetFixtures();
   for (const auto &[uuid, f] : fixtures) {
-    if (!cfg.IsLayerVisible(f.layer))
+    if (!IsLayerVisible(f.layer))
       continue;
     if (uuid != m_highlightUuid)
       continue;
@@ -2407,7 +2408,7 @@ void Viewer3DController::DrawAllFixtureLabels(int width, int height,
 
   const auto &fixtures = SceneDataManager::Instance().GetFixtures();
   for (const auto &[uuid, f] : fixtures) {
-    if (!cfg.IsLayerVisible(f.layer))
+    if (!IsLayerVisible(f.layer))
       continue;
 
     double wx, wy, wz;
@@ -2590,6 +2591,219 @@ void Viewer3DController::DrawAllFixtureLabels(int width, int height,
   }
 }
 
+void Viewer3DController::DrawAllFixtureLabels(
+    int width, int height, float zoom, Viewer2DView view,
+    const layouts::Layout2DViewRenderOptions &options) {
+  double model[16];
+  double proj[16];
+  int viewport[4];
+  glGetDoublev(GL_MODELVIEW_MATRIX, model);
+  glGetDoublev(GL_PROJECTION_MATRIX, proj);
+  glGetIntegerv(GL_VIEWPORT, viewport);
+
+  const std::array<int, 4> viewLookup = {0, 1, 2, 0};
+  int viewIdx = viewLookup[static_cast<int>(view)];
+  bool showName = options.showLabelName[viewIdx];
+  bool showId = options.showLabelId[viewIdx];
+  bool showDmx = options.showLabelDmx[viewIdx];
+  float nameSize = options.labelFontSizeName * zoom;
+  float idSize = options.labelFontSizeId * zoom;
+  float dmxSize = options.labelFontSizeDmx * zoom;
+  float labelDist = options.labelOffsetDistance[viewIdx];
+  float labelAngle = options.labelOffsetAngle[viewIdx];
+  constexpr float deg2rad = 3.14159265358979323846f / 180.0f;
+  float angRad = labelAngle * deg2rad;
+  float offX = 0.0f;
+  float offY = 0.0f;
+  float offZ = 0.0f;
+  switch (view) {
+  case Viewer2DView::Top:
+  case Viewer2DView::Bottom:
+    offX = labelDist * std::sin(angRad);
+    offY = labelDist * std::cos(angRad);
+    break;
+  case Viewer2DView::Front:
+    offX = labelDist * std::sin(angRad);
+    offZ = labelDist * std::cos(angRad);
+    break;
+  case Viewer2DView::Side:
+    offY = -labelDist * std::sin(angRad);
+    offZ = labelDist * std::cos(angRad);
+    break;
+  }
+
+  const auto &fixtures = SceneDataManager::Instance().GetFixtures();
+  for (const auto &[uuid, f] : fixtures) {
+    if (!IsLayerVisible(f.layer))
+      continue;
+
+    double wx, wy, wz;
+    auto bit = m_fixtureBounds.find(uuid);
+    if (bit != m_fixtureBounds.end()) {
+      const BoundingBox &bb = bit->second;
+      double cx = (bb.min[0] + bb.max[0]) * 0.5;
+      double cy = (bb.min[1] + bb.max[1]) * 0.5;
+      double cz = (bb.min[2] + bb.max[2]) * 0.5;
+
+      // Anchor label offsets from the top of the fixture relative to the active
+      // view so the distance matches the PDF output expectation. Top view uses
+      // +Y as "up" while front/side views share +Z.
+      switch (view) {
+      case Viewer2DView::Top:
+      case Viewer2DView::Bottom:
+        cy = bb.max[1];
+        break;
+      case Viewer2DView::Front:
+      case Viewer2DView::Side:
+        cz = bb.max[2];
+        break;
+      }
+
+      wx = cx + offX;
+      wy = cy + offY;
+      wz = cz + offZ;
+    } else {
+      double cx = f.transform.o[0] * RENDER_SCALE;
+      double cy = f.transform.o[1] * RENDER_SCALE;
+      double cz = f.transform.o[2] * RENDER_SCALE;
+      wx = cx + offX;
+      wy = cy + offY;
+      wz = cz + offZ;
+    }
+
+    double sx, sy, sz;
+    if (gluProject(wx, wy, wz, model, proj, viewport, &sx, &sy, &sz) != GL_TRUE)
+      continue;
+
+    int x = static_cast<int>(sx);
+    // Convert OpenGL's origin to top-left.
+    int y = height - static_cast<int>(sy);
+
+    std::vector<LabelLine2D> lines;
+    if (showName) {
+      wxString baseName = f.instanceName.empty()
+                              ? wxString::FromUTF8(uuid)
+                              : wxString::FromUTF8(f.instanceName);
+      wxString wrapped = WrapEveryTwoWords(baseName);
+      wxStringTokenizer nameLines(wrapped, "\n");
+      while (nameLines.HasMoreTokens()) {
+        wxString line = nameLines.GetNextToken();
+        auto utf8 = line.ToUTF8();
+        lines.push_back(
+            {m_font, std::string(utf8.data(), utf8.length()), nameSize});
+      }
+    }
+    if (showId) {
+      wxString idLine = "ID: " + wxString::Format("%d", f.fixtureId);
+      auto utf8 = idLine.ToUTF8();
+      lines.push_back(
+          {m_font, std::string(utf8.data(), utf8.length()), idSize});
+    }
+    if (showDmx && !f.address.empty()) {
+      wxString addrLine = wxString::FromUTF8(f.address);
+      auto utf8 = addrLine.ToUTF8();
+      lines.push_back(
+          {m_font, std::string(utf8.data(), utf8.length()), dmxSize});
+    }
+    if (lines.empty())
+      continue;
+
+    if (m_captureCanvas) {
+      std::string labelSourceKey = "label:" + uuid;
+      m_captureCanvas->SetSourceKey(labelSourceKey);
+
+      const float pxToWorld = 1.0f / (PIXELS_PER_METER * zoom);
+      const float lineSpacingWorld = 2.0f * pxToWorld;
+
+      std::vector<float> worldFontSizes;
+      std::vector<float> lineHeightsWorld;
+      std::vector<float> ascentsWorld;
+      std::vector<float> descentsWorld;
+      worldFontSizes.reserve(lines.size());
+      lineHeightsWorld.reserve(lines.size());
+      ascentsWorld.reserve(lines.size());
+      descentsWorld.reserve(lines.size());
+
+      for (const auto &ln : lines) {
+        worldFontSizes.push_back(ln.size * pxToWorld);
+        nvgFontSize(m_vg, ln.size);
+        nvgFontFaceId(m_vg, m_font);
+        nvgTextAlign(m_vg, NVG_ALIGN_CENTER | NVG_ALIGN_TOP);
+        float bounds[4];
+        nvgTextBounds(m_vg, 0.f, 0.f, ln.text.c_str(), nullptr, bounds);
+        lineHeightsWorld.push_back((bounds[3] - bounds[1]) * pxToWorld);
+        float ascender = 0.0f;
+        float descender = 0.0f;
+        float lineh = 0.0f;
+        nvgTextMetrics(m_vg, &ascender, &descender, &lineh);
+        ascentsWorld.push_back(ascender * pxToWorld);
+        descentsWorld.push_back(-descender * pxToWorld);
+      }
+
+      float totalHeight = 0.0f;
+      for (size_t i = 0; i < lineHeightsWorld.size(); ++i) {
+        totalHeight += lineHeightsWorld[i];
+        if (i + 1 < lineHeightsWorld.size())
+          totalHeight += lineSpacingWorld;
+      }
+
+      auto toPlan2D = [](double wx, double wy, double wz, Viewer2DView view) {
+        switch (view) {
+        case Viewer2DView::Top:
+        case Viewer2DView::Bottom:
+          return std::array<float, 2>{static_cast<float>(wx),
+                                      static_cast<float>(wy)};
+        case Viewer2DView::Front:
+          return std::array<float, 2>{static_cast<float>(wx),
+                                      static_cast<float>(wz)};
+        case Viewer2DView::Side:
+          return std::array<float, 2>{static_cast<float>(-wy),
+                                      static_cast<float>(wz)};
+        }
+        return std::array<float, 2>{static_cast<float>(wx),
+                                    static_cast<float>(wy)};
+      };
+
+      auto anchor = toPlan2D(wx, wy, wz, view);
+      float currentY = anchor[1] + totalHeight * 0.5f;
+      for (size_t i = 0; i < lines.size(); ++i) {
+        CanvasTextStyle style;
+        style.fontFamily = "sans";
+        style.fontSize = worldFontSizes[i];
+        style.ascent = ascentsWorld[i];
+        style.descent = descentsWorld[i];
+        style.lineHeight = lineHeightsWorld[i];
+        style.extraLineSpacing = lineSpacingWorld;
+        style.color = {0.0f, 0.0f, 0.0f, 1.0f};
+        style.outlineColor = {1.0f, 1.0f, 1.0f, 1.0f};
+        style.outlineWidth = pxToWorld * 0.5f;
+        style.hAlign = CanvasTextStyle::HorizontalAlign::Center;
+        style.vAlign = CanvasTextStyle::VerticalAlign::Baseline;
+        float baseline = currentY - style.ascent;
+        if (ShouldTraceLabelOrder()) {
+          std::ostringstream trace;
+          trace << "[label-capture] fixture=" << uuid << " source="
+                << labelSourceKey << " text=\"" << lines[i].text << "\" x="
+                << anchor[0] << " baseline=" << baseline
+                << " size=" << style.fontSize << " vAlign=Baseline";
+          Logger::Instance().Log(trace.str());
+        }
+        RecordText(anchor[0], baseline, lines[i].text, style);
+        if (i + 1 < lines.size())
+          currentY -= lineHeightsWorld[i] + lineSpacingWorld;
+      }
+    }
+
+    NVGcolor textColor =
+        m_darkMode ? nvgRGBAf(1.f, 1.f, 1.f, 1.f)
+                   : nvgRGBAf(0.f, 0.f, 0.f, 1.f);
+    NVGcolor outlineColor =
+        m_darkMode ? nvgRGBAf(0.f, 0.f, 0.f, 1.f)
+                   : nvgRGBAf(1.f, 1.f, 1.f, 1.f);
+    DrawLabelLines2D(m_vg, lines, x, y, textColor, outlineColor, true);
+  }
+}
+
 bool Viewer3DController::GetFixtureLabelAt(int mouseX, int mouseY, int width,
                                            int height, wxString &outLabel,
                                            wxPoint &outPos,
@@ -2614,7 +2828,7 @@ bool Viewer3DController::GetFixtureLabelAt(int mouseX, int mouseY, int width,
   std::string bestUuid;
 
   for (const auto &[uuid, f] : fixtures) {
-    if (!cfg.IsLayerVisible(f.layer))
+    if (!IsLayerVisible(f.layer))
       continue;
     auto bit = m_fixtureBounds.find(uuid);
     if (bit == m_fixtureBounds.end())
@@ -2702,7 +2916,7 @@ void Viewer3DController::DrawTrussLabels(int width, int height) {
 
   const auto &trusses = SceneDataManager::Instance().GetTrusses();
   for (const auto &[uuid, t] : trusses) {
-    if (!ConfigManager::Get().IsLayerVisible(t.layer))
+    if (!IsLayerVisible(t.layer))
       continue;
     if (uuid != m_highlightUuid)
       continue;
@@ -2750,7 +2964,7 @@ void Viewer3DController::DrawSceneObjectLabels(int width, int height) {
 
   const auto &objs = SceneDataManager::Instance().GetSceneObjects();
   for (const auto &[uuid, o] : objs) {
-    if (!ConfigManager::Get().IsLayerVisible(o.layer))
+    if (!IsLayerVisible(o.layer))
       continue;
     if (uuid != m_highlightUuid)
       continue;
@@ -2802,7 +3016,7 @@ bool Viewer3DController::GetTrussLabelAt(int mouseX, int mouseY, int width,
   wxPoint bestPos;
   std::string bestUuid;
   for (const auto &[uuid, t] : trusses) {
-    if (!ConfigManager::Get().IsLayerVisible(t.layer))
+    if (!IsLayerVisible(t.layer))
       continue;
     auto bit = m_trussBounds.find(uuid);
     if (bit == m_trussBounds.end())
@@ -2886,7 +3100,7 @@ bool Viewer3DController::GetSceneObjectLabelAt(int mouseX, int mouseY,
   wxPoint bestPos;
   std::string bestUuid;
   for (const auto &[uuid, o] : objs) {
-    if (!ConfigManager::Get().IsLayerVisible(o.layer))
+    if (!IsLayerVisible(o.layer))
       continue;
     auto bit = m_objectBounds.find(uuid);
     if (bit == m_objectBounds.end())
@@ -2955,6 +3169,22 @@ void Viewer3DController::SetLayerColor(const std::string &layer,
     m_layerColors[layer] = c;
   else
     m_layerColors.erase(layer);
+}
+
+void Viewer3DController::SetHiddenLayersOverride(
+    const std::unordered_set<std::string> &layers) {
+  m_hiddenLayersOverride = layers;
+}
+
+void Viewer3DController::ClearHiddenLayersOverride() {
+  m_hiddenLayersOverride.reset();
+}
+
+bool Viewer3DController::IsLayerVisible(const std::string &layer) const {
+  if (m_hiddenLayersOverride)
+    return m_hiddenLayersOverride->find(layer) ==
+           m_hiddenLayersOverride->end();
+  return ConfigManager::Get().IsLayerVisible(layer);
 }
 
 std::shared_ptr<const SymbolDefinitionSnapshot>

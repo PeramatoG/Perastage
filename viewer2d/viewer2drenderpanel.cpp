@@ -18,6 +18,7 @@
 #include "viewer2drenderpanel.h"
 
 #include "configmanager.h"
+#include "layout2dviewpanel.h"
 #include "mainwindow.h"
 #include <array>
 
@@ -37,6 +38,16 @@ const std::array<const char *, 3> ID_KEYS = {"label_show_id_top",
 const std::array<const char *, 3> DMX_KEYS = {"label_show_dmx_top",
                                               "label_show_dmx_front",
                                               "label_show_dmx_side"};
+
+Layout2DViewPanel *GetActiveLayoutViewPanel() {
+  auto *mw = MainWindow::Instance();
+  if (!mw || !mw->IsLayoutModeActive())
+    return nullptr;
+  auto *panel = mw->GetLayout2DViewPanel();
+  if (panel && panel->IsShownOnScreen())
+    return panel;
+  return nullptr;
+}
 } // namespace
 
 Viewer2DRenderPanel *Viewer2DRenderPanel::s_instance = nullptr;
@@ -255,6 +266,31 @@ void Viewer2DRenderPanel::SetInstance(Viewer2DRenderPanel *p) {
 }
 
 void Viewer2DRenderPanel::ApplyConfig() {
+  if (auto *layoutView = GetActiveLayoutViewPanel()) {
+    const auto &options = layoutView->GetRenderOptions();
+    m_radio->SetSelection(options.renderMode);
+    m_darkMode->SetValue(options.darkMode);
+    m_view->SetSelection(static_cast<int>(layoutView->GetView()));
+    m_showGrid->SetValue(options.showGrid);
+    m_gridStyle->SetSelection(options.gridStyle);
+    int rr = static_cast<int>(options.gridColorR * 255.0f);
+    int gg = static_cast<int>(options.gridColorG * 255.0f);
+    int bb = static_cast<int>(options.gridColorB * 255.0f);
+    m_gridColor->SetColour(wxColour(rr, gg, bb));
+    m_drawAbove->SetValue(options.gridDrawAbove);
+    int viewIndex = m_view->GetSelection();
+    m_showLabelName->SetValue(options.showLabelName[viewIndex]);
+    m_labelNameSize->SetValue(static_cast<int>(options.labelFontSizeName));
+    m_showLabelId->SetValue(options.showLabelId[viewIndex]);
+    m_labelIdSize->SetValue(static_cast<int>(options.labelFontSizeId));
+    m_showLabelAddress->SetValue(options.showLabelDmx[viewIndex]);
+    m_labelAddressSize->SetValue(static_cast<int>(options.labelFontSizeDmx));
+    m_labelOffsetDistance->SetValue(options.labelOffsetDistance[viewIndex]);
+    m_labelOffsetAngle->SetValue(
+        static_cast<int>(options.labelOffsetAngle[viewIndex]));
+    return;
+  }
+
   ConfigManager &cfg = ConfigManager::Get();
   m_radio->SetSelection(static_cast<int>(cfg.GetFloat("view2d_render_mode")));
   m_darkMode->SetValue(cfg.GetFloat("view2d_dark_mode") != 0.0f);
@@ -286,6 +322,14 @@ void Viewer2DRenderPanel::ApplyConfig() {
 }
 
 void Viewer2DRenderPanel::OnRadio(wxCommandEvent &evt) {
+  if (auto *layoutView = GetActiveLayoutViewPanel()) {
+    layoutView->UpdateRenderOptions([&](auto &options) {
+      options.renderMode = m_radio->GetSelection();
+    });
+    layoutView->UpdateScene(false);
+    evt.Skip();
+    return;
+  }
   ConfigManager::Get().SetFloat("view2d_render_mode",
                                 static_cast<float>(m_radio->GetSelection()));
   if (auto *vp = Viewer2DPanel::Instance()) {
@@ -296,6 +340,14 @@ void Viewer2DRenderPanel::OnRadio(wxCommandEvent &evt) {
 }
 
 void Viewer2DRenderPanel::OnDarkMode(wxCommandEvent &evt) {
+  if (auto *layoutView = GetActiveLayoutViewPanel()) {
+    layoutView->UpdateRenderOptions([&](auto &options) {
+      options.darkMode = m_darkMode->GetValue();
+    });
+    layoutView->UpdateScene(false);
+    evt.Skip();
+    return;
+  }
   ConfigManager::Get().SetFloat("view2d_dark_mode",
                                 m_darkMode->GetValue() ? 1.0f : 0.0f);
   if (auto *vp = Viewer2DPanel::Instance()) {
@@ -306,6 +358,14 @@ void Viewer2DRenderPanel::OnDarkMode(wxCommandEvent &evt) {
 }
 
 void Viewer2DRenderPanel::OnShowGrid(wxCommandEvent &evt) {
+  if (auto *layoutView = GetActiveLayoutViewPanel()) {
+    layoutView->UpdateRenderOptions([&](auto &options) {
+      options.showGrid = m_showGrid->GetValue();
+    });
+    layoutView->UpdateScene(false);
+    evt.Skip();
+    return;
+  }
   ConfigManager::Get().SetFloat("grid_show",
                                 m_showGrid->GetValue() ? 1.0f : 0.0f);
   if (auto *vp = Viewer2DPanel::Instance())
@@ -314,6 +374,14 @@ void Viewer2DRenderPanel::OnShowGrid(wxCommandEvent &evt) {
 }
 
 void Viewer2DRenderPanel::OnGridStyle(wxCommandEvent &evt) {
+  if (auto *layoutView = GetActiveLayoutViewPanel()) {
+    layoutView->UpdateRenderOptions([&](auto &options) {
+      options.gridStyle = m_gridStyle->GetSelection();
+    });
+    layoutView->UpdateScene(false);
+    evt.Skip();
+    return;
+  }
   ConfigManager::Get().SetFloat(
       "grid_style", static_cast<float>(m_gridStyle->GetSelection()));
   if (auto *vp = Viewer2DPanel::Instance())
@@ -323,6 +391,16 @@ void Viewer2DRenderPanel::OnGridStyle(wxCommandEvent &evt) {
 
 void Viewer2DRenderPanel::OnGridColor(wxColourPickerEvent &evt) {
   wxColour c = evt.GetColour();
+  if (auto *layoutView = GetActiveLayoutViewPanel()) {
+    layoutView->UpdateRenderOptions([&](auto &options) {
+      options.gridColorR = c.Red() / 255.0f;
+      options.gridColorG = c.Green() / 255.0f;
+      options.gridColorB = c.Blue() / 255.0f;
+    });
+    layoutView->UpdateScene(false);
+    evt.Skip();
+    return;
+  }
   ConfigManager &cfg = ConfigManager::Get();
   cfg.SetFloat("grid_color_r", c.Red() / 255.0f);
   cfg.SetFloat("grid_color_g", c.Green() / 255.0f);
@@ -333,6 +411,14 @@ void Viewer2DRenderPanel::OnGridColor(wxColourPickerEvent &evt) {
 }
 
 void Viewer2DRenderPanel::OnDrawAbove(wxCommandEvent &evt) {
+  if (auto *layoutView = GetActiveLayoutViewPanel()) {
+    layoutView->UpdateRenderOptions([&](auto &options) {
+      options.gridDrawAbove = m_drawAbove->GetValue();
+    });
+    layoutView->UpdateScene(false);
+    evt.Skip();
+    return;
+  }
   ConfigManager::Get().SetFloat("grid_draw_above",
                                 m_drawAbove->GetValue() ? 1.0f : 0.0f);
   if (auto *vp = Viewer2DPanel::Instance())
@@ -342,6 +428,14 @@ void Viewer2DRenderPanel::OnDrawAbove(wxCommandEvent &evt) {
 
 void Viewer2DRenderPanel::OnShowLabelName(wxCommandEvent &evt) {
   int view = m_view->GetSelection();
+  if (auto *layoutView = GetActiveLayoutViewPanel()) {
+    layoutView->UpdateRenderOptions([&](auto &options) {
+      options.showLabelName[view] = m_showLabelName->GetValue();
+    });
+    layoutView->UpdateScene(false);
+    evt.Skip();
+    return;
+  }
   ConfigManager::Get().SetFloat(NAME_KEYS[view],
                                 m_showLabelName->GetValue() ? 1.0f : 0.0f);
   if (auto *vp = Viewer2DPanel::Instance())
@@ -351,6 +445,14 @@ void Viewer2DRenderPanel::OnShowLabelName(wxCommandEvent &evt) {
 
 void Viewer2DRenderPanel::OnShowLabelId(wxCommandEvent &evt) {
   int view = m_view->GetSelection();
+  if (auto *layoutView = GetActiveLayoutViewPanel()) {
+    layoutView->UpdateRenderOptions([&](auto &options) {
+      options.showLabelId[view] = m_showLabelId->GetValue();
+    });
+    layoutView->UpdateScene(false);
+    evt.Skip();
+    return;
+  }
   ConfigManager::Get().SetFloat(ID_KEYS[view],
                                 m_showLabelId->GetValue() ? 1.0f : 0.0f);
   if (auto *vp = Viewer2DPanel::Instance())
@@ -360,6 +462,14 @@ void Viewer2DRenderPanel::OnShowLabelId(wxCommandEvent &evt) {
 
 void Viewer2DRenderPanel::OnShowLabelAddress(wxCommandEvent &evt) {
   int view = m_view->GetSelection();
+  if (auto *layoutView = GetActiveLayoutViewPanel()) {
+    layoutView->UpdateRenderOptions([&](auto &options) {
+      options.showLabelDmx[view] = m_showLabelAddress->GetValue();
+    });
+    layoutView->UpdateScene(false);
+    evt.Skip();
+    return;
+  }
   ConfigManager::Get().SetFloat(
       DMX_KEYS[view], m_showLabelAddress->GetValue() ? 1.0f : 0.0f);
   if (auto *vp = Viewer2DPanel::Instance())
@@ -368,6 +478,14 @@ void Viewer2DRenderPanel::OnShowLabelAddress(wxCommandEvent &evt) {
 }
 
 void Viewer2DRenderPanel::OnLabelNameSize(wxSpinEvent &evt) {
+  if (auto *layoutView = GetActiveLayoutViewPanel()) {
+    layoutView->UpdateRenderOptions([&](auto &options) {
+      options.labelFontSizeName = static_cast<float>(m_labelNameSize->GetValue());
+    });
+    layoutView->UpdateScene(false);
+    evt.Skip();
+    return;
+  }
   ConfigManager::Get().SetFloat(
       "label_font_size_name", static_cast<float>(m_labelNameSize->GetValue()));
   if (auto *vp = Viewer2DPanel::Instance())
@@ -376,6 +494,14 @@ void Viewer2DRenderPanel::OnLabelNameSize(wxSpinEvent &evt) {
 }
 
 void Viewer2DRenderPanel::OnLabelIdSize(wxSpinEvent &evt) {
+  if (auto *layoutView = GetActiveLayoutViewPanel()) {
+    layoutView->UpdateRenderOptions([&](auto &options) {
+      options.labelFontSizeId = static_cast<float>(m_labelIdSize->GetValue());
+    });
+    layoutView->UpdateScene(false);
+    evt.Skip();
+    return;
+  }
   ConfigManager::Get().SetFloat("label_font_size_id",
                                 static_cast<float>(m_labelIdSize->GetValue()));
   if (auto *vp = Viewer2DPanel::Instance())
@@ -384,6 +510,15 @@ void Viewer2DRenderPanel::OnLabelIdSize(wxSpinEvent &evt) {
 }
 
 void Viewer2DRenderPanel::OnLabelAddressSize(wxSpinEvent &evt) {
+  if (auto *layoutView = GetActiveLayoutViewPanel()) {
+    layoutView->UpdateRenderOptions([&](auto &options) {
+      options.labelFontSizeDmx =
+          static_cast<float>(m_labelAddressSize->GetValue());
+    });
+    layoutView->UpdateScene(false);
+    evt.Skip();
+    return;
+  }
   ConfigManager::Get().SetFloat(
       "label_font_size_dmx",
       static_cast<float>(m_labelAddressSize->GetValue()));
@@ -394,6 +529,15 @@ void Viewer2DRenderPanel::OnLabelAddressSize(wxSpinEvent &evt) {
 
 void Viewer2DRenderPanel::OnLabelOffsetDistance(wxSpinDoubleEvent &evt) {
   int view = m_view->GetSelection();
+  if (auto *layoutView = GetActiveLayoutViewPanel()) {
+    layoutView->UpdateRenderOptions([&](auto &options) {
+      options.labelOffsetDistance[view] =
+          static_cast<float>(m_labelOffsetDistance->GetValue());
+    });
+    layoutView->UpdateScene(false);
+    evt.Skip();
+    return;
+  }
   ConfigManager::Get().SetFloat(
       DIST_KEYS[view], static_cast<float>(m_labelOffsetDistance->GetValue()));
   if (auto *vp = Viewer2DPanel::Instance())
@@ -403,6 +547,15 @@ void Viewer2DRenderPanel::OnLabelOffsetDistance(wxSpinDoubleEvent &evt) {
 
 void Viewer2DRenderPanel::OnLabelOffsetAngle(wxSpinEvent &evt) {
   int view = m_view->GetSelection();
+  if (auto *layoutView = GetActiveLayoutViewPanel()) {
+    layoutView->UpdateRenderOptions([&](auto &options) {
+      options.labelOffsetAngle[view] =
+          static_cast<float>(m_labelOffsetAngle->GetValue());
+    });
+    layoutView->UpdateScene(false);
+    evt.Skip();
+    return;
+  }
   ConfigManager::Get().SetFloat(
       ANGLE_KEYS[view], static_cast<float>(m_labelOffsetAngle->GetValue()));
   if (auto *vp = Viewer2DPanel::Instance())
@@ -412,6 +565,19 @@ void Viewer2DRenderPanel::OnLabelOffsetAngle(wxSpinEvent &evt) {
 
 void Viewer2DRenderPanel::OnView(wxCommandEvent &evt) {
   int sel = m_view->GetSelection();
+  if (auto *layoutView = GetActiveLayoutViewPanel()) {
+    layoutView->SetView(static_cast<Viewer2DView>(sel));
+    const auto &options = layoutView->GetRenderOptions();
+    m_labelOffsetDistance->SetValue(options.labelOffsetDistance[sel]);
+    m_labelOffsetAngle->SetValue(
+        static_cast<int>(options.labelOffsetAngle[sel]));
+    m_showLabelName->SetValue(options.showLabelName[sel]);
+    m_showLabelId->SetValue(options.showLabelId[sel]);
+    m_showLabelAddress->SetValue(options.showLabelDmx[sel]);
+    layoutView->UpdateScene(false);
+    evt.Skip();
+    return;
+  }
   ConfigManager &cfg = ConfigManager::Get();
   cfg.SetFloat("view2d_view", static_cast<float>(sel));
   m_labelOffsetDistance->SetValue(cfg.GetFloat(DIST_KEYS[sel]));
@@ -445,6 +611,32 @@ void Viewer2DRenderPanel::OnTextChange(wxCommandEvent &evt) {
 }
 
 void Viewer2DRenderPanel::OnTextEnter(wxCommandEvent &evt) {
+  if (auto *layoutView = GetActiveLayoutViewPanel()) {
+    int view = m_view->GetSelection();
+    layoutView->UpdateRenderOptions([&](auto &options) {
+      if (evt.GetEventObject() == m_labelNameSize) {
+        options.labelFontSizeName =
+            static_cast<float>(m_labelNameSize->GetValue());
+      } else if (evt.GetEventObject() == m_labelIdSize) {
+        options.labelFontSizeId =
+            static_cast<float>(m_labelIdSize->GetValue());
+      } else if (evt.GetEventObject() == m_labelAddressSize) {
+        options.labelFontSizeDmx =
+            static_cast<float>(m_labelAddressSize->GetValue());
+      } else if (evt.GetEventObject() == m_labelOffsetDistance) {
+        options.labelOffsetDistance[view] =
+            static_cast<float>(m_labelOffsetDistance->GetValue());
+      } else if (evt.GetEventObject() == m_labelOffsetAngle) {
+        options.labelOffsetAngle[view] =
+            static_cast<float>(m_labelOffsetAngle->GetValue());
+      }
+    });
+    layoutView->UpdateScene(false);
+    if (auto *mw = MainWindow::Instance())
+      mw->EnableShortcuts(true);
+    evt.Skip();
+    return;
+  }
   ConfigManager &cfg = ConfigManager::Get();
   if (evt.GetEventObject() == m_labelNameSize) {
     cfg.SetFloat("label_font_size_name",

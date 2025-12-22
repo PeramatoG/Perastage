@@ -69,6 +69,7 @@ using json = nlohmann::json;
 #include "gdtfnet.h"
 #include "gdtfsearchdialog.h"
 #include "layoutpanel.h"
+#include "layout2dviewpanel.h"
 #include "layoutviewerpanel.h"
 #include "layerpanel.h"
 #include "logindialog.h"
@@ -388,6 +389,21 @@ void MainWindow::SetupLayout() {
                                             .CloseButton(true)
                                             .MaximizeButton(true)
                                             .Hide());
+
+  layout2DViewPanel = new Layout2DViewPanel(this);
+  Layout2DViewPanel::SetInstance(layout2DViewPanel);
+  auiManager->AddPane(layout2DViewPanel, wxAuiPaneInfo()
+                                           .Name("Layout2DViewport")
+                                           .Caption("Layout 2D View")
+                                           .Center()
+                                           .Dockable(true)
+                                           .CaptionVisible(true)
+                                           .PaneBorder(false)
+                                           .BestSize(halfWidth, 600)
+                                           .MinSize(wxSize(200, 300))
+                                           .CloseButton(true)
+                                           .MaximizeButton(true)
+                                           .Hide());
 
   summaryPanel = new SummaryPanel(this);
   SummaryPanel::SetInstance(summaryPanel);
@@ -1800,6 +1816,9 @@ void MainWindow::OnApplyDefaultLayout(wxCommandEvent &WXUNUSED(event)) {
   auto &layoutViewerPane = auiManager->GetPane("LayoutViewer");
   if (layoutViewerPane.IsOk())
     layoutViewerPane.Hide();
+  auto &layout2DPane = auiManager->GetPane("Layout2DViewport");
+  if (layout2DPane.IsOk())
+    layout2DPane.Hide();
   auto &layoutToolbarPane = auiManager->GetPane("LayoutToolbar");
   if (layoutToolbarPane.IsOk())
     layoutToolbarPane.Hide();
@@ -1826,6 +1845,9 @@ void MainWindow::OnApply2DLayout(wxCommandEvent &WXUNUSED(event)) {
   auto &layoutViewerPane = auiManager->GetPane("LayoutViewer");
   if (layoutViewerPane.IsOk())
     layoutViewerPane.Hide();
+  auto &layout2DPane = auiManager->GetPane("Layout2DViewport");
+  if (layout2DPane.IsOk())
+    layout2DPane.Hide();
   auto &layoutToolbarPane = auiManager->GetPane("LayoutToolbar");
   if (layoutToolbarPane.IsOk())
     layoutToolbarPane.Hide();
@@ -2054,6 +2076,7 @@ void MainWindow::ApplyLayoutModePerspective() {
 
   hidePane("3DViewport");
   hidePane("2DViewport");
+  hidePane("Layout2DViewport");
   hidePane("2DRenderOptions");
   hidePane("DataNotebook");
   hidePane("Console");
@@ -2070,14 +2093,53 @@ void MainWindow::ApplyLayoutModePerspective() {
   UpdateViewMenuChecks();
 }
 
-void MainWindow::OnLayout2DView(wxCommandEvent &WXUNUSED(event)) {}
+void MainWindow::OnLayout2DView(wxCommandEvent &WXUNUSED(event)) {
+  if (!auiManager)
+    return;
+
+  if (!layoutModeActive)
+    ApplyLayoutModePerspective();
+
+  auto &layoutViewerPane = auiManager->GetPane("LayoutViewer");
+  auto &layout2DPane = auiManager->GetPane("Layout2DViewport");
+  auto &renderPane = auiManager->GetPane("2DRenderOptions");
+  auto &layerPane = auiManager->GetPane("LayerPanel");
+
+  const bool showLayout2D = !layout2DPane.IsShown();
+  if (showLayout2D) {
+    layoutViewerPane.Hide();
+    layout2DPane.Show();
+    renderPane.Show();
+    layerPane.Show();
+    if (layout2DViewPanel)
+      layout2DViewPanel->UpdateScene(true);
+    if (viewport2DRenderPanel)
+      viewport2DRenderPanel->ApplyConfig();
+    if (layerPanel)
+      layerPanel->ReloadLayers();
+  } else {
+    PersistLayout2DViewState();
+    layout2DPane.Hide();
+    layoutViewerPane.Show();
+    renderPane.Hide();
+    layerPane.Hide();
+  }
+
+  auiManager->Update();
+}
+
 
 void MainWindow::PersistLayout2DViewState() {
   if (!layoutModeActive || activeLayoutName.empty())
     return;
   ConfigManager &cfg = ConfigManager::Get();
-  layouts::Layout2DViewDefinition view =
-      CaptureViewer2DViewDefinition(viewport2DPanel, cfg);
+  layouts::Layout2DViewDefinition view;
+  if (layout2DViewPanel &&
+      !layout2DViewPanel->GetActiveLayoutName().empty()) {
+    view = layout2DViewPanel->GetViewDefinition();
+  } else {
+    view = CaptureViewer2DViewDefinition(viewport2DPanel, cfg);
+  }
   layouts::LayoutManager::Get().UpdateLayout2DView(activeLayoutName, view);
 }
 
@@ -2144,9 +2206,11 @@ void MainWindow::ActivateLayoutView(const std::string &layoutName) {
         layouts::Layout2DViewDefinition view =
             CaptureViewer2DViewDefinition(viewport2DPanel, cfg);
         bool hasMatchingView = false;
+        layouts::Layout2DViewDefinition activeView;
         for (const auto &entry : layout.view2dViews) {
           if (entry.camera.view == view.camera.view) {
             hasMatchingView = true;
+            activeView = entry;
             break;
           }
         }
@@ -2155,9 +2219,12 @@ void MainWindow::ActivateLayoutView(const std::string &layoutName) {
           layouts::LayoutDefinition updated = layout;
           updated.view2dViews.push_back(std::move(view));
           layoutViewerPanel->SetLayoutDefinition(updated);
+          activeView = updated.view2dViews.back();
         } else {
           layoutViewerPanel->SetLayoutDefinition(layout);
         }
+        if (layout2DViewPanel)
+          layout2DViewPanel->SetActiveLayout(layoutName, activeView);
         break;
       }
     }
