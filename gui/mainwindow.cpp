@@ -1885,31 +1885,16 @@ void MainWindow::OnLayoutSelected(wxCommandEvent &event) {
   ActivateLayoutView(event.GetString().ToStdString());
 }
 
-void MainWindow::ActivateLayoutView(const std::string &viewId) {
-  if (!auiManager)
+void MainWindow::ActivateLayoutView(const std::string &layoutName) {
+  if (!auiManager || layoutName.empty())
     return;
 
-  if (viewId == "viewer2d") {
-    Ensure2DViewport();
-    auto &pane2d = auiManager->GetPane("2DViewport");
-    if (pane2d.IsOk())
-      pane2d.Show();
-    auto &renderPane = auiManager->GetPane("2DRenderOptions");
-    if (renderPane.IsOk())
-      renderPane.Show();
-    auiManager->Update();
-    if (pane2d.IsShown() && Viewer2DPanel::Instance())
-      Viewer2DPanel::Instance()->Refresh();
-  } else if (viewId == "viewer3d") {
-    Ensure3DViewport();
-    auto &pane3d = auiManager->GetPane("3DViewport");
-    if (pane3d.IsOk())
-      pane3d.Show();
-    auiManager->Update();
-    if (pane3d.IsShown() && Viewer3DPanel::Instance())
-      Viewer3DPanel::Instance()->Refresh();
-  }
+  Ensure2DViewport();
+  auiManager->LoadPerspective(default2DLayoutPerspective, true);
+  auiManager->Update();
 
+  ConfigManager::Get().SetValue("layout_perspective",
+                                default2DLayoutPerspective);
   UpdateViewMenuChecks();
 }
 

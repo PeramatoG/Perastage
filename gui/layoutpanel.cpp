@@ -21,29 +21,12 @@
 #include "layouts/LayoutManager.h"
 #include <wx/choicdlg.h>
 
-namespace {
-std::string LayoutViewLabel(const std::string &viewId) {
-  if (viewId == "viewer2d")
-    return "2D View";
-  if (viewId == "viewer3d")
-    return "3D View";
-  return viewId;
-}
-
-std::string ChoiceToViewId(int selection) {
-  if (selection == 1)
-    return "viewer3d";
-  return "viewer2d";
-}
-} // namespace
-
 LayoutPanel *LayoutPanel::s_instance = nullptr;
 wxDEFINE_EVENT(EVT_LAYOUT_SELECTED, wxCommandEvent);
 
 LayoutPanel::LayoutPanel(wxWindow *parent) : wxPanel(parent, wxID_ANY) {
   list = new wxDataViewListCtrl(this, wxID_ANY);
   list->AppendTextColumn("Layout");
-  list->AppendTextColumn("View");
   ColumnUtils::EnforceMinColumnWidth(list);
 
   wxBoxSizer *sizer = new wxBoxSizer(wxVERTICAL);
@@ -85,7 +68,6 @@ void LayoutPanel::ReloadLayouts() {
   for (const auto &layout : layouts) {
     wxVector<wxVariant> cols;
     cols.push_back(wxVariant(wxString::FromUTF8(layout.name)));
-    cols.push_back(wxVariant(wxString::FromUTF8(LayoutViewLabel(layout.viewId))));
     list->AppendItem(cols);
     if (!currentLayout.empty() && layout.name == currentLayout)
       selectedRow = row;
@@ -101,7 +83,7 @@ void LayoutPanel::ReloadLayouts() {
     currentLayout = name.ToStdString();
     for (const auto &layout : layouts) {
       if (layout.name == currentLayout) {
-        EmitLayoutSelected(layout.viewId);
+        EmitLayoutSelected(layout.name);
         break;
       }
     }
@@ -117,7 +99,7 @@ void LayoutPanel::OnSelect(wxDataViewEvent &evt) {
   const auto &layouts = layouts::LayoutManager::Get().GetLayouts().Items();
   for (const auto &layout : layouts) {
     if (layout.name == currentLayout) {
-      EmitLayoutSelected(layout.viewId);
+      EmitLayoutSelected(layout.name);
       break;
     }
   }
@@ -140,20 +122,10 @@ void LayoutPanel::OnAddLayout(wxCommandEvent &) {
     }
   }
 
-  wxArrayString choices;
-  choices.Add("2D View");
-  choices.Add("3D View");
-  wxSingleChoiceDialog viewDlg(this, "Select layout view:", "Layout View",
-                               choices);
-  viewDlg.SetSelection(0);
-  if (viewDlg.ShowModal() != wxID_OK)
-    return;
-
   layouts::LayoutDefinition layout;
   layout.name = name;
   layout.pageSetup.pageSize = print::PageSize::A4;
   layout.pageSetup.landscape = false;
-  layout.viewId = ChoiceToViewId(viewDlg.GetSelection());
 
   if (!layouts::LayoutManager::Get().AddLayout(layout)) {
     wxMessageBox("Could not add layout.", "Add Layout", wxOK | wxICON_ERROR,
@@ -219,12 +191,12 @@ void LayoutPanel::OnDeleteLayout(wxCommandEvent &) {
   ReloadLayouts();
 }
 
-void LayoutPanel::EmitLayoutSelected(const std::string &viewId) {
-  if (viewId.empty())
+void LayoutPanel::EmitLayoutSelected(const std::string &layoutName) {
+  if (layoutName.empty())
     return;
   wxCommandEvent event(EVT_LAYOUT_SELECTED);
   event.SetEventObject(this);
-  event.SetString(wxString::FromUTF8(viewId));
+  event.SetString(wxString::FromUTF8(layoutName));
   if (GetParent())
     wxPostEvent(GetParent(), event);
   else
