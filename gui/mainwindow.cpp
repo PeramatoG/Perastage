@@ -1471,44 +1471,6 @@ void MainWindow::OnPrintTable(wxCommandEvent &WXUNUSED(event)) {
     TablePrinter::Print(this, ctrl, type);
 }
 
-void MainWindow::OnPrintTable(wxCommandEvent &WXUNUSED(event)) {
-  wxArrayString options;
-  if (fixturePanel)
-    options.Add("Fixtures");
-  if (trussPanel)
-    options.Add("Trusses");
-  if (hoistPanel)
-    options.Add("Hoists");
-  if (sceneObjPanel)
-    options.Add("Objects");
-  if (options.IsEmpty())
-    return;
-
-  wxSingleChoiceDialog dlg(this, "Select table", "Print Table", options);
-  if (dlg.ShowModal() != wxID_OK)
-    return;
-
-  wxString choice = dlg.GetStringSelection();
-  wxDataViewListCtrl *ctrl = nullptr;
-  TablePrinter::TableType type = TablePrinter::TableType::Fixtures;
-  if (choice == "Fixtures" && fixturePanel) {
-    ctrl = fixturePanel->GetTableCtrl();
-    type = TablePrinter::TableType::Fixtures;
-  } else if (choice == "Trusses" && trussPanel) {
-    ctrl = trussPanel->GetTableCtrl();
-    type = TablePrinter::TableType::Trusses;
-  } else if (choice == "Hoists" && hoistPanel) {
-    ctrl = hoistPanel->GetTableCtrl();
-    type = TablePrinter::TableType::Supports;
-  } else if (choice == "Objects" && sceneObjPanel) {
-    ctrl = sceneObjPanel->GetTableCtrl();
-    type = TablePrinter::TableType::SceneObjects;
-  }
-
-  if (ctrl)
-    TablePrinter::Print(this, ctrl, type);
-}
-
 void MainWindow::OnExportCSV(wxCommandEvent &WXUNUSED(event)) {
   wxArrayString options;
   if (fixturePanel)
