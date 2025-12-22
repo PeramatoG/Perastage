@@ -17,18 +17,25 @@
  */
 #pragma once
 
-#include <array>
+#include "print/PlanPrintSettings.h"
+
 #include <wx/wx.h>
 
-class PreferencesDialog : public wxDialog {
+class PlanPrintDialog : public wxDialog {
 public:
-  PreferencesDialog(wxWindow *parent);
+  PlanPrintDialog(wxWindow *parent,
+                  const print::PlanPrintSettings &settings);
+
+  print::PlanPrintSettings GetSettings() const;
 
 private:
-  std::array<wxTextCtrl *, 6> lxHeightCtrls{};
-  std::array<wxTextCtrl *, 6> lxPosCtrls{};
-  std::array<wxTextCtrl *, 6> lxMarginCtrls{};
-  wxCheckBox *autopatchCheck = nullptr;
-  wxRadioButton *layerPosRadio = nullptr;
-  wxRadioButton *layerTypeRadio = nullptr;
+  void ShowDetailedWarning();
+
+  wxRadioButton *pageSizeA3Radio = nullptr;
+  wxRadioButton *pageSizeA4Radio = nullptr;
+  wxRadioButton *portraitRadio = nullptr;
+  wxRadioButton *landscapeRadio = nullptr;
+  wxCheckBox *includeGridCheck = nullptr;
+  wxRadioButton *detailedRadio = nullptr;
+  wxRadioButton *schematicRadio = nullptr;
 };

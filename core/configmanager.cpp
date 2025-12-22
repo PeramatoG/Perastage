@@ -152,7 +152,7 @@ ConfigManager::ConfigManager() {
                    {"print_page_size"});
   RegisterVariable("print_plan_landscape", "float", 0.0f, 0.0f, 1.0f,
                    {"print_landscape"});
-  RegisterVariable("print_use_simplified_footprints", "float", 0.0f, 0.0f,
+  RegisterVariable("print_use_simplified_footprints", "float", 1.0f, 0.0f,
                    1.0f, {"use_simplified_footprints"});
   RegisterVariable("label_show_name", "float", 1.0f, 0.0f, 1.0f);
   RegisterVariable("label_show_id", "float", 1.0f, 0.0f, 1.0f);

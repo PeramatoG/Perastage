@@ -17,8 +17,6 @@
  */
 #include "preferencesdialog.h"
 #include "configmanager.h"
-#include "print/PlanPrintSettings.h"
-
 #include <wx/notebook.h>
 #include <wx/checkbox.h>
 #include <wx/radiobut.h>
@@ -86,48 +84,6 @@ PreferencesDialog::PreferencesDialog(wxWindow *parent)
 
   book->AddPage(riderPanel, "Rider Import");
 
-  // Plan printing page
-  wxPanel *planPanel = new wxPanel(book);
-  wxBoxSizer *planSizer = new wxBoxSizer(wxVERTICAL);
-
-  wxStaticBoxSizer *pageSizeSizer =
-      new wxStaticBoxSizer(wxVERTICAL, planPanel, "Page size");
-  pageSizeA3Radio = new wxRadioButton(planPanel, wxID_ANY, "A3", wxDefaultPosition,
-                                      wxDefaultSize, wxRB_GROUP);
-  pageSizeA4Radio = new wxRadioButton(planPanel, wxID_ANY, "A4");
-  pageSizeSizer->Add(pageSizeA3Radio, 0, wxALL, 5);
-  pageSizeSizer->Add(pageSizeA4Radio, 0, wxALL, 5);
-  planSizer->Add(pageSizeSizer, 0, wxEXPAND | wxALL, 10);
-
-  wxStaticBoxSizer *orientationSizer = new wxStaticBoxSizer(
-      wxVERTICAL, planPanel, "Orientation");
-  portraitRadio = new wxRadioButton(planPanel, wxID_ANY, "Portrait",
-                                    wxDefaultPosition, wxDefaultSize,
-                                    wxRB_GROUP);
-  landscapeRadio = new wxRadioButton(planPanel, wxID_ANY, "Landscape");
-  orientationSizer->Add(portraitRadio, 0, wxALL, 5);
-  orientationSizer->Add(landscapeRadio, 0, wxALL, 5);
-  planSizer->Add(orientationSizer, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM,
-                 10);
-
-  includeGridCheck = new wxCheckBox(planPanel, wxID_ANY, "Include grid");
-  planSizer->Add(includeGridCheck, 0, wxLEFT | wxRIGHT | wxBOTTOM, 10);
-
-  wxStaticBoxSizer *elementsSizer =
-      new wxStaticBoxSizer(wxVERTICAL, planPanel, "Elements detail");
-  detailedRadio = new wxRadioButton(planPanel, wxID_ANY, "Detailed",
-                                    wxDefaultPosition, wxDefaultSize,
-                                    wxRB_GROUP);
-  schematicRadio = new wxRadioButton(planPanel, wxID_ANY, "Schematic");
-  elementsSizer->Add(detailedRadio, 0, wxALL, 5);
-  elementsSizer->Add(schematicRadio, 0, wxALL, 5);
-  planSizer->Add(elementsSizer, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 10);
-
-  LoadPlanPrintSettings(print::PlanPrintSettings::LoadFromConfig(cfg));
-
-  planPanel->SetSizer(planSizer);
-  book->AddPage(planPanel, "Plan Printing");
-
   topSizer->Add(book, 1, wxEXPAND | wxALL, 5);
   topSizer->Add(CreateSeparatedButtonSizer(wxOK | wxCANCEL | wxAPPLY), 0,
                 wxALL | wxEXPAND, 5);
@@ -155,30 +111,7 @@ PreferencesDialog::PreferencesDialog(wxWindow *parent)
       cfg.SetValue("rider_layer_mode",
                    layerTypeRadio->GetValue() ? "type" : "position");
 
-      print::PlanPrintSettings planSettings;
-      SavePlanPrintSettings(planSettings);
-      planSettings.SaveToConfig(cfg);
     }
     evt.Skip();
   });
-}
-
-void PreferencesDialog::LoadPlanPrintSettings(
-    const print::PlanPrintSettings &settings) {
-  pageSizeA3Radio->SetValue(settings.pageSize == print::PageSize::A3);
-  pageSizeA4Radio->SetValue(settings.pageSize == print::PageSize::A4);
-  landscapeRadio->SetValue(settings.landscape);
-  portraitRadio->SetValue(!settings.landscape);
-  includeGridCheck->SetValue(settings.includeGrid);
-  detailedRadio->SetValue(settings.detailedFootprints);
-  schematicRadio->SetValue(!settings.detailedFootprints);
-}
-
-void PreferencesDialog::SavePlanPrintSettings(
-    print::PlanPrintSettings &settings) {
-  settings.pageSize = pageSizeA4Radio->GetValue() ? print::PageSize::A4
-                                                  : print::PageSize::A3;
-  settings.landscape = landscapeRadio->GetValue();
-  settings.includeGrid = includeGridCheck->GetValue();
-  settings.detailedFootprints = detailedRadio->GetValue();
 }
