@@ -1,0 +1,10 @@
+{
+  "toolbar": {
+    "New": "outline/file.svg",
+    "Load": "outline/folder-open.svg",
+    "Save": "outline/save.svg",
+    "Save As": "outline/save-all.svg",
+    "Import MVR": "outline/file-input.svg",
+    "Export MVR": "outline/file-output.svg"
+  }
+}

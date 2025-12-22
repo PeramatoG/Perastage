@@ -385,7 +385,7 @@ void MainWindow::CreateToolBars() {
                                           wxSize(24, 24));
   };
   fileToolBar->AddTool(ID_File_New, "New",
-                       loadToolbarIcon("file-plus", wxART_NEW),
+                       loadToolbarIcon("file", wxART_NEW),
                        "Create a new project");
   fileToolBar->AddTool(ID_File_Load, "Open",
                        loadToolbarIcon("folder-open", wxART_FILE_OPEN),
@@ -394,13 +394,13 @@ void MainWindow::CreateToolBars() {
                        loadToolbarIcon("save", wxART_FILE_SAVE),
                        "Save the current project");
   fileToolBar->AddTool(ID_File_SaveAs, "Save As",
-                       loadToolbarIcon("save", wxART_FILE_SAVE),
+                       loadToolbarIcon("save-all", wxART_FILE_SAVE),
                        "Save the current project with a new name");
   fileToolBar->AddTool(ID_File_ImportMVR, "Import MVR",
-                       loadToolbarIcon("folder-open", wxART_FILE_OPEN),
+                       loadToolbarIcon("file-input", wxART_FILE_OPEN),
                        "Import an MVR file");
   fileToolBar->AddTool(ID_File_ExportMVR, "Export MVR",
-                       loadToolbarIcon("save", wxART_FILE_SAVE),
+                       loadToolbarIcon("file-output", wxART_FILE_SAVE),
                        "Export the project to MVR");
   fileToolBar->AddSeparator();
   fileToolBar->Realize();
