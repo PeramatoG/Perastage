@@ -15,21 +15,34 @@
  * You should have received a copy of the GNU General Public License
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
-#pragma once
-
 #include "PageSetup.h"
 
-class ConfigManager;
+namespace {
+constexpr double kMmToPoints = 72.0 / 25.4;
+} // namespace
 
 namespace print {
 
-struct Viewer2DPrintSettings : public PageSetup {
-  Viewer2DPrintSettings() { pageSize = PageSize::A3; }
-  bool includeGrid = true;
-  bool detailedFootprints = false;
+std::pair<double, double> PageSetup::BasePageSizeMm() const {
+  switch (pageSize) {
+  case PageSize::A4:
+    return {210.0, 297.0};
+  case PageSize::A3:
+  default:
+    return {297.0, 420.0};
+  }
+}
 
-  static Viewer2DPrintSettings LoadFromConfig(ConfigManager &cfg);
-  void SaveToConfig(ConfigManager &cfg) const;
-};
+double PageSetup::PageWidthPt() const {
+  auto [portraitW, portraitH] = BasePageSizeMm();
+  const double mm = landscape ? portraitH : portraitW;
+  return mm * kMmToPoints;
+}
+
+double PageSetup::PageHeightPt() const {
+  auto [portraitW, portraitH] = BasePageSizeMm();
+  const double mm = landscape ? portraitW : portraitH;
+  return mm * kMmToPoints;
+}
 
 } // namespace print

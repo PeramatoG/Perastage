@@ -24,26 +24,26 @@ namespace layouts {
 namespace {
 constexpr const char *kLayoutsConfigKey = "layouts_collection";
 
-std::string PageSizeToString(PageSize size) {
+std::string PageSizeToString(print::PageSize size) {
   switch (size) {
-  case PageSize::A3:
+  case print::PageSize::A3:
     return "A3";
-  case PageSize::A4:
+  case print::PageSize::A4:
   default:
     return "A4";
   }
 }
 
-PageSize PageSizeFromString(const std::string &value) {
+print::PageSize PageSizeFromString(const std::string &value) {
   if (value == "A3")
-    return PageSize::A3;
-  return PageSize::A4;
+    return print::PageSize::A3;
+  return print::PageSize::A4;
 }
 
 nlohmann::json ToJson(const LayoutDefinition &layout) {
   return nlohmann::json{{"name", layout.name},
-                        {"pageSize", PageSizeToString(layout.pageSize)},
-                        {"landscape", layout.landscape},
+                        {"pageSize", PageSizeToString(layout.pageSetup.pageSize)},
+                        {"landscape", layout.pageSetup.landscape},
                         {"viewId", layout.viewId}};
 }
 
@@ -59,12 +59,12 @@ bool ParseLayout(const nlohmann::json &value, LayoutDefinition &out) {
 
   const auto sizeIt = value.find("pageSize");
   if (sizeIt != value.end() && sizeIt->is_string())
-    out.pageSize = PageSizeFromString(sizeIt->get<std::string>());
+    out.pageSetup.pageSize = PageSizeFromString(sizeIt->get<std::string>());
   else
-    out.pageSize = PageSize::A4;
+    out.pageSetup.pageSize = print::PageSize::A4;
 
   const auto landscapeIt = value.find("landscape");
-  out.landscape =
+  out.pageSetup.landscape =
       landscapeIt != value.end() && landscapeIt->is_boolean()
           ? landscapeIt->get<bool>()
           : false;

@@ -70,7 +70,12 @@ void LayoutCollection::ReplaceAll(std::vector<LayoutDefinition> updated) {
 }
 
 LayoutDefinition LayoutCollection::DefaultLayout() {
-  return {"Layout 1", PageSize::A4, false, "viewer2d"};
+  LayoutDefinition layout;
+  layout.name = "Layout 1";
+  layout.pageSetup.pageSize = print::PageSize::A4;
+  layout.pageSetup.landscape = false;
+  layout.viewId = "viewer2d";
+  return layout;
 }
 
 bool LayoutCollection::NameExists(const std::string &name,

@@ -20,14 +20,13 @@
 #include <string>
 #include <vector>
 
-namespace layouts {
+#include "../print/PageSetup.h"
 
-enum class PageSize { A3 = 0, A4 = 1 };
+namespace layouts {
 
 struct LayoutDefinition {
   std::string name;
-  PageSize pageSize = PageSize::A4;
-  bool landscape = false;
+  print::PageSetup pageSetup;
   std::string viewId;
 };
 
