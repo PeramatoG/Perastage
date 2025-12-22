@@ -59,6 +59,8 @@ struct CanvasTextStyle {
   float lineHeight = 0.0f;
   float extraLineSpacing = 0.0f;
   CanvasColor color{};
+  CanvasColor outlineColor{};
+  float outlineWidth = 0.0f;
   enum class HorizontalAlign { Left, Center, Right } hAlign =
       HorizontalAlign::Left;
   enum class VerticalAlign { Baseline, Middle, Top, Bottom } vAlign =

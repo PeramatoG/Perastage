@@ -357,6 +357,7 @@ struct LabelLine2D {
 static void
 DrawLabelLines2D(NVGcontext *vg, const std::vector<LabelLine2D> &lines, int x,
                  int y, NVGcolor textColor = nvgRGBAf(1.f, 1.f, 1.f, 1.f),
+                 NVGcolor outlineColor = nvgRGBAf(0.f, 0.f, 0.f, 1.f),
                  bool outline = false) {
   if (!vg || lines.empty())
     return;
@@ -390,7 +391,7 @@ DrawLabelLines2D(NVGcontext *vg, const std::vector<LabelLine2D> &lines, int x,
     nvgFontFaceId(vg, lines[i].font);
     nvgTextAlign(vg, NVG_ALIGN_CENTER | NVG_ALIGN_TOP);
     if (outline) {
-      nvgFillColor(vg, nvgRGBAf(0.f, 0.f, 0.f, 1.f));
+      nvgFillColor(vg, outlineColor);
       const std::array<std::array<float, 2>, 8> offsets = {
           std::array<float, 2>{-1.f, 0.f}, std::array<float, 2>{1.f, 0.f},
           std::array<float, 2>{0.f, -1.f}, std::array<float, 2>{0.f, 1.f},
@@ -2560,6 +2561,10 @@ void Viewer3DController::DrawAllFixtureLabels(int width, int height,
         style.lineHeight = lineHeightsWorld[i];
         style.extraLineSpacing = lineSpacingWorld;
         style.color = {0.0f, 0.0f, 0.0f, 1.0f};
+        if (!m_darkMode) {
+          style.outlineColor = {1.0f, 1.0f, 1.0f, 1.0f};
+          style.outlineWidth = pxToWorld;
+        }
         style.hAlign = CanvasTextStyle::HorizontalAlign::Center;
         style.vAlign = CanvasTextStyle::VerticalAlign::Baseline;
         float baseline = currentY - style.ascent;
@@ -2580,7 +2585,10 @@ void Viewer3DController::DrawAllFixtureLabels(int width, int height,
     NVGcolor textColor =
         m_darkMode ? nvgRGBAf(1.f, 1.f, 1.f, 1.f)
                    : nvgRGBAf(0.f, 0.f, 0.f, 1.f);
-    DrawLabelLines2D(m_vg, lines, x, y, textColor, m_darkMode);
+    NVGcolor outlineColor =
+        m_darkMode ? nvgRGBAf(0.f, 0.f, 0.f, 1.f)
+                   : nvgRGBAf(1.f, 1.f, 1.f, 1.f);
+    DrawLabelLines2D(m_vg, lines, x, y, textColor, outlineColor, true);
   }
 }
 
