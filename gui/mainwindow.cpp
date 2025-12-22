@@ -1200,6 +1200,17 @@ void MainWindow::OnAutoColor(wxCommandEvent &WXUNUSED(event)) {
     return wxString::Format("#%02X%02X%02X", dist(rng), dist(rng), dist(rng))
         .ToStdString();
   };
+  auto isWhiteColor = [](const std::string &color) {
+    if (color.empty())
+      return false;
+    std::string normalized = color;
+    std::transform(normalized.begin(), normalized.end(), normalized.begin(),
+                   [](unsigned char c) { return std::tolower(c); });
+    if (normalized.rfind('#', 0) == 0)
+      normalized.erase(0, 1);
+    return normalized == "fff" || normalized == "ffffff" ||
+           normalized == "white";
+  };
   const std::string trussColor = "#D3D3D3";
 
   std::set<std::string> layerNames;
@@ -1231,7 +1242,8 @@ void MainWindow::OnAutoColor(wxCommandEvent &WXUNUSED(event)) {
     if (!f.gdtfSpec.empty()) {
       auto it = typeColors.find(f.gdtfSpec);
       if (it == typeColors.end()) {
-        std::string c = f.color.empty() ? randHex() : f.color;
+        std::string c =
+            (f.color.empty() || isWhiteColor(f.color)) ? randHex() : f.color;
         typeColors[f.gdtfSpec] = c;
         f.color = c;
       } else {
