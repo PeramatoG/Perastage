@@ -34,6 +34,7 @@
 #include <tinyxml2.h>
 #include <wx/aboutdlg.h>
 #include <wx/app.h>
+#include <wx/artprov.h>
 #include <wx/event.h>
 #include <wx/filefn.h>
 #include <wx/filename.h>
@@ -277,6 +278,8 @@ void MainWindow::SetupLayout() {
   auiManager = new wxAuiManager(this);
   Bind(wxEVT_AUI_PANE_CLOSE, &MainWindow::OnPaneClose, this);
 
+  CreateToolBars();
+
   // Create notebook with data panels
   notebook = new wxNotebook(this, wxID_ANY);
   notebook->Bind(wxEVT_NOTEBOOK_PAGE_CHANGED,
@@ -410,6 +413,53 @@ void MainWindow::SetupLayout() {
 
   // Ensure the View menu reflects the actual pane visibility
   UpdateViewMenuChecks();
+}
+
+void MainWindow::CreateToolBars() {
+  fileToolBar = new wxAuiToolBar(this, wxID_ANY, wxDefaultPosition,
+                                 wxDefaultSize,
+                                 wxAUI_TB_DEFAULT_STYLE | wxAUI_TB_HORIZONTAL);
+  fileToolBar->SetToolBitmapSize(wxSize(24, 24));
+
+  // TODO: Replace wxArtProvider icons with Tabler SVGs via
+  // wxBitmapBundle::FromSVGFile() when icon assets are available.
+  fileToolBar->AddTool(ID_File_New, "New",
+                       wxArtProvider::GetBitmapBundle(wxART_NEW,
+                                                      wxART_TOOLBAR),
+                       "Create a new project");
+  fileToolBar->AddTool(ID_File_Load, "Open",
+                       wxArtProvider::GetBitmapBundle(wxART_FILE_OPEN,
+                                                      wxART_TOOLBAR),
+                       "Open an existing project");
+  fileToolBar->AddTool(ID_File_Save, "Save",
+                       wxArtProvider::GetBitmapBundle(wxART_FILE_SAVE,
+                                                      wxART_TOOLBAR),
+                       "Save the current project");
+  fileToolBar->AddTool(ID_File_SaveAs, "Save As",
+                       wxArtProvider::GetBitmapBundle(wxART_FILE_SAVE,
+                                                      wxART_TOOLBAR),
+                       "Save the current project with a new name");
+  fileToolBar->AddTool(ID_File_ImportMVR, "Import MVR",
+                       wxArtProvider::GetBitmapBundle(wxART_FILE_OPEN,
+                                                      wxART_TOOLBAR),
+                       "Import an MVR file");
+  fileToolBar->AddTool(ID_File_ExportMVR, "Export MVR",
+                       wxArtProvider::GetBitmapBundle(wxART_FILE_SAVE,
+                                                      wxART_TOOLBAR),
+                       "Export the project to MVR");
+  fileToolBar->AddSeparator();
+  fileToolBar->Realize();
+
+  auiManager->AddPane(
+      fileToolBar, wxAuiPaneInfo()
+                       .Name("FileToolbar")
+                       .Caption("File")
+                       .ToolbarPane()
+                       .Top()
+                       .LeftDockable(false)
+                       .RightDockable(false)
+                       .Row(0)
+                       .Position(0));
 }
 
 void MainWindow::Ensure3DViewport() {
