@@ -45,6 +45,8 @@ LayoutPanel::LayoutPanel(wxWindow *parent) : wxPanel(parent, wxID_ANY) {
   SetSizer(sizer);
 
   list->Bind(wxEVT_DATAVIEW_SELECTION_CHANGED, &LayoutPanel::OnSelect, this);
+  list->Bind(wxEVT_DATAVIEW_ITEM_CONTEXT_MENU, &LayoutPanel::OnContextMenu,
+             this);
   list->Bind(wxEVT_DATAVIEW_ITEM_ACTIVATED, &LayoutPanel::OnRenameLayout, this);
   addBtn->Bind(wxEVT_BUTTON, &LayoutPanel::OnAddLayout, this);
   renameBtn->Bind(wxEVT_BUTTON, &LayoutPanel::OnRenameLayout, this);
@@ -104,6 +106,62 @@ void LayoutPanel::OnSelect(wxDataViewEvent &evt) {
       break;
     }
   }
+}
+
+void LayoutPanel::OnContextMenu(wxDataViewEvent &evt) {
+  unsigned int idx = list->ItemToRow(evt.GetItem());
+  if (idx == wxNOT_FOUND)
+    return;
+
+  list->SelectRow(idx);
+
+  wxString name = list->GetTextValue(idx, 0);
+  std::string layoutName = name.ToStdString();
+  const auto &layouts = layouts::LayoutManager::Get().GetLayouts().Items();
+  const layouts::LayoutDefinition *target = nullptr;
+  for (const auto &layout : layouts) {
+    if (layout.name == layoutName) {
+      target = &layout;
+      break;
+    }
+  }
+  if (!target)
+    return;
+
+  wxMenu menu;
+  auto *orientationMenu = new wxMenu();
+  auto *portraitItem = orientationMenu->AppendRadioItem(wxID_ANY, "Vertical");
+  auto *landscapeItem =
+      orientationMenu->AppendRadioItem(wxID_ANY, "Horizontal");
+  if (target->pageSetup.landscape)
+    landscapeItem->Check(true);
+  else
+    portraitItem->Check(true);
+  menu.AppendSubMenu(orientationMenu, "Orientation");
+
+  int portraitId = portraitItem->GetId();
+  int landscapeId = landscapeItem->GetId();
+
+  menu.Bind(
+      wxEVT_MENU,
+      [this, layoutName](wxCommandEvent &) {
+        if (layouts::LayoutManager::Get().SetLayoutOrientation(layoutName,
+                                                               false)) {
+          EmitLayoutSelected(layoutName);
+        }
+      },
+      portraitId);
+  menu.Bind(
+      wxEVT_MENU,
+      [this, layoutName](wxCommandEvent &) {
+        if (layouts::LayoutManager::Get().SetLayoutOrientation(layoutName,
+                                                               true)) {
+          EmitLayoutSelected(layoutName);
+        }
+      },
+      landscapeId);
+
+  PopupMenu(&menu);
 }
 
 void LayoutPanel::OnAddLayout(wxCommandEvent &) {

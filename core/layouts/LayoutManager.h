@@ -33,6 +33,7 @@ public:
   bool RenameLayout(const std::string &currentName,
                     const std::string &newName);
   bool RemoveLayout(const std::string &name);
+  bool SetLayoutOrientation(const std::string &name, bool landscape);
 
   void LoadFromConfig(ConfigManager &cfg);
   void SaveToConfig(ConfigManager &cfg) const;
