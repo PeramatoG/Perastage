@@ -517,7 +517,7 @@ void Viewer3DController::RecordPolygonsWithOptionalCull(
     const CanvasStroke &stroke, const CanvasFill *fill) const {
   if (!m_captureCanvas)
     return;
-  if (!m_captureOnly) {
+  if (!m_captureOnly && !m_captureCullHidden) {
     for (const auto &poly : polygons)
       RecordPolygon(poly, stroke, fill);
     return;
