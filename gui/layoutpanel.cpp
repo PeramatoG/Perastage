@@ -25,7 +25,8 @@ LayoutPanel *LayoutPanel::s_instance = nullptr;
 wxDEFINE_EVENT(EVT_LAYOUT_SELECTED, wxCommandEvent);
 
 LayoutPanel::LayoutPanel(wxWindow *parent) : wxPanel(parent, wxID_ANY) {
-  list = new wxDataViewListCtrl(this, wxID_ANY);
+  list = new wxDataViewListCtrl(this, wxID_ANY, wxDefaultPosition,
+                                wxDefaultSize, wxDV_NO_HEADER);
   list->AppendTextColumn("Layout");
   ColumnUtils::EnforceMinColumnWidth(list);
 
