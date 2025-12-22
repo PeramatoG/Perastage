@@ -34,8 +34,8 @@ public:
                     const std::string &newName);
   bool RemoveLayout(const std::string &name);
   bool SetLayoutOrientation(const std::string &name, bool landscape);
-  bool UpdateLayout2DViewState(const std::string &name,
-                               const Layout2DViewState &state);
+  bool UpdateLayout2DView(const std::string &name,
+                          const Layout2DViewDefinition &view);
 
   void LoadFromConfig(ConfigManager &cfg);
   void SaveToConfig(ConfigManager &cfg) const;

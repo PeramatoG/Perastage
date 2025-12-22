@@ -72,12 +72,20 @@ bool LayoutCollection::SetLayoutOrientation(const std::string &name,
   return false;
 }
 
-bool LayoutCollection::UpdateLayout2DViewState(const std::string &name,
-                                               const Layout2DViewState &state) {
+bool LayoutCollection::UpdateLayout2DView(const std::string &name,
+                                          const Layout2DViewDefinition &view) {
   for (auto &layout : layouts) {
     if (layout.name == name) {
-      layout.view2dState = state;
-      layout.hasView2dState = true;
+      bool replaced = false;
+      for (auto &entry : layout.view2dViews) {
+        if (entry.camera.view == view.camera.view) {
+          entry = view;
+          replaced = true;
+          break;
+        }
+      }
+      if (!replaced)
+        layout.view2dViews.push_back(view);
       return true;
     }
   }
@@ -97,7 +105,7 @@ LayoutDefinition LayoutCollection::DefaultLayout() {
   layout.name = "Layout 1";
   layout.pageSetup.pageSize = print::PageSize::A4;
   layout.pageSetup.landscape = false;
-  layout.hasView2dState = false;
+  layout.view2dViews.clear();
   return layout;
 }
 

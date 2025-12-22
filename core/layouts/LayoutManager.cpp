@@ -40,39 +40,50 @@ print::PageSize PageSizeFromString(const std::string &value) {
   return print::PageSize::A4;
 }
 
+nlohmann::json ToJson(const Layout2DViewDefinition &view) {
+  const auto &frame = view.frame;
+  const auto &camera = view.camera;
+  const auto &options = view.renderOptions;
+  const auto &layers = view.layers;
+  return {
+      {"frame",
+       {{"x", frame.x}, {"y", frame.y}, {"width", frame.width}, {"height", frame.height}}},
+      {"camera",
+       {{"offsetPixelsX", camera.offsetPixelsX},
+        {"offsetPixelsY", camera.offsetPixelsY},
+        {"zoom", camera.zoom},
+        {"viewportWidth", camera.viewportWidth},
+        {"viewportHeight", camera.viewportHeight},
+        {"view", camera.view}}},
+      {"renderOptions",
+       {{"renderMode", options.renderMode},
+        {"darkMode", options.darkMode},
+        {"showGrid", options.showGrid},
+        {"gridStyle", options.gridStyle},
+        {"gridColorR", options.gridColorR},
+        {"gridColorG", options.gridColorG},
+        {"gridColorB", options.gridColorB},
+        {"gridDrawAbove", options.gridDrawAbove},
+        {"showLabelName", options.showLabelName},
+        {"showLabelId", options.showLabelId},
+        {"showLabelDmx", options.showLabelDmx},
+        {"labelFontSizeName", options.labelFontSizeName},
+        {"labelFontSizeId", options.labelFontSizeId},
+        {"labelFontSizeDmx", options.labelFontSizeDmx},
+        {"labelOffsetDistance", options.labelOffsetDistance},
+        {"labelOffsetAngle", options.labelOffsetAngle}}},
+      {"layers", {{"hiddenLayers", layers.hiddenLayers}}},
+  };
+}
+
 nlohmann::json ToJson(const LayoutDefinition &layout) {
   nlohmann::json data{{"name", layout.name},
                       {"pageSize", PageSizeToString(layout.pageSetup.pageSize)},
                       {"landscape", layout.pageSetup.landscape}};
-  if (layout.hasView2dState) {
-    const auto &state = layout.view2dState;
-    data["view2dState"] = {
-        {"offsetPixelsX", state.offsetPixelsX},
-        {"offsetPixelsY", state.offsetPixelsY},
-        {"zoom", state.zoom},
-        {"viewportWidth", state.viewportWidth},
-        {"viewportHeight", state.viewportHeight},
-        {"view", state.view},
-        {"renderMode", state.renderMode},
-        {"darkMode", state.darkMode},
-        {"showGrid", state.showGrid},
-        {"gridStyle", state.gridStyle},
-        {"gridColorR", state.gridColorR},
-        {"gridColorG", state.gridColorG},
-        {"gridColorB", state.gridColorB},
-        {"gridDrawAbove", state.gridDrawAbove},
-        {"showLabelName", state.showLabelName},
-        {"showLabelId", state.showLabelId},
-        {"showLabelDmx", state.showLabelDmx},
-        {"labelFontSizeName", state.labelFontSizeName},
-        {"labelFontSizeId", state.labelFontSizeId},
-        {"labelFontSizeDmx", state.labelFontSizeDmx},
-        {"labelOffsetDistance", state.labelOffsetDistance},
-        {"labelOffsetAngle", state.labelOffsetAngle},
-        {"hiddenLayers", state.hiddenLayers},
-        {"frameWidth", state.frameWidth},
-        {"frameHeight", state.frameHeight},
-    };
+  if (!layout.view2dViews.empty()) {
+    data["view2dViews"] = nlohmann::json::array();
+    for (const auto &view : layout.view2dViews)
+      data["view2dViews"].push_back(ToJson(view));
   }
   return data;
 }
@@ -101,6 +112,97 @@ void ReadFloatArray(const nlohmann::json &obj, const char *key,
   }
 }
 
+void ReadFrame(const nlohmann::json &obj, Layout2DViewFrame &frame) {
+  if (auto it = obj.find("x"); it != obj.end() && it->is_number_integer())
+    frame.x = it->get<int>();
+  if (auto it = obj.find("y"); it != obj.end() && it->is_number_integer())
+    frame.y = it->get<int>();
+  if (auto it = obj.find("width"); it != obj.end() && it->is_number_integer())
+    frame.width = it->get<int>();
+  if (auto it = obj.find("height"); it != obj.end() && it->is_number_integer())
+    frame.height = it->get<int>();
+}
+
+void ReadCamera(const nlohmann::json &obj, Layout2DViewCameraState &camera) {
+  if (auto it = obj.find("offsetPixelsX"); it != obj.end() && it->is_number())
+    camera.offsetPixelsX = it->get<float>();
+  if (auto it = obj.find("offsetPixelsY"); it != obj.end() && it->is_number())
+    camera.offsetPixelsY = it->get<float>();
+  if (auto it = obj.find("zoom"); it != obj.end() && it->is_number())
+    camera.zoom = it->get<float>();
+  if (auto it = obj.find("viewportWidth");
+      it != obj.end() && it->is_number_integer())
+    camera.viewportWidth = it->get<int>();
+  if (auto it = obj.find("viewportHeight");
+      it != obj.end() && it->is_number_integer())
+    camera.viewportHeight = it->get<int>();
+  if (auto it = obj.find("view"); it != obj.end() && it->is_number())
+    camera.view = it->get<int>();
+}
+
+void ReadRenderOptions(const nlohmann::json &obj,
+                       Layout2DViewRenderOptions &options) {
+  if (auto it = obj.find("renderMode"); it != obj.end() && it->is_number())
+    options.renderMode = it->get<int>();
+  if (auto it = obj.find("darkMode"); it != obj.end() && it->is_boolean())
+    options.darkMode = it->get<bool>();
+  if (auto it = obj.find("showGrid"); it != obj.end() && it->is_boolean())
+    options.showGrid = it->get<bool>();
+  if (auto it = obj.find("gridStyle"); it != obj.end() && it->is_number())
+    options.gridStyle = it->get<int>();
+  if (auto it = obj.find("gridColorR"); it != obj.end() && it->is_number())
+    options.gridColorR = it->get<float>();
+  if (auto it = obj.find("gridColorG"); it != obj.end() && it->is_number())
+    options.gridColorG = it->get<float>();
+  if (auto it = obj.find("gridColorB"); it != obj.end() && it->is_number())
+    options.gridColorB = it->get<float>();
+  if (auto it = obj.find("gridDrawAbove"); it != obj.end() && it->is_boolean())
+    options.gridDrawAbove = it->get<bool>();
+  ReadBoolArray(obj, "showLabelName", options.showLabelName);
+  ReadBoolArray(obj, "showLabelId", options.showLabelId);
+  ReadBoolArray(obj, "showLabelDmx", options.showLabelDmx);
+  if (auto it = obj.find("labelFontSizeName");
+      it != obj.end() && it->is_number())
+    options.labelFontSizeName = it->get<float>();
+  if (auto it = obj.find("labelFontSizeId");
+      it != obj.end() && it->is_number())
+    options.labelFontSizeId = it->get<float>();
+  if (auto it = obj.find("labelFontSizeDmx");
+      it != obj.end() && it->is_number())
+    options.labelFontSizeDmx = it->get<float>();
+  ReadFloatArray(obj, "labelOffsetDistance", options.labelOffsetDistance);
+  ReadFloatArray(obj, "labelOffsetAngle", options.labelOffsetAngle);
+}
+
+void ReadLayers(const nlohmann::json &obj, Layout2DViewLayers &layers) {
+  if (auto it = obj.find("hiddenLayers"); it != obj.end() && it->is_array()) {
+    layers.hiddenLayers.clear();
+    for (const auto &entry : *it) {
+      if (entry.is_string())
+        layers.hiddenLayers.push_back(entry.get<std::string>());
+    }
+  }
+}
+
+bool ParseLayout2DView(const nlohmann::json &value,
+                       Layout2DViewDefinition &out) {
+  if (!value.is_object())
+    return false;
+  auto frameIt = value.find("frame");
+  if (frameIt != value.end() && frameIt->is_object())
+    ReadFrame(*frameIt, out.frame);
+  auto cameraIt = value.find("camera");
+  if (cameraIt != value.end() && cameraIt->is_object())
+    ReadCamera(*cameraIt, out.camera);
+  auto renderIt = value.find("renderOptions");
+  if (renderIt != value.end() && renderIt->is_object())
+    ReadRenderOptions(*renderIt, out.renderOptions);
+  auto layersIt = value.find("layers");
+  if (layersIt != value.end() && layersIt->is_object())
+    ReadLayers(*layersIt, out.layers);
+  return true;
+}
+
 bool ParseLayout(const nlohmann::json &value, LayoutDefinition &out) {
   if (!value.is_object())
     return false;
@@ -123,79 +225,109 @@ bool ParseLayout(const nlohmann::json &value, LayoutDefinition &out) {
           ? landscapeIt->get<bool>()
           : false;
 
-  out.hasView2dState = false;
-  const auto viewStateIt = value.find("view2dState");
-  if (viewStateIt != value.end() && viewStateIt->is_object()) {
-    const auto &viewObj = *viewStateIt;
-    Layout2DViewState state;
-    if (auto it = viewObj.find("offsetPixelsX"); it != viewObj.end() && it->is_number())
-      state.offsetPixelsX = it->get<float>();
-    if (auto it = viewObj.find("offsetPixelsY"); it != viewObj.end() && it->is_number())
-      state.offsetPixelsY = it->get<float>();
-    if (auto it = viewObj.find("zoom"); it != viewObj.end() && it->is_number())
-      state.zoom = it->get<float>();
-    if (auto it = viewObj.find("viewportWidth");
-        it != viewObj.end() && it->is_number_integer())
-      state.viewportWidth = it->get<int>();
-    if (auto it = viewObj.find("viewportHeight");
-        it != viewObj.end() && it->is_number_integer())
-      state.viewportHeight = it->get<int>();
-    if (auto it = viewObj.find("view"); it != viewObj.end() && it->is_number())
-      state.view = it->get<int>();
-    if (auto it = viewObj.find("renderMode");
-        it != viewObj.end() && it->is_number())
-      state.renderMode = it->get<int>();
-    if (auto it = viewObj.find("darkMode");
-        it != viewObj.end() && it->is_boolean())
-      state.darkMode = it->get<bool>();
-    if (auto it = viewObj.find("showGrid");
-        it != viewObj.end() && it->is_boolean())
-      state.showGrid = it->get<bool>();
-    if (auto it = viewObj.find("gridStyle");
-        it != viewObj.end() && it->is_number())
-      state.gridStyle = it->get<int>();
-    if (auto it = viewObj.find("gridColorR");
-        it != viewObj.end() && it->is_number())
-      state.gridColorR = it->get<float>();
-    if (auto it = viewObj.find("gridColorG");
-        it != viewObj.end() && it->is_number())
-      state.gridColorG = it->get<float>();
-    if (auto it = viewObj.find("gridColorB");
-        it != viewObj.end() && it->is_number())
-      state.gridColorB = it->get<float>();
-    if (auto it = viewObj.find("gridDrawAbove");
-        it != viewObj.end() && it->is_boolean())
-      state.gridDrawAbove = it->get<bool>();
-    ReadBoolArray(viewObj, "showLabelName", state.showLabelName);
-    ReadBoolArray(viewObj, "showLabelId", state.showLabelId);
-    ReadBoolArray(viewObj, "showLabelDmx", state.showLabelDmx);
-    if (auto it = viewObj.find("labelFontSizeName");
-        it != viewObj.end() && it->is_number())
-      state.labelFontSizeName = it->get<float>();
-    if (auto it = viewObj.find("labelFontSizeId");
-        it != viewObj.end() && it->is_number())
-      state.labelFontSizeId = it->get<float>();
-    if (auto it = viewObj.find("labelFontSizeDmx");
-        it != viewObj.end() && it->is_number())
-      state.labelFontSizeDmx = it->get<float>();
-    ReadFloatArray(viewObj, "labelOffsetDistance", state.labelOffsetDistance);
-    ReadFloatArray(viewObj, "labelOffsetAngle", state.labelOffsetAngle);
-    if (auto it = viewObj.find("hiddenLayers");
-        it != viewObj.end() && it->is_array()) {
-      state.hiddenLayers.clear();
-      for (const auto &entry : *it) {
-        if (entry.is_string())
-          state.hiddenLayers.push_back(entry.get<std::string>());
+  out.view2dViews.clear();
+  if (auto viewsIt = value.find("view2dViews");
+      viewsIt != value.end() && viewsIt->is_array()) {
+    for (const auto &entry : *viewsIt) {
+      Layout2DViewDefinition view;
+      if (!ParseLayout2DView(entry, view))
+        continue;
+      bool replaced = false;
+      for (auto &existing : out.view2dViews) {
+        if (existing.camera.view == view.camera.view) {
+          existing = view;
+          replaced = true;
+          break;
+        }
       }
+      if (!replaced)
+        out.view2dViews.push_back(std::move(view));
     }
-    if (auto it = viewObj.find("frameWidth");
-        it != viewObj.end() && it->is_number_integer())
-      state.frameWidth = it->get<int>();
-    if (auto it = viewObj.find("frameHeight");
-        it != viewObj.end() && it->is_number_integer())
-      state.frameHeight = it->get<int>();
-    out.view2dState = std::move(state);
-    out.hasView2dState = true;
+  }
+
+  if (out.view2dViews.empty()) {
+    const auto viewStateIt = value.find("view2dState");
+    if (viewStateIt != value.end() && viewStateIt->is_object()) {
+      const auto &viewObj = *viewStateIt;
+      Layout2DViewDefinition view;
+      Layout2DViewCameraState camera;
+      Layout2DViewRenderOptions options;
+      Layout2DViewLayers layers;
+      if (auto it = viewObj.find("offsetPixelsX");
+          it != viewObj.end() && it->is_number())
+        camera.offsetPixelsX = it->get<float>();
+      if (auto it = viewObj.find("offsetPixelsY");
+          it != viewObj.end() && it->is_number())
+        camera.offsetPixelsY = it->get<float>();
+      if (auto it = viewObj.find("zoom"); it != viewObj.end() && it->is_number())
+        camera.zoom = it->get<float>();
+      if (auto it = viewObj.find("viewportWidth");
+          it != viewObj.end() && it->is_number_integer())
+        camera.viewportWidth = it->get<int>();
+      if (auto it = viewObj.find("viewportHeight");
+          it != viewObj.end() && it->is_number_integer())
+        camera.viewportHeight = it->get<int>();
+      if (auto it = viewObj.find("view"); it != viewObj.end() && it->is_number())
+        camera.view = it->get<int>();
+      if (auto it = viewObj.find("renderMode");
+          it != viewObj.end() && it->is_number())
+        options.renderMode = it->get<int>();
+      if (auto it = viewObj.find("darkMode");
+          it != viewObj.end() && it->is_boolean())
+        options.darkMode = it->get<bool>();
+      if (auto it = viewObj.find("showGrid");
+          it != viewObj.end() && it->is_boolean())
+        options.showGrid = it->get<bool>();
+      if (auto it = viewObj.find("gridStyle");
+          it != viewObj.end() && it->is_number())
+        options.gridStyle = it->get<int>();
+      if (auto it = viewObj.find("gridColorR");
+          it != viewObj.end() && it->is_number())
+        options.gridColorR = it->get<float>();
+      if (auto it = viewObj.find("gridColorG");
+          it != viewObj.end() && it->is_number())
+        options.gridColorG = it->get<float>();
+      if (auto it = viewObj.find("gridColorB");
+          it != viewObj.end() && it->is_number())
+        options.gridColorB = it->get<float>();
+      if (auto it = viewObj.find("gridDrawAbove");
+          it != viewObj.end() && it->is_boolean())
+        options.gridDrawAbove = it->get<bool>();
+      ReadBoolArray(viewObj, "showLabelName", options.showLabelName);
+      ReadBoolArray(viewObj, "showLabelId", options.showLabelId);
+      ReadBoolArray(viewObj, "showLabelDmx", options.showLabelDmx);
+      if (auto it = viewObj.find("labelFontSizeName");
+          it != viewObj.end() && it->is_number())
+        options.labelFontSizeName = it->get<float>();
+      if (auto it = viewObj.find("labelFontSizeId");
+          it != viewObj.end() && it->is_number())
+        options.labelFontSizeId = it->get<float>();
+      if (auto it = viewObj.find("labelFontSizeDmx");
+          it != viewObj.end() && it->is_number())
+        options.labelFontSizeDmx = it->get<float>();
+      ReadFloatArray(viewObj, "labelOffsetDistance", options.labelOffsetDistance);
+      ReadFloatArray(viewObj, "labelOffsetAngle", options.labelOffsetAngle);
+      if (auto it = viewObj.find("hiddenLayers");
+          it != viewObj.end() && it->is_array()) {
+        layers.hiddenLayers.clear();
+        for (const auto &entry : *it) {
+          if (entry.is_string())
+            layers.hiddenLayers.push_back(entry.get<std::string>());
+        }
+      }
+      Layout2DViewFrame frame;
+      if (auto it = viewObj.find("frameWidth");
+          it != viewObj.end() && it->is_number_integer())
+        frame.width = it->get<int>();
+      if (auto it = viewObj.find("frameHeight");
+          it != viewObj.end() && it->is_number_integer())
+        frame.height = it->get<int>();
+      view.frame = frame;
+      view.camera = camera;
+      view.renderOptions = options;
+      view.layers = std::move(layers);
+      out.view2dViews.push_back(std::move(view));
+    }
   }
 
   return true;
@@ -241,9 +373,9 @@ bool LayoutManager::SetLayoutOrientation(const std::string &name,
   return true;
 }
 
-bool LayoutManager::UpdateLayout2DViewState(const std::string &name,
-                                            const Layout2DViewState &state) {
-  if (!layouts.UpdateLayout2DViewState(name, state))
+bool LayoutManager::UpdateLayout2DView(const std::string &name,
+                                       const Layout2DViewDefinition &view) {
+  if (!layouts.UpdateLayout2DView(name, view))
     return false;
   SyncToConfig();
   return true;
