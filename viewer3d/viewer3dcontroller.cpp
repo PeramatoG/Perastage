@@ -2561,10 +2561,8 @@ void Viewer3DController::DrawAllFixtureLabels(int width, int height,
         style.lineHeight = lineHeightsWorld[i];
         style.extraLineSpacing = lineSpacingWorld;
         style.color = {0.0f, 0.0f, 0.0f, 1.0f};
-        if (!m_darkMode) {
-          style.outlineColor = {1.0f, 1.0f, 1.0f, 1.0f};
-          style.outlineWidth = pxToWorld;
-        }
+        style.outlineColor = {1.0f, 1.0f, 1.0f, 1.0f};
+        style.outlineWidth = pxToWorld * 0.5f;
         style.hAlign = CanvasTextStyle::HorizontalAlign::Center;
         style.vAlign = CanvasTextStyle::VerticalAlign::Baseline;
         float baseline = currentY - style.ascent;
