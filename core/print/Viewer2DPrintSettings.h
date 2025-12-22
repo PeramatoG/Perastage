@@ -25,13 +25,13 @@ namespace print {
 
 enum class PageSize { A3 = 0, A4 = 1 };
 
-struct PlanPrintSettings {
+struct Viewer2DPrintSettings {
   PageSize pageSize = PageSize::A3;
   bool landscape = false;
   bool includeGrid = true;
   bool detailedFootprints = false;
 
-  static PlanPrintSettings LoadFromConfig(ConfigManager &cfg);
+  static Viewer2DPrintSettings LoadFromConfig(ConfigManager &cfg);
   void SaveToConfig(ConfigManager &cfg) const;
 
   double PageWidthPt() const;

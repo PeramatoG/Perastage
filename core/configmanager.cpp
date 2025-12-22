@@ -148,10 +148,10 @@ ConfigManager::ConfigManager() {
   RegisterVariable("grid_color_b", "float", 0.35f, 0.0f, 1.0f);
   RegisterVariable("grid_draw_above", "float", 0.0f, 0.0f, 1.0f);
   RegisterVariable("print_include_grid", "float", 1.0f, 0.0f, 1.0f);
-  RegisterVariable("print_plan_page_size", "float", 0.0f, 0.0f, 1.0f,
-                   {"print_page_size"});
-  RegisterVariable("print_plan_landscape", "float", 0.0f, 0.0f, 1.0f,
-                   {"print_landscape"});
+  RegisterVariable("print_viewer2d_page_size", "float", 0.0f, 0.0f, 1.0f,
+                   {"print_plan_page_size", "print_page_size"});
+  RegisterVariable("print_viewer2d_landscape", "float", 0.0f, 0.0f, 1.0f,
+                   {"print_plan_landscape", "print_landscape"});
   RegisterVariable("print_use_simplified_footprints", "float", 1.0f, 0.0f,
                    1.0f, {"use_simplified_footprints"});
   RegisterVariable("label_show_name", "float", 1.0f, 0.0f, 1.0f);

@@ -17,16 +17,16 @@
  */
 #pragma once
 
-#include "print/PlanPrintSettings.h"
+#include "print/Viewer2DPrintSettings.h"
 
 #include <wx/wx.h>
 
-class PlanPrintDialog : public wxDialog {
+class Viewer2DPrintDialog : public wxDialog {
 public:
-  PlanPrintDialog(wxWindow *parent,
-                  const print::PlanPrintSettings &settings);
+  Viewer2DPrintDialog(wxWindow *parent,
+                      const print::Viewer2DPrintSettings &settings);
 
-  print::PlanPrintSettings GetSettings() const;
+  print::Viewer2DPrintSettings GetSettings() const;
 
 private:
   void ShowDetailedWarning();

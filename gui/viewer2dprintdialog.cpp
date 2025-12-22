@@ -15,11 +15,11 @@
  * You should have received a copy of the GNU General Public License
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
-#include "planprintdialog.h"
+#include "viewer2dprintdialog.h"
 
-PlanPrintDialog::PlanPrintDialog(wxWindow *parent,
-                                 const print::PlanPrintSettings &settings)
-    : wxDialog(parent, wxID_ANY, "Print Plan", wxDefaultPosition,
+Viewer2DPrintDialog::Viewer2DPrintDialog(
+    wxWindow *parent, const print::Viewer2DPrintSettings &settings)
+    : wxDialog(parent, wxID_ANY, "Print Viewer 2D", wxDefaultPosition,
                wxDefaultSize, wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER) {
   wxBoxSizer *topSizer = new wxBoxSizer(wxVERTICAL);
 
@@ -76,8 +76,8 @@ PlanPrintDialog::PlanPrintDialog(wxWindow *parent,
   SetSizerAndFit(topSizer);
 }
 
-print::PlanPrintSettings PlanPrintDialog::GetSettings() const {
-  print::PlanPrintSettings settings;
+print::Viewer2DPrintSettings Viewer2DPrintDialog::GetSettings() const {
+  print::Viewer2DPrintSettings settings;
   settings.pageSize = pageSizeA4Radio->GetValue() ? print::PageSize::A4
                                                   : print::PageSize::A3;
   settings.landscape = landscapeRadio->GetValue();
@@ -86,9 +86,9 @@ print::PlanPrintSettings PlanPrintDialog::GetSettings() const {
   return settings;
 }
 
-void PlanPrintDialog::ShowDetailedWarning() {
+void Viewer2DPrintDialog::ShowDetailedWarning() {
   wxMessageBox(
       "El modo Detailed tarda mucho más y genera archivos más pesados.\n"
       "De momento solo lo mantengo para pruebas.",
-      "Print Plan", wxOK | wxICON_WARNING, this);
+      "Print Viewer 2D", wxOK | wxICON_WARNING, this);
 }

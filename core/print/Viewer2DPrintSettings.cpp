@@ -15,7 +15,7 @@
  * You should have received a copy of the GNU General Public License
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
-#include "PlanPrintSettings.h"
+#include "Viewer2DPrintSettings.h"
 
 #include "configmanager.h"
 
@@ -25,27 +25,29 @@ constexpr double kMmToPoints = 72.0 / 25.4;
 
 namespace print {
 
-PlanPrintSettings PlanPrintSettings::LoadFromConfig(ConfigManager &cfg) {
-  PlanPrintSettings settings;
-  settings.pageSize = cfg.GetFloat("print_plan_page_size") >= 0.5f
+Viewer2DPrintSettings Viewer2DPrintSettings::LoadFromConfig(
+    ConfigManager &cfg) {
+  Viewer2DPrintSettings settings;
+  settings.pageSize = cfg.GetFloat("print_viewer2d_page_size") >= 0.5f
                           ? PageSize::A4
                           : PageSize::A3;
-  settings.landscape = cfg.GetFloat("print_plan_landscape") != 0.0f;
+  settings.landscape = cfg.GetFloat("print_viewer2d_landscape") != 0.0f;
   settings.includeGrid = cfg.GetFloat("print_include_grid") != 0.0f;
   settings.detailedFootprints =
       cfg.GetFloat("print_use_simplified_footprints") == 0.0f;
   return settings;
 }
 
-void PlanPrintSettings::SaveToConfig(ConfigManager &cfg) const {
-  cfg.SetFloat("print_plan_page_size", pageSize == PageSize::A4 ? 1.0f : 0.0f);
-  cfg.SetFloat("print_plan_landscape", landscape ? 1.0f : 0.0f);
+void Viewer2DPrintSettings::SaveToConfig(ConfigManager &cfg) const {
+  cfg.SetFloat("print_viewer2d_page_size",
+               pageSize == PageSize::A4 ? 1.0f : 0.0f);
+  cfg.SetFloat("print_viewer2d_landscape", landscape ? 1.0f : 0.0f);
   cfg.SetFloat("print_include_grid", includeGrid ? 1.0f : 0.0f);
   cfg.SetFloat("print_use_simplified_footprints",
                detailedFootprints ? 0.0f : 1.0f);
 }
 
-std::pair<double, double> PlanPrintSettings::BasePageSizeMm() const {
+std::pair<double, double> Viewer2DPrintSettings::BasePageSizeMm() const {
   switch (pageSize) {
   case PageSize::A4:
     return {210.0, 297.0};
@@ -55,13 +57,13 @@ std::pair<double, double> PlanPrintSettings::BasePageSizeMm() const {
   }
 }
 
-double PlanPrintSettings::PageWidthPt() const {
+double Viewer2DPrintSettings::PageWidthPt() const {
   auto [portraitW, portraitH] = BasePageSizeMm();
   const double mm = landscape ? portraitH : portraitW;
   return mm * kMmToPoints;
 }
 
-double PlanPrintSettings::PageHeightPt() const {
+double Viewer2DPrintSettings::PageHeightPt() const {
   auto [portraitW, portraitH] = BasePageSizeMm();
   const double mm = landscape ? portraitW : portraitH;
   return mm * kMmToPoints;

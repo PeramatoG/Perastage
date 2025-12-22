@@ -355,15 +355,17 @@ void Viewer2DPanel::Render() {
     m_controller.SetCaptureCanvas(nullptr, m_view);
 
     m_lastFixtureDebugReport.clear();
-    if (auto debugKey = ConfigManager::Get().GetValue(
-            "print_plan_fixture_debug_key")) {
-      if (!debugKey->empty()) {
-        m_lastFixtureDebugReport =
-            BuildFixtureDebugReport(m_lastCapturedFrame, *debugKey);
+    auto debugKey =
+        ConfigManager::Get().GetValue("print_viewer2d_fixture_debug_key");
+    if (!debugKey || debugKey->empty()) {
+      debugKey = ConfigManager::Get().GetValue("print_plan_fixture_debug_key");
+    }
+    if (debugKey && !debugKey->empty()) {
+      m_lastFixtureDebugReport =
+          BuildFixtureDebugReport(m_lastCapturedFrame, *debugKey);
         if (!m_lastFixtureDebugReport.empty()) {
           wxLogMessage("%s", wxString::FromUTF8(m_lastFixtureDebugReport));
         }
-      }
     }
 
     if (m_captureCallback) {
