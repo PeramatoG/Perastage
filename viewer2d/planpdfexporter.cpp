@@ -19,6 +19,7 @@
 #include "planpdfexporter.h"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cctype>
 #include <filesystem>
@@ -407,22 +408,41 @@ void AppendText(std::ostringstream &out, const FloatFormatter &fmt,
   }
   if (lineAdvance > 0.0)
     lineAdvance = -lineAdvance;
-  out << "BT\n/F1 " << fmt.Format(scaledFontSize) << " Tf\n";
-  out << fmt.Format(style.color.r) << ' ' << fmt.Format(style.color.g) << ' '
-      << fmt.Format(style.color.b) << " rg\n";
-  out << fmt.Format(pos.x + horizontalOffset) << ' '
-      << fmt.Format(pos.y + verticalOffset) << " Td\n";
-  out << "(";
-  for (char ch : cmd.text) {
-    if (ch == '(' || ch == ')' || ch == '\\')
-      out << '\\';
-    if (ch == '\n') {
-      out << ") Tj\n0 " << fmt.Format(lineAdvance) << " Td\n(";
-      continue;
+  auto emitText = [&](const CanvasColor &color, double dx, double dy) {
+    out << "BT\n/F1 " << fmt.Format(scaledFontSize) << " Tf\n";
+    out << fmt.Format(color.r) << ' ' << fmt.Format(color.g) << ' '
+        << fmt.Format(color.b) << " rg\n";
+    out << fmt.Format(pos.x + horizontalOffset + dx) << ' '
+        << fmt.Format(pos.y + verticalOffset + dy) << " Td\n";
+    out << "(";
+    for (char ch : cmd.text) {
+      if (ch == '(' || ch == ')' || ch == '\\')
+        out << '\\';
+      if (ch == '\n') {
+        out << ") Tj\n0 " << fmt.Format(lineAdvance) << " Td\n(";
+        continue;
+      }
+      out << ch;
     }
-    out << ch;
+    out << ") Tj\nET\n";
+  };
+
+  const double outline = style.outlineWidth * scale;
+  if (outline > 0.0f) {
+    const std::array<std::array<double, 2>, 8> offsets = {
+        std::array<double, 2>{-outline, 0.0},
+        std::array<double, 2>{outline, 0.0},
+        std::array<double, 2>{0.0, -outline},
+        std::array<double, 2>{0.0, outline},
+        std::array<double, 2>{-outline, -outline},
+        std::array<double, 2>{outline, -outline},
+        std::array<double, 2>{-outline, outline},
+        std::array<double, 2>{outline, outline}};
+    for (const auto &offset : offsets)
+      emitText(style.outlineColor, offset[0], offset[1]);
   }
-  out << ") Tj\nET\n";
+
+  emitText(style.color, 0.0, 0.0);
 }
 
 Point MapPointWithTransform(double x, double y, const Transform &current,
