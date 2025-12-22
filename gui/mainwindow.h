@@ -34,6 +34,7 @@ class Viewer2DPanel;
 class Viewer2DRenderPanel;
 class ConsolePanel;
 class LayerPanel;
+class LayoutPanel;
 class SummaryPanel;
 class RiggingPanel;
 
@@ -71,6 +72,7 @@ private:
   Viewer2DRenderPanel *viewport2DRenderPanel = nullptr;
   ConsolePanel *consolePanel = nullptr;
   LayerPanel *layerPanel = nullptr;
+  LayoutPanel *layoutPanel = nullptr;
   SummaryPanel *summaryPanel = nullptr;
   RiggingPanel *riggingPanel = nullptr;
 
@@ -105,6 +107,7 @@ private:
   void OnToggleViewport2D(wxCommandEvent &event);     // Toggle 2D viewport
   void OnToggleRender2D(wxCommandEvent &event);       // Toggle 2D render panel
   void OnToggleLayers(wxCommandEvent &event);         // Toggle layer panel
+  void OnToggleLayouts(wxCommandEvent &event);        // Toggle layout panel
   void OnToggleSummary(wxCommandEvent &event);        // Toggle summary panel
   void OnToggleRigging(wxCommandEvent &event);        // Toggle rigging panel
   void OnShowHelp(wxCommandEvent &event);             // Show help dialog
@@ -133,6 +136,8 @@ private:
   void SaveCameraSettings();
   void ApplySavedLayout();
   void UpdateViewMenuChecks();
+  void OnLayoutSelected(wxCommandEvent &event);
+  void ActivateLayoutView(const std::string &viewId);
   void SyncSceneData();
   bool ConfirmSaveIfDirty(const wxString &actionLabel,
                           const wxString &dialogTitle);
@@ -162,6 +167,7 @@ enum {
   ID_View_ToggleViewport2D,
   ID_View_ToggleRender2D,
   ID_View_ToggleLayers,
+  ID_View_ToggleLayouts,
   ID_View_ToggleSummary,
   ID_View_ToggleRigging,
   ID_View_Layout_Default,
