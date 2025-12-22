@@ -838,8 +838,8 @@ PlanExportResult ExportPlanToPdf(const CommandBuffer &buffer,
 
   (void)viewState.view; // Orientation reserved for future layout tweaks.
 
-  double pageW = options.landscape ? options.pageHeightPt : options.pageWidthPt;
-  double pageH = options.landscape ? options.pageWidthPt : options.pageHeightPt;
+  double pageW = options.pageWidthPt;
+  double pageH = options.pageHeightPt;
   double margin = options.marginPt;
   double drawW = pageW - margin * 2.0;
   double drawH = pageH - margin * 2.0;
