@@ -32,6 +32,7 @@ public:
 
 private:
   void OnSelect(wxDataViewEvent &evt);
+  void OnContextMenu(wxDataViewEvent &evt);
   void OnAddLayout(wxCommandEvent &evt);
   void OnRenameLayout(wxCommandEvent &evt);
   void OnDeleteLayout(wxCommandEvent &evt);

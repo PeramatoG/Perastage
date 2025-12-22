@@ -61,6 +61,17 @@ bool LayoutCollection::RemoveLayout(const std::string &name) {
   return false;
 }
 
+bool LayoutCollection::SetLayoutOrientation(const std::string &name,
+                                            bool landscape) {
+  for (auto &layout : layouts) {
+    if (layout.name == name) {
+      layout.pageSetup.landscape = landscape;
+      return true;
+    }
+  }
+  return false;
+}
+
 void LayoutCollection::ReplaceAll(std::vector<LayoutDefinition> updated) {
   if (updated.empty()) {
     layouts = {DefaultLayout()};

@@ -103,6 +103,14 @@ bool LayoutManager::RemoveLayout(const std::string &name) {
   return true;
 }
 
+bool LayoutManager::SetLayoutOrientation(const std::string &name,
+                                         bool landscape) {
+  if (!layouts.SetLayoutOrientation(name, landscape))
+    return false;
+  SyncToConfig();
+  return true;
+}
+
 void LayoutManager::LoadFromConfig(ConfigManager &cfg) {
   auto value = cfg.GetValue(kLayoutsConfigKey);
   if (!value.has_value()) {
