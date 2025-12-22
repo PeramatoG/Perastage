@@ -497,9 +497,9 @@ void MainWindow::CreateMenuBar() {
   viewMenu->AppendCheckItem(ID_View_ToggleRigging, "Rigging");
 
   wxMenu *layoutMenu = new wxMenu();
-  layoutMenu->Append(ID_View_Layout_Default, "3D Layout");
-  layoutMenu->Append(ID_View_Layout_2D, "2D Layout");
-  viewMenu->AppendSubMenu(layoutMenu, "Layout");
+  layoutMenu->Append(ID_View_Layout_Default, "3D Layout View");
+  layoutMenu->Append(ID_View_Layout_2D, "2D Layout View");
+  viewMenu->AppendSubMenu(layoutMenu, "Layout Views");
 
   menuBar->Append(viewMenu, "&View");
 
