@@ -127,54 +127,58 @@ const std::array<const char *, 3> kLabelOffsetAngleKeys = {
     "label_offset_angle_top", "label_offset_angle_front",
     "label_offset_angle_side"};
 
-layouts::Layout2DViewState CaptureViewer2DState(
+layouts::Layout2DViewDefinition CaptureViewer2DViewDefinition(
     const Viewer2DPanel *panel, const ConfigManager &cfg) {
-  layouts::Layout2DViewState state;
+  layouts::Layout2DViewDefinition view;
+  auto &camera = view.camera;
+  auto &frame = view.frame;
+  auto &options = view.renderOptions;
+  auto &layers = view.layers;
   if (panel) {
     const auto viewState = panel->GetViewState();
-    state.offsetPixelsX = viewState.offsetPixelsX;
-    state.offsetPixelsY = viewState.offsetPixelsY;
-    state.zoom = viewState.zoom;
-    state.viewportWidth = viewState.viewportWidth;
-    state.viewportHeight = viewState.viewportHeight;
-    state.view = static_cast<int>(viewState.view);
-    state.frameWidth = viewState.viewportWidth;
-    state.frameHeight = viewState.viewportHeight;
+    camera.offsetPixelsX = viewState.offsetPixelsX;
+    camera.offsetPixelsY = viewState.offsetPixelsY;
+    camera.zoom = viewState.zoom;
+    camera.viewportWidth = viewState.viewportWidth;
+    camera.viewportHeight = viewState.viewportHeight;
+    camera.view = static_cast<int>(viewState.view);
+    frame.width = viewState.viewportWidth;
+    frame.height = viewState.viewportHeight;
   } else {
-    state.offsetPixelsX = cfg.GetFloat("view2d_offset_x");
-    state.offsetPixelsY = cfg.GetFloat("view2d_offset_y");
-    state.zoom = cfg.GetFloat("view2d_zoom");
-    state.view = static_cast<int>(cfg.GetFloat("view2d_view"));
+    camera.offsetPixelsX = cfg.GetFloat("view2d_offset_x");
+    camera.offsetPixelsY = cfg.GetFloat("view2d_offset_y");
+    camera.zoom = cfg.GetFloat("view2d_zoom");
+    camera.view = static_cast<int>(cfg.GetFloat("view2d_view"));
   }
 
-  state.renderMode = static_cast<int>(cfg.GetFloat("view2d_render_mode"));
-  state.darkMode = cfg.GetFloat("view2d_dark_mode") != 0.0f;
-  state.showGrid = cfg.GetFloat("grid_show") != 0.0f;
-  state.gridStyle = static_cast<int>(cfg.GetFloat("grid_style"));
-  state.gridColorR = cfg.GetFloat("grid_color_r");
-  state.gridColorG = cfg.GetFloat("grid_color_g");
-  state.gridColorB = cfg.GetFloat("grid_color_b");
-  state.gridDrawAbove = cfg.GetFloat("grid_draw_above") != 0.0f;
+  options.renderMode = static_cast<int>(cfg.GetFloat("view2d_render_mode"));
+  options.darkMode = cfg.GetFloat("view2d_dark_mode") != 0.0f;
+  options.showGrid = cfg.GetFloat("grid_show") != 0.0f;
+  options.gridStyle = static_cast<int>(cfg.GetFloat("grid_style"));
+  options.gridColorR = cfg.GetFloat("grid_color_r");
+  options.gridColorG = cfg.GetFloat("grid_color_g");
+  options.gridColorB = cfg.GetFloat("grid_color_b");
+  options.gridDrawAbove = cfg.GetFloat("grid_draw_above") != 0.0f;
 
-  for (size_t i = 0; i < state.showLabelName.size(); ++i) {
-    state.showLabelName[i] = cfg.GetFloat(kLabelNameKeys[i]) != 0.0f;
-    state.showLabelId[i] = cfg.GetFloat(kLabelIdKeys[i]) != 0.0f;
-    state.showLabelDmx[i] = cfg.GetFloat(kLabelDmxKeys[i]) != 0.0f;
-    state.labelOffsetDistance[i] =
+  for (size_t i = 0; i < options.showLabelName.size(); ++i) {
+    options.showLabelName[i] = cfg.GetFloat(kLabelNameKeys[i]) != 0.0f;
+    options.showLabelId[i] = cfg.GetFloat(kLabelIdKeys[i]) != 0.0f;
+    options.showLabelDmx[i] = cfg.GetFloat(kLabelDmxKeys[i]) != 0.0f;
+    options.labelOffsetDistance[i] =
         cfg.GetFloat(kLabelOffsetDistanceKeys[i]);
-    state.labelOffsetAngle[i] = cfg.GetFloat(kLabelOffsetAngleKeys[i]);
+    options.labelOffsetAngle[i] = cfg.GetFloat(kLabelOffsetAngleKeys[i]);
   }
-  state.labelFontSizeName = cfg.GetFloat("label_font_size_name");
-  state.labelFontSizeId = cfg.GetFloat("label_font_size_id");
-  state.labelFontSizeDmx = cfg.GetFloat("label_font_size_dmx");
+  options.labelFontSizeName = cfg.GetFloat("label_font_size_name");
+  options.labelFontSizeId = cfg.GetFloat("label_font_size_id");
+  options.labelFontSizeDmx = cfg.GetFloat("label_font_size_dmx");
 
-  state.hiddenLayers.clear();
+  layers.hiddenLayers.clear();
   auto hidden = cfg.GetHiddenLayers();
-  state.hiddenLayers.insert(state.hiddenLayers.end(), hidden.begin(),
-                            hidden.end());
-  std::sort(state.hiddenLayers.begin(), state.hiddenLayers.end());
+  layers.hiddenLayers.insert(layers.hiddenLayers.end(), hidden.begin(),
+                             hidden.end());
+  std::sort(layers.hiddenLayers.begin(), layers.hiddenLayers.end());
 
-  return state;
+  return view;
 }
 
 void LogMissingIcon(const std::filesystem::path &path) {
@@ -2072,10 +2076,9 @@ void MainWindow::PersistLayout2DViewState() {
   if (!layoutModeActive || activeLayoutName.empty())
     return;
   ConfigManager &cfg = ConfigManager::Get();
-  layouts::Layout2DViewState state =
-      CaptureViewer2DState(viewport2DPanel, cfg);
-  layouts::LayoutManager::Get().UpdateLayout2DViewState(activeLayoutName,
-                                                        state);
+  layouts::Layout2DViewDefinition view =
+      CaptureViewer2DViewDefinition(viewport2DPanel, cfg);
+  layouts::LayoutManager::Get().UpdateLayout2DView(activeLayoutName, view);
 }
 
 void MainWindow::UpdateViewMenuChecks() {
@@ -2137,15 +2140,20 @@ void MainWindow::ActivateLayoutView(const std::string &layoutName) {
     const auto &layouts = layouts::LayoutManager::Get().GetLayouts().Items();
     for (const auto &layout : layouts) {
       if (layout.name == layoutName) {
-        if (!layout.hasView2dState) {
-          ConfigManager &cfg = ConfigManager::Get();
-          layouts::Layout2DViewState state =
-              CaptureViewer2DState(viewport2DPanel, cfg);
-          layouts::LayoutManager::Get().UpdateLayout2DViewState(layoutName,
-                                                                state);
+        ConfigManager &cfg = ConfigManager::Get();
+        layouts::Layout2DViewDefinition view =
+            CaptureViewer2DViewDefinition(viewport2DPanel, cfg);
+        bool hasMatchingView = false;
+        for (const auto &entry : layout.view2dViews) {
+          if (entry.camera.view == view.camera.view) {
+            hasMatchingView = true;
+            break;
+          }
+        }
+        if (!hasMatchingView) {
+          layouts::LayoutManager::Get().UpdateLayout2DView(layoutName, view);
           layouts::LayoutDefinition updated = layout;
-          updated.view2dState = std::move(state);
-          updated.hasView2dState = true;
+          updated.view2dViews.push_back(std::move(view));
           layoutViewerPanel->SetLayoutDefinition(updated);
         } else {
           layoutViewerPanel->SetLayoutDefinition(layout);
