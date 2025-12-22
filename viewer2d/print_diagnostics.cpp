@@ -244,7 +244,7 @@ std::string BuildPrintDiagnostics(const CommandBuffer &buffer,
   }
 
   std::ostringstream report;
-  report << "Print Plan diagnostics\n";
+  report << "Print Viewer 2D diagnostics\n";
   report << "Total commands: " << buffer.commands.size() << "\n";
   report << "Command counts:\n";
   for (const auto &[name, count] : commandCounts)
@@ -269,4 +269,3 @@ std::string BuildPrintDiagnostics(const CommandBuffer &buffer,
   report << "Estimated content bytes: " << estimatedBytes << "\n";
   return report.str();
 }
-

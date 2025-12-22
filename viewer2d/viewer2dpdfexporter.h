@@ -30,7 +30,7 @@ constexpr double kMmToPt = 72.0 / 25.4;
 // Options describing the paper size and orientation for the PDF export. A3
 // portrait is used by default but callers can override the values to support
 // additional formats and orientations later on.
-struct PlanPrintOptions {
+struct Viewer2DPrintOptions {
   double pageWidthPt = 297.0 * kMmToPt;  // A3 portrait width
   double pageHeightPt = 420.0 * kMmToPt; // A3 portrait height
   double marginPt = 36.0;                // Half an inch margin for readability
@@ -41,7 +41,7 @@ struct PlanPrintOptions {
   bool printIncludeGrid = true;
 };
 
-struct PlanExportResult {
+struct Viewer2DExportResult {
   bool success = false;
   std::string message;
 };
@@ -49,9 +49,8 @@ struct PlanExportResult {
 // Writes the captured 2D drawing commands to a vector PDF that mirrors the
 // current viewport state. Returns structured information so callers can surface
 // meaningful errors to the user.
-PlanExportResult ExportPlanToPdf(const CommandBuffer &buffer,
-                                 const Viewer2DViewState &viewState,
-                                 const PlanPrintOptions &options,
-                                 const std::filesystem::path &outputPath,
-                                 std::shared_ptr<const SymbolDefinitionSnapshot>
-                                     symbolSnapshot = nullptr);
+Viewer2DExportResult ExportViewer2DToPdf(
+    const CommandBuffer &buffer, const Viewer2DViewState &viewState,
+    const Viewer2DPrintOptions &options,
+    const std::filesystem::path &outputPath,
+    std::shared_ptr<const SymbolDefinitionSnapshot> symbolSnapshot = nullptr);

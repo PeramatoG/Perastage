@@ -70,7 +70,7 @@ using json = nlohmann::json;
 #include "logindialog.h"
 #include "markdown.h"
 #include "hoisttablepanel.h"
-#include "planprintdialog.h"
+#include "viewer2dprintdialog.h"
 #include "mvrexporter.h"
 #include "mvrimporter.h"
 #include "preferencesdialog.h"
@@ -85,8 +85,8 @@ using json = nlohmann::json;
 #include "splashscreen.h"
 #include "summarypanel.h"
 #include "tableprinter.h"
-#include "print/PlanPrintSettings.h"
-#include "planpdfexporter.h"
+#include "print/Viewer2DPrintSettings.h"
+#include "viewer2dpdfexporter.h"
 #include "print_diagnostics.h"
 #include "support.h"
 #include "trussloader.h"
@@ -121,9 +121,8 @@ wxBEGIN_EVENT_TABLE(MainWindow, wxFrame) EVT_MENU(
         MainWindow::
             OnImportMVR) EVT_MENU(ID_File_ExportMVR,
                                   MainWindow::
-                                      OnExportMVR) EVT_MENU(ID_File_PrintPlan,
-                                                            MainWindow::
-                                                                OnPrintPlan)
+                                      OnExportMVR)
+    EVT_MENU(ID_File_PrintViewer2D, MainWindow::OnPrintViewer2D)
         EVT_MENU(ID_File_PrintTable, MainWindow::OnPrintTable) EVT_MENU(
             ID_File_ExportCSV, MainWindow::OnExportCSV) EVT_MENU(
             ID_File_Close,
@@ -463,7 +462,7 @@ void MainWindow::CreateMenuBar() {
   fileMenu->AppendSeparator();
   fileMenu->Append(ID_File_ImportMVR, "Import MVR...");
   fileMenu->Append(ID_File_ExportMVR, "Export MVR...");
-  fileMenu->Append(ID_File_PrintPlan, "Print Plan...");
+  fileMenu->Append(ID_File_PrintViewer2D, "Print Viewer 2D...");
   fileMenu->Append(ID_File_PrintTable, "Print Table...");
   fileMenu->Append(ID_File_ExportCSV, "Export CSV...");
   fileMenu->AppendSeparator();
@@ -1337,25 +1336,25 @@ void MainWindow::OnConvertToHoist(wxCommandEvent &WXUNUSED(event)) {
                "Convert to Hoist", wxOK | wxICON_INFORMATION);
 }
 
-void MainWindow::OnPrintPlan(wxCommandEvent &WXUNUSED(event)) {
+void MainWindow::OnPrintViewer2D(wxCommandEvent &WXUNUSED(event)) {
   Ensure2DViewport();
   if (!viewport2DPanel) {
-    wxMessageBox("2D viewport is not available.", "Print Plan",
+    wxMessageBox("2D viewport is not available.", "Print Viewer 2D",
                  wxOK | wxICON_ERROR);
     return;
   }
 
   ConfigManager &cfg = ConfigManager::Get();
-  print::PlanPrintSettings settings =
-      print::PlanPrintSettings::LoadFromConfig(cfg);
-  PlanPrintDialog settingsDialog(this, settings);
+  print::Viewer2DPrintSettings settings =
+      print::Viewer2DPrintSettings::LoadFromConfig(cfg);
+  Viewer2DPrintDialog settingsDialog(this, settings);
   if (settingsDialog.ShowModal() != wxID_OK)
     return;
 
   settings = settingsDialog.GetSettings();
   settings.SaveToConfig(cfg);
 
-  wxFileDialog dlg(this, "Save plan as", "", "plan.pdf",
+  wxFileDialog dlg(this, "Save 2D view as", "", "viewer2d.pdf",
                    "PDF files (*.pdf)|*.pdf",
                    wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
   if (dlg.ShowModal() != wxID_OK)
@@ -1364,12 +1363,12 @@ void MainWindow::OnPrintPlan(wxCommandEvent &WXUNUSED(event)) {
   wxString outputPathWx = dlg.GetPath();
   outputPathWx.Trim(true).Trim(false);
   if (outputPathWx.empty()) {
-    wxMessageBox("Please choose a destination file for the plan.", "Print Plan",
-                 wxOK | wxICON_WARNING);
+    wxMessageBox("Please choose a destination file for the 2D view.",
+                 "Print Viewer 2D", wxOK | wxICON_WARNING);
     return;
   }
 
-  PlanPrintOptions opts; // Defaults to A3 portrait.
+  Viewer2DPrintOptions opts; // Defaults to A3 portrait.
   opts.landscape = settings.landscape;
   opts.printIncludeGrid = settings.includeGrid;
   opts.useSimplifiedFootprints = !settings.detailedFootprints;
@@ -1384,7 +1383,7 @@ void MainWindow::OnPrintPlan(wxCommandEvent &WXUNUSED(event)) {
           CommandBuffer buffer, Viewer2DViewState state) {
         if (buffer.commands.empty()) {
           wxMessageBox("Unable to capture the 2D view for printing.",
-                       "Print Plan", wxOK | wxICON_ERROR);
+                       "Print Viewer 2D", wxOK | wxICON_ERROR);
           return;
         }
 
@@ -1414,18 +1413,18 @@ void MainWindow::OnPrintPlan(wxCommandEvent &WXUNUSED(event)) {
         // window while writing potentially large plans to disk.
         std::thread([this, buffer = std::move(buffer), state, opts, outputPath,
                      outputPathDisplay, symbolSnapshot]() {
-          PlanExportResult res =
-              ExportPlanToPdf(buffer, state, opts, outputPath, symbolSnapshot);
+          Viewer2DExportResult res = ExportViewer2DToPdf(
+              buffer, state, opts, outputPath, symbolSnapshot);
 
           wxTheApp->CallAfter([this, res, outputPathDisplay]() {
             if (!res.success) {
               wxString msg = "Failed to generate PDF plan: " +
                              wxString::FromUTF8(res.message);
-              wxMessageBox(msg, "Print Plan", wxOK | wxICON_ERROR, this);
+              wxMessageBox(msg, "Print Viewer 2D", wxOK | wxICON_ERROR, this);
             } else {
-              wxMessageBox(wxString::Format("Plan saved to %s",
+              wxMessageBox(wxString::Format("2D view saved to %s",
                                             outputPathDisplay),
-                           "Print Plan", wxOK | wxICON_INFORMATION, this);
+                           "Print Viewer 2D", wxOK | wxICON_INFORMATION, this);
             }
           });
         }).detach();

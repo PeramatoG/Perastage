@@ -16,7 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include "planpdfexporter.h"
+#include "viewer2dpdfexporter.h"
 
 #include <algorithm>
 #include <array>
@@ -794,13 +794,12 @@ std::string MakeSymbolIdName(uint32_t symbolId) {
 
 } // namespace
 
-PlanExportResult ExportPlanToPdf(const CommandBuffer &buffer,
-                                 const Viewer2DViewState &viewState,
-                                 const PlanPrintOptions &options,
-                                 const std::filesystem::path &outputPath,
-                                 std::shared_ptr<const SymbolDefinitionSnapshot>
-                                     symbolSnapshot) {
-  PlanExportResult result{};
+Viewer2DExportResult ExportViewer2DToPdf(
+    const CommandBuffer &buffer, const Viewer2DViewState &viewState,
+    const Viewer2DPrintOptions &options,
+    const std::filesystem::path &outputPath,
+    std::shared_ptr<const SymbolDefinitionSnapshot> symbolSnapshot) {
+  Viewer2DExportResult result{};
 
   // Nothing to write if the render pass did not produce commands.
   if (buffer.commands.empty()) {
