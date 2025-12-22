@@ -66,6 +66,7 @@ using json = nlohmann::json;
 #include "gdtfloader.h"
 #include "gdtfnet.h"
 #include "gdtfsearchdialog.h"
+#include "layoutpanel.h"
 #include "layerpanel.h"
 #include "logindialog.h"
 #include "markdown.h"
@@ -151,6 +152,7 @@ wxBEGIN_EVENT_TABLE(MainWindow, wxFrame) EVT_MENU(
                                                          MainWindow::
                                                              OnToggleRender2D)
                         EVT_MENU(ID_View_ToggleLayers, MainWindow::OnToggleLayers) EVT_MENU(
+                            ID_View_ToggleLayouts, MainWindow::OnToggleLayouts) EVT_MENU(
                             ID_View_ToggleSummary,
                             MainWindow::
                                 OnToggleSummary) EVT_MENU(ID_View_ToggleRigging,
@@ -209,6 +211,11 @@ wxBEGIN_EVENT_TABLE(MainWindow, wxFrame) EVT_MENU(
                                                                 EVT_PROJECT_LOADED,
                                                                 MainWindow::
                                                                     OnProjectLoaded)
+                                                            EVT_COMMAND(
+                                                                wxID_ANY,
+                                                                EVT_LAYOUT_SELECTED,
+                                                                MainWindow::
+                                                                    OnLayoutSelected)
                                                                 wxEND_EVENT_TABLE()
 
                                                                     MainWindow::
@@ -239,6 +246,8 @@ wxBEGIN_EVENT_TABLE(MainWindow, wxFrame) EVT_MENU(
 
   if (layerPanel)
     layerPanel->ReloadLayers();
+  if (layoutPanel)
+    layoutPanel->ReloadLayouts();
 
   UpdateTitle();
 }
@@ -319,6 +328,19 @@ void MainWindow::SetupLayout() {
                                       .CloseButton(true)
                                       .MaximizeButton(true)
                                       .PaneBorder(true));
+
+  layoutPanel = new LayoutPanel(this);
+  LayoutPanel::SetInstance(layoutPanel);
+  auiManager->AddPane(layoutPanel, wxAuiPaneInfo()
+                                       .Name("LayoutPanel")
+                                       .Caption("Layouts")
+                                       .Right()
+                                       .Row(0)
+                                       .Position(1)
+                                       .BestSize(200, 260)
+                                       .CloseButton(true)
+                                       .MaximizeButton(true)
+                                       .PaneBorder(true));
 
   summaryPanel = new SummaryPanel(this);
   SummaryPanel::SetInstance(summaryPanel);
@@ -493,6 +515,7 @@ void MainWindow::CreateMenuBar() {
   viewMenu->AppendCheckItem(ID_View_ToggleViewport2D, "2D Viewport");
   viewMenu->AppendCheckItem(ID_View_ToggleRender2D, "2D Render Options");
   viewMenu->AppendCheckItem(ID_View_ToggleLayers, "Layers");
+  viewMenu->AppendCheckItem(ID_View_ToggleLayouts, "Layouts");
   viewMenu->AppendCheckItem(ID_View_ToggleSummary, "Summary");
   viewMenu->AppendCheckItem(ID_View_ToggleRigging, "Rigging");
 
@@ -1596,6 +1619,17 @@ void MainWindow::OnToggleLayers(wxCommandEvent &event) {
   GetMenuBar()->Check(ID_View_ToggleLayers, pane.IsShown());
 }
 
+void MainWindow::OnToggleLayouts(wxCommandEvent &event) {
+  if (!auiManager)
+    return;
+
+  auto &pane = auiManager->GetPane("LayoutPanel");
+  pane.Show(!pane.IsShown());
+  auiManager->Update();
+
+  GetMenuBar()->Check(ID_View_ToggleLayouts, pane.IsShown());
+}
+
 void MainWindow::OnToggleSummary(wxCommandEvent &event) {
   if (!auiManager)
     return;
@@ -1834,6 +1868,10 @@ void MainWindow::UpdateViewMenuChecks() {
   GetMenuBar()->Check(ID_View_ToggleLayers,
                       layerPane.IsOk() && layerPane.IsShown());
 
+  auto &layoutPane = auiManager->GetPane("LayoutPanel");
+  GetMenuBar()->Check(ID_View_ToggleLayouts,
+                      layoutPane.IsOk() && layoutPane.IsShown());
+
   auto &summaryPane = auiManager->GetPane("SummaryPanel");
   GetMenuBar()->Check(ID_View_ToggleSummary,
                       summaryPane.IsOk() && summaryPane.IsShown());
@@ -1841,6 +1879,38 @@ void MainWindow::UpdateViewMenuChecks() {
   auto &riggingPane = auiManager->GetPane("RiggingPanel");
   GetMenuBar()->Check(ID_View_ToggleRigging,
                       riggingPane.IsOk() && riggingPane.IsShown());
+}
+
+void MainWindow::OnLayoutSelected(wxCommandEvent &event) {
+  ActivateLayoutView(event.GetString().ToStdString());
+}
+
+void MainWindow::ActivateLayoutView(const std::string &viewId) {
+  if (!auiManager)
+    return;
+
+  if (viewId == "viewer2d") {
+    Ensure2DViewport();
+    auto &pane2d = auiManager->GetPane("2DViewport");
+    if (pane2d.IsOk())
+      pane2d.Show();
+    auto &renderPane = auiManager->GetPane("2DRenderOptions");
+    if (renderPane.IsOk())
+      renderPane.Show();
+    auiManager->Update();
+    if (pane2d.IsShown() && Viewer2DPanel::Instance())
+      Viewer2DPanel::Instance()->Refresh();
+  } else if (viewId == "viewer3d") {
+    Ensure3DViewport();
+    auto &pane3d = auiManager->GetPane("3DViewport");
+    if (pane3d.IsOk())
+      pane3d.Show();
+    auiManager->Update();
+    if (pane3d.IsShown() && Viewer3DPanel::Instance())
+      Viewer3DPanel::Instance()->Refresh();
+  }
+
+  UpdateViewMenuChecks();
 }
 
 void MainWindow::SyncSceneData() {
