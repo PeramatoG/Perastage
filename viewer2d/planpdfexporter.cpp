@@ -517,17 +517,32 @@ SymbolBounds ComputeSymbolBounds(const std::vector<CanvasCommand> &commands) {
   return bounds;
 }
 
-// Emits only the stroke portion of a drawing command. Keeping strokes and
-// fills in separate functions allows the caller to control layering
-// explicitly, which is required to match the on-screen 2D viewer where fills
-// occlude internal wireframe edges within the same group.
-void EmitCommandStroke(std::ostringstream &content, GraphicsStateCache &cache,
-                       const FloatFormatter &formatter, const Mapping &mapping,
-                       const Transform &current, const CanvasCommand &command) {
+void EmitCommand(std::ostringstream &content, GraphicsStateCache &cache,
+                 const FloatFormatter &formatter, const Mapping &mapping,
+                 const Transform &current, const CanvasCommand &command) {
   std::visit(
       [&](auto &&c) {
         using T = std::decay_t<decltype(c)>;
-        if constexpr (std::is_same_v<T, LineCommand>) {
+        if constexpr (std::is_same_v<T, PolygonCommand>) {
+          std::vector<Point> pts;
+          pts.reserve(c.points.size() / 2);
+          for (size_t i = 0; i + 1 < c.points.size(); i += 2)
+            pts.push_back(
+                MapPointWithTransform(c.points[i], c.points[i + 1], current,
+                                      mapping));
+          AppendPolygon(content, cache, formatter, pts, c.stroke, &c.fill);
+        } else if constexpr (std::is_same_v<T, RectangleCommand>) {
+          auto origin = MapPointWithTransform(c.x, c.y, current, mapping);
+          double w = c.w * current.scale * mapping.scale;
+          double h = c.h * current.scale * mapping.scale;
+          AppendRectangle(content, cache, formatter, origin, w, h, c.stroke,
+                          &c.fill);
+        } else if constexpr (std::is_same_v<T, CircleCommand>) {
+          auto center = MapPointWithTransform(c.cx, c.cy, current, mapping);
+          double radius = c.radius * current.scale * mapping.scale;
+          AppendCircle(content, cache, formatter, center, radius, c.stroke,
+                       &c.fill);
+        } else if constexpr (std::is_same_v<T, LineCommand>) {
           auto pa = MapPointWithTransform(c.x0, c.y0, current, mapping);
           auto pb = MapPointWithTransform(c.x1, c.y1, current, mapping);
           AppendLine(content, cache, formatter, pa, pb, c.stroke);
@@ -539,65 +554,6 @@ void EmitCommandStroke(std::ostringstream &content, GraphicsStateCache &cache,
                 MapPointWithTransform(c.points[i], c.points[i + 1], current,
                                       mapping));
           AppendPolyline(content, cache, formatter, pts, c.stroke);
-        } else if constexpr (std::is_same_v<T, PolygonCommand>) {
-          std::vector<Point> pts;
-          pts.reserve(c.points.size() / 2);
-          for (size_t i = 0; i + 1 < c.points.size(); i += 2)
-            pts.push_back(
-                MapPointWithTransform(c.points[i], c.points[i + 1], current,
-                                      mapping));
-          AppendPolygon(content, cache, formatter, pts, c.stroke, nullptr);
-        } else if constexpr (std::is_same_v<T, RectangleCommand>) {
-          auto origin = MapPointWithTransform(c.x, c.y, current, mapping);
-          double w = c.w * current.scale * mapping.scale;
-          double h = c.h * current.scale * mapping.scale;
-          AppendRectangle(content, cache, formatter, origin, w, h, c.stroke,
-                          nullptr);
-        } else if constexpr (std::is_same_v<T, CircleCommand>) {
-          auto center = MapPointWithTransform(c.cx, c.cy, current, mapping);
-          double radius = c.radius * current.scale * mapping.scale;
-          AppendCircle(content, cache, formatter, center, radius, c.stroke,
-                       nullptr);
-        }
-      },
-      command);
-}
-
-// Emits only the fill portion of a drawing command. Stroke width is forced to
-// zero to ensure no outlines leak back in when rendering fills as a separate
-// pass.
-void EmitCommandFill(std::ostringstream &content, GraphicsStateCache &cache,
-                     const FloatFormatter &formatter, const Mapping &mapping,
-                     const Transform &current, const CanvasCommand &command) {
-  std::visit(
-      [&](auto &&c) {
-        using T = std::decay_t<decltype(c)>;
-        if constexpr (std::is_same_v<T, PolygonCommand>) {
-          std::vector<Point> pts;
-          pts.reserve(c.points.size() / 2);
-          for (size_t i = 0; i + 1 < c.points.size(); i += 2)
-            pts.push_back(
-                MapPointWithTransform(c.points[i], c.points[i + 1], current,
-                                      mapping));
-          CanvasStroke disabledStroke = c.stroke;
-          disabledStroke.width = 0.0f;
-          AppendPolygon(content, cache, formatter, pts, disabledStroke,
-                        &c.fill);
-        } else if constexpr (std::is_same_v<T, RectangleCommand>) {
-          auto origin = MapPointWithTransform(c.x, c.y, current, mapping);
-          double w = c.w * current.scale * mapping.scale;
-          double h = c.h * current.scale * mapping.scale;
-          CanvasStroke disabledStroke = c.stroke;
-          disabledStroke.width = 0.0f;
-          AppendRectangle(content, cache, formatter, origin, w, h,
-                          disabledStroke, &c.fill);
-        } else if constexpr (std::is_same_v<T, CircleCommand>) {
-          auto center = MapPointWithTransform(c.cx, c.cy, current, mapping);
-          double radius = c.radius * current.scale * mapping.scale;
-          CanvasStroke disabledStroke = c.stroke;
-          disabledStroke.width = 0.0f;
-          AppendCircle(content, cache, formatter, center, radius,
-                       disabledStroke, &c.fill);
         }
       },
       command);
@@ -612,42 +568,8 @@ std::string RenderCommandsToStream(
   std::vector<Transform> stack;
   std::ostringstream content;
   GraphicsStateCache stateCache;
-
-  std::vector<size_t> group;
-  std::string currentSource;
-
-  auto flushGroup = [&]() {
-    if (group.empty())
-      return;
-
-    // Use dedicated buffers for strokes and fills so layering is explicit and
-    // future exporters can reorder or post-process the layers independently.
-    std::ostringstream strokeLayer;
-    std::ostringstream fillLayer;
-
-    // Render all strokes first. They will be visually pushed underneath by the
-    // subsequent fill layer, mirroring how the real-time viewer relies on
-    // depth testing to hide internal wireframe segments.
-    for (size_t idx : group) {
-      if (!metadata[idx].hasStroke)
-        continue;
-      EmitCommandStroke(strokeLayer, stateCache, formatter, mapping, current,
-                        commands[idx]);
-    }
-
-    // Render fills afterwards so they sit on top of any wireframe lines from
-    // the same piece, matching the 2D viewer's occlusion behavior.
-    for (size_t idx : group) {
-      if (!metadata[idx].hasFill)
-        continue;
-      EmitCommandFill(fillLayer, stateCache, formatter, mapping, current,
-                      commands[idx]);
-    }
-
-    content << strokeLayer.str() << fillLayer.str();
-
-    group.clear();
-  };
+  (void)metadata;
+  (void)sources;
 
   auto handleBarrier = [&](const auto &cmd, size_t idx) {
     using T = std::decay_t<decltype(cmd)>;
@@ -715,38 +637,30 @@ std::string RenderCommandsToStream(
   for (size_t i = 0; i < commands.size(); ++i) {
     const auto &cmd = commands[i];
 
-    bool isBarrier = std::visit(
+    bool handled = false;
+    std::visit(
         [&](auto &&c) {
           using T = std::decay_t<decltype(c)>;
-          return std::is_same_v<T, SaveCommand> || std::is_same_v<T, RestoreCommand> ||
-                 std::is_same_v<T, TransformCommand> ||
-                 std::is_same_v<T, BeginSymbolCommand> ||
-                 std::is_same_v<T, EndSymbolCommand> ||
-                 std::is_same_v<T, PlaceSymbolCommand> ||
-                 std::is_same_v<T, SymbolInstanceCommand> ||
-                 std::is_same_v<T, TextCommand>;
+          if constexpr (std::is_same_v<T, SaveCommand> ||
+                        std::is_same_v<T, RestoreCommand> ||
+                        std::is_same_v<T, TransformCommand> ||
+                        std::is_same_v<T, PlaceSymbolCommand> ||
+                        std::is_same_v<T, SymbolInstanceCommand> ||
+                        std::is_same_v<T, TextCommand>) {
+            handleBarrier(c, i);
+            handled = true;
+          } else if constexpr (std::is_same_v<T, BeginSymbolCommand> ||
+                               std::is_same_v<T, EndSymbolCommand>) {
+            handled = true;
+          }
         },
         cmd);
 
-    if (isBarrier) {
-      flushGroup();
-      std::visit([&](const auto &barrierCmd) { handleBarrier(barrierCmd, i); },
-                 cmd);
+    if (handled)
       continue;
-    }
 
-    if (group.empty())
-      currentSource = sources[i];
-
-    if (sources[i] != currentSource) {
-      flushGroup();
-      currentSource = sources[i];
-    }
-
-    group.push_back(i);
+    EmitCommand(content, stateCache, formatter, mapping, current, cmd);
   }
-
-  flushGroup();
 
   return content.str();
 }
