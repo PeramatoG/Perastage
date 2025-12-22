@@ -21,11 +21,17 @@
 #include <cmath>
 #include <wx/dcbuffer.h>
 
+#include "layouts/LayoutManager.h"
+
 namespace {
 constexpr double kMinZoom = 0.1;
 constexpr double kMaxZoom = 10.0;
 constexpr double kZoomStep = 1.1;
 constexpr int kFitMarginPx = 40;
+constexpr int kHandleSizePx = 10;
+constexpr int kHandleHalfPx = kHandleSizePx / 2;
+constexpr int kHandleHoverPadPx = 6;
+constexpr int kMinFrameSize = 24;
 }
 
 wxBEGIN_EVENT_TABLE(LayoutViewerPanel, wxPanel)
@@ -78,6 +84,36 @@ void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
   dc.SetPen(wxPen(wxColour(200, 200, 200)));
   dc.DrawRectangle(topLeft.x, topLeft.y, static_cast<int>(scaledWidth),
                    static_cast<int>(scaledHeight));
+
+  const layouts::Layout2DViewDefinition *view = GetEditableView();
+  if (!view)
+    return;
+
+  wxRect frameRect;
+  if (!GetFrameRect(view->frame, frameRect))
+    return;
+
+  dc.SetBrush(*wxTRANSPARENT_BRUSH);
+  dc.SetPen(wxPen(wxColour(60, 160, 240), 2));
+  dc.DrawRectangle(frameRect);
+
+  wxRect handleRight(frameRect.GetRight() - kHandleHalfPx,
+                     frameRect.GetTop() + frameRect.GetHeight() / 2 -
+                         kHandleHalfPx,
+                     kHandleSizePx, kHandleSizePx);
+  wxRect handleBottom(frameRect.GetLeft() + frameRect.GetWidth() / 2 -
+                          kHandleHalfPx,
+                      frameRect.GetBottom() - kHandleHalfPx, kHandleSizePx,
+                      kHandleSizePx);
+  wxRect handleCorner(frameRect.GetRight() - kHandleHalfPx,
+                      frameRect.GetBottom() - kHandleHalfPx, kHandleSizePx,
+                      kHandleSizePx);
+
+  dc.SetBrush(wxBrush(wxColour(60, 160, 240)));
+  dc.SetPen(*wxTRANSPARENT_PEN);
+  dc.DrawRectangle(handleRight);
+  dc.DrawRectangle(handleBottom);
+  dc.DrawRectangle(handleCorner);
 }
 
 void LayoutViewerPanel::OnSize(wxSizeEvent &) {
@@ -85,12 +121,32 @@ void LayoutViewerPanel::OnSize(wxSizeEvent &) {
 }
 
 void LayoutViewerPanel::OnLeftDown(wxMouseEvent &event) {
+  const wxPoint pos = event.GetPosition();
+  const layouts::Layout2DViewDefinition *view = GetEditableView();
+  wxRect frameRect;
+  if (view && GetFrameRect(view->frame, frameRect)) {
+    FrameDragMode mode = HitTestFrame(pos, frameRect);
+    if (mode != FrameDragMode::None) {
+      dragMode = mode;
+      dragStartPos = pos;
+      dragStartFrame = view->frame;
+      CaptureMouse();
+      return;
+    }
+  }
+
   isPanning = true;
-  lastMousePos = event.GetPosition();
+  lastMousePos = pos;
   CaptureMouse();
 }
 
 void LayoutViewerPanel::OnLeftUp(wxMouseEvent &) {
+  if (dragMode != FrameDragMode::None) {
+    dragMode = FrameDragMode::None;
+    if (HasCapture())
+      ReleaseMouse();
+    return;
+  }
   if (isPanning) {
     isPanning = false;
     if (HasCapture())
@@ -99,10 +155,43 @@ void LayoutViewerPanel::OnLeftUp(wxMouseEvent &) {
 }
 
 void LayoutViewerPanel::OnMouseMove(wxMouseEvent &event) {
+  wxPoint currentPos = event.GetPosition();
+  const layouts::Layout2DViewDefinition *view = GetEditableView();
+  wxRect frameRect;
+  if (view && GetFrameRect(view->frame, frameRect)) {
+    hoverMode = HitTestFrame(currentPos, frameRect);
+    SetCursor(CursorForMode(hoverMode));
+  } else {
+    hoverMode = FrameDragMode::None;
+    SetCursor(wxCursor(wxCURSOR_ARROW));
+  }
+
+  if (dragMode != FrameDragMode::None && event.Dragging()) {
+    SetCursor(CursorForMode(dragMode));
+    wxPoint delta = currentPos - dragStartPos;
+    layouts::Layout2DViewFrame frame = dragStartFrame;
+    if (dragMode == FrameDragMode::Move) {
+      frame.x += delta.x;
+      frame.y += delta.y;
+    } else {
+      if (dragMode == FrameDragMode::ResizeRight ||
+          dragMode == FrameDragMode::ResizeCorner) {
+        frame.width =
+            std::max(kMinFrameSize, dragStartFrame.width + delta.x);
+      }
+      if (dragMode == FrameDragMode::ResizeBottom ||
+          dragMode == FrameDragMode::ResizeCorner) {
+        frame.height =
+            std::max(kMinFrameSize, dragStartFrame.height + delta.y);
+      }
+    }
+    UpdateFrame(frame, dragMode == FrameDragMode::Move);
+    return;
+  }
+
   if (!isPanning || !event.Dragging())
     return;
 
-  wxPoint currentPos = event.GetPosition();
   wxPoint delta = currentPos - lastMousePos;
   panOffset += delta;
   lastMousePos = currentPos;
@@ -110,6 +199,8 @@ void LayoutViewerPanel::OnMouseMove(wxMouseEvent &event) {
 }
 
 void LayoutViewerPanel::OnMouseWheel(wxMouseEvent &event) {
+  if (dragMode != FrameDragMode::None)
+    return;
   const int rotation = event.GetWheelRotation();
   const int delta = event.GetWheelDelta();
   if (delta == 0 || rotation == 0)
@@ -138,6 +229,7 @@ void LayoutViewerPanel::OnMouseWheel(wxMouseEvent &event) {
 
 void LayoutViewerPanel::OnCaptureLost(wxMouseCaptureLostEvent &) {
   isPanning = false;
+  dragMode = FrameDragMode::None;
 }
 
 void LayoutViewerPanel::ResetViewToFit() {
@@ -158,4 +250,106 @@ void LayoutViewerPanel::ResetViewToFit() {
       static_cast<double>(size.GetHeight() - kFitMarginPx) / pageHeight;
   zoom = std::clamp(std::min(fitWidth, fitHeight), kMinZoom, kMaxZoom);
   panOffset = wxPoint(0, 0);
+}
+
+wxRect LayoutViewerPanel::GetPageRect() const {
+  wxSize size = GetClientSize();
+  const double pageWidth = currentLayout.pageSetup.PageWidthPt();
+  const double pageHeight = currentLayout.pageSetup.PageHeightPt();
+  const double scaledWidth = pageWidth * zoom;
+  const double scaledHeight = pageHeight * zoom;
+  const wxPoint center(size.GetWidth() / 2, size.GetHeight() / 2);
+  const wxPoint topLeft(center.x - static_cast<int>(scaledWidth / 2.0) +
+                            panOffset.x,
+                        center.y - static_cast<int>(scaledHeight / 2.0) +
+                            panOffset.y);
+  return wxRect(topLeft.x, topLeft.y, static_cast<int>(scaledWidth),
+                static_cast<int>(scaledHeight));
+}
+
+bool LayoutViewerPanel::GetFrameRect(const layouts::Layout2DViewFrame &frame,
+                                     wxRect &rect) const {
+  if (frame.width <= 0 || frame.height <= 0)
+    return false;
+  wxRect pageRect = GetPageRect();
+  rect = wxRect(pageRect.GetLeft() + frame.x, pageRect.GetTop() + frame.y,
+                frame.width, frame.height);
+  return true;
+}
+
+layouts::Layout2DViewDefinition *LayoutViewerPanel::GetEditableView() {
+  if (!currentLayout.view2dViews.empty())
+    return &currentLayout.view2dViews.front();
+  return nullptr;
+}
+
+const layouts::Layout2DViewDefinition *LayoutViewerPanel::GetEditableView()
+    const {
+  if (!currentLayout.view2dViews.empty())
+    return &currentLayout.view2dViews.front();
+  return nullptr;
+}
+
+void LayoutViewerPanel::UpdateFrame(const layouts::Layout2DViewFrame &frame,
+                                    bool updatePosition) {
+  layouts::Layout2DViewDefinition *view = GetEditableView();
+  if (!view)
+    return;
+  view->frame.width = frame.width;
+  view->frame.height = frame.height;
+  if (updatePosition) {
+    view->frame.x = frame.x;
+    view->frame.y = frame.y;
+  }
+  if (!currentLayout.name.empty()) {
+    layouts::LayoutManager::Get().UpdateLayout2DView(currentLayout.name,
+                                                     *view);
+  }
+  Refresh();
+}
+
+LayoutViewerPanel::FrameDragMode
+LayoutViewerPanel::HitTestFrame(const wxPoint &pos,
+                                const wxRect &frameRect) const {
+  wxRect handleRight(frameRect.GetRight() - kHandleHalfPx - kHandleHoverPadPx,
+                     frameRect.GetTop() + frameRect.GetHeight() / 2 -
+                         kHandleHalfPx - kHandleHoverPadPx,
+                     kHandleSizePx + kHandleHoverPadPx * 2,
+                     kHandleSizePx + kHandleHoverPadPx * 2);
+  wxRect handleBottom(frameRect.GetLeft() + frameRect.GetWidth() / 2 -
+                          kHandleHalfPx - kHandleHoverPadPx,
+                      frameRect.GetBottom() - kHandleHalfPx - kHandleHoverPadPx,
+                      kHandleSizePx + kHandleHoverPadPx * 2,
+                      kHandleSizePx + kHandleHoverPadPx * 2);
+  wxRect handleCorner(frameRect.GetRight() - kHandleHalfPx - kHandleHoverPadPx,
+                      frameRect.GetBottom() - kHandleHalfPx -
+                          kHandleHoverPadPx,
+                      kHandleSizePx + kHandleHoverPadPx * 2,
+                      kHandleSizePx + kHandleHoverPadPx * 2);
+
+  if (handleCorner.Contains(pos))
+    return FrameDragMode::ResizeCorner;
+  if (handleRight.Contains(pos))
+    return FrameDragMode::ResizeRight;
+  if (handleBottom.Contains(pos))
+    return FrameDragMode::ResizeBottom;
+  if (frameRect.Contains(pos))
+    return FrameDragMode::Move;
+  return FrameDragMode::None;
+}
+
+wxCursor LayoutViewerPanel::CursorForMode(FrameDragMode mode) const {
+  switch (mode) {
+  case FrameDragMode::ResizeRight:
+    return wxCursor(wxCURSOR_SIZEWE);
+  case FrameDragMode::ResizeBottom:
+    return wxCursor(wxCURSOR_SIZENS);
+  case FrameDragMode::ResizeCorner:
+    return wxCursor(wxCURSOR_SIZENWSE);
+  case FrameDragMode::Move:
+    return wxCursor(wxCURSOR_SIZING);
+  case FrameDragMode::None:
+  default:
+    return wxCursor(wxCURSOR_ARROW);
+  }
 }

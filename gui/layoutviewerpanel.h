@@ -36,12 +36,34 @@ private:
   void OnCaptureLost(wxMouseCaptureLostEvent &event);
 
   void ResetViewToFit();
+  wxRect GetPageRect() const;
+  bool GetFrameRect(const layouts::Layout2DViewFrame &frame,
+                    wxRect &rect) const;
+  layouts::Layout2DViewDefinition *GetEditableView();
+  const layouts::Layout2DViewDefinition *GetEditableView() const;
+  void UpdateFrame(const layouts::Layout2DViewFrame &frame,
+                   bool updatePosition);
+
+  enum class FrameDragMode {
+    None,
+    Move,
+    ResizeRight,
+    ResizeBottom,
+    ResizeCorner
+  };
+
+  FrameDragMode HitTestFrame(const wxPoint &pos, const wxRect &frameRect) const;
+  wxCursor CursorForMode(FrameDragMode mode) const;
 
   layouts::LayoutDefinition currentLayout;
   double zoom = 1.0;
   wxPoint panOffset{0, 0};
   bool isPanning = false;
   wxPoint lastMousePos{0, 0};
+  FrameDragMode dragMode = FrameDragMode::None;
+  FrameDragMode hoverMode = FrameDragMode::None;
+  wxPoint dragStartPos{0, 0};
+  layouts::Layout2DViewFrame dragStartFrame;
 
   wxDECLARE_EVENT_TABLE();
 };
