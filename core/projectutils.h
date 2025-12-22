@@ -31,7 +31,9 @@ namespace ProjectUtils {
     // Path containing the built-in library shipped with the executable.
     std::filesystem::path GetBaseLibraryPath(const std::string& subdir);
 
+    // Path containing the built-in resources shipped with the executable.
+    std::filesystem::path GetResourceRoot();
+
     // Returns the path to a library subdirectory if it exists, otherwise empty.
     std::string GetDefaultLibraryPath(const std::string& subdir);
 }
-

@@ -62,6 +62,22 @@ fs::path GetBaseLibraryPath(const std::string& subdir)
     return baseLib;
 }
 
+fs::path GetResourceRoot()
+{
+    wxFileName exe(wxStandardPaths::Get().GetExecutablePath());
+    fs::path exeBase = fs::path(exe.GetPath().ToStdString());
+    fs::path exeResources = exeBase / "resources";
+
+    if (fs::exists(exeResources))
+        return exeResources;
+
+    fs::path cwdResources = fs::current_path() / "resources";
+    if (fs::exists(cwdResources))
+        return cwdResources;
+
+    return exeResources;
+}
+
 std::string GetLastProjectPathFile()
 {
     wxString dir = wxStandardPaths::Get().GetUserDataDir();
@@ -127,4 +143,3 @@ std::string GetDefaultLibraryPath(const std::string& subdir)
 }
 
 } // namespace ProjectUtils
-
