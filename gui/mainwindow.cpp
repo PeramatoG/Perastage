@@ -370,31 +370,37 @@ void MainWindow::CreateToolBars() {
                                  wxAUI_TB_DEFAULT_STYLE | wxAUI_TB_HORIZONTAL);
   fileToolBar->SetToolBitmapSize(wxSize(24, 24));
 
-  // TODO: Replace wxArtProvider icons with Tabler SVGs via
-  // wxBitmapBundle::FromSVGFile() when icon assets are available.
+  const auto loadToolbarIcon = [](const std::string &name,
+                                  const wxArtID &fallbackArtId) {
+    auto svgPath = ProjectUtils::GetResourceRoot() / "icons" / "outline" /
+                   (name + ".svg");
+    if (std::filesystem::exists(svgPath)) {
+      wxBitmapBundle bundle =
+          wxBitmapBundle::FromSVGFile(svgPath.string(), wxSize(24, 24));
+      if (bundle.IsOk()) {
+        return bundle;
+      }
+    }
+    return wxArtProvider::GetBitmapBundle(fallbackArtId, wxART_TOOLBAR,
+                                          wxSize(24, 24));
+  };
   fileToolBar->AddTool(ID_File_New, "New",
-                       wxArtProvider::GetBitmapBundle(wxART_NEW,
-                                                      wxART_TOOLBAR),
+                       loadToolbarIcon("file-plus", wxART_NEW),
                        "Create a new project");
   fileToolBar->AddTool(ID_File_Load, "Open",
-                       wxArtProvider::GetBitmapBundle(wxART_FILE_OPEN,
-                                                      wxART_TOOLBAR),
+                       loadToolbarIcon("folder-open", wxART_FILE_OPEN),
                        "Open an existing project");
   fileToolBar->AddTool(ID_File_Save, "Save",
-                       wxArtProvider::GetBitmapBundle(wxART_FILE_SAVE,
-                                                      wxART_TOOLBAR),
+                       loadToolbarIcon("save", wxART_FILE_SAVE),
                        "Save the current project");
   fileToolBar->AddTool(ID_File_SaveAs, "Save As",
-                       wxArtProvider::GetBitmapBundle(wxART_FILE_SAVE,
-                                                      wxART_TOOLBAR),
+                       loadToolbarIcon("save", wxART_FILE_SAVE),
                        "Save the current project with a new name");
   fileToolBar->AddTool(ID_File_ImportMVR, "Import MVR",
-                       wxArtProvider::GetBitmapBundle(wxART_FILE_OPEN,
-                                                      wxART_TOOLBAR),
+                       loadToolbarIcon("folder-open", wxART_FILE_OPEN),
                        "Import an MVR file");
   fileToolBar->AddTool(ID_File_ExportMVR, "Export MVR",
-                       wxArtProvider::GetBitmapBundle(wxART_FILE_SAVE,
-                                                      wxART_TOOLBAR),
+                       loadToolbarIcon("save", wxART_FILE_SAVE),
                        "Export the project to MVR");
   fileToolBar->AddSeparator();
   fileToolBar->Realize();
