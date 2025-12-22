@@ -17,19 +17,21 @@
  */
 #pragma once
 
-#include "PageSetup.h"
-
-class ConfigManager;
+#include <utility>
 
 namespace print {
 
-struct Viewer2DPrintSettings : public PageSetup {
-  Viewer2DPrintSettings() { pageSize = PageSize::A3; }
-  bool includeGrid = true;
-  bool detailedFootprints = false;
+enum class PageSize { A3 = 0, A4 = 1 };
 
-  static Viewer2DPrintSettings LoadFromConfig(ConfigManager &cfg);
-  void SaveToConfig(ConfigManager &cfg) const;
+struct PageSetup {
+  PageSize pageSize = PageSize::A4;
+  bool landscape = false;
+
+  double PageWidthPt() const;
+  double PageHeightPt() const;
+
+private:
+  std::pair<double, double> BasePageSizeMm() const;
 };
 
 } // namespace print

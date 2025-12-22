@@ -19,10 +19,6 @@
 
 #include "configmanager.h"
 
-namespace {
-constexpr double kMmToPoints = 72.0 / 25.4;
-} // namespace
-
 namespace print {
 
 Viewer2DPrintSettings Viewer2DPrintSettings::LoadFromConfig(
@@ -45,28 +41,6 @@ void Viewer2DPrintSettings::SaveToConfig(ConfigManager &cfg) const {
   cfg.SetFloat("print_include_grid", includeGrid ? 1.0f : 0.0f);
   cfg.SetFloat("print_use_simplified_footprints",
                detailedFootprints ? 0.0f : 1.0f);
-}
-
-std::pair<double, double> Viewer2DPrintSettings::BasePageSizeMm() const {
-  switch (pageSize) {
-  case PageSize::A4:
-    return {210.0, 297.0};
-  case PageSize::A3:
-  default:
-    return {297.0, 420.0};
-  }
-}
-
-double Viewer2DPrintSettings::PageWidthPt() const {
-  auto [portraitW, portraitH] = BasePageSizeMm();
-  const double mm = landscape ? portraitH : portraitW;
-  return mm * kMmToPoints;
-}
-
-double Viewer2DPrintSettings::PageHeightPt() const {
-  auto [portraitW, portraitH] = BasePageSizeMm();
-  const double mm = landscape ? portraitW : portraitH;
-  return mm * kMmToPoints;
 }
 
 } // namespace print
