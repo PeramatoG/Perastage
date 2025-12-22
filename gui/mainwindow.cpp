@@ -70,6 +70,7 @@ using json = nlohmann::json;
 #include "logindialog.h"
 #include "markdown.h"
 #include "hoisttablepanel.h"
+#include "planprintdialog.h"
 #include "mvrexporter.h"
 #include "mvrimporter.h"
 #include "preferencesdialog.h"
@@ -1344,6 +1345,16 @@ void MainWindow::OnPrintPlan(wxCommandEvent &WXUNUSED(event)) {
     return;
   }
 
+  ConfigManager &cfg = ConfigManager::Get();
+  print::PlanPrintSettings settings =
+      print::PlanPrintSettings::LoadFromConfig(cfg);
+  PlanPrintDialog settingsDialog(this, settings);
+  if (settingsDialog.ShowModal() != wxID_OK)
+    return;
+
+  settings = settingsDialog.GetSettings();
+  settings.SaveToConfig(cfg);
+
   wxFileDialog dlg(this, "Save plan as", "", "plan.pdf",
                    "PDF files (*.pdf)|*.pdf",
                    wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
@@ -1358,8 +1369,145 @@ void MainWindow::OnPrintPlan(wxCommandEvent &WXUNUSED(event)) {
     return;
   }
 
-  print::PlanPrintSettings settings =
-      print::PlanPrintSettings::LoadFromConfig(ConfigManager::Get());
+  PlanPrintOptions opts; // Defaults to A3 portrait.
+  opts.landscape = settings.landscape;
+  opts.printIncludeGrid = settings.includeGrid;
+  opts.useSimplifiedFootprints = !settings.detailedFootprints;
+  opts.pageWidthPt = settings.PageWidthPt();
+  opts.pageHeightPt = settings.PageHeightPt();
+  std::filesystem::path outputPath(
+      std::filesystem::path(outputPathWx.ToStdWstring()));
+  wxString outputPathDisplay = outputPathWx;
+
+  viewport2DPanel->CaptureFrameAsync(
+      [this, opts, outputPath, outputPathDisplay](
+          CommandBuffer buffer, Viewer2DViewState state) {
+        if (buffer.commands.empty()) {
+          wxMessageBox("Unable to capture the 2D view for printing.",
+                       "Print Plan", wxOK | wxICON_ERROR);
+          return;
+        }
+
+        std::string diagnostics = BuildPrintDiagnostics(buffer);
+        if (ConsolePanel::Instance()) {
+          ConsolePanel::Instance()->AppendMessage(
+              wxString::FromUTF8(diagnostics));
+        }
+
+        std::string fixtureReport;
+        if (viewport2DPanel)
+          fixtureReport = viewport2DPanel->GetLastFixtureDebugReport();
+        if (!fixtureReport.empty()) {
+          wxLogMessage("%s", wxString::FromUTF8(fixtureReport));
+          if (ConsolePanel::Instance()) {
+            ConsolePanel::Instance()->AppendMessage(
+                wxString::FromUTF8(fixtureReport));
+          }
+        }
+
+        std::shared_ptr<const SymbolDefinitionSnapshot> symbolSnapshot = nullptr;
+        if (viewport2DPanel) {
+          symbolSnapshot = viewport2DPanel->GetBottomSymbolCacheSnapshot();
+        }
+
+        // Run the PDF generation off the UI thread to avoid freezing the
+        // window while writing potentially large plans to disk.
+        std::thread([this, buffer = std::move(buffer), state, opts, outputPath,
+                     outputPathDisplay, symbolSnapshot]() {
+          PlanExportResult res =
+              ExportPlanToPdf(buffer, state, opts, outputPath, symbolSnapshot);
+
+          wxTheApp->CallAfter([this, res, outputPathDisplay]() {
+            if (!res.success) {
+              wxString msg = "Failed to generate PDF plan: " +
+                             wxString::FromUTF8(res.message);
+              wxMessageBox(msg, "Print Plan", wxOK | wxICON_ERROR, this);
+            } else {
+              wxMessageBox(wxString::Format("Plan saved to %s",
+                                            outputPathDisplay),
+                           "Print Plan", wxOK | wxICON_INFORMATION, this);
+            }
+          });
+        }).detach();
+      },
+      opts.useSimplifiedFootprints, opts.printIncludeGrid);
+}
+
+void MainWindow::OnPrintTable(wxCommandEvent &WXUNUSED(event)) {
+  wxArrayString options;
+  if (fixturePanel)
+    options.Add("Fixtures");
+  if (trussPanel)
+    options.Add("Trusses");
+  if (hoistPanel)
+    options.Add("Hoists");
+  if (sceneObjPanel)
+    options.Add("Objects");
+  if (options.IsEmpty())
+    return;
+
+  wxSingleChoiceDialog dlg(this, "Select table", "Print Table", options);
+  if (dlg.ShowModal() != wxID_OK)
+    return;
+
+  wxString choice = dlg.GetStringSelection();
+  wxDataViewListCtrl *ctrl = nullptr;
+  TablePrinter::TableType type = TablePrinter::TableType::Fixtures;
+  if (choice == "Fixtures" && fixturePanel) {
+    ctrl = fixturePanel->GetTableCtrl();
+    type = TablePrinter::TableType::Fixtures;
+  } else if (choice == "Trusses" && trussPanel) {
+    ctrl = trussPanel->GetTableCtrl();
+    type = TablePrinter::TableType::Trusses;
+  } else if (choice == "Hoists" && hoistPanel) {
+    ctrl = hoistPanel->GetTableCtrl();
+    type = TablePrinter::TableType::Supports;
+  } else if (choice == "Objects" && sceneObjPanel) {
+    ctrl = sceneObjPanel->GetTableCtrl();
+    type = TablePrinter::TableType::SceneObjects;
+  }
+
+  if (ctrl)
+    TablePrinter::Print(this, ctrl, type);
+}
+
+void MainWindow::OnExportCSV(wxCommandEvent &WXUNUSED(event)) {
+  wxArrayString options;
+  if (fixturePanel)
+    options.Add("Fixtures");
+  if (trussPanel)
+    options.Add("Trusses");
+  if (hoistPanel)
+    options.Add("Hoists");
+  if (sceneObjPanel)
+    options.Add("Objects");
+  if (options.IsEmpty())
+    return;
+
+  wxSingleChoiceDialog dlg(this, "Select table", "Export CSV", options);
+  if (dlg.ShowModal() != wxID_OK)
+    return;
+
+  wxString choice = dlg.GetStringSelection();
+  wxDataViewListCtrl *ctrl = nullptr;
+  TablePrinter::TableType type = TablePrinter::TableType::Fixtures;
+  if (choice == "Fixtures" && fixturePanel) {
+    ctrl = fixturePanel->GetTableCtrl();
+    type = TablePrinter::TableType::Fixtures;
+  } else if (choice == "Trusses" && trussPanel) {
+    ctrl = trussPanel->GetTableCtrl();
+    type = TablePrinter::TableType::Trusses;
+  } else if (choice == "Hoists" && hoistPanel) {
+    ctrl = hoistPanel->GetTableCtrl();
+    type = TablePrinter::TableType::Supports;
+  } else if (choice == "Objects" && sceneObjPanel) {
+    ctrl = sceneObjPanel->GetTableCtrl();
+    type = TablePrinter::TableType::SceneObjects;
+  }
+
+  if (ctrl)
+    TablePrinter::ExportCSV(ctrl, type);
+}
 
   PlanPrintOptions opts; // Defaults to A3 portrait.
   opts.landscape = settings.landscape;
