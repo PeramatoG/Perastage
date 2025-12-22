@@ -137,7 +137,7 @@ private:
   void ApplySavedLayout();
   void UpdateViewMenuChecks();
   void OnLayoutSelected(wxCommandEvent &event);
-  void ActivateLayoutView(const std::string &viewId);
+  void ActivateLayoutView(const std::string &layoutName);
   void SyncSceneData();
   bool ConfirmSaveIfDirty(const wxString &actionLabel,
                           const wxString &dialogTitle);

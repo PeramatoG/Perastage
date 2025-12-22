@@ -27,7 +27,6 @@ namespace layouts {
 struct LayoutDefinition {
   std::string name;
   print::PageSetup pageSetup;
-  std::string viewId;
 };
 
 class LayoutCollection {

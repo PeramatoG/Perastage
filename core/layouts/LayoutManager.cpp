@@ -43,8 +43,7 @@ print::PageSize PageSizeFromString(const std::string &value) {
 nlohmann::json ToJson(const LayoutDefinition &layout) {
   return nlohmann::json{{"name", layout.name},
                         {"pageSize", PageSizeToString(layout.pageSetup.pageSize)},
-                        {"landscape", layout.pageSetup.landscape},
-                        {"viewId", layout.viewId}};
+                        {"landscape", layout.pageSetup.landscape}};
 }
 
 bool ParseLayout(const nlohmann::json &value, LayoutDefinition &out) {
@@ -69,10 +68,6 @@ bool ParseLayout(const nlohmann::json &value, LayoutDefinition &out) {
           ? landscapeIt->get<bool>()
           : false;
 
-  const auto viewIdIt = value.find("viewId");
-  out.viewId = viewIdIt != value.end() && viewIdIt->is_string()
-                   ? viewIdIt->get<std::string>()
-                   : std::string{};
   return true;
 }
 } // namespace

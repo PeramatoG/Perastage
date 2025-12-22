@@ -74,7 +74,6 @@ LayoutDefinition LayoutCollection::DefaultLayout() {
   layout.name = "Layout 1";
   layout.pageSetup.pageSize = print::PageSize::A4;
   layout.pageSetup.landscape = false;
-  layout.viewId = "viewer2d";
   return layout;
 }
 
