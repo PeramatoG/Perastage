@@ -31,7 +31,6 @@
 #include "symbolcache.h"
 #include <array>
 #include <memory>
-#include <optional>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -59,10 +58,6 @@ enum class Viewer2DView {
   Side,
   Bottom
 };
-
-namespace layouts {
-struct Layout2DViewRenderOptions;
-}
 
 class Viewer3DController {
 public:
@@ -108,8 +103,6 @@ public:
   // with the provided zoom factor. Labels have no outline and always show
   // name, ID and DMX address on three separate lines.
   void DrawAllFixtureLabels(int width, int height, float zoom = 1.0f);
-  void DrawAllFixtureLabels(int width, int height, float zoom, Viewer2DView view,
-                            const layouts::Layout2DViewRenderOptions &options);
 
   // Returns true and outputs label and screen position of the fixture
   // under the given mouse coordinates (if any)
@@ -125,8 +118,6 @@ public:
 
   // Update cached layer color for rendering
   void SetLayerColor(const std::string &layer, const std::string &hex);
-  void SetHiddenLayersOverride(const std::unordered_set<std::string> &layers);
-  void ClearHiddenLayersOverride();
   const SymbolCache &GetBottomSymbolCache() const { return m_bottomSymbolCache; }
   SymbolCache &GetBottomSymbolCache() { return m_bottomSymbolCache; }
   std::shared_ptr<const SymbolDefinitionSnapshot>
@@ -217,7 +208,6 @@ private:
                      const CanvasStroke &stroke, const CanvasFill *fill) const;
   void RecordText(float x, float y, const std::string &text,
                   const CanvasTextStyle &style) const;
-  bool IsLayerVisible(const std::string &layer) const;
 
   // Draws a mesh loaded from a 3DS file using the given scale factor
   // for vertex positions. GDTF models may already be defined in meters
@@ -272,7 +262,6 @@ private:
   bool m_captureUseSymbols = false;
   SymbolCache m_bottomSymbolCache;
   bool m_darkMode = false;
-  std::optional<std::unordered_set<std::string>> m_hiddenLayersOverride;
 
 public:
   // Enables recording of all primitives drawn during the next RenderScene

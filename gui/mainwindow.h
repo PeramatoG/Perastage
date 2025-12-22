@@ -35,7 +35,6 @@ class Viewer2DRenderPanel;
 class ConsolePanel;
 class LayerPanel;
 class LayoutPanel;
-class Layout2DViewPanel;
 class LayoutViewerPanel;
 class SummaryPanel;
 class RiggingPanel;
@@ -53,8 +52,6 @@ public:
   static void SetInstance(MainWindow *inst);
 
   void EnableShortcuts(bool enable);
-  bool IsLayoutModeActive() const { return layoutModeActive; }
-  Layout2DViewPanel *GetLayout2DViewPanel() const { return layout2DViewPanel; }
 
 private:
   void SetupLayout();   // Set up main window layout
@@ -78,7 +75,6 @@ private:
   ConsolePanel *consolePanel = nullptr;
   LayerPanel *layerPanel = nullptr;
   LayoutPanel *layoutPanel = nullptr;
-  Layout2DViewPanel *layout2DViewPanel = nullptr;
   LayoutViewerPanel *layoutViewerPanel = nullptr;
   SummaryPanel *summaryPanel = nullptr;
   RiggingPanel *riggingPanel = nullptr;

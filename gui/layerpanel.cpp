@@ -21,22 +21,12 @@
 #include "fixturetablepanel.h"
 #include "sceneobjecttablepanel.h"
 #include "trusstablepanel.h"
-#include "layout2dviewpanel.h"
 #include "viewer2dpanel.h"
 #include "viewer3dpanel.h"
 #include <set>
 #include <chrono>
 #include <algorithm>
 #include <wx/dcmemory.h>
-
-namespace {
-Layout2DViewPanel *GetActiveLayoutViewPanel() {
-    auto *panel = Layout2DViewPanel::Instance();
-    if (panel && panel->IsShownOnScreen())
-        return panel;
-    return nullptr;
-}
-}
 
 LayerPanel* LayerPanel::s_instance = nullptr;
 
@@ -103,17 +93,6 @@ void LayerPanel::ReloadLayers()
     names.insert(DEFAULT_LAYER_NAME);
 
     auto hidden = ConfigManager::Get().GetHiddenLayers();
-    if (auto *layoutView = GetActiveLayoutViewPanel()) {
-        auto localHidden = layoutView->GetHiddenLayers();
-        for (auto it = localHidden.begin(); it != localHidden.end();) {
-            if (names.find(*it) == names.end())
-                it = localHidden.erase(it);
-            else
-                ++it;
-        }
-        layoutView->SetHiddenLayers(localHidden);
-        hidden = std::move(localHidden);
-    }
     std::string current = ConfigManager::Get().GetCurrentLayer();
     int idx = 0;
     int sel = -1;
@@ -167,17 +146,6 @@ void LayerPanel::OnCheck(wxDataViewEvent& evt)
     wxVariant v;
     list->GetValue(v, idx, 0);
     bool checked = v.GetBool();
-    if (auto *layoutView = GetActiveLayoutViewPanel()) {
-        auto hidden = layoutView->GetHiddenLayers();
-        if (checked)
-            hidden.erase(name);
-        else
-            hidden.insert(name);
-        layoutView->SetHiddenLayers(hidden);
-        layoutView->UpdateScene(false);
-        return;
-    }
-
     auto hidden = ConfigManager::Get().GetHiddenLayers();
     if (checked)
         hidden.erase(name);
@@ -438,3 +406,4 @@ void LayerPanel::OnRenameLayer(wxDataViewEvent& evt)
         Viewer3DPanel::Instance()->Refresh();
     }
 }
+
