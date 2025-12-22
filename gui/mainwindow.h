@@ -56,6 +56,7 @@ public:
 private:
   void SetupLayout();   // Set up main window layout
   void CreateMenuBar(); // Create menus
+  void CreateToolBars(); // Create toolbars
   void UpdateTitle();   // Refresh window title
   void Ensure3DViewport();
   void Ensure2DViewport();
@@ -77,6 +78,7 @@ private:
   LayoutViewerPanel *layoutViewerPanel = nullptr;
   SummaryPanel *summaryPanel = nullptr;
   RiggingPanel *riggingPanel = nullptr;
+  wxAuiToolBar *fileToolBar = nullptr;
 
   wxAcceleratorTable m_accel;
 
