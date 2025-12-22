@@ -1381,7 +1381,6 @@ void MainWindow::OnPrintPlan(wxCommandEvent &WXUNUSED(event)) {
         }
 
         std::string diagnostics = BuildPrintDiagnostics(buffer);
-        wxLogMessage("%s", wxString::FromUTF8(diagnostics));
         if (ConsolePanel::Instance()) {
           ConsolePanel::Instance()->AppendMessage(
               wxString::FromUTF8(diagnostics));
