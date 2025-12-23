@@ -142,12 +142,14 @@ private:
   void OnLayoutAdd2DView(wxCommandEvent &event); // Layout 2D view creation
   void OnLayout2DViewOk(wxCommandEvent &event); // Confirm layout 2D view edit
   void OnLayout2DViewCancel(wxCommandEvent &event); // Cancel layout 2D edit
+  void OnLayoutViewEdit(wxCommandEvent &event);
 
   void OnPaneClose(wxAuiManagerEvent &event); // Keep View menu in sync
 
   void SaveCameraSettings();
   void ApplySavedLayout();
   void ApplyLayoutModePerspective();
+  void BeginLayout2DViewEdit();
   void UpdateViewMenuChecks();
   void OnLayoutSelected(wxCommandEvent &event);
   void ActivateLayoutView(const std::string &layoutName);
@@ -164,6 +166,7 @@ private:
   bool layout2DViewPrevViewportShown = false;
   bool layout2DViewPrevRenderShown = false;
   std::optional<viewer2d::Viewer2DState> layout2DViewSavedState;
+  std::string layout2DViewPrevPerspective;
 
   inline static MainWindow *s_instance = nullptr;
   wxDECLARE_EVENT_TABLE();

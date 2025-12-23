@@ -20,6 +20,8 @@
 #include <wx/wx.h>
 #include "layouts/LayoutCollection.h"
 
+wxDECLARE_EVENT(EVT_LAYOUT_VIEW_EDIT, wxCommandEvent);
+
 class LayoutViewerPanel : public wxPanel {
 public:
   explicit LayoutViewerPanel(wxWindow *parent);
@@ -33,9 +35,12 @@ private:
   void OnSize(wxSizeEvent &event);
   void OnLeftDown(wxMouseEvent &event);
   void OnLeftUp(wxMouseEvent &event);
+  void OnLeftDClick(wxMouseEvent &event);
   void OnMouseMove(wxMouseEvent &event);
   void OnMouseWheel(wxMouseEvent &event);
   void OnCaptureLost(wxMouseCaptureLostEvent &event);
+  void OnRightUp(wxMouseEvent &event);
+  void OnEditView(wxCommandEvent &event);
 
   void ResetViewToFit();
   wxRect GetPageRect() const;
@@ -43,6 +48,7 @@ private:
                     wxRect &rect) const;
   void UpdateFrame(const layouts::Layout2DViewFrame &frame,
                    bool updatePosition);
+  void EmitEditViewRequest();
 
   enum class FrameDragMode {
     None,

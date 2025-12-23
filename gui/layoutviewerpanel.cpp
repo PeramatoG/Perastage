@@ -32,16 +32,22 @@ constexpr int kHandleSizePx = 10;
 constexpr int kHandleHalfPx = kHandleSizePx / 2;
 constexpr int kHandleHoverPadPx = 6;
 constexpr int kMinFrameSize = 24;
+constexpr int kEditMenuId = wxID_HIGHEST + 490;
 }
+
+wxDEFINE_EVENT(EVT_LAYOUT_VIEW_EDIT, wxCommandEvent);
 
 wxBEGIN_EVENT_TABLE(LayoutViewerPanel, wxPanel)
     EVT_PAINT(LayoutViewerPanel::OnPaint)
     EVT_SIZE(LayoutViewerPanel::OnSize)
     EVT_LEFT_DOWN(LayoutViewerPanel::OnLeftDown)
     EVT_LEFT_UP(LayoutViewerPanel::OnLeftUp)
+    EVT_LEFT_DCLICK(LayoutViewerPanel::OnLeftDClick)
     EVT_MOTION(LayoutViewerPanel::OnMouseMove)
     EVT_MOUSEWHEEL(LayoutViewerPanel::OnMouseWheel)
     EVT_MOUSE_CAPTURE_LOST(LayoutViewerPanel::OnCaptureLost)
+    EVT_RIGHT_UP(LayoutViewerPanel::OnRightUp)
+    EVT_MENU(kEditMenuId, LayoutViewerPanel::OnEditView)
 wxEND_EVENT_TABLE()
 
 LayoutViewerPanel::LayoutViewerPanel(wxWindow *parent)
@@ -154,6 +160,17 @@ void LayoutViewerPanel::OnLeftUp(wxMouseEvent &) {
   }
 }
 
+void LayoutViewerPanel::OnLeftDClick(wxMouseEvent &event) {
+  const wxPoint pos = event.GetPosition();
+  const layouts::Layout2DViewDefinition *view = GetEditableView();
+  wxRect frameRect;
+  if (view && GetFrameRect(view->frame, frameRect) && frameRect.Contains(pos)) {
+    EmitEditViewRequest();
+    return;
+  }
+  event.Skip();
+}
+
 void LayoutViewerPanel::OnMouseMove(wxMouseEvent &event) {
   wxPoint currentPos = event.GetPosition();
   const layouts::Layout2DViewDefinition *view = GetEditableView();
@@ -230,6 +247,25 @@ void LayoutViewerPanel::OnMouseWheel(wxMouseEvent &event) {
 void LayoutViewerPanel::OnCaptureLost(wxMouseCaptureLostEvent &) {
   isPanning = false;
   dragMode = FrameDragMode::None;
+}
+
+void LayoutViewerPanel::OnRightUp(wxMouseEvent &event) {
+  const wxPoint pos = event.GetPosition();
+  const layouts::Layout2DViewDefinition *view = GetEditableView();
+  wxRect frameRect;
+  if (!(view && GetFrameRect(view->frame, frameRect) &&
+        frameRect.Contains(pos))) {
+    event.Skip();
+    return;
+  }
+
+  wxMenu menu;
+  menu.Append(kEditMenuId, "Editar vista 2D");
+  PopupMenu(&menu, pos);
+}
+
+void LayoutViewerPanel::OnEditView(wxCommandEvent &) {
+  EmitEditViewRequest();
 }
 
 void LayoutViewerPanel::ResetViewToFit() {
@@ -352,4 +388,10 @@ wxCursor LayoutViewerPanel::CursorForMode(FrameDragMode mode) const {
   default:
     return wxCursor(wxCURSOR_ARROW);
   }
+}
+
+void LayoutViewerPanel::EmitEditViewRequest() {
+  wxCommandEvent event(EVT_LAYOUT_VIEW_EDIT);
+  event.SetEventObject(this);
+  ProcessWindowEvent(event);
 }

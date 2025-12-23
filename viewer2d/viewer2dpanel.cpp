@@ -240,6 +240,11 @@ void Viewer2DPanel::CaptureFrameAsync(
   Refresh();
 }
 
+void Viewer2DPanel::SetLayoutEditOverlay(std::optional<float> aspectRatio) {
+  m_layoutEditAspect = aspectRatio;
+  Refresh();
+}
+
 Viewer2DViewState Viewer2DPanel::GetViewState() const {
   int w = 0;
   int h = 0;
@@ -348,6 +353,51 @@ void Viewer2DPanel::Render() {
   // top of geometry. Scale the label size with the current zoom so they behave
   // like regular scene objects instead of remaining a constant screen size.
   m_controller.DrawAllFixtureLabels(w, h, m_zoom);
+
+  if (m_layoutEditAspect && *m_layoutEditAspect > 0.0f) {
+    float aspect = *m_layoutEditAspect;
+    float padding = static_cast<float>(std::min(w, h)) * 0.1f;
+    float maxWidth = static_cast<float>(w) - padding * 2.0f;
+    float maxHeight = static_cast<float>(h) - padding * 2.0f;
+    float targetWidth = maxWidth;
+    float targetHeight = targetWidth / aspect;
+    if (targetHeight > maxHeight) {
+      targetHeight = maxHeight;
+      targetWidth = targetHeight * aspect;
+    }
+    float left = (static_cast<float>(w) - targetWidth) * 0.5f;
+    float bottom = (static_cast<float>(h) - targetHeight) * 0.5f;
+
+    GLboolean depthEnabled = glIsEnabled(GL_DEPTH_TEST);
+    if (depthEnabled)
+      glDisable(GL_DEPTH_TEST);
+
+    glMatrixMode(GL_PROJECTION);
+    glPushMatrix();
+    glLoadIdentity();
+    glOrtho(0.0f, static_cast<float>(w), 0.0f, static_cast<float>(h), -1.0f,
+            1.0f);
+    glMatrixMode(GL_MODELVIEW);
+    glPushMatrix();
+    glLoadIdentity();
+
+    glColor3f(1.0f, 0.0f, 0.0f);
+    glLineWidth(2.0f);
+    glBegin(GL_LINE_LOOP);
+    glVertex2f(left, bottom);
+    glVertex2f(left + targetWidth, bottom);
+    glVertex2f(left + targetWidth, bottom + targetHeight);
+    glVertex2f(left, bottom + targetHeight);
+    glEnd();
+
+    glPopMatrix();
+    glMatrixMode(GL_PROJECTION);
+    glPopMatrix();
+    glMatrixMode(GL_MODELVIEW);
+
+    if (depthEnabled)
+      glEnable(GL_DEPTH_TEST);
+  }
 
   if (recordingCanvas) {
     recordingCanvas->EndFrame();
