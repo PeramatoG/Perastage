@@ -2185,19 +2185,14 @@ void MainWindow::OnLayout2DViewOk(wxCommandEvent &WXUNUSED(event)) {
   layouts::LayoutManager::Get().UpdateLayout2DView(activeLayoutName,
                                                    updatedView);
 
-  if (layout && layoutViewerPanel) {
-    layouts::LayoutDefinition updatedLayout = *layout;
-    bool replaced = false;
-    for (auto &entry : updatedLayout.view2dViews) {
-      if (entry.camera.view == updatedView.camera.view) {
-        entry = updatedView;
-        replaced = true;
+  if (layoutViewerPanel) {
+    for (const auto &entry :
+         layouts::LayoutManager::Get().GetLayouts().Items()) {
+      if (entry.name == activeLayoutName) {
+        layoutViewerPanel->SetLayoutDefinition(entry);
         break;
       }
     }
-    if (!replaced)
-      updatedLayout.view2dViews.push_back(updatedView);
-    layoutViewerPanel->SetLayoutDefinition(updatedLayout);
   }
 
   viewer2d::ApplyState(viewport2DPanel, viewport2DRenderPanel, cfg,
