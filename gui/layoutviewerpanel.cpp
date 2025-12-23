@@ -186,20 +186,22 @@ void LayoutViewerPanel::OnMouseMove(wxMouseEvent &event) {
   if (dragMode != FrameDragMode::None && event.Dragging()) {
     SetCursor(CursorForMode(dragMode));
     wxPoint delta = currentPos - dragStartPos;
+    wxPoint logicalDelta(static_cast<int>(std::lround(delta.x / zoom)),
+                         static_cast<int>(std::lround(delta.y / zoom)));
     layouts::Layout2DViewFrame frame = dragStartFrame;
     if (dragMode == FrameDragMode::Move) {
-      frame.x += delta.x;
-      frame.y += delta.y;
+      frame.x += logicalDelta.x;
+      frame.y += logicalDelta.y;
     } else {
       if (dragMode == FrameDragMode::ResizeRight ||
           dragMode == FrameDragMode::ResizeCorner) {
         frame.width =
-            std::max(kMinFrameSize, dragStartFrame.width + delta.x);
+            std::max(kMinFrameSize, dragStartFrame.width + logicalDelta.x);
       }
       if (dragMode == FrameDragMode::ResizeBottom ||
           dragMode == FrameDragMode::ResizeCorner) {
         frame.height =
-            std::max(kMinFrameSize, dragStartFrame.height + delta.y);
+            std::max(kMinFrameSize, dragStartFrame.height + logicalDelta.y);
       }
     }
     UpdateFrame(frame, dragMode == FrameDragMode::Move);
@@ -308,8 +310,12 @@ bool LayoutViewerPanel::GetFrameRect(const layouts::Layout2DViewFrame &frame,
   if (frame.width <= 0 || frame.height <= 0)
     return false;
   wxRect pageRect = GetPageRect();
-  rect = wxRect(pageRect.GetLeft() + frame.x, pageRect.GetTop() + frame.y,
-                frame.width, frame.height);
+  const int scaledX = static_cast<int>(std::lround(frame.x * zoom));
+  const int scaledY = static_cast<int>(std::lround(frame.y * zoom));
+  const int scaledWidth = static_cast<int>(std::lround(frame.width * zoom));
+  const int scaledHeight = static_cast<int>(std::lround(frame.height * zoom));
+  rect = wxRect(pageRect.GetLeft() + scaledX, pageRect.GetTop() + scaledY,
+                scaledWidth, scaledHeight);
   return true;
 }
 
