@@ -400,7 +400,7 @@ void MainWindow::CreateToolBars() {
   fileToolBar = new wxAuiToolBar(this, wxID_ANY, wxDefaultPosition,
                                  wxDefaultSize,
                                  wxAUI_TB_DEFAULT_STYLE | wxAUI_TB_HORIZONTAL);
-  fileToolBar->SetToolBitmapSize(wxSize(24, 24));
+  fileToolBar->SetToolBitmapSize(wxSize(16, 16));
 
   const auto loadToolbarIcon = [](const std::string &name,
                                   const wxArtID &fallbackArtId) {
@@ -408,13 +408,13 @@ void MainWindow::CreateToolBars() {
                    (name + ".svg");
     if (std::filesystem::exists(svgPath)) {
       wxBitmapBundle bundle =
-          wxBitmapBundle::FromSVGFile(svgPath.string(), wxSize(24, 24));
+          wxBitmapBundle::FromSVGFile(svgPath.string(), wxSize(16, 16));
       if (bundle.IsOk()) {
         return bundle;
       }
     }
     return wxArtProvider::GetBitmapBundle(fallbackArtId, wxART_TOOLBAR,
-                                          wxSize(24, 24));
+                                          wxSize(16, 16));
   };
   fileToolBar->AddTool(ID_File_New, "New",
                        loadToolbarIcon("file", wxART_NEW),
@@ -451,7 +451,7 @@ void MainWindow::CreateToolBars() {
   layoutToolBar = new wxAuiToolBar(this, wxID_ANY, wxDefaultPosition,
                                    wxDefaultSize,
                                    wxAUI_TB_DEFAULT_STYLE | wxAUI_TB_HORIZONTAL);
-  layoutToolBar->SetToolBitmapSize(wxSize(24, 24));
+  layoutToolBar->SetToolBitmapSize(wxSize(16, 16));
   layoutToolBar->AddTool(ID_View_Layout_2DView, "Añadir vista 2D",
                          loadToolbarIcon("panel-top-bottom-dashed",
                                          wxART_MISSING_IMAGE),
