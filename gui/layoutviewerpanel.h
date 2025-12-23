@@ -21,9 +21,9 @@
 #include <optional>
 #include <wx/wx.h>
 #include "layouts/LayoutCollection.h"
-#include "viewer2d/canvas2d.h"
-#include "viewer2d/symbolcache.h"
-#include "viewer2d/viewer2dpanel.h"
+#include "canvas2d.h"
+#include "symbolcache.h"
+#include "viewer2dpanel.h"
 
 wxDECLARE_EVENT(EVT_LAYOUT_VIEW_EDIT, wxCommandEvent);
 

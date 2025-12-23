@@ -25,7 +25,7 @@
 
 #include "configmanager.h"
 #include "layouts/LayoutManager.h"
-#include "viewer2d/viewer2dstate.h"
+#include "viewer2dstate.h"
 
 namespace {
 constexpr double kMinZoom = 0.1;
