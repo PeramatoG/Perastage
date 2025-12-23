@@ -198,8 +198,6 @@ enum {
   ID_View_Layout_2D,
   ID_View_Layout_Mode,
   ID_View_Layout_2DView,
-  ID_View_Layout_2DView_Ok,
-  ID_View_Layout_2DView_Cancel,
   ID_Tools_DownloadGdtf,
   ID_Tools_EditDictionaries,
   ID_Tools_ImportRiderText,
