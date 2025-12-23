@@ -41,6 +41,7 @@ private:
   void OnCaptureLost(wxMouseCaptureLostEvent &event);
   void OnRightUp(wxMouseEvent &event);
   void OnEditView(wxCommandEvent &event);
+  void OnDeleteView(wxCommandEvent &event);
 
   void ResetViewToFit();
   wxRect GetPageRect() const;

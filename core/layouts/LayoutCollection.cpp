@@ -17,6 +17,8 @@
  */
 #include "LayoutCollection.h"
 
+#include <algorithm>
+
 namespace layouts {
 
 LayoutCollection::LayoutCollection() { layouts.push_back(DefaultLayout()); }
@@ -86,6 +88,24 @@ bool LayoutCollection::UpdateLayout2DView(const std::string &name,
       }
       if (!replaced)
         layout.view2dViews.push_back(view);
+      return true;
+    }
+  }
+  return false;
+}
+
+bool LayoutCollection::RemoveLayout2DView(const std::string &name,
+                                          int viewIndex) {
+  for (auto &layout : layouts) {
+    if (layout.name == name) {
+      auto &views = layout.view2dViews;
+      auto it = std::remove_if(
+          views.begin(), views.end(), [viewIndex](const auto &entry) {
+            return entry.camera.view == viewIndex;
+          });
+      if (it == views.end())
+        return false;
+      views.erase(it, views.end());
       return true;
     }
   }

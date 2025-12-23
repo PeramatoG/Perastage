@@ -33,6 +33,7 @@ constexpr int kHandleHalfPx = kHandleSizePx / 2;
 constexpr int kHandleHoverPadPx = 6;
 constexpr int kMinFrameSize = 24;
 constexpr int kEditMenuId = wxID_HIGHEST + 490;
+constexpr int kDeleteMenuId = wxID_HIGHEST + 491;
 }
 
 wxDEFINE_EVENT(EVT_LAYOUT_VIEW_EDIT, wxCommandEvent);
@@ -48,6 +49,7 @@ wxBEGIN_EVENT_TABLE(LayoutViewerPanel, wxPanel)
     EVT_MOUSE_CAPTURE_LOST(LayoutViewerPanel::OnCaptureLost)
     EVT_RIGHT_UP(LayoutViewerPanel::OnRightUp)
     EVT_MENU(kEditMenuId, LayoutViewerPanel::OnEditView)
+    EVT_MENU(kDeleteMenuId, LayoutViewerPanel::OnDeleteView)
 wxEND_EVENT_TABLE()
 
 LayoutViewerPanel::LayoutViewerPanel(wxWindow *parent)
@@ -263,11 +265,31 @@ void LayoutViewerPanel::OnRightUp(wxMouseEvent &event) {
 
   wxMenu menu;
   menu.Append(kEditMenuId, "2D View Editor");
+  menu.Append(kDeleteMenuId, "Delete 2D View");
   PopupMenu(&menu, pos);
 }
 
 void LayoutViewerPanel::OnEditView(wxCommandEvent &) {
   EmitEditViewRequest();
+}
+
+void LayoutViewerPanel::OnDeleteView(wxCommandEvent &) {
+  const layouts::Layout2DViewDefinition *view = GetEditableView();
+  if (!view)
+    return;
+  const int viewIndex = view->camera.view;
+  if (!currentLayout.name.empty()) {
+    if (layouts::LayoutManager::Get().RemoveLayout2DView(currentLayout.name,
+                                                        viewIndex)) {
+      auto &views = currentLayout.view2dViews;
+      views.erase(std::remove_if(views.begin(), views.end(),
+                                 [viewIndex](const auto &entry) {
+                                   return entry.camera.view == viewIndex;
+                                 }),
+                  views.end());
+    }
+  }
+  Refresh();
 }
 
 void LayoutViewerPanel::ResetViewToFit() {
