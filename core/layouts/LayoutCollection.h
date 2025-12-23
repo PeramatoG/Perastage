@@ -92,6 +92,7 @@ public:
   bool SetLayoutOrientation(const std::string &name, bool landscape);
   bool UpdateLayout2DView(const std::string &name,
                           const Layout2DViewDefinition &view);
+  bool RemoveLayout2DView(const std::string &name, int viewIndex);
 
   void ReplaceAll(std::vector<LayoutDefinition> layouts);
 

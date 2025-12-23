@@ -381,6 +381,14 @@ bool LayoutManager::UpdateLayout2DView(const std::string &name,
   return true;
 }
 
+bool LayoutManager::RemoveLayout2DView(const std::string &name,
+                                       int viewIndex) {
+  if (!layouts.RemoveLayout2DView(name, viewIndex))
+    return false;
+  SyncToConfig();
+  return true;
+}
+
 void LayoutManager::LoadFromConfig(ConfigManager &cfg) {
   auto value = cfg.GetValue(kLayoutsConfigKey);
   if (!value.has_value()) {
