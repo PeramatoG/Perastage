@@ -4,6 +4,7 @@
 
 class Viewer2DPanel;
 class Viewer2DRenderPanel;
+class LayerPanel;
 
 class Layout2DViewDialog : public wxDialog {
 public:
@@ -18,4 +19,5 @@ private:
 
   Viewer2DPanel *viewerPanel = nullptr;
   Viewer2DRenderPanel *renderPanel = nullptr;
+  LayerPanel *layerPanel = nullptr;
 };

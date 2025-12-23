@@ -24,7 +24,7 @@
 class LayerPanel : public wxPanel
 {
 public:
-    explicit LayerPanel(wxWindow* parent);
+    explicit LayerPanel(wxWindow* parent, bool showButtons = true);
     void ReloadLayers();
 
     static LayerPanel* Instance();
@@ -40,4 +40,3 @@ private:
     wxDataViewListCtrl* list = nullptr;
     static LayerPanel* s_instance;
 };
-
