@@ -18,8 +18,11 @@
 #pragma once
 
 #include "projectutils.h"
+#include "viewer2dstate.h"
 #include <wx/aui/aui.h>
 #include <wx/wx.h>
+
+#include <optional>
 
 wxDECLARE_EVENT(EVT_PROJECT_LOADED, wxCommandEvent);
 
@@ -137,6 +140,8 @@ private:
   void OnAddSceneObject(wxCommandEvent &event); // Add generic scene object
   void OnDelete(wxCommandEvent &event);         // Delete selected items
   void OnLayout2DView(wxCommandEvent &event);   // Layout 2D view placeholder
+  void OnLayout2DViewOk(wxCommandEvent &event); // Confirm layout 2D view edit
+  void OnLayout2DViewCancel(wxCommandEvent &event); // Cancel layout 2D edit
 
   void OnPaneClose(wxAuiManagerEvent &event); // Keep View menu in sync
 
@@ -155,6 +160,10 @@ private:
   std::string layoutModePerspective;
   bool layoutModeActive = false;
   std::string activeLayoutName;
+  bool layout2DViewEditing = false;
+  bool layout2DViewPrevViewportShown = false;
+  bool layout2DViewPrevRenderShown = false;
+  std::optional<viewer2d::Viewer2DState> layout2DViewSavedState;
 
   inline static MainWindow *s_instance = nullptr;
   wxDECLARE_EVENT_TABLE();
@@ -186,6 +195,8 @@ enum {
   ID_View_Layout_2D,
   ID_View_Layout_Mode,
   ID_View_Layout_2DView,
+  ID_View_Layout_2DView_Ok,
+  ID_View_Layout_2DView_Cancel,
   ID_Tools_DownloadGdtf,
   ID_Tools_EditDictionaries,
   ID_Tools_ImportRiderText,
