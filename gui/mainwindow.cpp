@@ -2431,8 +2431,13 @@ void MainWindow::OnShowHelp(wxCommandEvent &WXUNUSED(event)) {
 
     // Create a resizable dialog containing a wxHtmlWindow to render the
     // generated HTML.
+    const wxSize parentSize = GetSize();
+    const wxSize dialogSize(
+        std::max(900, static_cast<int>(parentSize.x * 0.85)),
+        std::max(700, static_cast<int>(parentSize.y * 0.85)));
     wxDialog dlg(this, wxID_ANY, "Perastage Help", wxDefaultPosition,
-                 wxSize(800, 600), wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER);
+                 dialogSize,
+                 wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER | wxMAXIMIZE_BOX);
     wxBoxSizer *sizer = new wxBoxSizer(wxVERTICAL);
     wxHtmlWindow *htmlWin = new wxHtmlWindow(
         &dlg, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxHW_SCROLLBAR_AUTO);
