@@ -165,15 +165,15 @@ layouts::Layout2DViewDefinition ToLayoutDefinition(
 }
 
 layouts::Layout2DViewDefinition CaptureLayoutDefinition(
-    const Viewer2DPanel *panel, const ConfigManager &cfg) {
-  layouts::Layout2DViewDefinition view =
-      ToLayoutDefinition(CaptureState(panel, cfg));
-  if (panel) {
+    const Viewer2DPanel *panel, const ConfigManager &cfg,
+    const layouts::Layout2DViewFrame &frame) {
+  layouts::Layout2DViewFrame resolvedFrame = frame;
+  if (panel && (resolvedFrame.width <= 0 || resolvedFrame.height <= 0)) {
     const auto viewState = panel->GetViewState();
-    view.frame.width = viewState.viewportWidth;
-    view.frame.height = viewState.viewportHeight;
+    resolvedFrame.width = viewState.viewportWidth;
+    resolvedFrame.height = viewState.viewportHeight;
   }
-  return view;
+  return ToLayoutDefinition(CaptureState(panel, cfg), resolvedFrame);
 }
 
 } // namespace viewer2d
