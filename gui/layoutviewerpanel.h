@@ -17,8 +17,13 @@
  */
 #pragma once
 
+#include <memory>
+#include <optional>
 #include <wx/wx.h>
 #include "layouts/LayoutCollection.h"
+#include "viewer2d/canvas2d.h"
+#include "viewer2d/symbolcache.h"
+#include "viewer2d/viewer2dpanel.h"
 
 wxDECLARE_EVENT(EVT_LAYOUT_VIEW_EDIT, wxCommandEvent);
 
@@ -71,6 +76,13 @@ private:
   FrameDragMode hoverMode = FrameDragMode::None;
   wxPoint dragStartPos{0, 0};
   layouts::Layout2DViewFrame dragStartFrame;
+  int layoutVersion = 0;
+  int captureVersion = -1;
+  bool captureInProgress = false;
+  bool hasCapture = false;
+  CommandBuffer cachedBuffer;
+  Viewer2DViewState cachedViewState;
+  std::shared_ptr<const SymbolDefinitionSnapshot> cachedSymbols;
 
   wxDECLARE_EVENT_TABLE();
 };
