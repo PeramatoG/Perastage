@@ -311,7 +311,8 @@ void RenderCommands(wxGraphicsContext &gc, const CommandBuffer &buffer,
       wxPen pen(ToWxColor(circle->stroke.color),
                 strokeWidth(circle->stroke.width));
       gc.SetPen(pen);
-      gc.StrokeEllipse(rect.m_x, rect.m_y, rect.m_width, rect.m_height);
+      gc.SetBrush(*wxTRANSPARENT_BRUSH);
+      gc.DrawEllipse(rect.m_x, rect.m_y, rect.m_width, rect.m_height);
     } else if (const auto *text = std::get_if<TextCommand>(&cmd)) {
       wxPoint2DDouble anchor =
           MapPoint(text->x, text->y, localTransform, currentTransform, mapping,
