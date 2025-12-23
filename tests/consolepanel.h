@@ -20,5 +20,6 @@
 class ConsolePanel {
 public:
     static ConsolePanel* Instance();
+    static void SetInstance(ConsolePanel*);
     void AppendMessage(const wxString&);
 };
