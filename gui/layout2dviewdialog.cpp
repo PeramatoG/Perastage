@@ -18,6 +18,9 @@ Layout2DViewDialog::Layout2DViewDialog(wxWindow *parent)
   renderPanel = new Viewer2DRenderPanel(this);
   layerPanel = new LayerPanel(this, false);
 
+  renderPanel->SetMinSize(wxSize(260, -1));
+  layerPanel->SetMinSize(wxSize(220, -1));
+
   contentSizer->Add(viewerPanel, 1, wxEXPAND | wxALL, 8);
   contentSizer->Add(renderPanel, 0, wxEXPAND | wxTOP | wxBOTTOM | wxRIGHT, 8);
   contentSizer->Add(layerPanel, 0, wxEXPAND | wxTOP | wxBOTTOM | wxRIGHT, 8);
