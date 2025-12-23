@@ -40,6 +40,7 @@ Viewer2DState FromLayoutDefinition(const layouts::Layout2DViewDefinition &view);
 layouts::Layout2DViewDefinition ToLayoutDefinition(
     const Viewer2DState &state, const layouts::Layout2DViewFrame &frame = {});
 layouts::Layout2DViewDefinition CaptureLayoutDefinition(
-    const Viewer2DPanel *panel, const ConfigManager &cfg);
+    const Viewer2DPanel *panel, const ConfigManager &cfg,
+    const layouts::Layout2DViewFrame &frame = {});
 
 } // namespace viewer2d

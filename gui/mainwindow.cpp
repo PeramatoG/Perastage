@@ -2220,8 +2220,29 @@ void MainWindow::PersistLayout2DViewState() {
   Viewer2DPanel *activePanel =
       (layout2DViewEditing && layout2DViewEditPanel) ? layout2DViewEditPanel
                                                      : viewport2DPanel;
+  layouts::Layout2DViewFrame frame{};
+  const layouts::LayoutDefinition *layout = nullptr;
+  for (const auto &entry : layouts::LayoutManager::Get().GetLayouts().Items()) {
+    if (entry.name == activeLayoutName) {
+      layout = &entry;
+      break;
+    }
+  }
+  if (layout) {
+    viewer2d::Viewer2DState state = viewer2d::CaptureState(activePanel, cfg);
+    for (const auto &entry : layout->view2dViews) {
+      if (entry.camera.view == state.camera.view) {
+        frame = entry.frame;
+        break;
+      }
+    }
+  }
+  if (frame.width == 0 && frame.height == 0 && layoutViewerPanel) {
+    if (const auto *view = layoutViewerPanel->GetEditableView())
+      frame = view->frame;
+  }
   layouts::Layout2DViewDefinition view =
-      viewer2d::CaptureLayoutDefinition(activePanel, cfg);
+      viewer2d::CaptureLayoutDefinition(activePanel, cfg, frame);
   layouts::LayoutManager::Get().UpdateLayout2DView(activeLayoutName, view);
 }
 
