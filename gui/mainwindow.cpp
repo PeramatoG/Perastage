@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <array>
 #include <cctype>
+#include <cmath>
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
@@ -123,6 +124,32 @@ void LogMissingIcon(const std::filesystem::path &path) {
   wxLogWarning("Main window icon not found at '%s'", path.string().c_str());
 #endif
 }
+
+layouts::Layout2DViewFrame BuildDefaultLayout2DFrame(
+    const layouts::LayoutDefinition &layout) {
+  constexpr double kFrameScale = 0.6;
+  constexpr int kMinFrameSize = 120;
+
+  const double pageWidth = layout.pageSetup.PageWidthPt();
+  const double pageHeight = layout.pageSetup.PageHeightPt();
+
+  int width = std::max(
+      kMinFrameSize,
+      static_cast<int>(std::lround(pageWidth * kFrameScale)));
+  int height = std::max(
+      kMinFrameSize,
+      static_cast<int>(std::lround(pageHeight * kFrameScale)));
+
+  width = std::min(width, static_cast<int>(std::lround(pageWidth)));
+  height = std::min(height, static_cast<int>(std::lround(pageHeight)));
+
+  int x =
+      std::max(0, static_cast<int>(std::lround((pageWidth - width) / 2.0)));
+  int y =
+      std::max(0, static_cast<int>(std::lround((pageHeight - height) / 2.0)));
+
+  return {x, y, width, height};
+}
 }
 
 wxBEGIN_EVENT_TABLE(MainWindow, wxFrame)
@@ -156,7 +183,7 @@ EVT_MENU(ID_View_ToggleRigging, MainWindow::OnToggleRigging)
 EVT_MENU(ID_View_Layout_Default, MainWindow::OnApplyDefaultLayout)
 EVT_MENU(ID_View_Layout_2D, MainWindow::OnApply2DLayout)
 EVT_MENU(ID_View_Layout_Mode, MainWindow::OnApplyLayoutModeLayout)
-EVT_MENU(ID_View_Layout_2DView, MainWindow::OnLayout2DView)
+EVT_MENU(ID_View_Layout_2DView, MainWindow::OnLayoutAdd2DView)
 EVT_MENU(ID_View_Layout_2DView_Ok, MainWindow::OnLayout2DViewOk)
 EVT_MENU(ID_View_Layout_2DView_Cancel, MainWindow::OnLayout2DViewCancel)
 EVT_MENU(ID_Tools_DownloadGdtf, MainWindow::OnDownloadGdtf)
@@ -425,10 +452,10 @@ void MainWindow::CreateToolBars() {
                                    wxDefaultSize,
                                    wxAUI_TB_DEFAULT_STYLE | wxAUI_TB_HORIZONTAL);
   layoutToolBar->SetToolBitmapSize(wxSize(24, 24));
-  layoutToolBar->AddTool(ID_View_Layout_2DView, "Vista 2D",
+  layoutToolBar->AddTool(ID_View_Layout_2DView, "Añadir vista 2D",
                          loadToolbarIcon("panel-top-bottom-dashed",
                                          wxART_MISSING_IMAGE),
-                         "Vista 2D en layout");
+                         "Añadir vista 2D en layout");
   layoutToolBar->AddSeparator();
   layoutToolBar->AddTool(ID_View_Layout_2DView_Ok, "OK",
                          wxArtProvider::GetBitmapBundle(
@@ -2012,18 +2039,13 @@ void MainWindow::ApplyLayoutModePerspective() {
   UpdateViewMenuChecks();
 }
 
-void MainWindow::OnLayout2DView(wxCommandEvent &WXUNUSED(event)) {
-  if (!auiManager || layout2DViewEditing)
-    return;
+void MainWindow::OnLayoutAdd2DView(wxCommandEvent &WXUNUSED(event)) {
   if (!layoutModeActive || activeLayoutName.empty())
     return;
 
   Ensure2DViewport();
   if (!viewport2DPanel)
     return;
-
-  ConfigManager &cfg = ConfigManager::Get();
-  layout2DViewSavedState = viewer2d::CaptureState(viewport2DPanel, cfg);
 
   const layouts::LayoutDefinition *layout = nullptr;
   for (const auto &entry : layouts::LayoutManager::Get().GetLayouts().Items()) {
@@ -2032,35 +2054,27 @@ void MainWindow::OnLayout2DView(wxCommandEvent &WXUNUSED(event)) {
       break;
     }
   }
-  if (!layout || layout->view2dViews.empty()) {
-    layout2DViewSavedState.reset();
+  if (!layout)
     return;
-  }
 
-  int viewId = static_cast<int>(cfg.GetFloat("view2d_view"));
-  const layouts::Layout2DViewDefinition *targetView = nullptr;
-  for (const auto &entry : layout->view2dViews) {
-    if (entry.camera.view == viewId) {
-      targetView = &entry;
-      break;
+  ConfigManager &cfg = ConfigManager::Get();
+  viewer2d::Viewer2DState baseState =
+      viewer2d::CaptureState(viewport2DPanel, cfg);
+  layouts::Layout2DViewFrame frame = BuildDefaultLayout2DFrame(*layout);
+  layouts::Layout2DViewDefinition view =
+      viewer2d::ToLayoutDefinition(baseState, frame);
+
+  layouts::LayoutManager::Get().UpdateLayout2DView(activeLayoutName, view);
+
+  if (layoutViewerPanel) {
+    for (const auto &entry :
+         layouts::LayoutManager::Get().GetLayouts().Items()) {
+      if (entry.name == activeLayoutName) {
+        layoutViewerPanel->SetLayoutDefinition(entry);
+        break;
+      }
     }
   }
-  if (!targetView)
-    targetView = &layout->view2dViews.front();
-
-  viewer2d::ApplyState(viewport2DPanel, viewport2DRenderPanel, cfg,
-                       viewer2d::FromLayoutDefinition(*targetView));
-
-  auto &viewPane = auiManager->GetPane("2DViewport");
-  auto &renderPane = auiManager->GetPane("2DRenderOptions");
-  layout2DViewPrevViewportShown = viewPane.IsOk() && viewPane.IsShown();
-  layout2DViewPrevRenderShown = renderPane.IsOk() && renderPane.IsShown();
-  if (viewPane.IsOk())
-    viewPane.Show(true);
-  if (renderPane.IsOk())
-    renderPane.Show(true);
-  auiManager->Update();
-  layout2DViewEditing = true;
 }
 
 void MainWindow::OnLayout2DViewOk(wxCommandEvent &WXUNUSED(event)) {

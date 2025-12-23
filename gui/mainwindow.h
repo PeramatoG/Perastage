@@ -139,7 +139,7 @@ private:
   void OnAddTruss(wxCommandEvent &event);       // Add truss from library
   void OnAddSceneObject(wxCommandEvent &event); // Add generic scene object
   void OnDelete(wxCommandEvent &event);         // Delete selected items
-  void OnLayout2DView(wxCommandEvent &event);   // Layout 2D view placeholder
+  void OnLayoutAdd2DView(wxCommandEvent &event); // Layout 2D view creation
   void OnLayout2DViewOk(wxCommandEvent &event); // Confirm layout 2D view edit
   void OnLayout2DViewCancel(wxCommandEvent &event); // Cancel layout 2D edit
 
