@@ -164,10 +164,9 @@ private:
   bool layoutModeActive = false;
   std::string activeLayoutName;
   bool layout2DViewEditing = false;
-  bool layout2DViewPrevViewportShown = false;
-  bool layout2DViewPrevRenderShown = false;
   std::optional<viewer2d::Viewer2DState> layout2DViewSavedState;
-  std::string layout2DViewPrevPerspective;
+  Viewer2DPanel *layout2DViewEditPanel = nullptr;
+  Viewer2DRenderPanel *layout2DViewEditRenderPanel = nullptr;
 
   inline static MainWindow *s_instance = nullptr;
   wxDECLARE_EVENT_TABLE();
