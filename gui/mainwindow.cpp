@@ -456,16 +456,16 @@ void MainWindow::CreateToolBars() {
   layoutToolBar->AddTool(ID_View_Layout_2DView, "Añadir vista 2D",
                          loadToolbarIcon("panel-top-bottom-dashed",
                                          wxART_MISSING_IMAGE),
-                         "Añadir vista 2D en layout");
+                         "Add 2D View to Layout");
   layoutToolBar->AddSeparator();
   layoutToolBar->AddTool(ID_View_Layout_2DView_Ok, "OK",
                          wxArtProvider::GetBitmapBundle(
                              wxART_TICK_MARK, wxART_TOOLBAR, wxSize(24, 24)),
-                         "Guardar vista 2D");
+                         "Save 2D View");
   layoutToolBar->AddTool(ID_View_Layout_2DView_Cancel, "Cancelar",
                          wxArtProvider::GetBitmapBundle(
                              wxART_CROSS_MARK, wxART_TOOLBAR, wxSize(24, 24)),
-                         "Cancelar edición de vista 2D");
+                         "Cancel 2D View Edit");
   layoutToolBar->Realize();
   auiManager->AddPane(
       layoutToolBar, wxAuiPaneInfo()
