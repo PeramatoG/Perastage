@@ -2151,10 +2151,6 @@ void MainWindow::OnLayout2DViewCancel(wxCommandEvent &WXUNUSED(event)) {
   layout2DViewEditing = false;
 }
 
-void MainWindow::OnLayout2DViewOk(wxCommandEvent &WXUNUSED(event)) {}
-
-void MainWindow::OnLayout2DViewCancel(wxCommandEvent &WXUNUSED(event)) {}
-
 void MainWindow::PersistLayout2DViewState() {
   if (!layoutModeActive || activeLayoutName.empty())
     return;

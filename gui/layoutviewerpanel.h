@@ -25,6 +25,8 @@ public:
   explicit LayoutViewerPanel(wxWindow *parent);
 
   void SetLayoutDefinition(const layouts::LayoutDefinition &layout);
+  layouts::Layout2DViewDefinition *GetEditableView();
+  const layouts::Layout2DViewDefinition *GetEditableView() const;
 
 private:
   void OnPaint(wxPaintEvent &event);
@@ -39,8 +41,6 @@ private:
   wxRect GetPageRect() const;
   bool GetFrameRect(const layouts::Layout2DViewFrame &frame,
                     wxRect &rect) const;
-  layouts::Layout2DViewDefinition *GetEditableView();
-  const layouts::Layout2DViewDefinition *GetEditableView() const;
   void UpdateFrame(const layouts::Layout2DViewFrame &frame,
                    bool updatePosition);
 
