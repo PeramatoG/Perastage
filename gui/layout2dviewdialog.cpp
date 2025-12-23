@@ -8,7 +8,8 @@
 
 Layout2DViewDialog::Layout2DViewDialog(wxWindow *parent)
     : wxDialog(parent, wxID_ANY, "2D View Editor", wxDefaultPosition,
-               wxDefaultSize, wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER) {
+               wxDefaultSize, wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER |
+                                   wxMAXIMIZE_BOX | wxMINIMIZE_BOX) {
   auto *mainSizer = new wxBoxSizer(wxVERTICAL);
   auto *contentSizer = new wxBoxSizer(wxHORIZONTAL);
 
@@ -31,8 +32,10 @@ Layout2DViewDialog::Layout2DViewDialog(wxWindow *parent)
 
   mainSizer->Add(buttonSizer, 0, wxEXPAND | wxALL, 8);
 
-  SetSizerAndFit(mainSizer);
-  SetMinSize(wxSize(900, 600));
+  SetSizer(mainSizer);
+  SetSize(wxSize(1200, 800));
+  SetMinSize(wxSize(1000, 700));
+  Layout();
   CentreOnParent();
 }
 
