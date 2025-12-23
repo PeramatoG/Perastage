@@ -30,6 +30,7 @@
 #include <wx/wx.h>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <string>
 
 // Current viewport information used to rebuild the same projection when
@@ -94,6 +95,8 @@ public:
   std::shared_ptr<const SymbolDefinitionSnapshot>
   GetBottomSymbolCacheSnapshot() const;
 
+  void SetLayoutEditOverlay(std::optional<float> aspectRatio);
+
 private:
   void InitGL();
   void Render();
@@ -128,6 +131,7 @@ private:
   Viewer3DController m_controller;
   Viewer2DRenderMode m_renderMode = Viewer2DRenderMode::White;
   Viewer2DView m_view = Viewer2DView::Top;
+  std::optional<float> m_layoutEditAspect;
 
   wxDECLARE_EVENT_TABLE();
 };

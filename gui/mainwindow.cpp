@@ -204,6 +204,7 @@ EVT_MENU(ID_Select_Objects, MainWindow::OnSelectObjects)
 EVT_MENU(ID_Edit_Preferences, MainWindow::OnPreferences)
 EVT_COMMAND(wxID_ANY, EVT_PROJECT_LOADED, MainWindow::OnProjectLoaded)
 EVT_COMMAND(wxID_ANY, EVT_LAYOUT_SELECTED, MainWindow::OnLayoutSelected)
+EVT_COMMAND(wxID_ANY, EVT_LAYOUT_VIEW_EDIT, MainWindow::OnLayoutViewEdit)
 wxEND_EVENT_TABLE()
 
                                                                     MainWindow::
@@ -1812,6 +1813,10 @@ void MainWindow::OnApplyLayoutModeLayout(wxCommandEvent &WXUNUSED(event)) {
   ApplyLayoutModePerspective();
 }
 
+void MainWindow::OnLayoutViewEdit(wxCommandEvent &WXUNUSED(event)) {
+  BeginLayout2DViewEdit();
+}
+
 bool MainWindow::LoadProjectFromPath(const std::string &path) {
   if (!ConfigManager::Get().LoadProject(path))
     return false;
@@ -2077,6 +2082,92 @@ void MainWindow::OnLayoutAdd2DView(wxCommandEvent &WXUNUSED(event)) {
   }
 }
 
+void MainWindow::BeginLayout2DViewEdit() {
+  if (!layoutModeActive || activeLayoutName.empty() || layout2DViewEditing)
+    return;
+
+  Ensure2DViewport();
+  if (!viewport2DPanel)
+    return;
+
+  const layouts::LayoutDefinition *layout = nullptr;
+  for (const auto &entry : layouts::LayoutManager::Get().GetLayouts().Items()) {
+    if (entry.name == activeLayoutName) {
+      layout = &entry;
+      break;
+    }
+  }
+
+  const layouts::Layout2DViewDefinition *view = nullptr;
+  if (layoutViewerPanel)
+    view = layoutViewerPanel->GetEditableView();
+  if (!view && layout && !layout->view2dViews.empty())
+    view = &layout->view2dViews.front();
+  if (!view)
+    return;
+
+  ConfigManager &cfg = ConfigManager::Get();
+  layout2DViewSavedState = viewer2d::CaptureState(viewport2DPanel, cfg);
+
+  viewer2d::Viewer2DState state = viewer2d::FromLayoutDefinition(*view);
+  viewer2d::ApplyState(viewport2DPanel, viewport2DRenderPanel, cfg, state);
+
+  if (view->frame.height > 0 && viewport2DPanel) {
+    float aspect =
+        static_cast<float>(view->frame.width) / view->frame.height;
+    viewport2DPanel->SetLayoutEditOverlay(aspect);
+  } else if (viewport2DPanel) {
+    viewport2DPanel->SetLayoutEditOverlay(std::nullopt);
+  }
+
+  if (auiManager) {
+    layout2DViewPrevPerspective = auiManager->SavePerspective().ToStdString();
+
+    auto &viewPane = auiManager->GetPane("2DViewport");
+    auto &renderPane = auiManager->GetPane("2DRenderOptions");
+    auto &layerPane = auiManager->GetPane("LayerPanel");
+    auto &layoutPane = auiManager->GetPane("LayoutPanel");
+    auto &layoutViewerPane = auiManager->GetPane("LayoutViewer");
+    auto &layoutToolbarPane = auiManager->GetPane("LayoutToolbar");
+    auto &dataPane = auiManager->GetPane("DataNotebook");
+    auto &consolePane = auiManager->GetPane("Console");
+    auto &summaryPane = auiManager->GetPane("SummaryPanel");
+    auto &riggingPane = auiManager->GetPane("RiggingPanel");
+    auto &viewport3dPane = auiManager->GetPane("3DViewport");
+
+    layout2DViewPrevViewportShown = viewPane.IsOk() && viewPane.IsShown();
+    layout2DViewPrevRenderShown = renderPane.IsOk() && renderPane.IsShown();
+
+    if (viewPane.IsOk())
+      viewPane.Show();
+    if (renderPane.IsOk())
+      renderPane.Show();
+    if (layerPane.IsOk())
+      layerPane.Show();
+    if (layoutPane.IsOk())
+      layoutPane.Hide();
+    if (layoutViewerPane.IsOk())
+      layoutViewerPane.Hide();
+    if (layoutToolbarPane.IsOk())
+      layoutToolbarPane.Show();
+    if (dataPane.IsOk())
+      dataPane.Hide();
+    if (consolePane.IsOk())
+      consolePane.Hide();
+    if (summaryPane.IsOk())
+      summaryPane.Hide();
+    if (riggingPane.IsOk())
+      riggingPane.Hide();
+    if (viewport3dPane.IsOk())
+      viewport3dPane.Hide();
+
+    auiManager->Update();
+  }
+
+  layout2DViewEditing = true;
+  UpdateViewMenuChecks();
+}
+
 void MainWindow::OnLayout2DViewOk(wxCommandEvent &WXUNUSED(event)) {
   if (!layout2DViewEditing || !layout2DViewSavedState)
     return;
@@ -2130,17 +2221,26 @@ void MainWindow::OnLayout2DViewOk(wxCommandEvent &WXUNUSED(event)) {
                        *layout2DViewSavedState);
   layout2DViewSavedState.reset();
 
+  if (viewport2DPanel)
+    viewport2DPanel->SetLayoutEditOverlay(std::nullopt);
+
   if (auiManager) {
-    auto &viewPane = auiManager->GetPane("2DViewport");
-    auto &renderPane = auiManager->GetPane("2DRenderOptions");
-    if (viewPane.IsOk())
-      viewPane.Show(layout2DViewPrevViewportShown);
-    if (renderPane.IsOk())
-      renderPane.Show(layout2DViewPrevRenderShown);
+    if (!layout2DViewPrevPerspective.empty()) {
+      auiManager->LoadPerspective(layout2DViewPrevPerspective, true);
+    } else {
+      auto &viewPane = auiManager->GetPane("2DViewport");
+      auto &renderPane = auiManager->GetPane("2DRenderOptions");
+      if (viewPane.IsOk())
+        viewPane.Show(layout2DViewPrevViewportShown);
+      if (renderPane.IsOk())
+        renderPane.Show(layout2DViewPrevRenderShown);
+    }
     auiManager->Update();
   }
 
   layout2DViewEditing = false;
+  layout2DViewPrevPerspective.clear();
+  UpdateViewMenuChecks();
 }
 
 void MainWindow::OnLayout2DViewCancel(wxCommandEvent &WXUNUSED(event)) {
@@ -2152,17 +2252,26 @@ void MainWindow::OnLayout2DViewCancel(wxCommandEvent &WXUNUSED(event)) {
                        *layout2DViewSavedState);
   layout2DViewSavedState.reset();
 
+  if (viewport2DPanel)
+    viewport2DPanel->SetLayoutEditOverlay(std::nullopt);
+
   if (auiManager) {
-    auto &viewPane = auiManager->GetPane("2DViewport");
-    auto &renderPane = auiManager->GetPane("2DRenderOptions");
-    if (viewPane.IsOk())
-      viewPane.Show(layout2DViewPrevViewportShown);
-    if (renderPane.IsOk())
-      renderPane.Show(layout2DViewPrevRenderShown);
+    if (!layout2DViewPrevPerspective.empty()) {
+      auiManager->LoadPerspective(layout2DViewPrevPerspective, true);
+    } else {
+      auto &viewPane = auiManager->GetPane("2DViewport");
+      auto &renderPane = auiManager->GetPane("2DRenderOptions");
+      if (viewPane.IsOk())
+        viewPane.Show(layout2DViewPrevViewportShown);
+      if (renderPane.IsOk())
+        renderPane.Show(layout2DViewPrevRenderShown);
+    }
     auiManager->Update();
   }
 
   layout2DViewEditing = false;
+  layout2DViewPrevPerspective.clear();
+  UpdateViewMenuChecks();
 }
 
 void MainWindow::PersistLayout2DViewState() {
