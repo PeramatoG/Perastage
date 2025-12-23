@@ -1,5 +1,6 @@
 #include "layout2dviewdialog.h"
 
+#include "layerpanel.h"
 #include "viewer2dpanel.h"
 #include "viewer2drenderpanel.h"
 
@@ -15,9 +16,11 @@ Layout2DViewDialog::Layout2DViewDialog(wxWindow *parent)
 
   viewerPanel = new Viewer2DPanel(this);
   renderPanel = new Viewer2DRenderPanel(this);
+  layerPanel = new LayerPanel(this, false);
 
   contentSizer->Add(viewerPanel, 1, wxEXPAND | wxALL, 8);
   contentSizer->Add(renderPanel, 0, wxEXPAND | wxTOP | wxBOTTOM | wxRIGHT, 8);
+  contentSizer->Add(layerPanel, 0, wxEXPAND | wxTOP | wxBOTTOM | wxRIGHT, 8);
 
   mainSizer->Add(contentSizer, 1, wxEXPAND);
 

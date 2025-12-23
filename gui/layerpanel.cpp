@@ -30,7 +30,7 @@
 
 LayerPanel* LayerPanel::s_instance = nullptr;
 
-LayerPanel::LayerPanel(wxWindow* parent)
+LayerPanel::LayerPanel(wxWindow* parent, bool showButtons)
     : wxPanel(parent, wxID_ANY)
 {
     list = new wxDataViewListCtrl(this, wxID_ANY);
@@ -44,12 +44,16 @@ LayerPanel::LayerPanel(wxWindow* parent)
     wxBoxSizer* sizer = new wxBoxSizer(wxVERTICAL);
     sizer->Add(list, 1, wxEXPAND | wxALL, 5);
 
-    wxBoxSizer* btnSizer = new wxBoxSizer(wxHORIZONTAL);
-    auto* addBtn = new wxButton(this, wxID_ADD, "Add");
-    auto* delBtn = new wxButton(this, wxID_DELETE, "Delete");
-    btnSizer->Add(addBtn, 0, wxALL, 5);
-    btnSizer->Add(delBtn, 0, wxALL, 5);
-    sizer->Add(btnSizer, 0, wxALIGN_LEFT);
+    wxButton* addBtn = nullptr;
+    wxButton* delBtn = nullptr;
+    if (showButtons) {
+        wxBoxSizer* btnSizer = new wxBoxSizer(wxHORIZONTAL);
+        addBtn = new wxButton(this, wxID_ADD, "Add");
+        delBtn = new wxButton(this, wxID_DELETE, "Delete");
+        btnSizer->Add(addBtn, 0, wxALL, 5);
+        btnSizer->Add(delBtn, 0, wxALL, 5);
+        sizer->Add(btnSizer, 0, wxALIGN_LEFT);
+    }
 
     SetSizer(sizer);
 
@@ -57,8 +61,10 @@ LayerPanel::LayerPanel(wxWindow* parent)
     list->Bind(wxEVT_DATAVIEW_SELECTION_CHANGED, &LayerPanel::OnSelect, this);
     list->Bind(wxEVT_DATAVIEW_ITEM_CONTEXT_MENU, &LayerPanel::OnContext, this);
     list->Bind(wxEVT_DATAVIEW_ITEM_ACTIVATED, &LayerPanel::OnRenameLayer, this);
-    addBtn->Bind(wxEVT_BUTTON, &LayerPanel::OnAddLayer, this);
-    delBtn->Bind(wxEVT_BUTTON, &LayerPanel::OnDeleteLayer, this);
+    if (addBtn)
+        addBtn->Bind(wxEVT_BUTTON, &LayerPanel::OnAddLayer, this);
+    if (delBtn)
+        delBtn->Bind(wxEVT_BUTTON, &LayerPanel::OnDeleteLayer, this);
 
     ReloadLayers();
 }
@@ -406,4 +412,3 @@ void LayerPanel::OnRenameLayer(wxDataViewEvent& evt)
         Viewer3DPanel::Instance()->Refresh();
     }
 }
-
