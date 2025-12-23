@@ -97,6 +97,7 @@ using json = nlohmann::json;
 #include "trusstablepanel.h"
 #include "viewer2dpanel.h"
 #include "viewer2drenderpanel.h"
+#include "viewer2dstate.h"
 #include "viewer3dpanel.h"
 #include "layouts/LayoutManager.h"
 #ifdef _WIN32
@@ -111,76 +112,6 @@ MainWindow *MainWindow::Instance() { return s_instance; }
 void MainWindow::SetInstance(MainWindow *inst) { s_instance = inst; }
 
 namespace {
-const std::array<const char *, 3> kLabelNameKeys = {"label_show_name_top",
-                                                    "label_show_name_front",
-                                                    "label_show_name_side"};
-const std::array<const char *, 3> kLabelIdKeys = {"label_show_id_top",
-                                                  "label_show_id_front",
-                                                  "label_show_id_side"};
-const std::array<const char *, 3> kLabelDmxKeys = {"label_show_dmx_top",
-                                                   "label_show_dmx_front",
-                                                   "label_show_dmx_side"};
-const std::array<const char *, 3> kLabelOffsetDistanceKeys = {
-    "label_offset_distance_top", "label_offset_distance_front",
-    "label_offset_distance_side"};
-const std::array<const char *, 3> kLabelOffsetAngleKeys = {
-    "label_offset_angle_top", "label_offset_angle_front",
-    "label_offset_angle_side"};
-
-layouts::Layout2DViewDefinition CaptureViewer2DViewDefinition(
-    const Viewer2DPanel *panel, const ConfigManager &cfg) {
-  layouts::Layout2DViewDefinition view;
-  auto &camera = view.camera;
-  auto &frame = view.frame;
-  auto &options = view.renderOptions;
-  auto &layers = view.layers;
-  if (panel) {
-    const auto viewState = panel->GetViewState();
-    camera.offsetPixelsX = viewState.offsetPixelsX;
-    camera.offsetPixelsY = viewState.offsetPixelsY;
-    camera.zoom = viewState.zoom;
-    camera.viewportWidth = viewState.viewportWidth;
-    camera.viewportHeight = viewState.viewportHeight;
-    camera.view = static_cast<int>(viewState.view);
-    frame.width = viewState.viewportWidth;
-    frame.height = viewState.viewportHeight;
-  } else {
-    camera.offsetPixelsX = cfg.GetFloat("view2d_offset_x");
-    camera.offsetPixelsY = cfg.GetFloat("view2d_offset_y");
-    camera.zoom = cfg.GetFloat("view2d_zoom");
-    camera.view = static_cast<int>(cfg.GetFloat("view2d_view"));
-  }
-
-  options.renderMode = static_cast<int>(cfg.GetFloat("view2d_render_mode"));
-  options.darkMode = cfg.GetFloat("view2d_dark_mode") != 0.0f;
-  options.showGrid = cfg.GetFloat("grid_show") != 0.0f;
-  options.gridStyle = static_cast<int>(cfg.GetFloat("grid_style"));
-  options.gridColorR = cfg.GetFloat("grid_color_r");
-  options.gridColorG = cfg.GetFloat("grid_color_g");
-  options.gridColorB = cfg.GetFloat("grid_color_b");
-  options.gridDrawAbove = cfg.GetFloat("grid_draw_above") != 0.0f;
-
-  for (size_t i = 0; i < options.showLabelName.size(); ++i) {
-    options.showLabelName[i] = cfg.GetFloat(kLabelNameKeys[i]) != 0.0f;
-    options.showLabelId[i] = cfg.GetFloat(kLabelIdKeys[i]) != 0.0f;
-    options.showLabelDmx[i] = cfg.GetFloat(kLabelDmxKeys[i]) != 0.0f;
-    options.labelOffsetDistance[i] =
-        cfg.GetFloat(kLabelOffsetDistanceKeys[i]);
-    options.labelOffsetAngle[i] = cfg.GetFloat(kLabelOffsetAngleKeys[i]);
-  }
-  options.labelFontSizeName = cfg.GetFloat("label_font_size_name");
-  options.labelFontSizeId = cfg.GetFloat("label_font_size_id");
-  options.labelFontSizeDmx = cfg.GetFloat("label_font_size_dmx");
-
-  layers.hiddenLayers.clear();
-  auto hidden = cfg.GetHiddenLayers();
-  layers.hiddenLayers.insert(layers.hiddenLayers.end(), hidden.begin(),
-                             hidden.end());
-  std::sort(layers.hiddenLayers.begin(), layers.hiddenLayers.end());
-
-  return view;
-}
-
 void LogMissingIcon(const std::filesystem::path &path) {
 #ifndef NDEBUG
   wxLogDebug("Main window icon not found at '%s'", path.string().c_str());
@@ -226,6 +157,8 @@ EVT_MENU(ID_View_Layout_Default, MainWindow::OnApplyDefaultLayout)
 EVT_MENU(ID_View_Layout_2D, MainWindow::OnApply2DLayout)
 EVT_MENU(ID_View_Layout_Mode, MainWindow::OnApplyLayoutModeLayout)
 EVT_MENU(ID_View_Layout_2DView, MainWindow::OnLayout2DView)
+EVT_MENU(ID_View_Layout_2DView_Ok, MainWindow::OnLayout2DViewOk)
+EVT_MENU(ID_View_Layout_2DView_Cancel, MainWindow::OnLayout2DViewCancel)
 EVT_MENU(ID_Tools_DownloadGdtf, MainWindow::OnDownloadGdtf)
 EVT_MENU(ID_Tools_EditDictionaries, MainWindow::OnEditDictionaries)
 EVT_MENU(ID_Tools_ExportFixture, MainWindow::OnExportFixture)
@@ -496,6 +429,15 @@ void MainWindow::CreateToolBars() {
                          loadToolbarIcon("panel-top-bottom-dashed",
                                          wxART_MISSING_IMAGE),
                          "Vista 2D en layout");
+  layoutToolBar->AddSeparator();
+  layoutToolBar->AddTool(ID_View_Layout_2DView_Ok, "OK",
+                         wxArtProvider::GetBitmapBundle(
+                             wxART_TICK_MARK, wxART_TOOLBAR, wxSize(24, 24)),
+                         "Guardar vista 2D");
+  layoutToolBar->AddTool(ID_View_Layout_2DView_Cancel, "Cancelar",
+                         wxArtProvider::GetBitmapBundle(
+                             wxART_CROSS_MARK, wxART_TOOLBAR, wxSize(24, 24)),
+                         "Cancelar edición de vista 2D");
   layoutToolBar->Realize();
   auiManager->AddPane(
       layoutToolBar, wxAuiPaneInfo()
@@ -2070,14 +2012,155 @@ void MainWindow::ApplyLayoutModePerspective() {
   UpdateViewMenuChecks();
 }
 
-void MainWindow::OnLayout2DView(wxCommandEvent &WXUNUSED(event)) {}
+void MainWindow::OnLayout2DView(wxCommandEvent &WXUNUSED(event)) {
+  if (!auiManager || layout2DViewEditing)
+    return;
+  if (!layoutModeActive || activeLayoutName.empty())
+    return;
+
+  Ensure2DViewport();
+  if (!viewport2DPanel)
+    return;
+
+  ConfigManager &cfg = ConfigManager::Get();
+  layout2DViewSavedState = viewer2d::CaptureState(viewport2DPanel, cfg);
+
+  const layouts::LayoutDefinition *layout = nullptr;
+  for (const auto &entry : layouts::LayoutManager::Get().GetLayouts().Items()) {
+    if (entry.name == activeLayoutName) {
+      layout = &entry;
+      break;
+    }
+  }
+  if (!layout || layout->view2dViews.empty()) {
+    layout2DViewSavedState.reset();
+    return;
+  }
+
+  int viewId = static_cast<int>(cfg.GetFloat("view2d_view"));
+  const layouts::Layout2DViewDefinition *targetView = nullptr;
+  for (const auto &entry : layout->view2dViews) {
+    if (entry.camera.view == viewId) {
+      targetView = &entry;
+      break;
+    }
+  }
+  if (!targetView)
+    targetView = &layout->view2dViews.front();
+
+  viewer2d::ApplyState(viewport2DPanel, viewport2DRenderPanel, cfg,
+                       viewer2d::FromLayoutDefinition(*targetView));
+
+  auto &viewPane = auiManager->GetPane("2DViewport");
+  auto &renderPane = auiManager->GetPane("2DRenderOptions");
+  layout2DViewPrevViewportShown = viewPane.IsOk() && viewPane.IsShown();
+  layout2DViewPrevRenderShown = renderPane.IsOk() && renderPane.IsShown();
+  if (viewPane.IsOk())
+    viewPane.Show(true);
+  if (renderPane.IsOk())
+    renderPane.Show(true);
+  auiManager->Update();
+  layout2DViewEditing = true;
+}
+
+void MainWindow::OnLayout2DViewOk(wxCommandEvent &WXUNUSED(event)) {
+  if (!layout2DViewEditing || !layout2DViewSavedState)
+    return;
+
+  ConfigManager &cfg = ConfigManager::Get();
+  viewer2d::Viewer2DState current =
+      viewer2d::CaptureState(viewport2DPanel, cfg);
+
+  layouts::Layout2DViewFrame frame{};
+  const layouts::LayoutDefinition *layout = nullptr;
+  for (const auto &entry : layouts::LayoutManager::Get().GetLayouts().Items()) {
+    if (entry.name == activeLayoutName) {
+      layout = &entry;
+      break;
+    }
+  }
+  if (layout) {
+    for (const auto &view : layout->view2dViews) {
+      if (view.camera.view == current.camera.view) {
+        frame = view.frame;
+        break;
+      }
+    }
+  }
+  if (frame.width == 0 && frame.height == 0 && layoutViewerPanel) {
+    if (const auto *view = layoutViewerPanel->GetEditableView())
+      frame = view->frame;
+  }
+
+  layouts::Layout2DViewDefinition updatedView =
+      viewer2d::ToLayoutDefinition(current, frame);
+  layouts::LayoutManager::Get().UpdateLayout2DView(activeLayoutName,
+                                                   updatedView);
+
+  if (layout && layoutViewerPanel) {
+    layouts::LayoutDefinition updatedLayout = *layout;
+    bool replaced = false;
+    for (auto &entry : updatedLayout.view2dViews) {
+      if (entry.camera.view == updatedView.camera.view) {
+        entry = updatedView;
+        replaced = true;
+        break;
+      }
+    }
+    if (!replaced)
+      updatedLayout.view2dViews.push_back(updatedView);
+    layoutViewerPanel->SetLayoutDefinition(updatedLayout);
+  }
+
+  viewer2d::ApplyState(viewport2DPanel, viewport2DRenderPanel, cfg,
+                       *layout2DViewSavedState);
+  layout2DViewSavedState.reset();
+
+  if (auiManager) {
+    auto &viewPane = auiManager->GetPane("2DViewport");
+    auto &renderPane = auiManager->GetPane("2DRenderOptions");
+    if (viewPane.IsOk())
+      viewPane.Show(layout2DViewPrevViewportShown);
+    if (renderPane.IsOk())
+      renderPane.Show(layout2DViewPrevRenderShown);
+    auiManager->Update();
+  }
+
+  layout2DViewEditing = false;
+}
+
+void MainWindow::OnLayout2DViewCancel(wxCommandEvent &WXUNUSED(event)) {
+  if (!layout2DViewEditing || !layout2DViewSavedState)
+    return;
+
+  ConfigManager &cfg = ConfigManager::Get();
+  viewer2d::ApplyState(viewport2DPanel, viewport2DRenderPanel, cfg,
+                       *layout2DViewSavedState);
+  layout2DViewSavedState.reset();
+
+  if (auiManager) {
+    auto &viewPane = auiManager->GetPane("2DViewport");
+    auto &renderPane = auiManager->GetPane("2DRenderOptions");
+    if (viewPane.IsOk())
+      viewPane.Show(layout2DViewPrevViewportShown);
+    if (renderPane.IsOk())
+      renderPane.Show(layout2DViewPrevRenderShown);
+    auiManager->Update();
+  }
+
+  layout2DViewEditing = false;
+}
+
+void MainWindow::OnLayout2DViewOk(wxCommandEvent &WXUNUSED(event)) {}
+
+void MainWindow::OnLayout2DViewCancel(wxCommandEvent &WXUNUSED(event)) {}
 
 void MainWindow::PersistLayout2DViewState() {
   if (!layoutModeActive || activeLayoutName.empty())
     return;
   ConfigManager &cfg = ConfigManager::Get();
   layouts::Layout2DViewDefinition view =
-      CaptureViewer2DViewDefinition(viewport2DPanel, cfg);
+      viewer2d::CaptureLayoutDefinition(viewport2DPanel, cfg);
   layouts::LayoutManager::Get().UpdateLayout2DView(activeLayoutName, view);
 }
 
@@ -2142,7 +2225,7 @@ void MainWindow::ActivateLayoutView(const std::string &layoutName) {
       if (layout.name == layoutName) {
         ConfigManager &cfg = ConfigManager::Get();
         layouts::Layout2DViewDefinition view =
-            CaptureViewer2DViewDefinition(viewport2DPanel, cfg);
+            viewer2d::CaptureLayoutDefinition(viewport2DPanel, cfg);
         bool hasMatchingView = false;
         for (const auto &entry : layout.view2dViews) {
           if (entry.camera.view == view.camera.view) {
