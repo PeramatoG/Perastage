@@ -2283,6 +2283,35 @@ void MainWindow::PersistLayout2DViewState() {
   layouts::LayoutManager::Get().UpdateLayout2DView(activeLayoutName, view);
 }
 
+void MainWindow::RestoreLayout2DViewState(int viewIndex) {
+  if (activeLayoutName.empty())
+    return;
+
+  const layouts::LayoutDefinition *layout = nullptr;
+  for (const auto &entry : layouts::LayoutManager::Get().GetLayouts().Items()) {
+    if (entry.name == activeLayoutName) {
+      layout = &entry;
+      break;
+    }
+  }
+  if (!layout)
+    return;
+
+  const layouts::Layout2DViewDefinition *match = nullptr;
+  for (const auto &view : layout->view2dViews) {
+    if (view.camera.view == viewIndex) {
+      match = &view;
+      break;
+    }
+  }
+  if (!match)
+    return;
+
+  ConfigManager &cfg = ConfigManager::Get();
+  viewer2d::ApplyState(viewport2DPanel, viewport2DRenderPanel, cfg,
+                       viewer2d::FromLayoutDefinition(*match));
+}
+
 void MainWindow::UpdateViewMenuChecks() {
   if (!auiManager || !GetMenuBar())
     return;

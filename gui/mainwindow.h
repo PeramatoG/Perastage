@@ -55,6 +55,8 @@ public:
   static void SetInstance(MainWindow *inst);
 
   void EnableShortcuts(bool enable);
+  void PersistLayout2DViewState();
+  void RestoreLayout2DViewState(int viewIndex);
 
 private:
   void SetupLayout();   // Set up main window layout
@@ -153,7 +155,6 @@ private:
   void UpdateViewMenuChecks();
   void OnLayoutSelected(wxCommandEvent &event);
   void ActivateLayoutView(const std::string &layoutName);
-  void PersistLayout2DViewState();
   void SyncSceneData();
   bool ConfirmSaveIfDirty(const wxString &actionLabel,
                           const wxString &dialogTitle);
