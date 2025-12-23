@@ -2320,24 +2320,7 @@ void MainWindow::ActivateLayoutView(const std::string &layoutName) {
     const auto &layouts = layouts::LayoutManager::Get().GetLayouts().Items();
     for (const auto &layout : layouts) {
       if (layout.name == layoutName) {
-        ConfigManager &cfg = ConfigManager::Get();
-        layouts::Layout2DViewDefinition view =
-            viewer2d::CaptureLayoutDefinition(viewport2DPanel, cfg);
-        bool hasMatchingView = false;
-        for (const auto &entry : layout.view2dViews) {
-          if (entry.camera.view == view.camera.view) {
-            hasMatchingView = true;
-            break;
-          }
-        }
-        if (!hasMatchingView) {
-          layouts::LayoutManager::Get().UpdateLayout2DView(layoutName, view);
-          layouts::LayoutDefinition updated = layout;
-          updated.view2dViews.push_back(std::move(view));
-          layoutViewerPanel->SetLayoutDefinition(updated);
-        } else {
-          layoutViewerPanel->SetLayoutDefinition(layout);
-        }
+        layoutViewerPanel->SetLayoutDefinition(layout);
         break;
       }
     }
