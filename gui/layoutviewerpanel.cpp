@@ -262,7 +262,7 @@ void LayoutViewerPanel::OnRightUp(wxMouseEvent &event) {
   }
 
   wxMenu menu;
-  menu.Append(kEditMenuId, "Editar vista 2D");
+  menu.Append(kEditMenuId, "2D View Editor");
   PopupMenu(&menu, pos);
 }
 

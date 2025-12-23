@@ -7,7 +7,7 @@
 #include <wx/sizer.h>
 
 Layout2DViewDialog::Layout2DViewDialog(wxWindow *parent)
-    : wxDialog(parent, wxID_ANY, "Editar vista 2D", wxDefaultPosition,
+    : wxDialog(parent, wxID_ANY, "2D View Editor", wxDefaultPosition,
                wxDefaultSize, wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER) {
   auto *mainSizer = new wxBoxSizer(wxVERTICAL);
   auto *contentSizer = new wxBoxSizer(wxHORIZONTAL);
