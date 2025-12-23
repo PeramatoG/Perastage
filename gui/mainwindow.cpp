@@ -185,8 +185,6 @@ EVT_MENU(ID_View_Layout_Default, MainWindow::OnApplyDefaultLayout)
 EVT_MENU(ID_View_Layout_2D, MainWindow::OnApply2DLayout)
 EVT_MENU(ID_View_Layout_Mode, MainWindow::OnApplyLayoutModeLayout)
 EVT_MENU(ID_View_Layout_2DView, MainWindow::OnLayoutAdd2DView)
-EVT_MENU(ID_View_Layout_2DView_Ok, MainWindow::OnLayout2DViewOk)
-EVT_MENU(ID_View_Layout_2DView_Cancel, MainWindow::OnLayout2DViewCancel)
 EVT_MENU(ID_Tools_DownloadGdtf, MainWindow::OnDownloadGdtf)
 EVT_MENU(ID_Tools_EditDictionaries, MainWindow::OnEditDictionaries)
 EVT_MENU(ID_Tools_ExportFixture, MainWindow::OnExportFixture)
@@ -458,15 +456,6 @@ void MainWindow::CreateToolBars() {
                          loadToolbarIcon("panel-top-bottom-dashed",
                                          wxART_MISSING_IMAGE),
                          "Add 2D View to Layout");
-  layoutToolBar->AddSeparator();
-  layoutToolBar->AddTool(ID_View_Layout_2DView_Ok, "OK",
-                         wxArtProvider::GetBitmapBundle(
-                             wxART_TICK_MARK, wxART_TOOLBAR, wxSize(24, 24)),
-                         "Save 2D View");
-  layoutToolBar->AddTool(ID_View_Layout_2DView_Cancel, "Cancelar",
-                         wxArtProvider::GetBitmapBundle(
-                             wxART_CROSS_MARK, wxART_TOOLBAR, wxSize(24, 24)),
-                         "Cancel 2D View Edit");
   layoutToolBar->Realize();
   auiManager->AddPane(
       layoutToolBar, wxAuiPaneInfo()
