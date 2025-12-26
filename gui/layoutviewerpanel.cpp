@@ -442,6 +442,12 @@ void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
     Viewer2DPanel *panel = Viewer2DPanel::Instance();
     if (panel) {
       captureInProgress = true;
+      const int fallbackViewportWidth =
+          view->camera.viewportWidth > 0 ? view->camera.viewportWidth
+                                         : view->frame.width;
+      const int fallbackViewportHeight =
+          view->camera.viewportHeight > 0 ? view->camera.viewportHeight
+                                          : view->frame.height;
       ConfigManager &cfg = ConfigManager::Get();
       viewer2d::Viewer2DState previousState =
           viewer2d::CaptureState(panel, cfg);
@@ -449,9 +455,18 @@ void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
           viewer2d::FromLayoutDefinition(*view);
       viewer2d::ApplyState(panel, nullptr, cfg, layoutState);
       panel->CaptureFrameAsync(
-          [this, previousState](CommandBuffer buffer, Viewer2DViewState state) {
+          [this, previousState, fallbackViewportWidth, fallbackViewportHeight](
+              CommandBuffer buffer, Viewer2DViewState state) {
             cachedBuffer = std::move(buffer);
             cachedViewState = state;
+            if (cachedViewState.viewportWidth <= 0 &&
+                fallbackViewportWidth > 0) {
+              cachedViewState.viewportWidth = fallbackViewportWidth;
+            }
+            if (cachedViewState.viewportHeight <= 0 &&
+                fallbackViewportHeight > 0) {
+              cachedViewState.viewportHeight = fallbackViewportHeight;
+            }
             cachedSymbols.reset();
             if (Viewer2DPanel::Instance()) {
               cachedSymbols =
@@ -468,12 +483,27 @@ void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
   }
 
   if (hasCapture && frameRect.GetWidth() > 0 && frameRect.GetHeight() > 0) {
+    Viewer2DViewState renderState = cachedViewState;
+    if (renderState.viewportWidth <= 0) {
+      if (view->camera.viewportWidth > 0) {
+        renderState.viewportWidth = view->camera.viewportWidth;
+      } else {
+        renderState.viewportWidth = view->frame.width;
+      }
+    }
+    if (renderState.viewportHeight <= 0) {
+      if (view->camera.viewportHeight > 0) {
+        renderState.viewportHeight = view->camera.viewportHeight;
+      } else {
+        renderState.viewportHeight = view->frame.height;
+      }
+    }
     wxBitmap bufferBitmap(frameRect.GetWidth(), frameRect.GetHeight());
     wxMemoryDC memDC(bufferBitmap);
     memDC.SetBackground(wxBrush(wxColour(255, 255, 255)));
     memDC.Clear();
     if (auto gc = wxGraphicsContext::Create(memDC)) {
-      RenderCommands(*gc, cachedBuffer, cachedViewState, wxPoint(0, 0),
+      RenderCommands(*gc, cachedBuffer, renderState, wxPoint(0, 0),
                      frameRect.GetSize(), Transform2D::Identity(),
                      cachedSymbols.get());
       delete gc;

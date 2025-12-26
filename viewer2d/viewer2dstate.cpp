@@ -159,6 +159,12 @@ layouts::Layout2DViewDefinition ToLayoutDefinition(
   layouts::Layout2DViewDefinition view;
   view.frame = frame;
   view.camera = state.camera;
+  if (view.camera.viewportWidth <= 0 && frame.width > 0) {
+    view.camera.viewportWidth = frame.width;
+  }
+  if (view.camera.viewportHeight <= 0 && frame.height > 0) {
+    view.camera.viewportHeight = frame.height;
+  }
   view.renderOptions = state.renderOptions;
   view.layers = state.layers;
   return view;
