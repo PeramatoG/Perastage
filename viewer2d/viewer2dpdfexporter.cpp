@@ -38,10 +38,9 @@
 #include <zlib.h>
 
 #include "logger.h"
+#include "viewer2dcommandrenderer.h"
 
 namespace {
-
-constexpr float PIXELS_PER_METER = 25.0f;
 // Approximates the ascent of the standard Helvetica font used by PDF viewers
 // (718 units over 1000). Used as a fallback when capture-time metrics are not
 // available from the live renderer.
@@ -125,7 +124,7 @@ struct Mapping {
   double scale = 1.0;
   double offsetX = 0.0;
   double offsetY = 0.0;
-  double pageHeight = 0.0;
+  double drawHeight = 0.0;
   bool flipY = true;
 };
 
@@ -143,7 +142,7 @@ Point MapWithMapping(double x, double y, const Mapping &mapping) {
   double px = mapping.offsetX + (x - mapping.minX) * mapping.scale;
   double py = mapping.offsetY + (y - mapping.minY) * mapping.scale;
   if (mapping.flipY)
-    py = mapping.pageHeight - mapping.offsetY -
+    py = mapping.offsetY + mapping.drawHeight -
          (y - mapping.minY) * mapping.scale;
   return {px, py};
 }
@@ -848,25 +847,18 @@ Viewer2DExportResult ExportViewer2DToPdf(
     return result;
   }
 
-  double ppm = PIXELS_PER_METER * static_cast<double>(viewState.zoom);
-  double halfW = static_cast<double>(viewState.viewportWidth) / ppm * 0.5;
-  double halfH = static_cast<double>(viewState.viewportHeight) / ppm * 0.5;
-  double offX = static_cast<double>(viewState.offsetPixelsX) / PIXELS_PER_METER;
-  double offY = static_cast<double>(viewState.offsetPixelsY) / PIXELS_PER_METER;
-  double minX = -halfW - offX;
-  double maxX = halfW - offX;
-  double minY = -halfH - offY;
-  double maxY = halfH - offY;
-  double width = maxX - minX;
-  double height = maxY - minY;
-  if (width <= 0.0 || height <= 0.0) {
+  viewer2d::Viewer2DRenderMapping viewMapping;
+  if (!viewer2d::BuildViewMapping(viewState, pageW, pageH, margin,
+                                  viewMapping)) {
     result.message = "Viewport dimensions are invalid for export.";
     return result;
   }
 
-  double scale = std::min(drawW / width, drawH / height);
-  double offsetX = margin + (drawW - width * scale) * 0.5;
-  double offsetY = margin + (drawH - height * scale) * 0.5;
+  double scale = viewMapping.scale;
+  double offsetX = viewMapping.offsetX;
+  double offsetY = viewMapping.offsetY;
+  double minX = viewMapping.minX;
+  double minY = viewMapping.minY;
 
   FloatFormatter formatter(options.floatPrecision);
 
@@ -929,7 +921,8 @@ Viewer2DExportResult ExportViewer2DToPdf(
     mainCommands.sources.push_back(source);
   }
 
-  Mapping pageMapping{minX, minY, scale, offsetX, offsetY, pageH, false};
+  Mapping pageMapping{minX, minY, scale, offsetX, offsetY,
+                      viewMapping.drawHeight, false};
   std::unordered_map<std::string, std::string> xObjectKeyNames;
   std::unordered_map<uint32_t, std::string> xObjectIdNames;
   std::unordered_map<std::string, size_t> xObjectKeyIds;
