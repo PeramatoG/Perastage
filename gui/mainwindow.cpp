@@ -1639,6 +1639,12 @@ void MainWindow::OnCloseWindow(wxCloseEvent &event) {
   if (viewportPanel)
     viewportPanel->StopRefreshThread();
 
+  if (auiManager) {
+    auiManager->UnInit();
+    delete auiManager;
+    auiManager = nullptr;
+  }
+
   Destroy();
 }
 
