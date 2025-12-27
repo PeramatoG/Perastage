@@ -236,6 +236,18 @@ void LayoutViewerPanel::SetLayoutDefinition(
   Refresh();
 }
 
+void LayoutViewerPanel::SetCapturePanel(Viewer2DPanel *panel) {
+  if (capturePanel == panel)
+    return;
+  capturePanel = panel;
+  captureInProgress = false;
+  captureVersion = -1;
+  hasCapture = false;
+  cachedBuffer = CommandBuffer{};
+  cachedSymbols.reset();
+  Refresh();
+}
+
 void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
   wxAutoBufferedPaintDC dc(this);
   dc.Clear();
@@ -271,7 +283,7 @@ void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
     return;
 
   if (!captureInProgress && captureVersion != layoutVersion) {
-    Viewer2DPanel *panel = Viewer2DPanel::Instance();
+    Viewer2DPanel *panel = capturePanel;
     if (panel) {
       captureInProgress = true;
       const int fallbackViewportWidth =
@@ -286,7 +298,8 @@ void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
       auto stateGuard = std::make_shared<viewer2d::ScopedViewer2DState>(
           panel, nullptr, cfg, layoutState);
       panel->CaptureFrameAsync(
-          [this, stateGuard, fallbackViewportWidth, fallbackViewportHeight](
+          [this, panel, stateGuard, fallbackViewportWidth,
+           fallbackViewportHeight](
               CommandBuffer buffer, Viewer2DViewState state) {
             cachedBuffer = std::move(buffer);
             cachedViewState = state;
@@ -299,15 +312,14 @@ void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
               cachedViewState.viewportHeight = fallbackViewportHeight;
             }
             cachedSymbols.reset();
-            if (Viewer2DPanel::Instance()) {
-              cachedSymbols =
-                  Viewer2DPanel::Instance()->GetBottomSymbolCacheSnapshot();
-            }
+            cachedSymbols = panel->GetBottomSymbolCacheSnapshot();
             hasCapture = !cachedBuffer.commands.empty();
             captureVersion = layoutVersion;
             captureInProgress = false;
             Refresh();
           });
+      panel->Refresh();
+      panel->Update();
     }
   }
 
