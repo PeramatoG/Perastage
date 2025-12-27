@@ -499,56 +499,67 @@ void MainWindow::Ensure3DViewport() {
 }
 
 void MainWindow::Ensure2DViewport() {
-  if (viewport2DPanel)
-    return;
-  int halfWidth = GetClientSize().GetWidth() / 2;
-  viewport2DPanel = new Viewer2DPanel(this);
-  Viewer2DPanel::SetInstance(viewport2DPanel);
-  viewport2DPanel->LoadViewFromConfig();
-  auiManager->AddPane(viewport2DPanel, wxAuiPaneInfo()
-                                           .Name("2DViewport")
-                                           .Caption("2D Viewport")
-                                           .Center()
-                                           .Dockable(true)
-                                           .CaptionVisible(true)
-                                           .PaneBorder(false)
-                                           .BestSize(halfWidth, 600)
-                                           .MinSize(wxSize(200, 600))
-                                           .CloseButton(true)
-                                           .MaximizeButton(true)
-                                           .Hide());
-  viewport2DPanel->UpdateScene();
+  if (!viewport2DPanel) {
+    int halfWidth = GetClientSize().GetWidth() / 2;
+    viewport2DPanel = new Viewer2DPanel(this);
+    Viewer2DPanel::SetInstance(viewport2DPanel);
+    viewport2DPanel->LoadViewFromConfig();
+    auiManager->AddPane(viewport2DPanel, wxAuiPaneInfo()
+                                             .Name("2DViewport")
+                                             .Caption("2D Viewport")
+                                             .Center()
+                                             .Dockable(true)
+                                             .CaptionVisible(true)
+                                             .PaneBorder(false)
+                                             .BestSize(halfWidth, 600)
+                                             .MinSize(wxSize(200, 600))
+                                             .CloseButton(true)
+                                             .MaximizeButton(true)
+                                             .Hide());
+    viewport2DPanel->UpdateScene();
 
-  viewport2DRenderPanel = new Viewer2DRenderPanel(this);
-  Viewer2DRenderPanel::SetInstance(viewport2DRenderPanel);
-  auiManager->AddPane(viewport2DRenderPanel, wxAuiPaneInfo()
-                                                 .Name("2DRenderOptions")
-                                                 .Caption("2D Render Options")
-                                                 .Right()
-                                                 .Row(1)
-                                                 .Position(1)
-                                                 .BestSize(200, 100)
-                                                 .CloseButton(true)
-                                                 .MaximizeButton(true)
-                                                 .PaneBorder(true)
-                                                 .Hide());
+    viewport2DRenderPanel = new Viewer2DRenderPanel(this);
+    Viewer2DRenderPanel::SetInstance(viewport2DRenderPanel);
+    auiManager->AddPane(viewport2DRenderPanel, wxAuiPaneInfo()
+                                                   .Name("2DRenderOptions")
+                                                   .Caption("2D Render Options")
+                                                   .Right()
+                                                   .Row(1)
+                                                   .Position(1)
+                                                   .BestSize(200, 100)
+                                                   .CloseButton(true)
+                                                   .MaximizeButton(true)
+                                                   .PaneBorder(true)
+                                                   .Hide());
 
-  auiManager->Update();
-
-  if (default2DLayoutPerspective.empty()) {
-    auto &pane3d = auiManager->GetPane("3DViewport");
-    auto &pane2d = auiManager->GetPane("2DViewport");
-    auto &paneRender = auiManager->GetPane("2DRenderOptions");
-    pane3d.Hide();
-    pane2d.Show();
-    paneRender.Show();
     auiManager->Update();
-    default2DLayoutPerspective = auiManager->SavePerspective().ToStdString();
-    paneRender.Hide();
-    pane2d.Hide();
-    pane3d.Show();
-    auiManager->Update();
+
+    if (default2DLayoutPerspective.empty()) {
+      auto &pane3d = auiManager->GetPane("3DViewport");
+      auto &pane2d = auiManager->GetPane("2DViewport");
+      auto &paneRender = auiManager->GetPane("2DRenderOptions");
+      pane3d.Hide();
+      pane2d.Show();
+      paneRender.Show();
+      auiManager->Update();
+      default2DLayoutPerspective = auiManager->SavePerspective().ToStdString();
+      paneRender.Hide();
+      pane2d.Hide();
+      pane3d.Show();
+      auiManager->Update();
+    }
   }
+
+  if (!layoutCapture2DPanel) {
+    layoutCapture2DPanel = new Viewer2DPanel(this);
+    layoutCapture2DPanel->LoadViewFromConfig();
+    layoutCapture2DPanel->SetSize(wxSize(1, 1));
+    layoutCapture2DPanel->Move(wxPoint(-10000, -10000));
+    layoutCapture2DPanel->Show();
+    layoutCapture2DPanel->UpdateScene();
+  }
+  if (layoutViewerPanel)
+    layoutViewerPanel->SetCapturePanel(layoutCapture2DPanel);
 }
 
 void MainWindow::CreateMenuBar() {
@@ -1845,6 +1856,11 @@ bool MainWindow::LoadProjectFromPath(const std::string &path) {
     viewport2DPanel->UpdateScene();
     viewport2DPanel->Refresh();
   }
+  if (layoutCapture2DPanel) {
+    layoutCapture2DPanel->LoadViewFromConfig();
+    layoutCapture2DPanel->UpdateScene();
+    layoutCapture2DPanel->Refresh();
+  }
   if (viewport2DRenderPanel)
     viewport2DRenderPanel->ApplyConfig();
   if (layerPanel)
@@ -1876,6 +1892,11 @@ void MainWindow::ResetProject() {
     viewport2DPanel->LoadViewFromConfig();
     viewport2DPanel->UpdateScene();
     viewport2DPanel->Refresh();
+  }
+  if (layoutCapture2DPanel) {
+    layoutCapture2DPanel->LoadViewFromConfig();
+    layoutCapture2DPanel->UpdateScene();
+    layoutCapture2DPanel->Refresh();
   }
   if (viewport2DRenderPanel)
     viewport2DRenderPanel->ApplyConfig();
@@ -1976,6 +1997,8 @@ void MainWindow::ApplySavedLayout() {
 void MainWindow::ApplyLayoutModePerspective() {
   if (!auiManager)
     return;
+
+  Ensure2DViewport();
 
   ConfigManager &cfg = ConfigManager::Get();
   if (layoutModePerspective.empty()) {
@@ -2390,6 +2413,11 @@ void MainWindow::OnProjectLoaded(wxCommandEvent &event) {
       viewport2DPanel->LoadViewFromConfig();
       viewport2DPanel->UpdateScene();
       viewport2DPanel->Refresh();
+    }
+    if (layoutCapture2DPanel) {
+      layoutCapture2DPanel->LoadViewFromConfig();
+      layoutCapture2DPanel->UpdateScene();
+      layoutCapture2DPanel->Refresh();
     }
     if (viewport2DRenderPanel)
       viewport2DRenderPanel->ApplyConfig();

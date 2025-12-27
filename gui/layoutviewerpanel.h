@@ -32,6 +32,7 @@ public:
   explicit LayoutViewerPanel(wxWindow *parent);
 
   void SetLayoutDefinition(const layouts::LayoutDefinition &layout);
+  void SetCapturePanel(Viewer2DPanel *panel);
   layouts::Layout2DViewDefinition *GetEditableView();
   const layouts::Layout2DViewDefinition *GetEditableView() const;
 
@@ -83,6 +84,7 @@ private:
   CommandBuffer cachedBuffer;
   Viewer2DViewState cachedViewState;
   std::shared_ptr<const SymbolDefinitionSnapshot> cachedSymbols;
+  Viewer2DPanel *capturePanel = nullptr;
 
   wxDECLARE_EVENT_TABLE();
 };

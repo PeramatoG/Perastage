@@ -78,6 +78,7 @@ private:
   Viewer3DPanel *viewportPanel = nullptr;
   Viewer2DPanel *viewport2DPanel = nullptr;
   Viewer2DRenderPanel *viewport2DRenderPanel = nullptr;
+  Viewer2DPanel *layoutCapture2DPanel = nullptr;
   ConsolePanel *consolePanel = nullptr;
   LayerPanel *layerPanel = nullptr;
   LayoutPanel *layoutPanel = nullptr;
