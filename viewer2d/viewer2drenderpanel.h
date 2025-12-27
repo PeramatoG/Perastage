@@ -26,6 +26,7 @@
 class Viewer2DRenderPanel : public wxScrolledWindow {
 public:
   explicit Viewer2DRenderPanel(wxWindow *parent);
+  ~Viewer2DRenderPanel() override;
 
   void ApplyConfig();
 

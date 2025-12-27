@@ -248,6 +248,11 @@ Viewer2DRenderPanel::Viewer2DRenderPanel(wxWindow *parent)
   ApplyConfig();
 }
 
+Viewer2DRenderPanel::~Viewer2DRenderPanel() {
+  if (s_instance == this)
+    s_instance = nullptr;
+}
+
 Viewer2DRenderPanel *Viewer2DRenderPanel::Instance() { return s_instance; }
 
 void Viewer2DRenderPanel::SetInstance(Viewer2DRenderPanel *p) {

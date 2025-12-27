@@ -173,7 +173,11 @@ wxBEGIN_EVENT_TABLE(Viewer2DPanel, wxGLCanvas) EVT_PAINT(Viewer2DPanel::OnPaint)
   m_glContext = new wxGLContext(this);
 }
 
-Viewer2DPanel::~Viewer2DPanel() { delete m_glContext; }
+Viewer2DPanel::~Viewer2DPanel() {
+  if (g_instance == this)
+    g_instance = nullptr;
+  delete m_glContext;
+}
 
 Viewer2DPanel *Viewer2DPanel::Instance() { return g_instance; }
 
