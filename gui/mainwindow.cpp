@@ -115,7 +115,15 @@ void MainWindow::SetInstance(MainWindow *inst) { s_instance = inst; }
 
 namespace {
 void LogMissingIcon(const std::filesystem::path &path) {
+#ifndef NDEBUG
+  wxLogDebug("Main window icon not found at '%s'", path.string().c_str());
+  wxASSERT_MSG(
+      false,
+      wxString::Format("Main window icon not found at '%s'",
+                       wxString::FromUTF8(path.string()).c_str()));
+#else
   wxLogWarning("Main window icon not found at '%s'", path.string().c_str());
+#endif
 }
 
 layouts::Layout2DViewFrame BuildDefaultLayout2DFrame(
