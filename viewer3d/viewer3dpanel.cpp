@@ -86,8 +86,7 @@ void Viewer3DPanel::StopRefreshThread()
     m_threadRunning = false;
     if (m_refreshThread.joinable())
         m_refreshThread.join();
-    if (HasPendingEvents())
-        DeletePendingEvents();
+    DeletePendingEvents();
 }
 
 // Initializes OpenGL basic settings
