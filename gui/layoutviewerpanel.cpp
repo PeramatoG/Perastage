@@ -296,7 +296,7 @@ void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
       viewer2d::Viewer2DState layoutState =
           viewer2d::FromLayoutDefinition(*view);
       auto stateGuard = std::make_shared<viewer2d::ScopedViewer2DState>(
-          panel, nullptr, cfg, layoutState);
+          panel, nullptr, cfg, layoutState, panel, nullptr);
       panel->CaptureFrameAsync(
           [this, panel, stateGuard, fallbackViewportWidth,
            fallbackViewportHeight](
