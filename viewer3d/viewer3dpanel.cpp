@@ -72,18 +72,21 @@ Viewer3DPanel::Viewer3DPanel(wxWindow* parent)
 
 Viewer3DPanel::~Viewer3DPanel()
 {
+    m_shuttingDown = true;
+    SetInstance(nullptr);
     if (HasCapture())
         ReleaseMouse();
     StopRefreshThread();
     delete m_glContext;
-    SetInstance(nullptr);
 }
 
 void Viewer3DPanel::StopRefreshThread()
 {
+    m_shuttingDown = true;
     m_threadRunning = false;
     if (m_refreshThread.joinable())
         m_refreshThread.join();
+    DeletePendingEvents();
 }
 
 // Initializes OpenGL basic settings
@@ -108,6 +111,8 @@ void Viewer3DPanel::InitGL()
 // Paint event handler
 void Viewer3DPanel::OnPaint(wxPaintEvent& event)
 {
+    if (m_shuttingDown)
+        return;
     wxPaintDC dc(this);
     InitGL();
     Render();
@@ -199,6 +204,8 @@ void Viewer3DPanel::OnResize(wxSizeEvent& event)
 // Renders the full 3D scene
 void Viewer3DPanel::Render()
 {
+    if (m_shuttingDown)
+        return;
     SetCurrent(*m_glContext);
 
     int width, height;
@@ -539,6 +546,8 @@ void Viewer3DPanel::OnMouseLeave(wxMouseEvent& event)
 // Updates the controller with current scene data
 void Viewer3DPanel::UpdateScene()
 {
+    if (m_shuttingDown)
+        return;
     m_controller.Update();
     if (Viewer2DPanel::Instance())
         Viewer2DPanel::Instance()->UpdateScene();
@@ -576,7 +585,7 @@ void Viewer3DPanel::SetInstance(Viewer3DPanel* panel)
 void Viewer3DPanel::RefreshLoop()
 {
     using namespace std::chrono_literals;
-    while (m_threadRunning)
+    while (m_threadRunning && !m_shuttingDown)
     {
         wxThreadEvent* evt = new wxThreadEvent(wxEVT_VIEWER_REFRESH);
         wxQueueEvent(this, evt);
@@ -586,6 +595,8 @@ void Viewer3DPanel::RefreshLoop()
 
 void Viewer3DPanel::OnThreadRefresh(wxThreadEvent& event)
 {
+    if (m_shuttingDown)
+        return;
     Refresh();
 }
 
