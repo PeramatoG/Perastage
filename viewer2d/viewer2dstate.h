@@ -36,6 +36,33 @@ Viewer2DState CaptureState(const Viewer2DPanel *panel,
 void ApplyState(Viewer2DPanel *panel, Viewer2DRenderPanel *renderPanel,
                 ConfigManager &cfg, const Viewer2DState &state);
 
+class ScopedViewer2DState {
+public:
+  ScopedViewer2DState(Viewer2DPanel *applyPanel,
+                      Viewer2DRenderPanel *applyRenderPanel,
+                      ConfigManager &cfg, const Viewer2DState &state,
+                      Viewer2DPanel *restorePanel = nullptr,
+                      Viewer2DRenderPanel *restoreRenderPanel = nullptr);
+  ~ScopedViewer2DState();
+
+  ScopedViewer2DState(const ScopedViewer2DState &) = delete;
+  ScopedViewer2DState &operator=(const ScopedViewer2DState &) = delete;
+  ScopedViewer2DState(ScopedViewer2DState &&other) noexcept;
+  ScopedViewer2DState &operator=(ScopedViewer2DState &&other) noexcept;
+
+  void Restore();
+  bool IsActive() const { return cfg_ != nullptr && !restored_; }
+
+private:
+  ConfigManager *cfg_ = nullptr;
+  Viewer2DPanel *applyPanel_ = nullptr;
+  Viewer2DRenderPanel *applyRenderPanel_ = nullptr;
+  Viewer2DPanel *restorePanel_ = nullptr;
+  Viewer2DRenderPanel *restoreRenderPanel_ = nullptr;
+  Viewer2DState previousState_;
+  bool restored_ = true;
+};
+
 Viewer2DState FromLayoutDefinition(const layouts::Layout2DViewDefinition &view);
 layouts::Layout2DViewDefinition ToLayoutDefinition(
     const Viewer2DState &state, const layouts::Layout2DViewFrame &frame = {});
