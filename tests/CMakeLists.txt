@@ -14,6 +14,10 @@ function(set_library_env TEST_NAME)
     set_tests_properties(${TEST_NAME} PROPERTIES ENVIRONMENT "PERASTAGE_LIBRARY_PATH=${CMAKE_SOURCE_DIR}/library")
 endfunction()
 
+set(LAYOUT_SOURCES
+    ../core/layouts/LayoutManager.cpp
+    ../core/layouts/LayoutCollection.cpp)
+
 if(TARGET podofo::podofo)
     add_executable(pdf_text_test pdf_text_test.cpp ../core/pdftext.cpp)
     target_link_libraries(pdf_text_test PRIVATE podofo::podofo ${wxWidgets_LIBRARIES})
@@ -47,6 +51,7 @@ add_test(NAME AutoPatchUniverseWrap COMMAND autopatcher_universe_wrap_test)
 set_library_env(AutoPatchUniverseWrap)
 
 add_executable(save_load_roundtrip_test save_load_roundtrip_test.cpp
+               ${LAYOUT_SOURCES}
                ../core/configmanager.cpp
                ../core/projectutils.cpp
                ../core/gdtfdictionary.cpp
@@ -74,6 +79,7 @@ add_executable(rider_save_roundtrip_test rider_save_roundtrip_test.cpp
                gdtfloader_stub.cpp
                consolepanel_stub.cpp
                trussloader_stub.cpp
+               ${LAYOUT_SOURCES}
                ../core/riderimporter.cpp
                ../core/uuidutils.cpp
                ../core/autopatcher.cpp
@@ -100,6 +106,7 @@ set_library_env(RiderSaveRoundtrip)
 add_executable(riderimporter_fixtureid_test rider_import_fixtureid_test.cpp
                riderimporter_stubs.cpp
                gdtfloader_stub.cpp
+               ${LAYOUT_SOURCES}
                ../core/riderimporter.cpp
                ../core/uuidutils.cpp
                ../core/autopatcher.cpp
@@ -122,6 +129,7 @@ set_library_env(RiderImporterFixtureIds)
 add_executable(rider_import_order_test rider_import_order_test.cpp
                riderimporter_stubs.cpp
                gdtfloader_stub.cpp
+               ${LAYOUT_SOURCES}
                ../core/riderimporter.cpp
                ../core/uuidutils.cpp
                ../core/autopatcher.cpp
@@ -143,6 +151,7 @@ set_library_env(RiderImportOrder)
 add_executable(rider_autopatch_test rider_autopatch_test.cpp
                riderimporter_stubs.cpp
                gdtfloader_onech_stub.cpp
+               ${LAYOUT_SOURCES}
                ../core/riderimporter.cpp
                ../core/uuidutils.cpp
                ../core/autopatcher.cpp
@@ -164,6 +173,7 @@ set_library_env(RiderAutoPatch)
 add_executable(rider_layer_mode_test rider_layer_mode_test.cpp
                riderimporter_stubs.cpp
                gdtfloader_stub.cpp
+               ${LAYOUT_SOURCES}
                ../core/riderimporter.cpp
                ../core/uuidutils.cpp
                ../core/autopatcher.cpp
@@ -185,6 +195,7 @@ set_library_env(RiderLayerMode)
 add_executable(rider_import_benchmark rider_import_benchmark.cpp
                riderimporter_stubs.cpp
                gdtfloader_stub.cpp
+               ${LAYOUT_SOURCES}
                ../core/riderimporter.cpp
                ../core/uuidutils.cpp
                ../core/autopatcher.cpp
