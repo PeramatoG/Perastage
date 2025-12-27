@@ -303,12 +303,10 @@ void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
               CommandBuffer buffer, Viewer2DViewState state) {
             cachedBuffer = std::move(buffer);
             cachedViewState = state;
-            if (cachedViewState.viewportWidth <= 0 &&
-                fallbackViewportWidth > 0) {
+            if (fallbackViewportWidth > 0) {
               cachedViewState.viewportWidth = fallbackViewportWidth;
             }
-            if (cachedViewState.viewportHeight <= 0 &&
-                fallbackViewportHeight > 0) {
+            if (fallbackViewportHeight > 0) {
               cachedViewState.viewportHeight = fallbackViewportHeight;
             }
             cachedSymbols.reset();
