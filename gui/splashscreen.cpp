@@ -14,7 +14,15 @@ wxFrame *g_splash = nullptr;
 wxStaticText *g_label = nullptr;
 
 void LogMissingIcon(const std::filesystem::path &path) {
+#ifndef NDEBUG
+  wxLogDebug("Splash icon not found at '%s'", path.string().c_str());
+  wxASSERT_MSG(
+      false,
+      wxString::Format("Splash icon not found at '%s'",
+                       wxString::FromUTF8(path.string()).c_str()));
+#else
   wxLogWarning("Splash icon not found at '%s'", path.string().c_str());
+#endif
 }
 }
 
