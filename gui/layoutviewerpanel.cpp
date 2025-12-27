@@ -237,7 +237,7 @@ void LayoutViewerPanel::SetLayoutDefinition(
 }
 
 void LayoutViewerPanel::SetCapturePanel(Viewer2DPanel *panel) {
-  if (capturePanel == panel)
+  if (capturePanel.get() == panel)
     return;
   capturePanel = panel;
   captureInProgress = false;
@@ -283,7 +283,7 @@ void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
     return;
 
   if (!captureInProgress && captureVersion != layoutVersion) {
-    Viewer2DPanel *panel = capturePanel;
+    Viewer2DPanel *panel = capturePanel.get();
     if (panel) {
       captureInProgress = true;
       const int fallbackViewportWidth =
@@ -297,10 +297,16 @@ void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
           viewer2d::FromLayoutDefinition(*view);
       auto stateGuard = std::make_shared<viewer2d::ScopedViewer2DState>(
           panel, nullptr, cfg, layoutState, panel, nullptr);
+      wxWeakRef<Viewer2DPanel> panelRef(panel);
       panel->CaptureFrameAsync(
-          [this, panel, stateGuard, fallbackViewportWidth,
+          [this, panelRef, stateGuard, fallbackViewportWidth,
            fallbackViewportHeight](
               CommandBuffer buffer, Viewer2DViewState state) {
+            Viewer2DPanel *panel = panelRef.get();
+            if (!panel) {
+              captureInProgress = false;
+              return;
+            }
             cachedBuffer = std::move(buffer);
             cachedViewState = state;
             if (fallbackViewportWidth > 0) {

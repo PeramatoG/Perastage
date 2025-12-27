@@ -19,6 +19,7 @@
 
 #include <memory>
 #include <optional>
+#include <wx/weakref.h>
 #include <wx/wx.h>
 #include "layouts/LayoutCollection.h"
 #include "canvas2d.h"
@@ -84,7 +85,7 @@ private:
   CommandBuffer cachedBuffer;
   Viewer2DViewState cachedViewState;
   std::shared_ptr<const SymbolDefinitionSnapshot> cachedSymbols;
-  Viewer2DPanel *capturePanel = nullptr;
+  wxWeakRef<Viewer2DPanel> capturePanel;
 
   wxDECLARE_EVENT_TABLE();
 };
