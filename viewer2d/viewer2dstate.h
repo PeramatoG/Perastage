@@ -18,6 +18,7 @@
 #pragma once
 
 #include "layouts/LayoutCollection.h"
+#include <wx/weakref.h>
 
 class ConfigManager;
 class Viewer2DPanel;
@@ -57,8 +58,10 @@ private:
   ConfigManager *cfg_ = nullptr;
   Viewer2DPanel *applyPanel_ = nullptr;
   Viewer2DRenderPanel *applyRenderPanel_ = nullptr;
-  Viewer2DPanel *restorePanel_ = nullptr;
-  Viewer2DRenderPanel *restoreRenderPanel_ = nullptr;
+  wxWeakRef<Viewer2DPanel> restorePanel_;
+  wxWeakRef<Viewer2DRenderPanel> restoreRenderPanel_;
+  bool hasRestorePanelTarget_ = false;
+  bool hasRestoreRenderPanelTarget_ = false;
   Viewer2DState previousState_;
   bool restored_ = true;
 };
