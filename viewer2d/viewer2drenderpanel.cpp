@@ -19,6 +19,7 @@
 
 #include "configmanager.h"
 #include "mainwindow.h"
+#include <algorithm>
 #include <array>
 
 namespace {
@@ -37,6 +38,16 @@ const std::array<const char *, 3> ID_KEYS = {"label_show_id_top",
 const std::array<const char *, 3> DMX_KEYS = {"label_show_dmx_top",
                                               "label_show_dmx_front",
                                               "label_show_dmx_side"};
+
+int ClampSelection(int value, int count) {
+  if (count <= 0)
+    return 0;
+  return std::clamp(value, 0, count - 1);
+}
+
+int ClampLabelIndex(int value) {
+  return std::clamp(value, 0, static_cast<int>(NAME_KEYS.size() - 1));
+}
 } // namespace
 
 Viewer2DRenderPanel *Viewer2DRenderPanel::s_instance = nullptr;
@@ -49,7 +60,10 @@ Viewer2DRenderPanel::Viewer2DRenderPanel(wxWindow *parent)
   wxString choices[] = {"Wireframe", "White", "By device type", "By layer"};
   m_radio = new wxRadioBox(this, wxID_ANY, "Render mode", wxDefaultPosition,
                            wxDefaultSize, 4, choices, 1, wxRA_SPECIFY_COLS);
-  m_radio->SetSelection(static_cast<int>(cfg.GetFloat("view2d_render_mode")));
+  int renderMode =
+      ClampSelection(static_cast<int>(cfg.GetFloat("view2d_render_mode")),
+                     m_radio->GetCount());
+  m_radio->SetSelection(renderMode);
   m_radio->Bind(wxEVT_RADIOBOX, &Viewer2DRenderPanel::OnRadio, this);
 
   m_darkMode = new wxCheckBox(this, wxID_ANY, "Dark mode");
@@ -59,7 +73,10 @@ Viewer2DRenderPanel::Viewer2DRenderPanel(wxWindow *parent)
   wxString viewChoices[] = {"Top", "Front", "Side"};
   m_view = new wxRadioBox(this, wxID_ANY, "View", wxDefaultPosition,
                           wxDefaultSize, 3, viewChoices, 1, wxRA_SPECIFY_COLS);
-  m_view->SetSelection(static_cast<int>(cfg.GetFloat("view2d_view")));
+  int viewSelection =
+      ClampSelection(static_cast<int>(cfg.GetFloat("view2d_view")),
+                     m_view->GetCount());
+  m_view->SetSelection(viewSelection);
   m_view->Bind(wxEVT_RADIOBOX, &Viewer2DRenderPanel::OnView, this);
 
   auto *gridBox = new wxStaticBoxSizer(wxVERTICAL, this, "Grid");
@@ -73,7 +90,10 @@ Viewer2DRenderPanel::Viewer2DRenderPanel(wxWindow *parent)
   m_gridStyle = new wxRadioBox(gridBoxParent, wxID_ANY, "Grid style",
                                wxDefaultPosition, wxDefaultSize, 3,
                                gridChoices, 1, wxRA_SPECIFY_COLS);
-  m_gridStyle->SetSelection(static_cast<int>(cfg.GetFloat("grid_style")));
+  int gridStyle =
+      ClampSelection(static_cast<int>(cfg.GetFloat("grid_style")),
+                     m_gridStyle->GetCount());
+  m_gridStyle->SetSelection(gridStyle);
   m_gridStyle->Bind(wxEVT_RADIOBOX, &Viewer2DRenderPanel::OnGridStyle, this);
 
   int rr = static_cast<int>(cfg.GetFloat("grid_color_r") * 255.0f);
@@ -91,9 +111,9 @@ Viewer2DRenderPanel::Viewer2DRenderPanel(wxWindow *parent)
   auto *labelBox = new wxStaticBoxSizer(wxVERTICAL, this, "Labels");
   wxWindow *labelBoxParent = labelBox->GetStaticBox();
 
+  int viewKeyIndex = ClampLabelIndex(m_view->GetSelection());
   m_showLabelName = new wxCheckBox(labelBoxParent, wxID_ANY, "Show name");
-  m_showLabelName->SetValue(
-      cfg.GetFloat(NAME_KEYS[m_view->GetSelection()]) != 0.0f);
+  m_showLabelName->SetValue(cfg.GetFloat(NAME_KEYS[viewKeyIndex]) != 0.0f);
   m_showLabelName->Bind(wxEVT_CHECKBOX, &Viewer2DRenderPanel::OnShowLabelName,
                         this);
   m_labelNameSize = new wxSpinCtrl(labelBoxParent, wxID_ANY, "",
@@ -113,8 +133,7 @@ Viewer2DRenderPanel::Viewer2DRenderPanel(wxWindow *parent)
                         this);
 
   m_showLabelId = new wxCheckBox(labelBoxParent, wxID_ANY, "Show ID");
-  m_showLabelId->SetValue(
-      cfg.GetFloat(ID_KEYS[m_view->GetSelection()]) != 0.0f);
+  m_showLabelId->SetValue(cfg.GetFloat(ID_KEYS[viewKeyIndex]) != 0.0f);
   m_showLabelId->Bind(wxEVT_CHECKBOX, &Viewer2DRenderPanel::OnShowLabelId,
                       this);
   m_labelIdSize = new wxSpinCtrl(labelBoxParent, wxID_ANY, "",
@@ -134,8 +153,7 @@ Viewer2DRenderPanel::Viewer2DRenderPanel(wxWindow *parent)
 
   m_showLabelAddress =
       new wxCheckBox(labelBoxParent, wxID_ANY, "Show DMX address");
-  m_showLabelAddress->SetValue(
-      cfg.GetFloat(DMX_KEYS[m_view->GetSelection()]) != 0.0f);
+  m_showLabelAddress->SetValue(cfg.GetFloat(DMX_KEYS[viewKeyIndex]) != 0.0f);
   m_showLabelAddress->Bind(wxEVT_CHECKBOX,
                            &Viewer2DRenderPanel::OnShowLabelAddress, this);
   m_labelAddressSize = new wxSpinCtrl(labelBoxParent, wxID_ANY, "",
@@ -161,8 +179,7 @@ Viewer2DRenderPanel::Viewer2DRenderPanel(wxWindow *parent)
   m_labelOffsetDistance->SetRange(0.0, 1.0);
   m_labelOffsetDistance->SetIncrement(0.1);
   m_labelOffsetDistance->SetDigits(2);
-  m_labelOffsetDistance->SetValue(
-      cfg.GetFloat(DIST_KEYS[m_view->GetSelection()]));
+  m_labelOffsetDistance->SetValue(cfg.GetFloat(DIST_KEYS[viewKeyIndex]));
   m_labelOffsetDistance->Bind(
       wxEVT_SPINCTRLDOUBLE, &Viewer2DRenderPanel::OnLabelOffsetDistance, this);
   m_labelOffsetDistance->Bind(wxEVT_SET_FOCUS,
@@ -179,7 +196,7 @@ Viewer2DRenderPanel::Viewer2DRenderPanel(wxWindow *parent)
                      wxSP_ARROW_KEYS | wxTE_PROCESS_ENTER);
   m_labelOffsetAngle->SetRange(0, 360);
   m_labelOffsetAngle->SetValue(
-      static_cast<int>(cfg.GetFloat(ANGLE_KEYS[m_view->GetSelection()])));
+      static_cast<int>(cfg.GetFloat(ANGLE_KEYS[viewKeyIndex])));
   m_labelOffsetAngle->Bind(wxEVT_SPINCTRL,
                            &Viewer2DRenderPanel::OnLabelOffsetAngle, this);
   m_labelOffsetAngle->Bind(wxEVT_SET_FOCUS,
@@ -261,17 +278,25 @@ void Viewer2DRenderPanel::SetInstance(Viewer2DRenderPanel *p) {
 
 void Viewer2DRenderPanel::ApplyConfig() {
   ConfigManager &cfg = ConfigManager::Get();
-  m_radio->SetSelection(static_cast<int>(cfg.GetFloat("view2d_render_mode")));
+  int renderMode =
+      ClampSelection(static_cast<int>(cfg.GetFloat("view2d_render_mode")),
+                     m_radio->GetCount());
+  m_radio->SetSelection(renderMode);
   m_darkMode->SetValue(cfg.GetFloat("view2d_dark_mode") != 0.0f);
-  m_view->SetSelection(static_cast<int>(cfg.GetFloat("view2d_view")));
+  int rawView = static_cast<int>(cfg.GetFloat("view2d_view"));
+  int viewSelection = ClampSelection(rawView, m_view->GetCount());
+  m_view->SetSelection(viewSelection);
   m_showGrid->SetValue(cfg.GetFloat("grid_show") != 0.0f);
-  m_gridStyle->SetSelection(static_cast<int>(cfg.GetFloat("grid_style")));
+  int gridStyle =
+      ClampSelection(static_cast<int>(cfg.GetFloat("grid_style")),
+                     m_gridStyle->GetCount());
+  m_gridStyle->SetSelection(gridStyle);
   int rr = static_cast<int>(cfg.GetFloat("grid_color_r") * 255.0f);
   int gg = static_cast<int>(cfg.GetFloat("grid_color_g") * 255.0f);
   int bb = static_cast<int>(cfg.GetFloat("grid_color_b") * 255.0f);
   m_gridColor->SetColour(wxColour(rr, gg, bb));
   m_drawAbove->SetValue(cfg.GetFloat("grid_draw_above") != 0.0f);
-  int viewIndex = m_view->GetSelection();
+  int viewIndex = ClampLabelIndex(m_view->GetSelection());
   m_showLabelName->SetValue(cfg.GetFloat(NAME_KEYS[viewIndex]) != 0.0f);
   m_labelNameSize->SetValue(
       static_cast<int>(cfg.GetFloat("label_font_size_name")));
@@ -285,7 +310,8 @@ void Viewer2DRenderPanel::ApplyConfig() {
       static_cast<int>(cfg.GetFloat(ANGLE_KEYS[viewIndex])));
   if (auto *vp = Viewer2DPanel::Instance()) {
     vp->SetRenderMode(static_cast<Viewer2DRenderMode>(m_radio->GetSelection()));
-    vp->SetView(static_cast<Viewer2DView>(m_view->GetSelection()));
+    if (rawView == viewSelection)
+      vp->SetView(static_cast<Viewer2DView>(m_view->GetSelection()));
     vp->UpdateScene(false);
   }
 }

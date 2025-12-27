@@ -211,10 +211,13 @@ void Viewer2DPanel::LoadViewFromConfig() {
   m_offsetX = cfg.GetFloat("view2d_offset_x");
   m_offsetY = cfg.GetFloat("view2d_offset_y");
   m_zoom = cfg.GetFloat("view2d_zoom");
-  m_renderMode = static_cast<Viewer2DRenderMode>(
-      static_cast<int>(cfg.GetFloat("view2d_render_mode")));
-  m_view = static_cast<Viewer2DView>(
-      static_cast<int>(cfg.GetFloat("view2d_view")));
+  int renderMode = std::clamp(static_cast<int>(cfg.GetFloat("view2d_render_mode")),
+                              0,
+                              static_cast<int>(Viewer2DRenderMode::ByLayer));
+  int viewIndex = std::clamp(static_cast<int>(cfg.GetFloat("view2d_view")), 0,
+                             static_cast<int>(Viewer2DView::Bottom));
+  m_renderMode = static_cast<Viewer2DRenderMode>(renderMode);
+  m_view = static_cast<Viewer2DView>(viewIndex);
 }
 
 void Viewer2DPanel::SaveViewToConfig() const {
