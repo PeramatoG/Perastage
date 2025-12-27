@@ -157,8 +157,12 @@ ScopedViewer2DState::ScopedViewer2DState(Viewer2DPanel *applyPanel,
     : cfg_(&cfg), applyPanel_(applyPanel),
       applyRenderPanel_(applyRenderPanel), restorePanel_(restorePanel),
       restoreRenderPanel_(restoreRenderPanel),
+      hasRestorePanelTarget_(restorePanel != nullptr),
+      hasRestoreRenderPanelTarget_(restoreRenderPanel != nullptr),
       restored_(false) {
-  previousState_ = CaptureState(restorePanel_ ? restorePanel_ : applyPanel_, cfg);
+  Viewer2DPanel *capturePanel =
+      restorePanel_.get() ? restorePanel_.get() : applyPanel_;
+  previousState_ = CaptureState(capturePanel, cfg);
   ApplyState(applyPanel_, applyRenderPanel_, cfg, state);
 }
 
@@ -178,6 +182,8 @@ ScopedViewer2DState::operator=(ScopedViewer2DState &&other) noexcept {
   applyRenderPanel_ = other.applyRenderPanel_;
   restorePanel_ = other.restorePanel_;
   restoreRenderPanel_ = other.restoreRenderPanel_;
+  hasRestorePanelTarget_ = other.hasRestorePanelTarget_;
+  hasRestoreRenderPanelTarget_ = other.hasRestoreRenderPanelTarget_;
   previousState_ = std::move(other.previousState_);
   restored_ = other.restored_;
 
@@ -186,6 +192,8 @@ ScopedViewer2DState::operator=(ScopedViewer2DState &&other) noexcept {
   other.applyRenderPanel_ = nullptr;
   other.restorePanel_ = nullptr;
   other.restoreRenderPanel_ = nullptr;
+  other.hasRestorePanelTarget_ = false;
+  other.hasRestoreRenderPanelTarget_ = false;
   other.restored_ = true;
   return *this;
 }
@@ -194,11 +202,18 @@ void ScopedViewer2DState::Restore() {
   if (!cfg_ || restored_)
     return;
 
-  Viewer2DPanel *targetPanel =
-      restorePanel_ ? restorePanel_ : Viewer2DPanel::Instance();
-  Viewer2DRenderPanel *targetRenderPanel =
-      restoreRenderPanel_ ? restoreRenderPanel_
-                          : Viewer2DRenderPanel::Instance();
+  Viewer2DPanel *targetPanel = nullptr;
+  Viewer2DRenderPanel *targetRenderPanel = nullptr;
+  if (hasRestorePanelTarget_) {
+    targetPanel = restorePanel_.get();
+  } else {
+    targetPanel = Viewer2DPanel::Instance();
+  }
+  if (hasRestoreRenderPanelTarget_) {
+    targetRenderPanel = restoreRenderPanel_.get();
+  } else {
+    targetRenderPanel = Viewer2DRenderPanel::Instance();
+  }
 
   ApplyState(targetPanel, targetRenderPanel, *cfg_, previousState_);
   restored_ = true;
