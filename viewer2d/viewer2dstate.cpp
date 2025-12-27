@@ -24,6 +24,7 @@
 #include <algorithm>
 #include <array>
 #include <unordered_set>
+#include <utility>
 
 namespace viewer2d {
 namespace {
@@ -144,6 +145,63 @@ void ApplyState(Viewer2DPanel *panel, Viewer2DRenderPanel *renderPanel,
   }
   if (renderPanel)
     renderPanel->ApplyConfig();
+}
+
+ScopedViewer2DState::ScopedViewer2DState(Viewer2DPanel *applyPanel,
+                                         Viewer2DRenderPanel *applyRenderPanel,
+                                         ConfigManager &cfg,
+                                         const Viewer2DState &state,
+                                         Viewer2DPanel *restorePanel,
+                                         Viewer2DRenderPanel
+                                             *restoreRenderPanel)
+    : cfg_(&cfg), applyPanel_(applyPanel),
+      applyRenderPanel_(applyRenderPanel), restorePanel_(restorePanel),
+      restoreRenderPanel_(restoreRenderPanel),
+      restored_(false) {
+  previousState_ = CaptureState(restorePanel_ ? restorePanel_ : applyPanel_, cfg);
+  ApplyState(applyPanel_, applyRenderPanel_, cfg, state);
+}
+
+ScopedViewer2DState::~ScopedViewer2DState() { Restore(); }
+
+ScopedViewer2DState::ScopedViewer2DState(ScopedViewer2DState &&other) noexcept {
+  *this = std::move(other);
+}
+
+ScopedViewer2DState &
+ScopedViewer2DState::operator=(ScopedViewer2DState &&other) noexcept {
+  if (this == &other)
+    return *this;
+  Restore();
+  cfg_ = other.cfg_;
+  applyPanel_ = other.applyPanel_;
+  applyRenderPanel_ = other.applyRenderPanel_;
+  restorePanel_ = other.restorePanel_;
+  restoreRenderPanel_ = other.restoreRenderPanel_;
+  previousState_ = std::move(other.previousState_);
+  restored_ = other.restored_;
+
+  other.cfg_ = nullptr;
+  other.applyPanel_ = nullptr;
+  other.applyRenderPanel_ = nullptr;
+  other.restorePanel_ = nullptr;
+  other.restoreRenderPanel_ = nullptr;
+  other.restored_ = true;
+  return *this;
+}
+
+void ScopedViewer2DState::Restore() {
+  if (!cfg_ || restored_)
+    return;
+
+  Viewer2DPanel *targetPanel =
+      restorePanel_ ? restorePanel_ : Viewer2DPanel::Instance();
+  Viewer2DRenderPanel *targetRenderPanel =
+      restoreRenderPanel_ ? restoreRenderPanel_
+                          : Viewer2DRenderPanel::Instance();
+
+  ApplyState(targetPanel, targetRenderPanel, *cfg_, previousState_);
+  restored_ = true;
 }
 
 Viewer2DState FromLayoutDefinition(const layouts::Layout2DViewDefinition &view) {

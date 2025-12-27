@@ -22,6 +22,7 @@
 #include <wx/aui/aui.h>
 #include <wx/wx.h>
 
+#include <memory>
 #include <optional>
 
 wxDECLARE_EVENT(EVT_PROJECT_LOADED, wxCommandEvent);
@@ -164,7 +165,7 @@ private:
   bool layoutModeActive = false;
   std::string activeLayoutName;
   bool layout2DViewEditing = false;
-  std::optional<viewer2d::Viewer2DState> layout2DViewSavedState;
+  std::unique_ptr<viewer2d::ScopedViewer2DState> layout2DViewStateGuard;
   Viewer2DPanel *layout2DViewEditPanel = nullptr;
   Viewer2DRenderPanel *layout2DViewEditRenderPanel = nullptr;
 

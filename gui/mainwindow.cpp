@@ -2097,7 +2097,6 @@ void MainWindow::BeginLayout2DViewEdit() {
     return;
 
   ConfigManager &cfg = ConfigManager::Get();
-  layout2DViewSavedState = viewer2d::CaptureState(viewport2DPanel, cfg);
 
   Layout2DViewDialog dialog(this);
   layout2DViewEditPanel = dialog.GetViewerPanel();
@@ -2109,8 +2108,9 @@ void MainWindow::BeginLayout2DViewEdit() {
   Viewer2DRenderPanel::SetInstance(layout2DViewEditRenderPanel);
 
   viewer2d::Viewer2DState state = viewer2d::FromLayoutDefinition(*view);
-  viewer2d::ApplyState(layout2DViewEditPanel, layout2DViewEditRenderPanel, cfg,
-                       state);
+  layout2DViewStateGuard = std::make_unique<viewer2d::ScopedViewer2DState>(
+      layout2DViewEditPanel, layout2DViewEditRenderPanel, cfg, state,
+      viewport2DPanel, viewport2DRenderPanel);
 
   if (view->frame.height > 0 && layout2DViewEditPanel) {
     float aspect =
@@ -2139,7 +2139,7 @@ void MainWindow::BeginLayout2DViewEdit() {
 }
 
 void MainWindow::OnLayout2DViewOk(wxCommandEvent &WXUNUSED(event)) {
-  if (!layout2DViewEditing || !layout2DViewSavedState)
+  if (!layout2DViewEditing || !layout2DViewStateGuard)
     return;
 
   ConfigManager &cfg = ConfigManager::Get();
@@ -2184,9 +2184,7 @@ void MainWindow::OnLayout2DViewOk(wxCommandEvent &WXUNUSED(event)) {
     }
   }
 
-  viewer2d::ApplyState(viewport2DPanel, viewport2DRenderPanel, cfg,
-                       *layout2DViewSavedState);
-  layout2DViewSavedState.reset();
+  layout2DViewStateGuard.reset();
 
   if (editPanel)
     editPanel->SetLayoutEditOverlay(std::nullopt);
@@ -2196,13 +2194,10 @@ void MainWindow::OnLayout2DViewOk(wxCommandEvent &WXUNUSED(event)) {
 }
 
 void MainWindow::OnLayout2DViewCancel(wxCommandEvent &WXUNUSED(event)) {
-  if (!layout2DViewEditing || !layout2DViewSavedState)
+  if (!layout2DViewEditing || !layout2DViewStateGuard)
     return;
 
-  ConfigManager &cfg = ConfigManager::Get();
-  viewer2d::ApplyState(viewport2DPanel, viewport2DRenderPanel, cfg,
-                       *layout2DViewSavedState);
-  layout2DViewSavedState.reset();
+  layout2DViewStateGuard.reset();
 
   Viewer2DPanel *editPanel =
       layout2DViewEditPanel ? layout2DViewEditPanel : viewport2DPanel;

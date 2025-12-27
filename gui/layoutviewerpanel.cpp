@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <memory>
 #include <wx/dcbuffer.h>
 #include <wx/graphics.h>
 
@@ -280,13 +281,12 @@ void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
           view->camera.viewportHeight > 0 ? view->camera.viewportHeight
                                           : view->frame.height;
       ConfigManager &cfg = ConfigManager::Get();
-      viewer2d::Viewer2DState previousState =
-          viewer2d::CaptureState(panel, cfg);
       viewer2d::Viewer2DState layoutState =
           viewer2d::FromLayoutDefinition(*view);
-      viewer2d::ApplyState(panel, nullptr, cfg, layoutState);
+      auto stateGuard = std::make_shared<viewer2d::ScopedViewer2DState>(
+          panel, nullptr, cfg, layoutState);
       panel->CaptureFrameAsync(
-          [this, previousState, fallbackViewportWidth, fallbackViewportHeight](
+          [this, stateGuard, fallbackViewportWidth, fallbackViewportHeight](
               CommandBuffer buffer, Viewer2DViewState state) {
             cachedBuffer = std::move(buffer);
             cachedViewState = state;
@@ -306,8 +306,6 @@ void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
             hasCapture = !cachedBuffer.commands.empty();
             captureVersion = layoutVersion;
             captureInProgress = false;
-            viewer2d::ApplyState(Viewer2DPanel::Instance(), nullptr,
-                                 ConfigManager::Get(), previousState);
             Refresh();
           });
     }
