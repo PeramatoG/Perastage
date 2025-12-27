@@ -115,6 +115,7 @@ private:
 
     Viewer3DController m_controller;
 
+    std::atomic<bool> m_shuttingDown{false};
     std::atomic<bool> m_threadRunning{false};
     std::thread m_refreshThread;
     void RefreshLoop();
