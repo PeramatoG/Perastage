@@ -125,7 +125,7 @@ void Viewer2DCommandRenderer::RenderInternal(const CommandBuffer &buffer,
   std::vector<CanvasTransform> stack;
 
   auto strokeWidth = [&](float width) {
-    return std::max(1.0, std::round(width * mapping_.scale));
+    return width * mapping_.scale;
   };
 
   auto mapPoint = [&](float x, float y) {

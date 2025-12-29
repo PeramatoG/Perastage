@@ -56,8 +56,9 @@ public:
   void DrawLine(const viewer2d::Viewer2DRenderPoint &p0,
                 const viewer2d::Viewer2DRenderPoint &p1,
                 const CanvasStroke &stroke, double strokeWidthPx) override {
-    wxPen pen(ToWxColor(stroke.color),
-              std::max(1, static_cast<int>(std::lround(strokeWidthPx))));
+    wxGraphicsPen pen =
+        gc_.CreatePen(wxGraphicsPenInfo(ToWxColor(stroke.color))
+                          .Width(strokeWidthPx));
     gc_.SetPen(pen);
     gc_.StrokeLine(p0.x, p0.y, p1.x, p1.y);
   }
@@ -72,8 +73,9 @@ public:
     for (size_t i = 1; i < points.size(); ++i) {
       path.AddLineToPoint(points[i].x, points[i].y);
     }
-    wxPen pen(ToWxColor(stroke.color),
-              std::max(1, static_cast<int>(std::lround(strokeWidthPx))));
+    wxGraphicsPen pen =
+        gc_.CreatePen(wxGraphicsPenInfo(ToWxColor(stroke.color))
+                          .Width(strokeWidthPx));
     gc_.SetPen(pen);
     gc_.StrokePath(path);
   }
@@ -93,8 +95,9 @@ public:
       gc_.SetBrush(wxBrush(ToWxColor(fill->color)));
       gc_.FillPath(path);
     }
-    wxPen pen(ToWxColor(stroke.color),
-              std::max(1, static_cast<int>(std::lround(strokeWidthPx))));
+    wxGraphicsPen pen =
+        gc_.CreatePen(wxGraphicsPenInfo(ToWxColor(stroke.color))
+                          .Width(strokeWidthPx));
     gc_.SetPen(pen);
     gc_.StrokePath(path);
   }
@@ -108,8 +111,9 @@ public:
       gc_.SetBrush(wxBrush(ToWxColor(fill->color)));
       gc_.DrawEllipse(rect.m_x, rect.m_y, rect.m_width, rect.m_height);
     }
-    wxPen pen(ToWxColor(stroke.color),
-              std::max(1, static_cast<int>(std::lround(strokeWidthPx))));
+    wxGraphicsPen pen =
+        gc_.CreatePen(wxGraphicsPenInfo(ToWxColor(stroke.color))
+                          .Width(strokeWidthPx));
     gc_.SetPen(pen);
     gc_.SetBrush(*wxTRANSPARENT_BRUSH);
     gc_.DrawEllipse(rect.m_x, rect.m_y, rect.m_width, rect.m_height);
