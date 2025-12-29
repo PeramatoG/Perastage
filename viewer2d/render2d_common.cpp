@@ -16,12 +16,12 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include "viewer2dcommandrenderer.h"
+#include "render2d_common.h"
+
+#include "viewer2dpanel.h"
 
 #include <algorithm>
 #include <cmath>
-
-#include "viewer2dpanel.h"
 
 namespace viewer2d {
 namespace {
@@ -103,6 +103,7 @@ bool BuildViewMapping(const Viewer2DViewState &viewState, double targetWidth,
   mapping.offsetX = offsetX;
   mapping.offsetY = offsetY;
   mapping.drawHeight = bounds.height * scale;
+  mapping.flipY = true;
   return true;
 }
 
@@ -135,8 +136,11 @@ void Viewer2DCommandRenderer::RenderInternal(const CommandBuffer &buffer,
     double ty = transformed.y * currentTransform.scale +
                 currentTransform.offsetY;
     double mappedX = mapping_.offsetX + (tx - mapping_.minX) * mapping_.scale;
-    double mappedY = mapping_.offsetY + mapping_.drawHeight -
-                     (ty - mapping_.minY) * mapping_.scale;
+    double mappedY = mapping_.offsetY + (ty - mapping_.minY) * mapping_.scale;
+    if (mapping_.flipY) {
+      mappedY = mapping_.offsetY + mapping_.drawHeight -
+                (ty - mapping_.minY) * mapping_.scale;
+    }
     return Viewer2DRenderPoint{mappedX, mappedY};
   };
 

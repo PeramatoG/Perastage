@@ -38,7 +38,7 @@
 #include <zlib.h>
 
 #include "logger.h"
-#include "viewer2dcommandrenderer.h"
+#include "render2d_common.h"
 
 namespace {
 // Approximates the ascent of the standard Helvetica font used by PDF viewers
@@ -118,15 +118,6 @@ struct Transform {
   double offsetY = 0.0;
 };
 
-struct Mapping {
-  double minX = 0.0;
-  double minY = 0.0;
-  double scale = 1.0;
-  double offsetX = 0.0;
-  double offsetY = 0.0;
-  double drawHeight = 0.0;
-  bool flipY = true;
-};
 
 struct RenderOptions {
   bool includeText = true;
@@ -138,7 +129,8 @@ Point Apply(const Transform &t, double x, double y) {
   return {x * t.scale + t.offsetX, y * t.scale + t.offsetY};
 }
 
-Point MapWithMapping(double x, double y, const Mapping &mapping) {
+Point MapWithMapping(double x, double y,
+                     const viewer2d::Viewer2DRenderMapping &mapping) {
   double px = mapping.offsetX + (x - mapping.minX) * mapping.scale;
   double py = mapping.offsetY + (y - mapping.minY) * mapping.scale;
   if (mapping.flipY)
@@ -150,7 +142,7 @@ Point MapWithMapping(double x, double y, const Mapping &mapping) {
 class GraphicsStateCache {
 public:
   void SetStroke(std::ostringstream &out, const CanvasStroke &stroke,
-                 const FloatFormatter &fmt) {
+                 const FloatFormatter &fmt, double scale) {
     if (!joinStyleSet_) {
       out << "1 j\n";
       joinStyleSet_ = true;
@@ -165,9 +157,10 @@ public:
       strokeColor_ = stroke.color;
       hasStrokeColor_ = true;
     }
-    if (!hasLineWidth_ || std::abs(stroke.width - lineWidth_) > 1e-6) {
-      out << fmt.Format(stroke.width) << " w\n";
-      lineWidth_ = stroke.width;
+    double width = stroke.width * scale;
+    if (!hasLineWidth_ || std::abs(width - lineWidth_) > 1e-6) {
+      out << fmt.Format(width) << " w\n";
+      lineWidth_ = width;
       hasLineWidth_ = true;
     }
   }
@@ -200,18 +193,18 @@ private:
 
 void AppendLine(std::ostringstream &out, GraphicsStateCache &cache,
                 const FloatFormatter &fmt, const Point &a, const Point &b,
-                const CanvasStroke &stroke) {
-  cache.SetStroke(out, stroke, fmt);
+                const CanvasStroke &stroke, double scale) {
+  cache.SetStroke(out, stroke, fmt, scale);
   out << fmt.Format(a.x) << ' ' << fmt.Format(a.y) << " m\n"
       << fmt.Format(b.x) << ' ' << fmt.Format(b.y) << " l\nS\n";
 }
 
 void AppendPolyline(std::ostringstream &out, GraphicsStateCache &cache,
                     const FloatFormatter &fmt, const std::vector<Point> &pts,
-                    const CanvasStroke &stroke) {
+                    const CanvasStroke &stroke, double scale) {
   if (pts.size() < 2)
     return;
-  cache.SetStroke(out, stroke, fmt);
+  cache.SetStroke(out, stroke, fmt, scale);
   out << fmt.Format(pts[0].x) << ' ' << fmt.Format(pts[0].y) << " m\n";
   for (size_t i = 1; i < pts.size(); ++i) {
     out << fmt.Format(pts[i].x) << ' ' << fmt.Format(pts[i].y) << " l\n";
@@ -221,7 +214,8 @@ void AppendPolyline(std::ostringstream &out, GraphicsStateCache &cache,
 
 void AppendPolygon(std::ostringstream &out, GraphicsStateCache &cache,
                    const FloatFormatter &fmt, const std::vector<Point> &pts,
-                   const CanvasStroke &stroke, const CanvasFill *fill) {
+                   const CanvasStroke &stroke, const CanvasFill *fill,
+                   double scale) {
   if (pts.size() < 3)
     return;
   auto emitPath = [&]() {
@@ -232,7 +226,7 @@ void AppendPolygon(std::ostringstream &out, GraphicsStateCache &cache,
   };
 
   if (stroke.width > 0.0f) {
-    cache.SetStroke(out, stroke, fmt);
+    cache.SetStroke(out, stroke, fmt, scale);
     emitPath();
     out << "S\n";
   }
@@ -247,14 +241,14 @@ void AppendPolygon(std::ostringstream &out, GraphicsStateCache &cache,
 void AppendRectangle(std::ostringstream &out, GraphicsStateCache &cache,
                      const FloatFormatter &fmt, const Point &origin, double w,
                      double h, const CanvasStroke &stroke,
-                     const CanvasFill *fill) {
+                     const CanvasFill *fill, double scale) {
   auto emitRect = [&]() {
     out << fmt.Format(origin.x) << ' ' << fmt.Format(origin.y) << ' '
         << fmt.Format(w) << ' ' << fmt.Format(h) << " re\n";
   };
 
   if (stroke.width > 0.0f) {
-    cache.SetStroke(out, stroke, fmt);
+    cache.SetStroke(out, stroke, fmt, scale);
     emitRect();
     out << "S\n";
   }
@@ -269,7 +263,7 @@ void AppendRectangle(std::ostringstream &out, GraphicsStateCache &cache,
 void AppendCircle(std::ostringstream &out, GraphicsStateCache &cache,
                   const FloatFormatter &fmt, const Point &center,
                   double radius, const CanvasStroke &stroke,
-                  const CanvasFill *fill) {
+                  const CanvasFill *fill, double scale) {
   // Approximate circle with 4 cubic Beziers.
   const double c = radius * 0.552284749831; // 4*(sqrt(2)-1)/3
   Point p0{center.x + radius, center.y};
@@ -302,7 +296,7 @@ void AppendCircle(std::ostringstream &out, GraphicsStateCache &cache,
   };
 
   if (stroke.width > 0.0f) {
-    cache.SetStroke(out, stroke, fmt);
+    cache.SetStroke(out, stroke, fmt, scale);
     emitCircle();
     out << "S\n";
   }
@@ -445,7 +439,7 @@ void AppendText(std::ostringstream &out, const FloatFormatter &fmt,
 }
 
 Point MapPointWithTransform(double x, double y, const Transform &current,
-                            const Mapping &mapping) {
+                            const viewer2d::Viewer2DRenderMapping &mapping) {
   auto applied = Apply(current, x, y);
   return MapWithMapping(applied.x, applied.y, mapping);
 }
@@ -460,7 +454,7 @@ Transform2D TransformFromCanvas(const CanvasTransform &transform) {
 }
 
 void AppendSymbolInstance(std::ostringstream &out, const FloatFormatter &fmt,
-                          const Mapping &mapping,
+                          const viewer2d::Viewer2DRenderMapping &mapping,
                           const Transform2D &transform,
                           const std::string &name) {
   double translateX = mapping.scale * transform.tx +
@@ -541,7 +535,8 @@ SymbolBounds ComputeSymbolBounds(const std::vector<CanvasCommand> &commands) {
 // explicitly, which is required to match the on-screen 2D viewer where fills
 // occlude internal wireframe edges within the same group.
 void EmitCommandStroke(std::ostringstream &content, GraphicsStateCache &cache,
-                       const FloatFormatter &formatter, const Mapping &mapping,
+                       const FloatFormatter &formatter,
+                       const viewer2d::Viewer2DRenderMapping &mapping,
                        const Transform &current, const CanvasCommand &command) {
   std::visit(
       [&](auto &&c) {
@@ -549,7 +544,7 @@ void EmitCommandStroke(std::ostringstream &content, GraphicsStateCache &cache,
         if constexpr (std::is_same_v<T, LineCommand>) {
           auto pa = MapPointWithTransform(c.x0, c.y0, current, mapping);
           auto pb = MapPointWithTransform(c.x1, c.y1, current, mapping);
-          AppendLine(content, cache, formatter, pa, pb, c.stroke);
+          AppendLine(content, cache, formatter, pa, pb, c.stroke, mapping.scale);
         } else if constexpr (std::is_same_v<T, PolylineCommand>) {
           std::vector<Point> pts;
           pts.reserve(c.points.size() / 2);
@@ -557,7 +552,8 @@ void EmitCommandStroke(std::ostringstream &content, GraphicsStateCache &cache,
             pts.push_back(
                 MapPointWithTransform(c.points[i], c.points[i + 1], current,
                                       mapping));
-          AppendPolyline(content, cache, formatter, pts, c.stroke);
+          AppendPolyline(content, cache, formatter, pts, c.stroke,
+                         mapping.scale);
         } else if constexpr (std::is_same_v<T, PolygonCommand>) {
           std::vector<Point> pts;
           pts.reserve(c.points.size() / 2);
@@ -565,18 +561,19 @@ void EmitCommandStroke(std::ostringstream &content, GraphicsStateCache &cache,
             pts.push_back(
                 MapPointWithTransform(c.points[i], c.points[i + 1], current,
                                       mapping));
-          AppendPolygon(content, cache, formatter, pts, c.stroke, nullptr);
+          AppendPolygon(content, cache, formatter, pts, c.stroke, nullptr,
+                        mapping.scale);
         } else if constexpr (std::is_same_v<T, RectangleCommand>) {
           auto origin = MapPointWithTransform(c.x, c.y, current, mapping);
           double w = c.w * current.scale * mapping.scale;
           double h = c.h * current.scale * mapping.scale;
           AppendRectangle(content, cache, formatter, origin, w, h, c.stroke,
-                          nullptr);
+                          nullptr, mapping.scale);
         } else if constexpr (std::is_same_v<T, CircleCommand>) {
           auto center = MapPointWithTransform(c.cx, c.cy, current, mapping);
           double radius = c.radius * current.scale * mapping.scale;
           AppendCircle(content, cache, formatter, center, radius, c.stroke,
-                       nullptr);
+                       nullptr, mapping.scale);
         }
       },
       command);
@@ -586,7 +583,8 @@ void EmitCommandStroke(std::ostringstream &content, GraphicsStateCache &cache,
 // zero to ensure no outlines leak back in when rendering fills as a separate
 // pass.
 void EmitCommandFill(std::ostringstream &content, GraphicsStateCache &cache,
-                     const FloatFormatter &formatter, const Mapping &mapping,
+                     const FloatFormatter &formatter,
+                     const viewer2d::Viewer2DRenderMapping &mapping,
                      const Transform &current, const CanvasCommand &command) {
   std::visit(
       [&](auto &&c) {
@@ -601,7 +599,7 @@ void EmitCommandFill(std::ostringstream &content, GraphicsStateCache &cache,
           CanvasStroke disabledStroke = c.stroke;
           disabledStroke.width = 0.0f;
           AppendPolygon(content, cache, formatter, pts, disabledStroke,
-                        &c.fill);
+                        &c.fill, mapping.scale);
         } else if constexpr (std::is_same_v<T, RectangleCommand>) {
           auto origin = MapPointWithTransform(c.x, c.y, current, mapping);
           double w = c.w * current.scale * mapping.scale;
@@ -609,14 +607,14 @@ void EmitCommandFill(std::ostringstream &content, GraphicsStateCache &cache,
           CanvasStroke disabledStroke = c.stroke;
           disabledStroke.width = 0.0f;
           AppendRectangle(content, cache, formatter, origin, w, h,
-                          disabledStroke, &c.fill);
+                          disabledStroke, &c.fill, mapping.scale);
         } else if constexpr (std::is_same_v<T, CircleCommand>) {
           auto center = MapPointWithTransform(c.cx, c.cy, current, mapping);
           double radius = c.radius * current.scale * mapping.scale;
           CanvasStroke disabledStroke = c.stroke;
           disabledStroke.width = 0.0f;
           AppendCircle(content, cache, formatter, center, radius,
-                       disabledStroke, &c.fill);
+                       disabledStroke, &c.fill, mapping.scale);
         }
       },
       command);
@@ -625,7 +623,8 @@ void EmitCommandFill(std::ostringstream &content, GraphicsStateCache &cache,
 std::string RenderCommandsToStream(
     const std::vector<CanvasCommand> &commands,
     const std::vector<CommandMetadata> &metadata,
-    const std::vector<std::string> &sources, const Mapping &mapping,
+    const std::vector<std::string> &sources,
+    const viewer2d::Viewer2DRenderMapping &mapping,
     const FloatFormatter &formatter, const RenderOptions &options) {
   Transform current{};
   std::vector<Transform> stack;
@@ -853,6 +852,7 @@ Viewer2DExportResult ExportViewer2DToPdf(
     result.message = "Viewport dimensions are invalid for export.";
     return result;
   }
+  viewMapping.flipY = false;
 
   double scale = viewMapping.scale;
   double offsetX = viewMapping.offsetX;
@@ -921,8 +921,9 @@ Viewer2DExportResult ExportViewer2DToPdf(
     mainCommands.sources.push_back(source);
   }
 
-  Mapping pageMapping{minX, minY, scale, offsetX, offsetY,
-                      viewMapping.drawHeight, false};
+  viewer2d::Viewer2DRenderMapping pageMapping{minX, minY, scale, offsetX,
+                                              offsetY, viewMapping.drawHeight,
+                                              false};
   std::unordered_map<std::string, std::string> xObjectKeyNames;
   std::unordered_map<uint32_t, std::string> xObjectIdNames;
   std::unordered_map<std::string, size_t> xObjectKeyIds;
@@ -961,7 +962,7 @@ Viewer2DExportResult ExportViewer2DToPdf(
   std::vector<PdfObject> objects;
   objects.push_back({"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"});
 
-  Mapping symbolMapping{};
+  viewer2d::Viewer2DRenderMapping symbolMapping{};
   symbolMapping.scale = scale;
   symbolMapping.flipY = false;
 
