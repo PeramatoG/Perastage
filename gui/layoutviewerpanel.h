@@ -20,16 +20,12 @@
 #include <memory>
 #include <optional>
 #include <wx/wx.h>
-#include <filesystem>
 #include "layouts/LayoutCollection.h"
 #include "canvas2d.h"
 #include "symbolcache.h"
 #include "viewer2dpanel.h"
 
 wxDECLARE_EVENT(EVT_LAYOUT_VIEW_EDIT, wxCommandEvent);
-
-struct Viewer2DExportResult;
-struct Viewer2DPrintOptions;
 
 class LayoutViewerPanel : public wxPanel {
 public:
@@ -38,9 +34,6 @@ public:
   void SetLayoutDefinition(const layouts::LayoutDefinition &layout);
   layouts::Layout2DViewDefinition *GetEditableView();
   const layouts::Layout2DViewDefinition *GetEditableView() const;
-  Viewer2DExportResult ExportLayoutToPdf(
-      const Viewer2DPrintOptions &options,
-      const std::filesystem::path &outputPath) const;
 
 private:
   void OnPaint(wxPaintEvent &event);
@@ -65,8 +58,6 @@ private:
   void RequestRenderRebuild();
   void InvalidateRenderIfFrameChanged();
   void EmitEditViewRequest();
-  Viewer2DViewState ResolveRenderViewState(
-      const layouts::Layout2DViewDefinition &view) const;
 
   enum class FrameDragMode {
     None,

@@ -26,8 +26,7 @@
 
 #include "configmanager.h"
 #include "layouts/LayoutManager.h"
-#include "render2d_common.h"
-#include "viewer2dpdfexporter.h"
+#include "viewer2dcommandrenderer.h"
 #include "viewer2dstate.h"
 
 namespace {
@@ -626,7 +625,21 @@ void LayoutViewerPanel::RebuildCachedBitmap() {
     return;
   }
 
-  Viewer2DViewState renderState = ResolveRenderViewState(*view);
+  Viewer2DViewState renderState = cachedViewState;
+  if (renderState.viewportWidth <= 0) {
+    if (view->camera.viewportWidth > 0) {
+      renderState.viewportWidth = view->camera.viewportWidth;
+    } else {
+      renderState.viewportWidth = view->frame.width;
+    }
+  }
+  if (renderState.viewportHeight <= 0) {
+    if (view->camera.viewportHeight > 0) {
+      renderState.viewportHeight = view->camera.viewportHeight;
+    } else {
+      renderState.viewportHeight = view->frame.height;
+    }
+  }
 
   wxBitmap bufferBitmap(frameRect.GetWidth(), frameRect.GetHeight());
   wxMemoryDC memDC(bufferBitmap);
@@ -647,40 +660,6 @@ void LayoutViewerPanel::RebuildCachedBitmap() {
   memDC.SelectObject(wxNullBitmap);
   cachedBitmap = bufferBitmap;
   cachedBitmapSize = frameRect.GetSize();
-}
-
-Viewer2DExportResult LayoutViewerPanel::ExportLayoutToPdf(
-    const Viewer2DPrintOptions &options,
-    const std::filesystem::path &outputPath) const {
-  Viewer2DExportResult result{};
-  const layouts::Layout2DViewDefinition *view = GetEditableView();
-  if (!view || !hasCapture) {
-    result.message = "The layout view is not ready for export.";
-    return result;
-  }
-  Viewer2DViewState renderState = ResolveRenderViewState(*view);
-  return ExportViewer2DToPdf(cachedBuffer, renderState, options, outputPath,
-                             cachedSymbols);
-}
-
-Viewer2DViewState LayoutViewerPanel::ResolveRenderViewState(
-    const layouts::Layout2DViewDefinition &view) const {
-  Viewer2DViewState renderState = cachedViewState;
-  if (renderState.viewportWidth <= 0) {
-    if (view.camera.viewportWidth > 0) {
-      renderState.viewportWidth = view.camera.viewportWidth;
-    } else {
-      renderState.viewportWidth = view.frame.width;
-    }
-  }
-  if (renderState.viewportHeight <= 0) {
-    if (view.camera.viewportHeight > 0) {
-      renderState.viewportHeight = view.camera.viewportHeight;
-    } else {
-      renderState.viewportHeight = view.frame.height;
-    }
-  }
-  return renderState;
 }
 
 void LayoutViewerPanel::RequestRenderRebuild() {
