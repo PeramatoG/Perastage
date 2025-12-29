@@ -45,6 +45,7 @@ struct Viewer2DRenderMapping {
   double offsetX = 0.0;
   double offsetY = 0.0;
   double drawHeight = 0.0;
+  bool flipY = true;
 };
 
 struct Viewer2DRenderPoint {
