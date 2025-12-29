@@ -54,6 +54,9 @@ private:
                     wxRect &rect) const;
   void UpdateFrame(const layouts::Layout2DViewFrame &frame,
                    bool updatePosition);
+  void RebuildCachedBitmap();
+  void RequestRenderRebuild();
+  void InvalidateRenderIfFrameChanged();
   void EmitEditViewRequest();
 
   enum class FrameDragMode {
@@ -83,6 +86,10 @@ private:
   CommandBuffer cachedBuffer;
   Viewer2DViewState cachedViewState;
   std::shared_ptr<const SymbolDefinitionSnapshot> cachedSymbols;
+  wxBitmap cachedBitmap;
+  wxSize cachedBitmapSize{0, 0};
+  bool renderDirty = true;
+  bool renderPending = false;
 
   wxDECLARE_EVENT_TABLE();
 };

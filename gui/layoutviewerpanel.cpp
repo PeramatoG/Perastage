@@ -232,7 +232,11 @@ void LayoutViewerPanel::SetLayoutDefinition(
   layoutVersion++;
   captureVersion = -1;
   hasCapture = false;
+  cachedBitmap = wxBitmap();
+  cachedBitmapSize = wxSize(0, 0);
+  renderDirty = true;
   ResetViewToFit();
+  RequestRenderRebuild();
   Refresh();
 }
 
@@ -306,45 +310,22 @@ void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
             hasCapture = !cachedBuffer.commands.empty();
             captureVersion = layoutVersion;
             captureInProgress = false;
+            renderDirty = true;
+            RequestRenderRebuild();
             Refresh();
           });
     }
   }
 
-  if (hasCapture && frameRect.GetWidth() > 0 && frameRect.GetHeight() > 0) {
-    Viewer2DViewState renderState = cachedViewState;
-    if (renderState.viewportWidth <= 0) {
-      if (view->camera.viewportWidth > 0) {
-        renderState.viewportWidth = view->camera.viewportWidth;
-      } else {
-        renderState.viewportWidth = view->frame.width;
-      }
-    }
-    if (renderState.viewportHeight <= 0) {
-      if (view->camera.viewportHeight > 0) {
-        renderState.viewportHeight = view->camera.viewportHeight;
-      } else {
-        renderState.viewportHeight = view->frame.height;
-      }
-    }
-    wxBitmap bufferBitmap(frameRect.GetWidth(), frameRect.GetHeight());
-    wxMemoryDC memDC(bufferBitmap);
-    memDC.SetBackground(wxBrush(wxColour(255, 255, 255)));
-    memDC.Clear();
-    if (auto gc = wxGraphicsContext::Create(memDC)) {
-      viewer2d::Viewer2DRenderMapping mapping;
-      if (viewer2d::BuildViewMapping(
-              renderState, frameRect.GetWidth(), frameRect.GetHeight(), 0.0,
-              mapping)) {
-        WxGraphicsCommandBackend backend(*gc);
-        viewer2d::Viewer2DCommandRenderer renderer(mapping, backend,
-                                                   cachedSymbols.get());
-        renderer.Render(cachedBuffer);
-      }
-      delete gc;
-    }
-    memDC.SelectObject(wxNullBitmap);
-    dc.DrawBitmap(bufferBitmap, frameRect.GetTopLeft(), false);
+  if (cachedBitmap.IsOk() &&
+      cachedBitmapSize == frameRect.GetSize()) {
+    dc.DrawBitmap(cachedBitmap, frameRect.GetTopLeft(), false);
+  } else {
+    dc.SetBrush(wxBrush(wxColour(240, 240, 240)));
+    dc.SetPen(wxPen(wxColour(200, 200, 200)));
+    dc.DrawRectangle(frameRect);
+    dc.SetTextForeground(wxColour(120, 120, 120));
+    dc.DrawText("Rendering...", frameRect.GetTopLeft() + wxPoint(8, 8));
   }
 
   dc.SetBrush(*wxTRANSPARENT_BRUSH);
@@ -371,6 +352,8 @@ void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
 }
 
 void LayoutViewerPanel::OnSize(wxSizeEvent &) {
+  InvalidateRenderIfFrameChanged();
+  RequestRenderRebuild();
   Refresh();
 }
 
@@ -491,6 +474,8 @@ void LayoutViewerPanel::OnMouseWheel(wxMouseEvent &event) {
 
   panOffset += relative - newRelative;
   zoom = newZoom;
+  InvalidateRenderIfFrameChanged();
+  RequestRenderRebuild();
   Refresh();
 }
 
@@ -556,6 +541,7 @@ void LayoutViewerPanel::ResetViewToFit() {
       static_cast<double>(size.GetHeight() - kFitMarginPx) / pageHeight;
   zoom = std::clamp(std::min(fitWidth, fitHeight), kMinZoom, kMaxZoom);
   panOffset = wxPoint(0, 0);
+  InvalidateRenderIfFrameChanged();
 }
 
 wxRect LayoutViewerPanel::GetPageRect() const {
@@ -615,7 +601,89 @@ void LayoutViewerPanel::UpdateFrame(const layouts::Layout2DViewFrame &frame,
     layouts::LayoutManager::Get().UpdateLayout2DView(currentLayout.name,
                                                      *view);
   }
+  InvalidateRenderIfFrameChanged();
+  RequestRenderRebuild();
   Refresh();
+}
+
+void LayoutViewerPanel::RebuildCachedBitmap() {
+  if (!renderDirty)
+    return;
+
+  renderDirty = false;
+
+  const layouts::Layout2DViewDefinition *view = GetEditableView();
+  wxRect frameRect;
+  if (!view || !hasCapture || !GetFrameRect(view->frame, frameRect) ||
+      frameRect.GetWidth() <= 0 || frameRect.GetHeight() <= 0) {
+    cachedBitmap = wxBitmap();
+    cachedBitmapSize = wxSize(0, 0);
+    return;
+  }
+
+  Viewer2DViewState renderState = cachedViewState;
+  if (renderState.viewportWidth <= 0) {
+    if (view->camera.viewportWidth > 0) {
+      renderState.viewportWidth = view->camera.viewportWidth;
+    } else {
+      renderState.viewportWidth = view->frame.width;
+    }
+  }
+  if (renderState.viewportHeight <= 0) {
+    if (view->camera.viewportHeight > 0) {
+      renderState.viewportHeight = view->camera.viewportHeight;
+    } else {
+      renderState.viewportHeight = view->frame.height;
+    }
+  }
+
+  wxBitmap bufferBitmap(frameRect.GetWidth(), frameRect.GetHeight());
+  wxMemoryDC memDC(bufferBitmap);
+  memDC.SetBackground(wxBrush(wxColour(255, 255, 255)));
+  memDC.Clear();
+  if (auto gc = wxGraphicsContext::Create(memDC)) {
+    viewer2d::Viewer2DRenderMapping mapping;
+    if (viewer2d::BuildViewMapping(
+            renderState, frameRect.GetWidth(), frameRect.GetHeight(), 0.0,
+            mapping)) {
+      WxGraphicsCommandBackend backend(*gc);
+      viewer2d::Viewer2DCommandRenderer renderer(mapping, backend,
+                                                 cachedSymbols.get());
+      renderer.Render(cachedBuffer);
+    }
+    delete gc;
+  }
+  memDC.SelectObject(wxNullBitmap);
+  cachedBitmap = bufferBitmap;
+  cachedBitmapSize = frameRect.GetSize();
+}
+
+void LayoutViewerPanel::RequestRenderRebuild() {
+  if (!renderDirty || renderPending)
+    return;
+  renderPending = true;
+  CallAfter([this]() {
+    renderPending = false;
+    RebuildCachedBitmap();
+    Refresh();
+  });
+}
+
+void LayoutViewerPanel::InvalidateRenderIfFrameChanged() {
+  const layouts::Layout2DViewDefinition *view = GetEditableView();
+  wxRect frameRect;
+  if (!view || !GetFrameRect(view->frame, frameRect)) {
+    if (cachedBitmap.IsOk()) {
+      renderDirty = true;
+      cachedBitmap = wxBitmap();
+      cachedBitmapSize = wxSize(0, 0);
+    }
+    return;
+  }
+
+  const wxSize frameSize = frameRect.GetSize();
+  if (frameSize != cachedBitmapSize)
+    renderDirty = true;
 }
 
 LayoutViewerPanel::FrameDragMode
