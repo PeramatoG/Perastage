@@ -16,6 +16,7 @@ public:
 private:
   void OnOk(wxCommandEvent &event);
   void OnCancel(wxCommandEvent &event);
+  void OnClose(wxCloseEvent &event);
 
   Viewer2DPanel *viewerPanel = nullptr;
   Viewer2DRenderPanel *renderPanel = nullptr;

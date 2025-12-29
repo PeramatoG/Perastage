@@ -32,6 +32,7 @@ Layout2DViewDialog::Layout2DViewDialog(wxWindow *parent)
   auto *cancelButton = new wxButton(this, wxID_CANCEL, "Cancel");
   okButton->Bind(wxEVT_BUTTON, &Layout2DViewDialog::OnOk, this);
   cancelButton->Bind(wxEVT_BUTTON, &Layout2DViewDialog::OnCancel, this);
+  Bind(wxEVT_CLOSE_WINDOW, &Layout2DViewDialog::OnClose, this);
   buttonSizer->AddButton(okButton);
   buttonSizer->AddButton(cancelButton);
   buttonSizer->Realize();
@@ -52,5 +53,14 @@ void Layout2DViewDialog::OnOk(wxCommandEvent &event) {
 
 void Layout2DViewDialog::OnCancel(wxCommandEvent &event) {
   EndModal(wxID_CANCEL);
+  event.Skip();
+}
+
+void Layout2DViewDialog::OnClose(wxCloseEvent &event) {
+  if (IsModal()) {
+    EndModal(wxID_CANCEL);
+  } else {
+    Destroy();
+  }
   event.Skip();
 }

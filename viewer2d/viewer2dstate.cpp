@@ -138,7 +138,7 @@ void ApplyState(Viewer2DPanel *panel, Viewer2DRenderPanel *renderPanel,
                                          state.layers.hiddenLayers.end());
   cfg.SetHiddenLayers(hidden);
 
-  if (panel) {
+  if (panel && !panel->IsBeingDeleted() && panel->IsShownOnScreen()) {
     panel->LoadViewFromConfig();
     panel->UpdateScene(true);
     panel->Refresh();

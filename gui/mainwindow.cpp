@@ -1643,6 +1643,13 @@ void MainWindow::OnCloseWindow(wxCloseEvent &event) {
     layoutViewerPanel->SetCapturePanel(nullptr);
   }
 
+  if (layout2DViewEditing) {
+    layout2DViewEditing = false;
+    layout2DViewStateGuard.reset();
+    Viewer2DPanel::SetInstance(viewport2DPanel);
+    Viewer2DRenderPanel::SetInstance(viewport2DRenderPanel);
+  }
+
   if (auiManager) {
     auiManager->UnInit();
     delete auiManager;
