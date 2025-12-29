@@ -31,6 +31,7 @@ wxDECLARE_EVENT(EVT_LAYOUT_VIEW_EDIT, wxCommandEvent);
 class LayoutViewerPanel : public wxPanel {
 public:
   explicit LayoutViewerPanel(wxWindow *parent);
+  ~LayoutViewerPanel() override;
 
   void SetLayoutDefinition(const layouts::LayoutDefinition &layout);
   void SetCapturePanel(Viewer2DPanel *panel);
@@ -82,6 +83,7 @@ private:
   int captureVersion = -1;
   bool captureInProgress = false;
   bool hasCapture = false;
+  bool shutdown = false;
   CommandBuffer cachedBuffer;
   Viewer2DViewState cachedViewState;
   std::shared_ptr<const SymbolDefinitionSnapshot> cachedSymbols;

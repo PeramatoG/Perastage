@@ -226,6 +226,12 @@ LayoutViewerPanel::LayoutViewerPanel(wxWindow *parent)
   ResetViewToFit();
 }
 
+LayoutViewerPanel::~LayoutViewerPanel() {
+  shutdown = true;
+  capturePanel = nullptr;
+  captureInProgress = false;
+}
+
 void LayoutViewerPanel::SetLayoutDefinition(
     const layouts::LayoutDefinition &layout) {
   currentLayout = layout;
@@ -238,6 +244,8 @@ void LayoutViewerPanel::SetLayoutDefinition(
 
 void LayoutViewerPanel::SetCapturePanel(Viewer2DPanel *panel) {
   if (capturePanel.get() == panel)
+    return;
+  if (shutdown)
     return;
   capturePanel = panel;
   captureInProgress = false;
@@ -282,7 +290,7 @@ void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
   if (!GetFrameRect(view->frame, frameRect))
     return;
 
-  if (!captureInProgress && captureVersion != layoutVersion) {
+  if (!shutdown && !captureInProgress && captureVersion != layoutVersion) {
     Viewer2DPanel *panel = capturePanel.get();
     if (panel) {
       captureInProgress = true;
@@ -298,32 +306,41 @@ void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
       auto stateGuard = std::make_shared<viewer2d::ScopedViewer2DState>(
           panel, nullptr, cfg, layoutState, panel, nullptr);
       wxWeakRef<Viewer2DPanel> panelRef(panel);
+      wxWeakRef<LayoutViewerPanel> selfRef(this);
       panel->CaptureFrameAsync(
-          [this, panelRef, stateGuard, fallbackViewportWidth,
+          [selfRef, panelRef, stateGuard, fallbackViewportWidth,
            fallbackViewportHeight](
               CommandBuffer buffer, Viewer2DViewState state) {
-            Viewer2DPanel *panel = panelRef.get();
-            if (!panel) {
-              captureInProgress = false;
+            auto *self = selfRef.get();
+            if (!self || self->shutdown || self->IsBeingDeleted()) {
               return;
             }
-            cachedBuffer = std::move(buffer);
-            cachedViewState = state;
+            Viewer2DPanel *panel = panelRef.get();
+            if (!panel || panel->IsBeingDeleted()) {
+              self->captureInProgress = false;
+              return;
+            }
+            self->cachedBuffer = std::move(buffer);
+            self->cachedViewState = state;
             if (fallbackViewportWidth > 0) {
-              cachedViewState.viewportWidth = fallbackViewportWidth;
+              self->cachedViewState.viewportWidth = fallbackViewportWidth;
             }
             if (fallbackViewportHeight > 0) {
-              cachedViewState.viewportHeight = fallbackViewportHeight;
+              self->cachedViewState.viewportHeight = fallbackViewportHeight;
             }
-            cachedSymbols.reset();
-            cachedSymbols = panel->GetBottomSymbolCacheSnapshot();
-            hasCapture = !cachedBuffer.commands.empty();
-            captureVersion = layoutVersion;
-            captureInProgress = false;
-            Refresh();
+            self->cachedSymbols.reset();
+            self->cachedSymbols = panel->GetBottomSymbolCacheSnapshot();
+            self->hasCapture = !self->cachedBuffer.commands.empty();
+            self->captureVersion = self->layoutVersion;
+            self->captureInProgress = false;
+            if (self->IsShownOnScreen()) {
+              self->Refresh();
+            }
           });
-      panel->Refresh();
-      panel->Update();
+      if (!panel->IsBeingDeleted() && panel->IsShownOnScreen()) {
+        panel->Refresh();
+        panel->Update();
+      }
     }
   }
 
