@@ -43,6 +43,8 @@ Layout2DViewDialog::Layout2DViewDialog(wxWindow *parent)
   SetMinSize(wxSize(1000, 700));
   Layout();
   CentreOnParent();
+
+  Bind(wxEVT_SHOW, &Layout2DViewDialog::OnShow, this);
 }
 
 void Layout2DViewDialog::OnOk(wxCommandEvent &event) {
@@ -52,5 +54,13 @@ void Layout2DViewDialog::OnOk(wxCommandEvent &event) {
 
 void Layout2DViewDialog::OnCancel(wxCommandEvent &event) {
   EndModal(wxID_CANCEL);
+  event.Skip();
+}
+
+void Layout2DViewDialog::OnShow(wxShowEvent &event) {
+  if (event.IsShown() && viewerPanel) {
+    viewerPanel->UpdateScene(true);
+    viewerPanel->Update();
+  }
   event.Skip();
 }
