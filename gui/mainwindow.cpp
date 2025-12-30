@@ -551,6 +551,8 @@ void MainWindow::Ensure2DViewport() {
   }
 }
 
+void MainWindow::Ensure2DViewportAvailable() { Ensure2DViewport(); }
+
 void MainWindow::CreateMenuBar() {
   wxMenuBar *menuBar = new wxMenuBar();
 
@@ -2147,6 +2149,7 @@ void MainWindow::OnLayout2DViewOk(wxCommandEvent &WXUNUSED(event)) {
       layout2DViewEditPanel ? layout2DViewEditPanel : viewport2DPanel;
   viewer2d::Viewer2DState current =
       viewer2d::CaptureState(editPanel, cfg);
+  current.renderOptions.darkMode = false;
 
   layouts::Layout2DViewFrame frame{};
   const layouts::LayoutDefinition *layout = nullptr;
@@ -2238,6 +2241,7 @@ void MainWindow::PersistLayout2DViewState() {
   }
   layouts::Layout2DViewDefinition view =
       viewer2d::CaptureLayoutDefinition(activePanel, cfg, frame);
+  view.renderOptions.darkMode = false;
   layouts::LayoutManager::Get().UpdateLayout2DView(activeLayoutName, view);
 }
 
