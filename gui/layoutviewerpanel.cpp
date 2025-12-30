@@ -26,6 +26,7 @@
 
 #include "configmanager.h"
 #include "layouts/LayoutManager.h"
+#include "mainwindow.h"
 #include "viewer2dcommandrenderer.h"
 #include "viewer2dstate.h"
 
@@ -284,6 +285,11 @@ void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
 
   if (!captureInProgress && captureVersion != layoutVersion) {
     Viewer2DPanel *panel = Viewer2DPanel::Instance();
+    if (!panel) {
+      if (auto *mw = MainWindow::Instance())
+        mw->Ensure2DViewportAvailable();
+      panel = Viewer2DPanel::Instance();
+    }
     if (panel) {
       captureInProgress = true;
       const int fallbackViewportWidth =
@@ -295,6 +301,7 @@ void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
       ConfigManager &cfg = ConfigManager::Get();
       viewer2d::Viewer2DState layoutState =
           viewer2d::FromLayoutDefinition(*view);
+      layoutState.renderOptions.darkMode = false;
       auto stateGuard = std::make_shared<viewer2d::ScopedViewer2DState>(
           panel, nullptr, cfg, layoutState);
       panel->CaptureFrameAsync(

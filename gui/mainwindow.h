@@ -56,6 +56,7 @@ public:
   static void SetInstance(MainWindow *inst);
 
   void EnableShortcuts(bool enable);
+  void Ensure2DViewportAvailable();
   void PersistLayout2DViewState();
   void RestoreLayout2DViewState(int viewIndex);
 
