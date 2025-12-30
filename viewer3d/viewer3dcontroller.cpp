@@ -1295,6 +1295,13 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
 
   // Fixtures last
   glShadeModel(GL_FLAT);
+  const bool forceFixturesOnTop = wireframe;
+  GLboolean depthEnabled = GL_FALSE;
+  if (forceFixturesOnTop) {
+    depthEnabled = glIsEnabled(GL_DEPTH_TEST);
+    if (depthEnabled)
+      glDisable(GL_DEPTH_TEST);
+  }
   const auto &fixtures = SceneDataManager::Instance().GetFixtures();
   std::vector<const std::pair<const std::string, Fixture> *> sortedFixtures;
   sortedFixtures.reserve(fixtures.size());
@@ -1503,6 +1510,8 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
     if (m_captureCanvas)
       m_captureCanvas->SetSourceKey("unknown");
   }
+  if (forceFixturesOnTop && depthEnabled)
+    glEnable(GL_DEPTH_TEST);
 
   const auto &groups = SceneDataManager::Instance().GetGroupObjects();
   for (const auto &[uuid, g] : groups) {
