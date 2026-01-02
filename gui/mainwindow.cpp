@@ -1492,7 +1492,7 @@ void MainWindow::OnPrintViewer2D(wxCommandEvent &WXUNUSED(event)) {
       std::filesystem::path(outputPathWx.ToStdWstring()));
   wxString outputPathDisplay = outputPathWx;
 
-  viewport2DPanel->CaptureFrameAsync(
+  viewport2DPanel->CaptureFrameNow(
       [this, opts, outputPath, outputPathDisplay](
           CommandBuffer buffer, Viewer2DViewState state) {
         if (buffer.commands.empty()) {

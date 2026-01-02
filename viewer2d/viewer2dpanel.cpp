@@ -252,7 +252,10 @@ void Viewer2DPanel::CaptureFrameNow(
   if (IsShownOnScreen()) {
     Update();
   } else {
-    return;
+    m_forceOffscreenRender = true;
+    InitGL();
+    Render();
+    m_forceOffscreenRender = false;
   }
 }
 
@@ -282,7 +285,7 @@ Viewer2DPanel::GetBottomSymbolCacheSnapshot() const {
 }
 
 void Viewer2DPanel::InitGL() {
-  if (!IsShownOnScreen()) {
+  if (!IsShownOnScreen() && !m_forceOffscreenRender) {
     return;
   }
   SetCurrent(*m_glContext);
