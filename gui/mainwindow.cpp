@@ -553,6 +553,14 @@ void MainWindow::Ensure2DViewport() {
 
 void MainWindow::Ensure2DViewportAvailable() { Ensure2DViewport(); }
 
+Viewer2DPanel *MainWindow::GetLayoutCapturePanel() const {
+  if (layout2DViewEditing && layout2DViewEditPanel)
+    return layout2DViewEditPanel;
+  return viewport2DPanel;
+}
+
+bool MainWindow::IsLayout2DViewEditing() const { return layout2DViewEditing; }
+
 void MainWindow::CreateMenuBar() {
   wxMenuBar *menuBar = new wxMenuBar();
 

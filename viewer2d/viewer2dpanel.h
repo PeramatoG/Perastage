@@ -79,6 +79,10 @@ public:
       std::function<void(CommandBuffer, Viewer2DViewState)> callback,
       bool useSimplifiedFootprints = false,
       bool includeGridInCapture = true);
+  void CaptureFrameNow(
+      std::function<void(CommandBuffer, Viewer2DViewState)> callback,
+      bool useSimplifiedFootprints = false,
+      bool includeGridInCapture = true);
 
   // Accessor for the last recorded set of drawing commands. The buffer is
   // cleared and re-populated on every requested capture.

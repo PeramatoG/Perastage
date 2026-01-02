@@ -57,6 +57,8 @@ public:
 
   void EnableShortcuts(bool enable);
   void Ensure2DViewportAvailable();
+  Viewer2DPanel *GetLayoutCapturePanel() const;
+  bool IsLayout2DViewEditing() const;
   void PersistLayout2DViewState();
   void RestoreLayout2DViewState(int viewIndex);
 

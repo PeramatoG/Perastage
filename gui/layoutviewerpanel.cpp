@@ -284,10 +284,17 @@ void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
     return;
 
   if (!captureInProgress && captureVersion != layoutVersion) {
-    Viewer2DPanel *panel = Viewer2DPanel::Instance();
-    if (!panel) {
-      if (auto *mw = MainWindow::Instance())
+    Viewer2DPanel *panel = nullptr;
+    bool useEditorState = false;
+    if (auto *mw = MainWindow::Instance()) {
+      panel = mw->GetLayoutCapturePanel();
+      useEditorState = mw->IsLayout2DViewEditing() && panel;
+      if (!panel) {
         mw->Ensure2DViewportAvailable();
+        panel = mw->GetLayoutCapturePanel();
+        useEditorState = mw->IsLayout2DViewEditing() && panel;
+      }
+    } else {
       panel = Viewer2DPanel::Instance();
     }
     if (panel) {
@@ -300,11 +307,12 @@ void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
                                           : view->frame.height;
       ConfigManager &cfg = ConfigManager::Get();
       viewer2d::Viewer2DState layoutState =
-          viewer2d::FromLayoutDefinition(*view);
+          useEditorState ? viewer2d::CaptureState(panel, cfg)
+                         : viewer2d::FromLayoutDefinition(*view);
       layoutState.renderOptions.darkMode = false;
       auto stateGuard = std::make_shared<viewer2d::ScopedViewer2DState>(
           panel, nullptr, cfg, layoutState);
-      panel->CaptureFrameAsync(
+      panel->CaptureFrameNow(
           [this, stateGuard, fallbackViewportWidth, fallbackViewportHeight](
               CommandBuffer buffer, Viewer2DViewState state) {
             cachedBuffer = std::move(buffer);
