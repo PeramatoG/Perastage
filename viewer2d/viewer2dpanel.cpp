@@ -244,6 +244,19 @@ void Viewer2DPanel::CaptureFrameAsync(
   Refresh();
 }
 
+void Viewer2DPanel::CaptureFrameNow(
+    std::function<void(CommandBuffer, Viewer2DViewState)> callback,
+    bool useSimplifiedFootprints, bool includeGridInCapture) {
+  CaptureFrameAsync(std::move(callback), useSimplifiedFootprints,
+                    includeGridInCapture);
+  if (IsShownOnScreen()) {
+    Update();
+  } else {
+    InitGL();
+    Render();
+  }
+}
+
 void Viewer2DPanel::SetLayoutEditOverlay(std::optional<float> aspectRatio) {
   m_layoutEditAspect = aspectRatio;
   Refresh();
