@@ -129,6 +129,7 @@ private:
   CommandBuffer m_lastCapturedFrame;
   std::function<void(CommandBuffer, Viewer2DViewState)> m_captureCallback;
   std::string m_lastFixtureDebugReport;
+  bool m_forceOffscreenRender = false;
 
   wxGLContext *m_glContext = nullptr;
   bool m_glInitialized = false;
