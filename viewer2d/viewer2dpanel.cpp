@@ -252,8 +252,7 @@ void Viewer2DPanel::CaptureFrameNow(
   if (IsShownOnScreen()) {
     Update();
   } else {
-    InitGL();
-    Render();
+    return;
   }
 }
 
@@ -283,6 +282,9 @@ Viewer2DPanel::GetBottomSymbolCacheSnapshot() const {
 }
 
 void Viewer2DPanel::InitGL() {
+  if (!IsShownOnScreen()) {
+    return;
+  }
   SetCurrent(*m_glContext);
   if (!m_glInitialized) {
     glewExperimental = GL_TRUE;
