@@ -62,7 +62,7 @@ public:
   Viewer2DOffscreenRenderer *GetOffscreenRenderer();
   bool IsLayout2DViewEditing() const;
   void PersistLayout2DViewState();
-  void RestoreLayout2DViewState(int viewIndex);
+  void RestoreLayout2DViewState(int viewId);
 
 private:
   void SetupLayout();   // Set up main window layout
