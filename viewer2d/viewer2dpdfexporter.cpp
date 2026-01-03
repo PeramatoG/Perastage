@@ -1148,6 +1148,10 @@ Viewer2DExportResult ExportLayoutToPdf(
   struct LayoutCommandGroup {
     CommandGroup commands;
     Mapping mapping;
+    double frameX = 0.0;
+    double frameY = 0.0;
+    double frameW = 0.0;
+    double frameH = 0.0;
     std::unordered_set<std::string> usedSymbolKeys;
     std::unordered_set<uint32_t> usedSymbolIds;
     size_t viewIndex = 0;
@@ -1254,7 +1258,12 @@ Viewer2DExportResult ExportLayoutToPdf(
     std::unordered_set<std::string> viewSymbolKeys;
     std::unordered_set<uint32_t> viewSymbolIds;
     captureCommands(view.buffer, mainCommands, viewSymbolKeys, viewSymbolIds);
-    layoutGroups.push_back({std::move(mainCommands), mapping,
+    layoutGroups.push_back({std::move(mainCommands),
+                            mapping,
+                            view.frame.x,
+                            frameOriginY,
+                            static_cast<double>(view.frame.width),
+                            static_cast<double>(view.frame.height),
                             std::move(viewSymbolKeys),
                             std::move(viewSymbolIds), idx});
 
@@ -1341,11 +1350,21 @@ Viewer2DExportResult ExportLayoutToPdf(
     mainOptions.includeText = true;
     mainOptions.symbolKeyNames = &viewKeyNames;
     mainOptions.symbolIdNames = &viewIdNames;
+    contentStream << "q\n" << formatter.Format(group.frameX) << ' '
+                  << formatter.Format(group.frameY) << ' '
+                  << formatter.Format(group.frameW) << ' '
+                  << formatter.Format(group.frameH) << " re W n\n";
     contentStream << RenderCommandsToStream(group.commands.commands,
                                             group.commands.metadata,
                                             group.commands.sources,
                                             group.mapping, formatter,
                                             mainOptions);
+    contentStream << "Q\n";
+    contentStream << "q\n0 0 0 RG 0.5 w "
+                  << formatter.Format(group.frameX) << ' '
+                  << formatter.Format(group.frameY) << ' '
+                  << formatter.Format(group.frameW) << ' '
+                  << formatter.Format(group.frameH) << " re S\nQ\n";
 
     for (const auto &entry : viewKeyNames) {
       auto defIt = symbolDefinitions.find(entry.first);
