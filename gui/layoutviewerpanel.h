@@ -86,7 +86,6 @@ private:
   CommandBuffer cachedBuffer;
   Viewer2DViewState cachedViewState;
   std::shared_ptr<const SymbolDefinitionSnapshot> cachedSymbols;
-  wxBitmap cachedRasterBitmap;
   wxBitmap cachedBitmap;
   wxSize cachedBitmapSize{0, 0};
   bool renderDirty = true;
