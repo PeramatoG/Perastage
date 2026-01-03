@@ -2234,8 +2234,11 @@ void MainWindow::OnLayout2DViewOk(wxCommandEvent &WXUNUSED(event)) {
       const double scale =
           static_cast<double>(frame.width) /
           static_cast<double>(overlaySize->GetWidth());
-      if (scale > 0.0)
+      if (scale > 0.0) {
         current.camera.zoom *= static_cast<float>(scale);
+        current.camera.offsetPixelsX *= static_cast<float>(scale);
+        current.camera.offsetPixelsY *= static_cast<float>(scale);
+      }
     }
   }
 
