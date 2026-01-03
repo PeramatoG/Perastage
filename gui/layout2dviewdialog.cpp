@@ -4,8 +4,12 @@
 #include "viewer2dpanel.h"
 #include "viewer2drenderpanel.h"
 
+#include <algorithm>
+#include <cmath>
 #include <wx/button.h>
+#include <wx/slider.h>
 #include <wx/sizer.h>
+#include <wx/stattext.h>
 
 Layout2DViewDialog::Layout2DViewDialog(wxWindow *parent)
     : wxDialog(parent, wxID_ANY, "2D View Editor", wxDefaultPosition,
@@ -26,6 +30,17 @@ Layout2DViewDialog::Layout2DViewDialog(wxWindow *parent)
   contentSizer->Add(layerPanel, 0, wxEXPAND | wxTOP | wxBOTTOM | wxRIGHT, 8);
 
   mainSizer->Add(contentSizer, 1, wxEXPAND);
+
+  auto *scaleSizer = new wxBoxSizer(wxHORIZONTAL);
+  auto *scaleLabel = new wxStaticText(this, wxID_ANY, "Frame scale");
+  scaleSlider = new wxSlider(this, wxID_ANY, 100, 25, 300);
+  scaleValueLabel = new wxStaticText(this, wxID_ANY, "100%");
+  scaleSlider->Bind(wxEVT_SLIDER, &Layout2DViewDialog::OnScaleChanged, this);
+
+  scaleSizer->Add(scaleLabel, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 8);
+  scaleSizer->Add(scaleSlider, 1, wxALIGN_CENTER_VERTICAL | wxRIGHT, 8);
+  scaleSizer->Add(scaleValueLabel, 0, wxALIGN_CENTER_VERTICAL);
+  mainSizer->Add(scaleSizer, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 8);
 
   auto *buttonSizer = new wxStdDialogButtonSizer();
   auto *okButton = new wxButton(this, wxID_OK, "OK");
@@ -63,5 +78,29 @@ void Layout2DViewDialog::OnShow(wxShowEvent &event) {
     viewerPanel->UpdateScene(true);
     viewerPanel->Update();
   }
+  if (viewerPanel && scaleSlider) {
+    const int value = static_cast<int>(
+        std::lround(viewerPanel->GetLayoutEditOverlayScale() * 100.0f));
+    scaleSlider->SetValue(std::clamp(value, scaleSlider->GetMin(),
+                                     scaleSlider->GetMax()));
+  }
+  UpdateScaleLabel();
   event.Skip();
+}
+
+void Layout2DViewDialog::OnScaleChanged(wxCommandEvent &event) {
+  if (viewerPanel && scaleSlider) {
+    const float scale =
+        static_cast<float>(scaleSlider->GetValue()) / 100.0f;
+    viewerPanel->SetLayoutEditOverlayScale(scale);
+  }
+  UpdateScaleLabel();
+  event.Skip();
+}
+
+void Layout2DViewDialog::UpdateScaleLabel() {
+  if (!scaleValueLabel || !scaleSlider)
+    return;
+  scaleValueLabel->SetLabel(
+      wxString::Format("%d%%", scaleSlider->GetValue()));
 }

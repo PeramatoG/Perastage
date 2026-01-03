@@ -104,6 +104,9 @@ public:
   GetBottomSymbolCacheSnapshot() const;
 
   void SetLayoutEditOverlay(std::optional<float> aspectRatio);
+  void SetLayoutEditOverlayScale(float scale);
+  float GetLayoutEditOverlayScale() const { return m_layoutEditScale; }
+  std::optional<wxSize> GetLayoutEditOverlaySize() const;
 
 private:
   void InitGL();
@@ -143,6 +146,8 @@ private:
   Viewer2DRenderMode m_renderMode = Viewer2DRenderMode::White;
   Viewer2DView m_view = Viewer2DView::Top;
   std::optional<float> m_layoutEditAspect;
+  std::optional<wxSize> m_layoutEditBaseSize;
+  float m_layoutEditScale = 1.0f;
 
   wxDECLARE_EVENT_TABLE();
 };
