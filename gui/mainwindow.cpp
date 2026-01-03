@@ -2145,12 +2145,19 @@ void MainWindow::BeginLayout2DViewEdit() {
       layout2DViewEditPanel, layout2DViewEditRenderPanel, cfg, state,
       viewport2DPanel, viewport2DRenderPanel);
 
-  if (view->frame.height > 0 && layout2DViewEditPanel) {
-    float aspect =
-        static_cast<float>(view->frame.width) / view->frame.height;
-    layout2DViewEditPanel->SetLayoutEditOverlay(aspect);
-  } else if (layout2DViewEditPanel) {
-    layout2DViewEditPanel->SetLayoutEditOverlay(std::nullopt);
+  if (layout2DViewEditPanel) {
+    std::optional<float> aspect;
+    if (view->frame.height > 0) {
+      aspect = static_cast<float>(view->frame.width) / view->frame.height;
+    }
+    std::optional<wxSize> viewportOverride;
+    if (view->camera.viewportWidth > 0 && view->camera.viewportHeight > 0) {
+      viewportOverride =
+          wxSize(view->camera.viewportWidth, view->camera.viewportHeight);
+    } else if (view->frame.width > 0 && view->frame.height > 0) {
+      viewportOverride = wxSize(view->frame.width, view->frame.height);
+    }
+    layout2DViewEditPanel->SetLayoutEditOverlay(aspect, viewportOverride);
   }
 
   layout2DViewEditing = true;
