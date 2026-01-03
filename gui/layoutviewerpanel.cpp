@@ -243,6 +243,7 @@ void LayoutViewerPanel::SetLayoutDefinition(
   captureVersion = -1;
   hasCapture = false;
   cachedBitmap = wxBitmap();
+  cachedRasterBitmap = wxBitmap();
   cachedBitmapSize = wxSize(0, 0);
   renderDirty = true;
   ResetViewToFit();
@@ -337,10 +338,11 @@ void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
       }
       auto stateGuard = std::make_shared<viewer2d::ScopedViewer2DState>(
           capturePanel, nullptr, cfg, layoutState);
-      capturePanel->CaptureFrameNow(
+      capturePanel->CaptureFrameNowWithBitmap(
           [this, stateGuard, fallbackViewportWidth, fallbackViewportHeight,
            capturePanel](
-              CommandBuffer buffer, Viewer2DViewState state) {
+              CommandBuffer buffer, Viewer2DViewState state,
+              wxBitmap bitmap) {
             cachedBuffer = std::move(buffer);
             cachedViewState = state;
             if (cachedViewState.viewportWidth <= 0 &&
@@ -355,6 +357,7 @@ void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
             if (capturePanel) {
               cachedSymbols = capturePanel->GetBottomSymbolCacheSnapshot();
             }
+            cachedRasterBitmap = bitmap;
             hasCapture = !cachedBuffer.commands.empty();
             captureVersion = layoutVersion;
             captureInProgress = false;
@@ -666,6 +669,15 @@ void LayoutViewerPanel::RebuildCachedBitmap() {
       frameRect.GetWidth() <= 0 || frameRect.GetHeight() <= 0) {
     cachedBitmap = wxBitmap();
     cachedBitmapSize = wxSize(0, 0);
+    return;
+  }
+
+  if (cachedRasterBitmap.IsOk()) {
+    wxImage image = cachedRasterBitmap.ConvertToImage();
+    image.Rescale(frameRect.GetWidth(), frameRect.GetHeight(),
+                  wxIMAGE_QUALITY_HIGH);
+    cachedBitmap = wxBitmap(image);
+    cachedBitmapSize = frameRect.GetSize();
     return;
   }
 
