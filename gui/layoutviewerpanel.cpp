@@ -284,17 +284,34 @@ void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
   if (!GetFrameRect(view->frame, frameRect))
     return;
 
+  Viewer2DPanel *statePanel = nullptr;
+  bool useEditorState = false;
+  if (auto *mw = MainWindow::Instance()) {
+    statePanel = mw->GetLayoutCapturePanel();
+    useEditorState = mw->IsLayout2DViewEditing() && statePanel;
+  }
+
+  if (useEditorState && statePanel) {
+    const auto editorState = statePanel->GetViewState();
+    const double epsilon = 1e-4;
+    bool viewChanged =
+        !hasCapture || editorState.view != cachedViewState.view ||
+        std::abs(editorState.zoom - cachedViewState.zoom) > epsilon ||
+        std::abs(editorState.offsetPixelsX - cachedViewState.offsetPixelsX) >
+            epsilon ||
+        std::abs(editorState.offsetPixelsY - cachedViewState.offsetPixelsY) >
+            epsilon;
+    if (viewChanged)
+      captureVersion = -1;
+  }
+
   if (!captureInProgress && captureVersion != layoutVersion) {
     Viewer2DPanel *capturePanel = nullptr;
-    Viewer2DPanel *statePanel = nullptr;
     Viewer2DOffscreenRenderer *offscreenRenderer = nullptr;
-    bool useEditorState = false;
     if (auto *mw = MainWindow::Instance()) {
       offscreenRenderer = mw->GetOffscreenRenderer();
       capturePanel =
           offscreenRenderer ? offscreenRenderer->GetPanel() : nullptr;
-      statePanel = mw->GetLayoutCapturePanel();
-      useEditorState = mw->IsLayout2DViewEditing() && statePanel;
     } else {
       capturePanel = Viewer2DPanel::Instance();
       statePanel = capturePanel;
