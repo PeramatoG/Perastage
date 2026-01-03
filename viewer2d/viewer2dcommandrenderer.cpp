@@ -123,9 +123,11 @@ void Viewer2DCommandRenderer::RenderInternal(const CommandBuffer &buffer,
 
   CanvasTransform currentTransform{};
   std::vector<CanvasTransform> stack;
+  std::vector<size_t> group;
+  std::string currentSource;
 
   auto strokeWidth = [&](float width) {
-    return width * mapping_.scale;
+    return width * currentTransform.scale * mapping_.scale;
   };
 
   auto mapPoint = [&](float x, float y) {
@@ -151,14 +153,14 @@ void Viewer2DCommandRenderer::RenderInternal(const CommandBuffer &buffer,
     RenderInternal(it->second.localCommands, combined);
   };
 
-  for (const auto &cmd : buffer.commands) {
+  auto drawStrokeCommand = [&](const CanvasCommand &cmd) {
     if (const auto *line = std::get_if<LineCommand>(&cmd)) {
       Viewer2DRenderPoint p0 = mapPoint(line->x0, line->y0);
       Viewer2DRenderPoint p1 = mapPoint(line->x1, line->y1);
       backend_.DrawLine(p0, p1, line->stroke, strokeWidth(line->stroke.width));
     } else if (const auto *polyline = std::get_if<PolylineCommand>(&cmd)) {
       if (polyline->points.size() < 4)
-        continue;
+        return;
       std::vector<Viewer2DRenderPoint> points;
       points.reserve(polyline->points.size() / 2);
       for (size_t i = 0; i + 1 < polyline->points.size(); i += 2) {
@@ -169,14 +171,13 @@ void Viewer2DCommandRenderer::RenderInternal(const CommandBuffer &buffer,
                             strokeWidth(polyline->stroke.width));
     } else if (const auto *poly = std::get_if<PolygonCommand>(&cmd)) {
       if (poly->points.size() < 6)
-        continue;
+        return;
       std::vector<Viewer2DRenderPoint> points;
       points.reserve(poly->points.size() / 2);
       for (size_t i = 0; i + 1 < poly->points.size(); i += 2) {
         points.push_back(mapPoint(poly->points[i], poly->points[i + 1]));
       }
-      const CanvasFill *fill = poly->hasFill ? &poly->fill : nullptr;
-      backend_.DrawPolygon(points, poly->stroke, fill,
+      backend_.DrawPolygon(points, poly->stroke, nullptr,
                            strokeWidth(poly->stroke.width));
     } else if (const auto *rect = std::get_if<RectangleCommand>(&cmd)) {
       std::vector<float> pts = {rect->x, rect->y, rect->x + rect->w, rect->y,
@@ -187,8 +188,7 @@ void Viewer2DCommandRenderer::RenderInternal(const CommandBuffer &buffer,
       for (size_t i = 0; i + 1 < pts.size(); i += 2) {
         points.push_back(mapPoint(pts[i], pts[i + 1]));
       }
-      const CanvasFill *fill = rect->hasFill ? &rect->fill : nullptr;
-      backend_.DrawPolygon(points, rect->stroke, fill,
+      backend_.DrawPolygon(points, rect->stroke, nullptr,
                            strokeWidth(rect->stroke.width));
     } else if (const auto *circle = std::get_if<CircleCommand>(&cmd)) {
       Viewer2DRenderPoint center = mapPoint(circle->cx, circle->cy);
@@ -199,9 +199,83 @@ void Viewer2DCommandRenderer::RenderInternal(const CommandBuffer &buffer,
       float scale = (sx + sy) * 0.5f;
       double radius = circle->radius * scale * currentTransform.scale *
                       mapping_.scale;
-      const CanvasFill *fill = circle->hasFill ? &circle->fill : nullptr;
-      backend_.DrawCircle(center, radius, circle->stroke, fill,
+      backend_.DrawCircle(center, radius, circle->stroke, nullptr,
                           strokeWidth(circle->stroke.width));
+    }
+  };
+
+  auto drawFillCommand = [&](const CanvasCommand &cmd) {
+    if (const auto *poly = std::get_if<PolygonCommand>(&cmd)) {
+      if (poly->points.size() < 6)
+        return;
+      std::vector<Viewer2DRenderPoint> points;
+      points.reserve(poly->points.size() / 2);
+      for (size_t i = 0; i + 1 < poly->points.size(); i += 2) {
+        points.push_back(mapPoint(poly->points[i], poly->points[i + 1]));
+      }
+      CanvasStroke stroke = poly->stroke;
+      stroke.width = 0.0f;
+      const CanvasFill *fill = poly->hasFill ? &poly->fill : nullptr;
+      backend_.DrawPolygon(points, stroke, fill, 0.0);
+    } else if (const auto *rect = std::get_if<RectangleCommand>(&cmd)) {
+      std::vector<float> pts = {rect->x, rect->y, rect->x + rect->w, rect->y,
+                                rect->x + rect->w, rect->y + rect->h, rect->x,
+                                rect->y + rect->h};
+      std::vector<Viewer2DRenderPoint> points;
+      points.reserve(pts.size() / 2);
+      for (size_t i = 0; i + 1 < pts.size(); i += 2) {
+        points.push_back(mapPoint(pts[i], pts[i + 1]));
+      }
+      CanvasStroke stroke = rect->stroke;
+      stroke.width = 0.0f;
+      const CanvasFill *fill = rect->hasFill ? &rect->fill : nullptr;
+      backend_.DrawPolygon(points, stroke, fill, 0.0);
+    } else if (const auto *circle = std::get_if<CircleCommand>(&cmd)) {
+      Viewer2DRenderPoint center = mapPoint(circle->cx, circle->cy);
+      float sx = std::sqrt(localTransform.a * localTransform.a +
+                           localTransform.b * localTransform.b);
+      float sy = std::sqrt(localTransform.c * localTransform.c +
+                           localTransform.d * localTransform.d);
+      float scale = (sx + sy) * 0.5f;
+      double radius = circle->radius * scale * currentTransform.scale *
+                      mapping_.scale;
+      CanvasStroke stroke = circle->stroke;
+      stroke.width = 0.0f;
+      const CanvasFill *fill = circle->hasFill ? &circle->fill : nullptr;
+      backend_.DrawCircle(center, radius, stroke, fill, 0.0);
+    }
+  };
+
+  auto flushGroup = [&]() {
+    if (group.empty())
+      return;
+    for (size_t idx : group) {
+      if (idx >= buffer.metadata.size())
+        continue;
+      if (buffer.metadata[idx].hasStroke)
+        drawStrokeCommand(buffer.commands[idx]);
+    }
+    for (size_t idx : group) {
+      if (idx >= buffer.metadata.size())
+        continue;
+      if (buffer.metadata[idx].hasFill)
+        drawFillCommand(buffer.commands[idx]);
+    }
+    group.clear();
+  };
+
+  auto handleBarrier = [&](const CanvasCommand &cmd) {
+    if (const auto *save = std::get_if<SaveCommand>(&cmd)) {
+      (void)save;
+      stack.push_back(currentTransform);
+    } else if (const auto *restore = std::get_if<RestoreCommand>(&cmd)) {
+      (void)restore;
+      if (!stack.empty()) {
+        currentTransform = stack.back();
+        stack.pop_back();
+      }
+    } else if (const auto *tf = std::get_if<TransformCommand>(&cmd)) {
+      currentTransform = tf->transform;
     } else if (const auto *text = std::get_if<TextCommand>(&cmd)) {
       Viewer2DRenderPoint anchor = mapPoint(text->x, text->y);
       double fontSize = text->style.fontSize * mapping_.scale;
@@ -216,22 +290,46 @@ void Viewer2DCommandRenderer::RenderInternal(const CommandBuffer &buffer,
       Viewer2DRenderText renderText{anchor, text->text, text->style,
                                     fontSize, lineHeight, outline};
       backend_.DrawText(renderText);
-    } else if (const auto *save = std::get_if<SaveCommand>(&cmd)) {
-      (void)save;
-      stack.push_back(currentTransform);
-    } else if (const auto *restore = std::get_if<RestoreCommand>(&cmd)) {
-      (void)restore;
-      if (!stack.empty()) {
-        currentTransform = stack.back();
-        stack.pop_back();
-      }
-    } else if (const auto *tf = std::get_if<TransformCommand>(&cmd)) {
-      currentTransform = tf->transform;
     } else if (const auto *instance =
                    std::get_if<SymbolInstanceCommand>(&cmd)) {
       drawSymbolInstance(instance->symbolId, instance->transform);
     }
+  };
+
+  for (size_t i = 0; i < buffer.commands.size(); ++i) {
+    const auto &cmd = buffer.commands[i];
+    bool isBarrier = std::visit(
+        [&](auto &&c) {
+          using T = std::decay_t<decltype(c)>;
+          return std::is_same_v<T, SaveCommand> ||
+                 std::is_same_v<T, RestoreCommand> ||
+                 std::is_same_v<T, TransformCommand> ||
+                 std::is_same_v<T, BeginSymbolCommand> ||
+                 std::is_same_v<T, EndSymbolCommand> ||
+                 std::is_same_v<T, PlaceSymbolCommand> ||
+                 std::is_same_v<T, SymbolInstanceCommand> ||
+                 std::is_same_v<T, TextCommand>;
+        },
+        cmd);
+
+    if (isBarrier) {
+      flushGroup();
+      handleBarrier(cmd);
+      continue;
+    }
+
+    if (group.empty())
+      currentSource = buffer.sources[i];
+
+    if (buffer.sources[i] != currentSource) {
+      flushGroup();
+      currentSource = buffer.sources[i];
+    }
+
+    group.push_back(i);
   }
+
+  flushGroup();
 }
 
 } // namespace viewer2d
