@@ -55,6 +55,9 @@ private:
   wxRect GetPageRect() const;
   bool GetFrameRect(const layouts::Layout2DViewFrame &frame,
                     wxRect &rect) const;
+  wxSize GetFrameSizeForZoom(const layouts::Layout2DViewFrame &frame,
+                             double targetZoom) const;
+  double GetRenderZoom() const;
   void UpdateFrame(const layouts::Layout2DViewFrame &frame,
                    bool updatePosition);
   void InitGL();
@@ -97,6 +100,7 @@ private:
   bool glInitialized_ = false;
   unsigned int cachedTexture_ = 0;
   wxSize cachedTextureSize{0, 0};
+  double cachedRenderZoom = 0.0;
   bool renderDirty = true;
   bool renderPending = false;
 

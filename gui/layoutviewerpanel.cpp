@@ -37,6 +37,7 @@ namespace {
 constexpr double kMinZoom = 0.1;
 constexpr double kMaxZoom = 10.0;
 constexpr double kZoomStep = 1.1;
+constexpr int kZoomCacheStepsPerLevel = 2;
 constexpr int kFitMarginPx = 40;
 constexpr int kHandleSizePx = 10;
 constexpr int kHandleHalfPx = kHandleSizePx / 2;
@@ -85,6 +86,7 @@ void LayoutViewerPanel::SetLayoutDefinition(
   hasCapture = false;
   hasRenderState = false;
   cachedTextureSize = wxSize(0, 0);
+  cachedRenderZoom = 0.0;
   ClearCachedTexture();
   renderDirty = true;
   ResetViewToFit();
@@ -237,13 +239,18 @@ void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
             captureInProgress = false;
             renderDirty = true;
             cachedTextureSize = wxSize(0, 0);
+            cachedRenderZoom = 0.0;
             RequestRenderRebuild();
             Refresh();
           });
     }
   }
 
-  if (cachedTexture_ != 0 && cachedTextureSize == frameRect.GetSize()) {
+  const wxSize renderSize =
+      GetFrameSizeForZoom(view->frame, cachedRenderZoom);
+  if (cachedTexture_ != 0 && renderSize.GetWidth() > 0 &&
+      renderSize.GetHeight() > 0 &&
+      cachedTextureSize == renderSize) {
     glEnable(GL_TEXTURE_2D);
     glBindTexture(GL_TEXTURE_2D, cachedTexture_);
     glColor4ub(255, 255, 255, 255);
@@ -544,6 +551,26 @@ bool LayoutViewerPanel::GetFrameRect(const layouts::Layout2DViewFrame &frame,
   return true;
 }
 
+wxSize LayoutViewerPanel::GetFrameSizeForZoom(
+    const layouts::Layout2DViewFrame &frame, double targetZoom) const {
+  if (frame.width <= 0 || frame.height <= 0 || targetZoom <= 0.0)
+    return wxSize(0, 0);
+  const int scaledWidth =
+      static_cast<int>(std::lround(frame.width * targetZoom));
+  const int scaledHeight =
+      static_cast<int>(std::lround(frame.height * targetZoom));
+  return wxSize(scaledWidth, scaledHeight);
+}
+
+double LayoutViewerPanel::GetRenderZoom() const {
+  if (zoom <= 0.0)
+    return 1.0;
+  const double logZoom = std::log(zoom) / std::log(kZoomStep);
+  const double bucket =
+      std::round(logZoom / kZoomCacheStepsPerLevel) * kZoomCacheStepsPerLevel;
+  return std::clamp(std::pow(kZoomStep, bucket), kMinZoom, kMaxZoom);
+}
+
 layouts::Layout2DViewDefinition *LayoutViewerPanel::GetEditableView() {
   if (!currentLayout.view2dViews.empty())
     return &currentLayout.view2dViews.front();
@@ -598,10 +625,10 @@ void LayoutViewerPanel::RebuildCachedTexture() {
   const layouts::Layout2DViewDefinition *view = GetEditableView();
   wxRect frameRect;
   if (!view || !hasCapture || !hasRenderState ||
-      !GetFrameRect(view->frame, frameRect) ||
-      frameRect.GetWidth() <= 0 || frameRect.GetHeight() <= 0) {
+      !GetFrameRect(view->frame, frameRect)) {
     ClearCachedTexture();
     cachedTextureSize = wxSize(0, 0);
+    cachedRenderZoom = 0.0;
     return;
   }
 
@@ -614,10 +641,20 @@ void LayoutViewerPanel::RebuildCachedTexture() {
   if (!capturePanel || !offscreenRenderer) {
     ClearCachedTexture();
     cachedTextureSize = wxSize(0, 0);
+    cachedRenderZoom = 0.0;
     return;
   }
 
-  offscreenRenderer->SetViewportSize(frameRect.GetSize());
+  const double renderZoom = GetRenderZoom();
+  const wxSize renderSize = GetFrameSizeForZoom(view->frame, renderZoom);
+  if (renderSize.GetWidth() <= 0 || renderSize.GetHeight() <= 0) {
+    ClearCachedTexture();
+    cachedTextureSize = wxSize(0, 0);
+    cachedRenderZoom = 0.0;
+    return;
+  }
+
+  offscreenRenderer->SetViewportSize(renderSize);
   offscreenRenderer->PrepareForCapture();
 
   ConfigManager &cfg = ConfigManager::Get();
@@ -631,6 +668,7 @@ void LayoutViewerPanel::RebuildCachedTexture() {
       height <= 0) {
     ClearCachedTexture();
     cachedTextureSize = wxSize(0, 0);
+    cachedRenderZoom = 0.0;
     return;
   }
 
@@ -648,6 +686,7 @@ void LayoutViewerPanel::RebuildCachedTexture() {
   glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA,
                GL_UNSIGNED_BYTE, pixels.data());
   cachedTextureSize = wxSize(width, height);
+  cachedRenderZoom = renderZoom;
 }
 
 void LayoutViewerPanel::ClearCachedTexture() {
@@ -677,12 +716,15 @@ void LayoutViewerPanel::InvalidateRenderIfFrameChanged() {
       renderDirty = true;
       ClearCachedTexture();
       cachedTextureSize = wxSize(0, 0);
+      cachedRenderZoom = 0.0;
     }
     return;
   }
 
-  const wxSize frameSize = frameRect.GetSize();
-  if (frameSize != cachedTextureSize)
+  const double renderZoom = GetRenderZoom();
+  const wxSize renderSize = GetFrameSizeForZoom(view->frame, renderZoom);
+  if (cachedRenderZoom == 0.0 || cachedRenderZoom != renderZoom ||
+      renderSize != cachedTextureSize)
     renderDirty = true;
 }
 
