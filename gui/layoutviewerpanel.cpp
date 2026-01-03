@@ -81,9 +81,8 @@ LayoutViewerPanel::~LayoutViewerPanel() {
 void LayoutViewerPanel::SetLayoutDefinition(
     const layouts::LayoutDefinition &layout) {
   currentLayout = layout;
-  selectedViewId = currentLayout.view2dViews.empty()
-                       ? -1
-                       : currentLayout.view2dViews.front().camera.view;
+  selectedViewId =
+      currentLayout.view2dViews.empty() ? -1 : currentLayout.view2dViews.front().id;
   layoutVersion++;
   captureInProgress = false;
   ClearCachedTexture();
@@ -145,7 +144,7 @@ void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
   glEnd();
 
   const layouts::Layout2DViewDefinition *activeView = GetEditableView();
-  int activeViewId = activeView ? activeView->camera.view : -1;
+  int activeViewId = activeView ? activeView->id : -1;
 
   Viewer2DPanel *capturePanel = nullptr;
   Viewer2DOffscreenRenderer *offscreenRenderer = nullptr;
@@ -158,12 +157,12 @@ void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
   }
 
   for (const auto &view : currentLayout.view2dViews) {
-    ViewCache &cache = GetViewCache(view.camera.view);
+    ViewCache &cache = GetViewCache(view.id);
     if (!captureInProgress && !cache.captureInProgress &&
         cache.captureVersion != layoutVersion && capturePanel) {
       captureInProgress = true;
       cache.captureInProgress = true;
-      const int viewId = view.camera.view;
+      const int viewId = view.id;
       const int fallbackViewportWidth = view.camera.viewportWidth > 0
                                             ? view.camera.viewportWidth
                                             : view.frame.width;
@@ -259,7 +258,7 @@ void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
       glEnd();
     }
 
-    if (view.camera.view == activeViewId) {
+    if (view.id == activeViewId) {
       glColor4ub(60, 160, 240, 255);
       glLineWidth(2.0f);
     } else {
@@ -277,7 +276,7 @@ void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
                static_cast<float>(frameRect.GetBottom()));
     glEnd();
 
-    if (view.camera.view != activeViewId)
+    if (view.id != activeViewId)
       continue;
 
     wxRect handleRight(frameRect.GetRight() - kHandleHalfPx,
@@ -480,22 +479,22 @@ void LayoutViewerPanel::OnDeleteView(wxCommandEvent &) {
   const layouts::Layout2DViewDefinition *view = GetEditableView();
   if (!view)
     return;
-  const int viewIndex = view->camera.view;
+  const int viewId = view->id;
   if (!currentLayout.name.empty()) {
     if (layouts::LayoutManager::Get().RemoveLayout2DView(currentLayout.name,
-                                                        viewIndex)) {
+                                                        viewId)) {
       auto &views = currentLayout.view2dViews;
       views.erase(std::remove_if(views.begin(), views.end(),
-                                 [viewIndex](const auto &entry) {
-                                   return entry.camera.view == viewIndex;
+                                 [viewId](const auto &entry) {
+                                   return entry.id == viewId;
                                  }),
                   views.end());
-      if (selectedViewId == viewIndex) {
-        selectedViewId = views.empty() ? -1 : views.front().camera.view;
+      if (selectedViewId == viewId) {
+        selectedViewId = views.empty() ? -1 : views.front().id;
       }
     }
   }
-  auto cacheIt = viewCaches_.find(viewIndex);
+  auto cacheIt = viewCaches_.find(viewId);
   if (cacheIt != viewCaches_.end()) {
     ClearCachedTexture(cacheIt->second);
     viewCaches_.erase(cacheIt);
@@ -573,11 +572,11 @@ layouts::Layout2DViewDefinition *LayoutViewerPanel::GetEditableView() {
     return nullptr;
   if (selectedViewId >= 0) {
     for (auto &view : currentLayout.view2dViews) {
-      if (view.camera.view == selectedViewId)
+      if (view.id == selectedViewId)
         return &view;
     }
   }
-  selectedViewId = currentLayout.view2dViews.front().camera.view;
+  selectedViewId = currentLayout.view2dViews.front().id;
   return &currentLayout.view2dViews.front();
 }
 
@@ -587,7 +586,7 @@ const layouts::Layout2DViewDefinition *LayoutViewerPanel::GetEditableView()
     return nullptr;
   if (selectedViewId >= 0) {
     for (const auto &view : currentLayout.view2dViews) {
-      if (view.camera.view == selectedViewId)
+      if (view.id == selectedViewId)
         return &view;
     }
   }
@@ -661,7 +660,7 @@ void LayoutViewerPanel::RebuildCachedTexture() {
 
   const double renderZoom = GetRenderZoom();
   for (const auto &view : currentLayout.view2dViews) {
-    ViewCache &cache = GetViewCache(view.camera.view);
+    ViewCache &cache = GetViewCache(view.id);
     if (!cache.renderDirty)
       continue;
     cache.renderDirty = false;
@@ -758,7 +757,7 @@ void LayoutViewerPanel::RequestRenderRebuild() {
 void LayoutViewerPanel::InvalidateRenderIfFrameChanged() {
   const double renderZoom = GetRenderZoom();
   for (const auto &view : currentLayout.view2dViews) {
-    ViewCache &cache = GetViewCache(view.camera.view);
+    ViewCache &cache = GetViewCache(view.id);
     wxRect frameRect;
     if (!GetFrameRect(view.frame, frameRect)) {
       if (cache.texture != 0) {
@@ -784,9 +783,9 @@ bool LayoutViewerPanel::SelectViewAtPosition(const wxPoint &pos) {
   if (viewIndex < 0)
     return false;
   const auto &view = currentLayout.view2dViews[viewIndex];
-  if (selectedViewId == view.camera.view)
+  if (selectedViewId == view.id)
     return true;
-  selectedViewId = view.camera.view;
+  selectedViewId = view.id;
   RequestRenderRebuild();
   Refresh();
   return true;
