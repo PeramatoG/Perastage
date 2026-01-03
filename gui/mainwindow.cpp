@@ -1846,6 +1846,8 @@ bool MainWindow::LoadProjectFromPath(const std::string &path) {
   ProjectUtils::SaveLastProjectPath(currentProjectPath);
 
   ApplySavedLayout();
+  if (layoutPanel)
+    layoutPanel->ReloadLayouts();
 
   if (consolePanel)
     consolePanel->AppendMessage("Loaded " + wxString::FromUTF8(path));
@@ -1889,6 +1891,8 @@ void MainWindow::ResetProject() {
   ConfigManager::Get().Reset();
   ConfigManager::Get().MarkSaved();
   currentProjectPath.clear();
+  if (layoutPanel)
+    layoutPanel->ReloadLayouts();
   if (fixturePanel)
     fixturePanel->ReloadData();
   if (trussPanel)
