@@ -85,11 +85,7 @@ void LayoutViewerPanel::SetLayoutDefinition(
                        ? -1
                        : currentLayout.view2dViews.front().camera.view;
   layoutVersion++;
-  captureVersion = -1;
-  hasCapture = false;
-  hasRenderState = false;
-  cachedTextureSize = wxSize(0, 0);
-  cachedRenderZoom = 0.0;
+  captureInProgress = false;
   ClearCachedTexture();
   renderDirty = true;
   ResetViewToFit();
@@ -150,90 +146,36 @@ void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
 
   const layouts::Layout2DViewDefinition *activeView = GetEditableView();
   int activeViewId = activeView ? activeView->camera.view : -1;
-  for (const auto &view : currentLayout.view2dViews) {
-    if (view.camera.view == activeViewId)
-      continue;
-    wxRect rect;
-    if (!GetFrameRect(view.frame, rect))
-      continue;
-    glColor4ub(160, 160, 160, 255);
-    glLineWidth(1.0f);
-    glBegin(GL_LINE_LOOP);
-    glVertex2f(static_cast<float>(rect.GetLeft()),
-               static_cast<float>(rect.GetTop()));
-    glVertex2f(static_cast<float>(rect.GetRight()),
-               static_cast<float>(rect.GetTop()));
-    glVertex2f(static_cast<float>(rect.GetRight()),
-               static_cast<float>(rect.GetBottom()));
-    glVertex2f(static_cast<float>(rect.GetLeft()),
-               static_cast<float>(rect.GetBottom()));
-    glEnd();
-  }
 
-  if (!activeView) {
-    glFlush();
-    SwapBuffers();
-    return;
-  }
-
-  wxRect frameRect;
-  if (!GetFrameRect(activeView->frame, frameRect)) {
-    glFlush();
-    SwapBuffers();
-    return;
-  }
-  const int frameRight = frameRect.GetLeft() + frameRect.GetWidth();
-  const int frameBottom = frameRect.GetTop() + frameRect.GetHeight();
-
-  Viewer2DPanel *statePanel = nullptr;
-  bool useEditorState = false;
+  Viewer2DPanel *capturePanel = nullptr;
+  Viewer2DOffscreenRenderer *offscreenRenderer = nullptr;
   if (auto *mw = MainWindow::Instance()) {
-    statePanel = mw->GetLayoutCapturePanel();
-    useEditorState = mw->IsLayout2DViewEditing() && statePanel;
+    offscreenRenderer = mw->GetOffscreenRenderer();
+    capturePanel =
+        offscreenRenderer ? offscreenRenderer->GetPanel() : nullptr;
+  } else {
+    capturePanel = Viewer2DPanel::Instance();
   }
 
-  if (useEditorState && statePanel) {
-    const auto editorState = statePanel->GetViewState();
-    const double epsilon = 1e-4;
-    bool viewChanged =
-        !hasCapture || editorState.view != cachedViewState.view ||
-        std::abs(editorState.zoom - cachedViewState.zoom) > epsilon ||
-        std::abs(editorState.offsetPixelsX - cachedViewState.offsetPixelsX) >
-            epsilon ||
-        std::abs(editorState.offsetPixelsY - cachedViewState.offsetPixelsY) >
-            epsilon;
-    if (viewChanged)
-      captureVersion = -1;
-  }
-
-  if (!captureInProgress && captureVersion != layoutVersion) {
-    Viewer2DPanel *capturePanel = nullptr;
-    Viewer2DOffscreenRenderer *offscreenRenderer = nullptr;
-    if (auto *mw = MainWindow::Instance()) {
-      offscreenRenderer = mw->GetOffscreenRenderer();
-      capturePanel =
-          offscreenRenderer ? offscreenRenderer->GetPanel() : nullptr;
-    } else {
-      capturePanel = Viewer2DPanel::Instance();
-      statePanel = capturePanel;
-    }
-    if (capturePanel) {
+  for (const auto &view : currentLayout.view2dViews) {
+    ViewCache &cache = GetViewCache(view.camera.view);
+    if (!captureInProgress && !cache.captureInProgress &&
+        cache.captureVersion != layoutVersion && capturePanel) {
       captureInProgress = true;
-      const int fallbackViewportWidth =
-          activeView->camera.viewportWidth > 0
-              ? activeView->camera.viewportWidth
-              : activeView->frame.width;
-      const int fallbackViewportHeight =
-          activeView->camera.viewportHeight > 0
-              ? activeView->camera.viewportHeight
-              : activeView->frame.height;
+      cache.captureInProgress = true;
+      const int viewId = view.camera.view;
+      const int fallbackViewportWidth = view.camera.viewportWidth > 0
+                                            ? view.camera.viewportWidth
+                                            : view.frame.width;
+      const int fallbackViewportHeight = view.camera.viewportHeight > 0
+                                             ? view.camera.viewportHeight
+                                             : view.frame.height;
       ConfigManager &cfg = ConfigManager::Get();
       viewer2d::Viewer2DState layoutState =
-          useEditorState ? viewer2d::CaptureState(statePanel, cfg)
-                         : viewer2d::FromLayoutDefinition(*activeView);
+          viewer2d::FromLayoutDefinition(view);
       layoutState.renderOptions.darkMode = false;
-      cachedRenderState = layoutState;
-      hasRenderState = true;
+      cache.renderState = layoutState;
+      cache.hasRenderState = true;
       if (offscreenRenderer && fallbackViewportWidth > 0 &&
           fallbackViewportHeight > 0) {
         offscreenRenderer->SetViewportSize(
@@ -243,113 +185,130 @@ void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
       auto stateGuard = std::make_shared<viewer2d::ScopedViewer2DState>(
           capturePanel, nullptr, cfg, layoutState);
       capturePanel->CaptureFrameNow(
-          [this, stateGuard, fallbackViewportWidth, fallbackViewportHeight,
-           capturePanel](
+          [this, viewId, stateGuard, fallbackViewportWidth,
+           fallbackViewportHeight, capturePanel](
               CommandBuffer buffer, Viewer2DViewState state) {
-            cachedBuffer = std::move(buffer);
-            cachedViewState = state;
-            if (cachedViewState.viewportWidth <= 0 &&
+            ViewCache &cache = GetViewCache(viewId);
+            cache.buffer = std::move(buffer);
+            cache.viewState = state;
+            if (cache.viewState.viewportWidth <= 0 &&
                 fallbackViewportWidth > 0) {
-              cachedViewState.viewportWidth = fallbackViewportWidth;
+              cache.viewState.viewportWidth = fallbackViewportWidth;
             }
-            if (cachedViewState.viewportHeight <= 0 &&
+            if (cache.viewState.viewportHeight <= 0 &&
                 fallbackViewportHeight > 0) {
-              cachedViewState.viewportHeight = fallbackViewportHeight;
+              cache.viewState.viewportHeight = fallbackViewportHeight;
             }
-            cachedSymbols.reset();
+            cache.symbols.reset();
             if (capturePanel) {
-              cachedSymbols = capturePanel->GetBottomSymbolCacheSnapshot();
+              cache.symbols =
+                  capturePanel->GetBottomSymbolCacheSnapshot();
             }
-            hasCapture = !cachedBuffer.commands.empty();
-            captureVersion = layoutVersion;
+            cache.hasCapture = !cache.buffer.commands.empty();
+            cache.captureVersion = layoutVersion;
+            cache.captureInProgress = false;
             captureInProgress = false;
+            cache.renderDirty = true;
             renderDirty = true;
-            cachedTextureSize = wxSize(0, 0);
-            cachedRenderZoom = 0.0;
+            cache.textureSize = wxSize(0, 0);
+            cache.renderZoom = 0.0;
             RequestRenderRebuild();
             Refresh();
           });
     }
-  }
 
-  const wxSize renderSize =
-      GetFrameSizeForZoom(activeView->frame, cachedRenderZoom);
-  if (cachedTexture_ != 0 && renderSize.GetWidth() > 0 &&
-      renderSize.GetHeight() > 0 &&
-      cachedTextureSize == renderSize) {
-    glEnable(GL_TEXTURE_2D);
-    glBindTexture(GL_TEXTURE_2D, cachedTexture_);
-    glColor4ub(255, 255, 255, 255);
-    glBegin(GL_QUADS);
-    glTexCoord2f(0.0f, 1.0f);
+    wxRect frameRect;
+    if (!GetFrameRect(view.frame, frameRect))
+      continue;
+    const int frameRight = frameRect.GetLeft() + frameRect.GetWidth();
+    const int frameBottom = frameRect.GetTop() + frameRect.GetHeight();
+
+    const wxSize renderSize =
+        GetFrameSizeForZoom(view.frame, cache.renderZoom);
+    if (cache.texture != 0 && renderSize.GetWidth() > 0 &&
+        renderSize.GetHeight() > 0 && cache.textureSize == renderSize) {
+      glEnable(GL_TEXTURE_2D);
+      glBindTexture(GL_TEXTURE_2D, cache.texture);
+      glColor4ub(255, 255, 255, 255);
+      glBegin(GL_QUADS);
+      glTexCoord2f(0.0f, 1.0f);
+      glVertex2f(static_cast<float>(frameRect.GetLeft()),
+                 static_cast<float>(frameRect.GetTop()));
+      glTexCoord2f(1.0f, 1.0f);
+      glVertex2f(static_cast<float>(frameRight),
+                 static_cast<float>(frameRect.GetTop()));
+      glTexCoord2f(1.0f, 0.0f);
+      glVertex2f(static_cast<float>(frameRight),
+                 static_cast<float>(frameBottom));
+      glTexCoord2f(0.0f, 0.0f);
+      glVertex2f(static_cast<float>(frameRect.GetLeft()),
+                 static_cast<float>(frameRect.GetBottom()));
+      glEnd();
+      glDisable(GL_TEXTURE_2D);
+    } else {
+      glColor4ub(240, 240, 240, 255);
+      glBegin(GL_QUADS);
+      glVertex2f(static_cast<float>(frameRect.GetLeft()),
+                 static_cast<float>(frameRect.GetTop()));
+      glVertex2f(static_cast<float>(frameRect.GetRight()),
+                 static_cast<float>(frameRect.GetTop()));
+      glVertex2f(static_cast<float>(frameRight),
+                 static_cast<float>(frameBottom));
+      glVertex2f(static_cast<float>(frameRect.GetLeft()),
+                 static_cast<float>(frameRect.GetBottom()));
+      glEnd();
+    }
+
+    if (view.camera.view == activeViewId) {
+      glColor4ub(60, 160, 240, 255);
+      glLineWidth(2.0f);
+    } else {
+      glColor4ub(160, 160, 160, 255);
+      glLineWidth(1.0f);
+    }
+    glBegin(GL_LINE_LOOP);
     glVertex2f(static_cast<float>(frameRect.GetLeft()),
                static_cast<float>(frameRect.GetTop()));
-    glTexCoord2f(1.0f, 1.0f);
     glVertex2f(static_cast<float>(frameRight),
                static_cast<float>(frameRect.GetTop()));
-    glTexCoord2f(1.0f, 0.0f);
     glVertex2f(static_cast<float>(frameRight),
                static_cast<float>(frameBottom));
-    glTexCoord2f(0.0f, 0.0f);
     glVertex2f(static_cast<float>(frameRect.GetLeft()),
                static_cast<float>(frameRect.GetBottom()));
     glEnd();
-    glDisable(GL_TEXTURE_2D);
-  } else {
-    glColor4ub(240, 240, 240, 255);
-    glBegin(GL_QUADS);
-    glVertex2f(static_cast<float>(frameRect.GetLeft()),
-               static_cast<float>(frameRect.GetTop()));
-    glVertex2f(static_cast<float>(frameRect.GetRight()),
-               static_cast<float>(frameRect.GetTop()));
-    glVertex2f(static_cast<float>(frameRight),
-               static_cast<float>(frameBottom));
-    glVertex2f(static_cast<float>(frameRect.GetLeft()),
-               static_cast<float>(frameRect.GetBottom()));
-    glEnd();
+
+    if (view.camera.view != activeViewId)
+      continue;
+
+    wxRect handleRight(frameRect.GetRight() - kHandleHalfPx,
+                       frameRect.GetTop() + frameRect.GetHeight() / 2 -
+                           kHandleHalfPx,
+                       kHandleSizePx, kHandleSizePx);
+    wxRect handleBottom(frameRect.GetLeft() + frameRect.GetWidth() / 2 -
+                            kHandleHalfPx,
+                        frameRect.GetBottom() - kHandleHalfPx,
+                        kHandleSizePx, kHandleSizePx);
+    wxRect handleCorner(frameRect.GetRight() - kHandleHalfPx,
+                        frameRect.GetBottom() - kHandleHalfPx,
+                        kHandleSizePx, kHandleSizePx);
+
+    glColor4ub(60, 160, 240, 255);
+    auto drawHandle = [](const wxRect &rect) {
+      glBegin(GL_QUADS);
+      glVertex2f(static_cast<float>(rect.GetLeft()),
+                 static_cast<float>(rect.GetTop()));
+      glVertex2f(static_cast<float>(rect.GetRight()),
+                 static_cast<float>(rect.GetTop()));
+      glVertex2f(static_cast<float>(rect.GetRight()),
+                 static_cast<float>(rect.GetBottom()));
+      glVertex2f(static_cast<float>(rect.GetLeft()),
+                 static_cast<float>(rect.GetBottom()));
+      glEnd();
+    };
+    drawHandle(handleRight);
+    drawHandle(handleBottom);
+    drawHandle(handleCorner);
   }
-
-  glColor4ub(60, 160, 240, 255);
-  glLineWidth(2.0f);
-  glBegin(GL_LINE_LOOP);
-  glVertex2f(static_cast<float>(frameRect.GetLeft()),
-             static_cast<float>(frameRect.GetTop()));
-  glVertex2f(static_cast<float>(frameRight),
-             static_cast<float>(frameRect.GetTop()));
-  glVertex2f(static_cast<float>(frameRight),
-             static_cast<float>(frameBottom));
-  glVertex2f(static_cast<float>(frameRect.GetLeft()),
-             static_cast<float>(frameRect.GetBottom()));
-  glEnd();
-
-  wxRect handleRight(frameRect.GetRight() - kHandleHalfPx,
-                     frameRect.GetTop() + frameRect.GetHeight() / 2 -
-                         kHandleHalfPx,
-                     kHandleSizePx, kHandleSizePx);
-  wxRect handleBottom(frameRect.GetLeft() + frameRect.GetWidth() / 2 -
-                          kHandleHalfPx,
-                      frameRect.GetBottom() - kHandleHalfPx, kHandleSizePx,
-                      kHandleSizePx);
-  wxRect handleCorner(frameRect.GetRight() - kHandleHalfPx,
-                      frameRect.GetBottom() - kHandleHalfPx, kHandleSizePx,
-                      kHandleSizePx);
-
-  glColor4ub(60, 160, 240, 255);
-  auto drawHandle = [](const wxRect &rect) {
-    glBegin(GL_QUADS);
-    glVertex2f(static_cast<float>(rect.GetLeft()),
-               static_cast<float>(rect.GetTop()));
-    glVertex2f(static_cast<float>(rect.GetRight()),
-               static_cast<float>(rect.GetTop()));
-    glVertex2f(static_cast<float>(rect.GetRight()),
-               static_cast<float>(rect.GetBottom()));
-    glVertex2f(static_cast<float>(rect.GetLeft()),
-               static_cast<float>(rect.GetBottom()));
-    glEnd();
-  };
-  drawHandle(handleRight);
-  drawHandle(handleBottom);
-  drawHandle(handleCorner);
 
   glFlush();
   SwapBuffers();
@@ -536,6 +495,11 @@ void LayoutViewerPanel::OnDeleteView(wxCommandEvent &) {
       }
     }
   }
+  auto cacheIt = viewCaches_.find(viewIndex);
+  if (cacheIt != viewCaches_.end()) {
+    ClearCachedTexture(cacheIt->second);
+    viewCaches_.erase(cacheIt);
+  }
   Refresh();
 }
 
@@ -684,16 +648,6 @@ void LayoutViewerPanel::RebuildCachedTexture() {
 
   renderDirty = false;
 
-  const layouts::Layout2DViewDefinition *view = GetEditableView();
-  wxRect frameRect;
-  if (!view || !hasCapture || !hasRenderState ||
-      !GetFrameRect(view->frame, frameRect)) {
-    ClearCachedTexture();
-    cachedTextureSize = wxSize(0, 0);
-    cachedRenderZoom = 0.0;
-    return;
-  }
-
   Viewer2DOffscreenRenderer *offscreenRenderer = nullptr;
   Viewer2DPanel *capturePanel = nullptr;
   if (auto *mw = MainWindow::Instance()) {
@@ -702,72 +656,92 @@ void LayoutViewerPanel::RebuildCachedTexture() {
   }
   if (!capturePanel || !offscreenRenderer) {
     ClearCachedTexture();
-    cachedTextureSize = wxSize(0, 0);
-    cachedRenderZoom = 0.0;
     return;
   }
 
   const double renderZoom = GetRenderZoom();
-  const wxSize renderSize = GetFrameSizeForZoom(view->frame, renderZoom);
-  if (renderSize.GetWidth() <= 0 || renderSize.GetHeight() <= 0) {
-    ClearCachedTexture();
-    cachedTextureSize = wxSize(0, 0);
-    cachedRenderZoom = 0.0;
-    return;
+  for (const auto &view : currentLayout.view2dViews) {
+    ViewCache &cache = GetViewCache(view.camera.view);
+    if (!cache.renderDirty)
+      continue;
+    cache.renderDirty = false;
+    wxRect frameRect;
+    if (!cache.hasCapture || !cache.hasRenderState ||
+        !GetFrameRect(view.frame, frameRect)) {
+      ClearCachedTexture(cache);
+      cache.textureSize = wxSize(0, 0);
+      cache.renderZoom = 0.0;
+      continue;
+    }
+
+    const wxSize renderSize = GetFrameSizeForZoom(view.frame, renderZoom);
+    if (renderSize.GetWidth() <= 0 || renderSize.GetHeight() <= 0) {
+      ClearCachedTexture(cache);
+      cache.textureSize = wxSize(0, 0);
+      cache.renderZoom = 0.0;
+      continue;
+    }
+
+    offscreenRenderer->SetViewportSize(renderSize);
+    offscreenRenderer->PrepareForCapture();
+
+    ConfigManager &cfg = ConfigManager::Get();
+    viewer2d::Viewer2DState renderState = cache.renderState;
+    if (renderZoom != 1.0) {
+      renderState.camera.zoom *= static_cast<float>(renderZoom);
+    }
+    renderState.camera.viewportWidth = renderSize.GetWidth();
+    renderState.camera.viewportHeight = renderSize.GetHeight();
+
+    auto stateGuard = std::make_shared<viewer2d::ScopedViewer2DState>(
+        capturePanel, nullptr, cfg, renderState);
+
+    std::vector<unsigned char> pixels;
+    int width = 0;
+    int height = 0;
+    if (!capturePanel->RenderToRGBA(pixels, width, height) || width <= 0 ||
+        height <= 0) {
+      ClearCachedTexture(cache);
+      cache.textureSize = wxSize(0, 0);
+      cache.renderZoom = 0.0;
+      continue;
+    }
+
+    InitGL();
+    SetCurrent(*glContext_);
+    if (cache.texture == 0) {
+      glGenTextures(1, &cache.texture);
+    }
+    glBindTexture(GL_TEXTURE_2D, cache.texture);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA,
+                 GL_UNSIGNED_BYTE, pixels.data());
+    cache.textureSize = wxSize(width, height);
+    cache.renderZoom = renderZoom;
   }
-
-  offscreenRenderer->SetViewportSize(renderSize);
-  offscreenRenderer->PrepareForCapture();
-
-  ConfigManager &cfg = ConfigManager::Get();
-  viewer2d::Viewer2DState renderState = cachedRenderState;
-  if (renderZoom != 1.0) {
-    renderState.camera.zoom *= static_cast<float>(renderZoom);
-  }
-  renderState.camera.viewportWidth = renderSize.GetWidth();
-  renderState.camera.viewportHeight = renderSize.GetHeight();
-
-  auto stateGuard = std::make_shared<viewer2d::ScopedViewer2DState>(
-      capturePanel, nullptr, cfg, renderState);
-
-  std::vector<unsigned char> pixels;
-  int width = 0;
-  int height = 0;
-  if (!capturePanel->RenderToRGBA(pixels, width, height) || width <= 0 ||
-      height <= 0) {
-    ClearCachedTexture();
-    cachedTextureSize = wxSize(0, 0);
-    cachedRenderZoom = 0.0;
-    return;
-  }
-
-  InitGL();
-  SetCurrent(*glContext_);
-  if (cachedTexture_ == 0) {
-    glGenTextures(1, &cachedTexture_);
-  }
-  glBindTexture(GL_TEXTURE_2D, cachedTexture_);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-  glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA,
-               GL_UNSIGNED_BYTE, pixels.data());
-  cachedTextureSize = wxSize(width, height);
-  cachedRenderZoom = renderZoom;
 }
 
 void LayoutViewerPanel::ClearCachedTexture() {
-  if (cachedTexture_ == 0 || !glContext_)
+  for (auto &entry : viewCaches_) {
+    ClearCachedTexture(entry.second);
+  }
+  viewCaches_.clear();
+}
+
+void LayoutViewerPanel::ClearCachedTexture(ViewCache &cache) {
+  if (cache.texture == 0 || !glContext_)
     return;
   if (!IsShown()) {
-    cachedTexture_ = 0;
+    cache.texture = 0;
     return;
   }
   SetCurrent(*glContext_);
-  glDeleteTextures(1, &cachedTexture_);
-  cachedTexture_ = 0;
+  glDeleteTextures(1, &cache.texture);
+  cache.texture = 0;
 }
 
 void LayoutViewerPanel::RequestRenderRebuild() {
@@ -782,23 +756,27 @@ void LayoutViewerPanel::RequestRenderRebuild() {
 }
 
 void LayoutViewerPanel::InvalidateRenderIfFrameChanged() {
-  const layouts::Layout2DViewDefinition *view = GetEditableView();
-  wxRect frameRect;
-  if (!view || !GetFrameRect(view->frame, frameRect)) {
-    if (cachedTexture_ != 0) {
-      renderDirty = true;
-      ClearCachedTexture();
-      cachedTextureSize = wxSize(0, 0);
-      cachedRenderZoom = 0.0;
-    }
-    return;
-  }
-
   const double renderZoom = GetRenderZoom();
-  const wxSize renderSize = GetFrameSizeForZoom(view->frame, renderZoom);
-  if (cachedRenderZoom == 0.0 || cachedRenderZoom != renderZoom ||
-      renderSize != cachedTextureSize)
-    renderDirty = true;
+  for (const auto &view : currentLayout.view2dViews) {
+    ViewCache &cache = GetViewCache(view.camera.view);
+    wxRect frameRect;
+    if (!GetFrameRect(view.frame, frameRect)) {
+      if (cache.texture != 0) {
+        cache.renderDirty = true;
+        renderDirty = true;
+        ClearCachedTexture(cache);
+        cache.textureSize = wxSize(0, 0);
+        cache.renderZoom = 0.0;
+      }
+      continue;
+    }
+    const wxSize renderSize = GetFrameSizeForZoom(view.frame, renderZoom);
+    if (cache.renderZoom == 0.0 || cache.renderZoom != renderZoom ||
+        renderSize != cache.textureSize) {
+      cache.renderDirty = true;
+      renderDirty = true;
+    }
+  }
 }
 
 bool LayoutViewerPanel::SelectViewAtPosition(const wxPoint &pos) {
@@ -809,11 +787,6 @@ bool LayoutViewerPanel::SelectViewAtPosition(const wxPoint &pos) {
   if (selectedViewId == view.camera.view)
     return true;
   selectedViewId = view.camera.view;
-  captureVersion = -1;
-  hasCapture = false;
-  renderDirty = true;
-  cachedTextureSize = wxSize(0, 0);
-  cachedRenderZoom = 0.0;
   RequestRenderRebuild();
   Refresh();
   return true;
@@ -885,4 +858,12 @@ void LayoutViewerPanel::EmitEditViewRequest() {
   wxCommandEvent event(EVT_LAYOUT_VIEW_EDIT);
   event.SetEventObject(this);
   ProcessWindowEvent(event);
+}
+
+LayoutViewerPanel::ViewCache &LayoutViewerPanel::GetViewCache(int viewId) {
+  auto [it, inserted] = viewCaches_.try_emplace(viewId, ViewCache{});
+  if (inserted) {
+    renderDirty = true;
+  }
+  return it->second;
 }

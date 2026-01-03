@@ -19,6 +19,7 @@
 
 #include <memory>
 #include <optional>
+#include <unordered_map>
 #include <wx/glcanvas.h>
 #include <wx/wx.h>
 #include "layouts/LayoutCollection.h"
@@ -39,6 +40,21 @@ public:
   const layouts::Layout2DViewDefinition *GetEditableView() const;
 
 private:
+  struct ViewCache {
+    int captureVersion = -1;
+    bool captureInProgress = false;
+    bool hasCapture = false;
+    CommandBuffer buffer;
+    Viewer2DViewState viewState;
+    viewer2d::Viewer2DState renderState;
+    bool hasRenderState = false;
+    std::shared_ptr<const SymbolDefinitionSnapshot> symbols;
+    unsigned int texture = 0;
+    wxSize textureSize{0, 0};
+    double renderZoom = 0.0;
+    bool renderDirty = true;
+  };
+
   void OnPaint(wxPaintEvent &event);
   void OnSize(wxSizeEvent &event);
   void OnLeftDown(wxMouseEvent &event);
@@ -63,11 +79,13 @@ private:
   void InitGL();
   void RebuildCachedTexture();
   void ClearCachedTexture();
+  void ClearCachedTexture(ViewCache &cache);
   void RequestRenderRebuild();
   void InvalidateRenderIfFrameChanged();
   void EmitEditViewRequest();
   bool SelectViewAtPosition(const wxPoint &pos);
   int GetViewIndexAtPosition(const wxPoint &pos) const;
+  ViewCache &GetViewCache(int viewId);
 
   enum class FrameDragMode {
     None,
@@ -90,22 +108,13 @@ private:
   wxPoint dragStartPos{0, 0};
   layouts::Layout2DViewFrame dragStartFrame;
   int layoutVersion = 0;
-  int captureVersion = -1;
   bool captureInProgress = false;
-  bool hasCapture = false;
   int selectedViewId = -1;
-  CommandBuffer cachedBuffer;
-  Viewer2DViewState cachedViewState;
-  viewer2d::Viewer2DState cachedRenderState;
-  bool hasRenderState = false;
-  std::shared_ptr<const SymbolDefinitionSnapshot> cachedSymbols;
   wxGLContext *glContext_ = nullptr;
   bool glInitialized_ = false;
-  unsigned int cachedTexture_ = 0;
-  wxSize cachedTextureSize{0, 0};
-  double cachedRenderZoom = 0.0;
   bool renderDirty = true;
   bool renderPending = false;
+  std::unordered_map<int, ViewCache> viewCaches_;
 
   wxDECLARE_EVENT_TABLE();
 };
