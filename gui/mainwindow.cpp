@@ -2203,6 +2203,15 @@ void MainWindow::OnLayout2DViewOk(wxCommandEvent &WXUNUSED(event)) {
       frame = view->frame;
   }
 
+  // Ensure the stored viewport matches the layout frame size, not the popup.
+  if (frame.width > 0 || frame.height > 0) {
+    current.camera.viewportWidth = frame.width;
+    current.camera.viewportHeight = frame.height;
+  } else {
+    current.camera.viewportWidth = 0;
+    current.camera.viewportHeight = 0;
+  }
+
   layouts::Layout2DViewDefinition updatedView =
       viewer2d::ToLayoutDefinition(current, frame);
   layouts::LayoutManager::Get().UpdateLayout2DView(activeLayoutName,
