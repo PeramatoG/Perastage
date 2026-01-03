@@ -563,7 +563,7 @@ wxSize LayoutViewerPanel::GetFrameSizeForZoom(
 }
 
 double LayoutViewerPanel::GetRenderZoom() const {
-  return 1.0;
+  return zoom;
 }
 
 layouts::Layout2DViewDefinition *LayoutViewerPanel::GetEditableView() {
@@ -653,8 +653,17 @@ void LayoutViewerPanel::RebuildCachedTexture() {
   offscreenRenderer->PrepareForCapture();
 
   ConfigManager &cfg = ConfigManager::Get();
+  viewer2d::Viewer2DState renderState = cachedRenderState;
+  if (renderZoom != 1.0) {
+    renderState.camera.zoom *= static_cast<float>(renderZoom);
+    renderState.camera.offsetPixelsX *= static_cast<float>(renderZoom);
+    renderState.camera.offsetPixelsY *= static_cast<float>(renderZoom);
+  }
+  renderState.camera.viewportWidth = renderSize.GetWidth();
+  renderState.camera.viewportHeight = renderSize.GetHeight();
+
   auto stateGuard = std::make_shared<viewer2d::ScopedViewer2DState>(
-      capturePanel, nullptr, cfg, cachedRenderState);
+      capturePanel, nullptr, cfg, renderState);
 
   std::vector<unsigned char> pixels;
   int width = 0;
