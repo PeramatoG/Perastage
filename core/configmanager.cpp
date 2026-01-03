@@ -577,6 +577,8 @@ bool ConfigManager::SaveProject(const std::string &path) {
   if (!tempDir.Valid())
     return false;
 
+  layouts::LayoutManager::Get().SaveToConfig(*this);
+
   fs::path configPath = tempDir.Path() / "config.json";
   fs::path scenePath = tempDir.Path() / "scene.mvr";
 
