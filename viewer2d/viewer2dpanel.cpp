@@ -276,6 +276,7 @@ void Viewer2DPanel::SetLayoutEditOverlay(std::optional<float> aspectRatio,
   if (viewportSize && viewportSize->GetWidth() > 0 &&
       viewportSize->GetHeight() > 0) {
     m_layoutEditViewportSize = viewportSize;
+    m_layoutEditBaseSize = viewportSize;
   }
   m_layoutEditScale = 1.0f;
   Refresh();
@@ -367,16 +368,29 @@ void Viewer2DPanel::InitGL() {
 void Viewer2DPanel::Render() { RenderInternal(true); }
 
 void Viewer2DPanel::RenderInternal(bool swapBuffers) {
-  int w, h;
-  GetClientSize(&w, &h);
+  int clientW = 0;
+  int clientH = 0;
+  GetClientSize(&clientW, &clientH);
 
-  glViewport(0, 0, w, h);
+  int renderW = clientW;
+  int renderH = clientH;
+  int viewportX = 0;
+  int viewportY = 0;
+  if (m_layoutEditViewportSize && m_layoutEditViewportSize->GetWidth() > 0 &&
+      m_layoutEditViewportSize->GetHeight() > 0) {
+    renderW = m_layoutEditViewportSize->GetWidth();
+    renderH = m_layoutEditViewportSize->GetHeight();
+    viewportX = std::max(0, (clientW - renderW) / 2);
+    viewportY = std::max(0, (clientH - renderH) / 2);
+  }
+
+  glViewport(viewportX, viewportY, renderW, renderH);
 
   glMatrixMode(GL_PROJECTION);
   glLoadIdentity();
   float ppm = PIXELS_PER_METER * m_zoom;
-  float halfW = static_cast<float>(w) / ppm * 0.5f;
-  float halfH = static_cast<float>(h) / ppm * 0.5f;
+  float halfW = static_cast<float>(renderW) / ppm * 0.5f;
+  float halfH = static_cast<float>(renderH) / ppm * 0.5f;
   float offX = m_offsetX / PIXELS_PER_METER;
   float offY = m_offsetY / PIXELS_PER_METER;
   glOrtho(-halfW - offX, halfW - offX, -halfH - offY, halfH - offY, -100.0f,
@@ -441,15 +455,15 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
   // Draw labels for all fixtures after rendering the scene so they appear on
   // top of geometry. Scale the label size with the current zoom so they behave
   // like regular scene objects instead of remaining a constant screen size.
-  m_controller.DrawAllFixtureLabels(w, h, m_zoom);
+  m_controller.DrawAllFixtureLabels(renderW, renderH, m_zoom);
 
   if (m_layoutEditAspect && *m_layoutEditAspect > 0.0f) {
     if (!m_layoutEditBaseSize || m_layoutEditBaseSize->GetWidth() <= 0 ||
         m_layoutEditBaseSize->GetHeight() <= 0) {
       float aspect = *m_layoutEditAspect;
-      float padding = static_cast<float>(std::min(w, h)) * 0.1f;
-      float maxWidth = static_cast<float>(w) - padding * 2.0f;
-      float maxHeight = static_cast<float>(h) - padding * 2.0f;
+      float padding = static_cast<float>(std::min(renderW, renderH)) * 0.1f;
+      float maxWidth = static_cast<float>(renderW) - padding * 2.0f;
+      float maxHeight = static_cast<float>(renderH) - padding * 2.0f;
       float targetWidth = maxWidth;
       float targetHeight = targetWidth / aspect;
       if (targetHeight > maxHeight) {
@@ -469,8 +483,10 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
       float targetHeight =
           static_cast<float>(m_layoutEditBaseSize->GetHeight()) *
           m_layoutEditScale;
-      float left = (static_cast<float>(w) - targetWidth) * 0.5f;
-      float bottom = (static_cast<float>(h) - targetHeight) * 0.5f;
+      float left = static_cast<float>(viewportX) +
+                   (static_cast<float>(renderW) - targetWidth) * 0.5f;
+      float bottom = static_cast<float>(viewportY) +
+                     (static_cast<float>(renderH) - targetHeight) * 0.5f;
 
       GLboolean depthEnabled = glIsEnabled(GL_DEPTH_TEST);
       if (depthEnabled)
@@ -479,8 +495,8 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
       glMatrixMode(GL_PROJECTION);
       glPushMatrix();
       glLoadIdentity();
-      glOrtho(0.0f, static_cast<float>(w), 0.0f, static_cast<float>(h), -1.0f,
-              1.0f);
+      glOrtho(0.0f, static_cast<float>(clientW), 0.0f,
+              static_cast<float>(clientH), -1.0f, 1.0f);
       glMatrixMode(GL_MODELVIEW);
       glPushMatrix();
       glLoadIdentity();
@@ -671,7 +687,7 @@ void Viewer2DPanel::OnMouseLeave(wxMouseEvent &event) {
 }
 
 void Viewer2DPanel::OnResize(wxSizeEvent &event) {
-  if (m_layoutEditAspect) {
+  if (m_layoutEditAspect && !m_layoutEditViewportSize) {
     m_layoutEditBaseSize.reset();
   }
   Refresh();
