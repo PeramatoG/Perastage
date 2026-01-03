@@ -2153,30 +2153,6 @@ void MainWindow::BeginLayout2DViewEdit() {
     layout2DViewEditPanel->SetLayoutEditOverlay(std::nullopt);
   }
 
-  if (layout2DViewEditPanel) {
-    auto overlaySize = layout2DViewEditPanel->GetLayoutEditOverlaySize();
-    int viewportWidth = view->camera.viewportWidth;
-    int viewportHeight = view->camera.viewportHeight;
-    if (viewportWidth <= 0 || viewportHeight <= 0) {
-      viewportWidth = view->frame.width;
-      viewportHeight = view->frame.height;
-    }
-    if (overlaySize && overlaySize->GetWidth() > 0 &&
-        overlaySize->GetHeight() > 0 && viewportWidth > 0 &&
-        viewportHeight > 0) {
-      const float scaleX = static_cast<float>(overlaySize->GetWidth()) /
-                           static_cast<float>(viewportWidth);
-      const float scaleY = static_cast<float>(overlaySize->GetHeight()) /
-                           static_cast<float>(viewportHeight);
-      const float scale = std::min(scaleX, scaleY);
-      if (scale > 0.0f) {
-        cfg.SetFloat("view2d_zoom", state.camera.zoom * scale);
-        cfg.SetFloat("view2d_offset_x", state.camera.offsetPixelsX * scale);
-        cfg.SetFloat("view2d_offset_y", state.camera.offsetPixelsY * scale);
-      }
-    }
-  }
-
   layout2DViewEditing = true;
   UpdateViewMenuChecks();
 
@@ -2225,21 +2201,6 @@ void MainWindow::OnLayout2DViewOk(wxCommandEvent &WXUNUSED(event)) {
   if (frame.width == 0 && frame.height == 0 && layoutViewerPanel) {
     if (const auto *view = layoutViewerPanel->GetEditableView())
       frame = view->frame;
-  }
-
-  if (frame.width > 0 && frame.height > 0 && editPanel) {
-    auto overlaySize = editPanel->GetLayoutEditOverlaySize();
-    if (overlaySize && overlaySize->GetWidth() > 0 &&
-        overlaySize->GetHeight() > 0) {
-      const double scale =
-          static_cast<double>(frame.width) /
-          static_cast<double>(overlaySize->GetWidth());
-      if (scale > 0.0) {
-        current.camera.zoom *= static_cast<float>(scale);
-        current.camera.offsetPixelsX *= static_cast<float>(scale);
-        current.camera.offsetPixelsY *= static_cast<float>(scale);
-      }
-    }
   }
 
   // Ensure the stored viewport matches the layout frame size, not the popup.
