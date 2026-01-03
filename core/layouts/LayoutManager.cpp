@@ -262,11 +262,13 @@ bool ParseLayout(const nlohmann::json &value, LayoutDefinition &out) {
       if (!ParseLayout2DView(entry, view))
         continue;
       bool replaced = false;
-      for (auto &existing : out.view2dViews) {
-        if (existing.camera.view == view.camera.view) {
-          existing = view;
-          replaced = true;
-          break;
+      if (view.id > 0) {
+        for (auto &existing : out.view2dViews) {
+          if (existing.id == view.id) {
+            existing = view;
+            replaced = true;
+            break;
+          }
         }
       }
       if (!replaced)
@@ -410,9 +412,8 @@ bool LayoutManager::UpdateLayout2DView(const std::string &name,
   return true;
 }
 
-bool LayoutManager::RemoveLayout2DView(const std::string &name,
-                                       int viewIndex) {
-  if (!layouts.RemoveLayout2DView(name, viewIndex))
+bool LayoutManager::RemoveLayout2DView(const std::string &name, int viewId) {
+  if (!layouts.RemoveLayout2DView(name, viewId))
     return false;
   SyncToConfig();
   return true;
