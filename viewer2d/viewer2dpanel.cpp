@@ -661,6 +661,9 @@ void Viewer2DPanel::OnMouseLeave(wxMouseEvent &event) {
 }
 
 void Viewer2DPanel::OnResize(wxSizeEvent &event) {
+  if (m_layoutEditAspect) {
+    m_layoutEditBaseSize.reset();
+  }
   Refresh();
   event.Skip();
 }
