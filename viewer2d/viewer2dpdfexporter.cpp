@@ -1260,7 +1260,7 @@ Viewer2DExportResult ExportLayoutToPdf(
     captureCommands(view.buffer, mainCommands, viewSymbolKeys, viewSymbolIds);
     layoutGroups.push_back({std::move(mainCommands),
                             mapping,
-                            view.frame.x,
+                            static_cast<double>(view.frame.x),
                             frameOriginY,
                             static_cast<double>(view.frame.width),
                             static_cast<double>(view.frame.height),
