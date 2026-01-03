@@ -32,6 +32,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <vector>
 
 // Current viewport information used to rebuild the same projection when
 // exporting or printing the 2D view.
@@ -84,6 +85,9 @@ public:
       bool useSimplifiedFootprints = false,
       bool includeGridInCapture = true);
 
+  bool RenderToRGBA(std::vector<unsigned char> &pixels, int &width,
+                    int &height);
+
   // Accessor for the last recorded set of drawing commands. The buffer is
   // cleared and re-populated on every requested capture.
   const CommandBuffer &GetLastCapturedFrame() const { return m_lastCapturedFrame; }
@@ -104,6 +108,7 @@ public:
 private:
   void InitGL();
   void Render();
+  void RenderInternal(bool swapBuffers);
   void OnPaint(wxPaintEvent &event);
 
   void OnMouseDown(wxMouseEvent &event);

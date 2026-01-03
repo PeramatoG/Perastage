@@ -18,16 +18,15 @@
 #include "layoutviewerpanel.h"
 
 #include <algorithm>
-#include <array>
 #include <cmath>
 #include <memory>
-#include <wx/dcbuffer.h>
-#include <wx/graphics.h>
+#include <vector>
+
+#include <GL/gl.h>
 
 #include "configmanager.h"
 #include "layouts/LayoutManager.h"
 #include "mainwindow.h"
-#include "viewer2dcommandrenderer.h"
 #include "viewer2doffscreenrenderer.h"
 #include "viewer2dstate.h"
 
@@ -42,179 +41,11 @@ constexpr int kHandleHoverPadPx = 6;
 constexpr int kMinFrameSize = 24;
 constexpr int kEditMenuId = wxID_HIGHEST + 490;
 constexpr int kDeleteMenuId = wxID_HIGHEST + 491;
-wxColour ToWxColor(const CanvasColor &color) {
-  auto clamp = [](float v) {
-    return static_cast<unsigned char>(
-        std::clamp(v, 0.0f, 1.0f) * 255.0f);
-  };
-  return wxColour(clamp(color.r), clamp(color.g), clamp(color.b),
-                  clamp(color.a));
-}
-
-class WxGraphicsCommandBackend : public viewer2d::IViewer2DCommandBackend {
-public:
-  explicit WxGraphicsCommandBackend(wxGraphicsContext &gc) : gc_(gc) {}
-
-  void DrawLine(const viewer2d::Viewer2DRenderPoint &p0,
-                const viewer2d::Viewer2DRenderPoint &p1,
-                const CanvasStroke &stroke, double strokeWidthPx) override {
-    (void)strokeWidthPx;
-    wxGraphicsPen pen =
-        gc_.CreatePen(wxGraphicsPenInfo(ToWxColor(stroke.color))
-                          .Width(stroke.width));
-    gc_.SetPen(pen);
-    gc_.StrokeLine(p0.x, p0.y, p1.x, p1.y);
-  }
-
-  void DrawPolyline(const std::vector<viewer2d::Viewer2DRenderPoint> &points,
-                    const CanvasStroke &stroke,
-                    double strokeWidthPx) override {
-    (void)strokeWidthPx;
-    if (points.size() < 2)
-      return;
-    wxGraphicsPath path = gc_.CreatePath();
-    path.MoveToPoint(points.front().x, points.front().y);
-    for (size_t i = 1; i < points.size(); ++i) {
-      path.AddLineToPoint(points[i].x, points[i].y);
-    }
-    wxGraphicsPen pen =
-        gc_.CreatePen(wxGraphicsPenInfo(ToWxColor(stroke.color))
-                          .Width(stroke.width));
-    gc_.SetPen(pen);
-    gc_.StrokePath(path);
-  }
-
-  void DrawPolygon(const std::vector<viewer2d::Viewer2DRenderPoint> &points,
-                   const CanvasStroke &stroke, const CanvasFill *fill,
-                   double strokeWidthPx) override {
-    (void)strokeWidthPx;
-    if (points.size() < 3)
-      return;
-    wxGraphicsPath path = gc_.CreatePath();
-    path.MoveToPoint(points.front().x, points.front().y);
-    for (size_t i = 1; i < points.size(); ++i) {
-      path.AddLineToPoint(points[i].x, points[i].y);
-    }
-    path.CloseSubpath();
-    if (fill) {
-      gc_.SetBrush(wxBrush(ToWxColor(fill->color)));
-      gc_.FillPath(path);
-    }
-    wxGraphicsPen pen =
-        gc_.CreatePen(wxGraphicsPenInfo(ToWxColor(stroke.color))
-                          .Width(stroke.width));
-    gc_.SetPen(pen);
-    gc_.StrokePath(path);
-  }
-
-  void DrawCircle(const viewer2d::Viewer2DRenderPoint &center, double radiusPx,
-                  const CanvasStroke &stroke, const CanvasFill *fill,
-                  double strokeWidthPx) override {
-    (void)strokeWidthPx;
-    wxRect2DDouble rect(center.x - radiusPx, center.y - radiusPx,
-                        radiusPx * 2.0, radiusPx * 2.0);
-    if (fill) {
-      gc_.SetBrush(wxBrush(ToWxColor(fill->color)));
-      gc_.DrawEllipse(rect.m_x, rect.m_y, rect.m_width, rect.m_height);
-    }
-    wxGraphicsPen pen =
-        gc_.CreatePen(wxGraphicsPenInfo(ToWxColor(stroke.color))
-                          .Width(stroke.width));
-    gc_.SetPen(pen);
-    gc_.SetBrush(*wxTRANSPARENT_BRUSH);
-    gc_.DrawEllipse(rect.m_x, rect.m_y, rect.m_width, rect.m_height);
-  }
-
-  void DrawText(const viewer2d::Viewer2DRenderText &text) override {
-    int pixelSize = std::max(1, static_cast<int>(std::lround(text.fontSizePx)));
-    wxFontInfo fontInfo(pixelSize);
-    if (!text.style.fontFamily.empty())
-      fontInfo.FaceName(wxString::FromUTF8(text.style.fontFamily));
-    wxFont font(fontInfo);
-    gc_.SetFont(font, ToWxColor(text.style.color));
-
-    if (text.outlineWidthPx > 0.0) {
-      double outline = text.outlineWidthPx;
-      gc_.SetFont(font, ToWxColor(text.style.outlineColor));
-      const std::array<wxPoint2DDouble, 4> offsets = {
-          wxPoint2DDouble{-outline, 0.0},
-          wxPoint2DDouble{outline, 0.0},
-          wxPoint2DDouble{0.0, -outline},
-          wxPoint2DDouble{0.0, outline}};
-      for (const auto &offset : offsets) {
-        DrawTextLines(wxString::FromUTF8(text.text),
-                      wxPoint2DDouble(text.anchor.x + offset.m_x,
-                                      text.anchor.y + offset.m_y),
-                      text.lineHeightPx, text.style.hAlign,
-                      text.style.vAlign);
-      }
-      gc_.SetFont(font, ToWxColor(text.style.color));
-    }
-
-    DrawTextLines(wxString::FromUTF8(text.text),
-                  wxPoint2DDouble(text.anchor.x, text.anchor.y),
-                  text.lineHeightPx, text.style.hAlign, text.style.vAlign);
-  }
-
-private:
-  void DrawTextLines(const wxString &text, const wxPoint2DDouble &anchor,
-                     double lineHeight,
-                     CanvasTextStyle::HorizontalAlign hAlign,
-                     CanvasTextStyle::VerticalAlign vAlign) {
-    wxArrayString lines = wxSplit(text, '\n');
-    if (lines.empty())
-      return;
-
-    double maxWidth = 0.0;
-    double ascent = 0.0;
-    double descent = 0.0;
-    double totalHeight = 0.0;
-    for (const auto &line : lines) {
-      double w = 0.0;
-      double h = 0.0;
-      double externalLeading = 0.0;
-      gc_.GetTextExtent(line, &w, &h, &descent, &externalLeading);
-      ascent = h - descent;
-      maxWidth = std::max(maxWidth, w);
-      totalHeight += lineHeight;
-    }
-    if (!lines.empty())
-      totalHeight -= lineHeight;
-
-    double x = anchor.m_x;
-    if (hAlign == CanvasTextStyle::HorizontalAlign::Center)
-      x -= maxWidth * 0.5;
-    else if (hAlign == CanvasTextStyle::HorizontalAlign::Right)
-      x -= maxWidth;
-
-    double y = anchor.m_y;
-    switch (vAlign) {
-    case CanvasTextStyle::VerticalAlign::Top:
-      break;
-    case CanvasTextStyle::VerticalAlign::Middle:
-      y -= totalHeight * 0.5;
-      break;
-    case CanvasTextStyle::VerticalAlign::Bottom:
-      y -= totalHeight;
-      break;
-    case CanvasTextStyle::VerticalAlign::Baseline:
-    default:
-      y -= ascent;
-      break;
-    }
-
-    for (size_t i = 0; i < lines.size(); ++i) {
-      gc_.DrawText(lines[i], x, y + lineHeight * static_cast<double>(i));
-    }
-  }
-
-  wxGraphicsContext &gc_;
-};
 }
 
 wxDEFINE_EVENT(EVT_LAYOUT_VIEW_EDIT, wxCommandEvent);
 
-wxBEGIN_EVENT_TABLE(LayoutViewerPanel, wxPanel)
+wxBEGIN_EVENT_TABLE(LayoutViewerPanel, wxGLCanvas)
     EVT_PAINT(LayoutViewerPanel::OnPaint)
     EVT_SIZE(LayoutViewerPanel::OnSize)
     EVT_LEFT_DOWN(LayoutViewerPanel::OnLeftDown)
@@ -229,11 +60,18 @@ wxBEGIN_EVENT_TABLE(LayoutViewerPanel, wxPanel)
 wxEND_EVENT_TABLE()
 
 LayoutViewerPanel::LayoutViewerPanel(wxWindow *parent)
-    : wxPanel(parent, wxID_ANY) {
-  SetBackgroundStyle(wxBG_STYLE_PAINT);
+    : wxGLCanvas(parent, wxID_ANY, nullptr, wxDefaultPosition,
+                 wxDefaultSize, wxFULL_REPAINT_ON_RESIZE) {
+  SetBackgroundStyle(wxBG_STYLE_CUSTOM);
+  glContext_ = new wxGLContext(this);
   currentLayout.pageSetup.pageSize = print::PageSize::A4;
   currentLayout.pageSetup.landscape = false;
   ResetViewToFit();
+}
+
+LayoutViewerPanel::~LayoutViewerPanel() {
+  ClearCachedTexture();
+  delete glContext_;
 }
 
 void LayoutViewerPanel::SetLayoutDefinition(
@@ -242,8 +80,9 @@ void LayoutViewerPanel::SetLayoutDefinition(
   layoutVersion++;
   captureVersion = -1;
   hasCapture = false;
-  cachedBitmap = wxBitmap();
-  cachedBitmapSize = wxSize(0, 0);
+  hasRenderState = false;
+  cachedTextureSize = wxSize(0, 0);
+  ClearCachedTexture();
   renderDirty = true;
   ResetViewToFit();
   RequestRenderRebuild();
@@ -251,13 +90,20 @@ void LayoutViewerPanel::SetLayoutDefinition(
 }
 
 void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
-  wxAutoBufferedPaintDC dc(this);
-  dc.Clear();
+  wxPaintDC dc(this);
+  InitGL();
+  SetCurrent(*glContext_);
 
   wxSize size = GetClientSize();
-  dc.SetBrush(wxBrush(wxColour(90, 90, 90)));
-  dc.SetPen(*wxTRANSPARENT_PEN);
-  dc.DrawRectangle(0, 0, size.GetWidth(), size.GetHeight());
+  glViewport(0, 0, size.GetWidth(), size.GetHeight());
+  glMatrixMode(GL_PROJECTION);
+  glLoadIdentity();
+  glOrtho(0.0, size.GetWidth(), size.GetHeight(), 0.0, -1.0, 1.0);
+  glMatrixMode(GL_MODELVIEW);
+  glLoadIdentity();
+  glDisable(GL_DEPTH_TEST);
+  glClearColor(0.35f, 0.35f, 0.35f, 1.0f);
+  glClear(GL_COLOR_BUFFER_BIT);
 
   const double pageWidth = currentLayout.pageSetup.PageWidthPt();
   const double pageHeight = currentLayout.pageSetup.PageHeightPt();
@@ -271,18 +117,44 @@ void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
                         center.y - static_cast<int>(scaledHeight / 2.0) +
                             panOffset.y);
 
-  dc.SetBrush(wxBrush(wxColour(255, 255, 255)));
-  dc.SetPen(wxPen(wxColour(200, 200, 200)));
-  dc.DrawRectangle(topLeft.x, topLeft.y, static_cast<int>(scaledWidth),
-                   static_cast<int>(scaledHeight));
+  glColor4ub(255, 255, 255, 255);
+  glBegin(GL_QUADS);
+  glVertex2f(static_cast<float>(topLeft.x), static_cast<float>(topLeft.y));
+  glVertex2f(static_cast<float>(topLeft.x + scaledWidth),
+             static_cast<float>(topLeft.y));
+  glVertex2f(static_cast<float>(topLeft.x + scaledWidth),
+             static_cast<float>(topLeft.y + scaledHeight));
+  glVertex2f(static_cast<float>(topLeft.x),
+             static_cast<float>(topLeft.y + scaledHeight));
+  glEnd();
+
+  glColor4ub(200, 200, 200, 255);
+  glLineWidth(1.0f);
+  glBegin(GL_LINE_LOOP);
+  glVertex2f(static_cast<float>(topLeft.x), static_cast<float>(topLeft.y));
+  glVertex2f(static_cast<float>(topLeft.x + scaledWidth),
+             static_cast<float>(topLeft.y));
+  glVertex2f(static_cast<float>(topLeft.x + scaledWidth),
+             static_cast<float>(topLeft.y + scaledHeight));
+  glVertex2f(static_cast<float>(topLeft.x),
+             static_cast<float>(topLeft.y + scaledHeight));
+  glEnd();
 
   const layouts::Layout2DViewDefinition *view = GetEditableView();
-  if (!view)
+  if (!view) {
+    glFlush();
+    SwapBuffers();
     return;
+  }
 
   wxRect frameRect;
-  if (!GetFrameRect(view->frame, frameRect))
+  if (!GetFrameRect(view->frame, frameRect)) {
+    glFlush();
+    SwapBuffers();
     return;
+  }
+  const int frameRight = frameRect.GetLeft() + frameRect.GetWidth();
+  const int frameBottom = frameRect.GetTop() + frameRect.GetHeight();
 
   Viewer2DPanel *statePanel = nullptr;
   bool useEditorState = false;
@@ -329,6 +201,8 @@ void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
           useEditorState ? viewer2d::CaptureState(statePanel, cfg)
                          : viewer2d::FromLayoutDefinition(*view);
       layoutState.renderOptions.darkMode = false;
+      cachedRenderState = layoutState;
+      hasRenderState = true;
       if (offscreenRenderer && fallbackViewportWidth > 0 &&
           fallbackViewportHeight > 0) {
         offscreenRenderer->SetViewportSize(
@@ -359,26 +233,58 @@ void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
             captureVersion = layoutVersion;
             captureInProgress = false;
             renderDirty = true;
+            cachedTextureSize = wxSize(0, 0);
             RequestRenderRebuild();
             Refresh();
           });
     }
   }
 
-  if (cachedBitmap.IsOk() &&
-      cachedBitmapSize == frameRect.GetSize()) {
-    dc.DrawBitmap(cachedBitmap, frameRect.GetTopLeft(), false);
+  if (cachedTexture_ != 0 && cachedTextureSize == frameRect.GetSize()) {
+    glEnable(GL_TEXTURE_2D);
+    glBindTexture(GL_TEXTURE_2D, cachedTexture_);
+    glColor4ub(255, 255, 255, 255);
+    glBegin(GL_QUADS);
+    glTexCoord2f(0.0f, 1.0f);
+    glVertex2f(static_cast<float>(frameRect.GetLeft()),
+               static_cast<float>(frameRect.GetTop()));
+    glTexCoord2f(1.0f, 1.0f);
+    glVertex2f(static_cast<float>(frameRight),
+               static_cast<float>(frameRect.GetTop()));
+    glTexCoord2f(1.0f, 0.0f);
+    glVertex2f(static_cast<float>(frameRight),
+               static_cast<float>(frameBottom));
+    glTexCoord2f(0.0f, 0.0f);
+    glVertex2f(static_cast<float>(frameRect.GetLeft()),
+               static_cast<float>(frameRect.GetBottom()));
+    glEnd();
+    glDisable(GL_TEXTURE_2D);
   } else {
-    dc.SetBrush(wxBrush(wxColour(240, 240, 240)));
-    dc.SetPen(wxPen(wxColour(200, 200, 200)));
-    dc.DrawRectangle(frameRect);
-    dc.SetTextForeground(wxColour(120, 120, 120));
-    dc.DrawText("Rendering...", frameRect.GetTopLeft() + wxPoint(8, 8));
+    glColor4ub(240, 240, 240, 255);
+    glBegin(GL_QUADS);
+    glVertex2f(static_cast<float>(frameRect.GetLeft()),
+               static_cast<float>(frameRect.GetTop()));
+    glVertex2f(static_cast<float>(frameRect.GetRight()),
+               static_cast<float>(frameRect.GetTop()));
+    glVertex2f(static_cast<float>(frameRight),
+               static_cast<float>(frameBottom));
+    glVertex2f(static_cast<float>(frameRect.GetLeft()),
+               static_cast<float>(frameRect.GetBottom()));
+    glEnd();
   }
 
-  dc.SetBrush(*wxTRANSPARENT_BRUSH);
-  dc.SetPen(wxPen(wxColour(60, 160, 240), 2));
-  dc.DrawRectangle(frameRect);
+  glColor4ub(60, 160, 240, 255);
+  glLineWidth(2.0f);
+  glBegin(GL_LINE_LOOP);
+  glVertex2f(static_cast<float>(frameRect.GetLeft()),
+             static_cast<float>(frameRect.GetTop()));
+  glVertex2f(static_cast<float>(frameRight),
+             static_cast<float>(frameRect.GetTop()));
+  glVertex2f(static_cast<float>(frameRight),
+             static_cast<float>(frameBottom));
+  glVertex2f(static_cast<float>(frameRect.GetLeft()),
+             static_cast<float>(frameRect.GetBottom()));
+  glEnd();
 
   wxRect handleRight(frameRect.GetRight() - kHandleHalfPx,
                      frameRect.GetTop() + frameRect.GetHeight() / 2 -
@@ -392,11 +298,25 @@ void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
                       frameRect.GetBottom() - kHandleHalfPx, kHandleSizePx,
                       kHandleSizePx);
 
-  dc.SetBrush(wxBrush(wxColour(60, 160, 240)));
-  dc.SetPen(*wxTRANSPARENT_PEN);
-  dc.DrawRectangle(handleRight);
-  dc.DrawRectangle(handleBottom);
-  dc.DrawRectangle(handleCorner);
+  glColor4ub(60, 160, 240, 255);
+  auto drawHandle = [](const wxRect &rect) {
+    glBegin(GL_QUADS);
+    glVertex2f(static_cast<float>(rect.GetLeft()),
+               static_cast<float>(rect.GetTop()));
+    glVertex2f(static_cast<float>(rect.GetRight()),
+               static_cast<float>(rect.GetTop()));
+    glVertex2f(static_cast<float>(rect.GetRight()),
+               static_cast<float>(rect.GetBottom()));
+    glVertex2f(static_cast<float>(rect.GetLeft()),
+               static_cast<float>(rect.GetBottom()));
+    glEnd();
+  };
+  drawHandle(handleRight);
+  drawHandle(handleBottom);
+  drawHandle(handleCorner);
+
+  glFlush();
+  SwapBuffers();
 }
 
 void LayoutViewerPanel::OnSize(wxSizeEvent &) {
@@ -654,7 +574,19 @@ void LayoutViewerPanel::UpdateFrame(const layouts::Layout2DViewFrame &frame,
   Refresh();
 }
 
-void LayoutViewerPanel::RebuildCachedBitmap() {
+void LayoutViewerPanel::InitGL() {
+  if (!glContext_)
+    return;
+  SetCurrent(*glContext_);
+  if (!glInitialized_) {
+    glDisable(GL_DEPTH_TEST);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glInitialized_ = true;
+  }
+}
+
+void LayoutViewerPanel::RebuildCachedTexture() {
   if (!renderDirty)
     return;
 
@@ -662,48 +594,65 @@ void LayoutViewerPanel::RebuildCachedBitmap() {
 
   const layouts::Layout2DViewDefinition *view = GetEditableView();
   wxRect frameRect;
-  if (!view || !hasCapture || !GetFrameRect(view->frame, frameRect) ||
+  if (!view || !hasCapture || !hasRenderState ||
+      !GetFrameRect(view->frame, frameRect) ||
       frameRect.GetWidth() <= 0 || frameRect.GetHeight() <= 0) {
-    cachedBitmap = wxBitmap();
-    cachedBitmapSize = wxSize(0, 0);
+    ClearCachedTexture();
+    cachedTextureSize = wxSize(0, 0);
     return;
   }
 
-  Viewer2DViewState renderState = cachedViewState;
-  if (renderState.viewportWidth <= 0) {
-    if (view->camera.viewportWidth > 0) {
-      renderState.viewportWidth = view->camera.viewportWidth;
-    } else {
-      renderState.viewportWidth = view->frame.width;
-    }
+  Viewer2DOffscreenRenderer *offscreenRenderer = nullptr;
+  Viewer2DPanel *capturePanel = nullptr;
+  if (auto *mw = MainWindow::Instance()) {
+    offscreenRenderer = mw->GetOffscreenRenderer();
+    capturePanel = offscreenRenderer ? offscreenRenderer->GetPanel() : nullptr;
   }
-  if (renderState.viewportHeight <= 0) {
-    if (view->camera.viewportHeight > 0) {
-      renderState.viewportHeight = view->camera.viewportHeight;
-    } else {
-      renderState.viewportHeight = view->frame.height;
-    }
+  if (!capturePanel || !offscreenRenderer) {
+    ClearCachedTexture();
+    cachedTextureSize = wxSize(0, 0);
+    return;
   }
 
-  wxBitmap bufferBitmap(frameRect.GetWidth(), frameRect.GetHeight());
-  wxMemoryDC memDC(bufferBitmap);
-  memDC.SetBackground(wxBrush(wxColour(255, 255, 255)));
-  memDC.Clear();
-  if (auto gc = wxGraphicsContext::Create(memDC)) {
-    viewer2d::Viewer2DRenderMapping mapping;
-    if (viewer2d::BuildViewMapping(
-            renderState, frameRect.GetWidth(), frameRect.GetHeight(), 0.0,
-            mapping)) {
-      WxGraphicsCommandBackend backend(*gc);
-      viewer2d::Viewer2DCommandRenderer renderer(mapping, backend,
-                                                 cachedSymbols.get());
-      renderer.Render(cachedBuffer);
-    }
-    delete gc;
+  offscreenRenderer->SetViewportSize(frameRect.GetSize());
+  offscreenRenderer->PrepareForCapture();
+
+  ConfigManager &cfg = ConfigManager::Get();
+  auto stateGuard = std::make_shared<viewer2d::ScopedViewer2DState>(
+      capturePanel, nullptr, cfg, cachedRenderState);
+
+  std::vector<unsigned char> pixels;
+  int width = 0;
+  int height = 0;
+  if (!capturePanel->RenderToRGBA(pixels, width, height) || width <= 0 ||
+      height <= 0) {
+    ClearCachedTexture();
+    cachedTextureSize = wxSize(0, 0);
+    return;
   }
-  memDC.SelectObject(wxNullBitmap);
-  cachedBitmap = bufferBitmap;
-  cachedBitmapSize = frameRect.GetSize();
+
+  InitGL();
+  SetCurrent(*glContext_);
+  if (cachedTexture_ == 0) {
+    glGenTextures(1, &cachedTexture_);
+  }
+  glBindTexture(GL_TEXTURE_2D, cachedTexture_);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA,
+               GL_UNSIGNED_BYTE, pixels.data());
+  cachedTextureSize = wxSize(width, height);
+}
+
+void LayoutViewerPanel::ClearCachedTexture() {
+  if (cachedTexture_ == 0 || !glContext_)
+    return;
+  SetCurrent(*glContext_);
+  glDeleteTextures(1, &cachedTexture_);
+  cachedTexture_ = 0;
 }
 
 void LayoutViewerPanel::RequestRenderRebuild() {
@@ -712,7 +661,7 @@ void LayoutViewerPanel::RequestRenderRebuild() {
   renderPending = true;
   CallAfter([this]() {
     renderPending = false;
-    RebuildCachedBitmap();
+    RebuildCachedTexture();
     Refresh();
   });
 }
@@ -721,16 +670,16 @@ void LayoutViewerPanel::InvalidateRenderIfFrameChanged() {
   const layouts::Layout2DViewDefinition *view = GetEditableView();
   wxRect frameRect;
   if (!view || !GetFrameRect(view->frame, frameRect)) {
-    if (cachedBitmap.IsOk()) {
+    if (cachedTexture_ != 0) {
       renderDirty = true;
-      cachedBitmap = wxBitmap();
-      cachedBitmapSize = wxSize(0, 0);
+      ClearCachedTexture();
+      cachedTextureSize = wxSize(0, 0);
     }
     return;
   }
 
   const wxSize frameSize = frameRect.GetSize();
-  if (frameSize != cachedBitmapSize)
+  if (frameSize != cachedTextureSize)
     renderDirty = true;
 }
 

@@ -19,17 +19,20 @@
 
 #include <memory>
 #include <optional>
+#include <wx/glcanvas.h>
 #include <wx/wx.h>
 #include "layouts/LayoutCollection.h"
 #include "canvas2d.h"
 #include "symbolcache.h"
 #include "viewer2dpanel.h"
+#include "viewer2dstate.h"
 
 wxDECLARE_EVENT(EVT_LAYOUT_VIEW_EDIT, wxCommandEvent);
 
-class LayoutViewerPanel : public wxPanel {
+class LayoutViewerPanel : public wxGLCanvas {
 public:
   explicit LayoutViewerPanel(wxWindow *parent);
+  ~LayoutViewerPanel();
 
   void SetLayoutDefinition(const layouts::LayoutDefinition &layout);
   layouts::Layout2DViewDefinition *GetEditableView();
@@ -54,7 +57,9 @@ private:
                     wxRect &rect) const;
   void UpdateFrame(const layouts::Layout2DViewFrame &frame,
                    bool updatePosition);
-  void RebuildCachedBitmap();
+  void InitGL();
+  void RebuildCachedTexture();
+  void ClearCachedTexture();
   void RequestRenderRebuild();
   void InvalidateRenderIfFrameChanged();
   void EmitEditViewRequest();
@@ -85,9 +90,13 @@ private:
   bool hasCapture = false;
   CommandBuffer cachedBuffer;
   Viewer2DViewState cachedViewState;
+  viewer2d::Viewer2DState cachedRenderState;
+  bool hasRenderState = false;
   std::shared_ptr<const SymbolDefinitionSnapshot> cachedSymbols;
-  wxBitmap cachedBitmap;
-  wxSize cachedBitmapSize{0, 0};
+  wxGLContext *glContext_ = nullptr;
+  bool glInitialized_ = false;
+  unsigned int cachedTexture_ = 0;
+  wxSize cachedTextureSize{0, 0};
   bool renderDirty = true;
   bool renderPending = false;
 
