@@ -58,10 +58,11 @@ public:
   void DrawLine(const viewer2d::Viewer2DRenderPoint &p0,
                 const viewer2d::Viewer2DRenderPoint &p1,
                 const CanvasStroke &stroke, double strokeWidthPx) override {
-    (void)strokeWidthPx;
+    if (strokeWidthPx <= 0.0)
+      return;
     wxGraphicsPen pen =
         gc_.CreatePen(wxGraphicsPenInfo(ToWxColor(stroke.color))
-                          .Width(stroke.width));
+                          .Width(strokeWidthPx));
     gc_.SetPen(pen);
     gc_.StrokeLine(p0.x, p0.y, p1.x, p1.y);
   }
@@ -69,8 +70,9 @@ public:
   void DrawPolyline(const std::vector<viewer2d::Viewer2DRenderPoint> &points,
                     const CanvasStroke &stroke,
                     double strokeWidthPx) override {
-    (void)strokeWidthPx;
     if (points.size() < 2)
+      return;
+    if (strokeWidthPx <= 0.0)
       return;
     wxGraphicsPath path = gc_.CreatePath();
     path.MoveToPoint(points.front().x, points.front().y);
@@ -79,7 +81,7 @@ public:
     }
     wxGraphicsPen pen =
         gc_.CreatePen(wxGraphicsPenInfo(ToWxColor(stroke.color))
-                          .Width(stroke.width));
+                          .Width(strokeWidthPx));
     gc_.SetPen(pen);
     gc_.StrokePath(path);
   }
@@ -87,7 +89,6 @@ public:
   void DrawPolygon(const std::vector<viewer2d::Viewer2DRenderPoint> &points,
                    const CanvasStroke &stroke, const CanvasFill *fill,
                    double strokeWidthPx) override {
-    (void)strokeWidthPx;
     if (points.size() < 3)
       return;
     wxGraphicsPath path = gc_.CreatePath();
@@ -100,9 +101,11 @@ public:
       gc_.SetBrush(wxBrush(ToWxColor(fill->color)));
       gc_.FillPath(path);
     }
+    if (strokeWidthPx <= 0.0)
+      return;
     wxGraphicsPen pen =
         gc_.CreatePen(wxGraphicsPenInfo(ToWxColor(stroke.color))
-                          .Width(stroke.width));
+                          .Width(strokeWidthPx));
     gc_.SetPen(pen);
     gc_.StrokePath(path);
   }
@@ -110,16 +113,17 @@ public:
   void DrawCircle(const viewer2d::Viewer2DRenderPoint &center, double radiusPx,
                   const CanvasStroke &stroke, const CanvasFill *fill,
                   double strokeWidthPx) override {
-    (void)strokeWidthPx;
     wxRect2DDouble rect(center.x - radiusPx, center.y - radiusPx,
                         radiusPx * 2.0, radiusPx * 2.0);
     if (fill) {
       gc_.SetBrush(wxBrush(ToWxColor(fill->color)));
       gc_.DrawEllipse(rect.m_x, rect.m_y, rect.m_width, rect.m_height);
     }
+    if (strokeWidthPx <= 0.0)
+      return;
     wxGraphicsPen pen =
         gc_.CreatePen(wxGraphicsPenInfo(ToWxColor(stroke.color))
-                          .Width(stroke.width));
+                          .Width(strokeWidthPx));
     gc_.SetPen(pen);
     gc_.SetBrush(*wxTRANSPARENT_BRUSH);
     gc_.DrawEllipse(rect.m_x, rect.m_y, rect.m_width, rect.m_height);
