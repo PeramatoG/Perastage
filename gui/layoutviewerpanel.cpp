@@ -584,11 +584,25 @@ void LayoutViewerPanel::UpdateFrame(const layouts::Layout2DViewFrame &frame,
   layouts::Layout2DViewDefinition *view = GetEditableView();
   if (!view)
     return;
+  const bool sizeChanged =
+      view->frame.width != frame.width || view->frame.height != frame.height;
   view->frame.width = frame.width;
   view->frame.height = frame.height;
   if (updatePosition) {
     view->frame.x = frame.x;
     view->frame.y = frame.y;
+  }
+  if (sizeChanged) {
+    if (frame.width > 0) {
+      view->camera.viewportWidth = frame.width;
+    } else {
+      view->camera.viewportWidth = 0;
+    }
+    if (frame.height > 0) {
+      view->camera.viewportHeight = frame.height;
+    } else {
+      view->camera.viewportHeight = 0;
+    }
   }
   if (!currentLayout.name.empty()) {
     layouts::LayoutManager::Get().UpdateLayout2DView(currentLayout.name,
