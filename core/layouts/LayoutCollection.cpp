@@ -78,16 +78,24 @@ bool LayoutCollection::UpdateLayout2DView(const std::string &name,
                                           const Layout2DViewDefinition &view) {
   for (auto &layout : layouts) {
     if (layout.name == name) {
+      Layout2DViewDefinition updatedView = view;
+      int nextId = 1;
+      for (const auto &entry : layout.view2dViews) {
+        if (entry.id > 0)
+          nextId = std::max(nextId, entry.id + 1);
+      }
+      if (updatedView.id <= 0)
+        updatedView.id = nextId;
       bool replaced = false;
       for (auto &entry : layout.view2dViews) {
-        if (entry.camera.view == view.camera.view) {
-          entry = view;
+        if (entry.id == updatedView.id && updatedView.id > 0) {
+          entry = updatedView;
           replaced = true;
           break;
         }
       }
       if (!replaced)
-        layout.view2dViews.push_back(view);
+        layout.view2dViews.push_back(updatedView);
       return true;
     }
   }
