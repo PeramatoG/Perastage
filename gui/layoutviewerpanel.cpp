@@ -670,8 +670,6 @@ void LayoutViewerPanel::RebuildCachedTexture() {
   viewer2d::Viewer2DState renderState = cachedRenderState;
   if (renderZoom != 1.0) {
     renderState.camera.zoom *= static_cast<float>(renderZoom);
-    renderState.camera.offsetPixelsX *= static_cast<float>(renderZoom);
-    renderState.camera.offsetPixelsY *= static_cast<float>(renderZoom);
   }
   renderState.camera.viewportWidth = renderSize.GetWidth();
   renderState.camera.viewportHeight = renderSize.GetHeight();
