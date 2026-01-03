@@ -103,8 +103,7 @@ public:
   std::shared_ptr<const SymbolDefinitionSnapshot>
   GetBottomSymbolCacheSnapshot() const;
 
-  void SetLayoutEditOverlay(std::optional<float> aspectRatio,
-                            std::optional<wxSize> viewportSize = std::nullopt);
+  void SetLayoutEditOverlay(std::optional<float> aspectRatio);
 
 private:
   void InitGL();
@@ -144,7 +143,6 @@ private:
   Viewer2DRenderMode m_renderMode = Viewer2DRenderMode::White;
   Viewer2DView m_view = Viewer2DView::Top;
   std::optional<float> m_layoutEditAspect;
-  std::optional<wxSize> m_layoutEditViewport;
 
   wxDECLARE_EVENT_TABLE();
 };

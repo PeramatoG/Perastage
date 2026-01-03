@@ -150,58 +150,6 @@ std::string BuildFixtureDebugReport(const CommandBuffer &buffer,
 
   return out.str();
 }
-
-struct LayoutEditViewport {
-  int x = 0;
-  int y = 0;
-  int width = 0;
-  int height = 0;
-  int virtualWidth = 0;
-  int virtualHeight = 0;
-};
-
-LayoutEditViewport ComputeLayoutEditViewport(
-    int panelWidth, int panelHeight, std::optional<float> aspectRatio,
-    std::optional<wxSize> viewportOverride) {
-  LayoutEditViewport result;
-  result.width = panelWidth;
-  result.height = panelHeight;
-  result.virtualWidth = panelWidth;
-  result.virtualHeight = panelHeight;
-
-  if (!aspectRatio || *aspectRatio <= 0.0f || panelWidth <= 0 ||
-      panelHeight <= 0) {
-    return result;
-  }
-
-  float padding = static_cast<float>(std::min(panelWidth, panelHeight)) * 0.1f;
-  float maxWidth = static_cast<float>(panelWidth) - padding * 2.0f;
-  float maxHeight = static_cast<float>(panelHeight) - padding * 2.0f;
-  float targetWidth = maxWidth;
-  float targetHeight = targetWidth / *aspectRatio;
-  if (targetHeight > maxHeight) {
-    targetHeight = maxHeight;
-    targetWidth = targetHeight * *aspectRatio;
-  }
-
-  result.x =
-      static_cast<int>(std::lround((panelWidth - targetWidth) * 0.5f));
-  result.y =
-      static_cast<int>(std::lround((panelHeight - targetHeight) * 0.5f));
-  result.width = std::max(1, static_cast<int>(std::lround(targetWidth)));
-  result.height = std::max(1, static_cast<int>(std::lround(targetHeight)));
-
-  if (viewportOverride && viewportOverride->GetWidth() > 0 &&
-      viewportOverride->GetHeight() > 0) {
-    result.virtualWidth = viewportOverride->GetWidth();
-    result.virtualHeight = viewportOverride->GetHeight();
-  } else {
-    result.virtualWidth = result.width;
-    result.virtualHeight = result.height;
-  }
-
-  return result;
-}
 } // namespace
 
 namespace {
@@ -320,10 +268,8 @@ void Viewer2DPanel::CaptureFrameNow(
   }
 }
 
-void Viewer2DPanel::SetLayoutEditOverlay(
-    std::optional<float> aspectRatio, std::optional<wxSize> viewportSize) {
+void Viewer2DPanel::SetLayoutEditOverlay(std::optional<float> aspectRatio) {
   m_layoutEditAspect = aspectRatio;
-  m_layoutEditViewport = viewportSize;
   Refresh();
 }
 
@@ -331,15 +277,13 @@ Viewer2DViewState Viewer2DPanel::GetViewState() const {
   int w = 0;
   int h = 0;
   const_cast<Viewer2DPanel *>(this)->GetClientSize(&w, &h);
-  const LayoutEditViewport viewport =
-      ComputeLayoutEditViewport(w, h, m_layoutEditAspect, m_layoutEditViewport);
 
   Viewer2DViewState state{};
   state.offsetPixelsX = m_offsetX;
   state.offsetPixelsY = m_offsetY;
   state.zoom = m_zoom;
-  state.viewportWidth = viewport.virtualWidth;
-  state.viewportHeight = viewport.virtualHeight;
+  state.viewportWidth = w;
+  state.viewportHeight = h;
   state.view = m_view;
   return state;
 }
@@ -371,16 +315,13 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
   int w, h;
   GetClientSize(&w, &h);
 
-  const LayoutEditViewport viewport =
-      ComputeLayoutEditViewport(w, h, m_layoutEditAspect, m_layoutEditViewport);
-
-  glViewport(viewport.x, viewport.y, viewport.width, viewport.height);
+  glViewport(0, 0, w, h);
 
   glMatrixMode(GL_PROJECTION);
   glLoadIdentity();
   float ppm = PIXELS_PER_METER * m_zoom;
-  float halfW = static_cast<float>(viewport.virtualWidth) / ppm * 0.5f;
-  float halfH = static_cast<float>(viewport.virtualHeight) / ppm * 0.5f;
+  float halfW = static_cast<float>(w) / ppm * 0.5f;
+  float halfH = static_cast<float>(h) / ppm * 0.5f;
   float offX = m_offsetX / PIXELS_PER_METER;
   float offY = m_offsetY / PIXELS_PER_METER;
   glOrtho(-halfW - offX, halfW - offX, -halfH - offY, halfH - offY, -100.0f,
@@ -445,15 +386,21 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
   // Draw labels for all fixtures after rendering the scene so they appear on
   // top of geometry. Scale the label size with the current zoom so they behave
   // like regular scene objects instead of remaining a constant screen size.
-  m_controller.DrawAllFixtureLabels(viewport.virtualWidth,
-                                    viewport.virtualHeight, m_zoom);
+  m_controller.DrawAllFixtureLabels(w, h, m_zoom);
 
   if (m_layoutEditAspect && *m_layoutEditAspect > 0.0f) {
-    glViewport(0, 0, w, h);
-    float left = static_cast<float>(viewport.x);
-    float bottom = static_cast<float>(viewport.y);
-    float targetWidth = static_cast<float>(viewport.width);
-    float targetHeight = static_cast<float>(viewport.height);
+    float aspect = *m_layoutEditAspect;
+    float padding = static_cast<float>(std::min(w, h)) * 0.1f;
+    float maxWidth = static_cast<float>(w) - padding * 2.0f;
+    float maxHeight = static_cast<float>(h) - padding * 2.0f;
+    float targetWidth = maxWidth;
+    float targetHeight = targetWidth / aspect;
+    if (targetHeight > maxHeight) {
+      targetHeight = maxHeight;
+      targetWidth = targetHeight * aspect;
+    }
+    float left = (static_cast<float>(w) - targetWidth) * 0.5f;
+    float bottom = (static_cast<float>(h) - targetHeight) * 0.5f;
 
     GLboolean depthEnabled = glIsEnabled(GL_DEPTH_TEST);
     if (depthEnabled)
