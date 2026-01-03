@@ -84,7 +84,9 @@ void LayoutViewerPanel::SetLayoutDefinition(
   captureVersion = -1;
   hasCapture = false;
   hasRenderState = false;
-  cachedTextureSize = wxSize(0, 0);
+  cachedTextureTargetSize = wxSize(0, 0);
+  cachedTextureRenderSize = wxSize(0, 0);
+  cachedRenderScale = 1.0;
   ClearCachedTexture();
   renderDirty = true;
   ResetViewToFit();
@@ -236,14 +238,16 @@ void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
             captureVersion = layoutVersion;
             captureInProgress = false;
             renderDirty = true;
-            cachedTextureSize = wxSize(0, 0);
+            cachedTextureTargetSize = wxSize(0, 0);
+            cachedTextureRenderSize = wxSize(0, 0);
+            cachedRenderScale = 1.0;
             RequestRenderRebuild();
             Refresh();
           });
     }
   }
 
-  if (cachedTexture_ != 0 && cachedTextureSize == frameRect.GetSize()) {
+  if (cachedTexture_ != 0 && cachedTextureTargetSize == frameRect.GetSize()) {
     glEnable(GL_TEXTURE_2D);
     glBindTexture(GL_TEXTURE_2D, cachedTexture_);
     glColor4ub(255, 255, 255, 255);
@@ -601,7 +605,9 @@ void LayoutViewerPanel::RebuildCachedTexture() {
       !GetFrameRect(view->frame, frameRect) ||
       frameRect.GetWidth() <= 0 || frameRect.GetHeight() <= 0) {
     ClearCachedTexture();
-    cachedTextureSize = wxSize(0, 0);
+    cachedTextureTargetSize = wxSize(0, 0);
+    cachedTextureRenderSize = wxSize(0, 0);
+    cachedRenderScale = 1.0;
     return;
   }
 
@@ -613,11 +619,19 @@ void LayoutViewerPanel::RebuildCachedTexture() {
   }
   if (!capturePanel || !offscreenRenderer) {
     ClearCachedTexture();
-    cachedTextureSize = wxSize(0, 0);
+    cachedTextureTargetSize = wxSize(0, 0);
+    cachedTextureRenderSize = wxSize(0, 0);
+    cachedRenderScale = 1.0;
     return;
   }
 
-  offscreenRenderer->SetViewportSize(frameRect.GetSize());
+  const double renderScale = GetRenderScaleFactor();
+  const int renderWidth = std::max(
+      1, static_cast<int>(std::lround(frameRect.GetWidth() * renderScale)));
+  const int renderHeight = std::max(
+      1, static_cast<int>(std::lround(frameRect.GetHeight() * renderScale)));
+
+  offscreenRenderer->SetViewportSize(wxSize(renderWidth, renderHeight));
   offscreenRenderer->PrepareForCapture();
 
   ConfigManager &cfg = ConfigManager::Get();
@@ -630,7 +644,9 @@ void LayoutViewerPanel::RebuildCachedTexture() {
   if (!capturePanel->RenderToRGBA(pixels, width, height) || width <= 0 ||
       height <= 0) {
     ClearCachedTexture();
-    cachedTextureSize = wxSize(0, 0);
+    cachedTextureTargetSize = wxSize(0, 0);
+    cachedTextureRenderSize = wxSize(0, 0);
+    cachedRenderScale = 1.0;
     return;
   }
 
@@ -647,7 +663,9 @@ void LayoutViewerPanel::RebuildCachedTexture() {
   glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
   glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA,
                GL_UNSIGNED_BYTE, pixels.data());
-  cachedTextureSize = wxSize(width, height);
+  cachedTextureTargetSize = frameRect.GetSize();
+  cachedTextureRenderSize = wxSize(width, height);
+  cachedRenderScale = renderScale;
 }
 
 void LayoutViewerPanel::ClearCachedTexture() {
@@ -676,14 +694,28 @@ void LayoutViewerPanel::InvalidateRenderIfFrameChanged() {
     if (cachedTexture_ != 0) {
       renderDirty = true;
       ClearCachedTexture();
-      cachedTextureSize = wxSize(0, 0);
+      cachedTextureTargetSize = wxSize(0, 0);
+      cachedTextureRenderSize = wxSize(0, 0);
+      cachedRenderScale = 1.0;
     }
     return;
   }
 
   const wxSize frameSize = frameRect.GetSize();
-  if (frameSize != cachedTextureSize)
+  const double renderScale = GetRenderScaleFactor();
+  const double epsilon = 1e-4;
+  if (frameSize != cachedTextureTargetSize ||
+      std::abs(renderScale - cachedRenderScale) > epsilon)
     renderDirty = true;
+}
+
+double LayoutViewerPanel::GetRenderScaleFactor() const {
+  const double dpiScale = std::max(1.0, GetContentScaleFactor());
+  ConfigManager &cfg = ConfigManager::Get();
+  const double supersample =
+      std::max(1.0, static_cast<double>(cfg.GetFloat(
+                         "layout_viewer_supersample")));
+  return dpiScale * supersample;
 }
 
 LayoutViewerPanel::FrameDragMode

@@ -182,6 +182,7 @@ ConfigManager::ConfigManager() {
   RegisterVariable("view2d_render_mode", "float", 2.0f, 0.0f, 3.0f);
   RegisterVariable("view2d_view", "float", 0.0f, 0.0f, 2.0f);
   RegisterVariable("view2d_dark_mode", "float", 1.0f, 0.0f, 1.0f);
+  RegisterVariable("layout_viewer_supersample", "float", 1.0f, 1.0f, 4.0f);
   LoadUserConfig();
   if (!HasKey("rider_autopatch"))
     SetValue("rider_autopatch", "1");
