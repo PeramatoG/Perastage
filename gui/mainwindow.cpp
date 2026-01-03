@@ -2377,6 +2377,22 @@ void MainWindow::ActivateLayoutView(const std::string &layoutName) {
     }
   }
 
+  if (layoutModeActive && viewport2DPanel) {
+    int viewIndex = 0;
+    bool hasViewIndex = false;
+    if (layoutViewerPanel) {
+      if (const auto *view = layoutViewerPanel->GetEditableView()) {
+        viewIndex = view->camera.view;
+        hasViewIndex = true;
+      }
+    }
+    if (!hasViewIndex) {
+      const auto viewState = viewport2DPanel->GetViewState();
+      viewIndex = static_cast<int>(viewState.view);
+    }
+    RestoreLayout2DViewState(viewIndex);
+  }
+
   ApplyLayoutModePerspective();
 }
 
