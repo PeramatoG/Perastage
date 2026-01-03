@@ -43,7 +43,6 @@ constexpr int kHandleSizePx = 10;
 constexpr int kHandleHalfPx = kHandleSizePx / 2;
 constexpr int kHandleHoverPadPx = 6;
 constexpr int kMinFrameSize = 24;
-constexpr int kMaxRenderTextureSize = 8192;
 constexpr int kEditMenuId = wxID_HIGHEST + 490;
 constexpr int kDeleteMenuId = wxID_HIGHEST + 491;
 }
@@ -564,18 +563,7 @@ wxSize LayoutViewerPanel::GetFrameSizeForZoom(
 }
 
 double LayoutViewerPanel::GetRenderZoom() const {
-  double targetZoom = std::max(1.0, zoom);
-  const layouts::Layout2DViewDefinition *view = GetEditableView();
-  if (!view || view->frame.width <= 0 || view->frame.height <= 0)
-    return targetZoom;
-  const double maxZoomWidth =
-      static_cast<double>(kMaxRenderTextureSize) / view->frame.width;
-  const double maxZoomHeight =
-      static_cast<double>(kMaxRenderTextureSize) / view->frame.height;
-  const double maxZoom = std::min(maxZoomWidth, maxZoomHeight);
-  if (maxZoom > 0.0)
-    targetZoom = std::min(targetZoom, maxZoom);
-  return targetZoom;
+  return 1.0;
 }
 
 layouts::Layout2DViewDefinition *LayoutViewerPanel::GetEditableView() {
