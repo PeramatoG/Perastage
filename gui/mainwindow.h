@@ -111,6 +111,7 @@ private:
   void OnAutoColor(wxCommandEvent &event);         // Auto assign colors
   void OnConvertToHoist(wxCommandEvent &event);    // Convert fixtures to hoists
   void OnPrintViewer2D(wxCommandEvent &event); // Print 2D view to PDF
+  void OnPrintLayout(wxCommandEvent &event);   // Print layout to PDF
   void OnPrintTable(wxCommandEvent &event);        // Print selected table
   void OnExportCSV(wxCommandEvent &event);         // Export table to CSV
   void
@@ -190,6 +191,7 @@ enum {
   ID_File_ImportMVR,
   ID_File_ExportMVR,
   ID_File_PrintViewer2D,
+  ID_File_PrintLayout,
   ID_File_PrintTable,
   ID_File_ExportCSV,
   ID_File_Close,

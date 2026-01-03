@@ -24,7 +24,8 @@
 class Viewer2DPrintDialog : public wxDialog {
 public:
   Viewer2DPrintDialog(wxWindow *parent,
-                      const print::Viewer2DPrintSettings &settings);
+                      const print::Viewer2DPrintSettings &settings,
+                      bool showOrientation = true);
 
   print::Viewer2DPrintSettings GetSettings() const;
 
@@ -38,4 +39,6 @@ private:
   wxCheckBox *includeGridCheck = nullptr;
   wxRadioButton *detailedRadio = nullptr;
   wxRadioButton *schematicRadio = nullptr;
+  bool showOrientation_ = true;
+  bool initialLandscape_ = false;
 };

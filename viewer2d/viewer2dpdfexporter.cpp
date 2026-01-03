@@ -1037,19 +1037,10 @@ Viewer2DExportResult ExportViewer2DToPdf(
 
   std::ostringstream resources;
   resources << "<< /Font << /F1 1 0 R >>";
-  if (!xObjectKeyIds.empty() || !xObjectIdIds.empty()) {
+  if (!xObjectNameIds.empty()) {
     resources << " /XObject << ";
-    for (const auto &entry : xObjectKeyIds) {
-      auto nameIt = xObjectKeyNames.find(entry.first);
-      if (nameIt == xObjectKeyNames.end())
-        continue;
-      resources << '/' << nameIt->second << ' ' << entry.second << " 0 R ";
-    }
-    for (const auto &entry : xObjectIdIds) {
-      auto nameIt = xObjectIdNames.find(entry.first);
-      if (nameIt == xObjectIdNames.end())
-        continue;
-      resources << '/' << nameIt->second << ' ' << entry.second << " 0 R ";
+    for (const auto &entry : xObjectNameIds) {
+      resources << '/' << entry.first << ' ' << entry.second << " 0 R ";
     }
     resources << ">>";
   }
@@ -1098,6 +1089,356 @@ Viewer2DExportResult ExportViewer2DToPdf(
     result.success = true;
   } catch (const std::exception &ex) {
     result.message = std::string("Failed to generate PDF content: ") + ex.what();
+    return result;
+  } catch (...) {
+    result.message = "An unknown error occurred while generating the PDF plan.";
+    return result;
+  }
+
+  return result;
+}
+
+Viewer2DExportResult ExportLayoutToPdf(
+    const std::vector<LayoutViewExportData> &views,
+    const Viewer2DPrintOptions &options,
+    const std::filesystem::path &outputPath) {
+  Viewer2DExportResult result{};
+
+  if (views.empty()) {
+    result.message = "No layout views were provided for export.";
+    return result;
+  }
+
+  if (outputPath.empty() || outputPath.filename().empty()) {
+    result.message = "No output file was provided for the PDF layout.";
+    return result;
+  }
+
+  const auto parent = outputPath.parent_path();
+  std::error_code pathEc;
+  if (!parent.empty() && !std::filesystem::exists(parent, pathEc)) {
+    result.message =
+        pathEc ? "Unable to verify the selected folder for the PDF layout." :
+                 "The selected folder does not exist.";
+    return result;
+  }
+
+  const double pageW = options.pageWidthPt;
+  const double pageH = options.pageHeightPt;
+  if (pageW <= 0.0 || pageH <= 0.0) {
+    result.message = "The selected paper size leaves no space for drawing.";
+    return result;
+  }
+
+  struct CommandGroup {
+    std::vector<CanvasCommand> commands;
+    std::vector<CommandMetadata> metadata;
+    std::vector<std::string> sources;
+  };
+
+  struct LayoutCommandGroup {
+    CommandGroup commands;
+    Mapping mapping;
+    std::unordered_set<std::string> usedSymbolKeys;
+    std::unordered_set<uint32_t> usedSymbolIds;
+    size_t viewIndex = 0;
+  };
+
+  std::unordered_map<std::string, CommandGroup> symbolDefinitions;
+  std::vector<LayoutCommandGroup> layoutGroups;
+  std::shared_ptr<const SymbolDefinitionSnapshot> symbolSnapshot = nullptr;
+
+  auto captureCommands = [&](const CommandBuffer &buffer, CommandGroup &out,
+                             std::unordered_set<std::string> &viewSymbolKeys,
+                             std::unordered_set<uint32_t> &viewSymbolIds) {
+    std::string capturingKey;
+    std::vector<CanvasCommand> captureBuffer;
+    std::vector<CommandMetadata> captureMetadata;
+    std::vector<std::string> captureSources;
+
+    for (size_t i = 0; i < buffer.commands.size(); ++i) {
+      const auto &cmd = buffer.commands[i];
+      const auto &meta = buffer.metadata[i];
+      const auto &source = buffer.sources[i];
+
+      if (const auto *begin = std::get_if<BeginSymbolCommand>(&cmd)) {
+        capturingKey = begin->key;
+        captureBuffer.clear();
+        captureMetadata.clear();
+        captureSources.clear();
+        continue;
+      }
+      if (const auto *end = std::get_if<EndSymbolCommand>(&cmd)) {
+        if (!capturingKey.empty() && capturingKey == end->key &&
+            !symbolDefinitions.count(capturingKey)) {
+          symbolDefinitions.emplace(capturingKey,
+                                    CommandGroup{captureBuffer, captureMetadata,
+                                                 captureSources});
+        }
+        capturingKey.clear();
+        captureBuffer.clear();
+        captureMetadata.clear();
+        captureSources.clear();
+        continue;
+      }
+      if (const auto *place = std::get_if<PlaceSymbolCommand>(&cmd)) {
+        viewSymbolKeys.insert(place->key);
+      }
+      if (const auto *instance = std::get_if<SymbolInstanceCommand>(&cmd)) {
+        viewSymbolIds.insert(instance->symbolId);
+      }
+
+      if (!capturingKey.empty()) {
+        captureBuffer.push_back(cmd);
+        captureMetadata.push_back(meta);
+        captureSources.push_back(source);
+        continue;
+      }
+
+      out.commands.push_back(cmd);
+      out.metadata.push_back(meta);
+      out.sources.push_back(source);
+    }
+  };
+
+  for (size_t idx = 0; idx < views.size(); ++idx) {
+    const auto &view = views[idx];
+    if (view.buffer.commands.empty()) {
+      result.message = "Unable to capture one or more layout views.";
+      return result;
+    }
+
+    if (view.viewState.viewportWidth <= 0 ||
+        view.viewState.viewportHeight <= 0) {
+      result.message = "The 2D viewport is not ready for layout export.";
+      return result;
+    }
+
+    if (!std::isfinite(view.viewState.zoom) || view.viewState.zoom <= 0.0f) {
+      result.message = "Invalid zoom value provided for layout export.";
+      return result;
+    }
+
+    if (view.frame.width <= 0 || view.frame.height <= 0) {
+      result.message = "Layout frame dimensions are invalid for export.";
+      return result;
+    }
+
+    viewer2d::Viewer2DRenderMapping viewMapping;
+    if (!viewer2d::BuildViewMapping(view.viewState, view.frame.width,
+                                    view.frame.height, 0.0, viewMapping)) {
+      result.message = "Layout view dimensions are invalid for export.";
+      return result;
+    }
+
+    const double frameOriginY =
+        pageH - view.frame.y - static_cast<double>(view.frame.height);
+    Mapping mapping{viewMapping.minX,
+                    viewMapping.minY,
+                    viewMapping.scale,
+                    viewMapping.offsetX + view.frame.x,
+                    viewMapping.offsetY + frameOriginY,
+                    viewMapping.drawHeight,
+                    false};
+
+    CommandGroup mainCommands;
+    std::unordered_set<std::string> viewSymbolKeys;
+    std::unordered_set<uint32_t> viewSymbolIds;
+    captureCommands(view.buffer, mainCommands, viewSymbolKeys, viewSymbolIds);
+    layoutGroups.push_back({std::move(mainCommands), mapping,
+                            std::move(viewSymbolKeys),
+                            std::move(viewSymbolIds), idx});
+
+    if (!symbolSnapshot && view.symbolSnapshot)
+      symbolSnapshot = view.symbolSnapshot;
+  }
+
+  if (layoutGroups.empty()) {
+    result.message = "Nothing to export";
+    return result;
+  }
+
+  FloatFormatter formatter(options.floatPrecision);
+  std::unordered_map<std::string, size_t> xObjectNameIds;
+
+  std::ostringstream contentStream;
+  auto makeLayoutKeyName = [&](size_t viewIndex, const std::string &key) {
+    return "K" + MakePdfName("V" + std::to_string(viewIndex) + "_" + key);
+  };
+  auto makeLayoutIdName = [&](size_t viewIndex, uint32_t id) {
+    return "S" + MakePdfName("V" + std::to_string(viewIndex) + "_" +
+                             std::to_string(id));
+  };
+
+  std::vector<PdfObject> objects;
+  objects.push_back({"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"});
+
+  auto appendSymbolObject = [&](const std::string &name,
+                                const std::vector<CanvasCommand> &commands,
+                                const std::vector<CommandMetadata> &metadata,
+                                const std::vector<std::string> &sources,
+                                double symbolScale,
+                                const SymbolBounds &bounds) {
+    Mapping symbolMapping{};
+    symbolMapping.scale = symbolScale;
+    symbolMapping.flipY = false;
+    RenderOptions symbolOptions{};
+    symbolOptions.includeText = false;
+    std::string symbolContent =
+        RenderCommandsToStream(commands, metadata, sources, symbolMapping,
+                               formatter, symbolOptions);
+    std::string compressedSymbol;
+    bool compressed = false;
+    if (options.compressStreams) {
+      std::string error;
+      compressed = PdfDeflater::Compress(symbolContent, compressedSymbol, error);
+    }
+    const std::string &symbolStream =
+        compressed ? compressedSymbol : symbolContent;
+    double minX = bounds.min.x * symbolMapping.scale;
+    double minY = bounds.min.y * symbolMapping.scale;
+    double maxX = bounds.max.x * symbolMapping.scale;
+    double maxY = bounds.max.y * symbolMapping.scale;
+    if (minX > maxX)
+      std::swap(minX, maxX);
+    if (minY > maxY)
+      std::swap(minY, maxY);
+    std::ostringstream xobj;
+    xobj << "<< /Type /XObject /Subtype /Form /BBox ["
+         << formatter.Format(minX) << ' ' << formatter.Format(minY) << ' '
+         << formatter.Format(maxX) << ' ' << formatter.Format(maxY)
+         << "] /Resources << >> /Length " << symbolStream.size();
+    if (compressed)
+      xobj << " /Filter /FlateDecode";
+    xobj << " >>\nstream\n" << symbolStream << "endstream";
+    objects.push_back({xobj.str()});
+    return objects.size();
+  };
+
+  for (const auto &group : layoutGroups) {
+    std::unordered_map<std::string, std::string> viewKeyNames;
+    std::unordered_map<uint32_t, std::string> viewIdNames;
+    viewKeyNames.reserve(group.usedSymbolKeys.size());
+    viewIdNames.reserve(group.usedSymbolIds.size());
+
+    for (const auto &key : group.usedSymbolKeys) {
+      viewKeyNames.emplace(key, makeLayoutKeyName(group.viewIndex, key));
+    }
+    for (const auto &id : group.usedSymbolIds) {
+      viewIdNames.emplace(id, makeLayoutIdName(group.viewIndex, id));
+    }
+
+    RenderOptions mainOptions{};
+    mainOptions.includeText = true;
+    mainOptions.symbolKeyNames = &viewKeyNames;
+    mainOptions.symbolIdNames = &viewIdNames;
+    contentStream << RenderCommandsToStream(group.commands.commands,
+                                            group.commands.metadata,
+                                            group.commands.sources,
+                                            group.mapping, formatter,
+                                            mainOptions);
+
+    for (const auto &entry : viewKeyNames) {
+      auto defIt = symbolDefinitions.find(entry.first);
+      if (defIt == symbolDefinitions.end())
+        continue;
+      SymbolBounds bounds = ComputeSymbolBounds(defIt->second.commands);
+      xObjectNameIds[entry.second] =
+          appendSymbolObject(entry.second, defIt->second.commands,
+                             defIt->second.metadata, defIt->second.sources,
+                             group.mapping.scale, bounds);
+    }
+
+    if (symbolSnapshot) {
+      for (const auto &entry : viewIdNames) {
+        auto defIt = symbolSnapshot->find(entry.first);
+        if (defIt == symbolSnapshot->end())
+          continue;
+        xObjectNameIds[entry.second] =
+            appendSymbolObject(entry.second,
+                               defIt->second.localCommands.commands,
+                               defIt->second.localCommands.metadata,
+                               defIt->second.localCommands.sources,
+                               group.mapping.scale, defIt->second.bounds);
+      }
+    }
+  }
+
+  std::string contentStr = contentStream.str();
+
+  std::string compressedContent;
+  bool useCompression = false;
+  if (options.compressStreams) {
+    std::string error;
+    if (PdfDeflater::Compress(contentStr, compressedContent, error)) {
+      useCompression = true;
+    }
+  }
+
+  std::ostringstream contentObj;
+  const std::string &streamData =
+      useCompression ? compressedContent : contentStr;
+  contentObj << "<< /Length " << streamData.size();
+  if (useCompression)
+    contentObj << " /Filter /FlateDecode";
+  contentObj << " >>\nstream\n" << streamData << "endstream";
+  objects.push_back({contentObj.str()});
+
+  std::ostringstream resources;
+  resources << "<< /Font << /F1 1 0 R >>";
+  if (!xObjectNameIds.empty()) {
+    resources << " /XObject << ";
+    for (const auto &entry : xObjectNameIds) {
+      resources << '/' << entry.first << ' ' << entry.second << " 0 R ";
+    }
+    resources << ">>";
+  }
+  resources << " >>";
+
+  std::ostringstream pageObj;
+  size_t contentIndex = objects.size();
+  size_t pageIndex = contentIndex + 1;
+  size_t pagesIndex = pageIndex + 1;
+  size_t catalogIndex = pagesIndex + 1;
+
+  pageObj << "<< /Type /Page /Parent " << pagesIndex
+          << " 0 R /MediaBox [0 0 " << formatter.Format(pageW) << ' '
+          << formatter.Format(pageH) << "] /Contents " << contentIndex
+          << " 0 R /Resources " << resources.str() << " >>";
+  objects.push_back({pageObj.str()});
+  objects.push_back({"<< /Type /Pages /Kids [" + std::to_string(pageIndex) +
+                    " 0 R] /Count 1 >>"});
+  objects.push_back({"<< /Type /Catalog /Pages " +
+                    std::to_string(pagesIndex) + " 0 R >>"});
+
+  try {
+    std::ofstream file(outputPath, std::ios::binary);
+    if (!file.is_open()) {
+      result.message = "Unable to open the destination file for writing.";
+      return result;
+    }
+
+    file << "%PDF-1.4\n";
+    std::vector<long> offsets;
+    offsets.reserve(objects.size());
+    for (size_t i = 0; i < objects.size(); ++i) {
+      offsets.push_back(static_cast<long>(file.tellp()));
+      file << (i + 1) << " 0 obj\n" << objects[i].body << "\nendobj\n";
+    }
+
+    long xrefPos = static_cast<long>(file.tellp());
+    file << "xref\n0 " << (objects.size() + 1)
+         << "\n0000000000 65535 f \n";
+    for (long off : offsets) {
+      file << std::setw(10) << std::setfill('0') << off << " 00000 n \n";
+    }
+    file << "trailer\n<< /Size " << (objects.size() + 1)
+         << " /Root " << catalogIndex
+         << " 0 R >>\nstartxref\n" << xrefPos << "\n%%EOF";
+    result.success = true;
+  } catch (const std::exception &ex) {
+    result.message =
+        std::string("Failed to generate PDF content: ") + ex.what();
     return result;
   } catch (...) {
     result.message = "An unknown error occurred while generating the PDF plan.";
