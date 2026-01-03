@@ -81,6 +81,9 @@ LayoutViewerPanel::~LayoutViewerPanel() {
 void LayoutViewerPanel::SetLayoutDefinition(
     const layouts::LayoutDefinition &layout) {
   currentLayout = layout;
+  selectedViewId = currentLayout.view2dViews.empty()
+                       ? -1
+                       : currentLayout.view2dViews.front().camera.view;
   layoutVersion++;
   captureVersion = -1;
   hasCapture = false;
@@ -145,15 +148,36 @@ void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
              static_cast<float>(topLeft.y + scaledHeight));
   glEnd();
 
-  const layouts::Layout2DViewDefinition *view = GetEditableView();
-  if (!view) {
+  const layouts::Layout2DViewDefinition *activeView = GetEditableView();
+  int activeViewId = activeView ? activeView->camera.view : -1;
+  for (const auto &view : currentLayout.view2dViews) {
+    if (view.camera.view == activeViewId)
+      continue;
+    wxRect rect;
+    if (!GetFrameRect(view.frame, rect))
+      continue;
+    glColor4ub(160, 160, 160, 255);
+    glLineWidth(1.0f);
+    glBegin(GL_LINE_LOOP);
+    glVertex2f(static_cast<float>(rect.GetLeft()),
+               static_cast<float>(rect.GetTop()));
+    glVertex2f(static_cast<float>(rect.GetRight()),
+               static_cast<float>(rect.GetTop()));
+    glVertex2f(static_cast<float>(rect.GetRight()),
+               static_cast<float>(rect.GetBottom()));
+    glVertex2f(static_cast<float>(rect.GetLeft()),
+               static_cast<float>(rect.GetBottom()));
+    glEnd();
+  }
+
+  if (!activeView) {
     glFlush();
     SwapBuffers();
     return;
   }
 
   wxRect frameRect;
-  if (!GetFrameRect(view->frame, frameRect)) {
+  if (!GetFrameRect(activeView->frame, frameRect)) {
     glFlush();
     SwapBuffers();
     return;
@@ -196,15 +220,17 @@ void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
     if (capturePanel) {
       captureInProgress = true;
       const int fallbackViewportWidth =
-          view->camera.viewportWidth > 0 ? view->camera.viewportWidth
-                                         : view->frame.width;
+          activeView->camera.viewportWidth > 0
+              ? activeView->camera.viewportWidth
+              : activeView->frame.width;
       const int fallbackViewportHeight =
-          view->camera.viewportHeight > 0 ? view->camera.viewportHeight
-                                          : view->frame.height;
+          activeView->camera.viewportHeight > 0
+              ? activeView->camera.viewportHeight
+              : activeView->frame.height;
       ConfigManager &cfg = ConfigManager::Get();
       viewer2d::Viewer2DState layoutState =
           useEditorState ? viewer2d::CaptureState(statePanel, cfg)
-                         : viewer2d::FromLayoutDefinition(*view);
+                         : viewer2d::FromLayoutDefinition(*activeView);
       layoutState.renderOptions.darkMode = false;
       cachedRenderState = layoutState;
       hasRenderState = true;
@@ -247,7 +273,7 @@ void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
   }
 
   const wxSize renderSize =
-      GetFrameSizeForZoom(view->frame, cachedRenderZoom);
+      GetFrameSizeForZoom(activeView->frame, cachedRenderZoom);
   if (cachedTexture_ != 0 && renderSize.GetWidth() > 0 &&
       renderSize.GetHeight() > 0 &&
       cachedTextureSize == renderSize) {
@@ -337,6 +363,7 @@ void LayoutViewerPanel::OnSize(wxSizeEvent &) {
 
 void LayoutViewerPanel::OnLeftDown(wxMouseEvent &event) {
   const wxPoint pos = event.GetPosition();
+  SelectViewAtPosition(pos);
   const layouts::Layout2DViewDefinition *view = GetEditableView();
   wxRect frameRect;
   if (view && GetFrameRect(view->frame, frameRect)) {
@@ -371,6 +398,7 @@ void LayoutViewerPanel::OnLeftUp(wxMouseEvent &) {
 
 void LayoutViewerPanel::OnLeftDClick(wxMouseEvent &event) {
   const wxPoint pos = event.GetPosition();
+  SelectViewAtPosition(pos);
   const layouts::Layout2DViewDefinition *view = GetEditableView();
   wxRect frameRect;
   if (view && GetFrameRect(view->frame, frameRect) && frameRect.Contains(pos)) {
@@ -382,6 +410,9 @@ void LayoutViewerPanel::OnLeftDClick(wxMouseEvent &event) {
 
 void LayoutViewerPanel::OnMouseMove(wxMouseEvent &event) {
   wxPoint currentPos = event.GetPosition();
+  if (dragMode == FrameDragMode::None && !isPanning) {
+    SelectViewAtPosition(currentPos);
+  }
   const layouts::Layout2DViewDefinition *view = GetEditableView();
   wxRect frameRect;
   if (view && GetFrameRect(view->frame, frameRect)) {
@@ -464,6 +495,10 @@ void LayoutViewerPanel::OnCaptureLost(wxMouseCaptureLostEvent &) {
 
 void LayoutViewerPanel::OnRightUp(wxMouseEvent &event) {
   const wxPoint pos = event.GetPosition();
+  if (!SelectViewAtPosition(pos)) {
+    event.Skip();
+    return;
+  }
   const layouts::Layout2DViewDefinition *view = GetEditableView();
   wxRect frameRect;
   if (!(view && GetFrameRect(view->frame, frameRect) &&
@@ -496,6 +531,9 @@ void LayoutViewerPanel::OnDeleteView(wxCommandEvent &) {
                                    return entry.camera.view == viewIndex;
                                  }),
                   views.end());
+      if (selectedViewId == viewIndex) {
+        selectedViewId = views.empty() ? -1 : views.front().camera.view;
+      }
     }
   }
   Refresh();
@@ -567,13 +605,28 @@ double LayoutViewerPanel::GetRenderZoom() const {
 }
 
 layouts::Layout2DViewDefinition *LayoutViewerPanel::GetEditableView() {
-  if (!currentLayout.view2dViews.empty())
-    return &currentLayout.view2dViews.front();
-  return nullptr;
+  if (currentLayout.view2dViews.empty())
+    return nullptr;
+  if (selectedViewId >= 0) {
+    for (auto &view : currentLayout.view2dViews) {
+      if (view.camera.view == selectedViewId)
+        return &view;
+    }
+  }
+  selectedViewId = currentLayout.view2dViews.front().camera.view;
+  return &currentLayout.view2dViews.front();
 }
 
 const layouts::Layout2DViewDefinition *LayoutViewerPanel::GetEditableView()
     const {
+  if (currentLayout.view2dViews.empty())
+    return nullptr;
+  if (selectedViewId >= 0) {
+    for (const auto &view : currentLayout.view2dViews) {
+      if (view.camera.view == selectedViewId)
+        return &view;
+    }
+  }
   if (!currentLayout.view2dViews.empty())
     return &currentLayout.view2dViews.front();
   return nullptr;
@@ -746,6 +799,40 @@ void LayoutViewerPanel::InvalidateRenderIfFrameChanged() {
   if (cachedRenderZoom == 0.0 || cachedRenderZoom != renderZoom ||
       renderSize != cachedTextureSize)
     renderDirty = true;
+}
+
+bool LayoutViewerPanel::SelectViewAtPosition(const wxPoint &pos) {
+  const int viewIndex = GetViewIndexAtPosition(pos);
+  if (viewIndex < 0)
+    return false;
+  const auto &view = currentLayout.view2dViews[viewIndex];
+  if (selectedViewId == view.camera.view)
+    return true;
+  selectedViewId = view.camera.view;
+  captureVersion = -1;
+  hasCapture = false;
+  renderDirty = true;
+  cachedTextureSize = wxSize(0, 0);
+  cachedRenderZoom = 0.0;
+  RequestRenderRebuild();
+  Refresh();
+  return true;
+}
+
+int LayoutViewerPanel::GetViewIndexAtPosition(const wxPoint &pos) const {
+  if (currentLayout.view2dViews.empty())
+    return -1;
+  for (int i = static_cast<int>(currentLayout.view2dViews.size()) - 1; i >= 0;
+       --i) {
+    wxRect frameRect;
+    if (!GetFrameRect(currentLayout.view2dViews[static_cast<size_t>(i)].frame,
+                      frameRect)) {
+      continue;
+    }
+    if (frameRect.Contains(pos))
+      return i;
+  }
+  return -1;
 }
 
 LayoutViewerPanel::FrameDragMode

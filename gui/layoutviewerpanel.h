@@ -66,6 +66,8 @@ private:
   void RequestRenderRebuild();
   void InvalidateRenderIfFrameChanged();
   void EmitEditViewRequest();
+  bool SelectViewAtPosition(const wxPoint &pos);
+  int GetViewIndexAtPosition(const wxPoint &pos) const;
 
   enum class FrameDragMode {
     None,
@@ -91,6 +93,7 @@ private:
   int captureVersion = -1;
   bool captureInProgress = false;
   bool hasCapture = false;
+  int selectedViewId = -1;
   CommandBuffer cachedBuffer;
   Viewer2DViewState cachedViewState;
   viewer2d::Viewer2DState cachedRenderState;
