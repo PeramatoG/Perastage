@@ -23,6 +23,9 @@
 #include <vector>
 
 #include <GL/gl.h>
+#ifndef GL_CLAMP_TO_EDGE
+#define GL_CLAMP_TO_EDGE 0x812F
+#endif
 
 #include "configmanager.h"
 #include "layouts/LayoutManager.h"
