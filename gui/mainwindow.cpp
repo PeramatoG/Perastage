@@ -2245,6 +2245,8 @@ void MainWindow::OnLayout2DViewCancel(wxCommandEvent &WXUNUSED(event)) {
 void MainWindow::PersistLayout2DViewState() {
   if (activeLayoutName.empty())
     return;
+  if (layoutModeActive && !layout2DViewEditing)
+    return;
   ConfigManager &cfg = ConfigManager::Get();
   Viewer2DPanel *activePanel =
       (layout2DViewEditing && layout2DViewEditPanel) ? layout2DViewEditPanel
