@@ -28,6 +28,7 @@
 #include "layouts/LayoutManager.h"
 #include "mainwindow.h"
 #include "viewer2dcommandrenderer.h"
+#include "viewer2doffscreenrenderer.h"
 #include "viewer2dstate.h"
 
 namespace {
@@ -284,20 +285,21 @@ void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
     return;
 
   if (!captureInProgress && captureVersion != layoutVersion) {
-    Viewer2DPanel *panel = nullptr;
+    Viewer2DPanel *capturePanel = nullptr;
+    Viewer2DPanel *statePanel = nullptr;
+    Viewer2DOffscreenRenderer *offscreenRenderer = nullptr;
     bool useEditorState = false;
     if (auto *mw = MainWindow::Instance()) {
-      panel = mw->GetLayoutCapturePanel();
-      useEditorState = mw->IsLayout2DViewEditing() && panel;
-      if (!panel) {
-        mw->Ensure2DViewportAvailable();
-        panel = mw->GetLayoutCapturePanel();
-        useEditorState = mw->IsLayout2DViewEditing() && panel;
-      }
+      offscreenRenderer = mw->GetOffscreenRenderer();
+      capturePanel =
+          offscreenRenderer ? offscreenRenderer->GetPanel() : nullptr;
+      statePanel = mw->GetLayoutCapturePanel();
+      useEditorState = mw->IsLayout2DViewEditing() && statePanel;
     } else {
-      panel = Viewer2DPanel::Instance();
+      capturePanel = Viewer2DPanel::Instance();
+      statePanel = capturePanel;
     }
-    if (panel) {
+    if (capturePanel) {
       captureInProgress = true;
       const int fallbackViewportWidth =
           view->camera.viewportWidth > 0 ? view->camera.viewportWidth
@@ -307,13 +309,20 @@ void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
                                           : view->frame.height;
       ConfigManager &cfg = ConfigManager::Get();
       viewer2d::Viewer2DState layoutState =
-          useEditorState ? viewer2d::CaptureState(panel, cfg)
+          useEditorState ? viewer2d::CaptureState(statePanel, cfg)
                          : viewer2d::FromLayoutDefinition(*view);
       layoutState.renderOptions.darkMode = false;
+      if (offscreenRenderer && fallbackViewportWidth > 0 &&
+          fallbackViewportHeight > 0) {
+        offscreenRenderer->SetViewportSize(
+            wxSize(fallbackViewportWidth, fallbackViewportHeight));
+        offscreenRenderer->PrepareForCapture();
+      }
       auto stateGuard = std::make_shared<viewer2d::ScopedViewer2DState>(
-          panel, nullptr, cfg, layoutState);
-      panel->CaptureFrameNow(
-          [this, stateGuard, fallbackViewportWidth, fallbackViewportHeight](
+          capturePanel, nullptr, cfg, layoutState);
+      capturePanel->CaptureFrameNow(
+          [this, stateGuard, fallbackViewportWidth, fallbackViewportHeight,
+           capturePanel](
               CommandBuffer buffer, Viewer2DViewState state) {
             cachedBuffer = std::move(buffer);
             cachedViewState = state;
@@ -326,9 +335,8 @@ void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
               cachedViewState.viewportHeight = fallbackViewportHeight;
             }
             cachedSymbols.reset();
-            if (Viewer2DPanel::Instance()) {
-              cachedSymbols =
-                  Viewer2DPanel::Instance()->GetBottomSymbolCacheSnapshot();
+            if (capturePanel) {
+              cachedSymbols = capturePanel->GetBottomSymbolCacheSnapshot();
             }
             hasCapture = !cachedBuffer.commands.empty();
             captureVersion = layoutVersion;

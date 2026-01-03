@@ -98,6 +98,7 @@ using json = nlohmann::json;
 #include "trussloader.h"
 #include "trusstablepanel.h"
 #include "viewer2dpanel.h"
+#include "viewer2doffscreenrenderer.h"
 #include "viewer2drenderpanel.h"
 #include "viewer2dstate.h"
 #include "viewer3dpanel.h"
@@ -557,6 +558,14 @@ Viewer2DPanel *MainWindow::GetLayoutCapturePanel() const {
   if (layout2DViewEditing && layout2DViewEditPanel)
     return layout2DViewEditPanel;
   return viewport2DPanel;
+}
+
+Viewer2DOffscreenRenderer *MainWindow::GetOffscreenRenderer() {
+  if (!offscreenViewer2DRenderer) {
+    offscreenViewer2DRenderer =
+        std::make_unique<Viewer2DOffscreenRenderer>(this);
+  }
+  return offscreenViewer2DRenderer.get();
 }
 
 bool MainWindow::IsLayout2DViewEditing() const { return layout2DViewEditing; }
@@ -1451,8 +1460,10 @@ void MainWindow::OnConvertToHoist(wxCommandEvent &WXUNUSED(event)) {
 }
 
 void MainWindow::OnPrintViewer2D(wxCommandEvent &WXUNUSED(event)) {
-  Ensure2DViewport();
-  if (!viewport2DPanel) {
+  Viewer2DOffscreenRenderer *offscreenRenderer = GetOffscreenRenderer();
+  Viewer2DPanel *capturePanel =
+      offscreenRenderer ? offscreenRenderer->GetPanel() : nullptr;
+  if (!capturePanel) {
     wxMessageBox("2D viewport is not available.", "Print Viewer 2D",
                  wxOK | wxICON_ERROR);
     return;
@@ -1492,8 +1503,16 @@ void MainWindow::OnPrintViewer2D(wxCommandEvent &WXUNUSED(event)) {
       std::filesystem::path(outputPathWx.ToStdWstring()));
   wxString outputPathDisplay = outputPathWx;
 
-  viewport2DPanel->CaptureFrameNow(
-      [this, opts, outputPath, outputPathDisplay](
+  wxSize captureSize = viewport2DPanel ? viewport2DPanel->GetClientSize()
+                                       : GetClientSize();
+  if (captureSize.GetWidth() <= 0 || captureSize.GetHeight() <= 0) {
+    captureSize = wxSize(1600, 900);
+  }
+  offscreenRenderer->SetViewportSize(captureSize);
+  offscreenRenderer->PrepareForCapture();
+
+  capturePanel->CaptureFrameNow(
+      [this, capturePanel, opts, outputPath, outputPathDisplay](
           CommandBuffer buffer, Viewer2DViewState state) {
         if (buffer.commands.empty()) {
           wxMessageBox("Unable to capture the 2D view for printing.",
@@ -1508,8 +1527,8 @@ void MainWindow::OnPrintViewer2D(wxCommandEvent &WXUNUSED(event)) {
         }
 
         std::string fixtureReport;
-        if (viewport2DPanel)
-          fixtureReport = viewport2DPanel->GetLastFixtureDebugReport();
+        if (capturePanel)
+          fixtureReport = capturePanel->GetLastFixtureDebugReport();
         if (!fixtureReport.empty()) {
           wxLogMessage("%s", wxString::FromUTF8(fixtureReport));
           if (ConsolePanel::Instance()) {
@@ -1519,8 +1538,8 @@ void MainWindow::OnPrintViewer2D(wxCommandEvent &WXUNUSED(event)) {
         }
 
         std::shared_ptr<const SymbolDefinitionSnapshot> symbolSnapshot = nullptr;
-        if (viewport2DPanel) {
-          symbolSnapshot = viewport2DPanel->GetBottomSymbolCacheSnapshot();
+        if (capturePanel) {
+          symbolSnapshot = capturePanel->GetBottomSymbolCacheSnapshot();
         }
 
         // Run the PDF generation off the UI thread to avoid freezing the

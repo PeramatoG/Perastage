@@ -46,7 +46,7 @@ struct Viewer2DViewState {
 
 class Viewer2DPanel : public wxGLCanvas {
 public:
-  explicit Viewer2DPanel(wxWindow *parent);
+  explicit Viewer2DPanel(wxWindow *parent, bool allowOffscreenRender = false);
   ~Viewer2DPanel();
 
   static Viewer2DPanel *Instance();
@@ -130,6 +130,7 @@ private:
   std::function<void(CommandBuffer, Viewer2DViewState)> m_captureCallback;
   std::string m_lastFixtureDebugReport;
   bool m_forceOffscreenRender = false;
+  bool m_allowOffscreenRender = false;
 
   wxGLContext *m_glContext = nullptr;
   bool m_glInitialized = false;

@@ -166,9 +166,11 @@ wxBEGIN_EVENT_TABLE(Viewer2DPanel, wxGLCanvas) EVT_PAINT(Viewer2DPanel::OnPaint)
                         EVT_MOUSE_CAPTURE_LOST(Viewer2DPanel::OnCaptureLost)
                             EVT_SIZE(Viewer2DPanel::OnResize) wxEND_EVENT_TABLE()
 
-                            Viewer2DPanel::Viewer2DPanel(wxWindow *parent)
+                            Viewer2DPanel::Viewer2DPanel(wxWindow *parent,
+                                                         bool allowOffscreenRender)
     : wxGLCanvas(parent, wxID_ANY, nullptr, wxDefaultPosition, wxDefaultSize,
-                 wxFULL_REPAINT_ON_RESIZE) {
+                 wxFULL_REPAINT_ON_RESIZE),
+      m_allowOffscreenRender(allowOffscreenRender) {
   SetBackgroundStyle(wxBG_STYLE_CUSTOM);
   m_glContext = new wxGLContext(this);
 }
@@ -249,6 +251,13 @@ void Viewer2DPanel::CaptureFrameNow(
     bool useSimplifiedFootprints, bool includeGridInCapture) {
   CaptureFrameAsync(std::move(callback), useSimplifiedFootprints,
                     includeGridInCapture);
+  if (m_allowOffscreenRender) {
+    m_forceOffscreenRender = true;
+    InitGL();
+    Render();
+    m_forceOffscreenRender = false;
+    return;
+  }
   if (IsShownOnScreen()) {
     Update();
   } else {
@@ -285,7 +294,8 @@ Viewer2DPanel::GetBottomSymbolCacheSnapshot() const {
 }
 
 void Viewer2DPanel::InitGL() {
-  if (!IsShownOnScreen() && !m_forceOffscreenRender) {
+  if (!IsShownOnScreen() && !m_forceOffscreenRender &&
+      !m_allowOffscreenRender) {
     return;
   }
   SetCurrent(*m_glContext);
