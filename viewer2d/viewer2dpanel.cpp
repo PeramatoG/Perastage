@@ -309,7 +309,9 @@ void Viewer2DPanel::InitGL() {
   }
 }
 
-void Viewer2DPanel::Render() {
+void Viewer2DPanel::Render() { RenderInternal(true); }
+
+void Viewer2DPanel::RenderInternal(bool swapBuffers) {
   int w, h;
   GetClientSize(&w, &h);
 
@@ -462,7 +464,33 @@ void Viewer2DPanel::Render() {
   }
 
   glFlush();
-  SwapBuffers();
+  if (swapBuffers)
+    SwapBuffers();
+}
+
+bool Viewer2DPanel::RenderToRGBA(std::vector<unsigned char> &pixels, int &width,
+                                 int &height) {
+  int w = 0;
+  int h = 0;
+  GetClientSize(&w, &h);
+  if (w <= 0 || h <= 0)
+    return false;
+
+  pixels.assign(static_cast<size_t>(w) * static_cast<size_t>(h) * 4, 0);
+  width = w;
+  height = h;
+
+  bool previousForce = m_forceOffscreenRender;
+  m_forceOffscreenRender = true;
+  InitGL();
+  RenderInternal(false);
+
+  glReadBuffer(GL_BACK);
+  glPixelStorei(GL_PACK_ALIGNMENT, 1);
+  glReadPixels(0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
+
+  m_forceOffscreenRender = previousForce;
+  return true;
 }
 
 void Viewer2DPanel::OnPaint(wxPaintEvent &WXUNUSED(event)) {
