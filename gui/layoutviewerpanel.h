@@ -63,6 +63,7 @@ private:
   void RequestRenderRebuild();
   void InvalidateRenderIfFrameChanged();
   void EmitEditViewRequest();
+  double GetRenderScaleFactor() const;
 
   enum class FrameDragMode {
     None,
@@ -96,7 +97,9 @@ private:
   wxGLContext *glContext_ = nullptr;
   bool glInitialized_ = false;
   unsigned int cachedTexture_ = 0;
-  wxSize cachedTextureSize{0, 0};
+  wxSize cachedTextureTargetSize{0, 0};
+  wxSize cachedTextureRenderSize{0, 0};
+  double cachedRenderScale = 1.0;
   bool renderDirty = true;
   bool renderPending = false;
 
