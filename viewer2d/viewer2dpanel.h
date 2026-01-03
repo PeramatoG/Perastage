@@ -83,6 +83,10 @@ public:
       std::function<void(CommandBuffer, Viewer2DViewState)> callback,
       bool useSimplifiedFootprints = false,
       bool includeGridInCapture = true);
+  void CaptureFrameNowWithBitmap(
+      std::function<void(CommandBuffer, Viewer2DViewState, wxBitmap)> callback,
+      bool useSimplifiedFootprints = false,
+      bool includeGridInCapture = true);
 
   // Accessor for the last recorded set of drawing commands. The buffer is
   // cleared and re-populated on every requested capture.
@@ -104,6 +108,7 @@ public:
 private:
   void InitGL();
   void Render();
+  wxBitmap ReadBackBitmap(int width, int height) const;
   void OnPaint(wxPaintEvent &event);
 
   void OnMouseDown(wxMouseEvent &event);
