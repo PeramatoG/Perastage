@@ -5,6 +5,8 @@
 class Viewer2DPanel;
 class Viewer2DRenderPanel;
 class LayerPanel;
+class wxSlider;
+class wxStaticText;
 
 class Layout2DViewDialog : public wxDialog {
 public:
@@ -17,8 +19,12 @@ private:
   void OnOk(wxCommandEvent &event);
   void OnCancel(wxCommandEvent &event);
   void OnShow(wxShowEvent &event);
+  void OnScaleChanged(wxCommandEvent &event);
+  void UpdateScaleLabel();
 
   Viewer2DPanel *viewerPanel = nullptr;
   Viewer2DRenderPanel *renderPanel = nullptr;
   LayerPanel *layerPanel = nullptr;
+  wxSlider *scaleSlider = nullptr;
+  wxStaticText *scaleValueLabel = nullptr;
 };
