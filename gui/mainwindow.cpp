@@ -2243,12 +2243,14 @@ void MainWindow::OnLayout2DViewCancel(wxCommandEvent &WXUNUSED(event)) {
 }
 
 void MainWindow::PersistLayout2DViewState() {
-  if (!layoutModeActive || activeLayoutName.empty())
+  if (activeLayoutName.empty())
     return;
   ConfigManager &cfg = ConfigManager::Get();
   Viewer2DPanel *activePanel =
       (layout2DViewEditing && layout2DViewEditPanel) ? layout2DViewEditPanel
                                                      : viewport2DPanel;
+  if (!activePanel)
+    return;
   layouts::Layout2DViewFrame frame{};
   const layouts::LayoutDefinition *layout = nullptr;
   for (const auto &entry : layouts::LayoutManager::Get().GetLayouts().Items()) {
@@ -2361,8 +2363,7 @@ void MainWindow::ActivateLayoutView(const std::string &layoutName) {
   if (!auiManager || layoutName.empty())
     return;
 
-  if (layoutModeActive && !activeLayoutName.empty() &&
-      activeLayoutName != layoutName) {
+  if (!activeLayoutName.empty() && activeLayoutName != layoutName) {
     PersistLayout2DViewState();
   }
   activeLayoutName = layoutName;
@@ -2377,7 +2378,7 @@ void MainWindow::ActivateLayoutView(const std::string &layoutName) {
     }
   }
 
-  if (layoutModeActive && viewport2DPanel) {
+  if (viewport2DPanel) {
     int viewIndex = 0;
     bool hasViewIndex = false;
     if (layoutViewerPanel) {
