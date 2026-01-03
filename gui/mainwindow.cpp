@@ -2207,6 +2207,25 @@ void MainWindow::OnLayout2DViewOk(wxCommandEvent &WXUNUSED(event)) {
       frame = view->frame;
   }
 
+  if (editPanel) {
+    if (auto overlaySize = editPanel->GetLayoutEditOverlaySize()) {
+      const int newWidth = overlaySize->GetWidth();
+      const int newHeight = overlaySize->GetHeight();
+      if (newWidth > 0 && newHeight > 0) {
+        if (frame.width > 0 || frame.height > 0) {
+          const double centerX = frame.x + frame.width / 2.0;
+          const double centerY = frame.y + frame.height / 2.0;
+          frame.x =
+              static_cast<int>(std::lround(centerX - newWidth / 2.0));
+          frame.y =
+              static_cast<int>(std::lround(centerY - newHeight / 2.0));
+        }
+        frame.width = newWidth;
+        frame.height = newHeight;
+      }
+    }
+  }
+
   // Ensure the stored viewport matches the layout frame size, not the popup.
   if (frame.width > 0 || frame.height > 0) {
     current.camera.viewportWidth = frame.width;
