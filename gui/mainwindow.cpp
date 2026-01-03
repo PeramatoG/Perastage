@@ -2148,7 +2148,11 @@ void MainWindow::BeginLayout2DViewEdit() {
   if (view->frame.height > 0 && layout2DViewEditPanel) {
     float aspect =
         static_cast<float>(view->frame.width) / view->frame.height;
-    layout2DViewEditPanel->SetLayoutEditOverlay(aspect);
+    std::optional<wxSize> viewportSize;
+    if (view->frame.width > 0) {
+      viewportSize = wxSize(view->frame.width, view->frame.height);
+    }
+    layout2DViewEditPanel->SetLayoutEditOverlay(aspect, viewportSize);
   } else if (layout2DViewEditPanel) {
     layout2DViewEditPanel->SetLayoutEditOverlay(std::nullopt);
   }

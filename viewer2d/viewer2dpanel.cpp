@@ -268,9 +268,15 @@ void Viewer2DPanel::CaptureFrameNow(
   }
 }
 
-void Viewer2DPanel::SetLayoutEditOverlay(std::optional<float> aspectRatio) {
+void Viewer2DPanel::SetLayoutEditOverlay(std::optional<float> aspectRatio,
+                                         std::optional<wxSize> viewportSize) {
   m_layoutEditAspect = aspectRatio;
   m_layoutEditBaseSize.reset();
+  m_layoutEditViewportSize.reset();
+  if (viewportSize && viewportSize->GetWidth() > 0 &&
+      viewportSize->GetHeight() > 0) {
+    m_layoutEditViewportSize = viewportSize;
+  }
   m_layoutEditScale = 1.0f;
   Refresh();
 }
@@ -322,6 +328,10 @@ Viewer2DViewState Viewer2DPanel::GetViewState() const {
   int w = 0;
   int h = 0;
   const_cast<Viewer2DPanel *>(this)->GetClientSize(&w, &h);
+  if (m_layoutEditViewportSize) {
+    w = m_layoutEditViewportSize->GetWidth();
+    h = m_layoutEditViewportSize->GetHeight();
+  }
 
   Viewer2DViewState state{};
   state.offsetPixelsX = m_offsetX;
@@ -359,14 +369,20 @@ void Viewer2DPanel::Render() { RenderInternal(true); }
 void Viewer2DPanel::RenderInternal(bool swapBuffers) {
   int w, h;
   GetClientSize(&w, &h);
+  int viewportW = w;
+  int viewportH = h;
+  if (m_layoutEditViewportSize) {
+    viewportW = m_layoutEditViewportSize->GetWidth();
+    viewportH = m_layoutEditViewportSize->GetHeight();
+  }
 
   glViewport(0, 0, w, h);
 
   glMatrixMode(GL_PROJECTION);
   glLoadIdentity();
   float ppm = PIXELS_PER_METER * m_zoom;
-  float halfW = static_cast<float>(w) / ppm * 0.5f;
-  float halfH = static_cast<float>(h) / ppm * 0.5f;
+  float halfW = static_cast<float>(viewportW) / ppm * 0.5f;
+  float halfH = static_cast<float>(viewportH) / ppm * 0.5f;
   float offX = m_offsetX / PIXELS_PER_METER;
   float offY = m_offsetY / PIXELS_PER_METER;
   glOrtho(-halfW - offX, halfW - offX, -halfH - offY, halfH - offY, -100.0f,

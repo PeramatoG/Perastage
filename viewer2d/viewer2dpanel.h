@@ -103,7 +103,8 @@ public:
   std::shared_ptr<const SymbolDefinitionSnapshot>
   GetBottomSymbolCacheSnapshot() const;
 
-  void SetLayoutEditOverlay(std::optional<float> aspectRatio);
+  void SetLayoutEditOverlay(std::optional<float> aspectRatio,
+                            std::optional<wxSize> viewportSize = std::nullopt);
   void SetLayoutEditOverlayScale(float scale);
   float GetLayoutEditOverlayScale() const { return m_layoutEditScale; }
   std::optional<wxSize> GetLayoutEditOverlaySize() const;
@@ -147,6 +148,7 @@ private:
   Viewer2DView m_view = Viewer2DView::Top;
   std::optional<float> m_layoutEditAspect;
   std::optional<wxSize> m_layoutEditBaseSize;
+  std::optional<wxSize> m_layoutEditViewportSize;
   float m_layoutEditScale = 1.0f;
 
   wxDECLARE_EVENT_TABLE();
