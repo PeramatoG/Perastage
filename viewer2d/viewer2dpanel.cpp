@@ -268,19 +268,6 @@ void Viewer2DPanel::CaptureFrameNow(
   }
 }
 
-void Viewer2DPanel::CaptureFrameNowWithBitmap(
-    std::function<void(CommandBuffer, Viewer2DViewState, wxBitmap)> callback,
-    bool useSimplifiedFootprints, bool includeGridInCapture) {
-  CaptureFrameNow(
-      [this, callback = std::move(callback)](CommandBuffer buffer,
-                                             Viewer2DViewState state) mutable {
-        wxBitmap bitmap = ReadBackBitmap(state.viewportWidth,
-                                         state.viewportHeight);
-        callback(std::move(buffer), state, bitmap);
-      },
-      useSimplifiedFootprints, includeGridInCapture);
-}
-
 void Viewer2DPanel::SetLayoutEditOverlay(std::optional<float> aspectRatio) {
   m_layoutEditAspect = aspectRatio;
   Refresh();
@@ -476,35 +463,6 @@ void Viewer2DPanel::Render() {
 
   glFlush();
   SwapBuffers();
-}
-
-wxBitmap Viewer2DPanel::ReadBackBitmap(int width, int height) const {
-  if (width <= 0 || height <= 0)
-    return wxBitmap();
-  wxImage image(width, height, false);
-  std::vector<unsigned char> pixels(
-      static_cast<size_t>(width) * static_cast<size_t>(height) * 3);
-  glReadBuffer(GL_BACK);
-  glPixelStorei(GL_PACK_ALIGNMENT, 1);
-  glReadPixels(0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE,
-               pixels.data());
-  unsigned char *data = image.GetData();
-  for (int y = 0; y < height; ++y) {
-    for (int x = 0; x < width; ++x) {
-      size_t srcIndex =
-          (static_cast<size_t>(y) * static_cast<size_t>(width) +
-           static_cast<size_t>(x)) *
-          3;
-      size_t dstIndex =
-          (static_cast<size_t>(height - 1 - y) * static_cast<size_t>(width) +
-           static_cast<size_t>(x)) *
-          3;
-      data[dstIndex] = pixels[srcIndex];
-      data[dstIndex + 1] = pixels[srcIndex + 1];
-      data[dstIndex + 2] = pixels[srcIndex + 2];
-    }
-  }
-  return wxBitmap(image);
 }
 
 void Viewer2DPanel::OnPaint(wxPaintEvent &WXUNUSED(event)) {
