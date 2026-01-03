@@ -18,9 +18,12 @@
 #include "viewer2dprintdialog.h"
 
 Viewer2DPrintDialog::Viewer2DPrintDialog(
-    wxWindow *parent, const print::Viewer2DPrintSettings &settings)
+    wxWindow *parent, const print::Viewer2DPrintSettings &settings,
+    bool showOrientation)
     : wxDialog(parent, wxID_ANY, "Print Viewer 2D", wxDefaultPosition,
-               wxDefaultSize, wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER) {
+               wxDefaultSize, wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER),
+      showOrientation_(showOrientation),
+      initialLandscape_(settings.landscape) {
   wxBoxSizer *topSizer = new wxBoxSizer(wxVERTICAL);
 
   wxStaticBoxSizer *pageSizeSizer =
@@ -33,16 +36,18 @@ Viewer2DPrintDialog::Viewer2DPrintDialog(
   pageSizeSizer->Add(pageSizeA4Radio, 0, wxALL, 5);
   topSizer->Add(pageSizeSizer, 0, wxEXPAND | wxALL, 10);
 
-  wxStaticBoxSizer *orientationSizer =
-      new wxStaticBoxSizer(wxVERTICAL, this, "Orientation");
-  portraitRadio = new wxRadioButton(this, wxID_ANY, "Portrait",
-                                    wxDefaultPosition, wxDefaultSize,
-                                    wxRB_GROUP);
-  landscapeRadio = new wxRadioButton(this, wxID_ANY, "Landscape");
-  orientationSizer->Add(portraitRadio, 0, wxALL, 5);
-  orientationSizer->Add(landscapeRadio, 0, wxALL, 5);
-  topSizer->Add(orientationSizer, 0,
-                wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 10);
+  if (showOrientation_) {
+    wxStaticBoxSizer *orientationSizer =
+        new wxStaticBoxSizer(wxVERTICAL, this, "Orientation");
+    portraitRadio = new wxRadioButton(this, wxID_ANY, "Portrait",
+                                      wxDefaultPosition, wxDefaultSize,
+                                      wxRB_GROUP);
+    landscapeRadio = new wxRadioButton(this, wxID_ANY, "Landscape");
+    orientationSizer->Add(portraitRadio, 0, wxALL, 5);
+    orientationSizer->Add(landscapeRadio, 0, wxALL, 5);
+    topSizer->Add(orientationSizer, 0,
+                  wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 10);
+  }
 
   includeGridCheck = new wxCheckBox(this, wxID_ANY, "Include grid");
   topSizer->Add(includeGridCheck, 0, wxLEFT | wxRIGHT | wxBOTTOM, 10);
@@ -59,8 +64,10 @@ Viewer2DPrintDialog::Viewer2DPrintDialog(
 
   pageSizeA3Radio->SetValue(settings.pageSize == print::PageSize::A3);
   pageSizeA4Radio->SetValue(settings.pageSize == print::PageSize::A4);
-  landscapeRadio->SetValue(settings.landscape);
-  portraitRadio->SetValue(!settings.landscape);
+  if (showOrientation_) {
+    landscapeRadio->SetValue(settings.landscape);
+    portraitRadio->SetValue(!settings.landscape);
+  }
   includeGridCheck->SetValue(settings.includeGrid);
   detailedRadio->SetValue(settings.detailedFootprints);
   schematicRadio->SetValue(!settings.detailedFootprints);
@@ -80,7 +87,9 @@ print::Viewer2DPrintSettings Viewer2DPrintDialog::GetSettings() const {
   print::Viewer2DPrintSettings settings;
   settings.pageSize = pageSizeA4Radio->GetValue() ? print::PageSize::A4
                                                   : print::PageSize::A3;
-  settings.landscape = landscapeRadio->GetValue();
+  settings.landscape =
+      showOrientation_ && landscapeRadio ? landscapeRadio->GetValue()
+                                         : initialLandscape_;
   settings.includeGrid = includeGridCheck->GetValue();
   settings.detailedFootprints = detailedRadio->GetValue();
   return settings;

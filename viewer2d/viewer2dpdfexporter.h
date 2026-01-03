@@ -20,6 +20,7 @@
 
 #include "canvas2d.h"
 #include "symbolcache.h"
+#include "layouts/LayoutCollection.h"
 #include "viewer2dpanel.h"
 #include <filesystem>
 #include <memory>
@@ -46,6 +47,13 @@ struct Viewer2DExportResult {
   std::string message;
 };
 
+struct LayoutViewExportData {
+  CommandBuffer buffer;
+  Viewer2DViewState viewState;
+  layouts::Layout2DViewFrame frame;
+  std::shared_ptr<const SymbolDefinitionSnapshot> symbolSnapshot;
+};
+
 // Writes the captured 2D drawing commands to a vector PDF that mirrors the
 // current viewport state. Returns structured information so callers can surface
 // meaningful errors to the user.
@@ -54,3 +62,9 @@ Viewer2DExportResult ExportViewer2DToPdf(
     const Viewer2DPrintOptions &options,
     const std::filesystem::path &outputPath,
     std::shared_ptr<const SymbolDefinitionSnapshot> symbolSnapshot = nullptr);
+
+// Writes multiple 2D views into a single vector PDF layout.
+Viewer2DExportResult ExportLayoutToPdf(
+    const std::vector<LayoutViewExportData> &views,
+    const Viewer2DPrintOptions &options,
+    const std::filesystem::path &outputPath);

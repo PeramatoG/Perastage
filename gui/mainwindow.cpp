@@ -26,6 +26,7 @@
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <functional>
 #include <iterator>
 #include <map>
 #include <memory>
@@ -174,6 +175,7 @@ EVT_MENU(ID_File_ImportRider, MainWindow::OnImportRider)
 EVT_MENU(ID_File_ImportMVR, MainWindow::OnImportMVR)
 EVT_MENU(ID_File_ExportMVR, MainWindow::OnExportMVR)
 EVT_MENU(ID_File_PrintViewer2D, MainWindow::OnPrintViewer2D)
+EVT_MENU(ID_File_PrintLayout, MainWindow::OnPrintLayout)
 EVT_MENU(ID_File_PrintTable, MainWindow::OnPrintTable)
 EVT_MENU(ID_File_ExportCSV, MainWindow::OnExportCSV)
 EVT_MENU(ID_File_Close, MainWindow::OnClose)
@@ -595,6 +597,7 @@ void MainWindow::CreateMenuBar() {
   fileMenu->Append(ID_File_ImportMVR, "Import MVR...");
   fileMenu->Append(ID_File_ExportMVR, "Export MVR...");
   fileMenu->Append(ID_File_PrintViewer2D, "Print Viewer 2D...");
+  fileMenu->Append(ID_File_PrintLayout, "Print Layout...");
   fileMenu->Append(ID_File_PrintTable, "Print Table...");
   fileMenu->Append(ID_File_ExportCSV, "Export CSV...");
   fileMenu->AppendSeparator();
@@ -1481,6 +1484,7 @@ void MainWindow::OnPrintViewer2D(wxCommandEvent &WXUNUSED(event)) {
   }
 
   ConfigManager &cfg = ConfigManager::Get();
+  ConfigManager *cfgPtr = &cfg;
   print::Viewer2DPrintSettings settings =
       print::Viewer2DPrintSettings::LoadFromConfig(cfg);
   Viewer2DPrintDialog settingsDialog(this, settings);
@@ -1574,6 +1578,183 @@ void MainWindow::OnPrintViewer2D(wxCommandEvent &WXUNUSED(event)) {
         }).detach();
       },
       opts.useSimplifiedFootprints, opts.printIncludeGrid);
+}
+
+void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
+  if (activeLayoutName.empty()) {
+    wxMessageBox("No layout is selected.", "Print Layout", wxOK | wxICON_WARNING,
+                 this);
+    return;
+  }
+
+  const layouts::LayoutDefinition *layout = nullptr;
+  for (const auto &entry : layouts::LayoutManager::Get().GetLayouts().Items()) {
+    if (entry.name == activeLayoutName) {
+      layout = &entry;
+      break;
+    }
+  }
+  if (!layout) {
+    wxMessageBox("Selected layout is not available.", "Print Layout", wxOK,
+                 this);
+    return;
+  }
+  if (layout->view2dViews.empty()) {
+    wxMessageBox("The selected layout has no 2D views to print.",
+                 "Print Layout", wxOK | wxICON_INFORMATION, this);
+    return;
+  }
+
+  Viewer2DOffscreenRenderer *offscreenRenderer = GetOffscreenRenderer();
+  Viewer2DPanel *capturePanel =
+      offscreenRenderer ? offscreenRenderer->GetPanel() : nullptr;
+  if (!capturePanel) {
+    wxMessageBox("2D viewport is not available.", "Print Layout", wxOK,
+                 this);
+    return;
+  }
+
+  ConfigManager &cfg = ConfigManager::Get();
+  print::Viewer2DPrintSettings settings =
+      print::Viewer2DPrintSettings::LoadFromConfig(cfg);
+  settings.pageSize = layout->pageSetup.pageSize;
+  settings.landscape = layout->pageSetup.landscape;
+  Viewer2DPrintDialog settingsDialog(this, settings, false);
+  if (settingsDialog.ShowModal() != wxID_OK)
+    return;
+
+  settings = settingsDialog.GetSettings();
+  settings.landscape = layout->pageSetup.landscape;
+  settings.SaveToConfig(cfg);
+
+  wxFileDialog dlg(this, "Save layout as", "", "layout.pdf",
+                   "PDF files (*.pdf)|*.pdf",
+                   wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
+  if (dlg.ShowModal() != wxID_OK)
+    return;
+
+  wxString outputPathWx = dlg.GetPath();
+  outputPathWx.Trim(true).Trim(false);
+  if (outputPathWx.empty()) {
+    wxMessageBox("Please choose a destination file for the layout.",
+                 "Print Layout", wxOK | wxICON_WARNING, this);
+    return;
+  }
+
+  print::PageSetup outputSetup = settings;
+  outputSetup.landscape = layout->pageSetup.landscape;
+  const double outputPageW = outputSetup.PageWidthPt();
+  const double outputPageH = outputSetup.PageHeightPt();
+  const bool outputLandscape = outputSetup.landscape;
+  const double layoutPageW = layout->pageSetup.PageWidthPt();
+  const double layoutPageH = layout->pageSetup.PageHeightPt();
+  const double scaleX =
+      layoutPageW > 0.0 ? outputPageW / layoutPageW : 1.0;
+  const double scaleY =
+      layoutPageH > 0.0 ? outputPageH / layoutPageH : 1.0;
+
+  const bool useSimplifiedFootprints = !settings.detailedFootprints;
+  const bool includeGrid = settings.includeGrid;
+  std::vector<layouts::Layout2DViewDefinition> layoutViews =
+      layout->view2dViews;
+  auto exportViews = std::make_shared<std::vector<LayoutViewExportData>>();
+  exportViews->reserve(layoutViews.size());
+
+  auto captureNext =
+      std::make_shared<std::function<void(size_t)>>();
+  *captureNext =
+      [this, captureNext, exportViews, layoutViews, offscreenRenderer,
+       capturePanel, cfgPtr, useSimplifiedFootprints, includeGrid, scaleX,
+       scaleY, outputPageW, outputPageH, outputLandscape,
+       outputPathWx](size_t index) mutable {
+        if (index >= layoutViews.size()) {
+          Viewer2DPrintOptions opts;
+          opts.pageWidthPt = outputPageW;
+          opts.pageHeightPt = outputPageH;
+          opts.marginPt = 0.0;
+          opts.landscape = outputLandscape;
+          opts.printIncludeGrid = includeGrid;
+          opts.useSimplifiedFootprints = useSimplifiedFootprints;
+          std::filesystem::path outputPath(
+              std::filesystem::path(outputPathWx.ToStdWstring()));
+          wxString outputPathDisplay = outputPathWx;
+          auto viewsToExport = std::move(*exportViews);
+
+          std::thread([this, views = std::move(viewsToExport), opts,
+                       outputPath, outputPathDisplay]() {
+            Viewer2DExportResult res =
+                ExportLayoutToPdf(views, opts, outputPath);
+
+            wxTheApp->CallAfter([this, res, outputPathDisplay]() {
+              if (!res.success) {
+                wxString msg = "Failed to generate layout PDF: " +
+                               wxString::FromUTF8(res.message);
+                wxMessageBox(msg, "Print Layout", wxOK | wxICON_ERROR, this);
+              } else {
+                wxMessageBox(wxString::Format("Layout saved to %s",
+                                              outputPathDisplay),
+                             "Print Layout", wxOK | wxICON_INFORMATION, this);
+              }
+            });
+          }).detach();
+          return;
+        }
+
+        const auto &view = layoutViews[index];
+        viewer2d::Viewer2DState layoutState =
+            viewer2d::FromLayoutDefinition(view);
+        layoutState.renderOptions.darkMode = false;
+
+        const int fallbackViewportWidth = view.camera.viewportWidth > 0
+                                              ? view.camera.viewportWidth
+                                              : view.frame.width;
+        const int fallbackViewportHeight = view.camera.viewportHeight > 0
+                                               ? view.camera.viewportHeight
+                                               : view.frame.height;
+        const int viewportWidth =
+            fallbackViewportWidth > 0 ? fallbackViewportWidth : 1600;
+        const int viewportHeight =
+            fallbackViewportHeight > 0 ? fallbackViewportHeight : 900;
+
+        if (offscreenRenderer && viewportWidth > 0 && viewportHeight > 0) {
+          offscreenRenderer->SetViewportSize(
+              wxSize(viewportWidth, viewportHeight));
+          offscreenRenderer->PrepareForCapture();
+        }
+
+        auto stateGuard = std::make_shared<viewer2d::ScopedViewer2DState>(
+            capturePanel, nullptr, *cfgPtr, layoutState);
+        capturePanel->CaptureFrameNow(
+            [captureNext, exportViews, view, viewportWidth, viewportHeight,
+             capturePanel, scaleX, scaleY,
+             stateGuard](CommandBuffer buffer, Viewer2DViewState state) {
+              LayoutViewExportData data;
+              data.buffer = std::move(buffer);
+              data.viewState = state;
+              if (data.viewState.viewportWidth <= 0)
+                data.viewState.viewportWidth = viewportWidth;
+              if (data.viewState.viewportHeight <= 0)
+                data.viewState.viewportHeight = viewportHeight;
+              layouts::Layout2DViewFrame frame = view.frame;
+              frame.x =
+                  static_cast<int>(std::lround(frame.x * scaleX));
+              frame.y =
+                  static_cast<int>(std::lround(frame.y * scaleY));
+              frame.width =
+                  static_cast<int>(std::lround(frame.width * scaleX));
+              frame.height =
+                  static_cast<int>(std::lround(frame.height * scaleY));
+              data.frame = frame;
+              if (capturePanel)
+                data.symbolSnapshot =
+                    capturePanel->GetBottomSymbolCacheSnapshot();
+              exportViews->push_back(std::move(data));
+              (*captureNext)(exportViews->size());
+            },
+            useSimplifiedFootprints, includeGrid);
+      };
+
+  (*captureNext)(0);
 }
 
 void MainWindow::OnPrintTable(wxCommandEvent &WXUNUSED(event)) {
