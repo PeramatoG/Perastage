@@ -152,6 +152,17 @@ layouts::Layout2DViewFrame BuildDefaultLayout2DFrame(
 
   return {x, y, width, height};
 }
+
+const layouts::Layout2DViewDefinition *FindLayout2DViewById(
+    const layouts::LayoutDefinition *layout, int viewId) {
+  if (!layout || viewId <= 0)
+    return nullptr;
+  for (const auto &view : layout->view2dViews) {
+    if (view.id == viewId)
+      return &view;
+  }
+  return nullptr;
+}
 }
 
 wxBEGIN_EVENT_TABLE(MainWindow, wxFrame)
@@ -2190,6 +2201,12 @@ void MainWindow::OnLayout2DViewOk(wxCommandEvent &WXUNUSED(event)) {
 
   layouts::Layout2DViewFrame frame{};
   int viewId = layout2DViewEditingId;
+  const layouts::Layout2DViewDefinition *editableView = nullptr;
+  if (viewId <= 0 && layoutViewerPanel) {
+    editableView = layoutViewerPanel->GetEditableView();
+    if (editableView)
+      viewId = editableView->id;
+  }
   const layouts::LayoutDefinition *layout = nullptr;
   for (const auto &entry : layouts::LayoutManager::Get().GetLayouts().Items()) {
     if (entry.name == activeLayoutName) {
@@ -2197,22 +2214,12 @@ void MainWindow::OnLayout2DViewOk(wxCommandEvent &WXUNUSED(event)) {
       break;
     }
   }
-  if (layout) {
-    for (const auto &view : layout->view2dViews) {
-      if ((viewId > 0 && view.id == viewId) ||
-          (viewId == 0 && view.camera.view == current.camera.view)) {
-        frame = view.frame;
-        viewId = view.id;
-        break;
-      }
-    }
-  }
-  if (frame.width == 0 && frame.height == 0 && layoutViewerPanel) {
-    if (const auto *view = layoutViewerPanel->GetEditableView()) {
-      frame = view->frame;
-      if (viewId == 0)
-        viewId = view->id;
-    }
+  const layouts::Layout2DViewDefinition *matchedView =
+      FindLayout2DViewById(layout, viewId);
+  if (matchedView) {
+    frame = matchedView->frame;
+  } else if (editableView) {
+    frame = editableView->frame;
   }
 
   if (editPanel) {
@@ -2305,22 +2312,20 @@ void MainWindow::PersistLayout2DViewState() {
     }
   }
   int viewId = 0;
-  viewer2d::Viewer2DState state = viewer2d::CaptureState(activePanel, cfg);
-  if (layout) {
-    for (const auto &entry : layout->view2dViews) {
-      if (entry.camera.view == state.camera.view) {
-        frame = entry.frame;
-        viewId = entry.id;
-        break;
-      }
-    }
+  const layouts::Layout2DViewDefinition *editableView = nullptr;
+  if (layout2DViewEditing && layout2DViewEditingId > 0) {
+    viewId = layout2DViewEditingId;
+  } else if (layoutViewerPanel) {
+    editableView = layoutViewerPanel->GetEditableView();
+    if (editableView)
+      viewId = editableView->id;
   }
-  if (frame.width == 0 && frame.height == 0 && layoutViewerPanel) {
-    if (const auto *view = layoutViewerPanel->GetEditableView()) {
-      frame = view->frame;
-      if (viewId == 0)
-        viewId = view->id;
-    }
+  const layouts::Layout2DViewDefinition *matchedView =
+      FindLayout2DViewById(layout, viewId);
+  if (matchedView) {
+    frame = matchedView->frame;
+  } else if (editableView) {
+    frame = editableView->frame;
   }
   layouts::Layout2DViewDefinition view =
       viewer2d::CaptureLayoutDefinition(activePanel, cfg, frame);
@@ -2329,7 +2334,7 @@ void MainWindow::PersistLayout2DViewState() {
   layouts::LayoutManager::Get().UpdateLayout2DView(activeLayoutName, view);
 }
 
-void MainWindow::RestoreLayout2DViewState(int viewIndex) {
+void MainWindow::RestoreLayout2DViewState(int viewId) {
   if (activeLayoutName.empty())
     return;
 
@@ -2343,13 +2348,8 @@ void MainWindow::RestoreLayout2DViewState(int viewIndex) {
   if (!layout)
     return;
 
-  const layouts::Layout2DViewDefinition *match = nullptr;
-  for (const auto &view : layout->view2dViews) {
-    if (view.camera.view == viewIndex) {
-      match = &view;
-      break;
-    }
-  }
+  const layouts::Layout2DViewDefinition *match =
+      FindLayout2DViewById(layout, viewId);
   if (!match)
     return;
 
@@ -2419,30 +2419,33 @@ void MainWindow::ActivateLayoutView(const std::string &layoutName) {
   }
   activeLayoutName = layoutName;
 
-  if (layoutViewerPanel) {
-    const auto &layouts = layouts::LayoutManager::Get().GetLayouts().Items();
-    for (const auto &layout : layouts) {
-      if (layout.name == layoutName) {
+  const layouts::LayoutDefinition *selectedLayout = nullptr;
+  const auto &layouts = layouts::LayoutManager::Get().GetLayouts().Items();
+  for (const auto &layout : layouts) {
+    if (layout.name == layoutName) {
+      selectedLayout = &layout;
+      if (layoutViewerPanel)
         layoutViewerPanel->SetLayoutDefinition(layout);
-        break;
-      }
+      break;
     }
   }
 
   if (viewport2DPanel) {
-    int viewIndex = 0;
-    bool hasViewIndex = false;
+    int viewId = 0;
+    bool hasViewId = false;
     if (layoutViewerPanel) {
       if (const auto *view = layoutViewerPanel->GetEditableView()) {
-        viewIndex = view->camera.view;
-        hasViewIndex = true;
+        viewId = view->id;
+        hasViewId = viewId > 0;
       }
     }
-    if (!hasViewIndex) {
-      const auto viewState = viewport2DPanel->GetViewState();
-      viewIndex = static_cast<int>(viewState.view);
+    if (!hasViewId && selectedLayout &&
+        !selectedLayout->view2dViews.empty()) {
+      viewId = selectedLayout->view2dViews.front().id;
+      hasViewId = viewId > 0;
     }
-    RestoreLayout2DViewState(viewIndex);
+    if (hasViewId)
+      RestoreLayout2DViewState(viewId);
   }
 
   ApplyLayoutModePerspective();
