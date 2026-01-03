@@ -238,7 +238,7 @@ private:
   std::unordered_map<std::string, BoundingBox> m_trussBounds;
   std::unordered_map<std::string, BoundingBox> m_objectBounds;
 
-  // Randomly assigned colors for fixture types and layers in 2D view
+  // Cached deterministic colors for fixture types and layers in 2D view
   std::unordered_map<std::string, std::array<float, 3>> m_typeColors;
   std::unordered_map<std::string, std::array<float, 3>> m_layerColors;
 

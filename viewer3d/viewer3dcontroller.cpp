@@ -57,7 +57,8 @@
 #include <iostream>
 #include <nanovg.h>
 #include <nanovg_gl.h>
-#include <random>
+#include <cstdint>
+#include <string_view>
 #include <sstream>
 #include <vector>
 
@@ -102,6 +103,57 @@ static std::string NormalizeModelKey(const std::string &p) {
   fs::path path(p);
   path = path.lexically_normal();
   return NormalizePath(path.string());
+}
+
+static uint32_t HashString(std::string_view value) {
+  uint32_t hash = 2166136261u;
+  for (unsigned char c : value) {
+    hash ^= c;
+    hash *= 16777619u;
+  }
+  return hash;
+}
+
+static std::array<float, 3> HsvToRgb(float h, float s, float v) {
+  const float c = v * s;
+  const float hh = h * 6.0f;
+  const float x = c * (1.0f - std::fabs(std::fmod(hh, 2.0f) - 1.0f));
+  float r = 0.0f;
+  float g = 0.0f;
+  float b = 0.0f;
+
+  if (hh >= 0.0f && hh < 1.0f) {
+    r = c;
+    g = x;
+  } else if (hh >= 1.0f && hh < 2.0f) {
+    r = x;
+    g = c;
+  } else if (hh >= 2.0f && hh < 3.0f) {
+    g = c;
+    b = x;
+  } else if (hh >= 3.0f && hh < 4.0f) {
+    g = x;
+    b = c;
+  } else if (hh >= 4.0f && hh < 5.0f) {
+    r = x;
+    b = c;
+  } else {
+    r = c;
+    b = x;
+  }
+
+  const float m = v - c;
+  return {r + m, g + m, b + m};
+}
+
+static std::array<float, 3> MakeDeterministicColor(std::string_view key) {
+  if (key.empty())
+    key = "default";
+  uint32_t hash = HashString(key);
+  float hue = static_cast<float>(hash % 360u) / 360.0f;
+  float sat = 0.55f + static_cast<float>((hash >> 8) & 0xFFu) / 255.0f * 0.35f;
+  float val = 0.7f + static_cast<float>((hash >> 16) & 0xFFu) / 255.0f * 0.25f;
+  return HsvToRgb(hue, sat, val);
 }
 
 static std::string ResolveGdtfPath(const std::string &base,
@@ -898,8 +950,6 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
     glDisable(GL_LIGHTING);
   else
     SetupBasicLighting();
-  static std::mt19937 rng(42);
-  static std::uniform_real_distribution<float> dist(0.2f, 0.9f);
   auto getTypeColor = [&](const std::string &key, const std::string &hex) {
     std::array<float, 3> c;
     // Always honor user-specified colors, updating the cache if needed
@@ -907,26 +957,18 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
       m_typeColors[key] = c;
       return c;
     }
-
-    auto it = m_typeColors.find(key);
-    if (it != m_typeColors.end())
-      return it->second;
-
-    c = {dist(rng), dist(rng), dist(rng)};
+    c = MakeDeterministicColor("type:" + key);
     m_typeColors[key] = c;
     return c;
   };
   auto getLayerColor = [&](const std::string &key) {
-    auto it = m_layerColors.find(key);
-    if (it != m_layerColors.end())
-      return it->second;
     std::array<float, 3> c;
     auto opt = ConfigManager::Get().GetLayerColor(key);
     if (opt && HexToRGB(*opt, c[0], c[1], c[2])) {
       m_layerColors[key] = c;
       return c;
     }
-    c = {dist(rng), dist(rng), dist(rng)};
+    c = MakeDeterministicColor("layer:" + key);
     m_layerColors[key] = c;
     return c;
   };
