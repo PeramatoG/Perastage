@@ -696,6 +696,10 @@ void LayoutViewerPanel::RebuildCachedTexture() {
 void LayoutViewerPanel::ClearCachedTexture() {
   if (cachedTexture_ == 0 || !glContext_)
     return;
+  if (!IsShown()) {
+    cachedTexture_ = 0;
+    return;
+  }
   SetCurrent(*glContext_);
   glDeleteTextures(1, &cachedTexture_);
   cachedTexture_ = 0;
