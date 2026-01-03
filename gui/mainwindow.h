@@ -171,6 +171,7 @@ private:
   bool layoutModeActive = false;
   std::string activeLayoutName;
   bool layout2DViewEditing = false;
+  int layout2DViewEditingId = 0;
   std::unique_ptr<viewer2d::ScopedViewer2DState> layout2DViewStateGuard;
   Viewer2DPanel *layout2DViewEditPanel = nullptr;
   Viewer2DRenderPanel *layout2DViewEditRenderPanel = nullptr;

@@ -2109,6 +2109,7 @@ void MainWindow::BeginLayout2DViewEdit() {
   if (!layoutModeActive || activeLayoutName.empty() || layout2DViewEditing)
     return;
 
+  layout2DViewEditingId = 0;
   Ensure2DViewport();
   if (!viewport2DPanel)
     return;
@@ -2128,6 +2129,7 @@ void MainWindow::BeginLayout2DViewEdit() {
     view = &layout->view2dViews.front();
   if (!view)
     return;
+  layout2DViewEditingId = view->id;
 
   ConfigManager &cfg = ConfigManager::Get();
 
@@ -2187,6 +2189,7 @@ void MainWindow::OnLayout2DViewOk(wxCommandEvent &WXUNUSED(event)) {
   current.renderOptions.darkMode = false;
 
   layouts::Layout2DViewFrame frame{};
+  int viewId = layout2DViewEditingId;
   const layouts::LayoutDefinition *layout = nullptr;
   for (const auto &entry : layouts::LayoutManager::Get().GetLayouts().Items()) {
     if (entry.name == activeLayoutName) {
@@ -2196,15 +2199,20 @@ void MainWindow::OnLayout2DViewOk(wxCommandEvent &WXUNUSED(event)) {
   }
   if (layout) {
     for (const auto &view : layout->view2dViews) {
-      if (view.camera.view == current.camera.view) {
+      if ((viewId > 0 && view.id == viewId) ||
+          (viewId == 0 && view.camera.view == current.camera.view)) {
         frame = view.frame;
+        viewId = view.id;
         break;
       }
     }
   }
   if (frame.width == 0 && frame.height == 0 && layoutViewerPanel) {
-    if (const auto *view = layoutViewerPanel->GetEditableView())
+    if (const auto *view = layoutViewerPanel->GetEditableView()) {
       frame = view->frame;
+      if (viewId == 0)
+        viewId = view->id;
+    }
   }
 
   if (editPanel) {
@@ -2237,6 +2245,7 @@ void MainWindow::OnLayout2DViewOk(wxCommandEvent &WXUNUSED(event)) {
 
   layouts::Layout2DViewDefinition updatedView =
       viewer2d::ToLayoutDefinition(current, frame);
+  updatedView.id = viewId;
   layouts::LayoutManager::Get().UpdateLayout2DView(activeLayoutName,
                                                    updatedView);
 
@@ -2251,6 +2260,7 @@ void MainWindow::OnLayout2DViewOk(wxCommandEvent &WXUNUSED(event)) {
   }
 
   layout2DViewStateGuard.reset();
+  layout2DViewEditingId = 0;
 
   if (editPanel)
     editPanel->SetLayoutEditOverlay(std::nullopt);
@@ -2264,6 +2274,7 @@ void MainWindow::OnLayout2DViewCancel(wxCommandEvent &WXUNUSED(event)) {
     return;
 
   layout2DViewStateGuard.reset();
+  layout2DViewEditingId = 0;
 
   Viewer2DPanel *editPanel =
       layout2DViewEditPanel ? layout2DViewEditPanel : viewport2DPanel;
@@ -2293,22 +2304,28 @@ void MainWindow::PersistLayout2DViewState() {
       break;
     }
   }
+  int viewId = 0;
+  viewer2d::Viewer2DState state = viewer2d::CaptureState(activePanel, cfg);
   if (layout) {
-    viewer2d::Viewer2DState state = viewer2d::CaptureState(activePanel, cfg);
     for (const auto &entry : layout->view2dViews) {
       if (entry.camera.view == state.camera.view) {
         frame = entry.frame;
+        viewId = entry.id;
         break;
       }
     }
   }
   if (frame.width == 0 && frame.height == 0 && layoutViewerPanel) {
-    if (const auto *view = layoutViewerPanel->GetEditableView())
+    if (const auto *view = layoutViewerPanel->GetEditableView()) {
       frame = view->frame;
+      if (viewId == 0)
+        viewId = view->id;
+    }
   }
   layouts::Layout2DViewDefinition view =
       viewer2d::CaptureLayoutDefinition(activePanel, cfg, frame);
   view.renderOptions.darkMode = false;
+  view.id = viewId;
   layouts::LayoutManager::Get().UpdateLayout2DView(activeLayoutName, view);
 }
 

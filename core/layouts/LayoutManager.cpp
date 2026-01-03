@@ -20,6 +20,9 @@
 #include "../configmanager.h"
 #include "../../external/json.hpp"
 
+#include <algorithm>
+#include <unordered_set>
+
 namespace layouts {
 namespace {
 constexpr const char *kLayoutsConfigKey = "layouts_collection";
@@ -46,6 +49,7 @@ nlohmann::json ToJson(const Layout2DViewDefinition &view) {
   const auto &options = view.renderOptions;
   const auto &layers = view.layers;
   return {
+      {"id", view.id},
       {"frame",
        {{"x", frame.x}, {"y", frame.y}, {"width", frame.width}, {"height", frame.height}}},
       {"camera",
@@ -188,6 +192,9 @@ bool ParseLayout2DView(const nlohmann::json &value,
                        Layout2DViewDefinition &out) {
   if (!value.is_object())
     return false;
+  if (auto idIt = value.find("id");
+      idIt != value.end() && idIt->is_number_integer())
+    out.id = idIt->get<int>();
   auto frameIt = value.find("frame");
   if (frameIt != value.end() && frameIt->is_object())
     ReadFrame(*frameIt, out.frame);
@@ -201,6 +208,28 @@ bool ParseLayout2DView(const nlohmann::json &value,
   if (layersIt != value.end() && layersIt->is_object())
     ReadLayers(*layersIt, out.layers);
   return true;
+}
+
+void EnsureUniqueViewIds(LayoutDefinition &layout) {
+  std::unordered_set<int> used;
+  int nextId = 1;
+  for (auto &view : layout.view2dViews) {
+    if (view.id > 0) {
+      if (!used.insert(view.id).second)
+        view.id = 0;
+      else
+        nextId = std::max(nextId, view.id + 1);
+    }
+  }
+  for (auto &view : layout.view2dViews) {
+    if (view.id > 0)
+      continue;
+    while (used.count(nextId))
+      ++nextId;
+    view.id = nextId;
+    used.insert(nextId);
+    ++nextId;
+  }
 }
 
 bool ParseLayout(const nlohmann::json &value, LayoutDefinition &out) {
@@ -418,6 +447,7 @@ void LayoutManager::LoadFromConfig(ConfigManager &cfg) {
     }
     if (duplicate)
       continue;
+    EnsureUniqueViewIds(layout);
     loaded.push_back(std::move(layout));
   }
 
