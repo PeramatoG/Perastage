@@ -563,12 +563,7 @@ wxSize LayoutViewerPanel::GetFrameSizeForZoom(
 }
 
 double LayoutViewerPanel::GetRenderZoom() const {
-  if (zoom <= 0.0)
-    return 1.0;
-  const double logZoom = std::log(zoom) / std::log(kZoomStep);
-  const double bucket =
-      std::round(logZoom / kZoomCacheStepsPerLevel) * kZoomCacheStepsPerLevel;
-  return std::clamp(std::pow(kZoomStep, bucket), kMinZoom, kMaxZoom);
+  return 1.0;
 }
 
 layouts::Layout2DViewDefinition *LayoutViewerPanel::GetEditableView() {
