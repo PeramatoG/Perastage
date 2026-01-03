@@ -1615,6 +1615,7 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
   }
 
   ConfigManager &cfg = ConfigManager::Get();
+  ConfigManager *cfgPtr = &cfg;
   print::Viewer2DPrintSettings settings =
       print::Viewer2DPrintSettings::LoadFromConfig(cfg);
   settings.pageSize = layout->pageSetup.pageSize;
