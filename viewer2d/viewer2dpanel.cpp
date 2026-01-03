@@ -271,11 +271,13 @@ void Viewer2DPanel::CaptureFrameNow(
 void Viewer2DPanel::SetLayoutEditOverlay(std::optional<float> aspectRatio,
                                          std::optional<wxSize> viewportSize) {
   m_layoutEditAspect = aspectRatio;
-  m_layoutEditBaseSize.reset();
   m_layoutEditViewportSize.reset();
   if (viewportSize && viewportSize->GetWidth() > 0 &&
       viewportSize->GetHeight() > 0) {
     m_layoutEditViewportSize = viewportSize;
+    m_layoutEditBaseSize = viewportSize;
+  } else {
+    m_layoutEditBaseSize.reset();
   }
   m_layoutEditScale = 1.0f;
   Refresh();
@@ -671,7 +673,7 @@ void Viewer2DPanel::OnMouseLeave(wxMouseEvent &event) {
 }
 
 void Viewer2DPanel::OnResize(wxSizeEvent &event) {
-  if (m_layoutEditAspect) {
+  if (m_layoutEditAspect && !m_layoutEditViewportSize) {
     m_layoutEditBaseSize.reset();
   }
   Refresh();
