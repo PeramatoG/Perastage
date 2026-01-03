@@ -1037,10 +1037,19 @@ Viewer2DExportResult ExportViewer2DToPdf(
 
   std::ostringstream resources;
   resources << "<< /Font << /F1 1 0 R >>";
-  if (!xObjectNameIds.empty()) {
+  if (!xObjectKeyIds.empty() || !xObjectIdIds.empty()) {
     resources << " /XObject << ";
-    for (const auto &entry : xObjectNameIds) {
-      resources << '/' << entry.first << ' ' << entry.second << " 0 R ";
+    for (const auto &entry : xObjectKeyIds) {
+      auto nameIt = xObjectKeyNames.find(entry.first);
+      if (nameIt == xObjectKeyNames.end())
+        continue;
+      resources << '/' << nameIt->second << ' ' << entry.second << " 0 R ";
+    }
+    for (const auto &entry : xObjectIdIds) {
+      auto nameIt = xObjectIdNames.find(entry.first);
+      if (nameIt == xObjectIdNames.end())
+        continue;
+      resources << '/' << nameIt->second << ' ' << entry.second << " 0 R ";
     }
     resources << ">>";
   }
