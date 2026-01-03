@@ -2418,6 +2418,8 @@ void MainWindow::OnProjectLoaded(wxCommandEvent &event) {
     currentProjectPath = path;
     ProjectUtils::SaveLastProjectPath(currentProjectPath);
     ApplySavedLayout();
+    if (layoutPanel)
+      layoutPanel->ReloadLayouts();
     if (consolePanel)
       consolePanel->AppendMessage("Loaded " + wxString::FromUTF8(path));
     if (fixturePanel)
