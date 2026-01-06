@@ -91,17 +91,16 @@ class LegendSymbolBackend : public viewer2d::IViewer2DCommandBackend {
 public:
   explicit LegendSymbolBackend(wxDC &dc) : dc_(dc) {}
 
-  static int StrokeWidthPx(const CanvasStroke &stroke) {
-    if (stroke.width <= 0.0f)
+  static int StrokeWidthPx(double strokeWidthPx) {
+    if (strokeWidthPx <= 0.0)
       return 0;
-    return std::max(1, static_cast<int>(std::lround(stroke.width)));
+    return std::max(1, static_cast<int>(std::lround(strokeWidthPx)));
   }
 
   void DrawLine(const viewer2d::Viewer2DRenderPoint &p0,
                 const viewer2d::Viewer2DRenderPoint &p1,
                 const CanvasStroke &stroke, double strokeWidthPx) override {
-    (void)strokeWidthPx;
-    int strokeWidth = StrokeWidthPx(stroke);
+    int strokeWidth = StrokeWidthPx(strokeWidthPx);
     if (strokeWidth <= 0)
       return;
     wxPen pen(ToWxColor(stroke.color), strokeWidth);
@@ -116,8 +115,7 @@ public:
                     double strokeWidthPx) override {
     if (points.empty())
       return;
-    (void)strokeWidthPx;
-    int strokeWidth = StrokeWidthPx(stroke);
+    int strokeWidth = StrokeWidthPx(strokeWidthPx);
     if (strokeWidth <= 0)
       return;
     wxPen pen(ToWxColor(stroke.color), strokeWidth);
@@ -136,8 +134,7 @@ public:
                    double strokeWidthPx) override {
     if (points.empty())
       return;
-    (void)strokeWidthPx;
-    int strokeWidth = StrokeWidthPx(stroke);
+    int strokeWidth = StrokeWidthPx(strokeWidthPx);
     if (strokeWidth > 0) {
       wxPen pen(ToWxColor(stroke.color), strokeWidth);
       dc_.SetPen(pen);
@@ -160,8 +157,7 @@ public:
   void DrawCircle(const viewer2d::Viewer2DRenderPoint &center, double radiusPx,
                   const CanvasStroke &stroke, const CanvasFill *fill,
                   double strokeWidthPx) override {
-    (void)strokeWidthPx;
-    int strokeWidth = StrokeWidthPx(stroke);
+    int strokeWidth = StrokeWidthPx(strokeWidthPx);
     if (strokeWidth > 0) {
       wxPen pen(ToWxColor(stroke.color), strokeWidth);
       dc_.SetPen(pen);
