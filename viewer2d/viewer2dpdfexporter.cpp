@@ -1567,8 +1567,9 @@ Viewer2DExportResult ExportLayoutToPdf(
 
     const double padding = 8.0;
     const double columnGap = 8.0;
+    const double separatorGap = 2.0;
     const size_t totalRows = legend.items.size() + 1;
-    const double availableHeight = frameH - padding * 2.0;
+    const double availableHeight = frameH - padding * 2.0 - separatorGap;
     double fontSize =
         totalRows > 0 ? (availableHeight / totalRows) - 2.0 : 10.0;
     fontSize = std::clamp(fontSize, 6.0, 14.0);
@@ -1585,10 +1586,15 @@ Viewer2DExportResult ExportLayoutToPdf(
                             measureTextWidth(chText, fontSize));
     }
 
-    const double lineHeight = fontSize + 2.0;
+    const double rowHeightCandidate =
+        totalRows > 0 ? (availableHeight / totalRows) : 0.0;
+    const double textHeightEstimate = fontSize * 1.2;
+    const double lineHeight = textHeightEstimate + separatorGap;
     const double symbolSize = std::max(4.0, kLegendSymbolSize);
     const double symbolSlotSize = symbolSize;
-    const double rowHeight = lineHeight;
+    const double rowHeight = std::max(rowHeightCandidate, lineHeight);
+    const double textOffset =
+        std::max(0.0, (rowHeight - textHeightEstimate) * 0.5);
     double xSymbol = frameX + padding;
     double xCount = xSymbol + symbolSlotSize + columnGap;
     double xType = xCount + maxCountWidth + columnGap;
@@ -1608,14 +1614,17 @@ Viewer2DExportResult ExportLayoutToPdf(
                     << escapeText(text) << ") Tj\nET\n";
     };
 
-    double y = frameY + frameH - padding - fontSize;
+    double rowTop = frameY + frameH - padding;
     // Use a bold PDF font for legend headers to keep emphasis consistent with
     // the UI and avoid diverging header styling between PDF and on-screen views.
-    appendText(xCount, y, "Count", "F2", 0.08, 0.08, 0.08);
-    appendText(xType, y, "Type", "F2", 0.08, 0.08, 0.08);
-    appendText(xCh, y, "Ch Count", "F2", 0.08, 0.08, 0.08);
+    appendText(xCount, rowTop - textOffset - fontSize, "Count", "F2", 0.08,
+               0.08, 0.08);
+    appendText(xType, rowTop - textOffset - fontSize, "Type", "F2", 0.08, 0.08,
+               0.08);
+    appendText(xCh, rowTop - textOffset - fontSize, "Ch Count", "F2", 0.08,
+               0.08, 0.08);
 
-    const double separatorY = y - 2.0;
+    const double separatorY = rowTop - rowHeight;
     contentStream << formatter.Format(0.78) << ' ' << formatter.Format(0.78)
                   << ' ' << formatter.Format(0.78) << " RG 0.5 w "
                   << formatter.Format(frameX + padding) << ' '
@@ -1623,9 +1632,9 @@ Viewer2DExportResult ExportLayoutToPdf(
                   << formatter.Format(frameX + frameW - padding) << ' '
                   << formatter.Format(separatorY) << " l S\n";
 
-    y -= rowHeight;
+    rowTop = separatorY - separatorGap;
     for (const auto &item : legend.items) {
-      if (y < frameY + padding)
+      if (rowTop - rowHeight < frameY + padding)
         break;
       const std::string countText = std::to_string(item.count);
       std::string typeText = trimTextToWidth(item.typeName, typeWidth, fontSize);
@@ -1649,7 +1658,6 @@ Viewer2DExportResult ExportLayoutToPdf(
                   std::min(symbolSize / symbolW, symbolSize / symbolH);
               double drawW = symbolW * scale;
               double drawH = symbolH * scale;
-              double rowTop = y + fontSize * 0.7;
               double rowBottom = rowTop - rowHeight;
               double symbolBoxY = rowBottom + (rowHeight - symbolSize) * 0.5;
               double symbolOffsetX =
@@ -1665,10 +1673,13 @@ Viewer2DExportResult ExportLayoutToPdf(
           }
         }
       }
-      appendText(xCount, y, countText, "F1", 0.08, 0.08, 0.08);
-      appendText(xType, y, typeText, "F1", 0.08, 0.08, 0.08);
-      appendText(xCh, y, chText, "F1", 0.08, 0.08, 0.08);
-      y -= rowHeight;
+      appendText(xCount, rowTop - textOffset - fontSize, countText, "F1", 0.08,
+                 0.08, 0.08);
+      appendText(xType, rowTop - textOffset - fontSize, typeText, "F1", 0.08,
+                 0.08, 0.08);
+      appendText(xCh, rowTop - textOffset - fontSize, chText, "F1", 0.08, 0.08,
+                 0.08);
+      rowTop -= rowHeight;
     }
 
     contentStream << "Q\n";
