@@ -98,7 +98,12 @@ public:
     drawFills_ = drawFills;
   }
 
-  static int StrokeWidthPx(double strokeWidthPx) {
+  void SetStrokeScale(double scale) {
+    strokeScale_ = scale;
+  }
+
+  int StrokeWidthPx(double strokeWidthPx) const {
+    strokeWidthPx *= strokeScale_;
     if (strokeWidthPx <= 0.0)
       return 0;
     return std::max(1, static_cast<int>(std::lround(strokeWidthPx)));
@@ -235,6 +240,7 @@ private:
   wxGraphicsContext *gc_ = nullptr;
   bool drawStrokes_ = true;
   bool drawFills_ = true;
+  double strokeScale_ = 1.0;
 };
 constexpr double kMinZoom = 0.1;
 constexpr double kMaxZoom = 10.0;
@@ -1676,6 +1682,9 @@ wxImage LayoutViewerPanel::BuildLegendImage(
           mapping.offsetY = symbolDrawTop;
           mapping.drawHeight = drawH;
           viewer2d::Viewer2DCommandRenderer renderer(mapping, backend, symbols);
+          double strokeScale =
+              mapping.scale > 0.0 ? (renderZoom / mapping.scale) : renderZoom;
+          backend.SetStrokeScale(strokeScale);
           backend.SetRenderMode(true, false);
           renderer.Render(symbol->localCommands);
           backend.SetRenderMode(false, true);
