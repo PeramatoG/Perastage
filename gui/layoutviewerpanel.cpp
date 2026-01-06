@@ -91,13 +91,20 @@ class LegendSymbolBackend : public viewer2d::IViewer2DCommandBackend {
 public:
   explicit LegendSymbolBackend(wxDC &dc) : dc_(dc) {}
 
+  static int StrokeWidthPx(const CanvasStroke &stroke) {
+    if (stroke.width <= 0.0f)
+      return 0;
+    return std::max(1, static_cast<int>(std::lround(stroke.width)));
+  }
+
   void DrawLine(const viewer2d::Viewer2DRenderPoint &p0,
                 const viewer2d::Viewer2DRenderPoint &p1,
                 const CanvasStroke &stroke, double strokeWidthPx) override {
-    if (strokeWidthPx <= 0.0)
+    (void)strokeWidthPx;
+    int strokeWidth = StrokeWidthPx(stroke);
+    if (strokeWidth <= 0)
       return;
-    wxPen pen(ToWxColor(stroke.color),
-              std::max(1, (int)std::lround(strokeWidthPx)));
+    wxPen pen(ToWxColor(stroke.color), strokeWidth);
     dc_.SetPen(pen);
     dc_.SetBrush(*wxTRANSPARENT_BRUSH);
     dc_.DrawLine(wxPoint(std::lround(p0.x), std::lround(p0.y)),
@@ -109,10 +116,11 @@ public:
                     double strokeWidthPx) override {
     if (points.empty())
       return;
-    if (strokeWidthPx <= 0.0)
+    (void)strokeWidthPx;
+    int strokeWidth = StrokeWidthPx(stroke);
+    if (strokeWidth <= 0)
       return;
-    wxPen pen(ToWxColor(stroke.color),
-              std::max(1, (int)std::lround(strokeWidthPx)));
+    wxPen pen(ToWxColor(stroke.color), strokeWidth);
     dc_.SetPen(pen);
     dc_.SetBrush(*wxTRANSPARENT_BRUSH);
     std::vector<wxPoint> wxPoints;
@@ -128,9 +136,10 @@ public:
                    double strokeWidthPx) override {
     if (points.empty())
       return;
-    if (strokeWidthPx > 0.0) {
-      wxPen pen(ToWxColor(stroke.color),
-                std::max(1, (int)std::lround(strokeWidthPx)));
+    (void)strokeWidthPx;
+    int strokeWidth = StrokeWidthPx(stroke);
+    if (strokeWidth > 0) {
+      wxPen pen(ToWxColor(stroke.color), strokeWidth);
       dc_.SetPen(pen);
     } else {
       dc_.SetPen(*wxTRANSPARENT_PEN);
@@ -151,9 +160,10 @@ public:
   void DrawCircle(const viewer2d::Viewer2DRenderPoint &center, double radiusPx,
                   const CanvasStroke &stroke, const CanvasFill *fill,
                   double strokeWidthPx) override {
-    if (strokeWidthPx > 0.0) {
-      wxPen pen(ToWxColor(stroke.color),
-                std::max(1, (int)std::lround(strokeWidthPx)));
+    (void)strokeWidthPx;
+    int strokeWidth = StrokeWidthPx(stroke);
+    if (strokeWidth > 0) {
+      wxPen pen(ToWxColor(stroke.color), strokeWidth);
       dc_.SetPen(pen);
     } else {
       dc_.SetPen(*wxTRANSPARENT_PEN);
