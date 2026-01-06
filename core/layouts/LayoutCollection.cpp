@@ -20,6 +20,29 @@
 #include <algorithm>
 
 namespace layouts {
+namespace {
+int MaxZIndex(const LayoutDefinition &layout) {
+  bool hasValue = false;
+  int maxZ = 0;
+  for (const auto &view : layout.view2dViews) {
+    if (!hasValue) {
+      maxZ = view.zIndex;
+      hasValue = true;
+    } else {
+      maxZ = std::max(maxZ, view.zIndex);
+    }
+  }
+  for (const auto &legend : layout.legendViews) {
+    if (!hasValue) {
+      maxZ = legend.zIndex;
+      hasValue = true;
+    } else {
+      maxZ = std::max(maxZ, legend.zIndex);
+    }
+  }
+  return hasValue ? maxZ : 0;
+}
+} // namespace
 
 LayoutCollection::LayoutCollection() { layouts.push_back(DefaultLayout()); }
 
@@ -89,13 +112,20 @@ bool LayoutCollection::UpdateLayout2DView(const std::string &name,
       bool replaced = false;
       for (auto &entry : layout.view2dViews) {
         if (entry.id == updatedView.id && updatedView.id > 0) {
+          if (updatedView.zIndex == 0 && entry.zIndex != 0)
+            updatedView.zIndex = entry.zIndex;
           entry = updatedView;
           replaced = true;
           break;
         }
       }
-      if (!replaced)
+      if (!replaced) {
+        if (updatedView.zIndex == 0 &&
+            (!layout.view2dViews.empty() || !layout.legendViews.empty())) {
+          updatedView.zIndex = MaxZIndex(layout) + 1;
+        }
         layout.view2dViews.push_back(updatedView);
+      }
       return true;
     }
   }
@@ -165,13 +195,20 @@ bool LayoutCollection::UpdateLayoutLegend(
       bool replaced = false;
       for (auto &entry : layout.legendViews) {
         if (entry.id == updatedLegend.id && updatedLegend.id > 0) {
+          if (updatedLegend.zIndex == 0 && entry.zIndex != 0)
+            updatedLegend.zIndex = entry.zIndex;
           entry = updatedLegend;
           replaced = true;
           break;
         }
       }
-      if (!replaced)
+      if (!replaced) {
+        if (updatedLegend.zIndex == 0 &&
+            (!layout.view2dViews.empty() || !layout.legendViews.empty())) {
+          updatedLegend.zIndex = MaxZIndex(layout) + 1;
+        }
         layout.legendViews.push_back(updatedLegend);
+      }
       return true;
     }
   }

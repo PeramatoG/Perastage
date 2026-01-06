@@ -20,6 +20,7 @@
 #include <memory>
 #include <optional>
 #include <unordered_map>
+#include <utility>
 #include <wx/glcanvas.h>
 #include <wx/wx.h>
 #include "layouts/LayoutCollection.h"
@@ -137,6 +138,16 @@ private:
     View2D,
     Legend
   };
+
+  struct ZOrderedElement {
+    SelectedElementType type = SelectedElementType::None;
+    int id = -1;
+    int zIndex = 0;
+    size_t order = 0;
+  };
+
+  std::vector<ZOrderedElement> BuildZOrderedElements() const;
+  std::pair<int, int> GetZIndexRange() const;
 
   layouts::LayoutDefinition currentLayout;
   double zoom = 1.0;

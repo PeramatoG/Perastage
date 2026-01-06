@@ -501,28 +501,6 @@ constexpr int kDeleteMenuId = wxID_HIGHEST + 491;
 constexpr int kDeleteLegendMenuId = wxID_HIGHEST + 492;
 constexpr int kBringToFrontMenuId = wxID_HIGHEST + 493;
 constexpr int kSendToBackMenuId = wxID_HIGHEST + 494;
-
-template <typename T>
-bool MoveElementById(std::vector<T> &items, int id, bool toFront) {
-  auto it = std::find_if(items.begin(), items.end(),
-                         [id](const auto &entry) { return entry.id == id; });
-  if (it == items.end())
-    return false;
-  if (toFront) {
-    if (std::next(it) == items.end())
-      return true;
-    auto moved = std::move(*it);
-    items.erase(it);
-    items.push_back(std::move(moved));
-    return true;
-  }
-  if (it == items.begin())
-    return true;
-  auto moved = std::move(*it);
-  items.erase(it);
-  items.insert(items.begin(), std::move(moved));
-  return true;
-}
 }
 
 wxDEFINE_EVENT(EVT_LAYOUT_VIEW_EDIT, wxCommandEvent);
@@ -580,6 +558,56 @@ void LayoutViewerPanel::SetLayoutDefinition(
   ResetViewToFit();
   RequestRenderRebuild();
   Refresh();
+}
+
+std::vector<LayoutViewerPanel::ZOrderedElement>
+LayoutViewerPanel::BuildZOrderedElements() const {
+  std::vector<ZOrderedElement> elements;
+  elements.reserve(currentLayout.view2dViews.size() +
+                   currentLayout.legendViews.size());
+  size_t order = 0;
+  for (const auto &view : currentLayout.view2dViews) {
+    elements.push_back(
+        {SelectedElementType::View2D, view.id, view.zIndex, order++});
+  }
+  for (const auto &legend : currentLayout.legendViews) {
+    elements.push_back(
+        {SelectedElementType::Legend, legend.id, legend.zIndex, order++});
+  }
+  std::stable_sort(elements.begin(), elements.end(),
+                   [](const auto &lhs, const auto &rhs) {
+                     if (lhs.zIndex != rhs.zIndex)
+                       return lhs.zIndex < rhs.zIndex;
+                     return lhs.order < rhs.order;
+                   });
+  return elements;
+}
+
+std::pair<int, int> LayoutViewerPanel::GetZIndexRange() const {
+  bool hasValue = false;
+  int minZ = 0;
+  int maxZ = 0;
+  for (const auto &view : currentLayout.view2dViews) {
+    if (!hasValue) {
+      minZ = view.zIndex;
+      maxZ = view.zIndex;
+      hasValue = true;
+    } else {
+      minZ = std::min(minZ, view.zIndex);
+      maxZ = std::max(maxZ, view.zIndex);
+    }
+  }
+  for (const auto &legend : currentLayout.legendViews) {
+    if (!hasValue) {
+      minZ = legend.zIndex;
+      maxZ = legend.zIndex;
+      hasValue = true;
+    } else {
+      minZ = std::min(minZ, legend.zIndex);
+      maxZ = std::max(maxZ, legend.zIndex);
+    }
+  }
+  return {minZ, maxZ};
 }
 
 void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
@@ -685,7 +713,24 @@ void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
     capturePanel = Viewer2DPanel::Instance();
   }
 
-  for (const auto &view : currentLayout.view2dViews) {
+  auto findViewById =
+      [this](int viewId) -> const layouts::Layout2DViewDefinition * {
+    for (const auto &view : currentLayout.view2dViews) {
+      if (view.id == viewId)
+        return &view;
+    }
+    return nullptr;
+  };
+  auto findLegendById =
+      [this](int legendId) -> const layouts::LayoutLegendDefinition * {
+    for (const auto &legend : currentLayout.legendViews) {
+      if (legend.id == legendId)
+        return &legend;
+    }
+    return nullptr;
+  };
+
+  auto drawView = [&](const layouts::Layout2DViewDefinition &view) {
     ViewCache &cache = GetViewCache(view.id);
     if (!captureInProgress && !cache.captureInProgress &&
         cache.captureVersion != layoutVersion && capturePanel) {
@@ -747,7 +792,7 @@ void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
 
     wxRect frameRect;
     if (!GetFrameRect(view.frame, frameRect))
-      continue;
+      return;
     const int frameRight = frameRect.GetLeft() + frameRect.GetWidth();
     const int frameBottom = frameRect.GetTop() + frameRect.GetHeight();
 
@@ -807,13 +852,13 @@ void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
 
     if (view.id == activeViewId)
       drawSelectionHandles(frameRect);
-  }
+  };
 
-  for (const auto &legend : currentLayout.legendViews) {
+  auto drawLegend = [&](const layouts::LayoutLegendDefinition &legend) {
     LegendCache &cache = GetLegendCache(legend.id);
     wxRect frameRect;
     if (!GetFrameRect(legend.frame, frameRect))
-      continue;
+      return;
     const int frameRight = frameRect.GetLeft() + frameRect.GetWidth();
     const int frameBottom = frameRect.GetTop() + frameRect.GetHeight();
 
@@ -873,6 +918,17 @@ void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
 
     if (legend.id == activeLegendId)
       drawSelectionHandles(frameRect);
+  };
+
+  const auto elements = BuildZOrderedElements();
+  for (const auto &element : elements) {
+    if (element.type == SelectedElementType::View2D) {
+      if (const auto *view = findViewById(element.id))
+        drawView(*view);
+    } else if (element.type == SelectedElementType::Legend) {
+      if (const auto *legend = findLegendById(element.id))
+        drawLegend(*legend);
+    }
   }
 
   glFlush();
@@ -1140,19 +1196,33 @@ void LayoutViewerPanel::OnDeleteLegend(wxCommandEvent &) {
 void LayoutViewerPanel::OnBringToFront(wxCommandEvent &) {
   if (selectedElementId < 0)
     return;
+  const int maxZ = GetZIndexRange().second;
   if (selectedElementType == SelectedElementType::View2D) {
-    if (!MoveElementById(currentLayout.view2dViews, selectedElementId, true))
+    auto it =
+        std::find_if(currentLayout.view2dViews.begin(),
+                     currentLayout.view2dViews.end(),
+                     [this](const auto &entry) {
+                       return entry.id == selectedElementId;
+                     });
+    if (it == currentLayout.view2dViews.end())
       return;
+    it->zIndex = maxZ + 1;
     if (!currentLayout.name.empty()) {
-      layouts::LayoutManager::Get().MoveLayout2DView(currentLayout.name,
-                                                     selectedElementId, true);
+      layouts::LayoutManager::Get().UpdateLayout2DView(currentLayout.name, *it);
     }
   } else if (selectedElementType == SelectedElementType::Legend) {
-    if (!MoveElementById(currentLayout.legendViews, selectedElementId, true))
+    auto it =
+        std::find_if(currentLayout.legendViews.begin(),
+                     currentLayout.legendViews.end(),
+                     [this](const auto &entry) {
+                       return entry.id == selectedElementId;
+                     });
+    if (it == currentLayout.legendViews.end())
       return;
+    it->zIndex = maxZ + 1;
     if (!currentLayout.name.empty()) {
-      layouts::LayoutManager::Get().MoveLayoutLegend(currentLayout.name,
-                                                     selectedElementId, true);
+      layouts::LayoutManager::Get().UpdateLayoutLegend(currentLayout.name,
+                                                       *it);
     }
   } else {
     return;
@@ -1166,19 +1236,33 @@ void LayoutViewerPanel::OnBringToFront(wxCommandEvent &) {
 void LayoutViewerPanel::OnSendToBack(wxCommandEvent &) {
   if (selectedElementId < 0)
     return;
+  const int minZ = GetZIndexRange().first;
   if (selectedElementType == SelectedElementType::View2D) {
-    if (!MoveElementById(currentLayout.view2dViews, selectedElementId, false))
+    auto it =
+        std::find_if(currentLayout.view2dViews.begin(),
+                     currentLayout.view2dViews.end(),
+                     [this](const auto &entry) {
+                       return entry.id == selectedElementId;
+                     });
+    if (it == currentLayout.view2dViews.end())
       return;
+    it->zIndex = minZ - 1;
     if (!currentLayout.name.empty()) {
-      layouts::LayoutManager::Get().MoveLayout2DView(currentLayout.name,
-                                                     selectedElementId, false);
+      layouts::LayoutManager::Get().UpdateLayout2DView(currentLayout.name, *it);
     }
   } else if (selectedElementType == SelectedElementType::Legend) {
-    if (!MoveElementById(currentLayout.legendViews, selectedElementId, false))
+    auto it =
+        std::find_if(currentLayout.legendViews.begin(),
+                     currentLayout.legendViews.end(),
+                     [this](const auto &entry) {
+                       return entry.id == selectedElementId;
+                     });
+    if (it == currentLayout.legendViews.end())
       return;
+    it->zIndex = minZ - 1;
     if (!currentLayout.name.empty()) {
-      layouts::LayoutManager::Get().MoveLayoutLegend(currentLayout.name,
-                                                     selectedElementId, false);
+      layouts::LayoutManager::Get().UpdateLayoutLegend(currentLayout.name,
+                                                       *it);
     }
   } else {
     return;
@@ -1665,42 +1749,63 @@ void LayoutViewerPanel::InvalidateRenderIfFrameChanged() {
 }
 
 bool LayoutViewerPanel::SelectElementAtPosition(const wxPoint &pos) {
-  for (int i = static_cast<int>(currentLayout.legendViews.size()) - 1; i >= 0;
-       --i) {
-    const auto &legend = currentLayout.legendViews[static_cast<size_t>(i)];
-    wxRect frameRect;
-    if (!GetFrameRect(legend.frame, frameRect))
-      continue;
-    if (!frameRect.Contains(pos))
-      continue;
-    if (selectedElementType == SelectedElementType::Legend &&
-        selectedElementId == legend.id) {
+  const auto elements = BuildZOrderedElements();
+  auto findLegendById =
+      [this](int legendId) -> const layouts::LayoutLegendDefinition * {
+    for (const auto &legend : currentLayout.legendViews) {
+      if (legend.id == legendId)
+        return &legend;
+    }
+    return nullptr;
+  };
+  auto findViewById =
+      [this](int viewId) -> const layouts::Layout2DViewDefinition * {
+    for (const auto &view : currentLayout.view2dViews) {
+      if (view.id == viewId)
+        return &view;
+    }
+    return nullptr;
+  };
+  for (auto it = elements.rbegin(); it != elements.rend(); ++it) {
+    if (it->type == SelectedElementType::Legend) {
+      const auto *legend = findLegendById(it->id);
+      if (!legend)
+        continue;
+      wxRect frameRect;
+      if (!GetFrameRect(legend->frame, frameRect))
+        continue;
+      if (!frameRect.Contains(pos))
+        continue;
+      if (selectedElementType == SelectedElementType::Legend &&
+          selectedElementId == legend->id) {
+        return true;
+      }
+      selectedElementType = SelectedElementType::Legend;
+      selectedElementId = legend->id;
+      RequestRenderRebuild();
+      Refresh();
       return true;
     }
-    selectedElementType = SelectedElementType::Legend;
-    selectedElementId = legend.id;
-    RequestRenderRebuild();
-    Refresh();
-    return true;
-  }
 
-  for (int i = static_cast<int>(currentLayout.view2dViews.size()) - 1; i >= 0;
-       --i) {
-    const auto &view = currentLayout.view2dViews[static_cast<size_t>(i)];
-    wxRect frameRect;
-    if (!GetFrameRect(view.frame, frameRect))
-      continue;
-    if (!frameRect.Contains(pos))
-      continue;
-    if (selectedElementType == SelectedElementType::View2D &&
-        selectedElementId == view.id) {
+    if (it->type == SelectedElementType::View2D) {
+      const auto *view = findViewById(it->id);
+      if (!view)
+        continue;
+      wxRect frameRect;
+      if (!GetFrameRect(view->frame, frameRect))
+        continue;
+      if (!frameRect.Contains(pos))
+        continue;
+      if (selectedElementType == SelectedElementType::View2D &&
+          selectedElementId == view->id) {
+        return true;
+      }
+      selectedElementType = SelectedElementType::View2D;
+      selectedElementId = view->id;
+      RequestRenderRebuild();
+      Refresh();
       return true;
     }
-    selectedElementType = SelectedElementType::View2D;
-    selectedElementId = view.id;
-    RequestRenderRebuild();
-    Refresh();
-    return true;
   }
   return false;
 }
