@@ -1571,7 +1571,7 @@ wxImage LayoutViewerPanel::BuildLegendImage(
   double fontSize =
       totalRows > 0 ? (static_cast<double>(availableHeight) / totalRows) - 2.0
                     : 10.0;
-  fontSize = std::clamp(fontSize, 6.0, 72.0);
+  fontSize = std::clamp(fontSize, 6.0, 14.0);
   const int fontSizePx =
       std::max(1, static_cast<int>(std::lround(fontSize * renderZoom)));
 
