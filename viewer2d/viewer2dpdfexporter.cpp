@@ -961,16 +961,6 @@ Viewer2DExportResult ExportViewer2DToPdf(
   }
   std::vector<PdfObject> objects;
   objects.push_back({"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"});
-  objects.push_back(
-      {"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>"});
-  objects.push_back(
-      {"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>"});
-  objects.push_back(
-      {"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>"});
-  objects.push_back(
-      {"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>"});
-  objects.push_back(
-      {"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>"});
 
   Mapping symbolMapping{};
   symbolMapping.scale = scale;
