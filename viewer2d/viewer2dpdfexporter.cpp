@@ -961,8 +961,6 @@ Viewer2DExportResult ExportViewer2DToPdf(
   }
   std::vector<PdfObject> objects;
   objects.push_back({"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"});
-  objects.push_back(
-      {"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>"});
 
   Mapping symbolMapping{};
   symbolMapping.scale = scale;
@@ -1353,6 +1351,8 @@ Viewer2DExportResult ExportLayoutToPdf(
 
   std::vector<PdfObject> objects;
   objects.push_back({"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"});
+  objects.push_back(
+      {"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>"});
 
   auto appendSymbolObject = [&](const std::string &name,
                                 const std::vector<CanvasCommand> &commands,
