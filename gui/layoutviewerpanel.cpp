@@ -1157,6 +1157,8 @@ void LayoutViewerPanel::OnBringToFront(wxCommandEvent &) {
   } else {
     return;
   }
+  layoutVersion++;
+  renderDirty = true;
   RequestRenderRebuild();
   Refresh();
 }
@@ -1181,6 +1183,8 @@ void LayoutViewerPanel::OnSendToBack(wxCommandEvent &) {
   } else {
     return;
   }
+  layoutVersion++;
+  renderDirty = true;
   RequestRenderRebuild();
   Refresh();
 }
