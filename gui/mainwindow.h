@@ -150,6 +150,7 @@ private:
   void OnAddSceneObject(wxCommandEvent &event); // Add generic scene object
   void OnDelete(wxCommandEvent &event);         // Delete selected items
   void OnLayoutAdd2DView(wxCommandEvent &event); // Layout 2D view creation
+  void OnLayoutAddLegend(wxCommandEvent &event); // Layout legend creation
   void OnLayout2DViewOk(wxCommandEvent &event); // Confirm layout 2D view edit
   void OnLayout2DViewCancel(wxCommandEvent &event); // Cancel layout 2D edit
   void OnLayoutViewEdit(wxCommandEvent &event);
@@ -208,6 +209,7 @@ enum {
   ID_View_Layout_2D,
   ID_View_Layout_Mode,
   ID_View_Layout_2DView,
+  ID_View_Layout_Legend,
   ID_Tools_DownloadGdtf,
   ID_Tools_EditDictionaries,
   ID_Tools_ImportRiderText,

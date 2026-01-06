@@ -154,6 +154,33 @@ layouts::Layout2DViewFrame BuildDefaultLayout2DFrame(
   return {x, y, width, height};
 }
 
+layouts::Layout2DViewFrame BuildDefaultLayoutLegendFrame(
+    const layouts::LayoutDefinition &layout) {
+  constexpr double kWidthScale = 0.35;
+  constexpr double kHeightScale = 0.4;
+  constexpr int kMinFrameSize = 120;
+  constexpr int kMargin = 20;
+
+  const double pageWidth = layout.pageSetup.PageWidthPt();
+  const double pageHeight = layout.pageSetup.PageHeightPt();
+
+  int width = std::max(
+      kMinFrameSize,
+      static_cast<int>(std::lround(pageWidth * kWidthScale)));
+  int height = std::max(
+      kMinFrameSize,
+      static_cast<int>(std::lround(pageHeight * kHeightScale)));
+
+  width = std::min(width, static_cast<int>(std::lround(pageWidth)));
+  height = std::min(height, static_cast<int>(std::lround(pageHeight)));
+
+  int x = std::max(
+      0, static_cast<int>(std::lround(pageWidth - width - kMargin)));
+  int y = std::max(0, kMargin);
+
+  return {x, y, width, height};
+}
+
 const layouts::Layout2DViewDefinition *FindLayout2DViewById(
     const layouts::LayoutDefinition *layout, int viewId) {
   if (!layout || viewId <= 0)
@@ -199,6 +226,7 @@ EVT_MENU(ID_View_Layout_Default, MainWindow::OnApplyDefaultLayout)
 EVT_MENU(ID_View_Layout_2D, MainWindow::OnApply2DLayout)
 EVT_MENU(ID_View_Layout_Mode, MainWindow::OnApplyLayoutModeLayout)
 EVT_MENU(ID_View_Layout_2DView, MainWindow::OnLayoutAdd2DView)
+EVT_MENU(ID_View_Layout_Legend, MainWindow::OnLayoutAddLegend)
 EVT_MENU(ID_Tools_DownloadGdtf, MainWindow::OnDownloadGdtf)
 EVT_MENU(ID_Tools_EditDictionaries, MainWindow::OnEditDictionaries)
 EVT_MENU(ID_Tools_ExportFixture, MainWindow::OnExportFixture)
@@ -470,6 +498,10 @@ void MainWindow::CreateToolBars() {
                          loadToolbarIcon("panel-top-bottom-dashed",
                                          wxART_MISSING_IMAGE),
                          "Add 2D View to Layout");
+  layoutToolBar->AddTool(ID_View_Layout_Legend, "Añadir leyenda",
+                         loadToolbarIcon("square-chart-gantt",
+                                         wxART_MISSING_IMAGE),
+                         "Add fixture legend to layout");
   layoutToolBar->Realize();
   auiManager->AddPane(
       layoutToolBar, wxAuiPaneInfo()
@@ -2298,6 +2330,36 @@ void MainWindow::OnLayoutAdd2DView(wxCommandEvent &WXUNUSED(event)) {
   }
 }
 
+void MainWindow::OnLayoutAddLegend(wxCommandEvent &WXUNUSED(event)) {
+  if (!layoutModeActive || activeLayoutName.empty())
+    return;
+
+  const layouts::LayoutDefinition *layout = nullptr;
+  for (const auto &entry : layouts::LayoutManager::Get().GetLayouts().Items()) {
+    if (entry.name == activeLayoutName) {
+      layout = &entry;
+      break;
+    }
+  }
+  if (!layout)
+    return;
+
+  layouts::LayoutLegendDefinition legend;
+  legend.frame = BuildDefaultLayoutLegendFrame(*layout);
+
+  layouts::LayoutManager::Get().UpdateLayoutLegend(activeLayoutName, legend);
+
+  if (layoutViewerPanel) {
+    for (const auto &entry :
+         layouts::LayoutManager::Get().GetLayouts().Items()) {
+      if (entry.name == activeLayoutName) {
+        layoutViewerPanel->SetLayoutDefinition(entry);
+        break;
+      }
+    }
+  }
+}
+
 void MainWindow::BeginLayout2DViewEdit() {
   if (!layoutModeActive || activeLayoutName.empty() || layout2DViewEditing)
     return;
@@ -2799,6 +2861,9 @@ void MainWindow::RefreshSummary() {
     else if (notebook->GetPage(sel) == sceneObjPanel)
       summaryPanel->ShowSceneObjectSummary();
   }
+
+  if (layoutViewerPanel)
+    layoutViewerPanel->RefreshLegendData();
 
   RefreshRigging();
 }

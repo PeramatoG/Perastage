@@ -80,6 +80,16 @@ nlohmann::json ToJson(const Layout2DViewDefinition &view) {
   };
 }
 
+nlohmann::json ToJson(const LayoutLegendDefinition &legend) {
+  const auto &frame = legend.frame;
+  return {{"id", legend.id},
+          {"frame",
+           {{"x", frame.x},
+            {"y", frame.y},
+            {"width", frame.width},
+            {"height", frame.height}}}};
+}
+
 nlohmann::json ToJson(const LayoutDefinition &layout) {
   nlohmann::json data{{"name", layout.name},
                       {"pageSize", PageSizeToString(layout.pageSetup.pageSize)},
@@ -88,6 +98,11 @@ nlohmann::json ToJson(const LayoutDefinition &layout) {
     data["view2dViews"] = nlohmann::json::array();
     for (const auto &view : layout.view2dViews)
       data["view2dViews"].push_back(ToJson(view));
+  }
+  if (!layout.legendViews.empty()) {
+    data["legendViews"] = nlohmann::json::array();
+    for (const auto &legend : layout.legendViews)
+      data["legendViews"].push_back(ToJson(legend));
   }
   return data;
 }
@@ -210,6 +225,19 @@ bool ParseLayout2DView(const nlohmann::json &value,
   return true;
 }
 
+bool ParseLayoutLegend(const nlohmann::json &value,
+                       LayoutLegendDefinition &out) {
+  if (!value.is_object())
+    return false;
+  if (auto idIt = value.find("id");
+      idIt != value.end() && idIt->is_number_integer())
+    out.id = idIt->get<int>();
+  auto frameIt = value.find("frame");
+  if (frameIt != value.end() && frameIt->is_object())
+    ReadFrame(*frameIt, out.frame);
+  return true;
+}
+
 void EnsureUniqueViewIds(LayoutDefinition &layout) {
   std::unordered_set<int> used;
   int nextId = 1;
@@ -227,6 +255,28 @@ void EnsureUniqueViewIds(LayoutDefinition &layout) {
     while (used.count(nextId))
       ++nextId;
     view.id = nextId;
+    used.insert(nextId);
+    ++nextId;
+  }
+}
+
+void EnsureUniqueLegendIds(LayoutDefinition &layout) {
+  std::unordered_set<int> used;
+  int nextId = 1;
+  for (auto &legend : layout.legendViews) {
+    if (legend.id > 0) {
+      if (!used.insert(legend.id).second)
+        legend.id = 0;
+      else
+        nextId = std::max(nextId, legend.id + 1);
+    }
+  }
+  for (auto &legend : layout.legendViews) {
+    if (legend.id > 0)
+      continue;
+    while (used.count(nextId))
+      ++nextId;
+    legend.id = nextId;
     used.insert(nextId);
     ++nextId;
   }
@@ -273,6 +323,28 @@ bool ParseLayout(const nlohmann::json &value, LayoutDefinition &out) {
       }
       if (!replaced)
         out.view2dViews.push_back(std::move(view));
+    }
+  }
+
+  out.legendViews.clear();
+  if (auto legendsIt = value.find("legendViews");
+      legendsIt != value.end() && legendsIt->is_array()) {
+    for (const auto &entry : *legendsIt) {
+      LayoutLegendDefinition legend;
+      if (!ParseLayoutLegend(entry, legend))
+        continue;
+      bool replaced = false;
+      if (legend.id > 0) {
+        for (auto &existing : out.legendViews) {
+          if (existing.id == legend.id) {
+            existing = legend;
+            replaced = true;
+            break;
+          }
+        }
+      }
+      if (!replaced)
+        out.legendViews.push_back(std::move(legend));
     }
   }
 
@@ -419,6 +491,21 @@ bool LayoutManager::RemoveLayout2DView(const std::string &name, int viewId) {
   return true;
 }
 
+bool LayoutManager::UpdateLayoutLegend(const std::string &name,
+                                       const LayoutLegendDefinition &legend) {
+  if (!layouts.UpdateLayoutLegend(name, legend))
+    return false;
+  SyncToConfig();
+  return true;
+}
+
+bool LayoutManager::RemoveLayoutLegend(const std::string &name, int legendId) {
+  if (!layouts.RemoveLayoutLegend(name, legendId))
+    return false;
+  SyncToConfig();
+  return true;
+}
+
 void LayoutManager::LoadFromConfig(ConfigManager &cfg) {
   auto value = cfg.GetValue(kLayoutsConfigKey);
   if (!value.has_value()) {
@@ -449,6 +536,7 @@ void LayoutManager::LoadFromConfig(ConfigManager &cfg) {
     if (duplicate)
       continue;
     EnsureUniqueViewIds(layout);
+    EnsureUniqueLegendIds(layout);
     loaded.push_back(std::move(layout));
   }
 

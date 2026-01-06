@@ -120,6 +120,53 @@ bool LayoutCollection::RemoveLayout2DView(const std::string &name,
   return false;
 }
 
+bool LayoutCollection::UpdateLayoutLegend(
+    const std::string &name, const LayoutLegendDefinition &legend) {
+  for (auto &layout : layouts) {
+    if (layout.name == name) {
+      LayoutLegendDefinition updatedLegend = legend;
+      int nextId = 1;
+      for (const auto &entry : layout.legendViews) {
+        if (entry.id > 0)
+          nextId = std::max(nextId, entry.id + 1);
+      }
+      if (updatedLegend.id <= 0)
+        updatedLegend.id = nextId;
+      bool replaced = false;
+      for (auto &entry : layout.legendViews) {
+        if (entry.id == updatedLegend.id && updatedLegend.id > 0) {
+          entry = updatedLegend;
+          replaced = true;
+          break;
+        }
+      }
+      if (!replaced)
+        layout.legendViews.push_back(updatedLegend);
+      return true;
+    }
+  }
+  return false;
+}
+
+bool LayoutCollection::RemoveLayoutLegend(const std::string &name,
+                                          int legendId) {
+  for (auto &layout : layouts) {
+    if (layout.name == name) {
+      auto &legends = layout.legendViews;
+      auto it =
+          std::remove_if(legends.begin(), legends.end(),
+                         [legendId](const auto &entry) {
+                           return entry.id == legendId;
+                         });
+      if (it == legends.end())
+        return false;
+      legends.erase(it, legends.end());
+      return true;
+    }
+  }
+  return false;
+}
+
 void LayoutCollection::ReplaceAll(std::vector<LayoutDefinition> updated) {
   if (updated.empty()) {
     layouts = {DefaultLayout()};
@@ -134,6 +181,7 @@ LayoutDefinition LayoutCollection::DefaultLayout() {
   layout.pageSetup.pageSize = print::PageSize::A4;
   layout.pageSetup.landscape = false;
   layout.view2dViews.clear();
+  layout.legendViews.clear();
   return layout;
 }
 

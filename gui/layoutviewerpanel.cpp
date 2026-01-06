@@ -19,6 +19,8 @@
 
 #include <algorithm>
 #include <cmath>
+#include <filesystem>
+#include <map>
 #include <memory>
 #include <vector>
 
@@ -28,10 +30,12 @@
 #endif
 
 #include "configmanager.h"
+#include "gdtfloader.h"
 #include "layouts/LayoutManager.h"
 #include "mainwindow.h"
 #include "viewer2doffscreenrenderer.h"
 #include "viewer2dstate.h"
+#include <wx/filename.h>
 
 namespace {
 constexpr double kMinZoom = 0.1;
@@ -45,6 +49,7 @@ constexpr int kHandleHoverPadPx = 6;
 constexpr int kMinFrameSize = 24;
 constexpr int kEditMenuId = wxID_HIGHEST + 490;
 constexpr int kDeleteMenuId = wxID_HIGHEST + 491;
+constexpr int kDeleteLegendMenuId = wxID_HIGHEST + 492;
 }
 
 wxDEFINE_EVENT(EVT_LAYOUT_VIEW_EDIT, wxCommandEvent);
@@ -61,6 +66,7 @@ wxBEGIN_EVENT_TABLE(LayoutViewerPanel, wxGLCanvas)
     EVT_RIGHT_UP(LayoutViewerPanel::OnRightUp)
     EVT_MENU(kEditMenuId, LayoutViewerPanel::OnEditView)
     EVT_MENU(kDeleteMenuId, LayoutViewerPanel::OnDeleteView)
+    EVT_MENU(kDeleteLegendMenuId, LayoutViewerPanel::OnDeleteLegend)
 wxEND_EVENT_TABLE()
 
 LayoutViewerPanel::LayoutViewerPanel(wxWindow *parent)
@@ -81,12 +87,21 @@ LayoutViewerPanel::~LayoutViewerPanel() {
 void LayoutViewerPanel::SetLayoutDefinition(
     const layouts::LayoutDefinition &layout) {
   currentLayout = layout;
-  selectedViewId =
-      currentLayout.view2dViews.empty() ? -1 : currentLayout.view2dViews.front().id;
+  if (!currentLayout.view2dViews.empty()) {
+    selectedElementType = SelectedElementType::View2D;
+    selectedElementId = currentLayout.view2dViews.front().id;
+  } else if (!currentLayout.legendViews.empty()) {
+    selectedElementType = SelectedElementType::Legend;
+    selectedElementId = currentLayout.legendViews.front().id;
+  } else {
+    selectedElementType = SelectedElementType::None;
+    selectedElementId = -1;
+  }
   layoutVersion++;
   captureInProgress = false;
   ClearCachedTexture();
   renderDirty = true;
+  RefreshLegendData();
   ResetViewToFit();
   RequestRenderRebuild();
   Refresh();
@@ -96,6 +111,7 @@ void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
   wxPaintDC dc(this);
   InitGL();
   SetCurrent(*glContext_);
+  RefreshLegendData();
 
   wxSize size = GetClientSize();
   glViewport(0, 0, size.GetWidth(), size.GetHeight());
@@ -144,7 +160,44 @@ void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
   glEnd();
 
   const layouts::Layout2DViewDefinition *activeView = GetEditableView();
-  int activeViewId = activeView ? activeView->id : -1;
+  const int activeViewId =
+      selectedElementType == SelectedElementType::View2D && activeView
+          ? activeView->id
+          : -1;
+  const int activeLegendId =
+      selectedElementType == SelectedElementType::Legend ? selectedElementId
+                                                         : -1;
+
+  auto drawSelectionHandles = [](const wxRect &frameRect) {
+    wxRect handleRight(frameRect.GetRight() - kHandleHalfPx,
+                       frameRect.GetTop() + frameRect.GetHeight() / 2 -
+                           kHandleHalfPx,
+                       kHandleSizePx, kHandleSizePx);
+    wxRect handleBottom(frameRect.GetLeft() + frameRect.GetWidth() / 2 -
+                            kHandleHalfPx,
+                        frameRect.GetBottom() - kHandleHalfPx,
+                        kHandleSizePx, kHandleSizePx);
+    wxRect handleCorner(frameRect.GetRight() - kHandleHalfPx,
+                        frameRect.GetBottom() - kHandleHalfPx,
+                        kHandleSizePx, kHandleSizePx);
+
+    glColor4ub(60, 160, 240, 255);
+    auto drawHandle = [](const wxRect &rect) {
+      glBegin(GL_QUADS);
+      glVertex2f(static_cast<float>(rect.GetLeft()),
+                 static_cast<float>(rect.GetTop()));
+      glVertex2f(static_cast<float>(rect.GetRight()),
+                 static_cast<float>(rect.GetTop()));
+      glVertex2f(static_cast<float>(rect.GetRight()),
+                 static_cast<float>(rect.GetBottom()));
+      glVertex2f(static_cast<float>(rect.GetLeft()),
+                 static_cast<float>(rect.GetBottom()));
+      glEnd();
+    };
+    drawHandle(handleRight);
+    drawHandle(handleBottom);
+    drawHandle(handleCorner);
+  };
 
   Viewer2DPanel *capturePanel = nullptr;
   Viewer2DOffscreenRenderer *offscreenRenderer = nullptr;
@@ -276,37 +329,74 @@ void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
                static_cast<float>(frameRect.GetBottom()));
     glEnd();
 
-    if (view.id != activeViewId)
+    if (view.id == activeViewId)
+      drawSelectionHandles(frameRect);
+  }
+
+  for (const auto &legend : currentLayout.legendViews) {
+    LegendCache &cache = GetLegendCache(legend.id);
+    wxRect frameRect;
+    if (!GetFrameRect(legend.frame, frameRect))
       continue;
+    const int frameRight = frameRect.GetLeft() + frameRect.GetWidth();
+    const int frameBottom = frameRect.GetTop() + frameRect.GetHeight();
 
-    wxRect handleRight(frameRect.GetRight() - kHandleHalfPx,
-                       frameRect.GetTop() + frameRect.GetHeight() / 2 -
-                           kHandleHalfPx,
-                       kHandleSizePx, kHandleSizePx);
-    wxRect handleBottom(frameRect.GetLeft() + frameRect.GetWidth() / 2 -
-                            kHandleHalfPx,
-                        frameRect.GetBottom() - kHandleHalfPx,
-                        kHandleSizePx, kHandleSizePx);
-    wxRect handleCorner(frameRect.GetRight() - kHandleHalfPx,
-                        frameRect.GetBottom() - kHandleHalfPx,
-                        kHandleSizePx, kHandleSizePx);
-
-    glColor4ub(60, 160, 240, 255);
-    auto drawHandle = [](const wxRect &rect) {
+    const wxSize renderSize =
+        GetFrameSizeForZoom(legend.frame, cache.renderZoom);
+    if (cache.texture != 0 && renderSize.GetWidth() > 0 &&
+        renderSize.GetHeight() > 0 && cache.textureSize == renderSize) {
+      glEnable(GL_TEXTURE_2D);
+      glBindTexture(GL_TEXTURE_2D, cache.texture);
+      glColor4ub(255, 255, 255, 255);
       glBegin(GL_QUADS);
-      glVertex2f(static_cast<float>(rect.GetLeft()),
-                 static_cast<float>(rect.GetTop()));
-      glVertex2f(static_cast<float>(rect.GetRight()),
-                 static_cast<float>(rect.GetTop()));
-      glVertex2f(static_cast<float>(rect.GetRight()),
-                 static_cast<float>(rect.GetBottom()));
-      glVertex2f(static_cast<float>(rect.GetLeft()),
-                 static_cast<float>(rect.GetBottom()));
+      glTexCoord2f(0.0f, 1.0f);
+      glVertex2f(static_cast<float>(frameRect.GetLeft()),
+                 static_cast<float>(frameRect.GetTop()));
+      glTexCoord2f(1.0f, 1.0f);
+      glVertex2f(static_cast<float>(frameRight),
+                 static_cast<float>(frameRect.GetTop()));
+      glTexCoord2f(1.0f, 0.0f);
+      glVertex2f(static_cast<float>(frameRight),
+                 static_cast<float>(frameBottom));
+      glTexCoord2f(0.0f, 0.0f);
+      glVertex2f(static_cast<float>(frameRect.GetLeft()),
+                 static_cast<float>(frameRect.GetBottom()));
       glEnd();
-    };
-    drawHandle(handleRight);
-    drawHandle(handleBottom);
-    drawHandle(handleCorner);
+      glDisable(GL_TEXTURE_2D);
+    } else {
+      glColor4ub(245, 245, 245, 255);
+      glBegin(GL_QUADS);
+      glVertex2f(static_cast<float>(frameRect.GetLeft()),
+                 static_cast<float>(frameRect.GetTop()));
+      glVertex2f(static_cast<float>(frameRect.GetRight()),
+                 static_cast<float>(frameRect.GetTop()));
+      glVertex2f(static_cast<float>(frameRight),
+                 static_cast<float>(frameBottom));
+      glVertex2f(static_cast<float>(frameRect.GetLeft()),
+                 static_cast<float>(frameRect.GetBottom()));
+      glEnd();
+    }
+
+    if (legend.id == activeLegendId) {
+      glColor4ub(60, 160, 240, 255);
+      glLineWidth(2.0f);
+    } else {
+      glColor4ub(160, 160, 160, 255);
+      glLineWidth(1.0f);
+    }
+    glBegin(GL_LINE_LOOP);
+    glVertex2f(static_cast<float>(frameRect.GetLeft()),
+               static_cast<float>(frameRect.GetTop()));
+    glVertex2f(static_cast<float>(frameRight),
+               static_cast<float>(frameRect.GetTop()));
+    glVertex2f(static_cast<float>(frameRight),
+               static_cast<float>(frameBottom));
+    glVertex2f(static_cast<float>(frameRect.GetLeft()),
+               static_cast<float>(frameRect.GetBottom()));
+    glEnd();
+
+    if (legend.id == activeLegendId)
+      drawSelectionHandles(frameRect);
   }
 
   glFlush();
@@ -321,15 +411,16 @@ void LayoutViewerPanel::OnSize(wxSizeEvent &) {
 
 void LayoutViewerPanel::OnLeftDown(wxMouseEvent &event) {
   const wxPoint pos = event.GetPosition();
-  SelectViewAtPosition(pos);
-  const layouts::Layout2DViewDefinition *view = GetEditableView();
+  SelectElementAtPosition(pos);
+  layouts::Layout2DViewFrame selectedFrame;
   wxRect frameRect;
-  if (view && GetFrameRect(view->frame, frameRect)) {
+  if (GetSelectedFrame(selectedFrame) &&
+      GetFrameRect(selectedFrame, frameRect)) {
     FrameDragMode mode = HitTestFrame(pos, frameRect);
     if (mode != FrameDragMode::None) {
       dragMode = mode;
       dragStartPos = pos;
-      dragStartFrame = view->frame;
+      dragStartFrame = selectedFrame;
       CaptureMouse();
       return;
     }
@@ -356,10 +447,11 @@ void LayoutViewerPanel::OnLeftUp(wxMouseEvent &) {
 
 void LayoutViewerPanel::OnLeftDClick(wxMouseEvent &event) {
   const wxPoint pos = event.GetPosition();
-  SelectViewAtPosition(pos);
+  SelectElementAtPosition(pos);
   const layouts::Layout2DViewDefinition *view = GetEditableView();
   wxRect frameRect;
-  if (view && GetFrameRect(view->frame, frameRect) && frameRect.Contains(pos)) {
+  if (view && GetFrameRect(view->frame, frameRect) && frameRect.Contains(pos) &&
+      selectedElementType == SelectedElementType::View2D) {
     EmitEditViewRequest();
     return;
   }
@@ -369,11 +461,12 @@ void LayoutViewerPanel::OnLeftDClick(wxMouseEvent &event) {
 void LayoutViewerPanel::OnMouseMove(wxMouseEvent &event) {
   wxPoint currentPos = event.GetPosition();
   if (dragMode == FrameDragMode::None && !isPanning) {
-    SelectViewAtPosition(currentPos);
+    SelectElementAtPosition(currentPos);
   }
-  const layouts::Layout2DViewDefinition *view = GetEditableView();
+  layouts::Layout2DViewFrame selectedFrame;
   wxRect frameRect;
-  if (view && GetFrameRect(view->frame, frameRect)) {
+  if (GetSelectedFrame(selectedFrame) &&
+      GetFrameRect(selectedFrame, frameRect)) {
     hoverMode = HitTestFrame(currentPos, frameRect);
     SetCursor(CursorForMode(hoverMode));
   } else {
@@ -402,7 +495,11 @@ void LayoutViewerPanel::OnMouseMove(wxMouseEvent &event) {
             std::max(kMinFrameSize, dragStartFrame.height + logicalDelta.y);
       }
     }
-    UpdateFrame(frame, dragMode == FrameDragMode::Move);
+    if (selectedElementType == SelectedElementType::Legend) {
+      UpdateLegendFrame(frame, dragMode == FrameDragMode::Move);
+    } else {
+      UpdateFrame(frame, dragMode == FrameDragMode::Move);
+    }
     return;
   }
 
@@ -453,29 +550,37 @@ void LayoutViewerPanel::OnCaptureLost(wxMouseCaptureLostEvent &) {
 
 void LayoutViewerPanel::OnRightUp(wxMouseEvent &event) {
   const wxPoint pos = event.GetPosition();
-  if (!SelectViewAtPosition(pos)) {
+  if (!SelectElementAtPosition(pos)) {
     event.Skip();
     return;
   }
-  const layouts::Layout2DViewDefinition *view = GetEditableView();
+  layouts::Layout2DViewFrame selectedFrame;
   wxRect frameRect;
-  if (!(view && GetFrameRect(view->frame, frameRect) &&
-        frameRect.Contains(pos))) {
+  if (!(GetSelectedFrame(selectedFrame) &&
+        GetFrameRect(selectedFrame, frameRect) && frameRect.Contains(pos))) {
     event.Skip();
     return;
   }
 
   wxMenu menu;
-  menu.Append(kEditMenuId, "2D View Editor");
-  menu.Append(kDeleteMenuId, "Delete 2D View");
+  if (selectedElementType == SelectedElementType::View2D) {
+    menu.Append(kEditMenuId, "2D View Editor");
+    menu.Append(kDeleteMenuId, "Delete 2D View");
+  } else if (selectedElementType == SelectedElementType::Legend) {
+    menu.Append(kDeleteLegendMenuId, "Delete Legend");
+  }
   PopupMenu(&menu, pos);
 }
 
 void LayoutViewerPanel::OnEditView(wxCommandEvent &) {
+  if (selectedElementType != SelectedElementType::View2D)
+    return;
   EmitEditViewRequest();
 }
 
 void LayoutViewerPanel::OnDeleteView(wxCommandEvent &) {
+  if (selectedElementType != SelectedElementType::View2D)
+    return;
   const layouts::Layout2DViewDefinition *view = GetEditableView();
   if (!view)
     return;
@@ -489,8 +594,18 @@ void LayoutViewerPanel::OnDeleteView(wxCommandEvent &) {
                                    return entry.id == viewId;
                                  }),
                   views.end());
-      if (selectedViewId == viewId) {
-        selectedViewId = views.empty() ? -1 : views.front().id;
+      if (selectedElementType == SelectedElementType::View2D &&
+          selectedElementId == viewId) {
+        if (!views.empty()) {
+          selectedElementType = SelectedElementType::View2D;
+          selectedElementId = views.front().id;
+        } else if (!currentLayout.legendViews.empty()) {
+          selectedElementType = SelectedElementType::Legend;
+          selectedElementId = currentLayout.legendViews.front().id;
+        } else {
+          selectedElementType = SelectedElementType::None;
+          selectedElementId = -1;
+        }
       }
     }
   }
@@ -498,6 +613,44 @@ void LayoutViewerPanel::OnDeleteView(wxCommandEvent &) {
   if (cacheIt != viewCaches_.end()) {
     ClearCachedTexture(cacheIt->second);
     viewCaches_.erase(cacheIt);
+  }
+  Refresh();
+}
+
+void LayoutViewerPanel::OnDeleteLegend(wxCommandEvent &) {
+  if (selectedElementType != SelectedElementType::Legend)
+    return;
+  const layouts::LayoutLegendDefinition *legend = GetSelectedLegend();
+  if (!legend)
+    return;
+  const int legendId = legend->id;
+  if (!currentLayout.name.empty()) {
+    if (layouts::LayoutManager::Get().RemoveLayoutLegend(currentLayout.name,
+                                                        legendId)) {
+      auto &legends = currentLayout.legendViews;
+      legends.erase(std::remove_if(legends.begin(), legends.end(),
+                                   [legendId](const auto &entry) {
+                                     return entry.id == legendId;
+                                   }),
+                    legends.end());
+      if (selectedElementId == legendId) {
+        if (!currentLayout.view2dViews.empty()) {
+          selectedElementType = SelectedElementType::View2D;
+          selectedElementId = currentLayout.view2dViews.front().id;
+        } else if (!legends.empty()) {
+          selectedElementType = SelectedElementType::Legend;
+          selectedElementId = legends.front().id;
+        } else {
+          selectedElementType = SelectedElementType::None;
+          selectedElementId = -1;
+        }
+      }
+    }
+  }
+  auto cacheIt = legendCaches_.find(legendId);
+  if (cacheIt != legendCaches_.end()) {
+    ClearCachedTexture(cacheIt->second);
+    legendCaches_.erase(cacheIt);
   }
   Refresh();
 }
@@ -570,13 +723,15 @@ double LayoutViewerPanel::GetRenderZoom() const {
 layouts::Layout2DViewDefinition *LayoutViewerPanel::GetEditableView() {
   if (currentLayout.view2dViews.empty())
     return nullptr;
-  if (selectedViewId >= 0) {
+  if (selectedElementType == SelectedElementType::View2D &&
+      selectedElementId >= 0) {
     for (auto &view : currentLayout.view2dViews) {
-      if (view.id == selectedViewId)
+      if (view.id == selectedElementId)
         return &view;
     }
   }
-  selectedViewId = currentLayout.view2dViews.front().id;
+  selectedElementType = SelectedElementType::View2D;
+  selectedElementId = currentLayout.view2dViews.front().id;
   return &currentLayout.view2dViews.front();
 }
 
@@ -584,15 +739,76 @@ const layouts::Layout2DViewDefinition *LayoutViewerPanel::GetEditableView()
     const {
   if (currentLayout.view2dViews.empty())
     return nullptr;
-  if (selectedViewId >= 0) {
+  if (selectedElementType == SelectedElementType::View2D &&
+      selectedElementId >= 0) {
     for (const auto &view : currentLayout.view2dViews) {
-      if (view.id == selectedViewId)
+      if (view.id == selectedElementId)
         return &view;
     }
   }
   if (!currentLayout.view2dViews.empty())
     return &currentLayout.view2dViews.front();
   return nullptr;
+}
+
+layouts::LayoutLegendDefinition *LayoutViewerPanel::GetSelectedLegend() {
+  if (currentLayout.legendViews.empty())
+    return nullptr;
+  if (selectedElementType == SelectedElementType::Legend &&
+      selectedElementId >= 0) {
+    for (auto &legend : currentLayout.legendViews) {
+      if (legend.id == selectedElementId)
+        return &legend;
+    }
+  }
+  selectedElementType = SelectedElementType::Legend;
+  selectedElementId = currentLayout.legendViews.front().id;
+  return &currentLayout.legendViews.front();
+}
+
+const layouts::LayoutLegendDefinition *LayoutViewerPanel::GetSelectedLegend()
+    const {
+  if (currentLayout.legendViews.empty())
+    return nullptr;
+  if (selectedElementType == SelectedElementType::Legend &&
+      selectedElementId >= 0) {
+    for (const auto &legend : currentLayout.legendViews) {
+      if (legend.id == selectedElementId)
+        return &legend;
+    }
+  }
+  if (!currentLayout.legendViews.empty())
+    return &currentLayout.legendViews.front();
+  return nullptr;
+}
+
+bool LayoutViewerPanel::GetLegendFrameById(
+    int legendId, layouts::Layout2DViewFrame &frame) const {
+  if (legendId <= 0)
+    return false;
+  for (const auto &legend : currentLayout.legendViews) {
+    if (legend.id == legendId) {
+      frame = legend.frame;
+      return true;
+    }
+  }
+  return false;
+}
+
+bool LayoutViewerPanel::GetSelectedFrame(
+    layouts::Layout2DViewFrame &frame) const {
+  if (selectedElementType == SelectedElementType::Legend) {
+    const auto *legend = GetSelectedLegend();
+    if (!legend)
+      return false;
+    frame = legend->frame;
+    return true;
+  }
+  const auto *view = GetEditableView();
+  if (!view)
+    return false;
+  frame = view->frame;
+  return true;
 }
 
 void LayoutViewerPanel::UpdateFrame(const layouts::Layout2DViewFrame &frame,
@@ -623,6 +839,26 @@ void LayoutViewerPanel::UpdateFrame(const layouts::Layout2DViewFrame &frame,
   if (!currentLayout.name.empty()) {
     layouts::LayoutManager::Get().UpdateLayout2DView(currentLayout.name,
                                                      *view);
+  }
+  InvalidateRenderIfFrameChanged();
+  RequestRenderRebuild();
+  Refresh();
+}
+
+void LayoutViewerPanel::UpdateLegendFrame(const layouts::Layout2DViewFrame &frame,
+                                          bool updatePosition) {
+  layouts::LayoutLegendDefinition *legend = GetSelectedLegend();
+  if (!legend)
+    return;
+  legend->frame.width = frame.width;
+  legend->frame.height = frame.height;
+  if (updatePosition) {
+    legend->frame.x = frame.x;
+    legend->frame.y = frame.y;
+  }
+  if (!currentLayout.name.empty()) {
+    layouts::LayoutManager::Get().UpdateLayoutLegend(currentLayout.name,
+                                                     *legend);
   }
   InvalidateRenderIfFrameChanged();
   RequestRenderRebuild();
@@ -722,6 +958,70 @@ void LayoutViewerPanel::RebuildCachedTexture() {
     cache.textureSize = wxSize(width, height);
     cache.renderZoom = renderZoom;
   }
+
+  for (const auto &legend : currentLayout.legendViews) {
+    LegendCache &cache = GetLegendCache(legend.id);
+    if (cache.contentHash != legendDataHash) {
+      cache.renderDirty = true;
+    }
+    if (!cache.renderDirty)
+      continue;
+    cache.renderDirty = false;
+
+    const wxSize renderSize = GetFrameSizeForZoom(legend.frame, renderZoom);
+    if (renderSize.GetWidth() <= 0 || renderSize.GetHeight() <= 0) {
+      ClearCachedTexture(cache);
+      cache.textureSize = wxSize(0, 0);
+      cache.renderZoom = 0.0;
+      continue;
+    }
+
+    wxImage image = BuildLegendImage(renderSize, legendItems_);
+    if (!image.IsOk()) {
+      ClearCachedTexture(cache);
+      cache.textureSize = wxSize(0, 0);
+      cache.renderZoom = 0.0;
+      continue;
+    }
+    if (!image.HasAlpha())
+      image.InitAlpha();
+    const int width = image.GetWidth();
+    const int height = image.GetHeight();
+    const unsigned char *rgb = image.GetData();
+    const unsigned char *alpha = image.GetAlpha();
+    if (!rgb || width <= 0 || height <= 0) {
+      ClearCachedTexture(cache);
+      cache.textureSize = wxSize(0, 0);
+      cache.renderZoom = 0.0;
+      continue;
+    }
+
+    std::vector<unsigned char> pixels;
+    pixels.resize(static_cast<size_t>(width) * height * 4);
+    for (int i = 0; i < width * height; ++i) {
+      pixels[static_cast<size_t>(i) * 4] = rgb[i * 3];
+      pixels[static_cast<size_t>(i) * 4 + 1] = rgb[i * 3 + 1];
+      pixels[static_cast<size_t>(i) * 4 + 2] = rgb[i * 3 + 2];
+      pixels[static_cast<size_t>(i) * 4 + 3] = alpha ? alpha[i] : 255;
+    }
+
+    InitGL();
+    SetCurrent(*glContext_);
+    if (cache.texture == 0) {
+      glGenTextures(1, &cache.texture);
+    }
+    glBindTexture(GL_TEXTURE_2D, cache.texture);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA,
+                 GL_UNSIGNED_BYTE, pixels.data());
+    cache.textureSize = wxSize(width, height);
+    cache.renderZoom = renderZoom;
+    cache.contentHash = legendDataHash;
+  }
 }
 
 void LayoutViewerPanel::ClearCachedTexture() {
@@ -729,9 +1029,25 @@ void LayoutViewerPanel::ClearCachedTexture() {
     ClearCachedTexture(entry.second);
   }
   viewCaches_.clear();
+  for (auto &entry : legendCaches_) {
+    ClearCachedTexture(entry.second);
+  }
+  legendCaches_.clear();
 }
 
 void LayoutViewerPanel::ClearCachedTexture(ViewCache &cache) {
+  if (cache.texture == 0 || !glContext_)
+    return;
+  if (!IsShown()) {
+    cache.texture = 0;
+    return;
+  }
+  SetCurrent(*glContext_);
+  glDeleteTextures(1, &cache.texture);
+  cache.texture = 0;
+}
+
+void LayoutViewerPanel::ClearCachedTexture(LegendCache &cache) {
   if (cache.texture == 0 || !glContext_)
     return;
   if (!IsShown()) {
@@ -776,35 +1092,68 @@ void LayoutViewerPanel::InvalidateRenderIfFrameChanged() {
       renderDirty = true;
     }
   }
-}
 
-bool LayoutViewerPanel::SelectViewAtPosition(const wxPoint &pos) {
-  const int viewIndex = GetViewIndexAtPosition(pos);
-  if (viewIndex < 0)
-    return false;
-  const auto &view = currentLayout.view2dViews[viewIndex];
-  if (selectedViewId == view.id)
-    return true;
-  selectedViewId = view.id;
-  RequestRenderRebuild();
-  Refresh();
-  return true;
-}
-
-int LayoutViewerPanel::GetViewIndexAtPosition(const wxPoint &pos) const {
-  if (currentLayout.view2dViews.empty())
-    return -1;
-  for (int i = static_cast<int>(currentLayout.view2dViews.size()) - 1; i >= 0;
-       --i) {
+  for (const auto &legend : currentLayout.legendViews) {
+    LegendCache &cache = GetLegendCache(legend.id);
     wxRect frameRect;
-    if (!GetFrameRect(currentLayout.view2dViews[static_cast<size_t>(i)].frame,
-                      frameRect)) {
+    if (!GetFrameRect(legend.frame, frameRect)) {
+      if (cache.texture != 0) {
+        cache.renderDirty = true;
+        renderDirty = true;
+        ClearCachedTexture(cache);
+        cache.textureSize = wxSize(0, 0);
+        cache.renderZoom = 0.0;
+      }
       continue;
     }
-    if (frameRect.Contains(pos))
-      return i;
+    const wxSize renderSize = GetFrameSizeForZoom(legend.frame, renderZoom);
+    if (cache.renderZoom == 0.0 || cache.renderZoom != renderZoom ||
+        renderSize != cache.textureSize) {
+      cache.renderDirty = true;
+      renderDirty = true;
+    }
   }
-  return -1;
+}
+
+bool LayoutViewerPanel::SelectElementAtPosition(const wxPoint &pos) {
+  for (int i = static_cast<int>(currentLayout.legendViews.size()) - 1; i >= 0;
+       --i) {
+    const auto &legend = currentLayout.legendViews[static_cast<size_t>(i)];
+    wxRect frameRect;
+    if (!GetFrameRect(legend.frame, frameRect))
+      continue;
+    if (!frameRect.Contains(pos))
+      continue;
+    if (selectedElementType == SelectedElementType::Legend &&
+        selectedElementId == legend.id) {
+      return true;
+    }
+    selectedElementType = SelectedElementType::Legend;
+    selectedElementId = legend.id;
+    RequestRenderRebuild();
+    Refresh();
+    return true;
+  }
+
+  for (int i = static_cast<int>(currentLayout.view2dViews.size()) - 1; i >= 0;
+       --i) {
+    const auto &view = currentLayout.view2dViews[static_cast<size_t>(i)];
+    wxRect frameRect;
+    if (!GetFrameRect(view.frame, frameRect))
+      continue;
+    if (!frameRect.Contains(pos))
+      continue;
+    if (selectedElementType == SelectedElementType::View2D &&
+        selectedElementId == view.id) {
+      return true;
+    }
+    selectedElementType = SelectedElementType::View2D;
+    selectedElementId = view.id;
+    RequestRenderRebuild();
+    Refresh();
+    return true;
+  }
+  return false;
 }
 
 LayoutViewerPanel::FrameDragMode
@@ -865,4 +1214,207 @@ LayoutViewerPanel::ViewCache &LayoutViewerPanel::GetViewCache(int viewId) {
     renderDirty = true;
   }
   return it->second;
+}
+
+LayoutViewerPanel::LegendCache &LayoutViewerPanel::GetLegendCache(int legendId) {
+  auto [it, inserted] = legendCaches_.try_emplace(legendId, LegendCache{});
+  if (inserted) {
+    renderDirty = true;
+  }
+  return it->second;
+}
+
+void LayoutViewerPanel::RefreshLegendData() {
+  std::vector<LegendItem> items = BuildLegendItems();
+  size_t newHash = HashLegendItems(items);
+  if (newHash == legendDataHash)
+    return;
+  legendItems_ = std::move(items);
+  legendDataHash = newHash;
+  for (auto &entry : legendCaches_) {
+    entry.second.renderDirty = true;
+  }
+  renderDirty = true;
+  RequestRenderRebuild();
+}
+
+std::vector<LayoutViewerPanel::LegendItem>
+LayoutViewerPanel::BuildLegendItems() const {
+  struct LegendAggregate {
+    int count = 0;
+    std::optional<int> channelCount;
+    bool mixedChannels = false;
+  };
+
+  std::map<std::string, LegendAggregate> aggregates;
+  const auto &fixtures = ConfigManager::Get().GetScene().fixtures;
+  const std::string &basePath = ConfigManager::Get().GetScene().basePath;
+  for (const auto &[uuid, fixture] : fixtures) {
+    (void)uuid;
+    std::string typeName = fixture.typeName;
+    std::string fullPath;
+    if (!fixture.gdtfSpec.empty()) {
+      std::filesystem::path p = basePath.empty()
+                                    ? std::filesystem::path(fixture.gdtfSpec)
+                                    : std::filesystem::path(basePath) /
+                                          fixture.gdtfSpec;
+      fullPath = p.string();
+    }
+    if (typeName.empty() && !fullPath.empty()) {
+      wxFileName fn(fullPath);
+      typeName = fn.GetFullName().ToStdString();
+    }
+    if (typeName.empty())
+      typeName = "Unknown";
+
+    int chCount =
+        GetGdtfModeChannelCount(fullPath, fixture.gdtfMode);
+    LegendAggregate &agg = aggregates[typeName];
+    agg.count += 1;
+    if (chCount >= 0) {
+      if (!agg.channelCount.has_value()) {
+        agg.channelCount = chCount;
+      } else if (agg.channelCount.value() != chCount) {
+        agg.mixedChannels = true;
+      }
+    }
+  }
+
+  std::vector<LegendItem> items;
+  items.reserve(aggregates.size());
+  for (const auto &[typeName, agg] : aggregates) {
+    LegendItem item;
+    item.typeName = typeName;
+    item.count = agg.count;
+    if (agg.channelCount.has_value() && !agg.mixedChannels)
+      item.channelCount = agg.channelCount;
+    items.push_back(item);
+  }
+
+  if (items.empty()) {
+    LegendItem item;
+    item.typeName = "No fixtures";
+    item.count = 0;
+    items.push_back(item);
+  }
+
+  return items;
+}
+
+size_t LayoutViewerPanel::HashLegendItems(
+    const std::vector<LegendItem> &items) const {
+  size_t hash = items.size();
+  std::hash<std::string> strHasher;
+  std::hash<int> intHasher;
+  for (const auto &item : items) {
+    hash ^= strHasher(item.typeName) + 0x9e3779b9 + (hash << 6) + (hash >> 2);
+    hash ^= intHasher(item.count) + 0x9e3779b9 + (hash << 6) + (hash >> 2);
+    int chValue = item.channelCount.value_or(-1);
+    hash ^= intHasher(chValue) + 0x9e3779b9 + (hash << 6) + (hash >> 2);
+  }
+  return hash;
+}
+
+wxImage LayoutViewerPanel::BuildLegendImage(
+    const wxSize &size, const std::vector<LegendItem> &items) const {
+  if (size.GetWidth() <= 0 || size.GetHeight() <= 0)
+    return wxImage();
+  wxBitmap bitmap(size.GetWidth(), size.GetHeight(), 32);
+  wxMemoryDC dc(bitmap);
+  dc.SetBackground(wxBrush(wxColour(255, 255, 255)));
+  dc.Clear();
+  dc.SetTextForeground(wxColour(20, 20, 20));
+  dc.SetPen(*wxTRANSPARENT_PEN);
+
+  const int padding = 8;
+  const int columnGap = 8;
+  const int totalRows = static_cast<int>(items.size()) + 1;
+  const int availableHeight = size.GetHeight() - padding * 2;
+  int fontSize =
+      totalRows > 0 ? (availableHeight / totalRows) - 2 : 10;
+  fontSize = std::clamp(fontSize, 6, 14);
+
+  wxFont baseFont(fontSize, wxFONTFAMILY_SWISS, wxFONTSTYLE_NORMAL,
+                  wxFONTWEIGHT_NORMAL);
+  wxFont headerFont = baseFont;
+  headerFont.SetWeight(wxFONTWEIGHT_BOLD);
+
+  auto measureTextWidth = [&](const wxString &text) {
+    int w = 0;
+    int h = 0;
+    dc.GetTextExtent(text, &w, &h);
+    return w;
+  };
+
+  dc.SetFont(baseFont);
+  int maxCountWidth = measureTextWidth("Count");
+  int maxChWidth = measureTextWidth("Ch Count");
+  for (const auto &item : items) {
+    maxCountWidth =
+        std::max(maxCountWidth, measureTextWidth(wxString::Format("%d", item.count)));
+    wxString chText = item.channelCount.has_value()
+                          ? wxString::Format("%d", item.channelCount.value())
+                          : wxString("-");
+    maxChWidth = std::max(maxChWidth, measureTextWidth(chText));
+  }
+
+  int xCount = padding;
+  int xType = xCount + maxCountWidth + columnGap;
+  int xCh = size.GetWidth() - padding - maxChWidth;
+  if (xCh < xType + columnGap)
+    xCh = xType + columnGap;
+  int typeWidth = std::max(0, xCh - xType - columnGap);
+
+  auto trimTextToWidth = [&](const wxString &text, int maxWidth) {
+    if (maxWidth <= 0)
+      return wxString();
+    int textWidth = measureTextWidth(text);
+    if (textWidth <= maxWidth)
+      return text;
+    wxString ellipsis = "...";
+    int ellipsisWidth = measureTextWidth(ellipsis);
+    if (ellipsisWidth >= maxWidth)
+      return ellipsis.Left(1);
+    wxString trimmed = text;
+    while (!trimmed.empty() &&
+           measureTextWidth(trimmed) + ellipsisWidth > maxWidth) {
+      trimmed.RemoveLast();
+    }
+    return trimmed + ellipsis;
+  };
+
+  int y = padding;
+  dc.SetFont(headerFont);
+  dc.DrawText("Count", xCount, y);
+  dc.DrawText("Type", xType, y);
+  dc.DrawText("Ch Count", xCh, y);
+
+  int lineHeight = 0;
+  int lineWidth = 0;
+  dc.GetTextExtent("Hg", &lineWidth, &lineHeight);
+  lineHeight += 2;
+
+  y += lineHeight;
+  dc.SetPen(wxPen(wxColour(200, 200, 200)));
+  dc.DrawLine(padding, y, size.GetWidth() - padding, y);
+  y += 2;
+
+  dc.SetFont(baseFont);
+  for (const auto &item : items) {
+    if (y + lineHeight > size.GetHeight() - padding)
+      break;
+    wxString countText = wxString::Format("%d", item.count);
+    wxString typeText =
+        trimTextToWidth(wxString::FromUTF8(item.typeName), typeWidth);
+    wxString chText = item.channelCount.has_value()
+                          ? wxString::Format("%d", item.channelCount.value())
+                          : wxString("-");
+    dc.DrawText(countText, xCount, y);
+    dc.DrawText(typeText, xType, y);
+    dc.DrawText(chText, xCh, y);
+    y += lineHeight;
+  }
+
+  dc.SelectObject(wxNullBitmap);
+  return bitmap.ConvertToImage();
 }
