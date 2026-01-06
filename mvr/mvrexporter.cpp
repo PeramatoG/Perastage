@@ -29,14 +29,17 @@ class wxZipStreamLink;
 
 #include <tinyxml2.h>
 
+#include <algorithm>
+#include <cctype>
+#include <charconv>
+#include <chrono>
+#include <cmath>
 #include <filesystem>
 #include <fstream>
+#include <iomanip>
 #include <set>
 #include <sstream>
-#include <iomanip>
-#include <cmath>
 #include <unordered_map>
-#include <chrono>
 
 namespace fs = std::filesystem;
 
@@ -46,19 +49,36 @@ struct GdtfOverrides {
   float powerW = 0.0f;
 };
 
+static bool TryParseInt(std::string_view text, int &out) {
+  if (text.empty())
+    return false;
+
+  const auto first = std::find_if_not(text.begin(), text.end(),
+                                      [](unsigned char c) { return std::isspace(c); });
+  if (first == text.end())
+    return false;
+  const auto last = std::find_if_not(text.rbegin(), text.rend(),
+                                     [](unsigned char c) { return std::isspace(c); }).base();
+  std::string_view trimmed(&(*first), static_cast<size_t>(last - first));
+
+  int value = 0;
+  auto begin = trimmed.data();
+  auto end = trimmed.data() + trimmed.size();
+  auto result = std::from_chars(begin, end, value);
+  if (result.ec == std::errc{} && result.ptr == end) {
+    out = value;
+    return true;
+  }
+  return false;
+}
+
 static std::pair<int, int> ParseAddress(const std::string &addr) {
   size_t dot = addr.find('.');
   if (dot == std::string::npos)
     return {0, 0};
   int u = 0, c = 0;
-  try {
-    u = std::stoi(addr.substr(0, dot));
-  } catch (...) {
-  }
-  try {
-    c = std::stoi(addr.substr(dot + 1));
-  } catch (...) {
-  }
+  TryParseInt(std::string_view(addr).substr(0, dot), u);
+  TryParseInt(std::string_view(addr).substr(dot + 1), c);
   return {u, c};
 }
 

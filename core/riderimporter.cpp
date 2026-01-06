@@ -100,6 +100,33 @@ bool TryParseFloat(const std::string &text, float &out) {
   return false;
 }
 
+bool TryParseInt(std::string_view text, int &out) {
+  if (text.empty())
+    return false;
+
+  const auto first =
+      std::find_if_not(text.begin(), text.end(), [](unsigned char c) {
+        return std::isspace(c);
+      });
+  if (first == text.end())
+    return false;
+  const auto last =
+      std::find_if_not(text.rbegin(), text.rend(), [](unsigned char c) {
+        return std::isspace(c);
+      }).base();
+  std::string_view trimmed(&(*first), static_cast<size_t>(last - first));
+
+  int value = 0;
+  auto begin = trimmed.data();
+  auto end = trimmed.data() + trimmed.size();
+  auto result = std::from_chars(begin, end, value);
+  if (result.ec == std::errc{} && result.ptr == end) {
+    out = value;
+    return true;
+  }
+  return false;
+}
+
 std::vector<std::string> SplitPlus(const std::string &s) {
   std::vector<std::string> out;
   std::istringstream ss(s);
@@ -246,13 +273,11 @@ bool RiderImporter::ImportText(const std::string &text) {
 
   auto getHangHeight = [&](const std::string &posName) {
     if (posName.rfind("LX", 0) == 0) {
-      try {
-        int idx = std::stoi(posName.substr(2));
-        if (idx >= 1 && idx <= 6) {
-          return cfg.GetFloat("rider_lx" + std::to_string(idx) + "_height") *
-                 1000.0f;
-        }
-      } catch (...) {
+      int idx = 0;
+      if (TryParseInt(std::string_view(posName).substr(2), idx) && idx >= 1 &&
+          idx <= 6) {
+        return cfg.GetFloat("rider_lx" + std::to_string(idx) + "_height") *
+               1000.0f;
       }
     }
     return 0.0f;
@@ -260,13 +285,11 @@ bool RiderImporter::ImportText(const std::string &text) {
 
   auto getHangPos = [&](const std::string &posName) {
     if (posName.rfind("LX", 0) == 0) {
-      try {
-        int idx = std::stoi(posName.substr(2));
-        if (idx >= 1 && idx <= 6) {
-          return cfg.GetFloat("rider_lx" + std::to_string(idx) + "_pos") *
-                 1000.0f;
-        }
-      } catch (...) {
+      int idx = 0;
+      if (TryParseInt(std::string_view(posName).substr(2), idx) && idx >= 1 &&
+          idx <= 6) {
+        return cfg.GetFloat("rider_lx" + std::to_string(idx) + "_pos") *
+               1000.0f;
       }
     }
     return 0.0f;
@@ -274,13 +297,11 @@ bool RiderImporter::ImportText(const std::string &text) {
 
   auto getHangMargin = [&](const std::string &posName) {
     if (posName.rfind("LX", 0) == 0) {
-      try {
-        int idx = std::stoi(posName.substr(2));
-        if (idx >= 1 && idx <= 6) {
-          return cfg.GetFloat("rider_lx" + std::to_string(idx) + "_margin") *
-                 1000.0f;
-        }
-      } catch (...) {
+      int idx = 0;
+      if (TryParseInt(std::string_view(posName).substr(2), idx) && idx >= 1 &&
+          idx <= 6) {
+        return cfg.GetFloat("rider_lx" + std::to_string(idx) + "_margin") *
+               1000.0f;
       }
     }
     return 200.0f;
@@ -329,7 +350,8 @@ bool RiderImporter::ImportText(const std::string &text) {
       std::string part = partRaw;
       int quantity = baseQuantity;
       if (std::regex_match(partRaw, pm, kFixtureLineRe)) {
-        quantity = std::stoi(pm[1]);
+        if (!TryParseInt(pm[1].str(), quantity))
+          quantity = baseQuantity;
         part = Trim(pm[2]);
       }
       int &counter = nameCounters[part];
@@ -425,7 +447,9 @@ bool RiderImporter::ImportText(const std::string &text) {
         addFixtures(pendingQuantity, desc);
       havePending = false;
     } else if (std::regex_match(line, m, kTrussLineRe)) {
-      int quantity = std::stoi(m[1]);
+      int quantity = 0;
+      if (!TryParseInt(m[1].str(), quantity))
+        continue;
       std::string model = Trim(m[2]);
       float length = 0.0f;
       if (!TryParseFloat(m[3], length))
@@ -620,11 +644,14 @@ bool RiderImporter::ImportText(const std::string &text) {
         x += s;
       }
     } else if (inFixtures && std::regex_match(line, m, kFixtureLineRe)) {
-      int baseQuantity = std::stoi(m[1]);
+      int baseQuantity = 0;
+      if (!TryParseInt(m[1].str(), baseQuantity))
+        continue;
       std::string desc = Trim(m[2]);
       addFixtures(baseQuantity, desc);
     } else if (inFixtures && std::regex_match(line, m, kQuantityOnlyRe)) {
-      pendingQuantity = std::stoi(m[1]);
+      if (!TryParseInt(m[1].str(), pendingQuantity))
+        continue;
       havePending = true;
     }
   }

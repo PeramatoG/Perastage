@@ -74,6 +74,30 @@ bool TryParseFloat(const std::string& text, float& out)
     }
     return false;
 }
+
+bool TryParseInt(std::string_view text, int& out)
+{
+    if (text.empty())
+        return false;
+
+    const auto first = std::find_if_not(text.begin(), text.end(),
+                                        [](unsigned char c) { return std::isspace(c); });
+    if (first == text.end())
+        return false;
+    const auto last = std::find_if_not(text.rbegin(), text.rend(),
+                                       [](unsigned char c) { return std::isspace(c); }).base();
+    std::string_view trimmed(&(*first), static_cast<size_t>(last - first));
+
+    int value = 0;
+    auto begin = trimmed.data();
+    auto end = trimmed.data() + trimmed.size();
+    auto result = std::from_chars(begin, end, value);
+    if (result.ec == std::errc{} && result.ptr == end) {
+        out = value;
+        return true;
+    }
+    return false;
+}
 } // namespace
 
 struct GdtfCacheEntry
@@ -315,8 +339,12 @@ static void ParseModes(tinyxml2::XMLElement* ft,
                     std::string offStr = offset;
                     size_t comma = offStr.find(',');
                     std::string first = offStr.substr(0, comma);
-                    try { info.channel = std::stoi(first); }
-                    catch (...) { info.channel = 0; }
+                    if (!TryParseInt(first, info.channel) && ConsolePanel::Instance()) {
+                        wxString msg = wxString::Format(
+                            "GDTF: invalid DMX channel offset '%s'",
+                            wxString::FromUTF8(first));
+                        ConsolePanel::Instance()->AppendMessage(msg);
+                    }
                 }
                 if (info.channel == 0)
                     info.channel = static_cast<int>(channelsVec.size()) + 1;
@@ -339,8 +367,15 @@ static void ParseModes(tinyxml2::XMLElement* ft,
                             token.erase(token.find_last_not_of(" \t\r\n") + 1);
                             if (token.empty())
                                 continue;
-                            try { (void)std::stoi(token); ++count; }
-                            catch (...) { /* ignore invalid */ }
+                            int parsed = 0;
+                            if (TryParseInt(token, parsed)) {
+                                ++count;
+                            } else if (ConsolePanel::Instance()) {
+                                wxString msg = wxString::Format(
+                                    "GDTF: invalid DMX channel offset '%s'",
+                                    wxString::FromUTF8(token));
+                                ConsolePanel::Instance()->AppendMessage(msg);
+                            }
                         }
                     }
                 }
