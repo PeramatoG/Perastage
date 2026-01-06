@@ -93,7 +93,10 @@ public:
   void DrawLine(const viewer2d::Viewer2DRenderPoint &p0,
                 const viewer2d::Viewer2DRenderPoint &p1,
                 const CanvasStroke &stroke, double strokeWidthPx) override {
-    wxPen pen(ToWxColor(stroke.color), std::max(1, (int)std::lround(strokeWidthPx)));
+    if (strokeWidthPx <= 0.0)
+      return;
+    wxPen pen(ToWxColor(stroke.color),
+              std::max(1, (int)std::lround(strokeWidthPx)));
     dc_.SetPen(pen);
     dc_.SetBrush(*wxTRANSPARENT_BRUSH);
     dc_.DrawLine(wxPoint(std::lround(p0.x), std::lround(p0.y)),
@@ -105,7 +108,10 @@ public:
                     double strokeWidthPx) override {
     if (points.empty())
       return;
-    wxPen pen(ToWxColor(stroke.color), std::max(1, (int)std::lround(strokeWidthPx)));
+    if (strokeWidthPx <= 0.0)
+      return;
+    wxPen pen(ToWxColor(stroke.color),
+              std::max(1, (int)std::lround(strokeWidthPx)));
     dc_.SetPen(pen);
     dc_.SetBrush(*wxTRANSPARENT_BRUSH);
     std::vector<wxPoint> wxPoints;
@@ -121,8 +127,13 @@ public:
                    double strokeWidthPx) override {
     if (points.empty())
       return;
-    wxPen pen(ToWxColor(stroke.color), std::max(1, (int)std::lround(strokeWidthPx)));
-    dc_.SetPen(pen);
+    if (strokeWidthPx > 0.0) {
+      wxPen pen(ToWxColor(stroke.color),
+                std::max(1, (int)std::lround(strokeWidthPx)));
+      dc_.SetPen(pen);
+    } else {
+      dc_.SetPen(*wxTRANSPARENT_PEN);
+    }
     if (fill) {
       dc_.SetBrush(wxBrush(ToWxColor(fill->color)));
     } else {
@@ -139,8 +150,13 @@ public:
   void DrawCircle(const viewer2d::Viewer2DRenderPoint &center, double radiusPx,
                   const CanvasStroke &stroke, const CanvasFill *fill,
                   double strokeWidthPx) override {
-    wxPen pen(ToWxColor(stroke.color), std::max(1, (int)std::lround(strokeWidthPx)));
-    dc_.SetPen(pen);
+    if (strokeWidthPx > 0.0) {
+      wxPen pen(ToWxColor(stroke.color),
+                std::max(1, (int)std::lround(strokeWidthPx)));
+      dc_.SetPen(pen);
+    } else {
+      dc_.SetPen(*wxTRANSPARENT_PEN);
+    }
     if (fill) {
       dc_.SetBrush(wxBrush(ToWxColor(fill->color)));
     } else {
