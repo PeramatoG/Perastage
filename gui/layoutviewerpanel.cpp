@@ -251,6 +251,7 @@ constexpr int kHandleSizePx = 10;
 constexpr int kHandleHalfPx = kHandleSizePx / 2;
 constexpr int kHandleHoverPadPx = 6;
 constexpr int kMinFrameSize = 24;
+constexpr double kLegendSymbolScale = 1.4;
 constexpr int kEditMenuId = wxID_HIGHEST + 490;
 constexpr int kDeleteMenuId = wxID_HIGHEST + 491;
 constexpr int kDeleteLegendMenuId = wxID_HIGHEST + 492;
@@ -1606,10 +1607,12 @@ wxImage LayoutViewerPanel::BuildLegendImage(
 
   const double rowHeight =
       totalRows > 0 ? static_cast<double>(availableHeight) / totalRows : 0.0;
-  const int rowHeightPx =
+  const int baseRowHeightPx =
       std::max(lineHeight,
                static_cast<int>(std::lround(rowHeight * renderZoom)));
-  int symbolSize = std::max(4, rowHeightPx);
+  const int symbolSize = std::max(
+      4, static_cast<int>(std::lround(baseRowHeightPx * kLegendSymbolScale)));
+  const int rowHeightPx = std::max(baseRowHeightPx, symbolSize);
   const int paddingPx =
       std::max(0, static_cast<int>(std::lround(padding * renderZoom)));
   const int columnGapPx =
@@ -1687,9 +1690,6 @@ wxImage LayoutViewerPanel::BuildLegendImage(
           mapping.offsetY = symbolDrawTop;
           mapping.drawHeight = drawH;
           viewer2d::Viewer2DCommandRenderer renderer(mapping, backend, symbols);
-          double strokeScale =
-              mapping.scale > 0.0 ? (renderZoom / mapping.scale) : renderZoom;
-          backend.SetStrokeScale(strokeScale);
           backend.SetRenderMode(true, true);
           renderer.Render(symbol->localCommands);
         }
