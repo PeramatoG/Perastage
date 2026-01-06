@@ -159,7 +159,8 @@ void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
              static_cast<float>(topLeft.y + scaledHeight));
   glEnd();
 
-  const layouts::Layout2DViewDefinition *activeView = GetEditableView();
+  const layouts::Layout2DViewDefinition *activeView =
+      static_cast<const LayoutViewerPanel *>(this)->GetEditableView();
   const int activeViewId =
       selectedElementType == SelectedElementType::View2D && activeView
           ? activeView->id
@@ -983,6 +984,7 @@ void LayoutViewerPanel::RebuildCachedTexture() {
       cache.renderZoom = 0.0;
       continue;
     }
+    image = image.Mirror(false);
     if (!image.HasAlpha())
       image.InitAlpha();
     const int width = image.GetWidth();

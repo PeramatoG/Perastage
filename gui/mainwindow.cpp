@@ -500,7 +500,7 @@ void MainWindow::CreateToolBars() {
                          "Add 2D View to Layout");
   layoutToolBar->AddTool(ID_View_Layout_Legend, "Añadir leyenda",
                          loadToolbarIcon("square-chart-gantt",
-                                         wxART_MISSING_IMAGE),
+                                         wxART_PLUS),
                          "Add fixture legend to layout");
   layoutToolBar->Realize();
   auiManager->AddPane(
