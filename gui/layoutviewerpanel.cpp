@@ -93,6 +93,11 @@ public:
   explicit LegendSymbolBackend(wxGCDC &dc)
       : dc_(dc), gc_(dc.GetGraphicsContext()) {}
 
+  void SetRenderMode(bool drawStrokes, bool drawFills) {
+    drawStrokes_ = drawStrokes;
+    drawFills_ = drawFills;
+  }
+
   static int StrokeWidthPx(double strokeWidthPx) {
     if (strokeWidthPx <= 0.0)
       return 0;
@@ -115,6 +120,8 @@ public:
   void DrawLine(const viewer2d::Viewer2DRenderPoint &p0,
                 const viewer2d::Viewer2DRenderPoint &p1,
                 const CanvasStroke &stroke, double strokeWidthPx) override {
+    if (!drawStrokes_)
+      return;
     wxPen pen = MakeStrokePen(stroke, strokeWidthPx);
     if (pen.GetStyle() == wxPENSTYLE_TRANSPARENT)
       return;
@@ -133,6 +140,8 @@ public:
                     const CanvasStroke &stroke,
                     double strokeWidthPx) override {
     if (points.empty())
+      return;
+    if (!drawStrokes_)
       return;
     wxPen pen = MakeStrokePen(stroke, strokeWidthPx);
     if (pen.GetStyle() == wxPENSTYLE_TRANSPARENT)
@@ -160,8 +169,12 @@ public:
                    double strokeWidthPx) override {
     if (points.empty())
       return;
-    wxPen pen = MakeStrokePen(stroke, strokeWidthPx);
-    wxBrush brush = MakeFillBrush(fill);
+    bool shouldFill = drawFills_ && fill != nullptr;
+    bool shouldStroke = drawStrokes_;
+    wxPen pen = shouldStroke ? MakeStrokePen(stroke, strokeWidthPx)
+                             : *wxTRANSPARENT_PEN;
+    wxBrush brush =
+        shouldFill ? MakeFillBrush(fill) : *wxTRANSPARENT_BRUSH;
     if (gc_) {
       wxGraphicsPath path = gc_->CreatePath();
       path.MoveToPoint(points.front().x, points.front().y);
@@ -170,12 +183,14 @@ public:
       path.CloseSubpath();
       gc_->SetBrush(brush);
       gc_->SetPen(pen);
-      if (brush.GetStyle() != wxBRUSHSTYLE_TRANSPARENT)
+      if (shouldFill && brush.GetStyle() != wxBRUSHSTYLE_TRANSPARENT)
         gc_->FillPath(path);
-      if (pen.GetStyle() != wxPENSTYLE_TRANSPARENT)
+      if (shouldStroke && pen.GetStyle() != wxPENSTYLE_TRANSPARENT)
         gc_->StrokePath(path);
       return;
     }
+    if (!shouldFill && !shouldStroke)
+      return;
     dc_.SetPen(pen);
     dc_.SetBrush(brush);
     std::vector<wxPoint> wxPoints;
@@ -188,15 +203,23 @@ public:
   void DrawCircle(const viewer2d::Viewer2DRenderPoint &center, double radiusPx,
                   const CanvasStroke &stroke, const CanvasFill *fill,
                   double strokeWidthPx) override {
-    wxPen pen = MakeStrokePen(stroke, strokeWidthPx);
-    wxBrush brush = MakeFillBrush(fill);
+    bool shouldFill = drawFills_ && fill != nullptr;
+    bool shouldStroke = drawStrokes_;
+    wxPen pen = shouldStroke ? MakeStrokePen(stroke, strokeWidthPx)
+                             : *wxTRANSPARENT_PEN;
+    wxBrush brush =
+        shouldFill ? MakeFillBrush(fill) : *wxTRANSPARENT_BRUSH;
     if (gc_) {
-      gc_->SetPen(pen);
-      gc_->SetBrush(brush);
-      gc_->DrawEllipse(center.x - radiusPx, center.y - radiusPx,
-                       radiusPx * 2.0, radiusPx * 2.0);
+      if (shouldFill || shouldStroke) {
+        gc_->SetBrush(brush);
+        gc_->SetPen(pen);
+        gc_->DrawEllipse(center.x - radiusPx, center.y - radiusPx,
+                         radiusPx * 2.0, radiusPx * 2.0);
+      }
       return;
     }
+    if (!shouldFill && !shouldStroke)
+      return;
     dc_.SetPen(pen);
     dc_.SetBrush(brush);
     dc_.DrawCircle(wxPoint(std::lround(center.x), std::lround(center.y)),
@@ -210,6 +233,8 @@ public:
 private:
   wxGCDC &dc_;
   wxGraphicsContext *gc_ = nullptr;
+  bool drawStrokes_ = true;
+  bool drawFills_ = true;
 };
 constexpr double kMinZoom = 0.1;
 constexpr double kMaxZoom = 10.0;
@@ -1651,6 +1676,9 @@ wxImage LayoutViewerPanel::BuildLegendImage(
           mapping.offsetY = symbolDrawTop;
           mapping.drawHeight = drawH;
           viewer2d::Viewer2DCommandRenderer renderer(mapping, backend, symbols);
+          backend.SetRenderMode(true, false);
+          renderer.Render(symbol->localCommands);
+          backend.SetRenderMode(false, true);
           renderer.Render(symbol->localCommands);
         }
       }
