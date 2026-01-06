@@ -38,6 +38,7 @@
 #include "viewer2dcommandrenderer.h"
 #include "viewer2doffscreenrenderer.h"
 #include "viewer2dstate.h"
+#include <wx/dcgraph.h>
 #include <wx/filename.h>
 
 namespace {
@@ -1484,7 +1485,8 @@ wxImage LayoutViewerPanel::BuildLegendImage(
   if (size.GetWidth() <= 0 || size.GetHeight() <= 0)
     return wxImage();
   wxBitmap bitmap(size.GetWidth(), size.GetHeight(), 32);
-  wxMemoryDC dc(bitmap);
+  wxMemoryDC memoryDc(bitmap);
+  wxGCDC dc(memoryDc);
   dc.SetBackground(wxBrush(wxColour(255, 255, 255)));
   dc.Clear();
   dc.SetTextForeground(wxColour(20, 20, 20));
@@ -1611,6 +1613,6 @@ wxImage LayoutViewerPanel::BuildLegendImage(
     y += lineHeight;
   }
 
-  dc.SelectObject(wxNullBitmap);
+  memoryDc.SelectObject(wxNullBitmap);
   return bitmap.ConvertToImage();
 }
