@@ -1604,7 +1604,12 @@ wxImage LayoutViewerPanel::BuildLegendImage(
   dc.GetTextExtent("Hg", &lineWidth, &lineHeight);
   lineHeight += std::max(1, static_cast<int>(std::lround(2.0 * renderZoom)));
 
-  int symbolSize = std::max(4, lineHeight - 2);
+  const double rowHeight =
+      totalRows > 0 ? static_cast<double>(availableHeight) / totalRows : 0.0;
+  const int rowHeightPx =
+      std::max(lineHeight,
+               static_cast<int>(std::lround(rowHeight * renderZoom)));
+  int symbolSize = std::max(4, rowHeightPx - 2);
   const int paddingPx =
       std::max(0, static_cast<int>(std::lround(padding * renderZoom)));
   const int columnGapPx =
@@ -1641,7 +1646,7 @@ wxImage LayoutViewerPanel::BuildLegendImage(
   dc.DrawText("Type", xType, y);
   dc.DrawText("Ch Count", xCh, y);
 
-  y += lineHeight;
+  y += rowHeightPx;
   dc.SetPen(wxPen(wxColour(200, 200, 200)));
   dc.DrawLine(paddingPx, y, size.GetWidth() - paddingPx, y);
   y += std::max(1, static_cast<int>(std::lround(2.0 * renderZoom)));
@@ -1649,7 +1654,7 @@ wxImage LayoutViewerPanel::BuildLegendImage(
   dc.SetFont(baseFont);
   LegendSymbolBackend backend(dc);
   for (const auto &item : items) {
-    if (y + lineHeight > size.GetHeight() - paddingPx)
+    if (y + rowHeightPx > size.GetHeight() - paddingPx)
       break;
     wxString countText = wxString::Format("%d", item.count);
     wxString typeText =
@@ -1672,7 +1677,7 @@ wxImage LayoutViewerPanel::BuildLegendImage(
           double symbolDrawLeft =
               xSymbol + (static_cast<double>(symbolSize) - drawW) * 0.5;
           double symbolDrawTop =
-              y + (static_cast<double>(lineHeight) - drawH) * 0.5;
+              y + (static_cast<double>(rowHeightPx) - drawH) * 0.5;
 
           viewer2d::Viewer2DRenderMapping mapping{};
           mapping.minX = symbol->bounds.min.x;
@@ -1695,7 +1700,7 @@ wxImage LayoutViewerPanel::BuildLegendImage(
     dc.DrawText(countText, xCount, y);
     dc.DrawText(typeText, xType, y);
     dc.DrawText(chText, xCh, y);
-    y += lineHeight;
+    y += rowHeightPx;
   }
 
   memoryDc.SelectObject(wxNullBitmap);
