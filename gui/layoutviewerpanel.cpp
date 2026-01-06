@@ -40,6 +40,7 @@
 #include "viewer2dstate.h"
 #include <wx/dcgraph.h>
 #include <wx/filename.h>
+#include <wx/graphics.h>
 
 namespace {
 int SymbolViewRank(SymbolViewKind kind) {
@@ -89,7 +90,8 @@ wxColour ToWxColor(const CanvasColor &color) {
 
 class LegendSymbolBackend : public viewer2d::IViewer2DCommandBackend {
 public:
-  explicit LegendSymbolBackend(wxDC &dc) : dc_(dc) {}
+  explicit LegendSymbolBackend(wxGCDC &dc)
+      : dc_(dc), gc_(dc.GetGraphicsContext()) {}
 
   static int StrokeWidthPx(double strokeWidthPx) {
     if (strokeWidthPx <= 0.0)
@@ -97,13 +99,30 @@ public:
     return std::max(1, static_cast<int>(std::lround(strokeWidthPx)));
   }
 
+  wxPen MakeStrokePen(const CanvasStroke &stroke, double strokeWidthPx) const {
+    int strokeWidth = StrokeWidthPx(strokeWidthPx);
+    if (strokeWidth <= 0)
+      return *wxTRANSPARENT_PEN;
+    return wxPen(ToWxColor(stroke.color), strokeWidth);
+  }
+
+  wxBrush MakeFillBrush(const CanvasFill *fill) const {
+    if (!fill)
+      return *wxTRANSPARENT_BRUSH;
+    return wxBrush(ToWxColor(fill->color));
+  }
+
   void DrawLine(const viewer2d::Viewer2DRenderPoint &p0,
                 const viewer2d::Viewer2DRenderPoint &p1,
                 const CanvasStroke &stroke, double strokeWidthPx) override {
-    int strokeWidth = StrokeWidthPx(strokeWidthPx);
-    if (strokeWidth <= 0)
+    wxPen pen = MakeStrokePen(stroke, strokeWidthPx);
+    if (pen.GetStyle() == wxPENSTYLE_TRANSPARENT)
       return;
-    wxPen pen(ToWxColor(stroke.color), strokeWidth);
+    if (gc_) {
+      gc_->SetPen(pen);
+      gc_->StrokeLine(p0.x, p0.y, p1.x, p1.y);
+      return;
+    }
     dc_.SetPen(pen);
     dc_.SetBrush(*wxTRANSPARENT_BRUSH);
     dc_.DrawLine(wxPoint(std::lround(p0.x), std::lround(p0.y)),
@@ -115,17 +134,24 @@ public:
                     double strokeWidthPx) override {
     if (points.empty())
       return;
-    int strokeWidth = StrokeWidthPx(strokeWidthPx);
-    if (strokeWidth <= 0)
+    wxPen pen = MakeStrokePen(stroke, strokeWidthPx);
+    if (pen.GetStyle() == wxPENSTYLE_TRANSPARENT)
       return;
-    wxPen pen(ToWxColor(stroke.color), strokeWidth);
+    if (gc_) {
+      wxGraphicsPath path = gc_->CreatePath();
+      path.MoveToPoint(points.front().x, points.front().y);
+      for (size_t i = 1; i < points.size(); ++i)
+        path.AddLineToPoint(points[i].x, points[i].y);
+      gc_->SetPen(pen);
+      gc_->StrokePath(path);
+      return;
+    }
     dc_.SetPen(pen);
     dc_.SetBrush(*wxTRANSPARENT_BRUSH);
     std::vector<wxPoint> wxPoints;
     wxPoints.reserve(points.size());
-    for (const auto &pt : points) {
+    for (const auto &pt : points)
       wxPoints.emplace_back(std::lround(pt.x), std::lround(pt.y));
-    }
     dc_.DrawLines(static_cast<int>(wxPoints.size()), wxPoints.data());
   }
 
@@ -134,41 +160,45 @@ public:
                    double strokeWidthPx) override {
     if (points.empty())
       return;
-    int strokeWidth = StrokeWidthPx(strokeWidthPx);
-    if (strokeWidth > 0) {
-      wxPen pen(ToWxColor(stroke.color), strokeWidth);
-      dc_.SetPen(pen);
-    } else {
-      dc_.SetPen(*wxTRANSPARENT_PEN);
+    wxPen pen = MakeStrokePen(stroke, strokeWidthPx);
+    wxBrush brush = MakeFillBrush(fill);
+    if (gc_) {
+      wxGraphicsPath path = gc_->CreatePath();
+      path.MoveToPoint(points.front().x, points.front().y);
+      for (size_t i = 1; i < points.size(); ++i)
+        path.AddLineToPoint(points[i].x, points[i].y);
+      path.CloseSubpath();
+      gc_->SetBrush(brush);
+      gc_->SetPen(pen);
+      if (brush.GetStyle() != wxBRUSHSTYLE_TRANSPARENT)
+        gc_->FillPath(path);
+      if (pen.GetStyle() != wxPENSTYLE_TRANSPARENT)
+        gc_->StrokePath(path);
+      return;
     }
-    if (fill) {
-      dc_.SetBrush(wxBrush(ToWxColor(fill->color)));
-    } else {
-      dc_.SetBrush(*wxTRANSPARENT_BRUSH);
-    }
+    dc_.SetPen(pen);
+    dc_.SetBrush(brush);
     std::vector<wxPoint> wxPoints;
     wxPoints.reserve(points.size());
-    for (const auto &pt : points) {
+    for (const auto &pt : points)
       wxPoints.emplace_back(std::lround(pt.x), std::lround(pt.y));
-    }
     dc_.DrawPolygon(static_cast<int>(wxPoints.size()), wxPoints.data());
   }
 
   void DrawCircle(const viewer2d::Viewer2DRenderPoint &center, double radiusPx,
                   const CanvasStroke &stroke, const CanvasFill *fill,
                   double strokeWidthPx) override {
-    int strokeWidth = StrokeWidthPx(strokeWidthPx);
-    if (strokeWidth > 0) {
-      wxPen pen(ToWxColor(stroke.color), strokeWidth);
-      dc_.SetPen(pen);
-    } else {
-      dc_.SetPen(*wxTRANSPARENT_PEN);
+    wxPen pen = MakeStrokePen(stroke, strokeWidthPx);
+    wxBrush brush = MakeFillBrush(fill);
+    if (gc_) {
+      gc_->SetPen(pen);
+      gc_->SetBrush(brush);
+      gc_->DrawEllipse(center.x - radiusPx, center.y - radiusPx,
+                       radiusPx * 2.0, radiusPx * 2.0);
+      return;
     }
-    if (fill) {
-      dc_.SetBrush(wxBrush(ToWxColor(fill->color)));
-    } else {
-      dc_.SetBrush(*wxTRANSPARENT_BRUSH);
-    }
+    dc_.SetPen(pen);
+    dc_.SetBrush(brush);
     dc_.DrawCircle(wxPoint(std::lround(center.x), std::lround(center.y)),
                    std::lround(radiusPx));
   }
@@ -178,7 +208,8 @@ public:
   }
 
 private:
-  wxDC &dc_;
+  wxGCDC &dc_;
+  wxGraphicsContext *gc_ = nullptr;
 };
 constexpr double kMinZoom = 0.1;
 constexpr double kMaxZoom = 10.0;
