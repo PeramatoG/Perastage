@@ -22,6 +22,7 @@
 #include <array>
 #include <cmath>
 #include <cctype>
+#include <cstdio>
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
@@ -1288,10 +1289,39 @@ Viewer2DExportResult ExportLayoutToPdf(
   auto escapeText = [](const std::string &text) {
     std::string escaped;
     escaped.reserve(text.size());
-    for (char ch : text) {
-      if (ch == '(' || ch == ')' || ch == '\\')
+    for (unsigned char ch : text) {
+      switch (ch) {
+      case '(':
+      case ')':
+      case '\\':
         escaped.push_back('\\');
-      escaped.push_back(ch);
+        escaped.push_back(static_cast<char>(ch));
+        break;
+      case '\n':
+        escaped.append("\\n");
+        break;
+      case '\r':
+        escaped.append("\\r");
+        break;
+      case '\t':
+        escaped.append("\\t");
+        break;
+      case '\b':
+        escaped.append("\\b");
+        break;
+      case '\f':
+        escaped.append("\\f");
+        break;
+      default:
+        if (ch < 0x20 || ch > 0x7e) {
+          char buffer[5] = {};
+          std::snprintf(buffer, sizeof(buffer), "\\%03o", ch);
+          escaped.append(buffer);
+        } else {
+          escaped.push_back(static_cast<char>(ch));
+        }
+        break;
+      }
     }
     return escaped;
   };
