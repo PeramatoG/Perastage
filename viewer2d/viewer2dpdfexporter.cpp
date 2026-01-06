@@ -1576,7 +1576,7 @@ Viewer2DExportResult ExportLayoutToPdf(
     }
 
     const double lineHeight = fontSize + 2.0;
-    const double symbolSize = std::max(4.0, lineHeight - 2.0);
+    const double symbolSize = std::max(4.0, lineHeight);
     double xSymbol = frameX + padding;
     double xCount = xSymbol + symbolSize + columnGap;
     double xType = xCount + maxCountWidth + columnGap;
