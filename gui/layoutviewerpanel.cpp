@@ -1609,7 +1609,7 @@ wxImage LayoutViewerPanel::BuildLegendImage(
   const int rowHeightPx =
       std::max(lineHeight,
                static_cast<int>(std::lround(rowHeight * renderZoom)));
-  int symbolSize = std::max(4, rowHeightPx - 2);
+  int symbolSize = std::max(4, rowHeightPx);
   const int paddingPx =
       std::max(0, static_cast<int>(std::lround(padding * renderZoom)));
   const int columnGapPx =
@@ -1690,9 +1690,7 @@ wxImage LayoutViewerPanel::BuildLegendImage(
           double strokeScale =
               mapping.scale > 0.0 ? (renderZoom / mapping.scale) : renderZoom;
           backend.SetStrokeScale(strokeScale);
-          backend.SetRenderMode(true, false);
-          renderer.Render(symbol->localCommands);
-          backend.SetRenderMode(false, true);
+          backend.SetRenderMode(true, true);
           renderer.Render(symbol->localCommands);
         }
       }
