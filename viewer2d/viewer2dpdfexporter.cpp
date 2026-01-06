@@ -1909,39 +1909,25 @@ Viewer2DExportResult ExportLayoutToPdf(
     return objects.size();
   };
 
+  auto populateViewSymbolNames =
+      [&](const LayoutCommandGroup &group,
+          std::unordered_map<std::string, std::string> &viewKeyNames,
+          std::unordered_map<uint32_t, std::string> &viewIdNames) {
+        viewKeyNames.reserve(group.usedSymbolKeys.size());
+        viewIdNames.reserve(group.usedSymbolIds.size());
+
+        for (const auto &key : group.usedSymbolKeys) {
+          viewKeyNames.emplace(key, makeLayoutKeyName(group.viewIndex, key));
+        }
+        for (const auto &id : group.usedSymbolIds) {
+          viewIdNames.emplace(id, makeLayoutIdName(group.viewIndex, id));
+        }
+      };
+
   for (const auto &group : layoutGroups) {
     std::unordered_map<std::string, std::string> viewKeyNames;
     std::unordered_map<uint32_t, std::string> viewIdNames;
-    viewKeyNames.reserve(group.usedSymbolKeys.size());
-    viewIdNames.reserve(group.usedSymbolIds.size());
-
-    for (const auto &key : group.usedSymbolKeys) {
-      viewKeyNames.emplace(key, makeLayoutKeyName(group.viewIndex, key));
-    }
-    for (const auto &id : group.usedSymbolIds) {
-      viewIdNames.emplace(id, makeLayoutIdName(group.viewIndex, id));
-    }
-
-    RenderOptions mainOptions{};
-    mainOptions.includeText = true;
-    mainOptions.symbolKeyNames = &viewKeyNames;
-    mainOptions.symbolIdNames = &viewIdNames;
-    mainOptions.fonts = &fontCatalog;
-    contentStream << "q\n" << formatter.Format(group.frameX) << ' '
-                  << formatter.Format(group.frameY) << ' '
-                  << formatter.Format(group.frameW) << ' '
-                  << formatter.Format(group.frameH) << " re W n\n";
-    contentStream << RenderCommandsToStream(group.commands.commands,
-                                            group.commands.metadata,
-                                            group.commands.sources,
-                                            group.mapping, formatter,
-                                            mainOptions);
-    contentStream << "Q\n";
-    contentStream << "q\n0 0 0 RG 0.5 w "
-                  << formatter.Format(group.frameX) << ' '
-                  << formatter.Format(group.frameY) << ' '
-                  << formatter.Format(group.frameW) << ' '
-                  << formatter.Format(group.frameH) << " re S\nQ\n";
+    populateViewSymbolNames(group, viewKeyNames, viewIdNames);
 
     for (const auto &entry : viewKeyNames) {
       auto defIt = symbolDefinitions.find(entry.first);
@@ -1994,14 +1980,72 @@ Viewer2DExportResult ExportLayoutToPdf(
     }
   }
 
-  for (const auto &legend : legends) {
+  struct LayoutRenderElement {
+    enum class Type { View, Legend };
+    Type type = Type::View;
+    size_t index = 0;
+    int zIndex = 0;
+    size_t order = 0;
+  };
+
+  std::vector<LayoutRenderElement> renderOrder;
+  renderOrder.reserve(layoutGroups.size() + legends.size());
+  size_t renderOrderIndex = 0;
+  for (size_t idx = 0; idx < layoutGroups.size(); ++idx) {
+    renderOrder.push_back(
+        {LayoutRenderElement::Type::View, idx, views[idx].zIndex,
+         renderOrderIndex++});
+  }
+  for (size_t idx = 0; idx < legends.size(); ++idx) {
+    renderOrder.push_back(
+        {LayoutRenderElement::Type::Legend, idx, legends[idx].zIndex,
+         renderOrderIndex++});
+  }
+
+  std::stable_sort(renderOrder.begin(), renderOrder.end(),
+                   [](const auto &lhs, const auto &rhs) {
+                     if (lhs.zIndex != rhs.zIndex)
+                       return lhs.zIndex < rhs.zIndex;
+                     return lhs.order < rhs.order;
+                   });
+
+  auto renderViewGroup = [&](size_t idx) {
+    const auto &group = layoutGroups[idx];
+    std::unordered_map<std::string, std::string> viewKeyNames;
+    std::unordered_map<uint32_t, std::string> viewIdNames;
+    populateViewSymbolNames(group, viewKeyNames, viewIdNames);
+
+    RenderOptions mainOptions{};
+    mainOptions.includeText = true;
+    mainOptions.symbolKeyNames = &viewKeyNames;
+    mainOptions.symbolIdNames = &viewIdNames;
+    mainOptions.fonts = &fontCatalog;
+    contentStream << "q\n" << formatter.Format(group.frameX) << ' '
+                  << formatter.Format(group.frameY) << ' '
+                  << formatter.Format(group.frameW) << ' '
+                  << formatter.Format(group.frameH) << " re W n\n";
+    contentStream << RenderCommandsToStream(group.commands.commands,
+                                            group.commands.metadata,
+                                            group.commands.sources,
+                                            group.mapping, formatter,
+                                            mainOptions);
+    contentStream << "Q\n";
+    contentStream << "q\n0 0 0 RG 0.5 w "
+                  << formatter.Format(group.frameX) << ' '
+                  << formatter.Format(group.frameY) << ' '
+                  << formatter.Format(group.frameW) << ' '
+                  << formatter.Format(group.frameH) << " re S\nQ\n";
+  };
+
+  auto renderLegend = [&](size_t idx) {
+    const auto &legend = legends[idx];
     const double frameX = static_cast<double>(legend.frame.x);
     const double frameY =
         pageH - legend.frame.y - static_cast<double>(legend.frame.height);
     const double frameW = static_cast<double>(legend.frame.width);
     const double frameH = static_cast<double>(legend.frame.height);
     if (frameW <= 0.0 || frameH <= 0.0)
-      continue;
+      return;
 
     contentStream << "q\n" << formatter.Format(frameX) << ' '
                   << formatter.Format(frameY) << ' '
@@ -2143,6 +2187,14 @@ Viewer2DExportResult ExportLayoutToPdf(
                   << formatter.Format(frameY) << ' '
                   << formatter.Format(frameW) << ' '
                   << formatter.Format(frameH) << " re S\nQ\n";
+  };
+
+  for (const auto &entry : renderOrder) {
+    if (entry.type == LayoutRenderElement::Type::View) {
+      renderViewGroup(entry.index);
+    } else {
+      renderLegend(entry.index);
+    }
   }
 
   std::string contentStr = contentStream.str();

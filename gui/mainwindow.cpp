@@ -1772,6 +1772,7 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
   for (const auto &legend : layout->legendViews) {
     LayoutLegendExportData legendData;
     legendData.items = legendItems;
+    legendData.zIndex = legend.zIndex;
     layouts::Layout2DViewFrame frame = legend.frame;
     frame.x = static_cast<int>(std::lround(frame.x * scaleX));
     frame.y = static_cast<int>(std::lround(frame.y * scaleY));
@@ -1879,6 +1880,7 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
               frame.height =
                   static_cast<int>(std::lround(frame.height * scaleY));
               data.frame = frame;
+              data.zIndex = view.zIndex;
               if (capturePanel)
                 data.symbolSnapshot =
                     capturePanel->GetBottomSymbolCacheSnapshot();
@@ -2598,6 +2600,11 @@ void MainWindow::OnLayout2DViewOk(wxCommandEvent &WXUNUSED(event)) {
   layouts::Layout2DViewDefinition updatedView =
       viewer2d::ToLayoutDefinition(current, frame);
   updatedView.id = viewId;
+  if (matchedView) {
+    updatedView.zIndex = matchedView->zIndex;
+  } else if (editableView) {
+    updatedView.zIndex = editableView->zIndex;
+  }
   layouts::LayoutManager::Get().UpdateLayout2DView(activeLayoutName,
                                                    updatedView);
 
@@ -2676,6 +2683,11 @@ void MainWindow::PersistLayout2DViewState() {
       viewer2d::CaptureLayoutDefinition(activePanel, cfg, frame);
   view.renderOptions.darkMode = false;
   view.id = viewId;
+  if (matchedView) {
+    view.zIndex = matchedView->zIndex;
+  } else if (editableView) {
+    view.zIndex = editableView->zIndex;
+  }
   layouts::LayoutManager::Get().UpdateLayout2DView(activeLayoutName, view);
 }
 

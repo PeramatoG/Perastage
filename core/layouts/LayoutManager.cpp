@@ -50,6 +50,7 @@ nlohmann::json ToJson(const Layout2DViewDefinition &view) {
   const auto &layers = view.layers;
   return {
       {"id", view.id},
+      {"zIndex", view.zIndex},
       {"frame",
        {{"x", frame.x}, {"y", frame.y}, {"width", frame.width}, {"height", frame.height}}},
       {"camera",
@@ -83,6 +84,7 @@ nlohmann::json ToJson(const Layout2DViewDefinition &view) {
 nlohmann::json ToJson(const LayoutLegendDefinition &legend) {
   const auto &frame = legend.frame;
   return {{"id", legend.id},
+          {"zIndex", legend.zIndex},
           {"frame",
            {{"x", frame.x},
             {"y", frame.y},
@@ -210,6 +212,9 @@ bool ParseLayout2DView(const nlohmann::json &value,
   if (auto idIt = value.find("id");
       idIt != value.end() && idIt->is_number_integer())
     out.id = idIt->get<int>();
+  if (auto zIt = value.find("zIndex");
+      zIt != value.end() && zIt->is_number_integer())
+    out.zIndex = zIt->get<int>();
   auto frameIt = value.find("frame");
   if (frameIt != value.end() && frameIt->is_object())
     ReadFrame(*frameIt, out.frame);
@@ -232,6 +237,9 @@ bool ParseLayoutLegend(const nlohmann::json &value,
   if (auto idIt = value.find("id");
       idIt != value.end() && idIt->is_number_integer())
     out.id = idIt->get<int>();
+  if (auto zIt = value.find("zIndex");
+      zIt != value.end() && zIt->is_number_integer())
+    out.zIndex = zIt->get<int>();
   auto frameIt = value.find("frame");
   if (frameIt != value.end() && frameIt->is_object())
     ReadFrame(*frameIt, out.frame);
@@ -305,9 +313,12 @@ bool ParseLayout(const nlohmann::json &value, LayoutDefinition &out) {
           : false;
 
   out.view2dViews.clear();
+  bool hasZIndex = false;
   if (auto viewsIt = value.find("view2dViews");
       viewsIt != value.end() && viewsIt->is_array()) {
     for (const auto &entry : *viewsIt) {
+      if (entry.is_object() && entry.find("zIndex") != entry.end())
+        hasZIndex = true;
       Layout2DViewDefinition view;
       if (!ParseLayout2DView(entry, view))
         continue;
@@ -330,6 +341,8 @@ bool ParseLayout(const nlohmann::json &value, LayoutDefinition &out) {
   if (auto legendsIt = value.find("legendViews");
       legendsIt != value.end() && legendsIt->is_array()) {
     for (const auto &entry : *legendsIt) {
+      if (entry.is_object() && entry.find("zIndex") != entry.end())
+        hasZIndex = true;
       LayoutLegendDefinition legend;
       if (!ParseLayoutLegend(entry, legend))
         continue;
@@ -431,6 +444,14 @@ bool ParseLayout(const nlohmann::json &value, LayoutDefinition &out) {
       view.layers = std::move(layers);
       out.view2dViews.push_back(std::move(view));
     }
+  }
+
+  if (!hasZIndex) {
+    int nextZ = 0;
+    for (auto &view : out.view2dViews)
+      view.zIndex = nextZ++;
+    for (auto &legend : out.legendViews)
+      legend.zIndex = nextZ++;
   }
 
   return true;

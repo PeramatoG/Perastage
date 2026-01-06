@@ -53,6 +53,7 @@ struct LayoutViewExportData {
   CommandBuffer buffer;
   Viewer2DViewState viewState;
   layouts::Layout2DViewFrame frame;
+  int zIndex = 0;
   std::shared_ptr<const SymbolDefinitionSnapshot> symbolSnapshot;
 };
 
@@ -66,6 +67,7 @@ struct LayoutLegendItem {
 struct LayoutLegendExportData {
   layouts::Layout2DViewFrame frame;
   std::vector<LayoutLegendItem> items;
+  int zIndex = 0;
   std::shared_ptr<const SymbolDefinitionSnapshot> symbolSnapshot = nullptr;
 };
 
