@@ -14,6 +14,10 @@ function(set_library_env TEST_NAME)
     set_tests_properties(${TEST_NAME} PROPERTIES ENVIRONMENT "PERASTAGE_LIBRARY_PATH=${CMAKE_SOURCE_DIR}/library")
 endfunction()
 
+set(LAYOUT_SOURCES
+    ../core/layouts/LayoutManager.cpp
+    ../core/layouts/LayoutCollection.cpp)
+
 if(TARGET podofo::podofo)
     add_executable(pdf_text_test pdf_text_test.cpp ../core/pdftext.cpp)
     target_link_libraries(pdf_text_test PRIVATE podofo::podofo ${wxWidgets_LIBRARIES})
@@ -61,7 +65,8 @@ add_executable(save_load_roundtrip_test save_load_roundtrip_test.cpp
                ../models/fixture.cpp
                ../models/truss.cpp
                ../models/sceneobject.cpp
-               ../models/layer.cpp)
+               ../models/layer.cpp
+               ${LAYOUT_SOURCES})
 target_include_directories(save_load_roundtrip_test PRIVATE
                            . ../core ../models ../mvr ../gui ../external)
 target_link_libraries(save_load_roundtrip_test PRIVATE
@@ -89,7 +94,8 @@ add_executable(rider_save_roundtrip_test rider_save_roundtrip_test.cpp
                ../models/fixture.cpp
                ../models/truss.cpp
                ../models/sceneobject.cpp
-               ../models/layer.cpp)
+               ../models/layer.cpp
+               ${LAYOUT_SOURCES})
 target_include_directories(rider_save_roundtrip_test PRIVATE
                            . ../core ../models ../mvr ../gui ../external)
 target_link_libraries(rider_save_roundtrip_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
@@ -110,7 +116,8 @@ add_executable(riderimporter_fixtureid_test rider_import_fixtureid_test.cpp
                ../models/fixture.cpp
                ../models/truss.cpp
                ../models/sceneobject.cpp
-               ../models/layer.cpp)
+               ../models/layer.cpp
+               ${LAYOUT_SOURCES})
 target_include_directories(riderimporter_fixtureid_test PRIVATE
                            . ../core ../models ../mvr ../gui ../external)
 target_link_libraries(riderimporter_fixtureid_test PRIVATE ${wxWidgets_LIBRARIES})
@@ -132,7 +139,8 @@ add_executable(rider_import_order_test rider_import_order_test.cpp
                ../models/fixture.cpp
                ../models/truss.cpp
                ../models/sceneobject.cpp
-               ../models/layer.cpp)
+               ../models/layer.cpp
+               ${LAYOUT_SOURCES})
 target_include_directories(rider_import_order_test PRIVATE
                            . ../core ../models ../mvr ../gui ../external)
 target_link_libraries(rider_import_order_test PRIVATE ${wxWidgets_LIBRARIES})
@@ -153,7 +161,8 @@ add_executable(rider_autopatch_test rider_autopatch_test.cpp
                ../models/fixture.cpp
                ../models/truss.cpp
                ../models/sceneobject.cpp
-               ../models/layer.cpp)
+               ../models/layer.cpp
+               ${LAYOUT_SOURCES})
 target_include_directories(rider_autopatch_test PRIVATE
                            . ../core ../models ../mvr ../gui ../external)
 target_link_libraries(rider_autopatch_test PRIVATE ${wxWidgets_LIBRARIES})
@@ -174,7 +183,8 @@ add_executable(rider_layer_mode_test rider_layer_mode_test.cpp
                ../models/fixture.cpp
                ../models/truss.cpp
                ../models/sceneobject.cpp
-               ../models/layer.cpp)
+               ../models/layer.cpp
+               ${LAYOUT_SOURCES})
 target_include_directories(rider_layer_mode_test PRIVATE
                            . ../core ../models ../mvr ../gui ../external)
 target_link_libraries(rider_layer_mode_test PRIVATE ${wxWidgets_LIBRARIES})
@@ -195,7 +205,8 @@ add_executable(rider_import_benchmark rider_import_benchmark.cpp
                ../models/fixture.cpp
                ../models/truss.cpp
                ../models/sceneobject.cpp
-               ../models/layer.cpp)
+               ../models/layer.cpp
+               ${LAYOUT_SOURCES})
 target_include_directories(rider_import_benchmark PRIVATE
                            . ../core ../models ../mvr ../gui ../external)
 target_link_libraries(rider_import_benchmark PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
