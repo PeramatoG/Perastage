@@ -114,7 +114,8 @@ private:
   LegendCache &GetLegendCache(int legendId);
   std::vector<LegendItem> BuildLegendItems() const;
   size_t HashLegendItems(const std::vector<LegendItem> &items) const;
-  wxImage BuildLegendImage(const wxSize &size,
+  wxImage BuildLegendImage(const wxSize &size, const wxSize &logicalSize,
+                           double renderZoom,
                            const std::vector<LegendItem> &items,
                            const SymbolDefinitionSnapshot *symbols) const;
 
