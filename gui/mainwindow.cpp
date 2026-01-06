@@ -28,6 +28,7 @@
 #include <fstream>
 #include <functional>
 #include <iterator>
+#include <wx/event.h>
 #include <map>
 #include <memory>
 #include <optional>
