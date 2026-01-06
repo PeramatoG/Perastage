@@ -1016,6 +1016,12 @@ void LayoutViewerPanel::RebuildCachedTexture() {
 
   std::shared_ptr<const SymbolDefinitionSnapshot> legendSymbols =
       capturePanel->GetBottomSymbolCacheSnapshot();
+  if ((!legendSymbols || legendSymbols->empty()) &&
+      !currentLayout.legendViews.empty()) {
+    capturePanel->CaptureFrameNow(
+        [](CommandBuffer, Viewer2DViewState) {}, true, false);
+    legendSymbols = capturePanel->GetBottomSymbolCacheSnapshot();
+  }
   const double renderZoom = GetRenderZoom();
   for (const auto &view : currentLayout.view2dViews) {
     ViewCache &cache = GetViewCache(view.id);
