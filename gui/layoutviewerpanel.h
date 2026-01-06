@@ -84,6 +84,8 @@ private:
   void OnEditView(wxCommandEvent &event);
   void OnDeleteView(wxCommandEvent &event);
   void OnDeleteLegend(wxCommandEvent &event);
+  void OnBringToFront(wxCommandEvent &event);
+  void OnSendToBack(wxCommandEvent &event);
 
   void ResetViewToFit();
   wxRect GetPageRect() const;

@@ -491,6 +491,14 @@ bool LayoutManager::RemoveLayout2DView(const std::string &name, int viewId) {
   return true;
 }
 
+bool LayoutManager::MoveLayout2DView(const std::string &name, int viewId,
+                                     bool toFront) {
+  if (!layouts.MoveLayout2DView(name, viewId, toFront))
+    return false;
+  SyncToConfig();
+  return true;
+}
+
 bool LayoutManager::UpdateLayoutLegend(const std::string &name,
                                        const LayoutLegendDefinition &legend) {
   if (!layouts.UpdateLayoutLegend(name, legend))
@@ -501,6 +509,14 @@ bool LayoutManager::UpdateLayoutLegend(const std::string &name,
 
 bool LayoutManager::RemoveLayoutLegend(const std::string &name, int legendId) {
   if (!layouts.RemoveLayoutLegend(name, legendId))
+    return false;
+  SyncToConfig();
+  return true;
+}
+
+bool LayoutManager::MoveLayoutLegend(const std::string &name, int legendId,
+                                     bool toFront) {
+  if (!layouts.MoveLayoutLegend(name, legendId, toFront))
     return false;
   SyncToConfig();
   return true;
