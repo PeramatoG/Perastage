@@ -120,6 +120,36 @@ bool LayoutCollection::RemoveLayout2DView(const std::string &name,
   return false;
 }
 
+bool LayoutCollection::MoveLayout2DView(const std::string &name, int viewId,
+                                        bool toFront) {
+  for (auto &layout : layouts) {
+    if (layout.name == name) {
+      auto &views = layout.view2dViews;
+      auto it = std::find_if(views.begin(), views.end(),
+                             [viewId](const auto &entry) {
+                               return entry.id == viewId;
+                             });
+      if (it == views.end())
+        return false;
+      if (toFront) {
+        if (std::next(it) != views.end()) {
+          auto moved = std::move(*it);
+          views.erase(it);
+          views.push_back(std::move(moved));
+        }
+      } else {
+        if (it != views.begin()) {
+          auto moved = std::move(*it);
+          views.erase(it);
+          views.insert(views.begin(), std::move(moved));
+        }
+      }
+      return true;
+    }
+  }
+  return false;
+}
+
 bool LayoutCollection::UpdateLayoutLegend(
     const std::string &name, const LayoutLegendDefinition &legend) {
   for (auto &layout : layouts) {
@@ -161,6 +191,36 @@ bool LayoutCollection::RemoveLayoutLegend(const std::string &name,
       if (it == legends.end())
         return false;
       legends.erase(it, legends.end());
+      return true;
+    }
+  }
+  return false;
+}
+
+bool LayoutCollection::MoveLayoutLegend(const std::string &name, int legendId,
+                                        bool toFront) {
+  for (auto &layout : layouts) {
+    if (layout.name == name) {
+      auto &legends = layout.legendViews;
+      auto it = std::find_if(legends.begin(), legends.end(),
+                             [legendId](const auto &entry) {
+                               return entry.id == legendId;
+                             });
+      if (it == legends.end())
+        return false;
+      if (toFront) {
+        if (std::next(it) != legends.end()) {
+          auto moved = std::move(*it);
+          legends.erase(it);
+          legends.push_back(std::move(moved));
+        }
+      } else {
+        if (it != legends.begin()) {
+          auto moved = std::move(*it);
+          legends.erase(it);
+          legends.insert(legends.begin(), std::move(moved));
+        }
+      }
       return true;
     }
   }

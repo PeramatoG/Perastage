@@ -499,6 +499,30 @@ constexpr double kLegendFontScale = 2.0 / 3.0;
 constexpr int kEditMenuId = wxID_HIGHEST + 490;
 constexpr int kDeleteMenuId = wxID_HIGHEST + 491;
 constexpr int kDeleteLegendMenuId = wxID_HIGHEST + 492;
+constexpr int kBringToFrontMenuId = wxID_HIGHEST + 493;
+constexpr int kSendToBackMenuId = wxID_HIGHEST + 494;
+
+template <typename T>
+bool MoveElementById(std::vector<T> &items, int id, bool toFront) {
+  auto it = std::find_if(items.begin(), items.end(),
+                         [id](const auto &entry) { return entry.id == id; });
+  if (it == items.end())
+    return false;
+  if (toFront) {
+    if (std::next(it) == items.end())
+      return true;
+    auto moved = std::move(*it);
+    items.erase(it);
+    items.push_back(std::move(moved));
+    return true;
+  }
+  if (it == items.begin())
+    return true;
+  auto moved = std::move(*it);
+  items.erase(it);
+  items.insert(items.begin(), std::move(moved));
+  return true;
+}
 }
 
 wxDEFINE_EVENT(EVT_LAYOUT_VIEW_EDIT, wxCommandEvent);
@@ -516,6 +540,8 @@ wxBEGIN_EVENT_TABLE(LayoutViewerPanel, wxGLCanvas)
     EVT_MENU(kEditMenuId, LayoutViewerPanel::OnEditView)
     EVT_MENU(kDeleteMenuId, LayoutViewerPanel::OnDeleteView)
     EVT_MENU(kDeleteLegendMenuId, LayoutViewerPanel::OnDeleteLegend)
+    EVT_MENU(kBringToFrontMenuId, LayoutViewerPanel::OnBringToFront)
+    EVT_MENU(kSendToBackMenuId, LayoutViewerPanel::OnSendToBack)
 wxEND_EVENT_TABLE()
 
 LayoutViewerPanel::LayoutViewerPanel(wxWindow *parent)
@@ -1016,8 +1042,14 @@ void LayoutViewerPanel::OnRightUp(wxMouseEvent &event) {
   if (selectedElementType == SelectedElementType::View2D) {
     menu.Append(kEditMenuId, "2D View Editor");
     menu.Append(kDeleteMenuId, "Delete 2D View");
+    menu.AppendSeparator();
+    menu.Append(kBringToFrontMenuId, "Bring to Front");
+    menu.Append(kSendToBackMenuId, "Send to Back");
   } else if (selectedElementType == SelectedElementType::Legend) {
     menu.Append(kDeleteLegendMenuId, "Delete Legend");
+    menu.AppendSeparator();
+    menu.Append(kBringToFrontMenuId, "Bring to Front");
+    menu.Append(kSendToBackMenuId, "Send to Back");
   }
   PopupMenu(&menu, pos);
 }
@@ -1102,6 +1134,54 @@ void LayoutViewerPanel::OnDeleteLegend(wxCommandEvent &) {
     ClearCachedTexture(cacheIt->second);
     legendCaches_.erase(cacheIt);
   }
+  Refresh();
+}
+
+void LayoutViewerPanel::OnBringToFront(wxCommandEvent &) {
+  if (selectedElementId < 0)
+    return;
+  if (selectedElementType == SelectedElementType::View2D) {
+    if (!MoveElementById(currentLayout.view2dViews, selectedElementId, true))
+      return;
+    if (!currentLayout.name.empty()) {
+      layouts::LayoutManager::Get().MoveLayout2DView(currentLayout.name,
+                                                     selectedElementId, true);
+    }
+  } else if (selectedElementType == SelectedElementType::Legend) {
+    if (!MoveElementById(currentLayout.legendViews, selectedElementId, true))
+      return;
+    if (!currentLayout.name.empty()) {
+      layouts::LayoutManager::Get().MoveLayoutLegend(currentLayout.name,
+                                                     selectedElementId, true);
+    }
+  } else {
+    return;
+  }
+  RequestRenderRebuild();
+  Refresh();
+}
+
+void LayoutViewerPanel::OnSendToBack(wxCommandEvent &) {
+  if (selectedElementId < 0)
+    return;
+  if (selectedElementType == SelectedElementType::View2D) {
+    if (!MoveElementById(currentLayout.view2dViews, selectedElementId, false))
+      return;
+    if (!currentLayout.name.empty()) {
+      layouts::LayoutManager::Get().MoveLayout2DView(currentLayout.name,
+                                                     selectedElementId, false);
+    }
+  } else if (selectedElementType == SelectedElementType::Legend) {
+    if (!MoveElementById(currentLayout.legendViews, selectedElementId, false))
+      return;
+    if (!currentLayout.name.empty()) {
+      layouts::LayoutManager::Get().MoveLayoutLegend(currentLayout.name,
+                                                     selectedElementId, false);
+    }
+  } else {
+    return;
+  }
+  RequestRenderRebuild();
   Refresh();
 }
 
