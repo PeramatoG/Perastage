@@ -153,7 +153,7 @@ Point MapWithMapping(double x, double y, const Mapping &mapping) {
 class GraphicsStateCache {
 public:
   void SetStroke(std::ostringstream &out, const CanvasStroke &stroke,
-                 const FloatFormatter &fmt, double widthScale) {
+                 const FloatFormatter &fmt) {
     if (!joinStyleSet_) {
       out << "1 j\n";
       joinStyleSet_ = true;
@@ -168,10 +168,9 @@ public:
       strokeColor_ = stroke.color;
       hasStrokeColor_ = true;
     }
-    const double scaledWidth = stroke.width * widthScale;
-    if (!hasLineWidth_ || std::abs(scaledWidth - lineWidth_) > 1e-6) {
-      out << fmt.Format(scaledWidth) << " w\n";
-      lineWidth_ = scaledWidth;
+    if (!hasLineWidth_ || std::abs(stroke.width - lineWidth_) > 1e-6) {
+      out << fmt.Format(stroke.width) << " w\n";
+      lineWidth_ = stroke.width;
       hasLineWidth_ = true;
     }
   }
@@ -204,18 +203,18 @@ private:
 
 void AppendLine(std::ostringstream &out, GraphicsStateCache &cache,
                 const FloatFormatter &fmt, const Point &a, const Point &b,
-                const CanvasStroke &stroke, double widthScale) {
-  cache.SetStroke(out, stroke, fmt, widthScale);
+                const CanvasStroke &stroke) {
+  cache.SetStroke(out, stroke, fmt);
   out << fmt.Format(a.x) << ' ' << fmt.Format(a.y) << " m\n"
       << fmt.Format(b.x) << ' ' << fmt.Format(b.y) << " l\nS\n";
 }
 
 void AppendPolyline(std::ostringstream &out, GraphicsStateCache &cache,
                     const FloatFormatter &fmt, const std::vector<Point> &pts,
-                    const CanvasStroke &stroke, double widthScale) {
+                    const CanvasStroke &stroke) {
   if (pts.size() < 2)
     return;
-  cache.SetStroke(out, stroke, fmt, widthScale);
+  cache.SetStroke(out, stroke, fmt);
   out << fmt.Format(pts[0].x) << ' ' << fmt.Format(pts[0].y) << " m\n";
   for (size_t i = 1; i < pts.size(); ++i) {
     out << fmt.Format(pts[i].x) << ' ' << fmt.Format(pts[i].y) << " l\n";
@@ -225,8 +224,7 @@ void AppendPolyline(std::ostringstream &out, GraphicsStateCache &cache,
 
 void AppendPolygon(std::ostringstream &out, GraphicsStateCache &cache,
                    const FloatFormatter &fmt, const std::vector<Point> &pts,
-                   const CanvasStroke &stroke, const CanvasFill *fill,
-                   double widthScale) {
+                   const CanvasStroke &stroke, const CanvasFill *fill) {
   if (pts.size() < 3)
     return;
   auto emitPath = [&]() {
@@ -237,7 +235,7 @@ void AppendPolygon(std::ostringstream &out, GraphicsStateCache &cache,
   };
 
   if (stroke.width > 0.0f) {
-    cache.SetStroke(out, stroke, fmt, widthScale);
+    cache.SetStroke(out, stroke, fmt);
     emitPath();
     out << "S\n";
   }
@@ -252,14 +250,14 @@ void AppendPolygon(std::ostringstream &out, GraphicsStateCache &cache,
 void AppendRectangle(std::ostringstream &out, GraphicsStateCache &cache,
                      const FloatFormatter &fmt, const Point &origin, double w,
                      double h, const CanvasStroke &stroke,
-                     const CanvasFill *fill, double widthScale) {
+                     const CanvasFill *fill) {
   auto emitRect = [&]() {
     out << fmt.Format(origin.x) << ' ' << fmt.Format(origin.y) << ' '
         << fmt.Format(w) << ' ' << fmt.Format(h) << " re\n";
   };
 
   if (stroke.width > 0.0f) {
-    cache.SetStroke(out, stroke, fmt, widthScale);
+    cache.SetStroke(out, stroke, fmt);
     emitRect();
     out << "S\n";
   }
@@ -274,7 +272,7 @@ void AppendRectangle(std::ostringstream &out, GraphicsStateCache &cache,
 void AppendCircle(std::ostringstream &out, GraphicsStateCache &cache,
                   const FloatFormatter &fmt, const Point &center,
                   double radius, const CanvasStroke &stroke,
-                  const CanvasFill *fill, double widthScale) {
+                  const CanvasFill *fill) {
   // Approximate circle with 4 cubic Beziers.
   const double c = radius * 0.552284749831; // 4*(sqrt(2)-1)/3
   Point p0{center.x + radius, center.y};
@@ -307,7 +305,7 @@ void AppendCircle(std::ostringstream &out, GraphicsStateCache &cache,
   };
 
   if (stroke.width > 0.0f) {
-    cache.SetStroke(out, stroke, fmt, widthScale);
+    cache.SetStroke(out, stroke, fmt);
     emitCircle();
     out << "S\n";
   }
@@ -590,8 +588,7 @@ void EmitCommandStroke(std::ostringstream &content, GraphicsStateCache &cache,
         if constexpr (std::is_same_v<T, LineCommand>) {
           auto pa = MapPointWithTransform(c.x0, c.y0, current, mapping);
           auto pb = MapPointWithTransform(c.x1, c.y1, current, mapping);
-          AppendLine(content, cache, formatter, pa, pb, c.stroke,
-                     mapping.scale);
+          AppendLine(content, cache, formatter, pa, pb, c.stroke);
         } else if constexpr (std::is_same_v<T, PolylineCommand>) {
           std::vector<Point> pts;
           pts.reserve(c.points.size() / 2);
@@ -599,8 +596,7 @@ void EmitCommandStroke(std::ostringstream &content, GraphicsStateCache &cache,
             pts.push_back(
                 MapPointWithTransform(c.points[i], c.points[i + 1], current,
                                       mapping));
-          AppendPolyline(content, cache, formatter, pts, c.stroke,
-                         mapping.scale);
+          AppendPolyline(content, cache, formatter, pts, c.stroke);
         } else if constexpr (std::is_same_v<T, PolygonCommand>) {
           std::vector<Point> pts;
           pts.reserve(c.points.size() / 2);
@@ -608,19 +604,18 @@ void EmitCommandStroke(std::ostringstream &content, GraphicsStateCache &cache,
             pts.push_back(
                 MapPointWithTransform(c.points[i], c.points[i + 1], current,
                                       mapping));
-          AppendPolygon(content, cache, formatter, pts, c.stroke, nullptr,
-                        mapping.scale);
+          AppendPolygon(content, cache, formatter, pts, c.stroke, nullptr);
         } else if constexpr (std::is_same_v<T, RectangleCommand>) {
           auto origin = MapPointWithTransform(c.x, c.y, current, mapping);
           double w = c.w * current.scale * mapping.scale;
           double h = c.h * current.scale * mapping.scale;
           AppendRectangle(content, cache, formatter, origin, w, h, c.stroke,
-                          nullptr, mapping.scale);
+                          nullptr);
         } else if constexpr (std::is_same_v<T, CircleCommand>) {
           auto center = MapPointWithTransform(c.cx, c.cy, current, mapping);
           double radius = c.radius * current.scale * mapping.scale;
           AppendCircle(content, cache, formatter, center, radius, c.stroke,
-                       nullptr, mapping.scale);
+                       nullptr);
         }
       },
       command);
@@ -644,8 +639,8 @@ void EmitCommandFill(std::ostringstream &content, GraphicsStateCache &cache,
                                       mapping));
           CanvasStroke disabledStroke = c.stroke;
           disabledStroke.width = 0.0f;
-          AppendPolygon(content, cache, formatter, pts, disabledStroke, &c.fill,
-                        mapping.scale);
+          AppendPolygon(content, cache, formatter, pts, disabledStroke,
+                        &c.fill);
         } else if constexpr (std::is_same_v<T, RectangleCommand>) {
           auto origin = MapPointWithTransform(c.x, c.y, current, mapping);
           double w = c.w * current.scale * mapping.scale;
@@ -653,14 +648,14 @@ void EmitCommandFill(std::ostringstream &content, GraphicsStateCache &cache,
           CanvasStroke disabledStroke = c.stroke;
           disabledStroke.width = 0.0f;
           AppendRectangle(content, cache, formatter, origin, w, h,
-                          disabledStroke, &c.fill, mapping.scale);
+                          disabledStroke, &c.fill);
         } else if constexpr (std::is_same_v<T, CircleCommand>) {
           auto center = MapPointWithTransform(c.cx, c.cy, current, mapping);
           double radius = c.radius * current.scale * mapping.scale;
           CanvasStroke disabledStroke = c.stroke;
           disabledStroke.width = 0.0f;
-          AppendCircle(content, cache, formatter, center, radius, disabledStroke,
-                       &c.fill, mapping.scale);
+          AppendCircle(content, cache, formatter, center, radius,
+                       disabledStroke, &c.fill);
         }
       },
       command);
