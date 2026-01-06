@@ -587,6 +587,9 @@ void Viewer3DController::InitializeGL() {
 
   m_vg = nvgCreateGL2(NVG_ANTIALIAS | NVG_STENCIL_STROKES);
   if (m_vg) {
+    // Windows uses Arial (C:/Windows/Fonts/arial.ttf); Linux uses
+    // DejaVuSans (/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf) for NanoVG
+    // labels.
     const char *fontPaths[] = {
 #ifdef _WIN32
         "C:/Windows/Fonts/arial.ttf",

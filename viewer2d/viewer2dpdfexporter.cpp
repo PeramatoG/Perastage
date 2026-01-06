@@ -43,13 +43,6 @@
 #include "viewer2dcommandrenderer.h"
 
 namespace {
-// Approximates the ascent of the standard Helvetica font used by PDF viewers
-// (718 units over 1000). Used as a fallback when capture-time metrics are not
-// available from the live renderer.
-constexpr float PDF_TEXT_ASCENT_FACTOR = 0.718f;
-// Complements the ascent factor using Helvetica's 207 unit descent as a
-// fallback for text that does not provide explicit metrics.
-constexpr float PDF_TEXT_DESCENT_FACTOR = 0.207f;
 constexpr double kLegendSymbolSize = 160.0 * 2.0 / 3.0;
 constexpr double kLegendFontScale = 2.0 / 3.0;
 
@@ -63,6 +56,380 @@ double ComputeTextLineAdvance(double ascent, double descent) {
   // translation. The advance mirrors the ascent + descent used by the
   // on-screen viewer when positioning multi-line labels.
   return -(ascent + descent);
+}
+
+struct TtfFontMetrics {
+  int unitsPerEm = 1000;
+  int ascent = 0;
+  int descent = 0;
+  int lineGap = 0;
+  int capHeight = 0;
+  int xMin = 0;
+  int yMin = 0;
+  int xMax = 0;
+  int yMax = 0;
+  std::array<int, 256> advanceWidths{};
+  std::array<int, 256> widths1000{};
+  std::string data;
+  bool valid = false;
+};
+
+struct PdfFontDefinition {
+  std::string key;
+  std::string family;
+  std::string baseName;
+  size_t objectId = 0;
+  bool embedded = false;
+  TtfFontMetrics metrics;
+};
+
+struct PdfFontCatalog {
+  const PdfFontDefinition *regular = nullptr;
+  const PdfFontDefinition *bold = nullptr;
+
+  const PdfFontDefinition *Resolve(const std::string &family) const;
+};
+
+std::string ToLowerCopy(std::string_view input) {
+  std::string lower;
+  lower.reserve(input.size());
+  for (char ch : input)
+    lower.push_back(static_cast<char>(std::tolower(static_cast<unsigned char>(ch))));
+  return lower;
+}
+
+const PdfFontDefinition *PdfFontCatalog::Resolve(
+    const std::string &family) const {
+  const PdfFontDefinition *fallback = regular ? regular : bold;
+  if (!fallback)
+    return nullptr;
+  if (family.empty())
+    return fallback;
+  std::string lower = ToLowerCopy(family);
+  if (bold && lower.find("bold") != std::string::npos)
+    return bold;
+  if (lower.find("sans") != std::string::npos ||
+      lower.find("arial") != std::string::npos ||
+      lower.find("dejavu") != std::string::npos)
+    return regular ? regular : bold;
+  return fallback;
+}
+
+double MeasureTextWidth(const std::string &text, double fontSize,
+                        const PdfFontDefinition *font) {
+  if (!font || !font->embedded || font->metrics.unitsPerEm <= 0)
+    return static_cast<double>(text.size()) * fontSize * 0.6;
+  double units = 0.0;
+  for (unsigned char ch : text) {
+    if (ch == '\n')
+      continue;
+    units += font->metrics.advanceWidths[ch];
+  }
+  return (units / font->metrics.unitsPerEm) * fontSize;
+}
+
+bool ReadFileToString(const std::filesystem::path &path, std::string &out) {
+  std::ifstream file(path, std::ios::binary);
+  if (!file.is_open())
+    return false;
+  std::ostringstream buffer;
+  buffer << file.rdbuf();
+  out = buffer.str();
+  return true;
+}
+
+uint16_t ReadU16(const std::string &data, size_t offset) {
+  return static_cast<uint16_t>(
+      (static_cast<unsigned char>(data[offset]) << 8) |
+      static_cast<unsigned char>(data[offset + 1]));
+}
+
+int16_t ReadS16(const std::string &data, size_t offset) {
+  return static_cast<int16_t>(ReadU16(data, offset));
+}
+
+uint32_t ReadU32(const std::string &data, size_t offset) {
+  return (static_cast<uint32_t>(static_cast<unsigned char>(data[offset])) << 24) |
+         (static_cast<uint32_t>(static_cast<unsigned char>(data[offset + 1])) << 16) |
+         (static_cast<uint32_t>(static_cast<unsigned char>(data[offset + 2])) << 8) |
+         static_cast<uint32_t>(static_cast<unsigned char>(data[offset + 3]));
+}
+
+uint32_t MakeTag(char a, char b, char c, char d) {
+  return (static_cast<uint32_t>(a) << 24) |
+         (static_cast<uint32_t>(b) << 16) |
+         (static_cast<uint32_t>(c) << 8) |
+         static_cast<uint32_t>(d);
+}
+
+bool FindTable(const std::string &data, uint32_t tag, uint32_t &offset,
+               uint32_t &length) {
+  if (data.size() < 12)
+    return false;
+  uint16_t numTables = ReadU16(data, 4);
+  size_t tableDir = 12;
+  for (uint16_t i = 0; i < numTables; ++i) {
+    size_t recordOffset = tableDir + i * 16;
+    if (recordOffset + 16 > data.size())
+      return false;
+    uint32_t entryTag = ReadU32(data, recordOffset);
+    uint32_t entryOffset = ReadU32(data, recordOffset + 8);
+    uint32_t entryLength = ReadU32(data, recordOffset + 12);
+    if (entryTag == tag) {
+      offset = entryOffset;
+      length = entryLength;
+      return entryOffset + entryLength <= data.size();
+    }
+  }
+  return false;
+}
+
+bool LoadTtfFontMetrics(const std::filesystem::path &path,
+                        TtfFontMetrics &metrics) {
+  metrics = TtfFontMetrics{};
+  std::string data;
+  if (!ReadFileToString(path, data))
+    return false;
+  if (data.size() < 12)
+    return false;
+
+  uint32_t headOffset = 0, headLength = 0;
+  uint32_t hheaOffset = 0, hheaLength = 0;
+  uint32_t maxpOffset = 0, maxpLength = 0;
+  uint32_t hmtxOffset = 0, hmtxLength = 0;
+  uint32_t cmapOffset = 0, cmapLength = 0;
+  uint32_t os2Offset = 0, os2Length = 0;
+
+  if (!FindTable(data, MakeTag('h', 'e', 'a', 'd'), headOffset, headLength))
+    return false;
+  if (!FindTable(data, MakeTag('h', 'h', 'e', 'a'), hheaOffset, hheaLength))
+    return false;
+  if (!FindTable(data, MakeTag('m', 'a', 'x', 'p'), maxpOffset, maxpLength))
+    return false;
+  if (!FindTable(data, MakeTag('h', 'm', 't', 'x'), hmtxOffset, hmtxLength))
+    return false;
+  if (!FindTable(data, MakeTag('c', 'm', 'a', 'p'), cmapOffset, cmapLength))
+    return false;
+  FindTable(data, MakeTag('O', 'S', '/', '2'), os2Offset, os2Length);
+
+  if (headOffset + 54 > data.size())
+    return false;
+  metrics.unitsPerEm = ReadU16(data, headOffset + 18);
+  metrics.xMin = ReadS16(data, headOffset + 36);
+  metrics.yMin = ReadS16(data, headOffset + 38);
+  metrics.xMax = ReadS16(data, headOffset + 40);
+  metrics.yMax = ReadS16(data, headOffset + 42);
+
+  if (hheaOffset + 36 > data.size())
+    return false;
+  metrics.ascent = ReadS16(data, hheaOffset + 4);
+  metrics.descent = ReadS16(data, hheaOffset + 6);
+  metrics.lineGap = ReadS16(data, hheaOffset + 8);
+  uint16_t numHMetrics = ReadU16(data, hheaOffset + 34);
+
+  if (maxpOffset + 6 > data.size())
+    return false;
+  uint16_t numGlyphs = ReadU16(data, maxpOffset + 4);
+  if (numGlyphs == 0)
+    return false;
+
+  if (numHMetrics == 0)
+    return false;
+
+  if (hmtxOffset + static_cast<uint32_t>(numHMetrics) * 4 > data.size())
+    return false;
+
+  std::vector<int> advanceWidths;
+  advanceWidths.resize(numGlyphs, 0);
+  int lastAdvance = 0;
+  for (uint16_t i = 0; i < numHMetrics; ++i) {
+    size_t entry = hmtxOffset + static_cast<size_t>(i) * 4;
+    int advance = ReadU16(data, entry);
+    advanceWidths[i] = advance;
+    lastAdvance = advance;
+  }
+  for (uint16_t i = numHMetrics; i < numGlyphs; ++i) {
+    advanceWidths[i] = lastAdvance;
+  }
+
+  if (os2Offset != 0 && os2Length >= 90 && os2Offset + 90 <= data.size()) {
+    uint16_t version = ReadU16(data, os2Offset);
+    if (version >= 2) {
+      metrics.capHeight = ReadS16(data, os2Offset + 88);
+    }
+  }
+  if (metrics.capHeight == 0)
+    metrics.capHeight = metrics.ascent;
+
+  const std::string cmapData =
+      data.substr(cmapOffset, std::min<size_t>(cmapLength, data.size() - cmapOffset));
+  if (cmapData.size() < 4)
+    return false;
+  uint16_t cmapTables = ReadU16(cmapData, 2);
+  size_t cmapRecordOffset = 4;
+  uint32_t chosenOffset = 0;
+  for (uint16_t i = 0; i < cmapTables; ++i) {
+    if (cmapRecordOffset + 8 > cmapData.size())
+      return false;
+    uint16_t platformId = ReadU16(cmapData, cmapRecordOffset);
+    uint16_t encodingId = ReadU16(cmapData, cmapRecordOffset + 2);
+    uint32_t subOffset = ReadU32(cmapData, cmapRecordOffset + 4);
+    size_t subBase = subOffset;
+    if (subBase + 2 > cmapData.size())
+      continue;
+    uint16_t format = ReadU16(cmapData, subBase);
+    if (format == 4 && platformId == 3 &&
+        (encodingId == 1 || encodingId == 0)) {
+      chosenOffset = subOffset;
+      break;
+    }
+    cmapRecordOffset += 8;
+  }
+  if (chosenOffset == 0)
+    return false;
+
+  size_t subBase = chosenOffset;
+  if (subBase + 14 > cmapData.size())
+    return false;
+  uint16_t segCount = ReadU16(cmapData, subBase + 6) / 2;
+  size_t endCountOffset = subBase + 14;
+  size_t startCountOffset = endCountOffset + 2 * segCount + 2;
+  size_t idDeltaOffset = startCountOffset + 2 * segCount;
+  size_t idRangeOffsetOffset = idDeltaOffset + 2 * segCount;
+  if (idRangeOffsetOffset + 2 * segCount > cmapData.size())
+    return false;
+
+  auto glyphForCodepoint = [&](uint16_t code) -> uint16_t {
+    for (uint16_t i = 0; i < segCount; ++i) {
+      uint16_t endCount = ReadU16(cmapData, endCountOffset + 2 * i);
+      uint16_t startCount = ReadU16(cmapData, startCountOffset + 2 * i);
+      if (code < startCount || code > endCount)
+        continue;
+      int16_t idDelta = ReadS16(cmapData, idDeltaOffset + 2 * i);
+      uint16_t idRangeOffset = ReadU16(cmapData, idRangeOffsetOffset + 2 * i);
+      if (idRangeOffset == 0) {
+        return static_cast<uint16_t>(code + idDelta);
+      }
+      size_t glyphOffset =
+          idRangeOffsetOffset + 2 * i + idRangeOffset + 2 * (code - startCount);
+      if (glyphOffset + 2 > cmapData.size())
+        return 0;
+      uint16_t glyphIndex = ReadU16(cmapData, glyphOffset);
+      if (glyphIndex == 0)
+        return 0;
+      return static_cast<uint16_t>(glyphIndex + idDelta);
+    }
+    return 0;
+  };
+
+  int missingWidth = advanceWidths.empty() ? 0 : advanceWidths[0];
+  for (size_t i = 0; i < metrics.advanceWidths.size(); ++i) {
+    uint16_t glyphIndex = glyphForCodepoint(static_cast<uint16_t>(i));
+    int advance = missingWidth;
+    if (glyphIndex < advanceWidths.size())
+      advance = advanceWidths[glyphIndex];
+    metrics.advanceWidths[i] = advance;
+    if (metrics.unitsPerEm > 0) {
+      metrics.widths1000[i] =
+          static_cast<int>(std::lround(advance * 1000.0 / metrics.unitsPerEm));
+    } else {
+      metrics.widths1000[i] = 0;
+    }
+  }
+
+  metrics.data = std::move(data);
+  metrics.valid = metrics.unitsPerEm > 0;
+  return metrics.valid;
+}
+
+std::filesystem::path FindFontPath(bool bold) {
+  const char *fontPaths[] = {
+#ifdef _WIN32
+      bold ? "C:/Windows/Fonts/arialbd.ttf" : "C:/Windows/Fonts/arial.ttf",
+#endif
+      bold ? "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+           : "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+      nullptr};
+  for (const char **p = fontPaths; *p; ++p) {
+    if (std::filesystem::exists(*p))
+      return std::filesystem::path(*p);
+  }
+  return {};
+}
+
+bool LoadPdfFontMetrics(PdfFontDefinition &font, bool bold) {
+  std::filesystem::path path = FindFontPath(bold);
+  if (path.empty())
+    return false;
+  return LoadTtfFontMetrics(path, font.metrics);
+}
+
+bool AppendEmbeddedFontObjects(std::vector<PdfObject> &objects,
+                               PdfFontDefinition &font) {
+  if (!font.metrics.valid || font.metrics.data.empty())
+    return false;
+  const double scale = font.metrics.unitsPerEm > 0
+                           ? 1000.0 / font.metrics.unitsPerEm
+                           : 1.0;
+  int ascent = static_cast<int>(std::lround(font.metrics.ascent * scale));
+  int descent =
+      -static_cast<int>(std::lround(std::abs(font.metrics.descent) * scale));
+  int capHeight = static_cast<int>(std::lround(font.metrics.capHeight * scale));
+  int xMin = static_cast<int>(std::lround(font.metrics.xMin * scale));
+  int yMin = static_cast<int>(std::lround(font.metrics.yMin * scale));
+  int xMax = static_cast<int>(std::lround(font.metrics.xMax * scale));
+  int yMax = static_cast<int>(std::lround(font.metrics.yMax * scale));
+
+  size_t fontFileIndex = objects.size() + 1;
+  std::ostringstream fontFileStream;
+  const bool needsNewline =
+      font.metrics.data.empty() || font.metrics.data.back() != '\n';
+  const size_t streamLength =
+      font.metrics.data.size() + (needsNewline ? 1u : 0u);
+  fontFileStream << "<< /Length " << streamLength << " /Length1 "
+                 << font.metrics.data.size() << " >>\nstream\n"
+                 << font.metrics.data;
+  if (needsNewline)
+    fontFileStream << '\n';
+  fontFileStream << "endstream";
+  objects.push_back({fontFileStream.str()});
+
+  size_t descriptorIndex = objects.size() + 1;
+  std::ostringstream descriptor;
+  descriptor << "<< /Type /FontDescriptor /FontName /" << font.baseName
+             << " /Flags 32 /FontBBox [" << xMin << ' ' << yMin << ' '
+             << xMax << ' ' << yMax << "] /Ascent " << ascent
+             << " /Descent " << descent << " /CapHeight " << capHeight
+             << " /ItalicAngle 0 /StemV 80 /FontFile2 " << fontFileIndex
+             << " 0 R >>";
+  objects.push_back({descriptor.str()});
+
+  size_t fontIndex = objects.size() + 1;
+  std::ostringstream fontObject;
+  fontObject << "<< /Type /Font /Subtype /TrueType /BaseFont /"
+             << font.baseName << " /FirstChar 32 /LastChar 255 /Widths [";
+  for (int code = 32; code <= 255; ++code) {
+    fontObject << font.metrics.widths1000[static_cast<unsigned char>(code)];
+    if (code != 255)
+      fontObject << ' ';
+  }
+  fontObject << "] /FontDescriptor " << descriptorIndex
+             << " 0 R /Encoding /WinAnsiEncoding >>";
+  objects.push_back({fontObject.str()});
+
+  font.objectId = fontIndex;
+  font.embedded = true;
+  return true;
+}
+
+void AppendFallbackType1Font(std::vector<PdfObject> &objects,
+                             PdfFontDefinition &font,
+                             const std::string &baseFont) {
+  objects.push_back(
+      {"<< /Type /Font /Subtype /Type1 /BaseFont /" + baseFont + " >>"});
+  font.objectId = objects.size();
+  font.embedded = false;
+  font.baseName = baseFont;
 }
 
 struct PdfObject {
@@ -136,6 +503,7 @@ struct RenderOptions {
   bool includeText = true;
   const std::unordered_map<std::string, std::string> *symbolKeyNames = nullptr;
   const std::unordered_map<uint32_t, std::string> *symbolIdNames = nullptr;
+  const PdfFontCatalog *fonts = nullptr;
 };
 
 Point Apply(const Transform &t, double x, double y) {
@@ -320,51 +688,43 @@ void AppendCircle(std::ostringstream &out, GraphicsStateCache &cache,
 
 void AppendText(std::ostringstream &out, const FloatFormatter &fmt,
                 const Point &pos, const TextCommand &cmd,
-                const CanvasTextStyle &style, double scale) {
-  const auto glyphWidth = [](char ch) {
-    static const std::unordered_map<char, int> widths = {
-        {' ', 278}, {'!', 278}, {'"', 355}, {'#', 556}, {'$', 556},
-        {'%', 889}, {'&', 667}, {'\'', 191}, {'(', 333}, {')', 333},
-        {'*', 389}, {'+', 584}, {',', 278}, {'-', 333}, {'.', 278},
-        {'/', 278}, {'0', 556}, {'1', 556}, {'2', 556}, {'3', 556},
-        {'4', 556}, {'5', 556}, {'6', 556}, {'7', 556}, {'8', 556},
-        {'9', 556}, {':', 278}, {';', 278}, {'<', 584}, {'=', 584},
-        {'>', 584}, {'?', 556}, {'@', 1015}, {'A', 667}, {'B', 667},
-        {'C', 722}, {'D', 722}, {'E', 667}, {'F', 611}, {'G', 778},
-        {'H', 722}, {'I', 278}, {'J', 500}, {'K', 667}, {'L', 556},
-        {'M', 833}, {'N', 722}, {'O', 778}, {'P', 667}, {'Q', 778},
-        {'R', 722}, {'S', 667}, {'T', 611}, {'U', 722}, {'V', 667},
-        {'W', 944}, {'X', 667}, {'Y', 667}, {'Z', 611}, {'[', 278},
-        {'\\', 278}, {']', 278}, {'^', 469}, {'_', 556}, {'`', 333},
-        {'a', 556}, {'b', 556}, {'c', 500}, {'d', 556}, {'e', 556},
-        {'f', 278}, {'g', 556}, {'h', 556}, {'i', 222}, {'j', 222},
-        {'k', 500}, {'l', 222}, {'m', 833}, {'n', 556}, {'o', 556},
-        {'p', 556}, {'q', 556}, {'r', 333}, {'s', 500}, {'t', 278},
-        {'u', 556}, {'v', 500}, {'w', 722}, {'x', 500}, {'y', 500},
-        {'z', 500}, {'{', 334}, {'|', 260}, {'}', 334}, {'~', 584},
-    };
-    auto it = widths.find(ch);
-    if (it != widths.end())
-      return it->second;
-    return 600; // Reasonable fallback for unknown glyphs
-  };
+                const CanvasTextStyle &style, double scale,
+                const PdfFontCatalog *fonts) {
+  const PdfFontDefinition *font =
+      fonts ? fonts->Resolve(style.fontFamily) : nullptr;
 
   auto measureLineWidth = [&](std::string_view line) {
-    int units = 0;
-    for (char ch : line)
-      units += glyphWidth(ch);
-    return (units / 1000.0) * style.fontSize * scale;
+    if (!font || !font->embedded)
+      return static_cast<double>(line.size()) * style.fontSize * scale * 0.6;
+    double units = 0.0;
+    for (unsigned char ch : line) {
+      units += font->metrics.advanceWidths[ch];
+    }
+    return (units / font->metrics.unitsPerEm) * style.fontSize * scale;
   };
 
   const double scaledFontSize = style.fontSize * scale;
+  const double fallbackAscent =
+      font && font->embedded
+          ? (font->metrics.ascent * scaledFontSize / font->metrics.unitsPerEm)
+          : scaledFontSize * 0.8;
+  const double fallbackDescent =
+      font && font->embedded
+          ? (std::abs(font->metrics.descent) * scaledFontSize /
+             font->metrics.unitsPerEm)
+          : scaledFontSize * 0.2;
   const double ascent =
-      style.ascent > 0.0f ? style.ascent * scale
-                          : scaledFontSize * PDF_TEXT_ASCENT_FACTOR;
+      style.ascent > 0.0f ? style.ascent * scale : fallbackAscent;
   const double descent =
-      style.descent > 0.0f ? style.descent * scale
-                           : scaledFontSize * PDF_TEXT_DESCENT_FACTOR;
+      style.descent > 0.0f ? style.descent * scale : fallbackDescent;
   const double measuredLineHeight =
-      style.lineHeight > 0.0f ? style.lineHeight * scale : (ascent + descent);
+      style.lineHeight > 0.0f
+          ? style.lineHeight * scale
+          : (ascent + descent +
+             (font && font->embedded
+                  ? (font->metrics.lineGap * scaledFontSize /
+                     font->metrics.unitsPerEm)
+                  : 0.0));
   const double extraSpacing =
       style.lineHeight > 0.0f ? style.extraLineSpacing * scale : 0.0;
 
@@ -412,7 +772,8 @@ void AppendText(std::ostringstream &out, const FloatFormatter &fmt,
   if (lineAdvance > 0.0)
     lineAdvance = -lineAdvance;
   auto emitText = [&](const CanvasColor &color, double dx, double dy) {
-    out << "BT\n/F1 " << fmt.Format(scaledFontSize) << " Tf\n";
+    const char *fontKey = font ? font->key.c_str() : "F1";
+    out << "BT\n/" << fontKey << ' ' << fmt.Format(scaledFontSize) << " Tf\n";
     out << fmt.Format(color.r) << ' ' << fmt.Format(color.g) << ' '
         << fmt.Format(color.b) << " rg\n";
     out << fmt.Format(pos.x + horizontalOffset + dx) << ' '
@@ -748,7 +1109,8 @@ std::string RenderCommandsToStream(
         }
         Logger::Instance().Log(trace.str());
       }
-      AppendText(content, formatter, pos, cmd, cmd.style, mapping.scale);
+      AppendText(content, formatter, pos, cmd, cmd.style, mapping.scale,
+                 options.fonts);
     } else if constexpr (std::is_same_v<T, PlaceSymbolCommand>) {
       if (!options.symbolKeyNames)
         return;
@@ -982,10 +1344,27 @@ Viewer2DExportResult ExportViewer2DToPdf(
     }
   }
 
+  PdfFontDefinition regularFont;
+  regularFont.key = "F1";
+  regularFont.family = "sans";
+  regularFont.baseName = "PerastageSans";
+  PdfFontDefinition boldFont;
+  boldFont.key = "F2";
+  boldFont.family = "sans-bold";
+  boldFont.baseName = "PerastageSansBold";
+
+  bool regularMetricsLoaded = LoadPdfFontMetrics(regularFont, false);
+  bool boldMetricsLoaded = LoadPdfFontMetrics(boldFont, true);
+  if (!boldMetricsLoaded && regularMetricsLoaded)
+    boldFont.metrics = regularFont.metrics;
+
+  PdfFontCatalog fontCatalog{&regularFont, &boldFont};
+
   RenderOptions mainOptions{};
   mainOptions.includeText = true;
   mainOptions.symbolKeyNames = &xObjectKeyNames;
   mainOptions.symbolIdNames = &xObjectIdNames;
+  mainOptions.fonts = &fontCatalog;
   std::string contentStr =
       RenderCommandsToStream(mainCommands.commands, mainCommands.metadata,
                              mainCommands.sources, pageMapping, formatter,
@@ -999,7 +1378,25 @@ Viewer2DExportResult ExportViewer2DToPdf(
     }
   }
   std::vector<PdfObject> objects;
-  objects.push_back({"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"});
+  if (regularMetricsLoaded && AppendEmbeddedFontObjects(objects, regularFont)) {
+    // Embedded font loaded successfully.
+  } else {
+    Logger::Instance().Log(
+        "PDF export: falling back to Type1 Helvetica (embedded font not found)");
+    AppendFallbackType1Font(objects, regularFont, "Helvetica");
+  }
+
+  if (boldMetricsLoaded && AppendEmbeddedFontObjects(objects, boldFont)) {
+    // Embedded bold font loaded successfully.
+  } else if (regularFont.objectId != 0) {
+    boldFont.objectId = regularFont.objectId;
+    boldFont.embedded = regularFont.embedded;
+    boldFont.metrics = regularFont.metrics;
+  } else {
+    Logger::Instance().Log(
+        "PDF export: falling back to Type1 Helvetica-Bold (embedded font not found)");
+    AppendFallbackType1Font(objects, boldFont, "Helvetica-Bold");
+  }
 
   Mapping symbolMapping{};
   symbolMapping.scale = scale;
@@ -1076,7 +1473,12 @@ Viewer2DExportResult ExportViewer2DToPdf(
   objects.push_back({contentObj.str()});
 
   std::ostringstream resources;
-  resources << "<< /Font << /F1 1 0 R >>";
+  resources << "<< /Font << /F1 " << regularFont.objectId << " 0 R";
+  if (boldFont.objectId != 0 && boldFont.objectId != regularFont.objectId)
+    resources << " /F2 " << boldFont.objectId << " 0 R";
+  else if (boldFont.objectId == regularFont.objectId)
+    resources << " /F2 " << regularFont.objectId << " 0 R";
+  resources << " >>";
   if (!xObjectKeyIds.empty() || !xObjectIdIds.empty()) {
     resources << " /XObject << ";
     for (const auto &entry : xObjectKeyIds) {
@@ -1389,22 +1791,21 @@ Viewer2DExportResult ExportLayoutToPdf(
     }
     return escaped;
   };
-  auto measureTextWidth = [](const std::string &text, double fontSize) {
-    return static_cast<double>(text.size()) * fontSize * 0.6;
-  };
   auto trimTextToWidth = [&](const std::string &text, double maxWidth,
-                             double fontSize) {
+                             double fontSize,
+                             const PdfFontDefinition *font) {
     if (maxWidth <= 0.0)
       return std::string();
-    if (measureTextWidth(text, fontSize) <= maxWidth)
+    if (MeasureTextWidth(text, fontSize, font) <= maxWidth)
       return text;
     const std::string ellipsis = "...";
-    const double ellipsisWidth = measureTextWidth(ellipsis, fontSize);
+    const double ellipsisWidth = MeasureTextWidth(ellipsis, fontSize, font);
     if (ellipsisWidth >= maxWidth)
       return ellipsis.substr(0, 1);
     std::string trimmed = text;
     while (!trimmed.empty() &&
-           measureTextWidth(trimmed, fontSize) + ellipsisWidth > maxWidth) {
+           MeasureTextWidth(trimmed, fontSize, font) + ellipsisWidth >
+               maxWidth) {
       trimmed.pop_back();
     }
     return trimmed + ellipsis;
@@ -1418,9 +1819,42 @@ Viewer2DExportResult ExportLayoutToPdf(
   };
 
   std::vector<PdfObject> objects;
-  objects.push_back({"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"});
-  objects.push_back(
-      {"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>"});
+  PdfFontDefinition regularFont;
+  regularFont.key = "F1";
+  regularFont.family = "sans";
+  regularFont.baseName = "PerastageSans";
+  PdfFontDefinition boldFont;
+  boldFont.key = "F2";
+  boldFont.family = "sans-bold";
+  boldFont.baseName = "PerastageSansBold";
+
+  auto loadFont = [&](PdfFontDefinition &font, bool bold) {
+    std::filesystem::path path = FindFontPath(bold);
+    if (path.empty())
+      return false;
+    if (!LoadTtfFontMetrics(path, font.metrics))
+      return false;
+    return AppendEmbeddedFontObjects(objects, font);
+  };
+
+  if (!loadFont(regularFont, false)) {
+    Logger::Instance().Log(
+        "PDF export: falling back to Type1 Helvetica (embedded font not found)");
+    AppendFallbackType1Font(objects, regularFont, "Helvetica");
+  }
+
+  bool boldLoaded = loadFont(boldFont, true);
+  if (!boldLoaded && regularFont.objectId != 0) {
+    boldFont = regularFont;
+    boldFont.key = "F2";
+    boldFont.family = "sans-bold";
+  } else if (!boldLoaded) {
+    Logger::Instance().Log(
+        "PDF export: falling back to Type1 Helvetica-Bold (embedded font not found)");
+    AppendFallbackType1Font(objects, boldFont, "Helvetica-Bold");
+  }
+
+  PdfFontCatalog fontCatalog{&regularFont, &boldFont};
 
   auto appendSymbolObject = [&](const std::string &name,
                                 const std::vector<CanvasCommand> &commands,
@@ -1481,6 +1915,7 @@ Viewer2DExportResult ExportLayoutToPdf(
     mainOptions.includeText = true;
     mainOptions.symbolKeyNames = &viewKeyNames;
     mainOptions.symbolIdNames = &viewIdNames;
+    mainOptions.fonts = &fontCatalog;
     contentStream << "q\n" << formatter.Format(group.frameX) << ' '
                   << formatter.Format(group.frameY) << ' '
                   << formatter.Format(group.frameW) << ' '
@@ -1577,16 +2012,20 @@ Viewer2DExportResult ExportLayoutToPdf(
     fontSize = std::clamp(fontSize, 6.0, 14.0);
     fontSize *= kLegendFontScale;
 
-    double maxCountWidth = measureTextWidth("Count", fontSize);
-    double maxChWidth = measureTextWidth("Ch Count", fontSize);
+    double maxCountWidth =
+        MeasureTextWidth("Count", fontSize, fontCatalog.bold);
+    double maxChWidth =
+        MeasureTextWidth("Ch Count", fontSize, fontCatalog.bold);
     for (const auto &item : legend.items) {
       maxCountWidth = std::max(
           maxCountWidth,
-          measureTextWidth(std::to_string(item.count), fontSize));
+          MeasureTextWidth(std::to_string(item.count), fontSize,
+                           fontCatalog.regular));
       std::string chText =
           item.channelCount ? std::to_string(*item.channelCount) : "-";
-      maxChWidth = std::max(maxChWidth,
-                            measureTextWidth(chText, fontSize));
+      maxChWidth = std::max(
+          maxChWidth,
+          MeasureTextWidth(chText, fontSize, fontCatalog.regular));
     }
 
     const double rowHeightCandidate =
@@ -1641,7 +2080,9 @@ Viewer2DExportResult ExportLayoutToPdf(
       if (rowTop - rowHeight < frameY + padding)
         break;
       const std::string countText = std::to_string(item.count);
-      std::string typeText = trimTextToWidth(item.typeName, typeWidth, fontSize);
+      std::string typeText =
+          trimTextToWidth(item.typeName, typeWidth, fontSize,
+                          fontCatalog.regular);
       std::string chText =
           item.channelCount ? std::to_string(*item.channelCount) : "-";
       if (!item.symbolKey.empty()) {
@@ -1714,7 +2155,12 @@ Viewer2DExportResult ExportLayoutToPdf(
   objects.push_back({contentObj.str()});
 
   std::ostringstream resources;
-  resources << "<< /Font << /F1 1 0 R /F2 2 0 R >>";
+  resources << "<< /Font << /F1 " << regularFont.objectId << " 0 R";
+  if (boldFont.objectId != 0 && boldFont.objectId != regularFont.objectId)
+    resources << " /F2 " << boldFont.objectId << " 0 R";
+  else
+    resources << " /F2 " << regularFont.objectId << " 0 R";
+  resources << " >>";
   if (!xObjectNameIds.empty()) {
     resources << " /XObject << ";
     for (const auto &entry : xObjectNameIds) {
