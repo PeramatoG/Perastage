@@ -494,7 +494,7 @@ constexpr int kHandleSizePx = 10;
 constexpr int kHandleHalfPx = kHandleSizePx / 2;
 constexpr int kHandleHoverPadPx = 6;
 constexpr int kMinFrameSize = 24;
-constexpr double kLegendSymbolScale = 5.0;
+constexpr int kLegendSymbolSizePx = 20;
 constexpr int kEditMenuId = wxID_HIGHEST + 490;
 constexpr int kDeleteMenuId = wxID_HIGHEST + 491;
 constexpr int kDeleteLegendMenuId = wxID_HIGHEST + 492;
@@ -1856,11 +1856,11 @@ wxImage LayoutViewerPanel::BuildLegendImage(
   const int baseRowHeightPx =
       std::max(lineHeight,
                static_cast<int>(std::lround(rowHeight * renderZoom)));
-  const int symbolSlotSize = baseRowHeightPx;
   const int desiredSymbolSize =
-      static_cast<int>(std::lround(baseRowHeightPx * kLegendSymbolScale));
+      static_cast<int>(std::lround(kLegendSymbolSizePx * renderZoom));
   const int symbolSize = std::max(4, desiredSymbolSize);
-  const int rowHeightPx = baseRowHeightPx;
+  const int symbolSlotSize = symbolSize;
+  const int rowHeightPx = std::max(baseRowHeightPx, symbolSize);
   const int paddingPx =
       std::max(0, static_cast<int>(std::lround(padding * renderZoom)));
   const int columnGapPx =
