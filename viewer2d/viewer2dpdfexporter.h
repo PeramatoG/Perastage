@@ -24,7 +24,9 @@
 #include "viewer2dpanel.h"
 #include <filesystem>
 #include <memory>
+#include <optional>
 #include <string>
+#include <vector>
 
 constexpr double kMmToPt = 72.0 / 25.4;
 
@@ -54,6 +56,17 @@ struct LayoutViewExportData {
   std::shared_ptr<const SymbolDefinitionSnapshot> symbolSnapshot;
 };
 
+struct LayoutLegendItem {
+  std::string typeName;
+  int count = 0;
+  std::optional<int> channelCount;
+};
+
+struct LayoutLegendExportData {
+  layouts::Layout2DViewFrame frame;
+  std::vector<LayoutLegendItem> items;
+};
+
 // Writes the captured 2D drawing commands to a vector PDF that mirrors the
 // current viewport state. Returns structured information so callers can surface
 // meaningful errors to the user.
@@ -66,5 +79,6 @@ Viewer2DExportResult ExportViewer2DToPdf(
 // Writes multiple 2D views into a single vector PDF layout.
 Viewer2DExportResult ExportLayoutToPdf(
     const std::vector<LayoutViewExportData> &views,
+    const std::vector<LayoutLegendExportData> &legends,
     const Viewer2DPrintOptions &options,
     const std::filesystem::path &outputPath);

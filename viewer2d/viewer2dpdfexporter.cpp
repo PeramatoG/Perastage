@@ -1109,6 +1109,7 @@ Viewer2DExportResult ExportViewer2DToPdf(
 
 Viewer2DExportResult ExportLayoutToPdf(
     const std::vector<LayoutViewExportData> &views,
+    const std::vector<LayoutLegendExportData> &legends,
     const Viewer2DPrintOptions &options,
     const std::filesystem::path &outputPath) {
   Viewer2DExportResult result{};
@@ -1280,6 +1281,36 @@ Viewer2DExportResult ExportLayoutToPdf(
   std::unordered_map<std::string, size_t> xObjectNameIds;
 
   std::ostringstream contentStream;
+  auto escapeText = [](const std::string &text) {
+    std::string escaped;
+    escaped.reserve(text.size());
+    for (char ch : text) {
+      if (ch == '(' || ch == ')' || ch == '\\')
+        escaped.push_back('\\');
+      escaped.push_back(ch);
+    }
+    return escaped;
+  };
+  auto measureTextWidth = [](const std::string &text, double fontSize) {
+    return static_cast<double>(text.size()) * fontSize * 0.6;
+  };
+  auto trimTextToWidth = [&](const std::string &text, double maxWidth,
+                             double fontSize) {
+    if (maxWidth <= 0.0)
+      return std::string();
+    if (measureTextWidth(text, fontSize) <= maxWidth)
+      return text;
+    const std::string ellipsis = "...";
+    const double ellipsisWidth = measureTextWidth(ellipsis, fontSize);
+    if (ellipsisWidth >= maxWidth)
+      return ellipsis.substr(0, 1);
+    std::string trimmed = text;
+    while (!trimmed.empty() &&
+           measureTextWidth(trimmed, fontSize) + ellipsisWidth > maxWidth) {
+      trimmed.pop_back();
+    }
+    return trimmed + ellipsis;
+  };
   auto makeLayoutKeyName = [&](size_t viewIndex, const std::string &key) {
     return "K" + MakePdfName("V" + std::to_string(viewIndex) + "_" + key);
   };
@@ -1390,6 +1421,96 @@ Viewer2DExportResult ExportLayoutToPdf(
                                group.mapping.scale, defIt->second.bounds);
       }
     }
+  }
+
+  for (const auto &legend : legends) {
+    const double frameX = static_cast<double>(legend.frame.x);
+    const double frameY =
+        pageH - legend.frame.y - static_cast<double>(legend.frame.height);
+    const double frameW = static_cast<double>(legend.frame.width);
+    const double frameH = static_cast<double>(legend.frame.height);
+    if (frameW <= 0.0 || frameH <= 0.0)
+      continue;
+
+    contentStream << "q\n" << formatter.Format(frameX) << ' '
+                  << formatter.Format(frameY) << ' '
+                  << formatter.Format(frameW) << ' '
+                  << formatter.Format(frameH) << " re W n\n";
+    contentStream << "1 1 1 rg " << formatter.Format(frameX) << ' '
+                  << formatter.Format(frameY) << ' '
+                  << formatter.Format(frameW) << ' '
+                  << formatter.Format(frameH) << " re f\n";
+
+    const double padding = 8.0;
+    const double columnGap = 8.0;
+    const size_t totalRows = legend.items.size() + 1;
+    const double availableHeight = frameH - padding * 2.0;
+    double fontSize =
+        totalRows > 0 ? (availableHeight / totalRows) - 2.0 : 10.0;
+    fontSize = std::clamp(fontSize, 6.0, 14.0);
+
+    double maxCountWidth = measureTextWidth("Count", fontSize);
+    double maxChWidth = measureTextWidth("Ch Count", fontSize);
+    for (const auto &item : legend.items) {
+      maxCountWidth = std::max(
+          maxCountWidth,
+          measureTextWidth(std::to_string(item.count), fontSize));
+      std::string chText =
+          item.channelCount ? std::to_string(*item.channelCount) : "-";
+      maxChWidth = std::max(maxChWidth,
+                            measureTextWidth(chText, fontSize));
+    }
+
+    double xCount = frameX + padding;
+    double xType = xCount + maxCountWidth + columnGap;
+    double xCh = frameX + frameW - padding - maxChWidth;
+    if (xCh < xType + columnGap)
+      xCh = xType + columnGap;
+    double typeWidth = std::max(0.0, xCh - xType - columnGap);
+
+    auto appendText = [&](double x, double y, const std::string &text,
+                          double r, double g, double b) {
+      contentStream << "BT\n/F1 " << formatter.Format(fontSize) << " Tf\n"
+                    << formatter.Format(r) << ' ' << formatter.Format(g) << ' '
+                    << formatter.Format(b) << " rg\n"
+                    << formatter.Format(x) << ' '
+                    << formatter.Format(y) << " Td\n("
+                    << escapeText(text) << ") Tj\nET\n";
+    };
+
+    double y = frameY + frameH - padding - fontSize;
+    appendText(xCount, y, "Count", 0.08, 0.08, 0.08);
+    appendText(xType, y, "Type", 0.08, 0.08, 0.08);
+    appendText(xCh, y, "Ch Count", 0.08, 0.08, 0.08);
+
+    const double lineHeight = fontSize + 2.0;
+    const double separatorY = y - 2.0;
+    contentStream << formatter.Format(0.78) << ' ' << formatter.Format(0.78)
+                  << ' ' << formatter.Format(0.78) << " RG 0.5 w "
+                  << formatter.Format(frameX + padding) << ' '
+                  << formatter.Format(separatorY) << " m "
+                  << formatter.Format(frameX + frameW - padding) << ' '
+                  << formatter.Format(separatorY) << " l S\n";
+
+    y -= lineHeight;
+    for (const auto &item : legend.items) {
+      if (y < frameY + padding)
+        break;
+      const std::string countText = std::to_string(item.count);
+      std::string typeText = trimTextToWidth(item.typeName, typeWidth, fontSize);
+      std::string chText =
+          item.channelCount ? std::to_string(*item.channelCount) : "-";
+      appendText(xCount, y, countText, 0.08, 0.08, 0.08);
+      appendText(xType, y, typeText, 0.08, 0.08, 0.08);
+      appendText(xCh, y, chText, 0.08, 0.08, 0.08);
+      y -= lineHeight;
+    }
+
+    contentStream << "Q\n";
+    contentStream << "q\n0 0 0 RG 0.5 w " << formatter.Format(frameX) << ' '
+                  << formatter.Format(frameY) << ' '
+                  << formatter.Format(frameW) << ' '
+                  << formatter.Format(frameH) << " re S\nQ\n";
   }
 
   std::string contentStr = contentStream.str();

@@ -30,6 +30,7 @@
 #include <iterator>
 #include <map>
 #include <memory>
+#include <optional>
 #include <set>
 #include <random>
 #include <string>
@@ -190,6 +191,67 @@ const layouts::Layout2DViewDefinition *FindLayout2DViewById(
       return &view;
   }
   return nullptr;
+}
+
+std::vector<LayoutLegendItem> BuildLayoutLegendItems() {
+  struct LegendAggregate {
+    int count = 0;
+    std::optional<int> channelCount;
+    bool mixedChannels = false;
+  };
+
+  std::map<std::string, LegendAggregate> aggregates;
+  const auto &fixtures = ConfigManager::Get().GetScene().fixtures;
+  const std::string &basePath = ConfigManager::Get().GetScene().basePath;
+  for (const auto &[uuid, fixture] : fixtures) {
+    (void)uuid;
+    std::string typeName = fixture.typeName;
+    std::string fullPath;
+    if (!fixture.gdtfSpec.empty()) {
+      std::filesystem::path p = basePath.empty()
+                                    ? std::filesystem::path(fixture.gdtfSpec)
+                                    : std::filesystem::path(basePath) /
+                                          fixture.gdtfSpec;
+      fullPath = p.string();
+    }
+    if (typeName.empty() && !fullPath.empty()) {
+      wxFileName fn(fullPath);
+      typeName = fn.GetFullName().ToStdString();
+    }
+    if (typeName.empty())
+      typeName = "Unknown";
+
+    int chCount = GetGdtfModeChannelCount(fullPath, fixture.gdtfMode);
+    LegendAggregate &agg = aggregates[typeName];
+    agg.count += 1;
+    if (chCount >= 0) {
+      if (!agg.channelCount.has_value()) {
+        agg.channelCount = chCount;
+      } else if (agg.channelCount.value() != chCount) {
+        agg.mixedChannels = true;
+      }
+    }
+  }
+
+  std::vector<LayoutLegendItem> items;
+  items.reserve(aggregates.size());
+  for (const auto &[typeName, agg] : aggregates) {
+    LayoutLegendItem item;
+    item.typeName = typeName;
+    item.count = agg.count;
+    if (agg.channelCount.has_value() && !agg.mixedChannels)
+      item.channelCount = agg.channelCount;
+    items.push_back(item);
+  }
+
+  if (items.empty()) {
+    LayoutLegendItem item;
+    item.typeName = "No fixtures";
+    item.count = 0;
+    items.push_back(item);
+  }
+
+  return items;
 }
 }
 
@@ -1690,15 +1752,32 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
   const bool includeGrid = settings.includeGrid;
   std::vector<layouts::Layout2DViewDefinition> layoutViews =
       layout->view2dViews;
+  std::vector<LayoutLegendExportData> layoutLegends;
+  layoutLegends.reserve(layout->legendViews.size());
+  const auto legendItems = BuildLayoutLegendItems();
+  for (const auto &legend : layout->legendViews) {
+    LayoutLegendExportData legendData;
+    legendData.items = legendItems;
+    layouts::Layout2DViewFrame frame = legend.frame;
+    frame.x = static_cast<int>(std::lround(frame.x * scaleX));
+    frame.y = static_cast<int>(std::lround(frame.y * scaleY));
+    frame.width = static_cast<int>(std::lround(frame.width * scaleX));
+    frame.height = static_cast<int>(std::lround(frame.height * scaleY));
+    legendData.frame = frame;
+    layoutLegends.push_back(std::move(legendData));
+  }
   auto exportViews = std::make_shared<std::vector<LayoutViewExportData>>();
   exportViews->reserve(layoutViews.size());
+  auto exportLegends =
+      std::make_shared<std::vector<LayoutLegendExportData>>(
+          std::move(layoutLegends));
 
   auto captureNext =
       std::make_shared<std::function<void(size_t)>>();
   *captureNext =
       [this, captureNext, exportViews, layoutViews, offscreenRenderer,
        capturePanel, cfgPtr, useSimplifiedFootprints, includeGrid, scaleX,
-       scaleY, outputPageW, outputPageH, outputLandscape,
+       scaleY, outputPageW, outputPageH, outputLandscape, exportLegends,
        outputPathWx](size_t index) mutable {
         if (index >= layoutViews.size()) {
           Viewer2DPrintOptions opts;
@@ -1712,11 +1791,13 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
               std::filesystem::path(outputPathWx.ToStdWstring()));
           wxString outputPathDisplay = outputPathWx;
           auto viewsToExport = std::move(*exportViews);
+          auto legendsToExport = std::move(*exportLegends);
 
           std::thread([this, views = std::move(viewsToExport), opts,
-                       outputPath, outputPathDisplay]() {
+                       legends = std::move(legendsToExport), outputPath,
+                       outputPathDisplay]() {
             Viewer2DExportResult res =
-                ExportLayoutToPdf(views, opts, outputPath);
+                ExportLayoutToPdf(views, legends, opts, outputPath);
 
             wxTheApp->CallAfter([this, res, outputPathDisplay]() {
               if (!res.success) {
