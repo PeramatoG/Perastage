@@ -967,6 +967,8 @@ Viewer2DExportResult ExportViewer2DToPdf(
       {"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>"});
   objects.push_back(
       {"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>"});
+  objects.push_back(
+      {"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>"});
 
   Mapping symbolMapping{};
   symbolMapping.scale = scale;
