@@ -35,6 +35,7 @@
 #include "legendutils.h"
 #include "layouts/LayoutManager.h"
 #include "mainwindow.h"
+#include "viewer2dcommandrenderer.h"
 #include "viewer2doffscreenrenderer.h"
 #include "viewer2dstate.h"
 #include <wx/dcgraph.h>
