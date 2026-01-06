@@ -50,7 +50,7 @@ constexpr float PDF_TEXT_ASCENT_FACTOR = 0.718f;
 // Complements the ascent factor using Helvetica's 207 unit descent as a
 // fallback for text that does not provide explicit metrics.
 constexpr float PDF_TEXT_DESCENT_FACTOR = 0.207f;
-constexpr double kLegendSymbolScale = 5.0;
+constexpr double kLegendSymbolSize = 20.0;
 
 static bool ShouldTraceLabelOrder() {
   static const bool enabled = std::getenv("PERASTAGE_TRACE_LABELS") != nullptr;
@@ -1577,9 +1577,9 @@ Viewer2DExportResult ExportLayoutToPdf(
     }
 
     const double lineHeight = fontSize + 2.0;
-    const double symbolSlotSize = lineHeight;
-    const double symbolSize =
-        std::max(4.0, lineHeight * kLegendSymbolScale);
+    const double symbolSize = std::max(4.0, kLegendSymbolSize);
+    const double symbolSlotSize = symbolSize;
+    const double rowHeight = std::max(lineHeight, symbolSize);
     double xSymbol = frameX + padding;
     double xCount = xSymbol + symbolSlotSize + columnGap;
     double xType = xCount + maxCountWidth + columnGap;
@@ -1614,7 +1614,7 @@ Viewer2DExportResult ExportLayoutToPdf(
                   << formatter.Format(frameX + frameW - padding) << ' '
                   << formatter.Format(separatorY) << " l S\n";
 
-    y -= lineHeight;
+    y -= rowHeight;
     for (const auto &item : legend.items) {
       if (y < frameY + padding)
         break;
@@ -1641,9 +1641,8 @@ Viewer2DExportResult ExportLayoutToPdf(
               double drawW = symbolW * scale;
               double drawH = symbolH * scale;
               double rowTop = y + fontSize * 0.7;
-              double rowBottom = rowTop - lineHeight;
-              double symbolBoxY =
-                  rowBottom + (lineHeight - symbolSize) * 0.5;
+              double rowBottom = rowTop - rowHeight;
+              double symbolBoxY = rowBottom + (rowHeight - symbolSize) * 0.5;
               double symbolOffsetX =
                   xSymbol + (symbolSlotSize - drawW) * 0.5 -
                   symbol->bounds.min.x * scale;
@@ -1663,7 +1662,7 @@ Viewer2DExportResult ExportLayoutToPdf(
       appendText(xCount, y, countText, "F1", 0.08, 0.08, 0.08);
       appendText(xType, y, typeText, "F1", 0.08, 0.08, 0.08);
       appendText(xCh, y, chText, "F1", 0.08, 0.08, 0.08);
-      y -= lineHeight;
+      y -= rowHeight;
     }
 
     contentStream << "Q\n";
