@@ -37,6 +37,9 @@ public:
   bool UpdateLayout2DView(const std::string &name,
                           const Layout2DViewDefinition &view);
   bool RemoveLayout2DView(const std::string &name, int viewId);
+  bool UpdateLayoutLegend(const std::string &name,
+                          const LayoutLegendDefinition &legend);
+  bool RemoveLayoutLegend(const std::string &name, int legendId);
 
   void LoadFromConfig(ConfigManager &cfg);
   void SaveToConfig(ConfigManager &cfg) const;

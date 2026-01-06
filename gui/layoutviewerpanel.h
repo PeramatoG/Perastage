@@ -38,8 +38,15 @@ public:
   void SetLayoutDefinition(const layouts::LayoutDefinition &layout);
   layouts::Layout2DViewDefinition *GetEditableView();
   const layouts::Layout2DViewDefinition *GetEditableView() const;
+  void RefreshLegendData();
 
 private:
+  struct LegendItem {
+    std::string typeName;
+    int count = 0;
+    std::optional<int> channelCount;
+  };
+
   struct ViewCache {
     int captureVersion = -1;
     bool captureInProgress = false;
@@ -55,6 +62,14 @@ private:
     bool renderDirty = true;
   };
 
+  struct LegendCache {
+    unsigned int texture = 0;
+    wxSize textureSize{0, 0};
+    double renderZoom = 0.0;
+    bool renderDirty = true;
+    size_t contentHash = 0;
+  };
+
   void OnPaint(wxPaintEvent &event);
   void OnSize(wxSizeEvent &event);
   void OnLeftDown(wxMouseEvent &event);
@@ -66,6 +81,7 @@ private:
   void OnRightUp(wxMouseEvent &event);
   void OnEditView(wxCommandEvent &event);
   void OnDeleteView(wxCommandEvent &event);
+  void OnDeleteLegend(wxCommandEvent &event);
 
   void ResetViewToFit();
   wxRect GetPageRect() const;
@@ -76,16 +92,28 @@ private:
   double GetRenderZoom() const;
   void UpdateFrame(const layouts::Layout2DViewFrame &frame,
                    bool updatePosition);
+  void UpdateLegendFrame(const layouts::Layout2DViewFrame &frame,
+                         bool updatePosition);
   void InitGL();
   void RebuildCachedTexture();
   void ClearCachedTexture();
   void ClearCachedTexture(ViewCache &cache);
+  void ClearCachedTexture(LegendCache &cache);
   void RequestRenderRebuild();
   void InvalidateRenderIfFrameChanged();
   void EmitEditViewRequest();
-  bool SelectViewAtPosition(const wxPoint &pos);
-  int GetViewIndexAtPosition(const wxPoint &pos) const;
+  bool SelectElementAtPosition(const wxPoint &pos);
+  bool GetLegendFrameById(int legendId,
+                          layouts::Layout2DViewFrame &frame) const;
+  const layouts::LayoutLegendDefinition *GetSelectedLegend() const;
+  layouts::LayoutLegendDefinition *GetSelectedLegend();
+  bool GetSelectedFrame(layouts::Layout2DViewFrame &frame) const;
   ViewCache &GetViewCache(int viewId);
+  LegendCache &GetLegendCache(int legendId);
+  std::vector<LegendItem> BuildLegendItems() const;
+  size_t HashLegendItems(const std::vector<LegendItem> &items) const;
+  wxImage BuildLegendImage(const wxSize &size,
+                           const std::vector<LegendItem> &items) const;
 
   enum class FrameDragMode {
     None,
@@ -98,6 +126,12 @@ private:
   FrameDragMode HitTestFrame(const wxPoint &pos, const wxRect &frameRect) const;
   wxCursor CursorForMode(FrameDragMode mode) const;
 
+  enum class SelectedElementType {
+    None,
+    View2D,
+    Legend
+  };
+
   layouts::LayoutDefinition currentLayout;
   double zoom = 1.0;
   wxPoint panOffset{0, 0};
@@ -109,12 +143,16 @@ private:
   layouts::Layout2DViewFrame dragStartFrame;
   int layoutVersion = 0;
   bool captureInProgress = false;
-  int selectedViewId = -1;
+  SelectedElementType selectedElementType = SelectedElementType::None;
+  int selectedElementId = -1;
   wxGLContext *glContext_ = nullptr;
   bool glInitialized_ = false;
   bool renderDirty = true;
   bool renderPending = false;
   std::unordered_map<int, ViewCache> viewCaches_;
+  std::unordered_map<int, LegendCache> legendCaches_;
+  std::vector<LegendItem> legendItems_;
+  size_t legendDataHash = 0;
 
   wxDECLARE_EVENT_TABLE();
 };

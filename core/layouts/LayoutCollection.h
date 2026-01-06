@@ -73,10 +73,16 @@ struct Layout2DViewDefinition {
   Layout2DViewLayers layers;
 };
 
+struct LayoutLegendDefinition {
+  int id = 0;
+  Layout2DViewFrame frame;
+};
+
 struct LayoutDefinition {
   std::string name;
   print::PageSetup pageSetup;
   std::vector<Layout2DViewDefinition> view2dViews;
+  std::vector<LayoutLegendDefinition> legendViews;
 };
 
 class LayoutCollection {
@@ -94,6 +100,9 @@ public:
   bool UpdateLayout2DView(const std::string &name,
                           const Layout2DViewDefinition &view);
   bool RemoveLayout2DView(const std::string &name, int viewId);
+  bool UpdateLayoutLegend(const std::string &name,
+                          const LayoutLegendDefinition &legend);
+  bool RemoveLayoutLegend(const std::string &name, int legendId);
 
   void ReplaceAll(std::vector<LayoutDefinition> layouts);
 
