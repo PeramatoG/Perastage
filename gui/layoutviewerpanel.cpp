@@ -1604,16 +1604,12 @@ wxImage LayoutViewerPanel::BuildLegendImage(
   dc.GetTextExtent("Hg", &lineWidth, &lineHeight);
   lineHeight += std::max(1, static_cast<int>(std::lround(2.0 * renderZoom)));
 
-  constexpr double kLegendSymbolScale = 4.0;
-  const int symbolRowPadding =
-      std::max(1, static_cast<int>(std::lround(2.0 * renderZoom)));
   const double rowHeight =
       totalRows > 0 ? static_cast<double>(availableHeight) / totalRows : 0.0;
-  int rowHeightPx = std::max(
-      lineHeight, static_cast<int>(std::lround(rowHeight * renderZoom)));
-  int symbolSize = std::max(
-      4, static_cast<int>(std::lround(lineHeight * kLegendSymbolScale)));
-  rowHeightPx = std::max(rowHeightPx, symbolSize + symbolRowPadding);
+  const int rowHeightPx =
+      std::max(lineHeight,
+               static_cast<int>(std::lround(rowHeight * renderZoom)));
+  int symbolSize = std::max(4, rowHeightPx - 2);
   const int paddingPx =
       std::max(0, static_cast<int>(std::lround(padding * renderZoom)));
   const int columnGapPx =
