@@ -50,6 +50,7 @@ constexpr float PDF_TEXT_ASCENT_FACTOR = 0.718f;
 // Complements the ascent factor using Helvetica's 207 unit descent as a
 // fallback for text that does not provide explicit metrics.
 constexpr float PDF_TEXT_DESCENT_FACTOR = 0.207f;
+constexpr double kLegendSymbolScale = 5.0;
 
 static bool ShouldTraceLabelOrder() {
   static const bool enabled = std::getenv("PERASTAGE_TRACE_LABELS") != nullptr;
@@ -1575,8 +1576,9 @@ Viewer2DExportResult ExportLayoutToPdf(
                             measureTextWidth(chText, fontSize));
     }
 
-    const double lineHeight = fontSize + 2.0;
-    const double symbolSize = std::max(4.0, lineHeight);
+    double lineHeight = fontSize + 2.0;
+    const double symbolSize = std::max(4.0, lineHeight * kLegendSymbolScale);
+    lineHeight = std::max(lineHeight, symbolSize);
     double xSymbol = frameX + padding;
     double xCount = xSymbol + symbolSize + columnGap;
     double xType = xCount + maxCountWidth + columnGap;
