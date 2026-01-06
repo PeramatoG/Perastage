@@ -45,6 +45,7 @@ private:
     std::string typeName;
     int count = 0;
     std::optional<int> channelCount;
+    std::string symbolKey;
   };
 
   struct ViewCache {
@@ -68,6 +69,7 @@ private:
     double renderZoom = 0.0;
     bool renderDirty = true;
     size_t contentHash = 0;
+    std::shared_ptr<const SymbolDefinitionSnapshot> symbols;
   };
 
   void OnPaint(wxPaintEvent &event);
@@ -113,7 +115,8 @@ private:
   std::vector<LegendItem> BuildLegendItems() const;
   size_t HashLegendItems(const std::vector<LegendItem> &items) const;
   wxImage BuildLegendImage(const wxSize &size,
-                           const std::vector<LegendItem> &items) const;
+                           const std::vector<LegendItem> &items,
+                           const SymbolDefinitionSnapshot *symbols) const;
 
   enum class FrameDragMode {
     None,

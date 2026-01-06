@@ -60,11 +60,13 @@ struct LayoutLegendItem {
   std::string typeName;
   int count = 0;
   std::optional<int> channelCount;
+  std::string symbolKey;
 };
 
 struct LayoutLegendExportData {
   layouts::Layout2DViewFrame frame;
   std::vector<LayoutLegendItem> items;
+  std::shared_ptr<const SymbolDefinitionSnapshot> symbolSnapshot = nullptr;
 };
 
 // Writes the captured 2D drawing commands to a vector PDF that mirrors the

@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <cmath>
 #include <filesystem>
+#include <limits>
 #include <map>
 #include <memory>
 #include <vector>
@@ -31,13 +32,131 @@
 
 #include "configmanager.h"
 #include "gdtfloader.h"
+#include "legendutils.h"
 #include "layouts/LayoutManager.h"
 #include "mainwindow.h"
+#include "viewer2dcommandrenderer.h"
 #include "viewer2doffscreenrenderer.h"
 #include "viewer2dstate.h"
 #include <wx/filename.h>
 
 namespace {
+int SymbolViewRank(SymbolViewKind kind) {
+  switch (kind) {
+  case SymbolViewKind::Top:
+    return 0;
+  case SymbolViewKind::Bottom:
+    return 1;
+  case SymbolViewKind::Front:
+    return 2;
+  case SymbolViewKind::Left:
+    return 3;
+  case SymbolViewKind::Right:
+    return 4;
+  case SymbolViewKind::Back:
+  default:
+    return 5;
+  }
+}
+
+const SymbolDefinition *FindSymbolDefinition(
+    const SymbolDefinitionSnapshot *symbols, const std::string &modelKey) {
+  if (!symbols || modelKey.empty())
+    return nullptr;
+  const SymbolDefinition *best = nullptr;
+  int bestRank = std::numeric_limits<int>::max();
+  for (const auto &entry : *symbols) {
+    if (entry.second.key.modelKey != modelKey)
+      continue;
+    int rank = SymbolViewRank(entry.second.key.viewKind);
+    if (!best || rank < bestRank) {
+      best = &entry.second;
+      bestRank = rank;
+    }
+  }
+  return best;
+}
+
+wxColour ToWxColor(const CanvasColor &color) {
+  auto clamp = [](float v) {
+    return static_cast<unsigned char>(
+        std::clamp(v, 0.0f, 1.0f) * 255.0f);
+  };
+  return wxColour(clamp(color.r), clamp(color.g), clamp(color.b),
+                  clamp(color.a));
+}
+
+class LegendSymbolBackend : public viewer2d::IViewer2DCommandBackend {
+public:
+  explicit LegendSymbolBackend(wxDC &dc) : dc_(dc) {}
+
+  void DrawLine(const viewer2d::Viewer2DRenderPoint &p0,
+                const viewer2d::Viewer2DRenderPoint &p1,
+                const CanvasStroke &stroke, double strokeWidthPx) override {
+    wxPen pen(ToWxColor(stroke.color), std::max(1, (int)std::lround(strokeWidthPx)));
+    dc_.SetPen(pen);
+    dc_.SetBrush(*wxTRANSPARENT_BRUSH);
+    dc_.DrawLine(wxPoint(std::lround(p0.x), std::lround(p0.y)),
+                 wxPoint(std::lround(p1.x), std::lround(p1.y)));
+  }
+
+  void DrawPolyline(const std::vector<viewer2d::Viewer2DRenderPoint> &points,
+                    const CanvasStroke &stroke,
+                    double strokeWidthPx) override {
+    if (points.empty())
+      return;
+    wxPen pen(ToWxColor(stroke.color), std::max(1, (int)std::lround(strokeWidthPx)));
+    dc_.SetPen(pen);
+    dc_.SetBrush(*wxTRANSPARENT_BRUSH);
+    std::vector<wxPoint> wxPoints;
+    wxPoints.reserve(points.size());
+    for (const auto &pt : points) {
+      wxPoints.emplace_back(std::lround(pt.x), std::lround(pt.y));
+    }
+    dc_.DrawLines(static_cast<int>(wxPoints.size()), wxPoints.data());
+  }
+
+  void DrawPolygon(const std::vector<viewer2d::Viewer2DRenderPoint> &points,
+                   const CanvasStroke &stroke, const CanvasFill *fill,
+                   double strokeWidthPx) override {
+    if (points.empty())
+      return;
+    wxPen pen(ToWxColor(stroke.color), std::max(1, (int)std::lround(strokeWidthPx)));
+    dc_.SetPen(pen);
+    if (fill) {
+      dc_.SetBrush(wxBrush(ToWxColor(fill->color)));
+    } else {
+      dc_.SetBrush(*wxTRANSPARENT_BRUSH);
+    }
+    std::vector<wxPoint> wxPoints;
+    wxPoints.reserve(points.size());
+    for (const auto &pt : points) {
+      wxPoints.emplace_back(std::lround(pt.x), std::lround(pt.y));
+    }
+    dc_.DrawPolygon(static_cast<int>(wxPoints.size()), wxPoints.data());
+  }
+
+  void DrawCircle(const viewer2d::Viewer2DRenderPoint &center, double radiusPx,
+                  const CanvasStroke &stroke, const CanvasFill *fill,
+                  double strokeWidthPx) override {
+    wxPen pen(ToWxColor(stroke.color), std::max(1, (int)std::lround(strokeWidthPx)));
+    dc_.SetPen(pen);
+    if (fill) {
+      dc_.SetBrush(wxBrush(ToWxColor(fill->color)));
+    } else {
+      dc_.SetBrush(*wxTRANSPARENT_BRUSH);
+    }
+    dc_.DrawCircle(wxPoint(std::lround(center.x), std::lround(center.y)),
+                   std::lround(radiusPx));
+  }
+
+  void DrawText(const viewer2d::Viewer2DRenderText &text) override {
+    (void)text;
+  }
+
+private:
+  wxDC &dc_;
+};
 constexpr double kMinZoom = 0.1;
 constexpr double kMaxZoom = 10.0;
 constexpr double kZoomStep = 1.1;
@@ -895,6 +1014,8 @@ void LayoutViewerPanel::RebuildCachedTexture() {
     return;
   }
 
+  std::shared_ptr<const SymbolDefinitionSnapshot> legendSymbols =
+      capturePanel->GetBottomSymbolCacheSnapshot();
   const double renderZoom = GetRenderZoom();
   for (const auto &view : currentLayout.view2dViews) {
     ViewCache &cache = GetViewCache(view.id);
@@ -962,6 +1083,10 @@ void LayoutViewerPanel::RebuildCachedTexture() {
 
   for (const auto &legend : currentLayout.legendViews) {
     LegendCache &cache = GetLegendCache(legend.id);
+    if (cache.symbols != legendSymbols) {
+      cache.symbols = legendSymbols;
+      cache.renderDirty = true;
+    }
     if (cache.contentHash != legendDataHash) {
       cache.renderDirty = true;
     }
@@ -977,7 +1102,8 @@ void LayoutViewerPanel::RebuildCachedTexture() {
       continue;
     }
 
-    wxImage image = BuildLegendImage(renderSize, legendItems_);
+    wxImage image =
+        BuildLegendImage(renderSize, legendItems_, cache.symbols.get());
     if (!image.IsOk()) {
       ClearCachedTexture(cache);
       cache.textureSize = wxSize(0, 0);
@@ -1246,6 +1372,8 @@ LayoutViewerPanel::BuildLegendItems() const {
     int count = 0;
     std::optional<int> channelCount;
     bool mixedChannels = false;
+    std::string symbolKey;
+    bool mixedSymbols = false;
   };
 
   std::map<std::string, LegendAggregate> aggregates;
@@ -1271,6 +1399,7 @@ LayoutViewerPanel::BuildLegendItems() const {
 
     int chCount =
         GetGdtfModeChannelCount(fullPath, fixture.gdtfMode);
+    const std::string symbolKey = BuildFixtureSymbolKey(fixture, basePath);
     LegendAggregate &agg = aggregates[typeName];
     agg.count += 1;
     if (chCount >= 0) {
@@ -1278,6 +1407,13 @@ LayoutViewerPanel::BuildLegendItems() const {
         agg.channelCount = chCount;
       } else if (agg.channelCount.value() != chCount) {
         agg.mixedChannels = true;
+      }
+    }
+    if (!symbolKey.empty()) {
+      if (agg.symbolKey.empty()) {
+        agg.symbolKey = symbolKey;
+      } else if (agg.symbolKey != symbolKey) {
+        agg.mixedSymbols = true;
       }
     }
   }
@@ -1290,6 +1426,8 @@ LayoutViewerPanel::BuildLegendItems() const {
     item.count = agg.count;
     if (agg.channelCount.has_value() && !agg.mixedChannels)
       item.channelCount = agg.channelCount;
+    if (!agg.mixedSymbols)
+      item.symbolKey = agg.symbolKey;
     items.push_back(item);
   }
 
@@ -1313,12 +1451,14 @@ size_t LayoutViewerPanel::HashLegendItems(
     hash ^= intHasher(item.count) + 0x9e3779b9 + (hash << 6) + (hash >> 2);
     int chValue = item.channelCount.value_or(-1);
     hash ^= intHasher(chValue) + 0x9e3779b9 + (hash << 6) + (hash >> 2);
+    hash ^= strHasher(item.symbolKey) + 0x9e3779b9 + (hash << 6) + (hash >> 2);
   }
   return hash;
 }
 
 wxImage LayoutViewerPanel::BuildLegendImage(
-    const wxSize &size, const std::vector<LegendItem> &items) const {
+    const wxSize &size, const std::vector<LegendItem> &items,
+    const SymbolDefinitionSnapshot *symbols) const {
   if (size.GetWidth() <= 0 || size.GetHeight() <= 0)
     return wxImage();
   wxBitmap bitmap(size.GetWidth(), size.GetHeight(), 32);
@@ -1360,7 +1500,14 @@ wxImage LayoutViewerPanel::BuildLegendImage(
     maxChWidth = std::max(maxChWidth, measureTextWidth(chText));
   }
 
-  int xCount = padding;
+  int lineHeight = 0;
+  int lineWidth = 0;
+  dc.GetTextExtent("Hg", &lineWidth, &lineHeight);
+  lineHeight += 2;
+
+  int symbolSize = std::max(4, lineHeight - 2);
+  int xSymbol = padding;
+  int xCount = xSymbol + symbolSize + columnGap;
   int xType = xCount + maxCountWidth + columnGap;
   int xCh = size.GetWidth() - padding - maxChWidth;
   if (xCh < xType + columnGap)
@@ -1391,17 +1538,13 @@ wxImage LayoutViewerPanel::BuildLegendImage(
   dc.DrawText("Type", xType, y);
   dc.DrawText("Ch Count", xCh, y);
 
-  int lineHeight = 0;
-  int lineWidth = 0;
-  dc.GetTextExtent("Hg", &lineWidth, &lineHeight);
-  lineHeight += 2;
-
   y += lineHeight;
   dc.SetPen(wxPen(wxColour(200, 200, 200)));
   dc.DrawLine(padding, y, size.GetWidth() - padding, y);
   y += 2;
 
   dc.SetFont(baseFont);
+  LegendSymbolBackend backend(dc);
   for (const auto &item : items) {
     if (y + lineHeight > size.GetHeight() - padding)
       break;
@@ -1411,6 +1554,35 @@ wxImage LayoutViewerPanel::BuildLegendImage(
     wxString chText = item.channelCount.has_value()
                           ? wxString::Format("%d", item.channelCount.value())
                           : wxString("-");
+    if (symbols && !item.symbolKey.empty()) {
+      const SymbolDefinition *symbol =
+          FindSymbolDefinition(symbols, item.symbolKey);
+      if (symbol) {
+        const float symbolW = symbol->bounds.max.x - symbol->bounds.min.x;
+        const float symbolH = symbol->bounds.max.y - symbol->bounds.min.y;
+        if (symbolW > 0.0f && symbolH > 0.0f) {
+          double scale =
+              std::min(static_cast<double>(symbolSize) / symbolW,
+                       static_cast<double>(symbolSize) / symbolH);
+          double drawW = symbolW * scale;
+          double drawH = symbolH * scale;
+          double symbolDrawLeft =
+              xSymbol + (static_cast<double>(symbolSize) - drawW) * 0.5;
+          double symbolDrawTop =
+              y + (static_cast<double>(lineHeight) - drawH) * 0.5;
+
+          viewer2d::Viewer2DRenderMapping mapping{};
+          mapping.minX = symbol->bounds.min.x;
+          mapping.minY = symbol->bounds.min.y;
+          mapping.scale = scale;
+          mapping.offsetX = symbolDrawLeft;
+          mapping.offsetY = symbolDrawTop;
+          mapping.drawHeight = drawH;
+          viewer2d::Viewer2DCommandRenderer renderer(mapping, backend, symbols);
+          renderer.Render(symbol->localCommands);
+        }
+      }
+    }
     dc.DrawText(countText, xCount, y);
     dc.DrawText(typeText, xType, y);
     dc.DrawText(chText, xCh, y);

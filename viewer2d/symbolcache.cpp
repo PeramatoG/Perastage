@@ -13,6 +13,7 @@ const SymbolDefinition &SymbolCache::GetOrCreate(const SymbolKey &key,
   ++misses_;
   const uint32_t symbolId = nextSymbolId_++;
   SymbolDefinition definition = builder ? builder(key, symbolId) : SymbolDefinition{};
+  definition.key = key;
   if (definition.symbolId == 0) {
     definition.symbolId = symbolId;
   }

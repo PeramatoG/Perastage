@@ -55,6 +55,7 @@ template <> struct hash<SymbolKey> {
 } // namespace std
 
 struct SymbolDefinition {
+  SymbolKey key{};
   uint32_t symbolId = 0;
   SymbolBounds bounds{};
   CommandBuffer localCommands{};

@@ -26,6 +26,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
+#include <limits>
 #include <sstream>
 #include <string>
 #include <string_view>
@@ -472,6 +473,42 @@ void AppendSymbolInstance(std::ostringstream &out, const FloatFormatter &fmt,
       << ' ' << fmt.Format(transform.c) << ' ' << fmt.Format(transform.d)
       << ' ' << fmt.Format(translateX) << ' ' << fmt.Format(translateY)
       << " cm\n/" << name << " Do\nQ\n";
+}
+
+int SymbolViewRank(SymbolViewKind kind) {
+  switch (kind) {
+  case SymbolViewKind::Top:
+    return 0;
+  case SymbolViewKind::Bottom:
+    return 1;
+  case SymbolViewKind::Front:
+    return 2;
+  case SymbolViewKind::Left:
+    return 3;
+  case SymbolViewKind::Right:
+    return 4;
+  case SymbolViewKind::Back:
+  default:
+    return 5;
+  }
+}
+
+const SymbolDefinition *FindSymbolDefinition(
+    const SymbolDefinitionSnapshot *symbols, const std::string &modelKey) {
+  if (!symbols || modelKey.empty())
+    return nullptr;
+  const SymbolDefinition *best = nullptr;
+  int bestRank = std::numeric_limits<int>::max();
+  for (const auto &entry : *symbols) {
+    if (entry.second.key.modelKey != modelKey)
+      continue;
+    int rank = SymbolViewRank(entry.second.key.viewKind);
+    if (!best || rank < bestRank) {
+      best = &entry.second;
+      bestRank = rank;
+    }
+  }
+  return best;
 }
 
 SymbolBounds ComputeSymbolBounds(const std::vector<CanvasCommand> &commands) {
@@ -1273,6 +1310,15 @@ Viewer2DExportResult ExportLayoutToPdf(
       symbolSnapshot = view.symbolSnapshot;
   }
 
+  if (!symbolSnapshot) {
+    for (const auto &legend : legends) {
+      if (legend.symbolSnapshot) {
+        symbolSnapshot = legend.symbolSnapshot;
+        break;
+      }
+    }
+  }
+
   if (layoutGroups.empty()) {
     result.message = "Nothing to export";
     return result;
@@ -1280,6 +1326,26 @@ Viewer2DExportResult ExportLayoutToPdf(
 
   FloatFormatter formatter(options.floatPrecision);
   std::unordered_map<std::string, size_t> xObjectNameIds;
+  std::unordered_map<uint32_t, std::string> legendSymbolNames;
+  auto makeLegendIdName = [](uint32_t symbolId) {
+    return "L" + std::to_string(symbolId);
+  };
+  for (const auto &legend : legends) {
+    const SymbolDefinitionSnapshot *legendSymbols =
+        legend.symbolSnapshot ? legend.symbolSnapshot.get() : symbolSnapshot.get();
+    if (!legendSymbols)
+      continue;
+    for (const auto &item : legend.items) {
+      if (item.symbolKey.empty())
+        continue;
+      const SymbolDefinition *definition =
+          FindSymbolDefinition(legendSymbols, item.symbolKey);
+      if (!definition)
+        continue;
+      legendSymbolNames.emplace(definition->symbolId,
+                                makeLegendIdName(definition->symbolId));
+    }
+  }
 
   std::ostringstream contentStream;
   auto escapeText = [](const std::string &text) {
@@ -1455,6 +1521,22 @@ Viewer2DExportResult ExportLayoutToPdf(
     }
   }
 
+  if (symbolSnapshot) {
+    for (const auto &entry : legendSymbolNames) {
+      if (xObjectNameIds.count(entry.second) != 0)
+        continue;
+      auto defIt = symbolSnapshot->find(entry.first);
+      if (defIt == symbolSnapshot->end())
+        continue;
+      xObjectNameIds[entry.second] =
+          appendSymbolObject(entry.second,
+                             defIt->second.localCommands.commands,
+                             defIt->second.localCommands.metadata,
+                             defIt->second.localCommands.sources,
+                             1.0, defIt->second.bounds);
+    }
+  }
+
   for (const auto &legend : legends) {
     const double frameX = static_cast<double>(legend.frame.x);
     const double frameY =
@@ -1493,7 +1575,10 @@ Viewer2DExportResult ExportLayoutToPdf(
                             measureTextWidth(chText, fontSize));
     }
 
-    double xCount = frameX + padding;
+    const double lineHeight = fontSize + 2.0;
+    const double symbolSize = std::max(4.0, lineHeight - 2.0);
+    double xSymbol = frameX + padding;
+    double xCount = xSymbol + symbolSize + columnGap;
     double xType = xCount + maxCountWidth + columnGap;
     double xCh = frameX + frameW - padding - maxChWidth;
     if (xCh < xType + columnGap)
@@ -1518,7 +1603,6 @@ Viewer2DExportResult ExportLayoutToPdf(
     appendText(xType, y, "Type", "F2", 0.08, 0.08, 0.08);
     appendText(xCh, y, "Ch Count", "F2", 0.08, 0.08, 0.08);
 
-    const double lineHeight = fontSize + 2.0;
     const double separatorY = y - 2.0;
     contentStream << formatter.Format(0.78) << ' ' << formatter.Format(0.78)
                   << ' ' << formatter.Format(0.78) << " RG 0.5 w "
@@ -1535,6 +1619,44 @@ Viewer2DExportResult ExportLayoutToPdf(
       std::string typeText = trimTextToWidth(item.typeName, typeWidth, fontSize);
       std::string chText =
           item.channelCount ? std::to_string(*item.channelCount) : "-";
+      if (!item.symbolKey.empty()) {
+        const SymbolDefinitionSnapshot *legendSymbols =
+            legend.symbolSnapshot ? legend.symbolSnapshot.get()
+                                  : symbolSnapshot.get();
+        const SymbolDefinition *symbol =
+            FindSymbolDefinition(legendSymbols, item.symbolKey);
+        if (symbol) {
+          auto nameIt = legendSymbolNames.find(symbol->symbolId);
+          if (nameIt != legendSymbolNames.end()) {
+            const double symbolW =
+                symbol->bounds.max.x - symbol->bounds.min.x;
+            const double symbolH =
+                symbol->bounds.max.y - symbol->bounds.min.y;
+            if (symbolW > 0.0 && symbolH > 0.0) {
+              double scale =
+                  std::min(symbolSize / symbolW, symbolSize / symbolH);
+              double drawW = symbolW * scale;
+              double drawH = symbolH * scale;
+              double rowTop = y + fontSize * 0.7;
+              double rowBottom = rowTop - lineHeight;
+              double symbolBoxY =
+                  rowBottom + (lineHeight - symbolSize) * 0.5;
+              double symbolOffsetX =
+                  xSymbol + (symbolSize - drawW) * 0.5 -
+                  symbol->bounds.min.x * scale;
+              double symbolOffsetY =
+                  symbolBoxY + (symbolSize - drawH) * 0.5 -
+                  symbol->bounds.min.y * scale;
+              contentStream << "q\n"
+                            << formatter.Format(scale) << " 0 0 "
+                            << formatter.Format(scale) << ' '
+                            << formatter.Format(symbolOffsetX) << ' '
+                            << formatter.Format(symbolOffsetY) << " cm\n/"
+                            << nameIt->second << " Do\nQ\n";
+            }
+          }
+        }
+      }
       appendText(xCount, y, countText, "F1", 0.08, 0.08, 0.08);
       appendText(xType, y, typeText, "F1", 0.08, 0.08, 0.08);
       appendText(xCh, y, chText, "F1", 0.08, 0.08, 0.08);
