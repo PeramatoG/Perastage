@@ -74,6 +74,7 @@ using json = nlohmann::json;
 #include "layout2dviewdialog.h"
 #include "layoutpanel.h"
 #include "layoutviewerpanel.h"
+#include "legendutils.h"
 #include "layerpanel.h"
 #include "logindialog.h"
 #include "markdown.h"
@@ -198,6 +199,8 @@ std::vector<LayoutLegendItem> BuildLayoutLegendItems() {
     int count = 0;
     std::optional<int> channelCount;
     bool mixedChannels = false;
+    std::string symbolKey;
+    bool mixedSymbols = false;
   };
 
   std::map<std::string, LegendAggregate> aggregates;
@@ -222,6 +225,7 @@ std::vector<LayoutLegendItem> BuildLayoutLegendItems() {
       typeName = "Unknown";
 
     int chCount = GetGdtfModeChannelCount(fullPath, fixture.gdtfMode);
+    const std::string symbolKey = BuildFixtureSymbolKey(fixture, basePath);
     LegendAggregate &agg = aggregates[typeName];
     agg.count += 1;
     if (chCount >= 0) {
@@ -229,6 +233,13 @@ std::vector<LayoutLegendItem> BuildLayoutLegendItems() {
         agg.channelCount = chCount;
       } else if (agg.channelCount.value() != chCount) {
         agg.mixedChannels = true;
+      }
+    }
+    if (!symbolKey.empty()) {
+      if (agg.symbolKey.empty()) {
+        agg.symbolKey = symbolKey;
+      } else if (agg.symbolKey != symbolKey) {
+        agg.mixedSymbols = true;
       }
     }
   }
@@ -241,6 +252,8 @@ std::vector<LayoutLegendItem> BuildLayoutLegendItems() {
     item.count = agg.count;
     if (agg.channelCount.has_value() && !agg.mixedChannels)
       item.channelCount = agg.channelCount;
+    if (!agg.mixedSymbols)
+      item.symbolKey = agg.symbolKey;
     items.push_back(item);
   }
 
@@ -1792,6 +1805,12 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
           wxString outputPathDisplay = outputPathWx;
           auto viewsToExport = std::move(*exportViews);
           auto legendsToExport = std::move(*exportLegends);
+          if (capturePanel) {
+            auto legendSymbols = capturePanel->GetBottomSymbolCacheSnapshot();
+            for (auto &legend : legendsToExport) {
+              legend.symbolSnapshot = legendSymbols;
+            }
+          }
 
           std::thread([this, views = std::move(viewsToExport), opts,
                        legends = std::move(legendsToExport), outputPath,
