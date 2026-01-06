@@ -19,6 +19,8 @@
 
 #include "layouts/LayoutCollection.h"
 
+#include <wx/weakref.h>
+
 class ConfigManager;
 class Viewer2DPanel;
 class Viewer2DRenderPanel;
@@ -55,10 +57,10 @@ public:
 
 private:
   ConfigManager *cfg_ = nullptr;
-  Viewer2DPanel *applyPanel_ = nullptr;
-  Viewer2DRenderPanel *applyRenderPanel_ = nullptr;
-  Viewer2DPanel *restorePanel_ = nullptr;
-  Viewer2DRenderPanel *restoreRenderPanel_ = nullptr;
+  wxWeakRef<Viewer2DPanel> applyPanel_;
+  wxWeakRef<Viewer2DRenderPanel> applyRenderPanel_;
+  wxWeakRef<Viewer2DPanel> restorePanel_;
+  wxWeakRef<Viewer2DRenderPanel> restoreRenderPanel_;
   Viewer2DState previousState_;
   bool restored_ = true;
 };

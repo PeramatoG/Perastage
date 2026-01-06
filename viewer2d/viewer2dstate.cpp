@@ -158,8 +158,8 @@ ScopedViewer2DState::ScopedViewer2DState(Viewer2DPanel *applyPanel,
       applyRenderPanel_(applyRenderPanel), restorePanel_(restorePanel),
       restoreRenderPanel_(restoreRenderPanel),
       restored_(false) {
-  previousState_ = CaptureState(restorePanel_ ? restorePanel_ : applyPanel_, cfg);
-  ApplyState(applyPanel_, applyRenderPanel_, cfg, state);
+  previousState_ = CaptureState(restorePanel ? restorePanel : applyPanel, cfg);
+  ApplyState(applyPanel_.get(), applyRenderPanel_.get(), cfg, state);
 }
 
 ScopedViewer2DState::~ScopedViewer2DState() { Restore(); }
@@ -182,10 +182,10 @@ ScopedViewer2DState::operator=(ScopedViewer2DState &&other) noexcept {
   restored_ = other.restored_;
 
   other.cfg_ = nullptr;
-  other.applyPanel_ = nullptr;
-  other.applyRenderPanel_ = nullptr;
-  other.restorePanel_ = nullptr;
-  other.restoreRenderPanel_ = nullptr;
+  other.applyPanel_ = wxWeakRef<Viewer2DPanel>();
+  other.applyRenderPanel_ = wxWeakRef<Viewer2DRenderPanel>();
+  other.restorePanel_ = wxWeakRef<Viewer2DPanel>();
+  other.restoreRenderPanel_ = wxWeakRef<Viewer2DRenderPanel>();
   other.restored_ = true;
   return *this;
 }
@@ -195,9 +195,9 @@ void ScopedViewer2DState::Restore() {
     return;
 
   Viewer2DPanel *targetPanel =
-      restorePanel_ ? restorePanel_ : Viewer2DPanel::Instance();
+      restorePanel_ ? restorePanel_.get() : Viewer2DPanel::Instance();
   Viewer2DRenderPanel *targetRenderPanel =
-      restoreRenderPanel_ ? restoreRenderPanel_
+      restoreRenderPanel_ ? restoreRenderPanel_.get()
                           : Viewer2DRenderPanel::Instance();
 
   ApplyState(targetPanel, targetRenderPanel, *cfg_, previousState_);
