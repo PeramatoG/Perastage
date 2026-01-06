@@ -38,7 +38,6 @@
 #include "viewer2dcommandrenderer.h"
 #include "viewer2doffscreenrenderer.h"
 #include "viewer2dstate.h"
-#include <wx/graphics.h>
 #include <wx/filename.h>
 
 namespace {
@@ -89,85 +88,7 @@ wxColour ToWxColor(const CanvasColor &color) {
 
 class LegendSymbolBackend : public viewer2d::IViewer2DCommandBackend {
 public:
-  explicit LegendSymbolBackend(wxGraphicsContext &gc) : gc_(gc) {}
-
-  void DrawLine(const viewer2d::Viewer2DRenderPoint &p0,
-                const viewer2d::Viewer2DRenderPoint &p1,
-                const CanvasStroke &stroke, double strokeWidthPx) override {
-    if (strokeWidthPx <= 0.0)
-      return;
-    gc_.SetPen(gc_.CreatePen(
-        wxGraphicsPenInfo(ToWxColor(stroke.color)).Width(strokeWidthPx)));
-    gc_.StrokeLine(p0.x, p0.y, p1.x, p1.y);
-  }
-
-  void DrawPolyline(const std::vector<viewer2d::Viewer2DRenderPoint> &points,
-                    const CanvasStroke &stroke,
-                    double strokeWidthPx) override {
-    if (points.empty())
-      return;
-    if (strokeWidthPx <= 0.0)
-      return;
-    wxGraphicsPath path = gc_.CreatePath();
-    path.MoveToPoint(points.front().x, points.front().y);
-    for (size_t i = 1; i < points.size(); ++i) {
-      path.AddLineToPoint(points[i].x, points[i].y);
-    }
-    gc_.SetPen(gc_.CreatePen(
-        wxGraphicsPenInfo(ToWxColor(stroke.color)).Width(strokeWidthPx)));
-    gc_.StrokePath(path);
-  }
-
-  void DrawPolygon(const std::vector<viewer2d::Viewer2DRenderPoint> &points,
-                   const CanvasStroke &stroke, const CanvasFill *fill,
-                   double strokeWidthPx) override {
-    if (points.empty())
-      return;
-    wxGraphicsPath path = gc_.CreatePath();
-    path.MoveToPoint(points.front().x, points.front().y);
-    for (size_t i = 1; i < points.size(); ++i) {
-      path.AddLineToPoint(points[i].x, points[i].y);
-    }
-    path.CloseSubpath();
-    if (fill) {
-      gc_.SetBrush(gc_.CreateBrush(wxBrush(ToWxColor(fill->color))));
-      gc_.FillPath(path);
-    }
-    if (strokeWidthPx > 0.0) {
-      gc_.SetPen(gc_.CreatePen(
-          wxGraphicsPenInfo(ToWxColor(stroke.color)).Width(strokeWidthPx)));
-      gc_.StrokePath(path);
-    }
-  }
-
-  void DrawCircle(const viewer2d::Viewer2DRenderPoint &center, double radiusPx,
-                  const CanvasStroke &stroke, const CanvasFill *fill,
-                  double strokeWidthPx) override {
-    if (!fill && strokeWidthPx <= 0.0)
-      return;
-    if (fill) {
-      gc_.SetBrush(gc_.CreateBrush(wxBrush(ToWxColor(fill->color))));
-    }
-    if (strokeWidthPx > 0.0) {
-      gc_.SetPen(gc_.CreatePen(
-          wxGraphicsPenInfo(ToWxColor(stroke.color)).Width(strokeWidthPx)));
-    }
-    const double diameter = radiusPx * 2.0;
-    gc_.DrawEllipse(center.x - radiusPx, center.y - radiusPx, diameter,
-                    diameter);
-  }
-
-  void DrawText(const viewer2d::Viewer2DRenderText &text) override {
-    (void)text;
-  }
-
-private:
-  wxGraphicsContext &gc_;
-};
-
-class LegendSymbolFallbackBackend : public viewer2d::IViewer2DCommandBackend {
-public:
-  explicit LegendSymbolFallbackBackend(wxDC &dc) : dc_(dc) {}
+  explicit LegendSymbolBackend(wxDC &dc) : dc_(dc) {}
 
   void DrawLine(const viewer2d::Viewer2DRenderPoint &p0,
                 const viewer2d::Viewer2DRenderPoint &p1,
@@ -1645,16 +1566,7 @@ wxImage LayoutViewerPanel::BuildLegendImage(
   y += 2;
 
   dc.SetFont(baseFont);
-  std::unique_ptr<wxGraphicsContext> graphics(wxGraphicsContext::Create(dc));
-  if (graphics) {
-    graphics->SetAntialiasMode(wxANTIALIAS_DEFAULT);
-  }
-  std::unique_ptr<viewer2d::IViewer2DCommandBackend> backend;
-  if (graphics) {
-    backend = std::make_unique<LegendSymbolBackend>(*graphics);
-  } else {
-    backend = std::make_unique<LegendSymbolFallbackBackend>(dc);
-  }
+  LegendSymbolBackend backend(dc);
   for (const auto &item : items) {
     if (y + lineHeight > size.GetHeight() - padding)
       break;
@@ -1688,7 +1600,7 @@ wxImage LayoutViewerPanel::BuildLegendImage(
           mapping.offsetX = symbolDrawLeft;
           mapping.offsetY = symbolDrawTop;
           mapping.drawHeight = drawH;
-          viewer2d::Viewer2DCommandRenderer renderer(mapping, *backend, symbols);
+          viewer2d::Viewer2DCommandRenderer renderer(mapping, backend, symbols);
           renderer.Render(symbol->localCommands);
         }
       }
