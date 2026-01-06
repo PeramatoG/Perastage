@@ -35,7 +35,6 @@
 #include "legendutils.h"
 #include "layouts/LayoutManager.h"
 #include "mainwindow.h"
-#include "viewer2dcommandrenderer.h"
 #include "viewer2doffscreenrenderer.h"
 #include "viewer2dstate.h"
 #include <wx/dcgraph.h>
@@ -78,6 +77,57 @@ const SymbolDefinition *FindSymbolDefinition(
   }
   return best;
 }
+
+struct LegendRenderState {
+  CanvasTransform current{};
+  std::vector<CanvasTransform> stack;
+};
+
+struct LegendLocalPoint {
+  double x = 0.0;
+  double y = 0.0;
+};
+
+LegendLocalPoint ApplyLegendTransform(const Transform2D &t, float x, float y) {
+  return {t.a * x + t.c * y + t.tx, t.b * x + t.d * y + t.ty};
+}
+
+Transform2D ComposeLegendTransform(const Transform2D &a, const Transform2D &b) {
+  Transform2D out;
+  out.a = a.a * b.a + a.c * b.b;
+  out.b = a.b * b.a + a.d * b.b;
+  out.c = a.a * b.c + a.c * b.d;
+  out.d = a.b * b.c + a.d * b.d;
+  out.tx = a.a * b.tx + a.c * b.ty + a.tx;
+  out.ty = a.b * b.tx + a.d * b.ty + a.ty;
+  return out;
+}
+
+viewer2d::Viewer2DRenderPoint MapLegendPoint(
+    const Transform2D &localTransform, const CanvasTransform &currentTransform,
+    const viewer2d::Viewer2DRenderMapping &mapping, float x, float y) {
+  LegendLocalPoint transformed = ApplyLegendTransform(localTransform, x, y);
+  double tx = transformed.x * currentTransform.scale + currentTransform.offsetX;
+  double ty = transformed.y * currentTransform.scale + currentTransform.offsetY;
+  double mappedX = mapping.offsetX + (tx - mapping.minX) * mapping.scale;
+  double mappedY = mapping.offsetY + mapping.drawHeight -
+                   (ty - mapping.minY) * mapping.scale;
+  return viewer2d::Viewer2DRenderPoint{mappedX, mappedY};
+}
+
+class LegendSymbolBackend;
+
+void RenderLegendCommandBuffer(
+    const CommandBuffer &buffer, const Transform2D &localTransform,
+    const SymbolDefinitionSnapshot *symbols, LegendSymbolBackend &backend,
+    const viewer2d::Viewer2DRenderMapping &mapping);
+
+void RenderLegendDrawCommand(
+    const CanvasCommand &command, const Transform2D &localTransform,
+    const CanvasTransform &currentTransform,
+    const SymbolDefinitionSnapshot *symbols, LegendSymbolBackend &backend,
+    const viewer2d::Viewer2DRenderMapping &mapping, bool drawStrokes,
+    bool drawFills);
 
 wxColour ToWxColor(const CanvasColor &color) {
   auto clamp = [](float v) {
@@ -242,6 +292,198 @@ private:
   bool drawFills_ = true;
   double strokeScale_ = 1.0;
 };
+
+void RenderLegendDrawCommand(
+    const CanvasCommand &command, const Transform2D &localTransform,
+    const CanvasTransform &currentTransform,
+    const SymbolDefinitionSnapshot *symbols, LegendSymbolBackend &backend,
+    const viewer2d::Viewer2DRenderMapping &mapping, bool drawStrokes,
+    bool drawFills) {
+  auto strokeWidth = [&](float width) { return width * mapping.scale; };
+  std::visit(
+      [&](auto &&cmd) {
+        using T = std::decay_t<decltype(cmd)>;
+        if constexpr (std::is_same_v<T, LineCommand>) {
+          if (!drawStrokes)
+            return;
+          viewer2d::Viewer2DRenderPoint p0 =
+              MapLegendPoint(localTransform, currentTransform, mapping, cmd.x0,
+                             cmd.y0);
+          viewer2d::Viewer2DRenderPoint p1 =
+              MapLegendPoint(localTransform, currentTransform, mapping, cmd.x1,
+                             cmd.y1);
+          backend.DrawLine(p0, p1, cmd.stroke, strokeWidth(cmd.stroke.width));
+        } else if constexpr (std::is_same_v<T, PolylineCommand>) {
+          if (!drawStrokes || cmd.points.size() < 4)
+            return;
+          std::vector<viewer2d::Viewer2DRenderPoint> points;
+          points.reserve(cmd.points.size() / 2);
+          for (size_t i = 0; i + 1 < cmd.points.size(); i += 2) {
+            points.push_back(MapLegendPoint(localTransform, currentTransform,
+                                            mapping, cmd.points[i],
+                                            cmd.points[i + 1]));
+          }
+          backend.DrawPolyline(points, cmd.stroke,
+                               strokeWidth(cmd.stroke.width));
+        } else if constexpr (std::is_same_v<T, PolygonCommand>) {
+          if ((!drawStrokes && (!drawFills || !cmd.hasFill)) ||
+              cmd.points.size() < 6)
+            return;
+          std::vector<viewer2d::Viewer2DRenderPoint> points;
+          points.reserve(cmd.points.size() / 2);
+          for (size_t i = 0; i + 1 < cmd.points.size(); i += 2) {
+            points.push_back(MapLegendPoint(localTransform, currentTransform,
+                                            mapping, cmd.points[i],
+                                            cmd.points[i + 1]));
+          }
+          const CanvasFill *fill =
+              (drawFills && cmd.hasFill) ? &cmd.fill : nullptr;
+          backend.DrawPolygon(points, cmd.stroke, fill,
+                              strokeWidth(cmd.stroke.width));
+        } else if constexpr (std::is_same_v<T, RectangleCommand>) {
+          if (!drawStrokes && (!drawFills || !cmd.hasFill))
+            return;
+          std::vector<float> pts = {
+              cmd.x,         cmd.y,         cmd.x + cmd.w, cmd.y,
+              cmd.x + cmd.w, cmd.y + cmd.h, cmd.x,         cmd.y + cmd.h};
+          std::vector<viewer2d::Viewer2DRenderPoint> points;
+          points.reserve(pts.size() / 2);
+          for (size_t i = 0; i + 1 < pts.size(); i += 2) {
+            points.push_back(MapLegendPoint(localTransform, currentTransform,
+                                            mapping, pts[i], pts[i + 1]));
+          }
+          const CanvasFill *fill =
+              (drawFills && cmd.hasFill) ? &cmd.fill : nullptr;
+          backend.DrawPolygon(points, cmd.stroke, fill,
+                              strokeWidth(cmd.stroke.width));
+        } else if constexpr (std::is_same_v<T, CircleCommand>) {
+          if (!drawStrokes && (!drawFills || !cmd.hasFill))
+            return;
+          viewer2d::Viewer2DRenderPoint center =
+              MapLegendPoint(localTransform, currentTransform, mapping, cmd.cx,
+                             cmd.cy);
+          float sx = std::sqrt(localTransform.a * localTransform.a +
+                               localTransform.b * localTransform.b);
+          float sy = std::sqrt(localTransform.c * localTransform.c +
+                               localTransform.d * localTransform.d);
+          float scale = (sx + sy) * 0.5f;
+          double radius =
+              cmd.radius * scale * currentTransform.scale * mapping.scale;
+          const CanvasFill *fill =
+              (drawFills && cmd.hasFill) ? &cmd.fill : nullptr;
+          backend.DrawCircle(center, radius, cmd.stroke, fill,
+                             strokeWidth(cmd.stroke.width));
+        } else if constexpr (std::is_same_v<T, SymbolInstanceCommand>) {
+          if (!symbols)
+            return;
+          auto it = symbols->find(cmd.symbolId);
+          if (it == symbols->end())
+            return;
+          Transform2D combined = ComposeLegendTransform(localTransform,
+                                                       cmd.transform);
+          RenderLegendCommandBuffer(it->second.localCommands, combined, symbols,
+                                    backend, mapping);
+        } else {
+          (void)cmd;
+        }
+      },
+      command);
+}
+
+void RenderLegendCommandBuffer(
+    const CommandBuffer &buffer, const Transform2D &localTransform,
+    const SymbolDefinitionSnapshot *symbols, LegendSymbolBackend &backend,
+    const viewer2d::Viewer2DRenderMapping &mapping) {
+  LegendRenderState state{};
+  std::vector<size_t> group;
+  std::string currentSource;
+
+  auto hasStroke = [&](size_t idx) {
+    return idx < buffer.metadata.size() ? buffer.metadata[idx].hasStroke : true;
+  };
+  auto hasFill = [&](size_t idx) {
+    return idx < buffer.metadata.size() ? buffer.metadata[idx].hasFill : true;
+  };
+
+  auto flushGroup = [&]() {
+    if (group.empty())
+      return;
+    backend.SetRenderMode(true, false);
+    for (size_t idx : group) {
+      if (!hasStroke(idx))
+        continue;
+      RenderLegendDrawCommand(buffer.commands[idx], localTransform,
+                              state.current, symbols, backend, mapping, true,
+                              false);
+    }
+    backend.SetRenderMode(false, true);
+    for (size_t idx : group) {
+      if (!hasFill(idx))
+        continue;
+      RenderLegendDrawCommand(buffer.commands[idx], localTransform,
+                              state.current, symbols, backend, mapping, false,
+                              true);
+    }
+    group.clear();
+  };
+
+  auto handleBarrier = [&](const auto &cmd) {
+    using T = std::decay_t<decltype(cmd)>;
+    if constexpr (std::is_same_v<T, SaveCommand>) {
+      state.stack.push_back(state.current);
+    } else if constexpr (std::is_same_v<T, RestoreCommand>) {
+      if (!state.stack.empty()) {
+        state.current = state.stack.back();
+        state.stack.pop_back();
+      }
+    } else if constexpr (std::is_same_v<T, TransformCommand>) {
+      state.current = cmd.transform;
+    } else if constexpr (std::is_same_v<T, SymbolInstanceCommand>) {
+      RenderLegendDrawCommand(cmd, localTransform, state.current, symbols,
+                              backend, mapping, true, true);
+    } else {
+      (void)cmd;
+    }
+  };
+
+  for (size_t i = 0; i < buffer.commands.size(); ++i) {
+    const auto &cmd = buffer.commands[i];
+    bool isBarrier = std::visit(
+        [&](auto &&c) {
+          using T = std::decay_t<decltype(c)>;
+          return std::is_same_v<T, SaveCommand> ||
+                 std::is_same_v<T, RestoreCommand> ||
+                 std::is_same_v<T, TransformCommand> ||
+                 std::is_same_v<T, BeginSymbolCommand> ||
+                 std::is_same_v<T, EndSymbolCommand> ||
+                 std::is_same_v<T, PlaceSymbolCommand> ||
+                 std::is_same_v<T, SymbolInstanceCommand> ||
+                 std::is_same_v<T, TextCommand>;
+        },
+        cmd);
+
+    if (isBarrier) {
+      flushGroup();
+      std::visit([&](const auto &barrierCmd) { handleBarrier(barrierCmd); },
+                 cmd);
+      continue;
+    }
+
+    if (group.empty() && i < buffer.sources.size()) {
+      currentSource = buffer.sources[i];
+    }
+
+    if (i < buffer.sources.size() && buffer.sources[i] != currentSource) {
+      flushGroup();
+      currentSource = buffer.sources[i];
+    }
+
+    group.push_back(i);
+  }
+
+  flushGroup();
+}
+
 constexpr double kMinZoom = 0.1;
 constexpr double kMaxZoom = 10.0;
 constexpr double kZoomStep = 1.1;
@@ -1568,7 +1810,9 @@ wxImage LayoutViewerPanel::BuildLegendImage(
   const int totalRows = static_cast<int>(items.size()) + 1;
   const int baseHeight = logicalSize.GetHeight() > 0 ? logicalSize.GetHeight()
                                                      : size.GetHeight();
-  const int availableHeight = baseHeight - padding * 2;
+  const double separatorGap = 2.0;
+  const double availableHeight =
+      static_cast<double>(baseHeight) - padding * 2 - separatorGap;
   double fontSize =
       totalRows > 0 ? (static_cast<double>(availableHeight) / totalRows) - 2.0
                     : 10.0;
@@ -1603,16 +1847,18 @@ wxImage LayoutViewerPanel::BuildLegendImage(
   int lineHeight = 0;
   int lineWidth = 0;
   dc.GetTextExtent("Hg", &lineWidth, &lineHeight);
-  lineHeight += std::max(1, static_cast<int>(std::lround(2.0 * renderZoom)));
+  const int separatorGapPx =
+      std::max(1, static_cast<int>(std::lround(separatorGap * renderZoom)));
+  lineHeight += separatorGapPx;
 
-  const double rowHeight =
-      totalRows > 0 ? static_cast<double>(availableHeight) / totalRows : 0.0;
+  const double rowHeight = totalRows > 0 ? availableHeight / totalRows : 0.0;
   const int baseRowHeightPx =
       std::max(lineHeight,
                static_cast<int>(std::lround(rowHeight * renderZoom)));
-  const int symbolSize = std::max(
+  const int desiredSymbolSize = std::max(
       4, static_cast<int>(std::lround(baseRowHeightPx * kLegendSymbolScale)));
-  const int rowHeightPx = std::max(baseRowHeightPx, symbolSize);
+  const int symbolSize = std::min(baseRowHeightPx, desiredSymbolSize);
+  const int rowHeightPx = baseRowHeightPx;
   const int paddingPx =
       std::max(0, static_cast<int>(std::lround(padding * renderZoom)));
   const int columnGapPx =
@@ -1652,7 +1898,7 @@ wxImage LayoutViewerPanel::BuildLegendImage(
   y += rowHeightPx;
   dc.SetPen(wxPen(wxColour(200, 200, 200)));
   dc.DrawLine(paddingPx, y, size.GetWidth() - paddingPx, y);
-  y += std::max(1, static_cast<int>(std::lround(2.0 * renderZoom)));
+  y += separatorGapPx;
 
   dc.SetFont(baseFont);
   LegendSymbolBackend backend(dc);
@@ -1689,9 +1935,11 @@ wxImage LayoutViewerPanel::BuildLegendImage(
           mapping.offsetX = symbolDrawLeft;
           mapping.offsetY = symbolDrawTop;
           mapping.drawHeight = drawH;
-          viewer2d::Viewer2DCommandRenderer renderer(mapping, backend, symbols);
-          backend.SetRenderMode(true, true);
-          renderer.Render(symbol->localCommands);
+          backend.SetStrokeScale(
+              mapping.scale > 0.0 ? 1.0 / mapping.scale : 1.0);
+          RenderLegendCommandBuffer(symbol->localCommands,
+                                    Transform2D::Identity(), symbols, backend,
+                                    mapping);
         }
       }
     }
