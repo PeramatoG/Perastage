@@ -1529,12 +1529,21 @@ Viewer2DExportResult ExportLayoutToPdf(
       auto defIt = symbolSnapshot->find(entry.first);
       if (defIt == symbolSnapshot->end())
         continue;
+      const double symbolW =
+          defIt->second.bounds.max.x - defIt->second.bounds.min.x;
+      const double symbolH =
+          defIt->second.bounds.max.y - defIt->second.bounds.min.y;
+      double symbolScale = 1.0;
+      if (symbolW > 0.0 && symbolH > 0.0) {
+        symbolScale =
+            std::min(kLegendSymbolSize / symbolW, kLegendSymbolSize / symbolH);
+      }
       xObjectNameIds[entry.second] =
           appendSymbolObject(entry.second,
                              defIt->second.localCommands.commands,
                              defIt->second.localCommands.metadata,
                              defIt->second.localCommands.sources,
-                             1.0, defIt->second.bounds);
+                             symbolScale, defIt->second.bounds);
     }
   }
 
@@ -1649,11 +1658,8 @@ Viewer2DExportResult ExportLayoutToPdf(
               double symbolOffsetY =
                   symbolBoxY + (symbolSize - drawH) * 0.5 -
                   symbol->bounds.min.y * scale;
-              contentStream << "q\n"
-                            << formatter.Format(scale) << " 0 0 "
-                            << formatter.Format(scale) << ' '
-                            << formatter.Format(symbolOffsetX) << ' '
-                            << formatter.Format(symbolOffsetY) << " cm\n/"
+              contentStream << "q\n1 0 0 1 " << formatter.Format(symbolOffsetX)
+                            << ' ' << formatter.Format(symbolOffsetY) << " cm\n/"
                             << nameIt->second << " Do\nQ\n";
             }
           }
