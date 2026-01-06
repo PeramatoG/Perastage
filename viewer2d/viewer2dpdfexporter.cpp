@@ -692,18 +692,29 @@ void AppendText(std::ostringstream &out, const FloatFormatter &fmt,
                 const PdfFontCatalog *fonts) {
   const PdfFontDefinition *font =
       fonts ? fonts->Resolve(style.fontFamily) : nullptr;
+  double scaledFontSize = style.fontSize * scale;
+  if (font && font->embedded && font->metrics.unitsPerEm > 0 &&
+      style.ascent > 0.0f && style.descent > 0.0f) {
+    const double targetHeight = (style.ascent + style.descent) * scale;
+    const double fontHeightUnits =
+        font->metrics.ascent + std::abs(font->metrics.descent);
+    if (fontHeightUnits > 0.0) {
+      const double fontHeight =
+          fontHeightUnits * scaledFontSize / font->metrics.unitsPerEm;
+      if (fontHeight > 0.0)
+        scaledFontSize *= targetHeight / fontHeight;
+    }
+  }
 
   auto measureLineWidth = [&](std::string_view line) {
     if (!font || !font->embedded)
-      return static_cast<double>(line.size()) * style.fontSize * scale * 0.6;
+      return static_cast<double>(line.size()) * scaledFontSize * 0.6;
     double units = 0.0;
     for (unsigned char ch : line) {
       units += font->metrics.advanceWidths[ch];
     }
-    return (units / font->metrics.unitsPerEm) * style.fontSize * scale;
+    return (units / font->metrics.unitsPerEm) * scaledFontSize;
   };
-
-  const double scaledFontSize = style.fontSize * scale;
   const double fallbackAscent =
       font && font->embedded
           ? (font->metrics.ascent * scaledFontSize / font->metrics.unitsPerEm)
