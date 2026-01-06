@@ -1577,11 +1577,11 @@ Viewer2DExportResult ExportLayoutToPdf(
     }
 
     const double lineHeight = fontSize + 2.0;
-    const double maxSymbolSize = std::max(4.0, lineHeight);
-    const double symbolSize = std::clamp(lineHeight * kLegendSymbolScale, 4.0,
-                                         maxSymbolSize);
+    const double symbolSlotSize = lineHeight;
+    const double symbolSize =
+        std::max(4.0, lineHeight * kLegendSymbolScale);
     double xSymbol = frameX + padding;
-    double xCount = xSymbol + symbolSize + columnGap;
+    double xCount = xSymbol + symbolSlotSize + columnGap;
     double xType = xCount + maxCountWidth + columnGap;
     double xCh = frameX + frameW - padding - maxChWidth;
     if (xCh < xType + columnGap)
@@ -1645,7 +1645,7 @@ Viewer2DExportResult ExportLayoutToPdf(
               double symbolBoxY =
                   rowBottom + (lineHeight - symbolSize) * 0.5;
               double symbolOffsetX =
-                  xSymbol + (symbolSize - drawW) * 0.5 -
+                  xSymbol + (symbolSlotSize - drawW) * 0.5 -
                   symbol->bounds.min.x * scale;
               double symbolOffsetY =
                   symbolBoxY + (symbolSize - drawH) * 0.5 -
