@@ -364,6 +364,10 @@ bool LoadPdfFontMetrics(PdfFontDefinition &font, bool bold) {
   return LoadTtfFontMetrics(path, font.metrics);
 }
 
+struct PdfObject {
+  std::string body;
+};
+
 bool AppendEmbeddedFontObjects(std::vector<PdfObject> &objects,
                                PdfFontDefinition &font) {
   if (!font.metrics.valid || font.metrics.data.empty())
@@ -431,10 +435,6 @@ void AppendFallbackType1Font(std::vector<PdfObject> &objects,
   font.embedded = false;
   font.baseName = baseFont;
 }
-
-struct PdfObject {
-  std::string body;
-};
 
 class FloatFormatter {
 public:
