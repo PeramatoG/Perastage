@@ -1135,8 +1135,9 @@ void LayoutViewerPanel::RebuildCachedTexture() {
       continue;
     }
 
-    wxImage image =
-        BuildLegendImage(renderSize, legendItems_, cache.symbols.get());
+    wxImage image = BuildLegendImage(
+        renderSize, wxSize(legend.frame.width, legend.frame.height),
+        renderZoom, legendItems_, cache.symbols.get());
     if (!image.IsOk()) {
       ClearCachedTexture(cache);
       cache.textureSize = wxSize(0, 0);
@@ -1490,9 +1491,10 @@ size_t LayoutViewerPanel::HashLegendItems(
 }
 
 wxImage LayoutViewerPanel::BuildLegendImage(
-    const wxSize &size, const std::vector<LegendItem> &items,
+    const wxSize &size, const wxSize &logicalSize, double renderZoom,
+    const std::vector<LegendItem> &items,
     const SymbolDefinitionSnapshot *symbols) const {
-  if (size.GetWidth() <= 0 || size.GetHeight() <= 0)
+  if (size.GetWidth() <= 0 || size.GetHeight() <= 0 || renderZoom <= 0.0)
     return wxImage();
   wxBitmap bitmap(size.GetWidth(), size.GetHeight(), 32);
   wxMemoryDC memoryDc(bitmap);
@@ -1505,12 +1507,17 @@ wxImage LayoutViewerPanel::BuildLegendImage(
   const int padding = 8;
   const int columnGap = 8;
   const int totalRows = static_cast<int>(items.size()) + 1;
-  const int availableHeight = size.GetHeight() - padding * 2;
-  int fontSize =
-      totalRows > 0 ? (availableHeight / totalRows) - 2 : 10;
-  fontSize = std::clamp(fontSize, 6, 14);
+  const int baseHeight = logicalSize.GetHeight() > 0 ? logicalSize.GetHeight()
+                                                     : size.GetHeight();
+  const int availableHeight = baseHeight - padding * 2;
+  double fontSize =
+      totalRows > 0 ? (static_cast<double>(availableHeight) / totalRows) - 2.0
+                    : 10.0;
+  fontSize = std::clamp(fontSize, 6.0, 14.0);
+  const int fontSizePx =
+      std::max(1, static_cast<int>(std::lround(fontSize * renderZoom)));
 
-  wxFont baseFont(fontSize, wxFONTFAMILY_SWISS, wxFONTSTYLE_NORMAL,
+  wxFont baseFont(fontSizePx, wxFONTFAMILY_SWISS, wxFONTSTYLE_NORMAL,
                   wxFONTWEIGHT_NORMAL);
   wxFont headerFont = baseFont;
   headerFont.SetWeight(wxFONTWEIGHT_BOLD);
@@ -1537,16 +1544,20 @@ wxImage LayoutViewerPanel::BuildLegendImage(
   int lineHeight = 0;
   int lineWidth = 0;
   dc.GetTextExtent("Hg", &lineWidth, &lineHeight);
-  lineHeight += 2;
+  lineHeight += std::max(1, static_cast<int>(std::lround(2.0 * renderZoom)));
 
   int symbolSize = std::max(4, lineHeight - 2);
-  int xSymbol = padding;
-  int xCount = xSymbol + symbolSize + columnGap;
-  int xType = xCount + maxCountWidth + columnGap;
-  int xCh = size.GetWidth() - padding - maxChWidth;
-  if (xCh < xType + columnGap)
-    xCh = xType + columnGap;
-  int typeWidth = std::max(0, xCh - xType - columnGap);
+  const int paddingPx =
+      std::max(0, static_cast<int>(std::lround(padding * renderZoom)));
+  const int columnGapPx =
+      std::max(0, static_cast<int>(std::lround(columnGap * renderZoom)));
+  int xSymbol = paddingPx;
+  int xCount = xSymbol + symbolSize + columnGapPx;
+  int xType = xCount + maxCountWidth + columnGapPx;
+  int xCh = size.GetWidth() - paddingPx - maxChWidth;
+  if (xCh < xType + columnGapPx)
+    xCh = xType + columnGapPx;
+  int typeWidth = std::max(0, xCh - xType - columnGapPx);
 
   auto trimTextToWidth = [&](const wxString &text, int maxWidth) {
     if (maxWidth <= 0)
@@ -1566,7 +1577,7 @@ wxImage LayoutViewerPanel::BuildLegendImage(
     return trimmed + ellipsis;
   };
 
-  int y = padding;
+  int y = paddingPx;
   dc.SetFont(headerFont);
   dc.DrawText("Count", xCount, y);
   dc.DrawText("Type", xType, y);
@@ -1574,13 +1585,13 @@ wxImage LayoutViewerPanel::BuildLegendImage(
 
   y += lineHeight;
   dc.SetPen(wxPen(wxColour(200, 200, 200)));
-  dc.DrawLine(padding, y, size.GetWidth() - padding, y);
-  y += 2;
+  dc.DrawLine(paddingPx, y, size.GetWidth() - paddingPx, y);
+  y += std::max(1, static_cast<int>(std::lround(2.0 * renderZoom)));
 
   dc.SetFont(baseFont);
   LegendSymbolBackend backend(dc);
   for (const auto &item : items) {
-    if (y + lineHeight > size.GetHeight() - padding)
+    if (y + lineHeight > size.GetHeight() - paddingPx)
       break;
     wxString countText = wxString::Format("%d", item.count);
     wxString typeText =
