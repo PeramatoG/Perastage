@@ -960,6 +960,8 @@ Viewer2DExportResult ExportViewer2DToPdf(
   }
   std::vector<PdfObject> objects;
   objects.push_back({"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"});
+  objects.push_back(
+      {"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>"});
 
   Mapping symbolMapping{};
   symbolMapping.scale = scale;
@@ -1469,8 +1471,9 @@ Viewer2DExportResult ExportLayoutToPdf(
     double typeWidth = std::max(0.0, xCh - xType - columnGap);
 
     auto appendText = [&](double x, double y, const std::string &text,
-                          double r, double g, double b) {
-      contentStream << "BT\n/F1 " << formatter.Format(fontSize) << " Tf\n"
+                          const char *fontKey, double r, double g, double b) {
+      contentStream << "BT\n/" << fontKey << ' ' << formatter.Format(fontSize)
+                    << " Tf\n"
                     << formatter.Format(r) << ' ' << formatter.Format(g) << ' '
                     << formatter.Format(b) << " rg\n"
                     << formatter.Format(x) << ' '
@@ -1479,9 +1482,11 @@ Viewer2DExportResult ExportLayoutToPdf(
     };
 
     double y = frameY + frameH - padding - fontSize;
-    appendText(xCount, y, "Count", 0.08, 0.08, 0.08);
-    appendText(xType, y, "Type", 0.08, 0.08, 0.08);
-    appendText(xCh, y, "Ch Count", 0.08, 0.08, 0.08);
+    // Use a bold PDF font for legend headers to keep emphasis consistent with
+    // the UI and avoid diverging header styling between PDF and on-screen views.
+    appendText(xCount, y, "Count", "F2", 0.08, 0.08, 0.08);
+    appendText(xType, y, "Type", "F2", 0.08, 0.08, 0.08);
+    appendText(xCh, y, "Ch Count", "F2", 0.08, 0.08, 0.08);
 
     const double lineHeight = fontSize + 2.0;
     const double separatorY = y - 2.0;
@@ -1500,9 +1505,9 @@ Viewer2DExportResult ExportLayoutToPdf(
       std::string typeText = trimTextToWidth(item.typeName, typeWidth, fontSize);
       std::string chText =
           item.channelCount ? std::to_string(*item.channelCount) : "-";
-      appendText(xCount, y, countText, 0.08, 0.08, 0.08);
-      appendText(xType, y, typeText, 0.08, 0.08, 0.08);
-      appendText(xCh, y, chText, 0.08, 0.08, 0.08);
+      appendText(xCount, y, countText, "F1", 0.08, 0.08, 0.08);
+      appendText(xType, y, typeText, "F1", 0.08, 0.08, 0.08);
+      appendText(xCh, y, chText, "F1", 0.08, 0.08, 0.08);
       y -= lineHeight;
     }
 
@@ -1534,7 +1539,7 @@ Viewer2DExportResult ExportLayoutToPdf(
   objects.push_back({contentObj.str()});
 
   std::ostringstream resources;
-  resources << "<< /Font << /F1 1 0 R >>";
+  resources << "<< /Font << /F1 1 0 R /F2 2 0 R >>";
   if (!xObjectNameIds.empty()) {
     resources << " /XObject << ";
     for (const auto &entry : xObjectNameIds) {
