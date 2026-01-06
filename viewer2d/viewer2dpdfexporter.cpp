@@ -2024,6 +2024,10 @@ Viewer2DExportResult ExportLayoutToPdf(
                   << formatter.Format(group.frameY) << ' '
                   << formatter.Format(group.frameW) << ' '
                   << formatter.Format(group.frameH) << " re W n\n";
+    contentStream << "1 1 1 rg " << formatter.Format(group.frameX) << ' '
+                  << formatter.Format(group.frameY) << ' '
+                  << formatter.Format(group.frameW) << ' '
+                  << formatter.Format(group.frameH) << " re f\n";
     contentStream << RenderCommandsToStream(group.commands.commands,
                                             group.commands.metadata,
                                             group.commands.sources,
