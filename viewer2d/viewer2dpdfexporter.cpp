@@ -1561,7 +1561,7 @@ Viewer2DExportResult ExportLayoutToPdf(
     const double availableHeight = frameH - padding * 2.0;
     double fontSize =
         totalRows > 0 ? (availableHeight / totalRows) - 2.0 : 10.0;
-    fontSize = std::clamp(fontSize, 6.0, 14.0);
+    fontSize = std::clamp(fontSize, 6.0, 72.0);
 
     double maxCountWidth = measureTextWidth("Count", fontSize);
     double maxChWidth = measureTextWidth("Ch Count", fontSize);
