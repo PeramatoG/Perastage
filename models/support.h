@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <array>
 #include <cctype>
+#include <charconv>
 #include <string>
 #include "types.h"
 
@@ -61,10 +62,13 @@ inline std::string NormalizeHoistFunction(const std::string &rawValue) {
     if (trimmed.empty())
         return "Lighting";
 
-    try {
-        if (std::stod(trimmed) == 0.0)
+    double parsed = 0.0;
+    auto begin = trimmed.data();
+    auto end = trimmed.data() + trimmed.size();
+    auto result = std::from_chars(begin, end, parsed);
+    if (result.ec == std::errc{} && result.ptr == end) {
+        if (parsed == 0.0)
             return "Lighting";
-    } catch (...) {
     }
 
     auto lower = trimmed;
@@ -81,4 +85,3 @@ inline std::string NormalizeHoistFunction(const std::string &rawValue) {
 
     return trimmed;
 }
-

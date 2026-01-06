@@ -24,6 +24,7 @@
 #include "trusstablepanel.h"
 #include "viewer3dpanel.h"
 #include <algorithm>
+#include <charconv>
 #include <cctype>
 #include <exception>
 #include <sstream>
@@ -211,6 +212,22 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
           clearSel ? std::vector<std::string>()
                    : (fixtures ? cfg.GetSelectedFixtures()
                                : cfg.GetSelectedTrusses());
+      auto parseId = [&](const std::string &token, int &value) {
+        if (token.empty()) {
+          AppendMessage("Invalid selection id: empty token");
+          return false;
+        }
+        auto begin = token.data();
+        auto end = token.data() + token.size();
+        auto result = std::from_chars(begin, end, value);
+        if (result.ec != std::errc{} || result.ptr != end) {
+          AppendMessage(
+              wxString::Format("Invalid selection id: %s",
+                               wxString::FromUTF8(token)));
+          return false;
+        }
+        return true;
+      };
       auto addId = [&](int id) {
         std::string uid;
         if (fixtures) {
@@ -257,10 +274,14 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
           ++i;
           continue;
         }
-        int a = std::stoi(tok);
+        int a = 0;
+        if (!parseId(tok, a))
+          return;
         if (i + 1 < tokens.size() && tokens[i + 1] != "+" &&
             tokens[i + 1] != "-") {
-          int b = std::stoi(tokens[i + 1]);
+          int b = 0;
+          if (!parseId(tokens[i + 1], b))
+            return;
           if (a > b)
             std::swap(a, b);
           for (int n = a; n <= b; ++n) {
