@@ -494,7 +494,8 @@ constexpr int kHandleSizePx = 10;
 constexpr int kHandleHalfPx = kHandleSizePx / 2;
 constexpr int kHandleHoverPadPx = 6;
 constexpr int kMinFrameSize = 24;
-constexpr int kLegendSymbolSizePx = 160;
+constexpr int kLegendSymbolSizePx = 106;
+constexpr double kLegendFontScale = 2.0 / 3.0;
 constexpr int kEditMenuId = wxID_HIGHEST + 490;
 constexpr int kDeleteMenuId = wxID_HIGHEST + 491;
 constexpr int kDeleteLegendMenuId = wxID_HIGHEST + 492;
@@ -1808,7 +1809,7 @@ wxImage LayoutViewerPanel::BuildLegendImage(
 
   const int padding = 8;
   const int columnGap = 8;
-  constexpr double kLegendLineSpacingScale = 0.9;
+  constexpr double kLegendLineSpacingScale = 0.8;
   const int totalRows = static_cast<int>(items.size()) + 1;
   const int baseHeight = logicalSize.GetHeight() > 0 ? logicalSize.GetHeight()
                                                      : size.GetHeight();
@@ -1819,6 +1820,7 @@ wxImage LayoutViewerPanel::BuildLegendImage(
       totalRows > 0 ? (static_cast<double>(availableHeight) / totalRows) - 2.0
                     : 10.0;
   fontSize = std::clamp(fontSize, 6.0, 14.0);
+  fontSize *= kLegendFontScale;
   const int fontSizePx =
       std::max(1, static_cast<int>(std::lround(fontSize * renderZoom)));
 

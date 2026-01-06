@@ -50,7 +50,8 @@ constexpr float PDF_TEXT_ASCENT_FACTOR = 0.718f;
 // Complements the ascent factor using Helvetica's 207 unit descent as a
 // fallback for text that does not provide explicit metrics.
 constexpr float PDF_TEXT_DESCENT_FACTOR = 0.207f;
-constexpr double kLegendSymbolSize = 160.0;
+constexpr double kLegendSymbolSize = 160.0 * 2.0 / 3.0;
+constexpr double kLegendFontScale = 2.0 / 3.0;
 
 static bool ShouldTraceLabelOrder() {
   static const bool enabled = std::getenv("PERASTAGE_TRACE_LABELS") != nullptr;
@@ -1567,13 +1568,14 @@ Viewer2DExportResult ExportLayoutToPdf(
 
     const double padding = 8.0;
     const double columnGap = 8.0;
-    constexpr double kLegendLineSpacingScale = 0.9;
+    constexpr double kLegendLineSpacingScale = 0.8;
     const double separatorGap = 2.0;
     const size_t totalRows = legend.items.size() + 1;
     const double availableHeight = frameH - padding * 2.0 - separatorGap;
     double fontSize =
         totalRows > 0 ? (availableHeight / totalRows) - 2.0 : 10.0;
     fontSize = std::clamp(fontSize, 6.0, 14.0);
+    fontSize *= kLegendFontScale;
 
     double maxCountWidth = measureTextWidth("Count", fontSize);
     double maxChWidth = measureTextWidth("Ch Count", fontSize);
