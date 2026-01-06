@@ -1575,10 +1575,8 @@ Viewer2DExportResult ExportLayoutToPdf(
                             measureTextWidth(chText, fontSize));
     }
 
-    constexpr double kLegendSymbolScale = 4.0;
-    const double baseLineHeight = fontSize + 2.0;
-    const double symbolSize = std::max(4.0, baseLineHeight * kLegendSymbolScale);
-    const double lineHeight = std::max(baseLineHeight, symbolSize + 2.0);
+    const double lineHeight = fontSize + 2.0;
+    const double symbolSize = std::max(4.0, lineHeight - 2.0);
     double xSymbol = frameX + padding;
     double xCount = xSymbol + symbolSize + columnGap;
     double xType = xCount + maxCountWidth + columnGap;
