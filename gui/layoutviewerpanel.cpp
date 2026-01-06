@@ -1856,9 +1856,12 @@ wxImage LayoutViewerPanel::BuildLegendImage(
   const int baseRowHeightPx =
       std::max(lineHeight,
                static_cast<int>(std::lround(rowHeight * renderZoom)));
-  const int symbolSize = std::max(
-      4, static_cast<int>(std::lround(baseRowHeightPx * kLegendSymbolScale)));
-  const int rowHeightPx = std::max(baseRowHeightPx, symbolSize);
+  const int desiredSymbolSize =
+      static_cast<int>(std::lround(baseRowHeightPx * kLegendSymbolScale));
+  const int maxSymbolSize = std::max(4, baseRowHeightPx);
+  const int symbolSize =
+      std::clamp(desiredSymbolSize, 4, maxSymbolSize);
+  const int rowHeightPx = baseRowHeightPx;
   const int paddingPx =
       std::max(0, static_cast<int>(std::lround(padding * renderZoom)));
   const int columnGapPx =
