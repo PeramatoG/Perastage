@@ -1845,12 +1845,12 @@ wxImage LayoutViewerPanel::BuildLegendImage(
     maxChWidth = std::max(maxChWidth, measureTextWidth(chText));
   }
 
-  int lineHeight = 0;
+  int textHeight = 0;
   int lineWidth = 0;
-  dc.GetTextExtent("Hg", &lineWidth, &lineHeight);
+  dc.GetTextExtent("Hg", &lineWidth, &textHeight);
   const int separatorGapPx =
       std::max(1, static_cast<int>(std::lround(separatorGap * renderZoom)));
-  lineHeight += separatorGapPx;
+  const int lineHeight = textHeight + separatorGapPx;
 
   const double rowHeight = totalRows > 0 ? availableHeight / totalRows : 0.0;
   const int baseRowHeightPx =
@@ -1892,10 +1892,12 @@ wxImage LayoutViewerPanel::BuildLegendImage(
   };
 
   int y = paddingPx;
+  const int textOffset =
+      std::max(0, (rowHeightPx - textHeight) / 2);
   dc.SetFont(headerFont);
-  dc.DrawText("Count", xCount, y);
-  dc.DrawText("Type", xType, y);
-  dc.DrawText("Ch Count", xCh, y);
+  dc.DrawText("Count", xCount, y + textOffset);
+  dc.DrawText("Type", xType, y + textOffset);
+  dc.DrawText("Ch Count", xCh, y + textOffset);
 
   y += rowHeightPx;
   dc.SetPen(wxPen(wxColour(200, 200, 200)));
@@ -1945,9 +1947,9 @@ wxImage LayoutViewerPanel::BuildLegendImage(
         }
       }
     }
-    dc.DrawText(countText, xCount, y);
-    dc.DrawText(typeText, xType, y);
-    dc.DrawText(chText, xCh, y);
+    dc.DrawText(countText, xCount, y + textOffset);
+    dc.DrawText(typeText, xType, y + textOffset);
+    dc.DrawText(chText, xCh, y + textOffset);
     y += rowHeightPx;
   }
 
