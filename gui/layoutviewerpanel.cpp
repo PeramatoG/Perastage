@@ -1998,6 +1998,7 @@ wxImage LayoutViewerPanel::BuildLegendImage(
 
   const int padding = 8;
   const int columnGap = 8;
+  const int symbolColumnGap = 4;
   constexpr double kLegendLineSpacingScale = 0.8;
   const int totalRows = static_cast<int>(items.size()) + 1;
   const int baseHeight = logicalSize.GetHeight() > 0 ? logicalSize.GetHeight()
@@ -2080,8 +2081,10 @@ wxImage LayoutViewerPanel::BuildLegendImage(
       std::max(0, static_cast<int>(std::lround(padding * renderZoom)));
   const int columnGapPx =
       std::max(0, static_cast<int>(std::lround(columnGap * renderZoom)));
+  const int symbolColumnGapPx =
+      std::max(0, static_cast<int>(std::lround(symbolColumnGap * renderZoom)));
   int xSymbol = paddingPx;
-  int xCount = xSymbol + symbolSlotSize + columnGapPx;
+  int xCount = xSymbol + symbolSlotSize + symbolColumnGapPx;
   int xType = xCount + maxCountWidth + columnGapPx;
   int xCh = size.GetWidth() - paddingPx - maxChWidth;
   if (xCh < xType + columnGapPx)
