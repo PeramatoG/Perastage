@@ -2062,9 +2062,9 @@ Viewer2DExportResult ExportLayoutToPdf(
 
     const double padding = 8.0;
     const double columnGap = 8.0;
-    const double symbolColumnGap = 4.0;
+    const double symbolColumnGap = 2.0;
     constexpr double kLegendLineSpacingScale = 0.8;
-    constexpr double kLegendSymbolColumnScale = 1.0;
+    constexpr double kLegendSymbolColumnScale = 0.8;
     const double separatorGap = 2.0;
     const size_t totalRows = legend.items.size() + 1;
     const double availableHeight = frameH - padding * 2.0 - separatorGap;
