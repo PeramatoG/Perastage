@@ -1996,7 +1996,10 @@ wxImage LayoutViewerPanel::BuildLegendImage(
   dc.SetTextForeground(wxColour(20, 20, 20));
   dc.SetPen(*wxTRANSPARENT_PEN);
 
-  const int padding = 8;
+  const int paddingLeft = 4;
+  const int paddingRight = 4;
+  const int paddingTop = 6;
+  const int paddingBottom = 2;
   const int columnGap = 8;
   const int symbolColumnGap = 2;
   constexpr double kLegendLineSpacingScale = 0.8;
@@ -2005,8 +2008,8 @@ wxImage LayoutViewerPanel::BuildLegendImage(
   const int baseHeight = logicalSize.GetHeight() > 0 ? logicalSize.GetHeight()
                                                      : size.GetHeight();
   const double separatorGap = 2.0;
-  const double availableHeight =
-      static_cast<double>(baseHeight) - padding * 2 - separatorGap;
+  const double availableHeight = static_cast<double>(baseHeight) -
+                                 paddingTop - paddingBottom - separatorGap;
   double fontSize =
       totalRows > 0 ? (static_cast<double>(availableHeight) / totalRows) - 2.0
                     : 10.0;
@@ -2029,7 +2032,7 @@ wxImage LayoutViewerPanel::BuildLegendImage(
 
   dc.SetFont(baseFont);
   int maxCountWidth = measureTextWidth("Count");
-  int maxChWidth = measureTextWidth("Ch Count");
+  int maxChWidth = measureTextWidth("Ch");
   for (const auto &item : items) {
     maxCountWidth =
         std::max(maxCountWidth, measureTextWidth(wxString::Format("%d", item.count)));
@@ -2079,16 +2082,22 @@ wxImage LayoutViewerPanel::BuildLegendImage(
           (maxSymbolDrawWidth > 0.0 ? maxSymbolDrawWidth : symbolSize) *
           kLegendSymbolColumnScale)));
   const int rowHeightPx = baseRowHeightPx;
-  const int paddingPx =
-      std::max(0, static_cast<int>(std::lround(padding * renderZoom)));
+  const int paddingLeftPx =
+      std::max(0, static_cast<int>(std::lround(paddingLeft * renderZoom)));
+  const int paddingRightPx =
+      std::max(0, static_cast<int>(std::lround(paddingRight * renderZoom)));
+  const int paddingTopPx =
+      std::max(0, static_cast<int>(std::lround(paddingTop * renderZoom)));
+  const int paddingBottomPx =
+      std::max(0, static_cast<int>(std::lround(paddingBottom * renderZoom)));
   const int columnGapPx =
       std::max(0, static_cast<int>(std::lround(columnGap * renderZoom)));
   const int symbolColumnGapPx =
       std::max(0, static_cast<int>(std::lround(symbolColumnGap * renderZoom)));
-  int xSymbol = paddingPx;
+  int xSymbol = paddingLeftPx;
   int xCount = xSymbol + symbolSlotSize + symbolColumnGapPx;
   int xType = xCount + maxCountWidth + columnGapPx;
-  int xCh = size.GetWidth() - paddingPx - maxChWidth;
+  int xCh = size.GetWidth() - paddingRightPx - maxChWidth;
   if (xCh < xType + columnGapPx)
     xCh = xType + columnGapPx;
   int typeWidth = std::max(0, xCh - xType - columnGapPx);
@@ -2111,23 +2120,23 @@ wxImage LayoutViewerPanel::BuildLegendImage(
     return trimmed + ellipsis;
   };
 
-  int y = paddingPx;
+  int y = paddingTopPx;
   const int textOffset =
       std::max(0, (rowHeightPx - textHeight) / 2);
   dc.SetFont(headerFont);
   dc.DrawText("Count", xCount, y + textOffset);
   dc.DrawText("Type", xType, y + textOffset);
-  dc.DrawText("Ch Count", xCh, y + textOffset);
+  dc.DrawText("Ch", xCh, y + textOffset);
 
   y += rowHeightPx;
   dc.SetPen(wxPen(wxColour(200, 200, 200)));
-  dc.DrawLine(paddingPx, y, size.GetWidth() - paddingPx, y);
+  dc.DrawLine(paddingLeftPx, y, size.GetWidth() - paddingRightPx, y);
   y += separatorGapPx;
 
   dc.SetFont(baseFont);
   LegendSymbolBackend backend(dc);
   for (const auto &item : items) {
-    if (y + rowHeightPx > size.GetHeight() - paddingPx)
+    if (y + rowHeightPx > size.GetHeight() - paddingBottomPx)
       break;
     wxString countText = wxString::Format("%d", item.count);
     wxString typeText =
