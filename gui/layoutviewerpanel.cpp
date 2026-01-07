@@ -2051,9 +2051,10 @@ wxImage LayoutViewerPanel::BuildLegendImage(
                                             kLegendLineSpacingScale)));
   const int desiredSymbolSize =
       static_cast<int>(std::lround(kLegendSymbolSizePx * renderZoom));
-  const int symbolSize = std::max(4, desiredSymbolSize);
-  const int symbolSlotSize = symbolSize;
   const int rowHeightPx = baseRowHeightPx;
+  const int symbolSlotSize = rowHeightPx;
+  const int symbolSize =
+      std::max(4, std::min(desiredSymbolSize, symbolSlotSize));
   const int paddingPx =
       std::max(0, static_cast<int>(std::lround(padding * renderZoom)));
   const int columnGapPx =
