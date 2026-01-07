@@ -2092,6 +2092,10 @@ Viewer2DExportResult ExportLayoutToPdf(
           maxChWidth,
           MeasureTextWidth(chText, fontSize, fontCatalog.regular));
     }
+    const double leftTrim = MeasureTextWidth("000", fontSize, fontCatalog.regular);
+    const double chExtraWidth =
+        MeasureTextWidth("0", fontSize, fontCatalog.regular);
+    maxChWidth += chExtraWidth;
 
     const double rowHeightCandidate =
         totalRows > 0 ? (availableHeight / totalRows) : 0.0;
@@ -2124,7 +2128,7 @@ Viewer2DExportResult ExportLayoutToPdf(
         std::max(rowHeightCandidate * kLegendLineSpacingScale, lineHeight);
     const double textOffset =
         std::max(0.0, (rowHeight - textHeightEstimate) * 0.5);
-    double xSymbol = frameX + paddingLeft;
+    double xSymbol = frameX + paddingLeft - leftTrim;
     double xCount = xSymbol + symbolSlotSize + symbolColumnGap;
     double xType = xCount + maxCountWidth + columnGap;
     double xCh = frameX + frameW - paddingRight - maxChWidth;
@@ -2156,7 +2160,7 @@ Viewer2DExportResult ExportLayoutToPdf(
     const double separatorY = rowTop - rowHeight;
     contentStream << formatter.Format(0.78) << ' ' << formatter.Format(0.78)
                   << ' ' << formatter.Format(0.78) << " RG 0.5 w "
-                  << formatter.Format(frameX + paddingLeft) << ' '
+                  << formatter.Format(xSymbol) << ' '
                   << formatter.Format(separatorY) << " m "
                   << formatter.Format(frameX + frameW - paddingRight) << ' '
                   << formatter.Format(separatorY) << " l S\n";

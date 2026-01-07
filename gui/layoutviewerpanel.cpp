@@ -2041,6 +2041,9 @@ wxImage LayoutViewerPanel::BuildLegendImage(
                           : wxString("-");
     maxChWidth = std::max(maxChWidth, measureTextWidth(chText));
   }
+  const int leftTrimPx = measureTextWidth("000");
+  const int chExtraWidthPx = measureTextWidth("0");
+  maxChWidth += chExtraWidthPx;
 
   int textHeight = 0;
   int lineWidth = 0;
@@ -2094,7 +2097,7 @@ wxImage LayoutViewerPanel::BuildLegendImage(
       std::max(0, static_cast<int>(std::lround(columnGap * renderZoom)));
   const int symbolColumnGapPx =
       std::max(0, static_cast<int>(std::lround(symbolColumnGap * renderZoom)));
-  int xSymbol = paddingLeftPx;
+  int xSymbol = paddingLeftPx - leftTrimPx;
   int xCount = xSymbol + symbolSlotSize + symbolColumnGapPx;
   int xType = xCount + maxCountWidth + columnGapPx;
   int xCh = size.GetWidth() - paddingRightPx - maxChWidth;
@@ -2130,7 +2133,7 @@ wxImage LayoutViewerPanel::BuildLegendImage(
 
   y += rowHeightPx;
   dc.SetPen(wxPen(wxColour(200, 200, 200)));
-  dc.DrawLine(paddingLeftPx, y, size.GetWidth() - paddingRightPx, y);
+  dc.DrawLine(xSymbol, y, size.GetWidth() - paddingRightPx, y);
   y += separatorGapPx;
 
   dc.SetFont(baseFont);
