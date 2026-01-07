@@ -2000,7 +2000,7 @@ wxImage LayoutViewerPanel::BuildLegendImage(
   const int columnGap = 8;
   const int symbolColumnGap = 4;
   constexpr double kLegendLineSpacingScale = 0.8;
-  constexpr double kLegendSymbolColumnScale = 1.0 / 3.0;
+  constexpr double kLegendSymbolColumnScale = 1.0;
   const int totalRows = static_cast<int>(items.size()) + 1;
   const int baseHeight = logicalSize.GetHeight() > 0 ? logicalSize.GetHeight()
                                                      : size.GetHeight();
