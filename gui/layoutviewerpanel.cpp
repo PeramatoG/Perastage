@@ -2052,7 +2052,29 @@ wxImage LayoutViewerPanel::BuildLegendImage(
   const int desiredSymbolSize =
       static_cast<int>(std::lround(kLegendSymbolSizePx * renderZoom));
   const int symbolSize = std::max(4, desiredSymbolSize);
-  const int symbolSlotSize = symbolSize;
+  double maxSymbolDrawWidth = 0.0;
+  if (symbols) {
+    for (const auto &item : items) {
+      if (item.symbolKey.empty())
+        continue;
+      const SymbolDefinition *symbol =
+          FindSymbolDefinition(symbols, item.symbolKey);
+      if (!symbol)
+        continue;
+      const float symbolW = symbol->bounds.max.x - symbol->bounds.min.x;
+      const float symbolH = symbol->bounds.max.y - symbol->bounds.min.y;
+      if (symbolW <= 0.0f || symbolH <= 0.0f)
+        continue;
+      double scale = std::min(static_cast<double>(symbolSize) / symbolW,
+                              static_cast<double>(symbolSize) / symbolH);
+      double drawW = symbolW * scale;
+      maxSymbolDrawWidth = std::max(maxSymbolDrawWidth, drawW);
+    }
+  }
+  const int symbolSlotSize =
+      maxSymbolDrawWidth > 0.0
+          ? std::max(4, static_cast<int>(std::ceil(maxSymbolDrawWidth)))
+          : symbolSize;
   const int rowHeightPx = baseRowHeightPx;
   const int paddingPx =
       std::max(0, static_cast<int>(std::lround(padding * renderZoom)));
