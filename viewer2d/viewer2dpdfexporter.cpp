@@ -2062,6 +2062,7 @@ Viewer2DExportResult ExportLayoutToPdf(
 
     const double padding = 8.0;
     const double columnGap = 8.0;
+    const double symbolColumnGap = 4.0;
     constexpr double kLegendLineSpacingScale = 0.8;
     const double separatorGap = 2.0;
     const size_t totalRows = legend.items.size() + 1;
@@ -2098,7 +2099,7 @@ Viewer2DExportResult ExportLayoutToPdf(
     const double textOffset =
         std::max(0.0, (rowHeight - textHeightEstimate) * 0.5);
     double xSymbol = frameX + padding;
-    double xCount = xSymbol + symbolSlotSize + columnGap;
+    double xCount = xSymbol + symbolSlotSize + symbolColumnGap;
     double xType = xCount + maxCountWidth + columnGap;
     double xCh = frameX + frameW - padding - maxChWidth;
     if (xCh < xType + columnGap)
