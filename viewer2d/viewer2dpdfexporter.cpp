@@ -2064,6 +2064,7 @@ Viewer2DExportResult ExportLayoutToPdf(
     const double columnGap = 8.0;
     const double symbolColumnGap = 4.0;
     constexpr double kLegendLineSpacingScale = 0.8;
+    constexpr double kLegendSymbolColumnScale = 1.0 / 3.0;
     const double separatorGap = 2.0;
     const size_t totalRows = legend.items.size() + 1;
     const double availableHeight = frameH - padding * 2.0 - separatorGap;
@@ -2093,7 +2094,28 @@ Viewer2DExportResult ExportLayoutToPdf(
     const double textHeightEstimate = fontSize * 1.2;
     const double lineHeight = textHeightEstimate + separatorGap;
     const double symbolSize = std::max(4.0, kLegendSymbolSize);
-    const double symbolSlotSize = symbolSize;
+    double maxSymbolDrawWidth = 0.0;
+    for (const auto &item : legend.items) {
+      if (item.symbolKey.empty())
+        continue;
+      const SymbolDefinitionSnapshot *legendSymbols =
+          legend.symbolSnapshot ? legend.symbolSnapshot.get()
+                                : symbolSnapshot.get();
+      const SymbolDefinition *symbol =
+          FindSymbolDefinition(legendSymbols, item.symbolKey);
+      if (!symbol)
+        continue;
+      const double symbolW = symbol->bounds.max.x - symbol->bounds.min.x;
+      const double symbolH = symbol->bounds.max.y - symbol->bounds.min.y;
+      if (symbolW <= 0.0 || symbolH <= 0.0)
+        continue;
+      double scale = std::min(symbolSize / symbolW, symbolSize / symbolH);
+      double drawW = symbolW * scale;
+      maxSymbolDrawWidth = std::max(maxSymbolDrawWidth, drawW);
+    }
+    const double symbolSlotSize =
+        std::max(4.0, (maxSymbolDrawWidth > 0.0 ? maxSymbolDrawWidth : symbolSize) *
+                          kLegendSymbolColumnScale);
     const double rowHeight =
         std::max(rowHeightCandidate * kLegendLineSpacingScale, lineHeight);
     const double textOffset =
@@ -2166,7 +2188,7 @@ Viewer2DExportResult ExportLayoutToPdf(
               double rowBottom = rowTop - rowHeight;
               double symbolBoxY = rowBottom + (rowHeight - symbolSize) * 0.5;
               double symbolOffsetX =
-                  xSymbol + (symbolSlotSize - drawW) * 0.5 -
+                  xSymbol + (symbolSlotSize - drawW) -
                   symbol->bounds.min.x * scale;
               double symbolOffsetY =
                   symbolBoxY + (symbolSize - drawH) * 0.5 -

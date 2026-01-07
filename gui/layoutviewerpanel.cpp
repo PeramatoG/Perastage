@@ -2000,6 +2000,7 @@ wxImage LayoutViewerPanel::BuildLegendImage(
   const int columnGap = 8;
   const int symbolColumnGap = 4;
   constexpr double kLegendLineSpacingScale = 0.8;
+  constexpr double kLegendSymbolColumnScale = 1.0 / 3.0;
   const int totalRows = static_cast<int>(items.size()) + 1;
   const int baseHeight = logicalSize.GetHeight() > 0 ? logicalSize.GetHeight()
                                                      : size.GetHeight();
@@ -2072,10 +2073,11 @@ wxImage LayoutViewerPanel::BuildLegendImage(
       maxSymbolDrawWidth = std::max(maxSymbolDrawWidth, drawW);
     }
   }
-  const int symbolSlotSize =
-      maxSymbolDrawWidth > 0.0
-          ? std::max(4, static_cast<int>(std::ceil(maxSymbolDrawWidth)))
-          : symbolSize;
+  const int symbolSlotSize = std::max(
+      4,
+      static_cast<int>(std::ceil(
+          (maxSymbolDrawWidth > 0.0 ? maxSymbolDrawWidth : symbolSize) *
+          kLegendSymbolColumnScale)));
   const int rowHeightPx = baseRowHeightPx;
   const int paddingPx =
       std::max(0, static_cast<int>(std::lround(padding * renderZoom)));
@@ -2146,7 +2148,7 @@ wxImage LayoutViewerPanel::BuildLegendImage(
           double drawW = symbolW * scale;
           double drawH = symbolH * scale;
           double symbolDrawLeft =
-              xSymbol + (static_cast<double>(symbolSlotSize) - drawW) * 0.5;
+              xSymbol + (static_cast<double>(symbolSlotSize) - drawW);
           double symbolDrawTop =
               y + (static_cast<double>(rowHeightPx) - drawH) * 0.5;
 
