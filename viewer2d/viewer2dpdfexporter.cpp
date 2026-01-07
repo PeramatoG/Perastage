@@ -2060,14 +2060,18 @@ Viewer2DExportResult ExportLayoutToPdf(
                   << formatter.Format(frameW) << ' '
                   << formatter.Format(frameH) << " re f\n";
 
-    const double padding = 8.0;
+    const double paddingLeft = 4.0;
+    const double paddingRight = 4.0;
+    const double paddingTop = 6.0;
+    const double paddingBottom = 2.0;
     const double columnGap = 8.0;
     const double symbolColumnGap = 2.0;
     constexpr double kLegendLineSpacingScale = 0.8;
     constexpr double kLegendSymbolColumnScale = 0.8;
     const double separatorGap = 2.0;
     const size_t totalRows = legend.items.size() + 1;
-    const double availableHeight = frameH - padding * 2.0 - separatorGap;
+    const double availableHeight =
+        frameH - paddingTop - paddingBottom - separatorGap;
     double fontSize =
         totalRows > 0 ? (availableHeight / totalRows) - 2.0 : 10.0;
     fontSize = std::clamp(fontSize, 6.0, 14.0);
@@ -2076,7 +2080,7 @@ Viewer2DExportResult ExportLayoutToPdf(
     double maxCountWidth =
         MeasureTextWidth("Count", fontSize, fontCatalog.bold);
     double maxChWidth =
-        MeasureTextWidth("Ch Count", fontSize, fontCatalog.bold);
+        MeasureTextWidth("Ch", fontSize, fontCatalog.bold);
     for (const auto &item : legend.items) {
       maxCountWidth = std::max(
           maxCountWidth,
@@ -2120,10 +2124,10 @@ Viewer2DExportResult ExportLayoutToPdf(
         std::max(rowHeightCandidate * kLegendLineSpacingScale, lineHeight);
     const double textOffset =
         std::max(0.0, (rowHeight - textHeightEstimate) * 0.5);
-    double xSymbol = frameX + padding;
+    double xSymbol = frameX + paddingLeft;
     double xCount = xSymbol + symbolSlotSize + symbolColumnGap;
     double xType = xCount + maxCountWidth + columnGap;
-    double xCh = frameX + frameW - padding - maxChWidth;
+    double xCh = frameX + frameW - paddingRight - maxChWidth;
     if (xCh < xType + columnGap)
       xCh = xType + columnGap;
     double typeWidth = std::max(0.0, xCh - xType - columnGap);
@@ -2139,27 +2143,27 @@ Viewer2DExportResult ExportLayoutToPdf(
                     << escapeText(text) << ") Tj\nET\n";
     };
 
-    double rowTop = frameY + frameH - padding;
+    double rowTop = frameY + frameH - paddingTop;
     // Use a bold PDF font for legend headers to keep emphasis consistent with
     // the UI and avoid diverging header styling between PDF and on-screen views.
     appendText(xCount, rowTop - textOffset - fontSize, "Count", "F2", 0.08,
                0.08, 0.08);
     appendText(xType, rowTop - textOffset - fontSize, "Type", "F2", 0.08, 0.08,
                0.08);
-    appendText(xCh, rowTop - textOffset - fontSize, "Ch Count", "F2", 0.08,
+    appendText(xCh, rowTop - textOffset - fontSize, "Ch", "F2", 0.08,
                0.08, 0.08);
 
     const double separatorY = rowTop - rowHeight;
     contentStream << formatter.Format(0.78) << ' ' << formatter.Format(0.78)
                   << ' ' << formatter.Format(0.78) << " RG 0.5 w "
-                  << formatter.Format(frameX + padding) << ' '
+                  << formatter.Format(frameX + paddingLeft) << ' '
                   << formatter.Format(separatorY) << " m "
-                  << formatter.Format(frameX + frameW - padding) << ' '
+                  << formatter.Format(frameX + frameW - paddingRight) << ' '
                   << formatter.Format(separatorY) << " l S\n";
 
     rowTop = separatorY - separatorGap;
     for (const auto &item : legend.items) {
-      if (rowTop - rowHeight < frameY + padding)
+      if (rowTop - rowHeight < frameY + paddingBottom)
         break;
       const std::string countText = std::to_string(item.count);
       std::string typeText =
