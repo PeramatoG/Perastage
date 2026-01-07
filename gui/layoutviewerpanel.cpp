@@ -2147,8 +2147,10 @@ wxImage LayoutViewerPanel::BuildLegendImage(
                        static_cast<double>(symbolSize) / symbolH);
           double drawW = symbolW * scale;
           double drawH = symbolH * scale;
-          double symbolDrawLeft =
-              xSymbol + (static_cast<double>(symbolSlotSize) - drawW);
+          double symbolInset =
+              std::max(0.0,
+                       (static_cast<double>(symbolSlotSize) - drawW) * 0.5);
+          double symbolDrawLeft = xSymbol + symbolInset;
           double symbolDrawTop =
               y + (static_cast<double>(rowHeightPx) - drawH) * 0.5;
 
