@@ -2187,9 +2187,10 @@ Viewer2DExportResult ExportLayoutToPdf(
               double drawH = symbolH * scale;
               double rowBottom = rowTop - rowHeight;
               double symbolBoxY = rowBottom + (rowHeight - symbolSize) * 0.5;
+              double symbolInset =
+                  std::max(0.0, (symbolSlotSize - drawW) * 0.5);
               double symbolOffsetX =
-                  xSymbol + (symbolSlotSize - drawW) -
-                  symbol->bounds.min.x * scale;
+                  xSymbol + symbolInset - symbol->bounds.min.x * scale;
               double symbolOffsetY =
                   symbolBoxY + (symbolSize - drawH) * 0.5 -
                   symbol->bounds.min.y * scale;
