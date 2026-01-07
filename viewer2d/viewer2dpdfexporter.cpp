@@ -2091,11 +2091,10 @@ Viewer2DExportResult ExportLayoutToPdf(
         totalRows > 0 ? (availableHeight / totalRows) : 0.0;
     const double textHeightEstimate = fontSize * 1.2;
     const double lineHeight = textHeightEstimate + separatorGap;
+    const double symbolSize = std::max(4.0, kLegendSymbolSize);
+    const double symbolSlotSize = symbolSize;
     const double rowHeight =
         std::max(rowHeightCandidate * kLegendLineSpacingScale, lineHeight);
-    const double symbolSlotSize = rowHeight;
-    const double symbolSize =
-        std::max(4.0, std::min(kLegendSymbolSize, symbolSlotSize));
     const double textOffset =
         std::max(0.0, (rowHeight - textHeightEstimate) * 0.5);
     double xSymbol = frameX + padding;
