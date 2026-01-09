@@ -46,6 +46,24 @@ find_package(nanovg CONFIG REQUIRED)
 find_package(podofo CONFIG REQUIRED)
 find_package(ZLIB REQUIRED)
 
+function(perastage_ensure_linker_language target_name language)
+    if(TARGET ${target_name})
+        get_target_property(perastage_linker_language ${target_name} LINKER_LANGUAGE)
+        if(NOT perastage_linker_language)
+            set_target_properties(${target_name} PROPERTIES LINKER_LANGUAGE ${language})
+        endif()
+    endif()
+endfunction()
+
+# Some package configs define imported targets without explicit linker language.
+# Ensure CMake can generate link rules for these dependency targets.
+perastage_ensure_linker_language(CURL::libcurl C)
+perastage_ensure_linker_language(CURL::libcurl_shared C)
+perastage_ensure_linker_language(GLEW::GLEW C)
+perastage_ensure_linker_language(podofo::podofo CXX)
+perastage_ensure_linker_language(podofo::podofo_shared CXX)
+perastage_ensure_linker_language(tinyxml2::tinyxml2 CXX)
+
 # Gather source files
 file(GLOB_RECURSE SRC_FILES CONFIGURE_DEPENDS
     ${CMAKE_SOURCE_DIR}/main.cpp
