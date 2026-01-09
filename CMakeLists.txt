@@ -115,6 +115,23 @@ if(WIN32)
     include(InstallRequiredSystemLibraries)
     install(FILES $<TARGET_RUNTIME_DLLS:${PROJECT_NAME}> DESTINATION .)
     install(FILES $<TARGET_RUNTIME_DLLS:${PROJECT_NAME}> DESTINATION . COMPONENT Runtime)
+
+    set(PERASTAGE_WX_DLLS "")
+    foreach(wx_dir IN LISTS wxWidgets_LIBRARY_DIRS)
+        if(wx_dir)
+            list(APPEND PERASTAGE_WX_DLLS
+                "${wx_dir}/wxmsw*.dll"
+                "${wx_dir}/wxbase*.dll")
+            get_filename_component(wx_bin_dir "${wx_dir}/../bin" ABSOLUTE)
+            list(APPEND PERASTAGE_WX_DLLS
+                "${wx_bin_dir}/wxmsw*.dll"
+                "${wx_bin_dir}/wxbase*.dll")
+        endif()
+    endforeach()
+    file(GLOB PERASTAGE_WX_RUNTIME_DLLS CONFIGURE_DEPENDS ${PERASTAGE_WX_DLLS})
+    if(PERASTAGE_WX_RUNTIME_DLLS)
+        install(FILES ${PERASTAGE_WX_RUNTIME_DLLS} DESTINATION .)
+    endif()
 endif()
 
 if(CMAKE_CONFIGURATION_TYPES)
