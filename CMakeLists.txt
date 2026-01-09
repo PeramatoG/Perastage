@@ -122,6 +122,22 @@ set(PERASTAGE_IMPORT_DEPS
     ZLIB::ZLIB
 )
 
+function(perastage_append_runtime_dlls out_var target_name)
+    if(NOT TARGET ${target_name})
+        return()
+    endif()
+    get_target_property(perastage_target_type ${target_name} TYPE)
+    if(NOT perastage_target_type)
+        return()
+    endif()
+    if(perastage_target_type STREQUAL "SHARED_LIBRARY"
+        OR perastage_target_type STREQUAL "MODULE_LIBRARY"
+        OR perastage_target_type STREQUAL "EXECUTABLE")
+        list(APPEND ${out_var} $<TARGET_RUNTIME_DLLS:${target_name}>)
+        set(${out_var} "${${out_var}}" PARENT_SCOPE)
+    endif()
+endfunction()
+
 if(BUILD_TESTING)
     add_subdirectory(tests)
 endif()
@@ -221,7 +237,7 @@ if(WIN32)
     # libraries in Windows distributions (e.g. zlib, pcre2, jpeg).
     set(PERASTAGE_DEP_RUNTIME_DLLS "")
     foreach(dep IN LISTS PERASTAGE_IMPORT_DEPS)
-        list(APPEND PERASTAGE_DEP_RUNTIME_DLLS $<TARGET_RUNTIME_DLLS:${dep}>)
+        perastage_append_runtime_dlls(PERASTAGE_DEP_RUNTIME_DLLS ${dep})
     endforeach()
     list(REMOVE_DUPLICATES PERASTAGE_DEP_RUNTIME_DLLS)
 
