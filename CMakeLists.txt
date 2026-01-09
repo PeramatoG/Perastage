@@ -6,6 +6,8 @@ project(Perastage VERSION 1.0 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+include(CTest)
+
 # Find required packages
 find_package(wxWidgets REQUIRED COMPONENTS core base aui gl html)
 include(${wxWidgets_USE_FILE})
@@ -82,8 +84,60 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     ZLIB::ZLIB
 )
 
-enable_testing()
-add_subdirectory(tests)
+if(BUILD_TESTING)
+    add_subdirectory(tests)
+endif()
+
+install(TARGETS ${PROJECT_NAME} RUNTIME DESTINATION .)
+
+install(DIRECTORY ${CMAKE_SOURCE_DIR}/resources DESTINATION .)
+if(EXISTS "${CMAKE_SOURCE_DIR}/library")
+    install(DIRECTORY ${CMAKE_SOURCE_DIR}/library DESTINATION .)
+endif()
+if(EXISTS "${CMAKE_SOURCE_DIR}/licenses")
+    install(DIRECTORY ${CMAKE_SOURCE_DIR}/licenses DESTINATION .)
+endif()
+
+install(FILES
+    ${CMAKE_SOURCE_DIR}/LICENSE.txt
+    ${CMAKE_SOURCE_DIR}/THIRD_PARTY_LICENSES.md
+    ${CMAKE_SOURCE_DIR}/help.md
+    DESTINATION .
+    OPTIONAL
+)
+
+if(WIN32)
+    set(CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS_SKIP TRUE)
+    include(InstallRequiredSystemLibraries)
+    install(FILES $<TARGET_RUNTIME_DLLS:${PROJECT_NAME}> DESTINATION .)
+    install(FILES $<TARGET_RUNTIME_DLLS:${PROJECT_NAME}> DESTINATION . COMPONENT Runtime)
+endif()
+
+if(CMAKE_CONFIGURATION_TYPES)
+    set(PERASTAGE_STAGE_PREFIX "${CMAKE_SOURCE_DIR}/out/install/$<CONFIG>")
+    set(PERASTAGE_STAGE_CONFIG --config $<CONFIG>)
+    set(PERASTAGE_SYMBOLS_DIR "${CMAKE_SOURCE_DIR}/out/install/$<CONFIG>/symbols")
+else()
+    set(PERASTAGE_STAGE_PREFIX "${CMAKE_INSTALL_PREFIX}")
+    set(PERASTAGE_STAGE_CONFIG)
+    set(PERASTAGE_SYMBOLS_DIR "${CMAKE_INSTALL_PREFIX}/symbols")
+endif()
+
+add_custom_target(perastage_stage
+    COMMAND ${CMAKE_COMMAND} -E rm -rf "${PERASTAGE_STAGE_PREFIX}"
+    COMMAND ${CMAKE_COMMAND} --install "${CMAKE_BINARY_DIR}" --prefix "${PERASTAGE_STAGE_PREFIX}" ${PERASTAGE_STAGE_CONFIG}
+    DEPENDS ${PROJECT_NAME}
+)
+
+if(WIN32 AND MSVC)
+    add_custom_target(perastage_symbols
+        COMMAND ${CMAKE_COMMAND}
+            -DPDB_SOURCE=$<TARGET_PDB_FILE:${PROJECT_NAME}>
+            -DPDB_DESTINATION="${PERASTAGE_SYMBOLS_DIR}"
+            -P "${CMAKE_SOURCE_DIR}/cmake/PerastageCopySymbols.cmake"
+        DEPENDS ${PROJECT_NAME}
+    )
+endif()
 
 # Copy runtime resources (e.g. application icon) next to the executable
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD

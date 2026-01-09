@@ -131,6 +131,24 @@ Some tests rely on stub implementations or small sample files located in the `te
 
 ---
 
+## Windows packaging
+
+Build the Release configuration and run the `perastage_stage` target in Visual Studio or from
+the command line to populate the staging directory:
+
+```bash
+cmake --build <build-dir> --config RelWithDebInfo
+cmake --build <build-dir> --config RelWithDebInfo --target perastage_stage
+```
+
+The install tree is generated in `out/install/x64-Release` and is ready to be consumed by
+Inno Setup (exe, dlls, resources, library, licenses, and help content).
+
+To collect debug symbols for crash analysis, run `perastage_symbols` to copy the `.pdb` file
+into `out/install/x64-Release/symbols`.
+
+---
+
 ## Status
 
 Perastage is under active development.  
