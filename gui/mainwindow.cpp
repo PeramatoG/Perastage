@@ -603,7 +603,7 @@ void MainWindow::CreateToolBars() {
                                          wxART_MISSING_IMAGE),
                          "Add 2D View to Layout");
   layoutToolBar->AddTool(ID_View_Layout_Legend, "Añadir leyenda",
-                         loadToolbarIcon("list",
+                         loadToolbarIcon("layout-list",
                                          wxART_PLUS),
                          "Add fixture legend to layout");
   layoutToolBar->Realize();
