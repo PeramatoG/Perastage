@@ -528,7 +528,7 @@ LayoutViewerPanel::LayoutViewerPanel(wxWindow *parent)
   SetBackgroundStyle(wxBG_STYLE_CUSTOM);
   glContext_ = new wxGLContext(this);
   currentLayout.pageSetup.pageSize = print::PageSize::A4;
-  currentLayout.pageSetup.landscape = false;
+  currentLayout.pageSetup.landscape = true;
   ResetViewToFit();
 }
 

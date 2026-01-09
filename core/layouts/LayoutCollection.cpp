@@ -276,7 +276,7 @@ LayoutDefinition LayoutCollection::DefaultLayout() {
   LayoutDefinition layout;
   layout.name = "Layout 1";
   layout.pageSetup.pageSize = print::PageSize::A4;
-  layout.pageSetup.landscape = false;
+  layout.pageSetup.landscape = true;
   layout.view2dViews.clear();
   layout.legendViews.clear();
   return layout;

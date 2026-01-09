@@ -184,7 +184,7 @@ void LayoutPanel::OnAddLayout(wxCommandEvent &) {
   layouts::LayoutDefinition layout;
   layout.name = name;
   layout.pageSetup.pageSize = print::PageSize::A4;
-  layout.pageSetup.landscape = false;
+  layout.pageSetup.landscape = true;
 
   if (!layouts::LayoutManager::Get().AddLayout(layout)) {
     wxMessageBox("Could not add layout.", "Add Layout", wxOK | wxICON_ERROR,
