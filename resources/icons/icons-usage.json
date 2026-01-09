@@ -3,42 +3,50 @@
     {
       "name": "New",
       "icon": "outline/file.svg",
-      "description": "Creates a new project or document."
+      "description": "Creates a new project or document.",
+      "group": "FileToolbar"
     },
     {
       "name": "Load",
       "icon": "outline/folder-open.svg",
-      "description": "Opens an existing project or file from disk."
+      "description": "Opens an existing project or file from disk.",
+      "group": "FileToolbar"
     },
     {
       "name": "Save",
       "icon": "outline/save.svg",
-      "description": "Saves the current project or document."
+      "description": "Saves the current project or document.",
+      "group": "FileToolbar"
     },
     {
       "name": "Save As",
       "icon": "outline/save-all.svg",
-      "description": "Saves the current project under a new name or location."
+      "description": "Saves the current project under a new name or location.",
+      "group": "FileToolbar"
     },
     {
       "name": "Import MVR",
       "icon": "outline/file-input.svg",
-      "description": "Imports an MVR file into the project."
+      "description": "Imports an MVR file into the project.",
+      "group": "FileToolbar"
     },
     {
       "name": "Export MVR",
       "icon": "outline/file-output.svg",
-      "description": "Exports the current project as an MVR file."
+      "description": "Exports the current project as an MVR file.",
+      "group": "FileToolbar"
     },
     {
       "name": "Layout 2D View",
       "icon": "outline/panel-top-bottom-dashed.svg",
-      "description": "Toggles or applies the 2D view layout."
+      "description": "Toggles or applies the 2D view layout.",
+      "group": "LayoutToolbar"
     },
     {
       "name": "Layout Legend",
       "icon": "outline/list.svg",
-      "description": "Shows or hides the layout legend panel."
+      "description": "Shows or hides the layout legend panel.",
+      "group": "LayoutToolbar"
     }
   ]
 }
