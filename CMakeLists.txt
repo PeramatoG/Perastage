@@ -111,6 +111,17 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     ZLIB::ZLIB
 )
 
+# List of imported dependency targets whose runtime DLLs must be installed.
+# Add new external targets here to ensure their DLLs ship with Windows builds.
+set(PERASTAGE_IMPORT_DEPS
+    tinyxml2::tinyxml2
+    GLEW::GLEW
+    CURL::libcurl
+    nanovg::nanovg
+    podofo::podofo
+    ZLIB::ZLIB
+)
+
 if(BUILD_TESTING)
     add_subdirectory(tests)
 endif()
@@ -204,6 +215,29 @@ if(WIN32)
         else()
             install(FILES ${PERASTAGE_WX_RELEASE_DLLS} DESTINATION .)
         endif()
+    endif()
+
+    # Gather runtime DLLs from imported dependencies to avoid missing third-party
+    # libraries in Windows distributions (e.g. zlib, pcre2, jpeg).
+    set(PERASTAGE_DEP_RUNTIME_DLLS "")
+    foreach(dep IN LISTS PERASTAGE_IMPORT_DEPS)
+        list(APPEND PERASTAGE_DEP_RUNTIME_DLLS $<TARGET_RUNTIME_DLLS:${dep}>)
+    endforeach()
+    list(REMOVE_DUPLICATES PERASTAGE_DEP_RUNTIME_DLLS)
+
+    # Filter debug DLLs by configuration when using multi-config generators or
+    # by suffix for single-config Release-style builds.
+    if(CMAKE_CONFIGURATION_TYPES)
+        install(FILES ${PERASTAGE_DEP_RUNTIME_DLLS} DESTINATION .
+            CONFIGURATIONS Release RelWithDebInfo MinSizeRel)
+        install(FILES ${PERASTAGE_DEP_RUNTIME_DLLS} DESTINATION .
+            CONFIGURATIONS Debug)
+    else()
+        if(NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
+            list(FILTER PERASTAGE_DEP_RUNTIME_DLLS EXCLUDE
+                REGEX ".*(d_vc_|ud_vc_).*\\.dll$|.*d\\.dll$")
+        endif()
+        install(FILES ${PERASTAGE_DEP_RUNTIME_DLLS} DESTINATION .)
     endif()
 endif()
 
