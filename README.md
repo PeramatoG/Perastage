@@ -12,10 +12,11 @@ The application is built with **wxWidgets** for the user interface and **OpenGL*
 - **Project management**
   - Open and save Perastage projects.
   - Keep fixtures, trusses and scene objects grouped in layers.
+  - Manage multiple printable layouts with stored page settings.
   - Central configuration management for paths and user preferences.
 
-- **Fixture and truss model**
-  - Internal data model for fixtures, trusses and generic scene objects.
+- **Fixture, truss, and hoist model**
+  - Internal data model for fixtures, trusses, hoists, and generic scene objects.
   - Layer support (visibility and selection per layer).
   - Basic geometry and transform helpers for positioning elements in the scene.
 
@@ -45,12 +46,14 @@ The application is built with **wxWidgets** for the user interface and **OpenGL*
     axes and labels) are preserved in draw order so an exporter can reproduce the
     exact frame the user saw on screen.
   - Camera and navigation helpers in the 3D viewer.
+  - Layout mode with printable 2D view frames and fixture legends.
 
 - **GUI helpers**
-  - Tables for fixtures, trusses and scene objects.
+  - Tables for fixtures, trusses, hoists, and scene objects.
   - Multi-edit shortcuts in tables, including range interpolation (`1 10`,
     `1 thru 10`) and sequential fills with trailing separators.
-  - Summary and console panels.
+  - Layout list and layout preview panels for print layout composition.
+  - Summary, rigging, and console panels.
   - Dialogs for preferences, login, fixture type selection, GDTF search, export options, etc.
 
 ---
