@@ -37,6 +37,24 @@
       "group": "FileToolbar"
     },
     {
+      "name": "Layout 3D View",
+      "icon": "outline/box.svg",
+      "description": "Switches to the 3D layout view preset.",
+      "group": "LayoutViewsToolbar"
+    },
+    {
+      "name": "Layout 2D View",
+      "icon": "outline/square-asterisk.svg",
+      "description": "Switches to the 2D layout view preset.",
+      "group": "LayoutViewsToolbar"
+    },
+    {
+      "name": "Layout Mode View",
+      "icon": "outline/panels-right-bottom.svg",
+      "description": "Switches to the layout mode view for editing.",
+      "group": "LayoutViewsToolbar"
+    },
+    {
       "name": "Layout 2D View",
       "icon": "outline/panel-top-bottom-dashed.svg",
       "description": "Toggles or applies the 2D view layout.",

@@ -571,15 +571,16 @@ void MainWindow::CreateToolBars() {
                        wxAUI_TB_DEFAULT_STYLE | wxAUI_TB_HORIZONTAL);
   layoutViewsToolBar->SetToolBitmapSize(wxSize(16, 16));
   layoutViewsToolBar->AddTool(ID_View_Layout_Default, "Vista layout 3D",
-                              loadToolbarIcon("square-chart-gantt",
+                              loadToolbarIcon("box",
                                               wxART_MISSING_IMAGE),
                               "Switch to 3D Layout View");
   layoutViewsToolBar->AddTool(ID_View_Layout_2D, "Vista layout 2D",
-                              loadToolbarIcon("panel-top-bottom-dashed",
+                              loadToolbarIcon("square-asterisk",
                                               wxART_MISSING_IMAGE),
                               "Switch to 2D Layout View");
   layoutViewsToolBar->AddTool(ID_View_Layout_Mode, "Modo layout",
-                              loadToolbarIcon("list", wxART_MISSING_IMAGE),
+                              loadToolbarIcon("panels-right-bottom",
+                                              wxART_MISSING_IMAGE),
                               "Switch to Layout Mode View");
   layoutViewsToolBar->Realize();
   auiManager->AddPane(
