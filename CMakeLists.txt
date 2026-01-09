@@ -4,20 +4,26 @@ cmake_policy(SET CMP0074 NEW)
 project(Perastage VERSION 1.0 LANGUAGES CXX)
 
 # wxWidgets chooses different binary sets based on wxWidgets_USE_DEBUG, so we
-# force it to match the active build configuration to avoid mixing runtime DLLs.
+# force it to match the active build configuration and expose
+# PERASTAGE_FORCE_WXDEBUG to override for troubleshooting without editing CMake.
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 include(CTest)
 
-# Force wxWidgets release libs when not debugging.
-if(CMAKE_CONFIGURATION_TYPES)
-    set(wxWidgets_USE_DEBUG "$<CONFIG:Debug>" CACHE BOOL "" FORCE)
+# Decide if we use wxWidgets debug libs.
+option(PERASTAGE_FORCE_WXDEBUG "Force linking wxWidgets debug libs" OFF)
+if(PERASTAGE_FORCE_WXDEBUG)
+    set(wxWidgets_USE_DEBUG ON CACHE BOOL "" FORCE)
 else()
-    if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-        set(wxWidgets_USE_DEBUG ON CACHE BOOL "" FORCE)
-    else()
+    if(CMAKE_CONFIGURATION_TYPES)
         set(wxWidgets_USE_DEBUG OFF CACHE BOOL "" FORCE)
+    else()
+        if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+            set(wxWidgets_USE_DEBUG ON CACHE BOOL "" FORCE)
+        else()
+            set(wxWidgets_USE_DEBUG OFF CACHE BOOL "" FORCE)
+        endif()
     endif()
 endif()
 set(wxWidgets_USE_UNICODE ON CACHE BOOL "" FORCE)
@@ -133,8 +139,13 @@ install(FILES
 if(WIN32)
     set(CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS_SKIP TRUE)
     include(InstallRequiredSystemLibraries)
-    install(FILES $<TARGET_RUNTIME_DLLS:${PROJECT_NAME}> DESTINATION .)
-    install(FILES $<TARGET_RUNTIME_DLLS:${PROJECT_NAME}> DESTINATION . COMPONENT Runtime)
+    # Filter out debug DLLs in release installs to avoid missing DLL issues.
+    set(PERASTAGE_RUNTIME_DLLS $<TARGET_RUNTIME_DLLS:${PROJECT_NAME}>)
+    if(NOT wxWidgets_USE_DEBUG)
+        list(FILTER PERASTAGE_RUNTIME_DLLS EXCLUDE REGEX ".*(d_vc_|ud_vc_).*\\.dll$")
+    endif()
+    install(FILES ${PERASTAGE_RUNTIME_DLLS} DESTINATION .)
+    install(FILES ${PERASTAGE_RUNTIME_DLLS} DESTINATION . COMPONENT Runtime)
 
     # wxWidgets libraries may not appear in TARGET_RUNTIME_DLLS when discovered
     # via wxWidgets_USE_FILE, so collect and install them explicitly.
@@ -167,7 +178,8 @@ if(WIN32)
         endforeach()
         list(REMOVE_DUPLICATES PERASTAGE_WX_RUNTIME_DLLS)
         if(NOT wxWidgets_USE_DEBUG)
-            list(FILTER PERASTAGE_WX_RUNTIME_DLLS EXCLUDE REGEX ".*d_vc_.*\\.dll$")
+            # Exclude wxWidgets debug DLLs to avoid release installer failures.
+            list(FILTER PERASTAGE_WX_RUNTIME_DLLS EXCLUDE REGEX ".*(d_vc_|ud_vc_).*\\.dll$")
         endif()
         if(PERASTAGE_WX_RUNTIME_DLLS)
             install(FILES ${PERASTAGE_WX_RUNTIME_DLLS} DESTINATION .)
