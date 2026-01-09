@@ -54,19 +54,12 @@ function(perastage_ensure_linker_language target_name language)
         else()
             set(perastage_link_target ${target_name})
         endif()
-        get_target_property(perastage_linker_language ${perastage_link_target} LINKER_LANGUAGE)
-        if(NOT perastage_linker_language)
-            set_target_properties(${perastage_link_target} PROPERTIES LINKER_LANGUAGE ${language})
-        endif()
-        get_target_property(perastage_imported_link_langs
-            ${perastage_link_target} IMPORTED_LINK_INTERFACE_LANGUAGES
+        set_target_properties(
+            ${perastage_link_target}
+            PROPERTIES
+                LINKER_LANGUAGE ${language}
+                IMPORTED_LINK_INTERFACE_LANGUAGES ${language}
         )
-        if(NOT perastage_imported_link_langs)
-            set_target_properties(
-                ${perastage_link_target}
-                PROPERTIES IMPORTED_LINK_INTERFACE_LANGUAGES ${language}
-            )
-        endif()
     endif()
 endfunction()
 
