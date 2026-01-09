@@ -14,10 +14,6 @@
         {
           "name": "BUILD_TESTING",
           "value": "ON"
-        },
-        {
-          "name": "CMAKE_INSTALL_PREFIX",
-          "value": "${projectDir}\\out\\install\\${name}"
         }
       ]
     },
@@ -35,10 +31,6 @@
         {
           "name": "BUILD_TESTING",
           "value": "OFF"
-        },
-        {
-          "name": "CMAKE_INSTALL_PREFIX",
-          "value": "${projectDir}\\out\\install\\${name}"
         }
       ]
     }

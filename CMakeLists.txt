@@ -89,18 +89,7 @@ if(BUILD_TESTING)
 endif()
 
 if(WIN32)
-    set(PERASTAGE_RUNTIME_DEPENDENCY_DIRS)
-    if(wxWidgets_LIBRARY_DIRS)
-        foreach(wx_dir IN LISTS wxWidgets_LIBRARY_DIRS)
-            list(APPEND PERASTAGE_RUNTIME_DEPENDENCY_DIRS "${wx_dir}")
-            get_filename_component(wx_parent_dir "${wx_dir}" DIRECTORY)
-            list(APPEND PERASTAGE_RUNTIME_DEPENDENCY_DIRS "${wx_parent_dir}/bin")
-        endforeach()
-    endif()
-    list(REMOVE_DUPLICATES PERASTAGE_RUNTIME_DEPENDENCY_DIRS)
-    install(TARGETS ${PROJECT_NAME}
-        RUNTIME DESTINATION .
-        RUNTIME_DEPENDENCY_SET perastage_runtime_deps)
+    install(TARGETS ${PROJECT_NAME} RUNTIME DESTINATION .)
 else()
     install(TARGETS ${PROJECT_NAME} RUNTIME DESTINATION .)
 endif()
@@ -126,11 +115,6 @@ if(WIN32)
     include(InstallRequiredSystemLibraries)
     install(FILES $<TARGET_RUNTIME_DLLS:${PROJECT_NAME}> DESTINATION .)
     install(FILES $<TARGET_RUNTIME_DLLS:${PROJECT_NAME}> DESTINATION . COMPONENT Runtime)
-    install(RUNTIME_DEPENDENCY_SET perastage_runtime_deps
-        DESTINATION .
-        DIRECTORIES ${PERASTAGE_RUNTIME_DEPENDENCY_DIRS}
-        PRE_EXCLUDE_REGEXES "api-ms-win-.*" "ext-ms-win-.*"
-        POST_EXCLUDE_REGEXES ".*system32/.*")
 endif()
 
 if(CMAKE_CONFIGURATION_TYPES)
