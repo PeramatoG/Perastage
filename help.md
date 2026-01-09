@@ -9,6 +9,7 @@ Perastage is a high-performance, cross-platform viewer for MVR (My Virtual Rig) 
 3. Navigate through the 3D viewport and explore scene elements via:
    - Fixtures Table
    - Trusses Table
+   - Hoists Table
    - Objects Table
 4. Use the **View** menu to toggle visibility of side panels and tables.
 
@@ -18,14 +19,14 @@ Perastage is a high-performance, cross-platform viewer for MVR (My Virtual Rig) 
 
 | Key Combination | Function             |
 |-----------------|----------------------|
-| Ctrl+N          | New project          |
-| Ctrl+L          | Load project         |
-| Ctrl+S          | Save project         |
-| Ctrl+Q          | Close application    |
-| Ctrl+Z / Ctrl+Y | Undo / Redo          |
-| Del             | Delete selection     |
-| F1              | Open help            |
-| 1 / 2 / 3       | Switch between tables|
+| Ctrl+N          | New project               |
+| Ctrl+L          | Load project              |
+| Ctrl+S          | Save project              |
+| Ctrl+Q          | Close application         |
+| Ctrl+Z / Ctrl+Y | Undo / Redo               |
+| Del             | Delete selection          |
+| F1              | Open help                 |
+| 1 / 2 / 3 / 4   | Fixtures / Trusses / Hoists / Objects |
 
 ### 3D Viewer
 
@@ -63,6 +64,11 @@ Perastage is a high-performance, cross-platform viewer for MVR (My Virtual Rig) 
 - Rotation columns are labeled **Roll (X)**, **Pitch (Y)** and **Yaw (Z)**.
 - Export functionality provided by `ExportTrussDialog`.
 
+### Hoists Table
+- Displays imported hoists (supports) with position, load, and metadata.
+- Function values are normalized using built-in hoist function presets.
+- Convert fixtures to hoists using **Tools → Convert to Hoist**.
+
 ### Objects Table
 - Lists generic scene objects and their transforms.
 - Rotation columns are labeled **Roll (X)**, **Pitch (Y)** and **Yaw (Z)**.
@@ -74,8 +80,16 @@ Perastage is a high-performance, cross-platform viewer for MVR (My Virtual Rig) 
 ### Layer Panel
 - Lists scene layers and lets you choose the active layer for new objects.
 
+### Layouts Panel
+- Lists available layout pages and lets you add, rename, or delete layouts.
+- Activate a layout to view and edit its 2D views and legends in layout mode.
+
 ### Summary Panel
-- Provides counts and basic statistics for fixtures, trusses and objects.
+- Provides counts and basic statistics for fixtures, trusses, hoists, and objects.
+
+### Rigging Panel
+- Summarizes fixture/truss/hoist counts and total weights per position.
+- Highlights rows with missing weights for quick validation.
 
 ### 2D Render Options Panel
 - Controls the 2D viewport render mode, grid appearance, and label visibility.
@@ -107,12 +121,12 @@ Perastage is a high-performance, cross-platform viewer for MVR (My Virtual Rig) 
 | Load          | Open an existing project (`Ctrl+L`)        |
 | Save          | Save the current project (`Ctrl+S`)        |
 | Save As       | Save project under a new name              |
-| Import Rider  | Load fixture/truss info from `.txt`/`.pdf` |
 | Import MVR    | Load an `.mvr` scene file                  |
 | Export MVR    | Write current scene to MVR                 |
+| Print Viewer 2D | Print the current 2D view                |
+| Print Layout  | Print the active layout to PDF             |
 | Print Table   | Print one of the data tables               |
 | Export CSV    | Export table data to CSV                   |
-| Recent Files  | Access previously opened scenes            |
 | Close         | Close the application (`Ctrl+Q`)           |
 
 ## Edit Menu
@@ -132,25 +146,31 @@ Perastage is a high-performance, cross-platform viewer for MVR (My Virtual Rig) 
 | Menu Option        | Description                                  |
 |--------------------|----------------------------------------------|
 | Console            | Show/hide console output                     |
-| Fixtures           | Toggle table notebook (Fixtures/Trusses/Objects) |
+| Fixtures           | Toggle table notebook (Fixtures/Trusses/Hoists/Objects) |
 | 3D Viewport        | Enable or disable 3D rendering               |
 | 2D Viewport        | Enable or disable top-down view              |
 | 2D Render Options  | Show/hide render options for 2D view          |
 | Layers             | Toggle layer panel                           |
+| Layouts            | Toggle layout list panel                     |
 | Summary            | Toggle summary panel                         |
-| Layout → Default   | Restore default panel layout                 |
-| Layout → 2D        | Activate preset 2D layout                    |
+| Rigging            | Toggle rigging weight summary panel          |
+| Layout Views → 3D Layout View | Restore default panel layout       |
+| Layout Views → 2D Layout View | Activate preset 2D layout        |
+| Layout Views → Layout Mode View | Enter layout editing mode       |
 
 ## Tools Menu
 
 | Menu Option           | Description                                   |
 |-----------------------|-----------------------------------------------|
 | Download GDTF fixture | Fetch a fixture from GDTF‑Share               |
+| Edit dictionaries     | Edit fixture dictionaries and metadata        |
+| Create from text      | Build fixtures from a text rider              |
 | Export Fixture        | Export selected fixtures to GDTF              |
 | Export Truss          | Export selected trusses                       |
 | Export Scene Object   | Export selected scene object model            |
 | Auto patch            | Assign addresses automatically to fixtures   |
 | Auto color            | Assign colors by fixture type; truss layers become light gray |
+| Convert to Hoist      | Convert selected fixtures into hoists         |
 
 ## Console Commands
 
@@ -192,7 +212,7 @@ Values are in meters for position and degrees for rotation.
    fixtures 1–4 by one meter.
 4. Choose **Tools → Auto patch** to assign DMX addresses.
 5. Choose **Tools → Auto color** to color fixtures by type and set truss layers to light gray.
-6. Enable **View → Summary** to review fixture counts.
+6. Enable **View → Summary** or **View → Rigging** to review counts and weights.
 7. Export data with **File → Export CSV**.
 
 ## Configuration Management
