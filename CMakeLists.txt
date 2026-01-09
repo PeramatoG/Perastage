@@ -121,20 +121,30 @@ if(WIN32)
         if(wx_dir)
             list(APPEND PERASTAGE_WX_DLLS
                 "${wx_dir}/wxmsw*.dll"
-                "${wx_dir}/wxbase*.dll")
+                "${wx_dir}/wxbase*.dll"
+                "${wx_dir}/nwxmsw*.dll"
+                "${wx_dir}/nwxbase*.dll")
             get_filename_component(wx_bin_dir "${wx_dir}/../bin" ABSOLUTE)
             list(APPEND PERASTAGE_WX_DLLS
                 "${wx_bin_dir}/wxmsw*.dll"
-                "${wx_bin_dir}/wxbase*.dll")
+                "${wx_bin_dir}/wxbase*.dll"
+                "${wx_bin_dir}/nwxmsw*.dll"
+                "${wx_bin_dir}/nwxbase*.dll")
         endif()
     endforeach()
     list(REMOVE_ITEM PERASTAGE_WX_DLLS "")
     list(FILTER PERASTAGE_WX_DLLS INCLUDE REGEX ".+\\.dll$")
     list(REMOVE_DUPLICATES PERASTAGE_WX_DLLS)
     if(PERASTAGE_WX_DLLS)
-        file(GLOB PERASTAGE_WX_RUNTIME_DLLS CONFIGURE_DEPENDS ${PERASTAGE_WX_DLLS})
+        set(PERASTAGE_WX_RUNTIME_DLLS "")
+        foreach(wx_pattern IN LISTS PERASTAGE_WX_DLLS)
+            if(NOT wx_pattern STREQUAL "")
+                file(GLOB PERASTAGE_WX_GLOB CONFIGURE_DEPENDS "${wx_pattern}")
+                list(APPEND PERASTAGE_WX_RUNTIME_DLLS ${PERASTAGE_WX_GLOB})
+            endif()
+        endforeach()
+        list(REMOVE_DUPLICATES PERASTAGE_WX_RUNTIME_DLLS)
         if(PERASTAGE_WX_RUNTIME_DLLS)
-            list(REMOVE_DUPLICATES PERASTAGE_WX_RUNTIME_DLLS)
             install(FILES ${PERASTAGE_WX_RUNTIME_DLLS} DESTINATION .)
         endif()
     endif()
