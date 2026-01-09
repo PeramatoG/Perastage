@@ -575,11 +575,11 @@ void MainWindow::CreateToolBars() {
                                               wxART_MISSING_IMAGE),
                               "Switch to 3D Layout View");
   layoutViewsToolBar->AddTool(ID_View_Layout_2D, "Vista layout 2D",
-                              loadToolbarIcon("square-asterisk",
+                              loadToolbarIcon("panels-right-bottom",
                                               wxART_MISSING_IMAGE),
                               "Switch to 2D Layout View");
   layoutViewsToolBar->AddTool(ID_View_Layout_Mode, "Modo layout",
-                              loadToolbarIcon("panels-right-bottom",
+                              loadToolbarIcon("square-asterisk",
                                               wxART_MISSING_IMAGE),
                               "Switch to Layout Mode View");
   layoutViewsToolBar->Realize();
