@@ -17,7 +17,8 @@ if(PERASTAGE_FORCE_WXDEBUG)
     set(wxWidgets_USE_DEBUG ON CACHE BOOL "" FORCE)
 else()
     if(CMAKE_CONFIGURATION_TYPES)
-        set(wxWidgets_USE_DEBUG OFF CACHE BOOL "" FORCE)
+        # Multi-config generators must select debug libs per configuration.
+        set(wxWidgets_USE_DEBUG "$<CONFIG:Debug>" CACHE BOOL "" FORCE)
     else()
         if(CMAKE_BUILD_TYPE STREQUAL "Debug")
             set(wxWidgets_USE_DEBUG ON CACHE BOOL "" FORCE)
@@ -141,48 +142,67 @@ if(WIN32)
     include(InstallRequiredSystemLibraries)
     # Filter out debug DLLs in release installs to avoid missing DLL issues.
     set(PERASTAGE_RUNTIME_DLLS $<TARGET_RUNTIME_DLLS:${PROJECT_NAME}>)
-    if(NOT wxWidgets_USE_DEBUG)
+    if(NOT CMAKE_CONFIGURATION_TYPES AND NOT wxWidgets_USE_DEBUG)
         list(FILTER PERASTAGE_RUNTIME_DLLS EXCLUDE REGEX ".*(d_vc_|ud_vc_).*\\.dll$")
     endif()
     install(FILES ${PERASTAGE_RUNTIME_DLLS} DESTINATION .)
     install(FILES ${PERASTAGE_RUNTIME_DLLS} DESTINATION . COMPONENT Runtime)
 
     # wxWidgets libraries may not appear in TARGET_RUNTIME_DLLS when discovered
-    # via wxWidgets_USE_FILE, so collect and install them explicitly.
-    set(PERASTAGE_WX_DLLS "")
+    # via wxWidgets_USE_FILE, so derive DLL locations from linked libraries too.
+    set(PERASTAGE_WX_SEARCH_DIRS "")
     foreach(wx_dir IN LISTS wxWidgets_LIBRARY_DIRS)
-        if(wx_dir)
-            list(APPEND PERASTAGE_WX_DLLS
-                "${wx_dir}/wxmsw*.dll"
-                "${wx_dir}/wxbase*.dll"
-                "${wx_dir}/nwxmsw*.dll"
-                "${wx_dir}/nwxbase*.dll")
-            get_filename_component(wx_bin_dir "${wx_dir}/../bin" ABSOLUTE)
-            list(APPEND PERASTAGE_WX_DLLS
-                "${wx_bin_dir}/wxmsw*.dll"
-                "${wx_bin_dir}/wxbase*.dll"
-                "${wx_bin_dir}/nwxmsw*.dll"
-                "${wx_bin_dir}/nwxbase*.dll")
+        if(wx_dir AND IS_DIRECTORY "${wx_dir}")
+            list(APPEND PERASTAGE_WX_SEARCH_DIRS "${wx_dir}")
         endif()
     endforeach()
-    list(REMOVE_ITEM PERASTAGE_WX_DLLS "")
-    list(FILTER PERASTAGE_WX_DLLS INCLUDE REGEX ".+\\.dll$")
-    list(REMOVE_DUPLICATES PERASTAGE_WX_DLLS)
-    if(PERASTAGE_WX_DLLS)
-        set(PERASTAGE_WX_RUNTIME_DLLS "")
-        foreach(wx_pattern IN LISTS PERASTAGE_WX_DLLS)
-            if(NOT wx_pattern STREQUAL "")
-                file(GLOB PERASTAGE_WX_GLOB CONFIGURE_DEPENDS "${wx_pattern}")
-                list(APPEND PERASTAGE_WX_RUNTIME_DLLS ${PERASTAGE_WX_GLOB})
+    foreach(wx_lib IN LISTS wxWidgets_LIBRARIES)
+        if(EXISTS "${wx_lib}")
+            get_filename_component(wx_lib_dir "${wx_lib}" DIRECTORY)
+            if(IS_DIRECTORY "${wx_lib_dir}")
+                list(APPEND PERASTAGE_WX_SEARCH_DIRS "${wx_lib_dir}")
             endif()
-        endforeach()
-        list(REMOVE_DUPLICATES PERASTAGE_WX_RUNTIME_DLLS)
-        if(NOT wxWidgets_USE_DEBUG)
-            # Exclude wxWidgets debug DLLs to avoid release installer failures.
-            list(FILTER PERASTAGE_WX_RUNTIME_DLLS EXCLUDE REGEX ".*(d_vc_|ud_vc_).*\\.dll$")
         endif()
-        if(PERASTAGE_WX_RUNTIME_DLLS)
-            install(FILES ${PERASTAGE_WX_RUNTIME_DLLS} DESTINATION .)
+    endforeach()
+    list(REMOVE_DUPLICATES PERASTAGE_WX_SEARCH_DIRS)
+
+    set(PERASTAGE_WX_DLL_PATTERNS "")
+    foreach(wx_dir IN LISTS PERASTAGE_WX_SEARCH_DIRS)
+        list(APPEND PERASTAGE_WX_DLL_PATTERNS
+            "${wx_dir}/wxmsw*.dll"
+            "${wx_dir}/wxbase*.dll"
+            "${wx_dir}/nwxmsw*.dll"
+            "${wx_dir}/nwxbase*.dll")
+        get_filename_component(wx_bin_dir "${wx_dir}/../bin" ABSOLUTE)
+        list(APPEND PERASTAGE_WX_DLL_PATTERNS
+            "${wx_bin_dir}/wxmsw*.dll"
+            "${wx_bin_dir}/wxbase*.dll"
+            "${wx_bin_dir}/nwxmsw*.dll"
+            "${wx_bin_dir}/nwxbase*.dll")
+    endforeach()
+    list(REMOVE_ITEM PERASTAGE_WX_DLL_PATTERNS "")
+    list(REMOVE_DUPLICATES PERASTAGE_WX_DLL_PATTERNS)
+
+    set(PERASTAGE_WX_RUNTIME_DLLS "")
+    foreach(wx_pattern IN LISTS PERASTAGE_WX_DLL_PATTERNS)
+        file(GLOB PERASTAGE_WX_GLOB CONFIGURE_DEPENDS "${wx_pattern}")
+        list(APPEND PERASTAGE_WX_RUNTIME_DLLS ${PERASTAGE_WX_GLOB})
+    endforeach()
+    list(REMOVE_DUPLICATES PERASTAGE_WX_RUNTIME_DLLS)
+
+    if(PERASTAGE_WX_RUNTIME_DLLS)
+        set(PERASTAGE_WX_DEBUG_DLLS ${PERASTAGE_WX_RUNTIME_DLLS})
+        set(PERASTAGE_WX_RELEASE_DLLS ${PERASTAGE_WX_RUNTIME_DLLS})
+        list(FILTER PERASTAGE_WX_DEBUG_DLLS INCLUDE REGEX ".*(d_vc_|ud_vc_).*\\.dll$")
+        list(FILTER PERASTAGE_WX_RELEASE_DLLS EXCLUDE REGEX ".*(d_vc_|ud_vc_).*\\.dll$")
+        if(CMAKE_CONFIGURATION_TYPES)
+            # Install debug DLLs only for Debug and release DLLs for other configs.
+            install(FILES ${PERASTAGE_WX_DEBUG_DLLS} DESTINATION . CONFIGURATIONS Debug)
+            install(FILES ${PERASTAGE_WX_RELEASE_DLLS} DESTINATION . CONFIGURATIONS Release RelWithDebInfo MinSizeRel)
+        elseif(wxWidgets_USE_DEBUG)
+            install(FILES ${PERASTAGE_WX_DEBUG_DLLS} DESTINATION .)
+        else()
+            install(FILES ${PERASTAGE_WX_RELEASE_DLLS} DESTINATION .)
         endif()
     endif()
 endif()
