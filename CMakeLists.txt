@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.21)
 cmake_policy(SET CMP0074 NEW)
 
-project(Perastage VERSION 1.0 LANGUAGES CXX)
+project(Perastage VERSION 1.0 LANGUAGES C CXX)
 
 # wxWidgets chooses different binary sets based on wxWidgets_USE_DEBUG, so we
 # force it to match the active build configuration and expose
