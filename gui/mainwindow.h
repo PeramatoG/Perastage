@@ -92,6 +92,7 @@ private:
   RiggingPanel *riggingPanel = nullptr;
   wxAuiToolBar *fileToolBar = nullptr;
   wxAuiToolBar *layoutToolBar = nullptr;
+  wxAuiToolBar *layoutViewsToolBar = nullptr;
 
   wxAcceleratorTable m_accel;
 

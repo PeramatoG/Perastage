@@ -566,6 +566,33 @@ void MainWindow::CreateToolBars() {
                        .Row(0)
                        .Position(0));
 
+  layoutViewsToolBar =
+      new wxAuiToolBar(this, wxID_ANY, wxDefaultPosition, wxDefaultSize,
+                       wxAUI_TB_DEFAULT_STYLE | wxAUI_TB_HORIZONTAL);
+  layoutViewsToolBar->SetToolBitmapSize(wxSize(16, 16));
+  layoutViewsToolBar->AddTool(ID_View_Layout_Default, "Vista layout 3D",
+                              loadToolbarIcon("square-chart-gantt",
+                                              wxART_MISSING_IMAGE),
+                              "Switch to 3D Layout View");
+  layoutViewsToolBar->AddTool(ID_View_Layout_2D, "Vista layout 2D",
+                              loadToolbarIcon("panel-top-bottom-dashed",
+                                              wxART_MISSING_IMAGE),
+                              "Switch to 2D Layout View");
+  layoutViewsToolBar->AddTool(ID_View_Layout_Mode, "Modo layout",
+                              loadToolbarIcon("list", wxART_MISSING_IMAGE),
+                              "Switch to Layout Mode View");
+  layoutViewsToolBar->Realize();
+  auiManager->AddPane(
+      layoutViewsToolBar, wxAuiPaneInfo()
+                              .Name("LayoutViewsToolbar")
+                              .Caption("Layout Views")
+                              .ToolbarPane()
+                              .Top()
+                              .LeftDockable(false)
+                              .RightDockable(false)
+                              .Row(0)
+                              .Position(1));
+
   layoutToolBar = new wxAuiToolBar(this, wxID_ANY, wxDefaultPosition,
                                    wxDefaultSize,
                                    wxAUI_TB_DEFAULT_STYLE | wxAUI_TB_HORIZONTAL);
@@ -2123,6 +2150,9 @@ void MainWindow::OnApplyDefaultLayout(wxCommandEvent &WXUNUSED(event)) {
   auto &fileToolbarPane = auiManager->GetPane("FileToolbar");
   if (fileToolbarPane.IsOk())
     fileToolbarPane.Show();
+  auto &layoutViewsToolbarPane = auiManager->GetPane("LayoutViewsToolbar");
+  if (layoutViewsToolbarPane.IsOk())
+    layoutViewsToolbarPane.Show();
   auiManager->Update();
 
   cfg.SetValue("layout_perspective", perspective);
@@ -2149,6 +2179,9 @@ void MainWindow::OnApply2DLayout(wxCommandEvent &WXUNUSED(event)) {
   auto &fileToolbarPane = auiManager->GetPane("FileToolbar");
   if (fileToolbarPane.IsOk())
     fileToolbarPane.Show();
+  auto &layoutViewsToolbarPane = auiManager->GetPane("LayoutViewsToolbar");
+  if (layoutViewsToolbarPane.IsOk())
+    layoutViewsToolbarPane.Show();
   auiManager->Update();
 
   ConfigManager &cfg = ConfigManager::Get();
@@ -2376,6 +2409,7 @@ void MainWindow::ApplyLayoutModePerspective() {
   showPane("LayoutViewer");
   showPane("FileToolbar");
   showPane("LayoutToolbar");
+  showPane("LayoutViewsToolbar");
 
   hidePane("3DViewport");
   hidePane("2DViewport");
