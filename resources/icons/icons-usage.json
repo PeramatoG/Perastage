@@ -62,7 +62,7 @@
     },
     {
       "name": "Layout Legend",
-      "icon": "outline/list.svg",
+      "icon": "outline/layout-list.svg",
       "description": "Shows or hides the layout legend panel.",
       "group": "LayoutToolbar"
     }
