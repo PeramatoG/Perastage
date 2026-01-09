@@ -552,7 +552,6 @@ void MainWindow::CreateToolBars() {
   fileToolBar->AddTool(ID_File_ExportMVR, "Export MVR",
                        loadToolbarIcon("file-output", wxART_FILE_SAVE),
                        "Export the project to MVR");
-  fileToolBar->AddSeparator();
   fileToolBar->Realize();
 
   auiManager->AddPane(
