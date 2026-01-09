@@ -54,24 +54,18 @@ function(perastage_ensure_linker_language target_name language)
         else()
             set(perastage_link_target ${target_name})
         endif()
-        get_target_property(perastage_target_type ${perastage_link_target} TYPE)
-        if(NOT perastage_target_type STREQUAL "INTERFACE_LIBRARY")
-            get_target_property(perastage_linker_language ${perastage_link_target} LINKER_LANGUAGE)
-            if(NOT perastage_linker_language)
-                set_target_properties(${perastage_link_target} PROPERTIES LINKER_LANGUAGE ${language})
-            endif()
-            if(perastage_target_type STREQUAL "UNKNOWN_LIBRARY")
-                get_target_property(perastage_imported_link_langs
-                    ${perastage_link_target}
-                    IMPORTED_LINK_INTERFACE_LANGUAGES
-                )
-                if(NOT perastage_imported_link_langs)
-                    set_target_properties(
-                        ${perastage_link_target}
-                        PROPERTIES IMPORTED_LINK_INTERFACE_LANGUAGES ${language}
-                    )
-                endif()
-            endif()
+        get_target_property(perastage_linker_language ${perastage_link_target} LINKER_LANGUAGE)
+        if(NOT perastage_linker_language)
+            set_target_properties(${perastage_link_target} PROPERTIES LINKER_LANGUAGE ${language})
+        endif()
+        get_target_property(perastage_imported_link_langs
+            ${perastage_link_target} IMPORTED_LINK_INTERFACE_LANGUAGES
+        )
+        if(NOT perastage_imported_link_langs)
+            set_target_properties(
+                ${perastage_link_target}
+                PROPERTIES IMPORTED_LINK_INTERFACE_LANGUAGES ${language}
+            )
         endif()
     endif()
 endfunction()
@@ -84,6 +78,8 @@ perastage_ensure_linker_language(GLEW::GLEW C)
 perastage_ensure_linker_language(podofo::podofo CXX)
 perastage_ensure_linker_language(podofo::podofo_shared CXX)
 perastage_ensure_linker_language(tinyxml2::tinyxml2 CXX)
+perastage_ensure_linker_language(nanovg::nanovg C)
+perastage_ensure_linker_language(ZLIB::ZLIB C)
 
 # Gather source files
 file(GLOB_RECURSE SRC_FILES CONFIGURE_DEPENDS
