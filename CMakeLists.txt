@@ -1,33 +1,27 @@
 cmake_minimum_required(VERSION 3.21)
 cmake_policy(SET CMP0074 NEW)
 
-project(Perastage VERSION 1.0 LANGUAGES C CXX)
+project(Perastage VERSION 1.0 LANGUAGES CXX)
 
-# wxWidgets chooses different binary sets based on wxWidgets_USE_DEBUG, so we
-# force it to match the active build configuration and expose
-# PERASTAGE_FORCE_WXDEBUG to override for troubleshooting without editing CMake.
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 include(CTest)
 
-# Decide if we use wxWidgets debug libs.
+# wxWidgets chooses different binary sets based on wxWidgets_USE_DEBUG.
+# - Single-config: we can select debug libs based on CMAKE_BUILD_TYPE.
+# - Multi-config (Visual Studio): do not force wxWidgets_USE_DEBUG unless explicitly requested.
 option(PERASTAGE_FORCE_WXDEBUG "Force linking wxWidgets debug libs" OFF)
 if(PERASTAGE_FORCE_WXDEBUG)
-    set(wxWidgets_USE_DEBUG ON CACHE BOOL "" FORCE)
-else()
-    if(CMAKE_CONFIGURATION_TYPES)
-        # Multi-config generators must select debug libs per configuration.
-        set(wxWidgets_USE_DEBUG "$<CONFIG:Debug>" CACHE BOOL "" FORCE)
+    set(wxWidgets_USE_DEBUG ON)
+elseif(NOT CMAKE_CONFIGURATION_TYPES)
+    if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+        set(wxWidgets_USE_DEBUG ON)
     else()
-        if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-            set(wxWidgets_USE_DEBUG ON CACHE BOOL "" FORCE)
-        else()
-            set(wxWidgets_USE_DEBUG OFF CACHE BOOL "" FORCE)
-        endif()
+        set(wxWidgets_USE_DEBUG OFF)
     endif()
 endif()
-set(wxWidgets_USE_UNICODE ON CACHE BOOL "" FORCE)
+set(wxWidgets_USE_UNICODE ON)
 
 if(CMAKE_CONFIGURATION_TYPES)
     set(BUILD_TESTING OFF CACHE BOOL "" FORCE)
@@ -46,48 +40,50 @@ find_package(nanovg CONFIG REQUIRED)
 find_package(podofo CONFIG REQUIRED)
 find_package(ZLIB REQUIRED)
 
-function(perastage_ensure_linker_language target_name language)
+function(perastage_force_linker_language target_name language)
     if(NOT TARGET ${target_name})
         return()
     endif()
 
-    get_target_property(perastage_aliased_target ${target_name} ALIASED_TARGET)
-    if(perastage_aliased_target)
-        set(perastage_link_target ${perastage_aliased_target})
+    get_target_property(_aliased ${target_name} ALIASED_TARGET)
+    if(_aliased)
+        set(_tgt ${_aliased})
     else()
-        set(perastage_link_target ${target_name})
+        set(_tgt ${target_name})
     endif()
 
-    get_target_property(perastage_is_imported ${perastage_link_target} IMPORTED)
-    if(NOT perastage_is_imported)
-        return()
-    endif()
+    # Some package configs define targets (imported or not) without a linker language.
+    # This is required for generator expressions like $<TARGET_RUNTIME_DLLS:...>.
+    set_property(TARGET ${_tgt} PROPERTY LINKER_LANGUAGE ${language})
 
-    get_target_property(perastage_import_configs ${perastage_link_target} IMPORTED_CONFIGURATIONS)
-    if(perastage_import_configs)
-        foreach(perastage_config IN LISTS perastage_import_configs)
+    get_target_property(_is_imported ${_tgt} IMPORTED)
+    if(_is_imported)
+        set_property(TARGET ${_tgt} PROPERTY IMPORTED_LINK_INTERFACE_LANGUAGES ${language})
+
+        # Apply for any declared import configurations and also for common configs.
+        get_target_property(_import_configs ${_tgt} IMPORTED_CONFIGURATIONS)
+        set(_all_configs ${_import_configs} Debug Release RelWithDebInfo MinSizeRel)
+        list(REMOVE_DUPLICATES _all_configs)
+
+        foreach(_cfg IN LISTS _all_configs)
+            string(TOUPPER "${_cfg}" _cfg_uc)
             set_property(
-                TARGET ${perastage_link_target}
-                PROPERTY IMPORTED_LINK_INTERFACE_LANGUAGES_${perastage_config} ${language}
+                TARGET ${_tgt}
+                PROPERTY IMPORTED_LINK_INTERFACE_LANGUAGES_${_cfg_uc} ${language}
             )
         endforeach()
     endif()
-    set_property(
-        TARGET ${perastage_link_target}
-        PROPERTY IMPORTED_LINK_INTERFACE_LANGUAGES ${language}
-    )
 endfunction()
 
-# Some package configs define imported targets without explicit linker language.
-# Ensure CMake can generate link rules for these dependency targets.
-perastage_ensure_linker_language(CURL::libcurl C)
-perastage_ensure_linker_language(CURL::libcurl_shared C)
-perastage_ensure_linker_language(GLEW::GLEW C)
-perastage_ensure_linker_language(podofo::podofo CXX)
-perastage_ensure_linker_language(podofo::podofo_shared CXX)
-perastage_ensure_linker_language(tinyxml2::tinyxml2 CXX)
-perastage_ensure_linker_language(nanovg::nanovg C)
-perastage_ensure_linker_language(ZLIB::ZLIB C)
+# Ensure CMake can generate link rules and runtime dependency rules for these targets.
+perastage_force_linker_language(CURL::libcurl C)
+perastage_force_linker_language(CURL::libcurl_shared C)
+perastage_force_linker_language(GLEW::GLEW C)
+perastage_force_linker_language(podofo::podofo CXX)
+perastage_force_linker_language(podofo::podofo_shared CXX)
+perastage_force_linker_language(tinyxml2::tinyxml2 CXX)
+perastage_force_linker_language(nanovg::nanovg C)
+perastage_force_linker_language(ZLIB::ZLIB C)
 
 # Gather source files
 file(GLOB_RECURSE SRC_FILES CONFIGURE_DEPENDS
@@ -107,7 +103,7 @@ list(APPEND SRC_FILES ${CMAKE_SOURCE_DIR}/core/markdown.cpp)
 list(APPEND SRC_FILES ${CMAKE_SOURCE_DIR}/core/uuidutils.cpp)
 
 # On Windows, include application icon resources
-if (WIN32)
+if(WIN32)
     list(APPEND SRC_FILES ${CMAKE_SOURCE_DIR}/resources/Perastage.rc)
 endif()
 
@@ -154,29 +150,22 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     ZLIB::ZLIB
 )
 
-# List of imported dependency targets whose runtime DLLs must be installed.
-# Add new external targets here to ensure their DLLs ship with Windows builds.
-set(PERASTAGE_IMPORT_DEPS
-    tinyxml2::tinyxml2
-    GLEW::GLEW
-    CURL::libcurl
-    nanovg::nanovg
-    podofo::podofo
-    ZLIB::ZLIB
-)
+
 
 function(perastage_append_runtime_dlls out_var target_name)
     if(NOT TARGET ${target_name})
         return()
     endif()
-    get_target_property(perastage_alias_target ${target_name} ALIASED_TARGET)
-    if(perastage_alias_target)
-        set(target_name ${perastage_alias_target})
+
+    get_target_property(_alias ${target_name} ALIASED_TARGET)
+    if(_alias)
+        set(target_name ${_alias})
     endif()
-    get_target_property(perastage_target_type ${target_name} TYPE)
-    if(perastage_target_type STREQUAL "SHARED_LIBRARY"
-        OR perastage_target_type STREQUAL "MODULE_LIBRARY"
-        OR perastage_target_type STREQUAL "EXECUTABLE")
+
+    get_target_property(_type ${target_name} TYPE)
+    if(_type STREQUAL "SHARED_LIBRARY"
+        OR _type STREQUAL "MODULE_LIBRARY"
+        OR _type STREQUAL "EXECUTABLE")
         list(APPEND ${out_var} $<TARGET_RUNTIME_DLLS:${target_name}>)
         set(${out_var} "${${out_var}}" PARENT_SCOPE)
     endif()
@@ -186,11 +175,7 @@ if(BUILD_TESTING)
     add_subdirectory(tests)
 endif()
 
-if(WIN32)
-    install(TARGETS ${PROJECT_NAME} RUNTIME DESTINATION .)
-else()
-    install(TARGETS ${PROJECT_NAME} RUNTIME DESTINATION .)
-endif()
+install(TARGETS ${PROJECT_NAME} RUNTIME DESTINATION .)
 
 install(DIRECTORY ${CMAKE_SOURCE_DIR}/resources DESTINATION .)
 if(EXISTS "${CMAKE_SOURCE_DIR}/library")
@@ -211,11 +196,9 @@ install(FILES
 if(WIN32)
     set(CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS_SKIP TRUE)
     include(InstallRequiredSystemLibraries)
-    # Filter out debug DLLs in release installs to avoid missing DLL issues.
+
     set(PERASTAGE_RUNTIME_DLLS $<TARGET_RUNTIME_DLLS:${PROJECT_NAME}>)
-    if(NOT CMAKE_CONFIGURATION_TYPES AND NOT wxWidgets_USE_DEBUG)
-        list(FILTER PERASTAGE_RUNTIME_DLLS EXCLUDE REGEX ".*(d_vc_|ud_vc_).*\\.dll$")
-    endif()
+
     install(FILES ${PERASTAGE_RUNTIME_DLLS} DESTINATION .)
     install(FILES ${PERASTAGE_RUNTIME_DLLS} DESTINATION . COMPONENT Runtime)
 
@@ -266,8 +249,8 @@ if(WIN32)
         set(PERASTAGE_WX_RELEASE_DLLS ${PERASTAGE_WX_RUNTIME_DLLS})
         list(FILTER PERASTAGE_WX_DEBUG_DLLS INCLUDE REGEX ".*(d_vc_|ud_vc_).*\\.dll$")
         list(FILTER PERASTAGE_WX_RELEASE_DLLS EXCLUDE REGEX ".*(d_vc_|ud_vc_).*\\.dll$")
+
         if(CMAKE_CONFIGURATION_TYPES)
-            # Install debug DLLs only for Debug and release DLLs for other configs.
             install(FILES ${PERASTAGE_WX_DEBUG_DLLS} DESTINATION . CONFIGURATIONS Debug)
             install(FILES ${PERASTAGE_WX_RELEASE_DLLS} DESTINATION . CONFIGURATIONS Release RelWithDebInfo MinSizeRel)
         elseif(wxWidgets_USE_DEBUG)
@@ -277,25 +260,19 @@ if(WIN32)
         endif()
     endif()
 
-    # Gather runtime DLLs from imported dependencies to avoid missing third-party
-    # libraries in Windows distributions (e.g. zlib, pcre2, jpeg).
+    # Gather runtime DLLs from imported dependencies to avoid missing third-party libraries.
     set(PERASTAGE_DEP_RUNTIME_DLLS "")
     foreach(dep IN LISTS PERASTAGE_IMPORT_DEPS)
         perastage_append_runtime_dlls(PERASTAGE_DEP_RUNTIME_DLLS ${dep})
     endforeach()
     list(REMOVE_DUPLICATES PERASTAGE_DEP_RUNTIME_DLLS)
 
-    # Filter debug DLLs by configuration when using multi-config generators or
-    # by suffix for single-config Release-style builds.
     if(CMAKE_CONFIGURATION_TYPES)
-        install(FILES ${PERASTAGE_DEP_RUNTIME_DLLS} DESTINATION .
-            CONFIGURATIONS Release RelWithDebInfo MinSizeRel)
-        install(FILES ${PERASTAGE_DEP_RUNTIME_DLLS} DESTINATION .
-            CONFIGURATIONS Debug)
+        install(FILES ${PERASTAGE_DEP_RUNTIME_DLLS} DESTINATION . CONFIGURATIONS Release RelWithDebInfo MinSizeRel)
+        install(FILES ${PERASTAGE_DEP_RUNTIME_DLLS} DESTINATION . CONFIGURATIONS Debug)
     else()
         if(NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
-            list(FILTER PERASTAGE_DEP_RUNTIME_DLLS EXCLUDE
-                REGEX ".*(d_vc_|ud_vc_).*\\.dll$|.*d\\.dll$")
+            list(FILTER PERASTAGE_DEP_RUNTIME_DLLS EXCLUDE REGEX ".*(d_vc_|ud_vc_).*\\.dll$|.*d\\.dll$")
         endif()
         install(FILES ${PERASTAGE_DEP_RUNTIME_DLLS} DESTINATION .)
     endif()
@@ -327,31 +304,33 @@ if(WIN32 AND MSVC)
     )
 endif()
 
-# Copy runtime resources (e.g. application icon) next to the executable
+# Copy runtime resources next to the executable
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
             ${CMAKE_SOURCE_DIR}/resources
-            $<TARGET_FILE_DIR:${PROJECT_NAME}>/resources)
+            $<TARGET_FILE_DIR:${PROJECT_NAME}>/resources
+)
 
-# Copy the help file next to the executable
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_SOURCE_DIR}/help.md $<TARGET_FILE_DIR:${PROJECT_NAME}>)
+    COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_SOURCE_DIR}/help.md $<TARGET_FILE_DIR:${PROJECT_NAME}>
+)
 
-# Copy license information next to the executable
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_SOURCE_DIR}/LICENSE.txt $<TARGET_FILE_DIR:${PROJECT_NAME}>
     COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_SOURCE_DIR}/THIRD_PARTY_LICENSES.md $<TARGET_FILE_DIR:${PROJECT_NAME}>
-    COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/licenses $<TARGET_FILE_DIR:${PROJECT_NAME}>/licenses)
+    COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/licenses $<TARGET_FILE_DIR:${PROJECT_NAME}>/licenses
+)
 
-# Ensure library directories are present alongside the executable
 set(LIBRARY_SUBDIRS fixtures trusses misc "scene objects" projects)
 foreach(subdir IN LISTS LIBRARY_SUBDIRS)
     add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:${PROJECT_NAME}>/library/${subdir}")
-    if (EXISTS "${CMAKE_SOURCE_DIR}/library/${subdir}")
+        COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:${PROJECT_NAME}>/library/${subdir}"
+    )
+    if(EXISTS "${CMAKE_SOURCE_DIR}/library/${subdir}")
         add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
             COMMAND ${CMAKE_COMMAND} -E copy_directory
                     "${CMAKE_SOURCE_DIR}/library/${subdir}"
-                    "$<TARGET_FILE_DIR:${PROJECT_NAME}>/library/${subdir}")
+                    "$<TARGET_FILE_DIR:${PROJECT_NAME}>/library/${subdir}"
+        )
     endif()
 endforeach()
