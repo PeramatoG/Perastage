@@ -47,30 +47,35 @@ find_package(podofo CONFIG REQUIRED)
 find_package(ZLIB REQUIRED)
 
 function(perastage_ensure_linker_language target_name language)
-    if(TARGET ${target_name})
-        get_target_property(perastage_aliased_target ${target_name} ALIASED_TARGET)
-        if(perastage_aliased_target)
-            set(perastage_link_target ${perastage_aliased_target})
-        else()
-            set(perastage_link_target ${target_name})
-        endif()
-        get_target_property(perastage_import_configs ${perastage_link_target} IMPORTED_CONFIGURATIONS)
-        if(perastage_import_configs)
-            foreach(perastage_config IN LISTS perastage_import_configs)
-                set_target_properties(
-                    ${perastage_link_target}
-                    PROPERTIES
-                        IMPORTED_LINK_INTERFACE_LANGUAGES_${perastage_config} ${language}
-                )
-            endforeach()
-        endif()
-        set_target_properties(
-            ${perastage_link_target}
-            PROPERTIES
-                LINKER_LANGUAGE ${language}
-                IMPORTED_LINK_INTERFACE_LANGUAGES ${language}
-        )
+    if(NOT TARGET ${target_name})
+        return()
     endif()
+
+    get_target_property(perastage_aliased_target ${target_name} ALIASED_TARGET)
+    if(perastage_aliased_target)
+        set(perastage_link_target ${perastage_aliased_target})
+    else()
+        set(perastage_link_target ${target_name})
+    endif()
+
+    get_target_property(perastage_is_imported ${perastage_link_target} IMPORTED)
+    if(NOT perastage_is_imported)
+        return()
+    endif()
+
+    get_target_property(perastage_import_configs ${perastage_link_target} IMPORTED_CONFIGURATIONS)
+    if(perastage_import_configs)
+        foreach(perastage_config IN LISTS perastage_import_configs)
+            set_property(
+                TARGET ${perastage_link_target}
+                PROPERTY IMPORTED_LINK_INTERFACE_LANGUAGES_${perastage_config} ${language}
+            )
+        endforeach()
+    endif()
+    set_property(
+        TARGET ${perastage_link_target}
+        PROPERTY IMPORTED_LINK_INTERFACE_LANGUAGES ${language}
+    )
 endfunction()
 
 # Some package configs define imported targets without explicit linker language.
