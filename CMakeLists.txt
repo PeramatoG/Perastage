@@ -54,6 +54,16 @@ function(perastage_ensure_linker_language target_name language)
         else()
             set(perastage_link_target ${target_name})
         endif()
+        get_target_property(perastage_import_configs ${perastage_link_target} IMPORTED_CONFIGURATIONS)
+        if(perastage_import_configs)
+            foreach(perastage_config IN LISTS perastage_import_configs)
+                set_target_properties(
+                    ${perastage_link_target}
+                    PROPERTIES
+                        IMPORTED_LINK_INTERFACE_LANGUAGES_${perastage_config} ${language}
+                )
+            endforeach()
+        endif()
         set_target_properties(
             ${perastage_link_target}
             PROPERTIES
