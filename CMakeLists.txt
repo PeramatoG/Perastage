@@ -163,7 +163,10 @@ if(WIN32)
         install(TARGETS ${PROJECT_NAME}
             RUNTIME DESTINATION .
             CONFIGURATIONS Release RelWithDebInfo MinSizeRel
+        )
+        install(TARGETS ${PROJECT_NAME}
             RUNTIME_DEPENDENCY_SET perastage_runtime_deps_release
+            CONFIGURATIONS Release RelWithDebInfo MinSizeRel
         )
         install(TARGETS ${PROJECT_NAME} RUNTIME DESTINATION . CONFIGURATIONS Debug)
         install(RUNTIME_DEPENDENCY_SET perastage_runtime_deps_release
@@ -180,6 +183,8 @@ if(WIN32)
     elseif(NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
         install(TARGETS ${PROJECT_NAME}
             RUNTIME DESTINATION .
+        )
+        install(TARGETS ${PROJECT_NAME}
             RUNTIME_DEPENDENCY_SET perastage_runtime_deps_release
         )
         install(RUNTIME_DEPENDENCY_SET perastage_runtime_deps_release
