@@ -73,6 +73,7 @@ using json = nlohmann::json;
 #include "gdtfnet.h"
 #include "gdtfsearchdialog.h"
 #include "layout2dviewdialog.h"
+#include "layoutviewpresets.h"
 #include "layoutpanel.h"
 #include "layoutviewerpanel.h"
 #include "legendutils.h"
@@ -2125,6 +2126,61 @@ void MainWindow::OnPaneClose(wxAuiManagerEvent &event) {
   CallAfter(&MainWindow::UpdateViewMenuChecks);
 }
 
+void MainWindow::ApplyLayoutPreset(const LayoutViewPreset &preset,
+                                   const std::optional<std::string> &perspective,
+                                   bool layoutMode,
+                                   bool persistPerspective) {
+  if (!auiManager)
+    return;
+
+  if (perspective && !perspective->empty())
+    auiManager->LoadPerspective(*perspective, true);
+  else
+    auiManager->Update();
+
+  if (layoutMode) {
+    const int clientWidth = GetClientSize().GetWidth();
+    const int layoutPanelWidth = std::max(200, clientWidth / 6);
+    auto &layoutPane = auiManager->GetPane("LayoutPanel");
+    if (layoutPane.IsOk())
+      layoutPane.Left().BestSize(layoutPanelWidth, 600).MinSize(
+          wxSize(200, 300));
+
+    auto &layoutViewerPane = auiManager->GetPane("LayoutViewer");
+    if (layoutViewerPane.IsOk())
+      layoutViewerPane.Center().MinSize(wxSize(400, 300));
+  }
+
+  auto applyPaneState = [this](const std::vector<std::string> &panes,
+                               bool show) {
+    for (const auto &name : panes) {
+      auto &pane = auiManager->GetPane(name);
+      if (pane.IsOk())
+        pane.Show(show);
+    }
+  };
+
+  applyPaneState(preset.showPanes, true);
+  applyPaneState(preset.hidePanes, false);
+
+  auiManager->Update();
+
+  layoutModeActive = layoutMode;
+
+  if (persistPerspective) {
+    ConfigManager &cfg = ConfigManager::Get();
+    if (layoutMode) {
+      layoutModePerspective = auiManager->SavePerspective().ToStdString();
+      cfg.SetValue("layout_layout_mode", layoutModePerspective);
+      cfg.SetValue("layout_perspective", layoutModePerspective);
+    } else if (perspective) {
+      cfg.SetValue("layout_perspective", *perspective);
+    }
+  }
+
+  UpdateViewMenuChecks();
+}
+
 void MainWindow::OnApplyDefaultLayout(wxCommandEvent &WXUNUSED(event)) {
   if (!auiManager)
     return;
@@ -2136,27 +2192,11 @@ void MainWindow::OnApplyDefaultLayout(wxCommandEvent &WXUNUSED(event)) {
   if (auto val = cfg.GetValue("layout_default"))
     perspective = *val;
 
-  auiManager->LoadPerspective(perspective, true);
-  layoutModeActive = false;
-  auto &layoutPane = auiManager->GetPane("LayoutPanel");
-  if (layoutPane.IsOk())
-    layoutPane.Hide();
-  auto &layoutViewerPane = auiManager->GetPane("LayoutViewer");
-  if (layoutViewerPane.IsOk())
-    layoutViewerPane.Hide();
-  auto &layoutToolbarPane = auiManager->GetPane("LayoutToolbar");
-  if (layoutToolbarPane.IsOk())
-    layoutToolbarPane.Hide();
-  auto &fileToolbarPane = auiManager->GetPane("FileToolbar");
-  if (fileToolbarPane.IsOk())
-    fileToolbarPane.Show();
-  auto &layoutViewsToolbarPane = auiManager->GetPane("LayoutViewsToolbar");
-  if (layoutViewsToolbarPane.IsOk())
-    layoutViewsToolbarPane.Show();
-  auiManager->Update();
-
-  cfg.SetValue("layout_perspective", perspective);
-  UpdateViewMenuChecks();
+  const auto *preset =
+      LayoutViewPresetRegistry::GetPreset("3d_layout_view");
+  if (!preset)
+    return;
+  ApplyLayoutPreset(*preset, std::make_optional(perspective), false, true);
 }
 
 void MainWindow::OnApply2DLayout(wxCommandEvent &WXUNUSED(event)) {
@@ -2165,28 +2205,12 @@ void MainWindow::OnApply2DLayout(wxCommandEvent &WXUNUSED(event)) {
   if (layoutModeActive)
     PersistLayout2DViewState();
   Ensure2DViewport();
-  auiManager->LoadPerspective(default2DLayoutPerspective, true);
-  layoutModeActive = false;
-  auto &layoutPane = auiManager->GetPane("LayoutPanel");
-  if (layoutPane.IsOk())
-    layoutPane.Hide();
-  auto &layoutViewerPane = auiManager->GetPane("LayoutViewer");
-  if (layoutViewerPane.IsOk())
-    layoutViewerPane.Hide();
-  auto &layoutToolbarPane = auiManager->GetPane("LayoutToolbar");
-  if (layoutToolbarPane.IsOk())
-    layoutToolbarPane.Hide();
-  auto &fileToolbarPane = auiManager->GetPane("FileToolbar");
-  if (fileToolbarPane.IsOk())
-    fileToolbarPane.Show();
-  auto &layoutViewsToolbarPane = auiManager->GetPane("LayoutViewsToolbar");
-  if (layoutViewsToolbarPane.IsOk())
-    layoutViewsToolbarPane.Show();
-  auiManager->Update();
-
-  ConfigManager &cfg = ConfigManager::Get();
-  cfg.SetValue("layout_perspective", default2DLayoutPerspective);
-  UpdateViewMenuChecks();
+  const auto *preset =
+      LayoutViewPresetRegistry::GetPreset("2d_layout_view");
+  if (!preset)
+    return;
+  ApplyLayoutPreset(*preset, std::make_optional(default2DLayoutPerspective),
+                    false, true);
 }
 
 void MainWindow::OnApplyLayoutModeLayout(wxCommandEvent &WXUNUSED(event)) {
@@ -2319,36 +2343,40 @@ void MainWindow::ApplySavedLayout() {
         return;
 
     bool didLoadLayoutMode = false;
+    std::optional<std::string> perspective;
 
     // Load stored layout perspective if it exists
     if (auto val = ConfigManager::Get().GetValue("layout_perspective")) {
-        const std::string& perspective = *val;
+        perspective = *val;
         if (layoutModePerspective.empty()) {
             if (auto layoutVal = ConfigManager::Get().GetValue("layout_layout_mode"))
                 layoutModePerspective = *layoutVal;
         }
         didLoadLayoutMode =
-            !layoutModePerspective.empty() && perspective == layoutModePerspective;
+            !layoutModePerspective.empty() && *perspective == layoutModePerspective;
 
         // Ensure viewports exist before loading the saved perspective
-        if (perspective.find("3DViewport") != std::string::npos)
+        if (perspective->find("3DViewport") != std::string::npos)
             Ensure3DViewport();
-        if (perspective.find("2DViewport") != std::string::npos ||
-            perspective.find("2DRenderOptions") != std::string::npos)
+        if (perspective->find("2DViewport") != std::string::npos ||
+            perspective->find("2DRenderOptions") != std::string::npos)
             Ensure2DViewport();
-
-        auiManager->LoadPerspective(perspective, true);
     }
 
-    layoutModeActive = didLoadLayoutMode;
-    if (!layoutModeActive) {
-        auto &layoutPane = auiManager->GetPane("LayoutPanel");
-        if (layoutPane.IsOk())
-            layoutPane.Hide();
-        auto &layoutViewerPane = auiManager->GetPane("LayoutViewer");
-        if (layoutViewerPane.IsOk())
-            layoutViewerPane.Hide();
+    const LayoutViewPreset *preset = nullptr;
+    if (didLoadLayoutMode) {
+        preset = LayoutViewPresetRegistry::GetPreset("layout_mode_view");
+    } else if (perspective &&
+               (perspective->find("2DViewport") != std::string::npos ||
+                perspective->find("2DRenderOptions") != std::string::npos)) {
+        preset = LayoutViewPresetRegistry::GetPreset("2d_layout_view");
+    } else {
+        preset = LayoutViewPresetRegistry::GetPreset("3d_layout_view");
     }
+    if (preset && perspective)
+        ApplyLayoutPreset(*preset, perspective, didLoadLayoutMode, false);
+    else if (preset)
+        ApplyLayoutPreset(*preset, std::nullopt, didLoadLayoutMode, false);
 
     // Re-apply hard-coded minimum sizes so they are not overridden by the saved perspective
     auto& dataPane = auiManager->GetPane("DataNotebook");
@@ -2371,62 +2399,21 @@ void MainWindow::ApplyLayoutModePerspective() {
   if (!auiManager)
     return;
 
-  ConfigManager &cfg = ConfigManager::Get();
   if (layoutModePerspective.empty()) {
-    if (auto val = cfg.GetValue("layout_layout_mode"))
+    if (auto val = ConfigManager::Get().GetValue("layout_layout_mode"))
       layoutModePerspective = *val;
   }
 
-  if (!layoutModePerspective.empty()) {
-    auiManager->LoadPerspective(layoutModePerspective, true);
-  } else {
-    auiManager->Update();
-  }
+  const auto *preset =
+      LayoutViewPresetRegistry::GetPreset("layout_mode_view");
+  if (!preset)
+    return;
 
-  const int clientWidth = GetClientSize().GetWidth();
-  const int layoutPanelWidth = std::max(200, clientWidth / 6);
-  auto &layoutPane = auiManager->GetPane("LayoutPanel");
-  if (layoutPane.IsOk())
-    layoutPane.Left().BestSize(layoutPanelWidth, 600).MinSize(
-        wxSize(200, 300));
-
-  auto &layoutViewerPane = auiManager->GetPane("LayoutViewer");
-  if (layoutViewerPane.IsOk())
-    layoutViewerPane.Center().MinSize(wxSize(400, 300));
-
-  auto showPane = [this](const char *name) {
-    auto &pane = auiManager->GetPane(name);
-    if (pane.IsOk())
-      pane.Show();
-  };
-  auto hidePane = [this](const char *name) {
-    auto &pane = auiManager->GetPane(name);
-    if (pane.IsOk())
-      pane.Hide();
-  };
-
-  showPane("LayoutPanel");
-  showPane("LayoutViewer");
-  showPane("FileToolbar");
-  showPane("LayoutToolbar");
-  showPane("LayoutViewsToolbar");
-
-  hidePane("3DViewport");
-  hidePane("2DViewport");
-  hidePane("2DRenderOptions");
-  hidePane("DataNotebook");
-  hidePane("Console");
-  hidePane("LayerPanel");
-  hidePane("SummaryPanel");
-  hidePane("RiggingPanel");
-
-  auiManager->Update();
-
-  layoutModePerspective = auiManager->SavePerspective().ToStdString();
-  cfg.SetValue("layout_layout_mode", layoutModePerspective);
-  cfg.SetValue("layout_perspective", layoutModePerspective);
-  layoutModeActive = true;
-  UpdateViewMenuChecks();
+  if (layoutModePerspective.empty())
+    ApplyLayoutPreset(*preset, std::nullopt, true, true);
+  else
+    ApplyLayoutPreset(*preset, std::make_optional(layoutModePerspective), true,
+                      true);
 }
 
 void MainWindow::OnLayoutAdd2DView(wxCommandEvent &WXUNUSED(event)) {
