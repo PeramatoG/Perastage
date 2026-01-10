@@ -79,6 +79,8 @@ add_executable(${PROJECT_NAME} ${SRC_FILES} ${HEADER_FILES})
 # Mark as GUI application (no console)
 set_target_properties(${PROJECT_NAME} PROPERTIES WIN32_EXECUTABLE TRUE)
 
+install(TARGETS ${PROJECT_NAME} RUNTIME DESTINATION .)
+
 # Include project directories
 target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_SOURCE_DIR}/gui
@@ -109,10 +111,6 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
 
 if(BUILD_TESTING)
     add_subdirectory(tests)
-endif()
-
-if(NOT WIN32)
-    install(TARGETS ${PROJECT_NAME} RUNTIME DESTINATION .)
 endif()
 
 install(DIRECTORY ${CMAKE_SOURCE_DIR}/resources DESTINATION .)
@@ -161,14 +159,9 @@ if(WIN32)
 
     if(CMAKE_CONFIGURATION_TYPES)
         install(TARGETS ${PROJECT_NAME}
-            RUNTIME DESTINATION .
-            CONFIGURATIONS Release RelWithDebInfo MinSizeRel
-        )
-        install(TARGETS ${PROJECT_NAME}
             RUNTIME_DEPENDENCY_SET perastage_runtime_deps_release
             CONFIGURATIONS Release RelWithDebInfo MinSizeRel
         )
-        install(TARGETS ${PROJECT_NAME} RUNTIME DESTINATION . CONFIGURATIONS Debug)
         install(RUNTIME_DEPENDENCY_SET perastage_runtime_deps_release
             DESTINATION .
             CONFIGURATIONS Release RelWithDebInfo MinSizeRel
@@ -179,12 +172,12 @@ if(WIN32)
             POST_EXCLUDE_REGEXES
                 ".*[Ww]indows[\\/].*"
                 ".*[Ss]ystem32[\\/].*"
+                ".*ud_.*\\.dll$"
+                ".*d_.*\\.dll$"
+                ".*d\\.dll$"
         )
     elseif(NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
         install(TARGETS ${PROJECT_NAME}
-            RUNTIME DESTINATION .
-        )
-        install(TARGETS ${PROJECT_NAME}
             RUNTIME_DEPENDENCY_SET perastage_runtime_deps_release
         )
         install(RUNTIME_DEPENDENCY_SET perastage_runtime_deps_release
@@ -196,9 +189,10 @@ if(WIN32)
             POST_EXCLUDE_REGEXES
                 ".*[Ww]indows[\\/].*"
                 ".*[Ss]ystem32[\\/].*"
+                ".*ud_.*\\.dll$"
+                ".*d_.*\\.dll$"
+                ".*d\\.dll$"
         )
-    else()
-        install(TARGETS ${PROJECT_NAME} RUNTIME DESTINATION .)
     endif()
 
     # wxWidgets libraries may not appear in TARGET_RUNTIME_DLLS when discovered
@@ -248,6 +242,9 @@ if(WIN32)
         set(PERASTAGE_WX_RELEASE_DLLS ${PERASTAGE_WX_RUNTIME_DLLS})
         list(FILTER PERASTAGE_WX_DEBUG_DLLS INCLUDE REGEX ".*(d_vc_|ud_vc_).*\\.dll$")
         list(FILTER PERASTAGE_WX_RELEASE_DLLS EXCLUDE REGEX ".*(d_vc_|ud_vc_).*\\.dll$")
+        list(FILTER PERASTAGE_WX_RELEASE_DLLS EXCLUDE REGEX ".*ud_.*\\.dll$")
+        list(FILTER PERASTAGE_WX_RELEASE_DLLS EXCLUDE REGEX ".*d_.*\\.dll$")
+        list(FILTER PERASTAGE_WX_RELEASE_DLLS EXCLUDE REGEX ".*d\\.dll$")
 
         if(CMAKE_CONFIGURATION_TYPES)
             install(FILES ${PERASTAGE_WX_DEBUG_DLLS} DESTINATION . CONFIGURATIONS Debug)
