@@ -43,6 +43,7 @@ class LayoutPanel;
 class LayoutViewerPanel;
 class SummaryPanel;
 class RiggingPanel;
+struct LayoutViewPreset;
 
 // Main application window for GUI components
 class MainWindow : public wxFrame {
@@ -160,6 +161,9 @@ private:
 
   void SaveCameraSettings();
   void ApplySavedLayout();
+  void ApplyLayoutPreset(const LayoutViewPreset &preset,
+                         const std::optional<std::string> &perspective,
+                         bool layoutMode, bool persistPerspective);
   void ApplyLayoutModePerspective();
   void BeginLayout2DViewEdit();
   void UpdateViewMenuChecks();
