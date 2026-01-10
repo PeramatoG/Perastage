@@ -159,48 +159,39 @@ if(WIN32)
     list(REMOVE_DUPLICATES PERASTAGE_VCPKG_BIN_DIRS)
     list(REMOVE_DUPLICATES PERASTAGE_VCPKG_DEBUG_BIN_DIRS)
 
-    set(PERASTAGE_INSTALL_SUPPORTS_RUNTIME_DEPS TRUE)
-    if(CMAKE_VERSION VERSION_LESS "3.21")
-        set(PERASTAGE_INSTALL_SUPPORTS_RUNTIME_DEPS FALSE)
-    endif()
-
     if(CMAKE_CONFIGURATION_TYPES)
-        if(PERASTAGE_INSTALL_SUPPORTS_RUNTIME_DEPS)
-            install(TARGETS ${PROJECT_NAME}
-                RUNTIME DESTINATION .
-                CONFIGURATIONS Release RelWithDebInfo MinSizeRel
-                RUNTIME_DEPENDENCIES
-                    DIRECTORIES ${PERASTAGE_VCPKG_BIN_DIRS}
-                    PRE_EXCLUDE_REGEXES
-                        "api-ms-.*"
-                        "ext-ms-.*"
-                    POST_EXCLUDE_REGEXES
-                        ".*[Ww]indows[\\/].*"
-                        ".*[Ss]ystem32[\\/].*"
-            )
-        else()
-            install(TARGETS ${PROJECT_NAME}
-                RUNTIME DESTINATION .
-                CONFIGURATIONS Release RelWithDebInfo MinSizeRel
-            )
-        endif()
+        install(TARGETS ${PROJECT_NAME}
+            RUNTIME DESTINATION .
+            CONFIGURATIONS Release RelWithDebInfo MinSizeRel
+            RUNTIME_DEPENDENCY_SET perastage_runtime_deps_release
+        )
         install(TARGETS ${PROJECT_NAME} RUNTIME DESTINATION . CONFIGURATIONS Debug)
+        install(RUNTIME_DEPENDENCY_SET perastage_runtime_deps_release
+            DESTINATION .
+            CONFIGURATIONS Release RelWithDebInfo MinSizeRel
+            DIRECTORIES ${PERASTAGE_VCPKG_BIN_DIRS}
+            PRE_EXCLUDE_REGEXES
+                "api-ms-.*"
+                "ext-ms-.*"
+            POST_EXCLUDE_REGEXES
+                ".*[Ww]indows[\\/].*"
+                ".*[Ss]ystem32[\\/].*"
+        )
     elseif(NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
-        if(PERASTAGE_INSTALL_SUPPORTS_RUNTIME_DEPS)
-            install(TARGETS ${PROJECT_NAME}
-                RUNTIME DESTINATION .
-                RUNTIME_DEPENDENCIES
-                    DIRECTORIES ${PERASTAGE_VCPKG_BIN_DIRS}
-                    PRE_EXCLUDE_REGEXES
-                        "api-ms-.*"
-                        "ext-ms-.*"
-                    POST_EXCLUDE_REGEXES
-                        ".*[Ww]indows[\\/].*"
-                        ".*[Ss]ystem32[\\/].*"
-            )
-        else()
-            install(TARGETS ${PROJECT_NAME} RUNTIME DESTINATION .)
-        endif()
+        install(TARGETS ${PROJECT_NAME}
+            RUNTIME DESTINATION .
+            RUNTIME_DEPENDENCY_SET perastage_runtime_deps_release
+        )
+        install(RUNTIME_DEPENDENCY_SET perastage_runtime_deps_release
+            DESTINATION .
+            DIRECTORIES ${PERASTAGE_VCPKG_BIN_DIRS}
+            PRE_EXCLUDE_REGEXES
+                "api-ms-.*"
+                "ext-ms-.*"
+            POST_EXCLUDE_REGEXES
+                ".*[Ww]indows[\\/].*"
+                ".*[Ss]ystem32[\\/].*"
+        )
     else()
         install(TARGETS ${PROJECT_NAME} RUNTIME DESTINATION .)
     endif()
