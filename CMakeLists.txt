@@ -40,51 +40,6 @@ find_package(nanovg CONFIG REQUIRED)
 find_package(podofo CONFIG REQUIRED)
 find_package(ZLIB REQUIRED)
 
-function(perastage_force_linker_language target_name language)
-    if(NOT TARGET ${target_name})
-        return()
-    endif()
-
-    get_target_property(_aliased ${target_name} ALIASED_TARGET)
-    if(_aliased)
-        set(_tgt ${_aliased})
-    else()
-        set(_tgt ${target_name})
-    endif()
-
-    # Some package configs define targets (imported or not) without a linker language.
-    # This is required for generator expressions like $<TARGET_RUNTIME_DLLS:...>.
-    set_property(TARGET ${_tgt} PROPERTY LINKER_LANGUAGE ${language})
-
-    get_target_property(_is_imported ${_tgt} IMPORTED)
-    if(_is_imported)
-        set_property(TARGET ${_tgt} PROPERTY IMPORTED_LINK_INTERFACE_LANGUAGES ${language})
-
-        # Apply for any declared import configurations and also for common configs.
-        get_target_property(_import_configs ${_tgt} IMPORTED_CONFIGURATIONS)
-        set(_all_configs ${_import_configs} Debug Release RelWithDebInfo MinSizeRel)
-        list(REMOVE_DUPLICATES _all_configs)
-
-        foreach(_cfg IN LISTS _all_configs)
-            string(TOUPPER "${_cfg}" _cfg_uc)
-            set_property(
-                TARGET ${_tgt}
-                PROPERTY IMPORTED_LINK_INTERFACE_LANGUAGES_${_cfg_uc} ${language}
-            )
-        endforeach()
-    endif()
-endfunction()
-
-# Ensure CMake can generate link rules and runtime dependency rules for these targets.
-perastage_force_linker_language(CURL::libcurl C)
-perastage_force_linker_language(CURL::libcurl_shared C)
-perastage_force_linker_language(GLEW::GLEW C)
-perastage_force_linker_language(podofo::podofo CXX)
-perastage_force_linker_language(podofo::podofo_shared CXX)
-perastage_force_linker_language(tinyxml2::tinyxml2 CXX)
-perastage_force_linker_language(nanovg::nanovg C)
-perastage_force_linker_language(ZLIB::ZLIB C)
-
 # Gather source files
 file(GLOB_RECURSE SRC_FILES CONFIGURE_DEPENDS
     ${CMAKE_SOURCE_DIR}/main.cpp
@@ -152,30 +107,13 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
 
 
 
-function(perastage_append_runtime_dlls out_var target_name)
-    if(NOT TARGET ${target_name})
-        return()
-    endif()
-
-    get_target_property(_alias ${target_name} ALIASED_TARGET)
-    if(_alias)
-        set(target_name ${_alias})
-    endif()
-
-    get_target_property(_type ${target_name} TYPE)
-    if(_type STREQUAL "SHARED_LIBRARY"
-        OR _type STREQUAL "MODULE_LIBRARY"
-        OR _type STREQUAL "EXECUTABLE")
-        list(APPEND ${out_var} $<TARGET_RUNTIME_DLLS:${target_name}>)
-        set(${out_var} "${${out_var}}" PARENT_SCOPE)
-    endif()
-endfunction()
-
 if(BUILD_TESTING)
     add_subdirectory(tests)
 endif()
 
-install(TARGETS ${PROJECT_NAME} RUNTIME DESTINATION .)
+if(NOT WIN32)
+    install(TARGETS ${PROJECT_NAME} RUNTIME DESTINATION .)
+endif()
 
 install(DIRECTORY ${CMAKE_SOURCE_DIR}/resources DESTINATION .)
 if(EXISTS "${CMAKE_SOURCE_DIR}/library")
@@ -197,10 +135,59 @@ if(WIN32)
     set(CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS_SKIP TRUE)
     include(InstallRequiredSystemLibraries)
 
-    set(PERASTAGE_RUNTIME_DLLS $<TARGET_RUNTIME_DLLS:${PROJECT_NAME}>)
+    set(PERASTAGE_VCPKG_BIN_DIRS "")
+    set(PERASTAGE_VCPKG_DEBUG_BIN_DIRS "")
+    if(DEFINED VCPKG_INSTALLED_DIR AND DEFINED VCPKG_TARGET_TRIPLET)
+        set(_perastage_vcpkg_bin "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/bin")
+        if(EXISTS "${_perastage_vcpkg_bin}")
+            list(APPEND PERASTAGE_VCPKG_BIN_DIRS "${_perastage_vcpkg_bin}")
+        endif()
+        set(_perastage_vcpkg_debug_bin "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/debug/bin")
+        if(EXISTS "${_perastage_vcpkg_debug_bin}")
+            list(APPEND PERASTAGE_VCPKG_DEBUG_BIN_DIRS "${_perastage_vcpkg_debug_bin}")
+        endif()
+    endif()
 
-    install(FILES ${PERASTAGE_RUNTIME_DLLS} DESTINATION .)
-    install(FILES ${PERASTAGE_RUNTIME_DLLS} DESTINATION . COMPONENT Runtime)
+    foreach(_prefix IN LISTS CMAKE_PREFIX_PATH)
+        if(EXISTS "${_prefix}/bin")
+            list(APPEND PERASTAGE_VCPKG_BIN_DIRS "${_prefix}/bin")
+        endif()
+        if(EXISTS "${_prefix}/debug/bin")
+            list(APPEND PERASTAGE_VCPKG_DEBUG_BIN_DIRS "${_prefix}/debug/bin")
+        endif()
+    endforeach()
+    list(REMOVE_DUPLICATES PERASTAGE_VCPKG_BIN_DIRS)
+    list(REMOVE_DUPLICATES PERASTAGE_VCPKG_DEBUG_BIN_DIRS)
+
+    if(CMAKE_CONFIGURATION_TYPES)
+        install(TARGETS ${PROJECT_NAME}
+            RUNTIME DESTINATION .
+            CONFIGURATIONS Release RelWithDebInfo MinSizeRel
+            RUNTIME_DEPENDENCIES
+                DIRECTORIES ${PERASTAGE_VCPKG_BIN_DIRS}
+                PRE_EXCLUDE_REGEXES
+                    "api-ms-.*"
+                    "ext-ms-.*"
+                POST_EXCLUDE_REGEXES
+                    ".*[Ww]indows[\\/].*"
+                    ".*[Ss]ystem32[\\/].*"
+        )
+        install(TARGETS ${PROJECT_NAME} RUNTIME DESTINATION . CONFIGURATIONS Debug)
+    elseif(NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
+        install(TARGETS ${PROJECT_NAME}
+            RUNTIME DESTINATION .
+            RUNTIME_DEPENDENCIES
+                DIRECTORIES ${PERASTAGE_VCPKG_BIN_DIRS}
+                PRE_EXCLUDE_REGEXES
+                    "api-ms-.*"
+                    "ext-ms-.*"
+                POST_EXCLUDE_REGEXES
+                    ".*[Ww]indows[\\/].*"
+                    ".*[Ss]ystem32[\\/].*"
+        )
+    else()
+        install(TARGETS ${PROJECT_NAME} RUNTIME DESTINATION .)
+    endif()
 
     # wxWidgets libraries may not appear in TARGET_RUNTIME_DLLS when discovered
     # via wxWidgets_USE_FILE, so derive DLL locations from linked libraries too.
@@ -260,22 +247,6 @@ if(WIN32)
         endif()
     endif()
 
-    # Gather runtime DLLs from imported dependencies to avoid missing third-party libraries.
-    set(PERASTAGE_DEP_RUNTIME_DLLS "")
-    foreach(dep IN LISTS PERASTAGE_IMPORT_DEPS)
-        perastage_append_runtime_dlls(PERASTAGE_DEP_RUNTIME_DLLS ${dep})
-    endforeach()
-    list(REMOVE_DUPLICATES PERASTAGE_DEP_RUNTIME_DLLS)
-
-    if(CMAKE_CONFIGURATION_TYPES)
-        install(FILES ${PERASTAGE_DEP_RUNTIME_DLLS} DESTINATION . CONFIGURATIONS Release RelWithDebInfo MinSizeRel)
-        install(FILES ${PERASTAGE_DEP_RUNTIME_DLLS} DESTINATION . CONFIGURATIONS Debug)
-    else()
-        if(NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
-            list(FILTER PERASTAGE_DEP_RUNTIME_DLLS EXCLUDE REGEX ".*(d_vc_|ud_vc_).*\\.dll$|.*d\\.dll$")
-        endif()
-        install(FILES ${PERASTAGE_DEP_RUNTIME_DLLS} DESTINATION .)
-    endif()
 endif()
 
 if(CMAKE_CONFIGURATION_TYPES)
