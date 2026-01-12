@@ -66,6 +66,8 @@ static const std::regex kHangLineRe("^\\s*(LX\\d+|floor|efectos?)\\s*:?\\s*$",
                                     std::regex::icase);
 static const std::regex kHangFindRe("(LX\\d+|floor|efectos?)",
                                     std::regex::icase);
+static const std::regex kHangOnlyRe("^\\s*(LX\\d+|floor|efectos?)\\s*$",
+                                    std::regex::icase);
 std::string Trim(const std::string &s) {
   size_t start = s.find_first_not_of(" \t\r\n");
   if (start == std::string::npos)
@@ -470,8 +472,12 @@ bool RiderImporter::ImportText(const std::string &text) {
           height = parsed * 10.0f;
       }
       std::string hang = currentHang;
-      if (m.size() > 4 && m[4].matched)
+      if (m.size() > 4 && m[4].matched) {
         hang = Trim(m[4]);
+      } else if (std::regex_match(model, kHangOnlyRe)) {
+        hang = model;
+        model.clear();
+      }
       std::transform(
           hang.begin(), hang.end(), hang.begin(),
           [](unsigned char c) { return static_cast<char>(std::toupper(c)); });
@@ -518,7 +524,10 @@ bool RiderImporter::ImportText(const std::string &text) {
           // raw hang height keeps the base aligned when swapping models.
           t.transform.o[2] = getHangHeight(posName);
           std::string sizeStr = formatLength(s);
-          t.name = "TRUSS " + model + " " + sizeStr;
+          if (model.empty())
+            t.name = "TRUSS " + sizeStr;
+          else
+            t.name = "TRUSS " + model + " " + sizeStr;
           t.model = t.name;
           if (auto dictPath = TrussDictionary::Get(t.model)) {
             namespace fs = std::filesystem;
