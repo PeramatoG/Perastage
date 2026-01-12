@@ -2826,7 +2826,8 @@ void MainWindow::ActivateLayoutView(const std::string &layoutName) {
       RestoreLayout2DViewState(viewId);
   }
 
-  ApplyLayoutModePerspective();
+  if (layoutModeActive)
+    ApplyLayoutModePerspective();
 }
 
 void MainWindow::SyncSceneData() {
