@@ -612,6 +612,9 @@ std::pair<int, int> LayoutViewerPanel::GetZIndexRange() const {
 
 void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
   wxPaintDC dc(this);
+  if (!IsShownOnScreen()) {
+    return;
+  }
   InitGL();
   SetCurrent(*glContext_);
   RefreshLegendData();
@@ -1486,6 +1489,8 @@ void LayoutViewerPanel::UpdateLegendFrame(const layouts::Layout2DViewFrame &fram
 void LayoutViewerPanel::InitGL() {
   if (!glContext_)
     return;
+  if (!IsShownOnScreen())
+    return;
   SetCurrent(*glContext_);
   if (!glInitialized_) {
     glDisable(GL_DEPTH_TEST);
@@ -1497,6 +1502,8 @@ void LayoutViewerPanel::InitGL() {
 
 void LayoutViewerPanel::RebuildCachedTexture() {
   if (!renderDirty)
+    return;
+  if (!IsShownOnScreen())
     return;
 
   renderDirty = false;
@@ -1569,6 +1576,8 @@ void LayoutViewerPanel::RebuildCachedTexture() {
     }
 
     InitGL();
+    if (!IsShownOnScreen())
+      return;
     SetCurrent(*glContext_);
     if (cache.texture == 0) {
       glGenTextures(1, &cache.texture);
@@ -1639,6 +1648,8 @@ void LayoutViewerPanel::RebuildCachedTexture() {
     }
 
     InitGL();
+    if (!IsShownOnScreen())
+      return;
     SetCurrent(*glContext_);
     if (cache.texture == 0) {
       glGenTextures(1, &cache.texture);
