@@ -83,6 +83,10 @@
         "file": "XBEAM 17 CMY.gdtf",
         "mode": "25ch"
     },
+    "Q-7": {
+        "file": "Q-7.gdtf",
+        "mode": "6 Channel RAW"
+    },
     "Robin MegaPointe": {
         "file": "Robin MegaPointe.gdtf",
         "mode": "Mode 1 - Standard 16 - bit"

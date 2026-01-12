@@ -113,18 +113,18 @@ void RiderTextDialog::OnLoadExample(wxCommandEvent &WXUNUSED(event)) {
       "6 Megapointe\n"
       "6 Mac Viper Profile\n"
       "6 Spiider\n"
-      "4 Elan strobe\n"
+      "4 Q-7\n"
       "\n"
       "lx3\n"
       "6 Megapointe\n"
       "6 Mac Viper Profile\n"
       "6 Spiider\n"
-      "4 Elan strobe\n"
+      "4 Q-7\n"
       "\n"
       "rigging\n"
-      "1 truss lx1 14 metros\n"
-      "1 truss lx2 12 metros\n"
-      "1 truss lx3 12 metros\n";
+      "1 truss lx1 14 m\n"
+      "1 truss lx2 12 m\n"
+      "1 truss lx3 12 m\n";
   textCtrl->ChangeValue(exampleText);
   sourceLabel = "Example text";
   if (sourceText)
