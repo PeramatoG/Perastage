@@ -166,6 +166,9 @@ FixturePreviewPanel::~FixturePreviewPanel()
 
 void FixturePreviewPanel::InitGL()
 {
+    if(!IsShownOnScreen()){
+        return;
+    }
     SetCurrent(*m_glContext);
     if(!m_glInitialized){
         glewExperimental = GL_TRUE;
@@ -256,6 +259,9 @@ void FixturePreviewPanel::Render()
 void FixturePreviewPanel::OnPaint(wxPaintEvent&)
 {
     wxPaintDC dc(this);
+    if(!IsShownOnScreen()){
+        return;
+    }
     InitGL();
     Render();
     SwapBuffers();
@@ -305,4 +311,3 @@ void FixturePreviewPanel::OnMouseWheel(wxMouseEvent& evt)
     m_camera.Zoom(-(float)rot/delta);
     Refresh();
 }
-

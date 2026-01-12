@@ -89,6 +89,9 @@ void Viewer3DPanel::StopRefreshThread()
 // Initializes OpenGL basic settings
 void Viewer3DPanel::InitGL()
 {
+    if (!IsShownOnScreen()) {
+        return;
+    }
     SetCurrent(*m_glContext);
     if (!m_glInitialized) {
         glewExperimental = GL_TRUE;
@@ -109,6 +112,9 @@ void Viewer3DPanel::InitGL()
 void Viewer3DPanel::OnPaint(wxPaintEvent& event)
 {
     wxPaintDC dc(this);
+    if (!IsShownOnScreen()) {
+        return;
+    }
     InitGL();
     Render();
 
@@ -199,6 +205,9 @@ void Viewer3DPanel::OnResize(wxSizeEvent& event)
 // Renders the full 3D scene
 void Viewer3DPanel::Render()
 {
+    if (!IsShownOnScreen()) {
+        return;
+    }
     SetCurrent(*m_glContext);
 
     int width, height;
@@ -251,6 +260,9 @@ void Viewer3DPanel::OnMouseUp(wxMouseEvent& event)
     {
         int w, h;
         GetClientSize(&w, &h);
+        if (!IsShownOnScreen()) {
+            return;
+        }
         SetCurrent(*m_glContext);
         wxString label;
         wxPoint pos;
