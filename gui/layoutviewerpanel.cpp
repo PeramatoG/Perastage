@@ -494,8 +494,11 @@ constexpr int kHandleSizePx = 10;
 constexpr int kHandleHalfPx = kHandleSizePx / 2;
 constexpr int kHandleHoverPadPx = 6;
 constexpr int kMinFrameSize = 24;
-constexpr int kLegendSymbolSizePx = 106;
-constexpr double kLegendFontScale = 2.0 / 3.0;
+constexpr double kLegendContentScale = 0.7;
+constexpr int kLegendSymbolSizePx =
+    static_cast<int>(106 * kLegendContentScale);
+constexpr double kLegendFontScale =
+    (2.0 / 3.0) * kLegendContentScale;
 constexpr int kEditMenuId = wxID_HIGHEST + 490;
 constexpr int kDeleteMenuId = wxID_HIGHEST + 491;
 constexpr int kDeleteLegendMenuId = wxID_HIGHEST + 492;
