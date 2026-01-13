@@ -2076,6 +2076,8 @@ Viewer2DExportResult ExportLayoutToPdf(
         totalRows > 0 ? (availableHeight / totalRows) - 2.0 : 10.0;
     fontSize = std::clamp(fontSize, 6.0, 14.0);
     fontSize *= kLegendFontScale;
+    const double fontScale =
+        std::clamp(fontSize / (14.0 * kLegendFontScale), 0.0, 1.0);
 
     double maxCountWidth =
         MeasureTextWidth("Count", fontSize, fontCatalog.bold);
@@ -2101,7 +2103,8 @@ Viewer2DExportResult ExportLayoutToPdf(
         totalRows > 0 ? (availableHeight / totalRows) : 0.0;
     const double textHeightEstimate = fontSize * 1.2;
     const double lineHeight = textHeightEstimate + separatorGap;
-    const double symbolSize = std::max(4.0, kLegendSymbolSize);
+    const double symbolSize =
+        std::max(4.0, kLegendSymbolSize * fontScale);
     double maxSymbolDrawWidth = 0.0;
     for (const auto &item : legend.items) {
       if (item.symbolKey.empty())
