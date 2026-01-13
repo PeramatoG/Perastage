@@ -71,5 +71,7 @@ std::string BuildFixtureSymbolKey(const Fixture &fixture,
     modelKey = NormalizeModelKey(fixture.gdtfSpec);
   if (modelKey.empty() && !fixture.typeName.empty())
     modelKey = fixture.typeName;
+  if (modelKey.empty())
+    modelKey = "unknown";
   return modelKey;
 }
