@@ -1434,6 +1434,8 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
         modelKey = NormalizeModelKey(f.gdtfSpec);
       if (modelKey.empty() && !f.typeName.empty())
         modelKey = f.typeName;
+      if (modelKey.empty())
+        modelKey = "unknown";
 
       if (!modelKey.empty()) {
         SymbolKey symbolKey;
