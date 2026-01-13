@@ -2026,6 +2026,8 @@ wxImage LayoutViewerPanel::BuildLegendImage(
                     : 10.0;
   fontSize = std::clamp(fontSize, 6.0, 14.0);
   fontSize *= kLegendFontScale;
+  const double fontScale =
+      std::clamp(fontSize / (14.0 * kLegendFontScale), 0.0, 1.0);
   const int fontSizePx =
       std::max(1, static_cast<int>(std::lround(fontSize * renderZoom)));
 
@@ -2068,8 +2070,8 @@ wxImage LayoutViewerPanel::BuildLegendImage(
       std::max(lineHeight,
                static_cast<int>(std::lround(rowHeight * renderZoom *
                                             kLegendLineSpacingScale)));
-  const int desiredSymbolSize =
-      static_cast<int>(std::lround(kLegendSymbolSizePx * renderZoom));
+  const int desiredSymbolSize = static_cast<int>(std::lround(
+      kLegendSymbolSizePx * renderZoom * fontScale));
   const int symbolSize = std::max(4, desiredSymbolSize);
   double maxSymbolDrawWidth = 0.0;
   if (symbols) {
