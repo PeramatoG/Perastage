@@ -43,8 +43,11 @@
 #include "viewer2dcommandrenderer.h"
 
 namespace {
-constexpr double kLegendSymbolSize = 160.0 * 2.0 / 3.0;
-constexpr double kLegendFontScale = 2.0 / 3.0;
+constexpr double kLegendContentScale = 0.7;
+constexpr double kLegendSymbolSize =
+    160.0 * 2.0 / 3.0 * kLegendContentScale;
+constexpr double kLegendFontScale =
+    (2.0 / 3.0) * kLegendContentScale;
 
 static bool ShouldTraceLabelOrder() {
   static const bool enabled = std::getenv("PERASTAGE_TRACE_LABELS") != nullptr;
