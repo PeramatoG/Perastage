@@ -281,7 +281,7 @@ void FixtureTablePanel::ReloadData() {
     wxString gdtf = wxFileName(gdtfFull).GetFullName();
     wxString type = wxString::FromUTF8(fixture->typeName);
     if (type.empty())
-      type = gdtf;
+      type = wxFileName(gdtfFull).GetName();
     wxString mode = wxString::FromUTF8(fixture->gdtfMode);
 
     int chCount = GetGdtfModeChannelCount(std::string(gdtfFull.ToUTF8()),
@@ -389,7 +389,7 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
       GetGdtfProperties(pathUtf8, w, p);
       wxString typeName = wxString::FromUTF8(GetGdtfFixtureName(pathUtf8));
       if (typeName.empty())
-        typeName = fdlg.GetFilename();
+        typeName = wxFileName(path).GetName();
       wxString fileName = fdlg.GetFilename();
 
       std::vector<std::string> prevTypes;
