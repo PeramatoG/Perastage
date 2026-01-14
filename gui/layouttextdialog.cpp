@@ -25,6 +25,7 @@
 #include <wx/bmpbuttn.h>
 #include <wx/button.h>
 #include <wx/checkbox.h>
+#include <wx/richtext/richtextbuffer.h>
 #include <wx/richtext/richtextctrl.h>
 #include <wx/sizer.h>
 #include <wx/spinctrl.h>
@@ -37,6 +38,14 @@ constexpr int kToolbarIconSizePx = 16;
 constexpr int kDefaultFontSize = 12;
 constexpr int kMinFontSize = 6;
 constexpr int kMaxFontSize = 72;
+
+void EnsureRichTextHandlers() {
+  static bool initialized = false;
+  if (initialized)
+    return;
+  wxRichTextBuffer::InitStandardHandlers();
+  initialized = true;
+}
 } // namespace
 
 LayoutTextDialog::LayoutTextDialog(wxWindow *parent,
@@ -46,6 +55,7 @@ LayoutTextDialog::LayoutTextDialog(wxWindow *parent,
     : wxDialog(parent, wxID_ANY, "Edit Text", wxDefaultPosition,
                wxSize(640, 420),
                wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER) {
+  EnsureRichTextHandlers();
   wxBoxSizer *mainSizer = new wxBoxSizer(wxVERTICAL);
   wxBoxSizer *toolbarSizer = new wxBoxSizer(wxHORIZONTAL);
 
