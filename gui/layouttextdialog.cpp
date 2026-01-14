@@ -31,11 +31,11 @@
 #include <wx/spinctrl.h>
 #include <wx/sstream.h>
 
+#include "layoutviewerpanel_shared.h"
 #include "projectutils.h"
 
 namespace {
 constexpr int kToolbarIconSizePx = 16;
-constexpr int kDefaultFontSize = 12;
 constexpr int kMinFontSize = 6;
 constexpr int kMaxFontSize = 72;
 
@@ -83,7 +83,7 @@ LayoutTextDialog::LayoutTextDialog(wxWindow *parent,
   fontSizeCtrl = new wxSpinCtrl(this, wxID_ANY, wxEmptyString,
                                 wxDefaultPosition, wxSize(64, -1),
                                 wxSP_ARROW_KEYS, kMinFontSize, kMaxFontSize,
-                                kDefaultFontSize);
+                                layoutviewerpanel::detail::kTextDefaultFontSize);
   fontSizeCtrl->Bind(wxEVT_SPINCTRL, [this](wxCommandEvent &) {
     ApplyFontSize(fontSizeCtrl->GetValue());
   });
@@ -115,6 +115,14 @@ LayoutTextDialog::LayoutTextDialog(wxWindow *parent,
   textCtrl = new wxRichTextCtrl(this, wxID_ANY, wxEmptyString,
                                 wxDefaultPosition, wxDefaultSize,
                                 wxTE_MULTILINE | wxTE_RICH2);
+  wxFont sharedFont = layoutviewerpanel::detail::MakeSharedFont(
+      layoutviewerpanel::detail::kTextDefaultFontSize, wxFONTWEIGHT_NORMAL);
+  if (sharedFont.IsOk()) {
+    textCtrl->SetFont(sharedFont);
+    wxRichTextAttr defaultStyle;
+    defaultStyle.SetFont(sharedFont);
+    textCtrl->SetDefaultStyle(defaultStyle);
+  }
   textCtrl->SetMinSize(wxSize(580, 280));
   mainSizer->Add(textCtrl, 1, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 8);
 
