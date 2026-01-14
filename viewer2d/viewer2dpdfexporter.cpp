@@ -2114,7 +2114,7 @@ Viewer2DExportResult ExportLayoutToPdf(
     const double symbolColumnGap = 2.0;
     constexpr double kLegendLineSpacingScale = 0.8;
     constexpr double kLegendSymbolColumnScale = 1.0;
-    constexpr double kLegendSymbolPairOverlapScale = 0.35;
+    constexpr double kLegendSymbolPairOverlapScale = 0.75;
     const double separatorGap = 2.0;
     const size_t totalRows = legend.items.size() + 1;
     const double availableHeight =
