@@ -1185,6 +1185,17 @@ void LayoutViewerPanel::OnLeftDClick(wxMouseEvent &event) {
 
 void LayoutViewerPanel::OnKeyDown(wxKeyEvent &event) {
   const int key = event.GetKeyCode();
+  if (key == WXK_DELETE || key == WXK_NUMPAD_DELETE) {
+    wxCommandEvent deleteEvent;
+    if (selectedElementType == SelectedElementType::View2D) {
+      OnDeleteView(deleteEvent);
+    } else if (selectedElementType == SelectedElementType::Legend) {
+      OnDeleteLegend(deleteEvent);
+    } else if (selectedElementType == SelectedElementType::EventTable) {
+      OnDeleteEventTable(deleteEvent);
+    }
+    return;
+  }
   if (key == 'Z' || key == 'z') {
     ResetViewToFit();
     RequestRenderRebuild();
