@@ -626,6 +626,7 @@ void MainWindow::CreateToolBars() {
                                    wxDefaultSize,
                                    wxAUI_TB_DEFAULT_STYLE | wxAUI_TB_HORIZONTAL);
   layoutToolBar->SetToolBitmapSize(wxSize(16, 16));
+  layoutToolBar->SetOverflowVisible(true);
   layoutToolBar->AddTool(ID_View_Layout_2DView, "Añadir vista 2D",
                          loadToolbarIcon("panel-top-bottom-dashed",
                                          wxART_MISSING_IMAGE),
@@ -635,7 +636,7 @@ void MainWindow::CreateToolBars() {
                                          wxART_MISSING_IMAGE),
                          "Add fixture legend to layout");
   layoutToolBar->AddTool(ID_View_Layout_EventTable, "Añadir tabla de evento",
-                         loadToolbarIcon("table", wxART_MISSING_IMAGE),
+                         loadToolbarIcon("table", wxART_LIST_VIEW),
                          "Add event table to layout");
   layoutToolBar->Realize();
   auiManager->AddPane(
