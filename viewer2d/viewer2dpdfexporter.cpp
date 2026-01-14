@@ -2173,8 +2173,28 @@ Viewer2DExportResult ExportLayoutToPdf(
       double scale = std::min(symbolSize / symbolW, symbolSize / symbolH);
       return symbolH * scale;
     };
+    double maxSymbolPairWidth = symbolSize;
+    const SymbolDefinitionSnapshot *legendSymbolsForSizing =
+        legend.symbolSnapshot ? legend.symbolSnapshot.get()
+                              : symbolSnapshot.get();
+    if (legendSymbolsForSizing) {
+      for (const auto &item : legend.items) {
+        if (item.symbolKey.empty())
+          continue;
+        const SymbolDefinition *topSymbol = FindSymbolDefinitionPreferred(
+            legendSymbolsForSizing, item.symbolKey, SymbolViewKind::Top);
+        const SymbolDefinition *frontSymbol = FindSymbolDefinitionExact(
+            legendSymbolsForSizing, item.symbolKey, SymbolViewKind::Front);
+        const double topDrawW = symbolDrawWidth(topSymbol);
+        const double frontDrawW = symbolDrawWidth(frontSymbol);
+        double rowPairWidth = std::max(topDrawW, frontDrawW);
+        if (topDrawW > 0.0 && frontDrawW > 0.0)
+          rowPairWidth = topDrawW + frontDrawW + symbolPairGapSize;
+        maxSymbolPairWidth = std::max(maxSymbolPairWidth, rowPairWidth);
+      }
+    }
     const double symbolSlotSize = std::max(
-        4.0, (symbolSize * 2.0 + symbolPairGapSize) * kLegendSymbolColumnScale);
+        4.0, maxSymbolPairWidth * kLegendSymbolColumnScale);
     const double rowHeight =
         std::max(rowHeightCandidate * kLegendLineSpacingScale, lineHeight);
     const double textOffset =
@@ -2241,15 +2261,21 @@ Viewer2DExportResult ExportLayoutToPdf(
         if (topDrawW > 0.0 || frontDrawW > 0.0) {
           double rowBottom = rowTop - rowHeight;
           double symbolBoxY = rowBottom + (rowHeight - symbolSize) * 0.5;
-          double leftSlotWidth = symbolSlotSize;
-          double rightSlotWidth = symbolSlotSize;
-          double topSlotLeft = xSymbol;
-          double frontSlotLeft = xSymbol;
+          double rowPairWidth = std::max(topDrawW, frontDrawW);
+          if (topDrawW > 0.0 && frontDrawW > 0.0)
+            rowPairWidth = topDrawW + frontDrawW + symbolPairGapSize;
+          const double rowStart =
+              xSymbol + std::max(0.0, (symbolSlotSize - rowPairWidth) * 0.5);
+          double leftSlotWidth = rowPairWidth;
+          double rightSlotWidth = rowPairWidth;
+          double topSlotLeft = rowStart;
+          double frontSlotLeft = rowStart;
           if (topDrawW > 0.0 && frontDrawW > 0.0) {
-            leftSlotWidth =
-                std::max(0.0, (symbolSlotSize - symbolPairGapSize) * 0.5);
-            rightSlotWidth = leftSlotWidth;
-            frontSlotLeft = xSymbol + leftSlotWidth + symbolPairGapSize;
+            leftSlotWidth = topDrawW;
+            rightSlotWidth = frontDrawW;
+            frontSlotLeft = rowStart + topDrawW + symbolPairGapSize;
+          } else if (frontDrawW > 0.0) {
+            frontSlotLeft = rowStart;
           }
           auto drawSymbol = [&](const SymbolDefinition *symbol,
                                 double drawW, double drawH,
