@@ -891,6 +891,20 @@ const SymbolDefinition *FindSymbolDefinition(
   return best;
 }
 
+const SymbolDefinition *FindSymbolDefinitionPreferred(
+    const SymbolDefinitionSnapshot *symbols, const std::string &modelKey,
+    SymbolViewKind preferred) {
+  if (!symbols || modelKey.empty())
+    return nullptr;
+  for (const auto &entry : *symbols) {
+    if (entry.second.key.modelKey == modelKey &&
+        entry.second.key.viewKind == preferred) {
+      return &entry.second;
+    }
+  }
+  return FindSymbolDefinition(symbols, modelKey);
+}
+
 SymbolBounds ComputeSymbolBounds(const std::vector<CanvasCommand> &commands) {
   SymbolBounds bounds{};
   bool hasPoint = false;
@@ -1752,6 +1766,12 @@ Viewer2DExportResult ExportLayoutToPdf(
   auto makeLegendIdName = [](uint32_t symbolId) {
     return "L" + std::to_string(symbolId);
   };
+  auto addLegendSymbol = [&](const SymbolDefinition *symbol) {
+    if (!symbol)
+      return;
+    legendSymbolNames.emplace(symbol->symbolId,
+                              makeLegendIdName(symbol->symbolId));
+  };
   for (const auto &legend : legends) {
     const SymbolDefinitionSnapshot *legendSymbols =
         legend.symbolSnapshot ? legend.symbolSnapshot.get() : symbolSnapshot.get();
@@ -1760,12 +1780,12 @@ Viewer2DExportResult ExportLayoutToPdf(
     for (const auto &item : legend.items) {
       if (item.symbolKey.empty())
         continue;
-      const SymbolDefinition *definition =
-          FindSymbolDefinition(legendSymbols, item.symbolKey);
-      if (!definition)
-        continue;
-      legendSymbolNames.emplace(definition->symbolId,
-                                makeLegendIdName(definition->symbolId));
+      const SymbolDefinition *topSymbol = FindSymbolDefinitionPreferred(
+          legendSymbols, item.symbolKey, SymbolViewKind::Top);
+      const SymbolDefinition *frontSymbol = FindSymbolDefinitionPreferred(
+          legendSymbols, item.symbolKey, SymbolViewKind::Front);
+      addLegendSymbol(topSymbol);
+      addLegendSymbol(frontSymbol);
     }
   }
 
@@ -2078,6 +2098,7 @@ Viewer2DExportResult ExportLayoutToPdf(
     const double paddingBottom = 2.0;
     const double columnGap = 8.0;
     const double symbolColumnGap = 2.0;
+    const double symbolPairGap = 2.0;
     constexpr double kLegendLineSpacingScale = 0.8;
     constexpr double kLegendSymbolColumnScale = 0.8;
     const double separatorGap = 2.0;
@@ -2117,24 +2138,49 @@ Viewer2DExportResult ExportLayoutToPdf(
     const double lineHeight = textHeightEstimate + separatorGap;
     const double symbolSize =
         std::max(4.0, kLegendSymbolSize * fontScale);
+    const double symbolPairGapSize = std::max(0.0, symbolPairGap);
     double maxSymbolDrawWidth = 0.0;
+    auto symbolDrawWidth = [&](const SymbolDefinition *symbol) -> double {
+      if (!symbol)
+        return 0.0;
+      const double symbolW = symbol->bounds.max.x - symbol->bounds.min.x;
+      const double symbolH = symbol->bounds.max.y - symbol->bounds.min.y;
+      if (symbolW <= 0.0 || symbolH <= 0.0)
+        return 0.0;
+      double scale = std::min(symbolSize / symbolW, symbolSize / symbolH);
+      return symbolW * scale;
+    };
+    auto symbolDrawHeight = [&](const SymbolDefinition *symbol) -> double {
+      if (!symbol)
+        return 0.0;
+      const double symbolW = symbol->bounds.max.x - symbol->bounds.min.x;
+      const double symbolH = symbol->bounds.max.y - symbol->bounds.min.y;
+      if (symbolW <= 0.0 || symbolH <= 0.0)
+        return 0.0;
+      double scale = std::min(symbolSize / symbolW, symbolSize / symbolH);
+      return symbolH * scale;
+    };
     for (const auto &item : legend.items) {
       if (item.symbolKey.empty())
         continue;
       const SymbolDefinitionSnapshot *legendSymbols =
           legend.symbolSnapshot ? legend.symbolSnapshot.get()
                                 : symbolSnapshot.get();
-      const SymbolDefinition *symbol =
-          FindSymbolDefinition(legendSymbols, item.symbolKey);
-      if (!symbol)
+      const SymbolDefinition *topSymbol = FindSymbolDefinitionPreferred(
+          legendSymbols, item.symbolKey, SymbolViewKind::Top);
+      const SymbolDefinition *frontSymbol = FindSymbolDefinitionPreferred(
+          legendSymbols, item.symbolKey, SymbolViewKind::Front);
+      double topDrawW = symbolDrawWidth(topSymbol);
+      double frontDrawW = symbolDrawWidth(frontSymbol);
+      if (topDrawW <= 0.0 && frontDrawW <= 0.0)
         continue;
-      const double symbolW = symbol->bounds.max.x - symbol->bounds.min.x;
-      const double symbolH = symbol->bounds.max.y - symbol->bounds.min.y;
-      if (symbolW <= 0.0 || symbolH <= 0.0)
-        continue;
-      double scale = std::min(symbolSize / symbolW, symbolSize / symbolH);
-      double drawW = symbolW * scale;
-      maxSymbolDrawWidth = std::max(maxSymbolDrawWidth, drawW);
+      double pairWidth = topDrawW;
+      if (frontDrawW > 0.0) {
+        if (pairWidth > 0.0)
+          pairWidth += symbolPairGapSize;
+        pairWidth += frontDrawW;
+      }
+      maxSymbolDrawWidth = std::max(maxSymbolDrawWidth, pairWidth);
     }
     const double symbolSlotSize =
         std::max(4.0, (maxSymbolDrawWidth > 0.0 ? maxSymbolDrawWidth : symbolSize) *
@@ -2194,33 +2240,60 @@ Viewer2DExportResult ExportLayoutToPdf(
         const SymbolDefinitionSnapshot *legendSymbols =
             legend.symbolSnapshot ? legend.symbolSnapshot.get()
                                   : symbolSnapshot.get();
-        const SymbolDefinition *symbol =
-            FindSymbolDefinition(legendSymbols, item.symbolKey);
-        if (symbol) {
-          auto nameIt = legendSymbolNames.find(symbol->symbolId);
-          if (nameIt != legendSymbolNames.end()) {
+        const SymbolDefinition *topSymbol = FindSymbolDefinitionPreferred(
+            legendSymbols, item.symbolKey, SymbolViewKind::Top);
+        const SymbolDefinition *frontSymbol = FindSymbolDefinitionPreferred(
+            legendSymbols, item.symbolKey, SymbolViewKind::Front);
+        const double topDrawW = symbolDrawWidth(topSymbol);
+        const double frontDrawW = symbolDrawWidth(frontSymbol);
+        const double topDrawH = symbolDrawHeight(topSymbol);
+        const double frontDrawH = symbolDrawHeight(frontSymbol);
+        if (topDrawW > 0.0 || frontDrawW > 0.0) {
+          double pairWidth = topDrawW;
+          if (frontDrawW > 0.0) {
+            if (pairWidth > 0.0)
+              pairWidth += symbolPairGapSize;
+            pairWidth += frontDrawW;
+          }
+          double rowBottom = rowTop - rowHeight;
+          double symbolBoxY = rowBottom + (rowHeight - symbolSize) * 0.5;
+          double symbolInset =
+              std::max(0.0, (symbolSlotSize - pairWidth) * 0.5);
+          double symbolLeft = xSymbol + symbolInset;
+          auto drawSymbol = [&](const SymbolDefinition *symbol,
+                                double drawW, double drawH,
+                                double drawLeft) {
+            if (!symbol || drawW <= 0.0 || drawH <= 0.0)
+              return;
+            auto nameIt = legendSymbolNames.find(symbol->symbolId);
+            if (nameIt == legendSymbolNames.end())
+              return;
             const double symbolW =
                 symbol->bounds.max.x - symbol->bounds.min.x;
             const double symbolH =
                 symbol->bounds.max.y - symbol->bounds.min.y;
-            if (symbolW > 0.0 && symbolH > 0.0) {
-              double scale =
-                  std::min(symbolSize / symbolW, symbolSize / symbolH);
-              double drawW = symbolW * scale;
-              double drawH = symbolH * scale;
-              double rowBottom = rowTop - rowHeight;
-              double symbolBoxY = rowBottom + (rowHeight - symbolSize) * 0.5;
-              double symbolInset =
-                  std::max(0.0, (symbolSlotSize - drawW) * 0.5);
-              double symbolOffsetX =
-                  xSymbol + symbolInset - symbol->bounds.min.x * scale;
-              double symbolOffsetY =
-                  symbolBoxY + (symbolSize - drawH) * 0.5 -
-                  symbol->bounds.min.y * scale;
-              contentStream << "q\n1 0 0 1 " << formatter.Format(symbolOffsetX)
-                            << ' ' << formatter.Format(symbolOffsetY) << " cm\n/"
-                            << nameIt->second << " Do\nQ\n";
-            }
+            if (symbolW <= 0.0 || symbolH <= 0.0)
+              return;
+            double scale =
+                std::min(symbolSize / symbolW, symbolSize / symbolH);
+            double symbolOffsetX =
+                drawLeft - symbol->bounds.min.x * scale;
+            double symbolOffsetY =
+                symbolBoxY + (symbolSize - drawH) * 0.5 -
+                symbol->bounds.min.y * scale;
+            contentStream << "q\n1 0 0 1 "
+                          << formatter.Format(symbolOffsetX) << ' '
+                          << formatter.Format(symbolOffsetY) << " cm\n/"
+                          << nameIt->second << " Do\nQ\n";
+          };
+          if (topDrawW > 0.0) {
+            drawSymbol(topSymbol, topDrawW, topDrawH, symbolLeft);
+            symbolLeft += topDrawW;
+            if (frontDrawW > 0.0)
+              symbolLeft += symbolPairGapSize;
+          }
+          if (frontDrawW > 0.0) {
+            drawSymbol(frontSymbol, frontDrawW, frontDrawH, symbolLeft);
           }
         }
       }

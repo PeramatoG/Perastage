@@ -85,6 +85,20 @@ const SymbolDefinition *FindSymbolDefinition(
   return best;
 }
 
+const SymbolDefinition *FindSymbolDefinitionPreferred(
+    const SymbolDefinitionSnapshot *symbols, const std::string &modelKey,
+    SymbolViewKind preferred) {
+  if (!symbols || modelKey.empty())
+    return nullptr;
+  for (const auto &entry : *symbols) {
+    if (entry.second.key.modelKey == modelKey &&
+        entry.second.key.viewKind == preferred) {
+      return &entry.second;
+    }
+  }
+  return FindSymbolDefinition(symbols, modelKey);
+}
+
 struct LegendRenderState {
   CanvasTransform current{};
   std::vector<CanvasTransform> stack;
@@ -2463,6 +2477,7 @@ wxImage LayoutViewerPanel::BuildLegendImage(
   const int paddingBottom = 2;
   const int columnGap = 8;
   const int symbolColumnGap = 2;
+  const int symbolPairGap = 2;
   constexpr double kLegendLineSpacingScale = 0.8;
   constexpr double kLegendSymbolColumnScale = 0.8;
   const int totalRows = static_cast<int>(items.size()) + 1;
@@ -2523,23 +2538,39 @@ wxImage LayoutViewerPanel::BuildLegendImage(
   const int desiredSymbolSize = static_cast<int>(std::lround(
       kLegendSymbolSizePx * renderZoom * fontScale));
   const int symbolSize = std::max(4, desiredSymbolSize);
+  const int symbolPairGapPx =
+      std::max(0, static_cast<int>(std::lround(symbolPairGap * renderZoom)));
   double maxSymbolDrawWidth = 0.0;
   if (symbols) {
-    for (const auto &item : items) {
-      if (item.symbolKey.empty())
-        continue;
-      const SymbolDefinition *symbol =
-          FindSymbolDefinition(symbols, item.symbolKey);
+    auto symbolDrawWidth = [&](const SymbolDefinition *symbol) -> double {
       if (!symbol)
-        continue;
+        return 0.0;
       const float symbolW = symbol->bounds.max.x - symbol->bounds.min.x;
       const float symbolH = symbol->bounds.max.y - symbol->bounds.min.y;
       if (symbolW <= 0.0f || symbolH <= 0.0f)
-        continue;
+        return 0.0;
       double scale = std::min(static_cast<double>(symbolSize) / symbolW,
                               static_cast<double>(symbolSize) / symbolH);
-      double drawW = symbolW * scale;
-      maxSymbolDrawWidth = std::max(maxSymbolDrawWidth, drawW);
+      return symbolW * scale;
+    };
+    for (const auto &item : items) {
+      if (item.symbolKey.empty())
+        continue;
+      const SymbolDefinition *topSymbol = FindSymbolDefinitionPreferred(
+          symbols, item.symbolKey, SymbolViewKind::Top);
+      const SymbolDefinition *frontSymbol = FindSymbolDefinitionPreferred(
+          symbols, item.symbolKey, SymbolViewKind::Front);
+      double topDrawW = symbolDrawWidth(topSymbol);
+      double frontDrawW = symbolDrawWidth(frontSymbol);
+      if (topDrawW <= 0.0 && frontDrawW <= 0.0)
+        continue;
+      double pairWidth = topDrawW;
+      if (frontDrawW > 0.0) {
+        if (pairWidth > 0.0)
+          pairWidth += symbolPairGapPx;
+        pairWidth += frontDrawW;
+      }
+      maxSymbolDrawWidth = std::max(maxSymbolDrawWidth, pairWidth);
     }
   }
   const int symbolSlotSize = std::max(
@@ -2611,36 +2642,86 @@ wxImage LayoutViewerPanel::BuildLegendImage(
                           ? wxString::Format("%d", item.channelCount.value())
                           : wxString("-");
     if (symbols && !item.symbolKey.empty()) {
-      const SymbolDefinition *symbol =
-          FindSymbolDefinition(symbols, item.symbolKey);
-      if (symbol) {
+      const SymbolDefinition *topSymbol = FindSymbolDefinitionPreferred(
+          symbols, item.symbolKey, SymbolViewKind::Top);
+      const SymbolDefinition *frontSymbol = FindSymbolDefinitionPreferred(
+          symbols, item.symbolKey, SymbolViewKind::Front);
+      auto drawSymbol = [&](const SymbolDefinition *symbol, double drawLeft,
+                            double drawTop) {
+        if (!symbol)
+          return;
         const float symbolW = symbol->bounds.max.x - symbol->bounds.min.x;
         const float symbolH = symbol->bounds.max.y - symbol->bounds.min.y;
-        if (symbolW > 0.0f && symbolH > 0.0f) {
-          double scale =
-              std::min(static_cast<double>(symbolSize) / symbolW,
-                       static_cast<double>(symbolSize) / symbolH);
-          double drawW = symbolW * scale;
-          double drawH = symbolH * scale;
-          double symbolInset =
-              std::max(0.0,
-                       (static_cast<double>(symbolSlotSize) - drawW) * 0.5);
-          double symbolDrawLeft = xSymbol + symbolInset;
+        if (symbolW <= 0.0f || symbolH <= 0.0f)
+          return;
+        double scale =
+            std::min(static_cast<double>(symbolSize) / symbolW,
+                     static_cast<double>(symbolSize) / symbolH);
+        double drawH = symbolH * scale;
+        viewer2d::Viewer2DRenderMapping mapping{};
+        mapping.minX = symbol->bounds.min.x;
+        mapping.minY = symbol->bounds.min.y;
+        mapping.scale = scale;
+        mapping.offsetX = drawLeft;
+        mapping.offsetY = drawTop;
+        mapping.drawHeight = drawH;
+        backend.SetStrokeScale(
+            mapping.scale > 0.0 ? 1.0 / mapping.scale : 1.0);
+        RenderLegendCommandBuffer(symbol->localCommands,
+                                  Transform2D::Identity(), symbols, backend,
+                                  mapping);
+      };
+      auto symbolDrawWidth = [&](const SymbolDefinition *symbol) -> double {
+        if (!symbol)
+          return 0.0;
+        const float symbolW = symbol->bounds.max.x - symbol->bounds.min.x;
+        const float symbolH = symbol->bounds.max.y - symbol->bounds.min.y;
+        if (symbolW <= 0.0f || symbolH <= 0.0f)
+          return 0.0;
+        double scale =
+            std::min(static_cast<double>(symbolSize) / symbolW,
+                     static_cast<double>(symbolSize) / symbolH);
+        return symbolW * scale;
+      };
+      auto symbolDrawHeight = [&](const SymbolDefinition *symbol) -> double {
+        if (!symbol)
+          return 0.0;
+        const float symbolW = symbol->bounds.max.x - symbol->bounds.min.x;
+        const float symbolH = symbol->bounds.max.y - symbol->bounds.min.y;
+        if (symbolW <= 0.0f || symbolH <= 0.0f)
+          return 0.0;
+        double scale =
+            std::min(static_cast<double>(symbolSize) / symbolW,
+                     static_cast<double>(symbolSize) / symbolH);
+        return symbolH * scale;
+      };
+      const double topDrawW = symbolDrawWidth(topSymbol);
+      const double frontDrawW = symbolDrawWidth(frontSymbol);
+      const double topDrawH = symbolDrawHeight(topSymbol);
+      const double frontDrawH = symbolDrawHeight(frontSymbol);
+      if (topDrawW > 0.0 || frontDrawW > 0.0) {
+        double pairWidth = topDrawW;
+        if (frontDrawW > 0.0) {
+          if (pairWidth > 0.0)
+            pairWidth += symbolPairGapPx;
+          pairWidth += frontDrawW;
+        }
+        const double symbolInset =
+            std::max(0.0,
+                     (static_cast<double>(symbolSlotSize) - pairWidth) * 0.5);
+        double symbolDrawLeft = xSymbol + symbolInset;
+        if (topDrawW > 0.0) {
           double symbolDrawTop =
-              y + (static_cast<double>(rowHeightPx) - drawH) * 0.5;
-
-          viewer2d::Viewer2DRenderMapping mapping{};
-          mapping.minX = symbol->bounds.min.x;
-          mapping.minY = symbol->bounds.min.y;
-          mapping.scale = scale;
-          mapping.offsetX = symbolDrawLeft;
-          mapping.offsetY = symbolDrawTop;
-          mapping.drawHeight = drawH;
-          backend.SetStrokeScale(
-              mapping.scale > 0.0 ? 1.0 / mapping.scale : 1.0);
-          RenderLegendCommandBuffer(symbol->localCommands,
-                                    Transform2D::Identity(), symbols, backend,
-                                    mapping);
+              y + (static_cast<double>(rowHeightPx) - topDrawH) * 0.5;
+          drawSymbol(topSymbol, symbolDrawLeft, symbolDrawTop);
+          symbolDrawLeft += topDrawW;
+          if (frontDrawW > 0.0)
+            symbolDrawLeft += symbolPairGapPx;
+        }
+        if (frontDrawW > 0.0) {
+          double symbolDrawTop =
+              y + (static_cast<double>(rowHeightPx) - frontDrawH) * 0.5;
+          drawSymbol(frontSymbol, symbolDrawLeft, symbolDrawTop);
         }
       }
     }
