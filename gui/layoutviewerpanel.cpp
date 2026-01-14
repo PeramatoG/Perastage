@@ -607,7 +607,8 @@ wxEND_EVENT_TABLE()
 
 LayoutViewerPanel::LayoutViewerPanel(wxWindow *parent)
     : wxGLCanvas(parent, wxID_ANY, nullptr, wxDefaultPosition,
-                 wxDefaultSize, wxFULL_REPAINT_ON_RESIZE) {
+                 wxDefaultSize,
+                 wxFULL_REPAINT_ON_RESIZE | wxWANTS_CHARS) {
   SetBackgroundStyle(wxBG_STYLE_CUSTOM);
   glContext_ = new wxGLContext(this);
   currentLayout.pageSetup.pageSize = print::PageSize::A4;
@@ -1298,6 +1299,7 @@ void LayoutViewerPanel::OnCaptureLost(wxMouseCaptureLostEvent &) {
 }
 
 void LayoutViewerPanel::OnRightUp(wxMouseEvent &event) {
+  SetFocus();
   const wxPoint pos = event.GetPosition();
   if (!SelectElementAtPosition(pos)) {
     event.Skip();
