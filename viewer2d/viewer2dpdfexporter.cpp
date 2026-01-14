@@ -350,16 +350,30 @@ bool LoadTtfFontMetrics(const std::filesystem::path &path,
 }
 
 std::filesystem::path FindFontPath(bool bold) {
-  const char *fontPaths[] = {
+  struct FontCandidate {
+    const char *regularPath;
+    const char *boldPath;
+  };
+  // Keep this list in sync with the font face names used by the UI legend/event
+  // table rendering so PDFs and on-screen views share the same family.
+  const std::vector<FontCandidate> candidates = {
 #ifdef _WIN32
-      bold ? "C:/Windows/Fonts/arialbd.ttf" : "C:/Windows/Fonts/arial.ttf",
+      {"C:/Windows/Fonts/arial.ttf", "C:/Windows/Fonts/arialbd.ttf"},
+#elif defined(__APPLE__)
+      {"/Library/Fonts/Arial.ttf", "/Library/Fonts/Arial Bold.ttf"},
+      {"/System/Library/Fonts/Supplemental/Arial.ttf",
+       "/System/Library/Fonts/Supplemental/Arial Bold.ttf"},
+#else
+      {"/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+       "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"},
+      {"/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+       "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf"},
 #endif
-      bold ? "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
-           : "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-      nullptr};
-  for (const char **p = fontPaths; *p; ++p) {
-    if (std::filesystem::exists(*p))
-      return std::filesystem::path(*p);
+  };
+  for (const auto &candidate : candidates) {
+    const char *path = bold ? candidate.boldPath : candidate.regularPath;
+    if (path && std::filesystem::exists(path))
+      return std::filesystem::path(path);
   }
   return {};
 }
