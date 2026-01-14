@@ -99,6 +99,20 @@ const SymbolDefinition *FindSymbolDefinitionPreferred(
   return FindSymbolDefinition(symbols, modelKey);
 }
 
+const SymbolDefinition *FindSymbolDefinitionExact(
+    const SymbolDefinitionSnapshot *symbols, const std::string &modelKey,
+    SymbolViewKind view) {
+  if (!symbols || modelKey.empty())
+    return nullptr;
+  for (const auto &entry : *symbols) {
+    if (entry.second.key.modelKey == modelKey &&
+        entry.second.key.viewKind == view) {
+      return &entry.second;
+    }
+  }
+  return nullptr;
+}
+
 struct LegendRenderState {
   CanvasTransform current{};
   std::vector<CanvasTransform> stack;
@@ -2477,7 +2491,7 @@ wxImage LayoutViewerPanel::BuildLegendImage(
   const int paddingBottom = 2;
   const int columnGap = 8;
   const int symbolColumnGap = 2;
-  const int symbolPairGap = 2;
+  const int symbolPairGap = 0;
   constexpr double kLegendLineSpacingScale = 0.8;
   constexpr double kLegendSymbolColumnScale = 0.8;
   const int totalRows = static_cast<int>(items.size()) + 1;
@@ -2558,7 +2572,7 @@ wxImage LayoutViewerPanel::BuildLegendImage(
         continue;
       const SymbolDefinition *topSymbol = FindSymbolDefinitionPreferred(
           symbols, item.symbolKey, SymbolViewKind::Top);
-      const SymbolDefinition *frontSymbol = FindSymbolDefinitionPreferred(
+      const SymbolDefinition *frontSymbol = FindSymbolDefinitionExact(
           symbols, item.symbolKey, SymbolViewKind::Front);
       double topDrawW = symbolDrawWidth(topSymbol);
       double frontDrawW = symbolDrawWidth(frontSymbol);
@@ -2644,7 +2658,7 @@ wxImage LayoutViewerPanel::BuildLegendImage(
     if (symbols && !item.symbolKey.empty()) {
       const SymbolDefinition *topSymbol = FindSymbolDefinitionPreferred(
           symbols, item.symbolKey, SymbolViewKind::Top);
-      const SymbolDefinition *frontSymbol = FindSymbolDefinitionPreferred(
+      const SymbolDefinition *frontSymbol = FindSymbolDefinitionExact(
           symbols, item.symbolKey, SymbolViewKind::Front);
       auto drawSymbol = [&](const SymbolDefinition *symbol, double drawLeft,
                             double drawTop) {

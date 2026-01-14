@@ -905,6 +905,20 @@ const SymbolDefinition *FindSymbolDefinitionPreferred(
   return FindSymbolDefinition(symbols, modelKey);
 }
 
+const SymbolDefinition *FindSymbolDefinitionExact(
+    const SymbolDefinitionSnapshot *symbols, const std::string &modelKey,
+    SymbolViewKind view) {
+  if (!symbols || modelKey.empty())
+    return nullptr;
+  for (const auto &entry : *symbols) {
+    if (entry.second.key.modelKey == modelKey &&
+        entry.second.key.viewKind == view) {
+      return &entry.second;
+    }
+  }
+  return nullptr;
+}
+
 SymbolBounds ComputeSymbolBounds(const std::vector<CanvasCommand> &commands) {
   SymbolBounds bounds{};
   bool hasPoint = false;
@@ -1782,7 +1796,7 @@ Viewer2DExportResult ExportLayoutToPdf(
         continue;
       const SymbolDefinition *topSymbol = FindSymbolDefinitionPreferred(
           legendSymbols, item.symbolKey, SymbolViewKind::Top);
-      const SymbolDefinition *frontSymbol = FindSymbolDefinitionPreferred(
+      const SymbolDefinition *frontSymbol = FindSymbolDefinitionExact(
           legendSymbols, item.symbolKey, SymbolViewKind::Front);
       addLegendSymbol(topSymbol);
       addLegendSymbol(frontSymbol);
@@ -2098,7 +2112,7 @@ Viewer2DExportResult ExportLayoutToPdf(
     const double paddingBottom = 2.0;
     const double columnGap = 8.0;
     const double symbolColumnGap = 2.0;
-    const double symbolPairGap = 2.0;
+    const double symbolPairGap = 0.0;
     constexpr double kLegendLineSpacingScale = 0.8;
     constexpr double kLegendSymbolColumnScale = 0.8;
     const double separatorGap = 2.0;
@@ -2168,7 +2182,7 @@ Viewer2DExportResult ExportLayoutToPdf(
                                 : symbolSnapshot.get();
       const SymbolDefinition *topSymbol = FindSymbolDefinitionPreferred(
           legendSymbols, item.symbolKey, SymbolViewKind::Top);
-      const SymbolDefinition *frontSymbol = FindSymbolDefinitionPreferred(
+      const SymbolDefinition *frontSymbol = FindSymbolDefinitionExact(
           legendSymbols, item.symbolKey, SymbolViewKind::Front);
       double topDrawW = symbolDrawWidth(topSymbol);
       double frontDrawW = symbolDrawWidth(frontSymbol);
@@ -2242,7 +2256,7 @@ Viewer2DExportResult ExportLayoutToPdf(
                                   : symbolSnapshot.get();
         const SymbolDefinition *topSymbol = FindSymbolDefinitionPreferred(
             legendSymbols, item.symbolKey, SymbolViewKind::Top);
-        const SymbolDefinition *frontSymbol = FindSymbolDefinitionPreferred(
+        const SymbolDefinition *frontSymbol = FindSymbolDefinitionExact(
             legendSymbols, item.symbolKey, SymbolViewKind::Front);
         const double topDrawW = symbolDrawWidth(topSymbol);
         const double frontDrawW = symbolDrawWidth(frontSymbol);
