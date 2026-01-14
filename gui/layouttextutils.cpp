@@ -20,6 +20,7 @@
 #include <algorithm>
 
 #include <wx/dcgraph.h>
+#include <wx/dcmemory.h>
 #include <wx/richtext/richtextbuffer.h>
 #include <wx/sstream.h>
 
