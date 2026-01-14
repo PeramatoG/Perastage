@@ -49,6 +49,47 @@ constexpr std::array<const char *, 7> kEventTableLabels = {
     "Venue:", "Location:", "Date:", "Stage:",
     "Version:", "Design:", "Mail:"};
 
+// Keep this list in sync with the font candidates used by the PDF exporter so
+// on-screen rendering matches exported PDFs.
+const std::vector<const char *> kSharedFontFaceNames = {
+#ifdef _WIN32
+    "Arial",
+#elif defined(__APPLE__)
+    "Arial",
+#else
+    "DejaVu Sans",
+    "Liberation Sans",
+#endif
+};
+
+wxString ResolveSharedFontFaceName() {
+  static wxString faceName;
+  static bool initialized = false;
+  if (initialized)
+    return faceName;
+  for (const char *candidate : kSharedFontFaceNames) {
+    wxFont testFont(10, wxFONTFAMILY_SWISS, wxFONTSTYLE_NORMAL,
+                    wxFONTWEIGHT_NORMAL, false,
+                    wxString::FromUTF8(candidate));
+    if (testFont.IsOk() &&
+        testFont.GetFaceName().CmpNoCase(candidate) == 0) {
+      faceName = testFont.GetFaceName();
+      break;
+    }
+  }
+  initialized = true;
+  return faceName;
+}
+
+wxFont MakeSharedFont(int sizePx, wxFontWeight weight) {
+  wxString faceName = ResolveSharedFontFaceName();
+  if (!faceName.empty()) {
+    return wxFont(sizePx, wxFONTFAMILY_SWISS, wxFONTSTYLE_NORMAL, weight, false,
+                  faceName);
+  }
+  return wxFont(sizePx, wxFONTFAMILY_SWISS, wxFONTSTYLE_NORMAL, weight);
+}
+
 int SymbolViewRank(SymbolViewKind kind) {
   switch (kind) {
   case SymbolViewKind::Top:
@@ -2537,10 +2578,8 @@ wxImage LayoutViewerPanel::BuildLegendImage(
   const int fontSizePx =
       std::max(1, static_cast<int>(std::lround(fontSize * renderZoom)));
 
-  wxFont baseFont(fontSizePx, wxFONTFAMILY_SWISS, wxFONTSTYLE_NORMAL,
-                  wxFONTWEIGHT_NORMAL);
-  wxFont headerFont = baseFont;
-  headerFont.SetWeight(wxFONTWEIGHT_BOLD);
+  wxFont baseFont = MakeSharedFont(fontSizePx, wxFONTWEIGHT_NORMAL);
+  wxFont headerFont = MakeSharedFont(fontSizePx, wxFONTWEIGHT_BOLD);
 
   auto measureTextWidth = [&](const wxString &text) {
     int w = 0;
@@ -2801,12 +2840,10 @@ wxImage LayoutViewerPanel::BuildEventTableImage(
       fontSizePx + 1,
       static_cast<int>(std::lround(fontSizePx * 1.1)));
 
-  wxFont baseFont(fontSizePx, wxFONTFAMILY_SWISS, wxFONTSTYLE_NORMAL,
-                  wxFONTWEIGHT_NORMAL);
-  wxFont labelFont = baseFont;
-  labelFont.SetWeight(wxFONTWEIGHT_BOLD);
-  wxFont emphasizedFont(emphasizedFontSizePx, wxFONTFAMILY_SWISS,
-                        wxFONTSTYLE_NORMAL, wxFONTWEIGHT_BOLD);
+  wxFont baseFont = MakeSharedFont(fontSizePx, wxFONTWEIGHT_NORMAL);
+  wxFont labelFont = MakeSharedFont(fontSizePx, wxFONTWEIGHT_BOLD);
+  wxFont emphasizedFont =
+      MakeSharedFont(emphasizedFontSizePx, wxFONTWEIGHT_BOLD);
 
   dc.SetFont(labelFont);
   int maxLabelWidth = 0;
