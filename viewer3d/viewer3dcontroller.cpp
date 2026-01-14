@@ -404,6 +404,7 @@ struct LabelLine2D {
   int font;
   std::string text;
   float size;
+  std::string fontFamily;
 };
 
 static void
@@ -595,6 +596,11 @@ void Viewer3DController::InitializeGL() {
         "C:/Windows/Fonts/arial.ttf",
 #endif
         "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", nullptr};
+    const char *boldFontPaths[] = {
+#ifdef _WIN32
+        "C:/Windows/Fonts/arialbd.ttf",
+#endif
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", nullptr};
 
     for (const char **p = fontPaths; *p; ++p) {
       if (fs::exists(*p)) {
@@ -603,8 +609,19 @@ void Viewer3DController::InitializeGL() {
           break;
       }
     }
+    for (const char **p = boldFontPaths; *p; ++p) {
+      if (fs::exists(*p)) {
+        m_fontBold = nvgCreateFont(m_vg, "sans-bold", *p);
+        if (m_fontBold >= 0)
+          break;
+      }
+    }
+    if (m_fontBold < 0)
+      m_fontBold = m_font;
     if (m_font < 0)
       Logger::Instance().Log("Failed to load font for labels");
+    if (m_fontBold < 0)
+      Logger::Instance().Log("Failed to load bold font for labels");
   } else {
     Logger::Instance().Log("Failed to create NanoVG context");
   }
@@ -2510,6 +2527,8 @@ void Viewer3DController::DrawAllFixtureLabels(int width, int height,
     // Convert OpenGL's origin to top-left.
     int y = height - static_cast<int>(sy);
 
+    constexpr const char *kRegularFamily = "sans";
+    constexpr const char *kBoldFamily = "sans-bold";
     std::vector<LabelLine2D> lines;
     if (showName) {
       wxString baseName = f.instanceName.empty()
@@ -2520,21 +2539,22 @@ void Viewer3DController::DrawAllFixtureLabels(int width, int height,
       while (nameLines.HasMoreTokens()) {
         wxString line = nameLines.GetNextToken();
         auto utf8 = line.ToUTF8();
-        lines.push_back(
-            {m_font, std::string(utf8.data(), utf8.length()), nameSize});
+        lines.push_back({m_font, std::string(utf8.data(), utf8.length()),
+                         nameSize, kRegularFamily});
       }
     }
     if (showId) {
       wxString idLine = "ID: " + wxString::Format("%d", f.fixtureId);
       auto utf8 = idLine.ToUTF8();
-      lines.push_back(
-          {m_font, std::string(utf8.data(), utf8.length()), idSize});
+      lines.push_back({m_font, std::string(utf8.data(), utf8.length()), idSize,
+                       kRegularFamily});
     }
     if (showDmx && !f.address.empty()) {
+      int dmxFont = m_fontBold >= 0 ? m_fontBold : m_font;
       wxString addrLine = wxString::FromUTF8(f.address);
       auto utf8 = addrLine.ToUTF8();
-      lines.push_back(
-          {m_font, std::string(utf8.data(), utf8.length()), dmxSize});
+      lines.push_back({dmxFont, std::string(utf8.data(), utf8.length()),
+                       dmxSize, kBoldFamily});
     }
     if (lines.empty())
       continue;
@@ -2561,7 +2581,7 @@ void Viewer3DController::DrawAllFixtureLabels(int width, int height,
       for (const auto &ln : lines) {
         worldFontSizes.push_back(ln.size * pxToWorld);
         nvgFontSize(m_vg, ln.size);
-        nvgFontFaceId(m_vg, m_font);
+        nvgFontFaceId(m_vg, ln.font);
         nvgTextAlign(m_vg, NVG_ALIGN_CENTER | NVG_ALIGN_TOP);
         float bounds[4];
         nvgTextBounds(m_vg, 0.f, 0.f, ln.text.c_str(), nullptr, bounds);
@@ -2610,7 +2630,7 @@ void Viewer3DController::DrawAllFixtureLabels(int width, int height,
       float currentY = anchor[1] + totalHeight * 0.5f;
       for (size_t i = 0; i < lines.size(); ++i) {
         CanvasTextStyle style;
-        style.fontFamily = "sans";
+        style.fontFamily = lines[i].fontFamily;
         style.fontSize = worldFontSizes[i];
         style.ascent = ascentsWorld[i];
         style.descent = descentsWorld[i];
