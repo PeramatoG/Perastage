@@ -20,16 +20,20 @@
 #include <wx/dialog.h>
 
 class wxBitmapBundle;
+class wxCheckBox;
 class wxRichTextCtrl;
 class wxSpinCtrl;
 
 class LayoutTextDialog : public wxDialog {
 public:
   LayoutTextDialog(wxWindow *parent, const wxString &initialRichText,
-                   const wxString &fallbackText);
+                   const wxString &fallbackText, bool solidBackground,
+                   bool drawFrame);
 
   wxString GetRichText() const;
   wxString GetPlainText() const;
+  bool GetSolidBackground() const;
+  bool GetDrawFrame() const;
 
 private:
   wxBitmapBundle LoadIcon(const std::string &name) const;
@@ -43,4 +47,6 @@ private:
 
   wxRichTextCtrl *textCtrl = nullptr;
   wxSpinCtrl *fontSizeCtrl = nullptr;
+  wxCheckBox *solidBackgroundCtrl = nullptr;
+  wxCheckBox *drawFrameCtrl = nullptr;
 };

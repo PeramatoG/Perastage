@@ -94,6 +94,8 @@ struct LayoutTextDefinition {
   Layout2DViewFrame frame;
   std::string text;
   std::string richText;
+  bool solidBackground = true;
+  bool drawFrame = true;
 };
 
 struct LayoutDefinition {

@@ -24,6 +24,7 @@
 #include <wx/artprov.h>
 #include <wx/bmpbuttn.h>
 #include <wx/button.h>
+#include <wx/checkbox.h>
 #include <wx/richtext/richtextctrl.h>
 #include <wx/sizer.h>
 #include <wx/spinctrl.h>
@@ -40,7 +41,8 @@ constexpr int kMaxFontSize = 72;
 
 LayoutTextDialog::LayoutTextDialog(wxWindow *parent,
                                    const wxString &initialRichText,
-                                   const wxString &fallbackText)
+                                   const wxString &fallbackText,
+                                   bool solidBackground, bool drawFrame)
     : wxDialog(parent, wxID_ANY, "Edit Text", wxDefaultPosition,
                wxSize(640, 420),
                wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER) {
@@ -91,6 +93,15 @@ LayoutTextDialog::LayoutTextDialog(wxWindow *parent,
 
   mainSizer->Add(toolbarSizer, 0, wxEXPAND | wxALL, 8);
 
+  wxBoxSizer *optionsSizer = new wxBoxSizer(wxHORIZONTAL);
+  solidBackgroundCtrl = new wxCheckBox(this, wxID_ANY, "Solid background");
+  solidBackgroundCtrl->SetValue(solidBackground);
+  optionsSizer->Add(solidBackgroundCtrl, 0, wxRIGHT, 12);
+  drawFrameCtrl = new wxCheckBox(this, wxID_ANY, "Show outline");
+  drawFrameCtrl->SetValue(drawFrame);
+  optionsSizer->Add(drawFrameCtrl, 0, wxRIGHT, 8);
+  mainSizer->Add(optionsSizer, 0, wxLEFT | wxRIGHT | wxBOTTOM, 8);
+
   textCtrl = new wxRichTextCtrl(this, wxID_ANY, wxEmptyString,
                                 wxDefaultPosition, wxDefaultSize,
                                 wxTE_MULTILINE | wxTE_RICH2);
@@ -122,6 +133,14 @@ wxString LayoutTextDialog::GetRichText() const {
 
 wxString LayoutTextDialog::GetPlainText() const {
   return textCtrl ? textCtrl->GetValue() : wxString();
+}
+
+bool LayoutTextDialog::GetSolidBackground() const {
+  return solidBackgroundCtrl ? solidBackgroundCtrl->GetValue() : true;
+}
+
+bool LayoutTextDialog::GetDrawFrame() const {
+  return drawFrameCtrl ? drawFrameCtrl->GetValue() : true;
 }
 
 wxBitmapBundle LayoutTextDialog::LoadIcon(const std::string &name) const {
@@ -172,6 +191,9 @@ void LayoutTextDialog::ApplyFontSize(int size) {
   if (textCtrl->HasSelection() && range.GetLength() > 0) {
     textCtrl->SetStyleEx(range, attr);
   } else {
+    wxRichTextRange all(0, textCtrl->GetLastPosition());
+    if (all.GetLength() > 0)
+      textCtrl->SetStyleEx(all, attr);
     textCtrl->SetDefaultStyle(attr);
   }
 }

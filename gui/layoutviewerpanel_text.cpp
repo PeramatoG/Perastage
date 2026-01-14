@@ -23,11 +23,9 @@
 #include <GL/gl.h>
 
 #include "layouttextdialog.h"
+#include "layouttextutils.h"
 #include "layoutviewerpanel_shared.h"
 #include "layouts/LayoutManager.h"
-#include <wx/dcgraph.h>
-#include <wx/richtext/richtextbuffer.h>
-#include <wx/sstream.h>
 
 layouts::LayoutTextDefinition *LayoutViewerPanel::GetSelectedText() {
   if (currentLayout.textViews.empty())
@@ -101,11 +99,14 @@ void LayoutViewerPanel::OnEditText(wxCommandEvent &) {
   const wxString fallbackText =
       text->text.empty() ? wxString("Light Plot")
                          : wxString::FromUTF8(text->text);
-  LayoutTextDialog dialog(this, richText, fallbackText);
+  LayoutTextDialog dialog(this, richText, fallbackText, text->solidBackground,
+                          text->drawFrame);
   if (dialog.ShowModal() != wxID_OK)
     return;
   text->richText = dialog.GetRichText().ToStdString();
   text->text = dialog.GetPlainText().ToStdString();
+  text->solidBackground = dialog.GetSolidBackground();
+  text->drawFrame = dialog.GetDrawFrame();
   if (!currentLayout.name.empty()) {
     layouts::LayoutManager::Get().UpdateLayoutText(currentLayout.name, *text);
   }
@@ -190,7 +191,7 @@ void LayoutViewerPanel::DrawTextElement(
                static_cast<float>(frameRect.GetBottom()));
     glEnd();
     glDisable(GL_TEXTURE_2D);
-  } else {
+  } else if (text.solidBackground) {
     glColor4ub(245, 245, 245, 255);
     glBegin(GL_QUADS);
     glVertex2f(static_cast<float>(frameRect.GetLeft()),
@@ -204,23 +205,25 @@ void LayoutViewerPanel::DrawTextElement(
     glEnd();
   }
 
-  if (text.id == activeTextId) {
-    glColor4ub(60, 160, 240, 255);
-    glLineWidth(2.0f);
-  } else {
-    glColor4ub(160, 160, 160, 255);
-    glLineWidth(1.0f);
+  if (text.drawFrame || text.id == activeTextId) {
+    if (text.id == activeTextId) {
+      glColor4ub(60, 160, 240, 255);
+      glLineWidth(2.0f);
+    } else {
+      glColor4ub(160, 160, 160, 255);
+      glLineWidth(1.0f);
+    }
+    glBegin(GL_LINE_LOOP);
+    glVertex2f(static_cast<float>(frameRect.GetLeft()),
+               static_cast<float>(frameRect.GetTop()));
+    glVertex2f(static_cast<float>(frameRight),
+               static_cast<float>(frameRect.GetTop()));
+    glVertex2f(static_cast<float>(frameRight),
+               static_cast<float>(frameBottom));
+    glVertex2f(static_cast<float>(frameRect.GetLeft()),
+               static_cast<float>(frameRect.GetBottom()));
+    glEnd();
   }
-  glBegin(GL_LINE_LOOP);
-  glVertex2f(static_cast<float>(frameRect.GetLeft()),
-             static_cast<float>(frameRect.GetTop()));
-  glVertex2f(static_cast<float>(frameRight),
-             static_cast<float>(frameRect.GetTop()));
-  glVertex2f(static_cast<float>(frameRight),
-             static_cast<float>(frameBottom));
-  glVertex2f(static_cast<float>(frameRect.GetLeft()),
-             static_cast<float>(frameRect.GetBottom()));
-  glEnd();
 
   if (text.id == activeTextId)
     DrawSelectionHandles(frameRect);
@@ -229,9 +232,9 @@ void LayoutViewerPanel::DrawTextElement(
 size_t LayoutViewerPanel::HashTextContent(
     const layouts::LayoutTextDefinition &text) const {
   std::hash<std::string> strHasher;
-  if (!text.richText.empty())
-    return strHasher(text.richText);
-  return strHasher(text.text);
+  std::string content = text.richText.empty() ? text.text : text.richText;
+  content += text.solidBackground ? "|bg1" : "|bg0";
+  return strHasher(content);
 }
 
 wxImage LayoutViewerPanel::BuildTextImage(
@@ -239,44 +242,7 @@ wxImage LayoutViewerPanel::BuildTextImage(
     const layouts::LayoutTextDefinition &text) const {
   if (size.GetWidth() <= 0 || size.GetHeight() <= 0 || renderZoom <= 0.0)
     return wxImage();
-  wxBitmap bitmap(size.GetWidth(), size.GetHeight(), 32);
-  wxMemoryDC memoryDc(bitmap);
-  wxGCDC dc(memoryDc);
-  dc.SetBackground(wxBrush(wxColour(255, 255, 255)));
-  dc.Clear();
-  dc.SetTextForeground(wxColour(20, 20, 20));
-
-  wxRichTextBuffer buffer;
-  bool loaded = false;
-  if (!text.richText.empty()) {
-    wxStringInputStream input(wxString::FromUTF8(text.richText));
-    loaded = buffer.LoadFile(input, wxRICHTEXT_TYPE_XML);
-  }
-  if (!loaded) {
-    wxString fallback =
-        text.text.empty() ? wxString("Light Plot")
-                          : wxString::FromUTF8(text.text);
-    buffer.AddParagraph(fallback);
-  }
-
-  wxRichTextAttr baseStyle = buffer.GetDefaultStyle();
-  wxString faceName = layoutviewerpanel::detail::ResolveSharedFontFaceName();
-  if (!faceName.empty()) {
-    baseStyle.SetFontFaceName(faceName);
-    buffer.SetDefaultStyle(baseStyle);
-  }
-
-  const int padding = 4;
-  const int logicalWidth = std::max(0, logicalSize.GetWidth() - padding * 2);
-  const int logicalHeight = std::max(0, logicalSize.GetHeight() - padding * 2);
-  wxRect logicalRect(padding, padding, logicalWidth, logicalHeight);
-
-  dc.SetUserScale(renderZoom, renderZoom);
-  wxRichTextDrawingContext context(&buffer);
-  wxRichTextSelection selection;
-  buffer.Layout(dc, context, logicalRect, logicalRect, wxRICHTEXT_FIXED_WIDTH);
-  buffer.Draw(dc, context, buffer.GetRange(), selection, logicalRect, 0, 0);
-
-  memoryDc.SelectObject(wxNullBitmap);
-  return bitmap.ConvertToImage();
+  return layouttext::RenderTextImage(
+      text, size, logicalSize,
+      renderZoom * layoutviewerpanel::detail::kTextRenderScale);
 }
