@@ -251,6 +251,7 @@ private:
   NVGcontext *m_vg = nullptr;
   // Font handle for label rendering
   int m_font = -1;
+  int m_fontBold = -1;
 
   // Optional capture target used by the 2D viewer to record drawing commands
   // without altering the OpenGL on-screen output. When null, no recording
