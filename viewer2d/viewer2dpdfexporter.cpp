@@ -2112,7 +2112,7 @@ Viewer2DExportResult ExportLayoutToPdf(
     const double paddingBottom = 2.0;
     const double columnGap = 8.0;
     const double symbolColumnGap = 2.0;
-    constexpr double kLegendLineSpacingScale = 0.8;
+    constexpr double kLegendLineSpacingScale = 1.0;
     constexpr double kLegendSymbolColumnScale = 1.0;
     constexpr double kLegendSymbolPairOverlapScale = 0.5;
     const double separatorGap = 2.0;

@@ -2518,7 +2518,7 @@ wxImage LayoutViewerPanel::BuildLegendImage(
   const int paddingBottom = 2;
   const int columnGap = 8;
   const int symbolColumnGap = 2;
-  constexpr double kLegendLineSpacingScale = 0.8;
+  constexpr double kLegendLineSpacingScale = 1.0;
   constexpr double kLegendSymbolColumnScale = 1.0;
   constexpr double kLegendSymbolPairOverlapScale = 0.5;
   const int totalRows = static_cast<int>(items.size()) + 1;
