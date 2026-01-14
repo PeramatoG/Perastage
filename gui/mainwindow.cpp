@@ -626,7 +626,7 @@ void MainWindow::CreateToolBars() {
                                    wxDefaultSize,
                                    wxAUI_TB_DEFAULT_STYLE | wxAUI_TB_HORIZONTAL);
   layoutToolBar->SetToolBitmapSize(wxSize(16, 16));
-  layoutToolBar->SetOverflowVisible(true);
+  layoutToolBar->SetOverflowVisible(false);
   layoutToolBar->AddTool(ID_View_Layout_2DView, "Añadir vista 2D",
                          loadToolbarIcon("panel-top-bottom-dashed",
                                          wxART_MISSING_IMAGE),
@@ -639,6 +639,9 @@ void MainWindow::CreateToolBars() {
                          loadToolbarIcon("table", wxART_LIST_VIEW),
                          "Add event table to layout");
   layoutToolBar->Realize();
+  const wxSize layoutToolbarSize = layoutToolBar->GetBestSize();
+  layoutToolBar->SetMinSize(layoutToolbarSize);
+  layoutToolBar->SetMaxSize(layoutToolbarSize);
   auiManager->AddPane(
       layoutToolBar, wxAuiPaneInfo()
                          .Name("LayoutToolbar")
