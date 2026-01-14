@@ -50,11 +50,14 @@
 #include <wx/numdlg.h>
 #include <wx/statbmp.h>
 #include <wx/stdpaths.h>
+#include <wx/sstream.h>
 #include <wx/textctrl.h>
+#include <wx/tokenzr.h>
 #include <wx/wfstream.h>
 class wxZipStreamLink;
 #include <wx/log.h>
 #include <wx/zipstrm.h>
+#include <wx/richtext/richtextbuffer.h>
 
 #include "../external/json.hpp"
 
@@ -77,7 +80,6 @@ using json = nlohmann::json;
 #include "layoutviewpresets.h"
 #include "layoutpanel.h"
 #include "layoutviewerpanel.h"
-#include "layouttextutils.h"
 #include "layoutviewerpanel_shared.h"
 #include "legendutils.h"
 #include "layerpanel.h"
@@ -135,6 +137,14 @@ void LogMissingIcon(const std::filesystem::path &path) {
 #endif
 }
 
+void EnsureRichTextHandlers() {
+  static bool initialized = false;
+  if (initialized)
+    return;
+  wxRichTextBuffer::InitStandardHandlers();
+  initialized = true;
+}
+
 LayoutTextExportData BuildLayoutTextExportData(
     const layouts::LayoutTextDefinition &text, double scaleX, double scaleY) {
   LayoutTextExportData data;
@@ -148,35 +158,60 @@ LayoutTextExportData BuildLayoutTextExportData(
   data.solidBackground = text.solidBackground;
   data.drawFrame = text.drawFrame;
 
-  const wxSize renderSize(frame.width, frame.height);
-  const wxSize logicalSize(text.frame.width, text.frame.height);
-  const double renderScale =
-      layoutviewerpanel::detail::kTextRenderScale *
-      std::min(scaleX, scaleY);
-  wxImage image =
-      layouttext::RenderTextImage(text, renderSize, logicalSize, renderScale);
-  if (!image.IsOk())
-    return data;
-  if (!image.HasAlpha())
-    image.InitAlpha();
-  const unsigned char *rgb = image.GetData();
-  const unsigned char *alpha = image.GetAlpha();
-  if (!rgb || !alpha)
-    return data;
-  const size_t pixelCount =
-      static_cast<size_t>(image.GetWidth()) *
-      static_cast<size_t>(image.GetHeight());
-  data.imageWidth = image.GetWidth();
-  data.imageHeight = image.GetHeight();
-  data.rgba.resize(pixelCount * 4);
-  for (size_t i = 0; i < pixelCount; ++i) {
-    const size_t rgbOffset = i * 3;
-    const size_t rgbaOffset = i * 4;
-    data.rgba[rgbaOffset] = rgb[rgbOffset];
-    data.rgba[rgbaOffset + 1] = rgb[rgbOffset + 1];
-    data.rgba[rgbaOffset + 2] = rgb[rgbOffset + 2];
-    data.rgba[rgbaOffset + 3] = alpha[i];
+  EnsureRichTextHandlers();
+  wxRichTextBuffer buffer;
+  bool loaded = false;
+  if (!text.richText.empty()) {
+    wxStringInputStream input(wxString::FromUTF8(text.richText));
+    loaded = buffer.LoadFile(input, wxRICHTEXT_TYPE_XML);
   }
+
+  wxString plainText;
+  if (loaded) {
+    plainText = buffer.GetText();
+  }
+  if (plainText.empty()) {
+    plainText = text.text.empty() ? wxString("Light Plot")
+                                  : wxString::FromUTF8(text.text);
+  }
+  plainText.Replace("\r\n", "\n");
+  plainText.Replace("\r", "\n");
+
+  wxRichTextAttr style;
+  if (loaded && buffer.GetRange().GetLength() > 0) {
+    buffer.GetStyle(0, style);
+  }
+  const int fontSize = style.GetFontSize() > 0
+                           ? style.GetFontSize()
+                           : layoutviewerpanel::detail::kTextDefaultFontSize;
+  data.fontSize = fontSize;
+  data.bold = style.GetFontWeight() >= wxFONTWEIGHT_BOLD;
+  data.italic = style.GetFontStyle() == wxFONTSTYLE_ITALIC ||
+                style.GetFontStyle() == wxFONTSTYLE_SLANT;
+  switch (style.GetAlignment()) {
+  case wxTEXT_ALIGNMENT_CENTRE:
+    data.alignment = LayoutTextExportData::Alignment::Center;
+    break;
+  case wxTEXT_ALIGNMENT_RIGHT:
+    data.alignment = LayoutTextExportData::Alignment::Right;
+    break;
+  case wxTEXT_ALIGNMENT_JUSTIFIED:
+    data.alignment = LayoutTextExportData::Alignment::Justified;
+    break;
+  case wxTEXT_ALIGNMENT_LEFT:
+  default:
+    data.alignment = LayoutTextExportData::Alignment::Left;
+    break;
+  }
+
+  wxStringTokenizer tokenizer(plainText, "\n", wxTOKEN_RET_EMPTY_ALL);
+  bool wroteLine = false;
+  while (tokenizer.HasMoreTokens()) {
+    data.lines.push_back(tokenizer.GetNextToken().ToStdString());
+    wroteLine = true;
+  }
+  if (!wroteLine)
+    data.lines.emplace_back();
   return data;
 }
 

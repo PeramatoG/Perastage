@@ -83,9 +83,12 @@ struct LayoutTextExportData {
   int zIndex = 0;
   bool solidBackground = true;
   bool drawFrame = true;
-  int imageWidth = 0;
-  int imageHeight = 0;
-  std::vector<unsigned char> rgba;
+  enum class Alignment { Left, Center, Right, Justified };
+  Alignment alignment = Alignment::Left;
+  int fontSize = 12;
+  bool bold = false;
+  bool italic = false;
+  std::vector<std::string> lines;
 };
 
 // Writes the captured 2D drawing commands to a vector PDF that mirrors the
