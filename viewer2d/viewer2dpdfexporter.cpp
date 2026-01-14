@@ -2112,7 +2112,7 @@ Viewer2DExportResult ExportLayoutToPdf(
     const double paddingBottom = 2.0;
     const double columnGap = 8.0;
     const double symbolColumnGap = 2.0;
-    const double symbolPairGap = 0.0;
+    const double symbolPairGap = 2.0;
     constexpr double kLegendLineSpacingScale = 0.8;
     constexpr double kLegendSymbolColumnScale = 1.0;
     const double separatorGap = 2.0;
@@ -2153,7 +2153,6 @@ Viewer2DExportResult ExportLayoutToPdf(
     const double symbolSize =
         std::max(4.0, kLegendSymbolSize * fontScale);
     const double symbolPairGapSize = std::max(0.0, symbolPairGap);
-    double maxSymbolDrawWidth = 0.0;
     auto symbolDrawWidth = [&](const SymbolDefinition *symbol) -> double {
       if (!symbol)
         return 0.0;
@@ -2174,31 +2173,8 @@ Viewer2DExportResult ExportLayoutToPdf(
       double scale = std::min(symbolSize / symbolW, symbolSize / symbolH);
       return symbolH * scale;
     };
-    for (const auto &item : legend.items) {
-      if (item.symbolKey.empty())
-        continue;
-      const SymbolDefinitionSnapshot *legendSymbols =
-          legend.symbolSnapshot ? legend.symbolSnapshot.get()
-                                : symbolSnapshot.get();
-      const SymbolDefinition *topSymbol = FindSymbolDefinitionPreferred(
-          legendSymbols, item.symbolKey, SymbolViewKind::Top);
-      const SymbolDefinition *frontSymbol = FindSymbolDefinitionExact(
-          legendSymbols, item.symbolKey, SymbolViewKind::Front);
-      double topDrawW = symbolDrawWidth(topSymbol);
-      double frontDrawW = symbolDrawWidth(frontSymbol);
-      if (topDrawW <= 0.0 && frontDrawW <= 0.0)
-        continue;
-      double pairWidth = topDrawW;
-      if (frontDrawW > 0.0) {
-        if (pairWidth > 0.0)
-          pairWidth += symbolPairGapSize;
-        pairWidth += frontDrawW;
-      }
-      maxSymbolDrawWidth = std::max(maxSymbolDrawWidth, pairWidth);
-    }
-    const double symbolSlotSize =
-        std::max(4.0, (maxSymbolDrawWidth > 0.0 ? maxSymbolDrawWidth : symbolSize) *
-                          kLegendSymbolColumnScale);
+    const double symbolSlotSize = std::max(
+        4.0, (symbolSize * 2.0 + symbolPairGapSize) * kLegendSymbolColumnScale);
     const double rowHeight =
         std::max(rowHeightCandidate * kLegendLineSpacingScale, lineHeight);
     const double textOffset =
@@ -2263,17 +2239,18 @@ Viewer2DExportResult ExportLayoutToPdf(
         const double topDrawH = symbolDrawHeight(topSymbol);
         const double frontDrawH = symbolDrawHeight(frontSymbol);
         if (topDrawW > 0.0 || frontDrawW > 0.0) {
-          double pairWidth = topDrawW;
-          if (frontDrawW > 0.0) {
-            if (pairWidth > 0.0)
-              pairWidth += symbolPairGapSize;
-            pairWidth += frontDrawW;
-          }
           double rowBottom = rowTop - rowHeight;
           double symbolBoxY = rowBottom + (rowHeight - symbolSize) * 0.5;
-          double symbolInset =
-              std::max(0.0, (symbolSlotSize - pairWidth) * 0.5);
-          double symbolLeft = xSymbol + symbolInset;
+          double leftSlotWidth = symbolSlotSize;
+          double rightSlotWidth = symbolSlotSize;
+          double topSlotLeft = xSymbol;
+          double frontSlotLeft = xSymbol;
+          if (topDrawW > 0.0 && frontDrawW > 0.0) {
+            leftSlotWidth =
+                std::max(0.0, (symbolSlotSize - symbolPairGapSize) * 0.5);
+            rightSlotWidth = leftSlotWidth;
+            frontSlotLeft = xSymbol + leftSlotWidth + symbolPairGapSize;
+          }
           auto drawSymbol = [&](const SymbolDefinition *symbol,
                                 double drawW, double drawH,
                                 double drawLeft) {
@@ -2301,12 +2278,14 @@ Viewer2DExportResult ExportLayoutToPdf(
                           << nameIt->second << " Do\nQ\n";
           };
           if (topDrawW > 0.0) {
+            double symbolLeft =
+                topSlotLeft + std::max(0.0, (leftSlotWidth - topDrawW) * 0.5);
             drawSymbol(topSymbol, topDrawW, topDrawH, symbolLeft);
-            symbolLeft += topDrawW;
-            if (frontDrawW > 0.0)
-              symbolLeft += symbolPairGapSize;
           }
           if (frontDrawW > 0.0) {
+            double symbolLeft =
+                frontSlotLeft +
+                std::max(0.0, (rightSlotWidth - frontDrawW) * 0.5);
             drawSymbol(frontSymbol, frontDrawW, frontDrawH, symbolLeft);
           }
         }
