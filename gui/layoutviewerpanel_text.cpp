@@ -103,8 +103,8 @@ void LayoutViewerPanel::OnEditText(wxCommandEvent &) {
                           text->drawFrame);
   if (dialog.ShowModal() != wxID_OK)
     return;
-  text->richText = dialog.GetRichText().ToStdString();
-  text->text = dialog.GetPlainText().ToStdString();
+  text->richText = dialog.GetRichText().ToUTF8().data();
+  text->text = dialog.GetPlainText().ToUTF8().data();
   text->solidBackground = dialog.GetSolidBackground();
   text->drawFrame = dialog.GetDrawFrame();
   if (!currentLayout.name.empty()) {
@@ -242,7 +242,5 @@ wxImage LayoutViewerPanel::BuildTextImage(
     const layouts::LayoutTextDefinition &text) const {
   if (size.GetWidth() <= 0 || size.GetHeight() <= 0 || renderZoom <= 0.0)
     return wxImage();
-  return layouttext::RenderTextImage(
-      text, size, logicalSize,
-      renderZoom * layoutviewerpanel::detail::kTextRenderScale);
+  return layouttext::RenderTextImage(text, size, logicalSize, renderZoom);
 }
