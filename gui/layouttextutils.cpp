@@ -76,7 +76,15 @@ wxImage RenderTextImage(const layouts::LayoutTextDefinition &text,
   wxString faceName = layoutviewerpanel::detail::ResolveSharedFontFaceName();
   if (!faceName.empty()) {
     baseStyle.SetFontFaceName(faceName);
-    buffer.SetDefaultStyle(baseStyle);
+  }
+  baseStyle.SetTextColour(*wxBLACK);
+  if (!loaded) {
+    baseStyle.SetFontSize(layoutviewerpanel::detail::kTextDefaultFontSize);
+  }
+  buffer.SetDefaultStyle(baseStyle);
+  buffer.SetBasicStyle(baseStyle);
+  if (buffer.GetRange().GetLength() > 0) {
+    buffer.SetStyle(buffer.GetRange(), baseStyle);
   }
 
   const int padding = 4;
