@@ -88,12 +88,21 @@ struct LayoutEventTableDefinition {
   std::array<std::string, 7> fields;
 };
 
+struct LayoutTextDefinition {
+  int id = 0;
+  int zIndex = 0;
+  Layout2DViewFrame frame;
+  std::string text;
+  std::string richText;
+};
+
 struct LayoutDefinition {
   std::string name;
   print::PageSetup pageSetup;
   std::vector<Layout2DViewDefinition> view2dViews;
   std::vector<LayoutLegendDefinition> legendViews;
   std::vector<LayoutEventTableDefinition> eventTables;
+  std::vector<LayoutTextDefinition> textViews;
 };
 
 class LayoutCollection {
@@ -121,6 +130,10 @@ public:
   bool RemoveLayoutEventTable(const std::string &name, int tableId);
   bool MoveLayoutEventTable(const std::string &name, int tableId,
                             bool toFront);
+  bool UpdateLayoutText(const std::string &name,
+                        const LayoutTextDefinition &text);
+  bool RemoveLayoutText(const std::string &name, int textId);
+  bool MoveLayoutText(const std::string &name, int textId, bool toFront);
 
   void ReplaceAll(std::vector<LayoutDefinition> layouts);
 

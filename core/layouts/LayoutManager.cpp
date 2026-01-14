@@ -111,6 +111,19 @@ nlohmann::json ToJson(const LayoutEventTableDefinition &table) {
           {"fields", std::move(fields)}};
 }
 
+nlohmann::json ToJson(const LayoutTextDefinition &text) {
+  const auto &frame = text.frame;
+  nlohmann::json data{
+      {"id", text.id},
+      {"zIndex", text.zIndex},
+      {"frame",
+       {{"x", frame.x}, {"y", frame.y}, {"width", frame.width}, {"height", frame.height}}},
+      {"text", text.text}};
+  if (!text.richText.empty())
+    data["richText"] = text.richText;
+  return data;
+}
+
 nlohmann::json ToJson(const LayoutDefinition &layout) {
   nlohmann::json data{{"name", layout.name},
                       {"pageSize", PageSizeToString(layout.pageSetup.pageSize)},
@@ -129,6 +142,11 @@ nlohmann::json ToJson(const LayoutDefinition &layout) {
     data["eventTables"] = nlohmann::json::array();
     for (const auto &table : layout.eventTables)
       data["eventTables"].push_back(ToJson(table));
+  }
+  if (!layout.textViews.empty()) {
+    data["textViews"] = nlohmann::json::array();
+    for (const auto &text : layout.textViews)
+      data["textViews"].push_back(ToJson(text));
   }
   return data;
 }
@@ -300,6 +318,28 @@ bool ParseLayoutEventTable(const nlohmann::json &value,
   return true;
 }
 
+bool ParseLayoutText(const nlohmann::json &value,
+                     LayoutTextDefinition &out) {
+  if (!value.is_object())
+    return false;
+  if (auto idIt = value.find("id");
+      idIt != value.end() && idIt->is_number_integer())
+    out.id = idIt->get<int>();
+  if (auto zIt = value.find("zIndex");
+      zIt != value.end() && zIt->is_number_integer())
+    out.zIndex = zIt->get<int>();
+  auto frameIt = value.find("frame");
+  if (frameIt != value.end() && frameIt->is_object())
+    ReadFrame(*frameIt, out.frame);
+  if (auto textIt = value.find("text");
+      textIt != value.end() && textIt->is_string())
+    out.text = textIt->get<std::string>();
+  if (auto richIt = value.find("richText");
+      richIt != value.end() && richIt->is_string())
+    out.richText = richIt->get<std::string>();
+  return true;
+}
+
 void EnsureUniqueViewIds(LayoutDefinition &layout) {
   std::unordered_set<int> used;
   int nextId = 1;
@@ -361,6 +401,28 @@ void EnsureUniqueEventTableIds(LayoutDefinition &layout) {
     while (used.count(nextId))
       ++nextId;
     table.id = nextId;
+    used.insert(nextId);
+    ++nextId;
+  }
+}
+
+void EnsureUniqueTextIds(LayoutDefinition &layout) {
+  std::unordered_set<int> used;
+  int nextId = 1;
+  for (auto &text : layout.textViews) {
+    if (text.id > 0) {
+      if (!used.insert(text.id).second)
+        text.id = 0;
+      else
+        nextId = std::max(nextId, text.id + 1);
+    }
+  }
+  for (auto &text : layout.textViews) {
+    if (text.id > 0)
+      continue;
+    while (used.count(nextId))
+      ++nextId;
+    text.id = nextId;
     used.insert(nextId);
     ++nextId;
   }
@@ -461,6 +523,30 @@ bool ParseLayout(const nlohmann::json &value, LayoutDefinition &out) {
     }
   }
 
+  out.textViews.clear();
+  if (auto textsIt = value.find("textViews");
+      textsIt != value.end() && textsIt->is_array()) {
+    for (const auto &entry : *textsIt) {
+      if (entry.is_object() && entry.find("zIndex") != entry.end())
+        hasZIndex = true;
+      LayoutTextDefinition text;
+      if (!ParseLayoutText(entry, text))
+        continue;
+      bool replaced = false;
+      if (text.id > 0) {
+        for (auto &existing : out.textViews) {
+          if (existing.id == text.id) {
+            existing = text;
+            replaced = true;
+            break;
+          }
+        }
+      }
+      if (!replaced)
+        out.textViews.push_back(std::move(text));
+    }
+  }
+
   if (out.view2dViews.empty()) {
     const auto viewStateIt = value.find("view2dState");
     if (viewStateIt != value.end() && viewStateIt->is_object()) {
@@ -554,6 +640,8 @@ bool ParseLayout(const nlohmann::json &value, LayoutDefinition &out) {
       legend.zIndex = nextZ++;
     for (auto &table : out.eventTables)
       table.zIndex = nextZ++;
+    for (auto &text : out.textViews)
+      text.zIndex = nextZ++;
   }
 
   return true;
@@ -668,6 +756,29 @@ bool LayoutManager::MoveLayoutEventTable(const std::string &name, int tableId,
   return true;
 }
 
+bool LayoutManager::UpdateLayoutText(const std::string &name,
+                                     const LayoutTextDefinition &text) {
+  if (!layouts.UpdateLayoutText(name, text))
+    return false;
+  SyncToConfig();
+  return true;
+}
+
+bool LayoutManager::RemoveLayoutText(const std::string &name, int textId) {
+  if (!layouts.RemoveLayoutText(name, textId))
+    return false;
+  SyncToConfig();
+  return true;
+}
+
+bool LayoutManager::MoveLayoutText(const std::string &name, int textId,
+                                   bool toFront) {
+  if (!layouts.MoveLayoutText(name, textId, toFront))
+    return false;
+  SyncToConfig();
+  return true;
+}
+
 void LayoutManager::LoadFromConfig(ConfigManager &cfg) {
   auto value = cfg.GetValue(kLayoutsConfigKey);
   if (!value.has_value()) {
@@ -700,6 +811,7 @@ void LayoutManager::LoadFromConfig(ConfigManager &cfg) {
     EnsureUniqueViewIds(layout);
     EnsureUniqueLegendIds(layout);
     EnsureUniqueEventTableIds(layout);
+    EnsureUniqueTextIds(layout);
     loaded.push_back(std::move(layout));
   }
 

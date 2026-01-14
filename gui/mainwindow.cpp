@@ -212,6 +212,33 @@ layouts::Layout2DViewFrame BuildDefaultLayoutEventTableFrame(
   return {x, y, width, height};
 }
 
+layouts::Layout2DViewFrame BuildDefaultLayoutTextFrame(
+    const layouts::LayoutDefinition &layout) {
+  constexpr double kWidthScale = 0.35;
+  constexpr double kHeightScale = 0.14;
+  constexpr int kMinFrameSize = 80;
+  constexpr int kMargin = 20;
+
+  const double pageWidth = layout.pageSetup.PageWidthPt();
+  const double pageHeight = layout.pageSetup.PageHeightPt();
+
+  int width = std::max(
+      kMinFrameSize,
+      static_cast<int>(std::lround(pageWidth * kWidthScale)));
+  int height = std::max(
+      kMinFrameSize,
+      static_cast<int>(std::lround(pageHeight * kHeightScale)));
+
+  width = std::min(width, static_cast<int>(std::lround(pageWidth)));
+  height = std::min(height, static_cast<int>(std::lround(pageHeight)));
+
+  int x =
+      std::max(0, static_cast<int>(std::lround((pageWidth - width) / 2.0)));
+  int y = std::max(0, kMargin);
+
+  return {x, y, width, height};
+}
+
 const layouts::Layout2DViewDefinition *FindLayout2DViewById(
     const layouts::LayoutDefinition *layout, int viewId) {
   if (!layout || viewId <= 0)
@@ -332,6 +359,7 @@ EVT_MENU(ID_View_Layout_Mode, MainWindow::OnApplyLayoutModeLayout)
 EVT_MENU(ID_View_Layout_2DView, MainWindow::OnLayoutAdd2DView)
 EVT_MENU(ID_View_Layout_Legend, MainWindow::OnLayoutAddLegend)
 EVT_MENU(ID_View_Layout_EventTable, MainWindow::OnLayoutAddEventTable)
+EVT_MENU(ID_View_Layout_Text, MainWindow::OnLayoutAddText)
 EVT_MENU(ID_Tools_DownloadGdtf, MainWindow::OnDownloadGdtf)
 EVT_MENU(ID_Tools_EditDictionaries, MainWindow::OnEditDictionaries)
 EVT_MENU(ID_Tools_ExportFixture, MainWindow::OnExportFixture)
@@ -642,6 +670,9 @@ void MainWindow::CreateToolBars() {
   layoutToolBar->AddTool(ID_View_Layout_EventTable, "Añadir tabla de evento",
                          loadToolbarIcon("table", wxART_LIST_VIEW),
                          "Add event table to layout");
+  layoutToolBar->AddTool(ID_View_Layout_Text, "Añadir texto",
+                         loadToolbarIcon("text-select", wxART_TIP),
+                         "Add text box to layout");
   layoutToolBar->Realize();
   const wxSize layoutToolbarSize = layoutToolBar->GetBestSize();
   layoutToolBar->SetMinSize(layoutToolbarSize);
@@ -2563,6 +2594,37 @@ void MainWindow::OnLayoutAddEventTable(wxCommandEvent &WXUNUSED(event)) {
   table.frame = BuildDefaultLayoutEventTableFrame(*layout);
 
   layouts::LayoutManager::Get().UpdateLayoutEventTable(activeLayoutName, table);
+
+  if (layoutViewerPanel) {
+    for (const auto &entry :
+         layouts::LayoutManager::Get().GetLayouts().Items()) {
+      if (entry.name == activeLayoutName) {
+        layoutViewerPanel->SetLayoutDefinition(entry);
+        break;
+      }
+    }
+  }
+}
+
+void MainWindow::OnLayoutAddText(wxCommandEvent &WXUNUSED(event)) {
+  if (!layoutModeActive || activeLayoutName.empty())
+    return;
+
+  const layouts::LayoutDefinition *layout = nullptr;
+  for (const auto &entry : layouts::LayoutManager::Get().GetLayouts().Items()) {
+    if (entry.name == activeLayoutName) {
+      layout = &entry;
+      break;
+    }
+  }
+  if (!layout)
+    return;
+
+  layouts::LayoutTextDefinition text;
+  text.frame = BuildDefaultLayoutTextFrame(*layout);
+  text.text = "Light Plot";
+
+  layouts::LayoutManager::Get().UpdateLayoutText(activeLayoutName, text);
 
   if (layoutViewerPanel) {
     for (const auto &entry :

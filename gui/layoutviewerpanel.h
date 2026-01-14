@@ -81,6 +81,14 @@ private:
     size_t contentHash = 0;
   };
 
+  struct TextCache {
+    unsigned int texture = 0;
+    wxSize textureSize{0, 0};
+    double renderZoom = 0.0;
+    bool renderDirty = true;
+    size_t contentHash = 0;
+  };
+
   void OnPaint(wxPaintEvent &event);
   void OnSize(wxSizeEvent &event);
   void OnLeftDown(wxMouseEvent &event);
@@ -96,6 +104,8 @@ private:
   void OnDeleteLegend(wxCommandEvent &event);
   void OnEditEventTable(wxCommandEvent &event);
   void OnDeleteEventTable(wxCommandEvent &event);
+  void OnEditText(wxCommandEvent &event);
+  void OnDeleteText(wxCommandEvent &event);
   void OnBringToFront(wxCommandEvent &event);
   void OnSendToBack(wxCommandEvent &event);
 
@@ -112,12 +122,15 @@ private:
                          bool updatePosition);
   void UpdateEventTableFrame(const layouts::Layout2DViewFrame &frame,
                              bool updatePosition);
+  void UpdateTextFrame(const layouts::Layout2DViewFrame &frame,
+                       bool updatePosition);
   void InitGL();
   void RebuildCachedTexture();
   void ClearCachedTexture();
   void ClearCachedTexture(ViewCache &cache);
   void ClearCachedTexture(LegendCache &cache);
   void ClearCachedTexture(EventTableCache &cache);
+  void ClearCachedTexture(TextCache &cache);
   void RequestRenderRebuild();
   void InvalidateRenderIfFrameChanged();
   void EmitEditViewRequest();
@@ -126,14 +139,18 @@ private:
                           layouts::Layout2DViewFrame &frame) const;
   bool GetEventTableFrameById(int tableId,
                               layouts::Layout2DViewFrame &frame) const;
+  bool GetTextFrameById(int textId, layouts::Layout2DViewFrame &frame) const;
   const layouts::LayoutLegendDefinition *GetSelectedLegend() const;
   layouts::LayoutLegendDefinition *GetSelectedLegend();
   const layouts::LayoutEventTableDefinition *GetSelectedEventTable() const;
   layouts::LayoutEventTableDefinition *GetSelectedEventTable();
+  const layouts::LayoutTextDefinition *GetSelectedText() const;
+  layouts::LayoutTextDefinition *GetSelectedText();
   bool GetSelectedFrame(layouts::Layout2DViewFrame &frame) const;
   ViewCache &GetViewCache(int viewId);
   LegendCache &GetLegendCache(int legendId);
   EventTableCache &GetEventTableCache(int tableId);
+  TextCache &GetTextCache(int textId);
   std::vector<LegendItem> BuildLegendItems() const;
   size_t HashLegendItems(const std::vector<LegendItem> &items) const;
   wxImage BuildLegendImage(const wxSize &size, const wxSize &logicalSize,
@@ -145,6 +162,10 @@ private:
   wxImage BuildEventTableImage(
       const wxSize &size, const wxSize &logicalSize, double renderZoom,
       const layouts::LayoutEventTableDefinition &table) const;
+  size_t HashTextContent(const layouts::LayoutTextDefinition &text) const;
+  wxImage BuildTextImage(const wxSize &size, const wxSize &logicalSize,
+                         double renderZoom,
+                         const layouts::LayoutTextDefinition &text) const;
 
   enum class FrameDragMode {
     None,
@@ -161,7 +182,8 @@ private:
     None,
     View2D,
     Legend,
-    EventTable
+    EventTable,
+    Text
   };
 
   struct ZOrderedElement {
@@ -194,6 +216,7 @@ private:
   std::unordered_map<int, ViewCache> viewCaches_;
   std::unordered_map<int, LegendCache> legendCaches_;
   std::unordered_map<int, EventTableCache> eventTableCaches_;
+  std::unordered_map<int, TextCache> textCaches_;
   std::vector<LegendItem> legendItems_;
   size_t legendDataHash = 0;
 
