@@ -613,7 +613,6 @@ void MainWindow::CreateToolBars() {
   layoutViewsToolBar->Realize();
   const wxSize layoutViewsToolbarSize = layoutViewsToolBar->GetBestSize();
   layoutViewsToolBar->SetMinSize(layoutViewsToolbarSize);
-  layoutViewsToolBar->SetMaxSize(layoutViewsToolbarSize);
   auiManager->AddPane(
       layoutViewsToolBar, wxAuiPaneInfo()
                               .Name("LayoutViewsToolbar")
@@ -622,6 +621,8 @@ void MainWindow::CreateToolBars() {
                               .Top()
                               .LeftDockable(false)
                               .RightDockable(false)
+                              .BestSize(layoutViewsToolbarSize)
+                              .MinSize(layoutViewsToolbarSize)
                               .Row(0)
                               .Position(1));
 
@@ -644,7 +645,6 @@ void MainWindow::CreateToolBars() {
   layoutToolBar->Realize();
   const wxSize layoutToolbarSize = layoutToolBar->GetBestSize();
   layoutToolBar->SetMinSize(layoutToolbarSize);
-  layoutToolBar->SetMaxSize(layoutToolbarSize);
   auiManager->AddPane(
       layoutToolBar, wxAuiPaneInfo()
                          .Name("LayoutToolbar")
@@ -653,6 +653,8 @@ void MainWindow::CreateToolBars() {
                          .Top()
                          .LeftDockable(false)
                          .RightDockable(false)
+                         .BestSize(layoutToolbarSize)
+                         .MinSize(layoutToolbarSize)
                          .Row(1)
                          .Position(0));
 }
