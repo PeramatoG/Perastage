@@ -37,6 +37,8 @@ inline const std::vector<const char *> kSharedFontFaceNames = {
 #endif
 };
 
+constexpr double kTextRenderScale = 0.9;
+
 inline wxString ResolveSharedFontFaceName() {
   static wxString faceName;
   static bool initialized = false;

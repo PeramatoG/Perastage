@@ -117,8 +117,13 @@ nlohmann::json ToJson(const LayoutTextDefinition &text) {
       {"id", text.id},
       {"zIndex", text.zIndex},
       {"frame",
-       {{"x", frame.x}, {"y", frame.y}, {"width", frame.width}, {"height", frame.height}}},
-      {"text", text.text}};
+       {{"x", frame.x},
+        {"y", frame.y},
+        {"width", frame.width},
+        {"height", frame.height}}},
+      {"text", text.text},
+      {"solidBackground", text.solidBackground},
+      {"drawFrame", text.drawFrame}};
   if (!text.richText.empty())
     data["richText"] = text.richText;
   return data;
@@ -337,6 +342,12 @@ bool ParseLayoutText(const nlohmann::json &value,
   if (auto richIt = value.find("richText");
       richIt != value.end() && richIt->is_string())
     out.richText = richIt->get<std::string>();
+  if (auto bgIt = value.find("solidBackground");
+      bgIt != value.end() && bgIt->is_boolean())
+    out.solidBackground = bgIt->get<bool>();
+  if (auto frameIt = value.find("drawFrame");
+      frameIt != value.end() && frameIt->is_boolean())
+    out.drawFrame = frameIt->get<bool>();
   return true;
 }
 

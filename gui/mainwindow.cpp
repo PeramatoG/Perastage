@@ -45,6 +45,7 @@
 #include <wx/filename.h>
 #include <wx/html/htmlwin.h>
 #include <wx/iconbndl.h>
+#include <wx/image.h>
 #include <wx/notebook.h>
 #include <wx/numdlg.h>
 #include <wx/statbmp.h>
@@ -76,6 +77,8 @@ using json = nlohmann::json;
 #include "layoutviewpresets.h"
 #include "layoutpanel.h"
 #include "layoutviewerpanel.h"
+#include "layouttextutils.h"
+#include "layoutviewerpanel_shared.h"
 #include "legendutils.h"
 #include "layerpanel.h"
 #include "logindialog.h"
@@ -130,6 +133,51 @@ void LogMissingIcon(const std::filesystem::path &path) {
 #else
   wxLogWarning("Main window icon not found at '%s'", path.string().c_str());
 #endif
+}
+
+LayoutTextExportData BuildLayoutTextExportData(
+    const layouts::LayoutTextDefinition &text, double scaleX, double scaleY) {
+  LayoutTextExportData data;
+  layouts::Layout2DViewFrame frame = text.frame;
+  frame.x = static_cast<int>(std::lround(frame.x * scaleX));
+  frame.y = static_cast<int>(std::lround(frame.y * scaleY));
+  frame.width = static_cast<int>(std::lround(frame.width * scaleX));
+  frame.height = static_cast<int>(std::lround(frame.height * scaleY));
+  data.frame = frame;
+  data.zIndex = text.zIndex;
+  data.solidBackground = text.solidBackground;
+  data.drawFrame = text.drawFrame;
+
+  const wxSize renderSize(frame.width, frame.height);
+  const wxSize logicalSize(text.frame.width, text.frame.height);
+  const double renderScale =
+      layoutviewerpanel::detail::kTextRenderScale *
+      std::min(scaleX, scaleY);
+  wxImage image =
+      layouttext::RenderTextImage(text, renderSize, logicalSize, renderScale);
+  if (!image.IsOk())
+    return data;
+  if (!image.HasAlpha())
+    image.InitAlpha();
+  const unsigned char *rgb = image.GetData();
+  const unsigned char *alpha = image.GetAlpha();
+  if (!rgb || !alpha)
+    return data;
+  const size_t pixelCount =
+      static_cast<size_t>(image.GetWidth()) *
+      static_cast<size_t>(image.GetHeight());
+  data.imageWidth = image.GetWidth();
+  data.imageHeight = image.GetHeight();
+  data.rgba.resize(pixelCount * 4);
+  for (size_t i = 0; i < pixelCount; ++i) {
+    const size_t rgbOffset = i * 3;
+    const size_t rgbaOffset = i * 4;
+    data.rgba[rgbaOffset] = rgb[rgbOffset];
+    data.rgba[rgbaOffset + 1] = rgb[rgbOffset + 1];
+    data.rgba[rgbaOffset + 2] = rgb[rgbOffset + 2];
+    data.rgba[rgbaOffset + 3] = alpha[i];
+  }
+  return data;
 }
 
 layouts::Layout2DViewFrame BuildDefaultLayout2DFrame(
@@ -1871,6 +1919,8 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
   layoutLegends.reserve(layout->legendViews.size());
   std::vector<LayoutEventTableExportData> layoutTables;
   layoutTables.reserve(layout->eventTables.size());
+  std::vector<LayoutTextExportData> layoutTexts;
+  layoutTexts.reserve(layout->textViews.size());
   const auto legendItems = BuildLayoutLegendItems();
   for (const auto &legend : layout->legendViews) {
     LayoutLegendExportData legendData;
@@ -1896,6 +1946,9 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
     tableData.frame = frame;
     layoutTables.push_back(std::move(tableData));
   }
+  for (const auto &text : layout->textViews) {
+    layoutTexts.push_back(BuildLayoutTextExportData(text, scaleX, scaleY));
+  }
   auto exportViews = std::make_shared<std::vector<LayoutViewExportData>>();
   exportViews->reserve(layoutViews.size());
   auto exportLegends =
@@ -1904,6 +1957,9 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
   auto exportTables =
       std::make_shared<std::vector<LayoutEventTableExportData>>(
           std::move(layoutTables));
+  auto exportTexts =
+      std::make_shared<std::vector<LayoutTextExportData>>(
+          std::move(layoutTexts));
 
   auto captureNext =
       std::make_shared<std::function<void(size_t)>>();
@@ -1911,7 +1967,7 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
       [this, captureNext, exportViews, layoutViews, offscreenRenderer,
       capturePanel, cfgPtr, useSimplifiedFootprints, includeGrid, scaleX,
        scaleY, outputPageW, outputPageH, outputLandscape, exportLegends,
-       exportTables, outputPathWx](size_t index) mutable {
+       exportTables, exportTexts, outputPathWx](size_t index) mutable {
         if (index >= layoutViews.size()) {
           Viewer2DPrintOptions opts;
           opts.pageWidthPt = outputPageW;
@@ -1926,6 +1982,7 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
           auto viewsToExport = std::move(*exportViews);
           auto legendsToExport = std::move(*exportLegends);
           auto tablesToExport = std::move(*exportTables);
+          auto textsToExport = std::move(*exportTexts);
           if (capturePanel) {
             auto legendSymbols = capturePanel->GetBottomSymbolCacheSnapshot();
             for (auto &legend : legendsToExport) {
@@ -1935,10 +1992,12 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
 
           std::thread([this, views = std::move(viewsToExport), opts,
                        legends = std::move(legendsToExport),
-                       tables = std::move(tablesToExport), outputPath,
+                       tables = std::move(tablesToExport),
+                       texts = std::move(textsToExport), outputPath,
                        outputPathDisplay]() {
             Viewer2DExportResult res =
-                ExportLayoutToPdf(views, legends, tables, opts, outputPath);
+                ExportLayoutToPdf(views, legends, tables, texts, opts,
+                                  outputPath);
 
             wxTheApp->CallAfter([this, res, outputPathDisplay]() {
               if (!res.success) {
@@ -2638,6 +2697,8 @@ void MainWindow::OnLayoutAddText(wxCommandEvent &WXUNUSED(event)) {
   layouts::LayoutTextDefinition text;
   text.frame = BuildDefaultLayoutTextFrame(*layout);
   text.text = "Light Plot";
+  text.solidBackground = true;
+  text.drawFrame = true;
 
   layouts::LayoutManager::Get().UpdateLayoutText(activeLayoutName, text);
 
