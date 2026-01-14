@@ -611,6 +611,9 @@ void MainWindow::CreateToolBars() {
                                               wxART_MISSING_IMAGE),
                               "Switch to Layout Mode View");
   layoutViewsToolBar->Realize();
+  const wxSize layoutViewsToolbarSize = layoutViewsToolBar->GetBestSize();
+  layoutViewsToolBar->SetMinSize(layoutViewsToolbarSize);
+  layoutViewsToolBar->SetMaxSize(layoutViewsToolbarSize);
   auiManager->AddPane(
       layoutViewsToolBar, wxAuiPaneInfo()
                               .Name("LayoutViewsToolbar")
