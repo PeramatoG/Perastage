@@ -42,6 +42,10 @@ public:
                           const LayoutLegendDefinition &legend);
   bool RemoveLayoutLegend(const std::string &name, int legendId);
   bool MoveLayoutLegend(const std::string &name, int legendId, bool toFront);
+  bool UpdateLayoutEventTable(const std::string &name,
+                              const LayoutEventTableDefinition &table);
+  bool RemoveLayoutEventTable(const std::string &name, int tableId);
+  bool MoveLayoutEventTable(const std::string &name, int tableId, bool toFront);
 
   void LoadFromConfig(ConfigManager &cfg);
   void SaveToConfig(ConfigManager &cfg) const;

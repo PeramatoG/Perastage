@@ -40,6 +40,14 @@ int MaxZIndex(const LayoutDefinition &layout) {
       maxZ = std::max(maxZ, legend.zIndex);
     }
   }
+  for (const auto &table : layout.eventTables) {
+    if (!hasValue) {
+      maxZ = table.zIndex;
+      hasValue = true;
+    } else {
+      maxZ = std::max(maxZ, table.zIndex);
+    }
+  }
   return hasValue ? maxZ : 0;
 }
 } // namespace
@@ -121,7 +129,8 @@ bool LayoutCollection::UpdateLayout2DView(const std::string &name,
       }
       if (!replaced) {
         if (updatedView.zIndex == 0 &&
-            (!layout.view2dViews.empty() || !layout.legendViews.empty())) {
+            (!layout.view2dViews.empty() || !layout.legendViews.empty() ||
+             !layout.eventTables.empty())) {
           updatedView.zIndex = MaxZIndex(layout) + 1;
         }
         layout.view2dViews.push_back(updatedView);
@@ -204,10 +213,47 @@ bool LayoutCollection::UpdateLayoutLegend(
       }
       if (!replaced) {
         if (updatedLegend.zIndex == 0 &&
-            (!layout.view2dViews.empty() || !layout.legendViews.empty())) {
+            (!layout.view2dViews.empty() || !layout.legendViews.empty() ||
+             !layout.eventTables.empty())) {
           updatedLegend.zIndex = MaxZIndex(layout) + 1;
         }
         layout.legendViews.push_back(updatedLegend);
+      }
+      return true;
+    }
+  }
+  return false;
+}
+
+bool LayoutCollection::UpdateLayoutEventTable(
+    const std::string &name, const LayoutEventTableDefinition &table) {
+  for (auto &layout : layouts) {
+    if (layout.name == name) {
+      LayoutEventTableDefinition updatedTable = table;
+      int nextId = 1;
+      for (const auto &entry : layout.eventTables) {
+        if (entry.id > 0)
+          nextId = std::max(nextId, entry.id + 1);
+      }
+      if (updatedTable.id <= 0)
+        updatedTable.id = nextId;
+      bool replaced = false;
+      for (auto &entry : layout.eventTables) {
+        if (entry.id == updatedTable.id && updatedTable.id > 0) {
+          if (updatedTable.zIndex == 0 && entry.zIndex != 0)
+            updatedTable.zIndex = entry.zIndex;
+          entry = updatedTable;
+          replaced = true;
+          break;
+        }
+      }
+      if (!replaced) {
+        if (updatedTable.zIndex == 0 &&
+            (!layout.view2dViews.empty() || !layout.legendViews.empty() ||
+             !layout.eventTables.empty())) {
+          updatedTable.zIndex = MaxZIndex(layout) + 1;
+        }
+        layout.eventTables.push_back(updatedTable);
       }
       return true;
     }
@@ -228,6 +274,25 @@ bool LayoutCollection::RemoveLayoutLegend(const std::string &name,
       if (it == legends.end())
         return false;
       legends.erase(it, legends.end());
+      return true;
+    }
+  }
+  return false;
+}
+
+bool LayoutCollection::RemoveLayoutEventTable(const std::string &name,
+                                              int tableId) {
+  for (auto &layout : layouts) {
+    if (layout.name == name) {
+      auto &tables = layout.eventTables;
+      auto it =
+          std::remove_if(tables.begin(), tables.end(),
+                         [tableId](const auto &entry) {
+                           return entry.id == tableId;
+                         });
+      if (it == tables.end())
+        return false;
+      tables.erase(it, tables.end());
       return true;
     }
   }
@@ -264,6 +329,36 @@ bool LayoutCollection::MoveLayoutLegend(const std::string &name, int legendId,
   return false;
 }
 
+bool LayoutCollection::MoveLayoutEventTable(const std::string &name, int tableId,
+                                            bool toFront) {
+  for (auto &layout : layouts) {
+    if (layout.name == name) {
+      auto &tables = layout.eventTables;
+      auto it = std::find_if(tables.begin(), tables.end(),
+                             [tableId](const auto &entry) {
+                               return entry.id == tableId;
+                             });
+      if (it == tables.end())
+        return false;
+      if (toFront) {
+        if (std::next(it) != tables.end()) {
+          auto moved = std::move(*it);
+          tables.erase(it);
+          tables.push_back(std::move(moved));
+        }
+      } else {
+        if (it != tables.begin()) {
+          auto moved = std::move(*it);
+          tables.erase(it);
+          tables.insert(tables.begin(), std::move(moved));
+        }
+      }
+      return true;
+    }
+  }
+  return false;
+}
+
 void LayoutCollection::ReplaceAll(std::vector<LayoutDefinition> updated) {
   if (updated.empty()) {
     layouts = {DefaultLayout()};
@@ -279,6 +374,7 @@ LayoutDefinition LayoutCollection::DefaultLayout() {
   layout.pageSetup.landscape = true;
   layout.view2dViews.clear();
   layout.legendViews.clear();
+  layout.eventTables.clear();
   return layout;
 }
 
