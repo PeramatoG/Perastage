@@ -2518,9 +2518,9 @@ wxImage LayoutViewerPanel::BuildLegendImage(
   const int paddingBottom = 2;
   const int columnGap = 8;
   const int symbolColumnGap = 2;
-  const int symbolPairGap = -2;
   constexpr double kLegendLineSpacingScale = 0.8;
   constexpr double kLegendSymbolColumnScale = 1.0;
+  constexpr double kLegendSymbolPairOverlapScale = 0.35;
   const int totalRows = static_cast<int>(items.size()) + 1;
   const int baseHeight = logicalSize.GetHeight() > 0 ? logicalSize.GetHeight()
                                                      : size.GetHeight();
@@ -2579,8 +2579,9 @@ wxImage LayoutViewerPanel::BuildLegendImage(
   const int desiredSymbolSize = static_cast<int>(std::lround(
       kLegendSymbolSizePx * renderZoom * fontScale));
   const int symbolSize = std::max(4, desiredSymbolSize);
-  const int symbolPairGapPx =
-      static_cast<int>(std::lround(symbolPairGap * renderZoom));
+  const double symbolPairGapPx =
+      -std::max(1.0, static_cast<double>(symbolSize) *
+                         kLegendSymbolPairOverlapScale);
   auto symbolDrawWidth = [&](const SymbolDefinition *symbol) -> double {
     if (!symbol)
       return 0.0;
