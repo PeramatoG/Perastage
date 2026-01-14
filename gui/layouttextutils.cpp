@@ -122,34 +122,30 @@ wxImage RenderTextImage(const layouts::LayoutTextDefinition &text,
     }
   }
 
-  if (!loaded) {
-    wxRichTextAttr baseStyle = buffer.GetDefaultStyle();
-    wxString faceName = layoutviewerpanel::detail::ResolveSharedFontFaceName();
-    if (!faceName.empty())
-      baseStyle.SetFontFaceName(faceName);
-    baseStyle.SetTextColour(*wxBLACK);
-    baseStyle.SetParagraphSpacingBefore(0);
-    baseStyle.SetParagraphSpacingAfter(0);
-    baseStyle.SetFontSize(layoutviewerpanel::detail::kTextDefaultFontSize);
-    buffer.SetDefaultStyle(baseStyle);
-    buffer.SetBasicStyle(baseStyle);
-    if (buffer.GetRange().GetLength() > 0) {
-      wxRichTextAttr overrideStyle;
-      long flags = wxTEXT_ATTR_TEXT_COLOUR |
-                   wxTEXT_ATTR_PARAGRAPH_SPACING_BEFORE |
-                   wxTEXT_ATTR_PARAGRAPH_SPACING_AFTER |
-                   wxTEXT_ATTR_FONT_SIZE;
-      if (!faceName.empty()) {
-        overrideStyle.SetFontFaceName(faceName);
-        flags |= wxTEXT_ATTR_FONT_FACE;
-      }
-      overrideStyle.SetTextColour(*wxBLACK);
-      overrideStyle.SetParagraphSpacingBefore(0);
-      overrideStyle.SetParagraphSpacingAfter(0);
-      overrideStyle.SetFontSize(layoutviewerpanel::detail::kTextDefaultFontSize);
-      overrideStyle.SetFlags(flags);
-      buffer.SetStyle(buffer.GetRange(), overrideStyle);
+  wxRichTextAttr baseStyle = buffer.GetDefaultStyle();
+  wxString faceName = layoutviewerpanel::detail::ResolveSharedFontFaceName();
+  if (!faceName.empty())
+    baseStyle.SetFontFaceName(faceName);
+  baseStyle.SetTextColour(*wxBLACK);
+  baseStyle.SetParagraphSpacingBefore(0);
+  baseStyle.SetParagraphSpacingAfter(0);
+  baseStyle.SetFontSize(layoutviewerpanel::detail::kTextDefaultFontSize);
+  buffer.SetDefaultStyle(baseStyle);
+  buffer.SetBasicStyle(baseStyle);
+  if (buffer.GetRange().GetLength() > 0) {
+    wxRichTextAttr overrideStyle;
+    long flags = wxTEXT_ATTR_TEXT_COLOUR |
+                 wxTEXT_ATTR_PARAGRAPH_SPACING_BEFORE |
+                 wxTEXT_ATTR_PARAGRAPH_SPACING_AFTER;
+    if (!faceName.empty()) {
+      overrideStyle.SetFontFaceName(faceName);
+      flags |= wxTEXT_ATTR_FONT_FACE;
     }
+    overrideStyle.SetTextColour(*wxBLACK);
+    overrideStyle.SetParagraphSpacingBefore(0);
+    overrideStyle.SetParagraphSpacingAfter(0);
+    overrideStyle.SetFlags(flags);
+    buffer.SetStyle(buffer.GetRange(), overrideStyle);
   }
 
   const int padding = 4;
