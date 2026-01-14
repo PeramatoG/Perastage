@@ -51,9 +51,9 @@ wxImage RenderTextImage(const layouts::LayoutTextDefinition &text,
   wxGCDC dc(memoryDc);
 
   if (text.solidBackground) {
-    dc.SetBackground(wxBrush(wxColour(255, 255, 255)));
+    dc.SetBackground(wxBrush(wxColour(255, 255, 255, 255)));
   } else {
-    dc.SetBackground(wxBrush(wxColour(255, 255, 255, 0)));
+    dc.SetBackground(wxBrush(wxColour(0, 0, 0, 0)));
   }
   dc.Clear();
   dc.SetTextForeground(wxColour(0, 0, 0));
@@ -91,7 +91,19 @@ wxImage RenderTextImage(const layouts::LayoutTextDefinition &text,
   buffer.Draw(dc, context, buffer.GetRange(), selection, logicalRect, 0, 0);
 
   memoryDc.SelectObject(wxNullBitmap);
-  return bitmap.ConvertToImage();
+  wxImage image = bitmap.ConvertToImage();
+  if (!image.HasAlpha())
+    image.InitAlpha();
+  if (text.solidBackground) {
+    unsigned char *alpha = image.GetAlpha();
+    if (alpha) {
+      const size_t pixelCount =
+          static_cast<size_t>(image.GetWidth()) *
+          static_cast<size_t>(image.GetHeight());
+      std::fill(alpha, alpha + pixelCount, 255);
+    }
+  }
+  return image;
 }
 
 } // namespace layouttext
