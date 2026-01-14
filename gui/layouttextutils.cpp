@@ -18,6 +18,7 @@
 #include "layouttextutils.h"
 
 #include <algorithm>
+#include <cmath>
 
 #include <wx/dcgraph.h>
 #include <wx/dcmemory.h>
@@ -156,8 +157,14 @@ wxImage RenderTextImage(const layouts::LayoutTextDefinition &text,
   }
 
   const int padding = 4;
-  const int logicalWidth = std::max(0, logicalSize.GetWidth() - padding * 2);
-  const int logicalHeight = std::max(0, logicalSize.GetHeight() - padding * 2);
+  const double logicalScale = layoutviewerpanel::detail::kTextRenderScale;
+  const int logicalWidth = std::max(
+      0, static_cast<int>(std::lround(logicalSize.GetWidth() * logicalScale)) -
+             padding * 2);
+  const int logicalHeight =
+      std::max(0, static_cast<int>(std::lround(logicalSize.GetHeight() *
+                                               logicalScale)) -
+                     padding * 2);
   wxRect logicalRect(padding, padding, logicalWidth, logicalHeight);
 
   dc.SetUserScale(adjustedScale, adjustedScale);
