@@ -1095,12 +1095,19 @@ void LayoutViewerPanel::OnLeftUp(wxMouseEvent &) {
 void LayoutViewerPanel::OnLeftDClick(wxMouseEvent &event) {
   const wxPoint pos = event.GetPosition();
   SelectElementAtPosition(pos);
-  const layouts::Layout2DViewDefinition *view = GetEditableView();
+  layouts::Layout2DViewFrame selectedFrame;
   wxRect frameRect;
-  if (view && GetFrameRect(view->frame, frameRect) && frameRect.Contains(pos) &&
-      selectedElementType == SelectedElementType::View2D) {
-    EmitEditViewRequest();
-    return;
+  if (GetSelectedFrame(selectedFrame) &&
+      GetFrameRect(selectedFrame, frameRect) && frameRect.Contains(pos)) {
+    if (selectedElementType == SelectedElementType::View2D) {
+      EmitEditViewRequest();
+      return;
+    }
+    if (selectedElementType == SelectedElementType::EventTable) {
+      wxCommandEvent editEvent;
+      OnEditEventTable(editEvent);
+      return;
+    }
   }
   event.Skip();
 }
