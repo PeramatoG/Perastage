@@ -17,8 +17,8 @@
  */
 #pragma once
 
+#include <wx/gdicmn.h>
 #include <wx/image.h>
-#include <wx/size.h>
 
 #include "layouts/LayoutCollection.h"
 
