@@ -1850,6 +1850,33 @@ void LayoutViewerPanel::RebuildCachedTexture() {
         [](CommandBuffer, Viewer2DViewState) {}, true, false);
     legendSymbols = capturePanel->GetBottomSymbolCacheSnapshot();
   }
+  if (legendSymbols && !legendSymbols->empty() &&
+      !currentLayout.legendViews.empty()) {
+    bool hasTop = false;
+    bool hasFront = false;
+    for (const auto &entry : *legendSymbols) {
+      if (entry.second.key.viewKind == SymbolViewKind::Top)
+        hasTop = true;
+      else if (entry.second.key.viewKind == SymbolViewKind::Front)
+        hasFront = true;
+      if (hasTop && hasFront)
+        break;
+    }
+    if (!hasTop || !hasFront) {
+      const Viewer2DView previousView = capturePanel->GetView();
+      auto captureMissingView = [&](Viewer2DView view) {
+        capturePanel->SetView(view);
+        capturePanel->CaptureFrameNow(
+            [](CommandBuffer, Viewer2DViewState) {}, true, false);
+      };
+      if (!hasTop)
+        captureMissingView(Viewer2DView::Top);
+      if (!hasFront)
+        captureMissingView(Viewer2DView::Front);
+      capturePanel->SetView(previousView);
+      legendSymbols = capturePanel->GetBottomSymbolCacheSnapshot();
+    }
+  }
   const double renderZoom = GetRenderZoom();
   for (const auto &view : currentLayout.view2dViews) {
     ViewCache &cache = GetViewCache(view.id);
