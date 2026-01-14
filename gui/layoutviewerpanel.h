@@ -31,6 +31,8 @@
 
 wxDECLARE_EVENT(EVT_LAYOUT_VIEW_EDIT, wxCommandEvent);
 
+class Viewer2DOffscreenRenderer;
+
 class LayoutViewerPanel : public wxGLCanvas {
 public:
   explicit LayoutViewerPanel(wxWindow *parent);
@@ -108,6 +110,17 @@ private:
   void OnDeleteText(wxCommandEvent &event);
   void OnBringToFront(wxCommandEvent &event);
   void OnSendToBack(wxCommandEvent &event);
+
+  void DrawSelectionHandles(const wxRect &frameRect) const;
+  void DrawViewElement(const layouts::Layout2DViewDefinition &view,
+                       Viewer2DPanel *capturePanel,
+                       Viewer2DOffscreenRenderer *offscreenRenderer,
+                       int activeViewId);
+  void DrawLegendElement(const layouts::LayoutLegendDefinition &legend,
+                         int activeLegendId);
+  void DrawEventTableElement(const layouts::LayoutEventTableDefinition &table);
+  void DrawTextElement(const layouts::LayoutTextDefinition &text,
+                       int activeTextId);
 
   void ResetViewToFit();
   wxRect GetPageRect() const;
@@ -195,6 +208,10 @@ private:
 
   std::vector<ZOrderedElement> BuildZOrderedElements() const;
   std::pair<int, int> GetZIndexRange() const;
+
+  static constexpr double kLegendContentScale = 0.7;
+  static constexpr double kLegendFontScale =
+      (2.0 / 3.0) * kLegendContentScale;
 
   layouts::LayoutDefinition currentLayout;
   double zoom = 1.0;
