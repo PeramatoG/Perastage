@@ -27,6 +27,14 @@
 
 #include "layoutviewerpanel_shared.h"
 
+#ifndef wxTEXT_ATTR_PARAGRAPH_SPACING_BEFORE
+#define wxTEXT_ATTR_PARAGRAPH_SPACING_BEFORE 0
+#endif
+
+#ifndef wxTEXT_ATTR_PARAGRAPH_SPACING_AFTER
+#define wxTEXT_ATTR_PARAGRAPH_SPACING_AFTER 0
+#endif
+
 namespace layouttext {
 namespace {
 void EnsureRichTextHandlers() {
