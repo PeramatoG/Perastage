@@ -2520,7 +2520,7 @@ wxImage LayoutViewerPanel::BuildLegendImage(
   const int symbolColumnGap = 2;
   constexpr double kLegendLineSpacingScale = 0.8;
   constexpr double kLegendSymbolColumnScale = 1.0;
-  constexpr double kLegendSymbolPairOverlapScale = 0.35;
+  constexpr double kLegendSymbolPairOverlapScale = 0.75;
   const int totalRows = static_cast<int>(items.size()) + 1;
   const int baseHeight = logicalSize.GetHeight() > 0 ? logicalSize.GetHeight()
                                                      : size.GetHeight();
