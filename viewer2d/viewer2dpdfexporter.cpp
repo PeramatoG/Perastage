@@ -510,6 +510,7 @@ struct RenderOptions {
   const std::unordered_map<std::string, std::string> *symbolKeyNames = nullptr;
   const std::unordered_map<uint32_t, std::string> *symbolIdNames = nullptr;
   const PdfFontCatalog *fonts = nullptr;
+  double strokeScale = 1.0;
 };
 
 Point Apply(const Transform &t, double x, double y) {
@@ -988,8 +989,10 @@ SymbolBounds ComputeSymbolBounds(const std::vector<CanvasCommand> &commands) {
 // occlude internal wireframe edges within the same group.
 void EmitCommandStroke(std::ostringstream &content, GraphicsStateCache &cache,
                        const FloatFormatter &formatter, const Mapping &mapping,
-                       const Transform &current, const CanvasCommand &command) {
-  const double strokeScale = current.scale * mapping.scale;
+                       const Transform &current, const CanvasCommand &command,
+                       const RenderOptions &options) {
+  const double strokeScale =
+      current.scale * mapping.scale * options.strokeScale;
   std::visit(
       [&](auto &&c) {
         using T = std::decay_t<decltype(c)>;
@@ -1108,7 +1111,7 @@ std::string RenderCommandsToStream(
       if (!metadata[idx].hasStroke)
         continue;
       EmitCommandStroke(strokeLayer, stateCache, formatter, mapping, current,
-                        commands[idx]);
+                        commands[idx], options);
     }
 
     // Render fills afterwards so they sit on top of any wireframe lines from
@@ -1319,6 +1322,8 @@ Viewer2DExportResult ExportViewer2DToPdf(
   double minY = viewMapping.minY;
 
   FloatFormatter formatter(options.floatPrecision);
+  const double strokeScale =
+      1.0 / (viewer2d::kViewer2DPixelsPerMeter * viewState.zoom);
 
   struct CommandGroup {
     std::vector<CanvasCommand> commands;
@@ -1421,6 +1426,7 @@ Viewer2DExportResult ExportViewer2DToPdf(
   mainOptions.symbolKeyNames = &xObjectKeyNames;
   mainOptions.symbolIdNames = &xObjectIdNames;
   mainOptions.fonts = &fontCatalog;
+  mainOptions.strokeScale = strokeScale;
   std::string contentStr =
       RenderCommandsToStream(mainCommands.commands, mainCommands.metadata,
                              mainCommands.sources, pageMapping, formatter,
@@ -1465,6 +1471,7 @@ Viewer2DExportResult ExportViewer2DToPdf(
                                 const SymbolBounds &bounds) {
     RenderOptions symbolOptions{};
     symbolOptions.includeText = false;
+    symbolOptions.strokeScale = strokeScale;
     std::string symbolContent =
         RenderCommandsToStream(commands, metadata, sources, symbolMapping,
                                formatter, symbolOptions);
@@ -1654,6 +1661,7 @@ Viewer2DExportResult ExportLayoutToPdf(
     double frameH = 0.0;
     std::unordered_set<std::string> usedSymbolKeys;
     std::unordered_set<uint32_t> usedSymbolIds;
+    double strokeScale = 1.0;
     size_t viewIndex = 0;
   };
 
@@ -1758,6 +1766,8 @@ Viewer2DExportResult ExportLayoutToPdf(
     std::unordered_set<std::string> viewSymbolKeys;
     std::unordered_set<uint32_t> viewSymbolIds;
     captureCommands(view.buffer, mainCommands, viewSymbolKeys, viewSymbolIds);
+    const double strokeScale =
+        1.0 / (viewer2d::kViewer2DPixelsPerMeter * view.viewState.zoom);
     layoutGroups.push_back({std::move(mainCommands),
                             mapping,
                             static_cast<double>(view.frame.x),
@@ -1765,7 +1775,9 @@ Viewer2DExportResult ExportLayoutToPdf(
                             static_cast<double>(view.frame.width),
                             static_cast<double>(view.frame.height),
                             std::move(viewSymbolKeys),
-                            std::move(viewSymbolIds), idx});
+                            std::move(viewSymbolIds),
+                            strokeScale,
+                            idx});
 
     if (!symbolSnapshot && view.symbolSnapshot)
       symbolSnapshot = view.symbolSnapshot;
@@ -1788,6 +1800,7 @@ Viewer2DExportResult ExportLayoutToPdf(
   FloatFormatter formatter(options.floatPrecision);
   std::unordered_map<std::string, size_t> xObjectNameIds;
   std::unordered_map<uint32_t, std::string> legendSymbolNames;
+  const double legendStrokeScale = 1.0 / viewer2d::kViewer2DPixelsPerMeter;
   auto makeLegendIdName = [](uint32_t symbolId) {
     return "L" + std::to_string(symbolId);
   };
@@ -1924,12 +1937,14 @@ Viewer2DExportResult ExportLayoutToPdf(
                                 const std::vector<CommandMetadata> &metadata,
                                 const std::vector<std::string> &sources,
                                 double symbolScale,
+                                double strokeScale,
                                 const SymbolBounds &bounds) {
     Mapping symbolMapping{};
     symbolMapping.scale = symbolScale;
     symbolMapping.flipY = false;
     RenderOptions symbolOptions{};
     symbolOptions.includeText = false;
+    symbolOptions.strokeScale = strokeScale;
     std::string symbolContent =
         RenderCommandsToStream(commands, metadata, sources, symbolMapping,
                                formatter, symbolOptions);
@@ -1989,7 +2004,7 @@ Viewer2DExportResult ExportLayoutToPdf(
       xObjectNameIds[entry.second] =
           appendSymbolObject(entry.second, defIt->second.commands,
                              defIt->second.metadata, defIt->second.sources,
-                             group.mapping.scale, bounds);
+                             group.mapping.scale, group.strokeScale, bounds);
     }
 
     if (symbolSnapshot) {
@@ -2002,7 +2017,8 @@ Viewer2DExportResult ExportLayoutToPdf(
                                defIt->second.localCommands.commands,
                                defIt->second.localCommands.metadata,
                                defIt->second.localCommands.sources,
-                               group.mapping.scale, defIt->second.bounds);
+                               group.mapping.scale, group.strokeScale,
+                               defIt->second.bounds);
       }
     }
   }
@@ -2028,7 +2044,8 @@ Viewer2DExportResult ExportLayoutToPdf(
                              defIt->second.localCommands.commands,
                              defIt->second.localCommands.metadata,
                              defIt->second.localCommands.sources,
-                             symbolScale, defIt->second.bounds);
+                             symbolScale, legendStrokeScale,
+                             defIt->second.bounds);
     }
   }
 
@@ -2077,6 +2094,7 @@ Viewer2DExportResult ExportLayoutToPdf(
     mainOptions.symbolKeyNames = &viewKeyNames;
     mainOptions.symbolIdNames = &viewIdNames;
     mainOptions.fonts = &fontCatalog;
+    mainOptions.strokeScale = group.strokeScale;
     contentStream << "q\n" << formatter.Format(group.frameX) << ' '
                   << formatter.Format(group.frameY) << ' '
                   << formatter.Format(group.frameW) << ' '
