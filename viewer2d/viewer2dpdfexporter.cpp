@@ -45,7 +45,7 @@
 namespace {
 constexpr double kLegendContentScale = 0.7;
 constexpr double kLegendSymbolSize =
-    160.0 * 2.0 / 3.0 * kLegendContentScale;
+    96.0 * 2.0 / 3.0 * kLegendContentScale;
 constexpr double kLegendFontScale =
     (2.0 / 3.0) * kLegendContentScale;
 constexpr std::array<const char *, 7> kEventTableLabels = {

@@ -530,7 +530,7 @@ constexpr int kHandleHoverPadPx = 6;
 constexpr int kMinFrameSize = 24;
 constexpr double kLegendContentScale = 0.7;
 constexpr int kLegendSymbolSizePx =
-    static_cast<int>(106 * kLegendContentScale);
+    static_cast<int>(64 * kLegendContentScale);
 constexpr double kLegendFontScale =
     (2.0 / 3.0) * kLegendContentScale;
 constexpr int kEditMenuId = wxID_HIGHEST + 490;
