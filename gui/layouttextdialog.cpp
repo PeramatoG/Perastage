@@ -121,7 +121,7 @@ wxString LayoutTextDialog::GetRichText() const {
 }
 
 wxString LayoutTextDialog::GetPlainText() const {
-  return textCtrl ? textCtrl->GetValue() : wxEmptyString;
+  return textCtrl ? textCtrl->GetValue() : wxString();
 }
 
 wxBitmapBundle LayoutTextDialog::LoadIcon(const std::string &name) const {
@@ -164,8 +164,16 @@ void LayoutTextDialog::ApplyItalic() {
 }
 
 void LayoutTextDialog::ApplyFontSize(int size) {
-  if (textCtrl)
-    textCtrl->ApplyFontSizeToSelection(size);
+  if (!textCtrl)
+    return;
+  wxRichTextAttr attr;
+  attr.SetFontSize(size);
+  wxRichTextRange range = textCtrl->GetSelectionRange();
+  if (range.IsValid() && range.GetLength() > 0) {
+    textCtrl->SetStyleEx(range, attr);
+  } else {
+    textCtrl->SetDefaultStyle(attr);
+  }
 }
 
 void LayoutTextDialog::AdjustFontSize(int delta) {
