@@ -595,6 +595,7 @@ wxBEGIN_EVENT_TABLE(LayoutViewerPanel, wxGLCanvas)
     EVT_MOUSEWHEEL(LayoutViewerPanel::OnMouseWheel)
     EVT_MOUSE_CAPTURE_LOST(LayoutViewerPanel::OnCaptureLost)
     EVT_RIGHT_UP(LayoutViewerPanel::OnRightUp)
+    EVT_KEY_DOWN(LayoutViewerPanel::OnKeyDown)
     EVT_MENU(kEditMenuId, LayoutViewerPanel::OnEditView)
     EVT_MENU(kDeleteMenuId, LayoutViewerPanel::OnDeleteView)
     EVT_MENU(kDeleteLegendMenuId, LayoutViewerPanel::OnDeleteLegend)
@@ -1126,6 +1127,7 @@ void LayoutViewerPanel::OnSize(wxSizeEvent &) {
 }
 
 void LayoutViewerPanel::OnLeftDown(wxMouseEvent &event) {
+  SetFocus();
   const wxPoint pos = event.GetPosition();
   SelectElementAtPosition(pos);
   layouts::Layout2DViewFrame selectedFrame;
@@ -1177,6 +1179,17 @@ void LayoutViewerPanel::OnLeftDClick(wxMouseEvent &event) {
       OnEditEventTable(editEvent);
       return;
     }
+  }
+  event.Skip();
+}
+
+void LayoutViewerPanel::OnKeyDown(wxKeyEvent &event) {
+  const int key = event.GetKeyCode();
+  if (key == 'Z' || key == 'z') {
+    ResetViewToFit();
+    RequestRenderRebuild();
+    Refresh();
+    return;
   }
   event.Skip();
 }

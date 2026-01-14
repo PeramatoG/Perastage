@@ -90,6 +90,7 @@ private:
   void OnMouseWheel(wxMouseEvent &event);
   void OnCaptureLost(wxMouseCaptureLostEvent &event);
   void OnRightUp(wxMouseEvent &event);
+  void OnKeyDown(wxKeyEvent &event);
   void OnEditView(wxCommandEvent &event);
   void OnDeleteView(wxCommandEvent &event);
   void OnDeleteLegend(wxCommandEvent &event);
