@@ -3433,9 +3433,10 @@ wxImage LayoutViewerPanel::BuildTextImage(
   wxRect logicalRect(padding, padding, logicalWidth, logicalHeight);
 
   dc.SetUserScale(renderZoom, renderZoom);
-  buffer.Layout(dc, logicalRect, wxRICHTEXT_FIXED_WIDTH);
-  buffer.Draw(dc, wxRichTextRange(0, buffer.GetLastPosition()), logicalRect,
-              0, 0);
+  wxRichTextDrawingContext context(&buffer);
+  wxRichTextSelection selection;
+  buffer.Layout(dc, context, logicalRect, logicalRect, wxRICHTEXT_FIXED_WIDTH);
+  buffer.Draw(dc, context, buffer.GetRange(), selection, logicalRect, 0, 0);
 
   memoryDc.SelectObject(wxNullBitmap);
   return bitmap.ConvertToImage();
