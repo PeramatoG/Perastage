@@ -2483,6 +2483,21 @@ void MainWindow::ApplySavedLayout() {
     if (view2dPane.IsOk())
         view2dPane.MinSize(wxSize(250, 600));
 
+    auto applyToolbarMinSize = [this](wxAuiToolBar *toolbar,
+                                      const std::string &paneName) {
+        if (!toolbar)
+            return;
+        const wxSize bestSize = toolbar->GetBestSize();
+        toolbar->SetMinSize(bestSize);
+        auto &pane = auiManager->GetPane(paneName);
+        if (pane.IsOk())
+            pane.BestSize(bestSize).MinSize(bestSize);
+    };
+
+    applyToolbarMinSize(fileToolBar, "FileToolbar");
+    applyToolbarMinSize(layoutViewsToolBar, "LayoutViewsToolbar");
+    applyToolbarMinSize(layoutToolBar, "LayoutToolbar");
+
     auiManager->Update();
     UpdateViewMenuChecks();
 }
