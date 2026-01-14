@@ -166,11 +166,12 @@ wxBEGIN_EVENT_TABLE(Viewer2DPanel, wxGLCanvas) EVT_PAINT(Viewer2DPanel::OnPaint)
                         EVT_MOUSE_CAPTURE_LOST(Viewer2DPanel::OnCaptureLost)
                             EVT_SIZE(Viewer2DPanel::OnResize) wxEND_EVENT_TABLE()
 
-                            Viewer2DPanel::Viewer2DPanel(wxWindow *parent,
-                                                         bool allowOffscreenRender)
+Viewer2DPanel::Viewer2DPanel(wxWindow *parent, bool allowOffscreenRender,
+                             bool persistViewState)
     : wxGLCanvas(parent, wxID_ANY, nullptr, wxDefaultPosition, wxDefaultSize,
                  wxFULL_REPAINT_ON_RESIZE),
-      m_allowOffscreenRender(allowOffscreenRender) {
+      m_allowOffscreenRender(allowOffscreenRender),
+      m_persistViewState(persistViewState) {
   SetBackgroundStyle(wxBG_STYLE_CUSTOM);
   m_glContext = new wxGLContext(this);
 }
@@ -600,6 +601,8 @@ void Viewer2DPanel::OnMouseMove(wxMouseEvent &event) {
     m_offsetX += dx / m_zoom;
     m_offsetY += dy / m_zoom;
     m_lastMousePos = pos;
+    if (m_persistViewState)
+      SaveViewToConfig();
     Refresh();
   }
 }
@@ -614,6 +617,8 @@ void Viewer2DPanel::OnMouseWheel(wxMouseEvent &event) {
   m_zoom *= factor;
   if (m_zoom < 0.1f)
     m_zoom = 0.1f;
+  if (m_persistViewState)
+    SaveViewToConfig();
   Refresh();
 }
 
@@ -658,6 +663,8 @@ void Viewer2DPanel::OnKeyDown(wxKeyEvent &event) {
 
   if (m_zoom < 0.1f)
     m_zoom = 0.1f;
+  if (m_persistViewState)
+    SaveViewToConfig();
   Refresh();
 }
 

@@ -1699,6 +1699,8 @@ void MainWindow::OnPrintViewer2D(wxCommandEvent &WXUNUSED(event)) {
   if (captureSize.GetWidth() <= 0 || captureSize.GetHeight() <= 0) {
     captureSize = wxSize(1600, 900);
   }
+  if (viewport2DPanel)
+    viewport2DPanel->SaveViewToConfig();
   offscreenRenderer->SetViewportSize(captureSize);
   offscreenRenderer->PrepareForCapture();
 
