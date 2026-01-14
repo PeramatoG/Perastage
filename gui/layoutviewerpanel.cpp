@@ -2491,7 +2491,7 @@ wxImage LayoutViewerPanel::BuildLegendImage(
   const int paddingBottom = 2;
   const int columnGap = 8;
   const int symbolColumnGap = 2;
-  const int symbolPairGap = 0;
+  const int symbolPairGap = 2;
   constexpr double kLegendLineSpacingScale = 0.8;
   constexpr double kLegendSymbolColumnScale = 1.0;
   const int totalRows = static_cast<int>(items.size()) + 1;
@@ -2554,44 +2554,10 @@ wxImage LayoutViewerPanel::BuildLegendImage(
   const int symbolSize = std::max(4, desiredSymbolSize);
   const int symbolPairGapPx =
       std::max(0, static_cast<int>(std::lround(symbolPairGap * renderZoom)));
-  double maxSymbolDrawWidth = 0.0;
-  if (symbols) {
-    auto symbolDrawWidth = [&](const SymbolDefinition *symbol) -> double {
-      if (!symbol)
-        return 0.0;
-      const float symbolW = symbol->bounds.max.x - symbol->bounds.min.x;
-      const float symbolH = symbol->bounds.max.y - symbol->bounds.min.y;
-      if (symbolW <= 0.0f || symbolH <= 0.0f)
-        return 0.0;
-      double scale = std::min(static_cast<double>(symbolSize) / symbolW,
-                              static_cast<double>(symbolSize) / symbolH);
-      return symbolW * scale;
-    };
-    for (const auto &item : items) {
-      if (item.symbolKey.empty())
-        continue;
-      const SymbolDefinition *topSymbol = FindSymbolDefinitionPreferred(
-          symbols, item.symbolKey, SymbolViewKind::Top);
-      const SymbolDefinition *frontSymbol = FindSymbolDefinitionExact(
-          symbols, item.symbolKey, SymbolViewKind::Front);
-      double topDrawW = symbolDrawWidth(topSymbol);
-      double frontDrawW = symbolDrawWidth(frontSymbol);
-      if (topDrawW <= 0.0 && frontDrawW <= 0.0)
-        continue;
-      double pairWidth = topDrawW;
-      if (frontDrawW > 0.0) {
-        if (pairWidth > 0.0)
-          pairWidth += symbolPairGapPx;
-        pairWidth += frontDrawW;
-      }
-      maxSymbolDrawWidth = std::max(maxSymbolDrawWidth, pairWidth);
-    }
-  }
   const int symbolSlotSize = std::max(
       4,
       static_cast<int>(std::ceil(
-          (maxSymbolDrawWidth > 0.0 ? maxSymbolDrawWidth : symbolSize) *
-          kLegendSymbolColumnScale)));
+          (symbolSize * 2.0 + symbolPairGapPx) * kLegendSymbolColumnScale)));
   const int rowHeightPx = baseRowHeightPx;
   const int paddingLeftPx =
       std::max(0, static_cast<int>(std::lround(paddingLeft * renderZoom)));
@@ -2714,27 +2680,30 @@ wxImage LayoutViewerPanel::BuildLegendImage(
       const double topDrawH = symbolDrawHeight(topSymbol);
       const double frontDrawH = symbolDrawHeight(frontSymbol);
       if (topDrawW > 0.0 || frontDrawW > 0.0) {
-        double pairWidth = topDrawW;
-        if (frontDrawW > 0.0) {
-          if (pairWidth > 0.0)
-            pairWidth += symbolPairGapPx;
-          pairWidth += frontDrawW;
+        const double slotWidth = static_cast<double>(symbolSlotSize);
+        double leftSlotWidth = slotWidth;
+        double rightSlotWidth = slotWidth;
+        double topSlotLeft = xSymbol;
+        double frontSlotLeft = xSymbol;
+        if (topDrawW > 0.0 && frontDrawW > 0.0) {
+          leftSlotWidth = std::max(0.0,
+                                   (slotWidth - symbolPairGapPx) * 0.5);
+          rightSlotWidth = leftSlotWidth;
+          frontSlotLeft = xSymbol + leftSlotWidth + symbolPairGapPx;
         }
-        const double symbolInset =
-            std::max(0.0,
-                     (static_cast<double>(symbolSlotSize) - pairWidth) * 0.5);
-        double symbolDrawLeft = xSymbol + symbolInset;
         if (topDrawW > 0.0) {
           double symbolDrawTop =
               y + (static_cast<double>(rowHeightPx) - topDrawH) * 0.5;
+          double symbolDrawLeft =
+              topSlotLeft + std::max(0.0, (leftSlotWidth - topDrawW) * 0.5);
           drawSymbol(topSymbol, symbolDrawLeft, symbolDrawTop);
-          symbolDrawLeft += topDrawW;
-          if (frontDrawW > 0.0)
-            symbolDrawLeft += symbolPairGapPx;
         }
         if (frontDrawW > 0.0) {
           double symbolDrawTop =
               y + (static_cast<double>(rowHeightPx) - frontDrawH) * 0.5;
+          double symbolDrawLeft =
+              frontSlotLeft +
+              std::max(0.0, (rightSlotWidth - frontDrawW) * 0.5);
           drawSymbol(frontSymbol, symbolDrawLeft, symbolDrawTop);
         }
       }
