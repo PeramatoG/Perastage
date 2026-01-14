@@ -27,6 +27,15 @@
 #include "layoutviewerpanel_shared.h"
 
 namespace layouttext {
+namespace {
+void EnsureRichTextHandlers() {
+  static bool initialized = false;
+  if (initialized)
+    return;
+  wxRichTextBuffer::InitStandardHandlers();
+  initialized = true;
+}
+} // namespace
 
 wxImage RenderTextImage(const layouts::LayoutTextDefinition &text,
                         const wxSize &renderSize, const wxSize &logicalSize,
@@ -47,8 +56,9 @@ wxImage RenderTextImage(const layouts::LayoutTextDefinition &text,
     dc.SetBackground(wxBrush(wxColour(255, 255, 255, 0)));
   }
   dc.Clear();
-  dc.SetTextForeground(wxColour(20, 20, 20));
+  dc.SetTextForeground(wxColour(0, 0, 0));
 
+  EnsureRichTextHandlers();
   wxRichTextBuffer buffer;
   bool loaded = false;
   if (!text.richText.empty()) {
