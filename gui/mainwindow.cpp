@@ -185,6 +185,33 @@ layouts::Layout2DViewFrame BuildDefaultLayoutLegendFrame(
   return {x, y, width, height};
 }
 
+layouts::Layout2DViewFrame BuildDefaultLayoutEventTableFrame(
+    const layouts::LayoutDefinition &layout) {
+  constexpr double kWidthScale = 0.45;
+  constexpr double kHeightScale = 0.3;
+  constexpr int kMinFrameSize = 140;
+  constexpr int kMargin = 20;
+
+  const double pageWidth = layout.pageSetup.PageWidthPt();
+  const double pageHeight = layout.pageSetup.PageHeightPt();
+
+  int width = std::max(
+      kMinFrameSize,
+      static_cast<int>(std::lround(pageWidth * kWidthScale)));
+  int height = std::max(
+      kMinFrameSize,
+      static_cast<int>(std::lround(pageHeight * kHeightScale)));
+
+  width = std::min(width, static_cast<int>(std::lround(pageWidth)));
+  height = std::min(height, static_cast<int>(std::lround(pageHeight)));
+
+  int x = std::max(0, kMargin);
+  int y = std::max(
+      0, static_cast<int>(std::lround(pageHeight - height - kMargin)));
+
+  return {x, y, width, height};
+}
+
 const layouts::Layout2DViewDefinition *FindLayout2DViewById(
     const layouts::LayoutDefinition *layout, int viewId) {
   if (!layout || viewId <= 0)
@@ -304,6 +331,7 @@ EVT_MENU(ID_View_Layout_2D, MainWindow::OnApply2DLayout)
 EVT_MENU(ID_View_Layout_Mode, MainWindow::OnApplyLayoutModeLayout)
 EVT_MENU(ID_View_Layout_2DView, MainWindow::OnLayoutAdd2DView)
 EVT_MENU(ID_View_Layout_Legend, MainWindow::OnLayoutAddLegend)
+EVT_MENU(ID_View_Layout_EventTable, MainWindow::OnLayoutAddEventTable)
 EVT_MENU(ID_Tools_DownloadGdtf, MainWindow::OnDownloadGdtf)
 EVT_MENU(ID_Tools_EditDictionaries, MainWindow::OnEditDictionaries)
 EVT_MENU(ID_Tools_ExportFixture, MainWindow::OnExportFixture)
@@ -606,6 +634,9 @@ void MainWindow::CreateToolBars() {
                          loadToolbarIcon("layout-list",
                                          wxART_MISSING_IMAGE),
                          "Add fixture legend to layout");
+  layoutToolBar->AddTool(ID_View_Layout_EventTable, "Añadir tabla de evento",
+                         loadToolbarIcon("table", wxART_MISSING_IMAGE),
+                         "Add event table to layout");
   layoutToolBar->Realize();
   auiManager->AddPane(
       layoutToolBar, wxAuiPaneInfo()
@@ -1796,6 +1827,8 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
       layout->view2dViews;
   std::vector<LayoutLegendExportData> layoutLegends;
   layoutLegends.reserve(layout->legendViews.size());
+  std::vector<LayoutEventTableExportData> layoutTables;
+  layoutTables.reserve(layout->eventTables.size());
   const auto legendItems = BuildLayoutLegendItems();
   for (const auto &legend : layout->legendViews) {
     LayoutLegendExportData legendData;
@@ -1809,19 +1842,34 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
     legendData.frame = frame;
     layoutLegends.push_back(std::move(legendData));
   }
+  for (const auto &table : layout->eventTables) {
+    LayoutEventTableExportData tableData;
+    tableData.fields = table.fields;
+    tableData.zIndex = table.zIndex;
+    layouts::Layout2DViewFrame frame = table.frame;
+    frame.x = static_cast<int>(std::lround(frame.x * scaleX));
+    frame.y = static_cast<int>(std::lround(frame.y * scaleY));
+    frame.width = static_cast<int>(std::lround(frame.width * scaleX));
+    frame.height = static_cast<int>(std::lround(frame.height * scaleY));
+    tableData.frame = frame;
+    layoutTables.push_back(std::move(tableData));
+  }
   auto exportViews = std::make_shared<std::vector<LayoutViewExportData>>();
   exportViews->reserve(layoutViews.size());
   auto exportLegends =
       std::make_shared<std::vector<LayoutLegendExportData>>(
           std::move(layoutLegends));
+  auto exportTables =
+      std::make_shared<std::vector<LayoutEventTableExportData>>(
+          std::move(layoutTables));
 
   auto captureNext =
       std::make_shared<std::function<void(size_t)>>();
   *captureNext =
       [this, captureNext, exportViews, layoutViews, offscreenRenderer,
-       capturePanel, cfgPtr, useSimplifiedFootprints, includeGrid, scaleX,
+      capturePanel, cfgPtr, useSimplifiedFootprints, includeGrid, scaleX,
        scaleY, outputPageW, outputPageH, outputLandscape, exportLegends,
-       outputPathWx](size_t index) mutable {
+       exportTables, outputPathWx](size_t index) mutable {
         if (index >= layoutViews.size()) {
           Viewer2DPrintOptions opts;
           opts.pageWidthPt = outputPageW;
@@ -1835,6 +1883,7 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
           wxString outputPathDisplay = outputPathWx;
           auto viewsToExport = std::move(*exportViews);
           auto legendsToExport = std::move(*exportLegends);
+          auto tablesToExport = std::move(*exportTables);
           if (capturePanel) {
             auto legendSymbols = capturePanel->GetBottomSymbolCacheSnapshot();
             for (auto &legend : legendsToExport) {
@@ -1843,10 +1892,11 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
           }
 
           std::thread([this, views = std::move(viewsToExport), opts,
-                       legends = std::move(legendsToExport), outputPath,
+                       legends = std::move(legendsToExport),
+                       tables = std::move(tablesToExport), outputPath,
                        outputPathDisplay]() {
             Viewer2DExportResult res =
-                ExportLayoutToPdf(views, legends, opts, outputPath);
+                ExportLayoutToPdf(views, legends, tables, opts, outputPath);
 
             wxTheApp->CallAfter([this, res, outputPathDisplay]() {
               if (!res.success) {
@@ -2472,6 +2522,36 @@ void MainWindow::OnLayoutAddLegend(wxCommandEvent &WXUNUSED(event)) {
   legend.frame = BuildDefaultLayoutLegendFrame(*layout);
 
   layouts::LayoutManager::Get().UpdateLayoutLegend(activeLayoutName, legend);
+
+  if (layoutViewerPanel) {
+    for (const auto &entry :
+         layouts::LayoutManager::Get().GetLayouts().Items()) {
+      if (entry.name == activeLayoutName) {
+        layoutViewerPanel->SetLayoutDefinition(entry);
+        break;
+      }
+    }
+  }
+}
+
+void MainWindow::OnLayoutAddEventTable(wxCommandEvent &WXUNUSED(event)) {
+  if (!layoutModeActive || activeLayoutName.empty())
+    return;
+
+  const layouts::LayoutDefinition *layout = nullptr;
+  for (const auto &entry : layouts::LayoutManager::Get().GetLayouts().Items()) {
+    if (entry.name == activeLayoutName) {
+      layout = &entry;
+      break;
+    }
+  }
+  if (!layout)
+    return;
+
+  layouts::LayoutEventTableDefinition table;
+  table.frame = BuildDefaultLayoutEventTableFrame(*layout);
+
+  layouts::LayoutManager::Get().UpdateLayoutEventTable(activeLayoutName, table);
 
   if (layoutViewerPanel) {
     for (const auto &entry :

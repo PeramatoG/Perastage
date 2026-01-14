@@ -21,11 +21,14 @@
 #include "../../external/json.hpp"
 
 #include <algorithm>
+#include <array>
 #include <unordered_set>
 
 namespace layouts {
 namespace {
 constexpr const char *kLayoutsConfigKey = "layouts_collection";
+constexpr std::array<const char *, 7> kEventTableFieldKeys = {
+    "venue", "location", "date", "stage", "version", "design", "mail"};
 
 std::string PageSizeToString(print::PageSize size) {
   switch (size) {
@@ -92,6 +95,22 @@ nlohmann::json ToJson(const LayoutLegendDefinition &legend) {
             {"height", frame.height}}}};
 }
 
+nlohmann::json ToJson(const LayoutEventTableDefinition &table) {
+  const auto &frame = table.frame;
+  nlohmann::json fields = nlohmann::json::object();
+  for (size_t idx = 0; idx < table.fields.size(); ++idx) {
+    fields[kEventTableFieldKeys[idx]] = table.fields[idx];
+  }
+  return {{"id", table.id},
+          {"zIndex", table.zIndex},
+          {"frame",
+           {{"x", frame.x},
+            {"y", frame.y},
+            {"width", frame.width},
+            {"height", frame.height}}},
+          {"fields", std::move(fields)}};
+}
+
 nlohmann::json ToJson(const LayoutDefinition &layout) {
   nlohmann::json data{{"name", layout.name},
                       {"pageSize", PageSizeToString(layout.pageSetup.pageSize)},
@@ -105,6 +124,11 @@ nlohmann::json ToJson(const LayoutDefinition &layout) {
     data["legendViews"] = nlohmann::json::array();
     for (const auto &legend : layout.legendViews)
       data["legendViews"].push_back(ToJson(legend));
+  }
+  if (!layout.eventTables.empty()) {
+    data["eventTables"] = nlohmann::json::array();
+    for (const auto &table : layout.eventTables)
+      data["eventTables"].push_back(ToJson(table));
   }
   return data;
 }
@@ -246,6 +270,36 @@ bool ParseLayoutLegend(const nlohmann::json &value,
   return true;
 }
 
+void ReadEventTableFields(const nlohmann::json &obj,
+                          std::array<std::string, 7> &out) {
+  if (!obj.is_object())
+    return;
+  for (size_t idx = 0; idx < out.size(); ++idx) {
+    const auto *key = kEventTableFieldKeys[idx];
+    if (auto it = obj.find(key); it != obj.end() && it->is_string())
+      out[idx] = it->get<std::string>();
+  }
+}
+
+bool ParseLayoutEventTable(const nlohmann::json &value,
+                           LayoutEventTableDefinition &out) {
+  if (!value.is_object())
+    return false;
+  if (auto idIt = value.find("id");
+      idIt != value.end() && idIt->is_number_integer())
+    out.id = idIt->get<int>();
+  if (auto zIt = value.find("zIndex");
+      zIt != value.end() && zIt->is_number_integer())
+    out.zIndex = zIt->get<int>();
+  auto frameIt = value.find("frame");
+  if (frameIt != value.end() && frameIt->is_object())
+    ReadFrame(*frameIt, out.frame);
+  auto fieldsIt = value.find("fields");
+  if (fieldsIt != value.end())
+    ReadEventTableFields(*fieldsIt, out.fields);
+  return true;
+}
+
 void EnsureUniqueViewIds(LayoutDefinition &layout) {
   std::unordered_set<int> used;
   int nextId = 1;
@@ -285,6 +339,28 @@ void EnsureUniqueLegendIds(LayoutDefinition &layout) {
     while (used.count(nextId))
       ++nextId;
     legend.id = nextId;
+    used.insert(nextId);
+    ++nextId;
+  }
+}
+
+void EnsureUniqueEventTableIds(LayoutDefinition &layout) {
+  std::unordered_set<int> used;
+  int nextId = 1;
+  for (auto &table : layout.eventTables) {
+    if (table.id > 0) {
+      if (!used.insert(table.id).second)
+        table.id = 0;
+      else
+        nextId = std::max(nextId, table.id + 1);
+    }
+  }
+  for (auto &table : layout.eventTables) {
+    if (table.id > 0)
+      continue;
+    while (used.count(nextId))
+      ++nextId;
+    table.id = nextId;
     used.insert(nextId);
     ++nextId;
   }
@@ -358,6 +434,30 @@ bool ParseLayout(const nlohmann::json &value, LayoutDefinition &out) {
       }
       if (!replaced)
         out.legendViews.push_back(std::move(legend));
+    }
+  }
+
+  out.eventTables.clear();
+  if (auto tablesIt = value.find("eventTables");
+      tablesIt != value.end() && tablesIt->is_array()) {
+    for (const auto &entry : *tablesIt) {
+      if (entry.is_object() && entry.find("zIndex") != entry.end())
+        hasZIndex = true;
+      LayoutEventTableDefinition table;
+      if (!ParseLayoutEventTable(entry, table))
+        continue;
+      bool replaced = false;
+      if (table.id > 0) {
+        for (auto &existing : out.eventTables) {
+          if (existing.id == table.id) {
+            existing = table;
+            replaced = true;
+            break;
+          }
+        }
+      }
+      if (!replaced)
+        out.eventTables.push_back(std::move(table));
     }
   }
 
@@ -452,6 +552,8 @@ bool ParseLayout(const nlohmann::json &value, LayoutDefinition &out) {
       view.zIndex = nextZ++;
     for (auto &legend : out.legendViews)
       legend.zIndex = nextZ++;
+    for (auto &table : out.eventTables)
+      table.zIndex = nextZ++;
   }
 
   return true;
@@ -543,6 +645,29 @@ bool LayoutManager::MoveLayoutLegend(const std::string &name, int legendId,
   return true;
 }
 
+bool LayoutManager::UpdateLayoutEventTable(const std::string &name,
+                                           const LayoutEventTableDefinition &table) {
+  if (!layouts.UpdateLayoutEventTable(name, table))
+    return false;
+  SyncToConfig();
+  return true;
+}
+
+bool LayoutManager::RemoveLayoutEventTable(const std::string &name, int tableId) {
+  if (!layouts.RemoveLayoutEventTable(name, tableId))
+    return false;
+  SyncToConfig();
+  return true;
+}
+
+bool LayoutManager::MoveLayoutEventTable(const std::string &name, int tableId,
+                                         bool toFront) {
+  if (!layouts.MoveLayoutEventTable(name, tableId, toFront))
+    return false;
+  SyncToConfig();
+  return true;
+}
+
 void LayoutManager::LoadFromConfig(ConfigManager &cfg) {
   auto value = cfg.GetValue(kLayoutsConfigKey);
   if (!value.has_value()) {
@@ -574,6 +699,7 @@ void LayoutManager::LoadFromConfig(ConfigManager &cfg) {
       continue;
     EnsureUniqueViewIds(layout);
     EnsureUniqueLegendIds(layout);
+    EnsureUniqueEventTableIds(layout);
     loaded.push_back(std::move(layout));
   }
 

@@ -22,6 +22,7 @@
 #include "symbolcache.h"
 #include "layouts/LayoutCollection.h"
 #include "viewer2dpanel.h"
+#include <array>
 #include <filesystem>
 #include <memory>
 #include <optional>
@@ -71,6 +72,12 @@ struct LayoutLegendExportData {
   std::shared_ptr<const SymbolDefinitionSnapshot> symbolSnapshot = nullptr;
 };
 
+struct LayoutEventTableExportData {
+  layouts::Layout2DViewFrame frame;
+  std::array<std::string, 7> fields;
+  int zIndex = 0;
+};
+
 // Writes the captured 2D drawing commands to a vector PDF that mirrors the
 // current viewport state. Returns structured information so callers can surface
 // meaningful errors to the user.
@@ -84,5 +91,6 @@ Viewer2DExportResult ExportViewer2DToPdf(
 Viewer2DExportResult ExportLayoutToPdf(
     const std::vector<LayoutViewExportData> &views,
     const std::vector<LayoutLegendExportData> &legends,
+    const std::vector<LayoutEventTableExportData> &tables,
     const Viewer2DPrintOptions &options,
     const std::filesystem::path &outputPath);

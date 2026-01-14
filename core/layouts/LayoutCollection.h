@@ -18,6 +18,7 @@
 #pragma once
 
 #include <array>
+#include <array>
 #include <string>
 #include <vector>
 
@@ -80,11 +81,19 @@ struct LayoutLegendDefinition {
   Layout2DViewFrame frame;
 };
 
+struct LayoutEventTableDefinition {
+  int id = 0;
+  int zIndex = 0;
+  Layout2DViewFrame frame;
+  std::array<std::string, 7> fields;
+};
+
 struct LayoutDefinition {
   std::string name;
   print::PageSetup pageSetup;
   std::vector<Layout2DViewDefinition> view2dViews;
   std::vector<LayoutLegendDefinition> legendViews;
+  std::vector<LayoutEventTableDefinition> eventTables;
 };
 
 class LayoutCollection {
@@ -107,6 +116,11 @@ public:
                           const LayoutLegendDefinition &legend);
   bool RemoveLayoutLegend(const std::string &name, int legendId);
   bool MoveLayoutLegend(const std::string &name, int legendId, bool toFront);
+  bool UpdateLayoutEventTable(const std::string &name,
+                              const LayoutEventTableDefinition &table);
+  bool RemoveLayoutEventTable(const std::string &name, int tableId);
+  bool MoveLayoutEventTable(const std::string &name, int tableId,
+                            bool toFront);
 
   void ReplaceAll(std::vector<LayoutDefinition> layouts);
 

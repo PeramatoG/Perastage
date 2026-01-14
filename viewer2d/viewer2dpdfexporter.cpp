@@ -48,6 +48,9 @@ constexpr double kLegendSymbolSize =
     160.0 * 2.0 / 3.0 * kLegendContentScale;
 constexpr double kLegendFontScale =
     (2.0 / 3.0) * kLegendContentScale;
+constexpr std::array<const char *, 7> kEventTableLabels = {
+    "Venue:", "Location:", "Date:", "Stage:",
+    "Version:", "Design:", "Mail:"};
 
 static bool ShouldTraceLabelOrder() {
   static const bool enabled = std::getenv("PERASTAGE_TRACE_LABELS") != nullptr;
@@ -1566,6 +1569,7 @@ Viewer2DExportResult ExportViewer2DToPdf(
 Viewer2DExportResult ExportLayoutToPdf(
     const std::vector<LayoutViewExportData> &views,
     const std::vector<LayoutLegendExportData> &legends,
+    const std::vector<LayoutEventTableExportData> &tables,
     const Viewer2DPrintOptions &options,
     const std::filesystem::path &outputPath) {
   Viewer2DExportResult result{};
@@ -1984,7 +1988,7 @@ Viewer2DExportResult ExportLayoutToPdf(
   }
 
   struct LayoutRenderElement {
-    enum class Type { View, Legend };
+    enum class Type { View, Legend, EventTable };
     Type type = Type::View;
     size_t index = 0;
     int zIndex = 0;
@@ -1992,7 +1996,7 @@ Viewer2DExportResult ExportLayoutToPdf(
   };
 
   std::vector<LayoutRenderElement> renderOrder;
-  renderOrder.reserve(layoutGroups.size() + legends.size());
+  renderOrder.reserve(layoutGroups.size() + legends.size() + tables.size());
   size_t renderOrderIndex = 0;
   for (size_t idx = 0; idx < layoutGroups.size(); ++idx) {
     renderOrder.push_back(
@@ -2002,6 +2006,11 @@ Viewer2DExportResult ExportLayoutToPdf(
   for (size_t idx = 0; idx < legends.size(); ++idx) {
     renderOrder.push_back(
         {LayoutRenderElement::Type::Legend, idx, legends[idx].zIndex,
+         renderOrderIndex++});
+  }
+  for (size_t idx = 0; idx < tables.size(); ++idx) {
+    renderOrder.push_back(
+        {LayoutRenderElement::Type::EventTable, idx, tables[idx].zIndex,
          renderOrderIndex++});
   }
 
@@ -2231,11 +2240,101 @@ Viewer2DExportResult ExportLayoutToPdf(
                   << formatter.Format(frameH) << " re S\nQ\n";
   };
 
+  auto renderEventTable = [&](size_t idx) {
+    const auto &table = tables[idx];
+    const double frameX = static_cast<double>(table.frame.x);
+    const double frameY =
+        pageH - table.frame.y - static_cast<double>(table.frame.height);
+    const double frameW = static_cast<double>(table.frame.width);
+    const double frameH = static_cast<double>(table.frame.height);
+    if (frameW <= 0.0 || frameH <= 0.0)
+      return;
+
+    contentStream << "q\n" << formatter.Format(frameX) << ' '
+                  << formatter.Format(frameY) << ' '
+                  << formatter.Format(frameW) << ' '
+                  << formatter.Format(frameH) << " re W n\n";
+    contentStream << "1 1 1 rg " << formatter.Format(frameX) << ' '
+                  << formatter.Format(frameY) << ' '
+                  << formatter.Format(frameW) << ' '
+                  << formatter.Format(frameH) << " re f\n";
+
+    const double paddingLeft = 6.0;
+    const double paddingRight = 6.0;
+    const double paddingTop = 6.0;
+    const double paddingBottom = 6.0;
+    const double columnGap = 10.0;
+    const size_t totalRows = kEventTableLabels.size();
+    const double availableHeight =
+        frameH - paddingTop - paddingBottom;
+    double fontSize =
+        totalRows > 0 ? (availableHeight / totalRows) - 2.0 : 10.0;
+    fontSize = std::clamp(fontSize, 6.0, 14.0);
+    fontSize *= kLegendFontScale;
+    const double emphasizedFontSize =
+        std::max(fontSize + 1.0, fontSize * 1.1);
+
+    double maxLabelWidth = 0.0;
+    for (const auto &label : kEventTableLabels) {
+      maxLabelWidth = std::max(
+          maxLabelWidth,
+          MeasureTextWidth(label, fontSize, fontCatalog.bold));
+    }
+
+    const double rowHeight =
+        totalRows > 0 ? (availableHeight / totalRows) : 0.0;
+    const double textHeightEstimate = fontSize * 1.2;
+    const double textOffset =
+        std::max(0.0, (rowHeight - textHeightEstimate) * 0.5);
+    const double labelX = frameX + paddingLeft;
+    const double valueX = labelX + maxLabelWidth + columnGap;
+    const double maxValueWidth =
+        std::max(0.0, frameX + frameW - paddingRight - valueX);
+
+    auto appendText = [&](double x, double y, const std::string &text,
+                          const char *fontKey, double size, double r, double g,
+                          double b) {
+      contentStream << "BT\n/" << fontKey << ' ' << formatter.Format(size)
+                    << " Tf\n"
+                    << formatter.Format(r) << ' ' << formatter.Format(g) << ' '
+                    << formatter.Format(b) << " rg\n"
+                    << formatter.Format(x) << ' '
+                    << formatter.Format(y) << " Td\n("
+                    << escapeText(text) << ") Tj\nET\n";
+    };
+
+    for (size_t row = 0; row < totalRows; ++row) {
+      const double rowTop = frameY + frameH - paddingTop - row * rowHeight;
+      appendText(labelX, rowTop - textOffset - fontSize,
+                 kEventTableLabels[row], "F2", fontSize, 0.08, 0.08, 0.08);
+
+      std::string valueText;
+      if (row < table.fields.size())
+        valueText = table.fields[row];
+      const double valueFontSize =
+          row == 0 ? emphasizedFontSize : fontSize;
+      const char *valueFontKey = row == 0 ? "F2" : "F1";
+      std::string trimmed =
+          trimTextToWidth(valueText, maxValueWidth, valueFontSize,
+                          row == 0 ? fontCatalog.bold : fontCatalog.regular);
+      appendText(valueX, rowTop - textOffset - valueFontSize, trimmed,
+                 valueFontKey, valueFontSize, 0.08, 0.08, 0.08);
+    }
+
+    contentStream << "Q\n";
+    contentStream << "q\n0 0 0 RG 0.5 w " << formatter.Format(frameX) << ' '
+                  << formatter.Format(frameY) << ' '
+                  << formatter.Format(frameW) << ' '
+                  << formatter.Format(frameH) << " re S\nQ\n";
+  };
+
   for (const auto &entry : renderOrder) {
     if (entry.type == LayoutRenderElement::Type::View) {
       renderViewGroup(entry.index);
-    } else {
+    } else if (entry.type == LayoutRenderElement::Type::Legend) {
       renderLegend(entry.index);
+    } else {
+      renderEventTable(entry.index);
     }
   }
 
