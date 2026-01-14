@@ -1818,7 +1818,6 @@ Viewer2DExportResult ExportLayoutToPdf(
   FloatFormatter formatter(options.floatPrecision);
   std::unordered_map<std::string, size_t> xObjectNameIds;
   std::unordered_map<uint32_t, std::string> legendSymbolNames;
-  std::vector<std::string> textImageNames(texts.size());
   const double legendStrokeScale = 1.0 / viewer2d::kViewer2DPixelsPerMeter;
   auto makeLegendIdName = [](uint32_t symbolId) {
     return "L" + std::to_string(symbolId);
@@ -1912,9 +1911,6 @@ Viewer2DExportResult ExportLayoutToPdf(
     return "S" + MakePdfName("V" + std::to_string(viewIndex) + "_" +
                              std::to_string(id));
   };
-  auto makeTextImageName = [](size_t index) {
-    return "T" + std::to_string(index);
-  };
 
   std::vector<PdfObject> objects;
   PdfFontDefinition regularFont;
@@ -1998,83 +1994,6 @@ Viewer2DExportResult ExportLayoutToPdf(
     return objects.size();
   };
 
-  auto appendImageObject = [&](const LayoutTextExportData &textData) -> size_t {
-    if (textData.imageWidth <= 0 || textData.imageHeight <= 0 ||
-        textData.rgba.empty()) {
-      return 0;
-    }
-    const size_t pixelCount =
-        static_cast<size_t>(textData.imageWidth) *
-        static_cast<size_t>(textData.imageHeight);
-    if (textData.rgba.size() < pixelCount * 4)
-      return 0;
-
-    std::string rgbStream;
-    rgbStream.resize(pixelCount * 3);
-    std::string alphaStream;
-    alphaStream.resize(pixelCount);
-
-    bool hasAlpha = !textData.solidBackground;
-    for (size_t i = 0; i < pixelCount; ++i) {
-      const size_t rgbaOffset = i * 4;
-      const size_t rgbOffset = i * 3;
-      rgbStream[rgbOffset] =
-          static_cast<char>(textData.rgba[rgbaOffset]);
-      rgbStream[rgbOffset + 1] =
-          static_cast<char>(textData.rgba[rgbaOffset + 1]);
-      rgbStream[rgbOffset + 2] =
-          static_cast<char>(textData.rgba[rgbaOffset + 2]);
-      alphaStream[i] = static_cast<char>(textData.rgba[rgbaOffset + 3]);
-    }
-
-    auto compressStream = [&](const std::string &input, std::string &output,
-                              bool &compressed) {
-      compressed = false;
-      if (!options.compressStreams)
-        return;
-      std::string error;
-      if (PdfDeflater::Compress(input, output, error)) {
-        compressed = true;
-      }
-    };
-
-    size_t maskId = 0;
-    if (hasAlpha) {
-      std::string compressedMask;
-      bool maskCompressed = false;
-      compressStream(alphaStream, compressedMask, maskCompressed);
-      const std::string &maskStream =
-          maskCompressed ? compressedMask : alphaStream;
-      std::ostringstream maskObj;
-      maskObj << "<< /Type /XObject /Subtype /Image /Width "
-              << textData.imageWidth << " /Height " << textData.imageHeight
-              << " /ColorSpace /DeviceGray /BitsPerComponent 8 /Length "
-              << maskStream.size();
-      if (maskCompressed)
-        maskObj << " /Filter /FlateDecode";
-      maskObj << " >>\nstream\n" << maskStream << "endstream";
-      objects.push_back({maskObj.str()});
-      maskId = objects.size();
-    }
-
-    std::string compressedRgb;
-    bool rgbCompressed = false;
-    compressStream(rgbStream, compressedRgb, rgbCompressed);
-    const std::string &rgbData = rgbCompressed ? compressedRgb : rgbStream;
-
-    std::ostringstream imgObj;
-    imgObj << "<< /Type /XObject /Subtype /Image /Width "
-           << textData.imageWidth << " /Height " << textData.imageHeight
-           << " /ColorSpace /DeviceRGB /BitsPerComponent 8";
-    if (hasAlpha && maskId != 0)
-      imgObj << " /SMask " << maskId << " 0 R";
-    imgObj << " /Length " << rgbData.size();
-    if (rgbCompressed)
-      imgObj << " /Filter /FlateDecode";
-    imgObj << " >>\nstream\n" << rgbData << "endstream";
-    objects.push_back({imgObj.str()});
-    return objects.size();
-  };
 
   auto populateViewSymbolNames =
       [&](const LayoutCommandGroup &group,
@@ -2147,18 +2066,6 @@ Viewer2DExportResult ExportLayoutToPdf(
                              symbolScale, legendStrokeScale,
                              defIt->second.bounds);
     }
-  }
-
-  for (size_t idx = 0; idx < texts.size(); ++idx) {
-    const auto &text = texts[idx];
-    if (text.imageWidth <= 0 || text.imageHeight <= 0 || text.rgba.empty())
-      continue;
-    std::string name = makeTextImageName(idx);
-    size_t imageId = appendImageObject(text);
-    if (imageId == 0)
-      continue;
-    textImageNames[idx] = name;
-    xObjectNameIds[name] = imageId;
   }
 
   struct LayoutRenderElement {
@@ -2585,12 +2492,55 @@ Viewer2DExportResult ExportLayoutToPdf(
                   << formatter.Format(frameY) << ' '
                   << formatter.Format(frameW) << ' '
                   << formatter.Format(frameH) << " re W n\n";
-    if (idx < textImageNames.size() && !textImageNames[idx].empty()) {
-      contentStream << "q\n" << formatter.Format(frameW) << " 0 0 "
-                    << formatter.Format(frameH) << ' '
-                    << formatter.Format(frameX) << ' '
-                    << formatter.Format(frameY) << " cm\n/"
-                    << textImageNames[idx] << " Do\nQ\n";
+    if (text.solidBackground) {
+      contentStream << "1 1 1 rg " << formatter.Format(frameX) << ' '
+                    << formatter.Format(frameY) << ' '
+                    << formatter.Format(frameW) << ' '
+                    << formatter.Format(frameH) << " re f\n";
+    }
+
+    const double padding = 4.0;
+    const double availableW = std::max(0.0, frameW - padding * 2.0);
+    const double availableH = std::max(0.0, frameH - padding * 2.0);
+    const double fontSize =
+        text.fontSize > 0 ? static_cast<double>(text.fontSize) : 12.0;
+    const double lineHeight = fontSize * 1.2;
+    const size_t maxLines =
+        lineHeight > 0.0
+            ? static_cast<size_t>(std::floor(availableH / lineHeight))
+            : 0;
+    const char *fontKey = text.bold ? "F2" : "F1";
+    const PdfFontDefinition *font =
+        text.bold ? fontCatalog.bold : fontCatalog.regular;
+    constexpr double kItalicSkew = 0.2;
+    auto appendTextLine = [&](double x, double y, const std::string &line) {
+      contentStream << "BT\n/" << fontKey << ' '
+                    << formatter.Format(fontSize) << " Tf\n0 0 0 rg\n";
+      if (text.italic) {
+        contentStream << "1 0 " << formatter.Format(kItalicSkew) << " 1 "
+                      << formatter.Format(x) << ' ' << formatter.Format(y)
+                      << " Tm\n(" << escapeText(line) << ") Tj\nET\n";
+        return;
+      }
+      contentStream << formatter.Format(x) << ' ' << formatter.Format(y)
+                    << " Td\n(" << escapeText(line) << ") Tj\nET\n";
+    };
+
+    size_t lineIndex = 0;
+    for (const auto &line : text.lines) {
+      if (maxLines > 0 && lineIndex >= maxLines)
+        break;
+      const double lineWidth = MeasureTextWidth(line, fontSize, font);
+      double x = frameX + padding;
+      if (text.alignment == LayoutTextExportData::Alignment::Center) {
+        x = frameX + std::max(0.0, (frameW - lineWidth) * 0.5);
+      } else if (text.alignment == LayoutTextExportData::Alignment::Right) {
+        x = frameX + frameW - padding - lineWidth;
+      }
+      const double y =
+          frameY + frameH - padding - fontSize - lineIndex * lineHeight;
+      appendTextLine(x, y, line);
+      ++lineIndex;
     }
     contentStream << "Q\n";
 

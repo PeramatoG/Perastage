@@ -205,6 +205,7 @@ void LayoutTextDialog::ApplyFontSize(int size) {
     return;
   wxRichTextAttr attr;
   attr.SetFontSize(size);
+  attr.SetFlags(wxTEXT_ATTR_FONT_SIZE);
   wxRichTextRange range = textCtrl->GetSelectionRange();
   if (textCtrl->HasSelection() && range.GetLength() > 0) {
     textCtrl->SetStyleEx(range, attr);
