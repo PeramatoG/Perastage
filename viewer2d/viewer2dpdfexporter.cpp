@@ -2112,7 +2112,7 @@ Viewer2DExportResult ExportLayoutToPdf(
     const double paddingBottom = 2.0;
     const double columnGap = 8.0;
     const double symbolColumnGap = 2.0;
-    const double symbolPairGap = 0.0;
+    const double symbolPairGap = -2.0;
     constexpr double kLegendLineSpacingScale = 0.8;
     constexpr double kLegendSymbolColumnScale = 1.0;
     const double separatorGap = 2.0;
@@ -2152,7 +2152,7 @@ Viewer2DExportResult ExportLayoutToPdf(
     const double lineHeight = textHeightEstimate + separatorGap;
     const double symbolSize =
         std::max(4.0, kLegendSymbolSize * fontScale);
-    const double symbolPairGapSize = std::max(0.0, symbolPairGap);
+    const double symbolPairGapSize = symbolPairGap;
     auto symbolDrawWidth = [&](const SymbolDefinition *symbol) -> double {
       if (!symbol)
         return 0.0;
