@@ -121,6 +121,7 @@ LayoutTextDialog::LayoutTextDialog(wxWindow *parent,
     textCtrl->SetFont(sharedFont);
     wxRichTextAttr defaultStyle;
     defaultStyle.SetFont(sharedFont);
+    defaultStyle.SetTextColour(*wxBLACK);
     textCtrl->SetDefaultStyle(defaultStyle);
   }
   textCtrl->SetMinSize(wxSize(580, 280));
@@ -210,7 +211,10 @@ void LayoutTextDialog::ApplyFontSize(int size) {
     wxRichTextRange all(0, textCtrl->GetLastPosition());
     if (all.GetLength() > 0)
       textCtrl->SetStyleEx(all, attr);
-    textCtrl->SetDefaultStyle(attr);
+    wxRichTextAttr defaultStyle = textCtrl->GetDefaultStyle();
+    defaultStyle.SetFontSize(size);
+    defaultStyle.SetFlags(defaultStyle.GetFlags() | wxTEXT_ATTR_FONT_SIZE);
+    textCtrl->SetDefaultStyle(defaultStyle);
   }
 }
 
