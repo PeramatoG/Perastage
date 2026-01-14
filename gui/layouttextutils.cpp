@@ -55,7 +55,11 @@ bool LoadRichTextBufferFromString(wxRichTextBuffer &buffer,
   if (buffer.LoadFile(xmlInput, wxRICHTEXT_TYPE_XML))
     return true;
   wxStringInputStream richInput(content);
+#if defined(wxRICHTEXT_TYPE_RICHTEXT)
   return buffer.LoadFile(richInput, wxRICHTEXT_TYPE_RICHTEXT);
+#else
+  return buffer.LoadFile(richInput, wxRICHTEXT_TYPE_TEXT);
+#endif
 }
 
 wxString SaveRichTextBufferToString(wxRichTextBuffer &buffer) {
@@ -64,7 +68,11 @@ wxString SaveRichTextBufferToString(wxRichTextBuffer &buffer) {
   if (buffer.SaveFile(output, wxRICHTEXT_TYPE_XML))
     return output.GetString();
   wxStringOutputStream richOutput;
+#if defined(wxRICHTEXT_TYPE_RICHTEXT)
   if (buffer.SaveFile(richOutput, wxRICHTEXT_TYPE_RICHTEXT))
+#else
+  if (buffer.SaveFile(richOutput, wxRICHTEXT_TYPE_TEXT))
+#endif
     return richOutput.GetString();
   return buffer.GetText();
 }
