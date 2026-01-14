@@ -1075,7 +1075,7 @@ void LayoutViewerPanel::RebuildCachedTexture() {
 
     std::vector<unsigned char> pixels;
     pixels.resize(static_cast<size_t>(width) * height * 4);
-    const bool needsUnpremultiply = !text.solidBackground && alpha;
+    const bool needsUnpremultiply = false;
     for (int i = 0; i < width * height; ++i) {
       const unsigned char a = alpha ? alpha[i] : 255;
       unsigned char r = rgb[i * 3];
