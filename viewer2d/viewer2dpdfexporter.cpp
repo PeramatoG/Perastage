@@ -52,42 +52,6 @@ constexpr double kLegendFontScale =
 constexpr std::array<const char *, 7> kEventTableLabels = {
     "Venue:", "Location:", "Date:", "Stage:",
     "Version:", "Design:", "Mail:"};
-constexpr std::array<int, 256> kHelveticaWidths = {
-   278,  278,  278,  278,  278,  278,  278,  278,  278,  278,  278,  278,  278,  278,  278,  278,
-   278,  278,  278,  278,  278,  278,  278,  278,  278,  278,  278,  278,  278,  278,  278,  278,
-   278,  278,  355,  556,  556,  889,  667,    0,  333,  333,  389,  584,  278,  333,  278,  278,
-   556,  556,  556,  556,  556,  556,  556,  556,  556,  556,  278,  278,  584,  584,  584,  556,
-  1015,  667,  667,  722,  722,  667,  611,  778,  722,  278,  500,  667,  556,  833,  722,  778,
-   667,  778,  722,  667,  611,  722,  667,  944,  667,  667,  611,  278,  278,  278,  469,  556,
-   333,  556,  556,  500,  556,  556,  278,  556,  556,  222,  222,  500,  222,  833,  556,  556,
-   556,  556,  333,  500,  278,  556,  500,  722,  500,  500,  500,  334,  260,  334,  584,  350,
-   556,  350,  222,  556,  333, 1000,  556,  556,  333, 1000,  667,  333, 1000,  350,  611,  350,
-   350,  222,  222,  333,  333,  350,  556, 1000,  333, 1000,  500,  333,  944,  350,  500,  667,
-   278,  333,  556,  556,  556,  556,  260,  556,  333,  737,  370,  556,  584,  333,  737,  333,
-   400,  584,  333,  333,  333,  556,  537,  278,  333,  333,  365,  556,  834,  834,  834,  611,
-   667,  667,  667,  667,  667,  667, 1000,  722,  667,  667,  667,  667,  278,  278,  278,  278,
-   722,  722,  778,  778,  778,  778,  778,  584,  778,  722,  722,  722,  722,  667,  667,  611,
-   556,  556,  556,  556,  556,  556,  889,  500,  556,  556,  556,  556,  278,  278,  278,  278,
-   556,  556,  556,  556,  556,  556,  556,  584,  611,  556,  556,  556,  556,  500,  556,  500
-};
-constexpr std::array<int, 256> kHelveticaBoldWidths = {
-   278,  278,  278,  278,  278,  278,  278,  278,  278,  278,  278,  278,  278,  278,  278,  278,
-   278,  278,  278,  278,  278,  278,  278,  278,  278,  278,  278,  278,  278,  278,  278,  278,
-   278,  333,  474,  556,  556,  889,  722,    0,  333,  333,  389,  584,  278,  333,  278,  278,
-   556,  556,  556,  556,  556,  556,  556,  556,  556,  556,  333,  333,  584,  584,  584,  611,
-   975,  722,  722,  722,  722,  667,  611,  778,  722,  278,  556,  722,  611,  833,  722,  778,
-   667,  778,  722,  667,  611,  722,  667,  944,  667,  667,  611,  333,  278,  333,  584,  556,
-   333,  556,  611,  556,  611,  556,  333,  611,  611,  278,  278,  556,  278,  889,  611,  611,
-   611,  611,  389,  556,  333,  611,  556,  778,  556,  556,  500,  389,  280,  389,  584,  350,
-   556,  350,  278,  556,  500, 1000,  556,  556,  333, 1000,  667,  333, 1000,  350,  611,  350,
-   350,  278,  278,  500,  500,  350,  556, 1000,  333, 1000,  556,  333,  944,  350,  500,  667,
-   278,  333,  556,  556,  556,  556,  280,  556,  333,  737,  370,  556,  584,  333,  737,  333,
-   400,  584,  333,  333,  333,  611,  556,  278,  333,  333,  365,  556,  834,  834,  834,  611,
-   722,  722,  722,  722,  722,  722, 1000,  722,  667,  667,  667,  667,  278,  278,  278,  278,
-   722,  722,  778,  778,  778,  778,  778,  584,  778,  722,  722,  722,  722,  667,  667,  611,
-   556,  556,  556,  556,  556,  556,  889,  556,  556,  556,  556,  556,  278,  278,  278,  278,
-   611,  611,  611,  611,  611,  611,  611,  584,  611,  611,  611,  611,  611,  556,  611,  556
-};
 
 static bool ShouldTraceLabelOrder() {
   static const bool enabled = std::getenv("PERASTAGE_TRACE_LABELS") != nullptr;
@@ -141,34 +105,6 @@ std::string ToLowerCopy(std::string_view input) {
   return lower;
 }
 
-const TtfFontMetrics *ResolveFontMetrics(const PdfFontDefinition *font) {
-  if (!font)
-    return nullptr;
-  if (!font->metrics.valid || font->metrics.unitsPerEm <= 0)
-    return nullptr;
-  return &font->metrics;
-}
-
-void ApplyType1HelveticaMetrics(PdfFontDefinition &font, bool bold) {
-  const std::array<int, 256> &widths =
-      bold ? kHelveticaBoldWidths : kHelveticaWidths;
-  font.metrics = TtfFontMetrics{};
-  font.metrics.unitsPerEm = 1000;
-  font.metrics.ascent = 718;
-  font.metrics.descent = -207;
-  font.metrics.lineGap = 0;
-  font.metrics.capHeight = 718;
-  font.metrics.xMin = bold ? -170 : -166;
-  font.metrics.yMin = bold ? -228 : -225;
-  font.metrics.xMax = bold ? 1003 : 1000;
-  font.metrics.yMax = bold ? 962 : 931;
-  for (size_t i = 0; i < widths.size(); ++i) {
-    font.metrics.advanceWidths[i] = widths[i];
-    font.metrics.widths1000[i] = widths[i];
-  }
-  font.metrics.valid = true;
-}
-
 const PdfFontDefinition *PdfFontCatalog::Resolve(
     const std::string &family) const {
   const PdfFontDefinition *fallback = regular ? regular : bold;
@@ -188,16 +124,15 @@ const PdfFontDefinition *PdfFontCatalog::Resolve(
 
 double MeasureTextWidth(const std::string &text, double fontSize,
                         const PdfFontDefinition *font) {
-  const TtfFontMetrics *metrics = ResolveFontMetrics(font);
-  if (!metrics)
+  if (!font || !font->embedded || font->metrics.unitsPerEm <= 0)
     return static_cast<double>(text.size()) * fontSize * 0.6;
   double units = 0.0;
   for (unsigned char ch : text) {
     if (ch == '\n')
       continue;
-    units += metrics->advanceWidths[ch];
+    units += font->metrics.advanceWidths[ch];
   }
-  return (units / metrics->unitsPerEm) * fontSize;
+  return (units / font->metrics.unitsPerEm) * fontSize;
 }
 
 bool ReadFileToString(const std::filesystem::path &path, std::string &out) {
@@ -520,14 +455,6 @@ void AppendFallbackType1Font(std::vector<PdfObject> &objects,
   font.objectId = objects.size();
   font.embedded = false;
   font.baseName = baseFont;
-  if (baseFont == "Helvetica" || baseFont == "Helvetica-Oblique") {
-    ApplyType1HelveticaMetrics(font, false);
-  } else if (baseFont == "Helvetica-Bold" ||
-             baseFont == "Helvetica-BoldOblique") {
-    ApplyType1HelveticaMetrics(font, true);
-  } else {
-    font.metrics = TtfFontMetrics{};
-  }
 }
 
 class FloatFormatter {
@@ -787,37 +714,37 @@ void AppendText(std::ostringstream &out, const FloatFormatter &fmt,
                 const PdfFontCatalog *fonts) {
   const PdfFontDefinition *font =
       fonts ? fonts->Resolve(style.fontFamily) : nullptr;
-  const TtfFontMetrics *metrics = ResolveFontMetrics(font);
   double scaledFontSize = style.fontSize * scale;
-  if (metrics && style.ascent > 0.0f && style.descent > 0.0f) {
+  if (font && font->embedded && font->metrics.unitsPerEm > 0 &&
+      style.ascent > 0.0f && style.descent > 0.0f) {
     const double targetHeight = (style.ascent + style.descent) * scale;
     const double fontHeightUnits =
-        metrics->ascent + std::abs(metrics->descent);
+        font->metrics.ascent + std::abs(font->metrics.descent);
     if (fontHeightUnits > 0.0) {
       const double fontHeight =
-          fontHeightUnits * scaledFontSize / metrics->unitsPerEm;
+          fontHeightUnits * scaledFontSize / font->metrics.unitsPerEm;
       if (fontHeight > 0.0)
         scaledFontSize *= targetHeight / fontHeight;
     }
   }
 
   auto measureLineWidth = [&](std::string_view line) {
-    if (!metrics)
+    if (!font || !font->embedded)
       return static_cast<double>(line.size()) * scaledFontSize * 0.6;
     double units = 0.0;
     for (unsigned char ch : line) {
-      units += metrics->advanceWidths[ch];
+      units += font->metrics.advanceWidths[ch];
     }
-    return (units / metrics->unitsPerEm) * scaledFontSize;
+    return (units / font->metrics.unitsPerEm) * scaledFontSize;
   };
   const double fallbackAscent =
-      metrics
-          ? (metrics->ascent * scaledFontSize / metrics->unitsPerEm)
+      font && font->embedded
+          ? (font->metrics.ascent * scaledFontSize / font->metrics.unitsPerEm)
           : scaledFontSize * 0.8;
   const double fallbackDescent =
-      metrics
-          ? (std::abs(metrics->descent) * scaledFontSize /
-             metrics->unitsPerEm)
+      font && font->embedded
+          ? (std::abs(font->metrics.descent) * scaledFontSize /
+             font->metrics.unitsPerEm)
           : scaledFontSize * 0.2;
   const double ascent =
       style.ascent > 0.0f ? style.ascent * scale : fallbackAscent;
@@ -827,9 +754,9 @@ void AppendText(std::ostringstream &out, const FloatFormatter &fmt,
       style.lineHeight > 0.0f
           ? style.lineHeight * scale
           : (ascent + descent +
-             (metrics
-                  ? (metrics->lineGap * scaledFontSize /
-                     metrics->unitsPerEm)
+             (font && font->embedded
+                  ? (font->metrics.lineGap * scaledFontSize /
+                     font->metrics.unitsPerEm)
                   : 0.0));
   const double extraSpacing =
       style.lineHeight > 0.0f ? style.extraLineSpacing * scale : 0.0;
