@@ -2148,6 +2148,7 @@ Viewer2DExportResult ExportLayoutToPdf(
 
     const double rowHeightCandidate =
         totalRows > 0 ? (availableHeight / totalRows) : 0.0;
+    const double availableHeightPdf = std::max(0.0, availableHeight);
     const double textHeightEstimate = fontSize * 1.2;
     const double lineHeight = textHeightEstimate + separatorGap;
     const double symbolSize =
@@ -2198,6 +2199,8 @@ Viewer2DExportResult ExportLayoutToPdf(
         4.0, maxSymbolPairWidth * kLegendSymbolColumnScale);
     const double rowHeight =
         std::max(rowHeightCandidate * kLegendLineSpacingScale, lineHeight);
+    const double contentGap =
+        std::max(0.0, availableHeightPdf - rowHeight * totalRows);
     const double textOffset =
         std::max(0.0, (rowHeight - textHeightEstimate) * 0.5);
     double xSymbol = frameX + paddingLeft - leftTrim;
@@ -2219,7 +2222,7 @@ Viewer2DExportResult ExportLayoutToPdf(
                     << escapeText(text) << ") Tj\nET\n";
     };
 
-    double rowTop = frameY + frameH - paddingTop;
+    double rowTop = frameY + frameH - paddingTop - contentGap;
     // Use a bold PDF font for legend headers to keep emphasis consistent with
     // the UI and avoid diverging header styling between PDF and on-screen views.
     appendText(xCount, rowTop - textOffset - fontSize, "Count", "F2", 0.08,

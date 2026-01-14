@@ -2572,10 +2572,14 @@ wxImage LayoutViewerPanel::BuildLegendImage(
   const int lineHeight = textHeight + separatorGapPx;
 
   const double rowHeight = totalRows > 0 ? availableHeight / totalRows : 0.0;
+  const int availableHeightPx = std::max(
+      0, static_cast<int>(std::lround(availableHeight * renderZoom)));
   const int baseRowHeightPx =
       std::max(lineHeight,
                static_cast<int>(std::lround(rowHeight * renderZoom *
                                             kLegendLineSpacingScale)));
+  const int contentGapPx =
+      std::max(0, availableHeightPx - baseRowHeightPx * totalRows);
   const int desiredSymbolSize = static_cast<int>(std::lround(
       kLegendSymbolSizePx * renderZoom * fontScale));
   const int symbolSize = std::max(4, desiredSymbolSize);
@@ -2665,7 +2669,7 @@ wxImage LayoutViewerPanel::BuildLegendImage(
     return trimmed + ellipsis;
   };
 
-  int y = paddingTopPx;
+  int y = paddingTopPx + contentGapPx;
   const int textOffset =
       std::max(0, (rowHeightPx - textHeight) / 2);
   dc.SetFont(headerFont);
