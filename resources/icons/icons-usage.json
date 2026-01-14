@@ -65,6 +65,12 @@
       "icon": "outline/layout-list.svg",
       "description": "Shows or hides the layout legend panel.",
       "group": "LayoutToolbar"
+    },
+    {
+      "name": "Layout Text",
+      "icon": "outline/text-select.svg",
+      "description": "Adds a text box to the layout.",
+      "group": "LayoutToolbar"
     }
   ]
 }

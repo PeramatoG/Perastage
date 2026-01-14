@@ -30,7 +30,7 @@ elseif(NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
 endif()
 
 # Find required packages
-find_package(wxWidgets REQUIRED COMPONENTS core base aui gl html)
+find_package(wxWidgets REQUIRED COMPONENTS core base aui gl html richtext)
 include(${wxWidgets_USE_FILE})
 find_package(tinyxml2 CONFIG REQUIRED)
 find_package(OpenGL REQUIRED)

@@ -46,6 +46,10 @@ public:
                               const LayoutEventTableDefinition &table);
   bool RemoveLayoutEventTable(const std::string &name, int tableId);
   bool MoveLayoutEventTable(const std::string &name, int tableId, bool toFront);
+  bool UpdateLayoutText(const std::string &name,
+                        const LayoutTextDefinition &text);
+  bool RemoveLayoutText(const std::string &name, int textId);
+  bool MoveLayoutText(const std::string &name, int textId, bool toFront);
 
   void LoadFromConfig(ConfigManager &cfg);
   void SaveToConfig(ConfigManager &cfg) const;
