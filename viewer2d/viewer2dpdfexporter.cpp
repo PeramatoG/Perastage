@@ -989,13 +989,16 @@ SymbolBounds ComputeSymbolBounds(const std::vector<CanvasCommand> &commands) {
 void EmitCommandStroke(std::ostringstream &content, GraphicsStateCache &cache,
                        const FloatFormatter &formatter, const Mapping &mapping,
                        const Transform &current, const CanvasCommand &command) {
+  const double strokeScale = current.scale * mapping.scale;
   std::visit(
       [&](auto &&c) {
         using T = std::decay_t<decltype(c)>;
         if constexpr (std::is_same_v<T, LineCommand>) {
           auto pa = MapPointWithTransform(c.x0, c.y0, current, mapping);
           auto pb = MapPointWithTransform(c.x1, c.y1, current, mapping);
-          AppendLine(content, cache, formatter, pa, pb, c.stroke);
+          CanvasStroke stroke = c.stroke;
+          stroke.width *= strokeScale;
+          AppendLine(content, cache, formatter, pa, pb, stroke);
         } else if constexpr (std::is_same_v<T, PolylineCommand>) {
           std::vector<Point> pts;
           pts.reserve(c.points.size() / 2);
@@ -1003,7 +1006,9 @@ void EmitCommandStroke(std::ostringstream &content, GraphicsStateCache &cache,
             pts.push_back(
                 MapPointWithTransform(c.points[i], c.points[i + 1], current,
                                       mapping));
-          AppendPolyline(content, cache, formatter, pts, c.stroke);
+          CanvasStroke stroke = c.stroke;
+          stroke.width *= strokeScale;
+          AppendPolyline(content, cache, formatter, pts, stroke);
         } else if constexpr (std::is_same_v<T, PolygonCommand>) {
           std::vector<Point> pts;
           pts.reserve(c.points.size() / 2);
@@ -1011,17 +1016,23 @@ void EmitCommandStroke(std::ostringstream &content, GraphicsStateCache &cache,
             pts.push_back(
                 MapPointWithTransform(c.points[i], c.points[i + 1], current,
                                       mapping));
-          AppendPolygon(content, cache, formatter, pts, c.stroke, nullptr);
+          CanvasStroke stroke = c.stroke;
+          stroke.width *= strokeScale;
+          AppendPolygon(content, cache, formatter, pts, stroke, nullptr);
         } else if constexpr (std::is_same_v<T, RectangleCommand>) {
           auto origin = MapPointWithTransform(c.x, c.y, current, mapping);
           double w = c.w * current.scale * mapping.scale;
           double h = c.h * current.scale * mapping.scale;
-          AppendRectangle(content, cache, formatter, origin, w, h, c.stroke,
+          CanvasStroke stroke = c.stroke;
+          stroke.width *= strokeScale;
+          AppendRectangle(content, cache, formatter, origin, w, h, stroke,
                           nullptr);
         } else if constexpr (std::is_same_v<T, CircleCommand>) {
           auto center = MapPointWithTransform(c.cx, c.cy, current, mapping);
           double radius = c.radius * current.scale * mapping.scale;
-          AppendCircle(content, cache, formatter, center, radius, c.stroke,
+          CanvasStroke stroke = c.stroke;
+          stroke.width *= strokeScale;
+          AppendCircle(content, cache, formatter, center, radius, stroke,
                        nullptr);
         }
       },
