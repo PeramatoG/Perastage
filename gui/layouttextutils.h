@@ -19,10 +19,15 @@
 
 #include <wx/gdicmn.h>
 #include <wx/image.h>
+#include <wx/richtext/richtextbuffer.h>
 
 #include "layouts/LayoutCollection.h"
 
 namespace layouttext {
+bool LoadRichTextBufferFromString(wxRichTextBuffer &buffer,
+                                  const wxString &content);
+wxString SaveRichTextBufferToString(wxRichTextBuffer &buffer);
+
 wxImage RenderTextImage(const layouts::LayoutTextDefinition &text,
                         const wxSize &renderSize, const wxSize &logicalSize,
                         double renderScale);

@@ -29,8 +29,8 @@
 #include <wx/richtext/richtextctrl.h>
 #include <wx/sizer.h>
 #include <wx/spinctrl.h>
-#include <wx/sstream.h>
 
+#include "layouttextutils.h"
 #include "layoutviewerpanel_shared.h"
 #include "projectutils.h"
 
@@ -143,10 +143,7 @@ LayoutTextDialog::LayoutTextDialog(wxWindow *parent,
 wxString LayoutTextDialog::GetRichText() const {
   if (!textCtrl)
     return wxEmptyString;
-  wxStringOutputStream output;
-  if (textCtrl->GetBuffer().SaveFile(output, wxRICHTEXT_TYPE_XML))
-    return output.GetString();
-  return textCtrl->GetValue();
+  return layouttext::SaveRichTextBufferToString(textCtrl->GetBuffer());
 }
 
 wxString LayoutTextDialog::GetPlainText() const {
@@ -182,8 +179,8 @@ void LayoutTextDialog::LoadInitialContent(const wxString &initialRichText,
   if (!textCtrl)
     return;
   if (!initialRichText.empty()) {
-    wxStringInputStream input(initialRichText);
-    if (textCtrl->GetBuffer().LoadFile(input, wxRICHTEXT_TYPE_XML)) {
+    if (layouttext::LoadRichTextBufferFromString(textCtrl->GetBuffer(),
+                                                 initialRichText)) {
       return;
     }
   }

@@ -46,6 +46,29 @@ void EnsureRichTextHandlers() {
 }
 } // namespace
 
+bool LoadRichTextBufferFromString(wxRichTextBuffer &buffer,
+                                  const wxString &content) {
+  if (content.empty())
+    return false;
+  EnsureRichTextHandlers();
+  wxStringInputStream xmlInput(content);
+  if (buffer.LoadFile(xmlInput, wxRICHTEXT_TYPE_XML))
+    return true;
+  wxStringInputStream richInput(content);
+  return buffer.LoadFile(richInput, wxRICHTEXT_TYPE_RICHTEXT);
+}
+
+wxString SaveRichTextBufferToString(wxRichTextBuffer &buffer) {
+  EnsureRichTextHandlers();
+  wxStringOutputStream output;
+  if (buffer.SaveFile(output, wxRICHTEXT_TYPE_XML))
+    return output.GetString();
+  wxStringOutputStream richOutput;
+  if (buffer.SaveFile(richOutput, wxRICHTEXT_TYPE_RICHTEXT))
+    return richOutput.GetString();
+  return buffer.GetText();
+}
+
 wxImage RenderTextImage(const layouts::LayoutTextDefinition &text,
                         const wxSize &renderSize, const wxSize &logicalSize,
                         double renderScale) {
@@ -67,12 +90,11 @@ wxImage RenderTextImage(const layouts::LayoutTextDefinition &text,
   dc.Clear();
   dc.SetTextForeground(wxColour(0, 0, 0));
 
-  EnsureRichTextHandlers();
   wxRichTextBuffer buffer;
   bool loaded = false;
   if (!text.richText.empty()) {
-    wxStringInputStream input(wxString::FromUTF8(text.richText));
-    loaded = buffer.LoadFile(input, wxRICHTEXT_TYPE_XML);
+    loaded = LoadRichTextBufferFromString(
+        buffer, wxString::FromUTF8(text.richText));
   }
   if (!loaded) {
     wxString fallback =

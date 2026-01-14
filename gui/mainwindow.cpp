@@ -50,7 +50,6 @@
 #include <wx/numdlg.h>
 #include <wx/statbmp.h>
 #include <wx/stdpaths.h>
-#include <wx/sstream.h>
 #include <wx/textctrl.h>
 #include <wx/tokenzr.h>
 #include <wx/wfstream.h>
@@ -80,6 +79,7 @@ using json = nlohmann::json;
 #include "layoutviewpresets.h"
 #include "layoutpanel.h"
 #include "layoutviewerpanel.h"
+#include "layouttextutils.h"
 #include "layoutviewerpanel_shared.h"
 #include "legendutils.h"
 #include "layerpanel.h"
@@ -137,14 +137,6 @@ void LogMissingIcon(const std::filesystem::path &path) {
 #endif
 }
 
-void EnsureRichTextHandlers() {
-  static bool initialized = false;
-  if (initialized)
-    return;
-  wxRichTextBuffer::InitStandardHandlers();
-  initialized = true;
-}
-
 LayoutTextExportData BuildLayoutTextExportData(
     const layouts::LayoutTextDefinition &text, double scaleX, double scaleY) {
   LayoutTextExportData data;
@@ -158,12 +150,11 @@ LayoutTextExportData BuildLayoutTextExportData(
   data.solidBackground = text.solidBackground;
   data.drawFrame = text.drawFrame;
 
-  EnsureRichTextHandlers();
   wxRichTextBuffer buffer;
   bool loaded = false;
   if (!text.richText.empty()) {
-    wxStringInputStream input(wxString::FromUTF8(text.richText));
-    loaded = buffer.LoadFile(input, wxRICHTEXT_TYPE_XML);
+    loaded = layouttext::LoadRichTextBufferFromString(
+        buffer, wxString::FromUTF8(text.richText));
   }
 
   wxString plainText;
