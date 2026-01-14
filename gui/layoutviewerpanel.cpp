@@ -2518,7 +2518,7 @@ wxImage LayoutViewerPanel::BuildLegendImage(
   const int paddingBottom = 2;
   const int columnGap = 8;
   const int symbolColumnGap = 2;
-  const int symbolPairGap = 0;
+  const int symbolPairGap = -2;
   constexpr double kLegendLineSpacingScale = 0.8;
   constexpr double kLegendSymbolColumnScale = 1.0;
   const int totalRows = static_cast<int>(items.size()) + 1;
@@ -2580,7 +2580,7 @@ wxImage LayoutViewerPanel::BuildLegendImage(
       kLegendSymbolSizePx * renderZoom * fontScale));
   const int symbolSize = std::max(4, desiredSymbolSize);
   const int symbolPairGapPx =
-      std::max(0, static_cast<int>(std::lround(symbolPairGap * renderZoom)));
+      static_cast<int>(std::lround(symbolPairGap * renderZoom));
   auto symbolDrawWidth = [&](const SymbolDefinition *symbol) -> double {
     if (!symbol)
       return 0.0;
