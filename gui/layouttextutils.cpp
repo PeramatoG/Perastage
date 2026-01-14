@@ -85,6 +85,12 @@ wxImage RenderTextImage(const layouts::LayoutTextDefinition &text,
     return wxImage();
   }
 
+  const double adjustedScale =
+      renderScale / layoutviewerpanel::detail::kTextRenderScale;
+  if (adjustedScale <= 0.0) {
+    return wxImage();
+  }
+
   wxBitmap bitmap(renderSize.GetWidth(), renderSize.GetHeight(), 32);
   bitmap.UseAlpha();
   wxMemoryDC memoryDc(bitmap);
@@ -129,7 +135,8 @@ wxImage RenderTextImage(const layouts::LayoutTextDefinition &text,
   baseStyle.SetTextColour(*wxBLACK);
   baseStyle.SetParagraphSpacingBefore(0);
   baseStyle.SetParagraphSpacingAfter(0);
-  baseStyle.SetFontSize(layoutviewerpanel::detail::kTextDefaultFontSize);
+  if (!loaded)
+    baseStyle.SetFontSize(layoutviewerpanel::detail::kTextDefaultFontSize);
   buffer.SetDefaultStyle(baseStyle);
   buffer.SetBasicStyle(baseStyle);
   if (buffer.GetRange().GetLength() > 0) {
@@ -153,7 +160,7 @@ wxImage RenderTextImage(const layouts::LayoutTextDefinition &text,
   const int logicalHeight = std::max(0, logicalSize.GetHeight() - padding * 2);
   wxRect logicalRect(padding, padding, logicalWidth, logicalHeight);
 
-  dc.SetUserScale(renderScale, renderScale);
+  dc.SetUserScale(adjustedScale, adjustedScale);
   wxRichTextDrawingContext context(&buffer);
   wxRichTextSelection selection;
   buffer.Layout(dc, context, logicalRect, logicalRect, wxRICHTEXT_FIXED_WIDTH);

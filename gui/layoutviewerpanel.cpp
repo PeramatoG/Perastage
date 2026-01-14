@@ -1157,11 +1157,24 @@ void LayoutViewerPanel::RebuildCachedTexture() {
 
     std::vector<unsigned char> pixels;
     pixels.resize(static_cast<size_t>(width) * height * 4);
+    const bool needsUnpremultiply = !text.solidBackground;
     for (int i = 0; i < width * height; ++i) {
-      pixels[static_cast<size_t>(i) * 4] = rgb[i * 3];
-      pixels[static_cast<size_t>(i) * 4 + 1] = rgb[i * 3 + 1];
-      pixels[static_cast<size_t>(i) * 4 + 2] = rgb[i * 3 + 2];
-      pixels[static_cast<size_t>(i) * 4 + 3] = alpha ? alpha[i] : 255;
+      const unsigned char a = alpha ? alpha[i] : 255;
+      unsigned char r = rgb[i * 3];
+      unsigned char g = rgb[i * 3 + 1];
+      unsigned char b = rgb[i * 3 + 2];
+      if (needsUnpremultiply && a > 0 && a < 255) {
+        r = static_cast<unsigned char>(
+            std::min(255, static_cast<int>(r) * 255 / a));
+        g = static_cast<unsigned char>(
+            std::min(255, static_cast<int>(g) * 255 / a));
+        b = static_cast<unsigned char>(
+            std::min(255, static_cast<int>(b) * 255 / a));
+      }
+      pixels[static_cast<size_t>(i) * 4] = r;
+      pixels[static_cast<size_t>(i) * 4 + 1] = g;
+      pixels[static_cast<size_t>(i) * 4 + 2] = b;
+      pixels[static_cast<size_t>(i) * 4 + 3] = a;
     }
 
     InitGL();
