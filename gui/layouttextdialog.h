@@ -39,6 +39,7 @@ private:
   wxBitmapBundle LoadIcon(const std::string &name) const;
   void LoadInitialContent(const wxString &initialRichText,
                           const wxString &fallbackText);
+  void ApplyDefaultFontStyle();
   void ApplyBold();
   void ApplyItalic();
   void ApplyFontSize(int size);
