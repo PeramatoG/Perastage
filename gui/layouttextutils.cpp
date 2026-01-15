@@ -122,9 +122,8 @@ wxImage RenderTextImage(const layouts::LayoutTextDefinition &text,
   }
 
   wxString plainText = buffer.GetText();
-  if (buffer.GetParagraphCount() <= 1 &&
-      (plainText.Find('\n') != wxNOT_FOUND ||
-       plainText.Find('\r') != wxNOT_FOUND)) {
+  if (plainText.Find('\n') != wxNOT_FOUND ||
+      plainText.Find('\r') != wxNOT_FOUND) {
     for (long i = static_cast<long>(plainText.length()) - 1; i >= 0; --i) {
       if (plainText[i] == '\n') {
         long deleteStart = i;
