@@ -22,6 +22,7 @@
 #include <wx/msgdlg.h>
 #include <wx/sizer.h>
 #include <wx/stattext.h>
+#include <wx/strconv.h>
 #include <wx/textctrl.h>
 
 #include "projectutils.h"
@@ -132,7 +133,10 @@ void RiderTextDialog::OnLoadExample(wxCommandEvent &WXUNUSED(event)) {
 }
 
 void RiderTextDialog::OnApply(wxCommandEvent &WXUNUSED(event)) {
-  std::string text = textCtrl->GetValue().ToStdString();
+  wxScopedCharBuffer utf8Text = textCtrl->GetValue().ToUTF8();
+  std::string text = utf8Text.data()
+                         ? std::string(utf8Text.data(), utf8Text.length())
+                         : std::string();
   if (!RiderImporter::ImportText(text)) {
     wxMessageBox("Failed to import rider text.", "Error", wxICON_ERROR);
     return;
