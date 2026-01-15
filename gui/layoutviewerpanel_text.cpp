@@ -95,10 +95,12 @@ void LayoutViewerPanel::OnEditText(wxCommandEvent &) {
   layouts::LayoutTextDefinition *text = GetSelectedText();
   if (!text)
     return;
-  const wxString richText = wxString::FromUTF8(text->richText);
+  const wxString richText =
+      wxString::FromUTF8(text->richText.data(), text->richText.size());
   const wxString fallbackText =
       text->text.empty() ? wxString("Light Plot")
-                         : wxString::FromUTF8(text->text);
+                         : wxString::FromUTF8(text->text.data(),
+                                              text->text.size());
   LayoutTextDialog dialog(this, richText, fallbackText, text->solidBackground,
                           text->drawFrame);
   if (dialog.ShowModal() != wxID_OK)
@@ -109,8 +111,12 @@ void LayoutViewerPanel::OnEditText(wxCommandEvent &) {
     updatedRichText = "<richtext><paragraph>" + updatedPlainText +
                       "</paragraph></richtext>";
   }
-  text->richText = updatedRichText.ToUTF8().data();
-  text->text = updatedPlainText.ToUTF8().data();
+  wxScopedCharBuffer richBuf = updatedRichText.ToUTF8();
+  wxScopedCharBuffer plainBuf = updatedPlainText.ToUTF8();
+  text->richText.assign(richBuf.data() ? richBuf.data() : "",
+                        richBuf.length());
+  text->text.assign(plainBuf.data() ? plainBuf.data() : "",
+                    plainBuf.length());
   text->solidBackground = dialog.GetSolidBackground();
   text->drawFrame = dialog.GetDrawFrame();
   if (!currentLayout.name.empty()) {
