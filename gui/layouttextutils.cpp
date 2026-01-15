@@ -162,19 +162,18 @@ wxImage RenderTextImage(const layouts::LayoutTextDefinition &text,
   if (buffer.GetParagraphCount() <= 1 &&
       (plainText.Find('\n') != wxNOT_FOUND ||
        plainText.Find('\r') != wxNOT_FOUND)) {
-    for (long i = static_cast<long>(plainText.length()) - 1; i >= 0; --i) {
-      if (plainText[i] == '\n') {
-        long deleteStart = i;
-        if (i > 0 && plainText[i - 1] == '\r') {
-          deleteStart = i - 1;
-          --i;
-        }
-        buffer.DeleteRange(wxRichTextRange(deleteStart, i));
-        buffer.InsertNewlineWithUndo(deleteStart, nullptr);
-      } else if (plainText[i] == '\r') {
-        buffer.DeleteRange(wxRichTextRange(i, i));
-        buffer.InsertNewlineWithUndo(i, nullptr);
+    wxArrayString lines;
+    if (plainText.empty()) {
+      lines.Add(wxString());
+    } else {
+      wxStringTokenizer tokenizer(plainText, "\r\n", wxTOKEN_RET_EMPTY);
+      while (tokenizer.HasMoreTokens()) {
+        lines.Add(tokenizer.GetNextToken());
       }
+    }
+    buffer.Clear();
+    for (const auto &line : lines) {
+      buffer.AddParagraph(line);
     }
   }
 
@@ -183,7 +182,7 @@ wxImage RenderTextImage(const layouts::LayoutTextDefinition &text,
   if (!faceName.empty())
     baseStyle.SetFontFaceName(faceName);
   baseStyle.SetTextColour(*wxBLACK);
-  baseStyle.SetFontEncoding(wxFONTENCODING_DEFAULT);
+  baseStyle.SetFontEncoding(wxFONTENCODING_UTF8);
   baseStyle.SetFontFamily(wxFONTFAMILY_SWISS);
   baseStyle.SetParagraphSpacingBefore(0);
   baseStyle.SetParagraphSpacingAfter(0);
@@ -202,7 +201,7 @@ wxImage RenderTextImage(const layouts::LayoutTextDefinition &text,
       flags |= wxTEXT_ATTR_FONT_FACE;
     }
     overrideStyle.SetTextColour(*wxBLACK);
-    overrideStyle.SetFontEncoding(wxFONTENCODING_DEFAULT);
+    overrideStyle.SetFontEncoding(wxFONTENCODING_UTF8);
     overrideStyle.SetParagraphSpacingBefore(0);
     overrideStyle.SetParagraphSpacingAfter(0);
     overrideStyle.SetFlags(flags);
