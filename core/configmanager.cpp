@@ -537,7 +537,7 @@ void ConfigManager::SetSelectedSceneObjects(
 
 bool ConfigManager::LoadFromFile(const std::string &path) {
   RevisionGuard guard(*this);
-  std::ifstream file(path);
+  std::ifstream file(path, std::ios::binary);
   if (!file.is_open())
     return false;
 
@@ -562,7 +562,7 @@ bool ConfigManager::LoadFromFile(const std::string &path) {
 }
 
 bool ConfigManager::SaveToFile(const std::string &path) const {
-  std::ofstream file(path);
+  std::ofstream file(path, std::ios::binary);
   if (!file.is_open())
     return false;
 
