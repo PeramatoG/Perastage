@@ -160,18 +160,16 @@ wxImage RenderTextImage(const layouts::LayoutTextDefinition &text,
   if (buffer.GetParagraphCount() <= 1 &&
       (plainText.Find('\n') != wxNOT_FOUND ||
        plainText.Find('\r') != wxNOT_FOUND)) {
-    wxArrayString lines;
-    if (plainText.empty()) {
-      lines.Add(wxString());
-    } else {
-      wxStringTokenizer tokenizer(plainText, "\r\n", wxTOKEN_RET_EMPTY);
-      while (tokenizer.HasMoreTokens()) {
-        lines.Add(tokenizer.GetNextToken());
-      }
-    }
+    plainText.Replace("\r\n", "\n");
+    plainText.Replace("\r", "\n");
     buffer.Clear();
-    for (const auto &line : lines) {
-      buffer.AddParagraph(line);
+    if (plainText.empty()) {
+      buffer.AddParagraph(wxString());
+    } else {
+      wxStringTokenizer tokenizer(plainText, "\n", wxTOKEN_RET_EMPTY_ALL);
+      while (tokenizer.HasMoreTokens()) {
+        buffer.AddParagraph(tokenizer.GetNextToken());
+      }
     }
   }
 
