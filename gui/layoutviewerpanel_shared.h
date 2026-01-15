@@ -67,5 +67,6 @@ inline wxFont MakeSharedFont(int sizePx, wxFontWeight weight) {
   }
   return wxFont(sizePx, wxFONTFAMILY_SWISS, wxFONTSTYLE_NORMAL, weight);
 }
+
 } // namespace detail
 } // namespace layoutviewerpanel
