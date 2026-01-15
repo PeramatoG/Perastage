@@ -156,23 +156,6 @@ wxImage RenderTextImage(const layouts::LayoutTextDefinition &text,
     buffer.AddParagraph(fallback);
   }
 
-  wxString plainText = buffer.GetText();
-  if (buffer.GetParagraphCount() <= 1 &&
-      (plainText.Find('\n') != wxNOT_FOUND ||
-       plainText.Find('\r') != wxNOT_FOUND)) {
-    plainText.Replace("\r\n", "\n");
-    plainText.Replace("\r", "\n");
-    buffer.Clear();
-    if (plainText.empty()) {
-      buffer.AddParagraph(wxString());
-    } else {
-      wxStringTokenizer tokenizer(plainText, "\n", wxTOKEN_RET_EMPTY_ALL);
-      while (tokenizer.HasMoreTokens()) {
-        buffer.AddParagraph(tokenizer.GetNextToken());
-      }
-    }
-  }
-
   wxRichTextAttr baseStyle = buffer.GetDefaultStyle();
   wxString faceName = layoutviewerpanel::detail::ResolveSharedFontFaceName();
   if (!faceName.empty())
@@ -186,6 +169,25 @@ wxImage RenderTextImage(const layouts::LayoutTextDefinition &text,
     baseStyle.SetFontSize(layoutviewerpanel::detail::kTextDefaultFontSize);
   buffer.SetDefaultStyle(baseStyle);
   buffer.SetBasicStyle(baseStyle);
+
+  wxString plainText = buffer.GetText();
+  if (buffer.GetParagraphCount() <= 1 &&
+      (plainText.Find('\n') != wxNOT_FOUND ||
+       plainText.Find('\r') != wxNOT_FOUND)) {
+    plainText.Replace("\r\n", "\n");
+    plainText.Replace("\r", "\n");
+    buffer.Clear();
+    buffer.SetDefaultStyle(baseStyle);
+    buffer.SetBasicStyle(baseStyle);
+    if (plainText.empty()) {
+      buffer.AddParagraph(wxString());
+    } else {
+      wxStringTokenizer tokenizer(plainText, "\n", wxTOKEN_RET_EMPTY_ALL);
+      while (tokenizer.HasMoreTokens()) {
+        buffer.AddParagraph(tokenizer.GetNextToken());
+      }
+    }
+  }
   if (buffer.GetRange().GetLength() > 0) {
     wxRichTextAttr overrideStyle;
     long flags = wxTEXT_ATTR_TEXT_COLOUR |
