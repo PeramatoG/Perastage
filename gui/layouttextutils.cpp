@@ -26,6 +26,7 @@
 #include <wx/log.h>
 #include <wx/mstream.h>
 #include <wx/richtext/richtextbuffer.h>
+#include <wx/richtext/richtextxml.h>
 #include <wx/sstream.h>
 #include <wx/tokenzr.h>
 
@@ -106,6 +107,9 @@ void EnsureRichTextHandlers() {
   if (initialized)
     return;
   wxRichTextBuffer::InitStandardHandlers();
+  if (!wxRichTextBuffer::FindHandler(wxRICHTEXT_TYPE_XML)) {
+    wxRichTextBuffer::AddHandler(new wxRichTextXMLHandler);
+  }
   initialized = true;
 }
 } // namespace

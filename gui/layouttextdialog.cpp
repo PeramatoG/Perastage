@@ -26,6 +26,7 @@
 #include <wx/button.h>
 #include <wx/checkbox.h>
 #include <wx/richtext/richtextbuffer.h>
+#include <wx/richtext/richtextxml.h>
 #include <wx/richtext/richtextctrl.h>
 #include <wx/sizer.h>
 #include <wx/spinctrl.h>
@@ -44,6 +45,9 @@ void EnsureRichTextHandlers() {
   if (initialized)
     return;
   wxRichTextBuffer::InitStandardHandlers();
+  if (!wxRichTextBuffer::FindHandler(wxRICHTEXT_TYPE_XML)) {
+    wxRichTextBuffer::AddHandler(new wxRichTextXMLHandler);
+  }
   initialized = true;
 }
 } // namespace
