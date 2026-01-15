@@ -218,9 +218,10 @@ wxImage RenderTextImage(const layouts::LayoutTextDefinition &text,
   dc.SetUserScale(adjustedScale, adjustedScale);
   wxRichTextDrawingContext context(&buffer);
   wxRichTextSelection selection;
-  buffer.Layout(dc, context, logicalRect, logicalRect,
-                wxRICHTEXT_FIXED_WIDTH | wxRICHTEXT_FIXED_HEIGHT);
+  buffer.Layout(dc, context, logicalRect, logicalRect, wxRICHTEXT_FIXED_WIDTH);
+  dc.SetClippingRegion(logicalRect);
   buffer.Draw(dc, context, buffer.GetRange(), selection, logicalRect, 0, 0);
+  dc.DestroyClippingRegion();
 
   memoryDc.SelectObject(wxNullBitmap);
   wxImage image = bitmap.ConvertToImage();
