@@ -48,12 +48,20 @@ bool LoadBufferFromUtf8(wxRichTextBuffer &buffer, const wxString &content,
     return false;
   const size_t size = std::strlen(data);
   wxMemoryInputStream input(data, size);
-  return buffer.LoadFile(input, format);
+  wxRichTextFileHandler *handler =
+      wxRichTextBuffer::GetHandler(static_cast<wxRichTextFileType>(format));
+  if (!handler)
+    return false;
+  return handler->LoadFile(&buffer, input);
 }
 
 wxString SaveBufferToUtf8(wxRichTextBuffer &buffer, int format) {
   wxMemoryOutputStream output;
-  if (!buffer.SaveFile(output, format))
+  wxRichTextFileHandler *handler =
+      wxRichTextBuffer::GetHandler(static_cast<wxRichTextFileType>(format));
+  if (!handler)
+    return wxEmptyString;
+  if (!handler->SaveFile(&buffer, output))
     return wxEmptyString;
   const size_t size = output.GetSize();
   if (size == 0)
