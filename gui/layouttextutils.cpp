@@ -131,7 +131,8 @@ wxImage RenderTextImage(const layouts::LayoutTextDefinition &text,
 
   wxString plainText = buffer.GetText();
   if (loaded && buffer.GetParagraphCount() <= 1 &&
-      plainText.Find('\n') != wxNOT_FOUND) {
+      (plainText.Find('\n') != wxNOT_FOUND ||
+       plainText.Find('\r') != wxNOT_FOUND)) {
     wxRichTextBuffer normalized;
     normalized.SetDefaultStyle(buffer.GetDefaultStyle());
     wxString normalizedText = plainText;
@@ -154,15 +155,18 @@ wxImage RenderTextImage(const layouts::LayoutTextDefinition &text,
   if (!faceName.empty())
     baseStyle.SetFontFaceName(faceName);
   baseStyle.SetTextColour(*wxBLACK);
+  baseStyle.SetFontEncoding(wxFONTENCODING_UTF8);
+  baseStyle.SetFontFamily(wxFONTFAMILY_SWISS);
   baseStyle.SetParagraphSpacingBefore(0);
   baseStyle.SetParagraphSpacingAfter(0);
-  if (!loaded)
+  if (!loaded || baseStyle.GetFontSize() <= 0)
     baseStyle.SetFontSize(layoutviewerpanel::detail::kTextDefaultFontSize);
   buffer.SetDefaultStyle(baseStyle);
   buffer.SetBasicStyle(baseStyle);
   if (buffer.GetRange().GetLength() > 0) {
     wxRichTextAttr overrideStyle;
     long flags = wxTEXT_ATTR_TEXT_COLOUR |
+                 wxTEXT_ATTR_FONT_ENCODING |
                  wxTEXT_ATTR_PARAGRAPH_SPACING_BEFORE |
                  wxTEXT_ATTR_PARAGRAPH_SPACING_AFTER;
     if (!faceName.empty()) {
@@ -170,6 +174,7 @@ wxImage RenderTextImage(const layouts::LayoutTextDefinition &text,
       flags |= wxTEXT_ATTR_FONT_FACE;
     }
     overrideStyle.SetTextColour(*wxBLACK);
+    overrideStyle.SetFontEncoding(wxFONTENCODING_UTF8);
     overrideStyle.SetParagraphSpacingBefore(0);
     overrideStyle.SetParagraphSpacingAfter(0);
     overrideStyle.SetFlags(flags);
