@@ -117,13 +117,16 @@ LayoutTextDialog::LayoutTextDialog(wxWindow *parent,
                                 wxTE_MULTILINE | wxTE_RICH2);
   wxFont sharedFont = layoutviewerpanel::detail::MakeSharedFont(
       layoutviewerpanel::detail::kTextDefaultFontSize, wxFONTWEIGHT_NORMAL);
+  wxRichTextAttr defaultStyle;
   if (sharedFont.IsOk()) {
     textCtrl->SetFont(sharedFont);
-    wxRichTextAttr defaultStyle;
     defaultStyle.SetFont(sharedFont);
-    defaultStyle.SetTextColour(*wxBLACK);
-    textCtrl->SetDefaultStyle(defaultStyle);
   }
+  defaultStyle.SetTextColour(*wxBLACK);
+  defaultStyle.SetFontEncoding(wxFONTENCODING_UTF8);
+  textCtrl->SetDefaultStyle(defaultStyle);
+  textCtrl->GetBuffer().SetDefaultStyle(defaultStyle);
+  textCtrl->GetBuffer().SetBasicStyle(defaultStyle);
   textCtrl->SetMinSize(wxSize(580, 280));
   mainSizer->Add(textCtrl, 1, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 8);
 
@@ -148,7 +151,7 @@ wxString LayoutTextDialog::GetRichText() const {
 }
 
 wxString LayoutTextDialog::GetPlainText() const {
-  return textCtrl ? textCtrl->GetValue() : wxString();
+  return textCtrl ? textCtrl->GetBuffer().GetText() : wxString();
 }
 
 bool LayoutTextDialog::GetSolidBackground() const {

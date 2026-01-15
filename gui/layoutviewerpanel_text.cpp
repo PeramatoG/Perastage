@@ -22,6 +22,9 @@
 
 #include <GL/gl.h>
 
+#include <wx/richtext/richtextbuffer.h>
+#include <wx/tokenzr.h>
+
 #include "layouttextdialog.h"
 #include "layouttextutils.h"
 #include "layoutviewerpanel_shared.h"
@@ -89,6 +92,21 @@ void LayoutViewerPanel::UpdateTextFrame(const layouts::Layout2DViewFrame &frame,
   Refresh();
 }
 
+namespace {
+wxString BuildRichTextFromPlainText(const wxString &plainText) {
+  if (plainText.empty())
+    return wxEmptyString;
+  wxRichTextBuffer buffer;
+  wxStringTokenizer tokenizer(plainText, "\r\n", wxTOKEN_RET_EMPTY);
+  while (tokenizer.HasMoreTokens()) {
+    buffer.AddParagraph(tokenizer.GetNextToken());
+  }
+  if (buffer.GetParagraphCount() == 0)
+    buffer.AddParagraph(wxString());
+  return layouttext::SaveRichTextBufferToString(buffer);
+}
+} // namespace
+
 void LayoutViewerPanel::OnEditText(wxCommandEvent &) {
   if (selectedElementType != SelectedElementType::Text)
     return;
@@ -108,8 +126,7 @@ void LayoutViewerPanel::OnEditText(wxCommandEvent &) {
   wxString updatedRichText = dialog.GetRichText();
   wxString updatedPlainText = dialog.GetPlainText();
   if (updatedRichText.empty() && !updatedPlainText.empty()) {
-    updatedRichText = "<richtext><paragraph>" + updatedPlainText +
-                      "</paragraph></richtext>";
+    updatedRichText = BuildRichTextFromPlainText(updatedPlainText);
   }
   wxScopedCharBuffer richBuf = updatedRichText.ToUTF8();
   wxScopedCharBuffer plainBuf = updatedPlainText.ToUTF8();
