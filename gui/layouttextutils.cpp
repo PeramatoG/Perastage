@@ -160,7 +160,6 @@ wxImage RenderTextImage(const layouts::LayoutTextDefinition &text,
   if (!faceName.empty())
     baseStyle.SetFontFaceName(faceName);
   baseStyle.SetTextColour(*wxBLACK);
-  baseStyle.SetFontEncoding(wxFONTENCODING_UTF8);
   baseStyle.SetFontFamily(wxFONTFAMILY_SWISS);
   baseStyle.SetParagraphSpacingBefore(0);
   baseStyle.SetParagraphSpacingAfter(0);
@@ -168,6 +167,28 @@ wxImage RenderTextImage(const layouts::LayoutTextDefinition &text,
     baseStyle.SetFontSize(layoutviewerpanel::detail::kTextDefaultFontSize);
   buffer.SetDefaultStyle(baseStyle);
   buffer.SetBasicStyle(baseStyle);
+
+  if (loaded && buffer.GetParagraphCount() == 1) {
+    wxString plainText = buffer.GetText();
+    plainText.Replace("\r\n", "\n");
+    plainText.Replace("\r", "\n");
+    if (plainText.Find('\n') != wxNOT_FOUND) {
+      wxRichTextAttr firstStyle;
+      if (buffer.GetRange().GetLength() > 0) {
+        buffer.GetStyle(0, firstStyle);
+      }
+      buffer.Clear();
+      buffer.SetDefaultStyle(baseStyle);
+      buffer.SetBasicStyle(baseStyle);
+      wxStringTokenizer tokenizer(plainText, "\n", wxTOKEN_RET_EMPTY_ALL);
+      while (tokenizer.HasMoreTokens()) {
+        buffer.AddParagraph(tokenizer.GetNextToken());
+      }
+      if (buffer.GetRange().GetLength() > 0) {
+        buffer.SetStyle(buffer.GetRange(), firstStyle);
+      }
+    }
+  }
 
   if (!loaded) {
     wxString plainText = fallbackText;
@@ -187,18 +208,12 @@ wxImage RenderTextImage(const layouts::LayoutTextDefinition &text,
   }
   if (buffer.GetRange().GetLength() > 0) {
     wxRichTextAttr overrideStyle;
-    long flags = wxTEXT_ATTR_TEXT_COLOUR |
-                 wxTEXT_ATTR_FONT_ENCODING |
-                 wxTEXT_ATTR_PARAGRAPH_SPACING_BEFORE |
-                 wxTEXT_ATTR_PARAGRAPH_SPACING_AFTER;
+    long flags = wxTEXT_ATTR_TEXT_COLOUR;
     if (!faceName.empty()) {
       overrideStyle.SetFontFaceName(faceName);
       flags |= wxTEXT_ATTR_FONT_FACE;
     }
     overrideStyle.SetTextColour(*wxBLACK);
-    overrideStyle.SetFontEncoding(wxFONTENCODING_UTF8);
-    overrideStyle.SetParagraphSpacingBefore(0);
-    overrideStyle.SetParagraphSpacingAfter(0);
     overrideStyle.SetFlags(flags);
     buffer.SetStyle(buffer.GetRange(), overrideStyle);
   }
