@@ -57,10 +57,11 @@ bool LoadRichTextBufferFromString(wxRichTextBuffer &buffer,
     return true;
   wxStringInputStream richInput(content);
 #if defined(wxRICHTEXT_TYPE_RICHTEXT)
-  return buffer.LoadFile(richInput, wxRICHTEXT_TYPE_RICHTEXT);
-#else
-  return buffer.LoadFile(richInput, wxRICHTEXT_TYPE_TEXT);
+  if (buffer.LoadFile(richInput, wxRICHTEXT_TYPE_RICHTEXT))
+    return true;
 #endif
+  wxStringInputStream textInput(content);
+  return buffer.LoadFile(textInput, wxRICHTEXT_TYPE_TEXT);
 }
 
 wxString SaveRichTextBufferToString(wxRichTextBuffer &buffer) {
@@ -75,7 +76,7 @@ wxString SaveRichTextBufferToString(wxRichTextBuffer &buffer) {
   if (buffer.SaveFile(richOutput, wxRICHTEXT_TYPE_TEXT))
 #endif
     return richOutput.GetString();
-  return buffer.GetText();
+  return wxEmptyString;
 }
 
 wxImage RenderTextImage(const layouts::LayoutTextDefinition &text,
