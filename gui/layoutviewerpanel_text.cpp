@@ -22,6 +22,7 @@
 
 #include <GL/gl.h>
 
+#include <wx/log.h>
 #include <wx/richtext/richtextbuffer.h>
 
 #include "layouttextdialog.h"
@@ -109,10 +110,17 @@ void LayoutViewerPanel::OnEditText(wxCommandEvent &) {
     return;
   wxString updatedRichText = dialog.GetRichText();
   wxString updatedPlainText = dialog.GetPlainText();
+  const bool hadRichText = !text->richText.empty();
   wxScopedCharBuffer richBuf = updatedRichText.ToUTF8();
   wxScopedCharBuffer plainBuf = updatedPlainText.ToUTF8();
-  text->richText.assign(richBuf.data() ? richBuf.data() : "",
-                        richBuf.length());
+  if (updatedRichText.IsEmpty() && hadRichText) {
+    wxLogWarning(
+        "LayoutViewerPanel::OnEditText received empty rich text, "
+        "preserving previous rich text to avoid losing formatting.");
+  } else {
+    text->richText.assign(richBuf.data() ? richBuf.data() : "",
+                          richBuf.length());
+  }
   text->text.assign(plainBuf.data() ? plainBuf.data() : "",
                     plainBuf.length());
   text->solidBackground = dialog.GetSolidBackground();
