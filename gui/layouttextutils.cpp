@@ -106,8 +106,6 @@ wxString SaveRichTextBufferToString(wxRichTextBuffer &buffer) {
     return output;
 #if defined(wxRICHTEXT_TYPE_RICHTEXT)
   output = SaveBufferToUtf8(buffer, wxRICHTEXT_TYPE_RICHTEXT);
-#else
-  output = SaveBufferToUtf8(buffer, wxRICHTEXT_TYPE_TEXT);
 #endif
   if (!output.empty())
     return output;

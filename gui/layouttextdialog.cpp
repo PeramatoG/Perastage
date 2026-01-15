@@ -117,6 +117,7 @@ LayoutTextDialog::LayoutTextDialog(wxWindow *parent,
                                 wxTE_MULTILINE | wxTE_RICH2);
   wxFont sharedFont = layoutviewerpanel::detail::MakeSharedFont(
       layoutviewerpanel::detail::kTextDefaultFontSize, wxFONTWEIGHT_NORMAL);
+  sharedFont.SetEncoding(wxFONTENCODING_UTF8);
   wxRichTextAttr defaultStyle;
   if (sharedFont.IsOk()) {
     textCtrl->SetFont(sharedFont);
@@ -124,6 +125,7 @@ LayoutTextDialog::LayoutTextDialog(wxWindow *parent,
   }
   defaultStyle.SetTextColour(*wxBLACK);
   defaultStyle.SetFontEncoding(wxFONTENCODING_UTF8);
+  defaultStyle.SetFlags(defaultStyle.GetFlags() | wxTEXT_ATTR_FONT_ENCODING);
   textCtrl->SetDefaultStyle(defaultStyle);
   textCtrl->GetBuffer().SetDefaultStyle(defaultStyle);
   textCtrl->GetBuffer().SetBasicStyle(defaultStyle);
