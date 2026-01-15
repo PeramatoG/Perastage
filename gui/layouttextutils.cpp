@@ -129,6 +129,26 @@ wxImage RenderTextImage(const layouts::LayoutTextDefinition &text,
     }
   }
 
+  wxString plainText = buffer.GetText();
+  if (loaded && buffer.GetParagraphCount() <= 1 &&
+      plainText.Find('\n') != wxNOT_FOUND) {
+    wxRichTextBuffer normalized;
+    normalized.SetDefaultStyle(buffer.GetDefaultStyle());
+    wxString normalizedText = plainText;
+    normalizedText.Replace("\r\n", "\n");
+    normalizedText.Replace("\r", "\n");
+    wxStringTokenizer tokenizer(normalizedText, "\n", wxTOKEN_RET_EMPTY_ALL);
+    bool wroteParagraph = false;
+    while (tokenizer.HasMoreTokens()) {
+      normalized.AddParagraph(tokenizer.GetNextToken());
+      wroteParagraph = true;
+    }
+    if (!wroteParagraph) {
+      normalized.AddParagraph(wxString());
+    }
+    buffer = std::move(normalized);
+  }
+
   wxRichTextAttr baseStyle = buffer.GetDefaultStyle();
   wxString faceName = layoutviewerpanel::detail::ResolveSharedFontFaceName();
   if (!faceName.empty())
@@ -170,7 +190,8 @@ wxImage RenderTextImage(const layouts::LayoutTextDefinition &text,
   dc.SetUserScale(adjustedScale, adjustedScale);
   wxRichTextDrawingContext context(&buffer);
   wxRichTextSelection selection;
-  buffer.Layout(dc, context, logicalRect, logicalRect, wxRICHTEXT_FIXED_WIDTH);
+  buffer.Layout(dc, context, logicalRect, logicalRect,
+                wxRICHTEXT_FIXED_WIDTH | wxRICHTEXT_FIXED_HEIGHT);
   buffer.Draw(dc, context, buffer.GetRange(), selection, logicalRect, 0, 0);
 
   memoryDc.SelectObject(wxNullBitmap);
