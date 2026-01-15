@@ -93,6 +93,8 @@ wxImage RenderTextImage(const layouts::LayoutTextDefinition &text,
     return wxImage();
   }
 
+  EnsureRichTextHandlers();
+
   wxBitmap bitmap(renderSize.GetWidth(), renderSize.GetHeight(), 32);
   bitmap.UseAlpha();
   wxMemoryDC memoryDc(bitmap);
@@ -116,39 +118,27 @@ wxImage RenderTextImage(const layouts::LayoutTextDefinition &text,
     wxString fallback =
         text.text.empty() ? wxString("Light Plot")
                           : wxString::FromUTF8(text.text);
-    wxString normalized = fallback;
-    normalized.Replace("\r\n", "\n");
-    normalized.Replace("\r", "\n");
-    wxStringTokenizer tokenizer(normalized, "\n", wxTOKEN_RET_EMPTY_ALL);
-    bool wroteParagraph = false;
-    while (tokenizer.HasMoreTokens()) {
-      buffer.AddParagraph(tokenizer.GetNextToken());
-      wroteParagraph = true;
-    }
-    if (!wroteParagraph) {
-      buffer.AddParagraph(wxString());
-    }
+    buffer.AddParagraph(fallback);
   }
 
   wxString plainText = buffer.GetText();
-  if (loaded && buffer.GetParagraphCount() <= 1 &&
+  if (buffer.GetParagraphCount() <= 1 &&
       (plainText.Find('\n') != wxNOT_FOUND ||
        plainText.Find('\r') != wxNOT_FOUND)) {
-    wxRichTextBuffer normalized;
-    normalized.SetDefaultStyle(buffer.GetDefaultStyle());
-    wxString normalizedText = plainText;
-    normalizedText.Replace("\r\n", "\n");
-    normalizedText.Replace("\r", "\n");
-    wxStringTokenizer tokenizer(normalizedText, "\n", wxTOKEN_RET_EMPTY_ALL);
-    bool wroteParagraph = false;
-    while (tokenizer.HasMoreTokens()) {
-      normalized.AddParagraph(tokenizer.GetNextToken());
-      wroteParagraph = true;
+    for (long i = static_cast<long>(plainText.length()) - 1; i >= 0; --i) {
+      if (plainText[i] == '\n') {
+        long deleteStart = i;
+        if (i > 0 && plainText[i - 1] == '\r') {
+          deleteStart = i - 1;
+          --i;
+        }
+        buffer.DeleteRange(wxRichTextRange(deleteStart, i));
+        buffer.InsertNewlineWithUndo(deleteStart, nullptr);
+      } else if (plainText[i] == '\r') {
+        buffer.DeleteRange(wxRichTextRange(i, i));
+        buffer.InsertNewlineWithUndo(i, nullptr);
+      }
     }
-    if (!wroteParagraph) {
-      normalized.AddParagraph(wxString());
-    }
-    buffer = std::move(normalized);
   }
 
   wxRichTextAttr baseStyle = buffer.GetDefaultStyle();
@@ -156,7 +146,7 @@ wxImage RenderTextImage(const layouts::LayoutTextDefinition &text,
   if (!faceName.empty())
     baseStyle.SetFontFaceName(faceName);
   baseStyle.SetTextColour(*wxBLACK);
-  baseStyle.SetFontEncoding(wxFONTENCODING_UTF8);
+  baseStyle.SetFontEncoding(wxFONTENCODING_DEFAULT);
   baseStyle.SetFontFamily(wxFONTFAMILY_SWISS);
   baseStyle.SetParagraphSpacingBefore(0);
   baseStyle.SetParagraphSpacingAfter(0);
@@ -175,7 +165,7 @@ wxImage RenderTextImage(const layouts::LayoutTextDefinition &text,
       flags |= wxTEXT_ATTR_FONT_FACE;
     }
     overrideStyle.SetTextColour(*wxBLACK);
-    overrideStyle.SetFontEncoding(wxFONTENCODING_UTF8);
+    overrideStyle.SetFontEncoding(wxFONTENCODING_DEFAULT);
     overrideStyle.SetParagraphSpacingBefore(0);
     overrideStyle.SetParagraphSpacingAfter(0);
     overrideStyle.SetFlags(flags);

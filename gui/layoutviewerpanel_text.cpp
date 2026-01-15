@@ -103,8 +103,14 @@ void LayoutViewerPanel::OnEditText(wxCommandEvent &) {
                           text->drawFrame);
   if (dialog.ShowModal() != wxID_OK)
     return;
-  text->richText = dialog.GetRichText().ToUTF8().data();
-  text->text = dialog.GetPlainText().ToUTF8().data();
+  wxString updatedRichText = dialog.GetRichText();
+  wxString updatedPlainText = dialog.GetPlainText();
+  if (updatedRichText.empty() && !updatedPlainText.empty()) {
+    updatedRichText = "<richtext><paragraph>" + updatedPlainText +
+                      "</paragraph></richtext>";
+  }
+  text->richText = updatedRichText.ToUTF8().data();
+  text->text = updatedPlainText.ToUTF8().data();
   text->solidBackground = dialog.GetSolidBackground();
   text->drawFrame = dialog.GetDrawFrame();
   if (!currentLayout.name.empty()) {
