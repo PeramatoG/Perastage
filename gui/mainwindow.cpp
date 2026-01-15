@@ -198,7 +198,8 @@ LayoutTextExportData BuildLayoutTextExportData(
   wxStringTokenizer tokenizer(plainText, "\n", wxTOKEN_RET_EMPTY_ALL);
   bool wroteLine = false;
   while (tokenizer.HasMoreTokens()) {
-    data.lines.push_back(tokenizer.GetNextToken().ToStdString());
+    wxCharBuffer utf8 = tokenizer.GetNextToken().ToUTF8();
+    data.lines.emplace_back(utf8.data() ? utf8.data() : "");
     wroteLine = true;
   }
   if (!wroteLine)

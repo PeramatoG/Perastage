@@ -19,9 +19,11 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstring>
 
 #include <wx/dcgraph.h>
 #include <wx/dcmemory.h>
+#include <wx/mstream.h>
 #include <wx/richtext/richtextbuffer.h>
 #include <wx/sstream.h>
 #include <wx/tokenzr.h>
@@ -38,6 +40,32 @@
 
 namespace layouttext {
 namespace {
+bool LoadBufferFromUtf8(wxRichTextBuffer &buffer, const wxString &content,
+                        int format) {
+  wxCharBuffer utf8 = content.ToUTF8();
+  const char *data = utf8.data();
+  if (!data)
+    return false;
+  const size_t size = std::strlen(data);
+  wxMemoryInputStream input(data, size);
+  return buffer.LoadFile(input, format);
+}
+
+wxString SaveBufferToUtf8(wxRichTextBuffer &buffer, int format) {
+  wxMemoryOutputStream output;
+  if (!buffer.SaveFile(output, format))
+    return wxEmptyString;
+  const size_t size = output.GetSize();
+  if (size == 0)
+    return wxEmptyString;
+  wxStreamBuffer *streamBuffer = output.GetOutputStreamBuffer();
+  if (!streamBuffer)
+    return wxEmptyString;
+  const char *data =
+      static_cast<const char *>(streamBuffer->GetBufferStart());
+  return wxString::FromUTF8(data, size);
+}
+
 void EnsureRichTextHandlers() {
   static bool initialized = false;
   if (initialized)
@@ -52,30 +80,27 @@ bool LoadRichTextBufferFromString(wxRichTextBuffer &buffer,
   if (content.empty())
     return false;
   EnsureRichTextHandlers();
-  wxStringInputStream xmlInput(content);
-  if (buffer.LoadFile(xmlInput, wxRICHTEXT_TYPE_XML))
+  if (LoadBufferFromUtf8(buffer, content, wxRICHTEXT_TYPE_XML))
     return true;
-  wxStringInputStream richInput(content);
 #if defined(wxRICHTEXT_TYPE_RICHTEXT)
-  if (buffer.LoadFile(richInput, wxRICHTEXT_TYPE_RICHTEXT))
+  if (LoadBufferFromUtf8(buffer, content, wxRICHTEXT_TYPE_RICHTEXT))
     return true;
 #endif
-  wxStringInputStream textInput(content);
-  return buffer.LoadFile(textInput, wxRICHTEXT_TYPE_TEXT);
+  return LoadBufferFromUtf8(buffer, content, wxRICHTEXT_TYPE_TEXT);
 }
 
 wxString SaveRichTextBufferToString(wxRichTextBuffer &buffer) {
   EnsureRichTextHandlers();
-  wxStringOutputStream output;
-  if (buffer.SaveFile(output, wxRICHTEXT_TYPE_XML))
-    return output.GetString();
-  wxStringOutputStream richOutput;
+  wxString output = SaveBufferToUtf8(buffer, wxRICHTEXT_TYPE_XML);
+  if (!output.empty())
+    return output;
 #if defined(wxRICHTEXT_TYPE_RICHTEXT)
-  if (buffer.SaveFile(richOutput, wxRICHTEXT_TYPE_RICHTEXT))
+  output = SaveBufferToUtf8(buffer, wxRICHTEXT_TYPE_RICHTEXT);
 #else
-  if (buffer.SaveFile(richOutput, wxRICHTEXT_TYPE_TEXT))
+  output = SaveBufferToUtf8(buffer, wxRICHTEXT_TYPE_TEXT);
 #endif
-    return richOutput.GetString();
+  if (!output.empty())
+    return output;
   return wxEmptyString;
 }
 
