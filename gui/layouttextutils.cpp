@@ -143,17 +143,16 @@ wxImage RenderTextImage(const layouts::LayoutTextDefinition &text,
 
   wxRichTextBuffer buffer;
   bool loaded = false;
+  wxString fallbackText;
   if (!text.richText.empty()) {
     loaded = LoadRichTextBufferFromString(
         buffer, wxString::FromUTF8(text.richText.data(),
                                    text.richText.size()));
   }
   if (!loaded) {
-    wxString fallback =
-        text.text.empty() ? wxString("Light Plot")
-                          : wxString::FromUTF8(text.text.data(),
-                                               text.text.size());
-    buffer.AddParagraph(fallback);
+    fallbackText = text.text.empty() ? wxString("Light Plot")
+                                     : wxString::FromUTF8(text.text.data(),
+                                                          text.text.size());
   }
 
   wxRichTextAttr baseStyle = buffer.GetDefaultStyle();
@@ -170,10 +169,8 @@ wxImage RenderTextImage(const layouts::LayoutTextDefinition &text,
   buffer.SetDefaultStyle(baseStyle);
   buffer.SetBasicStyle(baseStyle);
 
-  wxString plainText = buffer.GetText();
-  if (buffer.GetParagraphCount() <= 1 &&
-      (plainText.Find('\n') != wxNOT_FOUND ||
-       plainText.Find('\r') != wxNOT_FOUND)) {
+  if (!loaded) {
+    wxString plainText = fallbackText;
     plainText.Replace("\r\n", "\n");
     plainText.Replace("\r", "\n");
     buffer.Clear();
