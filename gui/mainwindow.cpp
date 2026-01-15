@@ -154,7 +154,8 @@ LayoutTextExportData BuildLayoutTextExportData(
   bool loaded = false;
   if (!text.richText.empty()) {
     loaded = layouttext::LoadRichTextBufferFromString(
-        buffer, wxString::FromUTF8(text.richText));
+        buffer, wxString::FromUTF8(text.richText.data(),
+                                   text.richText.size()));
   }
 
   wxString plainText;
@@ -163,7 +164,8 @@ LayoutTextExportData BuildLayoutTextExportData(
   }
   if (plainText.empty()) {
     plainText = text.text.empty() ? wxString("Light Plot")
-                                  : wxString::FromUTF8(text.text);
+                                  : wxString::FromUTF8(text.text.data(),
+                                                       text.text.size());
   }
   plainText.Replace("\r\n", "\n");
   plainText.Replace("\r", "\n");

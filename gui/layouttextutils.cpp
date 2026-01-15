@@ -46,7 +46,9 @@ bool LoadBufferFromUtf8(wxRichTextBuffer &buffer, const wxString &content,
   const char *data = utf8.data();
   if (!data)
     return false;
-  const size_t size = std::strlen(data);
+  const size_t size = utf8.length();
+  if (size == 0)
+    return false;
   wxMemoryInputStream input(data, size);
   wxRichTextFileHandler *handler =
       wxRichTextBuffer::FindHandler(static_cast<wxRichTextFileType>(format));
@@ -145,12 +147,14 @@ wxImage RenderTextImage(const layouts::LayoutTextDefinition &text,
   bool loaded = false;
   if (!text.richText.empty()) {
     loaded = LoadRichTextBufferFromString(
-        buffer, wxString::FromUTF8(text.richText));
+        buffer, wxString::FromUTF8(text.richText.data(),
+                                   text.richText.size()));
   }
   if (!loaded) {
     wxString fallback =
         text.text.empty() ? wxString("Light Plot")
-                          : wxString::FromUTF8(text.text);
+                          : wxString::FromUTF8(text.text.data(),
+                                               text.text.size());
     buffer.AddParagraph(fallback);
   }
 
