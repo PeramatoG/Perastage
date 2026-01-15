@@ -191,8 +191,6 @@ void LayoutTextDialog::ApplyDefaultFontStyle() {
                         wxFONTFAMILY_SWISS, wxFONTSTYLE_NORMAL,
                         wxFONTWEIGHT_NORMAL, false, "Arial");
   }
-  sharedFont.SetEncoding(wxFONTENCODING_UTF8);
-
   wxRichTextAttr defaultStyle = textCtrl->GetDefaultStyle();
   if (sharedFont.IsOk()) {
     textCtrl->SetFont(sharedFont);
@@ -200,10 +198,8 @@ void LayoutTextDialog::ApplyDefaultFontStyle() {
     defaultStyle.SetFontFaceName(sharedFont.GetFaceName());
   }
   defaultStyle.SetTextColour(*wxBLACK);
-  defaultStyle.SetFontEncoding(wxFONTENCODING_UTF8);
   defaultStyle.SetFontFamily(wxFONTFAMILY_SWISS);
-  defaultStyle.SetFlags(defaultStyle.GetFlags() | wxTEXT_ATTR_FONT_ENCODING |
-                        wxTEXT_ATTR_FONT_FAMILY);
+  defaultStyle.SetFlags(defaultStyle.GetFlags() | wxTEXT_ATTR_FONT_FAMILY);
   if (sharedFont.IsOk()) {
     defaultStyle.SetFlags(defaultStyle.GetFlags() | wxTEXT_ATTR_FONT_FACE);
   }
@@ -216,10 +212,8 @@ void LayoutTextDialog::ApplyDefaultFontStyle() {
     return;
   wxRichTextAttr overrideStyle;
   overrideStyle.SetTextColour(*wxBLACK);
-  overrideStyle.SetFontEncoding(wxFONTENCODING_UTF8);
   overrideStyle.SetFontFamily(wxFONTFAMILY_SWISS);
-  long flags = wxTEXT_ATTR_TEXT_COLOUR | wxTEXT_ATTR_FONT_ENCODING |
-               wxTEXT_ATTR_FONT_FAMILY;
+  long flags = wxTEXT_ATTR_TEXT_COLOUR | wxTEXT_ATTR_FONT_FAMILY;
   if (sharedFont.IsOk()) {
     overrideStyle.SetFont(sharedFont);
     overrideStyle.SetFontFaceName(sharedFont.GetFaceName());
