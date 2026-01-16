@@ -336,6 +336,16 @@ static void DrawText2D(NVGcontext *vg, int font, const std::string &text, int x,
   if (!vg || font < 0 || text.empty())
     return;
 
+  std::string normalizedText = text;
+  size_t pos = 0;
+  while ((pos = normalizedText.find("\r\n", pos)) != std::string::npos) {
+    normalizedText.replace(pos, 2, "\n");
+  }
+  for (char &ch : normalizedText) {
+    if (ch == '\r')
+      ch = '\n';
+  }
+
   GLint vp[4];
   glGetIntegerv(GL_VIEWPORT, vp);
 
@@ -353,9 +363,9 @@ static void DrawText2D(NVGcontext *vg, int font, const std::string &text, int x,
 
   float textWidth = 0.0f;
   size_t start = 0;
-  while (start <= text.size()) {
-    size_t end = text.find('\n', start);
-    std::string line = text.substr(start, end - start);
+  while (start <= normalizedText.size()) {
+    size_t end = normalizedText.find('\n', start);
+    std::string line = normalizedText.substr(start, end - start);
     float lb[4];
     nvgTextBounds(vg, 0.f, 0.f, line.c_str(), nullptr, lb);
     textWidth = std::max(textWidth, lb[2] - lb[0]);
@@ -371,8 +381,8 @@ static void DrawText2D(NVGcontext *vg, int font, const std::string &text, int x,
   // and width that will be used when rendering it. This ensures the
   // background rectangle matches the visual position of the text.
   float bounds[4];
-  nvgTextBoxBounds(vg, (float)x, (float)y, textWidth, text.c_str(), nullptr,
-                   bounds);
+  nvgTextBoxBounds(vg, (float)x, (float)y, textWidth,
+                   normalizedText.c_str(), nullptr, bounds);
 
   if (drawBackground) {
     nvgBeginPath(vg);
@@ -395,7 +405,8 @@ static void DrawText2D(NVGcontext *vg, int font, const std::string &text, int x,
 
   nvgFillColor(vg, textColor);
   // Draw multi-line label using textWidth to avoid excessive empty space.
-  nvgTextBox(vg, (float)x, (float)y, textWidth, text.c_str(), nullptr);
+  nvgTextBox(vg, (float)x, (float)y, textWidth, normalizedText.c_str(),
+             nullptr);
   nvgRestore(vg);
   nvgEndFrame(vg);
 }
