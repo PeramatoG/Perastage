@@ -242,6 +242,14 @@ wxImage RenderTextImage(const layouts::LayoutTextDefinition &text,
     wxString plainText = buffer.GetText();
     plainText.Replace("\r\n", "\n");
     plainText.Replace("\r", "\n");
+    if (plainText.Find('\n') == wxNOT_FOUND && !text.text.empty()) {
+      wxString fallbackPlain =
+          wxString::FromUTF8(text.text.data(), text.text.size());
+      fallbackPlain.Replace("\r\n", "\n");
+      fallbackPlain.Replace("\r", "\n");
+      if (fallbackPlain.Find('\n') != wxNOT_FOUND)
+        plainText = fallbackPlain;
+    }
     if (plainText.Find('\n') != wxNOT_FOUND) {
       wxRichTextAttr firstStyle;
       if (buffer.GetRange().GetLength() > 0) {
