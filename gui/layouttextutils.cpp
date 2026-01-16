@@ -264,12 +264,15 @@ wxImage RenderTextImage(const layouts::LayoutTextDefinition &text,
 
   if (loaded && buffer.GetParagraphCount() == 1) {
     wxString plainText = normalizeNewlines(buffer.GetText());
-    if (plainText.Find('\n') == wxNOT_FOUND && !text.text.empty()) {
-      wxString fallbackPlain =
+    wxString fallbackPlain;
+    if (!text.text.empty()) {
+      fallbackPlain =
           normalizeNewlines(wxString::FromUTF8(text.text.data(),
                                                text.text.size()));
-      if (fallbackPlain.Find('\n') != wxNOT_FOUND)
-        plainText = fallbackPlain;
+    }
+    if (plainText.Find('\n') == wxNOT_FOUND &&
+        fallbackPlain.Find('\n') != wxNOT_FOUND) {
+      plainText = fallbackPlain;
     }
     if (plainText.Find('\n') != wxNOT_FOUND) {
       wxRichTextAttr firstStyle;
