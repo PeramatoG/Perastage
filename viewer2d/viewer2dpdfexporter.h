@@ -88,7 +88,16 @@ struct LayoutTextExportData {
   int fontSize = 12;
   bool bold = false;
   bool italic = false;
-  std::vector<std::string> lines;
+  struct Run {
+    std::string text;
+    int fontSize = 12;
+    bool bold = false;
+    bool italic = false;
+  };
+  struct Line {
+    std::vector<Run> runs;
+  };
+  std::vector<Line> lines;
 };
 
 // Writes the captured 2D drawing commands to a vector PDF that mirrors the

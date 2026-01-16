@@ -198,14 +198,81 @@ LayoutTextExportData BuildLayoutTextExportData(
   }
 
   wxStringTokenizer tokenizer(plainText, "\n", wxTOKEN_RET_EMPTY_ALL);
-  bool wroteLine = false;
-  while (tokenizer.HasMoreTokens()) {
-    wxCharBuffer utf8 = tokenizer.GetNextToken().ToUTF8();
-    data.lines.emplace_back(utf8.data() ? utf8.data() : "");
-    wroteLine = true;
+  if (loaded) {
+    wxString content = buffer.GetText();
+    if (content.empty()) {
+      content = plainText;
+    }
+    const size_t length = static_cast<size_t>(content.length());
+    LayoutTextExportData::Line currentLine;
+    LayoutTextExportData::Run currentRun;
+    bool hasRun = false;
+    auto finalizeRun = [&]() {
+      if (!hasRun)
+        return;
+      if (!currentRun.text.empty()) {
+        currentLine.runs.push_back(std::move(currentRun));
+      }
+      currentRun = LayoutTextExportData::Run{};
+      hasRun = false;
+    };
+    auto finalizeLine = [&]() {
+      finalizeRun();
+      data.lines.push_back(currentLine);
+      currentLine = LayoutTextExportData::Line{};
+    };
+    for (size_t i = 0; i < length; ++i) {
+      const wxChar ch = content[i];
+      if (ch == '\r')
+        continue;
+      if (ch == '\n') {
+        finalizeLine();
+        continue;
+      }
+      wxRichTextAttr runStyle;
+      if (!buffer.GetStyle(static_cast<long>(i), runStyle)) {
+        runStyle = buffer.GetDefaultStyle();
+      }
+      const int runFontSize =
+          runStyle.GetFontSize() > 0
+              ? runStyle.GetFontSize()
+              : layoutviewerpanel::detail::kTextDefaultFontSize;
+      const bool runBold =
+          runStyle.GetFontWeight() >= wxFONTWEIGHT_BOLD;
+      const bool runItalic =
+          runStyle.GetFontStyle() == wxFONTSTYLE_ITALIC ||
+          runStyle.GetFontStyle() == wxFONTSTYLE_SLANT;
+      if (!hasRun || currentRun.fontSize != runFontSize ||
+          currentRun.bold != runBold || currentRun.italic != runItalic) {
+        finalizeRun();
+        currentRun.fontSize = runFontSize;
+        currentRun.bold = runBold;
+        currentRun.italic = runItalic;
+        hasRun = true;
+      }
+      wxCharBuffer utf8 = wxString(ch).ToUTF8();
+      if (utf8.data())
+        currentRun.text.append(utf8.data(), utf8.length());
+    }
+    finalizeLine();
+  } else {
+    bool wroteLine = false;
+    while (tokenizer.HasMoreTokens()) {
+      wxCharBuffer utf8 = tokenizer.GetNextToken().ToUTF8();
+      LayoutTextExportData::Line line;
+      LayoutTextExportData::Run run;
+      run.text = utf8.data() ? utf8.data() : "";
+      run.fontSize = data.fontSize;
+      run.bold = data.bold;
+      run.italic = data.italic;
+      line.runs.push_back(std::move(run));
+      data.lines.push_back(std::move(line));
+      wroteLine = true;
+    }
+    if (!wroteLine) {
+      data.lines.emplace_back();
+    }
   }
-  if (!wroteLine)
-    data.lines.emplace_back();
   return data;
 }
 

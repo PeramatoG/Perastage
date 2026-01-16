@@ -135,6 +135,110 @@ double MeasureTextWidth(const std::string &text, double fontSize,
   return (units / font->metrics.unitsPerEm) * fontSize;
 }
 
+unsigned char EncodeWinAnsiCodepoint(uint32_t codepoint) {
+  if (codepoint == '\n' || codepoint == '\r' || codepoint == '\t')
+    return static_cast<unsigned char>(codepoint);
+  if (codepoint <= 0x7F)
+    return static_cast<unsigned char>(codepoint);
+  if (codepoint >= 0xA0 && codepoint <= 0xFF)
+    return static_cast<unsigned char>(codepoint);
+  switch (codepoint) {
+  case 0x20AC:
+    return 0x80;
+  case 0x201A:
+    return 0x82;
+  case 0x0192:
+    return 0x83;
+  case 0x201E:
+    return 0x84;
+  case 0x2026:
+    return 0x85;
+  case 0x2020:
+    return 0x86;
+  case 0x2021:
+    return 0x87;
+  case 0x02C6:
+    return 0x88;
+  case 0x2030:
+    return 0x89;
+  case 0x0160:
+    return 0x8A;
+  case 0x2039:
+    return 0x8B;
+  case 0x0152:
+    return 0x8C;
+  case 0x017D:
+    return 0x8E;
+  case 0x2018:
+    return 0x91;
+  case 0x2019:
+    return 0x92;
+  case 0x201C:
+    return 0x93;
+  case 0x201D:
+    return 0x94;
+  case 0x2022:
+    return 0x95;
+  case 0x2013:
+    return 0x96;
+  case 0x2014:
+    return 0x97;
+  case 0x02DC:
+    return 0x98;
+  case 0x2122:
+    return 0x99;
+  case 0x0161:
+    return 0x9A;
+  case 0x203A:
+    return 0x9B;
+  case 0x0153:
+    return 0x9C;
+  case 0x017E:
+    return 0x9E;
+  case 0x0178:
+    return 0x9F;
+  default:
+    return '?';
+  }
+}
+
+std::string EncodeWinAnsi(const std::string &utf8) {
+  std::string out;
+  out.reserve(utf8.size());
+  size_t i = 0;
+  while (i < utf8.size()) {
+    unsigned char lead = static_cast<unsigned char>(utf8[i]);
+    uint32_t codepoint = 0;
+    size_t length = 0;
+    if (lead < 0x80) {
+      codepoint = lead;
+      length = 1;
+    } else if ((lead >> 5) == 0x6 && i + 1 < utf8.size()) {
+      codepoint = ((lead & 0x1F) << 6) |
+                  (static_cast<unsigned char>(utf8[i + 1]) & 0x3F);
+      length = 2;
+    } else if ((lead >> 4) == 0xE && i + 2 < utf8.size()) {
+      codepoint = ((lead & 0x0F) << 12) |
+                  ((static_cast<unsigned char>(utf8[i + 1]) & 0x3F) << 6) |
+                  (static_cast<unsigned char>(utf8[i + 2]) & 0x3F);
+      length = 3;
+    } else if ((lead >> 3) == 0x1E && i + 3 < utf8.size()) {
+      codepoint = ((lead & 0x07) << 18) |
+                  ((static_cast<unsigned char>(utf8[i + 1]) & 0x3F) << 12) |
+                  ((static_cast<unsigned char>(utf8[i + 2]) & 0x3F) << 6) |
+                  (static_cast<unsigned char>(utf8[i + 3]) & 0x3F);
+      length = 4;
+    } else {
+      out.push_back('?');
+      ++i;
+      continue;
+    }
+    out.push_back(static_cast<char>(EncodeWinAnsiCodepoint(codepoint)));
+    i += length;
+  }
+  return out;
+}
+
 bool ReadFileToString(const std::filesystem::path &path, std::string &out) {
   std::ifstream file(path, std::ios::binary);
   if (!file.is_open())
@@ -712,6 +816,7 @@ void AppendText(std::ostringstream &out, const FloatFormatter &fmt,
                 const Point &pos, const TextCommand &cmd,
                 const CanvasTextStyle &style, double scale,
                 const PdfFontCatalog *fonts) {
+  const std::string encodedText = EncodeWinAnsi(cmd.text);
   const PdfFontDefinition *font =
       fonts ? fonts->Resolve(style.fontFamily) : nullptr;
   double scaledFontSize = style.fontSize * scale;
@@ -763,12 +868,12 @@ void AppendText(std::ostringstream &out, const FloatFormatter &fmt,
 
   double maxLineWidth = 0.0;
   size_t lineStart = 0;
-  for (size_t i = 0; i <= cmd.text.size(); ++i) {
-    if (i == cmd.text.size() || cmd.text[i] == '\n') {
+  for (size_t i = 0; i <= encodedText.size(); ++i) {
+    if (i == encodedText.size() || encodedText[i] == '\n') {
       maxLineWidth = std::max(
           maxLineWidth,
-          measureLineWidth(std::string_view(cmd.text).substr(lineStart,
-                                                              i - lineStart)));
+          measureLineWidth(std::string_view(encodedText)
+                               .substr(lineStart, i - lineStart)));
       lineStart = i + 1;
     }
   }
@@ -812,7 +917,7 @@ void AppendText(std::ostringstream &out, const FloatFormatter &fmt,
     out << fmt.Format(pos.x + horizontalOffset + dx) << ' '
         << fmt.Format(pos.y + verticalOffset + dy) << " Td\n";
     out << "(";
-    for (char ch : cmd.text) {
+    for (char ch : encodedText) {
       if (ch == '(' || ch == ')' || ch == '\\')
         out << '\\';
       if (ch == '\n') {
@@ -1846,6 +1951,9 @@ Viewer2DExportResult ExportLayoutToPdf(
   }
 
   std::ostringstream contentStream;
+  auto encodeText = [&](const std::string &text) {
+    return EncodeWinAnsi(text);
+  };
   auto escapeText = [](const std::string &text) {
     std::string escaped;
     escaped.reserve(text.size());
@@ -2068,6 +2176,7 @@ Viewer2DExportResult ExportLayoutToPdf(
     }
   }
 
+
   struct LayoutRenderElement {
     enum class Type { View, Legend, EventTable, Text };
     Type type = Type::View;
@@ -2279,11 +2388,11 @@ Viewer2DExportResult ExportLayoutToPdf(
     double rowTop = frameY + frameH - paddingTop - contentGap;
     // Use a bold PDF font for legend headers to keep emphasis consistent with
     // the UI and avoid diverging header styling between PDF and on-screen views.
-    appendText(xCount, rowTop - textOffset - fontSize, "Count", "F2", 0.08,
+    appendText(xCount, rowTop - textOffset - fontSize, encodeText("Count"), "F2", 0.08,
                0.08, 0.08);
-    appendText(xType, rowTop - textOffset - fontSize, "Type", "F2", 0.08, 0.08,
+    appendText(xType, rowTop - textOffset - fontSize, encodeText("Type"), "F2", 0.08, 0.08,
                0.08);
-    appendText(xCh, rowTop - textOffset - fontSize, "Ch", "F2", 0.08,
+    appendText(xCh, rowTop - textOffset - fontSize, encodeText("Ch"), "F2", 0.08,
                0.08, 0.08);
 
     const double separatorY = rowTop - rowHeight;
@@ -2298,12 +2407,12 @@ Viewer2DExportResult ExportLayoutToPdf(
     for (const auto &item : legend.items) {
       if (rowTop - rowHeight < frameY + paddingBottom)
         break;
-      const std::string countText = std::to_string(item.count);
+      const std::string countText = encodeText(std::to_string(item.count));
       std::string typeText =
-          trimTextToWidth(item.typeName, typeWidth, fontSize,
+          trimTextToWidth(encodeText(item.typeName), typeWidth, fontSize,
                           fontCatalog.regular);
       std::string chText =
-          item.channelCount ? std::to_string(*item.channelCount) : "-";
+          encodeText(item.channelCount ? std::to_string(*item.channelCount) : "-");
       if (!item.symbolKey.empty()) {
         const SymbolDefinitionSnapshot *legendSymbols =
             legend.symbolSnapshot ? legend.symbolSnapshot.get()
@@ -2456,11 +2565,12 @@ Viewer2DExportResult ExportLayoutToPdf(
     for (size_t row = 0; row < totalRows; ++row) {
       const double rowTop = frameY + frameH - paddingTop - row * rowHeight;
       appendText(labelX, rowTop - textOffset - fontSize,
-                 kEventTableLabels[row], "F2", fontSize, 0.08, 0.08, 0.08);
+                 encodeText(kEventTableLabels[row]), "F2", fontSize, 0.08,
+                 0.08, 0.08);
 
       std::string valueText;
       if (row < table.fields.size())
-        valueText = table.fields[row];
+        valueText = encodeText(table.fields[row]);
       const double valueFontSize =
           row == 0 ? emphasizedFontSize : fontSize;
       const char *valueFontKey = row == 0 ? "F2" : "F1";
@@ -2500,23 +2610,13 @@ Viewer2DExportResult ExportLayoutToPdf(
     }
 
     const double padding = 4.0;
-    const double availableW = std::max(0.0, frameW - padding * 2.0);
     const double availableH = std::max(0.0, frameH - padding * 2.0);
-    const double fontSize =
-        text.fontSize > 0 ? static_cast<double>(text.fontSize) : 12.0;
-    const double lineHeight = fontSize * 1.2;
-    const size_t maxLines =
-        lineHeight > 0.0
-            ? static_cast<size_t>(std::floor(availableH / lineHeight))
-            : 0;
-    const char *fontKey = text.bold ? "F2" : "F1";
-    const PdfFontDefinition *font =
-        text.bold ? fontCatalog.bold : fontCatalog.regular;
     constexpr double kItalicSkew = 0.2;
-    auto appendTextLine = [&](double x, double y, const std::string &line) {
-      contentStream << "BT\n/" << fontKey << ' '
-                    << formatter.Format(fontSize) << " Tf\n0 0 0 rg\n";
-      if (text.italic) {
+    auto appendTextRun = [&](double x, double y, const std::string &line,
+                             const char *fontKey, double size, bool italic) {
+      contentStream << "BT\n/" << fontKey << ' ' << formatter.Format(size)
+                    << " Tf\n0 0 0 rg\n";
+      if (italic) {
         contentStream << "1 0 " << formatter.Format(kItalicSkew) << " 1 "
                       << formatter.Format(x) << ' ' << formatter.Format(y)
                       << " Tm\n(" << escapeText(line) << ") Tj\nET\n";
@@ -2526,21 +2626,51 @@ Viewer2DExportResult ExportLayoutToPdf(
                     << " Td\n(" << escapeText(line) << ") Tj\nET\n";
     };
 
-    size_t lineIndex = 0;
+    double usedHeight = 0.0;
     for (const auto &line : text.lines) {
-      if (maxLines > 0 && lineIndex >= maxLines)
+      double lineFontSize =
+          text.fontSize > 0 ? static_cast<double>(text.fontSize) : 12.0;
+      for (const auto &run : line.runs) {
+        const double runSize =
+            run.fontSize > 0 ? static_cast<double>(run.fontSize) : lineFontSize;
+        lineFontSize = std::max(lineFontSize, runSize);
+      }
+      const double lineHeight = lineFontSize * 1.2;
+      if (usedHeight + lineHeight > availableH && usedHeight > 0.0)
         break;
-      const double lineWidth = MeasureTextWidth(line, fontSize, font);
+      double lineWidth = 0.0;
+      for (const auto &run : line.runs) {
+        const double runSize =
+            run.fontSize > 0 ? static_cast<double>(run.fontSize) : lineFontSize;
+        const PdfFontDefinition *font =
+            run.bold ? fontCatalog.bold : fontCatalog.regular;
+        const std::string encoded = encodeText(run.text);
+        lineWidth += MeasureTextWidth(encoded, runSize, font);
+      }
       double x = frameX + padding;
       if (text.alignment == LayoutTextExportData::Alignment::Center) {
         x = frameX + std::max(0.0, (frameW - lineWidth) * 0.5);
       } else if (text.alignment == LayoutTextExportData::Alignment::Right) {
         x = frameX + frameW - padding - lineWidth;
       }
-      const double y =
-          frameY + frameH - padding - fontSize - lineIndex * lineHeight;
-      appendTextLine(x, y, line);
-      ++lineIndex;
+      const double y = frameY + frameH - padding - usedHeight - lineFontSize;
+      double cursorX = x;
+      if (line.runs.empty()) {
+        usedHeight += lineHeight;
+        continue;
+      }
+      for (const auto &run : line.runs) {
+        const double runSize =
+            run.fontSize > 0 ? static_cast<double>(run.fontSize) : lineFontSize;
+        const char *fontKey = run.bold ? "F2" : "F1";
+        const PdfFontDefinition *font =
+            run.bold ? fontCatalog.bold : fontCatalog.regular;
+        const std::string encoded = encodeText(run.text);
+        const double runWidth = MeasureTextWidth(encoded, runSize, font);
+        appendTextRun(cursorX, y, encoded, fontKey, runSize, run.italic);
+        cursorX += runWidth;
+      }
+      usedHeight += lineHeight;
     }
     contentStream << "Q\n";
 
