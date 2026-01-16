@@ -262,23 +262,26 @@ wxImage RenderTextImage(const layouts::LayoutTextDefinition &text,
     }
   };
 
-  if (loaded && buffer.GetParagraphCount() == 1) {
-    wxString plainText = normalizeNewlines(buffer.GetText());
+  if (loaded) {
+    wxString bufferPlain = normalizeNewlines(buffer.GetText());
     wxString fallbackPlain;
     if (!text.text.empty()) {
       fallbackPlain =
           normalizeNewlines(wxString::FromUTF8(text.text.data(),
                                                text.text.size()));
     }
-    if (plainText.Find('\n') == wxNOT_FOUND &&
+    wxString candidatePlain = bufferPlain;
+    if (candidatePlain.Find('\n') == wxNOT_FOUND &&
         fallbackPlain.Find('\n') != wxNOT_FOUND) {
-      plainText = fallbackPlain;
+      candidatePlain = fallbackPlain;
     }
-    if (plainText.Find('\n') != wxNOT_FOUND) {
+    if (candidatePlain.Find('\n') != wxNOT_FOUND &&
+        (buffer.GetParagraphCount() <= 1 || candidatePlain != bufferPlain)) {
       wxRichTextAttr firstStyle;
       const bool hasStyle = buffer.GetRange().GetLength() > 0 &&
                             buffer.GetStyle(0, firstStyle);
-      rebuildBufferFromPlainText(plainText, hasStyle ? &firstStyle : nullptr);
+      rebuildBufferFromPlainText(candidatePlain,
+                                 hasStyle ? &firstStyle : nullptr);
     }
   }
 
