@@ -56,9 +56,7 @@ wxFont MakeRenderFont(int sizePx, bool bold, bool italic,
   } else {
     font = wxFont(sizePx, wxFONTFAMILY_SWISS, style, weight);
   }
-  if (wxFontEnumerator::IsValidEncoding(wxFONTENCODING_UTF8)) {
-    font.SetEncoding(wxFONTENCODING_UTF8);
-  }
+  font.SetEncoding(wxFONTENCODING_UTF8);
   return font;
 }
 
