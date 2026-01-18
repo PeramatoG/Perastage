@@ -146,9 +146,7 @@ wxFont BuildDefaultUiFont() {
   if (!faceName.empty()) {
     defaultFont.SetFaceName(faceName);
   }
-  if (wxFontEnumerator::IsValidEncoding(wxFONTENCODING_UTF8)) {
-    defaultFont.SetEncoding(wxFONTENCODING_UTF8);
-  }
+  defaultFont.SetEncoding(wxFONTENCODING_UTF8);
   if (!defaultFont.IsOk()) {
     const int fallbackSize =
         defaultFont.IsOk() ? defaultFont.GetPointSize() : 10;
@@ -157,9 +155,7 @@ wxFont BuildDefaultUiFont() {
     defaultFont = wxFont(fallbackSize, wxFONTFAMILY_SWISS,
                          wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL, false,
                          fallbackFace);
-    if (wxFontEnumerator::IsValidEncoding(wxFONTENCODING_UTF8)) {
-      defaultFont.SetEncoding(wxFONTENCODING_UTF8);
-    }
+    defaultFont.SetEncoding(wxFONTENCODING_UTF8);
   }
   return defaultFont;
 }
