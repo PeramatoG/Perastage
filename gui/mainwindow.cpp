@@ -137,145 +137,6 @@ void LogMissingIcon(const std::filesystem::path &path) {
 #endif
 }
 
-LayoutTextExportData BuildLayoutTextExportData(
-    const layouts::LayoutTextDefinition &text, double scaleX, double scaleY) {
-  LayoutTextExportData data;
-  layouts::Layout2DViewFrame frame = text.frame;
-  frame.x = static_cast<int>(std::lround(frame.x * scaleX));
-  frame.y = static_cast<int>(std::lround(frame.y * scaleY));
-  frame.width = static_cast<int>(std::lround(frame.width * scaleX));
-  frame.height = static_cast<int>(std::lround(frame.height * scaleY));
-  data.frame = frame;
-  data.zIndex = text.zIndex;
-  data.solidBackground = text.solidBackground;
-  data.drawFrame = text.drawFrame;
-
-  wxRichTextBuffer buffer;
-  bool loaded = false;
-  if (!text.richText.empty()) {
-    loaded = layouttext::LoadRichTextBufferFromString(
-        buffer, wxString::FromUTF8(text.richText.data(),
-                                   text.richText.size()));
-  }
-
-  wxString plainText;
-  if (loaded) {
-    plainText = buffer.GetText();
-  }
-  if (plainText.empty()) {
-    plainText = text.text.empty() ? wxString("Light Plot")
-                                  : wxString::FromUTF8(text.text.data(),
-                                                       text.text.size());
-  }
-  plainText.Replace("\r\n", "\n");
-  plainText.Replace("\r", "\n");
-
-  wxRichTextAttr style;
-  if (loaded && buffer.GetRange().GetLength() > 0) {
-    buffer.GetStyle(0, style);
-  }
-  const int fontSize = style.GetFontSize() > 0
-                           ? style.GetFontSize()
-                           : layoutviewerpanel::detail::kTextDefaultFontSize;
-  data.fontSize = fontSize;
-  data.bold = style.GetFontWeight() >= wxFONTWEIGHT_BOLD;
-  data.italic = style.GetFontStyle() == wxFONTSTYLE_ITALIC ||
-                style.GetFontStyle() == wxFONTSTYLE_SLANT;
-  switch (style.GetAlignment()) {
-  case wxTEXT_ALIGNMENT_CENTRE:
-    data.alignment = LayoutTextExportData::Alignment::Center;
-    break;
-  case wxTEXT_ALIGNMENT_RIGHT:
-    data.alignment = LayoutTextExportData::Alignment::Right;
-    break;
-  case wxTEXT_ALIGNMENT_JUSTIFIED:
-    data.alignment = LayoutTextExportData::Alignment::Justified;
-    break;
-  case wxTEXT_ALIGNMENT_LEFT:
-  default:
-    data.alignment = LayoutTextExportData::Alignment::Left;
-    break;
-  }
-
-  wxStringTokenizer tokenizer(plainText, "\n", wxTOKEN_RET_EMPTY_ALL);
-  if (loaded) {
-    wxString content = buffer.GetText();
-    if (content.empty()) {
-      content = plainText;
-    }
-    const size_t length = static_cast<size_t>(content.length());
-    LayoutTextExportData::Line currentLine;
-    LayoutTextExportData::Run currentRun;
-    bool hasRun = false;
-    auto finalizeRun = [&]() {
-      if (!hasRun)
-        return;
-      if (!currentRun.text.empty()) {
-        currentLine.runs.push_back(std::move(currentRun));
-      }
-      currentRun = LayoutTextExportData::Run{};
-      hasRun = false;
-    };
-    auto finalizeLine = [&]() {
-      finalizeRun();
-      data.lines.push_back(currentLine);
-      currentLine = LayoutTextExportData::Line{};
-    };
-    for (size_t i = 0; i < length; ++i) {
-      const wxChar ch = content[i];
-      if (ch == '\r')
-        continue;
-      if (ch == '\n') {
-        finalizeLine();
-        continue;
-      }
-      wxRichTextAttr runStyle;
-      if (!buffer.GetStyle(static_cast<long>(i), runStyle)) {
-        runStyle = buffer.GetDefaultStyle();
-      }
-      const int runFontSize =
-          runStyle.GetFontSize() > 0
-              ? runStyle.GetFontSize()
-              : layoutviewerpanel::detail::kTextDefaultFontSize;
-      const bool runBold =
-          runStyle.GetFontWeight() >= wxFONTWEIGHT_BOLD;
-      const bool runItalic =
-          runStyle.GetFontStyle() == wxFONTSTYLE_ITALIC ||
-          runStyle.GetFontStyle() == wxFONTSTYLE_SLANT;
-      if (!hasRun || currentRun.fontSize != runFontSize ||
-          currentRun.bold != runBold || currentRun.italic != runItalic) {
-        finalizeRun();
-        currentRun.fontSize = runFontSize;
-        currentRun.bold = runBold;
-        currentRun.italic = runItalic;
-        hasRun = true;
-      }
-      wxCharBuffer utf8 = wxString(ch).ToUTF8();
-      if (utf8.data())
-        currentRun.text.append(utf8.data(), utf8.length());
-    }
-    finalizeLine();
-  } else {
-    bool wroteLine = false;
-    while (tokenizer.HasMoreTokens()) {
-      wxCharBuffer utf8 = tokenizer.GetNextToken().ToUTF8();
-      LayoutTextExportData::Line line;
-      LayoutTextExportData::Run run;
-      run.text = utf8.data() ? utf8.data() : "";
-      run.fontSize = data.fontSize;
-      run.bold = data.bold;
-      run.italic = data.italic;
-      line.runs.push_back(std::move(run));
-      data.lines.push_back(std::move(line));
-      wroteLine = true;
-    }
-    if (!wroteLine) {
-      data.lines.emplace_back();
-    }
-  }
-  return data;
-}
-
 layouts::Layout2DViewFrame BuildDefaultLayout2DFrame(
     const layouts::LayoutDefinition &layout) {
   constexpr double kFrameScale = 0.6;
@@ -2043,7 +1904,8 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
     layoutTables.push_back(std::move(tableData));
   }
   for (const auto &text : layout->textViews) {
-    layoutTexts.push_back(BuildLayoutTextExportData(text, scaleX, scaleY));
+    layoutTexts.push_back(
+        layouttext::BuildLayoutTextExportData(text, scaleX, scaleY));
   }
   auto exportViews = std::make_shared<std::vector<LayoutViewExportData>>();
   exportViews->reserve(layoutViews.size());

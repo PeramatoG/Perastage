@@ -22,11 +22,15 @@
 #include <wx/richtext/richtextbuffer.h>
 
 #include "layouts/LayoutCollection.h"
+#include "viewer2d/viewer2dpdfexporter.h"
 
 namespace layouttext {
 bool LoadRichTextBufferFromString(wxRichTextBuffer &buffer,
                                   const wxString &content);
 wxString SaveRichTextBufferToString(wxRichTextBuffer &buffer);
+
+LayoutTextExportData BuildLayoutTextExportData(
+    const layouts::LayoutTextDefinition &text, double scaleX, double scaleY);
 
 wxImage RenderTextImage(const layouts::LayoutTextDefinition &text,
                         const wxSize &renderSize, const wxSize &logicalSize,
