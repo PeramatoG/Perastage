@@ -112,6 +112,101 @@ void EnsureRichTextHandlers() {
   }
   initialized = true;
 }
+
+bool BufferHasLineBreaks(wxRichTextBuffer &buffer) {
+  const long paragraphCount = buffer.GetParagraphCount();
+  for (long paragraphIndex = 0; paragraphIndex < paragraphCount;
+       ++paragraphIndex) {
+    wxRichTextParagraph *paragraph = buffer.GetParagraphAt(paragraphIndex);
+    if (!paragraph)
+      continue;
+    wxRichTextObjectList::compatibility_iterator node =
+        paragraph->GetChildren().GetFirst();
+    while (node) {
+      wxRichTextObject *child = node->GetData();
+      if (child && wxDynamicCast(child, wxRichTextLineBreak))
+        return true;
+      node = node->GetNext();
+    }
+  }
+  return false;
+}
+
+void ConvertLineBreaksToParagraphs(wxRichTextBuffer &buffer,
+                                  const wxRichTextAttr &baseStyle) {
+  if (!BufferHasLineBreaks(buffer))
+    return;
+
+  wxRichTextBuffer rebuilt;
+  rebuilt.SetDefaultStyle(buffer.GetDefaultStyle());
+  rebuilt.SetBasicStyle(buffer.GetBasicStyle());
+
+  long globalPos = 0;
+  auto appendParagraph = [&](const wxString &text,
+                             const wxVector<wxRichTextAttr> &styles,
+                             const wxRichTextAttr &paragraphStyle) {
+    rebuilt.AddParagraph(text);
+    if (!text.empty()) {
+      wxRichTextRange paragraphRange(
+          globalPos, globalPos + static_cast<long>(text.length()) - 1);
+      rebuilt.SetStyle(paragraphRange, paragraphStyle);
+      const size_t maxStyles = std::min(text.length(), styles.size());
+      for (size_t charIndex = 0; charIndex < maxStyles; ++charIndex) {
+        wxRichTextRange range(
+            globalPos + static_cast<long>(charIndex),
+            globalPos + static_cast<long>(charIndex));
+        rebuilt.SetStyle(range, styles[charIndex]);
+      }
+      globalPos += static_cast<long>(text.length());
+    }
+    ++globalPos;
+  };
+
+  const long paragraphCount = buffer.GetParagraphCount();
+  for (long paragraphIndex = 0; paragraphIndex < paragraphCount;
+       ++paragraphIndex) {
+    wxRichTextParagraph *paragraph = buffer.GetParagraphAt(paragraphIndex);
+    if (!paragraph) {
+      appendParagraph(wxString(), wxVector<wxRichTextAttr>(), baseStyle);
+      continue;
+    }
+    wxRichTextAttr paragraphStyle = paragraph->GetAttributes();
+    wxString currentText;
+    wxVector<wxRichTextAttr> currentStyles;
+
+    wxRichTextObjectList::compatibility_iterator node =
+        paragraph->GetChildren().GetFirst();
+    while (node) {
+      wxRichTextObject *child = node->GetData();
+      node = node->GetNext();
+      if (!child)
+        continue;
+      if (wxDynamicCast(child, wxRichTextLineBreak)) {
+        appendParagraph(currentText, currentStyles, paragraphStyle);
+        currentText.clear();
+        currentStyles.clear();
+        continue;
+      }
+
+      const wxString childText = child->GetText();
+      const wxRichTextRange childRange = child->GetRange();
+      for (size_t charIndex = 0; charIndex < childText.length(); ++charIndex) {
+        wxRichTextAttr style;
+        if (!buffer.GetStyle(childRange.GetStart() +
+                                 static_cast<long>(charIndex),
+                             style)) {
+          style = baseStyle;
+        }
+        currentText.Append(childText[charIndex]);
+        currentStyles.push_back(style);
+      }
+    }
+
+    appendParagraph(currentText, currentStyles, paragraphStyle);
+  }
+
+  buffer = rebuilt;
+}
 } // namespace
 
 bool LoadRichTextBufferFromString(wxRichTextBuffer &buffer,
@@ -237,6 +332,9 @@ wxImage RenderTextImage(const layouts::LayoutTextDefinition &text,
     baseStyle.SetFontSize(layoutviewerpanel::detail::kTextDefaultFontSize);
   buffer.SetDefaultStyle(baseStyle);
   buffer.SetBasicStyle(baseStyle);
+  if (loaded) {
+    ConvertLineBreaksToParagraphs(buffer, baseStyle);
+  }
 
   auto normalizeNewlines = [](wxString value) {
     value.Replace("\r\n", "\n");
