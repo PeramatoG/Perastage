@@ -28,8 +28,6 @@
 #include <wx/richtext/richtextbuffer.h>
 #include <wx/richtext/richtextxml.h>
 #include <wx/sstream.h>
-#include <wx/tokenzr.h>
-
 #include "layoutviewerpanel_shared.h"
 
 #ifndef wxTEXT_ATTR_PARAGRAPH_SPACING_BEFORE
@@ -113,70 +111,6 @@ void EnsureRichTextHandlers() {
   initialized = true;
 }
 
-bool BufferHasLineBreaks(wxRichTextBuffer &buffer) {
-  const wxString text = buffer.GetText();
-  return text.Find('\n') != wxNOT_FOUND || text.Find('\r') != wxNOT_FOUND;
-}
-
-void ConvertLineBreaksToParagraphs(wxRichTextBuffer &buffer,
-                                  const wxRichTextAttr &baseStyle) {
-  if (!BufferHasLineBreaks(buffer))
-    return;
-
-  wxRichTextBuffer rebuilt;
-  rebuilt.SetDefaultStyle(buffer.GetDefaultStyle());
-  rebuilt.SetBasicStyle(buffer.GetBasicStyle());
-
-  long globalPos = 0;
-  auto appendParagraph = [&](const wxString &text,
-                             const wxVector<wxRichTextAttr> &styles,
-                             const wxRichTextAttr &paragraphStyle) {
-    rebuilt.AddParagraph(text);
-    if (!text.empty()) {
-      wxRichTextRange paragraphRange(
-          globalPos, globalPos + static_cast<long>(text.length()) - 1);
-      rebuilt.SetStyle(paragraphRange, paragraphStyle);
-      const size_t maxStyles = std::min(text.length(), styles.size());
-      for (size_t charIndex = 0; charIndex < maxStyles; ++charIndex) {
-        wxRichTextRange range(
-            globalPos + static_cast<long>(charIndex),
-            globalPos + static_cast<long>(charIndex));
-        rebuilt.SetStyle(range, styles[charIndex]);
-      }
-      globalPos += static_cast<long>(text.length());
-    }
-    ++globalPos;
-  };
-
-  const wxString bufferText = buffer.GetText();
-  wxString currentText;
-  wxVector<wxRichTextAttr> currentStyles;
-
-  const size_t length = bufferText.length();
-  for (size_t index = 0; index < length; ++index) {
-    const wxChar ch = bufferText[index];
-    if (ch == '\r' || ch == '\n') {
-      if (ch == '\r' && (index + 1) < length && bufferText[index + 1] == '\n') {
-        ++index;
-      }
-      appendParagraph(currentText, currentStyles, baseStyle);
-      currentText.clear();
-      currentStyles.clear();
-      continue;
-    }
-
-    wxRichTextAttr style;
-    if (!buffer.GetStyle(static_cast<long>(index), style)) {
-      style = baseStyle;
-    }
-    currentText.Append(ch);
-    currentStyles.push_back(style);
-  }
-
-  appendParagraph(currentText, currentStyles, baseStyle);
-
-  buffer = rebuilt;
-}
 } // namespace
 
 bool LoadRichTextBufferFromString(wxRichTextBuffer &buffer,
@@ -303,130 +237,11 @@ wxImage RenderTextImage(const layouts::LayoutTextDefinition &text,
     baseStyle.SetFontSize(layoutviewerpanel::detail::kTextDefaultFontSize);
   buffer.SetDefaultStyle(baseStyle);
   buffer.SetBasicStyle(baseStyle);
-  if (loaded) {
-    ConvertLineBreaksToParagraphs(buffer, baseStyle);
-  }
-
-  auto normalizeNewlines = [](wxString value) {
-    value.Replace("\r\n", "\n");
-    value.Replace("\r", "\n");
-    return value;
-  };
-
-  auto rebuildBufferFromPlainText = [&](const wxString &plainText,
-                                        const wxRichTextAttr *style) {
-    buffer.Clear();
-    buffer.SetDefaultStyle(baseStyle);
-    buffer.SetBasicStyle(baseStyle);
-    if (plainText.empty()) {
-      buffer.AddParagraph(wxString());
-    } else {
-      wxStringTokenizer tokenizer(plainText, "\n", wxTOKEN_RET_EMPTY_ALL);
-      while (tokenizer.HasMoreTokens()) {
-        buffer.AddParagraph(tokenizer.GetNextToken());
-      }
-    }
-    if (style && buffer.GetRange().GetLength() > 0) {
-      buffer.SetStyle(buffer.GetRange(), *style);
-    }
-  };
-
-  auto rebuildBufferWithLineBreaks =
-      [&](const wxString &sourceText, wxRichTextBuffer &sourceBuffer) {
-    buffer.Clear();
-    buffer.SetDefaultStyle(baseStyle);
-    buffer.SetBasicStyle(baseStyle);
-
-    wxVector<wxString> paragraphs;
-    wxVector<wxVector<wxRichTextAttr>> paragraphStyles;
-    wxString currentParagraph;
-    wxVector<wxRichTextAttr> currentStyles;
-
-    const size_t length = sourceText.length();
-    for (size_t i = 0; i < length; ++i) {
-      const wxChar ch = sourceText[i];
-      if (ch == '\n' || ch == '\r') {
-        if (ch == '\r' && (i + 1) < length && sourceText[i + 1] == '\n') {
-          ++i;
-        }
-        paragraphs.push_back(currentParagraph);
-        paragraphStyles.push_back(currentStyles);
-        currentParagraph.clear();
-        currentStyles.clear();
-        continue;
-      }
-
-      wxRichTextAttr style;
-      if (!sourceBuffer.GetStyle(static_cast<long>(i), style)) {
-        style = baseStyle;
-      }
-      currentParagraph.Append(ch);
-      currentStyles.push_back(style);
-    }
-
-    paragraphs.push_back(currentParagraph);
-    paragraphStyles.push_back(currentStyles);
-
-    if (paragraphs.empty()) {
-      buffer.AddParagraph(wxString());
-      return;
-    }
-
-    long globalPos = 0;
-    for (size_t paragraphIndex = 0; paragraphIndex < paragraphs.size();
-         ++paragraphIndex) {
-      const wxString &paragraphText = paragraphs[paragraphIndex];
-      const wxVector<wxRichTextAttr> &styles = paragraphStyles[paragraphIndex];
-      buffer.AddParagraph(paragraphText);
-      for (size_t charIndex = 0; charIndex < paragraphText.length() &&
-                               charIndex < styles.size();
-           ++charIndex) {
-        wxRichTextRange range(globalPos + static_cast<long>(charIndex),
-                              globalPos + static_cast<long>(charIndex));
-        buffer.SetStyle(range, styles[charIndex]);
-      }
-      globalPos += static_cast<long>(paragraphText.length());
-      if (paragraphIndex + 1 < paragraphs.size()) {
-        ++globalPos;
-      }
-    }
-  };
-
-  if (loaded) {
-    wxString bufferText = buffer.GetText();
-    wxString bufferPlain = normalizeNewlines(bufferText);
-    wxString fallbackPlain;
-    if (!text.text.empty()) {
-      fallbackPlain =
-          normalizeNewlines(wxString::FromUTF8(text.text.data(),
-                                               text.text.size()));
-    }
-    bool rebuiltWithStyles = false;
-    if (bufferText.Find('\n') != wxNOT_FOUND ||
-        bufferText.Find('\r') != wxNOT_FOUND) {
-      wxRichTextBuffer sourceBuffer = buffer;
-      rebuildBufferWithLineBreaks(bufferText, sourceBuffer);
-      rebuiltWithStyles = true;
-    }
-    if (!rebuiltWithStyles) {
-      wxString candidatePlain = bufferPlain;
-      if (candidatePlain.Find('\n') == wxNOT_FOUND &&
-          fallbackPlain.Find('\n') != wxNOT_FOUND) {
-        candidatePlain = fallbackPlain;
-      }
-      if (candidatePlain.Find('\n') != wxNOT_FOUND) {
-        wxRichTextAttr firstStyle;
-        const bool hasStyle = buffer.GetRange().GetLength() > 0 &&
-                              buffer.GetStyle(0, firstStyle);
-        rebuildBufferFromPlainText(candidatePlain,
-                                   hasStyle ? &firstStyle : nullptr);
-      }
-    }
-  }
-
   if (!loaded) {
-    wxString plainText = normalizeNewlines(fallbackText);
-    rebuildBufferFromPlainText(plainText, nullptr);
+    buffer.Clear();
+    buffer.SetDefaultStyle(baseStyle);
+    buffer.SetBasicStyle(baseStyle);
+    buffer.AddParagraph(fallbackText.empty() ? wxString() : fallbackText);
   }
   if (buffer.GetRange().GetLength() > 0) {
     wxRichTextAttr overrideStyle;
