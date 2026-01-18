@@ -263,7 +263,7 @@ wxImage RenderTextImage(const layouts::LayoutTextDefinition &text,
   };
 
   auto rebuildBufferWithLineBreaks =
-      [&](const wxString &sourceText, const wxRichTextBuffer &sourceBuffer) {
+      [&](const wxString &sourceText, wxRichTextBuffer &sourceBuffer) {
     buffer.Clear();
     buffer.SetDefaultStyle(baseStyle);
     buffer.SetBasicStyle(baseStyle);
