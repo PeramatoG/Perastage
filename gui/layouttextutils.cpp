@@ -262,26 +262,97 @@ wxImage RenderTextImage(const layouts::LayoutTextDefinition &text,
     }
   };
 
+  auto rebuildBufferWithLineBreaks =
+      [&](const wxString &sourceText, const wxRichTextBuffer &sourceBuffer) {
+    buffer.Clear();
+    buffer.SetDefaultStyle(baseStyle);
+    buffer.SetBasicStyle(baseStyle);
+
+    wxVector<wxString> paragraphs;
+    wxVector<wxVector<wxRichTextAttr>> paragraphStyles;
+    wxString currentParagraph;
+    wxVector<wxRichTextAttr> currentStyles;
+
+    const size_t length = sourceText.length();
+    for (size_t i = 0; i < length; ++i) {
+      const wxChar ch = sourceText[i];
+      if (ch == '\n' || ch == '\r') {
+        if (ch == '\r' && (i + 1) < length && sourceText[i + 1] == '\n') {
+          ++i;
+        }
+        paragraphs.push_back(currentParagraph);
+        paragraphStyles.push_back(currentStyles);
+        currentParagraph.clear();
+        currentStyles.clear();
+        continue;
+      }
+
+      wxRichTextAttr style;
+      if (!sourceBuffer.GetStyle(static_cast<long>(i), style)) {
+        style = baseStyle;
+      }
+      currentParagraph.Append(ch);
+      currentStyles.push_back(style);
+    }
+
+    paragraphs.push_back(currentParagraph);
+    paragraphStyles.push_back(currentStyles);
+
+    if (paragraphs.empty()) {
+      buffer.AddParagraph(wxString());
+      return;
+    }
+
+    long globalPos = 0;
+    for (size_t paragraphIndex = 0; paragraphIndex < paragraphs.size();
+         ++paragraphIndex) {
+      const wxString &paragraphText = paragraphs[paragraphIndex];
+      const wxVector<wxRichTextAttr> &styles = paragraphStyles[paragraphIndex];
+      buffer.AddParagraph(paragraphText);
+      for (size_t charIndex = 0; charIndex < paragraphText.length() &&
+                               charIndex < styles.size();
+           ++charIndex) {
+        wxRichTextRange range(globalPos + static_cast<long>(charIndex),
+                              globalPos + static_cast<long>(charIndex));
+        buffer.SetStyle(range, styles[charIndex]);
+      }
+      globalPos += static_cast<long>(paragraphText.length());
+      if (paragraphIndex + 1 < paragraphs.size()) {
+        ++globalPos;
+      }
+    }
+  };
+
   if (loaded) {
-    wxString bufferPlain = normalizeNewlines(buffer.GetText());
+    wxString bufferText = buffer.GetText();
+    wxString bufferPlain = normalizeNewlines(bufferText);
     wxString fallbackPlain;
     if (!text.text.empty()) {
       fallbackPlain =
           normalizeNewlines(wxString::FromUTF8(text.text.data(),
                                                text.text.size()));
     }
-    wxString candidatePlain = bufferPlain;
-    if (candidatePlain.Find('\n') == wxNOT_FOUND &&
-        fallbackPlain.Find('\n') != wxNOT_FOUND) {
-      candidatePlain = fallbackPlain;
+    bool rebuiltWithStyles = false;
+    if (bufferText.Find('\n') != wxNOT_FOUND ||
+        bufferText.Find('\r') != wxNOT_FOUND) {
+      wxRichTextBuffer sourceBuffer = buffer;
+      rebuildBufferWithLineBreaks(bufferText, sourceBuffer);
+      rebuiltWithStyles = true;
     }
-    if (candidatePlain.Find('\n') != wxNOT_FOUND &&
-        (buffer.GetParagraphCount() <= 1 || candidatePlain != bufferPlain)) {
-      wxRichTextAttr firstStyle;
-      const bool hasStyle = buffer.GetRange().GetLength() > 0 &&
-                            buffer.GetStyle(0, firstStyle);
-      rebuildBufferFromPlainText(candidatePlain,
-                                 hasStyle ? &firstStyle : nullptr);
+    if (!rebuiltWithStyles) {
+      wxString candidatePlain = bufferPlain;
+      if (candidatePlain.Find('\n') == wxNOT_FOUND &&
+          fallbackPlain.Find('\n') != wxNOT_FOUND) {
+        candidatePlain = fallbackPlain;
+      }
+      if (candidatePlain.Find('\n') != wxNOT_FOUND &&
+          (buffer.GetParagraphCount() <= 1 || candidatePlain != bufferPlain)) {
+        wxRichTextAttr firstStyle;
+        const bool hasStyle = buffer.GetRange().GetLength() > 0 &&
+                              buffer.GetStyle(0, firstStyle);
+        rebuildBufferFromPlainText(candidatePlain,
+                                   hasStyle ? &firstStyle : nullptr);
+      }
     }
   }
 
