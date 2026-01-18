@@ -50,6 +50,7 @@
 #include <wx/numdlg.h>
 #include <wx/statbmp.h>
 #include <wx/stdpaths.h>
+#include <wx/settings.h>
 #include <wx/textctrl.h>
 #include <wx/tokenzr.h>
 #include <wx/wfstream.h>
@@ -135,6 +136,27 @@ void LogMissingIcon(const std::filesystem::path &path) {
 #else
   wxLogWarning("Main window icon not found at '%s'", path.string().c_str());
 #endif
+}
+
+wxFont BuildDefaultUiFont() {
+  wxFont defaultFont = wxSystemSettings::GetFont(wxSYS_DEFAULT_GUI_FONT);
+  const wxString faceName =
+      layoutviewerpanel::detail::ResolveSharedFontFaceName();
+  if (!faceName.empty()) {
+    defaultFont.SetFaceName(faceName);
+  }
+  defaultFont.SetEncoding(wxFONTENCODING_UTF8);
+  if (!defaultFont.IsOk()) {
+    const int fallbackSize =
+        defaultFont.IsOk() ? defaultFont.GetPointSize() : 10;
+    wxString fallbackFace =
+        faceName.empty() ? wxString::FromUTF8("Arial") : faceName;
+    defaultFont = wxFont(fallbackSize, wxFONTFAMILY_SWISS,
+                         wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL, false,
+                         fallbackFace);
+    defaultFont.SetEncoding(wxFONTENCODING_UTF8);
+  }
+  return defaultFont;
 }
 
 layouts::Layout2DViewFrame BuildDefaultLayout2DFrame(
@@ -392,6 +414,9 @@ wxEND_EVENT_TABLE()
                                                                                 &title)
     : wxFrame(nullptr, wxID_ANY, title, wxDefaultPosition, wxSize(1600, 950)) {
   SetInstance(this);
+  wxFont defaultUiFont = BuildDefaultUiFont();
+  if (defaultUiFont.IsOk())
+    SetFont(defaultUiFont);
   wxIcon icon;
   std::filesystem::path iconPath =
       ProjectUtils::GetResourceRoot() / "Perastage.ico";
