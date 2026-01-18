@@ -54,7 +54,14 @@ wxFont MakeRenderFont(int sizePx, bool bold, bool italic,
   if (!faceName.empty()) {
     font = wxFont(sizePx, wxFONTFAMILY_SWISS, style, weight, false, faceName);
   } else {
-    font = wxFont(sizePx, wxFONTFAMILY_SWISS, style, weight);
+    wxFont testFont(sizePx, wxFONTFAMILY_SWISS, style, weight, false,
+                    wxString::FromUTF8("Arial"));
+    if (testFont.IsOk() &&
+        testFont.GetFaceName().CmpNoCase("Arial") == 0) {
+      font = testFont;
+    } else {
+      font = wxFont(sizePx, wxFONTFAMILY_SWISS, style, weight);
+    }
   }
   font.SetEncoding(wxFONTENCODING_UTF8);
   return font;
