@@ -413,8 +413,7 @@ wxImage RenderTextImage(const layouts::LayoutTextDefinition &text,
           fallbackPlain.Find('\n') != wxNOT_FOUND) {
         candidatePlain = fallbackPlain;
       }
-      if (candidatePlain.Find('\n') != wxNOT_FOUND &&
-          (buffer.GetParagraphCount() <= 1 || candidatePlain != bufferPlain)) {
+      if (candidatePlain.Find('\n') != wxNOT_FOUND) {
         wxRichTextAttr firstStyle;
         const bool hasStyle = buffer.GetRange().GetLength() > 0 &&
                               buffer.GetStyle(0, firstStyle);
