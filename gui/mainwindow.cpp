@@ -143,15 +143,25 @@ wxFont BuildDefaultUiFont() {
   wxFont defaultFont = wxSystemSettings::GetFont(wxSYS_DEFAULT_GUI_FONT);
   const wxString faceName =
       layoutviewerpanel::detail::ResolveSharedFontFaceName();
-  if (!faceName.empty()) {
-    defaultFont.SetFaceName(faceName);
+  wxString resolvedFaceName = faceName;
+  if (resolvedFaceName.empty()) {
+    wxFont testFont(10, wxFONTFAMILY_SWISS, wxFONTSTYLE_NORMAL,
+                    wxFONTWEIGHT_NORMAL, false, wxString::FromUTF8("Arial"));
+    if (testFont.IsOk() &&
+        testFont.GetFaceName().CmpNoCase("Arial") == 0) {
+      resolvedFaceName = testFont.GetFaceName();
+    }
+  }
+  if (!resolvedFaceName.empty()) {
+    defaultFont.SetFaceName(resolvedFaceName);
   }
   defaultFont.SetEncoding(wxFONTENCODING_UTF8);
   if (!defaultFont.IsOk()) {
     const int fallbackSize =
         defaultFont.IsOk() ? defaultFont.GetPointSize() : 10;
     wxString fallbackFace =
-        faceName.empty() ? wxString::FromUTF8("Arial") : faceName;
+        resolvedFaceName.empty() ? wxString::FromUTF8("Arial")
+                                 : resolvedFaceName;
     defaultFont = wxFont(fallbackSize, wxFONTFAMILY_SWISS,
                          wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL, false,
                          fallbackFace);
