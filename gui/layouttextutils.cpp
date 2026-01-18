@@ -270,18 +270,23 @@ wxImage RenderTextImage(const layouts::LayoutTextDefinition &text,
           normalizeNewlines(wxString::FromUTF8(text.text.data(),
                                                text.text.size()));
     }
-    wxString candidatePlain = bufferPlain;
-    if (candidatePlain.Find('\n') == wxNOT_FOUND &&
-        fallbackPlain.Find('\n') != wxNOT_FOUND) {
-      candidatePlain = fallbackPlain;
-    }
-    if (candidatePlain.Find('\n') != wxNOT_FOUND &&
-        (buffer.GetParagraphCount() <= 1 || candidatePlain != bufferPlain)) {
-      wxRichTextAttr firstStyle;
-      const bool hasStyle = buffer.GetRange().GetLength() > 0 &&
-                            buffer.GetStyle(0, firstStyle);
-      rebuildBufferFromPlainText(candidatePlain,
+    wxRichTextAttr firstStyle;
+    const bool hasStyle =
+        buffer.GetRange().GetLength() > 0 && buffer.GetStyle(0, firstStyle);
+    if (!fallbackPlain.empty() && fallbackPlain.Find('\n') != wxNOT_FOUND) {
+      rebuildBufferFromPlainText(fallbackPlain,
                                  hasStyle ? &firstStyle : nullptr);
+    } else {
+      wxString candidatePlain = bufferPlain;
+      if (candidatePlain.Find('\n') == wxNOT_FOUND &&
+          fallbackPlain.Find('\n') != wxNOT_FOUND) {
+        candidatePlain = fallbackPlain;
+      }
+      if (candidatePlain.Find('\n') != wxNOT_FOUND &&
+          (buffer.GetParagraphCount() <= 1 || candidatePlain != bufferPlain)) {
+        rebuildBufferFromPlainText(candidatePlain,
+                                   hasStyle ? &firstStyle : nullptr);
+      }
     }
   }
 
