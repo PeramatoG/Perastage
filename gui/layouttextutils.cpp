@@ -114,22 +114,8 @@ void EnsureRichTextHandlers() {
 }
 
 bool BufferHasLineBreaks(wxRichTextBuffer &buffer) {
-  const long paragraphCount = buffer.GetParagraphCount();
-  for (long paragraphIndex = 0; paragraphIndex < paragraphCount;
-       ++paragraphIndex) {
-    wxRichTextParagraph *paragraph = buffer.GetParagraphAt(paragraphIndex);
-    if (!paragraph)
-      continue;
-    wxRichTextObjectList::compatibility_iterator node =
-        paragraph->GetChildren().GetFirst();
-    while (node) {
-      wxRichTextObject *child = node->GetData();
-      if (child && wxDynamicCast(child, wxRichTextLineBreak))
-        return true;
-      node = node->GetNext();
-    }
-  }
-  return false;
+  const wxString text = buffer.GetText();
+  return text.Find('\n') != wxNOT_FOUND || text.Find('\r') != wxNOT_FOUND;
 }
 
 void ConvertLineBreaksToParagraphs(wxRichTextBuffer &buffer,
@@ -162,48 +148,32 @@ void ConvertLineBreaksToParagraphs(wxRichTextBuffer &buffer,
     ++globalPos;
   };
 
-  const long paragraphCount = buffer.GetParagraphCount();
-  for (long paragraphIndex = 0; paragraphIndex < paragraphCount;
-       ++paragraphIndex) {
-    wxRichTextParagraph *paragraph = buffer.GetParagraphAt(paragraphIndex);
-    if (!paragraph) {
-      appendParagraph(wxString(), wxVector<wxRichTextAttr>(), baseStyle);
+  const wxString bufferText = buffer.GetText();
+  wxString currentText;
+  wxVector<wxRichTextAttr> currentStyles;
+
+  const size_t length = bufferText.length();
+  for (size_t index = 0; index < length; ++index) {
+    const wxChar ch = bufferText[index];
+    if (ch == '\r' || ch == '\n') {
+      if (ch == '\r' && (index + 1) < length && bufferText[index + 1] == '\n') {
+        ++index;
+      }
+      appendParagraph(currentText, currentStyles, baseStyle);
+      currentText.clear();
+      currentStyles.clear();
       continue;
     }
-    wxRichTextAttr paragraphStyle = paragraph->GetAttributes();
-    wxString currentText;
-    wxVector<wxRichTextAttr> currentStyles;
 
-    wxRichTextObjectList::compatibility_iterator node =
-        paragraph->GetChildren().GetFirst();
-    while (node) {
-      wxRichTextObject *child = node->GetData();
-      node = node->GetNext();
-      if (!child)
-        continue;
-      if (wxDynamicCast(child, wxRichTextLineBreak)) {
-        appendParagraph(currentText, currentStyles, paragraphStyle);
-        currentText.clear();
-        currentStyles.clear();
-        continue;
-      }
-
-      const wxString childText = child->GetText();
-      const wxRichTextRange childRange = child->GetRange();
-      for (size_t charIndex = 0; charIndex < childText.length(); ++charIndex) {
-        wxRichTextAttr style;
-        if (!buffer.GetStyle(childRange.GetStart() +
-                                 static_cast<long>(charIndex),
-                             style)) {
-          style = baseStyle;
-        }
-        currentText.Append(childText[charIndex]);
-        currentStyles.push_back(style);
-      }
+    wxRichTextAttr style;
+    if (!buffer.GetStyle(static_cast<long>(index), style)) {
+      style = baseStyle;
     }
-
-    appendParagraph(currentText, currentStyles, paragraphStyle);
+    currentText.Append(ch);
+    currentStyles.push_back(style);
   }
+
+  appendParagraph(currentText, currentStyles, baseStyle);
 
   buffer = rebuilt;
 }
