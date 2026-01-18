@@ -43,6 +43,7 @@
 #include <wx/event.h>
 #include <wx/filefn.h>
 #include <wx/filename.h>
+#include <wx/fontenum.h>
 #include <wx/html/htmlwin.h>
 #include <wx/iconbndl.h>
 #include <wx/image.h>
@@ -145,7 +146,9 @@ wxFont BuildDefaultUiFont() {
   if (!faceName.empty()) {
     defaultFont.SetFaceName(faceName);
   }
-  defaultFont.SetEncoding(wxFONTENCODING_UTF8);
+  if (wxFontEnumerator::IsValidEncoding(wxFONTENCODING_UTF8)) {
+    defaultFont.SetEncoding(wxFONTENCODING_UTF8);
+  }
   if (!defaultFont.IsOk()) {
     const int fallbackSize =
         defaultFont.IsOk() ? defaultFont.GetPointSize() : 10;
@@ -154,7 +157,9 @@ wxFont BuildDefaultUiFont() {
     defaultFont = wxFont(fallbackSize, wxFONTFAMILY_SWISS,
                          wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL, false,
                          fallbackFace);
-    defaultFont.SetEncoding(wxFONTENCODING_UTF8);
+    if (wxFontEnumerator::IsValidEncoding(wxFONTENCODING_UTF8)) {
+      defaultFont.SetEncoding(wxFONTENCODING_UTF8);
+    }
   }
   return defaultFont;
 }

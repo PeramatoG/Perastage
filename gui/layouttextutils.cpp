@@ -23,6 +23,7 @@
 
 #include <wx/dcgraph.h>
 #include <wx/dcmemory.h>
+#include <wx/fontenum.h>
 #include <wx/log.h>
 #include <wx/mstream.h>
 #include <wx/richtext/richtextbuffer.h>
@@ -55,7 +56,9 @@ wxFont MakeRenderFont(int sizePx, bool bold, bool italic,
   } else {
     font = wxFont(sizePx, wxFONTFAMILY_SWISS, style, weight);
   }
-  font.SetEncoding(wxFONTENCODING_UTF8);
+  if (wxFontEnumerator::IsValidEncoding(wxFONTENCODING_UTF8)) {
+    font.SetEncoding(wxFONTENCODING_UTF8);
+  }
   return font;
 }
 
