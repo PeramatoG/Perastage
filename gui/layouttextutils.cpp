@@ -296,6 +296,7 @@ wxImage RenderTextImage(const layouts::LayoutTextDefinition &text,
     baseStyle.SetFontFaceName(faceName);
   baseStyle.SetTextColour(*wxBLACK);
   baseStyle.SetFontFamily(wxFONTFAMILY_SWISS);
+  baseStyle.SetFontEncoding(wxFONTENCODING_UTF8);
   baseStyle.SetParagraphSpacingBefore(0);
   baseStyle.SetParagraphSpacingAfter(0);
   if (!loaded || baseStyle.GetFontSize() <= 0)
@@ -434,6 +435,8 @@ wxImage RenderTextImage(const layouts::LayoutTextDefinition &text,
       overrideStyle.SetFontFaceName(faceName);
       flags |= wxTEXT_ATTR_FONT_FACE;
     }
+    overrideStyle.SetFontEncoding(wxFONTENCODING_UTF8);
+    flags |= wxTEXT_ATTR_FONT_ENCODING;
     overrideStyle.SetTextColour(*wxBLACK);
     overrideStyle.SetFlags(flags);
     buffer.SetStyle(buffer.GetRange(), overrideStyle);
@@ -453,10 +456,9 @@ wxImage RenderTextImage(const layouts::LayoutTextDefinition &text,
   dc.SetUserScale(adjustedScale, adjustedScale);
   wxRichTextDrawingContext context(&buffer);
   wxRichTextSelection selection;
-  buffer.Layout(dc, context, logicalRect, logicalRect, wxRICHTEXT_FIXED_WIDTH);
-  dc.SetClippingRegion(logicalRect);
+  buffer.Layout(dc, context, logicalRect, logicalRect,
+                wxRICHTEXT_FIXED_WIDTH | wxRICHTEXT_FIXED_HEIGHT);
   buffer.Draw(dc, context, buffer.GetRange(), selection, logicalRect, 0, 0);
-  dc.DestroyClippingRegion();
 
   memoryDc.SelectObject(wxNullBitmap);
   wxImage image = bitmap.ConvertToImage();
