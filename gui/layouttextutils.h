@@ -22,7 +22,7 @@
 #include <wx/richtext/richtextbuffer.h>
 
 #include "layouts/LayoutCollection.h"
-#include "viewer2d/viewer2dpdfexporter.h"
+#include "viewer2dpdfexporter.h"
 
 namespace layouttext {
 bool LoadRichTextBufferFromString(wxRichTextBuffer &buffer,
