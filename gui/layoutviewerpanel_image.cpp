@@ -238,23 +238,18 @@ void LayoutViewerPanel::DrawImageElement(
   if (image.id == activeImageId) {
     glColor4ub(60, 160, 240, 255);
     glLineWidth(2.0f);
-  } else {
-    glColor4ub(160, 160, 160, 255);
-    glLineWidth(1.0f);
-  }
-  glBegin(GL_LINE_LOOP);
-  glVertex2f(static_cast<float>(frameRect.GetLeft()),
-             static_cast<float>(frameRect.GetTop()));
-  glVertex2f(static_cast<float>(frameRight),
-             static_cast<float>(frameRect.GetTop()));
-  glVertex2f(static_cast<float>(frameRight),
-             static_cast<float>(frameBottom));
-  glVertex2f(static_cast<float>(frameRect.GetLeft()),
-             static_cast<float>(frameRect.GetBottom()));
-  glEnd();
-
-  if (image.id == activeImageId)
+    glBegin(GL_LINE_LOOP);
+    glVertex2f(static_cast<float>(frameRect.GetLeft()),
+               static_cast<float>(frameRect.GetTop()));
+    glVertex2f(static_cast<float>(frameRight),
+               static_cast<float>(frameRect.GetTop()));
+    glVertex2f(static_cast<float>(frameRight),
+               static_cast<float>(frameBottom));
+    glVertex2f(static_cast<float>(frameRect.GetLeft()),
+               static_cast<float>(frameRect.GetBottom()));
+    glEnd();
     DrawSelectionHandles(frameRect);
+  }
 }
 
 size_t LayoutViewerPanel::HashImageContent(
