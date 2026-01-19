@@ -28,6 +28,7 @@
 #include <wx/richtext/richtextbuffer.h>
 #include <wx/richtext/richtextxml.h>
 #include <wx/richtext/richtextctrl.h>
+#include <wx/settings.h>
 #include <wx/sizer.h>
 #include <wx/spinctrl.h>
 
@@ -39,6 +40,24 @@ namespace {
 constexpr int kToolbarIconSizePx = 16;
 constexpr int kMinFontSize = 6;
 constexpr int kMaxFontSize = 72;
+
+wxColour GetEditorTextColour() {
+  wxColour colour = wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOWTEXT);
+  if (!colour.IsOk())
+    return *wxWHITE;
+  return colour;
+}
+
+void NormalizeBufferTextColour(wxRichTextBuffer &buffer,
+                               const wxColour &colour) {
+  wxRichTextRange range = buffer.GetRange();
+  if (range.GetLength() <= 0)
+    return;
+  wxRichTextAttr attr;
+  attr.SetTextColour(colour);
+  attr.SetFlags(wxTEXT_ATTR_TEXT_COLOUR);
+  buffer.SetStyle(range, attr);
+}
 
 void EnsureRichTextHandlers() {
   static bool initialized = false;
@@ -141,7 +160,9 @@ LayoutTextDialog::LayoutTextDialog(wxWindow *parent,
 wxString LayoutTextDialog::GetRichText() const {
   if (!textCtrl)
     return wxEmptyString;
-  return layouttext::SaveRichTextBufferToString(textCtrl->GetBuffer());
+  wxRichTextBuffer bufferCopy = textCtrl->GetBuffer();
+  NormalizeBufferTextColour(bufferCopy, *wxBLACK);
+  return layouttext::SaveRichTextBufferToString(bufferCopy);
 }
 
 wxString LayoutTextDialog::GetPlainText() const {
@@ -201,7 +222,7 @@ void LayoutTextDialog::ApplyDefaultFontStyle() {
     defaultStyle.SetFont(sharedFont);
     defaultStyle.SetFontFaceName(sharedFont.GetFaceName());
   }
-  defaultStyle.SetTextColour(*wxBLACK);
+  defaultStyle.SetTextColour(GetEditorTextColour());
   defaultStyle.SetFontFamily(wxFONTFAMILY_SWISS);
   defaultStyle.SetFlags(defaultStyle.GetFlags() | wxTEXT_ATTR_FONT_FAMILY);
   if (sharedFont.IsOk()) {
@@ -215,7 +236,7 @@ void LayoutTextDialog::ApplyDefaultFontStyle() {
   if (range.GetLength() <= 0)
     return;
   wxRichTextAttr overrideStyle;
-  overrideStyle.SetTextColour(*wxBLACK);
+  overrideStyle.SetTextColour(GetEditorTextColour());
   overrideStyle.SetFontFamily(wxFONTFAMILY_SWISS);
   long flags = wxTEXT_ATTR_TEXT_COLOUR | wxTEXT_ATTR_FONT_FAMILY;
   if (sharedFont.IsOk()) {
