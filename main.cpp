@@ -20,6 +20,7 @@
 #include "mainwindow.h"
 #include "projectutils.h"
 #include "splashscreen.h"
+#include <filesystem>
 #include <thread>
 #include <wx/sysopt.h>
 #include <wx/weakref.h>
@@ -64,8 +65,19 @@ bool MyApp::OnInit() {
     bool loaded = false;
     std::string path;
     if (last) {
+      namespace fs = std::filesystem;
       path = *last;
-      loaded = ConfigManager::Get().LoadProject(path);
+      std::error_code ec;
+      fs::path lastPath = fs::u8path(path);
+      bool isFile = fs::is_regular_file(lastPath, ec);
+      if (ec || !isFile) {
+        ProjectUtils::SaveLastProjectPath("");
+        path.clear();
+      } else {
+        loaded = ConfigManager::Get().LoadProject(path);
+        if (!loaded)
+          ProjectUtils::SaveLastProjectPath("");
+      }
     }
     if (mainWindowRef) {
       wxCommandEvent evt(EVT_PROJECT_LOADED);
