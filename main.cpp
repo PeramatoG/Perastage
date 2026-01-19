@@ -62,37 +62,46 @@ bool MyApp::OnInit() {
 
   SplashScreen::SetMessage("Loading last project...");
   wxWeakRef<MainWindow> mainWindowRef(mainWindow);
+  auto lastPathOpt = ProjectUtils::LoadLastProjectPath();
 
-  std::thread([mainWindowRef]() {
-    auto last = ProjectUtils::LoadLastProjectPath();
-    bool loaded = false;
-    std::string path;
-    if (last) {
+  if (lastPathOpt) {
+    std::string lastPath = *lastPathOpt;
+    std::thread([mainWindowRef, lastPath]() {
       namespace fs = std::filesystem;
-      path = *last;
+      bool loaded = false;
+      bool clearLastProject = false;
+      std::string path = lastPath;
       std::error_code ec;
-      fs::path lastPath = fs::absolute(fs::u8path(path), ec);
+      fs::path lastFsPath = fs::absolute(fs::u8path(path), ec);
       if (!ec) {
-        std::u8string u8Path = lastPath.u8string();
+        std::u8string u8Path = lastFsPath.u8string();
         path.assign(u8Path.begin(), u8Path.end());
+      } else {
+        lastFsPath = fs::u8path(path);
       }
-      bool isFile = fs::is_regular_file(lastPath, ec);
+      bool isFile = fs::is_regular_file(lastFsPath, ec);
       if (ec || !isFile) {
-        ProjectUtils::SaveLastProjectPath("");
+        clearLastProject = true;
         path.clear();
       } else {
         loaded = ConfigManager::Get().LoadProject(path);
         if (!loaded)
-          ProjectUtils::SaveLastProjectPath("");
+          clearLastProject = true;
       }
-    }
-    if (mainWindowRef) {
-      wxCommandEvent evt(EVT_PROJECT_LOADED);
-      evt.SetInt(loaded ? 1 : 0);
-      evt.SetString(path);
-      wxQueueEvent(mainWindowRef.get(), evt.Clone());
-    }
-  }).detach();
+      if (mainWindowRef) {
+        wxCommandEvent evt(EVT_PROJECT_LOADED);
+        evt.SetInt(loaded ? 1 : 0);
+        evt.SetExtraLong(clearLastProject ? 1 : 0);
+        evt.SetString(path);
+        wxQueueEvent(mainWindowRef.get(), evt.Clone());
+      }
+    }).detach();
+  } else if (mainWindowRef) {
+    wxCommandEvent evt(EVT_PROJECT_LOADED);
+    evt.SetInt(0);
+    evt.SetExtraLong(0);
+    wxQueueEvent(mainWindowRef.get(), evt.Clone());
+  }
 
   return true;
 }
