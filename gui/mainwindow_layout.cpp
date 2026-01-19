@@ -375,8 +375,6 @@ void MainWindow::ApplyLayoutPreset(const LayoutViewPreset &preset,
   applyPaneState(preset.hidePanes, false);
 
   auiManager->Update();
-  RefreshToolbarPaneSizes();
-  auiManager->Update();
 
   layoutModeActive = layoutMode;
 
@@ -392,28 +390,6 @@ void MainWindow::ApplyLayoutPreset(const LayoutViewPreset &preset,
   }
 
   UpdateViewMenuChecks();
-}
-
-void MainWindow::RefreshToolbarPaneSizes() {
-  if (!auiManager)
-    return;
-
-  auto refreshToolbarLayout = [this](wxAuiToolBar *toolbar,
-                                     const std::string &paneName) {
-    if (!toolbar)
-      return;
-    toolbar->Realize();
-    toolbar->InvalidateBestSize();
-    const wxSize bestSize = toolbar->GetBestSize();
-    toolbar->SetMinSize(bestSize);
-    auto &pane = auiManager->GetPane(paneName);
-    if (pane.IsOk())
-      pane.BestSize(bestSize).MinSize(bestSize);
-  };
-
-  refreshToolbarLayout(fileToolBar, "FileToolbar");
-  refreshToolbarLayout(layoutViewsToolBar, "LayoutViewsToolbar");
-  refreshToolbarLayout(layoutToolBar, "LayoutToolbar");
 }
 
 void MainWindow::ApplySavedLayout() {
@@ -472,7 +448,20 @@ void MainWindow::ApplySavedLayout() {
   if (view2dPane.IsOk())
     view2dPane.MinSize(wxSize(250, 600));
 
-  RefreshToolbarPaneSizes();
+  auto refreshToolbarLayout = [this](wxAuiToolBar *toolbar,
+                                     const std::string &paneName) {
+    if (!toolbar)
+      return;
+    toolbar->Realize();
+    toolbar->InvalidateBestSize();
+    auto &pane = auiManager->GetPane(paneName);
+    if (pane.IsOk())
+      pane.BestSize(toolbar->GetBestSize());
+  };
+
+  refreshToolbarLayout(fileToolBar, "FileToolbar");
+  refreshToolbarLayout(layoutViewsToolBar, "LayoutViewsToolbar");
+  refreshToolbarLayout(layoutToolBar, "LayoutToolbar");
 
   auiManager->Update();
   SendSizeEvent();

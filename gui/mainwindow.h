@@ -140,7 +140,6 @@ private:
   void RefreshSummary();                              // Refresh summary counts
   void RefreshAfterSceneChange(bool refreshViewport = true);
   void RefreshRigging();                              // Refresh rigging summary
-  void RefreshToolbarPaneSizes();
 
   void OnPreferences(wxCommandEvent &event);        // Show preferences dialog
   void OnApplyDefaultLayout(wxCommandEvent &event); // Reset to default layout
