@@ -32,6 +32,10 @@
 #include <wx/sizer.h>
 #include <wx/spinctrl.h>
 
+#ifndef wxRICHTEXT_SETSTYLE_REPLACE
+#define wxRICHTEXT_SETSTYLE_REPLACE wxRICHTEXT_SETSTYLE_RESET
+#endif
+
 #include "layouttextutils.h"
 #include "layoutviewerpanel_shared.h"
 #include "projectutils.h"
