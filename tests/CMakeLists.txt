@@ -29,6 +29,11 @@ if(TARGET podofo::podofo)
     set_library_env(PdfTextComparison)
 endif()
 
+add_executable(stringutils_test stringutils_test.cpp)
+target_include_directories(stringutils_test PRIVATE ../core)
+add_test(NAME StringUtilsNaturalLess COMMAND stringutils_test)
+set_library_env(StringUtilsNaturalLess)
+
 add_executable(autopatcher_test autopatcher_test.cpp
                ../core/autopatcher.cpp
                ../core/patchmanager.cpp)
