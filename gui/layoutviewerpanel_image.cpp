@@ -19,6 +19,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <filesystem>
 #include <functional>
 
@@ -268,9 +269,10 @@ size_t LayoutViewerPanel::HashImageContent(
         HashCombine(seed, std::hash<uintmax_t>{}(fileSize));
       const auto writeTime = std::filesystem::last_write_time(path, ec);
       if (!ec) {
-        const auto stamp = writeTime.time_since_epoch().count();
-        HashCombine(seed,
-                    std::hash<decltype(stamp)>{}(stamp));
+        auto stamp = writeTime.time_since_epoch().count();
+        HashCombine(
+            seed,
+            std::hash<std::int64_t>{}(static_cast<std::int64_t>(stamp)));
       }
     }
   }
