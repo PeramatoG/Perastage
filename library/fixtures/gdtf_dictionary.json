@@ -31,6 +31,10 @@
         "file": "impression X4 Bar 20.gdtf",
         "mode": "Norm"
     },
+    "JDC-1": {
+        "file": "JDC-1.gdtf",
+        "mode": "DMX Mode 1 (Compressed Pro)"
+    },
     "LITELEES B-EYE L10R (LIBRERÍA K10)": {
         "file": "Aleda B-EYE K10.gdtf",
         "mode": "Shapes"
