@@ -138,6 +138,7 @@ private:
   void OnSelectObjects(wxCommandEvent &event);        // Switch to objects tab
   void OnNotebookPageChanged(wxBookCtrlEvent &event); // Update summary panel
   void RefreshSummary();                              // Refresh summary counts
+  void RefreshAfterSceneChange(bool refreshViewport = true);
   void RefreshRigging();                              // Refresh rigging summary
 
   void OnPreferences(wxCommandEvent &event);        // Show preferences dialog

@@ -630,6 +630,28 @@ void MainWindow::SyncSceneData() {
     sceneObjPanel->UpdateSceneData();
 }
 
+void MainWindow::RefreshAfterSceneChange(bool refreshViewport) {
+  if (fixturePanel)
+    fixturePanel->ReloadData();
+  if (trussPanel)
+    trussPanel->ReloadData();
+  if (hoistPanel)
+    hoistPanel->ReloadData();
+  if (sceneObjPanel)
+    sceneObjPanel->ReloadData();
+  RefreshSummary();
+  if (refreshViewport) {
+    if (viewportPanel) {
+      viewportPanel->UpdateScene();
+      viewportPanel->Refresh();
+    }
+    if (viewport2DPanel) {
+      viewport2DPanel->UpdateScene();
+      viewport2DPanel->Refresh();
+    }
+  }
+}
+
 void MainWindow::OnProjectLoaded(wxCommandEvent &event) {
   bool loaded = event.GetInt() != 0;
   std::string path = event.GetString().ToStdString();

@@ -148,17 +148,7 @@ void MainWindow::OnImportRider(wxCommandEvent &event) {
     wxMessageBox("Rider imported successfully.", "Success", wxICON_INFORMATION);
     if (consolePanel)
       consolePanel->AppendMessage("Imported " + dlg.GetPath());
-    if (fixturePanel)
-      fixturePanel->ReloadData();
-    if (trussPanel)
-      trussPanel->ReloadData();
-    if (hoistPanel)
-      hoistPanel->ReloadData();
-    if (viewportPanel) {
-      viewportPanel->UpdateScene();
-      viewportPanel->Refresh();
-    }
-    RefreshSummary();
+    RefreshAfterSceneChange();
   }
 }
 
@@ -169,17 +159,7 @@ void MainWindow::OnImportRiderText(wxCommandEvent &WXUNUSED(event)) {
 
   if (consolePanel)
     consolePanel->AppendMessage("Imported rider from text.");
-  if (fixturePanel)
-    fixturePanel->ReloadData();
-  if (trussPanel)
-    trussPanel->ReloadData();
-  if (hoistPanel)
-    hoistPanel->ReloadData();
-  if (viewportPanel) {
-    viewportPanel->UpdateScene();
-    viewportPanel->Refresh();
-  }
-  RefreshSummary();
+  RefreshAfterSceneChange();
 }
 
 // Handles MVR file selection, import, and updates fixture/truss panels
@@ -205,19 +185,7 @@ void MainWindow::OnImportMVR(wxCommandEvent &event) {
                  wxICON_INFORMATION);
     if (consolePanel)
       consolePanel->AppendMessage("Imported " + filePath);
-    if (fixturePanel)
-      fixturePanel->ReloadData();
-    if (trussPanel)
-      trussPanel->ReloadData();
-    if (hoistPanel)
-      hoistPanel->ReloadData();
-    if (sceneObjPanel)
-      sceneObjPanel->ReloadData();
-    RefreshSummary();
-    if (viewportPanel) {
-      viewportPanel->UpdateScene();
-      viewportPanel->Refresh();
-    }
+    RefreshAfterSceneChange();
   }
 }
 

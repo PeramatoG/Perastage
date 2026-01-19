@@ -386,8 +386,7 @@ void MainWindow::OnAutoPatch(wxCommandEvent &WXUNUSED(event)) {
   ConfigManager &cfg = ConfigManager::Get();
   cfg.PushUndoState("auto patch");
   AutoPatcher::AutoPatch(cfg.GetScene());
-  if (fixturePanel)
-    fixturePanel->ReloadData();
+  RefreshAfterSceneChange();
 }
 
 void MainWindow::OnAutoColor(wxCommandEvent &WXUNUSED(event)) {
@@ -461,14 +460,9 @@ void MainWindow::OnAutoColor(wxCommandEvent &WXUNUSED(event)) {
     SetGdtfModelColor(gdtfPath, color);
   }
 
-  if (fixturePanel)
-    fixturePanel->ReloadData();
   if (layerPanel)
     layerPanel->ReloadLayers();
-  if (Viewer3DPanel::Instance()) {
-    Viewer3DPanel::Instance()->UpdateScene();
-    Viewer3DPanel::Instance()->Refresh();
-  }
+  RefreshAfterSceneChange();
 }
 
 void MainWindow::OnConvertToHoist(wxCommandEvent &WXUNUSED(event)) {
