@@ -17,6 +17,7 @@
  */
 #pragma once
 #include <condition_variable>
+#include <cstddef>
 #include <fstream>
 #include <mutex>
 #include <queue>
@@ -30,7 +31,7 @@ public:
   static Logger &Instance();
 
   // Queue a message to be logged.
-  void Log(const std::string &msg);
+  void Log(std::string msg);
 
 private:
   Logger();
@@ -39,6 +40,9 @@ private:
   Logger &operator=(const Logger &) = delete;
 
   void Worker();
+
+  // Flush policy: flush after every kFlushInterval messages or during shutdown.
+  static constexpr std::size_t kFlushInterval = 32;
 
   std::ofstream file_;
   std::mutex mutex_;
