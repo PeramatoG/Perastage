@@ -901,6 +901,18 @@ bool LayoutManager::MoveLayoutImage(const std::string &name, int imageId,
   return true;
 }
 
+void LayoutManager::BeginBatchUpdate() { ++batchDepth; }
+
+void LayoutManager::EndBatchUpdate() {
+  if (batchDepth <= 0)
+    return;
+  --batchDepth;
+  if (batchDepth == 0 && pendingSync) {
+    pendingSync = false;
+    SaveToConfig(ConfigManager::Get());
+  }
+}
+
 void LayoutManager::LoadFromConfig(ConfigManager &cfg) {
   auto value = cfg.GetValue(kLayoutsConfigKey);
   if (!value.has_value()) {
@@ -953,6 +965,13 @@ void LayoutManager::ResetToDefault(ConfigManager &cfg) {
   SaveToConfig(cfg);
 }
 
-void LayoutManager::SyncToConfig() { SaveToConfig(ConfigManager::Get()); }
+void LayoutManager::SyncToConfig() {
+  if (batchDepth > 0) {
+    pendingSync = true;
+    return;
+  }
+  pendingSync = false;
+  SaveToConfig(ConfigManager::Get());
+}
 
 } // namespace layouts

@@ -422,6 +422,9 @@ void LayoutViewerPanel::OnLeftDown(wxMouseEvent &event) {
       dragStartPos = pos;
       dragStartFrame = selectedFrame;
       CaptureMouse();
+      if (!currentLayout.name.empty()) {
+        layouts::LayoutManager::Get().BeginBatchUpdate();
+      }
       return;
     }
   }
@@ -434,6 +437,7 @@ void LayoutViewerPanel::OnLeftDown(wxMouseEvent &event) {
 void LayoutViewerPanel::OnLeftUp(wxMouseEvent &) {
   if (dragMode != FrameDragMode::None) {
     dragMode = FrameDragMode::None;
+    layouts::LayoutManager::Get().EndBatchUpdate();
     if (HasCapture())
       ReleaseMouse();
     return;
@@ -635,6 +639,9 @@ void LayoutViewerPanel::OnMouseWheel(wxMouseEvent &event) {
 
 void LayoutViewerPanel::OnCaptureLost(wxMouseCaptureLostEvent &) {
   isPanning = false;
+  if (dragMode != FrameDragMode::None) {
+    layouts::LayoutManager::Get().EndBatchUpdate();
+  }
   dragMode = FrameDragMode::None;
 }
 

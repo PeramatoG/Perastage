@@ -55,6 +55,9 @@ public:
   bool RemoveLayoutImage(const std::string &name, int imageId);
   bool MoveLayoutImage(const std::string &name, int imageId, bool toFront);
 
+  void BeginBatchUpdate();
+  void EndBatchUpdate();
+
   void LoadFromConfig(ConfigManager &cfg);
   void SaveToConfig(ConfigManager &cfg) const;
   void ResetToDefault(ConfigManager &cfg);
@@ -64,6 +67,8 @@ private:
   void SyncToConfig();
 
   LayoutCollection layouts;
+  int batchDepth = 0;
+  bool pendingSync = false;
 };
 
 } // namespace layouts
