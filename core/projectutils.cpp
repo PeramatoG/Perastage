@@ -93,7 +93,14 @@ fs::path GetResourceRoot()
         return *found;
     if (auto found = FindExistingPath(fs::current_path(), suffix))
         return *found;
-    return exeBase / suffix;
+    const wxString resourcesDir = wxStandardPaths::Get().GetResourcesDir();
+    if (!resourcesDir.empty()) {
+        fs::path resourcesPath = fs::path(resourcesDir.ToStdString());
+        std::error_code ec;
+        if (fs::exists(resourcesPath, ec))
+            return resourcesPath;
+    }
+    return {};
 }
 
 std::string GetLastProjectPathFile()
@@ -123,8 +130,7 @@ bool SaveLastProjectPath(const std::string& path)
         return true;
     }
     std::error_code ec;
-    fs::path resolved = fs::u8path(path);
-    resolved = fs::absolute(resolved, ec);
+    fs::path resolved = fs::absolute(fs::u8path(path), ec);
     if (ec)
         out << path;
     else
@@ -149,14 +155,14 @@ std::optional<std::string> LoadLastProjectPath()
         return ToUtf8String(candidate);
     std::error_code ec;
     fs::path currentCandidate = fs::absolute(candidate, ec);
-    if (!ec && fs::exists(currentCandidate, ec))
+    if (!ec)
         return ToUtf8String(currentCandidate);
     ec.clear();
     wxFileName exe(wxStandardPaths::Get().GetExecutablePath());
     fs::path exeBase = fs::path(exe.GetPath().ToStdString());
-    fs::path exeCandidate = exeBase / candidate;
-    if (fs::exists(exeCandidate, ec))
-        return ToUtf8String(fs::absolute(exeCandidate, ec));
+    fs::path exeCandidate = fs::absolute(exeBase / candidate, ec);
+    if (!ec)
+        return ToUtf8String(exeCandidate);
     return ToUtf8String(candidate);
 }
 
