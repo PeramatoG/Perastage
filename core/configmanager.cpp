@@ -81,6 +81,35 @@ private:
   std::filesystem::path path;
   bool created = false;
 };
+
+bool LooksLikeZipFile(const std::string &path) {
+  std::ifstream file(path, std::ios::binary);
+  if (!file.is_open())
+    return false;
+  unsigned char signature[2] = {};
+  file.read(reinterpret_cast<char *>(signature), sizeof(signature));
+  return file.gcount() == static_cast<std::streamsize>(sizeof(signature)) &&
+         signature[0] == 'P' && signature[1] == 'K';
+}
+
+bool LooksLikeJsonFile(const std::string &path) {
+  std::ifstream file(path, std::ios::binary);
+  if (!file.is_open())
+    return false;
+  char ch = '\0';
+  while (file.get(ch)) {
+    if (!std::isspace(static_cast<unsigned char>(ch))) {
+      return ch == '{' || ch == '[';
+    }
+  }
+  return false;
+}
+
+std::string ToLowerCopy(std::string text) {
+  std::transform(text.begin(), text.end(), text.begin(),
+                 [](unsigned char c) { return std::tolower(c); });
+  return text;
+}
 } // namespace
 
 ConfigManager::RevisionGuard::RevisionGuard(ConfigManager &cfg)
@@ -624,6 +653,12 @@ bool ConfigManager::SaveProject(const std::string &path) {
 bool ConfigManager::LoadProject(const std::string &path) {
   namespace fs = std::filesystem;
 
+  if (!LooksLikeZipFile(path)) {
+    if (LooksLikeJsonFile(path))
+      return LoadFromFile(path);
+    return false;
+  }
+
   wxFileInputStream in(path);
   if (!in.IsOk())
     return false;
@@ -637,16 +672,24 @@ bool ConfigManager::LoadProject(const std::string &path) {
 
   fs::path configPath;
   fs::path scenePath;
+  bool hasMvrSceneXml = false;
 
   while ((entry.reset(zip.GetNextEntry())), entry) {
-    std::string name = entry->GetName().ToStdString();
-    fs::path outPath;
-    if (name == "config.json")
-      outPath = tempDir.Path() / "config.json";
-    else if (name == "scene.mvr")
-      outPath = tempDir.Path() / "scene.mvr";
-    else
+    if (entry->IsDir())
       continue;
+    std::string name = entry->GetName().ToStdString();
+    std::string baseName =
+        ToLowerCopy(fs::path(name).filename().string());
+    fs::path outPath;
+    if (baseName == "config.json")
+      outPath = tempDir.Path() / "config.json";
+    else if (baseName == "scene.mvr")
+      outPath = tempDir.Path() / "scene.mvr";
+    else {
+      if (baseName == "generalscenedescription.xml")
+        hasMvrSceneXml = true;
+      continue;
+    }
 
     std::ofstream out(outPath, std::ios::binary);
     char buf[4096];
@@ -659,10 +702,29 @@ bool ConfigManager::LoadProject(const std::string &path) {
     }
     out.close();
 
-    if (name == "config.json")
+    if (baseName == "config.json")
       configPath = outPath;
-    else if (name == "scene.mvr")
+    else if (baseName == "scene.mvr")
       scenePath = outPath;
+  }
+
+  if (configPath.empty() && scenePath.empty()) {
+    if (hasMvrSceneXml) {
+      std::string ext = ToLowerCopy(fs::path(path).extension().string());
+      if (ext == ".mvr")
+        return MvrImporter::ImportAndRegister(path, false);
+
+      fs::path tempMvrPath = tempDir.Path() / "legacy.mvr";
+      std::error_code ec;
+      fs::copy_file(path, tempMvrPath, fs::copy_options::overwrite_existing,
+                    ec);
+      if (ec)
+        return false;
+      return MvrImporter::ImportAndRegister(tempMvrPath.string(), false);
+    }
+    if (LooksLikeJsonFile(path))
+      return LoadFromFile(path);
+    return false;
   }
 
   bool ok = true;
