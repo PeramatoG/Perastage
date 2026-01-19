@@ -28,13 +28,8 @@
 #include <wx/richtext/richtextbuffer.h>
 #include <wx/richtext/richtextxml.h>
 #include <wx/richtext/richtextctrl.h>
-#include <wx/settings.h>
 #include <wx/sizer.h>
 #include <wx/spinctrl.h>
-
-#ifndef wxRICHTEXT_SETSTYLE_REPLACE
-#define wxRICHTEXT_SETSTYLE_REPLACE wxRICHTEXT_SETSTYLE_RESET
-#endif
 
 #include "layouttextutils.h"
 #include "layoutviewerpanel_shared.h"
@@ -46,10 +41,7 @@ constexpr int kMinFontSize = 6;
 constexpr int kMaxFontSize = 72;
 
 wxColour GetEditorTextColour() {
-  wxColour colour = wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOWTEXT);
-  if (!colour.IsOk())
-    return *wxWHITE;
-  return colour;
+  return *wxWHITE;
 }
 
 void NormalizeBufferTextColour(wxRichTextBuffer &buffer,
@@ -213,26 +205,10 @@ void LayoutTextDialog::LoadInitialContent(const wxString &initialRichText,
 void LayoutTextDialog::ApplyDefaultFontStyle() {
   if (!textCtrl)
     return;
-  wxFont sharedFont = layoutviewerpanel::detail::MakeSharedFont(
-      layoutviewerpanel::detail::kTextDefaultFontSize, wxFONTWEIGHT_NORMAL);
-  if (!sharedFont.IsOk()) {
-    sharedFont = wxFont(layoutviewerpanel::detail::kTextDefaultFontSize,
-                        wxFONTFAMILY_SWISS, wxFONTSTYLE_NORMAL,
-                        wxFONTWEIGHT_NORMAL, false, "Arial");
-  }
   wxRichTextAttr defaultStyle = textCtrl->GetDefaultStyle();
-  if (sharedFont.IsOk()) {
-    textCtrl->SetFont(sharedFont);
-    defaultStyle.SetFont(sharedFont);
-    defaultStyle.SetFontFaceName(sharedFont.GetFaceName());
-  }
   wxColour editorColour = GetEditorTextColour();
   defaultStyle.SetTextColour(editorColour);
-  defaultStyle.SetFontFamily(wxFONTFAMILY_SWISS);
-  defaultStyle.SetFlags(defaultStyle.GetFlags() | wxTEXT_ATTR_FONT_FAMILY);
-  if (sharedFont.IsOk()) {
-    defaultStyle.SetFlags(defaultStyle.GetFlags() | wxTEXT_ATTR_FONT_FACE);
-  }
+  defaultStyle.SetFlags(defaultStyle.GetFlags() | wxTEXT_ATTR_TEXT_COLOUR);
   textCtrl->SetDefaultStyle(defaultStyle);
   textCtrl->GetBuffer().SetDefaultStyle(defaultStyle);
   textCtrl->GetBuffer().SetBasicStyle(defaultStyle);
@@ -240,17 +216,10 @@ void LayoutTextDialog::ApplyDefaultFontStyle() {
   wxRichTextRange range(0, textCtrl->GetLastPosition());
   if (range.GetLength() <= 0)
     return;
-  wxRichTextAttr overrideStyle;
-  overrideStyle.SetTextColour(editorColour);
-  overrideStyle.SetFontFamily(wxFONTFAMILY_SWISS);
-  long flags = wxTEXT_ATTR_TEXT_COLOUR | wxTEXT_ATTR_FONT_FAMILY;
-  if (sharedFont.IsOk()) {
-    overrideStyle.SetFont(sharedFont);
-    overrideStyle.SetFontFaceName(sharedFont.GetFaceName());
-    flags |= wxTEXT_ATTR_FONT_FACE;
-  }
-  overrideStyle.SetFlags(flags);
-  textCtrl->SetStyleEx(range, overrideStyle, wxRICHTEXT_SETSTYLE_REPLACE);
+  wxRichTextAttr colourOnly;
+  colourOnly.SetTextColour(editorColour);
+  colourOnly.SetFlags(wxTEXT_ATTR_TEXT_COLOUR);
+  textCtrl->SetStyle(range, colourOnly);
 }
 
 void LayoutTextDialog::ApplyBold() {
