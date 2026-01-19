@@ -17,6 +17,7 @@
  */
 #include "logger.h"
 #include <iostream>
+#include <vector>
 
 Logger &Logger::Instance() {
   static Logger instance;
@@ -40,28 +41,43 @@ Logger::~Logger() {
     file_.close();
 }
 
-void Logger::Log(const std::string &msg) {
+void Logger::Log(std::string msg) {
   {
     std::lock_guard<std::mutex> lock(mutex_);
-    queue_.push(msg);
+    queue_.push(std::move(msg));
   }
   cv_.notify_one();
 }
 
 void Logger::Worker() {
   std::unique_lock<std::mutex> lock(mutex_);
+  std::size_t messages_since_flush = 0;
   while (true) {
     cv_.wait(lock, [this] { return done_ || !queue_.empty(); });
     if (done_ && queue_.empty())
       break;
-    auto msg = queue_.front();
-    queue_.pop();
-    lock.unlock();
-    if (file_.is_open()) {
-      file_ << msg << std::endl;
-      file_.flush();
+    const bool shutting_down = done_;
+    std::vector<std::string> batch;
+    batch.reserve(queue_.size());
+    while (!queue_.empty()) {
+      batch.emplace_back(std::move(queue_.front()));
+      queue_.pop();
     }
-    std::cerr << msg << std::endl;
+    lock.unlock();
+    std::string buffer;
+    for (const auto &msg : batch) {
+      buffer.append(msg);
+      buffer.push_back('\n');
+    }
+    if (file_.is_open()) {
+      file_ << buffer;
+      messages_since_flush += batch.size();
+      if (shutting_down || messages_since_flush >= kFlushInterval) {
+        file_.flush();
+        messages_since_flush = 0;
+      }
+    }
+    std::cerr << buffer;
     lock.lock();
   }
 }
