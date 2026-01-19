@@ -93,15 +93,23 @@ fs::path GetResourceRoot()
 std::string GetLastProjectPathFile()
 {
     wxString dir = wxStandardPaths::Get().GetUserDataDir();
+    if (dir.empty())
+        return {};
     fs::path p = fs::path(dir.ToStdString());
-    fs::create_directories(p);
+    std::error_code ec;
+    fs::create_directories(p, ec);
+    if (ec)
+        return {};
     p /= "last_project.txt";
     return p.string();
 }
 
 bool SaveLastProjectPath(const std::string& path)
 {
-    std::ofstream out(GetLastProjectPathFile());
+    const std::string pathFile = GetLastProjectPathFile();
+    if (pathFile.empty())
+        return false;
+    std::ofstream out(pathFile);
     if (!out.is_open())
         return false;
     out << path;
@@ -110,7 +118,10 @@ bool SaveLastProjectPath(const std::string& path)
 
 std::optional<std::string> LoadLastProjectPath()
 {
-    std::ifstream in(GetLastProjectPathFile());
+    const std::string pathFile = GetLastProjectPathFile();
+    if (pathFile.empty())
+        return std::nullopt;
+    std::ifstream in(pathFile);
     if (!in.is_open())
         return std::nullopt;
     std::string path;
