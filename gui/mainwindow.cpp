@@ -258,6 +258,8 @@ wxEND_EVENT_TABLE()
 
   Centre();
   SetupLayout();
+  // Ensure the 3D viewport is available even before a project is loaded.
+  Ensure3DViewport();
 
   ApplySavedLayout();
 

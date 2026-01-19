@@ -150,20 +150,27 @@ std::optional<std::string> LoadLastProjectPath()
     std::getline(in, rawPath);
     if (rawPath.empty())
         return std::nullopt;
+    auto isValidFile = [](const fs::path& path) {
+        std::error_code ec;
+        return fs::exists(path, ec) && fs::is_regular_file(path, ec);
+    };
     fs::path candidate = fs::u8path(rawPath);
-    if (candidate.is_absolute())
-        return ToUtf8String(candidate);
+    if (candidate.is_absolute()) {
+        if (isValidFile(candidate))
+            return ToUtf8String(candidate);
+        return std::nullopt;
+    }
     std::error_code ec;
     fs::path currentCandidate = fs::absolute(candidate, ec);
-    if (!ec)
+    if (!ec && isValidFile(currentCandidate))
         return ToUtf8String(currentCandidate);
     ec.clear();
     wxFileName exe(wxStandardPaths::Get().GetExecutablePath());
     fs::path exeBase = fs::path(exe.GetPath().ToStdString());
     fs::path exeCandidate = fs::absolute(exeBase / candidate, ec);
-    if (!ec)
+    if (!ec && isValidFile(exeCandidate))
         return ToUtf8String(exeCandidate);
-    return ToUtf8String(candidate);
+    return std::nullopt;
 }
 
 std::string GetDefaultLibraryPath(const std::string& subdir)

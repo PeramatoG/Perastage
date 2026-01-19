@@ -72,13 +72,7 @@ bool MyApp::OnInit() {
       bool clearLastProject = false;
       std::string path = lastPath;
       std::error_code ec;
-      fs::path lastFsPath = fs::absolute(fs::u8path(path), ec);
-      if (!ec) {
-        std::u8string u8Path = lastFsPath.u8string();
-        path.assign(u8Path.begin(), u8Path.end());
-      } else {
-        lastFsPath = fs::u8path(path);
-      }
+      fs::path lastFsPath = fs::u8path(path);
       bool isFile = fs::is_regular_file(lastFsPath, ec);
       if (ec || !isFile) {
         clearLastProject = true;
