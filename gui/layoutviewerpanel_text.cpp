@@ -161,6 +161,9 @@ void LayoutViewerPanel::OnDeleteText(wxCommandEvent &) {
         } else if (!currentLayout.eventTables.empty()) {
           selectedElementType = SelectedElementType::EventTable;
           selectedElementId = currentLayout.eventTables.front().id;
+        } else if (!currentLayout.imageViews.empty()) {
+          selectedElementType = SelectedElementType::Image;
+          selectedElementId = currentLayout.imageViews.front().id;
         } else if (!texts.empty()) {
           selectedElementType = SelectedElementType::Text;
           selectedElementId = texts.front().id;

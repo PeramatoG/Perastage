@@ -88,6 +88,9 @@ void LayoutViewerPanel::OnDeleteView(wxCommandEvent &) {
         } else if (!currentLayout.legendViews.empty()) {
           selectedElementType = SelectedElementType::Legend;
           selectedElementId = currentLayout.legendViews.front().id;
+        } else if (!currentLayout.imageViews.empty()) {
+          selectedElementType = SelectedElementType::Image;
+          selectedElementId = currentLayout.imageViews.front().id;
         } else if (!currentLayout.textViews.empty()) {
           selectedElementType = SelectedElementType::Text;
           selectedElementId = currentLayout.textViews.front().id;

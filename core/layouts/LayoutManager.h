@@ -50,6 +50,10 @@ public:
                         const LayoutTextDefinition &text);
   bool RemoveLayoutText(const std::string &name, int textId);
   bool MoveLayoutText(const std::string &name, int textId, bool toFront);
+  bool UpdateLayoutImage(const std::string &name,
+                         const LayoutImageDefinition &image);
+  bool RemoveLayoutImage(const std::string &name, int imageId);
+  bool MoveLayoutImage(const std::string &name, int imageId, bool toFront);
 
   void LoadFromConfig(ConfigManager &cfg);
   void SaveToConfig(ConfigManager &cfg) const;
