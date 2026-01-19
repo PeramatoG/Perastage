@@ -111,13 +111,13 @@ LayoutTextDialog::LayoutTextDialog(wxWindow *parent,
   });
   toolbarSizer->Add(fontSizeCtrl, 0, wxRIGHT, 8);
 
-  addToolButton("align-horizontal-justify-start", "Align start",
+  addToolButton("text-align-start", "Align start",
                 [this]() { ApplyAlignment(wxTEXT_ALIGNMENT_LEFT); });
-  addToolButton("align-horizontal-justify-center", "Align center",
+  addToolButton("text-align-center", "Align center",
                 [this]() { ApplyAlignment(wxTEXT_ALIGNMENT_CENTRE); });
-  addToolButton("align-horizontal-justify-end", "Align end",
+  addToolButton("text-align-end", "Align end",
                 [this]() { ApplyAlignment(wxTEXT_ALIGNMENT_RIGHT); });
-  addToolButton("align-horizontal-space-between", "Justify",
+  addToolButton("text-align-center", "Justify",
                 [this]() { ApplyAlignment(wxTEXT_ALIGNMENT_JUSTIFIED); });
 
   mainSizer->Add(toolbarSizer, 0, wxEXPAND | wxALL, 8);
