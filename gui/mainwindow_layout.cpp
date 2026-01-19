@@ -164,14 +164,21 @@ layouts::Layout2DViewFrame BuildDefaultLayoutImageFrame(
     width = height * ratio;
   }
 
-  int finalWidth = std::max(kMinFrameSize,
-                            static_cast<int>(std::lround(width)));
-  int finalHeight = std::max(kMinFrameSize,
-                             static_cast<int>(std::lround(height)));
+  if (width < kMinFrameSize || height < kMinFrameSize) {
+    const double scale =
+        std::max(kMinFrameSize / width, kMinFrameSize / height);
+    width *= scale;
+    height *= scale;
+  }
 
-  finalWidth = std::min(finalWidth, static_cast<int>(std::lround(pageWidth)));
-  finalHeight = std::min(finalHeight,
-                         static_cast<int>(std::lround(pageHeight)));
+  const double maxScale = std::min(pageWidth / width, pageHeight / height);
+  if (maxScale < 1.0) {
+    width *= maxScale;
+    height *= maxScale;
+  }
+
+  int finalWidth = static_cast<int>(std::lround(width));
+  int finalHeight = static_cast<int>(std::lround(height));
 
   int x = std::max(
       0, static_cast<int>(std::lround((pageWidth - finalWidth) / 2.0)));
