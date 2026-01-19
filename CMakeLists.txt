@@ -43,6 +43,7 @@ find_package(ZLIB REQUIRED)
 # Gather source files
 file(GLOB_RECURSE SRC_FILES CONFIGURE_DEPENDS
     ${CMAKE_SOURCE_DIR}/main.cpp
+    # MainWindow modules split across gui/mainwindow_*.cpp (layout, menu, io, print).
     ${CMAKE_SOURCE_DIR}/gui/*.cpp
     ${CMAKE_SOURCE_DIR}/models/*.cpp
     ${CMAKE_SOURCE_DIR}/core/*.cpp
