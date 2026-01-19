@@ -653,8 +653,11 @@ void MainWindow::RefreshAfterSceneChange(bool refreshViewport) {
 
 void MainWindow::OnProjectLoaded(wxCommandEvent &event) {
   bool loaded = event.GetInt() != 0;
+  bool clearLastProject = event.GetExtraLong() != 0;
   std::string path = event.GetString().ToStdString();
   Ensure3DViewport();
+  if (clearLastProject)
+    ProjectUtils::SaveLastProjectPath("");
   if (loaded && !path.empty()) {
     currentProjectPath = path;
     ProjectUtils::SaveLastProjectPath(currentProjectPath);
