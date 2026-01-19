@@ -18,43 +18,37 @@
 #pragma once
 
 #include <cctype>
+#include <cstdlib>
 #include <string>
-#include <string_view>
 #include <utility>
 
 namespace StringUtils {
 
-inline bool NaturalLess(std::string_view a, std::string_view b) {
-  struct ParsedSuffix {
-    std::string_view prefix;
-    long number;
-    bool hasNumber;
-  };
-
-  auto extract = [](std::string_view s) -> ParsedSuffix {
+inline bool NaturalLess(const std::string &a, const std::string &b) {
+  auto extract = [](const std::string &s) -> std::pair<std::string, long> {
     size_t i = s.size();
     while (i > 0 && std::isdigit(static_cast<unsigned char>(s[i - 1]))) {
       --i;
     }
     long num = 0;
     if (i < s.size()) {
-      for (size_t j = i; j < s.size(); ++j) {
-        num = (num * 10) + (s[j] - '0');
-      }
+      num = std::strtol(s.c_str() + i, nullptr, 10);
     }
-    return {s.substr(0, i), num, i < s.size()};
+    return {s.substr(0, i), num};
   };
 
-  ParsedSuffix aParsed = extract(a);
-  ParsedSuffix bParsed = extract(b);
+  auto [prefixA, numA] = extract(a);
+  auto [prefixB, numB] = extract(b);
 
-  if (aParsed.prefix == bParsed.prefix &&
-      (aParsed.hasNumber || bParsed.hasNumber)) {
-    if (aParsed.number != bParsed.number)
-      return aParsed.number < bParsed.number;
+  bool aHasNum = prefixA.size() != a.size();
+  bool bHasNum = prefixB.size() != b.size();
+  if (prefixA == prefixB && (aHasNum || bHasNum)) {
+    if (numA != numB)
+      return numA < numB;
     return a.size() < b.size();
   }
   return a < b;
 }
 
 } // namespace StringUtils
+
