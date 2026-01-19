@@ -273,6 +273,10 @@ void MainWindow::OnNew(wxCommandEvent &WXUNUSED(event)) {
 }
 
 void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
+  // Flow overview: reuse stored credentials to reduce friction, authenticate,
+  // and persist the session before requesting the list and downloading.
+  // The order matters because the list needs a valid cookie; we also save
+  // credentials early so a later network failure doesn't discard user input.
   std::string savedUser;
   std::string savedPass;
   if (auto creds = CredentialStore::Load()) {
