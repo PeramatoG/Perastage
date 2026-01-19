@@ -129,15 +129,7 @@ void MainWindow::SetInstance(MainWindow *inst) { s_instance = inst; }
 
 namespace {
 void LogMissingIcon(const std::filesystem::path &path) {
-#ifndef NDEBUG
-  wxLogDebug("Main window icon not found at '%s'", path.string().c_str());
-  wxASSERT_MSG(
-      false,
-      wxString::Format("Main window icon not found at '%s'",
-                       wxString::FromUTF8(path.string()).c_str()));
-#else
   wxLogWarning("Main window icon not found at '%s'", path.string().c_str());
-#endif
 }
 
 wxFont BuildDefaultUiFont() {
@@ -247,14 +239,20 @@ wxEND_EVENT_TABLE()
   if (defaultUiFont.IsOk())
     SetFont(defaultUiFont);
   wxIcon icon;
-  std::filesystem::path iconPath =
-      ProjectUtils::GetResourceRoot() / "Perastage.ico";
+  const std::filesystem::path resourceRoot = ProjectUtils::GetResourceRoot();
+  std::filesystem::path iconPath;
+  if (!resourceRoot.empty())
+    iconPath = resourceRoot / "Perastage.ico";
   std::error_code ec;
-  if (std::filesystem::exists(iconPath, ec)) {
+  if (!iconPath.empty() && std::filesystem::exists(iconPath, ec)) {
     icon.LoadFile(iconPath.string(), wxBITMAP_TYPE_ICO);
   } else {
-    LogMissingIcon(iconPath);
+    LogMissingIcon(
+        iconPath.empty() ? std::filesystem::path("resources/Perastage.ico")
+                         : iconPath);
   }
+  if (!icon.IsOk())
+    icon = wxArtProvider::GetIcon(wxART_MISSING_IMAGE);
   if (icon.IsOk())
     SetIcon(icon);
 

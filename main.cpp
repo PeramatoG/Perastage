@@ -35,7 +35,7 @@ wxIMPLEMENT_APP(MyApp);
 
 bool MyApp::OnInit() {
   SetAppName("Perastage");
-  SetVendorName("Perastage");
+  SetVendorName("Perasoft");
 
   // Enable support for common image formats used by the app
   wxInitAllImageHandlers();
@@ -71,7 +71,11 @@ bool MyApp::OnInit() {
       namespace fs = std::filesystem;
       path = *last;
       std::error_code ec;
-      fs::path lastPath = fs::u8path(path);
+      fs::path lastPath = fs::absolute(fs::u8path(path), ec);
+      if (!ec) {
+        std::u8string u8Path = lastPath.u8string();
+        path.assign(u8Path.begin(), u8Path.end());
+      }
       bool isFile = fs::is_regular_file(lastPath, ec);
       if (ec || !isFile) {
         ProjectUtils::SaveLastProjectPath("");
