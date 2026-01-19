@@ -203,6 +203,13 @@ std::string GetDefaultLibraryPath(const std::string& subdir)
     if (!ec)
         return baseLib.string();
 
+    fs::path userLib = fs::path(wxStandardPaths::Get().GetUserDataDir().ToStdString()) /
+                      "library" / subdir;
+    ec.clear();
+    fs::create_directories(userLib, ec);
+    if (!ec)
+        return fs::absolute(userLib).string();
+
     return {};
 #endif
 }
