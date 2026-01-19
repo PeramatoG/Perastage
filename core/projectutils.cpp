@@ -29,6 +29,12 @@ namespace ProjectUtils {
 
 namespace {
 
+std::string ToUtf8String(const fs::path& path)
+{
+    std::u8string utf8 = path.u8string();
+    return std::string(utf8.begin(), utf8.end());
+}
+
 void CopyLibrarySubdir(const fs::path& source, const fs::path& destination)
 {
     std::error_code ec;
@@ -122,7 +128,7 @@ bool SaveLastProjectPath(const std::string& path)
     if (ec)
         out << path;
     else
-        out << resolved.u8string();
+        out << ToUtf8String(resolved);
     return true;
 }
 
@@ -140,18 +146,18 @@ std::optional<std::string> LoadLastProjectPath()
         return std::nullopt;
     fs::path candidate = fs::u8path(rawPath);
     if (candidate.is_absolute())
-        return candidate.u8string();
+        return ToUtf8String(candidate);
     std::error_code ec;
     fs::path currentCandidate = fs::absolute(candidate, ec);
     if (!ec && fs::exists(currentCandidate, ec))
-        return currentCandidate.u8string();
+        return ToUtf8String(currentCandidate);
     ec.clear();
     wxFileName exe(wxStandardPaths::Get().GetExecutablePath());
     fs::path exeBase = fs::path(exe.GetPath().ToStdString());
     fs::path exeCandidate = exeBase / candidate;
     if (fs::exists(exeCandidate, ec))
-        return fs::absolute(exeCandidate, ec).u8string();
-    return candidate.u8string();
+        return ToUtf8String(fs::absolute(exeCandidate, ec));
+    return ToUtf8String(candidate);
 }
 
 std::string GetDefaultLibraryPath(const std::string& subdir)
