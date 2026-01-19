@@ -43,6 +43,7 @@ constexpr int kHandleSizePx = 10;
 constexpr int kHandleHalfPx = kHandleSizePx / 2;
 constexpr int kHandleHoverPadPx = 6;
 constexpr int kMinFrameSize = 24;
+constexpr int kLayoutGridStep = 5;
 constexpr int kEditMenuId = wxID_HIGHEST + 490;
 constexpr int kDeleteMenuId = wxID_HIGHEST + 491;
 constexpr int kDeleteLegendMenuId = wxID_HIGHEST + 492;
@@ -54,6 +55,14 @@ constexpr int kEditImageMenuId = wxID_HIGHEST + 497;
 constexpr int kDeleteImageMenuId = wxID_HIGHEST + 498;
 constexpr int kBringToFrontMenuId = wxID_HIGHEST + 499;
 constexpr int kSendToBackMenuId = wxID_HIGHEST + 500;
+
+int SnapToGrid(int value) {
+  if (kLayoutGridStep <= 1)
+    return value;
+  return static_cast<int>(
+      std::lround(static_cast<double>(value) / kLayoutGridStep) *
+      kLayoutGridStep);
+}
 } // namespace
 
 wxDEFINE_EVENT(EVT_LAYOUT_VIEW_EDIT, wxCommandEvent);
@@ -530,12 +539,18 @@ void LayoutViewerPanel::OnMouseMove(wxMouseEvent &event) {
     if (dragMode == FrameDragMode::Move) {
       frame.x += logicalDelta.x;
       frame.y += logicalDelta.y;
+      frame.x = SnapToGrid(frame.x);
+      frame.y = SnapToGrid(frame.y);
     } else {
       if (selectedElementType == SelectedElementType::Image) {
         const auto *image = GetSelectedImage();
         const double ratio = image && image->aspectRatio > 0.0f
                                  ? image->aspectRatio
                                  : 0.0;
+        const bool useHeight =
+            dragMode == FrameDragMode::ResizeBottom ||
+            (dragMode == FrameDragMode::ResizeCorner &&
+             std::abs(logicalDelta.y) > std::abs(logicalDelta.x));
         if (ratio > 0.0) {
           if (dragMode == FrameDragMode::ResizeRight ||
               dragMode == FrameDragMode::ResizeCorner) {
@@ -558,16 +573,29 @@ void LayoutViewerPanel::OnMouseMove(wxMouseEvent &event) {
               frame.width = candidateWidth;
             }
           }
+          if (useHeight) {
+            frame.height = std::max(kMinFrameSize, SnapToGrid(frame.height));
+            frame.width = std::max(
+                kMinFrameSize,
+                static_cast<int>(std::lround(frame.height * ratio)));
+          } else {
+            frame.width = std::max(kMinFrameSize, SnapToGrid(frame.width));
+            frame.height = std::max(
+                kMinFrameSize,
+                static_cast<int>(std::lround(frame.width / ratio)));
+          }
         } else {
           if (dragMode == FrameDragMode::ResizeRight ||
               dragMode == FrameDragMode::ResizeCorner) {
             frame.width =
                 std::max(kMinFrameSize, dragStartFrame.width + logicalDelta.x);
+            frame.width = std::max(kMinFrameSize, SnapToGrid(frame.width));
           }
           if (dragMode == FrameDragMode::ResizeBottom ||
               dragMode == FrameDragMode::ResizeCorner) {
             frame.height =
                 std::max(kMinFrameSize, dragStartFrame.height + logicalDelta.y);
+            frame.height = std::max(kMinFrameSize, SnapToGrid(frame.height));
           }
         }
       } else {
@@ -575,11 +603,13 @@ void LayoutViewerPanel::OnMouseMove(wxMouseEvent &event) {
             dragMode == FrameDragMode::ResizeCorner) {
           frame.width =
               std::max(kMinFrameSize, dragStartFrame.width + logicalDelta.x);
+          frame.width = std::max(kMinFrameSize, SnapToGrid(frame.width));
         }
         if (dragMode == FrameDragMode::ResizeBottom ||
             dragMode == FrameDragMode::ResizeCorner) {
           frame.height =
               std::max(kMinFrameSize, dragStartFrame.height + logicalDelta.y);
+          frame.height = std::max(kMinFrameSize, SnapToGrid(frame.height));
         }
       }
     }
