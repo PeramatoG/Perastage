@@ -19,6 +19,7 @@
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <optional>
 #include <wx/filename.h>
 #include <wx/stdpaths.h>
 
@@ -45,37 +46,48 @@ void CopyLibrarySubdir(const fs::path& source, const fs::path& destination)
     }
 }
 
+std::optional<fs::path> FindExistingPath(const fs::path& start,
+                                         const fs::path& suffix,
+                                         int maxDepth = 3)
+{
+    std::error_code ec;
+    fs::path current = start;
+    for (int depth = 0; depth <= maxDepth; ++depth) {
+        fs::path candidate = current / suffix;
+        if (fs::exists(candidate, ec))
+            return candidate;
+        ec.clear();
+        if (!current.has_parent_path())
+            break;
+        current = current.parent_path();
+    }
+    return std::nullopt;
+}
+
 } // namespace
 
 fs::path GetBaseLibraryPath(const std::string& subdir)
 {
     wxFileName exe(wxStandardPaths::Get().GetExecutablePath());
     fs::path exeBase = fs::path(exe.GetPath().ToStdString());
-    fs::path baseLib = exeBase / "library" / subdir;
-
-    if (!fs::exists(baseLib)) {
-        fs::path cwdLib = fs::current_path() / "library" / subdir;
-        if (fs::exists(cwdLib))
-            baseLib = cwdLib;
-    }
-
-    return baseLib;
+    fs::path suffix = fs::path("library") / subdir;
+    if (auto found = FindExistingPath(exeBase, suffix))
+        return *found;
+    if (auto found = FindExistingPath(fs::current_path(), suffix))
+        return *found;
+    return exeBase / suffix;
 }
 
 fs::path GetResourceRoot()
 {
     wxFileName exe(wxStandardPaths::Get().GetExecutablePath());
     fs::path exeBase = fs::path(exe.GetPath().ToStdString());
-    fs::path exeResources = exeBase / "resources";
-
-    if (fs::exists(exeResources))
-        return exeResources;
-
-    fs::path cwdResources = fs::current_path() / "resources";
-    if (fs::exists(cwdResources))
-        return cwdResources;
-
-    return exeResources;
+    fs::path suffix = fs::path("resources");
+    if (auto found = FindExistingPath(exeBase, suffix))
+        return *found;
+    if (auto found = FindExistingPath(fs::current_path(), suffix))
+        return *found;
+    return exeBase / suffix;
 }
 
 std::string GetLastProjectPathFile()
