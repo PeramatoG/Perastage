@@ -48,6 +48,7 @@
 #include "gdtfloader.h"
 #include "gdtfnet.h"
 #include "gdtfsearchdialog.h"
+#include "hoisttablepanel.h"
 #include "layerpanel.h"
 #include "logindialog.h"
 #include "markdown.h"
