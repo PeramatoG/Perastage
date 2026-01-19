@@ -112,7 +112,17 @@ bool SaveLastProjectPath(const std::string& path)
     std::ofstream out(pathFile);
     if (!out.is_open())
         return false;
-    out << path;
+    if (path.empty()) {
+        out << path;
+        return true;
+    }
+    std::error_code ec;
+    fs::path resolved = fs::u8path(path);
+    resolved = fs::absolute(resolved, ec);
+    if (ec)
+        out << path;
+    else
+        out << resolved.u8string();
     return true;
 }
 
@@ -124,11 +134,24 @@ std::optional<std::string> LoadLastProjectPath()
     std::ifstream in(pathFile);
     if (!in.is_open())
         return std::nullopt;
-    std::string path;
-    std::getline(in, path);
-    if (path.empty())
+    std::string rawPath;
+    std::getline(in, rawPath);
+    if (rawPath.empty())
         return std::nullopt;
-    return path;
+    fs::path candidate = fs::u8path(rawPath);
+    if (candidate.is_absolute())
+        return candidate.u8string();
+    std::error_code ec;
+    fs::path currentCandidate = fs::absolute(candidate, ec);
+    if (!ec && fs::exists(currentCandidate, ec))
+        return currentCandidate.u8string();
+    ec.clear();
+    wxFileName exe(wxStandardPaths::Get().GetExecutablePath());
+    fs::path exeBase = fs::path(exe.GetPath().ToStdString());
+    fs::path exeCandidate = exeBase / candidate;
+    if (fs::exists(exeCandidate, ec))
+        return fs::absolute(exeCandidate, ec).u8string();
+    return candidate.u8string();
 }
 
 std::string GetDefaultLibraryPath(const std::string& subdir)

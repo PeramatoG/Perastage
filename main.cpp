@@ -34,6 +34,9 @@ public:
 wxIMPLEMENT_APP(MyApp);
 
 bool MyApp::OnInit() {
+  SetAppName("Perastage");
+  SetVendorName("Perastage");
+
   // Enable support for common image formats used by the app
   wxInitAllImageHandlers();
 
