@@ -91,6 +91,14 @@ private:
     size_t contentHash = 0;
   };
 
+  struct ImageCache {
+    unsigned int texture = 0;
+    wxSize textureSize{0, 0};
+    double renderZoom = 0.0;
+    bool renderDirty = true;
+    size_t contentHash = 0;
+  };
+
   void OnPaint(wxPaintEvent &event);
   void OnSize(wxSizeEvent &event);
   void OnLeftDown(wxMouseEvent &event);
@@ -108,6 +116,8 @@ private:
   void OnDeleteEventTable(wxCommandEvent &event);
   void OnEditText(wxCommandEvent &event);
   void OnDeleteText(wxCommandEvent &event);
+  void OnEditImage(wxCommandEvent &event);
+  void OnDeleteImage(wxCommandEvent &event);
   void OnBringToFront(wxCommandEvent &event);
   void OnSendToBack(wxCommandEvent &event);
 
@@ -121,6 +131,8 @@ private:
   void DrawEventTableElement(const layouts::LayoutEventTableDefinition &table);
   void DrawTextElement(const layouts::LayoutTextDefinition &text,
                        int activeTextId);
+  void DrawImageElement(const layouts::LayoutImageDefinition &image,
+                        int activeImageId);
 
   void ResetViewToFit();
   wxRect GetPageRect() const;
@@ -137,6 +149,8 @@ private:
                              bool updatePosition);
   void UpdateTextFrame(const layouts::Layout2DViewFrame &frame,
                        bool updatePosition);
+  void UpdateImageFrame(const layouts::Layout2DViewFrame &frame,
+                        bool updatePosition);
   void InitGL();
   void RebuildCachedTexture();
   void ClearCachedTexture();
@@ -144,6 +158,7 @@ private:
   void ClearCachedTexture(LegendCache &cache);
   void ClearCachedTexture(EventTableCache &cache);
   void ClearCachedTexture(TextCache &cache);
+  void ClearCachedTexture(ImageCache &cache);
   void RequestRenderRebuild();
   void InvalidateRenderIfFrameChanged();
   void EmitEditViewRequest();
@@ -153,17 +168,21 @@ private:
   bool GetEventTableFrameById(int tableId,
                               layouts::Layout2DViewFrame &frame) const;
   bool GetTextFrameById(int textId, layouts::Layout2DViewFrame &frame) const;
+  bool GetImageFrameById(int imageId, layouts::Layout2DViewFrame &frame) const;
   const layouts::LayoutLegendDefinition *GetSelectedLegend() const;
   layouts::LayoutLegendDefinition *GetSelectedLegend();
   const layouts::LayoutEventTableDefinition *GetSelectedEventTable() const;
   layouts::LayoutEventTableDefinition *GetSelectedEventTable();
   const layouts::LayoutTextDefinition *GetSelectedText() const;
   layouts::LayoutTextDefinition *GetSelectedText();
+  const layouts::LayoutImageDefinition *GetSelectedImage() const;
+  layouts::LayoutImageDefinition *GetSelectedImage();
   bool GetSelectedFrame(layouts::Layout2DViewFrame &frame) const;
   ViewCache &GetViewCache(int viewId);
   LegendCache &GetLegendCache(int legendId);
   EventTableCache &GetEventTableCache(int tableId);
   TextCache &GetTextCache(int textId);
+  ImageCache &GetImageCache(int imageId);
   std::vector<LegendItem> BuildLegendItems() const;
   size_t HashLegendItems(const std::vector<LegendItem> &items) const;
   wxImage BuildLegendImage(const wxSize &size, const wxSize &logicalSize,
@@ -176,6 +195,7 @@ private:
       const wxSize &size, const wxSize &logicalSize, double renderZoom,
       const layouts::LayoutEventTableDefinition &table) const;
   size_t HashTextContent(const layouts::LayoutTextDefinition &text) const;
+  size_t HashImageContent(const layouts::LayoutImageDefinition &image) const;
   wxImage BuildTextImage(const wxSize &size, const wxSize &logicalSize,
                          double renderZoom,
                          const layouts::LayoutTextDefinition &text) const;
@@ -196,7 +216,8 @@ private:
     View2D,
     Legend,
     EventTable,
-    Text
+    Text,
+    Image
   };
 
   struct ZOrderedElement {
@@ -234,6 +255,7 @@ private:
   std::unordered_map<int, LegendCache> legendCaches_;
   std::unordered_map<int, EventTableCache> eventTableCaches_;
   std::unordered_map<int, TextCache> textCaches_;
+  std::unordered_map<int, ImageCache> imageCaches_;
   std::vector<LegendItem> legendItems_;
   size_t legendDataHash = 0;
 

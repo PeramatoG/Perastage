@@ -156,6 +156,7 @@ private:
   void OnLayoutAddLegend(wxCommandEvent &event); // Layout legend creation
   void OnLayoutAddEventTable(wxCommandEvent &event); // Layout event table
   void OnLayoutAddText(wxCommandEvent &event); // Layout text creation
+  void OnLayoutAddImage(wxCommandEvent &event); // Layout image creation
   void OnLayout2DViewOk(wxCommandEvent &event); // Confirm layout 2D view edit
   void OnLayout2DViewCancel(wxCommandEvent &event); // Cancel layout 2D edit
   void OnLayoutViewEdit(wxCommandEvent &event);
@@ -220,6 +221,7 @@ enum {
   ID_View_Layout_Legend,
   ID_View_Layout_EventTable,
   ID_View_Layout_Text,
+  ID_View_Layout_Image,
   ID_Tools_DownloadGdtf,
   ID_Tools_EditDictionaries,
   ID_Tools_ImportRiderText,

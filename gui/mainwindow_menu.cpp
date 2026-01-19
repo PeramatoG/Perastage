@@ -167,6 +167,9 @@ void MainWindow::CreateToolBars() {
   layoutToolBar->AddTool(ID_View_Layout_Text, "Añadir texto",
                          loadToolbarIcon("text-select", wxART_TIP),
                          "Add text box to layout");
+  layoutToolBar->AddTool(ID_View_Layout_Image, "Añadir imagen",
+                         loadToolbarIcon("image-plus", wxART_MISSING_IMAGE),
+                         "Add image to layout");
   layoutToolBar->Realize();
   const wxSize layoutToolbarSize = layoutToolBar->GetBestSize();
   layoutToolBar->SetMinSize(layoutToolbarSize);

@@ -606,6 +606,9 @@ void LayoutViewerPanel::OnDeleteLegend(wxCommandEvent &) {
         } else if (!currentLayout.eventTables.empty()) {
           selectedElementType = SelectedElementType::EventTable;
           selectedElementId = currentLayout.eventTables.front().id;
+        } else if (!currentLayout.imageViews.empty()) {
+          selectedElementType = SelectedElementType::Image;
+          selectedElementId = currentLayout.imageViews.front().id;
         } else {
           selectedElementType = SelectedElementType::None;
           selectedElementId = -1;

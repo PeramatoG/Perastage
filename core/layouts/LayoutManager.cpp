@@ -129,6 +129,19 @@ nlohmann::json ToJson(const LayoutTextDefinition &text) {
   return data;
 }
 
+nlohmann::json ToJson(const LayoutImageDefinition &image) {
+  const auto &frame = image.frame;
+  return {{"id", image.id},
+          {"zIndex", image.zIndex},
+          {"frame",
+           {{"x", frame.x},
+            {"y", frame.y},
+            {"width", frame.width},
+            {"height", frame.height}}},
+          {"path", image.imagePath},
+          {"aspectRatio", image.aspectRatio}};
+}
+
 nlohmann::json ToJson(const LayoutDefinition &layout) {
   nlohmann::json data{{"name", layout.name},
                       {"pageSize", PageSizeToString(layout.pageSetup.pageSize)},
@@ -152,6 +165,11 @@ nlohmann::json ToJson(const LayoutDefinition &layout) {
     data["textViews"] = nlohmann::json::array();
     for (const auto &text : layout.textViews)
       data["textViews"].push_back(ToJson(text));
+  }
+  if (!layout.imageViews.empty()) {
+    data["imageViews"] = nlohmann::json::array();
+    for (const auto &image : layout.imageViews)
+      data["imageViews"].push_back(ToJson(image));
   }
   return data;
 }
@@ -351,6 +369,28 @@ bool ParseLayoutText(const nlohmann::json &value,
   return true;
 }
 
+bool ParseLayoutImage(const nlohmann::json &value,
+                      LayoutImageDefinition &out) {
+  if (!value.is_object())
+    return false;
+  if (auto idIt = value.find("id");
+      idIt != value.end() && idIt->is_number_integer())
+    out.id = idIt->get<int>();
+  if (auto zIt = value.find("zIndex");
+      zIt != value.end() && zIt->is_number_integer())
+    out.zIndex = zIt->get<int>();
+  auto frameIt = value.find("frame");
+  if (frameIt != value.end() && frameIt->is_object())
+    ReadFrame(*frameIt, out.frame);
+  if (auto pathIt = value.find("path");
+      pathIt != value.end() && pathIt->is_string())
+    out.imagePath = pathIt->get<std::string>();
+  if (auto ratioIt = value.find("aspectRatio");
+      ratioIt != value.end() && ratioIt->is_number())
+    out.aspectRatio = ratioIt->get<float>();
+  return true;
+}
+
 void EnsureUniqueViewIds(LayoutDefinition &layout) {
   std::unordered_set<int> used;
   int nextId = 1;
@@ -434,6 +474,28 @@ void EnsureUniqueTextIds(LayoutDefinition &layout) {
     while (used.count(nextId))
       ++nextId;
     text.id = nextId;
+    used.insert(nextId);
+    ++nextId;
+  }
+}
+
+void EnsureUniqueImageIds(LayoutDefinition &layout) {
+  std::unordered_set<int> used;
+  int nextId = 1;
+  for (auto &image : layout.imageViews) {
+    if (image.id > 0) {
+      if (!used.insert(image.id).second)
+        image.id = 0;
+      else
+        nextId = std::max(nextId, image.id + 1);
+    }
+  }
+  for (auto &image : layout.imageViews) {
+    if (image.id > 0)
+      continue;
+    while (used.count(nextId))
+      ++nextId;
+    image.id = nextId;
     used.insert(nextId);
     ++nextId;
   }
@@ -558,6 +620,30 @@ bool ParseLayout(const nlohmann::json &value, LayoutDefinition &out) {
     }
   }
 
+  out.imageViews.clear();
+  if (auto imagesIt = value.find("imageViews");
+      imagesIt != value.end() && imagesIt->is_array()) {
+    for (const auto &entry : *imagesIt) {
+      if (entry.is_object() && entry.find("zIndex") != entry.end())
+        hasZIndex = true;
+      LayoutImageDefinition image;
+      if (!ParseLayoutImage(entry, image))
+        continue;
+      bool replaced = false;
+      if (image.id > 0) {
+        for (auto &existing : out.imageViews) {
+          if (existing.id == image.id) {
+            existing = image;
+            replaced = true;
+            break;
+          }
+        }
+      }
+      if (!replaced)
+        out.imageViews.push_back(std::move(image));
+    }
+  }
+
   if (out.view2dViews.empty()) {
     const auto viewStateIt = value.find("view2dState");
     if (viewStateIt != value.end() && viewStateIt->is_object()) {
@@ -653,6 +739,8 @@ bool ParseLayout(const nlohmann::json &value, LayoutDefinition &out) {
       table.zIndex = nextZ++;
     for (auto &text : out.textViews)
       text.zIndex = nextZ++;
+    for (auto &image : out.imageViews)
+      image.zIndex = nextZ++;
   }
 
   return true;
@@ -790,6 +878,29 @@ bool LayoutManager::MoveLayoutText(const std::string &name, int textId,
   return true;
 }
 
+bool LayoutManager::UpdateLayoutImage(const std::string &name,
+                                      const LayoutImageDefinition &image) {
+  if (!layouts.UpdateLayoutImage(name, image))
+    return false;
+  SyncToConfig();
+  return true;
+}
+
+bool LayoutManager::RemoveLayoutImage(const std::string &name, int imageId) {
+  if (!layouts.RemoveLayoutImage(name, imageId))
+    return false;
+  SyncToConfig();
+  return true;
+}
+
+bool LayoutManager::MoveLayoutImage(const std::string &name, int imageId,
+                                    bool toFront) {
+  if (!layouts.MoveLayoutImage(name, imageId, toFront))
+    return false;
+  SyncToConfig();
+  return true;
+}
+
 void LayoutManager::LoadFromConfig(ConfigManager &cfg) {
   auto value = cfg.GetValue(kLayoutsConfigKey);
   if (!value.has_value()) {
@@ -823,6 +934,7 @@ void LayoutManager::LoadFromConfig(ConfigManager &cfg) {
     EnsureUniqueLegendIds(layout);
     EnsureUniqueEventTableIds(layout);
     EnsureUniqueTextIds(layout);
+    EnsureUniqueImageIds(layout);
     loaded.push_back(std::move(layout));
   }
 

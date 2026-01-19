@@ -98,6 +98,14 @@ struct LayoutTextDefinition {
   bool drawFrame = true;
 };
 
+struct LayoutImageDefinition {
+  int id = 0;
+  int zIndex = 0;
+  Layout2DViewFrame frame;
+  std::string imagePath;
+  float aspectRatio = 1.0f;
+};
+
 struct LayoutDefinition {
   std::string name;
   print::PageSetup pageSetup;
@@ -105,6 +113,7 @@ struct LayoutDefinition {
   std::vector<LayoutLegendDefinition> legendViews;
   std::vector<LayoutEventTableDefinition> eventTables;
   std::vector<LayoutTextDefinition> textViews;
+  std::vector<LayoutImageDefinition> imageViews;
 };
 
 class LayoutCollection {
@@ -136,6 +145,10 @@ public:
                         const LayoutTextDefinition &text);
   bool RemoveLayoutText(const std::string &name, int textId);
   bool MoveLayoutText(const std::string &name, int textId, bool toFront);
+  bool UpdateLayoutImage(const std::string &name,
+                         const LayoutImageDefinition &image);
+  bool RemoveLayoutImage(const std::string &name, int imageId);
+  bool MoveLayoutImage(const std::string &name, int imageId, bool toFront);
 
   void ReplaceAll(std::vector<LayoutDefinition> layouts);
 

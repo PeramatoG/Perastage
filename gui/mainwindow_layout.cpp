@@ -27,6 +27,7 @@
 #include "fixturetablepanel.h"
 #include "hoisttablepanel.h"
 #include "layout2dviewdialog.h"
+#include "layoutimageutils.h"
 #include "layoutpanel.h"
 #include "layoutviewerpanel.h"
 #include "layoutviewpresets.h"
@@ -145,6 +146,39 @@ layouts::Layout2DViewFrame BuildDefaultLayoutTextFrame(
   int y = std::max(0, kMargin);
 
   return {x, y, width, height};
+}
+
+layouts::Layout2DViewFrame BuildDefaultLayoutImageFrame(
+    const layouts::LayoutDefinition &layout, double aspectRatio) {
+  constexpr double kMaxScale = 0.4;
+  constexpr int kMinFrameSize = 120;
+
+  const double pageWidth = layout.pageSetup.PageWidthPt();
+  const double pageHeight = layout.pageSetup.PageHeightPt();
+  const double ratio = aspectRatio > 0.0 ? aspectRatio : 1.0;
+
+  double width = pageWidth * kMaxScale;
+  double height = width / ratio;
+  if (height > pageHeight * kMaxScale) {
+    height = pageHeight * kMaxScale;
+    width = height * ratio;
+  }
+
+  int finalWidth = std::max(kMinFrameSize,
+                            static_cast<int>(std::lround(width)));
+  int finalHeight = std::max(kMinFrameSize,
+                             static_cast<int>(std::lround(height)));
+
+  finalWidth = std::min(finalWidth, static_cast<int>(std::lround(pageWidth)));
+  finalHeight = std::min(finalHeight,
+                         static_cast<int>(std::lround(pageHeight)));
+
+  int x = std::max(
+      0, static_cast<int>(std::lround((pageWidth - finalWidth) / 2.0)));
+  int y = std::max(
+      0, static_cast<int>(std::lround((pageHeight - finalHeight) / 2.0)));
+
+  return {x, y, finalWidth, finalHeight};
 }
 
 const layouts::Layout2DViewDefinition *FindLayout2DViewById(
@@ -613,6 +647,43 @@ void MainWindow::OnLayoutAddText(wxCommandEvent &WXUNUSED(event)) {
   text.drawFrame = true;
 
   layouts::LayoutManager::Get().UpdateLayoutText(activeLayoutName, text);
+
+  if (layoutViewerPanel) {
+    for (const auto &entry :
+         layouts::LayoutManager::Get().GetLayouts().Items()) {
+      if (entry.name == activeLayoutName) {
+        layoutViewerPanel->SetLayoutDefinition(entry);
+        break;
+      }
+    }
+  }
+}
+
+void MainWindow::OnLayoutAddImage(wxCommandEvent &WXUNUSED(event)) {
+  if (!layoutModeActive || activeLayoutName.empty())
+    return;
+
+  const layouts::LayoutDefinition *layout = nullptr;
+  for (const auto &entry : layouts::LayoutManager::Get().GetLayouts().Items()) {
+    if (entry.name == activeLayoutName) {
+      layout = &entry;
+      break;
+    }
+  }
+  if (!layout)
+    return;
+
+  auto result = PromptForLayoutImage(this, "Selecciona una imagen");
+  if (!result)
+    return;
+
+  layouts::LayoutImageDefinition image;
+  image.frame = BuildDefaultLayoutImageFrame(*layout, result->aspectRatio);
+  wxScopedCharBuffer pathBuf = result->path.ToUTF8();
+  image.imagePath = pathBuf.data() ? pathBuf.data() : "";
+  image.aspectRatio = result->aspectRatio;
+
+  layouts::LayoutManager::Get().UpdateLayoutImage(activeLayoutName, image);
 
   if (layoutViewerPanel) {
     for (const auto &entry :

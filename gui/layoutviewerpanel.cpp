@@ -50,8 +50,10 @@ constexpr int kEditEventTableMenuId = wxID_HIGHEST + 493;
 constexpr int kDeleteEventTableMenuId = wxID_HIGHEST + 494;
 constexpr int kEditTextMenuId = wxID_HIGHEST + 495;
 constexpr int kDeleteTextMenuId = wxID_HIGHEST + 496;
-constexpr int kBringToFrontMenuId = wxID_HIGHEST + 497;
-constexpr int kSendToBackMenuId = wxID_HIGHEST + 498;
+constexpr int kEditImageMenuId = wxID_HIGHEST + 497;
+constexpr int kDeleteImageMenuId = wxID_HIGHEST + 498;
+constexpr int kBringToFrontMenuId = wxID_HIGHEST + 499;
+constexpr int kSendToBackMenuId = wxID_HIGHEST + 500;
 } // namespace
 
 wxDEFINE_EVENT(EVT_LAYOUT_VIEW_EDIT, wxCommandEvent);
@@ -74,6 +76,8 @@ wxBEGIN_EVENT_TABLE(LayoutViewerPanel, wxGLCanvas)
     EVT_MENU(kDeleteEventTableMenuId, LayoutViewerPanel::OnDeleteEventTable)
     EVT_MENU(kEditTextMenuId, LayoutViewerPanel::OnEditText)
     EVT_MENU(kDeleteTextMenuId, LayoutViewerPanel::OnDeleteText)
+    EVT_MENU(kEditImageMenuId, LayoutViewerPanel::OnEditImage)
+    EVT_MENU(kDeleteImageMenuId, LayoutViewerPanel::OnDeleteImage)
     EVT_MENU(kBringToFrontMenuId, LayoutViewerPanel::OnBringToFront)
     EVT_MENU(kSendToBackMenuId, LayoutViewerPanel::OnSendToBack)
 wxEND_EVENT_TABLE()
@@ -109,6 +113,9 @@ void LayoutViewerPanel::SetLayoutDefinition(
   } else if (!currentLayout.textViews.empty()) {
     selectedElementType = SelectedElementType::Text;
     selectedElementId = currentLayout.textViews.front().id;
+  } else if (!currentLayout.imageViews.empty()) {
+    selectedElementType = SelectedElementType::Image;
+    selectedElementId = currentLayout.imageViews.front().id;
   } else {
     selectedElementType = SelectedElementType::None;
     selectedElementId = -1;
@@ -129,7 +136,8 @@ LayoutViewerPanel::BuildZOrderedElements() const {
   elements.reserve(currentLayout.view2dViews.size() +
                    currentLayout.legendViews.size() +
                    currentLayout.eventTables.size() +
-                   currentLayout.textViews.size());
+                   currentLayout.textViews.size() +
+                   currentLayout.imageViews.size());
   size_t order = 0;
   for (const auto &view : currentLayout.view2dViews) {
     elements.push_back(
@@ -146,6 +154,10 @@ LayoutViewerPanel::BuildZOrderedElements() const {
   for (const auto &text : currentLayout.textViews) {
     elements.push_back(
         {SelectedElementType::Text, text.id, text.zIndex, order++});
+  }
+  for (const auto &image : currentLayout.imageViews) {
+    elements.push_back(
+        {SelectedElementType::Image, image.id, image.zIndex, order++});
   }
   std::stable_sort(elements.begin(), elements.end(),
                    [](const auto &lhs, const auto &rhs) {
@@ -198,6 +210,16 @@ std::pair<int, int> LayoutViewerPanel::GetZIndexRange() const {
     } else {
       minZ = std::min(minZ, text.zIndex);
       maxZ = std::max(maxZ, text.zIndex);
+    }
+  }
+  for (const auto &image : currentLayout.imageViews) {
+    if (!hasValue) {
+      minZ = image.zIndex;
+      maxZ = image.zIndex;
+      hasValue = true;
+    } else {
+      minZ = std::min(minZ, image.zIndex);
+      maxZ = std::max(maxZ, image.zIndex);
     }
   }
   return {minZ, maxZ};
@@ -270,6 +292,9 @@ void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
   const int activeTextId =
       selectedElementType == SelectedElementType::Text ? selectedElementId
                                                        : -1;
+  const int activeImageId =
+      selectedElementType == SelectedElementType::Image ? selectedElementId
+                                                        : -1;
 
   Viewer2DPanel *capturePanel = nullptr;
   Viewer2DOffscreenRenderer *offscreenRenderer = nullptr;
@@ -313,6 +338,14 @@ void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
     }
     return nullptr;
   };
+  auto findImageById =
+      [this](int imageId) -> const layouts::LayoutImageDefinition * {
+    for (const auto &image : currentLayout.imageViews) {
+      if (image.id == imageId)
+        return &image;
+    }
+    return nullptr;
+  };
 
   const auto elements = BuildZOrderedElements();
   for (const auto &element : elements) {
@@ -328,6 +361,9 @@ void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
     } else if (element.type == SelectedElementType::Text) {
       if (const auto *text = findTextById(element.id))
         DrawTextElement(*text, activeTextId);
+    } else if (element.type == SelectedElementType::Image) {
+      if (const auto *image = findImageById(element.id))
+        DrawImageElement(*image, activeImageId);
     }
   }
 
@@ -430,6 +466,11 @@ void LayoutViewerPanel::OnLeftDClick(wxMouseEvent &event) {
       OnEditText(editEvent);
       return;
     }
+    if (selectedElementType == SelectedElementType::Image) {
+      wxCommandEvent editEvent;
+      OnEditImage(editEvent);
+      return;
+    }
   }
   event.Skip();
 }
@@ -446,6 +487,8 @@ void LayoutViewerPanel::OnKeyDown(wxKeyEvent &event) {
       OnDeleteEventTable(deleteEvent);
     } else if (selectedElementType == SelectedElementType::Text) {
       OnDeleteText(deleteEvent);
+    } else if (selectedElementType == SelectedElementType::Image) {
+      OnDeleteImage(deleteEvent);
     }
     return;
   }
@@ -484,15 +527,56 @@ void LayoutViewerPanel::OnMouseMove(wxMouseEvent &event) {
       frame.x += logicalDelta.x;
       frame.y += logicalDelta.y;
     } else {
-      if (dragMode == FrameDragMode::ResizeRight ||
-          dragMode == FrameDragMode::ResizeCorner) {
-        frame.width =
-            std::max(kMinFrameSize, dragStartFrame.width + logicalDelta.x);
-      }
-      if (dragMode == FrameDragMode::ResizeBottom ||
-          dragMode == FrameDragMode::ResizeCorner) {
-        frame.height =
-            std::max(kMinFrameSize, dragStartFrame.height + logicalDelta.y);
+      if (selectedElementType == SelectedElementType::Image) {
+        const auto *image = GetSelectedImage();
+        const double ratio = image && image->aspectRatio > 0.0f
+                                 ? image->aspectRatio
+                                 : 0.0;
+        if (ratio > 0.0) {
+          if (dragMode == FrameDragMode::ResizeRight ||
+              dragMode == FrameDragMode::ResizeCorner) {
+            frame.width = std::max(
+                kMinFrameSize, dragStartFrame.width + logicalDelta.x);
+            frame.height = std::max(
+                kMinFrameSize,
+                static_cast<int>(std::lround(frame.width / ratio)));
+          }
+          if (dragMode == FrameDragMode::ResizeBottom ||
+              dragMode == FrameDragMode::ResizeCorner) {
+            const int candidateHeight = std::max(
+                kMinFrameSize, dragStartFrame.height + logicalDelta.y);
+            const int candidateWidth = std::max(
+                kMinFrameSize,
+                static_cast<int>(std::lround(candidateHeight * ratio)));
+            if (dragMode == FrameDragMode::ResizeBottom ||
+                std::abs(logicalDelta.y) > std::abs(logicalDelta.x)) {
+              frame.height = candidateHeight;
+              frame.width = candidateWidth;
+            }
+          }
+        } else {
+          if (dragMode == FrameDragMode::ResizeRight ||
+              dragMode == FrameDragMode::ResizeCorner) {
+            frame.width =
+                std::max(kMinFrameSize, dragStartFrame.width + logicalDelta.x);
+          }
+          if (dragMode == FrameDragMode::ResizeBottom ||
+              dragMode == FrameDragMode::ResizeCorner) {
+            frame.height =
+                std::max(kMinFrameSize, dragStartFrame.height + logicalDelta.y);
+          }
+        }
+      } else {
+        if (dragMode == FrameDragMode::ResizeRight ||
+            dragMode == FrameDragMode::ResizeCorner) {
+          frame.width =
+              std::max(kMinFrameSize, dragStartFrame.width + logicalDelta.x);
+        }
+        if (dragMode == FrameDragMode::ResizeBottom ||
+            dragMode == FrameDragMode::ResizeCorner) {
+          frame.height =
+              std::max(kMinFrameSize, dragStartFrame.height + logicalDelta.y);
+        }
       }
     }
     if (selectedElementType == SelectedElementType::Legend) {
@@ -501,6 +585,8 @@ void LayoutViewerPanel::OnMouseMove(wxMouseEvent &event) {
       UpdateEventTableFrame(frame, dragMode == FrameDragMode::Move);
     } else if (selectedElementType == SelectedElementType::Text) {
       UpdateTextFrame(frame, dragMode == FrameDragMode::Move);
+    } else if (selectedElementType == SelectedElementType::Image) {
+      UpdateImageFrame(frame, dragMode == FrameDragMode::Move);
     } else {
       UpdateFrame(frame, dragMode == FrameDragMode::Move);
     }
@@ -591,6 +677,12 @@ void LayoutViewerPanel::OnRightUp(wxMouseEvent &event) {
     menu.AppendSeparator();
     menu.Append(kBringToFrontMenuId, "Bring to Front");
     menu.Append(kSendToBackMenuId, "Send to Back");
+  } else if (selectedElementType == SelectedElementType::Image) {
+    menu.Append(kEditImageMenuId, "Change Image");
+    menu.Append(kDeleteImageMenuId, "Delete Image");
+    menu.AppendSeparator();
+    menu.Append(kBringToFrontMenuId, "Bring to Front");
+    menu.Append(kSendToBackMenuId, "Send to Back");
   }
   PopupMenu(&menu, pos);
 }
@@ -652,6 +744,19 @@ void LayoutViewerPanel::OnBringToFront(wxCommandEvent &) {
     it->zIndex = maxZ + 1;
     if (!currentLayout.name.empty()) {
       layouts::LayoutManager::Get().UpdateLayoutText(currentLayout.name, *it);
+    }
+  } else if (selectedElementType == SelectedElementType::Image) {
+    auto it =
+        std::find_if(currentLayout.imageViews.begin(),
+                     currentLayout.imageViews.end(),
+                     [this](const auto &entry) {
+                       return entry.id == selectedElementId;
+                     });
+    if (it == currentLayout.imageViews.end())
+      return;
+    it->zIndex = maxZ + 1;
+    if (!currentLayout.name.empty()) {
+      layouts::LayoutManager::Get().UpdateLayoutImage(currentLayout.name, *it);
     }
   } else {
     return;
@@ -719,6 +824,19 @@ void LayoutViewerPanel::OnSendToBack(wxCommandEvent &) {
     it->zIndex = minZ - 1;
     if (!currentLayout.name.empty()) {
       layouts::LayoutManager::Get().UpdateLayoutText(currentLayout.name, *it);
+    }
+  } else if (selectedElementType == SelectedElementType::Image) {
+    auto it =
+        std::find_if(currentLayout.imageViews.begin(),
+                     currentLayout.imageViews.end(),
+                     [this](const auto &entry) {
+                       return entry.id == selectedElementId;
+                     });
+    if (it == currentLayout.imageViews.end())
+      return;
+    it->zIndex = minZ - 1;
+    if (!currentLayout.name.empty()) {
+      layouts::LayoutManager::Get().UpdateLayoutImage(currentLayout.name, *it);
     }
   } else {
     return;
@@ -815,6 +933,13 @@ bool LayoutViewerPanel::GetSelectedFrame(
     if (!text)
       return false;
     frame = text->frame;
+    return true;
+  }
+  if (selectedElementType == SelectedElementType::Image) {
+    const auto *image = GetSelectedImage();
+    if (!image)
+      return false;
+    frame = image->frame;
     return true;
   }
   const auto *view = GetEditableView();
@@ -1196,6 +1321,94 @@ void LayoutViewerPanel::RebuildCachedTexture() {
     cache.renderZoom = renderZoom;
     cache.contentHash = dataHash;
   }
+
+  for (const auto &image : currentLayout.imageViews) {
+    ImageCache &cache = GetImageCache(image.id);
+    size_t dataHash = HashImageContent(image);
+    if (cache.contentHash != dataHash)
+      cache.renderDirty = true;
+    if (!cache.renderDirty)
+      continue;
+    cache.renderDirty = false;
+
+    const wxSize renderSize = GetFrameSizeForZoom(image.frame, renderZoom);
+    if (renderSize.GetWidth() <= 0 || renderSize.GetHeight() <= 0) {
+      ClearCachedTexture(cache);
+      cache.textureSize = wxSize(0, 0);
+      cache.renderZoom = 0.0;
+      continue;
+    }
+    if (image.imagePath.empty()) {
+      ClearCachedTexture(cache);
+      cache.textureSize = wxSize(0, 0);
+      cache.renderZoom = 0.0;
+      continue;
+    }
+
+    wxImage bitmap;
+    if (!bitmap.LoadFile(wxString::FromUTF8(image.imagePath))) {
+      ClearCachedTexture(cache);
+      cache.textureSize = wxSize(0, 0);
+      cache.renderZoom = 0.0;
+      continue;
+    }
+    if (bitmap.GetWidth() <= 0 || bitmap.GetHeight() <= 0) {
+      ClearCachedTexture(cache);
+      cache.textureSize = wxSize(0, 0);
+      cache.renderZoom = 0.0;
+      continue;
+    }
+    wxImage scaled =
+        bitmap.Scale(renderSize.GetWidth(), renderSize.GetHeight(),
+                     wxIMAGE_QUALITY_HIGH);
+    if (!scaled.IsOk()) {
+      ClearCachedTexture(cache);
+      cache.textureSize = wxSize(0, 0);
+      cache.renderZoom = 0.0;
+      continue;
+    }
+    scaled = scaled.Mirror(false);
+    if (!scaled.HasAlpha())
+      scaled.InitAlpha();
+    const int width = scaled.GetWidth();
+    const int height = scaled.GetHeight();
+    const unsigned char *rgb = scaled.GetData();
+    const unsigned char *alpha = scaled.GetAlpha();
+    if (!rgb || width <= 0 || height <= 0) {
+      ClearCachedTexture(cache);
+      cache.textureSize = wxSize(0, 0);
+      cache.renderZoom = 0.0;
+      continue;
+    }
+
+    std::vector<unsigned char> pixels;
+    pixels.resize(static_cast<size_t>(width) * height * 4);
+    for (int i = 0; i < width * height; ++i) {
+      pixels[static_cast<size_t>(i) * 4] = rgb[i * 3];
+      pixels[static_cast<size_t>(i) * 4 + 1] = rgb[i * 3 + 1];
+      pixels[static_cast<size_t>(i) * 4 + 2] = rgb[i * 3 + 2];
+      pixels[static_cast<size_t>(i) * 4 + 3] = alpha ? alpha[i] : 255;
+    }
+
+    InitGL();
+    if (!IsShownOnScreen())
+      return;
+    SetCurrent(*glContext_);
+    if (cache.texture == 0) {
+      glGenTextures(1, &cache.texture);
+    }
+    glBindTexture(GL_TEXTURE_2D, cache.texture);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA,
+                 GL_UNSIGNED_BYTE, pixels.data());
+    cache.textureSize = wxSize(width, height);
+    cache.renderZoom = renderZoom;
+    cache.contentHash = dataHash;
+  }
 }
 
 void LayoutViewerPanel::ClearCachedTexture() {
@@ -1215,6 +1428,10 @@ void LayoutViewerPanel::ClearCachedTexture() {
     ClearCachedTexture(entry.second);
   }
   textCaches_.clear();
+  for (auto &entry : imageCaches_) {
+    ClearCachedTexture(entry.second);
+  }
+  imageCaches_.clear();
 }
 
 void LayoutViewerPanel::ClearCachedTexture(ViewCache &cache) {
@@ -1254,6 +1471,18 @@ void LayoutViewerPanel::ClearCachedTexture(EventTableCache &cache) {
 }
 
 void LayoutViewerPanel::ClearCachedTexture(TextCache &cache) {
+  if (cache.texture == 0 || !glContext_)
+    return;
+  if (!IsShown()) {
+    cache.texture = 0;
+    return;
+  }
+  SetCurrent(*glContext_);
+  glDeleteTextures(1, &cache.texture);
+  cache.texture = 0;
+}
+
+void LayoutViewerPanel::ClearCachedTexture(ImageCache &cache) {
   if (cache.texture == 0 || !glContext_)
     return;
   if (!IsShown()) {
@@ -1361,6 +1590,27 @@ void LayoutViewerPanel::InvalidateRenderIfFrameChanged() {
       renderDirty = true;
     }
   }
+
+  for (const auto &image : currentLayout.imageViews) {
+    ImageCache &cache = GetImageCache(image.id);
+    wxRect frameRect;
+    if (!GetFrameRect(image.frame, frameRect)) {
+      if (cache.texture != 0) {
+        cache.renderDirty = true;
+        renderDirty = true;
+        ClearCachedTexture(cache);
+        cache.textureSize = wxSize(0, 0);
+        cache.renderZoom = 0.0;
+      }
+      continue;
+    }
+    const wxSize renderSize = GetFrameSizeForZoom(image.frame, renderZoom);
+    if (cache.renderZoom == 0.0 || cache.renderZoom != renderZoom ||
+        renderSize != cache.textureSize) {
+      cache.renderDirty = true;
+      renderDirty = true;
+    }
+  }
 }
 
 bool LayoutViewerPanel::SelectElementAtPosition(const wxPoint &pos) {
@@ -1386,6 +1636,14 @@ bool LayoutViewerPanel::SelectElementAtPosition(const wxPoint &pos) {
     for (const auto &text : currentLayout.textViews) {
       if (text.id == textId)
         return &text;
+    }
+    return nullptr;
+  };
+  auto findImageById =
+      [this](int imageId) -> const layouts::LayoutImageDefinition * {
+    for (const auto &image : currentLayout.imageViews) {
+      if (image.id == imageId)
+        return &image;
     }
     return nullptr;
   };
@@ -1453,6 +1711,26 @@ bool LayoutViewerPanel::SelectElementAtPosition(const wxPoint &pos) {
       }
       selectedElementType = SelectedElementType::Text;
       selectedElementId = text->id;
+      RequestRenderRebuild();
+      Refresh();
+      return true;
+    }
+
+    if (it->type == SelectedElementType::Image) {
+      const auto *image = findImageById(it->id);
+      if (!image)
+        continue;
+      wxRect frameRect;
+      if (!GetFrameRect(image->frame, frameRect))
+        continue;
+      if (!frameRect.Contains(pos))
+        continue;
+      if (selectedElementType == SelectedElementType::Image &&
+          selectedElementId == image->id) {
+        return true;
+      }
+      selectedElementType = SelectedElementType::Image;
+      selectedElementId = image->id;
       RequestRenderRebuild();
       Refresh();
       return true;
@@ -1561,6 +1839,14 @@ LayoutViewerPanel::GetEventTableCache(int tableId) {
 
 LayoutViewerPanel::TextCache &LayoutViewerPanel::GetTextCache(int textId) {
   auto [it, inserted] = textCaches_.try_emplace(textId, TextCache{});
+  if (inserted) {
+    renderDirty = true;
+  }
+  return it->second;
+}
+
+LayoutViewerPanel::ImageCache &LayoutViewerPanel::GetImageCache(int imageId) {
+  auto [it, inserted] = imageCaches_.try_emplace(imageId, ImageCache{});
   if (inserted) {
     renderDirty = true;
   }
