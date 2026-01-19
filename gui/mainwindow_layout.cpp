@@ -359,6 +359,9 @@ void MainWindow::ApplyLayoutPreset(const LayoutViewPreset &preset,
 }
 
 void MainWindow::ApplySavedLayout() {
+  // Flow overview: choose which perspective to apply (layout mode/2D/3D) from
+  // saved config, ensuring viewports exist before restoring; then re-apply
+  // minimum sizes so the saved perspective cannot degrade the UI.
   if (!auiManager)
     return;
 

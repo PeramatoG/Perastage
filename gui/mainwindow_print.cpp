@@ -229,6 +229,9 @@ void MainWindow::OnPrintViewer2D(wxCommandEvent &WXUNUSED(event)) {
 }
 
 void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
+  // Flow overview: validate selection and 2D resources, collect settings/file,
+  // scale frames to the output, and capture views sequentially before exporting
+  // to PDF (ordering guarantees consistent renderer/caches during export).
   if (activeLayoutName.empty()) {
     wxMessageBox("No layout is selected.", "Print Layout", wxOK | wxICON_WARNING,
                  this);
