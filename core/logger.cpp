@@ -16,8 +16,10 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "logger.h"
+#include <filesystem>
 #include <iostream>
 #include <vector>
+#include <wx/stdpaths.h>
 
 Logger &Logger::Instance() {
   static Logger instance;
@@ -25,7 +27,28 @@ Logger &Logger::Instance() {
 }
 
 Logger::Logger() {
-  file_.open("perastage.log", std::ios::out | std::ios::trunc);
+  wxString dataDir = wxStandardPaths::Get().GetUserDataDir();
+  std::string dataDirUtf8 = std::string(dataDir.ToUTF8());
+  if (!dataDirUtf8.empty()) {
+    std::filesystem::path logDir = std::filesystem::u8path(dataDirUtf8);
+    std::error_code ec;
+    std::filesystem::create_directories(logDir, ec);
+    if (!ec) {
+      std::filesystem::path logPath = logDir / "perastage.log";
+      file_.open(logPath, std::ios::out | std::ios::trunc);
+      if (!file_.is_open()) {
+        std::cerr << "Warning: Unable to open log file at " << logPath.string()
+                  << "; logging only to stderr." << std::endl;
+      }
+    } else {
+      std::cerr << "Warning: Unable to create log directory " << logDir.string()
+                << "; logging only to stderr." << std::endl;
+    }
+  } else {
+    std::cerr << "Warning: Unable to resolve user data directory; logging only "
+                 "to stderr."
+              << std::endl;
+  }
   worker_ = std::thread(&Logger::Worker, this);
 }
 
