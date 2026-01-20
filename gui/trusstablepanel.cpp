@@ -862,6 +862,7 @@ void TrussTablePanel::HighlightTruss(const std::string& uuid)
 
 void TrussTablePanel::ClearSelection() {
     table->UnselectAll();
+    UpdateSelectionHighlight();
 }
 
 std::vector<std::string> TrussTablePanel::GetSelectedUuids() const {
@@ -884,6 +885,7 @@ void TrussTablePanel::SelectByUuid(const std::vector<std::string>& uuids) {
         if (pos != rowUuids.end())
             table->SelectRow(static_cast<int>(pos - rowUuids.begin()));
     }
+    UpdateSelectionHighlight();
 }
 
 void TrussTablePanel::DeleteSelected()

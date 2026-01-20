@@ -566,6 +566,7 @@ void SceneObjectTablePanel::HighlightObject(const std::string& uuid)
 
 void SceneObjectTablePanel::ClearSelection() {
     table->UnselectAll();
+    UpdateSelectionHighlight();
 }
 
 std::vector<std::string> SceneObjectTablePanel::GetSelectedUuids() const {
@@ -588,6 +589,7 @@ void SceneObjectTablePanel::SelectByUuid(const std::vector<std::string>& uuids) 
         if (pos != rowUuids.end())
             table->SelectRow(static_cast<int>(pos - rowUuids.begin()));
     }
+    UpdateSelectionHighlight();
 }
 
 void SceneObjectTablePanel::DeleteSelected()

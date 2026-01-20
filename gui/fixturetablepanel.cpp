@@ -957,6 +957,7 @@ void FixtureTablePanel::HighlightPatchConflicts() {
 void FixtureTablePanel::ClearSelection() {
   table->UnselectAll();
   selectionOrder.clear();
+  UpdateSelectionHighlight();
 }
 
 std::vector<std::string> FixtureTablePanel::GetSelectedUuids() const {
@@ -983,6 +984,7 @@ void FixtureTablePanel::SelectByUuid(const std::vector<std::string> &uuids) {
       selectionOrder.push_back(row);
     }
   }
+  UpdateSelectionHighlight();
 }
 
 void FixtureTablePanel::DeleteSelected() {
