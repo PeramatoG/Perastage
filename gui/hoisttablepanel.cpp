@@ -614,7 +614,10 @@ void HoistTablePanel::HighlightHoist(const std::string &uuid) {
   table->Refresh();
 }
 
-void HoistTablePanel::ClearSelection() { table->UnselectAll(); }
+void HoistTablePanel::ClearSelection() {
+  table->UnselectAll();
+  UpdateSelectionHighlight();
+}
 
 std::vector<std::string> HoistTablePanel::GetSelectedUuids() const {
   wxDataViewItemArray selections;
@@ -636,6 +639,7 @@ void HoistTablePanel::SelectByUuid(const std::vector<std::string> &uuids) {
     if (pos != rowUuids.end())
       table->SelectRow(static_cast<int>(pos - rowUuids.begin()));
   }
+  UpdateSelectionHighlight();
 }
 
 void HoistTablePanel::DeleteSelected() {
