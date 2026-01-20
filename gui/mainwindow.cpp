@@ -521,7 +521,7 @@ void MainWindow::SaveCameraSettings() {
     ConfigManager::Get().SetFloat("camera_target_y", cam.GetTargetY());
     ConfigManager::Get().SetFloat("camera_target_z", cam.GetTargetZ());
   }
-  if (viewport2DPanel && !layoutModeActive)
+  if (viewport2DPanel)
     viewport2DPanel->SaveViewToConfig();
   if (auiManager) {
     const std::string perspective =
@@ -537,6 +537,9 @@ void MainWindow::SaveUserConfigWithViewport2DState() {
   std::optional<viewer2d::Viewer2DState> layoutState;
   if (layoutModeActive && viewport2DPanel)
     layoutState = viewer2d::CaptureState(viewport2DPanel, cfg);
+
+  SaveCameraSettings();
+
   if (layoutModeActive && !standalone2DState) {
     Viewer2DPanel *capturePanel = viewport2DPanel;
     standalone2DState = viewer2d::CaptureState(capturePanel, cfg);
@@ -544,13 +547,11 @@ void MainWindow::SaveUserConfigWithViewport2DState() {
   if (layoutModeActive && standalone2DState)
     viewer2d::ApplyState(nullptr, nullptr, cfg, *standalone2DState);
 
-  SaveCameraSettings();
   cfg.SaveUserConfig();
 
-  if (layoutModeActive && layoutState) {
+  if (layoutModeActive && layoutState)
     viewer2d::ApplyState(viewport2DPanel, viewport2DRenderPanel, cfg,
                          *layoutState);
-  }
 }
 
 void MainWindow::UpdateViewMenuChecks() {
