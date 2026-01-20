@@ -1665,13 +1665,16 @@ void Viewer3DController::DrawCube(float size, float r, float g, float b) {
 void Viewer3DController::DrawWireframeCube(
     float size, float r, float g, float b, Viewer2DRenderMode mode,
     const std::function<std::array<float, 3>(const std::array<float, 3> &)> &
-        captureTransform) {
+        captureTransform,
+    float lineWidthOverride, bool recordCapture) {
   float half = size / 2.0f;
   float x0 = -half, x1 = half;
   float y0 = -half, y1 = half;
   float z0 = -half, z1 = half;
 
   float lineWidth = (mode == Viewer2DRenderMode::Wireframe) ? 1.0f : 2.0f;
+  if (lineWidthOverride > 0.0f)
+    lineWidth = lineWidthOverride;
   if (!m_captureOnly) {
     glLineWidth(lineWidth);
     SetGLColor(r, g, b);
@@ -1707,7 +1710,7 @@ void Viewer3DController::DrawWireframeCube(
     glVertex3f(x1, y1, z1);
     glEnd();
   }
-  if (m_captureCanvas) {
+  if (m_captureCanvas && recordCapture) {
     std::vector<std::array<float, 3>> verts = {{x0, y0, z0}, {x1, y0, z0},
                                                {x0, y1, z0}, {x1, y1, z0},
                                                {x0, y0, z1}, {x1, y0, z1},
@@ -1750,14 +1753,9 @@ void Viewer3DController::DrawWireframeBox(
 
   if (wireframe) {
     float lineWidth = (mode == Viewer2DRenderMode::Wireframe) ? 1.0f : 2.0f;
-    if (!m_captureOnly) {
-      glLineWidth(lineWidth);
-      SetGLColor(0.0f, 0.0f, 0.0f);
-    }
-    CanvasStroke stroke;
-    stroke.color = {0.0f, 0.0f, 0.0f, 1.0f};
-    stroke.width = lineWidth;
-    if (!m_captureOnly) {
+    const bool drawOutline =
+        m_showSelectionOutline2D && (highlight || selected);
+    auto drawEdges = [&]() {
       glBegin(GL_LINES);
       glVertex3f(x0, y0, z0);
       glVertex3f(x1, y0, z0);
@@ -1784,7 +1782,24 @@ void Viewer3DController::DrawWireframeBox(
       glVertex3f(x1, y1, z0);
       glVertex3f(x1, y1, z1);
       glEnd();
+    };
+    if (!m_captureOnly) {
+      if (drawOutline) {
+        float glowWidth = lineWidth + 3.0f;
+        glLineWidth(glowWidth);
+        if (selected)
+          SetGLColor(0.0f, 1.0f, 1.0f);
+        else
+          SetGLColor(0.0f, 1.0f, 0.0f);
+        drawEdges();
+      }
+      glLineWidth(lineWidth);
+      SetGLColor(0.0f, 0.0f, 0.0f);
+      drawEdges();
     }
+    CanvasStroke stroke;
+    stroke.color = {0.0f, 0.0f, 0.0f, 1.0f};
+    stroke.width = lineWidth;
     if (m_captureCanvas) {
       std::vector<std::array<float, 3>> verts = {{x0, y0, z0}, {x1, y0, z0},
                                                  {x0, y1, z0}, {x1, y1, z0},
@@ -1888,8 +1903,32 @@ void Viewer3DController::DrawCubeWithOutline(
 
   if (wireframe) {
     if (mode == Viewer2DRenderMode::Wireframe) {
+      const bool drawOutline =
+          m_showSelectionOutline2D && (highlight || selected);
+      float baseWidth = 1.0f;
+      if (!m_captureOnly && drawOutline) {
+        float glowWidth = baseWidth + 3.0f;
+        if (selected)
+          DrawWireframeCube(size, 0.0f, 1.0f, 1.0f, mode, captureTransform,
+                            glowWidth, false);
+        else
+          DrawWireframeCube(size, 0.0f, 1.0f, 0.0f, mode, captureTransform,
+                            glowWidth, false);
+      }
       DrawWireframeCube(size, 0.0f, 0.0f, 0.0f, mode, captureTransform);
       return;
+    }
+    const bool drawOutline =
+        m_showSelectionOutline2D && (highlight || selected);
+    float baseWidth = 2.0f;
+    if (!m_captureOnly && drawOutline) {
+      float glowWidth = baseWidth + 3.0f;
+      if (selected)
+        DrawWireframeCube(size, 0.0f, 1.0f, 1.0f, mode, captureTransform,
+                          glowWidth, false);
+      else
+        DrawWireframeCube(size, 0.0f, 1.0f, 0.0f, mode, captureTransform,
+                          glowWidth, false);
     }
     DrawWireframeCube(size, 0.0f, 0.0f, 0.0f, mode, captureTransform);
     if (m_captureCanvas) {
@@ -1950,7 +1989,18 @@ void Viewer3DController::DrawMeshWithOutline(
 
   if (wireframe) {
     float lineWidth = (mode == Viewer2DRenderMode::Wireframe) ? 1.0f : 2.0f;
+    const bool drawOutline =
+        m_showSelectionOutline2D && (highlight || selected);
     if (!m_captureOnly) {
+      if (drawOutline) {
+        float glowWidth = lineWidth + 3.0f;
+        glLineWidth(glowWidth);
+        if (selected)
+          SetGLColor(0.0f, 1.0f, 1.0f);
+        else
+          SetGLColor(0.0f, 1.0f, 0.0f);
+        DrawMeshWireframe(mesh, scale, captureTransform);
+      }
       glLineWidth(lineWidth);
       SetGLColor(0.0f, 0.0f, 0.0f);
     }

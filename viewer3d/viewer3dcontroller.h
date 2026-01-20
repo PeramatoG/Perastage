@@ -90,6 +90,9 @@ public:
 
   // Enables color tweaks for dark mode in the 2D viewer only.
   void SetDarkMode(bool enabled);
+  void SetSelectionOutlineEnabled(bool enabled) {
+    m_showSelectionOutline2D = enabled;
+  }
 
   // Fixture UUID currently highlighted (hovered)
   void SetHighlightUuid(const std::string &uuid);
@@ -135,7 +138,9 @@ private:
                          Viewer2DRenderMode mode = Viewer2DRenderMode::White,
                          const std::function<std::array<float, 3>(
                              const std::array<float, 3> &)> &captureTransform =
-                             {});
+                             {},
+                         float lineWidthOverride = -1.0f,
+                         bool recordCapture = true);
 
   // Draws a wireframe box with independent dimensions. Length corresponds
   // to the X axis, width to Y and height to Z. The box's origin is at the
@@ -263,6 +268,7 @@ private:
   bool m_captureUseSymbols = false;
   SymbolCache m_bottomSymbolCache;
   bool m_darkMode = false;
+  bool m_showSelectionOutline2D = false;
 
 public:
   // Enables recording of all primitives drawn during the next RenderScene
