@@ -100,6 +100,8 @@ HoistTablePanel::HoistTablePanel(wxWindow *parent)
   store->DecRef();
 
   table->SetAlternateRowColour(wxColour(40, 40, 40));
+  table->SetSelectionBackground(wxColour(0, 255, 255));
+  table->SetSelectionForeground(wxColour(0, 0, 0));
 
   table->Bind(wxEVT_LEFT_DOWN, &HoistTablePanel::OnLeftDown, this);
   table->Bind(wxEVT_LEFT_UP, &HoistTablePanel::OnLeftUp, this);
