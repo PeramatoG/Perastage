@@ -48,7 +48,8 @@ struct Viewer2DViewState {
 class Viewer2DPanel : public wxGLCanvas {
 public:
   explicit Viewer2DPanel(wxWindow *parent, bool allowOffscreenRender = false,
-                         bool persistViewState = true);
+                         bool persistViewState = true,
+                         bool enableSelection = true);
   ~Viewer2DPanel();
 
   static Viewer2DPanel *Instance();
@@ -127,11 +128,16 @@ private:
   void OnCaptureLost(wxMouseCaptureLostEvent &event);
 
   bool m_dragging = false;
+  bool m_draggedSincePress = false;
   wxPoint m_lastMousePos;
   float m_offsetX = 0.0f;
   float m_offsetY = 0.0f;
   float m_zoom = 1.0f;
   bool m_mouseInside = false;
+  bool m_mouseMoved = false;
+  bool m_hasHover = false;
+  bool m_enableSelection = true;
+  std::string m_hoverUuid;
 
   bool m_captureNextFrame = false;
   bool m_useSimplifiedFootprints = false;
