@@ -276,13 +276,12 @@ wxEND_EVENT_TABLE()
 }
 
 MainWindow::~MainWindow() {
-  SaveCameraSettings();
+  SaveUserConfigWithViewport2DState();
   if (auiManager) {
     auiManager->UnInit();
     delete auiManager;
     auiManager = nullptr;
   }
-  ConfigManager::Get().SaveUserConfig();
   ProjectUtils::SaveLastProjectPath(currentProjectPath);
 }
 
@@ -530,6 +529,22 @@ void MainWindow::SaveCameraSettings() {
     ConfigManager::Get().SetValue("layout_perspective", perspective);
     if (layoutModeActive)
       ConfigManager::Get().SetValue("layout_layout_mode", perspective);
+  }
+}
+
+void MainWindow::SaveUserConfigWithViewport2DState() {
+  ConfigManager &cfg = ConfigManager::Get();
+  std::optional<viewer2d::Viewer2DState> guardState;
+  if (layoutModeActive && viewport2DPanel) {
+    guardState = viewer2d::CaptureState(viewport2DPanel, cfg);
+  }
+
+  SaveCameraSettings();
+  cfg.SaveUserConfig();
+
+  if (guardState) {
+    viewer2d::ApplyState(viewport2DPanel, viewport2DRenderPanel, cfg,
+                         *guardState);
   }
 }
 
