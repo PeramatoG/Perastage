@@ -164,6 +164,7 @@ private:
   void OnPaneClose(wxAuiManagerEvent &event); // Keep View menu in sync
 
   void SaveCameraSettings();
+  void SaveUserConfigWithViewport2DState();
   void ApplySavedLayout();
   void ApplyLayoutPreset(const LayoutViewPreset &preset,
                          const std::optional<std::string> &perspective,

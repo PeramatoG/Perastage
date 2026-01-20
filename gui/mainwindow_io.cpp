@@ -84,8 +84,7 @@ void MainWindow::OnSave(wxCommandEvent &event) {
     return;
   }
   SyncSceneData();
-  SaveCameraSettings();
-  ConfigManager::Get().SaveUserConfig();
+  SaveUserConfigWithViewport2DState();
   if (!ConfigManager::Get().SaveProject(currentProjectPath))
     wxMessageBox("Failed to save project.", "Error", wxICON_ERROR);
   else {
@@ -117,8 +116,7 @@ void MainWindow::OnSaveAs(wxCommandEvent &event) {
 
   currentProjectPath = dlg.GetPath().ToStdString();
   SyncSceneData();
-  SaveCameraSettings();
-  ConfigManager::Get().SaveUserConfig();
+  SaveUserConfigWithViewport2DState();
   if (!ConfigManager::Get().SaveProject(currentProjectPath))
     wxMessageBox("Failed to save project.", "Error", wxICON_ERROR);
   else {

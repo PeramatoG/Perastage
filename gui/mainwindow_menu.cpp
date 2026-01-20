@@ -543,8 +543,7 @@ void MainWindow::OnClose(wxCommandEvent &event) {
 }
 
 void MainWindow::OnCloseWindow(wxCloseEvent &event) {
-  SaveCameraSettings();
-  ConfigManager::Get().SaveUserConfig();
+  SaveUserConfigWithViewport2DState();
   if (!ConfirmSaveIfDirty("exiting", "Exit")) {
     event.Veto();
     return;
