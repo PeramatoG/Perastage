@@ -62,4 +62,5 @@ private:
     void OnLeftUp(wxMouseEvent& evt);
     void OnMouseMove(wxMouseEvent& evt);
     void OnCaptureLost(wxMouseCaptureLostEvent& evt);
+    void UpdateSelectionHighlight();
 };

@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #pragma once
+#include <algorithm>
 #include <vector>
 #include <wx/dataview.h>
 
@@ -23,32 +24,57 @@ class ColorfulDataViewListStore : public wxDataViewListStore {
 public:
   std::vector<wxDataViewItemAttr> rowAttrs;
   std::vector<std::vector<wxDataViewItemAttr>> cellAttrs;
+  std::vector<bool> selectionRows;
+  wxColour selectionBackground;
+  wxColour selectionForeground;
+  bool selectionBackgroundEnabled = false;
+  bool selectionForegroundEnabled = false;
 
   bool GetAttrByRow(unsigned row, unsigned col,
                     wxDataViewItemAttr &attr) const override {
+    bool hasAttr = false;
+    bool hasTextColour = false;
     if (row < cellAttrs.size() && col < cellAttrs[row].size() &&
         !cellAttrs[row][col].IsDefault()) {
       attr = cellAttrs[row][col];
+      hasAttr = true;
+      hasTextColour = attr.HasColour();
+    }
+
+    if (!hasAttr && row < rowAttrs.size() && !rowAttrs[row].IsDefault()) {
+      attr = rowAttrs[row];
+      hasAttr = true;
+      hasTextColour = attr.HasColour();
+    }
+
+    bool isSelected =
+        row < selectionRows.size() && selectionRows[row] &&
+        (selectionBackgroundEnabled || selectionForegroundEnabled);
+    if (isSelected) {
+      if (!hasAttr)
+        attr = wxDataViewItemAttr();
+      if (selectionBackgroundEnabled)
+        attr.SetBackgroundColour(selectionBackground);
+      if (selectionForegroundEnabled && !hasTextColour)
+        attr.SetColour(selectionForeground);
       return true;
     }
 
-    if (row < rowAttrs.size() && !rowAttrs[row].IsDefault()) {
-      attr = rowAttrs[row];
-      return true;
-    }
-    return false;
+    return hasAttr;
   }
 
   void AppendItem(const wxVector<wxVariant> &values, wxUIntPtr data = 0) {
     wxDataViewListStore::AppendItem(values, data);
     rowAttrs.emplace_back();
     cellAttrs.emplace_back();
+    selectionRows.push_back(false);
   }
 
   void PrependItem(const wxVector<wxVariant> &values, wxUIntPtr data = 0) {
     wxDataViewListStore::PrependItem(values, data);
     rowAttrs.insert(rowAttrs.begin(), wxDataViewItemAttr());
     cellAttrs.insert(cellAttrs.begin(), std::vector<wxDataViewItemAttr>());
+    selectionRows.insert(selectionRows.begin(), false);
   }
 
   void InsertItem(unsigned row, const wxVector<wxVariant> &values,
@@ -57,6 +83,7 @@ public:
     rowAttrs.insert(rowAttrs.begin() + row, wxDataViewItemAttr());
     cellAttrs.insert(cellAttrs.begin() + row,
                      std::vector<wxDataViewItemAttr>());
+    selectionRows.insert(selectionRows.begin() + row, false);
   }
 
   void DeleteItem(unsigned row) {
@@ -65,12 +92,15 @@ public:
       rowAttrs.erase(rowAttrs.begin() + row);
     if (row < cellAttrs.size())
       cellAttrs.erase(cellAttrs.begin() + row);
+    if (row < selectionRows.size())
+      selectionRows.erase(selectionRows.begin() + row);
   }
 
   void DeleteAllItems() {
     wxDataViewListStore::DeleteAllItems();
     rowAttrs.clear();
     cellAttrs.clear();
+    selectionRows.clear();
   }
 
   void SetRowBackgroundColour(unsigned row, const wxColour &colour) {
@@ -127,6 +157,29 @@ public:
       return;
     cellAttrs[row][col] = wxDataViewItemAttr();
     RowChanged(row);
+  }
+
+  void SetSelectionColours(const wxColour &background,
+                           const wxColour &foreground) {
+    selectionBackground = background;
+    selectionForeground = foreground;
+    selectionBackgroundEnabled = true;
+    selectionForegroundEnabled = true;
+  }
+
+  void SetSelectedRows(const std::vector<bool> &rows) {
+    std::vector<bool> oldRows = selectionRows;
+    size_t oldSize = oldRows.size();
+    selectionRows.assign(rows.begin(), rows.end());
+    if (rowAttrs.size() > selectionRows.size())
+      selectionRows.resize(rowAttrs.size(), false);
+    size_t notifyCount = std::max(oldSize, selectionRows.size());
+    for (size_t i = 0; i < notifyCount; ++i) {
+      bool oldVal = i < oldSize ? oldRows[i] : false;
+      bool newVal = i < selectionRows.size() ? selectionRows[i] : false;
+      if (oldVal != newVal)
+        RowChanged(i);
+    }
   }
 
   int Compare(const wxDataViewItem &item1, const wxDataViewItem &item2,
