@@ -494,12 +494,15 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
       return vals;
     };
 
-    auto isCmd = [](const std::string &tok, bool allowAxis) {
+    auto isCmd = [](const std::string &tok, bool allowAxis,
+                    bool allowRangeSeparator) {
       if (tok.empty())
         return false;
       std::string l = tok;
       std::transform(l.begin(), l.end(), l.begin(),
                      [](unsigned char c) { return std::tolower(c); });
+      if (allowRangeSeparator && (l == "t" || l == "thru"))
+        return false;
       if (l == "clear" || l == "pos" || l == "rot" || l[0] == 'f' ||
           l[0] == 't')
         return true;
@@ -522,7 +525,10 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
                      [](unsigned char c) { return std::tolower(c); });
       size_t j = i + 1;
       bool allowAxis = (lw != "pos" && lw != "rot");
-      while (j < tokens.size() && !isCmd(tokens[j], allowAxis))
+      bool allowRangeSeparator =
+          (!lw.empty() && (lw[0] == 'f' || lw[0] == 't'));
+      while (j < tokens.size() &&
+             !isCmd(tokens[j], allowAxis, allowRangeSeparator))
         ++j;
 
       if (lw == "clear") {
