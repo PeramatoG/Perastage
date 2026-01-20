@@ -100,10 +100,7 @@ HoistTablePanel::HoistTablePanel(wxWindow *parent)
   store->DecRef();
 
   table->SetAlternateRowColour(wxColour(40, 40, 40));
-#if wxCHECK_VERSION(3, 3, 0)
-  table->SetSelectionBackground(wxColour(0, 255, 255));
-  table->SetSelectionForeground(wxColour(0, 0, 0));
-#endif
+  store->SetSelectionColours(wxColour(0, 255, 255), wxColour(0, 0, 0));
 
   table->Bind(wxEVT_LEFT_DOWN, &HoistTablePanel::OnLeftDown, this);
   table->Bind(wxEVT_LEFT_UP, &HoistTablePanel::OnLeftUp, this);
@@ -491,7 +488,21 @@ void HoistTablePanel::OnSelectionChanged(wxDataViewEvent &evt) {
   }
   if (Viewer3DPanel::Instance())
     Viewer3DPanel::Instance()->SetSelectedFixtures(uuids);
+  UpdateSelectionHighlight();
   evt.Skip();
+}
+
+void HoistTablePanel::UpdateSelectionHighlight() {
+  size_t rowCount = table->GetItemCount();
+  std::vector<bool> selectedRows(rowCount, false);
+  wxDataViewItemArray selections;
+  table->GetSelections(selections);
+  for (const auto &it : selections) {
+    int r = table->ItemToRow(it);
+    if (r != wxNOT_FOUND && static_cast<size_t>(r) < rowCount)
+      selectedRows[r] = true;
+  }
+  store->SetSelectedRows(selectedRows);
 }
 
 void HoistTablePanel::UpdateSceneData() {
