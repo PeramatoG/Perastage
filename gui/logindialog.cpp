@@ -25,8 +25,8 @@ GdtfLoginDialog::GdtfLoginDialog(wxWindow* parent, const std::string& user, cons
     wxBoxSizer* headerSizer = new wxBoxSizer(wxHORIZONTAL);
     headerSizer->AddStretchSpacer(1);
     wxButton* helpButton = new wxButton(this, wxID_ANY, "?", wxDefaultPosition, wxSize(22, 22), wxBU_EXACTFIT);
-    helpButton->SetToolTip("Debes estar registrado en https://gdtf-share.com/");
-    headerSizer->Add(helpButton, 0, wxALIGN_RIGHT);
+    helpButton->SetToolTip("You must be registered at https://gdtf-share.com/ to download GDTF files.");
+    headerSizer->Add(helpButton, 0);
     sizer->Add(headerSizer, 0, wxLEFT | wxRIGHT | wxTOP | wxEXPAND, 10);
 
     wxFlexGridSizer* grid = new wxFlexGridSizer(2, 5, 5);
