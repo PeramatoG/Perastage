@@ -26,7 +26,7 @@ Viewer2DOffscreenRenderer::Viewer2DOffscreenRenderer(wxWindow *parent) {
   host_ = new wxPanel(parent, wxID_ANY, wxDefaultPosition, wxSize(1, 1));
   host_->Hide();
 
-  panel_ = new Viewer2DPanel(host_, true, false);
+  panel_ = new Viewer2DPanel(host_, true, false, false);
   panel_->SetSize(wxSize(kDefaultViewportWidth, kDefaultViewportHeight));
   panel_->SetClientSize(wxSize(kDefaultViewportWidth, kDefaultViewportHeight));
   panel_->LoadViewFromConfig();

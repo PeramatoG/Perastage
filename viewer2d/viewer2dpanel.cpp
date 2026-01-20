@@ -35,6 +35,9 @@
 #include "viewer2dpanel.h"
 #include "configmanager.h"
 #include "canvas2d.h"
+#include "fixturetablepanel.h"
+#include "sceneobjecttablepanel.h"
+#include "trusstablepanel.h"
 #include <algorithm>
 #include <cmath>
 #include <map>
@@ -167,11 +170,12 @@ wxBEGIN_EVENT_TABLE(Viewer2DPanel, wxGLCanvas) EVT_PAINT(Viewer2DPanel::OnPaint)
                             EVT_SIZE(Viewer2DPanel::OnResize) wxEND_EVENT_TABLE()
 
 Viewer2DPanel::Viewer2DPanel(wxWindow *parent, bool allowOffscreenRender,
-                             bool persistViewState)
+                             bool persistViewState, bool enableSelection)
     : wxGLCanvas(parent, wxID_ANY, nullptr, wxDefaultPosition, wxDefaultSize,
                  wxFULL_REPAINT_ON_RESIZE),
       m_allowOffscreenRender(allowOffscreenRender),
-      m_persistViewState(persistViewState) {
+      m_persistViewState(persistViewState),
+      m_enableSelection(enableSelection) {
   SetBackgroundStyle(wxBG_STYLE_CUSTOM);
   m_glContext = new wxGLContext(this);
 }
@@ -189,6 +193,21 @@ void Viewer2DPanel::SetInstance(Viewer2DPanel *panel) { g_instance = panel; }
 void Viewer2DPanel::UpdateScene(bool reload) {
   if (reload)
     m_controller.Update();
+  if (m_enableSelection) {
+    ConfigManager &cfg = ConfigManager::Get();
+    std::vector<std::string> selection;
+    if (FixtureTablePanel::Instance() &&
+        FixtureTablePanel::Instance()->IsActivePage()) {
+      selection = cfg.GetSelectedFixtures();
+    } else if (TrussTablePanel::Instance() &&
+               TrussTablePanel::Instance()->IsActivePage()) {
+      selection = cfg.GetSelectedTrusses();
+    } else if (SceneObjectTablePanel::Instance() &&
+               SceneObjectTablePanel::Instance()->IsActivePage()) {
+      selection = cfg.GetSelectedSceneObjects();
+    }
+    m_controller.SetSelectedUuids(selection);
+  }
   Refresh();
 }
 
@@ -571,12 +590,92 @@ void Viewer2DPanel::OnPaint(wxPaintEvent &WXUNUSED(event)) {
   wxPaintDC dc(this);
   InitGL();
   Render();
+
+  if (!m_enableSelection || !IsShownOnScreen())
+    return;
+
+  // Ensure the OpenGL context is current before hit-testing selections.
+  SetCurrent(*m_glContext);
+
+  int w, h;
+  GetClientSize(&w, &h);
+
+  wxString newLabel;
+  wxPoint newPos;
+  std::string newUuid;
+  bool found = false;
+
+  if (FixtureTablePanel::Instance() &&
+      FixtureTablePanel::Instance()->IsActivePage()) {
+    found = m_controller.GetFixtureLabelAt(m_lastMousePos.x, m_lastMousePos.y,
+                                           w, h, newLabel, newPos, &newUuid);
+    if (found) {
+      if (TrussTablePanel::Instance())
+        TrussTablePanel::Instance()->HighlightTruss(std::string());
+      if (SceneObjectTablePanel::Instance())
+        SceneObjectTablePanel::Instance()->HighlightObject(std::string());
+    }
+  } else if (TrussTablePanel::Instance() &&
+             TrussTablePanel::Instance()->IsActivePage()) {
+    found = m_controller.GetTrussLabelAt(m_lastMousePos.x, m_lastMousePos.y, w,
+                                         h, newLabel, newPos, &newUuid);
+    if (found) {
+      if (FixtureTablePanel::Instance())
+        FixtureTablePanel::Instance()->HighlightFixture(std::string());
+      if (SceneObjectTablePanel::Instance())
+        SceneObjectTablePanel::Instance()->HighlightObject(std::string());
+    }
+  } else if (SceneObjectTablePanel::Instance() &&
+             SceneObjectTablePanel::Instance()->IsActivePage()) {
+    found = m_controller.GetSceneObjectLabelAt(m_lastMousePos.x,
+                                               m_lastMousePos.y, w, h, newLabel,
+                                               newPos, &newUuid);
+    if (found) {
+      if (FixtureTablePanel::Instance())
+        FixtureTablePanel::Instance()->HighlightFixture(std::string());
+      if (TrussTablePanel::Instance())
+        TrussTablePanel::Instance()->HighlightTruss(std::string());
+    }
+  }
+
+  bool highlightChanged = false;
+  if (found) {
+    highlightChanged = (m_hoverUuid != newUuid);
+    m_hasHover = true;
+    m_hoverUuid = newUuid;
+    m_controller.SetHighlightUuid(m_hoverUuid);
+    if (FixtureTablePanel::Instance() &&
+        FixtureTablePanel::Instance()->IsActivePage())
+      FixtureTablePanel::Instance()->HighlightFixture(std::string(m_hoverUuid));
+    else if (TrussTablePanel::Instance() &&
+             TrussTablePanel::Instance()->IsActivePage())
+      TrussTablePanel::Instance()->HighlightTruss(std::string(m_hoverUuid));
+    else if (SceneObjectTablePanel::Instance() &&
+             SceneObjectTablePanel::Instance()->IsActivePage())
+      SceneObjectTablePanel::Instance()->HighlightObject(std::string(m_hoverUuid));
+  } else if (!m_hasHover || m_mouseMoved) {
+    highlightChanged = m_hasHover;
+    m_hasHover = false;
+    m_hoverUuid.clear();
+    m_controller.SetHighlightUuid("");
+    if (FixtureTablePanel::Instance())
+      FixtureTablePanel::Instance()->HighlightFixture(std::string());
+    if (TrussTablePanel::Instance())
+      TrussTablePanel::Instance()->HighlightTruss(std::string());
+    if (SceneObjectTablePanel::Instance())
+      SceneObjectTablePanel::Instance()->HighlightObject(std::string());
+  }
+  m_mouseMoved = false;
+
+  if (highlightChanged)
+    Refresh();
 }
 
 void Viewer2DPanel::OnMouseDown(wxMouseEvent &event) {
   if (event.LeftDown()) {
     CaptureMouse();
     m_dragging = true;
+    m_draggedSincePress = false;
     m_lastMousePos = event.GetPosition();
   }
 }
@@ -587,6 +686,130 @@ void Viewer2DPanel::OnMouseUp(wxMouseEvent &event) {
     if (HasCapture())
       ReleaseMouse();
   }
+
+  if (!m_enableSelection) {
+    m_draggedSincePress = false;
+    return;
+  }
+
+  if (event.LeftUp() && !m_draggedSincePress) {
+    int w, h;
+    GetClientSize(&w, &h);
+    if (!IsShownOnScreen()) {
+      return;
+    }
+    SetCurrent(*m_glContext);
+    wxString label;
+    wxPoint pos;
+    std::string uuid;
+    bool found = false;
+    if (FixtureTablePanel::Instance() &&
+        FixtureTablePanel::Instance()->IsActivePage())
+      found = m_controller.GetFixtureLabelAt(event.GetX(), event.GetY(), w, h,
+                                             label, pos, &uuid);
+    else if (TrussTablePanel::Instance() &&
+             TrussTablePanel::Instance()->IsActivePage())
+      found = m_controller.GetTrussLabelAt(event.GetX(), event.GetY(), w, h,
+                                           label, pos, &uuid);
+    else if (SceneObjectTablePanel::Instance() &&
+             SceneObjectTablePanel::Instance()->IsActivePage())
+      found = m_controller.GetSceneObjectLabelAt(event.GetX(), event.GetY(), w,
+                                                 h, label, pos, &uuid);
+
+    ConfigManager &cfg = ConfigManager::Get();
+    if (found) {
+      bool additive = event.ShiftDown() || event.ControlDown();
+      std::vector<std::string> selection;
+      if (FixtureTablePanel::Instance() &&
+          FixtureTablePanel::Instance()->IsActivePage()) {
+        if (additive)
+          selection = FixtureTablePanel::Instance()->GetSelectedUuids();
+        if (additive) {
+          auto it = std::find(selection.begin(), selection.end(), uuid);
+          if (it != selection.end())
+            selection.erase(it);
+          else
+            selection.push_back(uuid);
+        } else {
+          selection = {uuid};
+        }
+        if (selection != cfg.GetSelectedFixtures()) {
+          cfg.PushUndoState("fixture selection");
+          cfg.SetSelectedFixtures(selection);
+        }
+        m_controller.SetSelectedUuids(selection);
+        FixtureTablePanel::Instance()->SelectByUuid(selection);
+      } else if (TrussTablePanel::Instance() &&
+                 TrussTablePanel::Instance()->IsActivePage()) {
+        if (additive)
+          selection = TrussTablePanel::Instance()->GetSelectedUuids();
+        if (additive) {
+          auto it = std::find(selection.begin(), selection.end(), uuid);
+          if (it != selection.end())
+            selection.erase(it);
+          else
+            selection.push_back(uuid);
+        } else {
+          selection = {uuid};
+        }
+        if (selection != cfg.GetSelectedTrusses()) {
+          cfg.PushUndoState("truss selection");
+          cfg.SetSelectedTrusses(selection);
+        }
+        m_controller.SetSelectedUuids(selection);
+        TrussTablePanel::Instance()->SelectByUuid(selection);
+      } else if (SceneObjectTablePanel::Instance() &&
+                 SceneObjectTablePanel::Instance()->IsActivePage()) {
+        if (additive)
+          selection = SceneObjectTablePanel::Instance()->GetSelectedUuids();
+        if (additive) {
+          auto it = std::find(selection.begin(), selection.end(), uuid);
+          if (it != selection.end())
+            selection.erase(it);
+          else
+            selection.push_back(uuid);
+        } else {
+          selection = {uuid};
+        }
+        if (selection != cfg.GetSelectedSceneObjects()) {
+          cfg.PushUndoState("scene object selection");
+          cfg.SetSelectedSceneObjects(selection);
+        }
+        m_controller.SetSelectedUuids(selection);
+        SceneObjectTablePanel::Instance()->SelectByUuid(selection);
+      }
+    } else {
+      if (FixtureTablePanel::Instance() &&
+          FixtureTablePanel::Instance()->IsActivePage()) {
+        if (!cfg.GetSelectedFixtures().empty()) {
+          cfg.PushUndoState("fixture selection");
+          cfg.SetSelectedFixtures({});
+        }
+        m_controller.SetSelectedUuids({});
+        FixtureTablePanel::Instance()->ClearSelection();
+      } else if (TrussTablePanel::Instance() &&
+                 TrussTablePanel::Instance()->IsActivePage()) {
+        if (!cfg.GetSelectedTrusses().empty()) {
+          cfg.PushUndoState("truss selection");
+          cfg.SetSelectedTrusses({});
+        }
+        m_controller.SetSelectedUuids({});
+        TrussTablePanel::Instance()->ClearSelection();
+      } else if (SceneObjectTablePanel::Instance() &&
+                 SceneObjectTablePanel::Instance()->IsActivePage()) {
+        if (!cfg.GetSelectedSceneObjects().empty()) {
+          cfg.PushUndoState("scene object selection");
+          cfg.SetSelectedSceneObjects({});
+        }
+        m_controller.SetSelectedUuids({});
+        SceneObjectTablePanel::Instance()->ClearSelection();
+      } else {
+        m_controller.SetSelectedUuids({});
+      }
+    }
+    Refresh();
+  }
+  m_draggedSincePress = false;
 }
 
 void Viewer2DPanel::OnCaptureLost(wxMouseCaptureLostEvent &WXUNUSED(event)) {
@@ -594,6 +817,11 @@ void Viewer2DPanel::OnCaptureLost(wxMouseCaptureLostEvent &WXUNUSED(event)) {
 }
 
 void Viewer2DPanel::OnMouseMove(wxMouseEvent &event) {
+  if (m_enableSelection) {
+    m_mouseMoved = true;
+    m_lastMousePos = event.GetPosition();
+  }
+
   if (m_dragging && event.Dragging()) {
     wxPoint pos = event.GetPosition();
     int dx = pos.x - m_lastMousePos.x;
@@ -601,10 +829,15 @@ void Viewer2DPanel::OnMouseMove(wxMouseEvent &event) {
     m_offsetX += dx / m_zoom;
     m_offsetY += dy / m_zoom;
     m_lastMousePos = pos;
+    m_draggedSincePress = true;
     if (m_persistViewState)
       SaveViewToConfig();
     Refresh();
+    return;
   }
+
+  if (m_enableSelection)
+    Refresh();
 }
 
 void Viewer2DPanel::OnMouseWheel(wxMouseEvent &event) {
@@ -676,6 +909,18 @@ void Viewer2DPanel::OnMouseEnter(wxMouseEvent &event) {
 
 void Viewer2DPanel::OnMouseLeave(wxMouseEvent &event) {
   m_mouseInside = false;
+  if (m_enableSelection) {
+    m_hasHover = false;
+    m_hoverUuid.clear();
+    m_controller.SetHighlightUuid("");
+    if (FixtureTablePanel::Instance())
+      FixtureTablePanel::Instance()->HighlightFixture(std::string());
+    if (TrussTablePanel::Instance())
+      TrussTablePanel::Instance()->HighlightTruss(std::string());
+    if (SceneObjectTablePanel::Instance())
+      SceneObjectTablePanel::Instance()->HighlightObject(std::string());
+    Refresh();
+  }
   event.Skip();
 }
 

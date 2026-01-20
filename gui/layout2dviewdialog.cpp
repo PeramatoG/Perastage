@@ -18,7 +18,7 @@ Layout2DViewDialog::Layout2DViewDialog(wxWindow *parent)
   auto *mainSizer = new wxBoxSizer(wxVERTICAL);
   auto *contentSizer = new wxBoxSizer(wxHORIZONTAL);
 
-  viewerPanel = new Viewer2DPanel(this, false, false);
+  viewerPanel = new Viewer2DPanel(this, false, false, false);
   renderPanel = new Viewer2DRenderPanel(this);
   layerPanel = new LayerPanel(this, false);
 
