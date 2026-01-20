@@ -652,10 +652,23 @@ bool ConfigManager::SaveProject(const std::string &path) {
 
 bool ConfigManager::LoadProject(const std::string &path) {
   namespace fs = std::filesystem;
+  const bool hasUserView2dDarkMode = HasKey("view2d_dark_mode");
+  const float userView2dDarkMode = GetFloat("view2d_dark_mode");
+  auto restoreUserPreferences = [this, hasUserView2dDarkMode,
+                                 userView2dDarkMode]() {
+    if (!hasUserView2dDarkMode)
+      return;
+    RevisionGuard guard(*this);
+    SetFloat("view2d_dark_mode", userView2dDarkMode);
+  };
 
   if (!LooksLikeZipFile(path)) {
-    if (LooksLikeJsonFile(path))
-      return LoadFromFile(path);
+    if (LooksLikeJsonFile(path)) {
+      bool ok = LoadFromFile(path);
+      if (ok)
+        restoreUserPreferences();
+      return ok;
+    }
     return false;
   }
 
@@ -711,8 +724,12 @@ bool ConfigManager::LoadProject(const std::string &path) {
   if (configPath.empty() && scenePath.empty()) {
     if (hasMvrSceneXml) {
       std::string ext = ToLowerCopy(fs::path(path).extension().string());
-      if (ext == ".mvr")
-        return MvrImporter::ImportAndRegister(path, false);
+      if (ext == ".mvr") {
+        bool ok = MvrImporter::ImportAndRegister(path, false);
+        if (ok)
+          restoreUserPreferences();
+        return ok;
+      }
 
       fs::path tempMvrPath = tempDir.Path() / "legacy.mvr";
       std::error_code ec;
@@ -720,10 +737,17 @@ bool ConfigManager::LoadProject(const std::string &path) {
                     ec);
       if (ec)
         return false;
-      return MvrImporter::ImportAndRegister(tempMvrPath.string(), false);
+      bool ok = MvrImporter::ImportAndRegister(tempMvrPath.string(), false);
+      if (ok)
+        restoreUserPreferences();
+      return ok;
     }
-    if (LooksLikeJsonFile(path))
-      return LoadFromFile(path);
+    if (LooksLikeJsonFile(path)) {
+      bool ok = LoadFromFile(path);
+      if (ok)
+        restoreUserPreferences();
+      return ok;
+    }
     return false;
   }
 
@@ -734,6 +758,7 @@ bool ConfigManager::LoadProject(const std::string &path) {
     ok &= LoadFromFile(configPath.string());
 
   if (ok) {
+    restoreUserPreferences();
     ClearHistory();
     selectedFixtures.clear();
     selectedTrusses.clear();
