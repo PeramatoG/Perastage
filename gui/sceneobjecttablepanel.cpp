@@ -586,12 +586,17 @@ std::vector<std::string> SceneObjectTablePanel::GetSelectedUuids() const {
 
 void SceneObjectTablePanel::SelectByUuid(const std::vector<std::string>& uuids) {
     table->UnselectAll();
+    std::vector<bool> selectedRows(table->GetItemCount(), false);
     for (const auto& u : uuids) {
         auto pos = std::find(rowUuids.begin(), rowUuids.end(), u);
-        if (pos != rowUuids.end())
-            table->SelectRow(static_cast<int>(pos - rowUuids.begin()));
+        if (pos != rowUuids.end()) {
+            int row = static_cast<int>(pos - rowUuids.begin());
+            table->SelectRow(row);
+            if (row >= 0 && static_cast<size_t>(row) < selectedRows.size())
+                selectedRows[row] = true;
+        }
     }
-    UpdateSelectionHighlight();
+    store->SetSelectedRows(selectedRows);
 }
 
 void SceneObjectTablePanel::DeleteSelected()
