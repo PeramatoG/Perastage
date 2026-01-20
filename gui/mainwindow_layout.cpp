@@ -785,7 +785,6 @@ void MainWindow::OnLayout2DViewOk(wxCommandEvent &WXUNUSED(event)) {
       layout2DViewEditPanel ? layout2DViewEditPanel : viewport2DPanel;
   viewer2d::Viewer2DState current =
       viewer2d::CaptureState(editPanel, cfg);
-  current.renderOptions.darkMode = false;
 
   layouts::Layout2DViewFrame frame{};
   int viewId = layout2DViewEditingId;
@@ -922,7 +921,6 @@ void MainWindow::PersistLayout2DViewState() {
   }
   layouts::Layout2DViewDefinition view =
       viewer2d::CaptureLayoutDefinition(activePanel, cfg, frame);
-  view.renderOptions.darkMode = false;
   view.id = viewId;
   if (matchedView) {
     view.zIndex = matchedView->zIndex;
@@ -959,6 +957,7 @@ void MainWindow::RestoreLayout2DViewState(int viewId) {
       (layout2DViewEditing && layout2DViewEditRenderPanel)
           ? layout2DViewEditRenderPanel
           : viewport2DRenderPanel;
-  viewer2d::ApplyState(activePanel, activeRenderPanel, cfg,
-                       viewer2d::FromLayoutDefinition(*match));
+  viewer2d::Viewer2DState state = viewer2d::FromLayoutDefinition(*match);
+  state.renderOptions.darkMode = cfg.GetFloat("view2d_dark_mode") != 0.0f;
+  viewer2d::ApplyState(activePanel, activeRenderPanel, cfg, state);
 }
