@@ -108,11 +108,6 @@ SceneObjectTablePanel::SceneObjectTablePanel(wxWindow* parent)
   const wxColour selectionBackground(0, 255, 255);
   const wxColour selectionForeground(0, 0, 0);
   store->SetSelectionColours(selectionBackground, selectionForeground);
-#if wxCHECK_VERSION(3, 1, 0)
-  table->SetSelectionBackground(selectionBackground);
-  table->SetSelectionForeground(selectionForeground);
-#endif
-
     table->Bind(wxEVT_LEFT_DOWN, &SceneObjectTablePanel::OnLeftDown, this);
     table->Bind(wxEVT_LEFT_UP, &SceneObjectTablePanel::OnLeftUp, this);
     table->Bind(wxEVT_MOTION, &SceneObjectTablePanel::OnMouseMove, this);
