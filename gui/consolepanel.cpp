@@ -190,6 +190,84 @@ static std::vector<std::string> split(const std::string &s, char delim) {
   return parts;
 }
 
+static bool isNumberToken(const std::string &token) {
+  if (token.empty())
+    return false;
+  int value = 0;
+  auto begin = token.data();
+  auto end = token.data() + token.size();
+  auto result = std::from_chars(begin, end, value);
+  return result.ec == std::errc{} && result.ptr == end;
+}
+
+static std::vector<std::string>
+NormalizeRangeTokens(const std::vector<std::string> &tokens) {
+  std::vector<std::string> out;
+  out.reserve(tokens.size());
+  for (const auto &token : tokens) {
+    if (token == "+" || token == "-") {
+      out.push_back(token);
+      continue;
+    }
+    std::string lower = token;
+    std::transform(lower.begin(), lower.end(), lower.begin(),
+                   [](unsigned char c) { return std::tolower(c); });
+    if (lower == "t" || lower == "thru")
+      continue;
+    if (lower.size() > 4 && lower.rfind("thru", 0) == 0) {
+      std::string after = token.substr(4);
+      if (isNumberToken(after)) {
+        out.push_back(after);
+        continue;
+      }
+    }
+    if (lower.size() > 1 && lower.rfind("t", 0) == 0) {
+      std::string after = token.substr(1);
+      if (isNumberToken(after)) {
+        out.push_back(after);
+        continue;
+      }
+    }
+    if (lower.size() > 4 && lower.compare(lower.size() - 4, 4, "thru") == 0) {
+      std::string before = token.substr(0, token.size() - 4);
+      if (isNumberToken(before)) {
+        out.push_back(before);
+        continue;
+      }
+    }
+    if (lower.size() > 1 && lower.back() == 't') {
+      std::string before = token.substr(0, token.size() - 1);
+      if (isNumberToken(before)) {
+        out.push_back(before);
+        continue;
+      }
+    }
+    size_t thruPos = lower.find("thru");
+    if (thruPos != std::string::npos && thruPos > 0 &&
+        thruPos + 4 < token.size()) {
+      std::string before = token.substr(0, thruPos);
+      std::string after = token.substr(thruPos + 4);
+      if (isNumberToken(before) && isNumberToken(after)) {
+        out.push_back(before);
+        out.push_back(after);
+        continue;
+      }
+    }
+    size_t tPos = lower.find('t');
+    if (tPos != std::string::npos && tPos > 0 && tPos + 1 < token.size()) {
+      std::string before = token.substr(0, tPos);
+      std::string after = token.substr(tPos + 1);
+      if (isNumberToken(before) && isNumberToken(after)) {
+        out.push_back(before);
+        out.push_back(after);
+        continue;
+      }
+    }
+    out.push_back(token);
+  }
+  return out;
+}
+
 void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
   std::string cmd = std::string(cmdWx.ToUTF8());
   cmd = trim(cmd);
@@ -266,9 +344,10 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
             ++it;
         }
       };
+      std::vector<std::string> normalized = NormalizeRangeTokens(tokens);
       char mode = '+';
-      for (size_t i = 0; i < tokens.size();) {
-        const std::string &tok = tokens[i];
+      for (size_t i = 0; i < normalized.size();) {
+        const std::string &tok = normalized[i];
         if (tok == "+" || tok == "-") {
           mode = tok[0];
           ++i;
@@ -277,10 +356,10 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
         int a = 0;
         if (!parseId(tok, a))
           return;
-        if (i + 1 < tokens.size() && tokens[i + 1] != "+" &&
-            tokens[i + 1] != "-") {
+        if (i + 1 < normalized.size() && normalized[i + 1] != "+" &&
+            normalized[i + 1] != "-") {
           int b = 0;
-          if (!parseId(tokens[i + 1], b))
+          if (!parseId(normalized[i + 1], b))
             return;
           if (a > b)
             std::swap(a, b);
