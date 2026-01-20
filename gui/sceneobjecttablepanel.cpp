@@ -17,6 +17,7 @@
  */
 #include "sceneobjecttablepanel.h"
 #include "columnutils.h"
+#include "colorfulrenderers.h"
 #include "configmanager.h"
 #include "layerpanel.h"
 #include "matrixutils.h"
@@ -142,9 +143,11 @@ void SceneObjectTablePanel::InitializeTable()
                                80, 80, 80,
                                80, 80, 80};
     for (size_t i = 0; i < columnLabels.size(); ++i)
-        table->AppendTextColumn(
-            columnLabels[i], wxDATAVIEW_CELL_INERT, widths[i], wxALIGN_LEFT,
-            wxDATAVIEW_COL_RESIZABLE | wxDATAVIEW_COL_SORTABLE);
+        table->AppendColumn(new wxDataViewColumn(
+            columnLabels[i], new ColorfulTextRenderer(wxDATAVIEW_CELL_INERT,
+                                                      wxALIGN_LEFT),
+            i, widths[i], wxALIGN_LEFT,
+            wxDATAVIEW_COL_RESIZABLE | wxDATAVIEW_COL_SORTABLE));
     ColumnUtils::EnforceMinColumnWidth(table);
 }
 
