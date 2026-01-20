@@ -114,7 +114,11 @@ TrussTablePanel::TrussTablePanel(wxWindow* parent)
   store->DecRef();
 
   table->SetAlternateRowColour(wxColour(40, 40, 40));
-  store->SetSelectionColours(wxColour(0, 255, 255), wxColour(0, 0, 0));
+  const wxColour selectionBackground(0, 255, 255);
+  const wxColour selectionForeground(0, 0, 0);
+  store->SetSelectionColours(selectionBackground, selectionForeground);
+  ApplyDataViewSelectionColours(table, selectionBackground,
+                                selectionForeground);
 
     table->Bind(wxEVT_LEFT_DOWN, &TrussTablePanel::OnLeftDown, this);
     table->Bind(wxEVT_LEFT_UP, &TrussTablePanel::OnLeftUp, this);

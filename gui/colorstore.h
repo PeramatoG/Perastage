@@ -222,3 +222,18 @@ public:
     return wxDataViewListStore::Compare(item1, item2, column, ascending);
   }
 };
+
+inline void ApplyDataViewSelectionColours(wxDataViewCtrl *ctrl,
+                                          const wxColour &background,
+                                          const wxColour &foreground) {
+#if wxCHECK_VERSION(3, 1, 0)
+  if (ctrl) {
+    ctrl->SetSelectionBackground(background);
+    ctrl->SetSelectionForeground(foreground);
+  }
+#else
+  (void)ctrl;
+  (void)background;
+  (void)foreground;
+#endif
+}
