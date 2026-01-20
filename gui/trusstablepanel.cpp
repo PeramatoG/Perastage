@@ -38,6 +38,7 @@
 #include <wx/notebook.h>
 #include <wx/choicdlg.h>
 #include <wx/wupdlock.h> // freeze/thaw UI during batch edits
+#include <wx/version.h>
 
 static TrussTablePanel* s_instance = nullptr;
 namespace fs = std::filesystem;
@@ -117,6 +118,10 @@ TrussTablePanel::TrussTablePanel(wxWindow* parent)
   const wxColour selectionBackground(0, 255, 255);
   const wxColour selectionForeground(0, 0, 0);
   store->SetSelectionColours(selectionBackground, selectionForeground);
+#if wxCHECK_VERSION(3, 1, 0)
+  table->SetSelectionBackground(selectionBackground);
+  table->SetSelectionForeground(selectionForeground);
+#endif
 
     table->Bind(wxEVT_LEFT_DOWN, &TrussTablePanel::OnLeftDown, this);
     table->Bind(wxEVT_LEFT_UP, &TrussTablePanel::OnLeftUp, this);
