@@ -134,7 +134,10 @@ public:
     return true;
   }
 
-  wxSize GetSize() const override { return GetTextExtent(m_text); }
+  wxSize GetSize() const override {
+    wxSize textSize = GetTextExtent(m_text);
+    return wxSize(textSize.x + 4, textSize.y + 2);
+  }
 
   bool SetValue(const wxVariant &value) override {
     m_text = value.MakeString();
@@ -198,8 +201,8 @@ public:
     wxBitmap bmp = bundle.GetBitmap(wxDefaultSize);
     if (!bmp.IsOk())
       return textSize;
-    int width = textSize.x + bmp.GetWidth() + 6;
-    int height = std::max(textSize.y, bmp.GetHeight());
+    int width = textSize.x + bmp.GetWidth() + 8;
+    int height = std::max(textSize.y + 2, bmp.GetHeight());
     return wxSize(width, height);
   }
 
