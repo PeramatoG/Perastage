@@ -20,6 +20,7 @@
 #include "columnutils.h"
 #include "configmanager.h"
 #include "consolepanel.h"
+#include "colorfulrenderers.h"
 #include "fixtureeditdialog.h"
 #include "gdtfdictionary.h"
 #include "gdtfloader.h"
@@ -155,52 +156,59 @@ void FixtureTablePanel::InitializeTable() {
 
   // Column 0: Fixture ID (numeric for proper sorting)
   auto *idRenderer =
-      new wxDataViewTextRenderer("long", wxDATAVIEW_CELL_INERT, wxALIGN_LEFT);
-  auto *idColumn = new wxDataViewColumn(columnLabels[0], idRenderer, 0,
-                                        widths[0], wxALIGN_LEFT, flags);
-  table->AppendColumn(idColumn);
+      new ColorfulTextRenderer(wxDATAVIEW_CELL_INERT, wxALIGN_LEFT);
+  table->AppendColumn(new wxDataViewColumn(columnLabels[0], idRenderer, 0,
+                                           widths[0], wxALIGN_LEFT, flags));
 
   // Column 1: Name (string)
-  table->AppendTextColumn(columnLabels[1], wxDATAVIEW_CELL_INERT, widths[1],
-                          wxALIGN_LEFT, flags);
+  table->AppendColumn(new wxDataViewColumn(
+      columnLabels[1], new ColorfulTextRenderer(wxDATAVIEW_CELL_INERT,
+                                                wxALIGN_LEFT),
+      1, widths[1], wxALIGN_LEFT, flags));
 
   // Column 2: Type (string)
-  table->AppendTextColumn(columnLabels[2], wxDATAVIEW_CELL_INERT, widths[2],
-                          wxALIGN_LEFT, flags);
+  table->AppendColumn(new wxDataViewColumn(
+      columnLabels[2], new ColorfulTextRenderer(wxDATAVIEW_CELL_INERT,
+                                                wxALIGN_LEFT),
+      2, widths[2], wxALIGN_LEFT, flags));
 
   // Column 3: Layer (string)
-  table->AppendTextColumn(columnLabels[3], wxDATAVIEW_CELL_INERT, widths[3],
-                          wxALIGN_LEFT, flags);
+  table->AppendColumn(new wxDataViewColumn(
+      columnLabels[3], new ColorfulTextRenderer(wxDATAVIEW_CELL_INERT,
+                                                wxALIGN_LEFT),
+      3, widths[3], wxALIGN_LEFT, flags));
 
   // Column 4: Hang Pos (string)
-  table->AppendTextColumn(columnLabels[4], wxDATAVIEW_CELL_INERT, widths[4],
-                          wxALIGN_LEFT, flags);
+  table->AppendColumn(new wxDataViewColumn(
+      columnLabels[4], new ColorfulTextRenderer(wxDATAVIEW_CELL_INERT,
+                                                wxALIGN_LEFT),
+      4, widths[4], wxALIGN_LEFT, flags));
 
   // Column 5: Universe (numeric)
-  auto *uniRenderer =
-      new wxDataViewTextRenderer("long", wxDATAVIEW_CELL_INERT, wxALIGN_LEFT);
-  auto *uniColumn = new wxDataViewColumn(columnLabels[5], uniRenderer, 5,
-                                         widths[5], wxALIGN_LEFT, flags);
-  table->AppendColumn(uniColumn);
+  table->AppendColumn(new wxDataViewColumn(
+      columnLabels[5], new ColorfulTextRenderer(wxDATAVIEW_CELL_INERT,
+                                                wxALIGN_LEFT),
+      5, widths[5], wxALIGN_LEFT, flags));
 
   // Column 6: Channel (numeric)
-  auto *chRenderer =
-      new wxDataViewTextRenderer("long", wxDATAVIEW_CELL_INERT, wxALIGN_LEFT);
-  auto *chColumn = new wxDataViewColumn(columnLabels[6], chRenderer, 6,
-                                        widths[6], wxALIGN_LEFT, flags);
-  table->AppendColumn(chColumn);
+  table->AppendColumn(new wxDataViewColumn(
+      columnLabels[6], new ColorfulTextRenderer(wxDATAVIEW_CELL_INERT,
+                                                wxALIGN_LEFT),
+      6, widths[6], wxALIGN_LEFT, flags));
 
   // Columns 7 to second last as regular text
   for (size_t i = 7; i < columnLabels.size() - 1; ++i)
-    table->AppendTextColumn(columnLabels[i], wxDATAVIEW_CELL_INERT, widths[i],
-                            wxALIGN_LEFT, flags);
+    table->AppendColumn(new wxDataViewColumn(
+        columnLabels[i], new ColorfulTextRenderer(wxDATAVIEW_CELL_INERT,
+                                                  wxALIGN_LEFT),
+        i, widths[i], wxALIGN_LEFT, flags));
 
   // Last column (Color) uses icon+text to show a colored square
-  auto *colorRenderer = new wxDataViewIconTextRenderer();
-  auto *colorColumn = new wxDataViewColumn(columnLabels.back(), colorRenderer,
-                                           columnLabels.size() - 1,
-                                           widths.back(), wxALIGN_LEFT, flags);
-  table->AppendColumn(colorColumn);
+  auto *colorRenderer =
+      new ColorfulIconTextRenderer(wxDATAVIEW_CELL_INERT, wxALIGN_LEFT);
+  table->AppendColumn(new wxDataViewColumn(
+      columnLabels.back(), colorRenderer, columnLabels.size() - 1,
+      widths.back(), wxALIGN_LEFT, flags));
 
   ColumnUtils::EnforceMinColumnWidth(table);
 }
