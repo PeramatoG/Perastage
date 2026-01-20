@@ -173,7 +173,7 @@ public:
     selectionRows.assign(rows.begin(), rows.end());
     if (rowAttrs.size() > selectionRows.size())
       selectionRows.resize(rowAttrs.size(), false);
-    size_t notifyCount = std::max(oldSize, selectionRows.size());
+    size_t notifyCount = (std::max)(oldSize, selectionRows.size());
     for (size_t i = 0; i < notifyCount; ++i) {
       bool oldVal = i < oldSize ? oldRows[i] : false;
       bool newVal = i < selectionRows.size() ? selectionRows[i] : false;
