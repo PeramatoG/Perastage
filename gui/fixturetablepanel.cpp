@@ -115,8 +115,6 @@ FixtureTablePanel::FixtureTablePanel(wxWindow *parent)
   const wxColour selectionBackground(0, 255, 255);
   const wxColour selectionForeground(0, 0, 0);
   store->SetSelectionColours(selectionBackground, selectionForeground);
-  ApplyDataViewSelectionColours(table, selectionBackground,
-                                selectionForeground);
 
   table->Bind(wxEVT_LEFT_DOWN, &FixtureTablePanel::OnLeftDown, this);
   table->Bind(wxEVT_LEFT_UP, &FixtureTablePanel::OnLeftUp, this);
