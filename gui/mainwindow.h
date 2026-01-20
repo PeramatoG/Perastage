@@ -187,6 +187,7 @@ private:
   std::unique_ptr<viewer2d::ScopedViewer2DState> layout2DViewStateGuard;
   Viewer2DPanel *layout2DViewEditPanel = nullptr;
   Viewer2DRenderPanel *layout2DViewEditRenderPanel = nullptr;
+  std::optional<viewer2d::Viewer2DState> standalone2DState;
 
   inline static MainWindow *s_instance = nullptr;
   wxDECLARE_EVENT_TABLE();

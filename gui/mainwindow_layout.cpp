@@ -351,6 +351,24 @@ void MainWindow::ApplyLayoutPreset(const LayoutViewPreset &preset,
   if (!auiManager)
     return;
 
+  const bool wasLayoutMode = layoutModeActive;
+  if (layoutMode && !wasLayoutMode) {
+    ConfigManager &cfg = ConfigManager::Get();
+    if (!standalone2DState)
+      standalone2DState = viewer2d::CaptureState(viewport2DPanel, cfg);
+  } else if (!layoutMode && wasLayoutMode) {
+    if (standalone2DState) {
+      ConfigManager &cfg = ConfigManager::Get();
+      if (viewport2DPanel) {
+        viewer2d::ApplyState(viewport2DPanel, viewport2DRenderPanel, cfg,
+                             *standalone2DState);
+      } else {
+        viewer2d::ApplyState(nullptr, nullptr, cfg, *standalone2DState);
+      }
+      standalone2DState.reset();
+    }
+  }
+
   if (perspective && !perspective->empty())
     auiManager->LoadPerspective(*perspective, true);
   else
@@ -950,6 +968,8 @@ void MainWindow::RestoreLayout2DViewState(int viewId) {
     return;
 
   ConfigManager &cfg = ConfigManager::Get();
+  if (layoutModeActive && !standalone2DState)
+    standalone2DState = viewer2d::CaptureState(nullptr, cfg);
   Viewer2DPanel *activePanel =
       (layout2DViewEditing && layout2DViewEditPanel) ? layout2DViewEditPanel
                                                      : viewport2DPanel;
