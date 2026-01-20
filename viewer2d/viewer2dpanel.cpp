@@ -177,6 +177,7 @@ Viewer2DPanel::Viewer2DPanel(wxWindow *parent, bool allowOffscreenRender,
       m_persistViewState(persistViewState),
       m_enableSelection(enableSelection) {
   SetBackgroundStyle(wxBG_STYLE_CUSTOM);
+  m_controller.SetSelectionOutlineEnabled(m_enableSelection);
   m_glContext = new wxGLContext(this);
 }
 
