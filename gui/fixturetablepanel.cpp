@@ -112,8 +112,10 @@ FixtureTablePanel::FixtureTablePanel(wxWindow *parent)
   store->DecRef();
 
   table->SetAlternateRowColour(wxColour(40, 40, 40));
+#if wxCHECK_VERSION(3, 3, 0)
   table->SetSelectionBackground(wxColour(0, 255, 255));
   table->SetSelectionForeground(wxColour(0, 0, 0));
+#endif
 
   table->Bind(wxEVT_LEFT_DOWN, &FixtureTablePanel::OnLeftDown, this);
   table->Bind(wxEVT_LEFT_UP, &FixtureTablePanel::OnLeftUp, this);
