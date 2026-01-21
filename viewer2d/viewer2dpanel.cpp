@@ -222,6 +222,14 @@ void Viewer2DPanel::SetView(Viewer2DView view) {
   Refresh();
 }
 
+void Viewer2DPanel::SetSelectedUuids(
+    const std::vector<std::string> &selection) {
+  if (!m_enableSelection)
+    return;
+  m_controller.SetSelectedUuids(selection);
+  Refresh();
+}
+
 void Viewer2DPanel::SetLayerColor(const std::string &layer,
                                   const std::string &hex) {
   // Forward the updated color to the shared controller so the 2D view
