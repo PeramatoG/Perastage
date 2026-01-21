@@ -124,6 +124,19 @@ Run tests from the build directory with `ctest` to execute unit tests.
 
 ---
 
+## Windows build troubleshooting
+
+If you hit `LNK1163: invalid selection for COMDAT section` on Windows, it usually
+means stale object files were produced by a different MSVC toolset or with
+incompatible link settings. Do a clean rebuild:
+
+1. Delete the affected build directory (for example, `out/build/x64-Debug`).
+2. Re-configure CMake and rebuild the target.
+3. If you keep the build directory, use `cmake --build . --config Debug --clean-first`
+   (or the corresponding configuration) to force a clean rebuild.
+
+---
+
 ## Known limitations / experimental areas
 
 - **Beta quality:** many functions in the menu (especially under Tools and Layouts) are placeholders or only partially implemented.  Error handling and input validation are minimal.
