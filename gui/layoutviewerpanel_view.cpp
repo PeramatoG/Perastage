@@ -174,7 +174,7 @@ void LayoutViewerPanel::DrawViewElement(
       offscreenRenderer->PrepareForCapture();
     }
     auto stateGuard = std::make_shared<viewer2d::ScopedViewer2DState>(
-        capturePanel, nullptr, cfg, layoutState);
+        capturePanel, nullptr, cfg, layoutState, nullptr, nullptr, false);
     capturePanel->CaptureFrameNow(
         [this, viewId, stateGuard, fallbackViewportWidth, fallbackViewportHeight,
          capturePanel](CommandBuffer buffer, Viewer2DViewState state) {

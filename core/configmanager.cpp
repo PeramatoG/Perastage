@@ -205,8 +205,8 @@ ConfigManager::ConfigManager() {
   RegisterVariable("label_offset_angle_front", "float", 180.0f, 0.0f, 360.0f);
   RegisterVariable("label_offset_distance_side", "float", 0.5f, 0.0f, 1.0f);
   RegisterVariable("label_offset_angle_side", "float", 180.0f, 0.0f, 360.0f);
-  RegisterVariable("view2d_offset_x", "float", 0.0f, -1000.0f, 1000.0f);
-  RegisterVariable("view2d_offset_y", "float", 0.0f, -1000.0f, 1000.0f);
+  RegisterVariable("view2d_offset_x", "float", 0.0f, -1000000.0f, 1000000.0f);
+  RegisterVariable("view2d_offset_y", "float", 0.0f, -1000000.0f, 1000000.0f);
   RegisterVariable("view2d_zoom", "float", 1.0f, 0.1f, 100.0f);
   RegisterVariable("view2d_render_mode", "float", 2.0f, 0.0f, 3.0f);
   RegisterVariable("view2d_view", "float", 0.0f, 0.0f, 2.0f);
