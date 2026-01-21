@@ -474,6 +474,8 @@ void SceneObjectTablePanel::OnSelectionChanged(wxDataViewEvent& evt)
     }
     if (Viewer3DPanel::Instance())
         Viewer3DPanel::Instance()->SetSelectedFixtures(uuids);
+    if (Viewer2DPanel::Instance())
+        Viewer2DPanel::Instance()->SetSelectedUuids(uuids);
     UpdateSelectionHighlight();
     evt.Skip();
 }
