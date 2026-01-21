@@ -22,6 +22,7 @@
 #include "matrixutils.h"
 #include "sceneobjecttablepanel.h"
 #include "trusstablepanel.h"
+#include "viewer2dpanel.h"
 #include "viewer3dpanel.h"
 #include <algorithm>
 #include <charconv>
@@ -387,6 +388,8 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
         if (TrussTablePanel::Instance())
           TrussTablePanel::Instance()->SelectByUuid(current);
       }
+      if (Viewer2DPanel::Instance())
+        Viewer2DPanel::Instance()->SetSelectedUuids(current);
       if (Viewer3DPanel::Instance()) {
         Viewer3DPanel::Instance()->SetSelectedFixtures(current);
         Viewer3DPanel::Instance()->Refresh();
