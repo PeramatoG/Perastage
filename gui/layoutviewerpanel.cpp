@@ -1089,7 +1089,7 @@ void LayoutViewerPanel::RebuildCachedTexture() {
     renderState.camera.viewportHeight = renderSize.GetHeight();
 
     auto stateGuard = std::make_shared<viewer2d::ScopedViewer2DState>(
-        capturePanel, nullptr, cfg, renderState);
+        capturePanel, nullptr, cfg, renderState, nullptr, nullptr, false);
 
     std::vector<unsigned char> pixels;
     int width = 0;

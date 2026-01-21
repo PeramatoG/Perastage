@@ -100,11 +100,14 @@ Viewer2DState CaptureState(const Viewer2DPanel *panel,
 }
 
 void ApplyState(Viewer2DPanel *panel, Viewer2DRenderPanel *renderPanel,
-                ConfigManager &cfg, const Viewer2DState &state) {
-  cfg.SetFloat("view2d_offset_x", state.camera.offsetPixelsX);
-  cfg.SetFloat("view2d_offset_y", state.camera.offsetPixelsY);
-  cfg.SetFloat("view2d_zoom", state.camera.zoom);
-  cfg.SetFloat("view2d_view", static_cast<float>(state.camera.view));
+                ConfigManager &cfg, const Viewer2DState &state,
+                bool persistCameraToConfig, bool updatePanels) {
+  if (persistCameraToConfig) {
+    cfg.SetFloat("view2d_offset_x", state.camera.offsetPixelsX);
+    cfg.SetFloat("view2d_offset_y", state.camera.offsetPixelsY);
+    cfg.SetFloat("view2d_zoom", state.camera.zoom);
+    cfg.SetFloat("view2d_view", static_cast<float>(state.camera.view));
+  }
 
   cfg.SetFloat("view2d_render_mode",
                static_cast<float>(state.renderOptions.renderMode));
@@ -138,12 +141,19 @@ void ApplyState(Viewer2DPanel *panel, Viewer2DRenderPanel *renderPanel,
                                          state.layers.hiddenLayers.end());
   cfg.SetHiddenLayers(hidden);
 
-  if (panel) {
-    panel->LoadViewFromConfig();
+  if (panel && updatePanels) {
+    if (persistCameraToConfig) {
+      panel->LoadViewFromConfig();
+    } else {
+      panel->ApplyViewState(
+          state.camera.offsetPixelsX, state.camera.offsetPixelsY,
+          state.camera.zoom, static_cast<Viewer2DView>(state.camera.view),
+          static_cast<Viewer2DRenderMode>(state.renderOptions.renderMode));
+    }
     panel->UpdateScene(true);
     panel->Refresh();
   }
-  if (renderPanel)
+  if (renderPanel && updatePanels)
     renderPanel->ApplyConfig();
 }
 
@@ -153,13 +163,15 @@ ScopedViewer2DState::ScopedViewer2DState(Viewer2DPanel *applyPanel,
                                          const Viewer2DState &state,
                                          Viewer2DPanel *restorePanel,
                                          Viewer2DRenderPanel
-                                             *restoreRenderPanel)
+                                             *restoreRenderPanel,
+                                         bool persistCameraToConfig)
     : cfg_(&cfg), applyPanel_(applyPanel),
       applyRenderPanel_(applyRenderPanel), restorePanel_(restorePanel),
       restoreRenderPanel_(restoreRenderPanel),
-      restored_(false) {
+      restored_(false), persistCameraToConfig_(persistCameraToConfig) {
   previousState_ = CaptureState(restorePanel ? restorePanel : applyPanel, cfg);
-  ApplyState(applyPanel_.get(), applyRenderPanel_.get(), cfg, state);
+  ApplyState(applyPanel_.get(), applyRenderPanel_.get(), cfg, state,
+             persistCameraToConfig_, true);
 }
 
 ScopedViewer2DState::~ScopedViewer2DState() { Restore(); }
@@ -180,6 +192,7 @@ ScopedViewer2DState::operator=(ScopedViewer2DState &&other) noexcept {
   restoreRenderPanel_ = other.restoreRenderPanel_;
   previousState_ = std::move(other.previousState_);
   restored_ = other.restored_;
+  persistCameraToConfig_ = other.persistCameraToConfig_;
 
   other.cfg_ = nullptr;
   other.applyPanel_ = wxWeakRef<Viewer2DPanel>();
@@ -187,6 +200,7 @@ ScopedViewer2DState::operator=(ScopedViewer2DState &&other) noexcept {
   other.restorePanel_ = wxWeakRef<Viewer2DPanel>();
   other.restoreRenderPanel_ = wxWeakRef<Viewer2DRenderPanel>();
   other.restored_ = true;
+  other.persistCameraToConfig_ = true;
   return *this;
 }
 
@@ -200,7 +214,8 @@ void ScopedViewer2DState::Restore() {
       restoreRenderPanel_ ? restoreRenderPanel_.get()
                           : Viewer2DRenderPanel::Instance();
 
-  ApplyState(targetPanel, targetRenderPanel, *cfg_, previousState_);
+  ApplyState(targetPanel, targetRenderPanel, *cfg_, previousState_,
+             persistCameraToConfig_, true);
   restored_ = true;
 }
 

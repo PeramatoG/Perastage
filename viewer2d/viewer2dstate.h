@@ -36,7 +36,9 @@ struct Viewer2DState {
 Viewer2DState CaptureState(const Viewer2DPanel *panel,
                            const ConfigManager &cfg);
 void ApplyState(Viewer2DPanel *panel, Viewer2DRenderPanel *renderPanel,
-                ConfigManager &cfg, const Viewer2DState &state);
+                ConfigManager &cfg, const Viewer2DState &state,
+                bool persistCameraToConfig = true,
+                bool updatePanels = true);
 
 class ScopedViewer2DState {
 public:
@@ -44,7 +46,8 @@ public:
                       Viewer2DRenderPanel *applyRenderPanel,
                       ConfigManager &cfg, const Viewer2DState &state,
                       Viewer2DPanel *restorePanel = nullptr,
-                      Viewer2DRenderPanel *restoreRenderPanel = nullptr);
+                      Viewer2DRenderPanel *restoreRenderPanel = nullptr,
+                      bool persistCameraToConfig = true);
   ~ScopedViewer2DState();
 
   ScopedViewer2DState(const ScopedViewer2DState &) = delete;
@@ -63,6 +66,7 @@ private:
   wxWeakRef<Viewer2DRenderPanel> restoreRenderPanel_;
   Viewer2DState previousState_;
   bool restored_ = true;
+  bool persistCameraToConfig_ = true;
 };
 
 Viewer2DState FromLayoutDefinition(const layouts::Layout2DViewDefinition &view);

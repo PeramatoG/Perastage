@@ -535,22 +535,23 @@ void MainWindow::SaveCameraSettings() {
 void MainWindow::SaveUserConfigWithViewport2DState() {
   ConfigManager &cfg = ConfigManager::Get();
   std::optional<viewer2d::Viewer2DState> layoutState;
-  if (layoutModeActive && !standalone2DState) {
-    standalone2DState = viewer2d::CaptureState(nullptr, cfg);
-  }
   if (layoutModeActive && viewport2DPanel)
     layoutState = viewer2d::CaptureState(viewport2DPanel, cfg);
 
   SaveCameraSettings();
 
-  if (layoutModeActive && standalone2DState)
-    viewer2d::ApplyState(nullptr, nullptr, cfg, *standalone2DState);
+  if (layoutModeActive) {
+    if (!standalone2DState)
+      standalone2DState = viewer2d::CaptureState(nullptr, cfg);
+    if (standalone2DState)
+      viewer2d::ApplyState(nullptr, nullptr, cfg, *standalone2DState, true,
+                           false);
+  }
 
   cfg.SaveUserConfig();
 
   if (layoutModeActive && layoutState)
-    viewer2d::ApplyState(viewport2DPanel, viewport2DRenderPanel, cfg,
-                         *layoutState);
+    viewer2d::ApplyState(nullptr, nullptr, cfg, *layoutState, true, false);
 }
 
 void MainWindow::UpdateViewMenuChecks() {

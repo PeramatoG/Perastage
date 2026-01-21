@@ -432,7 +432,8 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
         }
 
         auto stateGuard = std::make_shared<viewer2d::ScopedViewer2DState>(
-            capturePanel, nullptr, *cfgPtr, layoutState);
+            capturePanel, nullptr, *cfgPtr, layoutState, nullptr, nullptr,
+            false);
         capturePanel->CaptureFrameNow(
             [captureNext, exportViews, view, viewportWidth, viewportHeight,
              capturePanel, scaleX, scaleY,

@@ -762,7 +762,7 @@ void MainWindow::BeginLayout2DViewEdit() {
   viewer2d::Viewer2DState state = viewer2d::FromLayoutDefinition(*view);
   layout2DViewStateGuard = std::make_unique<viewer2d::ScopedViewer2DState>(
       layout2DViewEditPanel, layout2DViewEditRenderPanel, cfg, state,
-      viewport2DPanel, viewport2DRenderPanel);
+      viewport2DPanel, viewport2DRenderPanel, false);
 
   if (view->frame.height > 0 && layout2DViewEditPanel) {
     float aspect =
@@ -979,5 +979,5 @@ void MainWindow::RestoreLayout2DViewState(int viewId) {
           : viewport2DRenderPanel;
   viewer2d::Viewer2DState state = viewer2d::FromLayoutDefinition(*match);
   state.renderOptions.darkMode = cfg.GetFloat("view2d_dark_mode") != 0.0f;
-  viewer2d::ApplyState(activePanel, activeRenderPanel, cfg, state);
+  viewer2d::ApplyState(activePanel, activeRenderPanel, cfg, state, false);
 }

@@ -69,6 +69,8 @@ public:
 
   void LoadViewFromConfig();
   void SaveViewToConfig() const;
+  void ApplyViewState(float offsetX, float offsetY, float zoom,
+                      Viewer2DView view, Viewer2DRenderMode renderMode);
 
   // Request that the next paint pass stores every 2D drawing command in
   // m_lastCapturedFrame. The on-screen result is unchanged.

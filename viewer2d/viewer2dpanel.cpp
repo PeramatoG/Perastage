@@ -241,12 +241,24 @@ void Viewer2DPanel::LoadViewFromConfig() {
 }
 
 void Viewer2DPanel::SaveViewToConfig() const {
+  if (!m_persistViewState)
+    return;
   ConfigManager &cfg = ConfigManager::Get();
   cfg.SetFloat("view2d_offset_x", m_offsetX);
   cfg.SetFloat("view2d_offset_y", m_offsetY);
   cfg.SetFloat("view2d_zoom", m_zoom);
   cfg.SetFloat("view2d_render_mode", static_cast<float>(m_renderMode));
   cfg.SetFloat("view2d_view", static_cast<float>(m_view));
+}
+
+void Viewer2DPanel::ApplyViewState(float offsetX, float offsetY, float zoom,
+                                   Viewer2DView view,
+                                   Viewer2DRenderMode renderMode) {
+  m_offsetX = offsetX;
+  m_offsetY = offsetY;
+  m_zoom = zoom;
+  m_view = view;
+  m_renderMode = renderMode;
 }
 
 void Viewer2DPanel::RequestFrameCapture() { m_captureNextFrame = true; }
