@@ -258,6 +258,7 @@ private:
   std::unordered_map<int, ImageCache> imageCaches_;
   std::vector<LegendItem> legendItems_;
   size_t legendDataHash = 0;
+  bool pendingFitOnResize = true;
 
   wxDECLARE_EVENT_TABLE();
 };

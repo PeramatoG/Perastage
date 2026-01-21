@@ -99,6 +99,7 @@ LayoutViewerPanel::LayoutViewerPanel(wxWindow *parent)
   glContext_ = new wxGLContext(this);
   currentLayout.pageSetup.pageSize = print::PageSize::A4;
   currentLayout.pageSetup.landscape = true;
+  pendingFitOnResize = true;
   ResetViewToFit();
 }
 
@@ -134,6 +135,7 @@ void LayoutViewerPanel::SetLayoutDefinition(
   ClearCachedTexture();
   renderDirty = true;
   RefreshLegendData();
+  pendingFitOnResize = true;
   ResetViewToFit();
   RequestRenderRebuild();
   Refresh();
@@ -412,7 +414,13 @@ void LayoutViewerPanel::DrawSelectionHandles(const wxRect &frameRect) const {
 }
 
 void LayoutViewerPanel::OnSize(wxSizeEvent &) {
-  InvalidateRenderIfFrameChanged();
+  wxSize size = GetClientSize();
+  if (pendingFitOnResize && size.GetWidth() > 0 && size.GetHeight() > 0) {
+    ResetViewToFit();
+    pendingFitOnResize = false;
+  } else {
+    InvalidateRenderIfFrameChanged();
+  }
   RequestRenderRebuild();
   Refresh();
 }
