@@ -549,6 +549,8 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
           Viewer3DPanel::Instance()->SetSelectedFixtures({});
           Viewer3DPanel::Instance()->Refresh();
         }
+        if (Viewer2DPanel::Instance())
+          Viewer2DPanel::Instance()->SetSelectedUuids({});
       } else if (lw == "pos" || lw == "rot") {
         bool isRot = (lw == "rot");
         cfg.PushUndoState(std::string("cli ") + lw);
