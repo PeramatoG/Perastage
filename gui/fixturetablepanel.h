@@ -23,6 +23,7 @@
 #include <vector>
 #include <string>
 #include "colorstore.h"
+#include "positionvalueupdate.h"
 
 class FixtureEditDialog; // forward declaration
 
@@ -39,6 +40,7 @@ public:
     bool IsActivePage() const;
     void DeleteSelected();
     void UpdatePositionValues(const std::vector<std::string>& uuids);
+    void ApplyPositionValueUpdates(const std::vector<PositionValueUpdate>& updates);
     wxDataViewListCtrl* GetTableCtrl() const { return table; }
 
     static FixtureTablePanel* Instance();

@@ -1199,6 +1199,24 @@ void FixtureTablePanel::UpdatePositionValues(
   }
 }
 
+void FixtureTablePanel::ApplyPositionValueUpdates(
+    const std::vector<PositionValueUpdate> &updates) {
+  if (!table)
+    return;
+
+  wxWindowUpdateLocker locker(table);
+  for (const auto &update : updates) {
+    auto pos = std::find(rowUuids.begin(), rowUuids.end(), update.uuid);
+    if (pos == rowUuids.end())
+      continue;
+
+    int row = static_cast<int>(pos - rowUuids.begin());
+    table->SetValue(wxVariant(wxString::FromUTF8(update.posX)), row, 10);
+    table->SetValue(wxVariant(wxString::FromUTF8(update.posY)), row, 11);
+    table->SetValue(wxVariant(wxString::FromUTF8(update.posZ)), row, 12);
+  }
+}
+
 void FixtureTablePanel::PropagateTypeValues(
     const wxDataViewItemArray &selections, int col) {
   if (col != 16 && col != 17 && col != 18)

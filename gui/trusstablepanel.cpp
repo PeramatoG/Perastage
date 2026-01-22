@@ -692,6 +692,24 @@ void TrussTablePanel::UpdatePositionValues(
     }
 }
 
+void TrussTablePanel::ApplyPositionValueUpdates(
+    const std::vector<PositionValueUpdate>& updates) {
+    if (!table)
+        return;
+
+    wxWindowUpdateLocker locker(table);
+    for (const auto& update : updates) {
+        auto pos = std::find(rowUuids.begin(), rowUuids.end(), update.uuid);
+        if (pos == rowUuids.end())
+            continue;
+
+        int row = static_cast<int>(pos - rowUuids.begin());
+        table->SetValue(wxVariant(wxString::FromUTF8(update.posX)), row, 4);
+        table->SetValue(wxVariant(wxString::FromUTF8(update.posY)), row, 5);
+        table->SetValue(wxVariant(wxString::FromUTF8(update.posZ)), row, 6);
+    }
+}
+
 void TrussTablePanel::UpdateSceneData()
 {
     ConfigManager& cfg = ConfigManager::Get();
