@@ -740,12 +740,19 @@ void Viewer2DPanel::ApplySelectionDelta(
   switch (m_dragTarget) {
   case DragTarget::Fixtures:
     applyDelta(scene.fixtures);
+    if (FixtureTablePanel::Instance())
+      FixtureTablePanel::Instance()->UpdatePositionValues(m_dragSelectionUuids);
     break;
   case DragTarget::Trusses:
     applyDelta(scene.trusses);
+    if (TrussTablePanel::Instance())
+      TrussTablePanel::Instance()->UpdatePositionValues(m_dragSelectionUuids);
     break;
   case DragTarget::SceneObjects:
     applyDelta(scene.sceneObjects);
+    if (SceneObjectTablePanel::Instance())
+      SceneObjectTablePanel::Instance()->UpdatePositionValues(
+          m_dragSelectionUuids);
     break;
   default:
     break;
