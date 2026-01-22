@@ -762,7 +762,7 @@ void MainWindow::BeginLayout2DViewEdit() {
   viewer2d::Viewer2DState state = viewer2d::FromLayoutDefinition(*view);
   layout2DViewStateGuard = std::make_unique<viewer2d::ScopedViewer2DState>(
       layout2DViewEditPanel, layout2DViewEditRenderPanel, cfg, state,
-      viewport2DPanel, viewport2DRenderPanel, false);
+      viewport2DPanel, viewport2DRenderPanel, true);
 
   if (view->frame.height > 0 && layout2DViewEditPanel) {
     float aspect =
