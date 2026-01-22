@@ -957,6 +957,7 @@ void TrussTablePanel::DeleteSelected()
 
     ConfigManager& cfg = ConfigManager::Get();
     cfg.PushUndoState("delete truss");
+    cfg.SetSelectedTrusses({});
 
     std::vector<int> rows;
     rows.reserve(selections.size());
@@ -981,10 +982,12 @@ void TrussTablePanel::DeleteSelected()
     }
 
     if (Viewer3DPanel::Instance()) {
+        Viewer3DPanel::Instance()->SetSelectedFixtures({});
         Viewer3DPanel::Instance()->UpdateScene();
         Viewer3DPanel::Instance()->Refresh();
     }
     else if (Viewer2DPanel::Instance()) {
+        Viewer2DPanel::Instance()->SetSelectedUuids({});
         Viewer2DPanel::Instance()->UpdateScene();
     }
 

@@ -1009,6 +1009,7 @@ void FixtureTablePanel::DeleteSelected() {
 
   ConfigManager &cfg = ConfigManager::Get();
   cfg.PushUndoState("delete fixture");
+  cfg.SetSelectedFixtures({});
 
   std::vector<std::string> oldOrder = rowUuids;
   std::vector<wxString> oldPaths = gdtfPaths;
@@ -1046,9 +1047,11 @@ void FixtureTablePanel::DeleteSelected() {
   HighlightDuplicateFixtureIds();
 
   if (Viewer3DPanel::Instance()) {
+    Viewer3DPanel::Instance()->SetSelectedFixtures({});
     Viewer3DPanel::Instance()->UpdateScene();
     Viewer3DPanel::Instance()->Refresh();
   } else if (Viewer2DPanel::Instance()) {
+    Viewer2DPanel::Instance()->SetSelectedUuids({});
     Viewer2DPanel::Instance()->UpdateScene();
   }
 
