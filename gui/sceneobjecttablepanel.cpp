@@ -525,6 +525,24 @@ void SceneObjectTablePanel::UpdatePositionValues(
     }
 }
 
+void SceneObjectTablePanel::ApplyPositionValueUpdates(
+    const std::vector<PositionValueUpdate>& updates) {
+    if (!table)
+        return;
+
+    wxWindowUpdateLocker locker(table);
+    for (const auto& update : updates) {
+        auto pos = std::find(rowUuids.begin(), rowUuids.end(), update.uuid);
+        if (pos == rowUuids.end())
+            continue;
+
+        int row = static_cast<int>(pos - rowUuids.begin());
+        table->SetValue(wxVariant(wxString::FromUTF8(update.posX)), row, 3);
+        table->SetValue(wxVariant(wxString::FromUTF8(update.posY)), row, 4);
+        table->SetValue(wxVariant(wxString::FromUTF8(update.posZ)), row, 5);
+    }
+}
+
 void SceneObjectTablePanel::UpdateSceneData()
 {
     ConfigManager& cfg = ConfigManager::Get();

@@ -36,12 +36,15 @@
 #include "configmanager.h"
 #include "canvas2d.h"
 #include "fixturetablepanel.h"
+#include "positionvalueupdate.h"
 #include "sceneobjecttablepanel.h"
 #include "trusstablepanel.h"
 #include "viewer3dpanel.h"
+#include <wx/app.h>
 #include <wx/utils.h>
 #include <algorithm>
 #include <cmath>
+#include <iomanip>
 #include <map>
 #include <sstream>
 #include <vector>
@@ -155,6 +158,13 @@ std::string BuildFixtureDebugReport(const CommandBuffer &buffer,
 
   return out.str();
 }
+
+std::string FormatMeters(float millimeters) {
+  std::ostringstream out;
+  out << std::fixed << std::setprecision(3)
+      << (static_cast<double>(millimeters) / 1000.0);
+  return out.str();
+}
 } // namespace
 
 namespace {
@@ -183,11 +193,13 @@ Viewer2DPanel::Viewer2DPanel(wxWindow *parent, bool allowOffscreenRender,
   m_controller.SetSelectionOutlineEnabled(m_enableSelection);
   m_glContext = new wxGLContext(this);
   Bind(wxEVT_TIMER, &Viewer2DPanel::OnDragTableUpdateTimer, this);
+  StartDragTableUpdateWorker();
 }
 
 Viewer2DPanel::~Viewer2DPanel() {
   if (g_instance == this)
     g_instance = nullptr;
+  StopDragTableUpdateWorker();
   delete m_glContext;
 }
 
@@ -810,6 +822,12 @@ void Viewer2DPanel::StopDragTableUpdates() {
   m_pendingTableUpdateUuids.clear();
   if (m_dragTableUpdateTimer.IsRunning())
     m_dragTableUpdateTimer.Stop();
+  {
+    std::lock_guard<std::mutex> lock(m_dragTableUpdateMutex);
+    m_dragTableUpdateQueued = false;
+    m_dragTableUpdateWorkerTarget = DragTarget::None;
+    m_dragTableUpdateSnapshots.clear();
+  }
 }
 
 void Viewer2DPanel::OnDragTableUpdateTimer(wxTimerEvent &event) {
@@ -819,25 +837,133 @@ void Viewer2DPanel::OnDragTableUpdateTimer(wxTimerEvent &event) {
   }
 
   m_pendingTableUpdate = false;
-  switch (m_pendingTableUpdateTarget) {
+  QueueDragTableUpdate(m_pendingTableUpdateTarget,
+                       BuildDragTablePositionSnapshots(
+                           m_pendingTableUpdateTarget,
+                           m_pendingTableUpdateUuids));
+}
+
+void Viewer2DPanel::StartDragTableUpdateWorker() {
+  m_dragTableUpdateWorker = std::thread([this]() {
+    while (true) {
+      DragTarget target = DragTarget::None;
+      std::vector<DragTablePositionSnapshot> snapshots;
+      {
+        std::unique_lock<std::mutex> lock(m_dragTableUpdateMutex);
+        m_dragTableUpdateCv.wait(lock, [this]() {
+          return m_dragTableWorkerStop || m_dragTableUpdateQueued;
+        });
+        if (m_dragTableWorkerStop)
+          break;
+        target = m_dragTableUpdateWorkerTarget;
+        snapshots = std::move(m_dragTableUpdateSnapshots);
+        m_dragTableUpdateQueued = false;
+      }
+
+      if (snapshots.empty())
+        continue;
+
+      std::vector<PositionValueUpdate> updates;
+      updates.reserve(snapshots.size());
+      for (const auto &snapshot : snapshots) {
+        updates.push_back(PositionValueUpdate{
+            snapshot.uuid, FormatMeters(snapshot.xMm),
+            FormatMeters(snapshot.yMm), FormatMeters(snapshot.zMm)});
+      }
+
+      if (!wxTheApp)
+        continue;
+
+      wxTheApp->CallAfter([target, updates = std::move(updates)]() mutable {
+        switch (target) {
+        case DragTarget::Fixtures:
+          if (FixtureTablePanel::Instance())
+            FixtureTablePanel::Instance()->ApplyPositionValueUpdates(updates);
+          break;
+        case DragTarget::Trusses:
+          if (TrussTablePanel::Instance())
+            TrussTablePanel::Instance()->ApplyPositionValueUpdates(updates);
+          break;
+        case DragTarget::SceneObjects:
+          if (SceneObjectTablePanel::Instance())
+            SceneObjectTablePanel::Instance()->ApplyPositionValueUpdates(
+                updates);
+          break;
+        default:
+          break;
+        }
+      });
+    }
+  });
+}
+
+void Viewer2DPanel::StopDragTableUpdateWorker() {
+  {
+    std::lock_guard<std::mutex> lock(m_dragTableUpdateMutex);
+    m_dragTableWorkerStop = true;
+    m_dragTableUpdateQueued = true;
+  }
+  m_dragTableUpdateCv.notify_one();
+  if (m_dragTableUpdateWorker.joinable())
+    m_dragTableUpdateWorker.join();
+}
+
+std::vector<Viewer2DPanel::DragTablePositionSnapshot>
+Viewer2DPanel::BuildDragTablePositionSnapshots(
+    DragTarget target, const std::vector<std::string> &uuids) {
+  std::vector<DragTablePositionSnapshot> snapshots;
+  snapshots.reserve(uuids.size());
+
+  ConfigManager &cfg = ConfigManager::Get();
+  auto &scene = cfg.GetScene();
+
+  switch (target) {
   case DragTarget::Fixtures:
-    if (FixtureTablePanel::Instance())
-      FixtureTablePanel::Instance()->UpdatePositionValues(
-          m_pendingTableUpdateUuids);
+    for (const auto &uuid : uuids) {
+      auto it = scene.fixtures.find(uuid);
+      if (it == scene.fixtures.end())
+        continue;
+      auto posArr = it->second.GetPosition();
+      snapshots.push_back({uuid, posArr[0], posArr[1], posArr[2]});
+    }
     break;
   case DragTarget::Trusses:
-    if (TrussTablePanel::Instance())
-      TrussTablePanel::Instance()->UpdatePositionValues(
-          m_pendingTableUpdateUuids);
+    for (const auto &uuid : uuids) {
+      auto it = scene.trusses.find(uuid);
+      if (it == scene.trusses.end())
+        continue;
+      auto posArr = it->second.transform.o;
+      snapshots.push_back({uuid, posArr[0], posArr[1], posArr[2]});
+    }
     break;
   case DragTarget::SceneObjects:
-    if (SceneObjectTablePanel::Instance())
-      SceneObjectTablePanel::Instance()->UpdatePositionValues(
-          m_pendingTableUpdateUuids);
+    for (const auto &uuid : uuids) {
+      auto it = scene.sceneObjects.find(uuid);
+      if (it == scene.sceneObjects.end())
+        continue;
+      auto posArr = it->second.transform.o;
+      snapshots.push_back({uuid, posArr[0], posArr[1], posArr[2]});
+    }
     break;
   default:
     break;
   }
+
+  return snapshots;
+}
+
+void Viewer2DPanel::QueueDragTableUpdate(
+    DragTarget target, std::vector<DragTablePositionSnapshot> snapshots) {
+  if (snapshots.empty())
+    return;
+
+  {
+    std::lock_guard<std::mutex> lock(m_dragTableUpdateMutex);
+    m_dragTableUpdateWorkerTarget = target;
+    m_dragTableUpdateSnapshots = std::move(snapshots);
+    m_dragTableUpdateQueued = true;
+  }
+  m_dragTableUpdateCv.notify_one();
 }
 
 void Viewer2DPanel::OnMouseDown(wxMouseEvent &event) {
