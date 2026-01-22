@@ -1,0 +1,117 @@
+name: Bug report
+description: Report a reproducible problem with Perastage
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug.
+
+        Use **Issues** for bugs and actionable tasks.
+        Use **Discussions** for questions and general feedback.
+
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Pre-flight checklist
+      options:
+        - label: I searched existing issues to avoid duplicates
+          required: true
+        - label: I am using the latest beta release (or I can specify the exact build/commit)
+          required: false
+
+  - type: input
+    id: version
+    attributes:
+      label: Perastage version
+      description: "Example: 0.1.0 (or commit hash if built from source)"
+      placeholder: "0.1.0"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Windows 11
+        - Windows 10
+        - macOS
+        - Linux
+        - Other (please specify below)
+    validations:
+      required: true
+
+  - type: input
+    id: os_version
+    attributes:
+      label: OS version
+      description: "Example: Windows 11 23H2, macOS 12.7.6"
+      placeholder: "Windows 11 23H2"
+    validations:
+      required: false
+
+  - type: input
+    id: install_method
+    attributes:
+      label: Installation method
+      description: "How are you running Perastage?"
+      placeholder: "GitHub Release installer / portable / built from source"
+    validations:
+      required: false
+
+  - type: textarea
+    id: repro_steps
+    attributes:
+      label: Steps to reproduce
+      description: "Please provide clear, numbered steps."
+      placeholder: |
+        1. Open Perastage
+        2. Load file ...
+        3. Click ...
+        4. See error ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected result
+      placeholder: "What did you expect to happen?"
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual result
+      placeholder: "What actually happened? Include exact error messages if available."
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / console output
+      description: "Paste relevant logs here. You can also attach a file if it's long."
+      render: text
+    validations:
+      required: false
+
+  - type: textarea
+    id: attachments
+    attributes:
+      label: Attachments (optional)
+      description: "Screenshots, sample files (MVR/GDTF), or minimal reproduction projects."
+      placeholder: "Drag and drop files here, or describe what you can share."
+    validations:
+      required: false
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Additional context
+      placeholder: "Anything else that might help diagnose the issue (hardware, GPU, etc.)."
+    validations:
+      required: false
