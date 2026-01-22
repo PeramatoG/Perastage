@@ -74,7 +74,6 @@ void Layout2DViewDialog::OnCancel(wxCommandEvent &event) {
 
 void Layout2DViewDialog::OnShow(wxShowEvent &event) {
   if (event.IsShown() && viewerPanel) {
-    viewerPanel->LoadViewFromConfig();
     viewerPanel->UpdateScene(true);
     viewerPanel->Update();
   }
