@@ -121,7 +121,7 @@ public:
   std::optional<wxSize> GetLayoutEditOverlaySize() const;
 
 private:
-  enum class DragMode { None, View, Selection };
+  enum class DragMode { None, View, Selection, RectSelection };
   enum class DragAxis { None, Horizontal, Vertical };
   enum class DragTarget { None, Fixtures, Trusses, SceneObjects };
 
@@ -143,6 +143,8 @@ private:
   std::array<float, 3> MapDragDelta(float dxMeters, float dyMeters) const;
   void ApplySelectionDelta(const std::array<float, 3> &deltaMeters);
   void FinalizeSelectionDrag();
+  void ApplyRectangleSelection(const wxPoint &start, const wxPoint &end);
+  void DrawSelectionRectangle(int width, int height, bool darkMode);
   void ScheduleDragTableUpdate();
   void StopDragTableUpdates();
   void StartDragTableUpdateWorker();
@@ -172,6 +174,9 @@ private:
   bool m_dragSelectionPushedUndo = false;
   bool m_draggedSincePress = false;
   wxLongLong m_dragPressTime = 0;
+  bool m_rectSelecting = false;
+  wxPoint m_rectSelectStart;
+  wxPoint m_rectSelectEnd;
   wxPoint m_lastMousePos;
   float m_offsetX = 0.0f;
   float m_offsetY = 0.0f;

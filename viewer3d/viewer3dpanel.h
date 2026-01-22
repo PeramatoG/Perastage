@@ -73,6 +73,9 @@ private:
     bool m_draggedSincePress = false;
     bool m_mouseInside = false;
     wxPoint m_lastMousePos;
+    bool m_rectSelecting = false;
+    wxPoint m_rectSelectStart;
+    wxPoint m_rectSelectEnd;
 
     // Type of interaction currently active (Orbit or Pan)
     enum class InteractionMode { None, Orbit, Pan };
@@ -97,6 +100,8 @@ private:
     void OnMouseEnter(wxMouseEvent& event);
     void OnMouseLeave(wxMouseEvent& event);
     void OnCaptureLost(wxMouseCaptureLostEvent& event);
+    void ApplyRectangleSelection(const wxPoint& start, const wxPoint& end);
+    void DrawSelectionRectangle(int width, int height);
 
     // Renders the full scene
     void Render();

@@ -562,6 +562,9 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
     }
   }
 
+  if (swapBuffers && m_enableSelection && m_rectSelecting)
+    DrawSelectionRectangle(w, h, darkMode);
+
   if (recordingCanvas) {
     recordingCanvas->EndFrame();
     m_captureNextFrame = false;
@@ -806,6 +809,120 @@ void Viewer2DPanel::FinalizeSelectionDrag() {
   }
 }
 
+void Viewer2DPanel::ApplyRectangleSelection(const wxPoint &start,
+                                            const wxPoint &end) {
+  if (!m_enableSelection)
+    return;
+  if (!IsShownOnScreen())
+    return;
+
+  int w = 0;
+  int h = 0;
+  GetClientSize(&w, &h);
+  if (w <= 0 || h <= 0)
+    return;
+
+  SetCurrent(*m_glContext);
+
+  ConfigManager &cfg = ConfigManager::Get();
+  if (FixtureTablePanel::Instance() &&
+      FixtureTablePanel::Instance()->IsActivePage()) {
+    auto selection = m_controller.GetFixturesInScreenRect(
+        start.x, start.y, end.x, end.y, w, h);
+    if (selection != cfg.GetSelectedFixtures()) {
+      cfg.PushUndoState("fixture selection");
+      cfg.SetSelectedFixtures(selection);
+    }
+    m_controller.SetSelectedUuids(selection);
+    if (selection.empty())
+      FixtureTablePanel::Instance()->ClearSelection();
+    else
+      FixtureTablePanel::Instance()->SelectByUuid(selection);
+  } else if (TrussTablePanel::Instance() &&
+             TrussTablePanel::Instance()->IsActivePage()) {
+    auto selection =
+        m_controller.GetTrussesInScreenRect(start.x, start.y, end.x, end.y, w,
+                                            h);
+    if (selection != cfg.GetSelectedTrusses()) {
+      cfg.PushUndoState("truss selection");
+      cfg.SetSelectedTrusses(selection);
+    }
+    m_controller.SetSelectedUuids(selection);
+    if (selection.empty())
+      TrussTablePanel::Instance()->ClearSelection();
+    else
+      TrussTablePanel::Instance()->SelectByUuid(selection);
+  } else if (SceneObjectTablePanel::Instance() &&
+             SceneObjectTablePanel::Instance()->IsActivePage()) {
+    auto selection = m_controller.GetSceneObjectsInScreenRect(
+        start.x, start.y, end.x, end.y, w, h);
+    if (selection != cfg.GetSelectedSceneObjects()) {
+      cfg.PushUndoState("scene object selection");
+      cfg.SetSelectedSceneObjects(selection);
+    }
+    m_controller.SetSelectedUuids(selection);
+    if (selection.empty())
+      SceneObjectTablePanel::Instance()->ClearSelection();
+    else
+      SceneObjectTablePanel::Instance()->SelectByUuid(selection);
+  }
+}
+
+void Viewer2DPanel::DrawSelectionRectangle(int width, int height,
+                                           bool darkMode) {
+  if (!m_rectSelecting)
+    return;
+
+  int left = std::min(m_rectSelectStart.x, m_rectSelectEnd.x);
+  int right = std::max(m_rectSelectStart.x, m_rectSelectEnd.x);
+  int top = std::min(m_rectSelectStart.y, m_rectSelectEnd.y);
+  int bottom = std::max(m_rectSelectStart.y, m_rectSelectEnd.y);
+
+  float glLeft = static_cast<float>(left);
+  float glRight = static_cast<float>(right);
+  float glBottom = static_cast<float>(height - bottom);
+  float glTop = static_cast<float>(height - top);
+
+  GLboolean depthEnabled = glIsEnabled(GL_DEPTH_TEST);
+  if (depthEnabled)
+    glDisable(GL_DEPTH_TEST);
+
+  GLboolean stippleEnabled = glIsEnabled(GL_LINE_STIPPLE);
+  glEnable(GL_LINE_STIPPLE);
+  glLineStipple(1, 0x00FF);
+
+  glMatrixMode(GL_PROJECTION);
+  glPushMatrix();
+  glLoadIdentity();
+  glOrtho(0.0f, static_cast<float>(width), 0.0f,
+          static_cast<float>(height), -1.0f, 1.0f);
+  glMatrixMode(GL_MODELVIEW);
+  glPushMatrix();
+  glLoadIdentity();
+
+  if (darkMode)
+    glColor3f(1.0f, 1.0f, 1.0f);
+  else
+    glColor3f(0.0f, 0.0f, 0.0f);
+  glLineWidth(1.5f);
+  glBegin(GL_LINE_LOOP);
+  glVertex2f(glLeft, glBottom);
+  glVertex2f(glRight, glBottom);
+  glVertex2f(glRight, glTop);
+  glVertex2f(glLeft, glTop);
+  glEnd();
+
+  glPopMatrix();
+  glMatrixMode(GL_PROJECTION);
+  glPopMatrix();
+  glMatrixMode(GL_MODELVIEW);
+
+  if (!stippleEnabled)
+    glDisable(GL_LINE_STIPPLE);
+  if (depthEnabled)
+    glEnable(GL_DEPTH_TEST);
+}
+
 void Viewer2DPanel::ScheduleDragTableUpdate() {
   if (m_dragSelectionUuids.empty())
     return;
@@ -983,6 +1100,14 @@ void Viewer2DPanel::OnMouseDown(wxMouseEvent &event) {
     if (!m_enableSelection || !IsShownOnScreen())
       return;
 
+    if (event.ControlDown()) {
+      m_dragMode = DragMode::RectSelection;
+      m_rectSelecting = true;
+      m_rectSelectStart = m_lastMousePos;
+      m_rectSelectEnd = m_lastMousePos;
+      return;
+    }
+
     int w, h;
     GetClientSize(&w, &h);
     if (w <= 0 || h <= 0)
@@ -1041,6 +1166,22 @@ void Viewer2DPanel::OnMouseDown(wxMouseEvent &event) {
 }
 
 void Viewer2DPanel::OnMouseUp(wxMouseEvent &event) {
+  if (event.LeftUp() && m_dragMode == DragMode::RectSelection) {
+    if (HasCapture())
+      ReleaseMouse();
+    if (m_rectSelecting)
+      ApplyRectangleSelection(m_rectSelectStart, m_rectSelectEnd);
+    m_rectSelecting = false;
+    m_dragMode = DragMode::None;
+    m_dragAxis = DragAxis::None;
+    m_dragTarget = DragTarget::None;
+    m_dragSelectionUuids.clear();
+    m_dragSelectionMoved = false;
+    m_draggedSincePress = false;
+    Refresh();
+    return;
+  }
+
   if (event.LeftUp() && m_dragMode != DragMode::None) {
     if (HasCapture())
       ReleaseMouse();
@@ -1184,10 +1325,18 @@ void Viewer2DPanel::OnCaptureLost(wxMouseCaptureLostEvent &WXUNUSED(event)) {
   m_dragTarget = DragTarget::None;
   m_dragSelectionUuids.clear();
   m_dragSelectionMoved = false;
+  m_rectSelecting = false;
 }
 
 void Viewer2DPanel::OnMouseMove(wxMouseEvent &event) {
   wxPoint pos = event.GetPosition();
+
+  if (m_dragMode == DragMode::RectSelection && event.Dragging()) {
+    m_rectSelectEnd = pos;
+    m_draggedSincePress = true;
+    Refresh();
+    return;
+  }
 
   if (m_dragMode == DragMode::Selection && event.Dragging()) {
     if ((wxGetLocalTimeMillis() - m_dragPressTime).ToLong() <

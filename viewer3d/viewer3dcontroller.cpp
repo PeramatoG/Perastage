@@ -3085,6 +3085,208 @@ bool Viewer3DController::GetSceneObjectLabelAt(int mouseX, int mouseY,
   return found;
 }
 
+std::vector<std::string>
+Viewer3DController::GetFixturesInScreenRect(int x1, int y1, int x2, int y2,
+                                            int width, int height) const {
+  double model[16];
+  double proj[16];
+  int viewport[4];
+  glGetDoublev(GL_MODELVIEW_MATRIX, model);
+  glGetDoublev(GL_PROJECTION_MATRIX, proj);
+  glGetIntegerv(GL_VIEWPORT, viewport);
+
+  ScreenRect selection;
+  selection.minX = std::max(0, std::min(x1, x2));
+  selection.maxX = std::min(width, std::max(x1, x2));
+  selection.minY = std::max(0, std::min(y1, y2));
+  selection.maxY = std::min(height, std::max(y1, y2));
+
+  auto intersects = [&](const ScreenRect &rect) {
+    return !(rect.maxX < selection.minX || rect.minX > selection.maxX ||
+             rect.maxY < selection.minY || rect.minY > selection.maxY);
+  };
+
+  auto projectBounds = [&](const BoundingBox &bb, ScreenRect &rect) {
+    rect = ScreenRect{};
+    bool visible = false;
+    std::array<std::array<float, 3>, 8> corners = {
+        std::array<float, 3>{bb.min[0], bb.min[1], bb.min[2]},
+        {bb.max[0], bb.min[1], bb.min[2]},
+        {bb.min[0], bb.max[1], bb.min[2]},
+        {bb.max[0], bb.max[1], bb.min[2]},
+        {bb.min[0], bb.min[1], bb.max[2]},
+        {bb.max[0], bb.min[1], bb.max[2]},
+        {bb.min[0], bb.max[1], bb.max[2]},
+        {bb.max[0], bb.max[1], bb.max[2]}};
+    for (const auto &c : corners) {
+      double sx, sy, sz;
+      if (gluProject(c[0], c[1], c[2], model, proj, viewport, &sx, &sy, &sz) ==
+          GL_TRUE) {
+        rect.minX = std::min(rect.minX, sx);
+        rect.maxX = std::max(rect.maxX, sx);
+        double sy2 = height - sy;
+        rect.minY = std::min(rect.minY, sy2);
+        rect.maxY = std::max(rect.maxY, sy2);
+        if (sz >= 0.0 && sz <= 1.0)
+          visible = true;
+      }
+    }
+    return visible;
+  };
+
+  std::vector<std::string> selection;
+  ConfigManager &cfg = ConfigManager::Get();
+  const auto &fixtures = SceneDataManager::Instance().GetFixtures();
+  for (const auto &[uuid, f] : fixtures) {
+    if (!cfg.IsLayerVisible(f.layer))
+      continue;
+    auto bit = m_fixtureBounds.find(uuid);
+    if (bit == m_fixtureBounds.end())
+      continue;
+    ScreenRect rect;
+    if (!projectBounds(bit->second, rect))
+      continue;
+    if (intersects(rect))
+      selection.push_back(uuid);
+  }
+
+  return selection;
+}
+
+std::vector<std::string>
+Viewer3DController::GetTrussesInScreenRect(int x1, int y1, int x2, int y2,
+                                           int width, int height) const {
+  double model[16];
+  double proj[16];
+  int viewport[4];
+  glGetDoublev(GL_MODELVIEW_MATRIX, model);
+  glGetDoublev(GL_PROJECTION_MATRIX, proj);
+  glGetIntegerv(GL_VIEWPORT, viewport);
+
+  ScreenRect selection;
+  selection.minX = std::max(0, std::min(x1, x2));
+  selection.maxX = std::min(width, std::max(x1, x2));
+  selection.minY = std::max(0, std::min(y1, y2));
+  selection.maxY = std::min(height, std::max(y1, y2));
+
+  auto intersects = [&](const ScreenRect &rect) {
+    return !(rect.maxX < selection.minX || rect.minX > selection.maxX ||
+             rect.maxY < selection.minY || rect.minY > selection.maxY);
+  };
+
+  auto projectBounds = [&](const BoundingBox &bb, ScreenRect &rect) {
+    rect = ScreenRect{};
+    bool visible = false;
+    std::array<std::array<float, 3>, 8> corners = {
+        std::array<float, 3>{bb.min[0], bb.min[1], bb.min[2]},
+        {bb.max[0], bb.min[1], bb.min[2]},
+        {bb.min[0], bb.max[1], bb.min[2]},
+        {bb.max[0], bb.max[1], bb.min[2]},
+        {bb.min[0], bb.min[1], bb.max[2]},
+        {bb.max[0], bb.min[1], bb.max[2]},
+        {bb.min[0], bb.max[1], bb.max[2]},
+        {bb.max[0], bb.max[1], bb.max[2]}};
+    for (const auto &c : corners) {
+      double sx, sy, sz;
+      if (gluProject(c[0], c[1], c[2], model, proj, viewport, &sx, &sy, &sz) ==
+          GL_TRUE) {
+        rect.minX = std::min(rect.minX, sx);
+        rect.maxX = std::max(rect.maxX, sx);
+        double sy2 = height - sy;
+        rect.minY = std::min(rect.minY, sy2);
+        rect.maxY = std::max(rect.maxY, sy2);
+        if (sz >= 0.0 && sz <= 1.0)
+          visible = true;
+      }
+    }
+    return visible;
+  };
+
+  std::vector<std::string> selection;
+  const auto &trusses = SceneDataManager::Instance().GetTrusses();
+  for (const auto &[uuid, t] : trusses) {
+    if (!ConfigManager::Get().IsLayerVisible(t.layer))
+      continue;
+    auto bit = m_trussBounds.find(uuid);
+    if (bit == m_trussBounds.end())
+      continue;
+    ScreenRect rect;
+    if (!projectBounds(bit->second, rect))
+      continue;
+    if (intersects(rect))
+      selection.push_back(uuid);
+  }
+
+  return selection;
+}
+
+std::vector<std::string>
+Viewer3DController::GetSceneObjectsInScreenRect(int x1, int y1, int x2, int y2,
+                                                int width, int height) const {
+  double model[16];
+  double proj[16];
+  int viewport[4];
+  glGetDoublev(GL_MODELVIEW_MATRIX, model);
+  glGetDoublev(GL_PROJECTION_MATRIX, proj);
+  glGetIntegerv(GL_VIEWPORT, viewport);
+
+  ScreenRect selection;
+  selection.minX = std::max(0, std::min(x1, x2));
+  selection.maxX = std::min(width, std::max(x1, x2));
+  selection.minY = std::max(0, std::min(y1, y2));
+  selection.maxY = std::min(height, std::max(y1, y2));
+
+  auto intersects = [&](const ScreenRect &rect) {
+    return !(rect.maxX < selection.minX || rect.minX > selection.maxX ||
+             rect.maxY < selection.minY || rect.minY > selection.maxY);
+  };
+
+  auto projectBounds = [&](const BoundingBox &bb, ScreenRect &rect) {
+    rect = ScreenRect{};
+    bool visible = false;
+    std::array<std::array<float, 3>, 8> corners = {
+        std::array<float, 3>{bb.min[0], bb.min[1], bb.min[2]},
+        {bb.max[0], bb.min[1], bb.min[2]},
+        {bb.min[0], bb.max[1], bb.min[2]},
+        {bb.max[0], bb.max[1], bb.min[2]},
+        {bb.min[0], bb.min[1], bb.max[2]},
+        {bb.max[0], bb.min[1], bb.max[2]},
+        {bb.min[0], bb.max[1], bb.max[2]},
+        {bb.max[0], bb.max[1], bb.max[2]}};
+    for (const auto &c : corners) {
+      double sx, sy, sz;
+      if (gluProject(c[0], c[1], c[2], model, proj, viewport, &sx, &sy, &sz) ==
+          GL_TRUE) {
+        rect.minX = std::min(rect.minX, sx);
+        rect.maxX = std::max(rect.maxX, sx);
+        double sy2 = height - sy;
+        rect.minY = std::min(rect.minY, sy2);
+        rect.maxY = std::max(rect.maxY, sy2);
+        if (sz >= 0.0 && sz <= 1.0)
+          visible = true;
+      }
+    }
+    return visible;
+  };
+
+  std::vector<std::string> selection;
+  const auto &objs = SceneDataManager::Instance().GetSceneObjects();
+  for (const auto &[uuid, o] : objs) {
+    if (!ConfigManager::Get().IsLayerVisible(o.layer))
+      continue;
+    auto bit = m_objectBounds.find(uuid);
+    if (bit == m_objectBounds.end())
+      continue;
+    ScreenRect rect;
+    if (!projectBounds(bit->second, rect))
+      continue;
+    if (intersects(rect))
+      selection.push_back(uuid);
+  }
+
+  return selection;
+}
+
 void Viewer3DController::SetLayerColor(const std::string &layer,
                                        const std::string &hex) {
   std::array<float, 3> c;
