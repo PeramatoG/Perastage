@@ -1787,10 +1787,10 @@ void Viewer3DController::DrawWireframeBox(
       if (drawOutline) {
         float glowWidth = lineWidth + 3.0f;
         glLineWidth(glowWidth);
-        if (selected)
-          SetGLColor(0.0f, 1.0f, 1.0f);
-        else
+        if (highlight)
           SetGLColor(0.0f, 1.0f, 0.0f);
+        else if (selected)
+          SetGLColor(0.0f, 1.0f, 1.0f);
         drawEdges();
       }
       glLineWidth(lineWidth);
@@ -1828,20 +1828,20 @@ void Viewer3DController::DrawWireframeBox(
     }
     return;
   } else if (!m_captureOnly) {
-    if (selected)
-      SetGLColor(0.0f, 1.0f, 1.0f);
-    else if (highlight)
+    if (highlight)
       SetGLColor(0.0f, 1.0f, 0.0f);
+    else if (selected)
+      SetGLColor(0.0f, 1.0f, 1.0f);
     else
       SetGLColor(1.0f, 1.0f, 0.0f);
   }
 
   CanvasStroke stroke;
   stroke.width = 1.0f;
-  if (selected)
-    stroke.color = {0.0f, 1.0f, 1.0f, 1.0f};
-  else if (highlight)
+  if (highlight)
     stroke.color = {0.0f, 1.0f, 0.0f, 1.0f};
+  else if (selected)
+    stroke.color = {0.0f, 1.0f, 1.0f, 1.0f};
   else
     stroke.color = {1.0f, 1.0f, 0.0f, 1.0f};
 
@@ -1908,11 +1908,11 @@ void Viewer3DController::DrawCubeWithOutline(
       float baseWidth = 1.0f;
       if (!m_captureOnly && drawOutline) {
         float glowWidth = baseWidth + 3.0f;
-        if (selected)
-          DrawWireframeCube(size, 0.0f, 1.0f, 1.0f, mode, captureTransform,
-                            glowWidth, false);
-        else
+        if (highlight)
           DrawWireframeCube(size, 0.0f, 1.0f, 0.0f, mode, captureTransform,
+                            glowWidth, false);
+        else if (selected)
+          DrawWireframeCube(size, 0.0f, 1.0f, 1.0f, mode, captureTransform,
                             glowWidth, false);
       }
       DrawWireframeCube(size, 0.0f, 0.0f, 0.0f, mode, captureTransform);
@@ -1923,11 +1923,11 @@ void Viewer3DController::DrawCubeWithOutline(
     float baseWidth = 2.0f;
     if (!m_captureOnly && drawOutline) {
       float glowWidth = baseWidth + 3.0f;
-      if (selected)
-        DrawWireframeCube(size, 0.0f, 1.0f, 1.0f, mode, captureTransform,
-                          glowWidth, false);
-      else
+      if (highlight)
         DrawWireframeCube(size, 0.0f, 1.0f, 0.0f, mode, captureTransform,
+                          glowWidth, false);
+      else if (selected)
+        DrawWireframeCube(size, 0.0f, 1.0f, 1.0f, mode, captureTransform,
                           glowWidth, false);
     }
     DrawWireframeCube(size, 0.0f, 0.0f, 0.0f, mode, captureTransform);
@@ -1967,10 +1967,10 @@ void Viewer3DController::DrawCubeWithOutline(
     return;
   }
 
-  if (selected)
-    DrawCube(size, 0.0f, 1.0f, 1.0f);
-  else if (highlight)
+  if (highlight)
     DrawCube(size, 0.0f, 1.0f, 0.0f);
+  else if (selected)
+    DrawCube(size, 0.0f, 1.0f, 1.0f);
   else
     DrawCube(size, r, g, b);
 }
@@ -1995,10 +1995,10 @@ void Viewer3DController::DrawMeshWithOutline(
       if (drawOutline) {
         float glowWidth = lineWidth + 3.0f;
         glLineWidth(glowWidth);
-        if (selected)
-          SetGLColor(0.0f, 1.0f, 1.0f);
-        else
+        if (highlight)
           SetGLColor(0.0f, 1.0f, 0.0f);
+        else if (selected)
+          SetGLColor(0.0f, 1.0f, 1.0f);
         DrawMeshWireframe(mesh, scale, captureTransform);
       }
       glLineWidth(lineWidth);
@@ -2043,10 +2043,10 @@ void Viewer3DController::DrawMeshWithOutline(
   }
 
   if (!m_captureOnly) {
-    if (selected)
-      SetGLColor(0.0f, 1.0f, 1.0f);
-    else if (highlight)
+    if (highlight)
       SetGLColor(0.0f, 1.0f, 0.0f);
+    else if (selected)
+      SetGLColor(0.0f, 1.0f, 1.0f);
     else
       SetGLColor(r, g, b);
 
