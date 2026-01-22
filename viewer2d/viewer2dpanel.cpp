@@ -43,6 +43,7 @@
 #include <wx/app.h>
 #include <wx/utils.h>
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <iomanip>
 #include <map>
@@ -187,12 +188,10 @@ Viewer2DPanel::Viewer2DPanel(wxWindow *parent, bool allowOffscreenRender,
                  wxFULL_REPAINT_ON_RESIZE),
       m_allowOffscreenRender(allowOffscreenRender),
       m_persistViewState(persistViewState),
-      m_enableSelection(enableSelection),
-      m_dragTableUpdateTimer(this) {
+      m_enableSelection(enableSelection) {
   SetBackgroundStyle(wxBG_STYLE_CUSTOM);
   m_controller.SetSelectionOutlineEnabled(m_enableSelection);
   m_glContext = new wxGLContext(this);
-  Bind(wxEVT_TIMER, &Viewer2DPanel::OnDragTableUpdateTimer, this);
   StartDragTableUpdateWorker();
 }
 
@@ -810,19 +809,10 @@ void Viewer2DPanel::FinalizeSelectionDrag() {
 void Viewer2DPanel::ScheduleDragTableUpdate() {
   if (m_dragSelectionUuids.empty())
     return;
-  m_pendingTableUpdateTarget = m_dragTarget;
-  m_pendingTableUpdateUuids = m_dragSelectionUuids;
-  m_pendingTableUpdate = true;
-  if (!m_dragTableUpdateTimer.IsRunning())
-    m_dragTableUpdateTimer.Start(kDragTableUpdateIntervalMs);
+  QueueDragTableUpdate(m_dragTarget, m_dragSelectionUuids);
 }
 
 void Viewer2DPanel::StopDragTableUpdates() {
-  m_pendingTableUpdate = false;
-  m_pendingTableUpdateTarget = DragTarget::None;
-  m_pendingTableUpdateUuids.clear();
-  if (m_dragTableUpdateTimer.IsRunning())
-    m_dragTableUpdateTimer.Stop();
   {
     std::lock_guard<std::mutex> lock(m_dragTableUpdateMutex);
     m_dragTableUpdateQueued = false;
@@ -831,20 +821,11 @@ void Viewer2DPanel::StopDragTableUpdates() {
   }
 }
 
-void Viewer2DPanel::OnDragTableUpdateTimer(wxTimerEvent &event) {
-  if (!m_pendingTableUpdate || m_dragMode != DragMode::Selection) {
-    StopDragTableUpdates();
-    return;
-  }
-
-  m_pendingTableUpdate = false;
-  QueueDragTableUpdate(m_pendingTableUpdateTarget,
-                       std::move(m_pendingTableUpdateUuids));
-  m_pendingTableUpdateUuids.clear();
-}
-
 void Viewer2DPanel::StartDragTableUpdateWorker() {
   m_dragTableUpdateWorker = std::thread([this]() {
+    auto lastUpdate = std::chrono::steady_clock::time_point::min();
+    const auto interval =
+        std::chrono::milliseconds(kDragTableUpdateIntervalMs);
     while (true) {
       DragTarget target = DragTarget::None;
       std::vector<std::string> uuids;
@@ -855,10 +836,25 @@ void Viewer2DPanel::StartDragTableUpdateWorker() {
         });
         if (m_dragTableWorkerStop)
           break;
+
+        auto now = std::chrono::steady_clock::now();
+        if (lastUpdate != std::chrono::steady_clock::time_point::min()) {
+          auto elapsed = now - lastUpdate;
+          if (elapsed < interval) {
+            m_dragTableUpdateCv.wait_for(lock, interval - elapsed, [this]() {
+              return m_dragTableWorkerStop;
+            });
+            if (m_dragTableWorkerStop)
+              break;
+          }
+        }
+        if (m_dragTableWorkerStop)
+          break;
         target = m_dragTableUpdateWorkerTarget;
         uuids = std::move(m_dragTableUpdateUuids);
         m_dragTableUpdateQueued = false;
       }
+      lastUpdate = std::chrono::steady_clock::now();
 
       if (uuids.empty())
         continue;
