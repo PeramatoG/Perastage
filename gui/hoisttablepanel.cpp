@@ -98,7 +98,7 @@ HoistTablePanel::HoistTablePanel(wxWindow *parent)
   wxBoxSizer *sizer = new wxBoxSizer(wxVERTICAL);
   table = new wxDataViewListCtrl(
       this, wxID_ANY, wxDefaultPosition, wxDefaultSize,
-      wxDV_MULTIPLE | wxDV_ROW_LINES | wxDV_NO_HIGHLIGHT);
+      wxDV_MULTIPLE | wxDV_ROW_LINES);
   table->AssociateModel(store);
   store->DecRef();
 
