@@ -45,6 +45,7 @@
 #include <wx/filename.h>
 #include <wx/notebook.h>
 #include <wx/tokenzr.h>
+#include <wx/wupdlock.h>
 #include <wx/version.h>
 
 namespace fs = std::filesystem;
