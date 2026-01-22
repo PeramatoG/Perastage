@@ -19,6 +19,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <map>
@@ -30,6 +31,7 @@
 
 #include <wx/aboutdlg.h>
 #include <wx/artprov.h>
+#include <wx/choice.h>
 #include <wx/filename.h>
 #include <wx/filefn.h>
 #include <wx/html/htmlwin.h>
@@ -64,6 +66,72 @@
 #include "trusstablepanel.h"
 #include "viewer2dpanel.h"
 #include "viewer3dpanel.h"
+
+namespace {
+struct HelpMarkdown {
+  std::string english;
+  std::string spanish;
+  bool hasSections = false;
+};
+
+std::string TrimLeadingWhitespace(const std::string &text) {
+  const auto start = text.find_first_not_of("\r\n");
+  if (start == std::string::npos)
+    return std::string();
+  return text.substr(start);
+}
+
+HelpMarkdown SplitHelpMarkdown(const std::string &markdown) {
+  constexpr const char *kEnglishMarker = "<!-- LANG:en -->";
+  constexpr const char *kSpanishMarker = "<!-- LANG:es -->";
+  HelpMarkdown result;
+
+  const auto enPos = markdown.find(kEnglishMarker);
+  const auto esPos = markdown.find(kSpanishMarker);
+  if (enPos == std::string::npos && esPos == std::string::npos) {
+    result.english = markdown;
+    result.spanish = markdown;
+    return result;
+  }
+
+  result.hasSections = true;
+  auto extract = [&](size_t start, size_t end, const char *marker) {
+    if (start == std::string::npos)
+      return std::string();
+    start += std::strlen(marker);
+    if (end == std::string::npos || end < start)
+      end = markdown.size();
+    return TrimLeadingWhitespace(markdown.substr(start, end - start));
+  };
+
+  if (enPos != std::string::npos && esPos != std::string::npos) {
+    if (enPos < esPos) {
+      result.english = extract(enPos, esPos, kEnglishMarker);
+      result.spanish = extract(esPos, std::string::npos, kSpanishMarker);
+    } else {
+      result.spanish = extract(esPos, enPos, kSpanishMarker);
+      result.english = extract(enPos, std::string::npos, kEnglishMarker);
+    }
+  } else {
+    result.english =
+        extract(enPos, std::string::npos, kEnglishMarker);
+    result.spanish =
+        extract(esPos, std::string::npos, kSpanishMarker);
+  }
+
+  if (result.english.empty())
+    result.english = markdown;
+  if (result.spanish.empty())
+    result.spanish = markdown;
+
+  return result;
+}
+
+std::string WrapHelpHtml(const std::string &body) {
+  return "<html><head><meta charset=\"UTF-8\"></head><body>" + body +
+         "</body></html>";
+}
+} // namespace
 
 void MainWindow::CreateToolBars() {
   fileToolBar = new wxAuiToolBar(this, wxID_ANY, wxDefaultPosition,
@@ -669,7 +737,7 @@ void MainWindow::OnShowHelp(wxCommandEvent &WXUNUSED(event)) {
     std::ifstream in(helpPath.GetFullPath().ToStdString());
     std::string markdown((std::istreambuf_iterator<char>(in)),
                          std::istreambuf_iterator<char>());
-    std::string html = MarkdownToHtml(markdown);
+    HelpMarkdown help = SplitHelpMarkdown(markdown);
 
     // Create a resizable dialog containing a wxHtmlWindow to render the
     // generated HTML.
@@ -681,9 +749,33 @@ void MainWindow::OnShowHelp(wxCommandEvent &WXUNUSED(event)) {
                  dialogSize,
                  wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER | wxMAXIMIZE_BOX);
     wxBoxSizer *sizer = new wxBoxSizer(wxVERTICAL);
+    wxBoxSizer *langSizer = new wxBoxSizer(wxHORIZONTAL);
+    wxStaticText *langLabel =
+        new wxStaticText(&dlg, wxID_ANY, "Language:");
+    wxChoice *langChoice = new wxChoice(&dlg, wxID_ANY);
+    langChoice->Append("English");
+    langChoice->Append("Español");
+    langChoice->SetSelection(0);
+    langSizer->Add(langLabel, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 6);
+    langSizer->Add(langChoice, 0, wxALIGN_CENTER_VERTICAL);
+    sizer->Add(langSizer, 0, wxLEFT | wxRIGHT | wxTOP, 8);
     wxHtmlWindow *htmlWin = new wxHtmlWindow(
         &dlg, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxHW_SCROLLBAR_AUTO);
-    htmlWin->SetPage(html);
+
+    auto setHelpPage = [&](const std::string &markdownBody) {
+      std::string html = MarkdownToHtml(markdownBody);
+      std::string wrapped = WrapHelpHtml(html);
+      htmlWin->SetPage(wxString::FromUTF8(wrapped));
+    };
+
+    setHelpPage(help.english);
+    langChoice->Bind(wxEVT_CHOICE, [&](wxCommandEvent &) {
+      if (langChoice->GetSelection() == 1)
+        setHelpPage(help.spanish);
+      else
+        setHelpPage(help.english);
+    });
+
     sizer->Add(htmlWin, 1, wxEXPAND | wxALL, 5);
     dlg.SetSizer(sizer);
     dlg.ShowModal();
