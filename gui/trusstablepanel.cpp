@@ -110,8 +110,9 @@ TrussTablePanel::TrussTablePanel(wxWindow* parent)
 {
     store = new ColorfulDataViewListStore();
     wxBoxSizer* sizer = new wxBoxSizer(wxVERTICAL);
-    table = new wxDataViewListCtrl(this, wxID_ANY, wxDefaultPosition,
-                                   wxDefaultSize, wxDV_MULTIPLE | wxDV_ROW_LINES);
+    table = new wxDataViewListCtrl(
+        this, wxID_ANY, wxDefaultPosition, wxDefaultSize,
+        wxDV_MULTIPLE | wxDV_ROW_LINES | wxDV_NO_HIGHLIGHT);
   table->AssociateModel(store);
   store->DecRef();
 
@@ -119,6 +120,7 @@ TrussTablePanel::TrussTablePanel(wxWindow* parent)
   const wxColour selectionBackground(0, 255, 255);
   const wxColour selectionForeground(0, 0, 0);
   store->SetSelectionColours(selectionBackground, selectionForeground);
+  store->selectionBackgroundEnabled = false;
   table->Bind(wxEVT_LEFT_DOWN, &TrussTablePanel::OnLeftDown, this);
     table->Bind(wxEVT_LEFT_UP, &TrussTablePanel::OnLeftUp, this);
     table->Bind(wxEVT_MOTION, &TrussTablePanel::OnMouseMove, this);
@@ -661,25 +663,27 @@ void TrussTablePanel::UpdateSelectionHighlight()
     }
     const wxColour selectionColor = store->selectionBackground;
     const wxColour highlightColor(0, 200, 0);
-    const unsigned int columnCount = table->GetColumnCount();
     for (size_t row = 0; row < rowCount; ++row)
     {
         bool isHighlight =
             row < store->rowAttrs.size() &&
             store->rowAttrs[row].HasBackgroundColour() &&
             store->rowAttrs[row].GetBackgroundColour() == highlightColor;
-        if (!isHighlight && row < store->rowAttrs.size() &&
-            store->rowAttrs[row].HasBackgroundColour() &&
-            store->rowAttrs[row].GetBackgroundColour() == selectionColor)
+        if (selectedRows[row] && !isHighlight)
+            store->SetRowBackgroundColour(row, selectionColor);
+        else if (!selectedRows[row] && !isHighlight)
             store->ClearRowBackground(row);
-        for (unsigned int col = 0; col < columnCount; ++col)
+        if (row < store->cellAttrs.size())
         {
-            if (isHighlight)
-                store->SetCellBackgroundColour(row, col, highlightColor);
-            else if (selectedRows[row])
-                store->SetCellBackgroundColour(row, col, selectionColor);
-            else
-                store->ClearCellBackgroundColour(row, col);
+            for (unsigned int col = 0; col < store->cellAttrs[row].size(); ++col)
+            {
+                if (store->cellAttrs[row][col].HasBackgroundColour())
+                {
+                    wxColour bg = store->cellAttrs[row][col].GetBackgroundColour();
+                    if (bg == selectionColor || bg == highlightColor)
+                        store->ClearCellBackgroundColour(row, col);
+                }
+            }
         }
     }
     store->SetSelectedRows(selectedRows);
