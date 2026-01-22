@@ -136,12 +136,16 @@ private:
   void OnMouseLeave(wxMouseEvent &event);
   void OnResize(wxSizeEvent &event);
   void OnCaptureLost(wxMouseCaptureLostEvent &event);
+  void OnDragTableUpdateTimer(wxTimerEvent &event);
 
   std::array<float, 3> MapDragDelta(float dxMeters, float dyMeters) const;
   void ApplySelectionDelta(const std::array<float, 3> &deltaMeters);
   void FinalizeSelectionDrag();
+  void ScheduleDragTableUpdate();
+  void StopDragTableUpdates();
 
   static constexpr long kSelectionDragDelayMs = 150;
+  static constexpr int kDragTableUpdateIntervalMs = 50;
 
   DragMode m_dragMode = DragMode::None;
   DragAxis m_dragAxis = DragAxis::None;
@@ -170,6 +174,10 @@ private:
   bool m_forceOffscreenRender = false;
   bool m_allowOffscreenRender = false;
   bool m_persistViewState = true;
+  wxTimer m_dragTableUpdateTimer;
+  bool m_pendingTableUpdate = false;
+  DragTarget m_pendingTableUpdateTarget = DragTarget::None;
+  std::vector<std::string> m_pendingTableUpdateUuids;
 
   wxGLContext *m_glContext = nullptr;
   bool m_glInitialized = false;
