@@ -38,6 +38,7 @@
 #include "fixturetablepanel.h"
 #include "sceneobjecttablepanel.h"
 #include "trusstablepanel.h"
+#include "viewer3dpanel.h"
 #include <algorithm>
 #include <cmath>
 #include <map>
@@ -692,20 +693,183 @@ void Viewer2DPanel::OnPaint(wxPaintEvent &WXUNUSED(event)) {
     Refresh();
 }
 
+std::array<float, 3> Viewer2DPanel::MapDragDelta(float dxMeters,
+                                                 float dyMeters) const {
+  switch (m_view) {
+  case Viewer2DView::Top:
+  case Viewer2DView::Bottom:
+    return {dxMeters, dyMeters, 0.0f};
+  case Viewer2DView::Front:
+    return {dxMeters, 0.0f, dyMeters};
+  case Viewer2DView::Side:
+    return {0.0f, dxMeters, dyMeters};
+  }
+  return {dxMeters, dyMeters, 0.0f};
+}
+
+void Viewer2DPanel::ApplySelectionDelta(
+    const std::array<float, 3> &deltaMeters) {
+  if (m_dragSelectionUuids.empty())
+    return;
+
+  float dxMm = deltaMeters[0] * 1000.0f;
+  float dyMm = deltaMeters[1] * 1000.0f;
+  float dzMm = deltaMeters[2] * 1000.0f;
+  if (dxMm == 0.0f && dyMm == 0.0f && dzMm == 0.0f)
+    return;
+
+  ConfigManager &cfg = ConfigManager::Get();
+  if (!m_dragSelectionPushedUndo) {
+    cfg.PushUndoState("move selection");
+    m_dragSelectionPushedUndo = true;
+  }
+  auto &scene = cfg.GetScene();
+
+  auto applyDelta = [&](auto &items) {
+    for (const auto &uuid : m_dragSelectionUuids) {
+      auto it = items.find(uuid);
+      if (it == items.end())
+        continue;
+      it->second.transform.o[0] += dxMm;
+      it->second.transform.o[1] += dyMm;
+      it->second.transform.o[2] += dzMm;
+    }
+  };
+
+  switch (m_dragTarget) {
+  case DragTarget::Fixtures:
+    applyDelta(scene.fixtures);
+    break;
+  case DragTarget::Trusses:
+    applyDelta(scene.trusses);
+    break;
+  case DragTarget::SceneObjects:
+    applyDelta(scene.sceneObjects);
+    break;
+  default:
+    break;
+  }
+}
+
+void Viewer2DPanel::FinalizeSelectionDrag() {
+  ConfigManager &cfg = ConfigManager::Get();
+  switch (m_dragTarget) {
+  case DragTarget::Fixtures:
+    if (FixtureTablePanel::Instance()) {
+      auto selection = cfg.GetSelectedFixtures();
+      FixtureTablePanel::Instance()->ReloadData();
+      FixtureTablePanel::Instance()->SelectByUuid(selection);
+    }
+    break;
+  case DragTarget::Trusses:
+    if (TrussTablePanel::Instance()) {
+      auto selection = cfg.GetSelectedTrusses();
+      TrussTablePanel::Instance()->ReloadData();
+      TrussTablePanel::Instance()->SelectByUuid(selection);
+    }
+    break;
+  case DragTarget::SceneObjects:
+    if (SceneObjectTablePanel::Instance()) {
+      auto selection = cfg.GetSelectedSceneObjects();
+      SceneObjectTablePanel::Instance()->ReloadData();
+      SceneObjectTablePanel::Instance()->SelectByUuid(selection);
+    }
+    break;
+  default:
+    break;
+  }
+
+  UpdateScene(true);
+
+  if (Viewer3DPanel::Instance()) {
+    Viewer3DPanel::Instance()->UpdateScene();
+    Viewer3DPanel::Instance()->Refresh();
+  }
+}
+
 void Viewer2DPanel::OnMouseDown(wxMouseEvent &event) {
   if (event.LeftDown()) {
     CaptureMouse();
-    m_dragging = true;
     m_draggedSincePress = false;
+    m_dragMode = DragMode::View;
+    m_dragAxis = DragAxis::None;
+    m_dragTarget = DragTarget::None;
+    m_dragSelectionUuids.clear();
+    m_dragSelectionMoved = false;
+    m_dragSelectionPushedUndo = false;
     m_lastMousePos = event.GetPosition();
+
+    if (!m_enableSelection || !IsShownOnScreen())
+      return;
+
+    int w, h;
+    GetClientSize(&w, &h);
+    if (w <= 0 || h <= 0)
+      return;
+
+    SetCurrent(*m_glContext);
+    wxString label;
+    wxPoint pos;
+    std::string uuid;
+    bool found = false;
+    DragTarget target = DragTarget::None;
+    if (FixtureTablePanel::Instance() &&
+        FixtureTablePanel::Instance()->IsActivePage()) {
+      found = m_controller.GetFixtureLabelAt(event.GetX(), event.GetY(), w, h,
+                                             label, pos, &uuid);
+      target = DragTarget::Fixtures;
+    } else if (TrussTablePanel::Instance() &&
+               TrussTablePanel::Instance()->IsActivePage()) {
+      found = m_controller.GetTrussLabelAt(event.GetX(), event.GetY(), w, h,
+                                           label, pos, &uuid);
+      target = DragTarget::Trusses;
+    } else if (SceneObjectTablePanel::Instance() &&
+               SceneObjectTablePanel::Instance()->IsActivePage()) {
+      found = m_controller.GetSceneObjectLabelAt(event.GetX(), event.GetY(), w,
+                                                 h, label, pos, &uuid);
+      target = DragTarget::SceneObjects;
+    }
+
+    if (found && target != DragTarget::None) {
+      ConfigManager &cfg = ConfigManager::Get();
+      std::vector<std::string> selection;
+      switch (target) {
+      case DragTarget::Fixtures:
+        selection = cfg.GetSelectedFixtures();
+        break;
+      case DragTarget::Trusses:
+        selection = cfg.GetSelectedTrusses();
+        break;
+      case DragTarget::SceneObjects:
+        selection = cfg.GetSelectedSceneObjects();
+        break;
+      default:
+        break;
+      }
+
+      auto it = std::find(selection.begin(), selection.end(), uuid);
+      if (it != selection.end())
+        m_dragSelectionUuids = selection;
+      else
+        m_dragSelectionUuids = {uuid};
+
+      m_dragMode = DragMode::Selection;
+      m_dragTarget = target;
+    }
   }
 }
 
 void Viewer2DPanel::OnMouseUp(wxMouseEvent &event) {
-  if (event.LeftUp() && m_dragging) {
-    m_dragging = false;
+  if (event.LeftUp() && m_dragMode != DragMode::None) {
     if (HasCapture())
       ReleaseMouse();
+    if (m_dragMode == DragMode::Selection && m_dragSelectionMoved)
+      FinalizeSelectionDrag();
+    m_dragMode = DragMode::None;
+    m_dragAxis = DragAxis::None;
+    m_dragTarget = DragTarget::None;
+    m_dragSelectionUuids.clear();
+    m_dragSelectionMoved = false;
   }
 
   if (!m_enableSelection) {
@@ -834,17 +998,53 @@ void Viewer2DPanel::OnMouseUp(wxMouseEvent &event) {
 }
 
 void Viewer2DPanel::OnCaptureLost(wxMouseCaptureLostEvent &WXUNUSED(event)) {
-  m_dragging = false;
+  m_dragMode = DragMode::None;
+  m_dragAxis = DragAxis::None;
+  m_dragTarget = DragTarget::None;
+  m_dragSelectionUuids.clear();
+  m_dragSelectionMoved = false;
 }
 
 void Viewer2DPanel::OnMouseMove(wxMouseEvent &event) {
-  if (m_enableSelection) {
-    m_mouseMoved = true;
-    m_lastMousePos = event.GetPosition();
+  wxPoint pos = event.GetPosition();
+
+  if (m_dragMode == DragMode::Selection && event.Dragging()) {
+    int dx = pos.x - m_lastMousePos.x;
+    int dy = pos.y - m_lastMousePos.y;
+
+    if (dx != 0 || dy != 0) {
+      if (m_dragAxis == DragAxis::None) {
+        int absDx = std::abs(dx);
+        int absDy = std::abs(dy);
+        if (absDx >= 3 || absDy >= 3) {
+          m_dragAxis =
+              absDx >= absDy ? DragAxis::Horizontal : DragAxis::Vertical;
+        }
+      }
+
+      if (m_dragAxis == DragAxis::Horizontal)
+        dy = 0;
+      else if (m_dragAxis == DragAxis::Vertical)
+        dx = 0;
+
+      if (dx != 0 || dy != 0) {
+        float ppm = PIXELS_PER_METER * m_zoom;
+        if (ppm > 0.0f) {
+          float dxMeters = static_cast<float>(dx) / ppm;
+          float dyMeters = static_cast<float>(-dy) / ppm;
+          ApplySelectionDelta(MapDragDelta(dxMeters, dyMeters));
+          m_draggedSincePress = true;
+          m_dragSelectionMoved = true;
+          Refresh();
+        }
+      }
+    }
+
+    m_lastMousePos = pos;
+    return;
   }
 
-  if (m_dragging && event.Dragging()) {
-    wxPoint pos = event.GetPosition();
+  if (m_dragMode == DragMode::View && event.Dragging()) {
     int dx = pos.x - m_lastMousePos.x;
     int dy = pos.y - m_lastMousePos.y;
     m_offsetX += dx / m_zoom;
@@ -857,8 +1057,11 @@ void Viewer2DPanel::OnMouseMove(wxMouseEvent &event) {
     return;
   }
 
-  if (m_enableSelection)
+  if (m_enableSelection) {
+    m_mouseMoved = true;
+    m_lastMousePos = pos;
     Refresh();
+  }
 }
 
 void Viewer2DPanel::OnMouseWheel(wxMouseEvent &event) {

@@ -28,6 +28,7 @@
 #include "viewer3dcontroller.h"
 #include <wx/glcanvas.h>
 #include <wx/wx.h>
+#include <array>
 #include <functional>
 #include <memory>
 #include <optional>
@@ -117,6 +118,10 @@ public:
   std::optional<wxSize> GetLayoutEditOverlaySize() const;
 
 private:
+  enum class DragMode { None, View, Selection };
+  enum class DragAxis { None, Horizontal, Vertical };
+  enum class DragTarget { None, Fixtures, Trusses, SceneObjects };
+
   void InitGL();
   void Render();
   void RenderInternal(bool swapBuffers);
@@ -132,7 +137,16 @@ private:
   void OnResize(wxSizeEvent &event);
   void OnCaptureLost(wxMouseCaptureLostEvent &event);
 
-  bool m_dragging = false;
+  std::array<float, 3> MapDragDelta(float dxMeters, float dyMeters) const;
+  void ApplySelectionDelta(const std::array<float, 3> &deltaMeters);
+  void FinalizeSelectionDrag();
+
+  DragMode m_dragMode = DragMode::None;
+  DragAxis m_dragAxis = DragAxis::None;
+  DragTarget m_dragTarget = DragTarget::None;
+  std::vector<std::string> m_dragSelectionUuids;
+  bool m_dragSelectionMoved = false;
+  bool m_dragSelectionPushedUndo = false;
   bool m_draggedSincePress = false;
   wxPoint m_lastMousePos;
   float m_offsetX = 0.0f;
