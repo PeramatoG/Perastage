@@ -39,6 +39,7 @@
 #include "sceneobjecttablepanel.h"
 #include "trusstablepanel.h"
 #include "viewer3dpanel.h"
+#include <wx/utils.h>
 #include <algorithm>
 #include <cmath>
 #include <map>
@@ -791,6 +792,7 @@ void Viewer2DPanel::OnMouseDown(wxMouseEvent &event) {
   if (event.LeftDown()) {
     CaptureMouse();
     m_draggedSincePress = false;
+    m_dragPressTime = wxGetLocalTimeMillis();
     m_dragMode = DragMode::View;
     m_dragAxis = DragAxis::None;
     m_dragTarget = DragTarget::None;
@@ -1009,6 +1011,12 @@ void Viewer2DPanel::OnMouseMove(wxMouseEvent &event) {
   wxPoint pos = event.GetPosition();
 
   if (m_dragMode == DragMode::Selection && event.Dragging()) {
+    if ((wxGetLocalTimeMillis() - m_dragPressTime).ToLong() <
+        kSelectionDragDelayMs) {
+      m_lastMousePos = pos;
+      return;
+    }
+
     int dx = pos.x - m_lastMousePos.x;
     int dy = pos.y - m_lastMousePos.y;
 
