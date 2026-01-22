@@ -720,6 +720,7 @@ void SceneObjectTablePanel::ResyncRows(const std::vector<std::string>& oldOrder,
         if (pos != rowUuids.end())
             table->SelectRow(static_cast<int>(pos - rowUuids.begin()));
     }
+    UpdateSelectionHighlight();
 }
 
 void SceneObjectTablePanel::OnColumnSorted(wxDataViewEvent& event)
