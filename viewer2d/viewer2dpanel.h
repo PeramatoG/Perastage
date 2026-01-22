@@ -141,6 +141,8 @@ private:
   void ApplySelectionDelta(const std::array<float, 3> &deltaMeters);
   void FinalizeSelectionDrag();
 
+  static constexpr long kSelectionDragDelayMs = 150;
+
   DragMode m_dragMode = DragMode::None;
   DragAxis m_dragAxis = DragAxis::None;
   DragTarget m_dragTarget = DragTarget::None;
@@ -148,6 +150,7 @@ private:
   bool m_dragSelectionMoved = false;
   bool m_dragSelectionPushedUndo = false;
   bool m_draggedSincePress = false;
+  wxLongLong m_dragPressTime = 0;
   wxPoint m_lastMousePos;
   float m_offsetX = 0.0f;
   float m_offsetY = 0.0f;
