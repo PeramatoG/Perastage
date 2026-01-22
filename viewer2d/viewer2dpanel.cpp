@@ -848,7 +848,7 @@ void Viewer2DPanel::OnMouseDown(wxMouseEvent &event) {
       }
 
       auto it = std::find(selection.begin(), selection.end(), uuid);
-      if (it != selection.end())
+      if (selection.size() > 1 || it != selection.end())
         m_dragSelectionUuids = selection;
       else
         m_dragSelectionUuids = {uuid};
