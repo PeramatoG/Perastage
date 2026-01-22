@@ -61,14 +61,14 @@ inline bool ResolveBackgroundColour(const wxDataViewCustomRenderer *renderer,
                                     int state,
                                     const wxDataViewItemAttr &attr,
                                     wxColour &colour) {
+  if (attr.HasBackgroundColour()) {
+    colour = attr.GetBackgroundColour();
+    return true;
+  }
   const auto *store = GetColorfulStore(renderer);
   if ((state & wxDATAVIEW_CELL_SELECTED) && store &&
       store->selectionBackgroundEnabled) {
     colour = store->selectionBackground;
-    return true;
-  }
-  if (attr.HasBackgroundColour()) {
-    colour = attr.GetBackgroundColour();
     return true;
   }
   return false;
