@@ -3095,15 +3095,15 @@ Viewer3DController::GetFixturesInScreenRect(int x1, int y1, int x2, int y2,
   glGetDoublev(GL_PROJECTION_MATRIX, proj);
   glGetIntegerv(GL_VIEWPORT, viewport);
 
-  ScreenRect selection;
-  selection.minX = std::max(0, std::min(x1, x2));
-  selection.maxX = std::min(width, std::max(x1, x2));
-  selection.minY = std::max(0, std::min(y1, y2));
-  selection.maxY = std::min(height, std::max(y1, y2));
+  ScreenRect selectionRect;
+  selectionRect.minX = std::max(0, std::min(x1, x2));
+  selectionRect.maxX = std::min(width, std::max(x1, x2));
+  selectionRect.minY = std::max(0, std::min(y1, y2));
+  selectionRect.maxY = std::min(height, std::max(y1, y2));
 
   auto intersects = [&](const ScreenRect &rect) {
-    return !(rect.maxX < selection.minX || rect.minX > selection.maxX ||
-             rect.maxY < selection.minY || rect.minY > selection.maxY);
+    return !(rect.maxX < selectionRect.minX || rect.minX > selectionRect.maxX ||
+             rect.maxY < selectionRect.minY || rect.minY > selectionRect.maxY);
   };
 
   auto projectBounds = [&](const BoundingBox &bb, ScreenRect &rect) {
@@ -3163,15 +3163,15 @@ Viewer3DController::GetTrussesInScreenRect(int x1, int y1, int x2, int y2,
   glGetDoublev(GL_PROJECTION_MATRIX, proj);
   glGetIntegerv(GL_VIEWPORT, viewport);
 
-  ScreenRect selection;
-  selection.minX = std::max(0, std::min(x1, x2));
-  selection.maxX = std::min(width, std::max(x1, x2));
-  selection.minY = std::max(0, std::min(y1, y2));
-  selection.maxY = std::min(height, std::max(y1, y2));
+  ScreenRect selectionRect;
+  selectionRect.minX = std::max(0, std::min(x1, x2));
+  selectionRect.maxX = std::min(width, std::max(x1, x2));
+  selectionRect.minY = std::max(0, std::min(y1, y2));
+  selectionRect.maxY = std::min(height, std::max(y1, y2));
 
   auto intersects = [&](const ScreenRect &rect) {
-    return !(rect.maxX < selection.minX || rect.minX > selection.maxX ||
-             rect.maxY < selection.minY || rect.minY > selection.maxY);
+    return !(rect.maxX < selectionRect.minX || rect.minX > selectionRect.maxX ||
+             rect.maxY < selectionRect.minY || rect.minY > selectionRect.maxY);
   };
 
   auto projectBounds = [&](const BoundingBox &bb, ScreenRect &rect) {
@@ -3230,15 +3230,15 @@ Viewer3DController::GetSceneObjectsInScreenRect(int x1, int y1, int x2, int y2,
   glGetDoublev(GL_PROJECTION_MATRIX, proj);
   glGetIntegerv(GL_VIEWPORT, viewport);
 
-  ScreenRect selection;
-  selection.minX = std::max(0, std::min(x1, x2));
-  selection.maxX = std::min(width, std::max(x1, x2));
-  selection.minY = std::max(0, std::min(y1, y2));
-  selection.maxY = std::min(height, std::max(y1, y2));
+  ScreenRect selectionRect;
+  selectionRect.minX = std::max(0, std::min(x1, x2));
+  selectionRect.maxX = std::min(width, std::max(x1, x2));
+  selectionRect.minY = std::max(0, std::min(y1, y2));
+  selectionRect.maxY = std::min(height, std::max(y1, y2));
 
   auto intersects = [&](const ScreenRect &rect) {
-    return !(rect.maxX < selection.minX || rect.minX > selection.maxX ||
-             rect.maxY < selection.minY || rect.minY > selection.maxY);
+    return !(rect.maxX < selectionRect.minX || rect.minX > selectionRect.maxX ||
+             rect.maxY < selectionRect.minY || rect.minY > selectionRect.maxY);
   };
 
   auto projectBounds = [&](const BoundingBox &bb, ScreenRect &rect) {
