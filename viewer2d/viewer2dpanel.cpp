@@ -739,6 +739,7 @@ void Viewer2DPanel::ApplySelectionDelta(
     m_dragSelectionPushedUndo = true;
   }
   auto &scene = cfg.GetScene();
+  std::lock_guard<std::mutex> sceneLock(m_dragTableUpdateSceneMutex);
 
   auto applyDelta = [&](auto &items) {
     for (const auto &uuid : m_dragSelectionUuids) {
@@ -826,7 +827,7 @@ void Viewer2DPanel::StopDragTableUpdates() {
     std::lock_guard<std::mutex> lock(m_dragTableUpdateMutex);
     m_dragTableUpdateQueued = false;
     m_dragTableUpdateWorkerTarget = DragTarget::None;
-    m_dragTableUpdateSnapshots.clear();
+    m_dragTableUpdateUuids.clear();
   }
 }
 
@@ -838,16 +839,15 @@ void Viewer2DPanel::OnDragTableUpdateTimer(wxTimerEvent &event) {
 
   m_pendingTableUpdate = false;
   QueueDragTableUpdate(m_pendingTableUpdateTarget,
-                       BuildDragTablePositionSnapshots(
-                           m_pendingTableUpdateTarget,
-                           m_pendingTableUpdateUuids));
+                       std::move(m_pendingTableUpdateUuids));
+  m_pendingTableUpdateUuids.clear();
 }
 
 void Viewer2DPanel::StartDragTableUpdateWorker() {
   m_dragTableUpdateWorker = std::thread([this]() {
     while (true) {
       DragTarget target = DragTarget::None;
-      std::vector<DragTablePositionSnapshot> snapshots;
+      std::vector<std::string> uuids;
       {
         std::unique_lock<std::mutex> lock(m_dragTableUpdateMutex);
         m_dragTableUpdateCv.wait(lock, [this]() {
@@ -856,10 +856,14 @@ void Viewer2DPanel::StartDragTableUpdateWorker() {
         if (m_dragTableWorkerStop)
           break;
         target = m_dragTableUpdateWorkerTarget;
-        snapshots = std::move(m_dragTableUpdateSnapshots);
+        uuids = std::move(m_dragTableUpdateUuids);
         m_dragTableUpdateQueued = false;
       }
 
+      if (uuids.empty())
+        continue;
+
+      auto snapshots = BuildDragTablePositionSnapshots(target, uuids);
       if (snapshots.empty())
         continue;
 
@@ -914,6 +918,7 @@ Viewer2DPanel::BuildDragTablePositionSnapshots(
   std::vector<DragTablePositionSnapshot> snapshots;
   snapshots.reserve(uuids.size());
 
+  std::lock_guard<std::mutex> sceneLock(m_dragTableUpdateSceneMutex);
   ConfigManager &cfg = ConfigManager::Get();
   auto &scene = cfg.GetScene();
 
@@ -952,15 +957,15 @@ Viewer2DPanel::BuildDragTablePositionSnapshots(
   return snapshots;
 }
 
-void Viewer2DPanel::QueueDragTableUpdate(
-    DragTarget target, std::vector<DragTablePositionSnapshot> snapshots) {
-  if (snapshots.empty())
+void Viewer2DPanel::QueueDragTableUpdate(DragTarget target,
+                                         std::vector<std::string> uuids) {
+  if (uuids.empty())
     return;
 
   {
     std::lock_guard<std::mutex> lock(m_dragTableUpdateMutex);
     m_dragTableUpdateWorkerTarget = target;
-    m_dragTableUpdateSnapshots = std::move(snapshots);
+    m_dragTableUpdateUuids = std::move(uuids);
     m_dragTableUpdateQueued = true;
   }
   m_dragTableUpdateCv.notify_one();

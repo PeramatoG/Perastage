@@ -160,7 +160,7 @@ private:
   BuildDragTablePositionSnapshots(DragTarget target,
                                   const std::vector<std::string> &uuids);
   void QueueDragTableUpdate(DragTarget target,
-                            std::vector<DragTablePositionSnapshot> snapshots);
+                            std::vector<std::string> uuids);
 
   static constexpr long kSelectionDragDelayMs = 150;
   static constexpr int kDragTableUpdateIntervalMs = 50;
@@ -202,7 +202,8 @@ private:
   bool m_dragTableWorkerStop = false;
   bool m_dragTableUpdateQueued = false;
   DragTarget m_dragTableUpdateWorkerTarget = DragTarget::None;
-  std::vector<DragTablePositionSnapshot> m_dragTableUpdateSnapshots;
+  std::vector<std::string> m_dragTableUpdateUuids;
+  std::mutex m_dragTableUpdateSceneMutex;
 
   wxGLContext *m_glContext = nullptr;
   bool m_glInitialized = false;
