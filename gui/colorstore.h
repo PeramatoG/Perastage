@@ -41,10 +41,15 @@ public:
       hasTextColour = attr.HasColour();
     }
 
-    if (!hasAttr && row < rowAttrs.size() && !rowAttrs[row].IsDefault()) {
-      attr = rowAttrs[row];
-      hasAttr = true;
-      hasTextColour = attr.HasColour();
+    if (row < rowAttrs.size() && !rowAttrs[row].IsDefault()) {
+      if (!hasAttr) {
+        attr = rowAttrs[row];
+        hasAttr = true;
+        hasTextColour = attr.HasColour();
+      } else if (rowAttrs[row].HasBackgroundColour() &&
+                 !attr.HasBackgroundColour()) {
+        attr.SetBackgroundColour(rowAttrs[row].GetBackgroundColour());
+      }
     }
 
     bool isSelected =
