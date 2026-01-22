@@ -53,7 +53,7 @@ public:
     if (isSelected) {
       if (!hasAttr)
         attr = wxDataViewItemAttr();
-      if (selectionBackgroundEnabled)
+      if (selectionBackgroundEnabled && !attr.HasBackgroundColour())
         attr.SetBackgroundColour(selectionBackground);
       if (selectionForegroundEnabled && !hasTextColour)
         attr.SetColour(selectionForeground);
