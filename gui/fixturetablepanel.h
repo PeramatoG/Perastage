@@ -38,6 +38,7 @@ public:
     void SelectByUuid(const std::vector<std::string>& uuids);
     bool IsActivePage() const;
     void DeleteSelected();
+    void UpdatePositionValues(const std::vector<std::string>& uuids);
     wxDataViewListCtrl* GetTableCtrl() const { return table; }
 
     static FixtureTablePanel* Instance();

@@ -1168,6 +1168,36 @@ void FixtureTablePanel::UpdateSelectionHighlight() {
   store->SetSelectedRows(selectedRows);
 }
 
+void FixtureTablePanel::UpdatePositionValues(
+    const std::vector<std::string> &uuids) {
+  if (!table)
+    return;
+
+  ConfigManager &cfg = ConfigManager::Get();
+  auto &scene = cfg.GetScene();
+  wxWindowUpdateLocker locker(table);
+
+  for (const auto &uuid : uuids) {
+    auto it = scene.fixtures.find(uuid);
+    if (it == scene.fixtures.end())
+      continue;
+
+    auto posArr = it->second.GetPosition();
+    wxString posX = wxString::Format("%.3f", posArr[0] / 1000.0f);
+    wxString posY = wxString::Format("%.3f", posArr[1] / 1000.0f);
+    wxString posZ = wxString::Format("%.3f", posArr[2] / 1000.0f);
+
+    auto pos = std::find(rowUuids.begin(), rowUuids.end(), uuid);
+    if (pos == rowUuids.end())
+      continue;
+
+    int row = static_cast<int>(pos - rowUuids.begin());
+    table->SetValue(wxVariant(posX), row, 10);
+    table->SetValue(wxVariant(posY), row, 11);
+    table->SetValue(wxVariant(posZ), row, 12);
+  }
+}
+
 void FixtureTablePanel::PropagateTypeValues(
     const wxDataViewItemArray &selections, int col) {
   if (col != 16 && col != 17 && col != 18)

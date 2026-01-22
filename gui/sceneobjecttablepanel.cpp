@@ -495,6 +495,36 @@ void SceneObjectTablePanel::UpdateSelectionHighlight()
     store->SetSelectedRows(selectedRows);
 }
 
+void SceneObjectTablePanel::UpdatePositionValues(
+    const std::vector<std::string>& uuids) {
+    if (!table)
+        return;
+
+    ConfigManager& cfg = ConfigManager::Get();
+    auto& scene = cfg.GetScene();
+    wxWindowUpdateLocker locker(table);
+
+    for (const auto& uuid : uuids) {
+        auto it = scene.sceneObjects.find(uuid);
+        if (it == scene.sceneObjects.end())
+            continue;
+
+        auto posArr = it->second.transform.o;
+        wxString posX = wxString::Format("%.3f", posArr[0] / 1000.0f);
+        wxString posY = wxString::Format("%.3f", posArr[1] / 1000.0f);
+        wxString posZ = wxString::Format("%.3f", posArr[2] / 1000.0f);
+
+        auto pos = std::find(rowUuids.begin(), rowUuids.end(), uuid);
+        if (pos == rowUuids.end())
+            continue;
+
+        int row = static_cast<int>(pos - rowUuids.begin());
+        table->SetValue(wxVariant(posX), row, 3);
+        table->SetValue(wxVariant(posY), row, 4);
+        table->SetValue(wxVariant(posZ), row, 5);
+    }
+}
+
 void SceneObjectTablePanel::UpdateSceneData()
 {
     ConfigManager& cfg = ConfigManager::Get();
