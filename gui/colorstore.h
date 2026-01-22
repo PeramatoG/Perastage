@@ -157,10 +157,33 @@ public:
     RowChanged(row);
   }
 
+  void SetCellBackgroundColour(unsigned row, unsigned col,
+                               const wxColour &colour) {
+    if (row >= cellAttrs.size())
+      cellAttrs.resize(row + 1);
+    if (col >= cellAttrs[row].size())
+      cellAttrs[row].resize(col + 1);
+    cellAttrs[row][col].SetBackgroundColour(colour);
+    RowChanged(row);
+  }
+
   void ClearCellTextColour(unsigned row, unsigned col) {
     if (row >= cellAttrs.size() || col >= cellAttrs[row].size())
       return;
     cellAttrs[row][col] = wxDataViewItemAttr();
+    RowChanged(row);
+  }
+
+  void ClearCellBackgroundColour(unsigned row, unsigned col) {
+    if (row >= cellAttrs.size() || col >= cellAttrs[row].size())
+      return;
+    wxColour fg;
+    bool hasFg = cellAttrs[row][col].HasColour();
+    if (hasFg)
+      fg = cellAttrs[row][col].GetColour();
+    cellAttrs[row][col] = wxDataViewItemAttr();
+    if (hasFg)
+      cellAttrs[row][col].SetColour(fg);
     RowChanged(row);
   }
 
