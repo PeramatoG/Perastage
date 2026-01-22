@@ -494,25 +494,25 @@ void SceneObjectTablePanel::UpdateSelectionHighlight()
     }
     const wxColour selectionColor = store->selectionBackground;
     const wxColour highlightColor(0, 200, 0);
+    const unsigned int columnCount = table->GetColumnCount();
     for (size_t row = 0; row < rowCount; ++row)
     {
-        bool hasBackground = row < store->rowAttrs.size() &&
-                             store->rowAttrs[row].HasBackgroundColour();
-        wxColour currentBackground;
-        if (hasBackground)
-            currentBackground = store->rowAttrs[row].GetBackgroundColour();
-        bool isHighlight = hasBackground && currentBackground == highlightColor;
-        if (selectedRows[row])
-        {
-            if (!hasBackground || currentBackground == selectionColor)
-            {
-                if (!isHighlight)
-                    store->SetRowBackgroundColour(row, selectionColor);
-            }
-        }
-        else if (hasBackground && currentBackground == selectionColor)
-        {
+        bool isHighlight =
+            row < store->rowAttrs.size() &&
+            store->rowAttrs[row].HasBackgroundColour() &&
+            store->rowAttrs[row].GetBackgroundColour() == highlightColor;
+        if (!isHighlight && row < store->rowAttrs.size() &&
+            store->rowAttrs[row].HasBackgroundColour() &&
+            store->rowAttrs[row].GetBackgroundColour() == selectionColor)
             store->ClearRowBackground(row);
+        for (unsigned int col = 0; col < columnCount; ++col)
+        {
+            if (isHighlight)
+                store->SetCellBackgroundColour(row, col, highlightColor);
+            else if (selectedRows[row])
+                store->SetCellBackgroundColour(row, col, selectionColor);
+            else
+                store->ClearCellBackgroundColour(row, col);
         }
     }
     store->SetSelectedRows(selectedRows);
