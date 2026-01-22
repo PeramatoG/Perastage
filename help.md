@@ -1,6 +1,6 @@
 # Perastage Help / Ayuda de Perastage
 
-**Language / Idioma:** [English](#english) | [Español](#espanol)
+**Language selector (default English):** [English](#english) | [Español](#espanol)
 
 <details open>
 <summary><strong>English</strong></summary>
@@ -9,12 +9,12 @@
 
 Perastage is a high-performance, cross-platform viewer for **MVR** (My Virtual Rig)
 scenes with 3D rendering, scene analysis, and editable tabular data. It is designed
-for lighting professionals and developers who work with **GDTF** and **MVR**.
+for lighting professionals who work with **GDTF** and **MVR**.
 
 ## Getting Started
 
 1. Launch the application.
-2. Use **File → Import MVR...** to load an `.mvr` file.
+2. Use **File > Import MVR...** to load an `.mvr` file.
 3. Use the table tabs (**Fixtures**, **Trusses**, **Hoists**, **Objects**) to inspect data.
 4. Toggle panels via the **View** menu if any pane is hidden.
 
@@ -24,7 +24,7 @@ Perastage projects (`*.psproj`) store the scene, layouts, and user configuration
 Projects can contain multiple **layout pages** (printable sheets) and can be opened or
 saved at any time.
 
-**File → New / Load / Save / Save As...**
+**File > New / Load / Save / Save As...**
 
 - **New** creates a blank project.
 - **Load** opens an existing `.psproj` file.
@@ -40,11 +40,11 @@ Perastage saves and restores user preferences, including:
 - 3D camera position/orientation and 2D view state.
 - Print and layout settings.
 
-## Keyboard Shortcuts
+## Keyboard and Mouse Shortcuts
 
-### Global
+### Global (application)
 
-| Key Combination | Function |
+| Shortcut | Function |
 | --- | --- |
 | Ctrl+N | New project |
 | Ctrl+L | Load project |
@@ -55,24 +55,54 @@ Perastage saves and restores user preferences, including:
 | F1 | Open help |
 | 1 / 2 / 3 / 4 | Switch to Fixtures / Trusses / Hoists / Objects |
 
-### 3D Viewer
+### 3D Viewer (keyboard)
 
-| Key Combination | Function |
+| Shortcut | Function |
 | --- | --- |
-| Arrow Keys | Orbit camera |
-| Shift + Arrow Keys | Pan camera |
-| Alt + Arrow Keys | Zoom in/out |
+| Arrow keys | Orbit camera |
+| Shift + arrow keys | Pan camera |
+| Alt + arrow keys | Zoom in/out |
 | Numpad 1 / 3 / 7 | Front / Right / Top views |
 | Numpad 5 | Reset camera orientation |
 
-### 2D Viewer
+### 3D Viewer (mouse)
 
-| Key Combination | Function |
+| Action | Function |
 | --- | --- |
-| Mouse drag | Pan view |
+| Left drag | Orbit camera |
+| Shift + left drag or middle drag | Pan camera |
 | Mouse wheel | Zoom in/out |
-| Arrow Keys | Pan view |
-| Alt + Arrow Keys | Zoom in/out |
+| Left click | Select fixture/truss/object under the cursor |
+| Shift/Ctrl + left click | Toggle selection |
+| Ctrl + left drag | Rectangle select |
+| Double click a fixture label | Open fixture patch dialog |
+
+### 2D Viewer (keyboard)
+
+| Shortcut | Function |
+| --- | --- |
+| Arrow keys | Pan view |
+| Alt + arrow keys | Zoom in/out |
+
+### 2D Viewer (mouse)
+
+| Action | Function |
+| --- | --- |
+| Left drag (empty space) | Pan view |
+| Mouse wheel | Zoom in/out |
+| Left click | Select fixture/truss/object under the cursor |
+| Shift/Ctrl + left click | Toggle selection |
+| Ctrl + left drag | Rectangle select |
+| Drag selected items | Move selection (axis locks to the initial drag direction) |
+
+### Console input (prompt)
+
+| Shortcut | Function |
+| --- | --- |
+| Esc | Exit the prompt and re-enable app shortcuts |
+| Up / Down | Navigate command history |
+| Home | Move to the start of input (after the prompt) |
+| Left / Backspace | Cannot move before the prompt |
 
 ## Menu Reference
 
@@ -122,7 +152,7 @@ Perastage saves and restores user preferences, including:
 
 | Menu Option | Description |
 | --- | --- |
-| Download GDTF fixture... | Download fixtures from GDTF‑Share |
+| Download GDTF fixture... | Download fixtures from GDTF-Share |
 | Edit dictionaries... | Edit rider dictionaries |
 | Create from text... | Import riders from text or PDF |
 | Export Fixture... | Export selected fixtures |
@@ -147,7 +177,7 @@ Perastage saves and restores user preferences, including:
 - Shows all layers used by fixtures, trusses, hoists, and scene objects.
 - Toggle visibility per layer using the **Visible** column.
 - Select a row to set the **active layer** for newly created items.
-- Right‑click a layer to assign a custom color. Colors are used in 2D/3D views.
+- Right-click a layer to assign a custom color. Colors are used in 2D/3D views.
 
 ### Layouts panel
 
@@ -167,13 +197,13 @@ Controls the 2D viewport render mode, grid, and label visibility.
 
 ### Console panel
 
-Displays status messages and provides a command‑line interface for quick edits.
+Displays status messages and provides a command-line interface for quick edits.
 
 ### Table editing shortcuts
 
 - **Apply one value to all selected rows:** enter a single number (or text).
 - **Interpolate across selections:** enter a start and end value (`1 12` or `1 thru 12`).
-- **Sequential values:** end with a trailing space (`100␠`) or a trailing range token (`100 t`).
+- **Sequential values:** end with a trailing space (`100 `) or a trailing range token (`100 t`).
 - **Range separators:** `t` or `thru` with or without spaces (`1t10`, `1 t 10`, `1 thru 10`).
 - **Relative edits:** use `++` / `--` (for example `++0.5`, `--15`).
 
@@ -195,7 +225,7 @@ quick access to layout actions and mirror the corresponding menu commands. The
 - **Add Image**: inserts an image block.
 
 Arrange elements by dragging and use context menus to edit, delete, and change
-z‑order (bring to front / send to back).
+z-order (bring to front / send to back).
 
 ### Printing and export (File menu)
 
@@ -209,8 +239,7 @@ z‑order (bring to front / send to back).
 
 ## Tools
 
-- **Download GDTF fixture...**: search and download fixtures from **GDTF‑Share**.
-  A login dialog requests credentials and stores them locally in encrypted form.
+- **Download GDTF fixture...**: search and download fixtures from **GDTF-Share**.
 - **Edit dictionaries...**: edit fixture and truss dictionaries used by the rider importer.
 - **Create from text...**: import lighting riders from text or PDF. Use the dictionary
   editor to resolve fixture type names and map them to GDTF files.
@@ -228,9 +257,11 @@ and trusses.
 
 ### Selection
 
-- `f <ids>`: select fixtures. Uses the current selection and supports `+`/`-`.
-- `t <ids>`: select trusses (replaces the current truss selection).
-- `clear`: clear all selections.
+| Command | Description |
+| --- | --- |
+| `f <ids>` | Select fixtures. Adds/removes from current selection with `+` or `-`. |
+| `t <ids>` | Select trusses (replaces current truss selection). |
+| `clear` | Clear all selections. |
 
 Ranges and increments are supported:
 
@@ -249,29 +280,25 @@ clear              # clear selection
 
 ### Position and rotation
 
-- `pos x 1.5` sets X to 1.5 m.
-- `pos 0 0 5` sets X/Y/Z directly.
-- `pos 1,2,3` uses comma‑separated values for X/Y/Z.
-- `x ++0.5` moves only the X axis relative to the current position.
-- `rot z 90` sets yaw to 90°.
-- `rot ++45` applies a relative rotation on all axes.
+| Command | Description |
+| --- | --- |
+| `pos x 1.5` | Set X to 1.5 m (use `y`/`z` for other axes). |
+| `pos 0 0 5` | Set X/Y/Z directly. |
+| `pos 1,2,3` | Use comma-separated values for X/Y/Z. |
+| `x ++0.5` | Move only the X axis relative to the current position. |
+| `rot z 90` | Set yaw to 90 degrees. |
+| `rot ++45` | Apply a relative rotation on all axes. |
 
 You can provide two values to interpolate across a selection (e.g. `pos x 0 10`).
 Position values are in meters; rotation values are in degrees.
 
 ## Preferences
 
-Open **Edit → Preferences...** to configure rider import defaults:
+Open **Edit > Preferences...** to configure rider import defaults:
 
-- Auto‑patch after rider import.
-- Auto‑create layers by **position** or **fixture type**.
-- Default LX heights, positions, and margins (LX1–LX6) in meters.
-
-## File Format Support
-
-- **MVR 1.6**: import/export of fixtures, trusses, hoists, and objects.
-- **GDTF**: embedded fixtures and model definitions.
-- **3DS / GLB**: 3D model formats referenced by MVR/GDTF.
+- Auto-patch after rider import.
+- Auto-create layers by **position** or **fixture type**.
+- Default LX heights, positions, and margins (LX1-LX6) in meters.
 
 ## Troubleshooting
 
@@ -281,12 +308,6 @@ Open **Edit → Preferences...** to configure rider import defaults:
 - If objects do not appear in tables:
   - Verify the MVR contains proper object definitions.
   - Check the console for warnings or errors.
-
-## Additional Documentation
-
-- MVR Specification: `docs/mvr-spec.md`
-- GDTF Specification: `docs/gdtf-spec.md`
-- License: `LICENSE.txt` (GPL v3)
 
 </details>
 
@@ -304,7 +325,7 @@ En esta guía se usan términos técnicos en inglés: *fixture* (luminaria), *tr
 ## Primeros pasos
 
 1. Inicia la aplicación.
-2. Usa **File → Import MVR...** para cargar un archivo `.mvr`.
+2. Usa **File > Import MVR...** para cargar un archivo `.mvr`.
 3. Revisa los datos en las pestañas **Fixtures**, **Trusses**, **Hoists** y **Objects**.
 4. Activa o desactiva paneles desde el menú **View** si faltan en pantalla.
 
@@ -314,7 +335,7 @@ Los proyectos de Perastage (`*.psproj`) guardan la escena, los layouts y la
 configuración de usuario. Un proyecto puede contener varias **páginas de layout**
 (hojas imprimibles) y se pueden abrir o guardar en cualquier momento.
 
-**File → New / Load / Save / Save As...**
+**File > New / Load / Save / Save As...**
 
 - **New** crea un proyecto vacío.
 - **Load** abre un archivo `.psproj` existente.
@@ -330,11 +351,11 @@ Perastage guarda y restaura preferencias de usuario, como:
 - Posición/orientación de la cámara 3D y estado de la vista 2D.
 - Ajustes de impresión y layouts.
 
-## Atajos de teclado
+## Atajos de teclado y ratón
 
-### Globales
+### Globales (aplicación)
 
-| Tecla | Función |
+| Atajo | Función |
 | --- | --- |
 | Ctrl+N | Nuevo proyecto |
 | Ctrl+L | Cargar proyecto |
@@ -345,9 +366,9 @@ Perastage guarda y restaura preferencias de usuario, como:
 | F1 | Abrir ayuda |
 | 1 / 2 / 3 / 4 | Cambiar a Fixtures / Trusses / Hoists / Objects |
 
-### Visor 3D
+### Visor 3D (teclado)
 
-| Tecla | Función |
+| Atajo | Función |
 | --- | --- |
 | Flechas | Orbitar cámara |
 | Shift + flechas | Desplazar cámara |
@@ -355,14 +376,44 @@ Perastage guarda y restaura preferencias de usuario, como:
 | Numpad 1 / 3 / 7 | Vistas Frente / Derecha / Superior |
 | Numpad 5 | Reiniciar orientación de cámara |
 
-### Visor 2D
+### Visor 3D (ratón)
 
-| Tecla | Función |
+| Acción | Función |
 | --- | --- |
-| Arrastrar con ratón | Desplazar vista |
+| Arrastrar con botón izquierdo | Orbitar cámara |
+| Shift + arrastrar con botón izquierdo o botón central | Desplazar cámara |
 | Rueda del ratón | Zoom |
+| Clic izquierdo | Seleccionar fixture/truss/objeto bajo el cursor |
+| Shift/Ctrl + clic izquierdo | Alternar selección |
+| Ctrl + arrastrar con botón izquierdo | Selección por rectángulo |
+| Doble clic en una etiqueta de fixture | Abrir el diálogo de patch |
+
+### Visor 2D (teclado)
+
+| Atajo | Función |
+| --- | --- |
 | Flechas | Desplazar vista |
 | Alt + flechas | Zoom |
+
+### Visor 2D (ratón)
+
+| Acción | Función |
+| --- | --- |
+| Arrastrar con botón izquierdo (espacio vacío) | Desplazar vista |
+| Rueda del ratón | Zoom |
+| Clic izquierdo | Seleccionar fixture/truss/objeto bajo el cursor |
+| Shift/Ctrl + clic izquierdo | Alternar selección |
+| Ctrl + arrastrar con botón izquierdo | Selección por rectángulo |
+| Arrastrar elementos seleccionados | Mover selección (bloquea eje según dirección inicial) |
+
+### Consola (entrada de comandos)
+
+| Atajo | Función |
+| --- | --- |
+| Esc | Salir del prompt y reactivar atajos de la app |
+| Arriba / Abajo | Navegar historial |
+| Home | Ir al inicio de la entrada (tras el prompt) |
+| Izquierda / Retroceso | No permite moverse antes del prompt |
 
 ## Menús
 
@@ -412,7 +463,7 @@ Perastage guarda y restaura preferencias de usuario, como:
 
 | Opción | Descripción |
 | --- | --- |
-| Download GDTF fixture... | Descargar fixtures desde GDTF‑Share |
+| Download GDTF fixture... | Descargar fixtures desde GDTF-Share |
 | Edit dictionaries... | Editar diccionarios de riders |
 | Create from text... | Importar riders desde texto o PDF |
 | Export Fixture... | Exportar fixtures seleccionados |
@@ -462,7 +513,7 @@ Muestra mensajes de estado y permite comandos de edición rápida.
 
 - **Aplicar un valor a toda la selección:** escribe un número (o texto).
 - **Interpolar valores:** introduce inicio y fin (`1 12` o `1 thru 12`).
-- **Valores secuenciales:** termina con un espacio (`100␠`) o con `t` (`100 t`).
+- **Valores secuenciales:** termina con un espacio (`100 `) o con `t` (`100 t`).
 - **Separadores de rango:** `t` o `thru` con o sin espacios (`1t10`, `1 t 10`).
 - **Edición relativa:** usa `++` / `--` (por ejemplo `++0.5`, `--15`).
 
@@ -498,8 +549,7 @@ eliminar y cambiar el orden en profundidad (traer al frente / enviar atrás).
 
 ## Herramientas (Tools)
 
-- **Download GDTF fixture...**: busca y descarga fixtures desde **GDTF‑Share**.
-  El inicio de sesión guarda credenciales localmente de forma encriptada.
+- **Download GDTF fixture...**: busca y descarga fixtures desde **GDTF-Share**.
 - **Edit dictionaries...**: edita los diccionarios usados en el importador de riders.
 - **Create from text...**: importa riders desde texto o PDF. Usa el diccionario para
   resolver nombres de fixtures y mapearlos a archivos GDTF.
@@ -515,9 +565,11 @@ La consola permite seleccionar elementos y aplicar transformaciones con precisi�
 
 ### Selección
 
-- `f <ids>`: selecciona fixtures. Mantiene la selección actual y admite `+`/`-`.
-- `t <ids>`: selecciona trusses (reemplaza la selección de trusses).
-- `clear`: limpia la selección.
+| Comando | Descripción |
+| --- | --- |
+| `f <ids>` | Selecciona fixtures. Suma/resta de la selección con `+` o `-`. |
+| `t <ids>` | Selecciona trusses (reemplaza la selección de trusses). |
+| `clear` | Limpia todas las selecciones. |
 
 Rangos e incrementos soportados:
 
@@ -536,29 +588,25 @@ clear              # limpia selección
 
 ### Posición y rotación
 
-- `pos x 1.5` fija X a 1,5 m.
-- `pos 0 0 5` fija X/Y/Z directamente.
-- `pos 1,2,3` usa valores separados por comas para X/Y/Z.
-- `x ++0.5` mueve solo el eje X en modo relativo.
-- `rot z 90` fija yaw a 90°.
-- `rot ++45` aplica una rotación relativa en todos los ejes.
+| Comando | Descripción |
+| --- | --- |
+| `pos x 1.5` | Fija X a 1,5 m (usa `y`/`z` para otros ejes). |
+| `pos 0 0 5` | Fija X/Y/Z directamente. |
+| `pos 1,2,3` | Usa valores separados por comas para X/Y/Z. |
+| `x ++0.5` | Mueve solo el eje X en modo relativo. |
+| `rot z 90` | Fija yaw a 90 grados. |
+| `rot ++45` | Aplica una rotación relativa en todos los ejes. |
 
 Puedes introducir dos valores para interpolar en la selección (por ejemplo
 `pos x 0 10`). Las posiciones están en metros y las rotaciones en grados.
 
 ## Preferencias
 
-Abre **Edit → Preferences...** para configurar el importador de riders:
+Abre **Edit > Preferences...** para configurar el importador de riders:
 
-- Auto‑patch tras la importación.
+- Auto-patch tras la importación.
 - Creación automática de capas por **posición** o por **tipo de fixture**.
-- Alturas, posiciones y márgenes por defecto (LX1–LX6) en metros.
-
-## Formatos compatibles
-
-- **MVR 1.6**: importación y exportación de fixtures, trusses, hoists y objetos.
-- **GDTF**: fixtures y modelos embebidos.
-- **3DS / GLB**: modelos 3D usados por MVR/GDTF.
+- Alturas, posiciones y márgenes por defecto (LX1-LX6) en metros.
 
 ## Resolución de problemas
 
@@ -568,11 +616,5 @@ Abre **Edit → Preferences...** para configurar el importador de riders:
 - Si no aparecen objetos en las tablas:
   - Verifica que el MVR define correctamente los objetos.
   - Revisa la consola por advertencias o errores.
-
-## Documentación adicional
-
-- Especificación MVR: `docs/mvr-spec.md`
-- Especificación GDTF: `docs/gdtf-spec.md`
-- Licencia: `LICENSE.txt` (GPL v3)
 
 </details>
