@@ -177,10 +177,12 @@ Viewer2DPanel::Viewer2DPanel(wxWindow *parent, bool allowOffscreenRender,
                  wxFULL_REPAINT_ON_RESIZE),
       m_allowOffscreenRender(allowOffscreenRender),
       m_persistViewState(persistViewState),
-      m_enableSelection(enableSelection) {
+      m_enableSelection(enableSelection),
+      m_dragTableUpdateTimer(this) {
   SetBackgroundStyle(wxBG_STYLE_CUSTOM);
   m_controller.SetSelectionOutlineEnabled(m_enableSelection);
   m_glContext = new wxGLContext(this);
+  Bind(wxEVT_TIMER, &Viewer2DPanel::OnDragTableUpdateTimer, this);
 }
 
 Viewer2DPanel::~Viewer2DPanel() {
@@ -740,19 +742,15 @@ void Viewer2DPanel::ApplySelectionDelta(
   switch (m_dragTarget) {
   case DragTarget::Fixtures:
     applyDelta(scene.fixtures);
-    if (FixtureTablePanel::Instance())
-      FixtureTablePanel::Instance()->UpdatePositionValues(m_dragSelectionUuids);
+    ScheduleDragTableUpdate();
     break;
   case DragTarget::Trusses:
     applyDelta(scene.trusses);
-    if (TrussTablePanel::Instance())
-      TrussTablePanel::Instance()->UpdatePositionValues(m_dragSelectionUuids);
+    ScheduleDragTableUpdate();
     break;
   case DragTarget::SceneObjects:
     applyDelta(scene.sceneObjects);
-    if (SceneObjectTablePanel::Instance())
-      SceneObjectTablePanel::Instance()->UpdatePositionValues(
-          m_dragSelectionUuids);
+    ScheduleDragTableUpdate();
     break;
   default:
     break;
@@ -760,6 +758,7 @@ void Viewer2DPanel::ApplySelectionDelta(
 }
 
 void Viewer2DPanel::FinalizeSelectionDrag() {
+  StopDragTableUpdates();
   ConfigManager &cfg = ConfigManager::Get();
   switch (m_dragTarget) {
   case DragTarget::Fixtures:
@@ -792,6 +791,52 @@ void Viewer2DPanel::FinalizeSelectionDrag() {
   if (Viewer3DPanel::Instance()) {
     Viewer3DPanel::Instance()->UpdateScene();
     Viewer3DPanel::Instance()->Refresh();
+  }
+}
+
+void Viewer2DPanel::ScheduleDragTableUpdate() {
+  if (m_dragSelectionUuids.empty())
+    return;
+  m_pendingTableUpdateTarget = m_dragTarget;
+  m_pendingTableUpdateUuids = m_dragSelectionUuids;
+  m_pendingTableUpdate = true;
+  if (!m_dragTableUpdateTimer.IsRunning())
+    m_dragTableUpdateTimer.Start(kDragTableUpdateIntervalMs);
+}
+
+void Viewer2DPanel::StopDragTableUpdates() {
+  m_pendingTableUpdate = false;
+  m_pendingTableUpdateTarget = DragTarget::None;
+  m_pendingTableUpdateUuids.clear();
+  if (m_dragTableUpdateTimer.IsRunning())
+    m_dragTableUpdateTimer.Stop();
+}
+
+void Viewer2DPanel::OnDragTableUpdateTimer(wxTimerEvent &event) {
+  if (!m_pendingTableUpdate || m_dragMode != DragMode::Selection) {
+    StopDragTableUpdates();
+    return;
+  }
+
+  m_pendingTableUpdate = false;
+  switch (m_pendingTableUpdateTarget) {
+  case DragTarget::Fixtures:
+    if (FixtureTablePanel::Instance())
+      FixtureTablePanel::Instance()->UpdatePositionValues(
+          m_pendingTableUpdateUuids);
+    break;
+  case DragTarget::Trusses:
+    if (TrussTablePanel::Instance())
+      TrussTablePanel::Instance()->UpdatePositionValues(
+          m_pendingTableUpdateUuids);
+    break;
+  case DragTarget::SceneObjects:
+    if (SceneObjectTablePanel::Instance())
+      SceneObjectTablePanel::Instance()->UpdatePositionValues(
+          m_pendingTableUpdateUuids);
+    break;
+  default:
+    break;
   }
 }
 
