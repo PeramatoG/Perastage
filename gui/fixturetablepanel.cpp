@@ -1165,6 +1165,25 @@ void FixtureTablePanel::UpdateSelectionHighlight() {
     if (r != wxNOT_FOUND && static_cast<size_t>(r) < rowCount)
       selectedRows[r] = true;
   }
+  const wxColour selectionColor = store->selectionBackground;
+  const wxColour highlightColor(0, 200, 0);
+  for (size_t row = 0; row < rowCount; ++row) {
+    bool hasBackground = row < store->rowAttrs.size() &&
+                         store->rowAttrs[row].HasBackgroundColour();
+    wxColour currentBackground;
+    if (hasBackground)
+      currentBackground = store->rowAttrs[row].GetBackgroundColour();
+    bool isHighlight =
+        hasBackground && currentBackground == highlightColor;
+    if (selectedRows[row]) {
+      if (!hasBackground || currentBackground == selectionColor) {
+        if (!isHighlight)
+          store->SetRowBackgroundColour(row, selectionColor);
+      }
+    } else if (hasBackground && currentBackground == selectionColor) {
+      store->ClearRowBackground(row);
+    }
+  }
   store->SetSelectedRows(selectedRows);
 }
 
