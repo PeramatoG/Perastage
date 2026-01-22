@@ -1058,6 +1058,7 @@ void FixtureTablePanel::DeleteSelected() {
   if (SummaryPanel::Instance())
     SummaryPanel::Instance()->ShowFixtureSummary();
 
+  selectionOrder.clear();
   ResyncRows(oldOrder, {}, &oldPaths);
 }
 
@@ -1532,6 +1533,7 @@ void FixtureTablePanel::ResyncRows(
     if (pos != rowUuids.end())
       table->SelectRow(static_cast<int>(pos - rowUuids.begin()));
   }
+  UpdateSelectionHighlight();
 }
 
 void FixtureTablePanel::OnColumnSorted(wxDataViewEvent &event) {
