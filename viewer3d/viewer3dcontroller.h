@@ -34,6 +34,7 @@
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
+#include <vector>
 #include <wx/gdicmn.h>
 #include <wx/string.h>
 
@@ -118,6 +119,15 @@ public:
   bool GetSceneObjectLabelAt(int mouseX, int mouseY, int width, int height,
                              wxString &outLabel, wxPoint &outPos,
                              std::string *outUuid = nullptr);
+  std::vector<std::string> GetFixturesInScreenRect(int x1, int y1, int x2,
+                                                   int y2, int width,
+                                                   int height) const;
+  std::vector<std::string> GetTrussesInScreenRect(int x1, int y1, int x2,
+                                                  int y2, int width,
+                                                  int height) const;
+  std::vector<std::string> GetSceneObjectsInScreenRect(int x1, int y1, int x2,
+                                                       int y2, int width,
+                                                       int height) const;
 
   // Update cached layer color for rendering
   void SetLayerColor(const std::string &layer, const std::string &hex);
