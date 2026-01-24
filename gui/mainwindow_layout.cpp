@@ -575,6 +575,7 @@ void MainWindow::OnLayoutAdd2DView(wxCommandEvent &WXUNUSED(event)) {
   ConfigManager &cfg = ConfigManager::Get();
   viewer2d::Viewer2DState baseState =
       viewer2d::CaptureState(viewport2DPanel, cfg);
+  viewer2d::ApplyEditorRenderOptions(baseState, cfg);
   layouts::Layout2DViewFrame frame = BuildDefaultLayout2DFrame(*layout);
   layouts::Layout2DViewDefinition view =
       viewer2d::ToLayoutDefinition(baseState, frame);
@@ -804,6 +805,7 @@ void MainWindow::OnLayout2DViewOk(wxCommandEvent &WXUNUSED(event)) {
       layout2DViewEditPanel ? layout2DViewEditPanel : viewport2DPanel;
   viewer2d::Viewer2DState current =
       viewer2d::CaptureState(editPanel, cfg);
+  viewer2d::ApplyEditorRenderOptions(current, cfg);
 
   layouts::Layout2DViewFrame frame{};
   int viewId = layout2DViewEditingId;
