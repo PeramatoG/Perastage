@@ -412,6 +412,7 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
         const auto &view = layoutViews[index];
         viewer2d::Viewer2DState layoutState =
             viewer2d::FromLayoutDefinition(view);
+        viewer2d::ApplyEditorRenderOptions(layoutState, *cfgPtr);
         layoutState.renderOptions.darkMode = false;
 
         const int fallbackViewportWidth = view.camera.viewportWidth > 0

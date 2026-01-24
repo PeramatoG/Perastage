@@ -70,6 +70,7 @@ private:
 };
 
 Viewer2DState FromLayoutDefinition(const layouts::Layout2DViewDefinition &view);
+void ApplyEditorRenderOptions(Viewer2DState &state, const ConfigManager &cfg);
 layouts::Layout2DViewDefinition ToLayoutDefinition(
     const Viewer2DState &state, const layouts::Layout2DViewFrame &frame = {});
 layouts::Layout2DViewDefinition CaptureLayoutDefinition(

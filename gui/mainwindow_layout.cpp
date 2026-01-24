@@ -760,6 +760,7 @@ void MainWindow::BeginLayout2DViewEdit() {
   Viewer2DRenderPanel::SetInstance(layout2DViewEditRenderPanel);
 
   viewer2d::Viewer2DState state = viewer2d::FromLayoutDefinition(*view);
+  viewer2d::ApplyEditorRenderOptions(state, cfg);
   layout2DViewStateGuard = std::make_unique<viewer2d::ScopedViewer2DState>(
       layout2DViewEditPanel, layout2DViewEditRenderPanel, cfg, state,
       viewport2DPanel, viewport2DRenderPanel, true);
