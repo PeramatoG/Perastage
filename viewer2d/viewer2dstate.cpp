@@ -258,7 +258,9 @@ layouts::Layout2DViewDefinition CaptureLayoutDefinition(
     resolvedFrame.width = viewState.viewportWidth;
     resolvedFrame.height = viewState.viewportHeight;
   }
-  return ToLayoutDefinition(CaptureState(panel, cfg), resolvedFrame);
+  Viewer2DState state = CaptureState(panel, cfg);
+  ApplyEditorRenderOptions(state, cfg);
+  return ToLayoutDefinition(state, resolvedFrame);
 }
 
 } // namespace viewer2d
