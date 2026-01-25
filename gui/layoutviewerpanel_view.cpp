@@ -164,7 +164,6 @@ void LayoutViewerPanel::DrawViewElement(
     ConfigManager &cfg = ConfigManager::Get();
     viewer2d::Viewer2DState layoutState =
         viewer2d::FromLayoutDefinition(view);
-    viewer2d::ApplyEditorRenderOptions(layoutState, cfg);
     layoutState.renderOptions.darkMode = false;
     cache.renderState = layoutState;
     cache.hasRenderState = true;
