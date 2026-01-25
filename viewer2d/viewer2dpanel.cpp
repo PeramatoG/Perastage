@@ -183,7 +183,8 @@ wxBEGIN_EVENT_TABLE(Viewer2DPanel, wxGLCanvas) EVT_PAINT(Viewer2DPanel::OnPaint)
                             EVT_SIZE(Viewer2DPanel::OnResize) wxEND_EVENT_TABLE()
 
 Viewer2DPanel::Viewer2DPanel(wxWindow *parent, bool allowOffscreenRender,
-                             bool persistViewState, bool enableSelection)
+                             bool persistViewState, bool enableSelection,
+                             wxGLContext *sharedContext)
     : wxGLCanvas(parent, wxID_ANY, nullptr, wxDefaultPosition, wxDefaultSize,
                  wxFULL_REPAINT_ON_RESIZE),
       m_allowOffscreenRender(allowOffscreenRender),
@@ -191,7 +192,7 @@ Viewer2DPanel::Viewer2DPanel(wxWindow *parent, bool allowOffscreenRender,
       m_enableSelection(enableSelection) {
   SetBackgroundStyle(wxBG_STYLE_CUSTOM);
   m_controller.SetSelectionOutlineEnabled(m_enableSelection);
-  m_glContext = new wxGLContext(this);
+  m_glContext = new wxGLContext(this, sharedContext);
   StartDragTableUpdateWorker();
 }
 
@@ -199,6 +200,7 @@ Viewer2DPanel::~Viewer2DPanel() {
   if (g_instance == this)
     g_instance = nullptr;
   StopDragTableUpdateWorker();
+  DestroyOffscreenTarget();
   delete m_glContext;
 }
 
@@ -623,6 +625,97 @@ bool Viewer2DPanel::RenderToRGBA(std::vector<unsigned char> &pixels, int &width,
 
   m_forceOffscreenRender = previousForce;
   return true;
+}
+
+bool Viewer2DPanel::RenderToTexture(unsigned int &texture,
+                                    unsigned int &framebuffer, int &width,
+                                    int &height) {
+  int w = 0;
+  int h = 0;
+  GetClientSize(&w, &h);
+  if (w <= 0 || h <= 0)
+    return false;
+
+  width = w;
+  height = h;
+
+  bool previousForce = m_forceOffscreenRender;
+  m_forceOffscreenRender = true;
+  InitGL();
+  EnsureOffscreenTarget(w, h);
+
+  GLint previousFbo = 0;
+  glGetIntegerv(GL_FRAMEBUFFER_BINDING, &previousFbo);
+  glBindFramebuffer(GL_FRAMEBUFFER, m_offscreenFbo);
+  glDrawBuffer(GL_COLOR_ATTACHMENT0);
+  RenderInternal(false);
+  glBindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(previousFbo));
+
+  texture = m_offscreenTexture;
+  framebuffer = m_offscreenFbo;
+
+  m_forceOffscreenRender = previousForce;
+  return true;
+}
+
+void Viewer2DPanel::EnsureOffscreenTarget(int width, int height) {
+  if (!m_glContext)
+    return;
+  SetCurrent(*m_glContext);
+
+  if (m_offscreenTexture == 0) {
+    glGenTextures(1, &m_offscreenTexture);
+  }
+  if (m_offscreenFbo == 0) {
+    glGenFramebuffers(1, &m_offscreenFbo);
+  }
+  if (m_offscreenDepthRbo == 0) {
+    glGenRenderbuffers(1, &m_offscreenDepthRbo);
+  }
+
+  if (m_offscreenWidth != width || m_offscreenHeight != height) {
+    m_offscreenWidth = width;
+    m_offscreenHeight = height;
+
+    glBindTexture(GL_TEXTURE_2D, m_offscreenTexture);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA,
+                 GL_UNSIGNED_BYTE, nullptr);
+
+    glBindRenderbuffer(GL_RENDERBUFFER, m_offscreenDepthRbo);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, width,
+                          height);
+  }
+
+  glBindFramebuffer(GL_FRAMEBUFFER, m_offscreenFbo);
+  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
+                         m_offscreenTexture, 0);
+  glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
+                            GL_RENDERBUFFER, m_offscreenDepthRbo);
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
+void Viewer2DPanel::DestroyOffscreenTarget() {
+  if (!m_glContext)
+    return;
+  SetCurrent(*m_glContext);
+  if (m_offscreenDepthRbo != 0) {
+    glDeleteRenderbuffers(1, &m_offscreenDepthRbo);
+    m_offscreenDepthRbo = 0;
+  }
+  if (m_offscreenFbo != 0) {
+    glDeleteFramebuffers(1, &m_offscreenFbo);
+    m_offscreenFbo = 0;
+  }
+  if (m_offscreenTexture != 0) {
+    glDeleteTextures(1, &m_offscreenTexture);
+    m_offscreenTexture = 0;
+  }
+  m_offscreenWidth = 0;
+  m_offscreenHeight = 0;
 }
 
 void Viewer2DPanel::OnPaint(wxPaintEvent &WXUNUSED(event)) {

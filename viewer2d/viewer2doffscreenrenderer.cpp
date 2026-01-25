@@ -23,17 +23,19 @@ constexpr int kDefaultViewportHeight = 900;
 }
 
 Viewer2DOffscreenRenderer::Viewer2DOffscreenRenderer(wxWindow *parent) {
-  host_ = new wxPanel(parent, wxID_ANY, wxDefaultPosition, wxSize(1, 1));
-  host_->Hide();
-
-  panel_ = new Viewer2DPanel(host_, true, false, false);
-  panel_->SetSize(wxSize(kDefaultViewportWidth, kDefaultViewportHeight));
-  panel_->SetClientSize(wxSize(kDefaultViewportWidth, kDefaultViewportHeight));
-  panel_->LoadViewFromConfig();
-  panel_->UpdateScene(true);
+  parent_ = parent;
+  CreatePanel();
 }
 
-Viewer2DOffscreenRenderer::~Viewer2DOffscreenRenderer() = default;
+Viewer2DOffscreenRenderer::~Viewer2DOffscreenRenderer() { DestroyPanel(); }
+
+void Viewer2DOffscreenRenderer::SetSharedContext(wxGLContext *sharedContext) {
+  if (sharedContext_ == sharedContext)
+    return;
+  sharedContext_ = sharedContext;
+  DestroyPanel();
+  CreatePanel();
+}
 
 void Viewer2DOffscreenRenderer::SetViewportSize(const wxSize &size) {
   if (!panel_)
@@ -49,4 +51,28 @@ void Viewer2DOffscreenRenderer::PrepareForCapture() {
     return;
   panel_->LoadViewFromConfig();
   panel_->UpdateScene(true);
+}
+
+void Viewer2DOffscreenRenderer::CreatePanel() {
+  if (!parent_)
+    return;
+  host_ = new wxPanel(parent_, wxID_ANY, wxDefaultPosition, wxSize(1, 1));
+  host_->Hide();
+
+  panel_ = new Viewer2DPanel(host_, true, false, false, sharedContext_);
+  panel_->SetSize(wxSize(kDefaultViewportWidth, kDefaultViewportHeight));
+  panel_->SetClientSize(wxSize(kDefaultViewportWidth, kDefaultViewportHeight));
+  panel_->LoadViewFromConfig();
+  panel_->UpdateScene(true);
+}
+
+void Viewer2DOffscreenRenderer::DestroyPanel() {
+  if (panel_) {
+    panel_->Destroy();
+    panel_ = nullptr;
+  }
+  if (host_) {
+    host_->Destroy();
+    host_ = nullptr;
+  }
 }

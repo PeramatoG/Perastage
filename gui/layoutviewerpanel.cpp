@@ -22,6 +22,7 @@
 #include <memory>
 #include <vector>
 
+#include <GL/glew.h>
 #include <GL/gl.h>
 #ifndef GL_CLAMP_TO_EDGE
 #define GL_CLAMP_TO_EDGE 0x812F
@@ -1001,6 +1002,8 @@ void LayoutViewerPanel::InitGL() {
     return;
   SetCurrent(*glContext_);
   if (!glInitialized_) {
+    glewExperimental = GL_TRUE;
+    glewInit();
     glDisable(GL_DEPTH_TEST);
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -1020,6 +1023,9 @@ void LayoutViewerPanel::RebuildCachedTexture() {
   Viewer2DPanel *capturePanel = nullptr;
   if (auto *mw = MainWindow::Instance()) {
     offscreenRenderer = mw->GetOffscreenRenderer();
+    if (offscreenRenderer) {
+      offscreenRenderer->SetSharedContext(glContext_);
+    }
     capturePanel = offscreenRenderer ? offscreenRenderer->GetPanel() : nullptr;
   }
   if (!capturePanel || !offscreenRenderer) {
@@ -1099,11 +1105,13 @@ void LayoutViewerPanel::RebuildCachedTexture() {
     auto stateGuard = std::make_shared<viewer2d::ScopedViewer2DState>(
         capturePanel, nullptr, cfg, renderState, nullptr, nullptr, false);
 
-    std::vector<unsigned char> pixels;
+    unsigned int sourceTexture = 0;
+    unsigned int sourceFbo = 0;
     int width = 0;
     int height = 0;
-    if (!capturePanel->RenderToRGBA(pixels, width, height) || width <= 0 ||
-        height <= 0) {
+    if (!capturePanel->RenderToTexture(sourceTexture, sourceFbo, width,
+                                       height) ||
+        width <= 0 || height <= 0 || sourceTexture == 0 || sourceFbo == 0) {
       ClearCachedTexture(cache);
       cache.textureSize = wxSize(0, 0);
       cache.renderZoom = 0.0;
@@ -1123,8 +1131,16 @@ void LayoutViewerPanel::RebuildCachedTexture() {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA,
-                 GL_UNSIGNED_BYTE, pixels.data());
+    if (cache.textureSize != wxSize(width, height)) {
+      glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA,
+                   GL_UNSIGNED_BYTE, nullptr);
+    }
+    GLint previousReadFbo = 0;
+    glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &previousReadFbo);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, sourceFbo);
+    glReadBuffer(GL_COLOR_ATTACHMENT0);
+    glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 0, 0, width, height);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, previousReadFbo);
     cache.textureSize = wxSize(width, height);
     cache.renderZoom = renderZoom;
   }
