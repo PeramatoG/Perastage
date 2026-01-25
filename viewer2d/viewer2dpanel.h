@@ -53,7 +53,8 @@ class Viewer2DPanel : public wxGLCanvas {
 public:
   explicit Viewer2DPanel(wxWindow *parent, bool allowOffscreenRender = false,
                          bool persistViewState = true,
-                         bool enableSelection = true);
+                         bool enableSelection = true,
+                         wxGLContext *sharedContext = nullptr);
   ~Viewer2DPanel();
 
   static Viewer2DPanel *Instance();
@@ -98,6 +99,8 @@ public:
 
   bool RenderToRGBA(std::vector<unsigned char> &pixels, int &width,
                     int &height);
+  bool RenderToTexture(unsigned int &texture, unsigned int &framebuffer,
+                       int &width, int &height);
 
   // Accessor for the last recorded set of drawing commands. The buffer is
   // cleared and re-populated on every requested capture.
@@ -149,6 +152,8 @@ private:
   void StopDragTableUpdates();
   void StartDragTableUpdateWorker();
   void StopDragTableUpdateWorker();
+  void EnsureOffscreenTarget(int width, int height);
+  void DestroyOffscreenTarget();
 
   struct DragTablePositionSnapshot {
     std::string uuid;
@@ -207,6 +212,11 @@ private:
 
   wxGLContext *m_glContext = nullptr;
   bool m_glInitialized = false;
+  unsigned int m_offscreenTexture = 0;
+  unsigned int m_offscreenFbo = 0;
+  unsigned int m_offscreenDepthRbo = 0;
+  int m_offscreenWidth = 0;
+  int m_offscreenHeight = 0;
   Viewer3DController m_controller;
   Viewer2DRenderMode m_renderMode = Viewer2DRenderMode::White;
   Viewer2DView m_view = Viewer2DView::Top;

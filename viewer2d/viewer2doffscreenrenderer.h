@@ -27,10 +27,15 @@ public:
   ~Viewer2DOffscreenRenderer();
 
   Viewer2DPanel *GetPanel() const { return panel_; }
+  void SetSharedContext(wxGLContext *sharedContext);
   void SetViewportSize(const wxSize &size);
   void PrepareForCapture();
 
 private:
+  void CreatePanel();
+  void DestroyPanel();
+  wxWindow *parent_ = nullptr;
   wxPanel *host_ = nullptr;
   Viewer2DPanel *panel_ = nullptr;
+  wxGLContext *sharedContext_ = nullptr;
 };
