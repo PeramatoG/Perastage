@@ -499,7 +499,7 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
   // Draw labels for all fixtures after rendering the scene so they appear on
   // top of geometry. Scale the label size with the current zoom so they behave
   // like regular scene objects instead of remaining a constant screen size.
-  m_controller.DrawAllFixtureLabels(w, h, m_zoom);
+  m_controller.DrawAllFixtureLabels(w, h, m_view, m_zoom);
 
   if (m_layoutEditAspect && *m_layoutEditAspect > 0.0f) {
     if (!m_layoutEditBaseSize || m_layoutEditBaseSize->GetWidth() <= 0 ||
