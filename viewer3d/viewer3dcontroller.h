@@ -106,7 +106,8 @@ public:
   // Renders labels for all fixtures with a uniform font size that scales
   // with the provided zoom factor. Labels have no outline and always show
   // name, ID and DMX address on three separate lines.
-  void DrawAllFixtureLabels(int width, int height, float zoom = 1.0f);
+  void DrawAllFixtureLabels(int width, int height, Viewer2DView view,
+                            float zoom = 1.0f);
 
   // Returns true and outputs label and screen position of the fixture
   // under the given mouse coordinates (if any)

@@ -2477,7 +2477,7 @@ void Viewer3DController::DrawFixtureLabels(int width, int height) {
 // drawn tag roughly matches the fixture size, and the optional zoom parameter
 // scales the label like regular geometry when zooming the 2D view.
 void Viewer3DController::DrawAllFixtureLabels(int width, int height,
-                                              float zoom) {
+                                              Viewer2DView view, float zoom) {
   double model[16];
   double proj[16];
   int viewport[4];
@@ -2506,7 +2506,7 @@ void Viewer3DController::DrawAllFixtureLabels(int width, int height,
                                                  "label_offset_angle_front",
                                                  "label_offset_angle_side",
                                                  "label_offset_angle_top"};
-  int viewIdx = static_cast<int>(cfg.GetFloat("view2d_view"));
+  int viewIdx = static_cast<int>(view);
   bool showName = cfg.GetFloat(nameKeys[viewIdx]) != 0.0f;
   bool showId = cfg.GetFloat(idKeys[viewIdx]) != 0.0f;
   bool showDmx = cfg.GetFloat(dmxKeys[viewIdx]) != 0.0f;
