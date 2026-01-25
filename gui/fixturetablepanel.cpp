@@ -215,7 +215,7 @@ void FixtureTablePanel::InitializeTable() {
 }
 
 void FixtureTablePanel::ReloadData() {
-  table->DeleteAllItems();
+  store->DeleteAllItems();
   gdtfPaths.clear();
   rowUuids.clear();
 
@@ -1030,7 +1030,7 @@ void FixtureTablePanel::DeleteSelected() {
       rowUuids.erase(rowUuids.begin() + r);
       if ((size_t)r < gdtfPaths.size())
         gdtfPaths.erase(gdtfPaths.begin() + r);
-      table->DeleteItem(r);
+      store->DeleteItem(r);
       for (auto itSel = selectionOrder.begin();
            itSel != selectionOrder.end();) {
         if (*itSel == r)
