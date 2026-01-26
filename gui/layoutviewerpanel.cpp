@@ -19,6 +19,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <functional>
 #include <memory>
 #include <vector>
 
@@ -321,8 +322,8 @@ void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
   Viewer2DOffscreenRenderer *offscreenRenderer = nullptr;
   if (auto *mw = MainWindow::Instance()) {
     offscreenRenderer = mw->GetOffscreenRenderer();
-    capturePanel =
-        offscreenRenderer ? offscreenRenderer->GetPanel() : nullptr;
+    if (!offscreenRenderer)
+      capturePanel = Viewer2DPanel::Instance();
   } else {
     capturePanel = Viewer2DPanel::Instance();
   }
@@ -1020,6 +1021,50 @@ void LayoutViewerPanel::InitGL() {
   }
 }
 
+size_t LayoutViewerPanel::BuildViewRenderToken(int viewId, int version,
+                                               double renderZoom,
+                                               const wxSize &size) const {
+  size_t seed = 0;
+  auto hashCombine = [&seed](size_t value) {
+    seed ^= value + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+  };
+  hashCombine(std::hash<int>{}(viewId));
+  hashCombine(std::hash<int>{}(version));
+  hashCombine(std::hash<int>{}(size.GetWidth()));
+  hashCombine(std::hash<int>{}(size.GetHeight()));
+  hashCombine(std::hash<double>{}(renderZoom));
+  return seed;
+}
+
+void LayoutViewerPanel::OnViewRenderReady(int viewId, size_t renderToken,
+                                          unsigned int texture,
+                                          const wxSize &size,
+                                          double renderZoom) {
+  ViewCache &cache = GetViewCache(viewId);
+  if (cache.renderRequestToken != renderToken)
+    return;
+  cache.renderPending = false;
+  if (texture == 0 || size.GetWidth() <= 0 || size.GetHeight() <= 0) {
+    cache.renderDirty = true;
+    renderDirty = true;
+    RequestRenderRebuild();
+    return;
+  }
+  InitGL();
+  if (!IsShownOnScreen())
+    return;
+  if (!BlitTextureToCache(texture, size, cache)) {
+    cache.renderDirty = true;
+    renderDirty = true;
+    RequestRenderRebuild();
+    return;
+  }
+  cache.textureSize = size;
+  cache.renderZoom = renderZoom;
+  cache.renderDirty = false;
+  Refresh();
+}
+
 bool LayoutViewerPanel::BlitTextureToCache(unsigned int sourceTexture,
                                            const wxSize &sourceSize,
                                            ViewCache &cache) {
@@ -1098,21 +1143,24 @@ void LayoutViewerPanel::RebuildCachedTexture() {
     return;
   }
 
-  renderDirty = false;
-
   Viewer2DOffscreenRenderer *offscreenRenderer = nullptr;
   Viewer2DPanel *capturePanel = nullptr;
+  Viewer2DOffscreenRenderer::PanelLock panelLock;
   if (auto *mw = MainWindow::Instance()) {
     offscreenRenderer = mw->GetOffscreenRenderer();
     if (offscreenRenderer) {
       offscreenRenderer->SetSharedContext(glContext_);
     }
-    capturePanel = offscreenRenderer ? offscreenRenderer->GetPanel() : nullptr;
+    if (offscreenRenderer) {
+      panelLock = offscreenRenderer->AcquirePanel();
+      capturePanel = panelLock.panel;
+    }
   }
   if (!capturePanel || !offscreenRenderer) {
     ClearCachedTexture();
     return;
   }
+  renderDirty = false;
 
   std::shared_ptr<const SymbolDefinitionSnapshot> legendSymbols =
       capturePanel->GetBottomSymbolCacheSnapshot();
@@ -1149,18 +1197,20 @@ void LayoutViewerPanel::RebuildCachedTexture() {
       legendSymbols = capturePanel->GetBottomSymbolCacheSnapshot();
     }
   }
+  if (panelLock.lock.owns_lock())
+    panelLock.lock.unlock();
   const double renderZoom = GetRenderZoom();
   for (const auto &view : currentLayout.view2dViews) {
     ViewCache &cache = GetViewCache(view.id);
-    if (!cache.renderDirty)
+    if (!cache.renderDirty && !cache.renderPending)
       continue;
-    cache.renderDirty = false;
     wxRect frameRect;
     if (!cache.hasCapture || !cache.hasRenderState ||
         !GetFrameRect(view.frame, frameRect)) {
       ClearCachedTexture(cache);
       cache.textureSize = wxSize(0, 0);
       cache.renderZoom = 0.0;
+      cache.renderPending = false;
       continue;
     }
 
@@ -1169,12 +1219,10 @@ void LayoutViewerPanel::RebuildCachedTexture() {
       ClearCachedTexture(cache);
       cache.textureSize = wxSize(0, 0);
       cache.renderZoom = 0.0;
+      cache.renderPending = false;
       continue;
     }
 
-    offscreenRenderer->SetViewportSize(renderSize);
-
-    ConfigManager &cfg = ConfigManager::Get();
     viewer2d::Viewer2DState renderState = cache.renderState;
     if (renderZoom != 1.0) {
       renderState.camera.zoom *= static_cast<float>(renderZoom);
@@ -1182,39 +1230,19 @@ void LayoutViewerPanel::RebuildCachedTexture() {
     renderState.camera.viewportWidth = renderSize.GetWidth();
     renderState.camera.viewportHeight = renderSize.GetHeight();
 
-    auto stateGuard = std::make_shared<viewer2d::ScopedViewer2DState>(
-        capturePanel, nullptr, cfg, renderState, nullptr, nullptr, false);
-
-    int width = renderSize.GetWidth();
-    int height = renderSize.GetHeight();
-    if (width <= 0 || height <= 0) {
-      ClearCachedTexture(cache);
-      cache.textureSize = wxSize(0, 0);
-      cache.renderZoom = 0.0;
+    const size_t renderToken =
+        BuildViewRenderToken(view.id, layoutVersion, renderZoom, renderSize);
+    if (cache.renderPending && cache.renderRequestToken == renderToken)
       continue;
-    }
-
-    InitGL();
-    if (!IsShownOnScreen())
-      return;
-    const wxSize renderSizeWx(width, height);
-    offscreenRenderer->PrepareForCapture(renderSizeWx);
-    const GLuint renderedTexture = offscreenRenderer->GetRenderedTexture();
-    if (renderedTexture == 0 ||
-        offscreenRenderer->GetRenderedTextureSize() != renderSizeWx) {
-      ClearCachedTexture(cache);
-      cache.textureSize = wxSize(0, 0);
-      cache.renderZoom = 0.0;
-      continue;
-    }
-    if (!BlitTextureToCache(renderedTexture, renderSizeWx, cache)) {
-      ClearCachedTexture(cache);
-      cache.textureSize = wxSize(0, 0);
-      cache.renderZoom = 0.0;
-      continue;
-    }
-    cache.textureSize = wxSize(width, height);
-    cache.renderZoom = renderZoom;
+    cache.renderPending = true;
+    cache.renderRequestToken = renderToken;
+    cache.renderDirty = false;
+    offscreenRenderer->EnqueueViewRender(
+        view.id, renderState, renderSize, renderToken, renderZoom,
+        [this](const Viewer2DOffscreenRenderer::RenderResult &result) {
+          OnViewRenderReady(result.viewId, result.renderToken, result.texture,
+                            result.size, result.renderZoom);
+        });
   }
 
   for (const auto &legend : currentLayout.legendViews) {
@@ -1568,6 +1596,7 @@ void LayoutViewerPanel::ClearCachedTexture() {
 }
 
 void LayoutViewerPanel::ClearCachedTexture(ViewCache &cache) {
+  cache.renderPending = false;
   if (cache.texture == 0 || !glContext_)
     return;
   if (!IsShown()) {
@@ -1577,6 +1606,7 @@ void LayoutViewerPanel::ClearCachedTexture(ViewCache &cache) {
   SetCurrent(*glContext_);
   glDeleteTextures(1, &cache.texture);
   cache.texture = 0;
+  cache.renderPending = false;
 }
 
 void LayoutViewerPanel::ClearCachedTexture(LegendCache &cache) {

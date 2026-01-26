@@ -152,7 +152,15 @@ void LayoutViewerPanel::DrawViewElement(
     Viewer2DOffscreenRenderer *offscreenRenderer, int activeViewId) {
   ViewCache &cache = GetViewCache(view.id);
   if (!captureInProgress && !cache.captureInProgress &&
-      cache.captureVersion != layoutVersion && capturePanel) {
+      cache.captureVersion != layoutVersion &&
+      (capturePanel || offscreenRenderer)) {
+    Viewer2DOffscreenRenderer::PanelLock panelLock;
+    if (!capturePanel && offscreenRenderer) {
+      panelLock = offscreenRenderer->AcquirePanel();
+      capturePanel = panelLock.panel;
+    }
+    if (!capturePanel)
+      return;
     captureInProgress = true;
     cache.captureInProgress = true;
     const int viewId = view.id;
@@ -168,18 +176,14 @@ void LayoutViewerPanel::DrawViewElement(
     layoutState.renderOptions.darkMode = false;
     cache.renderState = layoutState;
     cache.hasRenderState = true;
-    if (offscreenRenderer && fallbackViewportWidth > 0 &&
-        fallbackViewportHeight > 0) {
-      offscreenRenderer->SetViewportSize(
+    if (fallbackViewportWidth > 0 && fallbackViewportHeight > 0) {
+      capturePanel->SetSize(
+          wxSize(fallbackViewportWidth, fallbackViewportHeight));
+      capturePanel->SetClientSize(
           wxSize(fallbackViewportWidth, fallbackViewportHeight));
     }
     auto stateGuard = std::make_shared<viewer2d::ScopedViewer2DState>(
         capturePanel, nullptr, cfg, layoutState, nullptr, nullptr, false);
-    if (offscreenRenderer && fallbackViewportWidth > 0 &&
-        fallbackViewportHeight > 0) {
-      offscreenRenderer->PrepareForCapture(
-          wxSize(fallbackViewportWidth, fallbackViewportHeight));
-    }
     capturePanel->CaptureFrameNow(
         [this, viewId, stateGuard, fallbackViewportWidth, fallbackViewportHeight,
          capturePanel](CommandBuffer buffer, Viewer2DViewState state) {
@@ -203,6 +207,7 @@ void LayoutViewerPanel::DrawViewElement(
           cache.captureInProgress = false;
           captureInProgress = false;
           cache.renderDirty = true;
+          cache.renderPending = false;
           renderDirty = true;
           cache.textureSize = wxSize(0, 0);
           cache.renderZoom = 0.0;

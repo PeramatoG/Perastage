@@ -100,6 +100,8 @@ public:
       bool includeGridInCapture = true);
 
   void EnsureGLReady();
+  void SetExternalContext(wxGLContext *context);
+  void SetRenderViewportOverride(std::optional<wxSize> size);
 
   bool RenderToTexture(unsigned int &texture, unsigned int &framebuffer,
                        int &width, int &height);
@@ -195,6 +197,8 @@ private:
   bool m_hasHover = false;
   bool m_enableSelection = true;
   std::string m_hoverUuid;
+  wxGLContext *m_externalContext = nullptr;
+  std::optional<wxSize> m_renderViewportOverride;
 
   bool m_captureNextFrame = false;
   bool m_useSimplifiedFootprints = false;

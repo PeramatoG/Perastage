@@ -387,7 +387,12 @@ std::optional<wxSize> Viewer2DPanel::GetLayoutEditOverlaySize() const {
 Viewer2DViewState Viewer2DPanel::GetViewState() const {
   int w = 0;
   int h = 0;
-  const_cast<Viewer2DPanel *>(this)->GetClientSize(&w, &h);
+  if (m_renderViewportOverride) {
+    w = m_renderViewportOverride->GetWidth();
+    h = m_renderViewportOverride->GetHeight();
+  } else {
+    const_cast<Viewer2DPanel *>(this)->GetClientSize(&w, &h);
+  }
   if (m_layoutEditViewportSize) {
     w = m_layoutEditViewportSize->GetWidth();
     h = m_layoutEditViewportSize->GetHeight();
@@ -410,12 +415,23 @@ Viewer2DPanel::GetBottomSymbolCacheSnapshot() const {
 
 void Viewer2DPanel::EnsureGLReady() { InitGL(); }
 
+void Viewer2DPanel::SetExternalContext(wxGLContext *context) {
+  m_externalContext = context;
+}
+
+void Viewer2DPanel::SetRenderViewportOverride(std::optional<wxSize> size) {
+  m_renderViewportOverride = size;
+}
+
 void Viewer2DPanel::InitGL() {
   if (!IsShownOnScreen() && !m_forceOffscreenRender &&
       !m_allowOffscreenRender) {
     return;
   }
-  SetCurrent(*m_glContext);
+  wxGLContext *context = m_externalContext ? m_externalContext : m_glContext;
+  if (!context)
+    return;
+  SetCurrent(*context);
   if (!m_glInitialized) {
     glewExperimental = GL_TRUE;
     glewInit();
@@ -430,7 +446,12 @@ void Viewer2DPanel::Render() { RenderInternal(true); }
 
 void Viewer2DPanel::RenderInternal(bool swapBuffers) {
   int w, h;
-  GetClientSize(&w, &h);
+  if (m_renderViewportOverride) {
+    w = m_renderViewportOverride->GetWidth();
+    h = m_renderViewportOverride->GetHeight();
+  } else {
+    GetClientSize(&w, &h);
+  }
 
   glViewport(0, 0, w, h);
 

@@ -121,12 +121,18 @@ std::vector<LayoutLegendItem> BuildLayoutLegendItems() {
 
 void MainWindow::OnPrintViewer2D(wxCommandEvent &WXUNUSED(event)) {
   Viewer2DOffscreenRenderer *offscreenRenderer = GetOffscreenRenderer();
-  Viewer2DPanel *capturePanel =
-      offscreenRenderer ? offscreenRenderer->GetPanel() : nullptr;
-  if (!capturePanel) {
+  if (!offscreenRenderer) {
     wxMessageBox("2D viewport is not available.", "Print Viewer 2D",
                  wxOK | wxICON_ERROR);
     return;
+  }
+  {
+    auto panelLock = offscreenRenderer->AcquirePanel();
+    if (!panelLock.panel) {
+      wxMessageBox("2D viewport is not available.", "Print Viewer 2D",
+                   wxOK | wxICON_ERROR);
+      return;
+    }
   }
 
   ConfigManager &cfg = ConfigManager::Get();
@@ -174,6 +180,13 @@ void MainWindow::OnPrintViewer2D(wxCommandEvent &WXUNUSED(event)) {
   offscreenRenderer->SetViewportSize(captureSize);
   offscreenRenderer->PrepareForCapture(captureSize);
 
+  auto panelLock = offscreenRenderer->AcquirePanel();
+  Viewer2DPanel *capturePanel = panelLock.panel;
+  if (!capturePanel) {
+    wxMessageBox("2D viewport is not available.", "Print Viewer 2D",
+                 wxOK | wxICON_ERROR);
+    return;
+  }
   capturePanel->CaptureFrameNow(
       [this, capturePanel, opts, outputPath, outputPathDisplay](
           CommandBuffer buffer, Viewer2DViewState state) {
@@ -257,12 +270,18 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
   }
 
   Viewer2DOffscreenRenderer *offscreenRenderer = GetOffscreenRenderer();
-  Viewer2DPanel *capturePanel =
-      offscreenRenderer ? offscreenRenderer->GetPanel() : nullptr;
-  if (!capturePanel) {
+  if (!offscreenRenderer) {
     wxMessageBox("2D viewport is not available.", "Print Layout", wxOK,
                  this);
     return;
+  }
+  {
+    auto panelLock = offscreenRenderer->AcquirePanel();
+    if (!panelLock.panel) {
+      wxMessageBox("2D viewport is not available.", "Print Layout", wxOK,
+                   this);
+      return;
+    }
   }
 
   ConfigManager &cfg = ConfigManager::Get();
@@ -360,9 +379,9 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
       std::make_shared<std::function<void(size_t)>>();
   *captureNext =
       [this, captureNext, exportViews, layoutViews, offscreenRenderer,
-       capturePanel, cfgPtr, useSimplifiedFootprints, includeGrid, scaleX,
-       scaleY, outputPageW, outputPageH, outputLandscape, exportLegends,
-       exportTables, exportTexts, outputPathWx](size_t index) mutable {
+       cfgPtr, useSimplifiedFootprints, includeGrid, scaleX, scaleY,
+       outputPageW, outputPageH, outputLandscape, exportLegends, exportTables,
+       exportTexts, outputPathWx](size_t index) mutable {
         if (index >= layoutViews.size()) {
           Viewer2DPrintOptions opts;
           opts.pageWidthPt = outputPageW;
@@ -378,11 +397,20 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
           auto legendsToExport = std::move(*exportLegends);
           auto tablesToExport = std::move(*exportTables);
           auto textsToExport = std::move(*exportTexts);
-          if (capturePanel) {
-            auto legendSymbols = capturePanel->GetBottomSymbolCacheSnapshot();
-            for (auto &legend : legendsToExport) {
-              legend.symbolSnapshot = legendSymbols;
-            }
+          Viewer2DOffscreenRenderer::PanelLock panelLock;
+          Viewer2DPanel *capturePanel = nullptr;
+          if (offscreenRenderer) {
+            panelLock = offscreenRenderer->AcquirePanel();
+            capturePanel = panelLock.panel;
+          }
+          if (!capturePanel) {
+            wxMessageBox("2D viewport is not available.", "Print Layout", wxOK,
+                         this);
+            return;
+          }
+          auto legendSymbols = capturePanel->GetBottomSymbolCacheSnapshot();
+          for (auto &legend : legendsToExport) {
+            legend.symbolSnapshot = legendSymbols;
           }
 
           std::thread([this, views = std::move(viewsToExport), opts,
@@ -426,15 +454,26 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
         const int viewportHeight =
             fallbackViewportHeight > 0 ? fallbackViewportHeight : 900;
 
-        auto stateGuard = std::make_shared<viewer2d::ScopedViewer2DState>(
-            capturePanel, nullptr, *cfgPtr, layoutState, nullptr, nullptr,
-            false);
         if (offscreenRenderer && viewportWidth > 0 && viewportHeight > 0) {
           offscreenRenderer->SetViewportSize(
               wxSize(viewportWidth, viewportHeight));
           offscreenRenderer->PrepareForCapture(
               wxSize(viewportWidth, viewportHeight));
         }
+        Viewer2DOffscreenRenderer::PanelLock panelLock;
+        Viewer2DPanel *capturePanel = nullptr;
+        if (offscreenRenderer) {
+          panelLock = offscreenRenderer->AcquirePanel();
+          capturePanel = panelLock.panel;
+        }
+        if (!capturePanel) {
+          wxMessageBox("2D viewport is not available.", "Print Layout", wxOK,
+                       this);
+          return;
+        }
+        auto stateGuard = std::make_shared<viewer2d::ScopedViewer2DState>(
+            capturePanel, nullptr, *cfgPtr, layoutState, nullptr, nullptr,
+            false);
         capturePanel->CaptureFrameNow(
             [captureNext, exportViews, view, viewportWidth, viewportHeight,
              capturePanel, scaleX, scaleY,

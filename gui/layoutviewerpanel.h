@@ -66,6 +66,8 @@ private:
     wxSize textureSize{0, 0};
     double renderZoom = 0.0;
     bool renderDirty = true;
+    bool renderPending = false;
+    size_t renderRequestToken = 0;
   };
 
   struct LegendCache {
@@ -156,6 +158,10 @@ private:
                         bool updatePosition);
   void InitGL();
   void RebuildCachedTexture();
+  size_t BuildViewRenderToken(int viewId, int version, double renderZoom,
+                              const wxSize &size) const;
+  void OnViewRenderReady(int viewId, size_t renderToken, unsigned int texture,
+                         const wxSize &size, double renderZoom);
   bool BlitTextureToCache(unsigned int sourceTexture, const wxSize &sourceSize,
                           ViewCache &cache);
   void ClearCachedTexture();
