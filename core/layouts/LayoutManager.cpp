@@ -22,6 +22,7 @@
 
 #include <algorithm>
 #include <array>
+#include <exception>
 #include <unordered_set>
 
 namespace layouts {
@@ -272,43 +273,51 @@ void ReadLayers(const nlohmann::json &obj, Layout2DViewLayers &layers) {
 
 bool ParseLayout2DView(const nlohmann::json &value,
                        Layout2DViewDefinition &out) {
-  if (!value.is_object())
+  try {
+    if (!value.is_object())
+      return false;
+    if (auto idIt = value.find("id");
+        idIt != value.end() && idIt->is_number_integer())
+      out.id = idIt->get<int>();
+    if (auto zIt = value.find("zIndex");
+        zIt != value.end() && zIt->is_number_integer())
+      out.zIndex = zIt->get<int>();
+    auto frameIt = value.find("frame");
+    if (frameIt != value.end() && frameIt->is_object())
+      ReadFrame(*frameIt, out.frame);
+    auto cameraIt = value.find("camera");
+    if (cameraIt != value.end() && cameraIt->is_object())
+      ReadCamera(*cameraIt, out.camera);
+    auto renderIt = value.find("renderOptions");
+    if (renderIt != value.end() && renderIt->is_object())
+      ReadRenderOptions(*renderIt, out.renderOptions);
+    auto layersIt = value.find("layers");
+    if (layersIt != value.end() && layersIt->is_object())
+      ReadLayers(*layersIt, out.layers);
+    return true;
+  } catch (const std::exception &) {
     return false;
-  if (auto idIt = value.find("id");
-      idIt != value.end() && idIt->is_number_integer())
-    out.id = idIt->get<int>();
-  if (auto zIt = value.find("zIndex");
-      zIt != value.end() && zIt->is_number_integer())
-    out.zIndex = zIt->get<int>();
-  auto frameIt = value.find("frame");
-  if (frameIt != value.end() && frameIt->is_object())
-    ReadFrame(*frameIt, out.frame);
-  auto cameraIt = value.find("camera");
-  if (cameraIt != value.end() && cameraIt->is_object())
-    ReadCamera(*cameraIt, out.camera);
-  auto renderIt = value.find("renderOptions");
-  if (renderIt != value.end() && renderIt->is_object())
-    ReadRenderOptions(*renderIt, out.renderOptions);
-  auto layersIt = value.find("layers");
-  if (layersIt != value.end() && layersIt->is_object())
-    ReadLayers(*layersIt, out.layers);
-  return true;
+  }
 }
 
 bool ParseLayoutLegend(const nlohmann::json &value,
                        LayoutLegendDefinition &out) {
-  if (!value.is_object())
+  try {
+    if (!value.is_object())
+      return false;
+    if (auto idIt = value.find("id");
+        idIt != value.end() && idIt->is_number_integer())
+      out.id = idIt->get<int>();
+    if (auto zIt = value.find("zIndex");
+        zIt != value.end() && zIt->is_number_integer())
+      out.zIndex = zIt->get<int>();
+    auto frameIt = value.find("frame");
+    if (frameIt != value.end() && frameIt->is_object())
+      ReadFrame(*frameIt, out.frame);
+    return true;
+  } catch (const std::exception &) {
     return false;
-  if (auto idIt = value.find("id");
-      idIt != value.end() && idIt->is_number_integer())
-    out.id = idIt->get<int>();
-  if (auto zIt = value.find("zIndex");
-      zIt != value.end() && zIt->is_number_integer())
-    out.zIndex = zIt->get<int>();
-  auto frameIt = value.find("frame");
-  if (frameIt != value.end() && frameIt->is_object())
-    ReadFrame(*frameIt, out.frame);
-  return true;
+  }
 }
 
 void ReadEventTableFields(const nlohmann::json &obj,
@@ -324,71 +333,83 @@ void ReadEventTableFields(const nlohmann::json &obj,
 
 bool ParseLayoutEventTable(const nlohmann::json &value,
                            LayoutEventTableDefinition &out) {
-  if (!value.is_object())
+  try {
+    if (!value.is_object())
+      return false;
+    if (auto idIt = value.find("id");
+        idIt != value.end() && idIt->is_number_integer())
+      out.id = idIt->get<int>();
+    if (auto zIt = value.find("zIndex");
+        zIt != value.end() && zIt->is_number_integer())
+      out.zIndex = zIt->get<int>();
+    auto frameIt = value.find("frame");
+    if (frameIt != value.end() && frameIt->is_object())
+      ReadFrame(*frameIt, out.frame);
+    auto fieldsIt = value.find("fields");
+    if (fieldsIt != value.end())
+      ReadEventTableFields(*fieldsIt, out.fields);
+    return true;
+  } catch (const std::exception &) {
     return false;
-  if (auto idIt = value.find("id");
-      idIt != value.end() && idIt->is_number_integer())
-    out.id = idIt->get<int>();
-  if (auto zIt = value.find("zIndex");
-      zIt != value.end() && zIt->is_number_integer())
-    out.zIndex = zIt->get<int>();
-  auto frameIt = value.find("frame");
-  if (frameIt != value.end() && frameIt->is_object())
-    ReadFrame(*frameIt, out.frame);
-  auto fieldsIt = value.find("fields");
-  if (fieldsIt != value.end())
-    ReadEventTableFields(*fieldsIt, out.fields);
-  return true;
+  }
 }
 
 bool ParseLayoutText(const nlohmann::json &value,
                      LayoutTextDefinition &out) {
-  if (!value.is_object())
+  try {
+    if (!value.is_object())
+      return false;
+    if (auto idIt = value.find("id");
+        idIt != value.end() && idIt->is_number_integer())
+      out.id = idIt->get<int>();
+    if (auto zIt = value.find("zIndex");
+        zIt != value.end() && zIt->is_number_integer())
+      out.zIndex = zIt->get<int>();
+    auto frameIt = value.find("frame");
+    if (frameIt != value.end() && frameIt->is_object())
+      ReadFrame(*frameIt, out.frame);
+    if (auto textIt = value.find("text");
+        textIt != value.end() && textIt->is_string())
+      out.text = textIt->get<std::string>();
+    if (auto richIt = value.find("richText");
+        richIt != value.end() && richIt->is_string())
+      out.richText = richIt->get<std::string>();
+    if (auto bgIt = value.find("solidBackground");
+        bgIt != value.end() && bgIt->is_boolean())
+      out.solidBackground = bgIt->get<bool>();
+    if (auto frameIt = value.find("drawFrame");
+        frameIt != value.end() && frameIt->is_boolean())
+      out.drawFrame = frameIt->get<bool>();
+    return true;
+  } catch (const std::exception &) {
     return false;
-  if (auto idIt = value.find("id");
-      idIt != value.end() && idIt->is_number_integer())
-    out.id = idIt->get<int>();
-  if (auto zIt = value.find("zIndex");
-      zIt != value.end() && zIt->is_number_integer())
-    out.zIndex = zIt->get<int>();
-  auto frameIt = value.find("frame");
-  if (frameIt != value.end() && frameIt->is_object())
-    ReadFrame(*frameIt, out.frame);
-  if (auto textIt = value.find("text");
-      textIt != value.end() && textIt->is_string())
-    out.text = textIt->get<std::string>();
-  if (auto richIt = value.find("richText");
-      richIt != value.end() && richIt->is_string())
-    out.richText = richIt->get<std::string>();
-  if (auto bgIt = value.find("solidBackground");
-      bgIt != value.end() && bgIt->is_boolean())
-    out.solidBackground = bgIt->get<bool>();
-  if (auto frameIt = value.find("drawFrame");
-      frameIt != value.end() && frameIt->is_boolean())
-    out.drawFrame = frameIt->get<bool>();
-  return true;
+  }
 }
 
 bool ParseLayoutImage(const nlohmann::json &value,
                       LayoutImageDefinition &out) {
-  if (!value.is_object())
+  try {
+    if (!value.is_object())
+      return false;
+    if (auto idIt = value.find("id");
+        idIt != value.end() && idIt->is_number_integer())
+      out.id = idIt->get<int>();
+    if (auto zIt = value.find("zIndex");
+        zIt != value.end() && zIt->is_number_integer())
+      out.zIndex = zIt->get<int>();
+    auto frameIt = value.find("frame");
+    if (frameIt != value.end() && frameIt->is_object())
+      ReadFrame(*frameIt, out.frame);
+    if (auto pathIt = value.find("path");
+        pathIt != value.end() && pathIt->is_string())
+      out.imagePath = pathIt->get<std::string>();
+    if (auto ratioIt = value.find("aspectRatio");
+        ratioIt != value.end() && ratioIt->is_number())
+      out.aspectRatio = ratioIt->get<float>();
+    return true;
+  } catch (const std::exception &) {
     return false;
-  if (auto idIt = value.find("id");
-      idIt != value.end() && idIt->is_number_integer())
-    out.id = idIt->get<int>();
-  if (auto zIt = value.find("zIndex");
-      zIt != value.end() && zIt->is_number_integer())
-    out.zIndex = zIt->get<int>();
-  auto frameIt = value.find("frame");
-  if (frameIt != value.end() && frameIt->is_object())
-    ReadFrame(*frameIt, out.frame);
-  if (auto pathIt = value.find("path");
-      pathIt != value.end() && pathIt->is_string())
-    out.imagePath = pathIt->get<std::string>();
-  if (auto ratioIt = value.find("aspectRatio");
-      ratioIt != value.end() && ratioIt->is_number())
-    out.aspectRatio = ratioIt->get<float>();
-  return true;
+  }
 }
 
 void EnsureUniqueViewIds(LayoutDefinition &layout) {
@@ -502,248 +523,255 @@ void EnsureUniqueImageIds(LayoutDefinition &layout) {
 }
 
 bool ParseLayout(const nlohmann::json &value, LayoutDefinition &out) {
-  if (!value.is_object())
-    return false;
-  const auto nameIt = value.find("name");
-  if (nameIt == value.end() || !nameIt->is_string())
-    return false;
-  out.name = nameIt->get<std::string>();
-  if (out.name.empty())
-    return false;
+  try {
+    if (!value.is_object())
+      return false;
+    const auto nameIt = value.find("name");
+    if (nameIt == value.end() || !nameIt->is_string())
+      return false;
+    out.name = nameIt->get<std::string>();
+    if (out.name.empty())
+      return false;
 
-  const auto sizeIt = value.find("pageSize");
-  if (sizeIt != value.end() && sizeIt->is_string())
-    out.pageSetup.pageSize = PageSizeFromString(sizeIt->get<std::string>());
-  else
-    out.pageSetup.pageSize = print::PageSize::A4;
+    const auto sizeIt = value.find("pageSize");
+    if (sizeIt != value.end() && sizeIt->is_string())
+      out.pageSetup.pageSize = PageSizeFromString(sizeIt->get<std::string>());
+    else
+      out.pageSetup.pageSize = print::PageSize::A4;
 
-  const auto landscapeIt = value.find("landscape");
-  out.pageSetup.landscape =
-      landscapeIt != value.end() && landscapeIt->is_boolean()
-          ? landscapeIt->get<bool>()
-          : false;
+    const auto landscapeIt = value.find("landscape");
+    out.pageSetup.landscape =
+        landscapeIt != value.end() && landscapeIt->is_boolean()
+            ? landscapeIt->get<bool>()
+            : false;
 
-  out.view2dViews.clear();
-  bool hasZIndex = false;
-  if (auto viewsIt = value.find("view2dViews");
-      viewsIt != value.end() && viewsIt->is_array()) {
-    for (const auto &entry : *viewsIt) {
-      if (entry.is_object() && entry.find("zIndex") != entry.end())
-        hasZIndex = true;
-      Layout2DViewDefinition view;
-      if (!ParseLayout2DView(entry, view))
-        continue;
-      bool replaced = false;
-      if (view.id > 0) {
-        for (auto &existing : out.view2dViews) {
-          if (existing.id == view.id) {
-            existing = view;
-            replaced = true;
-            break;
+    out.view2dViews.clear();
+    bool hasZIndex = false;
+    if (auto viewsIt = value.find("view2dViews");
+        viewsIt != value.end() && viewsIt->is_array()) {
+      for (const auto &entry : *viewsIt) {
+        if (entry.is_object() && entry.find("zIndex") != entry.end())
+          hasZIndex = true;
+        Layout2DViewDefinition view;
+        if (!ParseLayout2DView(entry, view))
+          continue;
+        bool replaced = false;
+        if (view.id > 0) {
+          for (auto &existing : out.view2dViews) {
+            if (existing.id == view.id) {
+              existing = view;
+              replaced = true;
+              break;
+            }
           }
         }
+        if (!replaced)
+          out.view2dViews.push_back(std::move(view));
       }
-      if (!replaced)
+    }
+
+    out.legendViews.clear();
+    if (auto legendsIt = value.find("legendViews");
+        legendsIt != value.end() && legendsIt->is_array()) {
+      for (const auto &entry : *legendsIt) {
+        if (entry.is_object() && entry.find("zIndex") != entry.end())
+          hasZIndex = true;
+        LayoutLegendDefinition legend;
+        if (!ParseLayoutLegend(entry, legend))
+          continue;
+        bool replaced = false;
+        if (legend.id > 0) {
+          for (auto &existing : out.legendViews) {
+            if (existing.id == legend.id) {
+              existing = legend;
+              replaced = true;
+              break;
+            }
+          }
+        }
+        if (!replaced)
+          out.legendViews.push_back(std::move(legend));
+      }
+    }
+
+    out.eventTables.clear();
+    if (auto tablesIt = value.find("eventTables");
+        tablesIt != value.end() && tablesIt->is_array()) {
+      for (const auto &entry : *tablesIt) {
+        if (entry.is_object() && entry.find("zIndex") != entry.end())
+          hasZIndex = true;
+        LayoutEventTableDefinition table;
+        if (!ParseLayoutEventTable(entry, table))
+          continue;
+        bool replaced = false;
+        if (table.id > 0) {
+          for (auto &existing : out.eventTables) {
+            if (existing.id == table.id) {
+              existing = table;
+              replaced = true;
+              break;
+            }
+          }
+        }
+        if (!replaced)
+          out.eventTables.push_back(std::move(table));
+      }
+    }
+
+    out.textViews.clear();
+    if (auto textsIt = value.find("textViews");
+        textsIt != value.end() && textsIt->is_array()) {
+      for (const auto &entry : *textsIt) {
+        if (entry.is_object() && entry.find("zIndex") != entry.end())
+          hasZIndex = true;
+        LayoutTextDefinition text;
+        if (!ParseLayoutText(entry, text))
+          continue;
+        bool replaced = false;
+        if (text.id > 0) {
+          for (auto &existing : out.textViews) {
+            if (existing.id == text.id) {
+              existing = text;
+              replaced = true;
+              break;
+            }
+          }
+        }
+        if (!replaced)
+          out.textViews.push_back(std::move(text));
+      }
+    }
+
+    out.imageViews.clear();
+    if (auto imagesIt = value.find("imageViews");
+        imagesIt != value.end() && imagesIt->is_array()) {
+      for (const auto &entry : *imagesIt) {
+        if (entry.is_object() && entry.find("zIndex") != entry.end())
+          hasZIndex = true;
+        LayoutImageDefinition image;
+        if (!ParseLayoutImage(entry, image))
+          continue;
+        bool replaced = false;
+        if (image.id > 0) {
+          for (auto &existing : out.imageViews) {
+            if (existing.id == image.id) {
+              existing = image;
+              replaced = true;
+              break;
+            }
+          }
+        }
+        if (!replaced)
+          out.imageViews.push_back(std::move(image));
+      }
+    }
+
+    if (out.view2dViews.empty()) {
+      const auto viewStateIt = value.find("view2dState");
+      if (viewStateIt != value.end() && viewStateIt->is_object()) {
+        const auto &viewObj = *viewStateIt;
+        Layout2DViewDefinition view;
+        Layout2DViewCameraState camera;
+        Layout2DViewRenderOptions options;
+        Layout2DViewLayers layers;
+        if (auto it = viewObj.find("offsetPixelsX");
+            it != viewObj.end() && it->is_number())
+          camera.offsetPixelsX = it->get<float>();
+        if (auto it = viewObj.find("offsetPixelsY");
+            it != viewObj.end() && it->is_number())
+          camera.offsetPixelsY = it->get<float>();
+        if (auto it = viewObj.find("zoom");
+            it != viewObj.end() && it->is_number())
+          camera.zoom = it->get<float>();
+        if (auto it = viewObj.find("viewportWidth");
+            it != viewObj.end() && it->is_number_integer())
+          camera.viewportWidth = it->get<int>();
+        if (auto it = viewObj.find("viewportHeight");
+            it != viewObj.end() && it->is_number_integer())
+          camera.viewportHeight = it->get<int>();
+        if (auto it = viewObj.find("view");
+            it != viewObj.end() && it->is_number())
+          camera.view = it->get<int>();
+        if (auto it = viewObj.find("renderMode");
+            it != viewObj.end() && it->is_number())
+          options.renderMode = it->get<int>();
+        if (auto it = viewObj.find("darkMode");
+            it != viewObj.end() && it->is_boolean())
+          options.darkMode = it->get<bool>();
+        if (auto it = viewObj.find("showGrid");
+            it != viewObj.end() && it->is_boolean())
+          options.showGrid = it->get<bool>();
+        if (auto it = viewObj.find("gridStyle");
+            it != viewObj.end() && it->is_number())
+          options.gridStyle = it->get<int>();
+        if (auto it = viewObj.find("gridColorR");
+            it != viewObj.end() && it->is_number())
+          options.gridColorR = it->get<float>();
+        if (auto it = viewObj.find("gridColorG");
+            it != viewObj.end() && it->is_number())
+          options.gridColorG = it->get<float>();
+        if (auto it = viewObj.find("gridColorB");
+            it != viewObj.end() && it->is_number())
+          options.gridColorB = it->get<float>();
+        if (auto it = viewObj.find("gridDrawAbove");
+            it != viewObj.end() && it->is_boolean())
+          options.gridDrawAbove = it->get<bool>();
+        ReadBoolArray(viewObj, "showLabelName", options.showLabelName);
+        ReadBoolArray(viewObj, "showLabelId", options.showLabelId);
+        ReadBoolArray(viewObj, "showLabelDmx", options.showLabelDmx);
+        if (auto it = viewObj.find("labelFontSizeName");
+            it != viewObj.end() && it->is_number())
+          options.labelFontSizeName = it->get<float>();
+        if (auto it = viewObj.find("labelFontSizeId");
+            it != viewObj.end() && it->is_number())
+          options.labelFontSizeId = it->get<float>();
+        if (auto it = viewObj.find("labelFontSizeDmx");
+            it != viewObj.end() && it->is_number())
+          options.labelFontSizeDmx = it->get<float>();
+        ReadFloatArray(viewObj, "labelOffsetDistance",
+                       options.labelOffsetDistance);
+        ReadFloatArray(viewObj, "labelOffsetAngle", options.labelOffsetAngle);
+        if (auto it = viewObj.find("hiddenLayers");
+            it != viewObj.end() && it->is_array()) {
+          layers.hiddenLayers.clear();
+          for (const auto &entry : *it) {
+            if (entry.is_string())
+              layers.hiddenLayers.push_back(entry.get<std::string>());
+          }
+        }
+        Layout2DViewFrame frame;
+        if (auto it = viewObj.find("frameWidth");
+            it != viewObj.end() && it->is_number_integer())
+          frame.width = it->get<int>();
+        if (auto it = viewObj.find("frameHeight");
+            it != viewObj.end() && it->is_number_integer())
+          frame.height = it->get<int>();
+        view.frame = frame;
+        view.camera = camera;
+        view.renderOptions = options;
+        view.layers = std::move(layers);
         out.view2dViews.push_back(std::move(view));
-    }
-  }
-
-  out.legendViews.clear();
-  if (auto legendsIt = value.find("legendViews");
-      legendsIt != value.end() && legendsIt->is_array()) {
-    for (const auto &entry : *legendsIt) {
-      if (entry.is_object() && entry.find("zIndex") != entry.end())
-        hasZIndex = true;
-      LayoutLegendDefinition legend;
-      if (!ParseLayoutLegend(entry, legend))
-        continue;
-      bool replaced = false;
-      if (legend.id > 0) {
-        for (auto &existing : out.legendViews) {
-          if (existing.id == legend.id) {
-            existing = legend;
-            replaced = true;
-            break;
-          }
-        }
       }
-      if (!replaced)
-        out.legendViews.push_back(std::move(legend));
     }
-  }
 
-  out.eventTables.clear();
-  if (auto tablesIt = value.find("eventTables");
-      tablesIt != value.end() && tablesIt->is_array()) {
-    for (const auto &entry : *tablesIt) {
-      if (entry.is_object() && entry.find("zIndex") != entry.end())
-        hasZIndex = true;
-      LayoutEventTableDefinition table;
-      if (!ParseLayoutEventTable(entry, table))
-        continue;
-      bool replaced = false;
-      if (table.id > 0) {
-        for (auto &existing : out.eventTables) {
-          if (existing.id == table.id) {
-            existing = table;
-            replaced = true;
-            break;
-          }
-        }
-      }
-      if (!replaced)
-        out.eventTables.push_back(std::move(table));
+    if (!hasZIndex) {
+      int nextZ = 0;
+      for (auto &view : out.view2dViews)
+        view.zIndex = nextZ++;
+      for (auto &legend : out.legendViews)
+        legend.zIndex = nextZ++;
+      for (auto &table : out.eventTables)
+        table.zIndex = nextZ++;
+      for (auto &text : out.textViews)
+        text.zIndex = nextZ++;
+      for (auto &image : out.imageViews)
+        image.zIndex = nextZ++;
     }
-  }
 
-  out.textViews.clear();
-  if (auto textsIt = value.find("textViews");
-      textsIt != value.end() && textsIt->is_array()) {
-    for (const auto &entry : *textsIt) {
-      if (entry.is_object() && entry.find("zIndex") != entry.end())
-        hasZIndex = true;
-      LayoutTextDefinition text;
-      if (!ParseLayoutText(entry, text))
-        continue;
-      bool replaced = false;
-      if (text.id > 0) {
-        for (auto &existing : out.textViews) {
-          if (existing.id == text.id) {
-            existing = text;
-            replaced = true;
-            break;
-          }
-        }
-      }
-      if (!replaced)
-        out.textViews.push_back(std::move(text));
-    }
+    return true;
+  } catch (const std::exception &) {
+    return false;
   }
-
-  out.imageViews.clear();
-  if (auto imagesIt = value.find("imageViews");
-      imagesIt != value.end() && imagesIt->is_array()) {
-    for (const auto &entry : *imagesIt) {
-      if (entry.is_object() && entry.find("zIndex") != entry.end())
-        hasZIndex = true;
-      LayoutImageDefinition image;
-      if (!ParseLayoutImage(entry, image))
-        continue;
-      bool replaced = false;
-      if (image.id > 0) {
-        for (auto &existing : out.imageViews) {
-          if (existing.id == image.id) {
-            existing = image;
-            replaced = true;
-            break;
-          }
-        }
-      }
-      if (!replaced)
-        out.imageViews.push_back(std::move(image));
-    }
-  }
-
-  if (out.view2dViews.empty()) {
-    const auto viewStateIt = value.find("view2dState");
-    if (viewStateIt != value.end() && viewStateIt->is_object()) {
-      const auto &viewObj = *viewStateIt;
-      Layout2DViewDefinition view;
-      Layout2DViewCameraState camera;
-      Layout2DViewRenderOptions options;
-      Layout2DViewLayers layers;
-      if (auto it = viewObj.find("offsetPixelsX");
-          it != viewObj.end() && it->is_number())
-        camera.offsetPixelsX = it->get<float>();
-      if (auto it = viewObj.find("offsetPixelsY");
-          it != viewObj.end() && it->is_number())
-        camera.offsetPixelsY = it->get<float>();
-      if (auto it = viewObj.find("zoom"); it != viewObj.end() && it->is_number())
-        camera.zoom = it->get<float>();
-      if (auto it = viewObj.find("viewportWidth");
-          it != viewObj.end() && it->is_number_integer())
-        camera.viewportWidth = it->get<int>();
-      if (auto it = viewObj.find("viewportHeight");
-          it != viewObj.end() && it->is_number_integer())
-        camera.viewportHeight = it->get<int>();
-      if (auto it = viewObj.find("view"); it != viewObj.end() && it->is_number())
-        camera.view = it->get<int>();
-      if (auto it = viewObj.find("renderMode");
-          it != viewObj.end() && it->is_number())
-        options.renderMode = it->get<int>();
-      if (auto it = viewObj.find("darkMode");
-          it != viewObj.end() && it->is_boolean())
-        options.darkMode = it->get<bool>();
-      if (auto it = viewObj.find("showGrid");
-          it != viewObj.end() && it->is_boolean())
-        options.showGrid = it->get<bool>();
-      if (auto it = viewObj.find("gridStyle");
-          it != viewObj.end() && it->is_number())
-        options.gridStyle = it->get<int>();
-      if (auto it = viewObj.find("gridColorR");
-          it != viewObj.end() && it->is_number())
-        options.gridColorR = it->get<float>();
-      if (auto it = viewObj.find("gridColorG");
-          it != viewObj.end() && it->is_number())
-        options.gridColorG = it->get<float>();
-      if (auto it = viewObj.find("gridColorB");
-          it != viewObj.end() && it->is_number())
-        options.gridColorB = it->get<float>();
-      if (auto it = viewObj.find("gridDrawAbove");
-          it != viewObj.end() && it->is_boolean())
-        options.gridDrawAbove = it->get<bool>();
-      ReadBoolArray(viewObj, "showLabelName", options.showLabelName);
-      ReadBoolArray(viewObj, "showLabelId", options.showLabelId);
-      ReadBoolArray(viewObj, "showLabelDmx", options.showLabelDmx);
-      if (auto it = viewObj.find("labelFontSizeName");
-          it != viewObj.end() && it->is_number())
-        options.labelFontSizeName = it->get<float>();
-      if (auto it = viewObj.find("labelFontSizeId");
-          it != viewObj.end() && it->is_number())
-        options.labelFontSizeId = it->get<float>();
-      if (auto it = viewObj.find("labelFontSizeDmx");
-          it != viewObj.end() && it->is_number())
-        options.labelFontSizeDmx = it->get<float>();
-      ReadFloatArray(viewObj, "labelOffsetDistance", options.labelOffsetDistance);
-      ReadFloatArray(viewObj, "labelOffsetAngle", options.labelOffsetAngle);
-      if (auto it = viewObj.find("hiddenLayers");
-          it != viewObj.end() && it->is_array()) {
-        layers.hiddenLayers.clear();
-        for (const auto &entry : *it) {
-          if (entry.is_string())
-            layers.hiddenLayers.push_back(entry.get<std::string>());
-        }
-      }
-      Layout2DViewFrame frame;
-      if (auto it = viewObj.find("frameWidth");
-          it != viewObj.end() && it->is_number_integer())
-        frame.width = it->get<int>();
-      if (auto it = viewObj.find("frameHeight");
-          it != viewObj.end() && it->is_number_integer())
-        frame.height = it->get<int>();
-      view.frame = frame;
-      view.camera = camera;
-      view.renderOptions = options;
-      view.layers = std::move(layers);
-      out.view2dViews.push_back(std::move(view));
-    }
-  }
-
-  if (!hasZIndex) {
-    int nextZ = 0;
-    for (auto &view : out.view2dViews)
-      view.zIndex = nextZ++;
-    for (auto &legend : out.legendViews)
-      legend.zIndex = nextZ++;
-    for (auto &table : out.eventTables)
-      table.zIndex = nextZ++;
-    for (auto &text : out.textViews)
-      text.zIndex = nextZ++;
-    for (auto &image : out.imageViews)
-      image.zIndex = nextZ++;
-  }
-
-  return true;
 }
 } // namespace
 
