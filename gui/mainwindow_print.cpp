@@ -172,7 +172,7 @@ void MainWindow::OnPrintViewer2D(wxCommandEvent &WXUNUSED(event)) {
   if (viewport2DPanel)
     viewport2DPanel->SaveViewToConfig();
   offscreenRenderer->SetViewportSize(captureSize);
-  offscreenRenderer->PrepareForCapture();
+  offscreenRenderer->PrepareForCapture(captureSize);
 
   capturePanel->CaptureFrameNow(
       [this, capturePanel, opts, outputPath, outputPathDisplay](
@@ -426,15 +426,15 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
         const int viewportHeight =
             fallbackViewportHeight > 0 ? fallbackViewportHeight : 900;
 
-        if (offscreenRenderer && viewportWidth > 0 && viewportHeight > 0) {
-          offscreenRenderer->SetViewportSize(
-              wxSize(viewportWidth, viewportHeight));
-          offscreenRenderer->PrepareForCapture();
-        }
-
         auto stateGuard = std::make_shared<viewer2d::ScopedViewer2DState>(
             capturePanel, nullptr, *cfgPtr, layoutState, nullptr, nullptr,
             false);
+        if (offscreenRenderer && viewportWidth > 0 && viewportHeight > 0) {
+          offscreenRenderer->SetViewportSize(
+              wxSize(viewportWidth, viewportHeight));
+          offscreenRenderer->PrepareForCapture(
+              wxSize(viewportWidth, viewportHeight));
+        }
         capturePanel->CaptureFrameNow(
             [captureNext, exportViews, view, viewportWidth, viewportHeight,
              capturePanel, scaleX, scaleY,

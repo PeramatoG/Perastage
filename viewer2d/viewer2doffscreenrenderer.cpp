@@ -46,11 +46,15 @@ void Viewer2DOffscreenRenderer::SetViewportSize(const wxSize &size) {
   panel_->SetClientSize(size);
 }
 
-void Viewer2DOffscreenRenderer::PrepareForCapture() {
+void Viewer2DOffscreenRenderer::PrepareForCapture(const wxSize &size) {
   if (!panel_)
     return;
-  panel_->LoadViewFromConfig();
-  panel_->UpdateScene(true);
+  if (size.GetWidth() <= 0 || size.GetHeight() <= 0)
+    return;
+  SetViewportSize(size);
+  panel_->EnsureGLReady();
+  EnsureRenderTarget(size);
+  panel_->RenderToTexture(fbo_, size);
 }
 
 bool Viewer2DOffscreenRenderer::RenderToTexture(const wxSize &size) {
@@ -59,14 +63,8 @@ bool Viewer2DOffscreenRenderer::RenderToTexture(const wxSize &size) {
   if (size.GetWidth() <= 0 || size.GetHeight() <= 0)
     return false;
 
-  SetViewportSize(size);
-  panel_->EnsureGLReady();
-  EnsureOffscreenTarget(size);
-  if (renderedFbo_ == 0 || renderedTexture_ == 0)
-    return false;
-
-  panel_->RenderToFramebuffer(renderedFbo_);
-  return true;
+  PrepareForCapture(size);
+  return fbo_ != 0 && colorTex_ != 0;
 }
 
 void Viewer2DOffscreenRenderer::CreatePanel() {
@@ -83,7 +81,7 @@ void Viewer2DOffscreenRenderer::CreatePanel() {
 }
 
 void Viewer2DOffscreenRenderer::DestroyPanel() {
-  DestroyOffscreenTarget();
+  DestroyRenderTarget();
   if (panel_) {
     panel_->Destroy();
     panel_ = nullptr;
@@ -94,23 +92,23 @@ void Viewer2DOffscreenRenderer::DestroyPanel() {
   }
 }
 
-void Viewer2DOffscreenRenderer::EnsureOffscreenTarget(const wxSize &size) {
+void Viewer2DOffscreenRenderer::EnsureRenderTarget(const wxSize &size) {
   if (!panel_)
     return;
 
-  if (renderedTexture_ == 0) {
-    glGenTextures(1, &renderedTexture_);
+  if (colorTex_ == 0) {
+    glGenTextures(1, &colorTex_);
   }
-  if (renderedFbo_ == 0) {
-    glGenFramebuffers(1, &renderedFbo_);
+  if (fbo_ == 0) {
+    glGenFramebuffers(1, &fbo_);
   }
-  if (renderedDepthRbo_ == 0) {
-    glGenRenderbuffers(1, &renderedDepthRbo_);
+  if (depthRb_ == 0) {
+    glGenRenderbuffers(1, &depthRb_);
   }
 
-  if (renderedTextureSize_ != size) {
-    renderedTextureSize_ = size;
-    glBindTexture(GL_TEXTURE_2D, renderedTexture_);
+  if (renderSize_ != size) {
+    renderSize_ = size;
+    glBindTexture(GL_TEXTURE_2D, colorTex_);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -118,35 +116,35 @@ void Viewer2DOffscreenRenderer::EnsureOffscreenTarget(const wxSize &size) {
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, size.GetWidth(),
                  size.GetHeight(), 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 
-    glBindRenderbuffer(GL_RENDERBUFFER, renderedDepthRbo_);
+    glBindRenderbuffer(GL_RENDERBUFFER, depthRb_);
     glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24,
                           size.GetWidth(), size.GetHeight());
   }
 
-  glBindFramebuffer(GL_FRAMEBUFFER, renderedFbo_);
+  glBindFramebuffer(GL_FRAMEBUFFER, fbo_);
   glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
-                         renderedTexture_, 0);
+                         colorTex_, 0);
   glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
-                            GL_RENDERBUFFER, renderedDepthRbo_);
+                            GL_RENDERBUFFER, depthRb_);
   glDrawBuffer(GL_COLOR_ATTACHMENT0);
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
-void Viewer2DOffscreenRenderer::DestroyOffscreenTarget() {
+void Viewer2DOffscreenRenderer::DestroyRenderTarget() {
   if (panel_) {
     panel_->EnsureGLReady();
   }
-  if (renderedDepthRbo_ != 0) {
-    glDeleteRenderbuffers(1, &renderedDepthRbo_);
-    renderedDepthRbo_ = 0;
+  if (depthRb_ != 0) {
+    glDeleteRenderbuffers(1, &depthRb_);
+    depthRb_ = 0;
   }
-  if (renderedFbo_ != 0) {
-    glDeleteFramebuffers(1, &renderedFbo_);
-    renderedFbo_ = 0;
+  if (fbo_ != 0) {
+    glDeleteFramebuffers(1, &fbo_);
+    fbo_ = 0;
   }
-  if (renderedTexture_ != 0) {
-    glDeleteTextures(1, &renderedTexture_);
-    renderedTexture_ = 0;
+  if (colorTex_ != 0) {
+    glDeleteTextures(1, &colorTex_);
+    colorTex_ = 0;
   }
-  renderedTextureSize_ = wxSize(0, 0);
+  renderSize_ = wxSize(0, 0);
 }
