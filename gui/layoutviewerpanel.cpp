@@ -1283,10 +1283,19 @@ void LayoutViewerPanel::RebuildCachedTexture() {
   const double renderZoom = GetRenderZoom();
   for (const auto &view : currentLayout.view2dViews) {
     ViewCache &cache = GetViewCache(view.id);
+    if (!cache.hasRenderState) {
+      viewer2d::Viewer2DState layoutState =
+          viewer2d::FromLayoutDefinition(view);
+      layoutState.renderOptions.darkMode = false;
+      cache.renderState = layoutState;
+      cache.hasRenderState = true;
+      cache.renderDirty = true;
+      renderDirty = true;
+    }
     if (!cache.renderDirty)
       continue;
     wxRect frameRect;
-    if (!cache.hasRenderState || !GetFrameRect(view.frame, frameRect)) {
+    if (!GetFrameRect(view.frame, frameRect)) {
       continue;
     }
 
