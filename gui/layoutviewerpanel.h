@@ -166,6 +166,7 @@ private:
   void RequestRenderRebuild();
   void InvalidateRenderIfFrameChanged();
   void OnLoadingTimer(wxTimerEvent &event);
+  void OnRenderDelayTimer(wxTimerEvent &event);
   bool AreTexturesReady() const;
   void EmitEditViewRequest();
   bool SelectElementAtPosition(const wxPoint &pos);
@@ -260,6 +261,7 @@ private:
   bool isLoading = false;
   bool loadingRequested = false;
   wxTimer loadingTimer_;
+  wxTimer renderDelayTimer_;
   unsigned int loadingTextTexture_ = 0;
   wxSize loadingTextTextureSize_{0, 0};
   std::unordered_map<int, ViewCache> viewCaches_;
