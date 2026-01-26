@@ -30,6 +30,7 @@
 #include "viewer2dstate.h"
 
 wxDECLARE_EVENT(EVT_LAYOUT_VIEW_EDIT, wxCommandEvent);
+wxDECLARE_EVENT(EVT_LAYOUT_RENDER_READY, wxCommandEvent);
 
 class Viewer2DOffscreenRenderer;
 

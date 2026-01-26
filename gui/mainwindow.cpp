@@ -227,6 +227,7 @@ EVT_MENU(ID_Edit_Preferences, MainWindow::OnPreferences)
 EVT_COMMAND(wxID_ANY, EVT_PROJECT_LOADED, MainWindow::OnProjectLoaded)
 EVT_COMMAND(wxID_ANY, EVT_LAYOUT_SELECTED, MainWindow::OnLayoutSelected)
 EVT_COMMAND(wxID_ANY, EVT_LAYOUT_VIEW_EDIT, MainWindow::OnLayoutViewEdit)
+EVT_COMMAND(wxID_ANY, EVT_LAYOUT_RENDER_READY, MainWindow::OnLayoutRenderReady)
 wxEND_EVENT_TABLE()
 
                                                                     MainWindow::
@@ -599,9 +600,28 @@ void MainWindow::OnLayoutSelected(wxCommandEvent &event) {
   ActivateLayoutView(event.GetString().ToStdString());
 }
 
+void MainWindow::ShowLayoutLoadingIndicator(const wxString &message) {
+  if (GetStatusBar())
+    SetStatusText(message);
+  if (!layoutRenderCursor)
+    layoutRenderCursor = std::make_unique<wxBusyCursor>();
+}
+
+void MainWindow::ClearLayoutLoadingIndicator() {
+  if (GetStatusBar())
+    SetStatusText("");
+  layoutRenderCursor.reset();
+}
+
+void MainWindow::OnLayoutRenderReady(wxCommandEvent &) {
+  ClearLayoutLoadingIndicator();
+}
+
 void MainWindow::ActivateLayoutView(const std::string &layoutName) {
-  if (!auiManager || layoutName.empty())
+  if (!auiManager || layoutName.empty()) {
+    ClearLayoutLoadingIndicator();
     return;
+  }
 
   if (!activeLayoutName.empty() && activeLayoutName != layoutName) {
     PersistLayout2DViewState();
@@ -609,14 +629,22 @@ void MainWindow::ActivateLayoutView(const std::string &layoutName) {
   activeLayoutName = layoutName;
 
   const layouts::LayoutDefinition *selectedLayout = nullptr;
+  bool appliedLayout = false;
   const auto &layouts = layouts::LayoutManager::Get().GetLayouts().Items();
   for (const auto &layout : layouts) {
     if (layout.name == layoutName) {
       selectedLayout = &layout;
-      if (layoutViewerPanel)
+      if (layoutViewerPanel) {
+        ShowLayoutLoadingIndicator("Rendering layout...");
         layoutViewerPanel->SetLayoutDefinition(layout);
+        appliedLayout = true;
+      }
       break;
     }
+  }
+
+  if (!selectedLayout || !layoutViewerPanel || !appliedLayout) {
+    ClearLayoutLoadingIndicator();
   }
 
   if (viewport2DPanel) {
