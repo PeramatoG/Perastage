@@ -1227,7 +1227,7 @@ void LayoutViewerPanel::RebuildCachedTexture() {
       legendCaptureInProgress = true;
       ConfigManager &cfg = ConfigManager::Get();
       viewer2d::Viewer2DState state = viewer2d::CaptureState(capturePanel, cfg);
-      state.camera.view = Viewer2DView::Top;
+      state.camera.view = static_cast<int>(Viewer2DView::Top);
       state.renderOptions.darkMode = false;
       auto stateGuard = std::make_shared<viewer2d::ScopedViewer2DState>(
           capturePanel, nullptr, cfg, state, nullptr, nullptr, false);
@@ -1262,7 +1262,7 @@ void LayoutViewerPanel::RebuildCachedTexture() {
         ConfigManager &cfg = ConfigManager::Get();
         viewer2d::Viewer2DState state =
             viewer2d::CaptureState(capturePanel, cfg);
-        state.camera.view = targetView;
+        state.camera.view = static_cast<int>(targetView);
         state.renderOptions.darkMode = false;
         auto stateGuard = std::make_shared<viewer2d::ScopedViewer2DState>(
             capturePanel, nullptr, cfg, state, nullptr, nullptr, false);
