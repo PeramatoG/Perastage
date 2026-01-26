@@ -17,9 +17,218 @@
  */
 #include "viewer2doffscreenrenderer.h"
 
+#include "configmanager.h"
+#include "viewer2dstate.h"
+
+#include <algorithm>
+#include <functional>
+#include <string>
+#include <vector>
+
 namespace {
 constexpr int kDefaultViewportWidth = 1600;
 constexpr int kDefaultViewportHeight = 900;
+
+void HashCombine(size_t &seed, size_t value) {
+  seed ^= value + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+}
+
+template <typename T> void HashCombineValue(size_t &seed, const T &value) {
+  HashCombine(seed, std::hash<T>{}(value));
+}
+
+void HashMatrix(size_t &seed, const Matrix &matrix) {
+  for (float value : matrix.u)
+    HashCombineValue(seed, value);
+  for (float value : matrix.v)
+    HashCombineValue(seed, value);
+  for (float value : matrix.w)
+    HashCombineValue(seed, value);
+  for (float value : matrix.o)
+    HashCombineValue(seed, value);
+}
+
+size_t HashViewer2DState(const viewer2d::Viewer2DState &state) {
+  size_t seed = 0;
+  HashCombineValue(seed, state.camera.offsetPixelsX);
+  HashCombineValue(seed, state.camera.offsetPixelsY);
+  HashCombineValue(seed, state.camera.zoom);
+  HashCombineValue(seed, state.camera.viewportWidth);
+  HashCombineValue(seed, state.camera.viewportHeight);
+  HashCombineValue(seed, state.camera.view);
+
+  HashCombineValue(seed, state.renderOptions.renderMode);
+  HashCombineValue(seed, state.renderOptions.darkMode);
+  HashCombineValue(seed, state.renderOptions.showGrid);
+  HashCombineValue(seed, state.renderOptions.gridStyle);
+  HashCombineValue(seed, state.renderOptions.gridColorR);
+  HashCombineValue(seed, state.renderOptions.gridColorG);
+  HashCombineValue(seed, state.renderOptions.gridColorB);
+  HashCombineValue(seed, state.renderOptions.gridDrawAbove);
+
+  for (bool value : state.renderOptions.showLabelName)
+    HashCombineValue(seed, value);
+  for (bool value : state.renderOptions.showLabelId)
+    HashCombineValue(seed, value);
+  for (bool value : state.renderOptions.showLabelDmx)
+    HashCombineValue(seed, value);
+
+  HashCombineValue(seed, state.renderOptions.labelFontSizeName);
+  HashCombineValue(seed, state.renderOptions.labelFontSizeId);
+  HashCombineValue(seed, state.renderOptions.labelFontSizeDmx);
+  for (float value : state.renderOptions.labelOffsetDistance)
+    HashCombineValue(seed, value);
+  for (float value : state.renderOptions.labelOffsetAngle)
+    HashCombineValue(seed, value);
+
+  HashCombineValue(seed, state.layers.hiddenLayers.size());
+  for (const auto &layer : state.layers.hiddenLayers)
+    HashCombineValue(seed, layer);
+
+  return seed;
+}
+
+template <typename MapType>
+std::vector<std::pair<std::string, typename MapType::mapped_type>>
+SortedEntries(const MapType &map) {
+  std::vector<std::pair<std::string, typename MapType::mapped_type>> entries;
+  entries.reserve(map.size());
+  for (const auto &entry : map)
+    entries.push_back(entry);
+  std::sort(entries.begin(), entries.end(),
+            [](const auto &lhs, const auto &rhs) { return lhs.first < rhs.first; });
+  return entries;
+}
+
+size_t HashScene(const MvrScene &scene) {
+  size_t seed = 0;
+  HashCombineValue(seed, scene.basePath);
+  HashCombineValue(seed, scene.provider);
+  HashCombineValue(seed, scene.providerVersion);
+  HashCombineValue(seed, scene.versionMajor);
+  HashCombineValue(seed, scene.versionMinor);
+
+  HashCombineValue(seed, scene.fixtures.size());
+  for (const auto &entry : SortedEntries(scene.fixtures)) {
+    const Fixture &fixture = entry.second;
+    HashCombineValue(seed, entry.first);
+    HashCombineValue(seed, fixture.uuid);
+    HashCombineValue(seed, fixture.instanceName);
+    HashCombineValue(seed, fixture.typeName);
+    HashCombineValue(seed, fixture.gdtfSpec);
+    HashCombineValue(seed, fixture.gdtfMode);
+    HashCombineValue(seed, fixture.focus);
+    HashCombineValue(seed, fixture.function);
+    HashCombineValue(seed, fixture.layer);
+    HashCombineValue(seed, fixture.position);
+    HashCombineValue(seed, fixture.positionName);
+    HashCombineValue(seed, fixture.address);
+    HashCombineValue(seed, fixture.matrixRaw);
+    HashCombineValue(seed, fixture.color);
+    HashCombineValue(seed, fixture.fixtureId);
+    HashCombineValue(seed, fixture.fixtureIdNumeric);
+    HashCombineValue(seed, fixture.unitNumber);
+    HashCombineValue(seed, fixture.customId);
+    HashCombineValue(seed, fixture.customIdType);
+    HashCombineValue(seed, fixture.dmxInvertPan);
+    HashCombineValue(seed, fixture.dmxInvertTilt);
+    HashCombineValue(seed, fixture.powerConsumptionW);
+    HashCombineValue(seed, fixture.weightKg);
+    HashMatrix(seed, fixture.transform);
+  }
+
+  HashCombineValue(seed, scene.trusses.size());
+  for (const auto &entry : SortedEntries(scene.trusses)) {
+    const Truss &truss = entry.second;
+    HashCombineValue(seed, entry.first);
+    HashCombineValue(seed, truss.uuid);
+    HashCombineValue(seed, truss.name);
+    HashCombineValue(seed, truss.gdtfSpec);
+    HashCombineValue(seed, truss.gdtfMode);
+    HashCombineValue(seed, truss.symbolFile);
+    HashCombineValue(seed, truss.modelFile);
+    HashCombineValue(seed, truss.function);
+    HashCombineValue(seed, truss.layer);
+    HashCombineValue(seed, truss.manufacturer);
+    HashCombineValue(seed, truss.model);
+    HashCombineValue(seed, truss.lengthMm);
+    HashCombineValue(seed, truss.widthMm);
+    HashCombineValue(seed, truss.heightMm);
+    HashCombineValue(seed, truss.weightKg);
+    HashCombineValue(seed, truss.crossSection);
+    HashCombineValue(seed, truss.position);
+    HashCombineValue(seed, truss.positionName);
+    HashCombineValue(seed, truss.unitNumber);
+    HashCombineValue(seed, truss.customId);
+    HashCombineValue(seed, truss.customIdType);
+    HashMatrix(seed, truss.transform);
+  }
+
+  HashCombineValue(seed, scene.supports.size());
+  for (const auto &entry : SortedEntries(scene.supports)) {
+    const Support &support = entry.second;
+    HashCombineValue(seed, entry.first);
+    HashCombineValue(seed, support.uuid);
+    HashCombineValue(seed, support.name);
+    HashCombineValue(seed, support.gdtfSpec);
+    HashCombineValue(seed, support.gdtfMode);
+    HashCombineValue(seed, support.function);
+    HashCombineValue(seed, support.chainLength);
+    HashCombineValue(seed, support.position);
+    HashCombineValue(seed, support.positionName);
+    HashCombineValue(seed, support.layer);
+    HashCombineValue(seed, support.capacityKg);
+    HashCombineValue(seed, support.weightKg);
+    HashCombineValue(seed, support.hoistFunction);
+    HashMatrix(seed, support.transform);
+  }
+
+  HashCombineValue(seed, scene.sceneObjects.size());
+  for (const auto &entry : SortedEntries(scene.sceneObjects)) {
+    const SceneObject &object = entry.second;
+    HashCombineValue(seed, entry.first);
+    HashCombineValue(seed, object.uuid);
+    HashCombineValue(seed, object.name);
+    HashCombineValue(seed, object.layer);
+    HashCombineValue(seed, object.modelFile);
+    HashMatrix(seed, object.transform);
+  }
+
+  HashCombineValue(seed, scene.layers.size());
+  for (const auto &entry : SortedEntries(scene.layers)) {
+    const Layer &layer = entry.second;
+    HashCombineValue(seed, entry.first);
+    HashCombineValue(seed, layer.uuid);
+    HashCombineValue(seed, layer.name);
+    HashCombineValue(seed, layer.color);
+    HashCombineValue(seed, layer.childUUIDs.size());
+    for (const auto &child : layer.childUUIDs)
+      HashCombineValue(seed, child);
+  }
+
+  for (const auto &entry : SortedEntries(scene.positions)) {
+    HashCombineValue(seed, entry.first);
+    HashCombineValue(seed, entry.second);
+  }
+  for (const auto &entry : SortedEntries(scene.symdefFiles)) {
+    HashCombineValue(seed, entry.first);
+    HashCombineValue(seed, entry.second);
+  }
+  for (const auto &entry : SortedEntries(scene.symdefTypes)) {
+    HashCombineValue(seed, entry.first);
+    HashCombineValue(seed, entry.second);
+  }
+
+  return seed;
+}
+
+size_t HashViewer2DStateWithScene() {
+  ConfigManager &cfg = ConfigManager::Get();
+  viewer2d::Viewer2DState state = viewer2d::CaptureState(nullptr, cfg);
+  size_t seed = HashViewer2DState(state);
+  HashCombine(seed, HashScene(cfg.GetScene()));
+  return seed;
+}
 }
 
 Viewer2DOffscreenRenderer::Viewer2DOffscreenRenderer(wxWindow *parent) {
@@ -54,6 +263,12 @@ void Viewer2DOffscreenRenderer::PrepareForCapture(const wxSize &size) {
   SetViewportSize(size);
   panel_->EnsureGLReady();
   EnsureRenderTarget(size);
+  size_t currentHash = HashViewer2DStateWithScene();
+  if (currentHash != lastStateHash_) {
+    panel_->LoadViewFromConfig();
+    panel_->UpdateScene(true);
+    lastStateHash_ = currentHash;
+  }
   panel_->RenderToTexture(fbo_, size);
 }
 
@@ -78,6 +293,7 @@ void Viewer2DOffscreenRenderer::CreatePanel() {
   panel_->SetClientSize(wxSize(kDefaultViewportWidth, kDefaultViewportHeight));
   panel_->LoadViewFromConfig();
   panel_->UpdateScene(true);
+  lastStateHash_ = HashViewer2DStateWithScene();
 }
 
 void Viewer2DOffscreenRenderer::DestroyPanel() {
@@ -90,6 +306,7 @@ void Viewer2DOffscreenRenderer::DestroyPanel() {
     host_->Destroy();
     host_ = nullptr;
   }
+  lastStateHash_ = 0;
 }
 
 void Viewer2DOffscreenRenderer::EnsureRenderTarget(const wxSize &size) {
