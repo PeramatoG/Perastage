@@ -602,31 +602,6 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
     SwapBuffers();
 }
 
-bool Viewer2DPanel::RenderToRGBA(std::vector<unsigned char> &pixels, int &width,
-                                 int &height) {
-  int w = 0;
-  int h = 0;
-  GetClientSize(&w, &h);
-  if (w <= 0 || h <= 0)
-    return false;
-
-  pixels.assign(static_cast<size_t>(w) * static_cast<size_t>(h) * 4, 0);
-  width = w;
-  height = h;
-
-  bool previousForce = m_forceOffscreenRender;
-  m_forceOffscreenRender = true;
-  InitGL();
-  RenderInternal(false);
-
-  glReadBuffer(GL_BACK);
-  glPixelStorei(GL_PACK_ALIGNMENT, 1);
-  glReadPixels(0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
-
-  m_forceOffscreenRender = previousForce;
-  return true;
-}
-
 bool Viewer2DPanel::RenderToTexture(unsigned int &texture,
                                     unsigned int &framebuffer, int &width,
                                     int &height) {
@@ -644,14 +619,25 @@ bool Viewer2DPanel::RenderToTexture(unsigned int &texture,
   InitGL();
   EnsureOffscreenTarget(w, h);
 
+  const bool useExternalTexture = texture != 0;
+  GLuint targetTexture =
+      useExternalTexture ? texture : static_cast<GLuint>(m_offscreenTexture);
+  if (targetTexture == 0) {
+    m_forceOffscreenRender = previousForce;
+    return false;
+  }
+
   GLint previousFbo = 0;
   glGetIntegerv(GL_FRAMEBUFFER_BINDING, &previousFbo);
   glBindFramebuffer(GL_FRAMEBUFFER, m_offscreenFbo);
+  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
+                         targetTexture, 0);
   glDrawBuffer(GL_COLOR_ATTACHMENT0);
   RenderInternal(false);
   glBindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(previousFbo));
 
-  texture = m_offscreenTexture;
+  if (!useExternalTexture)
+    texture = targetTexture;
   framebuffer = m_offscreenFbo;
 
   m_forceOffscreenRender = previousForce;

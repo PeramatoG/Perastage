@@ -99,8 +99,6 @@ public:
       bool useSimplifiedFootprints = false,
       bool includeGridInCapture = true);
 
-  bool RenderToRGBA(std::vector<unsigned char> &pixels, int &width,
-                    int &height);
   bool RenderToTexture(unsigned int &texture, unsigned int &framebuffer,
                        int &width, int &height);
 

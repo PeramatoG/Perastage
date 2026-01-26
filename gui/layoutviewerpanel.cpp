@@ -1105,13 +1105,10 @@ void LayoutViewerPanel::RebuildCachedTexture() {
     auto stateGuard = std::make_shared<viewer2d::ScopedViewer2DState>(
         capturePanel, nullptr, cfg, renderState, nullptr, nullptr, false);
 
-    unsigned int sourceTexture = 0;
     unsigned int sourceFbo = 0;
-    int width = 0;
-    int height = 0;
-    if (!capturePanel->RenderToTexture(sourceTexture, sourceFbo, width,
-                                       height) ||
-        width <= 0 || height <= 0 || sourceTexture == 0 || sourceFbo == 0) {
+    int width = renderSize.GetWidth();
+    int height = renderSize.GetHeight();
+    if (width <= 0 || height <= 0) {
       ClearCachedTexture(cache);
       cache.textureSize = wxSize(0, 0);
       cache.renderZoom = 0.0;
@@ -1135,12 +1132,15 @@ void LayoutViewerPanel::RebuildCachedTexture() {
       glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA,
                    GL_UNSIGNED_BYTE, nullptr);
     }
-    GLint previousReadFbo = 0;
-    glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &previousReadFbo);
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, sourceFbo);
-    glReadBuffer(GL_COLOR_ATTACHMENT0);
-    glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 0, 0, width, height);
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, previousReadFbo);
+
+    if (!capturePanel->RenderToTexture(cache.texture, sourceFbo, width,
+                                       height) ||
+        cache.texture == 0 || sourceFbo == 0) {
+      ClearCachedTexture(cache);
+      cache.textureSize = wxSize(0, 0);
+      cache.renderZoom = 0.0;
+      continue;
+    }
     cache.textureSize = wxSize(width, height);
     cache.renderZoom = renderZoom;
   }
