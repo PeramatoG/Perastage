@@ -430,13 +430,13 @@ void LayoutViewerPanel::DrawLoadingOverlay(const wxSize &size) {
   glBindTexture(GL_TEXTURE_2D, loadingTextTexture_);
   glColor4ub(255, 255, 255, 255);
   glBegin(GL_QUADS);
-  glTexCoord2f(0.0f, 1.0f);
-  glVertex2f(x, y);
-  glTexCoord2f(1.0f, 1.0f);
-  glVertex2f(x + textWidth, y);
   glTexCoord2f(1.0f, 0.0f);
-  glVertex2f(x + textWidth, y + textHeight);
+  glVertex2f(x, y);
   glTexCoord2f(0.0f, 0.0f);
+  glVertex2f(x + textWidth, y);
+  glTexCoord2f(0.0f, 1.0f);
+  glVertex2f(x + textWidth, y + textHeight);
+  glTexCoord2f(1.0f, 1.0f);
   glVertex2f(x, y + textHeight);
   glEnd();
   glDisable(GL_TEXTURE_2D);
@@ -446,7 +446,7 @@ void LayoutViewerPanel::EnsureLoadingTextTexture() {
   if (loadingTextTexture_ != 0)
     return;
 
-  const wxString label = wxString::FromUTF8("Cargando layout...");
+  const wxString label = wxString::FromUTF8("Loading layout...");
   wxFont font = wxFontInfo(14).Bold();
   int textWidth = 0;
   int textHeight = 0;
