@@ -55,6 +55,8 @@ constexpr int kEditImageMenuId = wxID_HIGHEST + 497;
 constexpr int kDeleteImageMenuId = wxID_HIGHEST + 498;
 constexpr int kBringToFrontMenuId = wxID_HIGHEST + 499;
 constexpr int kSendToBackMenuId = wxID_HIGHEST + 500;
+constexpr int kLoadingTimerId = wxID_HIGHEST + 501;
+constexpr int kRenderDelayTimerId = wxID_HIGHEST + 502;
 constexpr int kLoadingOverlayDelayMs = 150;
 
 int SnapToGrid(int value) {
@@ -103,8 +105,11 @@ LayoutViewerPanel::LayoutViewerPanel(wxWindow *parent)
   currentLayout.pageSetup.pageSize = print::PageSize::A4;
   currentLayout.pageSetup.landscape = true;
   pendingFitOnResize = true;
-  loadingTimer_.SetOwner(this);
-  Bind(wxEVT_TIMER, &LayoutViewerPanel::OnLoadingTimer, this);
+  loadingTimer_.SetOwner(this, kLoadingTimerId);
+  renderDelayTimer_.SetOwner(this, kRenderDelayTimerId);
+  Bind(wxEVT_TIMER, &LayoutViewerPanel::OnLoadingTimer, this, kLoadingTimerId);
+  Bind(wxEVT_TIMER, &LayoutViewerPanel::OnRenderDelayTimer, this,
+       kRenderDelayTimerId);
   ResetViewToFit();
 }
 
@@ -1717,12 +1722,14 @@ void LayoutViewerPanel::RequestRenderRebuild() {
     loadingTimer_.StartOnce(kLoadingOverlayDelayMs);
   }
   CallAfter([this]() {
-    renderPending = false;
     isLoading = true;
     Refresh();
     Update();
-    RebuildCachedTexture();
-    Refresh();
+    wxTheApp->Yield(true);
+    if (renderDelayTimer_.IsRunning()) {
+      renderDelayTimer_.Stop();
+    }
+    renderDelayTimer_.StartOnce(kLoadingOverlayDelayMs);
   });
 }
 
@@ -1841,6 +1848,20 @@ void LayoutViewerPanel::OnLoadingTimer(wxTimerEvent &) {
     return;
   isLoading = true;
   Refresh();
+}
+
+void LayoutViewerPanel::OnRenderDelayTimer(wxTimerEvent &) {
+  if (!renderPending)
+    return;
+  if (!renderDirty) {
+    renderPending = false;
+    return;
+  }
+  CallAfter([this]() {
+    renderPending = false;
+    RebuildCachedTexture();
+    Refresh();
+  });
 }
 
 bool LayoutViewerPanel::AreTexturesReady() const {
