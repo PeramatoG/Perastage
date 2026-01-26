@@ -148,7 +148,7 @@ void LayoutViewerPanel::SetLayoutDefinition(
     selectedElementId = -1;
   }
   layoutVersion++;
-  captureInProgress = false;
+  legendCaptureInProgress = false;
   ClearCachedTexture();
   renderDirty = true;
   RefreshLegendData();
@@ -324,14 +324,11 @@ void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
       selectedElementType == SelectedElementType::Image ? selectedElementId
                                                         : -1;
 
-  Viewer2DPanel *capturePanel = nullptr;
-  Viewer2DOffscreenRenderer *offscreenRenderer = nullptr;
+  Viewer2DPanel *defaultCapturePanel = nullptr;
   if (auto *mw = MainWindow::Instance()) {
-    offscreenRenderer = mw->GetOffscreenRenderer();
-    capturePanel =
-        offscreenRenderer ? offscreenRenderer->GetPanel() : nullptr;
+    defaultCapturePanel = mw->GetLayoutCapturePanel();
   } else {
-    capturePanel = Viewer2DPanel::Instance();
+    defaultCapturePanel = Viewer2DPanel::Instance();
   }
 
   auto findViewById =
@@ -378,8 +375,16 @@ void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
   const auto elements = BuildZOrderedElements();
   for (const auto &element : elements) {
     if (element.type == SelectedElementType::View2D) {
-      if (const auto *view = findViewById(element.id))
-        DrawViewElement(*view, capturePanel, offscreenRenderer, activeViewId);
+      if (const auto *view = findViewById(element.id)) {
+        Viewer2DPanel *capturePanel = defaultCapturePanel;
+        if (auto *mw = MainWindow::Instance()) {
+          if (auto *renderer = mw->GetOffscreenRendererForView(view->id)) {
+            renderer->SetSharedContext(glContext_);
+            capturePanel = renderer->GetPanel();
+          }
+        }
+        DrawViewElement(*view, capturePanel, activeViewId);
+      }
     } else if (element.type == SelectedElementType::Legend) {
       if (const auto *legend = findLegendById(element.id))
         DrawLegendElement(*legend, activeLegendId);
@@ -1202,16 +1207,15 @@ void LayoutViewerPanel::RebuildCachedTexture() {
     return;
   }
 
-  Viewer2DOffscreenRenderer *offscreenRenderer = nullptr;
   Viewer2DPanel *capturePanel = nullptr;
   if (auto *mw = MainWindow::Instance()) {
-    offscreenRenderer = mw->GetOffscreenRenderer();
-    if (offscreenRenderer) {
-      offscreenRenderer->SetSharedContext(glContext_);
+    auto *legendRenderer = mw->GetOffscreenRendererForView(-1);
+    if (legendRenderer) {
+      legendRenderer->SetSharedContext(glContext_);
     }
-    capturePanel = offscreenRenderer ? offscreenRenderer->GetPanel() : nullptr;
+    capturePanel = legendRenderer ? legendRenderer->GetPanel() : nullptr;
   }
-  if (!capturePanel || !offscreenRenderer) {
+  if (!capturePanel) {
     return;
   }
 
@@ -1219,9 +1223,24 @@ void LayoutViewerPanel::RebuildCachedTexture() {
       capturePanel->GetBottomSymbolCacheSnapshot();
   if ((!legendSymbols || legendSymbols->empty()) &&
       !currentLayout.legendViews.empty()) {
-    capturePanel->CaptureFrameNow(
-        [](CommandBuffer, Viewer2DViewState) {}, true, false);
-    legendSymbols = capturePanel->GetBottomSymbolCacheSnapshot();
+    if (!legendCaptureInProgress) {
+      legendCaptureInProgress = true;
+      ConfigManager &cfg = ConfigManager::Get();
+      viewer2d::Viewer2DState state = viewer2d::CaptureState(capturePanel, cfg);
+      state.camera.view = Viewer2DView::Top;
+      state.renderOptions.darkMode = false;
+      auto stateGuard = std::make_shared<viewer2d::ScopedViewer2DState>(
+          capturePanel, nullptr, cfg, state, nullptr, nullptr, false);
+      capturePanel->CaptureFrameAsync(
+          [this, stateGuard](CommandBuffer, Viewer2DViewState) {
+            legendCaptureInProgress = false;
+            renderDirty = true;
+            RequestRenderRebuild();
+            Refresh();
+          },
+          true, false);
+    }
+    return;
   }
   if (legendSymbols && !legendSymbols->empty() &&
       !currentLayout.legendViews.empty()) {
@@ -1236,18 +1255,27 @@ void LayoutViewerPanel::RebuildCachedTexture() {
         break;
     }
     if (!hasTop || !hasFront) {
-      const Viewer2DView previousView = capturePanel->GetView();
-      auto captureMissingView = [&](Viewer2DView view) {
-        capturePanel->SetView(view);
-        capturePanel->CaptureFrameNow(
-            [](CommandBuffer, Viewer2DViewState) {}, true, false);
-      };
-      if (!hasTop)
-        captureMissingView(Viewer2DView::Top);
-      if (!hasFront)
-        captureMissingView(Viewer2DView::Front);
-      capturePanel->SetView(previousView);
-      legendSymbols = capturePanel->GetBottomSymbolCacheSnapshot();
+      if (!legendCaptureInProgress) {
+        legendCaptureInProgress = true;
+        const Viewer2DView targetView =
+            hasTop ? Viewer2DView::Front : Viewer2DView::Top;
+        ConfigManager &cfg = ConfigManager::Get();
+        viewer2d::Viewer2DState state =
+            viewer2d::CaptureState(capturePanel, cfg);
+        state.camera.view = targetView;
+        state.renderOptions.darkMode = false;
+        auto stateGuard = std::make_shared<viewer2d::ScopedViewer2DState>(
+            capturePanel, nullptr, cfg, state, nullptr, nullptr, false);
+        capturePanel->CaptureFrameAsync(
+            [this, stateGuard](CommandBuffer, Viewer2DViewState) {
+              legendCaptureInProgress = false;
+              renderDirty = true;
+              RequestRenderRebuild();
+              Refresh();
+            },
+            true, false);
+      }
+      return;
     }
   }
   const double renderZoom = GetRenderZoom();
@@ -1266,6 +1294,15 @@ void LayoutViewerPanel::RebuildCachedTexture() {
       continue;
     }
 
+    Viewer2DOffscreenRenderer *offscreenRenderer = nullptr;
+    if (auto *mw = MainWindow::Instance()) {
+      offscreenRenderer = mw->GetOffscreenRendererForView(view.id);
+      if (offscreenRenderer) {
+        offscreenRenderer->SetSharedContext(glContext_);
+      }
+    }
+    if (!offscreenRenderer)
+      continue;
     offscreenRenderer->SetViewportSize(renderSize);
 
     ConfigManager &cfg = ConfigManager::Get();

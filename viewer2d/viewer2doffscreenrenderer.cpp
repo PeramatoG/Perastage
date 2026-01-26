@@ -365,3 +365,33 @@ void Viewer2DOffscreenRenderer::DestroyRenderTarget() {
   }
   renderSize_ = wxSize(0, 0);
 }
+
+Viewer2DOffscreenRendererPool::Viewer2DOffscreenRendererPool(wxWindow *parent)
+    : parent_(parent) {}
+
+Viewer2DOffscreenRenderer *Viewer2DOffscreenRendererPool::GetRendererForView(
+    int viewId) {
+  auto it = rendererIndexByView_.find(viewId);
+  if (it != rendererIndexByView_.end()) {
+    return renderers_[it->second].get();
+  }
+
+  auto renderer = std::make_unique<Viewer2DOffscreenRenderer>(parent_);
+  if (sharedContext_) {
+    renderer->SetSharedContext(sharedContext_);
+  }
+  renderers_.push_back(std::move(renderer));
+  const size_t index = renderers_.size() - 1;
+  rendererIndexByView_[viewId] = index;
+  return renderers_[index].get();
+}
+
+void Viewer2DOffscreenRendererPool::SetSharedContext(
+    wxGLContext *sharedContext) {
+  sharedContext_ = sharedContext;
+  for (auto &renderer : renderers_) {
+    if (renderer) {
+      renderer->SetSharedContext(sharedContext_);
+    }
+  }
+}

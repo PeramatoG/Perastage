@@ -120,7 +120,8 @@ std::vector<LayoutLegendItem> BuildLayoutLegendItems() {
 }
 
 void MainWindow::OnPrintViewer2D(wxCommandEvent &WXUNUSED(event)) {
-  Viewer2DOffscreenRenderer *offscreenRenderer = GetOffscreenRenderer();
+  Viewer2DOffscreenRenderer *offscreenRenderer =
+      GetOffscreenRendererForView(-1);
   Viewer2DPanel *capturePanel =
       offscreenRenderer ? offscreenRenderer->GetPanel() : nullptr;
   if (!capturePanel) {
@@ -256,7 +257,8 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
     return;
   }
 
-  Viewer2DOffscreenRenderer *offscreenRenderer = GetOffscreenRenderer();
+  Viewer2DOffscreenRenderer *offscreenRenderer =
+      GetOffscreenRendererForView(-1);
   Viewer2DPanel *capturePanel =
       offscreenRenderer ? offscreenRenderer->GetPanel() : nullptr;
   if (!capturePanel) {

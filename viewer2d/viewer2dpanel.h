@@ -156,6 +156,12 @@ private:
   void StopDragTableUpdates();
   void StartDragTableUpdateWorker();
   void StopDragTableUpdateWorker();
+  void StartAsyncCaptureWorker();
+  void StopAsyncCaptureWorker();
+  void ProcessAsyncCaptureRequests();
+  void PerformAsyncCapture(
+      const std::function<void(CommandBuffer, Viewer2DViewState)> &callback,
+      bool useSimplifiedFootprints, bool includeGridInCapture);
   void EnsureOffscreenTarget(int width, int height);
   void DestroyOffscreenTarget();
 
@@ -213,6 +219,16 @@ private:
   DragTarget m_dragTableUpdateWorkerTarget = DragTarget::None;
   std::vector<std::string> m_dragTableUpdateUuids;
   std::mutex m_dragTableUpdateSceneMutex;
+  std::thread m_asyncCaptureWorker;
+  std::mutex m_asyncCaptureMutex;
+  std::condition_variable m_asyncCaptureCv;
+  bool m_asyncCaptureWorkerStop = false;
+  bool m_asyncCaptureQueued = false;
+  bool m_asyncCaptureUseSimplifiedFootprints = false;
+  bool m_asyncCaptureIncludeGrid = true;
+  std::function<void(CommandBuffer, Viewer2DViewState)>
+      m_asyncCaptureCallback;
+  std::recursive_mutex m_renderMutex;
 
   wxGLContext *m_glContext = nullptr;
   bool m_glInitialized = false;

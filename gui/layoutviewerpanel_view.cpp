@@ -25,7 +25,6 @@
 
 #include "configmanager.h"
 #include "layouts/LayoutManager.h"
-#include "viewer2doffscreenrenderer.h"
 #include "viewer2dstate.h"
 
 layouts::Layout2DViewDefinition *LayoutViewerPanel::GetEditableView() {
@@ -149,13 +148,16 @@ void LayoutViewerPanel::UpdateFrame(const layouts::Layout2DViewFrame &frame,
 
 void LayoutViewerPanel::DrawViewElement(
     const layouts::Layout2DViewDefinition &view, Viewer2DPanel *capturePanel,
-    Viewer2DOffscreenRenderer *offscreenRenderer, int activeViewId) {
+    int activeViewId) {
   ViewCache &cache = GetViewCache(view.id);
-  if (!captureInProgress && !cache.captureInProgress &&
-      cache.captureVersion != layoutVersion && capturePanel) {
-    captureInProgress = true;
+  if (cache.captureInProgress) {
+    if (cache.captureVersion != layoutVersion)
+      cache.captureDirty = true;
+  } else if (cache.captureVersion != layoutVersion && capturePanel) {
     cache.captureInProgress = true;
+    cache.captureDirty = false;
     const int viewId = view.id;
+    const int captureVersion = layoutVersion;
     const int fallbackViewportWidth = view.camera.viewportWidth > 0
                                           ? view.camera.viewportWidth
                                           : view.frame.width;
@@ -168,20 +170,11 @@ void LayoutViewerPanel::DrawViewElement(
     layoutState.renderOptions.darkMode = false;
     cache.renderState = layoutState;
     cache.hasRenderState = true;
-    if (offscreenRenderer && fallbackViewportWidth > 0 &&
-        fallbackViewportHeight > 0) {
-      offscreenRenderer->SetViewportSize(
-          wxSize(fallbackViewportWidth, fallbackViewportHeight));
-    }
     auto stateGuard = std::make_shared<viewer2d::ScopedViewer2DState>(
         capturePanel, nullptr, cfg, layoutState, nullptr, nullptr, false);
-    if (offscreenRenderer && fallbackViewportWidth > 0 &&
-        fallbackViewportHeight > 0) {
-      offscreenRenderer->PrepareForCapture(
-          wxSize(fallbackViewportWidth, fallbackViewportHeight));
-    }
-    capturePanel->CaptureFrameNow(
-        [this, viewId, stateGuard, fallbackViewportWidth, fallbackViewportHeight,
+    capturePanel->CaptureFrameAsync(
+        [this, viewId, captureVersion, stateGuard, fallbackViewportWidth,
+         fallbackViewportHeight,
          capturePanel](CommandBuffer buffer, Viewer2DViewState state) {
           ViewCache &cache = GetViewCache(viewId);
           cache.buffer = std::move(buffer);
@@ -199,11 +192,14 @@ void LayoutViewerPanel::DrawViewElement(
             cache.symbols = capturePanel->GetBottomSymbolCacheSnapshot();
           }
           cache.hasCapture = !cache.buffer.commands.empty();
-          cache.captureVersion = layoutVersion;
+          cache.captureVersion = captureVersion;
           cache.captureInProgress = false;
-          captureInProgress = false;
           cache.renderDirty = true;
           renderDirty = true;
+          if (cache.captureDirty || captureVersion != layoutVersion) {
+            cache.captureDirty = false;
+            cache.captureVersion = -1;
+          }
           RequestRenderRebuild();
           Refresh();
         });

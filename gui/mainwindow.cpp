@@ -375,12 +375,12 @@ Viewer2DPanel *MainWindow::GetLayoutCapturePanel() const {
   return viewport2DPanel;
 }
 
-Viewer2DOffscreenRenderer *MainWindow::GetOffscreenRenderer() {
-  if (!offscreenViewer2DRenderer) {
-    offscreenViewer2DRenderer =
-        std::make_unique<Viewer2DOffscreenRenderer>(this);
+Viewer2DOffscreenRenderer *MainWindow::GetOffscreenRendererForView(int viewId) {
+  if (!offscreenViewer2DRendererPool) {
+    offscreenViewer2DRendererPool =
+        std::make_unique<Viewer2DOffscreenRendererPool>(this);
   }
-  return offscreenViewer2DRenderer.get();
+  return offscreenViewer2DRendererPool->GetRendererForView(viewId);
 }
 
 bool MainWindow::IsLayout2DViewEditing() const { return layout2DViewEditing; }
