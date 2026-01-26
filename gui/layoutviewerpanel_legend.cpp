@@ -635,8 +635,12 @@ void LayoutViewerPanel::DrawLegendElement(
   const int frameBottom = frameRect.GetTop() + frameRect.GetHeight();
 
   const wxSize renderSize = GetFrameSizeForZoom(legend.frame, cache.renderZoom);
-  if (cache.texture != 0 && renderSize.GetWidth() > 0 &&
-      renderSize.GetHeight() > 0 && cache.textureSize == renderSize) {
+  const bool hasCachedTexture =
+      cache.texture != 0 &&
+      (cache.renderDirty ||
+       (renderSize.GetWidth() > 0 && renderSize.GetHeight() > 0 &&
+        cache.textureSize == renderSize));
+  if (hasCachedTexture) {
     glEnable(GL_TEXTURE_2D);
     glBindTexture(GL_TEXTURE_2D, cache.texture);
     glColor4ub(255, 255, 255, 255);
@@ -667,6 +671,9 @@ void LayoutViewerPanel::DrawLegendElement(
     glVertex2f(static_cast<float>(frameRect.GetLeft()),
                static_cast<float>(frameRect.GetBottom()));
     glEnd();
+    if (cache.texture == 0) {
+      DrawLoadingOverlay(frameRect);
+    }
   }
 
   if (legend.id == activeLegendId) {
