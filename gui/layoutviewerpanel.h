@@ -154,6 +154,8 @@ private:
                         bool updatePosition);
   void InitGL();
   void RebuildCachedTexture();
+  bool BlitTextureToCache(unsigned int sourceTexture, const wxSize &sourceSize,
+                          ViewCache &cache);
   void ClearCachedTexture();
   void ClearCachedTexture(ViewCache &cache);
   void ClearCachedTexture(LegendCache &cache);
@@ -250,6 +252,7 @@ private:
   int selectedElementId = -1;
   wxGLContext *glContext_ = nullptr;
   bool glInitialized_ = false;
+  unsigned int textureCopyFbo_ = 0;
   bool renderDirty = true;
   bool renderPending = false;
   std::unordered_map<int, ViewCache> viewCaches_;

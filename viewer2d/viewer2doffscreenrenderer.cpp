@@ -53,6 +53,22 @@ void Viewer2DOffscreenRenderer::PrepareForCapture() {
   panel_->UpdateScene(true);
 }
 
+bool Viewer2DOffscreenRenderer::RenderToTexture(const wxSize &size) {
+  if (!panel_)
+    return false;
+  if (size.GetWidth() <= 0 || size.GetHeight() <= 0)
+    return false;
+
+  SetViewportSize(size);
+  panel_->EnsureGLReady();
+  EnsureOffscreenTarget(size);
+  if (renderedFbo_ == 0 || renderedTexture_ == 0)
+    return false;
+
+  panel_->RenderToFramebuffer(renderedFbo_);
+  return true;
+}
+
 void Viewer2DOffscreenRenderer::CreatePanel() {
   if (!parent_)
     return;
@@ -67,6 +83,7 @@ void Viewer2DOffscreenRenderer::CreatePanel() {
 }
 
 void Viewer2DOffscreenRenderer::DestroyPanel() {
+  DestroyOffscreenTarget();
   if (panel_) {
     panel_->Destroy();
     panel_ = nullptr;
@@ -75,4 +92,61 @@ void Viewer2DOffscreenRenderer::DestroyPanel() {
     host_->Destroy();
     host_ = nullptr;
   }
+}
+
+void Viewer2DOffscreenRenderer::EnsureOffscreenTarget(const wxSize &size) {
+  if (!panel_)
+    return;
+
+  if (renderedTexture_ == 0) {
+    glGenTextures(1, &renderedTexture_);
+  }
+  if (renderedFbo_ == 0) {
+    glGenFramebuffers(1, &renderedFbo_);
+  }
+  if (renderedDepthRbo_ == 0) {
+    glGenRenderbuffers(1, &renderedDepthRbo_);
+  }
+
+  if (renderedTextureSize_ != size) {
+    renderedTextureSize_ = size;
+    glBindTexture(GL_TEXTURE_2D, renderedTexture_);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, size.GetWidth(),
+                 size.GetHeight(), 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+
+    glBindRenderbuffer(GL_RENDERBUFFER, renderedDepthRbo_);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24,
+                          size.GetWidth(), size.GetHeight());
+  }
+
+  glBindFramebuffer(GL_FRAMEBUFFER, renderedFbo_);
+  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
+                         renderedTexture_, 0);
+  glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
+                            GL_RENDERBUFFER, renderedDepthRbo_);
+  glDrawBuffer(GL_COLOR_ATTACHMENT0);
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
+void Viewer2DOffscreenRenderer::DestroyOffscreenTarget() {
+  if (panel_) {
+    panel_->EnsureGLReady();
+  }
+  if (renderedDepthRbo_ != 0) {
+    glDeleteRenderbuffers(1, &renderedDepthRbo_);
+    renderedDepthRbo_ = 0;
+  }
+  if (renderedFbo_ != 0) {
+    glDeleteFramebuffers(1, &renderedFbo_);
+    renderedFbo_ = 0;
+  }
+  if (renderedTexture_ != 0) {
+    glDeleteTextures(1, &renderedTexture_);
+    renderedTexture_ = 0;
+  }
+  renderedTextureSize_ = wxSize(0, 0);
 }

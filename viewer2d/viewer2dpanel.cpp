@@ -408,6 +408,8 @@ Viewer2DPanel::GetBottomSymbolCacheSnapshot() const {
   return m_controller.GetBottomSymbolCacheSnapshot();
 }
 
+void Viewer2DPanel::EnsureGLReady() { InitGL(); }
+
 void Viewer2DPanel::InitGL() {
   if (!IsShownOnScreen() && !m_forceOffscreenRender &&
       !m_allowOffscreenRender) {
@@ -639,6 +641,27 @@ bool Viewer2DPanel::RenderToTexture(unsigned int &texture,
   if (!useExternalTexture)
     texture = targetTexture;
   framebuffer = m_offscreenFbo;
+
+  m_forceOffscreenRender = previousForce;
+  return true;
+}
+
+bool Viewer2DPanel::RenderToFramebuffer(unsigned int framebuffer) {
+  int w = 0;
+  int h = 0;
+  GetClientSize(&w, &h);
+  if (w <= 0 || h <= 0)
+    return false;
+
+  bool previousForce = m_forceOffscreenRender;
+  m_forceOffscreenRender = true;
+  InitGL();
+
+  GLint previousFbo = 0;
+  glGetIntegerv(GL_FRAMEBUFFER_BINDING, &previousFbo);
+  glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+  RenderInternal(false);
+  glBindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(previousFbo));
 
   m_forceOffscreenRender = previousForce;
   return true;

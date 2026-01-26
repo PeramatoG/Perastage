@@ -106,6 +106,11 @@ LayoutViewerPanel::LayoutViewerPanel(wxWindow *parent)
 
 LayoutViewerPanel::~LayoutViewerPanel() {
   ClearCachedTexture();
+  if (glContext_ && IsShownOnScreen() && textureCopyFbo_ != 0) {
+    SetCurrent(*glContext_);
+    glDeleteFramebuffers(1, &textureCopyFbo_);
+    textureCopyFbo_ = 0;
+  }
   delete glContext_;
 }
 
@@ -1011,6 +1016,74 @@ void LayoutViewerPanel::InitGL() {
   }
 }
 
+bool LayoutViewerPanel::BlitTextureToCache(unsigned int sourceTexture,
+                                           const wxSize &sourceSize,
+                                           ViewCache &cache) {
+  if (!glContext_ || sourceTexture == 0)
+    return false;
+  if (sourceSize.GetWidth() <= 0 || sourceSize.GetHeight() <= 0)
+    return false;
+
+  SetCurrent(*glContext_);
+  if (cache.texture == 0) {
+    glGenTextures(1, &cache.texture);
+  }
+  glBindTexture(GL_TEXTURE_2D, cache.texture);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+  if (cache.textureSize != sourceSize) {
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, sourceSize.GetWidth(),
+                 sourceSize.GetHeight(), 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+  }
+
+  if (textureCopyFbo_ == 0) {
+    glGenFramebuffers(1, &textureCopyFbo_);
+  }
+
+  GLint previousFbo = 0;
+  glGetIntegerv(GL_FRAMEBUFFER_BINDING, &previousFbo);
+  GLint viewport[4] = {0, 0, 0, 0};
+  glGetIntegerv(GL_VIEWPORT, viewport);
+
+  glBindFramebuffer(GL_FRAMEBUFFER, textureCopyFbo_);
+  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
+                         cache.texture, 0);
+  glDrawBuffer(GL_COLOR_ATTACHMENT0);
+
+  glViewport(0, 0, sourceSize.GetWidth(), sourceSize.GetHeight());
+  glMatrixMode(GL_PROJECTION);
+  glLoadIdentity();
+  glOrtho(0.0, sourceSize.GetWidth(), sourceSize.GetHeight(), 0.0, -1.0, 1.0);
+  glMatrixMode(GL_MODELVIEW);
+  glLoadIdentity();
+  glDisable(GL_DEPTH_TEST);
+  glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+  glClear(GL_COLOR_BUFFER_BIT);
+
+  glEnable(GL_TEXTURE_2D);
+  glBindTexture(GL_TEXTURE_2D, sourceTexture);
+  glColor4ub(255, 255, 255, 255);
+  glBegin(GL_QUADS);
+  glTexCoord2f(0.0f, 1.0f);
+  glVertex2f(0.0f, 0.0f);
+  glTexCoord2f(1.0f, 1.0f);
+  glVertex2f(static_cast<float>(sourceSize.GetWidth()), 0.0f);
+  glTexCoord2f(1.0f, 0.0f);
+  glVertex2f(static_cast<float>(sourceSize.GetWidth()),
+             static_cast<float>(sourceSize.GetHeight()));
+  glTexCoord2f(0.0f, 0.0f);
+  glVertex2f(0.0f, static_cast<float>(sourceSize.GetHeight()));
+  glEnd();
+  glDisable(GL_TEXTURE_2D);
+
+  glBindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(previousFbo));
+  glViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
+  return true;
+}
+
 void LayoutViewerPanel::RebuildCachedTexture() {
   if (!renderDirty)
     return;
@@ -1105,7 +1178,6 @@ void LayoutViewerPanel::RebuildCachedTexture() {
     auto stateGuard = std::make_shared<viewer2d::ScopedViewer2DState>(
         capturePanel, nullptr, cfg, renderState, nullptr, nullptr, false);
 
-    unsigned int sourceFbo = 0;
     int width = renderSize.GetWidth();
     int height = renderSize.GetHeight();
     if (width <= 0 || height <= 0) {
@@ -1118,24 +1190,17 @@ void LayoutViewerPanel::RebuildCachedTexture() {
     InitGL();
     if (!IsShownOnScreen())
       return;
-    SetCurrent(*glContext_);
-    if (cache.texture == 0) {
-      glGenTextures(1, &cache.texture);
+    const wxSize renderSizeWx(width, height);
+    if (!offscreenRenderer->RenderToTexture(renderSizeWx) ||
+        offscreenRenderer->GetRenderedTexture() == 0 ||
+        offscreenRenderer->GetRenderedTextureSize() != renderSizeWx) {
+      ClearCachedTexture(cache);
+      cache.textureSize = wxSize(0, 0);
+      cache.renderZoom = 0.0;
+      continue;
     }
-    glBindTexture(GL_TEXTURE_2D, cache.texture);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-    if (cache.textureSize != wxSize(width, height)) {
-      glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA,
-                   GL_UNSIGNED_BYTE, nullptr);
-    }
-
-    if (!capturePanel->RenderToTexture(cache.texture, sourceFbo, width,
-                                       height) ||
-        cache.texture == 0 || sourceFbo == 0) {
+    if (!BlitTextureToCache(offscreenRenderer->GetRenderedTexture(),
+                            renderSizeWx, cache)) {
       ClearCachedTexture(cache);
       cache.textureSize = wxSize(0, 0);
       cache.renderZoom = 0.0;
