@@ -1739,7 +1739,8 @@ void LayoutViewerPanel::RequestRenderRebuild() {
     isLoading = true;
     Refresh();
     Update();
-    wxTheApp->Yield(true);
+    if (wxTheApp && wxTheApp->IsMainLoopRunning())
+      wxTheApp->Yield(true);
     if (renderDelayTimer_.IsRunning()) {
       renderDelayTimer_.Stop();
     }
