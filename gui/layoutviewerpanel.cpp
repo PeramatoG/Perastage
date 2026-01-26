@@ -1718,6 +1718,9 @@ void LayoutViewerPanel::RequestRenderRebuild() {
   }
   CallAfter([this]() {
     renderPending = false;
+    isLoading = true;
+    Refresh();
+    Update();
     RebuildCachedTexture();
     Refresh();
   });
