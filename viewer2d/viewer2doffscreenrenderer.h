@@ -47,4 +47,5 @@ private:
   unsigned int colorTex_ = 0;
   unsigned int depthRb_ = 0;
   wxSize renderSize_{0, 0};
+  size_t lastStateHash_ = 0;
 };
