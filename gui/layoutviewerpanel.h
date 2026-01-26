@@ -136,6 +136,7 @@ private:
                        int activeTextId);
   void DrawImageElement(const layouts::LayoutImageDefinition &image,
                         int activeImageId);
+  void DrawLoadingOverlay(const wxRect &frameRect);
 
   void ResetViewToFit();
   wxRect GetPageRect() const;
@@ -264,6 +265,8 @@ private:
   std::unordered_map<int, EventTableCache> eventTableCaches_;
   std::unordered_map<int, TextCache> textCaches_;
   std::unordered_map<int, ImageCache> imageCaches_;
+  unsigned int loadingTexture_ = 0;
+  wxSize loadingTextureSize_{0, 0};
   std::vector<LegendItem> legendItems_;
   size_t legendDataHash = 0;
   bool pendingFitOnResize = true;
