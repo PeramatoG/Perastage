@@ -194,14 +194,12 @@ Viewer2DPanel::Viewer2DPanel(wxWindow *parent, bool allowOffscreenRender,
   m_controller.SetSelectionOutlineEnabled(m_enableSelection);
   m_glContext = new wxGLContext(this, sharedContext);
   StartDragTableUpdateWorker();
-  StartAsyncCaptureWorker();
 }
 
 Viewer2DPanel::~Viewer2DPanel() {
   if (g_instance == this)
     g_instance = nullptr;
   StopDragTableUpdateWorker();
-  StopAsyncCaptureWorker();
   DestroyOffscreenTarget();
   delete m_glContext;
 }
@@ -295,14 +293,16 @@ void Viewer2DPanel::CaptureFrameAsync(
     bool useSimplifiedFootprints, bool includeGridInCapture) {
   if (!callback)
     return;
-  {
-    std::lock_guard<std::mutex> lock(m_asyncCaptureMutex);
-    m_asyncCaptureCallback = std::move(callback);
-    m_asyncCaptureUseSimplifiedFootprints = useSimplifiedFootprints;
-    m_asyncCaptureIncludeGrid = includeGridInCapture;
-    m_asyncCaptureQueued = true;
+  if (wxTheApp) {
+    wxTheApp->CallAfter([this, callback = std::move(callback),
+                         useSimplifiedFootprints, includeGridInCapture]() mutable {
+      CaptureFrameNow(std::move(callback), useSimplifiedFootprints,
+                      includeGridInCapture);
+    });
+    return;
   }
-  m_asyncCaptureCv.notify_one();
+  CaptureFrameNow(std::move(callback), useSimplifiedFootprints,
+                  includeGridInCapture);
 }
 
 void Viewer2DPanel::CaptureFrameNow(
@@ -1172,108 +1172,6 @@ void Viewer2DPanel::StopDragTableUpdateWorker() {
   m_dragTableUpdateCv.notify_one();
   if (m_dragTableUpdateWorker.joinable())
     m_dragTableUpdateWorker.join();
-}
-
-void Viewer2DPanel::StartAsyncCaptureWorker() {
-  m_asyncCaptureWorker = std::thread([this]() { ProcessAsyncCaptureRequests(); });
-}
-
-void Viewer2DPanel::StopAsyncCaptureWorker() {
-  {
-    std::lock_guard<std::mutex> lock(m_asyncCaptureMutex);
-    m_asyncCaptureWorkerStop = true;
-    m_asyncCaptureQueued = true;
-  }
-  m_asyncCaptureCv.notify_one();
-  if (m_asyncCaptureWorker.joinable())
-    m_asyncCaptureWorker.join();
-}
-
-void Viewer2DPanel::ProcessAsyncCaptureRequests() {
-  while (true) {
-    std::function<void(CommandBuffer, Viewer2DViewState)> callback;
-    bool useSimplifiedFootprints = false;
-    bool includeGridInCapture = true;
-    {
-      std::unique_lock<std::mutex> lock(m_asyncCaptureMutex);
-      m_asyncCaptureCv.wait(lock, [this]() {
-        return m_asyncCaptureWorkerStop || m_asyncCaptureQueued;
-      });
-      if (m_asyncCaptureWorkerStop)
-        break;
-      callback = m_asyncCaptureCallback;
-      useSimplifiedFootprints = m_asyncCaptureUseSimplifiedFootprints;
-      includeGridInCapture = m_asyncCaptureIncludeGrid;
-      m_asyncCaptureQueued = false;
-    }
-
-    if (callback) {
-      PerformAsyncCapture(callback, useSimplifiedFootprints,
-                          includeGridInCapture);
-    }
-
-  }
-}
-
-void Viewer2DPanel::PerformAsyncCapture(
-    const std::function<void(CommandBuffer, Viewer2DViewState)> &callback,
-    bool useSimplifiedFootprints, bool includeGridInCapture) {
-  if (!callback)
-    return;
-
-  std::lock_guard<std::recursive_mutex> renderLock(m_renderMutex);
-  bool previousForce = m_forceOffscreenRender;
-  m_forceOffscreenRender = true;
-  InitGL();
-
-  int w = 0;
-  int h = 0;
-  GetClientSize(&w, &h);
-  if (w <= 0 || h <= 0) {
-    m_forceOffscreenRender = previousForce;
-    return;
-  }
-  EnsureOffscreenTarget(w, h);
-
-  CommandBuffer capturedBuffer;
-  Viewer2DViewState capturedState;
-  auto previousCallback = std::move(m_captureCallback);
-
-  m_captureCallback =
-      [&capturedBuffer, &capturedState](CommandBuffer buffer,
-                                        Viewer2DViewState state) {
-        capturedBuffer = std::move(buffer);
-        capturedState = state;
-      };
-  m_useSimplifiedFootprints = useSimplifiedFootprints;
-  if (!m_useSimplifiedFootprints &&
-      (m_view == Viewer2DView::Front || m_view == Viewer2DView::Side)) {
-    m_useSimplifiedFootprints = true;
-  }
-  m_captureIncludeGrid = includeGridInCapture;
-  m_captureNextFrame = true;
-
-  GLint previousFbo = 0;
-  glGetIntegerv(GL_FRAMEBUFFER_BINDING, &previousFbo);
-  glBindFramebuffer(GL_FRAMEBUFFER, m_offscreenFbo);
-  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
-                         m_offscreenTexture, 0);
-  glDrawBuffer(GL_COLOR_ATTACHMENT0);
-  RenderInternal(false);
-  glBindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(previousFbo));
-
-  m_captureCallback = std::move(previousCallback);
-  m_forceOffscreenRender = previousForce;
-
-  if (!wxTheApp)
-    return;
-
-  auto bufferPtr =
-      std::make_shared<CommandBuffer>(std::move(capturedBuffer));
-  wxTheApp->CallAfter([callback, bufferPtr,
-                       capturedState]() mutable {
-    callback(std::move(*bufferPtr), capturedState);
-  });
 }
 
 std::vector<Viewer2DPanel::DragTablePositionSnapshot>
