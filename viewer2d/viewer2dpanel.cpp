@@ -701,6 +701,8 @@ void Viewer2DPanel::EnsureOffscreenTarget(int width, int height) {
 void Viewer2DPanel::DestroyOffscreenTarget() {
   if (!m_glContext)
     return;
+  if (!IsShownOnScreen())
+    return;
   SetCurrent(*m_glContext);
   if (m_offscreenDepthRbo != 0) {
     glDeleteRenderbuffers(1, &m_offscreenDepthRbo);
