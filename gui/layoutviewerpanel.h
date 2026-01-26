@@ -17,6 +17,7 @@
  */
 #pragma once
 
+#include <GL/glew.h>
 #include <memory>
 #include <optional>
 #include <unordered_map>

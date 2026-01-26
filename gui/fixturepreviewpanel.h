@@ -17,6 +17,7 @@
  */
 #pragma once
 
+#include <GL/glew.h>
 #include <wx/glcanvas.h>
 #include <vector>
 #include <string>
@@ -59,4 +60,3 @@ private:
 
     wxDECLARE_EVENT_TABLE();
 };
-
