@@ -23,6 +23,7 @@
 #include <filesystem>
 #include <functional>
 
+#include <GL/glew.h>
 #include <GL/gl.h>
 
 #include "layoutimageutils.h"
