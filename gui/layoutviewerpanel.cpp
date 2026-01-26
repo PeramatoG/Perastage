@@ -1314,8 +1314,13 @@ void LayoutViewerPanel::RebuildCachedTexture() {
     renderState.camera.viewportWidth = renderSize.GetWidth();
     renderState.camera.viewportHeight = renderSize.GetHeight();
 
+    Viewer2DPanel *renderPanel =
+        offscreenRenderer ? offscreenRenderer->GetPanel() : nullptr;
+    if (!renderPanel)
+      continue;
+
     auto stateGuard = std::make_shared<viewer2d::ScopedViewer2DState>(
-        capturePanel, nullptr, cfg, renderState, nullptr, nullptr, false);
+        renderPanel, nullptr, cfg, renderState, nullptr, nullptr, false);
 
     int width = renderSize.GetWidth();
     int height = renderSize.GetHeight();
