@@ -133,6 +133,9 @@ private:
                        int activeTextId);
   void DrawImageElement(const layouts::LayoutImageDefinition &image,
                         int activeImageId);
+  void DrawLoadingOverlay(const wxSize &size);
+  void EnsureLoadingTextTexture();
+  void ClearLoadingTextTexture();
 
   void ResetViewToFit();
   wxRect GetPageRect() const;
@@ -161,6 +164,8 @@ private:
   void ClearCachedTexture(ImageCache &cache);
   void RequestRenderRebuild();
   void InvalidateRenderIfFrameChanged();
+  void OnLoadingTimer(wxTimerEvent &event);
+  bool AreTexturesReady() const;
   void EmitEditViewRequest();
   bool SelectElementAtPosition(const wxPoint &pos);
   bool GetLegendFrameById(int legendId,
@@ -251,6 +256,11 @@ private:
   bool glInitialized_ = false;
   bool renderDirty = true;
   bool renderPending = false;
+  bool isLoading = false;
+  bool loadingRequested = false;
+  wxTimer loadingTimer_;
+  unsigned int loadingTextTexture_ = 0;
+  wxSize loadingTextTextureSize_{0, 0};
   std::unordered_map<int, ViewCache> viewCaches_;
   std::unordered_map<int, LegendCache> legendCaches_;
   std::unordered_map<int, EventTableCache> eventTableCaches_;
