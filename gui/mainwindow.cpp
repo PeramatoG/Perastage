@@ -603,6 +603,8 @@ void MainWindow::ActivateLayoutView(const std::string &layoutName) {
   if (!auiManager || layoutName.empty())
     return;
 
+  Ensure2DViewportAvailable();
+
   if (!activeLayoutName.empty() && activeLayoutName != layoutName) {
     PersistLayout2DViewState();
   }
