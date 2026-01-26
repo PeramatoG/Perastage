@@ -24,6 +24,8 @@
 
 #pragma once
 
+#include <GL/glew.h>
+
 #include "canvas2d.h"
 #include "viewer3dcontroller.h"
 #include <wx/glcanvas.h>
