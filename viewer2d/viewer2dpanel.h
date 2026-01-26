@@ -99,8 +99,11 @@ public:
       bool useSimplifiedFootprints = false,
       bool includeGridInCapture = true);
 
+  void EnsureGLReady();
+
   bool RenderToTexture(unsigned int &texture, unsigned int &framebuffer,
                        int &width, int &height);
+  bool RenderToFramebuffer(unsigned int framebuffer);
 
   // Accessor for the last recorded set of drawing commands. The buffer is
   // cleared and re-populated on every requested capture.
