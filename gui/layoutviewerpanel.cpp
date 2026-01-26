@@ -1165,7 +1165,6 @@ void LayoutViewerPanel::RebuildCachedTexture() {
     }
 
     offscreenRenderer->SetViewportSize(renderSize);
-    offscreenRenderer->PrepareForCapture();
 
     ConfigManager &cfg = ConfigManager::Get();
     viewer2d::Viewer2DState renderState = cache.renderState;
@@ -1191,16 +1190,16 @@ void LayoutViewerPanel::RebuildCachedTexture() {
     if (!IsShownOnScreen())
       return;
     const wxSize renderSizeWx(width, height);
-    if (!offscreenRenderer->RenderToTexture(renderSizeWx) ||
-        offscreenRenderer->GetRenderedTexture() == 0 ||
+    offscreenRenderer->PrepareForCapture(renderSizeWx);
+    const GLuint renderedTexture = offscreenRenderer->GetRenderedTexture();
+    if (renderedTexture == 0 ||
         offscreenRenderer->GetRenderedTextureSize() != renderSizeWx) {
       ClearCachedTexture(cache);
       cache.textureSize = wxSize(0, 0);
       cache.renderZoom = 0.0;
       continue;
     }
-    if (!BlitTextureToCache(offscreenRenderer->GetRenderedTexture(),
-                            renderSizeWx, cache)) {
+    if (!BlitTextureToCache(renderedTexture, renderSizeWx, cache)) {
       ClearCachedTexture(cache);
       cache.textureSize = wxSize(0, 0);
       cache.renderZoom = 0.0;

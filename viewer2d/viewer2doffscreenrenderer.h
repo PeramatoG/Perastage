@@ -29,22 +29,22 @@ public:
   Viewer2DPanel *GetPanel() const { return panel_; }
   void SetSharedContext(wxGLContext *sharedContext);
   void SetViewportSize(const wxSize &size);
-  void PrepareForCapture();
+  void PrepareForCapture(const wxSize &size);
   bool RenderToTexture(const wxSize &size);
-  unsigned int GetRenderedTexture() const { return renderedTexture_; }
-  wxSize GetRenderedTextureSize() const { return renderedTextureSize_; }
+  unsigned int GetRenderedTexture() const { return colorTex_; }
+  wxSize GetRenderedTextureSize() const { return renderSize_; }
 
 private:
   void CreatePanel();
   void DestroyPanel();
-  void EnsureOffscreenTarget(const wxSize &size);
-  void DestroyOffscreenTarget();
+  void EnsureRenderTarget(const wxSize &size);
+  void DestroyRenderTarget();
   wxWindow *parent_ = nullptr;
   wxPanel *host_ = nullptr;
   Viewer2DPanel *panel_ = nullptr;
   wxGLContext *sharedContext_ = nullptr;
-  unsigned int renderedTexture_ = 0;
-  unsigned int renderedFbo_ = 0;
-  unsigned int renderedDepthRbo_ = 0;
-  wxSize renderedTextureSize_{0, 0};
+  unsigned int fbo_ = 0;
+  unsigned int colorTex_ = 0;
+  unsigned int depthRb_ = 0;
+  wxSize renderSize_{0, 0};
 };

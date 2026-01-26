@@ -646,6 +646,31 @@ bool Viewer2DPanel::RenderToTexture(unsigned int &texture,
   return true;
 }
 
+bool Viewer2DPanel::RenderToTexture(unsigned int framebuffer,
+                                    const wxSize &size) {
+  if (size.GetWidth() <= 0 || size.GetHeight() <= 0)
+    return false;
+
+  bool previousForce = m_forceOffscreenRender;
+  m_forceOffscreenRender = true;
+  InitGL();
+
+  GLint previousFbo = 0;
+  glGetIntegerv(GL_FRAMEBUFFER_BINDING, &previousFbo);
+  GLint previousViewport[4] = {0, 0, 0, 0};
+  glGetIntegerv(GL_VIEWPORT, previousViewport);
+
+  glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+  glViewport(0, 0, size.GetWidth(), size.GetHeight());
+  RenderInternal(false);
+  glBindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(previousFbo));
+  glViewport(previousViewport[0], previousViewport[1], previousViewport[2],
+             previousViewport[3]);
+
+  m_forceOffscreenRender = previousForce;
+  return true;
+}
+
 bool Viewer2DPanel::RenderToFramebuffer(unsigned int framebuffer) {
   int w = 0;
   int h = 0;

@@ -103,6 +103,7 @@ public:
 
   bool RenderToTexture(unsigned int &texture, unsigned int &framebuffer,
                        int &width, int &height);
+  bool RenderToTexture(unsigned int framebuffer, const wxSize &size);
   bool RenderToFramebuffer(unsigned int framebuffer);
 
   // Accessor for the last recorded set of drawing commands. The buffer is
