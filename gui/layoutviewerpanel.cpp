@@ -55,6 +55,7 @@ constexpr int kEditImageMenuId = wxID_HIGHEST + 497;
 constexpr int kDeleteImageMenuId = wxID_HIGHEST + 498;
 constexpr int kBringToFrontMenuId = wxID_HIGHEST + 499;
 constexpr int kSendToBackMenuId = wxID_HIGHEST + 500;
+constexpr int kLoadingOverlayDelayMs = 150;
 
 int SnapToGrid(int value) {
   if (kLayoutGridStep <= 1)
@@ -100,11 +101,15 @@ LayoutViewerPanel::LayoutViewerPanel(wxWindow *parent)
   currentLayout.pageSetup.pageSize = print::PageSize::A4;
   currentLayout.pageSetup.landscape = true;
   pendingFitOnResize = true;
+  loadingTimer_.SetOwner(this);
+  Bind(wxEVT_TIMER, &LayoutViewerPanel::OnLoadingTimer, this);
   ResetViewToFit();
 }
 
 LayoutViewerPanel::~LayoutViewerPanel() {
   ClearCachedTexture();
+  ClearLoadingTextTexture();
+  loadingTimer_.Stop();
   delete glContext_;
 }
 
@@ -134,6 +139,7 @@ void LayoutViewerPanel::SetLayoutDefinition(
   captureInProgress = false;
   ClearCachedTexture();
   renderDirty = true;
+  loadingRequested = true;
   RefreshLegendData();
   pendingFitOnResize = true;
   ResetViewToFit();
@@ -378,8 +384,133 @@ void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
     }
   }
 
+  const bool texturesReady = AreTexturesReady();
+  const bool showLoadingOverlay =
+      isLoading || renderDirty || renderPending || !texturesReady;
+  if (showLoadingOverlay) {
+    DrawLoadingOverlay(size);
+  }
+
   glFlush();
   SwapBuffers();
+}
+
+void LayoutViewerPanel::DrawLoadingOverlay(const wxSize &size) {
+  if (size.GetWidth() <= 0 || size.GetHeight() <= 0)
+    return;
+  glColor4ub(0, 0, 0, 150);
+  glBegin(GL_QUADS);
+  glVertex2f(0.0f, 0.0f);
+  glVertex2f(static_cast<float>(size.GetWidth()), 0.0f);
+  glVertex2f(static_cast<float>(size.GetWidth()),
+             static_cast<float>(size.GetHeight()));
+  glVertex2f(0.0f, static_cast<float>(size.GetHeight()));
+  glEnd();
+
+  EnsureLoadingTextTexture();
+  if (loadingTextTexture_ == 0)
+    return;
+
+  const int textWidth = loadingTextTextureSize_.GetWidth();
+  const int textHeight = loadingTextTextureSize_.GetHeight();
+  if (textWidth <= 0 || textHeight <= 0)
+    return;
+
+  const float x = (size.GetWidth() - textWidth) * 0.5f;
+  const float y = (size.GetHeight() - textHeight) * 0.5f;
+
+  glEnable(GL_TEXTURE_2D);
+  glBindTexture(GL_TEXTURE_2D, loadingTextTexture_);
+  glColor4ub(255, 255, 255, 255);
+  glBegin(GL_QUADS);
+  glTexCoord2f(0.0f, 1.0f);
+  glVertex2f(x, y);
+  glTexCoord2f(1.0f, 1.0f);
+  glVertex2f(x + textWidth, y);
+  glTexCoord2f(1.0f, 0.0f);
+  glVertex2f(x + textWidth, y + textHeight);
+  glTexCoord2f(0.0f, 0.0f);
+  glVertex2f(x, y + textHeight);
+  glEnd();
+  glDisable(GL_TEXTURE_2D);
+}
+
+void LayoutViewerPanel::EnsureLoadingTextTexture() {
+  if (loadingTextTexture_ != 0)
+    return;
+
+  const wxString label = wxString::FromUTF8("Cargando layout...");
+  wxFont font = wxFontInfo(14).Bold();
+  int textWidth = 0;
+  int textHeight = 0;
+  {
+    wxMemoryDC measureDc;
+    measureDc.SetFont(font);
+    measureDc.GetTextExtent(label, &textWidth, &textHeight);
+  }
+  if (textWidth <= 0 || textHeight <= 0)
+    return;
+
+  const int padding = 12;
+  const int bmpWidth = textWidth + padding * 2;
+  const int bmpHeight = textHeight + padding * 2;
+  wxBitmap bitmap(bmpWidth, bmpHeight, 32);
+  {
+    wxMemoryDC dc(bitmap);
+    dc.SetBackground(wxBrush(wxColour(0, 0, 0)));
+    dc.Clear();
+    dc.SetFont(font);
+    dc.SetTextForeground(wxColour(255, 255, 255));
+    dc.DrawText(label, padding, padding);
+    dc.SelectObject(wxNullBitmap);
+  }
+
+  wxImage image = bitmap.ConvertToImage();
+  if (!image.IsOk())
+    return;
+
+  const unsigned char *rgb = image.GetData();
+  if (!rgb)
+    return;
+
+  std::vector<unsigned char> pixels;
+  pixels.resize(static_cast<size_t>(bmpWidth) * bmpHeight * 4);
+  for (int i = 0; i < bmpWidth * bmpHeight; ++i) {
+    const unsigned char intensity = rgb[i * 3];
+    pixels[static_cast<size_t>(i) * 4] = 255;
+    pixels[static_cast<size_t>(i) * 4 + 1] = 255;
+    pixels[static_cast<size_t>(i) * 4 + 2] = 255;
+    pixels[static_cast<size_t>(i) * 4 + 3] = intensity;
+  }
+
+  InitGL();
+  if (!IsShownOnScreen())
+    return;
+  SetCurrent(*glContext_);
+  glGenTextures(1, &loadingTextTexture_);
+  glBindTexture(GL_TEXTURE_2D, loadingTextTexture_);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, bmpWidth, bmpHeight, 0, GL_RGBA,
+               GL_UNSIGNED_BYTE, pixels.data());
+  loadingTextTextureSize_ = wxSize(bmpWidth, bmpHeight);
+}
+
+void LayoutViewerPanel::ClearLoadingTextTexture() {
+  if (loadingTextTexture_ == 0 || !glContext_)
+    return;
+  if (!IsShown()) {
+    loadingTextTexture_ = 0;
+    loadingTextTextureSize_ = wxSize(0, 0);
+    return;
+  }
+  SetCurrent(*glContext_);
+  glDeleteTextures(1, &loadingTextTexture_);
+  loadingTextTexture_ = 0;
+  loadingTextTextureSize_ = wxSize(0, 0);
 }
 
 void LayoutViewerPanel::DrawSelectionHandles(const wxRect &frameRect) const {
@@ -1011,8 +1142,16 @@ void LayoutViewerPanel::InitGL() {
 void LayoutViewerPanel::RebuildCachedTexture() {
   if (!renderDirty)
     return;
-  if (!IsShownOnScreen())
+  auto clearLoadingState = [this]() {
+    loadingRequested = false;
+    if (loadingTimer_.IsRunning())
+      loadingTimer_.Stop();
+    isLoading = false;
+  };
+  if (!IsShownOnScreen()) {
+    clearLoadingState();
     return;
+  }
 
   renderDirty = false;
 
@@ -1024,6 +1163,7 @@ void LayoutViewerPanel::RebuildCachedTexture() {
   }
   if (!capturePanel || !offscreenRenderer) {
     ClearCachedTexture();
+    clearLoadingState();
     return;
   }
 
@@ -1111,8 +1251,10 @@ void LayoutViewerPanel::RebuildCachedTexture() {
     }
 
     InitGL();
-    if (!IsShownOnScreen())
+    if (!IsShownOnScreen()) {
+      clearLoadingState();
       return;
+    }
     SetCurrent(*glContext_);
     if (cache.texture == 0) {
       glGenTextures(1, &cache.texture);
@@ -1183,8 +1325,10 @@ void LayoutViewerPanel::RebuildCachedTexture() {
     }
 
     InitGL();
-    if (!IsShownOnScreen())
+    if (!IsShownOnScreen()) {
+      clearLoadingState();
       return;
+    }
     SetCurrent(*glContext_);
     if (cache.texture == 0) {
       glGenTextures(1, &cache.texture);
@@ -1266,8 +1410,10 @@ void LayoutViewerPanel::RebuildCachedTexture() {
     }
 
     InitGL();
-    if (!IsShownOnScreen())
+    if (!IsShownOnScreen()) {
+      clearLoadingState();
       return;
+    }
     SetCurrent(*glContext_);
     if (cache.texture == 0) {
       glGenTextures(1, &cache.texture);
@@ -1348,8 +1494,10 @@ void LayoutViewerPanel::RebuildCachedTexture() {
     }
 
     InitGL();
-    if (!IsShownOnScreen())
+    if (!IsShownOnScreen()) {
+      clearLoadingState();
       return;
+    }
     SetCurrent(*glContext_);
     if (cache.texture == 0) {
       glGenTextures(1, &cache.texture);
@@ -1436,8 +1584,10 @@ void LayoutViewerPanel::RebuildCachedTexture() {
     }
 
     InitGL();
-    if (!IsShownOnScreen())
+    if (!IsShownOnScreen()) {
+      clearLoadingState();
       return;
+    }
     SetCurrent(*glContext_);
     if (cache.texture == 0) {
       glGenTextures(1, &cache.texture);
@@ -1454,6 +1604,8 @@ void LayoutViewerPanel::RebuildCachedTexture() {
     cache.renderZoom = renderZoom;
     cache.contentHash = dataHash;
   }
+
+  clearLoadingState();
 }
 
 void LayoutViewerPanel::ClearCachedTexture() {
@@ -1543,6 +1695,10 @@ void LayoutViewerPanel::RequestRenderRebuild() {
   if (!renderDirty || renderPending)
     return;
   renderPending = true;
+  loadingRequested = true;
+  if (!loadingTimer_.IsRunning()) {
+    loadingTimer_.StartOnce(kLoadingOverlayDelayMs);
+  }
   CallAfter([this]() {
     renderPending = false;
     RebuildCachedTexture();
@@ -1656,6 +1812,44 @@ void LayoutViewerPanel::InvalidateRenderIfFrameChanged() {
       renderDirty = true;
     }
   }
+}
+
+void LayoutViewerPanel::OnLoadingTimer(wxTimerEvent &) {
+  if (!loadingRequested)
+    return;
+  if (!renderPending && !renderDirty)
+    return;
+  isLoading = true;
+  Refresh();
+}
+
+bool LayoutViewerPanel::AreTexturesReady() const {
+  auto hasTexture = [](const auto &map, int id) {
+    auto it = map.find(id);
+    return it != map.end() && it->second.texture != 0;
+  };
+
+  for (const auto &view : currentLayout.view2dViews) {
+    if (!hasTexture(viewCaches_, view.id))
+      return false;
+  }
+  for (const auto &legend : currentLayout.legendViews) {
+    if (!hasTexture(legendCaches_, legend.id))
+      return false;
+  }
+  for (const auto &table : currentLayout.eventTables) {
+    if (!hasTexture(eventTableCaches_, table.id))
+      return false;
+  }
+  for (const auto &text : currentLayout.textViews) {
+    if (!hasTexture(textCaches_, text.id))
+      return false;
+  }
+  for (const auto &image : currentLayout.imageViews) {
+    if (!hasTexture(imageCaches_, image.id))
+      return false;
+  }
+  return true;
 }
 
 bool LayoutViewerPanel::SelectElementAtPosition(const wxPoint &pos) {
