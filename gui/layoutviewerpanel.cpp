@@ -1284,8 +1284,7 @@ void LayoutViewerPanel::RebuildCachedTexture() {
     if (!cache.renderDirty)
       continue;
     wxRect frameRect;
-    if (!cache.hasCapture || !cache.hasRenderState ||
-        !GetFrameRect(view.frame, frameRect)) {
+    if (!cache.hasRenderState || !GetFrameRect(view.frame, frameRect)) {
       continue;
     }
 
