@@ -158,6 +158,7 @@ void LayoutViewerPanel::DrawViewElement(
     cache.hasRenderState = true;
     cache.renderDirty = true;
     renderDirty = true;
+    RequestRenderRebuild();
   }
   if (cache.captureInProgress) {
     if (cache.captureVersion != layoutVersion)
