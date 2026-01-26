@@ -56,6 +56,8 @@ constexpr int kEditImageMenuId = wxID_HIGHEST + 497;
 constexpr int kDeleteImageMenuId = wxID_HIGHEST + 498;
 constexpr int kBringToFrontMenuId = wxID_HIGHEST + 499;
 constexpr int kSendToBackMenuId = wxID_HIGHEST + 500;
+constexpr int kRenderDebounceTimerId = wxID_HIGHEST + 501;
+constexpr int kRenderDebounceDelayMs = 32;
 
 int SnapToGrid(int value) {
   if (kLayoutGridStep <= 1)
@@ -90,12 +92,14 @@ wxBEGIN_EVENT_TABLE(LayoutViewerPanel, wxGLCanvas)
     EVT_MENU(kDeleteImageMenuId, LayoutViewerPanel::OnDeleteImage)
     EVT_MENU(kBringToFrontMenuId, LayoutViewerPanel::OnBringToFront)
     EVT_MENU(kSendToBackMenuId, LayoutViewerPanel::OnSendToBack)
+    EVT_TIMER(kRenderDebounceTimerId, LayoutViewerPanel::OnRenderDebounceTimer)
 wxEND_EVENT_TABLE()
 
 LayoutViewerPanel::LayoutViewerPanel(wxWindow *parent)
     : wxGLCanvas(parent, wxID_ANY, nullptr, wxDefaultPosition,
                  wxDefaultSize,
-                 wxFULL_REPAINT_ON_RESIZE | wxWANTS_CHARS) {
+                 wxFULL_REPAINT_ON_RESIZE | wxWANTS_CHARS),
+      renderDebounceTimer_(this, kRenderDebounceTimerId) {
   SetBackgroundStyle(wxBG_STYLE_CUSTOM);
   glContext_ = new wxGLContext(this);
   currentLayout.pageSetup.pageSize = print::PageSize::A4;
@@ -1089,6 +1093,10 @@ void LayoutViewerPanel::RebuildCachedTexture() {
     return;
   if (!IsShownOnScreen())
     return;
+  if (!HasDirtyCaches()) {
+    renderDirty = false;
+    return;
+  }
 
   renderDirty = false;
 
@@ -1620,14 +1628,57 @@ void LayoutViewerPanel::ClearCachedTexture(ImageCache &cache) {
 }
 
 void LayoutViewerPanel::RequestRenderRebuild() {
-  if (!renderDirty || renderPending)
+  if (!renderDirty)
     return;
+  if (!HasDirtyCaches()) {
+    renderDirty = false;
+    return;
+  }
+  if (renderDebounceTimer_.IsRunning())
+    renderDebounceTimer_.Stop();
   renderPending = true;
-  CallAfter([this]() {
-    renderPending = false;
-    RebuildCachedTexture();
-    Refresh();
-  });
+  renderDebounceTimer_.StartOnce(kRenderDebounceDelayMs);
+}
+
+void LayoutViewerPanel::OnRenderDebounceTimer(wxTimerEvent &) {
+  renderPending = false;
+  if (!renderDirty)
+    return;
+  if (!HasDirtyCaches()) {
+    renderDirty = false;
+    return;
+  }
+  RebuildCachedTexture();
+  Refresh();
+}
+
+bool LayoutViewerPanel::HasDirtyCaches() const {
+  for (const auto &view : currentLayout.view2dViews) {
+    auto it = viewCaches_.find(view.id);
+    if (it == viewCaches_.end() || it->second.renderDirty)
+      return true;
+  }
+  for (const auto &legend : currentLayout.legendViews) {
+    auto it = legendCaches_.find(legend.id);
+    if (it == legendCaches_.end() || it->second.renderDirty)
+      return true;
+  }
+  for (const auto &table : currentLayout.eventTables) {
+    auto it = eventTableCaches_.find(table.id);
+    if (it == eventTableCaches_.end() || it->second.renderDirty)
+      return true;
+  }
+  for (const auto &text : currentLayout.textViews) {
+    auto it = textCaches_.find(text.id);
+    if (it == textCaches_.end() || it->second.renderDirty)
+      return true;
+  }
+  for (const auto &image : currentLayout.imageViews) {
+    auto it = imageCaches_.find(image.id);
+    if (it == imageCaches_.end() || it->second.renderDirty)
+      return true;
+  }
+  return false;
 }
 
 void LayoutViewerPanel::InvalidateRenderIfFrameChanged() {

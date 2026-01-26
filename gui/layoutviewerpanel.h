@@ -23,6 +23,7 @@
 #include <unordered_map>
 #include <utility>
 #include <wx/glcanvas.h>
+#include <wx/timer.h>
 #include <wx/wx.h>
 #include "layouts/LayoutCollection.h"
 #include "canvas2d.h"
@@ -121,6 +122,7 @@ private:
   void OnDeleteImage(wxCommandEvent &event);
   void OnBringToFront(wxCommandEvent &event);
   void OnSendToBack(wxCommandEvent &event);
+  void OnRenderDebounceTimer(wxTimerEvent &event);
 
   void DrawSelectionHandles(const wxRect &frameRect) const;
   void DrawViewElement(const layouts::Layout2DViewDefinition &view,
@@ -163,6 +165,7 @@ private:
   void ClearCachedTexture(TextCache &cache);
   void ClearCachedTexture(ImageCache &cache);
   void RequestRenderRebuild();
+  bool HasDirtyCaches() const;
   void InvalidateRenderIfFrameChanged();
   void EmitEditViewRequest();
   bool SelectElementAtPosition(const wxPoint &pos);
@@ -255,6 +258,7 @@ private:
   unsigned int textureCopyFbo_ = 0;
   bool renderDirty = true;
   bool renderPending = false;
+  wxTimer renderDebounceTimer_;
   std::unordered_map<int, ViewCache> viewCaches_;
   std::unordered_map<int, LegendCache> legendCaches_;
   std::unordered_map<int, EventTableCache> eventTableCaches_;
