@@ -37,6 +37,7 @@ class Viewer3DPanel;
 class Viewer2DPanel;
 class Viewer2DRenderPanel;
 class Viewer2DOffscreenRenderer;
+class Viewer2DOffscreenRendererPool;
 class ConsolePanel;
 class LayerPanel;
 class LayoutPanel;
@@ -60,7 +61,7 @@ public:
   void EnableShortcuts(bool enable);
   void Ensure2DViewportAvailable();
   Viewer2DPanel *GetLayoutCapturePanel() const;
-  Viewer2DOffscreenRenderer *GetOffscreenRenderer();
+  Viewer2DOffscreenRenderer *GetOffscreenRendererForView(int viewId);
   bool IsLayout2DViewEditing() const;
   void PersistLayout2DViewState();
   void RestoreLayout2DViewState(int viewId);
@@ -84,7 +85,7 @@ private:
   Viewer3DPanel *viewportPanel = nullptr;
   Viewer2DPanel *viewport2DPanel = nullptr;
   Viewer2DRenderPanel *viewport2DRenderPanel = nullptr;
-  std::unique_ptr<Viewer2DOffscreenRenderer> offscreenViewer2DRenderer;
+  std::unique_ptr<Viewer2DOffscreenRendererPool> offscreenViewer2DRendererPool;
   ConsolePanel *consolePanel = nullptr;
   LayerPanel *layerPanel = nullptr;
   LayoutPanel *layoutPanel = nullptr;

@@ -33,8 +33,6 @@
 
 wxDECLARE_EVENT(EVT_LAYOUT_VIEW_EDIT, wxCommandEvent);
 
-class Viewer2DOffscreenRenderer;
-
 class LayoutViewerPanel : public wxGLCanvas {
 public:
   explicit LayoutViewerPanel(wxWindow *parent);
@@ -56,6 +54,7 @@ private:
   struct ViewCache {
     int captureVersion = -1;
     bool captureInProgress = false;
+    bool captureDirty = false;
     bool hasCapture = false;
     CommandBuffer buffer;
     Viewer2DViewState viewState;
@@ -127,7 +126,6 @@ private:
   void DrawSelectionHandles(const wxRect &frameRect) const;
   void DrawViewElement(const layouts::Layout2DViewDefinition &view,
                        Viewer2DPanel *capturePanel,
-                       Viewer2DOffscreenRenderer *offscreenRenderer,
                        int activeViewId);
   void DrawLegendElement(const layouts::LayoutLegendDefinition &legend,
                          int activeLegendId);
@@ -251,7 +249,6 @@ private:
   wxPoint dragStartPos{0, 0};
   layouts::Layout2DViewFrame dragStartFrame;
   int layoutVersion = 0;
-  bool captureInProgress = false;
   SelectedElementType selectedElementType = SelectedElementType::None;
   int selectedElementId = -1;
   wxGLContext *glContext_ = nullptr;
@@ -259,6 +256,7 @@ private:
   unsigned int textureCopyFbo_ = 0;
   bool renderDirty = true;
   bool renderPending = false;
+  bool legendCaptureInProgress = false;
   wxTimer renderDebounceTimer_;
   std::unordered_map<int, ViewCache> viewCaches_;
   std::unordered_map<int, LegendCache> legendCaches_;

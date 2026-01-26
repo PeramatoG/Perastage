@@ -18,6 +18,9 @@
 #pragma once
 
 #include "viewer2dpanel.h"
+#include <memory>
+#include <unordered_map>
+#include <vector>
 #include <wx/panel.h>
 #include <wx/window.h>
 
@@ -48,4 +51,18 @@ private:
   unsigned int depthRb_ = 0;
   wxSize renderSize_{0, 0};
   size_t lastStateHash_ = 0;
+};
+
+class Viewer2DOffscreenRendererPool {
+public:
+  explicit Viewer2DOffscreenRendererPool(wxWindow *parent);
+
+  Viewer2DOffscreenRenderer *GetRendererForView(int viewId);
+  void SetSharedContext(wxGLContext *sharedContext);
+
+private:
+  wxWindow *parent_ = nullptr;
+  wxGLContext *sharedContext_ = nullptr;
+  std::vector<std::unique_ptr<Viewer2DOffscreenRenderer>> renderers_;
+  std::unordered_map<int, size_t> rendererIndexByView_;
 };
