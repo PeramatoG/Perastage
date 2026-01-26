@@ -446,7 +446,7 @@ void LayoutViewerPanel::EnsureLoadingTextTexture() {
   if (loadingTextTexture_ != 0)
     return;
 
-  const wxString label = wxString::FromUTF8("Loading layout...");
+  const wxString label = wxString::FromUTF8("Cargando layout...");
   wxFont font = wxFontInfo(14).Bold();
   int textWidth = 0;
   int textHeight = 0;
@@ -475,7 +475,6 @@ void LayoutViewerPanel::EnsureLoadingTextTexture() {
   wxImage image = bitmap.ConvertToImage();
   if (!image.IsOk())
     return;
-  image = image.Mirror(true).Mirror(false);
 
   const unsigned char *rgb = image.GetData();
   if (!rgb)
