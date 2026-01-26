@@ -1215,55 +1215,22 @@ void LayoutViewerPanel::RebuildCachedTexture() {
     }
     capturePanel = legendRenderer ? legendRenderer->GetPanel() : nullptr;
   }
-  if (!capturePanel) {
-    return;
-  }
 
-  std::shared_ptr<const SymbolDefinitionSnapshot> legendSymbols =
-      capturePanel->GetBottomSymbolCacheSnapshot();
+  std::shared_ptr<const SymbolDefinitionSnapshot> legendSymbols;
   bool legendReady = true;
   if (!currentLayout.legendViews.empty()) {
-    if (!legendSymbols || legendSymbols->empty()) {
+    if (!capturePanel) {
       legendReady = false;
-      if (!legendCaptureInProgress) {
-        legendCaptureInProgress = true;
-        ConfigManager &cfg = ConfigManager::Get();
-        viewer2d::Viewer2DState state =
-            viewer2d::CaptureState(capturePanel, cfg);
-        state.camera.view = static_cast<int>(Viewer2DView::Top);
-        state.renderOptions.darkMode = false;
-        auto stateGuard = std::make_shared<viewer2d::ScopedViewer2DState>(
-            capturePanel, nullptr, cfg, state, nullptr, nullptr, false);
-        capturePanel->CaptureFrameAsync(
-            [this, stateGuard](CommandBuffer, Viewer2DViewState) {
-              legendCaptureInProgress = false;
-              renderDirty = true;
-              RequestRenderRebuild();
-              Refresh();
-            },
-            true, false);
-      }
     } else {
-      bool hasTop = false;
-      bool hasFront = false;
-      for (const auto &entry : *legendSymbols) {
-        if (entry.second.key.viewKind == SymbolViewKind::Top)
-          hasTop = true;
-        else if (entry.second.key.viewKind == SymbolViewKind::Front)
-          hasFront = true;
-        if (hasTop && hasFront)
-          break;
-      }
-      if (!hasTop || !hasFront) {
+      legendSymbols = capturePanel->GetBottomSymbolCacheSnapshot();
+      if (!legendSymbols || legendSymbols->empty()) {
         legendReady = false;
         if (!legendCaptureInProgress) {
           legendCaptureInProgress = true;
-          const Viewer2DView targetView =
-              hasTop ? Viewer2DView::Front : Viewer2DView::Top;
           ConfigManager &cfg = ConfigManager::Get();
           viewer2d::Viewer2DState state =
               viewer2d::CaptureState(capturePanel, cfg);
-          state.camera.view = static_cast<int>(targetView);
+          state.camera.view = static_cast<int>(Viewer2DView::Top);
           state.renderOptions.darkMode = false;
           auto stateGuard = std::make_shared<viewer2d::ScopedViewer2DState>(
               capturePanel, nullptr, cfg, state, nullptr, nullptr, false);
@@ -1275,6 +1242,40 @@ void LayoutViewerPanel::RebuildCachedTexture() {
                 Refresh();
               },
               true, false);
+        }
+      } else {
+        bool hasTop = false;
+        bool hasFront = false;
+        for (const auto &entry : *legendSymbols) {
+          if (entry.second.key.viewKind == SymbolViewKind::Top)
+            hasTop = true;
+          else if (entry.second.key.viewKind == SymbolViewKind::Front)
+            hasFront = true;
+          if (hasTop && hasFront)
+            break;
+        }
+        if (!hasTop || !hasFront) {
+          legendReady = false;
+          if (!legendCaptureInProgress) {
+            legendCaptureInProgress = true;
+            const Viewer2DView targetView =
+                hasTop ? Viewer2DView::Front : Viewer2DView::Top;
+            ConfigManager &cfg = ConfigManager::Get();
+            viewer2d::Viewer2DState state =
+                viewer2d::CaptureState(capturePanel, cfg);
+            state.camera.view = static_cast<int>(targetView);
+            state.renderOptions.darkMode = false;
+            auto stateGuard = std::make_shared<viewer2d::ScopedViewer2DState>(
+                capturePanel, nullptr, cfg, state, nullptr, nullptr, false);
+            capturePanel->CaptureFrameAsync(
+                [this, stateGuard](CommandBuffer, Viewer2DViewState) {
+                  legendCaptureInProgress = false;
+                  renderDirty = true;
+                  RequestRenderRebuild();
+                  Refresh();
+                },
+                true, false);
+          }
         }
       }
     }
