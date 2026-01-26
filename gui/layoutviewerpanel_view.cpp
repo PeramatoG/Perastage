@@ -191,7 +191,7 @@ void LayoutViewerPanel::DrawViewElement(
           if (capturePanel) {
             cache.symbols = capturePanel->GetBottomSymbolCacheSnapshot();
           }
-          cache.hasCapture = !cache.buffer.commands.empty();
+          cache.hasCapture = true;
           cache.captureVersion = captureVersion;
           cache.captureInProgress = false;
           cache.renderDirty = true;
