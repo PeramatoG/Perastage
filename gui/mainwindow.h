@@ -160,6 +160,7 @@ private:
   void OnLayout2DViewOk(wxCommandEvent &event); // Confirm layout 2D view edit
   void OnLayout2DViewCancel(wxCommandEvent &event); // Cancel layout 2D edit
   void OnLayoutViewEdit(wxCommandEvent &event);
+  void OnLayoutRenderReady(wxCommandEvent &event);
 
   void OnPaneClose(wxAuiManagerEvent &event); // Keep View menu in sync
 
@@ -174,6 +175,8 @@ private:
   void UpdateViewMenuChecks();
   void OnLayoutSelected(wxCommandEvent &event);
   void ActivateLayoutView(const std::string &layoutName);
+  void ShowLayoutLoadingIndicator(const wxString &message);
+  void ClearLayoutLoadingIndicator();
   void SyncSceneData();
   bool ConfirmSaveIfDirty(const wxString &actionLabel,
                           const wxString &dialogTitle);
@@ -188,6 +191,7 @@ private:
   Viewer2DPanel *layout2DViewEditPanel = nullptr;
   Viewer2DRenderPanel *layout2DViewEditRenderPanel = nullptr;
   std::optional<viewer2d::Viewer2DState> standalone2DState;
+  std::unique_ptr<wxBusyCursor> layoutRenderCursor;
 
   inline static MainWindow *s_instance = nullptr;
   wxDECLARE_EVENT_TABLE();

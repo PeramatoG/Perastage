@@ -92,6 +92,8 @@ wxBEGIN_EVENT_TABLE(LayoutViewerPanel, wxGLCanvas)
     EVT_MENU(kSendToBackMenuId, LayoutViewerPanel::OnSendToBack)
 wxEND_EVENT_TABLE()
 
+wxDEFINE_EVENT(EVT_LAYOUT_RENDER_READY, wxCommandEvent);
+
 LayoutViewerPanel::LayoutViewerPanel(wxWindow *parent)
     : wxGLCanvas(parent, wxID_ANY, nullptr, wxDefaultPosition,
                  wxDefaultSize,
@@ -1142,6 +1144,13 @@ void LayoutViewerPanel::InitGL() {
 void LayoutViewerPanel::RebuildCachedTexture() {
   if (!renderDirty)
     return;
+  auto notifyRenderReady = [this]() {
+    CallAfter([this]() {
+      wxCommandEvent event(EVT_LAYOUT_RENDER_READY);
+      event.SetEventObject(this);
+      wxPostEvent(this, event);
+    });
+  };
   auto clearLoadingState = [this]() {
     loadingRequested = false;
     if (loadingTimer_.IsRunning())
@@ -1150,6 +1159,7 @@ void LayoutViewerPanel::RebuildCachedTexture() {
   };
   if (!IsShownOnScreen()) {
     clearLoadingState();
+    notifyRenderReady();
     return;
   }
 
@@ -1164,6 +1174,7 @@ void LayoutViewerPanel::RebuildCachedTexture() {
   if (!capturePanel || !offscreenRenderer) {
     ClearCachedTexture();
     clearLoadingState();
+    notifyRenderReady();
     return;
   }
 
@@ -1253,6 +1264,7 @@ void LayoutViewerPanel::RebuildCachedTexture() {
     InitGL();
     if (!IsShownOnScreen()) {
       clearLoadingState();
+      notifyRenderReady();
       return;
     }
     SetCurrent(*glContext_);
@@ -1327,6 +1339,7 @@ void LayoutViewerPanel::RebuildCachedTexture() {
     InitGL();
     if (!IsShownOnScreen()) {
       clearLoadingState();
+      notifyRenderReady();
       return;
     }
     SetCurrent(*glContext_);
@@ -1412,6 +1425,7 @@ void LayoutViewerPanel::RebuildCachedTexture() {
     InitGL();
     if (!IsShownOnScreen()) {
       clearLoadingState();
+      notifyRenderReady();
       return;
     }
     SetCurrent(*glContext_);
@@ -1496,6 +1510,7 @@ void LayoutViewerPanel::RebuildCachedTexture() {
     InitGL();
     if (!IsShownOnScreen()) {
       clearLoadingState();
+      notifyRenderReady();
       return;
     }
     SetCurrent(*glContext_);
@@ -1586,6 +1601,7 @@ void LayoutViewerPanel::RebuildCachedTexture() {
     InitGL();
     if (!IsShownOnScreen()) {
       clearLoadingState();
+      notifyRenderReady();
       return;
     }
     SetCurrent(*glContext_);
@@ -1606,6 +1622,7 @@ void LayoutViewerPanel::RebuildCachedTexture() {
   }
 
   clearLoadingState();
+  notifyRenderReady();
 }
 
 void LayoutViewerPanel::ClearCachedTexture() {
