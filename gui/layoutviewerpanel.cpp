@@ -44,6 +44,9 @@ constexpr int kHandleHalfPx = kHandleSizePx / 2;
 constexpr int kHandleHoverPadPx = 6;
 constexpr int kMinFrameSize = 24;
 constexpr int kLayoutGridStep = 5;
+constexpr int kMaxRenderDimension = 8192;
+constexpr size_t kMaxRenderPixels =
+    static_cast<size_t>(kMaxRenderDimension) * kMaxRenderDimension;
 constexpr int kEditMenuId = wxID_HIGHEST + 490;
 constexpr int kDeleteMenuId = wxID_HIGHEST + 491;
 constexpr int kDeleteLegendMenuId = wxID_HIGHEST + 492;
@@ -1084,10 +1087,21 @@ wxSize LayoutViewerPanel::GetFrameSizeForZoom(
     const layouts::Layout2DViewFrame &frame, double targetZoom) const {
   if (frame.width <= 0 || frame.height <= 0 || targetZoom <= 0.0)
     return wxSize(0, 0);
-  const int scaledWidth =
-      static_cast<int>(std::lround(frame.width * targetZoom));
-  const int scaledHeight =
-      static_cast<int>(std::lround(frame.height * targetZoom));
+  const double scaledWidthValue = frame.width * targetZoom;
+  const double scaledHeightValue = frame.height * targetZoom;
+  if (scaledWidthValue > kMaxRenderDimension ||
+      scaledHeightValue > kMaxRenderDimension)
+    return wxSize(0, 0);
+  const int scaledWidth = static_cast<int>(std::lround(scaledWidthValue));
+  const int scaledHeight = static_cast<int>(std::lround(scaledHeightValue));
+  if (scaledWidth <= 0 || scaledHeight <= 0)
+    return wxSize(0, 0);
+  if (scaledWidth > kMaxRenderDimension ||
+      scaledHeight > kMaxRenderDimension)
+    return wxSize(0, 0);
+  if (static_cast<size_t>(scaledWidth) >
+      kMaxRenderPixels / static_cast<size_t>(scaledHeight))
+    return wxSize(0, 0);
   return wxSize(scaledWidth, scaledHeight);
 }
 
