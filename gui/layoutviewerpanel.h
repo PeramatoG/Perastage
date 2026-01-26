@@ -60,6 +60,7 @@ private:
     Viewer2DViewState viewState;
     viewer2d::Viewer2DState renderState;
     bool hasRenderState = false;
+    size_t renderStateHash = 0;
     std::shared_ptr<const SymbolDefinitionSnapshot> symbols;
     unsigned int texture = 0;
     wxSize textureSize{0, 0};
@@ -136,6 +137,8 @@ private:
   void DrawImageElement(const layouts::LayoutImageDefinition &image,
                         int activeImageId);
   void DrawLoadingOverlay(const wxRect &frameRect);
+  bool UpdateViewCacheState(const layouts::Layout2DViewDefinition &view,
+                            ViewCache &cache);
 
   void ResetViewToFit();
   wxRect GetPageRect() const;

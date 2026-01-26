@@ -27,6 +27,56 @@
 #include "layouts/LayoutManager.h"
 #include "viewer2dstate.h"
 
+namespace {
+void HashCombine(size_t &seed, size_t value) {
+  seed ^= value + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+}
+
+template <typename T> void HashCombineValue(size_t &seed, const T &value) {
+  HashCombine(seed, std::hash<T>{}(value));
+}
+
+size_t HashLayoutViewRenderState(const layouts::Layout2DViewDefinition &view) {
+  size_t seed = 0;
+  const auto &camera = view.camera;
+  HashCombineValue(seed, camera.offsetPixelsX);
+  HashCombineValue(seed, camera.offsetPixelsY);
+  HashCombineValue(seed, camera.zoom);
+  HashCombineValue(seed, camera.viewportWidth);
+  HashCombineValue(seed, camera.viewportHeight);
+  HashCombineValue(seed, camera.view);
+
+  const auto &options = view.renderOptions;
+  HashCombineValue(seed, options.renderMode);
+  HashCombineValue(seed, options.darkMode);
+  HashCombineValue(seed, options.showGrid);
+  HashCombineValue(seed, options.gridStyle);
+  HashCombineValue(seed, options.gridColorR);
+  HashCombineValue(seed, options.gridColorG);
+  HashCombineValue(seed, options.gridColorB);
+  HashCombineValue(seed, options.gridDrawAbove);
+
+  for (bool value : options.showLabelName)
+    HashCombineValue(seed, value);
+  for (bool value : options.showLabelId)
+    HashCombineValue(seed, value);
+  for (bool value : options.showLabelDmx)
+    HashCombineValue(seed, value);
+  HashCombineValue(seed, options.labelFontSizeName);
+  HashCombineValue(seed, options.labelFontSizeId);
+  HashCombineValue(seed, options.labelFontSizeDmx);
+  for (float value : options.labelOffsetDistance)
+    HashCombineValue(seed, value);
+  for (float value : options.labelOffsetAngle)
+    HashCombineValue(seed, value);
+
+  HashCombineValue(seed, view.layers.hiddenLayers.size());
+  for (const auto &layer : view.layers.hiddenLayers)
+    HashCombineValue(seed, layer);
+  return seed;
+}
+} // namespace
+
 layouts::Layout2DViewDefinition *LayoutViewerPanel::GetEditableView() {
   if (currentLayout.view2dViews.empty())
     return nullptr;
@@ -146,18 +196,35 @@ void LayoutViewerPanel::UpdateFrame(const layouts::Layout2DViewFrame &frame,
   Refresh();
 }
 
+bool LayoutViewerPanel::UpdateViewCacheState(
+    const layouts::Layout2DViewDefinition &view, ViewCache &cache) {
+  const size_t nextHash = HashLayoutViewRenderState(view);
+  if (cache.hasRenderState && cache.renderStateHash == nextHash) {
+    return false;
+  }
+  viewer2d::Viewer2DState layoutState = viewer2d::FromLayoutDefinition(view);
+  layoutState.renderOptions.darkMode = false;
+  cache.renderState = layoutState;
+  cache.hasRenderState = true;
+  cache.renderStateHash = nextHash;
+  cache.renderDirty = true;
+  renderDirty = true;
+  cache.captureVersion = -1;
+  if (cache.captureInProgress)
+    cache.captureDirty = true;
+  return true;
+}
+
 void LayoutViewerPanel::DrawViewElement(
     const layouts::Layout2DViewDefinition &view, Viewer2DPanel *capturePanel,
     int activeViewId) {
   ViewCache &cache = GetViewCache(view.id);
-  if (!cache.hasRenderState || cache.captureVersion != layoutVersion) {
-    viewer2d::Viewer2DState layoutState =
-        viewer2d::FromLayoutDefinition(view);
-    layoutState.renderOptions.darkMode = false;
-    cache.renderState = layoutState;
-    cache.hasRenderState = true;
-    cache.renderDirty = true;
-    renderDirty = true;
+  if (UpdateViewCacheState(view, cache) ||
+      cache.captureVersion != layoutVersion) {
+    if (!cache.captureInProgress)
+      RequestRenderRebuild();
+  }
+  if (cache.captureVersion != layoutVersion) {
     RequestRenderRebuild();
   }
   if (cache.captureInProgress) {
