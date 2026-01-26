@@ -150,6 +150,15 @@ void LayoutViewerPanel::DrawViewElement(
     const layouts::Layout2DViewDefinition &view, Viewer2DPanel *capturePanel,
     int activeViewId) {
   ViewCache &cache = GetViewCache(view.id);
+  if (!cache.hasRenderState || cache.captureVersion != layoutVersion) {
+    viewer2d::Viewer2DState layoutState =
+        viewer2d::FromLayoutDefinition(view);
+    layoutState.renderOptions.darkMode = false;
+    cache.renderState = layoutState;
+    cache.hasRenderState = true;
+    cache.renderDirty = true;
+    renderDirty = true;
+  }
   if (cache.captureInProgress) {
     if (cache.captureVersion != layoutVersion)
       cache.captureDirty = true;
@@ -165,13 +174,9 @@ void LayoutViewerPanel::DrawViewElement(
                                            ? view.camera.viewportHeight
                                            : view.frame.height;
     ConfigManager &cfg = ConfigManager::Get();
-    viewer2d::Viewer2DState layoutState =
-        viewer2d::FromLayoutDefinition(view);
-    layoutState.renderOptions.darkMode = false;
-    cache.renderState = layoutState;
-    cache.hasRenderState = true;
     auto stateGuard = std::make_shared<viewer2d::ScopedViewer2DState>(
-        capturePanel, nullptr, cfg, layoutState, nullptr, nullptr, false);
+        capturePanel, nullptr, cfg, cache.renderState, nullptr, nullptr,
+        false);
     capturePanel->CaptureFrameAsync(
         [this, viewId, captureVersion, stateGuard, fallbackViewportWidth,
          fallbackViewportHeight,
