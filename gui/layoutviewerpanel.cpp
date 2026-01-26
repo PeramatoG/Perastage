@@ -72,6 +72,7 @@ wxDEFINE_EVENT(EVT_LAYOUT_VIEW_EDIT, wxCommandEvent);
 
 wxBEGIN_EVENT_TABLE(LayoutViewerPanel, wxGLCanvas)
     EVT_PAINT(LayoutViewerPanel::OnPaint)
+    EVT_SHOW(LayoutViewerPanel::OnShow)
     EVT_SIZE(LayoutViewerPanel::OnSize)
     EVT_LEFT_DOWN(LayoutViewerPanel::OnLeftDown)
     EVT_LEFT_UP(LayoutViewerPanel::OnLeftUp)
@@ -258,6 +259,9 @@ void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
   if (!IsShownOnScreen()) {
     return;
   }
+  if (renderDirty && !renderPending) {
+    RequestRenderRebuild();
+  }
   InitGL();
   SetCurrent(*glContext_);
   RefreshLegendData();
@@ -402,6 +406,13 @@ void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
 
   glFlush();
   SwapBuffers();
+}
+
+void LayoutViewerPanel::OnShow(wxShowEvent &event) {
+  if (event.IsShown() && renderDirty) {
+    RequestRenderRebuild();
+  }
+  event.Skip();
 }
 
 void LayoutViewerPanel::DrawSelectionHandles(const wxRect &frameRect) const {

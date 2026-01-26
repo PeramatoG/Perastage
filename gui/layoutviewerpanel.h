@@ -101,6 +101,7 @@ private:
   };
 
   void OnPaint(wxPaintEvent &event);
+  void OnShow(wxShowEvent &event);
   void OnSize(wxSizeEvent &event);
   void OnLeftDown(wxMouseEvent &event);
   void OnLeftUp(wxMouseEvent &event);
