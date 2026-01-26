@@ -636,6 +636,10 @@ void MainWindow::ActivateLayoutView(const std::string &layoutName) {
       selectedLayout = &layout;
       if (layoutViewerPanel) {
         ShowLayoutLoadingIndicator("Rendering layout...");
+        if (GetStatusBar())
+          GetStatusBar()->Update();
+        else
+          Update();
         layoutViewerPanel->SetLayoutDefinition(layout);
         appliedLayout = true;
       }
