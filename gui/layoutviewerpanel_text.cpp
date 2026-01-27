@@ -88,7 +88,9 @@ void LayoutViewerPanel::UpdateTextFrame(const layouts::Layout2DViewFrame &frame,
     layouts::LayoutManager::Get().UpdateLayoutText(currentLayout.name, *text);
   }
   InvalidateRenderIfFrameChanged();
-  RequestRenderRebuild();
+  if (NeedsRenderRebuild()) {
+    RequestRenderRebuild();
+  }
   Refresh();
 }
 

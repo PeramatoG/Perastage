@@ -95,7 +95,9 @@ void LayoutViewerPanel::UpdateImageFrame(const layouts::Layout2DViewFrame &frame
     layouts::LayoutManager::Get().UpdateLayoutImage(currentLayout.name, *image);
   }
   InvalidateRenderIfFrameChanged();
-  RequestRenderRebuild();
+  if (NeedsRenderRebuild()) {
+    RequestRenderRebuild();
+  }
   Refresh();
 }
 
