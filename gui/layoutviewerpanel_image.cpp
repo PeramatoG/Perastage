@@ -141,7 +141,6 @@ void LayoutViewerPanel::OnEditImage(wxCommandEvent &) {
   }
   ImageCache &cache = GetImageCache(image->id);
   cache.renderDirty = true;
-  renderDirty = true;
   RequestRenderRebuild();
   Refresh();
 }

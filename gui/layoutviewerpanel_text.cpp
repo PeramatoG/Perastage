@@ -132,7 +132,6 @@ void LayoutViewerPanel::OnEditText(wxCommandEvent &) {
   }
   TextCache &cache = GetTextCache(text->id);
   cache.renderDirty = true;
-  renderDirty = true;
   RequestRenderRebuild();
   Refresh();
 }
