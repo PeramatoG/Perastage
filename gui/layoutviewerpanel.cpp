@@ -398,65 +398,48 @@ void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
   }
 
   const bool texturesReady = AreTexturesReady();
-  auto isCacheUsableForFrame = [this](const auto &cache, const auto &frame) {
-    if (cache.texture == 0)
-      return false;
-    const wxSize renderSize = GetFrameSizeForZoom(frame, cache.renderZoom);
-    return renderSize.GetWidth() > 0 && renderSize.GetHeight() > 0 &&
-           cache.textureSize == renderSize;
+  auto hasTexture = [](const auto &cacheMap, int id) {
+    auto it = cacheMap.find(id);
+    return it != cacheMap.end() && it->second.texture != 0;
   };
-  bool activeElementEmpty = false;
+  bool activeElementHasTexture = false;
   if (selectedElementType == SelectedElementType::View2D) {
     if (!activeView) {
-      activeElementEmpty = true;
+      activeElementHasTexture = false;
     } else {
-      auto it = viewCaches_.find(activeViewId);
-      activeElementEmpty =
-          it == viewCaches_.end() ||
-          !isCacheUsableForFrame(it->second, activeView->frame);
+      activeElementHasTexture = hasTexture(viewCaches_, activeViewId);
     }
   } else if (selectedElementType == SelectedElementType::Legend) {
     const auto *legend = findLegendById(activeLegendId);
     if (!legend) {
-      activeElementEmpty = true;
+      activeElementHasTexture = false;
     } else {
-      auto it = legendCaches_.find(activeLegendId);
-      activeElementEmpty =
-          it == legendCaches_.end() ||
-          !isCacheUsableForFrame(it->second, legend->frame);
+      activeElementHasTexture = hasTexture(legendCaches_, activeLegendId);
     }
   } else if (selectedElementType == SelectedElementType::EventTable) {
     const auto *table = findEventTableById(activeEventTableId);
     if (!table) {
-      activeElementEmpty = true;
+      activeElementHasTexture = false;
     } else {
-      auto it = eventTableCaches_.find(activeEventTableId);
-      activeElementEmpty =
-          it == eventTableCaches_.end() ||
-          !isCacheUsableForFrame(it->second, table->frame);
+      activeElementHasTexture =
+          hasTexture(eventTableCaches_, activeEventTableId);
     }
   } else if (selectedElementType == SelectedElementType::Text) {
     const auto *text = findTextById(activeTextId);
     if (!text) {
-      activeElementEmpty = true;
+      activeElementHasTexture = false;
     } else {
-      auto it = textCaches_.find(activeTextId);
-      activeElementEmpty =
-          it == textCaches_.end() ||
-          !isCacheUsableForFrame(it->second, text->frame);
+      activeElementHasTexture = hasTexture(textCaches_, activeTextId);
     }
   } else if (selectedElementType == SelectedElementType::Image) {
     const auto *image = findImageById(activeImageId);
     if (!image) {
-      activeElementEmpty = true;
+      activeElementHasTexture = false;
     } else {
-      auto it = imageCaches_.find(activeImageId);
-      activeElementEmpty =
-          it == imageCaches_.end() ||
-          !isCacheUsableForFrame(it->second, image->frame);
+      activeElementHasTexture = hasTexture(imageCaches_, activeImageId);
     }
   }
-  const bool showLoadingOverlay = !texturesReady || activeElementEmpty;
+  const bool showLoadingOverlay = !texturesReady && !activeElementHasTexture;
   if (showLoadingOverlay) {
     DrawLoadingOverlay(size);
   }
