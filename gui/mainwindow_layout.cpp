@@ -806,6 +806,11 @@ void MainWindow::OnLayout2DViewOk(wxCommandEvent &WXUNUSED(event)) {
   viewer2d::Viewer2DState current =
       viewer2d::CaptureState(editPanel, cfg);
   viewer2d::ApplyEditorRenderOptions(current, cfg);
+  const float overlayScale =
+      editPanel ? editPanel->GetLayoutEditOverlayScale() : 1.0f;
+  if (overlayScale > 0.0f) {
+    current.camera.zoom /= overlayScale;
+  }
 
   layouts::Layout2DViewFrame frame{};
   int viewId = layout2DViewEditingId;
