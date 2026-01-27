@@ -20,7 +20,6 @@
 #include <algorithm>
 #include <functional>
 
-#include <GL/glew.h>
 #include <GL/gl.h>
 
 #include <wx/log.h>
