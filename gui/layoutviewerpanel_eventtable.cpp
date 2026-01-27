@@ -117,7 +117,6 @@ void LayoutViewerPanel::OnEditEventTable(wxCommandEvent &) {
   }
   EventTableCache &cache = GetEventTableCache(table->id);
   cache.renderDirty = true;
-  renderDirty = true;
   RequestRenderRebuild();
   Refresh();
 }
