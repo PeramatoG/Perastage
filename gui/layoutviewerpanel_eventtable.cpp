@@ -21,6 +21,7 @@
 #include <array>
 #include <functional>
 
+#include <GL/glew.h>
 #include <GL/gl.h>
 
 #include "layouteventtabledialog.h"
