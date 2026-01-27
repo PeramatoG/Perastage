@@ -316,6 +316,9 @@ void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
   const int activeLegendId =
       selectedElementType == SelectedElementType::Legend ? selectedElementId
                                                          : -1;
+  const int activeEventTableId =
+      selectedElementType == SelectedElementType::EventTable ? selectedElementId
+                                                             : -1;
   const int activeTextId =
       selectedElementType == SelectedElementType::Text ? selectedElementId
                                                        : -1;
@@ -395,8 +398,65 @@ void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
   }
 
   const bool texturesReady = AreTexturesReady();
-  const bool showLoadingOverlay =
-      isLoading || renderDirty || renderPending || !texturesReady;
+  auto isCacheUsableForFrame = [this](const auto &cache, const auto &frame) {
+    if (cache.texture == 0)
+      return false;
+    const wxSize renderSize = GetFrameSizeForZoom(frame, cache.renderZoom);
+    return renderSize.GetWidth() > 0 && renderSize.GetHeight() > 0 &&
+           cache.textureSize == renderSize;
+  };
+  bool activeElementEmpty = false;
+  if (selectedElementType == SelectedElementType::View2D) {
+    if (!activeView) {
+      activeElementEmpty = true;
+    } else {
+      auto it = viewCaches_.find(activeViewId);
+      activeElementEmpty =
+          it == viewCaches_.end() ||
+          !isCacheUsableForFrame(it->second, activeView->frame);
+    }
+  } else if (selectedElementType == SelectedElementType::Legend) {
+    const auto *legend = findLegendById(activeLegendId);
+    if (!legend) {
+      activeElementEmpty = true;
+    } else {
+      auto it = legendCaches_.find(activeLegendId);
+      activeElementEmpty =
+          it == legendCaches_.end() ||
+          !isCacheUsableForFrame(it->second, legend->frame);
+    }
+  } else if (selectedElementType == SelectedElementType::EventTable) {
+    const auto *table = findEventTableById(activeEventTableId);
+    if (!table) {
+      activeElementEmpty = true;
+    } else {
+      auto it = eventTableCaches_.find(activeEventTableId);
+      activeElementEmpty =
+          it == eventTableCaches_.end() ||
+          !isCacheUsableForFrame(it->second, table->frame);
+    }
+  } else if (selectedElementType == SelectedElementType::Text) {
+    const auto *text = findTextById(activeTextId);
+    if (!text) {
+      activeElementEmpty = true;
+    } else {
+      auto it = textCaches_.find(activeTextId);
+      activeElementEmpty =
+          it == textCaches_.end() ||
+          !isCacheUsableForFrame(it->second, text->frame);
+    }
+  } else if (selectedElementType == SelectedElementType::Image) {
+    const auto *image = findImageById(activeImageId);
+    if (!image) {
+      activeElementEmpty = true;
+    } else {
+      auto it = imageCaches_.find(activeImageId);
+      activeElementEmpty =
+          it == imageCaches_.end() ||
+          !isCacheUsableForFrame(it->second, image->frame);
+    }
+  }
+  const bool showLoadingOverlay = !texturesReady || activeElementEmpty;
   if (showLoadingOverlay) {
     DrawLoadingOverlay(size);
   }
