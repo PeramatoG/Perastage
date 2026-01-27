@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <memory>
 
+#include <GL/glew.h>
 #include <GL/gl.h>
 
 #include "configmanager.h"
