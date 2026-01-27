@@ -26,7 +26,6 @@
 #include <windows.h>
 #endif
 
-#include <GL/glew.h>
 #include <GL/gl.h>
 #include <wx/glcanvas.h>
 #include <algorithm>

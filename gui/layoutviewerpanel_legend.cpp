@@ -25,7 +25,6 @@
 #include <map>
 #include <vector>
 
-#include <GL/glew.h>
 #include <GL/gl.h>
 
 #include "configmanager.h"
