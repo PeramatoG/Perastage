@@ -163,6 +163,8 @@ private:
   void ClearCachedTexture(EventTableCache &cache);
   void ClearCachedTexture(TextCache &cache);
   void ClearCachedTexture(ImageCache &cache);
+  bool HasDirtyRenderCaches() const;
+  bool NeedsRenderRebuild() const;
   void RequestRenderRebuild();
   void InvalidateRenderIfFrameChanged();
   void OnLoadingTimer(wxTimerEvent &event);

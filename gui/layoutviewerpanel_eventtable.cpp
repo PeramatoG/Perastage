@@ -95,7 +95,9 @@ void LayoutViewerPanel::UpdateEventTableFrame(
                                                          *table);
   }
   InvalidateRenderIfFrameChanged();
-  RequestRenderRebuild();
+  if (NeedsRenderRebuild()) {
+    RequestRenderRebuild();
+  }
   Refresh();
 }
 

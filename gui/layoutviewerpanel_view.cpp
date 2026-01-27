@@ -142,7 +142,9 @@ void LayoutViewerPanel::UpdateFrame(const layouts::Layout2DViewFrame &frame,
                                                      *view);
   }
   InvalidateRenderIfFrameChanged();
-  RequestRenderRebuild();
+  if (NeedsRenderRebuild()) {
+    RequestRenderRebuild();
+  }
   Refresh();
 }
 

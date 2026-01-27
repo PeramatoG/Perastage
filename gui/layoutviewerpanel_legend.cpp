@@ -573,7 +573,9 @@ void LayoutViewerPanel::UpdateLegendFrame(const layouts::Layout2DViewFrame &fram
                                                      *legend);
   }
   InvalidateRenderIfFrameChanged();
-  RequestRenderRebuild();
+  if (NeedsRenderRebuild()) {
+    RequestRenderRebuild();
+  }
   Refresh();
 }
 
