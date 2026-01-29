@@ -31,8 +31,12 @@
 class MyApp : public wxApp {
 public:
   virtual bool OnInit() override;
+  int FilterEvent(wxEvent &event) override;
   bool OnExceptionInMainLoop() override;
   void OnUnhandledException() override;
+
+private:
+  std::string last_event_summary_;
 };
 
 wxIMPLEMENT_APP(MyApp);
@@ -123,6 +127,27 @@ bool MyApp::OnInit() {
   return true;
 }
 
+int MyApp::FilterEvent(wxEvent &event) {
+  const wxClassInfo *eventInfo = event.GetClassInfo();
+  wxString eventClassName =
+      eventInfo ? eventInfo->GetClassName() : "UnknownEvent";
+  wxString objectClassName = "None";
+  if (event.GetEventObject()) {
+    const wxClassInfo *objectInfo = event.GetEventObject()->GetClassInfo();
+    if (objectInfo) {
+      objectClassName = objectInfo->GetClassName();
+    } else {
+      objectClassName = "UnknownObject";
+    }
+  }
+  last_event_summary_ = wxString::Format(
+                            "Last event: class=%s type=%d id=%d object=%s",
+                            eventClassName, static_cast<int>(event.GetEventType()),
+                            event.GetId(), objectClassName)
+                            .ToStdString();
+  return -1;
+}
+
 namespace {
 void LogExceptionWithStack(const std::exception &ex,
                            const char *contextMessage) {
@@ -166,8 +191,14 @@ bool MyApp::OnExceptionInMainLoop() {
   } catch (const std::exception &ex) {
     if (dynamic_cast<const std::bad_alloc *>(&ex)) {
       Logger::Instance().Log("Unhandled exception in main loop: bad allocation.");
+      if (!last_event_summary_.empty()) {
+        Logger::Instance().Log(last_event_summary_);
+      }
       LogExceptionWithStack(ex, "Unhandled exception in main loop: ");
       return true;
+    }
+    if (!last_event_summary_.empty()) {
+      Logger::Instance().Log(last_event_summary_);
     }
     LogExceptionWithStack(ex, "Unhandled exception in main loop: ");
     return true;
@@ -183,7 +214,13 @@ void MyApp::OnUnhandledException() {
   } catch (const std::exception &ex) {
     if (dynamic_cast<const std::bad_alloc *>(&ex)) {
       Logger::Instance().Log("Unhandled exception: bad allocation.");
+      if (!last_event_summary_.empty()) {
+        Logger::Instance().Log(last_event_summary_);
+      }
       return;
+    }
+    if (!last_event_summary_.empty()) {
+      Logger::Instance().Log(last_event_summary_);
     }
     LogExceptionWithStack(ex, "Unhandled exception: ");
   } catch (...) {
