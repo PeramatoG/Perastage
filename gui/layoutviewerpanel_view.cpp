@@ -136,6 +136,7 @@ void LayoutViewerPanel::UpdateFrame(const layouts::Layout2DViewFrame &frame,
     } else {
       view->camera.viewportHeight = 0;
     }
+    viewRenderVersion++;
   }
   if (!currentLayout.name.empty()) {
     layouts::LayoutManager::Get().UpdateLayout2DView(currentLayout.name,
@@ -153,7 +154,7 @@ void LayoutViewerPanel::DrawViewElement(
     Viewer2DOffscreenRenderer *offscreenRenderer, int activeViewId) {
   ViewCache &cache = GetViewCache(view.id);
   if (!captureInProgress && !cache.captureInProgress &&
-      cache.captureVersion != layoutVersion && capturePanel) {
+      cache.captureVersion != viewRenderVersion && capturePanel) {
     captureInProgress = true;
     cache.captureInProgress = true;
     const int viewId = view.id;
@@ -196,7 +197,7 @@ void LayoutViewerPanel::DrawViewElement(
             cache.symbols = capturePanel->GetBottomSymbolCacheSnapshot();
           }
           cache.hasCapture = !cache.buffer.commands.empty();
-          cache.captureVersion = layoutVersion;
+          cache.captureVersion = viewRenderVersion;
           cache.captureInProgress = false;
           captureInProgress = false;
           cache.renderDirty = true;
