@@ -98,6 +98,13 @@ bool TryParseInt(std::string_view text, int& out)
     }
     return false;
 }
+
+bool IsBlank(std::string_view text)
+{
+    return std::all_of(text.begin(), text.end(), [](unsigned char c) {
+        return std::isspace(c);
+    });
+}
 } // namespace
 
 struct GdtfCacheEntry
@@ -118,6 +125,7 @@ struct GdtfCacheEntry
     std::string modelColor;
     std::unordered_set<std::string> missingModelsLogged;
     std::unordered_set<std::string> failedModelLoads;
+    std::unordered_set<std::string> emptyModelFileLogged;
     size_t emptyGeometryLogCount = 0;
 };
 
@@ -769,7 +777,16 @@ bool LoadGdtf(const std::string& gdtfPath,
         for (tinyxml2::XMLElement* m = modelList->FirstChildElement("Model"); m; m = m->NextSiblingElement("Model")) {
             const char* name = m->Attribute("Name");
             const char* file = m->Attribute("File");
-            if (name && file) {
+            bool hasName = name && !IsBlank(name);
+            bool hasFile = file && !IsBlank(file);
+            if (hasName && !hasFile) {
+                if (ConsolePanel::Instance() && entry->emptyModelFileLogged.insert(name).second) {
+                    wxString msg = wxString::Format("GDTF: Model %s has empty File attribute", wxString::FromUTF8(name));
+                    ConsolePanel::Instance()->AppendMessage(msg);
+                }
+                continue;
+            }
+            if (hasName && hasFile) {
                 GdtfModelInfo info;
                 info.file = file;
                 m->QueryFloatAttribute("Length", &info.length);
