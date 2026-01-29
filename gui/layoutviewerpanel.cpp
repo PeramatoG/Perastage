@@ -150,6 +150,20 @@ void LayoutViewerPanel::SetLayoutDefinition(
   viewRenderVersion++;
   captureInProgress = false;
   ClearCachedTexture();
+  const bool emptyLayout = IsLayoutEmpty();
+  if (emptyLayout) {
+    selectedElementType = SelectedElementType::None;
+    selectedElementId = -1;
+    renderDirty = false;
+    loadingRequested = false;
+    isLoading = false;
+    legendItems_.clear();
+    legendDataHash = 0;
+    pendingFitOnResize = true;
+    ResetViewToFit();
+    Refresh();
+    return;
+  }
   renderDirty = true;
   loadingRequested = true;
   RefreshLegendData();
@@ -252,6 +266,13 @@ std::pair<int, int> LayoutViewerPanel::GetZIndexRange() const {
     }
   }
   return {minZ, maxZ};
+}
+
+bool LayoutViewerPanel::IsLayoutEmpty() const {
+  return currentLayout.view2dViews.empty() &&
+         currentLayout.legendViews.empty() &&
+         currentLayout.eventTables.empty() && currentLayout.textViews.empty() &&
+         currentLayout.imageViews.empty();
 }
 
 void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
@@ -1798,6 +1819,12 @@ bool LayoutViewerPanel::NeedsRenderRebuild() const {
 }
 
 void LayoutViewerPanel::RequestRenderRebuild() {
+  if (IsLayoutEmpty()) {
+    renderPending = false;
+    loadingRequested = false;
+    isLoading = false;
+    return;
+  }
   if (!isReadyToRender_ || !glContext_ || !IsShownOnScreen())
     return;
   auto *mw = MainWindow::Instance();
