@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "logger.h"
+#include <algorithm>
 #include <filesystem>
 #include <iostream>
 #include <vector>
@@ -80,28 +81,32 @@ void Logger::Worker() {
     if (done_ && queue_.empty())
       break;
     const bool shutting_down = done_;
-    std::vector<std::string> batch;
-    batch.reserve(queue_.size());
     while (!queue_.empty()) {
-      batch.emplace_back(std::move(queue_.front()));
-      queue_.pop();
-    }
-    lock.unlock();
-    for (const auto &msg : batch) {
-      if (file_.is_open()) {
-        file_ << msg << '\n';
-        ++messages_since_flush;
-        if (messages_since_flush >= kFlushInterval) {
-          file_.flush();
-          messages_since_flush = 0;
-        }
+      const std::size_t batch_size =
+          std::min(queue_.size(), kMaxBatchSize);
+      std::vector<std::string> batch;
+      batch.reserve(batch_size);
+      for (std::size_t i = 0; i < batch_size; ++i) {
+        batch.emplace_back(std::move(queue_.front()));
+        queue_.pop();
       }
-      std::cerr << msg << '\n';
+      lock.unlock();
+      for (const auto &msg : batch) {
+        if (file_.is_open()) {
+          file_ << msg << '\n';
+          ++messages_since_flush;
+          if (messages_since_flush >= kFlushInterval) {
+            file_.flush();
+            messages_since_flush = 0;
+          }
+        }
+        std::cerr << msg << '\n';
+      }
+      lock.lock();
     }
     if (file_.is_open() && shutting_down && messages_since_flush > 0) {
       file_.flush();
       messages_since_flush = 0;
     }
-    lock.lock();
   }
 }
