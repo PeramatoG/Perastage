@@ -164,6 +164,7 @@ bool MyApp::OnExceptionInMainLoop() {
     throw;
   } catch (const std::exception &ex) {
     LogExceptionWithStack(ex, "Unhandled exception in main loop: ");
+    return true;
   } catch (...) {
     Logger::Instance().Log("Unhandled exception in main loop: unknown error.");
   }
