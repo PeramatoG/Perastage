@@ -66,7 +66,7 @@ void ConsolePanel::AppendMessage(const wxString &msg) {
     return;
 
   constexpr size_t kMaxConsoleMessageLength = 8 * 1024;
-  const wxString suffix = "... (truncado)";
+  const wxString suffix = "... (truncated)";
   wxString safeMsg = msg;
   if (safeMsg.length() > kMaxConsoleMessageLength) {
     size_t keepLength =
