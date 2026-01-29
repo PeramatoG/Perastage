@@ -192,7 +192,9 @@ Viewer2DPanel::Viewer2DPanel(wxWindow *parent, bool allowOffscreenRender,
   SetBackgroundStyle(wxBG_STYLE_CUSTOM);
   m_controller.SetSelectionOutlineEnabled(m_enableSelection);
   m_glContext = new wxGLContext(this);
-  StartDragTableUpdateWorker();
+  if (m_enableSelection) {
+    StartDragTableUpdateWorker();
+  }
 }
 
 Viewer2DPanel::~Viewer2DPanel() {
