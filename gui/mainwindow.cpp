@@ -601,6 +601,13 @@ void MainWindow::OnLayoutSelected(wxCommandEvent &event) {
 }
 
 void MainWindow::ShowLayoutLoadingIndicator(const wxString &message) {
+  if (auiManager) {
+    auto &layoutPane = auiManager->GetPane("LayoutViewer");
+    if (layoutPane.IsOk() && !layoutPane.IsShown())
+      return;
+  }
+  if (layoutViewerPanel && !layoutViewerPanel->IsShownOnScreen())
+    return;
   if (GetStatusBar())
     SetStatusText(message);
   if (!layoutRenderCursor)
