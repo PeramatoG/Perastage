@@ -21,6 +21,7 @@
 #include "projectutils.h"
 #include "splashscreen.h"
 #include <filesystem>
+#include <new>
 #include <thread>
 #include <wx/stackwalk.h>
 #include <wx/sysopt.h>
@@ -163,7 +164,10 @@ bool MyApp::OnExceptionInMainLoop() {
   try {
     throw;
   } catch (const std::exception &ex) {
-    Logger::Instance().Log(ex.what());
+    if (dynamic_cast<const std::bad_alloc *>(&ex)) {
+      Logger::Instance().Log("Unhandled exception in main loop: bad allocation.");
+      return true;
+    }
     LogExceptionWithStack(ex, "Unhandled exception in main loop: ");
     return true;
   } catch (...) {
@@ -176,7 +180,10 @@ void MyApp::OnUnhandledException() {
   try {
     throw;
   } catch (const std::exception &ex) {
-    Logger::Instance().Log(ex.what());
+    if (dynamic_cast<const std::bad_alloc *>(&ex)) {
+      Logger::Instance().Log("Unhandled exception: bad allocation.");
+      return;
+    }
     LogExceptionWithStack(ex, "Unhandled exception: ");
   } catch (...) {
     Logger::Instance().Log("Unhandled exception: unknown error.");

@@ -36,6 +36,7 @@
 #include "configmanager.h"
 #include "canvas2d.h"
 #include "fixturetablepanel.h"
+#include "logger.h"
 #include "positionvalueupdate.h"
 #include "sceneobjecttablepanel.h"
 #include "trusstablepanel.h"
@@ -47,6 +48,7 @@
 #include <cmath>
 #include <iomanip>
 #include <map>
+#include <new>
 #include <sstream>
 #include <vector>
 
@@ -54,6 +56,32 @@
 static constexpr float PIXELS_PER_METER = 25.0f;
 
 namespace {
+constexpr size_t kMaxCapturePixels = 8192u * 8192u;
+constexpr size_t kMaxCaptureBytes = 64u * 1024u * 1024u;
+
+bool TryAllocateCaptureBuffer(std::vector<unsigned char> &pixels, int width,
+                              int height) {
+  if (width <= 0 || height <= 0)
+    return false;
+  const size_t totalPixels =
+      static_cast<size_t>(width) * static_cast<size_t>(height);
+  const size_t totalBytes = totalPixels * 4;
+  if (totalPixels > kMaxCapturePixels || totalBytes > kMaxCaptureBytes) {
+    Logger::Instance().Log(
+        "Viewer2DPanel: capture buffer too large (" +
+        std::to_string(width) + "x" + std::to_string(height) + ").");
+    return false;
+  }
+  try {
+    pixels.assign(totalBytes, 0);
+  } catch (const std::bad_alloc &) {
+    Logger::Instance().Log(
+        "Viewer2DPanel: capture buffer allocation failed.");
+    return false;
+  }
+  return true;
+}
+
 CanvasStroke MakeGridStroke(float r, float g, float b) {
   CanvasStroke stroke;
   stroke.color = {r, g, b, 1.0f};
@@ -615,7 +643,8 @@ bool Viewer2DPanel::RenderToRGBA(std::vector<unsigned char> &pixels, int &width,
   if (w <= 0 || h <= 0)
     return false;
 
-  pixels.assign(static_cast<size_t>(w) * static_cast<size_t>(h) * 4, 0);
+  if (!TryAllocateCaptureBuffer(pixels, w, h))
+    return false;
   width = w;
   height = h;
 

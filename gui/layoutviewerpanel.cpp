@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <cmath>
 #include <memory>
+#include <new>
 #include <vector>
 
 #include <GL/gl.h>
@@ -63,6 +64,31 @@ constexpr int kSendToBackMenuId = wxID_HIGHEST + 500;
 constexpr int kLoadingTimerId = wxID_HIGHEST + 501;
 constexpr int kRenderDelayTimerId = wxID_HIGHEST + 502;
 constexpr int kLoadingOverlayDelayMs = 150;
+
+bool TryAllocatePixelBuffer(std::vector<unsigned char> &pixels, int width,
+                            int height, const char *context) {
+  if (width <= 0 || height <= 0)
+    return false;
+  const size_t totalPixels =
+      static_cast<size_t>(width) * static_cast<size_t>(height);
+  const size_t totalBytes = totalPixels * 4;
+  if (totalPixels > kMaxRenderPixels || totalBytes > kMaxRenderBytes) {
+    Logger::Instance().Log(
+        std::string("LayoutViewerPanel: ") + context +
+        " render buffer too large (" + std::to_string(width) + "x" +
+        std::to_string(height) + ").");
+    return false;
+  }
+  try {
+    pixels.resize(totalBytes);
+  } catch (const std::bad_alloc &) {
+    Logger::Instance().Log(
+        std::string("LayoutViewerPanel: ") + context +
+        " render buffer allocation failed.");
+    return false;
+  }
+  return true;
+}
 
 int SnapToGrid(int value) {
   if (kLayoutGridStep <= 1)
@@ -1449,7 +1475,12 @@ void LayoutViewerPanel::RebuildCachedTexture() {
       }
   
       std::vector<unsigned char> pixels;
-      pixels.resize(static_cast<size_t>(width) * height * 4);
+      if (!TryAllocatePixelBuffer(pixels, width, height, "legend")) {
+        ClearCachedTexture(cache);
+        cache.textureSize = wxSize(0, 0);
+        cache.renderZoom = 0.0;
+        continue;
+      }
       for (int i = 0; i < width * height; ++i) {
         pixels[static_cast<size_t>(i) * 4] = rgb[i * 3];
         pixels[static_cast<size_t>(i) * 4 + 1] = rgb[i * 3 + 1];
@@ -1520,7 +1551,12 @@ void LayoutViewerPanel::RebuildCachedTexture() {
       }
   
       std::vector<unsigned char> pixels;
-      pixels.resize(static_cast<size_t>(width) * height * 4);
+      if (!TryAllocatePixelBuffer(pixels, width, height, "event table")) {
+        ClearCachedTexture(cache);
+        cache.textureSize = wxSize(0, 0);
+        cache.renderZoom = 0.0;
+        continue;
+      }
       const bool needsUnpremultiply = false;
       for (int i = 0; i < width * height; ++i) {
         const unsigned char a = alpha ? alpha[i] : 255;
@@ -1603,7 +1639,12 @@ void LayoutViewerPanel::RebuildCachedTexture() {
       }
   
       std::vector<unsigned char> pixels;
-      pixels.resize(static_cast<size_t>(width) * height * 4);
+      if (!TryAllocatePixelBuffer(pixels, width, height, "text")) {
+        ClearCachedTexture(cache);
+        cache.textureSize = wxSize(0, 0);
+        cache.renderZoom = 0.0;
+        continue;
+      }
       const bool needsUnpremultiply = !text.solidBackground;
       for (int i = 0; i < width * height; ++i) {
         const unsigned char a = alpha ? alpha[i] : 255;
@@ -1705,7 +1746,12 @@ void LayoutViewerPanel::RebuildCachedTexture() {
       }
   
       std::vector<unsigned char> pixels;
-      pixels.resize(static_cast<size_t>(width) * height * 4);
+      if (!TryAllocatePixelBuffer(pixels, width, height, "image")) {
+        ClearCachedTexture(cache);
+        cache.textureSize = wxSize(0, 0);
+        cache.renderZoom = 0.0;
+        continue;
+      }
       for (int i = 0; i < width * height; ++i) {
         pixels[static_cast<size_t>(i) * 4] = rgb[i * 3];
         pixels[static_cast<size_t>(i) * 4 + 1] = rgb[i * 3 + 1];
