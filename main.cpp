@@ -130,14 +130,14 @@ bool MyApp::OnInit() {
 int MyApp::FilterEvent(wxEvent &event) {
   const wxClassInfo *eventInfo = event.GetClassInfo();
   wxString eventClassName =
-      eventInfo ? eventInfo->GetClassName() : "UnknownEvent";
-  wxString objectClassName = "None";
+      eventInfo ? eventInfo->GetClassName() : wxT("UnknownEvent");
+  wxString objectClassName = wxT("None");
   if (event.GetEventObject()) {
     const wxClassInfo *objectInfo = event.GetEventObject()->GetClassInfo();
     if (objectInfo) {
       objectClassName = objectInfo->GetClassName();
     } else {
-      objectClassName = "UnknownObject";
+      objectClassName = wxT("UnknownObject");
     }
   }
   last_event_summary_ = wxString::Format(
