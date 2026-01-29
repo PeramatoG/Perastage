@@ -22,13 +22,14 @@
 #endif
 
 #include <GL/glew.h>
-// Include GLEW or other OpenGL loader first if present
+// macOS ships OpenGL headers via the framework; use conditional includes for portability.
 #ifdef __APPLE__
-#  include <OpenGL/gl.h>
-#  include <OpenGL/glu.h>
+#define GL_SILENCE_DEPRECATION
+#include <OpenGL/gl.h>
+#include <OpenGL/glu.h>
 #else
-#  include <GL/gl.h>
-#  include <GL/glu.h>
+#include <GL/gl.h>
+#include <GL/glu.h>
 #endif
 
 #include <wx/wx.h>

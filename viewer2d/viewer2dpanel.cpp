@@ -29,13 +29,14 @@
 #endif
 
 #include <GL/glew.h>
-// Include GLEW or other OpenGL loader first if present
+// macOS uses the OpenGL framework headers; guard includes for cross-platform builds.
 #ifdef __APPLE__
-#  include <OpenGL/gl.h>
-#  include <OpenGL/glu.h>
+#define GL_SILENCE_DEPRECATION
+#include <OpenGL/gl.h>
+#include <OpenGL/glu.h>
 #else
-#  include <GL/gl.h>
-#  include <GL/glu.h>
+#include <GL/gl.h>
+#include <GL/glu.h>
 #endif
 
 #include "viewer2dpanel.h"

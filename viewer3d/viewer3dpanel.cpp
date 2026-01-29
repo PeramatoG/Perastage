@@ -28,13 +28,14 @@
 #include <windows.h>
 #endif
 #include <GL/glew.h>
-// Include GLEW or other OpenGL loader first if present
+// macOS ships OpenGL headers in the framework; include them conditionally.
 #ifdef __APPLE__
-#  include <OpenGL/gl.h>
-#  include <OpenGL/glu.h>
+#define GL_SILENCE_DEPRECATION
+#include <OpenGL/gl.h>
+#include <OpenGL/glu.h>
 #else
-#  include <GL/gl.h>
-#  include <GL/glu.h>
+#include <GL/gl.h>
+#include <GL/glu.h>
 #endif
 
 #include "viewer3dpanel.h"

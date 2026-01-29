@@ -30,7 +30,13 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #endif
+// macOS uses the OpenGL framework headers; choose the correct GLU header by platform.
+#ifdef __APPLE__
+#define GL_SILENCE_DEPRECATION
+#include <OpenGL/glu.h>
+#else
 #include <GL/glu.h>
+#endif
 
 Viewer3DCamera::Viewer3DCamera()
     : yaw(0.0f), pitch(20.0f), distance(30.0f),
