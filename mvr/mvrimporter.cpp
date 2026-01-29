@@ -137,7 +137,7 @@ static void LogMessage(const std::string &msg) {
   Logger::Instance().Log(msg);
   if (ConsolePanel::Instance() && wxTheApp) {
     constexpr size_t kMaxConsoleMessageLength = 8 * 1024;
-    const std::string suffix = "... (truncado)";
+    const std::string suffix = "... (truncated)";
     std::string panelMsg = msg;
     if (panelMsg.size() > kMaxConsoleMessageLength) {
       size_t keepLength =
