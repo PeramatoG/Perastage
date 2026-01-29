@@ -155,7 +155,7 @@ private:
                        bool updatePosition);
   void UpdateImageFrame(const layouts::Layout2DViewFrame &frame,
                         bool updatePosition);
-  void InitGL();
+  bool InitGL();
   void RebuildCachedTexture();
   void ClearCachedTexture();
   void ClearCachedTexture(ViewCache &cache);

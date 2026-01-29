@@ -258,11 +258,9 @@ void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
   if (!IsShownOnScreen()) {
     return;
   }
-  if (!glContext_) {
+  if (!InitGL()) {
     return;
   }
-  InitGL();
-  SetCurrent(*glContext_);
   RefreshLegendData();
 
   wxSize size = GetClientSize();
@@ -540,12 +538,8 @@ void LayoutViewerPanel::EnsureLoadingTextTexture() {
     pixels[static_cast<size_t>(i) * 4 + 3] = intensity;
   }
 
-  if (!glContext_)
+  if (!InitGL())
     return;
-  InitGL();
-  if (!IsShownOnScreen())
-    return;
-  SetCurrent(*glContext_);
   glGenTextures(1, &loadingTextTexture_);
   glBindTexture(GL_TEXTURE_2D, loadingTextTexture_);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
@@ -1195,18 +1189,20 @@ bool LayoutViewerPanel::GetSelectedFrame(
   return true;
 }
 
-void LayoutViewerPanel::InitGL() {
+bool LayoutViewerPanel::InitGL() {
   if (!glContext_)
-    return;
+    return false;
   if (!IsShownOnScreen())
-    return;
-  SetCurrent(*glContext_);
+    return false;
+  if (!SetCurrent(*glContext_))
+    return false;
   if (!glInitialized_) {
     glDisable(GL_DEPTH_TEST);
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glInitialized_ = true;
   }
+  return true;
 }
 
 void LayoutViewerPanel::RebuildCachedTexture() {
@@ -1332,13 +1328,11 @@ void LayoutViewerPanel::RebuildCachedTexture() {
       continue;
     }
 
-    InitGL();
-    if (!IsShownOnScreen()) {
+    if (!InitGL()) {
       clearLoadingState();
       notifyRenderReady();
       return;
     }
-    SetCurrent(*glContext_);
     if (cache.texture == 0) {
       glGenTextures(1, &cache.texture);
     }
@@ -1407,13 +1401,11 @@ void LayoutViewerPanel::RebuildCachedTexture() {
       pixels[static_cast<size_t>(i) * 4 + 3] = alpha ? alpha[i] : 255;
     }
 
-    InitGL();
-    if (!IsShownOnScreen()) {
+    if (!InitGL()) {
       clearLoadingState();
       notifyRenderReady();
       return;
     }
-    SetCurrent(*glContext_);
     if (cache.texture == 0) {
       glGenTextures(1, &cache.texture);
     }
@@ -1493,13 +1485,11 @@ void LayoutViewerPanel::RebuildCachedTexture() {
       pixels[static_cast<size_t>(i) * 4 + 3] = a;
     }
 
-    InitGL();
-    if (!IsShownOnScreen()) {
+    if (!InitGL()) {
       clearLoadingState();
       notifyRenderReady();
       return;
     }
-    SetCurrent(*glContext_);
     if (cache.texture == 0) {
       glGenTextures(1, &cache.texture);
     }
@@ -1578,13 +1568,11 @@ void LayoutViewerPanel::RebuildCachedTexture() {
       pixels[static_cast<size_t>(i) * 4 + 3] = a;
     }
 
-    InitGL();
-    if (!IsShownOnScreen()) {
+    if (!InitGL()) {
       clearLoadingState();
       notifyRenderReady();
       return;
     }
-    SetCurrent(*glContext_);
     if (cache.texture == 0) {
       glGenTextures(1, &cache.texture);
     }
@@ -1669,13 +1657,11 @@ void LayoutViewerPanel::RebuildCachedTexture() {
       pixels[static_cast<size_t>(i) * 4 + 3] = alpha ? alpha[i] : 255;
     }
 
-    InitGL();
-    if (!IsShownOnScreen()) {
+    if (!InitGL()) {
       clearLoadingState();
       notifyRenderReady();
       return;
     }
-    SetCurrent(*glContext_);
     if (cache.texture == 0) {
       glGenTextures(1, &cache.texture);
     }
