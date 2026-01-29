@@ -28,8 +28,14 @@
 #include <windows.h>
 #endif
 #include <GL/glew.h>
-#include <GL/gl.h>
-#include <GL/glu.h>
+// Include GLEW or other OpenGL loader first if present
+#ifdef __APPLE__
+#  include <OpenGL/gl.h>
+#  include <OpenGL/glu.h>
+#else
+#  include <GL/gl.h>
+#  include <GL/glu.h>
+#endif
 
 #include "viewer3dpanel.h"
 #include "consolepanel.h"

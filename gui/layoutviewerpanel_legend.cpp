@@ -26,7 +26,14 @@
 #include <map>
 #include <vector>
 
-#include <GL/gl.h>
+// Include GLEW or other OpenGL loader first if present
+#ifdef __APPLE__
+#  include <OpenGL/gl.h>
+#  include <OpenGL/glu.h>
+#else
+#  include <GL/gl.h>
+#  include <GL/glu.h>
+#endif
 
 #include "configmanager.h"
 #include "gdtfloader.h"
