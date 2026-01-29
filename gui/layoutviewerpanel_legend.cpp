@@ -694,12 +694,18 @@ void LayoutViewerPanel::DrawLegendElement(
 }
 
 void LayoutViewerPanel::RefreshLegendData() {
+  if (currentLayout.legendViews.empty())
+    return;
   std::vector<LegendItem> items = BuildLegendItems();
   size_t newHash = HashLegendItems(items);
   if (newHash == legendDataHash)
     return;
   legendItems_ = std::move(items);
   legendDataHash = newHash;
+  if (legendItems_.size() == 1 &&
+      legendItems_.front().typeName == "No fixtures") {
+    return;
+  }
   for (auto &entry : legendCaches_) {
     entry.second.renderDirty = true;
   }

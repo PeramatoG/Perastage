@@ -239,6 +239,7 @@ private:
 
   std::vector<ZOrderedElement> BuildZOrderedElements() const;
   std::pair<int, int> GetZIndexRange() const;
+  bool IsLayoutEmpty() const;
 
   static constexpr double kLegendContentScale = 0.7;
   static constexpr double kLegendFontScale =
