@@ -6,6 +6,11 @@ project(Perastage VERSION 1.0 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# NARM macOS
+if(APPLE AND CMAKE_SYSTEM_PROCESSOR MATCHES "arm64")
+    set(CMAKE_OSX_ARCHITECTURES "arm64" CACHE STRING "" FORCE)
+endif()
+
 include(CTest)
 
 # wxWidgets chooses different binary sets based on wxWidgets_USE_DEBUG.
