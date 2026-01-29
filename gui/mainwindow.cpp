@@ -628,12 +628,12 @@ void MainWindow::ActivateLayoutView(const std::string &layoutName) {
   }
   activeLayoutName = layoutName;
 
-  const layouts::LayoutDefinition *selectedLayout = nullptr;
+  std::optional<layouts::LayoutDefinition> selectedLayout;
   bool appliedLayout = false;
   const auto &layouts = layouts::LayoutManager::Get().GetLayouts().Items();
   for (const auto &layout : layouts) {
     if (layout.name == layoutName) {
-      selectedLayout = &layout;
+      selectedLayout = layout;
       if (layoutViewerPanel) {
         ShowLayoutLoadingIndicator("Rendering layout...");
         if (GetStatusBar())
