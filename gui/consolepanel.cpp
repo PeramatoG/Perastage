@@ -29,6 +29,7 @@
 #include <cctype>
 #include <exception>
 #include <sstream>
+#include <string_view>
 #include <vector>
 
 ConsolePanel::ConsolePanel(wxWindow *parent) : wxPanel(parent, wxID_ANY) {
@@ -65,19 +66,31 @@ void ConsolePanel::AppendMessage(const wxString &msg) {
   if (!m_textCtrl)
     return;
 
-  if (msg == m_lastMessage) {
+  static constexpr size_t kMaxConsoleMessageChars = 16384;
+  static constexpr std::string_view kTruncatedSuffix = "... (truncado)";
+  wxString safeMsg = msg;
+  if (safeMsg.Length() > kMaxConsoleMessageChars) {
+    size_t trimSize =
+        kMaxConsoleMessageChars > kTruncatedSuffix.size()
+            ? kMaxConsoleMessageChars - kTruncatedSuffix.size()
+            : 0;
+    safeMsg =
+        safeMsg.Left(trimSize) + wxString::FromUTF8(kTruncatedSuffix.data());
+  }
+
+  if (safeMsg == m_lastMessage) {
     m_repeatCount++;
-    wxString combined = wxString::Format("%s (repeated %zu times)", msg,
+    wxString combined = wxString::Format("%s (repeated %zu times)", safeMsg,
                                         m_repeatCount);
     long endPos = m_textCtrl->GetLastPosition();
     if (m_lastLineStart < endPos)
       m_textCtrl->Remove(m_lastLineStart, endPos);
     m_textCtrl->AppendText(combined + "\n");
   } else {
-    m_lastMessage = msg;
+    m_lastMessage = safeMsg;
     m_repeatCount = 1;
     m_lastLineStart = m_textCtrl->GetLastPosition();
-    m_textCtrl->AppendText(msg + "\n");
+    m_textCtrl->AppendText(safeMsg + "\n");
   }
   if (m_autoScroll)
     m_textCtrl->ShowPosition(m_textCtrl->GetLastPosition());

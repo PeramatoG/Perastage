@@ -136,7 +136,17 @@ static std::string CieToHex(const std::string &cie) {
 static void LogMessage(const std::string &msg) {
   Logger::Instance().Log(msg);
   if (ConsolePanel::Instance() && wxTheApp) {
-    wxString wmsg = wxString::FromUTF8(msg.c_str());
+    static constexpr size_t kMaxPanelMessageBytes = 8192;
+    static constexpr std::string_view kTruncatedSuffix = "... (truncado)";
+    std::string panelMessage = msg;
+    if (panelMessage.size() > kMaxPanelMessageBytes) {
+      size_t trimSize = kMaxPanelMessageBytes > kTruncatedSuffix.size()
+                            ? kMaxPanelMessageBytes - kTruncatedSuffix.size()
+                            : 0;
+      panelMessage = panelMessage.substr(0, trimSize);
+      panelMessage.append(kTruncatedSuffix);
+    }
+    wxString wmsg = wxString::FromUTF8(panelMessage.c_str());
     wxTheApp->CallAfter([wmsg]() {
       if (ConsolePanel::Instance())
         ConsolePanel::Instance()->AppendMessage(wmsg);
