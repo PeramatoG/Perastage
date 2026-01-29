@@ -1810,20 +1810,17 @@ void LayoutViewerPanel::RequestRenderRebuild() {
 
 void LayoutViewerPanel::InvalidateRenderIfFrameChanged() {
   const double renderZoom = GetRenderZoom();
-  const auto isSelected = [this](SelectedElementType type, int id) {
-    return selectedElementType == type && selectedElementId == id;
-  };
-  bool dirtyNonSelected = false;
-  bool dirtySelected = false;
-  auto markDirty = [&](SelectedElementType type, int id,
-                       bool hasValidTexture) {
-    if (isSelected(type, id)) {
-      dirtySelected = true;
+  const double pageWidth = currentLayout.pageSetup.PageWidthPt();
+  const double pageHeight = currentLayout.pageSetup.PageHeightPt();
+  const bool zoomChanged = lastRenderZoom != renderZoom;
+  const bool pageChanged =
+      lastPageWidthPt != pageWidth || lastPageHeightPt != pageHeight;
+  int dirtyElementCount = 0;
+  auto markDirty = [&](bool &cacheDirty) {
+    if (cacheDirty)
       return;
-    }
-    if (hasValidTexture) {
-      dirtyNonSelected = true;
-    }
+    cacheDirty = true;
+    dirtyElementCount++;
   };
 
   for (const auto &view : currentLayout.view2dViews) {
@@ -1831,8 +1828,7 @@ void LayoutViewerPanel::InvalidateRenderIfFrameChanged() {
     wxRect frameRect;
     if (!GetFrameRect(view.frame, frameRect)) {
       if (cache.texture != 0) {
-        cache.renderDirty = true;
-        markDirty(SelectedElementType::View2D, view.id, true);
+        markDirty(cache.renderDirty);
         ClearCachedTexture(cache);
         cache.textureSize = wxSize(0, 0);
         cache.renderZoom = 0.0;
@@ -1842,8 +1838,7 @@ void LayoutViewerPanel::InvalidateRenderIfFrameChanged() {
     const wxSize renderSize = GetFrameSizeForZoom(view.frame, renderZoom);
     if (cache.renderZoom == 0.0 || cache.renderZoom != renderZoom ||
         renderSize != cache.textureSize) {
-      cache.renderDirty = true;
-      markDirty(SelectedElementType::View2D, view.id, cache.texture != 0);
+      markDirty(cache.renderDirty);
     }
   }
 
@@ -1852,8 +1847,7 @@ void LayoutViewerPanel::InvalidateRenderIfFrameChanged() {
     wxRect frameRect;
     if (!GetFrameRect(legend.frame, frameRect)) {
       if (cache.texture != 0) {
-        cache.renderDirty = true;
-        markDirty(SelectedElementType::Legend, legend.id, true);
+        markDirty(cache.renderDirty);
         ClearCachedTexture(cache);
         cache.textureSize = wxSize(0, 0);
         cache.renderZoom = 0.0;
@@ -1863,8 +1857,7 @@ void LayoutViewerPanel::InvalidateRenderIfFrameChanged() {
     const wxSize renderSize = GetFrameSizeForZoom(legend.frame, renderZoom);
     if (cache.renderZoom == 0.0 || cache.renderZoom != renderZoom ||
         renderSize != cache.textureSize) {
-      cache.renderDirty = true;
-      markDirty(SelectedElementType::Legend, legend.id, cache.texture != 0);
+      markDirty(cache.renderDirty);
     }
   }
 
@@ -1873,8 +1866,7 @@ void LayoutViewerPanel::InvalidateRenderIfFrameChanged() {
     wxRect frameRect;
     if (!GetFrameRect(table.frame, frameRect)) {
       if (cache.texture != 0) {
-        cache.renderDirty = true;
-        markDirty(SelectedElementType::EventTable, table.id, true);
+        markDirty(cache.renderDirty);
         ClearCachedTexture(cache);
         cache.textureSize = wxSize(0, 0);
         cache.renderZoom = 0.0;
@@ -1884,9 +1876,7 @@ void LayoutViewerPanel::InvalidateRenderIfFrameChanged() {
     const wxSize renderSize = GetFrameSizeForZoom(table.frame, renderZoom);
     if (cache.renderZoom == 0.0 || cache.renderZoom != renderZoom ||
         renderSize != cache.textureSize) {
-      cache.renderDirty = true;
-      markDirty(SelectedElementType::EventTable, table.id,
-                cache.texture != 0);
+      markDirty(cache.renderDirty);
     }
   }
 
@@ -1895,8 +1885,7 @@ void LayoutViewerPanel::InvalidateRenderIfFrameChanged() {
     wxRect frameRect;
     if (!GetFrameRect(text.frame, frameRect)) {
       if (cache.texture != 0) {
-        cache.renderDirty = true;
-        markDirty(SelectedElementType::Text, text.id, true);
+        markDirty(cache.renderDirty);
         ClearCachedTexture(cache);
         cache.textureSize = wxSize(0, 0);
         cache.renderZoom = 0.0;
@@ -1906,8 +1895,7 @@ void LayoutViewerPanel::InvalidateRenderIfFrameChanged() {
     const wxSize renderSize = GetFrameSizeForZoom(text.frame, renderZoom);
     if (cache.renderZoom == 0.0 || cache.renderZoom != renderZoom ||
         renderSize != cache.textureSize) {
-      cache.renderDirty = true;
-      markDirty(SelectedElementType::Text, text.id, cache.texture != 0);
+      markDirty(cache.renderDirty);
     }
   }
 
@@ -1916,8 +1904,7 @@ void LayoutViewerPanel::InvalidateRenderIfFrameChanged() {
     wxRect frameRect;
     if (!GetFrameRect(image.frame, frameRect)) {
       if (cache.texture != 0) {
-        cache.renderDirty = true;
-        markDirty(SelectedElementType::Image, image.id, true);
+        markDirty(cache.renderDirty);
         ClearCachedTexture(cache);
         cache.textureSize = wxSize(0, 0);
         cache.renderZoom = 0.0;
@@ -1927,16 +1914,16 @@ void LayoutViewerPanel::InvalidateRenderIfFrameChanged() {
     const wxSize renderSize = GetFrameSizeForZoom(image.frame, renderZoom);
     if (cache.renderZoom == 0.0 || cache.renderZoom != renderZoom ||
         renderSize != cache.textureSize) {
-      cache.renderDirty = true;
-      markDirty(SelectedElementType::Image, image.id, cache.texture != 0);
+      markDirty(cache.renderDirty);
     }
   }
 
-  if (dirtyNonSelected) {
+  if (zoomChanged || pageChanged || dirtyElementCount > 1) {
     renderDirty = true;
-  } else if (dirtySelected) {
-    // Selected element changes only; keep the global dirty flag untouched.
   }
+  lastRenderZoom = renderZoom;
+  lastPageWidthPt = pageWidth;
+  lastPageHeightPt = pageHeight;
 }
 
 void LayoutViewerPanel::OnLoadingTimer(wxTimerEvent &) {
