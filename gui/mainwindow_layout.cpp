@@ -360,6 +360,17 @@ void MainWindow::ApplyLayoutPreset(const LayoutViewPreset &preset,
     if (standalone2DState) {
       ConfigManager &cfg = ConfigManager::Get();
       if (viewport2DPanel) {
+        const auto viewState = viewport2DPanel->GetViewState();
+        standalone2DState->camera.offsetPixelsX = viewState.offsetPixelsX;
+        standalone2DState->camera.offsetPixelsY = viewState.offsetPixelsY;
+        standalone2DState->camera.zoom = viewState.zoom;
+        standalone2DState->camera.viewportWidth = viewState.viewportWidth;
+        standalone2DState->camera.viewportHeight = viewState.viewportHeight;
+        standalone2DState->camera.view = static_cast<int>(viewState.view);
+      } else {
+        standalone2DState->camera = viewer2d::CaptureState(nullptr, cfg).camera;
+      }
+      if (viewport2DPanel) {
         viewer2d::ApplyState(viewport2DPanel, viewport2DRenderPanel, cfg,
                              *standalone2DState);
       } else {
