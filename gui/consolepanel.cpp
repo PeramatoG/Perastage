@@ -65,19 +65,30 @@ void ConsolePanel::AppendMessage(const wxString &msg) {
   if (!m_textCtrl)
     return;
 
-  if (msg == m_lastMessage) {
+  constexpr size_t kMaxConsoleMessageLength = 8 * 1024;
+  const wxString suffix = "... (truncado)";
+  wxString safeMsg = msg;
+  if (safeMsg.length() > kMaxConsoleMessageLength) {
+    size_t keepLength =
+        kMaxConsoleMessageLength > suffix.length()
+            ? kMaxConsoleMessageLength - suffix.length()
+            : 0;
+    safeMsg = safeMsg.Left(keepLength) + suffix;
+  }
+
+  if (safeMsg == m_lastMessage) {
     m_repeatCount++;
-    wxString combined = wxString::Format("%s (repeated %zu times)", msg,
+    wxString combined = wxString::Format("%s (repeated %zu times)", safeMsg,
                                         m_repeatCount);
     long endPos = m_textCtrl->GetLastPosition();
     if (m_lastLineStart < endPos)
       m_textCtrl->Remove(m_lastLineStart, endPos);
     m_textCtrl->AppendText(combined + "\n");
   } else {
-    m_lastMessage = msg;
+    m_lastMessage = safeMsg;
     m_repeatCount = 1;
     m_lastLineStart = m_textCtrl->GetLastPosition();
-    m_textCtrl->AppendText(msg + "\n");
+    m_textCtrl->AppendText(safeMsg + "\n");
   }
   if (m_autoScroll)
     m_textCtrl->ShowPosition(m_textCtrl->GetLastPosition());
