@@ -110,6 +110,7 @@ private:
   void OnCaptureLost(wxMouseCaptureLostEvent &event);
   void OnRightUp(wxMouseEvent &event);
   void OnKeyDown(wxKeyEvent &event);
+  void OnShow(wxShowEvent &event);
   void OnEditView(wxCommandEvent &event);
   void OnDeleteView(wxCommandEvent &event);
   void OnDeleteLegend(wxCommandEvent &event);
@@ -259,6 +260,7 @@ private:
   int selectedElementId = -1;
   wxGLContext *glContext_ = nullptr;
   bool glInitialized_ = false;
+  bool isReadyToRender_ = false;
   bool renderDirty = true;
   double lastRenderZoom = 0.0;
   double lastPageWidthPt = 0.0;

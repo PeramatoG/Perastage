@@ -84,6 +84,7 @@ wxBEGIN_EVENT_TABLE(LayoutViewerPanel, wxGLCanvas)
     EVT_MOUSE_CAPTURE_LOST(LayoutViewerPanel::OnCaptureLost)
     EVT_RIGHT_UP(LayoutViewerPanel::OnRightUp)
     EVT_KEY_DOWN(LayoutViewerPanel::OnKeyDown)
+    EVT_SHOW(LayoutViewerPanel::OnShow)
     EVT_MENU(kEditMenuId, LayoutViewerPanel::OnEditView)
     EVT_MENU(kDeleteMenuId, LayoutViewerPanel::OnDeleteView)
     EVT_MENU(kDeleteLegendMenuId, LayoutViewerPanel::OnDeleteLegend)
@@ -261,7 +262,15 @@ void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
   if (!InitGL()) {
     return;
   }
+  InitGL();
+  if (!isReadyToRender_) {
+    return;
+  }
+  SetCurrent(*glContext_);
   RefreshLegendData();
+  if (!renderPending && NeedsRenderRebuild()) {
+    RequestRenderRebuild();
+  }
 
   wxSize size = GetClientSize();
   glViewport(0, 0, size.GetWidth(), size.GetHeight());
@@ -442,7 +451,7 @@ void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
     }
   }
   const bool showLoadingOverlay = !texturesReady || !activeElementHasTexture;
-  if (showLoadingOverlay) {
+  if (showLoadingOverlay && isReadyToRender_) {
     DrawLoadingOverlay(size);
   }
 
@@ -451,6 +460,8 @@ void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
 }
 
 void LayoutViewerPanel::DrawLoadingOverlay(const wxSize &size) {
+  if (!glContext_ || !isReadyToRender_)
+    return;
   if (size.GetWidth() <= 0 || size.GetHeight() <= 0)
     return;
   glColor4ub(0, 0, 0, 150);
@@ -702,6 +713,16 @@ void LayoutViewerPanel::OnKeyDown(wxKeyEvent &event) {
     RequestRenderRebuild();
     Refresh();
     return;
+  }
+  event.Skip();
+}
+
+void LayoutViewerPanel::OnShow(wxShowEvent &event) {
+  if (event.IsShown()) {
+    InitGL();
+    if (isReadyToRender_ && NeedsRenderRebuild()) {
+      RequestRenderRebuild();
+    }
   }
   event.Skip();
 }
@@ -1193,21 +1214,32 @@ bool LayoutViewerPanel::InitGL() {
   if (!glContext_)
     return false;
   if (!IsShownOnScreen())
-    return false;
+    return;
   if (!SetCurrent(*glContext_))
-    return false;
+    return;
   if (!glInitialized_) {
     glDisable(GL_DEPTH_TEST);
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glInitialized_ = true;
   }
-  return true;
+  isReadyToRender_ = true;
 }
 
 void LayoutViewerPanel::RebuildCachedTexture() {
   if (!NeedsRenderRebuild())
     return;
+  if (!isReadyToRender_ || !glContext_ || !IsShownOnScreen())
+    return;
+  Viewer2DOffscreenRenderer *offscreenRenderer = nullptr;
+  Viewer2DPanel *capturePanel = nullptr;
+  if (auto *mw = MainWindow::Instance()) {
+    offscreenRenderer = mw->GetOffscreenRenderer();
+    capturePanel = offscreenRenderer ? offscreenRenderer->GetPanel() : nullptr;
+  }
+  if (!capturePanel || !offscreenRenderer) {
+    return;
+  }
   auto notifyRenderReady = [this]() {
     CallAfter([this]() {
       wxCommandEvent event(EVT_LAYOUT_RENDER_READY);
@@ -1226,24 +1258,6 @@ void LayoutViewerPanel::RebuildCachedTexture() {
   };
   renderDirty = false;
   stopLoadingRequest();
-  if (!IsShownOnScreen()) {
-    clearLoadingState();
-    notifyRenderReady();
-    return;
-  }
-
-  Viewer2DOffscreenRenderer *offscreenRenderer = nullptr;
-  Viewer2DPanel *capturePanel = nullptr;
-  if (auto *mw = MainWindow::Instance()) {
-    offscreenRenderer = mw->GetOffscreenRenderer();
-    capturePanel = offscreenRenderer ? offscreenRenderer->GetPanel() : nullptr;
-  }
-  if (!capturePanel || !offscreenRenderer) {
-    ClearCachedTexture();
-    clearLoadingState();
-    notifyRenderReady();
-    return;
-  }
 
   std::shared_ptr<const SymbolDefinitionSnapshot> legendSymbols =
       capturePanel->GetBottomSymbolCacheSnapshot();
@@ -1783,6 +1797,14 @@ bool LayoutViewerPanel::NeedsRenderRebuild() const {
 }
 
 void LayoutViewerPanel::RequestRenderRebuild() {
+  if (!isReadyToRender_ || !glContext_ || !IsShownOnScreen())
+    return;
+  auto *mw = MainWindow::Instance();
+  if (!mw)
+    return;
+  auto *offscreenRenderer = mw->GetOffscreenRenderer();
+  if (!offscreenRenderer || !offscreenRenderer->GetPanel())
+    return;
   if (!NeedsRenderRebuild() || renderPending)
     return;
   renderPending = true;
