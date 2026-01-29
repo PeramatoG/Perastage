@@ -43,6 +43,8 @@ private:
 
   // Flush policy: flush after every kFlushInterval messages or during shutdown.
   static constexpr std::size_t kFlushInterval = 32;
+  // Limit batch sizes to avoid large memory spikes when the queue grows.
+  static constexpr std::size_t kMaxBatchSize = 256;
 
   std::ofstream file_;
   std::mutex mutex_;
