@@ -22,6 +22,7 @@
 #include "splashscreen.h"
 #include <filesystem>
 #include <thread>
+#include <wx/stackwalk.h>
 #include <wx/sysopt.h>
 #include <wx/weakref.h>
 #include <wx/wx.h>
@@ -29,6 +30,8 @@
 class MyApp : public wxApp {
 public:
   virtual bool OnInit() override;
+  bool OnExceptionInMainLoop() override;
+  void OnUnhandledException() override;
 };
 
 wxIMPLEMENT_APP(MyApp);
@@ -117,4 +120,62 @@ bool MyApp::OnInit() {
   }
 
   return true;
+}
+
+namespace {
+void LogExceptionWithStack(const std::exception &ex,
+                           const char *contextMessage) {
+  Logger::Instance().Log(std::string(contextMessage) + ex.what());
+
+#if defined(__WXMSW__)
+  class StackWalker : public wxStackWalker {
+  public:
+    std::string TakeStackTrace() {
+      lines_.clear();
+      Walk();
+      return lines_;
+    }
+
+  protected:
+    void OnStackFrame(const wxStackFrame &frame) override {
+      lines_ += std::string(frame.GetName().ToStdString());
+      lines_ += " (";
+      lines_ += std::string(frame.GetFileName().ToStdString());
+      lines_ += ":";
+      lines_ += std::to_string(frame.GetLine());
+      lines_ += ")\n";
+    }
+
+  private:
+    std::string lines_;
+  };
+
+  StackWalker walker;
+  std::string trace = walker.TakeStackTrace();
+  if (!trace.empty()) {
+    Logger::Instance().Log(std::string("Stack trace:\n") + trace);
+  }
+#endif
+}
+} // namespace
+
+bool MyApp::OnExceptionInMainLoop() {
+  try {
+    throw;
+  } catch (const std::exception &ex) {
+    LogExceptionWithStack(ex, "Unhandled exception in main loop: ");
+  } catch (...) {
+    Logger::Instance().Log("Unhandled exception in main loop: unknown error.");
+  }
+  return false;
+}
+
+void MyApp::OnUnhandledException() {
+  try {
+    throw;
+  } catch (const std::exception &ex) {
+    LogExceptionWithStack(ex, "Unhandled exception: ");
+  } catch (...) {
+    Logger::Instance().Log("Unhandled exception: unknown error.");
+  }
 }
