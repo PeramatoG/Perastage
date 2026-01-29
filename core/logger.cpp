@@ -87,20 +87,21 @@ void Logger::Worker() {
       queue_.pop();
     }
     lock.unlock();
-    std::string buffer;
     for (const auto &msg : batch) {
-      buffer.append(msg);
-      buffer.push_back('\n');
-    }
-    if (file_.is_open()) {
-      file_ << buffer;
-      messages_since_flush += batch.size();
-      if (shutting_down || messages_since_flush >= kFlushInterval) {
-        file_.flush();
-        messages_since_flush = 0;
+      if (file_.is_open()) {
+        file_ << msg << '\n';
+        ++messages_since_flush;
+        if (messages_since_flush >= kFlushInterval) {
+          file_.flush();
+          messages_since_flush = 0;
+        }
       }
+      std::cerr << msg << '\n';
     }
-    std::cerr << buffer;
+    if (file_.is_open() && shutting_down && messages_since_flush > 0) {
+      file_.flush();
+      messages_since_flush = 0;
+    }
     lock.lock();
   }
 }
