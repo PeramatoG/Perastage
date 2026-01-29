@@ -166,6 +166,7 @@ bool MyApp::OnExceptionInMainLoop() {
   } catch (const std::exception &ex) {
     if (dynamic_cast<const std::bad_alloc *>(&ex)) {
       Logger::Instance().Log("Unhandled exception in main loop: bad allocation.");
+      LogExceptionWithStack(ex, "Unhandled exception in main loop: ");
       return true;
     }
     LogExceptionWithStack(ex, "Unhandled exception in main loop: ");
