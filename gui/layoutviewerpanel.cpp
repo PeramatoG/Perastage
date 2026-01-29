@@ -1224,7 +1224,7 @@ void LayoutViewerPanel::RebuildCachedTexture() {
     if (loadingTimer_.IsRunning())
       loadingTimer_.Stop();
   };
-  auto clearLoadingState = [this]() {
+  auto clearLoadingState = [this, stopLoadingRequest]() {
     stopLoadingRequest();
     isLoading = false;
   };
