@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <exception>
 #include <filesystem>
 #include <functional>
 
@@ -258,18 +259,23 @@ size_t LayoutViewerPanel::HashImageContent(
   size_t seed = std::hash<std::string>{}(image.imagePath);
   std::error_code ec;
   if (!image.imagePath.empty()) {
-    const std::filesystem::path path(image.imagePath);
-    if (std::filesystem::exists(path, ec)) {
-      const auto fileSize = std::filesystem::file_size(path, ec);
-      if (!ec)
-        HashCombine(seed, std::hash<uintmax_t>{}(fileSize));
-      const auto writeTime = std::filesystem::last_write_time(path, ec);
-      if (!ec) {
-        auto stamp = writeTime.time_since_epoch().count();
-        HashCombine(
-            seed,
-            std::hash<std::int64_t>{}(static_cast<std::int64_t>(stamp)));
+    try {
+      const std::filesystem::path path =
+          std::filesystem::u8path(image.imagePath);
+      if (std::filesystem::exists(path, ec)) {
+        const auto fileSize = std::filesystem::file_size(path, ec);
+        if (!ec)
+          HashCombine(seed, std::hash<uintmax_t>{}(fileSize));
+        const auto writeTime = std::filesystem::last_write_time(path, ec);
+        if (!ec) {
+          auto stamp = writeTime.time_since_epoch().count();
+          HashCombine(
+              seed,
+              std::hash<std::int64_t>{}(static_cast<std::int64_t>(stamp)));
+        }
       }
+    } catch (const std::exception &) {
+      return seed;
     }
   }
   HashCombine(seed, std::hash<float>{}(image.aspectRatio));
