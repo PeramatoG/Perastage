@@ -1219,19 +1219,22 @@ void LayoutViewerPanel::RebuildCachedTexture() {
       wxPostEvent(this, event);
     });
   };
-  auto clearLoadingState = [this]() {
+  auto stopLoadingRequest = [this]() {
     loadingRequested = false;
     if (loadingTimer_.IsRunning())
       loadingTimer_.Stop();
+  };
+  auto clearLoadingState = [this]() {
+    stopLoadingRequest();
     isLoading = false;
   };
+  renderDirty = false;
+  stopLoadingRequest();
   if (!IsShownOnScreen()) {
     clearLoadingState();
     notifyRenderReady();
     return;
   }
-
-  renderDirty = false;
 
   Viewer2DOffscreenRenderer *offscreenRenderer = nullptr;
   Viewer2DPanel *capturePanel = nullptr;
