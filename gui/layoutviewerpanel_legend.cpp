@@ -19,6 +19,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <exception>
 #include <filesystem>
 #include <functional>
 #include <limits>
@@ -724,11 +725,16 @@ LayoutViewerPanel::BuildLegendItems() const {
     std::string typeName = fixture.typeName;
     std::string fullPath;
     if (!fixture.gdtfSpec.empty()) {
-      std::filesystem::path p = basePath.empty()
-                                    ? std::filesystem::path(fixture.gdtfSpec)
-                                    : std::filesystem::path(basePath) /
-                                          fixture.gdtfSpec;
-      fullPath = p.string();
+      try {
+        std::filesystem::path p =
+            basePath.empty()
+                ? std::filesystem::u8path(fixture.gdtfSpec)
+                : std::filesystem::u8path(basePath) /
+                      std::filesystem::u8path(fixture.gdtfSpec);
+        fullPath = p.string();
+      } catch (const std::exception &) {
+        fullPath.clear();
+      }
     }
     if (typeName.empty() && !fullPath.empty()) {
       wxFileName fn(fullPath);
