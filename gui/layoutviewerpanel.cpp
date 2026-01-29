@@ -1214,9 +1214,9 @@ bool LayoutViewerPanel::InitGL() {
   if (!glContext_)
     return false;
   if (!IsShownOnScreen())
-    return;
+    return false;
   if (!SetCurrent(*glContext_))
-    return;
+    return false;
   if (!glInitialized_) {
     glDisable(GL_DEPTH_TEST);
     glEnable(GL_BLEND);
@@ -1224,6 +1224,7 @@ bool LayoutViewerPanel::InitGL() {
     glInitialized_ = true;
   }
   isReadyToRender_ = true;
+  return true;
 }
 
 void LayoutViewerPanel::RebuildCachedTexture() {
