@@ -27,11 +27,23 @@ std::string FindFileRecursive(const std::string &baseDir,
                               const std::string &fileName) {
   if (baseDir.empty())
     return {};
-  for (auto &p : fs::recursive_directory_iterator(baseDir)) {
-    if (!p.is_regular_file())
+  std::error_code ec;
+  fs::recursive_directory_iterator it(
+      baseDir, fs::directory_options::skip_permission_denied, ec);
+  fs::recursive_directory_iterator end;
+  if (ec)
+    return {};
+  for (; it != end; it.increment(ec)) {
+    if (ec) {
+      ec.clear();
       continue;
-    if (p.path().filename() == fileName)
-      return p.path().string();
+    }
+    if (!it->is_regular_file(ec) || ec) {
+      ec.clear();
+      continue;
+    }
+    if (it->path().filename() == fileName)
+      return it->path().string();
   }
   return {};
 }
@@ -57,7 +69,8 @@ std::string ResolveGdtfPath(const std::string &base,
     return {};
   std::string norm = NormalizePath(spec);
   fs::path p = base.empty() ? fs::path(norm) : fs::path(base) / norm;
-  if (fs::exists(p))
+  std::error_code ec;
+  if (fs::exists(p, ec) && !ec)
     return p.string();
   return FindFileRecursive(base, fs::path(norm).filename().string());
 }
