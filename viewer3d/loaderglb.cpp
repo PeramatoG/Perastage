@@ -75,6 +75,8 @@ static std::optional<GLBFile> ParseGLBFile(const std::string& path, std::string&
         return std::nullopt;
     }
 
+    constexpr size_t kMaxChunkSize = 100u * 1024u * 1024u;
+
     uint32_t magic = 0, version = 0, length = 0;
     if (!file.read(reinterpret_cast<char*>(&magic), 4) ||
         !file.read(reinterpret_cast<char*>(&version), 4) ||
@@ -93,17 +95,54 @@ static std::optional<GLBFile> ParseGLBFile(const std::string& path, std::string&
     while (file.tellg() < static_cast<std::streampos>(length)) {
         uint32_t chunkLength = 0, chunkType = 0;
         if (!file.read(reinterpret_cast<char*>(&chunkLength), 4) ||
-            !file.read(reinterpret_cast<char*>(&chunkType), 4))
-            break;
+            !file.read(reinterpret_cast<char*>(&chunkType), 4)) {
+            error = "Cabecera de chunk GLB incompleta";
+            return std::nullopt;
+        }
+
+        const auto chunkDataPos = file.tellg();
+        if (chunkDataPos < 0) {
+            error = "Chunk GLB con tamaño inválido";
+            return std::nullopt;
+        }
+        const auto chunkDataOffset = static_cast<size_t>(chunkDataPos);
+        if (chunkDataOffset > length) {
+            error = "Chunk GLB con tamaño inválido";
+            return std::nullopt;
+        }
+        const auto remainingBytes = static_cast<size_t>(length) - chunkDataOffset;
+        if (chunkLength > remainingBytes) {
+            error = "Chunk GLB con tamaño inválido";
+            return std::nullopt;
+        }
 
         if (chunkType == 0x4E4F534A) { // JSON
+            if (chunkLength > kMaxChunkSize) {
+                error = "Chunk GLB con tamaño inválido";
+                return std::nullopt;
+            }
             jsonText.resize(chunkLength);
-            file.read(jsonText.data(), chunkLength);
+            if (!file.read(jsonText.data(), chunkLength) ||
+                static_cast<size_t>(file.gcount()) != chunkLength) {
+                error = "Chunk GLB con tamaño inválido";
+                return std::nullopt;
+            }
         } else if (chunkType == 0x004E4942) { // BIN
+            if (chunkLength > kMaxChunkSize) {
+                error = "Chunk GLB con tamaño inválido";
+                return std::nullopt;
+            }
             binData.resize(chunkLength);
-            file.read(reinterpret_cast<char*>(binData.data()), chunkLength);
+            if (!file.read(reinterpret_cast<char*>(binData.data()), chunkLength) ||
+                static_cast<size_t>(file.gcount()) != chunkLength) {
+                error = "Chunk GLB con tamaño inválido";
+                return std::nullopt;
+            }
         } else {
-            file.seekg(chunkLength, std::ios::cur);
+            if (!file.seekg(chunkLength, std::ios::cur)) {
+                error = "Chunk GLB con tamaño inválido";
+                return std::nullopt;
+            }
         }
     }
     file.close();
@@ -456,4 +495,3 @@ bool LoadGLB(const std::string& path, Mesh& outMesh)
     }
     return ok;
 }
-
