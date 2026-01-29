@@ -163,6 +163,7 @@ bool MyApp::OnExceptionInMainLoop() {
   try {
     throw;
   } catch (const std::exception &ex) {
+    Logger::Instance().Log(ex.what());
     LogExceptionWithStack(ex, "Unhandled exception in main loop: ");
     return true;
   } catch (...) {
@@ -175,6 +176,7 @@ void MyApp::OnUnhandledException() {
   try {
     throw;
   } catch (const std::exception &ex) {
+    Logger::Instance().Log(ex.what());
     LogExceptionWithStack(ex, "Unhandled exception: ");
   } catch (...) {
     Logger::Instance().Log("Unhandled exception: unknown error.");
