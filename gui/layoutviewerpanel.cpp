@@ -1820,12 +1820,10 @@ void LayoutViewerPanel::InvalidateRenderIfFrameChanged() {
   const bool zoomChanged = lastRenderZoom != renderZoom;
   const bool pageChanged =
       lastPageWidthPt != pageWidth || lastPageHeightPt != pageHeight;
-  int dirtyElementCount = 0;
   auto markDirty = [&](bool &cacheDirty) {
     if (cacheDirty)
       return;
     cacheDirty = true;
-    dirtyElementCount++;
   };
 
   for (const auto &view : currentLayout.view2dViews) {
@@ -1923,7 +1921,7 @@ void LayoutViewerPanel::InvalidateRenderIfFrameChanged() {
     }
   }
 
-  if (zoomChanged || pageChanged || dirtyElementCount > 1) {
+  if (zoomChanged || pageChanged) {
     renderDirty = true;
   }
   lastRenderZoom = renderZoom;
