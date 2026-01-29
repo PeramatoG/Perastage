@@ -411,7 +411,9 @@ void Viewer2DPanel::InitGL() {
       !m_allowOffscreenRender) {
     return;
   }
-  SetCurrent(*m_glContext);
+  if (!SetCurrent(*m_glContext)) {
+    return;
+  }
   if (!m_glInitialized) {
     glewExperimental = GL_TRUE;
     glewInit();
@@ -425,6 +427,9 @@ void Viewer2DPanel::InitGL() {
 void Viewer2DPanel::Render() { RenderInternal(true); }
 
 void Viewer2DPanel::RenderInternal(bool swapBuffers) {
+  if (!m_glInitialized) {
+    return;
+  }
   int w, h;
   GetClientSize(&w, &h);
 
@@ -615,6 +620,10 @@ bool Viewer2DPanel::RenderToRGBA(std::vector<unsigned char> &pixels, int &width,
   bool previousForce = m_forceOffscreenRender;
   m_forceOffscreenRender = true;
   InitGL();
+  if (!m_glInitialized) {
+    m_forceOffscreenRender = previousForce;
+    return false;
+  }
   RenderInternal(false);
 
   glReadBuffer(GL_BACK);
