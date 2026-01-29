@@ -471,7 +471,8 @@ void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
       activeElementHasTexture = hasTexture(imageCaches_, activeImageId);
     }
   }
-  const bool showLoadingOverlay = !texturesReady || !activeElementHasTexture;
+  const bool showLoadingOverlay =
+      !IsLayoutEmpty() && (!texturesReady || !activeElementHasTexture);
   if (showLoadingOverlay && isReadyToRender_) {
     DrawLoadingOverlay(size);
   }
