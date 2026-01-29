@@ -30,8 +30,7 @@ elseif(NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
 endif()
 
 # Find required packages
-find_package(wxWidgets REQUIRED COMPONENTS core base aui gl html richtext)
-include(${wxWidgets_USE_FILE})
+find_package(wxWidgets CONFIG REQUIRED COMPONENTS core base aui gl html richtext)
 find_package(tinyxml2 CONFIG REQUIRED)
 find_package(OpenGL REQUIRED)
 find_package(CURL REQUIRED)
@@ -97,7 +96,12 @@ target_include_directories(${PROJECT_NAME} PRIVATE
 
 # Link required libraries
 target_link_libraries(${PROJECT_NAME} PRIVATE
-    ${wxWidgets_LIBRARIES}
+    wx::core
+    wx::base
+    wx::aui
+    wx::gl
+    wx::html
+    wx::richtext
     tinyxml2::tinyxml2
     OpenGL::GL
     OpenGL::GLU
