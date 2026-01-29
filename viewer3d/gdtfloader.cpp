@@ -336,14 +336,24 @@ static void ParseModes(tinyxml2::XMLElement* ft,
                 GdtfChannelInfo info;
                 if (const char* offset = c->Attribute("Offset"))
                 {
+                    auto trim = [](std::string& value) {
+                        value.erase(0, value.find_first_not_of(" \t\r\n"));
+                        value.erase(value.find_last_not_of(" \t\r\n") + 1);
+                    };
                     std::string offStr = offset;
-                    size_t comma = offStr.find(',');
-                    std::string first = offStr.substr(0, comma);
-                    if (!TryParseInt(first, info.channel) && ConsolePanel::Instance()) {
-                        wxString msg = wxString::Format(
-                            "GDTF: invalid DMX channel offset '%s'",
-                            wxString::FromUTF8(first));
-                        ConsolePanel::Instance()->AppendMessage(msg);
+                    trim(offStr);
+                    if (!offStr.empty() && offStr != "None") {
+                        size_t comma = offStr.find(',');
+                        std::string first = offStr.substr(0, comma);
+                        trim(first);
+                        if (!first.empty() && first != "None") {
+                            if (!TryParseInt(first, info.channel) && ConsolePanel::Instance()) {
+                                wxString msg = wxString::Format(
+                                    "GDTF: invalid DMX channel offset '%s'",
+                                    wxString::FromUTF8(first));
+                                ConsolePanel::Instance()->AppendMessage(msg);
+                            }
+                        }
                     }
                 }
                 if (info.channel == 0)
@@ -358,24 +368,28 @@ static void ParseModes(tinyxml2::XMLElement* ft,
                 channelsVec.push_back(info);
 
                 if (const char* offset = c->Attribute("Offset")) {
+                    auto trim = [](std::string& value) {
+                        value.erase(0, value.find_first_not_of(" \t\r\n"));
+                        value.erase(value.find_last_not_of(" \t\r\n") + 1);
+                    };
                     std::string offStr = offset;
-                    if (!offStr.empty() && offStr != "None") {
-                        std::stringstream ss(offStr);
-                        std::string token;
-                        while (std::getline(ss, token, ',')) {
-                            token.erase(0, token.find_first_not_of(" \t\r\n"));
-                            token.erase(token.find_last_not_of(" \t\r\n") + 1);
-                            if (token.empty())
-                                continue;
-                            int parsed = 0;
-                            if (TryParseInt(token, parsed)) {
-                                ++count;
-                            } else if (ConsolePanel::Instance()) {
-                                wxString msg = wxString::Format(
-                                    "GDTF: invalid DMX channel offset '%s'",
-                                    wxString::FromUTF8(token));
-                                ConsolePanel::Instance()->AppendMessage(msg);
-                            }
+                    trim(offStr);
+                    if (offStr.empty() || offStr == "None")
+                        continue;
+                    std::stringstream ss(offStr);
+                    std::string token;
+                    while (std::getline(ss, token, ',')) {
+                        trim(token);
+                        if (token.empty() || token == "None")
+                            continue;
+                        int parsed = 0;
+                        if (TryParseInt(token, parsed)) {
+                            ++count;
+                        } else if (ConsolePanel::Instance()) {
+                            wxString msg = wxString::Format(
+                                "GDTF: invalid DMX channel offset '%s'",
+                                wxString::FromUTF8(token));
+                            ConsolePanel::Instance()->AppendMessage(msg);
                         }
                     }
                 }
