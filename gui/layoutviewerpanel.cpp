@@ -442,7 +442,7 @@ void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
       activeElementHasTexture = hasTexture(imageCaches_, activeImageId);
     }
   }
-  const bool showLoadingOverlay = !texturesReady && !activeElementHasTexture;
+  const bool showLoadingOverlay = !texturesReady || !activeElementHasTexture;
   if (showLoadingOverlay) {
     DrawLoadingOverlay(size);
   }
