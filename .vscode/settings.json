@@ -1,7 +1,8 @@
 {
   "cmake.configureSettings": {
-    "CMAKE_TOOLCHAIN_FILE": "${env:HOME}/vcpkg/scripts/buildsystems/vcpkg.cmake",
-    "VCPKG_TARGET_TRIPLET": "x64-osx"
+    "CMAKE_TOOLCHAIN_FILE": "/Users/arenasaudio/vcpkg/scripts/buildsystems/vcpkg.cmake",
+    "VCPKG_TARGET_TRIPLET": "arm64-osx",
+    "CMAKE_OSX_ARCHITECTURES": "arm64"
   },
-  "cmake.buildDirectory": "${workspaceFolder}/build"
+  "cmake.generator": "Unix Makefiles"
 }
