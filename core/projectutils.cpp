@@ -150,11 +150,16 @@ std::optional<std::string> LoadLastProjectPath()
     std::getline(in, rawPath);
     if (rawPath.empty())
         return std::nullopt;
+    fs::path candidate;
+    try {
+        candidate = fs::u8path(rawPath);
+    } catch (...) {
+        return std::nullopt;
+    }
     auto isValidFile = [](const fs::path& path) {
         std::error_code ec;
         return fs::exists(path, ec) && fs::is_regular_file(path, ec);
     };
-    fs::path candidate = fs::u8path(rawPath);
     if (candidate.is_absolute()) {
         if (isValidFile(candidate))
             return ToUtf8String(candidate);

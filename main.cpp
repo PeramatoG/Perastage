@@ -67,27 +67,46 @@ bool MyApp::OnInit() {
   if (lastPathOpt) {
     std::string lastPath = *lastPathOpt;
     std::thread([mainWindowRef, lastPath]() {
-      namespace fs = std::filesystem;
-      bool loaded = false;
-      bool clearLastProject = false;
-      std::string path = lastPath;
-      std::error_code ec;
-      fs::path lastFsPath = fs::u8path(path);
-      bool isFile = fs::is_regular_file(lastFsPath, ec);
-      if (ec || !isFile) {
-        clearLastProject = true;
-        path.clear();
-      } else {
-        loaded = ConfigManager::Get().LoadProject(path);
-        if (!loaded)
+      try {
+        namespace fs = std::filesystem;
+        bool loaded = false;
+        bool clearLastProject = false;
+        std::string path = lastPath;
+        std::error_code ec;
+        fs::path lastFsPath = fs::u8path(path);
+        bool isFile = fs::is_regular_file(lastFsPath, ec);
+        if (ec || !isFile) {
           clearLastProject = true;
-      }
-      if (mainWindowRef) {
-        wxCommandEvent evt(EVT_PROJECT_LOADED);
-        evt.SetInt(loaded ? 1 : 0);
-        evt.SetExtraLong(clearLastProject ? 1 : 0);
-        evt.SetString(path);
-        wxQueueEvent(mainWindowRef.get(), evt.Clone());
+          path.clear();
+        } else {
+          loaded = ConfigManager::Get().LoadProject(path);
+          if (!loaded)
+            clearLastProject = true;
+        }
+        if (mainWindowRef) {
+          wxCommandEvent evt(EVT_PROJECT_LOADED);
+          evt.SetInt(loaded ? 1 : 0);
+          evt.SetExtraLong(clearLastProject ? 1 : 0);
+          evt.SetString(path);
+          wxQueueEvent(mainWindowRef.get(), evt.Clone());
+        }
+      } catch (const std::exception &ex) {
+        Logger::Instance().Log(
+            std::string("Failed to load last project: ") + ex.what());
+        if (mainWindowRef) {
+          wxCommandEvent evt(EVT_PROJECT_LOADED);
+          evt.SetInt(0);
+          evt.SetExtraLong(1);
+          wxQueueEvent(mainWindowRef.get(), evt.Clone());
+        }
+      } catch (...) {
+        Logger::Instance().Log("Failed to load last project: unknown error.");
+        if (mainWindowRef) {
+          wxCommandEvent evt(EVT_PROJECT_LOADED);
+          evt.SetInt(0);
+          evt.SetExtraLong(1);
+          wxQueueEvent(mainWindowRef.get(), evt.Clone());
+        }
       }
     }).detach();
   } else if (mainWindowRef) {
