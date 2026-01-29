@@ -162,6 +162,7 @@ void LayoutViewerPanel::SetLayoutDefinition(
     pendingFitOnResize = true;
     ResetViewToFit();
     Refresh();
+    NotifyRenderReady();
     return;
   }
   renderDirty = true;
@@ -171,6 +172,14 @@ void LayoutViewerPanel::SetLayoutDefinition(
   ResetViewToFit();
   RequestRenderRebuild();
   Refresh();
+}
+
+void LayoutViewerPanel::NotifyRenderReady() {
+  CallAfter([this]() {
+    wxCommandEvent event(EVT_LAYOUT_RENDER_READY);
+    event.SetEventObject(this);
+    wxPostEvent(this, event);
+  });
 }
 
 std::vector<LayoutViewerPanel::ZOrderedElement>
@@ -1263,13 +1272,6 @@ void LayoutViewerPanel::RebuildCachedTexture() {
   if (!capturePanel || !offscreenRenderer) {
     return;
   }
-  auto notifyRenderReady = [this]() {
-    CallAfter([this]() {
-      wxCommandEvent event(EVT_LAYOUT_RENDER_READY);
-      event.SetEventObject(this);
-      wxPostEvent(this, event);
-    });
-  };
   auto stopLoadingRequest = [this]() {
     loadingRequested = false;
     if (loadingTimer_.IsRunning())
@@ -1367,7 +1369,7 @@ void LayoutViewerPanel::RebuildCachedTexture() {
 
     if (!InitGL()) {
       clearLoadingState();
-      notifyRenderReady();
+      NotifyRenderReady();
       return;
     }
     if (cache.texture == 0) {
@@ -1440,7 +1442,7 @@ void LayoutViewerPanel::RebuildCachedTexture() {
 
     if (!InitGL()) {
       clearLoadingState();
-      notifyRenderReady();
+      NotifyRenderReady();
       return;
     }
     if (cache.texture == 0) {
@@ -1524,7 +1526,7 @@ void LayoutViewerPanel::RebuildCachedTexture() {
 
     if (!InitGL()) {
       clearLoadingState();
-      notifyRenderReady();
+      NotifyRenderReady();
       return;
     }
     if (cache.texture == 0) {
@@ -1607,7 +1609,7 @@ void LayoutViewerPanel::RebuildCachedTexture() {
 
     if (!InitGL()) {
       clearLoadingState();
-      notifyRenderReady();
+      NotifyRenderReady();
       return;
     }
     if (cache.texture == 0) {
@@ -1696,7 +1698,7 @@ void LayoutViewerPanel::RebuildCachedTexture() {
 
     if (!InitGL()) {
       clearLoadingState();
-      notifyRenderReady();
+      NotifyRenderReady();
       return;
     }
     if (cache.texture == 0) {
@@ -1716,7 +1718,7 @@ void LayoutViewerPanel::RebuildCachedTexture() {
   }
 
   clearLoadingState();
-  notifyRenderReady();
+  NotifyRenderReady();
 }
 
 void LayoutViewerPanel::ClearCachedTexture() {

@@ -100,6 +100,7 @@ private:
     size_t contentHash = 0;
   };
 
+  void NotifyRenderReady();
   void OnPaint(wxPaintEvent &event);
   void OnSize(wxSizeEvent &event);
   void OnLeftDown(wxMouseEvent &event);
