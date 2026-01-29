@@ -253,6 +253,7 @@ private:
   wxPoint dragStartPos{0, 0};
   layouts::Layout2DViewFrame dragStartFrame;
   int layoutVersion = 0;
+  int viewRenderVersion = 0;
   bool captureInProgress = false;
   SelectedElementType selectedElementType = SelectedElementType::None;
   int selectedElementId = -1;

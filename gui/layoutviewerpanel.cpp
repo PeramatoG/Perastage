@@ -146,6 +146,7 @@ void LayoutViewerPanel::SetLayoutDefinition(
     selectedElementId = -1;
   }
   layoutVersion++;
+  viewRenderVersion++;
   captureInProgress = false;
   ClearCachedTexture();
   renderDirty = true;
