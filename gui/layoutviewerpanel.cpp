@@ -48,6 +48,7 @@ constexpr int kLayoutGridStep = 5;
 constexpr int kMaxRenderDimension = 8192;
 constexpr size_t kMaxRenderPixels =
     static_cast<size_t>(kMaxRenderDimension) * kMaxRenderDimension;
+constexpr size_t kMaxRenderBytes = 64 * 1024 * 1024;
 constexpr int kEditMenuId = wxID_HIGHEST + 490;
 constexpr int kDeleteMenuId = wxID_HIGHEST + 491;
 constexpr int kDeleteLegendMenuId = wxID_HIGHEST + 492;
@@ -1205,6 +1206,12 @@ wxSize LayoutViewerPanel::GetFrameSizeForZoom(
     return wxSize(0, 0);
   if (static_cast<size_t>(scaledWidth) >
       kMaxRenderPixels / static_cast<size_t>(scaledHeight))
+    return wxSize(0, 0);
+  const size_t pixelCount =
+      static_cast<size_t>(scaledWidth) * static_cast<size_t>(scaledHeight);
+  if (pixelCount > kMaxRenderPixels)
+    return wxSize(0, 0);
+  if (pixelCount > kMaxRenderBytes / 4)
     return wxSize(0, 0);
   return wxSize(scaledWidth, scaledHeight);
 }
