@@ -257,6 +257,9 @@ void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
   if (!IsShownOnScreen()) {
     return;
   }
+  if (!glContext_) {
+    return;
+  }
   InitGL();
   SetCurrent(*glContext_);
   RefreshLegendData();
@@ -536,6 +539,8 @@ void LayoutViewerPanel::EnsureLoadingTextTexture() {
     pixels[static_cast<size_t>(i) * 4 + 3] = intensity;
   }
 
+  if (!glContext_)
+    return;
   InitGL();
   if (!IsShownOnScreen())
     return;
