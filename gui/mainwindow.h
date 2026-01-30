@@ -182,7 +182,6 @@ private:
                           const wxString &dialogTitle);
   std::string defaultLayoutPerspective;
   std::string default2DLayoutPerspective;
-  std::string layoutModePerspective;
   bool layoutModeActive = false;
   std::string activeLayoutName;
   bool layout2DViewEditing = false;
