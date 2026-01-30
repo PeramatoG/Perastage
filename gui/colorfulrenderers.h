@@ -97,6 +97,19 @@ inline void DrawTextValue(wxDataViewCustomRenderer *renderer,
   if (!renderer || !dc)
     return;
 
+  auto measureText = [&](const wxString &value) {
+    wxDataViewColumn *column = renderer->GetOwner();
+    wxDataViewCtrl *ctrl = column ? column->GetOwner() : nullptr;
+    wxFont font = dc->GetFont();
+    if (ctrl) {
+      int width = 0;
+      int height = 0;
+      ctrl->GetTextExtent(value, &width, &height, nullptr, nullptr, &font);
+      return wxSize(width, height);
+    }
+    return dc->GetTextExtent(value);
+  };
+
   wxDCClipper clip(*dc, rect);
   const wxDataViewItemAttr &attr = renderer->GetAttr();
   ApplyAttributeFont(dc, attr);
@@ -107,7 +120,7 @@ inline void DrawTextValue(wxDataViewCustomRenderer *renderer,
   const int availableWidth =
       std::max(0, rect.GetWidth() - horizontalPadding * 2);
   if (renderer->GetEllipsizeMode() != wxELLIPSIZE_NONE) {
-    wxSize rawSize = dc->GetTextExtent(displayText);
+    wxSize rawSize = measureText(displayText);
     if (rawSize.x > availableWidth) {
       displayText = wxControl::Ellipsize(displayText, *dc,
                                          renderer->GetEllipsizeMode(),
@@ -115,7 +128,7 @@ inline void DrawTextValue(wxDataViewCustomRenderer *renderer,
     }
   }
 
-  wxSize textSize = dc->GetTextExtent(displayText);
+  wxSize textSize = measureText(displayText);
   int align = renderer->GetEffectiveAlignment();
   int x = rect.x + horizontalPadding;
   if (align & wxALIGN_RIGHT)
