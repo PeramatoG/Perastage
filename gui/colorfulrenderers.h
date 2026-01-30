@@ -25,16 +25,6 @@
 #include "colorstore.h"
 
 namespace {
-template <typename Renderer>
-auto SetEllipsizeModeIfSupported(Renderer *renderer, wxEllipsizeMode mode)
-    -> decltype(renderer->SetEllipsizeMode(mode), void()) {
-  if (!renderer)
-    return;
-  renderer->SetEllipsizeMode(mode);
-}
-
-inline void SetEllipsizeModeIfSupported(...) {}
-
 inline const ColorfulDataViewListStore *GetColorfulStore(
     const wxDataViewCustomRenderer *renderer) {
   if (!renderer)
@@ -150,9 +140,7 @@ class ColorfulTextRenderer : public wxDataViewCustomRenderer {
 public:
   ColorfulTextRenderer(wxDataViewCellMode mode = wxDATAVIEW_CELL_INERT,
                        int align = wxDVR_DEFAULT_ALIGNMENT)
-      : wxDataViewCustomRenderer("string", mode, align) {
-    SetEllipsizeModeIfSupported(this, wxELLIPSIZE_NONE);
-  }
+      : wxDataViewCustomRenderer("string", mode, align) {}
 
   bool Render(wxRect rect, wxDC *dc, int state) override {
     wxColour background;
@@ -196,9 +184,7 @@ class ColorfulIconTextRenderer : public wxDataViewCustomRenderer {
 public:
   ColorfulIconTextRenderer(wxDataViewCellMode mode = wxDATAVIEW_CELL_INERT,
                            int align = wxDVR_DEFAULT_ALIGNMENT)
-      : wxDataViewCustomRenderer("wxDataViewIconText", mode, align) {
-    SetEllipsizeModeIfSupported(this, wxELLIPSIZE_NONE);
-  }
+      : wxDataViewCustomRenderer("wxDataViewIconText", mode, align) {}
 
   bool Render(wxRect rect, wxDC *dc, int state) override {
     wxColour background;
