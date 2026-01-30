@@ -179,9 +179,7 @@ void MainWindow::CreateToolBars() {
                        .Name("FileToolbar")
                        .Caption("File")
                        .ToolbarPane()
-                       .Top()
-                       .Row(0)
-                       .Position(0));
+                       .Top());
 
   layoutViewsToolBar =
       new wxAuiToolBar(this, wxID_ANY, wxDefaultPosition, wxDefaultSize,
@@ -205,9 +203,7 @@ void MainWindow::CreateToolBars() {
                               .Name("LayoutViewsToolbar")
                               .Caption("Layout Views")
                               .ToolbarPane()
-                              .Top()
-                              .Row(0)
-                              .Position(1));
+                              .Top());
 
   layoutToolBar = new wxAuiToolBar(this, wxID_ANY, wxDefaultPosition,
                                    wxDefaultSize, toolbarStyle);
