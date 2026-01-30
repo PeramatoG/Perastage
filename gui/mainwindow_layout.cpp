@@ -385,19 +385,6 @@ void MainWindow::ApplyLayoutPreset(const LayoutViewPreset &preset,
   else
     auiManager->Update();
 
-  if (layoutMode) {
-    const int clientWidth = GetClientSize().GetWidth();
-    const int layoutPanelWidth = std::max(200, clientWidth / 6);
-    auto &layoutPane = auiManager->GetPane("LayoutPanel");
-    if (layoutPane.IsOk())
-      layoutPane.Left().BestSize(layoutPanelWidth, 600).MinSize(
-          wxSize(200, 300));
-
-    auto &layoutViewerPane = auiManager->GetPane("LayoutViewer");
-    if (layoutViewerPane.IsOk())
-      layoutViewerPane.Center().MinSize(wxSize(400, 300));
-  }
-
   auto applyPaneState = [this](const std::vector<std::string> &panes,
                                bool show) {
     for (const auto &name : panes) {
