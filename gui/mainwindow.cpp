@@ -527,9 +527,8 @@ void MainWindow::SaveCameraSettings() {
   if (auiManager) {
     const std::string perspective =
         auiManager->SavePerspective().ToStdString();
-    ConfigManager::Get().SetValue("layout_perspective", perspective);
-    if (layoutModeActive)
-      ConfigManager::Get().SetValue("layout_layout_mode", perspective);
+    if (!layoutModeActive)
+      ConfigManager::Get().SetValue("layout_perspective", perspective);
   }
 }
 

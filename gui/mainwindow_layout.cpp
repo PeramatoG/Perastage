@@ -403,11 +403,7 @@ void MainWindow::ApplyLayoutPreset(const LayoutViewPreset &preset,
 
   if (persistPerspective) {
     ConfigManager &cfg = ConfigManager::Get();
-    if (layoutMode) {
-      layoutModePerspective = auiManager->SavePerspective().ToStdString();
-      cfg.SetValue("layout_layout_mode", layoutModePerspective);
-      cfg.SetValue("layout_perspective", layoutModePerspective);
-    } else if (perspective) {
+    if (!layoutMode && perspective) {
       cfg.SetValue("layout_perspective", *perspective);
     }
   }
@@ -422,18 +418,11 @@ void MainWindow::ApplySavedLayout() {
   if (!auiManager)
     return;
 
-  bool didLoadLayoutMode = false;
   std::optional<std::string> perspective;
 
   // Load stored layout perspective if it exists
   if (auto val = ConfigManager::Get().GetValue("layout_perspective")) {
     perspective = *val;
-    if (layoutModePerspective.empty()) {
-      if (auto layoutVal = ConfigManager::Get().GetValue("layout_layout_mode"))
-        layoutModePerspective = *layoutVal;
-    }
-    didLoadLayoutMode =
-        !layoutModePerspective.empty() && *perspective == layoutModePerspective;
 
     // Ensure viewports exist before loading the saved perspective
     if (perspective->find("3DViewport") != std::string::npos)
@@ -444,9 +433,7 @@ void MainWindow::ApplySavedLayout() {
   }
 
   const LayoutViewPreset *preset = nullptr;
-  if (didLoadLayoutMode) {
-    preset = LayoutViewPresetRegistry::GetPreset("layout_mode_view");
-  } else if (perspective &&
+  if (perspective &&
              (perspective->find("2DViewport") != std::string::npos ||
               perspective->find("2DRenderOptions") != std::string::npos)) {
     preset = LayoutViewPresetRegistry::GetPreset("2d_layout_view");
@@ -454,9 +441,9 @@ void MainWindow::ApplySavedLayout() {
     preset = LayoutViewPresetRegistry::GetPreset("3d_layout_view");
   }
   if (preset && perspective)
-    ApplyLayoutPreset(*preset, perspective, didLoadLayoutMode, false);
+    ApplyLayoutPreset(*preset, perspective, false, false);
   else if (preset)
-    ApplyLayoutPreset(*preset, std::nullopt, didLoadLayoutMode, false);
+    ApplyLayoutPreset(*preset, std::nullopt, false, false);
 
   // Re-apply hard-coded minimum sizes so they are not overridden by the saved perspective
   auto &dataPane = auiManager->GetPane("DataNotebook");
@@ -480,21 +467,37 @@ void MainWindow::ApplyLayoutModePerspective() {
   if (!auiManager)
     return;
 
-  if (layoutModePerspective.empty()) {
-    if (auto val = ConfigManager::Get().GetValue("layout_layout_mode"))
-      layoutModePerspective = *val;
-  }
-
   const auto *preset =
       LayoutViewPresetRegistry::GetPreset("layout_mode_view");
   if (!preset)
     return;
 
-  if (layoutModePerspective.empty())
+  if (defaultLayoutModePerspective.empty()) {
+    const std::string previousPerspective =
+        auiManager->SavePerspective().ToStdString();
+
+    auto applyPaneState = [this](const std::vector<std::string> &panes,
+                                 bool show) {
+      for (const auto &name : panes) {
+        auto &pane = auiManager->GetPane(name);
+        if (pane.IsOk())
+          pane.Show(show);
+      }
+    };
+
+    applyPaneState(preset->showPanes, true);
+    applyPaneState(preset->hidePanes, false);
+    auiManager->Update();
+    defaultLayoutModePerspective = auiManager->SavePerspective().ToStdString();
+    auiManager->LoadPerspective(previousPerspective, true);
+    auiManager->Update();
+  }
+
+  if (defaultLayoutModePerspective.empty())
     ApplyLayoutPreset(*preset, std::nullopt, true, true);
   else
-    ApplyLayoutPreset(*preset, std::make_optional(layoutModePerspective), true,
-                      true);
+    ApplyLayoutPreset(*preset, std::make_optional(defaultLayoutModePerspective),
+                      true, true);
 }
 
 void MainWindow::OnApplyDefaultLayout(wxCommandEvent &WXUNUSED(event)) {
