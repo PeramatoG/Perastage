@@ -20,18 +20,6 @@
 #include <wx/dataview.h>
 
 namespace ColumnUtils {
-namespace detail {
-template <typename Column>
-auto SetEllipsizeModeIfSupported(Column *column, wxEllipsizeMode mode)
-    -> decltype(column->SetEllipsizeMode(mode), void()) {
-  if (!column)
-    return;
-  column->SetEllipsizeMode(mode);
-}
-
-inline void SetEllipsizeModeIfSupported(...) {}
-} // namespace detail
-
 inline void EnforceMinColumnWidth(wxDataViewListCtrl *table,
                                   int minWidth = 50) {
   if (!table)
@@ -41,10 +29,6 @@ inline void EnforceMinColumnWidth(wxDataViewListCtrl *table,
   for (unsigned int i = 0; i < count; ++i) {
     if (auto *col = table->GetColumn(i)) {
       col->SetMinWidth(minWidth);
-      detail::SetEllipsizeModeIfSupported(col, wxELLIPSIZE_NONE);
-      if (auto *renderer = col->GetRenderer()) {
-        detail::SetEllipsizeModeIfSupported(renderer, wxELLIPSIZE_NONE);
-      }
     }
   }
 }
