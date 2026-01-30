@@ -410,6 +410,20 @@ void MainWindow::ApplyLayoutPreset(const LayoutViewPreset &preset,
   applyPaneState(preset.showPanes, true);
   applyPaneState(preset.hidePanes, false);
 
+  if (layoutMode) {
+    auto resetToolbarPane = [this](const std::string &paneName, int row,
+                                   int position) {
+      auto &pane = auiManager->GetPane(paneName);
+      if (!pane.IsOk())
+        return;
+      pane.ToolbarPane().Top().Row(row).Position(position);
+    };
+
+    resetToolbarPane("FileToolbar", 0, 0);
+    resetToolbarPane("LayoutViewsToolbar", 0, 1);
+    resetToolbarPane("LayoutToolbar", 1, 0);
+  }
+
   auiManager->Update();
 
   layoutModeActive = layoutMode;
