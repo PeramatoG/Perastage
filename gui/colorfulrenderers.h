@@ -74,9 +74,12 @@ inline bool ResolveBackgroundColour(const wxDataViewCustomRenderer *renderer,
   return false;
 }
 
-inline void ApplyAttributeFont(wxDC *dc, const wxDataViewItemAttr &attr) {
+inline void ApplyAttributeFont(wxDC *dc, const wxDataViewItemAttr &attr,
+                               const wxWindow *ctrl) {
   if (!dc)
     return;
+  if (ctrl)
+    dc->SetFont(ctrl->GetFont());
   if (attr.HasFont())
     dc->SetFont(attr.GetEffectiveFont(dc->GetFont()));
 }
@@ -87,13 +90,17 @@ inline void DrawTextValue(wxDataViewCustomRenderer *renderer,
   if (!renderer || !dc)
     return;
 
+  wxDataViewCtrl *ctrl = nullptr;
+  if (auto *column = renderer->GetOwner())
+    ctrl = column->GetOwner();
+
   auto measureText = [&](const wxString &value) {
-    return dc->GetTextExtent(value);
+    return ctrl ? ctrl->GetTextExtent(value) : dc->GetTextExtent(value);
   };
 
   wxDCClipper clip(*dc, rect);
   const wxDataViewItemAttr &attr = renderer->GetAttr();
-  ApplyAttributeFont(dc, attr);
+  ApplyAttributeFont(dc, attr, ctrl);
   dc->SetTextForeground(ResolveTextColour(renderer, state, attr));
 
   wxString displayText = text;
