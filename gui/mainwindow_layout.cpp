@@ -491,8 +491,12 @@ void MainWindow::ApplySavedLayout() {
     toolbar->Realize();
     toolbar->InvalidateBestSize();
     auto &pane = auiManager->GetPane(paneName);
-    if (pane.IsOk())
-      pane.BestSize(toolbar->GetBestSize());
+    if (pane.IsOk()) {
+      const wxSize toolbarSize = toolbar->GetBestSize();
+      pane.BestSize(toolbarSize);
+      pane.MinSize(toolbarSize);
+      toolbar->SetMinSize(toolbarSize);
+    }
   };
 
   refreshToolbarLayout(fileToolBar, "FileToolbar");

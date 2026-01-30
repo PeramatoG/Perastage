@@ -172,6 +172,8 @@ void MainWindow::CreateToolBars() {
                        loadToolbarIcon("file-output", wxART_FILE_SAVE),
                        "Export the project to MVR");
   fileToolBar->Realize();
+  const wxSize fileToolbarSize = fileToolBar->GetBestSize();
+  fileToolBar->SetMinSize(fileToolbarSize);
 
   auiManager->AddPane(
       fileToolBar, wxAuiPaneInfo()
@@ -181,6 +183,9 @@ void MainWindow::CreateToolBars() {
                        .Top()
                        .LeftDockable(false)
                        .RightDockable(false)
+                       .BestSize(fileToolbarSize)
+                       .MinSize(fileToolbarSize)
+                       .Resizable(false)
                        .Row(0)
                        .Position(0));
 
@@ -213,6 +218,7 @@ void MainWindow::CreateToolBars() {
                               .RightDockable(false)
                               .BestSize(layoutViewsToolbarSize)
                               .MinSize(layoutViewsToolbarSize)
+                              .Resizable(false)
                               .Row(0)
                               .Position(1));
 
@@ -251,6 +257,7 @@ void MainWindow::CreateToolBars() {
                          .RightDockable(false)
                          .BestSize(layoutToolbarSize)
                          .MinSize(layoutToolbarSize)
+                         .Resizable(false)
                          .Row(1)
                          .Position(0));
 }
