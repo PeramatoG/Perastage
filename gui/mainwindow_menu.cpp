@@ -135,7 +135,7 @@ std::string WrapHelpHtml(const std::string &body) {
 
 void MainWindow::CreateToolBars() {
   const long toolbarStyle =
-      (wxAUI_TB_DEFAULT_STYLE | wxAUI_TB_HORIZONTAL) & ~wxAUI_TB_GRIPPER;
+      (wxAUI_TB_DEFAULT_STYLE | wxAUI_TB_HORIZONTAL);
   fileToolBar = new wxAuiToolBar(this, wxID_ANY, wxDefaultPosition,
                                  wxDefaultSize, toolbarStyle);
   fileToolBar->SetToolBitmapSize(wxSize(16, 16));
@@ -173,9 +173,6 @@ void MainWindow::CreateToolBars() {
                        loadToolbarIcon("file-output", wxART_FILE_SAVE),
                        "Export the project to MVR");
   fileToolBar->Realize();
-  const wxSize fileToolbarSize = fileToolBar->GetBestSize();
-  fileToolBar->SetMinSize(fileToolbarSize);
-  fileToolBar->SetMaxSize(fileToolbarSize);
 
   auiManager->AddPane(
       fileToolBar, wxAuiPaneInfo()
@@ -183,14 +180,6 @@ void MainWindow::CreateToolBars() {
                        .Caption("File")
                        .ToolbarPane()
                        .Top()
-                       .LeftDockable(false)
-                       .RightDockable(false)
-                       .DockFixed()
-                       .Fixed()
-                       .BestSize(fileToolbarSize)
-                       .MinSize(fileToolbarSize)
-                       .MaxSize(fileToolbarSize)
-                       .Resizable(false)
                        .Row(0)
                        .Position(0));
 
@@ -211,30 +200,18 @@ void MainWindow::CreateToolBars() {
                                               wxART_MISSING_IMAGE),
                               "Switch to Layout Mode View");
   layoutViewsToolBar->Realize();
-  const wxSize layoutViewsToolbarSize = layoutViewsToolBar->GetBestSize();
-  layoutViewsToolBar->SetMinSize(layoutViewsToolbarSize);
-  layoutViewsToolBar->SetMaxSize(layoutViewsToolbarSize);
   auiManager->AddPane(
       layoutViewsToolBar, wxAuiPaneInfo()
                               .Name("LayoutViewsToolbar")
                               .Caption("Layout Views")
                               .ToolbarPane()
                               .Top()
-                              .LeftDockable(false)
-                              .RightDockable(false)
-                              .DockFixed()
-                              .Fixed()
-                              .BestSize(layoutViewsToolbarSize)
-                              .MinSize(layoutViewsToolbarSize)
-                              .MaxSize(layoutViewsToolbarSize)
-                              .Resizable(false)
                               .Row(0)
                               .Position(1));
 
   layoutToolBar = new wxAuiToolBar(this, wxID_ANY, wxDefaultPosition,
                                    wxDefaultSize, toolbarStyle);
   layoutToolBar->SetToolBitmapSize(wxSize(16, 16));
-  layoutToolBar->SetOverflowVisible(false);
   layoutToolBar->AddTool(ID_View_Layout_2DView, "Añadir vista 2D",
                          loadToolbarIcon("panel-top-bottom-dashed",
                                          wxART_MISSING_IMAGE),
@@ -253,23 +230,12 @@ void MainWindow::CreateToolBars() {
                          loadToolbarIcon("image-plus", wxART_MISSING_IMAGE),
                          "Add image to layout");
   layoutToolBar->Realize();
-  const wxSize layoutToolbarSize = layoutToolBar->GetBestSize();
-  layoutToolBar->SetMinSize(layoutToolbarSize);
-  layoutToolBar->SetMaxSize(layoutToolbarSize);
   auiManager->AddPane(
       layoutToolBar, wxAuiPaneInfo()
                          .Name("LayoutToolbar")
                          .Caption("Layout")
                          .ToolbarPane()
                          .Top()
-                         .LeftDockable(false)
-                         .RightDockable(false)
-                         .DockFixed()
-                         .Fixed()
-                         .BestSize(layoutToolbarSize)
-                         .MinSize(layoutToolbarSize)
-                         .MaxSize(layoutToolbarSize)
-                         .Resizable(false)
                          .Row(1)
                          .Position(0));
 }
