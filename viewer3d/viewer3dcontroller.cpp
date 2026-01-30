@@ -648,7 +648,7 @@ void Viewer3DController::InitializeGL() {
         if (path.empty())
           continue;
         if (fs::exists(path, ec)) {
-          std::string pathString = path.u8string();
+          std::string pathString = path.string();
           target = nvgCreateFont(m_vg, name, pathString.c_str());
           if (target >= 0)
             return true;
