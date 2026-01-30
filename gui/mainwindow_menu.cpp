@@ -134,9 +134,10 @@ std::string WrapHelpHtml(const std::string &body) {
 } // namespace
 
 void MainWindow::CreateToolBars() {
+  const long toolbarStyle =
+      (wxAUI_TB_DEFAULT_STYLE | wxAUI_TB_HORIZONTAL) & ~wxAUI_TB_GRIPPER;
   fileToolBar = new wxAuiToolBar(this, wxID_ANY, wxDefaultPosition,
-                                 wxDefaultSize,
-                                 wxAUI_TB_DEFAULT_STYLE | wxAUI_TB_HORIZONTAL);
+                                 wxDefaultSize, toolbarStyle);
   fileToolBar->SetToolBitmapSize(wxSize(16, 16));
 
   const auto loadToolbarIcon = [](const std::string &name,
@@ -184,6 +185,8 @@ void MainWindow::CreateToolBars() {
                        .Top()
                        .LeftDockable(false)
                        .RightDockable(false)
+                       .DockFixed()
+                       .Fixed()
                        .BestSize(fileToolbarSize)
                        .MinSize(fileToolbarSize)
                        .MaxSize(fileToolbarSize)
@@ -193,7 +196,7 @@ void MainWindow::CreateToolBars() {
 
   layoutViewsToolBar =
       new wxAuiToolBar(this, wxID_ANY, wxDefaultPosition, wxDefaultSize,
-                       wxAUI_TB_DEFAULT_STYLE | wxAUI_TB_HORIZONTAL);
+                       toolbarStyle);
   layoutViewsToolBar->SetToolBitmapSize(wxSize(16, 16));
   layoutViewsToolBar->AddTool(ID_View_Layout_Default, "Vista layout 3D",
                               loadToolbarIcon("box",
@@ -219,6 +222,8 @@ void MainWindow::CreateToolBars() {
                               .Top()
                               .LeftDockable(false)
                               .RightDockable(false)
+                              .DockFixed()
+                              .Fixed()
                               .BestSize(layoutViewsToolbarSize)
                               .MinSize(layoutViewsToolbarSize)
                               .MaxSize(layoutViewsToolbarSize)
@@ -227,8 +232,7 @@ void MainWindow::CreateToolBars() {
                               .Position(1));
 
   layoutToolBar = new wxAuiToolBar(this, wxID_ANY, wxDefaultPosition,
-                                   wxDefaultSize,
-                                   wxAUI_TB_DEFAULT_STYLE | wxAUI_TB_HORIZONTAL);
+                                   wxDefaultSize, toolbarStyle);
   layoutToolBar->SetToolBitmapSize(wxSize(16, 16));
   layoutToolBar->SetOverflowVisible(false);
   layoutToolBar->AddTool(ID_View_Layout_2DView, "Añadir vista 2D",
@@ -260,6 +264,8 @@ void MainWindow::CreateToolBars() {
                          .Top()
                          .LeftDockable(false)
                          .RightDockable(false)
+                         .DockFixed()
+                         .Fixed()
                          .BestSize(layoutToolbarSize)
                          .MinSize(layoutToolbarSize)
                          .MaxSize(layoutToolbarSize)
