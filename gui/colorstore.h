@@ -107,7 +107,8 @@ public:
     if (row >= rowAttrs.size())
       rowAttrs.resize(row + 1);
     rowAttrs[row].SetBackgroundColour(colour);
-    RowChanged(row);
+    if (row < GetItemCount())
+      RowChanged(row);
   }
 
   void ClearRowBackground(unsigned row) {
@@ -119,7 +120,8 @@ public:
       rowAttrs[row] = wxDataViewItemAttr();
       if (hasFg)
         rowAttrs[row].SetColour(fg);
-      RowChanged(row);
+      if (row < GetItemCount())
+        RowChanged(row);
     }
   }
 
@@ -127,7 +129,8 @@ public:
     if (row >= rowAttrs.size())
       rowAttrs.resize(row + 1);
     rowAttrs[row].SetColour(colour);
-    RowChanged(row);
+    if (row < GetItemCount())
+      RowChanged(row);
   }
 
   void ClearRowTextColour(unsigned row) {
@@ -139,7 +142,8 @@ public:
       rowAttrs[row] = wxDataViewItemAttr();
       if (hasBg)
         rowAttrs[row].SetBackgroundColour(bg);
-      RowChanged(row);
+      if (row < GetItemCount())
+        RowChanged(row);
     }
   }
 
@@ -149,14 +153,16 @@ public:
     if (col >= cellAttrs[row].size())
       cellAttrs[row].resize(col + 1);
     cellAttrs[row][col].SetColour(colour);
-    RowChanged(row);
+    if (row < GetItemCount())
+      RowChanged(row);
   }
 
   void ClearCellTextColour(unsigned row, unsigned col) {
     if (row >= cellAttrs.size() || col >= cellAttrs[row].size())
       return;
     cellAttrs[row][col] = wxDataViewItemAttr();
-    RowChanged(row);
+    if (row < GetItemCount())
+      RowChanged(row);
   }
 
   void SetSelectionColours(const wxColour &background,
