@@ -88,15 +88,6 @@ inline void DrawTextValue(wxDataViewCustomRenderer *renderer,
     return;
 
   auto measureText = [&](const wxString &value) {
-    wxDataViewColumn *column = renderer->GetOwner();
-    wxDataViewCtrl *ctrl = column ? column->GetOwner() : nullptr;
-    wxFont font = dc->GetFont();
-    if (ctrl) {
-      int width = 0;
-      int height = 0;
-      ctrl->GetTextExtent(value, &width, &height, nullptr, nullptr, &font);
-      return wxSize(width, height);
-    }
     return dc->GetTextExtent(value);
   };
 
