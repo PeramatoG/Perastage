@@ -472,7 +472,32 @@ void MainWindow::ApplyLayoutModePerspective() {
   if (!preset)
     return;
 
-  ApplyLayoutPreset(*preset, std::nullopt, true, true);
+  if (defaultLayoutModePerspective.empty()) {
+    const std::string previousPerspective =
+        auiManager->SavePerspective().ToStdString();
+
+    auto applyPaneState = [this](const std::vector<std::string> &panes,
+                                 bool show) {
+      for (const auto &name : panes) {
+        auto &pane = auiManager->GetPane(name);
+        if (pane.IsOk())
+          pane.Show(show);
+      }
+    };
+
+    applyPaneState(preset->showPanes, true);
+    applyPaneState(preset->hidePanes, false);
+    auiManager->Update();
+    defaultLayoutModePerspective = auiManager->SavePerspective().ToStdString();
+    auiManager->LoadPerspective(previousPerspective, true);
+    auiManager->Update();
+  }
+
+  if (defaultLayoutModePerspective.empty())
+    ApplyLayoutPreset(*preset, std::nullopt, true, true);
+  else
+    ApplyLayoutPreset(*preset, std::make_optional(defaultLayoutModePerspective),
+                      true, true);
 }
 
 void MainWindow::OnApplyDefaultLayout(wxCommandEvent &WXUNUSED(event)) {
