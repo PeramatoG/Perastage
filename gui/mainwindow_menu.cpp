@@ -174,6 +174,7 @@ void MainWindow::CreateToolBars() {
   fileToolBar->Realize();
   const wxSize fileToolbarSize = fileToolBar->GetBestSize();
   fileToolBar->SetMinSize(fileToolbarSize);
+  fileToolBar->SetMaxSize(fileToolbarSize);
 
   auiManager->AddPane(
       fileToolBar, wxAuiPaneInfo()
@@ -185,6 +186,7 @@ void MainWindow::CreateToolBars() {
                        .RightDockable(false)
                        .BestSize(fileToolbarSize)
                        .MinSize(fileToolbarSize)
+                       .MaxSize(fileToolbarSize)
                        .Resizable(false)
                        .Row(0)
                        .Position(0));
@@ -208,6 +210,7 @@ void MainWindow::CreateToolBars() {
   layoutViewsToolBar->Realize();
   const wxSize layoutViewsToolbarSize = layoutViewsToolBar->GetBestSize();
   layoutViewsToolBar->SetMinSize(layoutViewsToolbarSize);
+  layoutViewsToolBar->SetMaxSize(layoutViewsToolbarSize);
   auiManager->AddPane(
       layoutViewsToolBar, wxAuiPaneInfo()
                               .Name("LayoutViewsToolbar")
@@ -218,6 +221,7 @@ void MainWindow::CreateToolBars() {
                               .RightDockable(false)
                               .BestSize(layoutViewsToolbarSize)
                               .MinSize(layoutViewsToolbarSize)
+                              .MaxSize(layoutViewsToolbarSize)
                               .Resizable(false)
                               .Row(0)
                               .Position(1));
@@ -247,6 +251,7 @@ void MainWindow::CreateToolBars() {
   layoutToolBar->Realize();
   const wxSize layoutToolbarSize = layoutToolBar->GetBestSize();
   layoutToolBar->SetMinSize(layoutToolbarSize);
+  layoutToolBar->SetMaxSize(layoutToolbarSize);
   auiManager->AddPane(
       layoutToolBar, wxAuiPaneInfo()
                          .Name("LayoutToolbar")
@@ -257,6 +262,7 @@ void MainWindow::CreateToolBars() {
                          .RightDockable(false)
                          .BestSize(layoutToolbarSize)
                          .MinSize(layoutToolbarSize)
+                         .MaxSize(layoutToolbarSize)
                          .Resizable(false)
                          .Row(1)
                          .Position(0));

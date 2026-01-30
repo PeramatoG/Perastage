@@ -495,7 +495,9 @@ void MainWindow::ApplySavedLayout() {
       const wxSize toolbarSize = toolbar->GetBestSize();
       pane.BestSize(toolbarSize);
       pane.MinSize(toolbarSize);
+      pane.MaxSize(toolbarSize);
       toolbar->SetMinSize(toolbarSize);
+      toolbar->SetMaxSize(toolbarSize);
     }
   };
 
