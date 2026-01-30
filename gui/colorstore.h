@@ -177,11 +177,13 @@ public:
     std::vector<bool> oldRows = selectionRows;
     size_t oldSize = oldRows.size();
     selectionRows.assign(rows.begin(), rows.end());
-    if (rowAttrs.size() > selectionRows.size())
-      selectionRows.resize(rowAttrs.size(), false);
-    size_t currentCount = rowAttrs.size();
-    size_t notifyCount = (std::min)((std::max)(oldSize, selectionRows.size()),
-                                    currentCount);
+    size_t itemCount = GetItemCount();
+    if (itemCount > selectionRows.size())
+      selectionRows.resize(itemCount, false);
+    if (selectionRows.size() > itemCount)
+      selectionRows.resize(itemCount);
+    size_t notifyCount =
+        (std::min)((std::max)(oldSize, selectionRows.size()), itemCount);
     for (size_t i = 0; i < notifyCount; ++i) {
       bool oldVal = i < oldSize ? oldRows[i] : false;
       bool newVal = i < selectionRows.size() ? selectionRows[i] : false;
