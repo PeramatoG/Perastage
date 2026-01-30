@@ -235,9 +235,7 @@ void MainWindow::CreateToolBars() {
                          .Name("LayoutToolbar")
                          .Caption("Layout")
                          .ToolbarPane()
-                         .Top()
-                         .Row(1)
-                         .Position(0));
+                         .Top());
 }
 
 void MainWindow::CreateMenuBar() {

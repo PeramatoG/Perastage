@@ -484,18 +484,6 @@ void MainWindow::ApplySavedLayout() {
   if (view2dPane.IsOk())
     view2dPane.MinSize(wxSize(250, 600));
 
-  auto refreshToolbarLayout = [this](wxAuiToolBar *toolbar,
-                                     const std::string &paneName) {
-    if (!toolbar)
-      return;
-    toolbar->Realize();
-    toolbar->InvalidateBestSize();
-  };
-
-  refreshToolbarLayout(fileToolBar, "FileToolbar");
-  refreshToolbarLayout(layoutViewsToolBar, "LayoutViewsToolbar");
-  refreshToolbarLayout(layoutToolBar, "LayoutToolbar");
-
   auiManager->Update();
   SendSizeEvent();
   UpdateViewMenuChecks();
