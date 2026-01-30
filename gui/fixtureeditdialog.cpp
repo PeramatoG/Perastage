@@ -78,7 +78,17 @@ FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
       ctrls[i] = modelCtrl;
       grid->Add(hs, 1, wxEXPAND);
     } else if (i == 18) {
-      wxColour initial(v.GetString());
+      wxString colorString;
+      if (v.GetType() == "wxDataViewIconText") {
+        wxDataViewIconText icon;
+        icon << v;
+        colorString = icon.GetText();
+      } else {
+        colorString = v.GetString();
+      }
+      wxColour initial(colorString);
+      if (colorString.IsEmpty() || !initial.IsOk())
+        initial = *wxWHITE;
       auto *picker = new wxColourPickerCtrl(this, wxID_ANY, initial);
       ctrls[i] = picker;
       grid->Add(picker, 1, wxEXPAND);
