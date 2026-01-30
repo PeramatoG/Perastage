@@ -93,17 +93,23 @@ inline void DrawTextValue(wxDataViewCustomRenderer *renderer,
   dc->SetTextForeground(ResolveTextColour(renderer, state, attr));
 
   wxString displayText = text;
+  const int horizontalPadding = 2;
+  const int availableWidth =
+      std::max(0, rect.GetWidth() - horizontalPadding * 2);
   if (renderer->GetEllipsizeMode() != wxELLIPSIZE_NONE) {
-    displayText = wxControl::Ellipsize(displayText, *dc,
-                                       renderer->GetEllipsizeMode(),
-                                       rect.GetWidth());
+    wxSize rawSize = dc->GetTextExtent(displayText);
+    if (rawSize.x > availableWidth) {
+      displayText = wxControl::Ellipsize(displayText, *dc,
+                                         renderer->GetEllipsizeMode(),
+                                         availableWidth);
+    }
   }
 
   wxSize textSize = dc->GetTextExtent(displayText);
   int align = renderer->GetEffectiveAlignment();
-  int x = rect.x + 2;
+  int x = rect.x + horizontalPadding;
   if (align & wxALIGN_RIGHT)
-    x = rect.x + rect.width - textSize.x - 2;
+    x = rect.x + rect.width - textSize.x - horizontalPadding;
   else if (align & wxALIGN_CENTER_HORIZONTAL)
     x = rect.x + (rect.width - textSize.x) / 2;
 
