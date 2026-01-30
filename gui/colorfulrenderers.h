@@ -25,6 +25,16 @@
 #include "colorstore.h"
 
 namespace {
+template <typename Renderer>
+auto SetEllipsizeModeIfSupported(Renderer *renderer, wxEllipsizeMode mode)
+    -> decltype(renderer->SetEllipsizeMode(mode), void()) {
+  if (!renderer)
+    return;
+  renderer->SetEllipsizeMode(mode);
+}
+
+inline void SetEllipsizeModeIfSupported(...) {}
+
 inline const ColorfulDataViewListStore *GetColorfulStore(
     const wxDataViewCustomRenderer *renderer) {
   if (!renderer)
@@ -128,9 +138,7 @@ public:
   ColorfulTextRenderer(wxDataViewCellMode mode = wxDATAVIEW_CELL_INERT,
                        int align = wxDVR_DEFAULT_ALIGNMENT)
       : wxDataViewCustomRenderer("string", mode, align) {
-#ifdef __WXMAC__
-    SetEllipsizeMode(wxELLIPSIZE_NONE);
-#endif
+    SetEllipsizeModeIfSupported(this, wxELLIPSIZE_NONE);
   }
 
   bool Render(wxRect rect, wxDC *dc, int state) override {
@@ -176,9 +184,7 @@ public:
   ColorfulIconTextRenderer(wxDataViewCellMode mode = wxDATAVIEW_CELL_INERT,
                            int align = wxDVR_DEFAULT_ALIGNMENT)
       : wxDataViewCustomRenderer("wxDataViewIconText", mode, align) {
-#ifdef __WXMAC__
-    SetEllipsizeMode(wxELLIPSIZE_NONE);
-#endif
+    SetEllipsizeModeIfSupported(this, wxELLIPSIZE_NONE);
   }
 
   bool Render(wxRect rect, wxDC *dc, int state) override {
