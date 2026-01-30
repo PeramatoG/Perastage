@@ -6,6 +6,7 @@
       ],
       "name": "x86-Debug",
       "includePath": [
+        "${env.VCPKG_ROOT}\\installed\\x64-windows\\include",
         "${env.INCLUDE}",
         "${workspaceRoot}\\**"
       ],

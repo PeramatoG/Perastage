@@ -16,6 +16,11 @@
         "CMAKE_OSX_ARCHITECTURES": "arm64",
         "CMAKE_TOOLCHAIN_FILE": "/Users/arenasaudio/vcpkg/scripts/buildsystems/vcpkg.cmake",
         "VCPKG_TARGET_TRIPLET": "arm64-osx"
+      },
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Darwin"
       }
     },
     {
@@ -28,7 +33,63 @@
         "CMAKE_OSX_ARCHITECTURES": "arm64",
         "CMAKE_TOOLCHAIN_FILE": "/Users/arenasaudio/vcpkg/scripts/buildsystems/vcpkg.cmake",
         "VCPKG_TARGET_TRIPLET": "arm64-osx"
+      },
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Darwin"
       }
+    },
+    {
+      "name": "win-x64-release",
+      "displayName": "Windows x64 Release (VS)",
+      "description": "Release build using the Visual Studio generator and system vcpkg",
+      "generator": "Visual Studio 17 2022",
+      "binaryDir": "${sourceDir}/build/win-x64-release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_TOOLCHAIN_FILE": "C:/vcpkg/scripts/buildsystems/vcpkg.cmake",
+        "VCPKG_TARGET_TRIPLET": "x64-windows"
+      },
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      }
+    },
+    {
+      "name": "win-x64-debug",
+      "displayName": "Windows x64 Debug (VS)",
+      "description": "Debug build using the Visual Studio generator and system vcpkg",
+      "generator": "Visual Studio 17 2022",
+      "binaryDir": "${sourceDir}/build/win-x64-debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_TOOLCHAIN_FILE": "C:/vcpkg/scripts/buildsystems/vcpkg.cmake",
+        "VCPKG_TARGET_TRIPLET": "x64-windows"
+      },
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "win-release-stage",
+      "displayName": "Stage Windows Release",
+      "description": "Builds the Windows release and stages runtime resources for packaging",
+      "configurePreset": "win-x64-release",
+      "targets": [ "perastage_stage" ],
+      "jobs": 8
+    },
+    {
+      "name": "win-debug-build",
+      "displayName": "Build Windows Debug",
+      "description": "Builds the Windows debug version",
+      "configurePreset": "win-x64-debug",
+      "jobs": 8
     }
   ]
 }
