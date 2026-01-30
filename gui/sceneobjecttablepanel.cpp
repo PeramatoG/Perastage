@@ -609,7 +609,9 @@ bool SceneObjectTablePanel::IsActivePage() const
 
 void SceneObjectTablePanel::HighlightObject(const std::string& uuid)
 {
-    for (size_t i = 0; i < rowUuids.size(); ++i)
+    size_t count =
+        std::min(rowUuids.size(), static_cast<size_t>(table->GetItemCount()));
+    for (size_t i = 0; i < count; ++i)
     {
         if (!uuid.empty() && rowUuids[i] == uuid)
             store->SetRowBackgroundColour(i, wxColour(0, 200, 0));
