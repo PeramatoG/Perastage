@@ -42,6 +42,9 @@ inline void EnforceMinColumnWidth(wxDataViewListCtrl *table,
     if (auto *col = table->GetColumn(i)) {
       col->SetMinWidth(minWidth);
       detail::SetEllipsizeModeIfSupported(col, wxELLIPSIZE_NONE);
+      if (auto *renderer = col->GetRenderer()) {
+        detail::SetEllipsizeModeIfSupported(renderer, wxELLIPSIZE_NONE);
+      }
     }
   }
 }
