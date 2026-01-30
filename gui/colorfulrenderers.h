@@ -127,7 +127,11 @@ class ColorfulTextRenderer : public wxDataViewCustomRenderer {
 public:
   ColorfulTextRenderer(wxDataViewCellMode mode = wxDATAVIEW_CELL_INERT,
                        int align = wxDVR_DEFAULT_ALIGNMENT)
-      : wxDataViewCustomRenderer("string", mode, align) {}
+      : wxDataViewCustomRenderer("string", mode, align) {
+#ifdef __WXMAC__
+    SetEllipsizeMode(wxELLIPSIZE_NONE);
+#endif
+  }
 
   bool Render(wxRect rect, wxDC *dc, int state) override {
     wxColour background;
@@ -171,7 +175,11 @@ class ColorfulIconTextRenderer : public wxDataViewCustomRenderer {
 public:
   ColorfulIconTextRenderer(wxDataViewCellMode mode = wxDATAVIEW_CELL_INERT,
                            int align = wxDVR_DEFAULT_ALIGNMENT)
-      : wxDataViewCustomRenderer("wxDataViewIconText", mode, align) {}
+      : wxDataViewCustomRenderer("wxDataViewIconText", mode, align) {
+#ifdef __WXMAC__
+    SetEllipsizeMode(wxELLIPSIZE_NONE);
+#endif
+  }
 
   bool Render(wxRect rect, wxDC *dc, int state) override {
     wxColour background;
