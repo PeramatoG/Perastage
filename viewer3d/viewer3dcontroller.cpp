@@ -51,6 +51,7 @@
 #include "../models/types.h"
 #include "consolepanel.h"
 #include "logger.h"
+#include "projectutils.h"
 
 #include <wx/tokenzr.h>
 #include <wx/wx.h>
@@ -609,31 +610,72 @@ void Viewer3DController::InitializeGL() {
     // Windows uses Arial (C:/Windows/Fonts/arial.ttf); Linux uses
     // DejaVuSans (/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf) for NanoVG
     // labels.
-    const char *fontPaths[] = {
+    std::vector<fs::path> fontPaths = {
 #ifdef _WIN32
         "C:/Windows/Fonts/arial.ttf",
 #endif
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", nullptr};
-    const char *boldFontPaths[] = {
+#ifdef __APPLE__
+        "/System/Library/Fonts/SFNS.ttf",
+        "/System/Library/Fonts/Supplemental/Arial.ttf",
+        "/Library/Fonts/Arial.ttf",
+#endif
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"};
+    std::vector<fs::path> boldFontPaths = {
 #ifdef _WIN32
         "C:/Windows/Fonts/arialbd.ttf",
 #endif
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", nullptr};
+#ifdef __APPLE__
+        "/System/Library/Fonts/SFNS.ttf",
+        "/System/Library/Fonts/Supplemental/Arial Bold.ttf",
+        "/Library/Fonts/Arial Bold.ttf",
+#endif
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"};
 
-    for (const char **p = fontPaths; *p; ++p) {
-      if (fs::exists(*p)) {
-        m_font = nvgCreateFont(m_vg, "sans", *p);
-        if (m_font >= 0)
-          break;
-      }
+    const fs::path resourceRoot = ProjectUtils::GetResourceRoot();
+    std::vector<fs::path> bundledFontPaths;
+    std::vector<fs::path> bundledBoldFontPaths;
+    if (!resourceRoot.empty()) {
+      bundledFontPaths.emplace_back(resourceRoot / "fonts" /
+                                    "PerastageSans.ttf");
+      bundledBoldFontPaths.emplace_back(resourceRoot / "fonts" /
+                                        "PerastageSans-Bold.ttf");
     }
-    for (const char **p = boldFontPaths; *p; ++p) {
-      if (fs::exists(*p)) {
-        m_fontBold = nvgCreateFont(m_vg, "sans-bold", *p);
-        if (m_fontBold >= 0)
-          break;
+
+    auto loadFontFromPaths = [&](const std::vector<fs::path> &paths,
+                                 const char *name, int &target) -> bool {
+      std::error_code ec;
+      for (const auto &path : paths) {
+        if (path.empty())
+          continue;
+        if (fs::exists(path, ec)) {
+          std::string pathString = path.u8string();
+          target = nvgCreateFont(m_vg, name, pathString.c_str());
+          if (target >= 0)
+            return true;
+        }
+        ec.clear();
       }
+      return false;
+    };
+
+    loadFontFromPaths(fontPaths, "sans", m_font);
+    loadFontFromPaths(boldFontPaths, "sans-bold", m_fontBold);
+
+#ifdef __APPLE__
+    if (m_font < 0 && !bundledFontPaths.empty()) {
+      Logger::Instance().Log(
+          "Failed to load system font for labels; trying bundled font");
     }
+    if (m_fontBold < 0 && !bundledBoldFontPaths.empty()) {
+      Logger::Instance().Log(
+          "Failed to load system bold font for labels; trying bundled font");
+    }
+#endif
+
+    if (m_font < 0)
+      loadFontFromPaths(bundledFontPaths, "sans", m_font);
+    if (m_fontBold < 0)
+      loadFontFromPaths(bundledBoldFontPaths, "sans-bold", m_fontBold);
     if (m_fontBold < 0)
       m_fontBold = m_font;
     if (m_font < 0)

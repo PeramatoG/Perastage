@@ -9,5 +9,6 @@ This project uses the following third-party libraries. The corresponding license
 - [libcurl](https://curl.se/libcurl/) – curl License ([licenses/curl_LICENSE.txt](licenses/curl_LICENSE.txt))
 - [GLEW](http://glew.sourceforge.net/) – Modified BSD License ([licenses/glew_LICENSE.txt](licenses/glew_LICENSE.txt))
 - [nanovg](https://github.com/memononen/nanovg) – MIT License ([licenses/nanovg_LICENSE.txt](licenses/nanovg_LICENSE.txt))
+- [Noto Sans](https://fonts.google.com/noto/specimen/Noto+Sans) – SIL Open Font License 1.1 ([licenses/noto_sans_LICENSE.txt](licenses/noto_sans_LICENSE.txt))
 
 These licenses must accompany binary distributions of Perastage, either by including this file and the `licenses/` directory or by reproducing their content in your distribution package.
