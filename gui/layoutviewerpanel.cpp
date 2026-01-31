@@ -1297,12 +1297,10 @@ bool LayoutViewerPanel::InitGL() {
     return false;
   if (!SetCurrent(*glContext_))
     return false;
-  if (!glInitialized_) {
-    glDisable(GL_DEPTH_TEST);
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    glInitialized_ = true;
-  }
+  glDisable(GL_DEPTH_TEST);
+  glEnable(GL_BLEND);
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+  glInitialized_ = true;
   isReadyToRender_ = true;
   return true;
 }
