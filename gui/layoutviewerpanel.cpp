@@ -578,8 +578,16 @@ void LayoutViewerPanel::DrawLoadingOverlay(const wxSize &size) {
 }
 
 void LayoutViewerPanel::EnsureLoadingTextTexture() {
-  if (loadingTextTexture_ != 0)
-    return;
+  if (loadingTextTexture_ != 0) {
+    if (!InitGL())
+      return;
+    if (!glIsTexture(loadingTextTexture_)) {
+      loadingTextTexture_ = 0;
+      loadingTextTextureSize_ = wxSize(0, 0);
+    } else {
+      return;
+    }
+  }
 
   const wxString label = wxString::FromUTF8("Loading layout...");
   wxFont font = wxFontInfo(14).Bold();
