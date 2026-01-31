@@ -538,6 +538,8 @@ void LayoutViewerPanel::DrawLoadingOverlay(const wxSize &size) {
     return;
   if (size.GetWidth() <= 0 || size.GetHeight() <= 0)
     return;
+  glEnable(GL_BLEND);
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   glColor4ub(0, 0, 0, 150);
   glBegin(GL_QUADS);
   glVertex2f(0.0f, 0.0f);
