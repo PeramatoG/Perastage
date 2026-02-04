@@ -676,7 +676,7 @@ void MainWindow::ActivateLayoutView(const std::string &layoutName) {
     ClearLayoutLoadingIndicator();
   }
 
-  if (viewport2DPanel) {
+  if (viewport2DPanel && layoutModeActive) {
     int viewId = 0;
     bool hasViewId = false;
     if (layoutViewerPanel) {
