@@ -452,7 +452,8 @@ bool MainWindow::LoadProjectFromPath(const std::string &path) {
     viewportPanel->Refresh();
   }
   if (viewport2DPanel) {
-    viewport2DPanel->LoadViewFromConfig();
+    if (!HasActiveLayout2DView())
+      viewport2DPanel->LoadViewFromConfig();
     viewport2DPanel->UpdateScene();
     viewport2DPanel->Refresh();
   }
@@ -486,7 +487,8 @@ void MainWindow::ResetProject() {
     viewportPanel->Refresh();
   }
   if (viewport2DPanel) {
-    viewport2DPanel->LoadViewFromConfig();
+    if (!HasActiveLayout2DView())
+      viewport2DPanel->LoadViewFromConfig();
     viewport2DPanel->UpdateScene();
     viewport2DPanel->Refresh();
   }
@@ -597,6 +599,23 @@ void MainWindow::UpdateViewMenuChecks() {
 
 void MainWindow::OnLayoutSelected(wxCommandEvent &event) {
   ActivateLayoutView(event.GetString().ToStdString());
+}
+
+bool MainWindow::HasActiveLayout2DView() const {
+  if (activeLayoutName.empty())
+    return false;
+
+  const auto &layouts = layouts::LayoutManager::Get().GetLayouts().Items();
+  for (const auto &layout : layouts) {
+    if (layout.name != activeLayoutName)
+      continue;
+    for (const auto &view : layout.view2dViews) {
+      if (view.id > 0)
+        return true;
+    }
+    return false;
+  }
+  return false;
 }
 
 void MainWindow::ShowLayoutLoadingIndicator(const wxString &message) {
@@ -748,7 +767,8 @@ void MainWindow::OnProjectLoaded(wxCommandEvent &event) {
       viewportPanel->Refresh();
     }
     if (viewport2DPanel) {
-      viewport2DPanel->LoadViewFromConfig();
+      if (!HasActiveLayout2DView())
+        viewport2DPanel->LoadViewFromConfig();
       viewport2DPanel->UpdateScene();
       viewport2DPanel->Refresh();
     }
