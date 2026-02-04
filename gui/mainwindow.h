@@ -177,6 +177,7 @@ private:
   void ActivateLayoutView(const std::string &layoutName);
   void ShowLayoutLoadingIndicator(const wxString &message);
   void ClearLayoutLoadingIndicator();
+  bool HasActiveLayout2DView() const;
   void SyncSceneData();
   bool ConfirmSaveIfDirty(const wxString &actionLabel,
                           const wxString &dialogTitle);
