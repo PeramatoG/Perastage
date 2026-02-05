@@ -88,7 +88,7 @@ static std::string EnsureUniqueArchivePath(const std::string &proposed,
   fs::path parent = stemPath.parent_path();
   int index = 1;
   while (true) {
-    std::string candidate = (parent / (stem + " (" + std::to_string(index) + ")" + ext)).generic_string();
+    std::string candidate = (parent / (stem + "_" + std::to_string(index + 1) + ext)).generic_string();
     if (!usedPaths.contains(candidate)) {
       usedPaths.insert(candidate);
       return candidate;
@@ -110,10 +110,24 @@ static std::string SanitizeArchiveFileName(const std::string &input,
   return fs::path(candidate).filename().generic_string();
 }
 
+static bool IsValidMvrFileName(const std::string &value) {
+  if (value.empty())
+    return false;
+  for (unsigned char c : value) {
+    if (c < 32)
+      return false;
+  }
+  return value.find(':') == std::string::npos && value.find('/') == std::string::npos &&
+         value.find('\\') == std::string::npos && value.find('*') == std::string::npos &&
+         value.find('?') == std::string::npos && value.find('"') == std::string::npos &&
+         value.find('<') == std::string::npos && value.find('>') == std::string::npos &&
+         value.find('|') == std::string::npos;
+}
+
 static bool ValidateMvr16Export(
     tinyxml2::XMLDocument &doc,
     const std::unordered_map<std::string, std::string> &gdtfPathsByUuid,
-    const std::unordered_set<std::string> &archiveEntries) {
+    const std::unordered_map<std::string, int> &archiveEntryCount) {
   tinyxml2::XMLElement *root = doc.FirstChildElement("GeneralSceneDescription");
   if (!root) {
     wxLogError("MVR export validation failed: missing GeneralSceneDescription root");
@@ -134,6 +148,37 @@ static bool ValidateMvr16Export(
   }
 
   std::unordered_set<int> numericIds;
+  std::vector<std::string> referencedFiles;
+
+  std::vector<tinyxml2::XMLElement *> stack;
+  for (tinyxml2::XMLElement *node = root->FirstChildElement(); node;
+       node = node->NextSiblingElement()) {
+    stack.push_back(node);
+  }
+  while (!stack.empty()) {
+    tinyxml2::XMLElement *cur = stack.back();
+    stack.pop_back();
+
+    if (std::string(cur->Name()) == "GDTFSpec") {
+      const char *txt = cur->GetText();
+      if (txt)
+        referencedFiles.emplace_back(txt);
+    }
+
+    for (const tinyxml2::XMLAttribute *attr = cur->FirstAttribute(); attr;
+         attr = attr->Next()) {
+      std::string attrName = attr->Name();
+      std::transform(attrName.begin(), attrName.end(), attrName.begin(),
+                     [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+      if (attrName == "filename")
+        referencedFiles.emplace_back(attr->Value());
+    }
+
+    for (tinyxml2::XMLElement *child = cur->FirstChildElement(); child;
+         child = child->NextSiblingElement())
+      stack.push_back(child);
+  }
+
   for (const char *tagName : {"Fixture", "Truss", "Support", "VideoScreen", "Projector"}) {
     for (tinyxml2::XMLElement *node = root->FirstChildElement(); node;
          node = node->NextSiblingElement()) {
@@ -167,8 +212,7 @@ static bool ValidateMvr16Export(
           if (tinyxml2::XMLElement *gdtf = cur->FirstChildElement("GDTFSpec")) {
             const char *txt = gdtf->GetText();
             std::string value = txt ? txt : "";
-            if (value.find(':') != std::string::npos || value.find('\\') != std::string::npos ||
-                (!value.empty() && value.front() == '/')) {
+            if (!IsValidMvrFileName(value)) {
               wxLogError("MVR export validation failed: GDTFSpec '%s' is not a valid archive-relative FileName", value);
               return false;
             }
@@ -177,8 +221,9 @@ static bool ValidateMvr16Export(
               wxLogError("MVR export validation failed: GDTFSpec mismatch for object uuid '%s'", cur->Attribute("uuid"));
               return false;
             }
-            if (!archiveEntries.contains(value)) {
-              wxLogError("MVR export validation failed: GDTFSpec '%s' is not present in archive", value);
+            auto gdtfArchiveIt = archiveEntryCount.find(value);
+            if (gdtfArchiveIt == archiveEntryCount.end() || gdtfArchiveIt->second != 1) {
+              wxLogError("MVR export validation failed: GDTFSpec '%s' must be present exactly once in archive", value);
               return false;
             }
           }
@@ -191,9 +236,28 @@ static bool ValidateMvr16Export(
     }
   }
 
-  if (archiveEntries.contains("")) {
-    wxLogError("MVR export validation failed: found empty ZIP entry path");
-    return false;
+  for (const auto &fileRef : referencedFiles) {
+    if (!IsValidMvrFileName(fileRef)) {
+      wxLogError("MVR export validation failed: invalid FileName reference '%s'", fileRef);
+      return false;
+    }
+
+    auto fileRefIt = archiveEntryCount.find(fileRef);
+    if (fileRefIt == archiveEntryCount.end() || fileRefIt->second != 1) {
+      wxLogError("MVR export validation failed: FileName reference '%s' must be present exactly once in archive", fileRef);
+      return false;
+    }
+  }
+
+  for (const auto &[archivePath, count] : archiveEntryCount) {
+    if (archivePath.empty()) {
+      wxLogError("MVR export validation failed: found empty ZIP entry path");
+      return false;
+    }
+    if (count != 1) {
+      wxLogError("MVR export validation failed: duplicate ZIP entry '%s'", archivePath);
+      return false;
+    }
   }
 
   return true;
@@ -468,8 +532,7 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
       return {};
 
     std::string baseName = SanitizeArchiveFileName(rawGdtfPath, "fixture.gdtf");
-    std::string preferred = (fs::path("gdtf") / baseName).generic_string();
-    std::string archivePath = registerResource(rawGdtfPath, preferred);
+    std::string archivePath = registerResource(rawGdtfPath, baseName);
     if (!objectUuid.empty() && !archivePath.empty())
       gdtfArchiveByObjectUuid[objectUuid] = archivePath;
     return archivePath;
@@ -565,7 +628,7 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
       tinyxml2::XMLElement *g3d = doc.NewElement("Geometry3D");
       std::string archivePath = registerResource(
           file,
-          (fs::path("models") / SanitizeArchiveFileName(file, "symbol.3ds")).generic_string());
+          SanitizeArchiveFileName(file, "symbol.3ds"));
       g3d->SetAttribute("fileName", archivePath.c_str());
       cl->InsertEndChild(g3d);
       sym->InsertEndChild(cl);
@@ -770,19 +833,19 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
         tinyxml2::XMLElement *g3d = doc.NewElement("Geometry3D");
         std::string symbolArchivePath = registerResource(
             t.symbolFile,
-            (fs::path("models") / SanitizeArchiveFileName(t.symbolFile, "truss.3ds")).generic_string());
+            SanitizeArchiveFileName(t.symbolFile, "truss.3ds"));
         g3d->SetAttribute("fileName", symbolArchivePath.c_str());
         geos->InsertEndChild(g3d);
       }
       te->InsertEndChild(geos);
       registerResource(
           t.symbolFile,
-          (fs::path("models") / SanitizeArchiveFileName(t.symbolFile, "truss.3ds")).generic_string());
+          SanitizeArchiveFileName(t.symbolFile, "truss.3ds"));
     }
     if (!t.modelFile.empty()) {
       std::string modelArchivePath = registerResource(
           t.modelFile,
-          (fs::path("models") / SanitizeArchiveFileName(t.modelFile, "truss-model.bin")).generic_string());
+          SanitizeArchiveFileName(t.modelFile, "truss-model.bin"));
       (void)modelArchivePath;
     }
 
@@ -955,14 +1018,14 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
         tinyxml2::XMLElement *g3d = doc.NewElement("Geometry3D");
         std::string modelArchivePath = registerResource(
             obj.modelFile,
-            (fs::path("models") / SanitizeArchiveFileName(obj.modelFile, "object.3ds")).generic_string());
+            SanitizeArchiveFileName(obj.modelFile, "object.3ds"));
         g3d->SetAttribute("fileName", modelArchivePath.c_str());
         geos->InsertEndChild(g3d);
       }
       oe->InsertEndChild(geos);
       registerResource(
           obj.modelFile,
-          (fs::path("models") / SanitizeArchiveFileName(obj.modelFile, "object.3ds")).generic_string());
+          SanitizeArchiveFileName(obj.modelFile, "object.3ds"));
     }
 
     std::string mstr = MatrixUtils::FormatMatrix(obj.transform);
@@ -1045,8 +1108,8 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
 
   sceneNode->InsertEndChild(layersNode);
 
-  std::unordered_set<std::string> writtenEntries;
-  writtenEntries.insert("GeneralSceneDescription.xml");
+  std::unordered_map<std::string, int> plannedArchiveEntries;
+  plannedArchiveEntries["GeneralSceneDescription.xml"] = 1;
 
   for (auto &entry : resourceEntries) {
     if (!fs::exists(entry.sourcePath))
@@ -1057,10 +1120,10 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
       if (!tmp.empty())
         entry.sourcePath = fs::path(tmp);
     }
-    writtenEntries.insert(entry.archivePath);
+    ++plannedArchiveEntries[entry.archivePath];
   }
 
-  if (!ValidateMvr16Export(doc, gdtfArchiveByObjectUuid, writtenEntries)) {
+  if (!ValidateMvr16Export(doc, gdtfArchiveByObjectUuid, plannedArchiveEntries)) {
     zip.Close();
     return false;
   }
@@ -1070,7 +1133,13 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
   doc.Print(&printer);
   std::string xmlData = printer.CStr();
 
+  std::unordered_set<std::string> writtenArchiveEntries;
   {
+    if (!writtenArchiveEntries.insert("GeneralSceneDescription.xml").second) {
+      wxLogError("MVR export failed: duplicate ZIP entry GeneralSceneDescription.xml");
+      zip.Close();
+      return false;
+    }
     auto *entry = new wxZipEntry("GeneralSceneDescription.xml");
     entry->SetMethod(wxZIP_METHOD_DEFLATE);
     zip.PutNextEntry(entry);
@@ -1081,6 +1150,11 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
   for (const auto &resource : resourceEntries) {
     if (!fs::exists(resource.sourcePath) || resource.archivePath.empty())
       continue;
+    if (!writtenArchiveEntries.insert(resource.archivePath).second) {
+      wxLogError("MVR export failed: duplicate ZIP entry %s", resource.archivePath);
+      zip.Close();
+      return false;
+    }
     auto *e = new wxZipEntry(resource.archivePath);
     e->SetMethod(wxZIP_METHOD_DEFLATE);
     zip.PutNextEntry(e);
