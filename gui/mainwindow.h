@@ -94,6 +94,7 @@ private:
   wxAuiToolBar *fileToolBar = nullptr;
   wxAuiToolBar *layoutToolBar = nullptr;
   wxAuiToolBar *layoutViewsToolBar = nullptr;
+  wxAuiToolBar *toolsToolBar = nullptr;
 
   wxAcceleratorTable m_accel;
 

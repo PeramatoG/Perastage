@@ -235,6 +235,33 @@ void MainWindow::CreateToolBars() {
                          .Caption("Layout")
                          .ToolbarPane()
                          .Top());
+
+  toolsToolBar = new wxAuiToolBar(this, wxID_ANY, wxDefaultPosition,
+                                  wxDefaultSize, toolbarStyle);
+  toolsToolBar->SetToolBitmapSize(wxSize(16, 16));
+  toolsToolBar->AddTool(ID_Edit_AddFixture, "Add Fixture",
+                        loadToolbarIcon("spotlight", wxART_MISSING_IMAGE),
+                        "Add fixture");
+  toolsToolBar->AddTool(ID_Edit_AddTruss, "Add Truss",
+                        loadToolbarIcon("truss", wxART_MISSING_IMAGE),
+                        "Add truss");
+  toolsToolBar->AddTool(ID_Edit_AddSceneObject, "Add Object",
+                        loadToolbarIcon("guitar", wxART_MISSING_IMAGE),
+                        "Add object");
+  toolsToolBar->AddSeparator();
+  toolsToolBar->AddTool(ID_Tools_DownloadGdtf, "Download GDTF",
+                        loadToolbarIcon("cloud-download", wxART_MISSING_IMAGE),
+                        "Download GDTF");
+  toolsToolBar->AddTool(ID_Tools_ImportRiderText, "Create by text",
+                        loadToolbarIcon("notepad-text", wxART_TIP),
+                        "Create by text");
+  toolsToolBar->Realize();
+  auiManager->AddPane(
+      toolsToolBar, wxAuiPaneInfo()
+                        .Name("ToolsToolbar")
+                        .Caption("Tools")
+                        .ToolbarPane()
+                        .Top());
 }
 
 void MainWindow::CreateMenuBar() {

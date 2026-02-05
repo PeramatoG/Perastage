@@ -71,6 +71,36 @@
       "icon": "outline/text-select.svg",
       "description": "Adds a text box to the layout.",
       "group": "LayoutToolbar"
+    },
+    {
+      "name": "Add Fixture",
+      "icon": "outline/spotlight.svg",
+      "description": "Adds a fixture to the scene.",
+      "group": "ToolsToolbar"
+    },
+    {
+      "name": "Add Truss",
+      "icon": "outline/truss.svg",
+      "description": "Adds a truss to the scene.",
+      "group": "ToolsToolbar"
+    },
+    {
+      "name": "Add Object",
+      "icon": "outline/guitar.svg",
+      "description": "Adds a scene object.",
+      "group": "ToolsToolbar"
+    },
+    {
+      "name": "Download GDTF",
+      "icon": "outline/cloud-download.svg",
+      "description": "Downloads fixture data from GDTF Share.",
+      "group": "ToolsToolbar"
+    },
+    {
+      "name": "Create by text",
+      "icon": "outline/notepad-text.svg",
+      "description": "Creates elements from text input.",
+      "group": "ToolsToolbar"
     }
   ]
 }
