@@ -134,6 +134,7 @@ int main() {
             std::string spec = gdtf->GetText();
             assert(spec.find(':') == std::string::npos);
             assert(spec.find('\\') == std::string::npos);
+            assert(spec.find('/') == std::string::npos);
             assert(!spec.empty() && spec.front() != '/');
             assert(entries.count(spec) == 1);
             ++gdtfCount[spec];
@@ -148,6 +149,10 @@ int main() {
   }
 
   assert(gdtfCount.size() >= 2);
+
+  for (const auto &name : entries) {
+    assert(name.rfind("gdtf/", 0) != 0);
+  }
   fs::remove_all(tempDir);
   return 0;
 }
