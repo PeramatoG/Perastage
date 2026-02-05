@@ -172,6 +172,9 @@ void MainWindow::CreateToolBars() {
   fileToolBar->AddTool(ID_File_ExportMVR, "Export MVR",
                        loadToolbarIcon("file-output", wxART_FILE_SAVE),
                        "Export the project to MVR");
+  fileToolBar->AddTool(ID_File_PrintMenu, "Print",
+                       loadToolbarIcon("printer", wxART_PRINT),
+                       "Choose what to print");
   fileToolBar->Realize();
 
   auiManager->AddPane(

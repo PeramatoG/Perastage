@@ -25,6 +25,7 @@
 #include <vector>
 
 #include <wx/filename.h>
+#include <wx/choicdlg.h>
 
 #include "configmanager.h"
 #include "consolepanel.h"
@@ -117,6 +118,29 @@ std::vector<LayoutLegendItem> BuildLayoutLegendItems() {
 
   return items;
 }
+}
+
+void MainWindow::OnPrintMenu(wxCommandEvent &WXUNUSED(event)) {
+  const wxArrayString choices = {
+      "Layout",
+      "Vista 2D",
+      "Tabla",
+  };
+
+  wxSingleChoiceDialog dialog(this, "Selecciona qué quieres imprimir:",
+                              "Imprimir", choices);
+  if (dialog.ShowModal() != wxID_OK)
+    return;
+
+  wxCommandEvent printEvent;
+  const int selection = dialog.GetSelection();
+  if (selection == 0) {
+    OnPrintLayout(printEvent);
+  } else if (selection == 1) {
+    OnPrintViewer2D(printEvent);
+  } else if (selection == 2) {
+    OnPrintTable(printEvent);
+  }
 }
 
 void MainWindow::OnPrintViewer2D(wxCommandEvent &WXUNUSED(event)) {
