@@ -704,6 +704,13 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
         te->InsertEndChild(e);
       }
     };
+    auto addStr = [&](const char *n, const std::string &v) {
+      if (!v.empty()) {
+        tinyxml2::XMLElement *e = doc.NewElement(n);
+        e->SetText(v.c_str());
+        te->InsertEndChild(e);
+      }
+    };
     auto idIt = assignedIds.find(t.uuid);
     int fixtureNumericId = (idIt != assignedIds.end()) ? idIt->second.second : 0;
     std::string fixtureId =
@@ -838,6 +845,13 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
       if (!v.empty()) {
         tinyxml2::XMLElement *e = doc.NewElement(n);
         e->SetText(v.c_str());
+        se->InsertEndChild(e);
+      }
+    };
+    auto addInt = [&](const char *n, int v) {
+      if (v != 0) {
+        tinyxml2::XMLElement *e = doc.NewElement(n);
+        e->SetText(std::to_string(v).c_str());
         se->InsertEndChild(e);
       }
     };
