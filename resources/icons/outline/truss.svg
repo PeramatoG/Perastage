@@ -1,11 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"
      viewBox="0 0 24 24" fill="none" stroke="currentColor"
      stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-     class="lucide lucide-truss">
-  <path d="M3 8h18M3 16h18" />
-  <path d="M3 8v8M21 8v8" />
-  <path d="M9 8v8M15 8v8" />
-  <path d="M3 8l6 8M3 16l6-8" />
-  <path d="M9 8l6 8M9 16l6-8" />
-  <path d="M15 8l6 8M15 16l6-8" />
+     class="lucide lucide-truss-v-2bay">
+  <path d="M4 8h16M4 16h16" />
+  <path d="M4 8v8M20 8v8M12 8v8" />
+  <path d="M4 16l4-8M12 16l-4-8" />
+  <path d="M12 16l4-8M20 16l-4-8" />
 </svg>
