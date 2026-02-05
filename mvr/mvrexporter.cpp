@@ -39,7 +39,9 @@ class wxZipStreamLink;
 #include <iomanip>
 #include <set>
 #include <sstream>
+#include <unordered_set>
 #include <unordered_map>
+#include <vector>
 
 namespace fs = std::filesystem;
 
@@ -48,6 +50,154 @@ struct GdtfOverrides {
   float weightKg = 0.0f;
   float powerW = 0.0f;
 };
+
+struct ResourceEntry {
+  fs::path sourcePath;
+  std::string archivePath;
+};
+
+static bool TryParseInt(std::string_view text, int &out);
+
+static constexpr const char *kMvrProvider = "Perastage";
+static constexpr const char *kMvrProviderVersion = "1.0";
+
+static std::string TrimAscii(std::string value) {
+  auto isSpace = [](unsigned char c) { return std::isspace(c); };
+  value.erase(value.begin(), std::find_if(value.begin(), value.end(),
+                                          [&](unsigned char c) { return !isSpace(c); }));
+  value.erase(std::find_if(value.rbegin(), value.rend(),
+                           [&](unsigned char c) { return !isSpace(c); }).base(),
+              value.end());
+  return value;
+}
+
+static std::string EnsureUniqueArchivePath(const std::string &proposed,
+                                           std::unordered_set<std::string> &usedPaths) {
+  fs::path path = fs::path(proposed).lexically_normal();
+  std::string normalized = path.generic_string();
+  if (normalized.empty())
+    normalized = "resource.bin";
+  if (!usedPaths.contains(normalized)) {
+    usedPaths.insert(normalized);
+    return normalized;
+  }
+
+  fs::path stemPath = path;
+  std::string ext = stemPath.extension().generic_string();
+  std::string stem = stemPath.stem().generic_string();
+  fs::path parent = stemPath.parent_path();
+  int index = 1;
+  while (true) {
+    std::string candidate = (parent / (stem + " (" + std::to_string(index) + ")" + ext)).generic_string();
+    if (!usedPaths.contains(candidate)) {
+      usedPaths.insert(candidate);
+      return candidate;
+    }
+    ++index;
+  }
+}
+
+static std::string SanitizeArchiveFileName(const std::string &input,
+                                           const std::string &fallbackName) {
+  std::string candidate = TrimAscii(input);
+  std::replace(candidate.begin(), candidate.end(), '\\', '/');
+  if (candidate.find(':') != std::string::npos || (!candidate.empty() && candidate.front() == '/'))
+    candidate.clear();
+  while (!candidate.empty() && candidate.front() == '/')
+    candidate.erase(candidate.begin());
+  if (candidate.empty())
+    candidate = fallbackName;
+  return fs::path(candidate).filename().generic_string();
+}
+
+static bool ValidateMvr16Export(
+    tinyxml2::XMLDocument &doc,
+    const std::unordered_map<std::string, std::string> &gdtfPathsByUuid,
+    const std::unordered_set<std::string> &archiveEntries) {
+  tinyxml2::XMLElement *root = doc.FirstChildElement("GeneralSceneDescription");
+  if (!root) {
+    wxLogError("MVR export validation failed: missing GeneralSceneDescription root");
+    return false;
+  }
+
+  if (root->IntAttribute("verMajor") != 1 || root->IntAttribute("verMinor") != 6) {
+    wxLogError("MVR export validation failed: root version must be 1.6");
+    return false;
+  }
+
+  const char *provider = root->Attribute("provider");
+  const char *providerVersion = root->Attribute("providerVersion");
+  if (!provider || std::string(provider).empty() || !providerVersion ||
+      std::string(providerVersion).empty()) {
+    wxLogError("MVR export validation failed: provider/providerVersion are required for MVR 1.6");
+    return false;
+  }
+
+  std::unordered_set<int> numericIds;
+  for (const char *tagName : {"Fixture", "Truss", "Support", "VideoScreen", "Projector"}) {
+    for (tinyxml2::XMLElement *node = root->FirstChildElement(); node;
+         node = node->NextSiblingElement()) {
+      std::vector<tinyxml2::XMLElement *> stack;
+      stack.push_back(node);
+      while (!stack.empty()) {
+        tinyxml2::XMLElement *cur = stack.back();
+        stack.pop_back();
+        if (std::string(cur->Name()) == tagName) {
+          bool isMultipatchChild = false;
+          if (const char *mp = cur->Attribute("multipatch"); mp)
+            isMultipatchChild = std::string(mp) == "true" || std::string(mp) == "1";
+          if (!isMultipatchChild) {
+            const char *idText = cur->FirstChildElement("FixtureID")
+                                     ? cur->FirstChildElement("FixtureID")->GetText()
+                                     : nullptr;
+            const char *numText = cur->FirstChildElement("FixtureIDNumeric")
+                                      ? cur->FirstChildElement("FixtureIDNumeric")->GetText()
+                                      : nullptr;
+            if (!idText || TrimAscii(idText).empty() || !numText) {
+              wxLogError("MVR export validation failed: %s is missing FixtureID/FixtureIDNumeric", tagName);
+              return false;
+            }
+            int numeric = 0;
+            if (!TryParseInt(numText, numeric) || numeric <= 0 || !numericIds.insert(numeric).second) {
+              wxLogError("MVR export validation failed: FixtureIDNumeric must be globally unique positive integer");
+              return false;
+            }
+          }
+
+          if (tinyxml2::XMLElement *gdtf = cur->FirstChildElement("GDTFSpec")) {
+            const char *txt = gdtf->GetText();
+            std::string value = txt ? txt : "";
+            if (value.find(':') != std::string::npos || value.find('\\') != std::string::npos ||
+                (!value.empty() && value.front() == '/')) {
+              wxLogError("MVR export validation failed: GDTFSpec '%s' is not a valid archive-relative FileName", value);
+              return false;
+            }
+            auto uidIt = gdtfPathsByUuid.find(cur->Attribute("uuid") ? cur->Attribute("uuid") : "");
+            if (uidIt != gdtfPathsByUuid.end() && uidIt->second != value) {
+              wxLogError("MVR export validation failed: GDTFSpec mismatch for object uuid '%s'", cur->Attribute("uuid"));
+              return false;
+            }
+            if (!archiveEntries.contains(value)) {
+              wxLogError("MVR export validation failed: GDTFSpec '%s' is not present in archive", value);
+              return false;
+            }
+          }
+        }
+
+        for (tinyxml2::XMLElement *child = cur->FirstChildElement(); child;
+             child = child->NextSiblingElement())
+          stack.push_back(child);
+      }
+    }
+  }
+
+  if (archiveEntries.contains("")) {
+    wxLogError("MVR export validation failed: found empty ZIP entry path");
+    return false;
+  }
+
+  return true;
+}
 
 static bool TryParseInt(std::string_view text, int &out) {
   if (text.empty())
@@ -282,19 +432,114 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
 
   wxZipOutputStream zip(output);
 
-  std::set<std::string> resourceFiles;
+  std::vector<ResourceEntry> resourceEntries;
+  std::unordered_map<std::string, std::string> sourceToArchivePath;
+  std::unordered_map<std::string, std::string> gdtfArchiveByObjectUuid;
   std::unordered_map<std::string, GdtfOverrides> gdtfOverrides;
+  std::unordered_set<std::string> reservedArchivePaths;
+
+  auto normalizeSourcePath = [&](const std::string &rawPath) {
+    fs::path src = fs::path(rawPath);
+    if (src.is_relative() && !scene.basePath.empty())
+      src = fs::path(scene.basePath) / src;
+    std::error_code ec;
+    fs::path weak = fs::weakly_canonical(src, ec);
+    return ec ? fs::absolute(src).generic_string() : weak.generic_string();
+  };
+
+  auto registerResource = [&](const std::string &rawSource,
+                              const std::string &preferredArchivePath) -> std::string {
+    if (rawSource.empty())
+      return {};
+    std::string normalizedSource = normalizeSourcePath(rawSource);
+    auto srcIt = sourceToArchivePath.find(normalizedSource);
+    if (srcIt != sourceToArchivePath.end())
+      return srcIt->second;
+
+    std::string archivePath = EnsureUniqueArchivePath(preferredArchivePath, reservedArchivePaths);
+    sourceToArchivePath[normalizedSource] = archivePath;
+    resourceEntries.push_back({fs::path(normalizedSource), archivePath});
+    return archivePath;
+  };
+
+  auto registerGdtfResource = [&](const std::string &objectUuid,
+                                  const std::string &rawGdtfPath) -> std::string {
+    if (rawGdtfPath.empty())
+      return {};
+
+    std::string baseName = SanitizeArchiveFileName(rawGdtfPath, "fixture.gdtf");
+    std::string preferred = (fs::path("gdtf") / baseName).generic_string();
+    std::string archivePath = registerResource(rawGdtfPath, preferred);
+    if (!objectUuid.empty() && !archivePath.empty())
+      gdtfArchiveByObjectUuid[objectUuid] = archivePath;
+    return archivePath;
+  };
+
+  auto assignIds = [&]() {
+    int nextNumericId = 1;
+    std::unordered_set<int> usedIds;
+    std::unordered_map<int, int> numericCounts;
+
+    auto reserveId = [&](int candidate) {
+      if (candidate > 0)
+        usedIds.insert(candidate);
+    };
+    for (const auto &[uid, f] : scene.fixtures) {
+      int existing = f.fixtureIdNumeric > 0 ? f.fixtureIdNumeric : f.fixtureId;
+      reserveId(existing);
+      if (existing > 0)
+        ++numericCounts[existing];
+    }
+
+    auto allocId = [&]() {
+      while (usedIds.contains(nextNumericId))
+        ++nextNumericId;
+      usedIds.insert(nextNumericId);
+      return nextNumericId++;
+    };
+
+    std::unordered_map<std::string, std::pair<std::string, int>> result;
+    for (const auto &[uid, f] : scene.fixtures) {
+      int numeric = f.fixtureIdNumeric > 0 ? f.fixtureIdNumeric : f.fixtureId;
+      if (numeric <= 0 || numericCounts[numeric] > 1) {
+        numeric = allocId();
+      }
+      std::string stringId = f.instanceName.empty() ? std::to_string(numeric) : TrimAscii(f.instanceName);
+      if (stringId.empty())
+        stringId = std::to_string(numeric);
+      result[uid] = {stringId, numeric};
+    }
+
+    for (const auto &[uid, t] : scene.trusses) {
+      int numeric = allocId();
+      std::string stringId = TrimAscii(t.name);
+      if (stringId.empty())
+        stringId = std::to_string(numeric);
+      result[uid] = {stringId, numeric};
+    }
+
+    for (const auto &[uid, s] : scene.supports) {
+      int numeric = allocId();
+      std::string stringId = TrimAscii(s.name);
+      if (stringId.empty())
+        stringId = std::to_string(numeric);
+      result[uid] = {stringId, numeric};
+    }
+    return result;
+  };
+
+  const auto assignedIds = assignIds();
 
   tinyxml2::XMLDocument doc;
-  doc.InsertEndChild(doc.NewDeclaration());
+  doc.InsertEndChild(doc.NewDeclaration("xml version=\"1.0\" encoding=\"UTF-8\""));
 
   tinyxml2::XMLElement *root = doc.NewElement("GeneralSceneDescription");
-  root->SetAttribute("verMajor", scene.versionMajor);
-  root->SetAttribute("verMinor", scene.versionMinor);
-  if (!scene.provider.empty())
-    root->SetAttribute("provider", scene.provider.c_str());
-  if (!scene.providerVersion.empty())
-    root->SetAttribute("providerVersion", scene.providerVersion.c_str());
+  root->SetAttribute("verMajor", 1);
+  root->SetAttribute("verMinor", 6);
+  root->SetAttribute("provider", scene.provider.empty() ? kMvrProvider : scene.provider.c_str());
+  root->SetAttribute("providerVersion",
+                     scene.providerVersion.empty() ? kMvrProviderVersion
+                                                   : scene.providerVersion.c_str());
   doc.InsertEndChild(root);
 
   tinyxml2::XMLElement *sceneNode = doc.NewElement("Scene");
@@ -318,11 +563,12 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     if (!file.empty()) {
       tinyxml2::XMLElement *cl = doc.NewElement("ChildList");
       tinyxml2::XMLElement *g3d = doc.NewElement("Geometry3D");
-      std::string fname = fs::path(file).filename().generic_string();
-      g3d->SetAttribute("fileName", fname.c_str());
+      std::string archivePath = registerResource(
+          file,
+          (fs::path("models") / SanitizeArchiveFileName(file, "symbol.3ds")).generic_string());
+      g3d->SetAttribute("fileName", archivePath.c_str());
       cl->InsertEndChild(g3d);
       sym->InsertEndChild(cl);
-      resourceFiles.insert(file);
     }
     aux->InsertEndChild(sym);
   }
@@ -361,18 +607,25 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
       }
     };
 
-    addInt("FixtureID", f.fixtureId);
-    addInt("FixtureIDNumeric", f.fixtureIdNumeric);
+    auto idIt = assignedIds.find(f.uuid);
+    int fixtureNumericId = (idIt != assignedIds.end()) ? idIt->second.second : 0;
+    std::string fixtureId =
+        (idIt != assignedIds.end()) ? idIt->second.first : std::to_string(fixtureNumericId);
+    if (fixtureId.empty())
+      fixtureId = std::to_string(fixtureNumericId);
+    if (fixtureNumericId <= 0)
+      fixtureNumericId = 1;
+    addStr("FixtureID", fixtureId);
+    addInt("FixtureIDNumeric", fixtureNumericId);
     addInt("UnitNumber", f.unitNumber);
     addInt("CustomId", f.customId);
     addInt("CustomIdType", f.customIdType);
-    addStr("GDTFSpec", f.gdtfSpec);
-    if (!f.gdtfSpec.empty())
-      resourceFiles.insert(f.gdtfSpec);
+    std::string fixtureGdtfArchivePath = registerGdtfResource(f.uuid, f.gdtfSpec);
+    addStr("GDTFSpec", fixtureGdtfArchivePath);
     if (!f.gdtfSpec.empty() &&
         (!f.color.empty() || f.weightKg != 0.0f ||
          f.powerConsumptionW != 0.0f)) {
-      auto &ov = gdtfOverrides[f.gdtfSpec];
+      auto &ov = gdtfOverrides[fixtureGdtfArchivePath];
       if (!f.color.empty())
         ov.color = f.color;
       if (f.weightKg != 0.0f)
@@ -451,15 +704,23 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
         te->InsertEndChild(e);
       }
     };
+    auto idIt = assignedIds.find(t.uuid);
+    int fixtureNumericId = (idIt != assignedIds.end()) ? idIt->second.second : 0;
+    std::string fixtureId =
+        (idIt != assignedIds.end()) ? idIt->second.first : std::to_string(fixtureNumericId);
+    if (fixtureId.empty())
+      fixtureId = std::to_string(fixtureNumericId);
+    addStr("FixtureID", fixtureId);
+    addInt("FixtureIDNumeric", fixtureNumericId);
     addInt("UnitNumber", t.unitNumber);
     addInt("CustomId", t.customId);
     addInt("CustomIdType", t.customIdType);
 
-    if (!t.gdtfSpec.empty()) {
+    std::string trussGdtfArchivePath = registerGdtfResource(t.uuid, t.gdtfSpec);
+    if (!trussGdtfArchivePath.empty()) {
       tinyxml2::XMLElement *e = doc.NewElement("GDTFSpec");
-      e->SetText(t.gdtfSpec.c_str());
+      e->SetText(trussGdtfArchivePath.c_str());
       te->InsertEndChild(e);
-      resourceFiles.insert(t.gdtfSpec);
     }
     if (!t.gdtfMode.empty()) {
       tinyxml2::XMLElement *e = doc.NewElement("GDTFMode");
@@ -500,15 +761,22 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
       }
       if (!usedSym) {
         tinyxml2::XMLElement *g3d = doc.NewElement("Geometry3D");
-        std::string fname = fs::path(t.symbolFile).filename().generic_string();
-        g3d->SetAttribute("fileName", fname.c_str());
+        std::string symbolArchivePath = registerResource(
+            t.symbolFile,
+            (fs::path("models") / SanitizeArchiveFileName(t.symbolFile, "truss.3ds")).generic_string());
+        g3d->SetAttribute("fileName", symbolArchivePath.c_str());
         geos->InsertEndChild(g3d);
       }
       te->InsertEndChild(geos);
-      resourceFiles.insert(t.symbolFile);
+      registerResource(
+          t.symbolFile,
+          (fs::path("models") / SanitizeArchiveFileName(t.symbolFile, "truss.3ds")).generic_string());
     }
     if (!t.modelFile.empty()) {
-      resourceFiles.insert(t.modelFile);
+      std::string modelArchivePath = registerResource(
+          t.modelFile,
+          (fs::path("models") / SanitizeArchiveFileName(t.modelFile, "truss-model.bin")).generic_string());
+      (void)modelArchivePath;
     }
 
     std::string mstr = MatrixUtils::FormatMatrix(t.transform);
@@ -574,10 +842,18 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
       }
     };
 
-    if (!s.gdtfSpec.empty()) {
-      addStr("GDTFSpec", s.gdtfSpec);
-      resourceFiles.insert(s.gdtfSpec);
-    }
+    auto idIt = assignedIds.find(s.uuid);
+    int fixtureNumericId = (idIt != assignedIds.end()) ? idIt->second.second : 0;
+    std::string fixtureId =
+        (idIt != assignedIds.end()) ? idIt->second.first : std::to_string(fixtureNumericId);
+    if (fixtureId.empty())
+      fixtureId = std::to_string(fixtureNumericId);
+    addStr("FixtureID", fixtureId);
+    addInt("FixtureIDNumeric", fixtureNumericId);
+
+    std::string supportGdtfArchivePath = registerGdtfResource(s.uuid, s.gdtfSpec);
+    if (!supportGdtfArchivePath.empty())
+      addStr("GDTFSpec", supportGdtfArchivePath);
     addStr("GDTFMode", s.gdtfMode);
     std::string functionValue = s.hoistFunction.empty() ? s.function : s.hoistFunction;
     addStr("Function", functionValue);
@@ -663,11 +939,16 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
       }
       if (!usedSym) {
         tinyxml2::XMLElement *g3d = doc.NewElement("Geometry3D");
-        g3d->SetAttribute("fileName", obj.modelFile.c_str());
+        std::string modelArchivePath = registerResource(
+            obj.modelFile,
+            (fs::path("models") / SanitizeArchiveFileName(obj.modelFile, "object.3ds")).generic_string());
+        g3d->SetAttribute("fileName", modelArchivePath.c_str());
         geos->InsertEndChild(g3d);
       }
       oe->InsertEndChild(geos);
-      resourceFiles.insert(obj.modelFile);
+      registerResource(
+          obj.modelFile,
+          (fs::path("models") / SanitizeArchiveFileName(obj.modelFile, "object.3ds")).generic_string());
     }
 
     std::string mstr = MatrixUtils::FormatMatrix(obj.transform);
@@ -750,12 +1031,31 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
 
   sceneNode->InsertEndChild(layersNode);
 
+  std::unordered_set<std::string> writtenEntries;
+  writtenEntries.insert("GeneralSceneDescription.xml");
+
+  for (auto &entry : resourceEntries) {
+    if (!fs::exists(entry.sourcePath))
+      continue;
+    auto cit = gdtfOverrides.find(entry.archivePath);
+    if (cit != gdtfOverrides.end()) {
+      std::string tmp = CreatePatchedGdtf(entry.sourcePath.string(), cit->second);
+      if (!tmp.empty())
+        entry.sourcePath = fs::path(tmp);
+    }
+    writtenEntries.insert(entry.archivePath);
+  }
+
+  if (!ValidateMvr16Export(doc, gdtfArchiveByObjectUuid, writtenEntries)) {
+    zip.Close();
+    return false;
+  }
+
   // Serialize XML
   tinyxml2::XMLPrinter printer;
   doc.Print(&printer);
   std::string xmlData = printer.CStr();
 
-  // Store XML file inside zip
   {
     auto *entry = new wxZipEntry("GeneralSceneDescription.xml");
     entry->SetMethod(wxZIP_METHOD_DEFLATE);
@@ -764,28 +1064,13 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     zip.CloseEntry();
   }
 
-  // Add referenced resource files
-  for (const std::string &rel : resourceFiles) {
-    fs::path src = rel;
-    if (src.is_relative() && !scene.basePath.empty())
-      src = fs::path(scene.basePath) / rel;
-    if (!fs::exists(src))
+  for (const auto &resource : resourceEntries) {
+    if (!fs::exists(resource.sourcePath) || resource.archivePath.empty())
       continue;
-
-    auto cit = gdtfOverrides.find(rel);
-    if (cit != gdtfOverrides.end()) {
-      std::string tmp = CreatePatchedGdtf(src.string(), cit->second);
-      if (!tmp.empty())
-        src = tmp;
-    }
-
-    fs::path entryName =
-        fs::path(rel).is_absolute() ? fs::path(rel).filename() : fs::path(rel);
-
-    auto *e = new wxZipEntry(entryName.generic_string());
+    auto *e = new wxZipEntry(resource.archivePath);
     e->SetMethod(wxZIP_METHOD_DEFLATE);
     zip.PutNextEntry(e);
-    std::ifstream in(src, std::ios::binary);
+    std::ifstream in(resource.sourcePath, std::ios::binary);
     char buf[4096];
     while (in.good()) {
       in.read(buf, sizeof(buf));

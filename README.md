@@ -30,6 +30,9 @@
   - A built‑in fixture dictionary maps textual fixture descriptions to GDTF files stored in the `library/` directory.
   - Geometry loaders parse embedded GDTF models for preview and rendering in the 3D viewer.
   - Online lookup: download fixtures from **GDTF‑Share** via the *Tools → Download GDTF fixture* dialog.
+  - Exported MVR packages store referenced GDTFs under `gdtf/` inside the archive and `GDTFSpec` always uses archive‑relative forward‑slash paths.
+  - If two different GDTF files share the same filename, export auto‑renames collisions deterministically (`name (1).gdtf`, etc.) and updates each `GDTFSpec` reference.
+  - Parametric objects exported as Fixture/Truss/Support receive non-empty `FixtureID` + globally unique `FixtureIDNumeric` values across the scene.
 
 ### Rider import from text or PDF
 
