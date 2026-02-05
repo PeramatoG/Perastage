@@ -508,6 +508,28 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
       return vals;
     };
 
+    auto refreshSelectionAfterTransform =
+        [&](const std::vector<std::string> &sel, bool fixtures) {
+          if (fixtures) {
+            if (FixtureTablePanel::Instance()) {
+              FixtureTablePanel::Instance()->ReloadData();
+              FixtureTablePanel::Instance()->SelectByUuid(sel);
+            }
+          } else {
+            if (TrussTablePanel::Instance()) {
+              TrussTablePanel::Instance()->ReloadData();
+              TrussTablePanel::Instance()->SelectByUuid(sel);
+            }
+          }
+          if (Viewer3DPanel::Instance()) {
+            Viewer3DPanel::Instance()->SetSelectedFixtures(sel);
+            Viewer3DPanel::Instance()->UpdateScene();
+            Viewer3DPanel::Instance()->Refresh();
+          }
+          if (Viewer2DPanel::Instance())
+            Viewer2DPanel::Instance()->SetSelectedUuids(sel);
+        };
+
     auto isCmd = [](const std::string &tok, bool allowAxis,
                     bool allowRangeSeparator) {
       if (tok.empty())
@@ -609,17 +631,7 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
           else
             applyPos(sel, fixtures, axis, vals, rel);
         }
-        if (fixtures) {
-          if (FixtureTablePanel::Instance())
-            FixtureTablePanel::Instance()->ReloadData();
-        } else {
-          if (TrussTablePanel::Instance())
-            TrussTablePanel::Instance()->ReloadData();
-        }
-        if (Viewer3DPanel::Instance()) {
-          Viewer3DPanel::Instance()->UpdateScene();
-          Viewer3DPanel::Instance()->Refresh();
-        }
+        refreshSelectionAfterTransform(sel, fixtures);
       } else if (lw == "x" || lw == "y" || lw == "z") {
         cfg.PushUndoState("cli pos");
         std::string rest;
@@ -636,17 +648,7 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
         bool rel = false;
         auto vals = parseVals(rest, rel);
         applyPos(sel, fixtures, axis, vals, rel);
-        if (fixtures) {
-          if (FixtureTablePanel::Instance())
-            FixtureTablePanel::Instance()->ReloadData();
-        } else {
-          if (TrussTablePanel::Instance())
-            TrussTablePanel::Instance()->ReloadData();
-        }
-        if (Viewer3DPanel::Instance()) {
-          Viewer3DPanel::Instance()->UpdateScene();
-          Viewer3DPanel::Instance()->Refresh();
-        }
+        refreshSelectionAfterTransform(sel, fixtures);
       } else if (!lw.empty() && (std::isdigit(lw[0]) || lw[0] == '-' ||
                                  lw[0] == '+') &&
                  word.find(',') != std::string::npos) {
@@ -661,17 +663,7 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
           auto vals = parseVals(parts[idx], rel);
           applyPos(sel, fixtures, (int)idx, vals, rel);
         }
-        if (fixtures) {
-          if (FixtureTablePanel::Instance())
-            FixtureTablePanel::Instance()->ReloadData();
-        } else {
-          if (TrussTablePanel::Instance())
-            TrussTablePanel::Instance()->ReloadData();
-        }
-        if (Viewer3DPanel::Instance()) {
-          Viewer3DPanel::Instance()->UpdateScene();
-          Viewer3DPanel::Instance()->Refresh();
-        }
+        refreshSelectionAfterTransform(sel, fixtures);
       } else if (!lw.empty() && lw[0] == 'f') {
         std::vector<std::string> sub(tokens.begin() + i + 1,
                                      tokens.begin() + j);
