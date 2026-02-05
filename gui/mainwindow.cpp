@@ -767,8 +767,9 @@ void MainWindow::OnProjectLoaded(wxCommandEvent &event) {
       viewportPanel->Refresh();
     }
     if (viewport2DPanel) {
-      if (!HasActiveLayout2DView())
-        viewport2DPanel->LoadViewFromConfig();
+      // During startup the panel has already loaded the persisted standalone
+      // camera state once (in Ensure2DViewport). Re-loading here can cause a
+      // second camera jump right after launch.
       viewport2DPanel->UpdateScene();
       viewport2DPanel->Refresh();
     }
