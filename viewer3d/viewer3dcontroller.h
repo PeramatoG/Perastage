@@ -184,7 +184,8 @@ private:
   void DrawMeshWireframe(
       const Mesh &mesh, float scale = RENDER_SCALE,
       const std::function<std::array<float, 3>(
-          const std::array<float, 3> &)> &captureTransform = {});
+          const std::array<float, 3> &)> &captureTransform = {},
+      bool captureLines = true);
 
   // Draws a colored cube tinted when selected or highlighted. The optional
   // center offset parameters are unused and kept for compatibility.
