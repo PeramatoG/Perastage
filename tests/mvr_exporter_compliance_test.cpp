@@ -54,6 +54,7 @@ int main() {
   f1.fixtureId = 0;
   f1.fixtureIdNumeric = 0;
   f1.unitNumber = 101;
+  f1.address = "1.1";
   scene.fixtures[f1.uuid] = f1;
 
   Fixture f2;
@@ -63,6 +64,7 @@ int main() {
   f2.fixtureId = 0;
   f2.fixtureIdNumeric = 0;
   f2.unitNumber = 0;
+  f2.address = "2.1";
   scene.fixtures[f2.uuid] = f2;
 
   Truss tr;
@@ -117,6 +119,10 @@ int main() {
 
   std::unordered_set<int> numericIds;
   std::unordered_map<std::string, int> gdtfCount;
+
+  int fixtureAddressCount = 0;
+  bool sawAddress11 = false;
+  bool sawAddress21 = false;
   for (const char *tagName : {"Fixture", "Truss", "Support"}) {
     for (tinyxml2::XMLElement *node = root->FirstChildElement(); node;
          node = node->NextSiblingElement()) {
@@ -144,6 +150,19 @@ int main() {
               int unitValue = std::stoi(unitNode->GetText());
               assert(unitValue != value);
             }
+
+            auto *addresses = cur->FirstChildElement("Addresses");
+            assert(addresses != nullptr);
+            auto *addr = addresses->FirstChildElement("Address");
+            assert(addr != nullptr);
+            assert(addr->IntAttribute("break", -1) == 0);
+            assert(addr->GetText() != nullptr);
+            const std::string addressText = addr->GetText();
+            if (addressText == "1.1")
+              sawAddress11 = true;
+            if (addressText == "2.1")
+              sawAddress21 = true;
+            ++fixtureAddressCount;
           }
 
           if (auto *gdtf = cur->FirstChildElement("GDTFSpec"); gdtf && gdtf->GetText()) {
@@ -165,6 +184,9 @@ int main() {
   }
 
   assert(gdtfCount.size() >= 2);
+  assert(fixtureAddressCount == 2);
+  assert(sawAddress11);
+  assert(sawAddress21);
 
   for (const auto &name : entries) {
     assert(name.rfind("gdtf/", 0) != 0);
