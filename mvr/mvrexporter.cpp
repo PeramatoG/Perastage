@@ -57,6 +57,8 @@ struct ResourceEntry {
 };
 
 static bool TryParseInt(std::string_view text, int &out);
+static bool ParseMvrAddressNodeText(const std::string &text, int &universeOut,
+                                    int &channelOut);
 
 static constexpr const char *kMvrProvider = "Perastage";
 static constexpr const char *kMvrProviderVersion = "1.0";
@@ -206,6 +208,41 @@ static bool ValidateMvr16Export(
             return false;
           }
         }
+
+        if (auto *addresses = cur->FirstChildElement("Addresses"); addresses) {
+          std::unordered_set<int> usedBreaks;
+          for (auto *addressNode = addresses->FirstChildElement("Address"); addressNode;
+               addressNode = addressNode->NextSiblingElement("Address")) {
+            int breakNum = 0;
+            const std::string breakText = addressNode->Attribute("break")
+                                              ? TrimAscii(addressNode->Attribute("break"))
+                                              : "0";
+            if (!TryParseInt(breakText, breakNum) || breakNum < 0) {
+              wxLogError(
+                  "MVR export validation failed: Fixture '%s' (uuid=%s) has invalid Address break '%s'",
+                  fixtureName, fixtureUuid, breakText);
+              return false;
+            }
+            if (!usedBreaks.insert(breakNum).second) {
+              wxLogError(
+                  "MVR export validation failed: Fixture '%s' (uuid=%s) has duplicate Address break %d",
+                  fixtureName, fixtureUuid, breakNum);
+              return false;
+            }
+
+            const std::string addressText =
+                addressNode->GetText() ? TrimAscii(addressNode->GetText()) : "";
+            int universe = 0;
+            int channel = 0;
+            if (!ParseMvrAddressNodeText(addressText, universe, channel)) {
+              wxLogError(
+                  "MVR export validation failed: Fixture '%s' (uuid=%s) has invalid Address value '%s'",
+                  fixtureName, fixtureUuid, addressText);
+              return false;
+            }
+
+          }
+        }
       }
 
       for (tinyxml2::XMLElement *child = cur->FirstChildElement(); child;
@@ -352,6 +389,30 @@ static std::pair<int, int> ParseAddress(const std::string &addr) {
   TryParseInt(std::string_view(addr).substr(0, dot), u);
   TryParseInt(std::string_view(addr).substr(dot + 1), c);
   return {u, c};
+}
+
+static bool ParseMvrAddressNodeText(const std::string &text, int &universeOut,
+                                    int &channelOut) {
+  const std::string trimmed = TrimAscii(text);
+  if (trimmed.empty())
+    return false;
+
+  if (trimmed.find('.') != std::string::npos) {
+    auto [u, c] = ParseAddress(trimmed);
+    if (u < 1 || c < 1 || c > 512)
+      return false;
+    universeOut = u;
+    channelOut = c;
+    return true;
+  }
+
+  int absolute = 0;
+  if (!TryParseInt(trimmed, absolute) || absolute < 1)
+    return false;
+
+  universeOut = ((absolute - 1) / 512) + 1;
+  channelOut = ((absolute - 1) % 512) + 1;
+  return true;
 }
 
 static std::string HexToCie(const std::string &hex) {
@@ -789,15 +850,15 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
 
     if (!f.address.empty()) {
       auto [u, c] = ParseAddress(f.address);
-      int brk = (u > 0) ? u - 1 : 0;
-      while (c > 512) {
-        c -= 512;
-        ++brk;
-      }
       tinyxml2::XMLElement *addresses = doc.NewElement("Addresses");
       tinyxml2::XMLElement *addr = doc.NewElement("Address");
-      addr->SetAttribute("break", brk);
-      addr->SetText(std::to_string(c).c_str());
+      addr->SetAttribute("break", 0);
+      if (u > 0 && c > 0 && c <= 512) {
+        const std::string encodedAddress = std::to_string(u) + "." + std::to_string(c);
+        addr->SetText(encodedAddress.c_str());
+      } else {
+        addr->SetText(TrimAscii(f.address).c_str());
+      }
       addresses->InsertEndChild(addr);
       fe->InsertEndChild(addresses);
     }
