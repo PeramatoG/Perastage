@@ -105,6 +105,73 @@ bool IsBlank(std::string_view text)
         return std::isspace(c);
     });
 }
+
+bool ContainsTokenInsensitive(const std::string& text, std::string_view token)
+{
+    if (text.empty() || token.empty())
+        return false;
+
+    std::string lowerText = text;
+    std::transform(lowerText.begin(), lowerText.end(), lowerText.begin(),
+                   [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+    std::string lowerToken(token);
+    std::transform(lowerToken.begin(), lowerToken.end(), lowerToken.begin(),
+                   [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+    return lowerText.find(lowerToken) != std::string::npos;
+}
+
+bool IsBeamLikeNodeName(const std::string& nodeName)
+{
+    if (nodeName.empty())
+        return false;
+
+    std::string lower = nodeName;
+    std::transform(lower.begin(), lower.end(), lower.begin(),
+                   [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+    return lower == "beam" || lower.find("beam") != std::string::npos;
+}
+
+bool IsLikelyLensGeometry(tinyxml2::XMLElement* node,
+                          const std::unordered_map<std::string, GdtfModelInfo>& models,
+                          const char* modelName,
+                          bool parentIsLens)
+{
+    if (!node)
+        return false;
+
+    if (parentIsLens)
+        return true;
+
+    if (IsBeamLikeNodeName(node->Name()))
+        return true;
+
+    if (const char* geometryName = node->Attribute("Name")) {
+        if (ContainsTokenInsensitive(geometryName, "lens") ||
+            ContainsTokenInsensitive(geometryName, "optic") ||
+            ContainsTokenInsensitive(geometryName, "glass")) {
+            return true;
+        }
+    }
+
+    if (!modelName)
+        return false;
+
+    std::string model(modelName);
+    if (ContainsTokenInsensitive(model, "lens") ||
+        ContainsTokenInsensitive(model, "optic") ||
+        ContainsTokenInsensitive(model, "glass")) {
+        return true;
+    }
+
+    auto modelIt = models.find(model);
+    if (modelIt == models.end())
+        return false;
+
+    const std::string& modelFile = modelIt->second.file;
+    return ContainsTokenInsensitive(modelFile, "lens") ||
+           ContainsTokenInsensitive(modelFile, "optic") ||
+           ContainsTokenInsensitive(modelFile, "glass");
+}
 } // namespace
 
 struct GdtfCacheEntry
@@ -641,15 +708,8 @@ static void ParseGeometry(tinyxml2::XMLElement* node,
         return;
     }
 
-    bool isLensGeometry = parentIsLens || nodeType == "Beam";
-    if (!isLensGeometry) {
-        if (const char* geometryName = node->Attribute("Name")) {
-            std::string geometryNameLower = ToLower(geometryName);
-            isLensGeometry = geometryNameLower.find("lens") != std::string::npos;
-        }
-    }
-
     const char* modelName = overrideModel ? overrideModel : node->Attribute("Model");
+    bool isLensGeometry = IsLikelyLensGeometry(node, models, modelName, parentIsLens);
     if (modelName) {
         auto it = models.find(modelName);
         if (it != models.end()) {

@@ -176,7 +176,8 @@ private:
                            Viewer2DRenderMode mode = Viewer2DRenderMode::White,
                            const std::function<std::array<float, 3>(
                                const std::array<float, 3> &)> &captureTransform =
-                               {});
+                               {},
+                           bool unlit = false);
 
   // Draws only the mesh edges for wireframe rendering
   void DrawMeshWireframe(
