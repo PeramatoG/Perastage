@@ -64,8 +64,15 @@ int main() {
   f2.fixtureId = 0;
   f2.fixtureIdNumeric = 0;
   f2.unitNumber = 0;
-  f2.address = "2.1";
+  f2.address = "3.1";
   scene.fixtures[f2.uuid] = f2;
+
+  Fixture f3;
+  f3.uuid = "fx-3";
+  f3.instanceName = "Floor Wash";
+  f3.gdtfSpec = (tempDir / "A" / "Same.gdtf").generic_string();
+  f3.address = "6.121";
+  scene.fixtures[f3.uuid] = f3;
 
   Truss tr;
   tr.uuid = "tr-1";
@@ -121,8 +128,9 @@ int main() {
   std::unordered_map<std::string, int> gdtfCount;
 
   int fixtureAddressCount = 0;
-  bool sawAddress11 = false;
-  bool sawAddress21 = false;
+  bool sawAddress1 = false;
+  bool sawAddress1025 = false;
+  bool sawAddress2681 = false;
   for (const char *tagName : {"Fixture", "Truss", "Support"}) {
     for (tinyxml2::XMLElement *node = root->FirstChildElement(); node;
          node = node->NextSiblingElement()) {
@@ -158,10 +166,16 @@ int main() {
             assert(addr->IntAttribute("break", -1) == 0);
             assert(addr->GetText() != nullptr);
             const std::string addressText = addr->GetText();
-            if (addressText == "1.1")
-              sawAddress11 = true;
-            if (addressText == "2.1")
-              sawAddress21 = true;
+            assert(!addressText.empty());
+            assert(std::all_of(addressText.begin(), addressText.end(),
+                               [](unsigned char c) { return std::isdigit(c) != 0; }));
+            const int absoluteAddress = std::stoi(addressText);
+            if (absoluteAddress == ComputeAbsoluteDmx(1, 1))
+              sawAddress1 = true;
+            if (absoluteAddress == ComputeAbsoluteDmx(3, 1))
+              sawAddress1025 = true;
+            if (absoluteAddress == ComputeAbsoluteDmx(6, 121))
+              sawAddress2681 = true;
             ++fixtureAddressCount;
           }
 
@@ -184,9 +198,10 @@ int main() {
   }
 
   assert(gdtfCount.size() >= 2);
-  assert(fixtureAddressCount == 2);
-  assert(sawAddress11);
-  assert(sawAddress21);
+  assert(fixtureAddressCount == 3);
+  assert(sawAddress1);
+  assert(sawAddress1025);
+  assert(sawAddress2681);
 
   for (const auto &name : entries) {
     assert(name.rfind("gdtf/", 0) != 0);

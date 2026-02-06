@@ -19,6 +19,9 @@
 
 #include <string>
 
+// Convert a 1-based universe and channel into the MVR absolute DMX address.
+int ComputeAbsoluteDmx(int universe1Based, int address1Based);
+
 // Exports the current scene in ConfigManager into a standards compliant MVR archive
 class MvrExporter
 {
