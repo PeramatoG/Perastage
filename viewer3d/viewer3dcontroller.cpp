@@ -2059,6 +2059,14 @@ void Viewer3DController::DrawMeshWithOutline(
     float lineWidth = (mode == Viewer2DRenderMode::Wireframe) ? 1.0f : 2.0f;
     const bool drawOutline =
         m_showSelectionOutline2D && (highlight || selected);
+    const bool monochromeWireframe = (mode == Viewer2DRenderMode::Wireframe);
+    std::array<float, 3> baseStrokeColor = {r, g, b};
+    if (highlight)
+      baseStrokeColor = {0.0f, 1.0f, 0.0f};
+    else if (selected)
+      baseStrokeColor = {0.0f, 1.0f, 1.0f};
+    else if (monochromeWireframe)
+      baseStrokeColor = {0.0f, 0.0f, 0.0f};
     if (!m_captureOnly) {
       if (drawOutline) {
         float glowWidth = lineWidth + 3.0f;
@@ -2070,10 +2078,11 @@ void Viewer3DController::DrawMeshWithOutline(
         DrawMeshWireframe(mesh, scale, captureTransform);
       }
       glLineWidth(lineWidth);
-      SetGLColor(0.0f, 0.0f, 0.0f);
+      SetGLColor(baseStrokeColor[0], baseStrokeColor[1], baseStrokeColor[2]);
     }
     CanvasStroke stroke;
-    stroke.color = {0.0f, 0.0f, 0.0f, 1.0f};
+    stroke.color = {baseStrokeColor[0], baseStrokeColor[1],
+                    baseStrokeColor[2], 1.0f};
     stroke.width = lineWidth;
     DrawMeshWireframe(mesh, scale, captureTransform);
     if (m_captureCanvas && mode != Viewer2DRenderMode::Wireframe) {
