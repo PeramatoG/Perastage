@@ -4,6 +4,7 @@
 #include <cassert>
 #include <filesystem>
 #include <fstream>
+#include <cctype>
 #include <set>
 #include <string>
 #include <unordered_map>
@@ -52,6 +53,7 @@ int main() {
   f1.gdtfSpec = (tempDir / "A" / "Same.gdtf").generic_string();
   f1.fixtureId = 0;
   f1.fixtureIdNumeric = 0;
+  f1.unitNumber = 101;
   scene.fixtures[f1.uuid] = f1;
 
   Fixture f2;
@@ -60,6 +62,7 @@ int main() {
   f2.gdtfSpec = (tempDir / "B" / "Same.gdtf").generic_string();
   f2.fixtureId = 0;
   f2.fixtureIdNumeric = 0;
+  f2.unitNumber = 0;
   scene.fixtures[f2.uuid] = f2;
 
   Truss tr;
@@ -126,9 +129,22 @@ int main() {
           auto *numNode = cur->FirstChildElement("FixtureIDNumeric");
           assert(idNode && idNode->GetText() && std::string(idNode->GetText()).size() > 0);
           assert(numNode && numNode->GetText());
+          std::string fixtureIdText = idNode->GetText();
+          assert(std::all_of(fixtureIdText.begin(), fixtureIdText.end(),
+                             [](unsigned char c) { return std::isdigit(c) != 0; }));
           int value = std::stoi(numNode->GetText());
           assert(value > 0);
+          assert(fixtureIdText == std::to_string(value));
           assert(numericIds.insert(value).second);
+
+          if (std::string(cur->Name()) == "Fixture") {
+            auto *unitNode = cur->FirstChildElement("UnitNumber");
+            if (unitNode) {
+              assert(unitNode->GetText() != nullptr);
+              int unitValue = std::stoi(unitNode->GetText());
+              assert(unitValue != value);
+            }
+          }
 
           if (auto *gdtf = cur->FirstChildElement("GDTFSpec"); gdtf && gdtf->GetText()) {
             std::string spec = gdtf->GetText();

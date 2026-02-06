@@ -148,12 +148,70 @@ static bool ValidateMvr16Export(
   }
 
   std::unordered_set<int> numericIds;
+  std::unordered_set<int> fixtureNumericIds;
   std::vector<std::string> referencedFiles;
+
+  auto isDigitsOnly = [](const std::string &value) {
+    return !value.empty() && std::all_of(value.begin(), value.end(), [](unsigned char c) {
+      return std::isdigit(c) != 0;
+    });
+  };
 
   std::vector<tinyxml2::XMLElement *> stack;
   for (tinyxml2::XMLElement *node = root->FirstChildElement(); node;
        node = node->NextSiblingElement()) {
     stack.push_back(node);
+  }
+
+  for (tinyxml2::XMLElement *node = root->FirstChildElement(); node;
+       node = node->NextSiblingElement()) {
+    std::vector<tinyxml2::XMLElement *> stack{node};
+    while (!stack.empty()) {
+      tinyxml2::XMLElement *cur = stack.back();
+      stack.pop_back();
+      if (std::string(cur->Name()) == "Fixture") {
+        auto *idNode = cur->FirstChildElement("FixtureID");
+        auto *numNode = cur->FirstChildElement("FixtureIDNumeric");
+        const std::string fixtureUuid = cur->Attribute("uuid") ? cur->Attribute("uuid") : "(missing uuid)";
+        const std::string fixtureName = cur->Attribute("name") ? cur->Attribute("name") : "(unnamed fixture)";
+
+        const std::string fixtureId =
+            idNode && idNode->GetText() ? TrimAscii(idNode->GetText()) : "";
+        const std::string fixtureNumericText =
+            numNode && numNode->GetText() ? TrimAscii(numNode->GetText()) : "";
+        int fixtureNumeric = 0;
+
+        if (!isDigitsOnly(fixtureId) || !TryParseInt(fixtureNumericText, fixtureNumeric) ||
+            fixtureNumeric <= 0 || fixtureId != std::to_string(fixtureNumeric)) {
+          wxLogError(
+              "MVR export validation failed: Fixture '%s' (uuid=%s) must have a digits-only FixtureID that equals FixtureIDNumeric",
+              fixtureName, fixtureUuid);
+          return false;
+        }
+
+        if (!fixtureNumericIds.insert(fixtureNumeric).second) {
+          wxLogError(
+              "MVR export validation failed: duplicate FixtureIDNumeric %d found on Fixture '%s' (uuid=%s)",
+              fixtureNumeric, fixtureName, fixtureUuid);
+          return false;
+        }
+
+        if (auto *unitNode = cur->FirstChildElement("UnitNumber"); unitNode) {
+          int unitValue = 0;
+          const std::string unitText = unitNode->GetText() ? TrimAscii(unitNode->GetText()) : "";
+          if (unitText.empty() || !TryParseInt(unitText, unitValue)) {
+            wxLogError(
+                "MVR export validation failed: Fixture '%s' (uuid=%s) has non-integer UnitNumber",
+                fixtureName, fixtureUuid);
+            return false;
+          }
+        }
+      }
+
+      for (tinyxml2::XMLElement *child = cur->FirstChildElement(); child;
+           child = child->NextSiblingElement())
+        stack.push_back(child);
+    }
   }
   while (!stack.empty()) {
     tinyxml2::XMLElement *cur = stack.back();
@@ -672,18 +730,13 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
 
     auto idIt = assignedIds.find(f.uuid);
     int fixtureNumericId = (idIt != assignedIds.end()) ? idIt->second.second : 0;
-    std::string fixtureId = TrimAscii(f.fixtureIdText);
-    if (fixtureId.empty()) {
-      fixtureId =
-          (idIt != assignedIds.end()) ? idIt->second.first : std::to_string(fixtureNumericId);
-    }
-    if (fixtureId.empty())
-      fixtureId = std::to_string(fixtureNumericId);
     if (fixtureNumericId <= 0)
       fixtureNumericId = 1;
+    std::string fixtureId = std::to_string(fixtureNumericId);
     addStr("FixtureID", fixtureId);
     addInt("FixtureIDNumeric", fixtureNumericId);
-    addInt("UnitNumber", f.unitNumber);
+    if (f.unitNumber != 0 && f.unitNumber != fixtureNumericId)
+      addInt("UnitNumber", f.unitNumber);
     addInt("CustomId", f.customId);
     addInt("CustomIdType", f.customIdType);
     std::string fixtureGdtfArchivePath = registerGdtfResource(f.uuid, f.gdtfSpec);
