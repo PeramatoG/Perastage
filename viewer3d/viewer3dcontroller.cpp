@@ -1550,9 +1550,17 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
                           const std::array<float, 3> &p) {
                         return TransformPoint(objTransform, p);
                       };
-                  DrawMeshWithOutline(obj.mesh, r, g, b, RENDER_SCALE, false,
-                                      false, 0.0f, 0.0f, 0.0f, wireframe, mode,
-                                      applyCapture);
+                  float partR = r;
+                  float partG = g;
+                  float partB = b;
+                  if (obj.isLens) {
+                    partR = 1.0f;
+                    partG = 0.78f;
+                    partB = 0.35f;
+                  }
+                  DrawMeshWithOutline(obj.mesh, partR, partG, partB,
+                                      RENDER_SCALE, false, false, 0.0f, 0.0f,
+                                      0.0f, wireframe, mode, applyCapture);
                   ++partIndex;
                 }
               } else {
@@ -1605,8 +1613,16 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
                 auto local = TransformPoint(objTransform, p);
                 return TransformPoint(fixtureTransform, local);
               };
-          DrawMeshWithOutline(obj.mesh, r, g, b, RENDER_SCALE, highlight,
-                              selected, cx, cy, cz, wireframe, mode,
+          float partR = r;
+          float partG = g;
+          float partB = b;
+          if (obj.isLens) {
+            partR = 1.0f;
+            partG = 0.78f;
+            partB = 0.35f;
+          }
+          DrawMeshWithOutline(obj.mesh, partR, partG, partB, RENDER_SCALE,
+                              highlight, selected, cx, cy, cz, wireframe, mode,
                               applyCapture);
           glPopMatrix();
           ++partIndex;

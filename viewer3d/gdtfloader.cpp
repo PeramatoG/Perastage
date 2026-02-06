@@ -619,7 +619,8 @@ static void ParseGeometry(tinyxml2::XMLElement* node,
                           std::vector<GdtfObject>& outObjects,
                           std::unordered_set<std::string>* missingModels,
                           std::unordered_set<std::string>* failedModelLoads,
-                          const char* overrideModel = nullptr)
+                          const char* overrideModel = nullptr,
+                          bool parentIsLens = false)
 {
     Matrix local = MatrixUtils::Identity();
     if (const char* pos = node->Attribute("Position"))
@@ -634,10 +635,18 @@ static void ParseGeometry(tinyxml2::XMLElement* node,
             auto it = geomMap.find(refName);
             if (it != geomMap.end()) {
                 const char* m = node->Attribute("Model");
-                ParseGeometry(it->second, transform, models, baseDir, geomMap, meshCache, outObjects, missingModels, failedModelLoads, m ? m : overrideModel);
+                ParseGeometry(it->second, transform, models, baseDir, geomMap, meshCache, outObjects, missingModels, failedModelLoads, m ? m : overrideModel, parentIsLens);
             }
         }
         return;
+    }
+
+    bool isLensGeometry = parentIsLens || nodeType == "Beam";
+    if (!isLensGeometry) {
+        if (const char* geometryName = node->Attribute("Name")) {
+            std::string geometryNameLower = ToLower(geometryName);
+            isLensGeometry = geometryNameLower.find("lens") != std::string::npos;
+        }
     }
 
     const char* modelName = overrideModel ? overrideModel : node->Attribute("Model");
@@ -700,7 +709,7 @@ static void ParseGeometry(tinyxml2::XMLElement* node,
                     }
                 }
                 if (mit != meshCache.end()) {
-                    outObjects.push_back({mit->second, transform});
+                    outObjects.push_back({mit->second, transform, isLensGeometry});
                 }
             } else if (ConsolePanel::Instance()) {
                 std::string key = baseDir + "|" + it->second.file;
@@ -721,7 +730,7 @@ static void ParseGeometry(tinyxml2::XMLElement* node,
             n=="MediaServerLayer" || n=="MediaServerCamera" || n=="MediaServerMaster" ||
             n=="Display" || n=="GeometryReference" || n=="Laser" || n=="WiringObject" ||
             n=="Inventory" || n=="Structure" || n=="Support" || n=="Magnet") {
-            ParseGeometry(child, transform, models, baseDir, geomMap, meshCache, outObjects, missingModels, failedModelLoads);
+            ParseGeometry(child, transform, models, baseDir, geomMap, meshCache, outObjects, missingModels, failedModelLoads, nullptr, isLensGeometry);
         }
     }
 }
