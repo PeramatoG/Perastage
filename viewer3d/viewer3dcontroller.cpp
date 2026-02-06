@@ -1025,7 +1025,8 @@ void Viewer3DController::Update() {
 void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
                                      Viewer2DView view, bool showGrid,
                                      int gridStyle, float gridR, float gridG,
-                                     float gridB, bool gridOnTop) {
+                                     float gridB, bool gridOnTop,
+                                     bool is2DViewer) {
   if (wireframe)
     glDisable(GL_LIGHTING);
   else
@@ -1553,7 +1554,7 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
                   float partR = r;
                   float partG = g;
                   float partB = b;
-                  if (obj.isLens) {
+                  if (!is2DViewer && obj.isLens) {
                     partR = 1.0f;
                     partG = 0.78f;
                     partB = 0.35f;
@@ -1617,7 +1618,7 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
           float partR = r;
           float partG = g;
           float partB = b;
-          if (obj.isLens) {
+          if (!is2DViewer && obj.isLens) {
             partR = 1.0f;
             partG = 0.78f;
             partB = 0.35f;
