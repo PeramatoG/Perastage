@@ -1560,7 +1560,8 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
                   }
                   DrawMeshWithOutline(obj.mesh, partR, partG, partB,
                                       RENDER_SCALE, false, false, 0.0f, 0.0f,
-                                      0.0f, wireframe, mode, applyCapture);
+                                      0.0f, wireframe, mode, applyCapture,
+                                      obj.isLens);
                   ++partIndex;
                 }
               } else {
@@ -1623,7 +1624,7 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
           }
           DrawMeshWithOutline(obj.mesh, partR, partG, partB, RENDER_SCALE,
                               highlight, selected, cx, cy, cz, wireframe, mode,
-                              applyCapture);
+                              applyCapture, obj.isLens);
           glPopMatrix();
           ++partIndex;
         }
@@ -2047,7 +2048,8 @@ void Viewer3DController::DrawMeshWithOutline(
     bool selected, float cx, float cy, float cz, bool wireframe,
     Viewer2DRenderMode mode,
     const std::function<std::array<float, 3>(const std::array<float, 3> &)> &
-        captureTransform) {
+        captureTransform,
+    bool unlit) {
   (void)cx;
   (void)cy;
   (void)cz; // parameters kept for compatibility
@@ -2100,7 +2102,11 @@ void Viewer3DController::DrawMeshWithOutline(
         glEnable(GL_POLYGON_OFFSET_FILL);
         glPolygonOffset(-1.0f, -1.0f);
         SetGLColor(r, g, b);
+        if (unlit)
+          glDisable(GL_LIGHTING);
         DrawMesh(mesh, scale);
+        if (unlit)
+          glEnable(GL_LIGHTING);
         glDisable(GL_POLYGON_OFFSET_FILL);
       }
     }
@@ -2115,7 +2121,11 @@ void Viewer3DController::DrawMeshWithOutline(
     else
       SetGLColor(r, g, b);
 
+    if (unlit)
+      glDisable(GL_LIGHTING);
     DrawMesh(mesh, scale);
+    if (unlit)
+      glEnable(GL_LIGHTING);
   }
   if (m_captureCanvas) {
     CanvasStroke stroke;
