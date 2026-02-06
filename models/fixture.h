@@ -39,7 +39,8 @@ struct Fixture {
 
     std::string color;            // Hex RGB color (e.g., "#RRGGBB")
 
-    int fixtureId = 0;            // FixtureID (numeric ID from XML)
+    std::string fixtureIdText;    // FixtureID (free-form string identifier from XML)
+    int fixtureId = 0;            // Numeric FixtureID fallback used internally
     int fixtureIdNumeric = 0;     // Optional numeric ID field (if distinct)
     int unitNumber = 0;           // Unit number (if available)
     int customId = 0;             // Custom ID field
