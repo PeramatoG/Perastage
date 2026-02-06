@@ -619,6 +619,27 @@ private:
   static std::optional<StyleInfo>
   ExtractStyles(const std::vector<CanvasCommand> &cmds,
                 const std::vector<CommandMetadata> &meta) {
+    // Prefer styles coming from filled primitives. In captured 2D fixture
+    // geometry we often record wireframe edges before polygon fills; picking
+    // the first command would then select a line-only style (black, no fill)
+    // and produce black simplified symbols.
+    for (size_t i = 0; i < cmds.size(); ++i) {
+      if (!meta[i].hasFill)
+        continue;
+      if (auto poly = std::get_if<PolygonCommand>(&cmds[i]))
+        return StyleInfo{poly->stroke, meta[i].hasStroke,
+                         poly->hasFill ? std::optional(poly->fill)
+                                       : std::optional<CanvasFill>()};
+      if (auto rect = std::get_if<RectangleCommand>(&cmds[i]))
+        return StyleInfo{rect->stroke, meta[i].hasStroke,
+                         rect->hasFill ? std::optional(rect->fill)
+                                       : std::optional<CanvasFill>()};
+      if (auto circ = std::get_if<CircleCommand>(&cmds[i]))
+        return StyleInfo{circ->stroke, meta[i].hasStroke,
+                         circ->hasFill ? std::optional(circ->fill)
+                                       : std::optional<CanvasFill>()};
+    }
+
     for (size_t i = 0; i < cmds.size(); ++i) {
       if (auto poly = std::get_if<PolygonCommand>(&cmds[i]))
         return StyleInfo{poly->stroke, meta[i].hasStroke,
