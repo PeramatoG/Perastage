@@ -120,16 +120,6 @@ bool ContainsTokenInsensitive(const std::string& text, std::string_view token)
     return lowerText.find(lowerToken) != std::string::npos;
 }
 
-bool ContainsAnyTokenInsensitive(const std::string& text,
-                                 std::initializer_list<std::string_view> tokens)
-{
-    for (std::string_view token : tokens) {
-        if (ContainsTokenInsensitive(text, token))
-            return true;
-    }
-    return false;
-}
-
 bool IsBeamLikeNodeName(const std::string& nodeName)
 {
     if (nodeName.empty())
@@ -138,10 +128,7 @@ bool IsBeamLikeNodeName(const std::string& nodeName)
     std::string lower = nodeName;
     std::transform(lower.begin(), lower.end(), lower.begin(),
                    [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-    return lower == "beam" || lower == "lamp" ||
-           lower.find("beam") != std::string::npos ||
-           lower.find("lamp") != std::string::npos ||
-           lower.find("light") != std::string::npos;
+    return lower == "beam" || lower.find("beam") != std::string::npos;
 }
 
 bool IsLikelyLensGeometry(tinyxml2::XMLElement* node,
@@ -159,8 +146,9 @@ bool IsLikelyLensGeometry(tinyxml2::XMLElement* node,
         return true;
 
     if (const char* geometryName = node->Attribute("Name")) {
-        if (ContainsAnyTokenInsensitive(geometryName,
-                                        {"lens", "optic", "glass", "lamp", "light", "emitter", "source"})) {
+        if (ContainsTokenInsensitive(geometryName, "lens") ||
+            ContainsTokenInsensitive(geometryName, "optic") ||
+            ContainsTokenInsensitive(geometryName, "glass")) {
             return true;
         }
     }
@@ -169,8 +157,9 @@ bool IsLikelyLensGeometry(tinyxml2::XMLElement* node,
         return false;
 
     std::string model(modelName);
-    if (ContainsAnyTokenInsensitive(model,
-                                    {"lens", "optic", "glass", "lamp", "light", "emitter", "source"})) {
+    if (ContainsTokenInsensitive(model, "lens") ||
+        ContainsTokenInsensitive(model, "optic") ||
+        ContainsTokenInsensitive(model, "glass")) {
         return true;
     }
 
@@ -179,8 +168,9 @@ bool IsLikelyLensGeometry(tinyxml2::XMLElement* node,
         return false;
 
     const std::string& modelFile = modelIt->second.file;
-    return ContainsAnyTokenInsensitive(modelFile,
-                                       {"lens", "optic", "glass", "lamp", "light", "emitter", "source"});
+    return ContainsTokenInsensitive(modelFile, "lens") ||
+           ContainsTokenInsensitive(modelFile, "optic") ||
+           ContainsTokenInsensitive(modelFile, "glass");
 }
 } // namespace
 
@@ -796,7 +786,7 @@ static void ParseGeometry(tinyxml2::XMLElement* node,
 
     for (tinyxml2::XMLElement* child = node->FirstChildElement(); child; child = child->NextSiblingElement()) {
         std::string n = child->Name();
-        if (n == "Geometry" || n == "Axis" || n.rfind("Filter",0)==0 || IsBeamLikeNodeName(n) ||
+        if (n == "Geometry" || n == "Axis" || n.rfind("Filter",0)==0 || n=="Beam" ||
             n=="MediaServerLayer" || n=="MediaServerCamera" || n=="MediaServerMaster" ||
             n=="Display" || n=="GeometryReference" || n=="Laser" || n=="WiringObject" ||
             n=="Inventory" || n=="Structure" || n=="Support" || n=="Magnet") {
