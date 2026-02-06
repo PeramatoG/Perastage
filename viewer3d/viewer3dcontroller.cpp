@@ -1562,7 +1562,7 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
                   DrawMeshWithOutline(obj.mesh, partR, partG, partB,
                                       RENDER_SCALE, false, false, 0.0f, 0.0f,
                                       0.0f, wireframe, mode, applyCapture,
-                                      obj.isLens);
+                                      false);
                   ++partIndex;
                 }
               } else {
@@ -1623,9 +1623,10 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
             partG = 0.78f;
             partB = 0.35f;
           }
+          const bool drawUnlit = !is2DViewer && obj.isLens;
           DrawMeshWithOutline(obj.mesh, partR, partG, partB, RENDER_SCALE,
-                              highlight, selected, cx, cy, cz, wireframe, mode,
-                              applyCapture, obj.isLens);
+                              highlight, selected, cx, cy, cz, wireframe,
+                              mode, applyCapture, drawUnlit);
           glPopMatrix();
           ++partIndex;
         }
