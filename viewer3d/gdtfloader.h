@@ -34,6 +34,7 @@ struct GdtfObject {
 // GDTF file. When any of these are zero the raw mesh size is used.
 struct GdtfModelInfo {
     std::string file;
+    std::string primitiveType;
     float length = 0.0f; // meters
     float width  = 0.0f; // meters
     float height = 0.0f; // meters

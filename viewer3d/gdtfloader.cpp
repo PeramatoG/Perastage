@@ -19,6 +19,7 @@
 #include "loader3ds.h"
 #include "loaderglb.h"
 #include "matrixutils.h"
+#include "meshprimitives.h"
 #include "consolepanel.h"
 
 #include <cctype>
@@ -220,6 +221,47 @@ static std::string ToLower(const std::string& s)
 static bool HasExtension(const fs::path& p, const std::string& ext)
 {
     return ToLower(p.extension().string()) == ToLower(ext);
+}
+
+static bool IsPrimitiveTypeDefined(const std::string& primitiveType)
+{
+    if (primitiveType.empty())
+        return false;
+    return ToLower(primitiveType) != "undefined";
+}
+
+static void ApplyModelDimensions(Mesh& mesh, const GdtfModelInfo& modelInfo)
+{
+    if (mesh.vertices.empty())
+        return;
+
+    float minX = FLT_MAX, minY = FLT_MAX, minZ = FLT_MAX;
+    float maxX = -FLT_MAX, maxY = -FLT_MAX, maxZ = -FLT_MAX;
+    for (size_t vi = 0; vi + 2 < mesh.vertices.size(); vi += 3) {
+        float x = mesh.vertices[vi];
+        float y = mesh.vertices[vi + 1];
+        float z = mesh.vertices[vi + 2];
+        minX = std::min(minX, x); maxX = std::max(maxX, x);
+        minY = std::min(minY, y); maxY = std::max(maxY, y);
+        minZ = std::min(minZ, z); maxZ = std::max(maxZ, z);
+    }
+
+    float sizeX = maxX - minX;
+    float sizeY = maxY - minY;
+    float sizeZ = maxZ - minZ;
+    float targetX = modelInfo.length * 1000.0f; // meters -> mm
+    float targetY = modelInfo.width  * 1000.0f;
+    float targetZ = modelInfo.height * 1000.0f;
+    float sx = (targetX > 0.0f && sizeX > 0.0f) ? targetX / sizeX : 1.0f;
+    float sy = (targetY > 0.0f && sizeY > 0.0f) ? targetY / sizeY : 1.0f;
+    float sz = (targetZ > 0.0f && sizeZ > 0.0f) ? targetZ / sizeZ : 1.0f;
+    if (sx != 1.0f || sy != 1.0f || sz != 1.0f) {
+        for (size_t vi = 0; vi + 2 < mesh.vertices.size(); vi += 3) {
+            mesh.vertices[vi]     *= sx;
+            mesh.vertices[vi + 1] *= sy;
+            mesh.vertices[vi + 2] *= sz;
+        }
+    }
 }
 
 static std::string FindModelFile(const std::string& baseDir,
@@ -713,74 +755,63 @@ static void ParseGeometry(tinyxml2::XMLElement* node,
     if (modelName) {
         auto it = models.find(modelName);
         if (it != models.end()) {
-            std::string path = FindModelFile(baseDir, it->second.file);
-            if (!path.empty()) {
-                auto mit = meshCache.find(path);
-                if (mit == meshCache.end()) {
-                    bool alreadyFailed = failedModelLoads && failedModelLoads->find(path) != failedModelLoads->end();
-                    if (!alreadyFailed) {
-                        Mesh mesh;
-                        bool loaded = false;
-                        if (HasExtension(path, ".3ds"))
-                            loaded = Load3DS(path, mesh);
-                        else if (HasExtension(path, ".glb"))
-                            loaded = LoadGLB(path, mesh);
+            const GdtfModelInfo& modelInfo = it->second;
+            Mesh mesh;
+            bool haveMesh = false;
 
-                        if (loaded) {
+            if (!modelInfo.file.empty()) {
+                std::string path = FindModelFile(baseDir, modelInfo.file);
+                if (!path.empty()) {
+                    auto mit = meshCache.find(path);
+                    if (mit == meshCache.end()) {
+                        bool alreadyFailed = failedModelLoads && failedModelLoads->find(path) != failedModelLoads->end();
+                        if (!alreadyFailed) {
+                            bool loaded = false;
+                            if (HasExtension(path, ".3ds"))
+                                loaded = Load3DS(path, mesh);
+                            else if (HasExtension(path, ".glb"))
+                                loaded = LoadGLB(path, mesh);
 
-                            // Apply model dimension scaling if provided
-                            float minX = FLT_MAX, minY = FLT_MAX, minZ = FLT_MAX;
-                            float maxX = -FLT_MAX, maxY = -FLT_MAX, maxZ = -FLT_MAX;
-                            for (size_t vi = 0; vi + 2 < mesh.vertices.size(); vi += 3) {
-                                float x = mesh.vertices[vi];
-                                float y = mesh.vertices[vi + 1];
-                                float z = mesh.vertices[vi + 2];
-                                minX = std::min(minX, x); maxX = std::max(maxX, x);
-                                minY = std::min(minY, y); maxY = std::max(maxY, y);
-                                minZ = std::min(minZ, z); maxZ = std::max(maxZ, z);
-                            }
-                            float sizeX = maxX - minX;
-                            float sizeY = maxY - minY;
-                            float sizeZ = maxZ - minZ;
-                            float targetX = it->second.length * 1000.0f; // meters -> mm
-                            float targetY = it->second.width  * 1000.0f;
-                            float targetZ = it->second.height * 1000.0f;
-                            float sx = (targetX > 0.0f && sizeX > 0.0f) ? targetX / sizeX : 1.0f;
-                            float sy = (targetY > 0.0f && sizeY > 0.0f) ? targetY / sizeY : 1.0f;
-                            float sz = (targetZ > 0.0f && sizeZ > 0.0f) ? targetZ / sizeZ : 1.0f;
-                            if (sx != 1.0f || sy != 1.0f || sz != 1.0f) {
-                                for (size_t vi = 0; vi + 2 < mesh.vertices.size(); vi += 3) {
-                                    mesh.vertices[vi]     *= sx;
-                                    mesh.vertices[vi + 1] *= sy;
-                                    mesh.vertices[vi + 2] *= sz;
+                            if (loaded) {
+                                ApplyModelDimensions(mesh, modelInfo);
+                                mit = meshCache.emplace(path, std::move(mesh)).first;
+                            } else {
+                                bool shouldLog = true;
+                                if (failedModelLoads)
+                                    shouldLog = failedModelLoads->insert(path).second;
+
+                                if (shouldLog && ConsolePanel::Instance()) {
+                                    wxString msg = wxString::Format("GDTF: failed to load model %s", wxString::FromUTF8(path));
+                                    ConsolePanel::Instance()->AppendMessage(msg);
                                 }
-                            }
-                            mit = meshCache.emplace(path, std::move(mesh)).first;
-                        } else {
-                            bool shouldLog = true;
-                            if (failedModelLoads)
-                                shouldLog = failedModelLoads->insert(path).second;
-
-                            if (shouldLog && ConsolePanel::Instance()) {
-                                wxString msg = wxString::Format("GDTF: failed to load model %s", wxString::FromUTF8(path));
-                                ConsolePanel::Instance()->AppendMessage(msg);
                             }
                         }
                     }
-                }
-                if (mit != meshCache.end()) {
-                    outObjects.push_back({mit->second, transform, isLensGeometry});
-                }
-            } else if (ConsolePanel::Instance()) {
-                std::string key = baseDir + "|" + it->second.file;
-                if (!missingModels || missingModels->insert(key).second) {
-                    wxString msg = wxString::Format(
-                        "GDTF: missing model file %s in %s",
-                        wxString::FromUTF8(it->second.file),
-                        wxString::FromUTF8(baseDir));
-                    ConsolePanel::Instance()->AppendMessage(msg);
+                    if (mit != meshCache.end()) {
+                        mesh = mit->second;
+                        haveMesh = true;
+                    }
+                } else if (ConsolePanel::Instance()) {
+                    std::string key = baseDir + "|" + modelInfo.file;
+                    if (!missingModels || missingModels->insert(key).second) {
+                        wxString msg = wxString::Format(
+                            "GDTF: missing model file %s in %s",
+                            wxString::FromUTF8(modelInfo.file),
+                            wxString::FromUTF8(baseDir));
+                        ConsolePanel::Instance()->AppendMessage(msg);
+                    }
                 }
             }
+
+            if (!haveMesh && IsPrimitiveTypeDefined(modelInfo.primitiveType)) {
+                if (BuildPrimitiveMesh(modelInfo.primitiveType, mesh)) {
+                    ApplyModelDimensions(mesh, modelInfo);
+                    haveMesh = true;
+                }
+            }
+
+            if (haveMesh)
+                outObjects.push_back({mesh, transform, isLensGeometry});
         }
     }
 
@@ -846,18 +877,25 @@ bool LoadGdtf(const std::string& gdtfPath,
         for (tinyxml2::XMLElement* m = modelList->FirstChildElement("Model"); m; m = m->NextSiblingElement("Model")) {
             const char* name = m->Attribute("Name");
             const char* file = m->Attribute("File");
+            const char* primitiveType = m->Attribute("PrimitiveType");
             bool hasName = name && !IsBlank(name);
             bool hasFile = file && !IsBlank(file);
-            if (hasName && !hasFile) {
+            std::string primitive = primitiveType ? primitiveType : "";
+            bool hasPrimitive = IsPrimitiveTypeDefined(primitive);
+            if (hasName && !hasFile && !hasPrimitive) {
                 if (ConsolePanel::Instance() && entry->emptyModelFileLogged.insert(name).second) {
-                    wxString msg = wxString::Format("GDTF: Model %s has empty File attribute", wxString::FromUTF8(name));
+                    wxString msg = wxString::Format(
+                        "GDTF: Model %s has empty File and undefined PrimitiveType",
+                        wxString::FromUTF8(name));
                     ConsolePanel::Instance()->AppendMessage(msg);
                 }
                 continue;
             }
-            if (hasName && hasFile) {
+            if (hasName) {
                 GdtfModelInfo info;
-                info.file = file;
+                if (hasFile)
+                    info.file = file;
+                info.primitiveType = primitive;
                 m->QueryFloatAttribute("Length", &info.length);
                 m->QueryFloatAttribute("Width", &info.width);
                 m->QueryFloatAttribute("Height", &info.height);

@@ -237,3 +237,16 @@ target_link_libraries(rider_import_benchmark PRIVATE ${wxWidgets_LIBRARIES} tiny
 add_test(NAME RiderImportBenchmark COMMAND rider_import_benchmark
          ${CMAKE_CURRENT_SOURCE_DIR}/data/rider_large.txt 1)
 set_library_env(RiderImportBenchmark)
+
+
+add_executable(gdtfloader_primitive_test gdtfloader_primitive_test.cpp
+               ../viewer3d/gdtfloader.cpp
+               ../viewer3d/loader3ds.cpp
+               ../viewer3d/loaderglb.cpp
+               ../viewer3d/meshprimitives.cpp
+               consolepanel_stub.cpp)
+target_include_directories(gdtfloader_primitive_test PRIVATE
+                           . ../viewer3d ../models ../gui ../external)
+target_link_libraries(gdtfloader_primitive_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
+add_test(NAME GdtfLoaderPrimitiveFallback COMMAND gdtfloader_primitive_test)
+set_library_env(GdtfLoaderPrimitiveFallback)
