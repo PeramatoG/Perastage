@@ -26,6 +26,7 @@
 struct GdtfObject {
     Mesh mesh;
     Matrix transform; // local transform relative to fixture
+    bool isLens = false;
 };
 
 // Metadata for a GDTF model definition. Length/Width/Height correspond
