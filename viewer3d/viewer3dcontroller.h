@@ -87,7 +87,8 @@ public:
                    float gridR = 0.35f,
                    float gridG = 0.35f,
                    float gridB = 0.35f,
-                   bool gridOnTop = false);
+                   bool gridOnTop = false,
+                   bool is2DViewer = false);
 
   // Enables color tweaks for dark mode in the 2D viewer only.
   void SetDarkMode(bool enabled);

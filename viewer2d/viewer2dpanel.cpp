@@ -536,7 +536,7 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
   }
 
   m_controller.RenderScene(true, m_renderMode, m_view, showGrid, gridStyle,
-                           gridR, gridG, gridB, drawAbove);
+                           gridR, gridG, gridB, drawAbove, true);
 
   // Draw labels for all fixtures after rendering the scene so they appear on
   // top of geometry. Scale the label size with the current zoom so they behave
