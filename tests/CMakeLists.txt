@@ -74,6 +74,30 @@ target_link_libraries(save_load_roundtrip_test PRIVATE
 add_test(NAME SaveLoadRoundtrip COMMAND save_load_roundtrip_test)
 set_library_env(SaveLoadRoundtrip)
 
+add_executable(mvr_dmx_address_test mvr_dmx_address_test.cpp
+               ../mvr/mvrexporter.cpp
+               ../core/configmanager.cpp
+               ../core/projectutils.cpp
+               ../core/gdtfdictionary.cpp
+               ../core/trussdictionary.cpp
+               ../core/uuidutils.cpp
+               ../mvr/mvrimporter.cpp
+               ../core/logger.cpp
+               gdtfloader_stub.cpp
+               consolepanel_stub.cpp
+               ../models/mvrscene.cpp
+               ../models/fixture.cpp
+               ../models/truss.cpp
+               ../models/sceneobject.cpp
+               ../models/layer.cpp
+               ${LAYOUT_SOURCES})
+target_include_directories(mvr_dmx_address_test PRIVATE
+                           . ../core ../models ../mvr ../gui ../external)
+target_link_libraries(mvr_dmx_address_test PRIVATE
+                      ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
+add_test(NAME MvrDmxAddressConversion COMMAND mvr_dmx_address_test)
+set_library_env(MvrDmxAddressConversion)
+
 add_executable(mvr_exporter_compliance_test mvr_exporter_compliance_test.cpp
                ../core/configmanager.cpp
                ../core/projectutils.cpp

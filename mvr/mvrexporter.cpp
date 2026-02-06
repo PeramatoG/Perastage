@@ -59,6 +59,8 @@ struct ResourceEntry {
 static bool TryParseInt(std::string_view text, int &out);
 static bool ParseMvrAddressNodeText(const std::string &text, int &universeOut,
                                     int &channelOut);
+static bool TryComputeAbsoluteDmx(int universe1Based, int address1Based,
+                                  int &absoluteOut);
 
 static constexpr const char *kMvrProvider = "Perastage";
 static constexpr const char *kMvrProviderVersion = "1.0";
@@ -412,6 +414,18 @@ static bool ParseMvrAddressNodeText(const std::string &text, int &universeOut,
 
   universeOut = ((absolute - 1) / 512) + 1;
   channelOut = ((absolute - 1) % 512) + 1;
+  return true;
+}
+
+int ComputeAbsoluteDmx(int universe1Based, int address1Based) {
+  return ((universe1Based - 1) * 512) + address1Based;
+}
+
+static bool TryComputeAbsoluteDmx(int universe1Based, int address1Based,
+                                  int &absoluteOut) {
+  if (universe1Based < 1 || address1Based < 1 || address1Based > 512)
+    return false;
+  absoluteOut = ComputeAbsoluteDmx(universe1Based, address1Based);
   return true;
 }
 
@@ -849,18 +863,21 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     }
 
     if (!f.address.empty()) {
-      auto [u, c] = ParseAddress(f.address);
-      tinyxml2::XMLElement *addresses = doc.NewElement("Addresses");
-      tinyxml2::XMLElement *addr = doc.NewElement("Address");
-      addr->SetAttribute("break", 0);
-      if (u > 0 && c > 0 && c <= 512) {
-        const std::string encodedAddress = std::to_string(u) + "." + std::to_string(c);
-        addr->SetText(encodedAddress.c_str());
+      const std::string trimmedAddress = TrimAscii(f.address);
+      auto [universe, channel] = ParseAddress(trimmedAddress);
+      int absoluteAddress = 0;
+      if (TryComputeAbsoluteDmx(universe, channel, absoluteAddress)) {
+        tinyxml2::XMLElement *addresses = doc.NewElement("Addresses");
+        tinyxml2::XMLElement *addr = doc.NewElement("Address");
+        addr->SetAttribute("break", 0);
+        addr->SetText(std::to_string(absoluteAddress).c_str());
+        addresses->InsertEndChild(addr);
+        fe->InsertEndChild(addresses);
       } else {
-        addr->SetText(TrimAscii(f.address).c_str());
+        wxLogWarning(
+            "Skipping invalid DMX patch for fixture '%s' (uuid=%s): '%s' (expected Universe.Address with universe >= 1 and address in [1,512])",
+            f.instanceName.c_str(), f.uuid.c_str(), trimmedAddress.c_str());
       }
-      addresses->InsertEndChild(addr);
-      fe->InsertEndChild(addresses);
     }
 
     std::string mstr = MatrixUtils::FormatMatrix(f.transform);
