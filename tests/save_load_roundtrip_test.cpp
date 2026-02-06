@@ -49,7 +49,7 @@ int main() {
     // Dictionary entry that should NOT be applied on load
     GdtfDictionary::Update("FixtureType", (tempDir / "dict.gdtf").string(), "");
 
-    Fixture f; f.uuid = "fx1"; f.instanceName = "Fixture"; f.layer = layer.name; f.typeName = "FixtureType"; f.gdtfSpec = "orig.gdtf"; f.color = "#445566"; scene.fixtures[f.uuid] = f;
+    Fixture f; f.uuid = "fx1"; f.instanceName = "Fixture"; f.layer = layer.name; f.typeName = "FixtureType"; f.gdtfSpec = "orig.gdtf"; f.color = "#445566"; f.fixtureIdText = "S101A"; f.fixtureIdNumeric = 101; f.fixtureId = 101; scene.fixtures[f.uuid] = f;
     Truss t; t.uuid = "tr1"; t.name = "Truss"; t.layer = layer.name; scene.trusses[t.uuid] = t;
     SceneObject o; o.uuid = "obj1"; o.name = "Object"; o.layer = layer.name; scene.sceneObjects[o.uuid] = o;
 
@@ -68,6 +68,8 @@ int main() {
     assert(scene2.trusses.at("tr1").name == "Truss");
     assert(scene2.sceneObjects.at("obj1").name == "Object");
     assert(scene2.fixtures.at("fx1").color == "#445566");
+    assert(scene2.fixtures.at("fx1").fixtureIdText == "S101A");
+    assert(scene2.fixtures.at("fx1").fixtureIdNumeric == 101);
     assert(scene2.layers.at("layer1").color == "#112233");
 
     const auto &loaded = scene2.fixtures.at("fx1");

@@ -672,8 +672,11 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
 
     auto idIt = assignedIds.find(f.uuid);
     int fixtureNumericId = (idIt != assignedIds.end()) ? idIt->second.second : 0;
-    std::string fixtureId =
-        (idIt != assignedIds.end()) ? idIt->second.first : std::to_string(fixtureNumericId);
+    std::string fixtureId = TrimAscii(f.fixtureIdText);
+    if (fixtureId.empty()) {
+      fixtureId =
+          (idIt != assignedIds.end()) ? idIt->second.first : std::to_string(fixtureNumericId);
+    }
     if (fixtureId.empty())
       fixtureId = std::to_string(fixtureNumericId);
     if (fixtureNumericId <= 0)

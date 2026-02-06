@@ -383,6 +383,15 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
       out = std::atoi(n->GetText());
   };
 
+  auto fixtureIdOf = [&](tinyxml2::XMLElement *parent,
+                         std::string &textOut,
+                         int &numericOut) {
+    textOut = textOf(parent, "FixtureID");
+    intOf(parent, "FixtureIDNumeric", numericOut);
+    if (numericOut <= 0 && !textOut.empty())
+      numericOut = std::atoi(textOut.c_str());
+  };
+
   // ---- Parse AUXData for Symdefs and Positions ----
   if (tinyxml2::XMLElement *auxNode = sceneNode->FirstChildElement("AUXData")) {
     for (tinyxml2::XMLElement *pos = auxNode->FirstChildElement("Position");
@@ -449,8 +458,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         if (const char *nameAttr = node->Attribute("name"))
           fixture.instanceName = nameAttr;
 
-        intOf(node, "FixtureID", fixture.fixtureId);
-        intOf(node, "FixtureIDNumeric", fixture.fixtureIdNumeric);
+        fixtureIdOf(node, fixture.fixtureIdText, fixture.fixtureIdNumeric);
+        fixture.fixtureId = fixture.fixtureIdNumeric;
         intOf(node, "UnitNumber", fixture.unitNumber);
         intOf(node, "CustomId", fixture.customId);
         intOf(node, "CustomIdType", fixture.customIdType);
