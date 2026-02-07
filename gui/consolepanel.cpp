@@ -691,6 +691,6 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
 
     AppendMessage("OK");
   } catch (const std::exception &e) {
-    AppendMessage(wxString::Format("Error: %s", e.what()));
+    AppendMessage("Error: " + wxString::FromUTF8(e.what()));
   }
 }
