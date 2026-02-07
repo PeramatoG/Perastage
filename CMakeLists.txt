@@ -35,13 +35,60 @@ elseif(NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
 endif()
 
 # Find required packages
-find_package(wxWidgets CONFIG REQUIRED COMPONENTS core base aui gl html richtext)
-find_package(tinyxml2 CONFIG REQUIRED)
+if(WIN32)
+    find_package(wxWidgets CONFIG REQUIRED COMPONENTS core base aui gl html richtext)
+    set(_wx_libs
+        wx::core
+        wx::base
+        wx::aui
+        wx::gl
+        wx::html
+        wx::richtext
+    )
+    set(_wx_includes "")
+    find_package(tinyxml2 CONFIG REQUIRED)
+else()
+    find_package(wxWidgets REQUIRED COMPONENTS core base aui gl html richtext)
+    include(${wxWidgets_USE_FILE})
+    set(_wx_libs ${wxWidgets_LIBRARIES})
+    set(_wx_includes ${wxWidgets_INCLUDE_DIRS})
+    find_package(tinyxml2 REQUIRED)
+endif()
 find_package(OpenGL REQUIRED)
 find_package(CURL REQUIRED)
 find_package(GLEW REQUIRED)
-find_package(nanovg CONFIG REQUIRED)
-find_package(podofo CONFIG REQUIRED)
+if(WIN32)
+    find_package(nanovg CONFIG REQUIRED)
+    find_package(podofo CONFIG REQUIRED)
+else()
+    find_package(nanovg CONFIG QUIET)
+    if(NOT nanovg_FOUND)
+        find_path(NANOVG_INCLUDE_DIR nanovg.h)
+        find_library(NANOVG_LIBRARY nanovg)
+        if(NOT NANOVG_INCLUDE_DIR OR NOT NANOVG_LIBRARY)
+            message(FATAL_ERROR "nanovg not found. Install libnanovg-dev or provide nanovgConfig.cmake.")
+        endif()
+        add_library(nanovg::nanovg UNKNOWN IMPORTED)
+        set_target_properties(nanovg::nanovg PROPERTIES
+            IMPORTED_LOCATION "${NANOVG_LIBRARY}"
+            INTERFACE_INCLUDE_DIRECTORIES "${NANOVG_INCLUDE_DIR}"
+        )
+    endif()
+
+    find_package(podofo CONFIG QUIET)
+    if(NOT podofo_FOUND)
+        find_path(PODOFO_INCLUDE_DIR podofo/podofo.h)
+        find_library(PODOFO_LIBRARY podofo)
+        if(NOT PODOFO_INCLUDE_DIR OR NOT PODOFO_LIBRARY)
+            message(FATAL_ERROR "podofo not found. Install libpodofo-dev or provide podofoConfig.cmake.")
+        endif()
+        add_library(podofo::podofo UNKNOWN IMPORTED)
+        set_target_properties(podofo::podofo PROPERTIES
+            IMPORTED_LOCATION "${PODOFO_LIBRARY}"
+            INTERFACE_INCLUDE_DIRECTORIES "${PODOFO_INCLUDE_DIR}"
+        )
+    endif()
+endif()
 find_package(ZLIB REQUIRED)
 
 # Gather source files
@@ -96,17 +143,13 @@ target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_SOURCE_DIR}/viewer3d
     ${CMAKE_SOURCE_DIR}/viewer2d
     ${CMAKE_SOURCE_DIR}/resources
+    ${_wx_includes}
     ${NANOVG_INCLUDE_DIR}
 )
 
 # Link required libraries
 target_link_libraries(${PROJECT_NAME} PRIVATE
-    wx::core
-    wx::base
-    wx::aui
-    wx::gl
-    wx::html
-    wx::richtext
+    ${_wx_libs}
     tinyxml2::tinyxml2
     OpenGL::GL
     OpenGL::GLU
