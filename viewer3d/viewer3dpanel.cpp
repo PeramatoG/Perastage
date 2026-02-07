@@ -51,6 +51,7 @@
 #include <wx/log.h>
 #include <chrono>
 #include <algorithm>
+#include <memory>
 #include <set>
 
 wxDEFINE_EVENT(wxEVT_VIEWER_REFRESH, wxThreadEvent);
@@ -506,34 +507,34 @@ void Viewer3DPanel::OnRightUp(wxMouseEvent& event)
     }
 
     wxMenu rootMenu;
-    wxMenu typeSubmenu;
-    wxMenu positionSubmenu;
+    auto typeSubmenu = std::make_unique<wxMenu>();
+    auto positionSubmenu = std::make_unique<wxMenu>();
 
     constexpr int kSelectTypeAllId = wxID_HIGHEST + 900;
     constexpr int kSelectTypeBaseId = wxID_HIGHEST + 901;
     constexpr int kSelectPositionNoneId = wxID_HIGHEST + 1100;
     constexpr int kSelectPositionBaseId = wxID_HIGHEST + 1101;
 
-    typeSubmenu.Append(kSelectTypeAllId, "All fixtures");
+    typeSubmenu->Append(kSelectTypeAllId, "All fixtures");
     std::vector<std::string> orderedTypes;
     orderedTypes.reserve(typeNames.size());
     int nextTypeId = kSelectTypeBaseId;
     for (const auto& typeName : typeNames) {
         orderedTypes.push_back(typeName);
-        typeSubmenu.Append(nextTypeId++, wxString::FromUTF8(typeName));
+        typeSubmenu->Append(nextTypeId++, wxString::FromUTF8(typeName));
     }
 
-    positionSubmenu.Append(kSelectPositionNoneId, "No position");
+    positionSubmenu->Append(kSelectPositionNoneId, "No position");
     std::vector<std::string> orderedPositions;
     orderedPositions.reserve(positionNames.size());
     int nextPositionId = kSelectPositionBaseId;
     for (const auto& positionName : positionNames) {
         orderedPositions.push_back(positionName);
-        positionSubmenu.Append(nextPositionId++, wxString::FromUTF8(positionName));
+        positionSubmenu->Append(nextPositionId++, wxString::FromUTF8(positionName));
     }
 
-    rootMenu.AppendSubMenu(&typeSubmenu, "Select by fixture type");
-    rootMenu.AppendSubMenu(&positionSubmenu, "Select by position");
+    rootMenu.AppendSubMenu(typeSubmenu.release(), "Select by fixture type");
+    rootMenu.AppendSubMenu(positionSubmenu.release(), "Select by position");
 
     const int selectedId = GetPopupMenuSelectionFromUser(rootMenu, event.GetPosition());
     if (selectedId == wxID_NONE)
