@@ -2084,15 +2084,7 @@ void Viewer3DController::DrawWireframeBox(
     std::vector<std::array<float, 3>> vv = {{x0,y0,z0},{x1,y0,z0},{x0,y1,z0},{x1,y1,z0},{x0,y0,z1},{x1,y0,z1},{x0,y1,z1},{x1,y1,z1}};
     if (captureTransform) for (auto &p: vv) p = captureTransform(p);
     CanvasStroke stroke; stroke.width=wireframe?baseWidth:1.0f;
-    if (wireframe) {
-      stroke.color = {0.0f, 0.0f, 0.0f, 1.0f};
-    } else if (highlight) {
-      stroke.color = {0.0f, 1.0f, 0.0f, 1.0f};
-    } else if (selected) {
-      stroke.color = {0.0f, 1.0f, 1.0f, 1.0f};
-    } else {
-      stroke.color = {1.0f, 1.0f, 0.0f, 1.0f};
-    }
+    stroke.color = wireframe ? std::array<float,4>{0,0,0,1} : (highlight?std::array<float,4>{0,1,0,1}:(selected?std::array<float,4>{0,1,1,1}:std::array<float,4>{1,1,0,1}));
     const int e[12][2]={{0,1},{2,3},{4,5},{6,7},{0,2},{1,3},{4,6},{5,7},{0,4},{1,5},{2,6},{3,7}};
     for (auto &k:e) RecordLine(vv[k[0]], vv[k[1]], stroke);
   }
