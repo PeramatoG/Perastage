@@ -376,10 +376,10 @@ static bool PrefilterBoundsForProjection(const std::array<float, 3> &minBound,
     minEyeZ = std::min(minEyeZ, ez); maxEyeZ = std::max(maxEyeZ, ez);
   }
 
-  const double near = proj[14] / (proj[10] - 1.0);
-  const double far = proj[14] / (proj[10] + 1.0);
-  const double nearPos = std::abs(near);
-  const double farPos = std::abs(far);
+  const double nearPlane = proj[14] / (proj[10] - 1.0);
+  const double farPlane = proj[14] / (proj[10] + 1.0);
+  const double nearPos = std::abs(nearPlane);
+  const double farPos = std::abs(farPlane);
 
   if (maxEyeZ > -nearPos || minEyeZ < -farPos)
     return false;
