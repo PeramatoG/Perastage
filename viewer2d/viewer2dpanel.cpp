@@ -57,6 +57,7 @@
 #include <iomanip>
 #include <map>
 #include <new>
+#include <set>
 #include <sstream>
 #include <vector>
 
@@ -202,6 +203,51 @@ std::string FormatMeters(float millimeters) {
       << (static_cast<double>(millimeters) / 1000.0);
   return out.str();
 }
+
+std::vector<std::string> BuildFixtureSelectionByType(
+    const MvrScene &scene, const std::string &typeName) {
+  std::vector<std::string> uuids;
+  uuids.reserve(scene.fixtures.size());
+  for (const auto &[uuid, fixture] : scene.fixtures) {
+    if (typeName.empty() || fixture.typeName == typeName)
+      uuids.push_back(uuid);
+  }
+  return uuids;
+}
+
+std::vector<std::string> BuildFixtureSelectionByPosition(
+    const MvrScene &scene, const std::string &positionName,
+    bool selectNoPosition) {
+  std::vector<std::string> uuids;
+  uuids.reserve(scene.fixtures.size());
+  for (const auto &[uuid, fixture] : scene.fixtures) {
+    const bool hasPosition = !fixture.positionName.empty();
+    if (selectNoPosition) {
+      if (!hasPosition)
+        uuids.push_back(uuid);
+      continue;
+    }
+    if (positionName.empty() || fixture.positionName == positionName)
+      uuids.push_back(uuid);
+  }
+  return uuids;
+}
+
+void ApplyFixtureSelectionToUi(const std::vector<std::string> &selection,
+                               Viewer3DController &controller) {
+  ConfigManager &cfg = ConfigManager::Get();
+  if (selection != cfg.GetSelectedFixtures()) {
+    cfg.PushUndoState("fixture selection");
+    cfg.SetSelectedFixtures(selection);
+  }
+  controller.SetSelectedUuids(selection);
+  if (FixtureTablePanel::Instance()) {
+    if (selection.empty())
+      FixtureTablePanel::Instance()->ClearSelection();
+    else
+      FixtureTablePanel::Instance()->SelectByUuid(selection);
+  }
+}
 } // namespace
 
 namespace {
@@ -213,6 +259,7 @@ wxBEGIN_EVENT_TABLE(Viewer2DPanel, wxGLCanvas) EVT_PAINT(Viewer2DPanel::OnPaint)
         Viewer2DPanel::OnMouseUp) EVT_MOTION(Viewer2DPanel::OnMouseMove)
         EVT_LEFT_DCLICK(Viewer2DPanel::OnMouseDClick)
         EVT_MOUSEWHEEL(Viewer2DPanel::OnMouseWheel)
+            EVT_RIGHT_UP(Viewer2DPanel::OnRightUp)
             EVT_KEY_DOWN(Viewer2DPanel::OnKeyDown)
                 EVT_ENTER_WINDOW(Viewer2DPanel::OnMouseEnter)
                     EVT_LEAVE_WINDOW(Viewer2DPanel::OnMouseLeave)
@@ -1404,6 +1451,128 @@ void Viewer2DPanel::OnMouseUp(wxMouseEvent &event) {
     Refresh();
   }
   m_draggedSincePress = false;
+}
+
+
+void Viewer2DPanel::OnRightUp(wxMouseEvent &event) {
+  if (!m_enableSelection || !event.RightUp()) {
+    event.Skip();
+    return;
+  }
+
+  if (!(FixtureTablePanel::Instance() && FixtureTablePanel::Instance()->IsActivePage())) {
+    event.Skip();
+    return;
+  }
+
+  int w, h;
+  GetClientSize(&w, &h);
+  if (w <= 0 || h <= 0 || !IsShownOnScreen()) {
+    event.Skip();
+    return;
+  }
+
+  SetCurrent(*m_glContext);
+  wxString label;
+  wxPoint pos;
+  std::string hitUuid;
+  if (m_controller.GetFixtureLabelAt(event.GetX(), event.GetY(), w, h, label,
+                                     pos, &hitUuid)) {
+    event.Skip();
+    return;
+  }
+
+  const auto &scene = ConfigManager::Get().GetScene();
+  if (scene.fixtures.empty())
+    return;
+
+  std::set<std::string> typeNames;
+  std::set<std::string> positionNames;
+  bool hasNoPosition = false;
+  for (const auto &[uuid, fixture] : scene.fixtures) {
+    if (!fixture.typeName.empty())
+      typeNames.insert(fixture.typeName);
+    if (fixture.positionName.empty())
+      hasNoPosition = true;
+    else
+      positionNames.insert(fixture.positionName);
+  }
+
+  wxMenu filterMenu;
+  wxMenu typeSubmenu;
+  wxMenu positionSubmenu;
+
+  constexpr int kSelectTypeAllId = wxID_HIGHEST + 600;
+  constexpr int kSelectTypeBaseId = wxID_HIGHEST + 601;
+  constexpr int kSelectPositionNoneId = wxID_HIGHEST + 800;
+  constexpr int kSelectPositionBaseId = wxID_HIGHEST + 801;
+
+  typeSubmenu.Append(kSelectTypeAllId, "All fixtures");
+
+  std::vector<std::string> orderedTypes;
+  orderedTypes.reserve(typeNames.size());
+  int nextTypeId = kSelectTypeBaseId;
+  for (const auto &name : typeNames) {
+    orderedTypes.push_back(name);
+    typeSubmenu.Append(nextTypeId++, wxString::FromUTF8(name));
+  }
+
+  positionSubmenu.Append(kSelectPositionNoneId, "No position");
+
+  std::vector<std::string> orderedPositions;
+  orderedPositions.reserve(positionNames.size());
+  int nextPositionId = kSelectPositionBaseId;
+  for (const auto &name : positionNames) {
+    orderedPositions.push_back(name);
+    positionSubmenu.Append(nextPositionId++, wxString::FromUTF8(name));
+  }
+
+  filterMenu.AppendSubMenu(&typeSubmenu, "Select by fixture type");
+  filterMenu.AppendSubMenu(&positionSubmenu, "Select by position");
+
+  const int selectedId =
+      GetPopupMenuSelectionFromUser(filterMenu, event.GetPosition());
+
+  if (selectedId == wxID_NONE)
+    return;
+
+  if (selectedId == kSelectTypeAllId) {
+    ApplyFixtureSelectionToUi(BuildFixtureSelectionByType(scene, ""),
+                              m_controller);
+    Refresh();
+    return;
+  }
+
+  if (selectedId >= kSelectTypeBaseId &&
+      selectedId < kSelectTypeBaseId + static_cast<int>(orderedTypes.size())) {
+    const size_t idx = static_cast<size_t>(selectedId - kSelectTypeBaseId);
+    ApplyFixtureSelectionToUi(BuildFixtureSelectionByType(scene, orderedTypes[idx]),
+                              m_controller);
+    Refresh();
+    return;
+  }
+
+  if (selectedId == kSelectPositionNoneId) {
+    if (!hasNoPosition) {
+      ApplyFixtureSelectionToUi({}, m_controller);
+    } else {
+      ApplyFixtureSelectionToUi(
+          BuildFixtureSelectionByPosition(scene, "", true), m_controller);
+    }
+    Refresh();
+    return;
+  }
+
+  if (selectedId >= kSelectPositionBaseId &&
+      selectedId <
+          kSelectPositionBaseId + static_cast<int>(orderedPositions.size())) {
+    const size_t idx = static_cast<size_t>(selectedId - kSelectPositionBaseId);
+    ApplyFixtureSelectionToUi(
+        BuildFixtureSelectionByPosition(scene, orderedPositions[idx], false),
+        m_controller);
+    Refresh();
+    return;
+  }
 }
 
 void Viewer2DPanel::OnCaptureLost(wxMouseCaptureLostEvent &WXUNUSED(event)) {

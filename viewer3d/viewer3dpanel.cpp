@@ -51,6 +51,7 @@
 #include <wx/log.h>
 #include <chrono>
 #include <algorithm>
+#include <set>
 
 wxDEFINE_EVENT(wxEVT_VIEWER_REFRESH, wxThreadEvent);
 wxBEGIN_EVENT_TABLE(Viewer3DPanel, wxGLCanvas)
@@ -61,6 +62,7 @@ EVT_LEFT_UP(Viewer3DPanel::OnMouseUp)
 EVT_MOTION(Viewer3DPanel::OnMouseMove)
 EVT_LEFT_DCLICK(Viewer3DPanel::OnMouseDClick)
 EVT_MOUSEWHEEL(Viewer3DPanel::OnMouseWheel)
+EVT_RIGHT_UP(Viewer3DPanel::OnRightUp)
 EVT_KEY_DOWN(Viewer3DPanel::OnKeyDown)
 EVT_ENTER_WINDOW(Viewer3DPanel::OnMouseEnter)
 EVT_LEAVE_WINDOW(Viewer3DPanel::OnMouseLeave)
@@ -68,6 +70,58 @@ EVT_MOUSE_CAPTURE_LOST(Viewer3DPanel::OnCaptureLost)
 EVT_THREAD(wxEVT_VIEWER_REFRESH, Viewer3DPanel::OnThreadRefresh)
 wxEND_EVENT_TABLE()
 
+
+namespace {
+std::vector<std::string> BuildFixtureSelectionByType(
+    const MvrScene& scene, const std::string& typeName)
+{
+    std::vector<std::string> uuids;
+    uuids.reserve(scene.fixtures.size());
+    for (const auto& [uuid, fixture] : scene.fixtures) {
+        if (typeName.empty() || fixture.typeName == typeName)
+            uuids.push_back(uuid);
+    }
+    return uuids;
+}
+
+std::vector<std::string> BuildFixtureSelectionByPosition(
+    const MvrScene& scene, const std::string& positionName, bool selectNoPosition)
+{
+    std::vector<std::string> uuids;
+    uuids.reserve(scene.fixtures.size());
+    for (const auto& [uuid, fixture] : scene.fixtures) {
+        const bool hasPosition = !fixture.positionName.empty();
+        if (selectNoPosition) {
+            if (!hasPosition)
+                uuids.push_back(uuid);
+            continue;
+        }
+        if (positionName.empty() || fixture.positionName == positionName)
+            uuids.push_back(uuid);
+    }
+    return uuids;
+}
+
+void ApplyFixtureSelectionToUi(const std::vector<std::string>& selection,
+                               Viewer3DPanel* panel,
+                               Viewer3DController& controller)
+{
+    ConfigManager& cfg = ConfigManager::Get();
+    if (selection != cfg.GetSelectedFixtures()) {
+        cfg.PushUndoState("fixture selection");
+        cfg.SetSelectedFixtures(selection);
+    }
+    controller.SetSelectedUuids(selection);
+    if (panel)
+        panel->SetSelectedFixtures(selection);
+    if (FixtureTablePanel::Instance()) {
+        if (selection.empty())
+            FixtureTablePanel::Instance()->ClearSelection();
+        else
+            FixtureTablePanel::Instance()->SelectByUuid(selection);
+    }
+}
+}
 
 Viewer3DPanel::Viewer3DPanel(wxWindow* parent)
     : wxGLCanvas(parent, wxID_ANY, nullptr, wxDefaultPosition, wxDefaultSize, wxFULL_REPAINT_ON_RESIZE),
@@ -409,6 +463,118 @@ void Viewer3DPanel::OnMouseUp(wxMouseEvent& event)
         }
     }
     m_draggedSincePress = false;
+}
+
+
+void Viewer3DPanel::OnRightUp(wxMouseEvent& event)
+{
+    if (!(FixtureTablePanel::Instance() && FixtureTablePanel::Instance()->IsActivePage())) {
+        event.Skip();
+        return;
+    }
+
+    int w, h;
+    GetClientSize(&w, &h);
+    if (w <= 0 || h <= 0 || !IsShownOnScreen()) {
+        event.Skip();
+        return;
+    }
+
+    SetCurrent(*m_glContext);
+    wxString label;
+    wxPoint pos;
+    std::string hitUuid;
+    if (m_controller.GetFixtureLabelAt(event.GetX(), event.GetY(), w, h, label, pos, &hitUuid)) {
+        event.Skip();
+        return;
+    }
+
+    const auto& scene = ConfigManager::Get().GetScene();
+    if (scene.fixtures.empty())
+        return;
+
+    std::set<std::string> typeNames;
+    std::set<std::string> positionNames;
+    bool hasNoPosition = false;
+    for (const auto& [uuid, fixture] : scene.fixtures) {
+        if (!fixture.typeName.empty())
+            typeNames.insert(fixture.typeName);
+        if (fixture.positionName.empty())
+            hasNoPosition = true;
+        else
+            positionNames.insert(fixture.positionName);
+    }
+
+    wxMenu rootMenu;
+    wxMenu typeSubmenu;
+    wxMenu positionSubmenu;
+
+    constexpr int kSelectTypeAllId = wxID_HIGHEST + 900;
+    constexpr int kSelectTypeBaseId = wxID_HIGHEST + 901;
+    constexpr int kSelectPositionNoneId = wxID_HIGHEST + 1100;
+    constexpr int kSelectPositionBaseId = wxID_HIGHEST + 1101;
+
+    typeSubmenu.Append(kSelectTypeAllId, "All fixtures");
+    std::vector<std::string> orderedTypes;
+    orderedTypes.reserve(typeNames.size());
+    int nextTypeId = kSelectTypeBaseId;
+    for (const auto& typeName : typeNames) {
+        orderedTypes.push_back(typeName);
+        typeSubmenu.Append(nextTypeId++, wxString::FromUTF8(typeName));
+    }
+
+    positionSubmenu.Append(kSelectPositionNoneId, "No position");
+    std::vector<std::string> orderedPositions;
+    orderedPositions.reserve(positionNames.size());
+    int nextPositionId = kSelectPositionBaseId;
+    for (const auto& positionName : positionNames) {
+        orderedPositions.push_back(positionName);
+        positionSubmenu.Append(nextPositionId++, wxString::FromUTF8(positionName));
+    }
+
+    rootMenu.AppendSubMenu(&typeSubmenu, "Select by fixture type");
+    rootMenu.AppendSubMenu(&positionSubmenu, "Select by position");
+
+    const int selectedId = GetPopupMenuSelectionFromUser(rootMenu, event.GetPosition());
+    if (selectedId == wxID_NONE)
+        return;
+
+    if (selectedId == kSelectTypeAllId) {
+        ApplyFixtureSelectionToUi(BuildFixtureSelectionByType(scene, ""), this,
+                                  m_controller);
+        Refresh();
+        return;
+    }
+
+    if (selectedId >= kSelectTypeBaseId &&
+        selectedId < kSelectTypeBaseId + static_cast<int>(orderedTypes.size())) {
+        const size_t idx = static_cast<size_t>(selectedId - kSelectTypeBaseId);
+        ApplyFixtureSelectionToUi(BuildFixtureSelectionByType(scene, orderedTypes[idx]), this,
+                                  m_controller);
+        Refresh();
+        return;
+    }
+
+    if (selectedId == kSelectPositionNoneId) {
+        if (!hasNoPosition) {
+            ApplyFixtureSelectionToUi({}, this, m_controller);
+        } else {
+            ApplyFixtureSelectionToUi(BuildFixtureSelectionByPosition(scene, "", true),
+                                      this, m_controller);
+        }
+        Refresh();
+        return;
+    }
+
+    if (selectedId >= kSelectPositionBaseId &&
+        selectedId < kSelectPositionBaseId + static_cast<int>(orderedPositions.size())) {
+        const size_t idx = static_cast<size_t>(selectedId - kSelectPositionBaseId);
+        ApplyFixtureSelectionToUi(
+            BuildFixtureSelectionByPosition(scene, orderedPositions[idx], false), this,
+            m_controller);
+        Refresh();
+        return;
+    }
 }
 
 void Viewer3DPanel::OnCaptureLost(wxMouseCaptureLostEvent& WXUNUSED(event))
