@@ -402,32 +402,141 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         scene.positions[uid] = name ? name : "";
     }
 
+    std::function<void(tinyxml2::XMLElement *, const Matrix &, std::vector<SymdefGeometry> &)> parseSymdefChildList;
+    parseSymdefChildList = [&](tinyxml2::XMLElement *childList,
+                               const Matrix &parent,
+                               std::vector<SymdefGeometry> &geometries) {
+      for (tinyxml2::XMLElement *child = childList ? childList->FirstChildElement() : nullptr;
+           child; child = child->NextSiblingElement()) {
+        const char *name = child->Name();
+        if (!name)
+          continue;
+
+        Matrix local = MatrixUtils::Identity();
+        if (tinyxml2::XMLElement *matrix = child->FirstChildElement("Matrix")) {
+          if (const char *txt = matrix->GetText()) {
+            std::string raw = txt;
+            if (!MatrixUtils::ParseMatrix(raw, local))
+              local = MatrixUtils::Identity();
+          }
+        }
+        Matrix composed = MatrixUtils::Multiply(parent, local);
+
+        if (std::string(name) == "Geometry3D") {
+          SymdefGeometry g;
+          if (const char *fname = child->Attribute("fileName"))
+            g.file = fname;
+          if (const char *type = child->Attribute("geometryType"))
+            g.geometryType = Trim(type);
+          g.transform = composed;
+          if (!g.file.empty())
+            geometries.push_back(std::move(g));
+        }
+
+        if (tinyxml2::XMLElement *inner = child->FirstChildElement("ChildList"))
+          parseSymdefChildList(inner, composed, geometries);
+      }
+    };
+
     for (tinyxml2::XMLElement *sym = auxNode->FirstChildElement("Symdef"); sym;
          sym = sym->NextSiblingElement("Symdef")) {
       const char *uid = sym->Attribute("uuid");
       if (!uid)
         continue;
-      std::string file;
+
       if (const char *type = sym->Attribute("geometryType"))
         scene.symdefTypes[uid] = Trim(type);
-      if (tinyxml2::XMLElement *childList =
-              sym->FirstChildElement("ChildList")) {
-        if (tinyxml2::XMLElement *geo =
-                childList->FirstChildElement("Geometry3D")) {
-          const char *fname = geo->Attribute("fileName");
-          if (fname)
-            file = fname;
-          if (const char *type = geo->Attribute("geometryType"))
-            scene.symdefTypes[uid] = Trim(type);
-        }
+
+      std::vector<SymdefGeometry> geometries;
+      if (tinyxml2::XMLElement *childList = sym->FirstChildElement("ChildList"))
+        parseSymdefChildList(childList, MatrixUtils::Identity(), geometries);
+
+      if (!geometries.empty()) {
+        scene.symdefGeometries[uid] = geometries;
+        scene.symdefFiles[uid] = geometries.front().file;
+        scene.symdefMatrices[uid] = geometries.front().transform;
+        if (!geometries.front().geometryType.empty())
+          scene.symdefTypes[uid] = geometries.front().geometryType;
       }
-      if (!file.empty())
-        scene.symdefFiles[uid] = file;
     }
   }
 
+  auto parseMatrixOrIdentity = [&](tinyxml2::XMLElement *parent,
+                                   const char *elementName,
+                                   const std::string &contextTag,
+                                   Matrix &out,
+                                   bool logScale = false) {
+    out = MatrixUtils::Identity();
+    if (!parent)
+      return;
+    if (tinyxml2::XMLElement *matrix = parent->FirstChildElement(elementName)) {
+      if (const char *txt = matrix->GetText()) {
+        std::string raw = txt;
+        if (!MatrixUtils::ParseMatrix(raw, out)) {
+          LogMessage("Failed to parse matrix in " + contextTag + ": " + raw);
+          out = MatrixUtils::Identity();
+          return;
+        }
+
+        if (logScale) {
+          auto norm = [](const std::array<float, 3> &v) {
+            return std::sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
+          };
+          float nu = norm(out.u);
+          float nv = norm(out.v);
+          float nw = norm(out.w);
+          auto extreme = [](float n) { return n < 0.1f || n > 10.0f; };
+          if (extreme(nu) || extreme(nv) || extreme(nw)) {
+            std::ostringstream oss;
+            oss << "Matrix basis norm outlier in " << contextTag
+                << " (|u|=" << nu << ", |v|=" << nv << ", |w|=" << nw
+                << ")";
+            LogMessage(oss.str());
+          }
+        }
+      }
+    }
+  };
+
+  auto resolveSymdefReference = [&](tinyxml2::XMLElement *symbol,
+                                    std::string &outFile,
+                                    std::string &outGeometryType,
+                                    Matrix &outLocal) {
+    outFile.clear();
+    outGeometryType.clear();
+    outLocal = MatrixUtils::Identity();
+
+    if (!symbol)
+      return;
+
+    parseMatrixOrIdentity(symbol, "Matrix", "Symbol", outLocal);
+
+    const char *symdef = symbol->Attribute("symdef");
+    if (!symdef)
+      return;
+
+    auto geosIt = scene.symdefGeometries.find(symdef);
+    if (geosIt != scene.symdefGeometries.end() && !geosIt->second.empty()) {
+      const auto &geo = geosIt->second.front();
+      outFile = geo.file;
+      outGeometryType = geo.geometryType;
+      outLocal = MatrixUtils::Multiply(outLocal, geo.transform);
+      return;
+    }
+
+    auto it = scene.symdefFiles.find(symdef);
+    if (it != scene.symdefFiles.end())
+      outFile = it->second;
+    auto tit = scene.symdefTypes.find(symdef);
+    if (tit != scene.symdefTypes.end())
+      outGeometryType = tit->second;
+    auto mit = scene.symdefMatrices.find(symdef);
+    if (mit != scene.symdefMatrices.end())
+      outLocal = MatrixUtils::Multiply(outLocal, mit->second);
+  };
+
   // ---- Helper lambdas for object parsing ----
-  std::function<void(tinyxml2::XMLElement *, const std::string &)>
+  std::function<void(tinyxml2::XMLElement *, const std::string &, const Matrix &)>
       parseChildList;
 
   auto ensurePositionEntry = [&](const std::string &positionId)
@@ -444,9 +553,10 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
     return positionId;
   };
 
-  std::function<void(tinyxml2::XMLElement *, const std::string &)>
+  std::function<void(tinyxml2::XMLElement *, const std::string &, const Matrix &)>
       parseFixture = [&](tinyxml2::XMLElement *node,
-                         const std::string &layerName) {
+                         const std::string &layerName,
+                         const Matrix &nodeTransform) {
         const char *uuidAttr = node->Attribute("uuid");
         if (!uuidAttr)
           return;
@@ -454,6 +564,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         Fixture fixture;
         fixture.uuid = uuidAttr;
         fixture.layer = layerName;
+        fixture.transform = nodeTransform;
 
         if (const char *nameAttr = node->Attribute("name"))
           fixture.instanceName = nameAttr;
@@ -553,17 +664,16 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         }
 
         if (tinyxml2::XMLElement *matrix = node->FirstChildElement("Matrix")) {
-          if (const char *txt = matrix->GetText()) {
+          if (const char *txt = matrix->GetText())
             fixture.matrixRaw = txt;
-            MatrixUtils::ParseMatrix(fixture.matrixRaw, fixture.transform);
-          }
         }
 
         scene.fixtures[fixture.uuid] = fixture;
       };
 
-  std::function<void(tinyxml2::XMLElement *, const std::string &)> parseTruss =
-      [&](tinyxml2::XMLElement *node, const std::string &layerName) {
+  std::function<void(tinyxml2::XMLElement *, const std::string &, const Matrix &)> parseTruss =
+      [&](tinyxml2::XMLElement *node, const std::string &layerName,
+          const Matrix &nodeTransform) {
         const char *uuidAttr = node->Attribute("uuid");
         if (!uuidAttr)
           return;
@@ -571,6 +681,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         Truss truss;
         truss.uuid = uuidAttr;
         truss.layer = layerName;
+        truss.transform = nodeTransform;
         if (const char *nameAttr = node->Attribute("name"))
           truss.name = nameAttr;
 
@@ -591,21 +702,18 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
             const char *file = g3d->Attribute("fileName");
             if (file)
               truss.symbolFile = file;
+            Matrix geoMatrix = MatrixUtils::Identity();
+            parseMatrixOrIdentity(g3d, "Matrix", "Truss/Geometry3D", geoMatrix, true);
+            truss.transform = MatrixUtils::Multiply(nodeTransform, geoMatrix);
           } else if (tinyxml2::XMLElement *sym =
                          geos->FirstChildElement("Symbol")) {
-            const char *symdef = sym->Attribute("symdef");
-            if (symdef) {
-              auto it = scene.symdefFiles.find(symdef);
-              if (it != scene.symdefFiles.end())
-                truss.symbolFile = it->second;
-            }
-          }
-        }
-
-        if (tinyxml2::XMLElement *matrix = node->FirstChildElement("Matrix")) {
-          if (const char *txt = matrix->GetText()) {
-            std::string raw = txt;
-            MatrixUtils::ParseMatrix(raw, truss.transform);
+            std::string symFile;
+            std::string symType;
+            Matrix symLocal = MatrixUtils::Identity();
+            resolveSymdefReference(sym, symFile, symType, symLocal);
+            if (!symFile.empty())
+              truss.symbolFile = symFile;
+            truss.transform = MatrixUtils::Multiply(nodeTransform, symLocal);
           }
         }
 
@@ -668,8 +776,9 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         scene.trusses[truss.uuid] = truss;
       };
 
-  std::function<void(tinyxml2::XMLElement *, const std::string &)> parseSupport =
-      [&](tinyxml2::XMLElement *node, const std::string &layerName) {
+  std::function<void(tinyxml2::XMLElement *, const std::string &, const Matrix &)> parseSupport =
+      [&](tinyxml2::XMLElement *node, const std::string &layerName,
+          const Matrix &nodeTransform) {
         const char *uuidAttr = node->Attribute("uuid");
         if (!uuidAttr)
           return;
@@ -677,6 +786,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         Support support;
         support.uuid = uuidAttr;
         support.layer = layerName;
+        support.transform = nodeTransform;
 
         if (const char *nameAttr = node->Attribute("name"))
           support.name = nameAttr;
@@ -708,13 +818,6 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
 
         support.position = readText("Position");
         support.positionName = ensurePositionEntry(support.position);
-
-        if (tinyxml2::XMLElement *matrix = node->FirstChildElement("Matrix")) {
-          if (const char *txt = matrix->GetText()) {
-            std::string raw = txt;
-            MatrixUtils::ParseMatrix(raw, support.transform);
-          }
-        }
 
         if (tinyxml2::XMLElement *ud = node->FirstChildElement("UserData")) {
           for (tinyxml2::XMLElement *data = ud->FirstChildElement("Data"); data;
@@ -755,9 +858,10 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         scene.supports[support.uuid] = support;
       };
 
-  std::function<void(tinyxml2::XMLElement *, const std::string &)>
+  std::function<void(tinyxml2::XMLElement *, const std::string &, const Matrix &)>
       parseSceneObj = [&](tinyxml2::XMLElement *node,
-                          const std::string &layerName) {
+                          const std::string &layerName,
+                          const Matrix &nodeTransform) {
         const char *uuidAttr = node->Attribute("uuid");
         if (!uuidAttr)
           return;
@@ -765,6 +869,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         SceneObject obj;
         obj.uuid = uuidAttr;
         obj.layer = layerName;
+        obj.transform = nodeTransform;
         if (const char *nameAttr = node->Attribute("name"))
           obj.name = nameAttr;
 
@@ -782,24 +887,17 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
               obj.modelFile = file;
             if (const char *type = g3d->Attribute("geometryType"))
               geometryType = Trim(type);
+            Matrix geoMatrix = MatrixUtils::Identity();
+            parseMatrixOrIdentity(g3d, "Matrix", "SceneObject/Geometry3D", geoMatrix, true);
+            obj.transform = MatrixUtils::Multiply(nodeTransform, geoMatrix);
           } else if (tinyxml2::XMLElement *sym =
                          geos->FirstChildElement("Symbol")) {
-            const char *symdef = sym->Attribute("symdef");
-            if (symdef) {
-              auto it = scene.symdefFiles.find(symdef);
-              if (it != scene.symdefFiles.end())
-                obj.modelFile = it->second;
-              auto tit = scene.symdefTypes.find(symdef);
-              if (tit != scene.symdefTypes.end())
-                geometryType = tit->second;
-            }
-          }
-        }
-
-        if (tinyxml2::XMLElement *matrix = node->FirstChildElement("Matrix")) {
-          if (const char *txt = matrix->GetText()) {
-            std::string raw = txt;
-            MatrixUtils::ParseMatrix(raw, obj.transform);
+            std::string symFile;
+            Matrix symLocal = MatrixUtils::Identity();
+            resolveSymdefReference(sym, symFile, geometryType, symLocal);
+            if (!symFile.empty())
+              obj.modelFile = symFile;
+            obj.transform = MatrixUtils::Multiply(nodeTransform, symLocal);
           }
         }
 
@@ -819,35 +917,40 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         }
       };
 
-  parseChildList = [&](tinyxml2::XMLElement *cl, const std::string &layerName) {
+  parseChildList = [&](tinyxml2::XMLElement *cl, const std::string &layerName,
+                       const Matrix &parentTransform) {
     for (tinyxml2::XMLElement *child = cl->FirstChildElement(); child;
          child = child->NextSiblingElement()) {
       const char *name = child->Name();
       if (!name)
         continue;
+
+      Matrix local = MatrixUtils::Identity();
+      parseMatrixOrIdentity(child, "Matrix", std::string("Child/") + name, local, true);
+      Matrix nodeTransform = MatrixUtils::Multiply(parentTransform, local);
+
       std::string nodeName = name;
       if (nodeName == "Fixture") {
-        parseFixture(child, layerName);
+        parseFixture(child, layerName, nodeTransform);
       } else if (nodeName == "Truss") {
-        parseTruss(child, layerName);
+        parseTruss(child, layerName, nodeTransform);
       } else if (nodeName == "Support") {
-        parseSupport(child, layerName);
+        parseSupport(child, layerName, nodeTransform);
       } else if (nodeName == "SceneObject") {
-        parseSceneObj(child, layerName);
-      } else {
-        if (tinyxml2::XMLElement *inner = child->FirstChildElement("ChildList"))
-          parseChildList(inner, layerName);
+        parseSceneObj(child, layerName, nodeTransform);
       }
+
+      if (tinyxml2::XMLElement *inner = child->FirstChildElement("ChildList"))
+        parseChildList(inner, layerName, nodeTransform);
     }
   };
-
   tinyxml2::XMLElement *layersNode = sceneNode->FirstChildElement("Layers");
   if (!layersNode)
     return true;
 
   for (tinyxml2::XMLElement *cl = layersNode->FirstChildElement("ChildList");
        cl; cl = cl->NextSiblingElement("ChildList")) {
-    parseChildList(cl, DEFAULT_LAYER_NAME);
+    parseChildList(cl, DEFAULT_LAYER_NAME, MatrixUtils::Identity());
   }
 
   for (tinyxml2::XMLElement *layer = layersNode->FirstChildElement("Layer");
@@ -858,7 +961,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
 
     tinyxml2::XMLElement *childList = layer->FirstChildElement("ChildList");
     if (childList)
-      parseChildList(childList, isDefaultLayer ? DEFAULT_LAYER_NAME : layerStr);
+      parseChildList(childList, isDefaultLayer ? DEFAULT_LAYER_NAME : layerStr,
+                     MatrixUtils::Identity());
 
     if (!isDefaultLayer) {
       Layer l;

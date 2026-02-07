@@ -21,6 +21,7 @@
 #include <array>
 #include <sstream>
 #include <cmath>
+#include <vector>
 #include "types.h"
 
 #ifndef M_PI
@@ -56,17 +57,17 @@ namespace MatrixUtils {
 
         if (values.size() == 16) {
             // GDTF 4x4 matrix. Translation is stored in the fourth column
-            outMatrix.u = { values[0], values[4], values[8] };
-            outMatrix.v = { values[1], values[5], values[9] };
-            outMatrix.w = { values[2], values[6], values[10] };
-            outMatrix.o = { values[3], values[7], values[11] };
+            outMatrix.u = std::array<float, 3>{ values[0], values[4], values[8] };
+            outMatrix.v = std::array<float, 3>{ values[1], values[5], values[9] };
+            outMatrix.w = std::array<float, 3>{ values[2], values[6], values[10] };
+            outMatrix.o = std::array<float, 3>{ values[3], values[7], values[11] };
             return true;
         } else if (values.size() == 12) {
             // MVR 4x3 matrix in column-major order
-            outMatrix.u = { values[0], values[1], values[2] };
-            outMatrix.v = { values[3], values[4], values[5] };
-            outMatrix.w = { values[6], values[7], values[8] };
-            outMatrix.o = { values[9], values[10], values[11] };
+            outMatrix.u = std::array<float, 3>{ values[0], values[1], values[2] };
+            outMatrix.v = std::array<float, 3>{ values[3], values[4], values[5] };
+            outMatrix.w = std::array<float, 3>{ values[6], values[7], values[8] };
+            outMatrix.o = std::array<float, 3>{ values[9], values[10], values[11] };
             return true;
         }
 
@@ -117,9 +118,9 @@ namespace MatrixUtils {
         float sr = std::sin(roll);
 
         Matrix m;
-        m.u = { cy * cp, cy * sp * sr - sy * cr, cy * sp * cr + sy * sr };
-        m.v = { sy * cp, sy * sp * sr + cy * cr, sy * sp * cr - cy * sr };
-        m.w = { -sp,     cp * sr,                 cp * cr                 };
+        m.u = std::array<float, 3>{ cy * cp, cy * sp * sr - sy * cr, cy * sp * cr + sy * sr };
+        m.v = std::array<float, 3>{ sy * cp, sy * sp * sr + cy * cr, sy * sp * cr - cy * sr };
+        m.w = std::array<float, 3>{ -sp,     cp * sr,                 cp * cr                 };
         return m;
     }
 

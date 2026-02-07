@@ -19,11 +19,18 @@
 
 #include <unordered_map>
 #include <string>
+#include <vector>
 #include "fixture.h"
 #include "truss.h"
 #include "sceneobject.h"
 #include "support.h"
 #include "layer.h"
+
+struct SymdefGeometry {
+    std::string file;
+    std::string geometryType;
+    Matrix transform;
+};
 
 // Represents the full scene structure from an MVR file
 class MvrScene {
@@ -43,6 +50,8 @@ public:
     std::unordered_map<std::string, std::string> positions;   // uuid -> name
     std::unordered_map<std::string, std::string> symdefFiles; // uuid -> geometry file
     std::unordered_map<std::string, std::string> symdefTypes; // uuid -> geometry type
+    std::unordered_map<std::string, Matrix> symdefMatrices;    // uuid -> first geometry matrix
+    std::unordered_map<std::string, std::vector<SymdefGeometry>> symdefGeometries;
 
     std::string provider;
     std::string providerVersion;
