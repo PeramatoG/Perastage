@@ -68,6 +68,7 @@
 #include <cstdint>
 #include <string_view>
 #include <sstream>
+#include <unordered_set>
 #include <vector>
 
 namespace fs = std::filesystem;
@@ -84,6 +85,19 @@ static bool ShouldTraceLabelOrder() {
   static const bool enabled = std::getenv("PERASTAGE_TRACE_LABELS") != nullptr;
   return enabled;
 }
+
+static std::unordered_set<std::string>
+SnapshotHiddenLayers(const ConfigManager &cfg) {
+  return cfg.GetHiddenLayers();
+}
+
+static bool IsLayerVisibleCached(const std::unordered_set<std::string> &hidden,
+                                 const std::string &layer) {
+  if (layer.empty())
+    return hidden.find(DEFAULT_LAYER_NAME) == hidden.end();
+  return hidden.find(layer) == hidden.end();
+}
+
 static std::string FindFileRecursive(const std::string &baseDir,
                                      const std::string &fileName) {
   if (baseDir.empty())
@@ -1027,6 +1041,9 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
                                      int gridStyle, float gridR, float gridG,
                                      float gridB, bool gridOnTop,
                                      bool is2DViewer) {
+  ConfigManager &cfg = ConfigManager::Get();
+  const auto hiddenLayers = SnapshotHiddenLayers(cfg);
+
   if (wireframe)
     glDisable(GL_LIGHTING);
   else
@@ -1075,8 +1092,11 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
   const auto &sceneObjects = SceneDataManager::Instance().GetSceneObjects();
   std::vector<const std::pair<const std::string, SceneObject> *> sortedObjs;
   sortedObjs.reserve(sceneObjects.size());
-  for (const auto &obj : sceneObjects)
+  for (const auto &obj : sceneObjects) {
+    if (!IsLayerVisibleCached(hiddenLayers, obj.second.layer))
+      continue;
     sortedObjs.push_back(&obj);
+  }
   std::sort(sortedObjs.begin(), sortedObjs.end(),
             [](const auto *a, const auto *b) {
               return a->second.transform.o[2] < b->second.transform.o[2];
@@ -1084,8 +1104,6 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
   for (const auto *entry : sortedObjs) {
     const auto &uuid = entry->first;
     const auto &m = entry->second;
-    if (!ConfigManager::Get().IsLayerVisible(m.layer))
-      continue;
     glPushMatrix();
 
     std::string objectCaptureKey;
@@ -1241,8 +1259,11 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
   const auto &trusses = SceneDataManager::Instance().GetTrusses();
   std::vector<const std::pair<const std::string, Truss> *> sortedTrusses;
   sortedTrusses.reserve(trusses.size());
-  for (const auto &t : trusses)
+  for (const auto &t : trusses) {
+    if (!IsLayerVisibleCached(hiddenLayers, t.second.layer))
+      continue;
     sortedTrusses.push_back(&t);
+  }
   std::sort(sortedTrusses.begin(), sortedTrusses.end(),
             [](const auto *a, const auto *b) {
               return a->second.transform.o[2] < b->second.transform.o[2];
@@ -1250,8 +1271,6 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
   for (const auto *entry : sortedTrusses) {
     const auto &uuid = entry->first;
     const auto &t = entry->second;
-    if (!ConfigManager::Get().IsLayerVisible(t.layer))
-      continue;
     glPushMatrix();
 
     std::string trussCaptureKey;
@@ -1428,8 +1447,11 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
   const auto &fixtures = SceneDataManager::Instance().GetFixtures();
   std::vector<const std::pair<const std::string, Fixture> *> sortedFixtures;
   sortedFixtures.reserve(fixtures.size());
-  for (const auto &f : fixtures)
+  for (const auto &f : fixtures) {
+    if (!IsLayerVisibleCached(hiddenLayers, f.second.layer))
+      continue;
     sortedFixtures.push_back(&f);
+  }
   std::sort(sortedFixtures.begin(), sortedFixtures.end(),
             [](const auto *a, const auto *b) {
               return a->second.transform.o[2] < b->second.transform.o[2];
@@ -1437,8 +1459,6 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
   for (const auto *entry : sortedFixtures) {
     const auto &uuid = entry->first;
     const auto &f = entry->second;
-    if (!ConfigManager::Get().IsLayerVisible(f.layer))
-      continue;
     glPushMatrix();
 
     std::string fixtureCaptureKey;
@@ -2483,6 +2503,7 @@ void Viewer3DController::DrawFixtureLabels(int width, int height) {
   glGetIntegerv(GL_VIEWPORT, viewport);
 
   ConfigManager &cfg = ConfigManager::Get();
+  const auto hiddenLayers = SnapshotHiddenLayers(cfg);
   bool showName = cfg.GetFloat("label_show_name") != 0.0f;
   bool showId = cfg.GetFloat("label_show_id") != 0.0f;
   bool showDmx = cfg.GetFloat("label_show_dmx") != 0.0f;
@@ -2497,7 +2518,7 @@ void Viewer3DController::DrawFixtureLabels(int width, int height) {
 
   const auto &fixtures = SceneDataManager::Instance().GetFixtures();
   for (const auto &[uuid, f] : fixtures) {
-    if (!cfg.IsLayerVisible(f.layer))
+    if (!IsLayerVisibleCached(hiddenLayers, f.layer))
       continue;
     if (uuid != m_highlightUuid)
       continue;
@@ -2563,6 +2584,7 @@ void Viewer3DController::DrawAllFixtureLabels(int width, int height,
   glGetIntegerv(GL_VIEWPORT, viewport);
 
   ConfigManager &cfg = ConfigManager::Get();
+  const auto hiddenLayers = SnapshotHiddenLayers(cfg);
   const std::array<const char *, 4> nameKeys = {"label_show_name_top",
                                                "label_show_name_front",
                                                "label_show_name_side",
@@ -2618,7 +2640,7 @@ void Viewer3DController::DrawAllFixtureLabels(int width, int height,
 
   const auto &fixtures = SceneDataManager::Instance().GetFixtures();
   for (const auto &[uuid, f] : fixtures) {
-    if (!cfg.IsLayerVisible(f.layer))
+    if (!IsLayerVisibleCached(hiddenLayers, f.layer))
       continue;
 
     double wx, wy, wz;
@@ -2815,6 +2837,7 @@ bool Viewer3DController::GetFixtureLabelAt(int mouseX, int mouseY, int width,
   glGetDoublev(GL_PROJECTION_MATRIX, proj);
   glGetIntegerv(GL_VIEWPORT, viewport);
   ConfigManager &cfg = ConfigManager::Get();
+  const auto hiddenLayers = SnapshotHiddenLayers(cfg);
   bool showName = cfg.GetFloat("label_show_name") != 0.0f;
   bool showId = cfg.GetFloat("label_show_id") != 0.0f;
   bool showDmx = cfg.GetFloat("label_show_dmx") != 0.0f;
@@ -2828,7 +2851,7 @@ bool Viewer3DController::GetFixtureLabelAt(int mouseX, int mouseY, int width,
   std::string bestUuid;
 
   for (const auto &[uuid, f] : fixtures) {
-    if (!cfg.IsLayerVisible(f.layer))
+    if (!IsLayerVisibleCached(hiddenLayers, f.layer))
       continue;
     auto bit = m_fixtureBounds.find(uuid);
     if (bit == m_fixtureBounds.end())
@@ -2914,9 +2937,11 @@ void Viewer3DController::DrawTrussLabels(int width, int height) {
   glGetDoublev(GL_PROJECTION_MATRIX, proj);
   glGetIntegerv(GL_VIEWPORT, viewport);
 
+  ConfigManager &cfg = ConfigManager::Get();
+  const auto hiddenLayers = SnapshotHiddenLayers(cfg);
   const auto &trusses = SceneDataManager::Instance().GetTrusses();
   for (const auto &[uuid, t] : trusses) {
-    if (!ConfigManager::Get().IsLayerVisible(t.layer))
+    if (!IsLayerVisibleCached(hiddenLayers, t.layer))
       continue;
     if (uuid != m_highlightUuid)
       continue;
@@ -2962,9 +2987,11 @@ void Viewer3DController::DrawSceneObjectLabels(int width, int height) {
   glGetDoublev(GL_PROJECTION_MATRIX, proj);
   glGetIntegerv(GL_VIEWPORT, viewport);
 
+  ConfigManager &cfg = ConfigManager::Get();
+  const auto hiddenLayers = SnapshotHiddenLayers(cfg);
   const auto &objs = SceneDataManager::Instance().GetSceneObjects();
   for (const auto &[uuid, o] : objs) {
-    if (!ConfigManager::Get().IsLayerVisible(o.layer))
+    if (!IsLayerVisibleCached(hiddenLayers, o.layer))
       continue;
     if (uuid != m_highlightUuid)
       continue;
@@ -3009,6 +3036,8 @@ bool Viewer3DController::GetTrussLabelAt(int mouseX, int mouseY, int width,
   glGetDoublev(GL_PROJECTION_MATRIX, proj);
   glGetIntegerv(GL_VIEWPORT, viewport);
 
+  ConfigManager &cfg = ConfigManager::Get();
+  const auto hiddenLayers = SnapshotHiddenLayers(cfg);
   const auto &trusses = SceneDataManager::Instance().GetTrusses();
   bool found = false;
   double bestDepth = DBL_MAX;
@@ -3016,7 +3045,7 @@ bool Viewer3DController::GetTrussLabelAt(int mouseX, int mouseY, int width,
   wxPoint bestPos;
   std::string bestUuid;
   for (const auto &[uuid, t] : trusses) {
-    if (!ConfigManager::Get().IsLayerVisible(t.layer))
+    if (!IsLayerVisibleCached(hiddenLayers, t.layer))
       continue;
     auto bit = m_trussBounds.find(uuid);
     if (bit == m_trussBounds.end())
@@ -3093,6 +3122,8 @@ bool Viewer3DController::GetSceneObjectLabelAt(int mouseX, int mouseY,
   glGetDoublev(GL_PROJECTION_MATRIX, proj);
   glGetIntegerv(GL_VIEWPORT, viewport);
 
+  ConfigManager &cfg = ConfigManager::Get();
+  const auto hiddenLayers = SnapshotHiddenLayers(cfg);
   const auto &objs = SceneDataManager::Instance().GetSceneObjects();
   bool found = false;
   double bestDepth = DBL_MAX;
@@ -3100,7 +3131,7 @@ bool Viewer3DController::GetSceneObjectLabelAt(int mouseX, int mouseY,
   wxPoint bestPos;
   std::string bestUuid;
   for (const auto &[uuid, o] : objs) {
-    if (!ConfigManager::Get().IsLayerVisible(o.layer))
+    if (!IsLayerVisibleCached(hiddenLayers, o.layer))
       continue;
     auto bit = m_objectBounds.find(uuid);
     if (bit == m_objectBounds.end())
@@ -3172,6 +3203,9 @@ Viewer3DController::GetFixturesInScreenRect(int x1, int y1, int x2, int y2,
   glGetDoublev(GL_PROJECTION_MATRIX, proj);
   glGetIntegerv(GL_VIEWPORT, viewport);
 
+  ConfigManager &cfg = ConfigManager::Get();
+  const auto hiddenLayers = SnapshotHiddenLayers(cfg);
+
   ScreenRect selectionRect;
   selectionRect.minX = std::max(0, std::min(x1, x2));
   selectionRect.maxX = std::min(width, std::max(x1, x2));
@@ -3212,10 +3246,9 @@ Viewer3DController::GetFixturesInScreenRect(int x1, int y1, int x2, int y2,
   };
 
   std::vector<std::string> selection;
-  ConfigManager &cfg = ConfigManager::Get();
   const auto &fixtures = SceneDataManager::Instance().GetFixtures();
   for (const auto &[uuid, f] : fixtures) {
-    if (!cfg.IsLayerVisible(f.layer))
+    if (!IsLayerVisibleCached(hiddenLayers, f.layer))
       continue;
     auto bit = m_fixtureBounds.find(uuid);
     if (bit == m_fixtureBounds.end())
@@ -3239,6 +3272,9 @@ Viewer3DController::GetTrussesInScreenRect(int x1, int y1, int x2, int y2,
   glGetDoublev(GL_MODELVIEW_MATRIX, model);
   glGetDoublev(GL_PROJECTION_MATRIX, proj);
   glGetIntegerv(GL_VIEWPORT, viewport);
+
+  ConfigManager &cfg = ConfigManager::Get();
+  const auto hiddenLayers = SnapshotHiddenLayers(cfg);
 
   ScreenRect selectionRect;
   selectionRect.minX = std::max(0, std::min(x1, x2));
@@ -3282,7 +3318,7 @@ Viewer3DController::GetTrussesInScreenRect(int x1, int y1, int x2, int y2,
   std::vector<std::string> selection;
   const auto &trusses = SceneDataManager::Instance().GetTrusses();
   for (const auto &[uuid, t] : trusses) {
-    if (!ConfigManager::Get().IsLayerVisible(t.layer))
+    if (!IsLayerVisibleCached(hiddenLayers, t.layer))
       continue;
     auto bit = m_trussBounds.find(uuid);
     if (bit == m_trussBounds.end())
@@ -3306,6 +3342,9 @@ Viewer3DController::GetSceneObjectsInScreenRect(int x1, int y1, int x2, int y2,
   glGetDoublev(GL_MODELVIEW_MATRIX, model);
   glGetDoublev(GL_PROJECTION_MATRIX, proj);
   glGetIntegerv(GL_VIEWPORT, viewport);
+
+  ConfigManager &cfg = ConfigManager::Get();
+  const auto hiddenLayers = SnapshotHiddenLayers(cfg);
 
   ScreenRect selectionRect;
   selectionRect.minX = std::max(0, std::min(x1, x2));
@@ -3349,7 +3388,7 @@ Viewer3DController::GetSceneObjectsInScreenRect(int x1, int y1, int x2, int y2,
   std::vector<std::string> selection;
   const auto &objs = SceneDataManager::Instance().GetSceneObjects();
   for (const auto &[uuid, o] : objs) {
-    if (!ConfigManager::Get().IsLayerVisible(o.layer))
+    if (!IsLayerVisibleCached(hiddenLayers, o.layer))
       continue;
     auto bit = m_objectBounds.find(uuid);
     if (bit == m_objectBounds.end())
