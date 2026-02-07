@@ -1499,36 +1499,36 @@ void Viewer2DPanel::OnRightUp(wxMouseEvent &event) {
   }
 
   wxMenu filterMenu;
-  wxMenu typeSubmenu;
-  wxMenu positionSubmenu;
+  auto typeSubmenu = std::make_unique<wxMenu>();
+  auto positionSubmenu = std::make_unique<wxMenu>();
 
   constexpr int kSelectTypeAllId = wxID_HIGHEST + 600;
   constexpr int kSelectTypeBaseId = wxID_HIGHEST + 601;
   constexpr int kSelectPositionNoneId = wxID_HIGHEST + 800;
   constexpr int kSelectPositionBaseId = wxID_HIGHEST + 801;
 
-  typeSubmenu.Append(kSelectTypeAllId, "All fixtures");
+  typeSubmenu->Append(kSelectTypeAllId, "All fixtures");
 
   std::vector<std::string> orderedTypes;
   orderedTypes.reserve(typeNames.size());
   int nextTypeId = kSelectTypeBaseId;
   for (const auto &name : typeNames) {
     orderedTypes.push_back(name);
-    typeSubmenu.Append(nextTypeId++, wxString::FromUTF8(name));
+    typeSubmenu->Append(nextTypeId++, wxString::FromUTF8(name));
   }
 
-  positionSubmenu.Append(kSelectPositionNoneId, "No position");
+  positionSubmenu->Append(kSelectPositionNoneId, "No position");
 
   std::vector<std::string> orderedPositions;
   orderedPositions.reserve(positionNames.size());
   int nextPositionId = kSelectPositionBaseId;
   for (const auto &name : positionNames) {
     orderedPositions.push_back(name);
-    positionSubmenu.Append(nextPositionId++, wxString::FromUTF8(name));
+    positionSubmenu->Append(nextPositionId++, wxString::FromUTF8(name));
   }
 
-  filterMenu.AppendSubMenu(&typeSubmenu, "Select by fixture type");
-  filterMenu.AppendSubMenu(&positionSubmenu, "Select by position");
+  filterMenu.AppendSubMenu(typeSubmenu.release(), "Select by fixture type");
+  filterMenu.AppendSubMenu(positionSubmenu.release(), "Select by position");
 
   const int selectedId =
       GetPopupMenuSelectionFromUser(filterMenu, event.GetPosition());
