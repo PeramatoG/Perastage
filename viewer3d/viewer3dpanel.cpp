@@ -171,6 +171,28 @@ void Viewer3DPanel::InitGL()
     glClearColor(0.08f, 0.08f, 0.08f, 1.0f);
 }
 
+std::array<float, 6> Viewer3DPanel::GetCameraState() const
+{
+    return {m_camera.GetYaw(), m_camera.GetPitch(), m_camera.GetDistance(),
+            m_camera.GetTargetX(), m_camera.GetTargetY(), m_camera.GetTargetZ()};
+}
+
+bool Viewer3DPanel::CanReuseHoverCache(int width, int height) const
+{
+    if (!m_hoverCache.valid)
+        return false;
+    if (m_hoverCache.mousePos != m_lastMousePos)
+        return false;
+    if (m_hoverCache.viewport.GetWidth() != width || m_hoverCache.viewport.GetHeight() != height)
+        return false;
+    return m_hoverCache.cameraState == GetCameraState();
+}
+
+void Viewer3DPanel::InvalidateHoverCache()
+{
+    m_hoverCache.valid = false;
+}
+
 // Paint event handler
 void Viewer3DPanel::OnPaint(wxPaintEvent& event)
 {
@@ -190,37 +212,58 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
     wxString newLabel;
     wxPoint newPos;
     std::string newUuid;
+    wxRect newRect;
+    double newDepth = 0.0;
     bool found = false;
 
-    if (FixtureTablePanel::Instance() && FixtureTablePanel::Instance()->IsActivePage()) {
-        found = m_controller.GetFixtureLabelAt(m_lastMousePos.x, m_lastMousePos.y,
-            w, h, newLabel, newPos, &newUuid);
-        if (found) {
-            if (TrussTablePanel::Instance())
-                TrussTablePanel::Instance()->HighlightTruss(std::string());
-            if (SceneObjectTablePanel::Instance())
-                SceneObjectTablePanel::Instance()->HighlightObject(std::string());
+    if (CanReuseHoverCache(w, h)) {
+        found = !m_hoverCache.uuid.empty();
+        newLabel = m_hoverCache.label;
+        newPos = m_hoverCache.pos;
+        newUuid = m_hoverCache.uuid;
+        newRect = m_hoverCache.projectedRect;
+        newDepth = m_hoverCache.depth;
+    } else {
+        if (FixtureTablePanel::Instance() && FixtureTablePanel::Instance()->IsActivePage()) {
+            found = m_controller.GetFixtureLabelAt(m_lastMousePos.x, m_lastMousePos.y,
+                w, h, newLabel, newPos, &newUuid, &newRect, &newDepth);
+            if (found) {
+                if (TrussTablePanel::Instance())
+                    TrussTablePanel::Instance()->HighlightTruss(std::string());
+                if (SceneObjectTablePanel::Instance())
+                    SceneObjectTablePanel::Instance()->HighlightObject(std::string());
+            }
         }
-    }
-    else if (TrussTablePanel::Instance() && TrussTablePanel::Instance()->IsActivePage()) {
-        found = m_controller.GetTrussLabelAt(m_lastMousePos.x, m_lastMousePos.y,
-            w, h, newLabel, newPos, &newUuid);
-        if (found) {
-            if (FixtureTablePanel::Instance())
-                FixtureTablePanel::Instance()->HighlightFixture(std::string());
-            if (SceneObjectTablePanel::Instance())
-                SceneObjectTablePanel::Instance()->HighlightObject(std::string());
+        else if (TrussTablePanel::Instance() && TrussTablePanel::Instance()->IsActivePage()) {
+            found = m_controller.GetTrussLabelAt(m_lastMousePos.x, m_lastMousePos.y,
+                w, h, newLabel, newPos, &newUuid, &newRect, &newDepth);
+            if (found) {
+                if (FixtureTablePanel::Instance())
+                    FixtureTablePanel::Instance()->HighlightFixture(std::string());
+                if (SceneObjectTablePanel::Instance())
+                    SceneObjectTablePanel::Instance()->HighlightObject(std::string());
+            }
         }
-    }
-    else if (SceneObjectTablePanel::Instance() && SceneObjectTablePanel::Instance()->IsActivePage()) {
-        found = m_controller.GetSceneObjectLabelAt(m_lastMousePos.x, m_lastMousePos.y,
-            w, h, newLabel, newPos, &newUuid);
-        if (found) {
-            if (FixtureTablePanel::Instance())
-                FixtureTablePanel::Instance()->HighlightFixture(std::string());
-            if (TrussTablePanel::Instance())
-                TrussTablePanel::Instance()->HighlightTruss(std::string());
+        else if (SceneObjectTablePanel::Instance() && SceneObjectTablePanel::Instance()->IsActivePage()) {
+            found = m_controller.GetSceneObjectLabelAt(m_lastMousePos.x, m_lastMousePos.y,
+                w, h, newLabel, newPos, &newUuid, &newRect, &newDepth);
+            if (found) {
+                if (FixtureTablePanel::Instance())
+                    FixtureTablePanel::Instance()->HighlightFixture(std::string());
+                if (TrussTablePanel::Instance())
+                    TrussTablePanel::Instance()->HighlightTruss(std::string());
+            }
         }
+
+        m_hoverCache.valid = true;
+        m_hoverCache.mousePos = m_lastMousePos;
+        m_hoverCache.viewport = wxSize(w, h);
+        m_hoverCache.cameraState = GetCameraState();
+        m_hoverCache.label = newLabel;
+        m_hoverCache.pos = newPos;
+        m_hoverCache.uuid = found ? newUuid : std::string();
+        m_hoverCache.projectedRect = newRect;
+        m_hoverCache.depth = found ? newDepth : 0.0;
     }
 
     if (found) {
@@ -238,6 +281,7 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
     }
     else if (!m_hasHover || m_mouseMoved) {
         m_hasHover = false;
+        m_hoverUuid.clear();
         m_controller.SetHighlightUuid("");
         if (FixtureTablePanel::Instance())
             FixtureTablePanel::Instance()->HighlightFixture(std::string());
@@ -265,6 +309,7 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
 // Resize event handler
 void Viewer3DPanel::OnResize(wxSizeEvent& event)
 {
+    InvalidateHoverCache();
     Refresh();
 }
 
@@ -710,10 +755,12 @@ void Viewer3DPanel::OnMouseMove(wxMouseEvent& event)
         if (m_mode == InteractionMode::Orbit && event.LeftIsDown())
         {
             m_camera.Orbit(dx * 0.5f, -dy * 0.5f);
+            InvalidateHoverCache();
         }
         else if (m_mode == InteractionMode::Pan && (event.MiddleIsDown() || event.ShiftDown()))
         {
             m_camera.Pan(-dx * 0.01f, dy * 0.01f);
+            InvalidateHoverCache();
         }
     }
 
@@ -721,6 +768,7 @@ void Viewer3DPanel::OnMouseMove(wxMouseEvent& event)
 
     // Mark that the mouse has moved so OnPaint can update hover info
     m_mouseMoved = true;
+    InvalidateHoverCache();
 
     Refresh();
 }
@@ -738,6 +786,7 @@ void Viewer3DPanel::OnMouseWheel(wxMouseEvent& event)
     if (deltaWheel != 0)
         steps = -static_cast<float>(rotation) / static_cast<float>(deltaWheel);
     m_camera.Zoom(steps);
+    InvalidateHoverCache();
     Refresh();
 }
 
@@ -848,6 +897,7 @@ void Viewer3DPanel::OnMouseLeave(wxMouseEvent& event)
     m_mouseInside = false;
     m_hasHover = false;
     m_hoverUuid.clear();
+    InvalidateHoverCache();
     m_controller.SetHighlightUuid("");
     if (FixtureTablePanel::Instance())
         FixtureTablePanel::Instance()->HighlightFixture(std::string());
@@ -863,6 +913,7 @@ void Viewer3DPanel::OnMouseLeave(wxMouseEvent& event)
 void Viewer3DPanel::UpdateScene()
 {
     m_controller.Update();
+    InvalidateHoverCache();
     if (Viewer2DPanel::Instance())
         Viewer2DPanel::Instance()->UpdateScene();
 }
@@ -926,6 +977,7 @@ void Viewer3DPanel::LoadCameraFromConfig()
     m_camera.SetOrientation(yaw, pitch);
     m_camera.SetDistance(dist);
     m_camera.SetTarget(tx, ty, tz);
+    InvalidateHoverCache();
 
     if (ConsolePanel::Instance()) {
         wxString msg;

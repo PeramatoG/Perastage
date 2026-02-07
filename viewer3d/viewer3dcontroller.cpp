@@ -39,6 +39,7 @@
 #include <GL/gl.h>
 #include <GL/glu.h>
 #endif
+#include <chrono>
 #include <cstdlib>
 #include <numeric>
 
@@ -329,6 +330,101 @@ struct ScreenRect {
   double maxX = -DBL_MAX;
   double maxY = -DBL_MAX;
 };
+
+struct HitTestPerfStats {
+  uint64_t calls = 0;
+  uint64_t totalMicros = 0;
+  uint64_t totalCandidates = 0;
+  uint64_t totalProjected = 0;
+  uint64_t totalPrefiltered = 0;
+};
+
+static double EyeZToDepth(double eyeZ, const double proj[16]) {
+  const double clipW = -eyeZ;
+  if (std::abs(clipW) < 1e-9)
+    return 1.0;
+  const double clipZ = proj[10] * eyeZ + proj[14];
+  const double ndcZ = clipZ / clipW;
+  return 0.5 * ndcZ + 0.5;
+}
+
+static bool PrefilterBoundsForProjection(const std::array<float, 3> &minBound,
+                                         const std::array<float, 3> &maxBound,
+                                         const double model[16],
+                                         const double proj[16],
+                                         double bestDepth,
+                                         double *outNearestDepth) {
+  std::array<std::array<double, 3>, 8> corners = {
+      std::array<double, 3>{minBound[0], minBound[1], minBound[2]},
+      {maxBound[0], minBound[1], minBound[2]},
+      {minBound[0], maxBound[1], minBound[2]},
+      {maxBound[0], maxBound[1], minBound[2]},
+      {minBound[0], minBound[1], maxBound[2]},
+      {maxBound[0], minBound[1], maxBound[2]},
+      {minBound[0], maxBound[1], maxBound[2]},
+      {maxBound[0], maxBound[1], maxBound[2]}};
+
+  double minEyeX = DBL_MAX, maxEyeX = -DBL_MAX;
+  double minEyeY = DBL_MAX, maxEyeY = -DBL_MAX;
+  double minEyeZ = DBL_MAX, maxEyeZ = -DBL_MAX;
+  for (const auto &c : corners) {
+    const double ex = model[0] * c[0] + model[4] * c[1] + model[8] * c[2] + model[12];
+    const double ey = model[1] * c[0] + model[5] * c[1] + model[9] * c[2] + model[13];
+    const double ez = model[2] * c[0] + model[6] * c[1] + model[10] * c[2] + model[14];
+    minEyeX = std::min(minEyeX, ex); maxEyeX = std::max(maxEyeX, ex);
+    minEyeY = std::min(minEyeY, ey); maxEyeY = std::max(maxEyeY, ey);
+    minEyeZ = std::min(minEyeZ, ez); maxEyeZ = std::max(maxEyeZ, ez);
+  }
+
+  const double near = proj[14] / (proj[10] - 1.0);
+  const double far = proj[14] / (proj[10] + 1.0);
+  const double nearPos = std::abs(near);
+  const double farPos = std::abs(far);
+
+  if (maxEyeZ > -nearPos || minEyeZ < -farPos)
+    return false;
+
+  const double zAbsMax = std::max(std::abs(minEyeZ), std::abs(maxEyeZ));
+  const double xLimit = zAbsMax / std::max(1e-6, proj[0]);
+  const double yLimit = zAbsMax / std::max(1e-6, proj[5]);
+  if (minEyeX > xLimit || maxEyeX < -xLimit || minEyeY > yLimit || maxEyeY < -yLimit)
+    return false;
+
+  const double nearestDepth = EyeZToDepth(maxEyeZ, proj);
+  if (outNearestDepth)
+    *outNearestDepth = nearestDepth;
+  if (nearestDepth > bestDepth)
+    return false;
+
+  return true;
+}
+
+static void LogHitTestStats(const char *name, HitTestPerfStats &stats,
+                            uint64_t elapsedMicros, uint64_t candidates,
+                            uint64_t projected, uint64_t prefiltered) {
+  stats.calls += 1;
+  stats.totalMicros += elapsedMicros;
+  stats.totalCandidates += candidates;
+  stats.totalProjected += projected;
+  stats.totalPrefiltered += prefiltered;
+
+  constexpr uint64_t kLogEveryCalls = 240;
+  if ((stats.calls % kLogEveryCalls) != 0)
+    return;
+
+  const double avgUs = static_cast<double>(stats.totalMicros) / static_cast<double>(stats.calls);
+  const double avgCandidates = static_cast<double>(stats.totalCandidates) / static_cast<double>(stats.calls);
+  const double avgProjected = static_cast<double>(stats.totalProjected) / static_cast<double>(stats.calls);
+  const double avgPrefiltered = static_cast<double>(stats.totalPrefiltered) / static_cast<double>(stats.calls);
+
+  std::ostringstream msg;
+  msg << "[hit-test] " << name << " calls=" << stats.calls
+      << " avg_us=" << std::fixed << std::setprecision(2) << avgUs
+      << " avg_candidates=" << avgCandidates
+      << " avg_projected=" << avgProjected
+      << " avg_prefiltered=" << avgPrefiltered;
+  Logger::Instance().Log(msg.str());
+}
 
 // Inserts a line break every two words in the provided text.
 static wxString WrapEveryTwoWords(const wxString &text) {
@@ -2829,7 +2925,15 @@ void Viewer3DController::DrawAllFixtureLabels(int width, int height,
 bool Viewer3DController::GetFixtureLabelAt(int mouseX, int mouseY, int width,
                                            int height, wxString &outLabel,
                                            wxPoint &outPos,
-                                           std::string *outUuid) {
+                                           std::string *outUuid,
+                                           wxRect *outProjectedRect,
+                                           double *outDepth) {
+  const auto begin = std::chrono::steady_clock::now();
+  static HitTestPerfStats stats;
+  uint64_t candidates = 0;
+  uint64_t projected = 0;
+  uint64_t prefiltered = 0;
+
   double model[16];
   double proj[16];
   int viewport[4];
@@ -2849,6 +2953,7 @@ bool Viewer3DController::GetFixtureLabelAt(int mouseX, int mouseY, int width,
   wxString bestLabel;
   wxPoint bestPos;
   std::string bestUuid;
+  ScreenRect bestRect;
 
   for (const auto &[uuid, f] : fixtures) {
     if (!IsLayerVisibleCached(hiddenLayers, f.layer))
@@ -2856,8 +2961,16 @@ bool Viewer3DController::GetFixtureLabelAt(int mouseX, int mouseY, int width,
     auto bit = m_fixtureBounds.find(uuid);
     if (bit == m_fixtureBounds.end())
       continue;
+    ++candidates;
 
     const BoundingBox &bb = bit->second;
+    double nearestDepth = DBL_MAX;
+    if (!PrefilterBoundsForProjection(bb.min, bb.max, model, proj, bestDepth,
+                                      &nearestDepth)) {
+      ++prefiltered;
+      continue;
+    }
+
     std::array<std::array<float, 3>, 8> corners = {
         std::array<float, 3>{bb.min[0], bb.min[1], bb.min[2]},
         {bb.max[0], bb.min[1], bb.min[2]},
@@ -2875,6 +2988,7 @@ bool Viewer3DController::GetFixtureLabelAt(int mouseX, int mouseY, int width,
       double sx, sy, sz;
       if (gluProject(c[0], c[1], c[2], model, proj, viewport, &sx, &sy, &sz) ==
           GL_TRUE) {
+        ++projected;
         rect.minX = std::min(rect.minX, sx);
         rect.maxX = std::max(rect.maxX, sx);
         double sy2 = height - sy;
@@ -2914,6 +3028,7 @@ bool Viewer3DController::GetFixtureLabelAt(int mouseX, int mouseY, int width,
         bestPos.y = static_cast<int>((rect.minY + rect.maxY) * 0.5);
         bestLabel = label;
         bestUuid = uuid;
+        bestRect = rect;
         found = true;
       }
     }
@@ -2924,10 +3039,22 @@ bool Viewer3DController::GetFixtureLabelAt(int mouseX, int mouseY, int width,
     outLabel = bestLabel;
     if (outUuid)
       *outUuid = bestUuid;
+    if (outProjectedRect) {
+      *outProjectedRect = wxRect(static_cast<int>(bestRect.minX),
+                                 static_cast<int>(bestRect.minY),
+                                 static_cast<int>(bestRect.maxX - bestRect.minX),
+                                 static_cast<int>(bestRect.maxY - bestRect.minY));
+    }
+    if (outDepth)
+      *outDepth = bestDepth;
   }
+
+  const auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(
+      std::chrono::steady_clock::now() - begin);
+  LogHitTestStats("fixture", stats, static_cast<uint64_t>(elapsed.count()),
+                  candidates, projected, prefiltered);
   return found;
 }
-
 void Viewer3DController::DrawTrussLabels(int width, int height) {
 
   double model[16];
@@ -3028,7 +3155,15 @@ void Viewer3DController::DrawSceneObjectLabels(int width, int height) {
 bool Viewer3DController::GetTrussLabelAt(int mouseX, int mouseY, int width,
                                          int height, wxString &outLabel,
                                          wxPoint &outPos,
-                                         std::string *outUuid) {
+                                         std::string *outUuid,
+                                         wxRect *outProjectedRect,
+                                         double *outDepth) {
+  const auto begin = std::chrono::steady_clock::now();
+  static HitTestPerfStats stats;
+  uint64_t candidates = 0;
+  uint64_t projected = 0;
+  uint64_t prefiltered = 0;
+
   double model[16];
   double proj[16];
   int viewport[4];
@@ -3044,14 +3179,23 @@ bool Viewer3DController::GetTrussLabelAt(int mouseX, int mouseY, int width,
   wxString bestLabel;
   wxPoint bestPos;
   std::string bestUuid;
+  ScreenRect bestRect;
   for (const auto &[uuid, t] : trusses) {
     if (!IsLayerVisibleCached(hiddenLayers, t.layer))
       continue;
     auto bit = m_trussBounds.find(uuid);
     if (bit == m_trussBounds.end())
       continue;
+    ++candidates;
 
     const BoundingBox &bb = bit->second;
+    double nearestDepth = DBL_MAX;
+    if (!PrefilterBoundsForProjection(bb.min, bb.max, model, proj, bestDepth,
+                                      &nearestDepth)) {
+      ++prefiltered;
+      continue;
+    }
+
     std::array<std::array<float, 3>, 8> corners = {
         std::array<float, 3>{bb.min[0], bb.min[1], bb.min[2]},
         {bb.max[0], bb.min[1], bb.min[2]},
@@ -3069,6 +3213,7 @@ bool Viewer3DController::GetTrussLabelAt(int mouseX, int mouseY, int width,
       double sx, sy, sz;
       if (gluProject(c[0], c[1], c[2], model, proj, viewport, &sx, &sy, &sz) ==
           GL_TRUE) {
+        ++projected;
         rect.minX = std::min(rect.minX, sx);
         rect.maxX = std::max(rect.maxX, sx);
         double sy2 = height - sy;
@@ -3096,6 +3241,7 @@ bool Viewer3DController::GetTrussLabelAt(int mouseX, int mouseY, int width,
         std::string hStr = FormatMeters(baseHeight);
         bestLabel += wxString::Format("\nh = %s m", hStr.c_str());
         bestUuid = uuid;
+        bestRect = rect;
         found = true;
       }
     }
@@ -3106,15 +3252,35 @@ bool Viewer3DController::GetTrussLabelAt(int mouseX, int mouseY, int width,
     outLabel = bestLabel;
     if (outUuid)
       *outUuid = bestUuid;
+    if (outProjectedRect) {
+      *outProjectedRect = wxRect(static_cast<int>(bestRect.minX),
+                                 static_cast<int>(bestRect.minY),
+                                 static_cast<int>(bestRect.maxX - bestRect.minX),
+                                 static_cast<int>(bestRect.maxY - bestRect.minY));
+    }
+    if (outDepth)
+      *outDepth = bestDepth;
   }
+
+  const auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(
+      std::chrono::steady_clock::now() - begin);
+  LogHitTestStats("truss", stats, static_cast<uint64_t>(elapsed.count()),
+                  candidates, projected, prefiltered);
   return found;
 }
-
 bool Viewer3DController::GetSceneObjectLabelAt(int mouseX, int mouseY,
                                                int width, int height,
                                                wxString &outLabel,
                                                wxPoint &outPos,
-                                               std::string *outUuid) {
+                                               std::string *outUuid,
+                                               wxRect *outProjectedRect,
+                                               double *outDepth) {
+  const auto begin = std::chrono::steady_clock::now();
+  static HitTestPerfStats stats;
+  uint64_t candidates = 0;
+  uint64_t projected = 0;
+  uint64_t prefiltered = 0;
+
   double model[16];
   double proj[16];
   int viewport[4];
@@ -3130,14 +3296,23 @@ bool Viewer3DController::GetSceneObjectLabelAt(int mouseX, int mouseY,
   wxString bestLabel;
   wxPoint bestPos;
   std::string bestUuid;
+  ScreenRect bestRect;
   for (const auto &[uuid, o] : objs) {
     if (!IsLayerVisibleCached(hiddenLayers, o.layer))
       continue;
     auto bit = m_objectBounds.find(uuid);
     if (bit == m_objectBounds.end())
       continue;
+    ++candidates;
 
     const BoundingBox &bb = bit->second;
+    double nearestDepth = DBL_MAX;
+    if (!PrefilterBoundsForProjection(bb.min, bb.max, model, proj, bestDepth,
+                                      &nearestDepth)) {
+      ++prefiltered;
+      continue;
+    }
+
     std::array<std::array<float, 3>, 8> corners = {
         std::array<float, 3>{bb.min[0], bb.min[1], bb.min[2]},
         {bb.max[0], bb.min[1], bb.min[2]},
@@ -3155,6 +3330,7 @@ bool Viewer3DController::GetSceneObjectLabelAt(int mouseX, int mouseY,
       double sx, sy, sz;
       if (gluProject(c[0], c[1], c[2], model, proj, viewport, &sx, &sy, &sz) ==
           GL_TRUE) {
+        ++projected;
         rect.minX = std::min(rect.minX, sx);
         rect.maxX = std::max(rect.maxX, sx);
         double sy2 = height - sy;
@@ -3179,6 +3355,7 @@ bool Viewer3DController::GetSceneObjectLabelAt(int mouseX, int mouseY,
         bestLabel = o.name.empty() ? wxString::FromUTF8(uuid)
                                    : wxString::FromUTF8(o.name);
         bestUuid = uuid;
+        bestRect = rect;
         found = true;
       }
     }
@@ -3189,10 +3366,23 @@ bool Viewer3DController::GetSceneObjectLabelAt(int mouseX, int mouseY,
     outLabel = bestLabel;
     if (outUuid)
       *outUuid = bestUuid;
+    if (outProjectedRect) {
+      *outProjectedRect = wxRect(static_cast<int>(bestRect.minX),
+                                 static_cast<int>(bestRect.minY),
+                                 static_cast<int>(bestRect.maxX - bestRect.minX),
+                                 static_cast<int>(bestRect.maxY - bestRect.minY));
+    }
+    if (outDepth)
+      *outDepth = bestDepth;
   }
+
+  const auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(
+      std::chrono::steady_clock::now() - begin);
+  LogHitTestStats("scene_object", stats,
+                  static_cast<uint64_t>(elapsed.count()), candidates, projected,
+                  prefiltered);
   return found;
 }
-
 std::vector<std::string>
 Viewer3DController::GetFixturesInScreenRect(int x1, int y1, int x2, int y2,
                                             int width, int height) const {
