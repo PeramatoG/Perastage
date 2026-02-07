@@ -275,6 +275,17 @@ NormalizeRangeTokens(const std::vector<std::string> &tokens) {
         continue;
       }
     }
+    size_t dashPos = token.find('-');
+    if (dashPos != std::string::npos && dashPos > 0 &&
+        dashPos + 1 < token.size() && token.find('-', dashPos + 1) == std::string::npos) {
+      std::string before = token.substr(0, dashPos);
+      std::string after = token.substr(dashPos + 1);
+      if (isNumberToken(before) && isNumberToken(after)) {
+        out.push_back(before);
+        out.push_back(after);
+        continue;
+      }
+    }
     out.push_back(token);
   }
   return out;
@@ -311,9 +322,8 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
         auto end = token.data() + token.size();
         auto result = std::from_chars(begin, end, value);
         if (result.ec != std::errc{} || result.ptr != end) {
-          AppendMessage(
-              wxString::Format("Invalid selection id: %s",
-                               wxString::FromUTF8(token)));
+          AppendMessage(wxString::Format("Invalid selection id: %s",
+                                         wxString::FromUTF8(token).c_str()));
           return false;
         }
         return true;
