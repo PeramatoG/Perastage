@@ -92,6 +92,7 @@ public:
 
     // Layer visibility management
     std::unordered_set<std::string> GetHiddenLayers() const;
+    const std::unordered_set<std::string>& GetHiddenLayersCached() const;
     void SetHiddenLayers(const std::unordered_set<std::string>& layers);
     bool IsLayerVisible(const std::string& layer) const;
 
@@ -165,6 +166,9 @@ private:
     size_t savedRevision = 0;
 
     bool suppressRevision = false;
+
+    mutable std::unordered_set<std::string> hiddenLayersCache;
+    mutable bool hiddenLayersCacheValid = false;
 
     std::string currentLayer = DEFAULT_LAYER_NAME;
 };

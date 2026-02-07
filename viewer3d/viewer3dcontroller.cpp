@@ -1027,6 +1027,13 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
                                      int gridStyle, float gridR, float gridG,
                                      float gridB, bool gridOnTop,
                                      bool is2DViewer) {
+  ConfigManager &cfg = ConfigManager::Get();
+  const auto &hiddenLayers = cfg.GetHiddenLayersCached();
+  auto isLayerVisibleInFrame = [&hiddenLayers](const std::string &layer) {
+    const std::string name = layer.empty() ? DEFAULT_LAYER_NAME : layer;
+    return hiddenLayers.find(name) == hiddenLayers.end();
+  };
+
   if (wireframe)
     glDisable(GL_LIGHTING);
   else
@@ -1044,7 +1051,7 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
   };
   auto getLayerColor = [&](const std::string &key) {
     std::array<float, 3> c;
-    auto opt = ConfigManager::Get().GetLayerColor(key);
+    auto opt = cfg.GetLayerColor(key);
     if (opt && HexToRGB(*opt, c[0], c[1], c[2])) {
       m_layerColors[key] = c;
       return c;
@@ -1055,7 +1062,7 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
   };
   if (showGrid && !gridOnTop)
     DrawGrid(gridStyle, gridR, gridG, gridB, view);
-  const std::string &base = ConfigManager::Get().GetScene().basePath;
+  const std::string &base = cfg.GetScene().basePath;
   auto resolveSymbolView = [](Viewer2DView viewKind) {
     switch (viewKind) {
     case Viewer2DView::Top:
@@ -1084,7 +1091,7 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
   for (const auto *entry : sortedObjs) {
     const auto &uuid = entry->first;
     const auto &m = entry->second;
-    if (!ConfigManager::Get().IsLayerVisible(m.layer))
+    if (!isLayerVisibleInFrame(m.layer))
       continue;
     glPushMatrix();
 
@@ -1250,7 +1257,7 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
   for (const auto *entry : sortedTrusses) {
     const auto &uuid = entry->first;
     const auto &t = entry->second;
-    if (!ConfigManager::Get().IsLayerVisible(t.layer))
+    if (!isLayerVisibleInFrame(t.layer))
       continue;
     glPushMatrix();
 
@@ -1437,7 +1444,7 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
   for (const auto *entry : sortedFixtures) {
     const auto &uuid = entry->first;
     const auto &f = entry->second;
-    if (!ConfigManager::Get().IsLayerVisible(f.layer))
+    if (!isLayerVisibleInFrame(f.layer))
       continue;
     glPushMatrix();
 
@@ -2483,6 +2490,11 @@ void Viewer3DController::DrawFixtureLabels(int width, int height) {
   glGetIntegerv(GL_VIEWPORT, viewport);
 
   ConfigManager &cfg = ConfigManager::Get();
+  const auto &hiddenLayers = cfg.GetHiddenLayersCached();
+  auto isLayerVisibleInFrame = [&hiddenLayers](const std::string &layer) {
+    const std::string name = layer.empty() ? DEFAULT_LAYER_NAME : layer;
+    return hiddenLayers.find(name) == hiddenLayers.end();
+  };
   bool showName = cfg.GetFloat("label_show_name") != 0.0f;
   bool showId = cfg.GetFloat("label_show_id") != 0.0f;
   bool showDmx = cfg.GetFloat("label_show_dmx") != 0.0f;
@@ -2497,7 +2509,7 @@ void Viewer3DController::DrawFixtureLabels(int width, int height) {
 
   const auto &fixtures = SceneDataManager::Instance().GetFixtures();
   for (const auto &[uuid, f] : fixtures) {
-    if (!cfg.IsLayerVisible(f.layer))
+    if (!isLayerVisibleInFrame(f.layer))
       continue;
     if (uuid != m_highlightUuid)
       continue;
@@ -2563,6 +2575,11 @@ void Viewer3DController::DrawAllFixtureLabels(int width, int height,
   glGetIntegerv(GL_VIEWPORT, viewport);
 
   ConfigManager &cfg = ConfigManager::Get();
+  const auto &hiddenLayers = cfg.GetHiddenLayersCached();
+  auto isLayerVisibleInFrame = [&hiddenLayers](const std::string &layer) {
+    const std::string name = layer.empty() ? DEFAULT_LAYER_NAME : layer;
+    return hiddenLayers.find(name) == hiddenLayers.end();
+  };
   const std::array<const char *, 4> nameKeys = {"label_show_name_top",
                                                "label_show_name_front",
                                                "label_show_name_side",
@@ -2618,7 +2635,7 @@ void Viewer3DController::DrawAllFixtureLabels(int width, int height,
 
   const auto &fixtures = SceneDataManager::Instance().GetFixtures();
   for (const auto &[uuid, f] : fixtures) {
-    if (!cfg.IsLayerVisible(f.layer))
+    if (!isLayerVisibleInFrame(f.layer))
       continue;
 
     double wx, wy, wz;

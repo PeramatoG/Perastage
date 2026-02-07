@@ -247,6 +247,8 @@ void ConfigManager::SetValue(const std::string &key, const std::string &value) {
     return;
 
   configData[key] = newValue;
+  if (key == "hidden_layers")
+    hiddenLayersCacheValid = false;
   if (!suppressRevision)
     ++revision;
 }
@@ -296,14 +298,19 @@ bool ConfigManager::HasKey(const std::string &key) const {
 
 void ConfigManager::RemoveKey(const std::string &key) {
   size_t erased = configData.erase(key);
-  if (erased > 0 && !suppressRevision)
-    ++revision;
+  if (erased > 0) {
+    if (key == "hidden_layers")
+      hiddenLayersCacheValid = false;
+    if (!suppressRevision)
+      ++revision;
+  }
 }
 
 void ConfigManager::ClearValues() {
   if (configData.empty())
     return;
   configData.clear();
+  hiddenLayersCacheValid = false;
   if (!suppressRevision)
     ++revision;
 }
@@ -440,24 +447,41 @@ void ConfigManager::SetSceneObjectPrintColumns(
 }
 
 std::unordered_set<std::string> ConfigManager::GetHiddenLayers() const {
-  std::unordered_set<std::string> out;
-  auto val = GetValue("hidden_layers");
-  if (val) {
-    for (const auto &s : SplitCSV(*val))
-      out.insert(s);
+  return GetHiddenLayersCached();
+}
+
+const std::unordered_set<std::string> &ConfigManager::GetHiddenLayersCached() const {
+  if (!hiddenLayersCacheValid) {
+    hiddenLayersCache.clear();
+    auto val = GetValue("hidden_layers");
+    if (val) {
+      for (const auto &s : SplitCSV(*val)) {
+        const std::string name = s.empty() ? DEFAULT_LAYER_NAME : s;
+        hiddenLayersCache.insert(name);
+      }
+    }
+    hiddenLayersCacheValid = true;
   }
-  return out;
+  return hiddenLayersCache;
 }
 
 void ConfigManager::SetHiddenLayers(
     const std::unordered_set<std::string> &layers) {
-  std::vector<std::string> v(layers.begin(), layers.end());
+  std::vector<std::string> v;
+  v.reserve(layers.size());
+  for (const auto &layer : layers)
+    v.push_back(layer.empty() ? DEFAULT_LAYER_NAME : layer);
   SetValue("hidden_layers", JoinCSV(v));
+  hiddenLayersCache.clear();
+  hiddenLayersCache.reserve(v.size());
+  for (const auto &layer : v)
+    hiddenLayersCache.insert(layer);
+  hiddenLayersCacheValid = true;
 }
 
 bool ConfigManager::IsLayerVisible(const std::string &layer) const {
-  std::string name = layer.empty() ? DEFAULT_LAYER_NAME : layer;
-  auto hidden = GetHiddenLayers();
+  const std::string name = layer.empty() ? DEFAULT_LAYER_NAME : layer;
+  const auto &hidden = GetHiddenLayersCached();
   return hidden.find(name) == hidden.end();
 }
 
