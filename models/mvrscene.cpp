@@ -26,6 +26,8 @@ void MvrScene::Clear() {
     positions.clear();
     symdefFiles.clear();
     symdefTypes.clear();
+    symdefMatrices.clear();
+    symdefGeometries.clear();
     provider.clear();
     providerVersion.clear();
     basePath.clear();

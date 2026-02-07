@@ -10,6 +10,10 @@ find_package(tinyxml2 CONFIG REQUIRED)
 
 enable_testing()
 
+add_executable(matrixutils_test matrixutils_test.cpp)
+target_include_directories(matrixutils_test PRIVATE ../models)
+add_test(NAME MatrixUtilsParsingAndComposition COMMAND matrixutils_test)
+
 function(set_library_env TEST_NAME)
     set_tests_properties(${TEST_NAME} PROPERTIES ENVIRONMENT "PERASTAGE_LIBRARY_PATH=${CMAKE_SOURCE_DIR}/library")
 endfunction()
