@@ -43,6 +43,7 @@
 #include "configmanager.h"
 #include "canvas2d.h"
 #include "fixturetablepanel.h"
+#include "fixturepatchdialog.h"
 #include "logger.h"
 #include "positionvalueupdate.h"
 #include "sceneobjecttablepanel.h"
@@ -210,6 +211,7 @@ Viewer2DPanel *g_instance = nullptr;
 wxBEGIN_EVENT_TABLE(Viewer2DPanel, wxGLCanvas) EVT_PAINT(Viewer2DPanel::OnPaint)
     EVT_LEFT_DOWN(Viewer2DPanel::OnMouseDown) EVT_LEFT_UP(
         Viewer2DPanel::OnMouseUp) EVT_MOTION(Viewer2DPanel::OnMouseMove)
+        EVT_LEFT_DCLICK(Viewer2DPanel::OnMouseDClick)
         EVT_MOUSEWHEEL(Viewer2DPanel::OnMouseWheel)
             EVT_KEY_DOWN(Viewer2DPanel::OnKeyDown)
                 EVT_ENTER_WINDOW(Viewer2DPanel::OnMouseEnter)
@@ -1210,6 +1212,44 @@ void Viewer2DPanel::OnMouseDown(wxMouseEvent &event) {
       m_dragTarget = target;
     }
   }
+}
+
+void Viewer2DPanel::OnMouseDClick(wxMouseEvent &event) {
+  int w, h;
+  GetClientSize(&w, &h);
+  if (w <= 0 || h <= 0 || !IsShownOnScreen())
+    return;
+
+  SetCurrent(*m_glContext);
+  wxString label;
+  wxPoint pos;
+  std::string uuid;
+  if (!m_controller.GetFixtureLabelAt(event.GetX(), event.GetY(), w, h, label,
+                                      pos, &uuid))
+    return;
+
+  auto &scene = ConfigManager::Get().GetScene();
+  auto it = scene.fixtures.find(uuid);
+  if (it == scene.fixtures.end())
+    return;
+
+  FixturePatchDialog dlg(this, it->second);
+  if (dlg.ShowModal() != wxID_OK)
+    return;
+
+  it->second.fixtureId = dlg.GetFixtureId();
+  int uni = dlg.GetUniverse();
+  int ch = dlg.GetChannel();
+  if (uni > 0 && ch > 0)
+    it->second.address = wxString::Format("%d.%d", uni, ch).ToStdString();
+  else
+    it->second.address.clear();
+
+  if (FixtureTablePanel::Instance())
+    FixtureTablePanel::Instance()->ReloadData();
+
+  UpdateScene(false);
+  Refresh();
 }
 
 void Viewer2DPanel::OnMouseUp(wxMouseEvent &event) {
