@@ -23,7 +23,35 @@ struct Mesh {
     std::vector<float> vertices; // x,y,z order in mm
     std::vector<unsigned short> indices; // 3 indices per triangle
     std::vector<float> normals;  // optional per-vertex normals
+    // Reusable line-list vertices for wireframe/outline rendering.
+    // Stores XYZ triplets already expanded as GL_LINES vertices.
+    std::vector<float> wireframeVertices;
+
+    // GPU resources for fixed-pipeline vertex-array rendering.
+    // 0 means "not allocated".
+    unsigned int vertexVbo = 0;
+    unsigned int normalVbo = 0;
+    unsigned int indexIbo = 0;
+    unsigned int wireframeVbo = 0;
+    bool gpuUploaded = false;
 };
+
+inline void BuildWireframeVertices(Mesh& mesh)
+{
+    mesh.wireframeVertices.clear();
+    mesh.wireframeVertices.reserve(mesh.indices.size() * 6);
+    for (size_t i = 0; i + 2 < mesh.indices.size(); i += 3) {
+        unsigned short i0 = mesh.indices[i];
+        unsigned short i1 = mesh.indices[i + 1];
+        unsigned short i2 = mesh.indices[i + 2];
+        const unsigned short edges[6] = {i0, i1, i1, i2, i2, i0};
+        for (unsigned short idx : edges) {
+            mesh.wireframeVertices.push_back(mesh.vertices[idx * 3]);
+            mesh.wireframeVertices.push_back(mesh.vertices[idx * 3 + 1]);
+            mesh.wireframeVertices.push_back(mesh.vertices[idx * 3 + 2]);
+        }
+    }
+}
 
 // Compute smooth per-vertex normals based on the indexed triangles. The
 // resulting normal vector array will have the same vertex count as the

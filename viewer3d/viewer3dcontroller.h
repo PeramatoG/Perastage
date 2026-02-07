@@ -237,6 +237,21 @@ private:
   // for vertex positions. GDTF models may already be defined in meters
   // so they can use a scale of 1.0f
   void DrawMesh(const Mesh &mesh, float scale = RENDER_SCALE);
+  void EnsureMeshGpuBuffers(Mesh &mesh);
+  void ReleaseMeshGpuBuffers(Mesh &mesh);
+  bool IsModernDrawPathAvailable() const;
+
+  struct StaticGeometryBuffer {
+    unsigned int vbo = 0;
+    unsigned int nbo = 0;
+    unsigned int ibo = 0;
+    unsigned int primitive = 0;
+    int elementCount = 0;
+    bool useElements = true;
+  };
+
+  void EnsureStaticGeometryBuffers();
+  void ReleaseStaticGeometryBuffers();
 
   // Cache of already loaded meshes indexed by absolute file path
   std::unordered_map<std::string, Mesh> m_loadedMeshes;
@@ -288,6 +303,13 @@ private:
   SymbolCache m_bottomSymbolCache;
   bool m_darkMode = false;
   bool m_showSelectionOutline2D = false;
+  bool m_staticGeometryInitialized = false;
+  StaticGeometryBuffer m_cubeGeometry;
+  StaticGeometryBuffer m_wireCubeGeometry;
+  StaticGeometryBuffer m_axisGeometry;
+  std::unordered_map<int, StaticGeometryBuffer> m_gridLineGeometry;
+  std::unordered_map<int, StaticGeometryBuffer> m_gridPointGeometry;
+  std::unordered_map<int, StaticGeometryBuffer> m_gridCrossGeometry;
 
 public:
   // Enables recording of all primitives drawn during the next RenderScene
