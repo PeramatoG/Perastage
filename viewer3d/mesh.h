@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #pragma once
+#include <algorithm>
 #include <cstdint>
 #include <cmath>
 #include <vector>
@@ -34,7 +35,104 @@ struct Mesh {
     int triangleIndexCount = 0;
     int lineIndexCount = 0;
     bool buffersReady = false;
+    // True once we have evaluated/fixed triangle winding for compatibility
+    // with assets coming from heterogeneous DCC/export pipelines.
+    bool windingChecked = false;
 };
+
+// Attempts to detect meshes whose triangle winding is globally inverted and
+// flips their index order when needed. This runs once per mesh at upload time,
+// so it has no per-frame rendering overhead.
+inline void EnsureOutwardWinding(Mesh& mesh)
+{
+    if (mesh.windingChecked)
+        return;
+
+    mesh.windingChecked = true;
+
+    const size_t vcount = mesh.vertices.size() / 3;
+    if (vcount < 3 || mesh.indices.size() < 3)
+        return;
+
+    float cx = 0.0f;
+    float cy = 0.0f;
+    float cz = 0.0f;
+    for (size_t i = 0; i < vcount; ++i) {
+        cx += mesh.vertices[i * 3];
+        cy += mesh.vertices[i * 3 + 1];
+        cz += mesh.vertices[i * 3 + 2];
+    }
+    const float invCount = 1.0f / static_cast<float>(vcount);
+    cx *= invCount;
+    cy *= invCount;
+    cz *= invCount;
+
+    double orientationScore = 0.0;
+    double totalArea = 0.0;
+
+    for (size_t i = 0; i + 2 < mesh.indices.size(); i += 3) {
+        const unsigned short i0 = mesh.indices[i];
+        const unsigned short i1 = mesh.indices[i + 1];
+        const unsigned short i2 = mesh.indices[i + 2];
+
+        const float v0x = mesh.vertices[i0 * 3];
+        const float v0y = mesh.vertices[i0 * 3 + 1];
+        const float v0z = mesh.vertices[i0 * 3 + 2];
+        const float v1x = mesh.vertices[i1 * 3];
+        const float v1y = mesh.vertices[i1 * 3 + 1];
+        const float v1z = mesh.vertices[i1 * 3 + 2];
+        const float v2x = mesh.vertices[i2 * 3];
+        const float v2y = mesh.vertices[i2 * 3 + 1];
+        const float v2z = mesh.vertices[i2 * 3 + 2];
+
+        const float ux = v1x - v0x;
+        const float uy = v1y - v0y;
+        const float uz = v1z - v0z;
+        const float vx = v2x - v0x;
+        const float vy = v2y - v0y;
+        const float vz = v2z - v0z;
+
+        const float nx = uy * vz - uz * vy;
+        const float ny = uz * vx - ux * vz;
+        const float nz = ux * vy - uy * vx;
+
+        const double area = std::sqrt(static_cast<double>(nx) * nx +
+                                      static_cast<double>(ny) * ny +
+                                      static_cast<double>(nz) * nz);
+        if (area <= 1e-9)
+            continue;
+
+        const float tx = (v0x + v1x + v2x) / 3.0f;
+        const float ty = (v0y + v1y + v2y) / 3.0f;
+        const float tz = (v0z + v1z + v2z) / 3.0f;
+        const float toCx = tx - cx;
+        const float toCy = ty - cy;
+        const float toCz = tz - cz;
+
+        orientationScore += static_cast<double>(nx) * toCx +
+                            static_cast<double>(ny) * toCy +
+                            static_cast<double>(nz) * toCz;
+        totalArea += area;
+    }
+
+    // Only act when the signal is clear enough; for flat/open meshes the
+    // score can be near zero and should be left untouched.
+    if (totalArea <= 1e-9 || std::abs(orientationScore) <= totalArea * 1e-4)
+        return;
+
+    if (orientationScore < 0.0) {
+        for (size_t i = 0; i + 2 < mesh.indices.size(); i += 3)
+            std::swap(mesh.indices[i + 1], mesh.indices[i + 2]);
+
+        if (!mesh.normals.empty()) {
+            for (size_t i = 0; i + 2 < mesh.normals.size(); i += 3) {
+                mesh.normals[i] = -mesh.normals[i];
+                mesh.normals[i + 1] = -mesh.normals[i + 1];
+                mesh.normals[i + 2] = -mesh.normals[i + 2];
+            }
+        }
+    }
+}
 
 // Compute smooth per-vertex normals based on the indexed triangles. The
 // resulting normal vector array will have the same vertex count as the
