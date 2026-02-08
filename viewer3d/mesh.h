@@ -16,13 +16,24 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #pragma once
-#include <vector>
+#include <cstdint>
 #include <cmath>
+#include <vector>
 
 struct Mesh {
     std::vector<float> vertices; // x,y,z order in mm
     std::vector<unsigned short> indices; // 3 indices per triangle
     std::vector<float> normals;  // optional per-vertex normals
+
+    // OpenGL resources for VBO/VAO based rendering.
+    uint32_t vao = 0;
+    uint32_t vboVertices = 0;
+    uint32_t vboNormals = 0;
+    uint32_t eboTriangles = 0;
+    uint32_t eboLines = 0;
+    int triangleIndexCount = 0;
+    int lineIndexCount = 0;
+    bool buffersReady = false;
 };
 
 // Compute smooth per-vertex normals based on the indexed triangles. The

@@ -227,6 +227,13 @@ private:
   void RecordText(float x, float y, const std::string &text,
                   const CanvasTextStyle &style) const;
 
+  // Creates VAO/VBO/EBO objects for the provided mesh. The function keeps
+  // the triangle EBO bound in the VAO to avoid losing indexed draw state.
+  void SetupMeshBuffers(Mesh &mesh);
+
+  // Releases all OpenGL resources owned by the mesh and clears buffer flags.
+  void ReleaseMeshBuffers(Mesh &mesh);
+
   // Draws a mesh loaded from a 3DS file using the given scale factor
   // for vertex positions. GDTF models may already be defined in meters
   // so they can use a scale of 1.0f
