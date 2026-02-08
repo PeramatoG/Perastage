@@ -1357,9 +1357,10 @@ void FixtureTablePanel::UpdateSceneData() {
     Matrix rot = MatrixUtils::EulerToMatrix(
         static_cast<float>(yaw), static_cast<float>(pitch),
         static_cast<float>(roll));
-    rot.o = {static_cast<float>(x * 1000.0), static_cast<float>(y * 1000.0),
-             static_cast<float>(z * 1000.0)};
-    it->second.transform = rot;
+    it->second.transform = MatrixUtils::ApplyRotationPreservingScale(
+        it->second.transform, rot,
+        {static_cast<float>(x * 1000.0), static_cast<float>(y * 1000.0),
+         static_cast<float>(z * 1000.0)});
 
     table->GetValue(v, i, 16);
     double pw = 0.0;

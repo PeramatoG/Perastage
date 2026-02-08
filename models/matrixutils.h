@@ -33,6 +33,30 @@
 // Utility functions for handling 4x3 transformation matrices
 namespace MatrixUtils {
 
+    inline std::array<float, 3> ExtractScale(const Matrix& m)
+    {
+        auto norm = [](const std::array<float, 3>& v) {
+            return std::sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
+        };
+        return {norm(m.u), norm(m.v), norm(m.w)};
+    }
+
+    inline Matrix ApplyRotationPreservingScale(const Matrix& source,
+                                               const Matrix& rotation,
+                                               const std::array<float, 3>& translation)
+    {
+        Matrix out = rotation;
+        const auto scales = ExtractScale(source);
+
+        for (int i = 0; i < 3; ++i) {
+            out.u[i] *= scales[0];
+            out.v[i] *= scales[1];
+            out.w[i] *= scales[2];
+        }
+        out.o = translation;
+        return out;
+    }
+
     // Parse a matrix string which can be either the MVR 4x3 format
     // "{a,b,c}{d,e,f}{g,h,i}{j,k,l}" or the GDTF 4x4 format
     // "{a,b,c,d}{e,f,g,h}{i,j,k,l}{m,n,o,p}". Both are stored row-major
