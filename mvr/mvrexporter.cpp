@@ -987,24 +987,12 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
 
     if (!t.symbolFile.empty()) {
       tinyxml2::XMLElement *geos = doc.NewElement("Geometries");
-      bool usedSym = false;
-      for (const auto &[sUuid, file] : scene.symdefFiles) {
-        if (file == t.symbolFile) {
-          tinyxml2::XMLElement *sym = doc.NewElement("Symbol");
-          sym->SetAttribute("symdef", sUuid.c_str());
-          geos->InsertEndChild(sym);
-          usedSym = true;
-          break;
-        }
-      }
-      if (!usedSym) {
-        tinyxml2::XMLElement *g3d = doc.NewElement("Geometry3D");
-        std::string symbolArchivePath = registerResource(
-            t.symbolFile,
-            SanitizeArchiveFileName(t.symbolFile, "truss.3ds"));
-        g3d->SetAttribute("fileName", symbolArchivePath.c_str());
-        geos->InsertEndChild(g3d);
-      }
+      tinyxml2::XMLElement *g3d = doc.NewElement("Geometry3D");
+      std::string symbolArchivePath = registerResource(
+          t.symbolFile,
+          SanitizeArchiveFileName(t.symbolFile, "truss.3ds"));
+      g3d->SetAttribute("fileName", symbolArchivePath.c_str());
+      geos->InsertEndChild(g3d);
       te->InsertEndChild(geos);
       registerResource(
           t.symbolFile,
@@ -1172,24 +1160,12 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
 
     if (!obj.modelFile.empty()) {
       tinyxml2::XMLElement *geos = doc.NewElement("Geometries");
-      bool usedSym = false;
-      for (const auto &[sUuid, file] : scene.symdefFiles) {
-        if (file == obj.modelFile) {
-          tinyxml2::XMLElement *sym = doc.NewElement("Symbol");
-          sym->SetAttribute("symdef", sUuid.c_str());
-          geos->InsertEndChild(sym);
-          usedSym = true;
-          break;
-        }
-      }
-      if (!usedSym) {
-        tinyxml2::XMLElement *g3d = doc.NewElement("Geometry3D");
-        std::string modelArchivePath = registerResource(
-            obj.modelFile,
-            SanitizeArchiveFileName(obj.modelFile, "object.3ds"));
-        g3d->SetAttribute("fileName", modelArchivePath.c_str());
-        geos->InsertEndChild(g3d);
-      }
+      tinyxml2::XMLElement *g3d = doc.NewElement("Geometry3D");
+      std::string modelArchivePath = registerResource(
+          obj.modelFile,
+          SanitizeArchiveFileName(obj.modelFile, "object.3ds"));
+      g3d->SetAttribute("fileName", modelArchivePath.c_str());
+      geos->InsertEndChild(g3d);
       oe->InsertEndChild(geos);
       registerResource(
           obj.modelFile,
