@@ -23,16 +23,6 @@ struct Mesh {
     std::vector<float> vertices; // x,y,z order in mm
     std::vector<unsigned short> indices; // 3 indices per triangle
     std::vector<float> normals;  // optional per-vertex normals
-
-    // GPU resources used by the 3D viewer render path.
-    mutable unsigned int vao = 0;
-    mutable unsigned int vboVertices = 0;
-    mutable unsigned int vboNormals = 0;
-    mutable unsigned int eboTriangles = 0;
-    mutable unsigned int eboLines = 0;
-    mutable bool gpuBuffersReady = false;
-    mutable size_t triangleIndexCount = 0;
-    mutable size_t lineIndexCount = 0;
 };
 
 // Compute smooth per-vertex normals based on the indexed triangles. The

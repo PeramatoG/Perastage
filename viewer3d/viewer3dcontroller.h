@@ -232,10 +232,6 @@ private:
   // so they can use a scale of 1.0f
   void DrawMesh(const Mesh &mesh, float scale = RENDER_SCALE);
 
-  // Initializes and destroys GPU buffers associated with a mesh.
-  void SetupMeshBuffers(const Mesh &mesh) const;
-  void ReleaseMeshBuffers(Mesh &mesh) const;
-
   // Cache of already loaded meshes indexed by absolute file path
   std::unordered_map<std::string, Mesh> m_loadedMeshes;
 
