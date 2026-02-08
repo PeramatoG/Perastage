@@ -2096,7 +2096,6 @@ void Viewer3DController::SetupMeshBuffers(Mesh &mesh) {
     ReleaseMeshBuffers(mesh);
 
   EnsureOutwardWinding(mesh);
-  mesh.preferDoubleSided = NeedsDoubleSidedRendering(mesh);
 
   if (mesh.normals.size() < mesh.vertices.size())
     ComputeNormals(mesh);
@@ -2387,9 +2386,8 @@ void Viewer3DController::DrawMeshWireframe(
 // Draws a mesh using GL triangles. The optional scale parameter allows
 // converting vertex units (e.g. millimeters) to meters.
 void Viewer3DController::DrawMesh(const Mesh &mesh, float scale) {
-  const bool disableCullForMesh = mesh.preferDoubleSided;
   const GLboolean cullWasEnabled = glIsEnabled(GL_CULL_FACE);
-  if (disableCullForMesh)
+  if (cullWasEnabled)
     glDisable(GL_CULL_FACE);
 
   const bool gpuHandlesValid =
@@ -2475,7 +2473,7 @@ void Viewer3DController::DrawMesh(const Mesh &mesh, float scale) {
     glEnd();
   }
 
-  if (disableCullForMesh && cullWasEnabled)
+  if (cullWasEnabled)
     glEnable(GL_CULL_FACE);
 }
 
@@ -2662,6 +2660,8 @@ void Viewer3DController::SetupBasicLighting() {
   glLightfv(GL_LIGHT0, GL_DIFFUSE, diffuse);
   glLightfv(GL_LIGHT0, GL_SPECULAR, specular);
   glLightfv(GL_LIGHT0, GL_POSITION, position);
+
+  glLightModeli(GL_LIGHT_MODEL_TWO_SIDE, GL_TRUE);
 
   glEnable(GL_COLOR_MATERIAL);
   glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE);
