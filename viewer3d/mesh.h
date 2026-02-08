@@ -17,6 +17,7 @@
  */
 #pragma once
 #include <algorithm>
+#include <array>
 #include <cstdint>
 #include <cmath>
 #include <vector>
@@ -193,4 +194,50 @@ inline void ComputeNormals(Mesh& mesh)
             mesh.normals[i * 3 + 2] = nz / len;
         }
     }
+}
+
+// Transforms a normal vector using the inverse-transpose of the model's
+// 3x3 rotation/scale matrix and returns a normalized direction.
+inline std::array<float, 3>
+TransformNormal(const std::array<float, 3>& normal, const float model[16])
+{
+    const float a00 = model[0], a01 = model[4], a02 = model[8];
+    const float a10 = model[1], a11 = model[5], a12 = model[9];
+    const float a20 = model[2], a21 = model[6], a22 = model[10];
+
+    const float c00 = a11 * a22 - a12 * a21;
+    const float c01 = a12 * a20 - a10 * a22;
+    const float c02 = a10 * a21 - a11 * a20;
+    const float c10 = a02 * a21 - a01 * a22;
+    const float c11 = a00 * a22 - a02 * a20;
+    const float c12 = a01 * a20 - a00 * a21;
+    const float c20 = a01 * a12 - a02 * a11;
+    const float c21 = a02 * a10 - a00 * a12;
+    const float c22 = a00 * a11 - a01 * a10;
+
+    const float det = a00 * c00 + a01 * c01 + a02 * c02;
+    if (std::abs(det) <= 1e-8f)
+        return normal;
+
+    const float invDet = 1.0f / det;
+    const float nx = (c00 * normal[0] + c10 * normal[1] + c20 * normal[2]) * invDet;
+    const float ny = (c01 * normal[0] + c11 * normal[1] + c21 * normal[2]) * invDet;
+    const float nz = (c02 * normal[0] + c12 * normal[1] + c22 * normal[2]) * invDet;
+
+    const float len = std::sqrt(nx * nx + ny * ny + nz * nz);
+    if (len <= 1e-8f)
+        return normal;
+
+    return {nx / len, ny / len, nz / len};
+}
+
+inline float TransformDeterminant(const float model[16])
+{
+    const float a00 = model[0], a01 = model[4], a02 = model[8];
+    const float a10 = model[1], a11 = model[5], a12 = model[9];
+    const float a20 = model[2], a21 = model[6], a22 = model[10];
+
+    return a00 * (a11 * a22 - a12 * a21) -
+           a01 * (a10 * a22 - a12 * a20) +
+           a02 * (a10 * a21 - a11 * a20);
 }
