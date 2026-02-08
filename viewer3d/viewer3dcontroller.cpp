@@ -2131,6 +2131,25 @@ void Viewer3DController::SetupMeshBuffers(Mesh &mesh) {
   glBindBuffer(GL_ARRAY_BUFFER, 0);
   glBindVertexArray(0);
 
+  const bool gpuResourcesValid =
+      glIsVertexArray(mesh.vao) == GL_TRUE &&
+      glIsBuffer(mesh.vboVertices) == GL_TRUE &&
+      glIsBuffer(mesh.vboNormals) == GL_TRUE &&
+      glIsBuffer(mesh.eboTriangles) == GL_TRUE &&
+      glIsBuffer(mesh.eboLines) == GL_TRUE;
+
+  if (!gpuResourcesValid) {
+    mesh.vao = 0;
+    mesh.vboVertices = 0;
+    mesh.vboNormals = 0;
+    mesh.eboTriangles = 0;
+    mesh.eboLines = 0;
+    mesh.triangleIndexCount = 0;
+    mesh.lineIndexCount = 0;
+    mesh.buffersReady = false;
+    return;
+  }
+
   mesh.triangleIndexCount = static_cast<int>(mesh.indices.size());
   mesh.lineIndexCount = static_cast<int>(lineIndices.size());
   mesh.buffersReady = true;
@@ -2281,9 +2300,13 @@ void Viewer3DController::DrawMeshWireframe(
     const Mesh &mesh, float scale,
     const std::function<std::array<float, 3>(const std::array<float, 3> &)> &
         captureTransform) {
+  const bool gpuHandlesValid =
+      glIsBuffer(mesh.vboVertices) == GL_TRUE &&
+      glIsBuffer(mesh.eboLines) == GL_TRUE &&
+      glIsBuffer(mesh.eboTriangles) == GL_TRUE;
   const bool canUseGpuWireframe =
       mesh.buffersReady && mesh.vao != 0 && mesh.vboVertices != 0 &&
-      mesh.eboLines != 0 && mesh.eboTriangles != 0;
+      mesh.eboLines != 0 && mesh.eboTriangles != 0 && gpuHandlesValid;
 
   if (!m_captureOnly && canUseGpuWireframe) {
     glBindVertexArray(mesh.vao);
@@ -2360,9 +2383,13 @@ void Viewer3DController::DrawMeshWireframe(
 // Draws a mesh using GL triangles. The optional scale parameter allows
 // converting vertex units (e.g. millimeters) to meters.
 void Viewer3DController::DrawMesh(const Mesh &mesh, float scale) {
+  const bool gpuHandlesValid =
+      glIsBuffer(mesh.vboVertices) == GL_TRUE &&
+      glIsBuffer(mesh.vboNormals) == GL_TRUE &&
+      glIsBuffer(mesh.eboTriangles) == GL_TRUE;
   const bool canUseGpuTriangles =
       mesh.buffersReady && mesh.vao != 0 && mesh.vboVertices != 0 &&
-      mesh.vboNormals != 0 && mesh.eboTriangles != 0;
+      mesh.vboNormals != 0 && mesh.eboTriangles != 0 && gpuHandlesValid;
 
   if (!m_captureOnly && canUseGpuTriangles) {
     glBindVertexArray(mesh.vao);
