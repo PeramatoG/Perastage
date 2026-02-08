@@ -742,9 +742,17 @@ void Viewer3DController::SetupMeshBuffers(const Mesh &mesh) const {
   }
 
   glGenVertexArrays(1, &mesh.vao);
+  if (mesh.vao == 0)
+    return;
   glBindVertexArray(mesh.vao);
 
   glGenBuffers(1, &mesh.vboVertices);
+  if (mesh.vboVertices == 0) {
+    glBindVertexArray(0);
+    glDeleteVertexArrays(1, &mesh.vao);
+    mesh.vao = 0;
+    return;
+  }
   glBindBuffer(GL_ARRAY_BUFFER, mesh.vboVertices);
   glBufferData(GL_ARRAY_BUFFER,
                static_cast<GLsizeiptr>(mesh.vertices.size() * sizeof(float)),
@@ -763,6 +771,12 @@ void Viewer3DController::SetupMeshBuffers(const Mesh &mesh) const {
   }
 
   glGenBuffers(1, &mesh.eboTriangles);
+  if (mesh.eboTriangles == 0) {
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+    ReleaseMeshBuffers(const_cast<Mesh &>(mesh));
+    return;
+  }
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.eboTriangles);
   glBufferData(GL_ELEMENT_ARRAY_BUFFER,
                static_cast<GLsizeiptr>(mesh.indices.size() *
@@ -784,7 +798,9 @@ void Viewer3DController::SetupMeshBuffers(const Mesh &mesh) const {
   glBindBuffer(GL_ARRAY_BUFFER, 0);
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
   glBindVertexArray(0);
-  mesh.gpuBuffersReady = true;
+  mesh.gpuBuffersReady = (mesh.vao != 0 && mesh.vboVertices != 0 &&
+                          mesh.eboTriangles != 0 &&
+                          mesh.triangleIndexCount > 0);
 }
 
 void Viewer3DController::ReleaseMeshBuffers(Mesh &mesh) const {
@@ -2296,6 +2312,35 @@ void Viewer3DController::DrawMeshWireframe(
                      GL_UNSIGNED_SHORT, nullptr);
       glBindVertexArray(0);
       glPopMatrix();
+    } else {
+      glBegin(GL_LINES);
+      for (size_t i = 0; i + 2 < mesh.indices.size(); i += 3) {
+        unsigned short i0 = mesh.indices[i];
+        unsigned short i1 = mesh.indices[i + 1];
+        unsigned short i2 = mesh.indices[i + 2];
+
+        float v0x = mesh.vertices[i0 * 3] * scale;
+        float v0y = mesh.vertices[i0 * 3 + 1] * scale;
+        float v0z = mesh.vertices[i0 * 3 + 2] * scale;
+
+        float v1x = mesh.vertices[i1 * 3] * scale;
+        float v1y = mesh.vertices[i1 * 3 + 1] * scale;
+        float v1z = mesh.vertices[i1 * 3 + 2] * scale;
+
+        float v2x = mesh.vertices[i2 * 3] * scale;
+        float v2y = mesh.vertices[i2 * 3 + 1] * scale;
+        float v2z = mesh.vertices[i2 * 3 + 2] * scale;
+
+        glVertex3f(v0x, v0y, v0z);
+        glVertex3f(v1x, v1y, v1z);
+
+        glVertex3f(v1x, v1y, v1z);
+        glVertex3f(v2x, v2y, v2z);
+
+        glVertex3f(v2x, v2y, v2z);
+        glVertex3f(v0x, v0y, v0z);
+      }
+      glEnd();
     }
   }
   if (m_captureCanvas) {
@@ -2344,6 +2389,63 @@ void Viewer3DController::DrawMesh(const Mesh &mesh, float scale) {
                      GL_UNSIGNED_SHORT, nullptr);
       glBindVertexArray(0);
       glPopMatrix();
+    } else {
+      glBegin(GL_TRIANGLES);
+      bool hasNormals = mesh.normals.size() >= mesh.vertices.size();
+      for (size_t i = 0; i + 2 < mesh.indices.size(); i += 3) {
+        unsigned short i0 = mesh.indices[i];
+        unsigned short i1 = mesh.indices[i + 1];
+        unsigned short i2 = mesh.indices[i + 2];
+
+        float v0x = mesh.vertices[i0 * 3] * scale;
+        float v0y = mesh.vertices[i0 * 3 + 1] * scale;
+        float v0z = mesh.vertices[i0 * 3 + 2] * scale;
+
+        float v1x = mesh.vertices[i1 * 3] * scale;
+        float v1y = mesh.vertices[i1 * 3 + 1] * scale;
+        float v1z = mesh.vertices[i1 * 3 + 2] * scale;
+
+        float v2x = mesh.vertices[i2 * 3] * scale;
+        float v2y = mesh.vertices[i2 * 3 + 1] * scale;
+        float v2z = mesh.vertices[i2 * 3 + 2] * scale;
+
+        if (hasNormals) {
+          glNormal3f(mesh.normals[i0 * 3], mesh.normals[i0 * 3 + 1],
+                     mesh.normals[i0 * 3 + 2]);
+          glVertex3f(v0x, v0y, v0z);
+          glNormal3f(mesh.normals[i1 * 3], mesh.normals[i1 * 3 + 1],
+                     mesh.normals[i1 * 3 + 2]);
+          glVertex3f(v1x, v1y, v1z);
+          glNormal3f(mesh.normals[i2 * 3], mesh.normals[i2 * 3 + 1],
+                     mesh.normals[i2 * 3 + 2]);
+          glVertex3f(v2x, v2y, v2z);
+        } else {
+          float ux = v1x - v0x;
+          float uy = v1y - v0y;
+          float uz = v1z - v0z;
+
+          float vx = v2x - v0x;
+          float vy = v2y - v0y;
+          float vz = v2z - v0z;
+
+          float nx = uy * vz - uz * vy;
+          float ny = uz * vx - ux * vz;
+          float nz = ux * vy - uy * vx;
+
+          float len = std::sqrt(nx * nx + ny * ny + nz * nz);
+          if (len > 0.0f) {
+            nx /= len;
+            ny /= len;
+            nz /= len;
+          }
+
+          glNormal3f(nx, ny, nz);
+          glVertex3f(v0x, v0y, v0z);
+          glVertex3f(v1x, v1y, v1z);
+          glVertex3f(v2x, v2y, v2z);
+        }
+      }
+      glEnd();
     }
   }
 }
