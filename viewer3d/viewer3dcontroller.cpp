@@ -2419,23 +2419,26 @@ void Viewer3DController::DrawMesh(const Mesh &mesh, float scale,
   }
 
   std::vector<unsigned short> invertedIndices;
-  const unsigned short *drawIndices = nullptr;
   if (flipWinding) {
     // Mirror transforms (negative determinant) invert triangle orientation.
     // Swap winding per triangle so front faces and normals remain consistent.
     invertedIndices = mesh.indices;
     for (size_t i = 0; i + 2 < invertedIndices.size(); i += 3)
       std::swap(invertedIndices[i + 1], invertedIndices[i + 2]);
-    drawIndices = invertedIndices.data();
   }
 
   const bool gpuHandlesValid =
       glIsBuffer(mesh.vboVertices) == GL_TRUE &&
       glIsBuffer(mesh.vboNormals) == GL_TRUE &&
       glIsBuffer(mesh.eboTriangles) == GL_TRUE;
+  // Per-instance transformed normals and mirrored winding use temporary CPU
+  // data. Draw them via the immediate path to avoid driver-specific issues
+  // with client-side arrays/indices while a VAO is bound.
+  const bool requiresCpuDrawPath = transformInstanceNormals || flipWinding;
   const bool canUseGpuTriangles =
       mesh.buffersReady && mesh.vao != 0 && mesh.vboVertices != 0 &&
-      mesh.vboNormals != 0 && mesh.eboTriangles != 0 && gpuHandlesValid;
+      mesh.vboNormals != 0 && mesh.eboTriangles != 0 && gpuHandlesValid &&
+      !requiresCpuDrawPath;
 
   if (!m_captureOnly && canUseGpuTriangles) {
     glBindVertexArray(mesh.vao);
@@ -2446,24 +2449,13 @@ void Viewer3DController::DrawMesh(const Mesh &mesh, float scale,
     glEnableClientState(GL_VERTEX_ARRAY);
     glVertexPointer(3, GL_FLOAT, 0, nullptr);
 
+    glBindBuffer(GL_ARRAY_BUFFER, mesh.vboNormals);
     glEnableClientState(GL_NORMAL_ARRAY);
-    if (transformInstanceNormals) {
-      glBindBuffer(GL_ARRAY_BUFFER, 0);
-      glNormalPointer(GL_FLOAT, 0, transformedNormals.data());
-    } else {
-      glBindBuffer(GL_ARRAY_BUFFER, mesh.vboNormals);
-      glNormalPointer(GL_FLOAT, 0, nullptr);
-    }
+    glNormalPointer(GL_FLOAT, 0, nullptr);
 
-    if (drawIndices) {
-      glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-      glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(mesh.indices.size()),
-                     GL_UNSIGNED_SHORT, drawIndices);
-    } else {
-      glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.eboTriangles);
-      glDrawElements(GL_TRIANGLES, mesh.triangleIndexCount, GL_UNSIGNED_SHORT,
-                     nullptr);
-    }
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.eboTriangles);
+    glDrawElements(GL_TRIANGLES, mesh.triangleIndexCount, GL_UNSIGNED_SHORT,
+                   nullptr);
 
     glDisableClientState(GL_NORMAL_ARRAY);
     glDisableClientState(GL_VERTEX_ARRAY);
