@@ -31,8 +31,6 @@
 #include <string>
 #include <thread>
 #include <atomic>
-#include <chrono>
-#include <cstdint>
 #include <wx/thread.h>
 #include <vector>
 
@@ -124,14 +122,7 @@ private:
     Viewer3DController m_controller;
 
     std::atomic<bool> m_threadRunning{false};
-    std::atomic<bool> m_needsRender{true};
-    std::atomic<bool> m_activeInteraction{false};
-    std::atomic<std::int64_t> m_interactionUntilMs{0};
-    std::vector<std::string> m_selectedUuids;
     std::thread m_refreshThread;
-    void MarkRenderDirty();
-    void SetInteractionActive(bool active);
-    void ExtendInteractionWindow(std::chrono::milliseconds duration);
     void RefreshLoop();
     void OnThreadRefresh(wxThreadEvent& event);
 
