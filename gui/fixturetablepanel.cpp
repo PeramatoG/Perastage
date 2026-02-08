@@ -1354,13 +1354,27 @@ void FixtureTablePanel::UpdateSceneData() {
       s.ToDouble(&yaw);
     }
 
-    Matrix rot = MatrixUtils::EulerToMatrix(
-        static_cast<float>(yaw), static_cast<float>(pitch),
-        static_cast<float>(roll));
-    it->second.transform = MatrixUtils::ApplyRotationPreservingScale(
-        it->second.transform, rot,
-        {static_cast<float>(x * 1000.0), static_cast<float>(y * 1000.0),
-         static_cast<float>(z * 1000.0)});
+    const auto currentEuler = MatrixUtils::MatrixToEuler(it->second.transform);
+    const bool transformChanged =
+        wxString::Format("%.3f", it->second.transform.o[0] / 1000.0f) !=
+            wxString::Format("%.3f", x) ||
+        wxString::Format("%.3f", it->second.transform.o[1] / 1000.0f) !=
+            wxString::Format("%.3f", y) ||
+        wxString::Format("%.3f", it->second.transform.o[2] / 1000.0f) !=
+            wxString::Format("%.3f", z) ||
+        wxString::Format("%.1f", currentEuler[2]) != wxString::Format("%.1f", roll) ||
+        wxString::Format("%.1f", currentEuler[1]) != wxString::Format("%.1f", pitch) ||
+        wxString::Format("%.1f", currentEuler[0]) != wxString::Format("%.1f", yaw);
+
+    if (transformChanged) {
+      Matrix rot = MatrixUtils::EulerToMatrix(
+          static_cast<float>(yaw), static_cast<float>(pitch),
+          static_cast<float>(roll));
+      it->second.transform = MatrixUtils::ApplyRotationPreservingScale(
+          it->second.transform, rot,
+          {static_cast<float>(x * 1000.0), static_cast<float>(y * 1000.0),
+           static_cast<float>(z * 1000.0)});
+    }
 
     table->GetValue(v, i, 16);
     double pw = 0.0;
