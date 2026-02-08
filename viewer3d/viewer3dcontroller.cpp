@@ -1772,8 +1772,6 @@ void Viewer3DController::DrawCube(float size, float r, float g, float b) {
     glEnd();
   }
 
-  if (disableCullForMesh && cullWasEnabled)
-    glEnable(GL_CULL_FACE);
 }
 
 // Draws a wireframe cube centered at origin with given size and color
