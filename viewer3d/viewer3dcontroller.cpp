@@ -1771,6 +1771,7 @@ void Viewer3DController::DrawCube(float size, float r, float g, float b) {
     glVertex3f(x0, y0, z1); // Bottom
     glEnd();
   }
+
 }
 
 // Draws a wireframe cube centered at origin with given size and color
@@ -2385,6 +2386,10 @@ void Viewer3DController::DrawMeshWireframe(
 // Draws a mesh using GL triangles. The optional scale parameter allows
 // converting vertex units (e.g. millimeters) to meters.
 void Viewer3DController::DrawMesh(const Mesh &mesh, float scale) {
+  const GLboolean cullWasEnabled = glIsEnabled(GL_CULL_FACE);
+  if (cullWasEnabled)
+    glDisable(GL_CULL_FACE);
+
   const bool gpuHandlesValid =
       glIsBuffer(mesh.vboVertices) == GL_TRUE &&
       glIsBuffer(mesh.vboNormals) == GL_TRUE &&
@@ -2467,6 +2472,9 @@ void Viewer3DController::DrawMesh(const Mesh &mesh, float scale) {
     }
     glEnd();
   }
+
+  if (cullWasEnabled)
+    glEnable(GL_CULL_FACE);
 }
 
 // Draws the reference grid on one of the principal planes
@@ -2652,6 +2660,8 @@ void Viewer3DController::SetupBasicLighting() {
   glLightfv(GL_LIGHT0, GL_DIFFUSE, diffuse);
   glLightfv(GL_LIGHT0, GL_SPECULAR, specular);
   glLightfv(GL_LIGHT0, GL_POSITION, position);
+
+  glLightModeli(GL_LIGHT_MODEL_TWO_SIDE, GL_TRUE);
 
   glEnable(GL_COLOR_MATERIAL);
   glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE);
