@@ -40,5 +40,23 @@ int main() {
     }
   }
 
+
+  {
+    Matrix source;
+    MatrixUtils::ParseMatrix("{0.0254,0,0}{0,0.0508,0}{0,0,0.1016}{100,200,300}", source);
+
+    Matrix rotation = MatrixUtils::EulerToMatrix(90.0f, 0.0f, 0.0f);
+    Matrix updated = MatrixUtils::ApplyRotationPreservingScale(source, rotation,
+                                                               {400.0f, 500.0f, 600.0f});
+
+    auto scales = MatrixUtils::ExtractScale(updated);
+    if (!Near(scales[0], 0.0254f) || !Near(scales[1], 0.0508f) ||
+        !Near(scales[2], 0.1016f) || !Near(updated.o[0], 400.0f) ||
+        !Near(updated.o[1], 500.0f) || !Near(updated.o[2], 600.0f)) {
+      std::cerr << "ApplyRotationPreservingScale did not keep source scale\n";
+      return 1;
+    }
+  }
+
   return 0;
 }
