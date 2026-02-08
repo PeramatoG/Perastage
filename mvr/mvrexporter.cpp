@@ -753,19 +753,53 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
   for (const auto &[uuid, file] : scene.symdefFiles) {
     tinyxml2::XMLElement *sym = doc.NewElement("Symdef");
     sym->SetAttribute("uuid", uuid.c_str());
+
     auto tit = scene.symdefTypes.find(uuid);
     if (tit != scene.symdefTypes.end() && !tit->second.empty())
       sym->SetAttribute("geometryType", tit->second.c_str());
-    if (!file.empty()) {
-      tinyxml2::XMLElement *cl = doc.NewElement("ChildList");
-      tinyxml2::XMLElement *g3d = doc.NewElement("Geometry3D");
-      std::string archivePath = registerResource(
-          file,
-          SanitizeArchiveFileName(file, "symbol.3ds"));
-      g3d->SetAttribute("fileName", archivePath.c_str());
-      cl->InsertEndChild(g3d);
-      sym->InsertEndChild(cl);
+
+    std::vector<SymdefGeometry> geometries;
+    auto geoIt = scene.symdefGeometries.find(uuid);
+    if (geoIt != scene.symdefGeometries.end())
+      geometries = geoIt->second;
+
+    if (geometries.empty() && !file.empty()) {
+      SymdefGeometry fallback;
+      fallback.file = file;
+      auto matIt = scene.symdefMatrices.find(uuid);
+      fallback.transform =
+          (matIt != scene.symdefMatrices.end()) ? matIt->second : MatrixUtils::Identity();
+      if (tit != scene.symdefTypes.end())
+        fallback.geometryType = tit->second;
+      geometries.push_back(std::move(fallback));
     }
+
+    if (!geometries.empty()) {
+      tinyxml2::XMLElement *cl = doc.NewElement("ChildList");
+      for (const SymdefGeometry &geo : geometries) {
+        if (geo.file.empty())
+          continue;
+
+        tinyxml2::XMLElement *g3d = doc.NewElement("Geometry3D");
+        std::string archivePath = registerResource(
+            geo.file,
+            SanitizeArchiveFileName(geo.file, "symbol.3ds"));
+        g3d->SetAttribute("fileName", archivePath.c_str());
+        if (!geo.geometryType.empty())
+          g3d->SetAttribute("geometryType", geo.geometryType.c_str());
+
+        std::string matrixText = MatrixUtils::FormatMatrix(geo.transform);
+        tinyxml2::XMLElement *matrix = doc.NewElement("Matrix");
+        matrix->SetText(matrixText.c_str());
+        g3d->InsertEndChild(matrix);
+
+        cl->InsertEndChild(g3d);
+      }
+
+      if (cl->FirstChild())
+        sym->InsertEndChild(cl);
+    }
+
     aux->InsertEndChild(sym);
   }
   if (aux->FirstChild())
