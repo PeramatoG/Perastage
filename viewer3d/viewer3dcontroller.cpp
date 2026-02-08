@@ -2281,7 +2281,11 @@ void Viewer3DController::DrawMeshWireframe(
     const Mesh &mesh, float scale,
     const std::function<std::array<float, 3>(const std::array<float, 3> &)> &
         captureTransform) {
-  if (!m_captureOnly && mesh.buffersReady) {
+  const bool canUseGpuWireframe =
+      mesh.buffersReady && mesh.vao != 0 && mesh.vboVertices != 0 &&
+      mesh.eboLines != 0 && mesh.eboTriangles != 0;
+
+  if (!m_captureOnly && canUseGpuWireframe) {
     glBindVertexArray(mesh.vao);
     glPushMatrix();
     glScalef(scale, scale, scale);
@@ -2356,7 +2360,11 @@ void Viewer3DController::DrawMeshWireframe(
 // Draws a mesh using GL triangles. The optional scale parameter allows
 // converting vertex units (e.g. millimeters) to meters.
 void Viewer3DController::DrawMesh(const Mesh &mesh, float scale) {
-  if (!m_captureOnly && mesh.buffersReady) {
+  const bool canUseGpuTriangles =
+      mesh.buffersReady && mesh.vao != 0 && mesh.vboVertices != 0 &&
+      mesh.vboNormals != 0 && mesh.eboTriangles != 0;
+
+  if (!m_captureOnly && canUseGpuTriangles) {
     glBindVertexArray(mesh.vao);
     glPushMatrix();
     glScalef(scale, scale, scale);
@@ -2368,6 +2376,10 @@ void Viewer3DController::DrawMesh(const Mesh &mesh, float scale) {
     glBindBuffer(GL_ARRAY_BUFFER, mesh.vboNormals);
     glEnableClientState(GL_NORMAL_ARRAY);
     glNormalPointer(GL_FLOAT, 0, nullptr);
+
+    // Make the index source explicit for driver stability when VAO state is
+    // stale or comes from a different context lifecycle.
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.eboTriangles);
 
     glDrawElements(GL_TRIANGLES, mesh.triangleIndexCount, GL_UNSIGNED_SHORT,
                    nullptr);
