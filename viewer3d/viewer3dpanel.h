@@ -33,7 +33,6 @@
 #include <atomic>
 #include <wx/thread.h>
 #include <vector>
-#include <array>
 
 wxDECLARE_EVENT(wxEVT_VIEWER_REFRESH, wxThreadEvent);
 
@@ -107,28 +106,12 @@ private:
 
     // Renders the full scene
     void Render();
-    std::array<float, 6> GetCameraState() const;
-    bool CanReuseHoverCache(int width, int height) const;
-    void InvalidateHoverCache();
-
-    struct HoverCache {
-        bool valid = false;
-        wxPoint mousePos;
-        wxSize viewport;
-        std::array<float, 6> cameraState{};
-        wxString label;
-        wxPoint pos;
-        std::string uuid;
-        wxRect projectedRect;
-        double depth = 0.0;
-    };
 
     // Hovered fixture label state
     bool m_hasHover = false;
     wxPoint m_hoverPos;
     wxString m_hoverText;
     std::string m_hoverUuid;
-    HoverCache m_hoverCache;
 
     // True when the mouse moved since the last paint
     bool m_mouseMoved = false;

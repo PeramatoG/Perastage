@@ -114,19 +114,13 @@ public:
   // under the given mouse coordinates (if any)
   bool GetFixtureLabelAt(int mouseX, int mouseY, int width, int height,
                          wxString &outLabel, wxPoint &outPos,
-                         std::string *outUuid = nullptr,
-                         wxRect *outProjectedRect = nullptr,
-                         double *outDepth = nullptr);
+                         std::string *outUuid = nullptr);
   bool GetTrussLabelAt(int mouseX, int mouseY, int width, int height,
                        wxString &outLabel, wxPoint &outPos,
-                       std::string *outUuid = nullptr,
-                       wxRect *outProjectedRect = nullptr,
-                       double *outDepth = nullptr);
+                       std::string *outUuid = nullptr);
   bool GetSceneObjectLabelAt(int mouseX, int mouseY, int width, int height,
                              wxString &outLabel, wxPoint &outPos,
-                             std::string *outUuid = nullptr,
-                             wxRect *outProjectedRect = nullptr,
-                             double *outDepth = nullptr);
+                             std::string *outUuid = nullptr);
   std::vector<std::string> GetFixturesInScreenRect(int x1, int y1, int x2,
                                                    int y2, int width,
                                                    int height) const;
