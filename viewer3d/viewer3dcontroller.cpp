@@ -2094,6 +2094,8 @@ void Viewer3DController::SetupMeshBuffers(Mesh &mesh) {
   if (mesh.buffersReady)
     ReleaseMeshBuffers(mesh);
 
+  EnsureOutwardWinding(mesh);
+
   if (mesh.normals.size() < mesh.vertices.size())
     ComputeNormals(mesh);
 
@@ -2637,6 +2639,9 @@ void Viewer3DController::ApplyTransform(const float matrix[16],
 void Viewer3DController::SetupBasicLighting() {
   glEnable(GL_LIGHTING);
   glEnable(GL_LIGHT0);
+  glEnable(GL_CULL_FACE);
+  glCullFace(GL_BACK);
+  glFrontFace(GL_CCW);
 
   GLfloat ambient[] = {0.2f, 0.2f, 0.2f, 1.0f};
   GLfloat diffuse[] = {0.8f, 0.8f, 0.8f, 1.0f};
