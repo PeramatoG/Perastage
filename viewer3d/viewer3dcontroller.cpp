@@ -127,6 +127,24 @@ static std::string NormalizeModelKey(const std::string &p) {
   return NormalizePath(path.string());
 }
 
+static std::vector<unsigned short>
+BuildWireframeIndices(const std::vector<unsigned short> &triangleIndices) {
+  std::vector<unsigned short> lineIndices;
+  lineIndices.reserve((triangleIndices.size() / 3u) * 6u);
+  for (size_t i = 0; i + 2 < triangleIndices.size(); i += 3) {
+    const unsigned short i0 = triangleIndices[i];
+    const unsigned short i1 = triangleIndices[i + 1];
+    const unsigned short i2 = triangleIndices[i + 2];
+    lineIndices.push_back(i0);
+    lineIndices.push_back(i1);
+    lineIndices.push_back(i1);
+    lineIndices.push_back(i2);
+    lineIndices.push_back(i2);
+    lineIndices.push_back(i0);
+  }
+  return lineIndices;
+}
+
 static uint32_t HashString(std::string_view value) {
   uint32_t hash = 2166136261u;
   for (unsigned char c : value) {
@@ -611,6 +629,10 @@ Viewer3DController::Viewer3DController() {
 }
 
 Viewer3DController::~Viewer3DController() {
+  for (auto &[path, mesh] : m_loadedMeshes) {
+    (void)path;
+    ReleaseMeshBuffers(mesh);
+  }
   if (m_vg)
     nvgDeleteGL2(m_vg);
 }
@@ -745,6 +767,7 @@ void Viewer3DController::Update() {
         loaded = LoadGLB(path, mesh);
 
       if (loaded) {
+        SetupMeshBuffers(mesh);
         m_loadedMeshes[path] = std::move(mesh);
       } else if (ConsolePanel::Instance()) {
         wxString msg = wxString::Format("Failed to load model: %s",
@@ -773,6 +796,7 @@ void Viewer3DController::Update() {
         loaded = LoadGLB(path, mesh);
 
       if (loaded) {
+        SetupMeshBuffers(mesh);
         m_loadedMeshes[path] = std::move(mesh);
       } else if (ConsolePanel::Instance()) {
         wxString msg = wxString::Format("Failed to load model: %s",
@@ -2063,6 +2087,82 @@ void Viewer3DController::DrawCubeWithOutline(
     DrawCube(size, r, g, b);
 }
 
+void Viewer3DController::SetupMeshBuffers(Mesh &mesh) {
+  if (mesh.vertices.empty() || mesh.indices.empty())
+    return;
+
+  if (mesh.buffersReady)
+    ReleaseMeshBuffers(mesh);
+
+  if (mesh.normals.size() < mesh.vertices.size())
+    ComputeNormals(mesh);
+
+  std::vector<unsigned short> lineIndices = BuildWireframeIndices(mesh.indices);
+
+  glGenVertexArrays(1, &mesh.vao);
+  glBindVertexArray(mesh.vao);
+
+  glGenBuffers(1, &mesh.vboVertices);
+  glBindBuffer(GL_ARRAY_BUFFER, mesh.vboVertices);
+  glBufferData(GL_ARRAY_BUFFER, mesh.vertices.size() * sizeof(float),
+               mesh.vertices.data(), GL_STATIC_DRAW);
+
+  glGenBuffers(1, &mesh.vboNormals);
+  glBindBuffer(GL_ARRAY_BUFFER, mesh.vboNormals);
+  glBufferData(GL_ARRAY_BUFFER, mesh.normals.size() * sizeof(float),
+               mesh.normals.data(), GL_STATIC_DRAW);
+
+  glGenBuffers(1, &mesh.eboTriangles);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.eboTriangles);
+  glBufferData(GL_ELEMENT_ARRAY_BUFFER,
+               mesh.indices.size() * sizeof(unsigned short),
+               mesh.indices.data(), GL_STATIC_DRAW);
+
+  glGenBuffers(1, &mesh.eboLines);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.eboLines);
+  glBufferData(GL_ELEMENT_ARRAY_BUFFER,
+               lineIndices.size() * sizeof(unsigned short),
+               lineIndices.data(), GL_STATIC_DRAW);
+
+  // Restore the triangle index buffer while the VAO is bound so the VAO keeps
+  // a valid default index buffer for solid rendering and future draws.
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.eboTriangles);
+
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
+  glBindVertexArray(0);
+
+  mesh.triangleIndexCount = static_cast<int>(mesh.indices.size());
+  mesh.lineIndexCount = static_cast<int>(lineIndices.size());
+  mesh.buffersReady = true;
+}
+
+void Viewer3DController::ReleaseMeshBuffers(Mesh &mesh) {
+  if (mesh.eboLines != 0) {
+    glDeleteBuffers(1, &mesh.eboLines);
+    mesh.eboLines = 0;
+  }
+  if (mesh.eboTriangles != 0) {
+    glDeleteBuffers(1, &mesh.eboTriangles);
+    mesh.eboTriangles = 0;
+  }
+  if (mesh.vboNormals != 0) {
+    glDeleteBuffers(1, &mesh.vboNormals);
+    mesh.vboNormals = 0;
+  }
+  if (mesh.vboVertices != 0) {
+    glDeleteBuffers(1, &mesh.vboVertices);
+    mesh.vboVertices = 0;
+  }
+  if (mesh.vao != 0) {
+    glDeleteVertexArrays(1, &mesh.vao);
+    mesh.vao = 0;
+  }
+
+  mesh.triangleIndexCount = 0;
+  mesh.lineIndexCount = 0;
+  mesh.buffersReady = false;
+}
+
 // Draws a mesh using the given color. When selected or highlighted the
 // mesh is rendered entirely in cyan or green respectively.
 void Viewer3DController::DrawMeshWithOutline(
@@ -2181,33 +2281,45 @@ void Viewer3DController::DrawMeshWireframe(
     const Mesh &mesh, float scale,
     const std::function<std::array<float, 3>(const std::array<float, 3> &)> &
         captureTransform) {
-  if (!m_captureOnly) {
+  if (!m_captureOnly && mesh.buffersReady) {
+    glBindVertexArray(mesh.vao);
+    glPushMatrix();
+    glScalef(scale, scale, scale);
+
+    glBindBuffer(GL_ARRAY_BUFFER, mesh.vboVertices);
+    glEnableClientState(GL_VERTEX_ARRAY);
+    glVertexPointer(3, GL_FLOAT, 0, nullptr);
+
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.eboLines);
+    glDrawElements(GL_LINES, mesh.lineIndexCount, GL_UNSIGNED_SHORT, nullptr);
+
+    // Restore triangle index binding so subsequent solid draws keep working.
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.eboTriangles);
+
+    glDisableClientState(GL_VERTEX_ARRAY);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glPopMatrix();
+  } else if (!m_captureOnly) {
     glBegin(GL_LINES);
     for (size_t i = 0; i + 2 < mesh.indices.size(); i += 3) {
-      unsigned short i0 = mesh.indices[i];
-      unsigned short i1 = mesh.indices[i + 1];
-      unsigned short i2 = mesh.indices[i + 2];
+      const unsigned short i0 = mesh.indices[i];
+      const unsigned short i1 = mesh.indices[i + 1];
+      const unsigned short i2 = mesh.indices[i + 2];
 
-      float v0x = mesh.vertices[i0 * 3] * scale;
-      float v0y = mesh.vertices[i0 * 3 + 1] * scale;
-      float v0z = mesh.vertices[i0 * 3 + 2] * scale;
+      glVertex3f(mesh.vertices[i0 * 3] * scale, mesh.vertices[i0 * 3 + 1] * scale,
+                 mesh.vertices[i0 * 3 + 2] * scale);
+      glVertex3f(mesh.vertices[i1 * 3] * scale, mesh.vertices[i1 * 3 + 1] * scale,
+                 mesh.vertices[i1 * 3 + 2] * scale);
 
-      float v1x = mesh.vertices[i1 * 3] * scale;
-      float v1y = mesh.vertices[i1 * 3 + 1] * scale;
-      float v1z = mesh.vertices[i1 * 3 + 2] * scale;
+      glVertex3f(mesh.vertices[i1 * 3] * scale, mesh.vertices[i1 * 3 + 1] * scale,
+                 mesh.vertices[i1 * 3 + 2] * scale);
+      glVertex3f(mesh.vertices[i2 * 3] * scale, mesh.vertices[i2 * 3 + 1] * scale,
+                 mesh.vertices[i2 * 3 + 2] * scale);
 
-      float v2x = mesh.vertices[i2 * 3] * scale;
-      float v2y = mesh.vertices[i2 * 3 + 1] * scale;
-      float v2z = mesh.vertices[i2 * 3 + 2] * scale;
-
-      glVertex3f(v0x, v0y, v0z);
-      glVertex3f(v1x, v1y, v1z);
-
-      glVertex3f(v1x, v1y, v1z);
-      glVertex3f(v2x, v2y, v2z);
-
-      glVertex3f(v2x, v2y, v2z);
-      glVertex3f(v0x, v0y, v0z);
+      glVertex3f(mesh.vertices[i2 * 3] * scale, mesh.vertices[i2 * 3 + 1] * scale,
+                 mesh.vertices[i2 * 3 + 2] * scale);
+      glVertex3f(mesh.vertices[i0 * 3] * scale, mesh.vertices[i0 * 3 + 1] * scale,
+                 mesh.vertices[i0 * 3 + 2] * scale);
     }
     glEnd();
   }
@@ -2244,50 +2356,62 @@ void Viewer3DController::DrawMeshWireframe(
 // Draws a mesh using GL triangles. The optional scale parameter allows
 // converting vertex units (e.g. millimeters) to meters.
 void Viewer3DController::DrawMesh(const Mesh &mesh, float scale) {
-  if (!m_captureOnly) {
+  if (!m_captureOnly && mesh.buffersReady) {
+    glBindVertexArray(mesh.vao);
+    glPushMatrix();
+    glScalef(scale, scale, scale);
+
+    glBindBuffer(GL_ARRAY_BUFFER, mesh.vboVertices);
+    glEnableClientState(GL_VERTEX_ARRAY);
+    glVertexPointer(3, GL_FLOAT, 0, nullptr);
+
+    glBindBuffer(GL_ARRAY_BUFFER, mesh.vboNormals);
+    glEnableClientState(GL_NORMAL_ARRAY);
+    glNormalPointer(GL_FLOAT, 0, nullptr);
+
+    glDrawElements(GL_TRIANGLES, mesh.triangleIndexCount, GL_UNSIGNED_SHORT,
+                   nullptr);
+
+    glDisableClientState(GL_NORMAL_ARRAY);
+    glDisableClientState(GL_VERTEX_ARRAY);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glPopMatrix();
+  } else if (!m_captureOnly) {
     glBegin(GL_TRIANGLES);
-    bool hasNormals = mesh.normals.size() >= mesh.vertices.size();
+    const bool hasNormals = mesh.normals.size() >= mesh.vertices.size();
     for (size_t i = 0; i + 2 < mesh.indices.size(); i += 3) {
-      unsigned short i0 = mesh.indices[i];
-      unsigned short i1 = mesh.indices[i + 1];
-      unsigned short i2 = mesh.indices[i + 2];
-
-      float v0x = mesh.vertices[i0 * 3] * scale;
-      float v0y = mesh.vertices[i0 * 3 + 1] * scale;
-      float v0z = mesh.vertices[i0 * 3 + 2] * scale;
-
-      float v1x = mesh.vertices[i1 * 3] * scale;
-      float v1y = mesh.vertices[i1 * 3 + 1] * scale;
-      float v1z = mesh.vertices[i1 * 3 + 2] * scale;
-
-      float v2x = mesh.vertices[i2 * 3] * scale;
-      float v2y = mesh.vertices[i2 * 3 + 1] * scale;
-      float v2z = mesh.vertices[i2 * 3 + 2] * scale;
+      const unsigned short i0 = mesh.indices[i];
+      const unsigned short i1 = mesh.indices[i + 1];
+      const unsigned short i2 = mesh.indices[i + 2];
 
       if (hasNormals) {
         glNormal3f(mesh.normals[i0 * 3], mesh.normals[i0 * 3 + 1],
                    mesh.normals[i0 * 3 + 2]);
-        glVertex3f(v0x, v0y, v0z);
+        glVertex3f(mesh.vertices[i0 * 3] * scale, mesh.vertices[i0 * 3 + 1] * scale,
+                   mesh.vertices[i0 * 3 + 2] * scale);
         glNormal3f(mesh.normals[i1 * 3], mesh.normals[i1 * 3 + 1],
                    mesh.normals[i1 * 3 + 2]);
-        glVertex3f(v1x, v1y, v1z);
+        glVertex3f(mesh.vertices[i1 * 3] * scale, mesh.vertices[i1 * 3 + 1] * scale,
+                   mesh.vertices[i1 * 3 + 2] * scale);
         glNormal3f(mesh.normals[i2 * 3], mesh.normals[i2 * 3 + 1],
                    mesh.normals[i2 * 3 + 2]);
-        glVertex3f(v2x, v2y, v2z);
+        glVertex3f(mesh.vertices[i2 * 3] * scale, mesh.vertices[i2 * 3 + 1] * scale,
+                   mesh.vertices[i2 * 3 + 2] * scale);
       } else {
-        float ux = v1x - v0x;
-        float uy = v1y - v0y;
-        float uz = v1z - v0z;
+        const float v0x = mesh.vertices[i0 * 3] * scale;
+        const float v0y = mesh.vertices[i0 * 3 + 1] * scale;
+        const float v0z = mesh.vertices[i0 * 3 + 2] * scale;
+        const float v1x = mesh.vertices[i1 * 3] * scale;
+        const float v1y = mesh.vertices[i1 * 3 + 1] * scale;
+        const float v1z = mesh.vertices[i1 * 3 + 2] * scale;
+        const float v2x = mesh.vertices[i2 * 3] * scale;
+        const float v2y = mesh.vertices[i2 * 3 + 1] * scale;
+        const float v2z = mesh.vertices[i2 * 3 + 2] * scale;
 
-        float vx = v2x - v0x;
-        float vy = v2y - v0y;
-        float vz = v2z - v0z;
-
-        float nx = uy * vz - uz * vy;
-        float ny = uz * vx - ux * vz;
-        float nz = ux * vy - uy * vx;
-
-        float len = std::sqrt(nx * nx + ny * ny + nz * nz);
+        float nx = (v1y - v0y) * (v2z - v0z) - (v1z - v0z) * (v2y - v0y);
+        float ny = (v1z - v0z) * (v2x - v0x) - (v1x - v0x) * (v2z - v0z);
+        float nz = (v1x - v0x) * (v2y - v0y) - (v1y - v0y) * (v2x - v0x);
+        const float len = std::sqrt(nx * nx + ny * ny + nz * nz);
         if (len > 0.0f) {
           nx /= len;
           ny /= len;
