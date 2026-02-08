@@ -962,7 +962,7 @@ void Viewer3DPanel::OnThreadRefresh(wxThreadEvent& event)
         return;
 
     Refresh();
-    m_needsRender = m_activeInteraction.load();
+    m_needsRender = m_activeInteraction;
 }
 
 void Viewer3DPanel::LoadCameraFromConfig()
