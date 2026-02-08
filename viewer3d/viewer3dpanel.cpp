@@ -129,6 +129,7 @@ Viewer3DPanel::Viewer3DPanel(wxWindow* parent)
     m_glContext(new wxGLContext(this))
 {
     SetBackgroundStyle(wxBG_STYLE_CUSTOM);
+    m_interactionUntilMs = 0;
     m_threadRunning = true;
     m_refreshThread = std::thread(&Viewer3DPanel::RefreshLoop, this);
 }
@@ -265,7 +266,8 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
 // Resize event handler
 void Viewer3DPanel::OnResize(wxSizeEvent& event)
 {
-    Refresh();
+    MarkRenderDirty();
+    event.Skip();
 }
 
 // Renders the full 3D scene
@@ -305,6 +307,9 @@ void Viewer3DPanel::OnMouseDown(wxMouseEvent& event)
             m_rectSelectStart = event.GetPosition();
             m_rectSelectEnd = m_rectSelectStart;
             m_draggedSincePress = false;
+            SetInteractionActive(true);
+            ExtendInteractionWindow(std::chrono::milliseconds(150));
+            MarkRenderDirty();
             CaptureMouse();
             return;
         }
@@ -317,6 +322,8 @@ void Viewer3DPanel::OnMouseDown(wxMouseEvent& event)
         m_dragging = true;
         m_draggedSincePress = false;
         m_lastMousePos = event.GetPosition();
+        SetInteractionActive(true);
+        ExtendInteractionWindow(std::chrono::milliseconds(150));
         CaptureMouse();
     }
 }
@@ -332,8 +339,9 @@ void Viewer3DPanel::OnMouseUp(wxMouseEvent& event)
         m_rectSelecting = false;
         m_dragging = false;
         m_mode = InteractionMode::None;
+        SetInteractionActive(false);
         m_draggedSincePress = false;
-        Refresh();
+        MarkRenderDirty();
         return;
     }
 
@@ -341,6 +349,7 @@ void Viewer3DPanel::OnMouseUp(wxMouseEvent& event)
     {
         m_dragging = false;
         m_mode = InteractionMode::None;
+        SetInteractionActive(false);
         ReleaseMouse();
     }
 
@@ -543,7 +552,7 @@ void Viewer3DPanel::OnRightUp(wxMouseEvent& event)
     if (selectedId == kSelectTypeAllId) {
         ApplyFixtureSelectionToUi(BuildFixtureSelectionByType(scene, ""), this,
                                   m_controller);
-        Refresh();
+        MarkRenderDirty();
         return;
     }
 
@@ -552,7 +561,7 @@ void Viewer3DPanel::OnRightUp(wxMouseEvent& event)
         const size_t idx = static_cast<size_t>(selectedId - kSelectTypeBaseId);
         ApplyFixtureSelectionToUi(BuildFixtureSelectionByType(scene, orderedTypes[idx]), this,
                                   m_controller);
-        Refresh();
+        MarkRenderDirty();
         return;
     }
 
@@ -563,7 +572,7 @@ void Viewer3DPanel::OnRightUp(wxMouseEvent& event)
             ApplyFixtureSelectionToUi(BuildFixtureSelectionByPosition(scene, "", true),
                                       this, m_controller);
         }
-        Refresh();
+        MarkRenderDirty();
         return;
     }
 
@@ -573,7 +582,7 @@ void Viewer3DPanel::OnRightUp(wxMouseEvent& event)
         ApplyFixtureSelectionToUi(
             BuildFixtureSelectionByPosition(scene, orderedPositions[idx], false), this,
             m_controller);
-        Refresh();
+        MarkRenderDirty();
         return;
     }
 }
@@ -583,6 +592,7 @@ void Viewer3DPanel::OnCaptureLost(wxMouseCaptureLostEvent& WXUNUSED(event))
     m_dragging = false;
     m_mode = InteractionMode::None;
     m_rectSelecting = false;
+    SetInteractionActive(false);
 }
 
 void Viewer3DPanel::ApplyRectangleSelection(const wxPoint& start,
@@ -696,7 +706,8 @@ void Viewer3DPanel::OnMouseMove(wxMouseEvent& event)
     {
         m_rectSelectEnd = pos;
         m_draggedSincePress = true;
-        Refresh();
+        ExtendInteractionWindow(std::chrono::milliseconds(150));
+        MarkRenderDirty();
         return;
     }
 
@@ -710,19 +721,21 @@ void Viewer3DPanel::OnMouseMove(wxMouseEvent& event)
         if (m_mode == InteractionMode::Orbit && event.LeftIsDown())
         {
             m_camera.Orbit(dx * 0.5f, -dy * 0.5f);
+            MarkRenderDirty();
         }
         else if (m_mode == InteractionMode::Pan && (event.MiddleIsDown() || event.ShiftDown()))
         {
             m_camera.Pan(-dx * 0.01f, dy * 0.01f);
+            MarkRenderDirty();
         }
+        ExtendInteractionWindow(std::chrono::milliseconds(150));
     }
 
     m_lastMousePos = pos;
 
     // Mark that the mouse has moved so OnPaint can update hover info
     m_mouseMoved = true;
-
-    Refresh();
+    MarkRenderDirty();
 }
 
 // Handles mouse wheel (zoom)
@@ -738,7 +751,9 @@ void Viewer3DPanel::OnMouseWheel(wxMouseEvent& event)
     if (deltaWheel != 0)
         steps = -static_cast<float>(rotation) / static_cast<float>(deltaWheel);
     m_camera.Zoom(steps);
-    Refresh();
+    SetInteractionActive(true);
+    ExtendInteractionWindow(std::chrono::milliseconds(250));
+    MarkRenderDirty();
 }
 
 void Viewer3DPanel::OnMouseDClick(wxMouseEvent& event)
@@ -773,7 +788,7 @@ void Viewer3DPanel::OnMouseDClick(wxMouseEvent& event)
         FixtureTablePanel::Instance()->ReloadData();
     }
 
-    Refresh();
+    MarkRenderDirty();
 }
 
 void Viewer3DPanel::OnKeyDown(wxKeyEvent& event)
@@ -833,7 +848,7 @@ void Viewer3DPanel::OnKeyDown(wxKeyEvent& event)
             return;
     }
 
-    Refresh();
+    MarkRenderDirty();
 }
 
 void Viewer3DPanel::OnMouseEnter(wxMouseEvent& event)
@@ -855,7 +870,7 @@ void Viewer3DPanel::OnMouseLeave(wxMouseEvent& event)
         TrussTablePanel::Instance()->HighlightTruss(std::string());
     if (SceneObjectTablePanel::Instance())
         SceneObjectTablePanel::Instance()->HighlightObject(std::string());
-    Refresh();
+    MarkRenderDirty();
     event.Skip();
 }
 
@@ -865,12 +880,37 @@ void Viewer3DPanel::UpdateScene()
     m_controller.Update();
     if (Viewer2DPanel::Instance())
         Viewer2DPanel::Instance()->UpdateScene();
+    MarkRenderDirty();
 }
 
 void Viewer3DPanel::SetSelectedFixtures(const std::vector<std::string>& uuids)
 {
+    if (m_selectedUuids == uuids)
+        return;
+    m_selectedUuids = uuids;
     m_controller.SetSelectedUuids(uuids);
-    Refresh();
+    MarkRenderDirty();
+}
+
+void Viewer3DPanel::MarkRenderDirty()
+{
+    m_needsRender = true;
+}
+
+void Viewer3DPanel::SetInteractionActive(bool active)
+{
+    m_activeInteraction = active;
+    if (active)
+        m_needsRender = true;
+}
+
+void Viewer3DPanel::ExtendInteractionWindow(std::chrono::milliseconds duration)
+{
+    const auto now = std::chrono::steady_clock::now();
+    const auto until = std::chrono::duration_cast<std::chrono::milliseconds>(
+        (now + duration).time_since_epoch()).count();
+    m_interactionUntilMs = until;
+    SetInteractionActive(true);
 }
 
 void Viewer3DPanel::SetLayerColor(const std::string& layer, const std::string& hex)
@@ -901,15 +941,28 @@ void Viewer3DPanel::RefreshLoop()
     using namespace std::chrono_literals;
     while (m_threadRunning)
     {
-        wxThreadEvent* evt = new wxThreadEvent(wxEVT_VIEWER_REFRESH);
-        wxQueueEvent(this, evt);
-        std::this_thread::sleep_for(16ms);
+        const auto nowMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now().time_since_epoch()).count();
+        if (m_activeInteraction && nowMs >= m_interactionUntilMs.load())
+            m_activeInteraction = false;
+
+        if (m_needsRender || m_activeInteraction) {
+            wxThreadEvent* evt = new wxThreadEvent(wxEVT_VIEWER_REFRESH);
+            wxQueueEvent(this, evt);
+            std::this_thread::sleep_for(16ms);
+        } else {
+            std::this_thread::sleep_for(60ms);
+        }
     }
 }
 
 void Viewer3DPanel::OnThreadRefresh(wxThreadEvent& event)
 {
+    if (!m_needsRender)
+        return;
+
     Refresh();
+    m_needsRender = m_activeInteraction;
 }
 
 void Viewer3DPanel::LoadCameraFromConfig()
