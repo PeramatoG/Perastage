@@ -36,6 +36,8 @@ struct Mesh {
     int triangleIndexCount = 0;
     int lineIndexCount = 0;
     bool buffersReady = false;
+    // Optional cached triangle index order for mirrored instances.
+    mutable std::vector<unsigned short> flippedIndicesCache;
     // True once we have evaluated/fixed triangle winding for compatibility
     // with assets coming from heterogeneous DCC/export pipelines.
     bool windingChecked = false;

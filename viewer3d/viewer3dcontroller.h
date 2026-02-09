@@ -30,6 +30,7 @@
 #include "canvas2d.h"
 #include "symbolcache.h"
 #include <array>
+#include <mutex>
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -275,6 +276,14 @@ private:
   std::unordered_map<std::string, BoundingBox> m_fixtureBounds;
   std::unordered_map<std::string, BoundingBox> m_trussBounds;
   std::unordered_map<std::string, BoundingBox> m_objectBounds;
+
+  // Cached draw order to avoid re-sorting unchanged scenes every frame.
+  std::vector<const std::pair<const std::string, Fixture> *> m_sortedFixtures;
+  std::vector<const std::pair<const std::string, Truss> *> m_sortedTrusses;
+  std::vector<const std::pair<const std::string, SceneObject> *>
+      m_sortedObjects;
+  bool m_sortedListsDirty = true;
+  mutable std::mutex m_sortedListsMutex;
 
   // Cached deterministic colors for fixture types and layers in 2D view
   std::unordered_map<std::string, std::array<float, 3>> m_typeColors;
