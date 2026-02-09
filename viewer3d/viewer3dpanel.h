@@ -119,6 +119,9 @@ private:
     // True once OpenGL/GLEW initialization has been performed
     bool m_glInitialized = false;
 
+    // Multisample anti-aliasing availability negotiated at context creation.
+    bool m_hasSampleBuffers = false;
+
     Viewer3DController m_controller;
 
     std::atomic<bool> m_threadRunning{false};
