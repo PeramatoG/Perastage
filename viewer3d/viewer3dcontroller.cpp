@@ -46,6 +46,7 @@
 #include "loader3ds.h"
 #include "loaderglb.h"
 #include "scenedatamanager.h"
+#include "matrixutils.h"
 #include "viewer3dcontroller.h"
 // Include shared Matrix type used throughout models
 #include "../models/types.h"
@@ -779,29 +780,37 @@ void Viewer3DController::Update() {
 
   const auto &objects = SceneDataManager::Instance().GetSceneObjects();
   for (const auto &[uuid, obj] : objects) {
-    if (obj.modelFile.empty())
-      continue;
-    std::string path = ResolveModelPath(base, obj.modelFile);
-    if (path.empty())
-      continue;
-    if (m_loadedMeshes.find(path) == m_loadedMeshes.end()) {
-      Mesh mesh;
-      bool loaded = false;
-      std::string ext = fs::path(path).extension().string();
-      std::transform(ext.begin(), ext.end(), ext.begin(),
-                     [](unsigned char c) { return std::tolower(c); });
-      if (ext == ".3ds")
-        loaded = Load3DS(path, mesh);
-      else if (ext == ".glb")
-        loaded = LoadGLB(path, mesh);
+    std::vector<std::string> modelFiles;
+    if (!obj.geometries.empty()) {
+      for (const auto &geo : obj.geometries)
+        modelFiles.push_back(geo.modelFile);
+    } else if (!obj.modelFile.empty()) {
+      modelFiles.push_back(obj.modelFile);
+    }
 
-      if (loaded) {
-        SetupMeshBuffers(mesh);
-        m_loadedMeshes[path] = std::move(mesh);
-      } else if (ConsolePanel::Instance()) {
-        wxString msg = wxString::Format("Failed to load model: %s",
-                                        wxString::FromUTF8(path));
-        ConsolePanel::Instance()->AppendMessage(msg);
+    for (const auto &modelFile : modelFiles) {
+      std::string path = ResolveModelPath(base, modelFile);
+      if (path.empty())
+        continue;
+      if (m_loadedMeshes.find(path) == m_loadedMeshes.end()) {
+        Mesh mesh;
+        bool loaded = false;
+        std::string ext = fs::path(path).extension().string();
+        std::transform(ext.begin(), ext.end(), ext.begin(),
+                       [](unsigned char c) { return std::tolower(c); });
+        if (ext == ".3ds")
+          loaded = Load3DS(path, mesh);
+        else if (ext == ".glb")
+          loaded = LoadGLB(path, mesh);
+
+        if (loaded) {
+          SetupMeshBuffers(mesh);
+          m_loadedMeshes[path] = std::move(mesh);
+        } else if (ConsolePanel::Instance()) {
+          wxString msg = wxString::Format("Failed to load model: %s",
+                                          wxString::FromUTF8(path));
+          ConsolePanel::Instance()->AppendMessage(msg);
+        }
       }
     }
   }
@@ -1005,23 +1014,48 @@ void Viewer3DController::Update() {
   for (const auto &[uuid, obj] : objects) {
     BoundingBox bb;
     Matrix tm = obj.transform;
-    tm.o[0] *= RENDER_SCALE;
-    tm.o[1] *= RENDER_SCALE;
-    tm.o[2] *= RENDER_SCALE;
 
     bool found = false;
     bb.min = {FLT_MAX, FLT_MAX, FLT_MAX};
     bb.max = {-FLT_MAX, -FLT_MAX, -FLT_MAX};
 
-    if (!obj.modelFile.empty()) {
+    if (!obj.geometries.empty()) {
+      for (const auto &geo : obj.geometries) {
+        std::string path = ResolveModelPath(base, geo.modelFile);
+        auto it = m_loadedMeshes.find(path);
+        if (it == m_loadedMeshes.end())
+          continue;
+
+        Matrix geoTm = MatrixUtils::Multiply(tm, geo.localTransform);
+        for (size_t vi = 0; vi + 2 < it->second.vertices.size(); vi += 3) {
+          std::array<float, 3> p = {it->second.vertices[vi],
+                                    it->second.vertices[vi + 1],
+                                    it->second.vertices[vi + 2]};
+          p = TransformPoint(geoTm, p);
+          p[0] *= RENDER_SCALE;
+          p[1] *= RENDER_SCALE;
+          p[2] *= RENDER_SCALE;
+          bb.min[0] = std::min(bb.min[0], p[0]);
+          bb.min[1] = std::min(bb.min[1], p[1]);
+          bb.min[2] = std::min(bb.min[2], p[2]);
+          bb.max[0] = std::max(bb.max[0], p[0]);
+          bb.max[1] = std::max(bb.max[1], p[1]);
+          bb.max[2] = std::max(bb.max[2], p[2]);
+          found = true;
+        }
+      }
+    } else if (!obj.modelFile.empty()) {
       std::string path = ResolveModelPath(base, obj.modelFile);
       auto it = m_loadedMeshes.find(path);
       if (it != m_loadedMeshes.end()) {
         for (size_t vi = 0; vi + 2 < it->second.vertices.size(); vi += 3) {
-          std::array<float, 3> p = {it->second.vertices[vi] * RENDER_SCALE,
-                                    it->second.vertices[vi + 1] * RENDER_SCALE,
-                                    it->second.vertices[vi + 2] * RENDER_SCALE};
+          std::array<float, 3> p = {it->second.vertices[vi],
+                                    it->second.vertices[vi + 1],
+                                    it->second.vertices[vi + 2]};
           p = TransformPoint(tm, p);
+          p[0] *= RENDER_SCALE;
+          p[1] *= RENDER_SCALE;
+          p[2] *= RENDER_SCALE;
           bb.min[0] = std::min(bb.min[0], p[0]);
           bb.min[1] = std::min(bb.min[1], p[1]);
           bb.min[2] = std::min(bb.min[2], p[2]);
@@ -1172,14 +1206,37 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
       return TransformPoint(captureTransform, p);
     };
 
-    const Mesh *objectMesh = nullptr;
-    std::string objectPath;
-    if (!m.modelFile.empty()) {
-      objectPath = ResolveModelPath(base, m.modelFile);
+    struct SceneObjectMeshPart {
+      const Mesh *mesh = nullptr;
+      Matrix localTransform = MatrixUtils::Identity();
+      std::string modelKey;
+    };
+    std::vector<SceneObjectMeshPart> objectMeshParts;
+    if (!m.geometries.empty()) {
+      for (const auto &geo : m.geometries) {
+        std::string objectPath = ResolveModelPath(base, geo.modelFile);
+        if (objectPath.empty())
+          continue;
+        auto it = m_loadedMeshes.find(objectPath);
+        if (it == m_loadedMeshes.end())
+          continue;
+
+        SceneObjectMeshPart part;
+        part.mesh = &it->second;
+        part.localTransform = geo.localTransform;
+        part.modelKey = NormalizeModelKey(objectPath);
+        objectMeshParts.push_back(std::move(part));
+      }
+    } else if (!m.modelFile.empty()) {
+      std::string objectPath = ResolveModelPath(base, m.modelFile);
       if (!objectPath.empty()) {
         auto it = m_loadedMeshes.find(objectPath);
-        if (it != m_loadedMeshes.end())
-          objectMesh = &it->second;
+        if (it != m_loadedMeshes.end()) {
+          SceneObjectMeshPart part;
+          part.mesh = &it->second;
+          part.modelKey = NormalizeModelKey(objectPath);
+          objectMeshParts.push_back(std::move(part));
+        }
       }
     }
 
@@ -1187,11 +1244,34 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
         [&](const std::function<std::array<float, 3>(
                 const std::array<float, 3> &)> &captureTransform,
             bool isHighlighted, bool isSelected) {
-          if (objectMesh) {
-            DrawMeshWithOutline(*objectMesh, r, g, b, RENDER_SCALE,
-                                isHighlighted, isSelected, cx, cy, cz,
-                                wireframe, mode, captureTransform, false,
-                                matrix);
+          if (!objectMeshParts.empty()) {
+            for (const auto &part : objectMeshParts) {
+              Matrix worldMatrix = MatrixUtils::Multiply(m.transform, part.localTransform);
+              float partMatrix[16];
+              MatrixToArray(worldMatrix, partMatrix);
+
+              Matrix partCaptureMatrix = worldMatrix;
+              partCaptureMatrix.o[0] *= RENDER_SCALE;
+              partCaptureMatrix.o[1] *= RENDER_SCALE;
+              partCaptureMatrix.o[2] *= RENDER_SCALE;
+              auto partCapture = [partCaptureMatrix](const std::array<float, 3> &p) {
+                return TransformPoint(partCaptureMatrix, p);
+              };
+
+              float localMatrix[16];
+              MatrixToArray(part.localTransform, localMatrix);
+              glPushMatrix();
+              ApplyTransform(localMatrix, false);
+              auto partCaptureTransform = captureTransform;
+              if (captureTransform)
+                partCaptureTransform = partCapture;
+
+              DrawMeshWithOutline(*part.mesh, r, g, b, RENDER_SCALE,
+                                  isHighlighted, isSelected, cx, cy, cz,
+                                  wireframe, mode, partCaptureTransform, false,
+                                  partMatrix);
+              glPopMatrix();
+            }
           } else {
             DrawCubeWithOutline(0.3f, r, g, b, isHighlighted, isSelected, cx,
                                 cy, cz, wireframe, mode, captureTransform);
@@ -1209,8 +1289,8 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
     bool placedInstance = false;
     if (useSymbolInstancing && m_captureCanvas) {
       std::string modelKey;
-      if (!objectPath.empty())
-        modelKey = NormalizeModelKey(objectPath);
+      if (!objectMeshParts.empty())
+        modelKey = objectMeshParts.front().modelKey;
       else if (!m.modelFile.empty())
         modelKey = NormalizeModelKey(m.modelFile);
       if (modelKey.empty() && !m.name.empty())

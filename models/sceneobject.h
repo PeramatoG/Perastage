@@ -17,8 +17,14 @@
  */
 #pragma once
 
+#include <vector>
 #include <string>
 #include "types.h"
+
+struct GeometryInstance {
+    std::string modelFile;
+    Matrix localTransform = Matrix{};
+};
 
 // Represents a generic SceneObject parsed from MVR
 struct SceneObject {
@@ -26,5 +32,12 @@ struct SceneObject {
     std::string name;
     std::string layer;
     std::string modelFile; // Referenced 3D model file (Geometry3D or Symdef)
+    std::vector<GeometryInstance> geometries;
     Matrix transform;
+
+    std::string GetPrimaryModel() const {
+        if (!geometries.empty())
+            return geometries.front().modelFile;
+        return modelFile;
+    }
 };
