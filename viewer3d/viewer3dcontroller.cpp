@@ -1497,54 +1497,79 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
   const auto &trusses = SceneDataManager::Instance().GetTrusses();
   const auto &fixtures = SceneDataManager::Instance().GetFixtures();
 
-  std::vector<const std::pair<const std::string, SceneObject> *> sortedObjects;
-  std::vector<const std::pair<const std::string, Truss> *> sortedTrusses;
-  std::vector<const std::pair<const std::string, Fixture> *> sortedFixtures;
+  std::vector<const std::pair<const std::string, SceneObject> *> visibleSortedObjects;
+  std::vector<const std::pair<const std::string, Truss> *> visibleSortedTrusses;
+  std::vector<const std::pair<const std::string, Fixture> *> visibleSortedFixtures;
   {
     std::lock_guard<std::mutex> lock(m_sortedListsMutex);
-    if (m_sortedListsDirty && !skipOptionalWork) {
-      m_sortedObjects.clear();
-      m_sortedObjects.reserve(sceneObjects.size());
-      for (const auto &obj : sceneObjects)
-        m_sortedObjects.push_back(&obj);
-      std::sort(m_sortedObjects.begin(), m_sortedObjects.end(),
-                [](const auto *a, const auto *b) {
-                  return a->second.transform.o[2] < b->second.transform.o[2];
-                });
+    const bool hiddenLayersChanged = (m_lastHiddenLayers != hiddenLayers);
+    if ((m_sortedListsDirty || hiddenLayersChanged) && !skipOptionalWork) {
+      if (m_sortedListsDirty) {
+        m_sortedObjects.clear();
+        m_sortedObjects.reserve(sceneObjects.size());
+        for (const auto &obj : sceneObjects)
+          m_sortedObjects.push_back(&obj);
+        std::sort(m_sortedObjects.begin(), m_sortedObjects.end(),
+                  [](const auto *a, const auto *b) {
+                    return a->second.transform.o[2] < b->second.transform.o[2];
+                  });
 
-      m_sortedTrusses.clear();
-      m_sortedTrusses.reserve(trusses.size());
-      for (const auto &t : trusses)
-        m_sortedTrusses.push_back(&t);
-      std::sort(m_sortedTrusses.begin(), m_sortedTrusses.end(),
-                [](const auto *a, const auto *b) {
-                  return a->second.transform.o[2] < b->second.transform.o[2];
-                });
+        m_sortedTrusses.clear();
+        m_sortedTrusses.reserve(trusses.size());
+        for (const auto &t : trusses)
+          m_sortedTrusses.push_back(&t);
+        std::sort(m_sortedTrusses.begin(), m_sortedTrusses.end(),
+                  [](const auto *a, const auto *b) {
+                    return a->second.transform.o[2] < b->second.transform.o[2];
+                  });
 
-      m_sortedFixtures.clear();
-      m_sortedFixtures.reserve(fixtures.size());
-      for (const auto &f : fixtures)
-        m_sortedFixtures.push_back(&f);
-      std::sort(m_sortedFixtures.begin(), m_sortedFixtures.end(),
-                [](const auto *a, const auto *b) {
-                  return a->second.transform.o[2] < b->second.transform.o[2];
-                });
+        m_sortedFixtures.clear();
+        m_sortedFixtures.reserve(fixtures.size());
+        for (const auto &f : fixtures)
+          m_sortedFixtures.push_back(&f);
+        std::sort(m_sortedFixtures.begin(), m_sortedFixtures.end(),
+                  [](const auto *a, const auto *b) {
+                    return a->second.transform.o[2] < b->second.transform.o[2];
+                  });
 
-      m_sortedListsDirty = false;
+        m_sortedListsDirty = false;
+      }
+
+      m_visibleSortedObjects.clear();
+      m_visibleSortedObjects.reserve(m_sortedObjects.size());
+      for (const auto *entry : m_sortedObjects) {
+        if (IsLayerVisibleCached(hiddenLayers, entry->second.layer))
+          m_visibleSortedObjects.push_back(entry);
+      }
+
+      m_visibleSortedTrusses.clear();
+      m_visibleSortedTrusses.reserve(m_sortedTrusses.size());
+      for (const auto *entry : m_sortedTrusses) {
+        if (IsLayerVisibleCached(hiddenLayers, entry->second.layer))
+          m_visibleSortedTrusses.push_back(entry);
+      }
+
+      m_visibleSortedFixtures.clear();
+      m_visibleSortedFixtures.reserve(m_sortedFixtures.size());
+      for (const auto *entry : m_sortedFixtures) {
+        if (IsLayerVisibleCached(hiddenLayers, entry->second.layer))
+          m_visibleSortedFixtures.push_back(entry);
+      }
+
+      m_lastHiddenLayers = hiddenLayers;
+      ++m_hiddenLayersVersion;
     }
 
-    sortedObjects = m_sortedObjects;
-    sortedTrusses = m_sortedTrusses;
-    sortedFixtures = m_sortedFixtures;
+    visibleSortedObjects = m_visibleSortedObjects;
+    visibleSortedTrusses = m_visibleSortedTrusses;
+    visibleSortedFixtures = m_visibleSortedFixtures;
   }
 
   // Scene objects first
   glShadeModel(GL_FLAT);
-  for (const auto *entry : sortedObjects) {
+  for (const auto *entry : visibleSortedObjects) {
     const auto &uuid = entry->first;
     const auto &m = entry->second;
-    if (!IsLayerVisibleCached(hiddenLayers, m.layer))
-      continue;
     if (culling.enabled) {
       auto bit = m_objectBounds.find(uuid);
       if (bit != m_objectBounds.end()) {
@@ -1759,11 +1784,9 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
 
   // Trusses next
   glShadeModel(GL_SMOOTH); // keep smooth shading for trusses
-  for (const auto *entry : sortedTrusses) {
+  for (const auto *entry : visibleSortedTrusses) {
     const auto &uuid = entry->first;
     const auto &t = entry->second;
-    if (!IsLayerVisibleCached(hiddenLayers, t.layer))
-      continue;
     if (culling.enabled) {
       auto bit = m_trussBounds.find(uuid);
       if (bit != m_trussBounds.end()) {
@@ -1953,11 +1976,9 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
     if (depthEnabled)
       glDisable(GL_DEPTH_TEST);
   }
-  for (const auto *entry : sortedFixtures) {
+  for (const auto *entry : visibleSortedFixtures) {
     const auto &uuid = entry->first;
     const auto &f = entry->second;
-    if (!IsLayerVisibleCached(hiddenLayers, f.layer))
-      continue;
     if (culling.enabled) {
       auto bit = m_fixtureBounds.find(uuid);
       if (bit != m_fixtureBounds.end()) {

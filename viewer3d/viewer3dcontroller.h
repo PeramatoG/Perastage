@@ -284,6 +284,16 @@ private:
   std::vector<const std::pair<const std::string, Truss> *> m_sortedTrusses;
   std::vector<const std::pair<const std::string, SceneObject> *>
       m_sortedObjects;
+  // Visible-only variants of sorted lists. They are rebuilt whenever sorted
+  // lists change (scene update) or hidden layer visibility changes so the
+  // render loop avoids per-item visibility checks every frame.
+  std::vector<const std::pair<const std::string, Fixture> *>
+      m_visibleSortedFixtures;
+  std::vector<const std::pair<const std::string, Truss> *> m_visibleSortedTrusses;
+  std::vector<const std::pair<const std::string, SceneObject> *>
+      m_visibleSortedObjects;
+  std::unordered_set<std::string> m_lastHiddenLayers;
+  size_t m_hiddenLayersVersion = 0;
   bool m_sortedListsDirty = true;
   mutable std::mutex m_sortedListsMutex;
 
