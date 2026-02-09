@@ -43,6 +43,12 @@ Viewer3DCamera::Viewer3DCamera()
     targetX(0.0f), targetY(0.0f), targetZ(0.0f),
     minDistance(0.5f), maxDistance(500.0f)
 {
+    targetYaw = yaw;
+    targetPitch = pitch;
+    targetDistance = distance;
+    targetTargetX = targetX;
+    targetTargetY = targetY;
+    targetTargetZ = targetZ;
 }
 
 
@@ -72,12 +78,12 @@ void Viewer3DCamera::Apply() const
 // Adjusts yaw and pitch
 void Viewer3DCamera::Orbit(float deltaYaw, float deltaPitch)
 {
-    yaw += deltaYaw;
-    pitch += deltaPitch;
+    targetYaw += deltaYaw;
+    targetPitch += deltaPitch;
 
     // Clamp pitch to avoid flipping
-    if (pitch > 89.0f) pitch = 89.0f;
-    if (pitch < -89.0f) pitch = -89.0f;
+    if (targetPitch > 89.0f) targetPitch = 89.0f;
+    if (targetPitch < -89.0f) targetPitch = -89.0f;
 }
 
 // Adjusts distance
@@ -87,18 +93,18 @@ void Viewer3DCamera::Zoom(float deltaSteps)
     // is far from the target so wheel scrolling covers large distances
     // more quickly.
     float base = 1.1f + 0.1f *
-                 std::clamp(distance / 200.0f, 0.0f, 1.0f);
+                 std::clamp(targetDistance / 200.0f, 0.0f, 1.0f);
     float factor = std::pow(base, deltaSteps);
 
-    float newDistance = distance * factor;
+    float newDistance = targetDistance * factor;
 
     if (newDistance < minDistance)
     {
         // Continue moving forward once we reach the minimum distance
         // by translating the target in the viewing direction so that
         // zooming in keeps advancing the camera.
-        float radYaw = yaw * 3.14159265f / 180.0f;
-        float radPitch = pitch * 3.14159265f / 180.0f;
+        float radYaw = targetYaw * 3.14159265f / 180.0f;
+        float radPitch = targetPitch * 3.14159265f / 180.0f;
 
         float forwardX = -cosf(radPitch) * sinf(radYaw);
         float forwardY =  cosf(radPitch) * cosf(radYaw);
@@ -106,16 +112,16 @@ void Viewer3DCamera::Zoom(float deltaSteps)
 
         float overshoot = minDistance - newDistance;
 
-        targetX += overshoot * forwardX;
-        targetY += overshoot * forwardY;
-        targetZ += overshoot * forwardZ;
+        targetTargetX += overshoot * forwardX;
+        targetTargetY += overshoot * forwardY;
+        targetTargetZ += overshoot * forwardZ;
 
-        distance = minDistance;
+        targetDistance = minDistance;
     }
     else
     {
-        distance = newDistance;
-        if (distance > maxDistance) distance = maxDistance;
+        targetDistance = newDistance;
+        if (targetDistance > maxDistance) targetDistance = maxDistance;
     }
 }
 
@@ -124,14 +130,14 @@ void Viewer3DCamera::Zoom(float deltaSteps)
 // Moves the target point laterally (pan)
 void Viewer3DCamera::Pan(float deltaX, float deltaY)
 {
-    float radYaw = yaw * 3.14159265f / 180.0f;
+    float radYaw = targetYaw * 3.14159265f / 180.0f;
 
     float rightX = cosf(radYaw);
     float rightY = sinf(radYaw);
 
-    targetX += deltaX * rightX;
-    targetY += deltaX * rightY;
-    targetZ += deltaY;
+    targetTargetX += deltaX * rightX;
+    targetTargetY += deltaX * rightY;
+    targetTargetZ += deltaY;
 
 }
 
@@ -140,6 +146,7 @@ void Viewer3DCamera::SetDistance(float d)
     distance = d;
     if (distance < minDistance) distance = minDistance;
     if (distance > maxDistance) distance = maxDistance;
+    targetDistance = distance;
 }
 
 float Viewer3DCamera::GetDistance() const
@@ -153,6 +160,21 @@ void Viewer3DCamera::SetOrientation(float y, float p)
     pitch = p;
     if (pitch > 89.0f) pitch = 89.0f;
     if (pitch < -89.0f) pitch = -89.0f;
+    targetYaw = yaw;
+    targetPitch = pitch;
+}
+
+void Viewer3DCamera::Update(float dt)
+{
+    const float smoothing = 10.0f;
+    const float alpha = std::clamp(dt * smoothing, 0.0f, 1.0f);
+
+    yaw += (targetYaw - yaw) * alpha;
+    pitch += (targetPitch - pitch) * alpha;
+    distance += (targetDistance - distance) * alpha;
+    targetX += (targetTargetX - targetX) * alpha;
+    targetY += (targetTargetY - targetY) * alpha;
+    targetZ += (targetTargetZ - targetZ) * alpha;
 }
 
 void Viewer3DCamera::Reset()
@@ -161,4 +183,11 @@ void Viewer3DCamera::Reset()
     pitch = 30.0f;
     distance = 15.0f;
     targetX = targetY = targetZ = 0.0f;
+
+    targetYaw = yaw;
+    targetPitch = pitch;
+    targetDistance = distance;
+    targetTargetX = targetX;
+    targetTargetY = targetY;
+    targetTargetZ = targetZ;
 }

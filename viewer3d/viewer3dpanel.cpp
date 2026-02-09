@@ -250,6 +250,12 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
     if (wasInteracting && !pauseHeavyTasks)
         m_controller.Update();
 
+    static auto s_lastCameraUpdate = std::chrono::steady_clock::now();
+    const auto now = std::chrono::steady_clock::now();
+    const float dt = std::chrono::duration<float>(now - s_lastCameraUpdate).count();
+    s_lastCameraUpdate = now;
+    m_camera.Update(dt);
+
     Render();
 
     // Ensure the OpenGL context is current before drawing overlays
@@ -791,7 +797,9 @@ void Viewer3DPanel::OnMouseMove(wxMouseEvent& event)
 
         if (m_mode == InteractionMode::Orbit && event.LeftIsDown())
         {
-            m_camera.Orbit(dx * 0.5f, -dy * 0.5f);
+            m_camera.targetYaw += dx * 0.5f;
+            m_camera.targetPitch += -dy * 0.5f;
+            m_camera.targetPitch = std::clamp(m_camera.targetPitch, -89.0f, 89.0f);
         }
         else if (m_mode == InteractionMode::Pan && (event.MiddleIsDown() || event.ShiftDown()))
         {
@@ -822,7 +830,9 @@ void Viewer3DPanel::OnMouseWheel(wxMouseEvent& event)
     m_controller.SetInteracting(true);
     m_isInteracting = true;
     m_lastInteractionTime = std::chrono::steady_clock::now();
+
     m_camera.Zoom(steps);
+
     m_controller.SetInteracting(false);
     Refresh();
 }
@@ -876,7 +886,7 @@ void Viewer3DPanel::OnKeyDown(wxKeyEvent& event)
             else if (alt)
                 m_camera.Zoom(-1.0f);
             else
-                m_camera.Orbit(-5.0f, 0.0f);
+                m_camera.targetYaw += -5.0f;
             break;
         case WXK_RIGHT:
             if (shift)
@@ -884,7 +894,7 @@ void Viewer3DPanel::OnKeyDown(wxKeyEvent& event)
             else if (alt)
                 m_camera.Zoom(1.0f);
             else
-                m_camera.Orbit(5.0f, 0.0f);
+                m_camera.targetYaw += 5.0f;
             break;
         case WXK_UP:
             if (shift)
@@ -892,7 +902,7 @@ void Viewer3DPanel::OnKeyDown(wxKeyEvent& event)
             else if (alt)
                 m_camera.Zoom(-1.0f);
             else
-                m_camera.Orbit(0.0f, 5.0f);
+                m_camera.targetPitch = std::clamp(m_camera.targetPitch + 5.0f, -89.0f, 89.0f);
             break;
         case WXK_DOWN:
             if (shift)
@@ -900,7 +910,7 @@ void Viewer3DPanel::OnKeyDown(wxKeyEvent& event)
             else if (alt)
                 m_camera.Zoom(1.0f);
             else
-                m_camera.Orbit(0.0f, -5.0f);
+                m_camera.targetPitch = std::clamp(m_camera.targetPitch - 5.0f, -89.0f, 89.0f);
             break;
         case WXK_NUMPAD1: // Front
             m_camera.SetOrientation(0.0f, 0.0f);
