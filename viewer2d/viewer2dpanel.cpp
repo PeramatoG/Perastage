@@ -264,6 +264,7 @@ wxBEGIN_EVENT_TABLE(Viewer2DPanel, wxGLCanvas) EVT_PAINT(Viewer2DPanel::OnPaint)
                 EVT_ENTER_WINDOW(Viewer2DPanel::OnMouseEnter)
                     EVT_LEAVE_WINDOW(Viewer2DPanel::OnMouseLeave)
                         EVT_MOUSE_CAPTURE_LOST(Viewer2DPanel::OnCaptureLost)
+                            EVT_TIMER(wxID_ANY, Viewer2DPanel::OnInteractionPauseTimer)
                             EVT_SIZE(Viewer2DPanel::OnResize) wxEND_EVENT_TABLE()
 
 Viewer2DPanel::Viewer2DPanel(wxWindow *parent, bool allowOffscreenRender,
@@ -271,6 +272,7 @@ Viewer2DPanel::Viewer2DPanel(wxWindow *parent, bool allowOffscreenRender,
     : wxGLCanvas(parent, wxID_ANY, nullptr, wxDefaultPosition, wxDefaultSize,
                  wxFULL_REPAINT_ON_RESIZE),
       m_allowOffscreenRender(allowOffscreenRender),
+      m_interactionResumeTimer(this),
       m_persistViewState(persistViewState),
       m_enableSelection(enableSelection) {
   SetBackgroundStyle(wxBG_STYLE_CUSTOM);
@@ -284,6 +286,7 @@ Viewer2DPanel::Viewer2DPanel(wxWindow *parent, bool allowOffscreenRender,
 Viewer2DPanel::~Viewer2DPanel() {
   if (g_instance == this)
     g_instance = nullptr;
+  m_interactionResumeTimer.Stop();
   StopDragTableUpdateWorker();
   delete m_glContext;
 }
@@ -519,6 +522,7 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
   if (!m_glInitialized) {
     return;
   }
+  const bool pauseHeavyTasks = ShouldPauseHeavyTasks();
   int w, h;
   GetClientSize(&w, &h);
 
@@ -593,7 +597,8 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
   // Draw labels for all fixtures after rendering the scene so they appear on
   // top of geometry. Scale the label size with the current zoom so they behave
   // like regular scene objects instead of remaining a constant screen size.
-  m_controller.DrawAllFixtureLabels(w, h, m_view, m_zoom);
+  if (!pauseHeavyTasks)
+    m_controller.DrawAllFixtureLabels(w, h, m_view, m_zoom);
 
   if (m_layoutEditAspect && *m_layoutEditAspect > 0.0f) {
     if (!m_layoutEditBaseSize || m_layoutEditBaseSize->GetWidth() <= 0 ||
@@ -1206,6 +1211,18 @@ bool Viewer2DPanel::ShouldPauseHeavyTasks() {
   return false;
 }
 
+void Viewer2DPanel::MarkInteractionActivity() {
+  m_isInteracting = true;
+  m_lastInteractionTime = std::chrono::steady_clock::now();
+  m_interactionResumeTimer.StartOnce(
+      static_cast<int>(kPauseDelay.count()) + 10);
+}
+
+void Viewer2DPanel::OnInteractionPauseTimer(wxTimerEvent &WXUNUSED(event)) {
+  if (!ShouldPauseHeavyTasks())
+    Refresh(false);
+}
+
 void Viewer2DPanel::OnMouseDown(wxMouseEvent &event) {
   if (event.LeftDown()) {
     CaptureMouse();
@@ -1218,8 +1235,7 @@ void Viewer2DPanel::OnMouseDown(wxMouseEvent &event) {
     m_dragSelectionMoved = false;
     m_dragSelectionPushedUndo = false;
     m_lastMousePos = event.GetPosition();
-    m_isInteracting = true;
-    m_lastInteractionTime = std::chrono::steady_clock::now();
+    MarkInteractionActivity();
 
     if (!m_enableSelection || !IsShownOnScreen())
       return;
@@ -1618,8 +1634,7 @@ void Viewer2DPanel::OnMouseMove(wxMouseEvent &event) {
   if (m_dragMode == DragMode::RectSelection && event.Dragging()) {
     m_rectSelectEnd = pos;
     m_draggedSincePress = true;
-    m_isInteracting = true;
-    m_lastInteractionTime = std::chrono::steady_clock::now();
+    MarkInteractionActivity();
     Refresh();
     return;
   }
@@ -1656,8 +1671,7 @@ void Viewer2DPanel::OnMouseMove(wxMouseEvent &event) {
           float dyMeters = static_cast<float>(-dy) / ppm;
           ApplySelectionDelta(MapDragDelta(dxMeters, dyMeters));
           m_draggedSincePress = true;
-          m_isInteracting = true;
-          m_lastInteractionTime = std::chrono::steady_clock::now();
+          MarkInteractionActivity();
           m_dragSelectionMoved = true;
           Refresh();
         }
@@ -1675,8 +1689,7 @@ void Viewer2DPanel::OnMouseMove(wxMouseEvent &event) {
     m_offsetY += dy / m_zoom;
     m_lastMousePos = pos;
     m_draggedSincePress = true;
-    m_isInteracting = true;
-    m_lastInteractionTime = std::chrono::steady_clock::now();
+    MarkInteractionActivity();
     if (m_persistViewState)
       SaveViewToConfig();
     Refresh();
@@ -1691,8 +1704,7 @@ void Viewer2DPanel::OnMouseMove(wxMouseEvent &event) {
 }
 
 void Viewer2DPanel::OnMouseWheel(wxMouseEvent &event) {
-  m_isInteracting = true;
-  m_lastInteractionTime = std::chrono::steady_clock::now();
+  MarkInteractionActivity();
 
   int rotation = event.GetWheelRotation();
   int deltaWheel = event.GetWheelDelta();

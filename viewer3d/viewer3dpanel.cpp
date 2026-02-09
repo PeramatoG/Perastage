@@ -325,13 +325,15 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
     }
     m_mouseMoved = false;
 
-    // Draw labels before swapping buffers to avoid losing them
-    if (FixtureTablePanel::Instance() && FixtureTablePanel::Instance()->IsActivePage())
-        m_controller.DrawFixtureLabels(w, h);
-    else if (TrussTablePanel::Instance() && TrussTablePanel::Instance()->IsActivePage())
-        m_controller.DrawTrussLabels(w, h);
-    else if (SceneObjectTablePanel::Instance() && SceneObjectTablePanel::Instance()->IsActivePage())
-        m_controller.DrawSceneObjectLabels(w, h);
+    // Draw labels before swapping buffers to avoid losing them.
+    if (!pauseHeavyTasks) {
+        if (FixtureTablePanel::Instance() && FixtureTablePanel::Instance()->IsActivePage())
+            m_controller.DrawFixtureLabels(w, h);
+        else if (TrussTablePanel::Instance() && TrussTablePanel::Instance()->IsActivePage())
+            m_controller.DrawTrussLabels(w, h);
+        else if (SceneObjectTablePanel::Instance() && SceneObjectTablePanel::Instance()->IsActivePage())
+            m_controller.DrawSceneObjectLabels(w, h);
+    }
 
     if (m_rectSelecting)
         DrawSelectionRectangle(w, h);

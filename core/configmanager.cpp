@@ -219,6 +219,11 @@ ConfigManager::ConfigManager() {
   RegisterVariable("render_culling_min_pixels_2d", "float", 1.0f, 0.0f,
                    64.0f);
   RegisterVariable("mvr_import_detailed_log", "float", 0.0f, 0.0f, 1.0f);
+  RegisterVariable("label_optimizations_enabled", "float", 1.0f, 0.0f,
+                   1.0f);
+  RegisterVariable("label_max_fixtures", "float", 250.0f, 0.0f, 5000.0f);
+  RegisterVariable("label_max_trusses", "float", 150.0f, 0.0f, 5000.0f);
+  RegisterVariable("label_max_objects", "float", 150.0f, 0.0f, 5000.0f);
   LoadUserConfig();
   if (!HasKey("rider_autopatch"))
     SetValue("rider_autopatch", "1");

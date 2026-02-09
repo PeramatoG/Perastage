@@ -470,6 +470,10 @@ static CullingSettings GetCullingSettings3D(const ConfigManager &cfg) {
   return s;
 }
 
+static int GetLabelLimit(const ConfigManager &cfg, const char *key) {
+  return std::max(0, static_cast<int>(std::lround(cfg.GetFloat(key))));
+}
+
 static bool ProjectBoundingBoxToScreen(const std::array<float, 3> &bbMin,
                                        const std::array<float, 3> &bbMax,
                                        int viewportHeight,
@@ -979,6 +983,8 @@ void Viewer3DController::Update() {
     ++m_sceneVersion;
     m_lastSceneSignature = sceneSignature;
     m_hasSceneSignature = true;
+    std::lock_guard<std::mutex> lock(m_sortedListsMutex);
+    m_sortedListsDirty = true;
   }
 
   for (const auto &[uuid, t] : trusses) {
@@ -1477,23 +1483,58 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
     }
   };
 
+  const auto &sceneObjects = SceneDataManager::Instance().GetSceneObjects();
+  const auto &trusses = SceneDataManager::Instance().GetTrusses();
+  const auto &fixtures = SceneDataManager::Instance().GetFixtures();
+
+  std::vector<const std::pair<const std::string, SceneObject> *> sortedObjects;
+  std::vector<const std::pair<const std::string, Truss> *> sortedTrusses;
+  std::vector<const std::pair<const std::string, Fixture> *> sortedFixtures;
+  {
+    std::lock_guard<std::mutex> lock(m_sortedListsMutex);
+    if (m_sortedListsDirty) {
+      m_sortedObjects.clear();
+      m_sortedObjects.reserve(sceneObjects.size());
+      for (const auto &obj : sceneObjects)
+        m_sortedObjects.push_back(&obj);
+      std::sort(m_sortedObjects.begin(), m_sortedObjects.end(),
+                [](const auto *a, const auto *b) {
+                  return a->second.transform.o[2] < b->second.transform.o[2];
+                });
+
+      m_sortedTrusses.clear();
+      m_sortedTrusses.reserve(trusses.size());
+      for (const auto &t : trusses)
+        m_sortedTrusses.push_back(&t);
+      std::sort(m_sortedTrusses.begin(), m_sortedTrusses.end(),
+                [](const auto *a, const auto *b) {
+                  return a->second.transform.o[2] < b->second.transform.o[2];
+                });
+
+      m_sortedFixtures.clear();
+      m_sortedFixtures.reserve(fixtures.size());
+      for (const auto &f : fixtures)
+        m_sortedFixtures.push_back(&f);
+      std::sort(m_sortedFixtures.begin(), m_sortedFixtures.end(),
+                [](const auto *a, const auto *b) {
+                  return a->second.transform.o[2] < b->second.transform.o[2];
+                });
+
+      m_sortedListsDirty = false;
+    }
+
+    sortedObjects = m_sortedObjects;
+    sortedTrusses = m_sortedTrusses;
+    sortedFixtures = m_sortedFixtures;
+  }
+
   // Scene objects first
   glShadeModel(GL_FLAT);
-  const auto &sceneObjects = SceneDataManager::Instance().GetSceneObjects();
-  std::vector<const std::pair<const std::string, SceneObject> *> sortedObjs;
-  sortedObjs.reserve(sceneObjects.size());
-  for (const auto &obj : sceneObjects) {
-    if (!IsLayerVisibleCached(hiddenLayers, obj.second.layer))
-      continue;
-    sortedObjs.push_back(&obj);
-  }
-  std::sort(sortedObjs.begin(), sortedObjs.end(),
-            [](const auto *a, const auto *b) {
-              return a->second.transform.o[2] < b->second.transform.o[2];
-            });
-  for (const auto *entry : sortedObjs) {
+  for (const auto *entry : sortedObjects) {
     const auto &uuid = entry->first;
     const auto &m = entry->second;
+    if (!IsLayerVisibleCached(hiddenLayers, m.layer))
+      continue;
     if (culling.enabled) {
       auto bit = m_objectBounds.find(uuid);
       if (bit != m_objectBounds.end()) {
@@ -1708,21 +1749,11 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
 
   // Trusses next
   glShadeModel(GL_SMOOTH); // keep smooth shading for trusses
-  const auto &trusses = SceneDataManager::Instance().GetTrusses();
-  std::vector<const std::pair<const std::string, Truss> *> sortedTrusses;
-  sortedTrusses.reserve(trusses.size());
-  for (const auto &t : trusses) {
-    if (!IsLayerVisibleCached(hiddenLayers, t.second.layer))
-      continue;
-    sortedTrusses.push_back(&t);
-  }
-  std::sort(sortedTrusses.begin(), sortedTrusses.end(),
-            [](const auto *a, const auto *b) {
-              return a->second.transform.o[2] < b->second.transform.o[2];
-            });
   for (const auto *entry : sortedTrusses) {
     const auto &uuid = entry->first;
     const auto &t = entry->second;
+    if (!IsLayerVisibleCached(hiddenLayers, t.layer))
+      continue;
     if (culling.enabled) {
       auto bit = m_trussBounds.find(uuid);
       if (bit != m_trussBounds.end()) {
@@ -1912,21 +1943,11 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
     if (depthEnabled)
       glDisable(GL_DEPTH_TEST);
   }
-  const auto &fixtures = SceneDataManager::Instance().GetFixtures();
-  std::vector<const std::pair<const std::string, Fixture> *> sortedFixtures;
-  sortedFixtures.reserve(fixtures.size());
-  for (const auto &f : fixtures) {
-    if (!IsLayerVisibleCached(hiddenLayers, f.second.layer))
-      continue;
-    sortedFixtures.push_back(&f);
-  }
-  std::sort(sortedFixtures.begin(), sortedFixtures.end(),
-            [](const auto *a, const auto *b) {
-              return a->second.transform.o[2] < b->second.transform.o[2];
-            });
   for (const auto *entry : sortedFixtures) {
     const auto &uuid = entry->first;
     const auto &f = entry->second;
+    if (!IsLayerVisibleCached(hiddenLayers, f.layer))
+      continue;
     if (culling.enabled) {
       auto bit = m_fixtureBounds.find(uuid);
       if (bit != m_fixtureBounds.end()) {
@@ -2892,13 +2913,17 @@ void Viewer3DController::DrawMesh(const Mesh &mesh, float scale,
     }
   }
 
-  std::vector<unsigned short> invertedIndices;
+  const std::vector<unsigned short> *triangleIndices = &mesh.indices;
   if (flipWinding) {
     // Mirror transforms (negative determinant) invert triangle orientation.
-    // Swap winding per triangle so front faces and normals remain consistent.
-    invertedIndices = mesh.indices;
-    for (size_t i = 0; i + 2 < invertedIndices.size(); i += 3)
-      std::swap(invertedIndices[i + 1], invertedIndices[i + 2]);
+    // Build and reuse a flipped index order once per mesh.
+    if (mesh.flippedIndicesCache.size() != mesh.indices.size()) {
+      mesh.flippedIndicesCache = mesh.indices;
+      for (size_t i = 0; i + 2 < mesh.flippedIndicesCache.size(); i += 3)
+        std::swap(mesh.flippedIndicesCache[i + 1],
+                  mesh.flippedIndicesCache[i + 2]);
+    }
+    triangleIndices = &mesh.flippedIndicesCache;
   }
 
   const bool gpuHandlesValid =
@@ -2945,10 +2970,10 @@ void Viewer3DController::DrawMesh(const Mesh &mesh, float scale,
     const bool useFaceNormals = (shadeModel == GL_FLAT);
 
     glBegin(GL_TRIANGLES);
-    for (size_t i = 0; i + 2 < mesh.indices.size(); i += 3) {
-      const unsigned short i0 = mesh.indices[i];
-      const unsigned short i1 = flipWinding ? mesh.indices[i + 2] : mesh.indices[i + 1];
-      const unsigned short i2 = flipWinding ? mesh.indices[i + 1] : mesh.indices[i + 2];
+    for (size_t i = 0; i + 2 < triangleIndices->size(); i += 3) {
+      const unsigned short i0 = (*triangleIndices)[i];
+      const unsigned short i1 = (*triangleIndices)[i + 1];
+      const unsigned short i2 = (*triangleIndices)[i + 2];
 
       const float v0x = mesh.vertices[i0 * 3] * scale;
       const float v0y = mesh.vertices[i0 * 3 + 1] * scale;
@@ -3265,6 +3290,10 @@ void Viewer3DController::DrawFixtureLabels(int width, int height) {
 
   ConfigManager &cfg = ConfigManager::Get();
   const auto hiddenLayers = SnapshotHiddenLayers(cfg);
+  const CullingSettings culling = GetCullingSettings3D(cfg);
+  const float minLabelPixels = culling.minPixels3D;
+  const bool useLabelOptimizations =
+      cfg.GetFloat("label_optimizations_enabled") >= 0.5f;
   bool showName = cfg.GetFloat("label_show_name") != 0.0f;
   bool showId = cfg.GetFloat("label_show_id") != 0.0f;
   bool showDmx = cfg.GetFloat("label_show_dmx") != 0.0f;
@@ -3283,10 +3312,20 @@ void Viewer3DController::DrawFixtureLabels(int width, int height) {
       continue;
     if (uuid != m_highlightUuid)
       continue;
-
     double sx, sy, sz;
     // Use bounding box center if available
     auto bit = m_fixtureBounds.find(uuid);
+    if (useLabelOptimizations && culling.enabled && bit != m_fixtureBounds.end()) {
+      ScreenRect rect;
+      bool anyDepthVisible = false;
+      if (!ProjectBoundingBoxToScreen(bit->second.min, bit->second.max, height,
+                                      model, proj, viewport, rect,
+                                      anyDepthVisible) ||
+          !anyDepthVisible ||
+          ShouldCullByScreenRect(rect, width, height, minLabelPixels)) {
+        continue;
+      }
+    }
     if (bit != m_fixtureBounds.end()) {
       const BoundingBox &bb = bit->second;
       double wx = (bb.min[0] + bb.max[0]) * 0.5;
@@ -3399,10 +3438,57 @@ void Viewer3DController::DrawAllFixtureLabels(int width, int height,
     break;
   }
 
+  const CullingSettings culling = GetCullingSettings3D(cfg);
+  const float minLabelPixels = culling.minPixels2D;
+  const bool useLabelOptimizations =
+      cfg.GetFloat("label_optimizations_enabled") >= 0.5f;
+  const int maxFixtureLabels = GetLabelLimit(cfg, "label_max_fixtures");
+
+  struct FixtureLabelCandidate {
+    const std::string *uuid = nullptr;
+    const Fixture *fixture = nullptr;
+    double area = 0.0;
+  };
+  std::vector<FixtureLabelCandidate> candidates;
+
   const auto &fixtures = SceneDataManager::Instance().GetFixtures();
+  candidates.reserve(fixtures.size());
   for (const auto &[uuid, f] : fixtures) {
     if (!IsLayerVisibleCached(hiddenLayers, f.layer))
       continue;
+
+    auto bit = m_fixtureBounds.find(uuid);
+    if (useLabelOptimizations && culling.enabled && bit != m_fixtureBounds.end()) {
+      ScreenRect rect;
+      bool anyDepthVisible = false;
+      if (!ProjectBoundingBoxToScreen(bit->second.min, bit->second.max, height,
+                                      model, proj, viewport, rect,
+                                      anyDepthVisible) ||
+          !anyDepthVisible ||
+          ShouldCullByScreenRect(rect, width, height, minLabelPixels)) {
+        continue;
+      }
+      const double area = std::max(0.0, rect.maxX - rect.minX) *
+                          std::max(0.0, rect.maxY - rect.minY);
+      candidates.push_back({&uuid, &f, area});
+    } else {
+      candidates.push_back({&uuid, &f, 0.0});
+    }
+  }
+
+  if (useLabelOptimizations && maxFixtureLabels > 0 &&
+      static_cast<int>(candidates.size()) > maxFixtureLabels) {
+    std::partial_sort(candidates.begin(),
+                      candidates.begin() + maxFixtureLabels,
+                      candidates.end(), [](const auto &a, const auto &b) {
+                        return a.area > b.area;
+                      });
+    candidates.resize(maxFixtureLabels);
+  }
+
+  for (const auto &candidate : candidates) {
+    const std::string &uuid = *candidate.uuid;
+    const Fixture &f = *candidate.fixture;
 
     double wx, wy, wz;
     auto bit = m_fixtureBounds.find(uuid);
@@ -3700,15 +3786,34 @@ void Viewer3DController::DrawTrussLabels(int width, int height) {
 
   ConfigManager &cfg = ConfigManager::Get();
   const auto hiddenLayers = SnapshotHiddenLayers(cfg);
+  const CullingSettings culling = GetCullingSettings3D(cfg);
+  const float minLabelPixels = culling.minPixels3D;
+  const bool useLabelOptimizations =
+      cfg.GetFloat("label_optimizations_enabled") >= 0.5f;
+  int labelsDrawn = 0;
+  const int maxLabels = GetLabelLimit(cfg, "label_max_trusses");
   const auto &trusses = SceneDataManager::Instance().GetTrusses();
   for (const auto &[uuid, t] : trusses) {
     if (!IsLayerVisibleCached(hiddenLayers, t.layer))
       continue;
     if (uuid != m_highlightUuid)
       continue;
+    if (useLabelOptimizations && maxLabels > 0 && labelsDrawn >= maxLabels)
+      break;
 
     double sx, sy, sz;
     auto bit = m_trussBounds.find(uuid);
+    if (useLabelOptimizations && culling.enabled && bit != m_trussBounds.end()) {
+      ScreenRect rect;
+      bool anyDepthVisible = false;
+      if (!ProjectBoundingBoxToScreen(bit->second.min, bit->second.max, height,
+                                      model, proj, viewport, rect,
+                                      anyDepthVisible) ||
+          !anyDepthVisible ||
+          ShouldCullByScreenRect(rect, width, height, minLabelPixels)) {
+        continue;
+      }
+    }
     if (bit != m_trussBounds.end()) {
       const BoundingBox &bb = bit->second;
       double wx = (bb.min[0] + bb.max[0]) * 0.5;
@@ -3736,6 +3841,7 @@ void Viewer3DController::DrawTrussLabels(int width, int height) {
 
     auto utf8 = label.ToUTF8();
     DrawText2D(m_vg, m_font, std::string(utf8.data(), utf8.length()), x, y);
+    ++labelsDrawn;
   }
 }
 
@@ -3750,15 +3856,34 @@ void Viewer3DController::DrawSceneObjectLabels(int width, int height) {
 
   ConfigManager &cfg = ConfigManager::Get();
   const auto hiddenLayers = SnapshotHiddenLayers(cfg);
+  const CullingSettings culling = GetCullingSettings3D(cfg);
+  const float minLabelPixels = culling.minPixels3D;
+  const bool useLabelOptimizations =
+      cfg.GetFloat("label_optimizations_enabled") >= 0.5f;
+  int labelsDrawn = 0;
+  const int maxLabels = GetLabelLimit(cfg, "label_max_objects");
   const auto &objs = SceneDataManager::Instance().GetSceneObjects();
   for (const auto &[uuid, o] : objs) {
     if (!IsLayerVisibleCached(hiddenLayers, o.layer))
       continue;
     if (uuid != m_highlightUuid)
       continue;
+    if (useLabelOptimizations && maxLabels > 0 && labelsDrawn >= maxLabels)
+      break;
 
     double sx, sy, sz;
     auto bit = m_objectBounds.find(uuid);
+    if (useLabelOptimizations && culling.enabled && bit != m_objectBounds.end()) {
+      ScreenRect rect;
+      bool anyDepthVisible = false;
+      if (!ProjectBoundingBoxToScreen(bit->second.min, bit->second.max, height,
+                                      model, proj, viewport, rect,
+                                      anyDepthVisible) ||
+          !anyDepthVisible ||
+          ShouldCullByScreenRect(rect, width, height, minLabelPixels)) {
+        continue;
+      }
+    }
     if (bit != m_objectBounds.end()) {
       const BoundingBox &bb = bit->second;
       double wx = (bb.min[0] + bb.max[0]) * 0.5;
@@ -3783,6 +3908,7 @@ void Viewer3DController::DrawSceneObjectLabels(int width, int height) {
 
     auto utf8 = label.ToUTF8();
     DrawText2D(m_vg, m_font, std::string(utf8.data(), utf8.length()), x, y);
+    ++labelsDrawn;
   }
 }
 
