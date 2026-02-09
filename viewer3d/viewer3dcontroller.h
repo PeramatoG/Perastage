@@ -261,6 +261,16 @@ private:
     std::array<float, 3> max;
   };
 
+  // Cache of local-space model bounds keyed by resolved source path.
+  std::unordered_map<std::string, BoundingBox> m_modelBounds;
+
+  // Scene versioning used to skip expensive bounds recomputation when only
+  // the camera changes.
+  size_t m_sceneVersion = 0;
+  size_t m_cachedVersion = static_cast<size_t>(-1);
+  size_t m_lastSceneSignature = 0;
+  bool m_hasSceneSignature = false;
+
   // Precomputed world-space bounds for each fixture by UUID
   std::unordered_map<std::string, BoundingBox> m_fixtureBounds;
   std::unordered_map<std::string, BoundingBox> m_trussBounds;
