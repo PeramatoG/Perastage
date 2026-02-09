@@ -2486,6 +2486,9 @@ void Viewer3DController::DrawMesh(const Mesh &mesh, float scale,
       const float v2y = mesh.vertices[i2 * 3 + 1] * scale;
       const float v2z = mesh.vertices[i2 * 3 + 2] * scale;
 
+      const auto &normalData =
+          transformInstanceNormals ? transformedNormals : mesh.normals;
+
       if (useFaceNormals) {
         float nx = (v1y - v0y) * (v2z - v0z) - (v1z - v0z) * (v2y - v0y);
         float ny = (v1z - v0z) * (v2x - v0x) - (v1x - v0x) * (v2z - v0z);
@@ -2497,6 +2500,28 @@ void Viewer3DController::DrawMesh(const Mesh &mesh, float scale,
           nz /= len;
         }
 
+        if (hasNormals) {
+          // Some imported assets contain triangles with inconsistent local
+          // winding. Align face normals with averaged vertex normals to avoid
+          // alternating bright/dark patches on coplanar surfaces.
+          float ax = normalData[i0 * 3] + normalData[i1 * 3] + normalData[i2 * 3];
+          float ay = normalData[i0 * 3 + 1] + normalData[i1 * 3 + 1] +
+                     normalData[i2 * 3 + 1];
+          float az = normalData[i0 * 3 + 2] + normalData[i1 * 3 + 2] +
+                     normalData[i2 * 3 + 2];
+          const float alen = std::sqrt(ax * ax + ay * ay + az * az);
+          if (alen > 0.0f) {
+            ax /= alen;
+            ay /= alen;
+            az /= alen;
+            if (nx * ax + ny * ay + nz * az < 0.0f) {
+              nx = -nx;
+              ny = -ny;
+              nz = -nz;
+            }
+          }
+        }
+
         glNormal3f(nx, ny, nz);
         glVertex3f(v0x, v0y, v0z);
         glVertex3f(v1x, v1y, v1z);
@@ -2505,7 +2530,6 @@ void Viewer3DController::DrawMesh(const Mesh &mesh, float scale,
       }
 
       if (hasNormals) {
-        const auto &normalData = transformInstanceNormals ? transformedNormals : mesh.normals;
         glNormal3f(normalData[i0 * 3], normalData[i0 * 3 + 1],
                    normalData[i0 * 3 + 2]);
         glVertex3f(v0x, v0y, v0z);
