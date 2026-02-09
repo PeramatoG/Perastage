@@ -519,6 +519,7 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
   if (!m_glInitialized) {
     return;
   }
+  const bool pauseHeavyTasks = ShouldPauseHeavyTasks();
   int w, h;
   GetClientSize(&w, &h);
 
