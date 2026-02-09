@@ -2462,37 +2462,60 @@ void Viewer3DController::DrawMesh(const Mesh &mesh, float scale,
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glPopMatrix();
   } else if (!m_captureOnly) {
+    GLint shadeModel = GL_SMOOTH;
+    glGetIntegerv(GL_SHADE_MODEL, &shadeModel);
+    // In flat shading mode, using per-vertex normals can produce a
+    // checkerboard pattern on coplanar triangulated surfaces because the
+    // provoking vertex may alternate between adjacent triangles.
+    // Use geometric face normals per triangle to keep planar regions uniform.
+    const bool useFaceNormals = (shadeModel == GL_FLAT);
+
     glBegin(GL_TRIANGLES);
     for (size_t i = 0; i + 2 < mesh.indices.size(); i += 3) {
       const unsigned short i0 = mesh.indices[i];
       const unsigned short i1 = flipWinding ? mesh.indices[i + 2] : mesh.indices[i + 1];
       const unsigned short i2 = flipWinding ? mesh.indices[i + 1] : mesh.indices[i + 2];
 
+      const float v0x = mesh.vertices[i0 * 3] * scale;
+      const float v0y = mesh.vertices[i0 * 3 + 1] * scale;
+      const float v0z = mesh.vertices[i0 * 3 + 2] * scale;
+      const float v1x = mesh.vertices[i1 * 3] * scale;
+      const float v1y = mesh.vertices[i1 * 3 + 1] * scale;
+      const float v1z = mesh.vertices[i1 * 3 + 2] * scale;
+      const float v2x = mesh.vertices[i2 * 3] * scale;
+      const float v2y = mesh.vertices[i2 * 3 + 1] * scale;
+      const float v2z = mesh.vertices[i2 * 3 + 2] * scale;
+
+      if (useFaceNormals) {
+        float nx = (v1y - v0y) * (v2z - v0z) - (v1z - v0z) * (v2y - v0y);
+        float ny = (v1z - v0z) * (v2x - v0x) - (v1x - v0x) * (v2z - v0z);
+        float nz = (v1x - v0x) * (v2y - v0y) - (v1y - v0y) * (v2x - v0x);
+        const float len = std::sqrt(nx * nx + ny * ny + nz * nz);
+        if (len > 0.0f) {
+          nx /= len;
+          ny /= len;
+          nz /= len;
+        }
+
+        glNormal3f(nx, ny, nz);
+        glVertex3f(v0x, v0y, v0z);
+        glVertex3f(v1x, v1y, v1z);
+        glVertex3f(v2x, v2y, v2z);
+        continue;
+      }
+
       if (hasNormals) {
         const auto &normalData = transformInstanceNormals ? transformedNormals : mesh.normals;
         glNormal3f(normalData[i0 * 3], normalData[i0 * 3 + 1],
                    normalData[i0 * 3 + 2]);
-        glVertex3f(mesh.vertices[i0 * 3] * scale, mesh.vertices[i0 * 3 + 1] * scale,
-                   mesh.vertices[i0 * 3 + 2] * scale);
+        glVertex3f(v0x, v0y, v0z);
         glNormal3f(normalData[i1 * 3], normalData[i1 * 3 + 1],
                    normalData[i1 * 3 + 2]);
-        glVertex3f(mesh.vertices[i1 * 3] * scale, mesh.vertices[i1 * 3 + 1] * scale,
-                   mesh.vertices[i1 * 3 + 2] * scale);
+        glVertex3f(v1x, v1y, v1z);
         glNormal3f(normalData[i2 * 3], normalData[i2 * 3 + 1],
                    normalData[i2 * 3 + 2]);
-        glVertex3f(mesh.vertices[i2 * 3] * scale, mesh.vertices[i2 * 3 + 1] * scale,
-                   mesh.vertices[i2 * 3 + 2] * scale);
+        glVertex3f(v2x, v2y, v2z);
       } else {
-        const float v0x = mesh.vertices[i0 * 3] * scale;
-        const float v0y = mesh.vertices[i0 * 3 + 1] * scale;
-        const float v0z = mesh.vertices[i0 * 3 + 2] * scale;
-        const float v1x = mesh.vertices[i1 * 3] * scale;
-        const float v1y = mesh.vertices[i1 * 3 + 1] * scale;
-        const float v1z = mesh.vertices[i1 * 3 + 2] * scale;
-        const float v2x = mesh.vertices[i2 * 3] * scale;
-        const float v2y = mesh.vertices[i2 * 3 + 1] * scale;
-        const float v2z = mesh.vertices[i2 * 3 + 2] * scale;
-
         float nx = (v1y - v0y) * (v2z - v0z) - (v1z - v0z) * (v2y - v0y);
         float ny = (v1z - v0z) * (v2x - v0x) - (v1x - v0x) * (v2z - v0z);
         float nz = (v1x - v0x) * (v2y - v0y) - (v1y - v0y) * (v2x - v0x);
