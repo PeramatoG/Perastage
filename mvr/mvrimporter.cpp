@@ -743,12 +743,16 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
             truss.transform = MatrixUtils::Multiply(nodeTransform, geoMatrix);
           } else if (tinyxml2::XMLElement *sym =
                          geos->FirstChildElement("Symbol")) {
-            std::string symFile;
+            std::vector<SymdefGeometry> symGeometries;
             std::string symType;
-            Matrix symLocal = MatrixUtils::Identity();
-            resolveSymdefReference(sym, symFile, symType, symLocal);
-            if (!symFile.empty())
-              truss.symbolFile = symFile;
+            Matrix symMatrix = MatrixUtils::Identity();
+            resolveSymdefReference(sym, symGeometries, symType, symMatrix);
+            Matrix symLocal = symMatrix;
+            if (!symGeometries.empty()) {
+              truss.symbolFile = symGeometries.front().file;
+              symLocal = MatrixUtils::Multiply(symMatrix,
+                                               symGeometries.front().transform);
+            }
             truss.transform = MatrixUtils::Multiply(nodeTransform, symLocal);
           }
         }
