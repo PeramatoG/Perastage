@@ -83,6 +83,11 @@ static constexpr float LABEL_MAX_WIDTH = 300.0f;
 // Pixels per meter used by the 2D view
 static constexpr float PIXELS_PER_METER = 25.0f;
 
+struct LineRenderProfile {
+  float lineWidth = 1.0f;
+  bool enableLineSmoothing = false;
+};
+
 static bool ShouldTraceLabelOrder() {
   static const bool enabled = std::getenv("PERASTAGE_TRACE_LABELS") != nullptr;
   return enabled;
@@ -98,6 +103,16 @@ static bool IsLayerVisibleCached(const std::unordered_set<std::string> &hidden,
   if (layer.empty())
     return hidden.find(DEFAULT_LAYER_NAME) == hidden.end();
   return hidden.find(layer) == hidden.end();
+}
+
+static LineRenderProfile GetLineRenderProfile(bool isInteracting,
+                                              bool wireframeMode,
+                                              bool adaptiveEnabled) {
+  if (!adaptiveEnabled)
+    return {wireframeMode ? 1.0f : 2.0f, false};
+  if (isInteracting)
+    return {1.0f, false};
+  return {wireframeMode ? 1.0f : 2.0f, true};
 }
 
 static std::string FindFileRecursive(const std::string &baseDir,
@@ -1190,6 +1205,8 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
                                      float gridB, bool gridOnTop,
                                      bool is2DViewer) {
   ConfigManager &cfg = ConfigManager::Get();
+  m_useAdaptiveLineProfile =
+      cfg.GetFloat("viewer3d_adaptive_line_profile") >= 0.5f;
   const auto hiddenLayers = SnapshotHiddenLayers(cfg);
 
   if (wireframe)
@@ -1889,6 +1906,10 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
 
 void Viewer3DController::SetDarkMode(bool enabled) { m_darkMode = enabled; }
 
+void Viewer3DController::SetInteracting(bool interacting) {
+  m_isInteracting = interacting;
+}
+
 std::array<float, 3> Viewer3DController::AdjustColor(float r, float g,
                                                      float b) const {
   if (!m_darkMode)
@@ -1957,7 +1978,10 @@ void Viewer3DController::DrawWireframeCube(
   float y0 = -half, y1 = half;
   float z0 = -half, z1 = half;
 
-  float lineWidth = (mode == Viewer2DRenderMode::Wireframe) ? 1.0f : 2.0f;
+  float lineWidth =
+      GetLineRenderProfile(m_isInteracting, mode == Viewer2DRenderMode::Wireframe,
+                           m_useAdaptiveLineProfile)
+          .lineWidth;
   if (lineWidthOverride > 0.0f)
     lineWidth = lineWidthOverride;
   if (!m_captureOnly) {
@@ -2037,7 +2061,10 @@ void Viewer3DController::DrawWireframeBox(
   float z0 = 0.0f, z1 = height;
 
   if (wireframe) {
-    float lineWidth = (mode == Viewer2DRenderMode::Wireframe) ? 1.0f : 2.0f;
+    float lineWidth =
+        GetLineRenderProfile(m_isInteracting, mode == Viewer2DRenderMode::Wireframe,
+                             m_useAdaptiveLineProfile)
+            .lineWidth;
     const bool drawOutline =
         m_showSelectionOutline2D && (highlight || selected);
     auto drawEdges = [&]() {
@@ -2228,7 +2255,10 @@ void Viewer3DController::DrawCubeWithOutline(
         for (auto &p : verts)
           p = captureTransform(p);
       }
-      float lineWidth = (mode == Viewer2DRenderMode::Wireframe) ? 1.0f : 2.0f;
+      float lineWidth =
+          GetLineRenderProfile(m_isInteracting, mode == Viewer2DRenderMode::Wireframe,
+                               m_useAdaptiveLineProfile)
+              .lineWidth;
       CanvasStroke stroke;
       stroke.color = {0.0f, 0.0f, 0.0f, 1.0f};
       stroke.width = lineWidth;
@@ -2372,7 +2402,10 @@ void Viewer3DController::DrawMeshWithOutline(
   (void)cz; // parameters kept for compatibility
 
   if (wireframe) {
-    float lineWidth = (mode == Viewer2DRenderMode::Wireframe) ? 1.0f : 2.0f;
+    float lineWidth =
+        GetLineRenderProfile(m_isInteracting, mode == Viewer2DRenderMode::Wireframe,
+                             m_useAdaptiveLineProfile)
+            .lineWidth;
     const bool drawOutline =
         m_showSelectionOutline2D && (highlight || selected);
     if (!m_captureOnly) {
@@ -2735,13 +2768,21 @@ void Viewer3DController::DrawGrid(int style, float r, float g, float b,
   const float size = 20.0f;
   const float step = 1.0f;
 
+  const LineRenderProfile profile =
+      GetLineRenderProfile(m_isInteracting, true, m_useAdaptiveLineProfile);
   CanvasStroke stroke;
   stroke.color = {r, g, b, 1.0f};
-  stroke.width = 1.0f;
+  stroke.width = profile.lineWidth;
+
+  const GLboolean lineSmoothWasEnabled = glIsEnabled(GL_LINE_SMOOTH);
+  if (profile.enableLineSmoothing)
+    glEnable(GL_LINE_SMOOTH);
+  else
+    glDisable(GL_LINE_SMOOTH);
 
   SetGLColor(r, g, b);
   if (style == 0) {
-    glLineWidth(1.0f);
+    glLineWidth(profile.lineWidth);
     glBegin(GL_LINES);
     for (float i = -size; i <= size; i += step) {
       switch (view) {
@@ -2811,7 +2852,7 @@ void Viewer3DController::DrawGrid(int style, float r, float g, float b,
       glEnable(GL_POINT_SMOOTH);
   } else {
     float half = step * 0.1f;
-    glLineWidth(1.0f);
+    glLineWidth(profile.lineWidth);
     glBegin(GL_LINES);
     for (float x = -size; x <= size; x += step) {
       for (float y = -size; y <= size; y += step) {
@@ -2852,11 +2893,24 @@ void Viewer3DController::DrawGrid(int style, float r, float g, float b,
     }
     glEnd();
   }
+
+  if (lineSmoothWasEnabled)
+    glEnable(GL_LINE_SMOOTH);
+  else
+    glDisable(GL_LINE_SMOOTH);
 }
 
 // Draws the XYZ axes centered at origin
 void Viewer3DController::DrawAxes() {
-  glLineWidth(2.0f);
+  const LineRenderProfile profile =
+      GetLineRenderProfile(m_isInteracting, false, m_useAdaptiveLineProfile);
+  const GLboolean lineSmoothWasEnabled = glIsEnabled(GL_LINE_SMOOTH);
+  if (profile.enableLineSmoothing)
+    glEnable(GL_LINE_SMOOTH);
+  else
+    glDisable(GL_LINE_SMOOTH);
+
+  glLineWidth(profile.lineWidth);
   glBegin(GL_LINES);
   SetGLColor(1.0f, 0.0f, 0.0f);
   glVertex3f(0.0f, 0.0f, 0.0f);
@@ -2870,7 +2924,7 @@ void Viewer3DController::DrawAxes() {
   glEnd();
   if (m_captureCanvas) {
     CanvasStroke stroke;
-    stroke.width = 2.0f;
+    stroke.width = profile.lineWidth;
     stroke.color = {1.0f, 0.0f, 0.0f, 1.0f};
     RecordLine({0.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f}, stroke);
     stroke.color = {0.0f, 1.0f, 0.0f, 1.0f};
@@ -2878,6 +2932,11 @@ void Viewer3DController::DrawAxes() {
     stroke.color = {0.0f, 0.0f, 1.0f, 1.0f};
     RecordLine({0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 1.0f}, stroke);
   }
+
+  if (lineSmoothWasEnabled)
+    glEnable(GL_LINE_SMOOTH);
+  else
+    glDisable(GL_LINE_SMOOTH);
 }
 
 // Multiplies the current matrix by the given transform. When

@@ -365,6 +365,7 @@ void Viewer3DPanel::OnMouseDown(wxMouseEvent& event)
     {
         if (event.LeftDown() && event.ControlDown()) {
             m_rectSelecting = true;
+            m_controller.SetInteracting(true);
             m_rectSelectStart = event.GetPosition();
             m_rectSelectEnd = m_rectSelectStart;
             m_draggedSincePress = false;
@@ -378,6 +379,7 @@ void Viewer3DPanel::OnMouseDown(wxMouseEvent& event)
             m_mode = InteractionMode::Orbit;
 
         m_dragging = true;
+        m_controller.SetInteracting(true);
         m_draggedSincePress = false;
         m_lastMousePos = event.GetPosition();
         CaptureMouse();
@@ -394,6 +396,7 @@ void Viewer3DPanel::OnMouseUp(wxMouseEvent& event)
         ApplyRectangleSelection(m_rectSelectStart, m_rectSelectEnd);
         m_rectSelecting = false;
         m_dragging = false;
+        m_controller.SetInteracting(false);
         m_mode = InteractionMode::None;
         m_draggedSincePress = false;
         Refresh();
@@ -403,6 +406,7 @@ void Viewer3DPanel::OnMouseUp(wxMouseEvent& event)
     if (m_dragging && (event.LeftUp() || event.MiddleUp()))
     {
         m_dragging = false;
+        m_controller.SetInteracting(false);
         m_mode = InteractionMode::None;
         ReleaseMouse();
     }
@@ -646,6 +650,7 @@ void Viewer3DPanel::OnCaptureLost(wxMouseCaptureLostEvent& WXUNUSED(event))
     m_dragging = false;
     m_mode = InteractionMode::None;
     m_rectSelecting = false;
+    m_controller.SetInteracting(false);
 }
 
 void Viewer3DPanel::ApplyRectangleSelection(const wxPoint& start,
@@ -800,7 +805,9 @@ void Viewer3DPanel::OnMouseWheel(wxMouseEvent& event)
     float steps = 0.0f;
     if (deltaWheel != 0)
         steps = -static_cast<float>(rotation) / static_cast<float>(deltaWheel);
+    m_controller.SetInteracting(true);
     m_camera.Zoom(steps);
+    m_controller.SetInteracting(false);
     Refresh();
 }
 
