@@ -245,10 +245,10 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
     }
     InitGL();
 
-    const bool wasCameraMoving = m_cameraMoving;
     const bool pauseHeavyTasks = ShouldPauseHeavyTasks();
-    if (!pauseHeavyTasks && (!m_cameraMoving || wasCameraMoving))
-        m_controller.Update();
+    m_controller.UpdateFrameStateLightweight();
+    if (!pauseHeavyTasks && !m_cameraMoving)
+        m_controller.UpdateResourcesIfDirty();
 
     static auto s_lastCameraUpdate = std::chrono::steady_clock::now();
     const auto now = std::chrono::steady_clock::now();
@@ -971,7 +971,7 @@ void Viewer3DPanel::UpdateScene()
     if (ShouldPauseHeavyTasks() || m_cameraMoving)
         return;
 
-    m_controller.Update();
+    m_controller.UpdateResourcesIfDirty();
     if (Viewer2DPanel::Instance())
         Viewer2DPanel::Instance()->UpdateScene();
 }
