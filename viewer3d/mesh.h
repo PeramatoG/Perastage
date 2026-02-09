@@ -25,6 +25,7 @@
 struct Mesh {
     std::vector<float> vertices; // x,y,z order in mm
     std::vector<unsigned short> indices; // 3 indices per triangle
+    std::vector<unsigned short> indicesFlipped; // mirrored winding order
     std::vector<float> normals;  // optional per-vertex normals
 
     // OpenGL resources for VBO/VAO based rendering.
@@ -32,16 +33,22 @@ struct Mesh {
     uint32_t vboVertices = 0;
     uint32_t vboNormals = 0;
     uint32_t eboTriangles = 0;
+    uint32_t eboTrianglesFlipped = 0;
     uint32_t eboLines = 0;
     int triangleIndexCount = 0;
     int lineIndexCount = 0;
     bool buffersReady = false;
-    // Optional cached triangle index order for mirrored instances.
-    mutable std::vector<unsigned short> flippedIndicesCache;
     // True once we have evaluated/fixed triangle winding for compatibility
     // with assets coming from heterogeneous DCC/export pipelines.
     bool windingChecked = false;
 };
+
+inline void BuildFlippedTriangleIndices(Mesh& mesh)
+{
+    mesh.indicesFlipped = mesh.indices;
+    for (size_t i = 0; i + 2 < mesh.indicesFlipped.size(); i += 3)
+        std::swap(mesh.indicesFlipped[i + 1], mesh.indicesFlipped[i + 2]);
+}
 
 // Attempts to detect meshes whose triangle winding is globally inverted and
 // flips their index order when needed. This runs once per mesh at upload time,

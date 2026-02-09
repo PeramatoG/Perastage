@@ -2593,6 +2593,8 @@ void Viewer3DController::SetupMeshBuffers(Mesh &mesh) {
   if (mesh.normals.size() < mesh.vertices.size())
     ComputeNormals(mesh);
 
+  BuildFlippedTriangleIndices(mesh);
+
   std::vector<unsigned short> lineIndices =
       BuildWireframeIndices(mesh.vertices, mesh.indices);
 
@@ -2615,6 +2617,12 @@ void Viewer3DController::SetupMeshBuffers(Mesh &mesh) {
                mesh.indices.size() * sizeof(unsigned short),
                mesh.indices.data(), GL_STATIC_DRAW);
 
+  glGenBuffers(1, &mesh.eboTrianglesFlipped);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.eboTrianglesFlipped);
+  glBufferData(GL_ELEMENT_ARRAY_BUFFER,
+               mesh.indicesFlipped.size() * sizeof(unsigned short),
+               mesh.indicesFlipped.data(), GL_STATIC_DRAW);
+
   glGenBuffers(1, &mesh.eboLines);
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.eboLines);
   glBufferData(GL_ELEMENT_ARRAY_BUFFER,
@@ -2633,6 +2641,7 @@ void Viewer3DController::SetupMeshBuffers(Mesh &mesh) {
       glIsBuffer(mesh.vboVertices) == GL_TRUE &&
       glIsBuffer(mesh.vboNormals) == GL_TRUE &&
       glIsBuffer(mesh.eboTriangles) == GL_TRUE &&
+      glIsBuffer(mesh.eboTrianglesFlipped) == GL_TRUE &&
       glIsBuffer(mesh.eboLines) == GL_TRUE;
 
   if (!gpuResourcesValid) {
@@ -2640,6 +2649,7 @@ void Viewer3DController::SetupMeshBuffers(Mesh &mesh) {
     mesh.vboVertices = 0;
     mesh.vboNormals = 0;
     mesh.eboTriangles = 0;
+    mesh.eboTrianglesFlipped = 0;
     mesh.eboLines = 0;
     mesh.triangleIndexCount = 0;
     mesh.lineIndexCount = 0;
@@ -2660,6 +2670,10 @@ void Viewer3DController::ReleaseMeshBuffers(Mesh &mesh) {
   if (mesh.eboTriangles != 0) {
     glDeleteBuffers(1, &mesh.eboTriangles);
     mesh.eboTriangles = 0;
+  }
+  if (mesh.eboTrianglesFlipped != 0) {
+    glDeleteBuffers(1, &mesh.eboTrianglesFlipped);
+    mesh.eboTrianglesFlipped = 0;
   }
   if (mesh.vboNormals != 0) {
     glDeleteBuffers(1, &mesh.vboNormals);
@@ -2884,60 +2898,18 @@ void Viewer3DController::DrawMeshWireframe(
 // converting vertex units (e.g. millimeters) to meters.
 void Viewer3DController::DrawMesh(const Mesh &mesh, float scale,
                                   const float *modelMatrix) {
+  const bool mirroredTransform =
+      (modelMatrix != nullptr) && TransformDeterminant(modelMatrix) < 0.0f;
   const GLboolean cullWasEnabled = glIsEnabled(GL_CULL_FACE);
-  if (cullWasEnabled)
-    glDisable(GL_CULL_FACE);
-
-  const bool hasNormals = mesh.normals.size() >= mesh.vertices.size();
-  const bool transformInstanceNormals = (modelMatrix != nullptr) && hasNormals;
-  const bool flipWinding =
-      transformInstanceNormals && TransformDeterminant(modelMatrix) < 0.0f;
-
-  std::vector<float> transformedNormals;
-  if (transformInstanceNormals) {
-    // Keep mesh.normals in local space and generate per-instance normals at draw
-    // time using the inverse-transpose matrix.
-    transformedNormals.resize(mesh.normals.size());
-    for (size_t i = 0; i + 2 < mesh.normals.size(); i += 3) {
-      std::array<float, 3> n = {mesh.normals[i], mesh.normals[i + 1],
-                                mesh.normals[i + 2]};
-      auto transformed = TransformNormal(n, modelMatrix);
-      if (flipWinding) {
-        transformed[0] = -transformed[0];
-        transformed[1] = -transformed[1];
-        transformed[2] = -transformed[2];
-      }
-      transformedNormals[i] = transformed[0];
-      transformedNormals[i + 1] = transformed[1];
-      transformedNormals[i + 2] = transformed[2];
-    }
-  }
-
-  const std::vector<unsigned short> *triangleIndices = &mesh.indices;
-  if (flipWinding) {
-    // Mirror transforms (negative determinant) invert triangle orientation.
-    // Build and reuse a flipped index order once per mesh.
-    if (mesh.flippedIndicesCache.size() != mesh.indices.size()) {
-      mesh.flippedIndicesCache = mesh.indices;
-      for (size_t i = 0; i + 2 < mesh.flippedIndicesCache.size(); i += 3)
-        std::swap(mesh.flippedIndicesCache[i + 1],
-                  mesh.flippedIndicesCache[i + 2]);
-    }
-    triangleIndices = &mesh.flippedIndicesCache;
-  }
-
   const bool gpuHandlesValid =
       glIsBuffer(mesh.vboVertices) == GL_TRUE &&
       glIsBuffer(mesh.vboNormals) == GL_TRUE &&
-      glIsBuffer(mesh.eboTriangles) == GL_TRUE;
-  // Per-instance transformed normals and mirrored winding use temporary CPU
-  // data. Draw them via the immediate path to avoid driver-specific issues
-  // with client-side arrays/indices while a VAO is bound.
-  const bool requiresCpuDrawPath = transformInstanceNormals || flipWinding;
+      glIsBuffer(mesh.eboTriangles) == GL_TRUE &&
+      glIsBuffer(mesh.eboTrianglesFlipped) == GL_TRUE;
   const bool canUseGpuTriangles =
       mesh.buffersReady && mesh.vao != 0 && mesh.vboVertices != 0 &&
-      mesh.vboNormals != 0 && mesh.eboTriangles != 0 && gpuHandlesValid &&
-      !requiresCpuDrawPath;
+      mesh.vboNormals != 0 && mesh.eboTriangles != 0 &&
+      mesh.eboTrianglesFlipped != 0 && gpuHandlesValid;
 
   if (!m_captureOnly && canUseGpuTriangles) {
     glBindVertexArray(mesh.vao);
@@ -2952,110 +2924,31 @@ void Viewer3DController::DrawMesh(const Mesh &mesh, float scale,
     glEnableClientState(GL_NORMAL_ARRAY);
     glNormalPointer(GL_FLOAT, 0, nullptr);
 
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.eboTriangles);
+    // Mirrored transforms invert front-face orientation. Select the prebuilt
+    // winding buffer and match OpenGL front-face so culling/lighting stay
+    // consistent without any per-frame CPU triangle processing.
+    if (mirroredTransform)
+      glFrontFace(GL_CW);
+
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,
+                 mirroredTransform ? mesh.eboTrianglesFlipped
+                                   : mesh.eboTriangles);
     glDrawElements(GL_TRIANGLES, mesh.triangleIndexCount, GL_UNSIGNED_SHORT,
                    nullptr);
+
+    if (mirroredTransform)
+      glFrontFace(GL_CCW);
 
     glDisableClientState(GL_NORMAL_ARRAY);
     glDisableClientState(GL_VERTEX_ARRAY);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glPopMatrix();
-  } else if (!m_captureOnly) {
-    GLint shadeModel = GL_SMOOTH;
-    glGetIntegerv(GL_SHADE_MODEL, &shadeModel);
-    // In flat shading mode, using per-vertex normals can produce a
-    // checkerboard pattern on coplanar triangulated surfaces because the
-    // provoking vertex may alternate between adjacent triangles.
-    // Use geometric face normals per triangle to keep planar regions uniform.
-    const bool useFaceNormals = (shadeModel == GL_FLAT);
-
-    glBegin(GL_TRIANGLES);
-    for (size_t i = 0; i + 2 < triangleIndices->size(); i += 3) {
-      const unsigned short i0 = (*triangleIndices)[i];
-      const unsigned short i1 = (*triangleIndices)[i + 1];
-      const unsigned short i2 = (*triangleIndices)[i + 2];
-
-      const float v0x = mesh.vertices[i0 * 3] * scale;
-      const float v0y = mesh.vertices[i0 * 3 + 1] * scale;
-      const float v0z = mesh.vertices[i0 * 3 + 2] * scale;
-      const float v1x = mesh.vertices[i1 * 3] * scale;
-      const float v1y = mesh.vertices[i1 * 3 + 1] * scale;
-      const float v1z = mesh.vertices[i1 * 3 + 2] * scale;
-      const float v2x = mesh.vertices[i2 * 3] * scale;
-      const float v2y = mesh.vertices[i2 * 3 + 1] * scale;
-      const float v2z = mesh.vertices[i2 * 3 + 2] * scale;
-
-      const auto &normalData =
-          transformInstanceNormals ? transformedNormals : mesh.normals;
-
-      if (useFaceNormals) {
-        if (hasNormals) {
-          // In flat mode use one normal per triangle, but derive it from the
-          // triangle's transformed vertex normals when available. This avoids
-          // checkerboard artifacts from provoking-vertex changes without
-          // introducing extra winding-dependent flips.
-          float ax = normalData[i0 * 3] + normalData[i1 * 3] +
-                     normalData[i2 * 3];
-          float ay = normalData[i0 * 3 + 1] + normalData[i1 * 3 + 1] +
-                     normalData[i2 * 3 + 1];
-          float az = normalData[i0 * 3 + 2] + normalData[i1 * 3 + 2] +
-                     normalData[i2 * 3 + 2];
-          const float alen = std::sqrt(ax * ax + ay * ay + az * az);
-          if (alen > 0.0f) {
-            glNormal3f(ax / alen, ay / alen, az / alen);
-          } else {
-            glNormal3f(0.0f, 0.0f, 1.0f);
-          }
-        } else {
-          float nx = (v1y - v0y) * (v2z - v0z) - (v1z - v0z) * (v2y - v0y);
-          float ny = (v1z - v0z) * (v2x - v0x) - (v1x - v0x) * (v2z - v0z);
-          float nz = (v1x - v0x) * (v2y - v0y) - (v1y - v0y) * (v2x - v0x);
-          const float len = std::sqrt(nx * nx + ny * ny + nz * nz);
-          if (len > 0.0f)
-            glNormal3f(nx / len, ny / len, nz / len);
-          else
-            glNormal3f(0.0f, 0.0f, 1.0f);
-        }
-
-        glVertex3f(v0x, v0y, v0z);
-        glVertex3f(v1x, v1y, v1z);
-        glVertex3f(v2x, v2y, v2z);
-        continue;
-      }
-
-      if (hasNormals) {
-        glNormal3f(normalData[i0 * 3], normalData[i0 * 3 + 1],
-                   normalData[i0 * 3 + 2]);
-        glVertex3f(v0x, v0y, v0z);
-        glNormal3f(normalData[i1 * 3], normalData[i1 * 3 + 1],
-                   normalData[i1 * 3 + 2]);
-        glVertex3f(v1x, v1y, v1z);
-        glNormal3f(normalData[i2 * 3], normalData[i2 * 3 + 1],
-                   normalData[i2 * 3 + 2]);
-        glVertex3f(v2x, v2y, v2z);
-      } else {
-        float nx = (v1y - v0y) * (v2z - v0z) - (v1z - v0z) * (v2y - v0y);
-        float ny = (v1z - v0z) * (v2x - v0x) - (v1x - v0x) * (v2z - v0z);
-        float nz = (v1x - v0x) * (v2y - v0y) - (v1y - v0y) * (v2x - v0x);
-        const float len = std::sqrt(nx * nx + ny * ny + nz * nz);
-        if (len > 0.0f) {
-          nx /= len;
-          ny /= len;
-          nz /= len;
-        }
-
-        glNormal3f(nx, ny, nz);
-        glVertex3f(v0x, v0y, v0z);
-        glVertex3f(v1x, v1y, v1z);
-        glVertex3f(v2x, v2y, v2z);
-      }
-    }
-    glEnd();
   }
 
   if (cullWasEnabled)
     glEnable(GL_CULL_FACE);
 }
+
 
 // Draws the reference grid on one of the principal planes
 void Viewer3DController::DrawGrid(int style, float r, float g, float b,
