@@ -1014,9 +1014,6 @@ void Viewer3DController::Update() {
   for (const auto &[uuid, obj] : objects) {
     BoundingBox bb;
     Matrix tm = obj.transform;
-    tm.o[0] *= RENDER_SCALE;
-    tm.o[1] *= RENDER_SCALE;
-    tm.o[2] *= RENDER_SCALE;
 
     bool found = false;
     bb.min = {FLT_MAX, FLT_MAX, FLT_MAX};
@@ -1031,10 +1028,13 @@ void Viewer3DController::Update() {
 
         Matrix geoTm = MatrixUtils::Multiply(tm, geo.localTransform);
         for (size_t vi = 0; vi + 2 < it->second.vertices.size(); vi += 3) {
-          std::array<float, 3> p = {it->second.vertices[vi] * RENDER_SCALE,
-                                    it->second.vertices[vi + 1] * RENDER_SCALE,
-                                    it->second.vertices[vi + 2] * RENDER_SCALE};
+          std::array<float, 3> p = {it->second.vertices[vi],
+                                    it->second.vertices[vi + 1],
+                                    it->second.vertices[vi + 2]};
           p = TransformPoint(geoTm, p);
+          p[0] *= RENDER_SCALE;
+          p[1] *= RENDER_SCALE;
+          p[2] *= RENDER_SCALE;
           bb.min[0] = std::min(bb.min[0], p[0]);
           bb.min[1] = std::min(bb.min[1], p[1]);
           bb.min[2] = std::min(bb.min[2], p[2]);
@@ -1049,10 +1049,13 @@ void Viewer3DController::Update() {
       auto it = m_loadedMeshes.find(path);
       if (it != m_loadedMeshes.end()) {
         for (size_t vi = 0; vi + 2 < it->second.vertices.size(); vi += 3) {
-          std::array<float, 3> p = {it->second.vertices[vi] * RENDER_SCALE,
-                                    it->second.vertices[vi + 1] * RENDER_SCALE,
-                                    it->second.vertices[vi + 2] * RENDER_SCALE};
+          std::array<float, 3> p = {it->second.vertices[vi],
+                                    it->second.vertices[vi + 1],
+                                    it->second.vertices[vi + 2]};
           p = TransformPoint(tm, p);
+          p[0] *= RENDER_SCALE;
+          p[1] *= RENDER_SCALE;
+          p[2] *= RENDER_SCALE;
           bb.min[0] = std::min(bb.min[0], p[0]);
           bb.min[1] = std::min(bb.min[1], p[1]);
           bb.min[2] = std::min(bb.min[2], p[2]);
@@ -1246,10 +1249,28 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
               Matrix worldMatrix = MatrixUtils::Multiply(m.transform, part.localTransform);
               float partMatrix[16];
               MatrixToArray(worldMatrix, partMatrix);
+
+              Matrix partCaptureMatrix = worldMatrix;
+              partCaptureMatrix.o[0] *= RENDER_SCALE;
+              partCaptureMatrix.o[1] *= RENDER_SCALE;
+              partCaptureMatrix.o[2] *= RENDER_SCALE;
+              auto partCapture = [partCaptureMatrix](const std::array<float, 3> &p) {
+                return TransformPoint(partCaptureMatrix, p);
+              };
+
+              float localMatrix[16];
+              MatrixToArray(part.localTransform, localMatrix);
+              glPushMatrix();
+              ApplyTransform(localMatrix, false);
+              auto partCaptureTransform = captureTransform;
+              if (captureTransform)
+                partCaptureTransform = partCapture;
+
               DrawMeshWithOutline(*part.mesh, r, g, b, RENDER_SCALE,
                                   isHighlighted, isSelected, cx, cy, cz,
-                                  wireframe, mode, captureTransform, false,
+                                  wireframe, mode, partCaptureTransform, false,
                                   partMatrix);
+              glPopMatrix();
             }
           } else {
             DrawCubeWithOutline(0.3f, r, g, b, isHighlighted, isSelected, cx,
