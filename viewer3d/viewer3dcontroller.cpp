@@ -971,7 +971,6 @@ bool Viewer3DController::EnsureBoundsComputed(
   };
 
   const std::string &base = ConfigManager::Get().GetScene().basePath;
-  const auto &fixtures = SceneDataManager::Instance().GetFixtures();
   const auto &trusses = SceneDataManager::Instance().GetTrusses();
   const auto &objects = SceneDataManager::Instance().GetSceneObjects();
 
@@ -1274,7 +1273,6 @@ void Viewer3DController::UpdateResourcesIfDirty() {
 
   const auto &trusses = SceneDataManager::Instance().GetTrusses();
   const auto &objects = SceneDataManager::Instance().GetSceneObjects();
-  const auto &fixtures = SceneDataManager::Instance().GetFixtures();
 
   size_t sceneSignature = HashString(base);
   for (const auto &[uuid, t] : trusses) {
@@ -1776,6 +1774,149 @@ void Viewer3DController::UpdateResourcesIfDirty() {
   m_visibilityChangedDirty = false;
 }
 
+
+bool Viewer3DController::TryBuildVisibleSet(
+    const ViewFrustumSnapshot &frustum,
+    const std::unordered_set<std::string> &hiddenLayers,
+    bool useFrustumCulling, float minPixels, VisibleSet &out) const {
+  const auto &sceneObjects = SceneDataManager::Instance().GetSceneObjects();
+  const auto &trusses = SceneDataManager::Instance().GetTrusses();
+  const auto &fixtures = SceneDataManager::Instance().GetFixtures();
+
+  std::lock_guard<std::mutex> lock(m_sortedListsMutex);
+  out.objectUuids.clear();
+  out.trussUuids.clear();
+  out.fixtureUuids.clear();
+
+  out.objectUuids.reserve(m_sortedObjects.size());
+  for (const auto *entry : m_sortedObjects) {
+    if (!entry)
+      continue;
+    const auto &uuid = entry->first;
+    const auto &obj = entry->second;
+    if (!IsLayerVisibleCached(hiddenLayers, obj.layer))
+      continue;
+    if (useFrustumCulling) {
+      auto bit = m_objectBounds.find(uuid);
+      if (bit == m_objectBounds.end())
+        continue;
+      ScreenRect rect;
+      bool anyDepthVisible = false;
+      if (!ProjectBoundingBoxToScreen(bit->second.min, bit->second.max,
+                                      frustum.viewport[3], frustum.model,
+                                      frustum.projection, frustum.viewport,
+                                      rect, anyDepthVisible) ||
+          !anyDepthVisible ||
+          ShouldCullByScreenRect(rect, frustum.viewport[2], frustum.viewport[3],
+                                 minPixels)) {
+        continue;
+      }
+    }
+    if (sceneObjects.find(uuid) != sceneObjects.end())
+      out.objectUuids.push_back(uuid);
+  }
+
+  out.trussUuids.reserve(m_sortedTrusses.size());
+  for (const auto *entry : m_sortedTrusses) {
+    if (!entry)
+      continue;
+    const auto &uuid = entry->first;
+    const auto &truss = entry->second;
+    if (!IsLayerVisibleCached(hiddenLayers, truss.layer))
+      continue;
+    if (useFrustumCulling) {
+      auto bit = m_trussBounds.find(uuid);
+      if (bit == m_trussBounds.end())
+        continue;
+      ScreenRect rect;
+      bool anyDepthVisible = false;
+      if (!ProjectBoundingBoxToScreen(bit->second.min, bit->second.max,
+                                      frustum.viewport[3], frustum.model,
+                                      frustum.projection, frustum.viewport,
+                                      rect, anyDepthVisible) ||
+          !anyDepthVisible ||
+          ShouldCullByScreenRect(rect, frustum.viewport[2], frustum.viewport[3],
+                                 minPixels)) {
+        continue;
+      }
+    }
+    if (trusses.find(uuid) != trusses.end())
+      out.trussUuids.push_back(uuid);
+  }
+
+  out.fixtureUuids.reserve(m_sortedFixtures.size());
+  for (const auto *entry : m_sortedFixtures) {
+    if (!entry)
+      continue;
+    const auto &uuid = entry->first;
+    const auto &fixture = entry->second;
+    if (!IsLayerVisibleCached(hiddenLayers, fixture.layer))
+      continue;
+    if (useFrustumCulling) {
+      auto bit = m_fixtureBounds.find(uuid);
+      if (bit == m_fixtureBounds.end())
+        continue;
+      ScreenRect rect;
+      bool anyDepthVisible = false;
+      if (!ProjectBoundingBoxToScreen(bit->second.min, bit->second.max,
+                                      frustum.viewport[3], frustum.model,
+                                      frustum.projection, frustum.viewport,
+                                      rect, anyDepthVisible) ||
+          !anyDepthVisible ||
+          ShouldCullByScreenRect(rect, frustum.viewport[2], frustum.viewport[3],
+                                 minPixels)) {
+        continue;
+      }
+    }
+    if (fixtures.find(uuid) != fixtures.end())
+      out.fixtureUuids.push_back(uuid);
+  }
+
+  return true;
+}
+
+const Viewer3DController::VisibleSet &Viewer3DController::GetVisibleSet(
+    const ViewFrustumSnapshot &frustum,
+    const std::unordered_set<std::string> &hiddenLayers,
+    bool useFrustumCulling, float minPixels) const {
+  const bool sameViewport = std::equal(
+      std::begin(frustum.viewport), std::end(frustum.viewport),
+      m_visibleSetViewport.begin());
+  const bool sameModel =
+      std::equal(std::begin(frustum.model), std::end(frustum.model),
+                 m_visibleSetModel.begin());
+  const bool sameProjection =
+      std::equal(std::begin(frustum.projection), std::end(frustum.projection),
+                 m_visibleSetProjection.begin());
+
+  const bool cacheValid =
+      (m_visibleSetSceneVersion == m_sceneVersion) &&
+      (m_visibleSetHiddenLayers == hiddenLayers) &&
+      (m_visibleSetFrustumCulling == useFrustumCulling) &&
+      (m_visibleSetMinPixels == minPixels) && sameViewport && sameModel &&
+      sameProjection;
+
+  if (!cacheValid) {
+    VisibleSet built;
+    if (TryBuildVisibleSet(frustum, hiddenLayers, useFrustumCulling, minPixels,
+                           built)) {
+      m_cachedVisibleSet = std::move(built);
+      m_visibleSetSceneVersion = m_sceneVersion;
+      m_visibleSetHiddenLayers = hiddenLayers;
+      m_visibleSetFrustumCulling = useFrustumCulling;
+      m_visibleSetMinPixels = minPixels;
+      std::copy(std::begin(frustum.viewport), std::end(frustum.viewport),
+                m_visibleSetViewport.begin());
+      std::copy(std::begin(frustum.model), std::end(frustum.model),
+                m_visibleSetModel.begin());
+      std::copy(std::begin(frustum.projection), std::end(frustum.projection),
+                m_visibleSetProjection.begin());
+    }
+  }
+
+  return m_cachedVisibleSet;
+}
+
 // Renders all scene objects using their transformMatrix
 void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
                                      Viewer2DView view, bool showGrid,
@@ -1856,95 +1997,54 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
   const auto &trusses = SceneDataManager::Instance().GetTrusses();
   const auto &fixtures = SceneDataManager::Instance().GetFixtures();
 
-  std::vector<const std::pair<const std::string, SceneObject> *> visibleSortedObjects;
-  std::vector<const std::pair<const std::string, Truss> *> visibleSortedTrusses;
-  std::vector<const std::pair<const std::string, Fixture> *> visibleSortedFixtures;
   {
     std::lock_guard<std::mutex> lock(m_sortedListsMutex);
-    const bool hiddenLayersChanged = (m_lastHiddenLayers != hiddenLayers);
-    if ((m_sortedListsDirty || hiddenLayersChanged) && !skipOptionalWork) {
-      if (m_sortedListsDirty) {
-        m_sortedObjects.clear();
-        m_sortedObjects.reserve(sceneObjects.size());
-        for (const auto &obj : sceneObjects)
-          m_sortedObjects.push_back(&obj);
-        std::sort(m_sortedObjects.begin(), m_sortedObjects.end(),
-                  [](const auto *a, const auto *b) {
-                    return a->second.transform.o[2] < b->second.transform.o[2];
-                  });
+    if (m_sortedListsDirty && !skipOptionalWork) {
+      m_sortedObjects.clear();
+      m_sortedObjects.reserve(sceneObjects.size());
+      for (const auto &obj : sceneObjects)
+        m_sortedObjects.push_back(&obj);
+      std::sort(m_sortedObjects.begin(), m_sortedObjects.end(),
+                [](const auto *a, const auto *b) {
+                  return a->second.transform.o[2] < b->second.transform.o[2];
+                });
 
-        m_sortedTrusses.clear();
-        m_sortedTrusses.reserve(trusses.size());
-        for (const auto &t : trusses)
-          m_sortedTrusses.push_back(&t);
-        std::sort(m_sortedTrusses.begin(), m_sortedTrusses.end(),
-                  [](const auto *a, const auto *b) {
-                    return a->second.transform.o[2] < b->second.transform.o[2];
-                  });
+      m_sortedTrusses.clear();
+      m_sortedTrusses.reserve(trusses.size());
+      for (const auto &t : trusses)
+        m_sortedTrusses.push_back(&t);
+      std::sort(m_sortedTrusses.begin(), m_sortedTrusses.end(),
+                [](const auto *a, const auto *b) {
+                  return a->second.transform.o[2] < b->second.transform.o[2];
+                });
 
-        m_sortedFixtures.clear();
-        m_sortedFixtures.reserve(fixtures.size());
-        for (const auto &f : fixtures)
-          m_sortedFixtures.push_back(&f);
-        std::sort(m_sortedFixtures.begin(), m_sortedFixtures.end(),
-                  [](const auto *a, const auto *b) {
-                    return a->second.transform.o[2] < b->second.transform.o[2];
-                  });
+      m_sortedFixtures.clear();
+      m_sortedFixtures.reserve(fixtures.size());
+      for (const auto &f : fixtures)
+        m_sortedFixtures.push_back(&f);
+      std::sort(m_sortedFixtures.begin(), m_sortedFixtures.end(),
+                [](const auto *a, const auto *b) {
+                  return a->second.transform.o[2] < b->second.transform.o[2];
+                });
 
-        m_sortedListsDirty = false;
-      }
-
-      m_visibleSortedObjects.clear();
-      m_visibleSortedObjects.reserve(m_sortedObjects.size());
-      for (const auto *entry : m_sortedObjects) {
-        if (IsLayerVisibleCached(hiddenLayers, entry->second.layer))
-          m_visibleSortedObjects.push_back(entry);
-      }
-
-      m_visibleSortedTrusses.clear();
-      m_visibleSortedTrusses.reserve(m_sortedTrusses.size());
-      for (const auto *entry : m_sortedTrusses) {
-        if (IsLayerVisibleCached(hiddenLayers, entry->second.layer))
-          m_visibleSortedTrusses.push_back(entry);
-      }
-
-      m_visibleSortedFixtures.clear();
-      m_visibleSortedFixtures.reserve(m_sortedFixtures.size());
-      for (const auto *entry : m_sortedFixtures) {
-        if (IsLayerVisibleCached(hiddenLayers, entry->second.layer))
-          m_visibleSortedFixtures.push_back(entry);
-      }
-
-      m_lastHiddenLayers = hiddenLayers;
-      ++m_hiddenLayersVersion;
+      m_sortedListsDirty = false;
     }
-
-    visibleSortedObjects = m_visibleSortedObjects;
-    visibleSortedTrusses = m_visibleSortedTrusses;
-    visibleSortedFixtures = m_visibleSortedFixtures;
   }
+
+  ViewFrustumSnapshot frustum{};
+  std::copy(std::begin(viewport), std::end(viewport), std::begin(frustum.viewport));
+  std::copy(std::begin(model), std::end(model), std::begin(frustum.model));
+  std::copy(std::begin(proj), std::end(proj), std::begin(frustum.projection));
+  const VisibleSet &visibleSet =
+      GetVisibleSet(frustum, hiddenLayers, culling.enabled, minCullingPixels);
 
   // Scene objects first
   glShadeModel(GL_FLAT);
-  for (const auto *entry : visibleSortedObjects) {
-    const auto &uuid = entry->first;
-    const auto &m = entry->second;
-    EnsureBoundsComputed(uuid, ItemType::SceneObject, hiddenLayers);
-    if (culling.enabled) {
-      auto bit = m_objectBounds.find(uuid);
-      if (bit != m_objectBounds.end()) {
-        ScreenRect rect;
-        bool anyDepthVisible = false;
-        if (!ProjectBoundingBoxToScreen(bit->second.min, bit->second.max,
-                                        viewport[3], model, proj, viewport,
-                                        rect, anyDepthVisible) ||
-            !anyDepthVisible ||
-            ShouldCullByScreenRect(rect, viewport[2], viewport[3],
-                                   minCullingPixels)) {
-          continue;
-        }
-      }
-    }
+  for (const auto &uuid : visibleSet.objectUuids) {
+    auto sceneIt = sceneObjects.find(uuid);
+    if (sceneIt == sceneObjects.end())
+      continue;
+    const auto &m = sceneIt->second;
     glPushMatrix();
 
     std::string objectCaptureKey;
@@ -2144,25 +2244,11 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
 
   // Trusses next
   glShadeModel(GL_SMOOTH); // keep smooth shading for trusses
-  for (const auto *entry : visibleSortedTrusses) {
-    const auto &uuid = entry->first;
-    const auto &t = entry->second;
-    EnsureBoundsComputed(uuid, ItemType::Truss, hiddenLayers);
-    if (culling.enabled) {
-      auto bit = m_trussBounds.find(uuid);
-      if (bit != m_trussBounds.end()) {
-        ScreenRect rect;
-        bool anyDepthVisible = false;
-        if (!ProjectBoundingBoxToScreen(bit->second.min, bit->second.max,
-                                        viewport[3], model, proj, viewport,
-                                        rect, anyDepthVisible) ||
-            !anyDepthVisible ||
-            ShouldCullByScreenRect(rect, viewport[2], viewport[3],
-                                   minCullingPixels)) {
-          continue;
-        }
-      }
-    }
+  for (const auto &uuid : visibleSet.trussUuids) {
+    auto trussIt = trusses.find(uuid);
+    if (trussIt == trusses.end())
+      continue;
+    const auto &t = trussIt->second;
     glPushMatrix();
 
     std::string trussCaptureKey;
@@ -2337,25 +2423,11 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
     if (depthEnabled)
       glDisable(GL_DEPTH_TEST);
   }
-  for (const auto *entry : visibleSortedFixtures) {
-    const auto &uuid = entry->first;
-    const auto &f = entry->second;
-    EnsureBoundsComputed(uuid, ItemType::Fixture, hiddenLayers);
-    if (culling.enabled) {
-      auto bit = m_fixtureBounds.find(uuid);
-      if (bit != m_fixtureBounds.end()) {
-        ScreenRect rect;
-        bool anyDepthVisible = false;
-        if (!ProjectBoundingBoxToScreen(bit->second.min, bit->second.max,
-                                        viewport[3], model, proj, viewport,
-                                        rect, anyDepthVisible) ||
-            !anyDepthVisible ||
-            ShouldCullByScreenRect(rect, viewport[2], viewport[3],
-                                   minCullingPixels)) {
-          continue;
-        }
-      }
-    }
+  for (const auto &uuid : visibleSet.fixtureUuids) {
+    auto fixtureIt = fixtures.find(uuid);
+    if (fixtureIt == fixtures.end())
+      continue;
+    const auto &f = fixtureIt->second;
     glPushMatrix();
 
     std::string fixtureCaptureKey;
@@ -3711,9 +3783,17 @@ void Viewer3DController::DrawFixtureLabels(int width, int height) {
   float dmxSize = cfg.GetFloat("label_font_size_dmx") * zoom;
 
   const auto &fixtures = SceneDataManager::Instance().GetFixtures();
-  for (const auto &[uuid, f] : fixtures) {
-    if (!IsLayerVisibleCached(hiddenLayers, f.layer))
+  ViewFrustumSnapshot frustum{};
+  std::copy(std::begin(viewport), std::end(viewport), std::begin(frustum.viewport));
+  std::copy(std::begin(model), std::end(model), std::begin(frustum.model));
+  std::copy(std::begin(proj), std::end(proj), std::begin(frustum.projection));
+  const VisibleSet &visibleSet =
+      GetVisibleSet(frustum, hiddenLayers, culling.enabled, minLabelPixels);
+  for (const auto &uuid : visibleSet.fixtureUuids) {
+    auto fixtureIt = fixtures.find(uuid);
+    if (fixtureIt == fixtures.end())
       continue;
+    const auto &f = fixtureIt->second;
     if (uuid != m_highlightUuid)
       continue;
     double sx, sy, sz;
@@ -4197,9 +4277,17 @@ void Viewer3DController::DrawTrussLabels(int width, int height) {
   int labelsDrawn = 0;
   const int maxLabels = GetLabelLimit(cfg, "label_max_trusses");
   const auto &trusses = SceneDataManager::Instance().GetTrusses();
-  for (const auto &[uuid, t] : trusses) {
-    if (!IsLayerVisibleCached(hiddenLayers, t.layer))
+  ViewFrustumSnapshot frustum{};
+  std::copy(std::begin(viewport), std::end(viewport), std::begin(frustum.viewport));
+  std::copy(std::begin(model), std::end(model), std::begin(frustum.model));
+  std::copy(std::begin(proj), std::end(proj), std::begin(frustum.projection));
+  const VisibleSet &visibleSet =
+      GetVisibleSet(frustum, hiddenLayers, culling.enabled, minLabelPixels);
+  for (const auto &uuid : visibleSet.trussUuids) {
+    auto trussIt = trusses.find(uuid);
+    if (trussIt == trusses.end())
       continue;
+    const auto &t = trussIt->second;
     if (uuid != m_highlightUuid)
       continue;
     if (useLabelOptimizations && maxLabels > 0 && labelsDrawn >= maxLabels)
@@ -4267,9 +4355,17 @@ void Viewer3DController::DrawSceneObjectLabels(int width, int height) {
   int labelsDrawn = 0;
   const int maxLabels = GetLabelLimit(cfg, "label_max_objects");
   const auto &objs = SceneDataManager::Instance().GetSceneObjects();
-  for (const auto &[uuid, o] : objs) {
-    if (!IsLayerVisibleCached(hiddenLayers, o.layer))
+  ViewFrustumSnapshot frustum{};
+  std::copy(std::begin(viewport), std::end(viewport), std::begin(frustum.viewport));
+  std::copy(std::begin(model), std::end(model), std::begin(frustum.model));
+  std::copy(std::begin(proj), std::end(proj), std::begin(frustum.projection));
+  const VisibleSet &visibleSet =
+      GetVisibleSet(frustum, hiddenLayers, culling.enabled, minLabelPixels);
+  for (const auto &uuid : visibleSet.objectUuids) {
+    auto objectIt = objs.find(uuid);
+    if (objectIt == objs.end())
       continue;
+    const auto &o = objectIt->second;
     if (uuid != m_highlightUuid)
       continue;
     if (useLabelOptimizations && maxLabels > 0 && labelsDrawn >= maxLabels)
@@ -4538,9 +4634,12 @@ Viewer3DController::GetFixturesInScreenRect(int x1, int y1, int x2, int y2,
 
   std::vector<std::string> selection;
   const auto &fixtures = SceneDataManager::Instance().GetFixtures();
-  for (const auto &[uuid, f] : fixtures) {
-    if (!IsLayerVisibleCached(hiddenLayers, f.layer))
-      continue;
+  ViewFrustumSnapshot frustum{};
+  std::copy(std::begin(viewport), std::end(viewport), std::begin(frustum.viewport));
+  std::copy(std::begin(model), std::end(model), std::begin(frustum.model));
+  std::copy(std::begin(proj), std::end(proj), std::begin(frustum.projection));
+  const VisibleSet &visibleSet = GetVisibleSet(frustum, hiddenLayers, true, 0.0f);
+  for (const auto &uuid : visibleSet.fixtureUuids) {
     auto bit = m_fixtureBounds.find(uuid);
     if (bit == m_fixtureBounds.end())
       continue;
@@ -4607,10 +4706,12 @@ Viewer3DController::GetTrussesInScreenRect(int x1, int y1, int x2, int y2,
   };
 
   std::vector<std::string> selection;
-  const auto &trusses = SceneDataManager::Instance().GetTrusses();
-  for (const auto &[uuid, t] : trusses) {
-    if (!IsLayerVisibleCached(hiddenLayers, t.layer))
-      continue;
+  ViewFrustumSnapshot frustum{};
+  std::copy(std::begin(viewport), std::end(viewport), std::begin(frustum.viewport));
+  std::copy(std::begin(model), std::end(model), std::begin(frustum.model));
+  std::copy(std::begin(proj), std::end(proj), std::begin(frustum.projection));
+  const VisibleSet &visibleSet = GetVisibleSet(frustum, hiddenLayers, true, 0.0f);
+  for (const auto &uuid : visibleSet.trussUuids) {
     auto bit = m_trussBounds.find(uuid);
     if (bit == m_trussBounds.end())
       continue;
@@ -4677,10 +4778,12 @@ Viewer3DController::GetSceneObjectsInScreenRect(int x1, int y1, int x2, int y2,
   };
 
   std::vector<std::string> selection;
-  const auto &objs = SceneDataManager::Instance().GetSceneObjects();
-  for (const auto &[uuid, o] : objs) {
-    if (!IsLayerVisibleCached(hiddenLayers, o.layer))
-      continue;
+  ViewFrustumSnapshot frustum{};
+  std::copy(std::begin(viewport), std::end(viewport), std::begin(frustum.viewport));
+  std::copy(std::begin(model), std::end(model), std::begin(frustum.model));
+  std::copy(std::begin(proj), std::end(proj), std::begin(frustum.projection));
+  const VisibleSet &visibleSet = GetVisibleSet(frustum, hiddenLayers, true, 0.0f);
+  for (const auto &uuid : visibleSet.objectUuids) {
     auto bit = m_objectBounds.find(uuid);
     if (bit == m_objectBounds.end())
       continue;

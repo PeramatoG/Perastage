@@ -335,8 +335,36 @@ private:
   bool m_skipOutlinesForCurrentFrame = false;
 
   enum class ItemType { Fixture, Truss, SceneObject };
+  struct VisibleSet {
+    std::vector<std::string> fixtureUuids;
+    std::vector<std::string> trussUuids;
+    std::vector<std::string> objectUuids;
+  };
+
+  struct ViewFrustumSnapshot {
+    int viewport[4] = {0, 0, 0, 0};
+    double model[16] = {0.0};
+    double projection[16] = {0.0};
+  };
+
+  bool TryBuildVisibleSet(const ViewFrustumSnapshot &frustum,
+                          const std::unordered_set<std::string> &hiddenLayers,
+                          bool useFrustumCulling, float minPixels,
+                          VisibleSet &out) const;
+  const VisibleSet &GetVisibleSet(const ViewFrustumSnapshot &frustum,
+                                  const std::unordered_set<std::string> &hiddenLayers,
+                                  bool useFrustumCulling, float minPixels) const;
+
   bool EnsureBoundsComputed(const std::string &uuid, ItemType type,
                             const std::unordered_set<std::string> &hiddenLayers);
+  mutable VisibleSet m_cachedVisibleSet;
+  mutable size_t m_visibleSetSceneVersion = static_cast<size_t>(-1);
+  mutable std::unordered_set<std::string> m_visibleSetHiddenLayers;
+  mutable bool m_visibleSetFrustumCulling = false;
+  mutable float m_visibleSetMinPixels = -1.0f;
+  mutable std::array<int, 4> m_visibleSetViewport = {0, 0, 0, 0};
+  mutable std::array<double, 16> m_visibleSetModel = {};
+  mutable std::array<double, 16> m_visibleSetProjection = {};
 
 public:
   // Enables recording of all primitives drawn during the next RenderScene
