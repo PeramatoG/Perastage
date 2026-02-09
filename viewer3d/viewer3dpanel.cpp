@@ -52,6 +52,7 @@
 #include <chrono>
 #include <algorithm>
 #include <memory>
+#include <cmath>
 #include <set>
 
 wxDEFINE_EVENT(wxEVT_VIEWER_REFRESH, wxThreadEvent);
@@ -122,10 +123,63 @@ void ApplyFixtureSelectionToUi(const std::vector<std::string>& selection,
             FixtureTablePanel::Instance()->SelectByUuid(selection);
     }
 }
+
+struct GlCanvasSelection {
+    const int* attribs = nullptr;
+};
+
+int GetRequestedViewerAASamples()
+{
+    const int quality = std::clamp(static_cast<int>(std::lround(ConfigManager::Get().GetFloat("viewer3d_aa_quality"))), 0, 2);
+    switch (quality) {
+    case 2:
+        return 4;
+    case 1:
+        return 2;
+    default:
+        return 0;
+    }
+}
+
+GlCanvasSelection SelectGlCanvasAttributes()
+{
+    static const int attrsNoMsaa[] = {
+        WX_GL_RGBA,
+        WX_GL_DOUBLEBUFFER,
+        WX_GL_DEPTH_SIZE, 24,
+        0
+    };
+    static const int attrs2x[] = {
+        WX_GL_RGBA,
+        WX_GL_DOUBLEBUFFER,
+        WX_GL_DEPTH_SIZE, 24,
+        WX_GL_SAMPLE_BUFFERS, 1,
+        WX_GL_SAMPLES, 2,
+        0
+    };
+    static const int attrs4x[] = {
+        WX_GL_RGBA,
+        WX_GL_DOUBLEBUFFER,
+        WX_GL_DEPTH_SIZE, 24,
+        WX_GL_SAMPLE_BUFFERS, 1,
+        WX_GL_SAMPLES, 4,
+        0
+    };
+
+    const int requested = GetRequestedViewerAASamples();
+    if (requested >= 4 && wxGLCanvas::IsDisplaySupported(attrs4x))
+        return {attrs4x};
+    if (requested >= 2 && wxGLCanvas::IsDisplaySupported(attrs2x))
+        return {attrs2x};
+    if (requested >= 4 && wxGLCanvas::IsDisplaySupported(attrs2x))
+        return {attrs2x};
+    return {attrsNoMsaa};
+}
 }
 
 Viewer3DPanel::Viewer3DPanel(wxWindow* parent)
-    : wxGLCanvas(parent, wxID_ANY, nullptr, wxDefaultPosition, wxDefaultSize, wxFULL_REPAINT_ON_RESIZE),
+    : wxGLCanvas(parent, wxID_ANY, SelectGlCanvasAttributes().attribs,
+                 wxDefaultPosition, wxDefaultSize, wxFULL_REPAINT_ON_RESIZE),
     m_glContext(new wxGLContext(this))
 {
     SetBackgroundStyle(wxBG_STYLE_CUSTOM);
@@ -163,11 +217,20 @@ void Viewer3DPanel::InitGL()
             wxLogError("GLEW initialization failed: %s",
                        reinterpret_cast<const char*>(glewGetErrorString(err)));
         }
+
+        GLint sampleBuffers = 0;
+        glGetIntegerv(GL_SAMPLE_BUFFERS, &sampleBuffers);
+        m_hasSampleBuffers = sampleBuffers > 0;
+
         m_controller.InitializeGL();
         m_glInitialized = true;
     }
 
     glEnable(GL_DEPTH_TEST);
+    if (m_hasSampleBuffers)
+        glEnable(GL_MULTISAMPLE);
+    else
+        glDisable(GL_MULTISAMPLE);
     glClearColor(0.08f, 0.08f, 0.08f, 1.0f);
 }
 
