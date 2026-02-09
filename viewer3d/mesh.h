@@ -220,9 +220,10 @@ TransformNormal(const std::array<float, 3>& normal, const float model[16])
         return normal;
 
     const float invDet = 1.0f / det;
-    const float nx = (c00 * normal[0] + c10 * normal[1] + c20 * normal[2]) * invDet;
-    const float ny = (c01 * normal[0] + c11 * normal[1] + c21 * normal[2]) * invDet;
-    const float nz = (c02 * normal[0] + c12 * normal[1] + c22 * normal[2]) * invDet;
+    // inverse-transpose(A) equals the cofactor matrix divided by det(A).
+    const float nx = (c00 * normal[0] + c01 * normal[1] + c02 * normal[2]) * invDet;
+    const float ny = (c10 * normal[0] + c11 * normal[1] + c12 * normal[2]) * invDet;
+    const float nz = (c20 * normal[0] + c21 * normal[1] + c22 * normal[2]) * invDet;
 
     const float len = std::sqrt(nx * nx + ny * ny + nz * nz);
     if (len <= 1e-8f)
