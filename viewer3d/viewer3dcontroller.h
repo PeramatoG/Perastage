@@ -178,7 +178,8 @@ private:
                            const std::function<std::array<float, 3>(
                                const std::array<float, 3> &)> &captureTransform =
                                {},
-                           bool unlit = false);
+                           bool unlit = false,
+                           const float *modelMatrix = nullptr);
 
   // Draws only the mesh edges for wireframe rendering
   void DrawMeshWireframe(
@@ -237,7 +238,8 @@ private:
   // Draws a mesh loaded from a 3DS file using the given scale factor
   // for vertex positions. GDTF models may already be defined in meters
   // so they can use a scale of 1.0f
-  void DrawMesh(const Mesh &mesh, float scale = RENDER_SCALE);
+  void DrawMesh(const Mesh &mesh, float scale = RENDER_SCALE,
+                const float *modelMatrix = nullptr);
 
   // Cache of already loaded meshes indexed by absolute file path
   std::unordered_map<std::string, Mesh> m_loadedMeshes;

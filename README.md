@@ -118,6 +118,20 @@ Run tests from the build directory with `ctest` to execute unit tests.
 
 ---
 
+
+## Manual shading verification (MVR)
+
+To verify flat-shading consistency after importing MVR scenes:
+
+1. Build and run the app, then import an `.mvr` file that contains repeated sloped surfaces (for example roof planes).
+2. In the 3D viewer, keep solid rendering enabled and inspect surfaces with the same tilt angle.
+3. Confirm they receive consistent grayscale shading (no random white/gray mismatch on equally oriented planes).
+4. Load a representative GDTF fixture and confirm rendering is unchanged compared to previous behavior.
+
+These checks validate that per-instance normal transformation and mirrored-transform winding correction are working as expected.
+
+---
+
 ## Windows packaging
 
 1. Build the Release configuration.

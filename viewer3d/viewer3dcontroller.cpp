@@ -1190,7 +1190,8 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
           if (objectMesh) {
             DrawMeshWithOutline(*objectMesh, r, g, b, RENDER_SCALE,
                                 isHighlighted, isSelected, cx, cy, cz,
-                                wireframe, mode, captureTransform);
+                                wireframe, mode, captureTransform, false,
+                                matrix);
           } else {
             DrawCubeWithOutline(0.3f, r, g, b, isHighlighted, isSelected, cx,
                                 cy, cz, wireframe, mode, captureTransform);
@@ -1363,7 +1364,8 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
           if (trussMesh) {
             DrawMeshWithOutline(*trussMesh, r, g, b, RENDER_SCALE,
                                 isHighlighted, isSelected, cx, cy, cz,
-                                wireframe, mode, captureTransform);
+                                wireframe, mode, captureTransform, false,
+                                matrix);
           } else {
             DrawWireframeBox(trussLen, trussHei, trussWid, isHighlighted,
                              isSelected, wireframe, mode, captureTransform);
@@ -2193,7 +2195,7 @@ void Viewer3DController::DrawMeshWithOutline(
     Viewer2DRenderMode mode,
     const std::function<std::array<float, 3>(const std::array<float, 3> &)> &
         captureTransform,
-    bool unlit) {
+    bool unlit, const float *modelMatrix) {
   (void)cx;
   (void)cy;
   (void)cz; // parameters kept for compatibility
@@ -2248,7 +2250,7 @@ void Viewer3DController::DrawMeshWithOutline(
         SetGLColor(r, g, b);
         if (unlit)
           glDisable(GL_LIGHTING);
-        DrawMesh(mesh, scale);
+        DrawMesh(mesh, scale, modelMatrix);
         if (unlit)
           glEnable(GL_LIGHTING);
         glDisable(GL_POLYGON_OFFSET_FILL);
@@ -2267,7 +2269,7 @@ void Viewer3DController::DrawMeshWithOutline(
 
     if (unlit)
       glDisable(GL_LIGHTING);
-    DrawMesh(mesh, scale);
+    DrawMesh(mesh, scale, modelMatrix);
     if (unlit)
       glEnable(GL_LIGHTING);
   }
@@ -2385,18 +2387,58 @@ void Viewer3DController::DrawMeshWireframe(
 
 // Draws a mesh using GL triangles. The optional scale parameter allows
 // converting vertex units (e.g. millimeters) to meters.
-void Viewer3DController::DrawMesh(const Mesh &mesh, float scale) {
+void Viewer3DController::DrawMesh(const Mesh &mesh, float scale,
+                                  const float *modelMatrix) {
   const GLboolean cullWasEnabled = glIsEnabled(GL_CULL_FACE);
   if (cullWasEnabled)
     glDisable(GL_CULL_FACE);
+
+  const bool hasNormals = mesh.normals.size() >= mesh.vertices.size();
+  const bool transformInstanceNormals = (modelMatrix != nullptr) && hasNormals;
+  const bool flipWinding =
+      transformInstanceNormals && TransformDeterminant(modelMatrix) < 0.0f;
+
+  std::vector<float> transformedNormals;
+  if (transformInstanceNormals) {
+    // Keep mesh.normals in local space and generate per-instance normals at draw
+    // time using the inverse-transpose matrix.
+    transformedNormals.resize(mesh.normals.size());
+    for (size_t i = 0; i + 2 < mesh.normals.size(); i += 3) {
+      std::array<float, 3> n = {mesh.normals[i], mesh.normals[i + 1],
+                                mesh.normals[i + 2]};
+      auto transformed = TransformNormal(n, modelMatrix);
+      if (flipWinding) {
+        transformed[0] = -transformed[0];
+        transformed[1] = -transformed[1];
+        transformed[2] = -transformed[2];
+      }
+      transformedNormals[i] = transformed[0];
+      transformedNormals[i + 1] = transformed[1];
+      transformedNormals[i + 2] = transformed[2];
+    }
+  }
+
+  std::vector<unsigned short> invertedIndices;
+  if (flipWinding) {
+    // Mirror transforms (negative determinant) invert triangle orientation.
+    // Swap winding per triangle so front faces and normals remain consistent.
+    invertedIndices = mesh.indices;
+    for (size_t i = 0; i + 2 < invertedIndices.size(); i += 3)
+      std::swap(invertedIndices[i + 1], invertedIndices[i + 2]);
+  }
 
   const bool gpuHandlesValid =
       glIsBuffer(mesh.vboVertices) == GL_TRUE &&
       glIsBuffer(mesh.vboNormals) == GL_TRUE &&
       glIsBuffer(mesh.eboTriangles) == GL_TRUE;
+  // Per-instance transformed normals and mirrored winding use temporary CPU
+  // data. Draw them via the immediate path to avoid driver-specific issues
+  // with client-side arrays/indices while a VAO is bound.
+  const bool requiresCpuDrawPath = transformInstanceNormals || flipWinding;
   const bool canUseGpuTriangles =
       mesh.buffersReady && mesh.vao != 0 && mesh.vboVertices != 0 &&
-      mesh.vboNormals != 0 && mesh.eboTriangles != 0 && gpuHandlesValid;
+      mesh.vboNormals != 0 && mesh.eboTriangles != 0 && gpuHandlesValid &&
+      !requiresCpuDrawPath;
 
   if (!m_captureOnly && canUseGpuTriangles) {
     glBindVertexArray(mesh.vao);
@@ -2411,10 +2453,7 @@ void Viewer3DController::DrawMesh(const Mesh &mesh, float scale) {
     glEnableClientState(GL_NORMAL_ARRAY);
     glNormalPointer(GL_FLOAT, 0, nullptr);
 
-    // Make the index source explicit for driver stability when VAO state is
-    // stale or comes from a different context lifecycle.
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.eboTriangles);
-
     glDrawElements(GL_TRIANGLES, mesh.triangleIndexCount, GL_UNSIGNED_SHORT,
                    nullptr);
 
@@ -2423,37 +2462,79 @@ void Viewer3DController::DrawMesh(const Mesh &mesh, float scale) {
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glPopMatrix();
   } else if (!m_captureOnly) {
+    GLint shadeModel = GL_SMOOTH;
+    glGetIntegerv(GL_SHADE_MODEL, &shadeModel);
+    // In flat shading mode, using per-vertex normals can produce a
+    // checkerboard pattern on coplanar triangulated surfaces because the
+    // provoking vertex may alternate between adjacent triangles.
+    // Use geometric face normals per triangle to keep planar regions uniform.
+    const bool useFaceNormals = (shadeModel == GL_FLAT);
+
     glBegin(GL_TRIANGLES);
-    const bool hasNormals = mesh.normals.size() >= mesh.vertices.size();
     for (size_t i = 0; i + 2 < mesh.indices.size(); i += 3) {
       const unsigned short i0 = mesh.indices[i];
-      const unsigned short i1 = mesh.indices[i + 1];
-      const unsigned short i2 = mesh.indices[i + 2];
+      const unsigned short i1 = flipWinding ? mesh.indices[i + 2] : mesh.indices[i + 1];
+      const unsigned short i2 = flipWinding ? mesh.indices[i + 1] : mesh.indices[i + 2];
+
+      const float v0x = mesh.vertices[i0 * 3] * scale;
+      const float v0y = mesh.vertices[i0 * 3 + 1] * scale;
+      const float v0z = mesh.vertices[i0 * 3 + 2] * scale;
+      const float v1x = mesh.vertices[i1 * 3] * scale;
+      const float v1y = mesh.vertices[i1 * 3 + 1] * scale;
+      const float v1z = mesh.vertices[i1 * 3 + 2] * scale;
+      const float v2x = mesh.vertices[i2 * 3] * scale;
+      const float v2y = mesh.vertices[i2 * 3 + 1] * scale;
+      const float v2z = mesh.vertices[i2 * 3 + 2] * scale;
+
+      const auto &normalData =
+          transformInstanceNormals ? transformedNormals : mesh.normals;
+
+      if (useFaceNormals) {
+        if (hasNormals) {
+          // In flat mode use one normal per triangle, but derive it from the
+          // triangle's transformed vertex normals when available. This avoids
+          // checkerboard artifacts from provoking-vertex changes without
+          // introducing extra winding-dependent flips.
+          float ax = normalData[i0 * 3] + normalData[i1 * 3] +
+                     normalData[i2 * 3];
+          float ay = normalData[i0 * 3 + 1] + normalData[i1 * 3 + 1] +
+                     normalData[i2 * 3 + 1];
+          float az = normalData[i0 * 3 + 2] + normalData[i1 * 3 + 2] +
+                     normalData[i2 * 3 + 2];
+          const float alen = std::sqrt(ax * ax + ay * ay + az * az);
+          if (alen > 0.0f) {
+            glNormal3f(ax / alen, ay / alen, az / alen);
+          } else {
+            glNormal3f(0.0f, 0.0f, 1.0f);
+          }
+        } else {
+          float nx = (v1y - v0y) * (v2z - v0z) - (v1z - v0z) * (v2y - v0y);
+          float ny = (v1z - v0z) * (v2x - v0x) - (v1x - v0x) * (v2z - v0z);
+          float nz = (v1x - v0x) * (v2y - v0y) - (v1y - v0y) * (v2x - v0x);
+          const float len = std::sqrt(nx * nx + ny * ny + nz * nz);
+          if (len > 0.0f)
+            glNormal3f(nx / len, ny / len, nz / len);
+          else
+            glNormal3f(0.0f, 0.0f, 1.0f);
+        }
+
+        glVertex3f(v0x, v0y, v0z);
+        glVertex3f(v1x, v1y, v1z);
+        glVertex3f(v2x, v2y, v2z);
+        continue;
+      }
 
       if (hasNormals) {
-        glNormal3f(mesh.normals[i0 * 3], mesh.normals[i0 * 3 + 1],
-                   mesh.normals[i0 * 3 + 2]);
-        glVertex3f(mesh.vertices[i0 * 3] * scale, mesh.vertices[i0 * 3 + 1] * scale,
-                   mesh.vertices[i0 * 3 + 2] * scale);
-        glNormal3f(mesh.normals[i1 * 3], mesh.normals[i1 * 3 + 1],
-                   mesh.normals[i1 * 3 + 2]);
-        glVertex3f(mesh.vertices[i1 * 3] * scale, mesh.vertices[i1 * 3 + 1] * scale,
-                   mesh.vertices[i1 * 3 + 2] * scale);
-        glNormal3f(mesh.normals[i2 * 3], mesh.normals[i2 * 3 + 1],
-                   mesh.normals[i2 * 3 + 2]);
-        glVertex3f(mesh.vertices[i2 * 3] * scale, mesh.vertices[i2 * 3 + 1] * scale,
-                   mesh.vertices[i2 * 3 + 2] * scale);
+        glNormal3f(normalData[i0 * 3], normalData[i0 * 3 + 1],
+                   normalData[i0 * 3 + 2]);
+        glVertex3f(v0x, v0y, v0z);
+        glNormal3f(normalData[i1 * 3], normalData[i1 * 3 + 1],
+                   normalData[i1 * 3 + 2]);
+        glVertex3f(v1x, v1y, v1z);
+        glNormal3f(normalData[i2 * 3], normalData[i2 * 3 + 1],
+                   normalData[i2 * 3 + 2]);
+        glVertex3f(v2x, v2y, v2z);
       } else {
-        const float v0x = mesh.vertices[i0 * 3] * scale;
-        const float v0y = mesh.vertices[i0 * 3 + 1] * scale;
-        const float v0z = mesh.vertices[i0 * 3 + 2] * scale;
-        const float v1x = mesh.vertices[i1 * 3] * scale;
-        const float v1y = mesh.vertices[i1 * 3 + 1] * scale;
-        const float v1z = mesh.vertices[i1 * 3 + 2] * scale;
-        const float v2x = mesh.vertices[i2 * 3] * scale;
-        const float v2y = mesh.vertices[i2 * 3 + 1] * scale;
-        const float v2z = mesh.vertices[i2 * 3 + 2] * scale;
-
         float nx = (v1y - v0y) * (v2z - v0z) - (v1z - v0z) * (v2y - v0y);
         float ny = (v1z - v0z) * (v2x - v0x) - (v1x - v0x) * (v2z - v0z);
         float nz = (v1x - v0x) * (v2y - v0y) - (v1y - v0y) * (v2x - v0x);
@@ -2646,6 +2727,8 @@ void Viewer3DController::ApplyTransform(const float matrix[16],
 // Initializes simple lighting for the scene
 void Viewer3DController::SetupBasicLighting() {
   glEnable(GL_LIGHTING);
+  // Keep normal lengths stable after model transforms with scaling.
+  glEnable(GL_NORMALIZE);
   glEnable(GL_LIGHT0);
   glEnable(GL_CULL_FACE);
   glCullFace(GL_BACK);
