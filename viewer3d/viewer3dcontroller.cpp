@@ -971,6 +971,7 @@ bool Viewer3DController::EnsureBoundsComputed(
   };
 
   const std::string &base = ConfigManager::Get().GetScene().basePath;
+  const auto &fixtures = SceneDataManager::Instance().GetFixtures();
   const auto &trusses = SceneDataManager::Instance().GetTrusses();
   const auto &objects = SceneDataManager::Instance().GetSceneObjects();
 
@@ -1273,6 +1274,7 @@ void Viewer3DController::UpdateResourcesIfDirty() {
 
   const auto &trusses = SceneDataManager::Instance().GetTrusses();
   const auto &objects = SceneDataManager::Instance().GetSceneObjects();
+  const auto &fixtures = SceneDataManager::Instance().GetFixtures();
 
   size_t sceneSignature = HashString(base);
   for (const auto &[uuid, t] : trusses) {
