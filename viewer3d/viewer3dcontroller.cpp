@@ -58,6 +58,7 @@
 #include <wx/wx.h>
 #define NANOVG_GL2_IMPLEMENTATION
 #include <algorithm>
+#include <bit>
 #include <array>
 #include <cfloat>
 #include <cmath>
@@ -696,6 +697,31 @@ static std::array<float, 3> TransformPoint(const Matrix &m,
           m.u[2] * p[0] + m.v[2] * p[1] + m.w[2] * p[2] + m.o[2]};
 }
 
+
+static size_t HashCombine(size_t seed, size_t value) {
+  seed ^= value + 0x9e3779b97f4a7c15ull + (seed << 6) + (seed >> 2);
+  return seed;
+}
+
+static size_t HashFloat(float value) {
+  return std::hash<uint32_t>{}(std::bit_cast<uint32_t>(value));
+}
+
+static size_t HashString(const std::string &value) {
+  return std::hash<std::string>{}(value);
+}
+
+static size_t HashMatrix(const Matrix &m) {
+  size_t seed = 0;
+  const std::array<float, 12> vals = {m.u[0], m.u[1], m.u[2], m.v[0], m.v[1],
+                                      m.v[2], m.w[0], m.w[1], m.w[2], m.o[0],
+                                      m.o[1], m.o[2]};
+  for (float v : vals)
+    seed = HashCombine(seed, HashFloat(v));
+  return seed;
+}
+
+
 static Transform2D BuildInstanceTransform2D(const Matrix &m, Viewer2DView view) {
   Transform2D t{};
   switch (view) {
@@ -918,10 +944,43 @@ void Viewer3DController::Update() {
     m_failedGdtfReasons.clear();
     m_reportedGdtfFailureCounts.clear();
     m_reportedGdtfFailureReasons.clear();
+    m_modelBounds.clear();
     m_lastSceneBasePath = base;
   }
 
   const auto &trusses = SceneDataManager::Instance().GetTrusses();
+  const auto &objects = SceneDataManager::Instance().GetSceneObjects();
+  const auto &fixtures = SceneDataManager::Instance().GetFixtures();
+
+  size_t sceneSignature = HashString(base);
+  for (const auto &[uuid, t] : trusses) {
+    sceneSignature = HashCombine(sceneSignature, HashString(uuid));
+    sceneSignature = HashCombine(sceneSignature, HashString(t.symbolFile));
+    sceneSignature = HashCombine(sceneSignature, HashMatrix(t.transform));
+    sceneSignature = HashCombine(sceneSignature, HashFloat(t.lengthMm));
+    sceneSignature = HashCombine(sceneSignature, HashFloat(t.widthMm));
+    sceneSignature = HashCombine(sceneSignature, HashFloat(t.heightMm));
+  }
+  for (const auto &[uuid, o] : objects) {
+    sceneSignature = HashCombine(sceneSignature, HashString(uuid));
+    sceneSignature = HashCombine(sceneSignature, HashString(o.modelFile));
+    sceneSignature = HashCombine(sceneSignature, HashMatrix(o.transform));
+    for (const auto &g : o.geometries) {
+      sceneSignature = HashCombine(sceneSignature, HashString(g.modelFile));
+      sceneSignature = HashCombine(sceneSignature, HashMatrix(g.localTransform));
+    }
+  }
+  for (const auto &[uuid, f] : fixtures) {
+    sceneSignature = HashCombine(sceneSignature, HashString(uuid));
+    sceneSignature = HashCombine(sceneSignature, HashString(f.gdtfSpec));
+    sceneSignature = HashCombine(sceneSignature, HashMatrix(f.transform));
+  }
+  if (!m_hasSceneSignature || sceneSignature != m_lastSceneSignature) {
+    ++m_sceneVersion;
+    m_lastSceneSignature = sceneSignature;
+    m_hasSceneSignature = true;
+  }
+
   for (const auto &[uuid, t] : trusses) {
     if (t.symbolFile.empty())
       continue;
@@ -951,7 +1010,6 @@ void Viewer3DController::Update() {
     }
   }
 
-  const auto &objects = SceneDataManager::Instance().GetSceneObjects();
   for (const auto &[uuid, obj] : objects) {
     std::vector<std::string> modelFiles;
     if (!obj.geometries.empty()) {
@@ -993,7 +1051,6 @@ void Viewer3DController::Update() {
   std::unordered_set<std::string> processedGdtfPaths;
   std::unordered_set<std::string> missingGdtfSpecs;
 
-  const auto &fixtures = SceneDataManager::Instance().GetFixtures();
   for (const auto &[uuid, f] : fixtures) {
     if (f.gdtfSpec.empty())
       continue;
@@ -1065,6 +1122,38 @@ void Viewer3DController::Update() {
     }
   }
 
+  if (m_cachedVersion == m_sceneVersion)
+    return;
+  m_cachedVersion = m_sceneVersion;
+
+  auto transformBounds = [](const Viewer3DController::BoundingBox &local,
+                            const Matrix &m) {
+    Viewer3DController::BoundingBox world;
+    world.min = {FLT_MAX, FLT_MAX, FLT_MAX};
+    world.max = {-FLT_MAX, -FLT_MAX, -FLT_MAX};
+    const auto &mn = local.min;
+    const auto &mx = local.max;
+    const std::array<std::array<float, 3>, 8> corners = {
+        std::array<float, 3>{mn[0], mn[1], mn[2]},
+        {mx[0], mn[1], mn[2]},
+        {mn[0], mx[1], mn[2]},
+        {mx[0], mx[1], mn[2]},
+        {mn[0], mn[1], mx[2]},
+        {mx[0], mn[1], mx[2]},
+        {mn[0], mx[1], mx[2]},
+        {mx[0], mx[1], mx[2]}};
+    for (const auto &c : corners) {
+      auto p = TransformPoint(m, c);
+      world.min[0] = std::min(world.min[0], p[0]);
+      world.min[1] = std::min(world.min[1], p[1]);
+      world.min[2] = std::min(world.min[2], p[2]);
+      world.max[0] = std::max(world.max[0], p[0]);
+      world.max[1] = std::max(world.max[1], p[1]);
+      world.max[2] = std::max(world.max[2], p[2]);
+    }
+    return world;
+  };
+
   // Precompute bounding boxes for hover detection
   m_fixtureBounds.clear();
   for (const auto &[uuid, f] : fixtures) {
@@ -1081,21 +1170,33 @@ void Viewer3DController::Update() {
     std::string gdtfPath = ResolveGdtfPath(base, f.gdtfSpec);
     auto itg = m_loadedGdtf.find(gdtfPath);
     if (itg != m_loadedGdtf.end()) {
-      for (const auto &obj : itg->second) {
-        for (size_t vi = 0; vi + 2 < obj.mesh.vertices.size(); vi += 3) {
-          std::array<float, 3> p = {obj.mesh.vertices[vi] * RENDER_SCALE,
-                                    obj.mesh.vertices[vi + 1] * RENDER_SCALE,
-                                    obj.mesh.vertices[vi + 2] * RENDER_SCALE};
-          p = TransformPoint(obj.transform, p);
-          p = TransformPoint(fix, p);
-          bb.min[0] = std::min(bb.min[0], p[0]);
-          bb.min[1] = std::min(bb.min[1], p[1]);
-          bb.min[2] = std::min(bb.min[2], p[2]);
-          bb.max[0] = std::max(bb.max[0], p[0]);
-          bb.max[1] = std::max(bb.max[1], p[1]);
-          bb.max[2] = std::max(bb.max[2], p[2]);
-          found = true;
+      auto bit = m_modelBounds.find(gdtfPath);
+      if (bit == m_modelBounds.end()) {
+        BoundingBox local;
+        local.min = {FLT_MAX, FLT_MAX, FLT_MAX};
+        local.max = {-FLT_MAX, -FLT_MAX, -FLT_MAX};
+        bool localFound = false;
+        for (const auto &obj : itg->second) {
+          for (size_t vi = 0; vi + 2 < obj.mesh.vertices.size(); vi += 3) {
+            std::array<float, 3> p = {obj.mesh.vertices[vi] * RENDER_SCALE,
+                                      obj.mesh.vertices[vi + 1] * RENDER_SCALE,
+                                      obj.mesh.vertices[vi + 2] * RENDER_SCALE};
+            p = TransformPoint(obj.transform, p);
+            local.min[0] = std::min(local.min[0], p[0]);
+            local.min[1] = std::min(local.min[1], p[1]);
+            local.min[2] = std::min(local.min[2], p[2]);
+            local.max[0] = std::max(local.max[0], p[0]);
+            local.max[1] = std::max(local.max[1], p[1]);
+            local.max[2] = std::max(local.max[2], p[2]);
+            localFound = true;
+          }
         }
+        if (localFound)
+          bit = m_modelBounds.emplace(gdtfPath, local).first;
+      }
+      if (bit != m_modelBounds.end()) {
+        bb = transformBounds(bit->second, fix);
+        found = true;
       }
     }
 
@@ -1140,17 +1241,29 @@ void Viewer3DController::Update() {
       std::string path = ResolveModelPath(base, t.symbolFile);
       auto it = m_loadedMeshes.find(path);
       if (it != m_loadedMeshes.end()) {
-        for (size_t vi = 0; vi + 2 < it->second.vertices.size(); vi += 3) {
-          std::array<float, 3> p = {it->second.vertices[vi] * RENDER_SCALE,
-                                    it->second.vertices[vi + 1] * RENDER_SCALE,
-                                    it->second.vertices[vi + 2] * RENDER_SCALE};
-          p = TransformPoint(tm, p);
-          bb.min[0] = std::min(bb.min[0], p[0]);
-          bb.min[1] = std::min(bb.min[1], p[1]);
-          bb.min[2] = std::min(bb.min[2], p[2]);
-          bb.max[0] = std::max(bb.max[0], p[0]);
-          bb.max[1] = std::max(bb.max[1], p[1]);
-          bb.max[2] = std::max(bb.max[2], p[2]);
+        auto bit = m_modelBounds.find(path);
+        if (bit == m_modelBounds.end()) {
+          BoundingBox local;
+          local.min = {FLT_MAX, FLT_MAX, FLT_MAX};
+          local.max = {-FLT_MAX, -FLT_MAX, -FLT_MAX};
+          bool localFound = false;
+          for (size_t vi = 0; vi + 2 < it->second.vertices.size(); vi += 3) {
+            std::array<float, 3> p = {it->second.vertices[vi] * RENDER_SCALE,
+                                      it->second.vertices[vi + 1] * RENDER_SCALE,
+                                      it->second.vertices[vi + 2] * RENDER_SCALE};
+            local.min[0] = std::min(local.min[0], p[0]);
+            local.min[1] = std::min(local.min[1], p[1]);
+            local.min[2] = std::min(local.min[2], p[2]);
+            local.max[0] = std::max(local.max[0], p[0]);
+            local.max[1] = std::max(local.max[1], p[1]);
+            local.max[2] = std::max(local.max[2], p[2]);
+            localFound = true;
+          }
+          if (localFound)
+            bit = m_modelBounds.emplace(path, local).first;
+        }
+        if (bit != m_modelBounds.end()) {
+          bb = transformBounds(bit->second, tm);
           found = true;
         }
       }
@@ -1199,42 +1312,74 @@ void Viewer3DController::Update() {
         if (it == m_loadedMeshes.end())
           continue;
 
-        Matrix geoTm = MatrixUtils::Multiply(tm, geo.localTransform);
-        for (size_t vi = 0; vi + 2 < it->second.vertices.size(); vi += 3) {
-          std::array<float, 3> p = {it->second.vertices[vi],
-                                    it->second.vertices[vi + 1],
-                                    it->second.vertices[vi + 2]};
-          p = TransformPoint(geoTm, p);
-          p[0] *= RENDER_SCALE;
-          p[1] *= RENDER_SCALE;
-          p[2] *= RENDER_SCALE;
-          bb.min[0] = std::min(bb.min[0], p[0]);
-          bb.min[1] = std::min(bb.min[1], p[1]);
-          bb.min[2] = std::min(bb.min[2], p[2]);
-          bb.max[0] = std::max(bb.max[0], p[0]);
-          bb.max[1] = std::max(bb.max[1], p[1]);
-          bb.max[2] = std::max(bb.max[2], p[2]);
-          found = true;
+        auto bit = m_modelBounds.find(path);
+        if (bit == m_modelBounds.end()) {
+          BoundingBox local;
+          local.min = {FLT_MAX, FLT_MAX, FLT_MAX};
+          local.max = {-FLT_MAX, -FLT_MAX, -FLT_MAX};
+          bool localFound = false;
+          for (size_t vi = 0; vi + 2 < it->second.vertices.size(); vi += 3) {
+            std::array<float, 3> p = {it->second.vertices[vi] * RENDER_SCALE,
+                                      it->second.vertices[vi + 1] * RENDER_SCALE,
+                                      it->second.vertices[vi + 2] * RENDER_SCALE};
+            local.min[0] = std::min(local.min[0], p[0]);
+            local.min[1] = std::min(local.min[1], p[1]);
+            local.min[2] = std::min(local.min[2], p[2]);
+            local.max[0] = std::max(local.max[0], p[0]);
+            local.max[1] = std::max(local.max[1], p[1]);
+            local.max[2] = std::max(local.max[2], p[2]);
+            localFound = true;
+          }
+          if (localFound)
+            bit = m_modelBounds.emplace(path, local).first;
         }
+        if (bit == m_modelBounds.end())
+          continue;
+
+        Matrix geoTm = MatrixUtils::Multiply(tm, geo.localTransform);
+        geoTm.o[0] *= RENDER_SCALE;
+        geoTm.o[1] *= RENDER_SCALE;
+        geoTm.o[2] *= RENDER_SCALE;
+        BoundingBox geoWorld = transformBounds(bit->second, geoTm);
+        bb.min[0] = std::min(bb.min[0], geoWorld.min[0]);
+        bb.min[1] = std::min(bb.min[1], geoWorld.min[1]);
+        bb.min[2] = std::min(bb.min[2], geoWorld.min[2]);
+        bb.max[0] = std::max(bb.max[0], geoWorld.max[0]);
+        bb.max[1] = std::max(bb.max[1], geoWorld.max[1]);
+        bb.max[2] = std::max(bb.max[2], geoWorld.max[2]);
+        found = true;
       }
     } else if (!obj.modelFile.empty()) {
       std::string path = ResolveModelPath(base, obj.modelFile);
       auto it = m_loadedMeshes.find(path);
       if (it != m_loadedMeshes.end()) {
-        for (size_t vi = 0; vi + 2 < it->second.vertices.size(); vi += 3) {
-          std::array<float, 3> p = {it->second.vertices[vi],
-                                    it->second.vertices[vi + 1],
-                                    it->second.vertices[vi + 2]};
-          p = TransformPoint(tm, p);
-          p[0] *= RENDER_SCALE;
-          p[1] *= RENDER_SCALE;
-          p[2] *= RENDER_SCALE;
-          bb.min[0] = std::min(bb.min[0], p[0]);
-          bb.min[1] = std::min(bb.min[1], p[1]);
-          bb.min[2] = std::min(bb.min[2], p[2]);
-          bb.max[0] = std::max(bb.max[0], p[0]);
-          bb.max[1] = std::max(bb.max[1], p[1]);
-          bb.max[2] = std::max(bb.max[2], p[2]);
+        auto bit = m_modelBounds.find(path);
+        if (bit == m_modelBounds.end()) {
+          BoundingBox local;
+          local.min = {FLT_MAX, FLT_MAX, FLT_MAX};
+          local.max = {-FLT_MAX, -FLT_MAX, -FLT_MAX};
+          bool localFound = false;
+          for (size_t vi = 0; vi + 2 < it->second.vertices.size(); vi += 3) {
+            std::array<float, 3> p = {it->second.vertices[vi] * RENDER_SCALE,
+                                      it->second.vertices[vi + 1] * RENDER_SCALE,
+                                      it->second.vertices[vi + 2] * RENDER_SCALE};
+            local.min[0] = std::min(local.min[0], p[0]);
+            local.min[1] = std::min(local.min[1], p[1]);
+            local.min[2] = std::min(local.min[2], p[2]);
+            local.max[0] = std::max(local.max[0], p[0]);
+            local.max[1] = std::max(local.max[1], p[1]);
+            local.max[2] = std::max(local.max[2], p[2]);
+            localFound = true;
+          }
+          if (localFound)
+            bit = m_modelBounds.emplace(path, local).first;
+        }
+        if (bit != m_modelBounds.end()) {
+          Matrix scaledTm = tm;
+          scaledTm.o[0] *= RENDER_SCALE;
+          scaledTm.o[1] *= RENDER_SCALE;
+          scaledTm.o[2] *= RENDER_SCALE;
+          bb = transformBounds(bit->second, scaledTm);
           found = true;
         }
       }
