@@ -71,6 +71,8 @@ public:
 
   // Updates the internal logic if needed (e.g. animation, camera)
   void Update();
+  void UpdateResourcesIfDirty();
+  void UpdateFrameStateLightweight();
 
   // Renders all scene objects. When wireframe is true lighting is disabled
   // and geometry is drawn using black lines only. The optional mode controls
@@ -273,6 +275,9 @@ private:
   size_t m_cachedVersion = static_cast<size_t>(-1);
   size_t m_lastSceneSignature = 0;
   bool m_hasSceneSignature = false;
+  bool m_sceneChangedDirty = true;
+  bool m_assetsChangedDirty = true;
+  bool m_visibilityChangedDirty = true;
 
   // Precomputed world-space bounds for each fixture by UUID
   std::unordered_map<std::string, BoundingBox> m_fixtureBounds;

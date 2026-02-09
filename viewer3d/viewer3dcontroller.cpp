@@ -1244,6 +1244,20 @@ bool Viewer3DController::EnsureBoundsComputed(
 // Loads meshes or GDTF models referenced by scene objects. Called when the
 // scene is updated.
 void Viewer3DController::Update() {
+  UpdateFrameStateLightweight();
+}
+
+void Viewer3DController::UpdateFrameStateLightweight() {
+  ConfigManager &cfg = ConfigManager::Get();
+  const auto hiddenLayers = SnapshotHiddenLayers(cfg);
+  if (hiddenLayers != m_lastHiddenLayers)
+    m_visibilityChangedDirty = true;
+
+  if (!m_isInteracting)
+    UpdateResourcesIfDirty();
+}
+
+void Viewer3DController::UpdateResourcesIfDirty() {
   ConfigManager &cfg = ConfigManager::Get();
   const auto hiddenLayers = SnapshotHiddenLayers(cfg);
   const std::string &base = cfg.GetScene().basePath;
@@ -1255,6 +1269,7 @@ void Viewer3DController::Update() {
     m_reportedGdtfFailureReasons.clear();
     m_modelBounds.clear();
     m_lastSceneBasePath = base;
+    m_assetsChangedDirty = true;
   }
 
   const auto &trusses = SceneDataManager::Instance().GetTrusses();
@@ -1288,6 +1303,7 @@ void Viewer3DController::Update() {
     ++m_sceneVersion;
     m_lastSceneSignature = sceneSignature;
     m_hasSceneSignature = true;
+    m_sceneChangedDirty = true;
     std::lock_guard<std::mutex> lock(m_sortedListsMutex);
     m_sortedListsDirty = true;
   }
@@ -1313,6 +1329,7 @@ void Viewer3DController::Update() {
       if (loaded) {
         SetupMeshBuffers(mesh);
         m_loadedMeshes[path] = std::move(mesh);
+        m_assetsChangedDirty = true;
       } else if (ConsolePanel::Instance()) {
         wxString msg = wxString::Format("Failed to load model: %s",
                                         wxString::FromUTF8(path));
@@ -1348,6 +1365,7 @@ void Viewer3DController::Update() {
         if (loaded) {
           SetupMeshBuffers(mesh);
           m_loadedMeshes[path] = std::move(mesh);
+          m_assetsChangedDirty = true;
         } else if (ConsolePanel::Instance()) {
           wxString msg = wxString::Format("Failed to load model: %s",
                                           wxString::FromUTF8(path));
@@ -1392,10 +1410,12 @@ void Viewer3DController::Update() {
       std::string gdtfError;
       if (LoadGdtf(gdtfPath, objs, &gdtfError)) {
         m_loadedGdtf[gdtfPath] = std::move(objs);
+        m_assetsChangedDirty = true;
       } else {
         std::string reason = gdtfError.empty() ? "Failed to load GDTF"
                                                : gdtfError;
         m_failedGdtfReasons[gdtfPath] = std::move(reason);
+        m_assetsChangedDirty = true;
         ++gdtfErrorCounts[gdtfPath];
         gdtfErrorReasons[gdtfPath] = m_failedGdtfReasons[gdtfPath];
       }
@@ -1433,7 +1453,14 @@ void Viewer3DController::Update() {
     }
   }
 
-  if (hiddenLayers != m_boundsHiddenLayers) {
+  if (hiddenLayers != m_boundsHiddenLayers)
+    m_visibilityChangedDirty = true;
+
+  if (!(m_sceneChangedDirty || m_assetsChangedDirty || m_visibilityChangedDirty) &&
+      m_cachedVersion == m_sceneVersion)
+    return;
+
+  if (m_visibilityChangedDirty) {
     const auto eraseHidden = [&](auto &boundsMap, const auto &items) {
       for (auto it = boundsMap.begin(); it != boundsMap.end();) {
         auto itemIt = items.find(it->first);
@@ -1452,9 +1479,6 @@ void Viewer3DController::Update() {
     std::lock_guard<std::mutex> lock(m_sortedListsMutex);
     m_sortedListsDirty = true;
   }
-
-  if (m_cachedVersion == m_sceneVersion)
-    return;
   m_cachedVersion = m_sceneVersion;
 
   auto transformBounds = [](const Viewer3DController::BoundingBox &local,
@@ -1746,6 +1770,10 @@ void Viewer3DController::Update() {
 
     m_objectBounds[uuid] = bb;
   }
+
+  m_sceneChangedDirty = false;
+  m_assetsChangedDirty = false;
+  m_visibilityChangedDirty = false;
 }
 
 // Renders all scene objects using their transformMatrix
@@ -2563,7 +2591,10 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
 void Viewer3DController::SetDarkMode(bool enabled) { m_darkMode = enabled; }
 
 void Viewer3DController::SetInteracting(bool interacting) {
+  const bool wasInteracting = m_isInteracting;
   m_isInteracting = interacting;
+  if (wasInteracting && !m_isInteracting)
+    UpdateResourcesIfDirty();
 }
 
 void Viewer3DController::SetCameraMoving(bool moving) { m_cameraMoving = moving; }
