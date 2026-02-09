@@ -153,6 +153,8 @@ private:
   void StartDragTableUpdateWorker();
   void StopDragTableUpdateWorker();
   bool ShouldPauseHeavyTasks();
+  void MarkInteractionActivity();
+  void OnInteractionPauseTimer(wxTimerEvent &event);
 
   struct DragTablePositionSnapshot {
     std::string uuid;
@@ -191,6 +193,7 @@ private:
   bool m_hasHover = false;
   std::chrono::steady_clock::time_point m_lastInteractionTime{};
   bool m_isInteracting = false;
+  wxTimer m_interactionResumeTimer;
   bool m_enableSelection = true;
   std::string m_hoverUuid;
 
