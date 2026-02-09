@@ -1158,15 +1158,40 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     if (!obj.name.empty())
       oe->SetAttribute("name", obj.name.c_str());
 
-    if (!obj.modelFile.empty()) {
+    if (!obj.geometries.empty()) {
+      tinyxml2::XMLElement *geos = doc.NewElement("Geometries");
+      for (const auto &geo : obj.geometries) {
+        if (geo.modelFile.empty())
+          continue;
+
+        tinyxml2::XMLElement *g3d = doc.NewElement("Geometry3D");
+        std::string modelArchivePath = registerResource(
+            geo.modelFile,
+            SanitizeArchiveFileName(geo.modelFile, "object.3ds"));
+        g3d->SetAttribute("fileName", modelArchivePath.c_str());
+
+        std::string geoMatrixText = MatrixUtils::FormatMatrix(geo.localTransform);
+        tinyxml2::XMLElement *geoMatrix = doc.NewElement("Matrix");
+        geoMatrix->SetText(geoMatrixText.c_str());
+        g3d->InsertEndChild(geoMatrix);
+
+        geos->InsertEndChild(g3d);
+        registerResource(
+            geo.modelFile,
+            SanitizeArchiveFileName(geo.modelFile, "object.3ds"));
+      }
+
+      if (geos->FirstChild())
+        oe->InsertEndChild(geos);
+    } else if (!obj.modelFile.empty()) {
       tinyxml2::XMLElement *geos = doc.NewElement("Geometries");
       tinyxml2::XMLElement *g3d = doc.NewElement("Geometry3D");
       std::string modelArchivePath = registerResource(
           obj.modelFile,
           SanitizeArchiveFileName(obj.modelFile, "object.3ds"));
       g3d->SetAttribute("fileName", modelArchivePath.c_str());
-      geos->InsertEndChild(g3d);
       oe->InsertEndChild(geos);
+      geos->InsertEndChild(g3d);
       registerResource(
           obj.modelFile,
           SanitizeArchiveFileName(obj.modelFile, "object.3ds"));
