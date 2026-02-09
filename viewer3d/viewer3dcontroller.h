@@ -94,6 +94,8 @@ public:
   // Enables color tweaks for dark mode in the 2D viewer only.
   void SetDarkMode(bool enabled);
   void SetInteracting(bool interacting);
+  void SetCameraMoving(bool moving);
+  bool IsCameraMoving() const;
   void SetSelectionOutlineEnabled(bool enabled) {
     m_showSelectionOutline2D = enabled;
   }
@@ -312,7 +314,9 @@ private:
   bool m_darkMode = false;
   bool m_showSelectionOutline2D = false;
   bool m_isInteracting = false;
+  bool m_cameraMoving = false;
   bool m_useAdaptiveLineProfile = true;
+  bool m_skipOutlinesForCurrentFrame = false;
 
 public:
   // Enables recording of all primitives drawn during the next RenderScene

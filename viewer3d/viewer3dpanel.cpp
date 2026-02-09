@@ -245,9 +245,9 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
     }
     InitGL();
 
-    const bool wasInteracting = m_isInteracting;
+    const bool wasCameraMoving = m_cameraMoving;
     const bool pauseHeavyTasks = ShouldPauseHeavyTasks();
-    if (wasInteracting && !pauseHeavyTasks)
+    if (!pauseHeavyTasks && (!m_cameraMoving || wasCameraMoving))
         m_controller.Update();
 
     static auto s_lastCameraUpdate = std::chrono::steady_clock::now();
@@ -269,7 +269,11 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
     std::string newUuid;
     bool found = false;
 
-    if (FixtureTablePanel::Instance() && FixtureTablePanel::Instance()->IsActivePage()) {
+    const bool skipLabelsWhenMoving =
+        ConfigManager::Get().GetFloat("viewer3d_skip_labels_when_moving") >= 0.5f;
+    const bool skipLabelWork = m_cameraMoving && skipLabelsWhenMoving;
+
+    if (!skipLabelWork && FixtureTablePanel::Instance() && FixtureTablePanel::Instance()->IsActivePage()) {
         found = m_controller.GetFixtureLabelAt(m_lastMousePos.x, m_lastMousePos.y,
             w, h, newLabel, newPos, &newUuid);
         if (found) {
@@ -279,7 +283,7 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
                 SceneObjectTablePanel::Instance()->HighlightObject(std::string());
         }
     }
-    else if (TrussTablePanel::Instance() && TrussTablePanel::Instance()->IsActivePage()) {
+    else if (!skipLabelWork && TrussTablePanel::Instance() && TrussTablePanel::Instance()->IsActivePage()) {
         found = m_controller.GetTrussLabelAt(m_lastMousePos.x, m_lastMousePos.y,
             w, h, newLabel, newPos, &newUuid);
         if (found) {
@@ -289,7 +293,7 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
                 SceneObjectTablePanel::Instance()->HighlightObject(std::string());
         }
     }
-    else if (SceneObjectTablePanel::Instance() && SceneObjectTablePanel::Instance()->IsActivePage()) {
+    else if (!skipLabelWork && SceneObjectTablePanel::Instance() && SceneObjectTablePanel::Instance()->IsActivePage()) {
         found = m_controller.GetSceneObjectLabelAt(m_lastMousePos.x, m_lastMousePos.y,
             w, h, newLabel, newPos, &newUuid);
         if (found) {
@@ -326,7 +330,7 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
     m_mouseMoved = false;
 
     // Draw labels before swapping buffers to avoid losing them.
-    if (!pauseHeavyTasks) {
+    if (!pauseHeavyTasks && !skipLabelWork) {
         if (FixtureTablePanel::Instance() && FixtureTablePanel::Instance()->IsActivePage())
             m_controller.DrawFixtureLabels(w, h);
         else if (TrussTablePanel::Instance() && TrussTablePanel::Instance()->IsActivePage())
@@ -369,6 +373,7 @@ void Viewer3DPanel::Render()
     glLoadIdentity();
     m_camera.Apply(); // Camera view
 
+    m_controller.SetCameraMoving(m_cameraMoving);
     m_controller.RenderScene();
 
     glFlush();
@@ -383,6 +388,7 @@ void Viewer3DPanel::OnMouseDown(wxMouseEvent& event)
             m_rectSelecting = true;
             m_controller.SetInteracting(true);
             m_isInteracting = true;
+            m_cameraMoving = true;
             m_lastInteractionTime = std::chrono::steady_clock::now();
             m_rectSelectStart = event.GetPosition();
             m_rectSelectEnd = m_rectSelectStart;
@@ -399,6 +405,7 @@ void Viewer3DPanel::OnMouseDown(wxMouseEvent& event)
         m_dragging = true;
         m_controller.SetInteracting(true);
         m_isInteracting = true;
+        m_cameraMoving = true;
         m_lastInteractionTime = std::chrono::steady_clock::now();
         m_draggedSincePress = false;
         m_lastMousePos = event.GetPosition();
@@ -416,7 +423,7 @@ void Viewer3DPanel::OnMouseUp(wxMouseEvent& event)
         ApplyRectangleSelection(m_rectSelectStart, m_rectSelectEnd);
         m_rectSelecting = false;
         m_dragging = false;
-        m_controller.SetInteracting(false);
+        m_lastInteractionTime = std::chrono::steady_clock::now();
         m_mode = InteractionMode::None;
         m_draggedSincePress = false;
         Refresh();
@@ -426,7 +433,7 @@ void Viewer3DPanel::OnMouseUp(wxMouseEvent& event)
     if (m_dragging && (event.LeftUp() || event.MiddleUp()))
     {
         m_dragging = false;
-        m_controller.SetInteracting(false);
+        m_lastInteractionTime = std::chrono::steady_clock::now();
         m_mode = InteractionMode::None;
         ReleaseMouse();
     }
@@ -670,7 +677,7 @@ void Viewer3DPanel::OnCaptureLost(wxMouseCaptureLostEvent& WXUNUSED(event))
     m_dragging = false;
     m_mode = InteractionMode::None;
     m_rectSelecting = false;
-    m_controller.SetInteracting(false);
+    m_lastInteractionTime = std::chrono::steady_clock::now();
 }
 
 void Viewer3DPanel::ApplyRectangleSelection(const wxPoint& start,
@@ -795,6 +802,7 @@ void Viewer3DPanel::OnMouseMove(wxMouseEvent& event)
 
         m_draggedSincePress = true;
         m_isInteracting = true;
+        m_cameraMoving = true;
         m_lastInteractionTime = std::chrono::steady_clock::now();
 
         if (m_mode == InteractionMode::Orbit && event.LeftIsDown())
@@ -831,11 +839,11 @@ void Viewer3DPanel::OnMouseWheel(wxMouseEvent& event)
         steps = -static_cast<float>(rotation) / static_cast<float>(deltaWheel);
     m_controller.SetInteracting(true);
     m_isInteracting = true;
+    m_cameraMoving = true;
     m_lastInteractionTime = std::chrono::steady_clock::now();
 
     m_camera.Zoom(steps);
 
-    m_controller.SetInteracting(false);
     Refresh();
 }
 
@@ -960,7 +968,7 @@ void Viewer3DPanel::OnMouseLeave(wxMouseEvent& event)
 // Updates the controller with current scene data
 void Viewer3DPanel::UpdateScene()
 {
-    if (ShouldPauseHeavyTasks())
+    if (ShouldPauseHeavyTasks() || m_cameraMoving)
         return;
 
     m_controller.Update();
@@ -1024,6 +1032,9 @@ bool Viewer3DPanel::ShouldPauseHeavyTasks()
         return true;
 
     m_isInteracting = false;
+    m_cameraMoving = false;
+    m_controller.SetInteracting(false);
+    m_controller.SetCameraMoving(false);
     return false;
 }
 

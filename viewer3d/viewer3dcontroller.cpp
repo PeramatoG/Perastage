@@ -1426,6 +1426,16 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
   ConfigManager &cfg = ConfigManager::Get();
   m_useAdaptiveLineProfile =
       cfg.GetFloat("viewer3d_adaptive_line_profile") >= 0.5f;
+  const bool skipOutlinesWhenMoving =
+      cfg.GetFloat("viewer3d_skip_outlines_when_moving") >= 0.5f;
+  const bool skipCaptureWhenMoving =
+      cfg.GetFloat("viewer3d_skip_capture_when_moving") >= 0.5f;
+  // During camera movement we prioritize frame pacing: keep drawing the
+  // scene and camera updates, but defer optional CPU/GPU work until the
+  // interaction grace period ends in Viewer3DPanel::ShouldPauseHeavyTasks().
+  const bool skipOptionalWork = m_cameraMoving;
+  const bool skipCapture = skipOptionalWork && skipCaptureWhenMoving;
+  m_skipOutlinesForCurrentFrame = skipOptionalWork && skipOutlinesWhenMoving;
   const auto hiddenLayers = SnapshotHiddenLayers(cfg);
   const CullingSettings culling = GetCullingSettings3D(cfg);
 
@@ -1492,7 +1502,7 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
   std::vector<const std::pair<const std::string, Fixture> *> sortedFixtures;
   {
     std::lock_guard<std::mutex> lock(m_sortedListsMutex);
-    if (m_sortedListsDirty) {
+    if (m_sortedListsDirty && !skipOptionalWork) {
       m_sortedObjects.clear();
       m_sortedObjects.reserve(sceneObjects.size());
       for (const auto &obj : sceneObjects)
@@ -1553,7 +1563,7 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
     glPushMatrix();
 
     std::string objectCaptureKey;
-    if (m_captureCanvas) {
+    if (m_captureCanvas && !skipCapture) {
       objectCaptureKey = m.modelFile.empty() ? m.name : m.modelFile;
       if (objectCaptureKey.empty())
         objectCaptureKey = "scene_object";
@@ -1675,7 +1685,7 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
           m_captureView == Viewer2DView::Side) &&
          !highlight && !selected);
     bool placedInstance = false;
-    if (useSymbolInstancing && m_captureCanvas) {
+    if (useSymbolInstancing && m_captureCanvas && !skipCapture) {
       std::string modelKey;
       if (!objectMeshParts.empty())
         modelKey = objectMeshParts.front().modelKey;
@@ -1772,7 +1782,7 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
     glPushMatrix();
 
     std::string trussCaptureKey;
-    if (m_captureCanvas) {
+    if (m_captureCanvas && !skipCapture) {
       trussCaptureKey = t.model.empty() ? t.name : t.model;
       if (trussCaptureKey.empty())
         trussCaptureKey = "truss";
@@ -1854,7 +1864,7 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
           m_captureView == Viewer2DView::Side) &&
          !highlight && !selected);
     bool placedInstance = false;
-    if (useSymbolInstancing && m_captureCanvas) {
+    if (useSymbolInstancing && m_captureCanvas && !skipCapture) {
       std::string modelKey;
       if (!trussPath.empty())
         modelKey = NormalizeModelKey(trussPath);
@@ -1966,7 +1976,7 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
     glPushMatrix();
 
     std::string fixtureCaptureKey;
-    if (m_captureCanvas) {
+    if (m_captureCanvas && !skipCapture) {
       fixtureCaptureKey = !f.typeName.empty()
                               ? f.typeName
                               : (!f.gdtfSpec.empty() ? f.gdtfSpec : "unknown");
@@ -2030,7 +2040,7 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
           m_captureView == Viewer2DView::Side) &&
          !highlight && !selected);
     bool placedInstance = false;
-    if (useSymbolInstancing && m_captureCanvas) {
+    if (useSymbolInstancing && m_captureCanvas && !skipCapture) {
       std::string modelKey = NormalizeModelKey(gdtfPath);
       if (modelKey.empty() && !f.gdtfSpec.empty())
         modelKey = NormalizeModelKey(f.gdtfSpec);
@@ -2122,7 +2132,7 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
         size_t partIndex = 0;
         for (const auto &obj : itg->second) {
           glPushMatrix();
-          if (m_captureCanvas) {
+          if (m_captureCanvas && !skipCapture) {
             // Capture each GDTF geometry as its own source so fills do not hide
             // outlines from sibling parts when exported to PDF.
             m_captureCanvas->SetSourceKey(fixtureCaptureKey + "_part" +
@@ -2174,7 +2184,7 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
 
     glPopMatrix();
 
-    if (m_captureCanvas)
+    if (m_captureCanvas && !skipCapture)
       m_captureCanvas->SetSourceKey("unknown");
   }
   if (forceFixturesOnTop && depthEnabled)
@@ -2200,6 +2210,10 @@ void Viewer3DController::SetDarkMode(bool enabled) { m_darkMode = enabled; }
 void Viewer3DController::SetInteracting(bool interacting) {
   m_isInteracting = interacting;
 }
+
+void Viewer3DController::SetCameraMoving(bool moving) { m_cameraMoving = moving; }
+
+bool Viewer3DController::IsCameraMoving() const { return m_cameraMoving; }
 
 std::array<float, 3> Viewer3DController::AdjustColor(float r, float g,
                                                      float b) const {
@@ -2357,7 +2371,8 @@ void Viewer3DController::DrawWireframeBox(
                              m_useAdaptiveLineProfile)
             .lineWidth;
     const bool drawOutline =
-        m_showSelectionOutline2D && (highlight || selected);
+        !m_skipOutlinesForCurrentFrame && m_showSelectionOutline2D &&
+        (highlight || selected);
     auto drawEdges = [&]() {
       glBegin(GL_LINES);
       glVertex3f(x0, y0, z0);
@@ -2507,7 +2522,8 @@ void Viewer3DController::DrawCubeWithOutline(
   if (wireframe) {
     if (mode == Viewer2DRenderMode::Wireframe) {
       const bool drawOutline =
-          m_showSelectionOutline2D && (highlight || selected);
+          !m_skipOutlinesForCurrentFrame && m_showSelectionOutline2D &&
+          (highlight || selected);
       float baseWidth = 1.0f;
       if (!m_captureOnly && drawOutline) {
         float glowWidth = baseWidth + 3.0f;
@@ -2522,7 +2538,8 @@ void Viewer3DController::DrawCubeWithOutline(
       return;
     }
     const bool drawOutline =
-        m_showSelectionOutline2D && (highlight || selected);
+        !m_skipOutlinesForCurrentFrame && m_showSelectionOutline2D &&
+        (highlight || selected);
     float baseWidth = 2.0f;
     if (!m_captureOnly && drawOutline) {
       float glowWidth = baseWidth + 3.0f;
@@ -2698,7 +2715,8 @@ void Viewer3DController::DrawMeshWithOutline(
                              m_useAdaptiveLineProfile)
             .lineWidth;
     const bool drawOutline =
-        m_showSelectionOutline2D && (highlight || selected);
+        !m_skipOutlinesForCurrentFrame && m_showSelectionOutline2D &&
+        (highlight || selected);
     if (!m_captureOnly) {
       if (drawOutline) {
         float glowWidth = lineWidth + 3.0f;
