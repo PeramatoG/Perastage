@@ -498,18 +498,41 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
     }
   };
 
+  auto normalizeGeometryFileName = [](std::string fileName) {
+    fileName = Trim(fileName);
+    if (fileName.empty())
+      return fileName;
+
+    fs::path path = fs::u8path(fileName);
+    if (!path.has_extension())
+      path += ".3ds";
+    return ToString(path.u8string());
+  };
+
+  auto appendGeometryInstance = [&](std::vector<GeometryInstance> &instances,
+                                    const std::string &fileName,
+                                    const Matrix &localTransform) {
+    std::string normalized = normalizeGeometryFileName(fileName);
+    if (normalized.empty())
+      return;
+    GeometryInstance instance;
+    instance.modelFile = normalized;
+    instance.localTransform = localTransform;
+    instances.push_back(std::move(instance));
+  };
+
   auto resolveSymdefReference = [&](tinyxml2::XMLElement *symbol,
-                                    std::string &outFile,
+                                    std::vector<SymdefGeometry> &outGeometries,
                                     std::string &outGeometryType,
-                                    Matrix &outLocal) {
-    outFile.clear();
+                                    Matrix &outSymbolMatrix) {
+    outGeometries.clear();
     outGeometryType.clear();
-    outLocal = MatrixUtils::Identity();
+    outSymbolMatrix = MatrixUtils::Identity();
 
     if (!symbol)
       return;
 
-    parseMatrixOrIdentity(symbol, "Matrix", "Symbol", outLocal);
+    parseMatrixOrIdentity(symbol, "Matrix", "Symbol", outSymbolMatrix);
 
     const char *symdef = symbol->Attribute("symdef");
     if (!symdef)
@@ -517,22 +540,35 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
 
     auto geosIt = scene.symdefGeometries.find(symdef);
     if (geosIt != scene.symdefGeometries.end() && !geosIt->second.empty()) {
-      const auto &geo = geosIt->second.front();
-      outFile = geo.file;
-      outGeometryType = geo.geometryType;
-      outLocal = MatrixUtils::Multiply(outLocal, geo.transform);
+      outGeometries = geosIt->second;
+      for (auto &geo : outGeometries)
+        geo.file = normalizeGeometryFileName(geo.file);
+      for (const auto &geo : outGeometries) {
+        if (!geo.geometryType.empty()) {
+          outGeometryType = geo.geometryType;
+          break;
+        }
+      }
       return;
     }
 
     auto it = scene.symdefFiles.find(symdef);
-    if (it != scene.symdefFiles.end())
-      outFile = it->second;
+    if (it != scene.symdefFiles.end()) {
+      SymdefGeometry fallback;
+      fallback.file = normalizeGeometryFileName(it->second);
+      auto mit = scene.symdefMatrices.find(symdef);
+      if (mit != scene.symdefMatrices.end())
+        fallback.transform = mit->second;
+      auto tit = scene.symdefTypes.find(symdef);
+      if (tit != scene.symdefTypes.end())
+        fallback.geometryType = tit->second;
+      if (!fallback.file.empty())
+        outGeometries.push_back(std::move(fallback));
+    }
+
     auto tit = scene.symdefTypes.find(symdef);
     if (tit != scene.symdefTypes.end())
       outGeometryType = tit->second;
-    auto mit = scene.symdefMatrices.find(symdef);
-    if (mit != scene.symdefMatrices.end())
-      outLocal = MatrixUtils::Multiply(outLocal, mit->second);
   };
 
   // ---- Helper lambdas for object parsing ----
@@ -880,26 +916,47 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
 
         if (tinyxml2::XMLElement *geos =
                 node->FirstChildElement("Geometries")) {
-          if (tinyxml2::XMLElement *g3d =
-                  geos->FirstChildElement("Geometry3D")) {
+          for (tinyxml2::XMLElement *g3d = geos->FirstChildElement("Geometry3D"); g3d;
+               g3d = g3d->NextSiblingElement("Geometry3D")) {
             const char *file = g3d->Attribute("fileName");
-            if (file)
-              obj.modelFile = file;
+            if (!file)
+              continue;
+
             if (const char *type = g3d->Attribute("geometryType"))
               geometryType = Trim(type);
+
             Matrix geoMatrix = MatrixUtils::Identity();
             parseMatrixOrIdentity(g3d, "Matrix", "SceneObject/Geometry3D", geoMatrix, true);
-            obj.transform = MatrixUtils::Multiply(nodeTransform, geoMatrix);
-          } else if (tinyxml2::XMLElement *sym =
-                         geos->FirstChildElement("Symbol")) {
-            std::string symFile;
-            Matrix symLocal = MatrixUtils::Identity();
-            resolveSymdefReference(sym, symFile, geometryType, symLocal);
-            if (!symFile.empty())
-              obj.modelFile = symFile;
-            obj.transform = MatrixUtils::Multiply(nodeTransform, symLocal);
+            appendGeometryInstance(obj.geometries, file, geoMatrix);
+          }
+
+          for (tinyxml2::XMLElement *sym = geos->FirstChildElement("Symbol"); sym;
+               sym = sym->NextSiblingElement("Symbol")) {
+            std::vector<SymdefGeometry> symGeometries;
+            Matrix symMatrix = MatrixUtils::Identity();
+            std::string symGeometryType;
+            resolveSymdefReference(sym, symGeometries, symGeometryType, symMatrix);
+            if (!symGeometryType.empty())
+              geometryType = symGeometryType;
+
+            for (const auto &geo : symGeometries) {
+              Matrix localTransform = MatrixUtils::Multiply(symMatrix, geo.transform);
+              appendGeometryInstance(obj.geometries, geo.file, localTransform);
+              if (!geo.geometryType.empty())
+                geometryType = geo.geometryType;
+            }
           }
         }
+
+        if (!obj.geometries.empty()) {
+          obj.modelFile = obj.geometries.front().modelFile;
+          obj.transform = nodeTransform;
+        }
+
+        std::ostringstream importedLog;
+        importedLog << "Imported SceneObject " << obj.uuid << " with "
+                    << obj.geometries.size() << " geometry parts";
+        LogMessage(importedLog.str());
 
         auto typeLower = geometryType;
         std::transform(typeLower.begin(), typeLower.end(), typeLower.begin(),
