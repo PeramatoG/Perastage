@@ -26,17 +26,21 @@ class ConsolePanel : public wxPanel
 {
 public:
     explicit ConsolePanel(wxWindow* parent);
+    ~ConsolePanel() override;
 
     // Append a message to the console
     void AppendMessage(const wxString& msg);
+    static void EnqueueMessage(const wxString& msg);
 
     // Access singleton instance
     static ConsolePanel* Instance();
     static void SetInstance(ConsolePanel* panel);
 
 private:
+    void OnFlushTimer(wxTimerEvent& event);
     wxTextCtrl* m_textCtrl = nullptr;
     wxTextCtrl* m_inputCtrl = nullptr;
+    wxTimer m_flushTimer;
     bool m_autoScroll = true;
     wxString m_lastMessage;
     size_t m_repeatCount = 0;

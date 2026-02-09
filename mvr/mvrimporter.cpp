@@ -154,10 +154,7 @@ static void LogMessage(Logger::Level level, const std::string &msg) {
       panelMsg = panelMsg.substr(0, keepLength) + suffix;
     }
     wxString wmsg = wxString::FromUTF8(panelMsg.c_str());
-    wxTheApp->CallAfter([wmsg]() {
-      if (ConsolePanel::Instance())
-        ConsolePanel::Instance()->AppendMessage(wmsg);
-    });
+    ConsolePanel::EnqueueMessage(wmsg);
   }
 }
 

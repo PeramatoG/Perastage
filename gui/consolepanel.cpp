@@ -27,9 +27,34 @@
 #include <algorithm>
 #include <charconv>
 #include <cctype>
+#include <deque>
 #include <exception>
+#include <mutex>
 #include <sstream>
 #include <vector>
+
+
+namespace {
+std::mutex g_consoleQueueMutex;
+std::deque<wxString> g_consoleQueue;
+size_t g_droppedMessages = 0;
+
+constexpr size_t kMaxConsoleMessageLength = 8 * 1024;
+constexpr int kFlushIntervalMs = 50;
+constexpr size_t kFlushBatchSize = 250;
+constexpr size_t kMaxPendingMessages = 10000;
+
+wxString TruncateConsoleMessage(const wxString &msg) {
+  const wxString suffix = "... (truncated)";
+  if (msg.length() <= kMaxConsoleMessageLength)
+    return msg;
+  size_t keepLength =
+      kMaxConsoleMessageLength > suffix.length()
+          ? kMaxConsoleMessageLength - suffix.length()
+          : 0;
+  return msg.Left(keepLength) + suffix;
+}
+} // namespace
 
 ConsolePanel::ConsolePanel(wxWindow *parent) : wxPanel(parent, wxID_ANY) {
   wxBoxSizer *sizer = new wxBoxSizer(wxVERTICAL);
@@ -59,39 +84,108 @@ ConsolePanel::ConsolePanel(wxWindow *parent) : wxPanel(parent, wxID_ANY) {
   sizer->Add(m_textCtrl, 1, wxEXPAND | wxALL, 5);
   sizer->Add(m_inputCtrl, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 5);
   SetSizer(sizer);
+
+  Bind(wxEVT_TIMER, &ConsolePanel::OnFlushTimer, this, m_flushTimer.GetId());
+  m_flushTimer.Start(kFlushIntervalMs);
+}
+
+ConsolePanel::~ConsolePanel() {
+  if (m_flushTimer.IsRunning())
+    m_flushTimer.Stop();
+}
+
+void ConsolePanel::EnqueueMessage(const wxString &msg) {
+  std::lock_guard<std::mutex> lock(g_consoleQueueMutex);
+  if (g_consoleQueue.size() >= kMaxPendingMessages) {
+    const size_t overflow = g_consoleQueue.size() - kMaxPendingMessages + 1;
+    g_consoleQueue.erase(g_consoleQueue.begin(),
+                         g_consoleQueue.begin() + static_cast<std::ptrdiff_t>(overflow));
+    g_droppedMessages += overflow;
+  }
+  g_consoleQueue.push_back(TruncateConsoleMessage(msg));
 }
 
 void ConsolePanel::AppendMessage(const wxString &msg) {
-  if (!m_textCtrl)
+  EnqueueMessage(msg);
+}
+
+void ConsolePanel::OnFlushTimer(wxTimerEvent &event) {
+  std::deque<wxString> batch;
+  size_t dropped = 0;
+  {
+    std::lock_guard<std::mutex> lock(g_consoleQueueMutex);
+    dropped = g_droppedMessages;
+    g_droppedMessages = 0;
+    size_t count = std::min(kFlushBatchSize, g_consoleQueue.size());
+    for (size_t i = 0; i < count; ++i) {
+      batch.push_back(std::move(g_consoleQueue.front()));
+      g_consoleQueue.pop_front();
+    }
+  }
+
+  if (!m_textCtrl) {
+    event.Skip();
     return;
-
-  constexpr size_t kMaxConsoleMessageLength = 8 * 1024;
-  const wxString suffix = "... (truncated)";
-  wxString safeMsg = msg;
-  if (safeMsg.length() > kMaxConsoleMessageLength) {
-    size_t keepLength =
-        kMaxConsoleMessageLength > suffix.length()
-            ? kMaxConsoleMessageLength - suffix.length()
-            : 0;
-    safeMsg = safeMsg.Left(keepLength) + suffix;
   }
 
-  if (safeMsg == m_lastMessage) {
-    m_repeatCount++;
-    wxString combined = wxString::Format("%s (repeated %zu times)", safeMsg,
-                                        m_repeatCount);
-    long endPos = m_textCtrl->GetLastPosition();
-    if (m_lastLineStart < endPos)
-      m_textCtrl->Remove(m_lastLineStart, endPos);
-    m_textCtrl->AppendText(combined + "\n");
-  } else {
-    m_lastMessage = safeMsg;
-    m_repeatCount = 1;
-    m_lastLineStart = m_textCtrl->GetLastPosition();
-    m_textCtrl->AppendText(safeMsg + "\n");
+  if (dropped > 0) {
+    batch.push_front(
+        wxString::Format("%zu mensajes omitidos por backlog de UI", dropped));
   }
-  if (m_autoScroll)
-    m_textCtrl->ShowPosition(m_textCtrl->GetLastPosition());
+  if (batch.empty()) {
+    event.Skip();
+    return;
+  }
+
+  std::vector<std::pair<wxString, size_t>> groups;
+  for (const auto &rawMsg : batch) {
+    const wxString msg = TruncateConsoleMessage(rawMsg);
+    if (!groups.empty() && groups.back().first == msg) {
+      groups.back().second++;
+    } else {
+      groups.push_back({msg, 1});
+    }
+  }
+
+  const long currentPos = m_textCtrl->GetLastPosition();
+  bool replaceLastLine = false;
+  const long previousLineStart = m_lastLineStart;
+  wxString chunk;
+  size_t groupIndex = 0;
+
+  if (!groups.empty() && groups.front().first == m_lastMessage) {
+    m_repeatCount += groups.front().second;
+    const wxString combined = wxString::Format("%s (repeated %zu times)",
+                                               m_lastMessage, m_repeatCount);
+    replaceLastLine = (m_lastLineStart < currentPos);
+    chunk += combined + "\n";
+    groupIndex = 1;
+  }
+
+  for (; groupIndex < groups.size(); ++groupIndex) {
+    const auto &group = groups[groupIndex];
+    m_lastMessage = group.first;
+    m_repeatCount = group.second;
+    m_lastLineStart = currentPos + chunk.length();
+    if (group.second > 1) {
+      chunk += wxString::Format("%s (repeated %zu times)", group.first,
+                                group.second);
+    } else {
+      chunk += group.first;
+    }
+    chunk += "\n";
+  }
+
+  if (replaceLastLine)
+    m_textCtrl->Remove(previousLineStart, currentPos);
+
+  if (!chunk.empty()) {
+    m_textCtrl->AppendText(chunk);
+    if (m_autoScroll)
+      m_textCtrl->ShowPosition(m_textCtrl->GetLastPosition());
+  }
+
+  event.Skip();
 }
 
 static ConsolePanel *s_instance = nullptr;
