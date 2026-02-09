@@ -74,6 +74,8 @@ wxEND_EVENT_TABLE()
 
 
 namespace {
+constexpr auto kPauseDelay = std::chrono::milliseconds(200);
+
 std::vector<std::string> BuildFixtureSelectionByType(
     const MvrScene& scene, const std::string& typeName)
 {
@@ -242,6 +244,12 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
         return;
     }
     InitGL();
+
+    const bool wasInteracting = m_isInteracting;
+    const bool pauseHeavyTasks = ShouldPauseHeavyTasks();
+    if (wasInteracting && !pauseHeavyTasks)
+        m_controller.Update();
+
     Render();
 
     // Ensure the OpenGL context is current before drawing overlays
@@ -366,6 +374,8 @@ void Viewer3DPanel::OnMouseDown(wxMouseEvent& event)
         if (event.LeftDown() && event.ControlDown()) {
             m_rectSelecting = true;
             m_controller.SetInteracting(true);
+            m_isInteracting = true;
+            m_lastInteractionTime = std::chrono::steady_clock::now();
             m_rectSelectStart = event.GetPosition();
             m_rectSelectEnd = m_rectSelectStart;
             m_draggedSincePress = false;
@@ -380,6 +390,8 @@ void Viewer3DPanel::OnMouseDown(wxMouseEvent& event)
 
         m_dragging = true;
         m_controller.SetInteracting(true);
+        m_isInteracting = true;
+        m_lastInteractionTime = std::chrono::steady_clock::now();
         m_draggedSincePress = false;
         m_lastMousePos = event.GetPosition();
         CaptureMouse();
@@ -774,6 +786,8 @@ void Viewer3DPanel::OnMouseMove(wxMouseEvent& event)
         int dy = pos.y - m_lastMousePos.y;
 
         m_draggedSincePress = true;
+        m_isInteracting = true;
+        m_lastInteractionTime = std::chrono::steady_clock::now();
 
         if (m_mode == InteractionMode::Orbit && event.LeftIsDown())
         {
@@ -806,6 +820,8 @@ void Viewer3DPanel::OnMouseWheel(wxMouseEvent& event)
     if (deltaWheel != 0)
         steps = -static_cast<float>(rotation) / static_cast<float>(deltaWheel);
     m_controller.SetInteracting(true);
+    m_isInteracting = true;
+    m_lastInteractionTime = std::chrono::steady_clock::now();
     m_camera.Zoom(steps);
     m_controller.SetInteracting(false);
     Refresh();
@@ -932,6 +948,9 @@ void Viewer3DPanel::OnMouseLeave(wxMouseEvent& event)
 // Updates the controller with current scene data
 void Viewer3DPanel::UpdateScene()
 {
+    if (ShouldPauseHeavyTasks())
+        return;
+
     m_controller.Update();
     if (Viewer2DPanel::Instance())
         Viewer2DPanel::Instance()->UpdateScene();
@@ -980,6 +999,20 @@ void Viewer3DPanel::RefreshLoop()
 void Viewer3DPanel::OnThreadRefresh(wxThreadEvent& event)
 {
     Refresh();
+}
+
+
+bool Viewer3DPanel::ShouldPauseHeavyTasks()
+{
+    if (!m_isInteracting)
+        return false;
+
+    const auto now = std::chrono::steady_clock::now();
+    if ((now - m_lastInteractionTime) < kPauseDelay)
+        return true;
+
+    m_isInteracting = false;
+    return false;
 }
 
 void Viewer3DPanel::LoadCameraFromConfig()

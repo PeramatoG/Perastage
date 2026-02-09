@@ -293,6 +293,9 @@ Viewer2DPanel *Viewer2DPanel::Instance() { return g_instance; }
 void Viewer2DPanel::SetInstance(Viewer2DPanel *panel) { g_instance = panel; }
 
 void Viewer2DPanel::UpdateScene(bool reload) {
+  if (reload && ShouldPauseHeavyTasks())
+    return;
+
   if (reload)
     m_controller.Update();
   if (m_enableSelection) {
@@ -724,6 +727,14 @@ bool Viewer2DPanel::RenderToRGBA(std::vector<unsigned char> &pixels, int &width,
 void Viewer2DPanel::OnPaint(wxPaintEvent &WXUNUSED(event)) {
   wxPaintDC dc(this);
   InitGL();
+
+  const bool wasInteracting = m_isInteracting;
+  const bool pauseHeavyTasks = ShouldPauseHeavyTasks();
+  if (wasInteracting && !pauseHeavyTasks && m_dragMode == DragMode::None &&
+      !m_rectSelecting) {
+    m_controller.Update();
+  }
+
   Render();
 
   if (!m_enableSelection || !IsShownOnScreen())
@@ -897,7 +908,8 @@ void Viewer2DPanel::FinalizeSelectionDrag() {
     break;
   }
 
-  UpdateScene(true);
+  if (!ShouldPauseHeavyTasks())
+    UpdateScene(true);
 
   if (Viewer3DPanel::Instance()) {
     Viewer3DPanel::Instance()->UpdateScene();
@@ -1021,6 +1033,8 @@ void Viewer2DPanel::DrawSelectionRectangle(int width, int height,
 
 void Viewer2DPanel::ScheduleDragTableUpdate() {
   if (m_dragSelectionUuids.empty())
+    return;
+  if (ShouldPauseHeavyTasks())
     return;
   QueueDragTableUpdate(m_dragTarget, m_dragSelectionUuids);
 }
@@ -1180,6 +1194,18 @@ void Viewer2DPanel::QueueDragTableUpdate(DragTarget target,
   m_dragTableUpdateCv.notify_one();
 }
 
+bool Viewer2DPanel::ShouldPauseHeavyTasks() {
+  if (!m_isInteracting)
+    return false;
+
+  const auto now = std::chrono::steady_clock::now();
+  if ((now - m_lastInteractionTime) < kPauseDelay)
+    return true;
+
+  m_isInteracting = false;
+  return false;
+}
+
 void Viewer2DPanel::OnMouseDown(wxMouseEvent &event) {
   if (event.LeftDown()) {
     CaptureMouse();
@@ -1192,6 +1218,8 @@ void Viewer2DPanel::OnMouseDown(wxMouseEvent &event) {
     m_dragSelectionMoved = false;
     m_dragSelectionPushedUndo = false;
     m_lastMousePos = event.GetPosition();
+    m_isInteracting = true;
+    m_lastInteractionTime = std::chrono::steady_clock::now();
 
     if (!m_enableSelection || !IsShownOnScreen())
       return;
@@ -1590,6 +1618,8 @@ void Viewer2DPanel::OnMouseMove(wxMouseEvent &event) {
   if (m_dragMode == DragMode::RectSelection && event.Dragging()) {
     m_rectSelectEnd = pos;
     m_draggedSincePress = true;
+    m_isInteracting = true;
+    m_lastInteractionTime = std::chrono::steady_clock::now();
     Refresh();
     return;
   }
@@ -1626,6 +1656,8 @@ void Viewer2DPanel::OnMouseMove(wxMouseEvent &event) {
           float dyMeters = static_cast<float>(-dy) / ppm;
           ApplySelectionDelta(MapDragDelta(dxMeters, dyMeters));
           m_draggedSincePress = true;
+          m_isInteracting = true;
+          m_lastInteractionTime = std::chrono::steady_clock::now();
           m_dragSelectionMoved = true;
           Refresh();
         }
@@ -1643,6 +1675,8 @@ void Viewer2DPanel::OnMouseMove(wxMouseEvent &event) {
     m_offsetY += dy / m_zoom;
     m_lastMousePos = pos;
     m_draggedSincePress = true;
+    m_isInteracting = true;
+    m_lastInteractionTime = std::chrono::steady_clock::now();
     if (m_persistViewState)
       SaveViewToConfig();
     Refresh();
@@ -1657,6 +1691,9 @@ void Viewer2DPanel::OnMouseMove(wxMouseEvent &event) {
 }
 
 void Viewer2DPanel::OnMouseWheel(wxMouseEvent &event) {
+  m_isInteracting = true;
+  m_lastInteractionTime = std::chrono::steady_clock::now();
+
   int rotation = event.GetWheelRotation();
   int deltaWheel = event.GetWheelDelta();
   float steps = 0.0f;
