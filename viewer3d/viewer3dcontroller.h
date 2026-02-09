@@ -278,6 +278,7 @@ private:
   std::unordered_map<std::string, BoundingBox> m_fixtureBounds;
   std::unordered_map<std::string, BoundingBox> m_trussBounds;
   std::unordered_map<std::string, BoundingBox> m_objectBounds;
+  std::unordered_set<std::string> m_boundsHiddenLayers;
 
   // Cached draw order to avoid re-sorting unchanged scenes every frame.
   std::vector<const std::pair<const std::string, Fixture> *> m_sortedFixtures;
@@ -327,6 +328,10 @@ private:
   bool m_cameraMoving = false;
   bool m_useAdaptiveLineProfile = true;
   bool m_skipOutlinesForCurrentFrame = false;
+
+  enum class ItemType { Fixture, Truss, SceneObject };
+  bool EnsureBoundsComputed(const std::string &uuid, ItemType type,
+                            const std::unordered_set<std::string> &hiddenLayers);
 
 public:
   // Enables recording of all primitives drawn during the next RenderScene
