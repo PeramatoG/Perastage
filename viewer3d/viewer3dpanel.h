@@ -65,6 +65,7 @@ public:
     Viewer3DCamera& GetCamera() { return m_camera; }
     const Viewer3DCamera& GetCamera() const { return m_camera; }
     bool ShouldPauseHeavyTasks();
+    bool IsCameraMoving() const { return m_cameraMoving; }
 
 private:
     wxGLContext* m_glContext;
@@ -84,6 +85,7 @@ private:
     InteractionMode m_mode = InteractionMode::None;
     std::chrono::steady_clock::time_point m_lastInteractionTime{};
     bool m_isInteracting = false;
+    bool m_cameraMoving = false;
 
     // Initializes OpenGL settings
     void InitGL();
