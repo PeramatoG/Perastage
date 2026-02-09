@@ -454,6 +454,74 @@ struct ScreenRect {
   double maxY = -DBL_MAX;
 };
 
+
+struct CullingSettings {
+  bool enabled = true;
+  float minPixels3D = 2.0f;
+  float minPixels2D = 1.0f;
+};
+
+static CullingSettings GetCullingSettings3D(const ConfigManager &cfg) {
+  CullingSettings s{};
+  s.enabled = cfg.GetFloat("render_culling_enabled") >= 0.5f;
+  s.minPixels3D = std::max(0.0f, cfg.GetFloat("render_culling_min_pixels_3d"));
+  s.minPixels2D = std::max(0.0f, cfg.GetFloat("render_culling_min_pixels_2d"));
+  return s;
+}
+
+static bool ProjectBoundingBoxToScreen(const std::array<float, 3> &bbMin,
+                                       const std::array<float, 3> &bbMax,
+                                       int viewportHeight,
+                                       const double model[16],
+                                       const double proj[16],
+                                       const int viewport[4],
+                                       ScreenRect &outRect,
+                                       bool &outAnyDepthVisible) {
+  outRect = ScreenRect{};
+  outAnyDepthVisible = false;
+  bool projected = false;
+
+  std::array<std::array<float, 3>, 8> corners = {
+      std::array<float, 3>{bbMin[0], bbMin[1], bbMin[2]},
+      {bbMax[0], bbMin[1], bbMin[2]},
+      {bbMin[0], bbMax[1], bbMin[2]},
+      {bbMax[0], bbMax[1], bbMin[2]},
+      {bbMin[0], bbMin[1], bbMax[2]},
+      {bbMax[0], bbMin[1], bbMax[2]},
+      {bbMin[0], bbMax[1], bbMax[2]},
+      {bbMax[0], bbMax[1], bbMax[2]}};
+
+  for (const auto &c : corners) {
+    double sx, sy, sz;
+    if (gluProject(c[0], c[1], c[2], model, proj, viewport, &sx, &sy, &sz) ==
+        GL_TRUE) {
+      projected = true;
+      outRect.minX = std::min(outRect.minX, sx);
+      outRect.maxX = std::max(outRect.maxX, sx);
+      const double sy2 = static_cast<double>(viewportHeight) - sy;
+      outRect.minY = std::min(outRect.minY, sy2);
+      outRect.maxY = std::max(outRect.maxY, sy2);
+      if (sz >= 0.0 && sz <= 1.0)
+        outAnyDepthVisible = true;
+    }
+  }
+
+  return projected;
+}
+
+static bool ShouldCullByScreenRect(const ScreenRect &rect, int width, int height,
+                                   float minPixels) {
+  if (rect.maxX < 0.0 || rect.minX > static_cast<double>(width) ||
+      rect.maxY < 0.0 || rect.minY > static_cast<double>(height)) {
+    return true;
+  }
+
+  const double screenWidth = rect.maxX - rect.minX;
+  const double screenHeight = rect.maxY - rect.minY;
+  return screenWidth < static_cast<double>(minPixels) &&
+         screenHeight < static_cast<double>(minPixels);
+}
+
 // Inserts a line break every two words in the provided text.
 static wxString WrapEveryTwoWords(const wxString &text) {
   wxStringTokenizer tk(text, " ");
@@ -1208,6 +1276,18 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
   m_useAdaptiveLineProfile =
       cfg.GetFloat("viewer3d_adaptive_line_profile") >= 0.5f;
   const auto hiddenLayers = SnapshotHiddenLayers(cfg);
+  const CullingSettings culling = GetCullingSettings3D(cfg);
+
+  int viewport[4] = {0, 0, 0, 0};
+  double model[16] = {0.0};
+  double proj[16] = {0.0};
+  if (culling.enabled) {
+    glGetIntegerv(GL_VIEWPORT, viewport);
+    glGetDoublev(GL_MODELVIEW_MATRIX, model);
+    glGetDoublev(GL_PROJECTION_MATRIX, proj);
+  }
+  const float minCullingPixels =
+      is2DViewer ? culling.minPixels2D : culling.minPixels3D;
 
   if (wireframe)
     glDisable(GL_LIGHTING);
@@ -1269,6 +1349,21 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
   for (const auto *entry : sortedObjs) {
     const auto &uuid = entry->first;
     const auto &m = entry->second;
+    if (culling.enabled) {
+      auto bit = m_objectBounds.find(uuid);
+      if (bit != m_objectBounds.end()) {
+        ScreenRect rect;
+        bool anyDepthVisible = false;
+        if (!ProjectBoundingBoxToScreen(bit->second.min, bit->second.max,
+                                        viewport[3], model, proj, viewport,
+                                        rect, anyDepthVisible) ||
+            !anyDepthVisible ||
+            ShouldCullByScreenRect(rect, viewport[2], viewport[3],
+                                   minCullingPixels)) {
+          continue;
+        }
+      }
+    }
     glPushMatrix();
 
     std::string objectCaptureKey;
@@ -1483,6 +1578,21 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
   for (const auto *entry : sortedTrusses) {
     const auto &uuid = entry->first;
     const auto &t = entry->second;
+    if (culling.enabled) {
+      auto bit = m_trussBounds.find(uuid);
+      if (bit != m_trussBounds.end()) {
+        ScreenRect rect;
+        bool anyDepthVisible = false;
+        if (!ProjectBoundingBoxToScreen(bit->second.min, bit->second.max,
+                                        viewport[3], model, proj, viewport,
+                                        rect, anyDepthVisible) ||
+            !anyDepthVisible ||
+            ShouldCullByScreenRect(rect, viewport[2], viewport[3],
+                                   minCullingPixels)) {
+          continue;
+        }
+      }
+    }
     glPushMatrix();
 
     std::string trussCaptureKey;
@@ -1672,6 +1782,21 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
   for (const auto *entry : sortedFixtures) {
     const auto &uuid = entry->first;
     const auto &f = entry->second;
+    if (culling.enabled) {
+      auto bit = m_fixtureBounds.find(uuid);
+      if (bit != m_fixtureBounds.end()) {
+        ScreenRect rect;
+        bool anyDepthVisible = false;
+        if (!ProjectBoundingBoxToScreen(bit->second.min, bit->second.max,
+                                        viewport[3], model, proj, viewport,
+                                        rect, anyDepthVisible) ||
+            !anyDepthVisible ||
+            ShouldCullByScreenRect(rect, viewport[2], viewport[3],
+                                   minCullingPixels)) {
+          continue;
+        }
+      }
+    }
     glPushMatrix();
 
     std::string fixtureCaptureKey;

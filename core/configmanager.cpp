@@ -213,6 +213,11 @@ ConfigManager::ConfigManager() {
   RegisterVariable("view2d_dark_mode", "float", 1.0f, 0.0f, 1.0f);
   RegisterVariable("viewer3d_aa_quality", "float", 1.0f, 0.0f, 2.0f);
   RegisterVariable("viewer3d_adaptive_line_profile", "float", 1.0f, 0.0f, 1.0f);
+  RegisterVariable("render_culling_enabled", "float", 1.0f, 0.0f, 1.0f);
+  RegisterVariable("render_culling_min_pixels_3d", "float", 2.0f, 0.0f,
+                   64.0f);
+  RegisterVariable("render_culling_min_pixels_2d", "float", 1.0f, 0.0f,
+                   64.0f);
   LoadUserConfig();
   if (!HasKey("rider_autopatch"))
     SetValue("rider_autopatch", "1");
