@@ -31,6 +31,7 @@
 #include <string>
 #include <thread>
 #include <atomic>
+#include <chrono>
 #include <wx/thread.h>
 #include <vector>
 
@@ -63,6 +64,7 @@ public:
 
     Viewer3DCamera& GetCamera() { return m_camera; }
     const Viewer3DCamera& GetCamera() const { return m_camera; }
+    bool ShouldPauseHeavyTasks();
 
 private:
     wxGLContext* m_glContext;
@@ -80,6 +82,8 @@ private:
     // Type of interaction currently active (Orbit or Pan)
     enum class InteractionMode { None, Orbit, Pan };
     InteractionMode m_mode = InteractionMode::None;
+    std::chrono::steady_clock::time_point m_lastInteractionTime{};
+    bool m_isInteracting = false;
 
     // Initializes OpenGL settings
     void InitGL();

@@ -29,6 +29,7 @@
 #include <wx/glcanvas.h>
 #include <wx/wx.h>
 #include <array>
+#include <chrono>
 #include <condition_variable>
 #include <functional>
 #include <memory>
@@ -151,6 +152,7 @@ private:
   void StopDragTableUpdates();
   void StartDragTableUpdateWorker();
   void StopDragTableUpdateWorker();
+  bool ShouldPauseHeavyTasks();
 
   struct DragTablePositionSnapshot {
     std::string uuid;
@@ -167,6 +169,7 @@ private:
 
   static constexpr long kSelectionDragDelayMs = 150;
   static constexpr int kDragTableUpdateIntervalMs = 50;
+  static constexpr std::chrono::milliseconds kPauseDelay{200};
 
   DragMode m_dragMode = DragMode::None;
   DragAxis m_dragAxis = DragAxis::None;
@@ -186,6 +189,8 @@ private:
   bool m_mouseInside = false;
   bool m_mouseMoved = false;
   bool m_hasHover = false;
+  std::chrono::steady_clock::time_point m_lastInteractionTime{};
+  bool m_isInteracting = false;
   bool m_enableSelection = true;
   std::string m_hoverUuid;
 
