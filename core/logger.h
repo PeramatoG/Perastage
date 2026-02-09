@@ -27,11 +27,23 @@
 // Simple asynchronous logger that writes messages to stderr and a log file.
 class Logger {
 public:
+  enum class Level {
+    Error = 0,
+    Warn = 1,
+    Info = 2,
+    Debug = 3,
+  };
+
   // Access singleton instance, creating log file on first use.
   static Logger &Instance();
 
   // Queue a message to be logged.
   void Log(std::string msg);
+  void Log(Level level, std::string msg);
+
+  // Runtime minimum level filter. Messages below this level are discarded.
+  void SetMinLevel(Level level);
+  Level GetMinLevel() const;
 
 private:
   Logger();
@@ -47,9 +59,16 @@ private:
   static constexpr std::size_t kMaxBatchSize = 256;
 
   std::ofstream file_;
-  std::mutex mutex_;
+  mutable std::mutex mutex_;
   std::condition_variable cv_;
-  std::queue<std::string> queue_;
+  struct Entry {
+    Level level = Level::Info;
+    std::string msg;
+  };
+  std::queue<Entry> queue_;
+  // Default to most-verbose so level filtering is opt-in and does not
+  // accidentally suppress Debug logs unless explicitly configured.
+  Level min_level_ = Level::Debug;
   bool done_ = false;
   std::thread worker_;
 };

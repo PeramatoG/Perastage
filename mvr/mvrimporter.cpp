@@ -133,8 +133,15 @@ static std::string CieToHex(const std::string &cie) {
 // Helper to log errors both to stderr and the application's console panel.
 // Log a message to both the log file and the application's console panel.
 // Console updates are queued to the GUI thread to avoid blocking.
-static void LogMessage(const std::string &msg) {
-  Logger::Instance().Log(msg);
+static bool IsDetailedMvrImportLogEnabled() {
+  return ConfigManager::Get().GetFloat("mvr_import_detailed_log") >= 0.5f;
+}
+
+static void LogMessage(Logger::Level level, const std::string &msg) {
+  if (level == Logger::Level::Debug && !IsDetailedMvrImportLogEnabled())
+    return;
+
+  Logger::Instance().Log(level, msg);
   if (ConsolePanel::Instance() && wxTheApp) {
     constexpr size_t kMaxConsoleMessageLength = 8 * 1024;
     const std::string suffix = "... (truncated)";
@@ -152,6 +159,10 @@ static void LogMessage(const std::string &msg) {
         ConsolePanel::Instance()->AppendMessage(wmsg);
     });
   }
+}
+
+static void LogMessage(const std::string &msg) {
+  LogMessage(Logger::Level::Info, msg);
 }
 
 struct GdtfConflict {
@@ -960,7 +971,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         std::ostringstream importedLog;
         importedLog << "Imported SceneObject " << obj.uuid << " with "
                     << obj.geometries.size() << " geometry parts";
-        LogMessage(importedLog.str());
+        LogMessage(Logger::Level::Debug, importedLog.str());
 
         auto typeLower = geometryType;
         std::transform(typeLower.begin(), typeLower.end(), typeLower.begin(),
