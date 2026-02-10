@@ -1314,6 +1314,25 @@ void Viewer3DController::UpdateResourcesIfDirty() {
   const auto &objects = SceneDataManager::Instance().GetSceneObjects();
   const auto &fixtures = SceneDataManager::Instance().GetFixtures();
 
+  std::vector<const std::pair<const std::string, Truss> *> visibleTrusses;
+  std::vector<const std::pair<const std::string, SceneObject> *> visibleObjects;
+  std::vector<const std::pair<const std::string, Fixture> *> visibleFixtures;
+  visibleTrusses.reserve(trusses.size());
+  visibleObjects.reserve(objects.size());
+  visibleFixtures.reserve(fixtures.size());
+  for (const auto &entry : trusses) {
+    if (IsLayerVisibleCached(hiddenLayers, entry.second.layer))
+      visibleTrusses.push_back(&entry);
+  }
+  for (const auto &entry : objects) {
+    if (IsLayerVisibleCached(hiddenLayers, entry.second.layer))
+      visibleObjects.push_back(&entry);
+  }
+  for (const auto &entry : fixtures) {
+    if (IsLayerVisibleCached(hiddenLayers, entry.second.layer))
+      visibleFixtures.push_back(&entry);
+  }
+
   size_t sceneSignature = HashString(base);
   for (const auto &[uuid, t] : trusses) {
     sceneSignature = HashCombine(sceneSignature, HashString(uuid));
@@ -1363,10 +1382,14 @@ void Viewer3DController::UpdateResourcesIfDirty() {
     it->second.attempted = true;
   };
 
-  for (const auto &[uuid, t] : trusses)
+  for (const auto *entry : visibleTrusses)
+  {
+    const auto &t = entry->second;
     ensureModelResolvedPath(t.symbolFile);
+  }
 
-  for (const auto &[uuid, obj] : objects) {
+  for (const auto *entry : visibleObjects) {
+    const auto &obj = entry->second;
     if (!obj.geometries.empty()) {
       for (const auto &geo : obj.geometries)
         ensureModelResolvedPath(geo.modelFile);
@@ -1375,8 +1398,10 @@ void Viewer3DController::UpdateResourcesIfDirty() {
     }
   }
 
-  for (const auto &[uuid, f] : fixtures)
+  for (const auto *entry : visibleFixtures) {
+    const auto &f = entry->second;
     ensureGdtfResolvedPath(f.gdtfSpec);
+  }
   if (!m_hasSceneSignature || sceneSignature != m_lastSceneSignature) {
     ++m_sceneVersion;
     m_lastSceneSignature = sceneSignature;
@@ -1386,7 +1411,8 @@ void Viewer3DController::UpdateResourcesIfDirty() {
     m_sortedListsDirty = true;
   }
 
-  for (const auto &[uuid, t] : trusses) {
+  for (const auto *entry : visibleTrusses) {
+    const auto &t = entry->second;
     if (t.symbolFile.empty())
       continue;
 
@@ -1419,7 +1445,8 @@ void Viewer3DController::UpdateResourcesIfDirty() {
     }
   }
 
-  for (const auto &[uuid, obj] : objects) {
+  for (const auto *entry : visibleObjects) {
+    const auto &obj = entry->second;
     std::vector<std::string> modelFiles;
     if (!obj.geometries.empty()) {
       for (const auto &geo : obj.geometries)
@@ -1464,7 +1491,8 @@ void Viewer3DController::UpdateResourcesIfDirty() {
   std::unordered_set<std::string> processedGdtfPaths;
   std::unordered_set<std::string> missingGdtfSpecs;
 
-  for (const auto &[uuid, f] : fixtures) {
+  for (const auto *entry : visibleFixtures) {
+    const auto &f = entry->second;
     if (f.gdtfSpec.empty())
       continue;
     std::string gdtfPath;
