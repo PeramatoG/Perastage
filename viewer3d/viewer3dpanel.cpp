@@ -875,7 +875,20 @@ void Viewer3DPanel::OnMouseDClick(wxMouseEvent& event)
     wxString label;
     wxPoint pos;
     std::string uuid;
-    if (!m_controller.GetFixtureLabelAt(event.GetX(), event.GetY(), w, h, label, pos, &uuid))
+    const bool cameraWasMoving = m_cameraMoving;
+    if (cameraWasMoving)
+        m_controller.SetCameraMoving(false);
+
+    const bool found =
+        m_controller.GetFixtureLabelAt(event.GetX(), event.GetY(), w, h, label,
+                                       pos, &uuid);
+
+    if (cameraWasMoving)
+        m_controller.SetCameraMoving(true);
+
+    if (!found && !m_hoverUuid.empty())
+        uuid = m_hoverUuid;
+    if (uuid.empty())
         return;
 
     auto& scene = ConfigManager::Get().GetScene();
