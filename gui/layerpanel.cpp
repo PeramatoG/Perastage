@@ -146,7 +146,9 @@ void LayerPanel::ReloadLayers()
 
 void LayerPanel::OnCheck(wxDataViewEvent& evt)
 {
-    unsigned int idx = list->ItemToRow(evt.GetItem());
+    int idx = static_cast<int>(list->ItemToRow(evt.GetItem()));
+    if (idx == wxNOT_FOUND || idx < 0 || idx >= static_cast<int>(list->GetItemCount()))
+        return;
     wxString wname = list->GetTextValue(idx,1);
     std::string name = wname.ToStdString();
     wxVariant v;
@@ -159,9 +161,9 @@ void LayerPanel::OnCheck(wxDataViewEvent& evt)
         hidden.insert(name);
     ConfigManager::Get().SetHiddenLayers(hidden);
     if (Viewer3DPanel::Instance())
-        Viewer3DPanel::Instance()->Refresh();
+        Viewer3DPanel::Instance()->UpdateScene();
     if (Viewer2DPanel::Instance())
-        Viewer2DPanel::Instance()->Refresh();
+        Viewer2DPanel::Instance()->UpdateScene(true);
 }
 
 void LayerPanel::OnSelect(wxDataViewEvent& evt)
