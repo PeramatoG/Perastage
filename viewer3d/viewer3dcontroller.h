@@ -270,6 +270,17 @@ private:
   // Cache of local-space model bounds keyed by resolved source path.
   std::unordered_map<std::string, BoundingBox> m_modelBounds;
 
+  struct PathResolutionEntry {
+    std::string resolvedPath;
+    bool attempted = false;
+  };
+
+  // Cached path resolution for raw GDTF specs and model references.
+  // When attempted=true and resolvedPath is empty, the lookup failed and we
+  // skip re-trying on every frame.
+  std::unordered_map<std::string, PathResolutionEntry> m_resolvedGdtfSpecs;
+  std::unordered_map<std::string, PathResolutionEntry> m_resolvedModelRefs;
+
   // Scene versioning used to skip expensive bounds recomputation when only
   // the camera changes.
   size_t m_sceneVersion = 0;

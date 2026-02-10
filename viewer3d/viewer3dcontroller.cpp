@@ -308,16 +308,20 @@ static std::array<float, 3> MakeDeterministicColor(std::string_view key) {
 }
 
 static std::string ResolveGdtfPath(const std::string &base,
-                                   const std::string &spec) {
+                                   const std::string &spec,
+                                   bool allowRecursiveSearch) {
   std::string norm = NormalizePath(spec);
   fs::path p = base.empty() ? fs::path(norm) : fs::path(base) / norm;
   if (fs::exists(p))
     return p.string();
+  if (!allowRecursiveSearch)
+    return {};
   return FindFileRecursive(base, fs::path(norm).filename().string());
 }
 
 static std::string ResolveModelPath(const std::string &base,
-                                    const std::string &file) {
+                                    const std::string &file,
+                                    bool allowRecursiveSearch) {
   if (file.empty())
     return {};
 
@@ -337,13 +341,21 @@ static std::string ResolveModelPath(const std::string &base,
     if (fs::exists(pglb))
       return pglb.string();
 
+    if (!allowRecursiveSearch)
+      return {};
     std::string fn3ds = FindFileRecursive(base, p.filename().string() + ".3ds");
     if (!fn3ds.empty())
       return fn3ds;
     return FindFileRecursive(base, p.filename().string() + ".glb");
   }
 
+  if (!allowRecursiveSearch)
+    return {};
   return FindFileRecursive(base, p.filename().string());
+}
+
+static std::string ResolveCacheKey(const std::string &pathRef) {
+  return NormalizePath(pathRef);
 }
 
 static SymbolBounds ComputeSymbolBounds(const CommandBuffer &buffer) {
@@ -974,7 +986,6 @@ bool Viewer3DController::EnsureBoundsComputed(
     return world;
   };
 
-  const std::string &base = ConfigManager::Get().GetScene().basePath;
   const auto &fixtures = SceneDataManager::Instance().GetFixtures();
   const auto &trusses = SceneDataManager::Instance().GetTrusses();
   const auto &objects = SceneDataManager::Instance().GetSceneObjects();
@@ -996,7 +1007,10 @@ bool Viewer3DController::EnsureBoundsComputed(
     bb.min = {FLT_MAX, FLT_MAX, FLT_MAX};
     bb.max = {-FLT_MAX, -FLT_MAX, -FLT_MAX};
 
-    std::string gdtfPath = ResolveGdtfPath(base, fit->second.gdtfSpec);
+    std::string gdtfPath;
+    auto gdtfIt = m_resolvedGdtfSpecs.find(ResolveCacheKey(fit->second.gdtfSpec));
+    if (gdtfIt != m_resolvedGdtfSpecs.end() && gdtfIt->second.attempted)
+      gdtfPath = gdtfIt->second.resolvedPath;
     auto itg = m_loadedGdtf.find(gdtfPath);
     if (itg != m_loadedGdtf.end()) {
       auto bit = m_modelBounds.find(gdtfPath);
@@ -1071,7 +1085,10 @@ bool Viewer3DController::EnsureBoundsComputed(
     bb.max = {-FLT_MAX, -FLT_MAX, -FLT_MAX};
 
     if (!tit->second.symbolFile.empty()) {
-      std::string path = ResolveModelPath(base, tit->second.symbolFile);
+      std::string path;
+      auto modelIt = m_resolvedModelRefs.find(ResolveCacheKey(tit->second.symbolFile));
+      if (modelIt != m_resolvedModelRefs.end() && modelIt->second.attempted)
+        path = modelIt->second.resolvedPath;
       auto bit = m_modelBounds.find(path);
       if (bit == m_modelBounds.end()) {
         auto it = m_loadedMeshes.find(path);
@@ -1143,7 +1160,10 @@ bool Viewer3DController::EnsureBoundsComputed(
 
   if (!oit->second.geometries.empty()) {
     for (const auto &geo : oit->second.geometries) {
-      std::string path = ResolveModelPath(base, geo.modelFile);
+      std::string path;
+      auto modelIt = m_resolvedModelRefs.find(ResolveCacheKey(geo.modelFile));
+      if (modelIt != m_resolvedModelRefs.end() && modelIt->second.attempted)
+        path = modelIt->second.resolvedPath;
       auto bit = m_modelBounds.find(path);
       if (bit == m_modelBounds.end()) {
         auto it = m_loadedMeshes.find(path);
@@ -1184,7 +1204,10 @@ bool Viewer3DController::EnsureBoundsComputed(
       found = true;
     }
   } else if (!oit->second.modelFile.empty()) {
-    std::string path = ResolveModelPath(base, oit->second.modelFile);
+    std::string path;
+    auto modelIt = m_resolvedModelRefs.find(ResolveCacheKey(oit->second.modelFile));
+    if (modelIt != m_resolvedModelRefs.end() && modelIt->second.attempted)
+      path = modelIt->second.resolvedPath;
     auto bit = m_modelBounds.find(path);
     if (bit == m_modelBounds.end()) {
       auto it = m_loadedMeshes.find(path);
@@ -1272,6 +1295,8 @@ void Viewer3DController::UpdateResourcesIfDirty() {
     m_reportedGdtfFailureCounts.clear();
     m_reportedGdtfFailureReasons.clear();
     m_modelBounds.clear();
+    m_resolvedGdtfSpecs.clear();
+    m_resolvedModelRefs.clear();
     m_lastSceneBasePath = base;
     m_assetsChangedDirty = true;
   }
@@ -1303,6 +1328,46 @@ void Viewer3DController::UpdateResourcesIfDirty() {
     sceneSignature = HashCombine(sceneSignature, HashString(f.gdtfSpec));
     sceneSignature = HashCombine(sceneSignature, HashMatrix(f.transform));
   }
+
+
+  auto ensureGdtfResolvedPath = [&](const std::string &spec) {
+    if (spec.empty())
+      return;
+    const std::string key = ResolveCacheKey(spec);
+    auto [it, inserted] =
+        m_resolvedGdtfSpecs.try_emplace(key, PathResolutionEntry{});
+    if (!inserted && it->second.attempted)
+      return;
+    it->second.resolvedPath = ResolveGdtfPath(base, spec, true);
+    it->second.attempted = true;
+  };
+
+  auto ensureModelResolvedPath = [&](const std::string &modelRef) {
+    if (modelRef.empty())
+      return;
+    const std::string key = ResolveCacheKey(modelRef);
+    auto [it, inserted] =
+        m_resolvedModelRefs.try_emplace(key, PathResolutionEntry{});
+    if (!inserted && it->second.attempted)
+      return;
+    it->second.resolvedPath = ResolveModelPath(base, modelRef, true);
+    it->second.attempted = true;
+  };
+
+  for (const auto &[uuid, t] : trusses)
+    ensureModelResolvedPath(t.symbolFile);
+
+  for (const auto &[uuid, obj] : objects) {
+    if (!obj.geometries.empty()) {
+      for (const auto &geo : obj.geometries)
+        ensureModelResolvedPath(geo.modelFile);
+    } else {
+      ensureModelResolvedPath(obj.modelFile);
+    }
+  }
+
+  for (const auto &[uuid, f] : fixtures)
+    ensureGdtfResolvedPath(f.gdtfSpec);
   if (!m_hasSceneSignature || sceneSignature != m_lastSceneSignature) {
     ++m_sceneVersion;
     m_lastSceneSignature = sceneSignature;
@@ -1316,7 +1381,10 @@ void Viewer3DController::UpdateResourcesIfDirty() {
     if (t.symbolFile.empty())
       continue;
 
-    std::string path = ResolveModelPath(base, t.symbolFile);
+    std::string path;
+    auto pathIt = m_resolvedModelRefs.find(ResolveCacheKey(t.symbolFile));
+    if (pathIt != m_resolvedModelRefs.end() && pathIt->second.attempted)
+      path = pathIt->second.resolvedPath;
     if (path.empty())
       continue;
     if (m_loadedMeshes.find(path) == m_loadedMeshes.end()) {
@@ -1352,7 +1420,10 @@ void Viewer3DController::UpdateResourcesIfDirty() {
     }
 
     for (const auto &modelFile : modelFiles) {
-      std::string path = ResolveModelPath(base, modelFile);
+      std::string path;
+      auto pathIt = m_resolvedModelRefs.find(ResolveCacheKey(modelFile));
+      if (pathIt != m_resolvedModelRefs.end() && pathIt->second.attempted)
+        path = pathIt->second.resolvedPath;
       if (path.empty())
         continue;
       if (m_loadedMeshes.find(path) == m_loadedMeshes.end()) {
@@ -1387,7 +1458,10 @@ void Viewer3DController::UpdateResourcesIfDirty() {
   for (const auto &[uuid, f] : fixtures) {
     if (f.gdtfSpec.empty())
       continue;
-    std::string gdtfPath = ResolveGdtfPath(base, f.gdtfSpec);
+    std::string gdtfPath;
+    auto gdtfPathIt = m_resolvedGdtfSpecs.find(ResolveCacheKey(f.gdtfSpec));
+    if (gdtfPathIt != m_resolvedGdtfSpecs.end() && gdtfPathIt->second.attempted)
+      gdtfPath = gdtfPathIt->second.resolvedPath;
     if (gdtfPath.empty()) {
       ++gdtfErrorCounts[f.gdtfSpec];
       gdtfErrorReasons[f.gdtfSpec] = "GDTF file not found";
@@ -1528,7 +1602,10 @@ void Viewer3DController::UpdateResourcesIfDirty() {
     bb.min = {FLT_MAX, FLT_MAX, FLT_MAX};
     bb.max = {-FLT_MAX, -FLT_MAX, -FLT_MAX};
 
-    std::string gdtfPath = ResolveGdtfPath(base, f.gdtfSpec);
+    std::string gdtfPath;
+    auto gdtfPathIt = m_resolvedGdtfSpecs.find(ResolveCacheKey(f.gdtfSpec));
+    if (gdtfPathIt != m_resolvedGdtfSpecs.end() && gdtfPathIt->second.attempted)
+      gdtfPath = gdtfPathIt->second.resolvedPath;
     auto itg = m_loadedGdtf.find(gdtfPath);
     if (itg != m_loadedGdtf.end()) {
       auto bit = m_modelBounds.find(gdtfPath);
@@ -1601,7 +1678,10 @@ void Viewer3DController::UpdateResourcesIfDirty() {
     bb.max = {-FLT_MAX, -FLT_MAX, -FLT_MAX};
 
     if (!t.symbolFile.empty()) {
-      std::string path = ResolveModelPath(base, t.symbolFile);
+      std::string path;
+      auto pathIt = m_resolvedModelRefs.find(ResolveCacheKey(t.symbolFile));
+      if (pathIt != m_resolvedModelRefs.end() && pathIt->second.attempted)
+        path = pathIt->second.resolvedPath;
       auto it = m_loadedMeshes.find(path);
       if (it != m_loadedMeshes.end()) {
         auto bit = m_modelBounds.find(path);
@@ -1672,7 +1752,10 @@ void Viewer3DController::UpdateResourcesIfDirty() {
 
     if (!obj.geometries.empty()) {
       for (const auto &geo : obj.geometries) {
-        std::string path = ResolveModelPath(base, geo.modelFile);
+        std::string path;
+        auto modelIt = m_resolvedModelRefs.find(ResolveCacheKey(geo.modelFile));
+        if (modelIt != m_resolvedModelRefs.end() && modelIt->second.attempted)
+          path = modelIt->second.resolvedPath;
         auto it = m_loadedMeshes.find(path);
         if (it == m_loadedMeshes.end())
           continue;
@@ -1715,7 +1798,10 @@ void Viewer3DController::UpdateResourcesIfDirty() {
         found = true;
       }
     } else if (!obj.modelFile.empty()) {
-      std::string path = ResolveModelPath(base, obj.modelFile);
+      std::string path;
+      auto modelIt = m_resolvedModelRefs.find(ResolveCacheKey(obj.modelFile));
+      if (modelIt != m_resolvedModelRefs.end() && modelIt->second.attempted)
+        path = modelIt->second.resolvedPath;
       auto it = m_loadedMeshes.find(path);
       if (it != m_loadedMeshes.end()) {
         auto bit = m_modelBounds.find(path);
@@ -2007,7 +2093,6 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
   };
   if (showGrid && !gridOnTop)
     DrawGrid(gridStyle, gridR, gridG, gridB, view);
-  const std::string &base = ConfigManager::Get().GetScene().basePath;
   auto resolveSymbolView = [](Viewer2DView viewKind) {
     switch (viewKind) {
     case Viewer2DView::Top:
@@ -2126,7 +2211,10 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
     std::vector<SceneObjectMeshPart> objectMeshParts;
     if (!m.geometries.empty()) {
       for (const auto &geo : m.geometries) {
-        std::string objectPath = ResolveModelPath(base, geo.modelFile);
+        std::string objectPath;
+        auto pathIt = m_resolvedModelRefs.find(ResolveCacheKey(geo.modelFile));
+        if (pathIt != m_resolvedModelRefs.end() && pathIt->second.attempted)
+          objectPath = pathIt->second.resolvedPath;
         if (objectPath.empty())
           continue;
         auto it = m_loadedMeshes.find(objectPath);
@@ -2140,7 +2228,10 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
         objectMeshParts.push_back(std::move(part));
       }
     } else if (!m.modelFile.empty()) {
-      std::string objectPath = ResolveModelPath(base, m.modelFile);
+      std::string objectPath;
+      auto pathIt = m_resolvedModelRefs.find(ResolveCacheKey(m.modelFile));
+      if (pathIt != m_resolvedModelRefs.end() && pathIt->second.attempted)
+        objectPath = pathIt->second.resolvedPath;
       if (!objectPath.empty()) {
         auto it = m_loadedMeshes.find(objectPath);
         if (it != m_loadedMeshes.end()) {
@@ -2325,7 +2416,9 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
     const Mesh *trussMesh = nullptr;
     std::string trussPath;
     if (!t.symbolFile.empty()) {
-      trussPath = ResolveModelPath(base, t.symbolFile);
+      auto trussPathIt = m_resolvedModelRefs.find(ResolveCacheKey(t.symbolFile));
+      if (trussPathIt != m_resolvedModelRefs.end() && trussPathIt->second.attempted)
+        trussPath = trussPathIt->second.resolvedPath;
       if (!trussPath.empty()) {
         auto it = m_loadedMeshes.find(trussPath);
         if (it != m_loadedMeshes.end())
@@ -2512,7 +2605,10 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
       return TransformPoint(fixtureTransform, p);
     };
 
-    std::string gdtfPath = ResolveGdtfPath(base, f.gdtfSpec);
+    std::string gdtfPath;
+    auto gdtfPathIt = m_resolvedGdtfSpecs.find(ResolveCacheKey(f.gdtfSpec));
+    if (gdtfPathIt != m_resolvedGdtfSpecs.end() && gdtfPathIt->second.attempted)
+      gdtfPath = gdtfPathIt->second.resolvedPath;
     auto itg = m_loadedGdtf.find(gdtfPath);
 
     bool suppressCapture = false;
