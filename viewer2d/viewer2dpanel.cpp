@@ -556,6 +556,12 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
   }
 
   ConfigManager &cfg = ConfigManager::Get();
+  // Keep controller resources/cache in sync in the 2D viewer as well.
+  // The 3D panel triggers this from its own render loop, but the 2D panel
+  // renders directly through the shared controller and otherwise misses
+  // scene/layer visibility refreshes.
+  if (!pauseHeavyTasks)
+    m_controller.UpdateResourcesIfDirty();
   bool darkMode = cfg.GetFloat("view2d_dark_mode") != 0.0f;
   m_controller.SetDarkMode(darkMode);
   if (darkMode)
