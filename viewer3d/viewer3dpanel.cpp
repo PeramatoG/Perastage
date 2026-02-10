@@ -251,9 +251,18 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
     InitGL();
 
     const bool pauseHeavyTasks = ShouldPauseHeavyTasks();
+    m_controller.ResetDebugPerFrameCounters();
     m_controller.UpdateFrameStateLightweight();
     if (!pauseHeavyTasks && !m_cameraMoving)
         m_controller.UpdateResourcesIfDirty();
+
+    const int updateResourcesCallsPerFrame =
+        m_controller.GetDebugUpdateResourcesCallsPerFrame();
+    if (updateResourcesCallsPerFrame > 1) {
+        wxLogTrace("viewer3d_perf",
+                   "UpdateResourcesIfDirty called %d times in a frame",
+                   updateResourcesCallsPerFrame);
+    }
 
     static auto s_lastCameraUpdate = std::chrono::steady_clock::now();
     const auto now = std::chrono::steady_clock::now();
