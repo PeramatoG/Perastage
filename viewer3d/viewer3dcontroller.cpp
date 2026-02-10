@@ -1879,10 +1879,9 @@ void Viewer3DController::UpdateResourcesIfDirty() {
 }
 
 
-bool Viewer3DController::TryBuildVisibleSet(
-    const ViewFrustumSnapshot &frustum,
+bool Viewer3DController::TryBuildLayerVisibleCandidates(
     const std::unordered_set<std::string> &hiddenLayers,
-    bool useFrustumCulling, float minPixels, VisibleSet &out) const {
+    VisibleSet &out) const {
   const auto &sceneObjects = SceneDataManager::Instance().GetSceneObjects();
   const auto &trusses = SceneDataManager::Instance().GetTrusses();
   const auto &fixtures = SceneDataManager::Instance().GetFixtures();
@@ -1900,6 +1899,47 @@ bool Viewer3DController::TryBuildVisibleSet(
     const auto &obj = entry->second;
     if (!IsLayerVisibleCached(hiddenLayers, obj.layer))
       continue;
+    if (sceneObjects.find(uuid) != sceneObjects.end())
+      out.objectUuids.push_back(uuid);
+  }
+
+  out.trussUuids.reserve(m_sortedTrusses.size());
+  for (const auto *entry : m_sortedTrusses) {
+    if (!entry)
+      continue;
+    const auto &uuid = entry->first;
+    const auto &truss = entry->second;
+    if (!IsLayerVisibleCached(hiddenLayers, truss.layer))
+      continue;
+    if (trusses.find(uuid) != trusses.end())
+      out.trussUuids.push_back(uuid);
+  }
+
+  out.fixtureUuids.reserve(m_sortedFixtures.size());
+  for (const auto *entry : m_sortedFixtures) {
+    if (!entry)
+      continue;
+    const auto &uuid = entry->first;
+    const auto &fixture = entry->second;
+    if (!IsLayerVisibleCached(hiddenLayers, fixture.layer))
+      continue;
+    if (fixtures.find(uuid) != fixtures.end())
+      out.fixtureUuids.push_back(uuid);
+  }
+
+  return true;
+}
+
+bool Viewer3DController::TryBuildVisibleSet(
+    const ViewFrustumSnapshot &frustum,
+    bool useFrustumCulling, float minPixels,
+    const VisibleSet &layerVisibleCandidates, VisibleSet &out) const {
+  out.objectUuids.clear();
+  out.trussUuids.clear();
+  out.fixtureUuids.clear();
+
+  out.objectUuids.reserve(layerVisibleCandidates.objectUuids.size());
+  for (const auto &uuid : layerVisibleCandidates.objectUuids) {
     if (useFrustumCulling) {
       auto bit = m_objectBounds.find(uuid);
       if (bit == m_objectBounds.end())
@@ -1916,18 +1956,11 @@ bool Viewer3DController::TryBuildVisibleSet(
         continue;
       }
     }
-    if (sceneObjects.find(uuid) != sceneObjects.end())
-      out.objectUuids.push_back(uuid);
+    out.objectUuids.push_back(uuid);
   }
 
-  out.trussUuids.reserve(m_sortedTrusses.size());
-  for (const auto *entry : m_sortedTrusses) {
-    if (!entry)
-      continue;
-    const auto &uuid = entry->first;
-    const auto &truss = entry->second;
-    if (!IsLayerVisibleCached(hiddenLayers, truss.layer))
-      continue;
+  out.trussUuids.reserve(layerVisibleCandidates.trussUuids.size());
+  for (const auto &uuid : layerVisibleCandidates.trussUuids) {
     if (useFrustumCulling) {
       auto bit = m_trussBounds.find(uuid);
       if (bit == m_trussBounds.end())
@@ -1944,18 +1977,11 @@ bool Viewer3DController::TryBuildVisibleSet(
         continue;
       }
     }
-    if (trusses.find(uuid) != trusses.end())
-      out.trussUuids.push_back(uuid);
+    out.trussUuids.push_back(uuid);
   }
 
-  out.fixtureUuids.reserve(m_sortedFixtures.size());
-  for (const auto *entry : m_sortedFixtures) {
-    if (!entry)
-      continue;
-    const auto &uuid = entry->first;
-    const auto &fixture = entry->second;
-    if (!IsLayerVisibleCached(hiddenLayers, fixture.layer))
-      continue;
+  out.fixtureUuids.reserve(layerVisibleCandidates.fixtureUuids.size());
+  for (const auto &uuid : layerVisibleCandidates.fixtureUuids) {
     if (useFrustumCulling) {
       auto bit = m_fixtureBounds.find(uuid);
       if (bit == m_fixtureBounds.end())
@@ -1972,8 +1998,7 @@ bool Viewer3DController::TryBuildVisibleSet(
         continue;
       }
     }
-    if (fixtures.find(uuid) != fixtures.end())
-      out.fixtureUuids.push_back(uuid);
+    out.fixtureUuids.push_back(uuid);
   }
 
   return true;
@@ -2000,10 +2025,38 @@ const Viewer3DController::VisibleSet &Viewer3DController::GetVisibleSet(
       (m_visibleSetMinPixels == minPixels) && sameViewport && sameModel &&
       sameProjection;
 
+  const bool layerCandidatesCacheValid =
+      (m_layerVisibleCandidatesSceneVersion == m_sceneVersion) &&
+      (m_layerVisibleCandidatesHiddenLayers == hiddenLayers);
+
+  if (!layerCandidatesCacheValid) {
+    VisibleSet builtCandidates;
+    if (TryBuildLayerVisibleCandidates(hiddenLayers, builtCandidates)) {
+      m_cachedLayerVisibleCandidates = std::move(builtCandidates);
+      m_layerVisibleCandidatesSceneVersion = m_sceneVersion;
+      m_layerVisibleCandidatesHiddenLayers = hiddenLayers;
+    }
+  }
+
   if (!cacheValid) {
+    if (m_cachedLayerVisibleCandidates.Empty()) {
+      m_cachedVisibleSet = {};
+      m_visibleSetSceneVersion = m_sceneVersion;
+      m_visibleSetHiddenLayers = hiddenLayers;
+      m_visibleSetFrustumCulling = useFrustumCulling;
+      m_visibleSetMinPixels = minPixels;
+      std::copy(std::begin(frustum.viewport), std::end(frustum.viewport),
+                m_visibleSetViewport.begin());
+      std::copy(std::begin(frustum.model), std::end(frustum.model),
+                m_visibleSetModel.begin());
+      std::copy(std::begin(frustum.projection), std::end(frustum.projection),
+                m_visibleSetProjection.begin());
+      return m_cachedVisibleSet;
+    }
+
     VisibleSet built;
-    if (TryBuildVisibleSet(frustum, hiddenLayers, useFrustumCulling, minPixels,
-                           built)) {
+    if (TryBuildVisibleSet(frustum, useFrustumCulling, minPixels,
+                           m_cachedLayerVisibleCandidates, built)) {
       m_cachedVisibleSet = std::move(built);
       m_visibleSetSceneVersion = m_sceneVersion;
       m_visibleSetHiddenLayers = hiddenLayers;
