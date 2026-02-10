@@ -761,8 +761,10 @@ void Viewer2DPanel::OnPaint(wxPaintEvent &WXUNUSED(event)) {
   wxPoint newPos;
   std::string newUuid;
   bool found = false;
+  const bool skipLabelWork =
+      wasInteracting && (m_dragMode == DragMode::View || m_dragMode == DragMode::None);
 
-  if (FixtureTablePanel::Instance() &&
+  if (!skipLabelWork && FixtureTablePanel::Instance() &&
       FixtureTablePanel::Instance()->IsActivePage()) {
     found = m_controller.GetFixtureLabelAt(m_lastMousePos.x, m_lastMousePos.y,
                                            w, h, newLabel, newPos, &newUuid);
@@ -772,7 +774,7 @@ void Viewer2DPanel::OnPaint(wxPaintEvent &WXUNUSED(event)) {
       if (SceneObjectTablePanel::Instance())
         SceneObjectTablePanel::Instance()->HighlightObject(std::string());
     }
-  } else if (TrussTablePanel::Instance() &&
+  } else if (!skipLabelWork && TrussTablePanel::Instance() &&
              TrussTablePanel::Instance()->IsActivePage()) {
     found = m_controller.GetTrussLabelAt(m_lastMousePos.x, m_lastMousePos.y, w,
                                          h, newLabel, newPos, &newUuid);
@@ -782,7 +784,7 @@ void Viewer2DPanel::OnPaint(wxPaintEvent &WXUNUSED(event)) {
       if (SceneObjectTablePanel::Instance())
         SceneObjectTablePanel::Instance()->HighlightObject(std::string());
     }
-  } else if (SceneObjectTablePanel::Instance() &&
+  } else if (!skipLabelWork && SceneObjectTablePanel::Instance() &&
              SceneObjectTablePanel::Instance()->IsActivePage()) {
     found = m_controller.GetSceneObjectLabelAt(m_lastMousePos.x,
                                                m_lastMousePos.y, w, h, newLabel,
@@ -810,7 +812,7 @@ void Viewer2DPanel::OnPaint(wxPaintEvent &WXUNUSED(event)) {
     else if (SceneObjectTablePanel::Instance() &&
              SceneObjectTablePanel::Instance()->IsActivePage())
       SceneObjectTablePanel::Instance()->HighlightObject(std::string(m_hoverUuid));
-  } else if (!m_hasHover || m_mouseMoved) {
+  } else if (!skipLabelWork && (!m_hasHover || m_mouseMoved)) {
     highlightChanged = m_hasHover;
     m_hasHover = false;
     m_hoverUuid.clear();
@@ -821,6 +823,11 @@ void Viewer2DPanel::OnPaint(wxPaintEvent &WXUNUSED(event)) {
       TrussTablePanel::Instance()->HighlightTruss(std::string());
     if (SceneObjectTablePanel::Instance())
       SceneObjectTablePanel::Instance()->HighlightObject(std::string());
+  } else if (skipLabelWork) {
+    highlightChanged = m_hasHover;
+    m_hasHover = false;
+    m_hoverUuid.clear();
+    m_controller.SetHighlightUuid("");
   }
   m_mouseMoved = false;
 
