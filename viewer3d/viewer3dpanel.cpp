@@ -76,6 +76,11 @@ wxEND_EVENT_TABLE()
 namespace {
 constexpr auto kPauseDelay = std::chrono::milliseconds(200);
 
+bool IsFastInteractionModeEnabled()
+{
+    return ConfigManager::Get().GetFloat("viewer3d_fast_interaction_mode") >= 0.5f;
+}
+
 std::vector<std::string> BuildFixtureSelectionByType(
     const MvrScene& scene, const std::string& typeName)
 {
@@ -271,7 +276,7 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
 
     const bool skipLabelsWhenMoving =
         ConfigManager::Get().GetFloat("viewer3d_skip_labels_when_moving") >= 0.5f;
-    const bool skipLabelWork = m_cameraMoving && skipLabelsWhenMoving;
+    const bool skipLabelWork = m_cameraMoving && IsFastInteractionModeEnabled() && skipLabelsWhenMoving;
 
     if (!skipLabelWork && FixtureTablePanel::Instance() && FixtureTablePanel::Instance()->IsActivePage()) {
         found = m_controller.GetFixtureLabelAt(m_lastMousePos.x, m_lastMousePos.y,
@@ -1031,10 +1036,19 @@ bool Viewer3DPanel::ShouldPauseHeavyTasks()
     if ((now - m_lastInteractionTime) < kPauseDelay)
         return true;
 
+    const bool fastInteractionMode = IsFastInteractionModeEnabled();
+
     m_isInteracting = false;
     m_cameraMoving = false;
     m_controller.SetInteracting(false);
     m_controller.SetCameraMoving(false);
+
+    if (fastInteractionMode) {
+        m_controller.UpdateResourcesIfDirty();
+        m_controller.RebuildVisibleSetCache();
+        m_mouseMoved = true;
+    }
+
     return false;
 }
 

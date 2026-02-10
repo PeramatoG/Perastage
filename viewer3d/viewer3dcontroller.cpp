@@ -106,6 +106,10 @@ static bool IsLayerVisibleCached(const std::unordered_set<std::string> &hidden,
   return hidden.find(layer) == hidden.end();
 }
 
+static bool IsFastInteractionModeEnabled(const ConfigManager &cfg) {
+  return cfg.GetFloat("viewer3d_fast_interaction_mode") >= 0.5f;
+}
+
 static LineRenderProfile GetLineRenderProfile(bool isInteracting,
                                               bool wireframeMode,
                                               bool adaptiveEnabled) {
@@ -1919,6 +1923,28 @@ const Viewer3DController::VisibleSet &Viewer3DController::GetVisibleSet(
   return m_cachedVisibleSet;
 }
 
+void Viewer3DController::RebuildVisibleSetCache() {
+  ConfigManager &cfg = ConfigManager::Get();
+  const auto hiddenLayers = SnapshotHiddenLayers(cfg);
+  const CullingSettings culling = GetCullingSettings3D(cfg);
+
+  int viewport[4] = {0, 0, 0, 0};
+  double model[16] = {0.0};
+  double proj[16] = {0.0};
+  glGetIntegerv(GL_VIEWPORT, viewport);
+  glGetDoublev(GL_MODELVIEW_MATRIX, model);
+  glGetDoublev(GL_PROJECTION_MATRIX, proj);
+
+  ViewFrustumSnapshot frustum{};
+  std::copy(std::begin(viewport), std::end(viewport),
+            std::begin(frustum.viewport));
+  std::copy(std::begin(model), std::end(model), std::begin(frustum.model));
+  std::copy(std::begin(proj), std::end(proj), std::begin(frustum.projection));
+
+  const float minCullingPixels = culling.minPixels3D;
+  (void)GetVisibleSet(frustum, hiddenLayers, culling.enabled, minCullingPixels);
+}
+
 // Renders all scene objects using their transformMatrix
 void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
                                      Viewer2DView view, bool showGrid,
@@ -1935,7 +1961,8 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
   // During camera movement we prioritize frame pacing: keep drawing the
   // scene and camera updates, but defer optional CPU/GPU work until the
   // interaction grace period ends in Viewer3DPanel::ShouldPauseHeavyTasks().
-  const bool skipOptionalWork = m_cameraMoving;
+  const bool fastInteractionMode = IsFastInteractionModeEnabled(cfg);
+  const bool skipOptionalWork = m_cameraMoving && fastInteractionMode;
   const bool skipCapture = skipOptionalWork && skipCaptureWhenMoving;
   m_skipOutlinesForCurrentFrame = skipOptionalWork && skipOutlinesWhenMoving;
   const auto hiddenLayers = SnapshotHiddenLayers(cfg);
@@ -3759,6 +3786,7 @@ void Viewer3DController::SetupMaterialFromRGB(float r, float g, float b) {
 }
 
 void Viewer3DController::DrawFixtureLabels(int width, int height) {
+  ConfigManager &cfg = ConfigManager::Get();
   double model[16];
   double proj[16];
   int viewport[4];
@@ -3766,7 +3794,6 @@ void Viewer3DController::DrawFixtureLabels(int width, int height) {
   glGetDoublev(GL_PROJECTION_MATRIX, proj);
   glGetIntegerv(GL_VIEWPORT, viewport);
 
-  ConfigManager &cfg = ConfigManager::Get();
   const auto hiddenLayers = SnapshotHiddenLayers(cfg);
   const CullingSettings culling = GetCullingSettings3D(cfg);
   const float minLabelPixels = culling.minPixels3D;
@@ -3862,6 +3889,7 @@ void Viewer3DController::DrawFixtureLabels(int width, int height) {
 // scales the label like regular geometry when zooming the 2D view.
 void Viewer3DController::DrawAllFixtureLabels(int width, int height,
                                               Viewer2DView view, float zoom) {
+  ConfigManager &cfg = ConfigManager::Get();
   double model[16];
   double proj[16];
   int viewport[4];
@@ -3869,7 +3897,6 @@ void Viewer3DController::DrawAllFixtureLabels(int width, int height,
   glGetDoublev(GL_PROJECTION_MATRIX, proj);
   glGetIntegerv(GL_VIEWPORT, viewport);
 
-  ConfigManager &cfg = ConfigManager::Get();
   const auto hiddenLayers = SnapshotHiddenLayers(cfg);
   const std::array<const char *, 4> nameKeys = {"label_show_name_top",
                                                "label_show_name_front",
@@ -4163,13 +4190,16 @@ bool Viewer3DController::GetFixtureLabelAt(int mouseX, int mouseY, int width,
                                            int height, wxString &outLabel,
                                            wxPoint &outPos,
                                            std::string *outUuid) {
+  ConfigManager &cfg = ConfigManager::Get();
+  if (m_cameraMoving && IsFastInteractionModeEnabled(cfg))
+    return false;
+
   double model[16];
   double proj[16];
   int viewport[4];
   glGetDoublev(GL_MODELVIEW_MATRIX, model);
   glGetDoublev(GL_PROJECTION_MATRIX, proj);
   glGetIntegerv(GL_VIEWPORT, viewport);
-  ConfigManager &cfg = ConfigManager::Get();
   const auto hiddenLayers = SnapshotHiddenLayers(cfg);
   bool showName = cfg.GetFloat("label_show_name") != 0.0f;
   bool showId = cfg.GetFloat("label_show_id") != 0.0f;
@@ -4263,6 +4293,8 @@ bool Viewer3DController::GetFixtureLabelAt(int mouseX, int mouseY, int width,
 
 void Viewer3DController::DrawTrussLabels(int width, int height) {
 
+  ConfigManager &cfg = ConfigManager::Get();
+
   double model[16];
   double proj[16];
   int viewport[4];
@@ -4270,7 +4302,6 @@ void Viewer3DController::DrawTrussLabels(int width, int height) {
   glGetDoublev(GL_PROJECTION_MATRIX, proj);
   glGetIntegerv(GL_VIEWPORT, viewport);
 
-  ConfigManager &cfg = ConfigManager::Get();
   const auto hiddenLayers = SnapshotHiddenLayers(cfg);
   const CullingSettings culling = GetCullingSettings3D(cfg);
   const float minLabelPixels = culling.minPixels3D;
@@ -4341,6 +4372,8 @@ void Viewer3DController::DrawTrussLabels(int width, int height) {
 
 void Viewer3DController::DrawSceneObjectLabels(int width, int height) {
 
+  ConfigManager &cfg = ConfigManager::Get();
+
   double model[16];
   double proj[16];
   int viewport[4];
@@ -4348,7 +4381,6 @@ void Viewer3DController::DrawSceneObjectLabels(int width, int height) {
   glGetDoublev(GL_PROJECTION_MATRIX, proj);
   glGetIntegerv(GL_VIEWPORT, viewport);
 
-  ConfigManager &cfg = ConfigManager::Get();
   const auto hiddenLayers = SnapshotHiddenLayers(cfg);
   const CullingSettings culling = GetCullingSettings3D(cfg);
   const float minLabelPixels = culling.minPixels3D;
@@ -4418,6 +4450,10 @@ bool Viewer3DController::GetTrussLabelAt(int mouseX, int mouseY, int width,
                                          int height, wxString &outLabel,
                                          wxPoint &outPos,
                                          std::string *outUuid) {
+  ConfigManager &cfg = ConfigManager::Get();
+  if (m_cameraMoving && IsFastInteractionModeEnabled(cfg))
+    return false;
+
   double model[16];
   double proj[16];
   int viewport[4];
@@ -4425,7 +4461,6 @@ bool Viewer3DController::GetTrussLabelAt(int mouseX, int mouseY, int width,
   glGetDoublev(GL_PROJECTION_MATRIX, proj);
   glGetIntegerv(GL_VIEWPORT, viewport);
 
-  ConfigManager &cfg = ConfigManager::Get();
   const auto hiddenLayers = SnapshotHiddenLayers(cfg);
   const auto &trusses = SceneDataManager::Instance().GetTrusses();
   bool found = false;
@@ -4504,6 +4539,10 @@ bool Viewer3DController::GetSceneObjectLabelAt(int mouseX, int mouseY,
                                                wxString &outLabel,
                                                wxPoint &outPos,
                                                std::string *outUuid) {
+  ConfigManager &cfg = ConfigManager::Get();
+  if (m_cameraMoving && IsFastInteractionModeEnabled(cfg))
+    return false;
+
   double model[16];
   double proj[16];
   int viewport[4];
@@ -4511,7 +4550,6 @@ bool Viewer3DController::GetSceneObjectLabelAt(int mouseX, int mouseY,
   glGetDoublev(GL_PROJECTION_MATRIX, proj);
   glGetIntegerv(GL_VIEWPORT, viewport);
 
-  ConfigManager &cfg = ConfigManager::Get();
   const auto hiddenLayers = SnapshotHiddenLayers(cfg);
   const auto &objs = SceneDataManager::Instance().GetSceneObjects();
   bool found = false;
@@ -4585,6 +4623,7 @@ bool Viewer3DController::GetSceneObjectLabelAt(int mouseX, int mouseY,
 std::vector<std::string>
 Viewer3DController::GetFixturesInScreenRect(int x1, int y1, int x2, int y2,
                                             int width, int height) const {
+  ConfigManager &cfg = ConfigManager::Get();
   double model[16];
   double proj[16];
   int viewport[4];
@@ -4592,7 +4631,6 @@ Viewer3DController::GetFixturesInScreenRect(int x1, int y1, int x2, int y2,
   glGetDoublev(GL_PROJECTION_MATRIX, proj);
   glGetIntegerv(GL_VIEWPORT, viewport);
 
-  ConfigManager &cfg = ConfigManager::Get();
   const auto hiddenLayers = SnapshotHiddenLayers(cfg);
 
   ScreenRect selectionRect;
@@ -4658,6 +4696,7 @@ Viewer3DController::GetFixturesInScreenRect(int x1, int y1, int x2, int y2,
 std::vector<std::string>
 Viewer3DController::GetTrussesInScreenRect(int x1, int y1, int x2, int y2,
                                            int width, int height) const {
+  ConfigManager &cfg = ConfigManager::Get();
   double model[16];
   double proj[16];
   int viewport[4];
@@ -4665,7 +4704,6 @@ Viewer3DController::GetTrussesInScreenRect(int x1, int y1, int x2, int y2,
   glGetDoublev(GL_PROJECTION_MATRIX, proj);
   glGetIntegerv(GL_VIEWPORT, viewport);
 
-  ConfigManager &cfg = ConfigManager::Get();
   const auto hiddenLayers = SnapshotHiddenLayers(cfg);
 
   ScreenRect selectionRect;
@@ -4730,6 +4768,7 @@ Viewer3DController::GetTrussesInScreenRect(int x1, int y1, int x2, int y2,
 std::vector<std::string>
 Viewer3DController::GetSceneObjectsInScreenRect(int x1, int y1, int x2, int y2,
                                                 int width, int height) const {
+  ConfigManager &cfg = ConfigManager::Get();
   double model[16];
   double proj[16];
   int viewport[4];
@@ -4737,7 +4776,6 @@ Viewer3DController::GetSceneObjectsInScreenRect(int x1, int y1, int x2, int y2,
   glGetDoublev(GL_PROJECTION_MATRIX, proj);
   glGetIntegerv(GL_VIEWPORT, viewport);
 
-  ConfigManager &cfg = ConfigManager::Get();
   const auto hiddenLayers = SnapshotHiddenLayers(cfg);
 
   ScreenRect selectionRect;
