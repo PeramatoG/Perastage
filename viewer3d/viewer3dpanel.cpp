@@ -285,7 +285,8 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
 
     const bool skipLabelsWhenMoving =
         ConfigManager::Get().GetFloat("viewer3d_skip_labels_when_moving") >= 0.5f;
-    const bool skipLabelWork = m_cameraMoving && IsFastInteractionModeEnabled() && skipLabelsWhenMoving;
+    const bool skipLabelWork = m_cameraMoving &&
+        (IsFastInteractionModeEnabled() || skipLabelsWhenMoving);
 
     if (!skipLabelWork && FixtureTablePanel::Instance() && FixtureTablePanel::Instance()->IsActivePage()) {
         found = m_controller.GetFixtureLabelAt(m_lastMousePos.x, m_lastMousePos.y,
@@ -331,7 +332,7 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
         else if (SceneObjectTablePanel::Instance() && SceneObjectTablePanel::Instance()->IsActivePage())
             SceneObjectTablePanel::Instance()->HighlightObject(std::string(m_hoverUuid));
     }
-    else if (!m_hasHover || m_mouseMoved) {
+    else if (!skipLabelWork && (!m_hasHover || m_mouseMoved)) {
         m_hasHover = false;
         m_controller.SetHighlightUuid("");
         if (FixtureTablePanel::Instance())
@@ -340,6 +341,11 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
             TrussTablePanel::Instance()->HighlightTruss(std::string());
         if (SceneObjectTablePanel::Instance())
             SceneObjectTablePanel::Instance()->HighlightObject(std::string());
+    } else if (skipLabelWork) {
+        m_hasHover = false;
+        m_hoverUuid.clear();
+        m_hoverText.clear();
+        m_controller.SetHighlightUuid("");
     }
     m_mouseMoved = false;
 
