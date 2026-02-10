@@ -73,6 +73,8 @@ public:
   void Update();
   void UpdateResourcesIfDirty();
   void UpdateFrameStateLightweight();
+  void ResetDebugPerFrameCounters();
+  int GetDebugUpdateResourcesCallsPerFrame() const;
 
   // Renders all scene objects. When wireframe is true lighting is disabled
   // and geometry is drawn using black lines only. The optional mode controls
@@ -345,6 +347,7 @@ private:
   bool m_cameraMoving = false;
   bool m_useAdaptiveLineProfile = true;
   bool m_skipOutlinesForCurrentFrame = false;
+  int m_updateResourcesCallsPerFrame = 0;
 
   enum class ItemType { Fixture, Truss, SceneObject };
   struct VisibleSet {

@@ -1279,12 +1279,19 @@ void Viewer3DController::UpdateFrameStateLightweight() {
   const auto hiddenLayers = SnapshotHiddenLayers(cfg);
   if (hiddenLayers != m_lastHiddenLayers)
     m_visibilityChangedDirty = true;
+}
 
-  if (!m_isInteracting)
-    UpdateResourcesIfDirty();
+void Viewer3DController::ResetDebugPerFrameCounters() {
+  m_updateResourcesCallsPerFrame = 0;
+}
+
+int Viewer3DController::GetDebugUpdateResourcesCallsPerFrame() const {
+  return m_updateResourcesCallsPerFrame;
 }
 
 void Viewer3DController::UpdateResourcesIfDirty() {
+  ++m_updateResourcesCallsPerFrame;
+
   ConfigManager &cfg = ConfigManager::Get();
   const auto hiddenLayers = SnapshotHiddenLayers(cfg);
   const std::string &base = cfg.GetScene().basePath;
