@@ -2008,6 +2008,20 @@ const Viewer3DController::VisibleSet &Viewer3DController::GetVisibleSet(
     const ViewFrustumSnapshot &frustum,
     const std::unordered_set<std::string> &hiddenLayers,
     bool useFrustumCulling, float minPixels) const {
+  const bool layerCandidatesCacheValid =
+      (m_layerVisibleCandidatesSceneVersion == m_sceneVersion) &&
+      (m_layerVisibleCandidatesHiddenLayers == hiddenLayers);
+
+  if (!layerCandidatesCacheValid) {
+    VisibleSet builtCandidates;
+    if (TryBuildLayerVisibleCandidates(hiddenLayers, builtCandidates)) {
+      m_cachedLayerVisibleCandidates = std::move(builtCandidates);
+      m_layerVisibleCandidatesSceneVersion = m_sceneVersion;
+      m_layerVisibleCandidatesHiddenLayers = hiddenLayers;
+      ++m_layerVisibleCandidatesRevision;
+    }
+  }
+
   const bool sameViewport = std::equal(
       std::begin(frustum.viewport), std::end(frustum.viewport),
       m_visibleSetViewport.begin());
@@ -2019,30 +2033,15 @@ const Viewer3DController::VisibleSet &Viewer3DController::GetVisibleSet(
                  m_visibleSetProjection.begin());
 
   const bool cacheValid =
-      (m_visibleSetSceneVersion == m_sceneVersion) &&
-      (m_visibleSetHiddenLayers == hiddenLayers) &&
+      (m_visibleSetLayerCandidatesRevision == m_layerVisibleCandidatesRevision) &&
       (m_visibleSetFrustumCulling == useFrustumCulling) &&
       (m_visibleSetMinPixels == minPixels) && sameViewport && sameModel &&
       sameProjection;
 
-  const bool layerCandidatesCacheValid =
-      (m_layerVisibleCandidatesSceneVersion == m_sceneVersion) &&
-      (m_layerVisibleCandidatesHiddenLayers == hiddenLayers);
-
-  if (!layerCandidatesCacheValid) {
-    VisibleSet builtCandidates;
-    if (TryBuildLayerVisibleCandidates(hiddenLayers, builtCandidates)) {
-      m_cachedLayerVisibleCandidates = std::move(builtCandidates);
-      m_layerVisibleCandidatesSceneVersion = m_sceneVersion;
-      m_layerVisibleCandidatesHiddenLayers = hiddenLayers;
-    }
-  }
-
   if (!cacheValid) {
     if (m_cachedLayerVisibleCandidates.Empty()) {
       m_cachedVisibleSet = {};
-      m_visibleSetSceneVersion = m_sceneVersion;
-      m_visibleSetHiddenLayers = hiddenLayers;
+      m_visibleSetLayerCandidatesRevision = m_layerVisibleCandidatesRevision;
       m_visibleSetFrustumCulling = useFrustumCulling;
       m_visibleSetMinPixels = minPixels;
       std::copy(std::begin(frustum.viewport), std::end(frustum.viewport),
@@ -2058,8 +2057,7 @@ const Viewer3DController::VisibleSet &Viewer3DController::GetVisibleSet(
     if (TryBuildVisibleSet(frustum, useFrustumCulling, minPixels,
                            m_cachedLayerVisibleCandidates, built)) {
       m_cachedVisibleSet = std::move(built);
-      m_visibleSetSceneVersion = m_sceneVersion;
-      m_visibleSetHiddenLayers = hiddenLayers;
+      m_visibleSetLayerCandidatesRevision = m_layerVisibleCandidatesRevision;
       m_visibleSetFrustumCulling = useFrustumCulling;
       m_visibleSetMinPixels = minPixels;
       std::copy(std::begin(frustum.viewport), std::end(frustum.viewport),
