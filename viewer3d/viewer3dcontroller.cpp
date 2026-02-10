@@ -1277,8 +1277,10 @@ void Viewer3DController::Update() {
 void Viewer3DController::UpdateFrameStateLightweight() {
   ConfigManager &cfg = ConfigManager::Get();
   const auto hiddenLayers = SnapshotHiddenLayers(cfg);
-  if (hiddenLayers != m_lastHiddenLayers)
+  if (hiddenLayers != m_lastHiddenLayers) {
+    Logger::Instance().Log("visibility dirty reason: hidden layers changed vs last frame snapshot");
     m_visibilityChangedDirty = true;
+  }
 }
 
 void Viewer3DController::ResetDebugPerFrameCounters() {
@@ -1538,8 +1540,10 @@ void Viewer3DController::UpdateResourcesIfDirty() {
     }
   }
 
-  if (hiddenLayers != m_boundsHiddenLayers)
+  if (hiddenLayers != m_boundsHiddenLayers) {
+    Logger::Instance().Log("visibility dirty reason: hidden layers changed vs bounds cache");
     m_visibilityChangedDirty = true;
+  }
 
   if (!(m_sceneChangedDirty || m_assetsChangedDirty || m_visibilityChangedDirty) &&
       m_cachedVersion == m_sceneVersion)
@@ -1871,6 +1875,7 @@ void Viewer3DController::UpdateResourcesIfDirty() {
   m_sceneChangedDirty = false;
   m_assetsChangedDirty = false;
   m_visibilityChangedDirty = false;
+  m_lastHiddenLayers = hiddenLayers;
 }
 
 
