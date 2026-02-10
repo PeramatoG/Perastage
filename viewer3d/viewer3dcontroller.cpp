@@ -2020,7 +2020,6 @@ void Viewer3DController::RebuildVisibleSetCache() {
   ConfigManager &cfg = ConfigManager::Get();
   const auto hiddenLayers = SnapshotHiddenLayers(cfg);
   const CullingSettings culling = GetCullingSettings3D(cfg);
-
   int viewport[4] = {0, 0, 0, 0};
   double model[16] = {0.0};
   double proj[16] = {0.0};
@@ -2060,11 +2059,17 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
   m_skipOutlinesForCurrentFrame = skipOptionalWork && skipOutlinesWhenMoving;
   const auto hiddenLayers = SnapshotHiddenLayers(cfg);
   const CullingSettings culling = GetCullingSettings3D(cfg);
+  // 2D orthographic projections use a very different depth setup than the 3D
+  // camera, and the frustum/pixel culling pass can incorrectly reject every
+  // item even when all layers are visible. Keep layer-based filtering active
+  // in 2D, but skip frustum culling there so visibility in the Layers panel
+  // matches what is rendered on screen.
+  const bool useFrustumCulling = culling.enabled && !is2DViewer;
 
   int viewport[4] = {0, 0, 0, 0};
   double model[16] = {0.0};
   double proj[16] = {0.0};
-  if (culling.enabled) {
+  if (useFrustumCulling) {
     glGetIntegerv(GL_VIEWPORT, viewport);
     glGetDoublev(GL_MODELVIEW_MATRIX, model);
     glGetDoublev(GL_PROJECTION_MATRIX, proj);
@@ -2157,7 +2162,8 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
   std::copy(std::begin(model), std::end(model), std::begin(frustum.model));
   std::copy(std::begin(proj), std::end(proj), std::begin(frustum.projection));
   const VisibleSet &visibleSet =
-      GetVisibleSet(frustum, hiddenLayers, culling.enabled, minCullingPixels);
+      GetVisibleSet(frustum, hiddenLayers, useFrustumCulling,
+                    minCullingPixels);
 
   // Scene objects first
   glShadeModel(GL_FLAT);
