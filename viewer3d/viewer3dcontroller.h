@@ -383,8 +383,8 @@ private:
   mutable VisibleSet m_cachedLayerVisibleCandidates;
   mutable size_t m_layerVisibleCandidatesSceneVersion = static_cast<size_t>(-1);
   mutable std::unordered_set<std::string> m_layerVisibleCandidatesHiddenLayers;
-  mutable size_t m_visibleSetSceneVersion = static_cast<size_t>(-1);
-  mutable std::unordered_set<std::string> m_visibleSetHiddenLayers;
+  mutable size_t m_layerVisibleCandidatesRevision = 0;
+  mutable size_t m_visibleSetLayerCandidatesRevision = static_cast<size_t>(-1);
   mutable bool m_visibleSetFrustumCulling = false;
   mutable float m_visibleSetMinPixels = -1.0f;
   mutable std::array<int, 4> m_visibleSetViewport = {0, 0, 0, 0};
