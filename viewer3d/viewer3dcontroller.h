@@ -354,6 +354,10 @@ private:
     std::vector<std::string> fixtureUuids;
     std::vector<std::string> trussUuids;
     std::vector<std::string> objectUuids;
+
+    bool Empty() const {
+      return fixtureUuids.empty() && trussUuids.empty() && objectUuids.empty();
+    }
   };
 
   struct ViewFrustumSnapshot {
@@ -362,9 +366,12 @@ private:
     double projection[16] = {0.0};
   };
 
+  bool TryBuildLayerVisibleCandidates(
+      const std::unordered_set<std::string> &hiddenLayers,
+      VisibleSet &out) const;
   bool TryBuildVisibleSet(const ViewFrustumSnapshot &frustum,
-                          const std::unordered_set<std::string> &hiddenLayers,
                           bool useFrustumCulling, float minPixels,
+                          const VisibleSet &layerVisibleCandidates,
                           VisibleSet &out) const;
   const VisibleSet &GetVisibleSet(const ViewFrustumSnapshot &frustum,
                                   const std::unordered_set<std::string> &hiddenLayers,
@@ -373,6 +380,9 @@ private:
   bool EnsureBoundsComputed(const std::string &uuid, ItemType type,
                             const std::unordered_set<std::string> &hiddenLayers);
   mutable VisibleSet m_cachedVisibleSet;
+  mutable VisibleSet m_cachedLayerVisibleCandidates;
+  mutable size_t m_layerVisibleCandidatesSceneVersion = static_cast<size_t>(-1);
+  mutable std::unordered_set<std::string> m_layerVisibleCandidatesHiddenLayers;
   mutable size_t m_visibleSetSceneVersion = static_cast<size_t>(-1);
   mutable std::unordered_set<std::string> m_visibleSetHiddenLayers;
   mutable bool m_visibleSetFrustumCulling = false;
