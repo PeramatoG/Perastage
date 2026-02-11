@@ -166,6 +166,21 @@ void MainWindow::CreateToolBars() {
     }
     return loadToolbarIcon(name, fallbackArtId);
   };
+  const auto addToolWithDisabledIcon =
+      [&](wxAuiToolBar *toolbar, int id, const wxString &label,
+          const std::string &iconName, const wxArtID &fallbackArtId,
+          const wxString &shortHelp) {
+        wxAuiToolBarItem item;
+        item.SetId(id);
+        item.SetKind(wxITEM_NORMAL);
+        item.SetLabel(label);
+        item.SetBitmap(loadToolbarIcon(iconName, fallbackArtId)
+                           .GetBitmap(wxSize(16, 16)));
+        item.SetDisabledBitmap(loadToolbarDisabledIcon(iconName, fallbackArtId)
+                                   .GetBitmap(wxSize(16, 16)));
+        toolbar->AddTool(item);
+        toolbar->SetToolShortHelp(id, shortHelp);
+      };
   fileToolBar->AddTool(ID_File_New, "New",
                        loadToolbarIcon("file", wxART_NEW),
                        "Create a new project");
@@ -240,21 +255,12 @@ void MainWindow::CreateToolBars() {
   toolsToolBar = new wxAuiToolBar(this, wxID_ANY, wxDefaultPosition,
                                   wxDefaultSize, toolbarStyle);
   toolsToolBar->SetToolBitmapSize(wxSize(16, 16));
-  toolsToolBar->AddTool(
-      ID_Edit_AddFixture, "Add Fixture",
-      loadToolbarIcon("spotlight", wxART_MISSING_IMAGE),
-      loadToolbarDisabledIcon("spotlight", wxART_MISSING_IMAGE), wxITEM_NORMAL,
-      "Add fixture");
-  toolsToolBar->AddTool(
-      ID_Edit_AddTruss, "Add Truss",
-      loadToolbarIcon("truss", wxART_MISSING_IMAGE),
-      loadToolbarDisabledIcon("truss", wxART_MISSING_IMAGE), wxITEM_NORMAL,
-      "Add truss");
-  toolsToolBar->AddTool(
-      ID_Edit_AddSceneObject, "Add Object",
-      loadToolbarIcon("guitar", wxART_MISSING_IMAGE),
-      loadToolbarDisabledIcon("guitar", wxART_MISSING_IMAGE), wxITEM_NORMAL,
-      "Add object");
+  addToolWithDisabledIcon(toolsToolBar, ID_Edit_AddFixture, "Add Fixture",
+                          "spotlight", wxART_MISSING_IMAGE, "Add fixture");
+  addToolWithDisabledIcon(toolsToolBar, ID_Edit_AddTruss, "Add Truss",
+                          "truss", wxART_MISSING_IMAGE, "Add truss");
+  addToolWithDisabledIcon(toolsToolBar, ID_Edit_AddSceneObject, "Add Object",
+                          "guitar", wxART_MISSING_IMAGE, "Add object");
   toolsToolBar->AddSeparator();
   toolsToolBar->AddTool(ID_Tools_DownloadGdtf, "Download GDTF",
                         loadToolbarIcon("cloud-download", wxART_MISSING_IMAGE),
@@ -273,31 +279,21 @@ void MainWindow::CreateToolBars() {
   layoutToolBar = new wxAuiToolBar(this, wxID_ANY, wxDefaultPosition,
                                    wxDefaultSize, toolbarStyle);
   layoutToolBar->SetToolBitmapSize(wxSize(16, 16));
-  layoutToolBar->AddTool(
-      ID_View_Layout_2DView, "Añadir vista 2D",
-      loadToolbarIcon("panel-top-bottom-dashed", wxART_MISSING_IMAGE),
-      loadToolbarDisabledIcon("panel-top-bottom-dashed", wxART_MISSING_IMAGE),
-      wxITEM_NORMAL, "Add 2D View to Layout");
-  layoutToolBar->AddTool(
-      ID_View_Layout_Legend, "Añadir leyenda",
-      loadToolbarIcon("layout-list", wxART_MISSING_IMAGE),
-      loadToolbarDisabledIcon("layout-list", wxART_MISSING_IMAGE),
-      wxITEM_NORMAL, "Add fixture legend to layout");
-  layoutToolBar->AddTool(
-      ID_View_Layout_EventTable, "Añadir tabla de evento",
-      loadToolbarIcon("table", wxART_LIST_VIEW),
-      loadToolbarDisabledIcon("table", wxART_LIST_VIEW), wxITEM_NORMAL,
-      "Add event table to layout");
-  layoutToolBar->AddTool(
-      ID_View_Layout_Text, "Añadir texto",
-      loadToolbarIcon("text-select", wxART_TIP),
-      loadToolbarDisabledIcon("text-select", wxART_TIP), wxITEM_NORMAL,
-      "Add text box to layout");
-  layoutToolBar->AddTool(
-      ID_View_Layout_Image, "Añadir imagen",
-      loadToolbarIcon("image-plus", wxART_MISSING_IMAGE),
-      loadToolbarDisabledIcon("image-plus", wxART_MISSING_IMAGE),
-      wxITEM_NORMAL, "Add image to layout");
+  addToolWithDisabledIcon(layoutToolBar, ID_View_Layout_2DView,
+                          "Añadir vista 2D", "panel-top-bottom-dashed",
+                          wxART_MISSING_IMAGE, "Add 2D View to Layout");
+  addToolWithDisabledIcon(layoutToolBar, ID_View_Layout_Legend,
+                          "Añadir leyenda", "layout-list",
+                          wxART_MISSING_IMAGE, "Add fixture legend to layout");
+  addToolWithDisabledIcon(layoutToolBar, ID_View_Layout_EventTable,
+                          "Añadir tabla de evento", "table", wxART_LIST_VIEW,
+                          "Add event table to layout");
+  addToolWithDisabledIcon(layoutToolBar, ID_View_Layout_Text, "Añadir texto",
+                          "text-select", wxART_TIP,
+                          "Add text box to layout");
+  addToolWithDisabledIcon(layoutToolBar, ID_View_Layout_Image,
+                          "Añadir imagen", "image-plus",
+                          wxART_MISSING_IMAGE, "Add image to layout");
   layoutToolBar->Realize();
   auiManager->AddPane(
       layoutToolBar, wxAuiPaneInfo()
