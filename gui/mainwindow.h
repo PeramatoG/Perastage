@@ -69,6 +69,7 @@ private:
   void SetupLayout();   // Set up main window layout
   void CreateMenuBar(); // Create menus
   void CreateToolBars(); // Create toolbars
+  void UpdateToolBarAvailability();
   void UpdateTitle();   // Refresh window title
   void Ensure3DViewport();
   void Ensure2DViewport();
@@ -92,6 +93,7 @@ private:
   SummaryPanel *summaryPanel = nullptr;
   RiggingPanel *riggingPanel = nullptr;
   wxAuiToolBar *fileToolBar = nullptr;
+  wxAuiToolBar *editToolBar = nullptr;
   wxAuiToolBar *layoutToolBar = nullptr;
   wxAuiToolBar *layoutViewsToolBar = nullptr;
   wxAuiToolBar *toolsToolBar = nullptr;

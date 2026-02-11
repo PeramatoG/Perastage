@@ -557,6 +557,64 @@ void MainWindow::SaveUserConfigWithViewport2DState() {
     viewer2d::ApplyState(nullptr, nullptr, cfg, *layoutState, true, false);
 }
 
+
+void MainWindow::UpdateToolBarAvailability() {
+  if (!auiManager)
+    return;
+
+  const auto paneShown = [this](const char *name) {
+    auto &pane = auiManager->GetPane(name);
+    return pane.IsOk() && pane.IsShown();
+  };
+
+  const bool hasLayoutViewer = paneShown("LayoutViewer");
+  const bool hasCreationTarget = paneShown("2DViewport") || paneShown("3DViewport") ||
+                                 paneShown("DataNotebook");
+
+  if (layoutToolBar) {
+    const struct {
+      int id;
+      const char *help;
+    } layoutTools[] = {
+        {ID_View_Layout_2DView, "Add 2D View to Layout"},
+        {ID_View_Layout_Legend, "Add fixture legend to layout"},
+        {ID_View_Layout_EventTable, "Add event table to layout"},
+        {ID_View_Layout_Text, "Add text box to layout"},
+        {ID_View_Layout_Image, "Add image to layout"},
+    };
+
+    for (const auto &tool : layoutTools) {
+      layoutToolBar->EnableTool(tool.id, hasLayoutViewer);
+      layoutToolBar->SetToolShortHelp(
+          tool.id,
+          hasLayoutViewer ? tool.help
+                          : "Layout tools require an open Layout viewer window");
+    }
+    layoutToolBar->Refresh();
+  }
+
+  if (toolsToolBar) {
+    const struct {
+      int id;
+      const char *help;
+    } sceneTools[] = {
+        {ID_Edit_AddFixture, "Add fixture"},
+        {ID_Edit_AddTruss, "Add truss"},
+        {ID_Edit_AddSceneObject, "Add object"},
+    };
+
+    for (const auto &tool : sceneTools) {
+      toolsToolBar->EnableTool(tool.id, hasCreationTarget);
+      toolsToolBar->SetToolShortHelp(
+          tool.id,
+          hasCreationTarget
+              ? tool.help
+              : "Requires an open 2D viewport, 3D viewport, or Data Views");
+    }
+    toolsToolBar->Refresh();
+  }
+}
+
 void MainWindow::UpdateViewMenuChecks() {
   if (!auiManager || !GetMenuBar())
     return;
@@ -596,6 +654,8 @@ void MainWindow::UpdateViewMenuChecks() {
   auto &riggingPane = auiManager->GetPane("RiggingPanel");
   GetMenuBar()->Check(ID_View_ToggleRigging,
                       riggingPane.IsOk() && riggingPane.IsShown());
+
+  UpdateToolBarAvailability();
 }
 
 void MainWindow::OnLayoutSelected(wxCommandEvent &event) {

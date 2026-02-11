@@ -184,6 +184,23 @@ void MainWindow::CreateToolBars() {
                        .ToolbarPane()
                        .Top());
 
+  editToolBar = new wxAuiToolBar(this, wxID_ANY, wxDefaultPosition,
+                                 wxDefaultSize, toolbarStyle);
+  editToolBar->SetToolBitmapSize(wxSize(16, 16));
+  editToolBar->AddTool(ID_Edit_Undo, "Undo",
+                       loadToolbarIcon("undo-2", wxART_UNDO),
+                       "Undo last action");
+  editToolBar->AddTool(ID_Edit_Redo, "Redo",
+                       loadToolbarIcon("redo-2", wxART_REDO),
+                       "Redo last undone action");
+  editToolBar->Realize();
+  auiManager->AddPane(
+      editToolBar, wxAuiPaneInfo()
+                       .Name("EditToolbar")
+                       .Caption("Edit")
+                       .ToolbarPane()
+                       .Top());
+
   layoutViewsToolBar =
       new wxAuiToolBar(this, wxID_ANY, wxDefaultPosition, wxDefaultSize,
                        toolbarStyle);
@@ -207,6 +224,33 @@ void MainWindow::CreateToolBars() {
                               .Caption("Layout Views")
                               .ToolbarPane()
                               .Top());
+
+  toolsToolBar = new wxAuiToolBar(this, wxID_ANY, wxDefaultPosition,
+                                  wxDefaultSize, toolbarStyle);
+  toolsToolBar->SetToolBitmapSize(wxSize(16, 16));
+  toolsToolBar->AddTool(ID_Edit_AddFixture, "Add Fixture",
+                        loadToolbarIcon("spotlight", wxART_MISSING_IMAGE),
+                        "Add fixture");
+  toolsToolBar->AddTool(ID_Edit_AddTruss, "Add Truss",
+                        loadToolbarIcon("truss", wxART_MISSING_IMAGE),
+                        "Add truss");
+  toolsToolBar->AddTool(ID_Edit_AddSceneObject, "Add Object",
+                        loadToolbarIcon("guitar", wxART_MISSING_IMAGE),
+                        "Add object");
+  toolsToolBar->AddSeparator();
+  toolsToolBar->AddTool(ID_Tools_DownloadGdtf, "Download GDTF",
+                        loadToolbarIcon("cloud-download", wxART_MISSING_IMAGE),
+                        "Download GDTF");
+  toolsToolBar->AddTool(ID_Tools_ImportRiderText, "Create by text",
+                        loadToolbarIcon("notepad-text", wxART_TIP),
+                        "Create by text");
+  toolsToolBar->Realize();
+  auiManager->AddPane(
+      toolsToolBar, wxAuiPaneInfo()
+                        .Name("ToolsToolbar")
+                        .Caption("Tools")
+                        .ToolbarPane()
+                        .Top());
 
   layoutToolBar = new wxAuiToolBar(this, wxID_ANY, wxDefaultPosition,
                                    wxDefaultSize, toolbarStyle);
@@ -236,32 +280,7 @@ void MainWindow::CreateToolBars() {
                          .ToolbarPane()
                          .Top());
 
-  toolsToolBar = new wxAuiToolBar(this, wxID_ANY, wxDefaultPosition,
-                                  wxDefaultSize, toolbarStyle);
-  toolsToolBar->SetToolBitmapSize(wxSize(16, 16));
-  toolsToolBar->AddTool(ID_Edit_AddFixture, "Add Fixture",
-                        loadToolbarIcon("spotlight", wxART_MISSING_IMAGE),
-                        "Add fixture");
-  toolsToolBar->AddTool(ID_Edit_AddTruss, "Add Truss",
-                        loadToolbarIcon("truss", wxART_MISSING_IMAGE),
-                        "Add truss");
-  toolsToolBar->AddTool(ID_Edit_AddSceneObject, "Add Object",
-                        loadToolbarIcon("guitar", wxART_MISSING_IMAGE),
-                        "Add object");
-  toolsToolBar->AddSeparator();
-  toolsToolBar->AddTool(ID_Tools_DownloadGdtf, "Download GDTF",
-                        loadToolbarIcon("cloud-download", wxART_MISSING_IMAGE),
-                        "Download GDTF");
-  toolsToolBar->AddTool(ID_Tools_ImportRiderText, "Create by text",
-                        loadToolbarIcon("notepad-text", wxART_TIP),
-                        "Create by text");
-  toolsToolBar->Realize();
-  auiManager->AddPane(
-      toolsToolBar, wxAuiPaneInfo()
-                        .Name("ToolsToolbar")
-                        .Caption("Tools")
-                        .ToolbarPane()
-                        .Top());
+  UpdateToolBarAvailability();
 }
 
 void MainWindow::CreateMenuBar() {
@@ -641,7 +660,7 @@ void MainWindow::OnToggleConsole(wxCommandEvent &event) {
   auiManager->Update();
 
   // keep menu state in sync
-  GetMenuBar()->Check(ID_View_ToggleConsole, pane.IsShown());
+  UpdateViewMenuChecks();
 }
 
 void MainWindow::OnToggleFixtures(wxCommandEvent &event) {
@@ -652,7 +671,7 @@ void MainWindow::OnToggleFixtures(wxCommandEvent &event) {
   pane.Show(!pane.IsShown());
   auiManager->Update();
 
-  GetMenuBar()->Check(ID_View_ToggleFixtures, pane.IsShown());
+  UpdateViewMenuChecks();
 }
 
 void MainWindow::OnToggleViewport(wxCommandEvent &event) {
@@ -663,7 +682,7 @@ void MainWindow::OnToggleViewport(wxCommandEvent &event) {
   pane.Show(!pane.IsShown());
   auiManager->Update();
 
-  GetMenuBar()->Check(ID_View_ToggleViewport, pane.IsShown());
+  UpdateViewMenuChecks();
 }
 
 void MainWindow::OnToggleViewport2D(wxCommandEvent &event) {
@@ -674,7 +693,7 @@ void MainWindow::OnToggleViewport2D(wxCommandEvent &event) {
   pane.Show(!pane.IsShown());
   auiManager->Update();
 
-  GetMenuBar()->Check(ID_View_ToggleViewport2D, pane.IsShown());
+  UpdateViewMenuChecks();
   if (pane.IsShown() && Viewer2DPanel::Instance())
     Viewer2DPanel::Instance()->Refresh();
 }
@@ -687,7 +706,7 @@ void MainWindow::OnToggleRender2D(wxCommandEvent &event) {
   pane.Show(!pane.IsShown());
   auiManager->Update();
 
-  GetMenuBar()->Check(ID_View_ToggleRender2D, pane.IsShown());
+  UpdateViewMenuChecks();
 }
 
 void MainWindow::OnToggleLayers(wxCommandEvent &event) {
@@ -698,7 +717,7 @@ void MainWindow::OnToggleLayers(wxCommandEvent &event) {
   pane.Show(!pane.IsShown());
   auiManager->Update();
 
-  GetMenuBar()->Check(ID_View_ToggleLayers, pane.IsShown());
+  UpdateViewMenuChecks();
 }
 
 void MainWindow::OnToggleLayouts(wxCommandEvent &event) {
@@ -709,7 +728,7 @@ void MainWindow::OnToggleLayouts(wxCommandEvent &event) {
   pane.Show(!pane.IsShown());
   auiManager->Update();
 
-  GetMenuBar()->Check(ID_View_ToggleLayouts, pane.IsShown());
+  UpdateViewMenuChecks();
 }
 
 void MainWindow::OnToggleSummary(wxCommandEvent &event) {
@@ -720,7 +739,7 @@ void MainWindow::OnToggleSummary(wxCommandEvent &event) {
   pane.Show(!pane.IsShown());
   auiManager->Update();
 
-  GetMenuBar()->Check(ID_View_ToggleSummary, pane.IsShown());
+  UpdateViewMenuChecks();
 }
 
 void MainWindow::OnToggleRigging(wxCommandEvent &event) {
@@ -734,7 +753,7 @@ void MainWindow::OnToggleRigging(wxCommandEvent &event) {
   if (pane.IsShown())
     RefreshRigging();
 
-  GetMenuBar()->Check(ID_View_ToggleRigging, pane.IsShown());
+  UpdateViewMenuChecks();
 }
 
 void MainWindow::OnShowHelp(wxCommandEvent &WXUNUSED(event)) {

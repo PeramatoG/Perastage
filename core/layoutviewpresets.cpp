@@ -26,11 +26,11 @@ const std::vector<LayoutViewPreset> kLayoutViewPresets = {
         {
             "FileToolbar",
             "LayoutViewsToolbar",
+            "LayoutToolbar",
         },
         {
             "LayoutPanel",
             "LayoutViewer",
-            "LayoutToolbar",
         },
     },
     {
@@ -38,11 +38,11 @@ const std::vector<LayoutViewPreset> kLayoutViewPresets = {
         {
             "FileToolbar",
             "LayoutViewsToolbar",
+            "LayoutToolbar",
         },
         {
             "LayoutPanel",
             "LayoutViewer",
-            "LayoutToolbar",
         },
     },
     {
