@@ -243,28 +243,6 @@ private:
   void DrawMesh(const Mesh &mesh, float scale = RENDER_SCALE,
                 const float *modelMatrix = nullptr);
 
-  bool GetFixtureLabelAtImpl(int mouseX, int mouseY, int width, int height,
-                             wxString &outLabel, wxPoint &outPos,
-                             std::string *outUuid = nullptr);
-  bool GetTrussLabelAtImpl(int mouseX, int mouseY, int width, int height,
-                           wxString &outLabel, wxPoint &outPos,
-                           std::string *outUuid = nullptr);
-  bool GetSceneObjectLabelAtImpl(int mouseX, int mouseY, int width, int height,
-                                 wxString &outLabel, wxPoint &outPos,
-                                 std::string *outUuid = nullptr);
-  std::vector<std::string> GetFixturesInScreenRectImpl(int x1, int y1, int x2,
-                                                       int y2, int width,
-                                                       int height) const;
-  std::vector<std::string> GetTrussesInScreenRectImpl(int x1, int y1, int x2,
-                                                      int y2, int width,
-                                                      int height) const;
-  std::vector<std::string> GetSceneObjectsInScreenRectImpl(int x1, int y1,
-                                                           int x2, int y2,
-                                                           int width,
-                                                           int height) const;
-  void SetHighlightUuidImpl(const std::string &uuid);
-  void SetSelectedUuidsImpl(const std::vector<std::string> &uuids);
-
   // Cache of already loaded meshes indexed by absolute file path
   std::unordered_map<std::string, Mesh> m_loadedMeshes;
 
