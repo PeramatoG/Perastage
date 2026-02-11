@@ -29,6 +29,7 @@
 #include "scenedatamanager.h"
 #include "canvas2d.h"
 #include "symbolcache.h"
+#include "viewer3d_types.h"
 #include <array>
 #include <mutex>
 #include <memory>
@@ -41,32 +42,16 @@
 
 struct NVGcontext;
 
-// MVR coordinates are defined in millimeters. This constant converts
-// them to meters when rendering.
-static constexpr float RENDER_SCALE = 0.001f;
-
-// Rendering options for the simplified 2D top-down view
-enum class Viewer2DRenderMode {
-  Wireframe = 0,
-  White,
-  ByFixtureType,
-  ByLayer
-};
-
-// Available orientations for the 2D viewer
-enum class Viewer2DView {
-  Top = 0,
-  Front,
-  Side,
-  Bottom
-};
-
 class SceneRenderer;
 class VisibilitySystem;
 class SelectionSystem;
 
 class Viewer3DController {
 public:
+  using ItemType = Viewer3DItemType;
+  using VisibleSet = Viewer3DVisibleSet;
+  using ViewFrustumSnapshot = Viewer3DViewFrustumSnapshot;
+
   Viewer3DController();
   ~Viewer3DController();
 
@@ -258,10 +243,6 @@ private:
   void DrawMesh(const Mesh &mesh, float scale = RENDER_SCALE,
                 const float *modelMatrix = nullptr);
 
-  enum class ItemType : int;
-  struct VisibleSet;
-  struct ViewFrustumSnapshot;
-
   // First-phase extraction entry points used by composition systems.
   bool EnsureBoundsComputedImpl(const std::string &uuid, ItemType type,
                                 const std::unordered_set<std::string> &hiddenLayers);
@@ -408,22 +389,6 @@ private:
   bool m_skipOutlinesForCurrentFrame = false;
   int m_updateResourcesCallsPerFrame = 0;
 
-  enum class ItemType : int { Fixture, Truss, SceneObject };
-  struct VisibleSet {
-    std::vector<std::string> fixtureUuids;
-    std::vector<std::string> trussUuids;
-    std::vector<std::string> objectUuids;
-
-    bool Empty() const {
-      return fixtureUuids.empty() && trussUuids.empty() && objectUuids.empty();
-    }
-  };
-
-  struct ViewFrustumSnapshot {
-    int viewport[4] = {0, 0, 0, 0};
-    double model[16] = {0.0};
-    double projection[16] = {0.0};
-  };
 
   bool TryBuildLayerVisibleCandidates(
       const std::unordered_set<std::string> &hiddenLayers,
