@@ -36,7 +36,7 @@ endif()
 
 # Find required packages
 if(WIN32)
-    find_package(wxWidgets CONFIG REQUIRED COMPONENTS core base aui gl html richtext)
+    find_package(wxWidgets CONFIG REQUIRED COMPONENTS core base aui gl html richtext xml)
     set(_wx_libs
         wx::core
         wx::base
@@ -45,10 +45,13 @@ if(WIN32)
         wx::html
         wx::richtext
     )
+    if(TARGET wx::xml)
+        list(APPEND _wx_libs wx::xml)
+    endif()
     set(_wx_includes "")
     find_package(tinyxml2 CONFIG REQUIRED)
 else()
-    find_package(wxWidgets REQUIRED COMPONENTS core base aui gl html richtext)
+    find_package(wxWidgets REQUIRED COMPONENTS core base aui gl html richtext xml)
     include(${wxWidgets_USE_FILE})
     set(_wx_libs ${wxWidgets_LIBRARIES})
     set(_wx_includes ${wxWidgets_INCLUDE_DIRS})
@@ -149,7 +152,6 @@ target_include_directories(${PROJECT_NAME} PRIVATE
 
 # Link required libraries
 target_link_libraries(${PROJECT_NAME} PRIVATE
-    ${_wx_libs}
     tinyxml2::tinyxml2
     OpenGL::GL
     OpenGL::GLU
@@ -158,6 +160,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     nanovg::nanovg
     podofo::podofo
     ZLIB::ZLIB
+    ${_wx_libs}
 )
 
 
