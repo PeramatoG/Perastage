@@ -958,6 +958,35 @@ void Viewer3DController::SetSelectedUuids(
   m_selectionSystem->SetSelectedUuids(uuids);
 }
 
+void Viewer3DController::ApplyHighlightUuid(const std::string &uuid) {
+  m_highlightUuid = uuid;
+}
+
+void Viewer3DController::ReplaceSelectedUuids(
+    const std::vector<std::string> &uuids) {
+  m_selectedUuids.clear();
+  for (const auto &u : uuids)
+    m_selectedUuids.insert(u);
+}
+
+const Viewer3DController::BoundingBox *
+Viewer3DController::FindFixtureBounds(const std::string &uuid) const {
+  auto it = m_fixtureBounds.find(uuid);
+  return it == m_fixtureBounds.end() ? nullptr : &it->second;
+}
+
+const Viewer3DController::BoundingBox *
+Viewer3DController::FindTrussBounds(const std::string &uuid) const {
+  auto it = m_trussBounds.find(uuid);
+  return it == m_trussBounds.end() ? nullptr : &it->second;
+}
+
+const Viewer3DController::BoundingBox *
+Viewer3DController::FindObjectBounds(const std::string &uuid) const {
+  auto it = m_objectBounds.find(uuid);
+  return it == m_objectBounds.end() ? nullptr : &it->second;
+}
+
 
 bool Viewer3DController::EnsureBoundsComputed(
     const std::string &uuid, ItemType type,
