@@ -53,6 +53,9 @@
 #include "consolepanel.h"
 #include "logger.h"
 #include "projectutils.h"
+#include "render/scenerenderer.h"
+#include "culling/visibilitysystem.h"
+#include "picking/selectionsystem.h"
 
 #include <wx/tokenzr.h>
 #include <wx/wx.h>
@@ -843,7 +846,10 @@ void Viewer3DController::RecordText(float x, float y, const std::string &text,
   m_captureCanvas->DrawText(x, y, text, style);
 }
 
-Viewer3DController::Viewer3DController() {
+Viewer3DController::Viewer3DController()
+    : m_sceneRenderer(std::make_unique<SceneRenderer>(*this)),
+      m_visibilitySystem(std::make_unique<VisibilitySystem>(*this)),
+      m_selectionSystem(std::make_unique<SelectionSystem>(*this)) {
   // Actual initialization of OpenGL-dependent resources is delayed
   // until a valid context is available.
 }
@@ -943,19 +949,28 @@ void Viewer3DController::InitializeGL() {
   }
 }
 
-void Viewer3DController::SetHighlightUuid(const std::string &uuid) {
+void Viewer3DController::SetHighlightUuidImpl(const std::string &uuid) {
   m_highlightUuid = uuid;
 }
 
-void Viewer3DController::SetSelectedUuids(
+void Viewer3DController::SetSelectedUuidsImpl(
     const std::vector<std::string> &uuids) {
   m_selectedUuids.clear();
   for (const auto &u : uuids)
     m_selectedUuids.insert(u);
 }
 
+void Viewer3DController::SetHighlightUuid(const std::string &uuid) {
+  m_selectionSystem->SetHighlightUuid(uuid);
+}
 
-bool Viewer3DController::EnsureBoundsComputed(
+void Viewer3DController::SetSelectedUuids(
+    const std::vector<std::string> &uuids) {
+  m_selectionSystem->SetSelectedUuids(uuids);
+}
+
+
+bool Viewer3DController::EnsureBoundsComputedImpl(
     const std::string &uuid, ItemType type,
     const std::unordered_set<std::string> &hiddenLayers) {
   auto transformBounds = [](const Viewer3DController::BoundingBox &local,
@@ -1958,7 +1973,7 @@ bool Viewer3DController::TryBuildLayerVisibleCandidates(
   return true;
 }
 
-bool Viewer3DController::TryBuildVisibleSet(
+bool Viewer3DController::TryBuildVisibleSetImpl(
     const ViewFrustumSnapshot &frustum,
     bool useFrustumCulling, float minPixels,
     const VisibleSet &layerVisibleCandidates, VisibleSet &out) const {
@@ -2100,7 +2115,7 @@ const Viewer3DController::VisibleSet &Viewer3DController::GetVisibleSet(
   return m_cachedVisibleSet;
 }
 
-void Viewer3DController::RebuildVisibleSetCache() {
+void Viewer3DController::RebuildVisibleSetCacheImpl() {
   ConfigManager &cfg = ConfigManager::Get();
   const auto hiddenLayers = SnapshotHiddenLayers(cfg);
   const CullingSettings culling = GetCullingSettings3D(cfg);
@@ -3378,7 +3393,7 @@ void Viewer3DController::ReleaseMeshBuffers(Mesh &mesh) {
 
 // Draws a mesh using the given color. When selected or highlighted the
 // mesh is rendered entirely in cyan or green respectively.
-void Viewer3DController::DrawMeshWithOutline(
+void Viewer3DController::DrawMeshWithOutlineImpl(
     const Mesh &mesh, float r, float g, float b, float scale, bool highlight,
     bool selected, float cx, float cy, float cz, bool wireframe,
     Viewer2DRenderMode mode,
@@ -3405,7 +3420,7 @@ void Viewer3DController::DrawMeshWithOutline(
           SetGLColor(0.0f, 1.0f, 0.0f);
         else if (selected)
           SetGLColor(0.0f, 1.0f, 1.0f);
-        DrawMeshWireframe(mesh, scale, captureTransform);
+        DrawMeshWireframeImpl(mesh, scale, captureTransform);
       }
       glLineWidth(lineWidth);
       SetGLColor(0.0f, 0.0f, 0.0f);
@@ -3413,7 +3428,7 @@ void Viewer3DController::DrawMeshWithOutline(
     CanvasStroke stroke;
     stroke.color = {0.0f, 0.0f, 0.0f, 1.0f};
     stroke.width = lineWidth;
-    DrawMeshWireframe(mesh, scale, captureTransform);
+    DrawMeshWireframeImpl(mesh, scale, captureTransform);
     if (m_captureCanvas && mode != Viewer2DRenderMode::Wireframe) {
       CanvasFill fill;
       fill.color = {r, g, b, 1.0f};
@@ -3443,7 +3458,7 @@ void Viewer3DController::DrawMeshWithOutline(
         SetGLColor(r, g, b);
         if (unlit)
           glDisable(GL_LIGHTING);
-        DrawMesh(mesh, scale, modelMatrix);
+        DrawMeshImpl(mesh, scale, modelMatrix);
         if (unlit)
           glEnable(GL_LIGHTING);
         glDisable(GL_POLYGON_OFFSET_FILL);
@@ -3462,7 +3477,7 @@ void Viewer3DController::DrawMeshWithOutline(
 
     if (unlit)
       glDisable(GL_LIGHTING);
-    DrawMesh(mesh, scale, modelMatrix);
+    DrawMeshImpl(mesh, scale, modelMatrix);
     if (unlit)
       glEnable(GL_LIGHTING);
   }
@@ -3494,7 +3509,7 @@ void Viewer3DController::DrawMeshWithOutline(
 
 // Draws a mesh using GL triangles. The optional scale parameter allows
 // converting vertex units (e.g. millimeters) to meters.
-void Viewer3DController::DrawMeshWireframe(
+void Viewer3DController::DrawMeshWireframeImpl(
     const Mesh &mesh, float scale,
     const std::function<std::array<float, 3>(const std::array<float, 3> &)> &
         captureTransform) {
@@ -3580,7 +3595,7 @@ void Viewer3DController::DrawMeshWireframe(
 
 // Draws a mesh using GL triangles. The optional scale parameter allows
 // converting vertex units (e.g. millimeters) to meters.
-void Viewer3DController::DrawMesh(const Mesh &mesh, float scale,
+void Viewer3DController::DrawMeshImpl(const Mesh &mesh, float scale,
                                   const float *modelMatrix) {
   const GLboolean cullWasEnabled = glIsEnabled(GL_CULL_FACE);
   if (cullWasEnabled)
@@ -3756,7 +3771,7 @@ void Viewer3DController::DrawMesh(const Mesh &mesh, float scale,
 }
 
 // Draws the reference grid on one of the principal planes
-void Viewer3DController::DrawGrid(int style, float r, float g, float b,
+void Viewer3DController::DrawGridImpl(int style, float r, float g, float b,
                                   Viewer2DView view) {
   const float size = 20.0f;
   const float step = 1.0f;
@@ -3974,7 +3989,7 @@ void Viewer3DController::SetupBasicLighting() {
   glShadeModel(GL_SMOOTH);
 }
 
-void Viewer3DController::SetupMaterialFromRGB(float r, float g, float b) {
+void Viewer3DController::SetupMaterialFromRGBImpl(float r, float g, float b) {
   SetGLColor(r, g, b);
 }
 
@@ -4379,7 +4394,7 @@ void Viewer3DController::DrawAllFixtureLabels(int width, int height,
   }
 }
 
-bool Viewer3DController::GetFixtureLabelAt(int mouseX, int mouseY, int width,
+bool Viewer3DController::GetFixtureLabelAtImpl(int mouseX, int mouseY, int width,
                                            int height, wxString &outLabel,
                                            wxPoint &outPos,
                                            std::string *outUuid) {
@@ -4639,7 +4654,7 @@ void Viewer3DController::DrawSceneObjectLabels(int width, int height) {
   }
 }
 
-bool Viewer3DController::GetTrussLabelAt(int mouseX, int mouseY, int width,
+bool Viewer3DController::GetTrussLabelAtImpl(int mouseX, int mouseY, int width,
                                          int height, wxString &outLabel,
                                          wxPoint &outPos,
                                          std::string *outUuid) {
@@ -4727,7 +4742,7 @@ bool Viewer3DController::GetTrussLabelAt(int mouseX, int mouseY, int width,
   return found;
 }
 
-bool Viewer3DController::GetSceneObjectLabelAt(int mouseX, int mouseY,
+bool Viewer3DController::GetSceneObjectLabelAtImpl(int mouseX, int mouseY,
                                                int width, int height,
                                                wxString &outLabel,
                                                wxPoint &outPos,
@@ -4814,7 +4829,7 @@ bool Viewer3DController::GetSceneObjectLabelAt(int mouseX, int mouseY,
 }
 
 std::vector<std::string>
-Viewer3DController::GetFixturesInScreenRect(int x1, int y1, int x2, int y2,
+Viewer3DController::GetFixturesInScreenRectImpl(int x1, int y1, int x2, int y2,
                                             int width, int height) const {
   ConfigManager &cfg = ConfigManager::Get();
   double model[16];
@@ -4887,7 +4902,7 @@ Viewer3DController::GetFixturesInScreenRect(int x1, int y1, int x2, int y2,
 }
 
 std::vector<std::string>
-Viewer3DController::GetTrussesInScreenRect(int x1, int y1, int x2, int y2,
+Viewer3DController::GetTrussesInScreenRectImpl(int x1, int y1, int x2, int y2,
                                            int width, int height) const {
   ConfigManager &cfg = ConfigManager::Get();
   double model[16];
@@ -4959,7 +4974,7 @@ Viewer3DController::GetTrussesInScreenRect(int x1, int y1, int x2, int y2,
 }
 
 std::vector<std::string>
-Viewer3DController::GetSceneObjectsInScreenRect(int x1, int y1, int x2, int y2,
+Viewer3DController::GetSceneObjectsInScreenRectImpl(int x1, int y1, int x2, int y2,
                                                 int width, int height) const {
   ConfigManager &cfg = ConfigManager::Get();
   double model[16];
@@ -5042,4 +5057,99 @@ void Viewer3DController::SetLayerColor(const std::string &layer,
 std::shared_ptr<const SymbolDefinitionSnapshot>
 Viewer3DController::GetBottomSymbolCacheSnapshot() const {
   return m_bottomSymbolCache.Snapshot();
+}
+
+bool Viewer3DController::EnsureBoundsComputed(
+    const std::string &uuid, ItemType type,
+    const std::unordered_set<std::string> &hiddenLayers) {
+  return m_visibilitySystem->EnsureBoundsComputed(uuid, type, hiddenLayers);
+}
+
+bool Viewer3DController::TryBuildVisibleSet(
+    const ViewFrustumSnapshot &frustum, bool useFrustumCulling,
+    float minPixels, const VisibleSet &layerVisibleCandidates,
+    VisibleSet &out) const {
+  return m_visibilitySystem->TryBuildVisibleSet(
+      frustum, useFrustumCulling, minPixels, layerVisibleCandidates, out);
+}
+
+void Viewer3DController::RebuildVisibleSetCache() {
+  m_visibilitySystem->RebuildVisibleSetCache();
+}
+
+void Viewer3DController::DrawMeshWithOutline(
+    const Mesh &mesh, float r, float g, float b, float scale, bool highlight,
+    bool selected, float cx, float cy, float cz, bool wireframe,
+    Viewer2DRenderMode mode,
+    const std::function<std::array<float, 3>(const std::array<float, 3> &)> &
+        captureTransform,
+    bool unlit, const float *modelMatrix) {
+  m_sceneRenderer->DrawMeshWithOutline(mesh, r, g, b, scale, highlight,
+                                       selected, cx, cy, cz, wireframe, mode,
+                                       captureTransform, unlit, modelMatrix);
+}
+
+void Viewer3DController::DrawMeshWireframe(
+    const Mesh &mesh, float scale,
+    const std::function<std::array<float, 3>(const std::array<float, 3> &)> &
+        captureTransform) {
+  m_sceneRenderer->DrawMeshWireframe(mesh, scale, captureTransform);
+}
+
+void Viewer3DController::DrawMesh(const Mesh &mesh, float scale,
+                                  const float *modelMatrix) {
+  m_sceneRenderer->DrawMesh(mesh, scale, modelMatrix);
+}
+
+void Viewer3DController::DrawGrid(int style, float r, float g, float b,
+                                  Viewer2DView view) {
+  m_sceneRenderer->DrawGrid(style, r, g, b, view);
+}
+
+void Viewer3DController::SetupMaterialFromRGB(float r, float g, float b) {
+  m_sceneRenderer->SetupMaterialFromRGB(r, g, b);
+}
+
+bool Viewer3DController::GetFixtureLabelAt(int mouseX, int mouseY, int width,
+                                           int height, wxString &outLabel,
+                                           wxPoint &outPos,
+                                           std::string *outUuid) {
+  return m_selectionSystem->GetFixtureLabelAt(mouseX, mouseY, width, height,
+                                              outLabel, outPos, outUuid);
+}
+
+bool Viewer3DController::GetTrussLabelAt(int mouseX, int mouseY, int width,
+                                         int height, wxString &outLabel,
+                                         wxPoint &outPos,
+                                         std::string *outUuid) {
+  return m_selectionSystem->GetTrussLabelAt(mouseX, mouseY, width, height,
+                                            outLabel, outPos, outUuid);
+}
+
+bool Viewer3DController::GetSceneObjectLabelAt(int mouseX, int mouseY,
+                                                int width, int height,
+                                                wxString &outLabel,
+                                                wxPoint &outPos,
+                                                std::string *outUuid) {
+  return m_selectionSystem->GetSceneObjectLabelAt(mouseX, mouseY, width,
+                                                  height, outLabel, outPos,
+                                                  outUuid);
+}
+
+std::vector<std::string> Viewer3DController::GetFixturesInScreenRect(
+    int x1, int y1, int x2, int y2, int width, int height) const {
+  return m_selectionSystem->GetFixturesInScreenRect(x1, y1, x2, y2, width,
+                                                    height);
+}
+
+std::vector<std::string> Viewer3DController::GetTrussesInScreenRect(
+    int x1, int y1, int x2, int y2, int width, int height) const {
+  return m_selectionSystem->GetTrussesInScreenRect(x1, y1, x2, y2, width,
+                                                   height);
+}
+
+std::vector<std::string> Viewer3DController::GetSceneObjectsInScreenRect(
+    int x1, int y1, int x2, int y2, int width, int height) const {
+  return m_selectionSystem->GetSceneObjectsInScreenRect(x1, y1, x2, y2, width,
+                                                        height);
 }

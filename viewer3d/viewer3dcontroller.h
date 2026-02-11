@@ -61,6 +61,10 @@ enum class Viewer2DView {
   Bottom
 };
 
+class SceneRenderer;
+class VisibilitySystem;
+class SelectionSystem;
+
 class Viewer3DController {
 public:
   Viewer3DController();
@@ -148,6 +152,10 @@ public:
   GetBottomSymbolCacheSnapshot() const;
 
 private:
+  friend class SceneRenderer;
+  friend class VisibilitySystem;
+  friend class SelectionSystem;
+
   // Draws a solid cube centered at origin with given size and color
   void DrawCube(float size = 0.2f, float r = 1.0f, float g = 1.0f,
                 float b = 1.0f);
@@ -250,6 +258,57 @@ private:
   void DrawMesh(const Mesh &mesh, float scale = RENDER_SCALE,
                 const float *modelMatrix = nullptr);
 
+  enum class ItemType : int;
+  struct VisibleSet;
+  struct ViewFrustumSnapshot;
+
+  // First-phase extraction entry points used by composition systems.
+  bool EnsureBoundsComputedImpl(const std::string &uuid, ItemType type,
+                                const std::unordered_set<std::string> &hiddenLayers);
+  bool TryBuildVisibleSetImpl(const ViewFrustumSnapshot &frustum,
+                              bool useFrustumCulling, float minPixels,
+                              const VisibleSet &layerVisibleCandidates,
+                              VisibleSet &out) const;
+  void RebuildVisibleSetCacheImpl();
+  bool GetFixtureLabelAtImpl(int mouseX, int mouseY, int width, int height,
+                             wxString &outLabel, wxPoint &outPos,
+                             std::string *outUuid = nullptr);
+  bool GetTrussLabelAtImpl(int mouseX, int mouseY, int width, int height,
+                           wxString &outLabel, wxPoint &outPos,
+                           std::string *outUuid = nullptr);
+  bool GetSceneObjectLabelAtImpl(int mouseX, int mouseY, int width, int height,
+                                 wxString &outLabel, wxPoint &outPos,
+                                 std::string *outUuid = nullptr);
+  std::vector<std::string> GetFixturesInScreenRectImpl(int x1, int y1, int x2,
+                                                       int y2, int width,
+                                                       int height) const;
+  std::vector<std::string> GetTrussesInScreenRectImpl(int x1, int y1, int x2,
+                                                      int y2, int width,
+                                                      int height) const;
+  std::vector<std::string> GetSceneObjectsInScreenRectImpl(int x1, int y1,
+                                                           int x2, int y2,
+                                                           int width,
+                                                           int height) const;
+  void SetHighlightUuidImpl(const std::string &uuid);
+  void SetSelectedUuidsImpl(const std::vector<std::string> &uuids);
+  void DrawMeshWithOutlineImpl(
+      const Mesh &mesh, float r = 1.0f, float g = 1.0f, float b = 1.0f,
+      float scale = RENDER_SCALE, bool highlight = false, bool selected = false,
+      float cx = 0.0f, float cy = 0.0f, float cz = 0.0f,
+      bool wireframe = false, Viewer2DRenderMode mode = Viewer2DRenderMode::White,
+      const std::function<std::array<float, 3>(const std::array<float, 3> &)> &
+          captureTransform = {},
+      bool unlit = false, const float *modelMatrix = nullptr);
+  void DrawMeshWireframeImpl(
+      const Mesh &mesh, float scale = RENDER_SCALE,
+      const std::function<std::array<float, 3>(const std::array<float, 3> &)> &
+          captureTransform = {});
+  void DrawMeshImpl(const Mesh &mesh, float scale = RENDER_SCALE,
+                    const float *modelMatrix = nullptr);
+  void DrawGridImpl(int style, float r, float g, float b,
+                    Viewer2DView view = Viewer2DView::Top);
+  void SetupMaterialFromRGBImpl(float r, float g, float b);
+
   // Cache of already loaded meshes indexed by absolute file path
   std::unordered_map<std::string, Mesh> m_loadedMeshes;
 
@@ -349,7 +408,7 @@ private:
   bool m_skipOutlinesForCurrentFrame = false;
   int m_updateResourcesCallsPerFrame = 0;
 
-  enum class ItemType { Fixture, Truss, SceneObject };
+  enum class ItemType : int { Fixture, Truss, SceneObject };
   struct VisibleSet {
     std::vector<std::string> fixtureUuids;
     std::vector<std::string> trussUuids;
@@ -390,6 +449,10 @@ private:
   mutable std::array<int, 4> m_visibleSetViewport = {0, 0, 0, 0};
   mutable std::array<double, 16> m_visibleSetModel = {};
   mutable std::array<double, 16> m_visibleSetProjection = {};
+
+  std::unique_ptr<SceneRenderer> m_sceneRenderer;
+  std::unique_ptr<VisibilitySystem> m_visibilitySystem;
+  std::unique_ptr<SelectionSystem> m_selectionSystem;
 
 public:
   // Enables recording of all primitives drawn during the next RenderScene
