@@ -55,13 +55,11 @@ std::string FormatMeters(float mm) {
 } // namespace
 
 void SelectionSystem::SetHighlightUuid(const std::string &uuid) {
-  m_controller.m_highlightUuid = uuid;
+  m_controller.ApplyHighlightUuid(uuid);
 }
 
 void SelectionSystem::SetSelectedUuids(const std::vector<std::string> &uuids) {
-  m_controller.m_selectedUuids.clear();
-  for (const auto &u : uuids)
-    m_controller.m_selectedUuids.insert(u);
+  m_controller.ReplaceSelectedUuids(uuids);
 }
 
 bool SelectionSystem::GetFixtureLabelAt(int mouseX, int mouseY, int width,
@@ -69,7 +67,7 @@ bool SelectionSystem::GetFixtureLabelAt(int mouseX, int mouseY, int width,
                                         wxPoint &outPos,
                                         std::string *outUuid) {
   ConfigManager &cfg = ConfigManager::Get();
-  if (m_controller.m_cameraMoving && IsFastInteractionModeEnabled(cfg))
+  if (m_controller.IsCameraMoving() && IsFastInteractionModeEnabled(cfg))
     return false;
 
   double model[16];
@@ -94,11 +92,12 @@ bool SelectionSystem::GetFixtureLabelAt(int mouseX, int mouseY, int width,
   for (const auto &[uuid, f] : fixtures) {
     if (!IsLayerVisibleCached(hiddenLayers, f.layer))
       continue;
-    auto bit = m_controller.m_fixtureBounds.find(uuid);
-    if (bit == m_controller.m_fixtureBounds.end())
+    const Viewer3DController::BoundingBox *bbPtr =
+        m_controller.FindFixtureBounds(uuid);
+    if (!bbPtr)
       continue;
 
-    const Viewer3DController::BoundingBox &bb = bit->second;
+    const Viewer3DController::BoundingBox &bb = *bbPtr;
     std::array<std::array<float, 3>, 8> corners = {
         std::array<float, 3>{bb.min[0], bb.min[1], bb.min[2]},
         {bb.max[0], bb.min[1], bb.min[2]},
@@ -174,7 +173,7 @@ bool SelectionSystem::GetTrussLabelAt(int mouseX, int mouseY, int width,
                                       wxPoint &outPos,
                                       std::string *outUuid) {
   ConfigManager &cfg = ConfigManager::Get();
-  if (m_controller.m_cameraMoving && IsFastInteractionModeEnabled(cfg))
+  if (m_controller.IsCameraMoving() && IsFastInteractionModeEnabled(cfg))
     return false;
 
   double model[16];
@@ -194,11 +193,12 @@ bool SelectionSystem::GetTrussLabelAt(int mouseX, int mouseY, int width,
   for (const auto &[uuid, t] : trusses) {
     if (!IsLayerVisibleCached(hiddenLayers, t.layer))
       continue;
-    auto bit = m_controller.m_trussBounds.find(uuid);
-    if (bit == m_controller.m_trussBounds.end())
+    const Viewer3DController::BoundingBox *bbPtr =
+        m_controller.FindTrussBounds(uuid);
+    if (!bbPtr)
       continue;
 
-    const Viewer3DController::BoundingBox &bb = bit->second;
+    const Viewer3DController::BoundingBox &bb = *bbPtr;
     std::array<std::array<float, 3>, 8> corners = {
         std::array<float, 3>{bb.min[0], bb.min[1], bb.min[2]},
         {bb.max[0], bb.min[1], bb.min[2]},
@@ -262,7 +262,7 @@ bool SelectionSystem::GetSceneObjectLabelAt(int mouseX, int mouseY, int width,
                                             wxPoint &outPos,
                                             std::string *outUuid) {
   ConfigManager &cfg = ConfigManager::Get();
-  if (m_controller.m_cameraMoving && IsFastInteractionModeEnabled(cfg))
+  if (m_controller.IsCameraMoving() && IsFastInteractionModeEnabled(cfg))
     return false;
 
   double model[16];
@@ -282,11 +282,12 @@ bool SelectionSystem::GetSceneObjectLabelAt(int mouseX, int mouseY, int width,
   for (const auto &[uuid, o] : objs) {
     if (!IsLayerVisibleCached(hiddenLayers, o.layer))
       continue;
-    auto bit = m_controller.m_objectBounds.find(uuid);
-    if (bit == m_controller.m_objectBounds.end())
+    const Viewer3DController::BoundingBox *bbPtr =
+        m_controller.FindObjectBounds(uuid);
+    if (!bbPtr)
       continue;
 
-    const Viewer3DController::BoundingBox &bb = bit->second;
+    const Viewer3DController::BoundingBox &bb = *bbPtr;
     std::array<std::array<float, 3>, 8> corners = {
         std::array<float, 3>{bb.min[0], bb.min[1], bb.min[2]},
         {bb.max[0], bb.min[1], bb.min[2]},
@@ -401,11 +402,12 @@ std::vector<std::string> SelectionSystem::GetFixturesInScreenRect(
   const Viewer3DController::VisibleSet &visibleSet =
       m_controller.GetVisibleSet(frustum, hiddenLayers, true, 0.0f);
   for (const auto &uuid : visibleSet.fixtureUuids) {
-    auto bit = m_controller.m_fixtureBounds.find(uuid);
-    if (bit == m_controller.m_fixtureBounds.end())
+    const Viewer3DController::BoundingBox *bbPtr =
+        m_controller.FindFixtureBounds(uuid);
+    if (!bbPtr)
       continue;
     ScreenRect rect;
-    if (!projectBounds(bit->second, rect))
+    if (!projectBounds(*bbPtr, rect))
       continue;
     if (intersects(rect))
       selection.push_back(uuid);
@@ -473,11 +475,12 @@ std::vector<std::string> SelectionSystem::GetTrussesInScreenRect(
   const Viewer3DController::VisibleSet &visibleSet =
       m_controller.GetVisibleSet(frustum, hiddenLayers, true, 0.0f);
   for (const auto &uuid : visibleSet.trussUuids) {
-    auto bit = m_controller.m_trussBounds.find(uuid);
-    if (bit == m_controller.m_trussBounds.end())
+    const Viewer3DController::BoundingBox *bbPtr =
+        m_controller.FindTrussBounds(uuid);
+    if (!bbPtr)
       continue;
     ScreenRect rect;
-    if (!projectBounds(bit->second, rect))
+    if (!projectBounds(*bbPtr, rect))
       continue;
     if (intersects(rect))
       selection.push_back(uuid);
@@ -545,11 +548,12 @@ std::vector<std::string> SelectionSystem::GetSceneObjectsInScreenRect(
   const Viewer3DController::VisibleSet &visibleSet =
       m_controller.GetVisibleSet(frustum, hiddenLayers, true, 0.0f);
   for (const auto &uuid : visibleSet.objectUuids) {
-    auto bit = m_controller.m_objectBounds.find(uuid);
-    if (bit == m_controller.m_objectBounds.end())
+    const Viewer3DController::BoundingBox *bbPtr =
+        m_controller.FindObjectBounds(uuid);
+    if (!bbPtr)
       continue;
     ScreenRect rect;
-    if (!projectBounds(bit->second, rect))
+    if (!projectBounds(*bbPtr, rect))
       continue;
     if (intersects(rect))
       selection.push_back(uuid);

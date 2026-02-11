@@ -52,6 +52,11 @@ public:
   using VisibleSet = Viewer3DVisibleSet;
   using ViewFrustumSnapshot = Viewer3DViewFrustumSnapshot;
 
+  struct BoundingBox {
+    std::array<float, 3> min;
+    std::array<float, 3> max;
+  };
+
   Viewer3DController();
   ~Viewer3DController();
 
@@ -118,6 +123,19 @@ public:
   bool GetSceneObjectLabelAt(int mouseX, int mouseY, int width, int height,
                              wxString &outLabel, wxPoint &outPos,
                              std::string *outUuid = nullptr);
+
+  // Selection/culling query helpers used by subsystem blocks. They expose
+  // read-only access and keep Viewer3DController as façade/orchestrator.
+  void ApplyHighlightUuid(const std::string &uuid);
+  void ReplaceSelectedUuids(const std::vector<std::string> &uuids);
+  const BoundingBox *FindFixtureBounds(const std::string &uuid) const;
+  const BoundingBox *FindTrussBounds(const std::string &uuid) const;
+  const BoundingBox *FindObjectBounds(const std::string &uuid) const;
+
+  const VisibleSet &GetVisibleSet(const ViewFrustumSnapshot &frustum,
+                                  const std::unordered_set<std::string> &hiddenLayers,
+                                  bool useFrustumCulling, float minPixels) const;
+
   void RebuildVisibleSetCache();
   std::vector<std::string> GetFixturesInScreenRect(int x1, int y1, int x2,
                                                    int y2, int width,
@@ -139,7 +157,6 @@ public:
 private:
   friend class SceneRenderer;
   friend class VisibilitySystem;
-  friend class SelectionSystem;
 
   // Draws a solid cube centered at origin with given size and color
   void DrawCube(float size = 0.2f, float r = 1.0f, float g = 1.0f,
@@ -257,11 +274,6 @@ private:
   std::unordered_map<std::string, std::string> m_reportedGdtfFailureReasons;
   std::string m_lastSceneBasePath;
 
-  struct BoundingBox {
-    std::array<float, 3> min;
-    std::array<float, 3> max;
-  };
-
   // Cache of local-space model bounds keyed by resolved source path.
   std::unordered_map<std::string, BoundingBox> m_modelBounds;
 
@@ -350,9 +362,6 @@ private:
                           bool useFrustumCulling, float minPixels,
                           const VisibleSet &layerVisibleCandidates,
                           VisibleSet &out) const;
-  const VisibleSet &GetVisibleSet(const ViewFrustumSnapshot &frustum,
-                                  const std::unordered_set<std::string> &hiddenLayers,
-                                  bool useFrustumCulling, float minPixels) const;
 
   bool EnsureBoundsComputed(const std::string &uuid, ItemType type,
                             const std::unordered_set<std::string> &hiddenLayers);
