@@ -170,16 +170,15 @@ void MainWindow::CreateToolBars() {
       [&](wxAuiToolBar *toolbar, int id, const wxString &label,
           const std::string &iconName, const wxArtID &fallbackArtId,
           const wxString &shortHelp) {
-        wxAuiToolBarItem item;
-        item.SetId(id);
-        item.SetKind(wxITEM_NORMAL);
-        item.SetLabel(label);
-        item.SetBitmap(loadToolbarIcon(iconName, fallbackArtId)
-                           .GetBitmap(wxSize(16, 16)));
-        item.SetDisabledBitmap(loadToolbarDisabledIcon(iconName, fallbackArtId)
-                                   .GetBitmap(wxSize(16, 16)));
-        toolbar->AddTool(item);
-        toolbar->SetToolShortHelp(id, shortHelp);
+        toolbar->AddTool(id, label, loadToolbarIcon(iconName, fallbackArtId),
+                         shortHelp);
+
+        wxAuiToolBarItem *toolItem = toolbar->FindTool(id);
+        if (toolItem) {
+          toolItem->SetDisabledBitmap(
+              loadToolbarDisabledIcon(iconName, fallbackArtId)
+                  .GetBitmap(wxSize(16, 16)));
+        }
       };
   fileToolBar->AddTool(ID_File_New, "New",
                        loadToolbarIcon("file", wxART_NEW),
