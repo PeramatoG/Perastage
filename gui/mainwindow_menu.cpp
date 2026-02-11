@@ -154,6 +154,32 @@ void MainWindow::CreateToolBars() {
     return wxArtProvider::GetBitmapBundle(fallbackArtId, wxART_TOOLBAR,
                                           wxSize(16, 16));
   };
+  const auto loadToolbarDisabledIcon = [&](const std::string &name,
+                                           const wxArtID &fallbackArtId) {
+    auto svgPath = ProjectUtils::GetResourceRoot() / "icons" / "outline" /
+                   (name + "-disabled.svg");
+    if (std::filesystem::exists(svgPath)) {
+      wxBitmapBundle bundle =
+          wxBitmapBundle::FromSVGFile(svgPath.string(), wxSize(16, 16));
+      if (bundle.IsOk())
+        return bundle;
+    }
+    return loadToolbarIcon(name, fallbackArtId);
+  };
+  const auto addToolWithDisabledIcon =
+      [&](wxAuiToolBar *toolbar, int id, const wxString &label,
+          const std::string &iconName, const wxArtID &fallbackArtId,
+          const wxString &shortHelp) {
+        toolbar->AddTool(id, label, loadToolbarIcon(iconName, fallbackArtId),
+                         shortHelp);
+
+        wxAuiToolBarItem *toolItem = toolbar->FindTool(id);
+        if (toolItem) {
+          toolItem->SetDisabledBitmap(
+              loadToolbarDisabledIcon(iconName, fallbackArtId)
+                  .GetBitmap(wxSize(16, 16)));
+        }
+      };
   fileToolBar->AddTool(ID_File_New, "New",
                        loadToolbarIcon("file", wxART_NEW),
                        "Create a new project");
@@ -184,6 +210,23 @@ void MainWindow::CreateToolBars() {
                        .ToolbarPane()
                        .Top());
 
+  editToolBar = new wxAuiToolBar(this, wxID_ANY, wxDefaultPosition,
+                                 wxDefaultSize, toolbarStyle);
+  editToolBar->SetToolBitmapSize(wxSize(16, 16));
+  editToolBar->AddTool(ID_Edit_Undo, "Undo",
+                       loadToolbarIcon("undo-2", wxART_UNDO),
+                       "Undo last action");
+  editToolBar->AddTool(ID_Edit_Redo, "Redo",
+                       loadToolbarIcon("redo-2", wxART_REDO),
+                       "Redo last undone action");
+  editToolBar->Realize();
+  auiManager->AddPane(
+      editToolBar, wxAuiPaneInfo()
+                       .Name("EditToolbar")
+                       .Caption("Edit")
+                       .ToolbarPane()
+                       .Top());
+
   layoutViewsToolBar =
       new wxAuiToolBar(this, wxID_ANY, wxDefaultPosition, wxDefaultSize,
                        toolbarStyle);
@@ -208,46 +251,15 @@ void MainWindow::CreateToolBars() {
                               .ToolbarPane()
                               .Top());
 
-  layoutToolBar = new wxAuiToolBar(this, wxID_ANY, wxDefaultPosition,
-                                   wxDefaultSize, toolbarStyle);
-  layoutToolBar->SetToolBitmapSize(wxSize(16, 16));
-  layoutToolBar->AddTool(ID_View_Layout_2DView, "Añadir vista 2D",
-                         loadToolbarIcon("panel-top-bottom-dashed",
-                                         wxART_MISSING_IMAGE),
-                         "Add 2D View to Layout");
-  layoutToolBar->AddTool(ID_View_Layout_Legend, "Añadir leyenda",
-                         loadToolbarIcon("layout-list",
-                                         wxART_MISSING_IMAGE),
-                         "Add fixture legend to layout");
-  layoutToolBar->AddTool(ID_View_Layout_EventTable, "Añadir tabla de evento",
-                         loadToolbarIcon("table", wxART_LIST_VIEW),
-                         "Add event table to layout");
-  layoutToolBar->AddTool(ID_View_Layout_Text, "Añadir texto",
-                         loadToolbarIcon("text-select", wxART_TIP),
-                         "Add text box to layout");
-  layoutToolBar->AddTool(ID_View_Layout_Image, "Añadir imagen",
-                         loadToolbarIcon("image-plus", wxART_MISSING_IMAGE),
-                         "Add image to layout");
-  layoutToolBar->Realize();
-  auiManager->AddPane(
-      layoutToolBar, wxAuiPaneInfo()
-                         .Name("LayoutToolbar")
-                         .Caption("Layout")
-                         .ToolbarPane()
-                         .Top());
-
   toolsToolBar = new wxAuiToolBar(this, wxID_ANY, wxDefaultPosition,
                                   wxDefaultSize, toolbarStyle);
   toolsToolBar->SetToolBitmapSize(wxSize(16, 16));
-  toolsToolBar->AddTool(ID_Edit_AddFixture, "Add Fixture",
-                        loadToolbarIcon("spotlight", wxART_MISSING_IMAGE),
-                        "Add fixture");
-  toolsToolBar->AddTool(ID_Edit_AddTruss, "Add Truss",
-                        loadToolbarIcon("truss", wxART_MISSING_IMAGE),
-                        "Add truss");
-  toolsToolBar->AddTool(ID_Edit_AddSceneObject, "Add Object",
-                        loadToolbarIcon("guitar", wxART_MISSING_IMAGE),
-                        "Add object");
+  addToolWithDisabledIcon(toolsToolBar, ID_Edit_AddFixture, "Add Fixture",
+                          "spotlight", wxART_MISSING_IMAGE, "Add fixture");
+  addToolWithDisabledIcon(toolsToolBar, ID_Edit_AddTruss, "Add Truss",
+                          "truss", wxART_MISSING_IMAGE, "Add truss");
+  addToolWithDisabledIcon(toolsToolBar, ID_Edit_AddSceneObject, "Add Object",
+                          "guitar", wxART_MISSING_IMAGE, "Add object");
   toolsToolBar->AddSeparator();
   toolsToolBar->AddTool(ID_Tools_DownloadGdtf, "Download GDTF",
                         loadToolbarIcon("cloud-download", wxART_MISSING_IMAGE),
@@ -262,6 +274,34 @@ void MainWindow::CreateToolBars() {
                         .Caption("Tools")
                         .ToolbarPane()
                         .Top());
+
+  layoutToolBar = new wxAuiToolBar(this, wxID_ANY, wxDefaultPosition,
+                                   wxDefaultSize, toolbarStyle);
+  layoutToolBar->SetToolBitmapSize(wxSize(16, 16));
+  addToolWithDisabledIcon(layoutToolBar, ID_View_Layout_2DView,
+                          "Añadir vista 2D", "panel-top-bottom-dashed",
+                          wxART_MISSING_IMAGE, "Add 2D View to Layout");
+  addToolWithDisabledIcon(layoutToolBar, ID_View_Layout_Legend,
+                          "Añadir leyenda", "layout-list",
+                          wxART_MISSING_IMAGE, "Add fixture legend to layout");
+  addToolWithDisabledIcon(layoutToolBar, ID_View_Layout_EventTable,
+                          "Añadir tabla de evento", "table", wxART_LIST_VIEW,
+                          "Add event table to layout");
+  addToolWithDisabledIcon(layoutToolBar, ID_View_Layout_Text, "Añadir texto",
+                          "text-select", wxART_TIP,
+                          "Add text box to layout");
+  addToolWithDisabledIcon(layoutToolBar, ID_View_Layout_Image,
+                          "Añadir imagen", "image-plus",
+                          wxART_MISSING_IMAGE, "Add image to layout");
+  layoutToolBar->Realize();
+  auiManager->AddPane(
+      layoutToolBar, wxAuiPaneInfo()
+                         .Name("LayoutToolbar")
+                         .Caption("Layout")
+                         .ToolbarPane()
+                         .Top());
+
+  UpdateToolBarAvailability();
 }
 
 void MainWindow::CreateMenuBar() {
@@ -641,7 +681,7 @@ void MainWindow::OnToggleConsole(wxCommandEvent &event) {
   auiManager->Update();
 
   // keep menu state in sync
-  GetMenuBar()->Check(ID_View_ToggleConsole, pane.IsShown());
+  UpdateViewMenuChecks();
 }
 
 void MainWindow::OnToggleFixtures(wxCommandEvent &event) {
@@ -652,7 +692,7 @@ void MainWindow::OnToggleFixtures(wxCommandEvent &event) {
   pane.Show(!pane.IsShown());
   auiManager->Update();
 
-  GetMenuBar()->Check(ID_View_ToggleFixtures, pane.IsShown());
+  UpdateViewMenuChecks();
 }
 
 void MainWindow::OnToggleViewport(wxCommandEvent &event) {
@@ -663,7 +703,7 @@ void MainWindow::OnToggleViewport(wxCommandEvent &event) {
   pane.Show(!pane.IsShown());
   auiManager->Update();
 
-  GetMenuBar()->Check(ID_View_ToggleViewport, pane.IsShown());
+  UpdateViewMenuChecks();
 }
 
 void MainWindow::OnToggleViewport2D(wxCommandEvent &event) {
@@ -674,7 +714,7 @@ void MainWindow::OnToggleViewport2D(wxCommandEvent &event) {
   pane.Show(!pane.IsShown());
   auiManager->Update();
 
-  GetMenuBar()->Check(ID_View_ToggleViewport2D, pane.IsShown());
+  UpdateViewMenuChecks();
   if (pane.IsShown() && Viewer2DPanel::Instance())
     Viewer2DPanel::Instance()->Refresh();
 }
@@ -687,7 +727,7 @@ void MainWindow::OnToggleRender2D(wxCommandEvent &event) {
   pane.Show(!pane.IsShown());
   auiManager->Update();
 
-  GetMenuBar()->Check(ID_View_ToggleRender2D, pane.IsShown());
+  UpdateViewMenuChecks();
 }
 
 void MainWindow::OnToggleLayers(wxCommandEvent &event) {
@@ -698,7 +738,7 @@ void MainWindow::OnToggleLayers(wxCommandEvent &event) {
   pane.Show(!pane.IsShown());
   auiManager->Update();
 
-  GetMenuBar()->Check(ID_View_ToggleLayers, pane.IsShown());
+  UpdateViewMenuChecks();
 }
 
 void MainWindow::OnToggleLayouts(wxCommandEvent &event) {
@@ -709,7 +749,7 @@ void MainWindow::OnToggleLayouts(wxCommandEvent &event) {
   pane.Show(!pane.IsShown());
   auiManager->Update();
 
-  GetMenuBar()->Check(ID_View_ToggleLayouts, pane.IsShown());
+  UpdateViewMenuChecks();
 }
 
 void MainWindow::OnToggleSummary(wxCommandEvent &event) {
@@ -720,7 +760,7 @@ void MainWindow::OnToggleSummary(wxCommandEvent &event) {
   pane.Show(!pane.IsShown());
   auiManager->Update();
 
-  GetMenuBar()->Check(ID_View_ToggleSummary, pane.IsShown());
+  UpdateViewMenuChecks();
 }
 
 void MainWindow::OnToggleRigging(wxCommandEvent &event) {
@@ -734,7 +774,7 @@ void MainWindow::OnToggleRigging(wxCommandEvent &event) {
   if (pane.IsShown())
     RefreshRigging();
 
-  GetMenuBar()->Check(ID_View_ToggleRigging, pane.IsShown());
+  UpdateViewMenuChecks();
 }
 
 void MainWindow::OnShowHelp(wxCommandEvent &WXUNUSED(event)) {
