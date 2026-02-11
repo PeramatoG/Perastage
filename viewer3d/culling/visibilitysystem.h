@@ -12,6 +12,13 @@ public:
                           bool useFrustumCulling, float minPixels,
                           const Viewer3DController::VisibleSet &layerVisibleCandidates,
                           Viewer3DController::VisibleSet &out) const;
+  bool TryBuildLayerVisibleCandidates(
+      const std::unordered_set<std::string> &hiddenLayers,
+      Viewer3DController::VisibleSet &out) const;
+  const Viewer3DController::VisibleSet &
+  GetVisibleSet(const Viewer3DController::ViewFrustumSnapshot &frustum,
+                const std::unordered_set<std::string> &hiddenLayers,
+                bool useFrustumCulling, float minPixels) const;
   void RebuildVisibleSetCache();
 
 private:

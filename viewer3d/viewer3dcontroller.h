@@ -243,14 +243,6 @@ private:
   void DrawMesh(const Mesh &mesh, float scale = RENDER_SCALE,
                 const float *modelMatrix = nullptr);
 
-  // First-phase extraction entry points used by composition systems.
-  bool EnsureBoundsComputedImpl(const std::string &uuid, ItemType type,
-                                const std::unordered_set<std::string> &hiddenLayers);
-  bool TryBuildVisibleSetImpl(const ViewFrustumSnapshot &frustum,
-                              bool useFrustumCulling, float minPixels,
-                              const VisibleSet &layerVisibleCandidates,
-                              VisibleSet &out) const;
-  void RebuildVisibleSetCacheImpl();
   bool GetFixtureLabelAtImpl(int mouseX, int mouseY, int width, int height,
                              wxString &outLabel, wxPoint &outPos,
                              std::string *outUuid = nullptr);
