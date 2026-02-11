@@ -26,9 +26,43 @@
 #include <set>
 #include <chrono>
 #include <algorithm>
+#include <functional>
 #include <wx/dcmemory.h>
 
 LayerPanel* LayerPanel::s_instance = nullptr;
+
+namespace {
+void RefreshVisibleViewers() {
+    std::function<void(wxWindow*)> visit;
+    visit = [&](wxWindow* window) {
+        if (!window)
+            return;
+
+        if (auto* viewer3d = dynamic_cast<Viewer3DPanel*>(window)) {
+            if (viewer3d->IsShownOnScreen()) {
+                viewer3d->UpdateScene();
+                viewer3d->Refresh();
+            }
+        }
+
+        if (auto* viewer2d = dynamic_cast<Viewer2DPanel*>(window)) {
+            if (viewer2d->IsShownOnScreen()) {
+                // Hidden-layer visibility is read from ConfigManager during
+                // draw calls, so forcing repaint is enough to apply toggles
+                // immediately even when heavy reload work is paused.
+                viewer2d->UpdateScene(false);
+                viewer2d->Refresh();
+            }
+        }
+
+        for (auto* child : window->GetChildren())
+            visit(child);
+    };
+
+    for (auto* top : wxTopLevelWindows)
+        visit(top);
+}
+} // namespace
 
 LayerPanel::LayerPanel(wxWindow* parent, bool showButtons)
     : wxPanel(parent, wxID_ANY)
@@ -160,10 +194,7 @@ void LayerPanel::OnCheck(wxDataViewEvent& evt)
     else
         hidden.insert(name);
     ConfigManager::Get().SetHiddenLayers(hidden);
-    if (Viewer3DPanel::Instance())
-        Viewer3DPanel::Instance()->UpdateScene();
-    if (Viewer2DPanel::Instance())
-        Viewer2DPanel::Instance()->UpdateScene(true);
+    RefreshVisibleViewers();
 }
 
 void LayerPanel::OnSelect(wxDataViewEvent& evt)
