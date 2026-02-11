@@ -4,8 +4,10 @@
 #ifdef __APPLE__
 #define GL_SILENCE_DEPRECATION
 #include <OpenGL/gl.h>
+#include <OpenGL/glu.h>
 #else
 #include <GL/gl.h>
+#include <GL/glu.h>
 #endif
 
 #include "../../core/configmanager.h"
@@ -27,6 +29,98 @@ bool IsLayerVisibleCached(const std::unordered_set<std::string> &hidden,
 
 std::unordered_set<std::string> SnapshotHiddenLayers(const ConfigManager &cfg) {
   return cfg.GetHiddenLayers();
+}
+
+
+static std::string NormalizePath(const std::string &pathRef) {
+  std::string out = pathRef;
+  std::replace(out.begin(), out.end(), '\\', '/');
+  return out;
+}
+
+static std::string ResolveCacheKey(const std::string &pathRef) {
+  return NormalizePath(pathRef);
+}
+
+static std::array<float, 3> TransformPoint(const Matrix &m,
+                                           const std::array<float, 3> &p) {
+  return {m.u[0] * p[0] + m.v[0] * p[1] + m.w[0] * p[2] + m.o[0],
+          m.u[1] * p[0] + m.v[1] * p[1] + m.w[1] * p[2] + m.o[1],
+          m.u[2] * p[0] + m.v[2] * p[1] + m.w[2] * p[2] + m.o[2]};
+}
+
+struct ScreenRect {
+  double minX = DBL_MAX;
+  double minY = DBL_MAX;
+  double maxX = -DBL_MAX;
+  double maxY = -DBL_MAX;
+};
+
+struct CullingSettings {
+  bool enabled = true;
+  float minPixels3D = 2.0f;
+  float minPixels2D = 1.0f;
+};
+
+static CullingSettings GetCullingSettings3D(const ConfigManager &cfg) {
+  CullingSettings s{};
+  s.enabled = cfg.GetFloat("render_culling_enabled") >= 0.5f;
+  s.minPixels3D = std::max(0.0f, cfg.GetFloat("render_culling_min_pixels_3d"));
+  s.minPixels2D = std::max(0.0f, cfg.GetFloat("render_culling_min_pixels_2d"));
+  return s;
+}
+
+static bool ProjectBoundingBoxToScreen(const std::array<float, 3> &bbMin,
+                                       const std::array<float, 3> &bbMax,
+                                       int viewportHeight,
+                                       const double model[16],
+                                       const double proj[16],
+                                       const int viewport[4],
+                                       ScreenRect &outRect,
+                                       bool &outAnyDepthVisible) {
+  outRect = ScreenRect{};
+  outAnyDepthVisible = false;
+  bool projected = false;
+
+  std::array<std::array<float, 3>, 8> corners = {
+      std::array<float, 3>{bbMin[0], bbMin[1], bbMin[2]},
+      {bbMax[0], bbMin[1], bbMin[2]},
+      {bbMin[0], bbMax[1], bbMin[2]},
+      {bbMax[0], bbMax[1], bbMin[2]},
+      {bbMin[0], bbMin[1], bbMax[2]},
+      {bbMax[0], bbMin[1], bbMax[2]},
+      {bbMin[0], bbMax[1], bbMax[2]},
+      {bbMax[0], bbMax[1], bbMax[2]}};
+
+  for (const auto &c : corners) {
+    double sx, sy, sz;
+    if (gluProject(c[0], c[1], c[2], model, proj, viewport, &sx, &sy, &sz) ==
+        GL_TRUE) {
+      projected = true;
+      outRect.minX = std::min(outRect.minX, sx);
+      outRect.maxX = std::max(outRect.maxX, sx);
+      const double sy2 = static_cast<double>(viewportHeight) - sy;
+      outRect.minY = std::min(outRect.minY, sy2);
+      outRect.maxY = std::max(outRect.maxY, sy2);
+      if (sz >= 0.0 && sz <= 1.0)
+        outAnyDepthVisible = true;
+    }
+  }
+
+  return projected;
+}
+
+static bool ShouldCullByScreenRect(const ScreenRect &rect, int width,
+                                   int height, float minPixels) {
+  if (rect.maxX < 0.0 || rect.minX > static_cast<double>(width) ||
+      rect.maxY < 0.0 || rect.minY > static_cast<double>(height)) {
+    return true;
+  }
+
+  const double screenWidth = rect.maxX - rect.minX;
+  const double screenHeight = rect.maxY - rect.minY;
+  return screenWidth < static_cast<double>(minPixels) &&
+         screenHeight < static_cast<double>(minPixels);
 }
 
 } // namespace
