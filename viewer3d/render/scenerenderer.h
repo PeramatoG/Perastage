@@ -1,6 +1,9 @@
 #pragma once
 
-#include "../viewer3dcontroller.h"
+#include "../mesh.h"
+#include "../viewer3d_types.h"
+
+class Viewer3DController;
 
 class SceneRenderer {
 public:

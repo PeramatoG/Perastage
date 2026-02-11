@@ -1,4 +1,5 @@
 #include "selectionsystem.h"
+#include "../viewer3dcontroller.h"
 
 void SelectionSystem::SetHighlightUuid(const std::string &uuid) {
   m_controller.SetHighlightUuidImpl(uuid);

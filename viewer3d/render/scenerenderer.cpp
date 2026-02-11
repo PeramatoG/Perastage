@@ -1,4 +1,5 @@
 #include "scenerenderer.h"
+#include "../viewer3dcontroller.h"
 
 void SceneRenderer::DrawMeshWithOutline(
     const Mesh &mesh, float r, float g, float b, float scale, bool highlight,

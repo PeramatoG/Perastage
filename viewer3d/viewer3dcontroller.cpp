@@ -971,7 +971,7 @@ void Viewer3DController::SetSelectedUuids(
 
 
 bool Viewer3DController::EnsureBoundsComputedImpl(
-    const std::string &uuid, ItemType type,
+    const std::string &uuid, ViewerItemType type,
     const std::unordered_set<std::string> &hiddenLayers) {
   auto transformBounds = [](const Viewer3DController::BoundingBox &local,
                             const Matrix &m) {
@@ -1005,7 +1005,7 @@ bool Viewer3DController::EnsureBoundsComputedImpl(
   const auto &trusses = SceneDataManager::Instance().GetTrusses();
   const auto &objects = SceneDataManager::Instance().GetSceneObjects();
 
-  if (type == ItemType::Fixture) {
+  if (type == ViewerItemType::Fixture) {
     if (m_fixtureBounds.find(uuid) != m_fixtureBounds.end())
       return true;
     auto fit = fixtures.find(uuid);
@@ -1083,7 +1083,7 @@ bool Viewer3DController::EnsureBoundsComputedImpl(
     return true;
   }
 
-  if (type == ItemType::Truss) {
+  if (type == ViewerItemType::Truss) {
     if (m_trussBounds.find(uuid) != m_trussBounds.end())
       return true;
     auto tit = trusses.find(uuid);
@@ -1924,7 +1924,7 @@ void Viewer3DController::UpdateResourcesIfDirty() {
 
 bool Viewer3DController::TryBuildLayerVisibleCandidates(
     const std::unordered_set<std::string> &hiddenLayers,
-    VisibleSet &out) const {
+    ViewerVisibleSet &out) const {
   const auto &sceneObjects = SceneDataManager::Instance().GetSceneObjects();
   const auto &trusses = SceneDataManager::Instance().GetTrusses();
   const auto &fixtures = SceneDataManager::Instance().GetFixtures();
@@ -1974,9 +1974,9 @@ bool Viewer3DController::TryBuildLayerVisibleCandidates(
 }
 
 bool Viewer3DController::TryBuildVisibleSetImpl(
-    const ViewFrustumSnapshot &frustum,
+    const ViewerViewFrustumSnapshot &frustum,
     bool useFrustumCulling, float minPixels,
-    const VisibleSet &layerVisibleCandidates, VisibleSet &out) const {
+    const ViewerVisibleSet &layerVisibleCandidates, ViewerVisibleSet &out) const {
   out.objectUuids.clear();
   out.trussUuids.clear();
   out.fixtureUuids.clear();
@@ -2047,8 +2047,8 @@ bool Viewer3DController::TryBuildVisibleSetImpl(
   return true;
 }
 
-const Viewer3DController::VisibleSet &Viewer3DController::GetVisibleSet(
-    const ViewFrustumSnapshot &frustum,
+const ViewerVisibleSet &Viewer3DController::GetVisibleSet(
+    const ViewerViewFrustumSnapshot &frustum,
     const std::unordered_set<std::string> &hiddenLayers,
     bool useFrustumCulling, float minPixels) const {
   const bool layerCandidatesCacheValid =
@@ -2056,7 +2056,7 @@ const Viewer3DController::VisibleSet &Viewer3DController::GetVisibleSet(
       (m_layerVisibleCandidatesHiddenLayers == hiddenLayers);
 
   if (!layerCandidatesCacheValid) {
-    VisibleSet builtCandidates;
+    ViewerVisibleSet builtCandidates;
     if (TryBuildLayerVisibleCandidates(hiddenLayers, builtCandidates)) {
       m_cachedLayerVisibleCandidates = std::move(builtCandidates);
       m_layerVisibleCandidatesSceneVersion = m_sceneVersion;
@@ -2096,7 +2096,7 @@ const Viewer3DController::VisibleSet &Viewer3DController::GetVisibleSet(
       return m_cachedVisibleSet;
     }
 
-    VisibleSet built;
+    ViewerVisibleSet built;
     if (TryBuildVisibleSet(frustum, useFrustumCulling, minPixels,
                            m_cachedLayerVisibleCandidates, built)) {
       m_cachedVisibleSet = std::move(built);
@@ -2126,7 +2126,7 @@ void Viewer3DController::RebuildVisibleSetCacheImpl() {
   glGetDoublev(GL_MODELVIEW_MATRIX, model);
   glGetDoublev(GL_PROJECTION_MATRIX, proj);
 
-  ViewFrustumSnapshot frustum{};
+  ViewerViewFrustumSnapshot frustum{};
   std::copy(std::begin(viewport), std::end(viewport),
             std::begin(frustum.viewport));
   std::copy(std::begin(model), std::end(model), std::begin(frustum.model));
@@ -2256,11 +2256,11 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
     }
   }
 
-  ViewFrustumSnapshot frustum{};
+  ViewerViewFrustumSnapshot frustum{};
   std::copy(std::begin(viewport), std::end(viewport), std::begin(frustum.viewport));
   std::copy(std::begin(model), std::end(model), std::begin(frustum.model));
   std::copy(std::begin(proj), std::end(proj), std::begin(frustum.projection));
-  const VisibleSet &visibleSet =
+  const ViewerVisibleSet &visibleSet =
       GetVisibleSet(frustum, hiddenLayers, useFrustumCulling,
                     minCullingPixels);
 
@@ -4020,11 +4020,11 @@ void Viewer3DController::DrawFixtureLabels(int width, int height) {
   float dmxSize = cfg.GetFloat("label_font_size_dmx") * zoom;
 
   const auto &fixtures = SceneDataManager::Instance().GetFixtures();
-  ViewFrustumSnapshot frustum{};
+  ViewerViewFrustumSnapshot frustum{};
   std::copy(std::begin(viewport), std::end(viewport), std::begin(frustum.viewport));
   std::copy(std::begin(model), std::end(model), std::begin(frustum.model));
   std::copy(std::begin(proj), std::end(proj), std::begin(frustum.projection));
-  const VisibleSet &visibleSet =
+  const ViewerVisibleSet &visibleSet =
       GetVisibleSet(frustum, hiddenLayers, culling.enabled, minLabelPixels);
   for (const auto &uuid : visibleSet.fixtureUuids) {
     auto fixtureIt = fixtures.find(uuid);
@@ -4518,11 +4518,11 @@ void Viewer3DController::DrawTrussLabels(int width, int height) {
   int labelsDrawn = 0;
   const int maxLabels = GetLabelLimit(cfg, "label_max_trusses");
   const auto &trusses = SceneDataManager::Instance().GetTrusses();
-  ViewFrustumSnapshot frustum{};
+  ViewerViewFrustumSnapshot frustum{};
   std::copy(std::begin(viewport), std::end(viewport), std::begin(frustum.viewport));
   std::copy(std::begin(model), std::end(model), std::begin(frustum.model));
   std::copy(std::begin(proj), std::end(proj), std::begin(frustum.projection));
-  const VisibleSet &visibleSet =
+  const ViewerVisibleSet &visibleSet =
       GetVisibleSet(frustum, hiddenLayers, culling.enabled, minLabelPixels);
   for (const auto &uuid : visibleSet.trussUuids) {
     auto trussIt = trusses.find(uuid);
@@ -4597,11 +4597,11 @@ void Viewer3DController::DrawSceneObjectLabels(int width, int height) {
   int labelsDrawn = 0;
   const int maxLabels = GetLabelLimit(cfg, "label_max_objects");
   const auto &objs = SceneDataManager::Instance().GetSceneObjects();
-  ViewFrustumSnapshot frustum{};
+  ViewerViewFrustumSnapshot frustum{};
   std::copy(std::begin(viewport), std::end(viewport), std::begin(frustum.viewport));
   std::copy(std::begin(model), std::end(model), std::begin(frustum.model));
   std::copy(std::begin(proj), std::end(proj), std::begin(frustum.projection));
-  const VisibleSet &visibleSet =
+  const ViewerVisibleSet &visibleSet =
       GetVisibleSet(frustum, hiddenLayers, culling.enabled, minLabelPixels);
   for (const auto &uuid : visibleSet.objectUuids) {
     auto objectIt = objs.find(uuid);
@@ -4882,11 +4882,11 @@ Viewer3DController::GetFixturesInScreenRectImpl(int x1, int y1, int x2, int y2,
 
   std::vector<std::string> selection;
   const auto &fixtures = SceneDataManager::Instance().GetFixtures();
-  ViewFrustumSnapshot frustum{};
+  ViewerViewFrustumSnapshot frustum{};
   std::copy(std::begin(viewport), std::end(viewport), std::begin(frustum.viewport));
   std::copy(std::begin(model), std::end(model), std::begin(frustum.model));
   std::copy(std::begin(proj), std::end(proj), std::begin(frustum.projection));
-  const VisibleSet &visibleSet = GetVisibleSet(frustum, hiddenLayers, true, 0.0f);
+  const ViewerVisibleSet &visibleSet = GetVisibleSet(frustum, hiddenLayers, true, 0.0f);
   for (const auto &uuid : visibleSet.fixtureUuids) {
     auto bit = m_fixtureBounds.find(uuid);
     if (bit == m_fixtureBounds.end())
@@ -4954,11 +4954,11 @@ Viewer3DController::GetTrussesInScreenRectImpl(int x1, int y1, int x2, int y2,
   };
 
   std::vector<std::string> selection;
-  ViewFrustumSnapshot frustum{};
+  ViewerViewFrustumSnapshot frustum{};
   std::copy(std::begin(viewport), std::end(viewport), std::begin(frustum.viewport));
   std::copy(std::begin(model), std::end(model), std::begin(frustum.model));
   std::copy(std::begin(proj), std::end(proj), std::begin(frustum.projection));
-  const VisibleSet &visibleSet = GetVisibleSet(frustum, hiddenLayers, true, 0.0f);
+  const ViewerVisibleSet &visibleSet = GetVisibleSet(frustum, hiddenLayers, true, 0.0f);
   for (const auto &uuid : visibleSet.trussUuids) {
     auto bit = m_trussBounds.find(uuid);
     if (bit == m_trussBounds.end())
@@ -5026,11 +5026,11 @@ Viewer3DController::GetSceneObjectsInScreenRectImpl(int x1, int y1, int x2, int 
   };
 
   std::vector<std::string> selection;
-  ViewFrustumSnapshot frustum{};
+  ViewerViewFrustumSnapshot frustum{};
   std::copy(std::begin(viewport), std::end(viewport), std::begin(frustum.viewport));
   std::copy(std::begin(model), std::end(model), std::begin(frustum.model));
   std::copy(std::begin(proj), std::end(proj), std::begin(frustum.projection));
-  const VisibleSet &visibleSet = GetVisibleSet(frustum, hiddenLayers, true, 0.0f);
+  const ViewerVisibleSet &visibleSet = GetVisibleSet(frustum, hiddenLayers, true, 0.0f);
   for (const auto &uuid : visibleSet.objectUuids) {
     auto bit = m_objectBounds.find(uuid);
     if (bit == m_objectBounds.end())
@@ -5060,15 +5060,15 @@ Viewer3DController::GetBottomSymbolCacheSnapshot() const {
 }
 
 bool Viewer3DController::EnsureBoundsComputed(
-    const std::string &uuid, ItemType type,
+    const std::string &uuid, ViewerItemType type,
     const std::unordered_set<std::string> &hiddenLayers) {
   return m_visibilitySystem->EnsureBoundsComputed(uuid, type, hiddenLayers);
 }
 
 bool Viewer3DController::TryBuildVisibleSet(
-    const ViewFrustumSnapshot &frustum, bool useFrustumCulling,
-    float minPixels, const VisibleSet &layerVisibleCandidates,
-    VisibleSet &out) const {
+    const ViewerViewFrustumSnapshot &frustum, bool useFrustumCulling,
+    float minPixels, const ViewerVisibleSet &layerVisibleCandidates,
+    ViewerVisibleSet &out) const {
   return m_visibilitySystem->TryBuildVisibleSet(
       frustum, useFrustumCulling, minPixels, layerVisibleCandidates, out);
 }

@@ -1,6 +1,12 @@
 #pragma once
 
-#include "../viewer3dcontroller.h"
+#include <string>
+#include <vector>
+
+#include <wx/gdicmn.h>
+#include <wx/string.h>
+
+class Viewer3DController;
 
 class SelectionSystem {
 public:

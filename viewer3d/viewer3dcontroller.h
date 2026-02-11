@@ -29,6 +29,7 @@
 #include "scenedatamanager.h"
 #include "canvas2d.h"
 #include "symbolcache.h"
+#include "viewer3d_types.h"
 #include <array>
 #include <mutex>
 #include <memory>
@@ -40,26 +41,6 @@
 #include <wx/string.h>
 
 struct NVGcontext;
-
-// MVR coordinates are defined in millimeters. This constant converts
-// them to meters when rendering.
-static constexpr float RENDER_SCALE = 0.001f;
-
-// Rendering options for the simplified 2D top-down view
-enum class Viewer2DRenderMode {
-  Wireframe = 0,
-  White,
-  ByFixtureType,
-  ByLayer
-};
-
-// Available orientations for the 2D viewer
-enum class Viewer2DView {
-  Top = 0,
-  Front,
-  Side,
-  Bottom
-};
 
 class SceneRenderer;
 class VisibilitySystem;
@@ -258,17 +239,14 @@ private:
   void DrawMesh(const Mesh &mesh, float scale = RENDER_SCALE,
                 const float *modelMatrix = nullptr);
 
-  enum class ItemType : int;
-  struct VisibleSet;
-  struct ViewFrustumSnapshot;
 
   // First-phase extraction entry points used by composition systems.
-  bool EnsureBoundsComputedImpl(const std::string &uuid, ItemType type,
+  bool EnsureBoundsComputedImpl(const std::string &uuid, ViewerItemType type,
                                 const std::unordered_set<std::string> &hiddenLayers);
-  bool TryBuildVisibleSetImpl(const ViewFrustumSnapshot &frustum,
+  bool TryBuildVisibleSetImpl(const ViewerViewFrustumSnapshot &frustum,
                               bool useFrustumCulling, float minPixels,
-                              const VisibleSet &layerVisibleCandidates,
-                              VisibleSet &out) const;
+                              const ViewerVisibleSet &layerVisibleCandidates,
+                              ViewerVisibleSet &out) const;
   void RebuildVisibleSetCacheImpl();
   bool GetFixtureLabelAtImpl(int mouseX, int mouseY, int width, int height,
                              wxString &outLabel, wxPoint &outPos,
@@ -408,38 +386,21 @@ private:
   bool m_skipOutlinesForCurrentFrame = false;
   int m_updateResourcesCallsPerFrame = 0;
 
-  enum class ItemType : int { Fixture, Truss, SceneObject };
-  struct VisibleSet {
-    std::vector<std::string> fixtureUuids;
-    std::vector<std::string> trussUuids;
-    std::vector<std::string> objectUuids;
-
-    bool Empty() const {
-      return fixtureUuids.empty() && trussUuids.empty() && objectUuids.empty();
-    }
-  };
-
-  struct ViewFrustumSnapshot {
-    int viewport[4] = {0, 0, 0, 0};
-    double model[16] = {0.0};
-    double projection[16] = {0.0};
-  };
-
   bool TryBuildLayerVisibleCandidates(
       const std::unordered_set<std::string> &hiddenLayers,
-      VisibleSet &out) const;
-  bool TryBuildVisibleSet(const ViewFrustumSnapshot &frustum,
+      ViewerVisibleSet &out) const;
+  bool TryBuildVisibleSet(const ViewerViewFrustumSnapshot &frustum,
                           bool useFrustumCulling, float minPixels,
-                          const VisibleSet &layerVisibleCandidates,
-                          VisibleSet &out) const;
-  const VisibleSet &GetVisibleSet(const ViewFrustumSnapshot &frustum,
+                          const ViewerVisibleSet &layerVisibleCandidates,
+                          ViewerVisibleSet &out) const;
+  const ViewerVisibleSet &GetVisibleSet(const ViewerViewFrustumSnapshot &frustum,
                                   const std::unordered_set<std::string> &hiddenLayers,
                                   bool useFrustumCulling, float minPixels) const;
 
-  bool EnsureBoundsComputed(const std::string &uuid, ItemType type,
+  bool EnsureBoundsComputed(const std::string &uuid, ViewerItemType type,
                             const std::unordered_set<std::string> &hiddenLayers);
-  mutable VisibleSet m_cachedVisibleSet;
-  mutable VisibleSet m_cachedLayerVisibleCandidates;
+  mutable ViewerVisibleSet m_cachedVisibleSet;
+  mutable ViewerVisibleSet m_cachedLayerVisibleCandidates;
   mutable size_t m_layerVisibleCandidatesSceneVersion = static_cast<size_t>(-1);
   mutable std::unordered_set<std::string> m_layerVisibleCandidatesHiddenLayers;
   mutable size_t m_layerVisibleCandidatesRevision = 0;
