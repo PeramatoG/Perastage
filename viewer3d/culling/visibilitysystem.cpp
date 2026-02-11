@@ -8,9 +8,9 @@
 #include <GL/gl.h>
 #endif
 
-#include "../configmanager.h"
-#include "../matrixutils.h"
-#include "../scenedatamanager.h"
+#include "../../core/configmanager.h"
+#include "../../models/matrixutils.h"
+#include "../../core/scenedatamanager.h"
 
 #include <algorithm>
 #include <array>
