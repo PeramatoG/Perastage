@@ -1,0 +1,11 @@
+[configuration]
+entry_symbol = "peraviz_library_init"
+compatibility_minimum = "4.2"
+
+[libraries]
+windows.debug.x86_64 = "res://bin/peraviz_native.dll"
+windows.release.x86_64 = "res://bin/peraviz_native.dll"
+linux.debug.x86_64 = "res://bin/libperaviz_native.so"
+linux.release.x86_64 = "res://bin/libperaviz_native.so"
+macos.debug = "res://bin/libperaviz_native.dylib"
+macos.release = "res://bin/libperaviz_native.dylib"
