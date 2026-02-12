@@ -1,7 +1,7 @@
 #pragma once
 
 #include "../viewer3d_types.h"
-#include "../canvas2d.h"
+#include "../../viewer2d/canvas2d.h"
 #include <string>
 #include <unordered_map>
 #include <unordered_set>

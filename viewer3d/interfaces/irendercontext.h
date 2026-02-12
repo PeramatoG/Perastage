@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../canvas2d.h"
+#include "../../viewer2d/canvas2d.h"
 
 class IRenderContext {
 public:
