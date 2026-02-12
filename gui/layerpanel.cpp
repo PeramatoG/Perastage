@@ -64,8 +64,8 @@ void RefreshVisibleViewers() {
 }
 } // namespace
 
-LayerPanel::LayerPanel(wxWindow* parent, bool showButtons)
-    : wxPanel(parent, wxID_ANY)
+LayerPanel::LayerPanel(wxWindow* parent, bool showButtons, ConfigManager* config)
+    : wxPanel(parent, wxID_ANY), configManager(config ? config : &ConfigManager::Get())
 {
     list = new wxDataViewListCtrl(this, wxID_ANY);
     list->AppendToggleColumn("Visible");
@@ -119,7 +119,7 @@ void LayerPanel::ReloadLayers()
     list->DeleteAllItems();
 
     std::set<std::string> names;
-    auto& scene = ConfigManager::Get().GetScene();
+    auto& scene = (*configManager).GetScene();
     for (const auto& [uuid, layer] : scene.layers)
         names.insert(layer.name);
 
@@ -132,8 +132,8 @@ void LayerPanel::ReloadLayers()
     for (const auto& [u,o] : scene.sceneObjects) collect(o.layer);
     names.insert(DEFAULT_LAYER_NAME);
 
-    auto hidden = ConfigManager::Get().GetHiddenLayers();
-    std::string current = ConfigManager::Get().GetCurrentLayer();
+    auto hidden = (*configManager).GetHiddenLayers();
+    std::string current = (*configManager).GetCurrentLayer();
     int idx = 0;
     int sel = -1;
 
@@ -144,7 +144,7 @@ void LayerPanel::ReloadLayers()
         cols.push_back(wxVariant(wxString::FromUTF8(n)));
         wxBitmap bmp(16,16);
         wxColour c;
-        auto opt = ConfigManager::Get().GetLayerColor(n);
+        auto opt = (*configManager).GetLayerColor(n);
         if (opt)
             c.Set(wxString::FromUTF8(opt->c_str()));
         else
@@ -174,7 +174,7 @@ void LayerPanel::ReloadLayers()
     if (sel >= 0) {
         list->SelectRow(sel);
         wxString wname = list->GetTextValue(sel,1);
-        ConfigManager::Get().SetCurrentLayer(wname.ToStdString());
+        (*configManager).SetCurrentLayer(wname.ToStdString());
     }
 }
 
@@ -188,12 +188,12 @@ void LayerPanel::OnCheck(wxDataViewEvent& evt)
     wxVariant v;
     list->GetValue(v, idx, 0);
     bool checked = v.GetBool();
-    auto hidden = ConfigManager::Get().GetHiddenLayers();
+    auto hidden = (*configManager).GetHiddenLayers();
     if (checked)
         hidden.erase(name);
     else
         hidden.insert(name);
-    ConfigManager::Get().SetHiddenLayers(hidden);
+    (*configManager).SetHiddenLayers(hidden);
     RefreshVisibleViewers();
 }
 
@@ -203,7 +203,7 @@ void LayerPanel::OnSelect(wxDataViewEvent& evt)
     if (idx == wxNOT_FOUND)
         return;
     wxString wname = list->GetTextValue(idx,1);
-    ConfigManager::Get().SetCurrentLayer(wname.ToStdString());
+    (*configManager).SetCurrentLayer(wname.ToStdString());
 }
 
 void LayerPanel::OnContext(wxDataViewEvent& evt)
@@ -214,15 +214,15 @@ void LayerPanel::OnContext(wxDataViewEvent& evt)
     wxString wname = list->GetTextValue(idx,1);
     std::string name = wname.ToStdString();
     wxColourData data;
-    if (auto c = ConfigManager::Get().GetLayerColor(name))
+    if (auto c = (*configManager).GetLayerColor(name))
         data.SetColour(wxColour(wxString::FromUTF8(c->c_str())));
     wxColourDialog dlg(this, &data);
     if (dlg.ShowModal() != wxID_OK)
         return;
     wxColour col = dlg.GetColourData().GetColour();
     std::string hex = wxString::Format("#%02X%02X%02X", col.Red(), col.Green(), col.Blue()).ToStdString();
-    ConfigManager::Get().PushUndoState("change layer color");
-    ConfigManager::Get().SetLayerColor(name, hex);
+    (*configManager).PushUndoState("change layer color");
+    (*configManager).SetLayerColor(name, hex);
     wxBitmap bmp(16,16);
     wxMemoryDC dc(bmp);
     dc.SetBrush(wxBrush(col));
@@ -251,7 +251,7 @@ void LayerPanel::OnAddLayer(wxCommandEvent&)
     if (name.empty() || name == DEFAULT_LAYER_NAME)
         return;
 
-    ConfigManager& cfg = ConfigManager::Get();
+    ConfigManager& cfg = (*configManager);
     auto& scene = cfg.GetScene();
     for (const auto& [uuid, layer] : scene.layers)
         if (layer.name == name)
@@ -285,7 +285,7 @@ void LayerPanel::OnDeleteLayer(wxCommandEvent&)
         return;
     }
 
-    ConfigManager& cfg = ConfigManager::Get();
+    ConfigManager& cfg = (*configManager);
     auto& scene = cfg.GetScene();
     std::string layerUuid;
     for (const auto& [uuid, layer] : scene.layers)
@@ -393,7 +393,7 @@ void LayerPanel::OnRenameLayer(wxDataViewEvent& evt)
     if (newName.empty() || newName == DEFAULT_LAYER_NAME || newName == oldName)
         return;
 
-    ConfigManager& cfg = ConfigManager::Get();
+    ConfigManager& cfg = (*configManager);
     auto& scene = cfg.GetScene();
 
     // check duplicate
