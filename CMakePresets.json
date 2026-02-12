@@ -10,35 +10,39 @@
       "name": "mac-arm64-release",
       "displayName": "macOS ARM64 Release",
       "description": "Build using arm64 libraries via vcpkg",
-      "generator": "Unix Makefiles",
+      "generator": "Ninja",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
         "CMAKE_OSX_ARCHITECTURES": "arm64",
         "CMAKE_TOOLCHAIN_FILE": "/Users/arenasaudio/vcpkg/scripts/buildsystems/vcpkg.cmake",
-        "VCPKG_TARGET_TRIPLET": "arm64-osx"
+        "VCPKG_TARGET_TRIPLET": "arm64-osx",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
       },
       "condition": {
         "type": "equals",
         "lhs": "${hostSystemName}",
         "rhs": "Darwin"
-      }
+      },
+      "binaryDir": "${sourceDir}/build/${presetName}"
     },
     {
       "name": "mac-arm64-debug",
       "displayName": "macOS ARM64 Debug",
       "description": "Debug build using arm64 libraries via vcpkg",
-      "generator": "Unix Makefiles",
+      "generator": "Ninja",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
         "CMAKE_OSX_ARCHITECTURES": "arm64",
         "CMAKE_TOOLCHAIN_FILE": "/Users/arenasaudio/vcpkg/scripts/buildsystems/vcpkg.cmake",
-        "VCPKG_TARGET_TRIPLET": "arm64-osx"
+        "VCPKG_TARGET_TRIPLET": "arm64-osx",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
       },
       "condition": {
         "type": "equals",
         "lhs": "${hostSystemName}",
         "rhs": "Darwin"
-      }
+      },
+      "binaryDir": "${sourceDir}/build/${presetName}"
     },
     {
       "name": "win-x64-release",
@@ -73,6 +77,42 @@
         "lhs": "${hostSystemName}",
         "rhs": "Windows"
       }
+    },
+    {
+      "name": "win-x64-release-ninja",
+      "displayName": "Windows x64 Release (Ninja)",
+      "description": "Release build using Ninja + MSVC with system vcpkg",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/win-x64-release-ninja",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_TOOLCHAIN_FILE": "C:/vcpkg/scripts/buildsystems/vcpkg.cmake",
+        "VCPKG_TARGET_TRIPLET": "x64-windows",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+      },
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      }
+    },
+    {
+      "name": "win-x64-debug-ninja",
+      "displayName": "Windows x64 Debug (Ninja)",
+      "description": "Debug build using Ninja + MSVC with system vcpkg",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/win-x64-debug-ninja",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_TOOLCHAIN_FILE": "C:/vcpkg/scripts/buildsystems/vcpkg.cmake",
+        "VCPKG_TARGET_TRIPLET": "x64-windows",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+      },
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      }
     }
   ],
   "buildPresets": [
@@ -81,14 +121,46 @@
       "displayName": "Stage Windows Release",
       "description": "Builds the Windows release and stages runtime resources for packaging",
       "configurePreset": "win-x64-release",
-      "targets": [ "perastage_stage" ],
-      "jobs": 8
+      "targets": [
+        "perastage_stage"
+      ],
+      "jobs": 8,
+      "verbose": false
     },
     {
       "name": "win-debug-build",
       "displayName": "Build Windows Debug",
       "description": "Builds the Windows debug version",
       "configurePreset": "win-x64-debug",
+      "jobs": 8,
+      "verbose": false
+    },
+    {
+      "name": "mac-release-build",
+      "displayName": "Build macOS ARM64 Release",
+      "description": "Builds the macOS ARM64 release with Ninja progress output [current/total]",
+      "configurePreset": "mac-arm64-release",
+      "jobs": 8
+    },
+    {
+      "name": "mac-debug-build",
+      "displayName": "Build macOS ARM64 Debug",
+      "description": "Builds the macOS ARM64 debug with Ninja progress output [current/total]",
+      "configurePreset": "mac-arm64-debug",
+      "jobs": 8
+    },
+    {
+      "name": "win-release-build-ninja",
+      "displayName": "Build Windows Release (Ninja)",
+      "description": "Builds the Windows release with Ninja progress output [current/total]",
+      "configurePreset": "win-x64-release-ninja",
+      "jobs": 8
+    },
+    {
+      "name": "win-debug-build-ninja",
+      "displayName": "Build Windows Debug (Ninja)",
+      "description": "Builds the Windows debug with Ninja progress output [current/total]",
+      "configurePreset": "win-x64-debug-ninja",
       "jobs": 8
     }
   ]
