@@ -168,6 +168,7 @@ public:
                          const VisibleSet &visibleSet);
   void RenderOverlayFrame(const RenderFrameContext &context,
                           const VisibleSet &visibleSet);
+  void FinalizeRenderFrame();
 
   // Enables recording of all primitives drawn during the next RenderScene
   // call. The caller owns the canvas lifetime and is responsible for calling

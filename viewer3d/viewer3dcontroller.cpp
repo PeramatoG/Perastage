@@ -886,18 +886,8 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
   const auto hiddenLayers = SnapshotHiddenLayers(cfg);
   context.hiddenLayers = hiddenLayers;
 
-  // Execute the explicit render pipeline phases.
-  // 1) PrepareFrame: gather visibility and per-frame cached state.
-  // 2) RenderOpaque: draw scene geometry.
-  // 3) RenderOverlays: draw overlays such as grid-on-top/axes.
   RenderPipeline pipeline(*this);
-  pipeline.PrepareFrame(context);
-  pipeline.RenderOpaque();
-  pipeline.RenderOverlays();
-  pipeline.FinalizeFrame();
-
-  if (m_captureCanvas)
-    m_captureCanvas->SetSourceKey("unknown");
+  pipeline.Execute(context);
 }
 
 const Viewer3DController::VisibleSet &Viewer3DController::PrepareRenderFrame(
@@ -1029,6 +1019,13 @@ void Viewer3DController::RenderOverlayFrame(const RenderFrameContext &context,
 
   DrawAxes();
 }
+
+void Viewer3DController::FinalizeRenderFrame() {
+  m_skipOutlinesForCurrentFrame = false;
+  if (m_captureCanvas)
+    m_captureCanvas->SetSourceKey("unknown");
+}
+
 
 void Viewer3DController::SetDarkMode(bool enabled) { m_darkMode = enabled; }
 
