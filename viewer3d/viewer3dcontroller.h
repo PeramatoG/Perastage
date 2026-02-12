@@ -46,6 +46,7 @@ struct NVGcontext;
 class SceneRenderer;
 class VisibilitySystem;
 class SelectionSystem;
+class LabelRenderSystem;
 class RenderPipeline;
 
 class Viewer3DController {
@@ -159,6 +160,7 @@ public:
 private:
   friend class SceneRenderer;
   friend class VisibilitySystem;
+  friend class LabelRenderSystem;
   friend class RenderPipeline;
 
   const VisibleSet &PrepareRenderFrame(const RenderFrameContext &context,
@@ -372,6 +374,7 @@ private:
   std::unique_ptr<SceneRenderer> m_sceneRenderer;
   std::unique_ptr<VisibilitySystem> m_visibilitySystem;
   std::unique_ptr<SelectionSystem> m_selectionSystem;
+  std::unique_ptr<LabelRenderSystem> m_labelRenderSystem;
 
 public:
   // Enables recording of all primitives drawn during the next RenderScene
