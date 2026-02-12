@@ -20,6 +20,7 @@ include_directories(
     ../gui
     ../external
     ../viewer2d
+    ../viewer2d/pdf
     ../viewer3d
     ../viewer3d/interfaces
     ../viewer3d/resources
@@ -32,6 +33,16 @@ include_directories(
 add_executable(matrixutils_test matrixutils_test.cpp)
 target_include_directories(matrixutils_test PRIVATE ../models)
 add_test(NAME MatrixUtilsParsingAndComposition COMMAND matrixutils_test)
+
+add_executable(pdf_font_metrics_test
+               pdf_font_metrics_test.cpp
+               ../viewer2d/pdf/font_metrics.cpp)
+add_test(NAME PdfFontMetricsEncoding COMMAND pdf_font_metrics_test)
+
+add_executable(pdf_writer_test
+               pdf_writer_test.cpp
+               ../viewer2d/pdf/pdf_writer.cpp)
+add_test(NAME PdfWriterSerialization COMMAND pdf_writer_test)
 
 function(set_library_env TEST_NAME)
     set_tests_properties(${TEST_NAME} PROPERTIES ENVIRONMENT "PERASTAGE_LIBRARY_PATH=${CMAKE_SOURCE_DIR}/library")
