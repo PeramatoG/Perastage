@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "mainwindow.h"
+#include "mainwindow/controllers/mainwindow_view_controller.h"
 
 #include <algorithm>
 #include <chrono>
@@ -673,108 +674,48 @@ void MainWindow::OnCloseWindow(wxCloseEvent &event) {
 }
 
 void MainWindow::OnToggleConsole(wxCommandEvent &event) {
-  if (!auiManager)
-    return;
-
-  auto &pane = auiManager->GetPane("Console");
-  pane.Show(!pane.IsShown());
-  auiManager->Update();
-
-  // keep menu state in sync
-  UpdateViewMenuChecks();
+  if (viewController)
+    viewController->OnToggleConsole(event);
 }
 
 void MainWindow::OnToggleFixtures(wxCommandEvent &event) {
-  if (!auiManager)
-    return;
-
-  auto &pane = auiManager->GetPane("DataNotebook");
-  pane.Show(!pane.IsShown());
-  auiManager->Update();
-
-  UpdateViewMenuChecks();
+  if (viewController)
+    viewController->OnToggleFixtures(event);
 }
 
 void MainWindow::OnToggleViewport(wxCommandEvent &event) {
-  if (!auiManager)
-    return;
-  Ensure3DViewport();
-  auto &pane = auiManager->GetPane("3DViewport");
-  pane.Show(!pane.IsShown());
-  auiManager->Update();
-
-  UpdateViewMenuChecks();
+  if (viewController)
+    viewController->OnToggleViewport(event);
 }
 
 void MainWindow::OnToggleViewport2D(wxCommandEvent &event) {
-  if (!auiManager)
-    return;
-  Ensure2DViewport();
-  auto &pane = auiManager->GetPane("2DViewport");
-  pane.Show(!pane.IsShown());
-  auiManager->Update();
-
-  UpdateViewMenuChecks();
-  if (pane.IsShown() && Viewer2DPanel::Instance())
-    Viewer2DPanel::Instance()->Refresh();
+  if (viewController)
+    viewController->OnToggleViewport2D(event);
 }
 
 void MainWindow::OnToggleRender2D(wxCommandEvent &event) {
-  if (!auiManager)
-    return;
-  Ensure2DViewport();
-  auto &pane = auiManager->GetPane("2DRenderOptions");
-  pane.Show(!pane.IsShown());
-  auiManager->Update();
-
-  UpdateViewMenuChecks();
+  if (viewController)
+    viewController->OnToggleRender2D(event);
 }
 
 void MainWindow::OnToggleLayers(wxCommandEvent &event) {
-  if (!auiManager)
-    return;
-
-  auto &pane = auiManager->GetPane("LayerPanel");
-  pane.Show(!pane.IsShown());
-  auiManager->Update();
-
-  UpdateViewMenuChecks();
+  if (viewController)
+    viewController->OnToggleLayers(event);
 }
 
 void MainWindow::OnToggleLayouts(wxCommandEvent &event) {
-  if (!auiManager)
-    return;
-
-  auto &pane = auiManager->GetPane("LayoutPanel");
-  pane.Show(!pane.IsShown());
-  auiManager->Update();
-
-  UpdateViewMenuChecks();
+  if (viewController)
+    viewController->OnToggleLayouts(event);
 }
 
 void MainWindow::OnToggleSummary(wxCommandEvent &event) {
-  if (!auiManager)
-    return;
-
-  auto &pane = auiManager->GetPane("SummaryPanel");
-  pane.Show(!pane.IsShown());
-  auiManager->Update();
-
-  UpdateViewMenuChecks();
+  if (viewController)
+    viewController->OnToggleSummary(event);
 }
 
 void MainWindow::OnToggleRigging(wxCommandEvent &event) {
-  if (!auiManager)
-    return;
-
-  auto &pane = auiManager->GetPane("RiggingPanel");
-  pane.Show(!pane.IsShown());
-  auiManager->Update();
-
-  if (pane.IsShown())
-    RefreshRigging();
-
-  UpdateViewMenuChecks();
+  if (viewController)
+    viewController->OnToggleRigging(event);
 }
 
 void MainWindow::OnShowHelp(wxCommandEvent &WXUNUSED(event)) {

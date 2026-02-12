@@ -80,6 +80,10 @@ using json = nlohmann::json;
 #include "gdtfsearchdialog.h"
 #include "layout2dviewdialog.h"
 #include "layoutviewpresets.h"
+#include "mainwindow/controllers/mainwindow_io_controller.h"
+#include "mainwindow/controllers/mainwindow_layout_controller.h"
+#include "mainwindow/controllers/mainwindow_print_controller.h"
+#include "mainwindow/controllers/mainwindow_view_controller.h"
 #include "layoutpanel.h"
 #include "layoutviewerpanel.h"
 #include "layouttextutils.h"
@@ -237,6 +241,10 @@ wxEND_EVENT_TABLE()
                                                                                 &title)
     : wxFrame(nullptr, wxID_ANY, title, wxDefaultPosition, wxSize(1600, 950)) {
   SetInstance(this);
+  ioController = std::make_unique<MainWindowIoController>(*this);
+  layoutController = std::make_unique<MainWindowLayoutController>(*this);
+  printController = std::make_unique<MainWindowPrintController>(*this);
+  viewController = std::make_unique<MainWindowViewController>(*this);
   wxFont defaultUiFont = BuildDefaultUiFont();
   if (defaultUiFont.IsOk())
     SetFont(defaultUiFont);
