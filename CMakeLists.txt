@@ -121,6 +121,7 @@ file(GLOB_RECURSE SRC_FILES CONFIGURE_DEPENDS
     ${CMAKE_SOURCE_DIR}/viewer3d/render/*.cpp
     ${CMAKE_SOURCE_DIR}/viewer3d/resources/*.cpp
     ${CMAKE_SOURCE_DIR}/viewer2d/*.cpp
+    ${CMAKE_SOURCE_DIR}/viewer2d/pdf/*.cpp
 )
 
 # Explicitly ensure markdown conversion source is included
@@ -147,6 +148,7 @@ file(GLOB_RECURSE HEADER_FILES
     ${CMAKE_SOURCE_DIR}/viewer3d/render/*.h
     ${CMAKE_SOURCE_DIR}/viewer3d/resources/*.h
     ${CMAKE_SOURCE_DIR}/viewer2d/*.h
+    ${CMAKE_SOURCE_DIR}/viewer2d/pdf/*.h
 )
 
 add_executable(${PROJECT_NAME} ${SRC_FILES} ${HEADER_FILES})
@@ -173,6 +175,7 @@ target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_SOURCE_DIR}/viewer3d/picking
     ${CMAKE_SOURCE_DIR}/viewer3d/render
     ${CMAKE_SOURCE_DIR}/viewer2d
+    ${CMAKE_SOURCE_DIR}/viewer2d/pdf
     ${CMAKE_SOURCE_DIR}/resources
     ${_wx_includes}
     ${NANOVG_INCLUDE_DIR}
