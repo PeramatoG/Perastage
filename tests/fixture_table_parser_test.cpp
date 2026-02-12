@@ -1,4 +1,4 @@
-#include "gui/fixturetable/fixture_table_parser.h"
+#include "fixturetable/fixture_table_parser.h"
 
 #include <iostream>
 
