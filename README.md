@@ -108,8 +108,8 @@ Configure and build:
 ```bash
 mkdir build
 cd build
-cmake..
-cmake --build.
+cmake ..
+cmake --build .
 ```
 
 The `perastage_stage` target (Release configuration) copies runtime resources into `out/install/x64-Release` ready for packaging with Inno Setup.  Use `perastage_symbols` to collect `.pdb` files for crash analysis on Windows.
@@ -151,6 +151,41 @@ incompatible link settings. Do a clean rebuild:
 2. Re-configure CMake and rebuild the target.
 3. If you keep the build directory, use `cmake --build . --config Debug --clean-first`
    (or the corresponding configuration) to force a clean rebuild.
+
+---
+
+## macOS build troubleshooting (Apple Silicon)
+
+If CMake fails with messages like:
+
+- `CMake was unable to find a build program corresponding to "Ninja"`
+- `CMAKE_CXX_COMPILER not set, after EnableLanguage`
+
+it usually means the build toolchain is incomplete in that Mac setup (not a source-code error in Perastage).
+
+Install the missing tools:
+
+```bash
+xcode-select --install
+brew install cmake ninja
+```
+
+Then verify:
+
+```bash
+xcode-select -p
+clang++ --version
+ninja --version
+cmake --version
+```
+
+If you use VS Code + CMake Tools:
+
+1. Open `Cmd+Shift+P` → **CMake: Select a Kit** and choose an Apple Clang kit (arm64).
+2. Ensure the configure preset/generator matches your environment (`Ninja` if Ninja is installed).
+3. If you changed toolchains or kits, delete the existing build directory (for example `build/mac-arm64-debug`) and configure again.
+
+When using vcpkg on Apple Silicon, keep the triplet consistent with your configure command (`-DVCPKG_TARGET_TRIPLET=arm64-osx`).
 
 ---
 
