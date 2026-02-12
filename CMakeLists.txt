@@ -105,6 +105,10 @@ file(GLOB_RECURSE SRC_FILES CONFIGURE_DEPENDS
     ${CMAKE_SOURCE_DIR}/core/print/*.cpp
     ${CMAKE_SOURCE_DIR}/mvr/*.cpp
     ${CMAKE_SOURCE_DIR}/viewer3d/*.cpp
+    ${CMAKE_SOURCE_DIR}/viewer3d/culling/*.cpp
+    ${CMAKE_SOURCE_DIR}/viewer3d/labels/*.cpp
+    ${CMAKE_SOURCE_DIR}/viewer3d/picking/*.cpp
+    ${CMAKE_SOURCE_DIR}/viewer3d/render/*.cpp
     ${CMAKE_SOURCE_DIR}/viewer3d/resources/*.cpp
     ${CMAKE_SOURCE_DIR}/viewer2d/*.cpp
 )
@@ -127,6 +131,10 @@ file(GLOB_RECURSE HEADER_FILES
     ${CMAKE_SOURCE_DIR}/core/print/*.h
     ${CMAKE_SOURCE_DIR}/mvr/*.h
     ${CMAKE_SOURCE_DIR}/viewer3d/*.h
+    ${CMAKE_SOURCE_DIR}/viewer3d/culling/*.h
+    ${CMAKE_SOURCE_DIR}/viewer3d/labels/*.h
+    ${CMAKE_SOURCE_DIR}/viewer3d/picking/*.h
+    ${CMAKE_SOURCE_DIR}/viewer3d/render/*.h
     ${CMAKE_SOURCE_DIR}/viewer3d/resources/*.h
     ${CMAKE_SOURCE_DIR}/viewer2d/*.h
 )

@@ -361,11 +361,6 @@ private:
   bool EnsureBoundsComputed(const std::string &uuid, ItemType type,
                             const std::unordered_set<std::string> &hiddenLayers);
 
-  void RebuildBoundsIfDirty(
-      const std::unordered_set<std::string> &hiddenLayers,
-      const std::unordered_map<std::string, Truss> &trusses,
-      const std::unordered_map<std::string, SceneObject> &objects,
-      const std::unordered_map<std::string, Fixture> &fixtures);
 
   mutable VisibleSet m_cachedVisibleSet;
   mutable VisibleSet m_cachedLayerVisibleCandidates;
