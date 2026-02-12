@@ -5,13 +5,18 @@
 #include <algorithm>
 #include <charconv>
 #include <cctype>
+#include <chrono>
 #include <filesystem>
 #include <fstream>
 #include <set>
+#include <memory>
 #include <sstream>
 #include <string_view>
 
 #include <wx/stdpaths.h>
+#include <wx/wfstream.h>
+class wxZipStreamLink;
+#include <wx/zipstrm.h>
 
 namespace {
 std::vector<std::string> SplitCSV(const std::string &s) {
@@ -58,6 +63,58 @@ bool TryParseFloat(const std::string &text, float &out) {
 
   auto result = std::from_chars(begin, end, out);
   return result.ec == std::errc{} && result.ptr == end;
+}
+
+class TempDir {
+public:
+  explicit TempDir(const std::string &prefix) {
+    namespace fs = std::filesystem;
+    auto stamp = std::chrono::system_clock::now().time_since_epoch().count();
+    path = fs::temp_directory_path() / (prefix + std::to_string(stamp));
+    created = std::filesystem::create_directory(path);
+  }
+
+  ~TempDir() {
+    if (!created)
+      return;
+    std::error_code ec;
+    std::filesystem::remove_all(path, ec);
+  }
+
+  bool Valid() const { return created; }
+  const std::filesystem::path &Path() const { return path; }
+
+private:
+  std::filesystem::path path;
+  bool created = false;
+};
+
+bool LooksLikeZipFile(const std::string &path) {
+  std::ifstream file(path, std::ios::binary);
+  if (!file.is_open())
+    return false;
+  unsigned char signature[2] = {};
+  file.read(reinterpret_cast<char *>(signature), sizeof(signature));
+  return file.gcount() == static_cast<std::streamsize>(sizeof(signature)) &&
+         signature[0] == 'P' && signature[1] == 'K';
+}
+
+bool LooksLikeJsonFile(const std::string &path) {
+  std::ifstream file(path, std::ios::binary);
+  if (!file.is_open())
+    return false;
+  char ch = '\0';
+  while (file.get(ch)) {
+    if (!std::isspace(static_cast<unsigned char>(ch)))
+      return ch == '{' || ch == '[';
+  }
+  return false;
+}
+
+std::string ToLowerCopy(std::string text) {
+  std::transform(text.begin(), text.end(), text.begin(),
+                 [](unsigned char c) { return std::tolower(c); });
+  return text;
 }
 } // namespace
 
@@ -453,6 +510,124 @@ void LayerVisibilityState::SetCurrentLayer(const std::string &name) {
 MvrScene &ProjectSession::GetScene() { return scene; }
 
 const MvrScene &ProjectSession::GetScene() const { return scene; }
+
+bool ProjectSession::SaveProject(const std::string &path,
+                                 const SaveConfigFn &saveConfig,
+                                 const SaveSceneFn &saveScene) const {
+  namespace fs = std::filesystem;
+  if (!saveConfig || !saveScene)
+    return false;
+
+  TempDir tempDir("PerastageProj_");
+  if (!tempDir.Valid())
+    return false;
+
+  fs::path configPath = tempDir.Path() / "config.json";
+  fs::path scenePath = tempDir.Path() / "scene.mvr";
+  if (!saveConfig(configPath.string()) || !saveScene(scenePath.string()))
+    return false;
+
+  wxFileOutputStream out(path);
+  if (!out.IsOk())
+    return false;
+  wxZipOutputStream zip(out);
+
+  auto addFile = [&](const fs::path &source, const std::string &entryName) {
+    auto *entry = new wxZipEntry(entryName);
+    entry->SetMethod(wxZIP_METHOD_DEFLATE);
+    zip.PutNextEntry(entry);
+    std::ifstream in(source, std::ios::binary);
+    char buf[4096];
+    while (in.good()) {
+      in.read(buf, sizeof(buf));
+      std::streamsize s = in.gcount();
+      if (s > 0)
+        zip.Write(buf, s);
+    }
+    zip.CloseEntry();
+  };
+
+  addFile(configPath, "config.json");
+  addFile(scenePath, "scene.mvr");
+  zip.Close();
+  return true;
+}
+
+bool ProjectSession::LoadProject(const std::string &path,
+                                 const LoadConfigFn &loadConfig,
+                                 const LoadSceneFn &loadScene) {
+  namespace fs = std::filesystem;
+  if (!loadConfig || !loadScene)
+    return false;
+
+  if (!LooksLikeZipFile(path)) {
+    if (LooksLikeJsonFile(path))
+      return loadConfig(path);
+    return false;
+  }
+
+  wxFileInputStream in(path);
+  if (!in.IsOk())
+    return false;
+  wxZipInputStream zip(in);
+
+  TempDir tempDir("PerastageProj_");
+  if (!tempDir.Valid())
+    return false;
+
+  std::unique_ptr<wxZipEntry> entry;
+  fs::path configPath;
+  fs::path scenePath;
+  bool hasMvrSceneXml = false;
+
+  while ((entry.reset(zip.GetNextEntry())), entry) {
+    if (entry->IsDir())
+      continue;
+    std::string baseName =
+        ToLowerCopy(fs::path(entry->GetName().ToStdString()).filename().string());
+    fs::path outPath;
+    if (baseName == "config.json")
+      outPath = tempDir.Path() / "config.json";
+    else if (baseName == "scene.mvr")
+      outPath = tempDir.Path() / "scene.mvr";
+    else {
+      if (baseName == "generalscenedescription.xml")
+        hasMvrSceneXml = true;
+      continue;
+    }
+
+    std::ofstream out(outPath, std::ios::binary);
+    char buf[4096];
+    while (true) {
+      zip.Read(buf, sizeof(buf));
+      size_t bytes = zip.LastRead();
+      if (bytes == 0)
+        break;
+      out.write(buf, bytes);
+    }
+    out.close();
+
+    if (baseName == "config.json")
+      configPath = outPath;
+    else
+      scenePath = outPath;
+  }
+
+  if (configPath.empty() && scenePath.empty()) {
+    if (hasMvrSceneXml)
+      return loadScene(path);
+    if (LooksLikeJsonFile(path))
+      return loadConfig(path);
+    return false;
+  }
+
+  bool ok = true;
+  if (!scenePath.empty())
+    ok &= loadScene(scenePath.string());
+  if (!configPath.empty())
+    ok &= loadConfig(configPath.string());
+  return ok;
+}
 
 bool ProjectSession::IsDirty() const { return revision != savedRevision; }
 

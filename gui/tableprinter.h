@@ -22,9 +22,12 @@
 
 class wxWindow;
 class wxDataViewListCtrl;
+class ConfigManager;
 
 namespace TablePrinter {
 enum class TableType { Fixtures, Trusses, Supports, SceneObjects };
-void Print(wxWindow* parent, wxDataViewListCtrl* table, TableType type);
-void ExportCSV(wxWindow* parent, wxDataViewListCtrl* table, TableType type);
+void Print(wxWindow* parent, wxDataViewListCtrl* table, TableType type,
+           ConfigManager &cfg);
+void ExportCSV(wxWindow* parent, wxDataViewListCtrl* table, TableType type,
+               ConfigManager &cfg);
 }

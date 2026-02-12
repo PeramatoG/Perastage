@@ -552,5 +552,5 @@ void MainWindow::OnExportCSV(wxCommandEvent &WXUNUSED(event)) {
   }
 
   if (ctrl)
-    TablePrinter::ExportCSV(this, ctrl, type);
+    TablePrinter::ExportCSV(this, ctrl, type, ConfigManager::Get());
 }

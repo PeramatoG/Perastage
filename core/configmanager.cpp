@@ -20,96 +20,14 @@
 #include "LayoutManager.h"
 #include "mvrexporter.h"
 #include "mvrimporter.h"
-#include <chrono>
 #include <filesystem>
 #include <fstream>
 #include <charconv>
-#include <set>
 #include <sstream>
 #include <string_view>
 #include <cctype>
 #include <algorithm>
-#include <wx/wfstream.h>
-class wxZipStreamLink;
 #include <wx/stdpaths.h>
-#include <wx/zipstrm.h>
-
-namespace {
-
-class TempDir {
-public:
-  explicit TempDir(const std::string &prefix) {
-    namespace fs = std::filesystem;
-    auto stamp = std::chrono::system_clock::now().time_since_epoch().count();
-    path = fs::temp_directory_path() / (prefix + std::to_string(stamp));
-    created = std::filesystem::create_directory(path);
-  }
-
-  TempDir(const TempDir &) = delete;
-  TempDir &operator=(const TempDir &) = delete;
-
-  TempDir(TempDir &&other) noexcept
-      : path(std::move(other.path)), created(other.created) {
-    other.created = false;
-  }
-
-  TempDir &operator=(TempDir &&other) noexcept {
-    if (this != &other) {
-      Cleanup();
-      path = std::move(other.path);
-      created = other.created;
-      other.created = false;
-    }
-    return *this;
-  }
-
-  ~TempDir() { Cleanup(); }
-
-  bool Valid() const { return created; }
-  const std::filesystem::path &Path() const { return path; }
-
-private:
-  void Cleanup() {
-    if (created) {
-      std::error_code ec;
-      std::filesystem::remove_all(path, ec);
-      created = false;
-    }
-  }
-
-  std::filesystem::path path;
-  bool created = false;
-};
-
-bool LooksLikeZipFile(const std::string &path) {
-  std::ifstream file(path, std::ios::binary);
-  if (!file.is_open())
-    return false;
-  unsigned char signature[2] = {};
-  file.read(reinterpret_cast<char *>(signature), sizeof(signature));
-  return file.gcount() == static_cast<std::streamsize>(sizeof(signature)) &&
-         signature[0] == 'P' && signature[1] == 'K';
-}
-
-bool LooksLikeJsonFile(const std::string &path) {
-  std::ifstream file(path, std::ios::binary);
-  if (!file.is_open())
-    return false;
-  char ch = '\0';
-  while (file.get(ch)) {
-    if (!std::isspace(static_cast<unsigned char>(ch))) {
-      return ch == '{' || ch == '[';
-    }
-  }
-  return false;
-}
-
-std::string ToLowerCopy(std::string text) {
-  std::transform(text.begin(), text.end(), text.begin(),
-                 [](unsigned char c) { return std::tolower(c); });
-  return text;
-}
-} // namespace
 
 ConfigManager::RevisionGuard::RevisionGuard(ConfigManager &cfg)
     : cfg(cfg), previous(cfg.suppressRevision) {
@@ -421,57 +339,21 @@ bool ConfigManager::SaveToFile(const std::string &path) const {
 }
 
 bool ConfigManager::SaveProject(const std::string &path) {
-  namespace fs = std::filesystem;
-  TempDir tempDir("PerastageProj_");
-  if (!tempDir.Valid())
-    return false;
-
   layouts::LayoutManager::Get().SaveToConfig(*this);
-
-  fs::path configPath = tempDir.Path() / "config.json";
-  fs::path scenePath = tempDir.Path() / "scene.mvr";
-
-  if (!SaveToFile(configPath.string())) {
-    return false;
-  }
-
-  MvrExporter exporter;
-  if (!exporter.ExportToFile(scenePath.string())) {
-    return false;
-  }
-
-  wxFileOutputStream out(path);
-  if (!out.IsOk()) {
-    return false;
-  }
-
-  wxZipOutputStream zip(out);
-
-  auto addFile = [&](const fs::path &p, const std::string &name) {
-    auto *entry = new wxZipEntry(name);
-    entry->SetMethod(wxZIP_METHOD_DEFLATE);
-    zip.PutNextEntry(entry);
-    std::ifstream in(p, std::ios::binary);
-    char buf[4096];
-    while (in.good()) {
-      in.read(buf, sizeof(buf));
-      std::streamsize s = in.gcount();
-      if (s > 0)
-        zip.Write(buf, s);
-    }
-    zip.CloseEntry();
-  };
-
-  addFile(configPath, "config.json");
-  addFile(scenePath, "scene.mvr");
-
-  zip.Close();
-  projectSession.MarkSaved();
-  return true;
+  bool ok = projectSession.SaveProject(
+      path, [this](const std::string &configPath) {
+        return SaveToFile(configPath);
+      },
+      [](const std::string &scenePath) {
+        MvrExporter exporter;
+        return exporter.ExportToFile(scenePath);
+      });
+  if (ok)
+    projectSession.MarkSaved();
+  return ok;
 }
 
 bool ConfigManager::LoadProject(const std::string &path) {
-  namespace fs = std::filesystem;
   const bool hasUserView2dDarkMode = HasKey("view2d_dark_mode");
   const float userView2dDarkMode = GetFloat("view2d_dark_mode");
   auto restoreUserPreferences = [this, hasUserView2dDarkMode,
@@ -482,100 +364,13 @@ bool ConfigManager::LoadProject(const std::string &path) {
     SetFloat("view2d_dark_mode", userView2dDarkMode);
   };
 
-  if (!LooksLikeZipFile(path)) {
-    if (LooksLikeJsonFile(path)) {
-      bool ok = LoadFromFile(path);
-      if (ok)
-        restoreUserPreferences();
-      return ok;
-    }
-    return false;
-  }
-
-  wxFileInputStream in(path);
-  if (!in.IsOk())
-    return false;
-
-  wxZipInputStream zip(in);
-  std::unique_ptr<wxZipEntry> entry;
-
-  TempDir tempDir("PerastageProj_");
-  if (!tempDir.Valid())
-    return false;
-
-  fs::path configPath;
-  fs::path scenePath;
-  bool hasMvrSceneXml = false;
-
-  while ((entry.reset(zip.GetNextEntry())), entry) {
-    if (entry->IsDir())
-      continue;
-    std::string name = entry->GetName().ToStdString();
-    std::string baseName =
-        ToLowerCopy(fs::path(name).filename().string());
-    fs::path outPath;
-    if (baseName == "config.json")
-      outPath = tempDir.Path() / "config.json";
-    else if (baseName == "scene.mvr")
-      outPath = tempDir.Path() / "scene.mvr";
-    else {
-      if (baseName == "generalscenedescription.xml")
-        hasMvrSceneXml = true;
-      continue;
-    }
-
-    std::ofstream out(outPath, std::ios::binary);
-    char buf[4096];
-    while (true) {
-      zip.Read(buf, sizeof(buf));
-      size_t bytes = zip.LastRead();
-      if (bytes == 0)
-        break;
-      out.write(buf, bytes);
-    }
-    out.close();
-
-    if (baseName == "config.json")
-      configPath = outPath;
-    else if (baseName == "scene.mvr")
-      scenePath = outPath;
-  }
-
-  if (configPath.empty() && scenePath.empty()) {
-    if (hasMvrSceneXml) {
-      std::string ext = ToLowerCopy(fs::path(path).extension().string());
-      if (ext == ".mvr") {
-        bool ok = MvrImporter::ImportAndRegister(path, false);
-        if (ok)
-          restoreUserPreferences();
-        return ok;
-      }
-
-      fs::path tempMvrPath = tempDir.Path() / "legacy.mvr";
-      std::error_code ec;
-      fs::copy_file(path, tempMvrPath, fs::copy_options::overwrite_existing,
-                    ec);
-      if (ec)
-        return false;
-      bool ok = MvrImporter::ImportAndRegister(tempMvrPath.string(), false);
-      if (ok)
-        restoreUserPreferences();
-      return ok;
-    }
-    if (LooksLikeJsonFile(path)) {
-      bool ok = LoadFromFile(path);
-      if (ok)
-        restoreUserPreferences();
-      return ok;
-    }
-    return false;
-  }
-
-  bool ok = true;
-  if (!scenePath.empty())
-    ok &= MvrImporter::ImportAndRegister(scenePath.string(), false);
-  if (!configPath.empty())
-    ok &= LoadFromFile(configPath.string());
+  bool ok = projectSession.LoadProject(
+      path, [this](const std::string &configPath) {
+        return LoadFromFile(configPath);
+      },
+      [](const std::string &scenePath) {
+        return MvrImporter::ImportAndRegister(scenePath, false);
+      });
 
   if (ok) {
     restoreUserPreferences();
