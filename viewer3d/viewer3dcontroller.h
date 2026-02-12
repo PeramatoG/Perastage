@@ -30,6 +30,7 @@
 #include "canvas2d.h"
 #include "symbolcache.h"
 #include "viewer3d_types.h"
+#include "resources/resource_sync_system.h"
 #include <array>
 #include <mutex>
 #include <memory>
@@ -268,40 +269,16 @@ private:
   void DrawMesh(const Mesh &mesh, float scale = RENDER_SCALE,
                 const float *modelMatrix = nullptr);
 
-  // Cache of already loaded meshes indexed by absolute file path
-  std::unordered_map<std::string, Mesh> m_loadedMeshes;
-
-  // Cache of loaded GDTF models indexed by absolute file path
-  std::unordered_map<std::string, std::vector<GdtfObject>> m_loadedGdtf;
-  // Cache of failed GDTF loads with their failure reason, indexed by absolute
-  // file path
-  std::unordered_map<std::string, std::string> m_failedGdtfReasons;
-  // Tracks the last reported fixture counts per failed GDTF path to avoid
-  // repeating identical console messages every update
-  std::unordered_map<std::string, size_t> m_reportedGdtfFailureCounts;
-  std::unordered_map<std::string, std::string> m_reportedGdtfFailureReasons;
-  std::string m_lastSceneBasePath;
+  // Resource synchronization state (loaded assets + resolution caches).
+  ResourceSyncState m_resourceSyncState;
 
   // Cache of local-space model bounds keyed by resolved source path.
   std::unordered_map<std::string, BoundingBox> m_modelBounds;
-
-  struct PathResolutionEntry {
-    std::string resolvedPath;
-    bool attempted = false;
-  };
-
-  // Cached path resolution for raw GDTF specs and model references.
-  // When attempted=true and resolvedPath is empty, the lookup failed and we
-  // skip re-trying on every frame.
-  std::unordered_map<std::string, PathResolutionEntry> m_resolvedGdtfSpecs;
-  std::unordered_map<std::string, PathResolutionEntry> m_resolvedModelRefs;
 
   // Scene versioning used to skip expensive bounds recomputation when only
   // the camera changes.
   size_t m_sceneVersion = 0;
   size_t m_cachedVersion = static_cast<size_t>(-1);
-  size_t m_lastSceneSignature = 0;
-  bool m_hasSceneSignature = false;
   bool m_sceneChangedDirty = true;
   bool m_assetsChangedDirty = true;
   bool m_visibilityChangedDirty = true;
@@ -373,6 +350,13 @@ private:
 
   bool EnsureBoundsComputed(const std::string &uuid, ItemType type,
                             const std::unordered_set<std::string> &hiddenLayers);
+
+  void RebuildBoundsIfDirty(
+      const std::unordered_set<std::string> &hiddenLayers,
+      const std::unordered_map<std::string, Truss> &trusses,
+      const std::unordered_map<std::string, SceneObject> &objects,
+      const std::unordered_map<std::string, Fixture> &fixtures);
+
   mutable VisibleSet m_cachedVisibleSet;
   mutable VisibleSet m_cachedLayerVisibleCandidates;
   mutable size_t m_layerVisibleCandidatesSceneVersion = static_cast<size_t>(-1);
