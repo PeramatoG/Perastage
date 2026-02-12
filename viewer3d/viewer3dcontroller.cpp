@@ -62,6 +62,7 @@
 #include "visibilitysystem.h"
 #include "label_render_system.h"
 #include "selectionsystem.h"
+#include "gl_primitive_renderer.h"
 
 #include <wx/wx.h>
 #define NANOVG_GL2_IMPLEMENTATION
@@ -1056,48 +1057,11 @@ void Viewer3DController::SetGLColor(float r, float g, float b) const {
 
 // Draws a solid cube centered at origin with given size and color
 void Viewer3DController::DrawCube(float size, float r, float g, float b) {
-  float half = size / 2.0f;
-  float x0 = -half, x1 = half;
-  float y0 = -half, y1 = half;
-  float z0 = -half, z1 = half;
-
-  if (!m_captureOnly) {
-    SetGLColor(r, g, b);
-    glBegin(GL_QUADS);
-    glNormal3f(0.0f, 0.0f, 1.0f);
-    glVertex3f(x0, y0, z1);
-    glVertex3f(x1, y0, z1);
-    glVertex3f(x1, y1, z1);
-    glVertex3f(x0, y1, z1); // Front
-    glNormal3f(0.0f, 0.0f, -1.0f);
-    glVertex3f(x1, y0, z0);
-    glVertex3f(x0, y0, z0);
-    glVertex3f(x0, y1, z0);
-    glVertex3f(x1, y1, z0); // Back
-    glNormal3f(-1.0f, 0.0f, 0.0f);
-    glVertex3f(x0, y0, z0);
-    glVertex3f(x0, y0, z1);
-    glVertex3f(x0, y1, z1);
-    glVertex3f(x0, y1, z0); // Left
-    glNormal3f(1.0f, 0.0f, 0.0f);
-    glVertex3f(x1, y0, z1);
-    glVertex3f(x1, y0, z0);
-    glVertex3f(x1, y1, z0);
-    glVertex3f(x1, y1, z1); // Right
-    glNormal3f(0.0f, 1.0f, 0.0f);
-    glVertex3f(x0, y1, z1);
-    glVertex3f(x1, y1, z1);
-    glVertex3f(x1, y1, z0);
-    glVertex3f(x0, y1, z0); // Top
-    glNormal3f(0.0f, -1.0f, 0.0f);
-    glVertex3f(x0, y0, z0);
-    glVertex3f(x1, y0, z0);
-    glVertex3f(x1, y0, z1);
-    glVertex3f(x0, y0, z1); // Bottom
-    glEnd();
-  }
-
+  GLPrimitiveRenderer::DrawCube(
+      size, r, g, b, m_captureOnly,
+      [this](float cr, float cg, float cb) { SetGLColor(cr, cg, cb); });
 }
+
 
 // Draws a wireframe cube centered at origin with given size and color
 void Viewer3DController::DrawWireframeCube(
@@ -1105,81 +1069,18 @@ void Viewer3DController::DrawWireframeCube(
     const std::function<std::array<float, 3>(const std::array<float, 3> &)> &
         captureTransform,
     float lineWidthOverride, bool recordCapture) {
-  float half = size / 2.0f;
-  float x0 = -half, x1 = half;
-  float y0 = -half, y1 = half;
-  float z0 = -half, z1 = half;
-
   float lineWidth =
       GetLineRenderProfile(m_isInteracting, mode == Viewer2DRenderMode::Wireframe,
                            m_useAdaptiveLineProfile)
           .lineWidth;
-  if (lineWidthOverride > 0.0f)
-    lineWidth = lineWidthOverride;
-  if (!m_captureOnly) {
-    glLineWidth(lineWidth);
-    SetGLColor(r, g, b);
-  }
-  CanvasStroke stroke;
-  stroke.color = {r, g, b, 1.0f};
-  stroke.width = lineWidth;
-  if (!m_captureOnly) {
-    glBegin(GL_LINES);
-    glVertex3f(x0, y0, z0);
-    glVertex3f(x1, y0, z0);
-    glVertex3f(x0, y1, z0);
-    glVertex3f(x1, y1, z0);
-    glVertex3f(x0, y0, z1);
-    glVertex3f(x1, y0, z1);
-    glVertex3f(x0, y1, z1);
-    glVertex3f(x1, y1, z1);
-    glVertex3f(x0, y0, z0);
-    glVertex3f(x0, y1, z0);
-    glVertex3f(x1, y0, z0);
-    glVertex3f(x1, y1, z0);
-    glVertex3f(x0, y0, z1);
-    glVertex3f(x0, y1, z1);
-    glVertex3f(x1, y0, z1);
-    glVertex3f(x1, y1, z1);
-    glVertex3f(x0, y0, z0);
-    glVertex3f(x0, y0, z1);
-    glVertex3f(x1, y0, z0);
-    glVertex3f(x1, y0, z1);
-    glVertex3f(x0, y1, z0);
-    glVertex3f(x0, y1, z1);
-    glVertex3f(x1, y1, z0);
-    glVertex3f(x1, y1, z1);
-    glEnd();
-  }
-  if (m_captureCanvas && recordCapture) {
-    std::vector<std::array<float, 3>> verts = {{x0, y0, z0}, {x1, y0, z0},
-                                               {x0, y1, z0}, {x1, y1, z0},
-                                               {x0, y0, z1}, {x1, y0, z1},
-                                               {x0, y1, z1}, {x1, y1, z1}};
-    if (captureTransform) {
-      for (auto &p : verts)
-        p = captureTransform(p);
-    }
-    const int edges[12][2] = {{0, 1}, {2, 3}, {4, 5}, {6, 7}, {0, 2},
-                              {1, 3}, {4, 6}, {5, 7}, {0, 4}, {1, 5},
-                              {2, 6}, {3, 7}};
-    for (auto &e : edges)
-      RecordLine(verts[e[0]], verts[e[1]], stroke);
-  }
-  glLineWidth(1.0f);
-  if (mode != Viewer2DRenderMode::Wireframe) {
-    glEnable(GL_POLYGON_OFFSET_FILL);
-    glPolygonOffset(1.0f, 1.0f);
-    SetGLColor(1.0f, 1.0f, 1.0f);
-    glBegin(GL_QUADS);
-    glVertex3f(x0, y0, z1);
-    glVertex3f(x1, y0, z1);
-    glVertex3f(x1, y1, z1);
-    glVertex3f(x0, y1, z1);
-    glEnd();
-    glDisable(GL_POLYGON_OFFSET_FILL);
-  }
+  GLPrimitiveRenderer::DrawWireframeCube(
+      size, r, g, b, mode, captureTransform, lineWidth, lineWidthOverride,
+      recordCapture, m_captureOnly, m_captureCanvas,
+      [this](float cr, float cg, float cb) { SetGLColor(cr, cg, cb); },
+      [this](const std::array<float, 3> &a, const std::array<float, 3> &b,
+             const CanvasStroke &stroke) { RecordLine(a, b, stroke); });
 }
+
 
 // Draws a wireframe box whose origin sits at the left end of the span.
 // The box extends along +X for the given length and is centered in Y/Z.
@@ -1188,152 +1089,19 @@ void Viewer3DController::DrawWireframeBox(
     bool wireframe, Viewer2DRenderMode mode,
     const std::function<std::array<float, 3>(const std::array<float, 3> &)> &
         captureTransform) {
-  float x0 = 0.0f, x1 = length;
-  float y0 = -width * 0.5f, y1 = width * 0.5f;
-  float z0 = 0.0f, z1 = height;
-
-  if (wireframe) {
-    float lineWidth =
-        GetLineRenderProfile(m_isInteracting, mode == Viewer2DRenderMode::Wireframe,
-                             m_useAdaptiveLineProfile)
-            .lineWidth;
-    const bool drawOutline =
-        !m_skipOutlinesForCurrentFrame && m_showSelectionOutline2D &&
-        (highlight || selected);
-    auto drawEdges = [&]() {
-      glBegin(GL_LINES);
-      glVertex3f(x0, y0, z0);
-      glVertex3f(x1, y0, z0);
-      glVertex3f(x0, y1, z0);
-      glVertex3f(x1, y1, z0);
-      glVertex3f(x0, y0, z1);
-      glVertex3f(x1, y0, z1);
-      glVertex3f(x0, y1, z1);
-      glVertex3f(x1, y1, z1);
-      glVertex3f(x0, y0, z0);
-      glVertex3f(x0, y1, z0);
-      glVertex3f(x1, y0, z0);
-      glVertex3f(x1, y1, z0);
-      glVertex3f(x0, y0, z1);
-      glVertex3f(x0, y1, z1);
-      glVertex3f(x1, y0, z1);
-      glVertex3f(x1, y1, z1);
-      glVertex3f(x0, y0, z0);
-      glVertex3f(x0, y0, z1);
-      glVertex3f(x1, y0, z0);
-      glVertex3f(x1, y0, z1);
-      glVertex3f(x0, y1, z0);
-      glVertex3f(x0, y1, z1);
-      glVertex3f(x1, y1, z0);
-      glVertex3f(x1, y1, z1);
-      glEnd();
-    };
-    if (!m_captureOnly) {
-      if (drawOutline) {
-        float glowWidth = lineWidth + 3.0f;
-        glLineWidth(glowWidth);
-        if (highlight)
-          SetGLColor(0.0f, 1.0f, 0.0f);
-        else if (selected)
-          SetGLColor(0.0f, 1.0f, 1.0f);
-        drawEdges();
-      }
-      glLineWidth(lineWidth);
-      SetGLColor(0.0f, 0.0f, 0.0f);
-      drawEdges();
-    }
-    CanvasStroke stroke;
-    stroke.color = {0.0f, 0.0f, 0.0f, 1.0f};
-    stroke.width = lineWidth;
-    if (m_captureCanvas) {
-      std::vector<std::array<float, 3>> verts = {{x0, y0, z0}, {x1, y0, z0},
-                                                 {x0, y1, z0}, {x1, y1, z0},
-                                                 {x0, y0, z1}, {x1, y0, z1},
-                                                 {x0, y1, z1}, {x1, y1, z1}};
-      const int edges[12][2] = {{0, 1}, {2, 3}, {4, 5}, {6, 7}, {0, 2},
-                                {1, 3}, {4, 6}, {5, 7}, {0, 4}, {1, 5},
-                                {2, 6}, {3, 7}};
-      for (auto &e : edges)
-        RecordLine(verts[e[0]], verts[e[1]], stroke);
-    }
-    if (!m_captureOnly) {
-      glLineWidth(1.0f);
-      if (mode != Viewer2DRenderMode::Wireframe) {
-        glEnable(GL_POLYGON_OFFSET_FILL);
-        glPolygonOffset(1.0f, 1.0f);
-        SetGLColor(1.0f, 1.0f, 1.0f);
-        glBegin(GL_QUADS);
-        glVertex3f(x0, y0, z1);
-        glVertex3f(x1, y0, z1);
-        glVertex3f(x1, y1, z1);
-        glVertex3f(x0, y1, z1);
-        glEnd();
-        glDisable(GL_POLYGON_OFFSET_FILL);
-      }
-    }
-    return;
-  } else if (!m_captureOnly) {
-    if (highlight)
-      SetGLColor(0.0f, 1.0f, 0.0f);
-    else if (selected)
-      SetGLColor(0.0f, 1.0f, 1.0f);
-    else
-      SetGLColor(1.0f, 1.0f, 0.0f);
-  }
-
-  CanvasStroke stroke;
-  stroke.width = 1.0f;
-  if (highlight)
-    stroke.color = {0.0f, 1.0f, 0.0f, 1.0f};
-  else if (selected)
-    stroke.color = {0.0f, 1.0f, 1.0f, 1.0f};
-  else
-    stroke.color = {1.0f, 1.0f, 0.0f, 1.0f};
-
-  if (!m_captureOnly) {
-    glBegin(GL_LINES);
-    glVertex3f(x0, y0, z0);
-    glVertex3f(x1, y0, z0);
-    glVertex3f(x0, y1, z0);
-    glVertex3f(x1, y1, z0);
-    glVertex3f(x0, y0, z1);
-    glVertex3f(x1, y0, z1);
-    glVertex3f(x0, y1, z1);
-    glVertex3f(x1, y1, z1);
-    glVertex3f(x0, y0, z0);
-    glVertex3f(x0, y1, z0);
-    glVertex3f(x1, y0, z0);
-    glVertex3f(x1, y1, z0);
-    glVertex3f(x0, y0, z1);
-    glVertex3f(x0, y1, z1);
-    glVertex3f(x1, y0, z1);
-    glVertex3f(x1, y1, z1);
-    glVertex3f(x0, y0, z0);
-    glVertex3f(x0, y0, z1);
-    glVertex3f(x1, y0, z0);
-    glVertex3f(x1, y0, z1);
-    glVertex3f(x0, y1, z0);
-    glVertex3f(x0, y1, z1);
-    glVertex3f(x1, y1, z0);
-    glVertex3f(x1, y1, z1);
-    glEnd();
-  }
-  if (m_captureCanvas) {
-    std::vector<std::array<float, 3>> verts = {{x0, y0, z0}, {x1, y0, z0},
-                                               {x0, y1, z0}, {x1, y1, z0},
-                                               {x0, y0, z1}, {x1, y0, z1},
-                                               {x0, y1, z1}, {x1, y1, z1}};
-    if (captureTransform) {
-      for (auto &p : verts)
-        p = captureTransform(p);
-    }
-    const int edges[12][2] = {{0, 1}, {2, 3}, {4, 5}, {6, 7}, {0, 2},
-                              {1, 3}, {4, 6}, {5, 7}, {0, 4}, {1, 5},
-                              {2, 6}, {3, 7}};
-    for (auto &e : edges)
-      RecordLine(verts[e[0]], verts[e[1]], stroke);
-  }
+  float lineWidth =
+      GetLineRenderProfile(m_isInteracting, mode == Viewer2DRenderMode::Wireframe,
+                           m_useAdaptiveLineProfile)
+          .lineWidth;
+  GLPrimitiveRenderer::DrawWireframeBox(
+      length, height, width, highlight, selected, wireframe, mode,
+      captureTransform, m_skipOutlinesForCurrentFrame, m_showSelectionOutline2D,
+      m_captureOnly, m_captureCanvas, lineWidth,
+      [this](float cr, float cg, float cb) { SetGLColor(cr, cg, cb); },
+      [this](const std::array<float, 3> &a, const std::array<float, 3> &b,
+             const CanvasStroke &stroke) { RecordLine(a, b, stroke); });
 }
+
 
 // Draws a colored cube. If selected or highlighted it is tinted
 // in cyan or green respectively instead of its original color.
@@ -1344,86 +1112,25 @@ void Viewer3DController::DrawCubeWithOutline(
         captureTransform) {
   (void)cx;
   (void)cy;
-  (void)cz; // parameters no longer used
+  (void)cz;
 
-  if (wireframe) {
-    if (mode == Viewer2DRenderMode::Wireframe) {
-      const bool drawOutline =
-          !m_skipOutlinesForCurrentFrame && m_showSelectionOutline2D &&
-          (highlight || selected);
-      float baseWidth = 1.0f;
-      if (!m_captureOnly && drawOutline) {
-        float glowWidth = baseWidth + 3.0f;
-        if (highlight)
-          DrawWireframeCube(size, 0.0f, 1.0f, 0.0f, mode, captureTransform,
-                            glowWidth, false);
-        else if (selected)
-          DrawWireframeCube(size, 0.0f, 1.0f, 1.0f, mode, captureTransform,
-                            glowWidth, false);
-      }
-      DrawWireframeCube(size, 0.0f, 0.0f, 0.0f, mode, captureTransform);
-      return;
-    }
-    const bool drawOutline =
-        !m_skipOutlinesForCurrentFrame && m_showSelectionOutline2D &&
-        (highlight || selected);
-    float baseWidth = 2.0f;
-    if (!m_captureOnly && drawOutline) {
-      float glowWidth = baseWidth + 3.0f;
-      if (highlight)
-        DrawWireframeCube(size, 0.0f, 1.0f, 0.0f, mode, captureTransform,
-                          glowWidth, false);
-      else if (selected)
-        DrawWireframeCube(size, 0.0f, 1.0f, 1.0f, mode, captureTransform,
-                          glowWidth, false);
-    }
-    DrawWireframeCube(size, 0.0f, 0.0f, 0.0f, mode, captureTransform);
-    if (m_captureCanvas) {
-      float half = size / 2.0f;
-      float x0 = -half, x1 = half;
-      float y0 = -half, y1 = half;
-      float z0 = -half, z1 = half;
-      std::vector<std::array<float, 3>> verts = {
-          {x0, y0, z0}, {x1, y0, z0}, {x0, y1, z0}, {x1, y1, z0},
-          {x0, y0, z1}, {x1, y0, z1}, {x0, y1, z1}, {x1, y1, z1}};
-      if (captureTransform) {
-        for (auto &p : verts)
-          p = captureTransform(p);
-      }
-      float lineWidth =
-          GetLineRenderProfile(m_isInteracting, mode == Viewer2DRenderMode::Wireframe,
-                               m_useAdaptiveLineProfile)
-              .lineWidth;
-      CanvasStroke stroke;
-      stroke.color = {0.0f, 0.0f, 0.0f, 1.0f};
-      stroke.width = lineWidth;
-      CanvasFill fill;
-      fill.color = {r, g, b, 1.0f};
-      const int faces[6][4] = {{0, 1, 3, 2}, {4, 5, 7, 6}, {0, 1, 5, 4},
-                               {2, 3, 7, 6}, {0, 2, 6, 4}, {1, 3, 7, 5}};
-      for (const auto &face : faces) {
-        std::vector<std::array<float, 3>> pts = {
-            verts[face[0]], verts[face[1]], verts[face[2]], verts[face[3]]};
-        RecordPolygon(pts, stroke, &fill);
-      }
-    }
-    if (!m_captureOnly) {
-      glEnable(GL_POLYGON_OFFSET_FILL);
-      glPolygonOffset(-1.0f, -1.0f);
-      SetGLColor(r, g, b);
-      DrawCube(size, r, g, b);
-      glDisable(GL_POLYGON_OFFSET_FILL);
-    }
-    return;
-  }
-
-  if (highlight)
-    DrawCube(size, 0.0f, 1.0f, 0.0f);
-  else if (selected)
-    DrawCube(size, 0.0f, 1.0f, 1.0f);
-  else
-    DrawCube(size, r, g, b);
+  float lineWidth =
+      GetLineRenderProfile(m_isInteracting, mode == Viewer2DRenderMode::Wireframe,
+                           m_useAdaptiveLineProfile)
+          .lineWidth;
+  GLPrimitiveRenderer::DrawCubeWithOutline(
+      size, r, g, b, highlight, selected, wireframe, mode, captureTransform,
+      m_skipOutlinesForCurrentFrame, m_showSelectionOutline2D, m_captureOnly,
+      m_captureCanvas, lineWidth,
+      [this](float cr, float cg, float cb) { SetGLColor(cr, cg, cb); },
+      [this](const std::array<float, 3> &a, const std::array<float, 3> &b,
+             const CanvasStroke &stroke) { RecordLine(a, b, stroke); },
+      [this](const std::vector<std::array<float, 3>> &points,
+             const CanvasStroke &stroke, const CanvasFill *fill) {
+        RecordPolygon(points, stroke, fill);
+      });
 }
+
 
 void Viewer3DController::SetupMeshBuffers(Mesh &mesh) {
   if (mesh.vertices.empty() || mesh.indices.empty())
