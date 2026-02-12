@@ -202,8 +202,14 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
 
 
 if(PERAVIZ_ENABLE_NATIVE AND EXISTS "${CMAKE_SOURCE_DIR}/peraviz/native/CMakeLists.txt")
-    add_subdirectory(peraviz/native)
+    find_package(Python3 3.4 QUIET COMPONENTS Interpreter)
+    if(Python3_FOUND)
+        add_subdirectory(peraviz/native)
+    else()
+        message(STATUS "Python3 not found -> skipping Peraviz native (peraviz/native). Install Python or set -DPython3_EXECUTABLE=... to build it.")
+    endif()
 endif()
+
 
 if(BUILD_TESTING)
     add_subdirectory(tests)
