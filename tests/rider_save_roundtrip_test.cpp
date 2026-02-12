@@ -2,8 +2,8 @@
 #include <filesystem>
 #include <wx/init.h>
 
-#include "../core/configmanager.h"
-#include "../core/riderimporter.h"
+#include "configmanager.h"
+#include "riderimporter.h"
 
 int main(int argc, char **argv) {
     wxInitializer initializer;

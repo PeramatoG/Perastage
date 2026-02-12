@@ -39,7 +39,7 @@
 #include "gdtfloader.h"
 #include "layoutviewerpanel_shared.h"
 #include "legendutils.h"
-#include "layouts/LayoutManager.h"
+#include "LayoutManager.h"
 #include "viewer2dcommandrenderer.h"
 #include <wx/dcgraph.h>
 #include <wx/filename.h>

@@ -1,6 +1,6 @@
 #include "render_pipeline.h"
 
-#include "../viewer3dcontroller.h"
+#include "viewer3dcontroller.h"
 
 RenderPipeline::RenderPipeline(Viewer3DController &controller)
     : m_controller(controller) {}

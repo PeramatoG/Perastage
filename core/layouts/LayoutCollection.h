@@ -22,7 +22,7 @@
 #include <string>
 #include <vector>
 
-#include "../print/PageSetup.h"
+#include "PageSetup.h"
 
 namespace layouts {
 

@@ -17,8 +17,8 @@
  */
 #include "loaderglb.h"
 #include "consolepanel.h"
-#include "../external/json.hpp"
-#include "../models/matrixutils.h"
+#include "json.hpp"
+#include "matrixutils.h"
 #include <fstream>
 #include <vector>
 #include <algorithm>

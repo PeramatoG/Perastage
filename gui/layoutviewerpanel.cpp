@@ -36,7 +36,7 @@
 #endif
 
 #include "configmanager.h"
-#include "layouts/LayoutManager.h"
+#include "LayoutManager.h"
 #include "logger.h"
 #include "mainwindow.h"
 #include "viewer2doffscreenrenderer.h"

@@ -16,7 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "gdtfdictionary.h"
-#include "../external/json.hpp"
+#include "json.hpp"
 #include "projectutils.h"
 #include <algorithm>
 #include <filesystem>

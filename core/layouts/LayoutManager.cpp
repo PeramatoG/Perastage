@@ -17,8 +17,8 @@
  */
 #include "LayoutManager.h"
 
-#include "../configmanager.h"
-#include "../../external/json.hpp"
+#include "configmanager.h"
+#include "json.hpp"
 
 #include <algorithm>
 #include <array>

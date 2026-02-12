@@ -19,7 +19,7 @@
 #include <wx/wx.h>
 #include <wx/dataview.h>
 #include <vector>
-#include "../external/json.hpp"
+#include "json.hpp"
 
 struct GdtfEntry {
     std::string manufacturer;

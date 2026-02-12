@@ -16,8 +16,8 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "configmanager.h"
-#include "../external/json.hpp"
-#include "layouts/LayoutManager.h"
+#include "json.hpp"
+#include "LayoutManager.h"
 #include "mvrexporter.h"
 #include "mvrimporter.h"
 #include <chrono>

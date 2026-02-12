@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../interfaces/ivisibilitycontext.h"
+#include "ivisibilitycontext.h"
 
 class VisibilitySystem {
 public:

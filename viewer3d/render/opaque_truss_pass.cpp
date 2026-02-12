@@ -1,4 +1,4 @@
-#include "render/opaque_truss_pass.h"
+#include "opaque_truss_pass.h"
 
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
@@ -16,7 +16,7 @@
 #endif
 
 #include "matrixutils.h"
-#include "render/opaque_pass_utils.h"
+#include "opaque_pass_utils.h"
 #include "scenedatamanager.h"
 #include "viewer3dcontroller.h"
 

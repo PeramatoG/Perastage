@@ -30,10 +30,10 @@
 #include "canvas2d.h"
 #include "symbolcache.h"
 #include "viewer3d_types.h"
-#include "interfaces/irendercontext.h"
-#include "interfaces/iselectioncontext.h"
-#include "interfaces/ivisibilitycontext.h"
-#include "resources/resource_sync_system.h"
+#include "irendercontext.h"
+#include "iselectioncontext.h"
+#include "ivisibilitycontext.h"
+#include "resource_sync_system.h"
 #include <array>
 #include <mutex>
 #include <memory>

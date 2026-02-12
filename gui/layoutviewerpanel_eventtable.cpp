@@ -32,7 +32,7 @@
 
 #include "layouteventtabledialog.h"
 #include "layoutviewerpanel_shared.h"
-#include "layouts/LayoutManager.h"
+#include "LayoutManager.h"
 #include <wx/dcgraph.h>
 
 namespace {

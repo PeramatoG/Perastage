@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../viewer3d_types.h"
+#include "viewer3d_types.h"
 
 class Viewer3DController;
 

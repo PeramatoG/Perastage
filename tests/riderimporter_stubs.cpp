@@ -19,13 +19,13 @@
 #include <optional>
 #include <unordered_map>
 
-#include "../core/gdtfdictionary.h"
-#include "../core/trussdictionary.h"
-#include "../core/trussloader.h"
-#include "../core/pdftext.h"
-#include "../mvr/mvrimporter.h"
-#include "../mvr/mvrexporter.h"
-#include "../models/truss.h"
+#include "gdtfdictionary.h"
+#include "trussdictionary.h"
+#include "trussloader.h"
+#include "pdftext.h"
+#include "mvrimporter.h"
+#include "mvrexporter.h"
+#include "truss.h"
 
 std::string ExtractPdfText(const std::string &) { return {}; }
 

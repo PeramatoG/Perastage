@@ -61,7 +61,7 @@ class wxZipStreamLink;
 #include <wx/zipstrm.h>
 #include <wx/richtext/richtextbuffer.h>
 
-#include "../external/json.hpp"
+#include "json.hpp"
 
 using json = nlohmann::json;
 #include "addfixturedialog.h"
@@ -104,7 +104,7 @@ using json = nlohmann::json;
 #include "splashscreen.h"
 #include "summarypanel.h"
 #include "tableprinter.h"
-#include "print/Viewer2DPrintSettings.h"
+#include "Viewer2DPrintSettings.h"
 #include "viewer2dpdfexporter.h"
 #include "print_diagnostics.h"
 #include "support.h"
@@ -115,7 +115,7 @@ using json = nlohmann::json;
 #include "viewer2drenderpanel.h"
 #include "viewer2dstate.h"
 #include "viewer3dpanel.h"
-#include "layouts/LayoutManager.h"
+#include "LayoutManager.h"
 #ifdef _WIN32
 #define popen _popen
 #define pclose _pclose

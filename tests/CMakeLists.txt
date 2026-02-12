@@ -10,6 +10,25 @@ find_package(tinyxml2 CONFIG REQUIRED)
 
 enable_testing()
 
+include_directories(
+    .
+    ../core
+    ../core/layouts
+    ../core/print
+    ../models
+    ../mvr
+    ../gui
+    ../external
+    ../viewer2d
+    ../viewer3d
+    ../viewer3d/interfaces
+    ../viewer3d/resources
+    ../viewer3d/culling
+    ../viewer3d/labels
+    ../viewer3d/picking
+    ../viewer3d/render
+)
+
 add_executable(matrixutils_test matrixutils_test.cpp)
 target_include_directories(matrixutils_test PRIVATE ../models)
 add_test(NAME MatrixUtilsParsingAndComposition COMMAND matrixutils_test)

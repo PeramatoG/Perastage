@@ -35,7 +35,7 @@
 #include "layouttextdialog.h"
 #include "layouttextutils.h"
 #include "layoutviewerpanel_shared.h"
-#include "layouts/LayoutManager.h"
+#include "LayoutManager.h"
 
 layouts::LayoutTextDefinition *LayoutViewerPanel::GetSelectedText() {
   if (currentLayout.textViews.empty())

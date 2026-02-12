@@ -20,10 +20,10 @@
 #include <unordered_map>
 #include <wx/init.h>
 
-#include "../core/configmanager.h"
-#include "../core/riderimporter.h"
-#include "../models/fixture.h"
-#include "../models/truss.h"
+#include "configmanager.h"
+#include "riderimporter.h"
+#include "fixture.h"
+#include "truss.h"
 
 int main(int argc, char **argv) {
   wxInitializer initializer;

@@ -17,7 +17,7 @@
  */
 #pragma once
 
-#include "layouts/LayoutCollection.h"
+#include "LayoutCollection.h"
 
 #include <wx/weakref.h>
 

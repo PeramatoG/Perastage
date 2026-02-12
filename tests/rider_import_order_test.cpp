@@ -3,9 +3,9 @@
 #include <vector>
 #include <wx/init.h>
 
-#include "../core/riderimporter.h"
-#include "../core/configmanager.h"
-#include "../models/fixture.h"
+#include "riderimporter.h"
+#include "configmanager.h"
+#include "fixture.h"
 
 int main(int argc, char **argv) {
     wxInitializer initializer;

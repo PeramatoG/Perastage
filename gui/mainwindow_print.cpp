@@ -34,7 +34,7 @@
 #include "hoisttablepanel.h"
 #include "layouttextutils.h"
 #include "legendutils.h"
-#include "print/Viewer2DPrintSettings.h"
+#include "Viewer2DPrintSettings.h"
 #include "print_diagnostics.h"
 #include "sceneobjecttablepanel.h"
 #include "tableprinter.h"
@@ -43,7 +43,7 @@
 #include "viewer2doffscreenrenderer.h"
 #include "viewer2dpdfexporter.h"
 #include "viewer2dprintdialog.h"
-#include "layouts/LayoutManager.h"
+#include "LayoutManager.h"
 
 namespace {
 std::vector<LayoutLegendItem> BuildLayoutLegendItems() {

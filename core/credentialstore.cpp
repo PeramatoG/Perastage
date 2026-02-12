@@ -17,7 +17,7 @@
  */
 #include "credentialstore.h"
 #include "simplecrypt.h"
-#include "../external/json.hpp"
+#include "json.hpp"
 #include <wx/stdpaths.h>
 #include <filesystem>
 #include <fstream>

@@ -16,9 +16,9 @@
 #include <GL/glu.h>
 #endif
 
-#include "../../core/configmanager.h"
-#include "../../models/matrixutils.h"
-#include "../../core/scenedatamanager.h"
+#include "configmanager.h"
+#include "matrixutils.h"
+#include "scenedatamanager.h"
 
 #include <algorithm>
 #include <array>

@@ -1,2 +1,2 @@
-#include "../core/trussloader.h"
+#include "trussloader.h"
 bool LoadTrussArchive(const std::string&, Truss&) { return false; }

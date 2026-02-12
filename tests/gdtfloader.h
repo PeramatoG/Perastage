@@ -18,8 +18,8 @@
 #pragma once
 #include <string>
 #include <vector>
-#include "../viewer3d/mesh.h"
-#include "../models/types.h"
+#include "mesh.h"
+#include "types.h"
 struct GdtfObject { Mesh mesh; Matrix transform; };
 bool LoadGdtf(const std::string&, std::vector<GdtfObject>&, std::string* outError = nullptr);
 int GetGdtfModeChannelCount(const std::string&, const std::string&);
