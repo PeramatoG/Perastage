@@ -23,6 +23,8 @@ endif()
 
 include(CTest)
 
+option(PERAVIZ_ENABLE_NATIVE "Build Peraviz Godot GDExtension target" ON)
+
 # wxWidgets chooses different binary sets based on wxWidgets_USE_DEBUG.
 # - Single-config: we can select debug libs based on CMAKE_BUILD_TYPE.
 # - Multi-config (Visual Studio): do not force wxWidgets_USE_DEBUG unless explicitly requested.
@@ -197,6 +199,11 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
 )
 
 
+
+
+if(PERAVIZ_ENABLE_NATIVE AND EXISTS "${CMAKE_SOURCE_DIR}/peraviz/native/CMakeLists.txt")
+    add_subdirectory(peraviz/native)
+endif()
 
 if(BUILD_TESTING)
     add_subdirectory(tests)
