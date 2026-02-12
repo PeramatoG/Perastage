@@ -2,6 +2,7 @@
 
 #include <array>
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 // MVR coordinates are defined in millimeters. This constant converts
@@ -40,4 +41,33 @@ struct Viewer3DViewFrustumSnapshot {
   int viewport[4] = {0, 0, 0, 0};
   double model[16] = {0.0};
   double projection[16] = {0.0};
+};
+
+struct RenderFrameContext {
+  Viewer2DRenderMode mode = Viewer2DRenderMode::White;
+  Viewer2DView view = Viewer2DView::Top;
+  bool wireframe = false;
+  bool showGrid = true;
+  int gridStyle = 0;
+  float gridR = 0.35f;
+  float gridG = 0.35f;
+  float gridB = 0.35f;
+  bool gridOnTop = false;
+  bool is2DViewer = false;
+
+  bool useLighting = true;
+  bool drawGridBeforeScene = false;
+  bool drawGridAfterScene = false;
+  bool useFrustumCulling = false;
+  float minCullingPixels = 0.0f;
+
+  bool fastInteractionMode = false;
+  bool skipOptionalWork = false;
+  bool skipCapture = false;
+  bool skipOutlinesForCurrentFrame = false;
+
+  bool colorByFixtureType = false;
+  bool colorByLayer = false;
+
+  std::unordered_set<std::string> hiddenLayers;
 };
