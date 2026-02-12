@@ -2,6 +2,7 @@
 
 #include "canvas2d.h"
 #include "viewer3d_types.h"
+#include "symbolcache.h"
 #include "../../models/types.h"
 
 #include <array>
