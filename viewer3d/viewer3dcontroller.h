@@ -24,8 +24,6 @@
 
 #pragma once
 
-#include "gdtfloader.h"
-#include "mesh.h"
 #include "scenedatamanager.h"
 #include "canvas2d.h"
 #include "symbolcache.h"
@@ -45,12 +43,12 @@
 #include <wx/string.h>
 
 struct NVGcontext;
+class Mesh;
 
 class SceneRenderer;
 class VisibilitySystem;
 class SelectionSystem;
 class LabelRenderSystem;
-class RenderPipeline;
 class OpaqueFixturePass;
 class OpaqueTrussPass;
 class OpaqueObjectPass;
@@ -162,16 +160,29 @@ public:
   std::shared_ptr<const SymbolDefinitionSnapshot>
   GetBottomSymbolCacheSnapshot() const;
 
-private:
-  friend class LabelRenderSystem;
-  friend class RenderPipeline;
-
+  // Internal render pipeline API. Kept explicit so RenderPipeline does not
+  // need friend access.
   const VisibleSet &PrepareRenderFrame(const RenderFrameContext &context,
                                        ViewFrustumSnapshot &frustum);
   void RenderOpaqueFrame(const RenderFrameContext &context,
                          const VisibleSet &visibleSet);
   void RenderOverlayFrame(const RenderFrameContext &context,
                           const VisibleSet &visibleSet);
+
+  // Enables recording of all primitives drawn during the next RenderScene
+  // call. The caller owns the canvas lifetime and is responsible for calling
+  // BeginFrame/EndFrame. Recording is disabled automatically after each
+  // render pass by resetting the canvas to nullptr.
+  void SetCaptureCanvas(ICanvas2D *canvas, Viewer2DView view,
+                        bool includeGrid = true,
+                        bool useSymbolInstancing = false) {
+    m_captureCanvas = canvas;
+    m_captureView = view;
+    m_captureIncludeGrid = includeGrid;
+    m_captureUseSymbols = canvas ? useSymbolInstancing : false;
+  }
+
+private:
   // Draws a solid cube centered at origin with given size and color
   void DrawCube(float size = 0.2f, float r = 1.0f, float g = 1.0f,
                 float b = 1.0f);
@@ -379,104 +390,52 @@ private:
   std::unique_ptr<SelectionSystem> m_selectionSystem;
   std::unique_ptr<LabelRenderSystem> m_labelRenderSystem;
 
-public:
-  bool IsInteracting() const override { return m_isInteracting; }
-  bool UseAdaptiveLineProfile() const override { return m_useAdaptiveLineProfile; }
-  bool SkipOutlinesForCurrentFrame() const override {
-    return m_skipOutlinesForCurrentFrame;
-  }
-  bool IsSelectionOutlineEnabled2D() const override {
-    return m_showSelectionOutline2D;
-  }
-  bool IsCaptureOnly() const override { return m_captureOnly; }
-  ICanvas2D *GetCaptureCanvas() const override { return m_captureCanvas; }
-  bool CaptureIncludesGrid() const override { return m_captureIncludeGrid; }
-  const std::string &GetHighlightUuid() const override { return m_highlightUuid; }
-  const std::unordered_map<std::string, BoundingBox> &
-  GetFixtureBoundsMap() const override {
-    return m_fixtureBounds;
-  }
-  const std::unordered_map<std::string, BoundingBox> &
-  GetTrussBoundsMap() const override {
-    return m_trussBounds;
-  }
-  const std::unordered_map<std::string, BoundingBox> &
-  GetObjectBoundsMap() const override {
-    return m_objectBounds;
-  }
-  NVGcontext *GetNanoVGContext() const override { return m_vg; }
-  int GetLabelFont() const override { return m_font; }
-  int GetLabelBoldFont() const override { return m_fontBold; }
-  bool IsDarkMode() const override { return m_darkMode; }
+  // IRenderContext implementation
+  bool IsInteracting() const override;
+  bool UseAdaptiveLineProfile() const override;
+  bool SkipOutlinesForCurrentFrame() const override;
+  bool IsSelectionOutlineEnabled2D() const override;
+  bool IsCaptureOnly() const override;
+  ICanvas2D *GetCaptureCanvas() const override;
+  bool CaptureIncludesGrid() const override;
 
-  ResourceSyncState &GetResourceSyncState() override { return m_resourceSyncState; }
-  std::unordered_map<std::string, BoundingBox> &GetModelBounds() override {
-    return m_modelBounds;
-  }
-  std::unordered_map<std::string, BoundingBox> &GetFixtureBounds() override {
-    return m_fixtureBounds;
-  }
-  std::unordered_map<std::string, BoundingBox> &GetTrussBounds() override {
-    return m_trussBounds;
-  }
-  std::unordered_map<std::string, BoundingBox> &GetObjectBounds() override {
-    return m_objectBounds;
-  }
-  size_t GetSceneVersion() const override { return m_sceneVersion; }
+  // ISelectionContext implementation
+  const std::string &GetHighlightUuid() const override;
+  const std::unordered_map<std::string, BoundingBox> &
+  GetFixtureBoundsMap() const override;
+  const std::unordered_map<std::string, BoundingBox> &
+  GetTrussBoundsMap() const override;
+  const std::unordered_map<std::string, BoundingBox> &
+  GetObjectBoundsMap() const override;
+  NVGcontext *GetNanoVGContext() const override;
+  int GetLabelFont() const override;
+  int GetLabelBoldFont() const override;
+  bool IsDarkMode() const override;
+
+  // IVisibilityContext implementation
+  ResourceSyncState &GetResourceSyncState() override;
+  std::unordered_map<std::string, BoundingBox> &GetModelBounds() override;
+  std::unordered_map<std::string, BoundingBox> &GetFixtureBounds() override;
+  std::unordered_map<std::string, BoundingBox> &GetTrussBounds() override;
+  std::unordered_map<std::string, BoundingBox> &GetObjectBounds() override;
+  size_t GetSceneVersion() const override;
   const std::vector<const std::pair<const std::string, Fixture> *> &
-  GetSortedFixtures() const override {
-    return m_sortedFixtures;
-  }
+  GetSortedFixtures() const override;
   const std::vector<const std::pair<const std::string, Truss> *> &
-  GetSortedTrusses() const override {
-    return m_sortedTrusses;
-  }
+  GetSortedTrusses() const override;
   const std::vector<const std::pair<const std::string, SceneObject> *> &
-  GetSortedObjects() const override {
-    return m_sortedObjects;
-  }
-  std::mutex &GetSortedListsMutex() const override { return m_sortedListsMutex; }
-  VisibleSet &GetCachedVisibleSet() const override { return m_cachedVisibleSet; }
-  VisibleSet &GetCachedLayerVisibleCandidates() const override {
-    return m_cachedLayerVisibleCandidates;
-  }
-  size_t &GetLayerVisibleCandidatesSceneVersion() const override {
-    return m_layerVisibleCandidatesSceneVersion;
-  }
+  GetSortedObjects() const override;
+  std::mutex &GetSortedListsMutex() const override;
+  VisibleSet &GetCachedVisibleSet() const override;
+  VisibleSet &GetCachedLayerVisibleCandidates() const override;
+  size_t &GetLayerVisibleCandidatesSceneVersion() const override;
   std::unordered_set<std::string> &
-  GetLayerVisibleCandidatesHiddenLayers() const override {
-    return m_layerVisibleCandidatesHiddenLayers;
-  }
-  size_t &GetLayerVisibleCandidatesRevision() const override {
-    return m_layerVisibleCandidatesRevision;
-  }
-  size_t &GetVisibleSetLayerCandidatesRevision() const override {
-    return m_visibleSetLayerCandidatesRevision;
-  }
-  bool &GetVisibleSetFrustumCulling() const override {
-    return m_visibleSetFrustumCulling;
-  }
-  float &GetVisibleSetMinPixels() const override { return m_visibleSetMinPixels; }
-  std::array<int, 4> &GetVisibleSetViewport() const override {
-    return m_visibleSetViewport;
-  }
-  std::array<double, 16> &GetVisibleSetModel() const override {
-    return m_visibleSetModel;
-  }
-  std::array<double, 16> &GetVisibleSetProjection() const override {
-    return m_visibleSetProjection;
-  }
-
-  // Enables recording of all primitives drawn during the next RenderScene
-  // call. The caller owns the canvas lifetime and is responsible for calling
-  // BeginFrame/EndFrame. Recording is disabled automatically after each
-  // render pass by resetting the canvas to nullptr.
-  void SetCaptureCanvas(ICanvas2D *canvas, Viewer2DView view,
-                        bool includeGrid = true,
-                        bool useSymbolInstancing = false) {
-    m_captureCanvas = canvas;
-    m_captureView = view;
-    m_captureIncludeGrid = includeGrid;
-    m_captureUseSymbols = canvas ? useSymbolInstancing : false;
-  }
+  GetLayerVisibleCandidatesHiddenLayers() const override;
+  size_t &GetLayerVisibleCandidatesRevision() const override;
+  size_t &GetVisibleSetLayerCandidatesRevision() const override;
+  bool &GetVisibleSetFrustumCulling() const override;
+  float &GetVisibleSetMinPixels() const override;
+  std::array<int, 4> &GetVisibleSetViewport() const override;
+  std::array<double, 16> &GetVisibleSetModel() const override;
+  std::array<double, 16> &GetVisibleSetProjection() const override;
 };
