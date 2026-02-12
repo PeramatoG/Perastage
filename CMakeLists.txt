@@ -161,6 +161,8 @@ install(TARGETS ${PROJECT_NAME} RUNTIME DESTINATION .)
 # Include project directories
 target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_SOURCE_DIR}/gui
+    ${CMAKE_SOURCE_DIR}/gui/mainwindow/controllers
+    ${CMAKE_SOURCE_DIR}/gui/mainwindow/ids
     ${CMAKE_SOURCE_DIR}/models
     ${CMAKE_SOURCE_DIR}/core
     ${CMAKE_SOURCE_DIR}/core/layouts

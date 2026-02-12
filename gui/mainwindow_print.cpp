@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "mainwindow.h"
+#include "viewer2dstate.h"
 
 #include <cmath>
 #include <filesystem>
