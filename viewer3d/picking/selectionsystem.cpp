@@ -92,12 +92,12 @@ bool SelectionSystem::GetFixtureLabelAt(int mouseX, int mouseY, int width,
   for (const auto &[uuid, f] : fixtures) {
     if (!IsLayerVisibleCached(hiddenLayers, f.layer))
       continue;
-    const Viewer3DController::BoundingBox *bbPtr =
+    const ISelectionContext::BoundingBox *bbPtr =
         m_controller.FindFixtureBounds(uuid);
     if (!bbPtr)
       continue;
 
-    const Viewer3DController::BoundingBox &bb = *bbPtr;
+    const ISelectionContext::BoundingBox &bb = *bbPtr;
     std::array<std::array<float, 3>, 8> corners = {
         std::array<float, 3>{bb.min[0], bb.min[1], bb.min[2]},
         {bb.max[0], bb.min[1], bb.min[2]},
@@ -193,12 +193,12 @@ bool SelectionSystem::GetTrussLabelAt(int mouseX, int mouseY, int width,
   for (const auto &[uuid, t] : trusses) {
     if (!IsLayerVisibleCached(hiddenLayers, t.layer))
       continue;
-    const Viewer3DController::BoundingBox *bbPtr =
+    const ISelectionContext::BoundingBox *bbPtr =
         m_controller.FindTrussBounds(uuid);
     if (!bbPtr)
       continue;
 
-    const Viewer3DController::BoundingBox &bb = *bbPtr;
+    const ISelectionContext::BoundingBox &bb = *bbPtr;
     std::array<std::array<float, 3>, 8> corners = {
         std::array<float, 3>{bb.min[0], bb.min[1], bb.min[2]},
         {bb.max[0], bb.min[1], bb.min[2]},
@@ -282,12 +282,12 @@ bool SelectionSystem::GetSceneObjectLabelAt(int mouseX, int mouseY, int width,
   for (const auto &[uuid, o] : objs) {
     if (!IsLayerVisibleCached(hiddenLayers, o.layer))
       continue;
-    const Viewer3DController::BoundingBox *bbPtr =
+    const ISelectionContext::BoundingBox *bbPtr =
         m_controller.FindObjectBounds(uuid);
     if (!bbPtr)
       continue;
 
-    const Viewer3DController::BoundingBox &bb = *bbPtr;
+    const ISelectionContext::BoundingBox &bb = *bbPtr;
     std::array<std::array<float, 3>, 8> corners = {
         std::array<float, 3>{bb.min[0], bb.min[1], bb.min[2]},
         {bb.max[0], bb.min[1], bb.min[2]},
@@ -366,7 +366,7 @@ std::vector<std::string> SelectionSystem::GetFixturesInScreenRect(
              rect.maxY < selectionRect.minY || rect.minY > selectionRect.maxY);
   };
 
-  auto projectBounds = [&](const Viewer3DController::BoundingBox &bb, ScreenRect &rect) {
+  auto projectBounds = [&](const ISelectionContext::BoundingBox &bb, ScreenRect &rect) {
     rect = ScreenRect{};
     bool visible = false;
     std::array<std::array<float, 3>, 8> corners = {
@@ -395,14 +395,14 @@ std::vector<std::string> SelectionSystem::GetFixturesInScreenRect(
   };
 
   std::vector<std::string> selection;
-  Viewer3DController::ViewFrustumSnapshot frustum{};
+  ISelectionContext::ViewFrustumSnapshot frustum{};
   std::copy(std::begin(viewport), std::end(viewport), std::begin(frustum.viewport));
   std::copy(std::begin(model), std::end(model), std::begin(frustum.model));
   std::copy(std::begin(proj), std::end(proj), std::begin(frustum.projection));
-  const Viewer3DController::VisibleSet &visibleSet =
+  const ISelectionContext::VisibleSet &visibleSet =
       m_controller.GetVisibleSet(frustum, hiddenLayers, true, 0.0f);
   for (const auto &uuid : visibleSet.fixtureUuids) {
-    const Viewer3DController::BoundingBox *bbPtr =
+    const ISelectionContext::BoundingBox *bbPtr =
         m_controller.FindFixtureBounds(uuid);
     if (!bbPtr)
       continue;
@@ -439,7 +439,7 @@ std::vector<std::string> SelectionSystem::GetTrussesInScreenRect(
              rect.maxY < selectionRect.minY || rect.minY > selectionRect.maxY);
   };
 
-  auto projectBounds = [&](const Viewer3DController::BoundingBox &bb, ScreenRect &rect) {
+  auto projectBounds = [&](const ISelectionContext::BoundingBox &bb, ScreenRect &rect) {
     rect = ScreenRect{};
     bool visible = false;
     std::array<std::array<float, 3>, 8> corners = {
@@ -468,14 +468,14 @@ std::vector<std::string> SelectionSystem::GetTrussesInScreenRect(
   };
 
   std::vector<std::string> selection;
-  Viewer3DController::ViewFrustumSnapshot frustum{};
+  ISelectionContext::ViewFrustumSnapshot frustum{};
   std::copy(std::begin(viewport), std::end(viewport), std::begin(frustum.viewport));
   std::copy(std::begin(model), std::end(model), std::begin(frustum.model));
   std::copy(std::begin(proj), std::end(proj), std::begin(frustum.projection));
-  const Viewer3DController::VisibleSet &visibleSet =
+  const ISelectionContext::VisibleSet &visibleSet =
       m_controller.GetVisibleSet(frustum, hiddenLayers, true, 0.0f);
   for (const auto &uuid : visibleSet.trussUuids) {
-    const Viewer3DController::BoundingBox *bbPtr =
+    const ISelectionContext::BoundingBox *bbPtr =
         m_controller.FindTrussBounds(uuid);
     if (!bbPtr)
       continue;
@@ -512,7 +512,7 @@ std::vector<std::string> SelectionSystem::GetSceneObjectsInScreenRect(
              rect.maxY < selectionRect.minY || rect.minY > selectionRect.maxY);
   };
 
-  auto projectBounds = [&](const Viewer3DController::BoundingBox &bb, ScreenRect &rect) {
+  auto projectBounds = [&](const ISelectionContext::BoundingBox &bb, ScreenRect &rect) {
     rect = ScreenRect{};
     bool visible = false;
     std::array<std::array<float, 3>, 8> corners = {
@@ -541,14 +541,14 @@ std::vector<std::string> SelectionSystem::GetSceneObjectsInScreenRect(
   };
 
   std::vector<std::string> selection;
-  Viewer3DController::ViewFrustumSnapshot frustum{};
+  ISelectionContext::ViewFrustumSnapshot frustum{};
   std::copy(std::begin(viewport), std::end(viewport), std::begin(frustum.viewport));
   std::copy(std::begin(model), std::end(model), std::begin(frustum.model));
   std::copy(std::begin(proj), std::end(proj), std::begin(frustum.projection));
-  const Viewer3DController::VisibleSet &visibleSet =
+  const ISelectionContext::VisibleSet &visibleSet =
       m_controller.GetVisibleSet(frustum, hiddenLayers, true, 0.0f);
   for (const auto &uuid : visibleSet.objectUuids) {
-    const Viewer3DController::BoundingBox *bbPtr =
+    const ISelectionContext::BoundingBox *bbPtr =
         m_controller.FindObjectBounds(uuid);
     if (!bbPtr)
       continue;

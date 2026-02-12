@@ -43,6 +43,11 @@ struct Viewer3DViewFrustumSnapshot {
   double projection[16] = {0.0};
 };
 
+struct Viewer3DBoundingBox {
+  std::array<float, 3> min;
+  std::array<float, 3> max;
+};
+
 struct RenderFrameContext {
   Viewer2DRenderMode mode = Viewer2DRenderMode::White;
   Viewer2DView view = Viewer2DView::Top;

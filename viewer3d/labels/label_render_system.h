@@ -1,10 +1,11 @@
 #pragma once
 
-#include "../viewer3dcontroller.h"
+#include "../interfaces/iselectioncontext.h"
+#include "../viewer3d_types.h"
 
 class LabelRenderSystem {
 public:
-  explicit LabelRenderSystem(Viewer3DController &controller)
+  explicit LabelRenderSystem(ISelectionContext &controller)
       : m_controller(controller) {}
 
   void DrawFixtureLabels(int width, int height);
@@ -14,5 +15,5 @@ public:
                             float zoom);
 
 private:
-  Viewer3DController &m_controller;
+  ISelectionContext &m_controller;
 };

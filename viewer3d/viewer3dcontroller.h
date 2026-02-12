@@ -30,6 +30,9 @@
 #include "canvas2d.h"
 #include "symbolcache.h"
 #include "viewer3d_types.h"
+#include "interfaces/irendercontext.h"
+#include "interfaces/iselectioncontext.h"
+#include "interfaces/ivisibilitycontext.h"
 #include "resources/resource_sync_system.h"
 #include <array>
 #include <mutex>
@@ -49,16 +52,14 @@ class SelectionSystem;
 class LabelRenderSystem;
 class RenderPipeline;
 
-class Viewer3DController {
+class Viewer3DController : public IRenderContext,
+                           public ISelectionContext,
+                           public IVisibilityContext {
 public:
   using ItemType = Viewer3DItemType;
   using VisibleSet = Viewer3DVisibleSet;
   using ViewFrustumSnapshot = Viewer3DViewFrustumSnapshot;
-
-  struct BoundingBox {
-    std::array<float, 3> min;
-    std::array<float, 3> max;
-  };
+  using BoundingBox = Viewer3DBoundingBox;
 
   Viewer3DController();
   ~Viewer3DController();
@@ -96,7 +97,7 @@ public:
   void SetDarkMode(bool enabled);
   void SetInteracting(bool interacting);
   void SetCameraMoving(bool moving);
-  bool IsCameraMoving() const;
+  bool IsCameraMoving() const override;
   void SetSelectionOutlineEnabled(bool enabled) {
     m_showSelectionOutline2D = enabled;
   }
@@ -129,15 +130,16 @@ public:
 
   // Selection/culling query helpers used by subsystem blocks. They expose
   // read-only access and keep Viewer3DController as façade/orchestrator.
-  void ApplyHighlightUuid(const std::string &uuid);
-  void ReplaceSelectedUuids(const std::vector<std::string> &uuids);
-  const BoundingBox *FindFixtureBounds(const std::string &uuid) const;
-  const BoundingBox *FindTrussBounds(const std::string &uuid) const;
-  const BoundingBox *FindObjectBounds(const std::string &uuid) const;
+  void ApplyHighlightUuid(const std::string &uuid) override;
+  void ReplaceSelectedUuids(const std::vector<std::string> &uuids) override;
+  const BoundingBox *FindFixtureBounds(const std::string &uuid) const override;
+  const BoundingBox *FindTrussBounds(const std::string &uuid) const override;
+  const BoundingBox *FindObjectBounds(const std::string &uuid) const override;
 
-  const VisibleSet &GetVisibleSet(const ViewFrustumSnapshot &frustum,
-                                  const std::unordered_set<std::string> &hiddenLayers,
-                                  bool useFrustumCulling, float minPixels) const;
+  const VisibleSet &
+  GetVisibleSet(const ViewFrustumSnapshot &frustum,
+                const std::unordered_set<std::string> &hiddenLayers,
+                bool useFrustumCulling, float minPixels) const override;
 
   void RebuildVisibleSetCache();
   std::vector<std::string> GetFixturesInScreenRect(int x1, int y1, int x2,
@@ -158,8 +160,6 @@ public:
   GetBottomSymbolCacheSnapshot() const;
 
 private:
-  friend class SceneRenderer;
-  friend class VisibilitySystem;
   friend class LabelRenderSystem;
   friend class RenderPipeline;
 
@@ -244,19 +244,20 @@ private:
   // Initializes simple lighting for the scene
   void SetupBasicLighting();
   void SetupMaterialFromRGB(float r, float g, float b);
-  void SetGLColor(float r, float g, float b) const;
+  void SetGLColor(float r, float g, float b) const override;
   std::array<float, 3> AdjustColor(float r, float g, float b) const;
 
   // Helpers used only when recording the 2D view to a canvas command buffer.
   std::array<float, 2> ProjectToCanvas(const std::array<float, 3> &p) const;
   void RecordLine(const std::array<float, 3> &a, const std::array<float, 3> &b,
-                  const CanvasStroke &stroke) const;
+                  const CanvasStroke &stroke) const override;
   void RecordPolyline(const std::vector<std::array<float, 3>> &points,
                       const CanvasStroke &stroke) const;
   void RecordPolygon(const std::vector<std::array<float, 3>> &points,
-                     const CanvasStroke &stroke, const CanvasFill *fill) const;
+                     const CanvasStroke &stroke,
+                     const CanvasFill *fill) const override;
   void RecordText(float x, float y, const std::string &text,
-                  const CanvasTextStyle &style) const;
+                  const CanvasTextStyle &style) const override;
 
   // Creates VAO/VBO/EBO objects for the provided mesh. The function keeps
   // the triangle EBO bound in the VAO to avoid losing indexed draw state.
@@ -377,6 +378,93 @@ private:
   std::unique_ptr<LabelRenderSystem> m_labelRenderSystem;
 
 public:
+  bool IsInteracting() const override { return m_isInteracting; }
+  bool UseAdaptiveLineProfile() const override { return m_useAdaptiveLineProfile; }
+  bool SkipOutlinesForCurrentFrame() const override {
+    return m_skipOutlinesForCurrentFrame;
+  }
+  bool IsSelectionOutlineEnabled2D() const override {
+    return m_showSelectionOutline2D;
+  }
+  bool IsCaptureOnly() const override { return m_captureOnly; }
+  ICanvas2D *GetCaptureCanvas() const override { return m_captureCanvas; }
+  bool CaptureIncludesGrid() const override { return m_captureIncludeGrid; }
+  const std::string &GetHighlightUuid() const override { return m_highlightUuid; }
+  const std::unordered_map<std::string, BoundingBox> &
+  GetFixtureBoundsMap() const override {
+    return m_fixtureBounds;
+  }
+  const std::unordered_map<std::string, BoundingBox> &
+  GetTrussBoundsMap() const override {
+    return m_trussBounds;
+  }
+  const std::unordered_map<std::string, BoundingBox> &
+  GetObjectBoundsMap() const override {
+    return m_objectBounds;
+  }
+  NVGcontext *GetNanoVGContext() const override { return m_vg; }
+  int GetLabelFont() const override { return m_font; }
+  int GetLabelBoldFont() const override { return m_fontBold; }
+  bool IsDarkMode() const override { return m_darkMode; }
+
+  ResourceSyncState &GetResourceSyncState() override { return m_resourceSyncState; }
+  std::unordered_map<std::string, BoundingBox> &GetModelBounds() override {
+    return m_modelBounds;
+  }
+  std::unordered_map<std::string, BoundingBox> &GetFixtureBounds() override {
+    return m_fixtureBounds;
+  }
+  std::unordered_map<std::string, BoundingBox> &GetTrussBounds() override {
+    return m_trussBounds;
+  }
+  std::unordered_map<std::string, BoundingBox> &GetObjectBounds() override {
+    return m_objectBounds;
+  }
+  size_t GetSceneVersion() const override { return m_sceneVersion; }
+  const std::vector<const std::pair<const std::string, Fixture> *> &
+  GetSortedFixtures() const override {
+    return m_sortedFixtures;
+  }
+  const std::vector<const std::pair<const std::string, Truss> *> &
+  GetSortedTrusses() const override {
+    return m_sortedTrusses;
+  }
+  const std::vector<const std::pair<const std::string, SceneObject> *> &
+  GetSortedObjects() const override {
+    return m_sortedObjects;
+  }
+  std::mutex &GetSortedListsMutex() const override { return m_sortedListsMutex; }
+  VisibleSet &GetCachedVisibleSet() const override { return m_cachedVisibleSet; }
+  VisibleSet &GetCachedLayerVisibleCandidates() const override {
+    return m_cachedLayerVisibleCandidates;
+  }
+  size_t &GetLayerVisibleCandidatesSceneVersion() const override {
+    return m_layerVisibleCandidatesSceneVersion;
+  }
+  std::unordered_set<std::string> &
+  GetLayerVisibleCandidatesHiddenLayers() const override {
+    return m_layerVisibleCandidatesHiddenLayers;
+  }
+  size_t &GetLayerVisibleCandidatesRevision() const override {
+    return m_layerVisibleCandidatesRevision;
+  }
+  size_t &GetVisibleSetLayerCandidatesRevision() const override {
+    return m_visibleSetLayerCandidatesRevision;
+  }
+  bool &GetVisibleSetFrustumCulling() const override {
+    return m_visibleSetFrustumCulling;
+  }
+  float &GetVisibleSetMinPixels() const override { return m_visibleSetMinPixels; }
+  std::array<int, 4> &GetVisibleSetViewport() const override {
+    return m_visibleSetViewport;
+  }
+  std::array<double, 16> &GetVisibleSetModel() const override {
+    return m_visibleSetModel;
+  }
+  std::array<double, 16> &GetVisibleSetProjection() const override {
+    return m_visibleSetProjection;
+  }
+
   // Enables recording of all primitives drawn during the next RenderScene
   // call. The caller owns the canvas lifetime and is responsible for calling
   // BeginFrame/EndFrame. Recording is disabled automatically after each

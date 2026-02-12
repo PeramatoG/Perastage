@@ -73,9 +73,9 @@ void FillProjectionContext(int width, int height, ProjectionContext &ctx) {
   glGetIntegerv(GL_VIEWPORT, ctx.viewport);
 }
 
-Viewer3DController::ViewFrustumSnapshot
+ISelectionContext::ViewFrustumSnapshot
 BuildFrustum(const ProjectionContext &ctx) {
-  Viewer3DController::ViewFrustumSnapshot frustum{};
+  ISelectionContext::ViewFrustumSnapshot frustum{};
   std::copy(std::begin(ctx.viewport), std::end(ctx.viewport),
             std::begin(frustum.viewport));
   std::copy(std::begin(ctx.model), std::end(ctx.model), std::begin(frustum.model));
@@ -170,7 +170,7 @@ bool ProjectLabelAnchor(const ProjectionContext &ctx, double wx, double wy,
 }
 
 std::array<double, 3>
-ResolveAnchor(const Viewer3DController::BoundingBox *bounds,
+ResolveAnchor(const ISelectionContext::BoundingBox *bounds,
               const std::array<float, 3> &fallbackOrigin,
               bool anchorTop = false,
               Viewer2DView view = Viewer2DView::Top) {
@@ -383,13 +383,13 @@ void LabelRenderSystem::DrawFixtureLabels(int width, int height) {
 
   for (const auto &uuid : visibleSet.fixtureUuids) {
     auto fixtureIt = fixtures.find(uuid);
-    if (fixtureIt == fixtures.end() || uuid != m_controller.m_highlightUuid)
+    if (fixtureIt == fixtures.end() || uuid != m_controller.GetHighlightUuid())
       continue;
 
     const auto &f = fixtureIt->second;
-    const auto bit = m_controller.m_fixtureBounds.find(uuid);
-    const Viewer3DController::BoundingBox *bounds =
-        bit != m_controller.m_fixtureBounds.end() ? &bit->second : nullptr;
+    const auto bit = m_controller.GetFixtureBoundsMap().find(uuid);
+    const ISelectionContext::BoundingBox *bounds =
+        bit != m_controller.GetFixtureBoundsMap().end() ? &bit->second : nullptr;
 
     if (useLabelOptimizations && culling.enabled && bounds) {
       ScreenRect rect;
@@ -426,7 +426,7 @@ void LabelRenderSystem::DrawFixtureLabels(int width, int height) {
       continue;
 
     auto utf8 = label.ToUTF8();
-    DrawText2D(m_controller.m_vg, m_controller.m_font,
+    DrawText2D(m_controller.GetNanoVGContext(), m_controller.GetLabelFont(),
                std::string(utf8.data(), utf8.length()), x, y);
   }
 }
@@ -504,9 +504,9 @@ void LabelRenderSystem::DrawAllFixtureLabels(int width, int height,
     if (!IsLayerVisibleCached(hiddenLayers, f.layer))
       continue;
 
-    auto bit = m_controller.m_fixtureBounds.find(uuid);
+    auto bit = m_controller.GetFixtureBoundsMap().find(uuid);
     if (useLabelOptimizations && culling.enabled &&
-        bit != m_controller.m_fixtureBounds.end()) {
+        bit != m_controller.GetFixtureBoundsMap().end()) {
       ScreenRect rect;
       bool anyDepthVisible = false;
       if (!ProjectBoundingBoxToScreen(bit->second.min, bit->second.max, projection,
@@ -536,9 +536,9 @@ void LabelRenderSystem::DrawAllFixtureLabels(int width, int height,
     const std::string &uuid = *candidate.uuid;
     const Fixture &f = *candidate.fixture;
 
-    auto bit = m_controller.m_fixtureBounds.find(uuid);
-    const Viewer3DController::BoundingBox *bounds =
-        bit != m_controller.m_fixtureBounds.end() ? &bit->second : nullptr;
+    auto bit = m_controller.GetFixtureBoundsMap().find(uuid);
+    const ISelectionContext::BoundingBox *bounds =
+        bit != m_controller.GetFixtureBoundsMap().end() ? &bit->second : nullptr;
 
     const auto anchor = ResolveAnchor(bounds, f.transform.o, true, view);
     const double wx = anchor[0] + offX;
@@ -561,7 +561,7 @@ void LabelRenderSystem::DrawAllFixtureLabels(int width, int height,
       while (nameLines.HasMoreTokens()) {
         wxString line = nameLines.GetNextToken();
         auto utf8 = line.ToUTF8();
-        lines.push_back({m_controller.m_font,
+        lines.push_back({m_controller.GetLabelFont(),
                          std::string(utf8.data(), utf8.length()), nameSize,
                          kRegularFamily});
       }
@@ -569,12 +569,12 @@ void LabelRenderSystem::DrawAllFixtureLabels(int width, int height,
     if (showId) {
       wxString idLine = "ID: " + wxString::Format("%d", f.fixtureId);
       auto utf8 = idLine.ToUTF8();
-      lines.push_back({m_controller.m_font, std::string(utf8.data(), utf8.length()),
+      lines.push_back({m_controller.GetLabelFont(), std::string(utf8.data(), utf8.length()),
                        idSize, kRegularFamily});
     }
     if (showDmx && !f.address.empty()) {
-      int dmxFont = m_controller.m_fontBold >= 0 ? m_controller.m_fontBold
-                                                 : m_controller.m_font;
+      int dmxFont = m_controller.GetLabelBoldFont() >= 0 ? m_controller.GetLabelBoldFont()
+                                                 : m_controller.GetLabelFont();
       wxString addrLine = wxString::FromUTF8(f.address);
       auto utf8 = addrLine.ToUTF8();
       lines.push_back(
@@ -583,9 +583,9 @@ void LabelRenderSystem::DrawAllFixtureLabels(int width, int height,
     if (lines.empty())
       continue;
 
-    if (m_controller.m_captureCanvas) {
+    if (m_controller.GetCaptureCanvas()) {
       std::string labelSourceKey = "label:" + uuid;
-      m_controller.m_captureCanvas->SetSourceKey(labelSourceKey);
+      m_controller.GetCaptureCanvas()->SetSourceKey(labelSourceKey);
 
       const float pxToWorld = 1.0f / (PIXELS_PER_METER * zoom);
       const float lineSpacingWorld = 2.0f * pxToWorld;
@@ -601,17 +601,17 @@ void LabelRenderSystem::DrawAllFixtureLabels(int width, int height,
 
       for (const auto &ln : lines) {
         worldFontSizes.push_back(ln.size * pxToWorld);
-        nvgFontSize(m_controller.m_vg, ln.size);
-        nvgFontFaceId(m_controller.m_vg, ln.font);
-        nvgTextAlign(m_controller.m_vg, NVG_ALIGN_CENTER | NVG_ALIGN_TOP);
+        nvgFontSize(m_controller.GetNanoVGContext(), ln.size);
+        nvgFontFaceId(m_controller.GetNanoVGContext(), ln.font);
+        nvgTextAlign(m_controller.GetNanoVGContext(), NVG_ALIGN_CENTER | NVG_ALIGN_TOP);
         float bounds2D[4];
-        nvgTextBounds(m_controller.m_vg, 0.f, 0.f, ln.text.c_str(), nullptr,
+        nvgTextBounds(m_controller.GetNanoVGContext(), 0.f, 0.f, ln.text.c_str(), nullptr,
                       bounds2D);
         lineHeightsWorld.push_back((bounds2D[3] - bounds2D[1]) * pxToWorld);
         float ascender = 0.0f;
         float descender = 0.0f;
         float lineh = 0.0f;
-        nvgTextMetrics(m_controller.m_vg, &ascender, &descender, &lineh);
+        nvgTextMetrics(m_controller.GetNanoVGContext(), &ascender, &descender, &lineh);
         ascentsWorld.push_back(ascender * pxToWorld);
         descentsWorld.push_back(-descender * pxToWorld);
       }
@@ -667,12 +667,12 @@ void LabelRenderSystem::DrawAllFixtureLabels(int width, int height,
     }
 
     NVGcolor textColor =
-        m_controller.m_darkMode ? nvgRGBAf(1.f, 1.f, 1.f, 1.f)
+        m_controller.IsDarkMode() ? nvgRGBAf(1.f, 1.f, 1.f, 1.f)
                                 : nvgRGBAf(0.f, 0.f, 0.f, 1.f);
     NVGcolor outlineColor =
-        m_controller.m_darkMode ? nvgRGBAf(0.f, 0.f, 0.f, 1.f)
+        m_controller.IsDarkMode() ? nvgRGBAf(0.f, 0.f, 0.f, 1.f)
                                 : nvgRGBAf(1.f, 1.f, 1.f, 1.f);
-    DrawLabelLines2D(m_controller.m_vg, lines, x, y, textColor, outlineColor,
+    DrawLabelLines2D(m_controller.GetNanoVGContext(), lines, x, y, textColor, outlineColor,
                      true);
   }
 }
@@ -695,15 +695,15 @@ void LabelRenderSystem::DrawTrussLabels(int width, int height) {
       BuildFrustum(projection), hiddenLayers, culling.enabled, minLabelPixels);
   for (const auto &uuid : visibleSet.trussUuids) {
     auto trussIt = trusses.find(uuid);
-    if (trussIt == trusses.end() || uuid != m_controller.m_highlightUuid)
+    if (trussIt == trusses.end() || uuid != m_controller.GetHighlightUuid())
       continue;
     if (useLabelOptimizations && maxLabels > 0 && labelsDrawn >= maxLabels)
       break;
 
     const auto &t = trussIt->second;
-    const auto bit = m_controller.m_trussBounds.find(uuid);
-    const Viewer3DController::BoundingBox *bounds =
-        bit != m_controller.m_trussBounds.end() ? &bit->second : nullptr;
+    const auto bit = m_controller.GetTrussBoundsMap().find(uuid);
+    const ISelectionContext::BoundingBox *bounds =
+        bit != m_controller.GetTrussBoundsMap().end() ? &bit->second : nullptr;
 
     if (useLabelOptimizations && culling.enabled && bounds) {
       ScreenRect rect;
@@ -729,7 +729,7 @@ void LabelRenderSystem::DrawTrussLabels(int width, int height) {
     label += wxString::Format("\nh = %s m", heightText.c_str());
 
     auto utf8 = label.ToUTF8();
-    DrawText2D(m_controller.m_vg, m_controller.m_font,
+    DrawText2D(m_controller.GetNanoVGContext(), m_controller.GetLabelFont(),
                std::string(utf8.data(), utf8.length()), x, y);
     ++labelsDrawn;
   }
@@ -753,15 +753,15 @@ void LabelRenderSystem::DrawSceneObjectLabels(int width, int height) {
       BuildFrustum(projection), hiddenLayers, culling.enabled, minLabelPixels);
   for (const auto &uuid : visibleSet.objectUuids) {
     auto objectIt = objects.find(uuid);
-    if (objectIt == objects.end() || uuid != m_controller.m_highlightUuid)
+    if (objectIt == objects.end() || uuid != m_controller.GetHighlightUuid())
       continue;
     if (useLabelOptimizations && maxLabels > 0 && labelsDrawn >= maxLabels)
       break;
 
     const auto &obj = objectIt->second;
-    const auto bit = m_controller.m_objectBounds.find(uuid);
-    const Viewer3DController::BoundingBox *bounds =
-        bit != m_controller.m_objectBounds.end() ? &bit->second : nullptr;
+    const auto bit = m_controller.GetObjectBoundsMap().find(uuid);
+    const ISelectionContext::BoundingBox *bounds =
+        bit != m_controller.GetObjectBoundsMap().end() ? &bit->second : nullptr;
 
     if (useLabelOptimizations && culling.enabled && bounds) {
       ScreenRect rect;
@@ -783,7 +783,7 @@ void LabelRenderSystem::DrawSceneObjectLabels(int width, int height) {
     wxString label = obj.name.empty() ? wxString::FromUTF8(uuid)
                                       : wxString::FromUTF8(obj.name);
     auto utf8 = label.ToUTF8();
-    DrawText2D(m_controller.m_vg, m_controller.m_font,
+    DrawText2D(m_controller.GetNanoVGContext(), m_controller.GetLabelFont(),
                std::string(utf8.data(), utf8.length()), x, y);
     ++labelsDrawn;
   }
