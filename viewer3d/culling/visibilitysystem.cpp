@@ -185,13 +185,13 @@ bool VisibilitySystem::EnsureBoundsComputed(
     bb.max = {-FLT_MAX, -FLT_MAX, -FLT_MAX};
 
     std::string gdtfPath;
-    auto gdtfIt = m_controller.m_resolvedGdtfSpecs.find(
+    auto gdtfIt = m_controller.m_resourceSyncState.resolvedGdtfSpecs.find(
         ResolveCacheKey(fit->second.gdtfSpec));
-    if (gdtfIt != m_controller.m_resolvedGdtfSpecs.end() &&
+    if (gdtfIt != m_controller.m_resourceSyncState.resolvedGdtfSpecs.end() &&
         gdtfIt->second.attempted)
       gdtfPath = gdtfIt->second.resolvedPath;
-    auto itg = m_controller.m_loadedGdtf.find(gdtfPath);
-    if (itg != m_controller.m_loadedGdtf.end()) {
+    auto itg = m_controller.m_resourceSyncState.loadedGdtf.find(gdtfPath);
+    if (itg != m_controller.m_resourceSyncState.loadedGdtf.end()) {
       auto bit = m_controller.m_modelBounds.find(gdtfPath);
       if (bit == m_controller.m_modelBounds.end()) {
         Viewer3DController::BoundingBox local;
@@ -266,15 +266,15 @@ bool VisibilitySystem::EnsureBoundsComputed(
 
     if (!tit->second.symbolFile.empty()) {
       std::string path;
-      auto modelIt = m_controller.m_resolvedModelRefs.find(
+      auto modelIt = m_controller.m_resourceSyncState.resolvedModelRefs.find(
           ResolveCacheKey(tit->second.symbolFile));
-      if (modelIt != m_controller.m_resolvedModelRefs.end() &&
+      if (modelIt != m_controller.m_resourceSyncState.resolvedModelRefs.end() &&
           modelIt->second.attempted)
         path = modelIt->second.resolvedPath;
       auto bit = m_controller.m_modelBounds.find(path);
       if (bit == m_controller.m_modelBounds.end()) {
-        auto it = m_controller.m_loadedMeshes.find(path);
-        if (it != m_controller.m_loadedMeshes.end()) {
+        auto it = m_controller.m_resourceSyncState.loadedMeshes.find(path);
+        if (it != m_controller.m_resourceSyncState.loadedMeshes.end()) {
           Viewer3DController::BoundingBox local;
           local.min = {FLT_MAX, FLT_MAX, FLT_MAX};
           local.max = {-FLT_MAX, -FLT_MAX, -FLT_MAX};
@@ -346,15 +346,15 @@ bool VisibilitySystem::EnsureBoundsComputed(
   if (!oit->second.geometries.empty()) {
     for (const auto &geo : oit->second.geometries) {
       std::string path;
-      auto modelIt = m_controller.m_resolvedModelRefs.find(
+      auto modelIt = m_controller.m_resourceSyncState.resolvedModelRefs.find(
           ResolveCacheKey(geo.modelFile));
-      if (modelIt != m_controller.m_resolvedModelRefs.end() &&
+      if (modelIt != m_controller.m_resourceSyncState.resolvedModelRefs.end() &&
           modelIt->second.attempted)
         path = modelIt->second.resolvedPath;
       auto bit = m_controller.m_modelBounds.find(path);
       if (bit == m_controller.m_modelBounds.end()) {
-        auto it = m_controller.m_loadedMeshes.find(path);
-        if (it != m_controller.m_loadedMeshes.end()) {
+        auto it = m_controller.m_resourceSyncState.loadedMeshes.find(path);
+        if (it != m_controller.m_resourceSyncState.loadedMeshes.end()) {
           Viewer3DController::BoundingBox local;
           local.min = {FLT_MAX, FLT_MAX, FLT_MAX};
           local.max = {-FLT_MAX, -FLT_MAX, -FLT_MAX};
@@ -393,14 +393,14 @@ bool VisibilitySystem::EnsureBoundsComputed(
   } else if (!oit->second.modelFile.empty()) {
     std::string path;
     auto modelIt =
-        m_controller.m_resolvedModelRefs.find(ResolveCacheKey(oit->second.modelFile));
-    if (modelIt != m_controller.m_resolvedModelRefs.end() &&
+        m_controller.m_resourceSyncState.resolvedModelRefs.find(ResolveCacheKey(oit->second.modelFile));
+    if (modelIt != m_controller.m_resourceSyncState.resolvedModelRefs.end() &&
         modelIt->second.attempted)
       path = modelIt->second.resolvedPath;
     auto bit = m_controller.m_modelBounds.find(path);
     if (bit == m_controller.m_modelBounds.end()) {
-      auto it = m_controller.m_loadedMeshes.find(path);
-      if (it != m_controller.m_loadedMeshes.end()) {
+      auto it = m_controller.m_resourceSyncState.loadedMeshes.find(path);
+      if (it != m_controller.m_resourceSyncState.loadedMeshes.end()) {
         Viewer3DController::BoundingBox local;
         local.min = {FLT_MAX, FLT_MAX, FLT_MAX};
         local.max = {-FLT_MAX, -FLT_MAX, -FLT_MAX};

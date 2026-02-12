@@ -77,7 +77,11 @@ size_t HashFloat(float value) {
 
 size_t HashMatrix(const Matrix &m) {
   size_t hash = 0;
-  for (float value : m.m)
+  for (float value : m.u)
+    hash = HashCombine(hash, HashFloat(value));
+  for (float value : m.v)
+    hash = HashCombine(hash, HashFloat(value));
+  for (float value : m.w)
     hash = HashCombine(hash, HashFloat(value));
   for (float value : m.o)
     hash = HashCombine(hash, HashFloat(value));
