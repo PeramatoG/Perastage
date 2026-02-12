@@ -45,6 +45,7 @@ struct NVGcontext;
 class SceneRenderer;
 class VisibilitySystem;
 class SelectionSystem;
+class RenderPipeline;
 
 class Viewer3DController {
 public:
@@ -157,7 +158,14 @@ public:
 private:
   friend class SceneRenderer;
   friend class VisibilitySystem;
+  friend class RenderPipeline;
 
+  const VisibleSet &PrepareRenderFrame(const RenderFrameContext &context,
+                                       ViewFrustumSnapshot &frustum);
+  void RenderOpaqueFrame(const RenderFrameContext &context,
+                         const VisibleSet &visibleSet);
+  void RenderOverlayFrame(const RenderFrameContext &context,
+                          const VisibleSet &visibleSet);
   // Draws a solid cube centered at origin with given size and color
   void DrawCube(float size = 0.2f, float r = 1.0f, float g = 1.0f,
                 float b = 1.0f);

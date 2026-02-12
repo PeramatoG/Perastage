@@ -54,6 +54,7 @@
 #include "logger.h"
 #include "projectutils.h"
 #include "render/scenerenderer.h"
+#include "render/render_pipeline.h"
 #include "culling/visibilitysystem.h"
 #include "picking/selectionsystem.h"
 
@@ -1666,88 +1667,122 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
                                      float gridB, bool gridOnTop,
                                      bool is2DViewer) {
   ConfigManager &cfg = ConfigManager::Get();
+
+  RenderFrameContext context;
+  context.wireframe = wireframe;
+  context.mode = mode;
+  context.view = view;
+  context.showGrid = showGrid;
+  context.gridStyle = gridStyle;
+  context.gridR = gridR;
+  context.gridG = gridG;
+  context.gridB = gridB;
+  context.gridOnTop = gridOnTop;
+  context.is2DViewer = is2DViewer;
+
   m_useAdaptiveLineProfile =
       cfg.GetFloat("viewer3d_adaptive_line_profile") >= 0.5f;
+
   const bool skipOutlinesWhenMoving =
       cfg.GetFloat("viewer3d_skip_outlines_when_moving") >= 0.5f;
   const bool skipCaptureWhenMoving =
       cfg.GetFloat("viewer3d_skip_capture_when_moving") >= 0.5f;
+
+  context.fastInteractionMode = IsFastInteractionModeEnabled(cfg);
+
   // During camera movement we prioritize frame pacing: keep drawing the
   // scene and camera updates, but defer optional CPU/GPU work until the
   // interaction grace period ends in Viewer3DPanel::ShouldPauseHeavyTasks().
-  const bool fastInteractionMode = IsFastInteractionModeEnabled(cfg);
-  const bool skipOptionalWork = m_cameraMoving && fastInteractionMode;
-  const bool skipCapture = skipOptionalWork && skipCaptureWhenMoving;
-  m_skipOutlinesForCurrentFrame = skipOptionalWork && skipOutlinesWhenMoving;
-  const auto hiddenLayers = SnapshotHiddenLayers(cfg);
+  context.skipOptionalWork = m_cameraMoving && context.fastInteractionMode;
+  context.skipCapture = context.skipOptionalWork && skipCaptureWhenMoving;
+  context.skipOutlinesForCurrentFrame =
+      context.skipOptionalWork && skipOutlinesWhenMoving;
+
+  const bool isTopView = context.view == Viewer2DView::Top;
+  const bool isFrontView = context.view == Viewer2DView::Front;
+  const bool isSideView = context.view == Viewer2DView::Side;
+  const bool isBottomView = context.view == Viewer2DView::Bottom;
+
+  // View mode flags are grouped here so the rest of RenderScene remains a
+  // straight orchestration flow.
+  (void)isTopView;
+  (void)isFrontView;
+  (void)isSideView;
+  (void)isBottomView;
+
   const CullingSettings culling = GetCullingSettings3D(cfg);
+
   // 2D orthographic projections use a very different depth setup than the 3D
   // camera, and the frustum/pixel culling pass can incorrectly reject every
   // item even when all layers are visible. Keep layer-based filtering active
   // in 2D, but skip frustum culling there so visibility in the Layers panel
   // matches what is rendered on screen.
-  const bool useFrustumCulling = culling.enabled && !is2DViewer;
+  context.useFrustumCulling = culling.enabled && !context.is2DViewer;
+  context.minCullingPixels =
+      context.is2DViewer ? culling.minPixels2D : culling.minPixels3D;
+
+  const bool isWireframeMode =
+      context.mode == Viewer2DRenderMode::Wireframe;
+  const bool isWhiteMode = context.mode == Viewer2DRenderMode::White;
+  const bool isByFixtureTypeMode =
+      context.mode == Viewer2DRenderMode::ByFixtureType;
+  const bool isByLayerMode = context.mode == Viewer2DRenderMode::ByLayer;
+
+  context.useLighting = !context.wireframe;
+
+  const bool shouldDrawGrid = context.showGrid;
+  const bool shouldDrawGridBeforeScene = shouldDrawGrid && !context.gridOnTop;
+  const bool shouldDrawGridAfterScene = shouldDrawGrid && context.gridOnTop;
+
+  context.drawGridBeforeScene = shouldDrawGridBeforeScene;
+  context.drawGridAfterScene = shouldDrawGridAfterScene;
+
+  context.colorByFixtureType =
+      context.wireframe && isByFixtureTypeMode;
+  context.colorByLayer = context.wireframe && isByLayerMode;
+
+  // Keep explicit mode flags local to the context build step to avoid
+  // branching logic in the render execution code path.
+  (void)isWireframeMode;
+  (void)isWhiteMode;
+
+  const auto hiddenLayers = SnapshotHiddenLayers(cfg);
+  context.hiddenLayers = hiddenLayers;
+
+  // Execute the explicit render pipeline phases.
+  // 1) PrepareFrame: gather visibility and per-frame cached state.
+  // 2) RenderOpaque: draw scene geometry.
+  // 3) RenderOverlays: draw overlays such as grid-on-top/axes.
+  RenderPipeline pipeline(*this);
+  pipeline.PrepareFrame(context);
+  pipeline.RenderOpaque();
+  pipeline.RenderOverlays();
+  pipeline.FinalizeFrame();
+
+  if (m_captureCanvas)
+    m_captureCanvas->SetSourceKey("unknown");
+}
+
+const Viewer3DController::VisibleSet &Viewer3DController::PrepareRenderFrame(
+    const RenderFrameContext &context, ViewFrustumSnapshot &frustum) {
+  m_skipOutlinesForCurrentFrame = context.skipOutlinesForCurrentFrame;
 
   int viewport[4] = {0, 0, 0, 0};
   double model[16] = {0.0};
   double proj[16] = {0.0};
-  if (useFrustumCulling) {
+  if (context.useFrustumCulling) {
     glGetIntegerv(GL_VIEWPORT, viewport);
     glGetDoublev(GL_MODELVIEW_MATRIX, model);
     glGetDoublev(GL_PROJECTION_MATRIX, proj);
   }
-  const float minCullingPixels =
-      is2DViewer ? culling.minPixels2D : culling.minPixels3D;
-
-  if (wireframe)
-    glDisable(GL_LIGHTING);
-  else
-    SetupBasicLighting();
-  auto getTypeColor = [&](const std::string &key, const std::string &hex) {
-    std::array<float, 3> c;
-    // Always honor user-specified colors, updating the cache if needed
-    if (!hex.empty() && HexToRGB(hex, c[0], c[1], c[2])) {
-      m_typeColors[key] = c;
-      return c;
-    }
-    c = MakeDeterministicColor("type:" + key);
-    m_typeColors[key] = c;
-    return c;
-  };
-  auto getLayerColor = [&](const std::string &key) {
-    std::array<float, 3> c;
-    auto opt = ConfigManager::Get().GetLayerColor(key);
-    if (opt && HexToRGB(*opt, c[0], c[1], c[2])) {
-      m_layerColors[key] = c;
-      return c;
-    }
-    c = MakeDeterministicColor("layer:" + key);
-    m_layerColors[key] = c;
-    return c;
-  };
-  if (showGrid && !gridOnTop)
-    DrawGrid(gridStyle, gridR, gridG, gridB, view);
-  auto resolveSymbolView = [](Viewer2DView viewKind) {
-    switch (viewKind) {
-    case Viewer2DView::Top:
-      return SymbolViewKind::Top;
-    case Viewer2DView::Front:
-      return SymbolViewKind::Front;
-    case Viewer2DView::Side:
-      return SymbolViewKind::Left;
-    case Viewer2DView::Bottom:
-    default:
-      return SymbolViewKind::Bottom;
-    }
-  };
-
-  const auto &sceneObjects = SceneDataManager::Instance().GetSceneObjects();
-  const auto &trusses = SceneDataManager::Instance().GetTrusses();
-  const auto &fixtures = SceneDataManager::Instance().GetFixtures();
 
   {
+    const auto &sceneObjects = SceneDataManager::Instance().GetSceneObjects();
+    const auto &trusses = SceneDataManager::Instance().GetTrusses();
+    const auto &fixtures = SceneDataManager::Instance().GetFixtures();
+
     std::lock_guard<std::mutex> lock(m_sortedListsMutex);
-    if (m_sortedListsDirty && !skipOptionalWork) {
+    if (m_sortedListsDirty && !context.skipOptionalWork) {
       m_sortedObjects.clear();
       m_sortedObjects.reserve(sceneObjects.size());
       for (const auto &obj : sceneObjects)
@@ -1779,13 +1814,70 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
     }
   }
 
-  ViewFrustumSnapshot frustum{};
   std::copy(std::begin(viewport), std::end(viewport), std::begin(frustum.viewport));
   std::copy(std::begin(model), std::end(model), std::begin(frustum.model));
   std::copy(std::begin(proj), std::end(proj), std::begin(frustum.projection));
-  const VisibleSet &visibleSet =
-      GetVisibleSet(frustum, hiddenLayers, useFrustumCulling,
-                    minCullingPixels);
+
+  return GetVisibleSet(frustum, context.hiddenLayers, context.useFrustumCulling,
+                       context.minCullingPixels);
+}
+
+void Viewer3DController::RenderOpaqueFrame(const RenderFrameContext &context,
+                                           const VisibleSet &visibleSet) {
+  const bool wireframe = context.wireframe;
+  const Viewer2DRenderMode mode = context.mode;
+  const Viewer2DView view = context.view;
+  const bool skipCapture = context.skipCapture;
+  const bool is2DViewer = context.is2DViewer;
+
+  if (context.useLighting)
+    SetupBasicLighting();
+  else
+    glDisable(GL_LIGHTING);
+
+  if (context.drawGridBeforeScene)
+    DrawGrid(context.gridStyle, context.gridR, context.gridG, context.gridB,
+             view);
+
+  auto getTypeColor = [&](const std::string &key, const std::string &hex) {
+    std::array<float, 3> c;
+    // Always honor user-specified colors, updating the cache if needed
+    if (!hex.empty() && HexToRGB(hex, c[0], c[1], c[2])) {
+      m_typeColors[key] = c;
+      return c;
+    }
+    c = MakeDeterministicColor("type:" + key);
+    m_typeColors[key] = c;
+    return c;
+  };
+  auto getLayerColor = [&](const std::string &key) {
+    std::array<float, 3> c;
+    auto opt = ConfigManager::Get().GetLayerColor(key);
+    if (opt && HexToRGB(*opt, c[0], c[1], c[2])) {
+      m_layerColors[key] = c;
+      return c;
+    }
+    c = MakeDeterministicColor("layer:" + key);
+    m_layerColors[key] = c;
+    return c;
+  };
+  auto resolveSymbolView = [](Viewer2DView viewKind) {
+    switch (viewKind) {
+    case Viewer2DView::Top:
+      return SymbolViewKind::Top;
+    case Viewer2DView::Front:
+      return SymbolViewKind::Front;
+    case Viewer2DView::Side:
+      return SymbolViewKind::Left;
+    case Viewer2DView::Bottom:
+    default:
+      return SymbolViewKind::Bottom;
+    }
+  };
+
+  const auto &sceneObjects = SceneDataManager::Instance().GetSceneObjects();
+  const auto &trusses = SceneDataManager::Instance().GetTrusses();
+  const auto &fixtures = SceneDataManager::Instance().GetFixtures();
 
   // Scene objects first
   glShadeModel(GL_FLAT);
@@ -2405,15 +2497,16 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
   if (forceFixturesOnTop && depthEnabled)
     glEnable(GL_DEPTH_TEST);
 
-  const auto &groups = SceneDataManager::Instance().GetGroupObjects();
-  for (const auto &[uuid, g] : groups) {
-    (void)uuid;
-    (void)g; // groups not implemented
-  }
 
-  if (showGrid && gridOnTop) {
+}
+
+void Viewer3DController::RenderOverlayFrame(const RenderFrameContext &context,
+                                            const VisibleSet &visibleSet) {
+  (void)visibleSet;
+  if (context.drawGridAfterScene) {
     glDisable(GL_DEPTH_TEST);
-    DrawGrid(gridStyle, gridR, gridG, gridB, view);
+    DrawGrid(context.gridStyle, context.gridR, context.gridG, context.gridB,
+             context.view);
     glEnable(GL_DEPTH_TEST);
   }
 
