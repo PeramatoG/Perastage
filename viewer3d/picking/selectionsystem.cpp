@@ -17,9 +17,12 @@
 #endif
 
 #include "../../core/configmanager.h"
+#include "../../core/scenedatamanager.h"
 #include <algorithm>
+#include <array>
 #include <cfloat>
 #include <cstdio>
+#include <unordered_set>
 
 namespace {
 
