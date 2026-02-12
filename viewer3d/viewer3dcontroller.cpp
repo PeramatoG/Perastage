@@ -1432,3 +1432,145 @@ std::vector<std::string> Viewer3DController::GetSceneObjectsInScreenRect(
   return m_selectionSystem->GetSceneObjectsInScreenRect(x1, y1, x2, y2, width,
                                                         height);
 }
+
+bool Viewer3DController::IsInteracting() const { return m_isInteracting; }
+
+bool Viewer3DController::UseAdaptiveLineProfile() const {
+  return m_useAdaptiveLineProfile;
+}
+
+bool Viewer3DController::SkipOutlinesForCurrentFrame() const {
+  return m_skipOutlinesForCurrentFrame;
+}
+
+bool Viewer3DController::IsSelectionOutlineEnabled2D() const {
+  return m_showSelectionOutline2D;
+}
+
+bool Viewer3DController::IsCaptureOnly() const { return m_captureOnly; }
+
+ICanvas2D *Viewer3DController::GetCaptureCanvas() const {
+  return m_captureCanvas;
+}
+
+bool Viewer3DController::CaptureIncludesGrid() const {
+  return m_captureIncludeGrid;
+}
+
+const std::string &Viewer3DController::GetHighlightUuid() const {
+  return m_highlightUuid;
+}
+
+const std::unordered_map<std::string, Viewer3DController::BoundingBox> &
+Viewer3DController::GetFixtureBoundsMap() const {
+  return m_fixtureBounds;
+}
+
+const std::unordered_map<std::string, Viewer3DController::BoundingBox> &
+Viewer3DController::GetTrussBoundsMap() const {
+  return m_trussBounds;
+}
+
+const std::unordered_map<std::string, Viewer3DController::BoundingBox> &
+Viewer3DController::GetObjectBoundsMap() const {
+  return m_objectBounds;
+}
+
+NVGcontext *Viewer3DController::GetNanoVGContext() const { return m_vg; }
+
+int Viewer3DController::GetLabelFont() const { return m_font; }
+
+int Viewer3DController::GetLabelBoldFont() const { return m_fontBold; }
+
+bool Viewer3DController::IsDarkMode() const { return m_darkMode; }
+
+ResourceSyncState &Viewer3DController::GetResourceSyncState() {
+  return m_resourceSyncState;
+}
+
+std::unordered_map<std::string, Viewer3DController::BoundingBox> &
+Viewer3DController::GetModelBounds() {
+  return m_modelBounds;
+}
+
+std::unordered_map<std::string, Viewer3DController::BoundingBox> &
+Viewer3DController::GetFixtureBounds() {
+  return m_fixtureBounds;
+}
+
+std::unordered_map<std::string, Viewer3DController::BoundingBox> &
+Viewer3DController::GetTrussBounds() {
+  return m_trussBounds;
+}
+
+std::unordered_map<std::string, Viewer3DController::BoundingBox> &
+Viewer3DController::GetObjectBounds() {
+  return m_objectBounds;
+}
+
+size_t Viewer3DController::GetSceneVersion() const { return m_sceneVersion; }
+
+const std::vector<const std::pair<const std::string, Fixture> *> &
+Viewer3DController::GetSortedFixtures() const {
+  return m_sortedFixtures;
+}
+
+const std::vector<const std::pair<const std::string, Truss> *> &
+Viewer3DController::GetSortedTrusses() const {
+  return m_sortedTrusses;
+}
+
+const std::vector<const std::pair<const std::string, SceneObject> *> &
+Viewer3DController::GetSortedObjects() const {
+  return m_sortedObjects;
+}
+
+std::mutex &Viewer3DController::GetSortedListsMutex() const {
+  return m_sortedListsMutex;
+}
+
+Viewer3DController::VisibleSet &Viewer3DController::GetCachedVisibleSet() const {
+  return m_cachedVisibleSet;
+}
+
+Viewer3DController::VisibleSet &
+Viewer3DController::GetCachedLayerVisibleCandidates() const {
+  return m_cachedLayerVisibleCandidates;
+}
+
+size_t &Viewer3DController::GetLayerVisibleCandidatesSceneVersion() const {
+  return m_layerVisibleCandidatesSceneVersion;
+}
+
+std::unordered_set<std::string> &
+Viewer3DController::GetLayerVisibleCandidatesHiddenLayers() const {
+  return m_layerVisibleCandidatesHiddenLayers;
+}
+
+size_t &Viewer3DController::GetLayerVisibleCandidatesRevision() const {
+  return m_layerVisibleCandidatesRevision;
+}
+
+size_t &Viewer3DController::GetVisibleSetLayerCandidatesRevision() const {
+  return m_visibleSetLayerCandidatesRevision;
+}
+
+bool &Viewer3DController::GetVisibleSetFrustumCulling() const {
+  return m_visibleSetFrustumCulling;
+}
+
+float &Viewer3DController::GetVisibleSetMinPixels() const {
+  return m_visibleSetMinPixels;
+}
+
+std::array<int, 4> &Viewer3DController::GetVisibleSetViewport() const {
+  return m_visibleSetViewport;
+}
+
+std::array<double, 16> &Viewer3DController::GetVisibleSetModel() const {
+  return m_visibleSetModel;
+}
+
+std::array<double, 16> &Viewer3DController::GetVisibleSetProjection() const {
+  return m_visibleSetProjection;
+}
