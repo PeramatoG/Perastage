@@ -1,10 +1,13 @@
 #pragma once
 
-#include "../viewer3dcontroller.h"
+#include "../interfaces/irendercontext.h"
+#include "../mesh.h"
+#include "../viewer3d_types.h"
+#include <functional>
 
 class SceneRenderer {
 public:
-  explicit SceneRenderer(Viewer3DController &controller) : m_controller(controller) {}
+  explicit SceneRenderer(IRenderContext &controller) : m_controller(controller) {}
 
   void DrawMeshWithOutline(
       const Mesh &mesh, float r, float g, float b, float scale, bool highlight,
@@ -20,5 +23,5 @@ public:
   void SetupMaterialFromRGB(float r, float g, float b);
 
 private:
-  Viewer3DController &m_controller;
+  IRenderContext &m_controller;
 };

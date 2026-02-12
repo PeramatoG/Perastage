@@ -1,10 +1,14 @@
 #pragma once
 
-#include "../viewer3dcontroller.h"
+#include "../interfaces/iselectioncontext.h"
+#include <string>
+#include <vector>
+#include <wx/gdicmn.h>
+#include <wx/string.h>
 
 class SelectionSystem {
 public:
-  explicit SelectionSystem(Viewer3DController &controller) : m_controller(controller) {}
+  explicit SelectionSystem(ISelectionContext &controller) : m_controller(controller) {}
 
   void SetHighlightUuid(const std::string &uuid);
   void SetSelectedUuids(const std::vector<std::string> &uuids);
@@ -29,5 +33,5 @@ public:
                                                        int height) const;
 
 private:
-  Viewer3DController &m_controller;
+  ISelectionContext &m_controller;
 };

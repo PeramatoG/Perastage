@@ -45,14 +45,14 @@ void SceneRenderer::DrawMeshWithOutline(
 
   if (wireframe) {
     float lineWidth =
-        GetLineRenderProfile(m_controller.m_isInteracting,
+        GetLineRenderProfile(m_controller.IsInteracting(),
                              mode == Viewer2DRenderMode::Wireframe,
-                             m_controller.m_useAdaptiveLineProfile)
+                             m_controller.UseAdaptiveLineProfile())
             .lineWidth;
     const bool drawOutline =
-        !m_controller.m_skipOutlinesForCurrentFrame &&
-        m_controller.m_showSelectionOutline2D && (highlight || selected);
-    if (!m_controller.m_captureOnly) {
+        !m_controller.SkipOutlinesForCurrentFrame() &&
+        m_controller.IsSelectionOutlineEnabled2D() && (highlight || selected);
+    if (!m_controller.IsCaptureOnly()) {
       if (drawOutline) {
         float glowWidth = lineWidth + 3.0f;
         glLineWidth(glowWidth);
@@ -69,7 +69,7 @@ void SceneRenderer::DrawMeshWithOutline(
     stroke.color = {0.0f, 0.0f, 0.0f, 1.0f};
     stroke.width = lineWidth;
     DrawMeshWireframe(mesh, scale, captureTransform);
-    if (m_controller.m_captureCanvas && mode != Viewer2DRenderMode::Wireframe) {
+    if (m_controller.GetCaptureCanvas() && mode != Viewer2DRenderMode::Wireframe) {
       CanvasFill fill;
       fill.color = {r, g, b, 1.0f};
       for (size_t i = 0; i + 2 < mesh.indices.size(); i += 3) {
@@ -90,7 +90,7 @@ void SceneRenderer::DrawMeshWithOutline(
         m_controller.RecordPolygon(pts, stroke, &fill);
       }
     }
-    if (!m_controller.m_captureOnly) {
+    if (!m_controller.IsCaptureOnly()) {
       glLineWidth(1.0f);
       if (mode != Viewer2DRenderMode::Wireframe) {
         glEnable(GL_POLYGON_OFFSET_FILL);
@@ -107,7 +107,7 @@ void SceneRenderer::DrawMeshWithOutline(
     return;
   }
 
-  if (!m_controller.m_captureOnly) {
+  if (!m_controller.IsCaptureOnly()) {
     if (highlight)
       m_controller.SetGLColor(0.0f, 1.0f, 0.0f);
     else if (selected)
@@ -121,7 +121,7 @@ void SceneRenderer::DrawMeshWithOutline(
     if (unlit)
       glEnable(GL_LIGHTING);
   }
-  if (m_controller.m_captureCanvas) {
+  if (m_controller.GetCaptureCanvas()) {
     CanvasStroke stroke;
     stroke.color = {r, g, b, 1.0f};
     stroke.width = 0.0f;
@@ -158,7 +158,7 @@ void SceneRenderer::DrawMeshWireframe(
       mesh.buffersReady && mesh.vao != 0 && mesh.vboVertices != 0 &&
       mesh.eboLines != 0 && mesh.eboTriangles != 0 && gpuHandlesValid;
 
-  if (!m_controller.m_captureOnly && canUseGpuWireframe) {
+  if (!m_controller.IsCaptureOnly() && canUseGpuWireframe) {
     glBindVertexArray(mesh.vao);
     glPushMatrix();
     glScalef(scale, scale, scale);
@@ -175,7 +175,7 @@ void SceneRenderer::DrawMeshWireframe(
     glDisableClientState(GL_VERTEX_ARRAY);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glPopMatrix();
-  } else if (!m_controller.m_captureOnly) {
+  } else if (!m_controller.IsCaptureOnly()) {
     glBegin(GL_LINES);
     for (size_t i = 0; i + 2 < mesh.indices.size(); i += 3) {
       const unsigned short i0 = mesh.indices[i];
@@ -199,7 +199,7 @@ void SceneRenderer::DrawMeshWireframe(
     }
     glEnd();
   }
-  if (m_controller.m_captureCanvas) {
+  if (m_controller.GetCaptureCanvas()) {
     CanvasStroke stroke;
     stroke.color = {0.0f, 0.0f, 0.0f, 1.0f};
     stroke.width = 1.0f;
@@ -277,7 +277,7 @@ void SceneRenderer::DrawMesh(const Mesh &mesh, float scale, const float *modelMa
       mesh.vboNormals != 0 && mesh.eboTriangles != 0 && gpuHandlesValid &&
       !requiresCpuDrawPath;
 
-  if (!m_controller.m_captureOnly && canUseGpuTriangles) {
+  if (!m_controller.IsCaptureOnly() && canUseGpuTriangles) {
     glBindVertexArray(mesh.vao);
     glPushMatrix();
     glScalef(scale, scale, scale);
@@ -298,7 +298,7 @@ void SceneRenderer::DrawMesh(const Mesh &mesh, float scale, const float *modelMa
     glDisableClientState(GL_VERTEX_ARRAY);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glPopMatrix();
-  } else if (!m_controller.m_captureOnly) {
+  } else if (!m_controller.IsCaptureOnly()) {
     GLint shadeModel = GL_SMOOTH;
     glGetIntegerv(GL_SHADE_MODEL, &shadeModel);
     const bool useFaceNormals = (shadeModel == GL_FLAT);
@@ -393,8 +393,8 @@ void SceneRenderer::DrawGrid(int style, float r, float g, float b,
   const float step = 1.0f;
 
   const LineRenderProfile profile =
-      GetLineRenderProfile(m_controller.m_isInteracting, true,
-                           m_controller.m_useAdaptiveLineProfile);
+      GetLineRenderProfile(m_controller.IsInteracting(), true,
+                           m_controller.UseAdaptiveLineProfile());
   CanvasStroke stroke;
   stroke.color = {r, g, b, 1.0f};
   stroke.width = profile.lineWidth;
@@ -417,7 +417,7 @@ void SceneRenderer::DrawGrid(int style, float r, float g, float b,
         glVertex3f(i, size, 0.0f);
         glVertex3f(-size, i, 0.0f);
         glVertex3f(size, i, 0.0f);
-        if (m_controller.m_captureCanvas && m_controller.m_captureIncludeGrid) {
+        if (m_controller.GetCaptureCanvas() && m_controller.CaptureIncludesGrid()) {
           m_controller.RecordLine({i, -size, 0.0f}, {i, size, 0.0f}, stroke);
           m_controller.RecordLine({-size, i, 0.0f}, {size, i, 0.0f}, stroke);
         }
@@ -427,7 +427,7 @@ void SceneRenderer::DrawGrid(int style, float r, float g, float b,
         glVertex3f(i, 0.0f, size);
         glVertex3f(-size, 0.0f, i);
         glVertex3f(size, 0.0f, i);
-        if (m_controller.m_captureCanvas && m_controller.m_captureIncludeGrid) {
+        if (m_controller.GetCaptureCanvas() && m_controller.CaptureIncludesGrid()) {
           m_controller.RecordLine({i, 0.0f, -size}, {i, 0.0f, size}, stroke);
           m_controller.RecordLine({-size, 0.0f, i}, {size, 0.0f, i}, stroke);
         }
@@ -437,7 +437,7 @@ void SceneRenderer::DrawGrid(int style, float r, float g, float b,
         glVertex3f(0.0f, i, size);
         glVertex3f(0.0f, -size, i);
         glVertex3f(0.0f, size, i);
-        if (m_controller.m_captureCanvas && m_controller.m_captureIncludeGrid) {
+        if (m_controller.GetCaptureCanvas() && m_controller.CaptureIncludesGrid()) {
           m_controller.RecordLine({0.0f, i, -size}, {0.0f, i, size}, stroke);
           m_controller.RecordLine({0.0f, -size, i}, {0.0f, size, i}, stroke);
         }
@@ -456,17 +456,17 @@ void SceneRenderer::DrawGrid(int style, float r, float g, float b,
         case Viewer2DView::Top:
         case Viewer2DView::Bottom:
           glVertex3f(x, y, 0.0f);
-          if (m_controller.m_captureCanvas && m_controller.m_captureIncludeGrid)
+          if (m_controller.GetCaptureCanvas() && m_controller.CaptureIncludesGrid())
             m_controller.RecordLine({x, y, 0.0f}, {x, y, 0.0f}, stroke);
           break;
         case Viewer2DView::Front:
           glVertex3f(x, 0.0f, y);
-          if (m_controller.m_captureCanvas && m_controller.m_captureIncludeGrid)
+          if (m_controller.GetCaptureCanvas() && m_controller.CaptureIncludesGrid())
             m_controller.RecordLine({x, 0.0f, y}, {x, 0.0f, y}, stroke);
           break;
         case Viewer2DView::Side:
           glVertex3f(0.0f, x, y);
-          if (m_controller.m_captureCanvas && m_controller.m_captureIncludeGrid)
+          if (m_controller.GetCaptureCanvas() && m_controller.CaptureIncludesGrid())
             m_controller.RecordLine({0.0f, x, y}, {0.0f, x, y}, stroke);
           break;
         }
@@ -488,7 +488,7 @@ void SceneRenderer::DrawGrid(int style, float r, float g, float b,
           glVertex3f(x + half, y, 0.0f);
           glVertex3f(x, y - half, 0.0f);
           glVertex3f(x, y + half, 0.0f);
-          if (m_controller.m_captureCanvas && m_controller.m_captureIncludeGrid) {
+          if (m_controller.GetCaptureCanvas() && m_controller.CaptureIncludesGrid()) {
             m_controller.RecordLine({x - half, y, 0.0f}, {x + half, y, 0.0f}, stroke);
             m_controller.RecordLine({x, y - half, 0.0f}, {x, y + half, 0.0f}, stroke);
           }
@@ -498,7 +498,7 @@ void SceneRenderer::DrawGrid(int style, float r, float g, float b,
           glVertex3f(x + half, 0.0f, y);
           glVertex3f(x, 0.0f, y - half);
           glVertex3f(x, 0.0f, y + half);
-          if (m_controller.m_captureCanvas && m_controller.m_captureIncludeGrid) {
+          if (m_controller.GetCaptureCanvas() && m_controller.CaptureIncludesGrid()) {
             m_controller.RecordLine({x - half, 0.0f, y}, {x + half, 0.0f, y}, stroke);
             m_controller.RecordLine({x, 0.0f, y - half}, {x, 0.0f, y + half}, stroke);
           }
@@ -508,7 +508,7 @@ void SceneRenderer::DrawGrid(int style, float r, float g, float b,
           glVertex3f(0.0f, x + half, y);
           glVertex3f(0.0f, x, y - half);
           glVertex3f(0.0f, x, y + half);
-          if (m_controller.m_captureCanvas && m_controller.m_captureIncludeGrid) {
+          if (m_controller.GetCaptureCanvas() && m_controller.CaptureIncludesGrid()) {
             m_controller.RecordLine({0.0f, x - half, y}, {0.0f, x + half, y}, stroke);
             m_controller.RecordLine({0.0f, x, y - half}, {0.0f, x, y + half}, stroke);
           }

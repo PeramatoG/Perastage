@@ -132,11 +132,11 @@ static bool ShouldCullByScreenRect(const ScreenRect &rect, int width,
 } // namespace
 
 bool VisibilitySystem::EnsureBoundsComputed(
-    const std::string &uuid, Viewer3DController::ItemType type,
+    const std::string &uuid, IVisibilityContext::ItemType type,
     const std::unordered_set<std::string> &hiddenLayers) {
-  auto transformBounds = [](const Viewer3DController::BoundingBox &local,
+  auto transformBounds = [](const IVisibilityContext::BoundingBox &local,
                             const Matrix &m) {
-    Viewer3DController::BoundingBox world;
+    IVisibilityContext::BoundingBox world;
     world.min = {FLT_MAX, FLT_MAX, FLT_MAX};
     world.max = {-FLT_MAX, -FLT_MAX, -FLT_MAX};
     const auto &mn = local.min;
@@ -166,16 +166,16 @@ bool VisibilitySystem::EnsureBoundsComputed(
   const auto &trusses = SceneDataManager::Instance().GetTrusses();
   const auto &objects = SceneDataManager::Instance().GetSceneObjects();
 
-  if (type == Viewer3DController::ItemType::Fixture) {
-    if (m_controller.m_fixtureBounds.find(uuid) !=
-        m_controller.m_fixtureBounds.end())
+  if (type == IVisibilityContext::ItemType::Fixture) {
+    if (m_controller.GetFixtureBounds().find(uuid) !=
+        m_controller.GetFixtureBounds().end())
       return true;
     auto fit = fixtures.find(uuid);
     if (fit == fixtures.end() ||
         !IsLayerVisibleCached(hiddenLayers, fit->second.layer))
       return false;
 
-    Viewer3DController::BoundingBox bb;
+    IVisibilityContext::BoundingBox bb;
     Matrix fix = fit->second.transform;
     fix.o[0] *= RENDER_SCALE;
     fix.o[1] *= RENDER_SCALE;
@@ -185,16 +185,16 @@ bool VisibilitySystem::EnsureBoundsComputed(
     bb.max = {-FLT_MAX, -FLT_MAX, -FLT_MAX};
 
     std::string gdtfPath;
-    auto gdtfIt = m_controller.m_resourceSyncState.resolvedGdtfSpecs.find(
+    auto gdtfIt = m_controller.GetResourceSyncState().resolvedGdtfSpecs.find(
         ResolveCacheKey(fit->second.gdtfSpec));
-    if (gdtfIt != m_controller.m_resourceSyncState.resolvedGdtfSpecs.end() &&
+    if (gdtfIt != m_controller.GetResourceSyncState().resolvedGdtfSpecs.end() &&
         gdtfIt->second.attempted)
       gdtfPath = gdtfIt->second.resolvedPath;
-    auto itg = m_controller.m_resourceSyncState.loadedGdtf.find(gdtfPath);
-    if (itg != m_controller.m_resourceSyncState.loadedGdtf.end()) {
-      auto bit = m_controller.m_modelBounds.find(gdtfPath);
-      if (bit == m_controller.m_modelBounds.end()) {
-        Viewer3DController::BoundingBox local;
+    auto itg = m_controller.GetResourceSyncState().loadedGdtf.find(gdtfPath);
+    if (itg != m_controller.GetResourceSyncState().loadedGdtf.end()) {
+      auto bit = m_controller.GetModelBounds().find(gdtfPath);
+      if (bit == m_controller.GetModelBounds().end()) {
+        IVisibilityContext::BoundingBox local;
         local.min = {FLT_MAX, FLT_MAX, FLT_MAX};
         local.max = {-FLT_MAX, -FLT_MAX, -FLT_MAX};
         bool localFound = false;
@@ -214,9 +214,9 @@ bool VisibilitySystem::EnsureBoundsComputed(
           }
         }
         if (localFound)
-          bit = m_controller.m_modelBounds.emplace(gdtfPath, local).first;
+          bit = m_controller.GetModelBounds().emplace(gdtfPath, local).first;
       }
-      if (bit != m_controller.m_modelBounds.end()) {
+      if (bit != m_controller.GetModelBounds().end()) {
         bb = transformBounds(bit->second, fix);
         found = true;
       }
@@ -243,19 +243,19 @@ bool VisibilitySystem::EnsureBoundsComputed(
         bb.max[2] = std::max(bb.max[2], p[2]);
       }
     }
-    m_controller.m_fixtureBounds[uuid] = bb;
+    m_controller.GetFixtureBounds()[uuid] = bb;
     return true;
   }
 
-  if (type == Viewer3DController::ItemType::Truss) {
-    if (m_controller.m_trussBounds.find(uuid) != m_controller.m_trussBounds.end())
+  if (type == IVisibilityContext::ItemType::Truss) {
+    if (m_controller.GetTrussBounds().find(uuid) != m_controller.GetTrussBounds().end())
       return true;
     auto tit = trusses.find(uuid);
     if (tit == trusses.end() ||
         !IsLayerVisibleCached(hiddenLayers, tit->second.layer))
       return false;
 
-    Viewer3DController::BoundingBox bb;
+    IVisibilityContext::BoundingBox bb;
     Matrix tm = tit->second.transform;
     tm.o[0] *= RENDER_SCALE;
     tm.o[1] *= RENDER_SCALE;
@@ -266,16 +266,16 @@ bool VisibilitySystem::EnsureBoundsComputed(
 
     if (!tit->second.symbolFile.empty()) {
       std::string path;
-      auto modelIt = m_controller.m_resourceSyncState.resolvedModelRefs.find(
+      auto modelIt = m_controller.GetResourceSyncState().resolvedModelRefs.find(
           ResolveCacheKey(tit->second.symbolFile));
-      if (modelIt != m_controller.m_resourceSyncState.resolvedModelRefs.end() &&
+      if (modelIt != m_controller.GetResourceSyncState().resolvedModelRefs.end() &&
           modelIt->second.attempted)
         path = modelIt->second.resolvedPath;
-      auto bit = m_controller.m_modelBounds.find(path);
-      if (bit == m_controller.m_modelBounds.end()) {
-        auto it = m_controller.m_resourceSyncState.loadedMeshes.find(path);
-        if (it != m_controller.m_resourceSyncState.loadedMeshes.end()) {
-          Viewer3DController::BoundingBox local;
+      auto bit = m_controller.GetModelBounds().find(path);
+      if (bit == m_controller.GetModelBounds().end()) {
+        auto it = m_controller.GetResourceSyncState().loadedMeshes.find(path);
+        if (it != m_controller.GetResourceSyncState().loadedMeshes.end()) {
+          IVisibilityContext::BoundingBox local;
           local.min = {FLT_MAX, FLT_MAX, FLT_MAX};
           local.max = {-FLT_MAX, -FLT_MAX, -FLT_MAX};
           bool localFound = false;
@@ -292,10 +292,10 @@ bool VisibilitySystem::EnsureBoundsComputed(
             localFound = true;
           }
           if (localFound)
-            bit = m_controller.m_modelBounds.emplace(path, local).first;
+            bit = m_controller.GetModelBounds().emplace(path, local).first;
         }
       }
-      if (bit != m_controller.m_modelBounds.end()) {
+      if (bit != m_controller.GetModelBounds().end()) {
         bb = transformBounds(bit->second, tm);
         found = true;
       }
@@ -327,17 +327,17 @@ bool VisibilitySystem::EnsureBoundsComputed(
         bb.max[2] = std::max(bb.max[2], p[2]);
       }
     }
-    m_controller.m_trussBounds[uuid] = bb;
+    m_controller.GetTrussBounds()[uuid] = bb;
     return true;
   }
 
-  if (m_controller.m_objectBounds.find(uuid) != m_controller.m_objectBounds.end())
+  if (m_controller.GetObjectBounds().find(uuid) != m_controller.GetObjectBounds().end())
     return true;
   auto oit = objects.find(uuid);
   if (oit == objects.end() || !IsLayerVisibleCached(hiddenLayers, oit->second.layer))
     return false;
 
-  Viewer3DController::BoundingBox bb;
+  IVisibilityContext::BoundingBox bb;
   Matrix tm = oit->second.transform;
   bb.min = {FLT_MAX, FLT_MAX, FLT_MAX};
   bb.max = {-FLT_MAX, -FLT_MAX, -FLT_MAX};
@@ -346,16 +346,16 @@ bool VisibilitySystem::EnsureBoundsComputed(
   if (!oit->second.geometries.empty()) {
     for (const auto &geo : oit->second.geometries) {
       std::string path;
-      auto modelIt = m_controller.m_resourceSyncState.resolvedModelRefs.find(
+      auto modelIt = m_controller.GetResourceSyncState().resolvedModelRefs.find(
           ResolveCacheKey(geo.modelFile));
-      if (modelIt != m_controller.m_resourceSyncState.resolvedModelRefs.end() &&
+      if (modelIt != m_controller.GetResourceSyncState().resolvedModelRefs.end() &&
           modelIt->second.attempted)
         path = modelIt->second.resolvedPath;
-      auto bit = m_controller.m_modelBounds.find(path);
-      if (bit == m_controller.m_modelBounds.end()) {
-        auto it = m_controller.m_resourceSyncState.loadedMeshes.find(path);
-        if (it != m_controller.m_resourceSyncState.loadedMeshes.end()) {
-          Viewer3DController::BoundingBox local;
+      auto bit = m_controller.GetModelBounds().find(path);
+      if (bit == m_controller.GetModelBounds().end()) {
+        auto it = m_controller.GetResourceSyncState().loadedMeshes.find(path);
+        if (it != m_controller.GetResourceSyncState().loadedMeshes.end()) {
+          IVisibilityContext::BoundingBox local;
           local.min = {FLT_MAX, FLT_MAX, FLT_MAX};
           local.max = {-FLT_MAX, -FLT_MAX, -FLT_MAX};
           bool localFound = false;
@@ -372,16 +372,16 @@ bool VisibilitySystem::EnsureBoundsComputed(
             localFound = true;
           }
           if (localFound)
-            bit = m_controller.m_modelBounds.emplace(path, local).first;
+            bit = m_controller.GetModelBounds().emplace(path, local).first;
         }
       }
-      if (bit == m_controller.m_modelBounds.end())
+      if (bit == m_controller.GetModelBounds().end())
         continue;
       Matrix geoTm = MatrixUtils::Multiply(tm, geo.localTransform);
       geoTm.o[0] *= RENDER_SCALE;
       geoTm.o[1] *= RENDER_SCALE;
       geoTm.o[2] *= RENDER_SCALE;
-      Viewer3DController::BoundingBox geoWorld = transformBounds(bit->second, geoTm);
+      IVisibilityContext::BoundingBox geoWorld = transformBounds(bit->second, geoTm);
       bb.min[0] = std::min(bb.min[0], geoWorld.min[0]);
       bb.min[1] = std::min(bb.min[1], geoWorld.min[1]);
       bb.min[2] = std::min(bb.min[2], geoWorld.min[2]);
@@ -393,15 +393,15 @@ bool VisibilitySystem::EnsureBoundsComputed(
   } else if (!oit->second.modelFile.empty()) {
     std::string path;
     auto modelIt =
-        m_controller.m_resourceSyncState.resolvedModelRefs.find(ResolveCacheKey(oit->second.modelFile));
-    if (modelIt != m_controller.m_resourceSyncState.resolvedModelRefs.end() &&
+        m_controller.GetResourceSyncState().resolvedModelRefs.find(ResolveCacheKey(oit->second.modelFile));
+    if (modelIt != m_controller.GetResourceSyncState().resolvedModelRefs.end() &&
         modelIt->second.attempted)
       path = modelIt->second.resolvedPath;
-    auto bit = m_controller.m_modelBounds.find(path);
-    if (bit == m_controller.m_modelBounds.end()) {
-      auto it = m_controller.m_resourceSyncState.loadedMeshes.find(path);
-      if (it != m_controller.m_resourceSyncState.loadedMeshes.end()) {
-        Viewer3DController::BoundingBox local;
+    auto bit = m_controller.GetModelBounds().find(path);
+    if (bit == m_controller.GetModelBounds().end()) {
+      auto it = m_controller.GetResourceSyncState().loadedMeshes.find(path);
+      if (it != m_controller.GetResourceSyncState().loadedMeshes.end()) {
+        IVisibilityContext::BoundingBox local;
         local.min = {FLT_MAX, FLT_MAX, FLT_MAX};
         local.max = {-FLT_MAX, -FLT_MAX, -FLT_MAX};
         bool localFound = false;
@@ -418,10 +418,10 @@ bool VisibilitySystem::EnsureBoundsComputed(
           localFound = true;
         }
         if (localFound)
-          bit = m_controller.m_modelBounds.emplace(path, local).first;
+          bit = m_controller.GetModelBounds().emplace(path, local).first;
       }
     }
-    if (bit != m_controller.m_modelBounds.end()) {
+    if (bit != m_controller.GetModelBounds().end()) {
       Matrix scaledTm = tm;
       scaledTm.o[0] *= RENDER_SCALE;
       scaledTm.o[1] *= RENDER_SCALE;
@@ -453,24 +453,24 @@ bool VisibilitySystem::EnsureBoundsComputed(
     }
   }
 
-  m_controller.m_objectBounds[uuid] = bb;
+  m_controller.GetObjectBounds()[uuid] = bb;
   return true;
 }
 
 bool VisibilitySystem::TryBuildLayerVisibleCandidates(
     const std::unordered_set<std::string> &hiddenLayers,
-    Viewer3DController::VisibleSet &out) const {
+    IVisibilityContext::VisibleSet &out) const {
   const auto &sceneObjects = SceneDataManager::Instance().GetSceneObjects();
   const auto &trusses = SceneDataManager::Instance().GetTrusses();
   const auto &fixtures = SceneDataManager::Instance().GetFixtures();
 
-  std::lock_guard<std::mutex> lock(m_controller.m_sortedListsMutex);
+  std::lock_guard<std::mutex> lock(m_controller.GetSortedListsMutex());
   out.objectUuids.clear();
   out.trussUuids.clear();
   out.fixtureUuids.clear();
 
-  out.objectUuids.reserve(m_controller.m_sortedObjects.size());
-  for (const auto *entry : m_controller.m_sortedObjects) {
+  out.objectUuids.reserve(m_controller.GetSortedObjects().size());
+  for (const auto *entry : m_controller.GetSortedObjects()) {
     if (!entry)
       continue;
     const auto &uuid = entry->first;
@@ -481,8 +481,8 @@ bool VisibilitySystem::TryBuildLayerVisibleCandidates(
       out.objectUuids.push_back(uuid);
   }
 
-  out.trussUuids.reserve(m_controller.m_sortedTrusses.size());
-  for (const auto *entry : m_controller.m_sortedTrusses) {
+  out.trussUuids.reserve(m_controller.GetSortedTrusses().size());
+  for (const auto *entry : m_controller.GetSortedTrusses()) {
     if (!entry)
       continue;
     const auto &uuid = entry->first;
@@ -493,8 +493,8 @@ bool VisibilitySystem::TryBuildLayerVisibleCandidates(
       out.trussUuids.push_back(uuid);
   }
 
-  out.fixtureUuids.reserve(m_controller.m_sortedFixtures.size());
-  for (const auto *entry : m_controller.m_sortedFixtures) {
+  out.fixtureUuids.reserve(m_controller.GetSortedFixtures().size());
+  for (const auto *entry : m_controller.GetSortedFixtures()) {
     if (!entry)
       continue;
     const auto &uuid = entry->first;
@@ -509,10 +509,10 @@ bool VisibilitySystem::TryBuildLayerVisibleCandidates(
 }
 
 bool VisibilitySystem::TryBuildVisibleSet(
-    const Viewer3DController::ViewFrustumSnapshot &frustum,
+    const IVisibilityContext::ViewFrustumSnapshot &frustum,
     bool useFrustumCulling, float minPixels,
-    const Viewer3DController::VisibleSet &layerVisibleCandidates,
-    Viewer3DController::VisibleSet &out) const {
+    const IVisibilityContext::VisibleSet &layerVisibleCandidates,
+    IVisibilityContext::VisibleSet &out) const {
   out.objectUuids.clear();
   out.trussUuids.clear();
   out.fixtureUuids.clear();
@@ -520,8 +520,8 @@ bool VisibilitySystem::TryBuildVisibleSet(
   out.objectUuids.reserve(layerVisibleCandidates.objectUuids.size());
   for (const auto &uuid : layerVisibleCandidates.objectUuids) {
     if (useFrustumCulling) {
-      auto bit = m_controller.m_objectBounds.find(uuid);
-      if (bit == m_controller.m_objectBounds.end())
+      auto bit = m_controller.GetObjectBounds().find(uuid);
+      if (bit == m_controller.GetObjectBounds().end())
         continue;
       ScreenRect rect;
       bool anyDepthVisible = false;
@@ -541,8 +541,8 @@ bool VisibilitySystem::TryBuildVisibleSet(
   out.trussUuids.reserve(layerVisibleCandidates.trussUuids.size());
   for (const auto &uuid : layerVisibleCandidates.trussUuids) {
     if (useFrustumCulling) {
-      auto bit = m_controller.m_trussBounds.find(uuid);
-      if (bit == m_controller.m_trussBounds.end())
+      auto bit = m_controller.GetTrussBounds().find(uuid);
+      if (bit == m_controller.GetTrussBounds().end())
         continue;
       ScreenRect rect;
       bool anyDepthVisible = false;
@@ -562,8 +562,8 @@ bool VisibilitySystem::TryBuildVisibleSet(
   out.fixtureUuids.reserve(layerVisibleCandidates.fixtureUuids.size());
   for (const auto &uuid : layerVisibleCandidates.fixtureUuids) {
     if (useFrustumCulling) {
-      auto bit = m_controller.m_fixtureBounds.find(uuid);
-      if (bit == m_controller.m_fixtureBounds.end())
+      auto bit = m_controller.GetFixtureBounds().find(uuid);
+      if (bit == m_controller.GetFixtureBounds().end())
         continue;
       ScreenRect rect;
       bool anyDepthVisible = false;
@@ -583,77 +583,77 @@ bool VisibilitySystem::TryBuildVisibleSet(
   return true;
 }
 
-const Viewer3DController::VisibleSet &VisibilitySystem::GetVisibleSet(
-    const Viewer3DController::ViewFrustumSnapshot &frustum,
+const IVisibilityContext::VisibleSet &VisibilitySystem::GetVisibleSet(
+    const IVisibilityContext::ViewFrustumSnapshot &frustum,
     const std::unordered_set<std::string> &hiddenLayers,
     bool useFrustumCulling, float minPixels) const {
   const bool layerCandidatesCacheValid =
-      (m_controller.m_layerVisibleCandidatesSceneVersion ==
-       m_controller.m_sceneVersion) &&
-      (m_controller.m_layerVisibleCandidatesHiddenLayers == hiddenLayers);
+      (m_controller.GetLayerVisibleCandidatesSceneVersion() ==
+       m_controller.GetSceneVersion()) &&
+      (m_controller.GetLayerVisibleCandidatesHiddenLayers() == hiddenLayers);
 
   if (!layerCandidatesCacheValid) {
-    Viewer3DController::VisibleSet builtCandidates;
+    IVisibilityContext::VisibleSet builtCandidates;
     if (TryBuildLayerVisibleCandidates(hiddenLayers, builtCandidates)) {
-      m_controller.m_cachedLayerVisibleCandidates = std::move(builtCandidates);
-      m_controller.m_layerVisibleCandidatesSceneVersion =
-          m_controller.m_sceneVersion;
-      m_controller.m_layerVisibleCandidatesHiddenLayers = hiddenLayers;
-      ++m_controller.m_layerVisibleCandidatesRevision;
+      m_controller.GetCachedLayerVisibleCandidates() = std::move(builtCandidates);
+      m_controller.GetLayerVisibleCandidatesSceneVersion() =
+          m_controller.GetSceneVersion();
+      m_controller.GetLayerVisibleCandidatesHiddenLayers() = hiddenLayers;
+      ++m_controller.GetLayerVisibleCandidatesRevision();
     }
   }
 
   const bool sameViewport = std::equal(
       std::begin(frustum.viewport), std::end(frustum.viewport),
-      m_controller.m_visibleSetViewport.begin());
+      m_controller.GetVisibleSetViewport().begin());
   const bool sameModel =
       std::equal(std::begin(frustum.model), std::end(frustum.model),
-                 m_controller.m_visibleSetModel.begin());
+                 m_controller.GetVisibleSetModel().begin());
   const bool sameProjection =
       std::equal(std::begin(frustum.projection), std::end(frustum.projection),
-                 m_controller.m_visibleSetProjection.begin());
+                 m_controller.GetVisibleSetProjection().begin());
 
   const bool cacheValid =
-      (m_controller.m_visibleSetLayerCandidatesRevision ==
-       m_controller.m_layerVisibleCandidatesRevision) &&
-      (m_controller.m_visibleSetFrustumCulling == useFrustumCulling) &&
-      (m_controller.m_visibleSetMinPixels == minPixels) && sameViewport &&
+      (m_controller.GetVisibleSetLayerCandidatesRevision() ==
+       m_controller.GetLayerVisibleCandidatesRevision()) &&
+      (m_controller.GetVisibleSetFrustumCulling() == useFrustumCulling) &&
+      (m_controller.GetVisibleSetMinPixels() == minPixels) && sameViewport &&
       sameModel && sameProjection;
 
   if (!cacheValid) {
-    if (m_controller.m_cachedLayerVisibleCandidates.Empty()) {
-      m_controller.m_cachedVisibleSet = {};
-      m_controller.m_visibleSetLayerCandidatesRevision =
-          m_controller.m_layerVisibleCandidatesRevision;
-      m_controller.m_visibleSetFrustumCulling = useFrustumCulling;
-      m_controller.m_visibleSetMinPixels = minPixels;
+    if (m_controller.GetCachedLayerVisibleCandidates().Empty()) {
+      m_controller.GetCachedVisibleSet() = {};
+      m_controller.GetVisibleSetLayerCandidatesRevision() =
+          m_controller.GetLayerVisibleCandidatesRevision();
+      m_controller.GetVisibleSetFrustumCulling() = useFrustumCulling;
+      m_controller.GetVisibleSetMinPixels() = minPixels;
       std::copy(std::begin(frustum.viewport), std::end(frustum.viewport),
-                m_controller.m_visibleSetViewport.begin());
+                m_controller.GetVisibleSetViewport().begin());
       std::copy(std::begin(frustum.model), std::end(frustum.model),
-                m_controller.m_visibleSetModel.begin());
+                m_controller.GetVisibleSetModel().begin());
       std::copy(std::begin(frustum.projection), std::end(frustum.projection),
-                m_controller.m_visibleSetProjection.begin());
-      return m_controller.m_cachedVisibleSet;
+                m_controller.GetVisibleSetProjection().begin());
+      return m_controller.GetCachedVisibleSet();
     }
 
-    Viewer3DController::VisibleSet built;
+    IVisibilityContext::VisibleSet built;
     if (TryBuildVisibleSet(frustum, useFrustumCulling, minPixels,
-                           m_controller.m_cachedLayerVisibleCandidates, built)) {
-      m_controller.m_cachedVisibleSet = std::move(built);
-      m_controller.m_visibleSetLayerCandidatesRevision =
-          m_controller.m_layerVisibleCandidatesRevision;
-      m_controller.m_visibleSetFrustumCulling = useFrustumCulling;
-      m_controller.m_visibleSetMinPixels = minPixels;
+                           m_controller.GetCachedLayerVisibleCandidates(), built)) {
+      m_controller.GetCachedVisibleSet() = std::move(built);
+      m_controller.GetVisibleSetLayerCandidatesRevision() =
+          m_controller.GetLayerVisibleCandidatesRevision();
+      m_controller.GetVisibleSetFrustumCulling() = useFrustumCulling;
+      m_controller.GetVisibleSetMinPixels() = minPixels;
       std::copy(std::begin(frustum.viewport), std::end(frustum.viewport),
-                m_controller.m_visibleSetViewport.begin());
+                m_controller.GetVisibleSetViewport().begin());
       std::copy(std::begin(frustum.model), std::end(frustum.model),
-                m_controller.m_visibleSetModel.begin());
+                m_controller.GetVisibleSetModel().begin());
       std::copy(std::begin(frustum.projection), std::end(frustum.projection),
-                m_controller.m_visibleSetProjection.begin());
+                m_controller.GetVisibleSetProjection().begin());
     }
   }
 
-  return m_controller.m_cachedVisibleSet;
+  return m_controller.GetCachedVisibleSet();
 }
 
 void VisibilitySystem::RebuildVisibleSetCache() {
@@ -667,7 +667,7 @@ void VisibilitySystem::RebuildVisibleSetCache() {
   glGetDoublev(GL_MODELVIEW_MATRIX, model);
   glGetDoublev(GL_PROJECTION_MATRIX, proj);
 
-  Viewer3DController::ViewFrustumSnapshot frustum{};
+  IVisibilityContext::ViewFrustumSnapshot frustum{};
   std::copy(std::begin(viewport), std::end(viewport), std::begin(frustum.viewport));
   std::copy(std::begin(model), std::end(model), std::begin(frustum.model));
   std::copy(std::begin(proj), std::end(proj), std::begin(frustum.projection));
