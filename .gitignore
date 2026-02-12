@@ -368,3 +368,29 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+
+# ---------------------------------------------------------------------------
+# Godot / Peraviz
+# ---------------------------------------------------------------------------
+
+# Godot imported assets cache (generated)
+.peraviz/.godot/
+peraviz/.godot/
+
+# Godot export presets can be kept (optional). If you don't want them versioned, uncomment:
+# peraviz/export_presets.cfg
+
+# Exported builds (keep out of repo)
+peraviz/builds/
+peraviz/exports/
+peraviz/dist/
+
+# C++ GDExtension build artifacts (if/when peraviz/native exists)
+peraviz/native/build/
+peraviz/native/**/build/
+
+# Common native artifacts
+*.dll
+*.pdb
+*.so
+*.dylib
