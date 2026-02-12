@@ -17,11 +17,12 @@
  */
 #include "fixturetablepanel.h"
 #include "addressdialog.h"
-#include "columnutils.h"
 #include "configmanager.h"
 #include "consolepanel.h"
-#include "colorfulrenderers.h"
 #include "fixtureeditdialog.h"
+#include "fixturetable/fixture_table_columns.h"
+#include "fixturetable/fixture_table_edit_service.h"
+#include "fixturetable/fixture_table_parser.h"
 #include "gdtfdictionary.h"
 #include "gdtfloader.h"
 #include "layerpanel.h"
@@ -51,58 +52,14 @@
 namespace fs = std::filesystem;
 
 namespace {
-struct RangeParts {
-  wxArrayString parts;
-  bool usedSeparator = false;
-  bool trailingSeparator = false;
-};
-
-bool IsNumChar(char c) {
-  return std::isdigit(static_cast<unsigned char>(c)) || c == '.' || c == '-' ||
-         c == '+';
-}
-
-RangeParts SplitRangeParts(const wxString &value) {
-  std::string lower = value.Lower().ToStdString();
-  std::string normalized;
-  normalized.reserve(lower.size() + 4);
-  bool usedSeparator = false;
-  bool trailingSeparator = false;
-  for (size_t i = 0; i < lower.size();) {
-    if (lower.compare(i, 4, "thru") == 0) {
-      normalized.push_back(' ');
-      usedSeparator = true;
-      trailingSeparator = true;
-      i += 4;
-      continue;
-    }
-    if (lower[i] == 't') {
-      char prev = (i > 0) ? lower[i - 1] : '\0';
-      char next = (i + 1 < lower.size()) ? lower[i + 1] : '\0';
-      bool standalone =
-          (i == 0 || std::isspace(static_cast<unsigned char>(prev))) &&
-          (i + 1 >= lower.size() ||
-           std::isspace(static_cast<unsigned char>(next)));
-      if (standalone || IsNumChar(prev) || IsNumChar(next)) {
-        normalized.push_back(' ');
-        usedSeparator = true;
-        trailingSeparator = true;
-        i += 1;
-        continue;
-      }
-    }
-    normalized.push_back(lower[i]);
-    if (!std::isspace(static_cast<unsigned char>(lower[i])))
-      trailingSeparator = false;
-    i += 1;
+class ConfigManagerSceneAdapter : public FixtureTableEditService::ISceneAdapter {
+public:
+  void PushUndoState(const std::string &description) override {
+    ConfigManager::Get().PushUndoState(description);
   }
-  wxArrayString rawParts = wxSplit(wxString(normalized), ' ');
-  wxArrayString parts;
-  for (const auto &part : rawParts)
-    if (!part.IsEmpty())
-      parts.push_back(part);
-  return {parts, usedSeparator, trailingSeparator};
-}
+
+  MvrScene &GetScene() override { return ConfigManager::Get().GetScene(); }
+};
 } // namespace
 
 FixtureTablePanel::FixtureTablePanel(wxWindow *parent)
@@ -145,73 +102,8 @@ FixtureTablePanel::~FixtureTablePanel() {
 }
 
 void FixtureTablePanel::InitializeTable() {
-  columnLabels = {"Fixture ID", "Name",        "Type",     "Layer",
-                  "Hang Pos",   "Universe",    "Channel",  "Mode",
-                  "Ch Count",   "Model file",  "Pos X",    "Pos Y",
-                  "Pos Z",      "Roll (X)",    "Pitch (Y)", "Yaw (Z)",
-                  "Power (W)",  "Weight (kg)", "Color"};
-
-  std::vector<int> widths = {90, 150, 180, 100, 120, 80, 80,  120, 80, 180,
-                             80, 80,  80,  80,  80,  80, 100, 100, 80};
-  int flags = wxDATAVIEW_COL_RESIZABLE | wxDATAVIEW_COL_SORTABLE;
-
-  // Column 0: Fixture ID (numeric for proper sorting)
-  auto *idRenderer =
-      new ColorfulTextRenderer(wxDATAVIEW_CELL_INERT, wxALIGN_LEFT);
-  table->AppendColumn(new wxDataViewColumn(columnLabels[0], idRenderer, 0,
-                                           widths[0], wxALIGN_LEFT, flags));
-
-  // Column 1: Name (string)
-  table->AppendColumn(new wxDataViewColumn(
-      columnLabels[1], new ColorfulTextRenderer(wxDATAVIEW_CELL_INERT,
-                                                wxALIGN_LEFT),
-      1, widths[1], wxALIGN_LEFT, flags));
-
-  // Column 2: Type (string)
-  table->AppendColumn(new wxDataViewColumn(
-      columnLabels[2], new ColorfulTextRenderer(wxDATAVIEW_CELL_INERT,
-                                                wxALIGN_LEFT),
-      2, widths[2], wxALIGN_LEFT, flags));
-
-  // Column 3: Layer (string)
-  table->AppendColumn(new wxDataViewColumn(
-      columnLabels[3], new ColorfulTextRenderer(wxDATAVIEW_CELL_INERT,
-                                                wxALIGN_LEFT),
-      3, widths[3], wxALIGN_LEFT, flags));
-
-  // Column 4: Hang Pos (string)
-  table->AppendColumn(new wxDataViewColumn(
-      columnLabels[4], new ColorfulTextRenderer(wxDATAVIEW_CELL_INERT,
-                                                wxALIGN_LEFT),
-      4, widths[4], wxALIGN_LEFT, flags));
-
-  // Column 5: Universe (numeric)
-  table->AppendColumn(new wxDataViewColumn(
-      columnLabels[5], new ColorfulTextRenderer(wxDATAVIEW_CELL_INERT,
-                                                wxALIGN_LEFT),
-      5, widths[5], wxALIGN_LEFT, flags));
-
-  // Column 6: Channel (numeric)
-  table->AppendColumn(new wxDataViewColumn(
-      columnLabels[6], new ColorfulTextRenderer(wxDATAVIEW_CELL_INERT,
-                                                wxALIGN_LEFT),
-      6, widths[6], wxALIGN_LEFT, flags));
-
-  // Columns 7 to second last as regular text
-  for (size_t i = 7; i < columnLabels.size() - 1; ++i)
-    table->AppendColumn(new wxDataViewColumn(
-        columnLabels[i], new ColorfulTextRenderer(wxDATAVIEW_CELL_INERT,
-                                                  wxALIGN_LEFT),
-        i, widths[i], wxALIGN_LEFT, flags));
-
-  // Last column (Color) uses icon+text to show a colored square
-  auto *colorRenderer =
-      new ColorfulIconTextRenderer(wxDATAVIEW_CELL_INERT, wxALIGN_LEFT);
-  table->AppendColumn(new wxDataViewColumn(
-      columnLabels.back(), colorRenderer, columnLabels.size() - 1,
-      widths.back(), wxALIGN_LEFT, flags));
-
-  ColumnUtils::EnforceMinColumnWidth(table);
+  columnLabels = FixtureTableColumns::DefaultLabels();
+  FixtureTableColumns::ConfigureColumns(table, columnLabels);
 }
 
 void FixtureTablePanel::ReloadData() {
@@ -220,28 +112,6 @@ void FixtureTablePanel::ReloadData() {
   rowUuids.clear();
 
   const auto &fixtures = ConfigManager::Get().GetScene().fixtures;
-
-  struct Address {
-    long universe;
-    long channel;
-  };
-  auto parseAddress = [](const std::string &addr) -> Address {
-    Address res{0, 0};
-    if (!addr.empty()) {
-      size_t dot = addr.find('.');
-      if (dot != std::string::npos) {
-        try {
-          res.universe = std::stol(addr.substr(0, dot));
-        } catch (...) {
-        }
-        try {
-          res.channel = std::stol(addr.substr(dot + 1));
-        } catch (...) {
-        }
-      }
-    }
-    return res;
-  };
 
   std::vector<std::pair<std::string, const Fixture *>> sorted;
   sorted.reserve(fixtures.size());
@@ -255,8 +125,8 @@ void FixtureTablePanel::ReloadData() {
       return a->fixtureId < b->fixtureId;
     if (a->gdtfSpec != b->gdtfSpec)
       return StringUtils::NaturalLess(a->gdtfSpec, b->gdtfSpec);
-    auto addrA = parseAddress(a->address);
-    auto addrB = parseAddress(b->address);
+    auto addrA = FixtureTableParser::ParseAddress(a->address);
+    auto addrB = FixtureTableParser::ParseAddress(b->address);
     if (addrA.universe != addrB.universe)
       return addrA.universe < addrB.universe;
     return addrA.channel < addrB.channel;
@@ -592,15 +462,8 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
         selectedRows.push_back(row);
     }
 
-    std::vector<int> orderedRows;
-    for (int idx : selectionOrder)
-      if (std::find(selectedRows.begin(), selectedRows.end(), idx) !=
-          selectedRows.end())
-        orderedRows.push_back(idx);
-    for (int idx : selectedRows)
-      if (std::find(orderedRows.begin(), orderedRows.end(), idx) ==
-          orderedRows.end())
-        orderedRows.push_back(idx);
+    auto orderedRows =
+        FixtureTableEditService::BuildOrderedRows(selectedRows, selectionOrder);
 
     std::vector<int> counts;
     counts.reserve(orderedRows.size());
@@ -725,7 +588,7 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
         table->SetValue(wxVariant(out), r, col);
       }
     } else {
-      RangeParts range = SplitRangeParts(value);
+      auto range = FixtureTableParser::SplitRangeParts(value);
       wxArrayString parts = range.parts;
       if (parts.size() == 0 || parts.size() > 2) {
         wxMessageBox("Invalid numeric value", "Error", wxOK | wxICON_ERROR);
@@ -774,15 +637,9 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
             selectedRows.push_back(r);
         }
 
-        std::vector<int> orderedRows;
-        for (int idx : selectionOrder)
-          if (std::find(selectedRows.begin(), selectedRows.end(), idx) !=
-              selectedRows.end())
-            orderedRows.push_back(idx);
-        for (int idx : selectedRows)
-          if (std::find(orderedRows.begin(), orderedRows.end(), idx) ==
-              orderedRows.end())
-            orderedRows.push_back(idx);
+        auto orderedRows =
+            FixtureTableEditService::BuildOrderedRows(selectedRows,
+                                                      selectionOrder);
 
         for (size_t i = 0; i < orderedRows.size(); ++i) {
           long val = v1;
@@ -847,15 +704,9 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
             selectedRows.push_back(r);
         }
 
-        std::vector<int> orderedRows;
-        for (int idx : selectionOrder)
-          if (std::find(selectedRows.begin(), selectedRows.end(), idx) !=
-              selectedRows.end())
-            orderedRows.push_back(idx);
-        for (int idx : selectedRows)
-          if (std::find(orderedRows.begin(), orderedRows.end(), idx) ==
-              orderedRows.end())
-            orderedRows.push_back(idx);
+        auto orderedRows =
+            FixtureTableEditService::BuildOrderedRows(selectedRows,
+                                                      selectionOrder);
 
         for (size_t i = 0; i < orderedRows.size(); ++i) {
           wxString newName =
@@ -877,7 +728,7 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
       }
     }
   }
-  PropagateTypeValues(selections, col);
+  FixtureTableEditService::PropagateTypeValues(table, selections, col);
   ResyncRows(oldOrder, selectedUuids);
   UpdateSceneData();
   HighlightDuplicateFixtureIds();
@@ -1225,208 +1076,12 @@ void FixtureTablePanel::ApplyPositionValueUpdates(
 
 void FixtureTablePanel::PropagateTypeValues(
     const wxDataViewItemArray &selections, int col) {
-  if (col != 16 && col != 17 && col != 18)
-    return;
-
-  if (col == 18) {
-    std::unordered_map<std::string, wxVariant> typeValues;
-    for (const auto &it : selections) {
-      int r = table->ItemToRow(it);
-      if (r == wxNOT_FOUND)
-        continue;
-      wxVariant vType, vVal;
-      table->GetValue(vType, r, 2);
-      table->GetValue(vVal, r, col);
-      typeValues[std::string(vType.GetString().ToUTF8())] = vVal;
-    }
-
-    unsigned int rowCount = table->GetItemCount();
-    for (unsigned int i = 0; i < rowCount; ++i) {
-      wxVariant vType;
-      table->GetValue(vType, i, 2);
-      auto it = typeValues.find(std::string(vType.GetString().ToUTF8()));
-      if (it != typeValues.end()) {
-        table->SetValue(it->second, i, col);
-      }
-    }
-    return;
-  }
-
-  std::unordered_map<std::string, wxString> typeValues;
-  for (const auto &it : selections) {
-    int r = table->ItemToRow(it);
-    if (r == wxNOT_FOUND)
-      continue;
-    wxVariant vType, vVal;
-    table->GetValue(vType, r, 2);
-    table->GetValue(vVal, r, col);
-    typeValues[std::string(vType.GetString().ToUTF8())] = vVal.GetString();
-  }
-
-  unsigned int rowCount = table->GetItemCount();
-  for (unsigned int i = 0; i < rowCount; ++i) {
-    wxVariant vType;
-    table->GetValue(vType, i, 2);
-    auto it = typeValues.find(std::string(vType.GetString().ToUTF8()));
-    if (it != typeValues.end())
-      table->SetValue(wxVariant(it->second), i, col);
-  }
+  FixtureTableEditService::PropagateTypeValues(table, selections, col);
 }
 
 void FixtureTablePanel::UpdateSceneData() {
-  ConfigManager &cfg = ConfigManager::Get();
-  cfg.PushUndoState("edit fixture");
-  auto &scene = cfg.GetScene();
-  std::unordered_set<std::string> updatedSpecs;
-  size_t updatedCount = 0;
-  wxString firstName, firstUuid;
-  size_t count = std::min((size_t)table->GetItemCount(), rowUuids.size());
-  for (size_t i = 0; i < count; ++i) {
-    auto it = scene.fixtures.find(rowUuids[i]);
-    if (it == scene.fixtures.end())
-      continue;
-
-    if (i < gdtfPaths.size())
-      it->second.gdtfSpec = std::string(gdtfPaths[i].ToUTF8());
-
-    wxVariant v;
-    table->GetValue(v, i, 1);
-    it->second.instanceName = std::string(v.GetString().ToUTF8());
-
-    table->GetValue(v, i, 0);
-    long fid = v.GetLong();
-    it->second.fixtureId = static_cast<int>(fid);
-
-    table->GetValue(v, i, 3);
-    std::string layerStr = std::string(v.GetString().ToUTF8());
-    if (layerStr.empty())
-      it->second.layer.clear();
-    else
-      it->second.layer = layerStr;
-
-    table->GetValue(v, i, 4);
-    it->second.positionName = std::string(v.GetString().ToUTF8());
-    if (!it->second.position.empty())
-      scene.positions[it->second.position] = it->second.positionName;
-
-    table->GetValue(v, i, 5);
-    long uni = v.GetLong();
-
-    table->GetValue(v, i, 6);
-    long ch = v.GetLong();
-
-    table->GetValue(v, i, 2);
-    it->second.typeName = std::string(v.GetString().ToUTF8());
-
-    table->GetValue(v, i, 7);
-    it->second.gdtfMode = std::string(v.GetString().ToUTF8());
-
-    if (uni > 0 && ch > 0)
-      it->second.address = wxString::Format("%ld.%ld", uni, ch).ToStdString();
-    else
-      it->second.address.clear();
-
-    double x = 0, y = 0, z = 0;
-    table->GetValue(v, i, 10);
-    v.GetString().ToDouble(&x);
-    table->GetValue(v, i, 11);
-    v.GetString().ToDouble(&y);
-    table->GetValue(v, i, 12);
-    v.GetString().ToDouble(&z);
-
-    double roll = 0, pitch = 0, yaw = 0;
-    table->GetValue(v, i, 13);
-    {
-      wxString s = v.GetString();
-      s.Replace("\u00B0", "");
-      s.ToDouble(&roll);
-    }
-    table->GetValue(v, i, 14);
-    {
-      wxString s = v.GetString();
-      s.Replace("\u00B0", "");
-      s.ToDouble(&pitch);
-    }
-    table->GetValue(v, i, 15);
-    {
-      wxString s = v.GetString();
-      s.Replace("\u00B0", "");
-      s.ToDouble(&yaw);
-    }
-
-    const auto currentEuler = MatrixUtils::MatrixToEuler(it->second.transform);
-    const bool transformChanged =
-        wxString::Format("%.3f", it->second.transform.o[0] / 1000.0f) !=
-            wxString::Format("%.3f", x) ||
-        wxString::Format("%.3f", it->second.transform.o[1] / 1000.0f) !=
-            wxString::Format("%.3f", y) ||
-        wxString::Format("%.3f", it->second.transform.o[2] / 1000.0f) !=
-            wxString::Format("%.3f", z) ||
-        wxString::Format("%.1f", currentEuler[2]) != wxString::Format("%.1f", roll) ||
-        wxString::Format("%.1f", currentEuler[1]) != wxString::Format("%.1f", pitch) ||
-        wxString::Format("%.1f", currentEuler[0]) != wxString::Format("%.1f", yaw);
-
-    if (transformChanged) {
-      Matrix rot = MatrixUtils::EulerToMatrix(
-          static_cast<float>(yaw), static_cast<float>(pitch),
-          static_cast<float>(roll));
-      it->second.transform = MatrixUtils::ApplyRotationPreservingScale(
-          it->second.transform, rot,
-          {static_cast<float>(x * 1000.0), static_cast<float>(y * 1000.0),
-           static_cast<float>(z * 1000.0)});
-    }
-
-    table->GetValue(v, i, 16);
-    double pw = 0.0;
-    v.GetString().ToDouble(&pw);
-    it->second.powerConsumptionW = static_cast<float>(pw);
-
-    table->GetValue(v, i, 17);
-    double wt = 0.0;
-    v.GetString().ToDouble(&wt);
-    it->second.weightKg = static_cast<float>(wt);
-
-    table->GetValue(v, i, 18);
-    if (v.GetType() == "wxDataViewIconText") {
-      wxDataViewIconText icon;
-      icon << v;
-      wxString txt = icon.GetText();
-      if (!txt.IsEmpty())
-        it->second.color = std::string(txt.ToUTF8());
-      else
-        it->second.color.clear();
-    } else {
-      it->second.color = std::string(v.GetString().ToUTF8());
-    }
-
-    if (!it->second.color.empty() && !it->second.gdtfSpec.empty()) {
-      std::string gdtfPath = it->second.gdtfSpec;
-      fs::path p = gdtfPath;
-      if (p.is_relative() && !scene.basePath.empty())
-        gdtfPath = (fs::path(scene.basePath) / p).string();
-      if (updatedSpecs.insert(gdtfPath).second)
-        SetGdtfModelColor(gdtfPath, it->second.color);
-    }
-
-    if (ConsolePanel::Instance()) {
-      ++updatedCount;
-      if (updatedCount == 1) {
-        firstName = wxString::FromUTF8(it->second.instanceName.c_str());
-        firstUuid = wxString::FromUTF8(it->second.uuid.c_str());
-      }
-    }
-  }
-
-  if (ConsolePanel::Instance()) {
-    wxString msg;
-    if (updatedCount == 1)
-      msg = wxString::Format("Updated fixture %s (UUID %s)", firstName,
-                             firstUuid);
-    else if (updatedCount > 1)
-      msg = wxString::Format("Updated %zu fixtures", updatedCount);
-    if (!msg.empty())
-      ConsolePanel::Instance()->AppendMessage(msg);
-  }
+  ConfigManagerSceneAdapter adapter;
+  FixtureTableEditService::UpdateSceneData(adapter, table, rowUuids, gdtfPaths);
 
   HighlightDuplicateFixtureIds();
 
