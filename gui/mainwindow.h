@@ -17,10 +17,10 @@
  */
 #pragma once
 
-#include "projectutils.h"
+#include "edit_ids.h"
 #include "viewer2dstate.h"
 #include <wx/aui/aui.h>
-#include <wx/wx.h>
+#include <wx/frame.h>
 
 #include <memory>
 #include <optional>
@@ -44,6 +44,11 @@ class LayoutViewerPanel;
 class SummaryPanel;
 class RiggingPanel;
 struct LayoutViewPreset;
+class MainWindowIoController;
+class MainWindowLayoutController;
+class MainWindowPrintController;
+class MainWindowViewController;
+
 
 // Main application window for GUI components
 class MainWindow : public wxFrame {
@@ -99,6 +104,10 @@ private:
   wxAuiToolBar *toolsToolBar = nullptr;
 
   wxAcceleratorTable m_accel;
+  std::unique_ptr<MainWindowIoController> ioController;
+  std::unique_ptr<MainWindowLayoutController> layoutController;
+  std::unique_ptr<MainWindowPrintController> printController;
+  std::unique_ptr<MainWindowViewController> viewController;
 
   void OnNew(wxCommandEvent &event);    // Start new project
   void OnLoad(wxCommandEvent &event);   // Load project
@@ -198,62 +207,11 @@ private:
   std::optional<viewer2d::Viewer2DState> standalone2DState;
   std::unique_ptr<wxBusyCursor> layoutRenderCursor;
 
+  friend class MainWindowIoController;
+  friend class MainWindowLayoutController;
+  friend class MainWindowPrintController;
+  friend class MainWindowViewController;
+
   inline static MainWindow *s_instance = nullptr;
   wxDECLARE_EVENT_TABLE();
-};
-
-// Menu item identifiers
-enum {
-  ID_File_New = wxID_HIGHEST + 1,
-  ID_File_Load,
-  ID_File_Save,
-  ID_File_SaveAs,
-  ID_File_ImportRider,
-  ID_File_ImportMVR,
-  ID_File_ExportMVR,
-  ID_File_PrintViewer2D,
-  ID_File_PrintLayout,
-  ID_File_PrintTable,
-  ID_File_PrintMenu,
-  ID_File_ExportCSV,
-  ID_File_Close,
-  ID_View_ToggleConsole,
-  ID_View_ToggleFixtures,
-  ID_View_ToggleViewport,
-  ID_View_ToggleViewport2D,
-  ID_View_ToggleRender2D,
-  ID_View_ToggleLayers,
-  ID_View_ToggleLayouts,
-  ID_View_ToggleSummary,
-  ID_View_ToggleRigging,
-  ID_View_Layout_Default,
-  ID_View_Layout_2D,
-  ID_View_Layout_Mode,
-  ID_View_Layout_2DView,
-  ID_View_Layout_Legend,
-  ID_View_Layout_EventTable,
-  ID_View_Layout_Text,
-  ID_View_Layout_Image,
-  ID_Tools_DownloadGdtf,
-  ID_Tools_EditDictionaries,
-  ID_Tools_ImportRiderText,
-  ID_Tools_ExportFixture,
-  ID_Tools_ExportTruss,
-  ID_Tools_ExportSceneObject,
-  ID_Tools_AutoPatch,
-  ID_Tools_AutoColor,
-  ID_Tools_ConvertToHoist,
-  ID_Help_Help,
-  ID_Help_About,
-  ID_Select_Fixtures,
-  ID_Select_Trusses,
-  ID_Select_Supports,
-  ID_Select_Objects,
-  ID_Edit_Undo,
-  ID_Edit_Redo,
-  ID_Edit_AddFixture,
-  ID_Edit_AddTruss,
-  ID_Edit_AddSceneObject,
-  ID_Edit_Delete,
-  ID_Edit_Preferences
 };
