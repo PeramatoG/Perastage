@@ -18,6 +18,7 @@
 #pragma once
 
 #include "mainwindow/ids/edit_ids.h"
+#include "viewer2dstate.h"
 #include <wx/aui/aui.h>
 #include <wx/frame.h>
 
@@ -48,10 +49,6 @@ class MainWindowLayoutController;
 class MainWindowPrintController;
 class MainWindowViewController;
 
-namespace viewer2d {
-class ScopedViewer2DState;
-struct Viewer2DState;
-}
 
 // Main application window for GUI components
 class MainWindow : public wxFrame {
