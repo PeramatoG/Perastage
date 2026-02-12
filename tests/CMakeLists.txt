@@ -44,6 +44,13 @@ add_executable(pdf_writer_test
                ../viewer2d/pdf/pdf_writer.cpp)
 add_test(NAME PdfWriterSerialization COMMAND pdf_writer_test)
 
+add_executable(fixture_table_parser_test
+               fixture_table_parser_test.cpp
+               ../gui/fixturetable/fixture_table_parser.cpp)
+target_include_directories(fixture_table_parser_test PRIVATE .. ../gui)
+target_link_libraries(fixture_table_parser_test PRIVATE ${wxWidgets_LIBRARIES})
+add_test(NAME FixtureTableParser COMMAND fixture_table_parser_test)
+
 function(set_library_env TEST_NAME)
     set_tests_properties(${TEST_NAME} PROPERTIES ENVIRONMENT "PERASTAGE_LIBRARY_PATH=${CMAKE_SOURCE_DIR}/library")
 endfunction()
