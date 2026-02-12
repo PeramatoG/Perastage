@@ -51,6 +51,9 @@ class VisibilitySystem;
 class SelectionSystem;
 class LabelRenderSystem;
 class RenderPipeline;
+class OpaqueFixturePass;
+class OpaqueTrussPass;
+class OpaqueObjectPass;
 
 class Viewer3DController : public IRenderContext,
                            public ISelectionContext,
@@ -341,6 +344,10 @@ private:
   bool m_useAdaptiveLineProfile = true;
   bool m_skipOutlinesForCurrentFrame = false;
   int m_updateResourcesCallsPerFrame = 0;
+
+  friend class OpaqueFixturePass;
+  friend class OpaqueTrussPass;
+  friend class OpaqueObjectPass;
 
 
   bool TryBuildLayerVisibleCandidates(
