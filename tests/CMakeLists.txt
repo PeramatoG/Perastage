@@ -315,3 +315,54 @@ target_include_directories(gdtfloader_primitive_test PRIVATE
 target_link_libraries(gdtfloader_primitive_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
 add_test(NAME GdtfLoaderPrimitiveFallback COMMAND gdtfloader_primitive_test)
 set_library_env(GdtfLoaderPrimitiveFallback)
+
+
+add_executable(user_preferences_store_test
+               user_preferences_store_test.cpp
+               ../core/configservices.cpp)
+target_include_directories(user_preferences_store_test PRIVATE ../core ../external ../models)
+target_link_libraries(user_preferences_store_test PRIVATE ${wxWidgets_LIBRARIES})
+add_test(NAME UserPreferencesStore COMMAND user_preferences_store_test)
+
+add_executable(project_session_test
+               project_session_test.cpp
+               ../core/configservices.cpp
+               ../models/mvrscene.cpp
+               ../models/fixture.cpp
+               ../models/truss.cpp
+               ../models/sceneobject.cpp
+               ../models/layer.cpp)
+target_include_directories(project_session_test PRIVATE ../core ../models ../external)
+target_link_libraries(project_session_test PRIVATE ${wxWidgets_LIBRARIES})
+add_test(NAME ProjectSession COMMAND project_session_test)
+
+add_executable(selection_state_test
+               selection_state_test.cpp
+               ../core/configservices.cpp)
+target_include_directories(selection_state_test PRIVATE ../core ../external ../models)
+target_link_libraries(selection_state_test PRIVATE ${wxWidgets_LIBRARIES})
+add_test(NAME SelectionState COMMAND selection_state_test)
+
+add_executable(history_manager_test
+               history_manager_test.cpp
+               ../core/configservices.cpp
+               ../models/mvrscene.cpp
+               ../models/fixture.cpp
+               ../models/truss.cpp
+               ../models/sceneobject.cpp
+               ../models/layer.cpp)
+target_include_directories(history_manager_test PRIVATE ../core ../models ../external)
+target_link_libraries(history_manager_test PRIVATE ${wxWidgets_LIBRARIES})
+add_test(NAME HistoryManager COMMAND history_manager_test)
+
+add_executable(layer_visibility_state_test
+               layer_visibility_state_test.cpp
+               ../core/configservices.cpp
+               ../models/mvrscene.cpp
+               ../models/fixture.cpp
+               ../models/truss.cpp
+               ../models/sceneobject.cpp
+               ../models/layer.cpp)
+target_include_directories(layer_visibility_state_test PRIVATE ../core ../models ../external)
+target_link_libraries(layer_visibility_state_test PRIVATE ${wxWidgets_LIBRARIES})
+add_test(NAME LayerVisibilityState COMMAND layer_visibility_state_test)

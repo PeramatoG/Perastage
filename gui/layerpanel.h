@@ -21,10 +21,12 @@
 #include <wx/dataview.h>
 #include <wx/colordlg.h>
 
+class ConfigManager;
+
 class LayerPanel : public wxPanel
 {
 public:
-    explicit LayerPanel(wxWindow* parent, bool showButtons = true);
+    explicit LayerPanel(wxWindow* parent, bool showButtons = true, ConfigManager* config = nullptr);
     void ReloadLayers();
 
     static LayerPanel* Instance();
@@ -39,4 +41,5 @@ private:
     void OnRenameLayer(wxDataViewEvent& evt);
     wxDataViewListCtrl* list = nullptr;
     static LayerPanel* s_instance;
+    ConfigManager* configManager = nullptr;
 };

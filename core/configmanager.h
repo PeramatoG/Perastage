@@ -22,9 +22,7 @@
 #include <unordered_set>
 #include <optional>
 #include <vector>
-#include "mvrscene.h"
-
-inline constexpr const char* DEFAULT_LAYER_NAME = "No Layer";
+#include "configservices.h"
 
 // Singleton to manage configuration and MVR scene data globally
 class ConfigManager
@@ -63,15 +61,6 @@ public:
     void SetSelectedSupports(const std::vector<std::string>& uuids);
     const std::vector<std::string>& GetSelectedSceneObjects() const;
     void SetSelectedSceneObjects(const std::vector<std::string>& uuids);
-
-    struct VariableInfo {
-        std::string type;
-        float defaultValue = 0.0f;
-        float value = 0.0f;
-        float minValue = 0.0f;
-        float maxValue = 0.0f;
-        std::vector<std::string> legacyNames;
-    };
 
     void RegisterVariable(const std::string& name, const std::string& type,
                           float defVal, float minVal, float maxVal,
@@ -136,35 +125,11 @@ private:
     ConfigManager(const ConfigManager&) = delete;
     ConfigManager& operator=(const ConfigManager&) = delete;
 
-    void ApplyColumnDefaults();
-
-    std::unordered_map<std::string, std::string> configData;
-    std::unordered_map<std::string, VariableInfo> variables;
-    MvrScene scene;
-
-    // Selection state
-    std::vector<std::string> selectedFixtures;
-    std::vector<std::string> selectedTrusses;
-    std::vector<std::string> selectedSupports;
-    std::vector<std::string> selectedSceneObjects;
-
-    struct Snapshot {
-        MvrScene scene;
-        std::vector<std::string> selFixtures;
-        std::vector<std::string> selTrusses;
-        std::vector<std::string> selSupports;
-        std::vector<std::string> selSceneObjects;
-        std::string description;
-    };
-
-    std::vector<Snapshot> undoStack;
-    std::vector<Snapshot> redoStack;
-    size_t maxHistory = 20;
-
-    size_t revision = 0;
-    size_t savedRevision = 0;
+    UserPreferencesStore preferencesStore;
+    ProjectSession projectSession;
+    SelectionState selectionState;
+    HistoryManager historyManager;
+    LayerVisibilityState layerVisibilityState;
 
     bool suppressRevision = false;
-
-    std::string currentLayer = DEFAULT_LAYER_NAME;
 };

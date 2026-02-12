@@ -35,7 +35,6 @@ class wxZipStreamLink;
 #include <wx/zipstrm.h>
 
 namespace {
-bool TryParseFloat(const std::string &text, float &out);
 
 class TempDir {
 public:
@@ -119,29 +118,6 @@ ConfigManager::RevisionGuard::RevisionGuard(ConfigManager &cfg)
 
 ConfigManager::RevisionGuard::~RevisionGuard() {
   cfg.suppressRevision = previous;
-}
-
-static std::vector<std::string> SplitCSV(const std::string &s) {
-  std::vector<std::string> result;
-  std::stringstream ss(s);
-  std::string item;
-  while (std::getline(ss, item, ',')) {
-    size_t start = item.find_first_not_of(" \t");
-    size_t end = item.find_last_not_of(" \t");
-    if (start != std::string::npos)
-      result.push_back(item.substr(start, end - start + 1));
-  }
-  return result;
-}
-
-static std::string JoinCSV(const std::vector<std::string> &items) {
-  std::string out;
-  for (size_t i = 0; i < items.size(); ++i) {
-    if (i > 0)
-      out += ',';
-    out += items[i];
-  }
-  return out;
 }
 
 ConfigManager::ConfigManager() {
@@ -237,10 +213,17 @@ ConfigManager::ConfigManager() {
     SetValue("rider_autopatch", "1");
   if (!HasKey("rider_layer_mode"))
     SetValue("rider_layer_mode", "position");
-  ApplyColumnDefaults();
+  if (!HasKey("fixture_print_columns"))
+    SetFixturePrintColumns({"position", "id", "type"});
+  if (!HasKey("truss_print_columns"))
+    SetTrussPrintColumns({"position", "type", "length"});
+  if (!HasKey("support_print_columns"))
+    SetSupportPrintColumns({"position", "type", "height"});
+  if (!HasKey("sceneobject_print_columns"))
+    SetSceneObjectPrintColumns({"position", "name", "type"});
   ApplyDefaults();
   layouts::LayoutManager::Get().LoadFromConfig(*this);
-  currentLayer = DEFAULT_LAYER_NAME;
+  layerVisibilityState.SetCurrentLayer(DEFAULT_LAYER_NAME);
 }
 
 ConfigManager &ConfigManager::Get() {
@@ -251,374 +234,190 @@ ConfigManager &ConfigManager::Get() {
 // -- Config key-value access --
 
 void ConfigManager::SetValue(const std::string &key, const std::string &value) {
-  std::string newValue = value;
-
-  auto var = variables.find(key);
-  if (var != variables.end() && var->second.type == "float") {
-    float parsed = 0.0f;
-    if (TryParseFloat(value, parsed)) {
-      parsed = std::clamp(parsed, var->second.minValue, var->second.maxValue);
-      var->second.value = parsed;
-      newValue = std::to_string(parsed);
-    }
-  }
-
-  auto it = configData.find(key);
-  if (it != configData.end() && it->second == newValue)
+  auto prev = preferencesStore.GetValue(key);
+  preferencesStore.SetValue(key, value);
+  auto next = preferencesStore.GetValue(key);
+  if (prev == next)
     return;
-
-  configData[key] = newValue;
   if (!suppressRevision)
-    ++revision;
+    projectSession.Touch();
 }
 
 std::optional<std::string>
 ConfigManager::GetValue(const std::string &key) const {
-  auto it = configData.find(key);
-  if (it != configData.end())
-    return it->second;
-  return std::nullopt;
+  return preferencesStore.GetValue(key);
 }
-
-namespace {
-bool TryParseFloat(const std::string &text, float &out) {
-  // Avoid throwing exceptions on malformed values by using from_chars.
-  // This keeps hot paths free of costly exception handling when config
-  // entries are empty or contain unexpected characters.
-  if (text.empty())
-    return false;
-
-  // Allow leading and trailing spaces that may appear in user edited files.
-  const auto first =
-      std::find_if_not(text.begin(), text.end(), [](unsigned char c) {
-        return std::isspace(c);
-      });
-  if (first == text.end())
-    return false;
-  const auto last =
-      std::find_if_not(text.rbegin(), text.rend(), [](unsigned char c) {
-        return std::isspace(c);
-      }).base();
-  std::string_view trimmed(&(*first), static_cast<size_t>(last - first));
-
-  auto *begin = trimmed.data();
-  auto *end = trimmed.data() + trimmed.size();
-
-  auto result = std::from_chars(begin, end, out);
-  // Success requires the conversion to finish without errors and consume the
-  // entire trimmed token so trailing garbage is rejected.
-  return result.ec == std::errc{} && result.ptr == end;
-}
-} // namespace
 
 bool ConfigManager::HasKey(const std::string &key) const {
-  return configData.find(key) != configData.end();
+  return preferencesStore.HasKey(key);
 }
 
 void ConfigManager::RemoveKey(const std::string &key) {
-  size_t erased = configData.erase(key);
-  if (erased > 0 && !suppressRevision)
-    ++revision;
+  const bool had = preferencesStore.HasKey(key);
+  preferencesStore.RemoveKey(key);
+  if (had && !suppressRevision)
+    projectSession.Touch();
 }
 
 void ConfigManager::ClearValues() {
-  if (configData.empty())
-    return;
-  configData.clear();
+  preferencesStore.ClearValues();
   if (!suppressRevision)
-    ++revision;
+    projectSession.Touch();
 }
 
 void ConfigManager::RegisterVariable(const std::string &name,
                                      const std::string &type, float defVal,
                                      float minVal, float maxVal,
                                      std::vector<std::string> legacyNames) {
-  VariableInfo info;
-  info.type = type;
-  info.defaultValue = defVal;
-  info.value = defVal;
-  info.minValue = minVal;
-  info.maxValue = maxVal;
-  info.legacyNames = std::move(legacyNames);
-  variables[name] = info;
+  preferencesStore.RegisterVariable(name, type, defVal, minVal, maxVal,
+                                    std::move(legacyNames));
 }
 
 float ConfigManager::GetFloat(const std::string &name) const {
-  auto it = variables.find(name);
-  float defVal = 0.0f;
-  if (it != variables.end())
-    defVal = it->second.defaultValue;
-
-  auto valStr = GetValue(name);
-  if (valStr) {
-    float parsed = 0.0f;
-    if (TryParseFloat(*valStr, parsed))
-      return parsed;
-    return defVal;
-  }
-  return defVal;
+  return preferencesStore.GetFloat(name);
 }
 
 void ConfigManager::SetFloat(const std::string &name, float v) {
-  auto it = variables.find(name);
-  if (it != variables.end()) {
-    v = std::clamp(v, it->second.minValue, it->second.maxValue);
-    it->second.value = v;
-  }
-  SetValue(name, std::to_string(v));
+  auto prev = preferencesStore.GetValue(name);
+  preferencesStore.SetFloat(name, v);
+  if (!suppressRevision && prev != preferencesStore.GetValue(name))
+    projectSession.Touch();
 }
 
-void ConfigManager::ApplyDefaults() {
-  for (auto &[name, info] : variables) {
-    float val = info.defaultValue;
-    const std::string *raw = nullptr;
-
-    for (const auto &legacyName : info.legacyNames) {
-      auto itLegacy = configData.find(legacyName);
-      if (itLegacy != configData.end()) {
-        raw = &itLegacy->second;
-        break;
-      }
-    }
-
-    if (!raw) {
-      auto it = configData.find(name);
-      if (it != configData.end())
-        raw = &it->second;
-    }
-
-    if (raw) {
-      float parsed = 0.0f;
-      if (TryParseFloat(*raw, parsed))
-        val = parsed;
-    }
-
-    val = std::clamp(val, info.minValue, info.maxValue);
-    info.value = val;
-    configData[name] = std::to_string(val);
-  }
-}
-
-void ConfigManager::ApplyColumnDefaults() {
-  if (!HasKey("fixture_print_columns"))
-    SetValue(
-        "fixture_print_columns",
-        "Fixture ID,Name,Type,Layer,Hang Pos,Universe,Channel,Mode,Ch Count");
-  if (!HasKey("truss_print_columns"))
-    SetValue("truss_print_columns", "Name,Layer,Hang Pos,Manufacturer,Model");
-  if (!HasKey("support_print_columns"))
-    SetValue("support_print_columns",
-             "Hoist ID,Name,Type,Function,Layer,Hang Pos,Pos X,Pos Y,Pos Z,Roll (X),Pitch (Y),Yaw (Z),Chain Length (m),Capacity (kg),Weight (kg)");
-  if (!HasKey("sceneobject_print_columns"))
-    SetValue("sceneobject_print_columns", "Name,Layer");
-}
+void ConfigManager::ApplyDefaults() { preferencesStore.ApplyDefaults(); }
 
 std::vector<std::string> ConfigManager::GetFixturePrintColumns() const {
-  auto val = GetValue("fixture_print_columns");
-  if (val)
-    return SplitCSV(*val);
-  return {};
+  return preferencesStore.GetFixturePrintColumns();
 }
 
 void ConfigManager::SetFixturePrintColumns(
     const std::vector<std::string> &cols) {
-  SetValue("fixture_print_columns", JoinCSV(cols));
+  preferencesStore.SetFixturePrintColumns(cols);
+  if (!suppressRevision)
+    projectSession.Touch();
 }
 
 std::vector<std::string> ConfigManager::GetTrussPrintColumns() const {
-  auto val = GetValue("truss_print_columns");
-  if (val)
-    return SplitCSV(*val);
-  return {};
+  return preferencesStore.GetTrussPrintColumns();
 }
 
 void ConfigManager::SetTrussPrintColumns(const std::vector<std::string> &cols) {
-  SetValue("truss_print_columns", JoinCSV(cols));
+  preferencesStore.SetTrussPrintColumns(cols);
+  if (!suppressRevision)
+    projectSession.Touch();
 }
 
 std::vector<std::string> ConfigManager::GetSupportPrintColumns() const {
-  auto val = GetValue("support_print_columns");
-  if (val)
-    return SplitCSV(*val);
-  return {};
+  return preferencesStore.GetSupportPrintColumns();
 }
 
 void ConfigManager::SetSupportPrintColumns(
     const std::vector<std::string> &cols) {
-  SetValue("support_print_columns", JoinCSV(cols));
+  preferencesStore.SetSupportPrintColumns(cols);
+  if (!suppressRevision)
+    projectSession.Touch();
 }
 
 std::vector<std::string> ConfigManager::GetSceneObjectPrintColumns() const {
-  auto val = GetValue("sceneobject_print_columns");
-  if (val)
-    return SplitCSV(*val);
-  return {};
+  return preferencesStore.GetSceneObjectPrintColumns();
 }
 
 void ConfigManager::SetSceneObjectPrintColumns(
     const std::vector<std::string> &cols) {
-  SetValue("sceneobject_print_columns", JoinCSV(cols));
+  preferencesStore.SetSceneObjectPrintColumns(cols);
+  if (!suppressRevision)
+    projectSession.Touch();
 }
 
 std::unordered_set<std::string> ConfigManager::GetHiddenLayers() const {
-  std::unordered_set<std::string> out;
-  auto val = GetValue("hidden_layers");
-  if (val) {
-    for (const auto &s : SplitCSV(*val))
-      out.insert(s);
-  }
-  return out;
+  return layerVisibilityState.GetHiddenLayers();
 }
 
 void ConfigManager::SetHiddenLayers(
     const std::unordered_set<std::string> &layers) {
-  std::vector<std::string> v(layers.begin(), layers.end());
-  SetValue("hidden_layers", JoinCSV(v));
+  layerVisibilityState.SetHiddenLayers(layers);
 }
 
 bool ConfigManager::IsLayerVisible(const std::string &layer) const {
-  std::string name = layer.empty() ? DEFAULT_LAYER_NAME : layer;
-  auto hidden = GetHiddenLayers();
-  return hidden.find(name) == hidden.end();
+  return layerVisibilityState.IsLayerVisible(layer);
 }
 
 void ConfigManager::SetLayerColor(const std::string &layer,
                                   const std::string &color) {
-  std::string name = layer.empty() ? DEFAULT_LAYER_NAME : layer;
-  std::string layerUuid;
-  for (auto &[uuid, l] : scene.layers) {
-    if (l.name == name) {
-      layerUuid = uuid;
-      break;
-    }
-  }
-  if (layerUuid.empty()) {
-    Layer l;
-    l.name = name;
-    l.color = color;
-    l.uuid = "layer_" + std::to_string(scene.layers.size() + 1);
-    scene.layers[l.uuid] = l;
-  } else {
-    scene.layers[layerUuid].color = color;
-  }
+  layerVisibilityState.SetLayerColor(projectSession.GetScene(), layer, color);
 }
 
 std::optional<std::string>
 ConfigManager::GetLayerColor(const std::string &layer) const {
-  std::string name = layer.empty() ? DEFAULT_LAYER_NAME : layer;
-  for (const auto &[uuid, l] : scene.layers) {
-    if (l.name == name && !l.color.empty())
-      return l.color;
-  }
-  return std::nullopt;
+  return layerVisibilityState.GetLayerColor(projectSession.GetScene(), layer);
 }
 
 std::vector<std::string> ConfigManager::GetLayerNames() const {
-  std::set<std::string> names;
-  for (const auto &[uuid, layer] : scene.layers)
-    names.insert(layer.name);
-  auto collect = [&](const std::string &ln) {
-    if (!ln.empty())
-      names.insert(ln);
-  };
-  for (const auto &[u, f] : scene.fixtures)
-    collect(f.layer);
-  for (const auto &[u, t] : scene.trusses)
-    collect(t.layer);
-  for (const auto &[u, s] : scene.supports)
-    collect(s.layer);
-  for (const auto &[u, o] : scene.sceneObjects)
-    collect(o.layer);
-  names.insert(DEFAULT_LAYER_NAME);
-  return {names.begin(), names.end()};
+  return layerVisibilityState.GetLayerNames(projectSession.GetScene());
 }
 
 const std::string &ConfigManager::GetCurrentLayer() const {
-  return currentLayer;
+  return layerVisibilityState.GetCurrentLayer();
 }
 
 void ConfigManager::SetCurrentLayer(const std::string &name) {
-  if (name.empty())
-    currentLayer = DEFAULT_LAYER_NAME;
-  else
-    currentLayer = name;
+  layerVisibilityState.SetCurrentLayer(name);
 }
 
 // -- Scene access --
 
-MvrScene &ConfigManager::GetScene() { return scene; }
+MvrScene &ConfigManager::GetScene() { return projectSession.GetScene(); }
 
-const MvrScene &ConfigManager::GetScene() const { return scene; }
+const MvrScene &ConfigManager::GetScene() const {
+  return projectSession.GetScene();
+}
 
 const std::vector<std::string> &ConfigManager::GetSelectedFixtures() const {
-  return selectedFixtures;
+  return selectionState.GetSelectedFixtures();
 }
 
 void ConfigManager::SetSelectedFixtures(const std::vector<std::string> &uuids) {
-  selectedFixtures = uuids;
+  selectionState.SetSelectedFixtures(uuids);
 }
 
 const std::vector<std::string> &ConfigManager::GetSelectedTrusses() const {
-  return selectedTrusses;
+  return selectionState.GetSelectedTrusses();
 }
 
 void ConfigManager::SetSelectedTrusses(const std::vector<std::string> &uuids) {
-  selectedTrusses = uuids;
+  selectionState.SetSelectedTrusses(uuids);
 }
 
 const std::vector<std::string> &ConfigManager::GetSelectedSupports() const {
-  return selectedSupports;
+  return selectionState.GetSelectedSupports();
 }
 
 void ConfigManager::SetSelectedSupports(const std::vector<std::string> &uuids) {
-  selectedSupports = uuids;
+  selectionState.SetSelectedSupports(uuids);
 }
 
 const std::vector<std::string> &ConfigManager::GetSelectedSceneObjects() const {
-  return selectedSceneObjects;
+  return selectionState.GetSelectedSceneObjects();
 }
 
 void ConfigManager::SetSelectedSceneObjects(
     const std::vector<std::string> &uuids) {
-  selectedSceneObjects = uuids;
+  selectionState.SetSelectedSceneObjects(uuids);
 }
 
 // -- Persistence --
 
 bool ConfigManager::LoadFromFile(const std::string &path) {
   RevisionGuard guard(*this);
-  std::ifstream file(path, std::ios::binary);
-  if (!file.is_open())
+  bool ok = preferencesStore.LoadFromFile(path);
+  if (!ok)
     return false;
-
-  nlohmann::json j;
-  try {
-    file >> j;
-  } catch (...) {
-    return false;
-  }
-  if (!j.is_object())
-    return false;
-
-  try {
-    configData = j.get<std::unordered_map<std::string, std::string>>();
-  } catch (...) {
-    return false;
-  }
-  ApplyColumnDefaults();
-  ApplyDefaults();
   layouts::LayoutManager::Get().LoadFromConfig(*this);
   return true;
 }
 
 bool ConfigManager::SaveToFile(const std::string &path) const {
-  std::ofstream file(path, std::ios::binary);
-  if (!file.is_open())
-    return false;
-
-  nlohmann::json j(configData);
-  file << j.dump(4);
-  return true;
+  return preferencesStore.SaveToFile(path);
 }
 
 bool ConfigManager::SaveProject(const std::string &path) {
@@ -667,7 +466,7 @@ bool ConfigManager::SaveProject(const std::string &path) {
   addFile(scenePath, "scene.mvr");
 
   zip.Close();
-  savedRevision = revision;
+  projectSession.MarkSaved();
   return true;
 }
 
@@ -781,104 +580,59 @@ bool ConfigManager::LoadProject(const std::string &path) {
   if (ok) {
     restoreUserPreferences();
     ClearHistory();
-    selectedFixtures.clear();
-    selectedTrusses.clear();
-    selectedSupports.clear();
-    selectedSceneObjects.clear();
-    revision = 0;
-    savedRevision = 0;
+    selectionState.Clear();
+    projectSession.ResetDirty();
   }
   return ok;
 }
 
 void ConfigManager::Reset() {
   RevisionGuard guard(*this);
-  configData.clear();
-  scene.Clear();
+  preferencesStore.ClearValues();
+  projectSession.GetScene().Clear();
   if (!HasKey("rider_autopatch"))
     SetValue("rider_autopatch", "1");
   ApplyDefaults();
   layouts::LayoutManager::Get().ResetToDefault(*this);
-  selectedFixtures.clear();
-  selectedTrusses.clear();
-  selectedSupports.clear();
-  selectedSceneObjects.clear();
-  currentLayer = DEFAULT_LAYER_NAME;
+  selectionState.Clear();
+  layerVisibilityState.SetCurrentLayer(DEFAULT_LAYER_NAME);
   ClearHistory();
-  revision = 0;
-  savedRevision = 0;
+  projectSession.ResetDirty();
 }
 
 std::string ConfigManager::GetUserConfigFile() {
-  wxString dir = wxStandardPaths::Get().GetUserDataDir();
-  std::filesystem::path p = std::filesystem::path(dir.ToStdString());
-  std::filesystem::create_directories(p);
-  p /= "user_config.json";
-  return p.string();
+  return UserPreferencesStore::GetUserConfigFile();
 }
 
 bool ConfigManager::LoadUserConfig() {
-  return LoadFromFile(GetUserConfigFile());
+  return preferencesStore.LoadUserConfig();
 }
 
 bool ConfigManager::SaveUserConfig() const {
-  return SaveToFile(GetUserConfigFile());
+  return preferencesStore.SaveUserConfig();
 }
 
 void ConfigManager::PushUndoState(const std::string &description) {
-  Snapshot snap{scene, selectedFixtures, selectedTrusses, selectedSupports,
-                selectedSceneObjects, description};
-  undoStack.push_back(std::move(snap));
-  if (undoStack.size() > maxHistory)
-    undoStack.erase(undoStack.begin());
-  redoStack.clear();
-  ++revision;
+  historyManager.PushUndoState(projectSession.GetScene(), selectionState,
+                               description);
+  projectSession.Touch();
 }
 
-bool ConfigManager::CanUndo() const { return !undoStack.empty(); }
+bool ConfigManager::CanUndo() const { return historyManager.CanUndo(); }
 
-bool ConfigManager::CanRedo() const { return !redoStack.empty(); }
+bool ConfigManager::CanRedo() const { return historyManager.CanRedo(); }
 
 std::string ConfigManager::Undo() {
-  if (undoStack.empty())
-    return {};
-  const Snapshot snap = undoStack.back();
-  redoStack.push_back({scene, selectedFixtures, selectedTrusses,
-                       selectedSupports, selectedSceneObjects,
-                       snap.description});
-  scene = snap.scene;
-  selectedFixtures = snap.selFixtures;
-  selectedTrusses = snap.selTrusses;
-  selectedSupports = snap.selSupports;
-  selectedSceneObjects = snap.selSceneObjects;
-  undoStack.pop_back();
-  if (revision > 0)
-    --revision;
-  return snap.description;
+  return historyManager.Undo(projectSession.GetScene(), selectionState);
 }
 
 std::string ConfigManager::Redo() {
-  if (redoStack.empty())
-    return {};
-  const Snapshot snap = redoStack.back();
-  undoStack.push_back({scene, selectedFixtures, selectedTrusses,
-                       selectedSupports, selectedSceneObjects,
-                       snap.description});
-  scene = snap.scene;
-  selectedFixtures = snap.selFixtures;
-  selectedTrusses = snap.selTrusses;
-  selectedSupports = snap.selSupports;
-  selectedSceneObjects = snap.selSceneObjects;
-  redoStack.pop_back();
-  ++revision;
-  return snap.description;
+  projectSession.Touch();
+  return historyManager.Redo(projectSession.GetScene(), selectionState);
 }
 
-void ConfigManager::ClearHistory() {
-  undoStack.clear();
-  redoStack.clear();
-}
+void ConfigManager::ClearHistory() { historyManager.ClearHistory(); }
 
-bool ConfigManager::IsDirty() const { return revision != savedRevision; }
+bool ConfigManager::IsDirty() const { return projectSession.IsDirty(); }
 
-void ConfigManager::MarkSaved() { savedRevision = revision; }
+void ConfigManager::MarkSaved() { projectSession.MarkSaved(); }
