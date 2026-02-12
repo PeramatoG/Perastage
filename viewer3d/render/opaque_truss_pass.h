@@ -4,6 +4,7 @@
 #include <functional>
 
 #include "viewer3d_types.h"
+#include "symbolcache.h"
 
 class Viewer3DController;
 
