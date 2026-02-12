@@ -1,5 +1,12 @@
+#ifdef _WIN32
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#endif
+
 #include "bounds_cache_system.h"
 
+#include "configmanager.h"
 #include "projectutils.h"
 #include "types.h"
 #include "logger.h"
@@ -30,6 +37,13 @@ static bool IsLayerVisibleCached(const std::unordered_set<std::string> &hidden,
   if (layer.empty())
     return hidden.find(DEFAULT_LAYER_NAME) == hidden.end();
   return hidden.find(layer) == hidden.end();
+}
+
+static std::array<float, 3> TransformPoint(const Matrix &m,
+                                           const std::array<float, 3> &p) {
+  return {m.u[0] * p[0] + m.v[0] * p[1] + m.w[0] * p[2] + m.o[0],
+          m.u[1] * p[0] + m.v[1] * p[1] + m.w[1] * p[2] + m.o[1],
+          m.u[2] * p[0] + m.v[2] * p[1] + m.w[2] * p[2] + m.o[2]};
 }
 
 static Viewer3DBoundingBox TransformBounds(const Viewer3DBoundingBox &local,
