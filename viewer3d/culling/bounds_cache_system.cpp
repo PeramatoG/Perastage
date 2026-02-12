@@ -2,7 +2,7 @@
 
 #include "../../core/projectutils.h"
 #include "../../models/types.h"
-#include "../logger.h"
+#include "../../core/logger.h"
 #include "../matrixutils.h"
 
 #include <algorithm>
