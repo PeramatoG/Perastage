@@ -1,6 +1,7 @@
 #pragma once
 
 #include <optional>
+#include <functional>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -121,8 +122,18 @@ private:
 
 class ProjectSession {
 public:
+  using SaveConfigFn = std::function<bool(const std::string &path)>;
+  using SaveSceneFn = std::function<bool(const std::string &path)>;
+  using LoadConfigFn = std::function<bool(const std::string &path)>;
+  using LoadSceneFn = std::function<bool(const std::string &path)>;
+
   MvrScene &GetScene();
   const MvrScene &GetScene() const;
+
+  bool SaveProject(const std::string &path, const SaveConfigFn &saveConfig,
+                   const SaveSceneFn &saveScene) const;
+  bool LoadProject(const std::string &path, const LoadConfigFn &loadConfig,
+                   const LoadSceneFn &loadScene);
 
   bool IsDirty() const;
   void Touch();

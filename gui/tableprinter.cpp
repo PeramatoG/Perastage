@@ -27,7 +27,8 @@
 
 namespace TablePrinter {
 
-void Print(wxWindow* parent, wxDataViewListCtrl* table, TableType type)
+void Print(wxWindow* parent, wxDataViewListCtrl* table, TableType type,
+           ConfigManager &cfg)
 {
     if (!table)
         return;
@@ -39,10 +40,10 @@ void Print(wxWindow* parent, wxDataViewListCtrl* table, TableType type)
     std::vector<std::string> saved;
   switch (type)
   {
-  case TableType::Fixtures: saved = ConfigManager::Get().GetFixturePrintColumns(); break;
-  case TableType::Trusses: saved = ConfigManager::Get().GetTrussPrintColumns(); break;
-  case TableType::Supports: saved = ConfigManager::Get().GetSupportPrintColumns(); break;
-  case TableType::SceneObjects: saved = ConfigManager::Get().GetSceneObjectPrintColumns(); break;
+  case TableType::Fixtures: saved = cfg.GetFixturePrintColumns(); break;
+  case TableType::Trusses: saved = cfg.GetTrussPrintColumns(); break;
+  case TableType::Supports: saved = cfg.GetSupportPrintColumns(); break;
+  case TableType::SceneObjects: saved = cfg.GetSceneObjectPrintColumns(); break;
   }
 
     std::vector<int> defaultIdx;
@@ -67,10 +68,10 @@ void Print(wxWindow* parent, wxDataViewListCtrl* table, TableType type)
 
   switch (type)
   {
-  case TableType::Fixtures: ConfigManager::Get().SetFixturePrintColumns(toSave); break;
-  case TableType::Trusses: ConfigManager::Get().SetTrussPrintColumns(toSave); break;
-  case TableType::Supports: ConfigManager::Get().SetSupportPrintColumns(toSave); break;
-  case TableType::SceneObjects: ConfigManager::Get().SetSceneObjectPrintColumns(toSave); break;
+  case TableType::Fixtures: cfg.SetFixturePrintColumns(toSave); break;
+  case TableType::Trusses: cfg.SetTrussPrintColumns(toSave); break;
+  case TableType::Supports: cfg.SetSupportPrintColumns(toSave); break;
+  case TableType::SceneObjects: cfg.SetSceneObjectPrintColumns(toSave); break;
   }
 
     static wxHtmlEasyPrinting printer("Table Printer", parent);
@@ -113,7 +114,8 @@ void Print(wxWindow* parent, wxDataViewListCtrl* table, TableType type)
     printer.PreviewText(html);
 }
 
-void ExportCSV(wxWindow* parent, wxDataViewListCtrl* table, TableType type)
+void ExportCSV(wxWindow* parent, wxDataViewListCtrl* table, TableType type,
+               ConfigManager &cfg)
 {
     if (!table)
         return;
@@ -125,10 +127,10 @@ void ExportCSV(wxWindow* parent, wxDataViewListCtrl* table, TableType type)
     std::vector<std::string> saved;
   switch (type)
   {
-  case TableType::Fixtures: saved = ConfigManager::Get().GetFixturePrintColumns(); break;
-  case TableType::Trusses: saved = ConfigManager::Get().GetTrussPrintColumns(); break;
-  case TableType::Supports: saved = ConfigManager::Get().GetSupportPrintColumns(); break;
-  case TableType::SceneObjects: saved = ConfigManager::Get().GetSceneObjectPrintColumns(); break;
+  case TableType::Fixtures: saved = cfg.GetFixturePrintColumns(); break;
+  case TableType::Trusses: saved = cfg.GetTrussPrintColumns(); break;
+  case TableType::Supports: saved = cfg.GetSupportPrintColumns(); break;
+  case TableType::SceneObjects: saved = cfg.GetSceneObjectPrintColumns(); break;
   }
 
     std::vector<int> defaultIdx;
@@ -153,10 +155,10 @@ void ExportCSV(wxWindow* parent, wxDataViewListCtrl* table, TableType type)
 
   switch (type)
   {
-  case TableType::Fixtures: ConfigManager::Get().SetFixturePrintColumns(toSave); break;
-  case TableType::Trusses: ConfigManager::Get().SetTrussPrintColumns(toSave); break;
-  case TableType::Supports: ConfigManager::Get().SetSupportPrintColumns(toSave); break;
-  case TableType::SceneObjects: ConfigManager::Get().SetSceneObjectPrintColumns(toSave); break;
+  case TableType::Fixtures: cfg.SetFixturePrintColumns(toSave); break;
+  case TableType::Trusses: cfg.SetTrussPrintColumns(toSave); break;
+  case TableType::Supports: cfg.SetSupportPrintColumns(toSave); break;
+  case TableType::SceneObjects: cfg.SetSceneObjectPrintColumns(toSave); break;
   }
 
     wxFileDialog saveDlg(parent, "Export CSV", "", "", "CSV files (*.csv)|*.csv|All files (*.*)|*.*",

@@ -366,3 +366,11 @@ add_executable(layer_visibility_state_test
 target_include_directories(layer_visibility_state_test PRIVATE ../core ../models ../external)
 target_link_libraries(layer_visibility_state_test PRIVATE ${wxWidgets_LIBRARIES})
 add_test(NAME LayerVisibilityState COMMAND layer_visibility_state_test)
+
+
+add_executable(project_session_io_test
+               project_session_io_test.cpp
+               ../core/configservices.cpp)
+target_include_directories(project_session_io_test PRIVATE ../core ../external ../models)
+target_link_libraries(project_session_io_test PRIVATE ${wxWidgets_LIBRARIES})
+add_test(NAME ProjectSessionIO COMMAND project_session_io_test)

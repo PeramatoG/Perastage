@@ -529,5 +529,5 @@ void MainWindow::OnPrintTable(wxCommandEvent &WXUNUSED(event)) {
   }
 
   if (ctrl)
-    TablePrinter::Print(this, ctrl, type);
+    TablePrinter::Print(this, ctrl, type, ConfigManager::Get());
 }
