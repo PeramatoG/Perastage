@@ -1,4 +1,4 @@
-#include "mainwindow/controllers/mainwindow_io_controller.h"
+#include "mainwindow_io_controller.h"
 
 #include "mainwindow.h"
 

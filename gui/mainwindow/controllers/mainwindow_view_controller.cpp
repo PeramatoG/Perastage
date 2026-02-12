@@ -1,4 +1,4 @@
-#include "mainwindow/controllers/mainwindow_view_controller.h"
+#include "mainwindow_view_controller.h"
 
 #include "mainwindow.h"
 #include "viewer2dpanel.h"

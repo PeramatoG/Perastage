@@ -17,7 +17,7 @@
  */
 #pragma once
 
-#include "mainwindow/ids/edit_ids.h"
+#include "edit_ids.h"
 #include "viewer2dstate.h"
 #include <wx/aui/aui.h>
 #include <wx/frame.h>
