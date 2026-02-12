@@ -2,7 +2,7 @@
 
 #include "canvas2d.h"
 #include "viewer3d_types.h"
-#include "models/types.h"
+#include "../../models/types.h"
 
 #include <array>
 #include <string>
