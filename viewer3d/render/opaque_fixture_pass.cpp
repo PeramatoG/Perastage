@@ -16,7 +16,7 @@
 #endif
 
 #include "matrixutils.h"
-#include "projectutils.h"
+#include "render/opaque_pass_utils.h"
 #include "scenedatamanager.h"
 #include "viewer3dcontroller.h"
 
