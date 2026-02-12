@@ -17,6 +17,7 @@
  */
 #include "consolepanel.h"
 #include "configmanager.h"
+#include "guiconfigservices.h"
 #include "fixturetablepanel.h"
 #include "mainwindow.h"
 #include "matrixutils.h"
@@ -304,7 +305,7 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
     std::transform(lower.begin(), lower.end(), lower.begin(),
                    [](unsigned char c) { return std::tolower(c); });
 
-    ConfigManager &cfg = ConfigManager::Get();
+    ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
 
     auto handleSelection = [&](bool fixtures, bool clearSel,
                                const std::vector<std::string> &tokens) {

@@ -36,6 +36,7 @@
 using json = nlohmann::json;
 
 #include "configmanager.h"
+#include "guiconfigservices.h"
 #include "consolepanel.h"
 #include "exportfixturedialog.h"
 #include "exportobjectdialog.h"
@@ -86,7 +87,7 @@ void MainWindow::OnSave(wxCommandEvent &event) {
   }
   SyncSceneData();
   SaveUserConfigWithViewport2DState();
-  if (!ConfigManager::Get().SaveProject(currentProjectPath))
+  if (!GetDefaultGuiConfigServices().LegacyConfigManager().SaveProject(currentProjectPath))
     wxMessageBox("Failed to save project.", "Error", wxICON_ERROR);
   else {
     ProjectUtils::SaveLastProjectPath(currentProjectPath);
@@ -118,7 +119,7 @@ void MainWindow::OnSaveAs(wxCommandEvent &event) {
   currentProjectPath = dlg.GetPath().ToStdString();
   SyncSceneData();
   SaveUserConfigWithViewport2DState();
-  if (!ConfigManager::Get().SaveProject(currentProjectPath))
+  if (!GetDefaultGuiConfigServices().LegacyConfigManager().SaveProject(currentProjectPath))
     wxMessageBox("Failed to save project.", "Error", wxICON_ERROR);
   else {
     ProjectUtils::SaveLastProjectPath(currentProjectPath);
@@ -194,7 +195,7 @@ void MainWindow::OnExportMVR(wxCommandEvent &event) {
 }
 
 void MainWindow::OnExportTruss(wxCommandEvent &WXUNUSED(event)) {
-  const auto &trusses = ConfigManager::Get().GetScene().trusses;
+  const auto &trusses = GetDefaultGuiConfigServices().LegacyConfigManager().GetScene().trusses;
   std::set<std::string> names;
   for (const auto &[uuid, t] : trusses)
     names.insert(t.name);
@@ -229,7 +230,7 @@ void MainWindow::OnExportTruss(wxCommandEvent &WXUNUSED(event)) {
 
   namespace fs = std::filesystem;
   std::string modelPath = chosen->symbolFile;
-  const auto &scene = ConfigManager::Get().GetScene();
+  const auto &scene = GetDefaultGuiConfigServices().LegacyConfigManager().GetScene();
   if (fs::path(modelPath).is_relative() && !scene.basePath.empty())
     modelPath = (fs::path(scene.basePath) / modelPath).string();
   if (!fs::exists(modelPath)) {
@@ -333,7 +334,7 @@ void MainWindow::OnExportFixture(wxCommandEvent &WXUNUSED(event)) {
     }
     return true;
   };
-  const auto &fixtures = ConfigManager::Get().GetScene().fixtures;
+  const auto &fixtures = GetDefaultGuiConfigServices().LegacyConfigManager().GetScene().fixtures;
   std::set<std::string> types;
   for (const auto &[uuid, f] : fixtures)
     if (!f.typeName.empty())
@@ -360,7 +361,7 @@ void MainWindow::OnExportFixture(wxCommandEvent &WXUNUSED(event)) {
     return;
 
   fs::path src = chosen->gdtfSpec;
-  const std::string &base = ConfigManager::Get().GetScene().basePath;
+  const std::string &base = GetDefaultGuiConfigServices().LegacyConfigManager().GetScene().basePath;
   if (src.is_relative() && !base.empty())
     src = fs::path(base) / src;
   if (!fs::exists(src)) {
@@ -460,7 +461,7 @@ void MainWindow::OnExportFixture(wxCommandEvent &WXUNUSED(event)) {
 
 void MainWindow::OnExportSceneObject(wxCommandEvent &WXUNUSED(event)) {
   namespace fs = std::filesystem;
-  const auto &scene = ConfigManager::Get().GetScene();
+  const auto &scene = GetDefaultGuiConfigServices().LegacyConfigManager().GetScene();
   const auto &objs = scene.sceneObjects;
   std::set<std::string> names;
   for (const auto &[uuid, obj] : objs)
@@ -552,5 +553,5 @@ void MainWindow::OnExportCSV(wxCommandEvent &WXUNUSED(event)) {
   }
 
   if (ctrl)
-    TablePrinter::ExportCSV(this, ctrl, type, ConfigManager::Get());
+    TablePrinter::ExportCSV(this, ctrl, type, GetDefaultGuiConfigServices().LegacyConfigManager());
 }

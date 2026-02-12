@@ -23,6 +23,7 @@
 #include <wx/notebook.h>
 
 #include "configmanager.h"
+#include "guiconfigservices.h"
 #include "consolepanel.h"
 #include "fixturetablepanel.h"
 #include "hoisttablepanel.h"
@@ -214,19 +215,19 @@ void MainWindow::SetupLayout() {
   notebook->Bind(wxEVT_NOTEBOOK_PAGE_CHANGED,
                  &MainWindow::OnNotebookPageChanged, this);
 
-  fixturePanel = new FixtureTablePanel(notebook);
+  fixturePanel = new FixtureTablePanel(notebook, guiConfigServices);
   FixtureTablePanel::SetInstance(fixturePanel);
   notebook->AddPage(fixturePanel, "Fixtures");
 
-  trussPanel = new TrussTablePanel(notebook);
+  trussPanel = new TrussTablePanel(notebook, guiConfigServices);
   TrussTablePanel::SetInstance(trussPanel);
   notebook->AddPage(trussPanel, "Trusses");
 
-  hoistPanel = new HoistTablePanel(notebook);
+  hoistPanel = new HoistTablePanel(notebook, guiConfigServices);
   HoistTablePanel::SetInstance(hoistPanel);
   notebook->AddPage(hoistPanel, "Hoists");
 
-  sceneObjPanel = new SceneObjectTablePanel(notebook);
+  sceneObjPanel = new SceneObjectTablePanel(notebook, guiConfigServices);
   SceneObjectTablePanel::SetInstance(sceneObjPanel);
   notebook->AddPage(sceneObjPanel, "Objects");
 
@@ -353,12 +354,12 @@ void MainWindow::ApplyLayoutPreset(const LayoutViewPreset &preset,
 
   const bool wasLayoutMode = layoutModeActive;
   if (layoutMode && !wasLayoutMode) {
-    ConfigManager &cfg = ConfigManager::Get();
+    ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
     if (!standalone2DState)
       standalone2DState = viewer2d::CaptureState(viewport2DPanel, cfg);
   } else if (!layoutMode && wasLayoutMode) {
     if (standalone2DState) {
-      ConfigManager &cfg = ConfigManager::Get();
+      ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
       if (viewport2DPanel) {
         const auto viewState = viewport2DPanel->GetViewState();
         standalone2DState->camera.offsetPixelsX = viewState.offsetPixelsX;
@@ -402,7 +403,7 @@ void MainWindow::ApplyLayoutPreset(const LayoutViewPreset &preset,
   layoutModeActive = layoutMode;
 
   if (persistPerspective) {
-    ConfigManager &cfg = ConfigManager::Get();
+    ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
     if (!layoutMode && perspective) {
       cfg.SetValue("layout_perspective", *perspective);
     }
@@ -421,7 +422,7 @@ void MainWindow::ApplySavedLayout() {
   std::optional<std::string> perspective;
 
   // Load stored layout perspective if it exists
-  if (auto val = ConfigManager::Get().GetValue("layout_perspective")) {
+  if (auto val = GetDefaultGuiConfigServices().LegacyConfigManager().GetValue("layout_perspective")) {
     perspective = *val;
 
     // Ensure viewports exist before loading the saved perspective
@@ -506,7 +507,7 @@ void MainWindow::OnApplyDefaultLayout(wxCommandEvent &WXUNUSED(event)) {
   if (layoutModeActive)
     PersistLayout2DViewState();
   Ensure3DViewport();
-  ConfigManager &cfg = ConfigManager::Get();
+  ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
   std::string perspective = defaultLayoutPerspective;
   if (auto val = cfg.GetValue("layout_default"))
     perspective = *val;
@@ -558,7 +559,7 @@ void MainWindow::OnLayoutAdd2DView(wxCommandEvent &WXUNUSED(event)) {
   if (!layout)
     return;
 
-  ConfigManager &cfg = ConfigManager::Get();
+  ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
   viewer2d::Viewer2DState baseState =
       viewer2d::CaptureState(viewport2DPanel, cfg);
   viewer2d::ApplyEditorRenderOptions(baseState, cfg);
@@ -735,7 +736,7 @@ void MainWindow::BeginLayout2DViewEdit() {
     return;
   layout2DViewEditingId = view->id;
 
-  ConfigManager &cfg = ConfigManager::Get();
+  ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
 
   Layout2DViewDialog dialog(this);
   layout2DViewEditPanel = dialog.GetViewerPanel();
@@ -786,7 +787,7 @@ void MainWindow::OnLayout2DViewOk(wxCommandEvent &WXUNUSED(event)) {
   if (!layout2DViewEditing || !layout2DViewStateGuard)
     return;
 
-  ConfigManager &cfg = ConfigManager::Get();
+  ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
   Viewer2DPanel *editPanel =
       layout2DViewEditPanel ? layout2DViewEditPanel : viewport2DPanel;
   viewer2d::Viewer2DState current =
@@ -882,7 +883,7 @@ void MainWindow::PersistLayout2DViewState() {
     return;
   if (!layout2DViewEditing)
     return;
-  ConfigManager &cfg = ConfigManager::Get();
+  ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
   Viewer2DPanel *activePanel =
       (layout2DViewEditing && layout2DViewEditPanel) ? layout2DViewEditPanel
                                                      : viewport2DPanel;
@@ -942,7 +943,7 @@ void MainWindow::RestoreLayout2DViewState(int viewId) {
   if (!match)
     return;
 
-  ConfigManager &cfg = ConfigManager::Get();
+  ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
   if (layoutModeActive && !standalone2DState)
     standalone2DState = viewer2d::CaptureState(nullptr, cfg);
   Viewer2DPanel *activePanel =

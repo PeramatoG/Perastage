@@ -36,6 +36,7 @@
 #endif
 
 #include "configmanager.h"
+#include "guiconfigservices.h"
 #include "gdtfloader.h"
 #include "layoutviewerpanel_shared.h"
 #include "legendutils.h"
@@ -731,8 +732,8 @@ LayoutViewerPanel::BuildLegendItems() const {
   };
 
   std::map<std::string, LegendAggregate> aggregates;
-  const auto &fixtures = ConfigManager::Get().GetScene().fixtures;
-  const std::string &basePath = ConfigManager::Get().GetScene().basePath;
+  const auto &fixtures = GetDefaultGuiConfigServices().LegacyConfigManager().GetScene().fixtures;
+  const std::string &basePath = GetDefaultGuiConfigServices().LegacyConfigManager().GetScene().basePath;
   for (const auto &[uuid, fixture] : fixtures) {
     (void)uuid;
     std::string typeName = fixture.typeName;

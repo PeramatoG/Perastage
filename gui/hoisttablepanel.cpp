@@ -20,6 +20,7 @@
 #include "columnutils.h"
 #include "colorfulrenderers.h"
 #include "configmanager.h"
+#include "guiconfigservices.h"
 #include "layerpanel.h"
 #include "matrixutils.h"
 #include "riggingpanel.h"
@@ -92,8 +93,8 @@ RangeParts SplitRangeParts(const wxString &value) {
 }
 } // namespace
 
-HoistTablePanel::HoistTablePanel(wxWindow *parent)
-    : wxPanel(parent, wxID_ANY) {
+HoistTablePanel::HoistTablePanel(wxWindow *parent, IGuiConfigServices *services)
+    : wxPanel(parent, wxID_ANY), guiConfigServices(services ? services : &GetDefaultGuiConfigServices()) {
   store = new ColorfulDataViewListStore();
   wxBoxSizer *sizer = new wxBoxSizer(wxVERTICAL);
   table = new wxDataViewListCtrl(this, wxID_ANY, wxDefaultPosition, wxDefaultSize,
@@ -146,7 +147,7 @@ void HoistTablePanel::InitializeTable() {
 void HoistTablePanel::ReloadData() {
   table->DeleteAllItems();
   rowUuids.clear();
-  auto &supports = ConfigManager::Get().GetScene().supports;
+  auto &supports = guiConfigServices->LegacyConfigManager().GetScene().supports;
 
   std::vector<std::pair<std::string, Support *>> sorted;
   sorted.reserve(supports.size());
@@ -297,7 +298,7 @@ void HoistTablePanel::OnContextMenu(wxDataViewEvent &event) {
   }
 
   if (col == 4) {
-    auto layers = ConfigManager::Get().GetLayerNames();
+    auto layers = guiConfigServices->LegacyConfigManager().GetLayerNames();
     wxArrayString choices;
     for (const auto &n : layers)
       choices.push_back(wxString::FromUTF8(n));
@@ -486,7 +487,7 @@ void HoistTablePanel::OnSelectionChanged(wxDataViewEvent &evt) {
     if (r != wxNOT_FOUND && (size_t)r < rowUuids.size())
       uuids.push_back(rowUuids[r]);
   }
-  ConfigManager &cfg = ConfigManager::Get();
+  ConfigManager &cfg = guiConfigServices->LegacyConfigManager();
   if (uuids != cfg.GetSelectedSupports()) {
     cfg.PushUndoState("support selection");
     cfg.SetSelectedSupports(uuids);
@@ -511,7 +512,7 @@ void HoistTablePanel::UpdateSelectionHighlight() {
 }
 
 void HoistTablePanel::UpdateSceneData() {
-  ConfigManager &cfg = ConfigManager::Get();
+  ConfigManager &cfg = guiConfigServices->LegacyConfigManager();
   cfg.PushUndoState("edit support");
   auto &scene = cfg.GetScene();
   size_t count = std::min((size_t)table->GetItemCount(), rowUuids.size());
@@ -675,7 +676,7 @@ void HoistTablePanel::DeleteSelected() {
   if (selections.empty())
     return;
 
-  ConfigManager &cfg = ConfigManager::Get();
+  ConfigManager &cfg = guiConfigServices->LegacyConfigManager();
   cfg.PushUndoState("delete support");
   cfg.SetSelectedSupports({});
 

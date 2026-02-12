@@ -25,10 +25,12 @@
 #include "colorstore.h"
 #include "positionvalueupdate.h"
 
+class IGuiConfigServices;
+
 class TrussTablePanel : public wxPanel
 {
 public:
-    explicit TrussTablePanel(wxWindow* parent);
+    explicit TrussTablePanel(wxWindow* parent, IGuiConfigServices* services = nullptr);
     ~TrussTablePanel();
     void ReloadData(); // Refresh from ConfigManager
     void HighlightTruss(const std::string& uuid);
@@ -55,6 +57,7 @@ private:
     std::vector<wxString> symbolPaths; // Resolved geometry file paths
     bool dragSelecting = false;
     int startRow = -1;
+    IGuiConfigServices *guiConfigServices = nullptr;
     void InitializeTable(); // Set up columns
     void OnSelectionChanged(wxDataViewEvent& evt);
     void OnContextMenu(wxDataViewEvent& event);

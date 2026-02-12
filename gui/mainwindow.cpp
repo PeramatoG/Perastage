@@ -67,6 +67,7 @@ using json = nlohmann::json;
 #include "addfixturedialog.h"
 #include "autopatcher.h"
 #include "configmanager.h"
+#include "guiconfigservices.h"
 #include "consolepanel.h"
 #include "credentialstore.h"
 #include "dictionaryeditdialog.h"
@@ -238,8 +239,10 @@ wxEND_EVENT_TABLE()
                                                                     MainWindow::
                                                                         MainWindow(
                                                                             const wxString
-                                                                                &title)
-    : wxFrame(nullptr, wxID_ANY, title, wxDefaultPosition, wxSize(1600, 950)) {
+                                                                                &title,
+                                                                            IGuiConfigServices *services)
+    : wxFrame(nullptr, wxID_ANY, title, wxDefaultPosition, wxSize(1600, 950)),
+      guiConfigServices(services ? services : &GetDefaultGuiConfigServices()) {
   SetInstance(this);
   ioController = std::make_unique<MainWindowIoController>(*this);
   layoutController = std::make_unique<MainWindowLayoutController>(*this);
@@ -315,7 +318,7 @@ void MainWindow::Ensure3DViewport() {
                                          .MaximizeButton(true));
   auiManager->Update();
   if (defaultLayoutPerspective.empty()) {
-    ConfigManager &cfg = ConfigManager::Get();
+    ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
     defaultLayoutPerspective = auiManager->SavePerspective().ToStdString();
     if (!cfg.HasKey("layout_default"))
       cfg.SetValue("layout_default", defaultLayoutPerspective);
@@ -397,7 +400,7 @@ bool MainWindow::IsLayout2DViewEditing() const { return layout2DViewEditing; }
 
 bool MainWindow::ConfirmSaveIfDirty(const wxString &actionLabel,
                                     const wxString &dialogTitle) {
-  if (!ConfigManager::Get().IsDirty())
+  if (!GetDefaultGuiConfigServices().LegacyConfigManager().IsDirty())
     return true;
 
   wxMessageDialog dlg(
@@ -409,7 +412,7 @@ bool MainWindow::ConfirmSaveIfDirty(const wxString &actionLabel,
   if (res == wxID_YES) {
     wxCommandEvent saveEvt;
     OnSave(saveEvt);
-    return !ConfigManager::Get().IsDirty();
+    return !GetDefaultGuiConfigServices().LegacyConfigManager().IsDirty();
   }
   if (res == wxID_CANCEL)
     return false;
@@ -426,7 +429,7 @@ void MainWindow::OnPaneClose(wxAuiManagerEvent &event) {
 }
 
 bool MainWindow::LoadProjectFromPath(const std::string &path) {
-  if (!ConfigManager::Get().LoadProject(path))
+  if (!GetDefaultGuiConfigServices().LegacyConfigManager().LoadProject(path))
     return false;
 
   Ensure3DViewport();
@@ -449,7 +452,7 @@ bool MainWindow::LoadProjectFromPath(const std::string &path) {
   if (sceneObjPanel)
     sceneObjPanel->ReloadData();
   if (viewportPanel) {
-    ConfigManager &cfg = ConfigManager::Get();
+    ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
     Viewer3DCamera &cam = viewportPanel->GetCamera();
     cam.SetOrientation(cfg.GetFloat("camera_yaw"),
                        cfg.GetFloat("camera_pitch"));
@@ -472,14 +475,14 @@ bool MainWindow::LoadProjectFromPath(const std::string &path) {
     layerPanel->ReloadLayers();
   RefreshSummary();
   RefreshRigging();
-  ConfigManager::Get().MarkSaved();
+  GetDefaultGuiConfigServices().LegacyConfigManager().MarkSaved();
   UpdateTitle();
   return true;
 }
 
 void MainWindow::ResetProject() {
-  ConfigManager::Get().Reset();
-  ConfigManager::Get().MarkSaved();
+  GetDefaultGuiConfigServices().LegacyConfigManager().Reset();
+  GetDefaultGuiConfigServices().LegacyConfigManager().MarkSaved();
   currentProjectPath.clear();
   if (layoutPanel)
     layoutPanel->ReloadLayouts();
@@ -526,12 +529,12 @@ void MainWindow::SaveCameraSettings() {
     PersistLayout2DViewState();
   if (viewportPanel) {
     Viewer3DCamera &cam = viewportPanel->GetCamera();
-    ConfigManager::Get().SetFloat("camera_yaw", cam.GetYaw());
-    ConfigManager::Get().SetFloat("camera_pitch", cam.GetPitch());
-    ConfigManager::Get().SetFloat("camera_distance", cam.GetDistance());
-    ConfigManager::Get().SetFloat("camera_target_x", cam.GetTargetX());
-    ConfigManager::Get().SetFloat("camera_target_y", cam.GetTargetY());
-    ConfigManager::Get().SetFloat("camera_target_z", cam.GetTargetZ());
+    GetDefaultGuiConfigServices().LegacyConfigManager().SetFloat("camera_yaw", cam.GetYaw());
+    GetDefaultGuiConfigServices().LegacyConfigManager().SetFloat("camera_pitch", cam.GetPitch());
+    GetDefaultGuiConfigServices().LegacyConfigManager().SetFloat("camera_distance", cam.GetDistance());
+    GetDefaultGuiConfigServices().LegacyConfigManager().SetFloat("camera_target_x", cam.GetTargetX());
+    GetDefaultGuiConfigServices().LegacyConfigManager().SetFloat("camera_target_y", cam.GetTargetY());
+    GetDefaultGuiConfigServices().LegacyConfigManager().SetFloat("camera_target_z", cam.GetTargetZ());
   }
   if (viewport2DPanel)
     viewport2DPanel->SaveViewToConfig();
@@ -539,12 +542,12 @@ void MainWindow::SaveCameraSettings() {
     const std::string perspective =
         auiManager->SavePerspective().ToStdString();
     if (!layoutModeActive)
-      ConfigManager::Get().SetValue("layout_perspective", perspective);
+      GetDefaultGuiConfigServices().LegacyConfigManager().SetValue("layout_perspective", perspective);
   }
 }
 
 void MainWindow::SaveUserConfigWithViewport2DState() {
-  ConfigManager &cfg = ConfigManager::Get();
+  ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
   std::optional<viewer2d::Viewer2DState> layoutState;
   if (layoutModeActive && viewport2DPanel)
     layoutState = viewer2d::CaptureState(viewport2DPanel, cfg);
@@ -824,7 +827,7 @@ void MainWindow::OnProjectLoaded(wxCommandEvent &event) {
     if (sceneObjPanel)
       sceneObjPanel->ReloadData();
     if (viewportPanel) {
-      ConfigManager &cfg = ConfigManager::Get();
+      ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
       Viewer3DCamera &cam = viewportPanel->GetCamera();
       cam.SetOrientation(cfg.GetFloat("camera_yaw"),
                          cfg.GetFloat("camera_pitch"));
@@ -848,7 +851,7 @@ void MainWindow::OnProjectLoaded(wxCommandEvent &event) {
       layerPanel->ReloadLayers();
     RefreshSummary();
     RefreshRigging();
-    ConfigManager::Get().MarkSaved();
+    GetDefaultGuiConfigServices().LegacyConfigManager().MarkSaved();
     UpdateTitle();
   } else {
     ResetProject();

@@ -23,9 +23,11 @@
 #include <vector>
 #include "colorstore.h"
 
+class IGuiConfigServices;
+
 class HoistTablePanel : public wxPanel {
 public:
-  explicit HoistTablePanel(wxWindow *parent);
+  explicit HoistTablePanel(wxWindow *parent, IGuiConfigServices *services = nullptr);
   ~HoistTablePanel();
 
   void ReloadData();
@@ -49,6 +51,7 @@ private:
   std::vector<std::string> rowUuids;
   bool dragSelecting = false;
   int startRow = -1;
+  IGuiConfigServices *guiConfigServices = nullptr;
 
   void InitializeTable();
   void OnSelectionChanged(wxDataViewEvent &evt);

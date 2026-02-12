@@ -18,6 +18,7 @@
 #include "layerpanel.h"
 #include "columnutils.h"
 #include "configmanager.h"
+#include "guiconfigservices.h"
 #include "fixturetablepanel.h"
 #include "sceneobjecttablepanel.h"
 #include "trusstablepanel.h"
@@ -65,7 +66,7 @@ void RefreshVisibleViewers() {
 } // namespace
 
 LayerPanel::LayerPanel(wxWindow* parent, bool showButtons, ConfigManager* config)
-    : wxPanel(parent, wxID_ANY), configManager(config ? config : &ConfigManager::Get())
+    : wxPanel(parent, wxID_ANY), configManager(config ? config : &GetDefaultGuiConfigServices().LegacyConfigManager())
 {
     list = new wxDataViewListCtrl(this, wxID_ANY);
     list->AppendToggleColumn("Visible");
