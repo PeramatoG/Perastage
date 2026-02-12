@@ -30,7 +30,7 @@
 #include <wx/wfstream.h>
 #include <wx/zipstrm.h>
 
-#include "../external/json.hpp"
+#include "json.hpp"
 
 using json = nlohmann::json;
 

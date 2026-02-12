@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../interfaces/iselectioncontext.h"
+#include "iselectioncontext.h"
 #include <string>
 #include <vector>
 #include <wx/gdicmn.h>

@@ -16,11 +16,11 @@
 #include <wx/wfstream.h>
 #include <wx/zipstrm.h>
 
-#include "../core/configmanager.h"
-#include "../mvr/mvrexporter.h"
-#include "../models/fixture.h"
-#include "../models/truss.h"
-#include "../models/support.h"
+#include "configmanager.h"
+#include "mvrexporter.h"
+#include "fixture.h"
+#include "truss.h"
+#include "support.h"
 
 namespace fs = std::filesystem;
 

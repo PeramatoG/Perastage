@@ -21,7 +21,7 @@
 #include <wx/image.h>
 #include <wx/richtext/richtextbuffer.h>
 
-#include "layouts/LayoutCollection.h"
+#include "LayoutCollection.h"
 #include "viewer2dpdfexporter.h"
 
 namespace layouttext {

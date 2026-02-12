@@ -30,7 +30,7 @@
 #endif
 
 #include "configmanager.h"
-#include "layouts/LayoutManager.h"
+#include "LayoutManager.h"
 #include "viewer2doffscreenrenderer.h"
 #include "viewer2dstate.h"
 

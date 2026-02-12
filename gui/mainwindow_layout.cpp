@@ -38,7 +38,7 @@
 #include "trusstablepanel.h"
 #include "viewer2dpanel.h"
 #include "viewer2drenderpanel.h"
-#include "layouts/LayoutManager.h"
+#include "LayoutManager.h"
 
 namespace {
 layouts::Layout2DViewFrame BuildDefaultLayout2DFrame(

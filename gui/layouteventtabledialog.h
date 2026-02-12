@@ -20,7 +20,7 @@
 #include <array>
 #include <string>
 #include <wx/wx.h>
-#include "layouts/LayoutCollection.h"
+#include "LayoutCollection.h"
 
 class LayoutEventTableDialog : public wxDialog {
 public:

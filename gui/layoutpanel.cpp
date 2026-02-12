@@ -18,7 +18,7 @@
 #include "layoutpanel.h"
 
 #include "columnutils.h"
-#include "layouts/LayoutManager.h"
+#include "LayoutManager.h"
 #include <wx/choicdlg.h>
 
 LayoutPanel *LayoutPanel::s_instance = nullptr;

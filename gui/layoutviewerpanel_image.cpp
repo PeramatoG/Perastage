@@ -34,7 +34,7 @@
 #endif
 
 #include "layoutimageutils.h"
-#include "layouts/LayoutManager.h"
+#include "LayoutManager.h"
 
 namespace {
 constexpr int kMinFrameSize = 24;

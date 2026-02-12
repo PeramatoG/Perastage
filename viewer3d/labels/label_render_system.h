@@ -1,7 +1,7 @@
 #pragma once
 
-#include "../interfaces/iselectioncontext.h"
-#include "../viewer3d_types.h"
+#include "iselectioncontext.h"
+#include "viewer3d_types.h"
 
 class LabelRenderSystem {
 public:

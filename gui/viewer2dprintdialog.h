@@ -17,7 +17,7 @@
  */
 #pragma once
 
-#include "print/Viewer2DPrintSettings.h"
+#include "Viewer2DPrintSettings.h"
 
 #include <wx/wx.h>
 

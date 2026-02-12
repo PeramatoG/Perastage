@@ -1,9 +1,9 @@
 #include "bounds_cache_system.h"
 
-#include "../../core/projectutils.h"
-#include "../../models/types.h"
-#include "../../core/logger.h"
-#include "../matrixutils.h"
+#include "projectutils.h"
+#include "types.h"
+#include "logger.h"
+#include "matrixutils.h"
 
 #include <algorithm>
 #include <array>

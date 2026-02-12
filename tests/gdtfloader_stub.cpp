@@ -17,8 +17,8 @@
  */
 #include <string>
 #include <vector>
-#include "../models/types.h"
-#include "../viewer3d/mesh.h"
+#include "types.h"
+#include "mesh.h"
 
 struct GdtfObject { Mesh mesh; Matrix transform; };
 

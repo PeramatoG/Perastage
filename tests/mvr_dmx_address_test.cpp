@@ -3,7 +3,7 @@
  */
 #include <cassert>
 
-#include "../mvr/mvrexporter.h"
+#include "mvrexporter.h"
 
 int main() {
   assert(ComputeAbsoluteDmx(1, 1) == 1);

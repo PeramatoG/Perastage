@@ -26,10 +26,10 @@
 #include <vector>
 #include <wx/init.h>
 
-#include "../core/riderimporter.h"
-#include "../core/configmanager.h"
-#include "../models/fixture.h"
-#include "../models/truss.h"
+#include "riderimporter.h"
+#include "configmanager.h"
+#include "fixture.h"
+#include "truss.h"
 
 namespace {
 std::optional<std::size_t> ReadStatusFieldKb(const std::string &key) {

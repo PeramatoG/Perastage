@@ -23,7 +23,7 @@
 #include <utility>
 #include <wx/glcanvas.h>
 #include <wx/wx.h>
-#include "layouts/LayoutCollection.h"
+#include "LayoutCollection.h"
 #include "canvas2d.h"
 #include "symbolcache.h"
 #include "viewer2dpanel.h"

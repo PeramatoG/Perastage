@@ -15,9 +15,9 @@
  * You should have received a copy of the GNU General Public License
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
-#include "../core/autopatcher.h"
-#include "../models/fixture.h"
-#include "../models/mvrscene.h"
+#include "autopatcher.h"
+#include "fixture.h"
+#include "mvrscene.h"
 #include <cassert>
 #include <string>
 

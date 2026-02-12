@@ -1,8 +1,8 @@
 #pragma once
 
-#include "../resources/resource_sync_system.h"
-#include "../viewer3d_types.h"
-#include "../../core/scenedatamanager.h"
+#include "resource_sync_system.h"
+#include "viewer3d_types.h"
+#include "scenedatamanager.h"
 
 #include <mutex>
 #include <string>

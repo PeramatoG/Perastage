@@ -16,7 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "trussloader.h"
-#include "../external/json.hpp"
+#include "json.hpp"
 #include <wx/wfstream.h>
 #include <wx/zipstrm.h>
 #include <wx/filename.h>

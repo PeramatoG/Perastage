@@ -20,7 +20,7 @@
 #include <string>
 #include <sstream>
 
-#include "../core/pdftext.h"
+#include "pdftext.h"
 
 static std::string ReadFile(const std::string &path) {
   std::ifstream file(path);

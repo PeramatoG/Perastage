@@ -20,13 +20,13 @@
 #include <fstream>
 #include <wx/init.h>
 
-#include "../core/configmanager.h"
-#include "../core/gdtfdictionary.h"
-#include "../core/projectutils.h"
-#include "../models/fixture.h"
-#include "../models/truss.h"
-#include "../models/sceneobject.h"
-#include "../models/layer.h"
+#include "configmanager.h"
+#include "gdtfdictionary.h"
+#include "projectutils.h"
+#include "fixture.h"
+#include "truss.h"
+#include "sceneobject.h"
+#include "layer.h"
 
 int main() {
     wxInitializer initializer;

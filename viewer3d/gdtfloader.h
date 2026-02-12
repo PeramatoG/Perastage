@@ -21,7 +21,7 @@
 #include <vector>
 #include "mesh.h"
 // Use the Matrix definition shared by model code
-#include "../models/types.h"
+#include "types.h"
 
 struct GdtfObject {
     Mesh mesh;

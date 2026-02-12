@@ -17,9 +17,9 @@
 #include <GL/glu.h>
 #endif
 
-#include "../../core/configmanager.h"
-#include "../../core/logger.h"
-#include "../../core/scenedatamanager.h"
+#include "configmanager.h"
+#include "logger.h"
+#include "scenedatamanager.h"
 
 #include <algorithm>
 #include <array>

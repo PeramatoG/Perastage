@@ -1,8 +1,8 @@
 #pragma once
 
-#include "../interfaces/irendercontext.h"
-#include "../mesh.h"
-#include "../viewer3d_types.h"
+#include "irendercontext.h"
+#include "mesh.h"
+#include "viewer3d_types.h"
 #include <functional>
 
 class SceneRenderer {

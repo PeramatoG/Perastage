@@ -20,7 +20,7 @@
 
 #include "canvas2d.h"
 #include "symbolcache.h"
-#include "layouts/LayoutCollection.h"
+#include "LayoutCollection.h"
 #include "viewer2dpanel.h"
 #include <array>
 #include <filesystem>
