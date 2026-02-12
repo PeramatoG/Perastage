@@ -2,9 +2,9 @@
 
 #include "mesh.h"
 #include "gdtfloader.h"
-#include "models/fixture.h"
-#include "models/sceneobject.h"
-#include "models/truss.h"
+#include "fixture.h"
+#include "sceneobject.h"
+#include "truss.h"
 
 #include <functional>
 #include <string>
