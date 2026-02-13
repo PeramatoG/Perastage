@@ -1,16 +1,36 @@
 [gd_scene format=3]
 
-[ext_resource type="Script" path="res://test.gd" id="1_test"]
+[ext_resource type="Script" path="res://scripts/load_scene.gd" id="1_script"]
 
-[node name="PeravizTest" type="Node"]
-script = ExtResource("1_test")
+[node name="Viewer" type="Node3D"]
+script = ExtResource("1_script")
+
+[node name="Camera3D" type="Camera3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3, 8)
+rotation_degrees = Vector3(-20, 0, 0)
+current = true
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
+rotation_degrees = Vector3(-45, 45, 0)
+
+[node name="Proxies" type="Node3D" parent="."]
 
 [node name="HUD" type="CanvasLayer" parent="."]
 
-[node name="PingLabel" type="Label" parent="HUD"]
-offset_left = 10.0
-offset_top = 10.0
-offset_right = 510.0
-offset_bottom = 48.0
-theme_override_font_sizes/font_size = 24
-text = "Waiting..."
+[node name="LoadButton" type="Button" parent="HUD"]
+offset_left = 12.0
+offset_top = 12.0
+offset_right = 160.0
+offset_bottom = 44.0
+text = "Cargar MVR"
+
+[node name="StatusLabel" type="Label" parent="HUD"]
+offset_left = 12.0
+offset_top = 52.0
+offset_right = 600.0
+offset_bottom = 80.0
+text = "Estado"
+
+[node name="FileDialog" type="FileDialog" parent="HUD"]
+file_mode = 0
+filters = PackedStringArray("*.mvr ; MVR")

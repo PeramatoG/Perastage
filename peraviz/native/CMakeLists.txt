@@ -31,17 +31,61 @@ if(NOT TARGET godot-cpp)
     endif()
 endif()
 
+
+if(EXISTS "${CMAKE_SOURCE_DIR}/models/matrixutils.h")
+    set(PERASTAGE_ROOT_DIR "${CMAKE_SOURCE_DIR}")
+elseif(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../../models/matrixutils.h")
+    get_filename_component(PERASTAGE_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../.." ABSOLUTE)
+else()
+    message(FATAL_ERROR "Cannot locate Perastage root (models/matrixutils.h not found).")
+endif()
+
+if(NOT tinyxml2_FOUND)
+    find_package(tinyxml2 CONFIG QUIET)
+endif()
+if(NOT TARGET tinyxml2::tinyxml2)
+    find_path(TINYXML2_INCLUDE_DIR tinyxml2.h)
+    find_library(TINYXML2_LIBRARY tinyxml2)
+    if(NOT TINYXML2_INCLUDE_DIR OR NOT TINYXML2_LIBRARY)
+        message(FATAL_ERROR "tinyxml2 not found. Install development package or provide tinyxml2Config.cmake")
+    endif()
+    add_library(tinyxml2::tinyxml2 UNKNOWN IMPORTED)
+    set_target_properties(tinyxml2::tinyxml2 PROPERTIES
+        IMPORTED_LOCATION "${TINYXML2_LIBRARY}"
+        INTERFACE_INCLUDE_DIRECTORIES "${TINYXML2_INCLUDE_DIR}"
+    )
+endif()
+
+if(NOT wxWidgets_FOUND)
+    find_package(wxWidgets REQUIRED COMPONENTS core base)
+    include(${wxWidgets_USE_FILE})
+    set(_peraviz_wx_libs ${wxWidgets_LIBRARIES})
+else()
+    if(TARGET wx::core)
+        set(_peraviz_wx_libs wx::core wx::base)
+    else()
+        set(_peraviz_wx_libs ${wxWidgets_LIBRARIES})
+    endif()
+endif()
+
 add_library(peraviz_native SHARED
     src/hello_world.cpp
+    src/mvr_scene_loader.cpp
+    src/peraviz_loader.cpp
     src/register_types.cpp
     src/entry.cpp
 )
 
 target_include_directories(peraviz_native PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/src"
+    "${PERASTAGE_ROOT_DIR}/models"
 )
 
-target_link_libraries(peraviz_native PRIVATE godot-cpp)
+target_link_libraries(peraviz_native PRIVATE
+    godot-cpp
+    tinyxml2::tinyxml2
+    ${_peraviz_wx_libs}
+)
 
 set_target_properties(peraviz_native PROPERTIES
     OUTPUT_NAME "peraviz_native"
