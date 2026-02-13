@@ -1,67 +1,64 @@
-# Compilación nativa (GDExtension) para Peraviz
+# Native build (GDExtension) for Peraviz
 
-Este documento describe cómo compilar la primera extensión nativa C++ (`peraviz_native`) para el proyecto Godot `peraviz/`.
+This document explains how to build the C++ native extension (`peraviz_native`) for the Godot project in `peraviz/`, including the initial MVR proxy loading workflow.
 
-## Versiones soportadas (hito actual)
+## Supported versions
 
-- **Godot**: `4.2+` (probado con configuración de proyecto Godot 4.x).
-- **godot-cpp**: `godot-4.2.2-stable` (se obtiene automáticamente por `FetchContent` si no se indica ruta local).
+- **Godot**: `4.2+`.
+- **godot-cpp**: `godot-4.2.2-stable`.
 
-## Estructura relevante
+## New dependencies for the MVR loader
 
-- `peraviz/native/`: código fuente y CMake de la extensión.
-- `peraviz/peraviz.gdextension`: descriptor que Godot carga para enlazar con la biblioteca.
-- `peraviz/bin/`: salida de la biblioteca compilada (`.dll` / `.so` / `.dylib`).
+In addition to `godot-cpp`, the native target now links:
 
-## Dependencias
+- `tinyxml2`: parsing `GeneralSceneDescription.xml`.
+- `wxWidgets (core/base)`: reading `.mvr` ZIP containers through `wxZipInputStream`.
+- Shared Perastage headers (`models/types.h`, `models/matrixutils.h`) for matrix handling and transform composition.
 
-- CMake `>= 3.21`
-- Compilador C++17 compatible
-  - Linux: GCC/Clang
-  - Windows: MSVC (Visual Studio 2022 recomendado)
-  - macOS: AppleClang
-- Git (si se usa `FetchContent` para descargar `godot-cpp`)
+## Coordinate conversion (MVR/GDTF -> Godot)
 
-## Compilación standalone (recomendada para este hito)
+The conversion is performed in C++ before exposing data to GDScript:
 
-Desde la raíz del repositorio:
+- MVR typically uses millimeters with a Z-up convention.
+- Godot uses meters with a Y-up convention.
+- Axis mapping and unit scaling are applied in `mvr_scene_loader.cpp`, and values are exported to GDScript as `Vector3` for position/rotation/scale.
+
+## Standalone build
+
+From the repository root:
 
 ```bash
 cmake -S peraviz/native -B peraviz/native/build -DCMAKE_BUILD_TYPE=Debug
 cmake --build peraviz/native/build --config Debug
 ```
 
-La librería resultante se copia automáticamente a `peraviz/bin/`.
+The resulting library is copied automatically to `peraviz/bin/`.
 
-## Usar `godot-cpp` local (opcional)
+## Root CMake integration
 
-Si prefieres no descargar `godot-cpp` en el configure:
+The root CMake includes this subproject with:
 
-```bash
-cmake -S peraviz/native -B peraviz/native/build \
-  -DGODOT_CPP_DIR=/ruta/a/godot-cpp \
-  -DPERAVIZ_FETCH_GODOT_CPP=OFF
-cmake --build peraviz/native/build --config Debug
-```
+- `-DPERAVIZ_ENABLE_NATIVE=ON` (default).
 
-## Integración con CMake raíz
-
-El `CMakeLists.txt` de la raíz incluye `peraviz/native/` mediante la opción:
-
-- `-DPERAVIZ_ENABLE_NATIVE=ON` (por defecto).
-
-Si hace falta desactivarlo temporalmente:
+To disable it:
 
 ```bash
 cmake -S . -B build -DPERAVIZ_ENABLE_NATIVE=OFF
 ```
 
-## Verificación en Godot
+## Usage from Godot
 
-1. Abrir `peraviz/project.godot` con Godot 4.x.
-2. Ejecutar el proyecto.
-3. Revisar la consola:
-   - Mensaje nativo: `[PeravizNative] pong from Peraviz native C++`
-   - Mensaje de script: `[PeravizTest] pong from Peraviz native C++`
+The native class `PeravizLoader` exposes:
 
-Eso confirma que GDScript puede invocar el método `ping()` expuesto por C++ vía GDExtension.
+- `load_mvr(path: String) -> Array`
+
+Each array element is a `Dictionary` with:
+
+- `id: String`
+- `type: String` (`fixture`, `truss`, `support`, `scene_object`)
+- `is_fixture: bool`
+- `pos: Vector3`
+- `rot: Vector3` (degrees)
+- `scale: Vector3`
+
+The script `res://scripts/load_scene.gd` consumes this data to instantiate proxy meshes (`ConeMesh` / `BoxMesh`) in the test scene.
