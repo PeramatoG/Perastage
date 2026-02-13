@@ -1,8 +1,11 @@
+#include "pdf_draw_commands.h"
+#include "pdf_objects.h"
 #include "pdf_writer.h"
 
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <sstream>
 
 int main() {
   const std::filesystem::path outPath =
@@ -28,5 +31,38 @@ int main() {
   }
 
   std::filesystem::remove(outPath);
+
+  // Non-regression check: draw command serialization remains stable after
+  // splitting layout_pdf_exporter internals into dedicated modules.
+  {
+    layout_pdf_internal::Mapping mapping;
+    mapping.scale = 1.0;
+    mapping.flipY = false;
+
+    layout_pdf_internal::Transform transform;
+    layout_pdf_internal::RenderOptions options;
+    layout_pdf_internal::GraphicsStateCache cache;
+    layout_pdf_internal::FloatFormatter fmt(3);
+
+    LineCommand line;
+    line.x0 = 0.0f;
+    line.y0 = 0.0f;
+    line.x1 = 10.0f;
+    line.y1 = 10.0f;
+    line.stroke.width = 1.0f;
+    line.stroke.color = {0.0f, 0.0f, 0.0f};
+
+    std::ostringstream content;
+    layout_pdf_internal::EmitCommandStroke(content, cache, fmt, mapping,
+                                           transform, CanvasCommand{line},
+                                           options);
+    const std::string expected =
+        "1 j\n1 J\n0.000 0.000 0.000 RG\n1.000 w\n"
+        "0.000 0.000 m\n10.000 10.000 l\nS\n";
+    if (content.str() != expected) {
+      std::cerr << "Unexpected serialized draw command output" << std::endl;
+      return 1;
+    }
+  }
   return 0;
 }

@@ -2,6 +2,9 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/canvas2d.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/pdf/font_metrics.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/pdf/layout_pdf_exporter.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/pdf/pdf_draw_commands.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/pdf/pdf_font_metrics.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/pdf/pdf_objects.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/pdf/pdf_graphics_encoder.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/pdf/pdf_writer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/print_diagnostics.cpp
