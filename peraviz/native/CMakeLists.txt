@@ -107,4 +107,14 @@ if(PERAVIZ_GODOT_PROJECT_DIR)
             LIBRARY_OUTPUT_DIRECTORY_${config_upper} "${_peraviz_bin_dir}"
         )
     endforeach()
+
+    if(WIN32)
+        add_custom_command(TARGET peraviz_native POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                $<TARGET_RUNTIME_DLLS:peraviz_native>
+                "${_peraviz_bin_dir}"
+            COMMAND_EXPAND_LISTS
+            COMMENT "Copying peraviz_native runtime DLL dependencies to ${_peraviz_bin_dir}"
+        )
+    endif()
 endif()

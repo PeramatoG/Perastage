@@ -34,6 +34,16 @@ cmake --build peraviz/native/build --config Debug
 
 The resulting library is copied automatically to `peraviz/bin/`.
 
+### Windows (Visual Studio) note
+
+When building with Visual Studio, the generated `peraviz_native.dll` may depend on additional
+runtime DLLs (`wxWidgets`, `tinyxml2`, etc.). The native CMake now copies runtime DLL
+dependencies to `peraviz/bin/` after each build, so Godot can load the extension without
+manual PATH tweaks.
+
+If `PeravizLoader` is still reported as unknown in GDScript, verify that `peraviz/bin/`
+contains `peraviz_native.dll` and its dependent DLLs, then restart the Godot editor.
+
 ## Root CMake integration
 
 The root CMake includes this subproject with:
