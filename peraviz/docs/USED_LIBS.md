@@ -1,13 +1,13 @@
-# Peraviz: módulos de Perastage reutilizados
+# Peraviz: reused Perastage modules
 
-## Librerías / módulos usados en el hito de proxies MVR
+## Modules used in the MVR proxy milestone
 
-- `models/types.h` y `models/matrixutils.h`  
-  Se usan para parsear matrices MVR (`MatrixUtils::ParseMatrix`), componer transformaciones jerárquicas (`MatrixUtils::Multiply`) y extraer euler para proxy placement.
+- `models/types.h` and `models/matrixutils.h`  
+  Used to parse MVR matrices (`MatrixUtils::ParseMatrix`), compose hierarchical transforms (`MatrixUtils::Multiply`), and extract Euler angles for proxy placement.
 
-- Esquema MVR de `mvr/` (compatibilidad de estructura XML)  
-  El cargador nativo de Peraviz sigue la misma estructura de nodos de Perastage (`GeneralSceneDescription -> Scene -> Layers -> ChildList`) para fixtures, trusses, supports y scene objects.
+- MVR schema compatibility from `mvr/`  
+  The native Peraviz loader follows the same node structure used by Perastage (`GeneralSceneDescription -> Scene -> Layers -> ChildList`) for fixtures, trusses, supports, and scene objects.
 
-## Notas
+## Notes
 
-- En este hito todavía no se reutiliza la tubería completa de geometría/materiales; solamente se comparte la base de transformaciones y parsing espacial para validar ejes/unidades.
+- This milestone still does not reuse the full geometry/material pipeline. It reuses the transformation and spatial parsing foundation to validate axis and unit conversion first.

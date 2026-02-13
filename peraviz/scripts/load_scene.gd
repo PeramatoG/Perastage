@@ -9,7 +9,7 @@ var _loader := PeravizLoader.new()
 func _ready() -> void:
 	$HUD/LoadButton.pressed.connect(_on_load_pressed)
 	picker.file_selected.connect(_on_file_selected)
-	status_label.text = "Selecciona un archivo .mvr"
+	status_label.text = "Select a .mvr file"
 
 func _on_load_pressed() -> void:
 	picker.popup_centered_ratio(0.7)
@@ -17,13 +17,13 @@ func _on_load_pressed() -> void:
 func _on_file_selected(path: String) -> void:
 	_clear_scene()
 	var instances: Array = _loader.load_mvr(path)
-	print("[Peraviz] Instancias cargadas: ", instances.size())
+	print("[Peraviz] Loaded instances: ", instances.size())
 
 	for item in instances:
 		if item is Dictionary:
 			_create_proxy(item)
 
-	status_label.text = "Instancias: %d" % instances.size()
+	status_label.text = "Instances: %d" % instances.size()
 
 func _create_proxy(data: Dictionary) -> void:
 	var is_fixture: bool = bool(data.get("is_fixture", false))

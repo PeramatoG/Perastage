@@ -1,64 +1,64 @@
-# Compilación nativa (GDExtension) para Peraviz
+# Native build (GDExtension) for Peraviz
 
-Este documento describe cómo compilar la extensión nativa C++ (`peraviz_native`) para el proyecto Godot `peraviz/`, incluyendo la carga inicial de escenas MVR con proxies.
+This document explains how to build the C++ native extension (`peraviz_native`) for the Godot project in `peraviz/`, including the initial MVR proxy loading workflow.
 
-## Versiones soportadas
+## Supported versions
 
 - **Godot**: `4.2+`.
 - **godot-cpp**: `godot-4.2.2-stable`.
 
-## Dependencias nuevas para el cargador MVR
+## New dependencies for the MVR loader
 
-Además de `godot-cpp`, el target nativo ahora enlaza:
+In addition to `godot-cpp`, the native target now links:
 
-- `tinyxml2`: parseo de `GeneralSceneDescription.xml`.
-- `wxWidgets (core/base)`: lectura del contenedor ZIP `.mvr` mediante `wxZipInputStream`.
-- Cabeceras compartidas de Perastage (`models/types.h`, `models/matrixutils.h`) para matrices y composición de transformaciones.
+- `tinyxml2`: parsing `GeneralSceneDescription.xml`.
+- `wxWidgets (core/base)`: reading `.mvr` ZIP containers through `wxZipInputStream`.
+- Shared Perastage headers (`models/types.h`, `models/matrixutils.h`) for matrix handling and transform composition.
 
-## Conversión de coordenadas (MVR/GDTF -> Godot)
+## Coordinate conversion (MVR/GDTF -> Godot)
 
-La conversión se hace en C++ antes de exponer datos a GDScript:
+The conversion is performed in C++ before exposing data to GDScript:
 
-- MVR trabaja típicamente en mm con convención Z-up.
-- Godot usa metros con convención Y-up.
-- Se aplica mapeo de ejes y escala de unidades en `mvr_scene_loader.cpp`, y se exporta a GDScript como `Vector3` para posición/rotación/escala.
+- MVR typically uses millimeters with a Z-up convention.
+- Godot uses meters with a Y-up convention.
+- Axis mapping and unit scaling are applied in `mvr_scene_loader.cpp`, and values are exported to GDScript as `Vector3` for position/rotation/scale.
 
-## Compilación standalone
+## Standalone build
 
-Desde la raíz del repositorio:
+From the repository root:
 
 ```bash
 cmake -S peraviz/native -B peraviz/native/build -DCMAKE_BUILD_TYPE=Debug
 cmake --build peraviz/native/build --config Debug
 ```
 
-La librería resultante se copia automáticamente a `peraviz/bin/`.
+The resulting library is copied automatically to `peraviz/bin/`.
 
-## Integración con CMake raíz
+## Root CMake integration
 
-La raíz incluye el subproyecto con:
+The root CMake includes this subproject with:
 
-- `-DPERAVIZ_ENABLE_NATIVE=ON` (por defecto).
+- `-DPERAVIZ_ENABLE_NATIVE=ON` (default).
 
-Para desactivar:
+To disable it:
 
 ```bash
 cmake -S . -B build -DPERAVIZ_ENABLE_NATIVE=OFF
 ```
 
-## Uso desde Godot
+## Usage from Godot
 
-La clase nativa `PeravizLoader` expone:
+The native class `PeravizLoader` exposes:
 
 - `load_mvr(path: String) -> Array`
 
-Cada elemento del array es un `Dictionary` con:
+Each array element is a `Dictionary` with:
 
 - `id: String`
 - `type: String` (`fixture`, `truss`, `support`, `scene_object`)
 - `is_fixture: bool`
 - `pos: Vector3`
-- `rot: Vector3` (grados)
+- `rot: Vector3` (degrees)
 - `scale: Vector3`
 
-El script `res://scripts/load_scene.gd` usa estos datos para instanciar proxies (`ConeMesh` / `BoxMesh`) en la escena de prueba.
+The script `res://scripts/load_scene.gd` consumes this data to instantiate proxy meshes (`ConeMesh` / `BoxMesh`) in the test scene.
