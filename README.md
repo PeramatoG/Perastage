@@ -90,12 +90,15 @@ The most important directories are:
 | `mvr/` | Importers/exporters for the MVR format. |
 | `viewer3d/` | 3D rendering engine, camera controls and mesh loaders. |
 | `viewer2d/` | 2D plan view renderer and capture utilities. |
-| `library/` | Built‑in data: fixture dictionary, default trusses, textures, scene objects and example projects. |
+| `third_party/` | Vendored third-party headers (for example `json.hpp`) kept separate from project modules. |
+| `library/` | Built‑in data: fixture dictionary, default trusses, textures, scene objects and example projects (`library/scene_objects/`, etc.). |
 | `resources/` | Application icon, Windows resource script and additional images (including `perastag3d.png` for this README). |
 | `tests/` | Unit tests using Catch2. |
 | `docs/` | Informal documentation and specs (MVR/GDTF notes). |
 
 For a detailed explanation of each file see `perastage_tree.md`.
+
+For repository conventions (modules, third-party code, and CMake structure), see `docs/architecture.md`.
 
 ---
 

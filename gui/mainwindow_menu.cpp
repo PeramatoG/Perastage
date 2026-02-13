@@ -1202,7 +1202,7 @@ void MainWindow::OnAddSceneObject(wxCommandEvent &WXUNUSED(event)) {
       return;
     if (dlgRes == wxID_OPEN) {
       wxString objDir = wxString::FromUTF8(
-          ProjectUtils::GetDefaultLibraryPath("scene objects"));
+          ProjectUtils::GetDefaultLibraryPath("scene_objects"));
       wxFileDialog fdlg(this, "Select Object file", objDir, wxEmptyString,
                         "*.*", wxFD_OPEN | wxFD_FILE_MUST_EXIST);
       if (fdlg.ShowModal() != wxID_OK)
@@ -1219,7 +1219,7 @@ void MainWindow::OnAddSceneObject(wxCommandEvent &WXUNUSED(event)) {
     }
   } else {
     wxString objDir = wxString::FromUTF8(
-        ProjectUtils::GetDefaultLibraryPath("scene objects"));
+        ProjectUtils::GetDefaultLibraryPath("scene_objects"));
     wxFileDialog fdlg(this, "Select Object file", objDir, wxEmptyString, "*.*",
                       wxFD_OPEN | wxFD_FILE_MUST_EXIST);
     if (fdlg.ShowModal() != wxID_OK)

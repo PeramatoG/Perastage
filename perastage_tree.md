@@ -21,8 +21,11 @@ Perastage/ (root)
 │   │   └── gdtf_dictionary.json – Predefined mapping of fixture names to GDTF URLs used by the fixture search dialog.
 │   ├── trusses/ – Default truss definitions used when importing MVR scenes or riders.
 │   ├── misc/ – Miscellaneous assets (e.g. textures) distributed with the app.
-│   ├── scene objects/ – Default 3D models for generic scene objects.
+│   ├── scene_objects/ – Default 3D models for generic scene objects.
 │   └── projects/ – Example project files demonstrating Perastage usage.
+├── third_party/
+│   ├── json.hpp – Vendored nlohmann/json single-header dependency.
+│   └── stb_easy_font.h – Vendored stb_easy_font header used by rendering utilities.
 ├── licenses/
 │   ├── nanovg_LICENSE.txt – Licence for the NanoVG vector graphics library.
 │   ├── wxwidgets_LICENSE.txt – Licence for the wxWidgets GUI toolkit.
