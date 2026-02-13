@@ -93,6 +93,7 @@ set_library_env(AutoPatchUniverseWrap)
 
 add_executable(save_load_roundtrip_test save_load_roundtrip_test.cpp
                ../core/configmanager.cpp
+               ../core/configservices.cpp
                ../core/projectutils.cpp
                ../core/gdtfdictionary.cpp
                ../core/trussdictionary.cpp
@@ -118,6 +119,7 @@ set_library_env(SaveLoadRoundtrip)
 add_executable(mvr_dmx_address_test mvr_dmx_address_test.cpp
                ../mvr/mvrexporter.cpp
                ../core/configmanager.cpp
+               ../core/configservices.cpp
                ../core/projectutils.cpp
                ../core/gdtfdictionary.cpp
                ../core/trussdictionary.cpp
@@ -141,6 +143,7 @@ set_library_env(MvrDmxAddressConversion)
 
 add_executable(mvr_exporter_compliance_test mvr_exporter_compliance_test.cpp
                ../core/configmanager.cpp
+               ../core/configservices.cpp
                ../core/projectutils.cpp
                ../core/gdtfdictionary.cpp
                ../core/trussdictionary.cpp
@@ -173,6 +176,7 @@ add_executable(rider_save_roundtrip_test rider_save_roundtrip_test.cpp
                ../core/autopatcher.cpp
                ../core/patchmanager.cpp
                ../core/configmanager.cpp
+               ../core/configservices.cpp
                ../core/projectutils.cpp
                ../core/gdtfdictionary.cpp
                ../core/trussdictionary.cpp
@@ -200,6 +204,7 @@ add_executable(riderimporter_fixtureid_test rider_import_fixtureid_test.cpp
                ../core/autopatcher.cpp
                ../core/patchmanager.cpp
                ../core/configmanager.cpp
+               ../core/configservices.cpp
                ../core/projectutils.cpp
                ../models/mvrscene.cpp
                ../models/fixture.cpp
@@ -223,6 +228,7 @@ add_executable(rider_import_order_test rider_import_order_test.cpp
                ../core/autopatcher.cpp
                ../core/patchmanager.cpp
                ../core/configmanager.cpp
+               ../core/configservices.cpp
                ../core/projectutils.cpp
                ../models/mvrscene.cpp
                ../models/fixture.cpp
@@ -245,6 +251,7 @@ add_executable(rider_autopatch_test rider_autopatch_test.cpp
                ../core/autopatcher.cpp
                ../core/patchmanager.cpp
                ../core/configmanager.cpp
+               ../core/configservices.cpp
                ../core/projectutils.cpp
                ../models/mvrscene.cpp
                ../models/fixture.cpp
@@ -267,6 +274,7 @@ add_executable(rider_layer_mode_test rider_layer_mode_test.cpp
                ../core/autopatcher.cpp
                ../core/patchmanager.cpp
                ../core/configmanager.cpp
+               ../core/configservices.cpp
                ../core/projectutils.cpp
                ../models/mvrscene.cpp
                ../models/fixture.cpp
@@ -289,6 +297,7 @@ add_executable(rider_import_benchmark rider_import_benchmark.cpp
                ../core/autopatcher.cpp
                ../core/patchmanager.cpp
                ../core/configmanager.cpp
+               ../core/configservices.cpp
                ../core/projectutils.cpp
                ../models/mvrscene.cpp
                ../models/fixture.cpp
