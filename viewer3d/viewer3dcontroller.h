@@ -28,6 +28,7 @@
 #include "irendercontext.h"
 #include "iselectioncontext.h"
 #include "ivisibilitycontext.h"
+#include "symbolcache.h"
 #include <array>
 #include <functional>
 #include <memory>
