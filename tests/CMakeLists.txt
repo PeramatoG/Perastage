@@ -41,7 +41,13 @@ add_test(NAME PdfFontMetricsEncoding COMMAND pdf_font_metrics_test)
 
 add_executable(pdf_writer_test
                pdf_writer_test.cpp
+               ../viewer2d/pdf/pdf_draw_commands.cpp
+               ../viewer2d/pdf/pdf_font_metrics.cpp
+               ../viewer2d/pdf/pdf_objects.cpp
                ../viewer2d/pdf/pdf_writer.cpp)
+if(TARGET ZLIB::ZLIB)
+    target_link_libraries(pdf_writer_test PRIVATE ZLIB::ZLIB)
+endif()
 add_test(NAME PdfWriterSerialization COMMAND pdf_writer_test)
 
 add_executable(fixture_table_parser_test
