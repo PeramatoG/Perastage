@@ -36,6 +36,7 @@
 #endif
 
 #include "configmanager.h"
+#include "guiconfigservices.h"
 #include "LayoutManager.h"
 #include "logger.h"
 #include "mainwindow.h"
@@ -1403,7 +1404,7 @@ void LayoutViewerPanel::RebuildCachedTexture() {
       offscreenRenderer->SetViewportSize(renderSize);
       offscreenRenderer->PrepareForCapture();
   
-      ConfigManager &cfg = ConfigManager::Get();
+      ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
       viewer2d::Viewer2DState renderState = cache.renderState;
       if (renderZoom != 1.0) {
         renderState.camera.zoom *= static_cast<float>(renderZoom);

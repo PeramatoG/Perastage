@@ -19,6 +19,7 @@
 #include "columnutils.h"
 #include "colorfulrenderers.h"
 #include "configmanager.h"
+#include "guiconfigservices.h"
 #include "consolepanel.h"
 #include "layerpanel.h"
 #include "matrixutils.h"
@@ -105,8 +106,8 @@ RangeParts SplitRangeParts(const wxString& value)
 }
 } // namespace
 
-TrussTablePanel::TrussTablePanel(wxWindow* parent)
-    : wxPanel(parent, wxID_ANY)
+TrussTablePanel::TrussTablePanel(wxWindow* parent, IGuiConfigServices* services)
+    : wxPanel(parent, wxID_ANY), guiConfigServices(services ? services : &GetDefaultGuiConfigServices())
 {
     store = new ColorfulDataViewListStore();
     wxBoxSizer* sizer = new wxBoxSizer(wxVERTICAL);
@@ -171,7 +172,7 @@ void TrussTablePanel::ReloadData()
     rowUuids.clear();
     modelPaths.clear();
     symbolPaths.clear();
-    const auto& trusses = ConfigManager::Get().GetScene().trusses;
+    const auto& trusses = guiConfigServices->LegacyConfigManager().GetScene().trusses;
 
     std::vector<std::pair<std::string, const Truss*>> sorted;
     sorted.reserve(trusses.size());
@@ -199,7 +200,7 @@ void TrussTablePanel::ReloadData()
                                                             : wxString::FromUTF8(truss.layer);
         std::string displayPath;
         std::string symbolFullPath;
-        const std::string &base = ConfigManager::Get().GetScene().basePath;
+        const std::string &base = guiConfigServices->LegacyConfigManager().GetScene().basePath;
         if (!truss.modelFile.empty()) {
             fs::path p = base.empty() ? fs::path(truss.modelFile)
                                      : fs::path(base) / truss.modelFile;
@@ -305,7 +306,7 @@ void TrussTablePanel::OnContextMenu(wxDataViewEvent& event)
     // Layer column uses a dropdown of existing layers
     if (col == 1)
     {
-        auto layers = ConfigManager::Get().GetLayerNames();
+        auto layers = guiConfigServices->LegacyConfigManager().GetLayerNames();
         wxArrayString choices;
         for (const auto& n : layers)
             choices.push_back(wxString::FromUTF8(n));
@@ -634,7 +635,7 @@ void TrussTablePanel::OnSelectionChanged(wxDataViewEvent& evt)
         if (r != wxNOT_FOUND && (size_t)r < rowUuids.size())
             uuids.push_back(rowUuids[r]);
     }
-    ConfigManager& cfg = ConfigManager::Get();
+    ConfigManager& cfg = guiConfigServices->LegacyConfigManager();
     if (uuids != cfg.GetSelectedTrusses()) {
         cfg.PushUndoState("truss selection");
         cfg.SetSelectedTrusses(uuids);
@@ -667,7 +668,7 @@ void TrussTablePanel::UpdatePositionValues(
     if (!table)
         return;
 
-    ConfigManager& cfg = ConfigManager::Get();
+    ConfigManager& cfg = guiConfigServices->LegacyConfigManager();
     auto& scene = cfg.GetScene();
     wxWindowUpdateLocker locker(table);
 
@@ -712,7 +713,7 @@ void TrussTablePanel::ApplyPositionValueUpdates(
 
 void TrussTablePanel::UpdateSceneData()
 {
-    ConfigManager& cfg = ConfigManager::Get();
+    ConfigManager& cfg = guiConfigServices->LegacyConfigManager();
     cfg.PushUndoState("edit truss");
     auto& scene = cfg.GetScene();
     size_t count = std::min((size_t)table->GetItemCount(), rowUuids.size());
@@ -975,7 +976,7 @@ void TrussTablePanel::DeleteSelected()
     if (selections.empty())
         return;
 
-    ConfigManager& cfg = ConfigManager::Get();
+    ConfigManager& cfg = guiConfigServices->LegacyConfigManager();
     cfg.PushUndoState("delete truss");
     cfg.SetSelectedTrusses({});
 
@@ -988,7 +989,7 @@ void TrussTablePanel::DeleteSelected()
     }
     std::sort(rows.begin(), rows.end(), std::greater<int>());
 
-    auto& scene = ConfigManager::Get().GetScene();
+    auto& scene = guiConfigServices->LegacyConfigManager().GetScene();
     for (int r : rows) {
         if ((size_t)r < rowUuids.size()) {
             scene.trusses.erase(rowUuids[r]);

@@ -25,10 +25,12 @@
 #include "colorstore.h"
 #include "positionvalueupdate.h"
 
+class IGuiConfigServices;
+
 class SceneObjectTablePanel : public wxPanel
 {
 public:
-    explicit SceneObjectTablePanel(wxWindow* parent);
+    explicit SceneObjectTablePanel(wxWindow* parent, IGuiConfigServices* services = nullptr);
     ~SceneObjectTablePanel();
     void ReloadData();
     void HighlightObject(const std::string& uuid);
@@ -53,6 +55,7 @@ private:
     std::vector<std::string> rowUuids;
     bool dragSelecting = false;
     int startRow = -1;
+    IGuiConfigServices *guiConfigServices = nullptr;
     void InitializeTable();
     void OnSelectionChanged(wxDataViewEvent& evt);
     void OnContextMenu(wxDataViewEvent& event);

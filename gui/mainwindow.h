@@ -45,6 +45,7 @@ class SummaryPanel;
 class RiggingPanel;
 struct LayoutViewPreset;
 class MainWindowIoController;
+class IGuiConfigServices;
 class MainWindowLayoutController;
 class MainWindowPrintController;
 class MainWindowViewController;
@@ -53,7 +54,7 @@ class MainWindowViewController;
 // Main application window for GUI components
 class MainWindow : public wxFrame {
 public:
-  explicit MainWindow(const wxString &title);
+  explicit MainWindow(const wxString &title, IGuiConfigServices *services = nullptr);
   ~MainWindow();
 
   bool LoadProjectFromPath(const std::string &path); // Load given project
@@ -81,6 +82,7 @@ private:
   void OnProjectLoaded(wxCommandEvent &event);
 
   std::string currentProjectPath;
+  IGuiConfigServices *guiConfigServices = nullptr;
   wxNotebook *notebook = nullptr;
   FixtureTablePanel *fixturePanel = nullptr;
   TrussTablePanel *trussPanel = nullptr;

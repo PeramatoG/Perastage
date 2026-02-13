@@ -26,11 +26,12 @@
 #include "positionvalueupdate.h"
 
 class FixtureEditDialog; // forward declaration
+class IGuiConfigServices;
 
 class FixtureTablePanel : public wxPanel
 {
 public:
-    FixtureTablePanel(wxWindow* parent);
+    explicit FixtureTablePanel(wxWindow* parent, IGuiConfigServices* services = nullptr);
     ~FixtureTablePanel();
     void ReloadData(); // Refresh content from ConfigManager
     void HighlightFixture(const std::string& uuid);
@@ -60,6 +61,7 @@ private:
     bool dragSelecting = false;
     int startRow = -1;
     std::vector<int> selectionOrder;
+    IGuiConfigServices *guiConfigServices = nullptr;
 
     void InitializeTable(); // Set up columns
     void OnContextMenu(wxDataViewEvent& event);

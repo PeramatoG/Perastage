@@ -29,6 +29,7 @@
 #include <wx/choicdlg.h>
 
 #include "configmanager.h"
+#include "guiconfigservices.h"
 #include "consolepanel.h"
 #include "fixturetablepanel.h"
 #include "gdtfloader.h"
@@ -57,8 +58,8 @@ std::vector<LayoutLegendItem> BuildLayoutLegendItems() {
   };
 
   std::map<std::string, LegendAggregate> aggregates;
-  const auto &fixtures = ConfigManager::Get().GetScene().fixtures;
-  const std::string &basePath = ConfigManager::Get().GetScene().basePath;
+  const auto &fixtures = GetDefaultGuiConfigServices().LegacyConfigManager().GetScene().fixtures;
+  const std::string &basePath = GetDefaultGuiConfigServices().LegacyConfigManager().GetScene().basePath;
   for (const auto &[uuid, fixture] : fixtures) {
     (void)uuid;
     std::string typeName = fixture.typeName;
@@ -154,7 +155,7 @@ void MainWindow::OnPrintViewer2D(wxCommandEvent &WXUNUSED(event)) {
     return;
   }
 
-  ConfigManager &cfg = ConfigManager::Get();
+  ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
   ConfigManager *cfgPtr = &cfg;
   print::Viewer2DPrintSettings settings =
       print::Viewer2DPrintSettings::LoadFromConfig(cfg);
@@ -290,7 +291,7 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
     return;
   }
 
-  ConfigManager &cfg = ConfigManager::Get();
+  ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
   ConfigManager *cfgPtr = &cfg;
   print::Viewer2DPrintSettings settings =
       print::Viewer2DPrintSettings::LoadFromConfig(cfg);
@@ -529,5 +530,5 @@ void MainWindow::OnPrintTable(wxCommandEvent &WXUNUSED(event)) {
   }
 
   if (ctrl)
-    TablePrinter::Print(this, ctrl, type, ConfigManager::Get());
+    TablePrinter::Print(this, ctrl, type, GetDefaultGuiConfigServices().LegacyConfigManager());
 }

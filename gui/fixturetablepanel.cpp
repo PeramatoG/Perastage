@@ -18,6 +18,7 @@
 #include "fixturetablepanel.h"
 #include "addressdialog.h"
 #include "configmanager.h"
+#include "guiconfigservices.h"
 #include "consolepanel.h"
 #include "fixtureeditdialog.h"
 #include "fixturetable/fixture_table_columns.h"
@@ -55,15 +56,16 @@ namespace {
 class ConfigManagerSceneAdapter : public FixtureTableEditService::ISceneAdapter {
 public:
   void PushUndoState(const std::string &description) override {
-    ConfigManager::Get().PushUndoState(description);
+    GetDefaultGuiConfigServices().LegacyConfigManager().PushUndoState(description);
   }
 
-  MvrScene &GetScene() override { return ConfigManager::Get().GetScene(); }
+  MvrScene &GetScene() override { return GetDefaultGuiConfigServices().LegacyConfigManager().GetScene(); }
 };
 } // namespace
 
-FixtureTablePanel::FixtureTablePanel(wxWindow *parent)
-    : wxPanel(parent, wxID_ANY) {
+FixtureTablePanel::FixtureTablePanel(wxWindow *parent, IGuiConfigServices *services)
+    : wxPanel(parent, wxID_ANY),
+      guiConfigServices(services ? services : &GetDefaultGuiConfigServices()) {
   store = new ColorfulDataViewListStore();
   wxBoxSizer *sizer = new wxBoxSizer(wxVERTICAL);
   table = new wxDataViewListCtrl(this, wxID_ANY, wxDefaultPosition,
@@ -111,7 +113,7 @@ void FixtureTablePanel::ReloadData() {
   gdtfPaths.clear();
   rowUuids.clear();
 
-  const auto &fixtures = ConfigManager::Get().GetScene().fixtures;
+  const auto &fixtures = guiConfigServices->LegacyConfigManager().GetScene().fixtures;
 
   std::vector<std::pair<std::string, const Fixture *>> sorted;
   sorted.reserve(fixtures.size());
@@ -153,7 +155,7 @@ void FixtureTablePanel::ReloadData() {
     }
     std::string fullPath;
     if (!fixture->gdtfSpec.empty()) {
-      const std::string &base = ConfigManager::Get().GetScene().basePath;
+      const std::string &base = guiConfigServices->LegacyConfigManager().GetScene().basePath;
       fs::path p = base.empty() ? fs::path(fixture->gdtfSpec)
                                 : fs::path(base) / fixture->gdtfSpec;
       fullPath = p.string();
@@ -400,7 +402,7 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
 
   // Layer column uses existing layer list
   if (col == 3) {
-    auto layers = ConfigManager::Get().GetLayerNames();
+    auto layers = guiConfigServices->LegacyConfigManager().GetLayerNames();
     wxArrayString choices;
     for (const auto &n : layers)
       choices.push_back(wxString::FromUTF8(n));
@@ -860,7 +862,7 @@ void FixtureTablePanel::DeleteSelected() {
   if (selections.empty())
     return;
 
-  ConfigManager &cfg = ConfigManager::Get();
+  ConfigManager &cfg = guiConfigServices->LegacyConfigManager();
   cfg.PushUndoState("delete fixture");
   cfg.SetSelectedFixtures({});
 
@@ -876,7 +878,7 @@ void FixtureTablePanel::DeleteSelected() {
   }
   std::sort(rows.begin(), rows.end(), std::greater<int>());
 
-  auto &scene = ConfigManager::Get().GetScene();
+  auto &scene = guiConfigServices->LegacyConfigManager().GetScene();
   for (int r : rows) {
     if ((size_t)r < rowUuids.size()) {
       scene.fixtures.erase(rowUuids[r]);
@@ -1000,7 +1002,7 @@ void FixtureTablePanel::OnSelectionChanged(wxDataViewEvent &evt) {
     if (std::find(newOrder.begin(), newOrder.end(), r) == newOrder.end())
       newOrder.push_back(r);
   selectionOrder.swap(newOrder);
-  ConfigManager &cfg = ConfigManager::Get();
+  ConfigManager &cfg = guiConfigServices->LegacyConfigManager();
   if (uuids != cfg.GetSelectedFixtures()) {
     cfg.PushUndoState("fixture selection");
     cfg.SetSelectedFixtures(uuids);
@@ -1031,7 +1033,7 @@ void FixtureTablePanel::UpdatePositionValues(
   if (!table)
     return;
 
-  ConfigManager &cfg = ConfigManager::Get();
+  ConfigManager &cfg = guiConfigServices->LegacyConfigManager();
   auto &scene = cfg.GetScene();
   wxWindowUpdateLocker locker(table);
 

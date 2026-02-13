@@ -24,6 +24,7 @@
 #include "colorstore.h"
 #include "columnutils.h"
 #include "configmanager.h"
+#include "guiconfigservices.h"
 
 namespace {
 constexpr const char *UNASSIGNED_POSITION = "Unassigned";
@@ -104,7 +105,7 @@ void RiggingPanel::RefreshData() {
   };
 
   std::map<std::string, Totals> rows;
-  const auto &scene = ConfigManager::Get().GetScene();
+  const auto &scene = GetDefaultGuiConfigServices().LegacyConfigManager().GetScene();
   for (const auto &[uuid, fixture] : scene.fixtures) {
     std::string pos = fixture.positionName.empty() ? UNASSIGNED_POSITION
                                                    : fixture.positionName;

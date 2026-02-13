@@ -19,6 +19,7 @@
 #include "columnutils.h"
 #include "colorfulrenderers.h"
 #include "configmanager.h"
+#include "guiconfigservices.h"
 #include "layerpanel.h"
 #include "matrixutils.h"
 #include "stringutils.h"
@@ -95,8 +96,8 @@ RangeParts SplitRangeParts(const wxString& value)
 }
 } // namespace
 
-SceneObjectTablePanel::SceneObjectTablePanel(wxWindow* parent)
-    : wxPanel(parent, wxID_ANY)
+SceneObjectTablePanel::SceneObjectTablePanel(wxWindow* parent, IGuiConfigServices* services)
+    : wxPanel(parent, wxID_ANY), guiConfigServices(services ? services : &GetDefaultGuiConfigServices())
 {
     store = new ColorfulDataViewListStore();
     wxBoxSizer* sizer = new wxBoxSizer(wxVERTICAL);
@@ -155,7 +156,7 @@ void SceneObjectTablePanel::ReloadData()
 {
     table->DeleteAllItems();
     rowUuids.clear();
-    const auto& objs = ConfigManager::Get().GetScene().sceneObjects;
+    const auto& objs = guiConfigServices->LegacyConfigManager().GetScene().sceneObjects;
 
     // Copy objects into a sortable vector
     std::vector<std::pair<std::string, SceneObject>> sortedObjs(objs.begin(), objs.end());
@@ -245,7 +246,7 @@ void SceneObjectTablePanel::OnContextMenu(wxDataViewEvent& event)
     
     if (col == 1)
     {
-        auto layers = ConfigManager::Get().GetLayerNames();
+        auto layers = guiConfigServices->LegacyConfigManager().GetLayerNames();
         wxArrayString choices;
         for (const auto& n : layers)
             choices.push_back(wxString::FromUTF8(n));
@@ -467,7 +468,7 @@ void SceneObjectTablePanel::OnSelectionChanged(wxDataViewEvent& evt)
         if (r != wxNOT_FOUND && (size_t)r < rowUuids.size())
             uuids.push_back(rowUuids[r]);
     }
-    ConfigManager& cfg = ConfigManager::Get();
+    ConfigManager& cfg = guiConfigServices->LegacyConfigManager();
     if (uuids != cfg.GetSelectedSceneObjects()) {
         cfg.PushUndoState("scene object selection");
         cfg.SetSelectedSceneObjects(uuids);
@@ -500,7 +501,7 @@ void SceneObjectTablePanel::UpdatePositionValues(
     if (!table)
         return;
 
-    ConfigManager& cfg = ConfigManager::Get();
+    ConfigManager& cfg = guiConfigServices->LegacyConfigManager();
     auto& scene = cfg.GetScene();
     wxWindowUpdateLocker locker(table);
 
@@ -545,7 +546,7 @@ void SceneObjectTablePanel::ApplyPositionValueUpdates(
 
 void SceneObjectTablePanel::UpdateSceneData()
 {
-    ConfigManager& cfg = ConfigManager::Get();
+    ConfigManager& cfg = guiConfigServices->LegacyConfigManager();
     cfg.PushUndoState("edit scene object");
     auto& scene = cfg.GetScene();
     size_t count = std::min((size_t)table->GetItemCount(), rowUuids.size());
@@ -679,7 +680,7 @@ void SceneObjectTablePanel::DeleteSelected()
     if (selections.empty())
         return;
 
-    ConfigManager& cfg = ConfigManager::Get();
+    ConfigManager& cfg = guiConfigServices->LegacyConfigManager();
     cfg.PushUndoState("delete scene object");
     cfg.SetSelectedSceneObjects({});
 
@@ -692,7 +693,7 @@ void SceneObjectTablePanel::DeleteSelected()
     }
     std::sort(rows.begin(), rows.end(), std::greater<int>());
 
-    auto& scene = ConfigManager::Get().GetScene();
+    auto& scene = guiConfigServices->LegacyConfigManager().GetScene();
     for (int r : rows) {
         if ((size_t)r < rowUuids.size()) {
             scene.sceneObjects.erase(rowUuids[r]);

@@ -30,6 +30,7 @@
 #endif
 
 #include "configmanager.h"
+#include "guiconfigservices.h"
 #include "LayoutManager.h"
 #include "viewer2doffscreenrenderer.h"
 #include "viewer2dstate.h"
@@ -171,7 +172,7 @@ void LayoutViewerPanel::DrawViewElement(
     const int fallbackViewportHeight = view.camera.viewportHeight > 0
                                            ? view.camera.viewportHeight
                                            : view.frame.height;
-    ConfigManager &cfg = ConfigManager::Get();
+    ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
     viewer2d::Viewer2DState layoutState =
         viewer2d::FromLayoutDefinition(view);
     layoutState.renderOptions.darkMode = false;

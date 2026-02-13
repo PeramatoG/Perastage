@@ -17,6 +17,7 @@
  */
 #include "preferencesdialog.h"
 #include "configmanager.h"
+#include "guiconfigservices.h"
 #include <wx/notebook.h>
 #include <wx/checkbox.h>
 #include <wx/radiobut.h>
@@ -27,7 +28,7 @@ PreferencesDialog::PreferencesDialog(wxWindow *parent)
   wxBoxSizer *topSizer = new wxBoxSizer(wxVERTICAL);
   wxNotebook *book = new wxNotebook(this, wxID_ANY);
 
-  ConfigManager &cfg = ConfigManager::Get();
+  ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
 
   // Rider Import page
   wxPanel *riderPanel = new wxPanel(book);
@@ -92,7 +93,7 @@ PreferencesDialog::PreferencesDialog(wxWindow *parent)
 
   Bind(wxEVT_BUTTON, [this](wxCommandEvent &evt) {
     if (evt.GetId() == wxID_OK || evt.GetId() == wxID_APPLY) {
-      ConfigManager &cfg = ConfigManager::Get();
+      ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
       for (int i = 0; i < 6; ++i) {
         double v = 0.0;
         lxHeightCtrls[i]->GetValue().ToDouble(&v);

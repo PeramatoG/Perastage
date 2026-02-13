@@ -18,6 +18,7 @@
 #include "summarypanel.h"
 #include "columnutils.h"
 #include "configmanager.h"
+#include "guiconfigservices.h"
 #include <map>
 
 static SummaryPanel* s_instance = nullptr;
@@ -64,7 +65,7 @@ void SummaryPanel::ShowFixtureSummary()
     table->DeleteAllItems();
 
     std::map<std::string, int> fixtureCounts;
-    const auto& fixtures = ConfigManager::Get().GetScene().fixtures;
+    const auto& fixtures = GetDefaultGuiConfigServices().LegacyConfigManager().GetScene().fixtures;
     for (const auto& [uuid, fix] : fixtures)
         fixtureCounts[fix.typeName]++;
     std::vector<std::pair<std::string, int>> fixtureItems(fixtureCounts.begin(), fixtureCounts.end());
@@ -75,7 +76,7 @@ void SummaryPanel::ShowFixtureSummary()
 void SummaryPanel::ShowTrussSummary()
 {
     std::map<std::string,int> counts;
-    const auto& trusses = ConfigManager::Get().GetScene().trusses;
+    const auto& trusses = GetDefaultGuiConfigServices().LegacyConfigManager().GetScene().trusses;
     for (const auto& [uuid, truss] : trusses)
         counts[truss.model]++;
     std::vector<std::pair<std::string,int>> items(counts.begin(), counts.end());
@@ -87,7 +88,7 @@ void SummaryPanel::ShowHoistSummary()
     if (!table) return;
 
     std::map<std::string, int> hoistCounts;
-    const auto& supports = ConfigManager::Get().GetScene().supports;
+    const auto& supports = GetDefaultGuiConfigServices().LegacyConfigManager().GetScene().supports;
     for (const auto& [uuid, support] : supports) {
         std::string type = support.function.empty() ? "Hoist" : support.function;
         hoistCounts[type]++;
@@ -100,7 +101,7 @@ void SummaryPanel::ShowHoistSummary()
 void SummaryPanel::ShowSceneObjectSummary()
 {
     std::map<std::string,int> counts;
-    const auto& objs = ConfigManager::Get().GetScene().sceneObjects;
+    const auto& objs = GetDefaultGuiConfigServices().LegacyConfigManager().GetScene().sceneObjects;
     for (const auto& [uuid, obj] : objs)
         counts[obj.name]++;
     std::vector<std::pair<std::string,int>> items(counts.begin(), counts.end());

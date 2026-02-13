@@ -43,6 +43,7 @@
 #include "addfixturedialog.h"
 #include "autopatcher.h"
 #include "configmanager.h"
+#include "guiconfigservices.h"
 #include "consolepanel.h"
 #include "credentialstore.h"
 #include "dictionaryeditdialog.h"
@@ -405,8 +406,8 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
     savedPass = creds->password;
   } else {
     std::string savedPassEnc =
-        ConfigManager::Get().GetValue("gdtf_password").value_or("");
-    savedUser = ConfigManager::Get().GetValue("gdtf_username").value_or("");
+        GetDefaultGuiConfigServices().LegacyConfigManager().GetValue("gdtf_password").value_or("");
+    savedUser = GetDefaultGuiConfigServices().LegacyConfigManager().GetValue("gdtf_username").value_or("");
     savedPass = SimpleCrypt::Decode(savedPassEnc);
   }
 
@@ -416,15 +417,15 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
   wxString username =
       wxString::FromUTF8(loginDlg.GetUsername()).Trim(true).Trim(false);
   wxString password = wxString::FromUTF8(loginDlg.GetPassword());
-  ConfigManager::Get().SetValue("gdtf_username",
+  GetDefaultGuiConfigServices().LegacyConfigManager().SetValue("gdtf_username",
                                 std::string(username.mb_str()));
-  ConfigManager::Get().SetValue(
+  GetDefaultGuiConfigServices().LegacyConfigManager().SetValue(
       "gdtf_password", SimpleCrypt::Encode(std::string(password.mb_str())));
   CredentialStore::Save(
       {std::string(username.mb_str()), std::string(password.mb_str())});
 
   if (!currentProjectPath.empty())
-    ConfigManager::Get().SaveProject(currentProjectPath);
+    GetDefaultGuiConfigServices().LegacyConfigManager().SaveProject(currentProjectPath);
 
   wxString cookieFileWx = wxFileName::GetTempDir() + "/gdtf_session.txt";
   std::string cookieFile = std::string(cookieFileWx.mb_str());
@@ -463,7 +464,7 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
     consolePanel->AppendMessage(
         wxString::Format("Retrieved list size: %zu bytes", listData.size()));
 
-  ConfigManager::Get().SetValue("gdtf_fixture_list", listData);
+  GetDefaultGuiConfigServices().LegacyConfigManager().SetValue("gdtf_fixture_list", listData);
 
   // open search dialog
   GdtfSearchDialog searchDlg(this, listData);
@@ -508,14 +509,14 @@ void MainWindow::OnEditDictionaries(wxCommandEvent &WXUNUSED(event)) {
 }
 
 void MainWindow::OnAutoPatch(wxCommandEvent &WXUNUSED(event)) {
-  ConfigManager &cfg = ConfigManager::Get();
+  ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
   cfg.PushUndoState("auto patch");
   AutoPatcher::AutoPatch(cfg.GetScene());
   RefreshAfterSceneChange();
 }
 
 void MainWindow::OnAutoColor(wxCommandEvent &WXUNUSED(event)) {
-  ConfigManager &cfg = ConfigManager::Get();
+  ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
   cfg.PushUndoState("auto color");
   auto &scene = cfg.GetScene();
   std::mt19937 rng(std::random_device{}());
@@ -591,7 +592,7 @@ void MainWindow::OnAutoColor(wxCommandEvent &WXUNUSED(event)) {
 }
 
 void MainWindow::OnConvertToHoist(wxCommandEvent &WXUNUSED(event)) {
-  ConfigManager &cfg = ConfigManager::Get();
+  ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
   const auto selected = cfg.GetSelectedFixtures();
   if (selected.empty()) {
     wxMessageBox("Please select fixtures to convert first.", "Convert to Hoist",
@@ -831,12 +832,12 @@ void MainWindow::OnSelectObjects(wxCommandEvent &WXUNUSED(event)) {
 void MainWindow::OnPreferences(wxCommandEvent &WXUNUSED(event)) {
   PreferencesDialog dlg(this);
   if (dlg.ShowModal() == wxID_OK) {
-    ConfigManager::Get().SaveUserConfig();
+    GetDefaultGuiConfigServices().LegacyConfigManager().SaveUserConfig();
   }
 }
 
 void MainWindow::OnUndo(wxCommandEvent &WXUNUSED(event)) {
-  ConfigManager &cfg = ConfigManager::Get();
+  ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
   if (!cfg.CanUndo())
     return;
   std::string action = cfg.Undo();
@@ -876,7 +877,7 @@ void MainWindow::OnUndo(wxCommandEvent &WXUNUSED(event)) {
 }
 
 void MainWindow::OnRedo(wxCommandEvent &WXUNUSED(event)) {
-  ConfigManager &cfg = ConfigManager::Get();
+  ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
   if (!cfg.CanRedo())
     return;
   std::string action = cfg.Redo();
@@ -916,7 +917,7 @@ void MainWindow::OnRedo(wxCommandEvent &WXUNUSED(event)) {
 }
 
 void MainWindow::OnAddFixture(wxCommandEvent &WXUNUSED(event)) {
-  ConfigManager &cfg = ConfigManager::Get();
+  ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
   auto &scene = cfg.GetScene();
 
   std::string gdtfPath;
@@ -1050,7 +1051,7 @@ void MainWindow::OnAddFixture(wxCommandEvent &WXUNUSED(event)) {
 }
 
 void MainWindow::OnAddTruss(wxCommandEvent &WXUNUSED(event)) {
-  ConfigManager &cfg = ConfigManager::Get();
+  ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
   auto &scene = cfg.GetScene();
 
   std::string path;
@@ -1178,7 +1179,7 @@ void MainWindow::OnAddTruss(wxCommandEvent &WXUNUSED(event)) {
 }
 
 void MainWindow::OnAddSceneObject(wxCommandEvent &WXUNUSED(event)) {
-  ConfigManager &cfg = ConfigManager::Get();
+  ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
   auto &scene = cfg.GetScene();
 
   std::string path;
