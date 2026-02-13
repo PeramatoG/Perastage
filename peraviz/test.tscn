@@ -4,3 +4,13 @@
 
 [node name="PeravizTest" type="Node"]
 script = ExtResource("1_test")
+
+[node name="HUD" type="CanvasLayer" parent="."]
+
+[node name="PingLabel" type="Label" parent="HUD"]
+offset_left = 10.0
+offset_top = 10.0
+offset_right = 510.0
+offset_bottom = 48.0
+theme_override_font_sizes/font_size = 24
+text = "Waiting..."
