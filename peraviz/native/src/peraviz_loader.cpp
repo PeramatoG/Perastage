@@ -24,7 +24,8 @@ Array PeravizLoader::load_mvr(const String &path) const {
 
     for (int i = 0; i < 3 && i < static_cast<int>(model.instances.size()); ++i) {
         const auto &inst = model.instances[static_cast<size_t>(i)];
-        UtilityFunctions::print("[PeravizNative] sample[", i, "] ", inst.type, " ", inst.id,
+        UtilityFunctions::print("[PeravizNative] sample[", i, "] ", String(inst.type.c_str()),
+                                " ", String(inst.id.c_str()),
                                 " pos=", inst.transform.position.x, ",",
                                 inst.transform.position.y, ",", inst.transform.position.z);
     }
