@@ -48,6 +48,11 @@ private:
 
 Point Apply(const Transform &t, double x, double y);
 Point MapWithMapping(double x, double y, const Mapping &mapping);
+Point MapPointWithTransform(double x, double y, const Transform &current,
+                            const Mapping &mapping);
+Transform2D TransformFromCanvas(const CanvasTransform &transform);
+SymbolBounds ComputeSymbolBounds(const std::vector<CanvasCommand> &commands);
+
 void AppendLine(std::ostringstream &out, GraphicsStateCache &cache, const FloatFormatter &fmt,
                 const Point &a, const Point &b, const CanvasStroke &stroke);
 void AppendPolyline(std::ostringstream &out, GraphicsStateCache &cache, const FloatFormatter &fmt,
