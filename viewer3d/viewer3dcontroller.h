@@ -133,6 +133,22 @@ private:
   struct Impl;
   std::unique_ptr<Impl> m_impl;
 
+  // Legacy private aliases kept for friend render passes that still access
+  // controller internals directly. They reference Impl-owned state so there is
+  // a single source of truth while preserving decoupled heavy storage.
+  ResourceSyncState &m_resourceSyncState;
+  std::unordered_map<std::string, BoundingBox> &m_fixtureBounds;
+  std::unordered_map<std::string, BoundingBox> &m_trussBounds;
+  std::unordered_map<std::string, BoundingBox> &m_objectBounds;
+  std::string &m_highlightUuid;
+  std::unordered_set<std::string> &m_selectedUuids;
+  ICanvas2D *&m_captureCanvas;
+  Viewer2DView &m_captureView;
+  bool &m_captureIncludeGrid;
+  bool &m_captureOnly;
+  bool &m_captureUseSymbols;
+  SymbolCache &m_bottomSymbolCache;
+
   const VisibleSet &PrepareRenderFrame(const RenderFrameContext &context,
                                        ViewFrustumSnapshot &frustum);
   void RenderOpaqueFrame(const RenderFrameContext &context,

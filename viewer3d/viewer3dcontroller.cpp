@@ -593,7 +593,19 @@ void Viewer3DController::RecordText(float x, float y, const std::string &text,
 }
 
 Viewer3DController::Viewer3DController()
-    : m_impl(std::make_unique<Impl>()) {
+    : m_impl(std::make_unique<Impl>()),
+      m_resourceSyncState(m_impl->resourceSyncState),
+      m_fixtureBounds(m_impl->fixtureBounds),
+      m_trussBounds(m_impl->trussBounds),
+      m_objectBounds(m_impl->objectBounds),
+      m_highlightUuid(m_impl->highlightUuid),
+      m_selectedUuids(m_impl->selectedUuids),
+      m_captureCanvas(m_impl->captureCanvas),
+      m_captureView(m_impl->captureView),
+      m_captureIncludeGrid(m_impl->captureIncludeGrid),
+      m_captureOnly(m_impl->captureOnly),
+      m_captureUseSymbols(m_impl->captureUseSymbols),
+      m_bottomSymbolCache(m_impl->bottomSymbolCache) {
   m_impl->sceneRenderer = std::make_unique<SceneRenderer>(*this);
   m_impl->visibilitySystem = std::make_unique<VisibilitySystem>(*this);
   m_impl->selectionSystem = std::make_unique<SelectionSystem>(*this);
