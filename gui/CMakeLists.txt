@@ -32,6 +32,8 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/legendutils.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/logindialog.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mainwindow.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/mainwindow/controllers/mainwindow_io_controller.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/mainwindow/controllers/mainwindow_view_controller.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mainwindow_io.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mainwindow_layout.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mainwindow_menu.cpp
