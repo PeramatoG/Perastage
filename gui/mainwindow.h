@@ -210,7 +210,6 @@ private:
   std::unique_ptr<wxBusyCursor> layoutRenderCursor;
 
   friend class MainWindowIoController;
-class IGuiConfigServices;
   friend class MainWindowLayoutController;
   friend class MainWindowPrintController;
   friend class MainWindowViewController;

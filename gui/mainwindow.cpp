@@ -236,11 +236,7 @@ EVT_COMMAND(wxID_ANY, EVT_LAYOUT_VIEW_EDIT, MainWindow::OnLayoutViewEdit)
 EVT_COMMAND(wxID_ANY, EVT_LAYOUT_RENDER_READY, MainWindow::OnLayoutRenderReady)
 wxEND_EVENT_TABLE()
 
-                                                                    MainWindow::
-                                                                        MainWindow(
-                                                                            const wxString
-                                                                                &title,
-                                                                            IGuiConfigServices *services)
+MainWindow::MainWindow(const wxString &title, IGuiConfigServices *services)
     : wxFrame(nullptr, wxID_ANY, title, wxDefaultPosition, wxSize(1600, 950)),
       guiConfigServices(services ? services : &GetDefaultGuiConfigServices()) {
   SetInstance(this);
