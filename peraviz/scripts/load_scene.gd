@@ -31,7 +31,8 @@ func _create_proxy(data: Dictionary) -> void:
 
 	var mesh_instance := MeshInstance3D.new()
 	if is_fixture:
-		var cone := ConeMesh.new()
+		var cone := CylinderMesh.new()
+		cone.top_radius = 0.0
 		cone.bottom_radius = 0.15
 		cone.height = 0.4
 		mesh_instance.mesh = cone

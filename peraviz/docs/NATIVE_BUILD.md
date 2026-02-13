@@ -71,4 +71,4 @@ Each array element is a `Dictionary` with:
 - `rot: Vector3` (degrees)
 - `scale: Vector3`
 
-The script `res://scripts/load_scene.gd` consumes this data to instantiate proxy meshes (`ConeMesh` / `BoxMesh`) in the test scene.
+The script `res://scripts/load_scene.gd` consumes this data to instantiate proxy meshes (`CylinderMesh` configured as a cone / `BoxMesh`) in the test scene.
