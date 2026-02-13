@@ -10,6 +10,12 @@ find_package(tinyxml2 CONFIG REQUIRED)
 
 enable_testing()
 
+find_program(BASH_EXECUTABLE bash)
+if(BASH_EXECUTABLE)
+    add_test(NAME DocsPerastageTreeModules
+             COMMAND ${BASH_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/check_perastage_tree_modules.sh)
+endif()
+
 include_directories(
     .
     ../core
