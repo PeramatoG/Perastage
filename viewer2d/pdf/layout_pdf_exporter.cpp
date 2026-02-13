@@ -1030,10 +1030,7 @@ Viewer2DExportResult ExportLayoutToPdf(
   boldFont.baseName = "PerastageSansBold";
 
   auto loadFont = [&](PdfFontDefinition &font, bool bold) {
-    std::filesystem::path path = FindFontPath(bold);
-    if (path.empty())
-      return false;
-    if (!LoadTtfFontMetrics(path, font.metrics))
+    if (!LoadPdfFontMetrics(font, bold))
       return false;
     return AppendEmbeddedFontObjects(objects, font);
   };
