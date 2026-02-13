@@ -18,7 +18,7 @@ include_directories(
     ../models
     ../mvr
     ../gui
-    ../external
+    ../third_party
     ../viewer2d
     ../viewer2d/pdf
     ../viewer3d
@@ -110,7 +110,7 @@ add_executable(save_load_roundtrip_test save_load_roundtrip_test.cpp
                ../models/layer.cpp
                ${LAYOUT_SOURCES})
 target_include_directories(save_load_roundtrip_test PRIVATE
-                           . ../core ../models ../mvr ../gui ../external)
+                           . ../core ../models ../mvr ../gui ../third_party)
 target_link_libraries(save_load_roundtrip_test PRIVATE
                       ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
 add_test(NAME SaveLoadRoundtrip COMMAND save_load_roundtrip_test)
@@ -135,7 +135,7 @@ add_executable(mvr_dmx_address_test mvr_dmx_address_test.cpp
                ../models/layer.cpp
                ${LAYOUT_SOURCES})
 target_include_directories(mvr_dmx_address_test PRIVATE
-                           . ../core ../models ../mvr ../gui ../external)
+                           . ../core ../models ../mvr ../gui ../third_party)
 target_link_libraries(mvr_dmx_address_test PRIVATE
                       ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
 add_test(NAME MvrDmxAddressConversion COMMAND mvr_dmx_address_test)
@@ -160,7 +160,7 @@ add_executable(mvr_exporter_compliance_test mvr_exporter_compliance_test.cpp
                ../models/layer.cpp
                ${LAYOUT_SOURCES})
 target_include_directories(mvr_exporter_compliance_test PRIVATE
-                           . ../core ../models ../mvr ../gui ../external)
+                           . ../core ../models ../mvr ../gui ../third_party)
 target_link_libraries(mvr_exporter_compliance_test PRIVATE
                       ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
 add_test(NAME MvrExporterCompliance COMMAND mvr_exporter_compliance_test)
@@ -190,7 +190,7 @@ add_executable(rider_save_roundtrip_test rider_save_roundtrip_test.cpp
                ../models/layer.cpp
                ${LAYOUT_SOURCES})
 target_include_directories(rider_save_roundtrip_test PRIVATE
-                           . ../core ../models ../mvr ../gui ../external)
+                           . ../core ../models ../mvr ../gui ../third_party)
 target_link_libraries(rider_save_roundtrip_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
 add_test(NAME RiderSaveRoundtrip COMMAND rider_save_roundtrip_test
          ${CMAKE_CURRENT_SOURCE_DIR}/data/rider_fixtureid_basic.txt)
@@ -213,7 +213,7 @@ add_executable(riderimporter_fixtureid_test rider_import_fixtureid_test.cpp
                ../models/layer.cpp
                ${LAYOUT_SOURCES})
 target_include_directories(riderimporter_fixtureid_test PRIVATE
-                           . ../core ../models ../mvr ../gui ../external)
+                           . ../core ../models ../mvr ../gui ../third_party)
 target_link_libraries(riderimporter_fixtureid_test PRIVATE ${wxWidgets_LIBRARIES})
 add_test(NAME RiderImporterFixtureIds COMMAND riderimporter_fixtureid_test
          ${CMAKE_CURRENT_SOURCE_DIR}/data/rider_fixtureid_basic.txt
@@ -237,7 +237,7 @@ add_executable(rider_import_order_test rider_import_order_test.cpp
                ../models/layer.cpp
                ${LAYOUT_SOURCES})
 target_include_directories(rider_import_order_test PRIVATE
-                           . ../core ../models ../mvr ../gui ../external)
+                           . ../core ../models ../mvr ../gui ../third_party)
 target_link_libraries(rider_import_order_test PRIVATE ${wxWidgets_LIBRARIES})
 add_test(NAME RiderImportOrder COMMAND rider_import_order_test
          ${CMAKE_CURRENT_SOURCE_DIR}/data/rider_fixture_order.txt)
@@ -260,7 +260,7 @@ add_executable(rider_autopatch_test rider_autopatch_test.cpp
                ../models/layer.cpp
                ${LAYOUT_SOURCES})
 target_include_directories(rider_autopatch_test PRIVATE
-                           . ../core ../models ../mvr ../gui ../external)
+                           . ../core ../models ../mvr ../gui ../third_party)
 target_link_libraries(rider_autopatch_test PRIVATE ${wxWidgets_LIBRARIES})
 add_test(NAME RiderAutoPatch COMMAND rider_autopatch_test
          ${CMAKE_CURRENT_SOURCE_DIR}/data/rider_fixtureid_basic.txt)
@@ -283,7 +283,7 @@ add_executable(rider_layer_mode_test rider_layer_mode_test.cpp
                ../models/layer.cpp
                ${LAYOUT_SOURCES})
 target_include_directories(rider_layer_mode_test PRIVATE
-                           . ../core ../models ../mvr ../gui ../external)
+                           . ../core ../models ../mvr ../gui ../third_party)
 target_link_libraries(rider_layer_mode_test PRIVATE ${wxWidgets_LIBRARIES})
 add_test(NAME RiderLayerMode COMMAND rider_layer_mode_test
          ${CMAKE_CURRENT_SOURCE_DIR}/data/rider_layer_mode.txt)
@@ -306,7 +306,7 @@ add_executable(rider_import_benchmark rider_import_benchmark.cpp
                ../models/layer.cpp
                ${LAYOUT_SOURCES})
 target_include_directories(rider_import_benchmark PRIVATE
-                           . ../core ../models ../mvr ../gui ../external)
+                           . ../core ../models ../mvr ../gui ../third_party)
 target_link_libraries(rider_import_benchmark PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
 add_test(NAME RiderImportBenchmark COMMAND rider_import_benchmark
          ${CMAKE_CURRENT_SOURCE_DIR}/data/rider_large.txt 1)
@@ -320,7 +320,7 @@ add_executable(gdtfloader_primitive_test gdtfloader_primitive_test.cpp
                ../viewer3d/meshprimitives.cpp
                consolepanel_stub.cpp)
 target_include_directories(gdtfloader_primitive_test PRIVATE
-                           . ../viewer3d ../models ../gui ../external)
+                           . ../viewer3d ../models ../gui ../third_party)
 target_link_libraries(gdtfloader_primitive_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
 add_test(NAME GdtfLoaderPrimitiveFallback COMMAND gdtfloader_primitive_test)
 set_library_env(GdtfLoaderPrimitiveFallback)
@@ -329,7 +329,7 @@ set_library_env(GdtfLoaderPrimitiveFallback)
 add_executable(user_preferences_store_test
                user_preferences_store_test.cpp
                ../core/configservices.cpp)
-target_include_directories(user_preferences_store_test PRIVATE ../core ../external ../models)
+target_include_directories(user_preferences_store_test PRIVATE ../core ../third_party ../models)
 target_link_libraries(user_preferences_store_test PRIVATE ${wxWidgets_LIBRARIES})
 add_test(NAME UserPreferencesStore COMMAND user_preferences_store_test)
 
@@ -341,14 +341,14 @@ add_executable(project_session_test
                ../models/truss.cpp
                ../models/sceneobject.cpp
                ../models/layer.cpp)
-target_include_directories(project_session_test PRIVATE ../core ../models ../external)
+target_include_directories(project_session_test PRIVATE ../core ../models ../third_party)
 target_link_libraries(project_session_test PRIVATE ${wxWidgets_LIBRARIES})
 add_test(NAME ProjectSession COMMAND project_session_test)
 
 add_executable(selection_state_test
                selection_state_test.cpp
                ../core/configservices.cpp)
-target_include_directories(selection_state_test PRIVATE ../core ../external ../models)
+target_include_directories(selection_state_test PRIVATE ../core ../third_party ../models)
 target_link_libraries(selection_state_test PRIVATE ${wxWidgets_LIBRARIES})
 add_test(NAME SelectionState COMMAND selection_state_test)
 
@@ -360,7 +360,7 @@ add_executable(history_manager_test
                ../models/truss.cpp
                ../models/sceneobject.cpp
                ../models/layer.cpp)
-target_include_directories(history_manager_test PRIVATE ../core ../models ../external)
+target_include_directories(history_manager_test PRIVATE ../core ../models ../third_party)
 target_link_libraries(history_manager_test PRIVATE ${wxWidgets_LIBRARIES})
 add_test(NAME HistoryManager COMMAND history_manager_test)
 
@@ -372,7 +372,7 @@ add_executable(layer_visibility_state_test
                ../models/truss.cpp
                ../models/sceneobject.cpp
                ../models/layer.cpp)
-target_include_directories(layer_visibility_state_test PRIVATE ../core ../models ../external)
+target_include_directories(layer_visibility_state_test PRIVATE ../core ../models ../third_party)
 target_link_libraries(layer_visibility_state_test PRIVATE ${wxWidgets_LIBRARIES})
 add_test(NAME LayerVisibilityState COMMAND layer_visibility_state_test)
 
@@ -380,6 +380,6 @@ add_test(NAME LayerVisibilityState COMMAND layer_visibility_state_test)
 add_executable(project_session_io_test
                project_session_io_test.cpp
                ../core/configservices.cpp)
-target_include_directories(project_session_io_test PRIVATE ../core ../external ../models)
+target_include_directories(project_session_io_test PRIVATE ../core ../third_party ../models)
 target_link_libraries(project_session_io_test PRIVATE ${wxWidgets_LIBRARIES})
 add_test(NAME ProjectSessionIO COMMAND project_session_io_test)

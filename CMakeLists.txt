@@ -106,54 +106,24 @@ else()
 endif()
 find_package(ZLIB REQUIRED)
 
-# Gather source files
-file(GLOB_RECURSE SRC_FILES CONFIGURE_DEPENDS
-    ${CMAKE_SOURCE_DIR}/main.cpp
-    # MainWindow modules split across gui/mainwindow_*.cpp (layout, menu, io, print).
-    ${CMAKE_SOURCE_DIR}/gui/*.cpp
-    ${CMAKE_SOURCE_DIR}/models/*.cpp
-    ${CMAKE_SOURCE_DIR}/core/*.cpp
-    ${CMAKE_SOURCE_DIR}/core/layouts/*.cpp
-    ${CMAKE_SOURCE_DIR}/core/print/*.cpp
-    ${CMAKE_SOURCE_DIR}/mvr/*.cpp
-    ${CMAKE_SOURCE_DIR}/viewer3d/*.cpp
-    ${CMAKE_SOURCE_DIR}/viewer3d/culling/*.cpp
-    ${CMAKE_SOURCE_DIR}/viewer3d/labels/*.cpp
-    ${CMAKE_SOURCE_DIR}/viewer3d/picking/*.cpp
-    ${CMAKE_SOURCE_DIR}/viewer3d/render/*.cpp
-    ${CMAKE_SOURCE_DIR}/viewer3d/resources/*.cpp
-    ${CMAKE_SOURCE_DIR}/viewer2d/*.cpp
-    ${CMAKE_SOURCE_DIR}/viewer2d/pdf/*.cpp
+add_executable(${PROJECT_NAME} main.cpp
+    models/fixture.cpp
+    models/layer.cpp
+    models/mvrscene.cpp
+    models/sceneobject.cpp
+    models/truss.cpp
+    mvr/mvrimporter.cpp
+    mvr/mvrexporter.cpp
 )
 
-# Explicitly ensure markdown conversion source is included
-list(APPEND SRC_FILES ${CMAKE_SOURCE_DIR}/core/markdown.cpp)
-list(APPEND SRC_FILES ${CMAKE_SOURCE_DIR}/core/uuidutils.cpp)
+add_subdirectory(core)
+add_subdirectory(gui)
+add_subdirectory(viewer2d)
+add_subdirectory(viewer3d)
 
-# On Windows, include application icon resources
 if(WIN32)
-    list(APPEND SRC_FILES ${CMAKE_SOURCE_DIR}/resources/Perastage.rc)
+    target_sources(${PROJECT_NAME} PRIVATE resources/Perastage.rc)
 endif()
-
-# Optional: gather headers for IDEs
-file(GLOB_RECURSE HEADER_FILES
-    ${CMAKE_SOURCE_DIR}/gui/*.h
-    ${CMAKE_SOURCE_DIR}/models/*.h
-    ${CMAKE_SOURCE_DIR}/core/*.h
-    ${CMAKE_SOURCE_DIR}/core/layouts/*.h
-    ${CMAKE_SOURCE_DIR}/core/print/*.h
-    ${CMAKE_SOURCE_DIR}/mvr/*.h
-    ${CMAKE_SOURCE_DIR}/viewer3d/*.h
-    ${CMAKE_SOURCE_DIR}/viewer3d/culling/*.h
-    ${CMAKE_SOURCE_DIR}/viewer3d/labels/*.h
-    ${CMAKE_SOURCE_DIR}/viewer3d/picking/*.h
-    ${CMAKE_SOURCE_DIR}/viewer3d/render/*.h
-    ${CMAKE_SOURCE_DIR}/viewer3d/resources/*.h
-    ${CMAKE_SOURCE_DIR}/viewer2d/*.h
-    ${CMAKE_SOURCE_DIR}/viewer2d/pdf/*.h
-)
-
-add_executable(${PROJECT_NAME} ${SRC_FILES} ${HEADER_FILES})
 
 # Mark as GUI application (no console)
 set_target_properties(${PROJECT_NAME} PROPERTIES WIN32_EXECUTABLE TRUE)
@@ -170,7 +140,7 @@ target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_SOURCE_DIR}/core/layouts
     ${CMAKE_SOURCE_DIR}/core/print
     ${CMAKE_SOURCE_DIR}/mvr
-    ${CMAKE_SOURCE_DIR}/external
+    ${CMAKE_SOURCE_DIR}/third_party
     ${CMAKE_SOURCE_DIR}/viewer3d
     ${CMAKE_SOURCE_DIR}/viewer3d/interfaces
     ${CMAKE_SOURCE_DIR}/viewer3d/resources
@@ -403,7 +373,7 @@ add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/licenses $<TARGET_FILE_DIR:${PROJECT_NAME}>/licenses
 )
 
-set(LIBRARY_SUBDIRS fixtures trusses misc "scene objects" projects)
+set(LIBRARY_SUBDIRS fixtures trusses misc scene_objects projects)
 foreach(subdir IN LISTS LIBRARY_SUBDIRS)
     add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:${PROJECT_NAME}>/library/${subdir}"

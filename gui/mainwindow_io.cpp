@@ -499,7 +499,7 @@ void MainWindow::OnExportSceneObject(wxCommandEvent &WXUNUSED(event)) {
   wxString defName =
       wxString::FromUTF8(sel) + wxString(src.extension().string());
   wxString objDir =
-      wxString::FromUTF8(ProjectUtils::GetDefaultLibraryPath("scene objects"));
+      wxString::FromUTF8(ProjectUtils::GetDefaultLibraryPath("scene_objects"));
   wxFileDialog saveDlg(this, "Save Object", objDir, defName,
                        wxString("*") + wxString(src.extension().string()),
                        wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
