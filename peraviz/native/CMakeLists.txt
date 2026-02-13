@@ -6,9 +6,18 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
-set(PERAVIZ_GODOT_PROJECT_DIR "${CMAKE_SOURCE_DIR}/peraviz" CACHE PATH "Path to the Peraviz Godot project")
 set(GODOT_CPP_DIR "" CACHE PATH "Path to a local godot-cpp checkout")
 option(PERAVIZ_FETCH_GODOT_CPP "Fetch godot-cpp automatically when GODOT_CPP_DIR is not provided" ON)
+
+if(EXISTS "${CMAKE_SOURCE_DIR}/models/matrixutils.h")
+    set(PERASTAGE_ROOT_DIR "${CMAKE_SOURCE_DIR}")
+elseif(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../../models/matrixutils.h")
+    get_filename_component(PERASTAGE_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../.." ABSOLUTE)
+else()
+    message(FATAL_ERROR "Cannot locate Perastage root (models/matrixutils.h not found).")
+endif()
+
+set(PERAVIZ_GODOT_PROJECT_DIR "${PERASTAGE_ROOT_DIR}/peraviz" CACHE PATH "Path to the Peraviz Godot project")
 
 if(NOT TARGET godot-cpp)
     if(GODOT_CPP_DIR)
@@ -31,14 +40,6 @@ if(NOT TARGET godot-cpp)
     endif()
 endif()
 
-
-if(EXISTS "${CMAKE_SOURCE_DIR}/models/matrixutils.h")
-    set(PERASTAGE_ROOT_DIR "${CMAKE_SOURCE_DIR}")
-elseif(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../../models/matrixutils.h")
-    get_filename_component(PERASTAGE_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../.." ABSOLUTE)
-else()
-    message(FATAL_ERROR "Cannot locate Perastage root (models/matrixutils.h not found).")
-endif()
 
 if(NOT tinyxml2_FOUND)
     find_package(tinyxml2 CONFIG QUIET)
