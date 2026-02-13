@@ -517,7 +517,7 @@ Viewer2DExportResult ExportViewer2DToPdf(
   }
 
   Mapping symbolMapping{};
-  symbolMapping.scale = scale;
+  symbolMapping.scale = 1.0;
   symbolMapping.flipY = false;
 
   auto appendSymbolObject = [&](const std::string &name,
@@ -539,10 +539,10 @@ Viewer2DExportResult ExportViewer2DToPdf(
     }
     const std::string &symbolStream =
         compressed ? compressedSymbol : symbolContent;
-    double minX = bounds.min.x * scale;
-    double minY = bounds.min.y * scale;
-    double maxX = bounds.max.x * scale;
-    double maxY = bounds.max.y * scale;
+    double minX = bounds.min.x * symbolMapping.scale;
+    double minY = bounds.min.y * symbolMapping.scale;
+    double maxX = bounds.max.x * symbolMapping.scale;
+    double maxY = bounds.max.y * symbolMapping.scale;
     if (minX > maxX)
       std::swap(minX, maxX);
     if (minY > maxY)
@@ -1064,7 +1064,7 @@ Viewer2DExportResult ExportLayoutToPdf(
       xObjectNameIds[entry.second] =
           appendSymbolObject(entry.second, defIt->second.commands,
                              defIt->second.metadata, defIt->second.sources,
-                             group.mapping.scale, group.strokeScale, bounds);
+                             1.0, group.strokeScale, bounds);
     }
 
     if (symbolSnapshot) {
@@ -1077,7 +1077,7 @@ Viewer2DExportResult ExportLayoutToPdf(
                                defIt->second.localCommands.commands,
                                defIt->second.localCommands.metadata,
                                defIt->second.localCommands.sources,
-                               group.mapping.scale, group.strokeScale,
+                               1.0, group.strokeScale,
                                defIt->second.bounds);
       }
     }

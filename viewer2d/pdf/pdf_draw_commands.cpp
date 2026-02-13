@@ -340,12 +340,15 @@ void AppendSymbolInstance(std::ostringstream &out, const FloatFormatter &fmt,
                           const Mapping &mapping,
                           const Transform2D &transform,
                           const std::string &name) {
+  const double linearScale = mapping.scale;
   double translateX = mapping.scale * transform.tx +
                       mapping.offsetX - mapping.minX * mapping.scale;
   double translateY = mapping.scale * transform.ty +
                       mapping.offsetY - mapping.minY * mapping.scale;
-  out << "q\n" << fmt.Format(transform.a) << ' ' << fmt.Format(transform.b)
-      << ' ' << fmt.Format(transform.c) << ' ' << fmt.Format(transform.d)
+  out << "q\n" << fmt.Format(transform.a * linearScale) << ' '
+      << fmt.Format(transform.b * linearScale) << ' '
+      << fmt.Format(transform.c * linearScale) << ' '
+      << fmt.Format(transform.d * linearScale)
       << ' ' << fmt.Format(translateX) << ' ' << fmt.Format(translateY)
       << " cm\n/" << name << " Do\nQ\n";
 }

@@ -146,6 +146,15 @@ void OpaqueObjectPass::Render(
                 return TransformPoint(partCaptureMatrix, p);
               };
 
+              Matrix localCaptureMatrix = part.localTransform;
+              localCaptureMatrix.o[0] *= RENDER_SCALE;
+              localCaptureMatrix.o[1] *= RENDER_SCALE;
+              localCaptureMatrix.o[2] *= RENDER_SCALE;
+              auto localPartCapture =
+                  [localCaptureMatrix](const std::array<float, 3> &p) {
+                    return TransformPoint(localCaptureMatrix, p);
+                  };
+
               float localMatrix[16];
               MatrixToArray(part.localTransform, localMatrix);
               glPushMatrix();
@@ -153,6 +162,8 @@ void OpaqueObjectPass::Render(
               auto partCaptureTransform = captureTransformFn;
               if (captureTransformFn)
                 partCaptureTransform = partCapture;
+              else
+                partCaptureTransform = localPartCapture;
 
               controller.DrawMeshWithOutline(*part.mesh, r, g, b, RENDER_SCALE,
                                              isHighlighted, isSelected, cx, cy,
