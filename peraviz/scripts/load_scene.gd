@@ -67,9 +67,16 @@ func _create_scene_node(data: Dictionary) -> Node3D:
 
 	var root := Node3D.new()
 	root.name = "%s_%s" % [item_type, node_name]
-	root.position = data.get("pos", Vector3.ZERO)
-	root.rotation_degrees = data.get("rot", Vector3.ZERO)
-	root.scale = data.get("scale", Vector3.ONE)
+	var position: Vector3 = data.get("pos", Vector3.ZERO)
+	if bool(data.get("has_basis", false)):
+		var basis_x: Vector3 = data.get("basis_x", Vector3.RIGHT)
+		var basis_y: Vector3 = data.get("basis_y", Vector3.UP)
+		var basis_z: Vector3 = data.get("basis_z", Vector3.BACK)
+		root.transform = Transform3D(Basis(basis_x, basis_y, basis_z), position)
+	else:
+		root.position = position
+		root.rotation_degrees = data.get("rot", Vector3.ZERO)
+		root.scale = data.get("scale", Vector3.ONE)
 
 	if is_axis:
 		var pivot := Node3D.new()
@@ -81,13 +88,14 @@ func _create_scene_node(data: Dictionary) -> Node3D:
 		emitter.name = "EmitterMarker"
 		root.add_child(emitter)
 
-	var model_node: Node3D = _build_visual_node(data, is_fixture)
+	var visual_scale_hint: float = _extract_visual_scale_hint(data)
+	var model_node: Node3D = _build_visual_node(data, is_fixture, visual_scale_hint)
 	if model_node != null:
 		root.add_child(model_node)
 
 	return root
 
-func _build_visual_node(data: Dictionary, is_fixture: bool) -> Node3D:
+func _build_visual_node(data: Dictionary, is_fixture: bool, visual_scale_hint: float) -> Node3D:
 	var asset_path: String = str(data.get("asset_path", ""))
 	if not asset_path.is_empty():
 		var loaded: Variant = _load_3d_asset(asset_path)
@@ -95,7 +103,19 @@ func _build_visual_node(data: Dictionary, is_fixture: bool) -> Node3D:
 			return loaded
 		print("[Peraviz] Asset fallback for missing/invalid model: ", asset_path)
 
-	return _create_dummy_mesh(is_fixture)
+	return _create_dummy_mesh(is_fixture, visual_scale_hint)
+
+func _extract_visual_scale_hint(data: Dictionary) -> float:
+	if bool(data.get("has_basis", false)):
+		var basis_x: Vector3 = data.get("basis_x", Vector3.RIGHT)
+		var basis_y: Vector3 = data.get("basis_y", Vector3.UP)
+		var basis_z: Vector3 = data.get("basis_z", Vector3.BACK)
+		var average_basis_length: float = (basis_x.length() + basis_y.length() + basis_z.length()) / 3.0
+		return max(average_basis_length, 0.0001)
+
+	var scale: Vector3 = data.get("scale", Vector3.ONE)
+	var average_scale: float = (abs(scale.x) + abs(scale.y) + abs(scale.z)) / 3.0
+	return max(average_scale, 0.0001)
 
 func _load_3d_asset(asset_path: String) -> Variant:
 	if _asset_cache.has(asset_path):
@@ -112,6 +132,8 @@ func _load_3d_asset(asset_path: String) -> Variant:
 			var generated: Node = gltf.generate_scene(state)
 			if generated is Node3D:
 				loaded_node = generated
+	elif extension == "3ds":
+		loaded_node = _build_3ds_node(asset_path)
 	else:
 		var resource: Resource = load(asset_path)
 		if resource is PackedScene:
@@ -124,17 +146,45 @@ func _load_3d_asset(asset_path: String) -> Variant:
 		return null
 	return loaded_node.duplicate(DUPLICATE_USE_INSTANTIATION)
 
-func _create_dummy_mesh(is_fixture: bool) -> Node3D:
+
+func _build_3ds_node(asset_path: String) -> Node3D:
+	var mesh_data: Dictionary = _loader.load_3ds_mesh_data(asset_path)
+	if not bool(mesh_data.get("ok", false)):
+		return null
+
+	var vertices: PackedVector3Array = mesh_data.get("vertices", PackedVector3Array())
+	var normals: PackedVector3Array = mesh_data.get("normals", PackedVector3Array())
+	var indices: PackedInt32Array = mesh_data.get("indices", PackedInt32Array())
+	if vertices.is_empty() or indices.is_empty():
+		return null
+
+	var arrays: Array = []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = vertices
+	arrays[Mesh.ARRAY_NORMAL] = normals
+	arrays[Mesh.ARRAY_INDEX] = indices
+
+	var array_mesh := ArrayMesh.new()
+	array_mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+
 	var mesh_instance := MeshInstance3D.new()
+	mesh_instance.mesh = array_mesh
+	return mesh_instance
+
+func _create_dummy_mesh(is_fixture: bool, visual_scale_hint: float) -> Node3D:
+	var mesh_instance := MeshInstance3D.new()
+	var world_target_size: float = 0.35
+	var normalized_scale: float = max(visual_scale_hint, 0.0001)
+	var local_size_multiplier: float = world_target_size / normalized_scale
 	if is_fixture:
 		var cone := CylinderMesh.new()
 		cone.top_radius = 0.0
-		cone.bottom_radius = 0.15
-		cone.height = 0.4
+		cone.bottom_radius = 0.15 * local_size_multiplier
+		cone.height = 0.4 * local_size_multiplier
 		mesh_instance.mesh = cone
 	else:
 		var box := BoxMesh.new()
-		box.size = Vector3(0.3, 0.3, 0.3)
+		box.size = Vector3.ONE * (0.3 * local_size_multiplier)
 		mesh_instance.mesh = box
 
 	var material := StandardMaterial3D.new()
@@ -150,9 +200,12 @@ func _clear_scene() -> void:
 	_has_loaded_bounds = false
 
 func _expand_loaded_bounds_from_node(node: Node3D) -> void:
+	if node is MeshInstance3D:
+		_expand_loaded_bounds(node)
+
 	for child in node.get_children():
-		if child is MeshInstance3D:
-			_expand_loaded_bounds(child)
+		if child is Node3D:
+			_expand_loaded_bounds_from_node(child)
 
 func _expand_loaded_bounds(mesh_instance: MeshInstance3D) -> void:
 	var mesh_bounds: AABB = mesh_instance.get_aabb()

@@ -15,6 +15,10 @@ struct SceneTransform {
     Vec3 position;
     Vec3 rotation_degrees;
     Vec3 scale{1.0F, 1.0F, 1.0F};
+    Vec3 basis_x{1.0F, 0.0F, 0.0F};
+    Vec3 basis_y{0.0F, 1.0F, 0.0F};
+    Vec3 basis_z{0.0F, 0.0F, 1.0F};
+    bool has_basis = false;
 };
 
 struct SceneNode {

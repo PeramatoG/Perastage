@@ -1,9 +1,12 @@
 #include "peraviz_loader.h"
 
 #include "mvr_scene_loader.h"
+#include "mesh_3ds_loader.h"
 
 #include <godot_cpp/variant/array.hpp>
 #include <godot_cpp/variant/dictionary.hpp>
+#include <godot_cpp/variant/packed_int32_array.hpp>
+#include <godot_cpp/variant/packed_vector3_array.hpp>
 #include <godot_cpp/variant/utility_functions.hpp>
 #include <godot_cpp/variant/vector3.hpp>
 
@@ -11,6 +14,7 @@ namespace godot {
 
 void PeravizLoader::_bind_methods() {
     ClassDB::bind_method(D_METHOD("load_mvr", "path"), &PeravizLoader::load_mvr);
+    ClassDB::bind_method(D_METHOD("load_3ds_mesh_data", "path"), &PeravizLoader::load_3ds_mesh_data);
 }
 
 Array PeravizLoader::load_mvr(const String &path) const {
@@ -44,8 +48,35 @@ Array PeravizLoader::load_mvr(const String &path) const {
                             node.local_transform.rotation_degrees.z);
         d["scale"] = Vector3(node.local_transform.scale.x, node.local_transform.scale.y,
                               node.local_transform.scale.z);
+        d["basis_x"] = Vector3(node.local_transform.basis_x.x, node.local_transform.basis_x.y,
+                                 node.local_transform.basis_x.z);
+        d["basis_y"] = Vector3(node.local_transform.basis_y.x, node.local_transform.basis_y.y,
+                                 node.local_transform.basis_y.z);
+        d["basis_z"] = Vector3(node.local_transform.basis_z.x, node.local_transform.basis_z.y,
+                                 node.local_transform.basis_z.z);
+        d["has_basis"] = node.local_transform.has_basis;
         out[index++] = d;
     }
+    return out;
+}
+
+Dictionary PeravizLoader::load_3ds_mesh_data(const String &path) const {
+    PackedVector3Array vertices;
+    PackedVector3Array normals;
+    PackedInt32Array indices;
+    String error;
+
+    Dictionary out;
+    const bool ok = peraviz::load_3ds_mesh_data(path, vertices, normals, indices, error);
+    out["ok"] = ok;
+    if (!ok) {
+        out["error"] = error;
+        return out;
+    }
+
+    out["vertices"] = vertices;
+    out["normals"] = normals;
+    out["indices"] = indices;
     return out;
 }
 
