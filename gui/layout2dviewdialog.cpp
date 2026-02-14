@@ -76,6 +76,13 @@ void Layout2DViewDialog::OnShow(wxShowEvent &event) {
   if (event.IsShown() && viewerPanel) {
     viewerPanel->UpdateScene(true);
     viewerPanel->Update();
+    CallAfter([panel = viewerPanel]() {
+      if (!panel)
+        return;
+      panel->UpdateScene(true);
+      panel->Refresh();
+      panel->Update();
+    });
   }
   if (event.IsShown() && layerPanel) {
     layerPanel->ReloadLayers();
