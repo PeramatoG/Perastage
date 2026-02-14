@@ -17,19 +17,26 @@ struct SceneTransform {
     Vec3 scale{1.0F, 1.0F, 1.0F};
 };
 
-struct SceneInstance {
-    std::string id;
+struct SceneNode {
+    std::string node_id;
+    std::string parent_id;
+    std::string name;
     std::string type;
-    SceneTransform transform;
+    std::string asset_path;
+    SceneTransform local_transform;
     bool is_fixture = false;
+    bool is_axis = false;
+    bool is_emitter = false;
 };
 
 struct SceneModel {
-    std::vector<SceneInstance> instances;
+    std::vector<SceneNode> nodes;
     int fixture_count = 0;
     int truss_count = 0;
     int object_count = 0;
     int support_count = 0;
+    int extracted_asset_count = 0;
+    std::string cache_path;
 };
 
 } // namespace peraviz
