@@ -1,6 +1,7 @@
 #include "peraviz_loader.h"
 
 #include "mvr_scene_loader.h"
+#include "mesh_3ds_loader.h"
 
 #include <godot_cpp/variant/array.hpp>
 #include <godot_cpp/variant/dictionary.hpp>
@@ -11,6 +12,7 @@ namespace godot {
 
 void PeravizLoader::_bind_methods() {
     ClassDB::bind_method(D_METHOD("load_mvr", "path"), &PeravizLoader::load_mvr);
+    ClassDB::bind_method(D_METHOD("load_3ds_mesh_data", "path"), &PeravizLoader::load_3ds_mesh_data);
 }
 
 Array PeravizLoader::load_mvr(const String &path) const {
@@ -54,6 +56,10 @@ Array PeravizLoader::load_mvr(const String &path) const {
         out[index++] = d;
     }
     return out;
+}
+
+Dictionary PeravizLoader::load_3ds_mesh_data(const String &path) const {
+    return peraviz::load_3ds_mesh_data(path);
 }
 
 } // namespace godot

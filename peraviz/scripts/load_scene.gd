@@ -132,6 +132,8 @@ func _load_3d_asset(asset_path: String) -> Variant:
 			var generated: Node = gltf.generate_scene(state)
 			if generated is Node3D:
 				loaded_node = generated
+	elif extension == "3ds":
+		loaded_node = _build_3ds_node(asset_path)
 	else:
 		var resource: Resource = load(asset_path)
 		if resource is PackedScene:
@@ -143,6 +145,31 @@ func _load_3d_asset(asset_path: String) -> Variant:
 	if loaded_node == null:
 		return null
 	return loaded_node.duplicate(DUPLICATE_USE_INSTANTIATION)
+
+
+func _build_3ds_node(asset_path: String) -> Node3D:
+	var mesh_data: Dictionary = _loader.load_3ds_mesh_data(asset_path)
+	if not bool(mesh_data.get("ok", false)):
+		return null
+
+	var vertices: PackedVector3Array = mesh_data.get("vertices", PackedVector3Array())
+	var normals: PackedVector3Array = mesh_data.get("normals", PackedVector3Array())
+	var indices: PackedInt32Array = mesh_data.get("indices", PackedInt32Array())
+	if vertices.is_empty() or indices.is_empty():
+		return null
+
+	var arrays: Array = []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = vertices
+	arrays[Mesh.ARRAY_NORMAL] = normals
+	arrays[Mesh.ARRAY_INDEX] = indices
+
+	var array_mesh := ArrayMesh.new()
+	array_mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+
+	var mesh_instance := MeshInstance3D.new()
+	mesh_instance.mesh = array_mesh
+	return mesh_instance
 
 func _create_dummy_mesh(is_fixture: bool, visual_scale_hint: float) -> Node3D:
 	var mesh_instance := MeshInstance3D.new()
