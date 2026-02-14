@@ -377,6 +377,7 @@ void MainWindow::ApplyLayoutPreset(const LayoutViewPreset &preset,
       } else {
         viewer2d::ApplyState(nullptr, nullptr, cfg, *standalone2DState);
       }
+      SyncLayerVisibilityPanels();
       standalone2DState.reset();
     }
   }
@@ -980,6 +981,5 @@ void MainWindow::RestoreLayout2DViewState(int viewId) {
   viewer2d::Viewer2DState state = viewer2d::FromLayoutDefinition(*match);
   state.renderOptions.darkMode = cfg.GetFloat("view2d_dark_mode") != 0.0f;
   viewer2d::ApplyState(activePanel, activeRenderPanel, cfg, state, false);
-  if (layerPanel)
-    layerPanel->ReloadLayers();
+  SyncLayerVisibilityPanels();
 }

@@ -801,6 +801,21 @@ void MainWindow::RefreshAfterSceneChange(bool refreshViewport) {
   }
 }
 
+void MainWindow::SyncLayerVisibilityPanels() {
+  if (layerPanel)
+    layerPanel->ReloadLayers();
+
+  if (viewportPanel) {
+    viewportPanel->UpdateScene();
+    viewportPanel->Refresh();
+  }
+
+  if (viewport2DPanel) {
+    viewport2DPanel->UpdateScene(false);
+    viewport2DPanel->Refresh();
+  }
+}
+
 void MainWindow::OnProjectLoaded(wxCommandEvent &event) {
   bool loaded = event.GetInt() != 0;
   bool clearLastProject = event.GetExtraLong() != 0;
