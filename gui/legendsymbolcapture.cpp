@@ -32,42 +32,25 @@ CaptureLegendSymbolSnapshotWithAllLayers(Viewer2DPanel *capturePanel,
 
   const Viewer2DView previousView = capturePanel->GetView();
 
-  // Always refresh symbol definitions while hidden layers are temporarily
-  // disabled, so legends can include fixture types that were not part of the
-  // last interactive capture.
-  capturePanel->CaptureFrameNow([](CommandBuffer, Viewer2DViewState) {}, true,
-                                false);
+  auto captureView = [&](Viewer2DView view) {
+    capturePanel->SetView(view);
+    capturePanel->CaptureFrameNow([](CommandBuffer, Viewer2DViewState) {}, true,
+                                  false);
+  };
 
-  auto symbols = capturePanel->GetBottomSymbolCacheSnapshot();
-  if (!symbols || symbols->empty() || !requireTopAndFrontViews)
-    return symbols;
-
-  bool hasTop = false;
-  bool hasFront = false;
-  for (const auto &entry : *symbols) {
-    if (entry.second.key.viewKind == SymbolViewKind::Top)
-      hasTop = true;
-    else if (entry.second.key.viewKind == SymbolViewKind::Front)
-      hasFront = true;
-    if (hasTop && hasFront)
-      break;
+  if (requireTopAndFrontViews) {
+    // Capture both required legend views explicitly. A global "has front/top"
+    // check is not enough because one model may have Front while others only
+    // have Top.
+    captureView(Viewer2DView::Top);
+    captureView(Viewer2DView::Front);
+  } else {
+    // Keep a fresh snapshot even when only the current view is needed.
+    captureView(previousView);
   }
 
-  if (!hasTop || !hasFront) {
-    auto captureMissingView = [&](Viewer2DView view) {
-      capturePanel->SetView(view);
-      capturePanel->CaptureFrameNow([](CommandBuffer, Viewer2DViewState) {},
-                                    true, false);
-    };
-    if (!hasTop)
-      captureMissingView(Viewer2DView::Top);
-    if (!hasFront)
-      captureMissingView(Viewer2DView::Front);
-    capturePanel->SetView(previousView);
-    symbols = capturePanel->GetBottomSymbolCacheSnapshot();
-  }
-
-  return symbols;
+  capturePanel->SetView(previousView);
+  return capturePanel->GetBottomSymbolCacheSnapshot();
 }
 } // namespace
 
