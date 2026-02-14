@@ -30,13 +30,15 @@ CaptureLegendSymbolSnapshotWithAllLayers(Viewer2DPanel *capturePanel,
   if (!capturePanel)
     return {};
 
-  auto symbols = capturePanel->GetBottomSymbolCacheSnapshot();
-  if ((!symbols || symbols->empty()) && requireTopAndFrontViews) {
-    capturePanel->CaptureFrameNow([](CommandBuffer, Viewer2DViewState) {}, true,
-                                  false);
-    symbols = capturePanel->GetBottomSymbolCacheSnapshot();
-  }
+  const Viewer2DView previousView = capturePanel->GetView();
 
+  // Always refresh symbol definitions while hidden layers are temporarily
+  // disabled, so legends can include fixture types that were not part of the
+  // last interactive capture.
+  capturePanel->CaptureFrameNow([](CommandBuffer, Viewer2DViewState) {}, true,
+                                false);
+
+  auto symbols = capturePanel->GetBottomSymbolCacheSnapshot();
   if (!symbols || symbols->empty() || !requireTopAndFrontViews)
     return symbols;
 
@@ -52,7 +54,6 @@ CaptureLegendSymbolSnapshotWithAllLayers(Viewer2DPanel *capturePanel,
   }
 
   if (!hasTop || !hasFront) {
-    const Viewer2DView previousView = capturePanel->GetView();
     auto captureMissingView = [&](Viewer2DView view) {
       capturePanel->SetView(view);
       capturePanel->CaptureFrameNow([](CommandBuffer, Viewer2DViewState) {},
