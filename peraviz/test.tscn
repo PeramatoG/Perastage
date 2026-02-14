@@ -3,6 +3,8 @@
 [ext_resource type="Script" path="res://scripts/load_scene.gd" id="1_script"]
 [ext_resource type="Script" path="res://scripts/editor_camera.gd" id="2_camera_script"]
 
+[sub_resource type="PlaneMesh" id="PlaneMesh_ground"]
+
 [node name="Viewer" type="Node3D"]
 script = ExtResource("1_script")
 
@@ -20,7 +22,7 @@ shadow_bias = 0.03
 shadow_normal_bias = 1.0
 
 [node name="Ground" type="MeshInstance3D" parent="."]
-mesh = PlaneMesh.new()
+mesh = SubResource("PlaneMesh_ground")
 transform = Transform3D(12, 0, 0, 0, 1, 0, 0, 12, 0, 0, 0, 0)
 
 [node name="Proxies" type="Node3D" parent="."]
