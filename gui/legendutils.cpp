@@ -18,7 +18,6 @@
 #include "legendutils.h"
 
 #include <algorithm>
-#include <cctype>
 #include <filesystem>
 
 namespace fs = std::filesystem;
@@ -88,27 +87,4 @@ std::string BuildFixtureSymbolKey(const Fixture &fixture,
   if (modelKey.empty())
     modelKey = "unknown";
   return modelKey;
-}
-
-bool AreEquivalentLegendSymbolKeys(const std::string &lhs,
-                                   const std::string &rhs) {
-  if (lhs.empty() || rhs.empty())
-    return lhs == rhs;
-  if (lhs == rhs)
-    return true;
-
-  const fs::path lhsPath(lhs);
-  const fs::path rhsPath(rhs);
-  const std::string lhsFile = lhsPath.filename().string();
-  const std::string rhsFile = rhsPath.filename().string();
-  if (lhsFile.empty() || rhsFile.empty())
-    return false;
-
-  auto lowercase = [](std::string value) {
-    std::transform(value.begin(), value.end(), value.begin(),
-                   [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-    return value;
-  };
-
-  return lowercase(lhsFile) == lowercase(rhsFile);
 }

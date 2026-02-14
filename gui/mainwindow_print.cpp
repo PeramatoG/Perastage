@@ -93,7 +93,7 @@ std::vector<LayoutLegendItem> BuildLayoutLegendItems() {
     if (!symbolKey.empty()) {
       if (agg.symbolKey.empty()) {
         agg.symbolKey = symbolKey;
-      } else if (!AreEquivalentLegendSymbolKeys(agg.symbolKey, symbolKey)) {
+      } else if (agg.symbolKey != symbolKey) {
         agg.mixedSymbols = true;
       }
     }
