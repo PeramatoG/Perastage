@@ -22,6 +22,7 @@
 #include <memory>
 #include <new>
 #include <vector>
+#include <wx/weakref.h>
 
 // Include GLEW or other OpenGL loader first if present
 #ifdef __APPLE__
@@ -155,9 +156,14 @@ LayoutViewerPanel::LayoutViewerPanel(wxWindow *parent)
 }
 
 LayoutViewerPanel::~LayoutViewerPanel() {
+  Unbind(wxEVT_TIMER, &LayoutViewerPanel::OnLoadingTimer, this,
+         kLoadingTimerId);
+  Unbind(wxEVT_TIMER, &LayoutViewerPanel::OnRenderDelayTimer, this,
+         kRenderDelayTimerId);
   ClearCachedTexture();
   ClearLoadingTextTexture();
   loadingTimer_.Stop();
+  renderDelayTimer_.Stop();
   delete glContext_;
 }
 
@@ -213,10 +219,16 @@ void LayoutViewerPanel::SetLayoutDefinition(
 }
 
 void LayoutViewerPanel::NotifyRenderReady() {
-  CallAfter([this]() {
+  wxWeakRef<LayoutViewerPanel> weakThis(this);
+  CallAfter([weakThis]() {
+    if (!weakThis)
+      return;
+    LayoutViewerPanel *panel = weakThis.get();
+    if (!panel)
+      return;
     wxCommandEvent event(EVT_LAYOUT_RENDER_READY);
-    event.SetEventObject(this);
-    wxPostEvent(this, event);
+    event.SetEventObject(panel);
+    wxPostEvent(panel, event);
   });
 }
 
@@ -1938,16 +1950,22 @@ void LayoutViewerPanel::RequestRenderRebuild() {
   if (!loadingTimer_.IsRunning()) {
     loadingTimer_.StartOnce(kLoadingOverlayDelayMs);
   }
-  CallAfter([this]() {
-    isLoading = true;
-    Refresh();
-    Update();
+  wxWeakRef<LayoutViewerPanel> weakThis(this);
+  CallAfter([weakThis]() {
+    if (!weakThis)
+      return;
+    LayoutViewerPanel *panel = weakThis.get();
+    if (!panel)
+      return;
+    panel->isLoading = true;
+    panel->Refresh();
+    panel->Update();
     if (wxTheApp && wxTheApp->IsMainLoopRunning())
       wxTheApp->Yield(true);
-    if (renderDelayTimer_.IsRunning()) {
-      renderDelayTimer_.Stop();
+    if (panel->renderDelayTimer_.IsRunning()) {
+      panel->renderDelayTimer_.Stop();
     }
-    renderDelayTimer_.StartOnce(kLoadingOverlayDelayMs);
+    panel->renderDelayTimer_.StartOnce(kLoadingOverlayDelayMs);
   });
 }
 
@@ -2083,10 +2101,16 @@ void LayoutViewerPanel::OnRenderDelayTimer(wxTimerEvent &) {
     renderPending = false;
     return;
   }
-  CallAfter([this]() {
-    renderPending = false;
-    RebuildCachedTexture();
-    Refresh();
+  wxWeakRef<LayoutViewerPanel> weakThis(this);
+  CallAfter([weakThis]() {
+    if (!weakThis)
+      return;
+    LayoutViewerPanel *panel = weakThis.get();
+    if (!panel)
+      return;
+    panel->renderPending = false;
+    panel->RebuildCachedTexture();
+    panel->Refresh();
   });
 }
 
