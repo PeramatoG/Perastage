@@ -443,10 +443,11 @@ void MainWindow::ApplySavedLayout() {
   }
   if (!preset)
     preset = LayoutViewPresetRegistry::GetPreset("3d_layout_view");
+  const bool savedLayoutMode = preset && preset->name == "layout_mode_view";
   if (preset && perspective)
-    ApplyLayoutPreset(*preset, perspective, false, false);
+    ApplyLayoutPreset(*preset, perspective, savedLayoutMode, false);
   else if (preset)
-    ApplyLayoutPreset(*preset, std::nullopt, false, false);
+    ApplyLayoutPreset(*preset, std::nullopt, savedLayoutMode, false);
 
   // Re-apply hard-coded minimum sizes so they are not overridden by the saved perspective
   auto &dataPane = auiManager->GetPane("DataNotebook");
