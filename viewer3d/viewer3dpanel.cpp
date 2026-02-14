@@ -186,7 +186,8 @@ GlCanvasSelection SelectGlCanvasAttributes()
 
 Viewer3DPanel::Viewer3DPanel(wxWindow* parent)
     : wxGLCanvas(parent, wxID_ANY, SelectGlCanvasAttributes().attribs,
-                 wxDefaultPosition, wxDefaultSize, wxFULL_REPAINT_ON_RESIZE),
+                 wxDefaultPosition, wxDefaultSize,
+                 wxFULL_REPAINT_ON_RESIZE | wxWANTS_CHARS),
     m_glContext(new wxGLContext(this))
 {
     SetBackgroundStyle(wxBG_STYLE_CUSTOM);
@@ -387,7 +388,11 @@ void Viewer3DPanel::Render()
 
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
-    gluPerspective(45.0, (double)width / height, 1.0, 100.0);
+    constexpr double kFovYDegrees = 45.0;
+    constexpr double kNearPlane = 0.05;
+    constexpr double kFarPlane = 2000.0;
+    gluPerspective(kFovYDegrees, static_cast<double>(width) / height,
+                   kNearPlane, kFarPlane);
 
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
@@ -402,7 +407,7 @@ void Viewer3DPanel::Render()
 // Handles mouse button press
 void Viewer3DPanel::OnMouseDown(wxMouseEvent& event)
 {
-    if (event.LeftDown() || event.MiddleDown())
+    if (event.LeftDown() || event.MiddleDown() || event.RightDown())
     {
         if (event.LeftDown() && event.ControlDown()) {
             m_rectSelecting = true;
@@ -429,6 +434,7 @@ void Viewer3DPanel::OnMouseDown(wxMouseEvent& event)
         m_lastInteractionTime = std::chrono::steady_clock::now();
         m_draggedSincePress = false;
         m_lastMousePos = event.GetPosition();
+        SetFocus();
         CaptureMouse();
     }
 }
@@ -450,12 +456,13 @@ void Viewer3DPanel::OnMouseUp(wxMouseEvent& event)
         return;
     }
 
-    if (m_dragging && (event.LeftUp() || event.MiddleUp()))
+    if (m_dragging && (event.LeftUp() || event.MiddleUp() || event.RightUp()))
     {
         m_dragging = false;
         m_lastInteractionTime = std::chrono::steady_clock::now();
         m_mode = InteractionMode::None;
-        ReleaseMouse();
+        if (HasCapture())
+            ReleaseMouse();
     }
 
     if (event.LeftUp() && !m_draggedSincePress)
@@ -583,6 +590,9 @@ void Viewer3DPanel::OnMouseUp(wxMouseEvent& event)
 
 void Viewer3DPanel::OnRightUp(wxMouseEvent& event)
 {
+    if (m_draggedSincePress)
+        return;
+
     if (!(FixtureTablePanel::Instance() && FixtureTablePanel::Instance()->IsActivePage())) {
         event.Skip();
         return;
@@ -825,13 +835,15 @@ void Viewer3DPanel::OnMouseMove(wxMouseEvent& event)
         m_cameraMoving = true;
         m_lastInteractionTime = std::chrono::steady_clock::now();
 
-        if (m_mode == InteractionMode::Orbit && event.LeftIsDown())
+        if (m_mode == InteractionMode::Orbit &&
+            (event.LeftIsDown() || event.RightIsDown()))
         {
             m_camera.targetYaw += dx * 0.5f;
             m_camera.targetPitch += -dy * 0.5f;
             m_camera.targetPitch = std::clamp(m_camera.targetPitch, -89.0f, 89.0f);
         }
-        else if (m_mode == InteractionMode::Pan && (event.MiddleIsDown() || event.ShiftDown()))
+        else if (m_mode == InteractionMode::Pan &&
+                 (event.MiddleIsDown() || event.RightIsDown() || event.ShiftDown()))
         {
             m_camera.Pan(-dx * 0.01f, dy * 0.01f);
         }
@@ -848,6 +860,8 @@ void Viewer3DPanel::OnMouseMove(wxMouseEvent& event)
 // Handles mouse wheel (zoom)
 void Viewer3DPanel::OnMouseWheel(wxMouseEvent& event)
 {
+    SetFocus();
+
     // wxWidgets may report multiple wheel detents in a single event.
     // Use the ratio of the rotation to the wheel delta to scale zoom
     // steps accordingly so that large scrolls result in proportionally
@@ -917,7 +931,7 @@ void Viewer3DPanel::OnMouseDClick(wxMouseEvent& event)
 
 void Viewer3DPanel::OnKeyDown(wxKeyEvent& event)
 {
-    if (!m_mouseInside) { event.Skip(); return; }
+    if (!m_mouseInside && !HasFocus()) { event.Skip(); return; }
 
     bool shift = event.ShiftDown();
     bool alt = event.AltDown();
