@@ -1962,6 +1962,11 @@ void LayoutViewerPanel::RequestRenderRebuild() {
     panel->Update();
     if (wxTheApp && wxTheApp->IsMainLoopRunning())
       wxTheApp->Yield(true);
+    if (!weakThis)
+      return;
+    panel = weakThis.get();
+    if (!panel)
+      return;
     if (panel->renderDelayTimer_.IsRunning()) {
       panel->renderDelayTimer_.Stop();
     }
