@@ -525,6 +525,8 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
   const bool pauseHeavyTasks = ShouldPauseHeavyTasks();
   int w, h;
   GetClientSize(&w, &h);
+  if (w <= 0 || h <= 0)
+    return;
 
   glViewport(0, 0, w, h);
 
