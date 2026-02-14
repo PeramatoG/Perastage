@@ -23,3 +23,6 @@
 
 std::string BuildFixtureSymbolKey(const Fixture &fixture,
                                   const std::string &basePath);
+
+bool AreEquivalentLegendSymbolKeys(const std::string &lhs,
+                                   const std::string &rhs);
