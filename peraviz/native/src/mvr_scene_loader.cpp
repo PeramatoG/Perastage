@@ -6,13 +6,14 @@
 #include "types.h"
 
 #include <algorithm>
-#include <memory>
 #include <array>
 #include <cctype>
 #include <cmath>
 #include <filesystem>
 #include <functional>
+#include <memory>
 #include <string>
+#include <unordered_map>
 
 #include <tinyxml2.h>
 #include <wx/wfstream.h>
@@ -23,6 +24,11 @@ namespace {
 using peraviz::SceneModel;
 using peraviz::SceneNode;
 using peraviz::Vec3;
+
+struct SymdefGeometry {
+    std::string file_name;
+    Matrix transform = MatrixUtils::Identity();
+};
 
 Vec3 map_position(const std::array<float, 3> &source_mm) {
     return Vec3{source_mm[0] / 1000.0F, source_mm[2] / 1000.0F,
@@ -143,6 +149,17 @@ std::string parse_model_filename(tinyxml2::XMLElement *geo_node) {
     return {};
 }
 
+std::string normalize_geometry_file_name(const std::string &file_name) {
+    if (file_name.empty()) {
+        return {};
+    }
+    std::filesystem::path path = std::filesystem::u8path(file_name);
+    if (!path.has_extension()) {
+        path += ".3ds";
+    }
+    return path.u8string();
+}
+
 std::string parse_name(tinyxml2::XMLElement *node, const std::string &fallback) {
     if (const char *name = node->Attribute("name")) {
         return name;
@@ -151,6 +168,59 @@ std::string parse_name(tinyxml2::XMLElement *node, const std::string &fallback) 
         return name;
     }
     return fallback;
+}
+
+std::unordered_map<std::string, std::vector<SymdefGeometry>> parse_symdefs(tinyxml2::XMLElement *root) {
+    std::unordered_map<std::string, std::vector<SymdefGeometry>> symdefs;
+
+    tinyxml2::XMLElement *aux_data = root ? root->FirstChildElement("AUXData") : nullptr;
+    if (!aux_data) {
+        return symdefs;
+    }
+
+    for (tinyxml2::XMLElement *symdef = aux_data->FirstChildElement("Symdef"); symdef;
+         symdef = symdef->NextSiblingElement("Symdef")) {
+        const char *symdef_id = symdef->Attribute("uuid");
+        if (!symdef_id) {
+            continue;
+        }
+
+        tinyxml2::XMLElement *child_list = symdef->FirstChildElement("ChildList");
+        if (!child_list) {
+            continue;
+        }
+
+        std::vector<SymdefGeometry> geometries;
+        std::function<void(tinyxml2::XMLElement *, const Matrix &)> parse_child_list;
+        parse_child_list = [&](tinyxml2::XMLElement *node, const Matrix &parent_world) {
+            for (tinyxml2::XMLElement *child = node->FirstChildElement(); child;
+                 child = child->NextSiblingElement()) {
+                Matrix local = parse_matrix_node(child);
+                Matrix world = MatrixUtils::Multiply(parent_world, local);
+
+                if (std::string(child->Name()) == "Geometry3D") {
+                    const std::string model_name = normalize_geometry_file_name(parse_model_filename(child));
+                    if (!model_name.empty()) {
+                        SymdefGeometry geometry;
+                        geometry.file_name = model_name;
+                        geometry.transform = world;
+                        geometries.push_back(std::move(geometry));
+                    }
+                }
+
+                if (tinyxml2::XMLElement *inner = child->FirstChildElement("ChildList")) {
+                    parse_child_list(inner, world);
+                }
+            }
+        };
+
+        parse_child_list(child_list, MatrixUtils::Identity());
+        if (!geometries.empty()) {
+            symdefs[symdef_id] = std::move(geometries);
+        }
+    }
+
+    return symdefs;
 }
 
 void append_scene_node(SceneModel &scene, SceneNode node) {
@@ -168,6 +238,7 @@ void append_scene_node(SceneModel &scene, SceneNode node) {
 
 void append_geometry_children(SceneModel &scene, tinyxml2::XMLElement *node, const std::string &parent_id,
                               const Matrix &parent_world, peraviz::ZipAssetCache &mvr_cache,
+                              const std::unordered_map<std::string, std::vector<SymdefGeometry>> &symdefs,
                               const std::string &prefix, int &serial) {
     tinyxml2::XMLElement *geometries = node->FirstChildElement("Geometries");
     if (!geometries) {
@@ -185,13 +256,43 @@ void append_geometry_children(SceneModel &scene, tinyxml2::XMLElement *node, con
         geo_node.name = parse_name(geo, "Geometry3D");
         geo_node.type = "model_part";
         geo_node.local_transform = to_godot_transform(local);
-        const std::string model_name = parse_model_filename(geo);
+        const std::string model_name = normalize_geometry_file_name(parse_model_filename(geo));
         if (!model_name.empty()) {
             geo_node.asset_path = mvr_cache.ensure_extracted(model_name);
         }
 
         scene.nodes.push_back(std::move(geo_node));
         (void)world;
+    }
+
+    for (tinyxml2::XMLElement *symbol = geometries->FirstChildElement("Symbol"); symbol;
+         symbol = symbol->NextSiblingElement("Symbol")) {
+        const char *symdef_attr = symbol->Attribute("symdef");
+        if (!symdef_attr) {
+            continue;
+        }
+
+        Matrix symbol_local = parse_matrix_node(symbol);
+        auto sym_it = symdefs.find(symdef_attr);
+        if (sym_it == symdefs.end()) {
+            continue;
+        }
+
+        for (const SymdefGeometry &sym_geo : sym_it->second) {
+            SceneNode symbol_node;
+            symbol_node.node_id = prefix + "/symbol#" + std::to_string(serial++);
+            symbol_node.parent_id = parent_id;
+            symbol_node.name = parse_name(symbol, "Symbol");
+            symbol_node.type = "model_part";
+
+            Matrix local = MatrixUtils::Multiply(symbol_local, sym_geo.transform);
+            symbol_node.local_transform = to_godot_transform(local);
+
+            if (!sym_geo.file_name.empty()) {
+                symbol_node.asset_path = mvr_cache.ensure_extracted(sym_geo.file_name);
+            }
+            scene.nodes.push_back(std::move(symbol_node));
+        }
     }
 }
 
@@ -230,6 +331,8 @@ SceneModel load_mvr(const std::string &path) {
     if (!layers) {
         return model;
     }
+
+    const auto symdefs = parse_symdefs(root);
 
     int serial = 0;
     std::function<void(tinyxml2::XMLElement *, const Matrix &, const std::string &)> parse_child_list;
@@ -274,15 +377,15 @@ SceneModel load_mvr(const std::string &path) {
             } else if (node_name == "Truss") {
                 node.type = "truss";
                 append_scene_node(model, node);
-                append_geometry_children(model, child, id, node_world, mvr_cache, id, serial);
+                append_geometry_children(model, child, id, node_world, mvr_cache, symdefs, id, serial);
             } else if (node_name == "Support") {
                 node.type = "support";
                 append_scene_node(model, node);
-                append_geometry_children(model, child, id, node_world, mvr_cache, id, serial);
+                append_geometry_children(model, child, id, node_world, mvr_cache, symdefs, id, serial);
             } else if (node_name == "SceneObject") {
                 node.type = "scene_object";
                 append_scene_node(model, node);
-                append_geometry_children(model, child, id, node_world, mvr_cache, id, serial);
+                append_geometry_children(model, child, id, node_world, mvr_cache, symdefs, id, serial);
             }
 
             if (tinyxml2::XMLElement *nested = child->FirstChildElement("ChildList")) {
