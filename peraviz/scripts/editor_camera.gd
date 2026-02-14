@@ -19,6 +19,17 @@ var current_distance: float = 8.0
 var _orbiting: bool = false
 var _panning: bool = false
 
+func focus_on_aabb(bounds: AABB) -> void:
+	if bounds.size.length_squared() <= 0.0:
+		return
+
+	target_position = bounds.get_center()
+
+	var radius: float = max(bounds.size.length() * 0.5, min_distance)
+	var half_fov: float = deg_to_rad(fov) * 0.5
+	var fit_distance: float = radius / max(tan(half_fov), 0.01)
+	target_distance = clamp(fit_distance * 1.2, min_distance, max_distance)
+
 func _ready() -> void:
 	_initialize_from_transform()
 	_set_mouse_mode(false)
