@@ -31,6 +31,7 @@
 
 wxDECLARE_EVENT(EVT_LAYOUT_VIEW_EDIT, wxCommandEvent);
 wxDECLARE_EVENT(EVT_LAYOUT_RENDER_READY, wxCommandEvent);
+wxDECLARE_EVENT(EVT_LAYOUT_VIEW_SELECTED, wxCommandEvent);
 
 class Viewer2DOffscreenRenderer;
 
@@ -173,6 +174,7 @@ private:
   void OnRenderDelayTimer(wxTimerEvent &event);
   bool AreTexturesReady() const;
   void EmitEditViewRequest();
+  void EmitViewSelectionChanged(int viewId);
   bool SelectElementAtPosition(const wxPoint &pos);
   bool GetLegendFrameById(int legendId,
                           layouts::Layout2DViewFrame &frame) const;

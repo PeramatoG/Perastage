@@ -541,6 +541,18 @@ void MainWindow::OnLayoutViewEdit(wxCommandEvent &WXUNUSED(event)) {
   BeginLayout2DViewEdit();
 }
 
+void MainWindow::OnLayoutViewSelected(wxCommandEvent &event) {
+  if (!layoutModeActive || activeLayoutName.empty() || layout2DViewEditing)
+    return;
+
+  const int viewId = event.GetInt();
+  if (viewId <= 0)
+    return;
+
+  PersistLayout2DViewState();
+  RestoreLayout2DViewState(viewId);
+}
+
 void MainWindow::OnLayoutAdd2DView(wxCommandEvent &WXUNUSED(event)) {
   if (!layoutModeActive || activeLayoutName.empty())
     return;
@@ -728,7 +740,16 @@ void MainWindow::BeginLayout2DViewEdit() {
   }
 
   const layouts::Layout2DViewDefinition *view = nullptr;
-  if (layoutViewerPanel)
+  int selectedViewId = 0;
+  if (layoutViewerPanel) {
+    if (const auto *editableView = layoutViewerPanel->GetEditableView()) {
+      selectedViewId = editableView->id;
+    }
+  }
+  if (layout && selectedViewId > 0) {
+    view = FindLayout2DViewById(layout, selectedViewId);
+  }
+  if (!view && layoutViewerPanel)
     view = layoutViewerPanel->GetEditableView();
   if (!view && layout && !layout->view2dViews.empty())
     view = &layout->view2dViews.front();
@@ -956,4 +977,6 @@ void MainWindow::RestoreLayout2DViewState(int viewId) {
   viewer2d::Viewer2DState state = viewer2d::FromLayoutDefinition(*match);
   state.renderOptions.darkMode = cfg.GetFloat("view2d_dark_mode") != 0.0f;
   viewer2d::ApplyState(activePanel, activeRenderPanel, cfg, state, false);
+  if (layerPanel)
+    layerPanel->ReloadLayers();
 }

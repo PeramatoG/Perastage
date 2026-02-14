@@ -135,6 +135,7 @@ wxBEGIN_EVENT_TABLE(LayoutViewerPanel, wxGLCanvas)
 wxEND_EVENT_TABLE()
 
 wxDEFINE_EVENT(EVT_LAYOUT_RENDER_READY, wxCommandEvent);
+wxDEFINE_EVENT(EVT_LAYOUT_VIEW_SELECTED, wxCommandEvent);
 
 LayoutViewerPanel::LayoutViewerPanel(wxWindow *parent)
     : wxGLCanvas(parent, wxID_ANY, nullptr, wxDefaultPosition,
@@ -166,6 +167,7 @@ void LayoutViewerPanel::SetLayoutDefinition(
   if (!currentLayout.view2dViews.empty()) {
     selectedElementType = SelectedElementType::View2D;
     selectedElementId = currentLayout.view2dViews.front().id;
+    EmitViewSelectionChanged(selectedElementId);
   } else if (!currentLayout.legendViews.empty()) {
     selectedElementType = SelectedElementType::Legend;
     selectedElementId = currentLayout.legendViews.front().id;
@@ -2255,6 +2257,7 @@ bool LayoutViewerPanel::SelectElementAtPosition(const wxPoint &pos) {
       }
       selectedElementType = SelectedElementType::View2D;
       selectedElementId = view->id;
+      EmitViewSelectionChanged(view->id);
       RequestRenderRebuild();
       Refresh();
       return true;
@@ -2312,6 +2315,15 @@ wxCursor LayoutViewerPanel::CursorForMode(FrameDragMode mode) const {
 void LayoutViewerPanel::EmitEditViewRequest() {
   wxCommandEvent event(EVT_LAYOUT_VIEW_EDIT);
   event.SetEventObject(this);
+  ProcessWindowEvent(event);
+}
+
+void LayoutViewerPanel::EmitViewSelectionChanged(int viewId) {
+  if (viewId <= 0)
+    return;
+  wxCommandEvent event(EVT_LAYOUT_VIEW_SELECTED);
+  event.SetEventObject(this);
+  event.SetInt(viewId);
   ProcessWindowEvent(event);
 }
 
