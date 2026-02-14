@@ -6,6 +6,8 @@
 
 #include <algorithm>
 #include <cmath>
+#include <functional>
+#include <memory>
 #include <wx/button.h>
 #include <wx/slider.h>
 #include <wx/sizer.h>
@@ -77,13 +79,25 @@ void Layout2DViewDialog::OnShow(wxShowEvent &event) {
     layerPanel->ReloadLayers();
   }
   if (event.IsShown() && viewerPanel) {
-    CallAfter([panel = viewerPanel]() {
+    auto retries = std::make_shared<int>(3);
+    std::shared_ptr<std::function<void()>> syncRender =
+        std::make_shared<std::function<void()>>();
+    *syncRender = [panel = viewerPanel, retries, syncRender]() {
       if (!panel)
         return;
+      int width = 0;
+      int height = 0;
+      panel->GetClientSize(&width, &height);
+      if ((width <= 0 || height <= 0) && *retries > 0) {
+        --(*retries);
+        panel->CallAfter(*syncRender);
+        return;
+      }
       panel->UpdateScene(true);
       panel->Refresh();
       panel->Update();
-    });
+    };
+    CallAfter(*syncRender);
   }
   if (viewerPanel && scaleSlider) {
     const int value = static_cast<int>(
