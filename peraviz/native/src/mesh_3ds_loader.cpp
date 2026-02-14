@@ -3,7 +3,6 @@
 #include <godot_cpp/variant/packed_int32_array.hpp>
 #include <godot_cpp/variant/packed_vector3_array.hpp>
 #include <godot_cpp/variant/vector3.hpp>
-#include <godot_cpp/variant/string_name.hpp>
 
 #include <array>
 #include <cmath>
@@ -223,13 +222,12 @@ namespace peraviz {
 
 godot::Dictionary load_3ds_mesh_data(const godot::String &path) {
     godot::Dictionary result;
-    result.set(godot::StringName("ok"), false);
+    result[godot::String("ok")] = false;
 
     MeshData mesh;
     const std::string utf8_path(path.utf8().get_data());
     if (!load_3ds(utf8_path, mesh)) {
-        result.set(godot::StringName("error"),
-                   godot::String("Failed to parse 3DS mesh"));
+        result[godot::String("error")] = godot::String("Failed to parse 3DS mesh");
         return result;
     }
 
@@ -253,10 +251,10 @@ godot::Dictionary load_3ds_mesh_data(const godot::String &path) {
         indices.set(i, static_cast<int32_t>(mesh.indices[i]));
     }
 
-    result.set(godot::StringName("ok"), true);
-    result.set(godot::StringName("vertices"), vertices);
-    result.set(godot::StringName("normals"), normals);
-    result.set(godot::StringName("indices"), indices);
+    result[godot::String("ok")] = true;
+    result[godot::String("vertices")] = vertices;
+    result[godot::String("normals")] = normals;
+    result[godot::String("indices")] = indices;
     return result;
 }
 
