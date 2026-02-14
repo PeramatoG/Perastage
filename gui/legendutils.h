@@ -23,3 +23,4 @@
 
 std::string BuildFixtureSymbolKey(const Fixture &fixture,
                                   const std::string &basePath);
+

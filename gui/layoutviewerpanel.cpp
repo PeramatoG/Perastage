@@ -38,6 +38,7 @@
 
 #include "configmanager.h"
 #include "guiconfigservices.h"
+#include "legendsymbolcapture.h"
 #include "LayoutManager.h"
 #include "logger.h"
 #include "mainwindow.h"
@@ -1357,40 +1358,10 @@ void LayoutViewerPanel::RebuildCachedTexture() {
     renderDirty = false;
     stopLoadingRequest();
   
-    std::shared_ptr<const SymbolDefinitionSnapshot> legendSymbols =
-        capturePanel->GetBottomSymbolCacheSnapshot();
-    if ((!legendSymbols || legendSymbols->empty()) &&
-        !currentLayout.legendViews.empty()) {
-      capturePanel->CaptureFrameNow(
-          [](CommandBuffer, Viewer2DViewState) {}, true, false);
-      legendSymbols = capturePanel->GetBottomSymbolCacheSnapshot();
-    }
-    if (legendSymbols && !legendSymbols->empty() &&
-        !currentLayout.legendViews.empty()) {
-      bool hasTop = false;
-      bool hasFront = false;
-      for (const auto &entry : *legendSymbols) {
-        if (entry.second.key.viewKind == SymbolViewKind::Top)
-          hasTop = true;
-        else if (entry.second.key.viewKind == SymbolViewKind::Front)
-          hasFront = true;
-        if (hasTop && hasFront)
-          break;
-      }
-      if (!hasTop || !hasFront) {
-        const Viewer2DView previousView = capturePanel->GetView();
-        auto captureMissingView = [&](Viewer2DView view) {
-          capturePanel->SetView(view);
-          capturePanel->CaptureFrameNow(
-              [](CommandBuffer, Viewer2DViewState) {}, true, false);
-        };
-        if (!hasTop)
-          captureMissingView(Viewer2DView::Top);
-        if (!hasFront)
-          captureMissingView(Viewer2DView::Front);
-        capturePanel->SetView(previousView);
-        legendSymbols = capturePanel->GetBottomSymbolCacheSnapshot();
-      }
+    ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
+    std::shared_ptr<const SymbolDefinitionSnapshot> legendSymbols;
+    if (!currentLayout.legendViews.empty()) {
+      legendSymbols = CaptureLegendSymbolSnapshot(capturePanel, cfg, true);
     }
     const double renderZoom = GetRenderZoom();
     for (const auto &view : currentLayout.view2dViews) {
@@ -1418,7 +1389,6 @@ void LayoutViewerPanel::RebuildCachedTexture() {
       offscreenRenderer->SetViewportSize(renderSize);
       offscreenRenderer->PrepareForCapture();
   
-      ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
       viewer2d::Viewer2DState renderState = cache.renderState;
       if (renderZoom != 1.0) {
         renderState.camera.zoom *= static_cast<float>(renderZoom);
