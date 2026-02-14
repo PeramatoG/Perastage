@@ -1,11 +1,13 @@
 [gd_scene format=3]
 
 [ext_resource type="Script" path="res://scripts/load_scene.gd" id="1_script"]
+[ext_resource type="Script" path="res://scripts/editor_camera.gd" id="2_camera_script"]
 
 [node name="Viewer" type="Node3D"]
 script = ExtResource("1_script")
 
 [node name="Camera3D" type="Camera3D" parent="."]
+script = ExtResource("2_camera_script")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3, 8)
 rotation_degrees = Vector3(-20, 0, 0)
 current = true
