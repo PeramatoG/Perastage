@@ -9,6 +9,7 @@ var _loader := PeravizLoader.new()
 func _ready() -> void:
 	$HUD/LoadButton.pressed.connect(_on_load_pressed)
 	picker.file_selected.connect(_on_file_selected)
+	picker.access = FileDialog.ACCESS_FILESYSTEM
 	status_label.text = "Select a .mvr file"
 
 func _on_load_pressed() -> void:
@@ -16,7 +17,8 @@ func _on_load_pressed() -> void:
 
 func _on_file_selected(path: String) -> void:
 	_clear_scene()
-	var instances: Array = _loader.load_mvr(path)
+	var native_path: String = ProjectSettings.globalize_path(path)
+	var instances: Array = _loader.load_mvr(native_path)
 	print("[Peraviz] Loaded instances: ", instances.size())
 
 	for item in instances:
