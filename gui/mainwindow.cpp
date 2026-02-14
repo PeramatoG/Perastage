@@ -537,21 +537,10 @@ void MainWindow::SaveCameraSettings() {
   if (viewport2DPanel)
     viewport2DPanel->SaveViewToConfig();
 
-  if (layoutModeActive) {
-    cfg.SetValue("layout_view_mode", "layout_mode_view");
-  }
-
   if (auiManager) {
     const std::string perspective =
         auiManager->SavePerspective().ToStdString();
-    if (!layoutModeActive) {
-      cfg.SetValue("layout_perspective", perspective);
-      const bool is2DLayout =
-          perspective.find("2DViewport") != std::string::npos ||
-          perspective.find("2DRenderOptions") != std::string::npos;
-      cfg.SetValue("layout_view_mode",
-                   is2DLayout ? "2d_layout_view" : "3d_layout_view");
-    }
+    cfg.SetValue("layout_perspective", perspective);
   }
 }
 
