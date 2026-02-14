@@ -233,6 +233,7 @@ EVT_MENU(ID_Edit_Preferences, MainWindow::OnPreferences)
 EVT_COMMAND(wxID_ANY, EVT_PROJECT_LOADED, MainWindow::OnProjectLoaded)
 EVT_COMMAND(wxID_ANY, EVT_LAYOUT_SELECTED, MainWindow::OnLayoutSelected)
 EVT_COMMAND(wxID_ANY, EVT_LAYOUT_VIEW_EDIT, MainWindow::OnLayoutViewEdit)
+EVT_COMMAND(wxID_ANY, EVT_LAYOUT_VIEW_SELECTED, MainWindow::OnLayoutViewSelected)
 EVT_COMMAND(wxID_ANY, EVT_LAYOUT_RENDER_READY, MainWindow::OnLayoutRenderReady)
 wxEND_EVENT_TABLE()
 
