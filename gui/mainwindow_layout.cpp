@@ -404,8 +404,10 @@ void MainWindow::ApplyLayoutPreset(const LayoutViewPreset &preset,
 
   if (persistPerspective) {
     ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
-    if (!layoutMode && perspective) {
-      cfg.SetValue("layout_perspective", *perspective);
+    cfg.SetValue("layout_view_mode", preset.name);
+    if (auiManager) {
+      cfg.SetValue("layout_perspective",
+                   auiManager->SavePerspective().ToStdString());
     }
   }
 
@@ -419,12 +421,11 @@ void MainWindow::ApplySavedLayout() {
   if (!auiManager)
     return;
 
-  std::optional<std::string> perspective;
+  ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
+  const std::string viewMode = cfg.GetValue("layout_view_mode").value_or("");
+  std::optional<std::string> perspective = cfg.GetValue("layout_perspective");
 
-  // Load stored layout perspective if it exists
-  if (auto val = GetDefaultGuiConfigServices().LegacyConfigManager().GetValue("layout_perspective")) {
-    perspective = *val;
-
+  if (perspective) {
     // Ensure viewports exist before loading the saved perspective
     if (perspective->find("3DViewport") != std::string::npos)
       Ensure3DViewport();
@@ -433,14 +434,15 @@ void MainWindow::ApplySavedLayout() {
       Ensure2DViewport();
   }
 
-  const LayoutViewPreset *preset = nullptr;
-  if (perspective &&
-             (perspective->find("2DViewport") != std::string::npos ||
-              perspective->find("2DRenderOptions") != std::string::npos)) {
+  const LayoutViewPreset *preset = LayoutViewPresetRegistry::GetPreset(viewMode);
+  if (!preset && perspective &&
+      (perspective->find("2DViewport") != std::string::npos ||
+       perspective->find("2DRenderOptions") != std::string::npos)) {
+    // Backward compatibility for configs without layout_view_mode.
     preset = LayoutViewPresetRegistry::GetPreset("2d_layout_view");
-  } else {
-    preset = LayoutViewPresetRegistry::GetPreset("3d_layout_view");
   }
+  if (!preset)
+    preset = LayoutViewPresetRegistry::GetPreset("3d_layout_view");
   if (preset && perspective)
     ApplyLayoutPreset(*preset, perspective, false, false);
   else if (preset)

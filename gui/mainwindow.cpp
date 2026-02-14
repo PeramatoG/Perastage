@@ -522,24 +522,25 @@ void MainWindow::UpdateTitle() {
 }
 
 void MainWindow::SaveCameraSettings() {
+  ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
   if (layoutModeActive)
     PersistLayout2DViewState();
   if (viewportPanel) {
     Viewer3DCamera &cam = viewportPanel->GetCamera();
-    GetDefaultGuiConfigServices().LegacyConfigManager().SetFloat("camera_yaw", cam.GetYaw());
-    GetDefaultGuiConfigServices().LegacyConfigManager().SetFloat("camera_pitch", cam.GetPitch());
-    GetDefaultGuiConfigServices().LegacyConfigManager().SetFloat("camera_distance", cam.GetDistance());
-    GetDefaultGuiConfigServices().LegacyConfigManager().SetFloat("camera_target_x", cam.GetTargetX());
-    GetDefaultGuiConfigServices().LegacyConfigManager().SetFloat("camera_target_y", cam.GetTargetY());
-    GetDefaultGuiConfigServices().LegacyConfigManager().SetFloat("camera_target_z", cam.GetTargetZ());
+    cfg.SetFloat("camera_yaw", cam.GetYaw());
+    cfg.SetFloat("camera_pitch", cam.GetPitch());
+    cfg.SetFloat("camera_distance", cam.GetDistance());
+    cfg.SetFloat("camera_target_x", cam.GetTargetX());
+    cfg.SetFloat("camera_target_y", cam.GetTargetY());
+    cfg.SetFloat("camera_target_z", cam.GetTargetZ());
   }
   if (viewport2DPanel)
     viewport2DPanel->SaveViewToConfig();
+
   if (auiManager) {
     const std::string perspective =
         auiManager->SavePerspective().ToStdString();
-    if (!layoutModeActive)
-      GetDefaultGuiConfigServices().LegacyConfigManager().SetValue("layout_perspective", perspective);
+    cfg.SetValue("layout_perspective", perspective);
   }
 }
 
