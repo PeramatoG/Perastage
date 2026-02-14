@@ -420,6 +420,15 @@ void MainWindow::ApplySavedLayout() {
     return;
 
   std::optional<std::string> perspective;
+  const std::string viewMode =
+      GetDefaultGuiConfigServices().LegacyConfigManager()
+          .GetValue("layout_view_mode")
+          .value_or("");
+
+  if (viewMode == "layout_mode_view") {
+    ApplyLayoutModePerspective();
+    return;
+  }
 
   // Load stored layout perspective if it exists
   if (auto val = GetDefaultGuiConfigServices().LegacyConfigManager().GetValue("layout_perspective")) {
@@ -434,7 +443,11 @@ void MainWindow::ApplySavedLayout() {
   }
 
   const LayoutViewPreset *preset = nullptr;
-  if (perspective &&
+  if (viewMode == "2d_layout_view") {
+    preset = LayoutViewPresetRegistry::GetPreset("2d_layout_view");
+  } else if (viewMode == "3d_layout_view") {
+    preset = LayoutViewPresetRegistry::GetPreset("3d_layout_view");
+  } else if (perspective &&
              (perspective->find("2DViewport") != std::string::npos ||
               perspective->find("2DRenderOptions") != std::string::npos)) {
     preset = LayoutViewPresetRegistry::GetPreset("2d_layout_view");
