@@ -93,9 +93,20 @@ void Layout2DViewDialog::OnShow(wxShowEvent &event) {
         panel->CallAfter(*syncRender);
         return;
       }
+
+      // Two-phase sync: first draw after show/layout, then one stabilization
+      // pass on the next loop turn so pending UI/GL updates cannot leave an
+      // incomplete first frame until the user pans/zooms.
       panel->UpdateScene(true);
       panel->Refresh();
       panel->Update();
+      panel->CallAfter([panel]() {
+        if (!panel)
+          return;
+        panel->UpdateScene(true);
+        panel->Refresh();
+        panel->Update();
+      });
     };
     CallAfter(*syncRender);
   }
