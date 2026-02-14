@@ -5,6 +5,8 @@
 
 #include <godot_cpp/variant/array.hpp>
 #include <godot_cpp/variant/dictionary.hpp>
+#include <godot_cpp/variant/packed_int32_array.hpp>
+#include <godot_cpp/variant/packed_vector3_array.hpp>
 #include <godot_cpp/variant/utility_functions.hpp>
 #include <godot_cpp/variant/vector3.hpp>
 
@@ -59,7 +61,23 @@ Array PeravizLoader::load_mvr(const String &path) const {
 }
 
 Dictionary PeravizLoader::load_3ds_mesh_data(const String &path) const {
-    return peraviz::load_3ds_mesh_data(path);
+    PackedVector3Array vertices;
+    PackedVector3Array normals;
+    PackedInt32Array indices;
+    String error;
+
+    Dictionary out;
+    const bool ok = peraviz::load_3ds_mesh_data(path, vertices, normals, indices, error);
+    out["ok"] = ok;
+    if (!ok) {
+        out["error"] = error;
+        return out;
+    }
+
+    out["vertices"] = vertices;
+    out["normals"] = normals;
+    out["indices"] = indices;
+    return out;
 }
 
 } // namespace godot

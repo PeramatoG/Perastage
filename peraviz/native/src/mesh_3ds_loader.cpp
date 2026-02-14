@@ -1,7 +1,5 @@
 #include "mesh_3ds_loader.h"
 
-#include <godot_cpp/variant/packed_int32_array.hpp>
-#include <godot_cpp/variant/packed_vector3_array.hpp>
 #include <godot_cpp/variant/vector3.hpp>
 
 #include <array>
@@ -220,42 +218,36 @@ bool load_3ds(const std::string &path, MeshData &mesh) {
 
 namespace peraviz {
 
-godot::Dictionary load_3ds_mesh_data(const godot::String &path) {
-    godot::Dictionary result;
-    result[godot::String("ok")] = false;
-
+bool load_3ds_mesh_data(const godot::String &path,
+                        godot::PackedVector3Array &out_vertices,
+                        godot::PackedVector3Array &out_normals,
+                        godot::PackedInt32Array &out_indices,
+                        godot::String &out_error) {
     MeshData mesh;
     const std::string utf8_path(path.utf8().get_data());
     if (!load_3ds(utf8_path, mesh)) {
-        result[godot::String("error")] = godot::String("Failed to parse 3DS mesh");
-        return result;
+        out_error = godot::String("Failed to parse 3DS mesh");
+        return false;
     }
 
-    godot::PackedVector3Array vertices;
-    vertices.resize(static_cast<int64_t>(mesh.vertices.size() / 3));
-    for (int64_t i = 0; i < vertices.size(); ++i) {
-        vertices.set(i, godot::Vector3(mesh.vertices[i * 3], mesh.vertices[i * 3 + 1],
-                                       mesh.vertices[i * 3 + 2]));
+    out_vertices.resize(static_cast<int64_t>(mesh.vertices.size() / 3));
+    for (int64_t i = 0; i < out_vertices.size(); ++i) {
+        out_vertices.set(i, godot::Vector3(mesh.vertices[i * 3], mesh.vertices[i * 3 + 1],
+                                           mesh.vertices[i * 3 + 2]));
     }
 
-    godot::PackedVector3Array normals;
-    normals.resize(static_cast<int64_t>(mesh.normals.size() / 3));
-    for (int64_t i = 0; i < normals.size(); ++i) {
-        normals.set(i, godot::Vector3(mesh.normals[i * 3], mesh.normals[i * 3 + 1],
-                                      mesh.normals[i * 3 + 2]));
+    out_normals.resize(static_cast<int64_t>(mesh.normals.size() / 3));
+    for (int64_t i = 0; i < out_normals.size(); ++i) {
+        out_normals.set(i, godot::Vector3(mesh.normals[i * 3], mesh.normals[i * 3 + 1],
+                                          mesh.normals[i * 3 + 2]));
     }
 
-    godot::PackedInt32Array indices;
-    indices.resize(static_cast<int64_t>(mesh.indices.size()));
-    for (int64_t i = 0; i < indices.size(); ++i) {
-        indices.set(i, static_cast<int32_t>(mesh.indices[i]));
+    out_indices.resize(static_cast<int64_t>(mesh.indices.size()));
+    for (int64_t i = 0; i < out_indices.size(); ++i) {
+        out_indices.set(i, static_cast<int32_t>(mesh.indices[i]));
     }
 
-    result[godot::String("ok")] = true;
-    result[godot::String("vertices")] = vertices;
-    result[godot::String("normals")] = normals;
-    result[godot::String("indices")] = indices;
-    return result;
+    return true;
 }
 
 } // namespace peraviz
