@@ -195,6 +195,7 @@ private:
   void ClearLayoutLoadingIndicator();
   bool HasActiveLayout2DView() const;
   void SyncSceneData();
+  void SyncLayerVisibilityPanels();
   bool ConfirmSaveIfDirty(const wxString &actionLabel,
                           const wxString &dialogTitle);
   std::string defaultLayoutPerspective;
