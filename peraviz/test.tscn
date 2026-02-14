@@ -14,6 +14,14 @@ current = true
 
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
 rotation_degrees = Vector3(-45, 45, 0)
+shadow_enabled = true
+directional_shadow_max_distance = 120.0
+shadow_bias = 0.03
+shadow_normal_bias = 1.0
+
+[node name="Ground" type="MeshInstance3D" parent="."]
+mesh = PlaneMesh.new()
+transform = Transform3D(12, 0, 0, 0, 1, 0, 0, 12, 0, 0, 0, 0)
 
 [node name="Proxies" type="Node3D" parent="."]
 
