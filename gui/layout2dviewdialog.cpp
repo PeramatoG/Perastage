@@ -77,6 +77,9 @@ void Layout2DViewDialog::OnShow(wxShowEvent &event) {
     viewerPanel->UpdateScene(true);
     viewerPanel->Update();
   }
+  if (event.IsShown() && layerPanel) {
+    layerPanel->ReloadLayers();
+  }
   if (viewerPanel && scaleSlider) {
     const int value = static_cast<int>(
         std::lround(viewerPanel->GetLayoutEditOverlayScale() * 100.0f));
