@@ -67,9 +67,16 @@ func _create_scene_node(data: Dictionary) -> Node3D:
 
 	var root := Node3D.new()
 	root.name = "%s_%s" % [item_type, node_name]
-	root.position = data.get("pos", Vector3.ZERO)
-	root.rotation_degrees = data.get("rot", Vector3.ZERO)
-	root.scale = data.get("scale", Vector3.ONE)
+	var position: Vector3 = data.get("pos", Vector3.ZERO)
+	if bool(data.get("has_basis", false)):
+		var basis_x: Vector3 = data.get("basis_x", Vector3.RIGHT)
+		var basis_y: Vector3 = data.get("basis_y", Vector3.UP)
+		var basis_z: Vector3 = data.get("basis_z", Vector3.BACK)
+		root.transform = Transform3D(Basis(basis_x, basis_y, basis_z), position)
+	else:
+		root.position = position
+		root.rotation_degrees = data.get("rot", Vector3.ZERO)
+		root.scale = data.get("scale", Vector3.ONE)
 
 	if is_axis:
 		var pivot := Node3D.new()

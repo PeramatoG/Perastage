@@ -44,6 +44,13 @@ Array PeravizLoader::load_mvr(const String &path) const {
                             node.local_transform.rotation_degrees.z);
         d["scale"] = Vector3(node.local_transform.scale.x, node.local_transform.scale.y,
                               node.local_transform.scale.z);
+        d["basis_x"] = Vector3(node.local_transform.basis_x.x, node.local_transform.basis_x.y,
+                                 node.local_transform.basis_x.z);
+        d["basis_y"] = Vector3(node.local_transform.basis_y.x, node.local_transform.basis_y.y,
+                                 node.local_transform.basis_y.z);
+        d["basis_z"] = Vector3(node.local_transform.basis_z.x, node.local_transform.basis_z.y,
+                                 node.local_transform.basis_z.z);
+        d["has_basis"] = node.local_transform.has_basis;
         out[index++] = d;
     }
     return out;

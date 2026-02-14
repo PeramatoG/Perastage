@@ -73,6 +73,11 @@ peraviz::SceneTransform to_godot_transform(const Matrix &local_transform) {
     transform.position = map_position(local_transform.o);
 
     Matrix basis = to_godot_basis_matrix(local_transform);
+    transform.basis_x = {basis.u[0], basis.u[1], basis.u[2]};
+    transform.basis_y = {basis.v[0], basis.v[1], basis.v[2]};
+    transform.basis_z = {basis.w[0], basis.w[1], basis.w[2]};
+    transform.has_basis = true;
+
     const auto scale = extract_scale(basis);
     transform.scale = {scale[0], scale[1], scale[2]};
 
