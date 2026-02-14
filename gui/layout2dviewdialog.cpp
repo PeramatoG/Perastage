@@ -73,9 +73,10 @@ void Layout2DViewDialog::OnCancel(wxCommandEvent &event) {
 }
 
 void Layout2DViewDialog::OnShow(wxShowEvent &event) {
+  if (event.IsShown() && layerPanel) {
+    layerPanel->ReloadLayers();
+  }
   if (event.IsShown() && viewerPanel) {
-    viewerPanel->UpdateScene(true);
-    viewerPanel->Update();
     CallAfter([panel = viewerPanel]() {
       if (!panel)
         return;
@@ -83,9 +84,6 @@ void Layout2DViewDialog::OnShow(wxShowEvent &event) {
       panel->Refresh();
       panel->Update();
     });
-  }
-  if (event.IsShown() && layerPanel) {
-    layerPanel->ReloadLayers();
   }
   if (viewerPanel && scaleSlider) {
     const int value = static_cast<int>(
