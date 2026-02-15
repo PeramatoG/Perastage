@@ -38,8 +38,23 @@ bool looks_like_emitter(const std::string &tag_name, const std::string &name) {
            n.find("lens") != std::string::npos || n.find("emitter") != std::string::npos;
 }
 
+
+bool is_supported_geometry_tag(const std::string &tag_name) {
+    return tag_name == "Geometry" || tag_name == "Axis" || tag_name == "Beam" ||
+           tag_name == "GeometryReference" || tag_name == "Laser" ||
+           tag_name == "WiringObject" || tag_name == "Inventory" ||
+           tag_name == "Structure" || tag_name == "Support" ||
+           tag_name == "Magnet" || tag_name == "Display" ||
+           tag_name == "MediaServerLayer" || tag_name == "MediaServerCamera" ||
+           tag_name == "MediaServerMaster" || tag_name.rfind("Filter", 0) == 0;
+}
+
 Matrix parse_local_matrix(tinyxml2::XMLElement *node) {
     Matrix out = MatrixUtils::Identity();
+    if (const char *position = node->Attribute("Position")) {
+        MatrixUtils::ParseMatrix(position, out);
+        return out;
+    }
     if (tinyxml2::XMLElement *matrix = node->FirstChildElement("Matrix")) {
         if (const char *text = matrix->GetText()) {
             MatrixUtils::ParseMatrix(text, out);
@@ -173,7 +188,8 @@ std::vector<SceneNode> build_fixture_geometry_nodes(const GdtfBuildRequest &requ
 
         for (tinyxml2::XMLElement *child = geometry->FirstChildElement(); child;
              child = child->NextSiblingElement()) {
-            if (!child->Attribute("Name") && !child->Attribute("name")) {
+            const std::string child_tag = child->Name() ? child->Name() : "";
+            if (!is_supported_geometry_tag(child_tag)) {
                 continue;
             }
             append_geometry(child, geometry_id, world);

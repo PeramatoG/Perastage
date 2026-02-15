@@ -89,19 +89,22 @@ func _create_scene_node(data: Dictionary) -> Node3D:
 		root.add_child(emitter)
 
 	var visual_scale_hint: float = _extract_visual_scale_hint(data)
-	var model_node: Node3D = _build_visual_node(data, is_fixture, visual_scale_hint)
+	var model_node: Node3D = _build_visual_node(data, item_type, is_fixture, visual_scale_hint)
 	if model_node != null:
 		root.add_child(model_node)
 
 	return root
 
-func _build_visual_node(data: Dictionary, is_fixture: bool, visual_scale_hint: float) -> Node3D:
+func _build_visual_node(data: Dictionary, item_type: String, is_fixture: bool, visual_scale_hint: float) -> Node3D:
 	var asset_path: String = str(data.get("asset_path", ""))
 	if not asset_path.is_empty():
 		var loaded: Variant = _load_3d_asset(asset_path)
 		if loaded is Node3D:
 			return loaded
 		print("[Peraviz] Asset fallback for missing/invalid model: ", asset_path)
+
+	if item_type == "fixture_geometry":
+		return null
 
 	return _create_dummy_mesh(is_fixture, visual_scale_hint)
 
@@ -119,39 +122,60 @@ func _extract_visual_scale_hint(data: Dictionary) -> float:
 
 func _load_3d_asset(asset_path: String) -> Variant:
 	if _asset_cache.has(asset_path):
-		return _asset_cache[asset_path]
+		var cached: Variant = _asset_cache[asset_path]
+		if cached is Mesh:
+			var cached_mesh_instance := MeshInstance3D.new()
+			cached_mesh_instance.mesh = cached
+			return cached_mesh_instance
+		if cached is PackedScene:
+			var packed_instance: Node = cached.instantiate()
+			if packed_instance is Node3D:
+				return packed_instance
+		if cached is Node3D:
+			return cached.duplicate(DUPLICATE_USE_INSTANTIATION)
+		return null
 
 	var extension: String = asset_path.get_extension().to_lower()
-	var loaded_node: Node3D = null
+	if extension == "3ds":
+		var mesh_data: Dictionary = _loader.load_3ds_mesh_data(asset_path)
+		if not bool(mesh_data.get("ok", false)):
+			_asset_cache[asset_path] = null
+			return null
+		var mesh: ArrayMesh = _build_3ds_mesh(mesh_data)
+		if mesh == null:
+			_asset_cache[asset_path] = null
+			return null
+		_asset_cache[asset_path] = mesh
+		var mesh_instance := MeshInstance3D.new()
+		mesh_instance.mesh = mesh
+		return mesh_instance
 
 	if extension == "glb" or extension == "gltf":
 		var gltf := GLTFDocument.new()
 		var state := GLTFState.new()
 		var err: int = gltf.append_from_file(asset_path, state)
-		if err == OK:
-			var generated: Node = gltf.generate_scene(state)
-			if generated is Node3D:
-				loaded_node = generated
-	elif extension == "3ds":
-		loaded_node = _build_3ds_node(asset_path)
-	else:
-		var resource: Resource = load(asset_path)
-		if resource is PackedScene:
-			var packed_instance: Node = resource.instantiate()
-			if packed_instance is Node3D:
-				loaded_node = packed_instance
-
-	_asset_cache[asset_path] = loaded_node
-	if loaded_node == null:
-		return null
-	return loaded_node.duplicate(DUPLICATE_USE_INSTANTIATION)
-
-
-func _build_3ds_node(asset_path: String) -> Node3D:
-	var mesh_data: Dictionary = _loader.load_3ds_mesh_data(asset_path)
-	if not bool(mesh_data.get("ok", false)):
+		if err != OK:
+			_asset_cache[asset_path] = null
+			return null
+		var generated: Node = gltf.generate_scene(state)
+		if generated is Node3D:
+			_asset_cache[asset_path] = generated
+			return generated.duplicate(DUPLICATE_USE_INSTANTIATION)
+		_asset_cache[asset_path] = null
 		return null
 
+	var resource: Resource = load(asset_path)
+	if resource is PackedScene:
+		_asset_cache[asset_path] = resource
+		var scene_instance: Node = resource.instantiate()
+		if scene_instance is Node3D:
+			return scene_instance
+
+	_asset_cache[asset_path] = null
+	return null
+
+
+func _build_3ds_mesh(mesh_data: Dictionary) -> ArrayMesh:
 	var vertices: PackedVector3Array = mesh_data.get("vertices", PackedVector3Array())
 	var normals: PackedVector3Array = mesh_data.get("normals", PackedVector3Array())
 	var indices: PackedInt32Array = mesh_data.get("indices", PackedInt32Array())
@@ -166,10 +190,8 @@ func _build_3ds_node(asset_path: String) -> Node3D:
 
 	var array_mesh := ArrayMesh.new()
 	array_mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	return array_mesh
 
-	var mesh_instance := MeshInstance3D.new()
-	mesh_instance.mesh = array_mesh
-	return mesh_instance
 
 func _create_dummy_mesh(is_fixture: bool, visual_scale_hint: float) -> Node3D:
 	var mesh_instance := MeshInstance3D.new()
