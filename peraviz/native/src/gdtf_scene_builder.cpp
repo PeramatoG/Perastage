@@ -138,6 +138,15 @@ std::vector<SceneNode> build_fixture_geometry_nodes(const GdtfBuildRequest &requ
         return nodes;
     }
 
+    std::unordered_map<std::string, tinyxml2::XMLElement *> geometry_by_name;
+    for (tinyxml2::XMLElement *geometry = geometries->FirstChildElement(); geometry;
+         geometry = geometry->NextSiblingElement()) {
+        const std::string geometry_name = safe_name(geometry, "geometry");
+        if (!geometry_name.empty()) {
+            geometry_by_name[geometry_name] = geometry;
+        }
+    }
+
     tinyxml2::XMLElement *root_geometry = nullptr;
     for (tinyxml2::XMLElement *geometry = geometries->FirstChildElement(); geometry;
          geometry = geometry->NextSiblingElement()) {
@@ -157,15 +166,34 @@ std::vector<SceneNode> build_fixture_geometry_nodes(const GdtfBuildRequest &requ
     }
 
     int local_counter = 0;
-    std::function<void(tinyxml2::XMLElement *, const std::string &, const Matrix &)> append_geometry;
+    std::function<void(tinyxml2::XMLElement *, const std::string &, const Matrix &, const char *)>
+        append_geometry;
     append_geometry = [&](tinyxml2::XMLElement *geometry, const std::string &geometry_parent_id,
-                          const Matrix &geometry_parent_world) {
+                          const Matrix &geometry_parent_world, const char *override_model) {
+        const std::string geometry_tag = geometry->Name() ? geometry->Name() : "";
+        Matrix local = parse_local_matrix(geometry);
+        Matrix world = MatrixUtils::Multiply(geometry_parent_world, local);
+
+        if (geometry_tag == "GeometryReference") {
+            const char *referenced_geometry_name = geometry->Attribute("Geometry");
+            if (!referenced_geometry_name) {
+                return;
+            }
+
+            auto referenced_it = geometry_by_name.find(referenced_geometry_name);
+            if (referenced_it == geometry_by_name.end() || !referenced_it->second) {
+                return;
+            }
+
+            const char *reference_model = geometry->Attribute("Model");
+            append_geometry(referenced_it->second, geometry_parent_id, world,
+                            reference_model ? reference_model : override_model);
+            return;
+        }
+
         const std::string geometry_name = safe_name(geometry, "geometry");
         const std::string geometry_id = request.fixture_node_id + "/" + geometry_name +
                                         "#" + std::to_string(local_counter++);
-
-        Matrix local = parse_local_matrix(geometry);
-        Matrix world = MatrixUtils::Multiply(geometry_parent_world, local);
 
         SceneNode node;
         node.node_id = geometry_id;
@@ -177,7 +205,8 @@ std::vector<SceneNode> build_fixture_geometry_nodes(const GdtfBuildRequest &requ
         node.is_emitter = looks_like_emitter(geometry->Name(), geometry_name);
         node.local_transform = peraviz::coordinate_mapper::to_godot_transform(local);
 
-        if (const char *model_name = geometry->Attribute("Model")) {
+        const char *model_name = override_model ? override_model : geometry->Attribute("Model");
+        if (model_name) {
             auto model_it = model_file_by_name.find(model_name);
             if (model_it != model_file_by_name.end()) {
                 node.asset_path = gdtf_cache.ensure_gdtf_model_extracted(model_it->second);
@@ -192,11 +221,11 @@ std::vector<SceneNode> build_fixture_geometry_nodes(const GdtfBuildRequest &requ
             if (!is_supported_geometry_tag(child_tag)) {
                 continue;
             }
-            append_geometry(child, geometry_id, world);
+            append_geometry(child, geometry_id, world, nullptr);
         }
     };
 
-    append_geometry(root_geometry, parent_id, parent_world);
+    append_geometry(root_geometry, parent_id, parent_world, nullptr);
     extracted_asset_count += gdtf_cache.extracted_assets();
     return nodes;
 }

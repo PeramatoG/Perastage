@@ -103,7 +103,7 @@ func _build_visual_node(data: Dictionary, item_type: String, is_fixture: bool, v
 			return loaded
 		print("[Peraviz] Asset fallback for missing/invalid model: ", asset_path)
 
-	if item_type == "fixture_geometry":
+	if item_type == "fixture" or item_type == "fixture_geometry":
 		return null
 
 	return _create_dummy_mesh(is_fixture, visual_scale_hint)
