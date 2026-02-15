@@ -1,6 +1,7 @@
 #include "gdtf_scene_builder.h"
 
 #include "asset_cache.h"
+#include "coordinate_mapper.h"
 #include "matrixutils.h"
 
 #include <algorithm>
@@ -15,65 +16,6 @@
 namespace {
 
 using peraviz::SceneNode;
-using peraviz::Vec3;
-
-Vec3 map_position(const std::array<float, 3> &source_mm) {
-    return Vec3{source_mm[0] / 1000.0F, source_mm[2] / 1000.0F,
-                -source_mm[1] / 1000.0F};
-}
-
-std::array<float, 3> map_axis(const std::array<float, 3> &v) {
-    return {v[0], v[2], -v[1]};
-}
-
-Matrix to_godot_basis_matrix(const Matrix &source) {
-    Matrix out;
-    out.u = map_axis(source.u);
-    out.v = map_axis(source.v);
-    out.w = map_axis(source.w);
-    out.o = {0.0F, 0.0F, 0.0F};
-    return out;
-}
-
-std::array<float, 3> extract_scale(const Matrix &m) {
-    auto len = [](const std::array<float, 3> &v) {
-        return std::sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
-    };
-    return {len(m.u), len(m.v), len(m.w)};
-}
-
-Matrix normalize_basis(const Matrix &m, const std::array<float, 3> &scale) {
-    Matrix out = m;
-    auto safe_div = [](float value, float s) {
-        return (std::abs(s) > 1e-6F) ? value / s : value;
-    };
-    for (int i = 0; i < 3; ++i) {
-        out.u[i] = safe_div(out.u[i], scale[0]);
-        out.v[i] = safe_div(out.v[i], scale[1]);
-        out.w[i] = safe_div(out.w[i], scale[2]);
-    }
-    return out;
-}
-
-peraviz::SceneTransform to_godot_transform(const Matrix &local_transform) {
-    peraviz::SceneTransform transform;
-    transform.position = map_position(local_transform.o);
-
-    Matrix basis = to_godot_basis_matrix(local_transform);
-    transform.basis_x = {basis.u[0], basis.u[1], basis.u[2]};
-    transform.basis_y = {basis.v[0], basis.v[1], basis.v[2]};
-    transform.basis_z = {basis.w[0], basis.w[1], basis.w[2]};
-    transform.has_basis = true;
-
-    const auto scale = extract_scale(basis);
-    transform.scale = {scale[0], scale[1], scale[2]};
-
-    Matrix rotation_only = normalize_basis(basis, scale);
-    const auto euler = MatrixUtils::MatrixToEuler(rotation_only);
-    transform.rotation_degrees = {euler[0], euler[1], euler[2]};
-    return transform;
-}
-
 std::string lower_ascii(std::string text) {
     std::transform(text.begin(), text.end(), text.begin(), [](unsigned char c) {
         return static_cast<char>(std::tolower(c));
@@ -218,7 +160,7 @@ std::vector<SceneNode> build_fixture_geometry_nodes(const GdtfBuildRequest &requ
         node.is_fixture = true;
         node.is_axis = looks_like_axis(geometry->Name(), geometry_name);
         node.is_emitter = looks_like_emitter(geometry->Name(), geometry_name);
-        node.local_transform = to_godot_transform(local);
+        node.local_transform = peraviz::coordinate_mapper::to_godot_transform(local);
 
         if (const char *model_name = geometry->Attribute("Model")) {
             auto model_it = model_file_by_name.find(model_name);
