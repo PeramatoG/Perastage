@@ -166,12 +166,17 @@ std::vector<SceneNode> build_fixture_geometry_nodes(const GdtfBuildRequest &requ
     }
 
     int local_counter = 0;
-    std::function<void(tinyxml2::XMLElement *, const std::string &, const Matrix &, const char *)>
+    std::function<void(tinyxml2::XMLElement *, const std::string &, const Matrix &, const char *,
+                       const Matrix *)>
         append_geometry;
     append_geometry = [&](tinyxml2::XMLElement *geometry, const std::string &geometry_parent_id,
-                          const Matrix &geometry_parent_world, const char *override_model) {
+                          const Matrix &geometry_parent_world, const char *override_model,
+                          const Matrix *prepend_local) {
         const std::string geometry_tag = geometry->Name() ? geometry->Name() : "";
         Matrix local = parse_local_matrix(geometry);
+        if (prepend_local) {
+            local = MatrixUtils::Multiply(*prepend_local, local);
+        }
         Matrix world = MatrixUtils::Multiply(geometry_parent_world, local);
 
         if (geometry_tag == "GeometryReference") {
@@ -186,8 +191,8 @@ std::vector<SceneNode> build_fixture_geometry_nodes(const GdtfBuildRequest &requ
             }
 
             const char *reference_model = geometry->Attribute("Model");
-            append_geometry(referenced_it->second, geometry_parent_id, world,
-                            reference_model ? reference_model : override_model);
+            append_geometry(referenced_it->second, geometry_parent_id, geometry_parent_world,
+                            reference_model ? reference_model : override_model, &local);
             return;
         }
 
@@ -221,11 +226,11 @@ std::vector<SceneNode> build_fixture_geometry_nodes(const GdtfBuildRequest &requ
             if (!is_supported_geometry_tag(child_tag)) {
                 continue;
             }
-            append_geometry(child, geometry_id, world, nullptr);
+            append_geometry(child, geometry_id, world, nullptr, nullptr);
         }
     };
 
-    append_geometry(root_geometry, parent_id, parent_world, nullptr);
+    append_geometry(root_geometry, parent_id, parent_world, nullptr, nullptr);
     extracted_asset_count += gdtf_cache.extracted_assets();
     return nodes;
 }
