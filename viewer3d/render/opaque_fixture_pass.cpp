@@ -84,8 +84,11 @@ void OpaqueFixturePass::Render(
         is2DViewer && context.view == Viewer2DView::Top &&
         !forceBottomViewForTopFixtures;
     if (mirrorFixtureForRealTop) {
+      // In Perastage Top view we keep +Y as screen-up (MVR/GDTF stage Y),
+      // so converting the legacy bottom-like fixture symbol to real Top
+      // requires mirroring the vertical axis in the XY projection plane.
       glTranslatef(cx, cy, cz);
-      glScalef(-1.0f, 1.0f, 1.0f);
+      glScalef(1.0f, -1.0f, 1.0f);
       glTranslatef(-cx, -cy, -cz);
     }
 
@@ -109,11 +112,11 @@ void OpaqueFixturePass::Render(
     fixtureTransform.o[1] *= RENDER_SCALE;
     fixtureTransform.o[2] *= RENDER_SCALE;
 
-    auto applyFixtureCapture = [fixtureTransform, mirrorFixtureForRealTop, cx](
+    auto applyFixtureCapture = [fixtureTransform, mirrorFixtureForRealTop, cy](
                                    const std::array<float, 3> &p) {
       std::array<float, 3> local = p;
       if (mirrorFixtureForRealTop)
-        local[0] = 2.0f * cx - local[0];
+        local[1] = 2.0f * cy - local[1];
       return TransformPoint(fixtureTransform, local);
     };
 
@@ -180,11 +183,11 @@ void OpaqueFixturePass::Render(
                   controller.m_captureCanvas->SetSourceKey(
                       fixtureCaptureKey + "_part" + std::to_string(partIndex));
                   auto applyCapture = [objTransform = obj.transform,
-                                       mirrorFixtureForRealTop, cx](
+                                       mirrorFixtureForRealTop, cy](
                                           const std::array<float, 3> &p) {
                     std::array<float, 3> local = p;
                     if (mirrorFixtureForRealTop)
-                      local[0] = 2.0f * cx - local[0];
+                      local[1] = 2.0f * cy - local[1];
                     return TransformPoint(objTransform, local);
                   };
                   float partR = r;
@@ -241,10 +244,10 @@ void OpaqueFixturePass::Render(
           controller.ApplyTransform(m2, false);
           auto applyCapture =
               [fixtureTransform, objTransform = obj.transform,
-               mirrorFixtureForRealTop, cx](const std::array<float, 3> &p) {
+               mirrorFixtureForRealTop, cy](const std::array<float, 3> &p) {
                 auto local = TransformPoint(objTransform, p);
                 if (mirrorFixtureForRealTop)
-                  local[0] = 2.0f * cx - local[0];
+                  local[1] = 2.0f * cy - local[1];
                 return TransformPoint(fixtureTransform, local);
               };
           float partR = r;
