@@ -70,13 +70,24 @@ bool parse_gdtf_4x4_matrix(const char *text, Matrix &out) {
         return false;
     }
 
-    // Perastage currently interprets matrix strings in MatrixUtils::ParseMatrix
-    // using MVR-oriented indexing. For GDTF fixture geometry in Peraviz we need
-    // the canonical 4x4 layout where rows represent U, V, W and translation.
-    out.u = std::array<float, 3>{values[0], values[1], values[2]};
-    out.v = std::array<float, 3>{values[4], values[5], values[6]};
-    out.w = std::array<float, 3>{values[8], values[9], values[10]};
-    out.o = std::array<float, 3>{values[12], values[13], values[14]};
+    // Keep parity with Perastage's GDTF matrix interpretation so fixture parts
+    // preserve their offsets in the same way as the 3D viewer.
+    //
+    // Canonical GDTF matrices store translation in the 4th column.
+    // Some exporters place translation in the 4th row, so we accept both.
+    const std::array<float, 3> column_translation{values[3], values[7], values[11]};
+    const std::array<float, 3> row_translation{values[12], values[13], values[14]};
+    const bool has_column_translation =
+        std::abs(column_translation[0]) > 1e-6F || std::abs(column_translation[1]) > 1e-6F ||
+        std::abs(column_translation[2]) > 1e-6F;
+    const bool has_row_translation = std::abs(row_translation[0]) > 1e-6F ||
+                                     std::abs(row_translation[1]) > 1e-6F ||
+                                     std::abs(row_translation[2]) > 1e-6F;
+
+    out.u = std::array<float, 3>{values[0], values[4], values[8]};
+    out.v = std::array<float, 3>{values[1], values[5], values[9]};
+    out.w = std::array<float, 3>{values[2], values[6], values[10]};
+    out.o = has_column_translation || !has_row_translation ? column_translation : row_translation;
     return true;
 }
 
