@@ -31,11 +31,13 @@ void OpaqueFixturePass::Render(
   const Viewer2DRenderMode mode = context.mode;
   const bool skipCapture = context.skipCapture;
   const bool is2DViewer = context.is2DViewer;
+  const bool isTopView2D = is2DViewer && context.view == Viewer2DView::Top;
 
   const auto &fixtures = SceneDataManager::Instance().GetFixtures();
 
   const bool forceBottomViewForTopFixtures =
       ConfigManager::Get().GetFloat("view2d_top_fixtures_inverted") != 0.0f;
+  const bool drawRealTopInTopView = isTopView2D && !forceBottomViewForTopFixtures;
 
   glShadeModel(GL_FLAT);
   const bool forceFixturesOnTop = wireframe;
@@ -80,19 +82,6 @@ void OpaqueFixturePass::Render(
       cz -= f.transform.o[2] * RENDER_SCALE;
     }
 
-    const bool mirrorFixtureForRealTop =
-        is2DViewer && context.view == Viewer2DView::Top &&
-        !forceBottomViewForTopFixtures;
-    if (mirrorFixtureForRealTop) {
-      // Top camera (+Z -> origin) and bottom camera (-Z -> origin) differ
-      // by an X-axis mirror in Perastage screen space (up stays +Y). To
-      // switch fixture appearance between legacy bottom-like and real top,
-      // mirror X around the fixture center in top 2D rendering.
-      glTranslatef(cx, cy, cz);
-      glScalef(-1.0f, 1.0f, 1.0f);
-      glTranslatef(-cx, -cy, -cz);
-    }
-
     float r = 1.0f, g = 1.0f, b = 1.0f;
     if (wireframe) {
       if (mode == Viewer2DRenderMode::ByFixtureType) {
@@ -113,12 +102,8 @@ void OpaqueFixturePass::Render(
     fixtureTransform.o[1] *= RENDER_SCALE;
     fixtureTransform.o[2] *= RENDER_SCALE;
 
-    auto applyFixtureCapture = [fixtureTransform, mirrorFixtureForRealTop, cx](
-                                   const std::array<float, 3> &p) {
-      std::array<float, 3> local = p;
-      if (mirrorFixtureForRealTop)
-        local[0] = 2.0f * cx - local[0];
-      return TransformPoint(fixtureTransform, local);
+    auto applyFixtureCapture = [fixtureTransform](const std::array<float, 3> &p) {
+      return TransformPoint(fixtureTransform, p);
     };
 
     std::string gdtfPath;
@@ -148,8 +133,7 @@ void OpaqueFixturePass::Render(
 
       if (!modelKey.empty()) {
         const Viewer2DView fixtureCaptureView =
-            (is2DViewer && context.view == Viewer2DView::Top &&
-             forceBottomViewForTopFixtures)
+            isTopView2D && forceBottomViewForTopFixtures
                 ? Viewer2DView::Bottom
                 : controller.m_captureView;
 
@@ -179,17 +163,17 @@ void OpaqueFixturePass::Render(
               controller.m_captureIncludeGrid = false;
 
               if (itg != controller.m_resourceSyncState.loadedGdtf.end()) {
-                size_t partIndex = 0;
-                for (const auto &obj : itg->second) {
+                const auto &parts = itg->second;
+                const bool reversePartOrder = drawRealTopInTopView;
+                for (size_t offset = 0; offset < parts.size(); ++offset) {
+                  const size_t partIndex =
+                      reversePartOrder ? (parts.size() - 1 - offset) : offset;
+                  const auto &obj = parts[partIndex];
                   controller.m_captureCanvas->SetSourceKey(
                       fixtureCaptureKey + "_part" + std::to_string(partIndex));
-                  auto applyCapture = [objTransform = obj.transform,
-                                       mirrorFixtureForRealTop, cx](
+                  auto applyCapture = [objTransform = obj.transform](
                                           const std::array<float, 3> &p) {
-                    std::array<float, 3> local = p;
-                    if (mirrorFixtureForRealTop)
-                      local[0] = 2.0f * cx - local[0];
-                    return TransformPoint(objTransform, local);
+                    return TransformPoint(objTransform, p);
                   };
                   float partR = r;
                   float partG = g;
@@ -202,7 +186,6 @@ void OpaqueFixturePass::Render(
                   controller.DrawMeshWithOutline(
                       obj.mesh, partR, partG, partB, RENDER_SCALE, false, false,
                       0.0f, 0.0f, 0.0f, wireframe, mode, applyCapture, false);
-                  ++partIndex;
                 }
               } else {
                 controller.m_captureCanvas->SetSourceKey(fixtureCaptureKey);
@@ -233,8 +216,12 @@ void OpaqueFixturePass::Render(
 
     auto drawFixtureGeometry = [&]() {
       if (itg != controller.m_resourceSyncState.loadedGdtf.end()) {
-        size_t partIndex = 0;
-        for (const auto &obj : itg->second) {
+        const auto &parts = itg->second;
+        const bool reversePartOrder = drawRealTopInTopView;
+        for (size_t offset = 0; offset < parts.size(); ++offset) {
+          const size_t partIndex =
+              reversePartOrder ? (parts.size() - 1 - offset) : offset;
+          const auto &obj = parts[partIndex];
           glPushMatrix();
           if (controller.m_captureCanvas && !skipCapture) {
             controller.m_captureCanvas->SetSourceKey(
@@ -244,11 +231,9 @@ void OpaqueFixturePass::Render(
           MatrixToArray(obj.transform, m2);
           controller.ApplyTransform(m2, false);
           auto applyCapture =
-              [fixtureTransform, objTransform = obj.transform,
-               mirrorFixtureForRealTop, cx](const std::array<float, 3> &p) {
+              [fixtureTransform, objTransform = obj.transform](
+                  const std::array<float, 3> &p) {
                 auto local = TransformPoint(objTransform, p);
-                if (mirrorFixtureForRealTop)
-                  local[0] = 2.0f * cx - local[0];
                 return TransformPoint(fixtureTransform, local);
               };
           float partR = r;
@@ -265,7 +250,6 @@ void OpaqueFixturePass::Render(
                                          cy, cz, wireframe, mode, applyCapture,
                                          drawUnlit);
           glPopMatrix();
-          ++partIndex;
         }
       } else {
         controller.DrawCubeWithOutline(0.2f, r, g, b, highlight, selected, cx,
