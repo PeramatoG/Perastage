@@ -59,8 +59,6 @@ void OpaqueTrussPass::Render(
     float matrix[16];
     MatrixToArray(t.transform, matrix);
     controller.ApplyTransform(matrix, true);
-    if (mirrorTopViewIn2D)
-      glScalef(-1.0f, 1.0f, 1.0f);
 
     float cx = 0.0f, cy = 0.0f, cz = 0.0f;
     auto tbit = controller.m_trussBounds.find(uuid);
@@ -71,6 +69,12 @@ void OpaqueTrussPass::Render(
       cx -= t.transform.o[0] * RENDER_SCALE;
       cy -= t.transform.o[1] * RENDER_SCALE;
       cz -= t.transform.o[2] * RENDER_SCALE;
+    }
+
+    if (mirrorTopViewIn2D) {
+      glTranslatef(cx, cy, cz);
+      glScalef(-1.0f, 1.0f, 1.0f);
+      glTranslatef(-cx, -cy, -cz);
     }
 
     float r = 1.0f, g = 1.0f, b = 1.0f;
@@ -85,11 +89,11 @@ void OpaqueTrussPass::Render(
     captureTransform.o[0] *= RENDER_SCALE;
     captureTransform.o[1] *= RENDER_SCALE;
     captureTransform.o[2] *= RENDER_SCALE;
-    auto applyCapture = [captureTransform, mirrorTopViewIn2D](
+    auto applyCapture = [captureTransform, mirrorTopViewIn2D, cx](
                             const std::array<float, 3> &p) {
       std::array<float, 3> local = p;
       if (mirrorTopViewIn2D)
-        local[0] = -local[0];
+        local[0] = 2.0f * cx - local[0];
       return TransformPoint(captureTransform, local);
     };
 

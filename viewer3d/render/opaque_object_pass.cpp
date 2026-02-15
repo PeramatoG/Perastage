@@ -57,8 +57,6 @@ void OpaqueObjectPass::Render(
     float matrix[16];
     MatrixToArray(m.transform, matrix);
     controller.ApplyTransform(matrix, true);
-    if (mirrorTopViewIn2D)
-      glScalef(-1.0f, 1.0f, 1.0f);
 
     float cx = 0.0f, cy = 0.0f, cz = 0.0f;
     auto obit = controller.m_objectBounds.find(uuid);
@@ -69,6 +67,12 @@ void OpaqueObjectPass::Render(
       cx -= m.transform.o[0] * RENDER_SCALE;
       cy -= m.transform.o[1] * RENDER_SCALE;
       cz -= m.transform.o[2] * RENDER_SCALE;
+    }
+
+    if (mirrorTopViewIn2D) {
+      glTranslatef(cx, cy, cz);
+      glScalef(-1.0f, 1.0f, 1.0f);
+      glTranslatef(-cx, -cy, -cz);
     }
 
     float r = 1.0f, g = 1.0f, b = 1.0f;
@@ -87,7 +91,7 @@ void OpaqueObjectPass::Render(
                             const std::array<float, 3> &p) {
       std::array<float, 3> local = p;
       if (mirrorTopViewIn2D)
-        local[0] = -local[0];
+        local[0] = 2.0f * cx - local[0];
       return TransformPoint(captureTransform, local);
     };
 
@@ -146,28 +150,26 @@ void OpaqueObjectPass::Render(
               float partMatrix[16];
               MatrixToArray(worldMatrix, partMatrix);
 
-              Matrix partCaptureMatrix = worldMatrix;
-              partCaptureMatrix.o[0] *= RENDER_SCALE;
-              partCaptureMatrix.o[1] *= RENDER_SCALE;
-              partCaptureMatrix.o[2] *= RENDER_SCALE;
-              auto partCapture = [partCaptureMatrix, mirrorTopViewIn2D](
-                                     const std::array<float, 3> &p) {
-                std::array<float, 3> local = p;
-                if (mirrorTopViewIn2D)
-                  local[0] = -local[0];
-                return TransformPoint(partCaptureMatrix, local);
-              };
-
               Matrix localCaptureMatrix = part.localTransform;
               localCaptureMatrix.o[0] *= RENDER_SCALE;
               localCaptureMatrix.o[1] *= RENDER_SCALE;
               localCaptureMatrix.o[2] *= RENDER_SCALE;
+              auto partCapture = [captureTransform, localCaptureMatrix,
+                                  mirrorTopViewIn2D, cx](
+                                     const std::array<float, 3> &p) {
+                auto local = TransformPoint(localCaptureMatrix, p);
+                if (mirrorTopViewIn2D)
+                  local[0] = 2.0f * cx - local[0];
+                return TransformPoint(captureTransform, local);
+              };
+
               auto localPartCapture =
-                  [localCaptureMatrix, mirrorTopViewIn2D](const std::array<float, 3> &p) {
-                    std::array<float, 3> local = p;
+                  [localCaptureMatrix, mirrorTopViewIn2D,
+                   cx](const std::array<float, 3> &p) {
+                    auto local = TransformPoint(localCaptureMatrix, p);
                     if (mirrorTopViewIn2D)
-                      local[0] = -local[0];
-                    return TransformPoint(localCaptureMatrix, local);
+                      local[0] = 2.0f * cx - local[0];
+                    return local;
                   };
 
               float localMatrix[16];

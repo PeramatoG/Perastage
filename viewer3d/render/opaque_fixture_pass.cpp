@@ -75,8 +75,6 @@ void OpaqueFixturePass::Render(
     float matrix[16];
     MatrixToArray(f.transform, matrix);
     controller.ApplyTransform(matrix, true);
-    if (mirrorFixtureForRealTop)
-      glScalef(-1.0f, 1.0f, 1.0f);
 
     float cx = 0.0f, cy = 0.0f, cz = 0.0f;
     auto fbit = controller.m_fixtureBounds.find(uuid);
@@ -87,6 +85,12 @@ void OpaqueFixturePass::Render(
       cx -= f.transform.o[0] * RENDER_SCALE;
       cy -= f.transform.o[1] * RENDER_SCALE;
       cz -= f.transform.o[2] * RENDER_SCALE;
+    }
+
+    if (mirrorFixtureForRealTop) {
+      glTranslatef(cx, cy, cz);
+      glScalef(-1.0f, 1.0f, 1.0f);
+      glTranslatef(-cx, -cy, -cz);
     }
 
     float r = 1.0f, g = 1.0f, b = 1.0f;
@@ -109,11 +113,11 @@ void OpaqueFixturePass::Render(
     fixtureTransform.o[1] *= RENDER_SCALE;
     fixtureTransform.o[2] *= RENDER_SCALE;
 
-    auto applyFixtureCapture = [fixtureTransform, mirrorFixtureForRealTop](
+    auto applyFixtureCapture = [fixtureTransform, mirrorFixtureForRealTop, cx](
                                    const std::array<float, 3> &p) {
       std::array<float, 3> local = p;
       if (mirrorFixtureForRealTop)
-        local[0] = -local[0];
+        local[0] = 2.0f * cx - local[0];
       return TransformPoint(fixtureTransform, local);
     };
 
@@ -234,11 +238,10 @@ void OpaqueFixturePass::Render(
           controller.ApplyTransform(m2, false);
           auto applyCapture =
               [fixtureTransform, objTransform = obj.transform,
-               mirrorFixtureForRealTop](const std::array<float, 3> &p) {
-                std::array<float, 3> partLocal = p;
+               mirrorFixtureForRealTop, cx](const std::array<float, 3> &p) {
+                auto local = TransformPoint(objTransform, p);
                 if (mirrorFixtureForRealTop)
-                  partLocal[0] = -partLocal[0];
-                auto local = TransformPoint(objTransform, partLocal);
+                  local[0] = 2.0f * cx - local[0];
                 return TransformPoint(fixtureTransform, local);
               };
           float partR = r;
