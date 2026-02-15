@@ -545,10 +545,6 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
   switch (m_view) {
   case Viewer2DView::Top:
     gluLookAt(0.0, 0.0, 10.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0);
-    // The legacy 2D top projection matches a bottom-like orientation. Mirror
-    // the X axis here so top uses the real top orientation for non-fixture
-    // elements. Fixture-specific legacy behavior is handled in the fixture pass.
-    glScalef(-1.0f, 1.0f, 1.0f);
     break;
   case Viewer2DView::Bottom:
     gluLookAt(0.0, 0.0, -10.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0);

@@ -28,6 +28,8 @@ void OpaqueObjectPass::Render(
   const bool wireframe = context.wireframe;
   const Viewer2DRenderMode mode = context.mode;
   const bool skipCapture = context.skipCapture;
+  const bool mirrorTopViewIn2D =
+      context.is2DViewer && context.view == Viewer2DView::Top;
 
   const auto &sceneObjects = SceneDataManager::Instance().GetSceneObjects();
 
@@ -55,6 +57,8 @@ void OpaqueObjectPass::Render(
     float matrix[16];
     MatrixToArray(m.transform, matrix);
     controller.ApplyTransform(matrix, true);
+    if (mirrorTopViewIn2D)
+      glScalef(-1.0f, 1.0f, 1.0f);
 
     float cx = 0.0f, cy = 0.0f, cz = 0.0f;
     auto obit = controller.m_objectBounds.find(uuid);
@@ -79,8 +83,12 @@ void OpaqueObjectPass::Render(
     captureTransform.o[0] *= RENDER_SCALE;
     captureTransform.o[1] *= RENDER_SCALE;
     captureTransform.o[2] *= RENDER_SCALE;
-    auto applyCapture = [captureTransform](const std::array<float, 3> &p) {
-      return TransformPoint(captureTransform, p);
+    auto applyCapture = [captureTransform, mirrorTopViewIn2D](
+                            const std::array<float, 3> &p) {
+      std::array<float, 3> local = p;
+      if (mirrorTopViewIn2D)
+        local[0] = -local[0];
+      return TransformPoint(captureTransform, local);
     };
 
     struct SceneObjectMeshPart {
@@ -142,8 +150,12 @@ void OpaqueObjectPass::Render(
               partCaptureMatrix.o[0] *= RENDER_SCALE;
               partCaptureMatrix.o[1] *= RENDER_SCALE;
               partCaptureMatrix.o[2] *= RENDER_SCALE;
-              auto partCapture = [partCaptureMatrix](const std::array<float, 3> &p) {
-                return TransformPoint(partCaptureMatrix, p);
+              auto partCapture = [partCaptureMatrix, mirrorTopViewIn2D](
+                                     const std::array<float, 3> &p) {
+                std::array<float, 3> local = p;
+                if (mirrorTopViewIn2D)
+                  local[0] = -local[0];
+                return TransformPoint(partCaptureMatrix, local);
               };
 
               Matrix localCaptureMatrix = part.localTransform;
@@ -151,8 +163,11 @@ void OpaqueObjectPass::Render(
               localCaptureMatrix.o[1] *= RENDER_SCALE;
               localCaptureMatrix.o[2] *= RENDER_SCALE;
               auto localPartCapture =
-                  [localCaptureMatrix](const std::array<float, 3> &p) {
-                    return TransformPoint(localCaptureMatrix, p);
+                  [localCaptureMatrix, mirrorTopViewIn2D](const std::array<float, 3> &p) {
+                    std::array<float, 3> local = p;
+                    if (mirrorTopViewIn2D)
+                      local[0] = -local[0];
+                    return TransformPoint(localCaptureMatrix, local);
                   };
 
               float localMatrix[16];

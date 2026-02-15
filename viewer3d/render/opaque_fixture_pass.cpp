@@ -40,9 +40,9 @@ void OpaqueFixturePass::Render(
     return requestedView;
   };
 
-  const bool keepLegacyTopFixturePerspective =
+  const bool mirrorFixtureForRealTop =
       context.is2DViewer && context.view == Viewer2DView::Top &&
-      context.invertFixturesInTop2D;
+      !context.invertFixturesInTop2D;
 
   glShadeModel(GL_FLAT);
   const bool forceFixturesOnTop = wireframe;
@@ -74,9 +74,9 @@ void OpaqueFixturePass::Render(
 
     float matrix[16];
     MatrixToArray(f.transform, matrix);
-    if (keepLegacyTopFixturePerspective)
-      glScalef(-1.0f, 1.0f, 1.0f);
     controller.ApplyTransform(matrix, true);
+    if (mirrorFixtureForRealTop)
+      glScalef(-1.0f, 1.0f, 1.0f);
 
     float cx = 0.0f, cy = 0.0f, cz = 0.0f;
     auto fbit = controller.m_fixtureBounds.find(uuid);
@@ -109,12 +109,12 @@ void OpaqueFixturePass::Render(
     fixtureTransform.o[1] *= RENDER_SCALE;
     fixtureTransform.o[2] *= RENDER_SCALE;
 
-    auto applyFixtureCapture = [fixtureTransform, keepLegacyTopFixturePerspective](
+    auto applyFixtureCapture = [fixtureTransform, mirrorFixtureForRealTop](
                                    const std::array<float, 3> &p) {
-      auto projected = TransformPoint(fixtureTransform, p);
-      if (keepLegacyTopFixturePerspective)
-        projected[0] = -projected[0];
-      return projected;
+      std::array<float, 3> local = p;
+      if (mirrorFixtureForRealTop)
+        local[0] = -local[0];
+      return TransformPoint(fixtureTransform, local);
     };
 
     std::string gdtfPath;
@@ -234,12 +234,12 @@ void OpaqueFixturePass::Render(
           controller.ApplyTransform(m2, false);
           auto applyCapture =
               [fixtureTransform, objTransform = obj.transform,
-               keepLegacyTopFixturePerspective](const std::array<float, 3> &p) {
-                auto local = TransformPoint(objTransform, p);
-                auto projected = TransformPoint(fixtureTransform, local);
-                if (keepLegacyTopFixturePerspective)
-                  projected[0] = -projected[0];
-                return projected;
+               mirrorFixtureForRealTop](const std::array<float, 3> &p) {
+                std::array<float, 3> partLocal = p;
+                if (mirrorFixtureForRealTop)
+                  partLocal[0] = -partLocal[0];
+                auto local = TransformPoint(objTransform, partLocal);
+                return TransformPoint(fixtureTransform, local);
               };
           float partR = r;
           float partG = g;
