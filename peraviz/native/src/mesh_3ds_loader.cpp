@@ -11,6 +11,8 @@
 
 namespace {
 
+constexpr float kMillimetersToMeters = 0.001F;
+
 struct Chunk {
     uint16_t id = 0;
     uint32_t length = 0;
@@ -232,8 +234,10 @@ bool load_3ds_mesh_data(const godot::String &path,
 
     out_vertices.resize(static_cast<int64_t>(mesh.vertices.size() / 3));
     for (int64_t i = 0; i < out_vertices.size(); ++i) {
-        out_vertices.set(i, godot::Vector3(mesh.vertices[i * 3], mesh.vertices[i * 3 + 1],
-                                           mesh.vertices[i * 3 + 2]));
+        out_vertices.set(
+            i, godot::Vector3(mesh.vertices[i * 3] * kMillimetersToMeters,
+                              mesh.vertices[i * 3 + 1] * kMillimetersToMeters,
+                              mesh.vertices[i * 3 + 2] * kMillimetersToMeters));
     }
 
     out_normals.resize(static_cast<int64_t>(mesh.normals.size() / 3));
