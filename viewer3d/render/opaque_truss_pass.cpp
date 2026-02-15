@@ -30,8 +30,6 @@ void OpaqueTrussPass::Render(
   const bool wireframe = context.wireframe;
   const Viewer2DRenderMode mode = context.mode;
   const bool skipCapture = context.skipCapture;
-  const bool mirrorTopViewIn2D =
-      context.is2DViewer && context.view == Viewer2DView::Top;
 
   const auto &trusses = SceneDataManager::Instance().GetTrusses();
 
@@ -71,12 +69,6 @@ void OpaqueTrussPass::Render(
       cz -= t.transform.o[2] * RENDER_SCALE;
     }
 
-    if (mirrorTopViewIn2D) {
-      glTranslatef(cx, cy, cz);
-      glScalef(-1.0f, 1.0f, 1.0f);
-      glTranslatef(-cx, -cy, -cz);
-    }
-
     float r = 1.0f, g = 1.0f, b = 1.0f;
     if (wireframe && mode == Viewer2DRenderMode::ByLayer) {
       auto c = getLayerColor(t.layer);
@@ -89,12 +81,8 @@ void OpaqueTrussPass::Render(
     captureTransform.o[0] *= RENDER_SCALE;
     captureTransform.o[1] *= RENDER_SCALE;
     captureTransform.o[2] *= RENDER_SCALE;
-    auto applyCapture = [captureTransform, mirrorTopViewIn2D, cx](
-                            const std::array<float, 3> &p) {
-      std::array<float, 3> local = p;
-      if (mirrorTopViewIn2D)
-        local[0] = 2.0f * cx - local[0];
-      return TransformPoint(captureTransform, local);
+    auto applyCapture = [captureTransform](const std::array<float, 3> &p) {
+      return TransformPoint(captureTransform, p);
     };
 
     const Mesh *trussMesh = nullptr;

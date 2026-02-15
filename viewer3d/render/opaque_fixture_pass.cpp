@@ -33,17 +33,6 @@ void OpaqueFixturePass::Render(
 
   const auto &fixtures = SceneDataManager::Instance().GetFixtures();
 
-  const auto effectiveFixtureCaptureView = [&](Viewer2DView requestedView) {
-    if (context.is2DViewer && context.view == Viewer2DView::Top &&
-        context.invertFixturesInTop2D)
-      return Viewer2DView::Bottom;
-    return requestedView;
-  };
-
-  const bool mirrorFixtureForRealTop =
-      context.is2DViewer && context.view == Viewer2DView::Top &&
-      !context.invertFixturesInTop2D;
-
   glShadeModel(GL_FLAT);
   const bool forceFixturesOnTop = wireframe;
   GLboolean depthEnabled = GL_FALSE;
@@ -87,12 +76,6 @@ void OpaqueFixturePass::Render(
       cz -= f.transform.o[2] * RENDER_SCALE;
     }
 
-    if (mirrorFixtureForRealTop) {
-      glTranslatef(cx, cy, cz);
-      glScalef(-1.0f, 1.0f, 1.0f);
-      glTranslatef(-cx, -cy, -cz);
-    }
-
     float r = 1.0f, g = 1.0f, b = 1.0f;
     if (wireframe) {
       if (mode == Viewer2DRenderMode::ByFixtureType) {
@@ -113,12 +96,8 @@ void OpaqueFixturePass::Render(
     fixtureTransform.o[1] *= RENDER_SCALE;
     fixtureTransform.o[2] *= RENDER_SCALE;
 
-    auto applyFixtureCapture = [fixtureTransform, mirrorFixtureForRealTop, cx](
-                                   const std::array<float, 3> &p) {
-      std::array<float, 3> local = p;
-      if (mirrorFixtureForRealTop)
-        local[0] = 2.0f * cx - local[0];
-      return TransformPoint(fixtureTransform, local);
+    auto applyFixtureCapture = [fixtureTransform](const std::array<float, 3> &p) {
+      return TransformPoint(fixtureTransform, p);
     };
 
     std::string gdtfPath;
@@ -147,12 +126,9 @@ void OpaqueFixturePass::Render(
         modelKey = "unknown";
 
       if (!modelKey.empty()) {
-        const Viewer2DView fixtureCaptureView =
-            effectiveFixtureCaptureView(controller.m_captureView);
-
         SymbolKey symbolKey;
         symbolKey.modelKey = modelKey;
-        symbolKey.viewKind = resolveSymbolView(fixtureCaptureView);
+        symbolKey.viewKind = resolveSymbolView(controller.m_captureView);
         symbolKey.styleVersion = 1;
 
         const auto &symbol =
@@ -171,7 +147,7 @@ void OpaqueFixturePass::Render(
               bool prevCaptureOnly = controller.m_captureOnly;
               bool prevIncludeGrid = controller.m_captureIncludeGrid;
               controller.m_captureCanvas = localCanvas.get();
-              controller.m_captureView = fixtureCaptureView;
+              controller.m_captureView = prevView;
               controller.m_captureOnly = true;
               controller.m_captureIncludeGrid = false;
 
@@ -217,7 +193,7 @@ void OpaqueFixturePass::Render(
             });
 
         Transform2D instanceTransform =
-            BuildInstanceTransform2D(fixtureTransform, fixtureCaptureView);
+            BuildInstanceTransform2D(fixtureTransform, controller.m_captureView);
         controller.m_captureCanvas->PlaceSymbolInstance(symbol.symbolId,
                                                         instanceTransform);
         placedInstance = true;
@@ -237,11 +213,9 @@ void OpaqueFixturePass::Render(
           MatrixToArray(obj.transform, m2);
           controller.ApplyTransform(m2, false);
           auto applyCapture =
-              [fixtureTransform, objTransform = obj.transform,
-               mirrorFixtureForRealTop, cx](const std::array<float, 3> &p) {
+              [fixtureTransform, objTransform = obj.transform](
+                  const std::array<float, 3> &p) {
                 auto local = TransformPoint(objTransform, p);
-                if (mirrorFixtureForRealTop)
-                  local[0] = 2.0f * cx - local[0];
                 return TransformPoint(fixtureTransform, local);
               };
           float partR = r;

@@ -117,15 +117,6 @@ Transform2D BuildInstanceTransform2D(const Matrix &m, Viewer2DView view) {
   Transform2D t{};
   switch (view) {
   case Viewer2DView::Top:
-    // Top and bottom are mirrored along the X axis. Keep top as the real
-    // top projection and reserve bottom for the legacy mirrored perspective.
-    t.a = -m.u[0];
-    t.b = -m.u[1];
-    t.c = m.v[0];
-    t.d = m.v[1];
-    t.tx = -m.o[0];
-    t.ty = m.o[1];
-    break;
   case Viewer2DView::Bottom:
     t.a = m.u[0];
     t.b = m.u[1];

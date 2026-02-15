@@ -495,15 +495,6 @@ static Transform2D BuildInstanceTransform2D(const Matrix &m, Viewer2DView view) 
   Transform2D t{};
   switch (view) {
   case Viewer2DView::Top:
-    // Top and bottom are mirrored along the X axis. Keep top as the real
-    // top projection and reserve bottom for the legacy mirrored perspective.
-    t.a = -m.u[0];
-    t.b = -m.u[1];
-    t.c = m.v[0];
-    t.d = m.v[1];
-    t.tx = -m.o[0];
-    t.ty = m.o[1];
-    break;
   case Viewer2DView::Bottom:
     t.a = m.u[0];
     t.b = m.u[1];
@@ -539,9 +530,7 @@ std::array<float, 2>
 Viewer3DController::ProjectToCanvas(const std::array<float, 3> &p) const {
   switch (m_impl->captureView) {
   case Viewer2DView::Top:
-    // Top view mirrors X compared to bottom so captured commands match the
-    // real top projection used in the 2D viewport.
-    return {-p[0], p[1]};
+    return {p[0], p[1]};
   case Viewer2DView::Bottom:
     return {p[0], p[1]};
   case Viewer2DView::Front:
@@ -899,8 +888,6 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
   context.gridB = gridB;
   context.gridOnTop = gridOnTop;
   context.is2DViewer = is2DViewer;
-  context.invertFixturesInTop2D =
-      cfg.GetFloat("view2d_top_fixtures_inverted") != 0.0f;
 
   m_impl->useAdaptiveLineProfile =
       cfg.GetFloat("viewer3d_adaptive_line_profile") >= 0.5f;

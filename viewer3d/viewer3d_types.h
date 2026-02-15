@@ -59,7 +59,6 @@ struct RenderFrameContext {
   float gridB = 0.35f;
   bool gridOnTop = false;
   bool is2DViewer = false;
-  bool invertFixturesInTop2D = true;
 
   bool useLighting = true;
   bool drawGridBeforeScene = false;
