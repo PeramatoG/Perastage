@@ -8,8 +8,11 @@
 #include <cmath>
 #include <array>
 #include <cctype>
+#include <cstring>
 #include <functional>
+#include <sstream>
 #include <unordered_map>
+#include <vector>
 
 #include <tinyxml2.h>
 
@@ -39,6 +42,44 @@ bool looks_like_emitter(const std::string &tag_name, const std::string &name) {
 }
 
 
+
+
+bool parse_gdtf_4x4_matrix(const char *text, Matrix &out) {
+    if (!text) {
+        return false;
+    }
+
+    std::string cleaned;
+    cleaned.reserve(std::strlen(text));
+    for (const char c : std::string(text)) {
+        if (c == '{' || c == '}' || c == ',') {
+            cleaned.push_back(' ');
+        } else {
+            cleaned.push_back(c);
+        }
+    }
+
+    std::stringstream stream(cleaned);
+    std::vector<float> values;
+    float value = 0.0F;
+    while (stream >> value) {
+        values.push_back(value);
+    }
+
+    if (values.size() != 16) {
+        return false;
+    }
+
+    // Perastage currently interprets matrix strings in MatrixUtils::ParseMatrix
+    // using MVR-oriented indexing. For GDTF fixture geometry in Peraviz we need
+    // the canonical 4x4 layout where rows represent U, V, W and translation.
+    out.u = std::array<float, 3>{values[0], values[1], values[2]};
+    out.v = std::array<float, 3>{values[4], values[5], values[6]};
+    out.w = std::array<float, 3>{values[8], values[9], values[10]};
+    out.o = std::array<float, 3>{values[12], values[13], values[14]};
+    return true;
+}
+
 bool is_supported_geometry_tag(const std::string &tag_name) {
     return tag_name == "Geometry" || tag_name == "Axis" || tag_name == "Beam" ||
            tag_name == "GeometryReference" || tag_name == "Laser" ||
@@ -57,7 +98,9 @@ Matrix parse_local_matrix(tinyxml2::XMLElement *node) {
         position = node->Attribute("position");
     }
     if (position) {
-        MatrixUtils::ParseMatrix(position, out);
+        if (!parse_gdtf_4x4_matrix(position, out)) {
+            MatrixUtils::ParseMatrix(position, out);
+        }
         return out;
     }
 
@@ -66,7 +109,9 @@ Matrix parse_local_matrix(tinyxml2::XMLElement *node) {
         matrix_attr = node->Attribute("matrix");
     }
     if (matrix_attr) {
-        MatrixUtils::ParseMatrix(matrix_attr, out);
+        if (!parse_gdtf_4x4_matrix(matrix_attr, out)) {
+            MatrixUtils::ParseMatrix(matrix_attr, out);
+        }
         return out;
     }
 
@@ -76,7 +121,9 @@ Matrix parse_local_matrix(tinyxml2::XMLElement *node) {
     }
     if (matrix) {
         if (const char *text = matrix->GetText()) {
-            MatrixUtils::ParseMatrix(text, out);
+            if (!parse_gdtf_4x4_matrix(text, out)) {
+                MatrixUtils::ParseMatrix(text, out);
+            }
         }
     }
     return out;
