@@ -40,6 +40,10 @@ void OpaqueFixturePass::Render(
     return requestedView;
   };
 
+  const bool keepLegacyTopFixturePerspective =
+      context.is2DViewer && context.view == Viewer2DView::Top &&
+      context.invertFixturesInTop2D;
+
   glShadeModel(GL_FLAT);
   const bool forceFixturesOnTop = wireframe;
   GLboolean depthEnabled = GL_FALSE;
@@ -70,6 +74,8 @@ void OpaqueFixturePass::Render(
 
     float matrix[16];
     MatrixToArray(f.transform, matrix);
+    if (keepLegacyTopFixturePerspective)
+      glScalef(-1.0f, 1.0f, 1.0f);
     controller.ApplyTransform(matrix, true);
 
     float cx = 0.0f, cy = 0.0f, cz = 0.0f;
@@ -103,8 +109,12 @@ void OpaqueFixturePass::Render(
     fixtureTransform.o[1] *= RENDER_SCALE;
     fixtureTransform.o[2] *= RENDER_SCALE;
 
-    auto applyFixtureCapture = [fixtureTransform](const std::array<float, 3> &p) {
-      return TransformPoint(fixtureTransform, p);
+    auto applyFixtureCapture = [fixtureTransform, keepLegacyTopFixturePerspective](
+                                   const std::array<float, 3> &p) {
+      auto projected = TransformPoint(fixtureTransform, p);
+      if (keepLegacyTopFixturePerspective)
+        projected[0] = -projected[0];
+      return projected;
     };
 
     std::string gdtfPath;
@@ -223,10 +233,13 @@ void OpaqueFixturePass::Render(
           MatrixToArray(obj.transform, m2);
           controller.ApplyTransform(m2, false);
           auto applyCapture =
-              [fixtureTransform, objTransform = obj.transform](
-                  const std::array<float, 3> &p) {
+              [fixtureTransform, objTransform = obj.transform,
+               keepLegacyTopFixturePerspective](const std::array<float, 3> &p) {
                 auto local = TransformPoint(objTransform, p);
-                return TransformPoint(fixtureTransform, local);
+                auto projected = TransformPoint(fixtureTransform, local);
+                if (keepLegacyTopFixturePerspective)
+                  projected[0] = -projected[0];
+                return projected;
               };
           float partR = r;
           float partG = g;
