@@ -1,6 +1,7 @@
 #include "mvr_scene_loader.h"
 
 #include "asset_cache.h"
+#include "coordinate_mapper.h"
 #include "gdtf_scene_builder.h"
 #include "matrixutils.h"
 #include "types.h"
@@ -23,69 +24,11 @@ namespace {
 
 using peraviz::SceneModel;
 using peraviz::SceneNode;
-using peraviz::Vec3;
 
 struct SymdefGeometry {
     std::string file_name;
     Matrix transform = MatrixUtils::Identity();
 };
-
-Vec3 map_position(const std::array<float, 3> &source_mm) {
-    return Vec3{source_mm[0] / 1000.0F, source_mm[2] / 1000.0F,
-                -source_mm[1] / 1000.0F};
-}
-
-std::array<float, 3> map_axis(const std::array<float, 3> &v) {
-    return {v[0], v[2], -v[1]};
-}
-
-Matrix to_godot_basis_matrix(const Matrix &source) {
-    Matrix out;
-    out.u = map_axis(source.u);
-    out.v = map_axis(source.v);
-    out.w = map_axis(source.w);
-    out.o = {0.0F, 0.0F, 0.0F};
-    return out;
-}
-
-std::array<float, 3> extract_scale(const Matrix &m) {
-    auto len = [](const std::array<float, 3> &v) {
-        return std::sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
-    };
-    return {len(m.u), len(m.v), len(m.w)};
-}
-
-Matrix normalize_basis(const Matrix &m, const std::array<float, 3> &scale) {
-    Matrix out = m;
-    auto safe_div = [](float value, float s) {
-        return (std::abs(s) > 1e-6F) ? value / s : value;
-    };
-    for (int i = 0; i < 3; ++i) {
-        out.u[i] = safe_div(out.u[i], scale[0]);
-        out.v[i] = safe_div(out.v[i], scale[1]);
-        out.w[i] = safe_div(out.w[i], scale[2]);
-    }
-    return out;
-}
-
-peraviz::SceneTransform to_godot_transform(const Matrix &local_transform) {
-    peraviz::SceneTransform transform;
-    transform.position = map_position(local_transform.o);
-
-    Matrix basis = to_godot_basis_matrix(local_transform);
-    transform.basis_x = {basis.u[0], basis.u[1], basis.u[2]};
-    transform.basis_y = {basis.v[0], basis.v[1], basis.v[2]};
-    transform.basis_z = {basis.w[0], basis.w[1], basis.w[2]};
-    transform.has_basis = true;
-
-    const auto scale = extract_scale(basis);
-    transform.scale = {scale[0], scale[1], scale[2]};
-
-    Matrix rotation_only = normalize_basis(basis, scale);
-    const auto euler = MatrixUtils::MatrixToEuler(rotation_only);
-    transform.rotation_degrees = {euler[0], euler[1], euler[2]};
-    return transform;
-}
 
 std::string lower_ascii(std::string text) {
     std::transform(text.begin(), text.end(), text.begin(), [](unsigned char c) {
@@ -260,7 +203,7 @@ void append_geometry_children(SceneModel &scene, tinyxml2::XMLElement *node, con
         geo_node.parent_id = parent_id;
         geo_node.name = parse_name(geo, "Geometry3D");
         geo_node.type = "model_part";
-        geo_node.local_transform = to_godot_transform(local);
+        geo_node.local_transform = peraviz::coordinate_mapper::to_godot_transform(local);
         const std::string model_name = normalize_geometry_file_name(parse_model_filename(geo));
         if (!model_name.empty()) {
             geo_node.asset_path = mvr_cache.ensure_extracted(model_name);
@@ -291,7 +234,7 @@ void append_geometry_children(SceneModel &scene, tinyxml2::XMLElement *node, con
             symbol_node.type = "model_part";
 
             Matrix local = MatrixUtils::Multiply(symbol_local, sym_geo.transform);
-            symbol_node.local_transform = to_godot_transform(local);
+            symbol_node.local_transform = peraviz::coordinate_mapper::to_godot_transform(local);
 
             if (!sym_geo.file_name.empty()) {
                 symbol_node.asset_path = mvr_cache.ensure_extracted(sym_geo.file_name);
@@ -354,7 +297,7 @@ SceneModel load_mvr(const std::string &path) {
             node.node_id = id;
             node.parent_id = parent_id;
             node.name = parse_name(child, node_name);
-            node.local_transform = to_godot_transform(local_transform);
+            node.local_transform = peraviz::coordinate_mapper::to_godot_transform(local_transform);
 
             if (node_name == "Fixture") {
                 node.type = "fixture";
@@ -407,7 +350,7 @@ SceneModel load_mvr(const std::string &path) {
     for (tinyxml2::XMLElement *layer = layers->FirstChildElement("Layer"); layer;
          layer = layer->NextSiblingElement("Layer")) {
         if (tinyxml2::XMLElement *child_list = layer->FirstChildElement("ChildList")) {
-            parse_child_list(child_list, parse_matrix_node(layer), "");
+            parse_child_list(child_list, MatrixUtils::Identity(), "");
         }
     }
 

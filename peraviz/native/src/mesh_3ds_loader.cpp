@@ -1,5 +1,7 @@
 #include "mesh_3ds_loader.h"
 
+#include "coordinate_mapper.h"
+
 #include <godot_cpp/variant/vector3.hpp>
 
 #include <array>
@@ -234,16 +236,24 @@ bool load_3ds_mesh_data(const godot::String &path,
 
     out_vertices.resize(static_cast<int64_t>(mesh.vertices.size() / 3));
     for (int64_t i = 0; i < out_vertices.size(); ++i) {
-        out_vertices.set(
-            i, godot::Vector3(mesh.vertices[i * 3] * kMillimetersToMeters,
-                              mesh.vertices[i * 3 + 1] * kMillimetersToMeters,
-                              mesh.vertices[i * 3 + 2] * kMillimetersToMeters));
+        const std::array<float, 3> source_vertex = {
+            mesh.vertices[i * 3] * kMillimetersToMeters,
+            mesh.vertices[i * 3 + 1] * kMillimetersToMeters,
+            mesh.vertices[i * 3 + 2] * kMillimetersToMeters,
+        };
+        const auto mapped = coordinate_mapper::map_source_vector_to_godot(source_vertex);
+        out_vertices.set(i, godot::Vector3(mapped[0], mapped[1], mapped[2]));
     }
 
     out_normals.resize(static_cast<int64_t>(mesh.normals.size() / 3));
     for (int64_t i = 0; i < out_normals.size(); ++i) {
-        out_normals.set(i, godot::Vector3(mesh.normals[i * 3], mesh.normals[i * 3 + 1],
-                                          mesh.normals[i * 3 + 2]));
+        const std::array<float, 3> source_normal = {
+            mesh.normals[i * 3],
+            mesh.normals[i * 3 + 1],
+            mesh.normals[i * 3 + 2],
+        };
+        const auto mapped = coordinate_mapper::map_source_vector_to_godot(source_normal);
+        out_normals.set(i, godot::Vector3(mapped[0], mapped[1], mapped[2]));
     }
 
     out_indices.resize(static_cast<int64_t>(mesh.indices.size()));
