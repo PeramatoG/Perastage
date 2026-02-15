@@ -51,10 +51,21 @@ bool is_supported_geometry_tag(const std::string &tag_name) {
 
 Matrix parse_local_matrix(tinyxml2::XMLElement *node) {
     Matrix out = MatrixUtils::Identity();
-    if (const char *position = node->Attribute("Position")) {
+
+    const char *position = node->Attribute("Position");
+    if (!position) {
+        position = node->Attribute("position");
+    }
+    if (position) {
         MatrixUtils::ParseMatrix(position, out);
         return out;
     }
+
+    if (const char *matrix_attr = node->Attribute("Matrix")) {
+        MatrixUtils::ParseMatrix(matrix_attr, out);
+        return out;
+    }
+
     if (tinyxml2::XMLElement *matrix = node->FirstChildElement("Matrix")) {
         if (const char *text = matrix->GetText()) {
             MatrixUtils::ParseMatrix(text, out);
