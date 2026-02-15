@@ -394,3 +394,5 @@ peraviz/native/**/build/
 *.pdb
 *.so
 *.dylib
+/peraviz/Capture_Demo.mvr
+/peraviz/Test1.mvr
