@@ -35,6 +35,10 @@ void OpaqueFixturePass::Render(
 
   const auto &fixtures = SceneDataManager::Instance().GetFixtures();
 
+  // Top-view fixtures support two drawing modes:
+  // - natural top view (real top)
+  // - forced bottom view (for hanging rigs)
+  // This override is intentionally fixture-only.
   const bool forceBottomViewForTopFixtures =
       ConfigManager::Get().GetFloat("view2d_top_fixtures_inverted") != 0.0f;
   const bool drawRealTopInTopView = isTopView2D && !forceBottomViewForTopFixtures;
