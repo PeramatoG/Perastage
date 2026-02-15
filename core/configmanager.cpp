@@ -105,6 +105,8 @@ ConfigManager::ConfigManager() {
   RegisterVariable("view2d_render_mode", "float", 2.0f, 0.0f, 3.0f);
   RegisterVariable("view2d_view", "float", 0.0f, 0.0f, 2.0f);
   RegisterVariable("view2d_dark_mode", "float", 1.0f, 0.0f, 1.0f);
+  RegisterVariable("view2d_top_fixtures_inverted", "float", 1.0f, 0.0f,
+                   1.0f);
   RegisterVariable("viewer3d_aa_quality", "float", 1.0f, 0.0f, 2.0f);
   RegisterVariable("viewer3d_adaptive_line_profile", "float", 1.0f, 0.0f, 1.0f);
   RegisterVariable("viewer3d_skip_labels_when_moving", "float", 1.0f, 0.0f,
