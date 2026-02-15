@@ -57,7 +57,7 @@ Viewer2DRenderPanel::Viewer2DRenderPanel(wxWindow *parent)
   m_darkMode->Bind(wxEVT_CHECKBOX, &Viewer2DRenderPanel::OnDarkMode, this);
 
   m_topFixturesInverted =
-      new wxCheckBox(this, wxID_ANY, "Top view fixtures use bottom perspective");
+      new wxCheckBox(this, wxID_ANY, "Force bottom view");
   m_topFixturesInverted->SetValue(
       cfg.GetFloat("view2d_top_fixtures_inverted") != 0.0f);
   m_topFixturesInverted->Bind(wxEVT_CHECKBOX,
