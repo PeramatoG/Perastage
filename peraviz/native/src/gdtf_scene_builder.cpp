@@ -165,7 +165,7 @@ std::vector<SceneNode> build_fixture_geometry_nodes(const GdtfBuildRequest &requ
         if (const char *model_name = geometry->Attribute("Model")) {
             auto model_it = model_file_by_name.find(model_name);
             if (model_it != model_file_by_name.end()) {
-                node.asset_path = gdtf_cache.ensure_extracted(model_it->second);
+                node.asset_path = gdtf_cache.ensure_gdtf_model_extracted(model_it->second);
             }
         }
 

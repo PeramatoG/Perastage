@@ -14,6 +14,7 @@ public:
     int extracted_assets() const;
 
     std::string ensure_extracted(const std::string &archive_relative_path);
+    std::string ensure_gdtf_model_extracted(const std::string &model_reference);
 
 private:
     std::filesystem::path source_path_;
