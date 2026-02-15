@@ -33,6 +33,13 @@ void OpaqueFixturePass::Render(
 
   const auto &fixtures = SceneDataManager::Instance().GetFixtures();
 
+  const auto effectiveFixtureCaptureView = [&](Viewer2DView requestedView) {
+    if (context.is2DViewer && context.view == Viewer2DView::Top &&
+        context.invertFixturesInTop2D)
+      return Viewer2DView::Bottom;
+    return requestedView;
+  };
+
   glShadeModel(GL_FLAT);
   const bool forceFixturesOnTop = wireframe;
   GLboolean depthEnabled = GL_FALSE;
@@ -126,9 +133,12 @@ void OpaqueFixturePass::Render(
         modelKey = "unknown";
 
       if (!modelKey.empty()) {
+        const Viewer2DView fixtureCaptureView =
+            effectiveFixtureCaptureView(controller.m_captureView);
+
         SymbolKey symbolKey;
         symbolKey.modelKey = modelKey;
-        symbolKey.viewKind = resolveSymbolView(controller.m_captureView);
+        symbolKey.viewKind = resolveSymbolView(fixtureCaptureView);
         symbolKey.styleVersion = 1;
 
         const auto &symbol =
@@ -147,7 +157,7 @@ void OpaqueFixturePass::Render(
               bool prevCaptureOnly = controller.m_captureOnly;
               bool prevIncludeGrid = controller.m_captureIncludeGrid;
               controller.m_captureCanvas = localCanvas.get();
-              controller.m_captureView = prevView;
+              controller.m_captureView = fixtureCaptureView;
               controller.m_captureOnly = true;
               controller.m_captureIncludeGrid = false;
 
@@ -193,7 +203,7 @@ void OpaqueFixturePass::Render(
             });
 
         Transform2D instanceTransform =
-            BuildInstanceTransform2D(fixtureTransform, controller.m_captureView);
+            BuildInstanceTransform2D(fixtureTransform, fixtureCaptureView);
         controller.m_captureCanvas->PlaceSymbolInstance(symbol.symbolId,
                                                         instanceTransform);
         placedInstance = true;
