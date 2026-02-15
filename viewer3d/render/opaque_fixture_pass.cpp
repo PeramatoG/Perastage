@@ -84,11 +84,12 @@ void OpaqueFixturePass::Render(
         is2DViewer && context.view == Viewer2DView::Top &&
         !forceBottomViewForTopFixtures;
     if (mirrorFixtureForRealTop) {
-      // Top vs bottom fixture appearance differs by the depth axis
-      // according to the MVR/GDTF fixture orientation conventions used by
-      // Perastage, so we mirror Z around the fixture center.
+      // Top camera (+Z -> origin) and bottom camera (-Z -> origin) differ
+      // by an X-axis mirror in Perastage screen space (up stays +Y). To
+      // switch fixture appearance between legacy bottom-like and real top,
+      // mirror X around the fixture center in top 2D rendering.
       glTranslatef(cx, cy, cz);
-      glScalef(1.0f, 1.0f, -1.0f);
+      glScalef(-1.0f, 1.0f, 1.0f);
       glTranslatef(-cx, -cy, -cz);
     }
 
@@ -112,11 +113,11 @@ void OpaqueFixturePass::Render(
     fixtureTransform.o[1] *= RENDER_SCALE;
     fixtureTransform.o[2] *= RENDER_SCALE;
 
-    auto applyFixtureCapture = [fixtureTransform, mirrorFixtureForRealTop, cz](
+    auto applyFixtureCapture = [fixtureTransform, mirrorFixtureForRealTop, cx](
                                    const std::array<float, 3> &p) {
       std::array<float, 3> local = p;
       if (mirrorFixtureForRealTop)
-        local[2] = 2.0f * cz - local[2];
+        local[0] = 2.0f * cx - local[0];
       return TransformPoint(fixtureTransform, local);
     };
 
@@ -183,11 +184,11 @@ void OpaqueFixturePass::Render(
                   controller.m_captureCanvas->SetSourceKey(
                       fixtureCaptureKey + "_part" + std::to_string(partIndex));
                   auto applyCapture = [objTransform = obj.transform,
-                                       mirrorFixtureForRealTop, cz](
+                                       mirrorFixtureForRealTop, cx](
                                           const std::array<float, 3> &p) {
                     std::array<float, 3> local = p;
                     if (mirrorFixtureForRealTop)
-                      local[2] = 2.0f * cz - local[2];
+                      local[0] = 2.0f * cx - local[0];
                     return TransformPoint(objTransform, local);
                   };
                   float partR = r;
@@ -244,10 +245,10 @@ void OpaqueFixturePass::Render(
           controller.ApplyTransform(m2, false);
           auto applyCapture =
               [fixtureTransform, objTransform = obj.transform,
-               mirrorFixtureForRealTop, cz](const std::array<float, 3> &p) {
+               mirrorFixtureForRealTop, cx](const std::array<float, 3> &p) {
                 auto local = TransformPoint(objTransform, p);
                 if (mirrorFixtureForRealTop)
-                  local[2] = 2.0f * cz - local[2];
+                  local[0] = 2.0f * cx - local[0];
                 return TransformPoint(fixtureTransform, local);
               };
           float partR = r;
