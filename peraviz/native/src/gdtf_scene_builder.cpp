@@ -61,12 +61,20 @@ Matrix parse_local_matrix(tinyxml2::XMLElement *node) {
         return out;
     }
 
-    if (const char *matrix_attr = node->Attribute("Matrix")) {
+    const char *matrix_attr = node->Attribute("Matrix");
+    if (!matrix_attr) {
+        matrix_attr = node->Attribute("matrix");
+    }
+    if (matrix_attr) {
         MatrixUtils::ParseMatrix(matrix_attr, out);
         return out;
     }
 
-    if (tinyxml2::XMLElement *matrix = node->FirstChildElement("Matrix")) {
+    tinyxml2::XMLElement *matrix = node->FirstChildElement("Matrix");
+    if (!matrix) {
+        matrix = node->FirstChildElement("matrix");
+    }
+    if (matrix) {
         if (const char *text = matrix->GetText()) {
             MatrixUtils::ParseMatrix(text, out);
         }
@@ -121,7 +129,13 @@ std::vector<SceneNode> build_fixture_geometry_nodes(const GdtfBuildRequest &requ
         for (tinyxml2::XMLElement *model = models->FirstChildElement(); model;
              model = model->NextSiblingElement()) {
             const char *name = model->Attribute("Name");
+            if (!name) {
+                name = model->Attribute("name");
+            }
             const char *file = model->Attribute("File");
+            if (!file) {
+                file = model->Attribute("file");
+            }
             if (!name || !file) {
                 continue;
             }
@@ -134,10 +148,17 @@ std::vector<SceneNode> build_fixture_geometry_nodes(const GdtfBuildRequest &requ
         for (tinyxml2::XMLElement *mode = dmx_modes->FirstChildElement("DMXMode"); mode;
              mode = mode->NextSiblingElement("DMXMode")) {
             const char *mode_name = mode->Attribute("Name");
+            if (!mode_name) {
+                mode_name = mode->Attribute("name");
+            }
             if (!request.gdtf_mode.empty() && mode_name && request.gdtf_mode != mode_name) {
                 continue;
             }
-            if (const char *geometry = mode->Attribute("Geometry")) {
+            const char *geometry = mode->Attribute("Geometry");
+            if (!geometry) {
+                geometry = mode->Attribute("geometry");
+            }
+            if (geometry) {
                 root_geometry_name = geometry;
                 break;
             }
@@ -193,6 +214,9 @@ std::vector<SceneNode> build_fixture_geometry_nodes(const GdtfBuildRequest &requ
         if (geometry_tag == "GeometryReference") {
             const char *referenced_geometry_name = geometry->Attribute("Geometry");
             if (!referenced_geometry_name) {
+                referenced_geometry_name = geometry->Attribute("geometry");
+            }
+            if (!referenced_geometry_name) {
                 return;
             }
 
@@ -202,6 +226,9 @@ std::vector<SceneNode> build_fixture_geometry_nodes(const GdtfBuildRequest &requ
             }
 
             const char *reference_model = geometry->Attribute("Model");
+            if (!reference_model) {
+                reference_model = geometry->Attribute("model");
+            }
             append_geometry(referenced_it->second, geometry_parent_id, geometry_parent_world,
                             reference_model ? reference_model : override_model, &local);
             return;
@@ -222,6 +249,9 @@ std::vector<SceneNode> build_fixture_geometry_nodes(const GdtfBuildRequest &requ
         node.local_transform = peraviz::coordinate_mapper::to_godot_transform(local);
 
         const char *model_name = override_model ? override_model : geometry->Attribute("Model");
+        if (!model_name) {
+            model_name = geometry->Attribute("model");
+        }
         if (model_name) {
             auto model_it = model_file_by_name.find(model_name);
             if (model_it != model_file_by_name.end()) {
