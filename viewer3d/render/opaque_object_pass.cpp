@@ -87,7 +87,7 @@ void OpaqueObjectPass::Render(
     captureTransform.o[0] *= RENDER_SCALE;
     captureTransform.o[1] *= RENDER_SCALE;
     captureTransform.o[2] *= RENDER_SCALE;
-    auto applyCapture = [captureTransform, mirrorTopViewIn2D](
+    auto applyCapture = [captureTransform, mirrorTopViewIn2D, cx](
                             const std::array<float, 3> &p) {
       std::array<float, 3> local = p;
       if (mirrorTopViewIn2D)
