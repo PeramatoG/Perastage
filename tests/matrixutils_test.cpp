@@ -11,6 +11,25 @@ int main() {
   {
     Matrix m;
     const std::string text =
+        "{1,0,0,0}{0,0,-1,0}{0,1,0,0}{250,-500,750,1}";
+    if (!MatrixUtils::ParseMatrix(text, m)) {
+      std::cerr << "ParseMatrix rejected GDTF 4x4 input\n";
+      return 1;
+    }
+
+    if (!Near(m.u[0], 1.0f) || !Near(m.u[1], 0.0f) || !Near(m.u[2], 0.0f) ||
+        !Near(m.v[0], 0.0f) || !Near(m.v[1], 0.0f) || !Near(m.v[2], -1.0f) ||
+        !Near(m.w[0], 0.0f) || !Near(m.w[1], 1.0f) || !Near(m.w[2], 0.0f) ||
+        !Near(m.o[0], 250.0f) || !Near(m.o[1], -500.0f) ||
+        !Near(m.o[2], 750.0f)) {
+      std::cerr << "ParseMatrix GDTF 4x4 values mismatch\n";
+      return 1;
+    }
+  }
+
+  {
+    Matrix m;
+    const std::string text =
         "{0.035,0,8.53590478e-08}{0,0.035,0}{-8.53590478e-08,0,0.035}{1000,-2000,3000}";
     if (!MatrixUtils::ParseMatrix(text, m)) {
       std::cerr << "ParseMatrix rejected scientific notation input\n";

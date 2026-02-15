@@ -80,11 +80,12 @@ namespace MatrixUtils {
             values.push_back(v);
 
         if (values.size() == 16) {
-            // GDTF 4x4 matrix. Translation is stored in the fourth column
-            outMatrix.u = std::array<float, 3>{ values[0], values[4], values[8] };
-            outMatrix.v = std::array<float, 3>{ values[1], values[5], values[9] };
-            outMatrix.w = std::array<float, 3>{ values[2], values[6], values[10] };
-            outMatrix.o = std::array<float, 3>{ values[3], values[7], values[11] };
+            // GDTF 4x4 matrix follows the same basis convention as MVR 4x3:
+            // rows encode U, V, W and O vectors respectively.
+            outMatrix.u = std::array<float, 3>{ values[0], values[1], values[2] };
+            outMatrix.v = std::array<float, 3>{ values[4], values[5], values[6] };
+            outMatrix.w = std::array<float, 3>{ values[8], values[9], values[10] };
+            outMatrix.o = std::array<float, 3>{ values[12], values[13], values[14] };
             return true;
         } else if (values.size() == 12) {
             // MVR 4x3 matrix in column-major order
