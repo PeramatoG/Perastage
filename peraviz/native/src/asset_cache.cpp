@@ -4,7 +4,9 @@
 #include <cctype>
 #include <cstdint>
 #include <fstream>
+#include <optional>
 #include <sstream>
+#include <vector>
 
 #include <wx/filename.h>
 #include <wx/wfstream.h>
@@ -26,6 +28,16 @@ std::string normalize_archive_path(const std::string &raw) {
         out.erase(out.begin());
     }
     return out;
+}
+
+std::string path_stem_lower(const std::string &normalized_path) {
+    const std::filesystem::path path = std::filesystem::u8path(normalized_path);
+    return to_lower_ascii(path.stem().u8string());
+}
+
+std::string path_extension_lower(const std::string &normalized_path) {
+    const std::filesystem::path path = std::filesystem::u8path(normalized_path);
+    return to_lower_ascii(path.extension().u8string());
 }
 
 std::string hash_file_contents(const std::filesystem::path &path) {
@@ -125,6 +137,74 @@ std::string ZipAssetCache::ensure_extracted(const std::string &archive_relative_
     }
 
     return {};
+}
+
+std::string ZipAssetCache::ensure_gdtf_model_extracted(const std::string &model_reference) {
+    if (model_reference.empty()) {
+        return {};
+    }
+
+    const std::string normalized = normalize_archive_path(model_reference);
+    if (normalized.empty()) {
+        return {};
+    }
+
+    const std::filesystem::path model_path = std::filesystem::u8path(normalized);
+    const std::string stem = model_path.stem().u8string();
+    const std::string ext = path_extension_lower(normalized);
+
+    std::vector<std::string> candidates;
+    if (!ext.empty()) {
+        candidates.push_back(normalized);
+        candidates.push_back("models/" + ext.substr(1) + "/" + stem + ext);
+    } else {
+        candidates.push_back(normalized + ".3ds");
+        candidates.push_back(normalized + ".glb");
+        candidates.push_back("models/3ds/" + stem + ".3ds");
+        candidates.push_back("models/glb/" + stem + ".glb");
+    }
+
+    for (const std::string &candidate : candidates) {
+        const std::string extracted = ensure_extracted(candidate);
+        if (!extracted.empty()) {
+            return extracted;
+        }
+    }
+
+    wxFileInputStream input(wxString::FromUTF8(source_path_.u8string().c_str()));
+    if (!input.IsOk()) {
+        return {};
+    }
+
+    const std::string stem_lower = to_lower_ascii(stem);
+    wxZipInputStream zip(input);
+    std::unique_ptr<wxZipEntry> entry;
+    std::optional<std::string> best_entry;
+    while ((entry.reset(zip.GetNextEntry())), entry) {
+        const std::string entry_name = normalize_archive_path(entry->GetName().ToUTF8().data());
+        if (path_stem_lower(entry_name) != stem_lower) {
+            continue;
+        }
+
+        const std::string entry_ext = path_extension_lower(entry_name);
+        const bool supported = entry_ext == ".3ds" || entry_ext == ".glb";
+        if (!supported) {
+            continue;
+        }
+
+        if (!best_entry.has_value() || entry_ext == ".3ds") {
+            best_entry = entry_name;
+            if (entry_ext == ".3ds") {
+                break;
+            }
+        }
+    }
+
+    if (!best_entry.has_value()) {
+        return {};
+    }
+
+    return ensure_extracted(*best_entry);
 }
 
 } // namespace peraviz

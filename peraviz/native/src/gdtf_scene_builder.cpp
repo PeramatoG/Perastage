@@ -38,9 +38,43 @@ bool looks_like_emitter(const std::string &tag_name, const std::string &name) {
            n.find("lens") != std::string::npos || n.find("emitter") != std::string::npos;
 }
 
+
+bool is_supported_geometry_tag(const std::string &tag_name) {
+    return tag_name == "Geometry" || tag_name == "Axis" || tag_name == "Beam" ||
+           tag_name == "GeometryReference" || tag_name == "Laser" ||
+           tag_name == "WiringObject" || tag_name == "Inventory" ||
+           tag_name == "Structure" || tag_name == "Support" ||
+           tag_name == "Magnet" || tag_name == "Display" ||
+           tag_name == "MediaServerLayer" || tag_name == "MediaServerCamera" ||
+           tag_name == "MediaServerMaster" || tag_name.rfind("Filter", 0) == 0;
+}
+
 Matrix parse_local_matrix(tinyxml2::XMLElement *node) {
     Matrix out = MatrixUtils::Identity();
-    if (tinyxml2::XMLElement *matrix = node->FirstChildElement("Matrix")) {
+
+    const char *position = node->Attribute("Position");
+    if (!position) {
+        position = node->Attribute("position");
+    }
+    if (position) {
+        MatrixUtils::ParseMatrix(position, out);
+        return out;
+    }
+
+    const char *matrix_attr = node->Attribute("Matrix");
+    if (!matrix_attr) {
+        matrix_attr = node->Attribute("matrix");
+    }
+    if (matrix_attr) {
+        MatrixUtils::ParseMatrix(matrix_attr, out);
+        return out;
+    }
+
+    tinyxml2::XMLElement *matrix = node->FirstChildElement("Matrix");
+    if (!matrix) {
+        matrix = node->FirstChildElement("matrix");
+    }
+    if (matrix) {
         if (const char *text = matrix->GetText()) {
             MatrixUtils::ParseMatrix(text, out);
         }
@@ -95,7 +129,13 @@ std::vector<SceneNode> build_fixture_geometry_nodes(const GdtfBuildRequest &requ
         for (tinyxml2::XMLElement *model = models->FirstChildElement(); model;
              model = model->NextSiblingElement()) {
             const char *name = model->Attribute("Name");
+            if (!name) {
+                name = model->Attribute("name");
+            }
             const char *file = model->Attribute("File");
+            if (!file) {
+                file = model->Attribute("file");
+            }
             if (!name || !file) {
                 continue;
             }
@@ -108,10 +148,17 @@ std::vector<SceneNode> build_fixture_geometry_nodes(const GdtfBuildRequest &requ
         for (tinyxml2::XMLElement *mode = dmx_modes->FirstChildElement("DMXMode"); mode;
              mode = mode->NextSiblingElement("DMXMode")) {
             const char *mode_name = mode->Attribute("Name");
+            if (!mode_name) {
+                mode_name = mode->Attribute("name");
+            }
             if (!request.gdtf_mode.empty() && mode_name && request.gdtf_mode != mode_name) {
                 continue;
             }
-            if (const char *geometry = mode->Attribute("Geometry")) {
+            const char *geometry = mode->Attribute("Geometry");
+            if (!geometry) {
+                geometry = mode->Attribute("geometry");
+            }
+            if (geometry) {
                 root_geometry_name = geometry;
                 break;
             }
@@ -121,6 +168,15 @@ std::vector<SceneNode> build_fixture_geometry_nodes(const GdtfBuildRequest &requ
     tinyxml2::XMLElement *geometries = fixture_type->FirstChildElement("Geometries");
     if (!geometries) {
         return nodes;
+    }
+
+    std::unordered_map<std::string, tinyxml2::XMLElement *> geometry_by_name;
+    for (tinyxml2::XMLElement *geometry = geometries->FirstChildElement(); geometry;
+         geometry = geometry->NextSiblingElement()) {
+        const std::string geometry_name = safe_name(geometry, "geometry");
+        if (!geometry_name.empty()) {
+            geometry_by_name[geometry_name] = geometry;
+        }
     }
 
     tinyxml2::XMLElement *root_geometry = nullptr;
@@ -142,15 +198,45 @@ std::vector<SceneNode> build_fixture_geometry_nodes(const GdtfBuildRequest &requ
     }
 
     int local_counter = 0;
-    std::function<void(tinyxml2::XMLElement *, const std::string &, const Matrix &)> append_geometry;
+    std::function<void(tinyxml2::XMLElement *, const std::string &, const Matrix &, const char *,
+                       const Matrix *)>
+        append_geometry;
     append_geometry = [&](tinyxml2::XMLElement *geometry, const std::string &geometry_parent_id,
-                          const Matrix &geometry_parent_world) {
+                          const Matrix &geometry_parent_world, const char *override_model,
+                          const Matrix *prepend_local) {
+        const std::string geometry_tag = geometry->Name() ? geometry->Name() : "";
+        Matrix local = parse_local_matrix(geometry);
+        if (prepend_local) {
+            local = MatrixUtils::Multiply(*prepend_local, local);
+        }
+        Matrix world = MatrixUtils::Multiply(geometry_parent_world, local);
+
+        if (geometry_tag == "GeometryReference") {
+            const char *referenced_geometry_name = geometry->Attribute("Geometry");
+            if (!referenced_geometry_name) {
+                referenced_geometry_name = geometry->Attribute("geometry");
+            }
+            if (!referenced_geometry_name) {
+                return;
+            }
+
+            auto referenced_it = geometry_by_name.find(referenced_geometry_name);
+            if (referenced_it == geometry_by_name.end() || !referenced_it->second) {
+                return;
+            }
+
+            const char *reference_model = geometry->Attribute("Model");
+            if (!reference_model) {
+                reference_model = geometry->Attribute("model");
+            }
+            append_geometry(referenced_it->second, geometry_parent_id, geometry_parent_world,
+                            reference_model ? reference_model : override_model, &local);
+            return;
+        }
+
         const std::string geometry_name = safe_name(geometry, "geometry");
         const std::string geometry_id = request.fixture_node_id + "/" + geometry_name +
                                         "#" + std::to_string(local_counter++);
-
-        Matrix local = parse_local_matrix(geometry);
-        Matrix world = MatrixUtils::Multiply(geometry_parent_world, local);
 
         SceneNode node;
         node.node_id = geometry_id;
@@ -162,10 +248,14 @@ std::vector<SceneNode> build_fixture_geometry_nodes(const GdtfBuildRequest &requ
         node.is_emitter = looks_like_emitter(geometry->Name(), geometry_name);
         node.local_transform = peraviz::coordinate_mapper::to_godot_transform(local);
 
-        if (const char *model_name = geometry->Attribute("Model")) {
+        const char *model_name = override_model ? override_model : geometry->Attribute("Model");
+        if (!model_name) {
+            model_name = geometry->Attribute("model");
+        }
+        if (model_name) {
             auto model_it = model_file_by_name.find(model_name);
             if (model_it != model_file_by_name.end()) {
-                node.asset_path = gdtf_cache.ensure_extracted(model_it->second);
+                node.asset_path = gdtf_cache.ensure_gdtf_model_extracted(model_it->second);
             }
         }
 
@@ -173,14 +263,15 @@ std::vector<SceneNode> build_fixture_geometry_nodes(const GdtfBuildRequest &requ
 
         for (tinyxml2::XMLElement *child = geometry->FirstChildElement(); child;
              child = child->NextSiblingElement()) {
-            if (!child->Attribute("Name") && !child->Attribute("name")) {
+            const std::string child_tag = child->Name() ? child->Name() : "";
+            if (!is_supported_geometry_tag(child_tag)) {
                 continue;
             }
-            append_geometry(child, geometry_id, world);
+            append_geometry(child, geometry_id, world, nullptr, nullptr);
         }
     };
 
-    append_geometry(root_geometry, parent_id, parent_world);
+    append_geometry(root_geometry, parent_id, parent_world, nullptr, nullptr);
     extracted_asset_count += gdtf_cache.extracted_assets();
     return nodes;
 }
