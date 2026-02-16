@@ -4,6 +4,12 @@ extends Node3D
 @onready var status_label: Label = $HUD/StatusLabel
 @onready var picker: FileDialog = $HUD/FileDialog
 @onready var camera: Camera3D = $Camera3D
+@onready var manual_fixture_toggle: CheckButton = $HUD/ManualFixtureToggle
+@onready var fixture_debug_panel: PanelContainer = $HUD/FixtureDebugPanel
+@onready var fixture_list: ItemList = $HUD/FixtureDebugPanel/Margin/VBox/FixtureList
+@onready var fixture_selected_label: Label = $HUD/FixtureDebugPanel/Margin/VBox/SelectedFixtureLabel
+@onready var fixture_axis_label: Label = $HUD/FixtureDebugPanel/Margin/VBox/AxisAnchorsLabel
+@onready var fixture_emitter_label: Label = $HUD/FixtureDebugPanel/Margin/VBox/EmitterAnchorsLabel
 
 var _loader := PeravizLoader.new()
 var _scene_registry := SceneRegistry.new()
@@ -14,20 +20,28 @@ var _asset_cache := PeravizRuntimeAssetCache.new()
 var _debug_coords_enabled: bool = false
 var _debug_asset_cache_enabled: bool = false
 var _debug_gizmos_root: Node3D
+var _manual_fixture_test_enabled: bool = false
+var _selected_fixture_uuid: String = ""
 
 const DEBUG_TOGGLE_KEY: Key = KEY_C
+const MANUAL_TEST_FLAG: String = "--peraviz_manual_fixture_test"
 
 func _ready() -> void:
 	_scene_registry.configure(proxies_root)
 	$HUD/LoadButton.pressed.connect(_on_load_pressed)
 	picker.file_selected.connect(_on_file_selected)
+	manual_fixture_toggle.toggled.connect(_on_manual_fixture_toggle)
+	fixture_list.item_selected.connect(_on_fixture_list_item_selected)
 	picker.access = FileDialog.ACCESS_FILESYSTEM
 	status_label.text = "Select a .mvr file"
 	_debug_coords_enabled = bool(ProjectSettings.get_setting("peraviz_debug_coords", false))
 	_debug_asset_cache_enabled = bool(ProjectSettings.get_setting("peraviz_debug_asset_cache", false))
+	_manual_fixture_test_enabled = _read_manual_fixture_test_setting()
+	manual_fixture_toggle.button_pressed = _manual_fixture_test_enabled
 	_asset_cache.configure_debug_logging(_debug_asset_cache_enabled, 100)
 	_ensure_debug_gizmo_root()
 	_update_debug_legend()
+	_refresh_fixture_debug_panel()
 
 func _on_load_pressed() -> void:
 	picker.popup_centered_ratio(0.7)
@@ -43,6 +57,8 @@ func _on_file_selected(path: String) -> void:
 
 	_build_node_tree(nodes)
 	_register_fixture_registry(nodes)
+	_populate_fixture_list()
+	_sync_selection_state("scene_reload")
 	_rebuild_debug_gizmos()
 	_focus_loaded_scene()
 	if _debug_asset_cache_enabled:
@@ -58,7 +74,20 @@ func _on_file_selected(path: String) -> void:
 	status_label.text = "Nodes: %d (press F to focus, C debug coords)" % nodes.size()
 	_update_debug_legend()
 
+func _on_manual_fixture_toggle(enabled: bool) -> void:
+	_manual_fixture_test_enabled = enabled
+	ProjectSettings.set_setting("peraviz_manual_fixture_test", _manual_fixture_test_enabled)
+	_refresh_fixture_debug_panel()
+
+func _on_fixture_list_item_selected(index: int) -> void:
+	if index < 0 or index >= fixture_list.get_item_count():
+		return
+	var fixture_uuid: String = fixture_list.get_item_metadata(index)
+	_select_fixture_by_uuid(fixture_uuid, "list")
+
 func _unhandled_input(event: InputEvent) -> void:
+	_sync_selection_state("input")
+
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_F:
 		_focus_loaded_scene()
 		get_viewport().set_input_as_handled()
@@ -71,6 +100,13 @@ func _unhandled_input(event: InputEvent) -> void:
 		_rebuild_debug_gizmos()
 		_update_debug_legend()
 		get_viewport().set_input_as_handled()
+		return
+
+	if _manual_fixture_test_enabled and event is InputEventMouseButton:
+		var mouse_event := event as InputEventMouseButton
+		if mouse_event.pressed and mouse_event.button_index == MOUSE_BUTTON_LEFT:
+			_try_select_fixture_from_mouse(mouse_event.position)
+			get_viewport().set_input_as_handled()
 
 
 func _ensure_debug_gizmo_root() -> void:
@@ -462,6 +498,7 @@ func _create_dummy_mesh(is_fixture: bool, visual_scale_hint: float) -> Node3D:
 
 func _clear_scene() -> void:
 	_scene_registry.clear("scene_reload")
+	_clear_selected_fixture("scene_clear")
 	for child in proxies_root.get_children():
 		child.queue_free()
 	_node_index.clear()
@@ -533,6 +570,155 @@ func _register_fixture_registry(nodes: Array) -> void:
 			continue
 		var anchors: Dictionary = fixture_anchors[fixture_uuid]
 		_scene_registry.register_fixture(fixture_uuid, fixture_node, anchors)
+		_attach_fixture_pick_colliders(fixture_uuid, fixture_node)
+
+func _read_manual_fixture_test_setting() -> bool:
+	var setting_enabled: bool = bool(ProjectSettings.get_setting("peraviz_manual_fixture_test", false))
+	if setting_enabled:
+		return true
+	return OS.get_cmdline_args().has(MANUAL_TEST_FLAG)
+
+func _populate_fixture_list() -> void:
+	fixture_list.clear()
+	for fixture_uuid in _scene_registry.list_fixture_uuids():
+		var index: int = fixture_list.get_item_count()
+		fixture_list.add_item(fixture_uuid)
+		fixture_list.set_item_metadata(index, fixture_uuid)
+	if not _selected_fixture_uuid.is_empty():
+		var selected_index: int = _find_fixture_list_index(_selected_fixture_uuid)
+		if selected_index >= 0:
+			fixture_list.select(selected_index)
+
+func _find_fixture_list_index(fixture_uuid: String) -> int:
+	for index in range(fixture_list.get_item_count()):
+		var list_uuid: String = fixture_list.get_item_metadata(index)
+		if list_uuid == fixture_uuid:
+			return index
+	return -1
+
+func _try_select_fixture_from_mouse(mouse_position: Vector2) -> void:
+	var world_3d: World3D = get_world_3d()
+	if world_3d == null:
+		return
+
+	var query := PhysicsRayQueryParameters3D.create(
+		camera.project_ray_origin(mouse_position),
+		camera.project_ray_origin(mouse_position) + camera.project_ray_normal(mouse_position) * 1000.0
+	)
+	query.collide_with_areas = false
+	query.collide_with_bodies = true
+	var result: Dictionary = world_3d.direct_space_state.intersect_ray(query)
+	if result.is_empty():
+		return
+
+	var collider: Object = result.get("collider")
+	if collider == null or not (collider is Node):
+		return
+
+	var fixture_uuid: String = _resolve_fixture_uuid_from_node(collider as Node)
+	if fixture_uuid.is_empty():
+		return
+	_select_fixture_by_uuid(fixture_uuid, "raycast")
+
+func _resolve_fixture_uuid_from_node(node: Node) -> String:
+	var current: Node = node
+	while current != null:
+		if current.has_meta("peraviz_fixture_uuid"):
+			return str(current.get_meta("peraviz_fixture_uuid", ""))
+		current = current.get_parent()
+	return ""
+
+func _attach_fixture_pick_colliders(fixture_uuid: String, fixture_node: Node3D) -> void:
+	if fixture_node == null:
+		return
+	fixture_node.set_meta("peraviz_fixture_uuid", fixture_uuid)
+	for child in fixture_node.get_children():
+		_attach_fixture_pick_colliders_recursive(fixture_uuid, child)
+
+func _attach_fixture_pick_colliders_recursive(fixture_uuid: String, node: Node) -> void:
+	if node is MeshInstance3D:
+		_attach_pick_collider_to_mesh(node as MeshInstance3D, fixture_uuid)
+	if node is Node:
+		node.set_meta("peraviz_fixture_uuid", fixture_uuid)
+	for child in node.get_children():
+		_attach_fixture_pick_colliders_recursive(fixture_uuid, child)
+
+func _attach_pick_collider_to_mesh(mesh_instance: MeshInstance3D, fixture_uuid: String) -> void:
+	if mesh_instance == null or mesh_instance.mesh == null:
+		return
+	var mesh_bounds: AABB = mesh_instance.get_aabb()
+	if mesh_bounds.size == Vector3.ZERO:
+		return
+
+	var static_body := StaticBody3D.new()
+	static_body.name = "FixturePickBody"
+	static_body.set_meta("peraviz_fixture_uuid", fixture_uuid)
+	mesh_instance.add_child(static_body)
+
+	var shape := BoxShape3D.new()
+	shape.size = mesh_bounds.size
+	var collision := CollisionShape3D.new()
+	collision.shape = shape
+	collision.position = mesh_bounds.get_center()
+	static_body.add_child(collision)
+
+func _select_fixture_by_uuid(fixture_uuid: String, source: String) -> void:
+	if fixture_uuid.is_empty() or not _scene_registry.has_fixture(fixture_uuid):
+		return
+	_selected_fixture_uuid = fixture_uuid
+	var selected_index: int = _find_fixture_list_index(fixture_uuid)
+	if selected_index >= 0:
+		fixture_list.select(selected_index)
+	print("[PeravizFixtureTest] selected uuid=", fixture_uuid, " source=", source)
+	_refresh_fixture_debug_panel()
+
+func _clear_selected_fixture(reason: String) -> void:
+	if _selected_fixture_uuid.is_empty():
+		_refresh_fixture_debug_panel()
+		return
+	print("[PeravizFixtureTest] clear selection uuid=", _selected_fixture_uuid, " reason=", reason)
+	_selected_fixture_uuid = ""
+	fixture_list.deselect_all()
+	_refresh_fixture_debug_panel()
+
+func _sync_selection_state(reason: String) -> void:
+	if _selected_fixture_uuid.is_empty():
+		_refresh_fixture_debug_panel()
+		return
+	if _scene_registry.has_fixture(_selected_fixture_uuid):
+		_refresh_fixture_debug_panel()
+		return
+	_clear_selected_fixture(reason)
+
+func _refresh_fixture_debug_panel() -> void:
+	manual_fixture_toggle.button_pressed = _manual_fixture_test_enabled
+	fixture_debug_panel.visible = _manual_fixture_test_enabled
+	if not _manual_fixture_test_enabled:
+		return
+
+	var selected_text: String = "Selected fixture: <none>"
+	var axis_text: String = "Axis anchors: 0"
+	var emitter_text: String = "Emitter anchors: 0"
+	if not _selected_fixture_uuid.is_empty() and _scene_registry.has_fixture(_selected_fixture_uuid):
+		selected_text = "Selected fixture: %s" % _selected_fixture_uuid
+		var axis_anchors: Variant = _scene_registry.get_anchor(_selected_fixture_uuid, "axis")
+		var emitter_anchors: Variant = _scene_registry.get_anchor(_selected_fixture_uuid, "emitters")
+		axis_text = "Axis anchors: %d" % _count_valid_nodes(axis_anchors)
+		emitter_text = "Emitter anchors: %d" % _count_valid_nodes(emitter_anchors)
+
+	fixture_selected_label.text = selected_text
+	fixture_axis_label.text = axis_text
+	fixture_emitter_label.text = emitter_text
+
+func _count_valid_nodes(value: Variant) -> int:
+	if value is Node:
+		return 1 if is_instance_valid(value) else 0
+	if value is Array:
+		var total: int = 0
+		for item in value:
+			total += _count_valid_nodes(item)
+		return total
+	return 0
 
 func _resolve_fixture_uuid(node_id: String, parent_lookup: Dictionary, type_lookup: Dictionary, cache: Dictionary) -> String:
 	if cache.has(node_id):

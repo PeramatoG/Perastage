@@ -43,6 +43,47 @@ offset_right = 600.0
 offset_bottom = 80.0
 text = "Status"
 
+[node name="ManualFixtureToggle" type="CheckButton" parent="HUD"]
+offset_left = 180.0
+offset_top = 12.0
+offset_right = 430.0
+offset_bottom = 44.0
+text = "Manual fixture test"
+
+[node name="FixtureDebugPanel" type="PanelContainer" parent="HUD"]
+visible = false
+offset_left = 12.0
+offset_top = 92.0
+offset_right = 360.0
+offset_bottom = 380.0
+
+[node name="Margin" type="MarginContainer" parent="HUD/FixtureDebugPanel"]
+theme_override_constants/margin_left = 8
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 8
+theme_override_constants/margin_bottom = 8
+
+[node name="VBox" type="VBoxContainer" parent="HUD/FixtureDebugPanel/Margin"]
+
+[node name="DebugTitle" type="Label" parent="HUD/FixtureDebugPanel/Margin/VBox"]
+text = "Fixture Test Debug"
+
+[node name="SelectedFixtureLabel" type="Label" parent="HUD/FixtureDebugPanel/Margin/VBox"]
+text = "Selected fixture: <none>"
+
+[node name="AxisAnchorsLabel" type="Label" parent="HUD/FixtureDebugPanel/Margin/VBox"]
+text = "Axis anchors: 0"
+
+[node name="EmitterAnchorsLabel" type="Label" parent="HUD/FixtureDebugPanel/Margin/VBox"]
+text = "Emitter anchors: 0"
+
+[node name="FixtureListLabel" type="Label" parent="HUD/FixtureDebugPanel/Margin/VBox"]
+text = "Fixtures by UUID"
+
+[node name="FixtureList" type="ItemList" parent="HUD/FixtureDebugPanel/Margin/VBox"]
+custom_minimum_size = Vector2(0, 180)
+select_mode = 0
+
 [node name="FileDialog" type="FileDialog" parent="HUD"]
 file_mode = 0
 filters = PackedStringArray("*.mvr ; MVR")

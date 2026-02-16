@@ -61,6 +61,21 @@ func get_fixture(uuid: String) -> Node:
 		return null
 	return _owner_root.get_node_or_null(node_path)
 
+func has_fixture(uuid: String) -> bool:
+	return get_fixture(uuid) != null
+
+func list_fixture_uuids() -> PackedStringArray:
+	var uuids := PackedStringArray()
+	for uuid in _fixture_entries.keys():
+		var fixture_uuid: String = str(uuid)
+		if fixture_uuid.is_empty():
+			continue
+		if get_fixture(fixture_uuid) == null:
+			continue
+		uuids.append(fixture_uuid)
+	uuids.sort()
+	return uuids
+
 func get_anchor(uuid: String, anchor_name_or_id: Variant) -> Variant:
 	var entry: Dictionary = _fixture_entries.get(uuid, {})
 	if entry.is_empty():
