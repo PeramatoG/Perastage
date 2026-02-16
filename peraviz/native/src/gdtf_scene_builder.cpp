@@ -284,6 +284,13 @@ std::vector<SceneNode> build_fixture_geometry_nodes(const GdtfBuildRequest &requ
         node.is_emitter = looks_like_emitter(geometry->Name(), geometry_name);
         node.local_transform = peraviz::coordinate_mapper::to_godot_transform(local);
 
+        if (node.is_emitter) {
+            peraviz::debug_runtime::log_coordinate_debug_event(
+                "emitter_reference", request.fixture_name,
+                "geometry_id=" + geometry_id +
+                    " expected_beam_direction_local=-Z (GDTF reference)");
+        }
+
         const char *model_name = override_model ? override_model : geometry->Attribute("Model");
         if (!model_name) {
             model_name = geometry->Attribute("model");
