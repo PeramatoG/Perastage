@@ -148,6 +148,7 @@ func _load_3d_asset(asset_path: String) -> Variant:
 		_asset_cache[asset_path] = mesh
 		var mesh_instance := MeshInstance3D.new()
 		mesh_instance.mesh = mesh
+		_configure_mesh_instance(mesh_instance)
 		return mesh_instance
 
 	if extension == "glb" or extension == "gltf":
@@ -159,6 +160,7 @@ func _load_3d_asset(asset_path: String) -> Variant:
 			return null
 		var generated: Node = gltf.generate_scene(state)
 		if generated is Node3D:
+			_configure_node_meshes(generated)
 			_asset_cache[asset_path] = generated
 			return generated.duplicate(DUPLICATE_USE_INSTANTIATION)
 		_asset_cache[asset_path] = null
@@ -169,10 +171,36 @@ func _load_3d_asset(asset_path: String) -> Variant:
 		_asset_cache[asset_path] = resource
 		var scene_instance: Node = resource.instantiate()
 		if scene_instance is Node3D:
+			_configure_node_meshes(scene_instance)
 			return scene_instance
 
 	_asset_cache[asset_path] = null
 	return null
+
+
+func _configure_node_meshes(node: Node) -> void:
+	if node is MeshInstance3D:
+		_configure_mesh_instance(node)
+
+	for child in node.get_children():
+		_configure_node_meshes(child)
+
+
+func _configure_mesh_instance(mesh_instance: MeshInstance3D) -> void:
+	if mesh_instance.mesh == null:
+		return
+
+	for surface_index in mesh_instance.mesh.get_surface_count():
+		var surface_material: Material = mesh_instance.mesh.surface_get_material(surface_index)
+		if surface_material is BaseMaterial3D:
+			var configured_material: BaseMaterial3D = surface_material.duplicate()
+			configured_material.cull_mode = BaseMaterial3D.CULL_DISABLED
+			mesh_instance.set_surface_override_material(surface_index, configured_material)
+
+	if mesh_instance.material_override is BaseMaterial3D:
+		var override_material: BaseMaterial3D = mesh_instance.material_override.duplicate()
+		override_material.cull_mode = BaseMaterial3D.CULL_DISABLED
+		mesh_instance.material_override = override_material
 
 
 func _build_3ds_mesh(mesh_data: Dictionary) -> ArrayMesh:
@@ -211,6 +239,7 @@ func _create_dummy_mesh(is_fixture: bool, visual_scale_hint: float) -> Node3D:
 
 	var material := StandardMaterial3D.new()
 	material.albedo_color = Color(1.0, 0.5, 0.1) if is_fixture else Color(0.2, 0.8, 1.0)
+	material.cull_mode = BaseMaterial3D.CULL_DISABLED
 	mesh_instance.material_override = material
 	return mesh_instance
 
