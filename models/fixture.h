@@ -49,10 +49,6 @@ struct Fixture {
     bool dmxInvertPan = false;    // Pan inversion flag
     bool dmxInvertTilt = false;   // Tilt inversion flag
 
-    float panDeg = 0.0f;          // Pan value in degrees (debug/preview)
-    float tiltDeg = 0.0f;         // Tilt value in degrees (debug/preview)
-    float dimmer = 1.0f;          // Visual dimmer in [0,1] (persists without real beam)
-
     float powerConsumptionW = 0.0f; // Power consumption in watts
     float weightKg = 0.0f;          // Fixture weight in kilograms
 
