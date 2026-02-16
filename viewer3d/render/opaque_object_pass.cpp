@@ -20,7 +20,6 @@
 #include "scenedatamanager.h"
 #include "viewer3dcontroller.h"
 
-#include <algorithm>
 
 void OpaqueObjectPass::Render(
     Viewer3DController &controller, const RenderFrameContext &context,
@@ -31,6 +30,8 @@ void OpaqueObjectPass::Render(
   const Viewer2DRenderMode mode = context.mode;
   const bool skipCapture = context.skipCapture;
   const Viewer2DView captureView = context.view;
+  const bool drawRealTopInTopView =
+      context.is2DViewer && captureView == Viewer2DView::Top;
 
   const auto &sceneObjects = SceneDataManager::Instance().GetSceneObjects();
 
@@ -130,40 +131,17 @@ void OpaqueObjectPass::Render(
       }
     }
 
-    // Keep a deterministic part order so 2D projections with near-coplanar
-    // surfaces do not look inverted when depth ties happen.
-    auto partDepthInCurrentView = [&](const SceneObjectMeshPart &part) {
-      Matrix worldMatrix = MatrixUtils::Multiply(m.transform, part.localTransform);
-      const auto worldOrigin =
-          TransformPoint(worldMatrix, std::array<float, 3>{0.0f, 0.0f, 0.0f});
-      switch (captureView) {
-      case Viewer2DView::Top:
-      case Viewer2DView::Bottom:
-        return worldOrigin[2];
-      case Viewer2DView::Front:
-        return worldOrigin[1];
-      case Viewer2DView::Side:
-        return worldOrigin[0];
-      }
-      return worldOrigin[2];
-    };
-
-    std::stable_sort(objectMeshParts.begin(), objectMeshParts.end(),
-                     [&](const SceneObjectMeshPart &a,
-                         const SceneObjectMeshPart &b) {
-                       const float depthA = partDepthInCurrentView(a);
-                       const float depthB = partDepthInCurrentView(b);
-                       if (captureView == Viewer2DView::Top)
-                         return depthA > depthB;
-                       return depthA < depthB;
-                     });
-
     auto drawSceneObjectGeometry =
         [&](const std::function<std::array<float, 3>(
                 const std::array<float, 3> &)> &captureTransformFn,
             bool isHighlighted, bool isSelected) {
           if (!objectMeshParts.empty()) {
-            for (const auto &part : objectMeshParts) {
+            const bool reversePartOrder = drawRealTopInTopView;
+            for (size_t offset = 0; offset < objectMeshParts.size(); ++offset) {
+              const size_t partIndex =
+                  reversePartOrder ? (objectMeshParts.size() - 1 - offset)
+                                   : offset;
+              const auto &part = objectMeshParts[partIndex];
               Matrix worldMatrix =
                   MatrixUtils::Multiply(m.transform, part.localTransform);
               float partMatrix[16];
