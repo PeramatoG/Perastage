@@ -276,8 +276,34 @@ func _create_scene_node(data: Dictionary) -> Node3D:
 	var model_node: Node3D = _build_visual_node(data, item_type, item_class, is_fixture, visual_scale_hint)
 	if model_node != null:
 		root.add_child(model_node)
+		if item_type == "fixture_geometry":
+			_reparent_fixture_visual_children(root, model_node)
 
 	return root
+
+func _reparent_fixture_visual_children(geometry_node: Node3D, model_root: Node3D) -> void:
+	if geometry_node == null or model_root == null:
+		return
+
+	if model_root is MeshInstance3D:
+		return
+
+	var model_root_local: Transform3D = model_root.transform
+	var moved_any_child: bool = false
+	for child in model_root.get_children():
+		if child is not Node3D:
+			continue
+
+		var child_node: Node3D = child
+		var child_local_before: Transform3D = child_node.transform
+		var child_local_after: Transform3D = model_root_local * child_local_before
+		model_root.remove_child(child_node)
+		geometry_node.add_child(child_node)
+		child_node.transform = child_local_after
+		moved_any_child = true
+
+	if moved_any_child:
+		model_root.queue_free()
 
 func _build_visual_node(data: Dictionary, item_type: String, item_class: String, is_fixture: bool, visual_scale_hint: float) -> Node3D:
 	var asset_path: String = str(data.get("asset_path", ""))
