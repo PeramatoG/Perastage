@@ -27,6 +27,7 @@
 #include <iomanip>
 #include <limits>
 #include <numeric>
+#include <optional>
 #include <regex>
 #include <sstream>
 #include <string_view>
@@ -259,6 +260,26 @@ std::vector<float> SplitTrussSymmetric(float total) {
     best.push_back(total);
 
   return best;
+}
+
+std::vector<std::string>
+BuildTrussDictionaryLookupKeys(const std::string &modelToken,
+                               const std::string &trussName) {
+  std::vector<std::string> keys;
+  auto pushNormalized = [&](const std::string &key) {
+    const std::string normalized = TrussDictionary::NormalizeModelKey(key);
+    if (normalized.empty())
+      return;
+    if (std::find(keys.begin(), keys.end(), normalized) == keys.end())
+      keys.push_back(normalized);
+  };
+
+  pushNormalized(modelToken);
+  if (!modelToken.empty())
+    pushNormalized("TRUSS " + modelToken);
+  pushNormalized(trussName);
+
+  return keys;
 }
 
 // ExtractPdfText moved to pdftext.cpp
@@ -550,8 +571,22 @@ bool RiderImporter::ImportText(const std::string &text) {
             t.name = "TRUSS " + sizeStr;
           else
             t.name = "TRUSS " + model + " " + sizeStr;
-          t.model = TrussDictionary::NormalizeModelKey(t.name);
-          if (auto dictPath = TrussDictionary::Get(t.model)) {
+          t.model = model.empty() ? TrussDictionary::NormalizeModelKey(t.name)
+                                  : TrussDictionary::NormalizeModelKey(model);
+
+          const std::vector<std::string> dictionaryLookupKeys =
+              BuildTrussDictionaryLookupKeys(model, t.name);
+
+          std::optional<std::string> dictPath;
+          for (const std::string &lookupKey : dictionaryLookupKeys) {
+            if (lookupKey.empty())
+              continue;
+            dictPath = TrussDictionary::Get(lookupKey);
+            if (dictPath)
+              break;
+          }
+
+          if (dictPath) {
             Truss parsed;
             if (LoadTrussDefinition(*dictPath, parsed)) {
               if (!parsed.symbolFile.empty())
@@ -640,7 +675,17 @@ bool RiderImporter::ImportText(const std::string &text) {
         std::string sizeStr = formatLength(s);
         t.name = "TRUSS " + sizeStr;
         t.model = TrussDictionary::NormalizeModelKey(t.name);
-        if (auto dictPath = TrussDictionary::Get(t.model)) {
+        const std::vector<std::string> dictionaryLookupKeys =
+            BuildTrussDictionaryLookupKeys(t.model, t.name);
+
+        std::optional<std::string> dictPath;
+        for (const std::string &lookupKey : dictionaryLookupKeys) {
+          dictPath = TrussDictionary::Get(lookupKey);
+          if (dictPath)
+            break;
+        }
+
+        if (dictPath) {
           Truss parsed;
           if (LoadTrussDefinition(*dictPath, parsed)) {
             if (!parsed.symbolFile.empty())
@@ -707,14 +752,20 @@ bool RiderImporter::ImportText(const std::string &text) {
       if (!resolved)
         gdtfDefinitionFailed = true;
     }
-    if (!resolved && !t.model.empty()) {
-      t.model = TrussDictionary::NormalizeModelKey(t.model);
-      if (auto dictPath = TrussDictionary::Get(t.model)) {
+    if (!resolved) {
+      const std::vector<std::string> dictionaryLookupKeys =
+          BuildTrussDictionaryLookupKeys(t.model, t.name);
+      for (const std::string &lookupKey : dictionaryLookupKeys) {
+        auto dictPath = TrussDictionary::Get(lookupKey);
+        if (!dictPath)
+          continue;
         resolved = LoadTrussDefinition(*dictPath, parsed);
         if (!resolved)
           dictionaryDefinitionFailed = true;
         if (resolved && t.modelFile.empty())
           t.modelFile = *dictPath;
+        if (resolved)
+          break;
       }
     }
 
