@@ -6,6 +6,7 @@ extends Node3D
 @onready var camera: Camera3D = $Camera3D
 
 var _loader := PeravizLoader.new()
+var _scene_registry := SceneRegistry.new()
 var _loaded_bounds: AABB
 var _has_loaded_bounds: bool = false
 var _node_index: Dictionary = {}
@@ -16,6 +17,7 @@ var _debug_gizmos_root: Node3D
 const DEBUG_TOGGLE_KEY: Key = KEY_C
 
 func _ready() -> void:
+	_scene_registry.configure(proxies_root)
 	$HUD/LoadButton.pressed.connect(_on_load_pressed)
 	picker.file_selected.connect(_on_file_selected)
 	picker.access = FileDialog.ACCESS_FILESYSTEM
@@ -37,6 +39,7 @@ func _on_file_selected(path: String) -> void:
 	_clear_debug_gizmos()
 
 	_build_node_tree(nodes)
+	_register_fixture_registry(nodes)
 	_rebuild_debug_gizmos()
 	_focus_loaded_scene()
 	status_label.text = "Nodes: %d (press F to focus, C debug coords)" % nodes.size()
@@ -411,12 +414,96 @@ func _create_dummy_mesh(is_fixture: bool, visual_scale_hint: float) -> Node3D:
 	return mesh_instance
 
 func _clear_scene() -> void:
+	_scene_registry.clear("scene_reload")
 	for child in proxies_root.get_children():
 		child.queue_free()
 	_node_index.clear()
 	_asset_cache.clear()
 	_has_loaded_bounds = false
 	_clear_debug_gizmos()
+
+func _register_fixture_registry(nodes: Array) -> void:
+	if nodes.is_empty():
+		return
+
+	var parent_lookup: Dictionary = {}
+	var type_lookup: Dictionary = {}
+	for item in nodes:
+		if item is not Dictionary:
+			continue
+		var node_id: String = str(item.get("node_id", ""))
+		if node_id.is_empty():
+			continue
+		parent_lookup[node_id] = str(item.get("parent_id", ""))
+		type_lookup[node_id] = str(item.get("type", ""))
+
+	var fixture_anchors: Dictionary = {}
+	for node_id in type_lookup.keys():
+		if str(type_lookup.get(node_id, "")) != "fixture":
+			continue
+		fixture_anchors[node_id] = {
+			"axis": [],
+			"emitters": [],
+			"geometry_nodes": [],
+		}
+
+	for item in nodes:
+		if item is not Dictionary:
+			continue
+		var node_id: String = str(item.get("node_id", ""))
+		if node_id.is_empty():
+			continue
+
+		var fixture_uuid: String = _resolve_fixture_uuid(node_id, parent_lookup, type_lookup, {})
+		if fixture_uuid.is_empty() or not fixture_anchors.has(fixture_uuid):
+			continue
+
+		if node_id == fixture_uuid:
+			continue
+
+		var node: Node3D = _node_index.get(node_id)
+		if node == null:
+			continue
+
+		var anchors: Dictionary = fixture_anchors[fixture_uuid]
+		if bool(item.get("is_axis", false)):
+			var axis_nodes: Array = anchors.get("axis", [])
+			axis_nodes.append(node)
+			anchors["axis"] = axis_nodes
+		if bool(item.get("is_emitter", false)):
+			var emitter_nodes: Array = anchors.get("emitters", [])
+			emitter_nodes.append(node)
+			anchors["emitters"] = emitter_nodes
+		if str(item.get("type", "")) == "fixture_geometry":
+			var geometry_nodes: Array = anchors.get("geometry_nodes", [])
+			geometry_nodes.append(node)
+			anchors["geometry_nodes"] = geometry_nodes
+
+	for fixture_uuid in fixture_anchors.keys():
+		var fixture_node: Node3D = _node_index.get(fixture_uuid)
+		if fixture_node == null:
+			print("[PeravizSceneRegistry] register_fixture skipped: fixture node missing uuid=", fixture_uuid)
+			continue
+		var anchors: Dictionary = fixture_anchors[fixture_uuid]
+		_scene_registry.register_fixture(fixture_uuid, fixture_node, anchors)
+
+func _resolve_fixture_uuid(node_id: String, parent_lookup: Dictionary, type_lookup: Dictionary, cache: Dictionary) -> String:
+	if cache.has(node_id):
+		return str(cache.get(node_id, ""))
+
+	var node_type: String = str(type_lookup.get(node_id, ""))
+	if node_type == "fixture":
+		cache[node_id] = node_id
+		return node_id
+
+	var parent_id: String = str(parent_lookup.get(node_id, ""))
+	if parent_id.is_empty() or parent_id == node_id:
+		cache[node_id] = ""
+		return ""
+
+	var fixture_uuid: String = _resolve_fixture_uuid(parent_id, parent_lookup, type_lookup, cache)
+	cache[node_id] = fixture_uuid
+	return fixture_uuid
 
 func _expand_loaded_bounds_from_node(node: Node3D) -> void:
 	if node is MeshInstance3D:
