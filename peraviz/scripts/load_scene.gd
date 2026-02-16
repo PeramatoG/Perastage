@@ -1015,7 +1015,6 @@ func _find_or_create_emitter_light(emitter_node: Node3D) -> SpotLight3D:
 	light.rotation_degrees = Vector3.ZERO
 	light.light_negative = false
 	light.shadow_enabled = true
-	light.omni_range = 20.0
 	light.spot_range = 20.0
 	light.spot_angle = 25.0
 	light.spot_attenuation = 1.0
