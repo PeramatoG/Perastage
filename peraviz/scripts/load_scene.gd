@@ -91,12 +91,39 @@ func _rebuild_debug_gizmos() -> void:
 		if is_emitter:
 			_add_debug_gizmo_for_target(node3d, "emitter", Color(1.0, 0.55, 0.15), 0.30)
 
+
+func _is_basis_valid(basis: Basis) -> bool:
+	var determinant: float = basis.determinant()
+	if is_zero_approx(determinant):
+		return false
+	return is_finite(determinant)
+
+func _safe_basis_from_data(data: Dictionary) -> Basis:
+	var basis_x: Vector3 = data.get("basis_x", Vector3.RIGHT)
+	var basis_y: Vector3 = data.get("basis_y", Vector3.UP)
+	var basis_z: Vector3 = data.get("basis_z", Vector3.BACK)
+	var basis := Basis(basis_x, basis_y, basis_z)
+	if _is_basis_valid(basis):
+		return basis
+
+	print("[PeravizCoordDebug] event=invalid_basis_fallback basis_x=", basis_x, " basis_y=", basis_y, " basis_z=", basis_z)
+	return Basis.IDENTITY
+
+func _safe_target_global_position(target: Node3D) -> Vector3:
+	if target == null:
+		return Vector3.ZERO
+	var origin: Vector3 = target.global_position
+	if not is_finite(origin.x) or not is_finite(origin.y) or not is_finite(origin.z):
+		print("[PeravizCoordDebug] event=invalid_target_origin_fallback node=", target.name, " origin=", origin)
+		return Vector3.ZERO
+	return origin
+
 func _add_debug_gizmo_for_target(target: Node3D, kind: String, origin_color: Color, length: float) -> void:
 	if target == null:
 		return
 	var holder := Node3D.new()
 	holder.name = "Gizmo_%s" % kind
-	holder.global_transform = target.global_transform
+	holder.global_position = _safe_target_global_position(target)
 	holder.add_child(_create_axes_gizmo_node(origin_color, length))
 	_debug_gizmos_root.add_child(holder)
 
@@ -142,6 +169,7 @@ func _update_debug_legend() -> void:
 		return
 
 	print("[PeravizCoordDebugLegend] X=Red Y=Green Z=Blue scene_root_origin=Magenta mvr_instance_root_origin=Yellow gdtf_axis_origin=Cyan emitter_origin=Orange beam_expected_local=-Z")
+
 func _build_node_tree(nodes: Array) -> void:
 	_node_index.clear()
 	for item in nodes:
@@ -179,10 +207,8 @@ func _create_scene_node(data: Dictionary) -> Node3D:
 	root.set_meta("peraviz_is_emitter", is_emitter)
 	var position: Vector3 = data.get("pos", Vector3.ZERO)
 	if bool(data.get("has_basis", false)):
-		var basis_x: Vector3 = data.get("basis_x", Vector3.RIGHT)
-		var basis_y: Vector3 = data.get("basis_y", Vector3.UP)
-		var basis_z: Vector3 = data.get("basis_z", Vector3.BACK)
-		root.transform = Transform3D(Basis(basis_x, basis_y, basis_z), position)
+		var basis: Basis = _safe_basis_from_data(data)
+		root.transform = Transform3D(basis, position)
 	else:
 		root.position = position
 		root.rotation_degrees = data.get("rot", Vector3.ZERO)
