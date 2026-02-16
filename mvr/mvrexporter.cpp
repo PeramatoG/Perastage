@@ -865,8 +865,9 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     usedFixtureUuids.insert(stableUuid);
 
     fe->SetAttribute("uuid", stableUuid.c_str());
-    const std::string fixtureRootName = "Fixture_" + stableUuid;
-    fe->SetAttribute("name", fixtureRootName.c_str());
+    const std::string fixtureExportName =
+        TrimAscii(f.instanceName).empty() ? "Fixture" : TrimAscii(f.instanceName);
+    fe->SetAttribute("name", fixtureExportName.c_str());
 
     auto addInt = [&](const char *n, int v) {
       if (v != 0) {
@@ -988,7 +989,7 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     info->InsertEndChild(stableIdNode);
 
     tinyxml2::XMLElement *scriptNode = doc.NewElement("Script");
-    scriptNode->SetText(fixtureRootName.c_str());
+    scriptNode->SetText(fixtureExportName.c_str());
     info->InsertEndChild(scriptNode);
 
     if (!f.instanceName.empty()) {
