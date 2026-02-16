@@ -77,6 +77,94 @@ text = "Axis anchors: 0"
 [node name="EmitterAnchorsLabel" type="Label" parent="HUD/FixtureDebugPanel/Margin/VBox"]
 text = "Emitter anchors: 0"
 
+[node name="ControlLimitsLabel" type="Label" parent="HUD/FixtureDebugPanel/Margin/VBox"]
+text = "Test limits (Pan/Tilt/Dimmer)"
+
+[node name="LimitsGrid" type="GridContainer" parent="HUD/FixtureDebugPanel/Margin/VBox"]
+columns = 3
+
+[node name="PanMin" type="SpinBox" parent="HUD/FixtureDebugPanel/Margin/VBox/LimitsGrid"]
+custom_minimum_size = Vector2(80, 0)
+min_value = -720.0
+max_value = 720.0
+value = -270.0
+suffix = "°"
+
+[node name="PanMax" type="SpinBox" parent="HUD/FixtureDebugPanel/Margin/VBox/LimitsGrid"]
+custom_minimum_size = Vector2(80, 0)
+min_value = -720.0
+max_value = 720.0
+value = 270.0
+suffix = "°"
+
+[node name="PanValue" type="SpinBox" parent="HUD/FixtureDebugPanel/Margin/VBox/LimitsGrid"]
+custom_minimum_size = Vector2(80, 0)
+min_value = -720.0
+max_value = 720.0
+value = 0.0
+suffix = "°"
+
+[node name="TiltMin" type="SpinBox" parent="HUD/FixtureDebugPanel/Margin/VBox/LimitsGrid"]
+custom_minimum_size = Vector2(80, 0)
+min_value = -720.0
+max_value = 720.0
+value = -135.0
+suffix = "°"
+
+[node name="TiltMax" type="SpinBox" parent="HUD/FixtureDebugPanel/Margin/VBox/LimitsGrid"]
+custom_minimum_size = Vector2(80, 0)
+min_value = -720.0
+max_value = 720.0
+value = 135.0
+suffix = "°"
+
+[node name="TiltValue" type="SpinBox" parent="HUD/FixtureDebugPanel/Margin/VBox/LimitsGrid"]
+custom_minimum_size = Vector2(80, 0)
+min_value = -720.0
+max_value = 720.0
+value = 0.0
+suffix = "°"
+
+[node name="DimmerMin" type="SpinBox" parent="HUD/FixtureDebugPanel/Margin/VBox/LimitsGrid"]
+custom_minimum_size = Vector2(80, 0)
+min_value = 0.0
+max_value = 1.0
+value = 0.0
+step = 0.01
+
+[node name="DimmerMax" type="SpinBox" parent="HUD/FixtureDebugPanel/Margin/VBox/LimitsGrid"]
+custom_minimum_size = Vector2(80, 0)
+min_value = 0.0
+max_value = 1.0
+value = 1.0
+step = 0.01
+
+[node name="DimmerValue" type="SpinBox" parent="HUD/FixtureDebugPanel/Margin/VBox/LimitsGrid"]
+custom_minimum_size = Vector2(80, 0)
+min_value = 0.0
+max_value = 1.0
+value = 1.0
+step = 0.01
+
+[node name="PanSlider" type="HSlider" parent="HUD/FixtureDebugPanel/Margin/VBox"]
+min_value = -270.0
+max_value = 270.0
+value = 0.0
+
+[node name="TiltSlider" type="HSlider" parent="HUD/FixtureDebugPanel/Margin/VBox"]
+min_value = -135.0
+max_value = 135.0
+value = 0.0
+
+[node name="DimmerSlider" type="HSlider" parent="HUD/FixtureDebugPanel/Margin/VBox"]
+min_value = 0.0
+max_value = 1.0
+value = 1.0
+step = 0.01
+
+[node name="QuickResetButton" type="Button" parent="HUD/FixtureDebugPanel/Margin/VBox"]
+text = "Reset Pan/Tilt/Dimmer"
+
 [node name="FixtureListLabel" type="Label" parent="HUD/FixtureDebugPanel/Margin/VBox"]
 text = "Fixtures by UUID"
 
