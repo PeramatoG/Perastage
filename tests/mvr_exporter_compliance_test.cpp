@@ -215,6 +215,11 @@ int main() {
           }
 
           if (std::string(cur->Name()) == "Truss") {
+            auto *gdtfSpec = cur->FirstChildElement("GDTFSpec");
+            assert(gdtfSpec != nullptr && gdtfSpec->GetText() != nullptr);
+            auto *geometries = cur->FirstChildElement("Geometries");
+            assert(geometries != nullptr);
+
             auto *userData = cur->FirstChildElement("UserData");
             assert(userData != nullptr);
             auto *data = userData->FirstChildElement("Data");
@@ -268,6 +273,58 @@ int main() {
   for (const auto &name : entries) {
     assert(name.rfind("gdtf/", 0) != 0);
   }
+
+
+  cfg.SetFloat("mvr_truss_geometry_authority", 1.0f);
+  fs::path mvrPathGdtfAuthority = tempDir / "Test2_GdtfAuthority.mvr";
+  assert(exporter.ExportToFile(mvrPathGdtfAuthority.generic_string()));
+
+  wxFileInputStream inputGdtfAuthority(mvrPathGdtfAuthority.generic_string());
+  assert(inputGdtfAuthority.IsOk());
+  wxZipInputStream zipGdtfAuthority(inputGdtfAuthority);
+
+  std::string xmlGdtfAuthority;
+  std::unique_ptr<wxZipEntry> entryGdtfAuthority;
+  while ((entryGdtfAuthority.reset(zipGdtfAuthority.GetNextEntry())), entryGdtfAuthority) {
+    if (entryGdtfAuthority->GetName().ToStdString() == "GeneralSceneDescription.xml") {
+      char buffer[4096];
+      while (true) {
+        zipGdtfAuthority.Read(buffer, sizeof(buffer));
+        size_t bytes = zipGdtfAuthority.LastRead();
+        if (bytes == 0)
+          break;
+        xmlGdtfAuthority.append(buffer, bytes);
+      }
+      break;
+    }
+  }
+
+  assert(!xmlGdtfAuthority.empty());
+  tinyxml2::XMLDocument docGdtfAuthority;
+  assert(docGdtfAuthority.Parse(xmlGdtfAuthority.c_str()) == tinyxml2::XML_SUCCESS);
+  tinyxml2::XMLElement *rootGdtfAuthority = docGdtfAuthority.FirstChildElement("GeneralSceneDescription");
+  assert(rootGdtfAuthority != nullptr);
+
+  bool sawTrussWithGdtfSpec = false;
+  for (tinyxml2::XMLElement *node = rootGdtfAuthority->FirstChildElement(); node;
+       node = node->NextSiblingElement()) {
+    std::vector<tinyxml2::XMLElement *> stack{node};
+    while (!stack.empty()) {
+      tinyxml2::XMLElement *cur = stack.back();
+      stack.pop_back();
+      if (std::string(cur->Name()) == "Truss") {
+        auto *gdtfSpec = cur->FirstChildElement("GDTFSpec");
+        assert(gdtfSpec != nullptr && gdtfSpec->GetText() != nullptr);
+        sawTrussWithGdtfSpec = true;
+        assert(cur->FirstChildElement("Geometries") == nullptr);
+      }
+      for (tinyxml2::XMLElement *child = cur->FirstChildElement(); child;
+           child = child->NextSiblingElement()) {
+        stack.push_back(child);
+      }
+    }
+  }
+  assert(sawTrussWithGdtfSpec);
   fs::remove_all(tempDir);
   return 0;
 }
