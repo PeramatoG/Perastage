@@ -10,7 +10,7 @@ var _scene_registry := SceneRegistry.new()
 var _loaded_bounds: AABB
 var _has_loaded_bounds: bool = false
 var _node_index: Dictionary = {}
-var _asset_cache: Dictionary = {}
+var _asset_cache := PeravizRuntimeAssetCache.new()
 var _debug_coords_enabled: bool = false
 var _debug_gizmos_root: Node3D
 
@@ -42,6 +42,8 @@ func _on_file_selected(path: String) -> void:
 	_register_fixture_registry(nodes)
 	_rebuild_debug_gizmos()
 	_focus_loaded_scene()
+	var cache_summary: Dictionary = _asset_cache.debug_summary()
+	print("[PeravizAssetCache] summary hits=", cache_summary.get("hits", 0), " misses=", cache_summary.get("misses", 0), " unique=", cache_summary.get("unique_resources", 0), " mesh=", cache_summary.get("mesh_unique", 0), " scenes=", cache_summary.get("scene_unique", 0), " materials=", cache_summary.get("material_unique", 0))
 	status_label.text = "Nodes: %d (press F to focus, C debug coords)" % nodes.size()
 	_update_debug_legend()
 
@@ -295,61 +297,64 @@ func _extract_visual_scale_hint(data: Dictionary) -> float:
 	return max(average_scale, 0.0001)
 
 func _load_3d_asset(asset_path: String, asset_kind_hint: String = "") -> Variant:
-	if _asset_cache.has(asset_path):
-		var cached: Variant = _asset_cache[asset_path]
-		if cached is Mesh:
-			var cached_mesh_instance := MeshInstance3D.new()
-			cached_mesh_instance.mesh = cached
-			return cached_mesh_instance
-		if cached is PackedScene:
-			var packed_instance: Node = cached.instantiate()
-			if packed_instance is Node3D:
-				return packed_instance
-		if cached is Node3D:
-			return cached.duplicate(DUPLICATE_USE_INSTANTIATION)
-		return null
-
 	var resolved_asset_kind: String = asset_kind_hint.to_lower()
 	if resolved_asset_kind.is_empty() or resolved_asset_kind == "none":
 		resolved_asset_kind = _infer_asset_kind_from_extension(asset_path)
 
 	var extension: String = asset_path.get_extension().to_lower()
 	if resolved_asset_kind == "mesh" or extension == "3ds":
+		var cached_mesh: Mesh = _asset_cache.get_mesh(asset_path)
+		if cached_mesh != null:
+			var cached_mesh_instance := MeshInstance3D.new()
+			cached_mesh_instance.mesh = cached_mesh
+			return cached_mesh_instance
+
 		var mesh_data: Dictionary = _loader.load_3ds_mesh_data(asset_path)
 		if not bool(mesh_data.get("ok", false)):
-			_asset_cache[asset_path] = null
+			_asset_cache.mark_failed(asset_path)
 			return null
 		var mesh: ArrayMesh = _build_3ds_mesh(mesh_data)
 		if mesh == null:
-			_asset_cache[asset_path] = null
+			_asset_cache.mark_failed(asset_path)
 			return null
-		_asset_cache[asset_path] = mesh
+		_asset_cache.store_mesh(asset_path, mesh)
 		var mesh_instance := MeshInstance3D.new()
 		mesh_instance.mesh = mesh
 		return mesh_instance
 
 	if resolved_asset_kind == "scene" or extension == "glb" or extension == "gltf":
+		var cached_scene_instance: Node3D = _asset_cache.instantiate_scene(asset_path)
+		if cached_scene_instance != null:
+			return cached_scene_instance
+
 		var gltf := GLTFDocument.new()
 		var state := GLTFState.new()
 		var err: int = gltf.append_from_file(asset_path, state)
 		if err != OK:
-			_asset_cache[asset_path] = null
+			_asset_cache.mark_failed(asset_path)
 			return null
 		var generated: Node = gltf.generate_scene(state)
 		if generated is Node3D:
-			_asset_cache[asset_path] = generated
-			return generated.duplicate(DUPLICATE_USE_INSTANTIATION)
-		_asset_cache[asset_path] = null
+			var packed_scene := PackedScene.new()
+			if packed_scene.pack(generated) == OK:
+				_asset_cache.store_scene(asset_path, packed_scene)
+				generated.free()
+				return _asset_cache.instantiate_scene(asset_path)
+		if generated != null:
+			generated.free()
+		_asset_cache.mark_failed(asset_path)
 		return null
+
+	var scene_instance: Node3D = _asset_cache.instantiate_scene(asset_path)
+	if scene_instance != null:
+		return scene_instance
 
 	var resource: Resource = load(asset_path)
 	if resource is PackedScene:
-		_asset_cache[asset_path] = resource
-		var scene_instance: Node = resource.instantiate()
-		if scene_instance is Node3D:
-			return scene_instance
+		_asset_cache.store_scene(asset_path, resource)
+		return _asset_cache.instantiate_scene(asset_path)
 
-	_asset_cache[asset_path] = null
+	_asset_cache.mark_failed(asset_path)
 	return null
 
 
@@ -408,8 +413,13 @@ func _create_dummy_mesh(is_fixture: bool, visual_scale_hint: float) -> Node3D:
 		box.size = Vector3.ONE * (0.3 * local_size_multiplier)
 		mesh_instance.mesh = box
 
-	var material := StandardMaterial3D.new()
-	material.albedo_color = Color(1.0, 0.5, 0.1) if is_fixture else Color(0.2, 0.8, 1.0)
+	var material_key: String = "builtin://material/dummy_fixture" if is_fixture else "builtin://material/dummy_object"
+	var material: Material = _asset_cache.get_material(material_key, true)
+	if material == null:
+		var base_material := StandardMaterial3D.new()
+		base_material.albedo_color = Color(1.0, 0.5, 0.1) if is_fixture else Color(0.2, 0.8, 1.0)
+		_asset_cache.store_material(material_key, base_material)
+		material = _asset_cache.get_material(material_key, true)
 	mesh_instance.material_override = material
 	return mesh_instance
 
