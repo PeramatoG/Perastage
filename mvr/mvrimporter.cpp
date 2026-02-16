@@ -22,6 +22,7 @@
 #include "matrixutils.h"
 #include "sceneobject.h"
 #include "support.h"
+#include "uuidutils.h"
 
 #include "consolepanel.h"
 #include "logger.h"
@@ -42,6 +43,7 @@
 #include <string_view>
 #include <unordered_map>
 #include <unordered_set>
+#include <utility>
 #include <vector>
 
 // TinyXML2
@@ -600,16 +602,62 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
     return positionId;
   };
 
+  std::unordered_set<std::string> usedStableUuids;
+  auto buildStableIdSeed = [&](const char *kind, tinyxml2::XMLElement *node,
+                               const std::string &layerName,
+                               const Matrix &nodeTransform,
+                               const std::string &rawUuid) {
+    std::ostringstream seed;
+    seed << "mvr:" << kind << ':' << layerName << ':';
+    if (const char *nameAttr = node->Attribute("name"))
+      seed << Trim(nameAttr);
+    seed << ':' << MatrixUtils::FormatMatrix(nodeTransform) << ':' << rawUuid;
+    return seed.str();
+  };
+
+  auto resolveStableUuid = [&](const char *kind, tinyxml2::XMLElement *node,
+                               const std::string &layerName,
+                               const Matrix &nodeTransform) {
+    const char *uuidAttr = node->Attribute("uuid");
+    std::string rawUuid = uuidAttr ? Trim(uuidAttr) : std::string{};
+    std::string stableUuid = CanonicalizeUuid(rawUuid);
+    const std::string seed =
+        buildStableIdSeed(kind, node, layerName, nodeTransform, rawUuid);
+
+    if (stableUuid.empty()) {
+      if (!rawUuid.empty()) {
+        LogMessage(Logger::Level::Warning,
+                   wxString::Format("MVR import: %s UUID '%s' is invalid. Applying deterministic fallback.",
+                                    kind, rawUuid.c_str())
+                       .ToStdString());
+      }
+      stableUuid = DeriveDeterministicUuid(seed);
+    }
+
+    if (usedStableUuids.contains(stableUuid)) {
+      LogMessage(Logger::Level::Warning,
+                 wxString::Format("MVR import: UUID collision for %s '%s'. Applying controlled fallback UUID.",
+                                  kind, stableUuid.c_str())
+                     .ToStdString());
+      int suffix = 1;
+      std::string candidate;
+      do {
+        candidate = DeriveDeterministicUuid(seed + "#" + std::to_string(suffix++));
+      } while (usedStableUuids.contains(candidate));
+      stableUuid = std::move(candidate);
+    }
+
+    usedStableUuids.insert(stableUuid);
+    return stableUuid;
+  };
+
   std::function<void(tinyxml2::XMLElement *, const std::string &, const Matrix &)>
       parseFixture = [&](tinyxml2::XMLElement *node,
                          const std::string &layerName,
                          const Matrix &nodeTransform) {
-        const char *uuidAttr = node->Attribute("uuid");
-        if (!uuidAttr)
-          return;
-
         Fixture fixture;
-        fixture.uuid = uuidAttr;
+        fixture.uuid =
+            resolveStableUuid("Fixture", node, layerName, nodeTransform);
         fixture.layer = layerName;
         fixture.transform = nodeTransform;
 
@@ -721,12 +769,9 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
   std::function<void(tinyxml2::XMLElement *, const std::string &, const Matrix &)> parseTruss =
       [&](tinyxml2::XMLElement *node, const std::string &layerName,
           const Matrix &nodeTransform) {
-        const char *uuidAttr = node->Attribute("uuid");
-        if (!uuidAttr)
-          return;
-
         Truss truss;
-        truss.uuid = uuidAttr;
+        truss.uuid =
+            resolveStableUuid("Truss", node, layerName, nodeTransform);
         truss.layer = layerName;
         truss.transform = nodeTransform;
         if (const char *nameAttr = node->Attribute("name"))
@@ -830,12 +875,9 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
   std::function<void(tinyxml2::XMLElement *, const std::string &, const Matrix &)> parseSupport =
       [&](tinyxml2::XMLElement *node, const std::string &layerName,
           const Matrix &nodeTransform) {
-        const char *uuidAttr = node->Attribute("uuid");
-        if (!uuidAttr)
-          return;
-
         Support support;
-        support.uuid = uuidAttr;
+        support.uuid =
+            resolveStableUuid("Support", node, layerName, nodeTransform);
         support.layer = layerName;
         support.transform = nodeTransform;
 
@@ -913,12 +955,9 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
       parseSceneObj = [&](tinyxml2::XMLElement *node,
                           const std::string &layerName,
                           const Matrix &nodeTransform) {
-        const char *uuidAttr = node->Attribute("uuid");
-        if (!uuidAttr)
-          return;
-
         SceneObject obj;
-        obj.uuid = uuidAttr;
+        obj.uuid =
+            resolveStableUuid("SceneObject", node, layerName, nodeTransform);
         obj.layer = layerName;
         obj.transform = nodeTransform;
         if (const char *nameAttr = node->Attribute("name"))
