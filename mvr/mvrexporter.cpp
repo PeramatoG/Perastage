@@ -77,17 +77,6 @@ static TrussGeometryAuthority GetTrussGeometryAuthoritySetting() {
   return rawValue >= 0.5f ? TrussGeometryAuthority::Gdtf : TrussGeometryAuthority::MvrGeometry;
 }
 
-static void RemoveModelAttributeRecursive(tinyxml2::XMLElement *element) {
-  if (!element)
-    return;
-  if (element->FindAttribute("Model"))
-    element->DeleteAttribute("Model");
-  for (tinyxml2::XMLElement *child = element->FirstChildElement(); child;
-       child = child->NextSiblingElement()) {
-    RemoveModelAttributeRecursive(child);
-  }
-}
-
 static std::string TrimAscii(std::string value) {
   auto isSpace = [](unsigned char c) { return std::isspace(c); };
   value.erase(value.begin(), std::find_if(value.begin(), value.end(),
@@ -655,41 +644,6 @@ static std::string CreatePatchedGdtf(const std::string &gdtfPath,
   return outPath;
 }
 
-static std::string CreateMetadataOnlyTrussGdtf(const std::string &gdtfPath) {
-  if (gdtfPath.empty())
-    return {};
-
-  std::string tempDir = CreateTempDir();
-  if (!ExtractZip(gdtfPath, tempDir))
-    return {};
-
-  std::string descPath = tempDir + "/description.xml";
-  tinyxml2::XMLDocument doc;
-  if (doc.LoadFile(descPath.c_str()) != tinyxml2::XML_SUCCESS)
-    return {};
-
-  tinyxml2::XMLElement *fixtureType = doc.FirstChildElement("GDTF");
-  if (fixtureType)
-    fixtureType = fixtureType->FirstChildElement("FixtureType");
-  else
-    fixtureType = doc.FirstChildElement("FixtureType");
-  if (!fixtureType)
-    return {};
-
-  if (tinyxml2::XMLElement *models = fixtureType->FirstChildElement("Models")) {
-    fixtureType->DeleteChild(models);
-  }
-  RemoveModelAttributeRecursive(fixtureType);
-
-  fs::remove_all(fs::path(tempDir) / "models");
-
-  doc.SaveFile(descPath.c_str());
-  std::string outPath = tempDir + ".gdtf";
-  if (!ZipDir(tempDir, outPath))
-    return {};
-  return outPath;
-}
-
 bool MvrExporter::ExportToFile(const std::string &filePath) {
   const auto &scene = ConfigManager::Get().GetScene();
   const TrussGeometryAuthority trussGeometryAuthority = GetTrussGeometryAuthoritySetting();
@@ -1137,12 +1091,6 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
       }
     }
 
-    if (trussGeometryAuthority == TrussGeometryAuthority::MvrGeometry && !trussSourceGdtf.empty()) {
-      std::string metadataOnlyGdtf = CreateMetadataOnlyTrussGdtf(trussSourceGdtf);
-      if (!metadataOnlyGdtf.empty())
-        trussSourceGdtf = metadataOnlyGdtf;
-    }
-
     std::string trussSlug = SlugifyArchiveName(t.model.empty() ? t.name : t.model);
     std::string trussPreferredName = trussSlug.empty() ? "truss.gdtf" : (trussSlug + ".gdtf");
     std::string trussGdtfArchivePath = registerGdtfResource(t.uuid, trussSourceGdtf, trussPreferredName);
@@ -1195,11 +1143,13 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     mat->SetText(mstr.c_str());
     te->InsertEndChild(mat);
 
-    bool hasMeta = !t.manufacturer.empty() || !t.model.empty() ||
-                   t.lengthMm != 0.0f || t.widthMm != 0.0f ||
-                   t.heightMm != 0.0f || t.weightKg != 0.0f ||
-                   !t.crossSection.empty() || !t.modelFile.empty() ||
-                   !t.positionName.empty();
+    const bool shouldWriteMvrTrussMetadata = trussGdtfArchivePath.empty();
+    bool hasMeta = shouldWriteMvrTrussMetadata &&
+                   (!t.manufacturer.empty() || !t.model.empty() ||
+                    t.lengthMm != 0.0f || t.widthMm != 0.0f ||
+                    t.heightMm != 0.0f || t.weightKg != 0.0f ||
+                    !t.crossSection.empty() || !t.modelFile.empty() ||
+                    !t.positionName.empty());
     if (hasMeta) {
       tinyxml2::XMLElement *ud = doc.NewElement("UserData");
       tinyxml2::XMLElement *data = doc.NewElement("Data");

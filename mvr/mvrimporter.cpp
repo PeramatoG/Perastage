@@ -866,50 +866,54 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
           }
         }
 
+        const bool hasGdtfMetadataAuthority = !truss.gdtfSpec.empty() && !gdtfLoadFailed;
+
         if (tinyxml2::XMLElement *ud = node->FirstChildElement("UserData")) {
           for (tinyxml2::XMLElement *data = ud->FirstChildElement("Data"); data;
                data = data->NextSiblingElement("Data")) {
             if (tinyxml2::XMLElement *info =
                     data->FirstChildElement("TrussInfo")) {
-              if (tinyxml2::XMLElement *m =
-                      info->FirstChildElement("Manufacturer"))
-                if (m->GetText())
-                  truss.manufacturer = Trim(m->GetText());
-              if (tinyxml2::XMLElement *mo = info->FirstChildElement("Model"))
-                if (mo->GetText())
-                  truss.model = Trim(mo->GetText());
-              if (tinyxml2::XMLElement *len = info->FirstChildElement("Length"))
-                if (len->GetText()) {
-                  float parsed = 0.0f;
-                  if (TryParseFloat(len->GetText(), parsed))
-                    truss.lengthMm = parsed;
-                }
-              if (tinyxml2::XMLElement *wid = info->FirstChildElement("Width"))
-                if (wid->GetText()) {
-                  float parsed = 0.0f;
-                  if (TryParseFloat(wid->GetText(), parsed))
-                    truss.widthMm = parsed;
-                  else
-                    truss.widthMm = 400.0f;
-                }
-              if (tinyxml2::XMLElement *hei = info->FirstChildElement("Height"))
-                if (hei->GetText()) {
-                  float parsed = 0.0f;
-                  if (TryParseFloat(hei->GetText(), parsed))
-                    truss.heightMm = parsed;
-                  else
-                    truss.heightMm = 400.0f;
-                }
-              if (tinyxml2::XMLElement *wei = info->FirstChildElement("Weight"))
-                if (wei->GetText()) {
-                  float parsed = 0.0f;
-                  if (TryParseFloat(wei->GetText(), parsed))
-                    truss.weightKg = parsed;
-                }
-              if (tinyxml2::XMLElement *cs =
-                      info->FirstChildElement("CrossSection"))
-                if (cs->GetText())
-                  truss.crossSection = Trim(cs->GetText());
+              if (!hasGdtfMetadataAuthority) {
+                if (tinyxml2::XMLElement *m =
+                        info->FirstChildElement("Manufacturer"))
+                  if (m->GetText())
+                    truss.manufacturer = Trim(m->GetText());
+                if (tinyxml2::XMLElement *mo = info->FirstChildElement("Model"))
+                  if (mo->GetText())
+                    truss.model = Trim(mo->GetText());
+                if (tinyxml2::XMLElement *len = info->FirstChildElement("Length"))
+                  if (len->GetText()) {
+                    float parsed = 0.0f;
+                    if (TryParseFloat(len->GetText(), parsed))
+                      truss.lengthMm = parsed;
+                  }
+                if (tinyxml2::XMLElement *wid = info->FirstChildElement("Width"))
+                  if (wid->GetText()) {
+                    float parsed = 0.0f;
+                    if (TryParseFloat(wid->GetText(), parsed))
+                      truss.widthMm = parsed;
+                    else
+                      truss.widthMm = 400.0f;
+                  }
+                if (tinyxml2::XMLElement *hei = info->FirstChildElement("Height"))
+                  if (hei->GetText()) {
+                    float parsed = 0.0f;
+                    if (TryParseFloat(hei->GetText(), parsed))
+                      truss.heightMm = parsed;
+                    else
+                      truss.heightMm = 400.0f;
+                  }
+                if (tinyxml2::XMLElement *wei = info->FirstChildElement("Weight"))
+                  if (wei->GetText()) {
+                    float parsed = 0.0f;
+                    if (TryParseFloat(wei->GetText(), parsed))
+                      truss.weightKg = parsed;
+                  }
+                if (tinyxml2::XMLElement *cs =
+                        info->FirstChildElement("CrossSection"))
+                  if (cs->GetText())
+                    truss.crossSection = Trim(cs->GetText());
+              }
               if (tinyxml2::XMLElement *mf =
                       info->FirstChildElement("ModelFile"))
                 if (mf->GetText())

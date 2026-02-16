@@ -214,7 +214,6 @@ int main() {
   bool sawAddress1 = false;
   bool sawAddress1025 = false;
   bool sawAddress2681 = false;
-  bool sawSafeModelFile = false;
   bool sawNonNumericTrussNameFixtureIdConsistency = false;
   int mvrGeometryTrussCount = 0;
   int mvrGeometryTrussesWithGeometry3d = 0;
@@ -307,28 +306,10 @@ int main() {
             assert(gdtfOut.is_open());
             gdtfOut << mvrGeometryEntries.at(trussGdtfSpec);
             gdtfOut.close();
-
             const bool hasRenderableGdtf = GdtfHasRenderable3DModel(trussGdtfPath);
-            assert(!hasRenderableGdtf);
+            assert(hasRenderableGdtf);
             if (hasRenderableGdtf)
               ++mvrGeometryTrussesWithRenderableGdtf;
-
-            auto *userData = cur->FirstChildElement("UserData");
-            assert(userData != nullptr);
-            auto *data = userData->FirstChildElement("Data");
-            assert(data != nullptr);
-            auto *trussInfo = data->FirstChildElement("TrussInfo");
-            assert(trussInfo != nullptr);
-            auto *modelFile = trussInfo->FirstChildElement("ModelFile");
-            assert(modelFile != nullptr);
-            assert(modelFile->GetText() != nullptr);
-
-            const std::string modelFileText = modelFile->GetText();
-            assert(!modelFileText.empty());
-            assert(modelFileText.find(':') == std::string::npos);
-            assert(modelFileText.front() != '/');
-            assert(modelFileText.front() != '\\');
-            sawSafeModelFile = true;
 
             const char *trussUuid = cur->Attribute("uuid");
             if (trussUuid != nullptr && std::string(trussUuid) == trNonNumeric.uuid) {
@@ -360,11 +341,10 @@ int main() {
   assert(sawAddress1);
   assert(sawAddress1025);
   assert(sawAddress2681);
-  assert(sawSafeModelFile);
   assert(sawNonNumericTrussNameFixtureIdConsistency);
   assert(mvrGeometryTrussCount == static_cast<int>(scene.trusses.size()));
   assert(mvrGeometryTrussesWithGeometry3d == mvrGeometryTrussCount);
-  assert(mvrGeometryTrussesWithRenderableGdtf == 0);
+  assert(mvrGeometryTrussesWithRenderableGdtf == mvrGeometryTrussCount);
 
   for (const auto &name : entries) {
     assert(name.rfind("gdtf/", 0) != 0);

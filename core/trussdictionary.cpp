@@ -20,6 +20,7 @@
 #include "json.hpp"
 #include "projectutils.h"
 #include "truss_gdtf_builder.h"
+#include "truss.h"
 
 #include <algorithm>
 #include <cctype>
@@ -103,6 +104,20 @@ static bool EnsureMigratedToGdtf(fs::path &pathInOut, std::string &error) {
     if (!fs::exists(converted) &&
         !ConvertLegacyGtrussToGdtf(pathInOut, converted, &error)) {
       return false;
+    }
+    pathInOut = converted;
+    return true;
+  }
+
+  if (ext == ".glb" || ext == ".3ds") {
+    fs::path converted = pathInOut;
+    converted.replace_extension(".gdtf");
+    if (!fs::exists(converted)) {
+      Truss truss;
+      truss.modelFile = ToUtf8String(pathInOut);
+      truss.model = pathInOut.stem().string();
+      if (!BuildTrussGdtfFromInstance(truss, converted, &error))
+        return false;
     }
     pathInOut = converted;
     return true;
