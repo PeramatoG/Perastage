@@ -307,13 +307,13 @@ static bool BuildFromSourceData(const TrussSourceData &data,
   entries.push_back({"description.xml", descPath});
 
   if (ext == ".glb") {
-    entries.push_back({"models/gltf/main.glb", data.geometryPath});
+    entries.push_back({"main.glb", data.geometryPath});
   } else {
-    entries.push_back({"models/3ds/main.3ds", data.geometryPath});
+    entries.push_back({"main.3ds", data.geometryPath});
   }
 
   if (!data.symbolPath.empty() && data.symbolPath.extension() == ".svg")
-    entries.push_back({"models/svg/main.svg", data.symbolPath});
+    entries.push_back({"main.svg", data.symbolPath});
 
   fs::create_directories(outGdtfPath.parent_path(), ec);
   return WriteZipFile(outGdtfPath, entries, outError);
