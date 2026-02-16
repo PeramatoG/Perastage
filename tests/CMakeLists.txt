@@ -318,6 +318,7 @@ add_executable(rider_autopatch_test rider_autopatch_test.cpp
                ../core/configmanager.cpp
                ../core/configservices.cpp
                ../core/projectutils.cpp
+               ../core/logger.cpp
                ../models/mvrscene.cpp
                ../models/fixture.cpp
                ../models/truss.cpp
@@ -341,6 +342,7 @@ add_executable(rider_layer_mode_test rider_layer_mode_test.cpp
                ../core/configmanager.cpp
                ../core/configservices.cpp
                ../core/projectutils.cpp
+               ../core/logger.cpp
                ../models/mvrscene.cpp
                ../models/fixture.cpp
                ../models/truss.cpp
@@ -364,6 +366,7 @@ add_executable(rider_import_benchmark rider_import_benchmark.cpp
                ../core/configmanager.cpp
                ../core/configservices.cpp
                ../core/projectutils.cpp
+               ../core/logger.cpp
                ../models/mvrscene.cpp
                ../models/fixture.cpp
                ../models/truss.cpp
