@@ -540,28 +540,28 @@ bool RiderImporter::ImportText(const std::string &text) {
             t.name = "TRUSS " + sizeStr;
           else
             t.name = "TRUSS " + model + " " + sizeStr;
-          t.model = t.name;
+          t.model = TrussDictionary::NormalizeModelKey(t.name);
           if (auto dictPath = TrussDictionary::Get(t.model)) {
-          Truss parsed;
-          if (LoadTrussDefinition(*dictPath, parsed)) {
-            if (!parsed.symbolFile.empty())
-              t.symbolFile = parsed.symbolFile;
-            t.modelFile = parsed.modelFile.empty() ? *dictPath : parsed.modelFile;
-            t.gdtfSpec = parsed.gdtfSpec;
-            t.gdtfMode = parsed.gdtfMode;
-            t.manufacturer = parsed.manufacturer;
-            if (parsed.lengthMm > 0.0f)
-              t.lengthMm = parsed.lengthMm;
-            if (parsed.widthMm > 0.0f)
-              t.widthMm = parsed.widthMm;
-            if (parsed.heightMm > 0.0f)
-              t.heightMm = parsed.heightMm;
-            t.weightKg = parsed.weightKg;
-            t.crossSection = parsed.crossSection;
-          } else {
-            t.modelFile = *dictPath;
+            Truss parsed;
+            if (LoadTrussDefinition(*dictPath, parsed)) {
+              if (!parsed.symbolFile.empty())
+                t.symbolFile = parsed.symbolFile;
+              t.modelFile = parsed.modelFile.empty() ? *dictPath : parsed.modelFile;
+              t.gdtfSpec = parsed.gdtfSpec;
+              t.gdtfMode = parsed.gdtfMode;
+              t.manufacturer = parsed.manufacturer;
+              if (parsed.lengthMm > 0.0f)
+                t.lengthMm = parsed.lengthMm;
+              if (parsed.widthMm > 0.0f)
+                t.widthMm = parsed.widthMm;
+              if (parsed.heightMm > 0.0f)
+                t.heightMm = parsed.heightMm;
+              t.weightKg = parsed.weightKg;
+              t.crossSection = parsed.crossSection;
+            } else {
+              t.modelFile = *dictPath;
+            }
           }
-        }
           const std::string trussUuid = t.uuid;
           const std::string trussLayer = t.layer;
           scene.trusses.emplace(trussUuid, std::move(t));
@@ -629,7 +629,7 @@ bool RiderImporter::ImportText(const std::string &text) {
         t.transform.o[2] = getHangHeight(hang);
         std::string sizeStr = formatLength(s);
         t.name = "TRUSS " + sizeStr;
-        t.model = t.name;
+        t.model = TrussDictionary::NormalizeModelKey(t.name);
         if (auto dictPath = TrussDictionary::Get(t.model)) {
           Truss parsed;
           if (LoadTrussDefinition(*dictPath, parsed)) {
@@ -689,6 +689,7 @@ bool RiderImporter::ImportText(const std::string &text) {
     if (!resolved && !t.gdtfSpec.empty())
       resolved = LoadTrussDefinition(t.gdtfSpec, parsed);
     if (!resolved && !t.model.empty()) {
+      t.model = TrussDictionary::NormalizeModelKey(t.model);
       if (auto dictPath = TrussDictionary::Get(t.model)) {
         resolved = LoadTrussDefinition(*dictPath, parsed);
         if (resolved && t.modelFile.empty())

@@ -144,6 +144,36 @@ target_link_libraries(truss_path_encoding_regression_test PRIVATE
                       ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
 add_test(NAME TrussPathEncodingRegression COMMAND truss_path_encoding_regression_test)
 
+add_executable(rider_truss_dictionary_normalization_test
+               rider_truss_dictionary_normalization_test.cpp
+               pdftext_stub.cpp
+               gdtfloader_stub.cpp
+               consolepanel_stub.cpp
+               ../core/riderimporter.cpp
+               ../core/uuidutils.cpp
+               ../core/autopatcher.cpp
+               ../core/patchmanager.cpp
+               ../core/configmanager.cpp
+               ../core/configservices.cpp
+               ../core/projectutils.cpp
+               ../core/gdtfdictionary.cpp
+               ../core/trussdictionary.cpp
+               ../core/trussloader.cpp
+               ../core/truss_gdtf_builder.cpp
+               ../mvr/mvrimporter.cpp
+               ../mvr/mvrexporter.cpp
+               ../core/logger.cpp
+               ../models/mvrscene.cpp
+               ../models/fixture.cpp
+               ../models/truss.cpp
+               ../models/sceneobject.cpp
+               ../models/layer.cpp
+               ${LAYOUT_SOURCES})
+target_include_directories(rider_truss_dictionary_normalization_test PRIVATE
+                           . ../core ../models ../mvr ../gui ../third_party)
+target_link_libraries(rider_truss_dictionary_normalization_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
+add_test(NAME RiderTrussDictionaryNormalization COMMAND rider_truss_dictionary_normalization_test)
+
 add_executable(mvr_dmx_address_test mvr_dmx_address_test.cpp
                ../mvr/mvrexporter.cpp
                ../core/configmanager.cpp

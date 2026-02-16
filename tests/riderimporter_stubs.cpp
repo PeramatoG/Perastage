@@ -39,6 +39,7 @@ void Update(const std::string &, const std::string &, const std::string &) {}
 }
 
 namespace TrussDictionary {
+std::string NormalizeModelKey(const std::string &model) { return model; }
 std::optional<std::unordered_map<std::string, std::string>> Load() { return std::unordered_map<std::string, std::string>(); }
 void Save(const std::unordered_map<std::string, std::string> &) {}
 std::optional<std::string> Get(const std::string &) { return std::nullopt; }
