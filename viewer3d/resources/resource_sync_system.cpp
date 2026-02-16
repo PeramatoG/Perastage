@@ -248,6 +248,11 @@ ResourceSyncResult ResourceSyncSystem::Sync(
             ? pathIt->second.resolvedPath
             : std::string();
 
+    // symbolFile can legally point to non-mesh assets (e.g. SVG symbol).
+    // Only accept it as render geometry when it resolves to a mesh file.
+    if (!path.empty() && !IsMeshPath(path))
+      path.clear();
+
     auto tryResolveTrussDefinition = [&](const std::string &definitionRef) {
       if (definitionRef.empty() || !path.empty())
         return;
