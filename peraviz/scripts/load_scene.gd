@@ -288,16 +288,18 @@ func _reparent_fixture_visual_children(geometry_node: Node3D, model_root: Node3D
 	if model_root is MeshInstance3D:
 		return
 
+	var model_root_local: Transform3D = model_root.transform
 	var moved_any_child: bool = false
 	for child in model_root.get_children():
 		if child is not Node3D:
 			continue
 
 		var child_node: Node3D = child
-		var world_before: Transform3D = child_node.global_transform
+		var child_local_before: Transform3D = child_node.transform
+		var child_local_after: Transform3D = model_root_local * child_local_before
 		model_root.remove_child(child_node)
 		geometry_node.add_child(child_node)
-		child_node.global_transform = world_before
+		child_node.transform = child_local_after
 		moved_any_child = true
 
 	if moved_any_child:
