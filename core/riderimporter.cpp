@@ -27,6 +27,7 @@
 #include <iomanip>
 #include <limits>
 #include <numeric>
+#include <optional>
 #include <regex>
 #include <sstream>
 #include <string_view>
@@ -551,7 +552,25 @@ bool RiderImporter::ImportText(const std::string &text) {
           else
             t.name = "TRUSS " + model + " " + sizeStr;
           t.model = TrussDictionary::NormalizeModelKey(t.name);
-          if (auto dictPath = TrussDictionary::Get(t.model)) {
+          std::vector<std::string> dictionaryLookupKeys;
+          dictionaryLookupKeys.push_back(t.model);
+          if (!model.empty()) {
+            dictionaryLookupKeys.push_back(
+                TrussDictionary::NormalizeModelKey(model));
+            dictionaryLookupKeys.push_back(
+                TrussDictionary::NormalizeModelKey("TRUSS " + model));
+          }
+
+          std::optional<std::string> dictPath;
+          for (const std::string &lookupKey : dictionaryLookupKeys) {
+            if (lookupKey.empty())
+              continue;
+            dictPath = TrussDictionary::Get(lookupKey);
+            if (dictPath)
+              break;
+          }
+
+          if (dictPath) {
             Truss parsed;
             if (LoadTrussDefinition(*dictPath, parsed)) {
               if (!parsed.symbolFile.empty())
