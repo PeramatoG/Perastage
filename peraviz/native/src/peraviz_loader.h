@@ -15,7 +15,7 @@ protected:
     static void _bind_methods();
 
 public:
-    Array load_mvr(const String &path) const;
+    Array load_mvr(const String &path, bool peraviz_debug_baseline = false) const;
     Dictionary load_3ds_mesh_data(const String &path) const;
 };
 

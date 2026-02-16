@@ -1,5 +1,7 @@
 #include "coordinate_mapper.h"
 
+#include "peraviz_debug_runtime.h"
+
 #include <cmath>
 
 namespace {
@@ -72,6 +74,9 @@ SceneTransform to_godot_transform(const Matrix &source_local) {
     Matrix rotation_only = normalize_basis(basis, scale);
     const auto euler = MatrixUtils::MatrixToEuler(rotation_only);
     transform.rotation_degrees = {euler[0], euler[1], euler[2]};
+
+    peraviz::debug_runtime::log_baseline_transform_comparison("coordinate_mapper::to_godot_transform",
+                                                              source_local, transform);
     return transform;
 }
 

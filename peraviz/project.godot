@@ -22,3 +22,7 @@ config/icon="res://icon.svg"
 [rendering]
 
 rendering_device/driver.windows="d3d12"
+
+[peraviz]
+
+peraviz_debug_baseline=false
