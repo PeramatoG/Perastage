@@ -130,8 +130,8 @@ void OpaqueObjectPass::Render(
       }
     }
 
-    // Keep a deterministic back-to-front part order so 2D projections with
-    // near-coplanar surfaces do not look inverted when depth ties happen.
+    // Keep a deterministic part order so 2D projections with near-coplanar
+    // surfaces do not look inverted when depth ties happen.
     auto partDepthInCurrentView = [&](const SceneObjectMeshPart &part) {
       Matrix worldMatrix = MatrixUtils::Multiply(m.transform, part.localTransform);
       const auto worldOrigin =
@@ -154,8 +154,8 @@ void OpaqueObjectPass::Render(
                        const float depthA = partDepthInCurrentView(a);
                        const float depthB = partDepthInCurrentView(b);
                        if (captureView == Viewer2DView::Top)
-                         return depthA < depthB;
-                       return depthA > depthB;
+                         return depthA > depthB;
+                       return depthA < depthB;
                      });
 
     auto drawSceneObjectGeometry =
