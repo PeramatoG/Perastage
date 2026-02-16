@@ -26,6 +26,8 @@ struct SceneNode {
     std::string parent_id;
     std::string name;
     std::string type;
+    std::string node_class;
+    std::string asset_kind;
     std::string asset_path;
     SceneTransform local_transform;
     bool is_fixture = false;

@@ -108,6 +108,22 @@ std::string normalize_geometry_file_name(const std::string &file_name) {
     return path.u8string();
 }
 
+std::string infer_asset_kind_from_path(const std::string &asset_path) {
+    if (asset_path.empty()) {
+        return "none";
+    }
+
+    std::filesystem::path path = std::filesystem::u8path(asset_path);
+    std::string extension = lower_ascii(path.extension().u8string());
+    if (extension == ".3ds") {
+        return "mesh";
+    }
+    if (extension == ".glb" || extension == ".gltf") {
+        return "scene";
+    }
+    return "none";
+}
+
 std::string parse_name(tinyxml2::XMLElement *node, const std::string &fallback) {
     if (const char *name = node->Attribute("name")) {
         return name;
@@ -203,11 +219,13 @@ void append_geometry_children(SceneModel &scene, tinyxml2::XMLElement *node, con
         geo_node.parent_id = parent_id;
         geo_node.name = parse_name(geo, "Geometry3D");
         geo_node.type = "model_part";
+        geo_node.node_class = "model_part";
         geo_node.local_transform = peraviz::coordinate_mapper::to_godot_transform(local);
         const std::string model_name = normalize_geometry_file_name(parse_model_filename(geo));
         if (!model_name.empty()) {
             geo_node.asset_path = mvr_cache.ensure_extracted(model_name);
         }
+        geo_node.asset_kind = infer_asset_kind_from_path(geo_node.asset_path);
 
         scene.nodes.push_back(std::move(geo_node));
         (void)world;
@@ -232,6 +250,7 @@ void append_geometry_children(SceneModel &scene, tinyxml2::XMLElement *node, con
             symbol_node.parent_id = parent_id;
             symbol_node.name = parse_name(symbol, "Symbol");
             symbol_node.type = "model_part";
+            symbol_node.node_class = "model_part";
 
             Matrix local = MatrixUtils::Multiply(symbol_local, sym_geo.transform);
             symbol_node.local_transform = peraviz::coordinate_mapper::to_godot_transform(local);
@@ -239,6 +258,7 @@ void append_geometry_children(SceneModel &scene, tinyxml2::XMLElement *node, con
             if (!sym_geo.file_name.empty()) {
                 symbol_node.asset_path = mvr_cache.ensure_extracted(sym_geo.file_name);
             }
+            symbol_node.asset_kind = infer_asset_kind_from_path(symbol_node.asset_path);
             scene.nodes.push_back(std::move(symbol_node));
         }
     }
@@ -301,6 +321,8 @@ SceneModel load_mvr(const std::string &path) {
 
             if (node_name == "Fixture") {
                 node.type = "fixture";
+                node.node_class = "fixture";
+                node.asset_kind = "none";
                 node.is_fixture = true;
                 append_scene_node(model, node);
 
@@ -324,14 +346,20 @@ SceneModel load_mvr(const std::string &path) {
                 }
             } else if (node_name == "Truss") {
                 node.type = "truss";
+                node.node_class = "truss";
+                node.asset_kind = "none";
                 append_scene_node(model, node);
                 append_geometry_children(model, child, id, node_world, mvr_cache, symdefs, id, serial);
             } else if (node_name == "Support") {
                 node.type = "support";
+                node.node_class = "support";
+                node.asset_kind = "none";
                 append_scene_node(model, node);
                 append_geometry_children(model, child, id, node_world, mvr_cache, symdefs, id, serial);
             } else if (node_name == "SceneObject") {
                 node.type = "scene_object";
+                node.node_class = "scene_object";
+                node.asset_kind = "none";
                 append_scene_node(model, node);
                 append_geometry_children(model, child, id, node_world, mvr_cache, symdefs, id, serial);
             }

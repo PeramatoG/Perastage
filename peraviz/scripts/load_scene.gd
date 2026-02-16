@@ -60,13 +60,14 @@ func _build_node_tree(nodes: Array) -> void:
 
 func _create_scene_node(data: Dictionary) -> Node3D:
 	var item_type: String = str(data.get("type", "scene_object"))
+	var item_class: String = _extract_node_class(data, item_type)
 	var is_fixture: bool = bool(data.get("is_fixture", false))
 	var is_axis: bool = bool(data.get("is_axis", false))
 	var is_emitter: bool = bool(data.get("is_emitter", false))
 	var node_name: String = str(data.get("name", item_type))
 
 	var root := Node3D.new()
-	root.name = "%s_%s" % [item_type, node_name]
+	root.name = "%s_%s" % [item_class, node_name]
 	var position: Vector3 = data.get("pos", Vector3.ZERO)
 	if bool(data.get("has_basis", false)):
 		var basis_x: Vector3 = data.get("basis_x", Vector3.RIGHT)
@@ -89,19 +90,20 @@ func _create_scene_node(data: Dictionary) -> Node3D:
 		root.add_child(emitter)
 
 	var visual_scale_hint: float = _extract_visual_scale_hint(data)
-	var model_node: Node3D = _build_visual_node(data, item_type, is_fixture, visual_scale_hint)
+	var model_node: Node3D = _build_visual_node(data, item_type, item_class, is_fixture, visual_scale_hint)
 	if model_node != null:
 		root.add_child(model_node)
 
 	return root
 
-func _build_visual_node(data: Dictionary, item_type: String, is_fixture: bool, visual_scale_hint: float) -> Node3D:
+func _build_visual_node(data: Dictionary, item_type: String, item_class: String, is_fixture: bool, visual_scale_hint: float) -> Node3D:
 	var asset_path: String = str(data.get("asset_path", ""))
+	var asset_kind: String = _extract_asset_kind(data, asset_path)
 	if not asset_path.is_empty():
-		var loaded: Variant = _load_3d_asset(asset_path)
+		var loaded: Variant = _load_3d_asset(asset_path, asset_kind)
 		if loaded is Node3D:
 			return loaded
-		print("[Peraviz] Asset fallback for missing/invalid model: ", asset_path)
+		print("[Peraviz] Asset fallback for missing/invalid model: ", asset_path, " type=", item_type, " class=", item_class, " asset_kind=", asset_kind)
 
 	if item_type == "fixture" or item_type == "fixture_geometry":
 		return null
@@ -120,7 +122,7 @@ func _extract_visual_scale_hint(data: Dictionary) -> float:
 	var average_scale: float = (abs(scale.x) + abs(scale.y) + abs(scale.z)) / 3.0
 	return max(average_scale, 0.0001)
 
-func _load_3d_asset(asset_path: String) -> Variant:
+func _load_3d_asset(asset_path: String, asset_kind_hint: String = "") -> Variant:
 	if _asset_cache.has(asset_path):
 		var cached: Variant = _asset_cache[asset_path]
 		if cached is Mesh:
@@ -135,8 +137,12 @@ func _load_3d_asset(asset_path: String) -> Variant:
 			return cached.duplicate(DUPLICATE_USE_INSTANTIATION)
 		return null
 
+	var resolved_asset_kind: String = asset_kind_hint.to_lower()
+	if resolved_asset_kind.is_empty() or resolved_asset_kind == "none":
+		resolved_asset_kind = _infer_asset_kind_from_extension(asset_path)
+
 	var extension: String = asset_path.get_extension().to_lower()
-	if extension == "3ds":
+	if resolved_asset_kind == "mesh" or extension == "3ds":
 		var mesh_data: Dictionary = _loader.load_3ds_mesh_data(asset_path)
 		if not bool(mesh_data.get("ok", false)):
 			_asset_cache[asset_path] = null
@@ -150,7 +156,7 @@ func _load_3d_asset(asset_path: String) -> Variant:
 		mesh_instance.mesh = mesh
 		return mesh_instance
 
-	if extension == "glb" or extension == "gltf":
+	if resolved_asset_kind == "scene" or extension == "glb" or extension == "gltf":
 		var gltf := GLTFDocument.new()
 		var state := GLTFState.new()
 		var err: int = gltf.append_from_file(asset_path, state)
@@ -173,6 +179,27 @@ func _load_3d_asset(asset_path: String) -> Variant:
 
 	_asset_cache[asset_path] = null
 	return null
+
+
+func _extract_node_class(data: Dictionary, item_type: String) -> String:
+	var node_class: String = str(data.get("class", ""))
+	if node_class.is_empty():
+		node_class = item_type
+	return node_class
+
+func _extract_asset_kind(data: Dictionary, asset_path: String) -> String:
+	var kind: String = str(data.get("asset_kind", "")).to_lower()
+	if kind.is_empty() or kind == "none":
+		kind = _infer_asset_kind_from_extension(asset_path)
+	return kind
+
+func _infer_asset_kind_from_extension(asset_path: String) -> String:
+	var extension: String = asset_path.get_extension().to_lower()
+	if extension == "3ds":
+		return "mesh"
+	if extension == "glb" or extension == "gltf":
+		return "scene"
+	return "none"
 
 
 func _build_3ds_mesh(mesh_data: Dictionary) -> ArrayMesh:
