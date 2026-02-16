@@ -594,15 +594,20 @@ bool RiderImporter::ImportText(const std::string &text) {
               t.modelFile = parsed.modelFile.empty() ? *dictPath : parsed.modelFile;
               t.gdtfSpec = parsed.gdtfSpec;
               t.gdtfMode = parsed.gdtfMode;
-              t.manufacturer = parsed.manufacturer;
+              if (!parsed.manufacturer.empty())
+                t.manufacturer = parsed.manufacturer;
+              if (!parsed.model.empty())
+                t.model = TrussDictionary::NormalizeModelKey(parsed.model);
               if (parsed.lengthMm > 0.0f)
                 t.lengthMm = parsed.lengthMm;
               if (parsed.widthMm > 0.0f)
                 t.widthMm = parsed.widthMm;
               if (parsed.heightMm > 0.0f)
                 t.heightMm = parsed.heightMm;
-              t.weightKg = parsed.weightKg;
-              t.crossSection = parsed.crossSection;
+              if (parsed.weightKg > 0.0f)
+                t.weightKg = parsed.weightKg;
+              if (!parsed.crossSection.empty())
+                t.crossSection = parsed.crossSection;
             } else {
               t.modelFile = *dictPath;
             }
@@ -802,6 +807,18 @@ bool RiderImporter::ImportText(const std::string &text) {
       t.gdtfMode = parsed.gdtfMode;
     if (t.manufacturer.empty() && !parsed.manufacturer.empty())
       t.manufacturer = parsed.manufacturer;
+    if (!parsed.model.empty())
+      t.model = TrussDictionary::NormalizeModelKey(parsed.model);
+    if (parsed.lengthMm > 0.0f)
+      t.lengthMm = parsed.lengthMm;
+    if (parsed.widthMm > 0.0f)
+      t.widthMm = parsed.widthMm;
+    if (parsed.heightMm > 0.0f)
+      t.heightMm = parsed.heightMm;
+    if (parsed.weightKg > 0.0f)
+      t.weightKg = parsed.weightKg;
+    if (!parsed.crossSection.empty())
+      t.crossSection = parsed.crossSection;
 
     bool symbolLooksRenderable = IsRenderableTrussGeometry(t.symbolFile);
     bool symbolExists =
