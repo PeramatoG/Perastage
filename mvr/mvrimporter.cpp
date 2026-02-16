@@ -23,6 +23,7 @@
 #include "sceneobject.h"
 #include "support.h"
 #include "uuidutils.h"
+#include "trussloader.h"
 
 #include "consolepanel.h"
 #include "logger.h"
@@ -786,6 +787,35 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         truss.function = textOf(node, "Function");
         truss.position = textOf(node, "Position");
         truss.positionName = ensurePositionEntry(truss.position);
+
+        if (!truss.gdtfSpec.empty()) {
+          fs::path gdtfPath = scene.basePath.empty()
+                                  ? fs::u8path(truss.gdtfSpec)
+                                  : fs::u8path(scene.basePath) / fs::u8path(truss.gdtfSpec);
+          Truss gdtfTruss;
+          if (LoadTrussDefinition(ToString(gdtfPath.u8string()), gdtfTruss)) {
+            truss.gdtfSpec = ToString(gdtfPath.u8string());
+            truss.modelFile = gdtfTruss.modelFile;
+            if (!gdtfTruss.symbolFile.empty())
+              truss.symbolFile = gdtfTruss.symbolFile;
+            if (!gdtfTruss.manufacturer.empty())
+              truss.manufacturer = gdtfTruss.manufacturer;
+            if (!gdtfTruss.model.empty())
+              truss.model = gdtfTruss.model;
+            if (!gdtfTruss.name.empty() && truss.name.empty())
+              truss.name = gdtfTruss.name;
+            if (gdtfTruss.lengthMm > 0.0f)
+              truss.lengthMm = gdtfTruss.lengthMm;
+            if (gdtfTruss.widthMm > 0.0f)
+              truss.widthMm = gdtfTruss.widthMm;
+            if (gdtfTruss.heightMm > 0.0f)
+              truss.heightMm = gdtfTruss.heightMm;
+            if (gdtfTruss.weightKg > 0.0f)
+              truss.weightKg = gdtfTruss.weightKg;
+            if (truss.gdtfMode.empty())
+              truss.gdtfMode = gdtfTruss.gdtfMode.empty() ? "Default" : gdtfTruss.gdtfMode;
+          }
+        }
 
         if (tinyxml2::XMLElement *geos =
                 node->FirstChildElement("Geometries")) {

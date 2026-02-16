@@ -17,17 +17,15 @@
  */
 #pragma once
 
-#include <string>
 #include <optional>
+#include <string>
 #include <unordered_map>
 
 namespace TrussDictionary {
-    // Loads the dictionary file into a map of model -> path inside truss library
-    std::optional<std::unordered_map<std::string, std::string>> Load();
-    // Saves the dictionary map back to disk storing only filenames
-    void Save(const std::unordered_map<std::string, std::string>& dict);
-    // Returns stored path for a model if exists and file exists; removes missing entries
-    std::optional<std::string> Get(const std::string& model);
-    // Copies model file into trusses library and updates dictionary
-    void Update(const std::string& model, const std::string& modelPath);
-}
+std::optional<std::unordered_map<std::string, std::string>> Load();
+void Save(const std::unordered_map<std::string, std::string> &dict);
+std::optional<std::string> Get(const std::string &model);
+void Update(const std::string &model, const std::string &modelPath);
+bool ImportTrussFile(const std::string &inputPath, std::string &storedPath,
+                     std::string &error);
+} // namespace TrussDictionary

@@ -530,36 +530,28 @@ bool RiderImporter::ImportText(const std::string &text) {
             t.name = "TRUSS " + model + " " + sizeStr;
           t.model = t.name;
           if (auto dictPath = TrussDictionary::Get(t.model)) {
-            namespace fs = std::filesystem;
-            if (fs::path(*dictPath).extension() == ".gtruss") {
-              Truss parsed;
-              if (LoadTrussArchive(*dictPath, parsed)) {
-                t.symbolFile = parsed.symbolFile;
-                t.modelFile = parsed.modelFile;
-                t.manufacturer = parsed.manufacturer;
-                // Only overwrite dimensions if the loaded model provides
-                // meaningful values.  Some rider truss entries in the
-                // dictionary may contain zero sizes which would otherwise
-                // break fixture distribution.  Keep the dummy dimensions in
-                // that case so spacing remains correct.
-                if (parsed.lengthMm > 0.0f)
-                  t.lengthMm = parsed.lengthMm;
-                if (parsed.widthMm > 0.0f)
-                  t.widthMm = parsed.widthMm;
-                if (parsed.heightMm > 0.0f)
-                  t.heightMm = parsed.heightMm;
-                t.weightKg = parsed.weightKg;
-                t.crossSection = parsed.crossSection;
-              } else {
-                t.symbolFile = *dictPath;
-                t.modelFile = *dictPath;
-              }
-            } else {
-              t.symbolFile = *dictPath;
-              t.modelFile = *dictPath;
-            }
+          Truss parsed;
+          if (LoadTrussDefinition(*dictPath, parsed)) {
+            if (!parsed.symbolFile.empty())
+              t.symbolFile = parsed.symbolFile;
+            t.modelFile = parsed.modelFile.empty() ? *dictPath : parsed.modelFile;
+            t.gdtfSpec = parsed.gdtfSpec;
+            t.gdtfMode = parsed.gdtfMode;
+            t.manufacturer = parsed.manufacturer;
+            if (parsed.lengthMm > 0.0f)
+              t.lengthMm = parsed.lengthMm;
+            if (parsed.widthMm > 0.0f)
+              t.widthMm = parsed.widthMm;
+            if (parsed.heightMm > 0.0f)
+              t.heightMm = parsed.heightMm;
+            t.weightKg = parsed.weightKg;
+            t.crossSection = parsed.crossSection;
+          } else {
+            t.symbolFile = *dictPath;
+            t.modelFile = *dictPath;
           }
-          scene.trusses.emplace(t.uuid, std::move(t));
+        }
+        scene.trusses.emplace(t.uuid, std::move(t));
           addToLayer(t.layer, t.uuid);
           x += s;
         }
@@ -625,25 +617,22 @@ bool RiderImporter::ImportText(const std::string &text) {
         t.name = "TRUSS " + sizeStr;
         t.model = t.name;
         if (auto dictPath = TrussDictionary::Get(t.model)) {
-          namespace fs = std::filesystem;
-          if (fs::path(*dictPath).extension() == ".gtruss") {
-            Truss parsed;
-            if (LoadTrussArchive(*dictPath, parsed)) {
+          Truss parsed;
+          if (LoadTrussDefinition(*dictPath, parsed)) {
+            if (!parsed.symbolFile.empty())
               t.symbolFile = parsed.symbolFile;
-              t.modelFile = parsed.modelFile;
-              t.manufacturer = parsed.manufacturer;
-              if (parsed.lengthMm > 0.0f)
-                t.lengthMm = parsed.lengthMm;
-              if (parsed.widthMm > 0.0f)
-                t.widthMm = parsed.widthMm;
-              if (parsed.heightMm > 0.0f)
-                t.heightMm = parsed.heightMm;
-              t.weightKg = parsed.weightKg;
-              t.crossSection = parsed.crossSection;
-            } else {
-              t.symbolFile = *dictPath;
-              t.modelFile = *dictPath;
-            }
+            t.modelFile = parsed.modelFile.empty() ? *dictPath : parsed.modelFile;
+            t.gdtfSpec = parsed.gdtfSpec;
+            t.gdtfMode = parsed.gdtfMode;
+            t.manufacturer = parsed.manufacturer;
+            if (parsed.lengthMm > 0.0f)
+              t.lengthMm = parsed.lengthMm;
+            if (parsed.widthMm > 0.0f)
+              t.widthMm = parsed.widthMm;
+            if (parsed.heightMm > 0.0f)
+              t.heightMm = parsed.heightMm;
+            t.weightKg = parsed.weightKg;
+            t.crossSection = parsed.crossSection;
           } else {
             t.symbolFile = *dictPath;
             t.modelFile = *dictPath;

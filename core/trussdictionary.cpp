@@ -16,9 +16,13 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "trussdictionary.h"
+
 #include "json.hpp"
 #include "projectutils.h"
+#include "truss_gdtf_builder.h"
+
 #include <algorithm>
+#include <cctype>
 #include <filesystem>
 #include <fstream>
 #include <vector>
@@ -26,6 +30,15 @@
 namespace fs = std::filesystem;
 
 namespace TrussDictionary {
+
+namespace {
+
+static std::string LowerExt(const fs::path &path) {
+  std::string ext = path.extension().string();
+  std::transform(ext.begin(), ext.end(), ext.begin(),
+                 [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+  return ext;
+}
 
 static fs::path GetDictFile() {
   fs::path dir = fs::u8path(ProjectUtils::GetDefaultLibraryPath("trusses"));
@@ -48,20 +61,77 @@ static fs::path GetDictFile() {
   return file;
 }
 
+static bool EnsureMigratedToGdtf(fs::path &pathInOut, std::string &error) {
+  std::string ext = LowerExt(pathInOut);
+  if (ext == ".gdtf")
+    return true;
+
+  if (ext == ".gtruss") {
+    fs::path converted = pathInOut;
+    converted.replace_extension(".gdtf");
+    if (!fs::exists(converted) &&
+        !ConvertLegacyGtrussToGdtf(pathInOut, converted, &error)) {
+      return false;
+    }
+    pathInOut = converted;
+    return true;
+  }
+
+  error = "Unsupported truss format";
+  return false;
+}
+
+} // namespace
+
+bool ImportTrussFile(const std::string &inputPath, std::string &storedPath,
+                     std::string &error) {
+  storedPath.clear();
+  fs::path src = fs::u8path(inputPath);
+  if (!fs::exists(src)) {
+    error = "Truss file does not exist";
+    return false;
+  }
+
+  fs::path dictFile = GetDictFile();
+  if (dictFile.empty()) {
+    error = "Truss dictionary is not available";
+    return false;
+  }
+
+  fs::path dir = dictFile.parent_path();
+  fs::path working = src;
+  if (!EnsureMigratedToGdtf(working, error))
+    return false;
+
+  fs::path dest = dir / working.filename();
+  std::error_code ec;
+  fs::copy_file(working, dest, fs::copy_options::overwrite_existing, ec);
+  if (ec) {
+    error = "Failed to copy truss file into library";
+    return false;
+  }
+
+  storedPath = dest.string();
+  return true;
+}
+
 std::optional<std::unordered_map<std::string, std::string>> Load() {
   std::unordered_map<std::string, std::string> dict;
   fs::path file = GetDictFile();
   if (file.empty())
     return std::nullopt;
+
   std::ifstream in(file);
   if (!in.is_open())
     return std::nullopt;
+
   if (in.peek() == std::ifstream::traits_type::eof()) {
     std::ofstream out(file);
     if (out.is_open())
       out << "{}";
     return dict;
   }
+
   nlohmann::json j;
   try {
     in >> j;
@@ -71,21 +141,39 @@ std::optional<std::unordered_map<std::string, std::string>> Load() {
       out << "{}";
     return dict;
   }
+
   if (!j.is_object()) {
     std::ofstream out(file);
     if (out.is_open())
       out << "{}";
     return dict;
   }
+
   fs::path dir = file.parent_path();
+  bool changed = false;
+
   for (auto it = j.begin(); it != j.end(); ++it) {
-    if (it.value().is_string()) {
-      fs::path p = fs::u8path(it.value().get<std::string>());
-      if (!p.is_absolute())
-        p = dir / p;
-      dict[it.key()] = p.string();
-    }
+    if (!it.value().is_string())
+      continue;
+
+    fs::path path = fs::u8path(it.value().get<std::string>());
+    if (!path.is_absolute())
+      path = dir / path;
+    if (!fs::exists(path))
+      continue;
+
+    std::string error;
+    fs::path migrated = path;
+    if (!EnsureMigratedToGdtf(migrated, error))
+      continue;
+
+    if (migrated != path)
+      changed = true;
+    dict[it.key()] = migrated.string();
   }
+
+  if (changed)
+    Save(dict);
   return dict;
 }
 
@@ -93,60 +181,61 @@ void Save(const std::unordered_map<std::string, std::string> &dict) {
   fs::path file = GetDictFile();
   if (file.empty())
     return;
+
   nlohmann::json j;
   std::vector<std::string> keys;
   keys.reserve(dict.size());
-  for (const auto &[model, path] : dict)
+  for (const auto &[model, _] : dict)
     keys.push_back(model);
   std::sort(keys.begin(), keys.end());
+
   for (const auto &model : keys) {
-    const auto &path = dict.at(model);
-    fs::path p = fs::u8path(path);
-    j[model] = p.filename().string();
+    fs::path p = fs::u8path(dict.at(model));
+    fs::path forced = p;
+    if (forced.extension() != ".gdtf")
+      forced.replace_extension(".gdtf");
+    j[model] = forced.filename().string();
   }
+
   std::ofstream out(file);
-  if (!out.is_open())
-    return;
-  out << j.dump(4);
+  if (out.is_open())
+    out << j.dump(4);
 }
 
 std::optional<std::string> Get(const std::string &model) {
   auto dictOpt = Load();
   if (!dictOpt)
     return std::nullopt;
+
   auto &dict = *dictOpt;
   auto it = dict.find(model);
   if (it == dict.end())
     return std::nullopt;
+
   if (!fs::exists(it->second)) {
     dict.erase(it);
     Save(dict);
     return std::nullopt;
   }
+
   return it->second;
 }
 
 void Update(const std::string &model, const std::string &modelPath) {
   if (model.empty() || modelPath.empty())
     return;
-  fs::path src = fs::u8path(modelPath);
-  if (!fs::exists(src))
+
+  std::string storedPath;
+  std::string error;
+  if (!ImportTrussFile(modelPath, storedPath, error))
     return;
-  fs::path file = GetDictFile();
-  if (file.empty())
-    return;
-  fs::path dir = file.parent_path();
-  fs::path dest = dir / src.filename();
-  try {
-    fs::copy_file(src, dest, fs::copy_options::overwrite_existing);
-  } catch (...) {
-    // ignore copy errors
-  }
+
   auto dictOpt = Load();
   if (!dictOpt)
     return;
+
   auto &dict = *dictOpt;
-  dict[model] = dest.string();
+  dict[model] = storedPath;
   Save(dict);
 }
 

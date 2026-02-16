@@ -16,86 +16,191 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "trussloader.h"
-#include "json.hpp"
+
+#include "truss_gdtf_builder.h"
+
+#include <tinyxml2.h>
+#include <wx/filename.h>
 #include <wx/wfstream.h>
 #include <wx/zipstrm.h>
-#include <wx/filename.h>
+
+#include <algorithm>
+#include <cctype>
 #include <filesystem>
 #include <fstream>
-#include <random>
 #include <memory>
 
-using nlohmann::json;
+namespace fs = std::filesystem;
 
-bool LoadTrussArchive(const std::string &archivePath, Truss &outTruss) {
-  namespace fs = std::filesystem;
-  wxFileInputStream input(archivePath);
+namespace {
+
+static std::string LowerExt(fs::path path) {
+  std::string ext = path.extension().string();
+  std::transform(ext.begin(), ext.end(), ext.begin(),
+                 [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+  return ext;
+}
+
+static bool ParseFloatAttr(tinyxml2::XMLElement *node, const char *name, float &out) {
+  if (!node)
+    return false;
+  float parsed = 0.0f;
+  if (node->QueryFloatAttribute(name, &parsed) == tinyxml2::XML_SUCCESS) {
+    out = parsed;
+    return true;
+  }
+  return false;
+}
+
+static bool ExtractArchive(const fs::path &archivePath, const fs::path &destination) {
+  wxFileInputStream input(archivePath.string());
   if (!input.IsOk())
     return false;
-  outTruss.modelFile = archivePath;
+
   wxZipInputStream zip(input);
   std::unique_ptr<wxZipEntry> entry;
-  std::string meta;
-  fs::path baseDir = fs::temp_directory_path();
-  std::string uniqueName = "perastage-truss-";
-  {
-    static const char hex[] = "0123456789abcdef";
-    std::random_device rd;
-    std::uniform_int_distribution<int> dist(0, 15);
-    for (int i = 0; i < 6; ++i)
-      uniqueName += hex[dist(rd)];
-  }
-  baseDir /= uniqueName;
-  wxFileName::Mkdir(baseDir.string(), wxS_DIR_DEFAULT, wxPATH_MKDIR_FULL);
   while ((entry.reset(zip.GetNextEntry())), entry) {
-    std::string name = entry->GetName().ToStdString();
-    if (entry->IsDir())
+    fs::path entryPath = fs::path(entry->GetName().ToStdString()).lexically_normal();
+    if (entryPath.empty())
       continue;
-    if (name.size() >= 5 && name.substr(name.size() - 5) == ".json") {
-      std::string contents;
-      char buf[4096];
-      while (true) {
-        zip.Read(buf, sizeof(buf));
-        size_t bytes = zip.LastRead();
-        if (bytes == 0)
-          break;
-        contents.append(buf, bytes);
-      }
-      meta = std::move(contents);
-    } else if (name.size() >= 4 &&
-               (name.substr(name.size() - 4) == ".3ds" ||
-                name.substr(name.size() - 4) == ".glb")) {
-      fs::path dest = baseDir / fs::path(name).filename();
-      wxFileName::Mkdir(dest.parent_path().string(), wxS_DIR_DEFAULT,
-                        wxPATH_MKDIR_FULL);
-      std::ofstream out(dest, std::ios::binary);
-      if (!out.is_open())
-        return false;
-      char buf[4096];
-      while (true) {
-        zip.Read(buf, sizeof(buf));
-        size_t bytes = zip.LastRead();
-        if (bytes == 0)
-          break;
-        out.write(buf, bytes);
-      }
-      out.close();
-      outTruss.symbolFile = dest.string();
+    fs::path target = destination / entryPath;
+    if (entry->IsDir()) {
+      wxFileName::Mkdir(target.string(), wxS_DIR_DEFAULT, wxPATH_MKDIR_FULL);
+      continue;
+    }
+    wxFileName::Mkdir(target.parent_path().string(), wxS_DIR_DEFAULT, wxPATH_MKDIR_FULL);
+    std::ofstream out(target, std::ios::binary);
+    if (!out.is_open())
+      return false;
+    char buf[4096];
+    while (true) {
+      zip.Read(buf, sizeof(buf));
+      size_t bytes = zip.LastRead();
+      if (bytes == 0)
+        break;
+      out.write(buf, bytes);
     }
   }
-  if (meta.empty() || outTruss.symbolFile.empty())
-    return false;
-  json j = json::parse(meta, nullptr, false);
-  if (j.is_discarded())
-    return false;
-  outTruss.name = j.value("Name", "");
-  outTruss.manufacturer = j.value("Manufacturer", "");
-  outTruss.model = j.value("Model", "");
-  outTruss.lengthMm = j.value("Length_mm", 0.0f);
-  outTruss.widthMm = j.value("Width_mm", 0.0f);
-  outTruss.heightMm = j.value("Height_mm", 0.0f);
-  outTruss.weightKg = j.value("Weight_kg", 0.0f);
-  outTruss.crossSection = j.value("CrossSection", "");
   return true;
 }
 
+static fs::path FindFirstExisting(const fs::path &base,
+                                  std::initializer_list<fs::path> candidates) {
+  for (const auto &candidate : candidates) {
+    fs::path fullPath = base / candidate;
+    if (fs::exists(fullPath))
+      return fullPath;
+  }
+  return {};
+}
+
+} // namespace
+
+bool LoadTrussGdtf(const std::string &gdtfPath, Truss &outTruss) {
+  fs::path inputPath = fs::u8path(gdtfPath);
+  if (!fs::exists(inputPath))
+    return false;
+
+  outTruss = Truss{};
+  outTruss.modelFile = inputPath.string();
+  outTruss.gdtfSpec = inputPath.string();
+
+  fs::path baseDir = fs::temp_directory_path() /
+                     ("perastage-truss-gdtf-load-" + inputPath.stem().string());
+  std::error_code ec;
+  fs::remove_all(baseDir, ec);
+  fs::create_directories(baseDir, ec);
+  if (!ExtractArchive(inputPath, baseDir))
+    return false;
+
+  fs::path descPath = baseDir / "description.xml";
+  if (!fs::exists(descPath))
+    return false;
+
+  tinyxml2::XMLDocument doc;
+  if (doc.LoadFile(descPath.string().c_str()) != tinyxml2::XML_SUCCESS)
+    return false;
+
+  tinyxml2::XMLElement *fixtureType = doc.FirstChildElement("GDTF");
+  fixtureType = fixtureType ? fixtureType->FirstChildElement("FixtureType")
+                            : doc.FirstChildElement("FixtureType");
+  if (!fixtureType)
+    return false;
+
+  if (const char *manufacturer = fixtureType->Attribute("Manufacturer"))
+    outTruss.manufacturer = manufacturer;
+  if (const char *name = fixtureType->Attribute("Name")) {
+    outTruss.model = name;
+    outTruss.name = name;
+  }
+
+  tinyxml2::XMLElement *models = fixtureType->FirstChildElement("Models");
+  if (tinyxml2::XMLElement *model = models ? models->FirstChildElement("Model") : nullptr) {
+    float lengthM = 0.0f;
+    float widthM = 0.0f;
+    float heightM = 0.0f;
+    if (ParseFloatAttr(model, "Length", lengthM))
+      outTruss.lengthMm = lengthM * 1000.0f;
+    if (ParseFloatAttr(model, "Width", widthM))
+      outTruss.widthMm = widthM * 1000.0f;
+    if (ParseFloatAttr(model, "Height", heightM))
+      outTruss.heightMm = heightM * 1000.0f;
+
+    std::string fileBase = "main";
+    if (const char *fileAttr = model->Attribute("File"); fileAttr && *fileAttr)
+      fileBase = fileAttr;
+    fs::path modelPath = FindFirstExisting(
+        baseDir,
+        {fs::path("models/gltf") / (fileBase + ".glb"),
+         fs::path("models/3ds") / (fileBase + ".3ds")});
+    if (!modelPath.empty())
+      outTruss.symbolFile = modelPath.string();
+
+    fs::path symbolPath = FindFirstExisting(baseDir, {fs::path("models/svg") / (fileBase + ".svg")});
+    if (!symbolPath.empty() && outTruss.symbolFile.empty())
+      outTruss.symbolFile = symbolPath.string();
+  }
+
+  tinyxml2::XMLElement *phys = fixtureType->FirstChildElement("PhysicalDescriptions");
+  tinyxml2::XMLElement *props = phys ? phys->FirstChildElement("Properties") : nullptr;
+  tinyxml2::XMLElement *weight = props ? props->FirstChildElement("Weight") : nullptr;
+  if (weight)
+    ParseFloatAttr(weight, "Value", outTruss.weightKg);
+
+  tinyxml2::XMLElement *dmxModes = fixtureType->FirstChildElement("DMXModes");
+  if (tinyxml2::XMLElement *mode = dmxModes ? dmxModes->FirstChildElement("DMXMode") : nullptr) {
+    if (const char *modeName = mode->Attribute("Name"))
+      outTruss.gdtfMode = modeName;
+  }
+  if (outTruss.gdtfMode.empty())
+    outTruss.gdtfMode = "Default";
+
+  return !outTruss.symbolFile.empty();
+}
+
+bool LoadTrussArchive(const std::string &archivePath, Truss &outTruss) {
+  return LoadTrussDefinition(archivePath, outTruss);
+}
+
+bool LoadTrussDefinition(const std::string &path, Truss &outTruss) {
+  fs::path inputPath = fs::u8path(path);
+  std::string ext = LowerExt(inputPath);
+  if (ext == ".gdtf")
+    return LoadTrussGdtf(path, outTruss);
+
+  if (ext == ".gtruss") {
+    fs::path migratedPath = inputPath;
+    migratedPath.replace_extension(".gdtf");
+    std::string error;
+    if (!fs::exists(migratedPath) &&
+        !ConvertLegacyGtrussToGdtf(inputPath, migratedPath, &error)) {
+      return false;
+    }
+    return LoadTrussGdtf(migratedPath.string(), outTruss);
+  }
+
+  outTruss = Truss{};
+  outTruss.symbolFile = path;
+  outTruss.modelFile = path;
+  return true;
+}
