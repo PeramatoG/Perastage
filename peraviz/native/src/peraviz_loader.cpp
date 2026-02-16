@@ -13,14 +13,16 @@
 namespace godot {
 
 void PeravizLoader::_bind_methods() {
-    ClassDB::bind_method(D_METHOD("load_mvr", "path"), &PeravizLoader::load_mvr);
+    ClassDB::bind_method(D_METHOD("load_mvr", "path", "peraviz_debug_baseline"), &PeravizLoader::load_mvr);
     ClassDB::bind_method(D_METHOD("load_3ds_mesh_data", "path"), &PeravizLoader::load_3ds_mesh_data);
 }
 
-Array PeravizLoader::load_mvr(const String &path) const {
-    const peraviz::SceneModel model = peraviz::load_mvr(std::string(path.utf8().get_data()));
+Array PeravizLoader::load_mvr(const String &path, bool peraviz_debug_baseline) const {
+    const peraviz::SceneModel model = peraviz::load_mvr(std::string(path.utf8().get_data()),
+                                                        peraviz_debug_baseline);
 
     UtilityFunctions::print("[PeravizNative] load_mvr nodes=", model.nodes.size(),
+                            " baseline_debug=", peraviz_debug_baseline,
                             " fixtures=", model.fixture_count,
                             " trusses=", model.truss_count,
                             " objects=", model.object_count,

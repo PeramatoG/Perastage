@@ -4,6 +4,7 @@
 #include "coordinate_mapper.h"
 #include "gdtf_scene_builder.h"
 #include "matrixutils.h"
+#include "peraviz_debug_runtime.h"
 #include "types.h"
 
 #include <algorithm>
@@ -268,7 +269,9 @@ void append_geometry_children(SceneModel &scene, tinyxml2::XMLElement *node, con
 
 namespace peraviz {
 
-SceneModel load_mvr(const std::string &path) {
+SceneModel load_mvr(const std::string &path, bool peraviz_debug_baseline) {
+    peraviz::debug_runtime::set_baseline_debug_enabled(peraviz_debug_baseline);
+
     SceneModel model;
     if (!std::filesystem::exists(std::filesystem::u8path(path))) {
         return model;

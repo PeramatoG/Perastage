@@ -23,8 +23,9 @@ func _on_load_pressed() -> void:
 func _on_file_selected(path: String) -> void:
 	_clear_scene()
 	var native_path: String = ProjectSettings.globalize_path(path)
-	var nodes: Array = _loader.load_mvr(native_path)
-	print("[Peraviz] Loaded render nodes: ", nodes.size())
+	var peraviz_debug_baseline: bool = bool(ProjectSettings.get_setting("peraviz_debug_baseline", false))
+	var nodes: Array = _loader.load_mvr(native_path, peraviz_debug_baseline)
+	print("[Peraviz] Loaded render nodes: ", nodes.size(), " baseline_debug=", peraviz_debug_baseline)
 	_has_loaded_bounds = false
 
 	_build_node_tree(nodes)
