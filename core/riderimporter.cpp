@@ -677,7 +677,8 @@ bool RiderImporter::ImportText(const std::string &text) {
       continue;
 
     Truss &t = trussIt->second;
-    if (IsRenderableTrussGeometry(t.symbolFile))
+    if (IsRenderableTrussGeometry(t.symbolFile) &&
+        std::filesystem::exists(std::filesystem::u8path(t.symbolFile)))
       continue;
 
     Truss parsed;
