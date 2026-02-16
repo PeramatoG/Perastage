@@ -108,8 +108,8 @@ func _rebuild_debug_gizmos() -> void:
 			_add_debug_gizmo_for_target(node3d, "emitter", Color(1.0, 0.55, 0.15), 0.30)
 
 
-func _is_basis_valid(basis: Basis) -> bool:
-	var determinant: float = basis.determinant()
+func _is_basis_valid(candidate_basis: Basis) -> bool:
+	var determinant: float = candidate_basis.determinant()
 	if is_zero_approx(determinant):
 		return false
 	return is_finite(determinant)
@@ -118,9 +118,9 @@ func _safe_basis_from_data(data: Dictionary) -> Basis:
 	var basis_x: Vector3 = data.get("basis_x", Vector3.RIGHT)
 	var basis_y: Vector3 = data.get("basis_y", Vector3.UP)
 	var basis_z: Vector3 = data.get("basis_z", Vector3.BACK)
-	var basis := Basis(basis_x, basis_y, basis_z)
-	if _is_basis_valid(basis):
-		return basis
+	var candidate_basis := Basis(basis_x, basis_y, basis_z)
+	if _is_basis_valid(candidate_basis):
+		return candidate_basis
 
 	print("[PeravizCoordDebug] event=invalid_basis_fallback basis_x=", basis_x, " basis_y=", basis_y, " basis_z=", basis_z)
 	return Basis.IDENTITY
@@ -248,17 +248,17 @@ func _create_scene_node(data: Dictionary) -> Node3D:
 	root.set_meta("peraviz_type", item_type)
 	root.set_meta("peraviz_is_axis", is_axis)
 	root.set_meta("peraviz_is_emitter", is_emitter)
-	var position: Vector3 = _safe_position(data.get("pos", Vector3.ZERO), "create_scene_node:" + root.name)
+	var node_position: Vector3 = _safe_position(data.get("pos", Vector3.ZERO), "create_scene_node:" + root.name)
 	if bool(data.get("has_basis", false)):
-		var basis: Basis = _safe_basis_from_data(data)
+		var node_basis: Basis = _safe_basis_from_data(data)
 		var safe_scale: Vector3 = _safe_scale_from_data(data, "create_scene_node_basis:" + root.name)
-		basis = basis.scaled(safe_scale)
-		if not _is_basis_valid(basis):
+		node_basis = node_basis.scaled(safe_scale)
+		if not _is_basis_valid(node_basis):
 			print("[PeravizCoordDebug] event=scaled_basis_invalid_fallback node=", root.name, " scale=", safe_scale)
-			basis = Basis.IDENTITY.scaled(safe_scale)
-		root.transform = Transform3D(basis, position)
+			node_basis = Basis.IDENTITY.scaled(safe_scale)
+		root.transform = Transform3D(node_basis, node_position)
 	else:
-		root.position = position
+		root.position = node_position
 		root.rotation_degrees = data.get("rot", Vector3.ZERO)
 		root.scale = _safe_scale_from_data(data, "create_scene_node_euler:" + root.name)
 
@@ -301,8 +301,8 @@ func _extract_visual_scale_hint(data: Dictionary) -> float:
 		var average_basis_length: float = (basis_x.length() + basis_y.length() + basis_z.length()) / 3.0
 		return max(average_basis_length, 0.0001)
 
-	var scale: Vector3 = data.get("scale", Vector3.ONE)
-	var average_scale: float = (abs(scale.x) + abs(scale.y) + abs(scale.z)) / 3.0
+	var node_scale: Vector3 = data.get("scale", Vector3.ONE)
+	var average_scale: float = (abs(node_scale.x) + abs(node_scale.y) + abs(node_scale.z)) / 3.0
 	if not is_finite(average_scale):
 		return 1.0
 	return max(average_scale, 0.0001)
