@@ -626,7 +626,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
 
     if (stableUuid.empty()) {
       if (!rawUuid.empty()) {
-        LogMessage(Logger::Level::Warning,
+        LogMessage(Logger::Level::Warn,
                    wxString::Format("MVR import: %s UUID '%s' is invalid. Applying deterministic fallback.",
                                     kind, rawUuid.c_str())
                        .ToStdString());
@@ -635,7 +635,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
     }
 
     if (usedStableUuids.contains(stableUuid)) {
-      LogMessage(Logger::Level::Warning,
+      LogMessage(Logger::Level::Warn,
                  wxString::Format("MVR import: UUID collision for %s '%s'. Applying controlled fallback UUID.",
                                   kind, stableUuid.c_str())
                      .ToStdString());
