@@ -30,6 +30,7 @@ void OpaqueTrussPass::Render(
   const bool wireframe = context.wireframe;
   const Viewer2DRenderMode mode = context.mode;
   const bool skipCapture = context.skipCapture;
+  const Viewer2DView captureView = context.view;
 
   const auto &trusses = SceneDataManager::Instance().GetTrusses();
 
@@ -124,10 +125,10 @@ void OpaqueTrussPass::Render(
 
     const bool useSymbolInstancing =
         (controller.m_captureUseSymbols &&
-         (controller.m_captureView == Viewer2DView::Bottom ||
-          controller.m_captureView == Viewer2DView::Top ||
-          controller.m_captureView == Viewer2DView::Front ||
-          controller.m_captureView == Viewer2DView::Side) &&
+         (captureView == Viewer2DView::Bottom ||
+          captureView == Viewer2DView::Top ||
+          captureView == Viewer2DView::Front ||
+          captureView == Viewer2DView::Side) &&
          !highlight && !selected);
     bool placedInstance = false;
     if (useSymbolInstancing && controller.m_captureCanvas && !skipCapture) {
@@ -150,7 +151,7 @@ void OpaqueTrussPass::Render(
       if (!modelKey.empty()) {
         SymbolKey symbolKey;
         symbolKey.modelKey = "truss:" + modelKey;
-        symbolKey.viewKind = resolveSymbolView(controller.m_captureView);
+        symbolKey.viewKind = resolveSymbolView(captureView);
         symbolKey.styleVersion = 1;
 
         const auto &symbol =
@@ -169,7 +170,7 @@ void OpaqueTrussPass::Render(
               bool prevCaptureOnly = controller.m_captureOnly;
               bool prevIncludeGrid = controller.m_captureIncludeGrid;
               controller.m_captureCanvas = localCanvas.get();
-              controller.m_captureView = prevView;
+              controller.m_captureView = captureView;
               controller.m_captureOnly = true;
               controller.m_captureIncludeGrid = false;
 
@@ -187,7 +188,7 @@ void OpaqueTrussPass::Render(
             });
 
         Transform2D instanceTransform =
-            BuildInstanceTransform2D(captureTransform, controller.m_captureView);
+            BuildInstanceTransform2D(captureTransform, captureView);
         controller.m_captureCanvas->PlaceSymbolInstance(symbol.symbolId,
                                                         instanceTransform);
         placedInstance = true;

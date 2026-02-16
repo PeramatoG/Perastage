@@ -20,6 +20,7 @@
 #include "scenedatamanager.h"
 #include "viewer3dcontroller.h"
 
+
 void OpaqueObjectPass::Render(
     Viewer3DController &controller, const RenderFrameContext &context,
     const Viewer3DVisibleSet &visibleSet,
@@ -28,6 +29,9 @@ void OpaqueObjectPass::Render(
   const bool wireframe = context.wireframe;
   const Viewer2DRenderMode mode = context.mode;
   const bool skipCapture = context.skipCapture;
+  const Viewer2DView captureView = context.view;
+  const bool drawRealTopInTopView =
+      context.is2DViewer && captureView == Viewer2DView::Top;
 
   const auto &sceneObjects = SceneDataManager::Instance().GetSceneObjects();
 
@@ -132,7 +136,12 @@ void OpaqueObjectPass::Render(
                 const std::array<float, 3> &)> &captureTransformFn,
             bool isHighlighted, bool isSelected) {
           if (!objectMeshParts.empty()) {
-            for (const auto &part : objectMeshParts) {
+            const bool reversePartOrder = drawRealTopInTopView;
+            for (size_t offset = 0; offset < objectMeshParts.size(); ++offset) {
+              const size_t partIndex =
+                  reversePartOrder ? (objectMeshParts.size() - 1 - offset)
+                                   : offset;
+              const auto &part = objectMeshParts[partIndex];
               Matrix worldMatrix =
                   MatrixUtils::Multiply(m.transform, part.localTransform);
               float partMatrix[16];
@@ -181,10 +190,10 @@ void OpaqueObjectPass::Render(
 
     const bool useSymbolInstancing =
         (controller.m_captureUseSymbols &&
-         (controller.m_captureView == Viewer2DView::Bottom ||
-          controller.m_captureView == Viewer2DView::Top ||
-          controller.m_captureView == Viewer2DView::Front ||
-          controller.m_captureView == Viewer2DView::Side) &&
+         (captureView == Viewer2DView::Bottom ||
+          captureView == Viewer2DView::Top ||
+          captureView == Viewer2DView::Front ||
+          captureView == Viewer2DView::Side) &&
          !highlight && !selected);
     bool placedInstance = false;
     if (useSymbolInstancing && controller.m_captureCanvas && !skipCapture) {
@@ -199,7 +208,7 @@ void OpaqueObjectPass::Render(
       if (!modelKey.empty()) {
         SymbolKey symbolKey;
         symbolKey.modelKey = "object:" + modelKey;
-        symbolKey.viewKind = resolveSymbolView(controller.m_captureView);
+        symbolKey.viewKind = resolveSymbolView(captureView);
         symbolKey.styleVersion = 1;
 
         const auto &symbol =
@@ -218,7 +227,7 @@ void OpaqueObjectPass::Render(
               bool prevCaptureOnly = controller.m_captureOnly;
               bool prevIncludeGrid = controller.m_captureIncludeGrid;
               controller.m_captureCanvas = localCanvas.get();
-              controller.m_captureView = prevView;
+              controller.m_captureView = captureView;
               controller.m_captureOnly = true;
               controller.m_captureIncludeGrid = false;
 
@@ -237,7 +246,7 @@ void OpaqueObjectPass::Render(
             });
 
         Transform2D instanceTransform =
-            BuildInstanceTransform2D(captureTransform, controller.m_captureView);
+            BuildInstanceTransform2D(captureTransform, captureView);
         controller.m_captureCanvas->PlaceSymbolInstance(symbol.symbolId,
                                                         instanceTransform);
         placedInstance = true;
