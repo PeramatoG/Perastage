@@ -784,37 +784,6 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
             fixture.matrixRaw = txt;
         }
 
-        if (tinyxml2::XMLElement *ud = node->FirstChildElement("UserData")) {
-          for (tinyxml2::XMLElement *data = ud->FirstChildElement("Data"); data;
-               data = data->NextSiblingElement("Data")) {
-            tinyxml2::XMLElement *info = data->FirstChildElement("FixtureInfo");
-            if (!info)
-              continue;
-            if (tinyxml2::XMLElement *panNode = info->FirstChildElement("Pan")) {
-              if (panNode->GetText()) {
-                float parsed = 0.0f;
-                if (TryParseFloat(panNode->GetText(), parsed))
-                  fixture.panDeg = parsed;
-              }
-            }
-            if (tinyxml2::XMLElement *tiltNode = info->FirstChildElement("Tilt")) {
-              if (tiltNode->GetText()) {
-                float parsed = 0.0f;
-                if (TryParseFloat(tiltNode->GetText(), parsed))
-                  fixture.tiltDeg = parsed;
-              }
-            }
-            if (tinyxml2::XMLElement *dimmerNode = info->FirstChildElement("Dimmer")) {
-              if (dimmerNode->GetText()) {
-                float parsed = 1.0f;
-                if (TryParseFloat(dimmerNode->GetText(), parsed))
-                  fixture.dimmer = std::clamp(parsed, 0.0f, 1.0f);
-              }
-            }
-            break;
-          }
-        }
-
         scene.fixtures[fixture.uuid] = fixture;
       };
 

@@ -19,15 +19,11 @@
 
 #include <wx/wx.h>
 #include <wx/dataview.h>
-#include <wx/spinctrl.h>
 #include <vector>
 #include <string>
 
 class FixtureTablePanel;
 class FixturePreviewPanel;
-class wxSlider;
-class wxSpinCtrlDouble;
-class wxStaticText;
 
 class FixtureEditDialog : public wxDialog {
 public:
@@ -40,15 +36,7 @@ private:
     void OnCancel(wxCommandEvent& evt);
     void OnBrowse(wxCommandEvent& evt);
     void OnModeChanged(wxCommandEvent& evt);
-    void OnMotionControlChanged(wxCommandEvent& evt);
-    void OnMotionSliderChanged(wxCommandEvent& evt);
-    void OnMotionLimitChanged(wxSpinDoubleEvent& evt);
-    void OnResetMotion(wxCommandEvent& evt);
     void UpdateChannels();
-    void SyncMotionControlsFromFixture();
-    void SyncMotionControlsToUi();
-    void ApplyMotionToFixture();
-    void RefreshPreviewMotion();
     void ApplyChanges();
 
     FixtureTablePanel* panel;
@@ -58,20 +46,8 @@ private:
     wxTextCtrl* chCountCtrl = nullptr;
     wxTextCtrl* modelCtrl = nullptr;
     wxTextCtrl* channelList = nullptr;
-    wxSlider* panSlider = nullptr;
-    wxSlider* tiltSlider = nullptr;
-    wxSlider* dimmerSlider = nullptr;
-    wxTextCtrl* panCtrl = nullptr;
-    wxTextCtrl* tiltCtrl = nullptr;
-    wxTextCtrl* dimmerCtrl = nullptr;
-    wxSpinCtrlDouble* panLimitCtrl = nullptr;
-    wxSpinCtrlDouble* tiltLimitCtrl = nullptr;
-    wxStaticText* emitterDebugLabel = nullptr;
-    double panLimitDeg = 270.0;
-    double tiltLimitDeg = 135.0;
-    bool syncingMotionUi = false;
-    std::string editedFixtureUuid;
     FixturePreviewPanel* preview = nullptr;
     bool applied = false;
     wxString originalType;
 };
+
