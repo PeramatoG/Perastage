@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cstdlib>
 #include <filesystem>
 #include <functional>
 #include <unordered_map>
@@ -127,6 +128,25 @@ std::string safe_name(tinyxml2::XMLElement *node, const std::string &fallback) {
     return fallback;
 }
 
+bool parse_float_attr(tinyxml2::XMLElement *node, const char *name,
+                      const char *alt_name, float &out_value) {
+    const char *raw = node->Attribute(name);
+    if (!raw && alt_name) {
+        raw = node->Attribute(alt_name);
+    }
+    if (!raw) {
+        return false;
+    }
+
+    char *end = nullptr;
+    const float parsed = std::strtof(raw, &end);
+    if (end == raw) {
+        return false;
+    }
+    out_value = parsed;
+    return true;
+}
+
 } // namespace
 
 namespace peraviz {
@@ -160,6 +180,7 @@ std::vector<SceneNode> build_fixture_geometry_nodes(const GdtfBuildRequest &requ
     }
 
     std::unordered_map<std::string, std::string> model_file_by_name;
+    std::unordered_map<std::string, float> emitter_wavelength_by_name;
     if (tinyxml2::XMLElement *models = fixture_type->FirstChildElement("Models")) {
         for (tinyxml2::XMLElement *model = models->FirstChildElement(); model;
              model = model->NextSiblingElement()) {
@@ -175,6 +196,27 @@ std::vector<SceneNode> build_fixture_geometry_nodes(const GdtfBuildRequest &requ
                 continue;
             }
             model_file_by_name[name] = file;
+        }
+    }
+
+    if (tinyxml2::XMLElement *physical_descriptions = fixture_type->FirstChildElement("PhysicalDescriptions")) {
+        if (tinyxml2::XMLElement *emitters = physical_descriptions->FirstChildElement("Emitters")) {
+            for (tinyxml2::XMLElement *emitter = emitters->FirstChildElement("Emitter"); emitter;
+                 emitter = emitter->NextSiblingElement("Emitter")) {
+                const char *emitter_name = emitter->Attribute("Name");
+                if (!emitter_name) {
+                    emitter_name = emitter->Attribute("name");
+                }
+                if (!emitter_name) {
+                    continue;
+                }
+
+                float dominant_wavelength = 0.0F;
+                if (parse_float_attr(emitter, "DominantWaveLength", "dominantwavelength",
+                                     dominant_wavelength)) {
+                    emitter_wavelength_by_name[emitter_name] = dominant_wavelength;
+                }
+            }
         }
     }
 
@@ -283,6 +325,31 @@ std::vector<SceneNode> build_fixture_geometry_nodes(const GdtfBuildRequest &requ
         node.is_axis = looks_like_axis(geometry->Name(), geometry_name);
         node.is_emitter = looks_like_emitter(geometry->Name(), geometry_name);
         node.local_transform = peraviz::coordinate_mapper::to_godot_transform(local);
+
+        if (geometry_tag == "Beam") {
+            node.has_luminous_flux = parse_float_attr(geometry, "LuminousFlux", "luminousflux",
+                                                      node.luminous_flux);
+            node.has_color_temperature = parse_float_attr(
+                geometry, "ColorTemperature", "colortemperature", node.color_temperature);
+            node.has_beam_angle = parse_float_attr(geometry, "BeamAngle", "beamangle",
+                                                   node.beam_angle);
+            node.has_field_angle = parse_float_attr(geometry, "FieldAngle", "fieldangle",
+                                                    node.field_angle);
+            node.has_beam_radius = parse_float_attr(geometry, "BeamRadius", "beamradius",
+                                                    node.beam_radius);
+
+            const char *emitter_spectrum = geometry->Attribute("EmitterSpectrum");
+            if (!emitter_spectrum) {
+                emitter_spectrum = geometry->Attribute("emitterspectrum");
+            }
+            if (emitter_spectrum) {
+                auto emitter_it = emitter_wavelength_by_name.find(emitter_spectrum);
+                if (emitter_it != emitter_wavelength_by_name.end()) {
+                    node.has_dominant_wavelength = true;
+                    node.dominant_wavelength = emitter_it->second;
+                }
+            }
+        }
 
         if (node.is_emitter) {
             peraviz::debug_runtime::log_coordinate_debug_event(
