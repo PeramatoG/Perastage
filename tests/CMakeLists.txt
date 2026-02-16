@@ -269,6 +269,7 @@ add_executable(riderimporter_fixtureid_test rider_import_fixtureid_test.cpp
                ../core/configmanager.cpp
                ../core/configservices.cpp
                ../core/projectutils.cpp
+               ../core/logger.cpp
                ../models/mvrscene.cpp
                ../models/fixture.cpp
                ../models/truss.cpp
@@ -293,6 +294,7 @@ add_executable(rider_import_order_test rider_import_order_test.cpp
                ../core/configmanager.cpp
                ../core/configservices.cpp
                ../core/projectutils.cpp
+               ../core/logger.cpp
                ../models/mvrscene.cpp
                ../models/fixture.cpp
                ../models/truss.cpp
