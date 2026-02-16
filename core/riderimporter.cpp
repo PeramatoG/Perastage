@@ -130,6 +130,17 @@ bool TryParseInt(std::string_view text, int &out) {
   return false;
 }
 
+bool IsRenderableTrussGeometry(const std::string &path) {
+  if (path.empty())
+    return false;
+  std::string ext = std::filesystem::path(path).extension().string();
+  std::transform(ext.begin(), ext.end(), ext.begin(),
+                 [](unsigned char c) {
+                   return static_cast<char>(std::tolower(c));
+                 });
+  return ext == ".3ds" || ext == ".glb";
+}
+
 std::vector<std::string> SplitPlus(const std::string &s) {
   std::vector<std::string> out;
   std::istringstream ss(s);
@@ -343,6 +354,7 @@ bool RiderImporter::ImportText(const std::string &text) {
   std::vector<std::string> typeOrder;
   typeOrder.reserve(16);
   std::unordered_set<std::string> seenTypes;
+  std::vector<std::string> importedTrussUuids;
   int pendingQuantity = 0;
   bool havePending = false;
 
@@ -547,12 +559,14 @@ bool RiderImporter::ImportText(const std::string &text) {
             t.weightKg = parsed.weightKg;
             t.crossSection = parsed.crossSection;
           } else {
-            t.symbolFile = *dictPath;
             t.modelFile = *dictPath;
           }
         }
-        scene.trusses.emplace(t.uuid, std::move(t));
-          addToLayer(t.layer, t.uuid);
+          const std::string trussUuid = t.uuid;
+          const std::string trussLayer = t.layer;
+          scene.trusses.emplace(trussUuid, std::move(t));
+          importedTrussUuids.push_back(trussUuid);
+          addToLayer(trussLayer, trussUuid);
           x += s;
         }
       };
@@ -634,12 +648,14 @@ bool RiderImporter::ImportText(const std::string &text) {
             t.weightKg = parsed.weightKg;
             t.crossSection = parsed.crossSection;
           } else {
-            t.symbolFile = *dictPath;
             t.modelFile = *dictPath;
           }
         }
-        scene.trusses.emplace(t.uuid, std::move(t));
-        addToLayer(t.layer, t.uuid);
+        const std::string trussUuid = t.uuid;
+        const std::string trussLayer = t.layer;
+        scene.trusses.emplace(trussUuid, std::move(t));
+        importedTrussUuids.push_back(trussUuid);
+        addToLayer(trussLayer, trussUuid);
         x += s;
       }
     } else if (inFixtures && std::regex_match(line, m, kFixtureLineRe)) {
@@ -653,6 +669,45 @@ bool RiderImporter::ImportText(const std::string &text) {
         continue;
       havePending = true;
     }
+  }
+
+  for (const std::string &uuid : importedTrussUuids) {
+    auto trussIt = scene.trusses.find(uuid);
+    if (trussIt == scene.trusses.end())
+      continue;
+
+    Truss &t = trussIt->second;
+    if (IsRenderableTrussGeometry(t.symbolFile))
+      continue;
+
+    Truss parsed;
+    bool resolved = false;
+
+    if (!t.modelFile.empty())
+      resolved = LoadTrussDefinition(t.modelFile, parsed);
+    if (!resolved && !t.gdtfSpec.empty())
+      resolved = LoadTrussDefinition(t.gdtfSpec, parsed);
+    if (!resolved && !t.model.empty()) {
+      if (auto dictPath = TrussDictionary::Get(t.model)) {
+        resolved = LoadTrussDefinition(*dictPath, parsed);
+        if (resolved && t.modelFile.empty())
+          t.modelFile = *dictPath;
+      }
+    }
+
+    if (!resolved)
+      continue;
+
+    if (!parsed.symbolFile.empty())
+      t.symbolFile = parsed.symbolFile;
+    if (t.modelFile.empty() && !parsed.modelFile.empty())
+      t.modelFile = parsed.modelFile;
+    if (t.gdtfSpec.empty() && !parsed.gdtfSpec.empty())
+      t.gdtfSpec = parsed.gdtfSpec;
+    if (t.gdtfMode.empty() && !parsed.gdtfMode.empty())
+      t.gdtfMode = parsed.gdtfMode;
+    if (t.manufacturer.empty() && !parsed.manufacturer.empty())
+      t.manufacturer = parsed.manufacturer;
   }
 
   // Distribute fixtures along their hang positions using available truss
