@@ -24,6 +24,95 @@
 
 namespace fs = std::filesystem;
 
+static std::string ReadCurrentZipEntry(wxZipInputStream &zip) {
+  std::string content;
+  char buffer[4096];
+  while (true) {
+    zip.Read(buffer, sizeof(buffer));
+    size_t bytes = zip.LastRead();
+    if (bytes == 0)
+      break;
+    content.append(buffer, bytes);
+  }
+  return content;
+}
+
+static std::unordered_map<std::string, std::string>
+ReadArchiveTextEntries(const fs::path &archivePath) {
+  wxFileInputStream input(archivePath.generic_string());
+  assert(input.IsOk());
+  wxZipInputStream zip(input);
+
+  std::unordered_map<std::string, std::string> entries;
+  std::unique_ptr<wxZipEntry> entry;
+  while ((entry.reset(zip.GetNextEntry())), entry) {
+    const std::string name = entry->GetName().ToStdString();
+    assert(entries.find(name) == entries.end());
+    entries[name] = ReadCurrentZipEntry(zip);
+  }
+  return entries;
+}
+
+static tinyxml2::XMLElement *FindFixtureType(tinyxml2::XMLDocument &doc) {
+  tinyxml2::XMLElement *fixtureType = doc.FirstChildElement("GDTF");
+  if (fixtureType)
+    fixtureType = fixtureType->FirstChildElement("FixtureType");
+  else
+    fixtureType = doc.FirstChildElement("FixtureType");
+  return fixtureType;
+}
+
+static bool GdtfHasRenderable3DModel(const fs::path &gdtfPath) {
+  const auto gdtfEntries = ReadArchiveTextEntries(gdtfPath);
+  auto descriptionIt = gdtfEntries.find("description.xml");
+  assert(descriptionIt != gdtfEntries.end());
+
+  tinyxml2::XMLDocument gdtfDoc;
+  assert(gdtfDoc.Parse(descriptionIt->second.c_str()) == tinyxml2::XML_SUCCESS);
+  tinyxml2::XMLElement *fixtureType = FindFixtureType(gdtfDoc);
+  assert(fixtureType != nullptr);
+
+  tinyxml2::XMLElement *models = fixtureType->FirstChildElement("Models");
+  if (models == nullptr)
+    return false;
+
+  std::unordered_set<std::string> modelNames;
+  for (tinyxml2::XMLElement *model = models->FirstChildElement("Model"); model;
+       model = model->NextSiblingElement("Model")) {
+    const char *name = model->Attribute("Name");
+    if (name != nullptr && std::string(name).size() > 0)
+      modelNames.insert(name);
+  }
+  if (modelNames.empty())
+    return false;
+
+  tinyxml2::XMLElement *geometries = fixtureType->FirstChildElement("Geometries");
+  if (!geometries)
+    return false;
+
+  std::vector<tinyxml2::XMLElement *> stack;
+  for (tinyxml2::XMLElement *child = geometries->FirstChildElement(); child;
+       child = child->NextSiblingElement()) {
+    stack.push_back(child);
+  }
+
+  while (!stack.empty()) {
+    tinyxml2::XMLElement *cur = stack.back();
+    stack.pop_back();
+
+    const char *modelRef = cur->Attribute("Model");
+    if (modelRef != nullptr && modelNames.count(modelRef) == 1)
+      return true;
+
+    for (tinyxml2::XMLElement *child = cur->FirstChildElement(); child;
+         child = child->NextSiblingElement()) {
+      stack.push_back(child);
+    }
+  }
+
+  return false;
+}
+
 int main() {
   wxInitializer initializer;
   assert(initializer.IsOk());
@@ -100,28 +189,13 @@ int main() {
   fs::path mvrPath = tempDir / "Test1.mvr";
   assert(exporter.ExportToFile(mvrPath.generic_string()));
 
-  wxFileInputStream input(mvrPath.generic_string());
-  assert(input.IsOk());
-  wxZipInputStream zip(input);
-
+  const auto mvrGeometryEntries = ReadArchiveTextEntries(mvrPath);
   std::unordered_set<std::string> entries;
-  std::string xml;
-  std::unique_ptr<wxZipEntry> entry;
-  while ((entry.reset(zip.GetNextEntry())), entry) {
-    const std::string name = entry->GetName().ToStdString();
-    assert(entries.insert(name).second);
-
-    if (name == "GeneralSceneDescription.xml") {
-      char buffer[4096];
-      while (true) {
-        zip.Read(buffer, sizeof(buffer));
-        size_t bytes = zip.LastRead();
-        if (bytes == 0)
-          break;
-        xml.append(buffer, bytes);
-      }
-    }
-  }
+  for (const auto &[entryName, _] : mvrGeometryEntries)
+    entries.insert(entryName);
+  auto xmlIt = mvrGeometryEntries.find("GeneralSceneDescription.xml");
+  assert(xmlIt != mvrGeometryEntries.end());
+  std::string xml = xmlIt->second;
 
   assert(!xml.empty());
   tinyxml2::XMLDocument doc;
@@ -142,6 +216,9 @@ int main() {
   bool sawAddress2681 = false;
   bool sawSafeModelFile = false;
   bool sawNonNumericTrussNameFixtureIdConsistency = false;
+  int mvrGeometryTrussCount = 0;
+  int mvrGeometryTrussesWithGeometry3d = 0;
+  int mvrGeometryTrussesWithRenderableGdtf = 0;
   for (const char *tagName : {"Fixture", "Truss", "Support"}) {
     for (tinyxml2::XMLElement *node = root->FirstChildElement(); node;
          node = node->NextSiblingElement()) {
@@ -215,10 +292,26 @@ int main() {
           }
 
           if (std::string(cur->Name()) == "Truss") {
+            ++mvrGeometryTrussCount;
             auto *gdtfSpec = cur->FirstChildElement("GDTFSpec");
             assert(gdtfSpec != nullptr && gdtfSpec->GetText() != nullptr);
+            std::string trussGdtfSpec = gdtfSpec->GetText();
             auto *geometries = cur->FirstChildElement("Geometries");
             assert(geometries != nullptr);
+            assert(geometries->FirstChildElement("Geometry3D") != nullptr);
+            ++mvrGeometryTrussesWithGeometry3d;
+
+            assert(mvrGeometryEntries.count(trussGdtfSpec) == 1);
+            const fs::path trussGdtfPath = tempDir / trussGdtfSpec;
+            std::ofstream gdtfOut(trussGdtfPath, std::ios::binary);
+            assert(gdtfOut.is_open());
+            gdtfOut << mvrGeometryEntries.at(trussGdtfSpec);
+            gdtfOut.close();
+
+            const bool hasRenderableGdtf = GdtfHasRenderable3DModel(trussGdtfPath);
+            assert(!hasRenderableGdtf);
+            if (hasRenderableGdtf)
+              ++mvrGeometryTrussesWithRenderableGdtf;
 
             auto *userData = cur->FirstChildElement("UserData");
             assert(userData != nullptr);
@@ -269,6 +362,9 @@ int main() {
   assert(sawAddress2681);
   assert(sawSafeModelFile);
   assert(sawNonNumericTrussNameFixtureIdConsistency);
+  assert(mvrGeometryTrussCount == static_cast<int>(scene.trusses.size()));
+  assert(mvrGeometryTrussesWithGeometry3d == mvrGeometryTrussCount);
+  assert(mvrGeometryTrussesWithRenderableGdtf == 0);
 
   for (const auto &name : entries) {
     assert(name.rfind("gdtf/", 0) != 0);
@@ -279,25 +375,10 @@ int main() {
   fs::path mvrPathGdtfAuthority = tempDir / "Test2_GdtfAuthority.mvr";
   assert(exporter.ExportToFile(mvrPathGdtfAuthority.generic_string()));
 
-  wxFileInputStream inputGdtfAuthority(mvrPathGdtfAuthority.generic_string());
-  assert(inputGdtfAuthority.IsOk());
-  wxZipInputStream zipGdtfAuthority(inputGdtfAuthority);
-
-  std::string xmlGdtfAuthority;
-  std::unique_ptr<wxZipEntry> entryGdtfAuthority;
-  while ((entryGdtfAuthority.reset(zipGdtfAuthority.GetNextEntry())), entryGdtfAuthority) {
-    if (entryGdtfAuthority->GetName().ToStdString() == "GeneralSceneDescription.xml") {
-      char buffer[4096];
-      while (true) {
-        zipGdtfAuthority.Read(buffer, sizeof(buffer));
-        size_t bytes = zipGdtfAuthority.LastRead();
-        if (bytes == 0)
-          break;
-        xmlGdtfAuthority.append(buffer, bytes);
-      }
-      break;
-    }
-  }
+  const auto gdtfAuthorityEntries = ReadArchiveTextEntries(mvrPathGdtfAuthority);
+  auto xmlGdtfAuthorityIt = gdtfAuthorityEntries.find("GeneralSceneDescription.xml");
+  assert(xmlGdtfAuthorityIt != gdtfAuthorityEntries.end());
+  std::string xmlGdtfAuthority = xmlGdtfAuthorityIt->second;
 
   assert(!xmlGdtfAuthority.empty());
   tinyxml2::XMLDocument docGdtfAuthority;
@@ -306,6 +387,9 @@ int main() {
   assert(rootGdtfAuthority != nullptr);
 
   bool sawTrussWithGdtfSpec = false;
+  int gdtfAuthorityTrussCount = 0;
+  int gdtfAuthorityTrussesWithGeometry3d = 0;
+  int gdtfAuthorityTrussesWithRenderableGdtf = 0;
   for (tinyxml2::XMLElement *node = rootGdtfAuthority->FirstChildElement(); node;
        node = node->NextSiblingElement()) {
     std::vector<tinyxml2::XMLElement *> stack{node};
@@ -313,10 +397,27 @@ int main() {
       tinyxml2::XMLElement *cur = stack.back();
       stack.pop_back();
       if (std::string(cur->Name()) == "Truss") {
+        ++gdtfAuthorityTrussCount;
         auto *gdtfSpec = cur->FirstChildElement("GDTFSpec");
         assert(gdtfSpec != nullptr && gdtfSpec->GetText() != nullptr);
+        const std::string trussGdtfSpec = gdtfSpec->GetText();
         sawTrussWithGdtfSpec = true;
-        assert(cur->FirstChildElement("Geometries") == nullptr);
+        auto *geometries = cur->FirstChildElement("Geometries");
+        assert(geometries == nullptr || geometries->FirstChildElement("Geometry3D") == nullptr);
+        if (geometries != nullptr && geometries->FirstChildElement("Geometry3D") != nullptr)
+          ++gdtfAuthorityTrussesWithGeometry3d;
+
+        assert(gdtfAuthorityEntries.count(trussGdtfSpec) == 1);
+        const fs::path trussGdtfPath = tempDir / ("gdtf_mode_" + trussGdtfSpec);
+        std::ofstream gdtfOut(trussGdtfPath, std::ios::binary);
+        assert(gdtfOut.is_open());
+        gdtfOut << gdtfAuthorityEntries.at(trussGdtfSpec);
+        gdtfOut.close();
+
+        const bool hasRenderableGdtf = GdtfHasRenderable3DModel(trussGdtfPath);
+        assert(hasRenderableGdtf);
+        if (hasRenderableGdtf)
+          ++gdtfAuthorityTrussesWithRenderableGdtf;
       }
       for (tinyxml2::XMLElement *child = cur->FirstChildElement(); child;
            child = child->NextSiblingElement()) {
@@ -325,6 +426,9 @@ int main() {
     }
   }
   assert(sawTrussWithGdtfSpec);
+  assert(gdtfAuthorityTrussCount == static_cast<int>(scene.trusses.size()));
+  assert(gdtfAuthorityTrussesWithGeometry3d == 0);
+  assert(gdtfAuthorityTrussesWithRenderableGdtf == gdtfAuthorityTrussCount);
   fs::remove_all(tempDir);
   return 0;
 }
