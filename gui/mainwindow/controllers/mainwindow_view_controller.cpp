@@ -1,7 +1,6 @@
 #include "mainwindow_view_controller.h"
 
 #include "mainwindow.h"
-#include "viewer2dpanel.h"
 
 void MainWindowViewController::OnToggleConsole(wxCommandEvent &) {
   if (!owner_.auiManager)
@@ -29,6 +28,7 @@ void MainWindowViewController::OnToggleViewport(wxCommandEvent &) {
   pane.Show(!pane.IsShown());
   owner_.auiManager->Update();
   owner_.UpdateViewMenuChecks();
+  owner_.SyncLayerVisibilityPanels();
 }
 
 void MainWindowViewController::OnToggleViewport2D(wxCommandEvent &) {
@@ -39,8 +39,7 @@ void MainWindowViewController::OnToggleViewport2D(wxCommandEvent &) {
   pane.Show(!pane.IsShown());
   owner_.auiManager->Update();
   owner_.UpdateViewMenuChecks();
-  if (pane.IsShown() && Viewer2DPanel::Instance())
-    Viewer2DPanel::Instance()->Refresh();
+  owner_.SyncLayerVisibilityPanels();
 }
 
 void MainWindowViewController::OnToggleRender2D(wxCommandEvent &) {
@@ -60,6 +59,7 @@ void MainWindowViewController::OnToggleLayers(wxCommandEvent &) {
   pane.Show(!pane.IsShown());
   owner_.auiManager->Update();
   owner_.UpdateViewMenuChecks();
+  owner_.SyncLayerVisibilityPanels();
 }
 
 void MainWindowViewController::OnToggleLayouts(wxCommandEvent &) {

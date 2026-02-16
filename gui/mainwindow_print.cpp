@@ -30,6 +30,7 @@
 
 #include "configmanager.h"
 #include "guiconfigservices.h"
+#include "legendsymbolcapture.h"
 #include "consolepanel.h"
 #include "fixturetablepanel.h"
 #include "gdtfloader.h"
@@ -405,7 +406,8 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
           auto tablesToExport = std::move(*exportTables);
           auto textsToExport = std::move(*exportTexts);
           if (capturePanel) {
-            auto legendSymbols = capturePanel->GetBottomSymbolCacheSnapshot();
+            auto legendSymbols =
+                CaptureLegendSymbolSnapshot(capturePanel, *cfgPtr, true);
             for (auto &legend : legendsToExport) {
               legend.symbolSnapshot = legendSymbols;
             }

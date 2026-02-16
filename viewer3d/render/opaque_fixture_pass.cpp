@@ -16,6 +16,7 @@
 #endif
 
 #include "matrixutils.h"
+#include "configmanager.h"
 #include "opaque_pass_utils.h"
 #include "scenedatamanager.h"
 #include "viewer3dcontroller.h"
@@ -30,8 +31,13 @@ void OpaqueFixturePass::Render(
   const Viewer2DRenderMode mode = context.mode;
   const bool skipCapture = context.skipCapture;
   const bool is2DViewer = context.is2DViewer;
+  const bool isTopView2D = is2DViewer && context.view == Viewer2DView::Top;
 
   const auto &fixtures = SceneDataManager::Instance().GetFixtures();
+
+  const bool forceBottomViewForTopFixtures =
+      ConfigManager::Get().GetFloat("view2d_top_fixtures_inverted") != 0.0f;
+  const bool drawRealTopInTopView = isTopView2D && !forceBottomViewForTopFixtures;
 
   glShadeModel(GL_FLAT);
   const bool forceFixturesOnTop = wireframe;
@@ -126,9 +132,14 @@ void OpaqueFixturePass::Render(
         modelKey = "unknown";
 
       if (!modelKey.empty()) {
+        const Viewer2DView fixtureCaptureView =
+            isTopView2D && forceBottomViewForTopFixtures
+                ? Viewer2DView::Bottom
+                : controller.m_captureView;
+
         SymbolKey symbolKey;
         symbolKey.modelKey = modelKey;
-        symbolKey.viewKind = resolveSymbolView(controller.m_captureView);
+        symbolKey.viewKind = resolveSymbolView(fixtureCaptureView);
         symbolKey.styleVersion = 1;
 
         const auto &symbol =
@@ -147,13 +158,17 @@ void OpaqueFixturePass::Render(
               bool prevCaptureOnly = controller.m_captureOnly;
               bool prevIncludeGrid = controller.m_captureIncludeGrid;
               controller.m_captureCanvas = localCanvas.get();
-              controller.m_captureView = prevView;
+              controller.m_captureView = fixtureCaptureView;
               controller.m_captureOnly = true;
               controller.m_captureIncludeGrid = false;
 
               if (itg != controller.m_resourceSyncState.loadedGdtf.end()) {
-                size_t partIndex = 0;
-                for (const auto &obj : itg->second) {
+                const auto &parts = itg->second;
+                const bool reversePartOrder = drawRealTopInTopView;
+                for (size_t offset = 0; offset < parts.size(); ++offset) {
+                  const size_t partIndex =
+                      reversePartOrder ? (parts.size() - 1 - offset) : offset;
+                  const auto &obj = parts[partIndex];
                   controller.m_captureCanvas->SetSourceKey(
                       fixtureCaptureKey + "_part" + std::to_string(partIndex));
                   auto applyCapture = [objTransform = obj.transform](
@@ -171,7 +186,6 @@ void OpaqueFixturePass::Render(
                   controller.DrawMeshWithOutline(
                       obj.mesh, partR, partG, partB, RENDER_SCALE, false, false,
                       0.0f, 0.0f, 0.0f, wireframe, mode, applyCapture, false);
-                  ++partIndex;
                 }
               } else {
                 controller.m_captureCanvas->SetSourceKey(fixtureCaptureKey);
@@ -193,7 +207,7 @@ void OpaqueFixturePass::Render(
             });
 
         Transform2D instanceTransform =
-            BuildInstanceTransform2D(fixtureTransform, controller.m_captureView);
+            BuildInstanceTransform2D(fixtureTransform, fixtureCaptureView);
         controller.m_captureCanvas->PlaceSymbolInstance(symbol.symbolId,
                                                         instanceTransform);
         placedInstance = true;
@@ -202,8 +216,12 @@ void OpaqueFixturePass::Render(
 
     auto drawFixtureGeometry = [&]() {
       if (itg != controller.m_resourceSyncState.loadedGdtf.end()) {
-        size_t partIndex = 0;
-        for (const auto &obj : itg->second) {
+        const auto &parts = itg->second;
+        const bool reversePartOrder = drawRealTopInTopView;
+        for (size_t offset = 0; offset < parts.size(); ++offset) {
+          const size_t partIndex =
+              reversePartOrder ? (parts.size() - 1 - offset) : offset;
+          const auto &obj = parts[partIndex];
           glPushMatrix();
           if (controller.m_captureCanvas && !skipCapture) {
             controller.m_captureCanvas->SetSourceKey(
@@ -232,7 +250,6 @@ void OpaqueFixturePass::Render(
                                          cy, cz, wireframe, mode, applyCapture,
                                          drawUnlit);
           glPopMatrix();
-          ++partIndex;
         }
       } else {
         controller.DrawCubeWithOutline(0.2f, r, g, b, highlight, selected, cx,

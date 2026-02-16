@@ -71,6 +71,10 @@ endif()
 
 add_library(peraviz_native SHARED
     src/hello_world.cpp
+    src/asset_cache.cpp
+    src/coordinate_mapper.cpp
+    src/mesh_3ds_loader.cpp
+    src/gdtf_scene_builder.cpp
     src/mvr_scene_loader.cpp
     src/peraviz_loader.cpp
     src/register_types.cpp

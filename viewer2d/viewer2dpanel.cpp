@@ -296,7 +296,7 @@ Viewer2DPanel *Viewer2DPanel::Instance() { return g_instance; }
 void Viewer2DPanel::SetInstance(Viewer2DPanel *panel) { g_instance = panel; }
 
 void Viewer2DPanel::UpdateScene(bool reload) {
-  if (reload && ShouldPauseHeavyTasks())
+  if (reload && m_enableSelection && ShouldPauseHeavyTasks())
     return;
 
   if (reload)
@@ -522,9 +522,11 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
   if (!m_glInitialized) {
     return;
   }
-  const bool pauseHeavyTasks = ShouldPauseHeavyTasks();
+  const bool pauseHeavyTasks = m_enableSelection && ShouldPauseHeavyTasks();
   int w, h;
   GetClientSize(&w, &h);
+  if (w <= 0 || h <= 0)
+    return;
 
   glViewport(0, 0, w, h);
 

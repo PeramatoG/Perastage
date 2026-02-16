@@ -377,6 +377,7 @@ void MainWindow::ApplyLayoutPreset(const LayoutViewPreset &preset,
       } else {
         viewer2d::ApplyState(nullptr, nullptr, cfg, *standalone2DState);
       }
+      SyncLayerVisibilityPanels();
       standalone2DState.reset();
     }
   }
@@ -404,8 +405,10 @@ void MainWindow::ApplyLayoutPreset(const LayoutViewPreset &preset,
 
   if (persistPerspective) {
     ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
-    if (!layoutMode && perspective) {
-      cfg.SetValue("layout_perspective", *perspective);
+    cfg.SetValue("layout_view_mode", preset.name);
+    if (auiManager) {
+      cfg.SetValue("layout_perspective",
+                   auiManager->SavePerspective().ToStdString());
     }
   }
 
@@ -419,12 +422,11 @@ void MainWindow::ApplySavedLayout() {
   if (!auiManager)
     return;
 
-  std::optional<std::string> perspective;
+  ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
+  const std::string viewMode = cfg.GetValue("layout_view_mode").value_or("");
+  std::optional<std::string> perspective = cfg.GetValue("layout_perspective");
 
-  // Load stored layout perspective if it exists
-  if (auto val = GetDefaultGuiConfigServices().LegacyConfigManager().GetValue("layout_perspective")) {
-    perspective = *val;
-
+  if (perspective) {
     // Ensure viewports exist before loading the saved perspective
     if (perspective->find("3DViewport") != std::string::npos)
       Ensure3DViewport();
@@ -433,18 +435,20 @@ void MainWindow::ApplySavedLayout() {
       Ensure2DViewport();
   }
 
-  const LayoutViewPreset *preset = nullptr;
-  if (perspective &&
-             (perspective->find("2DViewport") != std::string::npos ||
-              perspective->find("2DRenderOptions") != std::string::npos)) {
+  const LayoutViewPreset *preset = LayoutViewPresetRegistry::GetPreset(viewMode);
+  if (!preset && perspective &&
+      (perspective->find("2DViewport") != std::string::npos ||
+       perspective->find("2DRenderOptions") != std::string::npos)) {
+    // Backward compatibility for configs without layout_view_mode.
     preset = LayoutViewPresetRegistry::GetPreset("2d_layout_view");
-  } else {
-    preset = LayoutViewPresetRegistry::GetPreset("3d_layout_view");
   }
+  if (!preset)
+    preset = LayoutViewPresetRegistry::GetPreset("3d_layout_view");
+  const bool savedLayoutMode = preset && preset->name == "layout_mode_view";
   if (preset && perspective)
-    ApplyLayoutPreset(*preset, perspective, false, false);
+    ApplyLayoutPreset(*preset, perspective, savedLayoutMode, false);
   else if (preset)
-    ApplyLayoutPreset(*preset, std::nullopt, false, false);
+    ApplyLayoutPreset(*preset, std::nullopt, savedLayoutMode, false);
 
   // Re-apply hard-coded minimum sizes so they are not overridden by the saved perspective
   auto &dataPane = auiManager->GetPane("DataNotebook");
@@ -539,6 +543,18 @@ void MainWindow::OnApplyLayoutModeLayout(wxCommandEvent &WXUNUSED(event)) {
 
 void MainWindow::OnLayoutViewEdit(wxCommandEvent &WXUNUSED(event)) {
   BeginLayout2DViewEdit();
+}
+
+void MainWindow::OnLayoutViewSelected(wxCommandEvent &event) {
+  if (!layoutModeActive || activeLayoutName.empty() || layout2DViewEditing)
+    return;
+
+  const int viewId = event.GetInt();
+  if (viewId <= 0)
+    return;
+
+  PersistLayout2DViewState();
+  RestoreLayout2DViewState(viewId);
 }
 
 void MainWindow::OnLayoutAdd2DView(wxCommandEvent &WXUNUSED(event)) {
@@ -728,7 +744,16 @@ void MainWindow::BeginLayout2DViewEdit() {
   }
 
   const layouts::Layout2DViewDefinition *view = nullptr;
-  if (layoutViewerPanel)
+  int selectedViewId = 0;
+  if (layoutViewerPanel) {
+    if (const auto *editableView = layoutViewerPanel->GetEditableView()) {
+      selectedViewId = editableView->id;
+    }
+  }
+  if (layout && selectedViewId > 0) {
+    view = FindLayout2DViewById(layout, selectedViewId);
+  }
+  if (!view && layoutViewerPanel)
     view = layoutViewerPanel->GetEditableView();
   if (!view && layout && !layout->view2dViews.empty())
     view = &layout->view2dViews.front();
@@ -956,4 +981,5 @@ void MainWindow::RestoreLayout2DViewState(int viewId) {
   viewer2d::Viewer2DState state = viewer2d::FromLayoutDefinition(*match);
   state.renderOptions.darkMode = cfg.GetFloat("view2d_dark_mode") != 0.0f;
   viewer2d::ApplyState(activePanel, activeRenderPanel, cfg, state, false);
+  SyncLayerVisibilityPanels();
 }

@@ -230,7 +230,6 @@ Viewer2DState FromLayoutDefinition(const layouts::Layout2DViewDefinition &view) 
 void ApplyEditorRenderOptions(Viewer2DState &state, const ConfigManager &cfg) {
   Viewer2DState editorState = CaptureState(nullptr, cfg);
   state.renderOptions = editorState.renderOptions;
-  state.layers = editorState.layers;
 }
 
 layouts::Layout2DViewDefinition ToLayoutDefinition(

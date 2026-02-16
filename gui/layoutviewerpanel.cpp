@@ -22,6 +22,7 @@
 #include <memory>
 #include <new>
 #include <vector>
+#include <wx/weakref.h>
 
 // Include GLEW or other OpenGL loader first if present
 #ifdef __APPLE__
@@ -37,6 +38,7 @@
 
 #include "configmanager.h"
 #include "guiconfigservices.h"
+#include "legendsymbolcapture.h"
 #include "LayoutManager.h"
 #include "logger.h"
 #include "mainwindow.h"
@@ -135,6 +137,7 @@ wxBEGIN_EVENT_TABLE(LayoutViewerPanel, wxGLCanvas)
 wxEND_EVENT_TABLE()
 
 wxDEFINE_EVENT(EVT_LAYOUT_RENDER_READY, wxCommandEvent);
+wxDEFINE_EVENT(EVT_LAYOUT_VIEW_SELECTED, wxCommandEvent);
 
 LayoutViewerPanel::LayoutViewerPanel(wxWindow *parent)
     : wxGLCanvas(parent, wxID_ANY, nullptr, wxDefaultPosition,
@@ -154,9 +157,14 @@ LayoutViewerPanel::LayoutViewerPanel(wxWindow *parent)
 }
 
 LayoutViewerPanel::~LayoutViewerPanel() {
+  Unbind(wxEVT_TIMER, &LayoutViewerPanel::OnLoadingTimer, this,
+         kLoadingTimerId);
+  Unbind(wxEVT_TIMER, &LayoutViewerPanel::OnRenderDelayTimer, this,
+         kRenderDelayTimerId);
   ClearCachedTexture();
   ClearLoadingTextTexture();
   loadingTimer_.Stop();
+  renderDelayTimer_.Stop();
   delete glContext_;
 }
 
@@ -166,6 +174,7 @@ void LayoutViewerPanel::SetLayoutDefinition(
   if (!currentLayout.view2dViews.empty()) {
     selectedElementType = SelectedElementType::View2D;
     selectedElementId = currentLayout.view2dViews.front().id;
+    EmitViewSelectionChanged(selectedElementId);
   } else if (!currentLayout.legendViews.empty()) {
     selectedElementType = SelectedElementType::Legend;
     selectedElementId = currentLayout.legendViews.front().id;
@@ -211,10 +220,16 @@ void LayoutViewerPanel::SetLayoutDefinition(
 }
 
 void LayoutViewerPanel::NotifyRenderReady() {
-  CallAfter([this]() {
+  wxWeakRef<LayoutViewerPanel> weakThis(this);
+  CallAfter([weakThis]() {
+    if (!weakThis)
+      return;
+    LayoutViewerPanel *panel = weakThis.get();
+    if (!panel)
+      return;
     wxCommandEvent event(EVT_LAYOUT_RENDER_READY);
-    event.SetEventObject(this);
-    wxPostEvent(this, event);
+    event.SetEventObject(panel);
+    wxPostEvent(panel, event);
   });
 }
 
@@ -1343,40 +1358,10 @@ void LayoutViewerPanel::RebuildCachedTexture() {
     renderDirty = false;
     stopLoadingRequest();
   
-    std::shared_ptr<const SymbolDefinitionSnapshot> legendSymbols =
-        capturePanel->GetBottomSymbolCacheSnapshot();
-    if ((!legendSymbols || legendSymbols->empty()) &&
-        !currentLayout.legendViews.empty()) {
-      capturePanel->CaptureFrameNow(
-          [](CommandBuffer, Viewer2DViewState) {}, true, false);
-      legendSymbols = capturePanel->GetBottomSymbolCacheSnapshot();
-    }
-    if (legendSymbols && !legendSymbols->empty() &&
-        !currentLayout.legendViews.empty()) {
-      bool hasTop = false;
-      bool hasFront = false;
-      for (const auto &entry : *legendSymbols) {
-        if (entry.second.key.viewKind == SymbolViewKind::Top)
-          hasTop = true;
-        else if (entry.second.key.viewKind == SymbolViewKind::Front)
-          hasFront = true;
-        if (hasTop && hasFront)
-          break;
-      }
-      if (!hasTop || !hasFront) {
-        const Viewer2DView previousView = capturePanel->GetView();
-        auto captureMissingView = [&](Viewer2DView view) {
-          capturePanel->SetView(view);
-          capturePanel->CaptureFrameNow(
-              [](CommandBuffer, Viewer2DViewState) {}, true, false);
-        };
-        if (!hasTop)
-          captureMissingView(Viewer2DView::Top);
-        if (!hasFront)
-          captureMissingView(Viewer2DView::Front);
-        capturePanel->SetView(previousView);
-        legendSymbols = capturePanel->GetBottomSymbolCacheSnapshot();
-      }
+    ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
+    std::shared_ptr<const SymbolDefinitionSnapshot> legendSymbols;
+    if (!currentLayout.legendViews.empty()) {
+      legendSymbols = CaptureLegendSymbolSnapshot(capturePanel, cfg, true);
     }
     const double renderZoom = GetRenderZoom();
     for (const auto &view : currentLayout.view2dViews) {
@@ -1404,7 +1389,6 @@ void LayoutViewerPanel::RebuildCachedTexture() {
       offscreenRenderer->SetViewportSize(renderSize);
       offscreenRenderer->PrepareForCapture();
   
-      ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
       viewer2d::Viewer2DState renderState = cache.renderState;
       if (renderZoom != 1.0) {
         renderState.camera.zoom *= static_cast<float>(renderZoom);
@@ -1936,16 +1920,27 @@ void LayoutViewerPanel::RequestRenderRebuild() {
   if (!loadingTimer_.IsRunning()) {
     loadingTimer_.StartOnce(kLoadingOverlayDelayMs);
   }
-  CallAfter([this]() {
-    isLoading = true;
-    Refresh();
-    Update();
+  wxWeakRef<LayoutViewerPanel> weakThis(this);
+  CallAfter([weakThis]() {
+    if (!weakThis)
+      return;
+    LayoutViewerPanel *panel = weakThis.get();
+    if (!panel)
+      return;
+    panel->isLoading = true;
+    panel->Refresh();
+    panel->Update();
     if (wxTheApp && wxTheApp->IsMainLoopRunning())
       wxTheApp->Yield(true);
-    if (renderDelayTimer_.IsRunning()) {
-      renderDelayTimer_.Stop();
+    if (!weakThis)
+      return;
+    panel = weakThis.get();
+    if (!panel)
+      return;
+    if (panel->renderDelayTimer_.IsRunning()) {
+      panel->renderDelayTimer_.Stop();
     }
-    renderDelayTimer_.StartOnce(kLoadingOverlayDelayMs);
+    panel->renderDelayTimer_.StartOnce(kLoadingOverlayDelayMs);
   });
 }
 
@@ -2081,10 +2076,16 @@ void LayoutViewerPanel::OnRenderDelayTimer(wxTimerEvent &) {
     renderPending = false;
     return;
   }
-  CallAfter([this]() {
-    renderPending = false;
-    RebuildCachedTexture();
-    Refresh();
+  wxWeakRef<LayoutViewerPanel> weakThis(this);
+  CallAfter([weakThis]() {
+    if (!weakThis)
+      return;
+    LayoutViewerPanel *panel = weakThis.get();
+    if (!panel)
+      return;
+    panel->renderPending = false;
+    panel->RebuildCachedTexture();
+    panel->Refresh();
   });
 }
 
@@ -2255,6 +2256,7 @@ bool LayoutViewerPanel::SelectElementAtPosition(const wxPoint &pos) {
       }
       selectedElementType = SelectedElementType::View2D;
       selectedElementId = view->id;
+      EmitViewSelectionChanged(view->id);
       RequestRenderRebuild();
       Refresh();
       return true;
@@ -2312,6 +2314,15 @@ wxCursor LayoutViewerPanel::CursorForMode(FrameDragMode mode) const {
 void LayoutViewerPanel::EmitEditViewRequest() {
   wxCommandEvent event(EVT_LAYOUT_VIEW_EDIT);
   event.SetEventObject(this);
+  ProcessWindowEvent(event);
+}
+
+void LayoutViewerPanel::EmitViewSelectionChanged(int viewId) {
+  if (viewId <= 0)
+    return;
+  wxCommandEvent event(EVT_LAYOUT_VIEW_SELECTED);
+  event.SetEventObject(this);
+  event.SetInt(viewId);
   ProcessWindowEvent(event);
 }
 

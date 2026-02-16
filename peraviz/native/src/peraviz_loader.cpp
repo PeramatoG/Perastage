@@ -1,9 +1,12 @@
 #include "peraviz_loader.h"
 
 #include "mvr_scene_loader.h"
+#include "mesh_3ds_loader.h"
 
 #include <godot_cpp/variant/array.hpp>
 #include <godot_cpp/variant/dictionary.hpp>
+#include <godot_cpp/variant/packed_int32_array.hpp>
+#include <godot_cpp/variant/packed_vector3_array.hpp>
 #include <godot_cpp/variant/utility_functions.hpp>
 #include <godot_cpp/variant/vector3.hpp>
 
@@ -11,42 +14,69 @@ namespace godot {
 
 void PeravizLoader::_bind_methods() {
     ClassDB::bind_method(D_METHOD("load_mvr", "path"), &PeravizLoader::load_mvr);
+    ClassDB::bind_method(D_METHOD("load_3ds_mesh_data", "path"), &PeravizLoader::load_3ds_mesh_data);
 }
 
 Array PeravizLoader::load_mvr(const String &path) const {
     const peraviz::SceneModel model = peraviz::load_mvr(std::string(path.utf8().get_data()));
 
-    UtilityFunctions::print("[PeravizNative] load_mvr instances=", model.instances.size(),
+    UtilityFunctions::print("[PeravizNative] load_mvr nodes=", model.nodes.size(),
                             " fixtures=", model.fixture_count,
                             " trusses=", model.truss_count,
                             " objects=", model.object_count,
-                            " supports=", model.support_count);
-
-    for (int i = 0; i < 3 && i < static_cast<int>(model.instances.size()); ++i) {
-        const auto &inst = model.instances[static_cast<size_t>(i)];
-        UtilityFunctions::print("[PeravizNative] sample[", i, "] ", String(inst.type.c_str()),
-                                " ", String(inst.id.c_str()),
-                                " pos=", inst.transform.position.x, ",",
-                                inst.transform.position.y, ",", inst.transform.position.z);
-    }
+                            " supports=", model.support_count,
+                            " extracted_assets=", model.extracted_asset_count,
+                            " cache=", String(model.cache_path.c_str()));
 
     Array out;
-    out.resize(static_cast<int64_t>(model.instances.size()));
+    out.resize(static_cast<int64_t>(model.nodes.size()));
     int index = 0;
-    for (const auto &inst : model.instances) {
+    for (const auto &node : model.nodes) {
         Dictionary d;
-        d["id"] = String(inst.id.c_str());
-        d["type"] = String(inst.type.c_str());
-        d["is_fixture"] = inst.is_fixture;
-        d["pos"] = Vector3(inst.transform.position.x, inst.transform.position.y,
-                            inst.transform.position.z);
-        d["rot"] = Vector3(inst.transform.rotation_degrees.x,
-                            inst.transform.rotation_degrees.y,
-                            inst.transform.rotation_degrees.z);
-        d["scale"] = Vector3(inst.transform.scale.x, inst.transform.scale.y,
-                              inst.transform.scale.z);
+        d["node_id"] = String(node.node_id.c_str());
+        d["parent_id"] = String(node.parent_id.c_str());
+        d["name"] = String(node.name.c_str());
+        d["type"] = String(node.type.c_str());
+        d["asset_path"] = String(node.asset_path.c_str());
+        d["is_fixture"] = node.is_fixture;
+        d["is_axis"] = node.is_axis;
+        d["is_emitter"] = node.is_emitter;
+        d["pos"] = Vector3(node.local_transform.position.x, node.local_transform.position.y,
+                            node.local_transform.position.z);
+        d["rot"] = Vector3(node.local_transform.rotation_degrees.x,
+                            node.local_transform.rotation_degrees.y,
+                            node.local_transform.rotation_degrees.z);
+        d["scale"] = Vector3(node.local_transform.scale.x, node.local_transform.scale.y,
+                              node.local_transform.scale.z);
+        d["basis_x"] = Vector3(node.local_transform.basis_x.x, node.local_transform.basis_x.y,
+                                 node.local_transform.basis_x.z);
+        d["basis_y"] = Vector3(node.local_transform.basis_y.x, node.local_transform.basis_y.y,
+                                 node.local_transform.basis_y.z);
+        d["basis_z"] = Vector3(node.local_transform.basis_z.x, node.local_transform.basis_z.y,
+                                 node.local_transform.basis_z.z);
+        d["has_basis"] = node.local_transform.has_basis;
         out[index++] = d;
     }
+    return out;
+}
+
+Dictionary PeravizLoader::load_3ds_mesh_data(const String &path) const {
+    PackedVector3Array vertices;
+    PackedVector3Array normals;
+    PackedInt32Array indices;
+    String error;
+
+    Dictionary out;
+    const bool ok = peraviz::load_3ds_mesh_data(path, vertices, normals, indices, error);
+    out["ok"] = ok;
+    if (!ok) {
+        out["error"] = error;
+        return out;
+    }
+
+    out["vertices"] = vertices;
+    out["normals"] = normals;
+    out["indices"] = indices;
     return out;
 }
 
