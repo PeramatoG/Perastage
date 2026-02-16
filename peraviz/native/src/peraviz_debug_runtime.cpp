@@ -10,22 +10,53 @@ namespace {
 bool g_baseline_debug_enabled = false;
 
 godot::String vec_to_string(const std::array<float, 3> &v) {
-    return godot::String("(") + godot::String::num(v[0]) + ", " +
-           godot::String::num(v[1]) + ", " + godot::String::num(v[2]) + ")";
+    godot::String out("(");
+    out += godot::String::num(v[0]);
+    out += godot::String(", ");
+    out += godot::String::num(v[1]);
+    out += godot::String(", ");
+    out += godot::String::num(v[2]);
+    out += godot::String(")");
+    return out;
+}
+
+godot::String vec_to_string(const peraviz::Vec3 &v) {
+    godot::String out("(");
+    out += godot::String::num(v.x);
+    out += godot::String(", ");
+    out += godot::String::num(v.y);
+    out += godot::String(", ");
+    out += godot::String::num(v.z);
+    out += godot::String(")");
+    return out;
 }
 
 godot::String matrix_to_string(const Matrix &m) {
-    return godot::String("u=") + vec_to_string(m.u) + " v=" + vec_to_string(m.v) +
-           " w=" + vec_to_string(m.w) + " o=" + vec_to_string(m.o);
+    godot::String out("u=");
+    out += vec_to_string(m.u);
+    out += godot::String(" v=");
+    out += vec_to_string(m.v);
+    out += godot::String(" w=");
+    out += vec_to_string(m.w);
+    out += godot::String(" o=");
+    out += vec_to_string(m.o);
+    return out;
 }
 
 godot::String scene_transform_to_string(const SceneTransform &transform) {
-    return godot::String("pos=") + vec_to_string(transform.position) +
-           " basis_x=" + vec_to_string(transform.basis_x) +
-           " basis_y=" + vec_to_string(transform.basis_y) +
-           " basis_z=" + vec_to_string(transform.basis_z) +
-           " scale=" + vec_to_string(transform.scale) +
-           " rot_deg=" + vec_to_string(transform.rotation_degrees);
+    godot::String out("pos=");
+    out += vec_to_string(transform.position);
+    out += godot::String(" basis_x=");
+    out += vec_to_string(transform.basis_x);
+    out += godot::String(" basis_y=");
+    out += vec_to_string(transform.basis_y);
+    out += godot::String(" basis_z=");
+    out += vec_to_string(transform.basis_z);
+    out += godot::String(" scale=");
+    out += vec_to_string(transform.scale);
+    out += godot::String(" rot_deg=");
+    out += vec_to_string(transform.rotation_degrees);
+    return out;
 }
 
 } // namespace
@@ -62,4 +93,3 @@ void log_transform_adjustment(const std::string &context,
 }
 
 } // namespace peraviz::debug_runtime
-
