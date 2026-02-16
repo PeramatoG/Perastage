@@ -53,7 +53,7 @@ public:
     // Returns current distance
     float GetDistance() const;
 
-    // Smoothly interpolates current camera state toward target state
+    // Synchronizes current camera state with interaction targets.
     void Update(float dt);
 
     float GetYaw() const { return yaw; }
@@ -66,7 +66,7 @@ public:
         targetTargetX = x; targetTargetY = y; targetTargetZ = z;
     }
 
-    // Desired/orbital target state used for smooth interpolation.
+    // Desired/orbital target state driven by input handlers.
     float targetYaw;
     float targetPitch;
     float targetDistance;

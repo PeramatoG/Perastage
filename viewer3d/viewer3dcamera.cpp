@@ -38,6 +38,7 @@
 #include <GL/glu.h>
 #endif
 
+
 Viewer3DCamera::Viewer3DCamera()
     : yaw(0.0f), pitch(20.0f), distance(30.0f),
     targetX(0.0f), targetY(0.0f), targetZ(0.0f),
@@ -166,15 +167,17 @@ void Viewer3DCamera::SetOrientation(float y, float p)
 
 void Viewer3DCamera::Update(float dt)
 {
-    const float smoothing = 10.0f;
-    const float alpha = std::clamp(dt * smoothing, 0.0f, 1.0f);
+    (void)dt;
 
-    yaw += (targetYaw - yaw) * alpha;
-    pitch += (targetPitch - pitch) * alpha;
-    distance += (targetDistance - distance) * alpha;
-    targetX += (targetTargetX - targetX) * alpha;
-    targetY += (targetTargetY - targetY) * alpha;
-    targetZ += (targetTargetZ - targetZ) * alpha;
+    // Keep camera updates deterministic and immediate.
+    // This disables interpolation so each interaction delta is applied
+    // exactly once and no residual motion is carried to the next gesture.
+    yaw = targetYaw;
+    pitch = targetPitch;
+    distance = targetDistance;
+    targetX = targetTargetX;
+    targetY = targetTargetY;
+    targetZ = targetTargetZ;
 }
 
 void Viewer3DCamera::Reset()
