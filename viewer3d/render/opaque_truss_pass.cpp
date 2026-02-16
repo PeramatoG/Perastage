@@ -88,7 +88,11 @@ void OpaqueTrussPass::Render(
 
     const Mesh *trussMesh = nullptr;
     std::string trussPath;
-    if (!t.symbolFile.empty()) {
+    auto resolvedPathIt =
+        controller.m_resourceSyncState.resolvedTrussMeshPaths.find(uuid);
+    if (resolvedPathIt != controller.m_resourceSyncState.resolvedTrussMeshPaths.end()) {
+      trussPath = resolvedPathIt->second;
+    } else if (!t.symbolFile.empty()) {
       auto trussPathIt = controller.m_resourceSyncState.resolvedModelRefs.find(
           ResolveCacheKey(t.symbolFile));
       if (trussPathIt != controller.m_resourceSyncState.resolvedModelRefs.end() &&

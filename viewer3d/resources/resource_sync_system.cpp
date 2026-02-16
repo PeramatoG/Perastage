@@ -2,6 +2,7 @@
 
 #include "loader3ds.h"
 #include "loaderglb.h"
+#include "trussloader.h"
 
 #include <algorithm>
 #include <cctype>
@@ -114,6 +115,20 @@ void EnsureModelLoaded(const std::string &path, ResourceSyncState &state,
   }
 }
 
+bool IsMeshPath(const std::string &path) {
+  std::string ext = fs::path(path).extension().string();
+  std::transform(ext.begin(), ext.end(), ext.begin(),
+                 [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+  return ext == ".3ds" || ext == ".glb";
+}
+
+bool IsTrussDefinitionPath(const std::string &path) {
+  std::string ext = fs::path(path).extension().string();
+  std::transform(ext.begin(), ext.end(), ext.begin(),
+                 [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+  return ext == ".gdtf" || ext == ".gtruss";
+}
+
 } // namespace
 
 ResourceSyncResult ResourceSyncSystem::Sync(
@@ -137,6 +152,7 @@ ResourceSyncResult ResourceSyncSystem::Sync(
     state.reportedGdtfFailureReasons.clear();
     state.resolvedGdtfSpecs.clear();
     state.resolvedModelRefs.clear();
+    state.resolvedTrussMeshPaths.clear();
     state.lastSceneBasePath = basePath;
     result.assetsChanged = true;
   }
@@ -171,6 +187,7 @@ ResourceSyncResult ResourceSyncSystem::Sync(
   if (!state.hasSceneSignature || sceneSignature != state.lastSceneSignature) {
     state.lastSceneSignature = sceneSignature;
     state.hasSceneSignature = true;
+    state.resolvedTrussMeshPaths.clear();
     result.sceneChanged = true;
   }
   result.sceneSignature = state.lastSceneSignature;
@@ -202,8 +219,10 @@ ResourceSyncResult ResourceSyncSystem::Sync(
     it->second.attempted = true;
   };
 
-  for (const auto *entry : visibleTrusses)
+  for (const auto *entry : visibleTrusses) {
     ensureModelResolvedPath(entry->second.symbolFile);
+    ensureModelResolvedPath(entry->second.modelFile);
+  }
 
   for (const auto *entry : visibleObjects) {
     const auto &obj = entry->second;
@@ -219,12 +238,39 @@ ResourceSyncResult ResourceSyncSystem::Sync(
     ensureGdtfResolvedPath(entry->second.gdtfSpec);
 
   for (const auto *entry : visibleTrusses) {
-    const auto &t = entry->second;
+    const auto &[uuid, t] = *entry;
     auto pathIt = state.resolvedModelRefs.find(ResolveCacheKey(t.symbolFile));
-    const std::string path =
+    std::string path =
         (pathIt != state.resolvedModelRefs.end() && pathIt->second.attempted)
             ? pathIt->second.resolvedPath
             : std::string();
+
+    if (path.empty() && !t.modelFile.empty()) {
+      auto modelIt = state.resolvedModelRefs.find(ResolveCacheKey(t.modelFile));
+      const std::string modelPath =
+          (modelIt != state.resolvedModelRefs.end() && modelIt->second.attempted)
+              ? modelIt->second.resolvedPath
+              : std::string();
+
+      if (IsMeshPath(modelPath)) {
+        path = modelPath;
+      } else if (IsTrussDefinitionPath(modelPath)) {
+        Truss parsed;
+        if (LoadTrussDefinition(modelPath, parsed) && !parsed.symbolFile.empty()) {
+          ensureModelResolvedPath(parsed.symbolFile);
+          auto parsedIt =
+              state.resolvedModelRefs.find(ResolveCacheKey(parsed.symbolFile));
+          if (parsedIt != state.resolvedModelRefs.end() && parsedIt->second.attempted)
+            path = parsedIt->second.resolvedPath;
+        }
+      }
+    }
+
+    if (!path.empty())
+      state.resolvedTrussMeshPaths[uuid] = path;
+    else
+      state.resolvedTrussMeshPaths.erase(uuid);
+
     EnsureModelLoaded(path, state, callbacks, result.assetsChanged);
   }
 

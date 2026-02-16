@@ -25,6 +25,7 @@ struct ResourceSyncState {
   std::unordered_map<std::string, std::string> reportedGdtfFailureReasons;
   std::unordered_map<std::string, PathResolutionEntry> resolvedGdtfSpecs;
   std::unordered_map<std::string, PathResolutionEntry> resolvedModelRefs;
+  std::unordered_map<std::string, std::string> resolvedTrussMeshPaths;
   std::string lastSceneBasePath;
   size_t lastSceneSignature = 0;
   bool hasSceneSignature = false;

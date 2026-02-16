@@ -207,14 +207,20 @@ void BoundsCacheSystem::RebuildIfDirty(
     bb.min = {FLT_MAX, FLT_MAX, FLT_MAX};
     bb.max = {-FLT_MAX, -FLT_MAX, -FLT_MAX};
 
-    if (!t.symbolFile.empty()) {
-      std::string path;
+    std::string path;
+    auto resolvedPathIt = context.resourceSyncState.resolvedTrussMeshPaths.find(uuid);
+    if (resolvedPathIt != context.resourceSyncState.resolvedTrussMeshPaths.end()) {
+      path = resolvedPathIt->second;
+    } else if (!t.symbolFile.empty()) {
       auto pathIt =
           context.resourceSyncState.resolvedModelRefs.find(ResolveCacheKey(t.symbolFile));
       if (pathIt != context.resourceSyncState.resolvedModelRefs.end() &&
           pathIt->second.attempted) {
         path = pathIt->second.resolvedPath;
       }
+    }
+
+    if (!path.empty()) {
       auto it = context.resourceSyncState.loadedMeshes.find(path);
       if (it != context.resourceSyncState.loadedMeshes.end()) {
         auto bit = context.modelBounds.find(path);
