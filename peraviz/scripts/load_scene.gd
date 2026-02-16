@@ -100,6 +100,7 @@ func _build_visual_node(data: Dictionary, item_type: String, is_fixture: bool, v
 	if not asset_path.is_empty():
 		var loaded: Variant = _load_3d_asset(asset_path)
 		if loaded is Node3D:
+			_apply_gdtf_model_dimensions(loaded, data)
 			return loaded
 		print("[Peraviz] Asset fallback for missing/invalid model: ", asset_path)
 
@@ -107,6 +108,59 @@ func _build_visual_node(data: Dictionary, item_type: String, is_fixture: bool, v
 		return null
 
 	return _create_dummy_mesh(is_fixture, visual_scale_hint)
+
+
+func _apply_gdtf_model_dimensions(model_node: Node3D, data: Dictionary) -> void:
+	if not bool(data.get("has_model_dimensions", false)):
+		return
+
+	var target_size: Vector3 = data.get("model_dimensions_m", Vector3.ZERO)
+	if target_size.x <= 0.0 and target_size.y <= 0.0 and target_size.z <= 0.0:
+		return
+
+	var mesh_bounds: AABB = _compute_local_mesh_bounds(model_node)
+	if mesh_bounds.size.length_squared() <= 1e-10:
+		return
+
+	var sx: float = model_node.scale.x
+	var sy: float = model_node.scale.y
+	var sz: float = model_node.scale.z
+
+	if target_size.x > 0.0 and mesh_bounds.size.x > 1e-6:
+		sx *= target_size.x / mesh_bounds.size.x
+	if target_size.y > 0.0 and mesh_bounds.size.y > 1e-6:
+		sy *= target_size.y / mesh_bounds.size.y
+	if target_size.z > 0.0 and mesh_bounds.size.z > 1e-6:
+		sz *= target_size.z / mesh_bounds.size.z
+
+	model_node.scale = Vector3(sx, sy, sz)
+
+
+func _compute_local_mesh_bounds(root: Node3D) -> AABB:
+	var has_bounds: bool = false
+	var merged: AABB = AABB()
+	var stack: Array[Node3D] = [root]
+
+	while not stack.is_empty():
+		var node: Node3D = stack.pop_back()
+		if node is MeshInstance3D:
+			var mesh_instance := node as MeshInstance3D
+			if mesh_instance.mesh != null:
+				var local_transform_to_root: Transform3D = root.global_transform.affine_inverse() * mesh_instance.global_transform
+				var transformed: AABB = local_transform_to_root * mesh_instance.get_aabb()
+				if not has_bounds:
+					merged = transformed
+					has_bounds = true
+				else:
+					merged = merged.merge(transformed)
+
+		for child in node.get_children():
+			if child is Node3D:
+				stack.push_back(child)
+
+	if not has_bounds:
+		return AABB()
+	return merged
 
 func _extract_visual_scale_hint(data: Dictionary) -> float:
 	if bool(data.get("has_basis", false)):

@@ -9,6 +9,7 @@
 #include <array>
 #include <cctype>
 #include <cstring>
+#include <cstdlib>
 #include <functional>
 #include <sstream>
 #include <unordered_map>
@@ -19,6 +20,14 @@
 namespace {
 
 using peraviz::SceneNode;
+
+struct GdtfModelInfo {
+    std::string file;
+    float length_m = 0.0F;
+    float width_m = 0.0F;
+    float height_m = 0.0F;
+};
+
 std::string lower_ascii(std::string text) {
     std::transform(text.begin(), text.end(), text.begin(), [](unsigned char c) {
         return static_cast<char>(std::tolower(c));
@@ -89,6 +98,25 @@ bool parse_gdtf_4x4_matrix(const char *text, Matrix &out) {
     out.w = std::array<float, 3>{values[2], values[6], values[10]};
     out.o = has_column_translation || !has_row_translation ? column_translation : row_translation;
     return true;
+}
+
+
+
+float read_float_attribute(tinyxml2::XMLElement *node, const char *upper, const char *lower) {
+    const char *value = node->Attribute(upper);
+    if (!value) {
+        value = node->Attribute(lower);
+    }
+    if (!value) {
+        return 0.0F;
+    }
+
+    char *end = nullptr;
+    const float parsed = std::strtof(value, &end);
+    if (end == value) {
+        return 0.0F;
+    }
+    return parsed;
 }
 
 bool is_supported_geometry_tag(const std::string &tag_name) {
@@ -182,7 +210,7 @@ std::vector<SceneNode> build_fixture_geometry_nodes(const GdtfBuildRequest &requ
         return nodes;
     }
 
-    std::unordered_map<std::string, std::string> model_file_by_name;
+    std::unordered_map<std::string, GdtfModelInfo> model_info_by_name;
     if (tinyxml2::XMLElement *models = fixture_type->FirstChildElement("Models")) {
         for (tinyxml2::XMLElement *model = models->FirstChildElement(); model;
              model = model->NextSiblingElement()) {
@@ -190,14 +218,22 @@ std::vector<SceneNode> build_fixture_geometry_nodes(const GdtfBuildRequest &requ
             if (!name) {
                 name = model->Attribute("name");
             }
+            if (!name) {
+                continue;
+            }
+
+            GdtfModelInfo model_info;
             const char *file = model->Attribute("File");
             if (!file) {
                 file = model->Attribute("file");
             }
-            if (!name || !file) {
-                continue;
+            if (file) {
+                model_info.file = file;
             }
-            model_file_by_name[name] = file;
+            model_info.length_m = read_float_attribute(model, "Length", "length");
+            model_info.width_m = read_float_attribute(model, "Width", "width");
+            model_info.height_m = read_float_attribute(model, "Height", "height");
+            model_info_by_name[name] = model_info;
         }
     }
 
@@ -311,9 +347,21 @@ std::vector<SceneNode> build_fixture_geometry_nodes(const GdtfBuildRequest &requ
             model_name = geometry->Attribute("model");
         }
         if (model_name) {
-            auto model_it = model_file_by_name.find(model_name);
-            if (model_it != model_file_by_name.end()) {
-                node.asset_path = gdtf_cache.ensure_gdtf_model_extracted(model_it->second);
+            auto model_it = model_info_by_name.find(model_name);
+            if (model_it != model_info_by_name.end()) {
+                if (!model_it->second.file.empty()) {
+                    node.asset_path = gdtf_cache.ensure_gdtf_model_extracted(model_it->second.file);
+                }
+
+                const bool has_dimensions = model_it->second.length_m > 0.0F ||
+                                            model_it->second.width_m > 0.0F ||
+                                            model_it->second.height_m > 0.0F;
+                if (has_dimensions) {
+                    node.has_model_dimensions = true;
+                    node.model_dimensions_m = {model_it->second.length_m,
+                                               model_it->second.width_m,
+                                               model_it->second.height_m};
+                }
             }
         }
 

@@ -31,6 +31,8 @@ struct SceneNode {
     bool is_fixture = false;
     bool is_axis = false;
     bool is_emitter = false;
+    bool has_model_dimensions = false;
+    Vec3 model_dimensions_m;
 };
 
 struct SceneModel {
