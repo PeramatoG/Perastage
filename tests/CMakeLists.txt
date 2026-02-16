@@ -130,6 +130,20 @@ target_link_libraries(save_load_roundtrip_test PRIVATE
 add_test(NAME SaveLoadRoundtrip COMMAND save_load_roundtrip_test)
 set_library_env(SaveLoadRoundtrip)
 
+add_executable(truss_path_encoding_regression_test
+               truss_path_encoding_regression_test.cpp
+               ../core/projectutils.cpp
+               ../core/trussdictionary.cpp
+               ../core/trussloader.cpp
+               ../core/truss_gdtf_builder.cpp
+               ../core/logger.cpp
+               ../models/truss.cpp)
+target_include_directories(truss_path_encoding_regression_test PRIVATE
+                           . ../core ../models ../third_party)
+target_link_libraries(truss_path_encoding_regression_test PRIVATE
+                      ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
+add_test(NAME TrussPathEncodingRegression COMMAND truss_path_encoding_regression_test)
+
 add_executable(mvr_dmx_address_test mvr_dmx_address_test.cpp
                ../mvr/mvrexporter.cpp
                ../core/configmanager.cpp
