@@ -91,6 +91,20 @@ void AssertTrussSymbolResolved(const std::string &textVariant) {
   assert(fs::exists(fs::u8path(truss.symbolFile)));
 }
 
+void AssertModelTokenDictionaryLookupWorks(const std::string &textVariant) {
+  auto &cfg = ConfigManager::Get();
+  cfg.Reset();
+  assert(RiderImporter::ImportText(textVariant));
+
+  const auto &scene = cfg.GetScene();
+  assert(scene.trusses.size() == 1);
+  const auto &truss = scene.trusses.begin()->second;
+  assert(!truss.model.empty());
+  assert(truss.model == TrussDictionary::NormalizeModelKey("FK40Q"));
+  assert(!truss.symbolFile.empty());
+  assert(fs::exists(fs::u8path(truss.symbolFile)));
+}
+
 } // namespace
 
 int main() {
@@ -127,6 +141,10 @@ int main() {
   AssertTrussSymbolResolved("1 truss 40X40 3M\n");
   AssertTrussSymbolResolved("1 truss 40x40 3m\n");
   AssertTrussSymbolResolved("1 truss   40X40   3M\n");
+
+  TrussDictionary::Update("FK40Q", ToUtf8String(archivePath));
+  AssertModelTokenDictionaryLookupWorks("1 truss FK40Q 3 m para lx1\n");
+  AssertModelTokenDictionaryLookupWorks("1 truss fk40q 3 m para lx1\n");
 
   TrussDictionary::Save({});
   fs::remove_all(tempRoot, ec);
