@@ -166,9 +166,9 @@ func _add_debug_gizmo_for_target(target: Node3D, kind: String, origin_color: Col
 		return
 	var holder := Node3D.new()
 	holder.name = "Gizmo_%s" % kind
+	_debug_gizmos_root.add_child(holder)
 	holder.global_position = _safe_target_global_position(target)
 	holder.add_child(_create_axes_gizmo_node(origin_color, length))
-	_debug_gizmos_root.add_child(holder)
 
 func _create_axes_gizmo_node(origin_color: Color, length: float) -> Node3D:
 	var immediate := ImmediateMesh.new()
