@@ -159,6 +159,26 @@ static fs::path FindFirstExisting(const fs::path &base,
   return {};
 }
 
+static fs::path FindRecursiveByFileName(const fs::path &base,
+                                        const fs::path &fileName) {
+  if (base.empty() || fileName.empty())
+    return {};
+
+  std::error_code ec;
+  if (!fs::exists(base, ec) || ec)
+    return {};
+
+  for (const auto &entry : fs::recursive_directory_iterator(base, ec)) {
+    if (ec)
+      return {};
+    if (!entry.is_regular_file())
+      continue;
+    if (entry.path().filename() == fileName)
+      return entry.path();
+  }
+  return {};
+}
+
 } // namespace
 
 bool LoadTrussGdtf(const std::string &gdtfPath, Truss &outTruss) {
@@ -218,6 +238,14 @@ bool LoadTrussGdtf(const std::string &gdtfPath, Truss &outTruss) {
     fs::path modelPath = FindFirstExisting(baseDir, BuildModelCandidates(fileAttr, ".glb"));
     if (modelPath.empty())
       modelPath = FindFirstExisting(baseDir, BuildModelCandidates(fileAttr, ".3ds"));
+    if (modelPath.empty()) {
+      modelPath = FindRecursiveByFileName(baseDir,
+                                          fs::path(fileAttr).stem().string() + ".glb");
+    }
+    if (modelPath.empty()) {
+      modelPath = FindRecursiveByFileName(baseDir,
+                                          fs::path(fileAttr).stem().string() + ".3ds");
+    }
     if (!modelPath.empty())
       outTruss.symbolFile = ToUtf8String(modelPath);
 
@@ -226,6 +254,10 @@ bool LoadTrussGdtf(const std::string &gdtfPath, Truss &outTruss) {
         {fs::path(fileAttr).stem().string() + ".svg",
          fs::path(fileAttr).string() + ".svg",
          fs::path("models/svg") / (fs::path(fileAttr).stem().string() + ".svg")});
+    if (symbolPath.empty()) {
+      symbolPath = FindRecursiveByFileName(baseDir,
+                                           fs::path(fileAttr).stem().string() + ".svg");
+    }
     if (!symbolPath.empty() && outTruss.symbolFile.empty())
       outTruss.symbolFile = ToUtf8String(symbolPath);
   }
