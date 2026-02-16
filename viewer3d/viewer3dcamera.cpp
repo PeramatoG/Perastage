@@ -38,13 +38,6 @@
 #include <GL/glu.h>
 #endif
 
-namespace {
-void SnapToTargetIfClose(float& current, float target, float epsilon)
-{
-    if (std::fabs(target - current) <= epsilon)
-        current = target;
-}
-}
 
 Viewer3DCamera::Viewer3DCamera()
     : yaw(0.0f), pitch(20.0f), distance(30.0f),
@@ -174,25 +167,17 @@ void Viewer3DCamera::SetOrientation(float y, float p)
 
 void Viewer3DCamera::Update(float dt)
 {
-    const float smoothing = 10.0f;
-    const float alpha = std::clamp(dt * smoothing, 0.0f, 1.0f);
+    (void)dt;
 
-    yaw += (targetYaw - yaw) * alpha;
-    pitch += (targetPitch - pitch) * alpha;
-    distance += (targetDistance - distance) * alpha;
-    targetX += (targetTargetX - targetX) * alpha;
-    targetY += (targetTargetY - targetY) * alpha;
-    targetZ += (targetTargetZ - targetZ) * alpha;
-
-    constexpr float kAngleSnapEpsilon = 0.01f;
-    constexpr float kDistanceSnapEpsilon = 0.001f;
-    constexpr float kTargetSnapEpsilon = 0.0005f;
-    SnapToTargetIfClose(yaw, targetYaw, kAngleSnapEpsilon);
-    SnapToTargetIfClose(pitch, targetPitch, kAngleSnapEpsilon);
-    SnapToTargetIfClose(distance, targetDistance, kDistanceSnapEpsilon);
-    SnapToTargetIfClose(targetX, targetTargetX, kTargetSnapEpsilon);
-    SnapToTargetIfClose(targetY, targetTargetY, kTargetSnapEpsilon);
-    SnapToTargetIfClose(targetZ, targetTargetZ, kTargetSnapEpsilon);
+    // Keep camera updates deterministic and immediate.
+    // This disables interpolation so each interaction delta is applied
+    // exactly once and no residual motion is carried to the next gesture.
+    yaw = targetYaw;
+    pitch = targetPitch;
+    distance = targetDistance;
+    targetX = targetTargetX;
+    targetY = targetTargetY;
+    targetZ = targetTargetZ;
 }
 
 void Viewer3DCamera::Reset()
