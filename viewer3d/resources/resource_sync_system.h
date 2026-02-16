@@ -12,6 +12,21 @@
 #include <unordered_set>
 #include <vector>
 
+struct FixtureSceneNode {
+  std::string stableName;
+  int parentIndex = -1;
+  Matrix localTransform = Matrix{};
+  Matrix worldTransform = Matrix{};
+  bool isAxis = false;
+  bool isEmitter = false;
+};
+
+struct FixtureAnchorRegistryEntry {
+  std::string fixtureRootName;
+  std::vector<FixtureSceneNode> axisNodes;
+  std::vector<FixtureSceneNode> emitterNodes;
+};
+
 struct ResourceSyncState {
   struct PathResolutionEntry {
     std::string resolvedPath;
@@ -20,11 +35,14 @@ struct ResourceSyncState {
 
   std::unordered_map<std::string, Mesh> loadedMeshes;
   std::unordered_map<std::string, std::vector<GdtfObject>> loadedGdtf;
+  std::unordered_map<std::string, GdtfGeometryTree> loadedGdtfGeometryTrees;
   std::unordered_map<std::string, std::string> failedGdtfReasons;
   std::unordered_map<std::string, size_t> reportedGdtfFailureCounts;
   std::unordered_map<std::string, std::string> reportedGdtfFailureReasons;
   std::unordered_map<std::string, PathResolutionEntry> resolvedGdtfSpecs;
   std::unordered_map<std::string, PathResolutionEntry> resolvedModelRefs;
+  std::unordered_map<std::string, std::vector<FixtureSceneNode>> fixtureNodeRegistry;
+  std::unordered_map<std::string, FixtureAnchorRegistryEntry> fixtureAnchorRegistry;
   std::string lastSceneBasePath;
   size_t lastSceneSignature = 0;
   bool hasSceneSignature = false;

@@ -725,12 +725,35 @@ static void ParseGeometry(tinyxml2::XMLElement* node,
                           const std::string& baseDir,
                           const std::unordered_map<std::string, tinyxml2::XMLElement*>& geomMap,
                           std::unordered_map<std::string, Mesh>& meshCache,
-                          std::vector<GdtfObject>& outObjects,
+                          GdtfGeometryTree& outTree,
                           std::unordered_set<std::string>* missingModels,
                           std::unordered_set<std::string>* failedModelLoads,
+                          int parentNodeIndex,
                           const char* overrideModel = nullptr,
                           bool parentIsLens = false)
 {
+    static const std::unordered_set<std::string> kGeometryNodeTypes = {
+        "Geometry", "Axis", "Beam", "MediaServerLayer", "MediaServerCamera",
+        "MediaServerMaster", "Display", "GeometryReference", "Laser",
+        "WiringObject", "Inventory", "Structure", "Support", "Magnet"
+    };
+
+    auto makeStableNodeName = [&](GdtfNodeType nodeType, tinyxml2::XMLElement* currentNode) {
+        const char* nameAttr = currentNode ? currentNode->Attribute("Name") : nullptr;
+        std::string stableToken = (nameAttr && !IsBlank(nameAttr))
+            ? std::string(nameAttr)
+            : std::to_string(outTree.nodes.size());
+        switch (nodeType) {
+            case GdtfNodeType::Axis:
+                return std::string("Axis_") + stableToken;
+            case GdtfNodeType::Emitter:
+                return std::string("Emitter_") + stableToken;
+            case GdtfNodeType::Geometry:
+            default:
+                return std::string("Geometry_") + stableToken;
+        }
+    };
+
     Matrix local = MatrixUtils::Identity();
     if (const char* pos = node->Attribute("Position"))
         MatrixUtils::ParseMatrix(pos, local);
@@ -744,7 +767,9 @@ static void ParseGeometry(tinyxml2::XMLElement* node,
             auto it = geomMap.find(refName);
             if (it != geomMap.end()) {
                 const char* m = node->Attribute("Model");
-                ParseGeometry(it->second, transform, models, baseDir, geomMap, meshCache, outObjects, missingModels, failedModelLoads, m ? m : overrideModel, parentIsLens);
+                ParseGeometry(it->second, transform, models, baseDir, geomMap, meshCache,
+                              outTree, missingModels, failedModelLoads, parentNodeIndex,
+                              m ? m : overrideModel, parentIsLens);
             }
         }
         return;
@@ -752,6 +777,21 @@ static void ParseGeometry(tinyxml2::XMLElement* node,
 
     const char* modelName = overrideModel ? overrideModel : node->Attribute("Model");
     bool isLensGeometry = IsLikelyLensGeometry(node, models, modelName, parentIsLens);
+    GdtfNodeType parsedNodeType = GdtfNodeType::Geometry;
+    if (nodeType == "Axis")
+        parsedNodeType = GdtfNodeType::Axis;
+    else if (nodeType == "Beam" || isLensGeometry)
+        parsedNodeType = GdtfNodeType::Emitter;
+
+    const int currentNodeIndex = static_cast<int>(outTree.nodes.size());
+    GdtfNode3D node3d;
+    node3d.stableName = makeStableNodeName(parsedNodeType, node);
+    node3d.type = parsedNodeType;
+    node3d.parentIndex = parentNodeIndex;
+    node3d.localTransform = local;
+    node3d.worldTransform = transform;
+    node3d.isLens = isLensGeometry;
+
     if (modelName) {
         auto it = models.find(modelName);
         if (it != models.end()) {
@@ -810,20 +850,100 @@ static void ParseGeometry(tinyxml2::XMLElement* node,
                 }
             }
 
-            if (haveMesh)
-                outObjects.push_back({mesh, transform, isLensGeometry});
+            if (haveMesh) {
+                node3d.mesh = mesh;
+                node3d.hasMesh = true;
+            }
         }
     }
 
+    outTree.nodes.push_back(std::move(node3d));
+    if (parsedNodeType == GdtfNodeType::Axis)
+        outTree.axisNodeIndices.push_back(currentNodeIndex);
+    else if (parsedNodeType == GdtfNodeType::Emitter)
+        outTree.emitterNodeIndices.push_back(currentNodeIndex);
+
     for (tinyxml2::XMLElement* child = node->FirstChildElement(); child; child = child->NextSiblingElement()) {
         std::string n = child->Name();
-        if (n == "Geometry" || n == "Axis" || n.rfind("Filter",0)==0 || n=="Beam" ||
-            n=="MediaServerLayer" || n=="MediaServerCamera" || n=="MediaServerMaster" ||
-            n=="Display" || n=="GeometryReference" || n=="Laser" || n=="WiringObject" ||
-            n=="Inventory" || n=="Structure" || n=="Support" || n=="Magnet") {
-            ParseGeometry(child, transform, models, baseDir, geomMap, meshCache, outObjects, missingModels, failedModelLoads, nullptr, isLensGeometry);
+        if (kGeometryNodeTypes.find(n) != kGeometryNodeTypes.end() || n.rfind("Filter",0)==0) {
+            ParseGeometry(child, transform, models, baseDir, geomMap, meshCache, outTree,
+                          missingModels, failedModelLoads, currentNodeIndex, nullptr,
+                          isLensGeometry);
         }
     }
+}
+
+bool LoadGdtfGeometryTree(const std::string& gdtfPath,
+                          GdtfGeometryTree& outTree,
+                          std::string* outError)
+{
+    outTree.nodes.clear();
+    outTree.axisNodeIndices.clear();
+    outTree.emitterNodeIndices.clear();
+
+    std::vector<GdtfObject> outObjects;
+    const bool ok = LoadGdtf(gdtfPath, outObjects, outError);
+    if (!ok)
+        return false;
+
+    bool cachedFailure = false;
+    bool fromCache = false;
+    std::string failureReason;
+    std::string cacheKey;
+    GdtfCacheEntry* entry = GetCachedGdtf(gdtfPath, &cachedFailure, &fromCache,
+                                          &failureReason, &cacheKey);
+    if (!entry || !entry->fixtureType) {
+        if (outError && outError->empty())
+            *outError = failureReason.empty() ? "unknown error" : failureReason;
+        return false;
+    }
+
+    tinyxml2::XMLElement* ft = entry->fixtureType;
+    std::unordered_map<std::string, GdtfModelInfo> models;
+    if (tinyxml2::XMLElement* modelList = ft->FirstChildElement("Models")) {
+        for (tinyxml2::XMLElement* m = modelList->FirstChildElement("Model");
+             m; m = m->NextSiblingElement("Model")) {
+            const char* name = m->Attribute("Name");
+            const char* file = m->Attribute("File");
+            const char* primitiveType = m->Attribute("PrimitiveType");
+            bool hasName = name && !IsBlank(name);
+            bool hasFile = file && !IsBlank(file);
+            std::string primitive = primitiveType ? primitiveType : "";
+            bool hasPrimitive = IsPrimitiveTypeDefined(primitive);
+            if (!hasName || (!hasFile && !hasPrimitive))
+                continue;
+
+            GdtfModelInfo info;
+            if (hasFile)
+                info.file = file;
+            info.primitiveType = primitive;
+            m->QueryFloatAttribute("Length", &info.length);
+            m->QueryFloatAttribute("Width", &info.width);
+            m->QueryFloatAttribute("Height", &info.height);
+            models[name] = info;
+        }
+    }
+
+    std::unordered_map<std::string, Mesh>& meshCache = entry->meshCache;
+    std::unordered_set<std::string>* missingModels = &entry->missingModelsLogged;
+    std::unordered_set<std::string>* failedModelLoads = &entry->failedModelLoads;
+
+    if (tinyxml2::XMLElement* geoms = ft->FirstChildElement("Geometries")) {
+        std::unordered_map<std::string, tinyxml2::XMLElement*> geomMap;
+        for (tinyxml2::XMLElement* g = geoms->FirstChildElement(); g;
+             g = g->NextSiblingElement()) {
+            if (const char* n = g->Attribute("Name"))
+                geomMap[n] = g;
+        }
+        for (tinyxml2::XMLElement* g = geoms->FirstChildElement(); g;
+             g = g->NextSiblingElement()) {
+            ParseGeometry(g, MatrixUtils::Identity(), models, entry->extractedDir,
+                          geomMap, meshCache, outTree, missingModels, failedModelLoads,
+                          -1, nullptr, false);
+        }
+    }
+
+    return !outTree.nodes.empty();
 }
 
 bool LoadGdtf(const std::string& gdtfPath,
@@ -907,6 +1027,7 @@ bool LoadGdtf(const std::string& gdtfPath,
     std::unordered_map<std::string, Mesh>& meshCache = entry->meshCache;
     std::unordered_set<std::string>* missingModels = &entry->missingModelsLogged;
     std::unordered_set<std::string>* failedModelLoads = &entry->failedModelLoads;
+    GdtfGeometryTree geometryTree;
     if (tinyxml2::XMLElement* geoms = ft->FirstChildElement("Geometries")) {
         std::unordered_map<std::string, tinyxml2::XMLElement*> geomMap;
         for (tinyxml2::XMLElement* g = geoms->FirstChildElement(); g; g = g->NextSiblingElement()) {
@@ -914,8 +1035,14 @@ bool LoadGdtf(const std::string& gdtfPath,
                 geomMap[n] = g;
         }
         for (tinyxml2::XMLElement* g = geoms->FirstChildElement(); g; g = g->NextSiblingElement()) {
-            ParseGeometry(g, MatrixUtils::Identity(), models, entry->extractedDir, geomMap, meshCache, outObjects, missingModels, failedModelLoads);
+            ParseGeometry(g, MatrixUtils::Identity(), models, entry->extractedDir, geomMap,
+                          meshCache, geometryTree, missingModels, failedModelLoads, -1);
         }
+    }
+
+    for (const GdtfNode3D& node : geometryTree.nodes) {
+        if (node.hasMesh)
+            outObjects.push_back({node.mesh, node.worldTransform, node.isLens});
     }
 
     if (ConsolePanel::Instance() && !fromCache) {
