@@ -47,6 +47,12 @@ bool is_supported_geometry_tag(const std::string &tag_name) {
            tag_name == "MediaServerMaster" || tag_name.rfind("Filter", 0) == 0;
 }
 
+void convert_translation_m_to_mm(Matrix &matrix) {
+    matrix.o[0] *= 1000.0F;
+    matrix.o[1] *= 1000.0F;
+    matrix.o[2] *= 1000.0F;
+}
+
 Matrix parse_local_matrix(tinyxml2::XMLElement *node) {
     Matrix out = MatrixUtils::Identity();
 
@@ -56,6 +62,11 @@ Matrix parse_local_matrix(tinyxml2::XMLElement *node) {
     }
     if (position) {
         MatrixUtils::ParseMatrix(position, out);
+        // GDTF geometry transforms are authored in meters. The Peraviz scene
+        // graph uses the same matrix utilities as MVR parsing, where
+        // translations are represented in millimeters before conversion to
+        // Godot meters.
+        convert_translation_m_to_mm(out);
         return out;
     }
 
@@ -65,6 +76,7 @@ Matrix parse_local_matrix(tinyxml2::XMLElement *node) {
     }
     if (matrix_attr) {
         MatrixUtils::ParseMatrix(matrix_attr, out);
+        convert_translation_m_to_mm(out);
         return out;
     }
 
@@ -75,6 +87,7 @@ Matrix parse_local_matrix(tinyxml2::XMLElement *node) {
     if (matrix) {
         if (const char *text = matrix->GetText()) {
             MatrixUtils::ParseMatrix(text, out);
+            convert_translation_m_to_mm(out);
         }
     }
     return out;
