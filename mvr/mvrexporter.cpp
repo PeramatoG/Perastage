@@ -41,6 +41,7 @@ class wxZipStreamLink;
 #include <sstream>
 #include <unordered_set>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 namespace fs = std::filesystem;
@@ -808,11 +809,38 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
   // ---- Layers ----
   tinyxml2::XMLElement *layersNode = doc.NewElement("Layers");
 
+  std::unordered_set<std::string> usedFixtureUuids;
+
   auto exportFixture = [&](tinyxml2::XMLElement *parent, const Fixture &f) {
     tinyxml2::XMLElement *fe = doc.NewElement("Fixture");
-    fe->SetAttribute("uuid", f.uuid.c_str());
-    if (!f.instanceName.empty())
-      fe->SetAttribute("name", f.instanceName.c_str());
+
+    std::string stableUuid = CanonicalizeUuid(f.uuid);
+    const std::string seed = "mvr-export-fixture:" + f.uuid + ":" +
+                             f.instanceName + ":" +
+                             MatrixUtils::FormatMatrix(f.transform);
+    if (stableUuid.empty()) {
+      wxLogWarning(
+          "Fixture '%s' has non-canonical UUID '%s'. Applying deterministic fallback UUID for export.",
+          f.instanceName.c_str(), f.uuid.c_str());
+      stableUuid = DeriveDeterministicUuid(seed);
+    }
+    if (usedFixtureUuids.contains(stableUuid)) {
+      wxLogWarning(
+          "Fixture UUID collision detected during export for '%s' (uuid=%s). Applying controlled fallback UUID.",
+          f.instanceName.c_str(), stableUuid.c_str());
+      int suffix = 1;
+      std::string candidate;
+      do {
+        candidate =
+            DeriveDeterministicUuid(seed + "#" + std::to_string(suffix++));
+      } while (usedFixtureUuids.contains(candidate));
+      stableUuid = std::move(candidate);
+    }
+    usedFixtureUuids.insert(stableUuid);
+
+    fe->SetAttribute("uuid", stableUuid.c_str());
+    const std::string fixtureRootName = "Fixture_" + stableUuid;
+    fe->SetAttribute("name", fixtureRootName.c_str());
 
     auto addInt = [&](const char *n, int v) {
       if (v != 0) {
@@ -918,6 +946,31 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     tinyxml2::XMLElement *mat = doc.NewElement("Matrix");
     mat->SetText(mstr.c_str());
     fe->InsertEndChild(mat);
+
+    tinyxml2::XMLElement *ud = doc.NewElement("UserData");
+    tinyxml2::XMLElement *data = doc.NewElement("Data");
+    data->SetAttribute("provider", "Perastage");
+    data->SetAttribute("ver", "1.0");
+    tinyxml2::XMLElement *info = doc.NewElement("FixtureInfo");
+    info->SetAttribute("uuid", stableUuid.c_str());
+
+    tinyxml2::XMLElement *stableIdNode = doc.NewElement("StableId");
+    stableIdNode->SetText(stableUuid.c_str());
+    info->InsertEndChild(stableIdNode);
+
+    tinyxml2::XMLElement *scriptNode = doc.NewElement("Script");
+    scriptNode->SetText(fixtureRootName.c_str());
+    info->InsertEndChild(scriptNode);
+
+    if (!f.instanceName.empty()) {
+      tinyxml2::XMLElement *instanceName = doc.NewElement("InstanceName");
+      instanceName->SetText(f.instanceName.c_str());
+      info->InsertEndChild(instanceName);
+    }
+
+    data->InsertEndChild(info);
+    ud->InsertEndChild(data);
+    fe->InsertEndChild(ud);
 
     parent->InsertEndChild(fe);
   };

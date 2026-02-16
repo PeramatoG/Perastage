@@ -22,3 +22,10 @@
 
 // Generate a random UUID4 string
 std::string GenerateUuid();
+
+// Returns the lowercase canonical UUID form (8-4-4-4-12) or empty string if
+// the input cannot be interpreted as a UUID.
+std::string CanonicalizeUuid(const std::string &rawUuid);
+
+// Builds a deterministic UUID from a stable seed string.
+std::string DeriveDeterministicUuid(const std::string &seed);

@@ -152,12 +152,36 @@ int main() {
           assert(numericIds.insert(value).second);
 
           if (std::string(cur->Name()) == "Fixture") {
+            const char *uuidAttr = cur->Attribute("uuid");
+            const char *nameAttr = cur->Attribute("name");
+            assert(uuidAttr != nullptr);
+            assert(nameAttr != nullptr);
+            std::string fixtureUuid = uuidAttr;
+            std::string fixtureNodeName = nameAttr;
+            assert(fixtureNodeName == "Fixture_" + fixtureUuid);
+
             auto *unitNode = cur->FirstChildElement("UnitNumber");
             if (unitNode) {
               assert(unitNode->GetText() != nullptr);
               int unitValue = std::stoi(unitNode->GetText());
               assert(unitValue != value);
             }
+
+            auto *ud = cur->FirstChildElement("UserData");
+            assert(ud != nullptr);
+            auto *data = ud->FirstChildElement("Data");
+            assert(data != nullptr);
+            auto *info = data->FirstChildElement("FixtureInfo");
+            assert(info != nullptr);
+            const char *metaUuid = info->Attribute("uuid");
+            assert(metaUuid != nullptr);
+            assert(std::string(metaUuid) == fixtureUuid);
+            auto *stableIdNode = info->FirstChildElement("StableId");
+            assert(stableIdNode != nullptr && stableIdNode->GetText() != nullptr);
+            assert(std::string(stableIdNode->GetText()) == fixtureUuid);
+            auto *scriptNode = info->FirstChildElement("Script");
+            assert(scriptNode != nullptr && scriptNode->GetText() != nullptr);
+            assert(std::string(scriptNode->GetText()) == fixtureNodeName);
 
             auto *addresses = cur->FirstChildElement("Addresses");
             assert(addresses != nullptr);
