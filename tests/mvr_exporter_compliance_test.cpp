@@ -83,6 +83,13 @@ int main() {
   tr.modelFile = (tempDir / "models" / "truss_model.3ds").string();
   scene.trusses[tr.uuid] = tr;
 
+  Truss trNonNumeric;
+  trNonNumeric.uuid = "tr-2";
+  trNonNumeric.name = "TRUSS 2M";
+  trNonNumeric.symbolFile = "mesh.3ds";
+  trNonNumeric.modelFile = (tempDir / "models" / "truss_model.3ds").string();
+  scene.trusses[trNonNumeric.uuid] = trNonNumeric;
+
   Support sup;
   sup.uuid = "sup-1";
   sup.name = "Hoist 1";
@@ -134,6 +141,7 @@ int main() {
   bool sawAddress1025 = false;
   bool sawAddress2681 = false;
   bool sawSafeModelFile = false;
+  bool sawNonNumericTrussNameFixtureIdConsistency = false;
   for (const char *tagName : {"Fixture", "Truss", "Support"}) {
     for (tinyxml2::XMLElement *node = root->FirstChildElement(); node;
          node = node->NextSiblingElement()) {
@@ -223,6 +231,12 @@ int main() {
             assert(modelFileText.front() != '/');
             assert(modelFileText.front() != '\\');
             sawSafeModelFile = true;
+
+            const char *trussUuid = cur->Attribute("uuid");
+            if (trussUuid != nullptr && std::string(trussUuid) == trNonNumeric.uuid) {
+              sawNonNumericTrussNameFixtureIdConsistency =
+                  fixtureIdText == std::to_string(value);
+            }
           }
 
           if (auto *gdtf = cur->FirstChildElement("GDTFSpec"); gdtf && gdtf->GetText()) {
@@ -249,6 +263,7 @@ int main() {
   assert(sawAddress1025);
   assert(sawAddress2681);
   assert(sawSafeModelFile);
+  assert(sawNonNumericTrussNameFixtureIdConsistency);
 
   for (const auto &name : entries) {
     assert(name.rfind("gdtf/", 0) != 0);

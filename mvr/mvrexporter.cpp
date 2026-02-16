@@ -1058,10 +1058,9 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     };
     auto idIt = assignedIds.find(t.uuid);
     int fixtureNumericId = (idIt != assignedIds.end()) ? idIt->second.second : 0;
-    std::string fixtureId =
-        (idIt != assignedIds.end()) ? idIt->second.first : std::to_string(fixtureNumericId);
-    if (fixtureId.empty())
-      fixtureId = std::to_string(fixtureNumericId);
+    if (fixtureNumericId <= 0)
+      fixtureNumericId = 1;
+    std::string fixtureId = std::to_string(fixtureNumericId);
     addStr("FixtureID", fixtureId);
     addInt("FixtureIDNumeric", fixtureNumericId);
     addInt("UnitNumber", t.unitNumber);
