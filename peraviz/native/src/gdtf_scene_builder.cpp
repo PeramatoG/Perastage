@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <filesystem>
 #include <functional>
 #include <unordered_map>
 #include <vector>
@@ -45,6 +46,22 @@ bool is_supported_geometry_tag(const std::string &tag_name) {
            tag_name == "Magnet" || tag_name == "Display" ||
            tag_name == "MediaServerLayer" || tag_name == "MediaServerCamera" ||
            tag_name == "MediaServerMaster" || tag_name.rfind("Filter", 0) == 0;
+}
+
+std::string infer_asset_kind_from_path(const std::string &asset_path) {
+    if (asset_path.empty()) {
+        return "none";
+    }
+
+    std::filesystem::path path = std::filesystem::u8path(asset_path);
+    std::string extension = lower_ascii(path.extension().u8string());
+    if (extension == ".3ds") {
+        return "mesh";
+    }
+    if (extension == ".glb" || extension == ".gltf") {
+        return "scene";
+    }
+    return "none";
 }
 
 void convert_translation_m_to_mm(Matrix &matrix) {
@@ -254,6 +271,7 @@ std::vector<SceneNode> build_fixture_geometry_nodes(const GdtfBuildRequest &requ
         node.parent_id = geometry_parent_id;
         node.name = geometry_name;
         node.type = "fixture_geometry";
+        node.node_class = "fixture_geometry";
         node.is_fixture = true;
         node.is_axis = looks_like_axis(geometry->Name(), geometry_name);
         node.is_emitter = looks_like_emitter(geometry->Name(), geometry_name);
@@ -269,6 +287,7 @@ std::vector<SceneNode> build_fixture_geometry_nodes(const GdtfBuildRequest &requ
                 node.asset_path = gdtf_cache.ensure_gdtf_model_extracted(model_it->second);
             }
         }
+        node.asset_kind = infer_asset_kind_from_path(node.asset_path);
 
         nodes.push_back(node);
 

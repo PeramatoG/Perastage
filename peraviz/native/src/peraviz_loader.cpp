@@ -37,6 +37,8 @@ Array PeravizLoader::load_mvr(const String &path) const {
         d["parent_id"] = String(node.parent_id.c_str());
         d["name"] = String(node.name.c_str());
         d["type"] = String(node.type.c_str());
+        d["class"] = String(node.node_class.c_str());
+        d["asset_kind"] = String(node.asset_kind.c_str());
         d["asset_path"] = String(node.asset_path.c_str());
         d["is_fixture"] = node.is_fixture;
         d["is_axis"] = node.is_axis;
