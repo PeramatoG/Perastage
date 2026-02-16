@@ -182,7 +182,8 @@ ResourceSyncResult ResourceSyncSystem::Sync(
     const std::string key = ResolveCacheKey(spec);
     auto [it, inserted] =
         state.resolvedGdtfSpecs.try_emplace(key, ResourceSyncState::PathResolutionEntry{});
-    if (!inserted && it->second.attempted)
+    if (!inserted && it->second.attempted && !it->second.resolvedPath.empty() &&
+        fs::exists(fs::u8path(it->second.resolvedPath)))
       return;
     it->second.resolvedPath = ResolveGdtfPath(basePath, spec, true);
     it->second.attempted = true;
@@ -194,7 +195,8 @@ ResourceSyncResult ResourceSyncSystem::Sync(
     const std::string key = ResolveCacheKey(modelRef);
     auto [it, inserted] =
         state.resolvedModelRefs.try_emplace(key, ResourceSyncState::PathResolutionEntry{});
-    if (!inserted && it->second.attempted)
+    if (!inserted && it->second.attempted && !it->second.resolvedPath.empty() &&
+        fs::exists(fs::u8path(it->second.resolvedPath)))
       return;
     it->second.resolvedPath = ResolveModelPath(basePath, modelRef, true);
     it->second.attempted = true;
