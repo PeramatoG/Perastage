@@ -38,6 +38,14 @@
 #include <GL/glu.h>
 #endif
 
+namespace {
+void SnapToTargetIfClose(float& current, float target, float epsilon)
+{
+    if (std::fabs(target - current) <= epsilon)
+        current = target;
+}
+}
+
 Viewer3DCamera::Viewer3DCamera()
     : yaw(0.0f), pitch(20.0f), distance(30.0f),
     targetX(0.0f), targetY(0.0f), targetZ(0.0f),
@@ -175,6 +183,16 @@ void Viewer3DCamera::Update(float dt)
     targetX += (targetTargetX - targetX) * alpha;
     targetY += (targetTargetY - targetY) * alpha;
     targetZ += (targetTargetZ - targetZ) * alpha;
+
+    constexpr float kAngleSnapEpsilon = 0.01f;
+    constexpr float kDistanceSnapEpsilon = 0.001f;
+    constexpr float kTargetSnapEpsilon = 0.0005f;
+    SnapToTargetIfClose(yaw, targetYaw, kAngleSnapEpsilon);
+    SnapToTargetIfClose(pitch, targetPitch, kAngleSnapEpsilon);
+    SnapToTargetIfClose(distance, targetDistance, kDistanceSnapEpsilon);
+    SnapToTargetIfClose(targetX, targetTargetX, kTargetSnapEpsilon);
+    SnapToTargetIfClose(targetY, targetTargetY, kTargetSnapEpsilon);
+    SnapToTargetIfClose(targetZ, targetTargetZ, kTargetSnapEpsilon);
 }
 
 void Viewer3DCamera::Reset()
