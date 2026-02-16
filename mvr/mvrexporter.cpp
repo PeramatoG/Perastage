@@ -20,6 +20,7 @@
 #include "matrixutils.h"
 #include "support.h"
 #include "uuidutils.h"
+#include "truss_gdtf_builder.h"
 
 #include <wx/wfstream.h>
 #include <wx/wx.h>
@@ -115,18 +116,40 @@ static std::string SanitizeArchiveFileName(const std::string &input,
   return fs::path(candidate).filename().generic_string();
 }
 
+
+static std::string SlugifyArchiveName(const std::string &input) {
+  std::string out;
+  out.reserve(input.size());
+  bool lastUnderscore = false;
+  for (unsigned char c : input) {
+    if (std::isalnum(c) != 0) {
+      out.push_back(static_cast<char>(std::tolower(c)));
+      lastUnderscore = false;
+    } else if (!lastUnderscore) {
+      out.push_back('_');
+      lastUnderscore = true;
+    }
+  }
+  while (!out.empty() && out.front() == '_')
+    out.erase(out.begin());
+  while (!out.empty() && out.back() == '_')
+    out.pop_back();
+  return out;
+}
+
 static bool IsValidMvrFileName(const std::string &value) {
   if (value.empty())
+    return false;
+  if (value.front() == '/' || value.find("..") != std::string::npos)
     return false;
   for (unsigned char c : value) {
     if (c < 32)
       return false;
   }
-  return value.find(':') == std::string::npos && value.find('/') == std::string::npos &&
-         value.find('\\') == std::string::npos && value.find('*') == std::string::npos &&
-         value.find('?') == std::string::npos && value.find('"') == std::string::npos &&
-         value.find('<') == std::string::npos && value.find('>') == std::string::npos &&
-         value.find('|') == std::string::npos;
+  return value.find(':') == std::string::npos && value.find('\\') == std::string::npos &&
+         value.find('*') == std::string::npos && value.find('?') == std::string::npos &&
+         value.find('"') == std::string::npos && value.find('<') == std::string::npos &&
+         value.find('>') == std::string::npos && value.find('|') == std::string::npos;
 }
 
 static bool ValidateMvr16Export(
@@ -661,12 +684,15 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
   };
 
   auto registerGdtfResource = [&](const std::string &objectUuid,
-                                  const std::string &rawGdtfPath) -> std::string {
+                                  const std::string &rawGdtfPath,
+                                  const std::string &preferredName) -> std::string {
     if (rawGdtfPath.empty())
       return {};
 
-    std::string baseName = SanitizeArchiveFileName(rawGdtfPath, "fixture.gdtf");
-    std::string archivePath = registerResource(rawGdtfPath, baseName);
+    std::string fileName = preferredName;
+    if (fileName.empty())
+      fileName = SanitizeArchiveFileName(rawGdtfPath, "fixture.gdtf");
+    std::string archivePath = registerResource(rawGdtfPath, "gdtf/" + fileName);
     if (!objectUuid.empty() && !archivePath.empty())
       gdtfArchiveByObjectUuid[objectUuid] = archivePath;
     return archivePath;
@@ -839,8 +865,9 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     usedFixtureUuids.insert(stableUuid);
 
     fe->SetAttribute("uuid", stableUuid.c_str());
-    const std::string fixtureRootName = "Fixture_" + stableUuid;
-    fe->SetAttribute("name", fixtureRootName.c_str());
+    const std::string fixtureExportName =
+        TrimAscii(f.instanceName).empty() ? "Fixture" : TrimAscii(f.instanceName);
+    fe->SetAttribute("name", fixtureExportName.c_str());
 
     auto addInt = [&](const char *n, int v) {
       if (v != 0) {
@@ -876,7 +903,10 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
       addInt("UnitNumber", f.unitNumber);
     addInt("CustomId", f.customId);
     addInt("CustomIdType", f.customIdType);
-    std::string fixtureGdtfArchivePath = registerGdtfResource(f.uuid, f.gdtfSpec);
+    std::string fixtureSlug = SlugifyArchiveName(f.typeName);
+    std::string fixtureFallback = SanitizeArchiveFileName(f.gdtfSpec, "fixture.gdtf");
+    std::string fixtureName = fixtureSlug.empty() ? fixtureFallback : (fixtureSlug + ".gdtf");
+    std::string fixtureGdtfArchivePath = registerGdtfResource(f.uuid, f.gdtfSpec, fixtureName);
     addStr("GDTFSpec", fixtureGdtfArchivePath);
     if (!f.gdtfSpec.empty() &&
         (!f.color.empty() || f.weightKg != 0.0f ||
@@ -959,7 +989,7 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     info->InsertEndChild(stableIdNode);
 
     tinyxml2::XMLElement *scriptNode = doc.NewElement("Script");
-    scriptNode->SetText(fixtureRootName.c_str());
+    scriptNode->SetText(fixtureExportName.c_str());
     info->InsertEndChild(scriptNode);
 
     if (!f.instanceName.empty()) {
@@ -1007,16 +1037,30 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     addInt("CustomId", t.customId);
     addInt("CustomIdType", t.customIdType);
 
-    std::string trussGdtfArchivePath = registerGdtfResource(t.uuid, t.gdtfSpec);
+    std::string trussSourceGdtf = t.gdtfSpec;
+    if (trussSourceGdtf.empty() && fs::path(t.modelFile).extension() == ".gdtf")
+      trussSourceGdtf = t.modelFile;
+
+    if (trussSourceGdtf.empty()) {
+      fs::path tempPath = fs::temp_directory_path() /
+                          ("perastage-truss-export-" + (t.uuid.empty() ? std::string("truss") : t.uuid) + ".gdtf");
+      std::string conversionError;
+      if (BuildTrussGdtfFromInstance(t, tempPath, &conversionError)) {
+        trussSourceGdtf = tempPath.string();
+      }
+    }
+
+    std::string trussSlug = SlugifyArchiveName(t.model.empty() ? t.name : t.model);
+    std::string trussPreferredName = trussSlug.empty() ? "truss.gdtf" : (trussSlug + ".gdtf");
+    std::string trussGdtfArchivePath = registerGdtfResource(t.uuid, trussSourceGdtf, trussPreferredName);
     if (!trussGdtfArchivePath.empty()) {
       tinyxml2::XMLElement *e = doc.NewElement("GDTFSpec");
       e->SetText(trussGdtfArchivePath.c_str());
       te->InsertEndChild(e);
-    }
-    if (!t.gdtfMode.empty()) {
-      tinyxml2::XMLElement *e = doc.NewElement("GDTFMode");
-      e->SetText(t.gdtfMode.c_str());
-      te->InsertEndChild(e);
+
+      tinyxml2::XMLElement *modeElement = doc.NewElement("GDTFMode");
+      modeElement->SetText(t.gdtfMode.empty() ? "Default" : t.gdtfMode.c_str());
+      te->InsertEndChild(modeElement);
     }
     if (!t.function.empty()) {
       tinyxml2::XMLElement *e = doc.NewElement("Function");
@@ -1039,25 +1083,20 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     }
 
     if (!t.symbolFile.empty()) {
-      tinyxml2::XMLElement *geos = doc.NewElement("Geometries");
-      tinyxml2::XMLElement *g3d = doc.NewElement("Geometry3D");
-      std::string symbolArchivePath = registerResource(
-          t.symbolFile,
-          SanitizeArchiveFileName(t.symbolFile, "truss.3ds"));
-      g3d->SetAttribute("fileName", symbolArchivePath.c_str());
-      geos->InsertEndChild(g3d);
-      te->InsertEndChild(geos);
-      registerResource(
-          t.symbolFile,
-          SanitizeArchiveFileName(t.symbolFile, "truss.3ds"));
+      std::string ext = fs::path(t.symbolFile).extension().string();
+      std::transform(ext.begin(), ext.end(), ext.begin(),
+                     [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+      if (ext == ".3ds" || ext == ".glb") {
+        tinyxml2::XMLElement *geos = doc.NewElement("Geometries");
+        tinyxml2::XMLElement *g3d = doc.NewElement("Geometry3D");
+        std::string symbolArchivePath = registerResource(
+            t.symbolFile,
+            SanitizeArchiveFileName(t.symbolFile, "truss.3ds"));
+        g3d->SetAttribute("fileName", symbolArchivePath.c_str());
+        geos->InsertEndChild(g3d);
+        te->InsertEndChild(geos);
+      }
     }
-    if (!t.modelFile.empty()) {
-      std::string modelArchivePath = registerResource(
-          t.modelFile,
-          SanitizeArchiveFileName(t.modelFile, "truss-model.bin"));
-      (void)modelArchivePath;
-    }
-
     std::string mstr = MatrixUtils::FormatMatrix(t.transform);
     tinyxml2::XMLElement *mat = doc.NewElement("Matrix");
     mat->SetText(mstr.c_str());
@@ -1137,7 +1176,7 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     addStr("FixtureID", fixtureId);
     addInt("FixtureIDNumeric", fixtureNumericId);
 
-    std::string supportGdtfArchivePath = registerGdtfResource(s.uuid, s.gdtfSpec);
+    std::string supportGdtfArchivePath = registerGdtfResource(s.uuid, s.gdtfSpec, "");
     if (!supportGdtfArchivePath.empty())
       addStr("GDTFSpec", supportGdtfArchivePath);
     addStr("GDTFMode", s.gdtfMode);

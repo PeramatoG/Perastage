@@ -341,7 +341,7 @@ void TrussTablePanel::OnContextMenu(wxDataViewEvent& event)
         wxString trussDir =
             wxString::FromUTF8(ProjectUtils::GetDefaultLibraryPath("trusses"));
         wxFileDialog fdlg(this, "Select Truss Model", trussDir, wxEmptyString,
-                          "Truss files (*.gtruss;*.3ds;*.glb)|*.gtruss;*.3ds;*.glb|All files|*.*",
+                          "Truss files (*.gdtf;*.gtruss;*.3ds;*.glb)|*.gdtf;*.gtruss;*.3ds;*.glb|All files|*.*",
                           wxFD_OPEN | wxFD_FILE_MUST_EXIST);
         if (fdlg.ShowModal() == wxID_OK)
         {
@@ -363,10 +363,10 @@ void TrussTablePanel::OnContextMenu(wxDataViewEvent& event)
                 modelKey = std::string(modelNameWx.ToUTF8());
             }
 
-            if (fs::path(archivePath).extension() == ".gtruss" &&
-                LoadTrussArchive(archivePath, parsed))
+            if (LoadTrussDefinition(archivePath, parsed))
             {
-                geomPath = parsed.symbolFile;
+                if (!parsed.symbolFile.empty())
+                    geomPath = parsed.symbolFile;
                 manuf = wxString::FromUTF8(parsed.manufacturer);
                 modelNameWx = wxString::FromUTF8(parsed.model);
                 lenStr = wxString::Format("%.2f", parsed.lengthMm / 1000.0f);

@@ -31,10 +31,6 @@
 #include <wx/wfstream.h>
 #include <wx/zipstrm.h>
 
-#include "json.hpp"
-
-using json = nlohmann::json;
-
 #include "configmanager.h"
 #include "guiconfigservices.h"
 #include "consolepanel.h"
@@ -51,6 +47,7 @@ using json = nlohmann::json;
 #include "ridertextdialog.h"
 #include "sceneobjecttablepanel.h"
 #include "tableprinter.h"
+#include "truss_gdtf_builder.h"
 #include "trusstablepanel.h"
 #include "viewer2dpanel.h"
 #include "viewer2drenderpanel.h"
@@ -223,7 +220,8 @@ void MainWindow::OnExportTruss(wxCommandEvent &WXUNUSED(event)) {
   wxString trussDir =
       wxString::FromUTF8(ProjectUtils::GetDefaultLibraryPath("trusses"));
   wxFileDialog saveDlg(this, "Save Truss", trussDir,
-                       wxString::FromUTF8(sel) + ".gtruss", "*.gtruss",
+                       wxString::FromUTF8(sel) + ".gdtf",
+                       "GDTF files (*.gdtf)|*.gdtf",
                        wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
   if (saveDlg.ShowModal() != wxID_OK)
     return;
@@ -238,42 +236,15 @@ void MainWindow::OnExportTruss(wxCommandEvent &WXUNUSED(event)) {
     return;
   }
 
-  wxFileOutputStream out(std::string(saveDlg.GetPath().mb_str()));
-  if (!out.IsOk()) {
-    wxMessageBox("Failed to write file.", "Error", wxOK | wxICON_ERROR);
+  Truss exportTruss = *chosen;
+  exportTruss.symbolFile = modelPath;
+  std::string error;
+  if (!BuildTrussGdtfFromInstance(
+          exportTruss, std::string(saveDlg.GetPath().mb_str()), &error)) {
+    wxMessageBox(error.empty() ? "Failed to export truss GDTF." : error,
+                 "Error", wxOK | wxICON_ERROR);
     return;
   }
-
-  wxZipOutputStream zip(out);
-  json j = {
-      {"Name", chosen->name},          {"Manufacturer", chosen->manufacturer},
-      {"Model", chosen->model},        {"Length_mm", chosen->lengthMm},
-      {"Width_mm", chosen->widthMm},   {"Height_mm", chosen->heightMm},
-      {"Weight_kg", chosen->weightKg}, {"CrossSection", chosen->crossSection}};
-  std::string meta = j.dump(2);
-  auto *metaEntry = new wxZipEntry("Truss.json");
-  metaEntry->SetMethod(wxZIP_METHOD_DEFLATE);
-  zip.PutNextEntry(metaEntry);
-  zip.Write(meta.c_str(), meta.size());
-
-  fs::path mp(modelPath);
-  auto *modelEntry = new wxZipEntry(mp.filename().string());
-  modelEntry->SetMethod(wxZIP_METHOD_DEFLATE);
-  zip.PutNextEntry(modelEntry);
-  std::ifstream modelIn(modelPath, std::ios::binary);
-  if (!modelIn.is_open()) {
-    wxMessageBox("Failed to read model file.", "Error", wxOK | wxICON_ERROR);
-    return;
-  }
-  char buffer[4096];
-  while (true) {
-    modelIn.read(buffer, sizeof(buffer));
-    std::streamsize bytes = modelIn.gcount();
-    if (bytes <= 0)
-      break;
-    zip.Write(buffer, bytes);
-  }
-  modelIn.close();
 
   wxMessageBox("Truss exported successfully.", "Export Truss",
                wxOK | wxICON_INFORMATION);

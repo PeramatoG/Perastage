@@ -1075,7 +1075,7 @@ void MainWindow::OnAddTruss(wxCommandEvent &WXUNUSED(event)) {
       wxString trussDir =
           wxString::FromUTF8(ProjectUtils::GetDefaultLibraryPath("trusses"));
       wxFileDialog fdlg(this, "Select Truss file", trussDir, wxEmptyString,
-                        "*.gtruss", wxFD_OPEN | wxFD_FILE_MUST_EXIST);
+                        "Truss files (*.gdtf;*.gtruss;*.3ds;*.glb)|*.gdtf;*.gtruss;*.3ds;*.glb|All files|*.*", wxFD_OPEN | wxFD_FILE_MUST_EXIST);
       if (fdlg.ShowModal() != wxID_OK)
         return;
       wxFileName fn(fdlg.GetPath());
@@ -1092,7 +1092,7 @@ void MainWindow::OnAddTruss(wxCommandEvent &WXUNUSED(event)) {
     wxString trussDir =
         wxString::FromUTF8(ProjectUtils::GetDefaultLibraryPath("trusses"));
     wxFileDialog fdlg(this, "Select Truss file", trussDir, wxEmptyString,
-                      "*.gtruss", wxFD_OPEN | wxFD_FILE_MUST_EXIST);
+                      "Truss files (*.gdtf;*.gtruss;*.3ds;*.glb)|*.gdtf;*.gtruss;*.3ds;*.glb|All files|*.*", wxFD_OPEN | wxFD_FILE_MUST_EXIST);
     if (fdlg.ShowModal() != wxID_OK)
       return;
     wxFileName fn(fdlg.GetPath());
@@ -1102,17 +1102,12 @@ void MainWindow::OnAddTruss(wxCommandEvent &WXUNUSED(event)) {
 
   Truss baseTruss;
   namespace fs = std::filesystem;
-  if (fs::path(path).extension() == ".gtruss") {
-    if (!LoadTrussArchive(path, baseTruss)) {
-      wxMessageBox("Failed to read truss file.", "Error", wxOK | wxICON_ERROR);
-      return;
-    }
-    if (!baseTruss.name.empty())
-      defaultName = baseTruss.name;
-  } else {
-    baseTruss.symbolFile = path;
-    baseTruss.modelFile = path;
+  if (!LoadTrussDefinition(path, baseTruss)) {
+    wxMessageBox("Failed to read truss file.", "Error", wxOK | wxICON_ERROR);
+    return;
   }
+  if (!baseTruss.name.empty())
+    defaultName = baseTruss.name;
 
   long qty = wxGetNumberFromUser("Enter truss quantity:", wxEmptyString,
                                  "Add Truss", 1, 1, 1000, this);

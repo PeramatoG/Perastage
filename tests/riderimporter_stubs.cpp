@@ -16,12 +16,14 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include <string>
+#include <filesystem>
 #include <optional>
 #include <unordered_map>
 
 #include "gdtfdictionary.h"
 #include "trussdictionary.h"
 #include "trussloader.h"
+#include "truss_gdtf_builder.h"
 #include "pdftext.h"
 #include "mvrimporter.h"
 #include "mvrexporter.h"
@@ -41,6 +43,7 @@ std::optional<std::unordered_map<std::string, std::string>> Load() { return std:
 void Save(const std::unordered_map<std::string, std::string> &) {}
 std::optional<std::string> Get(const std::string &) { return std::nullopt; }
 void Update(const std::string &, const std::string &) {}
+bool ImportTrussFile(const std::string &, std::string &, std::string &) { return false; }
 }
 
 bool LoadTrussArchive(const std::string &, Truss &) { return false; }
@@ -48,3 +51,9 @@ bool LoadTrussArchive(const std::string &, Truss &) { return false; }
 bool MvrImporter::ImportFromFile(const std::string &, bool, bool) { return false; }
 bool MvrImporter::ImportAndRegister(const std::string &, bool, bool) { return false; }
 bool MvrExporter::ExportToFile(const std::string &) { return false; }
+
+
+bool LoadTrussGdtf(const std::string &, Truss &) { return false; }
+bool LoadTrussDefinition(const std::string &, Truss &) { return false; }
+bool ConvertLegacyGtrussToGdtf(const std::filesystem::path &, const std::filesystem::path &, std::string *) { return false; }
+bool BuildTrussGdtfFromInstance(const Truss &, const std::filesystem::path &, std::string *) { return false; }

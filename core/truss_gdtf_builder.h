@@ -17,10 +17,15 @@
  */
 #pragma once
 
+#include <filesystem>
 #include <string>
 
 #include "truss.h"
 
-bool LoadTrussGdtf(const std::string &gdtfPath, Truss &outTruss);
-bool LoadTrussArchive(const std::string &archivePath, Truss &outTruss);
-bool LoadTrussDefinition(const std::string &path, Truss &outTruss);
+bool ConvertLegacyGtrussToGdtf(const std::filesystem::path &gtrussPath,
+                               const std::filesystem::path &outGdtfPath,
+                               std::string *outError);
+
+bool BuildTrussGdtfFromInstance(const Truss &truss,
+                                const std::filesystem::path &outGdtfPath,
+                                std::string *outError);

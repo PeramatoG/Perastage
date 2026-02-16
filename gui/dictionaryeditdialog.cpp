@@ -326,7 +326,7 @@ void DictionaryEditDialog::OnAdd(wxCommandEvent &WXUNUSED(event)) {
     wxString trussDir =
         wxString::FromUTF8(ProjectUtils::GetDefaultLibraryPath("trusses"));
     wxFileDialog fdlg(this, "Select Truss file", trussDir, wxEmptyString,
-                      "Truss files (*.gtruss;*.3ds;*.glb)|*.gtruss;*.3ds;*.glb|All files|*.*",
+                      "Truss files (*.gdtf;*.gtruss;*.3ds;*.glb)|*.gdtf;*.gtruss;*.3ds;*.glb|All files|*.*",
                       wxFD_OPEN | wxFD_FILE_MUST_EXIST);
     if (fdlg.ShowModal() != wxID_OK)
       return;
@@ -455,7 +455,7 @@ void DictionaryEditDialog::OnItemActivated(wxDataViewEvent &event) {
     wxFileDialog fdlg(this, "Select Truss file",
                       wxString::FromUTF8(ProjectUtils::GetDefaultLibraryPath("trusses")),
                       wxEmptyString,
-                      "Truss files (*.gtruss;*.3ds;*.glb)|*.gtruss;*.3ds;*.glb|All files|*.*",
+                      "Truss files (*.gdtf;*.gtruss;*.3ds;*.glb)|*.gdtf;*.gtruss;*.3ds;*.glb|All files|*.*",
                       wxFD_OPEN | wxFD_FILE_MUST_EXIST);
     if (fdlg.ShowModal() != wxID_OK)
       return;

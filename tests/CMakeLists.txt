@@ -109,6 +109,8 @@ add_executable(save_load_roundtrip_test save_load_roundtrip_test.cpp
                ../core/projectutils.cpp
                ../core/gdtfdictionary.cpp
                ../core/trussdictionary.cpp
+               ../core/trussloader.cpp
+               ../core/truss_gdtf_builder.cpp
                ../core/uuidutils.cpp
                ../mvr/mvrimporter.cpp
                ../mvr/mvrexporter.cpp
@@ -135,6 +137,8 @@ add_executable(mvr_dmx_address_test mvr_dmx_address_test.cpp
                ../core/projectutils.cpp
                ../core/gdtfdictionary.cpp
                ../core/trussdictionary.cpp
+               ../core/trussloader.cpp
+               ../core/truss_gdtf_builder.cpp
                ../core/uuidutils.cpp
                ../mvr/mvrimporter.cpp
                ../core/logger.cpp
@@ -159,6 +163,8 @@ add_executable(mvr_exporter_compliance_test mvr_exporter_compliance_test.cpp
                ../core/projectutils.cpp
                ../core/gdtfdictionary.cpp
                ../core/trussdictionary.cpp
+               ../core/trussloader.cpp
+               ../core/truss_gdtf_builder.cpp
                ../core/uuidutils.cpp
                ../mvr/mvrimporter.cpp
                ../mvr/mvrexporter.cpp
@@ -182,7 +188,6 @@ add_executable(rider_save_roundtrip_test rider_save_roundtrip_test.cpp
                pdftext_stub.cpp
                gdtfloader_stub.cpp
                consolepanel_stub.cpp
-               trussloader_stub.cpp
                ../core/riderimporter.cpp
                ../core/uuidutils.cpp
                ../core/autopatcher.cpp
@@ -192,6 +197,8 @@ add_executable(rider_save_roundtrip_test rider_save_roundtrip_test.cpp
                ../core/projectutils.cpp
                ../core/gdtfdictionary.cpp
                ../core/trussdictionary.cpp
+               ../core/trussloader.cpp
+               ../core/truss_gdtf_builder.cpp
                ../mvr/mvrimporter.cpp
                ../mvr/mvrexporter.cpp
                ../core/logger.cpp
