@@ -32,6 +32,8 @@ public:
     // Loads fixture model from a GDTF file. When loading fails a
     // simple cube will be displayed instead.
     void LoadFixture(const std::string& gdtfPath);
+    void SetMotionPose(float panDeg, float tiltDeg, float dimmer);
+    std::string GetEmitterDebugText() const;
 
 private:
     void OnPaint(wxPaintEvent& evt);
@@ -44,15 +46,24 @@ private:
 
     void InitGL();
     void Render();
+    void RebuildPosedNodes();
+    void RecomputeBounds();
 
     wxGLContext* m_glContext = nullptr;
     bool m_glInitialized = false;
 
     Viewer3DCamera m_camera;
     std::vector<GdtfObject> m_objects;
+    GdtfGeometryTree m_tree;
+    std::vector<Matrix> m_posedNodeWorld;
     bool m_hasModel = false;
     float m_bbMin[3];
     float m_bbMax[3];
+
+    float m_panDeg = 0.0f;
+    float m_tiltDeg = 0.0f;
+    float m_dimmer = 1.0f;
+    std::string m_emitterDebugText;
 
     bool m_dragging = false;
     wxPoint m_lastMousePos;

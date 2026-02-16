@@ -1040,6 +1040,22 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
       info->InsertEndChild(instanceName);
     }
 
+    if (std::abs(f.panDeg) > 0.0001f) {
+      tinyxml2::XMLElement *panNode = doc.NewElement("Pan");
+      panNode->SetText(f.panDeg);
+      info->InsertEndChild(panNode);
+    }
+    if (std::abs(f.tiltDeg) > 0.0001f) {
+      tinyxml2::XMLElement *tiltNode = doc.NewElement("Tilt");
+      tiltNode->SetText(f.tiltDeg);
+      info->InsertEndChild(tiltNode);
+    }
+    {
+      tinyxml2::XMLElement *dimmerNode = doc.NewElement("Dimmer");
+      dimmerNode->SetText(std::clamp(f.dimmer, 0.0f, 1.0f));
+      info->InsertEndChild(dimmerNode);
+    }
+
     data->InsertEndChild(info);
     ud->InsertEndChild(data);
     fe->InsertEndChild(ud);
