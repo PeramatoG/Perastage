@@ -692,7 +692,7 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     std::string fileName = preferredName;
     if (fileName.empty())
       fileName = SanitizeArchiveFileName(rawGdtfPath, "fixture.gdtf");
-    std::string archivePath = registerResource(rawGdtfPath, "gdtf/" + fileName);
+    std::string archivePath = registerResource(rawGdtfPath, fileName);
     if (!objectUuid.empty() && !archivePath.empty())
       gdtfArchiveByObjectUuid[objectUuid] = archivePath;
     return archivePath;
