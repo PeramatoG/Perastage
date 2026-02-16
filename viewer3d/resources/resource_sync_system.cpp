@@ -2,6 +2,7 @@
 
 #include "loader3ds.h"
 #include "loaderglb.h"
+#include "matrixutils.h"
 
 #include <algorithm>
 #include <cctype>
@@ -88,6 +89,23 @@ size_t HashMatrix(const Matrix &m) {
   return hash;
 }
 
+
+
+FixtureSceneNode BuildInstancedFixtureNode(const GdtfNode3D &templateNode,
+                                          const Matrix &fixtureTransform,
+                                          int parentIndexOffset) {
+  FixtureSceneNode node;
+  node.stableName = templateNode.stableName;
+  node.parentIndex = templateNode.parentIndex < 0
+                         ? parentIndexOffset
+                         : templateNode.parentIndex + parentIndexOffset + 1;
+  node.localTransform = templateNode.localTransform;
+  node.worldTransform = MatrixUtils::Multiply(fixtureTransform, templateNode.worldTransform);
+  node.isAxis = templateNode.type == GdtfNodeType::Axis;
+  node.isEmitter = templateNode.type == GdtfNodeType::Emitter;
+  return node;
+}
+
 void EnsureModelLoaded(const std::string &path, ResourceSyncState &state,
                        const ResourceSyncCallbacks &callbacks,
                        bool &assetsChanged) {
@@ -132,6 +150,9 @@ ResourceSyncResult ResourceSyncSystem::Sync(
     }
     state.loadedMeshes.clear();
     state.loadedGdtf.clear();
+    state.loadedGdtfGeometryTrees.clear();
+    state.fixtureNodeRegistry.clear();
+    state.fixtureAnchorRegistry.clear();
     state.failedGdtfReasons.clear();
     state.reportedGdtfFailureCounts.clear();
     state.reportedGdtfFailureReasons.clear();
@@ -289,6 +310,13 @@ ResourceSyncResult ResourceSyncSystem::Sync(
       std::string gdtfError;
       if (LoadGdtf(gdtfPath, objs, &gdtfError)) {
         state.loadedGdtf[gdtfPath] = std::move(objs);
+
+        GdtfGeometryTree geometryTree;
+        std::string geometryTreeError;
+        if (LoadGdtfGeometryTree(gdtfPath, geometryTree, &geometryTreeError)) {
+          state.loadedGdtfGeometryTrees[gdtfPath] = std::move(geometryTree);
+        }
+
         result.assetsChanged = true;
       } else {
         std::string reason = gdtfError.empty() ? "Failed to load GDTF" : gdtfError;
@@ -298,6 +326,48 @@ ResourceSyncResult ResourceSyncSystem::Sync(
         result.assetsChanged = true;
       }
     }
+  }
+
+  state.fixtureNodeRegistry.clear();
+  state.fixtureAnchorRegistry.clear();
+  for (const auto *entry : visibleFixtures) {
+    const auto &[uuid, fixture] = *entry;
+    if (fixture.gdtfSpec.empty())
+      continue;
+
+    auto gdtfPathIt = state.resolvedGdtfSpecs.find(ResolveCacheKey(fixture.gdtfSpec));
+    if (gdtfPathIt == state.resolvedGdtfSpecs.end() || !gdtfPathIt->second.attempted ||
+        gdtfPathIt->second.resolvedPath.empty())
+      continue;
+
+    auto treeIt = state.loadedGdtfGeometryTrees.find(gdtfPathIt->second.resolvedPath);
+    if (treeIt == state.loadedGdtfGeometryTrees.end())
+      continue;
+
+    std::vector<FixtureSceneNode> instancedNodes;
+    instancedNodes.reserve(treeIt->second.nodes.size() + 1);
+
+    FixtureSceneNode rootNode;
+    rootNode.stableName = "Fixture_" + uuid;
+    rootNode.parentIndex = -1;
+    rootNode.localTransform = fixture.transform;
+    rootNode.worldTransform = fixture.transform;
+    instancedNodes.push_back(rootNode);
+
+    FixtureAnchorRegistryEntry anchors;
+    anchors.fixtureRootName = rootNode.stableName;
+
+    for (const GdtfNode3D &templateNode : treeIt->second.nodes) {
+      FixtureSceneNode node = BuildInstancedFixtureNode(templateNode, fixture.transform, 0);
+      if (node.isAxis)
+        anchors.axisNodes.push_back(node);
+      if (node.isEmitter)
+        anchors.emitterNodes.push_back(node);
+      instancedNodes.push_back(std::move(node));
+    }
+
+    state.fixtureNodeRegistry[uuid] = std::move(instancedNodes);
+    state.fixtureAnchorRegistry[uuid] = std::move(anchors);
   }
 
   if (callbacks.appendConsoleMessage) {

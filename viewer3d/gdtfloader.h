@@ -29,6 +29,29 @@ struct GdtfObject {
     bool isLens = false;
 };
 
+enum class GdtfNodeType {
+    Geometry,
+    Axis,
+    Emitter
+};
+
+struct GdtfNode3D {
+    std::string stableName;
+    GdtfNodeType type = GdtfNodeType::Geometry;
+    int parentIndex = -1;
+    Matrix localTransform = Matrix{};
+    Matrix worldTransform = Matrix{};
+    bool isLens = false;
+    bool hasMesh = false;
+    Mesh mesh;
+};
+
+struct GdtfGeometryTree {
+    std::vector<GdtfNode3D> nodes;
+    std::vector<int> axisNodeIndices;
+    std::vector<int> emitterNodeIndices;
+};
+
 // Metadata for a GDTF model definition. Length/Width/Height correspond
 // to the desired bounding box dimensions in meters as specified in the
 // GDTF file. When any of these are zero the raw mesh size is used.
@@ -50,6 +73,13 @@ struct GdtfChannelInfo {
 bool LoadGdtf(const std::string& gdtfPath,
               std::vector<GdtfObject>& outObjects,
               std::string* outError = nullptr);
+
+// Loads the geometry hierarchy defined by a GDTF file preserving each node's
+// local transform and exposing stable node names for geometry, axis and
+// emitter nodes.
+bool LoadGdtfGeometryTree(const std::string& gdtfPath,
+                          GdtfGeometryTree& outTree,
+                          std::string* outError = nullptr);
 
 // Returns the number of DMX addresses used by the given mode in a GDTF file.
 // Channels using more than one byte contribute multiple addresses to this
