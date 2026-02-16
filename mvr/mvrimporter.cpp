@@ -101,6 +101,26 @@ static bool TryParseFloat(const std::string &text, float &out) {
   return false;
 }
 
+static bool IsRenderableTrussGeometry(const std::string &path) {
+  if (path.empty())
+    return false;
+
+  std::string ext = fs::path(path).extension().string();
+  std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char c) {
+    return static_cast<char>(std::tolower(c));
+  });
+  return ext == ".3ds" || ext == ".glb";
+}
+
+static std::string DescribeTrussForLog(const Truss &truss) {
+  const std::string displayName = truss.name.empty() ? "(unnamed)" : truss.name;
+  std::ostringstream oss;
+  oss << "uuid='" << truss.uuid << "', name='" << displayName << "', model='"
+      << truss.model << "', modelFile='" << truss.modelFile << "', gdtfSpec='"
+      << truss.gdtfSpec << "', symbolFile='" << truss.symbolFile << "'";
+  return oss.str();
+}
+
 static std::string CieToHex(const std::string &cie) {
   std::string t = cie;
   std::replace(t.begin(), t.end(), ',', ' ');
@@ -788,6 +808,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         truss.position = textOf(node, "Position");
         truss.positionName = ensurePositionEntry(truss.position);
 
+        bool gdtfLoadFailed = false;
         if (!truss.gdtfSpec.empty()) {
           fs::path gdtfPath = scene.basePath.empty()
                                   ? fs::u8path(truss.gdtfSpec)
@@ -814,6 +835,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
               truss.weightKg = gdtfTruss.weightKg;
             if (truss.gdtfMode.empty())
               truss.gdtfMode = gdtfTruss.gdtfMode.empty() ? "Default" : gdtfTruss.gdtfMode;
+          } else {
+            gdtfLoadFailed = true;
           }
         }
 
@@ -897,6 +920,27 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
               break;
             }
           }
+        }
+
+        const bool symbolRenderable = IsRenderableTrussGeometry(truss.symbolFile);
+        const bool symbolExists =
+            symbolRenderable && fs::exists(fs::u8path(truss.symbolFile));
+        if (!symbolExists) {
+          std::ostringstream reason;
+          if (truss.symbolFile.empty()) {
+            reason << "symbolFile is empty";
+          } else if (!symbolRenderable) {
+            reason << "symbolFile extension is not .3ds/.glb";
+          } else {
+            reason << "symbolFile does not exist on disk";
+          }
+          if (gdtfLoadFailed)
+            reason << "; LoadTrussDefinition(gdtfSpec) returned false";
+
+          std::ostringstream msg;
+          msg << "MVR import truss fallback to dummy box: "
+              << DescribeTrussForLog(truss) << ". Reason: " << reason.str();
+          LogMessage(Logger::Level::Warn, msg.str());
         }
 
         scene.trusses[truss.uuid] = truss;

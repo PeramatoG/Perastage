@@ -43,6 +43,7 @@
 #include "gdtfdictionary.h"
 #include "gdtfloader.h"
 #include "layer.h"
+#include "logger.h"
 #include "truss.h"
 #include "trussdictionary.h"
 #include "trussloader.h"
@@ -139,6 +140,15 @@ bool IsRenderableTrussGeometry(const std::string &path) {
                    return static_cast<char>(std::tolower(c));
                  });
   return ext == ".3ds" || ext == ".glb";
+}
+
+std::string DescribeTrussForLog(const Truss &truss) {
+  const std::string displayName = truss.name.empty() ? "(unnamed)" : truss.name;
+  std::ostringstream oss;
+  oss << "uuid='" << truss.uuid << "', name='" << displayName << "', model='"
+      << truss.model << "', modelFile='" << truss.modelFile << "', gdtfSpec='"
+      << truss.gdtfSpec << "', symbolFile='" << truss.symbolFile << "'";
+  return oss.str();
 }
 
 std::vector<std::string> SplitPlus(const std::string &s) {
@@ -683,22 +693,53 @@ bool RiderImporter::ImportText(const std::string &text) {
 
     Truss parsed;
     bool resolved = false;
+    bool modelDefinitionFailed = false;
+    bool gdtfDefinitionFailed = false;
+    bool dictionaryDefinitionFailed = false;
 
-    if (!t.modelFile.empty())
+    if (!t.modelFile.empty()) {
       resolved = LoadTrussDefinition(t.modelFile, parsed);
-    if (!resolved && !t.gdtfSpec.empty())
+      if (!resolved)
+        modelDefinitionFailed = true;
+    }
+    if (!resolved && !t.gdtfSpec.empty()) {
       resolved = LoadTrussDefinition(t.gdtfSpec, parsed);
+      if (!resolved)
+        gdtfDefinitionFailed = true;
+    }
     if (!resolved && !t.model.empty()) {
       t.model = TrussDictionary::NormalizeModelKey(t.model);
       if (auto dictPath = TrussDictionary::Get(t.model)) {
         resolved = LoadTrussDefinition(*dictPath, parsed);
+        if (!resolved)
+          dictionaryDefinitionFailed = true;
         if (resolved && t.modelFile.empty())
           t.modelFile = *dictPath;
       }
     }
 
-    if (!resolved)
+    if (!resolved) {
+      std::vector<std::string> reasons;
+      if (modelDefinitionFailed)
+        reasons.emplace_back("LoadTrussDefinition(modelFile) returned false");
+      if (gdtfDefinitionFailed)
+        reasons.emplace_back("LoadTrussDefinition(gdtfSpec) returned false");
+      if (dictionaryDefinitionFailed)
+        reasons.emplace_back("LoadTrussDefinition(dictionary model) returned false");
+      if (reasons.empty())
+        reasons.emplace_back("missing or non-renderable symbolFile");
+
+      std::ostringstream oss;
+      oss << "Rider import truss fallback to dummy box: "
+          << DescribeTrussForLog(t) << ". Reason: ";
+      for (size_t i = 0; i < reasons.size(); ++i) {
+        if (i > 0)
+          oss << "; ";
+        oss << reasons[i];
+      }
+      Logger::Instance().Log(Logger::Level::Warn, oss.str());
       continue;
+    }
 
     if (!parsed.symbolFile.empty())
       t.symbolFile = parsed.symbolFile;
@@ -710,6 +751,24 @@ bool RiderImporter::ImportText(const std::string &text) {
       t.gdtfMode = parsed.gdtfMode;
     if (t.manufacturer.empty() && !parsed.manufacturer.empty())
       t.manufacturer = parsed.manufacturer;
+
+    bool symbolLooksRenderable = IsRenderableTrussGeometry(t.symbolFile);
+    bool symbolExists =
+        symbolLooksRenderable && std::filesystem::exists(std::filesystem::u8path(t.symbolFile));
+    if (!symbolExists) {
+      std::ostringstream reason;
+      if (t.symbolFile.empty()) {
+        reason << "symbolFile is empty";
+      } else if (!symbolLooksRenderable) {
+        reason << "symbolFile extension is not .3ds/.glb";
+      } else {
+        reason << "symbolFile does not exist on disk";
+      }
+      std::ostringstream oss;
+      oss << "Rider import truss fallback to dummy box: "
+          << DescribeTrussForLog(t) << ". Reason: " << reason.str();
+      Logger::Instance().Log(Logger::Level::Warn, oss.str());
+    }
   }
 
   // Distribute fixtures along their hang positions using available truss
