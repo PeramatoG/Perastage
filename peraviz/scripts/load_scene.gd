@@ -10,6 +10,19 @@ extends Node3D
 @onready var fixture_selected_label: Label = $HUD/FixtureDebugPanel/Margin/VBox/SelectedFixtureLabel
 @onready var fixture_axis_label: Label = $HUD/FixtureDebugPanel/Margin/VBox/AxisAnchorsLabel
 @onready var fixture_emitter_label: Label = $HUD/FixtureDebugPanel/Margin/VBox/EmitterAnchorsLabel
+@onready var pan_min_input: SpinBox = $HUD/FixtureDebugPanel/Margin/VBox/LimitsGrid/PanMin
+@onready var pan_max_input: SpinBox = $HUD/FixtureDebugPanel/Margin/VBox/LimitsGrid/PanMax
+@onready var pan_value_input: SpinBox = $HUD/FixtureDebugPanel/Margin/VBox/LimitsGrid/PanValue
+@onready var tilt_min_input: SpinBox = $HUD/FixtureDebugPanel/Margin/VBox/LimitsGrid/TiltMin
+@onready var tilt_max_input: SpinBox = $HUD/FixtureDebugPanel/Margin/VBox/LimitsGrid/TiltMax
+@onready var tilt_value_input: SpinBox = $HUD/FixtureDebugPanel/Margin/VBox/LimitsGrid/TiltValue
+@onready var dimmer_min_input: SpinBox = $HUD/FixtureDebugPanel/Margin/VBox/LimitsGrid/DimmerMin
+@onready var dimmer_max_input: SpinBox = $HUD/FixtureDebugPanel/Margin/VBox/LimitsGrid/DimmerMax
+@onready var dimmer_value_input: SpinBox = $HUD/FixtureDebugPanel/Margin/VBox/LimitsGrid/DimmerValue
+@onready var pan_slider: HSlider = $HUD/FixtureDebugPanel/Margin/VBox/PanSlider
+@onready var tilt_slider: HSlider = $HUD/FixtureDebugPanel/Margin/VBox/TiltSlider
+@onready var dimmer_slider: HSlider = $HUD/FixtureDebugPanel/Margin/VBox/DimmerSlider
+@onready var quick_reset_button: Button = $HUD/FixtureDebugPanel/Margin/VBox/QuickResetButton
 
 var _loader := PeravizLoader.new()
 var _scene_registry := SceneRegistry.new()
@@ -22,9 +35,17 @@ var _debug_asset_cache_enabled: bool = false
 var _debug_gizmos_root: Node3D
 var _manual_fixture_test_enabled: bool = false
 var _selected_fixture_uuid: String = ""
+var _fixture_manual_values: Dictionary = {}
+var _fixture_emissive_cache: Dictionary = {}
+var _updating_fixture_controls: bool = false
 
 const DEBUG_TOGGLE_KEY: Key = KEY_C
 const MANUAL_TEST_FLAG: String = "--peraviz_manual_fixture_test"
+const MANUAL_DEFAULTS := {
+	"pan": 0.0,
+	"tilt": 0.0,
+	"dimmer": 1.0,
+}
 
 func _ready() -> void:
 	_scene_registry.configure(proxies_root)
@@ -32,6 +53,19 @@ func _ready() -> void:
 	picker.file_selected.connect(_on_file_selected)
 	manual_fixture_toggle.toggled.connect(_on_manual_fixture_toggle)
 	fixture_list.item_selected.connect(_on_fixture_list_item_selected)
+	pan_slider.value_changed.connect(_on_pan_slider_changed)
+	tilt_slider.value_changed.connect(_on_tilt_slider_changed)
+	dimmer_slider.value_changed.connect(_on_dimmer_slider_changed)
+	pan_value_input.value_changed.connect(_on_pan_input_changed)
+	tilt_value_input.value_changed.connect(_on_tilt_input_changed)
+	dimmer_value_input.value_changed.connect(_on_dimmer_input_changed)
+	pan_min_input.value_changed.connect(_on_limit_changed)
+	pan_max_input.value_changed.connect(_on_limit_changed)
+	tilt_min_input.value_changed.connect(_on_limit_changed)
+	tilt_max_input.value_changed.connect(_on_limit_changed)
+	dimmer_min_input.value_changed.connect(_on_limit_changed)
+	dimmer_max_input.value_changed.connect(_on_limit_changed)
+	quick_reset_button.pressed.connect(_on_quick_reset_pressed)
 	picker.access = FileDialog.ACCESS_FILESYSTEM
 	status_label.text = "Select a .mvr file"
 	_debug_coords_enabled = bool(ProjectSettings.get_setting("peraviz_debug_coords", false))
@@ -203,8 +237,28 @@ func _add_debug_gizmo_for_target(target: Node3D, kind: String, origin_color: Col
 	var holder := Node3D.new()
 	holder.name = "Gizmo_%s" % kind
 	_debug_gizmos_root.add_child(holder)
-	holder.global_position = _safe_target_global_position(target)
+	holder.global_transform = Transform3D(target.global_basis, _safe_target_global_position(target))
 	holder.add_child(_create_axes_gizmo_node(origin_color, length))
+	if kind == "emitter":
+		holder.add_child(_create_emitter_direction_gizmo(length))
+
+func _create_emitter_direction_gizmo(length: float) -> MeshInstance3D:
+	var immediate := ImmediateMesh.new()
+	var beam_material := ORMMaterial3D.new()
+	beam_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	beam_material.albedo_color = Color(1.0, 0.55, 0.15)
+	beam_material.emission_enabled = true
+	beam_material.emission = Color(1.0, 0.55, 0.15)
+	beam_material.emission_energy_multiplier = 2.0
+	immediate.surface_begin(Mesh.PRIMITIVE_LINES, beam_material)
+	immediate.surface_add_vertex(Vector3.ZERO)
+	immediate.surface_add_vertex(Vector3.BACK * (length * 1.8))
+	immediate.surface_end()
+
+	var beam := MeshInstance3D.new()
+	beam.mesh = immediate
+	beam.material_override = beam_material
+	return beam
 
 func _create_axes_gizmo_node(origin_color: Color, length: float) -> Node3D:
 	var immediate := ImmediateMesh.new()
@@ -503,6 +557,7 @@ func _clear_scene() -> void:
 		child.queue_free()
 	_node_index.clear()
 	_asset_cache.clear()
+	_fixture_emissive_cache.clear()
 	_has_loaded_bounds = false
 	_clear_debug_gizmos()
 
@@ -666,10 +721,12 @@ func _select_fixture_by_uuid(fixture_uuid: String, source: String) -> void:
 	if fixture_uuid.is_empty() or not _scene_registry.has_fixture(fixture_uuid):
 		return
 	_selected_fixture_uuid = fixture_uuid
+	_ensure_fixture_manual_values(fixture_uuid)
 	var selected_index: int = _find_fixture_list_index(fixture_uuid)
 	if selected_index >= 0:
 		fixture_list.select(selected_index)
 	print("[PeravizFixtureTest] selected uuid=", fixture_uuid, " source=", source)
+	_apply_selected_fixture_controls("select")
 	_refresh_fixture_debug_panel()
 
 func _clear_selected_fixture(reason: String) -> void:
@@ -709,6 +766,252 @@ func _refresh_fixture_debug_panel() -> void:
 	fixture_selected_label.text = selected_text
 	fixture_axis_label.text = axis_text
 	fixture_emitter_label.text = emitter_text
+	_sync_controls_from_selected_fixture()
+
+func _ensure_fixture_manual_values(fixture_uuid: String) -> void:
+	if fixture_uuid.is_empty():
+		return
+	if _fixture_manual_values.has(fixture_uuid):
+		return
+	_fixture_manual_values[fixture_uuid] = {
+		"pan": float(MANUAL_DEFAULTS["pan"]),
+		"tilt": float(MANUAL_DEFAULTS["tilt"]),
+		"dimmer": float(MANUAL_DEFAULTS["dimmer"]),
+	}
+
+func _sync_controls_from_selected_fixture() -> void:
+	if not _manual_fixture_test_enabled:
+		return
+
+	_sync_slider_ranges_from_limits()
+	var values: Dictionary = _get_selected_fixture_values()
+	_updating_fixture_controls = true
+	pan_slider.value = float(values.get("pan", MANUAL_DEFAULTS["pan"]))
+	tilt_slider.value = float(values.get("tilt", MANUAL_DEFAULTS["tilt"]))
+	dimmer_slider.value = float(values.get("dimmer", MANUAL_DEFAULTS["dimmer"]))
+	pan_value_input.value = pan_slider.value
+	tilt_value_input.value = tilt_slider.value
+	dimmer_value_input.value = dimmer_slider.value
+	var controls_enabled: bool = not _selected_fixture_uuid.is_empty() and _scene_registry.has_fixture(_selected_fixture_uuid)
+	pan_slider.editable = controls_enabled
+	tilt_slider.editable = controls_enabled
+	dimmer_slider.editable = controls_enabled
+	pan_value_input.editable = controls_enabled
+	tilt_value_input.editable = controls_enabled
+	dimmer_value_input.editable = controls_enabled
+	quick_reset_button.disabled = not controls_enabled
+	_updating_fixture_controls = false
+
+func _sync_slider_ranges_from_limits() -> void:
+	var pan_min: float = min(pan_min_input.value, pan_max_input.value)
+	var pan_max: float = max(pan_min_input.value, pan_max_input.value)
+	var tilt_min: float = min(tilt_min_input.value, tilt_max_input.value)
+	var tilt_max: float = max(tilt_min_input.value, tilt_max_input.value)
+	var dimmer_min: float = min(dimmer_min_input.value, dimmer_max_input.value)
+	var dimmer_max: float = max(dimmer_min_input.value, dimmer_max_input.value)
+
+	pan_slider.min_value = pan_min
+	pan_slider.max_value = pan_max
+	tilt_slider.min_value = tilt_min
+	tilt_slider.max_value = tilt_max
+	dimmer_slider.min_value = dimmer_min
+	dimmer_slider.max_value = dimmer_max
+
+	pan_value_input.min_value = pan_min
+	pan_value_input.max_value = pan_max
+	tilt_value_input.min_value = tilt_min
+	tilt_value_input.max_value = tilt_max
+	dimmer_value_input.min_value = dimmer_min
+	dimmer_value_input.max_value = dimmer_max
+
+func _get_selected_fixture_values() -> Dictionary:
+	if _selected_fixture_uuid.is_empty():
+		return MANUAL_DEFAULTS.duplicate(true)
+	_ensure_fixture_manual_values(_selected_fixture_uuid)
+	return _fixture_manual_values.get(_selected_fixture_uuid, MANUAL_DEFAULTS.duplicate(true))
+
+func _store_selected_fixture_values(values: Dictionary) -> void:
+	if _selected_fixture_uuid.is_empty():
+		return
+	_ensure_fixture_manual_values(_selected_fixture_uuid)
+	_fixture_manual_values[_selected_fixture_uuid] = {
+		"pan": float(values.get("pan", MANUAL_DEFAULTS["pan"])),
+		"tilt": float(values.get("tilt", MANUAL_DEFAULTS["tilt"])),
+		"dimmer": float(values.get("dimmer", MANUAL_DEFAULTS["dimmer"])),
+	}
+
+func _on_pan_slider_changed(value: float) -> void:
+	if _updating_fixture_controls:
+		return
+	pan_value_input.value = value
+	_update_selected_fixture_value("pan", value)
+
+func _on_tilt_slider_changed(value: float) -> void:
+	if _updating_fixture_controls:
+		return
+	tilt_value_input.value = value
+	_update_selected_fixture_value("tilt", value)
+
+func _on_dimmer_slider_changed(value: float) -> void:
+	if _updating_fixture_controls:
+		return
+	dimmer_value_input.value = value
+	_update_selected_fixture_value("dimmer", value)
+
+func _on_pan_input_changed(value: float) -> void:
+	if _updating_fixture_controls:
+		return
+	pan_slider.value = value
+
+func _on_tilt_input_changed(value: float) -> void:
+	if _updating_fixture_controls:
+		return
+	tilt_slider.value = value
+
+func _on_dimmer_input_changed(value: float) -> void:
+	if _updating_fixture_controls:
+		return
+	dimmer_slider.value = value
+
+func _on_limit_changed(_value: float) -> void:
+	_sync_controls_from_selected_fixture()
+
+func _on_quick_reset_pressed() -> void:
+	if _selected_fixture_uuid.is_empty() or not _scene_registry.has_fixture(_selected_fixture_uuid):
+		return
+	_store_selected_fixture_values(MANUAL_DEFAULTS)
+	_sync_controls_from_selected_fixture()
+	_apply_selected_fixture_controls("quick_reset")
+
+func _update_selected_fixture_value(key: String, value: float) -> void:
+	if _selected_fixture_uuid.is_empty() or not _scene_registry.has_fixture(_selected_fixture_uuid):
+		return
+	var values: Dictionary = _get_selected_fixture_values()
+	values[key] = value
+	_store_selected_fixture_values(values)
+	_apply_selected_fixture_controls("control_%s" % key)
+
+func _apply_selected_fixture_controls(reason: String) -> void:
+	if _selected_fixture_uuid.is_empty() or not _scene_registry.has_fixture(_selected_fixture_uuid):
+		return
+	var values: Dictionary = _get_selected_fixture_values()
+	var pan: float = float(values.get("pan", MANUAL_DEFAULTS["pan"]))
+	var tilt: float = float(values.get("tilt", MANUAL_DEFAULTS["tilt"]))
+	var dimmer: float = float(values.get("dimmer", MANUAL_DEFAULTS["dimmer"]))
+
+	_apply_pan_tilt_to_fixture(_selected_fixture_uuid, pan, tilt)
+	_apply_dimmer_feedback_to_fixture(_selected_fixture_uuid, dimmer)
+	_print_emitter_debug_vectors(_selected_fixture_uuid, reason, pan, tilt, dimmer)
+
+func _apply_pan_tilt_to_fixture(fixture_uuid: String, pan_degrees: float, tilt_degrees: float) -> void:
+	var axis_nodes: Array = _to_node3d_array(_scene_registry.get_anchor(fixture_uuid, "axis"))
+	var pan_axis: Node3D = _find_axis_for_role(axis_nodes, "pan")
+	var tilt_axis: Node3D = _find_axis_for_role(axis_nodes, "tilt")
+	if pan_axis != null:
+		pan_axis.rotation_degrees.y = pan_degrees
+	if tilt_axis != null:
+		tilt_axis.rotation_degrees.x = tilt_degrees
+
+func _find_axis_for_role(axis_nodes: Array, role: String) -> Node3D:
+	if axis_nodes.is_empty():
+		return null
+
+	var role_name_hints: PackedStringArray = PackedStringArray([role])
+	if role == "pan":
+		role_name_hints.append("yoke")
+	if role == "tilt":
+		role_name_hints.append("head")
+
+	for node in axis_nodes:
+		if node == null:
+			continue
+		var normalized: String = node.name.to_lower()
+		for hint in role_name_hints:
+			if normalized.contains(hint):
+				return node
+
+	if role == "pan":
+		return axis_nodes[0]
+	if role == "tilt" and axis_nodes.size() > 1:
+		return axis_nodes[1]
+	return axis_nodes[0]
+
+func _apply_dimmer_feedback_to_fixture(fixture_uuid: String, dimmer: float) -> void:
+	var geometry_nodes: Array = _to_node3d_array(_scene_registry.get_anchor(fixture_uuid, "geometry_nodes"))
+	if geometry_nodes.is_empty():
+		return
+	var emissive_materials: Array = _collect_fixture_emissive_materials(fixture_uuid, geometry_nodes)
+	if emissive_materials.is_empty():
+		return
+
+	var energy_multiplier: float = lerp(0.05, 4.0, clamp(dimmer, 0.0, 1.0))
+	for material in emissive_materials:
+		if material is BaseMaterial3D:
+			material.emission_enabled = true
+			material.emission_energy_multiplier = energy_multiplier
+
+func _collect_fixture_emissive_materials(fixture_uuid: String, geometry_nodes: Array) -> Array:
+	if _fixture_emissive_cache.has(fixture_uuid):
+		return _fixture_emissive_cache.get(fixture_uuid, [])
+
+	var materials: Array = []
+	for geometry in geometry_nodes:
+		_collect_emissive_materials_recursive(geometry, materials)
+	_fixture_emissive_cache[fixture_uuid] = materials
+	return materials
+
+func _collect_emissive_materials_recursive(node: Node3D, output_materials: Array) -> void:
+	if node == null:
+		return
+	if node is MeshInstance3D:
+		var mesh_instance: MeshInstance3D = node
+		for surface_index in range(mesh_instance.get_surface_override_material_count()):
+			var override_material: Material = mesh_instance.get_surface_override_material(surface_index)
+			_maybe_add_emissive_material(override_material, output_materials)
+		if mesh_instance.material_override != null:
+			_maybe_add_emissive_material(mesh_instance.material_override, output_materials)
+		if mesh_instance.mesh != null:
+			for surface_index in range(mesh_instance.mesh.get_surface_count()):
+				var mesh_material: Material = mesh_instance.mesh.surface_get_material(surface_index)
+				_maybe_add_emissive_material(mesh_material, output_materials)
+
+	for child in node.get_children():
+		if child is Node3D:
+			_collect_emissive_materials_recursive(child, output_materials)
+
+func _maybe_add_emissive_material(material: Material, output_materials: Array) -> void:
+	if material == null:
+		return
+	if not (material is BaseMaterial3D):
+		return
+	var base_material: BaseMaterial3D = material
+	if output_materials.has(base_material):
+		return
+	if base_material.emission_enabled or base_material.emission != Color.BLACK:
+		output_materials.append(base_material)
+
+func _print_emitter_debug_vectors(fixture_uuid: String, reason: String, pan: float, tilt: float, dimmer: float) -> void:
+	var emitter_nodes: Array = _to_node3d_array(_scene_registry.get_anchor(fixture_uuid, "emitters"))
+	for emitter in emitter_nodes:
+		var emitter_direction: Vector3 = (-emitter.global_basis.z).normalized()
+		print("[PeravizFixtureTest] fixture=", fixture_uuid,
+			" reason=", reason,
+			" emitter=", emitter.name,
+			" dir=", emitter_direction,
+			" pan=", pan,
+			" tilt=", tilt,
+			" dimmer=", dimmer)
+
+func _to_node3d_array(value: Variant) -> Array:
+	var nodes: Array = []
+	if value is Node3D:
+		nodes.append(value)
+		return nodes
+	if value is Array:
+		for item in value:
+			if item is Node3D and is_instance_valid(item):
+				nodes.append(item)
+	return nodes
 
 func _count_valid_nodes(value: Variant) -> int:
 	if value is Node:
