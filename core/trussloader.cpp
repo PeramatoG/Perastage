@@ -27,6 +27,7 @@
 #include <algorithm>
 #include <cctype>
 #include <filesystem>
+#include <functional>
 #include <fstream>
 #include <memory>
 
@@ -84,6 +85,25 @@ static bool ExtractArchive(const fs::path &archivePath, const fs::path &destinat
   return true;
 }
 
+
+static fs::path BuildGdtfExtractionCacheDir(const fs::path &gdtfPath) {
+  std::error_code ec;
+  fs::path normalized = fs::weakly_canonical(gdtfPath, ec);
+  if (ec)
+    normalized = fs::absolute(gdtfPath, ec);
+  if (ec)
+    normalized = gdtfPath;
+
+  std::string key = normalized.generic_string();
+  std::error_code timeEc;
+  const auto writeTime = fs::last_write_time(gdtfPath, timeEc);
+  if (!timeEc)
+    key += "#" + std::to_string(writeTime.time_since_epoch().count());
+
+  const std::size_t hashValue = std::hash<std::string>{}(key);
+  fs::path cacheRoot = fs::temp_directory_path() / "perastage-truss-gdtf-cache";
+  return cacheRoot / std::to_string(hashValue);
+}
 static fs::path FindFirstExisting(const fs::path &base,
                                   std::initializer_list<fs::path> candidates) {
   for (const auto &candidate : candidates) {
@@ -105,15 +125,15 @@ bool LoadTrussGdtf(const std::string &gdtfPath, Truss &outTruss) {
   outTruss.modelFile = inputPath.string();
   outTruss.gdtfSpec = inputPath.string();
 
-  fs::path baseDir = fs::temp_directory_path() /
-                     ("perastage-truss-gdtf-load-" + inputPath.stem().string());
+  fs::path baseDir = BuildGdtfExtractionCacheDir(inputPath);
   std::error_code ec;
-  fs::remove_all(baseDir, ec);
   fs::create_directories(baseDir, ec);
-  if (!ExtractArchive(inputPath, baseDir))
-    return false;
-
   fs::path descPath = baseDir / "description.xml";
+  if (!fs::exists(descPath)) {
+    if (!ExtractArchive(inputPath, baseDir))
+      return false;
+  }
+
   if (!fs::exists(descPath))
     return false;
 
