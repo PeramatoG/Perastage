@@ -12,6 +12,7 @@ var _has_loaded_bounds: bool = false
 var _node_index: Dictionary = {}
 var _asset_cache := PeravizRuntimeAssetCache.new()
 var _debug_coords_enabled: bool = false
+var _debug_asset_cache_enabled: bool = false
 var _debug_gizmos_root: Node3D
 
 const DEBUG_TOGGLE_KEY: Key = KEY_C
@@ -23,6 +24,8 @@ func _ready() -> void:
 	picker.access = FileDialog.ACCESS_FILESYSTEM
 	status_label.text = "Select a .mvr file"
 	_debug_coords_enabled = bool(ProjectSettings.get_setting("peraviz_debug_coords", false))
+	_debug_asset_cache_enabled = bool(ProjectSettings.get_setting("peraviz_debug_asset_cache", false))
+	_asset_cache.configure_debug_logging(_debug_asset_cache_enabled, 100)
 	_ensure_debug_gizmo_root()
 	_update_debug_legend()
 
@@ -42,8 +45,16 @@ func _on_file_selected(path: String) -> void:
 	_register_fixture_registry(nodes)
 	_rebuild_debug_gizmos()
 	_focus_loaded_scene()
-	var cache_summary: Dictionary = _asset_cache.debug_summary()
-	print("[PeravizAssetCache] summary hits=", cache_summary.get("hits", 0), " misses=", cache_summary.get("misses", 0), " unique=", cache_summary.get("unique_resources", 0), " mesh=", cache_summary.get("mesh_unique", 0), " scenes=", cache_summary.get("scene_unique", 0), " materials=", cache_summary.get("material_unique", 0))
+	if _debug_asset_cache_enabled:
+		var cache_summary: Dictionary = _asset_cache.debug_summary()
+		var hit_by_kind: Dictionary = cache_summary.get("hits_by_kind", {})
+		var miss_by_kind: Dictionary = cache_summary.get("misses_by_kind", {})
+		print("[PeravizAssetCache] summary hits=", cache_summary.get("hits", 0),
+			" misses=", cache_summary.get("misses", 0),
+			" unique=", cache_summary.get("unique_resources", 0),
+			" mesh(hit/miss)=", hit_by_kind.get("mesh", 0), "/", miss_by_kind.get("mesh", 0),
+			" scene(hit/miss)=", hit_by_kind.get("scene", 0), "/", miss_by_kind.get("scene", 0),
+			" material(hit/miss)=", hit_by_kind.get("material", 0), "/", miss_by_kind.get("material", 0))
 	status_label.text = "Nodes: %d (press F to focus, C debug coords)" % nodes.size()
 	_update_debug_legend()
 

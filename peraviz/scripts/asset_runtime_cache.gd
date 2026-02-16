@@ -9,6 +9,24 @@ var _failed_paths: Dictionary = {}
 var _hit_count: int = 0
 var _miss_count: int = 0
 
+var _hit_by_kind: Dictionary = {
+	"mesh": 0,
+	"scene": 0,
+	"material": 0,
+}
+var _miss_by_kind: Dictionary = {
+	"mesh": 0,
+	"scene": 0,
+	"material": 0,
+}
+
+var _debug_logging_enabled: bool = false
+var _debug_log_interval: int = 50
+
+func configure_debug_logging(enabled: bool, log_interval: int = 50) -> void:
+	_debug_logging_enabled = enabled
+	_debug_log_interval = max(log_interval, 1)
+
 func clear() -> void:
 	_mesh_cache.clear()
 	_scene_cache.clear()
@@ -16,6 +34,10 @@ func clear() -> void:
 	_failed_paths.clear()
 	_hit_count = 0
 	_miss_count = 0
+	for kind in _hit_by_kind.keys():
+		_hit_by_kind[kind] = 0
+	for kind in _miss_by_kind.keys():
+		_miss_by_kind[kind] = 0
 
 func get_mesh(asset_path: String) -> Mesh:
 	if _failed_paths.has(asset_path):
@@ -78,6 +100,8 @@ func debug_summary() -> Dictionary:
 	return {
 		"hits": _hit_count,
 		"misses": _miss_count,
+		"hits_by_kind": _hit_by_kind.duplicate(true),
+		"misses_by_kind": _miss_by_kind.duplicate(true),
 		"unique_resources": _mesh_cache.size() + _scene_cache.size() + _material_cache.size(),
 		"mesh_unique": _mesh_cache.size(),
 		"scene_unique": _scene_cache.size(),
@@ -86,8 +110,27 @@ func debug_summary() -> Dictionary:
 
 func _register_hit(kind: String, asset_path: String) -> void:
 	_hit_count += 1
-	print("[PeravizAssetCache] hit kind=", kind, " key=", asset_path, " hits=", _hit_count, " misses=", _miss_count)
+	_hit_by_kind[kind] = int(_hit_by_kind.get(kind, 0)) + 1
+	_log_lookup_event("hit", kind, asset_path)
 
 func _register_miss(kind: String, asset_path: String) -> void:
 	_miss_count += 1
-	print("[PeravizAssetCache] miss kind=", kind, " key=", asset_path, " hits=", _hit_count, " misses=", _miss_count)
+	_miss_by_kind[kind] = int(_miss_by_kind.get(kind, 0)) + 1
+	_log_lookup_event("miss", kind, asset_path)
+
+func _log_lookup_event(event_kind: String, asset_kind: String, asset_path: String) -> void:
+	if not _debug_logging_enabled:
+		return
+
+	var should_log: bool = (_hit_count + _miss_count) % _debug_log_interval == 0
+	if not should_log and _failed_paths.has(asset_path):
+		should_log = true
+	if not should_log:
+		return
+
+	print("[PeravizAssetCache] event=", event_kind,
+		" kind=", asset_kind,
+		" key=", asset_path,
+		" hits=", _hit_count,
+		" misses=", _miss_count,
+		" interval=", _debug_log_interval)
