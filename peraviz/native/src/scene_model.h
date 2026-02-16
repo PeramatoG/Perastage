@@ -33,6 +33,24 @@ struct SceneNode {
     bool is_fixture = false;
     bool is_axis = false;
     bool is_emitter = false;
+
+    bool has_luminous_flux = false;
+    float luminous_flux = 10000.0F;
+
+    bool has_color_temperature = false;
+    float color_temperature = 6000.0F;
+
+    bool has_beam_angle = false;
+    float beam_angle = 25.0F;
+
+    bool has_field_angle = false;
+    float field_angle = 25.0F;
+
+    bool has_beam_radius = false;
+    float beam_radius = 0.05F;
+
+    bool has_dominant_wavelength = false;
+    float dominant_wavelength = 0.0F;
 };
 
 struct SceneModel {

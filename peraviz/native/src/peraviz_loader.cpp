@@ -48,6 +48,18 @@ Array PeravizLoader::load_mvr(const String &path, bool peraviz_debug_baseline,
         d["is_fixture"] = node.is_fixture;
         d["is_axis"] = node.is_axis;
         d["is_emitter"] = node.is_emitter;
+        d["has_luminous_flux"] = node.has_luminous_flux;
+        d["luminous_flux"] = node.luminous_flux;
+        d["has_color_temperature"] = node.has_color_temperature;
+        d["color_temperature"] = node.color_temperature;
+        d["has_beam_angle"] = node.has_beam_angle;
+        d["beam_angle"] = node.beam_angle;
+        d["has_field_angle"] = node.has_field_angle;
+        d["field_angle"] = node.field_angle;
+        d["has_beam_radius"] = node.has_beam_radius;
+        d["beam_radius"] = node.beam_radius;
+        d["has_dominant_wavelength"] = node.has_dominant_wavelength;
+        d["dominant_wavelength"] = node.dominant_wavelength;
         d["pos"] = Vector3(node.local_transform.position.x, node.local_transform.position.y,
                             node.local_transform.position.z);
         d["rot"] = Vector3(node.local_transform.rotation_degrees.x,

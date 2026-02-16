@@ -37,6 +37,8 @@ var _manual_fixture_test_enabled: bool = false
 var _selected_fixture_uuid: String = ""
 var _fixture_manual_values: Dictionary = {}
 var _fixture_emissive_cache: Dictionary = {}
+var _fixture_emitter_light_cache: Dictionary = {}
+var _fixture_emitter_photometrics: Dictionary = {}
 var _updating_fixture_controls: bool = false
 
 const DEBUG_TOGGLE_KEY: Key = KEY_C
@@ -44,7 +46,16 @@ const MANUAL_TEST_FLAG: String = "--peraviz_manual_fixture_test"
 const MANUAL_DEFAULTS := {
 	"pan": 0.0,
 	"tilt": 0.0,
-	"dimmer": 1.0,
+	"dimmer": 100.0,
+}
+
+const DEFAULT_EMITTER_PHOTOMETRICS := {
+	"luminous_flux": 10000.0,
+	"color_temperature": 6000.0,
+	"beam_angle": 25.0,
+	"field_angle": 25.0,
+	"beam_radius": 0.05,
+	"dominant_wavelength": 0.0,
 }
 
 func _ready() -> void:
@@ -558,6 +569,8 @@ func _clear_scene() -> void:
 	_node_index.clear()
 	_asset_cache.clear()
 	_fixture_emissive_cache.clear()
+	_fixture_emitter_light_cache.clear()
+	_fixture_emitter_photometrics.clear()
 	_has_loaded_bounds = false
 	_clear_debug_gizmos()
 
@@ -617,6 +630,10 @@ func _register_fixture_registry(nodes: Array) -> void:
 			var geometry_nodes: Array = anchors.get("geometry_nodes", [])
 			geometry_nodes.append(node)
 			anchors["geometry_nodes"] = geometry_nodes
+			if bool(item.get("is_emitter", false)):
+				var photometric_entries: Array = anchors.get("emitter_photometrics", [])
+				photometric_entries.append(_extract_emitter_photometrics(item))
+				anchors["emitter_photometrics"] = photometric_entries
 
 	for fixture_uuid in fixture_anchors.keys():
 		var fixture_node: Node3D = _node_index.get(fixture_uuid)
@@ -938,17 +955,29 @@ func _find_axis_for_role(axis_nodes: Array, role: String) -> Node3D:
 
 func _apply_dimmer_feedback_to_fixture(fixture_uuid: String, dimmer: float) -> void:
 	var geometry_nodes: Array = _to_node3d_array(_scene_registry.get_anchor(fixture_uuid, "geometry_nodes"))
-	if geometry_nodes.is_empty():
-		return
-	var emissive_materials: Array = _collect_fixture_emissive_materials(fixture_uuid, geometry_nodes)
-	if emissive_materials.is_empty():
+	var emitter_nodes: Array = _to_node3d_array(_scene_registry.get_anchor(fixture_uuid, "emitters"))
+	if geometry_nodes.is_empty() and emitter_nodes.is_empty():
 		return
 
-	var energy_multiplier: float = lerp(0.05, 4.0, clamp(dimmer, 0.0, 1.0))
+	var dimmer_percent: float = clamp(dimmer, 0.0, 100.0)
+	var normalized_dimmer: float = dimmer_percent / 100.0
+	var emissive_materials: Array = _collect_fixture_emissive_materials(fixture_uuid, geometry_nodes)
+	var energy_multiplier: float = lerp(0.0, 4.0, normalized_dimmer)
 	for material in emissive_materials:
 		if material is BaseMaterial3D:
 			material.emission_enabled = true
 			material.emission_energy_multiplier = energy_multiplier
+
+	var emitter_lights: Array = _collect_fixture_emitter_lights(fixture_uuid, emitter_nodes)
+	var emitter_photometrics: Array = _get_fixture_emitter_photometrics(fixture_uuid)
+	for index in range(emitter_lights.size()):
+		var light: SpotLight3D = emitter_lights[index]
+		if light == null or not is_instance_valid(light):
+			continue
+		var photometric: Dictionary = DEFAULT_EMITTER_PHOTOMETRICS.duplicate(true)
+		if index < emitter_photometrics.size() and emitter_photometrics[index] is Dictionary:
+			photometric.merge(emitter_photometrics[index], true)
+		_apply_emitter_light_state(light, photometric, normalized_dimmer)
 
 func _collect_fixture_emissive_materials(fixture_uuid: String, geometry_nodes: Array) -> Array:
 	if _fixture_emissive_cache.has(fixture_uuid):
@@ -959,6 +988,134 @@ func _collect_fixture_emissive_materials(fixture_uuid: String, geometry_nodes: A
 		_collect_emissive_materials_recursive(geometry, materials)
 	_fixture_emissive_cache[fixture_uuid] = materials
 	return materials
+
+func _collect_fixture_emitter_lights(fixture_uuid: String, emitter_nodes: Array) -> Array:
+	if _fixture_emitter_light_cache.has(fixture_uuid):
+		return _fixture_emitter_light_cache.get(fixture_uuid, [])
+
+	var lights: Array = []
+	for emitter_node in emitter_nodes:
+		if emitter_node == null:
+			continue
+		var light: SpotLight3D = _find_or_create_emitter_light(emitter_node)
+		if light != null:
+			lights.append(light)
+
+	_fixture_emitter_light_cache[fixture_uuid] = lights
+	return lights
+
+func _find_or_create_emitter_light(emitter_node: Node3D) -> SpotLight3D:
+	for child in emitter_node.get_children():
+		if child is SpotLight3D and child.name == "PeravizEmitterLight":
+			return child
+
+	var light := SpotLight3D.new()
+	light.name = "PeravizEmitterLight"
+	light.position = Vector3.ZERO
+	light.rotation_degrees = Vector3.ZERO
+	light.light_negative = false
+	light.shadow_enabled = true
+	light.omni_range = 20.0
+	light.spot_range = 20.0
+	light.spot_angle = 25.0
+	light.spot_attenuation = 1.0
+	emitter_node.add_child(light)
+	return light
+
+func _get_fixture_emitter_photometrics(fixture_uuid: String) -> Array:
+	if _fixture_emitter_photometrics.has(fixture_uuid):
+		return _fixture_emitter_photometrics.get(fixture_uuid, [])
+	var entries: Variant = _scene_registry.get_anchor(fixture_uuid, "emitter_photometrics")
+	if entries is Array:
+		_fixture_emitter_photometrics[fixture_uuid] = entries
+		return entries
+	var empty: Array = []
+	_fixture_emitter_photometrics[fixture_uuid] = empty
+	return empty
+
+func _extract_emitter_photometrics(item: Dictionary) -> Dictionary:
+	var data: Dictionary = DEFAULT_EMITTER_PHOTOMETRICS.duplicate(true)
+	if bool(item.get("has_luminous_flux", false)):
+		data["luminous_flux"] = float(item.get("luminous_flux", data["luminous_flux"]))
+	if bool(item.get("has_color_temperature", false)):
+		data["color_temperature"] = float(item.get("color_temperature", data["color_temperature"]))
+	if bool(item.get("has_beam_angle", false)):
+		data["beam_angle"] = float(item.get("beam_angle", data["beam_angle"]))
+	if bool(item.get("has_field_angle", false)):
+		data["field_angle"] = float(item.get("field_angle", data["field_angle"]))
+	if bool(item.get("has_beam_radius", false)):
+		data["beam_radius"] = float(item.get("beam_radius", data["beam_radius"]))
+	if bool(item.get("has_dominant_wavelength", false)):
+		data["dominant_wavelength"] = float(item.get("dominant_wavelength", 0.0))
+	return data
+
+func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, normalized_dimmer: float) -> void:
+	var luminous_flux: float = max(float(photometric.get("luminous_flux", 10000.0)), 0.0)
+	var beam_angle: float = clamp(float(photometric.get("beam_angle", 25.0)), 0.1, 179.0)
+	var field_angle: float = clamp(float(photometric.get("field_angle", beam_angle)), beam_angle, 179.0)
+	var beam_radius_m: float = max(float(photometric.get("beam_radius", 0.05)), 0.001)
+
+	light.visible = normalized_dimmer > 0.0001
+	light.light_energy = luminous_flux * normalized_dimmer
+	light.spot_angle = beam_angle
+	light.spot_attenuation = clamp(beam_angle / field_angle, 0.2, 1.0)
+	light.spot_range = clamp(beam_radius_m * 400.0, 0.5, 60.0)
+	light.light_color = _derive_emitter_color(photometric)
+
+func _derive_emitter_color(photometric: Dictionary) -> Color:
+	var wavelength: float = float(photometric.get("dominant_wavelength", 0.0))
+	if wavelength > 0.0:
+		return _wavelength_to_rgb(wavelength)
+	var temperature_kelvin: float = clamp(float(photometric.get("color_temperature", 6000.0)), 1000.0, 40000.0)
+	return _color_temperature_to_rgb(temperature_kelvin)
+
+func _color_temperature_to_rgb(temperature_kelvin: float) -> Color:
+	var t: float = temperature_kelvin / 100.0
+	var red: float
+	var green: float
+	var blue: float
+	if t <= 66.0:
+		red = 255.0
+		green = 99.4708025861 * log(t) - 161.1195681661
+		if t <= 19.0:
+			blue = 0.0
+		else:
+			blue = 138.5177312231 * log(t - 10.0) - 305.0447927307
+	else:
+		red = 329.698727446 * pow(t - 60.0, -0.1332047592)
+		green = 288.1221695283 * pow(t - 60.0, -0.0755148492)
+		blue = 255.0
+	return Color(clamp(red / 255.0, 0.0, 1.0), clamp(green / 255.0, 0.0, 1.0), clamp(blue / 255.0, 0.0, 1.0))
+
+func _wavelength_to_rgb(wavelength_nm: float) -> Color:
+	var wavelength: float = clamp(wavelength_nm, 380.0, 780.0)
+	var red: float = 0.0
+	var green: float = 0.0
+	var blue: float = 0.0
+	if wavelength < 440.0:
+		red = -(wavelength - 440.0) / (440.0 - 380.0)
+		blue = 1.0
+	elif wavelength < 490.0:
+		green = (wavelength - 440.0) / (490.0 - 440.0)
+		blue = 1.0
+	elif wavelength < 510.0:
+		green = 1.0
+		blue = -(wavelength - 510.0) / (510.0 - 490.0)
+	elif wavelength < 580.0:
+		red = (wavelength - 510.0) / (580.0 - 510.0)
+		green = 1.0
+	elif wavelength < 645.0:
+		red = 1.0
+		green = -(wavelength - 645.0) / (645.0 - 580.0)
+	else:
+		red = 1.0
+
+	var factor: float = 1.0
+	if wavelength < 420.0:
+		factor = 0.3 + 0.7 * ((wavelength - 380.0) / (420.0 - 380.0))
+	elif wavelength > 700.0:
+		factor = 0.3 + 0.7 * ((780.0 - wavelength) / (780.0 - 700.0))
+	return Color(clamp(red * factor, 0.0, 1.0), clamp(green * factor, 0.0, 1.0), clamp(blue * factor, 0.0, 1.0))
 
 func _collect_emissive_materials_recursive(node: Node3D, output_materials: Array) -> void:
 	if node == null:
