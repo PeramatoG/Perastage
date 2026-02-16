@@ -43,6 +43,7 @@ std::optional<std::unordered_map<std::string, std::string>> Load() { return std:
 void Save(const std::unordered_map<std::string, std::string> &) {}
 std::optional<std::string> Get(const std::string &) { return std::nullopt; }
 void Update(const std::string &, const std::string &) {}
+bool ImportTrussFile(const std::string &, std::string &, std::string &) { return false; }
 }
 
 bool LoadTrussArchive(const std::string &, Truss &) { return false; }
