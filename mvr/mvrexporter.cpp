@@ -116,6 +116,37 @@ static std::string SanitizeArchiveFileName(const std::string &input,
   return fs::path(candidate).filename().generic_string();
 }
 
+static std::string ExportSafeTrussModelFile(const std::string &modelFile) {
+  std::string candidate = TrimAscii(modelFile);
+  if (candidate.empty())
+    return {};
+
+  const bool hasDriveLetter = candidate.size() >= 2 && std::isalpha(candidate[0]) != 0 &&
+                              candidate[1] == ':';
+  const bool hasAbsolutePrefix = candidate.front() == '/' || candidate.front() == '\\' ||
+                                 candidate.rfind("//", 0) == 0 ||
+                                 candidate.rfind("\\\\", 0) == 0;
+  const bool isAbsolutePath = hasAbsolutePrefix || fs::path(candidate).is_absolute();
+
+  if (isAbsolutePath || hasDriveLetter) {
+    std::replace(candidate.begin(), candidate.end(), '\\', '/');
+    while (!candidate.empty() && candidate.back() == '/')
+      candidate.pop_back();
+    const size_t sep = candidate.find_last_of('/');
+    candidate = sep == std::string::npos ? candidate : candidate.substr(sep + 1);
+  }
+
+  candidate = TrimAscii(candidate);
+  if (candidate.empty() || candidate.find(':') != std::string::npos)
+    return {};
+
+  if (candidate.front() == '/' || candidate.front() == '\\' ||
+      candidate.rfind("//", 0) == 0 || candidate.rfind("\\\\", 0) == 0)
+    return {};
+
+  return candidate;
+}
+
 
 static std::string SlugifyArchiveName(const std::string &input) {
   std::string out;
@@ -1136,7 +1167,7 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
       addNum("Height", t.heightMm, "mm");
       addNum("Weight", t.weightKg, "kg");
       addTxt("CrossSection", t.crossSection);
-      addTxt("ModelFile", t.modelFile);
+      addTxt("ModelFile", ExportSafeTrussModelFile(t.modelFile));
       addTxt("HangPos", t.positionName);
       data->InsertEndChild(info);
       ud->InsertEndChild(data);
