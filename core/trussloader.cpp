@@ -35,6 +35,11 @@ namespace fs = std::filesystem;
 
 namespace {
 
+static std::string ToUtf8String(const fs::path &path) {
+  std::u8string utf8 = path.u8string();
+  return std::string(utf8.begin(), utf8.end());
+}
+
 static std::string LowerExt(fs::path path) {
   std::string ext = path.extension().string();
   std::transform(ext.begin(), ext.end(), ext.begin(),
@@ -122,8 +127,8 @@ bool LoadTrussGdtf(const std::string &gdtfPath, Truss &outTruss) {
     return false;
 
   outTruss = Truss{};
-  outTruss.modelFile = inputPath.string();
-  outTruss.gdtfSpec = inputPath.string();
+  outTruss.modelFile = ToUtf8String(inputPath);
+  outTruss.gdtfSpec = ToUtf8String(inputPath);
 
   fs::path baseDir = BuildGdtfExtractionCacheDir(inputPath);
   std::error_code ec;
@@ -174,11 +179,11 @@ bool LoadTrussGdtf(const std::string &gdtfPath, Truss &outTruss) {
         {fs::path("models/gltf") / (fileBase + ".glb"),
          fs::path("models/3ds") / (fileBase + ".3ds")});
     if (!modelPath.empty())
-      outTruss.symbolFile = modelPath.string();
+      outTruss.symbolFile = ToUtf8String(modelPath);
 
     fs::path symbolPath = FindFirstExisting(baseDir, {fs::path("models/svg") / (fileBase + ".svg")});
     if (!symbolPath.empty() && outTruss.symbolFile.empty())
-      outTruss.symbolFile = symbolPath.string();
+      outTruss.symbolFile = ToUtf8String(symbolPath);
   }
 
   tinyxml2::XMLElement *phys = fixtureType->FirstChildElement("PhysicalDescriptions");
@@ -206,7 +211,7 @@ bool LoadTrussDefinition(const std::string &path, Truss &outTruss) {
   fs::path inputPath = fs::u8path(path);
   std::string ext = LowerExt(inputPath);
   if (ext == ".gdtf")
-    return LoadTrussGdtf(path, outTruss);
+    return LoadTrussGdtf(ToUtf8String(inputPath), outTruss);
 
   if (ext == ".gtruss") {
     fs::path migratedPath = inputPath;
@@ -216,11 +221,11 @@ bool LoadTrussDefinition(const std::string &path, Truss &outTruss) {
         !ConvertLegacyGtrussToGdtf(inputPath, migratedPath, &error)) {
       return false;
     }
-    return LoadTrussGdtf(migratedPath.string(), outTruss);
+    return LoadTrussGdtf(ToUtf8String(migratedPath), outTruss);
   }
 
   outTruss = Truss{};
-  outTruss.symbolFile = path;
-  outTruss.modelFile = path;
+  outTruss.symbolFile = ToUtf8String(inputPath);
+  outTruss.modelFile = ToUtf8String(inputPath);
   return true;
 }

@@ -33,6 +33,11 @@ namespace TrussDictionary {
 
 namespace {
 
+static std::string ToUtf8String(const fs::path &path) {
+  std::u8string utf8 = path.u8string();
+  return std::string(utf8.begin(), utf8.end());
+}
+
 static std::string LowerExt(const fs::path &path) {
   std::string ext = path.extension().string();
   std::transform(ext.begin(), ext.end(), ext.begin(),
@@ -111,7 +116,7 @@ bool ImportTrussFile(const std::string &inputPath, std::string &storedPath,
     return false;
   }
 
-  storedPath = dest.string();
+  storedPath = ToUtf8String(dest);
   return true;
 }
 
@@ -169,7 +174,7 @@ std::optional<std::unordered_map<std::string, std::string>> Load() {
 
     if (migrated != path)
       changed = true;
-    dict[it.key()] = migrated.string();
+    dict[it.key()] = ToUtf8String(migrated);
   }
 
   if (changed)
@@ -212,7 +217,7 @@ std::optional<std::string> Get(const std::string &model) {
   if (it == dict.end())
     return std::nullopt;
 
-  if (!fs::exists(it->second)) {
+  if (!fs::exists(fs::u8path(it->second))) {
     dict.erase(it);
     Save(dict);
     return std::nullopt;
