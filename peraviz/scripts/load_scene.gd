@@ -10,12 +10,19 @@ var _loaded_bounds: AABB
 var _has_loaded_bounds: bool = false
 var _node_index: Dictionary = {}
 var _asset_cache: Dictionary = {}
+var _debug_coords_enabled: bool = false
+var _debug_gizmos_root: Node3D
+
+const DEBUG_TOGGLE_KEY: Key = KEY_C
 
 func _ready() -> void:
 	$HUD/LoadButton.pressed.connect(_on_load_pressed)
 	picker.file_selected.connect(_on_file_selected)
 	picker.access = FileDialog.ACCESS_FILESYSTEM
 	status_label.text = "Select a .mvr file"
+	_debug_coords_enabled = bool(ProjectSettings.get_setting("peraviz_debug_coords", false))
+	_ensure_debug_gizmo_root()
+	_update_debug_legend()
 
 func _on_load_pressed() -> void:
 	picker.popup_centered_ratio(0.7)
@@ -24,18 +31,171 @@ func _on_file_selected(path: String) -> void:
 	_clear_scene()
 	var native_path: String = ProjectSettings.globalize_path(path)
 	var peraviz_debug_baseline: bool = bool(ProjectSettings.get_setting("peraviz_debug_baseline", false))
-	var nodes: Array = _loader.load_mvr(native_path, peraviz_debug_baseline)
-	print("[Peraviz] Loaded render nodes: ", nodes.size(), " baseline_debug=", peraviz_debug_baseline)
+	var nodes: Array = _loader.load_mvr(native_path, peraviz_debug_baseline, _debug_coords_enabled)
+	print("[Peraviz] Loaded render nodes: ", nodes.size(), " baseline_debug=", peraviz_debug_baseline, " coords_debug=", _debug_coords_enabled)
 	_has_loaded_bounds = false
+	_clear_debug_gizmos()
 
 	_build_node_tree(nodes)
+	_rebuild_debug_gizmos()
 	_focus_loaded_scene()
-	status_label.text = "Nodes: %d (press F to focus)" % nodes.size()
+	status_label.text = "Nodes: %d (press F to focus, C debug coords)" % nodes.size()
+	_update_debug_legend()
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_F:
 		_focus_loaded_scene()
 		get_viewport().set_input_as_handled()
+		return
+
+	if event is InputEventKey and event.pressed and not event.echo and event.keycode == DEBUG_TOGGLE_KEY:
+		_debug_coords_enabled = not _debug_coords_enabled
+		ProjectSettings.set_setting("peraviz_debug_coords", _debug_coords_enabled)
+		print("[PeravizCoordDebug] event=toggle coords_debug=", _debug_coords_enabled)
+		_rebuild_debug_gizmos()
+		_update_debug_legend()
+		get_viewport().set_input_as_handled()
+
+
+func _ensure_debug_gizmo_root() -> void:
+	if _debug_gizmos_root != null and is_instance_valid(_debug_gizmos_root):
+		return
+	_debug_gizmos_root = Node3D.new()
+	_debug_gizmos_root.name = "DebugGizmos"
+	_debug_gizmos_root.top_level = true
+	add_child(_debug_gizmos_root)
+
+func _clear_debug_gizmos() -> void:
+	_ensure_debug_gizmo_root()
+	for child in _debug_gizmos_root.get_children():
+		child.queue_free()
+
+func _rebuild_debug_gizmos() -> void:
+	_clear_debug_gizmos()
+	if not _debug_coords_enabled:
+		return
+
+	_add_debug_gizmo_for_target(proxies_root, "scene_root", Color(1.0, 0.25, 1.0), 0.75)
+	for node in _node_index.values():
+		if node is not Node3D:
+			continue
+		var node3d: Node3D = node
+		var metadata_type: String = str(node3d.get_meta("peraviz_type", ""))
+		var is_axis: bool = bool(node3d.get_meta("peraviz_is_axis", false))
+		var is_emitter: bool = bool(node3d.get_meta("peraviz_is_emitter", false))
+
+		if metadata_type in ["fixture", "truss", "support", "scene_object"]:
+			_add_debug_gizmo_for_target(node3d, "mvr_instance_root", Color(1.0, 0.9, 0.2), 0.55)
+		if is_axis:
+			_add_debug_gizmo_for_target(node3d, "gdtf_axis", Color(0.0, 1.0, 1.0), 0.35)
+		if is_emitter:
+			_add_debug_gizmo_for_target(node3d, "emitter", Color(1.0, 0.55, 0.15), 0.30)
+
+
+func _is_basis_valid(basis: Basis) -> bool:
+	var determinant: float = basis.determinant()
+	if is_zero_approx(determinant):
+		return false
+	return is_finite(determinant)
+
+func _safe_basis_from_data(data: Dictionary) -> Basis:
+	var basis_x: Vector3 = data.get("basis_x", Vector3.RIGHT)
+	var basis_y: Vector3 = data.get("basis_y", Vector3.UP)
+	var basis_z: Vector3 = data.get("basis_z", Vector3.BACK)
+	var basis := Basis(basis_x, basis_y, basis_z)
+	if _is_basis_valid(basis):
+		return basis
+
+	print("[PeravizCoordDebug] event=invalid_basis_fallback basis_x=", basis_x, " basis_y=", basis_y, " basis_z=", basis_z)
+	return Basis.IDENTITY
+
+func _safe_position(value: Vector3, context: String) -> Vector3:
+	if is_finite(value.x) and is_finite(value.y) and is_finite(value.z):
+		return value
+	print("[PeravizCoordDebug] event=invalid_position_fallback context=", context, " pos=", value)
+	return Vector3.ZERO
+
+func _safe_scale_from_data(data: Dictionary, context: String) -> Vector3:
+	var raw_scale: Vector3 = data.get("scale", Vector3.ONE)
+	if not is_finite(raw_scale.x) or not is_finite(raw_scale.y) or not is_finite(raw_scale.z):
+		print("[PeravizCoordDebug] event=invalid_scale_fallback context=", context, " scale=", raw_scale)
+		return Vector3.ONE
+
+	var min_axis: float = 0.0001
+	var sx: float = raw_scale.x
+	var sy: float = raw_scale.y
+	var sz: float = raw_scale.z
+	if is_zero_approx(sx):
+		sx = min_axis
+	if is_zero_approx(sy):
+		sy = min_axis
+	if is_zero_approx(sz):
+		sz = min_axis
+
+	if not is_equal_approx(sx, raw_scale.x) or not is_equal_approx(sy, raw_scale.y) or not is_equal_approx(sz, raw_scale.z):
+		print("[PeravizCoordDebug] event=zero_scale_sanitized context=", context, " raw_scale=", raw_scale, " sanitized_scale=", Vector3(sx, sy, sz))
+	return Vector3(sx, sy, sz)
+
+func _safe_target_global_position(target: Node3D) -> Vector3:
+	if target == null:
+		return Vector3.ZERO
+	var origin: Vector3 = target.global_position
+	if not is_finite(origin.x) or not is_finite(origin.y) or not is_finite(origin.z):
+		print("[PeravizCoordDebug] event=invalid_target_origin_fallback node=", target.name, " origin=", origin)
+		return Vector3.ZERO
+	return origin
+
+func _add_debug_gizmo_for_target(target: Node3D, kind: String, origin_color: Color, length: float) -> void:
+	if target == null:
+		return
+	var holder := Node3D.new()
+	holder.name = "Gizmo_%s" % kind
+	holder.global_position = _safe_target_global_position(target)
+	holder.add_child(_create_axes_gizmo_node(origin_color, length))
+	_debug_gizmos_root.add_child(holder)
+
+func _create_axes_gizmo_node(origin_color: Color, length: float) -> Node3D:
+	var immediate := ImmediateMesh.new()
+	var line_material := ORMMaterial3D.new()
+	line_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	line_material.vertex_color_use_as_albedo = true
+	immediate.surface_begin(Mesh.PRIMITIVE_LINES, line_material)
+	immediate.surface_set_color(Color(1, 0, 0))
+	immediate.surface_add_vertex(Vector3.ZERO)
+	immediate.surface_add_vertex(Vector3.RIGHT * length)
+	immediate.surface_set_color(Color(0, 1, 0))
+	immediate.surface_add_vertex(Vector3.ZERO)
+	immediate.surface_add_vertex(Vector3.UP * length)
+	immediate.surface_set_color(Color(0, 0.4, 1))
+	immediate.surface_add_vertex(Vector3.ZERO)
+	immediate.surface_add_vertex(Vector3.BACK * length)
+	immediate.surface_end()
+
+	var axes_instance := MeshInstance3D.new()
+	axes_instance.mesh = immediate
+	axes_instance.material_override = line_material
+
+	var marker := SphereMesh.new()
+	marker.radius = max(length * 0.08, 0.01)
+	marker.height = marker.radius * 2.0
+	var marker_material := StandardMaterial3D.new()
+	marker_material.albedo_color = origin_color
+	marker_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	var marker_instance := MeshInstance3D.new()
+	marker_instance.mesh = marker
+	marker_instance.material_override = marker_material
+
+	var container := Node3D.new()
+	container.add_child(axes_instance)
+	container.add_child(marker_instance)
+	return container
+
+func _update_debug_legend() -> void:
+	if not _debug_coords_enabled:
+		print("[PeravizCoordDebugLegend] disabled (press C to enable)")
+		return
+
+	print("[PeravizCoordDebugLegend] X=Red Y=Green Z=Blue scene_root_origin=Magenta mvr_instance_root_origin=Yellow gdtf_axis_origin=Cyan emitter_origin=Orange beam_expected_local=-Z")
 
 func _build_node_tree(nodes: Array) -> void:
 	_node_index.clear()
@@ -69,16 +229,22 @@ func _create_scene_node(data: Dictionary) -> Node3D:
 
 	var root := Node3D.new()
 	root.name = "%s_%s" % [item_class, node_name]
-	var position: Vector3 = data.get("pos", Vector3.ZERO)
+	root.set_meta("peraviz_type", item_type)
+	root.set_meta("peraviz_is_axis", is_axis)
+	root.set_meta("peraviz_is_emitter", is_emitter)
+	var position: Vector3 = _safe_position(data.get("pos", Vector3.ZERO), "create_scene_node:" + root.name)
 	if bool(data.get("has_basis", false)):
-		var basis_x: Vector3 = data.get("basis_x", Vector3.RIGHT)
-		var basis_y: Vector3 = data.get("basis_y", Vector3.UP)
-		var basis_z: Vector3 = data.get("basis_z", Vector3.BACK)
-		root.transform = Transform3D(Basis(basis_x, basis_y, basis_z), position)
+		var basis: Basis = _safe_basis_from_data(data)
+		var safe_scale: Vector3 = _safe_scale_from_data(data, "create_scene_node_basis:" + root.name)
+		basis = basis.scaled(safe_scale)
+		if not _is_basis_valid(basis):
+			print("[PeravizCoordDebug] event=scaled_basis_invalid_fallback node=", root.name, " scale=", safe_scale)
+			basis = Basis.IDENTITY.scaled(safe_scale)
+		root.transform = Transform3D(basis, position)
 	else:
 		root.position = position
 		root.rotation_degrees = data.get("rot", Vector3.ZERO)
-		root.scale = data.get("scale", Vector3.ONE)
+		root.scale = _safe_scale_from_data(data, "create_scene_node_euler:" + root.name)
 
 	if is_axis:
 		var pivot := Node3D.new()
@@ -121,6 +287,8 @@ func _extract_visual_scale_hint(data: Dictionary) -> float:
 
 	var scale: Vector3 = data.get("scale", Vector3.ONE)
 	var average_scale: float = (abs(scale.x) + abs(scale.y) + abs(scale.z)) / 3.0
+	if not is_finite(average_scale):
+		return 1.0
 	return max(average_scale, 0.0001)
 
 func _load_3d_asset(asset_path: String, asset_kind_hint: String = "") -> Variant:
@@ -248,6 +416,7 @@ func _clear_scene() -> void:
 	_node_index.clear()
 	_asset_cache.clear()
 	_has_loaded_bounds = false
+	_clear_debug_gizmos()
 
 func _expand_loaded_bounds_from_node(node: Node3D) -> void:
 	if node is MeshInstance3D:
