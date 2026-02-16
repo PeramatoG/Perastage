@@ -22,6 +22,7 @@
 #include <unordered_map>
 
 namespace TrussDictionary {
+std::string NormalizeModelKey(const std::string &model);
 std::optional<std::unordered_map<std::string, std::string>> Load();
 void Save(const std::unordered_map<std::string, std::string> &dict);
 std::optional<std::string> Get(const std::string &model);

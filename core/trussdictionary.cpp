@@ -25,6 +25,7 @@
 #include <cctype>
 #include <filesystem>
 #include <fstream>
+#include <regex>
 #include <vector>
 
 namespace fs = std::filesystem;
@@ -43,6 +44,31 @@ static std::string LowerExt(const fs::path &path) {
   std::transform(ext.begin(), ext.end(), ext.begin(),
                  [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
   return ext;
+}
+
+static std::string TrimAsciiWhitespace(const std::string &text) {
+  const size_t start = text.find_first_not_of(" \t\r\n");
+  if (start == std::string::npos)
+    return {};
+  const size_t end = text.find_last_not_of(" \t\r\n");
+  return text.substr(start, end - start + 1);
+}
+
+static std::string CollapseAsciiWhitespace(const std::string &text) {
+  std::string collapsed;
+  collapsed.reserve(text.size());
+  bool hadWhitespace = false;
+  for (unsigned char c : text) {
+    if (std::isspace(c)) {
+      hadWhitespace = true;
+      continue;
+    }
+    if (hadWhitespace && !collapsed.empty())
+      collapsed.push_back(' ');
+    collapsed.push_back(static_cast<char>(c));
+    hadWhitespace = false;
+  }
+  return collapsed;
 }
 
 static fs::path GetDictFile() {
@@ -87,6 +113,18 @@ static bool EnsureMigratedToGdtf(fs::path &pathInOut, std::string &error) {
 }
 
 } // namespace
+
+std::string NormalizeModelKey(const std::string &model) {
+  std::string normalized = CollapseAsciiWhitespace(TrimAsciiWhitespace(model));
+  std::transform(normalized.begin(), normalized.end(), normalized.begin(),
+                 [](unsigned char c) {
+                   return static_cast<char>(std::toupper(c));
+                 });
+
+  static const std::regex kDimensionSeparator("(\\d)\\s*[xX]\\s*(\\d)");
+  normalized = std::regex_replace(normalized, kDimensionSeparator, "$1X$2");
+  return normalized;
+}
 
 bool ImportTrussFile(const std::string &inputPath, std::string &storedPath,
                      std::string &error) {
@@ -161,6 +199,10 @@ std::optional<std::unordered_map<std::string, std::string>> Load() {
     if (!it.value().is_string())
       continue;
 
+    const std::string normalizedKey = NormalizeModelKey(it.key());
+    if (normalizedKey.empty())
+      continue;
+
     fs::path path = fs::u8path(it.value().get<std::string>());
     if (!path.is_absolute())
       path = dir / path;
@@ -172,9 +214,9 @@ std::optional<std::unordered_map<std::string, std::string>> Load() {
     if (!EnsureMigratedToGdtf(migrated, error))
       continue;
 
-    if (migrated != path)
+    if (migrated != path || normalizedKey != it.key())
       changed = true;
-    dict[it.key()] = ToUtf8String(migrated);
+    dict[normalizedKey] = ToUtf8String(migrated);
   }
 
   if (changed)
@@ -188,14 +230,22 @@ void Save(const std::unordered_map<std::string, std::string> &dict) {
     return;
 
   nlohmann::json j;
+  std::unordered_map<std::string, std::string> normalizedDict;
+  normalizedDict.reserve(dict.size());
+  for (const auto &[model, path] : dict) {
+    const std::string normalizedKey = NormalizeModelKey(model);
+    if (!normalizedKey.empty())
+      normalizedDict[normalizedKey] = path;
+  }
+
   std::vector<std::string> keys;
-  keys.reserve(dict.size());
-  for (const auto &[model, _] : dict)
+  keys.reserve(normalizedDict.size());
+  for (const auto &[model, _] : normalizedDict)
     keys.push_back(model);
   std::sort(keys.begin(), keys.end());
 
   for (const auto &model : keys) {
-    fs::path p = fs::u8path(dict.at(model));
+    fs::path p = fs::u8path(normalizedDict.at(model));
     fs::path forced = p;
     if (forced.extension() != ".gdtf")
       forced.replace_extension(".gdtf");
@@ -208,12 +258,16 @@ void Save(const std::unordered_map<std::string, std::string> &dict) {
 }
 
 std::optional<std::string> Get(const std::string &model) {
+  const std::string normalizedModel = NormalizeModelKey(model);
+  if (normalizedModel.empty())
+    return std::nullopt;
+
   auto dictOpt = Load();
   if (!dictOpt)
     return std::nullopt;
 
   auto &dict = *dictOpt;
-  auto it = dict.find(model);
+  auto it = dict.find(normalizedModel);
   if (it == dict.end())
     return std::nullopt;
 
@@ -227,7 +281,8 @@ std::optional<std::string> Get(const std::string &model) {
 }
 
 void Update(const std::string &model, const std::string &modelPath) {
-  if (model.empty() || modelPath.empty())
+  const std::string normalizedModel = NormalizeModelKey(model);
+  if (normalizedModel.empty() || modelPath.empty())
     return;
 
   std::string storedPath;
@@ -240,7 +295,7 @@ void Update(const std::string &model, const std::string &modelPath) {
     return;
 
   auto &dict = *dictOpt;
-  dict[model] = storedPath;
+  dict[normalizedModel] = storedPath;
   Save(dict);
 }
 
