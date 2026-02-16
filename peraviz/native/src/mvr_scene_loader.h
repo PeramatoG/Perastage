@@ -6,6 +6,7 @@
 
 namespace peraviz {
 
-SceneModel load_mvr(const std::string &path, bool peraviz_debug_baseline = false);
+SceneModel load_mvr(const std::string &path, bool peraviz_debug_baseline = false,
+                    bool peraviz_debug_coords = false);
 
 } // namespace peraviz

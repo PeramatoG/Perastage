@@ -269,8 +269,11 @@ void append_geometry_children(SceneModel &scene, tinyxml2::XMLElement *node, con
 
 namespace peraviz {
 
-SceneModel load_mvr(const std::string &path, bool peraviz_debug_baseline) {
+SceneModel load_mvr(const std::string &path, bool peraviz_debug_baseline,
+                    bool peraviz_debug_coords) {
     peraviz::debug_runtime::set_baseline_debug_enabled(peraviz_debug_baseline);
+    peraviz::debug_runtime::set_coordinate_debug_enabled(peraviz_debug_coords);
+    peraviz::debug_runtime::log_coordinate_mapping_metadata();
 
     SceneModel model;
     if (!std::filesystem::exists(std::filesystem::u8path(path))) {
@@ -321,6 +324,10 @@ SceneModel load_mvr(const std::string &path, bool peraviz_debug_baseline) {
             node.parent_id = parent_id;
             node.name = parse_name(child, node_name);
             node.local_transform = peraviz::coordinate_mapper::to_godot_transform(local_transform);
+
+            peraviz::debug_runtime::log_coordinate_debug_event(
+                "instantiate_node", node_name,
+                "node_id=" + id + " parent_id=" + parent_id + " name=" + node.name);
 
             if (node_name == "Fixture") {
                 node.type = "fixture";
