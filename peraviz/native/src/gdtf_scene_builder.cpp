@@ -5,13 +5,8 @@
 #include "matrixutils.h"
 
 #include <algorithm>
-#include <cmath>
-#include <array>
 #include <cctype>
-#include <cstring>
-#include <cstdlib>
 #include <functional>
-#include <sstream>
 #include <unordered_map>
 #include <vector>
 
@@ -20,14 +15,6 @@
 namespace {
 
 using peraviz::SceneNode;
-
-struct GdtfModelInfo {
-    std::string file;
-    float length_m = 0.0F;
-    float width_m = 0.0F;
-    float height_m = 0.0F;
-};
-
 std::string lower_ascii(std::string text) {
     std::transform(text.begin(), text.end(), text.begin(), [](unsigned char c) {
         return static_cast<char>(std::tolower(c));
@@ -50,75 +37,6 @@ bool looks_like_emitter(const std::string &tag_name, const std::string &name) {
            n.find("lens") != std::string::npos || n.find("emitter") != std::string::npos;
 }
 
-
-
-
-bool parse_gdtf_4x4_matrix(const char *text, Matrix &out) {
-    if (!text) {
-        return false;
-    }
-
-    std::string cleaned;
-    cleaned.reserve(std::strlen(text));
-    for (const char c : std::string(text)) {
-        if (c == '{' || c == '}' || c == ',') {
-            cleaned.push_back(' ');
-        } else {
-            cleaned.push_back(c);
-        }
-    }
-
-    std::stringstream stream(cleaned);
-    std::vector<float> values;
-    float value = 0.0F;
-    while (stream >> value) {
-        values.push_back(value);
-    }
-
-    if (values.size() != 16) {
-        return false;
-    }
-
-    // Keep parity with Perastage's GDTF matrix interpretation so fixture parts
-    // preserve their offsets in the same way as the 3D viewer.
-    //
-    // Canonical GDTF matrices store translation in the 4th column.
-    // Some exporters place translation in the 4th row, so we accept both.
-    const std::array<float, 3> column_translation{values[3], values[7], values[11]};
-    const std::array<float, 3> row_translation{values[12], values[13], values[14]};
-    const bool has_column_translation =
-        std::abs(column_translation[0]) > 1e-6F || std::abs(column_translation[1]) > 1e-6F ||
-        std::abs(column_translation[2]) > 1e-6F;
-    const bool has_row_translation = std::abs(row_translation[0]) > 1e-6F ||
-                                     std::abs(row_translation[1]) > 1e-6F ||
-                                     std::abs(row_translation[2]) > 1e-6F;
-
-    out.u = std::array<float, 3>{values[0], values[4], values[8]};
-    out.v = std::array<float, 3>{values[1], values[5], values[9]};
-    out.w = std::array<float, 3>{values[2], values[6], values[10]};
-    out.o = has_column_translation || !has_row_translation ? column_translation : row_translation;
-    return true;
-}
-
-
-
-float read_float_attribute(tinyxml2::XMLElement *node, const char *upper, const char *lower) {
-    const char *value = node->Attribute(upper);
-    if (!value) {
-        value = node->Attribute(lower);
-    }
-    if (!value) {
-        return 0.0F;
-    }
-
-    char *end = nullptr;
-    const float parsed = std::strtof(value, &end);
-    if (end == value) {
-        return 0.0F;
-    }
-    return parsed;
-}
-
 bool is_supported_geometry_tag(const std::string &tag_name) {
     return tag_name == "Geometry" || tag_name == "Axis" || tag_name == "Beam" ||
            tag_name == "GeometryReference" || tag_name == "Laser" ||
@@ -137,9 +55,7 @@ Matrix parse_local_matrix(tinyxml2::XMLElement *node) {
         position = node->Attribute("position");
     }
     if (position) {
-        if (!parse_gdtf_4x4_matrix(position, out)) {
-            MatrixUtils::ParseMatrix(position, out);
-        }
+        MatrixUtils::ParseMatrix(position, out);
         return out;
     }
 
@@ -148,9 +64,7 @@ Matrix parse_local_matrix(tinyxml2::XMLElement *node) {
         matrix_attr = node->Attribute("matrix");
     }
     if (matrix_attr) {
-        if (!parse_gdtf_4x4_matrix(matrix_attr, out)) {
-            MatrixUtils::ParseMatrix(matrix_attr, out);
-        }
+        MatrixUtils::ParseMatrix(matrix_attr, out);
         return out;
     }
 
@@ -160,9 +74,7 @@ Matrix parse_local_matrix(tinyxml2::XMLElement *node) {
     }
     if (matrix) {
         if (const char *text = matrix->GetText()) {
-            if (!parse_gdtf_4x4_matrix(text, out)) {
-                MatrixUtils::ParseMatrix(text, out);
-            }
+            MatrixUtils::ParseMatrix(text, out);
         }
     }
     return out;
@@ -210,7 +122,7 @@ std::vector<SceneNode> build_fixture_geometry_nodes(const GdtfBuildRequest &requ
         return nodes;
     }
 
-    std::unordered_map<std::string, GdtfModelInfo> model_info_by_name;
+    std::unordered_map<std::string, std::string> model_file_by_name;
     if (tinyxml2::XMLElement *models = fixture_type->FirstChildElement("Models")) {
         for (tinyxml2::XMLElement *model = models->FirstChildElement(); model;
              model = model->NextSiblingElement()) {
@@ -218,22 +130,14 @@ std::vector<SceneNode> build_fixture_geometry_nodes(const GdtfBuildRequest &requ
             if (!name) {
                 name = model->Attribute("name");
             }
-            if (!name) {
-                continue;
-            }
-
-            GdtfModelInfo model_info;
             const char *file = model->Attribute("File");
             if (!file) {
                 file = model->Attribute("file");
             }
-            if (file) {
-                model_info.file = file;
+            if (!name || !file) {
+                continue;
             }
-            model_info.length_m = read_float_attribute(model, "Length", "length");
-            model_info.width_m = read_float_attribute(model, "Width", "width");
-            model_info.height_m = read_float_attribute(model, "Height", "height");
-            model_info_by_name[name] = model_info;
+            model_file_by_name[name] = file;
         }
     }
 
@@ -347,21 +251,9 @@ std::vector<SceneNode> build_fixture_geometry_nodes(const GdtfBuildRequest &requ
             model_name = geometry->Attribute("model");
         }
         if (model_name) {
-            auto model_it = model_info_by_name.find(model_name);
-            if (model_it != model_info_by_name.end()) {
-                if (!model_it->second.file.empty()) {
-                    node.asset_path = gdtf_cache.ensure_gdtf_model_extracted(model_it->second.file);
-                }
-
-                const bool has_dimensions = model_it->second.length_m > 0.0F ||
-                                            model_it->second.width_m > 0.0F ||
-                                            model_it->second.height_m > 0.0F;
-                if (has_dimensions) {
-                    node.has_model_dimensions = true;
-                    node.model_dimensions_m = {model_it->second.length_m,
-                                               model_it->second.width_m,
-                                               model_it->second.height_m};
-                }
+            auto model_it = model_file_by_name.find(model_name);
+            if (model_it != model_file_by_name.end()) {
+                node.asset_path = gdtf_cache.ensure_gdtf_model_extracted(model_it->second);
             }
         }
 

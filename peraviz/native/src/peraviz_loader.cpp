@@ -41,9 +41,6 @@ Array PeravizLoader::load_mvr(const String &path) const {
         d["is_fixture"] = node.is_fixture;
         d["is_axis"] = node.is_axis;
         d["is_emitter"] = node.is_emitter;
-        d["has_model_dimensions"] = node.has_model_dimensions;
-        d["model_dimensions_m"] = Vector3(node.model_dimensions_m.x, node.model_dimensions_m.y,
-                                             node.model_dimensions_m.z);
         d["pos"] = Vector3(node.local_transform.position.x, node.local_transform.position.y,
                             node.local_transform.position.z);
         d["rot"] = Vector3(node.local_transform.rotation_degrees.x,
