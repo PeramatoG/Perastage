@@ -130,6 +130,17 @@ bool TryParseInt(std::string_view text, int &out) {
   return false;
 }
 
+bool IsRenderableTrussGeometry(const std::string &path) {
+  if (path.empty())
+    return false;
+  std::string ext = std::filesystem::path(path).extension().string();
+  std::transform(ext.begin(), ext.end(), ext.begin(),
+                 [](unsigned char c) {
+                   return static_cast<char>(std::tolower(c));
+                 });
+  return ext == ".3ds" || ext == ".glb";
+}
+
 std::vector<std::string> SplitPlus(const std::string &s) {
   std::vector<std::string> out;
   std::istringstream ss(s);
@@ -548,7 +559,6 @@ bool RiderImporter::ImportText(const std::string &text) {
             t.weightKg = parsed.weightKg;
             t.crossSection = parsed.crossSection;
           } else {
-            t.symbolFile = *dictPath;
             t.modelFile = *dictPath;
           }
         }
@@ -638,7 +648,6 @@ bool RiderImporter::ImportText(const std::string &text) {
             t.weightKg = parsed.weightKg;
             t.crossSection = parsed.crossSection;
           } else {
-            t.symbolFile = *dictPath;
             t.modelFile = *dictPath;
           }
         }
@@ -668,6 +677,7 @@ bool RiderImporter::ImportText(const std::string &text) {
       continue;
 
     Truss &t = trussIt->second;
+    if (IsRenderableTrussGeometry(t.symbolFile))
     if (!t.symbolFile.empty())
       continue;
 
