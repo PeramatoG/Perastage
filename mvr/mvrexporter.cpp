@@ -67,6 +67,27 @@ static bool TryComputeAbsoluteDmx(int universe1Based, int address1Based,
 static constexpr const char *kMvrProvider = "Perastage";
 static constexpr const char *kMvrProviderVersion = "1.0";
 
+enum class TrussGeometryAuthority {
+  MvrGeometry = 0,
+  Gdtf = 1,
+};
+
+static TrussGeometryAuthority GetTrussGeometryAuthoritySetting() {
+  const float rawValue = ConfigManager::Get().GetFloat("mvr_truss_geometry_authority");
+  return rawValue >= 0.5f ? TrussGeometryAuthority::Gdtf : TrussGeometryAuthority::MvrGeometry;
+}
+
+static void RemoveModelAttributeRecursive(tinyxml2::XMLElement *element) {
+  if (!element)
+    return;
+  if (element->FindAttribute("Model"))
+    element->DeleteAttribute("Model");
+  for (tinyxml2::XMLElement *child = element->FirstChildElement(); child;
+       child = child->NextSiblingElement()) {
+    RemoveModelAttributeRecursive(child);
+  }
+}
+
 static std::string TrimAscii(std::string value) {
   auto isSpace = [](unsigned char c) { return std::isspace(c); };
   value.erase(value.begin(), std::find_if(value.begin(), value.end(),
@@ -634,8 +655,44 @@ static std::string CreatePatchedGdtf(const std::string &gdtfPath,
   return outPath;
 }
 
+static std::string CreateMetadataOnlyTrussGdtf(const std::string &gdtfPath) {
+  if (gdtfPath.empty())
+    return {};
+
+  std::string tempDir = CreateTempDir();
+  if (!ExtractZip(gdtfPath, tempDir))
+    return {};
+
+  std::string descPath = tempDir + "/description.xml";
+  tinyxml2::XMLDocument doc;
+  if (doc.LoadFile(descPath.c_str()) != tinyxml2::XML_SUCCESS)
+    return {};
+
+  tinyxml2::XMLElement *fixtureType = doc.FirstChildElement("GDTF");
+  if (fixtureType)
+    fixtureType = fixtureType->FirstChildElement("FixtureType");
+  else
+    fixtureType = doc.FirstChildElement("FixtureType");
+  if (!fixtureType)
+    return {};
+
+  if (tinyxml2::XMLElement *models = fixtureType->FirstChildElement("Models")) {
+    fixtureType->DeleteChild(models);
+  }
+  RemoveModelAttributeRecursive(fixtureType);
+
+  fs::remove_all(fs::path(tempDir) / "models");
+
+  doc.SaveFile(descPath.c_str());
+  std::string outPath = tempDir + ".gdtf";
+  if (!ZipDir(tempDir, outPath))
+    return {};
+  return outPath;
+}
+
 bool MvrExporter::ExportToFile(const std::string &filePath) {
   const auto &scene = ConfigManager::Get().GetScene();
+  const TrussGeometryAuthority trussGeometryAuthority = GetTrussGeometryAuthoritySetting();
   auto positions = scene.positions;
 
   std::unordered_map<std::string, std::string> positionByName;
@@ -1080,6 +1137,12 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
       }
     }
 
+    if (trussGeometryAuthority == TrussGeometryAuthority::MvrGeometry && !trussSourceGdtf.empty()) {
+      std::string metadataOnlyGdtf = CreateMetadataOnlyTrussGdtf(trussSourceGdtf);
+      if (!metadataOnlyGdtf.empty())
+        trussSourceGdtf = metadataOnlyGdtf;
+    }
+
     std::string trussSlug = SlugifyArchiveName(t.model.empty() ? t.name : t.model);
     std::string trussPreferredName = trussSlug.empty() ? "truss.gdtf" : (trussSlug + ".gdtf");
     std::string trussGdtfArchivePath = registerGdtfResource(t.uuid, trussSourceGdtf, trussPreferredName);
@@ -1112,7 +1175,7 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
       }
     }
 
-    if (!t.symbolFile.empty()) {
+    if (trussGeometryAuthority == TrussGeometryAuthority::MvrGeometry && !t.symbolFile.empty()) {
       std::string ext = fs::path(t.symbolFile).extension().string();
       std::transform(ext.begin(), ext.end(), ext.begin(),
                      [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
