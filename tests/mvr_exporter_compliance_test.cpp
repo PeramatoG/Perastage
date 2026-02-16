@@ -36,10 +36,12 @@ int main() {
   fs::remove_all(tempDir);
   fs::create_directories(tempDir / "A");
   fs::create_directories(tempDir / "B");
+  fs::create_directories(tempDir / "models");
 
   std::ofstream(tempDir / "A" / "Same.gdtf") << "A";
   std::ofstream(tempDir / "B" / "Same.gdtf") << "B";
   std::ofstream(tempDir / "mesh.3ds") << "mesh";
+  std::ofstream(tempDir / "models" / "truss_model.3ds") << "truss";
 
   scene.basePath = tempDir.generic_string();
   scene.provider.clear();
@@ -78,7 +80,7 @@ int main() {
   tr.uuid = "tr-1";
   tr.name = "Main Truss";
   tr.symbolFile = "mesh.3ds";
-  tr.modelFile = "mesh.3ds";
+  tr.modelFile = (tempDir / "models" / "truss_model.3ds").string();
   scene.trusses[tr.uuid] = tr;
 
   Support sup;
@@ -131,6 +133,7 @@ int main() {
   bool sawAddress1 = false;
   bool sawAddress1025 = false;
   bool sawAddress2681 = false;
+  bool sawSafeModelFile = false;
   for (const char *tagName : {"Fixture", "Truss", "Support"}) {
     for (tinyxml2::XMLElement *node = root->FirstChildElement(); node;
          node = node->NextSiblingElement()) {
@@ -203,6 +206,25 @@ int main() {
             ++fixtureAddressCount;
           }
 
+          if (std::string(cur->Name()) == "Truss") {
+            auto *userData = cur->FirstChildElement("UserData");
+            assert(userData != nullptr);
+            auto *data = userData->FirstChildElement("Data");
+            assert(data != nullptr);
+            auto *trussInfo = data->FirstChildElement("TrussInfo");
+            assert(trussInfo != nullptr);
+            auto *modelFile = trussInfo->FirstChildElement("ModelFile");
+            assert(modelFile != nullptr);
+            assert(modelFile->GetText() != nullptr);
+
+            const std::string modelFileText = modelFile->GetText();
+            assert(!modelFileText.empty());
+            assert(modelFileText.find(':') == std::string::npos);
+            assert(modelFileText.front() != '/');
+            assert(modelFileText.front() != '\\');
+            sawSafeModelFile = true;
+          }
+
           if (auto *gdtf = cur->FirstChildElement("GDTFSpec"); gdtf && gdtf->GetText()) {
             std::string spec = gdtf->GetText();
             assert(spec.find(':') == std::string::npos);
@@ -226,6 +248,7 @@ int main() {
   assert(sawAddress1);
   assert(sawAddress1025);
   assert(sawAddress2681);
+  assert(sawSafeModelFile);
 
   for (const auto &name : entries) {
     assert(name.rfind("gdtf/", 0) != 0);
