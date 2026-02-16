@@ -162,6 +162,8 @@ ResourceSyncResult ResourceSyncSystem::Sync(
     const auto &[uuid, t] = *entry;
     sceneSignature = HashCombine(sceneSignature, HashString(uuid));
     sceneSignature = HashCombine(sceneSignature, HashString(t.symbolFile));
+    sceneSignature = HashCombine(sceneSignature, HashString(t.gdtfSpec));
+    sceneSignature = HashCombine(sceneSignature, HashString(t.modelFile));
     sceneSignature = HashCombine(sceneSignature, HashMatrix(t.transform));
     sceneSignature = HashCombine(sceneSignature, HashFloat(t.lengthMm));
     sceneSignature = HashCombine(sceneSignature, HashFloat(t.widthMm));
@@ -221,6 +223,7 @@ ResourceSyncResult ResourceSyncSystem::Sync(
 
   for (const auto *entry : visibleTrusses) {
     ensureModelResolvedPath(entry->second.symbolFile);
+    ensureModelResolvedPath(entry->second.gdtfSpec);
     ensureModelResolvedPath(entry->second.modelFile);
   }
 
@@ -245,18 +248,25 @@ ResourceSyncResult ResourceSyncSystem::Sync(
             ? pathIt->second.resolvedPath
             : std::string();
 
-    if (path.empty() && !t.modelFile.empty()) {
-      auto modelIt = state.resolvedModelRefs.find(ResolveCacheKey(t.modelFile));
-      const std::string modelPath =
-          (modelIt != state.resolvedModelRefs.end() && modelIt->second.attempted)
-              ? modelIt->second.resolvedPath
+    auto tryResolveTrussDefinition = [&](const std::string &definitionRef) {
+      if (definitionRef.empty() || !path.empty())
+        return;
+      auto defIt = state.resolvedModelRefs.find(ResolveCacheKey(definitionRef));
+      const std::string definitionPath =
+          (defIt != state.resolvedModelRefs.end() && defIt->second.attempted)
+              ? defIt->second.resolvedPath
               : std::string();
+      if (definitionPath.empty())
+        return;
 
-      if (IsMeshPath(modelPath)) {
-        path = modelPath;
-      } else if (IsTrussDefinitionPath(modelPath)) {
+      if (IsMeshPath(definitionPath)) {
+        path = definitionPath;
+        return;
+      }
+
+      if (IsTrussDefinitionPath(definitionPath)) {
         Truss parsed;
-        if (LoadTrussDefinition(modelPath, parsed) && !parsed.symbolFile.empty()) {
+        if (LoadTrussDefinition(definitionPath, parsed) && !parsed.symbolFile.empty()) {
           ensureModelResolvedPath(parsed.symbolFile);
           auto parsedIt =
               state.resolvedModelRefs.find(ResolveCacheKey(parsed.symbolFile));
@@ -264,7 +274,12 @@ ResourceSyncResult ResourceSyncSystem::Sync(
             path = parsedIt->second.resolvedPath;
         }
       }
-    }
+    };
+
+    // Keep geometry authority aligned with MVR export/import behavior:
+    // symbol geometry first, then GDTF definition, then model fallback.
+    tryResolveTrussDefinition(t.gdtfSpec);
+    tryResolveTrussDefinition(t.modelFile);
 
     if (!path.empty())
       state.resolvedTrussMeshPaths[uuid] = path;
