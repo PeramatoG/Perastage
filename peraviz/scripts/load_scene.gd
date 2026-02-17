@@ -1489,7 +1489,7 @@ func _focus_loaded_scene() -> void:
 func _setup_dmx_controls() -> void:
 	if _dmx_toggle_button != null and is_instance_valid(_dmx_toggle_button):
 		return
-	var hud_root: Control = $HUD
+	var hud_root: CanvasLayer = $HUD
 	_dmx_toggle_button = Button.new()
 	_dmx_toggle_button.text = "DMX OFF"
 	_dmx_toggle_button.toggle_mode = true
