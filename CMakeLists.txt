@@ -25,6 +25,10 @@ include(CTest)
 
 option(PERAVIZ_ENABLE_NATIVE "Build Peraviz Godot GDExtension target" ON)
 
+if(NOT DEFINED PERAVIZ_ENABLE_DMX)
+    set(PERAVIZ_ENABLE_DMX ON CACHE BOOL "Enable DMX input (Art-Net RX) for Peraviz native")
+endif()
+
 # wxWidgets chooses different binary sets based on wxWidgets_USE_DEBUG.
 # - Single-config: we can select debug libs based on CMAKE_BUILD_TYPE.
 # - Multi-config (Visual Studio): do not force wxWidgets_USE_DEBUG unless explicitly requested.
