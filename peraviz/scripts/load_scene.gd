@@ -1480,7 +1480,7 @@ func _create_emitter_beam_material() -> ShaderMaterial:
 	var shader := Shader.new()
 	shader.code = """
 shader_type spatial;
-render_mode unshaded, blend_add, cull_disabled, depth_draw_never, shadows_disabled;
+render_mode unshaded, blend_add, cull_disabled, depth_draw_never, depth_test_disabled, shadows_disabled;
 
 uniform vec4 beam_color : source_color = vec4(1.0, 0.85, 0.55, 1.0);
 uniform float near_alpha = 0.06;
@@ -1497,7 +1497,7 @@ void vertex() {
 }
 
 void fragment() {
-	float near_factor = 1.0 - beam_axial;
+	float near_factor = beam_axial;
 	ALBEDO = beam_color.rgb;
 	ALPHA = mix(far_alpha, near_alpha, near_factor);
 	EMISSION = beam_color.rgb * mix(far_emission, near_emission, near_factor);
