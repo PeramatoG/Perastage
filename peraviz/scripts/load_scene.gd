@@ -1036,7 +1036,7 @@ func _find_or_create_emitter_light(emitter_node: Node3D) -> SpotLight3D:
 	return light
 
 func _estimate_emitter_lens_radius(emitter_node: Node3D) -> float:
-	var default_radius: float = 0.015
+	var default_radius: float = 0.03
 	if emitter_node == null:
 		return default_radius
 
@@ -1052,9 +1052,12 @@ func _estimate_emitter_lens_radius(emitter_node: Node3D) -> float:
 
 	if emitter_node.get_parent() is Node3D:
 		var parent_node: Node3D = emitter_node.get_parent() as Node3D
-		var parent_radius: float = _estimate_emitter_lens_radius_from_root(parent_node, true)
-		if parent_radius > 0.0:
-			return parent_radius
+		var parent_hinted_radius: float = _estimate_emitter_lens_radius_from_root(parent_node, true)
+		if parent_hinted_radius > 0.0:
+			return parent_hinted_radius
+		var parent_fallback_radius: float = _estimate_emitter_lens_radius_from_root(parent_node, false)
+		if parent_fallback_radius > 0.0:
+			return parent_fallback_radius
 	return default_radius
 
 func _estimate_emitter_lens_radius_from_root(root: Node3D, require_name_hints: bool) -> float:
@@ -1073,10 +1076,12 @@ func _estimate_emitter_lens_radius_from_root(root: Node3D, require_name_hints: b
 			continue
 		var center: Vector3 = candidate.get("center", Vector3.ZERO)
 		var radius: float = float(candidate.get("radius", -1.0))
-		if radius <= 0.0:
+		if radius < 0.005:
 			continue
-		var score: float = abs(center.z)
-		if score < best_score:
+		var radial_distance: float = Vector2(center.x, center.y).length()
+		var axial_distance: float = abs(center.z)
+		var score: float = axial_distance * 1.5 + radial_distance
+		if score < best_score or (is_equal_approx(score, best_score) and radius > best_radius):
 			best_score = score
 			best_radius = radius
 	return max(best_radius, -1.0)
@@ -1183,7 +1188,7 @@ func _update_emitter_beam_cone(light: SpotLight3D, beam_angle: float, beam_range
 	var cone_mesh: CylinderMesh = cone.mesh as CylinderMesh
 	if cone_mesh != null:
 		var radius: float = tan(deg_to_rad(beam_angle * 0.5)) * beam_range
-		var lens_radius: float = max(float(light.get_meta("peraviz_lens_radius", 0.015)), 0.001)
+		var lens_radius: float = max(float(light.get_meta("peraviz_lens_radius", 0.03)), 0.005)
 		cone_mesh.top_radius = lens_radius
 		cone_mesh.bottom_radius = max(radius, 0.03)
 		cone_mesh.height = beam_range
