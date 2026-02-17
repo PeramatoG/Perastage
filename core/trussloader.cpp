@@ -119,6 +119,46 @@ static fs::path FindFirstExisting(const fs::path &base,
   return {};
 }
 
+static std::string ReadPrimaryModelFileBase(const fs::path &descriptionPath) {
+  tinyxml2::XMLDocument doc;
+  if (doc.LoadFile(descriptionPath.string().c_str()) != tinyxml2::XML_SUCCESS)
+    return {};
+
+  tinyxml2::XMLElement *fixtureType = doc.FirstChildElement("GDTF");
+  fixtureType = fixtureType ? fixtureType->FirstChildElement("FixtureType")
+                            : doc.FirstChildElement("FixtureType");
+  if (!fixtureType)
+    return {};
+
+  tinyxml2::XMLElement *models = fixtureType->FirstChildElement("Models");
+  tinyxml2::XMLElement *model = models ? models->FirstChildElement("Model") : nullptr;
+  if (!model)
+    return {};
+
+  if (const char *fileAttr = model->Attribute("File"); fileAttr && *fileAttr)
+    return fileAttr;
+  return "main";
+}
+
+static bool HasExtractedRenderableModel(const fs::path &baseDir,
+                                        const std::string &fileBase) {
+  if (fileBase.empty())
+    return false;
+  return fs::exists(baseDir / "models" / "gltf" / (fileBase + ".glb")) ||
+         fs::exists(baseDir / "models" / "3ds" / (fileBase + ".3ds"));
+}
+
+static bool ReextractArchive(const fs::path &archivePath,
+                             const fs::path &destination) {
+  std::error_code ec;
+  fs::remove_all(destination, ec);
+  ec.clear();
+  fs::create_directories(destination, ec);
+  if (ec)
+    return false;
+  return ExtractArchive(archivePath, destination);
+}
+
 } // namespace
 
 bool LoadTrussGdtf(const std::string &gdtfPath, Truss &outTruss) {
@@ -137,6 +177,12 @@ bool LoadTrussGdtf(const std::string &gdtfPath, Truss &outTruss) {
   if (!fs::exists(descPath)) {
     if (!ExtractArchive(inputPath, baseDir))
       return false;
+  } else {
+    const std::string fileBase = ReadPrimaryModelFileBase(descPath);
+    if (!fileBase.empty() && !HasExtractedRenderableModel(baseDir, fileBase)) {
+      if (!ReextractArchive(inputPath, baseDir))
+        return false;
+    }
   }
 
   if (!fs::exists(descPath))
