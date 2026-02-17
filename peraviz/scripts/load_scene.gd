@@ -1493,12 +1493,12 @@ func _setup_dmx_controls() -> void:
 	_dmx_toggle_button = Button.new()
 	_dmx_toggle_button.text = "DMX OFF"
 	_dmx_toggle_button.toggle_mode = true
-	_dmx_toggle_button.position = Vector2(16, 54)
+	_dmx_toggle_button.position = Vector2(620, 52)
 	hud_root.add_child(_dmx_toggle_button)
 	_dmx_toggle_button.pressed.connect(_on_dmx_toggle_pressed)
 
 	_dmx_status_label = Label.new()
-	_dmx_status_label.position = Vector2(120, 59)
+	_dmx_status_label.position = Vector2(730, 57)
 	_dmx_status_label.text = "DMX: OFF"
 	hud_root.add_child(_dmx_status_label)
 
@@ -1512,7 +1512,7 @@ func _setup_dmx_controls() -> void:
 		_dmx_receiver = ClassDB.instantiate("PeravizDmxReceiver")
 	else:
 		_dmx_toggle_button.disabled = true
-		_dmx_status_label.text = "DMX: unavailable (build without PERAVIZ_ENABLE_DMX)"
+		_dmx_status_label.text = "DMX: unavailable (build with PERAVIZ_ENABLE_DMX=ON)"
 
 func _on_dmx_toggle_pressed() -> void:
 	if _dmx_receiver == null:
