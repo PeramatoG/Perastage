@@ -8,7 +8,7 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 set(GODOT_CPP_DIR "" CACHE PATH "Path to a local godot-cpp checkout")
 option(PERAVIZ_FETCH_GODOT_CPP "Fetch godot-cpp automatically when GODOT_CPP_DIR is not provided" ON)
-option(PERAVIZ_ENABLE_DMX "Enable DMX input (Art-Net RX)" OFF)
+option(PERAVIZ_ENABLE_DMX "Enable DMX input (Art-Net RX)" ON)
 
 if(EXISTS "${CMAKE_SOURCE_DIR}/models/matrixutils.h")
     set(PERASTAGE_ROOT_DIR "${CMAKE_SOURCE_DIR}")
