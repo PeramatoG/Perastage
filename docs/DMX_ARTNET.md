@@ -11,6 +11,7 @@ Enable DMX input support for the Godot native module with:
 The option is declared in `peraviz/native/CMakeLists.txt` and defaults to `ON`.
 When `OFF`, no DMX sources or DMX-specific link libraries are compiled.
 Disable it explicitly with `-DPERAVIZ_ENABLE_DMX=OFF`.
+If your build directory was configured earlier with DMX disabled, reconfigure with `-DPERAVIZ_ENABLE_DMX=ON`.
 
 ## Current support
 

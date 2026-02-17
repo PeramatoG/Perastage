@@ -1493,12 +1493,12 @@ func _setup_dmx_controls() -> void:
 	_dmx_toggle_button = Button.new()
 	_dmx_toggle_button.text = "DMX OFF"
 	_dmx_toggle_button.toggle_mode = true
-	_dmx_toggle_button.position = Vector2(560, 32)
+	_dmx_toggle_button.position = Vector2(540, 20)
 	hud_root.add_child(_dmx_toggle_button)
 	_dmx_toggle_button.pressed.connect(_on_dmx_toggle_pressed)
 
 	_dmx_status_label = Label.new()
-	_dmx_status_label.position = Vector2(670, 37)
+	_dmx_status_label.position = Vector2(650, 25)
 	_dmx_status_label.text = "DMX: OFF"
 	hud_root.add_child(_dmx_status_label)
 
