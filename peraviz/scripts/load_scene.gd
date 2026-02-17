@@ -39,6 +39,7 @@ var _fixture_manual_values: Dictionary = {}
 var _fixture_emissive_cache: Dictionary = {}
 var _fixture_emitter_light_cache: Dictionary = {}
 var _fixture_emitter_photometrics: Dictionary = {}
+var _fixture_lens_tuned: Dictionary = {}
 var _updating_fixture_controls: bool = false
 
 const DEBUG_TOGGLE_KEY: Key = KEY_C
@@ -57,6 +58,9 @@ const DEFAULT_EMITTER_PHOTOMETRICS := {
 	"beam_radius": 0.05,
 	"dominant_wavelength": 0.0,
 }
+
+const EMITTER_LIGHT_DIRECTION_FIX: Vector3 = Vector3(0.0, 180.0, 0.0)
+const LENS_TINT_COLOR: Color = Color(0.72, 0.86, 1.0, 0.38)
 
 func _ready() -> void:
 	_scene_registry.configure(proxies_root)
@@ -571,6 +575,7 @@ func _clear_scene() -> void:
 	_fixture_emissive_cache.clear()
 	_fixture_emitter_light_cache.clear()
 	_fixture_emitter_photometrics.clear()
+	_fixture_lens_tuned.clear()
 	_has_loaded_bounds = false
 	_clear_debug_gizmos()
 
@@ -958,6 +963,7 @@ func _apply_dimmer_feedback_to_fixture(fixture_uuid: String, dimmer: float) -> v
 	var emitter_nodes: Array = _to_node3d_array(_scene_registry.get_anchor(fixture_uuid, "emitters"))
 	if geometry_nodes.is_empty() and emitter_nodes.is_empty():
 		return
+	_apply_fixture_lens_visual_tuning(fixture_uuid, emitter_nodes)
 
 	var dimmer_percent: float = clamp(dimmer, 0.0, 100.0)
 	var normalized_dimmer: float = dimmer_percent / 100.0
@@ -1007,17 +1013,20 @@ func _collect_fixture_emitter_lights(fixture_uuid: String, emitter_nodes: Array)
 func _find_or_create_emitter_light(emitter_node: Node3D) -> SpotLight3D:
 	for child in emitter_node.get_children():
 		if child is SpotLight3D and child.name == "PeravizEmitterLight":
+			if child.rotation_degrees != EMITTER_LIGHT_DIRECTION_FIX:
+				child.rotation_degrees = EMITTER_LIGHT_DIRECTION_FIX
 			return child
 
 	var light := SpotLight3D.new()
 	light.name = "PeravizEmitterLight"
 	light.position = Vector3.ZERO
-	light.rotation_degrees = Vector3.ZERO
+	light.rotation_degrees = EMITTER_LIGHT_DIRECTION_FIX
 	light.light_negative = false
 	light.shadow_enabled = true
 	light.spot_range = 20.0
 	light.spot_angle = 25.0
 	light.spot_attenuation = 1.0
+	light.set_meta("peraviz_beam_cone", _create_emitter_beam_cone())
 	emitter_node.add_child(light)
 	return light
 
@@ -1060,6 +1069,108 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 	light.spot_attenuation = clamp(beam_angle / field_angle, 0.2, 1.0)
 	light.spot_range = clamp(beam_radius_m * 400.0, 0.5, 60.0)
 	light.light_color = _derive_emitter_color(photometric)
+	_update_emitter_beam_cone(light, beam_angle, light.spot_range, light.light_color, normalized_dimmer)
+
+func _create_emitter_beam_cone() -> MeshInstance3D:
+	var cone := MeshInstance3D.new()
+	cone.name = "PeravizBeamCone"
+	cone.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	cone.visible = false
+	var cone_mesh := CylinderMesh.new()
+	cone_mesh.top_radius = 0.01
+	cone_mesh.bottom_radius = 0.2
+	cone_mesh.height = 1.0
+	cone.mesh = cone_mesh
+	cone.rotation_degrees.x = 90.0
+
+	var cone_material := StandardMaterial3D.new()
+	cone_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	cone_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	cone_material.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	cone_material.no_depth_test = true
+	cone_material.cull_mode = BaseMaterial3D.CULL_DISABLED
+	cone_material.albedo_color = Color(1.0, 0.9, 0.7, 0.08)
+	cone_material.emission_enabled = true
+	cone_material.emission = Color(1.0, 0.85, 0.55)
+	cone_material.emission_energy_multiplier = 0.7
+	cone.material_override = cone_material
+	return cone
+
+func _update_emitter_beam_cone(light: SpotLight3D, beam_angle: float, beam_range: float, beam_color: Color, normalized_dimmer: float) -> void:
+	if not light.has_meta("peraviz_beam_cone"):
+		light.set_meta("peraviz_beam_cone", _create_emitter_beam_cone())
+	var cone: MeshInstance3D = light.get_meta("peraviz_beam_cone") as MeshInstance3D
+	if cone == null:
+		return
+	if cone.get_parent() == null:
+		light.add_child(cone)
+
+	var intensity: float = clamp(normalized_dimmer, 0.0, 1.0)
+	cone.visible = intensity > 0.015
+	var cone_mesh: CylinderMesh = cone.mesh as CylinderMesh
+	if cone_mesh != null:
+		var radius: float = tan(deg_to_rad(beam_angle * 0.5)) * beam_range
+		cone_mesh.top_radius = 0.015
+		cone_mesh.bottom_radius = max(radius, 0.03)
+		cone_mesh.height = beam_range
+	cone.position = Vector3(0.0, 0.0, -beam_range * 0.5)
+
+	var material: StandardMaterial3D = cone.material_override as StandardMaterial3D
+	if material != null:
+		material.albedo_color = Color(beam_color.r, beam_color.g, beam_color.b, lerp(0.01, 0.12, intensity))
+		material.emission = beam_color
+		material.emission_energy_multiplier = lerp(0.1, 1.1, intensity)
+
+func _apply_fixture_lens_visual_tuning(fixture_uuid: String, emitter_nodes: Array) -> void:
+	if _fixture_lens_tuned.get(fixture_uuid, false):
+		return
+	for emitter_node in emitter_nodes:
+		_tint_emitter_lens_recursive(emitter_node)
+	_fixture_lens_tuned[fixture_uuid] = true
+
+func _tint_emitter_lens_recursive(node: Node3D) -> void:
+	if node == null:
+		return
+	if node is MeshInstance3D:
+		var mesh_instance: MeshInstance3D = node
+		if mesh_instance.mesh != null:
+			for surface_index in range(mesh_instance.mesh.get_surface_count()):
+				var material: Material = mesh_instance.get_active_material(surface_index)
+				if _should_apply_lens_tint(mesh_instance, material):
+					mesh_instance.set_surface_override_material(surface_index, _build_lens_material_override(material))
+	for child in node.get_children():
+		if child is Node3D:
+			_tint_emitter_lens_recursive(child)
+
+func _should_apply_lens_tint(mesh_instance: MeshInstance3D, material: Material) -> bool:
+	var name_hint: String = mesh_instance.name.to_lower()
+	if name_hint.contains("lens") or name_hint.contains("emitter") or name_hint.contains("beam"):
+		return true
+	if material is BaseMaterial3D:
+		var base_material: BaseMaterial3D = material
+		if base_material.transparency != BaseMaterial3D.TRANSPARENCY_DISABLED:
+			return true
+		if base_material.emission_enabled:
+			return true
+	return false
+
+func _build_lens_material_override(source: Material) -> StandardMaterial3D:
+	var material := StandardMaterial3D.new()
+	if source is BaseMaterial3D:
+		var base_source: BaseMaterial3D = source
+		material.albedo_color = base_source.albedo_color.lerp(LENS_TINT_COLOR, 0.65)
+	else:
+		material.albedo_color = LENS_TINT_COLOR
+	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	material.roughness = 0.08
+	material.metallic = 0.0
+	material.clearcoat_enabled = true
+	material.clearcoat = 0.75
+	material.specular = 1.0
+	material.emission_enabled = true
+	material.emission = material.albedo_color
+	material.emission_energy_multiplier = 0.35
+	return material
 
 func _derive_emitter_color(photometric: Dictionary) -> Color:
 	var wavelength: float = float(photometric.get("dominant_wavelength", 0.0))
