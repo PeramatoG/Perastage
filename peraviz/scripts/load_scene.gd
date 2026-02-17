@@ -539,6 +539,10 @@ func _should_enable_double_sided(mesh_instance: MeshInstance3D, material: Materi
 	if mesh_instance == null:
 		return false
 
+	var source_type: String = str(source_data.get("type", "")).to_lower()
+	if source_type == "fixture_geometry":
+		return true
+
 	if _has_mirrored_transform_in_hierarchy(mesh_instance):
 		return true
 
