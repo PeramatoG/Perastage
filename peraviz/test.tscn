@@ -5,6 +5,13 @@
 
 [sub_resource type="PlaneMesh" id="PlaneMesh_ground"]
 
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_ground"]
+albedo_color = Color(0.45, 0.45, 0.45, 1)
+metallic_specular = 0.45
+roughness = 0.78
+uv1_scale = Vector3(6, 6, 6)
+disable_receive_shadows = false
+
 [sub_resource type="Environment" id="Environment_viewer"]
 background_mode = 1
 background_color = Color(0.129412, 0.137255, 0.156863, 1)
@@ -45,6 +52,8 @@ light_angular_distance = 0.35
 
 [node name="Ground" type="MeshInstance3D" parent="."]
 mesh = SubResource("PlaneMesh_ground")
+material_override = SubResource("StandardMaterial3D_ground")
+cast_shadow = 1
 transform = Transform3D(12, 0, 0, 0, 1, 0, 0, 0, 12, 0, 0, 0)
 
 [node name="Proxies" type="Node3D" parent="."]
