@@ -791,7 +791,7 @@ void MainWindow::RefreshAfterSceneChange(bool refreshViewport) {
   RefreshSummary();
   if (refreshViewport) {
     if (viewportPanel) {
-      viewportPanel->ForceSceneResourceRefresh();
+      viewportPanel->UpdateScene();
       viewportPanel->Refresh();
     }
     if (viewport2DPanel) {

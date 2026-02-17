@@ -54,7 +54,6 @@ public:
     bool showGrid = true;
 
     void UpdateScene();
-    void ForceSceneResourceRefresh();
     void SetSelectedFixtures(const std::vector<std::string>& uuids);
     void SetLayerColor(const std::string& layer, const std::string& hex);
     std::shared_ptr<const SymbolDefinitionSnapshot>

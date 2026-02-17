@@ -104,51 +104,6 @@ RangeParts SplitRangeParts(const wxString& value)
             parts.push_back(part);
     return {parts, usedSeparator, trailingSeparator};
 }
-
-std::string ToLowerAscii(std::string text)
-{
-    std::transform(text.begin(), text.end(), text.begin(),
-                   [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-    return text;
-}
-
-bool IsRenderableGeometryPath(const std::string& path)
-{
-    if (path.empty())
-        return false;
-    const std::string ext = ToLowerAscii(fs::path(path).extension().string());
-    return ext == ".3ds" || ext == ".glb";
-}
-
-void ResolveTrussGeometryFromDefinition(Truss& truss)
-{
-    Truss parsed;
-    auto applyParsed = [&](const Truss& resolved) {
-        if (!resolved.symbolFile.empty())
-            truss.symbolFile = resolved.symbolFile;
-        if (truss.gdtfSpec.empty() && !resolved.gdtfSpec.empty())
-            truss.gdtfSpec = resolved.gdtfSpec;
-    };
-
-    const std::string modelExt = ToLowerAscii(fs::path(truss.modelFile).extension().string());
-    if (!truss.modelFile.empty() &&
-        (modelExt == ".gdtf" || modelExt == ".gtruss" ||
-         modelExt == ".3ds" || modelExt == ".glb")) {
-        if (modelExt == ".gdtf")
-            truss.gdtfSpec = truss.modelFile;
-        if (LoadTrussDefinition(truss.modelFile, parsed)) {
-            applyParsed(parsed);
-            if (IsRenderableGeometryPath(truss.symbolFile))
-                return;
-        }
-    }
-
-    const std::string gdtfExt = ToLowerAscii(fs::path(truss.gdtfSpec).extension().string());
-    if (!truss.gdtfSpec.empty() && (gdtfExt == ".gdtf" || gdtfExt == ".gtruss")) {
-        if (LoadTrussDefinition(truss.gdtfSpec, parsed))
-            applyParsed(parsed);
-    }
-}
 } // namespace
 
 TrussTablePanel::TrussTablePanel(wxWindow* parent, IGuiConfigServices* services)
@@ -809,10 +764,6 @@ void TrussTablePanel::UpdateSceneData()
             table->GetValue(v, i, 2);
             it->second.modelFile = std::string(v.GetString().ToUTF8());
         }
-
-        if (!IsRenderableGeometryPath(it->second.symbolFile))
-            ResolveTrussGeometryFromDefinition(it->second);
-
         table->GetValue(v, i, 3);
         it->second.positionName = std::string(v.GetString().mb_str());
         if (!it->second.position.empty())
