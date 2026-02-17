@@ -1608,19 +1608,6 @@ func _on_dmx_timer_timeout() -> void:
 	_update_dmx_toggle_color(true, receiving)
 	_refresh_dmx_monitor_window(true)
 
-	var bound_count: int = 0
-	var unbound_count: int = 0
-	if _dmx_fixture_runtime != null:
-		bound_count = int(_dmx_fixture_runtime.get_bound_count())
-		unbound_count = int(_dmx_fixture_runtime.get_unbound_count())
-	status_label.text = "DMX pps=%d uni=%d last=%dms bound_fixtures=%d unbound=%d universe_offset=%d" % [
-		int(stats.get("packets_per_sec", 0)),
-		active_universes.size(),
-		last_ms,
-		bound_count,
-		unbound_count,
-		int(_dmx_universe_offset_input.value),
-	]
 
 func _update_dmx_toggle_color(enabled: bool, receiving_signal: bool) -> void:
 	if _dmx_toggle_button == null:
