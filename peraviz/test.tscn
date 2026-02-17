@@ -4,12 +4,13 @@
 [ext_resource type="Script" path="res://scripts/editor_camera.gd" id="2_camera_script"]
 
 [sub_resource type="PlaneMesh" id="PlaneMesh_ground"]
+size = Vector2(100, 100)
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_ground"]
 albedo_color = Color(0.45, 0.45, 0.45, 1)
 metallic_specular = 0.45
 roughness = 0.78
-uv1_scale = Vector3(6, 6, 6)
+uv1_scale = Vector3(30, 30, 30)
 disable_receive_shadows = false
 
 [sub_resource type="Environment" id="Environment_viewer"]
@@ -43,12 +44,12 @@ environment = SubResource("Environment_viewer")
 
 [node name="Camera3D" type="Camera3D" parent="."]
 script = ExtResource("2_camera_script")
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3, 8)
-rotation_degrees = Vector3(-20, 0, 0)
+transform = Transform3D(0.788011, 0, -0.615661, -0.169148, 0.961262, -0.216548, 0.592149, 0.275637, 0.759504, 24, 18, 24)
+rotation_degrees = Vector3(-16, 39, 0)
 current = true
 
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
-rotation_degrees = Vector3(-45, 45, 0)
+rotation_degrees = Vector3(-52, 32, 0)
 shadow_enabled = true
 directional_shadow_mode = 2
 directional_shadow_blend_splits = true
@@ -65,7 +66,7 @@ light_angular_distance = 0.35
 mesh = SubResource("PlaneMesh_ground")
 material_override = SubResource("StandardMaterial3D_ground")
 cast_shadow = 1
-transform = Transform3D(12, 0, 0, 0, 1, 0, 0, 0, 12, 0, 0, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)
 
 [node name="Proxies" type="Node3D" parent="."]
 
