@@ -1013,10 +1013,12 @@ func _collect_fixture_emitter_lights(fixture_uuid: String, emitter_nodes: Array)
 	return lights
 
 func _find_or_create_emitter_light(emitter_node: Node3D) -> SpotLight3D:
+	var lens_radius: float = _estimate_emitter_lens_radius(emitter_node)
 	for child in emitter_node.get_children():
 		if child is SpotLight3D and child.name == "PeravizEmitterLight":
 			if child.rotation_degrees != EMITTER_LIGHT_DIRECTION_FIX:
 				child.rotation_degrees = EMITTER_LIGHT_DIRECTION_FIX
+			child.set_meta("peraviz_lens_radius", lens_radius)
 			return child
 
 	var light := SpotLight3D.new()
@@ -1029,8 +1031,54 @@ func _find_or_create_emitter_light(emitter_node: Node3D) -> SpotLight3D:
 	light.spot_angle = 25.0
 	light.spot_attenuation = 1.0
 	light.set_meta("peraviz_beam_cone", _create_emitter_beam_cone())
+	light.set_meta("peraviz_lens_radius", lens_radius)
 	emitter_node.add_child(light)
 	return light
+
+func _estimate_emitter_lens_radius(emitter_node: Node3D) -> float:
+	var default_radius: float = 0.015
+	if emitter_node == null:
+		return default_radius
+
+	var lens_result: Dictionary = _collect_emitter_lens_bounds_recursive(emitter_node, emitter_node.global_transform.affine_inverse())
+	if not bool(lens_result.get("has_bounds", false)):
+		return default_radius
+
+	var lens_bounds: AABB = lens_result.get("bounds", AABB())
+	var lens_diameter: float = max(lens_bounds.size.x, lens_bounds.size.y)
+	if lens_diameter <= 0.0001:
+		return default_radius
+	return max(lens_diameter * 0.5, 0.001)
+
+func _collect_emitter_lens_bounds_recursive(node: Node3D, world_to_emitter: Transform3D) -> Dictionary:
+	var result: Dictionary = {
+		"has_bounds": false,
+		"bounds": AABB()
+	}
+	if node is MeshInstance3D:
+		var mesh_instance: MeshInstance3D = node
+		if _is_emitter_lens_mesh(mesh_instance):
+			var mesh_bounds: AABB = mesh_instance.get_aabb()
+			if mesh_bounds.size != Vector3.ZERO:
+				result["bounds"] = world_to_emitter * (mesh_instance.global_transform * mesh_bounds)
+				result["has_bounds"] = true
+
+	for child in node.get_children():
+		if child is Node3D:
+			var child_result: Dictionary = _collect_emitter_lens_bounds_recursive(child, world_to_emitter)
+			if bool(child_result.get("has_bounds", false)):
+				if bool(result.get("has_bounds", false)):
+					var current_bounds: AABB = result.get("bounds", AABB())
+					var child_bounds: AABB = child_result.get("bounds", AABB())
+					result["bounds"] = current_bounds.merge(child_bounds)
+				else:
+					result["bounds"] = child_result["bounds"]
+					result["has_bounds"] = true
+	return result
+
+func _is_emitter_lens_mesh(mesh_instance: MeshInstance3D) -> bool:
+	var name_hint: String = mesh_instance.name.to_lower()
+	return name_hint.contains("lens") or name_hint.contains("emitter") or name_hint.contains("beam")
 
 func _get_fixture_emitter_photometrics(fixture_uuid: String) -> Array:
 	if _fixture_emitter_photometrics.has(fixture_uuid):
@@ -1112,7 +1160,8 @@ func _update_emitter_beam_cone(light: SpotLight3D, beam_angle: float, beam_range
 	var cone_mesh: CylinderMesh = cone.mesh as CylinderMesh
 	if cone_mesh != null:
 		var radius: float = tan(deg_to_rad(beam_angle * 0.5)) * beam_range
-		cone_mesh.top_radius = 0.015
+		var lens_radius: float = max(float(light.get_meta("peraviz_lens_radius", 0.015)), 0.001)
+		cone_mesh.top_radius = lens_radius
 		cone_mesh.bottom_radius = max(radius, 0.03)
 		cone_mesh.height = beam_range
 	cone.position = Vector3(0.0, 0.0, -beam_range * 0.5)
