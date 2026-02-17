@@ -944,12 +944,19 @@ func _apply_selected_fixture_controls(reason: String) -> void:
 	_print_emitter_debug_vectors(_selected_fixture_uuid, reason, pan, tilt, dimmer)
 
 func _apply_pan_tilt_to_fixture(fixture_uuid: String, pan_degrees: float, tilt_degrees: float) -> void:
+	_apply_pan_tilt_components_to_fixture(fixture_uuid, true, pan_degrees, true, tilt_degrees)
+
+func _apply_pan_tilt_components_to_fixture(fixture_uuid: String,
+		has_pan: bool,
+		pan_degrees: float,
+		has_tilt: bool,
+		tilt_degrees: float) -> void:
 	var axis_nodes: Array = _to_node3d_array(_scene_registry.get_anchor(fixture_uuid, "axis"))
 	var pan_axis: Node3D = _find_axis_for_role(axis_nodes, "pan")
 	var tilt_axis: Node3D = _find_axis_for_role(axis_nodes, "tilt")
-	if pan_axis != null:
+	if has_pan and pan_axis != null:
 		pan_axis.rotation_degrees.y = pan_degrees
-	if tilt_axis != null:
+	if has_tilt and tilt_axis != null:
 		tilt_axis.rotation_degrees.x = tilt_degrees
 
 func _find_axis_for_role(axis_nodes: Array, role: String) -> Node3D:
@@ -975,6 +982,22 @@ func _find_axis_for_role(axis_nodes: Array, role: String) -> Node3D:
 	if role == "tilt" and axis_nodes.size() > 1:
 		return axis_nodes[1]
 	return axis_nodes[0]
+
+func _apply_dmx_controls_to_fixture(fixture_uuid: String, controls: Dictionary) -> void:
+	if controls.get("has_pan", false) or controls.get("has_tilt", false):
+		var has_pan: bool = bool(controls.get("has_pan", false))
+		var has_tilt: bool = bool(controls.get("has_tilt", false))
+		var pan_min: float = float(pan_min_input.value)
+		var pan_max: float = float(pan_max_input.value)
+		var tilt_min: float = float(tilt_min_input.value)
+		var tilt_max: float = float(tilt_max_input.value)
+		var pan_degrees: float = lerp(pan_min, pan_max, clamp(float(controls.get("pan_norm", 0.0)), 0.0, 1.0))
+		var tilt_degrees: float = lerp(tilt_min, tilt_max, clamp(float(controls.get("tilt_norm", 0.0)), 0.0, 1.0))
+		_apply_pan_tilt_components_to_fixture(fixture_uuid, has_pan, pan_degrees, has_tilt, tilt_degrees)
+
+	if controls.get("has_dimmer", false):
+		var dimmer_percent: float = clamp(float(controls.get("dimmer_norm", 0.0)), 0.0, 1.0) * 100.0
+		_apply_dimmer_feedback_to_fixture(fixture_uuid, dimmer_percent)
 
 func _apply_dimmer_feedback_to_fixture(fixture_uuid: String, dimmer: float) -> void:
 	var geometry_nodes: Array = _to_node3d_array(_scene_registry.get_anchor(fixture_uuid, "geometry_nodes"))
@@ -1599,7 +1622,7 @@ func _on_dmx_timer_timeout() -> void:
 		return
 
 	if _dmx_fixture_runtime != null:
-		_dmx_fixture_runtime.apply_dmx(_dmx_receiver, Callable(self, "_apply_dimmer_feedback_to_fixture"))
+		_dmx_fixture_runtime.apply_dmx(_dmx_receiver, Callable(self, "_apply_dmx_controls_to_fixture"))
 
 	var stats: Dictionary = _dmx_receiver.get_stats()
 	var active_universes: PackedInt32Array = _dmx_receiver.get_active_universes(2000)

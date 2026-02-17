@@ -1,25 +1,26 @@
 #include "dmx/fixture_dmx_binding.h"
 
-#include <algorithm>
-#include <cctype>
+namespace peraviz::dmx {
 
 namespace {
 
-std::string lower_ascii(std::string text) {
-    std::transform(text.begin(), text.end(), text.begin(), [](unsigned char c) {
-        return static_cast<char>(std::tolower(c));
-    });
-    return text;
+int to_channel_index_0(const FixturePatch &patch, int offset_1_based) {
+    if (offset_1_based <= 0) {
+        return -1;
+    }
+    return (patch.mvr_address - 1) + (offset_1_based - 1);
+}
+
+bool is_valid_channel_index(int index_0) {
+    return index_0 >= 0 && index_0 < 512;
 }
 
 } // namespace
 
-namespace peraviz::dmx {
-
 FixtureBindingBuildResult build_dimmer_bindings(
     const std::vector<FixturePatch> &patches,
     int universe_offset,
-    std::unordered_map<std::string, FixtureDimmerBinding> &fixture_lookup) {
+    std::unordered_map<std::string, FixtureControlBinding> &fixture_lookup) {
     FixtureBindingBuildResult result;
     fixture_lookup.clear();
 
@@ -40,25 +41,53 @@ FixtureBindingBuildResult build_dimmer_bindings(
             continue;
         }
 
-        int dimmer_offset_1_based = -1;
+        FixtureControlOffsets offsets;
         std::string debug_reason;
-        if (!resolve_dimmer_channel_offset(patch.gdtf_path, patch.dmx_mode,
-                                           dimmer_offset_1_based, debug_reason)) {
+        if (!resolve_fixture_control_offsets(patch.gdtf_path, patch.dmx_mode,
+                                             offsets, debug_reason)) {
             result.unbound.push_back({patch.fixture_uuid, debug_reason});
             continue;
         }
 
-        const int dmx_channel_index_0 = (patch.mvr_address - 1) + (dimmer_offset_1_based - 1);
-        if (dmx_channel_index_0 < 0 || dmx_channel_index_0 >= 512) {
-            result.unbound.push_back({patch.fixture_uuid, "resolved dimmer channel index out of 0..511 range"});
+        FixtureControlBinding binding;
+        binding.fixture_uuid = patch.fixture_uuid;
+        binding.artnet_universe_id = patch.mvr_universe + universe_offset;
+        binding.scale = 1.0F;
+
+        binding.dimmer.coarse_dmx_channel_index_0 =
+            to_channel_index_0(patch, offsets.dimmer_coarse_offset_1_based);
+        binding.dimmer.fine_dmx_channel_index_0 =
+            to_channel_index_0(patch, offsets.dimmer_fine_offset_1_based);
+        binding.pan.coarse_dmx_channel_index_0 =
+            to_channel_index_0(patch, offsets.pan_coarse_offset_1_based);
+        binding.pan.fine_dmx_channel_index_0 =
+            to_channel_index_0(patch, offsets.pan_fine_offset_1_based);
+        binding.tilt.coarse_dmx_channel_index_0 =
+            to_channel_index_0(patch, offsets.tilt_coarse_offset_1_based);
+        binding.tilt.fine_dmx_channel_index_0 =
+            to_channel_index_0(patch, offsets.tilt_fine_offset_1_based);
+
+        const bool has_dimmer = is_valid_channel_index(binding.dimmer.coarse_dmx_channel_index_0);
+        const bool has_pan = is_valid_channel_index(binding.pan.coarse_dmx_channel_index_0);
+        const bool has_tilt = is_valid_channel_index(binding.tilt.coarse_dmx_channel_index_0);
+        if (!has_dimmer && !has_pan && !has_tilt) {
+            result.unbound.push_back({patch.fixture_uuid,
+                                      "resolved DMX channels are out of 0..511 range"});
             continue;
         }
 
-        FixtureDimmerBinding binding;
-        binding.fixture_uuid = patch.fixture_uuid;
-        binding.artnet_universe_id = patch.mvr_universe + universe_offset;
-        binding.dmx_channel_index_0 = dmx_channel_index_0;
-        binding.scale = 1.0F;
+        if (binding.dimmer.fine_dmx_channel_index_0 >= 0 &&
+            !is_valid_channel_index(binding.dimmer.fine_dmx_channel_index_0)) {
+            binding.dimmer.fine_dmx_channel_index_0 = -1;
+        }
+        if (binding.pan.fine_dmx_channel_index_0 >= 0 &&
+            !is_valid_channel_index(binding.pan.fine_dmx_channel_index_0)) {
+            binding.pan.fine_dmx_channel_index_0 = -1;
+        }
+        if (binding.tilt.fine_dmx_channel_index_0 >= 0 &&
+            !is_valid_channel_index(binding.tilt.fine_dmx_channel_index_0)) {
+            binding.tilt.fine_dmx_channel_index_0 = -1;
+        }
 
         result.bindings.push_back(binding);
         fixture_lookup[binding.fixture_uuid] = binding;

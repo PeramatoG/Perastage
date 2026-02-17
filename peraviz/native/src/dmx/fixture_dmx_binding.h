@@ -14,10 +14,17 @@ struct FixturePatch {
     std::string gdtf_path;
 };
 
-struct FixtureDimmerBinding {
+struct FixtureAttributeChannel {
+    int coarse_dmx_channel_index_0 = -1;
+    int fine_dmx_channel_index_0 = -1;
+};
+
+struct FixtureControlBinding {
     std::string fixture_uuid;
     int artnet_universe_id = -1;
-    int dmx_channel_index_0 = -1;
+    FixtureAttributeChannel dimmer;
+    FixtureAttributeChannel pan;
+    FixtureAttributeChannel tilt;
     float scale = 1.0F;
 };
 
@@ -27,18 +34,32 @@ struct FixtureUnboundReason {
 };
 
 struct FixtureBindingBuildResult {
-    std::vector<FixtureDimmerBinding> bindings;
+    std::vector<FixtureControlBinding> bindings;
     std::vector<FixtureUnboundReason> unbound;
 };
 
-bool resolve_dimmer_channel_offset(const std::string &gdtf_path,
-                                   const std::string &dmx_mode_name,
-                                   int &out_offset_1_based,
-                                   std::string &out_debug_reason);
+struct FixtureControlOffsets {
+    int dimmer_coarse_offset_1_based = -1;
+    int dimmer_fine_offset_1_based = -1;
+    int pan_coarse_offset_1_based = -1;
+    int pan_fine_offset_1_based = -1;
+    int tilt_coarse_offset_1_based = -1;
+    int tilt_fine_offset_1_based = -1;
+
+    bool has_any() const {
+        return dimmer_coarse_offset_1_based > 0 || pan_coarse_offset_1_based > 0 ||
+               tilt_coarse_offset_1_based > 0;
+    }
+};
+
+bool resolve_fixture_control_offsets(const std::string &gdtf_path,
+                                     const std::string &dmx_mode_name,
+                                     FixtureControlOffsets &out_offsets,
+                                     std::string &out_debug_reason);
 
 FixtureBindingBuildResult build_dimmer_bindings(
     const std::vector<FixturePatch> &patches,
     int universe_offset,
-    std::unordered_map<std::string, FixtureDimmerBinding> &fixture_lookup);
+    std::unordered_map<std::string, FixtureControlBinding> &fixture_lookup);
 
 } // namespace peraviz::dmx

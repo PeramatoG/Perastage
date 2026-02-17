@@ -6,8 +6,8 @@ Peraviz now resolves fixture dimmer control directly from loaded MVR and GDTF da
 
 1. Fixture patch is read from MVR (universe + address, or absolute address).
 2. Fixture selected DMX mode is read from MVR (`GDTFMode`).
-3. The dimmer channel offset is resolved from the fixture GDTF mode.
-4. Art-Net DMX values are applied to fixture dimmer in the Godot runtime.
+3. Dimmer/Pan/Tilt offsets are resolved from the fixture GDTF mode (including 16-bit fine channels when available).
+4. Art-Net DMX values are applied to fixture dimmer and Pan/Tilt in the Godot runtime.
 
 ## Universe offset
 
@@ -25,14 +25,14 @@ You can change this value in the Peraviz DMX control bar at runtime.
 - Art-Net receiver input.
 - Fixture patch extraction from MVR.
 - Fixture DMX mode extraction from MVR.
-- Dimmer channel lookup in GDTF mode.
-- Dimmer application to fixtures (existing fixture dimmer pathway).
+- Dimmer/Pan/Tilt channel lookup in GDTF mode.
+- 8-bit and 16-bit DMX value decoding (coarse + fine bytes).
+- Dimmer and Pan/Tilt application to fixtures in runtime.
 - Bound and unbound fixture debug summary.
 
 ## Not supported yet
 
-- Non-dimmer channel families (color, gobo, shutter/strobe, wheels, prisms, focus, zoom, etc.).
-- Multi-attribute fixture playback from GDTF.
+- Non-dimmer/non-pan/non-tilt channel families (color, gobo, shutter/strobe, wheels, prisms, focus, zoom, etc.).
 - sACN.
 
 ## Validation workflow
@@ -51,5 +51,5 @@ Fixtures are listed as unbound when one of these happens:
 - Missing or invalid patch in MVR.
 - Missing selected DMX mode in MVR.
 - Missing GDTF reference/path.
-- Dimmer attribute not found for the selected mode.
-- Resolved dimmer channel index outside the 1..512 frame.
+- Dimmer/Pan/Tilt attributes not found for the selected mode.
+- Resolved control channel indices outside the 1..512 frame.
