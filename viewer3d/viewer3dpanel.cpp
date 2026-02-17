@@ -1023,6 +1023,17 @@ void Viewer3DPanel::UpdateScene()
         Viewer2DPanel::Instance()->UpdateScene();
 }
 
+void Viewer3DPanel::ForceSceneResourceRefresh()
+{
+    m_isInteracting = false;
+    m_cameraMoving = false;
+    m_controller.SetInteracting(false);
+    m_controller.SetCameraMoving(false);
+    m_controller.UpdateResourcesIfDirty();
+    if (Viewer2DPanel::Instance())
+        Viewer2DPanel::Instance()->UpdateScene();
+}
+
 void Viewer3DPanel::SetSelectedFixtures(const std::vector<std::string>& uuids)
 {
     m_controller.SetSelectedUuids(uuids);
