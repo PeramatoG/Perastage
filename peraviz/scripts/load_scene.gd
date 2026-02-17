@@ -1069,20 +1069,27 @@ func _estimate_emitter_lens_radius_from_root(root: Node3D, require_name_hints: b
 	if candidates.is_empty():
 		return -1.0
 
-	var best_score: float = INF
+	var best_name_score: int = 1 << 20
+	var best_position_score: float = INF
 	var best_radius: float = -1.0
 	for candidate in candidates:
 		if not (candidate is Dictionary):
 			continue
-		var center: Vector3 = candidate.get("center", Vector3.ZERO)
 		var radius: float = float(candidate.get("radius", -1.0))
 		if radius < 0.005:
 			continue
+		var center: Vector3 = candidate.get("center", Vector3.ZERO)
+		var name_score: int = int(candidate.get("name_score", 9999))
 		var radial_distance: float = Vector2(center.x, center.y).length()
 		var axial_distance: float = abs(center.z)
-		var score: float = axial_distance * 1.5 + radial_distance
-		if score < best_score or (is_equal_approx(score, best_score) and radius > best_radius):
-			best_score = score
+		var position_score: float = axial_distance * 1.5 + radial_distance
+		var name_is_better: bool = name_score < best_name_score
+		var same_name: bool = name_score == best_name_score
+		var position_is_better: bool = position_score < best_position_score
+		var position_tie: bool = is_equal_approx(position_score, best_position_score)
+		if name_is_better or (same_name and (position_is_better or (position_tie and radius > best_radius))):
+			best_name_score = name_score
+			best_position_score = position_score
 			best_radius = radius
 	return max(best_radius, -1.0)
 
@@ -1093,20 +1100,73 @@ func _collect_emitter_lens_candidates_recursive(node: Node3D, world_to_root: Tra
 			var mesh_bounds: AABB = mesh_instance.get_aabb()
 			if mesh_bounds.size != Vector3.ZERO:
 				var local_bounds: AABB = world_to_root * (mesh_instance.global_transform * mesh_bounds)
-				var candidate_radius: float = max(local_bounds.size.x, local_bounds.size.y) * 0.5
+				var candidate_radius: float = _estimate_mesh_aperture_radius(mesh_instance, world_to_root)
+				if candidate_radius <= 0.0001:
+					candidate_radius = max(local_bounds.size.x, local_bounds.size.y) * 0.5
 				if candidate_radius > 0.0001:
 					output_candidates.append({
 						"center": local_bounds.get_center(),
-						"radius": max(candidate_radius, 0.001)
+						"radius": max(candidate_radius, 0.001),
+						"name_score": _lens_name_priority(mesh_instance.name)
 					})
 
 	for child in node.get_children():
 		if child is Node3D:
 			_collect_emitter_lens_candidates_recursive(child, world_to_root, require_name_hints, output_candidates)
 
+func _estimate_mesh_aperture_radius(mesh_instance: MeshInstance3D, world_to_root: Transform3D) -> float:
+	if mesh_instance == null or mesh_instance.mesh == null:
+		return -1.0
+
+	var best_radius: float = -1.0
+	for surface_index in range(mesh_instance.mesh.get_surface_count()):
+		var arrays: Array = mesh_instance.mesh.surface_get_arrays(surface_index)
+		if arrays.is_empty() or arrays.size() <= Mesh.ARRAY_VERTEX:
+			continue
+		var vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+		if vertices.is_empty():
+			continue
+
+		var local_vertices: Array = []
+		local_vertices.resize(vertices.size())
+		var min_abs_z: float = INF
+		for i in range(vertices.size()):
+			var root_local: Vector3 = world_to_root * (mesh_instance.global_transform * vertices[i])
+			local_vertices[i] = root_local
+			min_abs_z = min(min_abs_z, abs(root_local.z))
+
+		if not is_finite(min_abs_z):
+			continue
+		var z_tolerance: float = max(0.002, min_abs_z * 0.5)
+		var surface_radius: float = -1.0
+		for v in local_vertices:
+			var point: Vector3 = v
+			if abs(abs(point.z) - min_abs_z) > z_tolerance:
+				continue
+			var radial: float = Vector2(point.x, point.y).length()
+			surface_radius = max(surface_radius, radial)
+		if surface_radius > best_radius:
+			best_radius = surface_radius
+
+	return best_radius
+
+func _lens_name_priority(node_name: String) -> int:
+	var name_hint: String = node_name.to_lower()
+	if name_hint.contains("lens"):
+		return 0
+	if name_hint.contains("glass"):
+		return 1
+	if name_hint.contains("front"):
+		return 2
+	if name_hint.contains("emitter"):
+		return 3
+	if name_hint.contains("beam"):
+		return 4
+	return 5
+
 func _is_emitter_lens_mesh(mesh_instance: MeshInstance3D) -> bool:
 	var name_hint: String = mesh_instance.name.to_lower()
-	return name_hint.contains("lens") or name_hint.contains("emitter") or name_hint.contains("beam")
+	return name_hint.contains("lens") or name_hint.contains("glass") or name_hint.contains("emitter") or name_hint.contains("beam")
 
 func _get_fixture_emitter_photometrics(fixture_uuid: String) -> Array:
 	if _fixture_emitter_photometrics.has(fixture_uuid):
