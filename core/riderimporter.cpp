@@ -132,6 +132,15 @@ bool TryParseInt(std::string_view text, int &out) {
   return false;
 }
 
+int ParseTrailingNumber(const std::string &text) {
+  const size_t space = text.find_last_of(' ');
+  if (space == std::string::npos || space + 1 >= text.size())
+    return 0;
+  int parsed = 0;
+  return TryParseInt(std::string_view(text).substr(space + 1), parsed) ? parsed
+                                                                        : 0;
+}
+
 bool IsRenderableTrussGeometry(const std::string &path) {
   if (path.empty())
     return false;
@@ -386,6 +395,7 @@ bool RiderImporter::ImportText(const std::string &text) {
   typeOrder.reserve(16);
   std::unordered_set<std::string> seenTypes;
   std::vector<std::string> importedTrussUuids;
+  std::vector<std::string> importedFixtureUuids;
   int pendingQuantity = 0;
   bool havePending = false;
 
@@ -430,6 +440,7 @@ bool RiderImporter::ImportText(const std::string &text) {
         f.transform.o[1] = getHangPos(currentHang);
         f.transform.o[2] = getHangHeight(currentHang);
         scene.fixtures[f.uuid] = f;
+        importedFixtureUuids.push_back(f.uuid);
         addToLayer(f.layer, f.uuid);
       }
     }
@@ -871,9 +882,13 @@ bool RiderImporter::ImportText(const std::string &text) {
   }
 
   std::unordered_map<std::string, std::vector<Fixture *>> fixturesByPos;
-  fixturesByPos.reserve(scene.fixtures.size());
-  for (auto &[uuid, f] : scene.fixtures)
-    fixturesByPos[f.positionName].push_back(&f);
+  fixturesByPos.reserve(importedFixtureUuids.size());
+  for (const std::string &uuid : importedFixtureUuids) {
+    auto fixtureIt = scene.fixtures.find(uuid);
+    if (fixtureIt == scene.fixtures.end())
+      continue;
+    fixturesByPos[fixtureIt->second.positionName].push_back(&fixtureIt->second);
+  }
 
   for (auto &[pos, fixturesVec] : fixturesByPos) {
     if (fixturesVec.empty())
@@ -955,12 +970,34 @@ bool RiderImporter::ImportText(const std::string &text) {
     }
   }
 
-  // Assign fixture IDs and instance names grouped by type, ordering fixtures
-  // from left to right within each hang position and front to back across
-  // positions. IDs start at 101, 201, ...
+  // Assign fixture IDs and instance names to imported fixtures only.
+  // Existing fixtures keep their IDs and transforms untouched.
   std::unordered_map<std::string, std::vector<Fixture *>> fixturesByType;
-  for (auto &[uuid, f] : scene.fixtures)
-    fixturesByType[f.typeName].push_back(&f);
+  fixturesByType.reserve(typeOrder.size());
+  for (const std::string &uuid : importedFixtureUuids) {
+    auto fixtureIt = scene.fixtures.find(uuid);
+    if (fixtureIt == scene.fixtures.end())
+      continue;
+    fixturesByType[fixtureIt->second.typeName].push_back(&fixtureIt->second);
+  }
+
+  std::unordered_set<std::string> importedFixtureIdSet(importedFixtureUuids.begin(),
+                                                       importedFixtureUuids.end());
+  int highestExistingFixtureId = 100;
+  std::unordered_map<std::string, int> nextUnitByType;
+  for (const auto &[uuid, fixture] : scene.fixtures) {
+    if (importedFixtureIdSet.count(uuid) != 0)
+      continue;
+    highestExistingFixtureId = std::max(highestExistingFixtureId, fixture.fixtureId);
+
+    int nextUnit = fixture.unitNumber;
+    if (nextUnit <= 0)
+      nextUnit = ParseTrailingNumber(fixture.instanceName);
+    if (nextUnit > 0) {
+      int &tracked = nextUnitByType[fixture.typeName];
+      tracked = std::max(tracked, nextUnit);
+    }
+  }
 
   auto baseName = [](const std::string &name) {
     size_t space = name.find_last_of(' ');
@@ -976,7 +1013,7 @@ bool RiderImporter::ImportText(const std::string &text) {
     return numeric ? name.substr(0, space) : name;
   };
 
-  int baseId = 101;
+  int baseId = ((highestExistingFixtureId + 99) / 100) * 100 + 1;
   for (const std::string &type : typeOrder) {
     auto it = fixturesByType.find(type);
     if (it == fixturesByType.end())
@@ -988,10 +1025,12 @@ bool RiderImporter::ImportText(const std::string &text) {
       return a->transform.o[1] < b->transform.o[1];
     });
     std::string prefix = vec.empty() ? type : baseName(vec.front()->instanceName);
+    int nextUnitNumber = nextUnitByType[type] + 1;
     for (size_t i = 0; i < vec.size(); ++i) {
       vec[i]->fixtureId = baseId + static_cast<int>(i);
-      vec[i]->unitNumber = static_cast<int>(i) + 1;
-      vec[i]->instanceName = prefix + " " + std::to_string(i + 1);
+      vec[i]->unitNumber = nextUnitNumber + static_cast<int>(i);
+      vec[i]->instanceName =
+          prefix + " " + std::to_string(nextUnitNumber + static_cast<int>(i));
     }
     baseId =
         ((baseId - 1 + static_cast<int>(vec.size()) + 99) / 100) * 100 + 1;
