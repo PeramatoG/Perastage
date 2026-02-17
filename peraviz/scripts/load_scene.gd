@@ -44,8 +44,11 @@ var _updating_fixture_controls: bool = false
 
 var _dmx_receiver = null
 var _dmx_toggle_button: Button
-var _dmx_status_label: Label
+var _dmx_monitor_button: Button
+var _dmx_monitor_window: Window
 var _dmx_timer: Timer
+
+const DmxMonitorWindowScript = preload("res://scripts/dmx_monitor_window.gd")
 
 const DEBUG_TOGGLE_KEY: Key = KEY_C
 const MANUAL_TEST_FLAG: String = "--peraviz_manual_fixture_test"
@@ -1496,11 +1499,14 @@ func _setup_dmx_controls() -> void:
 	_dmx_toggle_button.position = Vector2(540, 20)
 	hud_root.add_child(_dmx_toggle_button)
 	_dmx_toggle_button.pressed.connect(_on_dmx_toggle_pressed)
+	_update_dmx_toggle_color(false, false)
 
-	_dmx_status_label = Label.new()
-	_dmx_status_label.position = Vector2(650, 25)
-	_dmx_status_label.text = "DMX: OFF"
-	hud_root.add_child(_dmx_status_label)
+	_dmx_monitor_button = Button.new()
+	_dmx_monitor_button.text = "DMX Monitor"
+	_dmx_monitor_button.position = Vector2(650, 20)
+	_dmx_monitor_button.disabled = true
+	hud_root.add_child(_dmx_monitor_button)
+	_dmx_monitor_button.pressed.connect(_on_dmx_monitor_pressed)
 
 	_dmx_timer = Timer.new()
 	_dmx_timer.wait_time = 0.2
@@ -1510,9 +1516,10 @@ func _setup_dmx_controls() -> void:
 
 	if ClassDB.class_exists("PeravizDmxReceiver"):
 		_dmx_receiver = ClassDB.instantiate("PeravizDmxReceiver")
+		_dmx_monitor_button.disabled = false
 	else:
 		_dmx_toggle_button.disabled = true
-		_dmx_status_label.text = "DMX: unavailable (build without PERAVIZ_ENABLE_DMX)"
+		_dmx_toggle_button.tooltip_text = "DMX unavailable (build without PERAVIZ_ENABLE_DMX)"
 
 func _on_dmx_toggle_pressed() -> void:
 	if _dmx_receiver == null:
@@ -1523,27 +1530,55 @@ func _on_dmx_toggle_pressed() -> void:
 		if not started:
 			_dmx_toggle_button.button_pressed = false
 			_dmx_toggle_button.text = "DMX OFF"
-			_dmx_status_label.text = "DMX: failed to start"
+			_update_dmx_toggle_color(false, false)
+			_dmx_toggle_button.tooltip_text = "DMX failed to start"
 			return
 		_dmx_toggle_button.text = "DMX ON"
+		_dmx_toggle_button.tooltip_text = ""
 	else:
 		_dmx_receiver.stop()
 		_dmx_toggle_button.text = "DMX OFF"
-		_dmx_status_label.text = "DMX: OFF"
+		_update_dmx_toggle_color(false, false)
+		_refresh_dmx_monitor_window(false)
+
+func _on_dmx_monitor_pressed() -> void:
+	if _dmx_receiver == null:
+		return
+	if _dmx_monitor_window == null or not is_instance_valid(_dmx_monitor_window):
+		_dmx_monitor_window = DmxMonitorWindowScript.new()
+		add_child(_dmx_monitor_window)
+		_dmx_monitor_window.configure(_dmx_receiver)
+	_dmx_monitor_window.popup_centered_ratio(0.75)
+	_refresh_dmx_monitor_window(_dmx_receiver.is_running())
 
 func _on_dmx_timer_timeout() -> void:
 	if _dmx_receiver == null:
 		return
 	if not _dmx_receiver.is_running():
 		if _dmx_toggle_button != null and not _dmx_toggle_button.button_pressed:
-			_dmx_status_label.text = "DMX: OFF"
+			_update_dmx_toggle_color(false, false)
+		_refresh_dmx_monitor_window(false)
 		return
 
 	var stats: Dictionary = _dmx_receiver.get_stats()
 	var active_universes: PackedInt32Array = _dmx_receiver.get_active_universes(2000)
-	var pps: int = int(stats.get("packets_per_sec", 0))
 	var last_ms: int = int(stats.get("last_packet_ms_ago", -1))
-	_dmx_status_label.text = "DMX: pps=%d active_universes=%d last=%dms" % [pps, active_universes.size(), last_ms]
+	var receiving: bool = active_universes.size() > 0 and last_ms >= 0 and last_ms <= 2000
+	_update_dmx_toggle_color(true, receiving)
+	_refresh_dmx_monitor_window(true)
+
+func _update_dmx_toggle_color(enabled: bool, receiving_signal: bool) -> void:
+	if _dmx_toggle_button == null:
+		return
+	if not enabled:
+		_dmx_toggle_button.modulate = Color(0.75, 0.75, 0.75)
+		return
+	_dmx_toggle_button.modulate = Color(0.25, 0.95, 0.25) if receiving_signal else Color(0.95, 0.25, 0.25)
+
+func _refresh_dmx_monitor_window(running: bool) -> void:
+	if _dmx_monitor_window == null or not is_instance_valid(_dmx_monitor_window):
+		return
+	_dmx_monitor_window.refresh(running)
 
 func _exit_tree() -> void:
 	if _dmx_receiver != null:
