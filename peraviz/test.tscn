@@ -32,9 +32,16 @@ current = true
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
 rotation_degrees = Vector3(-45, 45, 0)
 shadow_enabled = true
-directional_shadow_max_distance = 120.0
-shadow_bias = 0.03
-shadow_normal_bias = 1.0
+directional_shadow_mode = 2
+directional_shadow_blend_splits = true
+directional_shadow_split_1 = 0.08
+directional_shadow_split_2 = 0.2
+directional_shadow_split_3 = 0.45
+directional_shadow_fade_start = 0.85
+directional_shadow_max_distance = 72.0
+shadow_bias = 0.015
+shadow_normal_bias = 0.7
+light_angular_distance = 0.35
 
 [node name="Ground" type="MeshInstance3D" parent="."]
 mesh = SubResource("PlaneMesh_ground")
