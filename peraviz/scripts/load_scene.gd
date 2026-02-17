@@ -60,8 +60,8 @@ const DEFAULT_EMITTER_PHOTOMETRICS := {
 }
 
 # Keep emitter light direction aligned with fixture zero-position beam expectation
-# (downward in runtime scenes) while still inheriting GDTF emitter transforms.
-const EMITTER_LIGHT_DIRECTION_FIX: Vector3 = Vector3(90.0, 0.0, 0.0)
+# (aligned with fixture lens output in runtime scenes) while still inheriting GDTF emitter transforms.
+const EMITTER_LIGHT_DIRECTION_FIX: Vector3 = Vector3(-90.0, 0.0, 0.0)
 const LENS_TINT_COLOR: Color = Color(0.72, 0.86, 1.0, 0.38)
 
 func _ready() -> void:
