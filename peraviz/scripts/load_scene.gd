@@ -93,6 +93,7 @@ const EMITTER_CONE_MAX_BASE_RADIUS_M: float = 4.0
 const EMITTER_LIGHT_MAX_FOOTPRINT_RADIUS_M: float = EMITTER_CONE_MAX_BASE_RADIUS_M
 const EMITTER_LIGHT_MIN_EFFECTIVE_RANGE_M: float = 0.75
 const EMITTER_BEAM_LENGTH_SCALE: float = 2.0
+const EMITTER_LIGHT_FOOTPRINT_RANGE_MULTIPLIER: float = 2.0
 const EMITTER_CONE_FADE_END_RATIO: float = 0.82
 const EMITTER_CONE_NEAR_ALPHA: float = 0.06
 const EMITTER_CONE_FAR_ALPHA: float = 0.004
@@ -1459,11 +1460,14 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 	var max_spot_range_from_footprint: float = EMITTER_LIGHT_MAX_RANGE_M
 	if beam_slope > 0.0001:
 		max_spot_range_from_footprint = max(EMITTER_LIGHT_MAX_FOOTPRINT_RADIUS_M / beam_slope, EMITTER_LIGHT_MIN_EFFECTIVE_RANGE_M)
-	light.spot_range = clamp(min(nominal_spot_range, max_spot_range_from_footprint), EMITTER_LIGHT_MIN_EFFECTIVE_RANGE_M, EMITTER_LIGHT_MAX_RANGE_M)
+	var cone_range: float = clamp(min(nominal_spot_range, max_spot_range_from_footprint), EMITTER_LIGHT_MIN_EFFECTIVE_RANGE_M, EMITTER_LIGHT_MAX_RANGE_M)
+	# SpotLight3D footprint follows transform by default in Godot; this extension only
+	# avoids early floor clipping on steep tilt while keeping cone visuals unchanged.
+	light.spot_range = clamp(cone_range * EMITTER_LIGHT_FOOTPRINT_RANGE_MULTIPLIER, EMITTER_LIGHT_MIN_EFFECTIVE_RANGE_M, EMITTER_LIGHT_MAX_RANGE_M)
 	light.light_color = _derive_emitter_color(photometric)
 	var beam_radius_from_gdtf: bool = bool(photometric.get("beam_radius_from_gdtf", false))
 	var source_beam_radius: float = beam_radius_m if beam_radius_from_gdtf else -1.0
-	_update_emitter_beam_cone(light, beam_angle, light.spot_range, light.light_color, normalized_dimmer, source_beam_radius)
+	_update_emitter_beam_cone(light, beam_angle, cone_range, light.light_color, normalized_dimmer, source_beam_radius)
 
 func _create_emitter_beam_cone() -> MeshInstance3D:
 	var cone := MeshInstance3D.new()
