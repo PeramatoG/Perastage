@@ -77,6 +77,12 @@ const DEFAULT_EMITTER_PHOTOMETRICS := {
 # (aligned with fixture lens output in runtime scenes) while still inheriting GDTF emitter transforms.
 const EMITTER_LIGHT_DIRECTION_FIX: Vector3 = Vector3(-90.0, 0.0, 0.0)
 const LENS_TINT_COLOR: Color = Color(0.72, 0.86, 1.0, 0.38)
+const DOUBLE_SIDED_NAME_HINTS: PackedStringArray = PackedStringArray([
+	"lens", "glass", "visor", "shade", "shield", "fabric", "cloth", "curtain", "scrim", "flag", "plane", "card"
+])
+const DOUBLE_SIDED_MATERIAL_HINTS: PackedStringArray = PackedStringArray([
+	"lens", "glass", "visor", "fabric", "cloth", "curtain", "thin", "plane"
+])
 const ENV_QUALITY_PRESET_SETTING: String = "peraviz_environment_quality"
 const ENV_QUALITY_PRESET_DEFAULT: String = "medium"
 const ENVIRONMENT_QUALITY_PRESETS := {
@@ -479,13 +485,130 @@ func _build_visual_node(data: Dictionary, item_type: String, item_class: String,
 	if not asset_path.is_empty():
 		var loaded: Variant = _load_3d_asset(asset_path, asset_kind)
 		if loaded is Node3D:
-			return loaded
+			var loaded_node: Node3D = loaded
+			_apply_selective_double_sided_to_candidates(loaded_node, data)
+			return loaded_node
 		print("[Peraviz] Asset fallback for missing/invalid model: ", asset_path, " type=", item_type, " class=", item_class, " asset_kind=", asset_kind)
 
 	if item_type == "fixture" or item_type == "fixture_geometry":
 		return null
 
 	return _create_dummy_mesh(is_fixture, visual_scale_hint)
+
+func _apply_selective_double_sided_to_candidates(model_root: Node3D, source_data: Dictionary) -> void:
+	if model_root == null:
+		return
+
+	var tagged_meshes: int = 0
+	var tagged_surfaces: int = 0
+	for mesh_instance in _collect_mesh_instances_recursive(model_root):
+		if mesh_instance.mesh == null:
+			continue
+
+		var tagged_surface_indices := PackedInt32Array()
+		for surface_index in range(mesh_instance.mesh.get_surface_count()):
+			var active_material: Material = mesh_instance.get_active_material(surface_index)
+			if not _should_enable_double_sided(mesh_instance, active_material, source_data):
+				continue
+			if _set_double_sided_surface_material(mesh_instance, surface_index, active_material):
+				tagged_surface_indices.append(surface_index)
+
+		if tagged_surface_indices.is_empty():
+			continue
+		tagged_meshes += 1
+		tagged_surfaces += tagged_surface_indices.size()
+		mesh_instance.set_meta("peraviz_double_sided_surface_indices", tagged_surface_indices)
+		mesh_instance.set_meta("peraviz_double_sided_candidate", true)
+
+	if tagged_surfaces > 0:
+		model_root.set_meta("peraviz_double_sided_mesh_count", tagged_meshes)
+		model_root.set_meta("peraviz_double_sided_surface_count", tagged_surfaces)
+
+func _collect_mesh_instances_recursive(root: Node3D) -> Array[MeshInstance3D]:
+	var output: Array[MeshInstance3D] = []
+	if root == null:
+		return output
+	if root is MeshInstance3D:
+		output.append(root)
+	for child in root.get_children():
+		if child is Node3D:
+			output.append_array(_collect_mesh_instances_recursive(child))
+	return output
+
+func _should_enable_double_sided(mesh_instance: MeshInstance3D, material: Material, source_data: Dictionary) -> bool:
+	if mesh_instance == null:
+		return false
+
+	var mesh_name_hint: String = mesh_instance.name.to_lower()
+	var geometry_name_hint: String = str(source_data.get("name", "")).to_lower()
+	if _contains_any_hint(mesh_name_hint, DOUBLE_SIDED_NAME_HINTS):
+		return true
+	if _contains_any_hint(geometry_name_hint, DOUBLE_SIDED_NAME_HINTS):
+		return true
+
+	if material != null:
+		var material_name_hint: String = material.resource_name.to_lower()
+		if _contains_any_hint(material_name_hint, DOUBLE_SIDED_MATERIAL_HINTS):
+			return true
+
+		if material is BaseMaterial3D:
+			var base_material: BaseMaterial3D = material
+			if base_material.transparency != BaseMaterial3D.TRANSPARENCY_DISABLED and (
+				mesh_name_hint.contains("lens") or mesh_name_hint.contains("glass") or
+				geometry_name_hint.contains("lens") or geometry_name_hint.contains("glass")
+			):
+				return true
+
+	if _looks_like_thin_plane(mesh_instance):
+		return true
+	return false
+
+func _contains_any_hint(candidate: String, hints: PackedStringArray) -> bool:
+	if candidate.is_empty():
+		return false
+	for hint in hints:
+		if candidate.contains(hint):
+			return true
+	return false
+
+func _looks_like_thin_plane(mesh_instance: MeshInstance3D) -> bool:
+	if mesh_instance == null:
+		return false
+	var bounds: AABB = mesh_instance.get_aabb()
+	if bounds.size == Vector3.ZERO:
+		return false
+	var sx: float = abs(bounds.size.x)
+	var sy: float = abs(bounds.size.y)
+	var sz: float = abs(bounds.size.z)
+	var min_dim: float = min(sx, min(sy, sz))
+	var max_dim: float = max(sx, max(sy, sz))
+	if max_dim <= 0.0001:
+		return false
+	return min_dim <= max_dim * 0.04
+
+func _set_double_sided_surface_material(mesh_instance: MeshInstance3D, surface_index: int, active_material: Material) -> bool:
+	if mesh_instance == null:
+		return false
+	if active_material is BaseMaterial3D:
+		var source_material: BaseMaterial3D = active_material
+		if source_material.cull_mode == BaseMaterial3D.CULL_DISABLED:
+			return true
+		var override_material: BaseMaterial3D = source_material.duplicate(true)
+		override_material.cull_mode = BaseMaterial3D.CULL_DISABLED
+		mesh_instance.set_surface_override_material(surface_index, override_material)
+		return true
+
+	if active_material == null and mesh_instance.mesh != null:
+		var mesh_surface_material: Material = mesh_instance.mesh.surface_get_material(surface_index)
+		if mesh_surface_material is BaseMaterial3D:
+			var surface_source: BaseMaterial3D = mesh_surface_material
+			if surface_source.cull_mode == BaseMaterial3D.CULL_DISABLED:
+				return true
+			var surface_override: BaseMaterial3D = surface_source.duplicate(true)
+			surface_override.cull_mode = BaseMaterial3D.CULL_DISABLED
+			mesh_instance.set_surface_override_material(surface_index, surface_override)
+			return true
+	return false
 
 func _extract_visual_scale_hint(data: Dictionary) -> float:
 	if bool(data.get("has_basis", false)):
