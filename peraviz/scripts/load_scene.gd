@@ -5,6 +5,7 @@ extends Node3D
 @onready var picker: FileDialog = $HUD/FileDialog
 @onready var camera: Camera3D = $Camera3D
 @onready var world_environment: WorldEnvironment = $WorldEnvironment
+@onready var sun_light: DirectionalLight3D = $DirectionalLight3D
 @onready var manual_fixture_toggle: CheckButton = $HUD/ManualFixtureToggle
 @onready var fixture_debug_panel: PanelContainer = $HUD/FixtureDebugPanel
 @onready var fixture_list: ItemList = $HUD/FixtureDebugPanel/Margin/VBox/FixtureList
@@ -42,6 +43,7 @@ var _fixture_emitter_light_cache: Dictionary = {}
 var _fixture_emitter_photometrics: Dictionary = {}
 var _fixture_lens_tuned: Dictionary = {}
 var _updating_fixture_controls: bool = false
+var _active_config_profile: String = ""
 
 var _dmx_receiver = null
 var _dmx_toggle_button: Button
@@ -57,6 +59,7 @@ const DmxFixtureRuntimeScript = preload("res://scripts/dmx_fixture_runtime.gd")
 
 const DEBUG_TOGGLE_KEY: Key = KEY_C
 const MANUAL_TEST_FLAG: String = "--peraviz_manual_fixture_test"
+const CONFIG_PROFILE_FLAG_PREFIX: String = "--peraviz_config_profile="
 const MANUAL_DEFAULTS := {
 	"pan": 0.0,
 	"tilt": 0.0,
@@ -85,6 +88,8 @@ const DOUBLE_SIDED_MATERIAL_HINTS: Array[String] = [
 ]
 const ENV_QUALITY_PRESET_SETTING: String = "peraviz_environment_quality"
 const ENV_QUALITY_PRESET_DEFAULT: String = "medium"
+const CONFIG_PROFILE_SETTING: String = "peraviz_config_profile"
+const CONFIG_PROFILE_DEFAULT: String = "tecnico"
 const ENVIRONMENT_QUALITY_PRESETS := {
 	"low": {
 		"ssao_enabled": false,
@@ -116,6 +121,40 @@ const ENVIRONMENT_QUALITY_PRESETS := {
 		"dof_blur_near_enabled": false,
 	},
 }
+const CONFIG_PROFILES := {
+	"tecnico": {
+		"environment_preset": "low",
+		"sun_shadow": {
+			"directional_shadow_mode": DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS,
+			"directional_shadow_max_distance": 56.0,
+			"directional_shadow_fade_start": 0.9,
+			"shadow_bias": 0.014,
+			"shadow_normal_bias": 1.0,
+			"light_angular_distance": 0.2,
+		},
+		"emitter_shadow": {
+			"shadow_bias": 0.08,
+			"shadow_normal_bias": 0.9,
+			"shadow_opacity": 0.85,
+		},
+	},
+	"presentacion": {
+		"environment_preset": "high",
+		"sun_shadow": {
+			"directional_shadow_mode": DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS,
+			"directional_shadow_max_distance": 90.0,
+			"directional_shadow_fade_start": 0.82,
+			"shadow_bias": 0.012,
+			"shadow_normal_bias": 0.6,
+			"light_angular_distance": 0.35,
+		},
+		"emitter_shadow": {
+			"shadow_bias": 0.05,
+			"shadow_normal_bias": 0.65,
+			"shadow_opacity": 1.0,
+		},
+	},
+}
 
 func _ready() -> void:
 	_scene_registry.configure(proxies_root)
@@ -141,6 +180,7 @@ func _ready() -> void:
 	_debug_coords_enabled = bool(ProjectSettings.get_setting("peraviz_debug_coords", false))
 	_debug_asset_cache_enabled = bool(ProjectSettings.get_setting("peraviz_debug_asset_cache", false))
 	_manual_fixture_test_enabled = _read_manual_fixture_test_setting()
+	_active_config_profile = _read_config_profile()
 	manual_fixture_toggle.button_pressed = _manual_fixture_test_enabled
 	_asset_cache.configure_debug_logging(_debug_asset_cache_enabled, 100)
 	_ensure_debug_gizmo_root()
@@ -148,17 +188,33 @@ func _ready() -> void:
 	_refresh_fixture_debug_panel()
 	_setup_dmx_controls()
 	_setup_dmx_fixture_runtime()
-	_apply_environment_quality_preset()
+	_apply_runtime_config_profile()
 
-func _apply_environment_quality_preset() -> void:
+func _apply_runtime_config_profile() -> void:
+	if not CONFIG_PROFILES.has(_active_config_profile):
+		_active_config_profile = CONFIG_PROFILE_DEFAULT
+	var profile: Dictionary = CONFIG_PROFILES.get(_active_config_profile, {})
+	var environment_preset: String = str(profile.get("environment_preset", ENV_QUALITY_PRESET_DEFAULT))
+	_apply_environment_quality_preset(environment_preset)
+	_apply_sun_shadow_profile(profile.get("sun_shadow", {}))
+
+func _apply_environment_quality_preset(preset_override: String = "") -> void:
 	if world_environment == null or world_environment.environment == null:
 		return
-	var requested_preset: String = str(ProjectSettings.get_setting(ENV_QUALITY_PRESET_SETTING, ENV_QUALITY_PRESET_DEFAULT)).to_lower()
+	var requested_preset: String = preset_override.to_lower()
+	if requested_preset.is_empty():
+		requested_preset = str(ProjectSettings.get_setting(ENV_QUALITY_PRESET_SETTING, ENV_QUALITY_PRESET_DEFAULT)).to_lower()
 	if not ENVIRONMENT_QUALITY_PRESETS.has(requested_preset):
 		requested_preset = ENV_QUALITY_PRESET_DEFAULT
 	var preset_config: Dictionary = ENVIRONMENT_QUALITY_PRESETS.get(requested_preset, {})
 	for property_name in preset_config.keys():
 		world_environment.environment.set(property_name, preset_config[property_name])
+
+func _apply_sun_shadow_profile(shadow_config: Dictionary) -> void:
+	if sun_light == null:
+		return
+	for property_name in shadow_config.keys():
+		sun_light.set(property_name, shadow_config[property_name])
 
 func _on_load_pressed() -> void:
 	picker.popup_centered_ratio(0.7)
@@ -841,6 +897,17 @@ func _read_manual_fixture_test_setting() -> bool:
 		return true
 	return OS.get_cmdline_args().has(MANUAL_TEST_FLAG)
 
+func _read_config_profile() -> String:
+	var requested_profile: String = str(ProjectSettings.get_setting(CONFIG_PROFILE_SETTING, CONFIG_PROFILE_DEFAULT)).to_lower()
+	for arg in OS.get_cmdline_args():
+		if not arg.begins_with(CONFIG_PROFILE_FLAG_PREFIX):
+			continue
+		requested_profile = arg.trim_prefix(CONFIG_PROFILE_FLAG_PREFIX).to_lower()
+		break
+	if not CONFIG_PROFILES.has(requested_profile):
+		return CONFIG_PROFILE_DEFAULT
+	return requested_profile
+
 func _populate_fixture_list() -> void:
 	fixture_list.clear()
 	for fixture_uuid in _scene_registry.list_fixture_uuids():
@@ -1225,6 +1292,7 @@ func _find_or_create_emitter_light(emitter_node: Node3D) -> SpotLight3D:
 		if child is SpotLight3D and child.name == "PeravizEmitterLight":
 			if child.rotation_degrees != EMITTER_LIGHT_DIRECTION_FIX:
 				child.rotation_degrees = EMITTER_LIGHT_DIRECTION_FIX
+			_apply_emitter_shadow_profile(child)
 			child.set_meta("peraviz_lens_radius", lens_radius)
 			return child
 
@@ -1234,6 +1302,7 @@ func _find_or_create_emitter_light(emitter_node: Node3D) -> SpotLight3D:
 	light.rotation_degrees = EMITTER_LIGHT_DIRECTION_FIX
 	light.light_negative = false
 	light.shadow_enabled = true
+	_apply_emitter_shadow_profile(light)
 	light.spot_range = 20.0
 	light.spot_angle = 25.0
 	light.spot_attenuation = 1.0
@@ -1241,6 +1310,14 @@ func _find_or_create_emitter_light(emitter_node: Node3D) -> SpotLight3D:
 	light.set_meta("peraviz_lens_radius", lens_radius)
 	emitter_node.add_child(light)
 	return light
+
+func _apply_emitter_shadow_profile(light: SpotLight3D) -> void:
+	if light == null:
+		return
+	var profile: Dictionary = CONFIG_PROFILES.get(_active_config_profile, {})
+	var shadow_config: Dictionary = profile.get("emitter_shadow", {})
+	for property_name in shadow_config.keys():
+		light.set(property_name, shadow_config[property_name])
 
 func _estimate_emitter_lens_radius(emitter_node: Node3D) -> float:
 	var default_radius: float = 0.03
