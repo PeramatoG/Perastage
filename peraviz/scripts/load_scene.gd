@@ -56,6 +56,7 @@ const DEFAULT_EMITTER_PHOTOMETRICS := {
 	"beam_angle": 25.0,
 	"field_angle": 25.0,
 	"beam_radius": 0.05,
+	"beam_radius_from_gdtf": false,
 	"dominant_wavelength": 0.0,
 }
 
@@ -1191,6 +1192,7 @@ func _extract_emitter_photometrics(item: Dictionary) -> Dictionary:
 		data["field_angle"] = float(item.get("field_angle", data["field_angle"]))
 	if bool(item.get("has_beam_radius", false)):
 		data["beam_radius"] = float(item.get("beam_radius", data["beam_radius"]))
+		data["beam_radius_from_gdtf"] = true
 	if bool(item.get("has_dominant_wavelength", false)):
 		data["dominant_wavelength"] = float(item.get("dominant_wavelength", 0.0))
 	return data
@@ -1207,7 +1209,9 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 	light.spot_attenuation = clamp(beam_angle / field_angle, 0.2, 1.0)
 	light.spot_range = clamp(beam_radius_m * 400.0, 0.5, 60.0)
 	light.light_color = _derive_emitter_color(photometric)
-	_update_emitter_beam_cone(light, beam_angle, light.spot_range, light.light_color, normalized_dimmer)
+	var beam_radius_from_gdtf: bool = bool(photometric.get("beam_radius_from_gdtf", false))
+	var source_beam_radius: float = beam_radius_m if beam_radius_from_gdtf else -1.0
+	_update_emitter_beam_cone(light, beam_angle, light.spot_range, light.light_color, normalized_dimmer, source_beam_radius)
 
 func _create_emitter_beam_cone() -> MeshInstance3D:
 	var cone := MeshInstance3D.new()
@@ -1234,7 +1238,7 @@ func _create_emitter_beam_cone() -> MeshInstance3D:
 	cone.material_override = cone_material
 	return cone
 
-func _update_emitter_beam_cone(light: SpotLight3D, beam_angle: float, beam_range: float, beam_color: Color, normalized_dimmer: float) -> void:
+func _update_emitter_beam_cone(light: SpotLight3D, beam_angle: float, beam_range: float, beam_color: Color, normalized_dimmer: float, gdtf_beam_radius: float = -1.0) -> void:
 	if not light.has_meta("peraviz_beam_cone"):
 		light.set_meta("peraviz_beam_cone", _create_emitter_beam_cone())
 	var cone: MeshInstance3D = light.get_meta("peraviz_beam_cone") as MeshInstance3D
@@ -1249,7 +1253,10 @@ func _update_emitter_beam_cone(light: SpotLight3D, beam_angle: float, beam_range
 	if cone_mesh != null:
 		var radius: float = tan(deg_to_rad(beam_angle * 0.5)) * beam_range
 		var lens_radius: float = max(float(light.get_meta("peraviz_lens_radius", 0.03)), 0.005)
-		cone_mesh.top_radius = lens_radius
+		var top_radius: float = lens_radius
+		if gdtf_beam_radius > 0.0:
+			top_radius = max(gdtf_beam_radius, 0.005)
+		cone_mesh.top_radius = top_radius
 		cone_mesh.bottom_radius = max(radius, 0.03)
 		cone_mesh.height = beam_range
 	cone.position = Vector3(0.0, 0.0, -beam_range * 0.5)
