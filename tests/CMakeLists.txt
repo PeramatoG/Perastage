@@ -308,6 +308,29 @@ add_test(NAME RiderImportOrder COMMAND rider_import_order_test
          ${CMAKE_CURRENT_SOURCE_DIR}/data/rider_fixture_order.txt)
 set_library_env(RiderImportOrder)
 
+add_executable(rider_import_preserve_existing_test rider_import_preserve_existing_test.cpp
+               riderimporter_stubs.cpp
+               gdtfloader_stub.cpp
+               ../core/riderimporter.cpp
+               ../core/uuidutils.cpp
+               ../core/autopatcher.cpp
+               ../core/patchmanager.cpp
+               ../core/configmanager.cpp
+               ../core/configservices.cpp
+               ../core/projectutils.cpp
+               ../core/logger.cpp
+               ../models/mvrscene.cpp
+               ../models/fixture.cpp
+               ../models/truss.cpp
+               ../models/sceneobject.cpp
+               ../models/layer.cpp
+               ${LAYOUT_SOURCES})
+target_include_directories(rider_import_preserve_existing_test PRIVATE
+                           . ../core ../models ../mvr ../gui ../third_party)
+target_link_libraries(rider_import_preserve_existing_test PRIVATE ${wxWidgets_LIBRARIES})
+add_test(NAME RiderImportPreserveExisting COMMAND rider_import_preserve_existing_test)
+set_library_env(RiderImportPreserveExisting)
+
 add_executable(rider_autopatch_test rider_autopatch_test.cpp
                riderimporter_stubs.cpp
                gdtfloader_onech_stub.cpp
