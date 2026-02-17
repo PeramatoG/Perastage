@@ -56,6 +56,7 @@ const DEFAULT_EMITTER_PHOTOMETRICS := {
 	"beam_angle": 25.0,
 	"field_angle": 25.0,
 	"beam_radius": 0.05,
+	"beam_radius_from_gdtf": false,
 	"dominant_wavelength": 0.0,
 }
 
@@ -1013,10 +1014,12 @@ func _collect_fixture_emitter_lights(fixture_uuid: String, emitter_nodes: Array)
 	return lights
 
 func _find_or_create_emitter_light(emitter_node: Node3D) -> SpotLight3D:
+	var lens_radius: float = _estimate_emitter_lens_radius(emitter_node)
 	for child in emitter_node.get_children():
 		if child is SpotLight3D and child.name == "PeravizEmitterLight":
 			if child.rotation_degrees != EMITTER_LIGHT_DIRECTION_FIX:
 				child.rotation_degrees = EMITTER_LIGHT_DIRECTION_FIX
+			child.set_meta("peraviz_lens_radius", lens_radius)
 			return child
 
 	var light := SpotLight3D.new()
@@ -1029,8 +1032,142 @@ func _find_or_create_emitter_light(emitter_node: Node3D) -> SpotLight3D:
 	light.spot_angle = 25.0
 	light.spot_attenuation = 1.0
 	light.set_meta("peraviz_beam_cone", _create_emitter_beam_cone())
+	light.set_meta("peraviz_lens_radius", lens_radius)
 	emitter_node.add_child(light)
 	return light
+
+func _estimate_emitter_lens_radius(emitter_node: Node3D) -> float:
+	var default_radius: float = 0.03
+	if emitter_node == null:
+		return default_radius
+
+	var hinted_radius: float = _estimate_emitter_lens_radius_from_root(emitter_node, true)
+	if hinted_radius > 0.0:
+		return hinted_radius
+
+	# Some fixtures do not name the lens geometry explicitly; fallback to nearest
+	# mesh around the emitter origin so we still keep beam base and lens width aligned.
+	var fallback_radius: float = _estimate_emitter_lens_radius_from_root(emitter_node, false)
+	if fallback_radius > 0.0:
+		return fallback_radius
+
+	if emitter_node.get_parent() is Node3D:
+		var parent_node: Node3D = emitter_node.get_parent() as Node3D
+		var parent_hinted_radius: float = _estimate_emitter_lens_radius_from_root(parent_node, true)
+		if parent_hinted_radius > 0.0:
+			return parent_hinted_radius
+		var parent_fallback_radius: float = _estimate_emitter_lens_radius_from_root(parent_node, false)
+		if parent_fallback_radius > 0.0:
+			return parent_fallback_radius
+	return default_radius
+
+func _estimate_emitter_lens_radius_from_root(root: Node3D, require_name_hints: bool) -> float:
+	if root == null:
+		return -1.0
+	var candidates: Array = []
+	var world_to_root: Transform3D = root.global_transform.affine_inverse()
+	_collect_emitter_lens_candidates_recursive(root, world_to_root, require_name_hints, candidates)
+	if candidates.is_empty():
+		return -1.0
+
+	var best_name_score: int = 1 << 20
+	var best_position_score: float = INF
+	var best_radius: float = -1.0
+	for candidate in candidates:
+		if not (candidate is Dictionary):
+			continue
+		var radius: float = float(candidate.get("radius", -1.0))
+		if radius < 0.005:
+			continue
+		var center: Vector3 = candidate.get("center", Vector3.ZERO)
+		var name_score: int = int(candidate.get("name_score", 9999))
+		var radial_distance: float = Vector2(center.x, center.y).length()
+		var axial_distance: float = abs(center.z)
+		var position_score: float = axial_distance * 1.5 + radial_distance
+		var name_is_better: bool = name_score < best_name_score
+		var same_name: bool = name_score == best_name_score
+		var position_is_better: bool = position_score < best_position_score
+		var position_tie: bool = is_equal_approx(position_score, best_position_score)
+		if name_is_better or (same_name and (position_is_better or (position_tie and radius > best_radius))):
+			best_name_score = name_score
+			best_position_score = position_score
+			best_radius = radius
+	return max(best_radius, -1.0)
+
+func _collect_emitter_lens_candidates_recursive(node: Node3D, world_to_root: Transform3D, require_name_hints: bool, output_candidates: Array) -> void:
+	if node is MeshInstance3D:
+		var mesh_instance: MeshInstance3D = node
+		if (not require_name_hints) or _is_emitter_lens_mesh(mesh_instance):
+			var mesh_bounds: AABB = mesh_instance.get_aabb()
+			if mesh_bounds.size != Vector3.ZERO:
+				var local_bounds: AABB = world_to_root * (mesh_instance.global_transform * mesh_bounds)
+				var candidate_radius: float = _estimate_mesh_aperture_radius(mesh_instance, world_to_root)
+				if candidate_radius <= 0.0001:
+					candidate_radius = max(local_bounds.size.x, local_bounds.size.y) * 0.5
+				if candidate_radius > 0.0001:
+					output_candidates.append({
+						"center": local_bounds.get_center(),
+						"radius": max(candidate_radius, 0.001),
+						"name_score": _lens_name_priority(mesh_instance.name)
+					})
+
+	for child in node.get_children():
+		if child is Node3D:
+			_collect_emitter_lens_candidates_recursive(child, world_to_root, require_name_hints, output_candidates)
+
+func _estimate_mesh_aperture_radius(mesh_instance: MeshInstance3D, world_to_root: Transform3D) -> float:
+	if mesh_instance == null or mesh_instance.mesh == null:
+		return -1.0
+
+	var best_radius: float = -1.0
+	for surface_index in range(mesh_instance.mesh.get_surface_count()):
+		var arrays: Array = mesh_instance.mesh.surface_get_arrays(surface_index)
+		if arrays.is_empty() or arrays.size() <= Mesh.ARRAY_VERTEX:
+			continue
+		var vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+		if vertices.is_empty():
+			continue
+
+		var local_vertices: Array = []
+		local_vertices.resize(vertices.size())
+		var min_abs_z: float = INF
+		for i in range(vertices.size()):
+			var root_local: Vector3 = world_to_root * (mesh_instance.global_transform * vertices[i])
+			local_vertices[i] = root_local
+			min_abs_z = min(min_abs_z, abs(root_local.z))
+
+		if not is_finite(min_abs_z):
+			continue
+		var z_tolerance: float = max(0.002, min_abs_z * 0.5)
+		var surface_radius: float = -1.0
+		for v in local_vertices:
+			var point: Vector3 = v
+			if abs(abs(point.z) - min_abs_z) > z_tolerance:
+				continue
+			var radial: float = Vector2(point.x, point.y).length()
+			surface_radius = max(surface_radius, radial)
+		if surface_radius > best_radius:
+			best_radius = surface_radius
+
+	return best_radius
+
+func _lens_name_priority(node_name: String) -> int:
+	var name_hint: String = node_name.to_lower()
+	if name_hint.contains("lens"):
+		return 0
+	if name_hint.contains("glass"):
+		return 1
+	if name_hint.contains("front"):
+		return 2
+	if name_hint.contains("emitter"):
+		return 3
+	if name_hint.contains("beam"):
+		return 4
+	return 5
+
+func _is_emitter_lens_mesh(mesh_instance: MeshInstance3D) -> bool:
+	var name_hint: String = mesh_instance.name.to_lower()
+	return name_hint.contains("lens") or name_hint.contains("glass") or name_hint.contains("emitter") or name_hint.contains("beam")
 
 func _get_fixture_emitter_photometrics(fixture_uuid: String) -> Array:
 	if _fixture_emitter_photometrics.has(fixture_uuid):
@@ -1055,6 +1192,7 @@ func _extract_emitter_photometrics(item: Dictionary) -> Dictionary:
 		data["field_angle"] = float(item.get("field_angle", data["field_angle"]))
 	if bool(item.get("has_beam_radius", false)):
 		data["beam_radius"] = float(item.get("beam_radius", data["beam_radius"]))
+		data["beam_radius_from_gdtf"] = true
 	if bool(item.get("has_dominant_wavelength", false)):
 		data["dominant_wavelength"] = float(item.get("dominant_wavelength", 0.0))
 	return data
@@ -1071,7 +1209,9 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 	light.spot_attenuation = clamp(beam_angle / field_angle, 0.2, 1.0)
 	light.spot_range = clamp(beam_radius_m * 400.0, 0.5, 60.0)
 	light.light_color = _derive_emitter_color(photometric)
-	_update_emitter_beam_cone(light, beam_angle, light.spot_range, light.light_color, normalized_dimmer)
+	var beam_radius_from_gdtf: bool = bool(photometric.get("beam_radius_from_gdtf", false))
+	var source_beam_radius: float = beam_radius_m if beam_radius_from_gdtf else -1.0
+	_update_emitter_beam_cone(light, beam_angle, light.spot_range, light.light_color, normalized_dimmer, source_beam_radius)
 
 func _create_emitter_beam_cone() -> MeshInstance3D:
 	var cone := MeshInstance3D.new()
@@ -1098,7 +1238,7 @@ func _create_emitter_beam_cone() -> MeshInstance3D:
 	cone.material_override = cone_material
 	return cone
 
-func _update_emitter_beam_cone(light: SpotLight3D, beam_angle: float, beam_range: float, beam_color: Color, normalized_dimmer: float) -> void:
+func _update_emitter_beam_cone(light: SpotLight3D, beam_angle: float, beam_range: float, beam_color: Color, normalized_dimmer: float, gdtf_beam_radius: float = -1.0) -> void:
 	if not light.has_meta("peraviz_beam_cone"):
 		light.set_meta("peraviz_beam_cone", _create_emitter_beam_cone())
 	var cone: MeshInstance3D = light.get_meta("peraviz_beam_cone") as MeshInstance3D
@@ -1112,7 +1252,11 @@ func _update_emitter_beam_cone(light: SpotLight3D, beam_angle: float, beam_range
 	var cone_mesh: CylinderMesh = cone.mesh as CylinderMesh
 	if cone_mesh != null:
 		var radius: float = tan(deg_to_rad(beam_angle * 0.5)) * beam_range
-		cone_mesh.top_radius = 0.015
+		var lens_radius: float = max(float(light.get_meta("peraviz_lens_radius", 0.03)), 0.005)
+		var top_radius: float = lens_radius
+		if gdtf_beam_radius > 0.0:
+			top_radius = max(gdtf_beam_radius, 0.005)
+		cone_mesh.top_radius = top_radius
 		cone_mesh.bottom_radius = max(radius, 0.03)
 		cone_mesh.height = beam_range
 	cone.position = Vector3(0.0, 0.0, -beam_range * 0.5)
