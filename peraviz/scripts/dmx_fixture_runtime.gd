@@ -51,10 +51,10 @@ func rebuild(universe_offset: int) -> Dictionary:
 
 	return _build_summary(universe_offset)
 
-func apply_dmx(receiver, apply_dimmer_callback: Callable) -> void:
+func apply_dmx(receiver, apply_fixture_callback: Callable) -> void:
 	if receiver == null or not receiver.is_running():
 		return
-	if apply_dimmer_callback.is_null():
+	if apply_fixture_callback.is_null():
 		return
 
 	var universe_frames: Dictionary = {}
@@ -69,14 +69,48 @@ func apply_dmx(receiver, apply_dimmer_callback: Callable) -> void:
 		if fixture_uuid.is_empty() or not _fixture_nodes.has(fixture_uuid):
 			continue
 		var universe_id: int = int(binding.get("artnet_universe_id", -1))
-		var channel_index: int = int(binding.get("dmx_channel_index_0", -1))
-		if channel_index < 0 or channel_index >= 512:
-			continue
 		var frame: PackedByteArray = universe_frames.get(universe_id, PackedByteArray())
-		if channel_index >= frame.size():
+		if frame.is_empty():
 			continue
-		var normalized_value: float = float(frame[channel_index]) / 255.0
-		apply_dimmer_callback.call(fixture_uuid, normalized_value * 100.0)
+
+		var controls := {
+			"has_dimmer": false,
+			"dimmer_norm": 0.0,
+			"has_pan": false,
+			"pan_norm": 0.0,
+			"has_tilt": false,
+			"tilt_norm": 0.0,
+		}
+
+		_read_control(binding, frame, "dimmer_channel_index_0", "dimmer_fine_channel_index_0", controls, "has_dimmer", "dimmer_norm")
+		_read_control(binding, frame, "pan_channel_index_0", "pan_fine_channel_index_0", controls, "has_pan", "pan_norm")
+		_read_control(binding, frame, "tilt_channel_index_0", "tilt_fine_channel_index_0", controls, "has_tilt", "tilt_norm")
+
+		if not controls["has_dimmer"] and not controls["has_pan"] and not controls["has_tilt"]:
+			continue
+		apply_fixture_callback.call(fixture_uuid, controls)
+
+func _read_control(binding: Dictionary,
+					   frame: PackedByteArray,
+					   coarse_key: String,
+					   fine_key: String,
+					   controls: Dictionary,
+					   has_key: String,
+					   value_key: String) -> void:
+	var coarse_index: int = int(binding.get(coarse_key, -1))
+	if coarse_index < 0 or coarse_index >= frame.size():
+		return
+	var coarse: int = int(frame[coarse_index])
+
+	var fine_index: int = int(binding.get(fine_key, -1))
+	if fine_index >= 0 and fine_index < frame.size():
+		var fine: int = int(frame[fine_index])
+		controls[has_key] = true
+		controls[value_key] = float((coarse << 8) | fine) / 65535.0
+		return
+
+	controls[has_key] = true
+	controls[value_key] = float(coarse) / 255.0
 
 func get_bound_count() -> int:
 	return _fixture_nodes.size()

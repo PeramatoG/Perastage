@@ -6,6 +6,7 @@
 #include <mutex>
 #include <sstream>
 #include <unordered_map>
+#include <vector>
 
 #include <tinyxml2.h>
 #include <wx/wfstream.h>
@@ -15,7 +16,7 @@ namespace {
 
 struct DimmerResolveCacheEntry {
     bool ok = false;
-    int offset = -1;
+    peraviz::dmx::FixtureControlOffsets offsets;
     std::string reason;
 };
 
@@ -93,13 +94,13 @@ std::vector<tinyxml2::XMLElement *> collect_elements_by_name(tinyxml2::XMLElemen
     return result;
 }
 
-int parse_offset_first_component(const char *raw_offset) {
+std::vector<int> parse_offsets(const char *raw_offset) {
+    std::vector<int> offsets;
     if (!raw_offset) {
-        return -1;
+        return offsets;
     }
 
-    std::string offset_text = raw_offset;
-    offset_text = trim_ascii(offset_text);
+    std::string offset_text = trim_ascii(raw_offset);
     for (char &ch : offset_text) {
         if (ch == ';') {
             ch = ',';
@@ -107,27 +108,96 @@ int parse_offset_first_component(const char *raw_offset) {
     }
 
     std::stringstream ss(offset_text);
-    std::string first;
-    if (!std::getline(ss, first, ',')) {
-        return -1;
-    }
-    first = trim_ascii(first);
-    if (first.empty()) {
-        return -1;
+    std::string piece;
+    while (std::getline(ss, piece, ',')) {
+        piece = trim_ascii(piece);
+        if (piece.empty()) {
+            continue;
+        }
+        char *end = nullptr;
+        const long parsed = std::strtol(piece.c_str(), &end, 10);
+        if (end == piece.c_str() || parsed <= 0L) {
+            continue;
+        }
+        offsets.push_back(static_cast<int>(parsed));
     }
 
-    char *end = nullptr;
-    const long parsed = std::strtol(first.c_str(), &end, 10);
-    if (end == first.c_str() || parsed <= 0L) {
-        return -1;
-    }
-
-    return static_cast<int>(parsed);
+    return offsets;
 }
 
-bool channel_has_dimmer_attribute(tinyxml2::XMLElement *dmx_channel) {
+enum class AttributeRole {
+    kUnknown,
+    kDimmer,
+    kPan,
+    kTilt,
+};
+
+struct ParsedAttribute {
+    AttributeRole role = AttributeRole::kUnknown;
+    bool is_fine = false;
+};
+
+ParsedAttribute parse_attribute_name(const std::string &raw_attribute) {
+    ParsedAttribute parsed;
+    const std::string lower = lower_ascii(trim_ascii(raw_attribute));
+    if (lower.empty()) {
+        return parsed;
+    }
+
+    if (lower.find("fine") != std::string::npos) {
+        parsed.is_fine = true;
+    }
+
+    if (lower.rfind("dimmer", 0) == 0 || lower.find("dimmer") != std::string::npos) {
+        parsed.role = AttributeRole::kDimmer;
+        return parsed;
+    }
+
+    if (lower.rfind("pan", 0) == 0 || lower.find(" pan") != std::string::npos) {
+        parsed.role = AttributeRole::kPan;
+        return parsed;
+    }
+
+    if (lower.rfind("tilt", 0) == 0 || lower.find(" tilt") != std::string::npos) {
+        parsed.role = AttributeRole::kTilt;
+        return parsed;
+    }
+
+    return parsed;
+}
+
+void consume_offsets(const std::vector<int> &offsets,
+                     bool is_fine,
+                     int &coarse,
+                     int &fine) {
+    if (offsets.empty()) {
+        return;
+    }
+
+    if (is_fine) {
+        if (fine <= 0 || offsets[0] < fine) {
+            fine = offsets[0];
+        }
+        return;
+    }
+
+    if (coarse <= 0 || offsets[0] < coarse) {
+        coarse = offsets[0];
+    }
+    if (offsets.size() > 1 && (fine <= 0 || offsets[1] < fine)) {
+        fine = offsets[1];
+    }
+}
+
+void consume_channel_offsets(tinyxml2::XMLElement *dmx_channel,
+                             peraviz::dmx::FixtureControlOffsets &out_offsets) {
     if (!dmx_channel) {
-        return false;
+        return;
+    }
+
+    const std::vector<int> offsets = parse_offsets(dmx_channel->Attribute("Offset"));
+    if (offsets.empty()) {
+        return;
     }
 
     const std::vector<tinyxml2::XMLElement *> logical_channels = collect_elements_by_name(dmx_channel, "logicalchannel");
@@ -141,13 +211,29 @@ bool channel_has_dimmer_attribute(tinyxml2::XMLElement *dmx_channel) {
             if (!attribute) {
                 continue;
             }
-            if (lower_ascii(attribute) == "dimmer") {
-                return true;
+
+            const ParsedAttribute parsed_attribute = parse_attribute_name(attribute);
+            switch (parsed_attribute.role) {
+            case AttributeRole::kDimmer:
+                consume_offsets(offsets, parsed_attribute.is_fine,
+                                out_offsets.dimmer_coarse_offset_1_based,
+                                out_offsets.dimmer_fine_offset_1_based);
+                break;
+            case AttributeRole::kPan:
+                consume_offsets(offsets, parsed_attribute.is_fine,
+                                out_offsets.pan_coarse_offset_1_based,
+                                out_offsets.pan_fine_offset_1_based);
+                break;
+            case AttributeRole::kTilt:
+                consume_offsets(offsets, parsed_attribute.is_fine,
+                                out_offsets.tilt_coarse_offset_1_based,
+                                out_offsets.tilt_fine_offset_1_based);
+                break;
+            case AttributeRole::kUnknown:
+                break;
             }
         }
     }
-
-    return false;
 }
 
 DimmerResolveCacheEntry resolve_uncached(const std::string &gdtf_path,
@@ -215,34 +301,16 @@ DimmerResolveCacheEntry resolve_uncached(const std::string &gdtf_path,
         return out;
     }
 
-    int found_count = 0;
     for (tinyxml2::XMLElement *dmx_channel : dmx_channels) {
-        if (!channel_has_dimmer_attribute(dmx_channel)) {
-            continue;
-        }
-
-        const int offset = parse_offset_first_component(dmx_channel->Attribute("Offset"));
-        if (offset <= 0) {
-            continue;
-        }
-
-        ++found_count;
-        if (!out.ok) {
-            out.ok = true;
-            out.offset = offset;
-            out.reason.clear();
-        }
+        consume_channel_offsets(dmx_channel, out.offsets);
     }
 
-    if (!out.ok) {
-        out.reason = "Dimmer attribute not found in mode DMX channels";
+    if (!out.offsets.has_any()) {
+        out.reason = "No Dimmer/Pan/Tilt attributes found in mode DMX channels";
         return out;
     }
 
-    if (found_count > 1) {
-        out.reason = "multiple dimmer channels found; using first";
-    }
-
+    out.ok = true;
     return out;
 }
 
@@ -250,17 +318,17 @@ DimmerResolveCacheEntry resolve_uncached(const std::string &gdtf_path,
 
 namespace peraviz::dmx {
 
-bool resolve_dimmer_channel_offset(const std::string &gdtf_path,
-                                   const std::string &dmx_mode_name,
-                                   int &out_offset_1_based,
-                                   std::string &out_debug_reason) {
+bool resolve_fixture_control_offsets(const std::string &gdtf_path,
+                                     const std::string &dmx_mode_name,
+                                     FixtureControlOffsets &out_offsets,
+                                     std::string &out_debug_reason) {
     const std::string cache_key = make_cache_key(gdtf_path, dmx_mode_name);
 
     {
         const std::scoped_lock lock(g_cache_mutex);
         auto it = g_cache.find(cache_key);
         if (it != g_cache.end()) {
-            out_offset_1_based = it->second.offset;
+            out_offsets = it->second.offsets;
             out_debug_reason = it->second.reason;
             return it->second.ok;
         }
@@ -273,7 +341,7 @@ bool resolve_dimmer_channel_offset(const std::string &gdtf_path,
         g_cache[cache_key] = resolved;
     }
 
-    out_offset_1_based = resolved.offset;
+    out_offsets = resolved.offsets;
     out_debug_reason = resolved.reason;
     return resolved.ok;
 }
