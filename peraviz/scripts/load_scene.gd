@@ -90,6 +90,7 @@ const EMITTER_LIGHT_RANGE_BEAM_RADIUS_MULTIPLIER: float = 320.0
 const EMITTER_LIGHT_ENERGY_SCALE: float = 0.03
 const EMITTER_LIGHT_MAX_BEAM_ANGLE_DEG: float = 45.0
 const EMITTER_CONE_MAX_BASE_RADIUS_M: float = 4.0
+const EMITTER_LIGHT_MAX_FOOTPRINT_RADIUS_M: float = EMITTER_CONE_MAX_BASE_RADIUS_M
 const ENV_QUALITY_PRESET_SETTING: String = "peraviz_environment_quality"
 const ENV_QUALITY_PRESET_DEFAULT: String = "medium"
 const ENVIRONMENT_QUALITY_PRESETS := {
@@ -1443,7 +1444,12 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 	light.light_energy = luminous_flux * normalized_dimmer * EMITTER_LIGHT_ENERGY_SCALE
 	light.spot_angle = beam_angle
 	light.spot_attenuation = clamp(beam_angle / field_angle, 0.2, 1.0)
-	light.spot_range = clamp(beam_radius_m * EMITTER_LIGHT_RANGE_BEAM_RADIUS_MULTIPLIER, EMITTER_LIGHT_MIN_RANGE_M, EMITTER_LIGHT_MAX_RANGE_M)
+	var nominal_spot_range: float = clamp(beam_radius_m * EMITTER_LIGHT_RANGE_BEAM_RADIUS_MULTIPLIER, EMITTER_LIGHT_MIN_RANGE_M, EMITTER_LIGHT_MAX_RANGE_M)
+	var beam_half_angle_tan: float = tan(deg_to_rad(beam_angle * 0.5))
+	var max_spot_range_from_footprint: float = EMITTER_LIGHT_MAX_RANGE_M
+	if beam_half_angle_tan > 0.0001:
+		max_spot_range_from_footprint = max(EMITTER_LIGHT_MAX_FOOTPRINT_RADIUS_M / beam_half_angle_tan, EMITTER_LIGHT_MIN_RANGE_M)
+	light.spot_range = clamp(min(nominal_spot_range, max_spot_range_from_footprint), EMITTER_LIGHT_MIN_RANGE_M, EMITTER_LIGHT_MAX_RANGE_M)
 	light.light_color = _derive_emitter_color(photometric)
 	var beam_radius_from_gdtf: bool = bool(photometric.get("beam_radius_from_gdtf", false))
 	var source_beam_radius: float = beam_radius_m if beam_radius_from_gdtf else -1.0
