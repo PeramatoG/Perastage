@@ -278,6 +278,10 @@ ResourceSyncResult ResourceSyncSystem::Sync(
 
   for (const auto *entry : visibleTrusses)
     ensureModelResolvedPath(entry->second.symbolFile);
+  for (const auto *entry : visibleTrusses) {
+    ensureModelResolvedPath(entry->second.modelFile);
+    ensureModelResolvedPath(entry->second.gdtfSpec);
+  }
 
   for (const auto *entry : visibleTrusses) {
     const auto &[uuid, truss] = *entry;
@@ -315,13 +319,34 @@ ResourceSyncResult ResourceSyncSystem::Sync(
   for (const auto *entry : visibleFixtures)
     ensureGdtfResolvedPath(entry->second.gdtfSpec);
 
+  auto resolvedPathForTruss = [&](const Truss &t) -> std::string {
+    auto pathFromRef = [&](const std::string &reference) -> std::string {
+      const std::string key = ResolveCacheKey(reference);
+      if (key.empty())
+        return {};
+      auto it = state.resolvedModelRefs.find(key);
+      if (it == state.resolvedModelRefs.end() || !it->second.attempted)
+        return {};
+      return it->second.resolvedPath;
+    };
+
+    std::string path = pathFromRef(t.symbolFile);
+    if (!path.empty())
+      return path;
+    path = pathFromRef(t.modelFile);
+    if (!path.empty() && IsRenderableGeometryPath(path))
+      return path;
+
+    path = pathFromRef(t.gdtfSpec);
+    if (!path.empty() && IsRenderableGeometryPath(path))
+      return path;
+
+    return ResolveTrussRenderablePath(basePath, t);
+  };
+
   for (const auto *entry : visibleTrusses) {
     const auto &t = entry->second;
-    auto pathIt = state.resolvedModelRefs.find(ResolveCacheKey(t.symbolFile));
-    const std::string path =
-        (pathIt != state.resolvedModelRefs.end() && pathIt->second.attempted)
-            ? pathIt->second.resolvedPath
-            : std::string();
+    const std::string path = resolvedPathForTruss(t);
     EnsureModelLoaded(path, state, callbacks, result.assetsChanged);
   }
 

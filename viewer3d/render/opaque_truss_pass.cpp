@@ -88,17 +88,27 @@ void OpaqueTrussPass::Render(
 
     const Mesh *trussMesh = nullptr;
     std::string trussPath;
-    if (!t.symbolFile.empty()) {
-      auto trussPathIt = controller.m_resourceSyncState.resolvedModelRefs.find(
-          ResolveCacheKey(t.symbolFile));
-      if (trussPathIt != controller.m_resourceSyncState.resolvedModelRefs.end() &&
-          trussPathIt->second.attempted)
-        trussPath = trussPathIt->second.resolvedPath;
-      if (!trussPath.empty()) {
-        auto it = controller.m_resourceSyncState.loadedMeshes.find(trussPath);
-        if (it != controller.m_resourceSyncState.loadedMeshes.end())
-          trussMesh = &it->second;
-      }
+    auto resolveTrussPath = [&](const std::string &reference) -> std::string {
+      if (reference.empty())
+        return {};
+      auto it = controller.m_resourceSyncState.resolvedModelRefs.find(
+          ResolveCacheKey(reference));
+      if (it == controller.m_resourceSyncState.resolvedModelRefs.end() ||
+          !it->second.attempted)
+        return {};
+      return it->second.resolvedPath;
+    };
+
+    trussPath = resolveTrussPath(t.symbolFile);
+    if (trussPath.empty())
+      trussPath = resolveTrussPath(t.modelFile);
+    if (trussPath.empty())
+      trussPath = resolveTrussPath(t.gdtfSpec);
+
+    if (!trussPath.empty()) {
+      auto it = controller.m_resourceSyncState.loadedMeshes.find(trussPath);
+      if (it != controller.m_resourceSyncState.loadedMeshes.end())
+        trussMesh = &it->second;
     }
 
     float trussLen = t.lengthMm * RENDER_SCALE;
