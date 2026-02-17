@@ -66,6 +66,18 @@ std::string infer_asset_kind_from_path(const std::string &asset_path) {
     return "none";
 }
 
+void convert_translation_m_to_mm(Matrix &matrix, const std::string &context) {
+    const Matrix before = matrix;
+    matrix.o[0] *= 1000.0F;
+    matrix.o[1] *= 1000.0F;
+    matrix.o[2] *= 1000.0F;
+
+    peraviz::debug_runtime::log_transform_adjustment(
+        context,
+        "GDTF local transforms store translation in meters while Peraviz matrix composition uses millimeters before Godot conversion.",
+        before, matrix);
+}
+
 Matrix parse_local_matrix(tinyxml2::XMLElement *node) {
     Matrix out = MatrixUtils::Identity();
 
@@ -75,8 +87,11 @@ Matrix parse_local_matrix(tinyxml2::XMLElement *node) {
     }
     if (position) {
         MatrixUtils::ParseMatrix(position, out);
-        // GDTF geometry transforms are authored in meters and keep that unit
-        // through Peraviz scene graph transforms.
+        // GDTF geometry transforms are authored in meters. The Peraviz scene
+        // graph uses the same matrix utilities as MVR parsing, where
+        // translations are represented in millimeters before conversion to
+        // Godot meters.
+        convert_translation_m_to_mm(out, "gdtf_scene_builder::parse_local_matrix(Position)");
         return out;
     }
 
@@ -86,6 +101,7 @@ Matrix parse_local_matrix(tinyxml2::XMLElement *node) {
     }
     if (matrix_attr) {
         MatrixUtils::ParseMatrix(matrix_attr, out);
+        convert_translation_m_to_mm(out, "gdtf_scene_builder::parse_local_matrix(MatrixAttribute)");
         return out;
     }
 
@@ -96,6 +112,7 @@ Matrix parse_local_matrix(tinyxml2::XMLElement *node) {
     if (matrix) {
         if (const char *text = matrix->GetText()) {
             MatrixUtils::ParseMatrix(text, out);
+            convert_translation_m_to_mm(out, "gdtf_scene_builder::parse_local_matrix(MatrixNode)");
         }
     }
     return out;
