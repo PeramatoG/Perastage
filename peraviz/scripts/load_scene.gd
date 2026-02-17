@@ -83,6 +83,7 @@ const DOUBLE_SIDED_NAME_HINTS: Array[String] = [
 const DOUBLE_SIDED_MATERIAL_HINTS: Array[String] = [
 	"lens", "glass", "visor", "fabric", "cloth", "curtain", "thin", "plane"
 ]
+const IMPORTED_CONTENT_SCALE: float = 10.0
 const ENV_QUALITY_PRESET_SETTING: String = "peraviz_environment_quality"
 const ENV_QUALITY_PRESET_DEFAULT: String = "medium"
 const ENVIRONMENT_QUALITY_PRESETS := {
@@ -118,6 +119,7 @@ const ENVIRONMENT_QUALITY_PRESETS := {
 }
 
 func _ready() -> void:
+	_apply_imported_content_scale()
 	_scene_registry.configure(proxies_root)
 	$HUD/LoadButton.pressed.connect(_on_load_pressed)
 	picker.file_selected.connect(_on_file_selected)
@@ -149,6 +151,12 @@ func _ready() -> void:
 	_setup_dmx_controls()
 	_setup_dmx_fixture_runtime()
 	_apply_environment_quality_preset()
+
+
+func _apply_imported_content_scale() -> void:
+	if proxies_root == null:
+		return
+	proxies_root.scale = Vector3.ONE * IMPORTED_CONTENT_SCALE
 
 func _apply_environment_quality_preset() -> void:
 	if world_environment == null or world_environment.environment == null:

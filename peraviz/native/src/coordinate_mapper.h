@@ -16,4 +16,3 @@ Matrix to_godot_local_basis(const Matrix &source_local);
 SceneTransform to_godot_transform(const Matrix &source_local);
 
 } // namespace peraviz::coordinate_mapper
-
