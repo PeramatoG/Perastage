@@ -193,7 +193,7 @@ int read_int_child_value(tinyxml2::XMLElement *node, std::initializer_list<const
 
 SceneModel::FixturePatch parse_fixture_patch(tinyxml2::XMLElement *fixture_node,
                                              const std::string &fixture_uuid,
-                                             ZipAssetCache &mvr_cache) {
+                                             peraviz::ZipAssetCache &mvr_cache) {
     SceneModel::FixturePatch patch;
     patch.fixture_uuid = fixture_uuid;
 
