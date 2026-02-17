@@ -1451,7 +1451,7 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 	light.light_energy = luminous_flux * normalized_dimmer * EMITTER_LIGHT_ENERGY_SCALE
 	light.spot_angle = beam_angle
 	light.spot_attenuation = clamp(beam_angle / field_angle, 0.2, 1.0)
-	var beam_slope: float = tan(deg_to_rad(beam_angle))
+	var beam_slope: float = tan(deg_to_rad(beam_angle * 0.5))
 	var nominal_spot_range: float = beam_radius_m * EMITTER_LIGHT_RANGE_BEAM_RADIUS_MULTIPLIER * EMITTER_BEAM_LENGTH_SCALE
 	var max_spot_range_from_footprint: float = EMITTER_LIGHT_MAX_RANGE_M
 	if beam_slope > 0.0001:
@@ -1501,7 +1501,8 @@ void vertex() {
 
 void fragment() {
 	float near_factor = beam_axial;
-	float end_fade = 1.0 - smoothstep(clamp(fade_end_ratio, 0.0, 0.99), 1.0, beam_axial);
+	float far_progress = 1.0 - beam_axial;
+	float end_fade = 1.0 - smoothstep(clamp(fade_end_ratio, 0.0, 0.99), 1.0, far_progress);
 	ALBEDO = beam_color.rgb;
 	ALPHA = mix(far_alpha, near_alpha, near_factor) * end_fade;
 	EMISSION = beam_color.rgb * (mix(far_emission, near_emission, near_factor) * end_fade);
@@ -1523,7 +1524,7 @@ func _update_emitter_beam_cone(light: SpotLight3D, beam_angle: float, beam_range
 	cone.visible = intensity > 0.015
 	var cone_mesh: CylinderMesh = cone.mesh as CylinderMesh
 	if cone_mesh != null:
-		var radius: float = tan(deg_to_rad(beam_angle)) * beam_range
+		var radius: float = tan(deg_to_rad(beam_angle * 0.5)) * beam_range
 		var lens_radius: float = max(float(light.get_meta("peraviz_lens_radius", 0.03)), 0.005)
 		if gdtf_beam_radius > 0.0:
 			lens_radius = max(gdtf_beam_radius, 0.005)
