@@ -83,7 +83,7 @@ const DOUBLE_SIDED_NAME_HINTS: Array[String] = [
 const DOUBLE_SIDED_MATERIAL_HINTS: Array[String] = [
 	"lens", "glass", "visor", "fabric", "cloth", "curtain", "thin", "plane"
 ]
-const IMPORTED_CONTENT_SCALE: float = 10.0
+const IMPORTED_CONTENT_SCALE: float = 1.0
 const EMITTER_LIGHT_MIN_RANGE_M: float = 8.0
 const EMITTER_LIGHT_MAX_RANGE_M: float = 180.0
 const EMITTER_LIGHT_RANGE_BEAM_RADIUS_MULTIPLIER: float = 900.0
