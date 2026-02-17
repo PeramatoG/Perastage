@@ -85,8 +85,11 @@ const DOUBLE_SIDED_MATERIAL_HINTS: Array[String] = [
 ]
 const IMPORTED_CONTENT_SCALE: float = 1.0
 const EMITTER_LIGHT_MIN_RANGE_M: float = 8.0
-const EMITTER_LIGHT_MAX_RANGE_M: float = 180.0
-const EMITTER_LIGHT_RANGE_BEAM_RADIUS_MULTIPLIER: float = 900.0
+const EMITTER_LIGHT_MAX_RANGE_M: float = 90.0
+const EMITTER_LIGHT_RANGE_BEAM_RADIUS_MULTIPLIER: float = 320.0
+const EMITTER_LIGHT_ENERGY_SCALE: float = 0.03
+const EMITTER_LIGHT_MAX_BEAM_ANGLE_DEG: float = 45.0
+const EMITTER_CONE_MAX_BASE_RADIUS_M: float = 4.0
 const ENV_QUALITY_PRESET_SETTING: String = "peraviz_environment_quality"
 const ENV_QUALITY_PRESET_DEFAULT: String = "medium"
 const ENVIRONMENT_QUALITY_PRESETS := {
@@ -1432,12 +1435,12 @@ func _extract_emitter_photometrics(item: Dictionary) -> Dictionary:
 
 func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, normalized_dimmer: float) -> void:
 	var luminous_flux: float = max(float(photometric.get("luminous_flux", 10000.0)), 0.0)
-	var beam_angle: float = clamp(float(photometric.get("beam_angle", 25.0)), 0.1, 179.0)
-	var field_angle: float = clamp(float(photometric.get("field_angle", beam_angle)), beam_angle, 179.0)
+	var beam_angle: float = clamp(float(photometric.get("beam_angle", 25.0)), 0.1, EMITTER_LIGHT_MAX_BEAM_ANGLE_DEG)
+	var field_angle: float = clamp(float(photometric.get("field_angle", beam_angle)), beam_angle, EMITTER_LIGHT_MAX_BEAM_ANGLE_DEG)
 	var beam_radius_m: float = max(float(photometric.get("beam_radius", 0.05)), 0.001)
 
 	light.visible = normalized_dimmer > 0.0001
-	light.light_energy = luminous_flux * normalized_dimmer
+	light.light_energy = luminous_flux * normalized_dimmer * EMITTER_LIGHT_ENERGY_SCALE
 	light.spot_angle = beam_angle
 	light.spot_attenuation = clamp(beam_angle / field_angle, 0.2, 1.0)
 	light.spot_range = clamp(beam_radius_m * EMITTER_LIGHT_RANGE_BEAM_RADIUS_MULTIPLIER, EMITTER_LIGHT_MIN_RANGE_M, EMITTER_LIGHT_MAX_RANGE_M)
@@ -1490,15 +1493,15 @@ func _update_emitter_beam_cone(light: SpotLight3D, beam_angle: float, beam_range
 		if gdtf_beam_radius > 0.0:
 			top_radius = max(gdtf_beam_radius, 0.005)
 		cone_mesh.top_radius = top_radius
-		cone_mesh.bottom_radius = max(radius, 0.03)
+		cone_mesh.bottom_radius = clamp(radius, 0.03, EMITTER_CONE_MAX_BASE_RADIUS_M)
 		cone_mesh.height = beam_range
 	cone.position = Vector3(0.0, 0.0, -beam_range * 0.5)
 
 	var material: StandardMaterial3D = cone.material_override as StandardMaterial3D
 	if material != null:
-		material.albedo_color = Color(beam_color.r, beam_color.g, beam_color.b, lerp(0.01, 0.12, intensity))
+		material.albedo_color = Color(beam_color.r, beam_color.g, beam_color.b, lerp(0.008, 0.06, intensity))
 		material.emission = beam_color
-		material.emission_energy_multiplier = lerp(0.1, 1.1, intensity)
+		material.emission_energy_multiplier = lerp(0.06, 0.45, intensity)
 
 func _apply_fixture_lens_visual_tuning(fixture_uuid: String, emitter_nodes: Array) -> void:
 	if _fixture_lens_tuned.get(fixture_uuid, false):
