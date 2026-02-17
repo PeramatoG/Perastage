@@ -539,6 +539,13 @@ func _should_enable_double_sided(mesh_instance: MeshInstance3D, material: Materi
 	if mesh_instance == null:
 		return false
 
+	var source_type: String = str(source_data.get("type", "")).to_lower()
+	if source_type == "fixture_geometry":
+		return true
+
+	if _has_mirrored_transform_in_hierarchy(mesh_instance):
+		return true
+
 	var mesh_name_hint: String = mesh_instance.name.to_lower()
 	var geometry_name_hint: String = str(source_data.get("name", "")).to_lower()
 	if _contains_any_hint(mesh_name_hint, DOUBLE_SIDED_NAME_HINTS):
@@ -561,6 +568,15 @@ func _should_enable_double_sided(mesh_instance: MeshInstance3D, material: Materi
 
 	if _looks_like_thin_plane(mesh_instance):
 		return true
+	return false
+
+func _has_mirrored_transform_in_hierarchy(node: Node3D) -> bool:
+	var current: Node = node
+	while current is Node3D:
+		var node3d: Node3D = current
+		if node3d.transform.basis.determinant() < 0.0:
+			return true
+		current = node3d.get_parent()
 	return false
 
 func _contains_any_hint(candidate: String, hints: Array[String]) -> bool:
