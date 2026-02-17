@@ -21,7 +21,7 @@ std::string NormalizeModelKey(const std::string &p) {
 }
 
 std::string ResolveCacheKey(const std::string &pathRef) {
-  return NormalizePath(pathRef);
+  return NormalizeModelKey(pathRef);
 }
 
 SymbolBounds ComputeSymbolBounds(const CommandBuffer &buffer) {
