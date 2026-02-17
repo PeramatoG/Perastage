@@ -1263,6 +1263,9 @@ func _find_or_create_emitter_light(emitter_node: Node3D) -> SpotLight3D:
 		if child is SpotLight3D and child.name == "PeravizEmitterLight":
 			if child.rotation_degrees != EMITTER_LIGHT_DIRECTION_FIX:
 				child.rotation_degrees = EMITTER_LIGHT_DIRECTION_FIX
+			# Keep spotlight footprint behavior stable while pan/tilt moves the fixture.
+			# Self/caster shadows from fixture geometry can clip the floor footprint.
+			child.shadow_enabled = false
 			child.set_meta("peraviz_lens_radius", lens_radius)
 			return child
 
@@ -1271,7 +1274,7 @@ func _find_or_create_emitter_light(emitter_node: Node3D) -> SpotLight3D:
 	light.position = Vector3.ZERO
 	light.rotation_degrees = EMITTER_LIGHT_DIRECTION_FIX
 	light.light_negative = false
-	light.shadow_enabled = true
+	light.shadow_enabled = false
 	light.spot_range = 60.0
 	light.spot_angle = 25.0
 	light.spot_attenuation = 1.0
