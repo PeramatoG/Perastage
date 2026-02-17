@@ -19,6 +19,7 @@ func _init() -> void:
 	unresizable = false
 
 func _ready() -> void:
+	close_requested.connect(_on_close_requested)
 	var root: VBoxContainer = VBoxContainer.new()
 	root.set_anchors_preset(Control.PRESET_FULL_RECT)
 	root.offset_left = 12
@@ -151,3 +152,7 @@ func _update_channel_cell(channel_idx: int, channel_value: int) -> void:
 
 	_channel_panels[channel_idx].add_theme_stylebox_override("panel", style)
 	_channel_labels[channel_idx].text = "%03d:%03d" % [channel_idx + 1, channel_value]
+
+
+func _on_close_requested() -> void:
+	hide()
