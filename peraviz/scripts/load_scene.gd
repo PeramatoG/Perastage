@@ -1040,41 +1040,64 @@ func _estimate_emitter_lens_radius(emitter_node: Node3D) -> float:
 	if emitter_node == null:
 		return default_radius
 
-	var lens_result: Dictionary = _collect_emitter_lens_bounds_recursive(emitter_node, emitter_node.global_transform.affine_inverse())
-	if not bool(lens_result.get("has_bounds", false)):
-		return default_radius
+	var hinted_radius: float = _estimate_emitter_lens_radius_from_root(emitter_node, true)
+	if hinted_radius > 0.0:
+		return hinted_radius
 
-	var lens_bounds: AABB = lens_result.get("bounds", AABB())
-	var lens_diameter: float = max(lens_bounds.size.x, lens_bounds.size.y)
-	if lens_diameter <= 0.0001:
-		return default_radius
-	return max(lens_diameter * 0.5, 0.001)
+	# Some fixtures do not name the lens geometry explicitly; fallback to nearest
+	# mesh around the emitter origin so we still keep beam base and lens width aligned.
+	var fallback_radius: float = _estimate_emitter_lens_radius_from_root(emitter_node, false)
+	if fallback_radius > 0.0:
+		return fallback_radius
 
-func _collect_emitter_lens_bounds_recursive(node: Node3D, world_to_emitter: Transform3D) -> Dictionary:
-	var result: Dictionary = {
-		"has_bounds": false,
-		"bounds": AABB()
-	}
+	if emitter_node.get_parent() is Node3D:
+		var parent_node: Node3D = emitter_node.get_parent() as Node3D
+		var parent_radius: float = _estimate_emitter_lens_radius_from_root(parent_node, true)
+		if parent_radius > 0.0:
+			return parent_radius
+	return default_radius
+
+func _estimate_emitter_lens_radius_from_root(root: Node3D, require_name_hints: bool) -> float:
+	if root == null:
+		return -1.0
+	var candidates: Array = []
+	var world_to_root: Transform3D = root.global_transform.affine_inverse()
+	_collect_emitter_lens_candidates_recursive(root, world_to_root, require_name_hints, candidates)
+	if candidates.is_empty():
+		return -1.0
+
+	var best_score: float = INF
+	var best_radius: float = -1.0
+	for candidate in candidates:
+		if not (candidate is Dictionary):
+			continue
+		var center: Vector3 = candidate.get("center", Vector3.ZERO)
+		var radius: float = float(candidate.get("radius", -1.0))
+		if radius <= 0.0:
+			continue
+		var score: float = abs(center.z)
+		if score < best_score:
+			best_score = score
+			best_radius = radius
+	return max(best_radius, -1.0)
+
+func _collect_emitter_lens_candidates_recursive(node: Node3D, world_to_root: Transform3D, require_name_hints: bool, output_candidates: Array) -> void:
 	if node is MeshInstance3D:
 		var mesh_instance: MeshInstance3D = node
-		if _is_emitter_lens_mesh(mesh_instance):
+		if (not require_name_hints) or _is_emitter_lens_mesh(mesh_instance):
 			var mesh_bounds: AABB = mesh_instance.get_aabb()
 			if mesh_bounds.size != Vector3.ZERO:
-				result["bounds"] = world_to_emitter * (mesh_instance.global_transform * mesh_bounds)
-				result["has_bounds"] = true
+				var local_bounds: AABB = world_to_root * (mesh_instance.global_transform * mesh_bounds)
+				var candidate_radius: float = max(local_bounds.size.x, local_bounds.size.y) * 0.5
+				if candidate_radius > 0.0001:
+					output_candidates.append({
+						"center": local_bounds.get_center(),
+						"radius": max(candidate_radius, 0.001)
+					})
 
 	for child in node.get_children():
 		if child is Node3D:
-			var child_result: Dictionary = _collect_emitter_lens_bounds_recursive(child, world_to_emitter)
-			if bool(child_result.get("has_bounds", false)):
-				if bool(result.get("has_bounds", false)):
-					var current_bounds: AABB = result.get("bounds", AABB())
-					var child_bounds: AABB = child_result.get("bounds", AABB())
-					result["bounds"] = current_bounds.merge(child_bounds)
-				else:
-					result["bounds"] = child_result["bounds"]
-					result["has_bounds"] = true
-	return result
+			_collect_emitter_lens_candidates_recursive(child, world_to_root, require_name_hints, output_candidates)
 
 func _is_emitter_lens_mesh(mesh_instance: MeshInstance3D) -> bool:
 	var name_hint: String = mesh_instance.name.to_lower()
