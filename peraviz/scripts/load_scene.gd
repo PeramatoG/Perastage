@@ -4,6 +4,7 @@ extends Node3D
 @onready var status_label: Label = $HUD/StatusLabel
 @onready var picker: FileDialog = $HUD/FileDialog
 @onready var camera: Camera3D = $Camera3D
+@onready var world_environment: WorldEnvironment = $WorldEnvironment
 @onready var manual_fixture_toggle: CheckButton = $HUD/ManualFixtureToggle
 @onready var fixture_debug_panel: PanelContainer = $HUD/FixtureDebugPanel
 @onready var fixture_list: ItemList = $HUD/FixtureDebugPanel/Margin/VBox/FixtureList
@@ -76,6 +77,39 @@ const DEFAULT_EMITTER_PHOTOMETRICS := {
 # (aligned with fixture lens output in runtime scenes) while still inheriting GDTF emitter transforms.
 const EMITTER_LIGHT_DIRECTION_FIX: Vector3 = Vector3(-90.0, 0.0, 0.0)
 const LENS_TINT_COLOR: Color = Color(0.72, 0.86, 1.0, 0.38)
+const ENV_QUALITY_PRESET_SETTING: String = "peraviz_environment_quality"
+const ENV_QUALITY_PRESET_DEFAULT: String = "medium"
+const ENVIRONMENT_QUALITY_PRESETS := {
+	"low": {
+		"ssao_enabled": false,
+		"glow_enabled": false,
+		"glow_bloom": 0.0,
+		"dof_blur_far_enabled": false,
+		"dof_blur_near_enabled": false,
+	},
+	"medium": {
+		"ssao_enabled": true,
+		"ssao_radius": 0.7,
+		"ssao_intensity": 0.35,
+		"glow_enabled": true,
+		"glow_bloom": 0.05,
+		"glow_intensity": 0.55,
+		"glow_strength": 0.55,
+		"dof_blur_far_enabled": false,
+		"dof_blur_near_enabled": false,
+	},
+	"high": {
+		"ssao_enabled": true,
+		"ssao_radius": 1.0,
+		"ssao_intensity": 0.5,
+		"glow_enabled": true,
+		"glow_bloom": 0.1,
+		"glow_intensity": 0.7,
+		"glow_strength": 0.7,
+		"dof_blur_far_enabled": false,
+		"dof_blur_near_enabled": false,
+	},
+}
 
 func _ready() -> void:
 	_scene_registry.configure(proxies_root)
@@ -108,6 +142,17 @@ func _ready() -> void:
 	_refresh_fixture_debug_panel()
 	_setup_dmx_controls()
 	_setup_dmx_fixture_runtime()
+	_apply_environment_quality_preset()
+
+func _apply_environment_quality_preset() -> void:
+	if world_environment == null or world_environment.environment == null:
+		return
+	var requested_preset: String = str(ProjectSettings.get_setting(ENV_QUALITY_PRESET_SETTING, ENV_QUALITY_PRESET_DEFAULT)).to_lower()
+	if not ENVIRONMENT_QUALITY_PRESETS.has(requested_preset):
+		requested_preset = ENV_QUALITY_PRESET_DEFAULT
+	var preset_config: Dictionary = ENVIRONMENT_QUALITY_PRESETS.get(requested_preset, {})
+	for property_name in preset_config.keys():
+		world_environment.environment.set(property_name, preset_config[property_name])
 
 func _on_load_pressed() -> void:
 	picker.popup_centered_ratio(0.7)

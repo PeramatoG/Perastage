@@ -23,6 +23,15 @@ tonemap_exposure = 1.0
 adjustment_enabled = true
 adjustment_contrast = 1.05
 adjustment_saturation = 1.05
+ssao_enabled = true
+ssao_radius = 0.7
+ssao_intensity = 0.35
+glow_enabled = true
+glow_bloom = 0.05
+glow_intensity = 0.55
+glow_strength = 0.55
+dof_blur_far_enabled = false
+dof_blur_near_enabled = false
 
 [node name="Viewer" type="Node3D"]
 script = ExtResource("1_script")
