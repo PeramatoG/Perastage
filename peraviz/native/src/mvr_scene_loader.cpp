@@ -136,16 +136,74 @@ std::string parse_name(tinyxml2::XMLElement *node, const std::string &fallback) 
     return fallback;
 }
 
+std::string trim_ascii(std::string value) {
+    const auto is_space = [](unsigned char c) {
+        return std::isspace(c) != 0;
+    };
+
+    while (!value.empty() && is_space(static_cast<unsigned char>(value.front()))) {
+        value.erase(value.begin());
+    }
+    while (!value.empty() && is_space(static_cast<unsigned char>(value.back()))) {
+        value.pop_back();
+    }
+    return value;
+}
+
 int parse_int_text(const char *value) {
     if (!value) {
         return -1;
     }
+
+    const std::string trimmed = trim_ascii(value);
+    if (trimmed.empty()) {
+        return -1;
+    }
+
     char *end = nullptr;
-    const long parsed = std::strtol(value, &end, 10);
-    if (end == value || parsed <= 0L) {
+    const long parsed = std::strtol(trimmed.c_str(), &end, 10);
+    if (end == trimmed.c_str() || parsed <= 0L) {
         return -1;
     }
     return static_cast<int>(parsed);
+}
+
+bool try_parse_fixture_address_text(const std::string &text,
+                                    int break_index_zero_based,
+                                    int &out_universe,
+                                    int &out_address) {
+    const std::string trimmed = trim_ascii(text);
+    if (trimmed.empty()) {
+        return false;
+    }
+
+    const std::size_t dot = trimmed.find('.');
+    if (dot != std::string::npos) {
+        const int universe = parse_int_text(trimmed.substr(0, dot).c_str());
+        const int address = parse_int_text(trimmed.substr(dot + 1).c_str());
+        if (universe > 0 && address >= 1 && address <= 512) {
+            out_universe = universe;
+            out_address = address;
+            return true;
+        }
+        return false;
+    }
+
+    const int absolute_or_channel = parse_int_text(trimmed.c_str());
+    if (absolute_or_channel <= 0) {
+        return false;
+    }
+
+    if (absolute_or_channel <= 512) {
+        out_universe = std::max(1, break_index_zero_based + 1);
+        out_address = absolute_or_channel;
+        return true;
+    }
+
+    const int base_universe = std::max(1, break_index_zero_based + 1);
+    out_universe = base_universe + ((absolute_or_channel - 1) / 512);
+    out_address = ((absolute_or_channel - 1) % 512) + 1;
+    return true;
 }
 
 int read_int_attribute(tinyxml2::XMLElement *node, std::initializer_list<const char *> names) {
@@ -220,7 +278,8 @@ SceneModel::FixturePatch parse_fixture_patch(tinyxml2::XMLElement *fixture_node,
                            : read_int_child_value(fixture_node, {"AbsoluteAddress", "AbsDMXAddress", "DMXAbsoluteAddress"});
 
     if (tinyxml2::XMLElement *addresses = fixture_node->FirstChildElement("Addresses"); addresses) {
-        if (tinyxml2::XMLElement *address_node = addresses->FirstChildElement("Address")) {
+        for (tinyxml2::XMLElement *address_node = addresses->FirstChildElement("Address"); address_node;
+             address_node = address_node->NextSiblingElement("Address")) {
             if (universe <= 0) {
                 universe = read_int_attribute(address_node, {"Universe", "universe", "DMXUniverse"});
             }
@@ -229,6 +288,28 @@ SceneModel::FixturePatch parse_fixture_patch(tinyxml2::XMLElement *fixture_node,
             }
             if (absolute_address <= 0) {
                 absolute_address = read_int_attribute(address_node, {"AbsoluteAddress", "absoluteAddress", "DMXAbsoluteAddress"});
+            }
+
+            int parsed_universe = -1;
+            int parsed_address = -1;
+            const int break_index = std::max(0, read_int_attribute(address_node, {"break", "Break"}));
+            if (try_parse_fixture_address_text(address_node->GetText() ? address_node->GetText() : "",
+                                               break_index,
+                                               parsed_universe,
+                                               parsed_address)) {
+                if (universe <= 0) {
+                    universe = parsed_universe;
+                }
+                if (address <= 0) {
+                    address = parsed_address;
+                }
+                if (absolute_address <= 0 && parsed_universe > 0 && parsed_address > 0) {
+                    absolute_address = ((parsed_universe - 1) * 512) + parsed_address;
+                }
+            }
+
+            if (universe > 0 && address > 0) {
+                break;
             }
         }
     }
