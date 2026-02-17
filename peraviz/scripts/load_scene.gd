@@ -92,6 +92,8 @@ const EMITTER_LIGHT_MAX_BEAM_ANGLE_DEG: float = 45.0
 const EMITTER_CONE_MAX_BASE_RADIUS_M: float = 4.0
 const EMITTER_LIGHT_MAX_FOOTPRINT_RADIUS_M: float = EMITTER_CONE_MAX_BASE_RADIUS_M
 const EMITTER_LIGHT_MIN_EFFECTIVE_RANGE_M: float = 0.75
+const EMITTER_BEAM_LENGTH_SCALE: float = 2.0
+const EMITTER_CONE_FADE_END_RATIO: float = 0.82
 const EMITTER_CONE_NEAR_ALPHA: float = 0.06
 const EMITTER_CONE_FAR_ALPHA: float = 0.004
 const EMITTER_CONE_NEAR_EMISSION: float = 0.45
@@ -1449,11 +1451,11 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 	light.light_energy = luminous_flux * normalized_dimmer * EMITTER_LIGHT_ENERGY_SCALE
 	light.spot_angle = beam_angle
 	light.spot_attenuation = clamp(beam_angle / field_angle, 0.2, 1.0)
-	var nominal_spot_range: float = clamp(beam_radius_m * EMITTER_LIGHT_RANGE_BEAM_RADIUS_MULTIPLIER, EMITTER_LIGHT_MIN_RANGE_M, EMITTER_LIGHT_MAX_RANGE_M)
-	var beam_half_angle_tan: float = tan(deg_to_rad(beam_angle * 0.5))
+	var beam_slope: float = tan(deg_to_rad(beam_angle))
+	var nominal_spot_range: float = beam_radius_m * EMITTER_LIGHT_RANGE_BEAM_RADIUS_MULTIPLIER * EMITTER_BEAM_LENGTH_SCALE
 	var max_spot_range_from_footprint: float = EMITTER_LIGHT_MAX_RANGE_M
-	if beam_half_angle_tan > 0.0001:
-		max_spot_range_from_footprint = max(EMITTER_LIGHT_MAX_FOOTPRINT_RADIUS_M / beam_half_angle_tan, EMITTER_LIGHT_MIN_EFFECTIVE_RANGE_M)
+	if beam_slope > 0.0001:
+		max_spot_range_from_footprint = max(EMITTER_LIGHT_MAX_FOOTPRINT_RADIUS_M / beam_slope, EMITTER_LIGHT_MIN_EFFECTIVE_RANGE_M)
 	light.spot_range = clamp(min(nominal_spot_range, max_spot_range_from_footprint), EMITTER_LIGHT_MIN_EFFECTIVE_RANGE_M, EMITTER_LIGHT_MAX_RANGE_M)
 	light.light_color = _derive_emitter_color(photometric)
 	var beam_radius_from_gdtf: bool = bool(photometric.get("beam_radius_from_gdtf", false))
@@ -1488,6 +1490,7 @@ uniform float far_alpha = 0.004;
 uniform float near_emission = 0.45;
 uniform float far_emission = 0.04;
 uniform float cone_height = 1.0;
+uniform float fade_end_ratio = 0.82;
 
 varying float beam_axial;
 
@@ -1498,9 +1501,10 @@ void vertex() {
 
 void fragment() {
 	float near_factor = beam_axial;
+	float end_fade = 1.0 - smoothstep(clamp(fade_end_ratio, 0.0, 0.99), 1.0, beam_axial);
 	ALBEDO = beam_color.rgb;
-	ALPHA = mix(far_alpha, near_alpha, near_factor);
-	EMISSION = beam_color.rgb * mix(far_emission, near_emission, near_factor);
+	ALPHA = mix(far_alpha, near_alpha, near_factor) * end_fade;
+	EMISSION = beam_color.rgb * (mix(far_emission, near_emission, near_factor) * end_fade);
 }
 """
 	shader_material.shader = shader
@@ -1519,7 +1523,7 @@ func _update_emitter_beam_cone(light: SpotLight3D, beam_angle: float, beam_range
 	cone.visible = intensity > 0.015
 	var cone_mesh: CylinderMesh = cone.mesh as CylinderMesh
 	if cone_mesh != null:
-		var radius: float = tan(deg_to_rad(beam_angle * 0.5)) * beam_range
+		var radius: float = tan(deg_to_rad(beam_angle)) * beam_range
 		var lens_radius: float = max(float(light.get_meta("peraviz_lens_radius", 0.03)), 0.005)
 		if gdtf_beam_radius > 0.0:
 			lens_radius = max(gdtf_beam_radius, 0.005)
@@ -1536,6 +1540,7 @@ func _update_emitter_beam_cone(light: SpotLight3D, beam_angle: float, beam_range
 		material.set_shader_parameter("near_emission", lerp(0.0, EMITTER_CONE_NEAR_EMISSION, intensity))
 		material.set_shader_parameter("far_emission", lerp(0.0, EMITTER_CONE_FAR_EMISSION, intensity))
 		material.set_shader_parameter("cone_height", max(beam_range, 0.001))
+		material.set_shader_parameter("fade_end_ratio", EMITTER_CONE_FADE_END_RATIO)
 
 func _apply_fixture_lens_visual_tuning(fixture_uuid: String, emitter_nodes: Array) -> void:
 	if _fixture_lens_tuned.get(fixture_uuid, false):
