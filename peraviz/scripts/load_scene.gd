@@ -91,6 +91,10 @@ const EMITTER_LIGHT_ENERGY_SCALE: float = 0.03
 const EMITTER_LIGHT_MAX_BEAM_ANGLE_DEG: float = 45.0
 const EMITTER_CONE_MAX_BASE_RADIUS_M: float = 4.0
 const EMITTER_LIGHT_MAX_FOOTPRINT_RADIUS_M: float = EMITTER_CONE_MAX_BASE_RADIUS_M
+const EMITTER_CONE_NEAR_ALPHA: float = 0.06
+const EMITTER_CONE_FAR_ALPHA: float = 0.004
+const EMITTER_CONE_NEAR_EMISSION: float = 0.45
+const EMITTER_CONE_FAR_EMISSION: float = 0.04
 const ENV_QUALITY_PRESET_SETTING: String = "peraviz_environment_quality"
 const ENV_QUALITY_PRESET_DEFAULT: String = "medium"
 const ENVIRONMENT_QUALITY_PRESETS := {
@@ -1467,18 +1471,39 @@ func _create_emitter_beam_cone() -> MeshInstance3D:
 	cone.mesh = cone_mesh
 	cone.rotation_degrees.x = 90.0
 
-	var cone_material := StandardMaterial3D.new()
-	cone_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	cone_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	cone_material.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
-	cone_material.no_depth_test = true
-	cone_material.cull_mode = BaseMaterial3D.CULL_DISABLED
-	cone_material.albedo_color = Color(1.0, 0.9, 0.7, 0.08)
-	cone_material.emission_enabled = true
-	cone_material.emission = Color(1.0, 0.85, 0.55)
-	cone_material.emission_energy_multiplier = 0.7
-	cone.material_override = cone_material
+	cone.material_override = _create_emitter_beam_material()
 	return cone
+
+func _create_emitter_beam_material() -> ShaderMaterial:
+	var shader_material := ShaderMaterial.new()
+	var shader := Shader.new()
+	shader.code = """
+shader_type spatial;
+render_mode unshaded, blend_add, cull_disabled, depth_draw_never, shadows_disabled;
+
+uniform vec4 beam_color : source_color = vec4(1.0, 0.85, 0.55, 1.0);
+uniform float near_alpha = 0.06;
+uniform float far_alpha = 0.004;
+uniform float near_emission = 0.45;
+uniform float far_emission = 0.04;
+uniform float cone_height = 1.0;
+
+varying float beam_axial;
+
+void vertex() {
+	float normalized_y = (VERTEX.y / max(cone_height, 0.0001)) + 0.5;
+	beam_axial = clamp(normalized_y, 0.0, 1.0);
+}
+
+void fragment() {
+	float near_factor = 1.0 - beam_axial;
+	ALBEDO = beam_color.rgb;
+	ALPHA = mix(far_alpha, near_alpha, near_factor);
+	EMISSION = beam_color.rgb * mix(far_emission, near_emission, near_factor);
+}
+"""
+	shader_material.shader = shader
+	return shader_material
 
 func _update_emitter_beam_cone(light: SpotLight3D, beam_angle: float, beam_range: float, beam_color: Color, normalized_dimmer: float, gdtf_beam_radius: float = -1.0) -> void:
 	if not light.has_meta("peraviz_beam_cone"):
@@ -1495,19 +1520,21 @@ func _update_emitter_beam_cone(light: SpotLight3D, beam_angle: float, beam_range
 	if cone_mesh != null:
 		var radius: float = tan(deg_to_rad(beam_angle * 0.5)) * beam_range
 		var lens_radius: float = max(float(light.get_meta("peraviz_lens_radius", 0.03)), 0.005)
-		var top_radius: float = lens_radius
 		if gdtf_beam_radius > 0.0:
-			top_radius = max(gdtf_beam_radius, 0.005)
-		cone_mesh.top_radius = top_radius
-		cone_mesh.bottom_radius = clamp(radius, 0.03, EMITTER_CONE_MAX_BASE_RADIUS_M)
+			lens_radius = max(gdtf_beam_radius, 0.005)
+		cone_mesh.top_radius = clamp(radius, 0.03, EMITTER_CONE_MAX_BASE_RADIUS_M)
+		cone_mesh.bottom_radius = lens_radius
 		cone_mesh.height = beam_range
-	cone.position = Vector3(0.0, 0.0, -beam_range * 0.5)
+	cone.position = Vector3(0.0, 0.0, beam_range * 0.5)
 
-	var material: StandardMaterial3D = cone.material_override as StandardMaterial3D
+	var material: ShaderMaterial = cone.material_override as ShaderMaterial
 	if material != null:
-		material.albedo_color = Color(beam_color.r, beam_color.g, beam_color.b, lerp(0.008, 0.06, intensity))
-		material.emission = beam_color
-		material.emission_energy_multiplier = lerp(0.06, 0.45, intensity)
+		material.set_shader_parameter("beam_color", Color(beam_color.r, beam_color.g, beam_color.b, 1.0))
+		material.set_shader_parameter("near_alpha", lerp(0.0, EMITTER_CONE_NEAR_ALPHA, intensity))
+		material.set_shader_parameter("far_alpha", lerp(0.0, EMITTER_CONE_FAR_ALPHA, intensity))
+		material.set_shader_parameter("near_emission", lerp(0.0, EMITTER_CONE_NEAR_EMISSION, intensity))
+		material.set_shader_parameter("far_emission", lerp(0.0, EMITTER_CONE_FAR_EMISSION, intensity))
+		material.set_shader_parameter("cone_height", max(beam_range, 0.001))
 
 func _apply_fixture_lens_visual_tuning(fixture_uuid: String, emitter_nodes: Array) -> void:
 	if _fixture_lens_tuned.get(fixture_uuid, false):
