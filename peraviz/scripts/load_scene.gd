@@ -42,6 +42,11 @@ var _fixture_emitter_photometrics: Dictionary = {}
 var _fixture_lens_tuned: Dictionary = {}
 var _updating_fixture_controls: bool = false
 
+var _dmx_receiver = null
+var _dmx_toggle_button: Button
+var _dmx_status_label: Label
+var _dmx_timer: Timer
+
 const DEBUG_TOGGLE_KEY: Key = KEY_C
 const MANUAL_TEST_FLAG: String = "--peraviz_manual_fixture_test"
 const MANUAL_DEFAULTS := {
@@ -94,6 +99,7 @@ func _ready() -> void:
 	_ensure_debug_gizmo_root()
 	_update_debug_legend()
 	_refresh_fixture_debug_panel()
+	_setup_dmx_controls()
 
 func _on_load_pressed() -> void:
 	picker.popup_centered_ratio(0.7)
@@ -1478,3 +1484,67 @@ func _focus_loaded_scene() -> void:
 
 	if camera.has_method("focus_on_aabb"):
 		camera.call("focus_on_aabb", _loaded_bounds)
+
+
+func _setup_dmx_controls() -> void:
+	if _dmx_toggle_button != null and is_instance_valid(_dmx_toggle_button):
+		return
+	var hud_root: Control = $HUD
+	_dmx_toggle_button = Button.new()
+	_dmx_toggle_button.text = "DMX OFF"
+	_dmx_toggle_button.toggle_mode = true
+	_dmx_toggle_button.position = Vector2(16, 54)
+	hud_root.add_child(_dmx_toggle_button)
+	_dmx_toggle_button.pressed.connect(_on_dmx_toggle_pressed)
+
+	_dmx_status_label = Label.new()
+	_dmx_status_label.position = Vector2(120, 59)
+	_dmx_status_label.text = "DMX: OFF"
+	hud_root.add_child(_dmx_status_label)
+
+	_dmx_timer = Timer.new()
+	_dmx_timer.wait_time = 0.2
+	_dmx_timer.autostart = true
+	hud_root.add_child(_dmx_timer)
+	_dmx_timer.timeout.connect(_on_dmx_timer_timeout)
+
+	if ClassDB.class_exists("PeravizDmxReceiver"):
+		_dmx_receiver = ClassDB.instantiate("PeravizDmxReceiver")
+	else:
+		_dmx_toggle_button.disabled = true
+		_dmx_status_label.text = "DMX: unavailable (build without PERAVIZ_ENABLE_DMX)"
+
+func _on_dmx_toggle_pressed() -> void:
+	if _dmx_receiver == null:
+		_dmx_toggle_button.button_pressed = false
+		return
+	if _dmx_toggle_button.button_pressed:
+		var started: bool = _dmx_receiver.start("0.0.0.0", 6454)
+		if not started:
+			_dmx_toggle_button.button_pressed = false
+			_dmx_toggle_button.text = "DMX OFF"
+			_dmx_status_label.text = "DMX: failed to start"
+			return
+		_dmx_toggle_button.text = "DMX ON"
+	else:
+		_dmx_receiver.stop()
+		_dmx_toggle_button.text = "DMX OFF"
+		_dmx_status_label.text = "DMX: OFF"
+
+func _on_dmx_timer_timeout() -> void:
+	if _dmx_receiver == null:
+		return
+	if not _dmx_receiver.is_running():
+		if _dmx_toggle_button != null and not _dmx_toggle_button.button_pressed:
+			_dmx_status_label.text = "DMX: OFF"
+		return
+
+	var stats: Dictionary = _dmx_receiver.get_stats()
+	var active_universes: PackedInt32Array = _dmx_receiver.get_active_universes(2000)
+	var pps: int = int(stats.get("packets_per_sec", 0))
+	var last_ms: int = int(stats.get("last_packet_ms_ago", -1))
+	_dmx_status_label.text = "DMX: pps=%d active_universes=%d last=%dms" % [pps, active_universes.size(), last_ms]
+
+func _exit_tree() -> void:
+	if _dmx_receiver != null:
+		_dmx_receiver.stop()

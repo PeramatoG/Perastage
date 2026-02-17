@@ -8,6 +8,7 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 set(GODOT_CPP_DIR "" CACHE PATH "Path to a local godot-cpp checkout")
 option(PERAVIZ_FETCH_GODOT_CPP "Fetch godot-cpp automatically when GODOT_CPP_DIR is not provided" ON)
+option(PERAVIZ_ENABLE_DMX "Enable DMX input (Art-Net RX)" OFF)
 
 if(EXISTS "${CMAKE_SOURCE_DIR}/models/matrixutils.h")
     set(PERASTAGE_ROOT_DIR "${CMAKE_SOURCE_DIR}")
@@ -81,6 +82,21 @@ add_library(peraviz_native SHARED
     src/register_types.cpp
     src/entry.cpp
 )
+
+if(PERAVIZ_ENABLE_DMX)
+    target_sources(peraviz_native PRIVATE
+        src/dmx/dmx_platform.cpp
+        src/dmx/udp_socket.cpp
+        src/dmx/artnet_dmx_parser.cpp
+        src/dmx/dmx_universe_cache.cpp
+        src/dmx/artnet_receiver.cpp
+        src/peraviz_dmx_receiver.cpp
+    )
+    target_compile_definitions(peraviz_native PRIVATE PERAVIZ_ENABLE_DMX=1)
+    if(WIN32)
+        target_link_libraries(peraviz_native PRIVATE ws2_32)
+    endif()
+endif()
 
 target_include_directories(peraviz_native PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/src"
