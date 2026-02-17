@@ -77,12 +77,12 @@ const DEFAULT_EMITTER_PHOTOMETRICS := {
 # (aligned with fixture lens output in runtime scenes) while still inheriting GDTF emitter transforms.
 const EMITTER_LIGHT_DIRECTION_FIX: Vector3 = Vector3(-90.0, 0.0, 0.0)
 const LENS_TINT_COLOR: Color = Color(0.72, 0.86, 1.0, 0.38)
-const DOUBLE_SIDED_NAME_HINTS: PackedStringArray = PackedStringArray([
+const DOUBLE_SIDED_NAME_HINTS: Array[String] = [
 	"lens", "glass", "visor", "shade", "shield", "fabric", "cloth", "curtain", "scrim", "flag", "plane", "card"
-])
-const DOUBLE_SIDED_MATERIAL_HINTS: PackedStringArray = PackedStringArray([
+]
+const DOUBLE_SIDED_MATERIAL_HINTS: Array[String] = [
 	"lens", "glass", "visor", "fabric", "cloth", "curtain", "thin", "plane"
-])
+]
 const ENV_QUALITY_PRESET_SETTING: String = "peraviz_environment_quality"
 const ENV_QUALITY_PRESET_DEFAULT: String = "medium"
 const ENVIRONMENT_QUALITY_PRESETS := {
@@ -563,7 +563,7 @@ func _should_enable_double_sided(mesh_instance: MeshInstance3D, material: Materi
 		return true
 	return false
 
-func _contains_any_hint(candidate: String, hints: PackedStringArray) -> bool:
+func _contains_any_hint(candidate: String, hints: Array[String]) -> bool:
 	if candidate.is_empty():
 		return false
 	for hint in hints:
