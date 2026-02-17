@@ -34,9 +34,8 @@ Matrix normalize_basis(const Matrix &m, const std::array<float, 3> &scale) {
 
 namespace peraviz::coordinate_mapper {
 
-Vec3 map_position_mm_to_m(const std::array<float, 3> &source_mm) {
-    return Vec3{source_mm[0] / 1000.0F, source_mm[2] / 1000.0F,
-                -source_mm[1] / 1000.0F};
+Vec3 map_position_to_godot_meters(const std::array<float, 3> &source_position) {
+    return Vec3{source_position[0], source_position[2], -source_position[1]};
 }
 
 std::array<float, 3> map_source_vector_to_godot(const std::array<float, 3> &source) {
@@ -60,7 +59,7 @@ Matrix to_godot_local_basis(const Matrix &source_local) {
 
 SceneTransform to_godot_transform(const Matrix &source_local) {
     SceneTransform transform;
-    transform.position = map_position_mm_to_m(source_local.o);
+    transform.position = map_position_to_godot_meters(source_local.o);
 
     Matrix basis = to_godot_local_basis(source_local);
     transform.basis_x = {basis.u[0], basis.u[1], basis.u[2]};
@@ -81,4 +80,3 @@ SceneTransform to_godot_transform(const Matrix &source_local) {
 }
 
 } // namespace peraviz::coordinate_mapper
-
