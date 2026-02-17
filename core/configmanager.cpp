@@ -29,6 +29,35 @@
 #include <algorithm>
 #include <wx/stdpaths.h>
 
+
+namespace {
+constexpr const char *kHiddenLayersConfigKey = "view_hidden_layers";
+
+std::string SerializeHiddenLayerChecks(
+    const std::unordered_set<std::string> &hiddenLayers) {
+  std::vector<std::string> sorted(hiddenLayers.begin(), hiddenLayers.end());
+  std::sort(sorted.begin(), sorted.end());
+  return nlohmann::json(sorted).dump();
+}
+
+std::unordered_set<std::string>
+DeserializeHiddenLayerChecks(const std::optional<std::string> &serialized) {
+  std::unordered_set<std::string> hiddenLayers;
+  if (!serialized || serialized->empty())
+    return hiddenLayers;
+
+  nlohmann::json parsed = nlohmann::json::parse(*serialized, nullptr, false);
+  if (!parsed.is_array())
+    return hiddenLayers;
+
+  for (const auto &entry : parsed) {
+    if (entry.is_string())
+      hiddenLayers.insert(entry.get<std::string>());
+  }
+  return hiddenLayers;
+}
+} // namespace
+
 ConfigManager::RevisionGuard::RevisionGuard(ConfigManager &cfg)
     : cfg(cfg), previous(cfg.suppressRevision) {
   cfg.suppressRevision = true;
@@ -343,6 +372,8 @@ bool ConfigManager::SaveToFile(const std::string &path) const {
 
 bool ConfigManager::SaveProject(const std::string &path) {
   layouts::LayoutManager::Get().SaveToConfig(*this);
+  SetValue(kHiddenLayersConfigKey,
+           SerializeHiddenLayerChecks(layerVisibilityState.GetHiddenLayers()));
   bool ok = projectSession.SaveProject(
       path, [this](const std::string &configPath) {
         return SaveToFile(configPath);
@@ -376,6 +407,8 @@ bool ConfigManager::LoadProject(const std::string &path) {
       });
 
   if (ok) {
+    layerVisibilityState.SetHiddenLayers(
+        DeserializeHiddenLayerChecks(GetValue(kHiddenLayersConfigKey)));
     restoreUserPreferences();
     ClearHistory();
     selectionState.Clear();
