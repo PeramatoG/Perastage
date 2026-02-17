@@ -11,6 +11,7 @@
 #include <array>
 #include <cctype>
 #include <cmath>
+#include <cstdlib>
 #include <filesystem>
 #include <functional>
 #include <memory>
@@ -133,6 +134,113 @@ std::string parse_name(tinyxml2::XMLElement *node, const std::string &fallback) 
         return name;
     }
     return fallback;
+}
+
+int parse_int_text(const char *value) {
+    if (!value) {
+        return -1;
+    }
+    char *end = nullptr;
+    const long parsed = std::strtol(value, &end, 10);
+    if (end == value || parsed <= 0L) {
+        return -1;
+    }
+    return static_cast<int>(parsed);
+}
+
+int read_int_attribute(tinyxml2::XMLElement *node, std::initializer_list<const char *> names) {
+    if (!node) {
+        return -1;
+    }
+    for (const char *name : names) {
+        const int parsed = parse_int_text(node->Attribute(name));
+        if (parsed > 0) {
+            return parsed;
+        }
+    }
+    return -1;
+}
+
+int read_int_child_value(tinyxml2::XMLElement *node, std::initializer_list<const char *> names) {
+    if (!node) {
+        return -1;
+    }
+    for (const char *name : names) {
+        if (tinyxml2::XMLElement *child = node->FirstChildElement(name)) {
+            const int parsed = parse_int_text(child->GetText());
+            if (parsed > 0) {
+                return parsed;
+            }
+        }
+    }
+
+    for (tinyxml2::XMLElement *child = node->FirstChildElement(); child;
+         child = child->NextSiblingElement()) {
+        const std::string child_name = lower_ascii(child->Name());
+        for (const char *name : names) {
+            const std::string expected_name = lower_ascii(name);
+            if (child_name != expected_name) {
+                continue;
+            }
+            const int parsed = parse_int_text(child->GetText());
+            if (parsed > 0) {
+                return parsed;
+            }
+        }
+    }
+    return -1;
+}
+
+SceneModel::FixturePatch parse_fixture_patch(tinyxml2::XMLElement *fixture_node,
+                                             const std::string &fixture_uuid,
+                                             ZipAssetCache &mvr_cache) {
+    SceneModel::FixturePatch patch;
+    patch.fixture_uuid = fixture_uuid;
+
+    std::string gdtf_spec;
+    if (tinyxml2::XMLElement *gdtf = fixture_node->FirstChildElement("GDTFSpec"); gdtf && gdtf->GetText()) {
+        gdtf_spec = gdtf->GetText();
+    }
+    if (!gdtf_spec.empty()) {
+        patch.gdtf_path = mvr_cache.ensure_extracted(gdtf_spec);
+    }
+
+    if (tinyxml2::XMLElement *mode = fixture_node->FirstChildElement("GDTFMode"); mode && mode->GetText()) {
+        patch.dmx_mode = mode->GetText();
+    }
+
+    int universe = read_int_attribute(fixture_node, {"Universe", "universe", "DMXUniverse", "dmxUniverse"});
+    int address = read_int_attribute(fixture_node, {"Address", "address", "DMXAddress", "dmxAddress"});
+    int absolute_address = read_int_attribute(fixture_node, {"AbsoluteAddress", "absoluteAddress", "AbsDMXAddress", "absDmxAddress"});
+
+    universe = universe > 0 ? universe : read_int_child_value(fixture_node, {"Universe", "DMXUniverse"});
+    address = address > 0 ? address : read_int_child_value(fixture_node, {"Address", "DMXAddress"});
+    absolute_address = absolute_address > 0
+                           ? absolute_address
+                           : read_int_child_value(fixture_node, {"AbsoluteAddress", "AbsDMXAddress", "DMXAbsoluteAddress"});
+
+    if (tinyxml2::XMLElement *addresses = fixture_node->FirstChildElement("Addresses"); addresses) {
+        if (tinyxml2::XMLElement *address_node = addresses->FirstChildElement("Address")) {
+            if (universe <= 0) {
+                universe = read_int_attribute(address_node, {"Universe", "universe", "DMXUniverse"});
+            }
+            if (address <= 0) {
+                address = read_int_attribute(address_node, {"Address", "address", "DMXAddress"});
+            }
+            if (absolute_address <= 0) {
+                absolute_address = read_int_attribute(address_node, {"AbsoluteAddress", "absoluteAddress", "DMXAbsoluteAddress"});
+            }
+        }
+    }
+
+    if (absolute_address > 0 && (universe <= 0 || address <= 0)) {
+        universe = ((absolute_address - 1) / 512) + 1;
+        address = ((absolute_address - 1) % 512) + 1;
+    }
+
+    patch.mvr_universe = universe;
+    patch.mvr_address = address;
+    return patch;
 }
 
 std::unordered_map<std::string, std::vector<SymdefGeometry>> parse_symdefs(tinyxml2::XMLElement *root) {
@@ -336,23 +444,17 @@ SceneModel load_mvr(const std::string &path, bool peraviz_debug_baseline,
                 node.is_fixture = true;
                 append_scene_node(model, node);
 
-                std::string gdtf_spec;
-                if (tinyxml2::XMLElement *gdtf = child->FirstChildElement("GDTFSpec"); gdtf && gdtf->GetText()) {
-                    gdtf_spec = gdtf->GetText();
-                }
-                std::string gdtf_mode;
-                if (tinyxml2::XMLElement *mode = child->FirstChildElement("GDTFMode"); mode && mode->GetText()) {
-                    gdtf_mode = mode->GetText();
-                }
+                const SceneModel::FixturePatch fixture_patch = parse_fixture_patch(child, id, mvr_cache);
+                model.fixture_patches.push_back(fixture_patch);
 
-                if (!gdtf_spec.empty()) {
-                    const std::string gdtf_path = mvr_cache.ensure_extracted(gdtf_spec);
-                    if (!gdtf_path.empty()) {
-                        const GdtfBuildRequest request{gdtf_path, gdtf_mode, id, node.name};
-                        auto fixture_nodes = build_fixture_geometry_nodes(request, id, node_world,
-                                                                          model.extracted_asset_count);
-                        model.nodes.insert(model.nodes.end(), fixture_nodes.begin(), fixture_nodes.end());
-                    }
+                const std::string gdtf_mode = fixture_patch.dmx_mode;
+                const std::string gdtf_path = fixture_patch.gdtf_path;
+
+                if (!gdtf_path.empty()) {
+                    const GdtfBuildRequest request{gdtf_path, gdtf_mode, id, node.name};
+                    auto fixture_nodes = build_fixture_geometry_nodes(request, id, node_world,
+                                                                      model.extracted_asset_count);
+                    model.nodes.insert(model.nodes.end(), fixture_nodes.begin(), fixture_nodes.end());
                 }
             } else if (node_name == "Truss") {
                 node.type = "truss";

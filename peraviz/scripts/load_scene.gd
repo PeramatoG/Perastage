@@ -47,8 +47,12 @@ var _dmx_toggle_button: Button
 var _dmx_monitor_button: Button
 var _dmx_monitor_window: Window
 var _dmx_timer: Timer
+var _dmx_universe_offset_input: SpinBox
+var _dmx_unbound_preview_label: Label
+var _dmx_fixture_runtime = null
 
 const DmxMonitorWindowScript = preload("res://scripts/dmx_monitor_window.gd")
+const DmxFixtureRuntimeScript = preload("res://scripts/dmx_fixture_runtime.gd")
 
 const DEBUG_TOGGLE_KEY: Key = KEY_C
 const MANUAL_TEST_FLAG: String = "--peraviz_manual_fixture_test"
@@ -103,6 +107,7 @@ func _ready() -> void:
 	_update_debug_legend()
 	_refresh_fixture_debug_panel()
 	_setup_dmx_controls()
+	_setup_dmx_fixture_runtime()
 
 func _on_load_pressed() -> void:
 	picker.popup_centered_ratio(0.7)
@@ -118,6 +123,7 @@ func _on_file_selected(path: String) -> void:
 
 	_build_node_tree(nodes)
 	_register_fixture_registry(nodes)
+	_refresh_dmx_fixture_bindings()
 	_populate_fixture_list()
 	_sync_selection_state("scene_reload")
 	_rebuild_debug_gizmos()
@@ -1508,8 +1514,25 @@ func _setup_dmx_controls() -> void:
 	hud_root.add_child(_dmx_monitor_button)
 	_dmx_monitor_button.pressed.connect(_on_dmx_monitor_pressed)
 
+	_dmx_universe_offset_input = SpinBox.new()
+	_dmx_universe_offset_input.position = Vector2(770, 20)
+	_dmx_universe_offset_input.custom_minimum_size = Vector2(90, 24)
+	_dmx_universe_offset_input.min_value = -32
+	_dmx_universe_offset_input.max_value = 32
+	_dmx_universe_offset_input.step = 1
+	_dmx_universe_offset_input.value = -1
+	hud_root.add_child(_dmx_universe_offset_input)
+	_dmx_universe_offset_input.value_changed.connect(_on_dmx_universe_offset_changed)
+
+	_dmx_unbound_preview_label = Label.new()
+	_dmx_unbound_preview_label.position = Vector2(540, 50)
+	_dmx_unbound_preview_label.size = Vector2(500, 120)
+	_dmx_unbound_preview_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_dmx_unbound_preview_label.visible = false
+	hud_root.add_child(_dmx_unbound_preview_label)
+
 	_dmx_timer = Timer.new()
-	_dmx_timer.wait_time = 0.2
+	_dmx_timer.wait_time = 0.03
 	_dmx_timer.autostart = true
 	hud_root.add_child(_dmx_timer)
 	_dmx_timer.timeout.connect(_on_dmx_timer_timeout)
@@ -1520,6 +1543,21 @@ func _setup_dmx_controls() -> void:
 	else:
 		_dmx_toggle_button.disabled = true
 		_dmx_toggle_button.tooltip_text = "DMX unavailable (build without PERAVIZ_ENABLE_DMX)"
+
+func _setup_dmx_fixture_runtime() -> void:
+	_dmx_fixture_runtime = DmxFixtureRuntimeScript.new()
+	_dmx_fixture_runtime.configure(_loader, _scene_registry)
+
+func _refresh_dmx_fixture_bindings() -> void:
+	if _dmx_fixture_runtime == null:
+		return
+	var summary: Dictionary = _dmx_fixture_runtime.rebuild(int(_dmx_universe_offset_input.value))
+	var unbound_preview: PackedStringArray = summary.get("unbound_preview", PackedStringArray())
+	_dmx_unbound_preview_label.visible = unbound_preview.size() > 0
+	_dmx_unbound_preview_label.text = "Unbound fixtures:\n" + "\n".join(unbound_preview)
+
+func _on_dmx_universe_offset_changed(_value: float) -> void:
+	_refresh_dmx_fixture_bindings()
 
 func _on_dmx_toggle_pressed() -> void:
 	if _dmx_receiver == null:
@@ -1560,12 +1598,29 @@ func _on_dmx_timer_timeout() -> void:
 		_refresh_dmx_monitor_window(false)
 		return
 
+	if _dmx_fixture_runtime != null:
+		_dmx_fixture_runtime.apply_dmx(_dmx_receiver, Callable(self, "_apply_dimmer_feedback_to_fixture"))
+
 	var stats: Dictionary = _dmx_receiver.get_stats()
 	var active_universes: PackedInt32Array = _dmx_receiver.get_active_universes(2000)
 	var last_ms: int = int(stats.get("last_packet_ms_ago", -1))
 	var receiving: bool = active_universes.size() > 0 and last_ms >= 0 and last_ms <= 2000
 	_update_dmx_toggle_color(true, receiving)
 	_refresh_dmx_monitor_window(true)
+
+	var bound_count: int = 0
+	var unbound_count: int = 0
+	if _dmx_fixture_runtime != null:
+		bound_count = int(_dmx_fixture_runtime.get_bound_count())
+		unbound_count = int(_dmx_fixture_runtime.get_unbound_count())
+	status_label.text = "DMX pps=%d uni=%d last=%dms bound_fixtures=%d unbound=%d universe_offset=%d" % [
+		int(stats.get("packets_per_sec", 0)),
+		active_universes.size(),
+		last_ms,
+		bound_count,
+		unbound_count,
+		int(_dmx_universe_offset_input.value),
+	]
 
 func _update_dmx_toggle_color(enabled: bool, receiving_signal: bool) -> void:
 	if _dmx_toggle_button == null:

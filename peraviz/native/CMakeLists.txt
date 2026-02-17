@@ -90,6 +90,8 @@ if(PERAVIZ_ENABLE_DMX)
         src/dmx/artnet_dmx_parser.cpp
         src/dmx/dmx_universe_cache.cpp
         src/dmx/artnet_receiver.cpp
+        src/dmx/gdtf_dimmer_resolver.cpp
+        src/dmx/fixture_dmx_binding.cpp
         src/peraviz_dmx_receiver.cpp
     )
     target_compile_definitions(peraviz_native PRIVATE PERAVIZ_ENABLE_DMX=1)

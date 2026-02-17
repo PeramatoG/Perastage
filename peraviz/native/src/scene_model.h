@@ -55,12 +55,21 @@ struct SceneNode {
 
 struct SceneModel {
     std::vector<SceneNode> nodes;
+    struct FixturePatch {
+        std::string fixture_uuid;
+        int mvr_universe = -1;
+        int mvr_address = -1;
+        std::string dmx_mode;
+        std::string gdtf_path;
+    };
+
     int fixture_count = 0;
     int truss_count = 0;
     int object_count = 0;
     int support_count = 0;
     int extracted_asset_count = 0;
     std::string cache_path;
+    std::vector<FixturePatch> fixture_patches;
 };
 
 } // namespace peraviz
