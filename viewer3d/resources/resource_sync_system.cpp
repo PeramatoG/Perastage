@@ -3,6 +3,7 @@
 #include "loader3ds.h"
 #include "loaderglb.h"
 #include "matrixutils.h"
+#include "trussloader.h"
 
 #include <algorithm>
 #include <cctype>
@@ -64,6 +65,58 @@ std::string ResolveModelPath(const std::string &base,
                              const std::string &modelRef,
                              bool allowRecursiveFallback = false) {
   return ResolveGdtfPath(base, modelRef, allowRecursiveFallback);
+}
+
+std::string ToLowerAscii(std::string text) {
+  std::transform(text.begin(), text.end(), text.begin(), [](unsigned char c) {
+    return static_cast<char>(std::tolower(c));
+  });
+  return text;
+}
+
+bool IsRenderableGeometryPath(const std::string &path) {
+  if (path.empty())
+    return false;
+  const std::string ext = ToLowerAscii(fs::path(path).extension().string());
+  return ext == ".3ds" || ext == ".glb";
+}
+
+std::string ResolveTrussRenderablePath(const std::string &base,
+                                       const Truss &truss) {
+  auto resolveRenderableRef = [&](const std::string &reference) -> std::string {
+    if (reference.empty())
+      return {};
+
+    const std::string resolvedReference = ResolveModelPath(base, reference, true);
+    if (resolvedReference.empty())
+      return {};
+
+    if (IsRenderableGeometryPath(resolvedReference))
+      return resolvedReference;
+
+    const std::string ext = ToLowerAscii(fs::path(resolvedReference).extension().string());
+    if (ext != ".gdtf" && ext != ".gtruss")
+      return {};
+
+    Truss parsed;
+    if (!LoadTrussDefinition(resolvedReference, parsed))
+      return {};
+    if (!IsRenderableGeometryPath(parsed.symbolFile))
+      return {};
+    return parsed.symbolFile;
+  };
+
+  if (IsRenderableGeometryPath(truss.symbolFile)) {
+    const std::string resolved = resolveRenderableRef(truss.symbolFile);
+    if (!resolved.empty())
+      return resolved;
+  }
+
+  const std::string fromModelFile = resolveRenderableRef(truss.modelFile);
+  if (!fromModelFile.empty())
+    return fromModelFile;
+
+  return resolveRenderableRef(truss.gdtfSpec);
 }
 
 size_t HashCombine(size_t seed, size_t value) {
@@ -225,6 +278,29 @@ ResourceSyncResult ResourceSyncSystem::Sync(
 
   for (const auto *entry : visibleTrusses)
     ensureModelResolvedPath(entry->second.symbolFile);
+
+  for (const auto *entry : visibleTrusses) {
+    const auto &[uuid, truss] = *entry;
+    const std::string fallbackPath = ResolveTrussRenderablePath(basePath, truss);
+    if (fallbackPath.empty())
+      continue;
+
+    const std::string symbolKey = ResolveCacheKey(truss.symbolFile);
+    if (!symbolKey.empty()) {
+      auto &resolution = state.resolvedModelRefs[symbolKey];
+      resolution.resolvedPath = fallbackPath;
+      resolution.attempted = true;
+    }
+
+    const std::string fallbackKey = ResolveCacheKey(fallbackPath);
+    if (!fallbackKey.empty()) {
+      auto &resolution = state.resolvedModelRefs[fallbackKey];
+      resolution.resolvedPath = fallbackPath;
+      resolution.attempted = true;
+    }
+
+    (void)uuid;
+  }
 
   for (const auto *entry : visibleObjects) {
     const auto &obj = entry->second;
