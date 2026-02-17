@@ -84,6 +84,9 @@ const DOUBLE_SIDED_MATERIAL_HINTS: Array[String] = [
 	"lens", "glass", "visor", "fabric", "cloth", "curtain", "thin", "plane"
 ]
 const IMPORTED_CONTENT_SCALE: float = 10.0
+const EMITTER_LIGHT_MIN_RANGE_M: float = 8.0
+const EMITTER_LIGHT_MAX_RANGE_M: float = 180.0
+const EMITTER_LIGHT_RANGE_BEAM_RADIUS_MULTIPLIER: float = 900.0
 const ENV_QUALITY_PRESET_SETTING: String = "peraviz_environment_quality"
 const ENV_QUALITY_PRESET_DEFAULT: String = "medium"
 const ENVIRONMENT_QUALITY_PRESETS := {
@@ -1258,7 +1261,7 @@ func _find_or_create_emitter_light(emitter_node: Node3D) -> SpotLight3D:
 	light.rotation_degrees = EMITTER_LIGHT_DIRECTION_FIX
 	light.light_negative = false
 	light.shadow_enabled = true
-	light.spot_range = 20.0
+	light.spot_range = 60.0
 	light.spot_angle = 25.0
 	light.spot_attenuation = 1.0
 	light.set_meta("peraviz_beam_cone", _create_emitter_beam_cone())
@@ -1437,7 +1440,7 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 	light.light_energy = luminous_flux * normalized_dimmer
 	light.spot_angle = beam_angle
 	light.spot_attenuation = clamp(beam_angle / field_angle, 0.2, 1.0)
-	light.spot_range = clamp(beam_radius_m * 400.0, 0.5, 60.0)
+	light.spot_range = clamp(beam_radius_m * EMITTER_LIGHT_RANGE_BEAM_RADIUS_MULTIPLIER, EMITTER_LIGHT_MIN_RANGE_M, EMITTER_LIGHT_MAX_RANGE_M)
 	light.light_color = _derive_emitter_color(photometric)
 	var beam_radius_from_gdtf: bool = bool(photometric.get("beam_radius_from_gdtf", false))
 	var source_beam_radius: float = beam_radius_m if beam_radius_from_gdtf else -1.0
