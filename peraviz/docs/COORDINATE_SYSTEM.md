@@ -22,6 +22,19 @@ This document explains how Peraviz maps MVR/GDTF transforms into Godot runtime s
 When coordinate debug mode is enabled, runtime prints metadata with:
 - `scale_global=mm_to_m(0.001)`
 
+## 1.1) Godot viewer import magnification (runtime-only)
+
+To support visibility checks in the standalone Godot viewer, imported external scene content is currently scaled at the `Proxies` root in `load_scene.gd`:
+
+- `IMPORTED_CONTENT_SCALE = 10.0`
+- Applied in `_apply_imported_content_scale()` with:
+  - `proxies_root.scale = Vector3.ONE * IMPORTED_CONTENT_SCALE`
+
+Important:
+- This magnification is a **viewer/runtime presentation multiplier**.
+- Native transform parsing and unit mapping remain unchanged (`mm -> m` conversion in coordinate mapper).
+- Use this when validating dense/large rigs that are hard to inspect at default camera distances.
+
 ## 2) Source/destination handedness
 
 ### Destination (Godot runtime)
