@@ -244,21 +244,34 @@ func _apply_visual_scalars_to_light(light: SpotLight3D) -> void:
 	_update_existing_beam_material_scalars(light)
 
 func _update_existing_beam_material_scalars(light: SpotLight3D) -> void:
-	if not light.has_meta("peraviz_beam_cone"):
+	var base_intensity: float = float(light.get_meta("peraviz_beam_base_intensity", 0.0))
+	var beam_multiplier: float = float(_visual_settings.get("beam_multiplier", 1.0))
+	var scaled_intensity: float = clamp(base_intensity * beam_multiplier, 0.0, 3.0)
+	_update_beam_material_scalars_for_meta(light, "peraviz_beam_cone", scaled_intensity)
+	_update_beam_material_scalars_for_meta(light, "peraviz_beam_cone_mid", scaled_intensity)
+	_update_beam_material_scalars_for_meta(light, "peraviz_beam_cone_core", scaled_intensity)
+
+func _update_beam_material_scalars_for_meta(light: SpotLight3D, cone_meta_key: String, scaled_intensity: float) -> void:
+	if not light.has_meta(cone_meta_key):
 		return
-	var cone: MeshInstance3D = light.get_meta("peraviz_beam_cone") as MeshInstance3D
+	var cone: MeshInstance3D = light.get_meta(cone_meta_key) as MeshInstance3D
 	if cone == null:
 		return
 	var material: ShaderMaterial = cone.material_override as ShaderMaterial
 	if material == null:
 		return
-	var base_intensity: float = float(light.get_meta("peraviz_beam_base_intensity", 0.0))
-	var beam_multiplier: float = float(_visual_settings.get("beam_multiplier", 1.0))
-	var scaled_intensity: float = clamp(base_intensity * beam_multiplier, 0.0, 3.0)
-	material.set_shader_parameter("near_alpha", lerp(0.0, EMITTER_CONE_NEAR_ALPHA, scaled_intensity))
-	material.set_shader_parameter("far_alpha", lerp(0.0, EMITTER_CONE_FAR_ALPHA, scaled_intensity))
-	material.set_shader_parameter("near_emission", lerp(0.0, EMITTER_CONE_NEAR_EMISSION, scaled_intensity))
-	material.set_shader_parameter("far_emission", lerp(0.0, EMITTER_CONE_FAR_EMISSION, scaled_intensity))
+	var alpha_scale: float = 1.0
+	var emission_scale: float = 1.0
+	if cone_meta_key == "peraviz_beam_cone_mid":
+		alpha_scale = 1.35
+		emission_scale = 1.25
+	elif cone_meta_key == "peraviz_beam_cone_core":
+		alpha_scale = 1.7
+		emission_scale = 1.5
+	material.set_shader_parameter("near_alpha", lerp(0.0, EMITTER_CONE_NEAR_ALPHA * alpha_scale, scaled_intensity))
+	material.set_shader_parameter("far_alpha", lerp(0.0, EMITTER_CONE_FAR_ALPHA * alpha_scale, scaled_intensity))
+	material.set_shader_parameter("near_emission", lerp(0.0, EMITTER_CONE_NEAR_EMISSION * emission_scale, scaled_intensity))
+	material.set_shader_parameter("far_emission", lerp(0.0, EMITTER_CONE_FAR_EMISSION * emission_scale, scaled_intensity))
 
 func _on_visual_settings_pressed() -> void:
 	visual_settings_window.popup_settings()
@@ -1368,6 +1381,8 @@ func _find_or_create_emitter_light(emitter_node: Node3D) -> SpotLight3D:
 	light.spot_angle = 25.0
 	light.spot_attenuation = 1.0
 	light.set_meta("peraviz_beam_cone", _create_emitter_beam_cone())
+	light.set_meta("peraviz_beam_cone_mid", _create_emitter_beam_mid_cone())
+	light.set_meta("peraviz_beam_cone_core", _create_emitter_beam_core_cone())
 	light.set_meta("peraviz_lens_radius", lens_radius)
 	emitter_node.add_child(light)
 	return light
@@ -1596,8 +1611,17 @@ func _resolve_zoom_beam_limits(light: SpotLight3D, controls: Dictionary) -> Dict
 	}
 
 func _create_emitter_beam_cone() -> MeshInstance3D:
+	return _create_emitter_beam_cone_with_material("PeravizBeamCone", _create_emitter_beam_material())
+
+func _create_emitter_beam_mid_cone() -> MeshInstance3D:
+	return _create_emitter_beam_cone_with_material("PeravizBeamMidCone", _create_emitter_beam_mid_material())
+
+func _create_emitter_beam_core_cone() -> MeshInstance3D:
+	return _create_emitter_beam_cone_with_material("PeravizBeamCoreCone", _create_emitter_beam_core_material())
+
+func _create_emitter_beam_cone_with_material(cone_name: String, material: ShaderMaterial) -> MeshInstance3D:
 	var cone := MeshInstance3D.new()
-	cone.name = "PeravizBeamCone"
+	cone.name = cone_name
 	cone.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	cone.visible = false
 	var cone_mesh := CylinderMesh.new()
@@ -1606,8 +1630,7 @@ func _create_emitter_beam_cone() -> MeshInstance3D:
 	cone_mesh.height = 1.0
 	cone.mesh = cone_mesh
 	cone.rotation_degrees.x = 90.0
-
-	cone.material_override = _create_emitter_beam_material()
+	cone.material_override = material
 	return cone
 
 func _create_emitter_beam_material() -> ShaderMaterial:
@@ -1626,6 +1649,8 @@ uniform float cone_height = 1.0;
 uniform float fade_end_ratio = 0.82;
 uniform float lateral_softness = 0.18;
 uniform float lateral_emission_boost = 0.2;
+uniform float volumetric_noise_strength = 0.1;
+uniform float volumetric_noise_scale = 28.0;
 
 varying float beam_axial;
 
@@ -1640,7 +1665,9 @@ void fragment() {
 	float end_fade = 1.0 - smoothstep(clamp(fade_end_ratio, 0.0, 0.99), 1.0, far_progress);
 	float view_alignment = abs(dot(normalize(NORMAL), normalize(VIEW)));
 	float lateral_fade = smoothstep(0.0, clamp(lateral_softness, 0.02, 1.0), view_alignment);
-	float center_boost = 1.0 + (lateral_emission_boost * lateral_fade);
+	float axial_noise = sin((beam_axial * volumetric_noise_scale) + (TIME * 0.9));
+	float beam_noise = 1.0 + (axial_noise * volumetric_noise_strength);
+	float center_boost = (1.0 + (lateral_emission_boost * lateral_fade)) * beam_noise;
 	ALBEDO = beam_color.rgb;
 	ALPHA = mix(far_alpha, near_alpha, near_factor) * end_fade * lateral_fade;
 	EMISSION = beam_color.rgb * (mix(far_emission, near_emission, near_factor) * end_fade * center_boost);
@@ -1649,43 +1676,87 @@ void fragment() {
 	shader_material.shader = shader
 	return shader_material
 
+func _create_emitter_beam_mid_material() -> ShaderMaterial:
+	return _create_emitter_beam_material()
+
+func _create_emitter_beam_core_material() -> ShaderMaterial:
+	return _create_emitter_beam_material()
+
 func _update_emitter_beam_cone(light: SpotLight3D, beam_angle: float, beam_range: float, beam_color: Color, normalized_dimmer: float, gdtf_beam_radius: float = -1.0) -> void:
 	if not light.has_meta("peraviz_beam_cone"):
 		light.set_meta("peraviz_beam_cone", _create_emitter_beam_cone())
+	if not light.has_meta("peraviz_beam_cone_mid"):
+		light.set_meta("peraviz_beam_cone_mid", _create_emitter_beam_mid_cone())
+	if not light.has_meta("peraviz_beam_cone_core"):
+		light.set_meta("peraviz_beam_cone_core", _create_emitter_beam_core_cone())
+
 	var cone: MeshInstance3D = light.get_meta("peraviz_beam_cone") as MeshInstance3D
-	if cone == null:
+	var mid_cone: MeshInstance3D = light.get_meta("peraviz_beam_cone_mid") as MeshInstance3D
+	var core_cone: MeshInstance3D = light.get_meta("peraviz_beam_cone_core") as MeshInstance3D
+	if cone == null and mid_cone == null and core_cone == null:
 		return
-	if cone.get_parent() == null:
+	if cone != null and cone.get_parent() == null:
 		light.add_child(cone)
+	if mid_cone != null and mid_cone.get_parent() == null:
+		light.add_child(mid_cone)
+	if core_cone != null and core_cone.get_parent() == null:
+		light.add_child(core_cone)
 
 	var intensity: float = clamp(normalized_dimmer, 0.0, 1.0)
 	light.set_meta("peraviz_beam_base_intensity", intensity)
-	cone.visible = intensity > 0.015
+	var is_visible: bool = intensity > 0.015
+	if cone != null:
+		cone.visible = is_visible
+	if mid_cone != null:
+		mid_cone.visible = is_visible
+	if core_cone != null:
+		core_cone.visible = is_visible
+
 	var beam_multiplier: float = float(_visual_settings.get("beam_multiplier", 1.0))
 	var scaled_intensity: float = clamp(intensity * beam_multiplier, 0.0, 3.0)
+	var beam_half_angle_deg: float = beam_angle * 0.5
+	var radius: float = tan(deg_to_rad(beam_half_angle_deg)) * beam_range
+	var lens_radius: float = max(float(light.get_meta("peraviz_lens_radius", 0.03)), 0.005)
+	if gdtf_beam_radius > 0.0:
+		lens_radius = max(gdtf_beam_radius, 0.005)
+	var bottom_radius: float = clamp(radius, 0.03, EMITTER_CONE_MAX_BASE_RADIUS_M)
+
+	_update_beam_cone_geometry(cone, lens_radius, bottom_radius, beam_range, 1.0)
+	_update_beam_cone_geometry(mid_cone, lens_radius, bottom_radius, beam_range, 0.7)
+	_update_beam_cone_geometry(core_cone, lens_radius, bottom_radius, beam_range, 0.45)
+
+	var beam_color_with_alpha := Color(beam_color.r, beam_color.g, beam_color.b, 1.0)
+	_update_beam_cone_material(cone, beam_color_with_alpha, scaled_intensity, beam_range, 0.35, 0.16, 0.06, 1.0, 1.0)
+	_update_beam_cone_material(mid_cone, beam_color_with_alpha, scaled_intensity, beam_range, 0.18, 0.26, 0.04, 1.35, 1.25)
+	_update_beam_cone_material(core_cone, beam_color_with_alpha, scaled_intensity, beam_range, 0.09, 0.35, 0.02, 1.7, 1.5)
+
+func _update_beam_cone_geometry(cone: MeshInstance3D, lens_radius: float, bottom_radius: float, beam_range: float, radius_scale: float) -> void:
+	if cone == null:
+		return
 	var cone_mesh: CylinderMesh = cone.mesh as CylinderMesh
-	if cone_mesh != null:
-		var beam_half_angle_deg: float = beam_angle * 0.5
-		var radius: float = tan(deg_to_rad(beam_half_angle_deg)) * beam_range
-		var lens_radius: float = max(float(light.get_meta("peraviz_lens_radius", 0.03)), 0.005)
-		if gdtf_beam_radius > 0.0:
-			lens_radius = max(gdtf_beam_radius, 0.005)
-		cone_mesh.top_radius = lens_radius
-		cone_mesh.bottom_radius = clamp(radius, 0.03, EMITTER_CONE_MAX_BASE_RADIUS_M)
-		cone_mesh.height = beam_range
+	if cone_mesh == null:
+		return
+	cone_mesh.top_radius = max(lens_radius * radius_scale, 0.003)
+	cone_mesh.bottom_radius = clamp(bottom_radius * radius_scale, 0.02, EMITTER_CONE_MAX_BASE_RADIUS_M)
+	cone_mesh.height = beam_range
 	cone.position = Vector3(0.0, 0.0, -beam_range * 0.5)
 
+func _update_beam_cone_material(cone: MeshInstance3D, beam_color: Color, scaled_intensity: float, beam_range: float, lateral_softness: float, lateral_emission_boost: float, noise_strength: float, alpha_scale: float, emission_scale: float) -> void:
+	if cone == null:
+		return
 	var material: ShaderMaterial = cone.material_override as ShaderMaterial
-	if material != null:
-		material.set_shader_parameter("beam_color", Color(beam_color.r, beam_color.g, beam_color.b, 1.0))
-		material.set_shader_parameter("near_alpha", lerp(0.0, EMITTER_CONE_NEAR_ALPHA, scaled_intensity))
-		material.set_shader_parameter("far_alpha", lerp(0.0, EMITTER_CONE_FAR_ALPHA, scaled_intensity))
-		material.set_shader_parameter("near_emission", lerp(0.0, EMITTER_CONE_NEAR_EMISSION, scaled_intensity))
-		material.set_shader_parameter("far_emission", lerp(0.0, EMITTER_CONE_FAR_EMISSION, scaled_intensity))
-		material.set_shader_parameter("cone_height", max(beam_range, 0.001))
-		material.set_shader_parameter("fade_end_ratio", EMITTER_CONE_FADE_END_RATIO)
-		material.set_shader_parameter("lateral_softness", 0.18)
-		material.set_shader_parameter("lateral_emission_boost", 0.2)
+	if material == null:
+		return
+	material.set_shader_parameter("beam_color", beam_color)
+	material.set_shader_parameter("near_alpha", lerp(0.0, EMITTER_CONE_NEAR_ALPHA * alpha_scale, scaled_intensity))
+	material.set_shader_parameter("far_alpha", lerp(0.0, EMITTER_CONE_FAR_ALPHA * alpha_scale, scaled_intensity))
+	material.set_shader_parameter("near_emission", lerp(0.0, EMITTER_CONE_NEAR_EMISSION * emission_scale, scaled_intensity))
+	material.set_shader_parameter("far_emission", lerp(0.0, EMITTER_CONE_FAR_EMISSION * emission_scale, scaled_intensity))
+	material.set_shader_parameter("cone_height", max(beam_range, 0.001))
+	material.set_shader_parameter("fade_end_ratio", EMITTER_CONE_FADE_END_RATIO)
+	material.set_shader_parameter("lateral_softness", lateral_softness)
+	material.set_shader_parameter("lateral_emission_boost", lateral_emission_boost)
+	material.set_shader_parameter("volumetric_noise_strength", noise_strength)
 
 func _apply_fixture_lens_visual_tuning(fixture_uuid: String, emitter_nodes: Array) -> void:
 	if _fixture_lens_tuned.get(fixture_uuid, false):
