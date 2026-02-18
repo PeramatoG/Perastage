@@ -1,3 +1,4 @@
+@tool
 extends Node3D
 
 @onready var proxies_root: Node3D = $Proxies
@@ -101,22 +102,22 @@ const DOUBLE_SIDED_MATERIAL_HINTS: Array[String] = [
 ]
 const IMPORTED_CONTENT_SCALE: float = 1.0
 const EMITTER_LIGHT_MIN_RANGE_M: float = 12.0
-const EMITTER_LIGHT_MAX_RANGE_M: float = 120.0
-const EMITTER_LIGHT_RANGE_BEAM_RADIUS_MULTIPLIER: float = 420.0
-const EMITTER_LIGHT_ENERGY_SCALE: float = 0.018
-const EMITTER_LIGHT_MAX_BEAM_ANGLE_DEG: float = 45.0
+const EMITTER_LIGHT_MAX_RANGE_M: float = 150.0
+const EMITTER_LIGHT_RANGE_BEAM_RADIUS_MULTIPLIER: float = 500.0
+const EMITTER_LIGHT_ENERGY_SCALE: float = 0.02
+const EMITTER_LIGHT_MAX_BEAM_ANGLE_DEG: float = 180.0
 const EMITTER_ZOOM_DEFAULT_MIN_BEAM_ANGLE_DEG: float = 4.0
 const EMITTER_ZOOM_DEFAULT_MAX_BEAM_ANGLE_DEG: float = EMITTER_LIGHT_MAX_BEAM_ANGLE_DEG
 const EMITTER_ZOOM_LENS_RANGE_REFERENCE_M: float = 12.0
-const EMITTER_CONE_MAX_BASE_RADIUS_M: float = 4.0
+const EMITTER_CONE_MAX_BASE_RADIUS_M: float = 10.0
 const EMITTER_LIGHT_MAX_FOOTPRINT_RADIUS_M: float = EMITTER_CONE_MAX_BASE_RADIUS_M
 const EMITTER_LIGHT_MIN_EFFECTIVE_RANGE_M: float = 0.75
-const EMITTER_BEAM_LENGTH_SCALE: float = 2.0
+const EMITTER_BEAM_LENGTH_SCALE: float = 3.0
 const EMITTER_LIGHT_FOOTPRINT_RANGE_MULTIPLIER: float = 1.0
-const EMITTER_LIGHT_SPOT_ATTENUATION_FLOOR: float = 0.08
-const EMITTER_LIGHT_SPOT_ATTENUATION_CEIL: float = 0.65
+const EMITTER_LIGHT_SPOT_ATTENUATION_FLOOR: float = 1.5
+const EMITTER_LIGHT_SPOT_ATTENUATION_CEIL: float = 0.9
 const EMITTER_CONE_FADE_END_RATIO: float = 0.82
-const EMITTER_CONE_NEAR_ALPHA: float = 0.06
+const EMITTER_CONE_NEAR_ALPHA: float = 0.16
 const EMITTER_CONE_FAR_ALPHA: float = 0.004
 const EMITTER_CONE_NEAR_EMISSION: float = 0.45
 const EMITTER_CONE_FAR_EMISSION: float = 0.04
@@ -1551,7 +1552,7 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 	light.light_energy = base_light_energy * float(_visual_settings.get("spot_multiplier", 1.0))
 	light.spot_angle = beam_angle
 	light.spot_attenuation = clamp(beam_angle / field_angle, EMITTER_LIGHT_SPOT_ATTENUATION_FLOOR, EMITTER_LIGHT_SPOT_ATTENUATION_CEIL)
-	var beam_slope: float = tan(deg_to_rad(beam_angle * 0.5))
+	var beam_slope: float = tan(deg_to_rad(beam_angle * 1.0))
 	var nominal_spot_range: float = beam_radius_m * EMITTER_LIGHT_RANGE_BEAM_RADIUS_MULTIPLIER * EMITTER_BEAM_LENGTH_SCALE
 	var max_spot_range_from_footprint: float = EMITTER_LIGHT_MAX_RANGE_M
 	if beam_slope > 0.0001:
@@ -1660,7 +1661,7 @@ func _update_emitter_beam_cone(light: SpotLight3D, beam_angle: float, beam_range
 	var scaled_intensity: float = clamp(intensity * beam_multiplier, 0.0, 3.0)
 	var cone_mesh: CylinderMesh = cone.mesh as CylinderMesh
 	if cone_mesh != null:
-		var radius: float = tan(deg_to_rad(beam_angle * 0.5)) * beam_range
+		var radius: float = tan(deg_to_rad(beam_angle * 1.0)) * beam_range
 		var lens_radius: float = max(float(light.get_meta("peraviz_lens_radius", 0.03)), 0.005)
 		if gdtf_beam_radius > 0.0:
 			lens_radius = max(gdtf_beam_radius, 0.005)
