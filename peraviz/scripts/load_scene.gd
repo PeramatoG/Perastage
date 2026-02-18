@@ -1493,7 +1493,7 @@ func _create_emitter_beam_material() -> ShaderMaterial:
 	var shader := Shader.new()
 	shader.code = """
 shader_type spatial;
-render_mode unshaded, blend_add, cull_disabled, depth_draw_never, depth_test_disabled, shadows_disabled;
+render_mode unshaded, blend_add, cull_disabled, depth_prepass_alpha, shadows_disabled;
 
 uniform vec4 beam_color : source_color = vec4(1.0, 0.85, 0.55, 1.0);
 uniform float near_alpha = 0.06;
