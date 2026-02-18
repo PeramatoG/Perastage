@@ -5,7 +5,6 @@
 #include <cstdlib>
 #include <mutex>
 #include <sstream>
-#include <string_view>
 #include <unordered_map>
 #include <vector>
 
@@ -138,43 +137,9 @@ struct ParsedAttribute {
     bool is_fine = false;
 };
 
-int parse_trailing_number(std::string_view text) {
-    if (text.empty()) {
-        return -1;
-    }
-
-    size_t end = text.size();
-    while (end > 0 && std::isspace(static_cast<unsigned char>(text[end - 1])) != 0) {
-        --end;
-    }
-    if (end == 0 || std::isdigit(static_cast<unsigned char>(text[end - 1])) == 0) {
-        return -1;
-    }
-
-    size_t begin = end;
-    while (begin > 0 && std::isdigit(static_cast<unsigned char>(text[begin - 1])) != 0) {
-        --begin;
-    }
-
-    if (begin == end) {
-        return -1;
-    }
-
-    if (begin > 0) {
-        const char separator = text[begin - 1];
-        if (separator != ' ' && separator != '.' && separator != '_' && separator != '-') {
-            return -1;
-        }
-    }
-
-    const std::string digits(text.substr(begin, end - begin));
-    return std::atoi(digits.c_str());
-}
-
 bool has_explicit_fine_marker(const std::string &lower) {
     return lower.find("fine") != std::string::npos ||
-           lower.find("lsb") != std::string::npos ||
-           lower.find(" low") != std::string::npos;
+           lower.find("lsb") != std::string::npos;
 }
 
 ParsedAttribute parse_attribute_name(const std::string &raw_attribute) {
@@ -201,11 +166,6 @@ ParsedAttribute parse_attribute_name(const std::string &raw_attribute) {
         return parsed;
     }
 
-    const int trailing_number = parse_trailing_number(lower);
-    if (trailing_number >= 2) {
-        parsed.is_fine = true;
-    }
-
     return parsed;
 }
 
@@ -219,15 +179,15 @@ void consume_offsets(const std::vector<int> &offsets,
     }
 
     if (is_fine) {
-        const int fine_candidate = offsets.size() > 1 ? offsets[1] : offsets[0];
+        const int fine_candidate = offsets[0];
         if (fine <= 0 || fine_candidate < fine) {
             fine = fine_candidate;
         }
-        if (offsets.size() > 2 && (ultra_fine <= 0 || offsets[2] < ultra_fine)) {
-            ultra_fine = offsets[2];
-        }
         if (offsets.size() > 1 && (ultra_fine <= 0 || offsets[1] < ultra_fine)) {
             ultra_fine = offsets[1];
+        }
+        if (offsets.size() > 2 && (ultra_fine <= 0 || offsets[2] < ultra_fine)) {
+            ultra_fine = offsets[2];
         }
         return;
     }
