@@ -174,6 +174,15 @@ Dictionary PeravizLoader::build_fixture_dimmer_bindings(int universe_offset) con
         item["zoom_channel_index_0"] = binding.zoom.coarse_dmx_channel_index_0;
         item["zoom_fine_channel_index_0"] = binding.zoom.fine_dmx_channel_index_0;
         item["zoom_ultra_fine_channel_index_0"] = binding.zoom.ultra_fine_dmx_channel_index_0;
+        item["cyan_channel_index_0"] = binding.cyan.coarse_dmx_channel_index_0;
+        item["cyan_fine_channel_index_0"] = binding.cyan.fine_dmx_channel_index_0;
+        item["cyan_ultra_fine_channel_index_0"] = binding.cyan.ultra_fine_dmx_channel_index_0;
+        item["magenta_channel_index_0"] = binding.magenta.coarse_dmx_channel_index_0;
+        item["magenta_fine_channel_index_0"] = binding.magenta.fine_dmx_channel_index_0;
+        item["magenta_ultra_fine_channel_index_0"] = binding.magenta.ultra_fine_dmx_channel_index_0;
+        item["yellow_channel_index_0"] = binding.yellow.coarse_dmx_channel_index_0;
+        item["yellow_fine_channel_index_0"] = binding.yellow.fine_dmx_channel_index_0;
+        item["yellow_ultra_fine_channel_index_0"] = binding.yellow.ultra_fine_dmx_channel_index_0;
         item["has_zoom_physical_limits"] = binding.has_zoom_physical_limits;
         item["zoom_physical_min_degrees"] = binding.zoom_physical_min_degrees;
         item["zoom_physical_max_degrees"] = binding.zoom_physical_max_degrees;

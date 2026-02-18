@@ -87,19 +87,28 @@ func apply_dmx(receiver, apply_fixture_callback: Callable) -> void:
 			"tilt_norm": 0.0,
 			"has_zoom": false,
 			"zoom_norm": 0.0,
+			"has_cyan": false,
+			"cyan_norm": 0.0,
+			"has_magenta": false,
+			"magenta_norm": 0.0,
+			"has_yellow": false,
+			"yellow_norm": 0.0,
 		}
 
 		_read_control(binding, frame, "dimmer_channel_index_0", "dimmer_fine_channel_index_0", "dimmer_ultra_fine_channel_index_0", controls, "has_dimmer", "dimmer_norm")
 		_read_control(binding, frame, "pan_channel_index_0", "pan_fine_channel_index_0", "pan_ultra_fine_channel_index_0", controls, "has_pan", "pan_norm")
 		_read_control(binding, frame, "tilt_channel_index_0", "tilt_fine_channel_index_0", "tilt_ultra_fine_channel_index_0", controls, "has_tilt", "tilt_norm")
 		_read_control(binding, frame, "zoom_channel_index_0", "zoom_fine_channel_index_0", "zoom_ultra_fine_channel_index_0", controls, "has_zoom", "zoom_norm")
+		_read_control(binding, frame, "cyan_channel_index_0", "cyan_fine_channel_index_0", "cyan_ultra_fine_channel_index_0", controls, "has_cyan", "cyan_norm")
+		_read_control(binding, frame, "magenta_channel_index_0", "magenta_fine_channel_index_0", "magenta_ultra_fine_channel_index_0", controls, "has_magenta", "magenta_norm")
+		_read_control(binding, frame, "yellow_channel_index_0", "yellow_fine_channel_index_0", "yellow_ultra_fine_channel_index_0", controls, "has_yellow", "yellow_norm")
 
 		if controls["has_zoom"]:
 			controls["has_zoom_physical_limits"] = bool(binding.get("has_zoom_physical_limits", false))
 			controls["zoom_physical_min_degrees"] = float(binding.get("zoom_physical_min_degrees", -1.0))
 			controls["zoom_physical_max_degrees"] = float(binding.get("zoom_physical_max_degrees", -1.0))
 
-		if not controls["has_dimmer"] and not controls["has_pan"] and not controls["has_tilt"] and not controls["has_zoom"]:
+		if not controls["has_dimmer"] and not controls["has_pan"] and not controls["has_tilt"] and not controls["has_zoom"] and not controls["has_cyan"] and not controls["has_magenta"] and not controls["has_yellow"]:
 			continue
 		apply_fixture_callback.call(fixture_uuid, controls)
 

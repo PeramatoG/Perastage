@@ -27,6 +27,9 @@ struct FixtureControlBinding {
     FixtureAttributeChannel pan;
     FixtureAttributeChannel tilt;
     FixtureAttributeChannel zoom;
+    FixtureAttributeChannel cyan;
+    FixtureAttributeChannel magenta;
+    FixtureAttributeChannel yellow;
     bool has_zoom_physical_limits = false;
     float zoom_physical_min_degrees = -1.0F;
     float zoom_physical_max_degrees = -1.0F;
@@ -56,13 +59,24 @@ struct FixtureControlOffsets {
     int zoom_coarse_offset_1_based = -1;
     int zoom_fine_offset_1_based = -1;
     int zoom_ultra_fine_offset_1_based = -1;
+    int cyan_coarse_offset_1_based = -1;
+    int cyan_fine_offset_1_based = -1;
+    int cyan_ultra_fine_offset_1_based = -1;
+    int magenta_coarse_offset_1_based = -1;
+    int magenta_fine_offset_1_based = -1;
+    int magenta_ultra_fine_offset_1_based = -1;
+    int yellow_coarse_offset_1_based = -1;
+    int yellow_fine_offset_1_based = -1;
+    int yellow_ultra_fine_offset_1_based = -1;
     bool has_zoom_physical_limits = false;
     float zoom_physical_min_degrees = -1.0F;
     float zoom_physical_max_degrees = -1.0F;
 
     bool has_any() const {
         return dimmer_coarse_offset_1_based > 0 || pan_coarse_offset_1_based > 0 ||
-               tilt_coarse_offset_1_based > 0 || zoom_coarse_offset_1_based > 0;
+               tilt_coarse_offset_1_based > 0 || zoom_coarse_offset_1_based > 0 ||
+               cyan_coarse_offset_1_based > 0 || magenta_coarse_offset_1_based > 0 ||
+               yellow_coarse_offset_1_based > 0;
     }
 };
 
