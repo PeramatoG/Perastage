@@ -6,6 +6,7 @@ const DMX_8BIT_MAX_VALUE: float = 255.0
 const DMX_8BIT_STEPS: int = 256
 const DMX_16BIT_STEPS: int = 65536
 const DMX_24BIT_STEPS: int = 16777216
+const FORCE_COARSE_ONLY_DMX_READ: bool = true
 
 var _loader = null
 var _scene_registry: SceneRegistry = null
@@ -123,6 +124,14 @@ func _read_control_value(frame: PackedByteArray,
 						 fine_index: int,
 						 ultra_fine_index: int) -> Dictionary:
 	var coarse: int = int(frame[coarse_index])
+
+	if FORCE_COARSE_ONLY_DMX_READ:
+		return {
+			"raw": coarse,
+			"norm": float(coarse) / DMX_8BIT_MAX_VALUE,
+			"resolution_bits": 8,
+			"bytes": PackedInt32Array([coarse]),
+		}
 
 	if _is_valid_channel_index(frame, fine_index) and _is_valid_channel_index(frame, ultra_fine_index):
 		var fine: int = int(frame[fine_index])
