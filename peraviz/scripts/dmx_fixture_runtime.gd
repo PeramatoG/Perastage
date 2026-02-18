@@ -2,6 +2,8 @@ extends RefCounted
 class_name DmxFixtureRuntime
 
 const MAX_UNBOUND_PREVIEW: int = 8
+const DMX_8BIT_MAX_VALUE: float = 255.0
+const DMX_16BIT_MAX_VALUE: float = 65535.0
 
 var _loader = null
 var _scene_registry: SceneRegistry = null
@@ -9,7 +11,6 @@ var _bindings: Array = []
 var _unbound: Array = []
 var _fixture_nodes: Dictionary = {}
 var _used_universes: Dictionary = {}
-var _last_16bit_values: Dictionary = {}
 
 func configure(loader, scene_registry: SceneRegistry) -> void:
 	_loader = loader
@@ -20,7 +21,6 @@ func rebuild(universe_offset: int) -> Dictionary:
 	_unbound.clear()
 	_fixture_nodes.clear()
 	_used_universes.clear()
-	_last_16bit_values.clear()
 
 	if _loader == null or _scene_registry == null:
 		return {
@@ -107,29 +107,16 @@ func _read_control(binding: Dictionary,
 	var fine_index: int = int(binding.get(fine_key, -1))
 	if fine_index >= 0 and fine_index < frame.size():
 		var fine: int = int(frame[fine_index])
-		var fixture_uuid: String = str(binding.get("fixture_uuid", ""))
-		var state_key: String = "%s:%s" % [fixture_uuid, value_key]
-		var previous_raw: int = int(_last_16bit_values.get(state_key, -1))
-		var raw_value: int = _resolve_16bit_raw_value(coarse, fine, previous_raw)
-		_last_16bit_values[state_key] = raw_value
+		var raw_value: int = _resolve_16bit_raw_value(coarse, fine)
 		controls[has_key] = true
-		controls[value_key] = float(raw_value) / 65535.0
+		controls[value_key] = float(raw_value) / DMX_16BIT_MAX_VALUE
 		return
 
 	controls[has_key] = true
-	controls[value_key] = float(coarse) / 255.0
+	controls[value_key] = float(coarse) / DMX_8BIT_MAX_VALUE
 
-func _resolve_16bit_raw_value(coarse: int, fine: int, previous_raw: int) -> int:
-	var coarse_msb_raw: int = (coarse << 8) | fine
-	if previous_raw < 0:
-		return coarse_msb_raw
-
-	var fine_msb_raw: int = (fine << 8) | coarse
-	var coarse_msb_delta: int = abs(coarse_msb_raw - previous_raw)
-	var fine_msb_delta: int = abs(fine_msb_raw - previous_raw)
-	if fine_msb_delta < coarse_msb_delta:
-		return fine_msb_raw
-	return coarse_msb_raw
+func _resolve_16bit_raw_value(coarse: int, fine: int) -> int:
+	return (coarse << 8) | fine
 
 func get_bound_count() -> int:
 	return _fixture_nodes.size()
