@@ -692,11 +692,21 @@ void SceneObjectTablePanel::DeleteSelected()
             rows.push_back(r);
     }
     std::sort(rows.begin(), rows.end(), std::greater<int>());
+    rows.erase(std::unique(rows.begin(), rows.end()), rows.end());
+
+    std::vector<std::string> uuidsToDelete;
+    uuidsToDelete.reserve(rows.size());
+    for (int r : rows) {
+        if (r >= 0 && static_cast<size_t>(r) < rowUuids.size())
+            uuidsToDelete.push_back(rowUuids[r]);
+    }
 
     auto& scene = guiConfigServices->LegacyConfigManager().GetScene();
+    for (const auto& uuid : uuidsToDelete)
+        scene.sceneObjects.erase(uuid);
+
     for (int r : rows) {
         if ((size_t)r < rowUuids.size()) {
-            scene.sceneObjects.erase(rowUuids[r]);
             rowUuids.erase(rowUuids.begin() + r);
             table->DeleteItem(r);
         }
