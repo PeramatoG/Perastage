@@ -310,11 +310,21 @@ void consume_channel_offsets(tinyxml2::XMLElement *dmx_channel,
 
     const std::vector<tinyxml2::XMLElement *> logical_channels = collect_elements_by_name(dmx_channel, "logicalchannel");
     for (tinyxml2::XMLElement *logical_channel : logical_channels) {
+        const char *logical_attribute = logical_channel->Attribute("Attribute");
+        if (!logical_attribute) {
+            logical_attribute = logical_channel->Attribute("attribute");
+        }
+
         const std::vector<tinyxml2::XMLElement *> channel_functions = collect_elements_by_name(logical_channel, "channelfunction");
         for (tinyxml2::XMLElement *channel_function : channel_functions) {
             const char *attribute = channel_function->Attribute("Attribute");
             if (!attribute) {
                 attribute = channel_function->Attribute("attribute");
+            }
+            // According to GDTF, a ChannelFunction may omit Attribute and inherit the
+            // parent LogicalChannel attribute. Fall back to LogicalChannel here.
+            if (!attribute) {
+                attribute = logical_attribute;
             }
             if (!attribute) {
                 continue;
