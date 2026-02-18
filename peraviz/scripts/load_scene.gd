@@ -121,6 +121,10 @@ const EMITTER_CONE_NEAR_ALPHA: float = 0.16
 const EMITTER_CONE_FAR_ALPHA: float = 0.004
 const EMITTER_CONE_NEAR_EMISSION: float = 0.45
 const EMITTER_CONE_FAR_EMISSION: float = 0.04
+const EMITTER_CONE_AXIAL_FALLOFF_POWER: float = 1.85
+const EMITTER_CONE_AXIAL_NEAR_BOOST: float = 0.35
+const EMITTER_CONE_EDGE_SOFTNESS: float = 0.42
+const EMITTER_CONE_EDGE_ALPHA_FLOOR: float = 0.18
 const ENV_QUALITY_PRESET_SETTING: String = "peraviz_environment_quality"
 const ENV_QUALITY_PRESET_DEFAULT: String = "medium"
 const ENVIRONMENT_QUALITY_PRESETS := {
@@ -1622,6 +1626,10 @@ uniform float cone_height = 1.0;
 uniform float fade_end_ratio = 0.82;
 uniform float lateral_softness = 0.18;
 uniform float lateral_emission_boost = 0.2;
+uniform float axial_falloff_power = 1.85;
+uniform float axial_near_boost = 0.35;
+uniform float edge_softness = 0.42;
+uniform float edge_alpha_floor = 0.18;
 
 varying float beam_axial;
 
@@ -1631,14 +1639,16 @@ void vertex() {
 }
 
 void fragment() {
-	float near_factor = beam_axial;
+	float near_factor = pow(beam_axial, max(axial_falloff_power, 0.2));
+	near_factor = clamp(near_factor + ((1.0 - beam_axial) * clamp(axial_near_boost, 0.0, 1.0)), 0.0, 1.0);
 	float far_progress = 1.0 - beam_axial;
 	float end_fade = 1.0 - smoothstep(clamp(fade_end_ratio, 0.0, 0.99), 1.0, far_progress);
 	float view_alignment = abs(dot(normalize(NORMAL), normalize(VIEW)));
 	float lateral_fade = smoothstep(0.0, clamp(lateral_softness, 0.02, 1.0), view_alignment);
+	float softened_lateral = mix(clamp(edge_alpha_floor, 0.0, 1.0), 1.0, pow(lateral_fade, clamp(edge_softness, 0.05, 2.0)));
 	float center_boost = 1.0 + (lateral_emission_boost * lateral_fade);
 	ALBEDO = beam_color.rgb;
-	ALPHA = mix(far_alpha, near_alpha, near_factor) * end_fade * lateral_fade;
+	ALPHA = mix(far_alpha, near_alpha, near_factor) * end_fade * softened_lateral;
 	EMISSION = beam_color.rgb * (mix(far_emission, near_emission, near_factor) * end_fade * center_boost);
 }
 """
@@ -1681,6 +1691,10 @@ func _update_emitter_beam_cone(light: SpotLight3D, beam_angle: float, beam_range
 		material.set_shader_parameter("fade_end_ratio", EMITTER_CONE_FADE_END_RATIO)
 		material.set_shader_parameter("lateral_softness", 0.18)
 		material.set_shader_parameter("lateral_emission_boost", 0.2)
+		material.set_shader_parameter("axial_falloff_power", EMITTER_CONE_AXIAL_FALLOFF_POWER)
+		material.set_shader_parameter("axial_near_boost", EMITTER_CONE_AXIAL_NEAR_BOOST)
+		material.set_shader_parameter("edge_softness", EMITTER_CONE_EDGE_SOFTNESS)
+		material.set_shader_parameter("edge_alpha_floor", EMITTER_CONE_EDGE_ALPHA_FLOOR)
 
 func _apply_fixture_lens_visual_tuning(fixture_uuid: String, emitter_nodes: Array) -> void:
 	if _fixture_lens_tuned.get(fixture_uuid, false):
