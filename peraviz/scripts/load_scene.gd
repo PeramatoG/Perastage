@@ -1626,12 +1626,20 @@ uniform float cone_height = 1.0;
 uniform float fade_end_ratio = 0.82;
 uniform float lateral_softness = 0.18;
 uniform float lateral_emission_boost = 0.2;
+uniform float cone_top_radius = 0.01;
+uniform float cone_bottom_radius = 0.2;
+uniform float volumetric_center_strength = 0.65;
+uniform float volumetric_noise_strength = 0.1;
+uniform float volumetric_noise_scale = 28.0;
 
 varying float beam_axial;
+varying float beam_radial;
 
 void vertex() {
 	float normalized_y = (VERTEX.y / max(cone_height, 0.0001)) + 0.5;
 	beam_axial = clamp(normalized_y, 0.0, 1.0);
+	float radius_at_axial = mix(cone_bottom_radius, cone_top_radius, beam_axial);
+	beam_radial = clamp(length(VERTEX.xz) / max(radius_at_axial, 0.0001), 0.0, 1.0);
 }
 
 void fragment() {
@@ -1640,9 +1648,14 @@ void fragment() {
 	float end_fade = 1.0 - smoothstep(clamp(fade_end_ratio, 0.0, 0.99), 1.0, far_progress);
 	float view_alignment = abs(dot(normalize(NORMAL), normalize(VIEW)));
 	float lateral_fade = smoothstep(0.0, clamp(lateral_softness, 0.02, 1.0), view_alignment);
-	float center_boost = 1.0 + (lateral_emission_boost * lateral_fade);
+	float center_profile = 1.0 - smoothstep(0.2, 1.0, beam_radial);
+	float volumetric_center = mix(1.0, 1.0 + volumetric_center_strength, center_profile);
+	float axial_noise = sin((beam_axial * volumetric_noise_scale) + (TIME * 0.9));
+	float radial_noise = cos((beam_radial * volumetric_noise_scale * 0.75) - (TIME * 0.6));
+	float beam_noise = 1.0 + ((axial_noise * radial_noise) * volumetric_noise_strength);
+	float center_boost = (1.0 + (lateral_emission_boost * lateral_fade)) * volumetric_center * beam_noise;
 	ALBEDO = beam_color.rgb;
-	ALPHA = mix(far_alpha, near_alpha, near_factor) * end_fade * lateral_fade;
+	ALPHA = mix(far_alpha, near_alpha, near_factor) * end_fade * lateral_fade * volumetric_center;
 	EMISSION = beam_color.rgb * (mix(far_emission, near_emission, near_factor) * end_fade * center_boost);
 }
 """
@@ -1686,6 +1699,12 @@ func _update_emitter_beam_cone(light: SpotLight3D, beam_angle: float, beam_range
 		material.set_shader_parameter("fade_end_ratio", EMITTER_CONE_FADE_END_RATIO)
 		material.set_shader_parameter("lateral_softness", 0.18)
 		material.set_shader_parameter("lateral_emission_boost", 0.2)
+		if cone_mesh != null:
+			material.set_shader_parameter("cone_top_radius", cone_mesh.top_radius)
+			material.set_shader_parameter("cone_bottom_radius", cone_mesh.bottom_radius)
+		material.set_shader_parameter("volumetric_center_strength", 0.65)
+		material.set_shader_parameter("volumetric_noise_strength", 0.1)
+		material.set_shader_parameter("volumetric_noise_scale", 28.0)
 
 func _apply_fixture_lens_visual_tuning(fixture_uuid: String, emitter_nodes: Array) -> void:
 	if _fixture_lens_tuned.get(fixture_uuid, false):
