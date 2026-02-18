@@ -1550,9 +1550,11 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 	var base_light_energy: float = luminous_flux * normalized_dimmer * EMITTER_LIGHT_ENERGY_SCALE
 	light.set_meta("peraviz_base_light_energy", base_light_energy)
 	light.light_energy = base_light_energy * float(_visual_settings.get("spot_multiplier", 1.0))
+	# Godot 4.2 SpotLight3D.spot_angle is the full cone aperture in degrees.
 	light.spot_angle = beam_angle
 	light.spot_attenuation = clamp(beam_angle / field_angle, EMITTER_LIGHT_SPOT_ATTENUATION_FLOOR, EMITTER_LIGHT_SPOT_ATTENUATION_CEIL)
-	var beam_slope: float = tan(deg_to_rad(beam_angle * 1.0))
+	var beam_half_angle_deg: float = beam_angle * 0.5
+	var beam_slope: float = tan(deg_to_rad(beam_half_angle_deg))
 	var nominal_spot_range: float = beam_radius_m * EMITTER_LIGHT_RANGE_BEAM_RADIUS_MULTIPLIER * EMITTER_BEAM_LENGTH_SCALE
 	var max_spot_range_from_footprint: float = EMITTER_LIGHT_MAX_RANGE_M
 	if beam_slope > 0.0001:
@@ -1567,6 +1569,7 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 	_update_emitter_beam_cone(light, beam_angle, cone_range, light.light_color, normalized_dimmer, source_beam_radius)
 
 func _resolve_zoom_beam_limits(light: SpotLight3D, controls: Dictionary) -> Dictionary:
+	# min/max beam angles are kept as full GDTF beam apertures (not half-angle).
 	var min_beam_angle: float = EMITTER_ZOOM_DEFAULT_MIN_BEAM_ANGLE_DEG
 	var max_beam_angle: float = EMITTER_ZOOM_DEFAULT_MAX_BEAM_ANGLE_DEG
 
@@ -1661,7 +1664,8 @@ func _update_emitter_beam_cone(light: SpotLight3D, beam_angle: float, beam_range
 	var scaled_intensity: float = clamp(intensity * beam_multiplier, 0.0, 3.0)
 	var cone_mesh: CylinderMesh = cone.mesh as CylinderMesh
 	if cone_mesh != null:
-		var radius: float = tan(deg_to_rad(beam_angle * 1.0)) * beam_range
+		var beam_half_angle_deg: float = beam_angle * 0.5
+		var radius: float = tan(deg_to_rad(beam_half_angle_deg)) * beam_range
 		var lens_radius: float = max(float(light.get_meta("peraviz_lens_radius", 0.03)), 0.005)
 		if gdtf_beam_radius > 0.0:
 			lens_radius = max(gdtf_beam_radius, 0.005)
