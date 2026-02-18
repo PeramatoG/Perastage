@@ -91,6 +91,14 @@
         "file": "Q-7.gdtf",
         "mode": "6 Channel RAW"
     },
+    "Robin MMX Spot": {
+        "file": "Robin MMX Spot.gdtf",
+        "mode": "Mode 1 - Standard"
+    },
+    "Robin MMX WashBeam": {
+        "file": "Robin MMX WashBeam.gdtf",
+        "mode": "Mode 1 - Standard"
+    },
     "Robin MegaPointe": {
         "file": "Robin MegaPointe.gdtf",
         "mode": "Mode 1 - Standard 16 - bit"
