@@ -253,6 +253,7 @@ void MainWindow::SetupLayout() {
                                         .Name("Console")
                                         .Caption("Console")
                                         .Bottom()
+                                        .Layer(1)
                                         .BestSize(-1, 150)
                                         .CloseButton(true)
                                         .MaximizeButton(true)
@@ -264,6 +265,9 @@ void MainWindow::SetupLayout() {
                                       .Name("LayerPanel")
                                       .Caption("Layers")
                                       .Right()
+                                      .Layer(1)
+                                      .Row(0)
+                                      .Position(0)
                                       .BestSize(200, 300)
                                       .CloseButton(true)
                                       .MaximizeButton(true)
@@ -304,8 +308,9 @@ void MainWindow::SetupLayout() {
                                         .Name("SummaryPanel")
                                         .Caption("Summary")
                                         .Right()
-                                        .Row(1)
-                                        .Position(0)
+                                        .Layer(1)
+                                        .Row(0)
+                                        .Position(1)
                                         .BestSize(200, 150)
                                         .CloseButton(true)
                                         .MaximizeButton(true)
@@ -316,8 +321,9 @@ void MainWindow::SetupLayout() {
   auiManager->AddPane(riggingPanel, wxAuiPaneInfo()
                                         .Name("RiggingPanel")
                                         .Caption("Rigging")
-                                        .Right()
-                                        .Row(1)
+                                        .Bottom()
+                                        .Layer(1)
+                                        .Row(0)
                                         .Position(1)
                                         .BestSize(250, 200)
                                         .CloseButton(true)
@@ -511,16 +517,12 @@ void MainWindow::OnApplyDefaultLayout(wxCommandEvent &WXUNUSED(event)) {
   if (layoutModeActive)
     PersistLayout2DViewState();
   Ensure3DViewport();
-  ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
-  std::string perspective = defaultLayoutPerspective;
-  if (auto val = cfg.GetValue("layout_default"))
-    perspective = *val;
-
   const auto *preset =
       LayoutViewPresetRegistry::GetPreset("3d_layout_view");
   if (!preset)
     return;
-  ApplyLayoutPreset(*preset, std::make_optional(perspective), false, true);
+  ApplyLayoutPreset(*preset, std::make_optional(defaultLayoutPerspective),
+                    false, true);
 }
 
 void MainWindow::OnApply2DLayout(wxCommandEvent &WXUNUSED(event)) {

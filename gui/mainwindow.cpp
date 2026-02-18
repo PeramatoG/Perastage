@@ -315,12 +315,7 @@ void MainWindow::Ensure3DViewport() {
                                          .MaximizeButton(true));
   auiManager->Update();
   if (defaultLayoutPerspective.empty()) {
-    ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
     defaultLayoutPerspective = auiManager->SavePerspective().ToStdString();
-    if (!cfg.HasKey("layout_default"))
-      cfg.SetValue("layout_default", defaultLayoutPerspective);
-    else if (auto val = cfg.GetValue("layout_default"))
-      defaultLayoutPerspective = *val;
   }
 }
 
@@ -351,8 +346,9 @@ void MainWindow::Ensure2DViewport() {
                                                  .Name("2DRenderOptions")
                                                  .Caption("2D Render Options")
                                                  .Right()
-                                                 .Row(1)
-                                                 .Position(1)
+                                                 .Layer(0)
+                                                 .Row(0)
+                                                 .Position(0)
                                                  .BestSize(200, 100)
                                                  .CloseButton(true)
                                                  .MaximizeButton(true)
@@ -365,11 +361,38 @@ void MainWindow::Ensure2DViewport() {
     auto &pane3d = auiManager->GetPane("3DViewport");
     auto &pane2d = auiManager->GetPane("2DViewport");
     auto &paneRender = auiManager->GetPane("2DRenderOptions");
+    auto &paneLayers = auiManager->GetPane("LayerPanel");
+    auto &paneSummary = auiManager->GetPane("SummaryPanel");
+
+    // 2D default: keep Layers/Summary in the outer right column and place
+    // Render Options in the inner right column between viewport and side column.
+    if (paneLayers.IsOk()) {
+      paneLayers.Right().Layer(1).Row(0).Position(0);
+    }
+    if (paneSummary.IsOk()) {
+      paneSummary.Right().Layer(1).Row(0).Position(1);
+    }
+    if (paneRender.IsOk()) {
+      paneRender.Right().Layer(0).Row(0).Position(0);
+    }
+
     pane3d.Hide();
     pane2d.Show();
     paneRender.Show();
     auiManager->Update();
     default2DLayoutPerspective = auiManager->SavePerspective().ToStdString();
+
+    // Restore base (3D) side column layout: Layers above Summary.
+    if (paneLayers.IsOk()) {
+      paneLayers.Right().Layer(1).Row(0).Position(0);
+    }
+    if (paneSummary.IsOk()) {
+      paneSummary.Right().Layer(1).Row(0).Position(1);
+    }
+    if (paneRender.IsOk()) {
+      paneRender.Right().Layer(0).Row(0).Position(0);
+    }
+
     paneRender.Hide();
     pane2d.Hide();
     pane3d.Show();
