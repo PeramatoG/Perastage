@@ -252,19 +252,28 @@ ParsedAttribute parse_attribute_name(const std::string &raw_attribute) {
         parsed.byte_index = byte_index;
     } else if (starts_with_role_token(leaf, "cyan", byte_index) ||
                starts_with_role_token(leaf, "coloradd_c", byte_index) ||
+               starts_with_role_token(leaf, "coloradd_cyan", byte_index) ||
                starts_with_role_token(leaf, "colorsub_c", byte_index) ||
+               starts_with_role_token(leaf, "colorsub_cyan", byte_index) ||
+               starts_with_role_token(leaf, "colorrgb_c", byte_index) ||
                starts_with_role_token(leaf, "colorrgb_cyan", byte_index)) {
         parsed.role = AttributeRole::kCyan;
         parsed.byte_index = byte_index;
     } else if (starts_with_role_token(leaf, "magenta", byte_index) ||
                starts_with_role_token(leaf, "coloradd_m", byte_index) ||
+               starts_with_role_token(leaf, "coloradd_magenta", byte_index) ||
                starts_with_role_token(leaf, "colorsub_m", byte_index) ||
+               starts_with_role_token(leaf, "colorsub_magenta", byte_index) ||
+               starts_with_role_token(leaf, "colorrgb_m", byte_index) ||
                starts_with_role_token(leaf, "colorrgb_magenta", byte_index)) {
         parsed.role = AttributeRole::kMagenta;
         parsed.byte_index = byte_index;
     } else if (starts_with_role_token(leaf, "yellow", byte_index) ||
                starts_with_role_token(leaf, "coloradd_y", byte_index) ||
+               starts_with_role_token(leaf, "coloradd_yellow", byte_index) ||
                starts_with_role_token(leaf, "colorsub_y", byte_index) ||
+               starts_with_role_token(leaf, "colorsub_yellow", byte_index) ||
+               starts_with_role_token(leaf, "colorrgb_y", byte_index) ||
                starts_with_role_token(leaf, "colorrgb_yellow", byte_index)) {
         parsed.role = AttributeRole::kYellow;
         parsed.byte_index = byte_index;
