@@ -105,6 +105,9 @@ const EMITTER_LIGHT_MAX_RANGE_M: float = 90.0
 const EMITTER_LIGHT_RANGE_BEAM_RADIUS_MULTIPLIER: float = 320.0
 const EMITTER_LIGHT_ENERGY_SCALE: float = 0.03
 const EMITTER_LIGHT_MAX_BEAM_ANGLE_DEG: float = 45.0
+const EMITTER_ZOOM_DEFAULT_MIN_BEAM_ANGLE_DEG: float = 4.0
+const EMITTER_ZOOM_DEFAULT_MAX_BEAM_ANGLE_DEG: float = EMITTER_LIGHT_MAX_BEAM_ANGLE_DEG
+const EMITTER_ZOOM_LENS_RANGE_REFERENCE_M: float = 12.0
 const EMITTER_CONE_MAX_BASE_RADIUS_M: float = 4.0
 const EMITTER_LIGHT_MAX_FOOTPRINT_RADIUS_M: float = EMITTER_CONE_MAX_BASE_RADIUS_M
 const EMITTER_LIGHT_MIN_EFFECTIVE_RANGE_M: float = 0.75
@@ -1282,11 +1285,13 @@ func _apply_dmx_controls_to_fixture(fixture_uuid: String, controls: Dictionary) 
 		var tilt_degrees: float = lerp(tilt_min, tilt_max, clamp(float(controls.get("tilt_norm", 0.0)), 0.0, 1.0))
 		_apply_pan_tilt_components_to_fixture(fixture_uuid, has_pan, pan_degrees, has_tilt, tilt_degrees)
 
-	if controls.get("has_dimmer", false):
-		var dimmer_percent: float = clamp(float(controls.get("dimmer_norm", 0.0)), 0.0, 1.0) * 100.0
-		_apply_dimmer_feedback_to_fixture(fixture_uuid, dimmer_percent)
+	if controls.get("has_dimmer", false) or controls.get("has_zoom", false):
+		var dimmer_percent: float = float(MANUAL_DEFAULTS["dimmer"])
+		if controls.get("has_dimmer", false):
+			dimmer_percent = clamp(float(controls.get("dimmer_norm", 0.0)), 0.0, 1.0) * 100.0
+		_apply_dimmer_feedback_to_fixture(fixture_uuid, dimmer_percent, controls)
 
-func _apply_dimmer_feedback_to_fixture(fixture_uuid: String, dimmer: float) -> void:
+func _apply_dimmer_feedback_to_fixture(fixture_uuid: String, dimmer: float, controls: Dictionary = {}) -> void:
 	var geometry_nodes: Array = _to_node3d_array(_scene_registry.get_anchor(fixture_uuid, "geometry_nodes"))
 	var emitter_nodes: Array = _to_node3d_array(_scene_registry.get_anchor(fixture_uuid, "emitters"))
 	if geometry_nodes.is_empty() and emitter_nodes.is_empty():
@@ -1311,7 +1316,7 @@ func _apply_dimmer_feedback_to_fixture(fixture_uuid: String, dimmer: float) -> v
 		var photometric: Dictionary = DEFAULT_EMITTER_PHOTOMETRICS.duplicate(true)
 		if index < emitter_photometrics.size() and emitter_photometrics[index] is Dictionary:
 			photometric.merge(emitter_photometrics[index], true)
-		_apply_emitter_light_state(light, photometric, normalized_dimmer)
+		_apply_emitter_light_state(light, photometric, normalized_dimmer, controls)
 
 func _collect_fixture_emissive_materials(fixture_uuid: String, geometry_nodes: Array) -> Array:
 	if _fixture_emissive_cache.has(fixture_uuid):
@@ -1525,10 +1530,17 @@ func _extract_emitter_photometrics(item: Dictionary) -> Dictionary:
 		data["dominant_wavelength"] = float(item.get("dominant_wavelength", 0.0))
 	return data
 
-func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, normalized_dimmer: float) -> void:
+func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, normalized_dimmer: float, controls: Dictionary = {}) -> void:
 	var luminous_flux: float = max(float(photometric.get("luminous_flux", 10000.0)), 0.0)
 	var beam_angle: float = clamp(float(photometric.get("beam_angle", 25.0)), 0.1, EMITTER_LIGHT_MAX_BEAM_ANGLE_DEG)
 	var field_angle: float = clamp(float(photometric.get("field_angle", beam_angle)), beam_angle, EMITTER_LIGHT_MAX_BEAM_ANGLE_DEG)
+	if bool(controls.get("has_zoom", false)):
+		var zoom_norm: float = clamp(float(controls.get("zoom_norm", 0.0)), 0.0, 1.0)
+		var zoom_limits: Dictionary = _resolve_zoom_beam_limits(light, controls)
+		var zoom_min_angle: float = float(zoom_limits.get("min_beam_angle", EMITTER_ZOOM_DEFAULT_MIN_BEAM_ANGLE_DEG))
+		var zoom_max_angle: float = float(zoom_limits.get("max_beam_angle", EMITTER_ZOOM_DEFAULT_MAX_BEAM_ANGLE_DEG))
+		beam_angle = lerp(zoom_min_angle, zoom_max_angle, zoom_norm)
+		field_angle = max(field_angle, beam_angle)
 	var beam_radius_m: float = max(float(photometric.get("beam_radius", 0.05)), 0.001)
 
 	light.visible = normalized_dimmer > 0.0001
@@ -1550,6 +1562,31 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 	var beam_radius_from_gdtf: bool = bool(photometric.get("beam_radius_from_gdtf", false))
 	var source_beam_radius: float = beam_radius_m if beam_radius_from_gdtf else -1.0
 	_update_emitter_beam_cone(light, beam_angle, cone_range, light.light_color, normalized_dimmer, source_beam_radius)
+
+func _resolve_zoom_beam_limits(light: SpotLight3D, controls: Dictionary) -> Dictionary:
+	var min_beam_angle: float = EMITTER_ZOOM_DEFAULT_MIN_BEAM_ANGLE_DEG
+	var max_beam_angle: float = EMITTER_ZOOM_DEFAULT_MAX_BEAM_ANGLE_DEG
+
+	if bool(controls.get("has_zoom_physical_limits", false)):
+		min_beam_angle = float(controls.get("zoom_physical_min_degrees", min_beam_angle))
+		max_beam_angle = float(controls.get("zoom_physical_max_degrees", max_beam_angle))
+	else:
+		var lens_radius: float = max(float(light.get_meta("peraviz_lens_radius", 0.0)), 0.0)
+		if lens_radius > 0.0:
+			var lens_angle: float = rad_to_deg(2.0 * atan(lens_radius / EMITTER_ZOOM_LENS_RANGE_REFERENCE_M))
+			min_beam_angle = max(lens_angle, 0.1)
+
+	if max_beam_angle < min_beam_angle:
+		var swap_value: float = min_beam_angle
+		min_beam_angle = max_beam_angle
+		max_beam_angle = swap_value
+
+	min_beam_angle = clamp(min_beam_angle, 0.1, EMITTER_LIGHT_MAX_BEAM_ANGLE_DEG)
+	max_beam_angle = clamp(max_beam_angle, min_beam_angle, EMITTER_LIGHT_MAX_BEAM_ANGLE_DEG)
+	return {
+		"min_beam_angle": min_beam_angle,
+		"max_beam_angle": max_beam_angle,
+	}
 
 func _create_emitter_beam_cone() -> MeshInstance3D:
 	var cone := MeshInstance3D.new()

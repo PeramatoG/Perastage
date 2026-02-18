@@ -171,6 +171,12 @@ Dictionary PeravizLoader::build_fixture_dimmer_bindings(int universe_offset) con
         item["tilt_channel_index_0"] = binding.tilt.coarse_dmx_channel_index_0;
         item["tilt_fine_channel_index_0"] = binding.tilt.fine_dmx_channel_index_0;
         item["tilt_ultra_fine_channel_index_0"] = binding.tilt.ultra_fine_dmx_channel_index_0;
+        item["zoom_channel_index_0"] = binding.zoom.coarse_dmx_channel_index_0;
+        item["zoom_fine_channel_index_0"] = binding.zoom.fine_dmx_channel_index_0;
+        item["zoom_ultra_fine_channel_index_0"] = binding.zoom.ultra_fine_dmx_channel_index_0;
+        item["has_zoom_physical_limits"] = binding.has_zoom_physical_limits;
+        item["zoom_physical_min_degrees"] = binding.zoom_physical_min_degrees;
+        item["zoom_physical_max_degrees"] = binding.zoom_physical_max_degrees;
         item["scale"] = binding.scale;
         bindings[binding_index++] = item;
     }

@@ -26,6 +26,10 @@ struct FixtureControlBinding {
     FixtureAttributeChannel dimmer;
     FixtureAttributeChannel pan;
     FixtureAttributeChannel tilt;
+    FixtureAttributeChannel zoom;
+    bool has_zoom_physical_limits = false;
+    float zoom_physical_min_degrees = -1.0F;
+    float zoom_physical_max_degrees = -1.0F;
     float scale = 1.0F;
 };
 
@@ -49,10 +53,16 @@ struct FixtureControlOffsets {
     int tilt_coarse_offset_1_based = -1;
     int tilt_fine_offset_1_based = -1;
     int tilt_ultra_fine_offset_1_based = -1;
+    int zoom_coarse_offset_1_based = -1;
+    int zoom_fine_offset_1_based = -1;
+    int zoom_ultra_fine_offset_1_based = -1;
+    bool has_zoom_physical_limits = false;
+    float zoom_physical_min_degrees = -1.0F;
+    float zoom_physical_max_degrees = -1.0F;
 
     bool has_any() const {
         return dimmer_coarse_offset_1_based > 0 || pan_coarse_offset_1_based > 0 ||
-               tilt_coarse_offset_1_based > 0;
+               tilt_coarse_offset_1_based > 0 || zoom_coarse_offset_1_based > 0;
     }
 };
 
