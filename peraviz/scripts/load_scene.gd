@@ -1550,10 +1550,11 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 	var base_light_energy: float = luminous_flux * normalized_dimmer * EMITTER_LIGHT_ENERGY_SCALE
 	light.set_meta("peraviz_base_light_energy", base_light_energy)
 	light.light_energy = base_light_energy * float(_visual_settings.get("spot_multiplier", 1.0))
-	# Godot 4.2 SpotLight3D.spot_angle is the full cone aperture in degrees.
-	light.spot_angle = beam_angle
-	light.spot_attenuation = clamp(beam_angle / field_angle, EMITTER_LIGHT_SPOT_ATTENUATION_FLOOR, EMITTER_LIGHT_SPOT_ATTENUATION_CEIL)
 	var beam_half_angle_deg: float = beam_angle * 0.5
+	# Godot 4.2 SpotLight3D.spot_angle behaves as cone half-angle in degrees.
+	# Keep zoom/beam limits as full GDTF aperture, and convert here for light projection.
+	light.spot_angle = beam_half_angle_deg
+	light.spot_attenuation = clamp(beam_angle / field_angle, EMITTER_LIGHT_SPOT_ATTENUATION_FLOOR, EMITTER_LIGHT_SPOT_ATTENUATION_CEIL)
 	var beam_slope: float = tan(deg_to_rad(beam_half_angle_deg))
 	var nominal_spot_range: float = beam_radius_m * EMITTER_LIGHT_RANGE_BEAM_RADIUS_MULTIPLIER * EMITTER_BEAM_LENGTH_SCALE
 	var max_spot_range_from_footprint: float = EMITTER_LIGHT_MAX_RANGE_M
