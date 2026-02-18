@@ -7,6 +7,10 @@
         "file": "BLINDER 2 PRO.gdtf",
         "mode": "2ch d001"
     },
+    "BMFL WashBeam (Bulb=HTI 1700W_PS Lok-it_)": {
+        "file": "Robin BMFL WashBeam.gdtf",
+        "mode": "Mode 1 - Standard 16 bit"
+    },
     "Beam 201": {
         "file": "Sharpy.gdtf",
         "mode": "Standard"
@@ -35,13 +39,25 @@
         "file": "JDC-1.gdtf",
         "mode": "DMX Mode 1 (Compressed Pro)"
     },
+    "LED-BL4 (Bulb=LED)": {
+        "file": "BLINDER 4 PRO.gdtf",
+        "mode": "8ch A001"
+    },
     "LITELEES B-EYE L10R (LIBRERÍA K10)": {
         "file": "Aleda B-EYE K10.gdtf",
         "mode": "Shapes"
     },
+    "MAC Axiom (Bulb=Sirius HRI 440W)": {
+        "file": "MAC Axiom Hybrid.gdtf",
+        "mode": "Basic"
+    },
     "MAC Quantum Profile": {
         "file": "MAC Quantum Profile.gdtf",
         "mode": "Extended"
+    },
+    "MAC Quantum Profile (Bulb=LED)": {
+        "file": "MAC Quantum Profile.gdtf",
+        "mode": "Basic"
     },
     "MAC Quantum Wash": {
         "file": "MAC Quantum Wash.gdtf",
@@ -140,6 +156,10 @@
         "mode": "UNO"
     },
     "TOUR HAZER II": {
+        "file": "Tour Hazer II.gdtf",
+        "mode": "Default"
+    },
+    "Tour Hazer 2": {
         "file": "Tour Hazer II.gdtf",
         "mode": "Default"
     },
