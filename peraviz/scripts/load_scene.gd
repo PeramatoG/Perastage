@@ -1544,7 +1544,9 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 	var beam_radius_m: float = max(float(photometric.get("beam_radius", 0.05)), 0.001)
 
 	light.visible = normalized_dimmer > 0.0001
-	var base_light_energy: float = luminous_flux * normalized_dimmer * EMITTER_LIGHT_ENERGY_SCALE
+	var cmy_filter: Dictionary = _resolve_cmy_filter(controls)
+	var cmy_transmission: float = float(cmy_filter.get("transmission", 1.0))
+	var base_light_energy: float = luminous_flux * normalized_dimmer * EMITTER_LIGHT_ENERGY_SCALE * cmy_transmission
 	light.set_meta("peraviz_base_light_energy", base_light_energy)
 	light.light_energy = base_light_energy * float(_visual_settings.get("spot_multiplier", 1.0))
 	light.spot_angle = beam_angle
@@ -1732,10 +1734,23 @@ func _derive_emitter_color(photometric: Dictionary, controls: Dictionary = {}) -
 		var temperature_kelvin: float = clamp(float(photometric.get("color_temperature", 6000.0)), 1000.0, 40000.0)
 		base_color = _color_temperature_to_rgb(temperature_kelvin)
 
+	var cmy_filter: Dictionary = _resolve_cmy_filter(controls)
+	var filter_color: Color = cmy_filter.get("color", Color.WHITE)
+	return Color(base_color.r * filter_color.r, base_color.g * filter_color.g, base_color.b * filter_color.b, 1.0)
+
+func _resolve_cmy_filter(controls: Dictionary) -> Dictionary:
 	var cyan: float = clamp(float(controls.get("cyan_norm", 0.0)), 0.0, 1.0)
 	var magenta: float = clamp(float(controls.get("magenta_norm", 0.0)), 0.0, 1.0)
 	var yellow: float = clamp(float(controls.get("yellow_norm", 0.0)), 0.0, 1.0)
-	return Color(base_color.r * (1.0 - cyan), base_color.g * (1.0 - magenta), base_color.b * (1.0 - yellow), 1.0)
+	var filter_color := Color(1.0 - cyan, 1.0 - magenta, 1.0 - yellow, 1.0)
+	var transmission: float = clamp(_color_luminance(filter_color), 0.0, 1.0)
+	return {
+		"color": filter_color,
+		"transmission": transmission,
+	}
+
+func _color_luminance(color: Color) -> float:
+	return (0.2126 * color.r) + (0.7152 * color.g) + (0.0722 * color.b)
 
 func _color_temperature_to_rgb(temperature_kelvin: float) -> Color:
 	var t: float = temperature_kelvin / 100.0
