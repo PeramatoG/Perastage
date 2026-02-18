@@ -153,21 +153,73 @@ int parse_compact_byte_index(const std::string &lower, const std::string &role_t
         return 1;
     }
 
-    if (rest[0] == '.' || rest[0] == '_' || rest[0] == '-') {
+    if (rest[0] == '.' || rest[0] == '_' || rest[0] == '-' || rest[0] == ' ') {
         rest.erase(rest.begin());
         rest = trim_ascii(rest);
     }
 
-    if (rest.empty() ||
-        !std::all_of(rest.begin(), rest.end(), [](unsigned char ch) { return std::isdigit(ch) != 0; })) {
+    if (rest.empty()) {
+        return 1;
+    }
+
+    size_t digits_len = 0;
+    while (digits_len < rest.size() && std::isdigit(static_cast<unsigned char>(rest[digits_len])) != 0) {
+        ++digits_len;
+    }
+    if (digits_len == 0) {
         return -1;
     }
 
-    const long parsed = std::strtol(rest.c_str(), nullptr, 10);
+    const std::string suffix = trim_ascii(rest.substr(digits_len));
+    if (!suffix.empty()) {
+        return -1;
+    }
+
+    const long parsed = std::strtol(rest.substr(0, digits_len).c_str(), nullptr, 10);
     if (parsed <= 0L) {
         return -1;
     }
     return static_cast<int>(parsed);
+}
+
+std::string last_attribute_segment(const std::string &attribute) {
+    const size_t dot = attribute.find_last_of('.');
+    if (dot == std::string::npos) {
+        return attribute;
+    }
+    return trim_ascii(attribute.substr(dot + 1));
+}
+
+bool starts_with_role_token(const std::string &attribute,
+                            const std::string &role_token,
+                            int &out_byte_index) {
+    if (attribute.rfind(role_token, 0) != 0) {
+        return false;
+    }
+
+    std::string rest = trim_ascii(attribute.substr(role_token.size()));
+    while (!rest.empty() && (rest[0] == '.' || rest[0] == '_' || rest[0] == '-' || rest[0] == ' ')) {
+        rest.erase(rest.begin());
+        rest = trim_ascii(rest);
+    }
+    if (rest.empty()) {
+        out_byte_index = 1;
+        return true;
+    }
+
+    if (rest.rfind("fine", 0) == 0 || rest.rfind("lsb", 0) == 0 ||
+        rest.rfind("coarse", 0) == 0 || rest.rfind("msb", 0) == 0) {
+        out_byte_index = 1;
+        return true;
+    }
+
+    const int compact_byte_index = parse_compact_byte_index(attribute, role_token);
+    if (compact_byte_index > 0) {
+        out_byte_index = compact_byte_index;
+        return true;
+    }
+
+    return false;
 }
 
 ParsedAttribute parse_attribute_name(const std::string &raw_attribute) {
@@ -177,30 +229,19 @@ ParsedAttribute parse_attribute_name(const std::string &raw_attribute) {
         return parsed;
     }
 
-    if (lower.rfind("dimmer", 0) == 0 || lower.find("dimmer") != std::string::npos ||
-        lower.rfind("intensity", 0) == 0 || lower.find("intensity") != std::string::npos) {
+    const std::string leaf = last_attribute_segment(lower);
+
+    int byte_index = 1;
+    if (starts_with_role_token(leaf, "dimmer", byte_index) ||
+        starts_with_role_token(leaf, "intensity", byte_index)) {
         parsed.role = AttributeRole::kDimmer;
-        const int byte_index = parse_compact_byte_index(lower, "dimmer");
-        if (byte_index > 0) {
-            parsed.byte_index = byte_index;
-        } else {
-            const int intensity_byte_index = parse_compact_byte_index(lower, "intensity");
-            if (intensity_byte_index > 0) {
-                parsed.byte_index = intensity_byte_index;
-            }
-        }
-    } else if (lower.rfind("pan", 0) == 0 || lower.find(" pan") != std::string::npos) {
+        parsed.byte_index = byte_index;
+    } else if (starts_with_role_token(leaf, "pan", byte_index)) {
         parsed.role = AttributeRole::kPan;
-        const int byte_index = parse_compact_byte_index(lower, "pan");
-        if (byte_index > 0) {
-            parsed.byte_index = byte_index;
-        }
-    } else if (lower.rfind("tilt", 0) == 0 || lower.find(" tilt") != std::string::npos) {
+        parsed.byte_index = byte_index;
+    } else if (starts_with_role_token(leaf, "tilt", byte_index)) {
         parsed.role = AttributeRole::kTilt;
-        const int byte_index = parse_compact_byte_index(lower, "tilt");
-        if (byte_index > 0) {
-            parsed.byte_index = byte_index;
-        }
+        parsed.byte_index = byte_index;
     }
 
     if (parsed.role == AttributeRole::kUnknown) {
