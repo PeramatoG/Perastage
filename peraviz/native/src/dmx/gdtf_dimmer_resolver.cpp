@@ -131,6 +131,9 @@ enum class AttributeRole {
     kPan,
     kTilt,
     kZoom,
+    kCyan,
+    kMagenta,
+    kYellow,
 };
 
 struct ParsedAttribute {
@@ -246,6 +249,35 @@ ParsedAttribute parse_attribute_name(const std::string &raw_attribute) {
     } else if (starts_with_role_token(leaf, "zoom", byte_index) ||
                starts_with_role_token(leaf, "digitalzoom", byte_index)) {
         parsed.role = AttributeRole::kZoom;
+        parsed.byte_index = byte_index;
+    } else if (starts_with_role_token(leaf, "cyan", byte_index) ||
+               starts_with_role_token(leaf, "coloradd_c", byte_index) ||
+               starts_with_role_token(leaf, "coloradd_cyan", byte_index) ||
+               starts_with_role_token(leaf, "coloradd_coarse", byte_index) ||
+               starts_with_role_token(leaf, "colorsub_c", byte_index) ||
+               starts_with_role_token(leaf, "colorsub_cyan", byte_index) ||
+               starts_with_role_token(leaf, "colorsub_coarse", byte_index) ||
+               starts_with_role_token(leaf, "colorrgb_c", byte_index) ||
+               starts_with_role_token(leaf, "colorrgb_cyan", byte_index)) {
+        parsed.role = AttributeRole::kCyan;
+        parsed.byte_index = byte_index;
+    } else if (starts_with_role_token(leaf, "magenta", byte_index) ||
+               starts_with_role_token(leaf, "coloradd_m", byte_index) ||
+               starts_with_role_token(leaf, "coloradd_magenta", byte_index) ||
+               starts_with_role_token(leaf, "colorsub_m", byte_index) ||
+               starts_with_role_token(leaf, "colorsub_magenta", byte_index) ||
+               starts_with_role_token(leaf, "colorrgb_m", byte_index) ||
+               starts_with_role_token(leaf, "colorrgb_magenta", byte_index)) {
+        parsed.role = AttributeRole::kMagenta;
+        parsed.byte_index = byte_index;
+    } else if (starts_with_role_token(leaf, "yellow", byte_index) ||
+               starts_with_role_token(leaf, "coloradd_y", byte_index) ||
+               starts_with_role_token(leaf, "coloradd_yellow", byte_index) ||
+               starts_with_role_token(leaf, "colorsub_y", byte_index) ||
+               starts_with_role_token(leaf, "colorsub_yellow", byte_index) ||
+               starts_with_role_token(leaf, "colorrgb_y", byte_index) ||
+               starts_with_role_token(leaf, "colorrgb_yellow", byte_index)) {
+        parsed.role = AttributeRole::kYellow;
         parsed.byte_index = byte_index;
     }
 
@@ -413,6 +445,24 @@ void consume_channel_offsets(tinyxml2::XMLElement *dmx_channel,
                                 out_offsets.zoom_ultra_fine_offset_1_based);
                 consume_zoom_physical_range(channel_function, out_offsets);
                 break;
+            case AttributeRole::kCyan:
+                consume_offsets(offsets, parsed_attribute.is_fine, parsed_attribute.byte_index,
+                                out_offsets.cyan_coarse_offset_1_based,
+                                out_offsets.cyan_fine_offset_1_based,
+                                out_offsets.cyan_ultra_fine_offset_1_based);
+                break;
+            case AttributeRole::kMagenta:
+                consume_offsets(offsets, parsed_attribute.is_fine, parsed_attribute.byte_index,
+                                out_offsets.magenta_coarse_offset_1_based,
+                                out_offsets.magenta_fine_offset_1_based,
+                                out_offsets.magenta_ultra_fine_offset_1_based);
+                break;
+            case AttributeRole::kYellow:
+                consume_offsets(offsets, parsed_attribute.is_fine, parsed_attribute.byte_index,
+                                out_offsets.yellow_coarse_offset_1_based,
+                                out_offsets.yellow_fine_offset_1_based,
+                                out_offsets.yellow_ultra_fine_offset_1_based);
+                break;
             }
         }
     }
@@ -488,7 +538,7 @@ DimmerResolveCacheEntry resolve_uncached(const std::string &gdtf_path,
     }
 
     if (!out.offsets.has_any()) {
-        out.reason = "No Dimmer/Pan/Tilt/Zoom attributes found in mode DMX channels";
+        out.reason = "No Dimmer/Pan/Tilt/Zoom/CMY attributes found in mode DMX channels";
         return out;
     }
 

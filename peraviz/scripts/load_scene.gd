@@ -1285,7 +1285,7 @@ func _apply_dmx_controls_to_fixture(fixture_uuid: String, controls: Dictionary) 
 		var tilt_degrees: float = lerp(tilt_min, tilt_max, clamp(float(controls.get("tilt_norm", 0.0)), 0.0, 1.0))
 		_apply_pan_tilt_components_to_fixture(fixture_uuid, has_pan, pan_degrees, has_tilt, tilt_degrees)
 
-	if controls.get("has_dimmer", false) or controls.get("has_zoom", false):
+	if controls.get("has_dimmer", false) or controls.get("has_zoom", false) or controls.get("has_cyan", false) or controls.get("has_magenta", false) or controls.get("has_yellow", false):
 		var dimmer_percent: float = float(MANUAL_DEFAULTS["dimmer"])
 		if controls.get("has_dimmer", false):
 			dimmer_percent = clamp(float(controls.get("dimmer_norm", 0.0)), 0.0, 1.0) * 100.0
@@ -1558,7 +1558,7 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 	# SpotLight3D footprint follows transform by default in Godot; this extension only
 	# avoids early floor clipping on steep tilt while keeping cone visuals unchanged.
 	light.spot_range = clamp(cone_range * EMITTER_LIGHT_FOOTPRINT_RANGE_MULTIPLIER, EMITTER_LIGHT_MIN_EFFECTIVE_RANGE_M, EMITTER_LIGHT_MAX_RANGE_M)
-	light.light_color = _derive_emitter_color(photometric)
+	light.light_color = _derive_emitter_color(photometric, controls)
 	var beam_radius_from_gdtf: bool = bool(photometric.get("beam_radius_from_gdtf", false))
 	var source_beam_radius: float = beam_radius_m if beam_radius_from_gdtf else -1.0
 	_update_emitter_beam_cone(light, beam_angle, cone_range, light.light_color, normalized_dimmer, source_beam_radius)
@@ -1723,12 +1723,34 @@ func _build_lens_material_override(source: Material) -> StandardMaterial3D:
 	material.emission_energy_multiplier = 0.35
 	return material
 
-func _derive_emitter_color(photometric: Dictionary) -> Color:
-	var wavelength: float = float(photometric.get("dominant_wavelength", 0.0))
-	if wavelength > 0.0:
-		return _wavelength_to_rgb(wavelength)
-	var temperature_kelvin: float = clamp(float(photometric.get("color_temperature", 6000.0)), 1000.0, 40000.0)
-	return _color_temperature_to_rgb(temperature_kelvin)
+func _derive_emitter_color(photometric: Dictionary, controls: Dictionary = {}) -> Color:
+	var base_color: Color
+	var cmy_filter: Dictionary = _resolve_cmy_filter(controls)
+	if bool(cmy_filter.get("has_cmy", false)):
+		# CMY color-mixing fixtures are expected to start from an approximately
+		# white source. Using photometric color temperature as the base here can
+		# bias the mix (e.g. weak red output on cool bases).
+		base_color = Color.WHITE
+	else:
+		var wavelength: float = float(photometric.get("dominant_wavelength", 0.0))
+		if wavelength > 0.0:
+			base_color = _wavelength_to_rgb(wavelength)
+		else:
+			var temperature_kelvin: float = clamp(float(photometric.get("color_temperature", 6000.0)), 1000.0, 40000.0)
+			base_color = _color_temperature_to_rgb(temperature_kelvin)
+
+	var filter_color: Color = cmy_filter.get("color", Color.WHITE)
+	return Color(base_color.r * filter_color.r, base_color.g * filter_color.g, base_color.b * filter_color.b, 1.0)
+
+func _resolve_cmy_filter(controls: Dictionary) -> Dictionary:
+	var cyan: float = clamp(float(controls.get("cyan_norm", 0.0)), 0.0, 1.0)
+	var magenta: float = clamp(float(controls.get("magenta_norm", 0.0)), 0.0, 1.0)
+	var yellow: float = clamp(float(controls.get("yellow_norm", 0.0)), 0.0, 1.0)
+	var filter_color := Color(1.0 - cyan, 1.0 - magenta, 1.0 - yellow, 1.0)
+	return {
+		"color": filter_color,
+		"has_cmy": cyan > 0.0001 or magenta > 0.0001 or yellow > 0.0001,
+	}
 
 func _color_temperature_to_rgb(temperature_kelvin: float) -> Color:
 	var t: float = temperature_kelvin / 100.0
