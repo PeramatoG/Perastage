@@ -219,8 +219,12 @@ void consume_offsets(const std::vector<int> &offsets,
     }
 
     if (is_fine) {
-        if (fine <= 0 || offsets[0] < fine) {
-            fine = offsets[0];
+        const int fine_candidate = offsets.size() > 1 ? offsets[1] : offsets[0];
+        if (fine <= 0 || fine_candidate < fine) {
+            fine = fine_candidate;
+        }
+        if (offsets.size() > 2 && (ultra_fine <= 0 || offsets[2] < ultra_fine)) {
+            ultra_fine = offsets[2];
         }
         if (offsets.size() > 1 && (ultra_fine <= 0 || offsets[1] < ultra_fine)) {
             ultra_fine = offsets[1];
