@@ -58,14 +58,20 @@ FixtureBindingBuildResult build_dimmer_bindings(
             to_channel_index_0(patch, offsets.dimmer_coarse_offset_1_based);
         binding.dimmer.fine_dmx_channel_index_0 =
             to_channel_index_0(patch, offsets.dimmer_fine_offset_1_based);
+        binding.dimmer.ultra_fine_dmx_channel_index_0 =
+            to_channel_index_0(patch, offsets.dimmer_ultra_fine_offset_1_based);
         binding.pan.coarse_dmx_channel_index_0 =
             to_channel_index_0(patch, offsets.pan_coarse_offset_1_based);
         binding.pan.fine_dmx_channel_index_0 =
             to_channel_index_0(patch, offsets.pan_fine_offset_1_based);
+        binding.pan.ultra_fine_dmx_channel_index_0 =
+            to_channel_index_0(patch, offsets.pan_ultra_fine_offset_1_based);
         binding.tilt.coarse_dmx_channel_index_0 =
             to_channel_index_0(patch, offsets.tilt_coarse_offset_1_based);
         binding.tilt.fine_dmx_channel_index_0 =
             to_channel_index_0(patch, offsets.tilt_fine_offset_1_based);
+        binding.tilt.ultra_fine_dmx_channel_index_0 =
+            to_channel_index_0(patch, offsets.tilt_ultra_fine_offset_1_based);
 
         const bool has_dimmer = is_valid_channel_index(binding.dimmer.coarse_dmx_channel_index_0);
         const bool has_pan = is_valid_channel_index(binding.pan.coarse_dmx_channel_index_0);
@@ -80,13 +86,25 @@ FixtureBindingBuildResult build_dimmer_bindings(
             !is_valid_channel_index(binding.dimmer.fine_dmx_channel_index_0)) {
             binding.dimmer.fine_dmx_channel_index_0 = -1;
         }
+        if (binding.dimmer.ultra_fine_dmx_channel_index_0 >= 0 &&
+            !is_valid_channel_index(binding.dimmer.ultra_fine_dmx_channel_index_0)) {
+            binding.dimmer.ultra_fine_dmx_channel_index_0 = -1;
+        }
         if (binding.pan.fine_dmx_channel_index_0 >= 0 &&
             !is_valid_channel_index(binding.pan.fine_dmx_channel_index_0)) {
             binding.pan.fine_dmx_channel_index_0 = -1;
         }
+        if (binding.pan.ultra_fine_dmx_channel_index_0 >= 0 &&
+            !is_valid_channel_index(binding.pan.ultra_fine_dmx_channel_index_0)) {
+            binding.pan.ultra_fine_dmx_channel_index_0 = -1;
+        }
         if (binding.tilt.fine_dmx_channel_index_0 >= 0 &&
             !is_valid_channel_index(binding.tilt.fine_dmx_channel_index_0)) {
             binding.tilt.fine_dmx_channel_index_0 = -1;
+        }
+        if (binding.tilt.ultra_fine_dmx_channel_index_0 >= 0 &&
+            !is_valid_channel_index(binding.tilt.ultra_fine_dmx_channel_index_0)) {
+            binding.tilt.ultra_fine_dmx_channel_index_0 = -1;
         }
 
         result.bindings.push_back(binding);

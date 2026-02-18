@@ -5,6 +5,7 @@
 #include <cstdlib>
 #include <mutex>
 #include <sstream>
+#include <string_view>
 #include <unordered_map>
 #include <vector>
 
@@ -137,7 +138,7 @@ struct ParsedAttribute {
     bool is_fine = false;
 };
 
-int parse_trailing_number(const std::string &text) {
+int parse_trailing_number(std::string_view text) {
     if (text.empty()) {
         return -1;
     }
@@ -155,11 +156,25 @@ int parse_trailing_number(const std::string &text) {
         --begin;
     }
 
-    const std::string digits = text.substr(begin, end - begin);
-    if (digits.empty()) {
+    if (begin == end) {
         return -1;
     }
+
+    if (begin > 0) {
+        const char separator = text[begin - 1];
+        if (separator != ' ' && separator != '.' && separator != '_' && separator != '-') {
+            return -1;
+        }
+    }
+
+    const std::string digits(text.substr(begin, end - begin));
     return std::atoi(digits.c_str());
+}
+
+bool has_explicit_fine_marker(const std::string &lower) {
+    return lower.find("fine") != std::string::npos ||
+           lower.find("lsb") != std::string::npos ||
+           lower.find(" low") != std::string::npos;
 }
 
 ParsedAttribute parse_attribute_name(const std::string &raw_attribute) {
@@ -169,25 +184,26 @@ ParsedAttribute parse_attribute_name(const std::string &raw_attribute) {
         return parsed;
     }
 
-    const int trailing_number = parse_trailing_number(lower);
-    if (lower.find("fine") != std::string::npos || lower.find("lsb") != std::string::npos ||
-        lower.find(" low") != std::string::npos || trailing_number >= 2) {
-        parsed.is_fine = true;
-    }
-
     if (lower.rfind("dimmer", 0) == 0 || lower.find("dimmer") != std::string::npos) {
         parsed.role = AttributeRole::kDimmer;
-        return parsed;
-    }
-
-    if (lower.rfind("pan", 0) == 0 || lower.find(" pan") != std::string::npos) {
+    } else if (lower.rfind("pan", 0) == 0 || lower.find(" pan") != std::string::npos) {
         parsed.role = AttributeRole::kPan;
+    } else if (lower.rfind("tilt", 0) == 0 || lower.find(" tilt") != std::string::npos) {
+        parsed.role = AttributeRole::kTilt;
+    }
+
+    if (parsed.role == AttributeRole::kUnknown) {
         return parsed;
     }
 
-    if (lower.rfind("tilt", 0) == 0 || lower.find(" tilt") != std::string::npos) {
-        parsed.role = AttributeRole::kTilt;
+    if (has_explicit_fine_marker(lower)) {
+        parsed.is_fine = true;
         return parsed;
+    }
+
+    const int trailing_number = parse_trailing_number(lower);
+    if (trailing_number >= 2) {
+        parsed.is_fine = true;
     }
 
     return parsed;
@@ -196,14 +212,22 @@ ParsedAttribute parse_attribute_name(const std::string &raw_attribute) {
 void consume_offsets(const std::vector<int> &offsets,
                      bool is_fine,
                      int &coarse,
-                     int &fine) {
+                     int &fine,
+                     int &ultra_fine) {
     if (offsets.empty()) {
         return;
     }
 
     if (is_fine) {
-        if (fine <= 0 || offsets[0] < fine) {
-            fine = offsets[0];
+        const int fine_candidate = offsets.size() > 1 ? offsets[1] : offsets[0];
+        if (fine <= 0 || fine_candidate < fine) {
+            fine = fine_candidate;
+        }
+        if (offsets.size() > 2 && (ultra_fine <= 0 || offsets[2] < ultra_fine)) {
+            ultra_fine = offsets[2];
+        }
+        if (offsets.size() > 1 && (ultra_fine <= 0 || offsets[1] < ultra_fine)) {
+            ultra_fine = offsets[1];
         }
         return;
     }
@@ -213,6 +237,9 @@ void consume_offsets(const std::vector<int> &offsets,
     }
     if (offsets.size() > 1 && (fine <= 0 || offsets[1] < fine)) {
         fine = offsets[1];
+    }
+    if (offsets.size() > 2 && (ultra_fine <= 0 || offsets[2] < ultra_fine)) {
+        ultra_fine = offsets[2];
     }
 }
 
@@ -244,17 +271,20 @@ void consume_channel_offsets(tinyxml2::XMLElement *dmx_channel,
             case AttributeRole::kDimmer:
                 consume_offsets(offsets, parsed_attribute.is_fine,
                                 out_offsets.dimmer_coarse_offset_1_based,
-                                out_offsets.dimmer_fine_offset_1_based);
+                                out_offsets.dimmer_fine_offset_1_based,
+                                out_offsets.dimmer_ultra_fine_offset_1_based);
                 break;
             case AttributeRole::kPan:
                 consume_offsets(offsets, parsed_attribute.is_fine,
                                 out_offsets.pan_coarse_offset_1_based,
-                                out_offsets.pan_fine_offset_1_based);
+                                out_offsets.pan_fine_offset_1_based,
+                                out_offsets.pan_ultra_fine_offset_1_based);
                 break;
             case AttributeRole::kTilt:
                 consume_offsets(offsets, parsed_attribute.is_fine,
                                 out_offsets.tilt_coarse_offset_1_based,
-                                out_offsets.tilt_fine_offset_1_based);
+                                out_offsets.tilt_fine_offset_1_based,
+                                out_offsets.tilt_ultra_fine_offset_1_based);
                 break;
             case AttributeRole::kUnknown:
                 break;

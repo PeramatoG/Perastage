@@ -17,6 +17,7 @@ struct FixturePatch {
 struct FixtureAttributeChannel {
     int coarse_dmx_channel_index_0 = -1;
     int fine_dmx_channel_index_0 = -1;
+    int ultra_fine_dmx_channel_index_0 = -1;
 };
 
 struct FixtureControlBinding {
@@ -41,10 +42,13 @@ struct FixtureBindingBuildResult {
 struct FixtureControlOffsets {
     int dimmer_coarse_offset_1_based = -1;
     int dimmer_fine_offset_1_based = -1;
+    int dimmer_ultra_fine_offset_1_based = -1;
     int pan_coarse_offset_1_based = -1;
     int pan_fine_offset_1_based = -1;
+    int pan_ultra_fine_offset_1_based = -1;
     int tilt_coarse_offset_1_based = -1;
     int tilt_fine_offset_1_based = -1;
+    int tilt_ultra_fine_offset_1_based = -1;
 
     bool has_any() const {
         return dimmer_coarse_offset_1_based > 0 || pan_coarse_offset_1_based > 0 ||

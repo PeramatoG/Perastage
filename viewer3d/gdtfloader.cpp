@@ -447,69 +447,88 @@ static void ParseModes(tinyxml2::XMLElement* ft,
         std::vector<GdtfChannelInfo> channelsVec;
         int count = 0;
         if (tinyxml2::XMLElement* channels = m->FirstChildElement("DMXChannels")) {
+            auto trim = [](std::string& value) {
+                value.erase(0, value.find_first_not_of(" \t\r\n"));
+                value.erase(value.find_last_not_of(" \t\r\n") + 1);
+            };
+            auto parseOffsets = [&](const char* rawOffset) {
+                std::vector<int> parsedOffsets;
+                if (!rawOffset)
+                    return parsedOffsets;
+                std::string offStr = rawOffset;
+                trim(offStr);
+                if (offStr.empty() || offStr == "None")
+                    return parsedOffsets;
+                std::stringstream ss(offStr);
+                std::string token;
+                while (std::getline(ss, token, ',')) {
+                    trim(token);
+                    if (token.empty() || token == "None")
+                        continue;
+                    int parsed = 0;
+                    if (TryParseInt(token, parsed)) {
+                        parsedOffsets.push_back(parsed);
+                    } else if (ConsolePanel::Instance()) {
+                        wxString msg = wxString::Format(
+                            "GDTF: invalid DMX channel offset '%s'",
+                            wxString::FromUTF8(token));
+                        ConsolePanel::Instance()->AppendMessage(msg);
+                    }
+                }
+                return parsedOffsets;
+            };
+            auto extractFunctionName = [](tinyxml2::XMLElement* dmxChannel) {
+                if (!dmxChannel)
+                    return std::string{};
+                for (tinyxml2::XMLElement* lc = dmxChannel->FirstChildElement("LogicalChannel");
+                     lc; lc = lc->NextSiblingElement("LogicalChannel")) {
+                    for (tinyxml2::XMLElement* cf = lc->FirstChildElement("ChannelFunction");
+                         cf; cf = cf->NextSiblingElement("ChannelFunction")) {
+                        const char* attr = cf->Attribute("Attribute");
+                        if (!attr)
+                            attr = cf->Attribute("attribute");
+                        if (attr && *attr)
+                            return std::string(attr);
+                    }
+                    const char* attr = lc->Attribute("Attribute");
+                    if (!attr)
+                        attr = lc->Attribute("attribute");
+                    if (attr && *attr)
+                        return std::string(attr);
+                }
+                return std::string{};
+            };
+            auto suffixForByte = [](size_t byteIndex) {
+                if (byteIndex == 1)
+                    return std::string(" (fine)");
+                if (byteIndex == 2)
+                    return std::string(" (ultra fine)");
+                return wxString::Format(" (byte %zu)", byteIndex + 1).ToStdString();
+            };
+
             for (tinyxml2::XMLElement* c = channels->FirstChildElement("DMXChannel");
                  c; c = c->NextSiblingElement("DMXChannel"))
             {
+                const std::vector<int> offsets = parseOffsets(c->Attribute("Offset"));
+                const std::string baseFunction = extractFunctionName(c);
+
+                if (!offsets.empty()) {
+                    for (size_t i = 0; i < offsets.size(); ++i) {
+                        GdtfChannelInfo info;
+                        info.channel = offsets[i];
+                        info.function = baseFunction;
+                        if (!info.function.empty() && i > 0)
+                            info.function += suffixForByte(i);
+                        channelsVec.push_back(std::move(info));
+                        ++count;
+                    }
+                    continue;
+                }
+
                 GdtfChannelInfo info;
-                if (const char* offset = c->Attribute("Offset"))
-                {
-                    auto trim = [](std::string& value) {
-                        value.erase(0, value.find_first_not_of(" \t\r\n"));
-                        value.erase(value.find_last_not_of(" \t\r\n") + 1);
-                    };
-                    std::string offStr = offset;
-                    trim(offStr);
-                    if (!offStr.empty() && offStr != "None") {
-                        size_t comma = offStr.find(',');
-                        std::string first = offStr.substr(0, comma);
-                        trim(first);
-                        if (!first.empty() && first != "None") {
-                            if (!TryParseInt(first, info.channel) && ConsolePanel::Instance()) {
-                                wxString msg = wxString::Format(
-                                    "GDTF: invalid DMX channel offset '%s'",
-                                    wxString::FromUTF8(first));
-                                ConsolePanel::Instance()->AppendMessage(msg);
-                            }
-                        }
-                    }
-                }
-                if (info.channel == 0)
-                    info.channel = static_cast<int>(channelsVec.size()) + 1;
-
-                if (tinyxml2::XMLElement* lc = c->FirstChildElement("LogicalChannel"))
-                {
-                    if (const char* attr = lc->Attribute("Attribute"))
-                        info.function = attr;
-                }
-
-                channelsVec.push_back(info);
-
-                if (const char* offset = c->Attribute("Offset")) {
-                    auto trim = [](std::string& value) {
-                        value.erase(0, value.find_first_not_of(" \t\r\n"));
-                        value.erase(value.find_last_not_of(" \t\r\n") + 1);
-                    };
-                    std::string offStr = offset;
-                    trim(offStr);
-                    if (offStr.empty() || offStr == "None")
-                        continue;
-                    std::stringstream ss(offStr);
-                    std::string token;
-                    while (std::getline(ss, token, ',')) {
-                        trim(token);
-                        if (token.empty() || token == "None")
-                            continue;
-                        int parsed = 0;
-                        if (TryParseInt(token, parsed)) {
-                            ++count;
-                        } else if (ConsolePanel::Instance()) {
-                            wxString msg = wxString::Format(
-                                "GDTF: invalid DMX channel offset '%s'",
-                                wxString::FromUTF8(token));
-                            ConsolePanel::Instance()->AppendMessage(msg);
-                        }
-                    }
-                }
+                info.channel = static_cast<int>(channelsVec.size()) + 1;
+                info.function = baseFunction;
+                channelsVec.push_back(std::move(info));
             }
         }
 

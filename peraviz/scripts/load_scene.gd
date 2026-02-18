@@ -62,6 +62,8 @@ const MANUAL_DEFAULTS := {
 	"tilt": 0.0,
 	"dimmer": 100.0,
 }
+const DIMMER_PERCENT_MIN: float = 0.0
+const DIMMER_PERCENT_MAX: float = 100.0
 
 const DEFAULT_EMITTER_PHOTOMETRICS := {
 	"luminous_flux": 10000.0,
@@ -1054,8 +1056,10 @@ func _sync_slider_ranges_from_limits() -> void:
 	var pan_max: float = max(pan_min_input.value, pan_max_input.value)
 	var tilt_min: float = min(tilt_min_input.value, tilt_max_input.value)
 	var tilt_max: float = max(tilt_min_input.value, tilt_max_input.value)
-	var dimmer_min: float = min(dimmer_min_input.value, dimmer_max_input.value)
-	var dimmer_max: float = max(dimmer_min_input.value, dimmer_max_input.value)
+	var dimmer_min: float = DIMMER_PERCENT_MIN
+	var dimmer_max: float = DIMMER_PERCENT_MAX
+	dimmer_min_input.value = dimmer_min
+	dimmer_max_input.value = dimmer_max
 
 	pan_slider.min_value = pan_min
 	pan_slider.max_value = pan_max
@@ -1084,7 +1088,7 @@ func _store_selected_fixture_values(values: Dictionary) -> void:
 	_fixture_manual_values[_selected_fixture_uuid] = {
 		"pan": float(values.get("pan", MANUAL_DEFAULTS["pan"])),
 		"tilt": float(values.get("tilt", MANUAL_DEFAULTS["tilt"])),
-		"dimmer": float(values.get("dimmer", MANUAL_DEFAULTS["dimmer"])),
+		"dimmer": clamp(float(values.get("dimmer", MANUAL_DEFAULTS["dimmer"])), DIMMER_PERCENT_MIN, DIMMER_PERCENT_MAX),
 	}
 
 func _on_pan_slider_changed(value: float) -> void:
