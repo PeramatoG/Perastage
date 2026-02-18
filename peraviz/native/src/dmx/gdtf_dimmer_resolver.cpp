@@ -5,6 +5,7 @@
 #include <cstdlib>
 #include <mutex>
 #include <sstream>
+#include <string_view>
 #include <unordered_map>
 #include <vector>
 
@@ -137,6 +138,45 @@ struct ParsedAttribute {
     bool is_fine = false;
 };
 
+int parse_trailing_number(std::string_view text) {
+    if (text.empty()) {
+        return -1;
+    }
+
+    size_t end = text.size();
+    while (end > 0 && std::isspace(static_cast<unsigned char>(text[end - 1])) != 0) {
+        --end;
+    }
+    if (end == 0 || std::isdigit(static_cast<unsigned char>(text[end - 1])) == 0) {
+        return -1;
+    }
+
+    size_t begin = end;
+    while (begin > 0 && std::isdigit(static_cast<unsigned char>(text[begin - 1])) != 0) {
+        --begin;
+    }
+
+    if (begin == end) {
+        return -1;
+    }
+
+    if (begin > 0) {
+        const char separator = text[begin - 1];
+        if (separator != ' ' && separator != '.' && separator != '_' && separator != '-') {
+            return -1;
+        }
+    }
+
+    const std::string digits(text.substr(begin, end - begin));
+    return std::atoi(digits.c_str());
+}
+
+bool has_explicit_fine_marker(const std::string &lower) {
+    return lower.find("fine") != std::string::npos ||
+           lower.find("lsb") != std::string::npos ||
+           lower.find(" low") != std::string::npos;
+}
+
 ParsedAttribute parse_attribute_name(const std::string &raw_attribute) {
     ParsedAttribute parsed;
     const std::string lower = lower_ascii(trim_ascii(raw_attribute));
@@ -144,24 +184,26 @@ ParsedAttribute parse_attribute_name(const std::string &raw_attribute) {
         return parsed;
     }
 
-    if (lower.find("fine") != std::string::npos || lower.find("lsb") != std::string::npos ||
-        lower.find(" low") != std::string::npos) {
-        parsed.is_fine = true;
-    }
-
     if (lower.rfind("dimmer", 0) == 0 || lower.find("dimmer") != std::string::npos) {
         parsed.role = AttributeRole::kDimmer;
-        return parsed;
-    }
-
-    if (lower.rfind("pan", 0) == 0 || lower.find(" pan") != std::string::npos) {
+    } else if (lower.rfind("pan", 0) == 0 || lower.find(" pan") != std::string::npos) {
         parsed.role = AttributeRole::kPan;
+    } else if (lower.rfind("tilt", 0) == 0 || lower.find(" tilt") != std::string::npos) {
+        parsed.role = AttributeRole::kTilt;
+    }
+
+    if (parsed.role == AttributeRole::kUnknown) {
         return parsed;
     }
 
-    if (lower.rfind("tilt", 0) == 0 || lower.find(" tilt") != std::string::npos) {
-        parsed.role = AttributeRole::kTilt;
+    if (has_explicit_fine_marker(lower)) {
+        parsed.is_fine = true;
         return parsed;
+    }
+
+    const int trailing_number = parse_trailing_number(lower);
+    if (trailing_number >= 2) {
+        parsed.is_fine = true;
     }
 
     return parsed;
