@@ -103,36 +103,57 @@ func _read_control(binding: Dictionary,
 					   has_key: String,
 					   value_key: String) -> void:
 	var coarse_index: int = int(binding.get(coarse_key, -1))
-	if coarse_index < 0 or coarse_index >= frame.size():
+	if not _is_valid_channel_index(frame, coarse_index):
 		return
-	var coarse: int = int(frame[coarse_index])
 
 	var fine_index: int = int(binding.get(fine_key, -1))
 	var ultra_fine_index: int = int(binding.get(ultra_fine_key, -1))
-	if fine_index >= 0 and fine_index < frame.size() and ultra_fine_index >= 0 and ultra_fine_index < frame.size():
+	var value: Dictionary = _read_control_value(frame, coarse_index, fine_index, ultra_fine_index)
+
+	controls[has_key] = true
+	controls[value_key] = value.get("norm", 0.0)
+
+	var debug_prefix: String = value_key.trim_suffix("_norm")
+	controls["%s_raw_value" % debug_prefix] = value.get("raw", 0)
+	controls["%s_resolution_bits" % debug_prefix] = value.get("resolution_bits", 8)
+	controls["%s_bytes" % debug_prefix] = value.get("bytes", PackedInt32Array())
+
+func _read_control_value(frame: PackedByteArray,
+						 coarse_index: int,
+						 fine_index: int,
+						 ultra_fine_index: int) -> Dictionary:
+	var coarse: int = int(frame[coarse_index])
+
+	if _is_valid_channel_index(frame, fine_index) and _is_valid_channel_index(frame, ultra_fine_index):
 		var fine: int = int(frame[fine_index])
 		var ultra_fine: int = int(frame[ultra_fine_index])
 		var raw_value_24: int = _resolve_24bit_raw_value(coarse, fine, ultra_fine)
-		controls[has_key] = true
-		controls[value_key] = float(raw_value_24) / float(DMX_24BIT_STEPS - 1)
-		return
+		return {
+			"raw": raw_value_24,
+			"norm": float(raw_value_24) / float(DMX_24BIT_STEPS - 1),
+			"resolution_bits": 24,
+			"bytes": PackedInt32Array([coarse, fine, ultra_fine]),
+		}
 
-	if fine_index >= 0 and fine_index < frame.size():
+	if _is_valid_channel_index(frame, fine_index):
 		var fine: int = int(frame[fine_index])
-		var coarse_byte: int = coarse
-		var fine_byte: int = fine
-		if fine_index < coarse_index:
-			# Some profiles may report coarse/fine keys swapped.
-			# DMX 16-bit convention is MSB on the lower channel and LSB on the next one.
-			coarse_byte = fine
-			fine_byte = coarse
-		var raw_value: int = _resolve_16bit_raw_value(coarse_byte, fine_byte)
-		controls[has_key] = true
-		controls[value_key] = float(raw_value) / float(DMX_16BIT_STEPS - 1)
-		return
+		var raw_value_16: int = _resolve_16bit_raw_value(coarse, fine)
+		return {
+			"raw": raw_value_16,
+			"norm": float(raw_value_16) / float(DMX_16BIT_STEPS - 1),
+			"resolution_bits": 16,
+			"bytes": PackedInt32Array([coarse, fine]),
+		}
 
-	controls[has_key] = true
-	controls[value_key] = float(coarse) / DMX_8BIT_MAX_VALUE
+	return {
+		"raw": coarse,
+		"norm": float(coarse) / DMX_8BIT_MAX_VALUE,
+		"resolution_bits": 8,
+		"bytes": PackedInt32Array([coarse]),
+	}
+
+func _is_valid_channel_index(frame: PackedByteArray, channel_index_0: int) -> bool:
+	return channel_index_0 >= 0 and channel_index_0 < frame.size()
 
 func _resolve_16bit_raw_value(coarse: int, fine: int) -> int:
 	var safe_coarse: int = clampi(coarse, 0, int(DMX_8BIT_MAX_VALUE))
