@@ -373,9 +373,9 @@ FodyWeavers.xsd
 # Godot / Peraviz
 # ---------------------------------------------------------------------------
 
-# Godot imported assets cache (generated)
-.peraviz/.godot/
-peraviz/.godot/
+# Godot generated cache folders (keep project files versioned)
+peraviz/.godot/imported/
+peraviz/.godot/shader_cache/
 
 # Godot export presets can be kept (optional). If you don't want them versioned, uncomment:
 # peraviz/export_presets.cfg
