@@ -248,6 +248,7 @@ func _update_existing_beam_material_scalars(light: SpotLight3D) -> void:
 	var beam_multiplier: float = float(_visual_settings.get("beam_multiplier", 1.0))
 	var scaled_intensity: float = clamp(base_intensity * beam_multiplier, 0.0, 3.0)
 	_update_beam_material_scalars_for_meta(light, "peraviz_beam_cone", scaled_intensity)
+	_update_beam_material_scalars_for_meta(light, "peraviz_beam_cone_mid", scaled_intensity)
 	_update_beam_material_scalars_for_meta(light, "peraviz_beam_cone_core", scaled_intensity)
 
 func _update_beam_material_scalars_for_meta(light: SpotLight3D, cone_meta_key: String, scaled_intensity: float) -> void:
@@ -261,7 +262,10 @@ func _update_beam_material_scalars_for_meta(light: SpotLight3D, cone_meta_key: S
 		return
 	var alpha_scale: float = 1.0
 	var emission_scale: float = 1.0
-	if cone_meta_key == "peraviz_beam_cone_core":
+	if cone_meta_key == "peraviz_beam_cone_mid":
+		alpha_scale = 1.35
+		emission_scale = 1.25
+	elif cone_meta_key == "peraviz_beam_cone_core":
 		alpha_scale = 1.7
 		emission_scale = 1.5
 	material.set_shader_parameter("near_alpha", lerp(0.0, EMITTER_CONE_NEAR_ALPHA * alpha_scale, scaled_intensity))
@@ -1377,6 +1381,7 @@ func _find_or_create_emitter_light(emitter_node: Node3D) -> SpotLight3D:
 	light.spot_angle = 25.0
 	light.spot_attenuation = 1.0
 	light.set_meta("peraviz_beam_cone", _create_emitter_beam_cone())
+	light.set_meta("peraviz_beam_cone_mid", _create_emitter_beam_mid_cone())
 	light.set_meta("peraviz_beam_cone_core", _create_emitter_beam_core_cone())
 	light.set_meta("peraviz_lens_radius", lens_radius)
 	emitter_node.add_child(light)
@@ -1608,6 +1613,9 @@ func _resolve_zoom_beam_limits(light: SpotLight3D, controls: Dictionary) -> Dict
 func _create_emitter_beam_cone() -> MeshInstance3D:
 	return _create_emitter_beam_cone_with_material("PeravizBeamCone", _create_emitter_beam_material())
 
+func _create_emitter_beam_mid_cone() -> MeshInstance3D:
+	return _create_emitter_beam_cone_with_material("PeravizBeamMidCone", _create_emitter_beam_mid_material())
+
 func _create_emitter_beam_core_cone() -> MeshInstance3D:
 	return _create_emitter_beam_cone_with_material("PeravizBeamCoreCone", _create_emitter_beam_core_material())
 
@@ -1668,21 +1676,29 @@ void fragment() {
 	shader_material.shader = shader
 	return shader_material
 
+func _create_emitter_beam_mid_material() -> ShaderMaterial:
+	return _create_emitter_beam_material()
+
 func _create_emitter_beam_core_material() -> ShaderMaterial:
 	return _create_emitter_beam_material()
 
 func _update_emitter_beam_cone(light: SpotLight3D, beam_angle: float, beam_range: float, beam_color: Color, normalized_dimmer: float, gdtf_beam_radius: float = -1.0) -> void:
 	if not light.has_meta("peraviz_beam_cone"):
 		light.set_meta("peraviz_beam_cone", _create_emitter_beam_cone())
+	if not light.has_meta("peraviz_beam_cone_mid"):
+		light.set_meta("peraviz_beam_cone_mid", _create_emitter_beam_mid_cone())
 	if not light.has_meta("peraviz_beam_cone_core"):
 		light.set_meta("peraviz_beam_cone_core", _create_emitter_beam_core_cone())
 
 	var cone: MeshInstance3D = light.get_meta("peraviz_beam_cone") as MeshInstance3D
+	var mid_cone: MeshInstance3D = light.get_meta("peraviz_beam_cone_mid") as MeshInstance3D
 	var core_cone: MeshInstance3D = light.get_meta("peraviz_beam_cone_core") as MeshInstance3D
-	if cone == null and core_cone == null:
+	if cone == null and mid_cone == null and core_cone == null:
 		return
 	if cone != null and cone.get_parent() == null:
 		light.add_child(cone)
+	if mid_cone != null and mid_cone.get_parent() == null:
+		light.add_child(mid_cone)
 	if core_cone != null and core_cone.get_parent() == null:
 		light.add_child(core_cone)
 
@@ -1691,6 +1707,8 @@ func _update_emitter_beam_cone(light: SpotLight3D, beam_angle: float, beam_range
 	var is_visible: bool = intensity > 0.015
 	if cone != null:
 		cone.visible = is_visible
+	if mid_cone != null:
+		mid_cone.visible = is_visible
 	if core_cone != null:
 		core_cone.visible = is_visible
 
@@ -1704,10 +1722,12 @@ func _update_emitter_beam_cone(light: SpotLight3D, beam_angle: float, beam_range
 	var bottom_radius: float = clamp(radius, 0.03, EMITTER_CONE_MAX_BASE_RADIUS_M)
 
 	_update_beam_cone_geometry(cone, lens_radius, bottom_radius, beam_range, 1.0)
+	_update_beam_cone_geometry(mid_cone, lens_radius, bottom_radius, beam_range, 0.7)
 	_update_beam_cone_geometry(core_cone, lens_radius, bottom_radius, beam_range, 0.45)
 
 	var beam_color_with_alpha := Color(beam_color.r, beam_color.g, beam_color.b, 1.0)
-	_update_beam_cone_material(cone, beam_color_with_alpha, scaled_intensity, beam_range, 0.18, 0.2, 0.08, 1.0, 1.0)
+	_update_beam_cone_material(cone, beam_color_with_alpha, scaled_intensity, beam_range, 0.35, 0.16, 0.06, 1.0, 1.0)
+	_update_beam_cone_material(mid_cone, beam_color_with_alpha, scaled_intensity, beam_range, 0.18, 0.26, 0.04, 1.35, 1.25)
 	_update_beam_cone_material(core_cone, beam_color_with_alpha, scaled_intensity, beam_range, 0.09, 0.35, 0.02, 1.7, 1.5)
 
 func _update_beam_cone_geometry(cone: MeshInstance3D, lens_radius: float, bottom_radius: float, beam_range: float, radius_scale: float) -> void:
