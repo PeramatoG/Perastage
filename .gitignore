@@ -396,3 +396,4 @@ peraviz/native/**/build/
 *.so
 *.dylib
 /peraviz/docs/Capture_Demo.mvr
+/peraviz/.godot/global_script_class_cache.cfg
