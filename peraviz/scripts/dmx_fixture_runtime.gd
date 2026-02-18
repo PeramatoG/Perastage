@@ -108,7 +108,14 @@ func _read_control(binding: Dictionary,
 	var fine_index: int = int(binding.get(fine_key, -1))
 	if fine_index >= 0 and fine_index < frame.size():
 		var fine: int = int(frame[fine_index])
-		var raw_value: int = _resolve_16bit_raw_value(coarse, fine)
+		var coarse_byte: int = coarse
+		var fine_byte: int = fine
+		if fine_index < coarse_index:
+			# Some profiles may report coarse/fine keys swapped.
+			# DMX 16-bit convention is MSB on the lower channel and LSB on the next one.
+			coarse_byte = fine
+			fine_byte = coarse
+		var raw_value: int = _resolve_16bit_raw_value(coarse_byte, fine_byte)
 		controls[has_key] = true
 		controls[value_key] = float(raw_value) / float(DMX_16BIT_STEPS - 1)
 		return
