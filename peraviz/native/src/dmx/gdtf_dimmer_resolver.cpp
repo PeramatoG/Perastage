@@ -177,11 +177,17 @@ ParsedAttribute parse_attribute_name(const std::string &raw_attribute) {
         return parsed;
     }
 
-    if (lower.rfind("dimmer", 0) == 0 || lower.find("dimmer") != std::string::npos) {
+    if (lower.rfind("dimmer", 0) == 0 || lower.find("dimmer") != std::string::npos ||
+        lower.rfind("intensity", 0) == 0 || lower.find("intensity") != std::string::npos) {
         parsed.role = AttributeRole::kDimmer;
         const int byte_index = parse_compact_byte_index(lower, "dimmer");
         if (byte_index > 0) {
             parsed.byte_index = byte_index;
+        } else {
+            const int intensity_byte_index = parse_compact_byte_index(lower, "intensity");
+            if (intensity_byte_index > 0) {
+                parsed.byte_index = intensity_byte_index;
+            }
         }
     } else if (lower.rfind("pan", 0) == 0 || lower.find(" pan") != std::string::npos) {
         parsed.role = AttributeRole::kPan;
