@@ -2,10 +2,11 @@
   "configurations": [
     {
       "inheritEnvironments": [
-        "msvc_x86"
+        "msvc_x64_x64"
       ],
-      "name": "x86-Debug",
+      "name": "x64-Debug",
       "includePath": [
+        "C:/vcpkg/installed/x64-windows/include",
         "${env.VCPKG_ROOT}\\installed\\x64-windows\\include",
         "${env.INCLUDE}",
         "${workspaceRoot}\\**"
@@ -16,7 +17,8 @@
         "UNICODE",
         "_UNICODE"
       ],
-      "intelliSenseMode": "windows-msvc-x86"
+      "intelliSenseMode": "windows-msvc-x64",
+      "cppStandard": "c++20"
     }
   ]
 }
