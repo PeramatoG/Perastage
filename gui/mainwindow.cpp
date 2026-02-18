@@ -315,12 +315,7 @@ void MainWindow::Ensure3DViewport() {
                                          .MaximizeButton(true));
   auiManager->Update();
   if (defaultLayoutPerspective.empty()) {
-    ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
     defaultLayoutPerspective = auiManager->SavePerspective().ToStdString();
-    if (!cfg.HasKey("layout_default"))
-      cfg.SetValue("layout_default", defaultLayoutPerspective);
-    else if (auto val = cfg.GetValue("layout_default"))
-      defaultLayoutPerspective = *val;
   }
 }
 
@@ -351,8 +346,9 @@ void MainWindow::Ensure2DViewport() {
                                                  .Name("2DRenderOptions")
                                                  .Caption("2D Render Options")
                                                  .Right()
-                                                 .Row(1)
-                                                 .Position(1)
+                                                 .Layer(0)
+                                                 .Row(0)
+                                                 .Position(0)
                                                  .BestSize(200, 100)
                                                  .CloseButton(true)
                                                  .MaximizeButton(true)
