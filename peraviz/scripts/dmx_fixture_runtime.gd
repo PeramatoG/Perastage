@@ -3,7 +3,8 @@ class_name DmxFixtureRuntime
 
 const MAX_UNBOUND_PREVIEW: int = 8
 const DMX_8BIT_MAX_VALUE: float = 255.0
-const DMX_16BIT_MAX_VALUE: float = 65535.0
+const DMX_8BIT_STEPS: int = 256
+const DMX_16BIT_STEPS: int = 65536
 
 var _loader = null
 var _scene_registry: SceneRegistry = null
@@ -109,14 +110,16 @@ func _read_control(binding: Dictionary,
 		var fine: int = int(frame[fine_index])
 		var raw_value: int = _resolve_16bit_raw_value(coarse, fine)
 		controls[has_key] = true
-		controls[value_key] = float(raw_value) / DMX_16BIT_MAX_VALUE
+		controls[value_key] = float(raw_value) / float(DMX_16BIT_STEPS - 1)
 		return
 
 	controls[has_key] = true
 	controls[value_key] = float(coarse) / DMX_8BIT_MAX_VALUE
 
 func _resolve_16bit_raw_value(coarse: int, fine: int) -> int:
-	return (coarse << 8) | fine
+	var safe_coarse: int = clampi(coarse, 0, int(DMX_8BIT_MAX_VALUE))
+	var safe_fine: int = clampi(fine, 0, int(DMX_8BIT_MAX_VALUE))
+	return (safe_coarse * DMX_8BIT_STEPS) + safe_fine
 
 func get_bound_count() -> int:
 	return _fixture_nodes.size()
