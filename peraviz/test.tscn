@@ -1,18 +1,8 @@
-[gd_scene format=3]
+[gd_scene format=3 uid="uid://wop2f3cal2wu"]
 
-[ext_resource type="Script" path="res://scripts/load_scene.gd" id="1_script"]
-[ext_resource type="Script" path="res://scripts/editor_camera.gd" id="2_camera_script"]
-[ext_resource type="Script" path="res://scripts/visual_settings_window.gd" id="3_visual_settings"]
-
-[sub_resource type="PlaneMesh" id="PlaneMesh_ground"]
-size = Vector2(100, 100)
-
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_ground"]
-albedo_color = Color(0.45, 0.45, 0.45, 1)
-metallic_specular = 0.45
-roughness = 0.78
-uv1_scale = Vector3(30, 30, 30)
-disable_receive_shadows = false
+[ext_resource type="Script" uid="uid://dk2vq6261dj54" path="res://scripts/load_scene.gd" id="1_script"]
+[ext_resource type="Script" uid="uid://c1syjijru4ah" path="res://scripts/editor_camera.gd" id="2_camera_script"]
+[ext_resource type="Script" uid="uid://bq8n5oubm8j8u" path="res://scripts/visual_settings_window.gd" id="3_visual_settings"]
 
 [sub_resource type="Environment" id="Environment_viewer"]
 background_mode = 1
@@ -21,211 +11,226 @@ ambient_light_source = 2
 ambient_light_color = Color(0.176471, 0.188235, 0.211765, 1)
 ambient_light_energy = 0.2
 tonemap_mode = 3
-tonemap_exposure = 1.0
 tonemap_white = 8.0
-auto_exposure_enabled = false
-adjustment_enabled = true
-adjustment_contrast = 1.05
-adjustment_saturation = 1.05
 ssao_enabled = true
 ssao_radius = 0.7
 ssao_intensity = 0.35
 glow_enabled = true
-glow_bloom = 0.05
 glow_intensity = 0.55
 glow_strength = 0.55
-dof_blur_far_enabled = false
-dof_blur_near_enabled = false
+glow_bloom = 0.05
+adjustment_enabled = true
+adjustment_contrast = 1.05
+adjustment_saturation = 1.05
 
-[node name="Viewer" type="Node3D"]
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_ground"]
+albedo_color = Color(0.45, 0.45, 0.45, 1)
+metallic_specular = 0.45
+roughness = 0.78
+uv1_scale = Vector3(30, 30, 30)
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_ground"]
+size = Vector2(100, 100)
+
+[node name="Viewer" type="Node3D" unique_id=701090577]
 script = ExtResource("1_script")
 
-[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+[node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=1959411403]
 environment = SubResource("Environment_viewer")
 
-[node name="Camera3D" type="Camera3D" parent="."]
-script = ExtResource("2_camera_script")
-transform = Transform3D(0.788011, 0, -0.615661, -0.169148, 0.961262, -0.216548, 0.592149, 0.275637, 0.759504, 24, 18, 24)
-rotation_degrees = Vector3(-16, 39, 0)
+[node name="Camera3D" type="Camera3D" parent="." unique_id=1059354866]
+transform = Transform3D(0.77722865, -0.17346422, 0.6057812, 0, 0.9612618, 0.27601993, -0.6293874, -0.21421048, 0.7480775, 24, 18, 24)
 current = true
+script = ExtResource("2_camera_script")
 
-[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
-rotation_degrees = Vector3(-52, 32, 0)
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="." unique_id=426373555]
+transform = Transform3D(0.8480481, -0.41758206, 0.32625088, 0, 0.6156615, 0.7880107, -0.52991927, -0.668271, 0.5221106, 0, 0, 0)
+light_angular_distance = 0.35
 shadow_enabled = true
-directional_shadow_mode = 2
-directional_shadow_blend_splits = true
-directional_shadow_split_1 = 0.08
-directional_shadow_split_2 = 0.2
-directional_shadow_split_3 = 0.45
-directional_shadow_fade_start = 0.85
-directional_shadow_max_distance = 72.0
 shadow_bias = 0.015
 shadow_normal_bias = 0.7
-light_angular_distance = 0.35
+directional_shadow_split_1 = 0.08
+directional_shadow_split_3 = 0.45
+directional_shadow_blend_splits = true
+directional_shadow_fade_start = 0.85
+directional_shadow_max_distance = 72.0
 
-[node name="Ground" type="MeshInstance3D" parent="."]
-mesh = SubResource("PlaneMesh_ground")
+[node name="Ground" type="MeshInstance3D" parent="." unique_id=168744331]
 material_override = SubResource("StandardMaterial3D_ground")
-cast_shadow = 1
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)
+mesh = SubResource("PlaneMesh_ground")
 
-[node name="Proxies" type="Node3D" parent="."]
+[node name="Proxies" type="Node3D" parent="." unique_id=747662263]
 
-[node name="HUD" type="CanvasLayer" parent="."]
+[node name="HUD" type="CanvasLayer" parent="." unique_id=1180011651]
 
-[node name="LoadButton" type="Button" parent="HUD"]
-offset_left = 12.0
-offset_top = 12.0
-offset_right = 160.0
-offset_bottom = 44.0
+[node name="LoadButton" type="Button" parent="HUD" unique_id=788175590]
+offset_left = 16.0
+offset_top = 16.0
+offset_right = 164.0
+offset_bottom = 48.0
+size_flags_horizontal = 8
+size_flags_vertical = 8
 text = "Load MVR"
 
-[node name="StatusLabel" type="Label" parent="HUD"]
-offset_left = 12.0
-offset_top = 52.0
-offset_right = 600.0
-offset_bottom = 80.0
+[node name="StatusLabel" type="Label" parent="HUD" unique_id=496411274]
+offset_left = 544.0
+offset_top = 600.0
+offset_right = 1132.0
+offset_bottom = 628.0
 text = "Status"
+horizontal_alignment = 2
 
-[node name="ManualFixtureToggle" type="CheckButton" parent="HUD"]
-offset_left = 180.0
-offset_top = 12.0
-offset_right = 430.0
-offset_bottom = 44.0
+[node name="ManualFixtureToggle" type="CheckButton" parent="HUD" unique_id=1323885867]
+offset_left = 24.0
+offset_top = 48.0
+offset_right = 274.0
+offset_bottom = 80.0
 text = "Manual fixture test"
 
-[node name="VisualSettingsButton" type="Button" parent="HUD"]
-offset_left = 440.0
-offset_top = 12.0
-offset_right = 620.0
-offset_bottom = 44.0
+[node name="VisualSettingsButton" type="Button" parent="HUD" unique_id=1846608382]
+offset_left = 176.0
+offset_top = 16.0
+offset_right = 356.0
+offset_bottom = 48.0
+size_flags_horizontal = 8
+size_flags_vertical = 8
 text = "Visual settings"
 
-[node name="VisualSettingsWindow" type="Window" parent="HUD"]
+[node name="VisualSettingsWindow" type="Window" parent="HUD" unique_id=362544277]
+oversampling_override = 1.0
+mode = 1
+position = Vector2i(723, 216)
+size = Vector2i(377, 161)
 script = ExtResource("3_visual_settings")
 
-[node name="FixtureDebugPanel" type="PanelContainer" parent="HUD"]
+[node name="FixtureDebugPanel" type="PanelContainer" parent="HUD" unique_id=876760691]
 visible = false
 offset_left = 12.0
 offset_top = 92.0
 offset_right = 360.0
 offset_bottom = 380.0
 
-[node name="Margin" type="MarginContainer" parent="HUD/FixtureDebugPanel"]
+[node name="Margin" type="MarginContainer" parent="HUD/FixtureDebugPanel" unique_id=12487456]
+layout_mode = 2
 theme_override_constants/margin_left = 8
 theme_override_constants/margin_top = 8
 theme_override_constants/margin_right = 8
 theme_override_constants/margin_bottom = 8
 
-[node name="VBox" type="VBoxContainer" parent="HUD/FixtureDebugPanel/Margin"]
+[node name="VBox" type="VBoxContainer" parent="HUD/FixtureDebugPanel/Margin" unique_id=2055359984]
+layout_mode = 2
 
-[node name="DebugTitle" type="Label" parent="HUD/FixtureDebugPanel/Margin/VBox"]
+[node name="DebugTitle" type="Label" parent="HUD/FixtureDebugPanel/Margin/VBox" unique_id=1787848800]
+layout_mode = 2
 text = "Fixture Test Debug"
 
-[node name="SelectedFixtureLabel" type="Label" parent="HUD/FixtureDebugPanel/Margin/VBox"]
+[node name="SelectedFixtureLabel" type="Label" parent="HUD/FixtureDebugPanel/Margin/VBox" unique_id=673346627]
+layout_mode = 2
 text = "Selected fixture: <none>"
 
-[node name="AxisAnchorsLabel" type="Label" parent="HUD/FixtureDebugPanel/Margin/VBox"]
+[node name="AxisAnchorsLabel" type="Label" parent="HUD/FixtureDebugPanel/Margin/VBox" unique_id=2044624671]
+layout_mode = 2
 text = "Axis anchors: 0"
 
-[node name="EmitterAnchorsLabel" type="Label" parent="HUD/FixtureDebugPanel/Margin/VBox"]
+[node name="EmitterAnchorsLabel" type="Label" parent="HUD/FixtureDebugPanel/Margin/VBox" unique_id=2018033234]
+layout_mode = 2
 text = "Emitter anchors: 0"
 
-[node name="ControlLimitsLabel" type="Label" parent="HUD/FixtureDebugPanel/Margin/VBox"]
+[node name="ControlLimitsLabel" type="Label" parent="HUD/FixtureDebugPanel/Margin/VBox" unique_id=94290169]
+layout_mode = 2
 text = "Test limits (Pan/Tilt/Dimmer)"
 
-[node name="LimitsGrid" type="GridContainer" parent="HUD/FixtureDebugPanel/Margin/VBox"]
+[node name="LimitsGrid" type="GridContainer" parent="HUD/FixtureDebugPanel/Margin/VBox" unique_id=1903357191]
+layout_mode = 2
 columns = 3
 
-[node name="PanMin" type="SpinBox" parent="HUD/FixtureDebugPanel/Margin/VBox/LimitsGrid"]
+[node name="PanMin" type="SpinBox" parent="HUD/FixtureDebugPanel/Margin/VBox/LimitsGrid" unique_id=1517741601]
 custom_minimum_size = Vector2(80, 0)
+layout_mode = 2
 min_value = -720.0
 max_value = 720.0
 value = -270.0
 suffix = "°"
 
-[node name="PanMax" type="SpinBox" parent="HUD/FixtureDebugPanel/Margin/VBox/LimitsGrid"]
+[node name="PanMax" type="SpinBox" parent="HUD/FixtureDebugPanel/Margin/VBox/LimitsGrid" unique_id=2143963791]
 custom_minimum_size = Vector2(80, 0)
+layout_mode = 2
 min_value = -720.0
 max_value = 720.0
 value = 270.0
 suffix = "°"
 
-[node name="PanValue" type="SpinBox" parent="HUD/FixtureDebugPanel/Margin/VBox/LimitsGrid"]
+[node name="PanValue" type="SpinBox" parent="HUD/FixtureDebugPanel/Margin/VBox/LimitsGrid" unique_id=746740405]
 custom_minimum_size = Vector2(80, 0)
+layout_mode = 2
 min_value = -720.0
 max_value = 720.0
-value = 0.0
 suffix = "°"
 
-[node name="TiltMin" type="SpinBox" parent="HUD/FixtureDebugPanel/Margin/VBox/LimitsGrid"]
+[node name="TiltMin" type="SpinBox" parent="HUD/FixtureDebugPanel/Margin/VBox/LimitsGrid" unique_id=1938060436]
 custom_minimum_size = Vector2(80, 0)
+layout_mode = 2
 min_value = -720.0
 max_value = 720.0
 value = -135.0
 suffix = "°"
 
-[node name="TiltMax" type="SpinBox" parent="HUD/FixtureDebugPanel/Margin/VBox/LimitsGrid"]
+[node name="TiltMax" type="SpinBox" parent="HUD/FixtureDebugPanel/Margin/VBox/LimitsGrid" unique_id=102676363]
 custom_minimum_size = Vector2(80, 0)
+layout_mode = 2
 min_value = -720.0
 max_value = 720.0
 value = 135.0
 suffix = "°"
 
-[node name="TiltValue" type="SpinBox" parent="HUD/FixtureDebugPanel/Margin/VBox/LimitsGrid"]
+[node name="TiltValue" type="SpinBox" parent="HUD/FixtureDebugPanel/Margin/VBox/LimitsGrid" unique_id=1978744316]
 custom_minimum_size = Vector2(80, 0)
+layout_mode = 2
 min_value = -720.0
 max_value = 720.0
-value = 0.0
 suffix = "°"
 
-[node name="DimmerMin" type="SpinBox" parent="HUD/FixtureDebugPanel/Margin/VBox/LimitsGrid"]
+[node name="DimmerMin" type="SpinBox" parent="HUD/FixtureDebugPanel/Margin/VBox/LimitsGrid" unique_id=1339851247]
 custom_minimum_size = Vector2(80, 0)
-min_value = 0.0
-max_value = 100.0
-value = 0.0
-step = 1.0
+layout_mode = 2
 
-[node name="DimmerMax" type="SpinBox" parent="HUD/FixtureDebugPanel/Margin/VBox/LimitsGrid"]
+[node name="DimmerMax" type="SpinBox" parent="HUD/FixtureDebugPanel/Margin/VBox/LimitsGrid" unique_id=1145489119]
 custom_minimum_size = Vector2(80, 0)
-min_value = 0.0
-max_value = 100.0
+layout_mode = 2
 value = 100.0
-step = 1.0
 
-[node name="DimmerValue" type="SpinBox" parent="HUD/FixtureDebugPanel/Margin/VBox/LimitsGrid"]
+[node name="DimmerValue" type="SpinBox" parent="HUD/FixtureDebugPanel/Margin/VBox/LimitsGrid" unique_id=1339016213]
 custom_minimum_size = Vector2(80, 0)
-min_value = 0.0
-max_value = 100.0
+layout_mode = 2
 value = 100.0
-step = 1.0
 
-[node name="PanSlider" type="HSlider" parent="HUD/FixtureDebugPanel/Margin/VBox"]
+[node name="PanSlider" type="HSlider" parent="HUD/FixtureDebugPanel/Margin/VBox" unique_id=79651204]
+layout_mode = 2
 min_value = -270.0
 max_value = 270.0
-value = 0.0
 
-[node name="TiltSlider" type="HSlider" parent="HUD/FixtureDebugPanel/Margin/VBox"]
+[node name="TiltSlider" type="HSlider" parent="HUD/FixtureDebugPanel/Margin/VBox" unique_id=1046553958]
+layout_mode = 2
 min_value = -135.0
 max_value = 135.0
-value = 0.0
 
-[node name="DimmerSlider" type="HSlider" parent="HUD/FixtureDebugPanel/Margin/VBox"]
-min_value = 0.0
-max_value = 100.0
+[node name="DimmerSlider" type="HSlider" parent="HUD/FixtureDebugPanel/Margin/VBox" unique_id=835185574]
+layout_mode = 2
 value = 100.0
-step = 1.0
 
-[node name="QuickResetButton" type="Button" parent="HUD/FixtureDebugPanel/Margin/VBox"]
+[node name="QuickResetButton" type="Button" parent="HUD/FixtureDebugPanel/Margin/VBox" unique_id=306389611]
+layout_mode = 2
 text = "Reset Pan/Tilt/Dimmer"
 
-[node name="FixtureListLabel" type="Label" parent="HUD/FixtureDebugPanel/Margin/VBox"]
+[node name="FixtureListLabel" type="Label" parent="HUD/FixtureDebugPanel/Margin/VBox" unique_id=1304235882]
+layout_mode = 2
 text = "Fixtures by UUID"
 
-[node name="FixtureList" type="ItemList" parent="HUD/FixtureDebugPanel/Margin/VBox"]
+[node name="FixtureList" type="ItemList" parent="HUD/FixtureDebugPanel/Margin/VBox" unique_id=841801337]
 custom_minimum_size = Vector2(0, 180)
-select_mode = 0
+layout_mode = 2
 
-[node name="FileDialog" type="FileDialog" parent="HUD"]
+[node name="FileDialog" type="FileDialog" parent="HUD" unique_id=2124310720]
+title = "Open a File"
 file_mode = 0
 filters = PackedStringArray("*.mvr ; MVR")
