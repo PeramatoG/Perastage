@@ -73,10 +73,17 @@ size_flags_vertical = 8
 text = "Load MVR"
 
 [node name="StatusLabel" type="Label" parent="HUD" unique_id=496411274]
-offset_left = 544.0
-offset_top = 600.0
-offset_right = 1132.0
-offset_bottom = 628.0
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -608.0
+offset_top = -48.0
+offset_right = -20.0
+offset_bottom = -20.0
+grow_horizontal = 0
+grow_vertical = 0
 text = "Status"
 horizontal_alignment = 2
 
@@ -99,7 +106,7 @@ text = "Visual settings"
 [node name="VisualSettingsWindow" type="Window" parent="HUD" unique_id=362544277]
 oversampling_override = 1.0
 mode = 1
-position = Vector2i(723, 216)
+position = Vector2i(240, 216)
 size = Vector2i(377, 161)
 script = ExtResource("3_visual_settings")
 
