@@ -364,16 +364,16 @@ void MainWindow::Ensure2DViewport() {
     auto &paneLayers = auiManager->GetPane("LayerPanel");
     auto &paneSummary = auiManager->GetPane("SummaryPanel");
 
-    // 2D default: keep Layers in the outer right column, move Render Options
-    // below Layers, and place Summary in the inner right column.
+    // 2D default: keep Layers/Summary in the outer right column and place
+    // Render Options in the inner right column between viewport and side column.
     if (paneLayers.IsOk()) {
       paneLayers.Right().Layer(1).Row(0).Position(0);
     }
-    if (paneRender.IsOk()) {
-      paneRender.Right().Layer(1).Row(0).Position(1);
-    }
     if (paneSummary.IsOk()) {
-      paneSummary.Right().Layer(0).Row(0).Position(0);
+      paneSummary.Right().Layer(1).Row(0).Position(1);
+    }
+    if (paneRender.IsOk()) {
+      paneRender.Right().Layer(0).Row(0).Position(0);
     }
 
     pane3d.Hide();
