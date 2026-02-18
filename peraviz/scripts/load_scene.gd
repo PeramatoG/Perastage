@@ -100,10 +100,10 @@ const DOUBLE_SIDED_MATERIAL_HINTS: Array[String] = [
 	"lens", "glass", "visor", "fabric", "cloth", "curtain", "thin", "plane"
 ]
 const IMPORTED_CONTENT_SCALE: float = 1.0
-const EMITTER_LIGHT_MIN_RANGE_M: float = 8.0
-const EMITTER_LIGHT_MAX_RANGE_M: float = 90.0
-const EMITTER_LIGHT_RANGE_BEAM_RADIUS_MULTIPLIER: float = 320.0
-const EMITTER_LIGHT_ENERGY_SCALE: float = 0.03
+const EMITTER_LIGHT_MIN_RANGE_M: float = 12.0
+const EMITTER_LIGHT_MAX_RANGE_M: float = 120.0
+const EMITTER_LIGHT_RANGE_BEAM_RADIUS_MULTIPLIER: float = 420.0
+const EMITTER_LIGHT_ENERGY_SCALE: float = 0.018
 const EMITTER_LIGHT_MAX_BEAM_ANGLE_DEG: float = 45.0
 const EMITTER_ZOOM_DEFAULT_MIN_BEAM_ANGLE_DEG: float = 4.0
 const EMITTER_ZOOM_DEFAULT_MAX_BEAM_ANGLE_DEG: float = EMITTER_LIGHT_MAX_BEAM_ANGLE_DEG
@@ -112,7 +112,9 @@ const EMITTER_CONE_MAX_BASE_RADIUS_M: float = 4.0
 const EMITTER_LIGHT_MAX_FOOTPRINT_RADIUS_M: float = EMITTER_CONE_MAX_BASE_RADIUS_M
 const EMITTER_LIGHT_MIN_EFFECTIVE_RANGE_M: float = 0.75
 const EMITTER_BEAM_LENGTH_SCALE: float = 2.0
-const EMITTER_LIGHT_FOOTPRINT_RANGE_MULTIPLIER: float = 2.0
+const EMITTER_LIGHT_FOOTPRINT_RANGE_MULTIPLIER: float = 1.08
+const EMITTER_LIGHT_SPOT_ATTENUATION_FLOOR: float = 0.08
+const EMITTER_LIGHT_SPOT_ATTENUATION_CEIL: float = 0.65
 const EMITTER_CONE_FADE_END_RATIO: float = 0.82
 const EMITTER_CONE_NEAR_ALPHA: float = 0.06
 const EMITTER_CONE_FAR_ALPHA: float = 0.004
@@ -1548,7 +1550,7 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 	light.set_meta("peraviz_base_light_energy", base_light_energy)
 	light.light_energy = base_light_energy * float(_visual_settings.get("spot_multiplier", 1.0))
 	light.spot_angle = beam_angle
-	light.spot_attenuation = clamp(beam_angle / field_angle, 0.2, 1.0)
+	light.spot_attenuation = clamp(beam_angle / field_angle, EMITTER_LIGHT_SPOT_ATTENUATION_FLOOR, EMITTER_LIGHT_SPOT_ATTENUATION_CEIL)
 	var beam_slope: float = tan(deg_to_rad(beam_angle * 0.5))
 	var nominal_spot_range: float = beam_radius_m * EMITTER_LIGHT_RANGE_BEAM_RADIUS_MULTIPLIER * EMITTER_BEAM_LENGTH_SCALE
 	var max_spot_range_from_footprint: float = EMITTER_LIGHT_MAX_RANGE_M
