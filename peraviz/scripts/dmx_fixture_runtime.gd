@@ -6,7 +6,7 @@ const DMX_8BIT_MAX_VALUE: float = 255.0
 const DMX_8BIT_STEPS: int = 256
 const DMX_16BIT_STEPS: int = 65536
 const DMX_24BIT_STEPS: int = 16777216
-const FORCE_COARSE_ONLY_DMX_READ: bool = true
+const FORCE_COARSE_ONLY_DMX_READ: bool = false
 
 var _loader = null
 var _scene_registry: SceneRegistry = null
