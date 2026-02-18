@@ -121,13 +121,13 @@ const EMITTER_CONE_NEAR_ALPHA: float = 0.16
 const EMITTER_CONE_FAR_ALPHA: float = 0.004
 const EMITTER_CONE_NEAR_EMISSION: float = 0.45
 const EMITTER_CONE_FAR_EMISSION: float = 0.04
-const EMITTER_CONE_AXIAL_FALLOFF_POWER: float = 0.6
-const EMITTER_CONE_AXIAL_NEAR_BOOST: float = 1.35
-const EMITTER_CONE_EDGE_SOFTNESS: float = 1.35
-const EMITTER_CONE_EDGE_ALPHA_FLOOR: float = 0.1
-const EMITTER_CONE_NEAR_PEAK_POWER: float = 10.0
-const EMITTER_CONE_NEAR_PEAK_STRENGTH: float = 1.4
-const EMITTER_CONE_EDGE_START_RATIO: float = 0.2
+const EMITTER_CONE_AXIAL_FALLOFF_POWER: float = 1.9
+const EMITTER_CONE_AXIAL_NEAR_BOOST: float = 1.8
+const EMITTER_CONE_EDGE_SOFTNESS: float = 2.2
+const EMITTER_CONE_EDGE_ALPHA_FLOOR: float = 0.14
+const EMITTER_CONE_NEAR_PEAK_POWER: float = 22.0
+const EMITTER_CONE_NEAR_PEAK_STRENGTH: float = 2.6
+const EMITTER_CONE_EDGE_START_RATIO: float = 0.08
 const ENV_QUALITY_PRESET_SETTING: String = "peraviz_environment_quality"
 const ENV_QUALITY_PRESET_DEFAULT: String = "medium"
 const ENVIRONMENT_QUALITY_PRESETS := {
@@ -1629,15 +1629,15 @@ uniform float cone_height = 1.0;
 uniform float fade_end_ratio = 0.82;
 uniform float lateral_softness = 0.18;
 uniform float lateral_emission_boost = 0.2;
-uniform float axial_falloff_power = 0.6;
-uniform float axial_near_boost = 1.35;
-uniform float edge_softness = 1.35;
-uniform float edge_alpha_floor = 0.1;
+uniform float axial_falloff_power = 1.9;
+uniform float axial_near_boost = 1.8;
+uniform float edge_softness = 2.2;
+uniform float edge_alpha_floor = 0.14;
 uniform float cone_top_radius = 0.01;
 uniform float cone_bottom_radius = 0.2;
-uniform float near_peak_power = 10.0;
-uniform float near_peak_strength = 1.4;
-uniform float edge_start_ratio = 0.2;
+uniform float near_peak_power = 22.0;
+uniform float near_peak_strength = 2.6;
+uniform float edge_start_ratio = 0.08;
 
 varying float beam_axial;
 varying float beam_radial;
@@ -1650,21 +1650,24 @@ void vertex() {
 }
 
 void fragment() {
-	float base_axial = pow(beam_axial, max(axial_falloff_power, 0.05));
-	float near_peak = pow(beam_axial, max(near_peak_power, 1.0)) * clamp(near_peak_strength, 0.0, 3.0);
-	float near_factor = clamp((base_axial * (1.0 + clamp(axial_near_boost, 0.0, 2.5))) + near_peak, 0.0, 1.0);
+	float base_axial = pow(beam_axial, max(axial_falloff_power, 0.2));
+	float near_peak = pow(beam_axial, max(near_peak_power, 2.0)) * clamp(near_peak_strength, 0.0, 4.0);
+	float near_factor = clamp((base_axial * (1.0 + clamp(axial_near_boost, 0.0, 3.0))) + near_peak, 0.0, 1.0);
 	float far_progress = 1.0 - beam_axial;
 	float end_fade = 1.0 - smoothstep(clamp(fade_end_ratio, 0.0, 0.99), 1.0, far_progress);
-	float edge_start = clamp(edge_start_ratio, 0.05, 0.92);
+	float edge_start = clamp(edge_start_ratio, 0.02, 0.92);
 	float radial_edge_fade = 1.0 - smoothstep(edge_start, 1.0, beam_radial);
-	float lateral_alpha_mask = mix(clamp(edge_alpha_floor, 0.0, 1.0), 1.0, pow(radial_edge_fade, max(edge_softness, 0.1)));
-	float lateral_emission_mask = pow(radial_edge_fade, max(edge_softness * 1.6, 0.2));
+	float radial_alpha_feather = sqrt(clamp(radial_edge_fade, 0.0, 1.0));
+	float lateral_alpha_mask = mix(clamp(edge_alpha_floor, 0.0, 1.0), 1.0, radial_alpha_feather);
+	float lateral_emission_mask = pow(clamp(radial_edge_fade, 0.0, 1.0), max(edge_softness, 0.2));
 	float view_alignment = abs(dot(normalize(NORMAL), normalize(VIEW)));
 	float lateral_fade = smoothstep(0.0, clamp(lateral_softness, 0.02, 1.0), view_alignment);
-	float center_boost = 1.0 + (lateral_emission_boost * lateral_fade) + (0.55 * lateral_emission_mask);
+	float center_boost = 1.0 + (lateral_emission_boost * lateral_fade) + (0.8 * lateral_emission_mask);
+	float shaped_alpha = mix(far_alpha, near_alpha, near_factor) * end_fade * lateral_alpha_mask;
+	float shaped_emission = mix(far_emission, near_emission, near_factor) * end_fade * center_boost * lateral_emission_mask;
 	ALBEDO = beam_color.rgb;
-	ALPHA = mix(far_alpha, near_alpha, near_factor) * end_fade * lateral_alpha_mask;
-	EMISSION = beam_color.rgb * (mix(far_emission, near_emission, near_factor) * end_fade * center_boost * lateral_emission_mask);
+	ALPHA = shaped_alpha;
+	EMISSION = beam_color.rgb * shaped_emission;
 }
 """
 	shader_material.shader = shader
