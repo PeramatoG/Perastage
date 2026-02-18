@@ -121,10 +121,13 @@ const EMITTER_CONE_NEAR_ALPHA: float = 0.16
 const EMITTER_CONE_FAR_ALPHA: float = 0.004
 const EMITTER_CONE_NEAR_EMISSION: float = 0.45
 const EMITTER_CONE_FAR_EMISSION: float = 0.04
-const EMITTER_CONE_AXIAL_FALLOFF_POWER: float = 2.4
-const EMITTER_CONE_AXIAL_NEAR_BOOST: float = 0.65
-const EMITTER_CONE_EDGE_SOFTNESS: float = 0.75
-const EMITTER_CONE_EDGE_ALPHA_FLOOR: float = 0.06
+const EMITTER_CONE_AXIAL_FALLOFF_POWER: float = 0.6
+const EMITTER_CONE_AXIAL_NEAR_BOOST: float = 1.35
+const EMITTER_CONE_EDGE_SOFTNESS: float = 0.9
+const EMITTER_CONE_EDGE_ALPHA_FLOOR: float = 0.0
+const EMITTER_CONE_NEAR_PEAK_POWER: float = 10.0
+const EMITTER_CONE_NEAR_PEAK_STRENGTH: float = 1.4
+const EMITTER_CONE_EDGE_START_RATIO: float = 0.45
 const ENV_QUALITY_PRESET_SETTING: String = "peraviz_environment_quality"
 const ENV_QUALITY_PRESET_DEFAULT: String = "medium"
 const ENVIRONMENT_QUALITY_PRESETS := {
@@ -1626,12 +1629,15 @@ uniform float cone_height = 1.0;
 uniform float fade_end_ratio = 0.82;
 uniform float lateral_softness = 0.18;
 uniform float lateral_emission_boost = 0.2;
-uniform float axial_falloff_power = 2.4;
-uniform float axial_near_boost = 0.65;
-uniform float edge_softness = 0.75;
-uniform float edge_alpha_floor = 0.06;
+uniform float axial_falloff_power = 0.6;
+uniform float axial_near_boost = 1.35;
+uniform float edge_softness = 0.9;
+uniform float edge_alpha_floor = 0.0;
 uniform float cone_top_radius = 0.01;
 uniform float cone_bottom_radius = 0.2;
+uniform float near_peak_power = 10.0;
+uniform float near_peak_strength = 1.4;
+uniform float edge_start_ratio = 0.45;
 
 varying float beam_axial;
 varying float beam_radial;
@@ -1644,18 +1650,20 @@ void vertex() {
 }
 
 void fragment() {
-	float near_factor = pow(beam_axial, max(axial_falloff_power, 0.2));
-	near_factor = clamp(near_factor * (1.0 + clamp(axial_near_boost, 0.0, 2.0)), 0.0, 1.0);
+	float base_axial = pow(beam_axial, max(axial_falloff_power, 0.05));
+	float near_peak = pow(beam_axial, max(near_peak_power, 1.0)) * clamp(near_peak_strength, 0.0, 3.0);
+	float near_factor = clamp((base_axial * (1.0 + clamp(axial_near_boost, 0.0, 2.5))) + near_peak, 0.0, 1.0);
 	float far_progress = 1.0 - beam_axial;
 	float end_fade = 1.0 - smoothstep(clamp(fade_end_ratio, 0.0, 0.99), 1.0, far_progress);
-	float radial_edge_fade = 1.0 - smoothstep(1.0 - clamp(edge_softness, 0.02, 0.95), 1.0, beam_radial);
+	float edge_start = clamp(edge_start_ratio, 0.1, 0.95);
+	float radial_edge_fade = 1.0 - smoothstep(edge_start, 1.0, beam_radial);
+	float softened_lateral = mix(clamp(edge_alpha_floor, 0.0, 1.0), 1.0, pow(radial_edge_fade, max(edge_softness, 0.05)));
 	float view_alignment = abs(dot(normalize(NORMAL), normalize(VIEW)));
 	float lateral_fade = smoothstep(0.0, clamp(lateral_softness, 0.02, 1.0), view_alignment);
-	float softened_lateral = mix(clamp(edge_alpha_floor, 0.0, 1.0), 1.0, radial_edge_fade);
-	float center_boost = 1.0 + (lateral_emission_boost * lateral_fade) + (0.35 * radial_edge_fade);
+	float center_boost = 1.0 + (lateral_emission_boost * lateral_fade) + (0.55 * softened_lateral);
 	ALBEDO = beam_color.rgb;
 	ALPHA = mix(far_alpha, near_alpha, near_factor) * end_fade * softened_lateral;
-	EMISSION = beam_color.rgb * (mix(far_emission, near_emission, near_factor) * end_fade * center_boost * radial_edge_fade);
+	EMISSION = beam_color.rgb * (mix(far_emission, near_emission, near_factor) * end_fade * center_boost * softened_lateral);
 }
 """
 	shader_material.shader = shader
@@ -1701,6 +1709,9 @@ func _update_emitter_beam_cone(light: SpotLight3D, beam_angle: float, beam_range
 		material.set_shader_parameter("axial_near_boost", EMITTER_CONE_AXIAL_NEAR_BOOST)
 		material.set_shader_parameter("edge_softness", EMITTER_CONE_EDGE_SOFTNESS)
 		material.set_shader_parameter("edge_alpha_floor", EMITTER_CONE_EDGE_ALPHA_FLOOR)
+		material.set_shader_parameter("near_peak_power", EMITTER_CONE_NEAR_PEAK_POWER)
+		material.set_shader_parameter("near_peak_strength", EMITTER_CONE_NEAR_PEAK_STRENGTH)
+		material.set_shader_parameter("edge_start_ratio", EMITTER_CONE_EDGE_START_RATIO)
 		material.set_shader_parameter("cone_top_radius", cone_mesh.top_radius if cone_mesh != null else 0.01)
 		material.set_shader_parameter("cone_bottom_radius", cone_mesh.bottom_radius if cone_mesh != null else 0.2)
 
