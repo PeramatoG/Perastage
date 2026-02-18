@@ -1,6 +1,6 @@
-# Godot 4+ specific ignores
-.godot/
-/android/
+# Godot generated cache folders (keep project files versioned)
+.godot/imported/
+.godot/shader_cache/
 
 # Example MVR
 *.mvr
