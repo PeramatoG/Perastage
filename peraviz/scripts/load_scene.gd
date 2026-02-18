@@ -24,6 +24,8 @@ extends Node3D
 @onready var tilt_slider: HSlider = $HUD/FixtureDebugPanel/Margin/VBox/TiltSlider
 @onready var dimmer_slider: HSlider = $HUD/FixtureDebugPanel/Margin/VBox/DimmerSlider
 @onready var quick_reset_button: Button = $HUD/FixtureDebugPanel/Margin/VBox/QuickResetButton
+@onready var visual_settings_button: Button = $HUD/VisualSettingsButton
+@onready var visual_settings_window: VisualSettingsWindow = $HUD/VisualSettingsWindow
 
 var _loader := PeravizLoader.new()
 var _scene_registry := SceneRegistry.new()
@@ -42,6 +44,18 @@ var _fixture_emitter_light_cache: Dictionary = {}
 var _fixture_emitter_photometrics: Dictionary = {}
 var _fixture_lens_tuned: Dictionary = {}
 var _updating_fixture_controls: bool = false
+var _visual_environment_baseline := {
+	"ambient_light_energy": 0.2,
+	"glow_bloom": 0.05,
+	"background_color": Color(0.129412, 0.137255, 0.156863, 1.0),
+}
+var _visual_settings := {
+	"ambient_multiplier": 1.0,
+	"spot_multiplier": 1.0,
+	"beam_multiplier": 1.0,
+	"bloom_multiplier": 1.0,
+	"background_color": Color(0.129412, 0.137255, 0.156863, 1.0),
+}
 
 var _dmx_receiver = null
 var _dmx_toggle_button: Button
@@ -155,6 +169,8 @@ func _ready() -> void:
 	dimmer_min_input.value_changed.connect(_on_limit_changed)
 	dimmer_max_input.value_changed.connect(_on_limit_changed)
 	quick_reset_button.pressed.connect(_on_quick_reset_pressed)
+	visual_settings_button.pressed.connect(_on_visual_settings_pressed)
+	visual_settings_window.settings_changed.connect(_on_visual_settings_changed)
 	picker.access = FileDialog.ACCESS_FILESYSTEM
 	status_label.text = "Select a .mvr file"
 	_debug_coords_enabled = bool(ProjectSettings.get_setting("peraviz_debug_coords", false))
@@ -164,10 +180,14 @@ func _ready() -> void:
 	_asset_cache.configure_debug_logging(_debug_asset_cache_enabled, 100)
 	_ensure_debug_gizmo_root()
 	_update_debug_legend()
+	_refresh_emitter_visual_scalars()
 	_refresh_fixture_debug_panel()
 	_setup_dmx_controls()
 	_setup_dmx_fixture_runtime()
 	_apply_environment_quality_preset()
+	_capture_visual_environment_baseline()
+	visual_settings_window.configure(_visual_settings)
+	_apply_visual_settings(_visual_settings)
 
 
 func _apply_imported_content_scale() -> void:
@@ -184,6 +204,61 @@ func _apply_environment_quality_preset() -> void:
 	var preset_config: Dictionary = ENVIRONMENT_QUALITY_PRESETS.get(requested_preset, {})
 	for property_name in preset_config.keys():
 		world_environment.environment.set(property_name, preset_config[property_name])
+
+func _capture_visual_environment_baseline() -> void:
+	if world_environment == null or world_environment.environment == null:
+		return
+	_visual_environment_baseline["ambient_light_energy"] = float(world_environment.environment.ambient_light_energy)
+	_visual_environment_baseline["glow_bloom"] = float(world_environment.environment.glow_bloom)
+	_visual_environment_baseline["background_color"] = world_environment.environment.background_color
+	_visual_settings["background_color"] = _visual_environment_baseline["background_color"]
+
+func _apply_visual_settings(settings: Dictionary) -> void:
+	for key in _visual_settings.keys():
+		if settings.has(key):
+			_visual_settings[key] = settings[key]
+
+	if world_environment != null and world_environment.environment != null:
+		world_environment.environment.ambient_light_energy = float(_visual_environment_baseline.get("ambient_light_energy", 0.2)) * float(_visual_settings.get("ambient_multiplier", 1.0))
+		world_environment.environment.glow_bloom = float(_visual_environment_baseline.get("glow_bloom", 0.05)) * float(_visual_settings.get("bloom_multiplier", 1.0))
+		world_environment.environment.background_color = _visual_settings.get("background_color", _visual_environment_baseline.get("background_color", Color(0.129412, 0.137255, 0.156863, 1.0)))
+
+	_refresh_emitter_visual_scalars()
+
+func _refresh_emitter_visual_scalars() -> void:
+	for fixture_uuid in _fixture_emitter_light_cache.keys():
+		var lights: Array = _fixture_emitter_light_cache.get(fixture_uuid, [])
+		for light in lights:
+			if light is SpotLight3D and is_instance_valid(light):
+				_apply_visual_scalars_to_light(light)
+
+func _apply_visual_scalars_to_light(light: SpotLight3D) -> void:
+	var base_energy: float = float(light.get_meta("peraviz_base_light_energy", light.light_energy))
+	light.light_energy = base_energy * float(_visual_settings.get("spot_multiplier", 1.0))
+	_update_existing_beam_material_scalars(light)
+
+func _update_existing_beam_material_scalars(light: SpotLight3D) -> void:
+	if not light.has_meta("peraviz_beam_cone"):
+		return
+	var cone: MeshInstance3D = light.get_meta("peraviz_beam_cone") as MeshInstance3D
+	if cone == null:
+		return
+	var material: ShaderMaterial = cone.material_override as ShaderMaterial
+	if material == null:
+		return
+	var base_intensity: float = float(light.get_meta("peraviz_beam_base_intensity", 0.0))
+	var beam_multiplier: float = float(_visual_settings.get("beam_multiplier", 1.0))
+	var scaled_intensity: float = clamp(base_intensity * beam_multiplier, 0.0, 3.0)
+	material.set_shader_parameter("near_alpha", lerp(0.0, EMITTER_CONE_NEAR_ALPHA, scaled_intensity))
+	material.set_shader_parameter("far_alpha", lerp(0.0, EMITTER_CONE_FAR_ALPHA, scaled_intensity))
+	material.set_shader_parameter("near_emission", lerp(0.0, EMITTER_CONE_NEAR_EMISSION, scaled_intensity))
+	material.set_shader_parameter("far_emission", lerp(0.0, EMITTER_CONE_FAR_EMISSION, scaled_intensity))
+
+func _on_visual_settings_pressed() -> void:
+	visual_settings_window.popup_settings()
+
+func _on_visual_settings_changed(settings: Dictionary) -> void:
+	_apply_visual_settings(settings)
 
 func _on_load_pressed() -> void:
 	picker.popup_centered_ratio(0.7)
@@ -216,6 +291,7 @@ func _on_file_selected(path: String) -> void:
 			" material(hit/miss)=", hit_by_kind.get("material", 0), "/", miss_by_kind.get("material", 0))
 	status_label.text = "Nodes: %d (press F to focus, C debug coords)" % nodes.size()
 	_update_debug_legend()
+	_refresh_emitter_visual_scalars()
 
 func _on_manual_fixture_toggle(enabled: bool) -> void:
 	_manual_fixture_test_enabled = enabled
@@ -1456,7 +1532,9 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 	var beam_radius_m: float = max(float(photometric.get("beam_radius", 0.05)), 0.001)
 
 	light.visible = normalized_dimmer > 0.0001
-	light.light_energy = luminous_flux * normalized_dimmer * EMITTER_LIGHT_ENERGY_SCALE
+	var base_light_energy: float = luminous_flux * normalized_dimmer * EMITTER_LIGHT_ENERGY_SCALE
+	light.set_meta("peraviz_base_light_energy", base_light_energy)
+	light.light_energy = base_light_energy * float(_visual_settings.get("spot_multiplier", 1.0))
 	light.spot_angle = beam_angle
 	light.spot_attenuation = clamp(beam_angle / field_angle, 0.2, 1.0)
 	var beam_slope: float = tan(deg_to_rad(beam_angle * 0.5))
@@ -1532,7 +1610,10 @@ func _update_emitter_beam_cone(light: SpotLight3D, beam_angle: float, beam_range
 		light.add_child(cone)
 
 	var intensity: float = clamp(normalized_dimmer, 0.0, 1.0)
+	light.set_meta("peraviz_beam_base_intensity", intensity)
 	cone.visible = intensity > 0.015
+	var beam_multiplier: float = float(_visual_settings.get("beam_multiplier", 1.0))
+	var scaled_intensity: float = clamp(intensity * beam_multiplier, 0.0, 3.0)
 	var cone_mesh: CylinderMesh = cone.mesh as CylinderMesh
 	if cone_mesh != null:
 		var radius: float = tan(deg_to_rad(beam_angle * 0.5)) * beam_range
@@ -1547,10 +1628,10 @@ func _update_emitter_beam_cone(light: SpotLight3D, beam_angle: float, beam_range
 	var material: ShaderMaterial = cone.material_override as ShaderMaterial
 	if material != null:
 		material.set_shader_parameter("beam_color", Color(beam_color.r, beam_color.g, beam_color.b, 1.0))
-		material.set_shader_parameter("near_alpha", lerp(0.0, EMITTER_CONE_NEAR_ALPHA, intensity))
-		material.set_shader_parameter("far_alpha", lerp(0.0, EMITTER_CONE_FAR_ALPHA, intensity))
-		material.set_shader_parameter("near_emission", lerp(0.0, EMITTER_CONE_NEAR_EMISSION, intensity))
-		material.set_shader_parameter("far_emission", lerp(0.0, EMITTER_CONE_FAR_EMISSION, intensity))
+		material.set_shader_parameter("near_alpha", lerp(0.0, EMITTER_CONE_NEAR_ALPHA, scaled_intensity))
+		material.set_shader_parameter("far_alpha", lerp(0.0, EMITTER_CONE_FAR_ALPHA, scaled_intensity))
+		material.set_shader_parameter("near_emission", lerp(0.0, EMITTER_CONE_NEAR_EMISSION, scaled_intensity))
+		material.set_shader_parameter("far_emission", lerp(0.0, EMITTER_CONE_FAR_EMISSION, scaled_intensity))
 		material.set_shader_parameter("cone_height", max(beam_range, 0.001))
 		material.set_shader_parameter("fade_end_ratio", EMITTER_CONE_FADE_END_RATIO)
 

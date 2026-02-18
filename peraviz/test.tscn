@@ -2,6 +2,7 @@
 
 [ext_resource type="Script" path="res://scripts/load_scene.gd" id="1_script"]
 [ext_resource type="Script" path="res://scripts/editor_camera.gd" id="2_camera_script"]
+[ext_resource type="Script" path="res://scripts/visual_settings_window.gd" id="3_visual_settings"]
 
 [sub_resource type="PlaneMesh" id="PlaneMesh_ground"]
 size = Vector2(100, 100)
@@ -92,6 +93,16 @@ offset_top = 12.0
 offset_right = 430.0
 offset_bottom = 44.0
 text = "Manual fixture test"
+
+[node name="VisualSettingsButton" type="Button" parent="HUD"]
+offset_left = 440.0
+offset_top = 12.0
+offset_right = 620.0
+offset_bottom = 44.0
+text = "Visual settings"
+
+[node name="VisualSettingsWindow" type="Window" parent="HUD"]
+script = ExtResource("3_visual_settings")
 
 [node name="FixtureDebugPanel" type="PanelContainer" parent="HUD"]
 visible = false
