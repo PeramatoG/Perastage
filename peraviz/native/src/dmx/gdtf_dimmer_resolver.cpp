@@ -130,6 +130,7 @@ enum class AttributeRole {
     kDimmer,
     kPan,
     kTilt,
+    kZoom,
 };
 
 struct ParsedAttribute {
@@ -242,6 +243,10 @@ ParsedAttribute parse_attribute_name(const std::string &raw_attribute) {
     } else if (starts_with_role_token(leaf, "tilt", byte_index)) {
         parsed.role = AttributeRole::kTilt;
         parsed.byte_index = byte_index;
+    } else if (starts_with_role_token(leaf, "zoom", byte_index) ||
+               starts_with_role_token(leaf, "digitalzoom", byte_index)) {
+        parsed.role = AttributeRole::kZoom;
+        parsed.byte_index = byte_index;
     }
 
     if (parsed.role == AttributeRole::kUnknown) {
@@ -253,6 +258,55 @@ ParsedAttribute parse_attribute_name(const std::string &raw_attribute) {
     }
 
     return parsed;
+}
+
+void consume_zoom_physical_range(tinyxml2::XMLElement *channel_function,
+                                 peraviz::dmx::FixtureControlOffsets &out_offsets);
+
+bool parse_float_attr_ci(tinyxml2::XMLElement *node,
+                         const char *attr_name,
+                         const char *attr_name_alt,
+                         float &out_value) {
+    if (!node) {
+        return false;
+    }
+
+    if (node->QueryFloatAttribute(attr_name, &out_value) == tinyxml2::XML_SUCCESS) {
+        return true;
+    }
+    if (node->QueryFloatAttribute(attr_name_alt, &out_value) == tinyxml2::XML_SUCCESS) {
+        return true;
+    }
+    return false;
+}
+
+void consume_zoom_physical_range(tinyxml2::XMLElement *channel_function,
+                                 peraviz::dmx::FixtureControlOffsets &out_offsets) {
+    float physical_from = 0.0F;
+    float physical_to = 0.0F;
+    const bool has_physical_from = parse_float_attr_ci(channel_function, "PhysicalFrom", "physicalfrom", physical_from);
+    const bool has_physical_to = parse_float_attr_ci(channel_function, "PhysicalTo", "physicalto", physical_to);
+    if (!has_physical_from || !has_physical_to) {
+        return;
+    }
+
+    const float min_value = std::min(physical_from, physical_to);
+    const float max_value = std::max(physical_from, physical_to);
+    if (max_value <= min_value || max_value <= 0.0F) {
+        return;
+    }
+
+    if (!out_offsets.has_zoom_physical_limits) {
+        out_offsets.zoom_physical_min_degrees = min_value;
+        out_offsets.zoom_physical_max_degrees = max_value;
+        out_offsets.has_zoom_physical_limits = true;
+        return;
+    }
+
+    out_offsets.zoom_physical_min_degrees =
+        std::min(out_offsets.zoom_physical_min_degrees, min_value);
+    out_offsets.zoom_physical_max_degrees =
+        std::max(out_offsets.zoom_physical_max_degrees, max_value);
 }
 
 void consume_offsets(const std::vector<int> &offsets,
@@ -352,6 +406,13 @@ void consume_channel_offsets(tinyxml2::XMLElement *dmx_channel,
                 break;
             case AttributeRole::kUnknown:
                 break;
+            case AttributeRole::kZoom:
+                consume_offsets(offsets, parsed_attribute.is_fine, parsed_attribute.byte_index,
+                                out_offsets.zoom_coarse_offset_1_based,
+                                out_offsets.zoom_fine_offset_1_based,
+                                out_offsets.zoom_ultra_fine_offset_1_based);
+                consume_zoom_physical_range(channel_function, out_offsets);
+                break;
             }
         }
     }
@@ -427,7 +488,7 @@ DimmerResolveCacheEntry resolve_uncached(const std::string &gdtf_path,
     }
 
     if (!out.offsets.has_any()) {
-        out.reason = "No Dimmer/Pan/Tilt attributes found in mode DMX channels";
+        out.reason = "No Dimmer/Pan/Tilt/Zoom attributes found in mode DMX channels";
         return out;
     }
 
