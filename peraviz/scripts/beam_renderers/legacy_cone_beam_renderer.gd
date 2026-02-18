@@ -93,7 +93,7 @@ func _create_cone(cone_name: String) -> MeshInstance3D:
 	cone.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	cone.mesh = cone_mesh
 	cone.material_override = _shared_material
-	cone.transparency = 1.0
+	cone.rotation_degrees.x = 90.0
 	cone.visible = false
 	return cone
 

@@ -37,7 +37,7 @@ func ensure_beam(light: SpotLight3D) -> void:
 	cone.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	cone.mesh = cone_mesh
 	cone.material_override = _shared_material
-	cone.transparency = 1.0
+	cone.rotation_degrees.x = 90.0
 	cone.visible = false
 	light.add_child(cone)
 	light.set_meta(BEAM_META_KEY, cone)
@@ -58,7 +58,7 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	var beam_angle: float = max(float(params.get("beam_angle", 1.0)), 0.1)
 	var beam_color: Color = params.get("beam_color", Color.WHITE)
 	var lens_radius: float = max(float(params.get("lens_radius", 0.03)), 0.005)
-	var distance_limit: float = float(params.get("distance_cull_m", 160.0))
+	var distance_limit: float = float(params.get("distance_cull_m", 180.0))
 
 	if _camera != null:
 		var cam_distance: float = _camera.global_position.distance_to(light.global_position)
@@ -79,7 +79,7 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 
 	var quality: int = int(_settings.get("beam_quality", 1))
 	var quality_preset: Dictionary = QUALITY_PRESETS.get(quality, QUALITY_PRESETS[1])
-	var haze_density: float = float(_settings.get("beam_haze_density", 0.17))
+	var haze_density: float = float(_settings.get("beam_haze_density", 0.22))
 	var anisotropy: float = float(_settings.get("beam_anisotropy", 0.62))
 	var noise_amount: float = float(_settings.get("beam_noise_amount", 0.06)) * float(quality_preset.get("noise_multiplier", 1.0))
 
@@ -95,7 +95,7 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	cone.set_instance_shader_parameter("end_fade_ratio", float(params.get("fade_end_ratio", 0.82)))
 	cone.set_instance_shader_parameter("step_count", float(quality_preset.get("steps", 28.0)))
 	cone.set_instance_shader_parameter("beam_range", beam_range)
-	cone.set_instance_shader_parameter("camera_inside_dimmer", 0.4)
+	cone.set_instance_shader_parameter("camera_inside_dimmer", 0.6)
 
 func cleanup_beam(light: SpotLight3D) -> void:
 	if not light.has_meta(BEAM_META_KEY):
