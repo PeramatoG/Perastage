@@ -5,6 +5,7 @@ const MAX_UNBOUND_PREVIEW: int = 8
 const DMX_8BIT_MAX_VALUE: float = 255.0
 const DMX_8BIT_STEPS: int = 256
 const DMX_16BIT_STEPS: int = 65536
+const DMX_24BIT_STEPS: int = 16777216
 
 var _loader = null
 var _scene_registry: SceneRegistry = null
@@ -85,9 +86,9 @@ func apply_dmx(receiver, apply_fixture_callback: Callable) -> void:
 			"tilt_norm": 0.0,
 		}
 
-		_read_control(binding, frame, "dimmer_channel_index_0", "dimmer_fine_channel_index_0", controls, "has_dimmer", "dimmer_norm")
-		_read_control(binding, frame, "pan_channel_index_0", "pan_fine_channel_index_0", controls, "has_pan", "pan_norm")
-		_read_control(binding, frame, "tilt_channel_index_0", "tilt_fine_channel_index_0", controls, "has_tilt", "tilt_norm")
+		_read_control(binding, frame, "dimmer_channel_index_0", "dimmer_fine_channel_index_0", "dimmer_ultra_fine_channel_index_0", controls, "has_dimmer", "dimmer_norm")
+		_read_control(binding, frame, "pan_channel_index_0", "pan_fine_channel_index_0", "pan_ultra_fine_channel_index_0", controls, "has_pan", "pan_norm")
+		_read_control(binding, frame, "tilt_channel_index_0", "tilt_fine_channel_index_0", "tilt_ultra_fine_channel_index_0", controls, "has_tilt", "tilt_norm")
 
 		if not controls["has_dimmer"] and not controls["has_pan"] and not controls["has_tilt"]:
 			continue
@@ -97,6 +98,7 @@ func _read_control(binding: Dictionary,
 					   frame: PackedByteArray,
 					   coarse_key: String,
 					   fine_key: String,
+					   ultra_fine_key: String,
 					   controls: Dictionary,
 					   has_key: String,
 					   value_key: String) -> void:
@@ -106,6 +108,15 @@ func _read_control(binding: Dictionary,
 	var coarse: int = int(frame[coarse_index])
 
 	var fine_index: int = int(binding.get(fine_key, -1))
+	var ultra_fine_index: int = int(binding.get(ultra_fine_key, -1))
+	if fine_index >= 0 and fine_index < frame.size() and ultra_fine_index >= 0 and ultra_fine_index < frame.size():
+		var fine: int = int(frame[fine_index])
+		var ultra_fine: int = int(frame[ultra_fine_index])
+		var raw_value_24: int = _resolve_24bit_raw_value(coarse, fine, ultra_fine)
+		controls[has_key] = true
+		controls[value_key] = float(raw_value_24) / float(DMX_24BIT_STEPS - 1)
+		return
+
 	if fine_index >= 0 and fine_index < frame.size():
 		var fine: int = int(frame[fine_index])
 		var coarse_byte: int = coarse
@@ -127,6 +138,12 @@ func _resolve_16bit_raw_value(coarse: int, fine: int) -> int:
 	var safe_coarse: int = clampi(coarse, 0, int(DMX_8BIT_MAX_VALUE))
 	var safe_fine: int = clampi(fine, 0, int(DMX_8BIT_MAX_VALUE))
 	return (safe_coarse * DMX_8BIT_STEPS) + safe_fine
+
+func _resolve_24bit_raw_value(coarse: int, fine: int, ultra_fine: int) -> int:
+	var safe_coarse: int = clampi(coarse, 0, int(DMX_8BIT_MAX_VALUE))
+	var safe_fine: int = clampi(fine, 0, int(DMX_8BIT_MAX_VALUE))
+	var safe_ultra_fine: int = clampi(ultra_fine, 0, int(DMX_8BIT_MAX_VALUE))
+	return (safe_coarse * DMX_16BIT_STEPS) + (safe_fine * DMX_8BIT_STEPS) + safe_ultra_fine
 
 func get_bound_count() -> int:
 	return _fixture_nodes.size()

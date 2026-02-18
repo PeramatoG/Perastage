@@ -164,10 +164,13 @@ Dictionary PeravizLoader::build_fixture_dimmer_bindings(int universe_offset) con
         item["artnet_universe_id"] = binding.artnet_universe_id;
         item["dimmer_channel_index_0"] = binding.dimmer.coarse_dmx_channel_index_0;
         item["dimmer_fine_channel_index_0"] = binding.dimmer.fine_dmx_channel_index_0;
+        item["dimmer_ultra_fine_channel_index_0"] = binding.dimmer.ultra_fine_dmx_channel_index_0;
         item["pan_channel_index_0"] = binding.pan.coarse_dmx_channel_index_0;
         item["pan_fine_channel_index_0"] = binding.pan.fine_dmx_channel_index_0;
+        item["pan_ultra_fine_channel_index_0"] = binding.pan.ultra_fine_dmx_channel_index_0;
         item["tilt_channel_index_0"] = binding.tilt.coarse_dmx_channel_index_0;
         item["tilt_fine_channel_index_0"] = binding.tilt.fine_dmx_channel_index_0;
+        item["tilt_ultra_fine_channel_index_0"] = binding.tilt.ultra_fine_dmx_channel_index_0;
         item["scale"] = binding.scale;
         bindings[binding_index++] = item;
     }

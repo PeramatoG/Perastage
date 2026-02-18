@@ -212,7 +212,8 @@ ParsedAttribute parse_attribute_name(const std::string &raw_attribute) {
 void consume_offsets(const std::vector<int> &offsets,
                      bool is_fine,
                      int &coarse,
-                     int &fine) {
+                     int &fine,
+                     int &ultra_fine) {
     if (offsets.empty()) {
         return;
     }
@@ -220,6 +221,9 @@ void consume_offsets(const std::vector<int> &offsets,
     if (is_fine) {
         if (fine <= 0 || offsets[0] < fine) {
             fine = offsets[0];
+        }
+        if (offsets.size() > 1 && (ultra_fine <= 0 || offsets[1] < ultra_fine)) {
+            ultra_fine = offsets[1];
         }
         return;
     }
@@ -229,6 +233,9 @@ void consume_offsets(const std::vector<int> &offsets,
     }
     if (offsets.size() > 1 && (fine <= 0 || offsets[1] < fine)) {
         fine = offsets[1];
+    }
+    if (offsets.size() > 2 && (ultra_fine <= 0 || offsets[2] < ultra_fine)) {
+        ultra_fine = offsets[2];
     }
 }
 
@@ -260,17 +267,20 @@ void consume_channel_offsets(tinyxml2::XMLElement *dmx_channel,
             case AttributeRole::kDimmer:
                 consume_offsets(offsets, parsed_attribute.is_fine,
                                 out_offsets.dimmer_coarse_offset_1_based,
-                                out_offsets.dimmer_fine_offset_1_based);
+                                out_offsets.dimmer_fine_offset_1_based,
+                                out_offsets.dimmer_ultra_fine_offset_1_based);
                 break;
             case AttributeRole::kPan:
                 consume_offsets(offsets, parsed_attribute.is_fine,
                                 out_offsets.pan_coarse_offset_1_based,
-                                out_offsets.pan_fine_offset_1_based);
+                                out_offsets.pan_fine_offset_1_based,
+                                out_offsets.pan_ultra_fine_offset_1_based);
                 break;
             case AttributeRole::kTilt:
                 consume_offsets(offsets, parsed_attribute.is_fine,
                                 out_offsets.tilt_coarse_offset_1_based,
-                                out_offsets.tilt_fine_offset_1_based);
+                                out_offsets.tilt_fine_offset_1_based,
+                                out_offsets.tilt_ultra_fine_offset_1_based);
                 break;
             case AttributeRole::kUnknown:
                 break;
