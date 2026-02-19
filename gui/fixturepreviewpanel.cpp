@@ -149,6 +149,8 @@ wxBEGIN_EVENT_TABLE(FixturePreviewPanel, wxGLCanvas)
     EVT_SIZE(FixturePreviewPanel::OnResize)
     EVT_LEFT_DOWN(FixturePreviewPanel::OnMouseDown)
     EVT_LEFT_UP(FixturePreviewPanel::OnMouseUp)
+    EVT_MIDDLE_DOWN(FixturePreviewPanel::OnMouseDown)
+    EVT_MIDDLE_UP(FixturePreviewPanel::OnMouseUp)
     EVT_RIGHT_DOWN(FixturePreviewPanel::OnMouseDown)
     EVT_RIGHT_UP(FixturePreviewPanel::OnMouseUp)
     EVT_MOTION(FixturePreviewPanel::OnMouseMove)
@@ -283,6 +285,7 @@ void FixturePreviewPanel::OnResize(wxSizeEvent&)
 
 void FixturePreviewPanel::OnMouseDown(wxMouseEvent& evt)
 {
+    SetFocus();
     m_dragging = true;
     m_lastMousePos = evt.GetPosition();
     if(!HasCapture()){
@@ -305,7 +308,7 @@ void FixturePreviewPanel::OnCaptureLost(wxMouseCaptureLostEvent& WXUNUSED(evt))
 
 void FixturePreviewPanel::OnMouseMove(wxMouseEvent& evt)
 {
-    if(m_dragging && (evt.LeftIsDown() || evt.RightIsDown())){
+    if(m_dragging && (evt.LeftIsDown() || evt.MiddleIsDown() || evt.RightIsDown())){
         wxPoint pos = evt.GetPosition();
         int dx = pos.x - m_lastMousePos.x;
         int dy = pos.y - m_lastMousePos.y;
