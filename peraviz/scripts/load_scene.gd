@@ -44,7 +44,6 @@ var _fixture_emissive_cache: Dictionary = {}
 var _fixture_lens_material_cache: Dictionary = {}
 var _fixture_emitter_light_cache: Dictionary = {}
 var _fixture_emitter_photometrics: Dictionary = {}
-var _fixture_lens_tuned: Dictionary = {}
 var _updating_fixture_controls: bool = false
 var _visual_environment_baseline := {
 	"ambient_light_energy": 0.2,
@@ -953,7 +952,6 @@ func _clear_scene() -> void:
 	_fixture_lens_material_cache.clear()
 	_fixture_emitter_light_cache.clear()
 	_fixture_emitter_photometrics.clear()
-	_fixture_lens_tuned.clear()
 	_has_loaded_bounds = false
 	_clear_debug_gizmos()
 
@@ -1368,7 +1366,6 @@ func _apply_dimmer_feedback_to_fixture(fixture_uuid: String, dimmer: float, cont
 	var emitter_nodes: Array = _to_node3d_array(_scene_registry.get_anchor(fixture_uuid, "emitters"))
 	if geometry_nodes.is_empty() and emitter_nodes.is_empty():
 		return
-	_apply_fixture_lens_visual_tuning(fixture_uuid, emitter_nodes)
 
 	var dimmer_percent: float = clamp(dimmer, 0.0, 100.0)
 	var normalized_dimmer: float = dimmer_percent / 100.0
@@ -1437,28 +1434,38 @@ func _collect_lens_materials_recursive(node: Node3D, output_materials: Array) ->
 		var mesh_instance: MeshInstance3D = node
 		for surface_index in range(mesh_instance.get_surface_override_material_count()):
 			var override_material: Material = mesh_instance.get_surface_override_material(surface_index)
-			_maybe_add_lens_material(mesh_instance, override_material, output_materials)
-		_maybe_add_lens_material(mesh_instance, mesh_instance.material_override, output_materials)
+			_maybe_add_gdtf_lens_material(mesh_instance, override_material, output_materials)
+		_maybe_add_gdtf_lens_material(mesh_instance, mesh_instance.material_override, output_materials)
 		if mesh_instance.mesh != null:
 			for surface_index in range(mesh_instance.mesh.get_surface_count()):
 				var surface_material: Material = mesh_instance.mesh.surface_get_material(surface_index)
-				_maybe_add_lens_material(mesh_instance, surface_material, output_materials)
+				_maybe_add_gdtf_lens_material(mesh_instance, surface_material, output_materials)
 
 	for child in node.get_children():
 		if child is Node3D:
 			_collect_lens_materials_recursive(child, output_materials)
 
-func _maybe_add_lens_material(mesh_instance: MeshInstance3D, material: Material, output_materials: Array) -> void:
+func _maybe_add_gdtf_lens_material(mesh_instance: MeshInstance3D, material: Material, output_materials: Array) -> void:
 	if material == null or not (material is BaseMaterial3D):
 		return
-	var include_material: bool = bool(material.get_meta("peraviz_lens_material", false))
-	if not include_material:
-		include_material = _should_apply_lens_tint(mesh_instance, material)
-	if not include_material:
+	if not _is_gdtf_beam_lens_material(mesh_instance, material):
 		return
 	if output_materials.has(material):
 		return
 	output_materials.append(material)
+
+func _is_gdtf_beam_lens_material(mesh_instance: MeshInstance3D, material: Material) -> bool:
+	# GDTF beam geometry is already represented by emitter anchors.
+	# Inside those anchors, lens surfaces are usually transparent or explicitly named lens/glass.
+	var name_hint: String = mesh_instance.name.to_lower()
+	if name_hint.contains("lens") or name_hint.contains("glass"):
+		return true
+	if material.resource_name.to_lower().contains("lens") or material.resource_name.to_lower().contains("glass"):
+		return true
+	if material is BaseMaterial3D:
+		var base_material: BaseMaterial3D = material
+		return base_material.transparency != BaseMaterial3D.TRANSPARENCY_DISABLED
+	return false
 
 func _resolve_fixture_beam_color(emitter_photometrics: Array, controls: Dictionary) -> Color:
 	if emitter_photometrics.is_empty():
@@ -1485,16 +1492,15 @@ func _apply_lens_feedback_materials(lens_materials: Array, beam_color: Color, no
 		lens_material.emission_enabled = true
 		lens_material.emission = beam_color
 		lens_material.emission_energy_multiplier = lerp(0.0, 4.5, dimmer_mix)
-		var alpha: float = LENS_TINT_COLOR.a
-		if lens_material.has_meta("peraviz_lens_base_alpha"):
-			alpha = float(lens_material.get_meta("peraviz_lens_base_alpha", LENS_TINT_COLOR.a))
-		lens_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-		lens_material.albedo_color = Color(
-			lerp(LENS_TINT_COLOR.r, beam_color.r, dimmer_mix),
-			lerp(LENS_TINT_COLOR.g, beam_color.g, dimmer_mix),
-			lerp(LENS_TINT_COLOR.b, beam_color.b, dimmer_mix),
-			alpha
-		)
+		lens_material.disable_receive_shadows = true
+		if lens_material.transparency != BaseMaterial3D.TRANSPARENCY_DISABLED:
+			var alpha: float = lens_material.albedo_color.a
+			lens_material.albedo_color = Color(
+				lerp(LENS_TINT_COLOR.r, beam_color.r, dimmer_mix),
+				lerp(LENS_TINT_COLOR.g, beam_color.g, dimmer_mix),
+				lerp(LENS_TINT_COLOR.b, beam_color.b, dimmer_mix),
+				alpha
+			)
 
 func _find_or_create_emitter_light(emitter_node: Node3D) -> SpotLight3D:
 	var lens_radius: float = _estimate_emitter_lens_radius(emitter_node)
@@ -1956,63 +1962,6 @@ func _update_beam_cone_material(cone: MeshInstance3D, beam_color: Color, scaled_
 	material.set_shader_parameter("depth_feather_enabled", true)
 	material.set_shader_parameter("depth_fade_distance", 0.5)
 	material.set_shader_parameter("max_brightness", lerp(1.0, 10.0 * brightness_scale, scaled_intensity))
-
-func _apply_fixture_lens_visual_tuning(fixture_uuid: String, emitter_nodes: Array) -> void:
-	if _fixture_lens_tuned.get(fixture_uuid, false):
-		return
-	for emitter_node in emitter_nodes:
-		_tint_emitter_lens_recursive(emitter_node)
-	_fixture_lens_tuned[fixture_uuid] = true
-
-func _tint_emitter_lens_recursive(node: Node3D) -> void:
-	if node == null:
-		return
-	if node is MeshInstance3D:
-		var mesh_instance: MeshInstance3D = node
-		if mesh_instance.mesh != null:
-			for surface_index in range(mesh_instance.mesh.get_surface_count()):
-				var material: Material = mesh_instance.get_active_material(surface_index)
-				if _should_apply_lens_tint(mesh_instance, material):
-					mesh_instance.set_surface_override_material(surface_index, _build_lens_material_override(material))
-	for child in node.get_children():
-		if child is Node3D:
-			_tint_emitter_lens_recursive(child)
-
-func _should_apply_lens_tint(mesh_instance: MeshInstance3D, material: Material) -> bool:
-	var name_hint: String = mesh_instance.name.to_lower()
-	if name_hint.contains("lens") or name_hint.contains("glass"):
-		return true
-	if material is BaseMaterial3D:
-		var base_material: BaseMaterial3D = material
-		if base_material.transparency != BaseMaterial3D.TRANSPARENCY_DISABLED:
-			return true
-		if base_material.emission_enabled and (name_hint.contains("lens") or name_hint.contains("glass")):
-			return true
-	return false
-
-func _build_lens_material_override(source: Material) -> StandardMaterial3D:
-	var material := StandardMaterial3D.new()
-	var source_alpha: float = LENS_TINT_COLOR.a
-	if source is BaseMaterial3D:
-		var base_source: BaseMaterial3D = source
-		material.albedo_color = base_source.albedo_color.lerp(LENS_TINT_COLOR, 0.65)
-		if base_source.transparency != BaseMaterial3D.TRANSPARENCY_DISABLED:
-			source_alpha = min(base_source.albedo_color.a, LENS_TINT_COLOR.a)
-	else:
-		material.albedo_color = LENS_TINT_COLOR
-	material.albedo_color.a = source_alpha
-	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	material.roughness = 0.08
-	material.metallic = 0.0
-	material.clearcoat_enabled = true
-	material.clearcoat = 0.75
-	material.specular = 1.0
-	material.emission_enabled = true
-	material.emission = material.albedo_color
-	material.emission_energy_multiplier = 0.35
-	material.set_meta("peraviz_lens_material", true)
-	material.set_meta("peraviz_lens_base_alpha", material.albedo_color.a)
-	return material
 
 func _derive_emitter_color(photometric: Dictionary, controls: Dictionary = {}) -> Color:
 	var base_color: Color
