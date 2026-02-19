@@ -11,6 +11,7 @@ namespace {
 constexpr float kMinRadiusMeters = 0.25f;
 constexpr float kFitPaddingScale = 1.2f;
 constexpr float kFovYDegrees = 45.0f;
+constexpr float kPi = 3.14159265358979323846f;
 
 } // namespace
 
@@ -59,7 +60,7 @@ bool FrameSceneInCamera(const ISelectionContext &selectionContext, int viewportW
 
   const float aspect =
       static_cast<float>(viewportWidth) / static_cast<float>(viewportHeight);
-  const float fovY = kFovYDegrees * static_cast<float>(M_PI) / 180.0f;
+  const float fovY = kFovYDegrees * kPi / 180.0f;
   const float fovX = 2.0f * std::atan(std::tan(fovY * 0.5f) * aspect);
   const float limitingHalfFov = std::min(fovX, fovY) * 0.5f;
 
