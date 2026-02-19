@@ -8,8 +8,8 @@
 #include <limits>
 
 namespace {
-constexpr float kMinRadiusMeters = 0.25f;
-constexpr float kFitPaddingScale = 0.95f;
+constexpr float kMinRadiusMeters = 0.05f;
+constexpr float kFitPaddingScale = 0.85f;
 constexpr float kFovYDegrees = 45.0f;
 constexpr float kPi = 3.14159265358979323846f;
 
