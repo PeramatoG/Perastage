@@ -149,6 +149,8 @@ wxBEGIN_EVENT_TABLE(FixturePreviewPanel, wxGLCanvas)
     EVT_SIZE(FixturePreviewPanel::OnResize)
     EVT_LEFT_DOWN(FixturePreviewPanel::OnMouseDown)
     EVT_LEFT_UP(FixturePreviewPanel::OnMouseUp)
+    EVT_RIGHT_DOWN(FixturePreviewPanel::OnMouseDown)
+    EVT_RIGHT_UP(FixturePreviewPanel::OnMouseUp)
     EVT_MOTION(FixturePreviewPanel::OnMouseMove)
     EVT_MOUSEWHEEL(FixturePreviewPanel::OnMouseWheel)
     EVT_MOUSE_CAPTURE_LOST(FixturePreviewPanel::OnCaptureLost)
@@ -283,7 +285,9 @@ void FixturePreviewPanel::OnMouseDown(wxMouseEvent& evt)
 {
     m_dragging = true;
     m_lastMousePos = evt.GetPosition();
-    CaptureMouse();
+    if(!HasCapture()){
+        CaptureMouse();
+    }
 }
 
 void FixturePreviewPanel::OnMouseUp(wxMouseEvent&)
@@ -301,13 +305,18 @@ void FixturePreviewPanel::OnCaptureLost(wxMouseCaptureLostEvent& WXUNUSED(evt))
 
 void FixturePreviewPanel::OnMouseMove(wxMouseEvent& evt)
 {
-    if(m_dragging){
+    if(m_dragging && (evt.LeftIsDown() || evt.RightIsDown())){
         wxPoint pos = evt.GetPosition();
         int dx = pos.x - m_lastMousePos.x;
         int dy = pos.y - m_lastMousePos.y;
         m_camera.Orbit(dx * 0.5f, dy * 0.5f);
         m_lastMousePos = pos;
         Refresh();
+    } else if(m_dragging) {
+        m_dragging = false;
+        if(HasCapture()){
+            ReleaseMouse();
+        }
     }
 }
 
