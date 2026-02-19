@@ -2,7 +2,7 @@
 
 #include "viewer3d_types.h"
 
-class Viewer3DController;
+class ISelectionContext;
 
 namespace viewer2d {
 
@@ -12,7 +12,7 @@ struct ViewFitResult {
   float zoom = 1.0f;
 };
 
-bool ComputeViewFit(const Viewer3DController &controller, Viewer2DView view,
+bool ComputeViewFit(const ISelectionContext &selectionContext, Viewer2DView view,
                     int viewportWidth, int viewportHeight,
                     ViewFitResult &result);
 

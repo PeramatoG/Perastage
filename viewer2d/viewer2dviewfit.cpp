@@ -1,6 +1,6 @@
 #include "viewer2dviewfit.h"
 
-#include "viewer3dcontroller.h"
+#include "iselectioncontext.h"
 #include <algorithm>
 #include <limits>
 
@@ -9,7 +9,7 @@ constexpr float kPixelsPerMeter = 100.0f;
 constexpr float kMinZoom = 0.1f;
 constexpr float kFitPaddingScale = 1.15f;
 
-void ExpandProjectedBounds(const Viewer3DController::BoundingBox &box,
+void ExpandProjectedBounds(const ISelectionContext::BoundingBox &box,
                            Viewer2DView view, float &minA, float &maxA,
                            float &minB, float &maxB) {
   float axisAMin = 0.0f;
@@ -49,7 +49,7 @@ void ExpandProjectedBounds(const Viewer3DController::BoundingBox &box,
 
 namespace viewer2d {
 
-bool ComputeViewFit(const Viewer3DController &controller, Viewer2DView view,
+bool ComputeViewFit(const ISelectionContext &selectionContext, Viewer2DView view,
                     int viewportWidth, int viewportHeight,
                     ViewFitResult &result) {
   if (viewportWidth <= 0 || viewportHeight <= 0)
@@ -67,9 +67,9 @@ bool ComputeViewFit(const Viewer3DController &controller, Viewer2DView view,
     }
   };
 
-  accumulate(controller.GetFixtureBoundsMap());
-  accumulate(controller.GetTrussBoundsMap());
-  accumulate(controller.GetObjectBoundsMap());
+  accumulate(selectionContext.GetFixtureBoundsMap());
+  accumulate(selectionContext.GetTrussBoundsMap());
+  accumulate(selectionContext.GetObjectBoundsMap());
 
   if (minA > maxA || minB > maxB)
     return false;

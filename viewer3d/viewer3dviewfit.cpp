@@ -1,7 +1,7 @@
 #include "viewer3dviewfit.h"
 
 #include "viewer3dcamera.h"
-#include "viewer3dcontroller.h"
+#include "iselectioncontext.h"
 
 #include <algorithm>
 #include <cmath>
@@ -16,7 +16,7 @@ constexpr float kFovYDegrees = 45.0f;
 
 namespace viewer3d {
 
-bool FrameSceneInCamera(const Viewer3DController &controller, int viewportWidth,
+bool FrameSceneInCamera(const ISelectionContext &selectionContext, int viewportWidth,
                         int viewportHeight, Viewer3DCamera &camera) {
   if (viewportWidth <= 0 || viewportHeight <= 0)
     return false;
@@ -40,9 +40,9 @@ bool FrameSceneInCamera(const Viewer3DController &controller, int viewportWidth,
     }
   };
 
-  accumulate(controller.GetFixtureBoundsMap());
-  accumulate(controller.GetTrussBoundsMap());
-  accumulate(controller.GetObjectBoundsMap());
+  accumulate(selectionContext.GetFixtureBoundsMap());
+  accumulate(selectionContext.GetTrussBoundsMap());
+  accumulate(selectionContext.GetObjectBoundsMap());
 
   if (minX > maxX || minY > maxY || minZ > maxZ)
     return false;
