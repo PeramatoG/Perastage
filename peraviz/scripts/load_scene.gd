@@ -109,8 +109,6 @@ const DEFAULT_EMITTER_PHOTOMETRICS := {
 # (aligned with fixture lens output in runtime scenes) while still inheriting GDTF emitter transforms.
 const EMITTER_LIGHT_DIRECTION_FIX: Vector3 = Vector3(-90.0, 0.0, 0.0)
 const LENS_TINT_COLOR: Color = Color(0.72, 0.86, 1.0, 0.38)
-const LENS_GLOW_MIN_RADIUS_M: float = 0.012
-const LENS_GLOW_MAX_RADIUS_M: float = 0.08
 const DOUBLE_SIDED_NAME_HINTS: Array[String] = [
 	"lens", "glass", "visor", "shade", "shield", "fabric", "cloth", "curtain", "scrim", "flag", "plane", "card"
 ]
@@ -1386,6 +1384,7 @@ func _apply_dimmer_feedback_to_fixture(fixture_uuid: String, dimmer: float, cont
 		lens_nodes = emitter_nodes
 	var lens_materials: Array = _collect_fixture_lens_materials(fixture_uuid, lens_nodes, has_explicit_lens_nodes)
 	_apply_lens_feedback_materials(lens_materials, beam_color, normalized_dimmer)
+	_apply_lens_feedback_to_nodes(lens_nodes, beam_color, normalized_dimmer)
 
 	var emissive_materials: Array = _collect_fixture_emissive_materials(fixture_uuid, geometry_nodes)
 	var energy_multiplier: float = lerp(0.0, 4.0, normalized_dimmer)
@@ -1501,19 +1500,60 @@ func _apply_lens_feedback_materials(lens_materials: Array, beam_color: Color, no
 	for material in lens_materials:
 		if material is not BaseMaterial3D:
 			continue
-		var lens_material: BaseMaterial3D = material
-		lens_material.emission_enabled = true
-		lens_material.emission = beam_color
-		lens_material.emission_energy_multiplier = lerp(0.0, 4.5, dimmer_mix)
-		lens_material.disable_receive_shadows = true
-		lens_material.cull_mode = BaseMaterial3D.CULL_DISABLED
-		var alpha: float = lens_material.albedo_color.a
-		lens_material.albedo_color = Color(
-			lerp(LENS_TINT_COLOR.r, beam_color.r, dimmer_mix),
-			lerp(LENS_TINT_COLOR.g, beam_color.g, dimmer_mix),
-			lerp(LENS_TINT_COLOR.b, beam_color.b, dimmer_mix),
-			alpha
-		)
+		_apply_lens_feedback_to_material(material as BaseMaterial3D, beam_color, dimmer_mix)
+
+func _apply_lens_feedback_to_nodes(lens_nodes: Array, beam_color: Color, normalized_dimmer: float) -> void:
+	var dimmer_mix: float = clamp(normalized_dimmer, 0.0, 1.0)
+	for lens_root in lens_nodes:
+		_apply_lens_feedback_to_node_recursive(lens_root, beam_color, dimmer_mix)
+
+func _apply_lens_feedback_to_node_recursive(node: Node3D, beam_color: Color, dimmer_mix: float) -> void:
+	if node == null:
+		return
+	if node is MeshInstance3D:
+		var mesh_instance: MeshInstance3D = node
+		if mesh_instance.mesh != null:
+			for surface_index in range(mesh_instance.mesh.get_surface_count()):
+				var current_material: Material = mesh_instance.get_active_material(surface_index)
+				var target_material: BaseMaterial3D = _ensure_lens_surface_material(mesh_instance, surface_index, current_material)
+				if target_material != null:
+					_apply_lens_feedback_to_material(target_material, beam_color, dimmer_mix)
+	for child in node.get_children():
+		if child is Node3D:
+			_apply_lens_feedback_to_node_recursive(child, beam_color, dimmer_mix)
+
+func _ensure_lens_surface_material(mesh_instance: MeshInstance3D, surface_index: int, source_material: Material) -> BaseMaterial3D:
+	if source_material is BaseMaterial3D:
+		return source_material
+	var existing_override: Material = mesh_instance.get_surface_override_material(surface_index)
+	if existing_override is BaseMaterial3D and bool(existing_override.get_meta("peraviz_lens_runtime_override", false)):
+		return existing_override
+	var runtime_material := StandardMaterial3D.new()
+	runtime_material.set_meta("peraviz_lens_runtime_override", true)
+	runtime_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	runtime_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	runtime_material.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	runtime_material.cull_mode = BaseMaterial3D.CULL_DISABLED
+	runtime_material.albedo_color = Color(LENS_TINT_COLOR.r, LENS_TINT_COLOR.g, LENS_TINT_COLOR.b, max(LENS_TINT_COLOR.a, 0.35))
+	runtime_material.emission_enabled = true
+	runtime_material.emission = Color.BLACK
+	runtime_material.emission_energy_multiplier = 0.0
+	mesh_instance.set_surface_override_material(surface_index, runtime_material)
+	return runtime_material
+
+func _apply_lens_feedback_to_material(lens_material: BaseMaterial3D, beam_color: Color, dimmer_mix: float) -> void:
+	lens_material.emission_enabled = true
+	lens_material.emission = beam_color
+	lens_material.emission_energy_multiplier = lerp(0.0, 4.5, dimmer_mix)
+	lens_material.disable_receive_shadows = true
+	lens_material.cull_mode = BaseMaterial3D.CULL_DISABLED
+	var alpha: float = lens_material.albedo_color.a
+	lens_material.albedo_color = Color(
+		lerp(LENS_TINT_COLOR.r, beam_color.r, dimmer_mix),
+		lerp(LENS_TINT_COLOR.g, beam_color.g, dimmer_mix),
+		lerp(LENS_TINT_COLOR.b, beam_color.b, dimmer_mix),
+		alpha
+	)
 
 func _find_or_create_emitter_light(emitter_node: Node3D) -> SpotLight3D:
 	var lens_radius: float = _estimate_emitter_lens_radius(emitter_node)
@@ -1525,7 +1565,6 @@ func _find_or_create_emitter_light(emitter_node: Node3D) -> SpotLight3D:
 			# Self/caster shadows from fixture geometry can clip the floor footprint.
 			child.shadow_enabled = false
 			child.set_meta("peraviz_lens_radius", lens_radius)
-			_ensure_emitter_lens_glow(emitter_node, lens_radius)
 			return child
 
 	var light := SpotLight3D.new()
@@ -1539,57 +1578,7 @@ func _find_or_create_emitter_light(emitter_node: Node3D) -> SpotLight3D:
 	light.spot_attenuation = 1.0
 	light.set_meta("peraviz_lens_radius", lens_radius)
 	emitter_node.add_child(light)
-	_ensure_emitter_lens_glow(emitter_node, lens_radius)
 	return light
-
-func _ensure_emitter_lens_glow(emitter_node: Node3D, lens_radius: float) -> void:
-	if emitter_node == null:
-		return
-	var glow_node: MeshInstance3D = null
-	for child in emitter_node.get_children():
-		if child is MeshInstance3D and child.name == "PeravizLensGlow":
-			glow_node = child
-			break
-	if glow_node == null:
-		glow_node = MeshInstance3D.new()
-		glow_node.name = "PeravizLensGlow"
-		glow_node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		glow_node.position = Vector3.ZERO
-		glow_node.rotation_degrees = EMITTER_LIGHT_DIRECTION_FIX
-		var glow_mesh := SphereMesh.new()
-		glow_node.mesh = glow_mesh
-		var glow_material := StandardMaterial3D.new()
-		glow_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		glow_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-		glow_material.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
-		glow_material.cull_mode = BaseMaterial3D.CULL_DISABLED
-		glow_material.emission_enabled = true
-		glow_material.albedo_color = Color(1.0, 1.0, 1.0, 0.0)
-		glow_material.emission = Color.BLACK
-		glow_material.emission_energy_multiplier = 0.0
-		glow_node.material_override = glow_material
-		emitter_node.add_child(glow_node)
-
-	var effective_radius: float = clamp(lens_radius * 1.15, LENS_GLOW_MIN_RADIUS_M, LENS_GLOW_MAX_RADIUS_M)
-	if glow_node.mesh is SphereMesh:
-		var sphere_mesh: SphereMesh = glow_node.mesh
-		sphere_mesh.radius = effective_radius
-		sphere_mesh.height = effective_radius * 2.0
-
-func _update_emitter_lens_glow(emitter_node: Node3D, beam_color: Color, normalized_dimmer: float) -> void:
-	if emitter_node == null:
-		return
-	for child in emitter_node.get_children():
-		if child is MeshInstance3D and child.name == "PeravizLensGlow":
-			var glow_mesh: MeshInstance3D = child
-			glow_mesh.visible = normalized_dimmer > 0.0001
-			if glow_mesh.material_override is BaseMaterial3D:
-				var glow_material: BaseMaterial3D = glow_mesh.material_override
-				glow_material.emission_enabled = true
-				glow_material.emission = beam_color
-				glow_material.emission_energy_multiplier = lerp(0.0, 8.0, clamp(normalized_dimmer, 0.0, 1.0))
-				glow_material.albedo_color = Color(beam_color.r, beam_color.g, beam_color.b, lerp(0.0, 0.35, clamp(normalized_dimmer, 0.0, 1.0)))
-			return
 
 func _estimate_emitter_lens_radius(emitter_node: Node3D) -> float:
 	var default_radius: float = 0.03
@@ -1784,8 +1773,6 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 	# avoids early floor clipping on steep tilt while keeping cone visuals unchanged.
 	light.spot_range = clamp(cone_range * EMITTER_LIGHT_FOOTPRINT_RANGE_MULTIPLIER, EMITTER_LIGHT_MIN_EFFECTIVE_RANGE_M, EMITTER_LIGHT_MAX_RANGE_M)
 	light.light_color = _derive_emitter_color(photometric, controls)
-	var emitter_parent: Node3D = light.get_parent() as Node3D
-	_update_emitter_lens_glow(emitter_parent, light.light_color, normalized_dimmer)
 	var beam_radius_from_gdtf: bool = bool(photometric.get("beam_radius_from_gdtf", false))
 	var source_beam_radius: float = beam_radius_m if beam_radius_from_gdtf else -1.0
 	var lens_radius: float = max(float(light.get_meta("peraviz_lens_radius", 0.03)), 0.005)
