@@ -244,6 +244,7 @@ void FixturePreviewPanel::Render()
     gluPerspective(45.0,(double)w/h,0.1,100.0);
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
+    m_camera.Update(0.0f);
     m_camera.Apply();
     float lightPos[4] = {0.f, 0.f, 1.f, 0.f};
     float lightDiffuse[4] = {1.f,1.f,1.f,1.f};
