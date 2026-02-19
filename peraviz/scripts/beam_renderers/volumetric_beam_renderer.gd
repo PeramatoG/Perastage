@@ -4,7 +4,7 @@ class_name VolumetricBeamRenderer
 
 const BEAM_META_KEY: String = "peraviz_volumetric_beam"
 const EMITTER_CONE_MAX_BASE_RADIUS_M: float = 10.0
-const VOLUMETRIC_INTENSITY_SCALE: float = 0.72
+const VOLUMETRIC_INTENSITY_SCALE: float = 0.62
 
 const QUALITY_PRESETS := {
 	0: {"steps": 14.0, "noise_multiplier": 0.0},
