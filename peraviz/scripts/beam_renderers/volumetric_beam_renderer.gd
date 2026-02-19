@@ -4,6 +4,7 @@ class_name VolumetricBeamRenderer
 
 const BEAM_META_KEY: String = "peraviz_volumetric_beam"
 const EMITTER_CONE_MAX_BASE_RADIUS_M: float = 10.0
+const VOLUMETRIC_INTENSITY_SCALE: float = 0.72
 
 const QUALITY_PRESETS := {
 	0: {"steps": 14.0, "noise_multiplier": 0.0},
@@ -86,7 +87,7 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	var noise_amount: float = float(_settings.get("beam_noise_amount", 0.06)) * float(quality_preset.get("noise_multiplier", 1.0))
 
 	cone.set_instance_shader_parameter("beam_color", Color(beam_color.r, beam_color.g, beam_color.b, 1.0))
-	cone.set_instance_shader_parameter("beam_intensity", intensity)
+	cone.set_instance_shader_parameter("beam_intensity", intensity * VOLUMETRIC_INTENSITY_SCALE)
 	cone.set_instance_shader_parameter("cone_height", beam_range)
 	cone.set_instance_shader_parameter("top_radius", max(lens_radius, 0.003))
 	cone.set_instance_shader_parameter("bottom_radius", bottom_radius)

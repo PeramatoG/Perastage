@@ -64,9 +64,7 @@ void fragment() {
 	float current_radius = mix(top_radius, bottom_radius, beam_axial);
 	float radial = length(vec2(local_position.x, local_position.z));
 	float radial_ratio = clamp(radial / max(current_radius, 0.0001), 0.0, 1.0);
-	float radial_density = 1.0 - smoothstep(0.18, 1.0, radial_ratio);
-	float radial_softness = pow(max(1.0 - radial_ratio, 0.0), 1.35);
-	float axial_density = mix(1.25, 0.28, far_progress);
+	float radial_density = 1.0 - smoothstep(0.62, 1.0, radial_ratio);
 
 	float view_alignment = abs(dot(normalize(NORMAL), normalize(VIEW)));
 	float phase = phase_hg(view_alignment, anisotropy);
@@ -90,7 +88,7 @@ void fragment() {
 		if (noise_amount > 0.001) {
 			sample_noise += (value_noise(vec3(local_position.xz * noise_scale, sample_far_progress + TIME * 0.08)) - 0.5) * noise_amount;
 		}
-		float density = max(radial_density * radial_softness * sample_axial_density * sample_end_fade * sample_noise, 0.0);
+		float density = max(radial_density * sample_axial_density * sample_end_fade * sample_noise, 0.0);
 		transmittance *= exp(-sigma_t * density * step_length);
 		radiance += transmittance * sigma_s * density * phase * step_length;
 		if (transmittance < 0.02) {
@@ -101,8 +99,10 @@ void fragment() {
 	float inside_dimmer = mix(1.0, camera_inside_dimmer, smoothstep(0.0, 0.2, radial_ratio));
 	float alpha = clamp(radiance * beam_intensity * inside_dimmer * 18.0, 0.0, 1.0) * end_fade;
 
-	vec3 scatter_color = mix(vec3(1.0), beam_color.rgb, 0.45);
+	float core_whitening = pow(max(1.0 - radial_ratio, 0.0), 3.2) * smoothstep(0.0, 0.35, near_factor);
+	vec3 scatter_color = mix(vec3(1.0), beam_color.rgb, 0.35);
+	vec3 emission_color = mix(scatter_color, vec3(1.0), clamp(core_whitening, 0.0, 1.0));
 	ALBEDO = scatter_color;
-	EMISSION = scatter_color * alpha * 2.6;
+	EMISSION = emission_color * alpha * 2.2;
 	ALPHA = alpha;
 }
