@@ -1705,39 +1705,83 @@ func _create_emitter_beam_material() -> ShaderMaterial:
 	var shader := Shader.new()
 	shader.code = """
 shader_type spatial;
-render_mode unshaded, blend_add, cull_disabled, depth_prepass_alpha, shadows_disabled;
+render_mode unshaded, blend_add, cull_back, depth_draw_opaque;
 
-uniform vec4 beam_color : source_color = vec4(1.0, 0.85, 0.55, 1.0);
-uniform float near_alpha = 0.06;
-uniform float far_alpha = 0.004;
-uniform float near_emission = 0.45;
-uniform float far_emission = 0.04;
-uniform float cone_height = 1.0;
-uniform float fade_end_ratio = 0.82;
-uniform float lateral_softness = 0.18;
-uniform float lateral_emission_boost = 0.2;
-uniform float volumetric_noise_strength = 0.1;
-uniform float volumetric_noise_scale = 28.0;
+uniform sampler2D DEPTH_TEXTURE : hint_depth_texture, filter_linear_mipmap;
 
-varying float beam_axial;
+uniform vec4 base_color : source_color = vec4(1.0, 0.95, 0.85, 0.5);
+uniform float falloff_power : hint_range(0.1, 10.0) = 8.0;
+
+uniform float facing_boost : hint_range(0.0, 10.0) = 1.5;
+uniform float facing_power : hint_range(0.1, 20.0) = 4.0;
+uniform float boost_along_y : hint_range(0.0, 10.0) = 1.0;
+
+uniform float feather_sharpness : hint_range(0.1, 20.0) = 4.0;
+uniform float feather_intensity : hint_range(0.0, 1.0) = 1.0;
+
+uniform float near_fade_start : hint_range(0.0, 50.0) = 0.01;
+uniform float near_fade_end : hint_range(0.0, 50.0) = 1.0;
+uniform float far_fade_start : hint_range(0.1, 100.0) = 25.0;
+uniform float far_fade_end : hint_range(0.1, 100.0) = 80.0;
+
+uniform float max_brightness : hint_range(1.0, 50.0) = 10.0;
+
+uniform bool depth_feather_enabled = true;
+uniform float depth_fade_distance : hint_range(0.01, 5.0) = 0.5;
+
+varying vec3 vertex_view;
 
 void vertex() {
-	float normalized_y = (VERTEX.y / max(cone_height, 0.0001)) + 0.5;
-	beam_axial = clamp(normalized_y, 0.0, 1.0);
+	vertex_view = (MODELVIEW_MATRIX * vec4(VERTEX, 1.0)).xyz;
+	POSITION = PROJECTION_MATRIX * vec4(vertex_view, 1.0);
+}
+
+float get_linear_depth(float raw_depth, mat4 inv_proj_mat) {
+	return 1.0 / (raw_depth * inv_proj_mat[2][3] + inv_proj_mat[3][3]);
 }
 
 void fragment() {
-	float near_factor = beam_axial;
-	float far_progress = 1.0 - beam_axial;
-	float end_fade = 1.0 - smoothstep(clamp(fade_end_ratio, 0.0, 0.99), 1.0, far_progress);
-	float view_alignment = abs(dot(normalize(NORMAL), normalize(VIEW)));
-	float lateral_fade = smoothstep(0.0, clamp(lateral_softness, 0.02, 1.0), view_alignment);
-	float axial_noise = sin((beam_axial * volumetric_noise_scale) + (TIME * 0.9));
-	float beam_noise = 1.0 + (axial_noise * volumetric_noise_strength);
-	float center_boost = (1.0 + (lateral_emission_boost * lateral_fade)) * beam_noise;
-	ALBEDO = beam_color.rgb;
-	ALPHA = mix(far_alpha, near_alpha, near_factor) * end_fade * lateral_fade;
-	EMISSION = beam_color.rgb * (mix(far_emission, near_emission, near_factor) * end_fade * center_boost);
+	float dist = length(vertex_view);
+
+	float near_alpha = smoothstep(near_fade_start, near_fade_end, dist);
+	float far_alpha = 1.0 - smoothstep(far_fade_start, far_fade_end, dist);
+	float dist_fade = near_alpha * far_alpha;
+
+	if (dist_fade < 0.001) discard;
+
+	float apex_fade = pow(max(1.0 - UV.y, 0.001), falloff_power);
+	float base_brightness = base_color.a * apex_fade;
+
+	vec3 N = normalize(NORMAL);
+	vec3 V = normalize(-vertex_view);
+	float ndotv = max(0.0, dot(N, V));
+	float location_weight = pow(max(1.0 - UV.y, 0.0), boost_along_y);
+	float facing_multiplier = 1.0 + (facing_boost * location_weight * pow(ndotv, facing_power));
+
+	float brightness = base_brightness * facing_multiplier;
+	brightness = min(brightness, max_brightness);
+
+	float feather_alpha = mix(1.0 - feather_intensity, 1.0, pow(ndotv, feather_sharpness));
+
+	float depth_mult = 1.0;
+	if (depth_feather_enabled) {
+		float scene_depth = texture(DEPTH_TEXTURE, SCREEN_UV).r;
+		if (scene_depth < 0.9999) {
+			float scene_linear = get_linear_depth(scene_depth, INV_PROJECTION_MATRIX);
+			float frag_linear = -vertex_view.z;
+			float diff = scene_linear - frag_linear;
+			depth_mult = smoothstep(0.0, depth_fade_distance, diff);
+		}
+	}
+
+	float final_alpha = feather_alpha * depth_mult * dist_fade;
+
+	ALBEDO = base_color.rgb * brightness;
+	ALPHA = clamp(final_alpha * base_color.a, 0.0, 1.0);
+
+	if (ALPHA < 0.001) {
+		ALBEDO = vec3(0.0);
+	}
 }
 """
 	shader_material.shader = shader
@@ -1808,22 +1852,21 @@ func _update_beam_cone_geometry(cone: MeshInstance3D, lens_radius: float, bottom
 	cone_mesh.height = beam_range
 	cone.position = Vector3(0.0, 0.0, -beam_range * 0.5)
 
-func _update_beam_cone_material(cone: MeshInstance3D, beam_color: Color, scaled_intensity: float, beam_range: float, lateral_softness: float, lateral_emission_boost: float, noise_strength: float, alpha_scale: float, emission_scale: float) -> void:
+func _update_beam_cone_material(cone: MeshInstance3D, beam_color: Color, scaled_intensity: float, beam_range: float, feather_sharpness: float, facing_boost: float, depth_fade_distance: float, alpha_scale: float, brightness_scale: float) -> void:
 	if cone == null:
 		return
 	var material: ShaderMaterial = cone.material_override as ShaderMaterial
 	if material == null:
 		return
-	material.set_shader_parameter("beam_color", beam_color)
-	material.set_shader_parameter("near_alpha", lerp(0.0, EMITTER_CONE_NEAR_ALPHA * alpha_scale, scaled_intensity))
-	material.set_shader_parameter("far_alpha", lerp(0.0, EMITTER_CONE_FAR_ALPHA * alpha_scale, scaled_intensity))
-	material.set_shader_parameter("near_emission", lerp(0.0, EMITTER_CONE_NEAR_EMISSION * emission_scale, scaled_intensity))
-	material.set_shader_parameter("far_emission", lerp(0.0, EMITTER_CONE_FAR_EMISSION * emission_scale, scaled_intensity))
-	material.set_shader_parameter("cone_height", max(beam_range, 0.001))
-	material.set_shader_parameter("fade_end_ratio", EMITTER_CONE_FADE_END_RATIO)
-	material.set_shader_parameter("lateral_softness", lateral_softness)
-	material.set_shader_parameter("lateral_emission_boost", lateral_emission_boost)
-	material.set_shader_parameter("volumetric_noise_strength", noise_strength)
+	var intensity_alpha: float = lerp(0.0, 0.5 * alpha_scale, scaled_intensity)
+	material.set_shader_parameter("base_color", Color(beam_color.r, beam_color.g, beam_color.b, intensity_alpha))
+	material.set_shader_parameter("near_fade_end", clamp(max(beam_range * 0.06, 0.2), 0.05, 50.0))
+	material.set_shader_parameter("far_fade_start", clamp(max(beam_range * 0.55, 2.0), 0.1, 100.0))
+	material.set_shader_parameter("far_fade_end", clamp(max(beam_range * 0.95, 3.0), 0.1, 100.0))
+	material.set_shader_parameter("feather_sharpness", feather_sharpness)
+	material.set_shader_parameter("facing_boost", facing_boost)
+	material.set_shader_parameter("depth_fade_distance", depth_fade_distance)
+	material.set_shader_parameter("max_brightness", lerp(1.0, 10.0 * brightness_scale, scaled_intensity))
 
 func _apply_fixture_lens_visual_tuning(fixture_uuid: String, emitter_nodes: Array) -> void:
 	if _fixture_lens_tuned.get(fixture_uuid, false):
