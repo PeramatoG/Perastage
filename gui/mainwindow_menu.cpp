@@ -574,16 +574,9 @@ void MainWindow::OnAutoColor(wxCommandEvent &WXUNUSED(event)) {
       } else {
         f.color = it->second;
       }
-    } else if (f.color.empty()) {
+    } else if (f.color.empty() || isWhiteColor(f.color)) {
       f.color = randHex();
     }
-  }
-  for (const auto &[spec, color] : typeColors) {
-    std::string gdtfPath = spec;
-    std::filesystem::path p = gdtfPath;
-    if (p.is_relative() && !scene.basePath.empty())
-      gdtfPath = (std::filesystem::path(scene.basePath) / p).string();
-    SetGdtfModelColor(gdtfPath, color);
   }
 
   if (layerPanel)

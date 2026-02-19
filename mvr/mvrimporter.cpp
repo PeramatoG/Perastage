@@ -727,8 +727,6 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
           fixture.typeName = Trim(GetGdtfFixtureName(gdtfPath));
         if (!fixture.typeName.empty())
           fixture.gdtfSpec = gdtfPath;
-        if (fixture.color.empty())
-          fixture.color = GetGdtfModelColor(gdtfPath);
         float gw = 0.0f, gp = 0.0f;
         if (GetGdtfProperties(gdtfPath, gw, gp)) {
           if (fixture.weightKg == 0.0f)
