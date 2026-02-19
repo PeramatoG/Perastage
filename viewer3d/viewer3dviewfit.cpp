@@ -9,7 +9,7 @@
 
 namespace {
 constexpr float kMinRadiusMeters = 0.25f;
-constexpr float kFitPaddingScale = 1.2f;
+constexpr float kFitPaddingScale = 1.05f;
 constexpr float kFovYDegrees = 45.0f;
 constexpr float kPi = 3.14159265358979323846f;
 
@@ -65,7 +65,7 @@ bool FrameSceneInCamera(const ISelectionContext &selectionContext, int viewportW
   const float limitingHalfFov = std::min(fovX, fovY) * 0.5f;
 
   const float requiredDistance =
-      (radius * kFitPaddingScale) / std::max(0.01f, std::sin(limitingHalfFov));
+      (radius * kFitPaddingScale) / std::max(0.01f, std::tan(limitingHalfFov));
 
   camera.SetTarget(centerX, centerY, centerZ);
   camera.SetDistance(requiredDistance);

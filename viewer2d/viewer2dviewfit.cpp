@@ -5,7 +5,7 @@
 #include <limits>
 
 namespace {
-constexpr float kPixelsPerMeter = 100.0f;
+constexpr float kPixelsPerMeter = 25.0f;
 constexpr float kMinZoom = 0.1f;
 constexpr float kFitPaddingScale = 1.15f;
 
