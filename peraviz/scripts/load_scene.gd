@@ -55,6 +55,12 @@ var _visual_settings := {
 	"spot_multiplier": 1.0,
 	"beam_multiplier": 1.0,
 	"bloom_multiplier": 1.0,
+	"beam_render_mode": 0,
+	"beam_quality": 1,
+	"beam_haze_density": 0.17,
+	"beam_anisotropy": 0.62,
+	"beam_noise_amount": 0.06,
+	"beam_noise_scale": 1.4,
 	"background_color": Color(0.129412, 0.137255, 0.156863, 1.0),
 }
 
@@ -67,8 +73,17 @@ var _dmx_universe_offset_input: SpinBox
 var _dmx_unbound_preview_label: Label
 var _dmx_fixture_runtime = null
 
+var _beam_renderers: Dictionary = {}
+var _active_beam_renderer: BeamRendererBase
+var _active_beam_mode: int = -1
+
+
 const DmxMonitorWindowScript = preload("res://scripts/dmx_monitor_window.gd")
 const DmxFixtureRuntimeScript = preload("res://scripts/dmx_fixture_runtime.gd")
+
+const BeamRendererBaseScript = preload("res://scripts/beam_renderers/beam_renderer_base.gd")
+const LegacyConeBeamRendererScript = preload("res://scripts/beam_renderers/legacy_cone_beam_renderer.gd")
+const VolumetricBeamRendererScript = preload("res://scripts/beam_renderers/volumetric_beam_renderer.gd")
 
 const DEBUG_TOGGLE_KEY: Key = KEY_C
 const MANUAL_TEST_FLAG: String = "--peraviz_manual_fixture_test"
@@ -121,6 +136,12 @@ const EMITTER_CONE_NEAR_ALPHA: float = 0.16
 const EMITTER_CONE_FAR_ALPHA: float = 0.004
 const EMITTER_CONE_NEAR_EMISSION: float = 0.45
 const EMITTER_CONE_FAR_EMISSION: float = 0.04
+const VISUAL_SETTINGS_PROJECT_KEY: String = "peraviz_visual_settings"
+const BEAM_RENDER_MODE_VOLUMETRIC: int = 0
+const BEAM_RENDER_MODE_LEGACY: int = 1
+const BEAM_INTENSITY_VISIBILITY_THRESHOLD: float = 0.015
+const BEAM_DISTANCE_CULL_M: float = 180.0
+
 const ENV_QUALITY_PRESET_SETTING: String = "peraviz_environment_quality"
 const ENV_QUALITY_PRESET_DEFAULT: String = "medium"
 const ENVIRONMENT_QUALITY_PRESETS := {
@@ -192,6 +213,8 @@ func _ready() -> void:
 	_setup_dmx_fixture_runtime()
 	_apply_environment_quality_preset()
 	_capture_visual_environment_baseline()
+	_load_visual_settings_from_project()
+	_initialize_beam_renderers()
 	visual_settings_window.configure(_visual_settings)
 	_apply_visual_settings(_visual_settings)
 
@@ -219,6 +242,21 @@ func _capture_visual_environment_baseline() -> void:
 	_visual_environment_baseline["background_color"] = world_environment.environment.background_color
 	_visual_settings["background_color"] = _visual_environment_baseline["background_color"]
 
+func _load_visual_settings_from_project() -> void:
+	var stored_settings: Variant = ProjectSettings.get_setting(VISUAL_SETTINGS_PROJECT_KEY, {})
+	if stored_settings is Dictionary:
+		for key in _visual_settings.keys():
+			if stored_settings.has(key):
+				_visual_settings[key] = stored_settings[key]
+
+func _save_visual_settings_to_project() -> void:
+	ProjectSettings.set_setting(VISUAL_SETTINGS_PROJECT_KEY, _visual_settings.duplicate(true))
+
+func _initialize_beam_renderers() -> void:
+	_beam_renderers[BEAM_RENDER_MODE_LEGACY] = LegacyConeBeamRendererScript.new()
+	_beam_renderers[BEAM_RENDER_MODE_VOLUMETRIC] = VolumetricBeamRendererScript.new()
+	_update_beam_renderer_mode(true)
+
 func _apply_visual_settings(settings: Dictionary) -> void:
 	for key in _visual_settings.keys():
 		if settings.has(key):
@@ -229,7 +267,36 @@ func _apply_visual_settings(settings: Dictionary) -> void:
 		world_environment.environment.glow_bloom = float(_visual_environment_baseline.get("glow_bloom", 0.05)) * float(_visual_settings.get("bloom_multiplier", 1.0))
 		world_environment.environment.background_color = _visual_settings.get("background_color", _visual_environment_baseline.get("background_color", Color(0.129412, 0.137255, 0.156863, 1.0)))
 
+	_update_beam_renderer_mode(false)
+	_save_visual_settings_to_project()
 	_refresh_emitter_visual_scalars()
+
+func _update_beam_renderer_mode(force_refresh: bool) -> void:
+	var requested_mode: int = int(clamp(int(_visual_settings.get("beam_render_mode", BEAM_RENDER_MODE_VOLUMETRIC)), BEAM_RENDER_MODE_VOLUMETRIC, BEAM_RENDER_MODE_LEGACY))
+	var requested_renderer: BeamRendererBase = _beam_renderers.get(requested_mode, null)
+	if requested_renderer == null:
+		requested_mode = BEAM_RENDER_MODE_LEGACY
+		requested_renderer = _beam_renderers.get(requested_mode, null)
+	if requested_renderer == null:
+		return
+
+	if force_refresh or requested_mode != _active_beam_mode:
+		for fixture_uuid in _fixture_emitter_light_cache.keys():
+			var lights: Array = _fixture_emitter_light_cache.get(fixture_uuid, [])
+			for light_node in lights:
+				if light_node is SpotLight3D and is_instance_valid(light_node):
+					_cleanup_light_beam_renderers(light_node)
+
+	_active_beam_mode = requested_mode
+	_active_beam_renderer = requested_renderer
+	for renderer in _beam_renderers.values():
+		if renderer is BeamRendererBase:
+			renderer.configure(camera, _visual_settings)
+
+func _cleanup_light_beam_renderers(light: SpotLight3D) -> void:
+	for renderer in _beam_renderers.values():
+		if renderer is BeamRendererBase:
+			renderer.cleanup_beam(light)
 
 func _refresh_emitter_visual_scalars() -> void:
 	for fixture_uuid in _fixture_emitter_light_cache.keys():
@@ -245,33 +312,20 @@ func _apply_visual_scalars_to_light(light: SpotLight3D) -> void:
 
 func _update_existing_beam_material_scalars(light: SpotLight3D) -> void:
 	var base_intensity: float = float(light.get_meta("peraviz_beam_base_intensity", 0.0))
+	var beam_params: Dictionary = light.get_meta("peraviz_beam_last_params", {}) if light.has_meta("peraviz_beam_last_params") else {}
+	if beam_params.is_empty():
+		return
 	var beam_multiplier: float = float(_visual_settings.get("beam_multiplier", 1.0))
-	var scaled_intensity: float = clamp(base_intensity * beam_multiplier, 0.0, 3.0)
-	_update_beam_material_scalars_for_meta(light, "peraviz_beam_cone", scaled_intensity)
-	_update_beam_material_scalars_for_meta(light, "peraviz_beam_cone_mid", scaled_intensity)
-	_update_beam_material_scalars_for_meta(light, "peraviz_beam_cone_core", scaled_intensity)
+	beam_params["scaled_intensity"] = clamp(base_intensity * beam_multiplier, 0.0, 3.0)
+	beam_params["beam_quality"] = int(_visual_settings.get("beam_quality", 1))
+	_update_beam_for_light(light, beam_params)
 
-func _update_beam_material_scalars_for_meta(light: SpotLight3D, cone_meta_key: String, scaled_intensity: float) -> void:
-	if not light.has_meta(cone_meta_key):
+func _update_beam_for_light(light: SpotLight3D, beam_params: Dictionary) -> void:
+	if _active_beam_renderer == null:
 		return
-	var cone: MeshInstance3D = light.get_meta(cone_meta_key) as MeshInstance3D
-	if cone == null:
-		return
-	var material: ShaderMaterial = cone.material_override as ShaderMaterial
-	if material == null:
-		return
-	var alpha_scale: float = 1.0
-	var emission_scale: float = 1.0
-	if cone_meta_key == "peraviz_beam_cone_mid":
-		alpha_scale = 1.35
-		emission_scale = 1.25
-	elif cone_meta_key == "peraviz_beam_cone_core":
-		alpha_scale = 1.7
-		emission_scale = 1.5
-	material.set_shader_parameter("near_alpha", lerp(0.0, EMITTER_CONE_NEAR_ALPHA * alpha_scale, scaled_intensity))
-	material.set_shader_parameter("far_alpha", lerp(0.0, EMITTER_CONE_FAR_ALPHA * alpha_scale, scaled_intensity))
-	material.set_shader_parameter("near_emission", lerp(0.0, EMITTER_CONE_NEAR_EMISSION * emission_scale, scaled_intensity))
-	material.set_shader_parameter("far_emission", lerp(0.0, EMITTER_CONE_FAR_EMISSION * emission_scale, scaled_intensity))
+	light.set_meta("peraviz_beam_last_params", beam_params.duplicate(true))
+	_active_beam_renderer.ensure_beam(light)
+	_active_beam_renderer.update_beam(light, beam_params)
 
 func _on_visual_settings_pressed() -> void:
 	visual_settings_window.popup_settings()
@@ -1380,9 +1434,6 @@ func _find_or_create_emitter_light(emitter_node: Node3D) -> SpotLight3D:
 	light.spot_range = 60.0
 	light.spot_angle = 25.0
 	light.spot_attenuation = 1.0
-	light.set_meta("peraviz_beam_cone", _create_emitter_beam_cone())
-	light.set_meta("peraviz_beam_cone_mid", _create_emitter_beam_mid_cone())
-	light.set_meta("peraviz_beam_cone_core", _create_emitter_beam_core_cone())
 	light.set_meta("peraviz_lens_radius", lens_radius)
 	emitter_node.add_child(light)
 	return light
@@ -1582,7 +1633,23 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 	light.light_color = _derive_emitter_color(photometric, controls)
 	var beam_radius_from_gdtf: bool = bool(photometric.get("beam_radius_from_gdtf", false))
 	var source_beam_radius: float = beam_radius_m if beam_radius_from_gdtf else -1.0
-	_update_emitter_beam_cone(light, beam_angle, cone_range, light.light_color, normalized_dimmer, source_beam_radius)
+	var lens_radius: float = max(float(light.get_meta("peraviz_lens_radius", 0.03)), 0.005)
+	if source_beam_radius > 0.0:
+		lens_radius = max(source_beam_radius, 0.005)
+	light.set_meta("peraviz_beam_base_intensity", clamp(normalized_dimmer, 0.0, 1.0))
+	var beam_params := {
+		"beam_angle": beam_angle,
+		"beam_range": cone_range,
+		"beam_color": light.light_color,
+		"normalized_dimmer": clamp(normalized_dimmer, 0.0, 1.0),
+		"scaled_intensity": clamp(normalized_dimmer * float(_visual_settings.get("beam_multiplier", 1.0)), 0.0, 3.0),
+		"lens_radius": lens_radius,
+		"is_visible": light.visible,
+		"fade_end_ratio": EMITTER_CONE_FADE_END_RATIO,
+		"intensity_visibility_threshold": BEAM_INTENSITY_VISIBILITY_THRESHOLD,
+		"distance_cull_m": BEAM_DISTANCE_CULL_M,
+	}
+	_update_beam_for_light(light, beam_params)
 
 func _resolve_zoom_beam_limits(light: SpotLight3D, controls: Dictionary) -> Dictionary:
 	# min/max beam angles are kept as full GDTF beam apertures (not half-angle).
