@@ -1379,9 +1379,10 @@ func _apply_dimmer_feedback_to_fixture(fixture_uuid: String, dimmer: float, cont
 	var emitter_photometrics: Array = _get_fixture_emitter_photometrics(fixture_uuid)
 	var beam_color: Color = _resolve_fixture_beam_color(emitter_photometrics, controls)
 	var lens_nodes: Array = _to_node3d_array(_scene_registry.get_anchor(fixture_uuid, "lens"))
+	var has_explicit_lens_nodes: bool = not lens_nodes.is_empty()
 	if lens_nodes.is_empty():
 		lens_nodes = emitter_nodes
-	var lens_materials: Array = _collect_fixture_lens_materials(fixture_uuid, lens_nodes)
+	var lens_materials: Array = _collect_fixture_lens_materials(fixture_uuid, lens_nodes, has_explicit_lens_nodes)
 	_apply_lens_feedback_materials(lens_materials, beam_color, normalized_dimmer)
 
 	var emissive_materials: Array = _collect_fixture_emissive_materials(fixture_uuid, geometry_nodes)
@@ -1427,38 +1428,38 @@ func _collect_fixture_emitter_lights(fixture_uuid: String, emitter_nodes: Array)
 	_fixture_emitter_light_cache[fixture_uuid] = lights
 	return lights
 
-func _collect_fixture_lens_materials(fixture_uuid: String, emitter_nodes: Array) -> Array:
+func _collect_fixture_lens_materials(fixture_uuid: String, emitter_nodes: Array, include_all_materials: bool = false) -> Array:
 	if _fixture_lens_material_cache.has(fixture_uuid):
 		return _fixture_lens_material_cache.get(fixture_uuid, [])
 
 	var materials: Array = []
 	for emitter_node in emitter_nodes:
-		_collect_lens_materials_recursive(emitter_node, materials)
+		_collect_lens_materials_recursive(emitter_node, materials, include_all_materials)
 	_fixture_lens_material_cache[fixture_uuid] = materials
 	return materials
 
-func _collect_lens_materials_recursive(node: Node3D, output_materials: Array) -> void:
+func _collect_lens_materials_recursive(node: Node3D, output_materials: Array, include_all_materials: bool = false) -> void:
 	if node == null:
 		return
 	if node is MeshInstance3D:
 		var mesh_instance: MeshInstance3D = node
 		for surface_index in range(mesh_instance.get_surface_override_material_count()):
 			var override_material: Material = mesh_instance.get_surface_override_material(surface_index)
-			_maybe_add_gdtf_lens_material(mesh_instance, override_material, output_materials)
-		_maybe_add_gdtf_lens_material(mesh_instance, mesh_instance.material_override, output_materials)
+			_maybe_add_gdtf_lens_material(mesh_instance, override_material, output_materials, include_all_materials)
+		_maybe_add_gdtf_lens_material(mesh_instance, mesh_instance.material_override, output_materials, include_all_materials)
 		if mesh_instance.mesh != null:
 			for surface_index in range(mesh_instance.mesh.get_surface_count()):
 				var surface_material: Material = mesh_instance.mesh.surface_get_material(surface_index)
-				_maybe_add_gdtf_lens_material(mesh_instance, surface_material, output_materials)
+				_maybe_add_gdtf_lens_material(mesh_instance, surface_material, output_materials, include_all_materials)
 
 	for child in node.get_children():
 		if child is Node3D:
-			_collect_lens_materials_recursive(child, output_materials)
+			_collect_lens_materials_recursive(child, output_materials, include_all_materials)
 
-func _maybe_add_gdtf_lens_material(mesh_instance: MeshInstance3D, material: Material, output_materials: Array) -> void:
+func _maybe_add_gdtf_lens_material(mesh_instance: MeshInstance3D, material: Material, output_materials: Array, include_all_materials: bool = false) -> void:
 	if material == null or not (material is BaseMaterial3D):
 		return
-	if not _is_gdtf_beam_lens_material(mesh_instance, material):
+	if (not include_all_materials) and (not _is_gdtf_beam_lens_material(mesh_instance, material)):
 		return
 	if output_materials.has(material):
 		return
@@ -1504,14 +1505,13 @@ func _apply_lens_feedback_materials(lens_materials: Array, beam_color: Color, no
 		lens_material.emission_energy_multiplier = lerp(0.0, 4.5, dimmer_mix)
 		lens_material.disable_receive_shadows = true
 		lens_material.cull_mode = BaseMaterial3D.CULL_DISABLED
-		if lens_material.transparency != BaseMaterial3D.TRANSPARENCY_DISABLED:
-			var alpha: float = lens_material.albedo_color.a
-			lens_material.albedo_color = Color(
-				lerp(LENS_TINT_COLOR.r, beam_color.r, dimmer_mix),
-				lerp(LENS_TINT_COLOR.g, beam_color.g, dimmer_mix),
-				lerp(LENS_TINT_COLOR.b, beam_color.b, dimmer_mix),
-				alpha
-			)
+		var alpha: float = lens_material.albedo_color.a
+		lens_material.albedo_color = Color(
+			lerp(LENS_TINT_COLOR.r, beam_color.r, dimmer_mix),
+			lerp(LENS_TINT_COLOR.g, beam_color.g, dimmer_mix),
+			lerp(LENS_TINT_COLOR.b, beam_color.b, dimmer_mix),
+			alpha
+		)
 
 func _find_or_create_emitter_light(emitter_node: Node3D) -> SpotLight3D:
 	var lens_radius: float = _estimate_emitter_lens_radius(emitter_node)
