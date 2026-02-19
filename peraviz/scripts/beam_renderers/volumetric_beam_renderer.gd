@@ -82,7 +82,6 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	cone.set_instance_shader_parameter("boost_along_y", 1.0)
 	cone.set_instance_shader_parameter("feather_sharpness", 4.0)
 	cone.set_instance_shader_parameter("feather_intensity", 1.0)
-	cone.set_instance_shader_parameter("min_angle_alpha", 0.22)
 	cone.set_instance_shader_parameter("near_fade_start", 0.01)
 	cone.set_instance_shader_parameter("near_fade_end", min(max(1.0, beam_range * 0.04), 50.0))
 	cone.set_instance_shader_parameter("far_fade_start", min(max(25.0, beam_range * 0.45), 100.0))

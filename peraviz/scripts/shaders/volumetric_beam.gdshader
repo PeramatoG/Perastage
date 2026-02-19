@@ -10,7 +10,6 @@ instance uniform float facing_power : hint_range(0.1, 20.0) = 4.0;
 instance uniform float boost_along_y : hint_range(0.0, 10.0) = 1.0;
 instance uniform float feather_sharpness : hint_range(0.1, 20.0) = 4.0;
 instance uniform float feather_intensity : hint_range(0.0, 1.0) = 1.0;
-instance uniform float min_angle_alpha : hint_range(0.0, 1.0) = 0.2;
 instance uniform float near_fade_start : hint_range(0.0, 50.0) = 0.01;
 instance uniform float near_fade_end : hint_range(0.0, 50.0) = 1.0;
 instance uniform float far_fade_start : hint_range(0.1, 100.0) = 25.0;
@@ -44,13 +43,12 @@ void fragment() {
 
 	vec3 n = normalize(NORMAL);
 	vec3 v = normalize(-vertex_view);
-	float ndotv = abs(dot(n, v));
+	float ndotv = max(0.0, dot(n, v));
 	float location_weight = pow(max(1.0 - UV.y, 0.0), boost_along_y);
 	float facing_multiplier = 1.0 + (facing_boost * location_weight * pow(ndotv, facing_power));
 
 	float brightness = min(base_brightness * facing_multiplier, max_brightness);
-	float feather_curve = mix(1.0 - feather_intensity, 1.0, pow(ndotv, feather_sharpness));
-	float feather_alpha = max(feather_curve, min_angle_alpha);
+	float feather_alpha = mix(1.0 - feather_intensity, 1.0, pow(ndotv, feather_sharpness));
 
 	float depth_mult = 1.0;
 	if (depth_feather_enabled) {
