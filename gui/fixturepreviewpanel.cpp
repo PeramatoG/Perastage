@@ -149,6 +149,8 @@ wxBEGIN_EVENT_TABLE(FixturePreviewPanel, wxGLCanvas)
     EVT_SIZE(FixturePreviewPanel::OnResize)
     EVT_LEFT_DOWN(FixturePreviewPanel::OnMouseDown)
     EVT_LEFT_UP(FixturePreviewPanel::OnMouseUp)
+    EVT_MIDDLE_DOWN(FixturePreviewPanel::OnMouseDown)
+    EVT_MIDDLE_UP(FixturePreviewPanel::OnMouseUp)
     EVT_RIGHT_DOWN(FixturePreviewPanel::OnMouseDown)
     EVT_RIGHT_UP(FixturePreviewPanel::OnMouseUp)
     EVT_MOTION(FixturePreviewPanel::OnMouseMove)
@@ -242,6 +244,7 @@ void FixturePreviewPanel::Render()
     gluPerspective(45.0,(double)w/h,0.1,100.0);
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
+    m_camera.Update(0.0f);
     m_camera.Apply();
     float lightPos[4] = {0.f, 0.f, 1.f, 0.f};
     float lightDiffuse[4] = {1.f,1.f,1.f,1.f};
@@ -283,6 +286,7 @@ void FixturePreviewPanel::OnResize(wxSizeEvent&)
 
 void FixturePreviewPanel::OnMouseDown(wxMouseEvent& evt)
 {
+    SetFocus();
     m_dragging = true;
     m_lastMousePos = evt.GetPosition();
     if(!HasCapture()){
@@ -305,7 +309,7 @@ void FixturePreviewPanel::OnCaptureLost(wxMouseCaptureLostEvent& WXUNUSED(evt))
 
 void FixturePreviewPanel::OnMouseMove(wxMouseEvent& evt)
 {
-    if(m_dragging && (evt.LeftIsDown() || evt.RightIsDown())){
+    if(m_dragging && (evt.LeftIsDown() || evt.MiddleIsDown() || evt.RightIsDown())){
         wxPoint pos = evt.GetPosition();
         int dx = pos.x - m_lastMousePos.x;
         int dy = pos.y - m_lastMousePos.y;
