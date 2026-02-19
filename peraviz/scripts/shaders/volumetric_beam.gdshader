@@ -65,7 +65,7 @@ void fragment() {
 	float radial = length(vec2(local_position.x, local_position.z));
 	float radial_ratio = clamp(radial / max(current_radius, 0.0001), 0.0, 1.0);
 	float radial_core = exp(-4.5 * radial_ratio * radial_ratio);
-	float radial_edge_falloff = 1.0 - smoothstep(0.72, 1.0, radial_ratio);
+	float radial_edge_falloff = 1.0 - smoothstep(0.78, 1.0, radial_ratio);
 	float radial_density = radial_core * radial_edge_falloff;
 
 	float view_alignment = abs(dot(normalize(NORMAL), normalize(VIEW)));
@@ -100,11 +100,13 @@ void fragment() {
 
 	float inside_dimmer = mix(1.0, camera_inside_dimmer, smoothstep(0.0, 0.2, radial_ratio));
 	float alpha = clamp(radiance * beam_intensity * inside_dimmer * 18.0, 0.0, 1.0) * end_fade;
+	float edge_alpha_soften = 1.0 - smoothstep(0.84, 1.0, radial_ratio);
+	alpha *= edge_alpha_soften;
 
-	float core_mask = pow(max(1.0 - radial_ratio, 0.0), 5.0) * smoothstep(0.0, 0.45, near_factor);
-	vec3 scatter_color = mix(vec3(1.0), beam_color.rgb, 0.28);
-	vec3 emission_base = scatter_color * alpha * 2.0;
-	vec3 emission_hotspot = vec3(1.0) * (alpha * 1.35 * clamp(core_mask, 0.0, 1.0));
+	float overburn_mask = smoothstep(0.78, 0.98, alpha) * pow(max(1.0 - radial_ratio, 0.0), 6.0) * smoothstep(0.0, 0.45, near_factor);
+	vec3 scatter_color = mix(vec3(1.0), beam_color.rgb, 0.12);
+	vec3 emission_base = scatter_color * alpha * 2.05;
+	vec3 emission_hotspot = vec3(1.0) * (alpha * 0.95 * clamp(overburn_mask, 0.0, 1.0));
 	ALBEDO = scatter_color;
 	EMISSION = emission_base + emission_hotspot;
 	ALPHA = alpha;
