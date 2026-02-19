@@ -1437,17 +1437,24 @@ func _collect_lens_materials_recursive(node: Node3D, output_materials: Array) ->
 		var mesh_instance: MeshInstance3D = node
 		for surface_index in range(mesh_instance.get_surface_override_material_count()):
 			var override_material: Material = mesh_instance.get_surface_override_material(surface_index)
-			_maybe_add_lens_material(override_material, output_materials)
-		_maybe_add_lens_material(mesh_instance.material_override, output_materials)
+			_maybe_add_lens_material(mesh_instance, override_material, output_materials)
+		_maybe_add_lens_material(mesh_instance, mesh_instance.material_override, output_materials)
+		if mesh_instance.mesh != null:
+			for surface_index in range(mesh_instance.mesh.get_surface_count()):
+				var surface_material: Material = mesh_instance.mesh.surface_get_material(surface_index)
+				_maybe_add_lens_material(mesh_instance, surface_material, output_materials)
 
 	for child in node.get_children():
 		if child is Node3D:
 			_collect_lens_materials_recursive(child, output_materials)
 
-func _maybe_add_lens_material(material: Material, output_materials: Array) -> void:
+func _maybe_add_lens_material(mesh_instance: MeshInstance3D, material: Material, output_materials: Array) -> void:
 	if material == null or not (material is BaseMaterial3D):
 		return
-	if not bool(material.get_meta("peraviz_lens_material", false)):
+	var include_material: bool = bool(material.get_meta("peraviz_lens_material", false))
+	if not include_material:
+		include_material = _should_apply_lens_tint(mesh_instance, material)
+	if not include_material:
 		return
 	if output_materials.has(material):
 		return
@@ -1481,6 +1488,7 @@ func _apply_lens_feedback_materials(lens_materials: Array, beam_color: Color, no
 		var alpha: float = LENS_TINT_COLOR.a
 		if lens_material.has_meta("peraviz_lens_base_alpha"):
 			alpha = float(lens_material.get_meta("peraviz_lens_base_alpha", LENS_TINT_COLOR.a))
+		lens_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 		lens_material.albedo_color = Color(
 			lerp(LENS_TINT_COLOR.r, beam_color.r, dimmer_mix),
 			lerp(LENS_TINT_COLOR.g, beam_color.g, dimmer_mix),
@@ -1972,23 +1980,27 @@ func _tint_emitter_lens_recursive(node: Node3D) -> void:
 
 func _should_apply_lens_tint(mesh_instance: MeshInstance3D, material: Material) -> bool:
 	var name_hint: String = mesh_instance.name.to_lower()
-	if name_hint.contains("lens") or name_hint.contains("emitter") or name_hint.contains("beam"):
+	if name_hint.contains("lens") or name_hint.contains("glass"):
 		return true
 	if material is BaseMaterial3D:
 		var base_material: BaseMaterial3D = material
 		if base_material.transparency != BaseMaterial3D.TRANSPARENCY_DISABLED:
 			return true
-		if base_material.emission_enabled:
+		if base_material.emission_enabled and (name_hint.contains("lens") or name_hint.contains("glass")):
 			return true
 	return false
 
 func _build_lens_material_override(source: Material) -> StandardMaterial3D:
 	var material := StandardMaterial3D.new()
+	var source_alpha: float = LENS_TINT_COLOR.a
 	if source is BaseMaterial3D:
 		var base_source: BaseMaterial3D = source
 		material.albedo_color = base_source.albedo_color.lerp(LENS_TINT_COLOR, 0.65)
+		if base_source.transparency != BaseMaterial3D.TRANSPARENCY_DISABLED:
+			source_alpha = min(base_source.albedo_color.a, LENS_TINT_COLOR.a)
 	else:
 		material.albedo_color = LENS_TINT_COLOR
+	material.albedo_color.a = source_alpha
 	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	material.roughness = 0.08
 	material.metallic = 0.0
