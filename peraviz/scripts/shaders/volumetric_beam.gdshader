@@ -68,9 +68,8 @@ void fragment() {
 	float radial_edge_falloff = 1.0 - smoothstep(0.78, 1.0, radial_ratio);
 	float radial_density = radial_core * radial_edge_falloff;
 
-	float radial_phase = 1.0 - smoothstep(0.0, 1.0, radial_ratio);
-	float phase_input = mix(0.72, 0.93, radial_phase);
-	float phase = phase_hg(phase_input, anisotropy);
+	float view_alignment = abs(dot(normalize(NORMAL), normalize(VIEW)));
+	float phase = phase_hg(view_alignment, anisotropy);
 
 	float steps = clamp(step_count, 8.0, 64.0);
 	float step_length = beam_range / steps;
@@ -104,7 +103,7 @@ void fragment() {
 	float edge_alpha_soften = 1.0 - smoothstep(0.84, 1.0, radial_ratio);
 	alpha *= edge_alpha_soften;
 
-	float overburn_mask = smoothstep(0.9, 1.0, alpha) * pow(max(1.0 - radial_ratio, 0.0), 9.5) * smoothstep(0.08, 0.45, near_factor);
+	float overburn_mask = smoothstep(0.9, 1.0, alpha) * pow(max(1.0 - radial_ratio, 0.0), 8.0) * smoothstep(0.0, 0.45, near_factor);
 	vec3 scatter_color = mix(beam_color.rgb, vec3(1.0), 0.05);
 	vec3 emission_base = scatter_color * alpha * 2.05;
 	vec3 hotspot_color = min(scatter_color * 1.08, vec3(1.0));
