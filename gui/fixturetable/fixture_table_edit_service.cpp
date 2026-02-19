@@ -27,28 +27,8 @@ void PropagateTypeValues(wxDataViewListCtrl *table,
   if (col != 16 && col != 17 && col != 18)
     return;
 
-  if (col == 18) {
-    std::unordered_map<std::string, wxVariant> typeValues;
-    for (const auto &it : selections) {
-      int r = table->ItemToRow(it);
-      if (r == wxNOT_FOUND)
-        continue;
-      wxVariant vType, vVal;
-      table->GetValue(vType, r, 2);
-      table->GetValue(vVal, r, col);
-      typeValues[std::string(vType.GetString().ToUTF8())] = vVal;
-    }
-
-    unsigned int rowCount = table->GetItemCount();
-    for (unsigned int i = 0; i < rowCount; ++i) {
-      wxVariant vType;
-      table->GetValue(vType, i, 2);
-      auto it = typeValues.find(std::string(vType.GetString().ToUTF8()));
-      if (it != typeValues.end())
-        table->SetValue(it->second, i, col);
-    }
+  if (col == 18)
     return;
-  }
 
   std::unordered_map<std::string, wxString> typeValues;
   for (const auto &it : selections) {
