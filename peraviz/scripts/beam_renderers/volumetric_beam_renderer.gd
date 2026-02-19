@@ -32,6 +32,8 @@ func ensure_beam(light: SpotLight3D) -> void:
 	cone_mesh.top_radius = 0.02
 	cone_mesh.bottom_radius = 0.8
 	cone_mesh.height = 8.0
+	cone_mesh.cap_top = false
+	cone_mesh.cap_bottom = false
 	var cone := MeshInstance3D.new()
 	cone.name = "PeravizVolumetricBeam"
 	cone.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
