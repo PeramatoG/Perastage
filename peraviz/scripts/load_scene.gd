@@ -1837,9 +1837,9 @@ func _update_emitter_beam_cone(light: SpotLight3D, beam_angle: float, beam_range
 	_update_beam_cone_geometry(core_cone, lens_radius, bottom_radius, beam_range, 0.45)
 
 	var beam_color_with_alpha := Color(beam_color.r, beam_color.g, beam_color.b, 1.0)
-	_update_beam_cone_material(cone, beam_color_with_alpha, scaled_intensity, beam_range, 0.35, 0.16, 0.06, 1.0, 1.0)
-	_update_beam_cone_material(mid_cone, beam_color_with_alpha, scaled_intensity, beam_range, 0.18, 0.26, 0.04, 1.35, 1.25)
-	_update_beam_cone_material(core_cone, beam_color_with_alpha, scaled_intensity, beam_range, 0.09, 0.35, 0.02, 1.7, 1.5)
+	_update_beam_cone_material(cone, beam_color_with_alpha, scaled_intensity, beam_range, 1.0, 1.0)
+	_update_beam_cone_material(mid_cone, beam_color_with_alpha, scaled_intensity, beam_range, 1.25, 1.25)
+	_update_beam_cone_material(core_cone, beam_color_with_alpha, scaled_intensity, beam_range, 1.5, 1.5)
 
 func _update_beam_cone_geometry(cone: MeshInstance3D, lens_radius: float, bottom_radius: float, beam_range: float, radius_scale: float) -> void:
 	if cone == null:
@@ -1852,7 +1852,7 @@ func _update_beam_cone_geometry(cone: MeshInstance3D, lens_radius: float, bottom
 	cone_mesh.height = beam_range
 	cone.position = Vector3(0.0, 0.0, -beam_range * 0.5)
 
-func _update_beam_cone_material(cone: MeshInstance3D, beam_color: Color, scaled_intensity: float, beam_range: float, feather_sharpness: float, facing_boost: float, depth_fade_distance: float, alpha_scale: float, brightness_scale: float) -> void:
+func _update_beam_cone_material(cone: MeshInstance3D, beam_color: Color, scaled_intensity: float, beam_range: float, alpha_scale: float, brightness_scale: float) -> void:
 	if cone == null:
 		return
 	var material: ShaderMaterial = cone.material_override as ShaderMaterial
@@ -1860,12 +1860,18 @@ func _update_beam_cone_material(cone: MeshInstance3D, beam_color: Color, scaled_
 		return
 	var intensity_alpha: float = lerp(0.0, 0.5 * alpha_scale, scaled_intensity)
 	material.set_shader_parameter("base_color", Color(beam_color.r, beam_color.g, beam_color.b, intensity_alpha))
-	material.set_shader_parameter("near_fade_end", clamp(max(beam_range * 0.06, 0.2), 0.05, 50.0))
-	material.set_shader_parameter("far_fade_start", clamp(max(beam_range * 0.55, 2.0), 0.1, 100.0))
-	material.set_shader_parameter("far_fade_end", clamp(max(beam_range * 0.95, 3.0), 0.1, 100.0))
-	material.set_shader_parameter("feather_sharpness", feather_sharpness)
-	material.set_shader_parameter("facing_boost", facing_boost)
-	material.set_shader_parameter("depth_fade_distance", depth_fade_distance)
+	material.set_shader_parameter("falloff_power", 8.0)
+	material.set_shader_parameter("facing_boost", 1.5)
+	material.set_shader_parameter("facing_power", 4.0)
+	material.set_shader_parameter("boost_along_y", 1.0)
+	material.set_shader_parameter("feather_sharpness", 4.0)
+	material.set_shader_parameter("feather_intensity", 1.0)
+	material.set_shader_parameter("near_fade_start", 0.01)
+	material.set_shader_parameter("near_fade_end", min(max(1.0, beam_range * 0.04), 50.0))
+	material.set_shader_parameter("far_fade_start", min(max(25.0, beam_range * 0.45), 100.0))
+	material.set_shader_parameter("far_fade_end", min(max(80.0, beam_range * 0.9), 100.0))
+	material.set_shader_parameter("depth_feather_enabled", true)
+	material.set_shader_parameter("depth_fade_distance", 0.5)
 	material.set_shader_parameter("max_brightness", lerp(1.0, 10.0 * brightness_scale, scaled_intensity))
 
 func _apply_fixture_lens_visual_tuning(fixture_uuid: String, emitter_nodes: Array) -> void:
