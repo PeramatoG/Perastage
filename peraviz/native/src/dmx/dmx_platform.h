@@ -33,5 +33,6 @@ bool set_socket_reuse_address(SocketHandle socket_handle, bool enabled, std::str
 void close_socket(SocketHandle socket_handle);
 bool is_would_block_error(int error_code);
 int get_last_socket_error();
+std::string describe_socket_error(int error_code);
 
 } // namespace peraviz::dmx

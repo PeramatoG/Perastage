@@ -76,9 +76,14 @@ Array PeravizLoader::load_mvr(const String &path, bool peraviz_debug_baseline,
         d["class"] = String(node.node_class.c_str());
         d["asset_kind"] = String(node.asset_kind.c_str());
         d["asset_path"] = String(node.asset_path.c_str());
+        d["primitive_type"] = String(node.primitive_type.c_str());
+        d["primitive_size_x"] = node.primitive_size_x;
+        d["primitive_size_y"] = node.primitive_size_y;
+        d["primitive_size_z"] = node.primitive_size_z;
         d["is_fixture"] = node.is_fixture;
         d["is_axis"] = node.is_axis;
         d["is_emitter"] = node.is_emitter;
+        d["is_lens"] = node.is_lens;
         d["has_luminous_flux"] = node.has_luminous_flux;
         d["luminous_flux"] = node.luminous_flux;
         d["has_color_temperature"] = node.has_color_temperature;

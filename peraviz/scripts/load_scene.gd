@@ -41,9 +41,9 @@ var _manual_fixture_test_enabled: bool = false
 var _selected_fixture_uuid: String = ""
 var _fixture_manual_values: Dictionary = {}
 var _fixture_emissive_cache: Dictionary = {}
+var _fixture_lens_material_cache: Dictionary = {}
 var _fixture_emitter_light_cache: Dictionary = {}
 var _fixture_emitter_photometrics: Dictionary = {}
-var _fixture_lens_tuned: Dictionary = {}
 var _updating_fixture_controls: bool = false
 var _visual_environment_baseline := {
 	"ambient_light_energy": 0.2,
@@ -589,6 +589,7 @@ func _create_scene_node(data: Dictionary) -> Node3D:
 	var is_fixture: bool = bool(data.get("is_fixture", false))
 	var is_axis: bool = bool(data.get("is_axis", false))
 	var is_emitter: bool = bool(data.get("is_emitter", false))
+	var is_lens: bool = bool(data.get("is_lens", false))
 	var node_name: String = str(data.get("name", item_type))
 
 	var root := Node3D.new()
@@ -596,6 +597,7 @@ func _create_scene_node(data: Dictionary) -> Node3D:
 	root.set_meta("peraviz_type", item_type)
 	root.set_meta("peraviz_is_axis", is_axis)
 	root.set_meta("peraviz_is_emitter", is_emitter)
+	root.set_meta("peraviz_is_lens", is_lens)
 	var node_position: Vector3 = _safe_position(data.get("pos", Vector3.ZERO), "create_scene_node:" + root.name)
 	if bool(data.get("has_basis", false)):
 		var node_basis: Basis = _safe_basis_from_data(data)
@@ -665,6 +667,8 @@ func _build_visual_node(data: Dictionary, item_type: String, item_class: String,
 		print("[Peraviz] Asset fallback for missing/invalid model: ", asset_path, " type=", item_type, " class=", item_class, " asset_kind=", asset_kind)
 
 	if item_type == "fixture" or item_type == "fixture_geometry":
+		if asset_kind == "primitive":
+			return _create_gdtf_primitive_mesh(data)
 		return null
 
 	return _create_dummy_mesh(is_fixture, visual_scale_hint)
@@ -941,6 +945,41 @@ func _create_dummy_mesh(is_fixture: bool, visual_scale_hint: float) -> Node3D:
 	mesh_instance.material_override = material
 	return mesh_instance
 
+func _create_gdtf_primitive_mesh(data: Dictionary) -> Node3D:
+	var primitive_type: String = str(data.get("primitive_type", "")).to_lower()
+	var sx: float = max(float(data.get("primitive_size_x", 0.1)), 0.001)
+	var sy: float = max(float(data.get("primitive_size_y", 0.1)), 0.001)
+	var sz: float = max(float(data.get("primitive_size_z", 0.1)), 0.001)
+	var mesh_instance := MeshInstance3D.new()
+	if primitive_type.contains("sphere"):
+		var sphere := SphereMesh.new()
+		sphere.radius = max(sx, max(sy, sz)) * 0.5
+		sphere.height = sphere.radius * 2.0
+		mesh_instance.mesh = sphere
+	elif primitive_type.contains("cylinder"):
+		var cylinder := CylinderMesh.new()
+		cylinder.top_radius = max(sx, sy) * 0.5
+		cylinder.bottom_radius = max(sx, sy) * 0.5
+		cylinder.height = sz
+		mesh_instance.mesh = cylinder
+	elif primitive_type.contains("cone"):
+		var cone := CylinderMesh.new()
+		cone.top_radius = 0.0
+		cone.bottom_radius = max(sx, sy) * 0.5
+		cone.height = sz
+		mesh_instance.mesh = cone
+	else:
+		var box := BoxMesh.new()
+		box.size = Vector3(sx, sy, sz)
+		mesh_instance.mesh = box
+
+	var material := StandardMaterial3D.new()
+	material.albedo_color = Color(0.2, 0.2, 0.22, 1.0)
+	material.roughness = 0.3
+	material.cull_mode = BaseMaterial3D.CULL_DISABLED
+	mesh_instance.material_override = material
+	return mesh_instance
+
 func _clear_scene() -> void:
 	_scene_registry.clear("scene_reload")
 	_clear_selected_fixture("scene_clear")
@@ -949,9 +988,9 @@ func _clear_scene() -> void:
 	_node_index.clear()
 	_asset_cache.clear()
 	_fixture_emissive_cache.clear()
+	_fixture_lens_material_cache.clear()
 	_fixture_emitter_light_cache.clear()
 	_fixture_emitter_photometrics.clear()
-	_fixture_lens_tuned.clear()
 	_has_loaded_bounds = false
 	_clear_debug_gizmos()
 
@@ -977,6 +1016,7 @@ func _register_fixture_registry(nodes: Array) -> void:
 		fixture_anchors[node_id] = {
 			"axis": [],
 			"emitters": [],
+			"lens": [],
 			"geometry_nodes": [],
 		}
 
@@ -1011,6 +1051,10 @@ func _register_fixture_registry(nodes: Array) -> void:
 			var geometry_nodes: Array = anchors.get("geometry_nodes", [])
 			geometry_nodes.append(node)
 			anchors["geometry_nodes"] = geometry_nodes
+			if bool(item.get("is_lens", false)):
+				var lens_nodes: Array = anchors.get("lens", [])
+				lens_nodes.append(node)
+				anchors["lens"] = lens_nodes
 			if bool(item.get("is_emitter", false)):
 				var photometric_entries: Array = anchors.get("emitter_photometrics", [])
 				photometric_entries.append(_extract_emitter_photometrics(item))
@@ -1366,19 +1410,28 @@ func _apply_dimmer_feedback_to_fixture(fixture_uuid: String, dimmer: float, cont
 	var emitter_nodes: Array = _to_node3d_array(_scene_registry.get_anchor(fixture_uuid, "emitters"))
 	if geometry_nodes.is_empty() and emitter_nodes.is_empty():
 		return
-	_apply_fixture_lens_visual_tuning(fixture_uuid, emitter_nodes)
 
 	var dimmer_percent: float = clamp(dimmer, 0.0, 100.0)
 	var normalized_dimmer: float = dimmer_percent / 100.0
+	var emitter_photometrics: Array = _get_fixture_emitter_photometrics(fixture_uuid)
+	var beam_color: Color = _resolve_fixture_beam_color(emitter_photometrics, controls)
+	var lens_nodes: Array = _to_node3d_array(_scene_registry.get_anchor(fixture_uuid, "lens"))
+	var has_explicit_lens_nodes: bool = not lens_nodes.is_empty()
+	if lens_nodes.is_empty():
+		lens_nodes = emitter_nodes
+	var lens_materials: Array = _collect_fixture_lens_materials(fixture_uuid, lens_nodes, has_explicit_lens_nodes)
+	_apply_lens_feedback_materials(lens_materials, beam_color, normalized_dimmer)
+	_apply_lens_feedback_to_nodes(lens_nodes, beam_color, normalized_dimmer)
+
 	var emissive_materials: Array = _collect_fixture_emissive_materials(fixture_uuid, geometry_nodes)
 	var energy_multiplier: float = lerp(0.0, 4.0, normalized_dimmer)
 	for material in emissive_materials:
 		if material is BaseMaterial3D:
 			material.emission_enabled = true
+			material.emission = beam_color
 			material.emission_energy_multiplier = energy_multiplier
 
 	var emitter_lights: Array = _collect_fixture_emitter_lights(fixture_uuid, emitter_nodes)
-	var emitter_photometrics: Array = _get_fixture_emitter_photometrics(fixture_uuid)
 	for index in range(emitter_lights.size()):
 		var light: SpotLight3D = emitter_lights[index]
 		if light == null or not is_instance_valid(light):
@@ -1412,6 +1465,132 @@ func _collect_fixture_emitter_lights(fixture_uuid: String, emitter_nodes: Array)
 
 	_fixture_emitter_light_cache[fixture_uuid] = lights
 	return lights
+
+func _collect_fixture_lens_materials(fixture_uuid: String, emitter_nodes: Array, include_all_materials: bool = false) -> Array:
+	if _fixture_lens_material_cache.has(fixture_uuid):
+		return _fixture_lens_material_cache.get(fixture_uuid, [])
+
+	var materials: Array = []
+	for emitter_node in emitter_nodes:
+		_collect_lens_materials_recursive(emitter_node, materials, include_all_materials)
+	_fixture_lens_material_cache[fixture_uuid] = materials
+	return materials
+
+func _collect_lens_materials_recursive(node: Node3D, output_materials: Array, include_all_materials: bool = false) -> void:
+	if node == null:
+		return
+	if node is MeshInstance3D:
+		var mesh_instance: MeshInstance3D = node
+		for surface_index in range(mesh_instance.get_surface_override_material_count()):
+			var override_material: Material = mesh_instance.get_surface_override_material(surface_index)
+			_maybe_add_gdtf_lens_material(mesh_instance, override_material, output_materials, include_all_materials)
+		_maybe_add_gdtf_lens_material(mesh_instance, mesh_instance.material_override, output_materials, include_all_materials)
+		if mesh_instance.mesh != null:
+			for surface_index in range(mesh_instance.mesh.get_surface_count()):
+				var surface_material: Material = mesh_instance.mesh.surface_get_material(surface_index)
+				_maybe_add_gdtf_lens_material(mesh_instance, surface_material, output_materials, include_all_materials)
+
+	for child in node.get_children():
+		if child is Node3D:
+			_collect_lens_materials_recursive(child, output_materials, include_all_materials)
+
+func _maybe_add_gdtf_lens_material(mesh_instance: MeshInstance3D, material: Material, output_materials: Array, include_all_materials: bool = false) -> void:
+	if material == null or not (material is BaseMaterial3D):
+		return
+	if (not include_all_materials) and (not _is_gdtf_beam_lens_material(mesh_instance, material)):
+		return
+	if output_materials.has(material):
+		return
+	output_materials.append(material)
+
+func _is_gdtf_beam_lens_material(mesh_instance: MeshInstance3D, material: Material) -> bool:
+	# GDTF beam geometry is already represented by emitter anchors.
+	# Inside those anchors, lens surfaces are usually transparent or explicitly named lens/glass.
+	var name_hint: String = mesh_instance.name.to_lower()
+	if name_hint.contains("lens") or name_hint.contains("glass"):
+		return true
+	if material.resource_name.to_lower().contains("lens") or material.resource_name.to_lower().contains("glass"):
+		return true
+	if material is BaseMaterial3D:
+		var base_material: BaseMaterial3D = material
+		return base_material.transparency != BaseMaterial3D.TRANSPARENCY_DISABLED
+	return false
+
+func _resolve_fixture_beam_color(emitter_photometrics: Array, controls: Dictionary) -> Color:
+	if emitter_photometrics.is_empty():
+		return _derive_emitter_color(DEFAULT_EMITTER_PHOTOMETRICS, controls)
+
+	var accumulated_color: Color = Color.BLACK
+	var samples: int = 0
+	for entry in emitter_photometrics:
+		if entry is not Dictionary:
+			continue
+		accumulated_color += _derive_emitter_color(entry, controls)
+		samples += 1
+	if samples <= 0:
+		return _derive_emitter_color(DEFAULT_EMITTER_PHOTOMETRICS, controls)
+	var inverse_samples: float = 1.0 / float(samples)
+	return Color(accumulated_color.r * inverse_samples, accumulated_color.g * inverse_samples, accumulated_color.b * inverse_samples, 1.0)
+
+func _apply_lens_feedback_materials(lens_materials: Array, beam_color: Color, normalized_dimmer: float) -> void:
+	var dimmer_mix: float = clamp(normalized_dimmer, 0.0, 1.0)
+	for material in lens_materials:
+		if material is not BaseMaterial3D:
+			continue
+		_apply_lens_feedback_to_material(material as BaseMaterial3D, beam_color, dimmer_mix)
+
+func _apply_lens_feedback_to_nodes(lens_nodes: Array, beam_color: Color, normalized_dimmer: float) -> void:
+	var dimmer_mix: float = clamp(normalized_dimmer, 0.0, 1.0)
+	for lens_root in lens_nodes:
+		_apply_lens_feedback_to_node_recursive(lens_root, beam_color, dimmer_mix)
+
+func _apply_lens_feedback_to_node_recursive(node: Node3D, beam_color: Color, dimmer_mix: float) -> void:
+	if node == null:
+		return
+	if node is MeshInstance3D:
+		var mesh_instance: MeshInstance3D = node
+		if mesh_instance.mesh != null:
+			for surface_index in range(mesh_instance.mesh.get_surface_count()):
+				var current_material: Material = mesh_instance.get_active_material(surface_index)
+				var target_material: BaseMaterial3D = _ensure_lens_surface_material(mesh_instance, surface_index, current_material)
+				if target_material != null:
+					_apply_lens_feedback_to_material(target_material, beam_color, dimmer_mix)
+	for child in node.get_children():
+		if child is Node3D:
+			_apply_lens_feedback_to_node_recursive(child, beam_color, dimmer_mix)
+
+func _ensure_lens_surface_material(mesh_instance: MeshInstance3D, surface_index: int, source_material: Material) -> BaseMaterial3D:
+	if source_material is BaseMaterial3D:
+		return source_material
+	var existing_override: Material = mesh_instance.get_surface_override_material(surface_index)
+	if existing_override is BaseMaterial3D and bool(existing_override.get_meta("peraviz_lens_runtime_override", false)):
+		return existing_override
+	var runtime_material := StandardMaterial3D.new()
+	runtime_material.set_meta("peraviz_lens_runtime_override", true)
+	runtime_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	runtime_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	runtime_material.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	runtime_material.cull_mode = BaseMaterial3D.CULL_DISABLED
+	runtime_material.albedo_color = Color(LENS_TINT_COLOR.r, LENS_TINT_COLOR.g, LENS_TINT_COLOR.b, max(LENS_TINT_COLOR.a, 0.35))
+	runtime_material.emission_enabled = true
+	runtime_material.emission = Color.BLACK
+	runtime_material.emission_energy_multiplier = 0.0
+	mesh_instance.set_surface_override_material(surface_index, runtime_material)
+	return runtime_material
+
+func _apply_lens_feedback_to_material(lens_material: BaseMaterial3D, beam_color: Color, dimmer_mix: float) -> void:
+	lens_material.emission_enabled = true
+	lens_material.emission = beam_color
+	lens_material.emission_energy_multiplier = lerp(0.0, 4.5, dimmer_mix)
+	lens_material.disable_receive_shadows = true
+	lens_material.cull_mode = BaseMaterial3D.CULL_DISABLED
+	var alpha: float = lens_material.albedo_color.a
+	lens_material.albedo_color = Color(
+		lerp(LENS_TINT_COLOR.r, beam_color.r, dimmer_mix),
+		lerp(LENS_TINT_COLOR.g, beam_color.g, dimmer_mix),
+		lerp(LENS_TINT_COLOR.b, beam_color.b, dimmer_mix),
+		alpha
+	)
 
 func _find_or_create_emitter_light(emitter_node: Node3D) -> SpotLight3D:
 	var lens_radius: float = _estimate_emitter_lens_radius(emitter_node)
@@ -1874,57 +2053,6 @@ func _update_beam_cone_material(cone: MeshInstance3D, beam_color: Color, scaled_
 	material.set_shader_parameter("depth_fade_distance", 0.5)
 	material.set_shader_parameter("max_brightness", lerp(1.0, 10.0 * brightness_scale, scaled_intensity))
 
-func _apply_fixture_lens_visual_tuning(fixture_uuid: String, emitter_nodes: Array) -> void:
-	if _fixture_lens_tuned.get(fixture_uuid, false):
-		return
-	for emitter_node in emitter_nodes:
-		_tint_emitter_lens_recursive(emitter_node)
-	_fixture_lens_tuned[fixture_uuid] = true
-
-func _tint_emitter_lens_recursive(node: Node3D) -> void:
-	if node == null:
-		return
-	if node is MeshInstance3D:
-		var mesh_instance: MeshInstance3D = node
-		if mesh_instance.mesh != null:
-			for surface_index in range(mesh_instance.mesh.get_surface_count()):
-				var material: Material = mesh_instance.get_active_material(surface_index)
-				if _should_apply_lens_tint(mesh_instance, material):
-					mesh_instance.set_surface_override_material(surface_index, _build_lens_material_override(material))
-	for child in node.get_children():
-		if child is Node3D:
-			_tint_emitter_lens_recursive(child)
-
-func _should_apply_lens_tint(mesh_instance: MeshInstance3D, material: Material) -> bool:
-	var name_hint: String = mesh_instance.name.to_lower()
-	if name_hint.contains("lens") or name_hint.contains("emitter") or name_hint.contains("beam"):
-		return true
-	if material is BaseMaterial3D:
-		var base_material: BaseMaterial3D = material
-		if base_material.transparency != BaseMaterial3D.TRANSPARENCY_DISABLED:
-			return true
-		if base_material.emission_enabled:
-			return true
-	return false
-
-func _build_lens_material_override(source: Material) -> StandardMaterial3D:
-	var material := StandardMaterial3D.new()
-	if source is BaseMaterial3D:
-		var base_source: BaseMaterial3D = source
-		material.albedo_color = base_source.albedo_color.lerp(LENS_TINT_COLOR, 0.65)
-	else:
-		material.albedo_color = LENS_TINT_COLOR
-	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	material.roughness = 0.08
-	material.metallic = 0.0
-	material.clearcoat_enabled = true
-	material.clearcoat = 0.75
-	material.specular = 1.0
-	material.emission_enabled = true
-	material.emission = material.albedo_color
-	material.emission_energy_multiplier = 0.35
-	return material
-
 func _derive_emitter_color(photometric: Dictionary, controls: Dictionary = {}) -> Color:
 	var base_color: Color
 	var cmy_filter: Dictionary = _resolve_cmy_filter(controls)
@@ -2179,12 +2307,23 @@ func _on_dmx_toggle_pressed() -> void:
 		_dmx_toggle_button.button_pressed = false
 		return
 	if _dmx_toggle_button.button_pressed:
+		# Defensive restart: ensure stale sockets are released before retrying bind.
+		_dmx_receiver.stop()
 		var started: bool = _dmx_receiver.start("0.0.0.0", 6454)
+		if not started:
+			_dmx_receiver.stop()
+			started = _dmx_receiver.start("0.0.0.0", 6454)
 		if not started:
 			_dmx_toggle_button.button_pressed = false
 			_dmx_toggle_button.text = "DMX OFF"
 			_update_dmx_toggle_color(false, false)
-			_dmx_toggle_button.tooltip_text = "DMX failed to start"
+			var startup_error: String = ""
+			if _dmx_receiver.has_method("get_last_error"):
+				startup_error = str(_dmx_receiver.get_last_error())
+			if startup_error.is_empty():
+				_dmx_toggle_button.tooltip_text = "DMX failed to start"
+			else:
+				_dmx_toggle_button.tooltip_text = "DMX failed to start: %s" % startup_error
 			return
 		_dmx_toggle_button.text = "DMX ON"
 		_dmx_toggle_button.tooltip_text = ""

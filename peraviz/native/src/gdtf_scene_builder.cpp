@@ -33,11 +33,23 @@ bool looks_like_axis(const std::string &tag_name, const std::string &name) {
            n.find("head") != std::string::npos;
 }
 
-bool looks_like_emitter(const std::string &tag_name, const std::string &name) {
+bool looks_like_lens_geometry(const std::string &tag_name, const std::string &name,
+                              bool parent_is_lens) {
+    if (parent_is_lens) {
+        return true;
+    }
+    const std::string tag = lower_ascii(tag_name);
+    const std::string n = lower_ascii(name);
+    return tag == "beam" || n.find("lens") != std::string::npos ||
+           n.find("optic") != std::string::npos || n.find("glass") != std::string::npos;
+}
+
+bool looks_like_emitter(const std::string &tag_name, const std::string &name,
+                        bool is_lens_geometry) {
     const std::string tag = lower_ascii(tag_name);
     const std::string n = lower_ascii(name);
     return tag.find("beam") != std::string::npos || tag.find("laser") != std::string::npos ||
-           n.find("lens") != std::string::npos || n.find("emitter") != std::string::npos;
+           n.find("emitter") != std::string::npos || is_lens_geometry;
 }
 
 bool is_supported_geometry_tag(const std::string &tag_name) {
@@ -179,7 +191,14 @@ std::vector<SceneNode> build_fixture_geometry_nodes(const GdtfBuildRequest &requ
         return nodes;
     }
 
-    std::unordered_map<std::string, std::string> model_file_by_name;
+    struct GdtfModelVisual {
+        std::string file;
+        std::string primitive_type;
+        float size_x = 0.1F;
+        float size_y = 0.1F;
+        float size_z = 0.1F;
+    };
+    std::unordered_map<std::string, GdtfModelVisual> model_visual_by_name;
     std::unordered_map<std::string, float> emitter_wavelength_by_name;
     if (tinyxml2::XMLElement *models = fixture_type->FirstChildElement("Models")) {
         for (tinyxml2::XMLElement *model = models->FirstChildElement(); model;
@@ -188,14 +207,32 @@ std::vector<SceneNode> build_fixture_geometry_nodes(const GdtfBuildRequest &requ
             if (!name) {
                 name = model->Attribute("name");
             }
+            if (!name) {
+                continue;
+            }
+
+            GdtfModelVisual visual;
             const char *file = model->Attribute("File");
             if (!file) {
                 file = model->Attribute("file");
             }
-            if (!name || !file) {
-                continue;
+            if (file) {
+                visual.file = file;
             }
-            model_file_by_name[name] = file;
+
+            const char *primitive_type = model->Attribute("PrimitiveType");
+            if (!primitive_type) {
+                primitive_type = model->Attribute("primitivetype");
+            }
+            if (primitive_type) {
+                visual.primitive_type = primitive_type;
+            }
+
+            parse_float_attr(model, "Length", "length", visual.size_x);
+            parse_float_attr(model, "Width", "width", visual.size_y);
+            parse_float_attr(model, "Height", "height", visual.size_z);
+
+            model_visual_by_name[name] = visual;
         }
     }
 
@@ -276,11 +313,11 @@ std::vector<SceneNode> build_fixture_geometry_nodes(const GdtfBuildRequest &requ
 
     int local_counter = 0;
     std::function<void(tinyxml2::XMLElement *, const std::string &, const Matrix &, const char *,
-                       const Matrix *)>
+                       const Matrix *, bool)>
         append_geometry;
     append_geometry = [&](tinyxml2::XMLElement *geometry, const std::string &geometry_parent_id,
                           const Matrix &geometry_parent_world, const char *override_model,
-                          const Matrix *prepend_local) {
+                          const Matrix *prepend_local, bool parent_is_lens) {
         const std::string geometry_tag = geometry->Name() ? geometry->Name() : "";
         Matrix local = parse_local_matrix(geometry);
         if (prepend_local) {
@@ -307,7 +344,7 @@ std::vector<SceneNode> build_fixture_geometry_nodes(const GdtfBuildRequest &requ
                 reference_model = geometry->Attribute("model");
             }
             append_geometry(referenced_it->second, geometry_parent_id, geometry_parent_world,
-                            reference_model ? reference_model : override_model, &local);
+                            reference_model ? reference_model : override_model, &local, parent_is_lens);
             return;
         }
 
@@ -323,7 +360,8 @@ std::vector<SceneNode> build_fixture_geometry_nodes(const GdtfBuildRequest &requ
         node.node_class = "fixture_geometry";
         node.is_fixture = true;
         node.is_axis = looks_like_axis(geometry->Name(), geometry_name);
-        node.is_emitter = looks_like_emitter(geometry->Name(), geometry_name);
+        node.is_lens = looks_like_lens_geometry(geometry_tag, geometry_name, parent_is_lens);
+        node.is_emitter = looks_like_emitter(geometry->Name(), geometry_name, node.is_lens);
         node.local_transform = peraviz::coordinate_mapper::to_godot_transform(local);
 
         if (geometry_tag == "Beam") {
@@ -363,12 +401,21 @@ std::vector<SceneNode> build_fixture_geometry_nodes(const GdtfBuildRequest &requ
             model_name = geometry->Attribute("model");
         }
         if (model_name) {
-            auto model_it = model_file_by_name.find(model_name);
-            if (model_it != model_file_by_name.end()) {
-                node.asset_path = gdtf_cache.ensure_gdtf_model_extracted(model_it->second);
+            auto model_it = model_visual_by_name.find(model_name);
+            if (model_it != model_visual_by_name.end()) {
+                if (!model_it->second.file.empty()) {
+                    node.asset_path = gdtf_cache.ensure_gdtf_model_extracted(model_it->second.file);
+                }
+                node.primitive_type = model_it->second.primitive_type;
+                node.primitive_size_x = std::max(model_it->second.size_x, 0.001F);
+                node.primitive_size_y = std::max(model_it->second.size_y, 0.001F);
+                node.primitive_size_z = std::max(model_it->second.size_z, 0.001F);
             }
         }
         node.asset_kind = infer_asset_kind_from_path(node.asset_path);
+        if (node.asset_kind == "none" && !node.primitive_type.empty()) {
+            node.asset_kind = "primitive";
+        }
 
         nodes.push_back(node);
 
@@ -378,11 +425,11 @@ std::vector<SceneNode> build_fixture_geometry_nodes(const GdtfBuildRequest &requ
             if (!is_supported_geometry_tag(child_tag)) {
                 continue;
             }
-            append_geometry(child, geometry_id, world, nullptr, nullptr);
+            append_geometry(child, geometry_id, world, nullptr, nullptr, node.is_lens);
         }
     };
 
-    append_geometry(root_geometry, parent_id, parent_world, nullptr, nullptr);
+    append_geometry(root_geometry, parent_id, parent_world, nullptr, nullptr, false);
     extracted_asset_count += gdtf_cache.extracted_assets();
     return nodes;
 }
