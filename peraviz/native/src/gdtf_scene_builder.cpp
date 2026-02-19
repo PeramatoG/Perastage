@@ -191,7 +191,14 @@ std::vector<SceneNode> build_fixture_geometry_nodes(const GdtfBuildRequest &requ
         return nodes;
     }
 
-    std::unordered_map<std::string, std::string> model_file_by_name;
+    struct GdtfModelVisual {
+        std::string file;
+        std::string primitive_type;
+        float size_x = 0.1F;
+        float size_y = 0.1F;
+        float size_z = 0.1F;
+    };
+    std::unordered_map<std::string, GdtfModelVisual> model_visual_by_name;
     std::unordered_map<std::string, float> emitter_wavelength_by_name;
     if (tinyxml2::XMLElement *models = fixture_type->FirstChildElement("Models")) {
         for (tinyxml2::XMLElement *model = models->FirstChildElement(); model;
@@ -200,14 +207,32 @@ std::vector<SceneNode> build_fixture_geometry_nodes(const GdtfBuildRequest &requ
             if (!name) {
                 name = model->Attribute("name");
             }
+            if (!name) {
+                continue;
+            }
+
+            GdtfModelVisual visual;
             const char *file = model->Attribute("File");
             if (!file) {
                 file = model->Attribute("file");
             }
-            if (!name || !file) {
-                continue;
+            if (file) {
+                visual.file = file;
             }
-            model_file_by_name[name] = file;
+
+            const char *primitive_type = model->Attribute("PrimitiveType");
+            if (!primitive_type) {
+                primitive_type = model->Attribute("primitivetype");
+            }
+            if (primitive_type) {
+                visual.primitive_type = primitive_type;
+            }
+
+            parse_float_attr(model, "Length", "length", visual.size_x);
+            parse_float_attr(model, "Width", "width", visual.size_y);
+            parse_float_attr(model, "Height", "height", visual.size_z);
+
+            model_visual_by_name[name] = visual;
         }
     }
 
@@ -376,12 +401,21 @@ std::vector<SceneNode> build_fixture_geometry_nodes(const GdtfBuildRequest &requ
             model_name = geometry->Attribute("model");
         }
         if (model_name) {
-            auto model_it = model_file_by_name.find(model_name);
-            if (model_it != model_file_by_name.end()) {
-                node.asset_path = gdtf_cache.ensure_gdtf_model_extracted(model_it->second);
+            auto model_it = model_visual_by_name.find(model_name);
+            if (model_it != model_visual_by_name.end()) {
+                if (!model_it->second.file.empty()) {
+                    node.asset_path = gdtf_cache.ensure_gdtf_model_extracted(model_it->second.file);
+                }
+                node.primitive_type = model_it->second.primitive_type;
+                node.primitive_size_x = std::max(model_it->second.size_x, 0.001F);
+                node.primitive_size_y = std::max(model_it->second.size_y, 0.001F);
+                node.primitive_size_z = std::max(model_it->second.size_z, 0.001F);
             }
         }
         node.asset_kind = infer_asset_kind_from_path(node.asset_path);
+        if (node.asset_kind == "none" && !node.primitive_type.empty()) {
+            node.asset_kind = "primitive";
+        }
 
         nodes.push_back(node);
 

@@ -109,8 +109,6 @@ const DEFAULT_EMITTER_PHOTOMETRICS := {
 # (aligned with fixture lens output in runtime scenes) while still inheriting GDTF emitter transforms.
 const EMITTER_LIGHT_DIRECTION_FIX: Vector3 = Vector3(-90.0, 0.0, 0.0)
 const LENS_TINT_COLOR: Color = Color(0.72, 0.86, 1.0, 0.38)
-const LENS_GLOW_MIN_RADIUS_M: float = 0.014
-const LENS_GLOW_MAX_RADIUS_M: float = 0.09
 const DOUBLE_SIDED_NAME_HINTS: Array[String] = [
 	"lens", "glass", "visor", "shade", "shield", "fabric", "cloth", "curtain", "scrim", "flag", "plane", "card"
 ]
@@ -669,6 +667,8 @@ func _build_visual_node(data: Dictionary, item_type: String, item_class: String,
 		print("[Peraviz] Asset fallback for missing/invalid model: ", asset_path, " type=", item_type, " class=", item_class, " asset_kind=", asset_kind)
 
 	if item_type == "fixture" or item_type == "fixture_geometry":
+		if asset_kind == "primitive":
+			return _create_gdtf_primitive_mesh(data)
 		return null
 
 	return _create_dummy_mesh(is_fixture, visual_scale_hint)
@@ -942,6 +942,41 @@ func _create_dummy_mesh(is_fixture: bool, visual_scale_hint: float) -> Node3D:
 		base_material.albedo_color = Color(1.0, 0.5, 0.1) if is_fixture else Color(0.2, 0.8, 1.0)
 		_asset_cache.store_material(material_key, base_material)
 		material = _asset_cache.get_material(material_key, true)
+	mesh_instance.material_override = material
+	return mesh_instance
+
+func _create_gdtf_primitive_mesh(data: Dictionary) -> Node3D:
+	var primitive_type: String = str(data.get("primitive_type", "")).to_lower()
+	var sx: float = max(float(data.get("primitive_size_x", 0.1)), 0.001)
+	var sy: float = max(float(data.get("primitive_size_y", 0.1)), 0.001)
+	var sz: float = max(float(data.get("primitive_size_z", 0.1)), 0.001)
+	var mesh_instance := MeshInstance3D.new()
+	if primitive_type.contains("sphere"):
+		var sphere := SphereMesh.new()
+		sphere.radius = max(sx, max(sy, sz)) * 0.5
+		sphere.height = sphere.radius * 2.0
+		mesh_instance.mesh = sphere
+	elif primitive_type.contains("cylinder"):
+		var cylinder := CylinderMesh.new()
+		cylinder.top_radius = max(sx, sy) * 0.5
+		cylinder.bottom_radius = max(sx, sy) * 0.5
+		cylinder.height = sz
+		mesh_instance.mesh = cylinder
+	elif primitive_type.contains("cone"):
+		var cone := CylinderMesh.new()
+		cone.top_radius = 0.0
+		cone.bottom_radius = max(sx, sy) * 0.5
+		cone.height = sz
+		mesh_instance.mesh = cone
+	else:
+		var box := BoxMesh.new()
+		box.size = Vector3(sx, sy, sz)
+		mesh_instance.mesh = box
+
+	var material := StandardMaterial3D.new()
+	material.albedo_color = Color(0.2, 0.2, 0.22, 1.0)
+	material.roughness = 0.3
+	material.cull_mode = BaseMaterial3D.CULL_DISABLED
 	mesh_instance.material_override = material
 	return mesh_instance
 
@@ -1567,7 +1602,6 @@ func _find_or_create_emitter_light(emitter_node: Node3D) -> SpotLight3D:
 			# Self/caster shadows from fixture geometry can clip the floor footprint.
 			child.shadow_enabled = false
 			child.set_meta("peraviz_lens_radius", lens_radius)
-			_ensure_emitter_lens_glow(emitter_node, lens_radius)
 			return child
 
 	var light := SpotLight3D.new()
@@ -1581,58 +1615,7 @@ func _find_or_create_emitter_light(emitter_node: Node3D) -> SpotLight3D:
 	light.spot_attenuation = 1.0
 	light.set_meta("peraviz_lens_radius", lens_radius)
 	emitter_node.add_child(light)
-	_ensure_emitter_lens_glow(emitter_node, lens_radius)
 	return light
-
-func _ensure_emitter_lens_glow(emitter_node: Node3D, lens_radius: float) -> void:
-	if emitter_node == null:
-		return
-	var glow_node: MeshInstance3D = null
-	for child in emitter_node.get_children():
-		if child is MeshInstance3D and child.name == "PeravizLensGlow":
-			glow_node = child
-			break
-	if glow_node == null:
-		glow_node = MeshInstance3D.new()
-		glow_node.name = "PeravizLensGlow"
-		glow_node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		glow_node.position = Vector3.ZERO
-		glow_node.rotation_degrees = EMITTER_LIGHT_DIRECTION_FIX
-		var glow_mesh := SphereMesh.new()
-		glow_node.mesh = glow_mesh
-		var glow_material := StandardMaterial3D.new()
-		glow_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		glow_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-		glow_material.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
-		glow_material.cull_mode = BaseMaterial3D.CULL_DISABLED
-		glow_material.emission_enabled = true
-		glow_material.albedo_color = Color(1.0, 1.0, 1.0, 0.0)
-		glow_material.emission = Color.BLACK
-		glow_material.emission_energy_multiplier = 0.0
-		glow_node.material_override = glow_material
-		emitter_node.add_child(glow_node)
-
-	# Slightly larger than the estimated lens to improve visibility without looking detached.
-	var effective_radius: float = clamp(lens_radius * 1.30, LENS_GLOW_MIN_RADIUS_M, LENS_GLOW_MAX_RADIUS_M)
-	if glow_node.mesh is SphereMesh:
-		var sphere_mesh: SphereMesh = glow_node.mesh
-		sphere_mesh.radius = effective_radius
-		sphere_mesh.height = effective_radius * 2.0
-
-func _update_emitter_lens_glow(emitter_node: Node3D, beam_color: Color, normalized_dimmer: float) -> void:
-	if emitter_node == null:
-		return
-	for child in emitter_node.get_children():
-		if child is MeshInstance3D and child.name == "PeravizLensGlow":
-			var glow_mesh: MeshInstance3D = child
-			glow_mesh.visible = normalized_dimmer > 0.0001
-			if glow_mesh.material_override is BaseMaterial3D:
-				var glow_material: BaseMaterial3D = glow_mesh.material_override
-				glow_material.emission_enabled = true
-				glow_material.emission = beam_color
-				glow_material.emission_energy_multiplier = lerp(0.0, 8.5, clamp(normalized_dimmer, 0.0, 1.0))
-				glow_material.albedo_color = Color(beam_color.r, beam_color.g, beam_color.b, lerp(0.0, 0.40, clamp(normalized_dimmer, 0.0, 1.0)))
-			return
 
 func _estimate_emitter_lens_radius(emitter_node: Node3D) -> float:
 	var default_radius: float = 0.03
@@ -1827,8 +1810,6 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 	# avoids early floor clipping on steep tilt while keeping cone visuals unchanged.
 	light.spot_range = clamp(cone_range * EMITTER_LIGHT_FOOTPRINT_RANGE_MULTIPLIER, EMITTER_LIGHT_MIN_EFFECTIVE_RANGE_M, EMITTER_LIGHT_MAX_RANGE_M)
 	light.light_color = _derive_emitter_color(photometric, controls)
-	var emitter_parent: Node3D = light.get_parent() as Node3D
-	_update_emitter_lens_glow(emitter_parent, light.light_color, normalized_dimmer)
 	var beam_radius_from_gdtf: bool = bool(photometric.get("beam_radius_from_gdtf", false))
 	var source_beam_radius: float = beam_radius_m if beam_radius_from_gdtf else -1.0
 	var lens_radius: float = max(float(light.get_meta("peraviz_lens_radius", 0.03)), 0.005)
