@@ -49,6 +49,7 @@
 #include "sceneobjecttablepanel.h"
 #include "trusstablepanel.h"
 #include "viewer3dpanel.h"
+#include "viewer2dviewfit.h"
 #include <wx/app.h>
 #include <wx/utils.h>
 #include <algorithm>
@@ -1769,6 +1770,21 @@ void Viewer2DPanel::OnKeyDown(wxKeyEvent &event) {
     else
       m_offsetY += panStep;
     break;
+  case 'F':
+  case 'f': {
+    int width = 0;
+    int height = 0;
+    GetClientSize(&width, &height);
+    viewer2d::ViewFitResult fit;
+    if (!viewer2d::ComputeViewFit(m_controller, m_view, width, height, fit)) {
+      event.Skip();
+      return;
+    }
+    m_offsetX = fit.offsetXPixels;
+    m_offsetY = fit.offsetYPixels;
+    m_zoom = fit.zoom;
+    break;
+  }
   default:
     event.Skip();
     return;

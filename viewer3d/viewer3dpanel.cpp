@@ -46,6 +46,7 @@
 #include "configmanager.h"
 #include "fixturepatchdialog.h"
 #include "viewer2dpanel.h"
+#include "viewer3dviewfit.h"
 #include <wx/dcclient.h>
 #include <wx/event.h>
 #include <wx/log.h>
@@ -981,6 +982,21 @@ void Viewer3DPanel::OnKeyDown(wxKeyEvent& event)
         case WXK_NUMPAD5: // Reset/isometric
             m_camera.Reset();
             break;
+        case 'F':
+        case 'f': {
+            int width = 0;
+            int height = 0;
+            GetClientSize(&width, &height);
+            if (!viewer3d::FrameSceneInCamera(m_controller, width, height, m_camera)) {
+                event.Skip();
+                return;
+            }
+            m_isInteracting = true;
+            m_cameraMoving = true;
+            m_lastInteractionTime = std::chrono::steady_clock::now();
+            m_controller.SetInteracting(true);
+            break;
+        }
         default:
             event.Skip();
             return;

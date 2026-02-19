@@ -15,6 +15,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/viewer2dpdfexporter.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/viewer2drenderpanel.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/viewer2dstate.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/viewer2dviewfit.cpp
 )
 
 target_include_directories(${PROJECT_NAME} PRIVATE

@@ -1218,6 +1218,15 @@ void Viewer3DController::SetupMeshBuffers(Mesh &mesh) {
   if (mesh.vertices.empty() || mesh.indices.empty())
     return;
 
+  const bool hasVertexBufferSupport = GLEW_VERSION_1_5;
+  const bool hasVertexArraySupport = GLEW_VERSION_3_0 || GLEW_ARB_vertex_array_object;
+  if (!hasVertexBufferSupport || !hasVertexArraySupport) {
+    Logger::Instance().Log(
+        "Viewer3DController: OpenGL buffer functions are unavailable; skipping mesh GPU buffer setup.");
+    mesh.buffersReady = false;
+    return;
+  }
+
   if (mesh.buffersReady)
     ReleaseMeshBuffers(mesh);
 
