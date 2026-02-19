@@ -26,6 +26,7 @@ public:
     bool start(const String &bind_ip = "0.0.0.0", int port = 6454);
     void stop();
     bool is_running() const;
+    String get_last_error() const;
 
     PackedInt32Array get_active_universes(int active_window_ms = 2000) const;
     Dictionary get_stats() const;

@@ -124,4 +124,31 @@ int get_last_socket_error() {
 #endif
 }
 
+
+std::string describe_socket_error(int error_code) {
+#ifdef _WIN32
+    switch (error_code) {
+    case WSAEADDRINUSE:
+        return "Address/port already in use (WSAEADDRINUSE)";
+    case WSAEACCES:
+        return "Permission denied to bind socket (WSAEACCES)";
+    case WSAEADDRNOTAVAIL:
+        return "Requested bind address is not available (WSAEADDRNOTAVAIL)";
+    default:
+        return "";
+    }
+#else
+    switch (error_code) {
+    case EADDRINUSE:
+        return "Address/port already in use (EADDRINUSE)";
+    case EACCES:
+        return "Permission denied to bind socket (EACCES)";
+    case EADDRNOTAVAIL:
+        return "Requested bind address is not available (EADDRNOTAVAIL)";
+    default:
+        return "";
+    }
+#endif
+}
+
 } // namespace peraviz::dmx

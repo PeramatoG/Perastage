@@ -29,10 +29,15 @@ struct SceneNode {
     std::string node_class;
     std::string asset_kind;
     std::string asset_path;
+    std::string primitive_type;
+    float primitive_size_x = 0.1F;
+    float primitive_size_y = 0.1F;
+    float primitive_size_z = 0.1F;
     SceneTransform local_transform;
     bool is_fixture = false;
     bool is_axis = false;
     bool is_emitter = false;
+    bool is_lens = false;
 
     bool has_luminous_flux = false;
     float luminous_flux = 10000.0F;

@@ -51,8 +51,13 @@ bool UdpSocket::open_and_bind(const std::string &bind_ip, uint16_t port, std::st
     }
 
     if (::bind(socket_handle_, reinterpret_cast<sockaddr *>(&address), sizeof(address)) != 0) {
+        const int error_code = get_last_socket_error();
         error_message = "Failed to bind UDP socket on " + bind_ip + ":" + std::to_string(port) +
-                        ". Error=" + std::to_string(get_last_socket_error());
+                        ". Error=" + std::to_string(error_code);
+        const std::string error_detail = describe_socket_error(error_code);
+        if (!error_detail.empty()) {
+            error_message += " (" + error_detail + ")";
+        }
         close();
         return false;
     }
