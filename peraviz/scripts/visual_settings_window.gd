@@ -9,6 +9,12 @@ const DEFAULT_SETTINGS := {
 	"spot_multiplier": 1.0,
 	"beam_multiplier": 1.0,
 	"bloom_multiplier": 1.0,
+	"beam_render_mode": 0,
+	"beam_quality": 1,
+	"beam_haze_density": 0.17,
+	"beam_anisotropy": 0.62,
+	"beam_noise_amount": 0.06,
+	"beam_noise_scale": 1.4,
 	"background_color": Color(0.129412, 0.137255, 0.156863, 1.0),
 }
 
@@ -22,10 +28,12 @@ var _beam_value_label: Label
 var _bloom_slider: HSlider
 var _bloom_value_label: Label
 var _background_picker: ColorPickerButton
+var _beam_render_mode_option: OptionButton
+var _beam_quality_option: OptionButton
 
 func _init() -> void:
 	title = "Visual Settings"
-	size = Vector2i(420, 340)
+	size = Vector2i(460, 400)
 	unresizable = false
 
 func _ready() -> void:
@@ -63,6 +71,8 @@ func _build_ui() -> void:
 	_spot_slider = _add_slider_row(container, "Spot intensity", "spot_multiplier", 0.0, 3.0, 0.01)
 	_beam_slider = _add_slider_row(container, "Beam intensity", "beam_multiplier", 0.0, 3.0, 0.01)
 	_bloom_slider = _add_slider_row(container, "Bloom", "bloom_multiplier", 0.0, 3.0, 0.01)
+	_beam_render_mode_option = _add_option_row(container, "Beam rendering", ["Volumetric (default)", "Lightweight (legacy)"], _on_beam_render_mode_selected)
+	_beam_quality_option = _add_option_row(container, "Beam quality", ["Low", "Medium", "High"], _on_beam_quality_selected)
 
 	var background_row: HBoxContainer = HBoxContainer.new()
 	background_row.add_theme_constant_override("separation", 8)
@@ -129,11 +139,32 @@ func _add_slider_row(parent: VBoxContainer,
 
 	return slider
 
+func _add_option_row(parent: VBoxContainer, label_text: String, options: Array[String], on_selected: Callable) -> OptionButton:
+	var row: HBoxContainer = HBoxContainer.new()
+	row.add_theme_constant_override("separation", 8)
+	parent.add_child(row)
+
+	var setting_label: Label = Label.new()
+	setting_label.text = label_text
+	setting_label.custom_minimum_size = Vector2(150, 0)
+	row.add_child(setting_label)
+
+	var option_button: OptionButton = OptionButton.new()
+	option_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	for option_text in options:
+		option_button.add_item(option_text)
+	option_button.item_selected.connect(on_selected)
+	row.add_child(option_button)
+
+	return option_button
+
 func _apply_settings_to_controls() -> void:
 	_ambient_slider.value = float(_settings.get("ambient_multiplier", 1.0))
 	_spot_slider.value = float(_settings.get("spot_multiplier", 1.0))
 	_beam_slider.value = float(_settings.get("beam_multiplier", 1.0))
 	_bloom_slider.value = float(_settings.get("bloom_multiplier", 1.0))
+	_beam_render_mode_option.select(clamp(int(_settings.get("beam_render_mode", 0)), 0, 1))
+	_beam_quality_option.select(clamp(int(_settings.get("beam_quality", 1)), 0, 2))
 	_background_picker.color = _settings.get("background_color", DEFAULT_SETTINGS["background_color"])
 	_update_value_labels()
 
@@ -149,6 +180,14 @@ func _on_background_color_changed(color: Color) -> void:
 func _on_reset_pressed() -> void:
 	_settings = DEFAULT_SETTINGS.duplicate(true)
 	_apply_settings_to_controls()
+	_emit_settings_changed()
+
+func _on_beam_render_mode_selected(index: int) -> void:
+	_settings["beam_render_mode"] = clamp(index, 0, 1)
+	_emit_settings_changed()
+
+func _on_beam_quality_selected(index: int) -> void:
+	_settings["beam_quality"] = clamp(index, 0, 2)
 	_emit_settings_changed()
 
 func _update_value_labels() -> void:
