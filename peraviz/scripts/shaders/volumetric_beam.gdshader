@@ -58,7 +58,7 @@ void vertex() {
 }
 
 void fragment() {
-	float near_factor = 1.0 - beam_axial;
+	float near_factor = beam_axial;
 	float far_progress = 1.0 - near_factor;
 	float end_fade = 1.0 - smoothstep(clamp(end_fade_ratio, 0.0, 0.99), 1.0, far_progress);
 	float current_radius = mix(top_radius, bottom_radius, beam_axial);
@@ -68,8 +68,7 @@ void fragment() {
 	float axial_density = mix(1.25, 0.28, far_progress);
 
 	float view_alignment = abs(dot(normalize(NORMAL), normalize(VIEW)));
-	float side_boost = 1.0 - view_alignment;
-	float phase = phase_hg(side_boost, anisotropy);
+	float phase = phase_hg(view_alignment, anisotropy);
 
 	float steps = clamp(step_count, 8.0, 64.0);
 	float step_length = beam_range / steps;
