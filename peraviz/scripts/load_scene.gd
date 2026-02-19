@@ -41,6 +41,7 @@ var _manual_fixture_test_enabled: bool = false
 var _selected_fixture_uuid: String = ""
 var _fixture_manual_values: Dictionary = {}
 var _fixture_emissive_cache: Dictionary = {}
+var _fixture_lens_material_cache: Dictionary = {}
 var _fixture_emitter_light_cache: Dictionary = {}
 var _fixture_emitter_photometrics: Dictionary = {}
 var _fixture_lens_tuned: Dictionary = {}
@@ -949,6 +950,7 @@ func _clear_scene() -> void:
 	_node_index.clear()
 	_asset_cache.clear()
 	_fixture_emissive_cache.clear()
+	_fixture_lens_material_cache.clear()
 	_fixture_emitter_light_cache.clear()
 	_fixture_emitter_photometrics.clear()
 	_fixture_lens_tuned.clear()
@@ -1370,15 +1372,20 @@ func _apply_dimmer_feedback_to_fixture(fixture_uuid: String, dimmer: float, cont
 
 	var dimmer_percent: float = clamp(dimmer, 0.0, 100.0)
 	var normalized_dimmer: float = dimmer_percent / 100.0
+	var emitter_photometrics: Array = _get_fixture_emitter_photometrics(fixture_uuid)
+	var beam_color: Color = _resolve_fixture_beam_color(emitter_photometrics, controls)
+	var lens_materials: Array = _collect_fixture_lens_materials(fixture_uuid, emitter_nodes)
+	_apply_lens_feedback_materials(lens_materials, beam_color, normalized_dimmer)
+
 	var emissive_materials: Array = _collect_fixture_emissive_materials(fixture_uuid, geometry_nodes)
 	var energy_multiplier: float = lerp(0.0, 4.0, normalized_dimmer)
 	for material in emissive_materials:
 		if material is BaseMaterial3D:
 			material.emission_enabled = true
+			material.emission = beam_color
 			material.emission_energy_multiplier = energy_multiplier
 
 	var emitter_lights: Array = _collect_fixture_emitter_lights(fixture_uuid, emitter_nodes)
-	var emitter_photometrics: Array = _get_fixture_emitter_photometrics(fixture_uuid)
 	for index in range(emitter_lights.size()):
 		var light: SpotLight3D = emitter_lights[index]
 		if light == null or not is_instance_valid(light):
@@ -1412,6 +1419,74 @@ func _collect_fixture_emitter_lights(fixture_uuid: String, emitter_nodes: Array)
 
 	_fixture_emitter_light_cache[fixture_uuid] = lights
 	return lights
+
+func _collect_fixture_lens_materials(fixture_uuid: String, emitter_nodes: Array) -> Array:
+	if _fixture_lens_material_cache.has(fixture_uuid):
+		return _fixture_lens_material_cache.get(fixture_uuid, [])
+
+	var materials: Array = []
+	for emitter_node in emitter_nodes:
+		_collect_lens_materials_recursive(emitter_node, materials)
+	_fixture_lens_material_cache[fixture_uuid] = materials
+	return materials
+
+func _collect_lens_materials_recursive(node: Node3D, output_materials: Array) -> void:
+	if node == null:
+		return
+	if node is MeshInstance3D:
+		var mesh_instance: MeshInstance3D = node
+		for surface_index in range(mesh_instance.get_surface_override_material_count()):
+			var override_material: Material = mesh_instance.get_surface_override_material(surface_index)
+			_maybe_add_lens_material(override_material, output_materials)
+		_maybe_add_lens_material(mesh_instance.material_override, output_materials)
+
+	for child in node.get_children():
+		if child is Node3D:
+			_collect_lens_materials_recursive(child, output_materials)
+
+func _maybe_add_lens_material(material: Material, output_materials: Array) -> void:
+	if material == null or not (material is BaseMaterial3D):
+		return
+	if not bool(material.get_meta("peraviz_lens_material", false)):
+		return
+	if output_materials.has(material):
+		return
+	output_materials.append(material)
+
+func _resolve_fixture_beam_color(emitter_photometrics: Array, controls: Dictionary) -> Color:
+	if emitter_photometrics.is_empty():
+		return _derive_emitter_color(DEFAULT_EMITTER_PHOTOMETRICS, controls)
+
+	var accumulated_color: Color = Color.BLACK
+	var samples: int = 0
+	for entry in emitter_photometrics:
+		if entry is not Dictionary:
+			continue
+		accumulated_color += _derive_emitter_color(entry, controls)
+		samples += 1
+	if samples <= 0:
+		return _derive_emitter_color(DEFAULT_EMITTER_PHOTOMETRICS, controls)
+	var inverse_samples: float = 1.0 / float(samples)
+	return Color(accumulated_color.r * inverse_samples, accumulated_color.g * inverse_samples, accumulated_color.b * inverse_samples, 1.0)
+
+func _apply_lens_feedback_materials(lens_materials: Array, beam_color: Color, normalized_dimmer: float) -> void:
+	var dimmer_mix: float = clamp(normalized_dimmer, 0.0, 1.0)
+	for material in lens_materials:
+		if material is not BaseMaterial3D:
+			continue
+		var lens_material: BaseMaterial3D = material
+		lens_material.emission_enabled = true
+		lens_material.emission = beam_color
+		lens_material.emission_energy_multiplier = lerp(0.0, 4.5, dimmer_mix)
+		var alpha: float = LENS_TINT_COLOR.a
+		if lens_material.has_meta("peraviz_lens_base_alpha"):
+			alpha = float(lens_material.get_meta("peraviz_lens_base_alpha", LENS_TINT_COLOR.a))
+		lens_material.albedo_color = Color(
+			lerp(LENS_TINT_COLOR.r, beam_color.r, dimmer_mix),
+			lerp(LENS_TINT_COLOR.g, beam_color.g, dimmer_mix),
+			lerp(LENS_TINT_COLOR.b, beam_color.b, dimmer_mix),
+			alpha
+		)
 
 func _find_or_create_emitter_light(emitter_node: Node3D) -> SpotLight3D:
 	var lens_radius: float = _estimate_emitter_lens_radius(emitter_node)
@@ -1923,6 +1998,8 @@ func _build_lens_material_override(source: Material) -> StandardMaterial3D:
 	material.emission_enabled = true
 	material.emission = material.albedo_color
 	material.emission_energy_multiplier = 0.35
+	material.set_meta("peraviz_lens_material", true)
+	material.set_meta("peraviz_lens_base_alpha", material.albedo_color.a)
 	return material
 
 func _derive_emitter_color(photometric: Dictionary, controls: Dictionary = {}) -> Color:
