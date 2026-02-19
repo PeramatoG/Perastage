@@ -6,12 +6,6 @@ const BEAM_META_KEY: String = "peraviz_volumetric_beam"
 const EMITTER_CONE_MAX_BASE_RADIUS_M: float = 10.0
 const VOLUMETRIC_INTENSITY_SCALE: float = 0.62
 
-const QUALITY_PRESETS := {
-	0: {"steps": 14.0, "noise_multiplier": 0.0},
-	1: {"steps": 28.0, "noise_multiplier": 0.65},
-	2: {"steps": 56.0, "noise_multiplier": 1.0},
-}
-
 var _shared_material: ShaderMaterial
 var _camera: Camera3D
 var _settings: Dictionary = {}
@@ -80,25 +74,21 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	cone.position = Vector3(0.0, 0.0, -beam_range * 0.5)
 	cone.visible = true
 
-	var quality: int = int(_settings.get("beam_quality", 1))
-	var quality_preset: Dictionary = QUALITY_PRESETS.get(quality, QUALITY_PRESETS[1])
-	var haze_density: float = float(_settings.get("beam_haze_density", 0.22))
-	var anisotropy: float = float(_settings.get("beam_anisotropy", 0.62))
-	var noise_amount: float = float(_settings.get("beam_noise_amount", 0.06)) * float(quality_preset.get("noise_multiplier", 1.0))
-
-	cone.set_instance_shader_parameter("beam_color", Color(beam_color.r, beam_color.g, beam_color.b, 1.0))
-	cone.set_instance_shader_parameter("beam_intensity", intensity * VOLUMETRIC_INTENSITY_SCALE)
-	cone.set_instance_shader_parameter("cone_height", beam_range)
-	cone.set_instance_shader_parameter("top_radius", max(lens_radius, 0.003))
-	cone.set_instance_shader_parameter("bottom_radius", bottom_radius)
-	cone.set_instance_shader_parameter("haze_density", haze_density)
-	cone.set_instance_shader_parameter("anisotropy", anisotropy)
-	cone.set_instance_shader_parameter("noise_amount", noise_amount)
-	cone.set_instance_shader_parameter("noise_scale", float(_settings.get("beam_noise_scale", 1.4)))
-	cone.set_instance_shader_parameter("end_fade_ratio", float(params.get("fade_end_ratio", 0.82)))
-	cone.set_instance_shader_parameter("step_count", float(quality_preset.get("steps", 28.0)))
-	cone.set_instance_shader_parameter("beam_range", beam_range)
-	cone.set_instance_shader_parameter("camera_inside_dimmer", 0.6)
+	var intensity_alpha: float = clamp(intensity * VOLUMETRIC_INTENSITY_SCALE, 0.0, 1.0)
+	cone.set_instance_shader_parameter("base_color", Color(beam_color.r, beam_color.g, beam_color.b, intensity_alpha))
+	cone.set_instance_shader_parameter("falloff_power", 8.0)
+	cone.set_instance_shader_parameter("facing_boost", 1.5)
+	cone.set_instance_shader_parameter("facing_power", 4.0)
+	cone.set_instance_shader_parameter("boost_along_y", 1.0)
+	cone.set_instance_shader_parameter("feather_sharpness", 4.0)
+	cone.set_instance_shader_parameter("feather_intensity", 1.0)
+	cone.set_instance_shader_parameter("near_fade_start", 0.01)
+	cone.set_instance_shader_parameter("near_fade_end", min(max(1.0, beam_range * 0.04), 50.0))
+	cone.set_instance_shader_parameter("far_fade_start", min(max(25.0, beam_range * 0.45), 100.0))
+	cone.set_instance_shader_parameter("far_fade_end", min(max(80.0, beam_range * 0.9), 100.0))
+	cone.set_instance_shader_parameter("depth_feather_enabled", true)
+	cone.set_instance_shader_parameter("depth_fade_distance", 0.5)
+	cone.set_instance_shader_parameter("max_brightness", lerp(1.0, 10.0, intensity))
 
 func cleanup_beam(light: SpotLight3D) -> void:
 	if not light.has_meta(BEAM_META_KEY):
