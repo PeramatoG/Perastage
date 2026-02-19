@@ -16,7 +16,7 @@ instance uniform float beam_range = 20.0;
 instance uniform float camera_inside_dimmer = 0.6;
 
 varying float beam_axial;
-varying float radial_ratio;
+varying vec3 local_position;
 
 float hash31(vec3 p) {
 	p = fract(p * 0.1031);
@@ -54,14 +54,18 @@ float phase_hg(float cos_theta, float g) {
 void vertex() {
 	float normalized_y = (VERTEX.y / max(cone_height, 0.0001)) + 0.5;
 	beam_axial = clamp(normalized_y, 0.0, 1.0);
-	radial_ratio = clamp(UV.x, 0.0, 1.0);
+	local_position = VERTEX;
 }
 
 void fragment() {
-	float near_factor = beam_axial;
-	float end_fade = 1.0 - smoothstep(clamp(end_fade_ratio, 0.0, 0.99), 1.0, beam_axial);
-	float radial_density = 1.0 - smoothstep(0.55, 1.0, radial_ratio);
-	float axial_density = mix(1.2, 0.32, beam_axial);
+	float near_factor = 1.0 - beam_axial;
+	float far_progress = 1.0 - near_factor;
+	float end_fade = 1.0 - smoothstep(clamp(end_fade_ratio, 0.0, 0.99), 1.0, far_progress);
+	float current_radius = mix(top_radius, bottom_radius, beam_axial);
+	float radial = length(vec2(local_position.x, local_position.z));
+	float radial_ratio = clamp(radial / max(current_radius, 0.0001), 0.0, 1.0);
+	float radial_density = 1.0 - smoothstep(0.35, 1.0, radial_ratio);
+	float axial_density = mix(1.25, 0.28, far_progress);
 
 	float view_alignment = abs(dot(normalize(NORMAL), normalize(VIEW)));
 	float side_boost = 1.0 - view_alignment;
@@ -79,13 +83,14 @@ void fragment() {
 			break;
 		}
 		float t = (i + 0.5) / steps;
-		float sample_axial = clamp(mix(beam_axial, 1.0, t * 0.9), 0.0, 1.0);
-		float sample_end_fade = 1.0 - smoothstep(clamp(end_fade_ratio, 0.0, 0.99), 1.0, sample_axial);
+		float sample_far_progress = clamp(mix(far_progress, 1.0, t * 0.9), 0.0, 1.0);
+		float sample_end_fade = 1.0 - smoothstep(clamp(end_fade_ratio, 0.0, 0.99), 1.0, sample_far_progress);
+		float sample_axial_density = mix(1.25, 0.28, sample_far_progress);
 		float sample_noise = 1.0;
 		if (noise_amount > 0.001) {
-			sample_noise += (value_noise(vec3(UV * noise_scale, sample_axial + TIME * 0.08)) - 0.5) * noise_amount;
+			sample_noise += (value_noise(vec3(local_position.xz * noise_scale, sample_far_progress + TIME * 0.08)) - 0.5) * noise_amount;
 		}
-		float density = max(radial_density * axial_density * sample_end_fade * sample_noise, 0.0);
+		float density = max(radial_density * sample_axial_density * sample_end_fade * sample_noise, 0.0);
 		transmittance *= exp(-sigma_t * density * step_length);
 		radiance += transmittance * sigma_s * density * phase * step_length;
 		if (transmittance < 0.02) {
@@ -93,7 +98,7 @@ void fragment() {
 		}
 	}
 
-	float inside_dimmer = mix(1.0, camera_inside_dimmer, smoothstep(0.0, 0.15, radial_ratio));
+	float inside_dimmer = mix(1.0, camera_inside_dimmer, smoothstep(0.0, 0.2, radial_ratio));
 	float alpha = clamp(radiance * beam_intensity * inside_dimmer * 18.0, 0.0, 1.0) * end_fade;
 
 	ALBEDO = beam_color.rgb;
