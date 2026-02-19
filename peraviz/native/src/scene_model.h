@@ -33,6 +33,7 @@ struct SceneNode {
     bool is_fixture = false;
     bool is_axis = false;
     bool is_emitter = false;
+    bool is_lens = false;
 
     bool has_luminous_flux = false;
     float luminous_flux = 10000.0F;

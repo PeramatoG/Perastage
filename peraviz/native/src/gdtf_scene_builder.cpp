@@ -33,11 +33,23 @@ bool looks_like_axis(const std::string &tag_name, const std::string &name) {
            n.find("head") != std::string::npos;
 }
 
-bool looks_like_emitter(const std::string &tag_name, const std::string &name) {
+bool looks_like_lens_geometry(const std::string &tag_name, const std::string &name,
+                              bool parent_is_lens) {
+    if (parent_is_lens) {
+        return true;
+    }
+    const std::string tag = lower_ascii(tag_name);
+    const std::string n = lower_ascii(name);
+    return tag == "beam" || n.find("lens") != std::string::npos ||
+           n.find("optic") != std::string::npos || n.find("glass") != std::string::npos;
+}
+
+bool looks_like_emitter(const std::string &tag_name, const std::string &name,
+                        bool is_lens_geometry) {
     const std::string tag = lower_ascii(tag_name);
     const std::string n = lower_ascii(name);
     return tag.find("beam") != std::string::npos || tag.find("laser") != std::string::npos ||
-           n.find("lens") != std::string::npos || n.find("emitter") != std::string::npos;
+           n.find("emitter") != std::string::npos || is_lens_geometry;
 }
 
 bool is_supported_geometry_tag(const std::string &tag_name) {
@@ -276,11 +288,11 @@ std::vector<SceneNode> build_fixture_geometry_nodes(const GdtfBuildRequest &requ
 
     int local_counter = 0;
     std::function<void(tinyxml2::XMLElement *, const std::string &, const Matrix &, const char *,
-                       const Matrix *)>
+                       const Matrix *, bool)>
         append_geometry;
     append_geometry = [&](tinyxml2::XMLElement *geometry, const std::string &geometry_parent_id,
                           const Matrix &geometry_parent_world, const char *override_model,
-                          const Matrix *prepend_local) {
+                          const Matrix *prepend_local, bool parent_is_lens) {
         const std::string geometry_tag = geometry->Name() ? geometry->Name() : "";
         Matrix local = parse_local_matrix(geometry);
         if (prepend_local) {
@@ -307,7 +319,7 @@ std::vector<SceneNode> build_fixture_geometry_nodes(const GdtfBuildRequest &requ
                 reference_model = geometry->Attribute("model");
             }
             append_geometry(referenced_it->second, geometry_parent_id, geometry_parent_world,
-                            reference_model ? reference_model : override_model, &local);
+                            reference_model ? reference_model : override_model, &local, parent_is_lens);
             return;
         }
 
@@ -323,7 +335,8 @@ std::vector<SceneNode> build_fixture_geometry_nodes(const GdtfBuildRequest &requ
         node.node_class = "fixture_geometry";
         node.is_fixture = true;
         node.is_axis = looks_like_axis(geometry->Name(), geometry_name);
-        node.is_emitter = looks_like_emitter(geometry->Name(), geometry_name);
+        node.is_lens = looks_like_lens_geometry(geometry_tag, geometry_name, parent_is_lens);
+        node.is_emitter = looks_like_emitter(geometry->Name(), geometry_name, node.is_lens);
         node.local_transform = peraviz::coordinate_mapper::to_godot_transform(local);
 
         if (geometry_tag == "Beam") {
@@ -378,11 +391,11 @@ std::vector<SceneNode> build_fixture_geometry_nodes(const GdtfBuildRequest &requ
             if (!is_supported_geometry_tag(child_tag)) {
                 continue;
             }
-            append_geometry(child, geometry_id, world, nullptr, nullptr);
+            append_geometry(child, geometry_id, world, nullptr, nullptr, node.is_lens);
         }
     };
 
-    append_geometry(root_geometry, parent_id, parent_world, nullptr, nullptr);
+    append_geometry(root_geometry, parent_id, parent_world, nullptr, nullptr, false);
     extracted_asset_count += gdtf_cache.extracted_assets();
     return nodes;
 }

@@ -589,6 +589,7 @@ func _create_scene_node(data: Dictionary) -> Node3D:
 	var is_fixture: bool = bool(data.get("is_fixture", false))
 	var is_axis: bool = bool(data.get("is_axis", false))
 	var is_emitter: bool = bool(data.get("is_emitter", false))
+	var is_lens: bool = bool(data.get("is_lens", false))
 	var node_name: String = str(data.get("name", item_type))
 
 	var root := Node3D.new()
@@ -596,6 +597,7 @@ func _create_scene_node(data: Dictionary) -> Node3D:
 	root.set_meta("peraviz_type", item_type)
 	root.set_meta("peraviz_is_axis", is_axis)
 	root.set_meta("peraviz_is_emitter", is_emitter)
+	root.set_meta("peraviz_is_lens", is_lens)
 	var node_position: Vector3 = _safe_position(data.get("pos", Vector3.ZERO), "create_scene_node:" + root.name)
 	if bool(data.get("has_basis", false)):
 		var node_basis: Basis = _safe_basis_from_data(data)
@@ -977,6 +979,7 @@ func _register_fixture_registry(nodes: Array) -> void:
 		fixture_anchors[node_id] = {
 			"axis": [],
 			"emitters": [],
+			"lens": [],
 			"geometry_nodes": [],
 		}
 
@@ -1011,6 +1014,10 @@ func _register_fixture_registry(nodes: Array) -> void:
 			var geometry_nodes: Array = anchors.get("geometry_nodes", [])
 			geometry_nodes.append(node)
 			anchors["geometry_nodes"] = geometry_nodes
+			if bool(item.get("is_lens", false)):
+				var lens_nodes: Array = anchors.get("lens", [])
+				lens_nodes.append(node)
+				anchors["lens"] = lens_nodes
 			if bool(item.get("is_emitter", false)):
 				var photometric_entries: Array = anchors.get("emitter_photometrics", [])
 				photometric_entries.append(_extract_emitter_photometrics(item))
@@ -1371,7 +1378,10 @@ func _apply_dimmer_feedback_to_fixture(fixture_uuid: String, dimmer: float, cont
 	var normalized_dimmer: float = dimmer_percent / 100.0
 	var emitter_photometrics: Array = _get_fixture_emitter_photometrics(fixture_uuid)
 	var beam_color: Color = _resolve_fixture_beam_color(emitter_photometrics, controls)
-	var lens_materials: Array = _collect_fixture_lens_materials(fixture_uuid, emitter_nodes)
+	var lens_nodes: Array = _to_node3d_array(_scene_registry.get_anchor(fixture_uuid, "lens"))
+	if lens_nodes.is_empty():
+		lens_nodes = emitter_nodes
+	var lens_materials: Array = _collect_fixture_lens_materials(fixture_uuid, lens_nodes)
 	_apply_lens_feedback_materials(lens_materials, beam_color, normalized_dimmer)
 
 	var emissive_materials: Array = _collect_fixture_emissive_materials(fixture_uuid, geometry_nodes)
@@ -1493,6 +1503,7 @@ func _apply_lens_feedback_materials(lens_materials: Array, beam_color: Color, no
 		lens_material.emission = beam_color
 		lens_material.emission_energy_multiplier = lerp(0.0, 4.5, dimmer_mix)
 		lens_material.disable_receive_shadows = true
+		lens_material.cull_mode = BaseMaterial3D.CULL_DISABLED
 		if lens_material.transparency != BaseMaterial3D.TRANSPARENCY_DISABLED:
 			var alpha: float = lens_material.albedo_color.a
 			lens_material.albedo_color = Color(
