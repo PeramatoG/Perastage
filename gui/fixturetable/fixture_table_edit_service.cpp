@@ -1,14 +1,10 @@
 #include "fixture_table_edit_service.h"
 
 #include "consolepanel.h"
-#include "gdtfloader.h"
 #include "matrixutils.h"
 
 #include <algorithm>
-#include <filesystem>
 #include <unordered_map>
-
-namespace fs = std::filesystem;
 
 namespace FixtureTableEditService {
 
@@ -31,28 +27,8 @@ void PropagateTypeValues(wxDataViewListCtrl *table,
   if (col != 16 && col != 17 && col != 18)
     return;
 
-  if (col == 18) {
-    std::unordered_map<std::string, wxVariant> typeValues;
-    for (const auto &it : selections) {
-      int r = table->ItemToRow(it);
-      if (r == wxNOT_FOUND)
-        continue;
-      wxVariant vType, vVal;
-      table->GetValue(vType, r, 2);
-      table->GetValue(vVal, r, col);
-      typeValues[std::string(vType.GetString().ToUTF8())] = vVal;
-    }
-
-    unsigned int rowCount = table->GetItemCount();
-    for (unsigned int i = 0; i < rowCount; ++i) {
-      wxVariant vType;
-      table->GetValue(vType, i, 2);
-      auto it = typeValues.find(std::string(vType.GetString().ToUTF8()));
-      if (it != typeValues.end())
-        table->SetValue(it->second, i, col);
-    }
+  if (col == 18)
     return;
-  }
 
   std::unordered_map<std::string, wxString> typeValues;
   for (const auto &it : selections) {
@@ -81,7 +57,6 @@ void UpdateSceneData(ISceneAdapter &adapter, wxDataViewListCtrl *table,
   adapter.PushUndoState("edit fixture");
   auto &scene = adapter.GetScene();
 
-  std::unordered_set<std::string> updatedSpecs;
   size_t updatedCount = 0;
   wxString firstName, firstUuid;
 
@@ -200,15 +175,6 @@ void UpdateSceneData(ISceneAdapter &adapter, wxDataViewListCtrl *table,
         it->second.color.clear();
     } else {
       it->second.color = std::string(v.GetString().ToUTF8());
-    }
-
-    if (!it->second.color.empty() && !it->second.gdtfSpec.empty()) {
-      std::string gdtfPath = it->second.gdtfSpec;
-      fs::path p = gdtfPath;
-      if (p.is_relative() && !scene.basePath.empty())
-        gdtfPath = (fs::path(scene.basePath) / p).string();
-      if (updatedSpecs.insert(gdtfPath).second)
-        SetGdtfModelColor(gdtfPath, it->second.color);
     }
 
     if (ConsolePanel::Instance()) {
