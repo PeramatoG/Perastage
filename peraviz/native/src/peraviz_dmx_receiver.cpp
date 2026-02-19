@@ -9,6 +9,7 @@ void PeravizDmxReceiver::_bind_methods() {
     ClassDB::bind_method(D_METHOD("start", "bind_ip", "port"), &PeravizDmxReceiver::start, DEFVAL(String("0.0.0.0")), DEFVAL(6454));
     ClassDB::bind_method(D_METHOD("stop"), &PeravizDmxReceiver::stop);
     ClassDB::bind_method(D_METHOD("is_running"), &PeravizDmxReceiver::is_running);
+    ClassDB::bind_method(D_METHOD("get_last_error"), &PeravizDmxReceiver::get_last_error);
     ClassDB::bind_method(D_METHOD("get_active_universes", "active_window_ms"), &PeravizDmxReceiver::get_active_universes, DEFVAL(2000));
     ClassDB::bind_method(D_METHOD("get_stats"), &PeravizDmxReceiver::get_stats);
     ClassDB::bind_method(D_METHOD("get_universe_data", "universe_id"), &PeravizDmxReceiver::get_universe_data);
@@ -33,6 +34,10 @@ void PeravizDmxReceiver::stop() {
 
 bool PeravizDmxReceiver::is_running() const {
     return receiver_->is_running();
+}
+
+String PeravizDmxReceiver::get_last_error() const {
+    return String(receiver_->get_last_error().c_str());
 }
 
 PackedInt32Array PeravizDmxReceiver::get_active_universes(int active_window_ms) const {

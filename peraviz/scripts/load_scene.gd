@@ -2256,12 +2256,23 @@ func _on_dmx_toggle_pressed() -> void:
 		_dmx_toggle_button.button_pressed = false
 		return
 	if _dmx_toggle_button.button_pressed:
+		# Defensive restart: ensure stale sockets are released before retrying bind.
+		_dmx_receiver.stop()
 		var started: bool = _dmx_receiver.start("0.0.0.0", 6454)
+		if not started:
+			_dmx_receiver.stop()
+			started = _dmx_receiver.start("0.0.0.0", 6454)
 		if not started:
 			_dmx_toggle_button.button_pressed = false
 			_dmx_toggle_button.text = "DMX OFF"
 			_update_dmx_toggle_color(false, false)
-			_dmx_toggle_button.tooltip_text = "DMX failed to start"
+			var startup_error: String = ""
+			if _dmx_receiver.has_method("get_last_error"):
+				startup_error = str(_dmx_receiver.get_last_error())
+			if startup_error.is_empty():
+				_dmx_toggle_button.tooltip_text = "DMX failed to start"
+			else:
+				_dmx_toggle_button.tooltip_text = "DMX failed to start: %s" % startup_error
 			return
 		_dmx_toggle_button.text = "DMX ON"
 		_dmx_toggle_button.tooltip_text = ""
