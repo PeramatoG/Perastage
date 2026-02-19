@@ -106,7 +106,7 @@ text = "Visual settings"
 [node name="VisualSettingsWindow" type="Window" parent="HUD" unique_id=362544277]
 oversampling_override = 1.0
 mode = 1
-position = Vector2i(0, 36)
+position = Vector2i(0, 126)
 size = Vector2i(377, 161)
 script = ExtResource("3_visual_settings")
 
