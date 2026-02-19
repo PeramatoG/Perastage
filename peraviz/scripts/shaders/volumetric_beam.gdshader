@@ -58,18 +58,18 @@ void vertex() {
 }
 
 void fragment() {
-	float near_factor = 1.0 - beam_axial;
+	float near_factor = beam_axial;
 	float far_progress = 1.0 - near_factor;
 	float end_fade = 1.0 - smoothstep(clamp(end_fade_ratio, 0.0, 0.99), 1.0, far_progress);
 	float current_radius = mix(top_radius, bottom_radius, beam_axial);
 	float radial = length(vec2(local_position.x, local_position.z));
 	float radial_ratio = clamp(radial / max(current_radius, 0.0001), 0.0, 1.0);
-	float radial_density = 1.0 - smoothstep(0.35, 1.0, radial_ratio);
-	float axial_density = mix(1.25, 0.28, far_progress);
+	float radial_core = exp(-4.5 * radial_ratio * radial_ratio);
+	float radial_edge_falloff = 1.0 - smoothstep(0.78, 1.0, radial_ratio);
+	float radial_density = radial_core * radial_edge_falloff;
 
 	float view_alignment = abs(dot(normalize(NORMAL), normalize(VIEW)));
-	float side_boost = 1.0 - view_alignment;
-	float phase = phase_hg(side_boost, anisotropy);
+	float phase = phase_hg(view_alignment, anisotropy);
 
 	float steps = clamp(step_count, 8.0, 64.0);
 	float step_length = beam_range / steps;
@@ -100,8 +100,15 @@ void fragment() {
 
 	float inside_dimmer = mix(1.0, camera_inside_dimmer, smoothstep(0.0, 0.2, radial_ratio));
 	float alpha = clamp(radiance * beam_intensity * inside_dimmer * 18.0, 0.0, 1.0) * end_fade;
+	float edge_alpha_soften = 1.0 - smoothstep(0.84, 1.0, radial_ratio);
+	alpha *= edge_alpha_soften;
 
-	ALBEDO = beam_color.rgb;
-	EMISSION = beam_color.rgb * alpha * 2.8;
+	float overburn_mask = smoothstep(0.9, 1.0, alpha) * pow(max(1.0 - radial_ratio, 0.0), 8.0) * smoothstep(0.0, 0.45, near_factor);
+	vec3 scatter_color = mix(beam_color.rgb, vec3(1.0), 0.05);
+	vec3 emission_base = scatter_color * alpha * 2.05;
+	vec3 hotspot_color = min(scatter_color * 1.08, vec3(1.0));
+	vec3 emission_hotspot = hotspot_color * (alpha * 0.95 * clamp(overburn_mask, 0.0, 1.0));
+	ALBEDO = scatter_color;
+	EMISSION = emission_base + emission_hotspot;
 	ALPHA = alpha;
 }

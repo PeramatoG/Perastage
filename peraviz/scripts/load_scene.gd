@@ -1889,8 +1889,9 @@ func _derive_emitter_color(photometric: Dictionary, controls: Dictionary = {}) -
 		if wavelength > 0.0:
 			base_color = _wavelength_to_rgb(wavelength)
 		else:
-			var temperature_kelvin: float = clamp(float(photometric.get("color_temperature", 6000.0)), 1000.0, 40000.0)
-			base_color = _color_temperature_to_rgb(temperature_kelvin)
+			# Keep default emitters visually neutral. Color temperature can be too blue
+			# for volumetric beams and should only appear when explicit color controls are used.
+			base_color = Color.WHITE
 
 	var filter_color: Color = cmy_filter.get("color", Color.WHITE)
 	return Color(base_color.r * filter_color.r, base_color.g * filter_color.g, base_color.b * filter_color.b, 1.0)
