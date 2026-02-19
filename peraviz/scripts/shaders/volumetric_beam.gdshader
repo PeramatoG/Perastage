@@ -103,8 +103,8 @@ void fragment() {
 	float edge_alpha_soften = 1.0 - smoothstep(0.84, 1.0, radial_ratio);
 	alpha *= edge_alpha_soften;
 
-	float overburn_mask = smoothstep(0.78, 0.98, alpha) * pow(max(1.0 - radial_ratio, 0.0), 6.0) * smoothstep(0.0, 0.45, near_factor);
-	vec3 scatter_color = mix(vec3(1.0), beam_color.rgb, 0.12);
+	float overburn_mask = smoothstep(0.9, 1.0, alpha) * pow(max(1.0 - radial_ratio, 0.0), 8.0) * smoothstep(0.0, 0.45, near_factor);
+	vec3 scatter_color = mix(beam_color.rgb, vec3(1.0), 0.05);
 	vec3 emission_base = scatter_color * alpha * 2.05;
 	vec3 emission_hotspot = vec3(1.0) * (alpha * 0.95 * clamp(overburn_mask, 0.0, 1.0));
 	ALBEDO = scatter_color;
