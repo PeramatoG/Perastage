@@ -326,9 +326,11 @@ symbols::Aabb2D ComputeBoundsFromGeometry(const symbols::Symbol2D &symbol) {
 bool BuildSymbolsFromViewer2DPipeline(Viewer2DPanel &panel,
                                       const std::string &modelKey,
                                       symbols::SymbolCollection &outSymbols,
-                                      std::vector<std::string> &outLogLines) {
+                                      std::vector<std::string> &outLogLines,
+                                      std::vector<SymbolReferenceViews> &outReferences) {
   outSymbols.clear();
   outLogLines.clear();
+  outReferences.clear();
 
   const auto previousMode = panel.GetRenderMode();
   const auto previousView = panel.GetView();
@@ -382,6 +384,16 @@ bool BuildSymbolsFromViewer2DPipeline(Viewer2DPanel &panel,
     symbols::ImageRGBA shapeImg;
     symbols::ImageRGBA lineImg;
     RasterizeSymbol(*found, shapeImg, lineImg);
+
+    SymbolReferenceViews refs;
+    refs.view = view;
+    refs.shape.width = shapeImg.width;
+    refs.shape.height = shapeImg.height;
+    refs.shape.rgba = shapeImg.pixels;
+    refs.line.width = lineImg.width;
+    refs.line.height = lineImg.height;
+    refs.line.rgba = lineImg.pixels;
+    outReferences.push_back(std::move(refs));
 
     auto shapeMask = symbols::ExtractShapeMask(shapeImg);
     auto lineMask = symbols::ExtractLineMask(lineImg);

@@ -52,12 +52,14 @@ void MainWindow::OnGenerateFixtureSymbols(wxCommandEvent &) {
 
   wxBusyCursor busy;
   symbols::SymbolCollection symbols;
+  std::vector<symboltools::SymbolReferenceViews> referenceImages;
   std::vector<std::string> pipelineLog;
   bool usedViewer2D = false;
 
   if (auto *offscreen = GetOffscreenRenderer(); offscreen && offscreen->GetPanel()) {
     usedViewer2D = symboltools::BuildSymbolsFromViewer2DPipeline(
-        *offscreen->GetPanel(), options[selected].modelKey, symbols, pipelineLog);
+        *offscreen->GetPanel(), options[selected].modelKey, symbols,
+        pipelineLog, referenceImages);
   }
 
   if (!usedViewer2D) {
@@ -110,6 +112,7 @@ void MainWindow::OnGenerateFixtureSymbols(wxCommandEvent &) {
       ConsolePanel::Instance()->AppendMessage(line);
   }
 
-  auto *preview = new SymbolPreviewWindow(this, symbols, generationLog);
+  auto *preview = new SymbolPreviewWindow(this, symbols, generationLog,
+                                          referenceImages);
   preview->Show();
 }
