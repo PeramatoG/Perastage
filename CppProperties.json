@@ -18,7 +18,8 @@
         "_UNICODE"
       ],
       "intelliSenseMode": "windows-msvc-x64",
-      "cppStandard": "c++20"
+      "cppStandard": "c++20",
+      "compileCommands": "${workspaceRoot}\\out\\build\\x64-Debug\\compile_commands.json"
     }
   ]
 }
