@@ -24,6 +24,7 @@
 #include <functional>
 #include <limits>
 #include <map>
+#include <unordered_map>
 #include <vector>
 
 // Include GLEW or other OpenGL loader first if present
@@ -861,23 +862,49 @@ wxImage LayoutViewerPanel::BuildLegendImage(
       layoutviewerpanel::detail::MakeSharedFont(fontSizePx,
                                                 wxFONTWEIGHT_BOLD);
 
+  std::unordered_map<wxString, wxSize, wxStringHash, wxStringEqual>
+      baseTextExtentCache;
+  auto measureTextExtent =
+      [&](const wxString &text,
+          std::unordered_map<wxString, wxSize, wxStringHash, wxStringEqual>
+              &cache) {
+        auto cacheIt = cache.find(text);
+        if (cacheIt != cache.end())
+          return cacheIt->second;
+        int width = 0;
+        int height = 0;
+        dc.GetTextExtent(text, &width, &height);
+        wxSize sizeMeasured(width, height);
+        cache.emplace(text, sizeMeasured);
+        return sizeMeasured;
+      };
+
   auto measureTextWidth = [&](const wxString &text) {
-    int w = 0;
-    int h = 0;
-    dc.GetTextExtent(text, &w, &h);
-    return w;
+    return measureTextExtent(text, baseTextExtentCache).GetWidth();
   };
+
+  struct LegendRowText {
+    wxString countText;
+    wxString typeText;
+    wxString chText;
+  };
+  std::vector<LegendRowText> rowTexts;
+  rowTexts.reserve(items.size());
+  for (const auto &item : items) {
+    rowTexts.push_back({
+        wxString::Format("%d", item.count),
+        wxString::FromUTF8(item.typeName),
+        item.channelCount.has_value()
+            ? wxString::Format("%d", item.channelCount.value())
+            : wxString("-")});
+  }
 
   dc.SetFont(baseFont);
   int maxCountWidth = measureTextWidth("Count");
   int maxChWidth = measureTextWidth("Ch");
-  for (const auto &item : items) {
-    maxCountWidth = std::max(
-        maxCountWidth, measureTextWidth(wxString::Format("%d", item.count)));
-    wxString chText = item.channelCount.has_value()
-                          ? wxString::Format("%d", item.channelCount.value())
-                          : wxString("-");
-    maxChWidth = std::max(maxChWidth, measureTextWidth(chText));
+  for (const auto &row : rowTexts) {
+    maxCountWidth = std::max(maxCountWidth, measureTextWidth(row.countText));
+    maxChWidth = std::max(maxChWidth, measureTextWidth(row.chText));
   }
   const int leftTrimPx = measureTextWidth("000");
   const int chExtraWidthPx = measureTextWidth("0");
@@ -998,15 +1025,12 @@ wxImage LayoutViewerPanel::BuildLegendImage(
 
   dc.SetFont(baseFont);
   LegendSymbolBackend backend(dc);
-  for (const auto &item : items) {
+  for (size_t index = 0; index < items.size(); ++index) {
+    const auto &item = items[index];
+    const auto &rowText = rowTexts[index];
     if (y + rowHeightPx > size.GetHeight() - paddingBottomPx)
       break;
-    wxString countText = wxString::Format("%d", item.count);
-    wxString typeText =
-        trimTextToWidth(wxString::FromUTF8(item.typeName), typeWidth);
-    wxString chText = item.channelCount.has_value()
-                          ? wxString::Format("%d", item.channelCount.value())
-                          : wxString("-");
+    wxString typeText = trimTextToWidth(rowText.typeText, typeWidth);
     if (symbols && !item.symbolKey.empty()) {
       const SymbolDefinition *topSymbol = FindSymbolDefinitionPreferred(
           symbols, item.symbolKey, SymbolViewKind::Top);
@@ -1076,9 +1100,9 @@ wxImage LayoutViewerPanel::BuildLegendImage(
         }
       }
     }
-    dc.DrawText(countText, xCount, y + textOffset);
+    dc.DrawText(rowText.countText, xCount, y + textOffset);
     dc.DrawText(typeText, xType, y + textOffset);
-    dc.DrawText(chText, xCh, y + textOffset);
+    dc.DrawText(rowText.chText, xCh, y + textOffset);
     y += rowHeightPx;
   }
 

@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <array>
 #include <functional>
+#include <unordered_map>
 
 // Include GLEW or other OpenGL loader first if present
 #ifdef __APPLE__
@@ -297,13 +298,34 @@ wxImage LayoutViewerPanel::BuildEventTableImage(
       layoutviewerpanel::detail::MakeSharedFont(emphasizedFontSizePx,
                                                 wxFONTWEIGHT_BOLD);
 
+  std::unordered_map<wxString, wxSize, wxStringHash, wxStringEqual>
+      labelTextExtentCache;
+  std::unordered_map<wxString, wxSize, wxStringHash, wxStringEqual>
+      baseTextExtentCache;
+  std::unordered_map<wxString, wxSize, wxStringHash, wxStringEqual>
+      emphasizedTextExtentCache;
+
+  auto measureTextExtent =
+      [&](const wxString &text,
+          std::unordered_map<wxString, wxSize, wxStringHash, wxStringEqual>
+              &cache) {
+        auto cacheIt = cache.find(text);
+        if (cacheIt != cache.end())
+          return cacheIt->second;
+        int width = 0;
+        int height = 0;
+        dc.GetTextExtent(text, &width, &height);
+        wxSize sizeMeasured(width, height);
+        cache.emplace(text, sizeMeasured);
+        return sizeMeasured;
+      };
+
   dc.SetFont(labelFont);
   int maxLabelWidth = 0;
   for (const auto &label : kEventTableLabels) {
-    int w = 0;
-    int h = 0;
-    dc.GetTextExtent(wxString::FromUTF8(label), &w, &h);
-    maxLabelWidth = std::max(maxLabelWidth, w);
+    const wxSize labelSize =
+        measureTextExtent(wxString::FromUTF8(label), labelTextExtentCache);
+    maxLabelWidth = std::max(maxLabelWidth, labelSize.GetWidth());
   }
 
   const int paddingLeftPx =
@@ -324,23 +346,22 @@ wxImage LayoutViewerPanel::BuildEventTableImage(
   const int maxValueWidth =
       std::max(0, size.GetWidth() - paddingRightPx - valueX);
 
-  auto trimTextToWidth = [&](const wxString &text, int maxWidth) {
+  auto trimTextToWidth =
+      [&](const wxString &text, int maxWidth,
+          std::unordered_map<wxString, wxSize, wxStringHash, wxStringEqual>
+              &cache) {
     if (maxWidth <= 0)
       return wxString();
-    int textWidth = 0;
-    int textHeight = 0;
-    dc.GetTextExtent(text, &textWidth, &textHeight);
+    int textWidth = measureTextExtent(text, cache).GetWidth();
     if (textWidth <= maxWidth)
       return text;
     wxString ellipsis = "...";
-    int ellipsisWidth = 0;
-    int ellipsisHeight = 0;
-    dc.GetTextExtent(ellipsis, &ellipsisWidth, &ellipsisHeight);
+    const int ellipsisWidth = measureTextExtent(ellipsis, cache).GetWidth();
     if (ellipsisWidth >= maxWidth)
       return ellipsis.Left(1);
     wxString trimmed = text;
     while (!trimmed.empty()) {
-      dc.GetTextExtent(trimmed, &textWidth, &textHeight);
+      textWidth = measureTextExtent(trimmed, cache).GetWidth();
       if (textWidth + ellipsisWidth <= maxWidth)
         break;
       trimmed.RemoveLast();
@@ -352,9 +373,8 @@ wxImage LayoutViewerPanel::BuildEventTableImage(
     const int rowTop = paddingTopPx + static_cast<int>(idx) * rowHeightPx;
     wxString labelText = wxString::FromUTF8(kEventTableLabels[idx]);
     dc.SetFont(labelFont);
-    int labelHeight = 0;
-    int labelWidth = 0;
-    dc.GetTextExtent(labelText, &labelWidth, &labelHeight);
+    const wxSize labelSize = measureTextExtent(labelText, labelTextExtentCache);
+    const int labelHeight = labelSize.GetHeight();
     int labelY = rowTop + (rowHeightPx - labelHeight) / 2;
     dc.DrawText(labelText, labelX, labelY);
 
@@ -367,10 +387,12 @@ wxImage LayoutViewerPanel::BuildEventTableImage(
     } else {
       dc.SetFont(baseFont);
     }
-    wxString trimmed = trimTextToWidth(valueText, maxValueWidth);
-    int valueHeight = 0;
-    int valueWidth = 0;
-    dc.GetTextExtent(trimmed, &valueWidth, &valueHeight);
+    auto &valueTextExtentCache =
+        (idx == 0) ? emphasizedTextExtentCache : baseTextExtentCache;
+    wxString trimmed = trimTextToWidth(valueText, maxValueWidth,
+                                       valueTextExtentCache);
+    const int valueHeight =
+        measureTextExtent(trimmed, valueTextExtentCache).GetHeight();
     int valueY = rowTop + (rowHeightPx - valueHeight) / 2;
     dc.DrawText(trimmed, valueX, valueY);
   }
