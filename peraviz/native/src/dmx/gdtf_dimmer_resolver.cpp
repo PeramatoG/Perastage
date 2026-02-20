@@ -11,6 +11,7 @@
 #include <unordered_map>
 #include <vector>
 #include <unordered_set>
+#include <utility>
 
 #include <tinyxml2.h>
 #include <wx/wfstream.h>
@@ -168,24 +169,6 @@ int parse_gobo_wheel_number(const std::string &leaf) {
     return static_cast<int>(parsed);
 }
 
-bool should_replace_gobo_binding(int current_wheel_number, int candidate_wheel_number) {
-    if (current_wheel_number <= 0) {
-        return true;
-    }
-    if (candidate_wheel_number <= 0) {
-        return false;
-    }
-    if (candidate_wheel_number == current_wheel_number) {
-        return true;
-    }
-    if (candidate_wheel_number == 1) {
-        return true;
-    }
-    if (current_wheel_number == 1) {
-        return false;
-    }
-    return candidate_wheel_number < current_wheel_number;
-}
 
 bool has_explicit_fine_marker(const std::string &lower) {
     return lower.find("fine") != std::string::npos ||
@@ -650,7 +633,7 @@ GoboWheelCatalog build_gobo_wheel_catalog(const std::string &gdtf_path, tinyxml2
 
 void consume_gobo_channel_sets(tinyxml2::XMLElement *channel_function,
                                const GoboWheelCatalog &wheel_catalog,
-                               peraviz::dmx::FixtureControlOffsets &out_offsets) {
+                               peraviz::dmx::FixtureGoboWheelOffset &out_wheel) {
     if (!channel_function) {
         return;
     }
@@ -665,7 +648,7 @@ void consume_gobo_channel_sets(tinyxml2::XMLElement *channel_function,
         return;
     }
 
-    out_offsets.gobo_wheel_name = wheel_name;
+    out_wheel.wheel_name = wheel_name;
 
     std::unordered_set<int> known_slots;
     for (const auto &[slot_index, image_path] : wheel_it->second) {
@@ -673,7 +656,7 @@ void consume_gobo_channel_sets(tinyxml2::XMLElement *channel_function,
             continue;
         }
         known_slots.insert(slot_index);
-        out_offsets.gobo_slots.push_back({slot_index, image_path});
+        out_wheel.slots.push_back({slot_index, image_path});
     }
 
     struct ParsedGoboSet {
@@ -739,8 +722,98 @@ void consume_gobo_channel_sets(tinyxml2::XMLElement *channel_function,
             std::swap(row.dmx_from, row.dmx_to);
         }
 
-        out_offsets.gobo_ranges.push_back({row.dmx_from, row.dmx_to, row.slot_index});
+        out_wheel.ranges.push_back({row.dmx_from, row.dmx_to, row.slot_index});
     }
+}
+
+
+int parse_last_number_token(const std::string &text) {
+    int value = 0;
+    bool found = false;
+    int current = 0;
+    bool in_digits = false;
+    for (char ch : text) {
+        if (std::isdigit(static_cast<unsigned char>(ch)) != 0) {
+            in_digits = true;
+            current = (current * 10) + (ch - '0');
+            continue;
+        }
+        if (in_digits) {
+            value = current;
+            found = true;
+            current = 0;
+            in_digits = false;
+        }
+    }
+    if (in_digits) {
+        value = current;
+        found = true;
+    }
+    return found ? value : 0;
+}
+
+peraviz::dmx::FixtureGoboWheelOffset *find_or_create_gobo_wheel_offset(
+    peraviz::dmx::FixtureControlOffsets &out_offsets,
+    int wheel_number,
+    const std::string &wheel_name) {
+    for (auto &wheel : out_offsets.gobo_wheels) {
+        if (!wheel_name.empty() && !wheel.wheel_name.empty() && wheel.wheel_name == wheel_name) {
+            if (wheel.wheel_number <= 0 && wheel_number > 0) {
+                wheel.wheel_number = wheel_number;
+            }
+            return &wheel;
+        }
+        if (wheel_number > 0 && wheel.wheel_number == wheel_number) {
+            if (wheel.wheel_name.empty() && !wheel_name.empty()) {
+                wheel.wheel_name = wheel_name;
+            }
+            return &wheel;
+        }
+    }
+
+    peraviz::dmx::FixtureGoboWheelOffset wheel;
+    wheel.wheel_number = wheel_number;
+    wheel.wheel_name = wheel_name;
+    out_offsets.gobo_wheels.push_back(std::move(wheel));
+    return &out_offsets.gobo_wheels.back();
+}
+
+void dedupe_and_sort_gobo_wheel(peraviz::dmx::FixtureGoboWheelOffset &wheel) {
+    std::sort(wheel.slots.begin(), wheel.slots.end(),
+              [](const peraviz::dmx::FixtureGoboSlot &a,
+                 const peraviz::dmx::FixtureGoboSlot &b) {
+                  if (a.slot_index != b.slot_index) {
+                      return a.slot_index < b.slot_index;
+                  }
+                  return a.image_path < b.image_path;
+              });
+    wheel.slots.erase(
+        std::unique(wheel.slots.begin(), wheel.slots.end(),
+                    [](const peraviz::dmx::FixtureGoboSlot &a,
+                       const peraviz::dmx::FixtureGoboSlot &b) {
+                        return a.slot_index == b.slot_index && a.image_path == b.image_path;
+                    }),
+        wheel.slots.end());
+
+    std::sort(wheel.ranges.begin(), wheel.ranges.end(),
+              [](const peraviz::dmx::FixtureGoboRange &a,
+                 const peraviz::dmx::FixtureGoboRange &b) {
+                  if (a.dmx_from != b.dmx_from) {
+                      return a.dmx_from < b.dmx_from;
+                  }
+                  if (a.dmx_to != b.dmx_to) {
+                      return a.dmx_to < b.dmx_to;
+                  }
+                  return a.slot_index < b.slot_index;
+              });
+    wheel.ranges.erase(
+        std::unique(wheel.ranges.begin(), wheel.ranges.end(),
+                    [](const peraviz::dmx::FixtureGoboRange &a,
+                       const peraviz::dmx::FixtureGoboRange &b) {
+                        return a.dmx_from == b.dmx_from && a.dmx_to == b.dmx_to &&
+                               a.slot_index == b.slot_index;
+                    }),
+        wheel.ranges.end());
 }
 
 void consume_channel_offsets(tinyxml2::XMLElement *dmx_channel,
@@ -825,21 +898,21 @@ void consume_channel_offsets(tinyxml2::XMLElement *dmx_channel,
                                 out_offsets.yellow_ultra_fine_offset_1_based);
                 break;
             case AttributeRole::kGobo: {
-                if (should_replace_gobo_binding(out_offsets.gobo_wheel_number,
-                                                parsed_attribute.gobo_wheel_number)) {
-                    const bool changed_wheel = out_offsets.gobo_wheel_number != parsed_attribute.gobo_wheel_number;
-                    out_offsets.gobo_wheel_number = parsed_attribute.gobo_wheel_number;
-                    if (changed_wheel) {
-                        out_offsets.gobo_slots.clear();
-                        out_offsets.gobo_ranges.clear();
-                        out_offsets.gobo_wheel_name.clear();
-                    }
-                    consume_offsets(offsets, parsed_attribute.is_fine, parsed_attribute.byte_index,
-                                    out_offsets.gobo_coarse_offset_1_based,
-                                    out_offsets.gobo_fine_offset_1_based,
-                                    out_offsets.gobo_ultra_fine_offset_1_based);
-                    consume_gobo_channel_sets(channel_function, wheel_catalog, out_offsets);
+                const std::string wheel_name = lower_ascii(read_attr_ci(channel_function, "Wheel", "wheel"));
+                int wheel_number = parsed_attribute.gobo_wheel_number;
+                if (wheel_number <= 0) {
+                    wheel_number = parse_last_number_token(wheel_name);
                 }
+                peraviz::dmx::FixtureGoboWheelOffset *wheel =
+                    find_or_create_gobo_wheel_offset(out_offsets, wheel_number, wheel_name);
+                if (!wheel) {
+                    break;
+                }
+                consume_offsets(offsets, parsed_attribute.is_fine, parsed_attribute.byte_index,
+                                wheel->coarse_offset_1_based,
+                                wheel->fine_offset_1_based,
+                                wheel->ultra_fine_offset_1_based);
+                consume_gobo_channel_sets(channel_function, wheel_catalog, *wheel);
                 break;
             }
             }
@@ -918,41 +991,47 @@ DimmerResolveCacheEntry resolve_uncached(const std::string &gdtf_path,
         consume_channel_offsets(dmx_channel, wheel_catalog, out.offsets);
     }
 
-    std::sort(out.offsets.gobo_slots.begin(), out.offsets.gobo_slots.end(),
-              [](const peraviz::dmx::FixtureGoboSlot &a,
-                 const peraviz::dmx::FixtureGoboSlot &b) {
-                  if (a.slot_index != b.slot_index) {
-                      return a.slot_index < b.slot_index;
-                  }
-                  return a.image_path < b.image_path;
-              });
-    out.offsets.gobo_slots.erase(
-        std::unique(out.offsets.gobo_slots.begin(), out.offsets.gobo_slots.end(),
-                    [](const peraviz::dmx::FixtureGoboSlot &a,
-                       const peraviz::dmx::FixtureGoboSlot &b) {
-                        return a.slot_index == b.slot_index && a.image_path == b.image_path;
-                    }),
-        out.offsets.gobo_slots.end());
+    for (auto &wheel : out.offsets.gobo_wheels) {
+        dedupe_and_sort_gobo_wheel(wheel);
+    }
+    out.offsets.gobo_wheels.erase(
+        std::remove_if(out.offsets.gobo_wheels.begin(), out.offsets.gobo_wheels.end(),
+                       [](const peraviz::dmx::FixtureGoboWheelOffset &wheel) {
+                           return wheel.coarse_offset_1_based <= 0;
+                       }),
+        out.offsets.gobo_wheels.end());
 
-    std::sort(out.offsets.gobo_ranges.begin(), out.offsets.gobo_ranges.end(),
-              [](const peraviz::dmx::FixtureGoboRange &a,
-                 const peraviz::dmx::FixtureGoboRange &b) {
-                  if (a.dmx_from != b.dmx_from) {
-                      return a.dmx_from < b.dmx_from;
+    std::sort(out.offsets.gobo_wheels.begin(), out.offsets.gobo_wheels.end(),
+              [](const peraviz::dmx::FixtureGoboWheelOffset &a,
+                 const peraviz::dmx::FixtureGoboWheelOffset &b) {
+                  if (a.wheel_number > 0 && b.wheel_number > 0 && a.wheel_number != b.wheel_number) {
+                      return a.wheel_number < b.wheel_number;
                   }
-                  if (a.dmx_to != b.dmx_to) {
-                      return a.dmx_to < b.dmx_to;
+                  if (a.wheel_name != b.wheel_name) {
+                      return a.wheel_name < b.wheel_name;
                   }
-                  return a.slot_index < b.slot_index;
+                  return a.coarse_offset_1_based < b.coarse_offset_1_based;
               });
-    out.offsets.gobo_ranges.erase(
-        std::unique(out.offsets.gobo_ranges.begin(), out.offsets.gobo_ranges.end(),
-                    [](const peraviz::dmx::FixtureGoboRange &a,
-                       const peraviz::dmx::FixtureGoboRange &b) {
-                        return a.dmx_from == b.dmx_from && a.dmx_to == b.dmx_to &&
-                               a.slot_index == b.slot_index;
-                    }),
-        out.offsets.gobo_ranges.end());
+
+    const peraviz::dmx::FixtureGoboWheelOffset *primary_wheel = nullptr;
+    for (const auto &wheel : out.offsets.gobo_wheels) {
+        if (wheel.wheel_number == 1) {
+            primary_wheel = &wheel;
+            break;
+        }
+    }
+    if (!primary_wheel && !out.offsets.gobo_wheels.empty()) {
+        primary_wheel = &out.offsets.gobo_wheels.front();
+    }
+    if (primary_wheel) {
+        out.offsets.gobo_coarse_offset_1_based = primary_wheel->coarse_offset_1_based;
+        out.offsets.gobo_fine_offset_1_based = primary_wheel->fine_offset_1_based;
+        out.offsets.gobo_ultra_fine_offset_1_based = primary_wheel->ultra_fine_offset_1_based;
+        out.offsets.gobo_wheel_number = primary_wheel->wheel_number;
+        out.offsets.gobo_wheel_name = primary_wheel->wheel_name;
+        out.offsets.gobo_slots = primary_wheel->slots;
+        out.offsets.gobo_ranges = primary_wheel->ranges;
+    }
 
     if (!out.offsets.has_any()) {
         out.reason = "No Dimmer/Pan/Tilt/Zoom/CMY/Gobo attributes found in mode DMX channels";

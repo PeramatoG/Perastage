@@ -224,6 +224,43 @@ Dictionary PeravizLoader::build_fixture_dimmer_bindings(int universe_offset) con
         item["gobo_ranges"] = gobo_ranges;
         item["gobo1_ranges"] = gobo_ranges;
 
+        Array gobo_wheels;
+        gobo_wheels.resize(static_cast<int64_t>(binding.gobo_wheels.size()));
+        for (int64_t wheel_index = 0; wheel_index < static_cast<int64_t>(binding.gobo_wheels.size()); ++wheel_index) {
+            const auto &wheel = binding.gobo_wheels[static_cast<size_t>(wheel_index)];
+            Dictionary wheel_item;
+            wheel_item["wheel_number"] = wheel.wheel_number;
+            wheel_item["wheel_name"] = String(wheel.wheel_name.c_str());
+            wheel_item["channel_index_0"] = wheel.channel.coarse_dmx_channel_index_0;
+            wheel_item["fine_channel_index_0"] = wheel.channel.fine_dmx_channel_index_0;
+            wheel_item["ultra_fine_channel_index_0"] = wheel.channel.ultra_fine_dmx_channel_index_0;
+
+            Array wheel_slots;
+            wheel_slots.resize(static_cast<int64_t>(wheel.slots.size()));
+            for (int64_t slot_index = 0; slot_index < static_cast<int64_t>(wheel.slots.size()); ++slot_index) {
+                const auto &slot = wheel.slots[static_cast<size_t>(slot_index)];
+                Dictionary slot_item;
+                slot_item["slot_index"] = slot.slot_index;
+                slot_item["image_path"] = String(slot.image_path.c_str());
+                wheel_slots[slot_index] = slot_item;
+            }
+            wheel_item["slots"] = wheel_slots;
+
+            Array wheel_ranges;
+            wheel_ranges.resize(static_cast<int64_t>(wheel.ranges.size()));
+            for (int64_t range_index = 0; range_index < static_cast<int64_t>(wheel.ranges.size()); ++range_index) {
+                const auto &range = wheel.ranges[static_cast<size_t>(range_index)];
+                Dictionary range_item;
+                range_item["dmx_from"] = range.dmx_from;
+                range_item["dmx_to"] = range.dmx_to;
+                range_item["slot_index"] = range.slot_index;
+                wheel_ranges[range_index] = range_item;
+            }
+            wheel_item["ranges"] = wheel_ranges;
+            gobo_wheels[wheel_index] = wheel_item;
+        }
+        item["gobo_wheels"] = gobo_wheels;
+
         item["has_zoom_physical_limits"] = binding.has_zoom_physical_limits;
         item["zoom_physical_min_degrees"] = binding.zoom_physical_min_degrees;
         item["zoom_physical_max_degrees"] = binding.zoom_physical_max_degrees;

@@ -16,21 +16,39 @@ func apply_gobo_projection(light: SpotLight3D, controls: Dictionary) -> void:
 		light.shadow_enabled = false
 		return
 
-	# Godot requires shadow_enabled for light_projector to be applied.
+	var runtime_bindings: Array = controls.get("gobo_runtime_bindings", [])
+	if runtime_bindings.is_empty():
+		var fallback_raw_8bit: int = _resolve_gobo_raw_8bit(controls)
+		runtime_bindings = [{
+			"raw_8bit": fallback_raw_8bit,
+			"slot_index": _resolve_active_gobo_slot_index(controls, fallback_raw_8bit),
+			"slots": controls.get("gobo_slots", []),
+		}]
+
+	var active_textures: Array[Texture2D] = []
+	for wheel in runtime_bindings:
+		if wheel is not Dictionary:
+			continue
+		var slot_index: int = int(wheel.get("slot_index", 0))
+		if slot_index <= 0:
+			continue
+		var wheel_controls := {
+			"gobo_slots": wheel.get("slots", []),
+		}
+		var gobo_texture: Texture2D = _resolve_gobo_texture_for_slot(wheel_controls, slot_index)
+		if gobo_texture == null:
+			gobo_texture = _resolve_fake_gobo_texture(int(wheel.get("raw_8bit", 0)))
+		if gobo_texture != null:
+			active_textures.append(gobo_texture)
+
+	if active_textures.is_empty():
+		light.light_projector = null
+		light.shadow_enabled = false
+		return
+
 	light.shadow_enabled = true
 	_warn_if_projector_unsupported(light)
-
-	var gobo_raw_8bit: int = _resolve_gobo_raw_8bit(controls)
-	var active_slot_index: int = _resolve_active_gobo_slot_index(controls, gobo_raw_8bit)
-	if active_slot_index <= 0:
-		light.light_projector = _resolve_fake_gobo_texture(gobo_raw_8bit)
-		return
-
-	var gobo_texture: Texture2D = _resolve_gobo_texture_for_slot(controls, active_slot_index)
-	if gobo_texture == null:
-		light.light_projector = _resolve_fake_gobo_texture(gobo_raw_8bit)
-		return
-	light.light_projector = gobo_texture
+	light.light_projector = _compose_gobo_textures(active_textures)
 
 func _resolve_gobo_raw_8bit(controls: Dictionary) -> int:
 	var gobo_raw: int = int(round(clamp(float(controls.get("gobo_norm", 0.0)), 0.0, 1.0) * 255.0))
@@ -84,6 +102,43 @@ func _resolve_gobo_texture_for_slot(controls: Dictionary, slot_index: int) -> Te
 		return texture
 	return null
 
+func _compose_gobo_textures(textures: Array[Texture2D]) -> Texture2D:
+	if textures.is_empty():
+		return null
+	if textures.size() == 1:
+		return textures[0]
+
+	var key_parts: PackedStringArray = PackedStringArray()
+	for texture in textures:
+		if texture != null:
+			key_parts.append(str(texture.get_rid().get_id()))
+	var cache_key: String = "__composed_gobo_" + "_".join(key_parts)
+	if _texture_cache.has(cache_key):
+		return _texture_cache[cache_key] as Texture2D
+
+	var composed: Image = Image.create(FAKE_GOBO_TEXTURE_SIZE, FAKE_GOBO_TEXTURE_SIZE, false, Image.FORMAT_RGBA8)
+	composed.fill(Color(1.0, 1.0, 1.0, 1.0))
+	for texture in textures:
+		if texture == null:
+			continue
+		var image: Image = texture.get_image()
+		if image == null:
+			continue
+		if image.get_width() != FAKE_GOBO_TEXTURE_SIZE or image.get_height() != FAKE_GOBO_TEXTURE_SIZE:
+			image.resize(FAKE_GOBO_TEXTURE_SIZE, FAKE_GOBO_TEXTURE_SIZE, Image.INTERPOLATE_BILINEAR)
+		for y in range(FAKE_GOBO_TEXTURE_SIZE):
+			for x in range(FAKE_GOBO_TEXTURE_SIZE):
+				var dst: Color = composed.get_pixel(x, y)
+				var src: Color = image.get_pixel(x, y)
+				var src_luma: float = (src.r + src.g + src.b) / 3.0
+				var out_luma: float = dst.r * src_luma
+				composed.set_pixel(x, y, Color(out_luma, out_luma, out_luma, 1.0))
+
+	composed.generate_mipmaps()
+	var out_texture: ImageTexture = ImageTexture.create_from_image(composed)
+	_texture_cache[cache_key] = out_texture
+	return out_texture
+
 func _resolve_fake_gobo_texture(gobo_raw_8bit: int) -> Texture2D:
 	var fake_bucket: int = gobo_raw_8bit / 8
 	var cache_key: String = "__fake_gobo_%d" % fake_bucket
@@ -91,11 +146,7 @@ func _resolve_fake_gobo_texture(gobo_raw_8bit: int) -> Texture2D:
 		return _texture_cache[cache_key] as Texture2D
 
 	var image := Image.create(FAKE_GOBO_TEXTURE_SIZE, FAKE_GOBO_TEXTURE_SIZE, false, Image.FORMAT_RGBA8)
-	# Keep base fully open (white) so spot footprint is still visible while debugging.
 	image.fill(Color(1.0, 1.0, 1.0, 1.0))
-
-	# Bucket 0 emulates open gobo. Higher buckets produce high-contrast masks
-	# so projector output changes are obvious when testing DMX mapping.
 	if fake_bucket > 0:
 		var step: int = max(4, int(4 + (fake_bucket % 6) * 2))
 		var center: Vector2 = Vector2(FAKE_GOBO_TEXTURE_SIZE, FAKE_GOBO_TEXTURE_SIZE) * 0.5

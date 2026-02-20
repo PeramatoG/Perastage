@@ -31,6 +31,14 @@ struct FixtureGoboRange {
     int slot_index = -1;
 };
 
+struct FixtureGoboWheelBinding {
+    FixtureAttributeChannel channel;
+    int wheel_number = 0;
+    std::string wheel_name;
+    std::vector<FixtureGoboSlot> slots;
+    std::vector<FixtureGoboRange> ranges;
+};
+
 struct FixtureControlBinding {
     std::string fixture_uuid;
     int artnet_universe_id = -1;
@@ -46,6 +54,7 @@ struct FixtureControlBinding {
     std::string gobo_wheel_name;
     std::vector<FixtureGoboSlot> gobo_slots;
     std::vector<FixtureGoboRange> gobo_ranges;
+    std::vector<FixtureGoboWheelBinding> gobo_wheels;
     bool has_zoom_physical_limits = false;
     float zoom_physical_min_degrees = -1.0F;
     float zoom_physical_max_degrees = -1.0F;
@@ -60,6 +69,16 @@ struct FixtureUnboundReason {
 struct FixtureBindingBuildResult {
     std::vector<FixtureControlBinding> bindings;
     std::vector<FixtureUnboundReason> unbound;
+};
+
+struct FixtureGoboWheelOffset {
+    int coarse_offset_1_based = -1;
+    int fine_offset_1_based = -1;
+    int ultra_fine_offset_1_based = -1;
+    int wheel_number = 0;
+    std::string wheel_name;
+    std::vector<FixtureGoboSlot> slots;
+    std::vector<FixtureGoboRange> ranges;
 };
 
 struct FixtureControlOffsets {
@@ -91,6 +110,7 @@ struct FixtureControlOffsets {
     std::string gobo_wheel_name;
     std::vector<FixtureGoboSlot> gobo_slots;
     std::vector<FixtureGoboRange> gobo_ranges;
+    std::vector<FixtureGoboWheelOffset> gobo_wheels;
     bool has_zoom_physical_limits = false;
     float zoom_physical_min_degrees = -1.0F;
     float zoom_physical_max_degrees = -1.0F;
@@ -99,8 +119,8 @@ struct FixtureControlOffsets {
         return dimmer_coarse_offset_1_based > 0 || pan_coarse_offset_1_based > 0 ||
                tilt_coarse_offset_1_based > 0 || zoom_coarse_offset_1_based > 0 ||
                cyan_coarse_offset_1_based > 0 || magenta_coarse_offset_1_based > 0 ||
-               gobo_coarse_offset_1_based > 0 ||
-               yellow_coarse_offset_1_based > 0;
+               gobo_coarse_offset_1_based > 0 || yellow_coarse_offset_1_based > 0 ||
+               !gobo_wheels.empty();
     }
 };
 

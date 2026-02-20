@@ -119,6 +119,11 @@ func apply_dmx(receiver, apply_fixture_callback: Callable) -> void:
 			controls["gobo_wheel_name"] = str(binding.get("gobo1_wheel_name", binding.get("gobo_wheel_name", "")))
 			controls["gobo_wheel_number"] = int(binding.get("gobo_wheel_number", 0))
 
+		var gobo_runtime_bindings: Array = _build_runtime_gobo_bindings(binding, frame)
+		if not gobo_runtime_bindings.is_empty():
+			controls["has_gobo"] = true
+			controls["gobo_runtime_bindings"] = gobo_runtime_bindings
+
 		if not controls["has_dimmer"] and not controls["has_pan"] and not controls["has_tilt"] and not controls["has_zoom"] and not controls["has_cyan"] and not controls["has_magenta"] and not controls["has_yellow"] and not controls["has_gobo"]:
 			continue
 		apply_fixture_callback.call(fixture_uuid, controls)
@@ -223,3 +228,45 @@ func _build_summary(universe_offset: int) -> Dictionary:
 		"unbound_preview": get_unbound_preview(),
 		"universe_offset": universe_offset,
 	}
+
+func _build_runtime_gobo_bindings(binding: Dictionary, frame: PackedByteArray) -> Array:
+	var runtime_bindings: Array = []
+	var raw_wheels: Array = binding.get("gobo_wheels", [])
+	for item in raw_wheels:
+		if item is not Dictionary:
+			continue
+		var coarse_index: int = int(item.get("channel_index_0", -1))
+		if not _is_valid_channel_index(frame, coarse_index):
+			continue
+		var value: Dictionary = _read_control_value(frame, coarse_index, int(item.get("fine_channel_index_0", -1)), int(item.get("ultra_fine_channel_index_0", -1)))
+		var raw_8bit: int = _resolve_raw_to_8bit(int(value.get("raw", 0)), int(value.get("resolution_bits", 8)))
+		runtime_bindings.append({
+			"wheel_number": int(item.get("wheel_number", 0)),
+			"wheel_name": str(item.get("wheel_name", "")),
+			"raw_8bit": raw_8bit,
+			"slot_index": _resolve_gobo_slot_from_ranges(raw_8bit, item.get("ranges", [])),
+			"slots": item.get("slots", []),
+			"ranges": item.get("ranges", []),
+		})
+	return runtime_bindings
+
+func _resolve_raw_to_8bit(raw_value: int, resolution_bits: int) -> int:
+	if resolution_bits >= 24:
+		return clampi(raw_value >> 16, 0, 255)
+	if resolution_bits >= 16:
+		return clampi(raw_value >> 8, 0, 255)
+	return clampi(raw_value, 0, 255)
+
+func _resolve_gobo_slot_from_ranges(raw_8bit: int, ranges: Array) -> int:
+	for item in ranges:
+		if item is not Dictionary:
+			continue
+		var dmx_from: int = int(item.get("dmx_from", 0))
+		var dmx_to: int = int(item.get("dmx_to", dmx_from))
+		if dmx_to < dmx_from:
+			var temp: int = dmx_from
+			dmx_from = dmx_to
+			dmx_to = temp
+		if raw_8bit >= dmx_from and raw_8bit <= dmx_to:
+			return int(item.get("slot_index", 0))
+	return 0

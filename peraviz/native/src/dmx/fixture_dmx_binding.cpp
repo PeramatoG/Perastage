@@ -1,5 +1,7 @@
 #include "dmx/fixture_dmx_binding.h"
 
+#include <utility>
+
 namespace peraviz::dmx {
 
 namespace {
@@ -13,6 +15,28 @@ int to_channel_index_0(const FixturePatch &patch, int offset_1_based) {
 
 bool is_valid_channel_index(int index_0) {
     return index_0 >= 0 && index_0 < 512;
+}
+
+
+FixtureAttributeChannel to_channel_binding(const FixturePatch &patch,
+                                          int coarse_1_based,
+                                          int fine_1_based,
+                                          int ultra_1_based) {
+    FixtureAttributeChannel out;
+    out.coarse_dmx_channel_index_0 = to_channel_index_0(patch, coarse_1_based);
+    out.fine_dmx_channel_index_0 = to_channel_index_0(patch, fine_1_based);
+    out.ultra_fine_dmx_channel_index_0 = to_channel_index_0(patch, ultra_1_based);
+    return out;
+}
+
+void sanitize_channel_binding(FixtureAttributeChannel &channel) {
+    if (channel.fine_dmx_channel_index_0 >= 0 && !is_valid_channel_index(channel.fine_dmx_channel_index_0)) {
+        channel.fine_dmx_channel_index_0 = -1;
+    }
+    if (channel.ultra_fine_dmx_channel_index_0 >= 0 &&
+        !is_valid_channel_index(channel.ultra_fine_dmx_channel_index_0)) {
+        channel.ultra_fine_dmx_channel_index_0 = -1;
+    }
 }
 
 } // namespace
@@ -106,6 +130,19 @@ FixtureBindingBuildResult build_dimmer_bindings(
         binding.gobo_wheel_name = offsets.gobo_wheel_name;
         binding.gobo_slots = offsets.gobo_slots;
         binding.gobo_ranges = offsets.gobo_ranges;
+        binding.gobo_wheels.reserve(offsets.gobo_wheels.size());
+        for (const FixtureGoboWheelOffset &wheel : offsets.gobo_wheels) {
+            FixtureGoboWheelBinding wheel_binding;
+            wheel_binding.channel = to_channel_binding(patch,
+                                                       wheel.coarse_offset_1_based,
+                                                       wheel.fine_offset_1_based,
+                                                       wheel.ultra_fine_offset_1_based);
+            wheel_binding.wheel_number = wheel.wheel_number;
+            wheel_binding.wheel_name = wheel.wheel_name;
+            wheel_binding.slots = wheel.slots;
+            wheel_binding.ranges = wheel.ranges;
+            binding.gobo_wheels.push_back(std::move(wheel_binding));
+        }
         binding.has_zoom_physical_limits = offsets.has_zoom_physical_limits;
         binding.zoom_physical_min_degrees = offsets.zoom_physical_min_degrees;
         binding.zoom_physical_max_degrees = offsets.zoom_physical_max_degrees;
@@ -117,7 +154,13 @@ FixtureBindingBuildResult build_dimmer_bindings(
         const bool has_cyan = is_valid_channel_index(binding.cyan.coarse_dmx_channel_index_0);
         const bool has_magenta = is_valid_channel_index(binding.magenta.coarse_dmx_channel_index_0);
         const bool has_yellow = is_valid_channel_index(binding.yellow.coarse_dmx_channel_index_0);
-        const bool has_gobo = is_valid_channel_index(binding.gobo.coarse_dmx_channel_index_0);
+        bool has_gobo = is_valid_channel_index(binding.gobo.coarse_dmx_channel_index_0);
+        for (const FixtureGoboWheelBinding &wheel_binding : binding.gobo_wheels) {
+            if (is_valid_channel_index(wheel_binding.channel.coarse_dmx_channel_index_0)) {
+                has_gobo = true;
+                break;
+            }
+        }
         if (!has_dimmer && !has_pan && !has_tilt && !has_zoom && !has_cyan && !has_magenta && !has_yellow && !has_gobo) {
             result.unbound.push_back({patch.fixture_uuid,
                                       "resolved DMX channels are out of 0..511 range"});
@@ -180,13 +223,9 @@ FixtureBindingBuildResult build_dimmer_bindings(
             !is_valid_channel_index(binding.yellow.ultra_fine_dmx_channel_index_0)) {
             binding.yellow.ultra_fine_dmx_channel_index_0 = -1;
         }
-        if (binding.gobo.fine_dmx_channel_index_0 >= 0 &&
-            !is_valid_channel_index(binding.gobo.fine_dmx_channel_index_0)) {
-            binding.gobo.fine_dmx_channel_index_0 = -1;
-        }
-        if (binding.gobo.ultra_fine_dmx_channel_index_0 >= 0 &&
-            !is_valid_channel_index(binding.gobo.ultra_fine_dmx_channel_index_0)) {
-            binding.gobo.ultra_fine_dmx_channel_index_0 = -1;
+        sanitize_channel_binding(binding.gobo);
+        for (FixtureGoboWheelBinding &wheel_binding : binding.gobo_wheels) {
+            sanitize_channel_binding(wheel_binding.channel);
         }
 
         result.bindings.push_back(binding);
