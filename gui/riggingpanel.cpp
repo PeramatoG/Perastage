@@ -63,6 +63,20 @@ wxString BuildRiggingTooltipForColumn(int modelColumn) {
     return wxString();
   }
 }
+
+void SetTableAndChildTooltips(wxDataViewListCtrl *table,
+                              const wxString &tooltip) {
+  if (!table)
+    return;
+
+  table->SetToolTip(tooltip);
+  wxWindowList &children = table->GetChildren();
+  for (wxWindowList::compatibility_iterator it = children.GetFirst(); it;
+       it = it->GetNext()) {
+    if (wxWindow *child = it->GetData())
+      child->SetToolTip(tooltip);
+  }
+}
 }
 
 static RiggingPanel *s_instance = nullptr;
@@ -225,7 +239,7 @@ void RiggingPanel::OnMouseMove(wxMouseEvent &event) {
 
 void RiggingPanel::OnMouseLeave(wxMouseEvent &event) {
   if (!activeHoverTooltip.IsEmpty()) {
-    table->SetToolTip(wxString());
+    SetTableAndChildTooltips(table, wxString());
     activeHoverTooltip.clear();
   }
   event.Skip();
@@ -247,6 +261,6 @@ void RiggingPanel::UpdateHoverTooltip(const wxPoint &position) {
   if (tooltip == activeHoverTooltip)
     return;
 
-  table->SetToolTip(tooltip);
+  SetTableAndChildTooltips(table, tooltip);
   activeHoverTooltip = tooltip;
 }

@@ -77,6 +77,20 @@ bool IsRedCell(const ColorfulDataViewListStore *store, int row, int col) {
   return attr.HasColour() && attr.GetColour() == *wxRED;
 }
 
+void SetTableAndChildTooltips(wxDataViewListCtrl *table,
+                              const wxString &tooltip) {
+  if (!table)
+    return;
+
+  table->SetToolTip(tooltip);
+  wxWindowList &children = table->GetChildren();
+  for (wxWindowList::compatibility_iterator it = children.GetFirst(); it;
+       it = it->GetNext()) {
+    if (wxWindow *child = it->GetData())
+      child->SetToolTip(tooltip);
+  }
+}
+
 wxString BuildFixtureTooltipForColumn(int modelColumn) {
   if (modelColumn == 0)
     return "Duplicate Fixture ID. Each fixture must have a unique ID.";
@@ -1005,7 +1019,7 @@ void FixtureTablePanel::OnMouseMove(wxMouseEvent &evt) {
 
 void FixtureTablePanel::OnMouseLeave(wxMouseEvent &evt) {
   if (!activeHoverTooltip.IsEmpty()) {
-    table->SetToolTip(wxString());
+    SetTableAndChildTooltips(table, wxString());
     activeHoverTooltip.clear();
   }
   evt.Skip();
@@ -1027,7 +1041,7 @@ void FixtureTablePanel::UpdateHoverTooltip(const wxPoint &position) {
   if (tooltip == activeHoverTooltip)
     return;
 
-  table->SetToolTip(tooltip);
+  SetTableAndChildTooltips(table, tooltip);
   activeHoverTooltip = tooltip;
 }
 
