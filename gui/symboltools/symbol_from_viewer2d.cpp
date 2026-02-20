@@ -384,6 +384,92 @@ symbols::Aabb2D ComputeBoundsFromGeometry(const symbols::Symbol2D &symbol) {
   return bounds;
 }
 
+
+symbols::ImageRGBA MakeReferenceFromViewerImage(const std::vector<unsigned char> &pixels,
+                                                int width, int height,
+                                                bool shapeReference) {
+  symbols::ImageRGBA image;
+  image.width = width;
+  image.height = height;
+  image.pixels.assign(static_cast<size_t>(width * height * 4), 0);
+  if (pixels.size() < image.pixels.size())
+    return image;
+
+  for (int y = 0; y < height; ++y) {
+    const int srcY = height - 1 - y;
+    for (int x = 0; x < width; ++x) {
+      const size_t srcIdx = static_cast<size_t>((srcY * width + x) * 4);
+      const size_t dstIdx = static_cast<size_t>((y * width + x) * 4);
+      const uint8_t r = pixels[srcIdx];
+      const uint8_t g = pixels[srcIdx + 1];
+      const uint8_t b = pixels[srcIdx + 2];
+      const uint8_t a = pixels[srcIdx + 3];
+      const int dark = static_cast<int>(r) + static_cast<int>(g) + static_cast<int>(b);
+      const bool isLine = dark < 540;
+
+      if (shapeReference) {
+        if (isLine) {
+          image.pixels[dstIdx] = 0;
+          image.pixels[dstIdx + 1] = 0;
+          image.pixels[dstIdx + 2] = 0;
+          image.pixels[dstIdx + 3] = 255;
+        }
+      } else {
+        image.pixels[dstIdx] = 255;
+        image.pixels[dstIdx + 1] = 255;
+        image.pixels[dstIdx + 2] = 255;
+        image.pixels[dstIdx + 3] = a;
+        if (isLine) {
+          image.pixels[dstIdx] = 0;
+          image.pixels[dstIdx + 1] = 0;
+          image.pixels[dstIdx + 2] = 0;
+          image.pixels[dstIdx + 3] = 255;
+        }
+      }
+    }
+  }
+  return image;
+}
+
+class ScopedFixtureIsolation {
+public:
+  ScopedFixtureIsolation(ConfigManager &cfg, const std::string &fixtureUuid)
+      : cfg_(cfg), backup_(cfg.GetScene()) {
+    auto &scene = cfg_.GetScene();
+    auto fixtureIt = scene.fixtures.find(fixtureUuid);
+    if (fixtureIt == scene.fixtures.end())
+      return;
+
+    MvrScene isolated;
+    isolated.basePath = scene.basePath;
+    isolated.provider = scene.provider;
+    isolated.providerVersion = scene.providerVersion;
+    isolated.versionMajor = scene.versionMajor;
+    isolated.versionMinor = scene.versionMinor;
+    isolated.layers = scene.layers;
+    isolated.positions = scene.positions;
+    isolated.symdefFiles = scene.symdefFiles;
+    isolated.symdefTypes = scene.symdefTypes;
+    isolated.symdefMatrices = scene.symdefMatrices;
+    isolated.symdefGeometries = scene.symdefGeometries;
+    isolated.fixtures.emplace(fixtureIt->first, fixtureIt->second);
+    scene = std::move(isolated);
+    active_ = true;
+  }
+
+  ~ScopedFixtureIsolation() {
+    if (active_)
+      cfg_.GetScene() = backup_;
+  }
+
+  bool Active() const { return active_; }
+
+private:
+  ConfigManager &cfg_;
+  MvrScene backup_;
+  bool active_ = false;
+};
+
 } // namespace
 
 bool BuildSymbolsFromViewer2DPipeline(Viewer2DPanel &panel,
@@ -531,87 +617,3 @@ bool BuildSymbolsFromViewer2DPipeline(Viewer2DPanel &panel,
 }
 
 } // namespace symboltools
-symbols::ImageRGBA MakeReferenceFromViewerImage(const std::vector<unsigned char> &pixels,
-                                                int width, int height,
-                                                bool shapeReference) {
-  symbols::ImageRGBA image;
-  image.width = width;
-  image.height = height;
-  image.pixels.assign(static_cast<size_t>(width * height * 4), 0);
-  if (pixels.size() < image.pixels.size())
-    return image;
-
-  for (int y = 0; y < height; ++y) {
-    const int srcY = height - 1 - y;
-    for (int x = 0; x < width; ++x) {
-      const size_t srcIdx = static_cast<size_t>((srcY * width + x) * 4);
-      const size_t dstIdx = static_cast<size_t>((y * width + x) * 4);
-      const uint8_t r = pixels[srcIdx];
-      const uint8_t g = pixels[srcIdx + 1];
-      const uint8_t b = pixels[srcIdx + 2];
-      const uint8_t a = pixels[srcIdx + 3];
-      const int dark = static_cast<int>(r) + static_cast<int>(g) + static_cast<int>(b);
-      const bool isLine = dark < 540;
-
-      if (shapeReference) {
-        if (isLine) {
-          image.pixels[dstIdx] = 0;
-          image.pixels[dstIdx + 1] = 0;
-          image.pixels[dstIdx + 2] = 0;
-          image.pixels[dstIdx + 3] = 255;
-        }
-      } else {
-        image.pixels[dstIdx] = 255;
-        image.pixels[dstIdx + 1] = 255;
-        image.pixels[dstIdx + 2] = 255;
-        image.pixels[dstIdx + 3] = a;
-        if (isLine) {
-          image.pixels[dstIdx] = 0;
-          image.pixels[dstIdx + 1] = 0;
-          image.pixels[dstIdx + 2] = 0;
-          image.pixels[dstIdx + 3] = 255;
-        }
-      }
-    }
-  }
-  return image;
-}
-
-class ScopedFixtureIsolation {
-public:
-  ScopedFixtureIsolation(ConfigManager &cfg, const std::string &fixtureUuid)
-      : cfg_(cfg), backup_(cfg.GetScene()) {
-    auto &scene = cfg_.GetScene();
-    auto fixtureIt = scene.fixtures.find(fixtureUuid);
-    if (fixtureIt == scene.fixtures.end())
-      return;
-
-    MvrScene isolated;
-    isolated.basePath = scene.basePath;
-    isolated.provider = scene.provider;
-    isolated.providerVersion = scene.providerVersion;
-    isolated.versionMajor = scene.versionMajor;
-    isolated.versionMinor = scene.versionMinor;
-    isolated.layers = scene.layers;
-    isolated.positions = scene.positions;
-    isolated.symdefFiles = scene.symdefFiles;
-    isolated.symdefTypes = scene.symdefTypes;
-    isolated.symdefMatrices = scene.symdefMatrices;
-    isolated.symdefGeometries = scene.symdefGeometries;
-    isolated.fixtures.emplace(fixtureIt->first, fixtureIt->second);
-    scene = std::move(isolated);
-    active_ = true;
-  }
-
-  ~ScopedFixtureIsolation() {
-    if (active_)
-      cfg_.GetScene() = backup_;
-  }
-
-  bool Active() const { return active_; }
-
-private:
-  ConfigManager &cfg_;
-  MvrScene backup_;
-  bool active_ = false;
-};
