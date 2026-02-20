@@ -4,7 +4,10 @@
 #include "configmanager.h"
 #include "consolepanel.h"
 #include "guiconfigservices.h"
+#include "legendutils.h"
+#include "symboltools/symbol_from_viewer2d.h"
 #include "symbols/Symbol2DBuilder.h"
+#include "viewer2doffscreenrenderer.h"
 #include "windows/symbolpreviewwindow.h"
 
 #include <map>
@@ -24,6 +27,7 @@ void MainWindow::OnGenerateFixtureSymbols(wxCommandEvent &) {
     if (entry.typeName.empty()) {
       entry.typeName = fixture.typeName;
       entry.gdtfSpec = fixture.gdtfSpec;
+      entry.modelKey = BuildFixtureSymbolKey(fixture, scene.basePath);
     }
     ++entry.instanceCount;
   }
@@ -47,16 +51,34 @@ void MainWindow::OnGenerateFixtureSymbols(wxCommandEvent &) {
     return;
 
   wxBusyCursor busy;
-  symbols::Symbol2DBuilder builder;
-  auto symbols = builder.BuildForFixture(options[selected].typeName,
-                                         options[selected].gdtfSpec,
-                                         scene.basePath);
+  symbols::SymbolCollection symbols;
+  std::vector<std::string> pipelineLog;
+  bool usedViewer2D = false;
+
+  if (auto *offscreen = GetOffscreenRenderer(); offscreen && offscreen->GetPanel()) {
+    usedViewer2D = symboltools::BuildSymbolsFromViewer2DPipeline(
+        *offscreen->GetPanel(), options[selected].modelKey, symbols, pipelineLog);
+  }
+
+  if (!usedViewer2D) {
+    symbols::Symbol2DBuilder builder;
+    symbols = builder.BuildForFixture(options[selected].typeName,
+                                      options[selected].gdtfSpec,
+                                      scene.basePath);
+    pipelineLog.push_back("Fallback to software symbol builder pipeline.");
+  }
 
   std::vector<wxString> generationLog;
   generationLog.push_back(wxString::Format(
       "Symbol generation for type '%s' (spec: %s)",
       wxString::FromUTF8(options[selected].typeName),
       wxString::FromUTF8(options[selected].gdtfSpec)));
+  generationLog.push_back(wxString::Format(
+      "Model key: %s", wxString::FromUTF8(options[selected].modelKey)));
+  generationLog.push_back(wxString::Format(
+      "Pipeline used: %s", usedViewer2D ? "Viewer2D cache" : "Software fallback"));
+  for (const auto &line : pipelineLog)
+    generationLog.push_back(wxString::FromUTF8(line));
 
   size_t totalFillVertices = 0;
   size_t totalStrokePoints = 0;

@@ -10,6 +10,7 @@ class wxListBox;
 struct FixtureTypeOption {
   std::string typeName;
   std::string gdtfSpec;
+  std::string modelKey;
   int instanceCount = 0;
 };
 

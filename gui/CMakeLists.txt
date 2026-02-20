@@ -46,6 +46,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/ridertextdialog.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/riggingpanel.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/sceneobjecttablepanel.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/symboltools/symbol_from_viewer2d.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/selectfixturetypedialog.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/selectnamedialog.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/splashscreen.cpp
