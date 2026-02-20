@@ -87,7 +87,7 @@ void DrawSymbolCell(wxGraphicsContext &gc,
       gc.DrawBitmap(bmp, dx, dy, dw, dh);
     };
 
-    drawRef(references->shape, previewRect, "Fixture view (pre-vectorization)");
+    drawRef(references->line, previewRect, "Fixture view (2D White reference)");
     return;
   }
 
