@@ -50,6 +50,7 @@ int main() {
     GdtfDictionary::Update("FixtureType", (tempDir / "dict.gdtf").string(), "");
 
     Fixture f; f.uuid = "fx1"; f.instanceName = "Fixture"; f.layer = layer.name; f.typeName = "FixtureType"; f.gdtfSpec = "orig.gdtf"; f.color = "#445566"; f.fixtureIdText = "S101A"; f.fixtureIdNumeric = 101; f.fixtureId = 101; scene.fixtures[f.uuid] = f;
+    Fixture f2; f2.uuid = "fx2"; f2.instanceName = "Fixture 2"; f2.layer = layer.name; f2.typeName = "FixtureType"; f2.gdtfSpec = "orig.gdtf"; f2.fixtureIdText = "S101B"; f2.fixtureIdNumeric = 101; f2.fixtureId = 101; scene.fixtures[f2.uuid] = f2;
     Truss t; t.uuid = "tr1"; t.name = "Truss"; t.layer = layer.name; scene.trusses[t.uuid] = t;
     SceneObject o; o.uuid = "obj1"; o.name = "Object"; o.layer = layer.name; scene.sceneObjects[o.uuid] = o;
 
@@ -61,7 +62,7 @@ int main() {
     assert(cfg.LoadProject(temp.string()));
 
     const auto &scene2 = cfg.GetScene();
-    assert(scene2.fixtures.size() == 1);
+    assert(scene2.fixtures.size() == 2);
     assert(scene2.trusses.size() == 1);
     assert(scene2.sceneObjects.size() == 1);
     assert(scene2.fixtures.at("fx1").instanceName == "Fixture");
@@ -70,6 +71,8 @@ int main() {
     assert(scene2.fixtures.at("fx1").color == "#445566");
     assert(scene2.fixtures.at("fx1").fixtureIdText == "S101A");
     assert(scene2.fixtures.at("fx1").fixtureIdNumeric == 101);
+    assert(scene2.fixtures.at("fx2").fixtureIdText == "S101B");
+    assert(scene2.fixtures.at("fx2").fixtureIdNumeric == 101);
     assert(scene2.layers.at("layer1").color == "#112233");
 
     const auto &loaded = scene2.fixtures.at("fx1");
