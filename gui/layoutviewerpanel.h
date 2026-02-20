@@ -68,6 +68,7 @@ private:
     wxSize textureSize{0, 0};
     double renderZoom = 0.0;
     bool renderDirty = true;
+    size_t contentHash = 0;
   };
 
   struct LegendCache {
@@ -180,6 +181,7 @@ private:
   bool NeedsRenderRebuild() const;
   void RequestRenderRebuild();
   void InvalidateRenderIfFrameChanged();
+  size_t HashViewContent(const layouts::Layout2DViewDefinition &view) const;
   void OnLoadingTimer(wxTimerEvent &event);
   void OnRenderDelayTimer(wxTimerEvent &event);
   bool AreTexturesReady() const;
