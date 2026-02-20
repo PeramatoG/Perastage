@@ -390,7 +390,9 @@ bool CaptureFixtureViewReference(Viewer2DPanel &panel, symbols::SymbolView view,
   }
 
   panel.SetView(targetView);
-  panel.CaptureFrameNow([](CommandBuffer, Viewer2DViewState) {}, true, false);
+  // RenderToRGBA already performs an explicit offscreen render. Avoid forcing
+  // an onscreen CaptureFrameNow pass here because it can block inside
+  // SwapBuffers on some drivers/toolchains.
 
   std::vector<unsigned char> pixels;
   int width = 0;
