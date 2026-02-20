@@ -13,7 +13,12 @@ func apply_gobo_projection(light: SpotLight3D, controls: Dictionary) -> void:
 		return
 	if not bool(controls.get("has_gobo", false)):
 		light.light_projector = null
+		light.shadow_enabled = false
 		return
+
+	# Godot requires shadow_enabled for light_projector to be applied.
+	light.shadow_enabled = true
+	_warn_if_projector_unsupported(light)
 
 	var gobo_raw_8bit: int = _resolve_gobo_raw_8bit(controls)
 	var active_slot_index: int = _resolve_active_gobo_slot_index(controls, gobo_raw_8bit)
@@ -104,3 +109,12 @@ func _resolve_fake_gobo_texture(gobo_raw_8bit: int) -> Texture2D:
 	var texture: ImageTexture = ImageTexture.create_from_image(image)
 	_texture_cache[cache_key] = texture
 	return texture
+
+func _warn_if_projector_unsupported(light: SpotLight3D) -> void:
+	if light.has_meta("peraviz_projector_support_checked"):
+		return
+	light.set_meta("peraviz_projector_support_checked", true)
+	if RenderingServer.has_method("get_current_rendering_method"):
+		var rendering_method: String = str(RenderingServer.get_current_rendering_method())
+		if rendering_method == "gl_compatibility":
+			push_warning("Peraviz gobo projector is not supported in Compatibility renderer. Use Forward+ or Mobile.")
