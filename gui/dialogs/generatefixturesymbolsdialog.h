@@ -11,6 +11,7 @@ struct FixtureTypeOption {
   std::string typeName;
   std::string gdtfSpec;
   std::string modelKey;
+  std::string representativeFixtureUuid;
   int instanceCount = 0;
 };
 

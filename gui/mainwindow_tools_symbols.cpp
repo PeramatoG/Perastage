@@ -28,6 +28,7 @@ void MainWindow::OnGenerateFixtureSymbols(wxCommandEvent &) {
       entry.typeName = fixture.typeName;
       entry.gdtfSpec = fixture.gdtfSpec;
       entry.modelKey = BuildFixtureSymbolKey(fixture, scene.basePath);
+      entry.representativeFixtureUuid = fixtureEntry.first;
     }
     ++entry.instanceCount;
   }
@@ -58,8 +59,10 @@ void MainWindow::OnGenerateFixtureSymbols(wxCommandEvent &) {
 
   if (auto *offscreen = GetOffscreenRenderer(); offscreen && offscreen->GetPanel()) {
     usedViewer2D = symboltools::BuildSymbolsFromViewer2DPipeline(
-        *offscreen->GetPanel(), options[selected].modelKey, symbols,
-        pipelineLog, referenceImages);
+        *offscreen->GetPanel(),
+        GetDefaultGuiConfigServices().LegacyConfigManager(),
+        options[selected].representativeFixtureUuid, options[selected].modelKey,
+        symbols, pipelineLog, referenceImages);
   }
 
   if (!usedViewer2D) {

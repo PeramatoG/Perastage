@@ -1,6 +1,7 @@
 #include "symboltools/symbol_from_viewer2d.h"
 
 #include "canvas2d.h"
+#include "configmanager.h"
 #include "symbolcache.h"
 #include "symbols/ContourTracer.h"
 #include "symbols/MaskUtils.h"
@@ -386,6 +387,8 @@ symbols::Aabb2D ComputeBoundsFromGeometry(const symbols::Symbol2D &symbol) {
 } // namespace
 
 bool BuildSymbolsFromViewer2DPipeline(Viewer2DPanel &panel,
+                                      ConfigManager &configManager,
+                                      const std::string &fixtureUuid,
                                       const std::string &modelKey,
                                       symbols::SymbolCollection &outSymbols,
                                       std::vector<std::string> &outLogLines,
@@ -394,13 +397,40 @@ bool BuildSymbolsFromViewer2DPipeline(Viewer2DPanel &panel,
   outLogLines.clear();
   outReferences.clear();
 
+  if (fixtureUuid.empty()) {
+    outLogLines.push_back("No representative fixture UUID available.");
+    return false;
+  }
+
+  ScopedFixtureIsolation fixtureIsolation(configManager, fixtureUuid);
+  if (!fixtureIsolation.Active()) {
+    outLogLines.push_back("Could not isolate fixture for Viewer2D reference capture.");
+    return false;
+  }
+
   const auto previousMode = panel.GetRenderMode();
   const auto previousView = panel.GetView();
 
   panel.SetRenderMode(Viewer2DRenderMode::White);
+  std::vector<symbols::ImageRGBA> viewShapeImages;
+  std::vector<symbols::ImageRGBA> viewLineImages;
+  viewShapeImages.reserve(4);
+  viewLineImages.reserve(4);
   for (const auto view : symbols::AllSymbolViews()) {
     panel.SetView(ToViewerView(view));
+    panel.UpdateScene(true);
     panel.CaptureFrameNow([](CommandBuffer, Viewer2DViewState) {}, true, false);
+
+    std::vector<unsigned char> pixels;
+    int width = 0;
+    int height = 0;
+    if (panel.RenderToRGBA(pixels, width, height) && width > 0 && height > 0) {
+      viewShapeImages.push_back(MakeReferenceFromViewerImage(pixels, width, height, true));
+      viewLineImages.push_back(MakeReferenceFromViewerImage(pixels, width, height, false));
+    } else {
+      viewShapeImages.push_back({});
+      viewLineImages.push_back({});
+    }
   }
 
   const auto snapshot = panel.GetBottomSymbolCacheSnapshot();
@@ -413,6 +443,7 @@ bool BuildSymbolsFromViewer2DPipeline(Viewer2DPanel &panel,
   }
 
   bool anyFound = false;
+  size_t viewIndex = 0;
   for (const auto view : symbols::AllSymbolViews()) {
     const auto expectedKind = ToViewKind(view);
     const SymbolDefinition *found = nullptr;
@@ -440,12 +471,18 @@ bool BuildSymbolsFromViewer2DPipeline(Viewer2DPanel &panel,
       symbols::Symbol2D empty;
       empty.view = view;
       outSymbols.push_back(std::move(empty));
+      ++viewIndex;
       continue;
     }
 
     symbols::ImageRGBA shapeImg;
     symbols::ImageRGBA lineImg;
-    RasterizeSymbol(*found, shapeImg, lineImg);
+    if (viewIndex < viewShapeImages.size()) {
+      shapeImg = viewShapeImages[viewIndex];
+      lineImg = viewLineImages[viewIndex];
+    }
+    if (shapeImg.pixels.empty() || lineImg.pixels.empty())
+      RasterizeSymbol(*found, shapeImg, lineImg);
 
     SymbolReferenceViews refs;
     refs.view = view;
@@ -487,9 +524,94 @@ bool BuildSymbolsFromViewer2DPipeline(Viewer2DPanel &panel,
 
     outSymbols.push_back(std::move(symbol));
     anyFound = true;
+    ++viewIndex;
   }
 
   return anyFound;
 }
 
 } // namespace symboltools
+symbols::ImageRGBA MakeReferenceFromViewerImage(const std::vector<unsigned char> &pixels,
+                                                int width, int height,
+                                                bool shapeReference) {
+  symbols::ImageRGBA image;
+  image.width = width;
+  image.height = height;
+  image.pixels.assign(static_cast<size_t>(width * height * 4), 0);
+  if (pixels.size() < image.pixels.size())
+    return image;
+
+  for (int y = 0; y < height; ++y) {
+    const int srcY = height - 1 - y;
+    for (int x = 0; x < width; ++x) {
+      const size_t srcIdx = static_cast<size_t>((srcY * width + x) * 4);
+      const size_t dstIdx = static_cast<size_t>((y * width + x) * 4);
+      const uint8_t r = pixels[srcIdx];
+      const uint8_t g = pixels[srcIdx + 1];
+      const uint8_t b = pixels[srcIdx + 2];
+      const uint8_t a = pixels[srcIdx + 3];
+      const int dark = static_cast<int>(r) + static_cast<int>(g) + static_cast<int>(b);
+      const bool isLine = dark < 540;
+
+      if (shapeReference) {
+        if (isLine) {
+          image.pixels[dstIdx] = 0;
+          image.pixels[dstIdx + 1] = 0;
+          image.pixels[dstIdx + 2] = 0;
+          image.pixels[dstIdx + 3] = 255;
+        }
+      } else {
+        image.pixels[dstIdx] = 255;
+        image.pixels[dstIdx + 1] = 255;
+        image.pixels[dstIdx + 2] = 255;
+        image.pixels[dstIdx + 3] = a;
+        if (isLine) {
+          image.pixels[dstIdx] = 0;
+          image.pixels[dstIdx + 1] = 0;
+          image.pixels[dstIdx + 2] = 0;
+          image.pixels[dstIdx + 3] = 255;
+        }
+      }
+    }
+  }
+  return image;
+}
+
+class ScopedFixtureIsolation {
+public:
+  ScopedFixtureIsolation(ConfigManager &cfg, const std::string &fixtureUuid)
+      : cfg_(cfg), backup_(cfg.GetScene()) {
+    auto &scene = cfg_.GetScene();
+    auto fixtureIt = scene.fixtures.find(fixtureUuid);
+    if (fixtureIt == scene.fixtures.end())
+      return;
+
+    MvrScene isolated;
+    isolated.basePath = scene.basePath;
+    isolated.provider = scene.provider;
+    isolated.providerVersion = scene.providerVersion;
+    isolated.versionMajor = scene.versionMajor;
+    isolated.versionMinor = scene.versionMinor;
+    isolated.layers = scene.layers;
+    isolated.positions = scene.positions;
+    isolated.symdefFiles = scene.symdefFiles;
+    isolated.symdefTypes = scene.symdefTypes;
+    isolated.symdefMatrices = scene.symdefMatrices;
+    isolated.symdefGeometries = scene.symdefGeometries;
+    isolated.fixtures.emplace(fixtureIt->first, fixtureIt->second);
+    scene = std::move(isolated);
+    active_ = true;
+  }
+
+  ~ScopedFixtureIsolation() {
+    if (active_)
+      cfg_.GetScene() = backup_;
+  }
+
+  bool Active() const { return active_; }
+
+private:
+  ConfigManager &cfg_;
+  MvrScene backup_;
+  bool active_ = false;
+};

@@ -8,6 +8,7 @@
 #include <vector>
 
 class Viewer2DPanel;
+class ConfigManager;
 
 namespace symboltools {
 
@@ -24,6 +25,8 @@ struct SymbolReferenceViews {
 };
 
 bool BuildSymbolsFromViewer2DPipeline(Viewer2DPanel &panel,
+                                      ConfigManager &configManager,
+                                      const std::string &fixtureUuid,
                                       const std::string &modelKey,
                                       symbols::SymbolCollection &outSymbols,
                                       std::vector<std::string> &outLogLines,
