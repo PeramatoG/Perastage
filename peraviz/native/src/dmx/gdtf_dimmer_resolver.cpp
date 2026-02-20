@@ -514,22 +514,24 @@ GoboWheelCatalog build_gobo_wheel_catalog(const std::string &gdtf_path, tinyxml2
         }
 
         int implicit_index = 1;
-        for (tinyxml2::XMLElement *wheel_slot = wheel->FirstChildElement(); wheel_slot;
-             wheel_slot = wheel_slot->NextSiblingElement()) {
-            if (lower_ascii(wheel_slot->Name()) != "wheelslot") {
+        for (tinyxml2::XMLElement *slot_node = wheel->FirstChildElement(); slot_node;
+             slot_node = slot_node->NextSiblingElement()) {
+            const std::string slot_tag = lower_ascii(slot_node->Name());
+            // GDTF 1.0/1.1/1.2 commonly uses <Slot>, while some exporters emit <WheelSlot>.
+            if (slot_tag != "slot" && slot_tag != "wheelslot") {
                 continue;
             }
 
-            int slot_index = parse_positive_int(wheel_slot->Attribute("WheelSlotIndex"));
+            int slot_index = parse_positive_int(slot_node->Attribute("WheelSlotIndex"));
             if (slot_index <= 0) {
-                slot_index = parse_positive_int(wheel_slot->Attribute("wheelslotindex"));
+                slot_index = parse_positive_int(slot_node->Attribute("wheelslotindex"));
             }
             if (slot_index <= 0) {
                 slot_index = implicit_index;
             }
             implicit_index = std::max(implicit_index, slot_index + 1);
 
-            const std::string media_file = read_attr_ci(wheel_slot, "MediaFileName", "mediafilename");
+            const std::string media_file = read_attr_ci(slot_node, "MediaFileName", "mediafilename");
             if (media_file.empty()) {
                 continue;
             }
@@ -570,6 +572,13 @@ void consume_gobo_channel_sets(tinyxml2::XMLElement *channel_function,
         out_offsets.gobo_slots.push_back({slot_index, image_path});
     }
 
+    struct ParsedGoboSet {
+        int dmx_from = 0;
+        int dmx_to = -1;
+        int slot_index = -1;
+    };
+    std::vector<ParsedGoboSet> parsed_sets;
+
     for (tinyxml2::XMLElement *channel_set = channel_function->FirstChildElement(); channel_set;
          channel_set = channel_set->NextSiblingElement()) {
         if (lower_ascii(channel_set->Name()) != "channelset") {
@@ -596,14 +605,37 @@ void consume_gobo_channel_sets(tinyxml2::XMLElement *channel_function,
         if (dmx_to < 0) {
             dmx_to = parse_dmx_value_8bit(channel_set->Attribute("dmxto"));
         }
-        if (dmx_to < 0) {
-            dmx_to = dmx_from;
+        parsed_sets.push_back({dmx_from, dmx_to, slot_index});
+    }
+
+    if (parsed_sets.empty()) {
+        return;
+    }
+
+    std::sort(parsed_sets.begin(), parsed_sets.end(),
+              [](const ParsedGoboSet &a, const ParsedGoboSet &b) {
+                  if (a.dmx_from != b.dmx_from) {
+                      return a.dmx_from < b.dmx_from;
+                  }
+                  return a.slot_index < b.slot_index;
+              });
+
+    for (size_t i = 0; i < parsed_sets.size(); ++i) {
+        ParsedGoboSet &row = parsed_sets[i];
+        if (row.dmx_to < 0) {
+            if (i + 1 < parsed_sets.size()) {
+                row.dmx_to = std::max(row.dmx_from, parsed_sets[i + 1].dmx_from - 1);
+            } else {
+                row.dmx_to = 255;
+            }
         }
-        if (dmx_to < dmx_from) {
-            std::swap(dmx_from, dmx_to);
+        row.dmx_from = std::clamp(row.dmx_from, 0, 255);
+        row.dmx_to = std::clamp(row.dmx_to, 0, 255);
+        if (row.dmx_to < row.dmx_from) {
+            std::swap(row.dmx_from, row.dmx_to);
         }
 
-        out_offsets.gobo_ranges.push_back({dmx_from, dmx_to, slot_index});
+        out_offsets.gobo_ranges.push_back({row.dmx_from, row.dmx_to, row.slot_index});
     }
 }
 
