@@ -124,6 +124,7 @@ const EMITTER_LIGHT_MAX_RANGE_M: float = 150.0
 const EMITTER_LIGHT_RANGE_BEAM_RADIUS_MULTIPLIER: float = 500.0
 const EMITTER_LIGHT_ENERGY_SCALE: float = 0.02
 const EMITTER_LIGHT_MAX_BEAM_ANGLE_DEG: float = 180.0
+const BEAM_COLOR_TEMPERATURE_STRENGTH: float = 0.12
 const EMITTER_ZOOM_DEFAULT_MIN_BEAM_ANGLE_DEG: float = 4.0
 const EMITTER_ZOOM_DEFAULT_MAX_BEAM_ANGLE_DEG: float = EMITTER_LIGHT_MAX_BEAM_ANGLE_DEG
 const EMITTER_ZOOM_LENS_RANGE_REFERENCE_M: float = 12.0
@@ -1524,17 +1525,17 @@ func _is_gdtf_beam_lens_material(mesh_instance: MeshInstance3D, material: Materi
 
 func _resolve_fixture_beam_color(emitter_photometrics: Array, controls: Dictionary) -> Color:
 	if emitter_photometrics.is_empty():
-		return _derive_emitter_color(DEFAULT_EMITTER_PHOTOMETRICS, controls, 0.3)
+		return _derive_emitter_color(DEFAULT_EMITTER_PHOTOMETRICS, controls, BEAM_COLOR_TEMPERATURE_STRENGTH)
 
 	var accumulated_color: Color = Color.BLACK
 	var samples: int = 0
 	for entry in emitter_photometrics:
 		if entry is not Dictionary:
 			continue
-		accumulated_color += _derive_emitter_color(entry, controls, 0.3)
+		accumulated_color += _derive_emitter_color(entry, controls, BEAM_COLOR_TEMPERATURE_STRENGTH)
 		samples += 1
 	if samples <= 0:
-		return _derive_emitter_color(DEFAULT_EMITTER_PHOTOMETRICS, controls, 0.3)
+		return _derive_emitter_color(DEFAULT_EMITTER_PHOTOMETRICS, controls, BEAM_COLOR_TEMPERATURE_STRENGTH)
 	var inverse_samples: float = 1.0 / float(samples)
 	return Color(accumulated_color.r * inverse_samples, accumulated_color.g * inverse_samples, accumulated_color.b * inverse_samples, 1.0)
 
@@ -1817,6 +1818,7 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 	# avoids early floor clipping on steep tilt while keeping cone visuals unchanged.
 	light.spot_range = clamp(cone_range * EMITTER_LIGHT_FOOTPRINT_RANGE_MULTIPLIER, EMITTER_LIGHT_MIN_EFFECTIVE_RANGE_M, EMITTER_LIGHT_MAX_RANGE_M)
 	light.light_color = _derive_emitter_color(photometric, controls)
+	var beam_color: Color = _derive_emitter_color(photometric, controls, BEAM_COLOR_TEMPERATURE_STRENGTH)
 	var beam_radius_from_gdtf: bool = bool(photometric.get("beam_radius_from_gdtf", false))
 	var source_beam_radius: float = beam_radius_m if beam_radius_from_gdtf else -1.0
 	var lens_radius: float = max(float(light.get_meta("peraviz_lens_radius", 0.03)), 0.005)
@@ -1826,7 +1828,7 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 	var beam_params := {
 		"beam_angle": beam_angle,
 		"beam_range": cone_range,
-		"beam_color": light.light_color,
+		"beam_color": beam_color,
 		"normalized_dimmer": clamp(normalized_dimmer, 0.0, 1.0),
 		"scaled_intensity": clamp(normalized_dimmer * float(_visual_settings.get("beam_multiplier", 1.0)), 0.0, 3.0),
 		"lens_radius": lens_radius,
