@@ -2,6 +2,7 @@
 #include "asset_cache.h"
 
 #include <algorithm>
+#include <array>
 #include <cctype>
 #include <filesystem>
 #include <cstdlib>
@@ -231,9 +232,19 @@ bool starts_with_role_token(const std::string &attribute,
 }
 
 bool matches_gobo_attribute(const std::string &leaf) {
+    const std::array<std::string, 9> non_projector_tokens = {
+        "spin", "shake", "audio", "random", "time", "mspeed", "speed", "reset", "rotate"};
+    for (const std::string &token : non_projector_tokens) {
+        if (leaf.find(token) != std::string::npos) {
+            return false;
+        }
+    }
+
     int byte_index = 1;
-    if (starts_with_role_token(leaf, "gobo", byte_index) ||
-        starts_with_role_token(leaf, "gobowheel", byte_index) ||
+    if (starts_with_role_token(leaf, "gobo", byte_index)) {
+        return true;
+    }
+    if (starts_with_role_token(leaf, "gobowheel", byte_index) ||
         starts_with_role_token(leaf, "goboindex", byte_index) ||
         starts_with_role_token(leaf, "goboselect", byte_index)) {
         return true;
@@ -242,7 +253,7 @@ bool matches_gobo_attribute(const std::string &leaf) {
     const bool references_wheel = leaf.find("wheel") != std::string::npos;
     const bool references_selector =
         leaf.find("slot") != std::string::npos || leaf.find("index") != std::string::npos ||
-        leaf.find("select") != std::string::npos;
+        leaf.find("select") != std::string::npos || leaf.find("pos") != std::string::npos;
     return references_wheel && references_selector;
 }
 
