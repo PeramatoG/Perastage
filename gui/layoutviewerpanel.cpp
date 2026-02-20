@@ -26,8 +26,16 @@
 #include <vector>
 #include <wx/weakref.h>
 
+#ifdef _WIN32
+#  define WIN32_LEAN_AND_MEAN
+#  define NOMINMAX
+#  include <windows.h>
+#endif
+
+#include <GL/glew.h>
 // Include GLEW or other OpenGL loader first if present
 #ifdef __APPLE__
+#  define GL_SILENCE_DEPRECATION
 #  include <OpenGL/gl.h>
 #  include <OpenGL/glu.h>
 #else
@@ -1453,10 +1461,23 @@ bool LayoutViewerPanel::InitGL() {
     return false;
   if (!SetCurrent(*glContext_))
     return false;
+
+  if (!glInitialized_) {
+    glewExperimental = GL_TRUE;
+    const GLenum glewResult = glewInit();
+    if (glewResult != GLEW_OK) {
+      Logger::Instance().Log(
+          std::string("LayoutViewerPanel: GLEW init failed: ") +
+          reinterpret_cast<const char *>(glewGetErrorString(glewResult)));
+      return false;
+    }
+    glGetError();
+    glInitialized_ = true;
+  }
+
   glDisable(GL_DEPTH_TEST);
   glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-  glInitialized_ = true;
   isReadyToRender_ = true;
   return true;
 }
