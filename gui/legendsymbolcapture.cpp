@@ -61,3 +61,20 @@ CaptureLegendSymbolSnapshot(Viewer2DPanel *capturePanel, ConfigManager &cfg,
   return CaptureLegendSymbolSnapshotWithAllLayers(capturePanel,
                                                   requireTopAndFrontViews);
 }
+
+std::shared_ptr<const SymbolDefinitionSnapshot>
+CaptureSymbolSnapshotForViews(Viewer2DPanel *capturePanel, ConfigManager &cfg,
+                              const std::vector<Viewer2DView> &views) {
+  ScopedHiddenLayersClear hiddenLayersGuard(cfg);
+  if (!capturePanel)
+    return {};
+
+  const Viewer2DView previousView = capturePanel->GetView();
+  for (const auto view : views) {
+    capturePanel->SetView(view);
+    capturePanel->CaptureFrameNow([](CommandBuffer, Viewer2DViewState) {}, true,
+                                  false);
+  }
+  capturePanel->SetView(previousView);
+  return capturePanel->GetBottomSymbolCacheSnapshot();
+}
