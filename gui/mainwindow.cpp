@@ -741,6 +741,12 @@ void MainWindow::ActivateLayoutView(const std::string &layoutName) {
     return;
   }
 
+  if (activeLayoutName == layoutName) {
+    if (layoutModeActive)
+      ApplyLayoutModePerspective();
+    return;
+  }
+
   if (!activeLayoutName.empty() && activeLayoutName != layoutName) {
     PersistLayout2DViewState();
   }
