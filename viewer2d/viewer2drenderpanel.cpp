@@ -446,8 +446,6 @@ void Viewer2DRenderPanel::OnView(wxCommandEvent &evt) {
   m_showLabelName->SetValue(cfg.GetFloat(NAME_KEYS[sel]) != 0.0f);
   m_showLabelId->SetValue(cfg.GetFloat(ID_KEYS[sel]) != 0.0f);
   m_showLabelAddress->SetValue(cfg.GetFloat(DMX_KEYS[sel]) != 0.0f);
-  if (auto *mw = MainWindow::Instance(); mw && mw->IsLayout2DViewEditing())
-    mw->RestoreLayout2DViewState(sel);
   if (auto *vp = Viewer2DPanel::Instance()) {
     vp->SetView(static_cast<Viewer2DView>(sel));
     vp->UpdateScene(false);
