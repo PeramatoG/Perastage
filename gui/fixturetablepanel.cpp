@@ -77,6 +77,53 @@ bool IsRedCell(const ColorfulDataViewListStore *store, int row, int col) {
   return attr.HasColour() && attr.GetColour() == *wxRED;
 }
 
+void SetTableAndChildTooltips(wxDataViewListCtrl *table,
+                              const wxString &tooltip) {
+  if (!table)
+    return;
+
+  table->SetToolTip(tooltip);
+  wxWindowList &children = table->GetChildren();
+  for (wxWindowList::compatibility_iterator it = children.GetFirst(); it;
+       it = it->GetNext()) {
+    if (wxWindow *child = it->GetData())
+      child->SetToolTip(tooltip);
+  }
+}
+
+wxPoint NormalizeMousePositionForTable(wxDataViewListCtrl *table,
+                                       const wxMouseEvent &event) {
+  wxPoint position = event.GetPosition();
+  wxWindow *sourceWindow =
+      dynamic_cast<wxWindow *>(event.GetEventObject());
+  if (!table || !sourceWindow || sourceWindow == table)
+    return position;
+
+  return table->ScreenToClient(sourceWindow->ClientToScreen(position));
+}
+
+template <typename Owner>
+void BindTableHoverEvents(wxDataViewListCtrl *table, Owner *owner,
+                          void (Owner::*onMouseMove)(wxMouseEvent &),
+                          void (Owner::*onMouseLeave)(wxMouseEvent &)) {
+  if (!table || !owner)
+    return;
+
+  auto bindEvents = [&](wxWindow *window) {
+    if (!window)
+      return;
+    window->Bind(wxEVT_MOTION, onMouseMove, owner);
+    window->Bind(wxEVT_LEAVE_WINDOW, onMouseLeave, owner);
+  };
+
+  bindEvents(table);
+  wxWindowList &children = table->GetChildren();
+  for (wxWindowList::compatibility_iterator it = children.GetFirst(); it;
+       it = it->GetNext()) {
+    bindEvents(it->GetData());
+  }
+}
+
 wxString BuildFixtureTooltipForColumn(int modelColumn) {
   if (modelColumn == 0)
     return "Duplicate Fixture ID. Each fixture must have a unique ID.";
@@ -102,8 +149,12 @@ FixtureTablePanel::FixtureTablePanel(wxWindow *parent, IGuiConfigServices *servi
   store->SetSelectionColours(selectionBackground, selectionForeground);
   table->Bind(wxEVT_LEFT_DOWN, &FixtureTablePanel::OnLeftDown, this);
   table->Bind(wxEVT_LEFT_UP, &FixtureTablePanel::OnLeftUp, this);
-  table->Bind(wxEVT_MOTION, &FixtureTablePanel::OnMouseMove, this);
-  table->Bind(wxEVT_LEAVE_WINDOW, &FixtureTablePanel::OnMouseLeave, this);
+  BindTableHoverEvents(table, this, &FixtureTablePanel::OnMouseMove,
+                       &FixtureTablePanel::OnMouseLeave);
+  table->CallAfter([this]() {
+    BindTableHoverEvents(table, this, &FixtureTablePanel::OnMouseMove,
+                         &FixtureTablePanel::OnMouseLeave);
+  });
   table->Bind(wxEVT_DATAVIEW_SELECTION_CHANGED,
               &FixtureTablePanel::OnSelectionChanged, this);
 
@@ -982,7 +1033,7 @@ void FixtureTablePanel::OnCaptureLost(wxMouseCaptureLostEvent &WXUNUSED(evt)) {
 }
 
 void FixtureTablePanel::OnMouseMove(wxMouseEvent &evt) {
-  UpdateHoverTooltip(evt.GetPosition());
+  UpdateHoverTooltip(NormalizeMousePositionForTable(table, evt));
 
   if (!dragSelecting || !evt.Dragging()) {
     evt.Skip();
@@ -1005,7 +1056,7 @@ void FixtureTablePanel::OnMouseMove(wxMouseEvent &evt) {
 
 void FixtureTablePanel::OnMouseLeave(wxMouseEvent &evt) {
   if (!activeHoverTooltip.IsEmpty()) {
-    table->SetToolTip(wxString());
+    SetTableAndChildTooltips(table, wxString());
     activeHoverTooltip.clear();
   }
   evt.Skip();
@@ -1027,7 +1078,7 @@ void FixtureTablePanel::UpdateHoverTooltip(const wxPoint &position) {
   if (tooltip == activeHoverTooltip)
     return;
 
-  table->SetToolTip(tooltip);
+  SetTableAndChildTooltips(table, tooltip);
   activeHoverTooltip = tooltip;
 }
 
