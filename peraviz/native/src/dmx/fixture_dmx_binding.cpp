@@ -102,6 +102,8 @@ FixtureBindingBuildResult build_dimmer_bindings(
             to_channel_index_0(patch, offsets.gobo_fine_offset_1_based);
         binding.gobo.ultra_fine_dmx_channel_index_0 =
             to_channel_index_0(patch, offsets.gobo_ultra_fine_offset_1_based);
+        binding.gobo_wheel_number = offsets.gobo_wheel_number;
+        binding.gobo_wheel_name = offsets.gobo_wheel_name;
         binding.gobo_slots = offsets.gobo_slots;
         binding.gobo_ranges = offsets.gobo_ranges;
         binding.has_zoom_physical_limits = offsets.has_zoom_physical_limits;

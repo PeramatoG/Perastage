@@ -191,6 +191,13 @@ Dictionary PeravizLoader::build_fixture_dimmer_bindings(int universe_offset) con
         item["gobo_channel_index_0"] = binding.gobo.coarse_dmx_channel_index_0;
         item["gobo_fine_channel_index_0"] = binding.gobo.fine_dmx_channel_index_0;
         item["gobo_ultra_fine_channel_index_0"] = binding.gobo.ultra_fine_dmx_channel_index_0;
+        item["gobo_wheel_number"] = binding.gobo_wheel_number;
+        item["gobo_wheel_name"] = String(binding.gobo_wheel_name.c_str());
+
+        item["gobo1_channel_index_0"] = binding.gobo.coarse_dmx_channel_index_0;
+        item["gobo1_fine_channel_index_0"] = binding.gobo.fine_dmx_channel_index_0;
+        item["gobo1_ultra_fine_channel_index_0"] = binding.gobo.ultra_fine_dmx_channel_index_0;
+        item["gobo1_wheel_name"] = String(binding.gobo_wheel_name.c_str());
 
         Array gobo_slots;
         gobo_slots.resize(static_cast<int64_t>(binding.gobo_slots.size()));
@@ -202,6 +209,7 @@ Dictionary PeravizLoader::build_fixture_dimmer_bindings(int universe_offset) con
             gobo_slots[slot_index] = slot_item;
         }
         item["gobo_slots"] = gobo_slots;
+        item["gobo1_slots"] = gobo_slots;
 
         Array gobo_ranges;
         gobo_ranges.resize(static_cast<int64_t>(binding.gobo_ranges.size()));
@@ -214,6 +222,7 @@ Dictionary PeravizLoader::build_fixture_dimmer_bindings(int universe_offset) con
             gobo_ranges[range_index] = range_item;
         }
         item["gobo_ranges"] = gobo_ranges;
+        item["gobo1_ranges"] = gobo_ranges;
 
         item["has_zoom_physical_limits"] = binding.has_zoom_physical_limits;
         item["zoom_physical_min_degrees"] = binding.zoom_physical_min_degrees;

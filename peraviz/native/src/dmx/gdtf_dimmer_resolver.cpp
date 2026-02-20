@@ -145,7 +145,47 @@ struct ParsedAttribute {
     AttributeRole role = AttributeRole::kUnknown;
     bool is_fine = false;
     int byte_index = 1;
+    int gobo_wheel_number = 0;
 };
+
+
+int parse_gobo_wheel_number(const std::string &leaf) {
+    if (leaf.rfind("gobo", 0) != 0 || leaf.size() <= 4) {
+        return 0;
+    }
+    size_t index = 4;
+    size_t digits_end = index;
+    while (digits_end < leaf.size() && std::isdigit(static_cast<unsigned char>(leaf[digits_end])) != 0) {
+        ++digits_end;
+    }
+    if (digits_end == index) {
+        return 0;
+    }
+    const long parsed = std::strtol(leaf.substr(index, digits_end - index).c_str(), nullptr, 10);
+    if (parsed <= 0L) {
+        return 0;
+    }
+    return static_cast<int>(parsed);
+}
+
+bool should_replace_gobo_binding(int current_wheel_number, int candidate_wheel_number) {
+    if (current_wheel_number <= 0) {
+        return true;
+    }
+    if (candidate_wheel_number <= 0) {
+        return false;
+    }
+    if (candidate_wheel_number == current_wheel_number) {
+        return true;
+    }
+    if (candidate_wheel_number == 1) {
+        return true;
+    }
+    if (current_wheel_number == 1) {
+        return false;
+    }
+    return candidate_wheel_number < current_wheel_number;
+}
 
 bool has_explicit_fine_marker(const std::string &lower) {
     return lower.find("fine") != std::string::npos ||
@@ -313,6 +353,7 @@ ParsedAttribute parse_attribute_name(const std::string &raw_attribute) {
     } else if (matches_gobo_attribute(leaf)) {
         parsed.role = AttributeRole::kGobo;
         parsed.byte_index = byte_index;
+        parsed.gobo_wheel_number = parse_gobo_wheel_number(leaf);
     }
 
     if (parsed.role == AttributeRole::kUnknown) {
@@ -624,6 +665,8 @@ void consume_gobo_channel_sets(tinyxml2::XMLElement *channel_function,
         return;
     }
 
+    out_offsets.gobo_wheel_name = wheel_name;
+
     std::unordered_set<int> known_slots;
     for (const auto &[slot_index, image_path] : wheel_it->second) {
         if (slot_index <= 0 || image_path.empty()) {
@@ -781,13 +824,24 @@ void consume_channel_offsets(tinyxml2::XMLElement *dmx_channel,
                                 out_offsets.yellow_fine_offset_1_based,
                                 out_offsets.yellow_ultra_fine_offset_1_based);
                 break;
-            case AttributeRole::kGobo:
-                consume_offsets(offsets, parsed_attribute.is_fine, parsed_attribute.byte_index,
-                                out_offsets.gobo_coarse_offset_1_based,
-                                out_offsets.gobo_fine_offset_1_based,
-                                out_offsets.gobo_ultra_fine_offset_1_based);
-                consume_gobo_channel_sets(channel_function, wheel_catalog, out_offsets);
+            case AttributeRole::kGobo: {
+                if (should_replace_gobo_binding(out_offsets.gobo_wheel_number,
+                                                parsed_attribute.gobo_wheel_number)) {
+                    const bool changed_wheel = out_offsets.gobo_wheel_number != parsed_attribute.gobo_wheel_number;
+                    out_offsets.gobo_wheel_number = parsed_attribute.gobo_wheel_number;
+                    if (changed_wheel) {
+                        out_offsets.gobo_slots.clear();
+                        out_offsets.gobo_ranges.clear();
+                        out_offsets.gobo_wheel_name.clear();
+                    }
+                    consume_offsets(offsets, parsed_attribute.is_fine, parsed_attribute.byte_index,
+                                    out_offsets.gobo_coarse_offset_1_based,
+                                    out_offsets.gobo_fine_offset_1_based,
+                                    out_offsets.gobo_ultra_fine_offset_1_based);
+                    consume_gobo_channel_sets(channel_function, wheel_catalog, out_offsets);
+                }
                 break;
+            }
             }
         }
     }

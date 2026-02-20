@@ -78,6 +78,7 @@ func _resolve_gobo_texture_for_slot(controls: Dictionary, slot_index: int) -> Te
 		var load_error: Error = image.load(image_path)
 		if load_error != OK:
 			return null
+		image.generate_mipmaps()
 		var texture: ImageTexture = ImageTexture.create_from_image(image)
 		_texture_cache[image_path] = texture
 		return texture
@@ -93,19 +94,23 @@ func _resolve_fake_gobo_texture(gobo_raw_8bit: int) -> Texture2D:
 	# Keep base fully open (white) so spot footprint is still visible while debugging.
 	image.fill(Color(1.0, 1.0, 1.0, 1.0))
 
-	# Bucket 0 emulates open gobo.
+	# Bucket 0 emulates open gobo. Higher buckets produce high-contrast masks
+	# so projector output changes are obvious when testing DMX mapping.
 	if fake_bucket > 0:
-		var stripe_step: int = max(6, int(6 + (fake_bucket % 12) * 2))
-		var radius: float = float(FAKE_GOBO_TEXTURE_SIZE) * (0.20 + 0.012 * float(fake_bucket % 10))
+		var step: int = max(4, int(4 + (fake_bucket % 6) * 2))
 		var center: Vector2 = Vector2(FAKE_GOBO_TEXTURE_SIZE, FAKE_GOBO_TEXTURE_SIZE) * 0.5
+		var max_radius: float = float(FAKE_GOBO_TEXTURE_SIZE) * 0.48
 		for y in range(FAKE_GOBO_TEXTURE_SIZE):
 			for x in range(FAKE_GOBO_TEXTURE_SIZE):
 				var uv: Vector2 = Vector2(float(x), float(y)) - center
 				var dist: float = uv.length()
-				var stripe: bool = ((x + y + fake_bucket) % stripe_step) < (stripe_step / 2)
-				if dist < radius and stripe:
+				if dist > max_radius:
+					continue
+				var checker: bool = (((x / step) + (y / step) + fake_bucket) % 2) == 0
+				if checker:
 					image.set_pixel(x, y, Color(0.0, 0.0, 0.0, 1.0))
 
+	image.generate_mipmaps()
 	var texture: ImageTexture = ImageTexture.create_from_image(image)
 	_texture_cache[cache_key] = texture
 	return texture

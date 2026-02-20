@@ -42,6 +42,8 @@ struct FixtureControlBinding {
     FixtureAttributeChannel magenta;
     FixtureAttributeChannel yellow;
     FixtureAttributeChannel gobo;
+    int gobo_wheel_number = 0;
+    std::string gobo_wheel_name;
     std::vector<FixtureGoboSlot> gobo_slots;
     std::vector<FixtureGoboRange> gobo_ranges;
     bool has_zoom_physical_limits = false;
@@ -85,6 +87,8 @@ struct FixtureControlOffsets {
     int gobo_coarse_offset_1_based = -1;
     int gobo_fine_offset_1_based = -1;
     int gobo_ultra_fine_offset_1_based = -1;
+    int gobo_wheel_number = 0;
+    std::string gobo_wheel_name;
     std::vector<FixtureGoboSlot> gobo_slots;
     std::vector<FixtureGoboRange> gobo_ranges;
     bool has_zoom_physical_limits = false;

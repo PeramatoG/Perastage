@@ -104,7 +104,9 @@ func apply_dmx(receiver, apply_fixture_callback: Callable) -> void:
 		_read_control(binding, frame, "cyan_channel_index_0", "cyan_fine_channel_index_0", "cyan_ultra_fine_channel_index_0", controls, "has_cyan", "cyan_norm")
 		_read_control(binding, frame, "magenta_channel_index_0", "magenta_fine_channel_index_0", "magenta_ultra_fine_channel_index_0", controls, "has_magenta", "magenta_norm")
 		_read_control(binding, frame, "yellow_channel_index_0", "yellow_fine_channel_index_0", "yellow_ultra_fine_channel_index_0", controls, "has_yellow", "yellow_norm")
-		_read_control(binding, frame, "gobo_channel_index_0", "gobo_fine_channel_index_0", "gobo_ultra_fine_channel_index_0", controls, "has_gobo", "gobo_norm")
+		_read_control(binding, frame, "gobo1_channel_index_0", "gobo1_fine_channel_index_0", "gobo1_ultra_fine_channel_index_0", controls, "has_gobo", "gobo_norm")
+		if not controls["has_gobo"]:
+			_read_control(binding, frame, "gobo_channel_index_0", "gobo_fine_channel_index_0", "gobo_ultra_fine_channel_index_0", controls, "has_gobo", "gobo_norm")
 
 		if controls["has_zoom"]:
 			controls["has_zoom_physical_limits"] = bool(binding.get("has_zoom_physical_limits", false))
@@ -112,8 +114,10 @@ func apply_dmx(receiver, apply_fixture_callback: Callable) -> void:
 			controls["zoom_physical_max_degrees"] = float(binding.get("zoom_physical_max_degrees", -1.0))
 
 		if controls["has_gobo"]:
-			controls["gobo_slots"] = binding.get("gobo_slots", [])
-			controls["gobo_ranges"] = binding.get("gobo_ranges", [])
+			controls["gobo_slots"] = binding.get("gobo1_slots", binding.get("gobo_slots", []))
+			controls["gobo_ranges"] = binding.get("gobo1_ranges", binding.get("gobo_ranges", []))
+			controls["gobo_wheel_name"] = str(binding.get("gobo1_wheel_name", binding.get("gobo_wheel_name", "")))
+			controls["gobo_wheel_number"] = int(binding.get("gobo_wheel_number", 0))
 
 		if not controls["has_dimmer"] and not controls["has_pan"] and not controls["has_tilt"] and not controls["has_zoom"] and not controls["has_cyan"] and not controls["has_magenta"] and not controls["has_yellow"] and not controls["has_gobo"]:
 			continue
