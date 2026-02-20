@@ -9,12 +9,12 @@
 #include "symbols/PolylineSimplify.h"
 #include "symbols/SkeletonGraph.h"
 #include "symbols/Skeletonize.h"
+#include "viewer2dcommandrenderer.h"
 #include "viewer2dpanel.h"
 
 #include <algorithm>
 #include <cmath>
 #include <sstream>
-#include <type_traits>
 
 namespace symboltools {
 namespace {
@@ -23,30 +23,6 @@ namespace {
 constexpr int kRenderResolution = 384;
 constexpr float kPadding = 24.0f;
 constexpr int kMaxProcessingResolution = 384;
-
-struct RasterTransform {
-  float scale = 1.0f;
-  float offsetX = 0.0f;
-  float offsetY = 0.0f;
-};
-
-struct Bounds {
-  float minX = 0.0f;
-  float minY = 0.0f;
-  float maxX = 0.0f;
-  float maxY = 0.0f;
-  bool valid = false;
-};
-
-struct CanvasState {
-  float scale = 1.0f;
-  float offsetX = 0.0f;
-  float offsetY = 0.0f;
-};
-
-symbols::Point2D ApplyCanvasState(const CanvasState &state, float x, float y) {
-  return {x * state.scale + state.offsetX, y * state.scale + state.offsetY};
-}
 
 SymbolViewKind ToViewKind(symbols::SymbolView view) {
   switch (view) {
@@ -60,86 +36,6 @@ SymbolViewKind ToViewKind(symbols::SymbolView view) {
     return SymbolViewKind::Left;
   }
   return SymbolViewKind::Top;
-}
-
-void ExpandBounds(Bounds &b, float x, float y) {
-  if (!b.valid) {
-    b.minX = b.maxX = x;
-    b.minY = b.maxY = y;
-    b.valid = true;
-    return;
-  }
-  b.minX = std::min(b.minX, x);
-  b.minY = std::min(b.minY, y);
-  b.maxX = std::max(b.maxX, x);
-  b.maxY = std::max(b.maxY, y);
-}
-
-Bounds ComputeBounds(const CommandBuffer &buffer) {
-  Bounds b;
-  CanvasState current;
-  std::vector<CanvasState> stack;
-  for (const auto &cmd : buffer.commands) {
-    if (const auto *line = std::get_if<LineCommand>(&cmd)) {
-      const auto p0 = ApplyCanvasState(current, line->x0, line->y0);
-      const auto p1 = ApplyCanvasState(current, line->x1, line->y1);
-      ExpandBounds(b, p0.x, p0.y);
-      ExpandBounds(b, p1.x, p1.y);
-    } else if (const auto *poly = std::get_if<PolylineCommand>(&cmd)) {
-      for (size_t i = 0; i + 1 < poly->points.size(); i += 2) {
-        const auto p = ApplyCanvasState(current, poly->points[i], poly->points[i + 1]);
-        ExpandBounds(b, p.x, p.y);
-      }
-    } else if (const auto *poly = std::get_if<PolygonCommand>(&cmd)) {
-      for (size_t i = 0; i + 1 < poly->points.size(); i += 2) {
-        const auto p = ApplyCanvasState(current, poly->points[i], poly->points[i + 1]);
-        ExpandBounds(b, p.x, p.y);
-      }
-    } else if (const auto *rect = std::get_if<RectangleCommand>(&cmd)) {
-      const auto p0 = ApplyCanvasState(current, rect->x, rect->y);
-      const auto p1 = ApplyCanvasState(current, rect->x + rect->w, rect->y + rect->h);
-      ExpandBounds(b, p0.x, p0.y);
-      ExpandBounds(b, p1.x, p1.y);
-    } else if (const auto *circle = std::get_if<CircleCommand>(&cmd)) {
-      const float radius = circle->radius * current.scale;
-      const auto c = ApplyCanvasState(current, circle->cx, circle->cy);
-      ExpandBounds(b, c.x - radius, c.y - radius);
-      ExpandBounds(b, c.x + radius, c.y + radius);
-    } else if (std::get_if<SaveCommand>(&cmd)) {
-      stack.push_back(current);
-    } else if (std::get_if<RestoreCommand>(&cmd)) {
-      if (!stack.empty()) {
-        current = stack.back();
-        stack.pop_back();
-      }
-    } else if (const auto *tf = std::get_if<TransformCommand>(&cmd)) {
-      current.scale = tf->transform.scale;
-      current.offsetX = tf->transform.offsetX;
-      current.offsetY = tf->transform.offsetY;
-    }
-  }
-  return b;
-}
-
-RasterTransform BuildTransform(const Bounds &b, int width, int height) {
-  RasterTransform t;
-  const float spanX = std::max(1.0f, b.maxX - b.minX);
-  const float spanY = std::max(1.0f, b.maxY - b.minY);
-  const float sx = (static_cast<float>(width) - 2.0f * kPadding) / spanX;
-  const float sy = (static_cast<float>(height) - 2.0f * kPadding) / spanY;
-  t.scale = std::max(0.001f, std::min(sx, sy));
-
-  const float drawW = spanX * t.scale;
-  const float drawH = spanY * t.scale;
-  t.offsetX = (static_cast<float>(width) - drawW) * 0.5f - b.minX * t.scale;
-  t.offsetY = (static_cast<float>(height) - drawH) * 0.5f - b.minY * t.scale;
-  return t;
-}
-
-symbols::Point2D ToImage(const RasterTransform &t, float x, float y,
-                         int height) {
-  return {x * t.scale + t.offsetX,
-          static_cast<float>(height) - (y * t.scale + t.offsetY)};
 }
 
 void SetPixel(symbols::ImageRGBA &img, int x, int y, uint8_t r, uint8_t g,
@@ -214,183 +110,126 @@ void FillPolygon(symbols::ImageRGBA &img, const std::vector<symbols::Point2D> &p
   }
 }
 
-std::vector<symbols::Point2D> BuildCircle(const RasterTransform &t, int h,
-                                          float cx, float cy, float radius) {
-  constexpr int kSegments = 48;
-  constexpr float kTwoPi = 6.28318530717958647692f;
-  std::vector<symbols::Point2D> pts;
-  pts.reserve(kSegments);
-  for (int i = 0; i < kSegments; ++i) {
-    const float a = (static_cast<float>(i) / static_cast<float>(kSegments)) * kTwoPi;
-    pts.push_back(ToImage(t, cx + std::cos(a) * radius, cy + std::sin(a) * radius, h));
-  }
-  return pts;
-}
+enum class ReferencePassMode {
+  ShapeBlack,
+  LineWhiteFill,
+};
 
-void RasterizeSymbol(const SymbolDefinition &def, symbols::ImageRGBA &shapeImg,
-                     symbols::ImageRGBA &lineImg) {
+class SymbolRasterBackend : public viewer2d::IViewer2DCommandBackend {
+public:
+  SymbolRasterBackend(symbols::ImageRGBA &img, ReferencePassMode mode)
+      : image_(img), mode_(mode) {}
+
+  void DrawLine(const viewer2d::Viewer2DRenderPoint &p0,
+                const viewer2d::Viewer2DRenderPoint &p1,
+                const CanvasStroke &stroke, double strokeWidthPx) override {
+    (void)stroke;
+    DrawLine(image_, {static_cast<float>(p0.x), static_cast<float>(p0.y)},
+             {static_cast<float>(p1.x), static_cast<float>(p1.y)},
+             StrokeThickness(strokeWidthPx), 0, 0, 0, 255);
+  }
+
+  void DrawPolyline(const std::vector<viewer2d::Viewer2DRenderPoint> &points,
+                    const CanvasStroke &stroke, double strokeWidthPx) override {
+    (void)stroke;
+    if (points.size() < 2)
+      return;
+    const int thick = StrokeThickness(strokeWidthPx);
+    for (size_t i = 1; i < points.size(); ++i) {
+      DrawLine(image_, {static_cast<float>(points[i - 1].x), static_cast<float>(points[i - 1].y)},
+               {static_cast<float>(points[i].x), static_cast<float>(points[i].y)}, thick,
+               0, 0, 0, 255);
+    }
+  }
+
+  void DrawPolygon(const std::vector<viewer2d::Viewer2DRenderPoint> &points,
+                   const CanvasStroke &stroke, const CanvasFill *fill,
+                   double strokeWidthPx) override {
+    if (points.empty())
+      return;
+
+    std::vector<symbols::Point2D> pts;
+    pts.reserve(points.size());
+    for (const auto &p : points)
+      pts.push_back({static_cast<float>(p.x), static_cast<float>(p.y)});
+
+    if (fill != nullptr) {
+      const uint8_t fillGray = (mode_ == ReferencePassMode::ShapeBlack) ? 0 : 255;
+      FillPolygon(image_, pts, fillGray, fillGray, fillGray, 255);
+    }
+
+    const int thick = StrokeThickness(strokeWidthPx);
+    for (size_t i = 0; i < pts.size(); ++i)
+      DrawLine(image_, pts[i], pts[(i + 1) % pts.size()], thick, 0, 0, 0, 255);
+  }
+
+  void DrawCircle(const viewer2d::Viewer2DRenderPoint &center, double radiusPx,
+                  const CanvasStroke &stroke, const CanvasFill *fill,
+                  double strokeWidthPx) override {
+    (void)stroke;
+    constexpr int kSegments = 48;
+    constexpr float kTwoPi = 6.28318530717958647692f;
+    std::vector<symbols::Point2D> pts;
+    pts.reserve(kSegments);
+    for (int i = 0; i < kSegments; ++i) {
+      const float angle =
+          (static_cast<float>(i) / static_cast<float>(kSegments)) * kTwoPi;
+      pts.push_back({static_cast<float>(center.x + std::cos(angle) * radiusPx),
+                     static_cast<float>(center.y + std::sin(angle) * radiusPx)});
+    }
+    if (fill != nullptr) {
+      const uint8_t fillGray = (mode_ == ReferencePassMode::ShapeBlack) ? 0 : 255;
+      FillPolygon(image_, pts, fillGray, fillGray, fillGray, 255);
+    }
+    const int thick = StrokeThickness(strokeWidthPx);
+    for (size_t i = 0; i < pts.size(); ++i)
+      DrawLine(image_, pts[i], pts[(i + 1) % pts.size()], thick, 0, 0, 0, 255);
+  }
+
+  void DrawText(const viewer2d::Viewer2DRenderText &text) override {
+    (void)text;
+  }
+
+private:
+  int StrokeThickness(double strokeWidthPx) const {
+    return std::clamp(static_cast<int>(std::ceil(strokeWidthPx * 0.25)), 1, 2);
+  }
+
+  symbols::ImageRGBA &image_;
+  ReferencePassMode mode_;
+};
+
+void RasterizeSymbol(const SymbolDefinition &def,
+                     const SymbolDefinitionSnapshot *snapshot,
+                     symbols::ImageRGBA &shapeImg, symbols::ImageRGBA &lineImg) {
   shapeImg.width = kRenderResolution;
   shapeImg.height = kRenderResolution;
   shapeImg.pixels.assign(static_cast<size_t>(kRenderResolution * kRenderResolution * 4), 0);
   lineImg = shapeImg;
 
-  Bounds b = ComputeBounds(def.localCommands);
-  if (!b.valid)
-    return;
-  const auto tf = BuildTransform(b, shapeImg.width, shapeImg.height);
-  auto renderPass = [&](symbols::ImageRGBA &img, bool drawStrokes,
-                        bool drawFills, uint8_t fillGray) {
-    CanvasState current;
-    std::vector<CanvasState> stack;
+  const float spanX = std::max(1e-4f, def.bounds.max.x - def.bounds.min.x);
+  const float spanY = std::max(1e-4f, def.bounds.max.y - def.bounds.min.y);
+  const double drawW = static_cast<double>(shapeImg.width) - 2.0 * kPadding;
+  const double drawH = static_cast<double>(shapeImg.height) - 2.0 * kPadding;
+  const double scale = std::max(0.001, std::min(drawW / spanX, drawH / spanY));
 
-    auto hasStroke = [&](size_t index) {
-      if (index >= def.localCommands.metadata.size())
-        return true;
-      return def.localCommands.metadata[index].hasStroke;
-    };
-    auto hasFill = [&](size_t index) {
-      if (index >= def.localCommands.metadata.size())
-        return true;
-      return def.localCommands.metadata[index].hasFill;
-    };
+  viewer2d::Viewer2DRenderMapping mapping;
+  mapping.minX = def.bounds.min.x;
+  mapping.minY = def.bounds.min.y;
+  mapping.scale = scale;
+  mapping.offsetX = (static_cast<double>(shapeImg.width) - spanX * scale) * 0.5;
+  mapping.offsetY = (static_cast<double>(shapeImg.height) - spanY * scale) * 0.5;
+  mapping.drawHeight = spanY * scale;
 
-    auto drawCommand = [&](const CanvasCommand &cmd, bool commandDrawStrokes,
-                           bool commandDrawFills) {
-      if (const auto *line = std::get_if<LineCommand>(&cmd)) {
-        const auto p0 = ApplyCanvasState(current, line->x0, line->y0);
-        const auto p1 = ApplyCanvasState(current, line->x1, line->y1);
-        const auto a = ToImage(tf, p0.x, p0.y, img.height);
-        const auto c = ToImage(tf, p1.x, p1.y, img.height);
-        const int thick = std::clamp(
-            static_cast<int>(std::ceil(line->stroke.width * current.scale * tf.scale * 0.25f)),
-            1, 2);
-        if (commandDrawStrokes)
-          DrawLine(img, a, c, thick, 0, 0, 0, 255);
-      } else if (const auto *polyline = std::get_if<PolylineCommand>(&cmd)) {
-        if (!commandDrawStrokes || polyline->points.size() < 4)
-          return;
-        const int thick = std::clamp(
-            static_cast<int>(std::ceil(polyline->stroke.width * current.scale * tf.scale * 0.25f)),
-            1, 2);
-        for (size_t i = 0; i + 3 < polyline->points.size(); i += 2) {
-          const auto p0 =
-              ApplyCanvasState(current, polyline->points[i], polyline->points[i + 1]);
-          const auto p1 =
-              ApplyCanvasState(current, polyline->points[i + 2], polyline->points[i + 3]);
-          const auto a = ToImage(tf, p0.x, p0.y, img.height);
-          const auto c = ToImage(tf, p1.x, p1.y, img.height);
-          DrawLine(img, a, c, thick, 0, 0, 0, 255);
-        }
-      } else if (const auto *polygon = std::get_if<PolygonCommand>(&cmd)) {
-        std::vector<symbols::Point2D> pts;
-        pts.reserve(polygon->points.size() / 2);
-        for (size_t i = 0; i + 1 < polygon->points.size(); i += 2) {
-          const auto p =
-              ApplyCanvasState(current, polygon->points[i], polygon->points[i + 1]);
-          pts.push_back(ToImage(tf, p.x, p.y, img.height));
-        }
-        if (commandDrawFills && polygon->hasFill)
-          FillPolygon(img, pts, fillGray, fillGray, fillGray, 255);
-        if (commandDrawStrokes) {
-          const int thick = std::clamp(
-              static_cast<int>(std::ceil(polygon->stroke.width * current.scale * tf.scale * 0.25f)),
-              1, 2);
-          for (size_t i = 0; i < pts.size(); ++i)
-            DrawLine(img, pts[i], pts[(i + 1) % pts.size()], thick, 0, 0, 0, 255);
-        }
-      } else if (const auto *rect = std::get_if<RectangleCommand>(&cmd)) {
-        const auto p0 = ApplyCanvasState(current, rect->x, rect->y);
-        const auto p1 = ApplyCanvasState(current, rect->x + rect->w, rect->y);
-        const auto p2 = ApplyCanvasState(current, rect->x + rect->w, rect->y + rect->h);
-        const auto p3 = ApplyCanvasState(current, rect->x, rect->y + rect->h);
-        std::vector<symbols::Point2D> pts = {
-            ToImage(tf, p0.x, p0.y, img.height), ToImage(tf, p1.x, p1.y, img.height),
-            ToImage(tf, p2.x, p2.y, img.height), ToImage(tf, p3.x, p3.y, img.height)};
-        if (commandDrawFills && rect->hasFill)
-          FillPolygon(img, pts, fillGray, fillGray, fillGray, 255);
-        if (commandDrawStrokes) {
-          const int thick = std::clamp(
-              static_cast<int>(std::ceil(rect->stroke.width * current.scale * tf.scale * 0.25f)),
-              1, 2);
-          for (size_t i = 0; i < pts.size(); ++i)
-            DrawLine(img, pts[i], pts[(i + 1) % pts.size()], thick, 0, 0, 0, 255);
-        }
-      } else if (const auto *circle = std::get_if<CircleCommand>(&cmd)) {
-        const auto center = ApplyCanvasState(current, circle->cx, circle->cy);
-        const float radius = circle->radius * current.scale;
-        auto pts = BuildCircle(tf, img.height, center.x, center.y, radius);
-        if (commandDrawFills && circle->hasFill)
-          FillPolygon(img, pts, fillGray, fillGray, fillGray, 255);
-        if (commandDrawStrokes) {
-          const int thick = std::clamp(
-              static_cast<int>(std::ceil(circle->stroke.width * current.scale * tf.scale * 0.25f)),
-              1, 2);
-          for (size_t i = 0; i < pts.size(); ++i)
-            DrawLine(img, pts[i], pts[(i + 1) % pts.size()], thick, 0, 0, 0, 255);
-        }
-      } else if (std::get_if<SaveCommand>(&cmd)) {
-        stack.push_back(current);
-      } else if (std::get_if<RestoreCommand>(&cmd)) {
-        if (!stack.empty()) {
-          current = stack.back();
-          stack.pop_back();
-        }
-      } else if (const auto *transform = std::get_if<TransformCommand>(&cmd)) {
-        current.scale = transform->transform.scale;
-        current.offsetX = transform->transform.offsetX;
-        current.offsetY = transform->transform.offsetY;
-      }
-    };
+  SymbolRasterBackend shapeBackend(shapeImg, ReferencePassMode::ShapeBlack);
+  viewer2d::Viewer2DCommandRenderer shapeRenderer(mapping, shapeBackend, snapshot);
+  shapeRenderer.Render(def.localCommands);
 
-    std::vector<size_t> groupedIndices;
-    std::string currentSource;
-    auto flushGroup = [&]() {
-      for (const auto index : groupedIndices) {
-        const bool commandDrawStrokes = drawStrokes && hasStroke(index);
-        const bool commandDrawFills = drawFills && hasFill(index);
-        drawCommand(def.localCommands.commands[index], commandDrawStrokes,
-                    commandDrawFills);
-      }
-      groupedIndices.clear();
-    };
-
-    for (size_t i = 0; i < def.localCommands.commands.size(); ++i) {
-      const auto &cmd = def.localCommands.commands[i];
-      const bool isBarrier = std::visit(
-          [](auto &&c) {
-            using T = std::decay_t<decltype(c)>;
-            return std::is_same_v<T, SaveCommand> || std::is_same_v<T, RestoreCommand> ||
-                   std::is_same_v<T, TransformCommand> ||
-                   std::is_same_v<T, BeginSymbolCommand> ||
-                   std::is_same_v<T, EndSymbolCommand> ||
-                   std::is_same_v<T, PlaceSymbolCommand> ||
-                   std::is_same_v<T, SymbolInstanceCommand> ||
-                   std::is_same_v<T, TextCommand>;
-          },
-          cmd);
-
-      if (isBarrier) {
-        flushGroup();
-        drawCommand(cmd, false, false);
-        continue;
-      }
-
-      if (groupedIndices.empty() && i < def.localCommands.sources.size())
-        currentSource = def.localCommands.sources[i];
-      if (i < def.localCommands.sources.size() &&
-          def.localCommands.sources[i] != currentSource) {
-        flushGroup();
-        currentSource = def.localCommands.sources[i];
-      }
-      groupedIndices.push_back(i);
-    }
-
-    flushGroup();
-  };
-
-  renderPass(shapeImg, true, true, 0);
-  renderPass(lineImg, true, true, 255);
+  SymbolRasterBackend lineBackend(lineImg, ReferencePassMode::LineWhiteFill);
+  viewer2d::Viewer2DCommandRenderer lineRenderer(mapping, lineBackend, snapshot);
+  lineRenderer.Render(def.localCommands);
 }
+
 
 symbols::ImageRGBA ResizeNearest(const symbols::ImageRGBA &src, int targetW,
                                 int targetH) {
@@ -531,7 +370,7 @@ bool BuildSymbolsFromViewer2DPipeline(Viewer2DPanel &panel,
 
     symbols::ImageRGBA shapeImg;
     symbols::ImageRGBA lineImg;
-    RasterizeSymbol(*found, shapeImg, lineImg);
+    RasterizeSymbol(*found, snapshot.get(), shapeImg, lineImg);
 
     SymbolReferenceViews refs;
     refs.view = view;
