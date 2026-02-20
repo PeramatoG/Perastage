@@ -823,6 +823,12 @@ void Viewer3DController::UpdateResourcesIfDirty() {
     ++m_impl->sceneVersion;
     m_impl->sceneChangedDirty = true;
     std::lock_guard<std::mutex> lock(m_impl->sortedListsMutex);
+    // Scene removals invalidate pointers stored in the sorted entry caches.
+    // Clear them immediately so fast-interaction frames (which may defer the
+    // rebuild) never dereference stale entries.
+    m_impl->sortedObjects.clear();
+    m_impl->sortedTrusses.clear();
+    m_impl->sortedFixtures.clear();
     m_impl->sortedListsDirty = true;
   }
   if (syncResult.assetsChanged) {
