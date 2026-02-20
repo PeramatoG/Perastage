@@ -124,7 +124,16 @@ bool TryAllocatePixelBuffer(std::vector<unsigned char> &pixels, int width,
   const size_t totalPixels =
       static_cast<size_t>(width) * static_cast<size_t>(height);
   const size_t totalBytes = totalPixels * 4;
-  if (totalPixels > kMaxRenderPixels || totalBytes > kMaxRenderBytes) {
+  if (totalBytes > kMaxRenderBytes) {
+    Logger::Instance().Log(
+        std::string("LayoutViewerPanel: ") + context +
+        " render buffer exceeds kMaxRenderBytes (" +
+        std::to_string(totalBytes) + " > " + std::to_string(kMaxRenderBytes) +
+        ") for " + std::to_string(width) + "x" + std::to_string(height) +
+        ".");
+    return false;
+  }
+  if (totalPixels > kMaxRenderPixels) {
     Logger::Instance().Log(
         std::string("LayoutViewerPanel: ") + context +
         " render buffer too large (" + std::to_string(width) + "x" +
@@ -1525,6 +1534,10 @@ void LayoutViewerPanel::RebuildCachedTexture() {
     if (!currentLayout.legendViews.empty()) {
       legendSymbols = CaptureLegendSymbolSnapshot(capturePanel, cfg, true);
     }
+    std::vector<unsigned char> legendPixels;
+    std::vector<unsigned char> eventTablePixels;
+    std::vector<unsigned char> textPixels;
+    std::vector<unsigned char> imagePixels;
     const double renderZoom = GetRenderZoom();
     for (const auto &view : currentLayout.view2dViews) {
       ViewCache &cache = GetViewCache(view.id);
@@ -1597,6 +1610,7 @@ void LayoutViewerPanel::RebuildCachedTexture() {
       }
       cache.textureSize = wxSize(width, height);
       cache.renderZoom = renderZoom;
+      std::vector<unsigned char>().swap(pixels);
     }
   
     for (const auto &legend : currentLayout.legendViews) {
@@ -1643,18 +1657,17 @@ void LayoutViewerPanel::RebuildCachedTexture() {
         continue;
       }
   
-      std::vector<unsigned char> pixels;
-      if (!TryAllocatePixelBuffer(pixels, width, height, "legend")) {
+      if (!TryAllocatePixelBuffer(legendPixels, width, height, "legend")) {
         ClearCachedTexture(cache);
         cache.textureSize = wxSize(0, 0);
         cache.renderZoom = 0.0;
         continue;
       }
       for (int i = 0; i < width * height; ++i) {
-        pixels[static_cast<size_t>(i) * 4] = rgb[i * 3];
-        pixels[static_cast<size_t>(i) * 4 + 1] = rgb[i * 3 + 1];
-        pixels[static_cast<size_t>(i) * 4 + 2] = rgb[i * 3 + 2];
-        pixels[static_cast<size_t>(i) * 4 + 3] = alpha ? alpha[i] : 255;
+        legendPixels[static_cast<size_t>(i) * 4] = rgb[i * 3];
+        legendPixels[static_cast<size_t>(i) * 4 + 1] = rgb[i * 3 + 1];
+        legendPixels[static_cast<size_t>(i) * 4 + 2] = rgb[i * 3 + 2];
+        legendPixels[static_cast<size_t>(i) * 4 + 3] = alpha ? alpha[i] : 255;
       }
   
       if (!InitGL()) {
@@ -1673,7 +1686,7 @@ void LayoutViewerPanel::RebuildCachedTexture() {
       glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
       ScopedActivePixelUnpackPbo scopedPbo(cache.pixelUnpackPbo,
                                            cache.pboBytes);
-      if (!UploadRgbaToTexture(cache.texture, width, height, pixels.data(),
+      if (!UploadRgbaToTexture(cache.texture, width, height, legendPixels.data(),
                                cache.textureSize, true)) {
         ClearCachedTexture(cache);
         cache.textureSize = wxSize(0, 0);
@@ -1683,6 +1696,7 @@ void LayoutViewerPanel::RebuildCachedTexture() {
       cache.textureSize = wxSize(width, height);
       cache.renderZoom = renderZoom;
       cache.contentHash = legendDataHash;
+      legendPixels.clear();
     }
   
     for (const auto &table : currentLayout.eventTables) {
@@ -1726,8 +1740,8 @@ void LayoutViewerPanel::RebuildCachedTexture() {
         continue;
       }
   
-      std::vector<unsigned char> pixels;
-      if (!TryAllocatePixelBuffer(pixels, width, height, "event table")) {
+      if (!TryAllocatePixelBuffer(eventTablePixels, width, height,
+                                  "event table")) {
         ClearCachedTexture(cache);
         cache.textureSize = wxSize(0, 0);
         cache.renderZoom = 0.0;
@@ -1747,10 +1761,10 @@ void LayoutViewerPanel::RebuildCachedTexture() {
           b = static_cast<unsigned char>(
               std::min(255, static_cast<int>(b) * 255 / a));
         }
-        pixels[static_cast<size_t>(i) * 4] = r;
-        pixels[static_cast<size_t>(i) * 4 + 1] = g;
-        pixels[static_cast<size_t>(i) * 4 + 2] = b;
-        pixels[static_cast<size_t>(i) * 4 + 3] = a;
+        eventTablePixels[static_cast<size_t>(i) * 4] = r;
+        eventTablePixels[static_cast<size_t>(i) * 4 + 1] = g;
+        eventTablePixels[static_cast<size_t>(i) * 4 + 2] = b;
+        eventTablePixels[static_cast<size_t>(i) * 4 + 3] = a;
       }
   
       if (!InitGL()) {
@@ -1769,8 +1783,9 @@ void LayoutViewerPanel::RebuildCachedTexture() {
       glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
       ScopedActivePixelUnpackPbo scopedPbo(cache.pixelUnpackPbo,
                                            cache.pboBytes);
-      if (!UploadRgbaToTexture(cache.texture, width, height, pixels.data(),
-                               cache.textureSize, true)) {
+      if (!UploadRgbaToTexture(cache.texture, width, height,
+                               eventTablePixels.data(), cache.textureSize,
+                               true)) {
         ClearCachedTexture(cache);
         cache.textureSize = wxSize(0, 0);
         cache.renderZoom = 0.0;
@@ -1779,6 +1794,7 @@ void LayoutViewerPanel::RebuildCachedTexture() {
       cache.textureSize = wxSize(width, height);
       cache.renderZoom = renderZoom;
       cache.contentHash = dataHash;
+      eventTablePixels.clear();
     }
   
     for (const auto &text : currentLayout.textViews) {
@@ -1821,8 +1837,7 @@ void LayoutViewerPanel::RebuildCachedTexture() {
         continue;
       }
   
-      std::vector<unsigned char> pixels;
-      if (!TryAllocatePixelBuffer(pixels, width, height, "text")) {
+      if (!TryAllocatePixelBuffer(textPixels, width, height, "text")) {
         ClearCachedTexture(cache);
         cache.textureSize = wxSize(0, 0);
         cache.renderZoom = 0.0;
@@ -1842,10 +1857,10 @@ void LayoutViewerPanel::RebuildCachedTexture() {
           b = static_cast<unsigned char>(
               std::min(255, static_cast<int>(b) * 255 / a));
         }
-        pixels[static_cast<size_t>(i) * 4] = r;
-        pixels[static_cast<size_t>(i) * 4 + 1] = g;
-        pixels[static_cast<size_t>(i) * 4 + 2] = b;
-        pixels[static_cast<size_t>(i) * 4 + 3] = a;
+        textPixels[static_cast<size_t>(i) * 4] = r;
+        textPixels[static_cast<size_t>(i) * 4 + 1] = g;
+        textPixels[static_cast<size_t>(i) * 4 + 2] = b;
+        textPixels[static_cast<size_t>(i) * 4 + 3] = a;
       }
   
       if (!InitGL()) {
@@ -1864,7 +1879,7 @@ void LayoutViewerPanel::RebuildCachedTexture() {
       glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
       ScopedActivePixelUnpackPbo scopedPbo(cache.pixelUnpackPbo,
                                            cache.pboBytes);
-      if (!UploadRgbaToTexture(cache.texture, width, height, pixels.data(),
+      if (!UploadRgbaToTexture(cache.texture, width, height, textPixels.data(),
                                cache.textureSize, true)) {
         ClearCachedTexture(cache);
         cache.textureSize = wxSize(0, 0);
@@ -1874,6 +1889,7 @@ void LayoutViewerPanel::RebuildCachedTexture() {
       cache.textureSize = wxSize(width, height);
       cache.renderZoom = renderZoom;
       cache.contentHash = dataHash;
+      textPixels.clear();
     }
   
     for (const auto &image : currentLayout.imageViews) {
@@ -1935,18 +1951,17 @@ void LayoutViewerPanel::RebuildCachedTexture() {
         continue;
       }
   
-      std::vector<unsigned char> pixels;
-      if (!TryAllocatePixelBuffer(pixels, width, height, "image")) {
+      if (!TryAllocatePixelBuffer(imagePixels, width, height, "image")) {
         ClearCachedTexture(cache);
         cache.textureSize = wxSize(0, 0);
         cache.renderZoom = 0.0;
         continue;
       }
       for (int i = 0; i < width * height; ++i) {
-        pixels[static_cast<size_t>(i) * 4] = rgb[i * 3];
-        pixels[static_cast<size_t>(i) * 4 + 1] = rgb[i * 3 + 1];
-        pixels[static_cast<size_t>(i) * 4 + 2] = rgb[i * 3 + 2];
-        pixels[static_cast<size_t>(i) * 4 + 3] = alpha ? alpha[i] : 255;
+        imagePixels[static_cast<size_t>(i) * 4] = rgb[i * 3];
+        imagePixels[static_cast<size_t>(i) * 4 + 1] = rgb[i * 3 + 1];
+        imagePixels[static_cast<size_t>(i) * 4 + 2] = rgb[i * 3 + 2];
+        imagePixels[static_cast<size_t>(i) * 4 + 3] = alpha ? alpha[i] : 255;
       }
   
       if (!InitGL()) {
@@ -1965,7 +1980,7 @@ void LayoutViewerPanel::RebuildCachedTexture() {
       glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
       ScopedActivePixelUnpackPbo scopedPbo(cache.pixelUnpackPbo,
                                            cache.pboBytes);
-      if (!UploadRgbaToTexture(cache.texture, width, height, pixels.data(),
+      if (!UploadRgbaToTexture(cache.texture, width, height, imagePixels.data(),
                                cache.textureSize, true)) {
         ClearCachedTexture(cache);
         cache.textureSize = wxSize(0, 0);
@@ -1975,6 +1990,7 @@ void LayoutViewerPanel::RebuildCachedTexture() {
       cache.textureSize = wxSize(width, height);
       cache.renderZoom = renderZoom;
       cache.contentHash = dataHash;
+      imagePixels.clear();
     }
   
     clearLoadingState();
