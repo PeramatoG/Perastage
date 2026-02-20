@@ -20,6 +20,7 @@ namespace {
 // Keep this moderate to avoid UI stalls when skeletonizing on the main thread.
 constexpr int kRenderResolution = 384;
 constexpr float kPadding = 24.0f;
+constexpr int kMaxProcessingResolution = 384;
 
 struct RasterTransform {
   float scale = 1.0f;
@@ -352,6 +353,50 @@ void RasterizeSymbol(const SymbolDefinition &def, symbols::ImageRGBA &shapeImg,
   }
 }
 
+symbols::ImageRGBA ResizeNearest(const symbols::ImageRGBA &src, int targetW,
+                                int targetH) {
+  if (src.width <= 0 || src.height <= 0 || src.pixels.empty() || targetW <= 0 ||
+      targetH <= 0) {
+    return {};
+  }
+  if (src.width == targetW && src.height == targetH)
+    return src;
+
+  symbols::ImageRGBA dst;
+  dst.width = targetW;
+  dst.height = targetH;
+  dst.pixels.assign(static_cast<size_t>(targetW * targetH * 4), 0);
+
+  for (int y = 0; y < targetH; ++y) {
+    const int srcY = std::clamp((y * src.height) / targetH, 0, src.height - 1);
+    for (int x = 0; x < targetW; ++x) {
+      const int srcX = std::clamp((x * src.width) / targetW, 0, src.width - 1);
+      const size_t srcIdx = static_cast<size_t>((srcY * src.width + srcX) * 4);
+      const size_t dstIdx = static_cast<size_t>((y * targetW + x) * 4);
+      dst.pixels[dstIdx] = src.pixels[srcIdx];
+      dst.pixels[dstIdx + 1] = src.pixels[srcIdx + 1];
+      dst.pixels[dstIdx + 2] = src.pixels[srcIdx + 2];
+      dst.pixels[dstIdx + 3] = src.pixels[srcIdx + 3];
+    }
+  }
+
+  return dst;
+}
+
+symbols::ImageRGBA BuildProcessingImage(const symbols::ImageRGBA &src) {
+  if (src.width <= kMaxProcessingResolution &&
+      src.height <= kMaxProcessingResolution) {
+    return src;
+  }
+
+  const float scale = std::min(
+      static_cast<float>(kMaxProcessingResolution) / static_cast<float>(src.width),
+      static_cast<float>(kMaxProcessingResolution) / static_cast<float>(src.height));
+  const int targetW = std::max(1, static_cast<int>(std::lround(src.width * scale)));
+  const int targetH = std::max(1, static_cast<int>(std::lround(src.height * scale)));
+  return ResizeNearest(src, targetW, targetH);
+}
+
 symbols::Aabb2D ComputeBoundsFromGeometry(const symbols::Symbol2D &symbol) {
   symbols::Aabb2D bounds{};
   bool hasBounds = false;
@@ -580,18 +625,22 @@ bool BuildSymbolsFromViewer2DPipeline(Viewer2DPanel &panel,
     refs.line.rgba = lineImg.pixels;
     outReferences.push_back(std::move(refs));
 
-    auto shapeMask = symbols::ExtractShapeMask(shapeImg);
-    auto lineMask = symbols::ExtractLineMask(lineImg);
-    symbols::MorphClose(shapeMask, shapeImg.width, shapeImg.height);
+    const auto shapeProcessingImg = BuildProcessingImage(shapeImg);
+    const auto lineProcessingImg = BuildProcessingImage(lineImg);
+
+    auto shapeMask = symbols::ExtractShapeMask(shapeProcessingImg);
+    auto lineMask = symbols::ExtractLineMask(lineProcessingImg);
+    symbols::MorphClose(shapeMask, shapeProcessingImg.width, shapeProcessingImg.height);
 
     symbols::Symbol2D symbol;
     symbol.view = view;
     symbol.stroke_width_px = 2.0f;
-    symbol.fill = symbols::TraceFillPolygons(shapeMask, shapeImg.width, shapeImg.height,
-                                             1.5f);
-    auto skeleton = symbols::SkeletonizeMask(lineMask, lineImg.width, lineImg.height);
-    symbol.strokes = symbols::SkeletonToPolylines(skeleton, lineImg.width,
-                                                  lineImg.height, 6.0f, 1.0f);
+    symbol.fill = symbols::TraceFillPolygons(shapeMask, shapeProcessingImg.width,
+                                             shapeProcessingImg.height, 1.5f);
+    auto skeleton = symbols::SkeletonizeMask(lineMask, lineProcessingImg.width,
+                                             lineProcessingImg.height);
+    symbol.strokes = symbols::SkeletonToPolylines(
+        skeleton, lineProcessingImg.width, lineProcessingImg.height, 6.0f, 1.0f);
     symbol.bounds = ComputeBoundsFromGeometry(symbol);
 
     size_t fillVertices = 0;
@@ -603,7 +652,9 @@ bool BuildSymbolsFromViewer2DPipeline(Viewer2DPanel &panel,
 
     std::ostringstream ss;
     ss << "View " << symbols::ToString(view)
-       << ": masks from Viewer2D symbol image, fill=" << symbol.fill.size()
+       << ": masks from Viewer2D symbol image (processing "
+       << shapeProcessingImg.width << "x" << shapeProcessingImg.height << "), fill="
+       << symbol.fill.size()
        << " polygons, fillVertices=" << fillVertices << ", strokes="
        << symbol.strokes.size() << ", strokePoints=" << strokePoints;
     outLogLines.push_back(ss.str());
