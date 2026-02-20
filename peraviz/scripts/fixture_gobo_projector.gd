@@ -1,6 +1,8 @@
 extends RefCounted
 class_name FixtureGoboProjector
 
+const FAKE_GOBO_TEXTURE_SIZE: int = 128
+
 var _texture_cache: Dictionary = {}
 
 func clear_cache() -> void:
@@ -13,18 +15,19 @@ func apply_gobo_projection(light: SpotLight3D, controls: Dictionary) -> void:
 		light.light_projector = null
 		return
 
-	var active_slot_index: int = _resolve_active_gobo_slot_index(controls)
+	var gobo_raw_8bit: int = _resolve_gobo_raw_8bit(controls)
+	var active_slot_index: int = _resolve_active_gobo_slot_index(controls, gobo_raw_8bit)
 	if active_slot_index <= 0:
-		light.light_projector = null
+		light.light_projector = _resolve_fake_gobo_texture(gobo_raw_8bit)
 		return
 
 	var gobo_texture: Texture2D = _resolve_gobo_texture_for_slot(controls, active_slot_index)
+	if gobo_texture == null:
+		light.light_projector = _resolve_fake_gobo_texture(gobo_raw_8bit)
+		return
 	light.light_projector = gobo_texture
 
-func _resolve_active_gobo_slot_index(controls: Dictionary) -> int:
-	var gobo_ranges: Array = controls.get("gobo_ranges", [])
-	if gobo_ranges.is_empty():
-		return -1
+func _resolve_gobo_raw_8bit(controls: Dictionary) -> int:
 	var gobo_raw: int = int(round(clamp(float(controls.get("gobo_norm", 0.0)), 0.0, 1.0) * 255.0))
 	if controls.has("gobo_raw_value") and controls.has("gobo_resolution_bits"):
 		var raw_value: int = int(controls.get("gobo_raw_value", gobo_raw))
@@ -34,7 +37,12 @@ func _resolve_active_gobo_slot_index(controls: Dictionary) -> int:
 			gobo_raw = raw_value >> shift_bits
 		else:
 			gobo_raw = raw_value
-	gobo_raw = clampi(gobo_raw, 0, 255)
+	return clampi(gobo_raw, 0, 255)
+
+func _resolve_active_gobo_slot_index(controls: Dictionary, gobo_raw_8bit: int) -> int:
+	var gobo_ranges: Array = controls.get("gobo_ranges", [])
+	if gobo_ranges.is_empty():
+		return -1
 
 	for item in gobo_ranges:
 		if item is not Dictionary:
@@ -45,7 +53,7 @@ func _resolve_active_gobo_slot_index(controls: Dictionary) -> int:
 			var swap_value: int = dmx_from
 			dmx_from = dmx_to
 			dmx_to = swap_value
-		if gobo_raw >= dmx_from and gobo_raw <= dmx_to:
+		if gobo_raw_8bit >= dmx_from and gobo_raw_8bit <= dmx_to:
 			return int(item.get("slot_index", -1))
 	return -1
 
@@ -69,3 +77,27 @@ func _resolve_gobo_texture_for_slot(controls: Dictionary, slot_index: int) -> Te
 		_texture_cache[image_path] = texture
 		return texture
 	return null
+
+func _resolve_fake_gobo_texture(gobo_raw_8bit: int) -> Texture2D:
+	var fake_bucket: int = gobo_raw_8bit / 8
+	var cache_key: String = "__fake_gobo_%d" % fake_bucket
+	if _texture_cache.has(cache_key):
+		return _texture_cache[cache_key] as Texture2D
+
+	var image := Image.create(FAKE_GOBO_TEXTURE_SIZE, FAKE_GOBO_TEXTURE_SIZE, false, Image.FORMAT_RGBA8)
+	image.fill(Color(0.0, 0.0, 0.0, 1.0))
+
+	var stripe_step: int = max(4, int(4 + (fake_bucket % 12) * 2))
+	var radius: float = float(FAKE_GOBO_TEXTURE_SIZE) * (0.18 + 0.015 * float(fake_bucket % 10))
+	var center: Vector2 = Vector2(FAKE_GOBO_TEXTURE_SIZE, FAKE_GOBO_TEXTURE_SIZE) * 0.5
+	for y in range(FAKE_GOBO_TEXTURE_SIZE):
+		for x in range(FAKE_GOBO_TEXTURE_SIZE):
+			var uv: Vector2 = Vector2(float(x), float(y)) - center
+			var dist: float = uv.length()
+			var stripe: bool = ((x + y + fake_bucket) % stripe_step) < (stripe_step / 2)
+			if dist < radius and stripe:
+				image.set_pixel(x, y, Color(1.0, 1.0, 1.0, 1.0))
+
+	var texture: ImageTexture = ImageTexture.create_from_image(image)
+	_texture_cache[cache_key] = texture
+	return texture
