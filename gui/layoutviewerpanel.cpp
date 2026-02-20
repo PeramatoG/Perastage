@@ -1610,6 +1610,7 @@ void LayoutViewerPanel::RebuildCachedTexture() {
       }
       cache.textureSize = wxSize(width, height);
       cache.renderZoom = renderZoom;
+      cache.contentHash = HashViewContent(view);
       std::vector<unsigned char>().swap(pixels);
     }
   
@@ -2230,122 +2231,6 @@ void LayoutViewerPanel::RequestRenderRebuild() {
     }
     panel->renderDelayTimer_.StartOnce(kLoadingOverlayDelayMs);
   });
-}
-
-void LayoutViewerPanel::InvalidateRenderIfFrameChanged() {
-  const double renderZoom = GetRenderZoom();
-  const double pageWidth = currentLayout.pageSetup.PageWidthPt();
-  const double pageHeight = currentLayout.pageSetup.PageHeightPt();
-  const bool zoomChanged = lastRenderZoom != renderZoom;
-  const bool pageChanged =
-      lastPageWidthPt != pageWidth || lastPageHeightPt != pageHeight;
-  auto markDirty = [&](bool &cacheDirty) {
-    if (cacheDirty)
-      return;
-    cacheDirty = true;
-  };
-
-  for (const auto &view : currentLayout.view2dViews) {
-    ViewCache &cache = GetViewCache(view.id);
-    wxRect frameRect;
-    if (!GetFrameRect(view.frame, frameRect)) {
-      if (cache.texture != 0) {
-        markDirty(cache.renderDirty);
-        ClearCachedTexture(cache);
-        cache.textureSize = wxSize(0, 0);
-        cache.renderZoom = 0.0;
-      }
-      continue;
-    }
-    const wxSize renderSize = GetFrameSizeForZoom(view.frame, renderZoom);
-    if (cache.renderZoom == 0.0 || cache.renderZoom != renderZoom ||
-        renderSize != cache.textureSize) {
-      markDirty(cache.renderDirty);
-    }
-  }
-
-  for (const auto &legend : currentLayout.legendViews) {
-    LegendCache &cache = GetLegendCache(legend.id);
-    wxRect frameRect;
-    if (!GetFrameRect(legend.frame, frameRect)) {
-      if (cache.texture != 0) {
-        markDirty(cache.renderDirty);
-        ClearCachedTexture(cache);
-        cache.textureSize = wxSize(0, 0);
-        cache.renderZoom = 0.0;
-      }
-      continue;
-    }
-    const wxSize renderSize = GetFrameSizeForZoom(legend.frame, renderZoom);
-    if (cache.renderZoom == 0.0 || cache.renderZoom != renderZoom ||
-        renderSize != cache.textureSize) {
-      markDirty(cache.renderDirty);
-    }
-  }
-
-  for (const auto &table : currentLayout.eventTables) {
-    EventTableCache &cache = GetEventTableCache(table.id);
-    wxRect frameRect;
-    if (!GetFrameRect(table.frame, frameRect)) {
-      if (cache.texture != 0) {
-        markDirty(cache.renderDirty);
-        ClearCachedTexture(cache);
-        cache.textureSize = wxSize(0, 0);
-        cache.renderZoom = 0.0;
-      }
-      continue;
-    }
-    const wxSize renderSize = GetFrameSizeForZoom(table.frame, renderZoom);
-    if (cache.renderZoom == 0.0 || cache.renderZoom != renderZoom ||
-        renderSize != cache.textureSize) {
-      markDirty(cache.renderDirty);
-    }
-  }
-
-  for (const auto &text : currentLayout.textViews) {
-    TextCache &cache = GetTextCache(text.id);
-    wxRect frameRect;
-    if (!GetFrameRect(text.frame, frameRect)) {
-      if (cache.texture != 0) {
-        markDirty(cache.renderDirty);
-        ClearCachedTexture(cache);
-        cache.textureSize = wxSize(0, 0);
-        cache.renderZoom = 0.0;
-      }
-      continue;
-    }
-    const wxSize renderSize = GetFrameSizeForZoom(text.frame, renderZoom);
-    if (cache.renderZoom == 0.0 || cache.renderZoom != renderZoom ||
-        renderSize != cache.textureSize) {
-      markDirty(cache.renderDirty);
-    }
-  }
-
-  for (const auto &image : currentLayout.imageViews) {
-    ImageCache &cache = GetImageCache(image.id);
-    wxRect frameRect;
-    if (!GetFrameRect(image.frame, frameRect)) {
-      if (cache.texture != 0) {
-        markDirty(cache.renderDirty);
-        ClearCachedTexture(cache);
-        cache.textureSize = wxSize(0, 0);
-        cache.renderZoom = 0.0;
-      }
-      continue;
-    }
-    const wxSize renderSize = GetFrameSizeForZoom(image.frame, renderZoom);
-    if (cache.renderZoom == 0.0 || cache.renderZoom != renderZoom ||
-        renderSize != cache.textureSize) {
-      markDirty(cache.renderDirty);
-    }
-  }
-
-  if (zoomChanged || pageChanged) {
-    renderDirty = true;
-  }
-  lastRenderZoom = renderZoom;
-  lastPageWidthPt = pageWidth;
-  lastPageHeightPt = pageHeight;
 }
 
 void LayoutViewerPanel::OnLoadingTimer(wxTimerEvent &) {
