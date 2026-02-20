@@ -120,6 +120,12 @@ add_executable(${PROJECT_NAME} main.cpp
     mvr/mvrexporter.cpp
 )
 
+target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_20)
+
+if(MSVC)
+    target_compile_options(${PROJECT_NAME} PRIVATE /Zc:__cplusplus)
+endif()
+
 add_subdirectory(core)
 add_subdirectory(gui)
 add_subdirectory(viewer2d)
