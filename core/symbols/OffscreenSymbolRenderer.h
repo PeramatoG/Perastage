@@ -27,6 +27,7 @@ struct RenderResult {
 class OffscreenSymbolRenderer {
 public:
   RenderResult RenderFixtureTechnical(const std::string &gdtfSpec,
+                                      const std::string &sceneBasePath,
                                       SymbolView view,
                                       int width,
                                       int height,

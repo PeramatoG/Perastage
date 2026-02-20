@@ -11,6 +11,7 @@ class Symbol2DBuilder {
 public:
   SymbolCollection BuildForFixture(const std::string &fixtureTypeId,
                                    const std::string &gdtfSpec,
+                                   const std::string &sceneBasePath,
                                    const SymbolBuildParams &params = SymbolBuildParams{});
 
 private:

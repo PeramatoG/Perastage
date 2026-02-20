@@ -4,6 +4,8 @@
 #include <wx/graphics.h>
 #include <wx/sizer.h>
 #include <wx/settings.h>
+#include <wx/stattext.h>
+#include <wx/textctrl.h>
 
 #include <algorithm>
 
@@ -124,11 +126,24 @@ void SymbolPreviewPanel::OnPaint(wxPaintEvent &) {
                  FindSymbol(symbols_, symbols::SymbolView::Bottom), "Bottom");
 }
 
-SymbolPreviewWindow::SymbolPreviewWindow(wxWindow *parent,
-                                         const symbols::SymbolCollection &symbols)
+SymbolPreviewWindow::SymbolPreviewWindow(
+    wxWindow *parent,
+    const symbols::SymbolCollection &symbols,
+    const std::vector<wxString> &generationLog)
     : wxFrame(parent, wxID_ANY, "Generated Fixture Symbols", wxDefaultPosition,
               wxSize(960, 720), wxDEFAULT_FRAME_STYLE | wxFRAME_FLOAT_ON_PARENT) {
   auto *sizer = new wxBoxSizer(wxVERTICAL);
   sizer->Add(new SymbolPreviewPanel(this, symbols), 1, wxEXPAND | wxALL, 8);
+
+  auto *title = new wxStaticText(this, wxID_ANY, "Generation log");
+  sizer->Add(title, 0, wxLEFT | wxRIGHT | wxTOP, 8);
+
+  auto *logCtrl = new wxTextCtrl(this, wxID_ANY, "", wxDefaultPosition,
+                                 wxSize(-1, 130),
+                                 wxTE_MULTILINE | wxTE_READONLY);
+  for (const auto &line : generationLog)
+    logCtrl->AppendText(line + "\n");
+  sizer->Add(logCtrl, 0, wxEXPAND | wxALL, 8);
+
   SetSizer(sizer);
 }

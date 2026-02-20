@@ -1,17 +1,45 @@
 #include "symbols/OffscreenSymbolRenderer.h"
 
 #include "gdtfloader.h"
-#include "matrixutils.h"
 #include "projectutils.h"
 
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <filesystem>
 #include <limits>
-#include <unordered_map>
 
 namespace symbols {
 namespace {
+
+std::string ResolveGdtfPath(const std::string &gdtfSpec,
+                            const std::string &sceneBasePath) {
+  namespace fs = std::filesystem;
+
+  if (gdtfSpec.empty())
+    return {};
+
+  std::error_code ec;
+  const fs::path specPath = fs::u8path(gdtfSpec);
+  if (specPath.is_absolute() && fs::exists(specPath, ec) && !ec)
+    return specPath.string();
+
+  ec.clear();
+  if (!sceneBasePath.empty()) {
+    const fs::path scenePath = fs::u8path(sceneBasePath) / specPath;
+    if (fs::exists(scenePath, ec) && !ec)
+      return scenePath.string();
+  }
+
+  ec.clear();
+  const fs::path libraryPath =
+      fs::u8path(ProjectUtils::GetDefaultLibraryPath("fixtures")) /
+      specPath.filename();
+  if (fs::exists(libraryPath, ec) && !ec)
+    return libraryPath.string();
+
+  return gdtfSpec;
+}
 
 struct Vec3 {
   float x;
@@ -81,6 +109,7 @@ void DrawLine(int x0, int y0, int x1, int y1,
 
 RenderResult OffscreenSymbolRenderer::RenderFixtureTechnical(
     const std::string &gdtfSpec,
+    const std::string &sceneBasePath,
     SymbolView view,
     int width,
     int height,
@@ -91,7 +120,7 @@ RenderResult OffscreenSymbolRenderer::RenderFixtureTechnical(
   result.rgba.pixels.assign(static_cast<size_t>(width * height * 4), 0);
   result.depth.assign(static_cast<size_t>(width * height), std::numeric_limits<float>::infinity());
 
-  const auto gdtfPath = ProjectUtils::GetDefaultLibraryPath("fixtures") + "/" + gdtfSpec;
+  const auto gdtfPath = ResolveGdtfPath(gdtfSpec, sceneBasePath);
   GdtfGeometryTree tree;
   std::string error;
   if (!LoadGdtfGeometryTree(gdtfPath, tree, &error))

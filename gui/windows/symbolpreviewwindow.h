@@ -2,8 +2,11 @@
 
 #include "symbols/Symbol2DTypes.h"
 
+#include <vector>
+
 #include <wx/frame.h>
 #include <wx/panel.h>
+#include <wx/string.h>
 
 class SymbolPreviewPanel : public wxPanel {
 public:
@@ -17,5 +20,7 @@ private:
 
 class SymbolPreviewWindow : public wxFrame {
 public:
-  SymbolPreviewWindow(wxWindow *parent, const symbols::SymbolCollection &symbols);
+  SymbolPreviewWindow(wxWindow *parent,
+                      const symbols::SymbolCollection &symbols,
+                      const std::vector<wxString> &generationLog);
 };

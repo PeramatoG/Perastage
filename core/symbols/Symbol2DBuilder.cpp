@@ -45,8 +45,10 @@ Aabb2D ComputeBounds(const Symbol2D &symbol) {
 
 SymbolCollection Symbol2DBuilder::BuildForFixture(const std::string &fixtureTypeId,
                                                   const std::string &gdtfSpec,
+                                                  const std::string &sceneBasePath,
                                                   const SymbolBuildParams &params) {
-  if (const auto cached = cache.TryGet(fixtureTypeId, params))
+  const std::string cacheKey = fixtureTypeId + "|" + gdtfSpec + "|" + sceneBasePath;
+  if (const auto cached = cache.TryGet(cacheKey, params))
     return *cached;
 
   SymbolCollection output;
@@ -55,10 +57,12 @@ SymbolCollection Symbol2DBuilder::BuildForFixture(const std::string &fixtureType
   OffscreenSymbolRenderer renderer;
   for (const auto view : AllSymbolViews()) {
     const auto shapeRender = renderer.RenderFixtureTechnical(
-        gdtfSpec, view, params.renderResolution, params.renderResolution,
+        gdtfSpec, sceneBasePath, view, params.renderResolution,
+        params.renderResolution,
         RenderMode::ShapeBlack);
     const auto lineRender = renderer.RenderFixtureTechnical(
-        gdtfSpec, view, params.renderResolution, params.renderResolution,
+        gdtfSpec, sceneBasePath, view, params.renderResolution,
+        params.renderResolution,
         RenderMode::LinesBlackOnWhiteFill);
 
     auto shapeMask = ExtractShapeMask(shapeRender.rgba);
@@ -82,7 +86,7 @@ SymbolCollection Symbol2DBuilder::BuildForFixture(const std::string &fixtureType
     output.push_back(std::move(symbol));
   }
 
-  cache.Store(fixtureTypeId, params, output);
+  cache.Store(cacheKey, params, output);
   return output;
 }
 
