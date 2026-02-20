@@ -40,6 +40,15 @@ static std::string ToUtf8String(const fs::path &path) {
   return std::string(utf8.begin(), utf8.end());
 }
 
+static fs::path FromUtf8String(const std::string &text) {
+#if defined(__cpp_lib_char8_t)
+  const char8_t *begin = reinterpret_cast<const char8_t *>(text.data());
+  return fs::path(std::u8string(begin, begin + text.size()));
+#else
+  return fs::u8path(text);
+#endif
+}
+
 static std::string LowerExt(fs::path path) {
   std::string ext = path.extension().string();
   std::transform(ext.begin(), ext.end(), ext.begin(),
@@ -103,7 +112,8 @@ static fs::path BuildGdtfExtractionCacheDir(const fs::path &gdtfPath) {
   std::error_code timeEc;
   const auto writeTime = fs::last_write_time(gdtfPath, timeEc);
   if (!timeEc)
-    key += "#" + std::to_string(writeTime.time_since_epoch().count());
+    key += "#" +
+           std::to_string(static_cast<long long>(writeTime.time_since_epoch().count()));
 
   const std::size_t hashValue = std::hash<std::string>{}(key);
   fs::path cacheRoot = fs::temp_directory_path() / "perastage-truss-gdtf-cache";
@@ -122,7 +132,7 @@ static fs::path FindFirstExisting(const fs::path &base,
 } // namespace
 
 bool LoadTrussGdtf(const std::string &gdtfPath, Truss &outTruss) {
-  fs::path inputPath = fs::u8path(gdtfPath);
+  fs::path inputPath = FromUtf8String(gdtfPath);
   if (!fs::exists(inputPath))
     return false;
 
@@ -208,7 +218,7 @@ bool LoadTrussArchive(const std::string &archivePath, Truss &outTruss) {
 }
 
 bool LoadTrussDefinition(const std::string &path, Truss &outTruss) {
-  fs::path inputPath = fs::u8path(path);
+  fs::path inputPath = FromUtf8String(path);
   std::string ext = LowerExt(inputPath);
   if (ext == ".gdtf")
     return LoadTrussGdtf(ToUtf8String(inputPath), outTruss);
