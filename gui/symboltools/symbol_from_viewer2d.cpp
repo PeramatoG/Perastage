@@ -11,6 +11,7 @@
 #include "symbols/Skeletonize.h"
 #include "viewer2dcommandrenderer.h"
 #include "viewer2dpanel.h"
+#include "viewer2dviewfit.h"
 
 #include <algorithm>
 #include <cmath>
@@ -367,14 +368,19 @@ public:
     previousSupports_ = scene.supports;
     previousSceneObjects_ = scene.sceneObjects;
 
+    bool isolatedFixture = false;
     if (!fixtureUuid.empty()) {
       auto it = scene.fixtures.find(fixtureUuid);
       if (it != scene.fixtures.end()) {
         const auto fixture = it->second;
         scene.fixtures.clear();
         scene.fixtures.emplace(fixtureUuid, fixture);
+        isolatedFixture = true;
       }
     }
+
+    if (!isolatedFixture)
+      scene.fixtures.clear();
 
     scene.trusses.clear();
     scene.supports.clear();
@@ -400,6 +406,41 @@ private:
   std::unordered_map<std::string, SceneObject> previousSceneObjects_;
 };
 
+class ScopedSymbolCaptureRenderConfig {
+public:
+  explicit ScopedSymbolCaptureRenderConfig(ConfigManager &cfg) : cfg_(cfg) {
+    CaptureAndSet("view2d_dark_mode", 0.0f);
+    CaptureAndSet("grid_show", 0.0f);
+    CaptureAndSet("grid_draw_above", 0.0f);
+    CaptureAndSet("label_show_name", 0.0f);
+    CaptureAndSet("label_show_id", 0.0f);
+    CaptureAndSet("label_show_dmx", 0.0f);
+    CaptureAndSet("label_show_name_top", 0.0f);
+    CaptureAndSet("label_show_name_front", 0.0f);
+    CaptureAndSet("label_show_name_side", 0.0f);
+    CaptureAndSet("label_show_id_top", 0.0f);
+    CaptureAndSet("label_show_id_front", 0.0f);
+    CaptureAndSet("label_show_id_side", 0.0f);
+    CaptureAndSet("label_show_dmx_top", 0.0f);
+    CaptureAndSet("label_show_dmx_front", 0.0f);
+    CaptureAndSet("label_show_dmx_side", 0.0f);
+  }
+
+  ~ScopedSymbolCaptureRenderConfig() {
+    for (const auto &entry : previousValues_)
+      cfg_.SetFloat(entry.first, entry.second);
+  }
+
+private:
+  void CaptureAndSet(const char *key, float value) {
+    previousValues_.emplace(key, cfg_.GetFloat(key));
+    cfg_.SetFloat(key, value);
+  }
+
+  ConfigManager &cfg_;
+  std::vector<std::pair<std::string, float>> previousValues_;
+};
+
 bool CaptureFixtureViewReference(Viewer2DPanel &panel, symbols::SymbolView view,
                                  SymbolReferenceViews &outReferences,
                                  std::string &outMessage) {
@@ -423,6 +464,15 @@ bool CaptureFixtureViewReference(Viewer2DPanel &panel, symbols::SymbolView view,
   }
 
   panel.ApplyViewState(0.0f, 0.0f, 1.0f, targetView, previousMode);
+  viewer2d::ViewFitResult fit;
+  int viewportWidth = 0;
+  int viewportHeight = 0;
+  panel.GetClientSize(&viewportWidth, &viewportHeight);
+  if (viewer2d::ComputeViewFit(panel.GetController(), targetView, viewportWidth,
+                               viewportHeight, fit)) {
+    panel.ApplyViewState(fit.offsetXPixels, fit.offsetYPixels, fit.zoom,
+                         targetView, previousMode);
+  }
   // RenderToRGBA already performs an explicit offscreen render. Avoid forcing
   // an onscreen CaptureFrameNow pass here because it can block inside
   // SwapBuffers on some drivers/toolchains.
@@ -479,6 +529,7 @@ bool BuildSymbolsFromViewer2DPipeline(Viewer2DPanel &panel,
   panel.SetRenderMode(Viewer2DRenderMode::White);
 
   ScopedFixtureIsolation fixtureIsolation(configManager, panel, fixtureUuid);
+  ScopedSymbolCaptureRenderConfig renderConfigGuard(configManager);
 
   bool anyCaptured = false;
   for (const auto view : symbols::AllSymbolViews()) {
