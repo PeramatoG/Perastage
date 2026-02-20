@@ -34,6 +34,16 @@ struct Bounds {
   bool valid = false;
 };
 
+struct CanvasState {
+  float scale = 1.0f;
+  float offsetX = 0.0f;
+  float offsetY = 0.0f;
+};
+
+symbols::Point2D ApplyCanvasState(const CanvasState &state, float x, float y) {
+  return {x * state.scale + state.offsetX, y * state.scale + state.offsetY};
+}
+
 SymbolViewKind ToViewKind(symbols::SymbolView view) {
   switch (view) {
   case symbols::SymbolView::Front:
@@ -77,22 +87,45 @@ void ExpandBounds(Bounds &b, float x, float y) {
 
 Bounds ComputeBounds(const CommandBuffer &buffer) {
   Bounds b;
+  CanvasState current;
+  std::vector<CanvasState> stack;
   for (const auto &cmd : buffer.commands) {
     if (const auto *line = std::get_if<LineCommand>(&cmd)) {
-      ExpandBounds(b, line->x0, line->y0);
-      ExpandBounds(b, line->x1, line->y1);
+      const auto p0 = ApplyCanvasState(current, line->x0, line->y0);
+      const auto p1 = ApplyCanvasState(current, line->x1, line->y1);
+      ExpandBounds(b, p0.x, p0.y);
+      ExpandBounds(b, p1.x, p1.y);
     } else if (const auto *poly = std::get_if<PolylineCommand>(&cmd)) {
-      for (size_t i = 0; i + 1 < poly->points.size(); i += 2)
-        ExpandBounds(b, poly->points[i], poly->points[i + 1]);
+      for (size_t i = 0; i + 1 < poly->points.size(); i += 2) {
+        const auto p = ApplyCanvasState(current, poly->points[i], poly->points[i + 1]);
+        ExpandBounds(b, p.x, p.y);
+      }
     } else if (const auto *poly = std::get_if<PolygonCommand>(&cmd)) {
-      for (size_t i = 0; i + 1 < poly->points.size(); i += 2)
-        ExpandBounds(b, poly->points[i], poly->points[i + 1]);
+      for (size_t i = 0; i + 1 < poly->points.size(); i += 2) {
+        const auto p = ApplyCanvasState(current, poly->points[i], poly->points[i + 1]);
+        ExpandBounds(b, p.x, p.y);
+      }
     } else if (const auto *rect = std::get_if<RectangleCommand>(&cmd)) {
-      ExpandBounds(b, rect->x, rect->y);
-      ExpandBounds(b, rect->x + rect->w, rect->y + rect->h);
+      const auto p0 = ApplyCanvasState(current, rect->x, rect->y);
+      const auto p1 = ApplyCanvasState(current, rect->x + rect->w, rect->y + rect->h);
+      ExpandBounds(b, p0.x, p0.y);
+      ExpandBounds(b, p1.x, p1.y);
     } else if (const auto *circle = std::get_if<CircleCommand>(&cmd)) {
-      ExpandBounds(b, circle->cx - circle->radius, circle->cy - circle->radius);
-      ExpandBounds(b, circle->cx + circle->radius, circle->cy + circle->radius);
+      const float radius = circle->radius * current.scale;
+      const auto c = ApplyCanvasState(current, circle->cx, circle->cy);
+      ExpandBounds(b, c.x - radius, c.y - radius);
+      ExpandBounds(b, c.x + radius, c.y + radius);
+    } else if (std::get_if<SaveCommand>(&cmd)) {
+      stack.push_back(current);
+    } else if (std::get_if<RestoreCommand>(&cmd)) {
+      if (!stack.empty()) {
+        current = stack.back();
+        stack.pop_back();
+      }
+    } else if (const auto *tf = std::get_if<TransformCommand>(&cmd)) {
+      current.scale = tf->transform.scale;
+      current.offsetX = tf->transform.offsetX;
+      current.offsetY = tf->transform.offsetY;
     }
   }
   return b;
@@ -215,13 +248,17 @@ void RasterizeSymbol(const SymbolDefinition &def, symbols::ImageRGBA &shapeImg,
   if (!b.valid)
     return;
   const auto tf = BuildTransform(b, shapeImg.width, shapeImg.height);
+  CanvasState current;
+  std::vector<CanvasState> stack;
 
   for (const auto &cmd : def.localCommands.commands) {
     if (const auto *line = std::get_if<LineCommand>(&cmd)) {
-      auto a = ToImage(tf, line->x0, line->y0, shapeImg.height);
-      auto c = ToImage(tf, line->x1, line->y1, shapeImg.height);
+      const auto p0 = ApplyCanvasState(current, line->x0, line->y0);
+      const auto p1 = ApplyCanvasState(current, line->x1, line->y1);
+      auto a = ToImage(tf, p0.x, p0.y, shapeImg.height);
+      auto c = ToImage(tf, p1.x, p1.y, shapeImg.height);
       const int thick = std::clamp(
-          static_cast<int>(std::ceil(line->stroke.width * tf.scale * 0.25f)),
+          static_cast<int>(std::ceil(line->stroke.width * current.scale * tf.scale * 0.25f)),
           1, 2);
       DrawLine(shapeImg, a, c, thick, 0, 0, 0, 255);
       DrawLine(lineImg, a, c, thick, 0, 0, 0, 255);
@@ -229,25 +266,29 @@ void RasterizeSymbol(const SymbolDefinition &def, symbols::ImageRGBA &shapeImg,
       if (poly->points.size() < 4)
         continue;
       const int thick = std::clamp(
-          static_cast<int>(std::ceil(poly->stroke.width * tf.scale * 0.25f)),
+          static_cast<int>(std::ceil(poly->stroke.width * current.scale * tf.scale * 0.25f)),
           1, 2);
       for (size_t i = 0; i + 3 < poly->points.size(); i += 2) {
-        auto a = ToImage(tf, poly->points[i], poly->points[i + 1], shapeImg.height);
-        auto c = ToImage(tf, poly->points[i + 2], poly->points[i + 3], shapeImg.height);
+        const auto p0 = ApplyCanvasState(current, poly->points[i], poly->points[i + 1]);
+        const auto p1 = ApplyCanvasState(current, poly->points[i + 2], poly->points[i + 3]);
+        auto a = ToImage(tf, p0.x, p0.y, shapeImg.height);
+        auto c = ToImage(tf, p1.x, p1.y, shapeImg.height);
         DrawLine(shapeImg, a, c, thick, 0, 0, 0, 255);
         DrawLine(lineImg, a, c, thick, 0, 0, 0, 255);
       }
     } else if (const auto *poly = std::get_if<PolygonCommand>(&cmd)) {
       std::vector<symbols::Point2D> pts;
       pts.reserve(poly->points.size() / 2);
-      for (size_t i = 0; i + 1 < poly->points.size(); i += 2)
-        pts.push_back(ToImage(tf, poly->points[i], poly->points[i + 1], shapeImg.height));
+      for (size_t i = 0; i + 1 < poly->points.size(); i += 2) {
+        const auto p = ApplyCanvasState(current, poly->points[i], poly->points[i + 1]);
+        pts.push_back(ToImage(tf, p.x, p.y, shapeImg.height));
+      }
       if (poly->hasFill) {
         FillPolygon(shapeImg, pts, 0, 0, 0, 255);
         FillPolygon(lineImg, pts, 255, 255, 255, 255);
       }
       const int thick = std::clamp(
-          static_cast<int>(std::ceil(poly->stroke.width * tf.scale * 0.25f)),
+          static_cast<int>(std::ceil(poly->stroke.width * current.scale * tf.scale * 0.25f)),
           1, 2);
       for (size_t i = 0; i < pts.size(); ++i) {
         const auto &a = pts[i];
@@ -257,34 +298,55 @@ void RasterizeSymbol(const SymbolDefinition &def, symbols::ImageRGBA &shapeImg,
       }
     } else if (const auto *rect = std::get_if<RectangleCommand>(&cmd)) {
       std::vector<symbols::Point2D> pts = {
-          ToImage(tf, rect->x, rect->y, shapeImg.height),
-          ToImage(tf, rect->x + rect->w, rect->y, shapeImg.height),
-          ToImage(tf, rect->x + rect->w, rect->y + rect->h, shapeImg.height),
-          ToImage(tf, rect->x, rect->y + rect->h, shapeImg.height)};
+          ToImage(tf, ApplyCanvasState(current, rect->x, rect->y).x,
+                  ApplyCanvasState(current, rect->x, rect->y).y, shapeImg.height),
+          ToImage(tf, ApplyCanvasState(current, rect->x + rect->w, rect->y).x,
+                  ApplyCanvasState(current, rect->x + rect->w, rect->y).y,
+                  shapeImg.height),
+          ToImage(tf,
+                  ApplyCanvasState(current, rect->x + rect->w, rect->y + rect->h).x,
+                  ApplyCanvasState(current, rect->x + rect->w, rect->y + rect->h).y,
+                  shapeImg.height),
+          ToImage(tf, ApplyCanvasState(current, rect->x, rect->y + rect->h).x,
+                  ApplyCanvasState(current, rect->x, rect->y + rect->h).y,
+                  shapeImg.height)};
       if (rect->hasFill) {
         FillPolygon(shapeImg, pts, 0, 0, 0, 255);
         FillPolygon(lineImg, pts, 255, 255, 255, 255);
       }
       const int thick = std::clamp(
-          static_cast<int>(std::ceil(rect->stroke.width * tf.scale * 0.25f)),
+          static_cast<int>(std::ceil(rect->stroke.width * current.scale * tf.scale * 0.25f)),
           1, 2);
       for (size_t i = 0; i < pts.size(); ++i) {
         DrawLine(shapeImg, pts[i], pts[(i + 1) % pts.size()], thick, 0, 0, 0, 255);
         DrawLine(lineImg, pts[i], pts[(i + 1) % pts.size()], thick, 0, 0, 0, 255);
       }
     } else if (const auto *circle = std::get_if<CircleCommand>(&cmd)) {
-      auto pts = BuildCircle(tf, shapeImg.height, circle->cx, circle->cy, circle->radius);
+      const auto center = ApplyCanvasState(current, circle->cx, circle->cy);
+      const float radius = circle->radius * current.scale;
+      auto pts = BuildCircle(tf, shapeImg.height, center.x, center.y, radius);
       if (circle->hasFill) {
         FillPolygon(shapeImg, pts, 0, 0, 0, 255);
         FillPolygon(lineImg, pts, 255, 255, 255, 255);
       }
       const int thick = std::clamp(
-          static_cast<int>(std::ceil(circle->stroke.width * tf.scale * 0.25f)),
+          static_cast<int>(std::ceil(circle->stroke.width * current.scale * tf.scale * 0.25f)),
           1, 2);
       for (size_t i = 0; i < pts.size(); ++i) {
         DrawLine(shapeImg, pts[i], pts[(i + 1) % pts.size()], thick, 0, 0, 0, 255);
         DrawLine(lineImg, pts[i], pts[(i + 1) % pts.size()], thick, 0, 0, 0, 255);
       }
+    } else if (std::get_if<SaveCommand>(&cmd)) {
+      stack.push_back(current);
+    } else if (std::get_if<RestoreCommand>(&cmd)) {
+      if (!stack.empty()) {
+        current = stack.back();
+        stack.pop_back();
+      }
+    } else if (const auto *transform = std::get_if<TransformCommand>(&cmd)) {
+      current.scale = transform->transform.scale;
+      current.offsetX = transform->transform.offsetX;
+      current.offsetY = transform->transform.offsetY;
     }
   }
 }
