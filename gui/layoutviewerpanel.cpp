@@ -15,8 +15,6 @@
  * You should have received a copy of the GNU General Public License
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
-#include "layoutviewerpanel.h"
-
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
@@ -42,6 +40,9 @@
 #  include <GL/gl.h>
 #  include <GL/glu.h>
 #endif
+
+#include "layoutviewerpanel.h"
+
 #ifndef GL_CLAMP_TO_EDGE
 #define GL_CLAMP_TO_EDGE 0x812F
 #endif
