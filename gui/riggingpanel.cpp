@@ -88,6 +88,28 @@ wxPoint NormalizeMousePositionForTable(wxDataViewListCtrl *table,
 
   return table->ScreenToClient(sourceWindow->ClientToScreen(position));
 }
+
+template <typename Owner>
+void BindTableHoverEvents(wxDataViewListCtrl *table, Owner *owner,
+                          void (Owner::*onMouseMove)(wxMouseEvent &),
+                          void (Owner::*onMouseLeave)(wxMouseEvent &)) {
+  if (!table || !owner)
+    return;
+
+  auto bindEvents = [&](wxWindow *window) {
+    if (!window)
+      return;
+    window->Bind(wxEVT_MOTION, onMouseMove, owner);
+    window->Bind(wxEVT_LEAVE_WINDOW, onMouseLeave, owner);
+  };
+
+  bindEvents(table);
+  wxWindowList &children = table->GetChildren();
+  for (wxWindowList::compatibility_iterator it = children.GetFirst(); it;
+       it = it->GetNext()) {
+    bindEvents(it->GetData());
+  }
+}
 }
 
 static RiggingPanel *s_instance = nullptr;
@@ -98,8 +120,12 @@ RiggingPanel::RiggingPanel(wxWindow *parent) : wxPanel(parent, wxID_ANY) {
                                  wxDV_ROW_LINES | wxDV_VERT_RULES);
   table->AssociateModel(store);
   store->DecRef();
-  table->Bind(wxEVT_MOTION, &RiggingPanel::OnMouseMove, this);
-  table->Bind(wxEVT_LEAVE_WINDOW, &RiggingPanel::OnMouseLeave, this);
+  BindTableHoverEvents(table, this, &RiggingPanel::OnMouseMove,
+                       &RiggingPanel::OnMouseLeave);
+  table->CallAfter([this]() {
+    BindTableHoverEvents(table, this, &RiggingPanel::OnMouseMove,
+                         &RiggingPanel::OnMouseLeave);
+  });
   table->AppendTextColumn("Position", wxDATAVIEW_CELL_INERT, wxCOL_WIDTH_AUTOSIZE,
                           wxALIGN_LEFT, wxDATAVIEW_COL_RESIZABLE);
   table->AppendTextColumn("Fixtures", wxDATAVIEW_CELL_INERT, wxCOL_WIDTH_AUTOSIZE,
