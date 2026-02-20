@@ -1,12 +1,17 @@
 #include "dmx/fixture_dmx_binding.h"
+#include "asset_cache.h"
 
 #include <algorithm>
+#include <array>
 #include <cctype>
+#include <filesystem>
 #include <cstdlib>
 #include <mutex>
 #include <sstream>
 #include <unordered_map>
 #include <vector>
+#include <unordered_set>
+#include <utility>
 
 #include <tinyxml2.h>
 #include <wx/wfstream.h>
@@ -134,13 +139,36 @@ enum class AttributeRole {
     kCyan,
     kMagenta,
     kYellow,
+    kGobo,
 };
 
 struct ParsedAttribute {
     AttributeRole role = AttributeRole::kUnknown;
     bool is_fine = false;
     int byte_index = 1;
+    int gobo_wheel_number = 0;
 };
+
+
+int parse_gobo_wheel_number(const std::string &leaf) {
+    if (leaf.rfind("gobo", 0) != 0 || leaf.size() <= 4) {
+        return 0;
+    }
+    size_t index = 4;
+    size_t digits_end = index;
+    while (digits_end < leaf.size() && std::isdigit(static_cast<unsigned char>(leaf[digits_end])) != 0) {
+        ++digits_end;
+    }
+    if (digits_end == index) {
+        return 0;
+    }
+    const long parsed = std::strtol(leaf.substr(index, digits_end - index).c_str(), nullptr, 10);
+    if (parsed <= 0L) {
+        return 0;
+    }
+    return static_cast<int>(parsed);
+}
+
 
 bool has_explicit_fine_marker(const std::string &lower) {
     return lower.find("fine") != std::string::npos ||
@@ -226,6 +254,32 @@ bool starts_with_role_token(const std::string &attribute,
     return false;
 }
 
+bool matches_gobo_attribute(const std::string &leaf) {
+    const std::array<std::string, 9> non_projector_tokens = {
+        "spin", "shake", "audio", "random", "time", "mspeed", "speed", "reset", "rotate"};
+    for (const std::string &token : non_projector_tokens) {
+        if (leaf.find(token) != std::string::npos) {
+            return false;
+        }
+    }
+
+    int byte_index = 1;
+    if (starts_with_role_token(leaf, "gobo", byte_index)) {
+        return true;
+    }
+    if (starts_with_role_token(leaf, "gobowheel", byte_index) ||
+        starts_with_role_token(leaf, "goboindex", byte_index) ||
+        starts_with_role_token(leaf, "goboselect", byte_index)) {
+        return true;
+    }
+
+    const bool references_wheel = leaf.find("wheel") != std::string::npos;
+    const bool references_selector =
+        leaf.find("slot") != std::string::npos || leaf.find("index") != std::string::npos ||
+        leaf.find("select") != std::string::npos || leaf.find("pos") != std::string::npos;
+    return references_wheel && references_selector;
+}
+
 ParsedAttribute parse_attribute_name(const std::string &raw_attribute) {
     ParsedAttribute parsed;
     const std::string lower = lower_ascii(trim_ascii(raw_attribute));
@@ -279,6 +333,10 @@ ParsedAttribute parse_attribute_name(const std::string &raw_attribute) {
                starts_with_role_token(leaf, "colorrgb_yellow", byte_index)) {
         parsed.role = AttributeRole::kYellow;
         parsed.byte_index = byte_index;
+    } else if (matches_gobo_attribute(leaf)) {
+        parsed.role = AttributeRole::kGobo;
+        parsed.byte_index = byte_index;
+        parsed.gobo_wheel_number = parse_gobo_wheel_number(leaf);
     }
 
     if (parsed.role == AttributeRole::kUnknown) {
@@ -383,7 +441,383 @@ void consume_offsets(const std::vector<int> &offsets,
     }
 }
 
+int parse_positive_int(const char *raw) {
+    if (!raw) {
+        return -1;
+    }
+
+    std::string value = trim_ascii(raw);
+    if (value.empty()) {
+        return -1;
+    }
+
+    size_t length = 0;
+    while (length < value.size() && std::isdigit(static_cast<unsigned char>(value[length])) != 0) {
+        ++length;
+    }
+    if (length == 0) {
+        return -1;
+    }
+
+    const long parsed = std::strtol(value.substr(0, length).c_str(), nullptr, 10);
+    if (parsed <= 0L) {
+        return -1;
+    }
+    return static_cast<int>(parsed);
+}
+
+int parse_dmx_value_8bit(const char *raw_value) {
+    if (!raw_value) {
+        return -1;
+    }
+
+    std::string value = trim_ascii(raw_value);
+    if (value.empty()) {
+        return -1;
+    }
+
+    size_t slash = value.find('/');
+    if (slash != std::string::npos) {
+        value = value.substr(0, slash);
+    }
+    value = trim_ascii(value);
+
+    char *end = nullptr;
+    const long parsed = std::strtol(value.c_str(), &end, 10);
+    if (end == value.c_str()) {
+        return -1;
+    }
+    return static_cast<int>(std::clamp(parsed, 0L, 255L));
+}
+
+std::string read_attr_ci(tinyxml2::XMLElement *node, const char *name_a, const char *name_b) {
+    if (!node) {
+        return {};
+    }
+    const char *value = node->Attribute(name_a);
+    if (!value) {
+        value = node->Attribute(name_b);
+    }
+    return value ? trim_ascii(value) : std::string();
+}
+
+std::string find_archive_media_by_stem(const std::string &gdtf_path,
+                                       const std::string &media_reference) {
+    const std::filesystem::path ref_path = std::filesystem::u8path(trim_ascii(media_reference));
+    const std::string wanted_stem = lower_ascii(ref_path.stem().u8string());
+    if (wanted_stem.empty()) {
+        return {};
+    }
+
+    wxFileInputStream input(wxString::FromUTF8(gdtf_path.c_str()));
+    if (!input.IsOk()) {
+        return {};
+    }
+
+    std::string best_match;
+    wxZipInputStream zip(input);
+    std::unique_ptr<wxZipEntry> entry;
+    while ((entry.reset(zip.GetNextEntry())), entry) {
+        std::string entry_name = entry->GetName().ToUTF8().data();
+        std::replace(entry_name.begin(), entry_name.end(), '\\', '/');
+        const std::string entry_lower = lower_ascii(entry_name);
+        const std::filesystem::path entry_path = std::filesystem::u8path(entry_name);
+        const std::string entry_ext = lower_ascii(entry_path.extension().u8string());
+        if (entry_ext != ".png" && entry_ext != ".jpg" && entry_ext != ".jpeg") {
+            continue;
+        }
+        const std::string entry_stem = lower_ascii(entry_path.stem().u8string());
+        if (entry_stem != wanted_stem) {
+            continue;
+        }
+
+        const bool in_wheels_folder = entry_lower.find("wheels/") != std::string::npos;
+        if (in_wheels_folder) {
+            return entry_name;
+        }
+        if (best_match.empty()) {
+            best_match = entry_name;
+        }
+    }
+
+    return best_match;
+}
+
+std::string ensure_gobo_media_extracted(const std::string &gdtf_path,
+                                        peraviz::ZipAssetCache &cache,
+                                        const std::string &media_reference) {
+    if (media_reference.empty()) {
+        return {};
+    }
+
+    const std::string normalized = trim_ascii(media_reference);
+    std::vector<std::string> candidates;
+    candidates.push_back(normalized);
+    candidates.push_back("wheels/" + normalized);
+    candidates.push_back("wheels/images/" + normalized);
+
+    const std::string lower = lower_ascii(normalized);
+    const bool has_ext = lower.find('.') != std::string::npos;
+    if (!has_ext) {
+        candidates.push_back("wheels/" + normalized + ".png");
+        candidates.push_back("wheels/" + normalized + ".jpg");
+        candidates.push_back("wheels/" + normalized + ".jpeg");
+        candidates.push_back("wheels/images/" + normalized + ".png");
+        candidates.push_back("wheels/images/" + normalized + ".jpg");
+        candidates.push_back("wheels/images/" + normalized + ".jpeg");
+    }
+
+    for (const std::string &candidate : candidates) {
+        const std::string extracted = cache.ensure_extracted(candidate);
+        if (!extracted.empty()) {
+            return extracted;
+        }
+    }
+
+    const std::string archive_match = find_archive_media_by_stem(gdtf_path, normalized);
+    if (!archive_match.empty()) {
+        return cache.ensure_extracted(archive_match);
+    }
+
+    return {};
+}
+
+typedef std::unordered_map<std::string, std::unordered_map<int, std::string>> GoboWheelCatalog;
+
+GoboWheelCatalog build_gobo_wheel_catalog(const std::string &gdtf_path, tinyxml2::XMLElement *root) {
+    GoboWheelCatalog out;
+    if (!root) {
+        return out;
+    }
+
+    peraviz::ZipAssetCache cache(gdtf_path);
+    const std::vector<tinyxml2::XMLElement *> wheels = collect_elements_by_name(root, "wheel");
+    for (tinyxml2::XMLElement *wheel : wheels) {
+        const std::string wheel_name = lower_ascii(read_attr_ci(wheel, "Name", "name"));
+        if (wheel_name.empty()) {
+            continue;
+        }
+
+        int implicit_index = 1;
+        for (tinyxml2::XMLElement *slot_node = wheel->FirstChildElement(); slot_node;
+             slot_node = slot_node->NextSiblingElement()) {
+            const std::string slot_tag = lower_ascii(slot_node->Name());
+            // GDTF 1.0/1.1/1.2 commonly uses <Slot>, while some exporters emit <WheelSlot>.
+            if (slot_tag != "slot" && slot_tag != "wheelslot") {
+                continue;
+            }
+
+            int slot_index = parse_positive_int(slot_node->Attribute("WheelSlotIndex"));
+            if (slot_index <= 0) {
+                slot_index = parse_positive_int(slot_node->Attribute("wheelslotindex"));
+            }
+            if (slot_index <= 0) {
+                slot_index = implicit_index;
+            }
+            implicit_index = std::max(implicit_index, slot_index + 1);
+
+            const std::string media_file = read_attr_ci(slot_node, "MediaFileName", "mediafilename");
+            if (media_file.empty()) {
+                continue;
+            }
+
+            const std::string extracted = ensure_gobo_media_extracted(gdtf_path, cache, media_file);
+            if (!extracted.empty()) {
+                out[wheel_name][slot_index] = extracted;
+            }
+        }
+    }
+
+    return out;
+}
+
+void consume_gobo_channel_sets(tinyxml2::XMLElement *channel_function,
+                               const GoboWheelCatalog &wheel_catalog,
+                               peraviz::dmx::FixtureGoboWheelOffset &out_wheel) {
+    if (!channel_function) {
+        return;
+    }
+
+    const std::string wheel_name = lower_ascii(read_attr_ci(channel_function, "Wheel", "wheel"));
+    if (wheel_name.empty()) {
+        return;
+    }
+
+    auto wheel_it = wheel_catalog.find(wheel_name);
+    if (wheel_it == wheel_catalog.end()) {
+        return;
+    }
+
+    out_wheel.wheel_name = wheel_name;
+
+    std::unordered_set<int> known_slots;
+    for (const auto &[slot_index, image_path] : wheel_it->second) {
+        if (slot_index <= 0 || image_path.empty()) {
+            continue;
+        }
+        known_slots.insert(slot_index);
+        out_wheel.slots.push_back({slot_index, image_path});
+    }
+
+    struct ParsedGoboSet {
+        int dmx_from = 0;
+        int dmx_to = -1;
+        int slot_index = -1;
+    };
+    std::vector<ParsedGoboSet> parsed_sets;
+
+    for (tinyxml2::XMLElement *channel_set = channel_function->FirstChildElement(); channel_set;
+         channel_set = channel_set->NextSiblingElement()) {
+        if (lower_ascii(channel_set->Name()) != "channelset") {
+            continue;
+        }
+
+        int slot_index = parse_positive_int(channel_set->Attribute("WheelSlotIndex"));
+        if (slot_index <= 0) {
+            slot_index = parse_positive_int(channel_set->Attribute("wheelslotindex"));
+        }
+        if (slot_index <= 0 || known_slots.find(slot_index) == known_slots.end()) {
+            continue;
+        }
+
+        int dmx_from = parse_dmx_value_8bit(channel_set->Attribute("DMXFrom"));
+        if (dmx_from < 0) {
+            dmx_from = parse_dmx_value_8bit(channel_set->Attribute("dmxfrom"));
+        }
+        if (dmx_from < 0) {
+            dmx_from = 0;
+        }
+
+        int dmx_to = parse_dmx_value_8bit(channel_set->Attribute("DMXTo"));
+        if (dmx_to < 0) {
+            dmx_to = parse_dmx_value_8bit(channel_set->Attribute("dmxto"));
+        }
+        parsed_sets.push_back({dmx_from, dmx_to, slot_index});
+    }
+
+    if (parsed_sets.empty()) {
+        return;
+    }
+
+    std::sort(parsed_sets.begin(), parsed_sets.end(),
+              [](const ParsedGoboSet &a, const ParsedGoboSet &b) {
+                  if (a.dmx_from != b.dmx_from) {
+                      return a.dmx_from < b.dmx_from;
+                  }
+                  return a.slot_index < b.slot_index;
+              });
+
+    for (size_t i = 0; i < parsed_sets.size(); ++i) {
+        ParsedGoboSet &row = parsed_sets[i];
+        if (row.dmx_to < 0) {
+            if (i + 1 < parsed_sets.size()) {
+                row.dmx_to = std::max(row.dmx_from, parsed_sets[i + 1].dmx_from - 1);
+            } else {
+                row.dmx_to = 255;
+            }
+        }
+        row.dmx_from = std::clamp(row.dmx_from, 0, 255);
+        row.dmx_to = std::clamp(row.dmx_to, 0, 255);
+        if (row.dmx_to < row.dmx_from) {
+            std::swap(row.dmx_from, row.dmx_to);
+        }
+
+        out_wheel.ranges.push_back({row.dmx_from, row.dmx_to, row.slot_index});
+    }
+}
+
+
+int parse_last_number_token(const std::string &text) {
+    int value = 0;
+    bool found = false;
+    int current = 0;
+    bool in_digits = false;
+    for (char ch : text) {
+        if (std::isdigit(static_cast<unsigned char>(ch)) != 0) {
+            in_digits = true;
+            current = (current * 10) + (ch - '0');
+            continue;
+        }
+        if (in_digits) {
+            value = current;
+            found = true;
+            current = 0;
+            in_digits = false;
+        }
+    }
+    if (in_digits) {
+        value = current;
+        found = true;
+    }
+    return found ? value : 0;
+}
+
+peraviz::dmx::FixtureGoboWheelOffset *find_or_create_gobo_wheel_offset(
+    peraviz::dmx::FixtureControlOffsets &out_offsets,
+    int wheel_number,
+    const std::string &wheel_name) {
+    for (auto &wheel : out_offsets.gobo_wheels) {
+        if (!wheel_name.empty() && !wheel.wheel_name.empty() && wheel.wheel_name == wheel_name) {
+            if (wheel.wheel_number <= 0 && wheel_number > 0) {
+                wheel.wheel_number = wheel_number;
+            }
+            return &wheel;
+        }
+        if (wheel_number > 0 && wheel.wheel_number == wheel_number) {
+            if (wheel.wheel_name.empty() && !wheel_name.empty()) {
+                wheel.wheel_name = wheel_name;
+            }
+            return &wheel;
+        }
+    }
+
+    peraviz::dmx::FixtureGoboWheelOffset wheel;
+    wheel.wheel_number = wheel_number;
+    wheel.wheel_name = wheel_name;
+    out_offsets.gobo_wheels.push_back(std::move(wheel));
+    return &out_offsets.gobo_wheels.back();
+}
+
+void dedupe_and_sort_gobo_wheel(peraviz::dmx::FixtureGoboWheelOffset &wheel) {
+    std::sort(wheel.slots.begin(), wheel.slots.end(),
+              [](const peraviz::dmx::FixtureGoboSlot &a,
+                 const peraviz::dmx::FixtureGoboSlot &b) {
+                  if (a.slot_index != b.slot_index) {
+                      return a.slot_index < b.slot_index;
+                  }
+                  return a.image_path < b.image_path;
+              });
+    wheel.slots.erase(
+        std::unique(wheel.slots.begin(), wheel.slots.end(),
+                    [](const peraviz::dmx::FixtureGoboSlot &a,
+                       const peraviz::dmx::FixtureGoboSlot &b) {
+                        return a.slot_index == b.slot_index && a.image_path == b.image_path;
+                    }),
+        wheel.slots.end());
+
+    std::sort(wheel.ranges.begin(), wheel.ranges.end(),
+              [](const peraviz::dmx::FixtureGoboRange &a,
+                 const peraviz::dmx::FixtureGoboRange &b) {
+                  if (a.dmx_from != b.dmx_from) {
+                      return a.dmx_from < b.dmx_from;
+                  }
+                  if (a.dmx_to != b.dmx_to) {
+                      return a.dmx_to < b.dmx_to;
+                  }
+                  return a.slot_index < b.slot_index;
+              });
+    wheel.ranges.erase(
+        std::unique(wheel.ranges.begin(), wheel.ranges.end(),
+                    [](const peraviz::dmx::FixtureGoboRange &a,
+                       const peraviz::dmx::FixtureGoboRange &b) {
+                        return a.dmx_from == b.dmx_from && a.dmx_to == b.dmx_to &&
+                               a.slot_index == b.slot_index;
+                    }),
+        wheel.ranges.end());
+}
+
 void consume_channel_offsets(tinyxml2::XMLElement *dmx_channel,
+                             const GoboWheelCatalog &wheel_catalog,
                              peraviz::dmx::FixtureControlOffsets &out_offsets) {
     if (!dmx_channel) {
         return;
@@ -463,6 +897,24 @@ void consume_channel_offsets(tinyxml2::XMLElement *dmx_channel,
                                 out_offsets.yellow_fine_offset_1_based,
                                 out_offsets.yellow_ultra_fine_offset_1_based);
                 break;
+            case AttributeRole::kGobo: {
+                const std::string wheel_name = lower_ascii(read_attr_ci(channel_function, "Wheel", "wheel"));
+                int wheel_number = parsed_attribute.gobo_wheel_number;
+                if (wheel_number <= 0) {
+                    wheel_number = parse_last_number_token(wheel_name);
+                }
+                peraviz::dmx::FixtureGoboWheelOffset *wheel =
+                    find_or_create_gobo_wheel_offset(out_offsets, wheel_number, wheel_name);
+                if (!wheel) {
+                    break;
+                }
+                consume_offsets(offsets, parsed_attribute.is_fine, parsed_attribute.byte_index,
+                                wheel->coarse_offset_1_based,
+                                wheel->fine_offset_1_based,
+                                wheel->ultra_fine_offset_1_based);
+                consume_gobo_channel_sets(channel_function, wheel_catalog, *wheel);
+                break;
+            }
             }
         }
     }
@@ -527,6 +979,8 @@ DimmerResolveCacheEntry resolve_uncached(const std::string &gdtf_path,
         return out;
     }
 
+    const GoboWheelCatalog wheel_catalog = build_gobo_wheel_catalog(gdtf_path, root);
+
     std::vector<tinyxml2::XMLElement *> dmx_channels = collect_elements_by_name(selected_mode, "dmxchannel");
     if (dmx_channels.empty()) {
         out.reason = "DMX mode has no DMXChannel entries";
@@ -534,11 +988,53 @@ DimmerResolveCacheEntry resolve_uncached(const std::string &gdtf_path,
     }
 
     for (tinyxml2::XMLElement *dmx_channel : dmx_channels) {
-        consume_channel_offsets(dmx_channel, out.offsets);
+        consume_channel_offsets(dmx_channel, wheel_catalog, out.offsets);
+    }
+
+    for (auto &wheel : out.offsets.gobo_wheels) {
+        dedupe_and_sort_gobo_wheel(wheel);
+    }
+    out.offsets.gobo_wheels.erase(
+        std::remove_if(out.offsets.gobo_wheels.begin(), out.offsets.gobo_wheels.end(),
+                       [](const peraviz::dmx::FixtureGoboWheelOffset &wheel) {
+                           return wheel.coarse_offset_1_based <= 0;
+                       }),
+        out.offsets.gobo_wheels.end());
+
+    std::sort(out.offsets.gobo_wheels.begin(), out.offsets.gobo_wheels.end(),
+              [](const peraviz::dmx::FixtureGoboWheelOffset &a,
+                 const peraviz::dmx::FixtureGoboWheelOffset &b) {
+                  if (a.wheel_number > 0 && b.wheel_number > 0 && a.wheel_number != b.wheel_number) {
+                      return a.wheel_number < b.wheel_number;
+                  }
+                  if (a.wheel_name != b.wheel_name) {
+                      return a.wheel_name < b.wheel_name;
+                  }
+                  return a.coarse_offset_1_based < b.coarse_offset_1_based;
+              });
+
+    const peraviz::dmx::FixtureGoboWheelOffset *primary_wheel = nullptr;
+    for (const auto &wheel : out.offsets.gobo_wheels) {
+        if (wheel.wheel_number == 1) {
+            primary_wheel = &wheel;
+            break;
+        }
+    }
+    if (!primary_wheel && !out.offsets.gobo_wheels.empty()) {
+        primary_wheel = &out.offsets.gobo_wheels.front();
+    }
+    if (primary_wheel) {
+        out.offsets.gobo_coarse_offset_1_based = primary_wheel->coarse_offset_1_based;
+        out.offsets.gobo_fine_offset_1_based = primary_wheel->fine_offset_1_based;
+        out.offsets.gobo_ultra_fine_offset_1_based = primary_wheel->ultra_fine_offset_1_based;
+        out.offsets.gobo_wheel_number = primary_wheel->wheel_number;
+        out.offsets.gobo_wheel_name = primary_wheel->wheel_name;
+        out.offsets.gobo_slots = primary_wheel->slots;
+        out.offsets.gobo_ranges = primary_wheel->ranges;
     }
 
     if (!out.offsets.has_any()) {
-        out.reason = "No Dimmer/Pan/Tilt/Zoom/CMY attributes found in mode DMX channels";
+        out.reason = "No Dimmer/Pan/Tilt/Zoom/CMY/Gobo attributes found in mode DMX channels";
         return out;
     }
 

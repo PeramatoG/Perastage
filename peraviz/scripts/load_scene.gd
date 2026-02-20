@@ -44,6 +44,7 @@ var _fixture_emissive_cache: Dictionary = {}
 var _fixture_lens_material_cache: Dictionary = {}
 var _fixture_emitter_light_cache: Dictionary = {}
 var _fixture_emitter_photometrics: Dictionary = {}
+var _fixture_gobo_projector: FixtureGoboProjector = null
 var _updating_fixture_controls: bool = false
 var _visual_environment_baseline := {
 	"ambient_light_energy": 0.2,
@@ -84,6 +85,7 @@ const DmxFixtureRuntimeScript = preload("res://scripts/dmx_fixture_runtime.gd")
 const BeamRendererBaseScript = preload("res://scripts/beam_renderers/beam_renderer_base.gd")
 const LegacyConeBeamRendererScript = preload("res://scripts/beam_renderers/legacy_cone_beam_renderer.gd")
 const VolumetricBeamRendererScript = preload("res://scripts/beam_renderers/volumetric_beam_renderer.gd")
+const FixtureGoboProjectorScript = preload("res://scripts/fixture_gobo_projector.gd")
 
 const DEBUG_TOGGLE_KEY: Key = KEY_C
 const MANUAL_TEST_FLAG: String = "--peraviz_manual_fixture_test"
@@ -215,6 +217,7 @@ func _ready() -> void:
 	_capture_visual_environment_baseline()
 	_load_visual_settings_from_project()
 	_initialize_beam_renderers()
+	_fixture_gobo_projector = FixtureGoboProjectorScript.new()
 	visual_settings_window.configure(_visual_settings)
 	_apply_visual_settings(_visual_settings)
 
@@ -991,6 +994,8 @@ func _clear_scene() -> void:
 	_fixture_lens_material_cache.clear()
 	_fixture_emitter_light_cache.clear()
 	_fixture_emitter_photometrics.clear()
+	if _fixture_gobo_projector != null:
+		_fixture_gobo_projector.clear_cache()
 	_has_loaded_bounds = false
 	_clear_debug_gizmos()
 
@@ -1399,7 +1404,7 @@ func _apply_dmx_controls_to_fixture(fixture_uuid: String, controls: Dictionary) 
 		var tilt_degrees: float = lerp(tilt_min, tilt_max, clamp(float(controls.get("tilt_norm", 0.0)), 0.0, 1.0))
 		_apply_pan_tilt_components_to_fixture(fixture_uuid, has_pan, pan_degrees, has_tilt, tilt_degrees)
 
-	if controls.get("has_dimmer", false) or controls.get("has_zoom", false) or controls.get("has_cyan", false) or controls.get("has_magenta", false) or controls.get("has_yellow", false):
+	if controls.get("has_dimmer", false) or controls.get("has_zoom", false) or controls.get("has_cyan", false) or controls.get("has_magenta", false) or controls.get("has_yellow", false) or controls.get("has_gobo", false):
 		var dimmer_percent: float = float(MANUAL_DEFAULTS["dimmer"])
 		if controls.get("has_dimmer", false):
 			dimmer_percent = clamp(float(controls.get("dimmer_norm", 0.0)), 0.0, 1.0) * 100.0
@@ -1829,6 +1834,8 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 		"distance_cull_m": BEAM_DISTANCE_CULL_M,
 	}
 	_update_beam_for_light(light, beam_params)
+	if _fixture_gobo_projector != null:
+		_fixture_gobo_projector.apply_gobo_projection(light, controls)
 
 func _resolve_zoom_beam_limits(light: SpotLight3D, controls: Dictionary) -> Dictionary:
 	# min/max beam angles are kept as full GDTF beam apertures (not half-angle).
