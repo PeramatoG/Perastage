@@ -346,12 +346,10 @@ void RasterizeSymbol(const SymbolDefinition &def, symbols::ImageRGBA &shapeImg,
     std::string currentSource;
     auto flushGroup = [&]() {
       for (const auto index : groupedIndices) {
-        if (drawStrokes && hasStroke(index))
-          drawCommand(def.localCommands.commands[index], true, false);
-      }
-      for (const auto index : groupedIndices) {
-        if (drawFills && hasFill(index))
-          drawCommand(def.localCommands.commands[index], false, true);
+        const bool commandDrawStrokes = drawStrokes && hasStroke(index);
+        const bool commandDrawFills = drawFills && hasFill(index);
+        drawCommand(def.localCommands.commands[index], commandDrawStrokes,
+                    commandDrawFills);
       }
       groupedIndices.clear();
     };
