@@ -63,6 +63,8 @@ private:
     bool hasRenderState = false;
     std::shared_ptr<const SymbolDefinitionSnapshot> symbols;
     unsigned int texture = 0;
+    unsigned int pixelUnpackPbo = 0;
+    size_t pboBytes = 0;
     wxSize textureSize{0, 0};
     double renderZoom = 0.0;
     bool renderDirty = true;
@@ -70,6 +72,8 @@ private:
 
   struct LegendCache {
     unsigned int texture = 0;
+    unsigned int pixelUnpackPbo = 0;
+    size_t pboBytes = 0;
     wxSize textureSize{0, 0};
     double renderZoom = 0.0;
     bool renderDirty = true;
@@ -79,6 +83,8 @@ private:
 
   struct EventTableCache {
     unsigned int texture = 0;
+    unsigned int pixelUnpackPbo = 0;
+    size_t pboBytes = 0;
     wxSize textureSize{0, 0};
     double renderZoom = 0.0;
     bool renderDirty = true;
@@ -87,6 +93,8 @@ private:
 
   struct TextCache {
     unsigned int texture = 0;
+    unsigned int pixelUnpackPbo = 0;
+    size_t pboBytes = 0;
     wxSize textureSize{0, 0};
     double renderZoom = 0.0;
     bool renderDirty = true;
@@ -95,6 +103,8 @@ private:
 
   struct ImageCache {
     unsigned int texture = 0;
+    unsigned int pixelUnpackPbo = 0;
+    size_t pboBytes = 0;
     wxSize textureSize{0, 0};
     double renderZoom = 0.0;
     bool renderDirty = true;
