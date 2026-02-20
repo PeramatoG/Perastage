@@ -13,7 +13,28 @@ instance uniform float lateral_emission_boost = 0.16;
 instance uniform float volumetric_noise_strength = 0.06;
 instance uniform float volumetric_noise_scale = 14.0;
 
+uniform bool gobo_enabled = false;
+uniform sampler2D gobo_texture : source_color, filter_linear_mipmap, repeat_disable;
+uniform float gobo_strength : hint_range(0.0, 1.0) = 1.0;
+uniform float gobo_rotation_rad : hint_range(-6.283, 6.283) = 0.0;
+uniform float gobo_mip_bias : hint_range(0.0, 6.0) = 0.0;
+uniform float gobo_gamma : hint_range(0.25, 4.0) = 1.0;
+
 varying float beam_axial;
+
+float sample_gobo_polar(float axial01, float angle01) {
+	vec2 centered_uv = vec2(angle01 - 0.5, axial01 - 0.5);
+	float cos_r = cos(gobo_rotation_rad);
+	float sin_r = sin(gobo_rotation_rad);
+	vec2 rotated = vec2(
+		(centered_uv.x * cos_r) - (centered_uv.y * sin_r),
+		(centered_uv.x * sin_r) + (centered_uv.y * cos_r)
+	);
+	vec2 sample_uv = clamp(rotated + vec2(0.5), vec2(0.0), vec2(1.0));
+	float sampled = textureLod(gobo_texture, sample_uv, gobo_mip_bias).r;
+	float curved = pow(clamp(sampled, 0.0, 1.0), max(gobo_gamma, 0.001));
+	return mix(1.0, curved, clamp(gobo_strength, 0.0, 1.0));
+}
 
 void vertex() {
 	float normalized_y = (VERTEX.y / max(cone_height, 0.0001)) + 0.5;
@@ -29,7 +50,11 @@ void fragment() {
 	float axial_noise = sin((beam_axial * volumetric_noise_scale) + (TIME * 0.9));
 	float beam_noise = 1.0 + (axial_noise * volumetric_noise_strength);
 	float center_boost = (1.0 + (lateral_emission_boost * lateral_fade)) * beam_noise;
+	float gobo_mult = 1.0;
+	if (gobo_enabled) {
+		gobo_mult = sample_gobo_polar(near_factor, fract(UV.x));
+	}
 	ALBEDO = beam_color.rgb;
-	ALPHA = mix(far_alpha, near_alpha, near_factor) * end_fade * lateral_fade;
-	EMISSION = beam_color.rgb * (mix(far_emission, near_emission, near_factor) * end_fade * center_boost);
+	ALPHA = mix(far_alpha, near_alpha, near_factor) * end_fade * lateral_fade * gobo_mult;
+	EMISSION = beam_color.rgb * (mix(far_emission, near_emission, near_factor) * end_fade * center_boost * gobo_mult);
 }

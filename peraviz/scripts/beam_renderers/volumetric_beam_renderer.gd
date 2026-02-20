@@ -6,17 +6,23 @@ const BEAM_META_KEY: String = "peraviz_volumetric_beam"
 const EMITTER_CONE_MAX_BASE_RADIUS_M: float = 10.0
 const VOLUMETRIC_INTENSITY_SCALE: float = 0.62
 
+const GoboBeamMaterialCacheScript = preload("res://scripts/rendering/gobo_beam_material_cache.gd")
+
 var _shared_material: ShaderMaterial
 var _camera: Camera3D
 var _settings: Dictionary = {}
+var _gobo_material_cache: GoboBeamMaterialCache
 
 func _init() -> void:
 	_shared_material = ShaderMaterial.new()
 	_shared_material.shader = load("res://scripts/shaders/volumetric_beam.gdshader")
+	_gobo_material_cache = GoboBeamMaterialCacheScript.new()
+	_gobo_material_cache.configure_base_material(_shared_material)
 
 func configure(view_camera: Camera3D, settings: Dictionary) -> void:
 	_camera = view_camera
 	_settings = settings.duplicate(true)
+	_gobo_material_cache.apply_settings_to_all_cached_materials(_settings)
 
 func ensure_beam(light: SpotLight3D) -> void:
 	if light.has_meta(BEAM_META_KEY):
@@ -74,6 +80,12 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	cone.position = Vector3(0.0, 0.0, -beam_range * 0.5)
 	cone.visible = true
 
+	var beam_gobo_enabled: bool = bool(_settings.get("beam_gobo_enabled", true))
+	var gobo_texture: Texture2D = light.light_projector if light.light_projector is Texture2D else null
+	if beam_gobo_enabled:
+		beam_gobo_enabled = gobo_texture != null
+	cone.material_override = _gobo_material_cache.resolve_material(_shared_material, gobo_texture, _settings, beam_gobo_enabled)
+
 	var intensity_alpha: float = clamp(intensity * VOLUMETRIC_INTENSITY_SCALE, 0.0, 1.0)
 	cone.set_instance_shader_parameter("base_color", Color(beam_color.r, beam_color.g, beam_color.b, intensity_alpha))
 	cone.set_instance_shader_parameter("falloff_power", 8.0)
@@ -97,3 +109,6 @@ func cleanup_beam(light: SpotLight3D) -> void:
 	if cone != null and is_instance_valid(cone):
 		cone.queue_free()
 	light.remove_meta(BEAM_META_KEY)
+
+func clear_cached_materials() -> void:
+	_gobo_material_cache.clear()

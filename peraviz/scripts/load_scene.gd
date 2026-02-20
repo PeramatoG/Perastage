@@ -62,6 +62,15 @@ var _visual_settings := {
 	"beam_anisotropy": 0.62,
 	"beam_noise_amount": 0.06,
 	"beam_noise_scale": 1.4,
+	"beam_gobo_enabled": true,
+	"beam_gobo_strength": 1.0,
+	"beam_gobo_softness": 0.0,
+	"beam_gobo_gamma": 1.0,
+	"beam_gobo_rotation": 0.0,
+	"legacy_cone_count": 2,
+	"legacy_overlay_scale": 0.96,
+	"legacy_core_scale": 0.92,
+	"legacy_beam_gobo_max_distance": 90.0,
 	"background_color": Color(0.129412, 0.137255, 0.156863, 1.0),
 }
 
@@ -996,6 +1005,9 @@ func _clear_scene() -> void:
 	_fixture_emitter_photometrics.clear()
 	if _fixture_gobo_projector != null:
 		_fixture_gobo_projector.clear_cache()
+	for renderer in _beam_renderers.values():
+		if renderer is BeamRendererBase:
+			renderer.clear_cached_materials()
 	_has_loaded_bounds = false
 	_clear_debug_gizmos()
 
@@ -1833,9 +1845,9 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 		"intensity_visibility_threshold": BEAM_INTENSITY_VISIBILITY_THRESHOLD,
 		"distance_cull_m": BEAM_DISTANCE_CULL_M,
 	}
-	_update_beam_for_light(light, beam_params)
 	if _fixture_gobo_projector != null:
 		_fixture_gobo_projector.apply_gobo_projection(light, controls)
+	_update_beam_for_light(light, beam_params)
 
 func _resolve_zoom_beam_limits(light: SpotLight3D, controls: Dictionary) -> Dictionary:
 	# min/max beam angles are kept as full GDTF beam apertures (not half-angle).

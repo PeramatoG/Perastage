@@ -5,6 +5,12 @@ Peraviz now provides two beam rendering modes in **Visual Settings**:
 - **Volumetric (default)**: realistic haze shaft rendering with distance attenuation, view-dependent scattering, soft end fade and quality presets.
 - **Lightweight (legacy)**: previous cone-based beam rendering for low-resource systems.
 
+## Gobo in beam behavior
+
+- Surface footprint projection remains unchanged and still relies on `SpotLight3D.light_projector`.
+- Beam gobo visibility is implemented in beam shaders by modulation, using a gobo-aware material cache keyed by projector texture RID.
+- Cached beam materials update immediately when beam gobo settings change, without rebuilding fixture beam nodes.
+
 ## Performance guidance
 
 - Use **Volumetric + Low** on integrated GPUs.

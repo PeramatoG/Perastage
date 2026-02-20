@@ -13,3 +13,6 @@ func update_beam(_light: SpotLight3D, _params: Dictionary) -> void:
 
 func cleanup_beam(_light: SpotLight3D) -> void:
 	pass
+
+func clear_cached_materials() -> void:
+	pass
