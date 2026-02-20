@@ -155,6 +155,33 @@ incompatible link settings. Do a clean rebuild:
 3. If you keep the build directory, use `cmake --build . --config Debug --clean-first`
    (or the corresponding configuration) to force a clean rebuild.
 
+If Visual Studio shows many **`Error (inactive)`** diagnostics such as:
+
+- `std has no member filesystem / optional / variant / string_view / get_if / bit_cast`
+- structured-binding parse errors near `for (const auto& [a, b] : ...)`
+- follow-up parser errors (`expected ';'`, `expected ']'`, unknown identifiers)
+
+the active IntelliSense profile is usually not using C++20 yet (or is attached to
+an outdated CMake cache). This project requires **C++20**.
+
+Recommended fix sequence:
+
+1. Remove the current build directory (for example `out/build/x64-Debug`).
+2. Re-configure with CMake from a Developer PowerShell:
+   ```powershell
+   cmake -S . -B out/build/x64-Debug -G "Visual Studio 17 2022" -A x64
+   ```
+3. Build explicitly with that configured tree:
+   ```powershell
+   cmake --build out/build/x64-Debug --config Debug
+   ```
+4. In Visual Studio, open the CMake project/folder tied to that build directory
+   and wait for IntelliSense to finish reindexing.
+
+If the diagnostics are still marked as **inactive**, prioritize the real compiler
+output from `cmake --build`; inactive diagnostics alone do not necessarily mean
+the code fails to compile.
+
 ---
 
 ## macOS build troubleshooting (Apple Silicon)
