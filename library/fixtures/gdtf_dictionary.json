@@ -3,6 +3,10 @@
         "file": "Aleda B-EYE K10.gdtf",
         "mode": "Shapes"
     },
+    "Aleda K10 B-EYE (Bulb=LED)": {
+        "file": "Aleda B-EYE K10.gdtf",
+        "mode": "Shapes"
+    },
     "BLINDER 2 PRO": {
         "file": "BLINDER 2 PRO.gdtf",
         "mode": "2ch d001"
@@ -107,6 +111,10 @@
         "file": "Q-7.gdtf",
         "mode": "6 Channel RAW"
     },
+    "RoHS 18x10 LED Par RGBWA (Bulb=LED) (Lens=30 deg)": {
+        "file": "PAR PRO 270 5-in-1.gdtf",
+        "mode": "8ch"
+    },
     "Robin MMX Spot": {
         "file": "Robin MMX Spot.gdtf",
         "mode": "Mode 1 - Standard"
@@ -146,6 +154,10 @@
     "Spiider (Bulb=LED)": {
         "file": "Robin Spiider.gdtf",
         "mode": "Mode 10 - Pattern full RGBW"
+    },
+    "Strike Array 2 (Bulb=LED)": {
+        "file": "BLINDER 2 PRO.gdtf",
+        "mode": "6ch A001"
     },
     "SunRise 2IP": {
         "file": "Sunrise2IP.gdtf",
