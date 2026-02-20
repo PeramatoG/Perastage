@@ -49,8 +49,9 @@ void SetPixel(symbols::ImageRGBA &img, int x, int y, uint8_t r, uint8_t g,
   px[3] = a;
 }
 
-void DrawLine(symbols::ImageRGBA &img, symbols::Point2D a, symbols::Point2D b,
-              int thickness, uint8_t r, uint8_t g, uint8_t bl, uint8_t alpha) {
+void DrawRasterLine(symbols::ImageRGBA &img, symbols::Point2D a,
+                    symbols::Point2D b, int thickness, uint8_t r, uint8_t g,
+                    uint8_t bl, uint8_t alpha) {
   int x0 = static_cast<int>(std::lround(a.x));
   int y0 = static_cast<int>(std::lround(a.y));
   int x1 = static_cast<int>(std::lround(b.x));
@@ -124,9 +125,9 @@ public:
                 const viewer2d::Viewer2DRenderPoint &p1,
                 const CanvasStroke &stroke, double strokeWidthPx) override {
     (void)stroke;
-    DrawLine(image_, {static_cast<float>(p0.x), static_cast<float>(p0.y)},
-             {static_cast<float>(p1.x), static_cast<float>(p1.y)},
-             StrokeThickness(strokeWidthPx), 0, 0, 0, 255);
+    DrawRasterLine(image_, {static_cast<float>(p0.x), static_cast<float>(p0.y)},
+                   {static_cast<float>(p1.x), static_cast<float>(p1.y)},
+                   StrokeThickness(strokeWidthPx), 0, 0, 0, 255);
   }
 
   void DrawPolyline(const std::vector<viewer2d::Viewer2DRenderPoint> &points,
@@ -136,9 +137,11 @@ public:
       return;
     const int thick = StrokeThickness(strokeWidthPx);
     for (size_t i = 1; i < points.size(); ++i) {
-      DrawLine(image_, {static_cast<float>(points[i - 1].x), static_cast<float>(points[i - 1].y)},
-               {static_cast<float>(points[i].x), static_cast<float>(points[i].y)}, thick,
-               0, 0, 0, 255);
+      DrawRasterLine(
+          image_,
+          {static_cast<float>(points[i - 1].x), static_cast<float>(points[i - 1].y)},
+          {static_cast<float>(points[i].x), static_cast<float>(points[i].y)},
+          thick, 0, 0, 0, 255);
     }
   }
 
@@ -160,7 +163,8 @@ public:
 
     const int thick = StrokeThickness(strokeWidthPx);
     for (size_t i = 0; i < pts.size(); ++i)
-      DrawLine(image_, pts[i], pts[(i + 1) % pts.size()], thick, 0, 0, 0, 255);
+      DrawRasterLine(image_, pts[i], pts[(i + 1) % pts.size()], thick, 0, 0,
+                     0, 255);
   }
 
   void DrawCircle(const viewer2d::Viewer2DRenderPoint &center, double radiusPx,
@@ -183,7 +187,8 @@ public:
     }
     const int thick = StrokeThickness(strokeWidthPx);
     for (size_t i = 0; i < pts.size(); ++i)
-      DrawLine(image_, pts[i], pts[(i + 1) % pts.size()], thick, 0, 0, 0, 255);
+      DrawRasterLine(image_, pts[i], pts[(i + 1) % pts.size()], thick, 0, 0,
+                     0, 255);
   }
 
   void DrawText(const viewer2d::Viewer2DRenderText &text) override {
