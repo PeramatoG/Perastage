@@ -324,6 +324,99 @@ symbols::Aabb2D ComputeBoundsFromGeometry(const symbols::Symbol2D &symbol) {
   return bounds;
 }
 
+class ScopedFixtureIsolation {
+public:
+  ScopedFixtureIsolation(ConfigManager &cfg, Viewer2DPanel &panel,
+                         const std::string &fixtureUuid)
+      : cfg_(cfg), panel_(panel) {
+    auto &scene = cfg_.GetScene();
+    previousFixtures_ = scene.fixtures;
+    previousTrusses_ = scene.trusses;
+    previousSupports_ = scene.supports;
+    previousSceneObjects_ = scene.sceneObjects;
+
+    if (!fixtureUuid.empty()) {
+      auto it = scene.fixtures.find(fixtureUuid);
+      if (it != scene.fixtures.end()) {
+        const auto fixture = it->second;
+        scene.fixtures.clear();
+        scene.fixtures.emplace(fixtureUuid, fixture);
+      }
+    }
+
+    scene.trusses.clear();
+    scene.supports.clear();
+    scene.sceneObjects.clear();
+    panel_.UpdateScene(true);
+  }
+
+  ~ScopedFixtureIsolation() {
+    auto &scene = cfg_.GetScene();
+    scene.fixtures = std::move(previousFixtures_);
+    scene.trusses = std::move(previousTrusses_);
+    scene.supports = std::move(previousSupports_);
+    scene.sceneObjects = std::move(previousSceneObjects_);
+    panel_.UpdateScene(true);
+  }
+
+private:
+  ConfigManager &cfg_;
+  Viewer2DPanel &panel_;
+  std::unordered_map<std::string, Fixture> previousFixtures_;
+  std::unordered_map<std::string, Truss> previousTrusses_;
+  std::unordered_map<std::string, Support> previousSupports_;
+  std::unordered_map<std::string, SceneObject> previousSceneObjects_;
+};
+
+bool CaptureFixtureViewReference(Viewer2DPanel &panel, symbols::SymbolView view,
+                                 SymbolReferenceViews &outReferences,
+                                 std::string &outMessage) {
+  const auto previousView = panel.GetView();
+
+  Viewer2DView targetView = Viewer2DView::Top;
+  switch (view) {
+  case symbols::SymbolView::Front:
+    targetView = Viewer2DView::Front;
+    break;
+  case symbols::SymbolView::Top:
+    targetView = Viewer2DView::Top;
+    break;
+  case symbols::SymbolView::Bottom:
+    targetView = Viewer2DView::Bottom;
+    break;
+  case symbols::SymbolView::Left:
+    targetView = Viewer2DView::Side;
+    break;
+  }
+
+  panel.SetView(targetView);
+  panel.CaptureFrameNow([](CommandBuffer, Viewer2DViewState) {}, true, false);
+
+  std::vector<unsigned char> pixels;
+  int width = 0;
+  int height = 0;
+  const bool ok = panel.RenderToRGBA(pixels, width, height);
+  panel.SetView(previousView);
+  if (!ok || width <= 0 || height <= 0 || pixels.empty()) {
+    outMessage = std::string("View ") + symbols::ToString(view) +
+                 ": failed to capture Viewer2D reference image";
+    return false;
+  }
+
+  outReferences.view = view;
+  outReferences.line.width = width;
+  outReferences.line.height = height;
+  outReferences.line.rgba = std::move(pixels);
+  outReferences.shape = outReferences.line;
+
+  std::ostringstream ss;
+  ss << "View " << symbols::ToString(view)
+     << ": captured isolated fixture from Viewer2D (" << width << "x"
+     << height << ")";
+  outMessage = ss.str();
+  return true;
+}
+
 } // namespace
 
 bool BuildSymbolsFromViewer2DPipeline(Viewer2DPanel &panel,
@@ -333,111 +426,35 @@ bool BuildSymbolsFromViewer2DPipeline(Viewer2DPanel &panel,
                                       symbols::SymbolCollection &outSymbols,
                                       std::vector<std::string> &outLogLines,
                                       std::vector<SymbolReferenceViews> &outReferences) {
-  (void)fixtureUuid;
+  (void)modelKey;
   outSymbols.clear();
   outLogLines.clear();
   outReferences.clear();
 
   const auto previousMode = panel.GetRenderMode();
+  const auto previousView = panel.GetView();
   panel.SetRenderMode(Viewer2DRenderMode::White);
 
-  const std::vector<Viewer2DView> captureViews = {
-      Viewer2DView::Top, Viewer2DView::Front, Viewer2DView::Bottom,
-      Viewer2DView::Side};
-  const auto snapshot =
-      CaptureSymbolSnapshotForViews(&panel, configManager, captureViews);
+  ScopedFixtureIsolation fixtureIsolation(configManager, panel, fixtureUuid);
 
-  panel.SetRenderMode(previousMode);
-
-  if (!snapshot) {
-    outLogLines.push_back("No symbol snapshot available from Viewer2D pipeline.");
-    return false;
-  }
-
-  bool anyFound = false;
+  bool anyCaptured = false;
   for (const auto view : symbols::AllSymbolViews()) {
-    const auto expectedKind = ToViewKind(view);
-    const SymbolDefinition *found = nullptr;
-    for (const auto &entry : *snapshot) {
-      const auto &def = entry.second;
-      if (def.key.modelKey == modelKey && def.key.viewKind == expectedKind) {
-        found = &def;
-        break;
-      }
-    }
-
-    if (!found && view == symbols::SymbolView::Left) {
-      for (const auto &entry : *snapshot) {
-        const auto &def = entry.second;
-        if (def.key.modelKey == modelKey && def.key.viewKind == SymbolViewKind::Right) {
-          found = &def;
-          break;
-        }
-      }
-    }
-
-    if (!found) {
-      outLogLines.push_back(std::string("View ") + symbols::ToString(view) +
-                            ": no symbol definition in Viewer2D cache");
-      symbols::Symbol2D empty;
-      empty.view = view;
-      outSymbols.push_back(std::move(empty));
+    SymbolReferenceViews refs;
+    std::string message;
+    if (!CaptureFixtureViewReference(panel, view, refs, message)) {
+      outLogLines.push_back(message);
       continue;
     }
-
-    symbols::ImageRGBA shapeImg;
-    symbols::ImageRGBA lineImg;
-    RasterizeSymbol(*found, snapshot.get(), shapeImg, lineImg);
-
-    SymbolReferenceViews refs;
-    refs.view = view;
-    refs.shape.width = shapeImg.width;
-    refs.shape.height = shapeImg.height;
-    refs.shape.rgba = shapeImg.pixels;
-    refs.line.width = lineImg.width;
-    refs.line.height = lineImg.height;
-    refs.line.rgba = lineImg.pixels;
     outReferences.push_back(std::move(refs));
-
-    const auto shapeProcessingImg = BuildProcessingImage(shapeImg);
-    const auto lineProcessingImg = BuildProcessingImage(lineImg);
-
-    auto shapeMask = symbols::ExtractShapeMask(shapeProcessingImg);
-    auto lineMask = symbols::ExtractLineMask(lineProcessingImg);
-    symbols::MorphClose(shapeMask, shapeProcessingImg.width, shapeProcessingImg.height);
-
-    symbols::Symbol2D symbol;
-    symbol.view = view;
-    symbol.stroke_width_px = 2.0f;
-    symbol.fill = symbols::TraceFillPolygons(shapeMask, shapeProcessingImg.width,
-                                             shapeProcessingImg.height, 1.5f);
-    auto skeleton = symbols::SkeletonizeMask(lineMask, lineProcessingImg.width,
-                                             lineProcessingImg.height);
-    symbol.strokes = symbols::SkeletonToPolylines(
-        skeleton, lineProcessingImg.width, lineProcessingImg.height, 6.0f, 1.0f);
-    symbol.bounds = ComputeBoundsFromGeometry(symbol);
-
-    size_t fillVertices = 0;
-    for (const auto &poly : symbol.fill)
-      fillVertices += poly.outer.size();
-    size_t strokePoints = 0;
-    for (const auto &stroke : symbol.strokes)
-      strokePoints += stroke.points.size();
-
-    std::ostringstream ss;
-    ss << "View " << symbols::ToString(view)
-       << ": references from Viewer2D symbol pipeline (processing "
-       << shapeProcessingImg.width << "x" << shapeProcessingImg.height << "), fill="
-       << symbol.fill.size()
-       << " polygons, fillVertices=" << fillVertices << ", strokes="
-       << symbol.strokes.size() << ", strokePoints=" << strokePoints;
-    outLogLines.push_back(ss.str());
-
-    outSymbols.push_back(std::move(symbol));
-    anyFound = true;
+    outLogLines.push_back(message);
+    anyCaptured = true;
   }
 
-  return anyFound;
+  panel.SetView(previousView);
+  panel.SetRenderMode(previousMode);
+  outLogLines.push_back(
+      "Reference-only mode enabled: vectorization is intentionally bypassed.");
+  return anyCaptured;
 }
 
 } // namespace symboltools
