@@ -254,7 +254,8 @@ void RasterizeSymbol(const SymbolDefinition &def, symbols::ImageRGBA &shapeImg,
       return def.localCommands.metadata[index].hasFill;
     };
 
-    auto drawCommand = [&](const CanvasCommand &cmd) {
+    auto drawCommand = [&](const CanvasCommand &cmd, bool commandDrawStrokes,
+                           bool commandDrawFills) {
       if (const auto *line = std::get_if<LineCommand>(&cmd)) {
         const auto p0 = ApplyCanvasState(current, line->x0, line->y0);
         const auto p1 = ApplyCanvasState(current, line->x1, line->y1);
@@ -263,10 +264,10 @@ void RasterizeSymbol(const SymbolDefinition &def, symbols::ImageRGBA &shapeImg,
         const int thick = std::clamp(
             static_cast<int>(std::ceil(line->stroke.width * current.scale * tf.scale * 0.25f)),
             1, 2);
-        if (drawStrokes)
+        if (commandDrawStrokes)
           DrawLine(img, a, c, thick, 0, 0, 0, 255);
       } else if (const auto *polyline = std::get_if<PolylineCommand>(&cmd)) {
-        if (!drawStrokes || polyline->points.size() < 4)
+        if (!commandDrawStrokes || polyline->points.size() < 4)
           return;
         const int thick = std::clamp(
             static_cast<int>(std::ceil(polyline->stroke.width * current.scale * tf.scale * 0.25f)),
@@ -288,9 +289,9 @@ void RasterizeSymbol(const SymbolDefinition &def, symbols::ImageRGBA &shapeImg,
               ApplyCanvasState(current, polygon->points[i], polygon->points[i + 1]);
           pts.push_back(ToImage(tf, p.x, p.y, img.height));
         }
-        if (drawFills && polygon->hasFill)
+        if (commandDrawFills && polygon->hasFill)
           FillPolygon(img, pts, fillGray, fillGray, fillGray, 255);
-        if (drawStrokes) {
+        if (commandDrawStrokes) {
           const int thick = std::clamp(
               static_cast<int>(std::ceil(polygon->stroke.width * current.scale * tf.scale * 0.25f)),
               1, 2);
@@ -305,9 +306,9 @@ void RasterizeSymbol(const SymbolDefinition &def, symbols::ImageRGBA &shapeImg,
         std::vector<symbols::Point2D> pts = {
             ToImage(tf, p0.x, p0.y, img.height), ToImage(tf, p1.x, p1.y, img.height),
             ToImage(tf, p2.x, p2.y, img.height), ToImage(tf, p3.x, p3.y, img.height)};
-        if (drawFills && rect->hasFill)
+        if (commandDrawFills && rect->hasFill)
           FillPolygon(img, pts, fillGray, fillGray, fillGray, 255);
-        if (drawStrokes) {
+        if (commandDrawStrokes) {
           const int thick = std::clamp(
               static_cast<int>(std::ceil(rect->stroke.width * current.scale * tf.scale * 0.25f)),
               1, 2);
@@ -318,9 +319,9 @@ void RasterizeSymbol(const SymbolDefinition &def, symbols::ImageRGBA &shapeImg,
         const auto center = ApplyCanvasState(current, circle->cx, circle->cy);
         const float radius = circle->radius * current.scale;
         auto pts = BuildCircle(tf, img.height, center.x, center.y, radius);
-        if (drawFills && circle->hasFill)
+        if (commandDrawFills && circle->hasFill)
           FillPolygon(img, pts, fillGray, fillGray, fillGray, 255);
-        if (drawStrokes) {
+        if (commandDrawStrokes) {
           const int thick = std::clamp(
               static_cast<int>(std::ceil(circle->stroke.width * current.scale * tf.scale * 0.25f)),
               1, 2);
@@ -346,11 +347,11 @@ void RasterizeSymbol(const SymbolDefinition &def, symbols::ImageRGBA &shapeImg,
     auto flushGroup = [&]() {
       for (const auto index : groupedIndices) {
         if (drawStrokes && hasStroke(index))
-          drawCommand(def.localCommands.commands[index]);
+          drawCommand(def.localCommands.commands[index], true, false);
       }
       for (const auto index : groupedIndices) {
         if (drawFills && hasFill(index))
-          drawCommand(def.localCommands.commands[index]);
+          drawCommand(def.localCommands.commands[index], false, true);
       }
       groupedIndices.clear();
     };
@@ -372,7 +373,7 @@ void RasterizeSymbol(const SymbolDefinition &def, symbols::ImageRGBA &shapeImg,
 
       if (isBarrier) {
         flushGroup();
-        drawCommand(cmd);
+        drawCommand(cmd, false, false);
         continue;
       }
 
