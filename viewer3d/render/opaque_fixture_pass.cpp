@@ -169,6 +169,11 @@ void OpaqueFixturePass::Render(
               if (itg != controller.m_resourceSyncState.loadedGdtf.end()) {
                 const auto &parts = itg->second;
                 const bool reversePartOrder = drawRealTopInTopView;
+                const bool symbolWireframe = false;
+                const Viewer2DRenderMode symbolMode =
+                    mode == Viewer2DRenderMode::Wireframe
+                        ? Viewer2DRenderMode::White
+                        : mode;
                 for (size_t offset = 0; offset < parts.size(); ++offset) {
                   const size_t partIndex =
                       reversePartOrder ? (parts.size() - 1 - offset) : offset;
@@ -189,12 +194,19 @@ void OpaqueFixturePass::Render(
                   }
                   controller.DrawMeshWithOutline(
                       obj.mesh, partR, partG, partB, RENDER_SCALE, false, false,
-                      0.0f, 0.0f, 0.0f, wireframe, mode, applyCapture, false);
+                      0.0f, 0.0f, 0.0f, symbolWireframe, symbolMode,
+                      applyCapture, false);
                 }
               } else {
                 controller.m_captureCanvas->SetSourceKey(fixtureCaptureKey);
+                const bool symbolWireframe = false;
+                const Viewer2DRenderMode symbolMode =
+                    mode == Viewer2DRenderMode::Wireframe
+                        ? Viewer2DRenderMode::White
+                        : mode;
                 controller.DrawCubeWithOutline(0.2f, r, g, b, false, false, 0.0f,
-                                               0.0f, 0.0f, wireframe, mode,
+                                               0.0f, 0.0f, symbolWireframe,
+                                               symbolMode,
                                                [](const std::array<float, 3> &p) {
                                                  return p;
                                                });
