@@ -124,7 +124,8 @@ public:
   void DrawLine(const viewer2d::Viewer2DRenderPoint &p0,
                 const viewer2d::Viewer2DRenderPoint &p1,
                 const CanvasStroke &stroke, double strokeWidthPx) override {
-    (void)stroke;
+    if (!ShouldDrawStroke(stroke, strokeWidthPx))
+      return;
     DrawRasterLine(image_, {static_cast<float>(p0.x), static_cast<float>(p0.y)},
                    {static_cast<float>(p1.x), static_cast<float>(p1.y)},
                    StrokeThickness(strokeWidthPx), 0, 0, 0, 255);
@@ -132,8 +133,7 @@ public:
 
   void DrawPolyline(const std::vector<viewer2d::Viewer2DRenderPoint> &points,
                     const CanvasStroke &stroke, double strokeWidthPx) override {
-    (void)stroke;
-    if (points.size() < 2)
+    if (points.size() < 2 || !ShouldDrawStroke(stroke, strokeWidthPx))
       return;
     const int thick = StrokeThickness(strokeWidthPx);
     for (size_t i = 1; i < points.size(); ++i) {
@@ -156,10 +156,13 @@ public:
     for (const auto &p : points)
       pts.push_back({static_cast<float>(p.x), static_cast<float>(p.y)});
 
-    if (fill != nullptr) {
+    if (ShouldDrawFill(fill)) {
       const uint8_t fillGray = (mode_ == ReferencePassMode::ShapeBlack) ? 0 : 255;
       FillPolygon(image_, pts, fillGray, fillGray, fillGray, 255);
     }
+
+    if (!ShouldDrawStroke(stroke, strokeWidthPx))
+      return;
 
     const int thick = StrokeThickness(strokeWidthPx);
     for (size_t i = 0; i < pts.size(); ++i)
@@ -170,7 +173,6 @@ public:
   void DrawCircle(const viewer2d::Viewer2DRenderPoint &center, double radiusPx,
                   const CanvasStroke &stroke, const CanvasFill *fill,
                   double strokeWidthPx) override {
-    (void)stroke;
     constexpr int kSegments = 48;
     constexpr float kTwoPi = 6.28318530717958647692f;
     std::vector<symbols::Point2D> pts;
@@ -181,10 +183,12 @@ public:
       pts.push_back({static_cast<float>(center.x + std::cos(angle) * radiusPx),
                      static_cast<float>(center.y + std::sin(angle) * radiusPx)});
     }
-    if (fill != nullptr) {
+    if (ShouldDrawFill(fill)) {
       const uint8_t fillGray = (mode_ == ReferencePassMode::ShapeBlack) ? 0 : 255;
       FillPolygon(image_, pts, fillGray, fillGray, fillGray, 255);
     }
+    if (!ShouldDrawStroke(stroke, strokeWidthPx))
+      return;
     const int thick = StrokeThickness(strokeWidthPx);
     for (size_t i = 0; i < pts.size(); ++i)
       DrawRasterLine(image_, pts[i], pts[(i + 1) % pts.size()], thick, 0, 0,
@@ -196,6 +200,14 @@ public:
   }
 
 private:
+  bool ShouldDrawStroke(const CanvasStroke &stroke, double strokeWidthPx) const {
+    return stroke.color.a > 0.001f && strokeWidthPx > 0.0;
+  }
+
+  bool ShouldDrawFill(const CanvasFill *fill) const {
+    return fill != nullptr && fill->color.a > 0.001f;
+  }
+
   int StrokeThickness(double strokeWidthPx) const {
     return std::clamp(static_cast<int>(std::ceil(strokeWidthPx * 0.25)), 1, 2);
   }
