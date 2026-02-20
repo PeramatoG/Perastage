@@ -1,8 +1,6 @@
 {
-  "cmake.configureSettings": {
-    "CMAKE_TOOLCHAIN_FILE": "/Users/arenasaudio/vcpkg/scripts/buildsystems/vcpkg.cmake",
-    "VCPKG_TARGET_TRIPLET": "arm64-osx",
-    "CMAKE_OSX_ARCHITECTURES": "arm64"
-  },
-  "cmake.generator": "Unix Makefiles"
+  "cmake.useCMakePresets": "always",
+  "cmake.configureOnOpen": true,
+  "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
+  "C_Cpp.default.cppStandard": "c++20"
 }
