@@ -29,3 +29,9 @@ Shader shaping uses:
 
 - **Axial factor** from local mesh Y to control near-lens intensity and far-end fade.
 - **Radial factor** from local XZ distance to keep the center denser than edges.
+
+## Gobo modulation in beam haze
+
+- Surface footprint projection remains unchanged and still uses `SpotLight3D.light_projector`.
+- Beam haze gobo visibility is implemented in beam shaders and driven by a gobo-material cache keyed by projector texture RID.
+- Legacy mode applies gobo modulation only on the overlay cone for better performance, while volumetric mode applies modulation to beam brightness and alpha for realism.

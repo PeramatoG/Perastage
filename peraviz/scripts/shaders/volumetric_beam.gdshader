@@ -2,6 +2,12 @@ shader_type spatial;
 render_mode unshaded, blend_add, cull_disabled, depth_draw_opaque;
 
 uniform sampler2D DEPTH_TEXTURE : hint_depth_texture, filter_linear_mipmap;
+uniform bool gobo_enabled = false;
+uniform sampler2D gobo_texture : source_color, filter_linear_mipmap, repeat_disable;
+uniform float gobo_strength : hint_range(0.0, 1.0) = 1.0;
+uniform float gobo_rotation_rad : hint_range(-6.283, 6.283) = 0.0;
+uniform float gobo_mip_bias : hint_range(0.0, 6.0) = 0.0;
+uniform float gobo_gamma : hint_range(0.25, 4.0) = 1.0;
 
 instance uniform vec4 base_color : source_color = vec4(1.0, 0.95, 0.85, 0.5);
 instance uniform float falloff_power : hint_range(0.1, 10.0) = 8.0;
@@ -19,6 +25,15 @@ instance uniform bool depth_feather_enabled = true;
 instance uniform float depth_fade_distance : hint_range(0.01, 5.0) = 0.5;
 
 varying vec3 vertex_view;
+
+float sample_gobo_polar(float axial01, float angle01) {
+	float rotated_angle = fract(angle01 + (gobo_rotation_rad / 6.28318530718));
+	float radial_proxy = clamp(axial01, 0.0, 1.0);
+	vec2 gobo_uv = vec2(rotated_angle, radial_proxy);
+	float gobo_sample = textureLod(gobo_texture, gobo_uv, gobo_mip_bias).r;
+	float gobo_curve = pow(max(gobo_sample, 0.0001), gobo_gamma);
+	return mix(1.0, gobo_curve, gobo_strength);
+}
 
 void vertex() {
 	vertex_view = (MODELVIEW_MATRIX * vec4(VERTEX, 1.0)).xyz;
@@ -61,8 +76,13 @@ void fragment() {
 		}
 	}
 
-	float final_alpha = feather_alpha * depth_mult * dist_fade;
-	ALBEDO = base_color.rgb * brightness;
+	float gobo_multiplier = 1.0;
+	if (gobo_enabled) {
+		gobo_multiplier = sample_gobo_polar(1.0 - UV.y, UV.x);
+	}
+
+	float final_alpha = feather_alpha * depth_mult * dist_fade * gobo_multiplier;
+	ALBEDO = base_color.rgb * brightness * gobo_multiplier;
 	ALPHA = clamp(final_alpha * base_color.a, 0.0, 1.0);
 	EMISSION = ALBEDO * ALPHA;
 }
