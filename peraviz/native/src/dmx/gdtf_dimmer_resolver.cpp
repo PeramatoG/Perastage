@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <filesystem>
 #include <cstdlib>
 #include <mutex>
 #include <sstream>
@@ -465,7 +466,51 @@ std::string read_attr_ci(tinyxml2::XMLElement *node, const char *name_a, const c
     return value ? trim_ascii(value) : std::string();
 }
 
-std::string ensure_gobo_media_extracted(peraviz::ZipAssetCache &cache, const std::string &media_reference) {
+std::string find_archive_media_by_stem(const std::string &gdtf_path,
+                                       const std::string &media_reference) {
+    const std::filesystem::path ref_path = std::filesystem::u8path(trim_ascii(media_reference));
+    const std::string wanted_stem = lower_ascii(ref_path.stem().u8string());
+    if (wanted_stem.empty()) {
+        return {};
+    }
+
+    wxFileInputStream input(wxString::FromUTF8(gdtf_path.c_str()));
+    if (!input.IsOk()) {
+        return {};
+    }
+
+    std::string best_match;
+    wxZipInputStream zip(input);
+    std::unique_ptr<wxZipEntry> entry;
+    while ((entry.reset(zip.GetNextEntry())), entry) {
+        std::string entry_name = entry->GetName().ToUTF8().data();
+        std::replace(entry_name.begin(), entry_name.end(), '\\', '/');
+        const std::string entry_lower = lower_ascii(entry_name);
+        const std::filesystem::path entry_path = std::filesystem::u8path(entry_name);
+        const std::string entry_ext = lower_ascii(entry_path.extension().u8string());
+        if (entry_ext != ".png" && entry_ext != ".jpg" && entry_ext != ".jpeg") {
+            continue;
+        }
+        const std::string entry_stem = lower_ascii(entry_path.stem().u8string());
+        if (entry_stem != wanted_stem) {
+            continue;
+        }
+
+        const bool in_wheels_folder = entry_lower.find("wheels/") != std::string::npos;
+        if (in_wheels_folder) {
+            return entry_name;
+        }
+        if (best_match.empty()) {
+            best_match = entry_name;
+        }
+    }
+
+    return best_match;
+}
+
+std::string ensure_gobo_media_extracted(const std::string &gdtf_path,
+                                        peraviz::ZipAssetCache &cache,
+                                        const std::string &media_reference) {
     if (media_reference.empty()) {
         return {};
     }
@@ -492,6 +537,11 @@ std::string ensure_gobo_media_extracted(peraviz::ZipAssetCache &cache, const std
         if (!extracted.empty()) {
             return extracted;
         }
+    }
+
+    const std::string archive_match = find_archive_media_by_stem(gdtf_path, normalized);
+    if (!archive_match.empty()) {
+        return cache.ensure_extracted(archive_match);
     }
 
     return {};
@@ -536,7 +586,7 @@ GoboWheelCatalog build_gobo_wheel_catalog(const std::string &gdtf_path, tinyxml2
                 continue;
             }
 
-            const std::string extracted = ensure_gobo_media_extracted(cache, media_file);
+            const std::string extracted = ensure_gobo_media_extracted(gdtf_path, cache, media_file);
             if (!extracted.empty()) {
                 out[wheel_name][slot_index] = extracted;
             }
