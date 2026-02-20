@@ -91,6 +91,17 @@ void SetTableAndChildTooltips(wxDataViewListCtrl *table,
   }
 }
 
+wxPoint NormalizeMousePositionForTable(wxDataViewListCtrl *table,
+                                       const wxMouseEvent &event) {
+  wxPoint position = event.GetPosition();
+  wxWindow *sourceWindow =
+      dynamic_cast<wxWindow *>(event.GetEventObject());
+  if (!table || !sourceWindow || sourceWindow == table)
+    return position;
+
+  return table->ScreenToClient(sourceWindow->ClientToScreen(position));
+}
+
 wxString BuildFixtureTooltipForColumn(int modelColumn) {
   if (modelColumn == 0)
     return "Duplicate Fixture ID. Each fixture must have a unique ID.";
@@ -996,7 +1007,7 @@ void FixtureTablePanel::OnCaptureLost(wxMouseCaptureLostEvent &WXUNUSED(evt)) {
 }
 
 void FixtureTablePanel::OnMouseMove(wxMouseEvent &evt) {
-  UpdateHoverTooltip(evt.GetPosition());
+  UpdateHoverTooltip(NormalizeMousePositionForTable(table, evt));
 
   if (!dragSelecting || !evt.Dragging()) {
     evt.Skip();

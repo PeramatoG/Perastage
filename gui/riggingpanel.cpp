@@ -77,6 +77,17 @@ void SetTableAndChildTooltips(wxDataViewListCtrl *table,
       child->SetToolTip(tooltip);
   }
 }
+
+wxPoint NormalizeMousePositionForTable(wxDataViewListCtrl *table,
+                                       const wxMouseEvent &event) {
+  wxPoint position = event.GetPosition();
+  wxWindow *sourceWindow =
+      dynamic_cast<wxWindow *>(event.GetEventObject());
+  if (!table || !sourceWindow || sourceWindow == table)
+    return position;
+
+  return table->ScreenToClient(sourceWindow->ClientToScreen(position));
+}
 }
 
 static RiggingPanel *s_instance = nullptr;
@@ -233,7 +244,7 @@ void RiggingPanel::RefreshData() {
 
 
 void RiggingPanel::OnMouseMove(wxMouseEvent &event) {
-  UpdateHoverTooltip(event.GetPosition());
+  UpdateHoverTooltip(NormalizeMousePositionForTable(table, event));
   event.Skip();
 }
 
