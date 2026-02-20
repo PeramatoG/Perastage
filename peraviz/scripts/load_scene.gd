@@ -124,7 +124,7 @@ const EMITTER_LIGHT_MAX_RANGE_M: float = 150.0
 const EMITTER_LIGHT_RANGE_BEAM_RADIUS_MULTIPLIER: float = 500.0
 const EMITTER_LIGHT_ENERGY_SCALE: float = 0.02
 const EMITTER_LIGHT_MAX_BEAM_ANGLE_DEG: float = 180.0
-const BEAM_COLOR_TEMPERATURE_STRENGTH: float = 0.12
+const BEAM_COLOR_TEMPERATURE_STRENGTH: float = 0.04
 const EMITTER_ZOOM_DEFAULT_MIN_BEAM_ANGLE_DEG: float = 4.0
 const EMITTER_ZOOM_DEFAULT_MAX_BEAM_ANGLE_DEG: float = EMITTER_LIGHT_MAX_BEAM_ANGLE_DEG
 const EMITTER_ZOOM_LENS_RANGE_REFERENCE_M: float = 12.0
@@ -2101,10 +2101,10 @@ func _resolve_cmy_filter(controls: Dictionary) -> Dictionary:
 func _color_temperature_to_rgb(temperature_kelvin: float, strength: float = 1.0) -> Color:
 	var clamped_strength: float = clamp(strength, 0.0, 1.0)
 	var clamped_temperature: float = clamp(temperature_kelvin, 1000.0, 12000.0)
-	var warm_threshold_kelvin: float = 3800.0
-	var cool_threshold_kelvin: float = 7200.0
-	var warm_extreme_kelvin: float = 2400.0
-	var cool_extreme_kelvin: float = 9000.0
+	var warm_threshold_kelvin: float = 3200.0
+	var cool_threshold_kelvin: float = 8500.0
+	var warm_extreme_kelvin: float = 2000.0
+	var cool_extreme_kelvin: float = 11000.0
 
 	var warm_factor: float = inverse_lerp(warm_threshold_kelvin, warm_extreme_kelvin, clamped_temperature)
 	var cool_factor: float = inverse_lerp(cool_threshold_kelvin, cool_extreme_kelvin, clamped_temperature)
