@@ -235,8 +235,19 @@ void FixtureEditDialog::ApplyChanges() {
     } else if (i == 18) {
       auto *picker = wxDynamicCast(ctrls[i], wxColourPickerCtrl);
       if (picker) {
-        wxString col = picker->GetColour().GetAsString(wxC2S_HTML_SYNTAX);
-        table->SetValue(wxVariant(col), row, i);
+        wxColour selectedColor = picker->GetColour();
+        wxString colorText = selectedColor.GetAsString(wxC2S_HTML_SYNTAX);
+        wxBitmap colorSwatch(16, 16);
+        {
+          wxMemoryDC dc(colorSwatch);
+          dc.SetPen(*wxTRANSPARENT_PEN);
+          dc.SetBrush(wxBrush(selectedColor));
+          dc.DrawRectangle(0, 0, 16, 16);
+          dc.SelectObject(wxNullBitmap);
+        }
+        wxVariant colorValue;
+        colorValue << wxDataViewIconText(colorText, colorSwatch);
+        table->SetValue(colorValue, row, i);
       }
     } else {
       wxTextCtrl *tc = wxDynamicCast(ctrls[i], wxTextCtrl);

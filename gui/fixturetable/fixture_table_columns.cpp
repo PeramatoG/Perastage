@@ -62,6 +62,7 @@ void ConfigureColumns(wxDataViewListCtrl *table,
 
   auto *colorRenderer =
       new ColorfulIconTextRenderer(wxDATAVIEW_CELL_INERT, wxALIGN_LEFT);
+  colorRenderer->EnableEllipsize(wxELLIPSIZE_NONE);
   table->AppendColumn(new wxDataViewColumn(
       columnLabels.back(), colorRenderer, columnLabels.size() - 1,
       widths.back(), wxALIGN_LEFT, flags));
