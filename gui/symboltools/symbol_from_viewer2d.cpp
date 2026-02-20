@@ -433,7 +433,7 @@ public:
 
 private:
   void CaptureAndSet(const char *key, float value) {
-    previousValues_.emplace(key, cfg_.GetFloat(key));
+    previousValues_.emplace_back(std::string(key), cfg_.GetFloat(key));
     cfg_.SetFloat(key, value);
   }
 
@@ -468,8 +468,8 @@ bool CaptureFixtureViewReference(Viewer2DPanel &panel, symbols::SymbolView view,
   int viewportWidth = 0;
   int viewportHeight = 0;
   panel.GetClientSize(&viewportWidth, &viewportHeight);
-  if (viewer2d::ComputeViewFit(panel.GetController(), targetView, viewportWidth,
-                               viewportHeight, fit)) {
+  if (viewer2d::ComputeViewFit(panel.GetSelectionContext(), targetView,
+                               viewportWidth, viewportHeight, fit)) {
     panel.ApplyViewState(fit.offsetXPixels, fit.offsetYPixels, fit.zoom,
                          targetView, previousMode);
   }

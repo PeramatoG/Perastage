@@ -67,6 +67,7 @@ public:
 
   void SetView(Viewer2DView view);
   Viewer2DView GetView() const { return m_view; }
+  const Viewer3DController &GetSelectionContext() const { return m_controller; }
 
   // Synchronize the highlighted selection from external sources (tables/3D).
   void SetSelectedUuids(const std::vector<std::string> &selection);
