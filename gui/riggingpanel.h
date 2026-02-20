@@ -33,6 +33,11 @@ public:
   static void SetInstance(RiggingPanel *panel);
 
 private:
+  void OnMouseMove(wxMouseEvent &event);
+  void OnMouseLeave(wxMouseEvent &event);
+  void UpdateHoverTooltip(const wxPoint &position);
+
   wxDataViewListCtrl *table = nullptr;
   ColorfulDataViewListStore *store = nullptr;
+  wxString activeHoverTooltip;
 };

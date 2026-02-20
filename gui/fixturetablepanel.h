@@ -73,11 +73,15 @@ private:
     void OnLeftDown(wxMouseEvent& evt);
     void OnLeftUp(wxMouseEvent& evt);
     void OnMouseMove(wxMouseEvent& evt);
+    void OnMouseLeave(wxMouseEvent& evt);
     void OnCaptureLost(wxMouseCaptureLostEvent& evt);
     void OnSelectionChanged(wxDataViewEvent& evt);
+    void UpdateHoverTooltip(const wxPoint& position);
     void UpdateSelectionHighlight();
     void PropagateTypeValues(const wxDataViewItemArray& selections, int col);
     void ApplyModeForGdtf(const wxString& path, const wxString& preferredMode = wxString());
     void HighlightDuplicateFixtureIds();
     void HighlightPatchConflicts();
+
+    wxString activeHoverTooltip;
 };
