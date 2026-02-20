@@ -397,6 +397,28 @@ symbols::ImageRGBA BuildProcessingImage(const symbols::ImageRGBA &src) {
   return ResizeNearest(src, targetW, targetH);
 }
 
+bool HasUsableViewerCapture(const std::vector<unsigned char> &pixels,
+                          int width, int height) {
+  if (width <= 0 || height <= 0)
+    return false;
+  const size_t required = static_cast<size_t>(width * height * 4);
+  if (pixels.size() < required)
+    return false;
+
+  size_t darkCount = 0;
+  for (size_t idx = 0; idx + 3 < required; idx += 4) {
+    const int dark = static_cast<int>(pixels[idx]) +
+                     static_cast<int>(pixels[idx + 1]) +
+                     static_cast<int>(pixels[idx + 2]);
+    if (dark < 24)
+      ++darkCount;
+  }
+
+  const double darkRatio = static_cast<double>(darkCount) /
+                           static_cast<double>(width * height);
+  return darkRatio < 0.98;
+}
+
 symbols::Aabb2D ComputeBoundsFromGeometry(const symbols::Symbol2D &symbol) {
   symbols::Aabb2D bounds{};
   bool hasBounds = false;
@@ -493,6 +515,9 @@ public:
     isolated.versionMinor = scene.versionMinor;
     isolated.layers = scene.layers;
     isolated.positions = scene.positions;
+    isolated.trusses = scene.trusses;
+    isolated.supports = scene.supports;
+    isolated.sceneObjects = scene.sceneObjects;
     isolated.symdefFiles = scene.symdefFiles;
     isolated.symdefTypes = scene.symdefTypes;
     isolated.symdefMatrices = scene.symdefMatrices;
@@ -555,7 +580,8 @@ bool BuildSymbolsFromViewer2DPipeline(Viewer2DPanel &panel,
     std::vector<unsigned char> pixels;
     int width = 0;
     int height = 0;
-    if (panel.RenderToRGBA(pixels, width, height) && width > 0 && height > 0) {
+    if (panel.RenderToRGBA(pixels, width, height) && width > 0 && height > 0 &&
+        HasUsableViewerCapture(pixels, width, height)) {
       viewShapeImages.push_back(MakeReferenceFromViewerImage(pixels, width, height, true));
       viewLineImages.push_back(MakeReferenceFromViewerImage(pixels, width, height, false));
     } else {
@@ -612,8 +638,11 @@ bool BuildSymbolsFromViewer2DPipeline(Viewer2DPanel &panel,
       shapeImg = viewShapeImages[viewIndex];
       lineImg = viewLineImages[viewIndex];
     }
-    if (shapeImg.pixels.empty() || lineImg.pixels.empty())
+    if (shapeImg.pixels.empty() || lineImg.pixels.empty()) {
+      outLogLines.push_back(std::string("View ") + symbols::ToString(view) +
+                            ": Viewer2D capture looked empty; using symbol replay fallback");
       RasterizeSymbol(*found, shapeImg, lineImg);
+    }
 
     SymbolReferenceViews refs;
     refs.view = view;
