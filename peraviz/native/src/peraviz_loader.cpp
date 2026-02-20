@@ -53,11 +53,11 @@ Array PeravizLoader::load_mvr(const String &path, bool peraviz_debug_baseline,
                                           peraviz_debug_baseline,
                                           peraviz_debug_coords);
 
-    UtilityFunctions::print("[PeravizNative] load_mvr nodes=", last_scene_model_.nodes.size(),
+    UtilityFunctions::print("[PeravizNative] load_mvr nodes=", static_cast<int64_t>(last_scene_model_.nodes.size()),
                             " baseline_debug=", peraviz_debug_baseline,
                             " coords_debug=", peraviz_debug_coords,
                             " fixtures=", last_scene_model_.fixture_count,
-                            " fixture_patches=", last_scene_model_.fixture_patches.size(),
+                            " fixture_patches=", static_cast<int64_t>(last_scene_model_.fixture_patches.size()),
                             " trusses=", last_scene_model_.truss_count,
                             " objects=", last_scene_model_.object_count,
                             " supports=", last_scene_model_.support_count,
