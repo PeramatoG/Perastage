@@ -61,6 +61,29 @@ public:
 
   MvrScene &GetScene() override { return GetDefaultGuiConfigServices().LegacyConfigManager().GetScene(); }
 };
+
+bool IsRedCell(const ColorfulDataViewListStore *store, int row, int col) {
+  if (!store || row < 0 || col < 0)
+    return false;
+
+  const size_t rowIndex = static_cast<size_t>(row);
+  const size_t colIndex = static_cast<size_t>(col);
+  if (rowIndex >= store->cellAttrs.size())
+    return false;
+  if (colIndex >= store->cellAttrs[rowIndex].size())
+    return false;
+
+  const wxDataViewItemAttr &attr = store->cellAttrs[rowIndex][colIndex];
+  return attr.HasColour() && attr.GetColour() == *wxRED;
+}
+
+wxString BuildFixtureTooltipForColumn(int modelColumn) {
+  if (modelColumn == 0)
+    return "Duplicate Fixture ID. Each fixture must have a unique ID.";
+  if (modelColumn == 5 || modelColumn == 6)
+    return "DMX patch conflict detected. Universe and channel overlap with another fixture.";
+  return wxString();
+}
 } // namespace
 
 FixtureTablePanel::FixtureTablePanel(wxWindow *parent, IGuiConfigServices *services)
@@ -80,6 +103,7 @@ FixtureTablePanel::FixtureTablePanel(wxWindow *parent, IGuiConfigServices *servi
   table->Bind(wxEVT_LEFT_DOWN, &FixtureTablePanel::OnLeftDown, this);
   table->Bind(wxEVT_LEFT_UP, &FixtureTablePanel::OnLeftUp, this);
   table->Bind(wxEVT_MOTION, &FixtureTablePanel::OnMouseMove, this);
+  table->Bind(wxEVT_LEAVE_WINDOW, &FixtureTablePanel::OnMouseLeave, this);
   table->Bind(wxEVT_DATAVIEW_SELECTION_CHANGED,
               &FixtureTablePanel::OnSelectionChanged, this);
 
@@ -958,6 +982,8 @@ void FixtureTablePanel::OnCaptureLost(wxMouseCaptureLostEvent &WXUNUSED(evt)) {
 }
 
 void FixtureTablePanel::OnMouseMove(wxMouseEvent &evt) {
+  UpdateHoverTooltip(evt.GetPosition());
+
   if (!dragSelecting || !evt.Dragging()) {
     evt.Skip();
     return;
@@ -975,6 +1001,34 @@ void FixtureTablePanel::OnMouseMove(wxMouseEvent &evt) {
       table->SelectRow(r);
   }
   evt.Skip();
+}
+
+void FixtureTablePanel::OnMouseLeave(wxMouseEvent &evt) {
+  if (!activeHoverTooltip.IsEmpty()) {
+    table->SetToolTip(wxString());
+    activeHoverTooltip.clear();
+  }
+  evt.Skip();
+}
+
+void FixtureTablePanel::UpdateHoverTooltip(const wxPoint &position) {
+  wxDataViewItem item;
+  wxDataViewColumn *column = nullptr;
+  table->HitTest(position, item, column);
+
+  wxString tooltip;
+  if (item.IsOk() && column) {
+    int row = table->ItemToRow(item);
+    int modelColumn = column->GetModelColumn();
+    if (IsRedCell(store, row, modelColumn))
+      tooltip = BuildFixtureTooltipForColumn(modelColumn);
+  }
+
+  if (tooltip == activeHoverTooltip)
+    return;
+
+  table->SetToolTip(tooltip);
+  activeHoverTooltip = tooltip;
 }
 
 void FixtureTablePanel::OnSelectionChanged(wxDataViewEvent &evt) {
