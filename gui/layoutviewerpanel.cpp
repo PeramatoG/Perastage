@@ -15,25 +15,45 @@
  * You should have received a copy of the GNU General Public License
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
-#include "layoutviewerpanel.h"
-
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
+#include <cstring>
 #include <memory>
 #include <new>
 #include <vector>
 #include <wx/weakref.h>
 
+#ifdef _WIN32
+#  define WIN32_LEAN_AND_MEAN
+#  define NOMINMAX
+#  include <windows.h>
+#endif
+
+#include <GL/glew.h>
 // Include GLEW or other OpenGL loader first if present
 #ifdef __APPLE__
+#  define GL_SILENCE_DEPRECATION
 #  include <OpenGL/gl.h>
 #  include <OpenGL/glu.h>
 #else
 #  include <GL/gl.h>
 #  include <GL/glu.h>
 #endif
+
+#include "layoutviewerpanel.h"
+
 #ifndef GL_CLAMP_TO_EDGE
 #define GL_CLAMP_TO_EDGE 0x812F
+#endif
+#ifndef GL_PIXEL_UNPACK_BUFFER
+#define GL_PIXEL_UNPACK_BUFFER 0x88EC
+#endif
+#ifndef GL_STREAM_DRAW
+#define GL_STREAM_DRAW 0x88E0
+#endif
+#ifndef GL_WRITE_ONLY
+#define GL_WRITE_ONLY 0x88B9
 #endif
 
 #include "configmanager.h"
@@ -75,6 +95,28 @@ constexpr int kLoadingTimerId = wxID_HIGHEST + 501;
 constexpr int kRenderDelayTimerId = wxID_HIGHEST + 502;
 constexpr int kLoadingOverlayDelayMs = 150;
 
+unsigned int *gActivePixelUnpackPbo = nullptr;
+size_t *gActivePixelUnpackPboBytes = nullptr;
+
+class ScopedActivePixelUnpackPbo {
+public:
+  ScopedActivePixelUnpackPbo(unsigned int &pbo, size_t &capacity)
+      : previousPbo_(gActivePixelUnpackPbo),
+        previousCapacity_(gActivePixelUnpackPboBytes) {
+    gActivePixelUnpackPbo = &pbo;
+    gActivePixelUnpackPboBytes = &capacity;
+  }
+
+  ~ScopedActivePixelUnpackPbo() {
+    gActivePixelUnpackPbo = previousPbo_;
+    gActivePixelUnpackPboBytes = previousCapacity_;
+  }
+
+private:
+  unsigned int *previousPbo_;
+  size_t *previousCapacity_;
+};
+
 bool TryAllocatePixelBuffer(std::vector<unsigned char> &pixels, int width,
                             int height, const char *context) {
   if (width <= 0 || height <= 0)
@@ -82,7 +124,16 @@ bool TryAllocatePixelBuffer(std::vector<unsigned char> &pixels, int width,
   const size_t totalPixels =
       static_cast<size_t>(width) * static_cast<size_t>(height);
   const size_t totalBytes = totalPixels * 4;
-  if (totalPixels > kMaxRenderPixels || totalBytes > kMaxRenderBytes) {
+  if (totalBytes > kMaxRenderBytes) {
+    Logger::Instance().Log(
+        std::string("LayoutViewerPanel: ") + context +
+        " render buffer exceeds kMaxRenderBytes (" +
+        std::to_string(totalBytes) + " > " + std::to_string(kMaxRenderBytes) +
+        ") for " + std::to_string(width) + "x" + std::to_string(height) +
+        ".");
+    return false;
+  }
+  if (totalPixels > kMaxRenderPixels) {
     Logger::Instance().Log(
         std::string("LayoutViewerPanel: ") + context +
         " render buffer too large (" + std::to_string(width) + "x" +
@@ -98,6 +149,113 @@ bool TryAllocatePixelBuffer(std::vector<unsigned char> &pixels, int width,
     return false;
   }
   return true;
+}
+
+bool IsPixelUnpackPboSupported() {
+  static int cachedSupport = -1;
+  if (cachedSupport >= 0)
+    return cachedSupport == 1;
+
+  const GLubyte *versionData = glGetString(GL_VERSION);
+  if (!versionData) {
+    cachedSupport = 0;
+    return false;
+  }
+
+  int major = 0;
+  int minor = 0;
+  if (std::sscanf(reinterpret_cast<const char *>(versionData), "%d.%d", &major,
+                  &minor) == 2) {
+    if (major > 2 || (major == 2 && minor >= 1)) {
+      cachedSupport = 1;
+      return true;
+    }
+  }
+
+  const GLubyte *extensionsData = glGetString(GL_EXTENSIONS);
+  if (!extensionsData) {
+    cachedSupport = 0;
+    return false;
+  }
+
+  const std::string extensions(
+      reinterpret_cast<const char *>(extensionsData));
+  const bool hasPboExtension =
+      extensions.find("GL_ARB_pixel_buffer_object") != std::string::npos;
+  cachedSupport = hasPboExtension ? 1 : 0;
+  return hasPboExtension;
+}
+
+bool EnsurePboCapacity(unsigned int &pbo, size_t &capacity, size_t bytesNeeded) {
+  if (bytesNeeded == 0)
+    return false;
+  if (pbo == 0)
+    glGenBuffers(1, &pbo);
+  if (pbo == 0)
+    return false;
+
+  glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pbo);
+  if (capacity < bytesNeeded) {
+    glBufferData(GL_PIXEL_UNPACK_BUFFER, static_cast<GLsizeiptr>(bytesNeeded),
+                 nullptr, GL_STREAM_DRAW);
+    capacity = bytesNeeded;
+  }
+  return true;
+}
+
+bool UploadRgbaToTexture(unsigned int texture, int width, int height,
+                         const unsigned char *data,
+                         const wxSize &currentTextureSize, bool allowPbo) {
+  if (texture == 0 || width <= 0 || height <= 0 || data == nullptr)
+    return false;
+
+  const bool needsAllocation =
+      currentTextureSize.GetWidth() != width ||
+      currentTextureSize.GetHeight() != height;
+
+  if (needsAllocation) {
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA,
+                 GL_UNSIGNED_BYTE, nullptr);
+  }
+
+  const size_t bytesNeeded =
+      static_cast<size_t>(width) * static_cast<size_t>(height) * 4;
+  bool uploaded = false;
+
+  if (allowPbo && IsPixelUnpackPboSupported() && gActivePixelUnpackPbo &&
+      gActivePixelUnpackPboBytes &&
+      EnsurePboCapacity(*gActivePixelUnpackPbo, *gActivePixelUnpackPboBytes,
+                        bytesNeeded)) {
+    void *mappedBuffer = nullptr;
+#if defined(GL_MAP_INVALIDATE_BUFFER_BIT) && defined(GL_MAP_WRITE_BIT)
+    mappedBuffer =
+        glMapBufferRange(GL_PIXEL_UNPACK_BUFFER, 0,
+                         static_cast<GLsizeiptr>(bytesNeeded),
+                         GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT);
+#endif
+    if (!mappedBuffer) {
+      mappedBuffer = glMapBuffer(GL_PIXEL_UNPACK_BUFFER, GL_WRITE_ONLY);
+    }
+
+    if (mappedBuffer) {
+      std::memcpy(mappedBuffer, data, bytesNeeded);
+      if (glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER) == GL_TRUE) {
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_RGBA,
+                        GL_UNSIGNED_BYTE, nullptr);
+        uploaded = true;
+      }
+    }
+  }
+
+  if (!uploaded) {
+    glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_RGBA,
+                    GL_UNSIGNED_BYTE, data);
+    uploaded = true;
+  }
+
+  glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
+  return uploaded;
 }
 
 int SnapToGrid(int value) {
@@ -1323,10 +1481,23 @@ bool LayoutViewerPanel::InitGL() {
     return false;
   if (!SetCurrent(*glContext_))
     return false;
+
+  if (!glInitialized_) {
+    glewExperimental = GL_TRUE;
+    const GLenum glewResult = glewInit();
+    if (glewResult != GLEW_OK) {
+      Logger::Instance().Log(
+          std::string("LayoutViewerPanel: GLEW init failed: ") +
+          reinterpret_cast<const char *>(glewGetErrorString(glewResult)));
+      return false;
+    }
+    glGetError();
+    glInitialized_ = true;
+  }
+
   glDisable(GL_DEPTH_TEST);
   glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-  glInitialized_ = true;
   isReadyToRender_ = true;
   return true;
 }
@@ -1363,6 +1534,10 @@ void LayoutViewerPanel::RebuildCachedTexture() {
     if (!currentLayout.legendViews.empty()) {
       legendSymbols = CaptureLegendSymbolSnapshot(capturePanel, cfg, true);
     }
+    std::vector<unsigned char> legendPixels;
+    std::vector<unsigned char> eventTablePixels;
+    std::vector<unsigned char> textPixels;
+    std::vector<unsigned char> imagePixels;
     const double renderZoom = GetRenderZoom();
     for (const auto &view : currentLayout.view2dViews) {
       ViewCache &cache = GetViewCache(view.id);
@@ -1424,10 +1599,19 @@ void LayoutViewerPanel::RebuildCachedTexture() {
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
       glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-      glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA,
-                   GL_UNSIGNED_BYTE, pixels.data());
+      ScopedActivePixelUnpackPbo scopedPbo(cache.pixelUnpackPbo,
+                                           cache.pboBytes);
+      if (!UploadRgbaToTexture(cache.texture, width, height, pixels.data(),
+                               cache.textureSize, true)) {
+        ClearCachedTexture(cache);
+        cache.textureSize = wxSize(0, 0);
+        cache.renderZoom = 0.0;
+        continue;
+      }
       cache.textureSize = wxSize(width, height);
       cache.renderZoom = renderZoom;
+      cache.contentHash = HashViewContent(view);
+      std::vector<unsigned char>().swap(pixels);
     }
   
     for (const auto &legend : currentLayout.legendViews) {
@@ -1474,18 +1658,17 @@ void LayoutViewerPanel::RebuildCachedTexture() {
         continue;
       }
   
-      std::vector<unsigned char> pixels;
-      if (!TryAllocatePixelBuffer(pixels, width, height, "legend")) {
+      if (!TryAllocatePixelBuffer(legendPixels, width, height, "legend")) {
         ClearCachedTexture(cache);
         cache.textureSize = wxSize(0, 0);
         cache.renderZoom = 0.0;
         continue;
       }
       for (int i = 0; i < width * height; ++i) {
-        pixels[static_cast<size_t>(i) * 4] = rgb[i * 3];
-        pixels[static_cast<size_t>(i) * 4 + 1] = rgb[i * 3 + 1];
-        pixels[static_cast<size_t>(i) * 4 + 2] = rgb[i * 3 + 2];
-        pixels[static_cast<size_t>(i) * 4 + 3] = alpha ? alpha[i] : 255;
+        legendPixels[static_cast<size_t>(i) * 4] = rgb[i * 3];
+        legendPixels[static_cast<size_t>(i) * 4 + 1] = rgb[i * 3 + 1];
+        legendPixels[static_cast<size_t>(i) * 4 + 2] = rgb[i * 3 + 2];
+        legendPixels[static_cast<size_t>(i) * 4 + 3] = alpha ? alpha[i] : 255;
       }
   
       if (!InitGL()) {
@@ -1502,11 +1685,19 @@ void LayoutViewerPanel::RebuildCachedTexture() {
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
       glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-      glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA,
-                   GL_UNSIGNED_BYTE, pixels.data());
+      ScopedActivePixelUnpackPbo scopedPbo(cache.pixelUnpackPbo,
+                                           cache.pboBytes);
+      if (!UploadRgbaToTexture(cache.texture, width, height, legendPixels.data(),
+                               cache.textureSize, true)) {
+        ClearCachedTexture(cache);
+        cache.textureSize = wxSize(0, 0);
+        cache.renderZoom = 0.0;
+        continue;
+      }
       cache.textureSize = wxSize(width, height);
       cache.renderZoom = renderZoom;
       cache.contentHash = legendDataHash;
+      legendPixels.clear();
     }
   
     for (const auto &table : currentLayout.eventTables) {
@@ -1550,8 +1741,8 @@ void LayoutViewerPanel::RebuildCachedTexture() {
         continue;
       }
   
-      std::vector<unsigned char> pixels;
-      if (!TryAllocatePixelBuffer(pixels, width, height, "event table")) {
+      if (!TryAllocatePixelBuffer(eventTablePixels, width, height,
+                                  "event table")) {
         ClearCachedTexture(cache);
         cache.textureSize = wxSize(0, 0);
         cache.renderZoom = 0.0;
@@ -1571,10 +1762,10 @@ void LayoutViewerPanel::RebuildCachedTexture() {
           b = static_cast<unsigned char>(
               std::min(255, static_cast<int>(b) * 255 / a));
         }
-        pixels[static_cast<size_t>(i) * 4] = r;
-        pixels[static_cast<size_t>(i) * 4 + 1] = g;
-        pixels[static_cast<size_t>(i) * 4 + 2] = b;
-        pixels[static_cast<size_t>(i) * 4 + 3] = a;
+        eventTablePixels[static_cast<size_t>(i) * 4] = r;
+        eventTablePixels[static_cast<size_t>(i) * 4 + 1] = g;
+        eventTablePixels[static_cast<size_t>(i) * 4 + 2] = b;
+        eventTablePixels[static_cast<size_t>(i) * 4 + 3] = a;
       }
   
       if (!InitGL()) {
@@ -1591,11 +1782,20 @@ void LayoutViewerPanel::RebuildCachedTexture() {
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
       glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-      glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA,
-                   GL_UNSIGNED_BYTE, pixels.data());
+      ScopedActivePixelUnpackPbo scopedPbo(cache.pixelUnpackPbo,
+                                           cache.pboBytes);
+      if (!UploadRgbaToTexture(cache.texture, width, height,
+                               eventTablePixels.data(), cache.textureSize,
+                               true)) {
+        ClearCachedTexture(cache);
+        cache.textureSize = wxSize(0, 0);
+        cache.renderZoom = 0.0;
+        continue;
+      }
       cache.textureSize = wxSize(width, height);
       cache.renderZoom = renderZoom;
       cache.contentHash = dataHash;
+      eventTablePixels.clear();
     }
   
     for (const auto &text : currentLayout.textViews) {
@@ -1638,8 +1838,7 @@ void LayoutViewerPanel::RebuildCachedTexture() {
         continue;
       }
   
-      std::vector<unsigned char> pixels;
-      if (!TryAllocatePixelBuffer(pixels, width, height, "text")) {
+      if (!TryAllocatePixelBuffer(textPixels, width, height, "text")) {
         ClearCachedTexture(cache);
         cache.textureSize = wxSize(0, 0);
         cache.renderZoom = 0.0;
@@ -1659,10 +1858,10 @@ void LayoutViewerPanel::RebuildCachedTexture() {
           b = static_cast<unsigned char>(
               std::min(255, static_cast<int>(b) * 255 / a));
         }
-        pixels[static_cast<size_t>(i) * 4] = r;
-        pixels[static_cast<size_t>(i) * 4 + 1] = g;
-        pixels[static_cast<size_t>(i) * 4 + 2] = b;
-        pixels[static_cast<size_t>(i) * 4 + 3] = a;
+        textPixels[static_cast<size_t>(i) * 4] = r;
+        textPixels[static_cast<size_t>(i) * 4 + 1] = g;
+        textPixels[static_cast<size_t>(i) * 4 + 2] = b;
+        textPixels[static_cast<size_t>(i) * 4 + 3] = a;
       }
   
       if (!InitGL()) {
@@ -1679,11 +1878,19 @@ void LayoutViewerPanel::RebuildCachedTexture() {
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
       glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-      glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA,
-                   GL_UNSIGNED_BYTE, pixels.data());
+      ScopedActivePixelUnpackPbo scopedPbo(cache.pixelUnpackPbo,
+                                           cache.pboBytes);
+      if (!UploadRgbaToTexture(cache.texture, width, height, textPixels.data(),
+                               cache.textureSize, true)) {
+        ClearCachedTexture(cache);
+        cache.textureSize = wxSize(0, 0);
+        cache.renderZoom = 0.0;
+        continue;
+      }
       cache.textureSize = wxSize(width, height);
       cache.renderZoom = renderZoom;
       cache.contentHash = dataHash;
+      textPixels.clear();
     }
   
     for (const auto &image : currentLayout.imageViews) {
@@ -1745,18 +1952,17 @@ void LayoutViewerPanel::RebuildCachedTexture() {
         continue;
       }
   
-      std::vector<unsigned char> pixels;
-      if (!TryAllocatePixelBuffer(pixels, width, height, "image")) {
+      if (!TryAllocatePixelBuffer(imagePixels, width, height, "image")) {
         ClearCachedTexture(cache);
         cache.textureSize = wxSize(0, 0);
         cache.renderZoom = 0.0;
         continue;
       }
       for (int i = 0; i < width * height; ++i) {
-        pixels[static_cast<size_t>(i) * 4] = rgb[i * 3];
-        pixels[static_cast<size_t>(i) * 4 + 1] = rgb[i * 3 + 1];
-        pixels[static_cast<size_t>(i) * 4 + 2] = rgb[i * 3 + 2];
-        pixels[static_cast<size_t>(i) * 4 + 3] = alpha ? alpha[i] : 255;
+        imagePixels[static_cast<size_t>(i) * 4] = rgb[i * 3];
+        imagePixels[static_cast<size_t>(i) * 4 + 1] = rgb[i * 3 + 1];
+        imagePixels[static_cast<size_t>(i) * 4 + 2] = rgb[i * 3 + 2];
+        imagePixels[static_cast<size_t>(i) * 4 + 3] = alpha ? alpha[i] : 255;
       }
   
       if (!InitGL()) {
@@ -1773,11 +1979,19 @@ void LayoutViewerPanel::RebuildCachedTexture() {
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
       glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-      glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA,
-                   GL_UNSIGNED_BYTE, pixels.data());
+      ScopedActivePixelUnpackPbo scopedPbo(cache.pixelUnpackPbo,
+                                           cache.pboBytes);
+      if (!UploadRgbaToTexture(cache.texture, width, height, imagePixels.data(),
+                               cache.textureSize, true)) {
+        ClearCachedTexture(cache);
+        cache.textureSize = wxSize(0, 0);
+        cache.renderZoom = 0.0;
+        continue;
+      }
       cache.textureSize = wxSize(width, height);
       cache.renderZoom = renderZoom;
       cache.contentHash = dataHash;
+      imagePixels.clear();
     }
   
     clearLoadingState();
@@ -1822,63 +2036,138 @@ void LayoutViewerPanel::ClearCachedTexture() {
 }
 
 void LayoutViewerPanel::ClearCachedTexture(ViewCache &cache) {
-  if (cache.texture == 0 || !glContext_)
+  if (cache.texture == 0 && cache.pixelUnpackPbo == 0)
     return;
+  if (!glContext_) {
+    cache.texture = 0;
+    cache.pixelUnpackPbo = 0;
+    cache.pboBytes = 0;
+    return;
+  }
   if (!IsShown()) {
     cache.texture = 0;
+    cache.pixelUnpackPbo = 0;
+    cache.pboBytes = 0;
     return;
   }
   SetCurrent(*glContext_);
-  glDeleteTextures(1, &cache.texture);
-  cache.texture = 0;
+  if (cache.texture != 0) {
+    glDeleteTextures(1, &cache.texture);
+    cache.texture = 0;
+  }
+  if (cache.pixelUnpackPbo != 0) {
+    glDeleteBuffers(1, &cache.pixelUnpackPbo);
+    cache.pixelUnpackPbo = 0;
+  }
+  cache.pboBytes = 0;
 }
 
 void LayoutViewerPanel::ClearCachedTexture(LegendCache &cache) {
-  if (cache.texture == 0 || !glContext_)
+  if (cache.texture == 0 && cache.pixelUnpackPbo == 0)
     return;
+  if (!glContext_) {
+    cache.texture = 0;
+    cache.pixelUnpackPbo = 0;
+    cache.pboBytes = 0;
+    return;
+  }
   if (!IsShown()) {
     cache.texture = 0;
+    cache.pixelUnpackPbo = 0;
+    cache.pboBytes = 0;
     return;
   }
   SetCurrent(*glContext_);
-  glDeleteTextures(1, &cache.texture);
-  cache.texture = 0;
+  if (cache.texture != 0) {
+    glDeleteTextures(1, &cache.texture);
+    cache.texture = 0;
+  }
+  if (cache.pixelUnpackPbo != 0) {
+    glDeleteBuffers(1, &cache.pixelUnpackPbo);
+    cache.pixelUnpackPbo = 0;
+  }
+  cache.pboBytes = 0;
 }
 
 void LayoutViewerPanel::ClearCachedTexture(EventTableCache &cache) {
-  if (cache.texture == 0 || !glContext_)
+  if (cache.texture == 0 && cache.pixelUnpackPbo == 0)
     return;
+  if (!glContext_) {
+    cache.texture = 0;
+    cache.pixelUnpackPbo = 0;
+    cache.pboBytes = 0;
+    return;
+  }
   if (!IsShown()) {
     cache.texture = 0;
+    cache.pixelUnpackPbo = 0;
+    cache.pboBytes = 0;
     return;
   }
   SetCurrent(*glContext_);
-  glDeleteTextures(1, &cache.texture);
-  cache.texture = 0;
+  if (cache.texture != 0) {
+    glDeleteTextures(1, &cache.texture);
+    cache.texture = 0;
+  }
+  if (cache.pixelUnpackPbo != 0) {
+    glDeleteBuffers(1, &cache.pixelUnpackPbo);
+    cache.pixelUnpackPbo = 0;
+  }
+  cache.pboBytes = 0;
 }
 
 void LayoutViewerPanel::ClearCachedTexture(TextCache &cache) {
-  if (cache.texture == 0 || !glContext_)
+  if (cache.texture == 0 && cache.pixelUnpackPbo == 0)
     return;
+  if (!glContext_) {
+    cache.texture = 0;
+    cache.pixelUnpackPbo = 0;
+    cache.pboBytes = 0;
+    return;
+  }
   if (!IsShown()) {
     cache.texture = 0;
+    cache.pixelUnpackPbo = 0;
+    cache.pboBytes = 0;
     return;
   }
   SetCurrent(*glContext_);
-  glDeleteTextures(1, &cache.texture);
-  cache.texture = 0;
+  if (cache.texture != 0) {
+    glDeleteTextures(1, &cache.texture);
+    cache.texture = 0;
+  }
+  if (cache.pixelUnpackPbo != 0) {
+    glDeleteBuffers(1, &cache.pixelUnpackPbo);
+    cache.pixelUnpackPbo = 0;
+  }
+  cache.pboBytes = 0;
 }
 
 void LayoutViewerPanel::ClearCachedTexture(ImageCache &cache) {
-  if (cache.texture == 0 || !glContext_)
+  if (cache.texture == 0 && cache.pixelUnpackPbo == 0)
     return;
+  if (!glContext_) {
+    cache.texture = 0;
+    cache.pixelUnpackPbo = 0;
+    cache.pboBytes = 0;
+    return;
+  }
   if (!IsShown()) {
     cache.texture = 0;
+    cache.pixelUnpackPbo = 0;
+    cache.pboBytes = 0;
     return;
   }
   SetCurrent(*glContext_);
-  glDeleteTextures(1, &cache.texture);
-  cache.texture = 0;
+  if (cache.texture != 0) {
+    glDeleteTextures(1, &cache.texture);
+    cache.texture = 0;
+  }
+  if (cache.pixelUnpackPbo != 0) {
+    glDeleteBuffers(1, &cache.pixelUnpackPbo);
+    cache.pixelUnpackPbo = 0;
+  }
+  cache.pboBytes = 0;
 }
 
 bool LayoutViewerPanel::HasDirtyRenderCaches() const {
@@ -1942,122 +2231,6 @@ void LayoutViewerPanel::RequestRenderRebuild() {
     }
     panel->renderDelayTimer_.StartOnce(kLoadingOverlayDelayMs);
   });
-}
-
-void LayoutViewerPanel::InvalidateRenderIfFrameChanged() {
-  const double renderZoom = GetRenderZoom();
-  const double pageWidth = currentLayout.pageSetup.PageWidthPt();
-  const double pageHeight = currentLayout.pageSetup.PageHeightPt();
-  const bool zoomChanged = lastRenderZoom != renderZoom;
-  const bool pageChanged =
-      lastPageWidthPt != pageWidth || lastPageHeightPt != pageHeight;
-  auto markDirty = [&](bool &cacheDirty) {
-    if (cacheDirty)
-      return;
-    cacheDirty = true;
-  };
-
-  for (const auto &view : currentLayout.view2dViews) {
-    ViewCache &cache = GetViewCache(view.id);
-    wxRect frameRect;
-    if (!GetFrameRect(view.frame, frameRect)) {
-      if (cache.texture != 0) {
-        markDirty(cache.renderDirty);
-        ClearCachedTexture(cache);
-        cache.textureSize = wxSize(0, 0);
-        cache.renderZoom = 0.0;
-      }
-      continue;
-    }
-    const wxSize renderSize = GetFrameSizeForZoom(view.frame, renderZoom);
-    if (cache.renderZoom == 0.0 || cache.renderZoom != renderZoom ||
-        renderSize != cache.textureSize) {
-      markDirty(cache.renderDirty);
-    }
-  }
-
-  for (const auto &legend : currentLayout.legendViews) {
-    LegendCache &cache = GetLegendCache(legend.id);
-    wxRect frameRect;
-    if (!GetFrameRect(legend.frame, frameRect)) {
-      if (cache.texture != 0) {
-        markDirty(cache.renderDirty);
-        ClearCachedTexture(cache);
-        cache.textureSize = wxSize(0, 0);
-        cache.renderZoom = 0.0;
-      }
-      continue;
-    }
-    const wxSize renderSize = GetFrameSizeForZoom(legend.frame, renderZoom);
-    if (cache.renderZoom == 0.0 || cache.renderZoom != renderZoom ||
-        renderSize != cache.textureSize) {
-      markDirty(cache.renderDirty);
-    }
-  }
-
-  for (const auto &table : currentLayout.eventTables) {
-    EventTableCache &cache = GetEventTableCache(table.id);
-    wxRect frameRect;
-    if (!GetFrameRect(table.frame, frameRect)) {
-      if (cache.texture != 0) {
-        markDirty(cache.renderDirty);
-        ClearCachedTexture(cache);
-        cache.textureSize = wxSize(0, 0);
-        cache.renderZoom = 0.0;
-      }
-      continue;
-    }
-    const wxSize renderSize = GetFrameSizeForZoom(table.frame, renderZoom);
-    if (cache.renderZoom == 0.0 || cache.renderZoom != renderZoom ||
-        renderSize != cache.textureSize) {
-      markDirty(cache.renderDirty);
-    }
-  }
-
-  for (const auto &text : currentLayout.textViews) {
-    TextCache &cache = GetTextCache(text.id);
-    wxRect frameRect;
-    if (!GetFrameRect(text.frame, frameRect)) {
-      if (cache.texture != 0) {
-        markDirty(cache.renderDirty);
-        ClearCachedTexture(cache);
-        cache.textureSize = wxSize(0, 0);
-        cache.renderZoom = 0.0;
-      }
-      continue;
-    }
-    const wxSize renderSize = GetFrameSizeForZoom(text.frame, renderZoom);
-    if (cache.renderZoom == 0.0 || cache.renderZoom != renderZoom ||
-        renderSize != cache.textureSize) {
-      markDirty(cache.renderDirty);
-    }
-  }
-
-  for (const auto &image : currentLayout.imageViews) {
-    ImageCache &cache = GetImageCache(image.id);
-    wxRect frameRect;
-    if (!GetFrameRect(image.frame, frameRect)) {
-      if (cache.texture != 0) {
-        markDirty(cache.renderDirty);
-        ClearCachedTexture(cache);
-        cache.textureSize = wxSize(0, 0);
-        cache.renderZoom = 0.0;
-      }
-      continue;
-    }
-    const wxSize renderSize = GetFrameSizeForZoom(image.frame, renderZoom);
-    if (cache.renderZoom == 0.0 || cache.renderZoom != renderZoom ||
-        renderSize != cache.textureSize) {
-      markDirty(cache.renderDirty);
-    }
-  }
-
-  if (zoomChanged || pageChanged) {
-    renderDirty = true;
-  }
-  lastRenderZoom = renderZoom;
-  lastPageWidthPt = pageWidth;
-  lastPageHeightPt = pageHeight;
 }
 
 void LayoutViewerPanel::OnLoadingTimer(wxTimerEvent &) {

@@ -217,14 +217,7 @@ static bool ValidateMvr16Export(
   }
 
   std::unordered_set<int> numericIds;
-  std::unordered_set<int> fixtureNumericIds;
   std::vector<std::string> referencedFiles;
-
-  auto isDigitsOnly = [](const std::string &value) {
-    return !value.empty() && std::all_of(value.begin(), value.end(), [](unsigned char c) {
-      return std::isdigit(c) != 0;
-    });
-  };
 
   std::vector<tinyxml2::XMLElement *> stack;
   for (tinyxml2::XMLElement *node = root->FirstChildElement(); node;
@@ -250,18 +243,11 @@ static bool ValidateMvr16Export(
             numNode && numNode->GetText() ? TrimAscii(numNode->GetText()) : "";
         int fixtureNumeric = 0;
 
-        if (!isDigitsOnly(fixtureId) || !TryParseInt(fixtureNumericText, fixtureNumeric) ||
-            fixtureNumeric <= 0 || fixtureId != std::to_string(fixtureNumeric)) {
+        if (fixtureId.empty() || !TryParseInt(fixtureNumericText, fixtureNumeric) ||
+            fixtureNumeric <= 0) {
           wxLogError(
-              "MVR export validation failed: Fixture '%s' (uuid=%s) must have a digits-only FixtureID that equals FixtureIDNumeric",
+              "MVR export validation failed: Fixture '%s' (uuid=%s) must have a non-empty FixtureID and a positive integer FixtureIDNumeric",
               fixtureName, fixtureUuid);
-          return false;
-        }
-
-        if (!fixtureNumericIds.insert(fixtureNumeric).second) {
-          wxLogError(
-              "MVR export validation failed: duplicate FixtureIDNumeric %d found on Fixture '%s' (uuid=%s)",
-              fixtureNumeric, fixtureName, fixtureUuid);
           return false;
         }
 
@@ -341,7 +327,7 @@ static bool ValidateMvr16Export(
       stack.push_back(child);
   }
 
-  for (const char *tagName : {"Fixture", "Truss", "Support", "VideoScreen", "Projector"}) {
+  for (const char *tagName : {"Truss", "Support", "VideoScreen", "Projector"}) {
     for (tinyxml2::XMLElement *node = root->FirstChildElement(); node;
          node = node->NextSiblingElement()) {
       std::vector<tinyxml2::XMLElement *> stack;
@@ -743,7 +729,6 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
   auto assignIds = [&]() {
     int nextNumericId = 1;
     std::unordered_set<int> usedIds;
-    std::unordered_map<int, int> numericCounts;
 
     auto reserveId = [&](int candidate) {
       if (candidate > 0)
@@ -752,8 +737,6 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     for (const auto &[uid, f] : scene.fixtures) {
       int existing = f.fixtureIdNumeric > 0 ? f.fixtureIdNumeric : f.fixtureId;
       reserveId(existing);
-      if (existing > 0)
-        ++numericCounts[existing];
     }
 
     auto allocId = [&]() {
@@ -766,10 +749,10 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     std::unordered_map<std::string, std::pair<std::string, int>> result;
     for (const auto &[uid, f] : scene.fixtures) {
       int numeric = f.fixtureIdNumeric > 0 ? f.fixtureIdNumeric : f.fixtureId;
-      if (numeric <= 0 || numericCounts[numeric] > 1) {
+      if (numeric <= 0) {
         numeric = allocId();
       }
-      std::string stringId = f.instanceName.empty() ? std::to_string(numeric) : TrimAscii(f.instanceName);
+      std::string stringId = TrimAscii(f.fixtureIdText);
       if (stringId.empty())
         stringId = std::to_string(numeric);
       result[uid] = {stringId, numeric};
@@ -935,10 +918,14 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     };
 
     auto idIt = assignedIds.find(f.uuid);
-    int fixtureNumericId = (idIt != assignedIds.end()) ? idIt->second.second : 0;
+    int fixtureNumericId = f.fixtureIdNumeric > 0 ? f.fixtureIdNumeric : f.fixtureId;
+    if (fixtureNumericId <= 0 && idIt != assignedIds.end())
+      fixtureNumericId = idIt->second.second;
     if (fixtureNumericId <= 0)
       fixtureNumericId = 1;
-    std::string fixtureId = std::to_string(fixtureNumericId);
+    std::string fixtureId = TrimAscii(f.fixtureIdText);
+    if (fixtureId.empty())
+      fixtureId = std::to_string(fixtureNumericId);
     addStr("FixtureID", fixtureId);
     addInt("FixtureIDNumeric", fixtureNumericId);
     if (f.unitNumber != 0 && f.unitNumber != fixtureNumericId)

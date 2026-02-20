@@ -61,6 +61,76 @@ public:
 
   MvrScene &GetScene() override { return GetDefaultGuiConfigServices().LegacyConfigManager().GetScene(); }
 };
+
+bool IsRedCell(const ColorfulDataViewListStore *store, int row, int col) {
+  if (!store || row < 0 || col < 0)
+    return false;
+
+  const size_t rowIndex = static_cast<size_t>(row);
+  const size_t colIndex = static_cast<size_t>(col);
+  if (rowIndex >= store->cellAttrs.size())
+    return false;
+  if (colIndex >= store->cellAttrs[rowIndex].size())
+    return false;
+
+  const wxDataViewItemAttr &attr = store->cellAttrs[rowIndex][colIndex];
+  return attr.HasColour() && attr.GetColour() == *wxRED;
+}
+
+void SetTableAndChildTooltips(wxDataViewListCtrl *table,
+                              const wxString &tooltip) {
+  if (!table)
+    return;
+
+  table->SetToolTip(tooltip);
+  wxWindowList &children = table->GetChildren();
+  for (wxWindowList::compatibility_iterator it = children.GetFirst(); it;
+       it = it->GetNext()) {
+    if (wxWindow *child = it->GetData())
+      child->SetToolTip(tooltip);
+  }
+}
+
+wxPoint NormalizeMousePositionForTable(wxDataViewListCtrl *table,
+                                       const wxMouseEvent &event) {
+  wxPoint position = event.GetPosition();
+  wxWindow *sourceWindow =
+      dynamic_cast<wxWindow *>(event.GetEventObject());
+  if (!table || !sourceWindow || sourceWindow == table)
+    return position;
+
+  return table->ScreenToClient(sourceWindow->ClientToScreen(position));
+}
+
+template <typename Owner>
+void BindTableHoverEvents(wxDataViewListCtrl *table, Owner *owner,
+                          void (Owner::*onMouseMove)(wxMouseEvent &),
+                          void (Owner::*onMouseLeave)(wxMouseEvent &)) {
+  if (!table || !owner)
+    return;
+
+  auto bindEvents = [&](wxWindow *window) {
+    if (!window)
+      return;
+    window->Bind(wxEVT_MOTION, onMouseMove, owner);
+    window->Bind(wxEVT_LEAVE_WINDOW, onMouseLeave, owner);
+  };
+
+  bindEvents(table);
+  wxWindowList &children = table->GetChildren();
+  for (wxWindowList::compatibility_iterator it = children.GetFirst(); it;
+       it = it->GetNext()) {
+    bindEvents(it->GetData());
+  }
+}
+
+wxString BuildFixtureTooltipForColumn(int modelColumn) {
+  if (modelColumn == 0)
+    return "Duplicate Fixture ID. Each fixture must have a unique ID.";
+  if (modelColumn == 5 || modelColumn == 6)
+    return "DMX patch conflict detected. Universe and channel overlap with another fixture.";
+  return wxString();
+}
 } // namespace
 
 FixtureTablePanel::FixtureTablePanel(wxWindow *parent, IGuiConfigServices *services)
@@ -79,7 +149,12 @@ FixtureTablePanel::FixtureTablePanel(wxWindow *parent, IGuiConfigServices *servi
   store->SetSelectionColours(selectionBackground, selectionForeground);
   table->Bind(wxEVT_LEFT_DOWN, &FixtureTablePanel::OnLeftDown, this);
   table->Bind(wxEVT_LEFT_UP, &FixtureTablePanel::OnLeftUp, this);
-  table->Bind(wxEVT_MOTION, &FixtureTablePanel::OnMouseMove, this);
+  BindTableHoverEvents(table, this, &FixtureTablePanel::OnMouseMove,
+                       &FixtureTablePanel::OnMouseLeave);
+  table->CallAfter([this]() {
+    BindTableHoverEvents(table, this, &FixtureTablePanel::OnMouseMove,
+                         &FixtureTablePanel::OnMouseLeave);
+  });
   table->Bind(wxEVT_DATAVIEW_SELECTION_CHANGED,
               &FixtureTablePanel::OnSelectionChanged, this);
 
@@ -958,6 +1033,8 @@ void FixtureTablePanel::OnCaptureLost(wxMouseCaptureLostEvent &WXUNUSED(evt)) {
 }
 
 void FixtureTablePanel::OnMouseMove(wxMouseEvent &evt) {
+  UpdateHoverTooltip(NormalizeMousePositionForTable(table, evt));
+
   if (!dragSelecting || !evt.Dragging()) {
     evt.Skip();
     return;
@@ -975,6 +1052,34 @@ void FixtureTablePanel::OnMouseMove(wxMouseEvent &evt) {
       table->SelectRow(r);
   }
   evt.Skip();
+}
+
+void FixtureTablePanel::OnMouseLeave(wxMouseEvent &evt) {
+  if (!activeHoverTooltip.IsEmpty()) {
+    SetTableAndChildTooltips(table, wxString());
+    activeHoverTooltip.clear();
+  }
+  evt.Skip();
+}
+
+void FixtureTablePanel::UpdateHoverTooltip(const wxPoint &position) {
+  wxDataViewItem item;
+  wxDataViewColumn *column = nullptr;
+  table->HitTest(position, item, column);
+
+  wxString tooltip;
+  if (item.IsOk() && column) {
+    int row = table->ItemToRow(item);
+    int modelColumn = column->GetModelColumn();
+    if (IsRedCell(store, row, modelColumn))
+      tooltip = BuildFixtureTooltipForColumn(modelColumn);
+  }
+
+  if (tooltip == activeHoverTooltip)
+    return;
+
+  SetTableAndChildTooltips(table, tooltip);
+  activeHoverTooltip = tooltip;
 }
 
 void FixtureTablePanel::OnSelectionChanged(wxDataViewEvent &evt) {

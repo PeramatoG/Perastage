@@ -155,6 +155,60 @@ incompatible link settings. Do a clean rebuild:
 3. If you keep the build directory, use `cmake --build . --config Debug --clean-first`
    (or the corresponding configuration) to force a clean rebuild.
 
+If Visual Studio shows many **`Error (inactive)`** diagnostics such as:
+
+- `std has no member filesystem / optional / variant / string_view / get_if / bit_cast`
+- structured-binding parse errors near `for (const auto& [a, b] : ...)`
+- follow-up parser errors (`expected ';'`, `expected ']'`, unknown identifiers)
+
+the active IntelliSense profile is usually not using C++20 yet (or is attached to
+an outdated CMake cache). This project requires **C++20**.
+
+Recommended fix sequence:
+
+1. Remove the current build directory (for example `out/build/x64-Debug`).
+2. Re-configure with CMake from a Developer PowerShell:
+   ```powershell
+   cmake -S . -B out/build/x64-Debug -G "Visual Studio 17 2022" -A x64
+   ```
+3. Build explicitly with that configured tree:
+   ```powershell
+   cmake --build out/build/x64-Debug --config Debug
+   ```
+4. In Visual Studio, open the CMake project/folder tied to that build directory
+   and wait for IntelliSense to finish reindexing.
+
+If the diagnostics are still marked as **inactive**, prioritize the real compiler
+output from `cmake --build`; inactive diagnostics alone do not necessarily mean
+the code fails to compile.
+
+### Visual Studio Code IntelliSense alignment (Windows/macOS)
+
+If VS Code shows parser cascades like:
+
+- `std has no member optional / variant / filesystem / string_view / bit_cast`
+- `cannot deduce auto`
+- `expected ';'`, `expected ']'`, unknown identifiers
+- errors inside SDK headers such as `.../c++/v1/__config`
+
+the editor is usually parsing files without the active CMake configuration.
+This repository now includes workspace settings that force VS Code C/C++
+IntelliSense to read build settings from **CMake Tools** and use **C++20**.
+
+Recommended VS Code flow:
+
+1. Install the recommended extensions (`ms-vscode.cpptools`, `ms-vscode.cmake-tools`).
+2. Run **CMake: Select Configure Preset** and choose the preset for your host:
+   - Windows: `win-x64-debug` / `win-x64-release` (or Ninja variants)
+   - macOS: `mac-arm64-debug` / `mac-arm64-release`
+3. Run **CMake: Configure**.
+4. If stale diagnostics remain, delete the selected preset build directory and
+   configure again to regenerate IntelliSense inputs.
+
+Important: if `cmake --build` succeeds but VS Code still reports semantic
+errors, trust the compiler output first; this indicates IntelliSense cache/tooling
+misalignment, not necessarily a cross-platform source incompatibility.
+
 ---
 
 ## macOS build troubleshooting (Apple Silicon)

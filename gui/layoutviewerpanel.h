@@ -63,13 +63,18 @@ private:
     bool hasRenderState = false;
     std::shared_ptr<const SymbolDefinitionSnapshot> symbols;
     unsigned int texture = 0;
+    unsigned int pixelUnpackPbo = 0;
+    size_t pboBytes = 0;
     wxSize textureSize{0, 0};
     double renderZoom = 0.0;
     bool renderDirty = true;
+    size_t contentHash = 0;
   };
 
   struct LegendCache {
     unsigned int texture = 0;
+    unsigned int pixelUnpackPbo = 0;
+    size_t pboBytes = 0;
     wxSize textureSize{0, 0};
     double renderZoom = 0.0;
     bool renderDirty = true;
@@ -79,6 +84,8 @@ private:
 
   struct EventTableCache {
     unsigned int texture = 0;
+    unsigned int pixelUnpackPbo = 0;
+    size_t pboBytes = 0;
     wxSize textureSize{0, 0};
     double renderZoom = 0.0;
     bool renderDirty = true;
@@ -87,6 +94,8 @@ private:
 
   struct TextCache {
     unsigned int texture = 0;
+    unsigned int pixelUnpackPbo = 0;
+    size_t pboBytes = 0;
     wxSize textureSize{0, 0};
     double renderZoom = 0.0;
     bool renderDirty = true;
@@ -95,6 +104,8 @@ private:
 
   struct ImageCache {
     unsigned int texture = 0;
+    unsigned int pixelUnpackPbo = 0;
+    size_t pboBytes = 0;
     wxSize textureSize{0, 0};
     double renderZoom = 0.0;
     bool renderDirty = true;
@@ -170,6 +181,7 @@ private:
   bool NeedsRenderRebuild() const;
   void RequestRenderRebuild();
   void InvalidateRenderIfFrameChanged();
+  size_t HashViewContent(const layouts::Layout2DViewDefinition &view) const;
   void OnLoadingTimer(wxTimerEvent &event);
   void OnRenderDelayTimer(wxTimerEvent &event);
   bool AreTexturesReady() const;

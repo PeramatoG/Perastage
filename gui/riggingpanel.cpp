@@ -32,6 +32,84 @@ constexpr const char *UNASSIGNED_POSITION = "Unassigned";
 float CeilToNearestTens(float value) {
   return std::ceil(value / 10.0f) * 10.0f;
 }
+
+bool IsRedCell(const ColorfulDataViewListStore *store, int row, int col) {
+  if (!store || row < 0 || col < 0)
+    return false;
+
+  const size_t rowIndex = static_cast<size_t>(row);
+  const size_t colIndex = static_cast<size_t>(col);
+  if (rowIndex >= store->cellAttrs.size())
+    return false;
+  if (colIndex >= store->cellAttrs[rowIndex].size())
+    return false;
+
+  const wxDataViewItemAttr &attr = store->cellAttrs[rowIndex][colIndex];
+  return attr.HasColour() && attr.GetColour() == *wxRED;
+}
+
+wxString BuildRiggingTooltipForColumn(int modelColumn) {
+  switch (modelColumn) {
+  case 4:
+    return "Fixture weight includes zero or missing values in this position.";
+  case 5:
+    return "Truss weight includes zero or missing values in this position.";
+  case 6:
+    return "Hoist weight includes zero or missing values in this position.";
+  case 7:
+  case 8:
+    return "Total weight includes items with zero or missing weight.";
+  default:
+    return wxString();
+  }
+}
+
+void SetTableAndChildTooltips(wxDataViewListCtrl *table,
+                              const wxString &tooltip) {
+  if (!table)
+    return;
+
+  table->SetToolTip(tooltip);
+  wxWindowList &children = table->GetChildren();
+  for (wxWindowList::compatibility_iterator it = children.GetFirst(); it;
+       it = it->GetNext()) {
+    if (wxWindow *child = it->GetData())
+      child->SetToolTip(tooltip);
+  }
+}
+
+wxPoint NormalizeMousePositionForTable(wxDataViewListCtrl *table,
+                                       const wxMouseEvent &event) {
+  wxPoint position = event.GetPosition();
+  wxWindow *sourceWindow =
+      dynamic_cast<wxWindow *>(event.GetEventObject());
+  if (!table || !sourceWindow || sourceWindow == table)
+    return position;
+
+  return table->ScreenToClient(sourceWindow->ClientToScreen(position));
+}
+
+template <typename Owner>
+void BindTableHoverEvents(wxDataViewListCtrl *table, Owner *owner,
+                          void (Owner::*onMouseMove)(wxMouseEvent &),
+                          void (Owner::*onMouseLeave)(wxMouseEvent &)) {
+  if (!table || !owner)
+    return;
+
+  auto bindEvents = [&](wxWindow *window) {
+    if (!window)
+      return;
+    window->Bind(wxEVT_MOTION, onMouseMove, owner);
+    window->Bind(wxEVT_LEAVE_WINDOW, onMouseLeave, owner);
+  };
+
+  bindEvents(table);
+  wxWindowList &children = table->GetChildren();
+  for (wxWindowList::compatibility_iterator it = children.GetFirst(); it;
+       it = it->GetNext()) {
+    bindEvents(it->GetData());
+  }
+}
 }
 
 static RiggingPanel *s_instance = nullptr;
@@ -42,6 +120,12 @@ RiggingPanel::RiggingPanel(wxWindow *parent) : wxPanel(parent, wxID_ANY) {
                                  wxDV_ROW_LINES | wxDV_VERT_RULES);
   table->AssociateModel(store);
   store->DecRef();
+  BindTableHoverEvents(table, this, &RiggingPanel::OnMouseMove,
+                       &RiggingPanel::OnMouseLeave);
+  table->CallAfter([this]() {
+    BindTableHoverEvents(table, this, &RiggingPanel::OnMouseMove,
+                         &RiggingPanel::OnMouseLeave);
+  });
   table->AppendTextColumn("Position", wxDATAVIEW_CELL_INERT, wxCOL_WIDTH_AUTOSIZE,
                           wxALIGN_LEFT, wxDATAVIEW_COL_RESIZABLE);
   table->AppendTextColumn("Fixtures", wxDATAVIEW_CELL_INERT, wxCOL_WIDTH_AUTOSIZE,
@@ -182,4 +266,38 @@ void RiggingPanel::RefreshData() {
   // refresh is triggered (e.g. after loading/importing data or editing
   // weights in the tables).
   table->Refresh();
+}
+
+
+void RiggingPanel::OnMouseMove(wxMouseEvent &event) {
+  UpdateHoverTooltip(NormalizeMousePositionForTable(table, event));
+  event.Skip();
+}
+
+void RiggingPanel::OnMouseLeave(wxMouseEvent &event) {
+  if (!activeHoverTooltip.IsEmpty()) {
+    SetTableAndChildTooltips(table, wxString());
+    activeHoverTooltip.clear();
+  }
+  event.Skip();
+}
+
+void RiggingPanel::UpdateHoverTooltip(const wxPoint &position) {
+  wxDataViewItem item;
+  wxDataViewColumn *column = nullptr;
+  table->HitTest(position, item, column);
+
+  wxString tooltip;
+  if (item.IsOk() && column) {
+    int row = table->ItemToRow(item);
+    int modelColumn = column->GetModelColumn();
+    if (IsRedCell(store, row, modelColumn))
+      tooltip = BuildRiggingTooltipForColumn(modelColumn);
+  }
+
+  if (tooltip == activeHoverTooltip)
+    return;
+
+  SetTableAndChildTooltips(table, tooltip);
+  activeHoverTooltip = tooltip;
 }
