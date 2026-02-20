@@ -16,7 +16,8 @@
 namespace symboltools {
 namespace {
 
-constexpr int kRenderResolution = 1024;
+// Keep this moderate to avoid UI stalls when skeletonizing on the main thread.
+constexpr int kRenderResolution = 384;
 constexpr float kPadding = 24.0f;
 
 struct RasterTransform {
@@ -219,13 +220,17 @@ void RasterizeSymbol(const SymbolDefinition &def, symbols::ImageRGBA &shapeImg,
     if (const auto *line = std::get_if<LineCommand>(&cmd)) {
       auto a = ToImage(tf, line->x0, line->y0, shapeImg.height);
       auto c = ToImage(tf, line->x1, line->y1, shapeImg.height);
-      const int thick = std::max(1, static_cast<int>(std::ceil(line->stroke.width * tf.scale * 0.25f)));
+      const int thick = std::clamp(
+          static_cast<int>(std::ceil(line->stroke.width * tf.scale * 0.25f)),
+          1, 2);
       DrawLine(shapeImg, a, c, thick, 0, 0, 0, 255);
       DrawLine(lineImg, a, c, thick, 0, 0, 0, 255);
     } else if (const auto *poly = std::get_if<PolylineCommand>(&cmd)) {
       if (poly->points.size() < 4)
         continue;
-      const int thick = std::max(1, static_cast<int>(std::ceil(poly->stroke.width * tf.scale * 0.25f)));
+      const int thick = std::clamp(
+          static_cast<int>(std::ceil(poly->stroke.width * tf.scale * 0.25f)),
+          1, 2);
       for (size_t i = 0; i + 3 < poly->points.size(); i += 2) {
         auto a = ToImage(tf, poly->points[i], poly->points[i + 1], shapeImg.height);
         auto c = ToImage(tf, poly->points[i + 2], poly->points[i + 3], shapeImg.height);
@@ -241,7 +246,9 @@ void RasterizeSymbol(const SymbolDefinition &def, symbols::ImageRGBA &shapeImg,
         FillPolygon(shapeImg, pts, 0, 0, 0, 255);
         FillPolygon(lineImg, pts, 255, 255, 255, 255);
       }
-      const int thick = std::max(1, static_cast<int>(std::ceil(poly->stroke.width * tf.scale * 0.25f)));
+      const int thick = std::clamp(
+          static_cast<int>(std::ceil(poly->stroke.width * tf.scale * 0.25f)),
+          1, 2);
       for (size_t i = 0; i < pts.size(); ++i) {
         const auto &a = pts[i];
         const auto &c = pts[(i + 1) % pts.size()];
@@ -258,7 +265,9 @@ void RasterizeSymbol(const SymbolDefinition &def, symbols::ImageRGBA &shapeImg,
         FillPolygon(shapeImg, pts, 0, 0, 0, 255);
         FillPolygon(lineImg, pts, 255, 255, 255, 255);
       }
-      const int thick = std::max(1, static_cast<int>(std::ceil(rect->stroke.width * tf.scale * 0.25f)));
+      const int thick = std::clamp(
+          static_cast<int>(std::ceil(rect->stroke.width * tf.scale * 0.25f)),
+          1, 2);
       for (size_t i = 0; i < pts.size(); ++i) {
         DrawLine(shapeImg, pts[i], pts[(i + 1) % pts.size()], thick, 0, 0, 0, 255);
         DrawLine(lineImg, pts[i], pts[(i + 1) % pts.size()], thick, 0, 0, 0, 255);
@@ -269,7 +278,9 @@ void RasterizeSymbol(const SymbolDefinition &def, symbols::ImageRGBA &shapeImg,
         FillPolygon(shapeImg, pts, 0, 0, 0, 255);
         FillPolygon(lineImg, pts, 255, 255, 255, 255);
       }
-      const int thick = std::max(1, static_cast<int>(std::ceil(circle->stroke.width * tf.scale * 0.25f)));
+      const int thick = std::clamp(
+          static_cast<int>(std::ceil(circle->stroke.width * tf.scale * 0.25f)),
+          1, 2);
       for (size_t i = 0; i < pts.size(); ++i) {
         DrawLine(shapeImg, pts[i], pts[(i + 1) % pts.size()], thick, 0, 0, 0, 255);
         DrawLine(lineImg, pts[i], pts[(i + 1) % pts.size()], thick, 0, 0, 0, 255);
