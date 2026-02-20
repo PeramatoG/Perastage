@@ -85,18 +85,21 @@ func _resolve_fake_gobo_texture(gobo_raw_8bit: int) -> Texture2D:
 		return _texture_cache[cache_key] as Texture2D
 
 	var image := Image.create(FAKE_GOBO_TEXTURE_SIZE, FAKE_GOBO_TEXTURE_SIZE, false, Image.FORMAT_RGBA8)
-	image.fill(Color(0.0, 0.0, 0.0, 1.0))
+	# Keep base fully open (white) so spot footprint is still visible while debugging.
+	image.fill(Color(1.0, 1.0, 1.0, 1.0))
 
-	var stripe_step: int = max(4, int(4 + (fake_bucket % 12) * 2))
-	var radius: float = float(FAKE_GOBO_TEXTURE_SIZE) * (0.18 + 0.015 * float(fake_bucket % 10))
-	var center: Vector2 = Vector2(FAKE_GOBO_TEXTURE_SIZE, FAKE_GOBO_TEXTURE_SIZE) * 0.5
-	for y in range(FAKE_GOBO_TEXTURE_SIZE):
-		for x in range(FAKE_GOBO_TEXTURE_SIZE):
-			var uv: Vector2 = Vector2(float(x), float(y)) - center
-			var dist: float = uv.length()
-			var stripe: bool = ((x + y + fake_bucket) % stripe_step) < (stripe_step / 2)
-			if dist < radius and stripe:
-				image.set_pixel(x, y, Color(1.0, 1.0, 1.0, 1.0))
+	# Bucket 0 emulates open gobo.
+	if fake_bucket > 0:
+		var stripe_step: int = max(6, int(6 + (fake_bucket % 12) * 2))
+		var radius: float = float(FAKE_GOBO_TEXTURE_SIZE) * (0.20 + 0.012 * float(fake_bucket % 10))
+		var center: Vector2 = Vector2(FAKE_GOBO_TEXTURE_SIZE, FAKE_GOBO_TEXTURE_SIZE) * 0.5
+		for y in range(FAKE_GOBO_TEXTURE_SIZE):
+			for x in range(FAKE_GOBO_TEXTURE_SIZE):
+				var uv: Vector2 = Vector2(float(x), float(y)) - center
+				var dist: float = uv.length()
+				var stripe: bool = ((x + y + fake_bucket) % stripe_step) < (stripe_step / 2)
+				if dist < radius and stripe:
+					image.set_pixel(x, y, Color(0.0, 0.0, 0.0, 1.0))
 
 	var texture: ImageTexture = ImageTexture.create_from_image(image)
 	_texture_cache[cache_key] = texture
