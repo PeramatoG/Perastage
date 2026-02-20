@@ -1,6 +1,7 @@
 #include "mainwindow.h"
 
 #include "dialogs/generatefixturesymbolsdialog.h"
+#include "configmanager.h"
 #include "guiconfigservices.h"
 #include "symbols/Symbol2DBuilder.h"
 #include "windows/symbolpreviewwindow.h"
@@ -14,7 +15,8 @@ void MainWindow::OnGenerateFixtureSymbols(wxCommandEvent &) {
   const auto &scene = GetDefaultGuiConfigServices().LegacyConfigManager().GetScene();
 
   std::map<std::string, FixtureTypeOption> optionsByType;
-  for (const auto &[uuid, fixture] : scene.fixtures) {
+  for (const auto &fixtureEntry : scene.fixtures) {
+    const auto &fixture = fixtureEntry.second;
     if (fixture.typeName.empty() || fixture.gdtfSpec.empty())
       continue;
     auto &entry = optionsByType[fixture.typeName];
@@ -27,8 +29,8 @@ void MainWindow::OnGenerateFixtureSymbols(wxCommandEvent &) {
 
   std::vector<FixtureTypeOption> options;
   options.reserve(optionsByType.size());
-  for (const auto &[name, option] : optionsByType)
-    options.push_back(option);
+  for (const auto &optionEntry : optionsByType)
+    options.push_back(optionEntry.second);
 
   if (options.empty()) {
     wxMessageBox("No fixtures with GDTF type are available in the current project.",
