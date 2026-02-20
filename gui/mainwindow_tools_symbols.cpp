@@ -116,6 +116,6 @@ void MainWindow::OnGenerateFixtureSymbols(wxCommandEvent &) {
   }
 
   auto *preview = new SymbolPreviewWindow(this, symbols, generationLog,
-                                          {});
+                                          referenceImages);
   preview->Show();
 }

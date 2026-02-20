@@ -65,11 +65,8 @@ void DrawSymbolCell(wxGraphicsContext &gc,
   gc.DrawText(label, cell.GetX() + 8, cell.GetY() + 8);
 
   if (references) {
-    const int halfHeight = std::max(1, (cell.GetHeight() - 30) / 2);
-    const wxRect topRect(cell.GetX() + 10, cell.GetY() + 24, cell.GetWidth() - 20,
-                         halfHeight - 6);
-    const wxRect bottomRect(cell.GetX() + 10, cell.GetY() + 24 + halfHeight,
-                            cell.GetWidth() - 20, halfHeight - 6);
+    const wxRect previewRect(cell.GetX() + 10, cell.GetY() + 24,
+                             cell.GetWidth() - 20, cell.GetHeight() - 36);
 
     auto drawRef = [&](const symboltools::ReferenceImage &img, const wxRect &rect,
                        const wxString &subLabel) {
@@ -90,8 +87,7 @@ void DrawSymbolCell(wxGraphicsContext &gc,
       gc.DrawBitmap(bmp, dx, dy, dw, dh);
     };
 
-    drawRef(references->shape, topRect, "Shape reference");
-    drawRef(references->line, bottomRect, "Line reference");
+    drawRef(references->shape, previewRect, "Fixture view (pre-vectorization)");
     return;
   }
 
