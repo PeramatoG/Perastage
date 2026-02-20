@@ -195,9 +195,19 @@ bool EnsurePboCapacity(unsigned int &pbo, size_t &capacity, size_t bytesNeeded) 
 }
 
 bool UploadRgbaToTexture(unsigned int texture, int width, int height,
-                         const unsigned char *data, bool allowPbo) {
+                         const unsigned char *data,
+                         const wxSize &currentTextureSize, bool allowPbo) {
   if (texture == 0 || width <= 0 || height <= 0 || data == nullptr)
     return false;
+
+  const bool needsAllocation =
+      currentTextureSize.GetWidth() != width ||
+      currentTextureSize.GetHeight() != height;
+
+  if (needsAllocation) {
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA,
+                 GL_UNSIGNED_BYTE, nullptr);
+  }
 
   const size_t bytesNeeded =
       static_cast<size_t>(width) * static_cast<size_t>(height) * 4;
@@ -1576,12 +1586,10 @@ void LayoutViewerPanel::RebuildCachedTexture() {
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
       glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-      glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA,
-                   GL_UNSIGNED_BYTE, nullptr);
       ScopedActivePixelUnpackPbo scopedPbo(cache.pixelUnpackPbo,
                                            cache.pboBytes);
       if (!UploadRgbaToTexture(cache.texture, width, height, pixels.data(),
-                               true)) {
+                               cache.textureSize, true)) {
         ClearCachedTexture(cache);
         cache.textureSize = wxSize(0, 0);
         cache.renderZoom = 0.0;
@@ -1663,12 +1671,10 @@ void LayoutViewerPanel::RebuildCachedTexture() {
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
       glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-      glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA,
-                   GL_UNSIGNED_BYTE, nullptr);
       ScopedActivePixelUnpackPbo scopedPbo(cache.pixelUnpackPbo,
                                            cache.pboBytes);
       if (!UploadRgbaToTexture(cache.texture, width, height, pixels.data(),
-                               true)) {
+                               cache.textureSize, true)) {
         ClearCachedTexture(cache);
         cache.textureSize = wxSize(0, 0);
         cache.renderZoom = 0.0;
@@ -1761,12 +1767,10 @@ void LayoutViewerPanel::RebuildCachedTexture() {
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
       glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-      glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA,
-                   GL_UNSIGNED_BYTE, nullptr);
       ScopedActivePixelUnpackPbo scopedPbo(cache.pixelUnpackPbo,
                                            cache.pboBytes);
       if (!UploadRgbaToTexture(cache.texture, width, height, pixels.data(),
-                               true)) {
+                               cache.textureSize, true)) {
         ClearCachedTexture(cache);
         cache.textureSize = wxSize(0, 0);
         cache.renderZoom = 0.0;
@@ -1858,12 +1862,10 @@ void LayoutViewerPanel::RebuildCachedTexture() {
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
       glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-      glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA,
-                   GL_UNSIGNED_BYTE, nullptr);
       ScopedActivePixelUnpackPbo scopedPbo(cache.pixelUnpackPbo,
                                            cache.pboBytes);
       if (!UploadRgbaToTexture(cache.texture, width, height, pixels.data(),
-                               true)) {
+                               cache.textureSize, true)) {
         ClearCachedTexture(cache);
         cache.textureSize = wxSize(0, 0);
         cache.renderZoom = 0.0;
@@ -1961,12 +1963,10 @@ void LayoutViewerPanel::RebuildCachedTexture() {
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
       glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-      glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA,
-                   GL_UNSIGNED_BYTE, nullptr);
       ScopedActivePixelUnpackPbo scopedPbo(cache.pixelUnpackPbo,
                                            cache.pboBytes);
       if (!UploadRgbaToTexture(cache.texture, width, height, pixels.data(),
-                               true)) {
+                               cache.textureSize, true)) {
         ClearCachedTexture(cache);
         cache.textureSize = wxSize(0, 0);
         cache.renderZoom = 0.0;
