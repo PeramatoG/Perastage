@@ -100,6 +100,7 @@ const DIMMER_PERCENT_MAX: float = 100.0
 const DEFAULT_EMITTER_PHOTOMETRICS := {
 	"luminous_flux": 10000.0,
 	"color_temperature": 6000.0,
+	"has_color_temperature": false,
 	"beam_angle": 25.0,
 	"field_angle": 25.0,
 	"beam_radius": 0.05,
@@ -123,6 +124,7 @@ const EMITTER_LIGHT_MAX_RANGE_M: float = 150.0
 const EMITTER_LIGHT_RANGE_BEAM_RADIUS_MULTIPLIER: float = 500.0
 const EMITTER_LIGHT_ENERGY_SCALE: float = 0.02
 const EMITTER_LIGHT_MAX_BEAM_ANGLE_DEG: float = 180.0
+const BEAM_COLOR_TEMPERATURE_STRENGTH: float = 0.04
 const EMITTER_ZOOM_DEFAULT_MIN_BEAM_ANGLE_DEG: float = 4.0
 const EMITTER_ZOOM_DEFAULT_MAX_BEAM_ANGLE_DEG: float = EMITTER_LIGHT_MAX_BEAM_ANGLE_DEG
 const EMITTER_ZOOM_LENS_RANGE_REFERENCE_M: float = 12.0
@@ -1523,17 +1525,17 @@ func _is_gdtf_beam_lens_material(mesh_instance: MeshInstance3D, material: Materi
 
 func _resolve_fixture_beam_color(emitter_photometrics: Array, controls: Dictionary) -> Color:
 	if emitter_photometrics.is_empty():
-		return _derive_emitter_color(DEFAULT_EMITTER_PHOTOMETRICS, controls)
+		return _derive_emitter_color(DEFAULT_EMITTER_PHOTOMETRICS, controls, BEAM_COLOR_TEMPERATURE_STRENGTH)
 
 	var accumulated_color: Color = Color.BLACK
 	var samples: int = 0
 	for entry in emitter_photometrics:
 		if entry is not Dictionary:
 			continue
-		accumulated_color += _derive_emitter_color(entry, controls)
+		accumulated_color += _derive_emitter_color(entry, controls, BEAM_COLOR_TEMPERATURE_STRENGTH)
 		samples += 1
 	if samples <= 0:
-		return _derive_emitter_color(DEFAULT_EMITTER_PHOTOMETRICS, controls)
+		return _derive_emitter_color(DEFAULT_EMITTER_PHOTOMETRICS, controls, BEAM_COLOR_TEMPERATURE_STRENGTH)
 	var inverse_samples: float = 1.0 / float(samples)
 	return Color(accumulated_color.r * inverse_samples, accumulated_color.g * inverse_samples, accumulated_color.b * inverse_samples, 1.0)
 
@@ -1771,6 +1773,7 @@ func _extract_emitter_photometrics(item: Dictionary) -> Dictionary:
 	if bool(item.get("has_luminous_flux", false)):
 		data["luminous_flux"] = float(item.get("luminous_flux", data["luminous_flux"]))
 	if bool(item.get("has_color_temperature", false)):
+		data["has_color_temperature"] = true
 		data["color_temperature"] = float(item.get("color_temperature", data["color_temperature"]))
 	if bool(item.get("has_beam_angle", false)):
 		data["beam_angle"] = float(item.get("beam_angle", data["beam_angle"]))
@@ -1815,6 +1818,7 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 	# avoids early floor clipping on steep tilt while keeping cone visuals unchanged.
 	light.spot_range = clamp(cone_range * EMITTER_LIGHT_FOOTPRINT_RANGE_MULTIPLIER, EMITTER_LIGHT_MIN_EFFECTIVE_RANGE_M, EMITTER_LIGHT_MAX_RANGE_M)
 	light.light_color = _derive_emitter_color(photometric, controls)
+	var beam_color: Color = _derive_emitter_color(photometric, controls, BEAM_COLOR_TEMPERATURE_STRENGTH)
 	var beam_radius_from_gdtf: bool = bool(photometric.get("beam_radius_from_gdtf", false))
 	var source_beam_radius: float = beam_radius_m if beam_radius_from_gdtf else -1.0
 	var lens_radius: float = max(float(light.get_meta("peraviz_lens_radius", 0.03)), 0.005)
@@ -1824,7 +1828,7 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 	var beam_params := {
 		"beam_angle": beam_angle,
 		"beam_range": cone_range,
-		"beam_color": light.light_color,
+		"beam_color": beam_color,
 		"normalized_dimmer": clamp(normalized_dimmer, 0.0, 1.0),
 		"scaled_intensity": clamp(normalized_dimmer * float(_visual_settings.get("beam_multiplier", 1.0)), 0.0, 3.0),
 		"lens_radius": lens_radius,
@@ -2060,7 +2064,7 @@ func _update_beam_cone_material(cone: MeshInstance3D, beam_color: Color, scaled_
 	material.set_shader_parameter("depth_fade_distance", 0.5)
 	material.set_shader_parameter("max_brightness", lerp(1.0, 10.0 * brightness_scale, scaled_intensity))
 
-func _derive_emitter_color(photometric: Dictionary, controls: Dictionary = {}) -> Color:
+func _derive_emitter_color(photometric: Dictionary, controls: Dictionary = {}, color_temperature_strength: float = 1.0) -> Color:
 	var base_color: Color
 	var cmy_filter: Dictionary = _resolve_cmy_filter(controls)
 	if bool(cmy_filter.get("has_cmy", false)):
@@ -2069,12 +2073,15 @@ func _derive_emitter_color(photometric: Dictionary, controls: Dictionary = {}) -
 		# bias the mix (e.g. weak red output on cool bases).
 		base_color = Color.WHITE
 	else:
-		var wavelength: float = float(photometric.get("dominant_wavelength", 0.0))
-		if wavelength > 0.0:
-			base_color = _wavelength_to_rgb(wavelength)
+		if bool(photometric.get("has_color_temperature", false)):
+			base_color = _color_temperature_to_rgb(
+				float(photometric.get("color_temperature", 6000.0)),
+				clamp(color_temperature_strength, 0.0, 1.0)
+			)
 		else:
-			# Keep default emitters visually neutral. Color temperature can be too blue
-			# for volumetric beams and should only appear when explicit color controls are used.
+			# Keep default emitters visually neutral.
+			# Dominant wavelength from photometrics is often too spectral/peaky for
+			# runtime beam feedback and can introduce a persistent blue cast.
 			base_color = Color.WHITE
 
 	var filter_color: Color = cmy_filter.get("color", Color.WHITE)
@@ -2090,8 +2097,21 @@ func _resolve_cmy_filter(controls: Dictionary) -> Dictionary:
 		"has_cmy": cyan > 0.0001 or magenta > 0.0001 or yellow > 0.0001,
 	}
 
-func _color_temperature_to_rgb(temperature_kelvin: float) -> Color:
-	var t: float = temperature_kelvin / 100.0
+func _color_temperature_to_rgb(temperature_kelvin: float, strength: float = 1.0) -> Color:
+	var clamped_strength: float = clamp(strength, 0.0, 1.0)
+	var clamped_temperature: float = clamp(temperature_kelvin, 1000.0, 12000.0)
+	var warm_threshold_kelvin: float = 3200.0
+	var cool_threshold_kelvin: float = 8500.0
+	var warm_extreme_kelvin: float = 2000.0
+	var cool_extreme_kelvin: float = 11000.0
+
+	var warm_factor: float = inverse_lerp(warm_threshold_kelvin, warm_extreme_kelvin, clamped_temperature)
+	var cool_factor: float = inverse_lerp(cool_threshold_kelvin, cool_extreme_kelvin, clamped_temperature)
+	var extreme_factor: float = max(warm_factor, cool_factor)
+	if extreme_factor <= 0.0 or clamped_strength <= 0.0:
+		return Color.WHITE
+
+	var t: float = clamped_temperature / 100.0
 	var red: float
 	var green: float
 	var blue: float
@@ -2106,7 +2126,9 @@ func _color_temperature_to_rgb(temperature_kelvin: float) -> Color:
 		red = 329.698727446 * pow(t - 60.0, -0.1332047592)
 		green = 288.1221695283 * pow(t - 60.0, -0.0755148492)
 		blue = 255.0
-	return Color(clamp(red / 255.0, 0.0, 1.0), clamp(green / 255.0, 0.0, 1.0), clamp(blue / 255.0, 0.0, 1.0))
+	var kelvin_color := Color(clamp(red / 255.0, 0.0, 1.0), clamp(green / 255.0, 0.0, 1.0), clamp(blue / 255.0, 0.0, 1.0))
+	var tint_mix: float = clamp(extreme_factor * clamped_strength, 0.0, 1.0)
+	return Color.WHITE.lerp(kelvin_color, tint_mix)
 
 func _wavelength_to_rgb(wavelength_nm: float) -> Color:
 	var wavelength: float = clamp(wavelength_nm, 380.0, 780.0)
