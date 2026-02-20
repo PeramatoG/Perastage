@@ -219,9 +219,6 @@ void LayoutViewerPanel::SetLayoutDefinition(
   Refresh();
 }
 
-const std::string &LayoutViewerPanel::GetCurrentLayoutName() const {
-  return currentLayout.name;
-}
 void LayoutViewerPanel::NotifyRenderReady() {
   wxWeakRef<LayoutViewerPanel> weakThis(this);
   CallAfter([weakThis]() {
