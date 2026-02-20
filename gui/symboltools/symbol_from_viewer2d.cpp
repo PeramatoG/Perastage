@@ -292,6 +292,38 @@ symbols::ImageRGBA BuildProcessingImage(const symbols::ImageRGBA &src) {
   return ResizeNearest(src, targetW, targetH);
 }
 
+void FlipRgbaVertically(std::vector<unsigned char> &rgba, int width, int height) {
+  if (width <= 0 || height <= 0)
+    return;
+  const size_t rowBytes = static_cast<size_t>(width) * 4;
+  std::vector<unsigned char> tmp(rowBytes, 0);
+  for (int y = 0; y < height / 2; ++y) {
+    const size_t top = static_cast<size_t>(y) * rowBytes;
+    const size_t bottom = static_cast<size_t>(height - 1 - y) * rowBytes;
+    std::copy(rgba.begin() + static_cast<std::ptrdiff_t>(top),
+              rgba.begin() + static_cast<std::ptrdiff_t>(top + rowBytes),
+              tmp.begin());
+    std::copy(rgba.begin() + static_cast<std::ptrdiff_t>(bottom),
+              rgba.begin() + static_cast<std::ptrdiff_t>(bottom + rowBytes),
+              rgba.begin() + static_cast<std::ptrdiff_t>(top));
+    std::copy(tmp.begin(), tmp.end(),
+              rgba.begin() + static_cast<std::ptrdiff_t>(bottom));
+  }
+}
+
+void RotateRgba180(std::vector<unsigned char> &rgba, int width, int height) {
+  if (width <= 0 || height <= 0)
+    return;
+  const int pixelCount = width * height;
+  for (int i = 0; i < pixelCount / 2; ++i) {
+    const int j = pixelCount - 1 - i;
+    const size_t ia = static_cast<size_t>(i) * 4;
+    const size_t ja = static_cast<size_t>(j) * 4;
+    for (int c = 0; c < 4; ++c)
+      std::swap(rgba[ia + static_cast<size_t>(c)], rgba[ja + static_cast<size_t>(c)]);
+  }
+}
+
 symbols::Aabb2D ComputeBoundsFromGeometry(const symbols::Symbol2D &symbol) {
   symbols::Aabb2D bounds{};
   bool hasBounds = false;
@@ -371,7 +403,8 @@ private:
 bool CaptureFixtureViewReference(Viewer2DPanel &panel, symbols::SymbolView view,
                                  SymbolReferenceViews &outReferences,
                                  std::string &outMessage) {
-  const auto previousView = panel.GetView();
+  const auto previousViewState = panel.GetViewState();
+  const auto previousMode = panel.GetRenderMode();
 
   Viewer2DView targetView = Viewer2DView::Top;
   switch (view) {
@@ -389,7 +422,7 @@ bool CaptureFixtureViewReference(Viewer2DPanel &panel, symbols::SymbolView view,
     break;
   }
 
-  panel.SetView(targetView);
+  panel.ApplyViewState(0.0f, 0.0f, 1.0f, targetView, previousMode);
   // RenderToRGBA already performs an explicit offscreen render. Avoid forcing
   // an onscreen CaptureFrameNow pass here because it can block inside
   // SwapBuffers on some drivers/toolchains.
@@ -398,12 +431,20 @@ bool CaptureFixtureViewReference(Viewer2DPanel &panel, symbols::SymbolView view,
   int width = 0;
   int height = 0;
   const bool ok = panel.RenderToRGBA(pixels, width, height);
-  panel.SetView(previousView);
+  panel.ApplyViewState(previousViewState.offsetPixelsX,
+                       previousViewState.offsetPixelsY,
+                       previousViewState.zoom,
+                       previousViewState.view,
+                       previousMode);
   if (!ok || width <= 0 || height <= 0 || pixels.empty()) {
     outMessage = std::string("View ") + symbols::ToString(view) +
                  ": failed to capture Viewer2D reference image";
     return false;
   }
+
+  FlipRgbaVertically(pixels, width, height);
+  if (view == symbols::SymbolView::Front)
+    RotateRgba180(pixels, width, height);
 
   outReferences.view = view;
   outReferences.line.width = width;
