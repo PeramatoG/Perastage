@@ -19,6 +19,15 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/riderimporter.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/scenedatamanager.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/simplecrypt.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/symbols/ContourTracer.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/symbols/MaskUtils.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/symbols/OffscreenSymbolRenderer.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/symbols/PolylineSimplify.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/symbols/SkeletonGraph.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/symbols/Skeletonize.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/symbols/Symbol2DBuilder.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/symbols/Symbol2DCache.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/symbols/Symbol2DTypes.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/trussdictionary.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/truss_gdtf_builder.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/trussloader.cpp
@@ -29,4 +38,5 @@ target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/layouts
     ${CMAKE_CURRENT_SOURCE_DIR}/print
+    ${CMAKE_CURRENT_SOURCE_DIR}/symbols
 )

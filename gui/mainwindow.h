@@ -126,6 +126,7 @@ private:
   void OnAutoPatch(wxCommandEvent &event);         // Auto patch fixtures
   void OnAutoColor(wxCommandEvent &event);         // Auto assign colors
   void OnConvertToHoist(wxCommandEvent &event);    // Convert fixtures to hoists
+  void OnGenerateFixtureSymbols(wxCommandEvent &event); // Generate fixture symbols preview
   void OnPrintViewer2D(wxCommandEvent &event); // Print 2D view to PDF
   void OnPrintLayout(wxCommandEvent &event);   // Print layout to PDF
   void OnPrintTable(wxCommandEvent &event);        // Print selected table

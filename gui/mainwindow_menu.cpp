@@ -374,6 +374,7 @@ void MainWindow::CreateMenuBar() {
   toolsMenu->Append(ID_Tools_AutoPatch, "Auto patch");
   toolsMenu->Append(ID_Tools_AutoColor, "Auto color");
   toolsMenu->Append(ID_Tools_ConvertToHoist, "Convert to Hoist");
+  toolsMenu->Append(ID_Tools_GenerateFixtureSymbols, "Generate Fixture Symbols...");
 
   menuBar->Append(toolsMenu, "&Tools");
 

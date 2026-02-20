@@ -4,6 +4,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/columnselectiondialog.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/consolepanel.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/dictionaryeditdialog.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/dialogs/generatefixturesymbolsdialog.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/exportfixturedialog.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/exportobjectdialog.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/exporttrussdialog.cpp
@@ -40,6 +41,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/mainwindow_layout.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mainwindow_menu.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mainwindow_print.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/mainwindow_tools_symbols.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/preferencesdialog.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/ridertextdialog.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/riggingpanel.cpp
@@ -51,6 +53,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/tableprinter.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/trusstablepanel.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/viewer2dprintdialog.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/windows/symbolpreviewwindow.cpp
 )
 
 target_include_directories(${PROJECT_NAME} PRIVATE
