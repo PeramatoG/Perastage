@@ -741,7 +741,10 @@ void MainWindow::ActivateLayoutView(const std::string &layoutName) {
     return;
   }
 
-  if (activeLayoutName == layoutName) {
+  const bool sameLayoutAlreadyRendered =
+      activeLayoutName == layoutName && layoutViewerPanel &&
+      layoutViewerPanel->GetCurrentLayoutName() == layoutName;
+  if (sameLayoutAlreadyRendered) {
     if (layoutModeActive)
       ApplyLayoutModePerspective();
     return;

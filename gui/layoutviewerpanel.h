@@ -41,6 +41,7 @@ public:
   ~LayoutViewerPanel();
 
   void SetLayoutDefinition(const layouts::LayoutDefinition &layout);
+  const std::string &GetCurrentLayoutName() const;
   layouts::Layout2DViewDefinition *GetEditableView();
   const layouts::Layout2DViewDefinition *GetEditableView() const;
   void RefreshLegendData();
