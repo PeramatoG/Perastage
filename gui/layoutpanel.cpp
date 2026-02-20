@@ -98,7 +98,11 @@ void LayoutPanel::OnSelect(wxDataViewEvent &evt) {
   if (idx == wxNOT_FOUND)
     return;
   wxString name = list->GetTextValue(idx, 0);
-  currentLayout = name.ToStdString();
+  const std::string selectedLayout = name.ToStdString();
+  if (selectedLayout == currentLayout)
+    return;
+
+  currentLayout = selectedLayout;
   const auto &layouts = layouts::LayoutManager::Get().GetLayouts().Items();
   for (const auto &layout : layouts) {
     if (layout.name == currentLayout) {
