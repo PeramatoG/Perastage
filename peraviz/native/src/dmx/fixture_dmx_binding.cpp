@@ -96,6 +96,14 @@ FixtureBindingBuildResult build_dimmer_bindings(
             to_channel_index_0(patch, offsets.yellow_fine_offset_1_based);
         binding.yellow.ultra_fine_dmx_channel_index_0 =
             to_channel_index_0(patch, offsets.yellow_ultra_fine_offset_1_based);
+        binding.gobo.coarse_dmx_channel_index_0 =
+            to_channel_index_0(patch, offsets.gobo_coarse_offset_1_based);
+        binding.gobo.fine_dmx_channel_index_0 =
+            to_channel_index_0(patch, offsets.gobo_fine_offset_1_based);
+        binding.gobo.ultra_fine_dmx_channel_index_0 =
+            to_channel_index_0(patch, offsets.gobo_ultra_fine_offset_1_based);
+        binding.gobo_slots = offsets.gobo_slots;
+        binding.gobo_ranges = offsets.gobo_ranges;
         binding.has_zoom_physical_limits = offsets.has_zoom_physical_limits;
         binding.zoom_physical_min_degrees = offsets.zoom_physical_min_degrees;
         binding.zoom_physical_max_degrees = offsets.zoom_physical_max_degrees;
@@ -107,7 +115,8 @@ FixtureBindingBuildResult build_dimmer_bindings(
         const bool has_cyan = is_valid_channel_index(binding.cyan.coarse_dmx_channel_index_0);
         const bool has_magenta = is_valid_channel_index(binding.magenta.coarse_dmx_channel_index_0);
         const bool has_yellow = is_valid_channel_index(binding.yellow.coarse_dmx_channel_index_0);
-        if (!has_dimmer && !has_pan && !has_tilt && !has_zoom && !has_cyan && !has_magenta && !has_yellow) {
+        const bool has_gobo = is_valid_channel_index(binding.gobo.coarse_dmx_channel_index_0);
+        if (!has_dimmer && !has_pan && !has_tilt && !has_zoom && !has_cyan && !has_magenta && !has_yellow && !has_gobo) {
             result.unbound.push_back({patch.fixture_uuid,
                                       "resolved DMX channels are out of 0..511 range"});
             continue;
@@ -168,6 +177,14 @@ FixtureBindingBuildResult build_dimmer_bindings(
         if (binding.yellow.ultra_fine_dmx_channel_index_0 >= 0 &&
             !is_valid_channel_index(binding.yellow.ultra_fine_dmx_channel_index_0)) {
             binding.yellow.ultra_fine_dmx_channel_index_0 = -1;
+        }
+        if (binding.gobo.fine_dmx_channel_index_0 >= 0 &&
+            !is_valid_channel_index(binding.gobo.fine_dmx_channel_index_0)) {
+            binding.gobo.fine_dmx_channel_index_0 = -1;
+        }
+        if (binding.gobo.ultra_fine_dmx_channel_index_0 >= 0 &&
+            !is_valid_channel_index(binding.gobo.ultra_fine_dmx_channel_index_0)) {
+            binding.gobo.ultra_fine_dmx_channel_index_0 = -1;
         }
 
         result.bindings.push_back(binding);

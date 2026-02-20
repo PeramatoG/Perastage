@@ -93,6 +93,8 @@ func apply_dmx(receiver, apply_fixture_callback: Callable) -> void:
 			"magenta_norm": 0.0,
 			"has_yellow": false,
 			"yellow_norm": 0.0,
+			"has_gobo": false,
+			"gobo_norm": 0.0,
 		}
 
 		_read_control(binding, frame, "dimmer_channel_index_0", "dimmer_fine_channel_index_0", "dimmer_ultra_fine_channel_index_0", controls, "has_dimmer", "dimmer_norm")
@@ -102,13 +104,18 @@ func apply_dmx(receiver, apply_fixture_callback: Callable) -> void:
 		_read_control(binding, frame, "cyan_channel_index_0", "cyan_fine_channel_index_0", "cyan_ultra_fine_channel_index_0", controls, "has_cyan", "cyan_norm")
 		_read_control(binding, frame, "magenta_channel_index_0", "magenta_fine_channel_index_0", "magenta_ultra_fine_channel_index_0", controls, "has_magenta", "magenta_norm")
 		_read_control(binding, frame, "yellow_channel_index_0", "yellow_fine_channel_index_0", "yellow_ultra_fine_channel_index_0", controls, "has_yellow", "yellow_norm")
+		_read_control(binding, frame, "gobo_channel_index_0", "gobo_fine_channel_index_0", "gobo_ultra_fine_channel_index_0", controls, "has_gobo", "gobo_norm")
 
 		if controls["has_zoom"]:
 			controls["has_zoom_physical_limits"] = bool(binding.get("has_zoom_physical_limits", false))
 			controls["zoom_physical_min_degrees"] = float(binding.get("zoom_physical_min_degrees", -1.0))
 			controls["zoom_physical_max_degrees"] = float(binding.get("zoom_physical_max_degrees", -1.0))
 
-		if not controls["has_dimmer"] and not controls["has_pan"] and not controls["has_tilt"] and not controls["has_zoom"] and not controls["has_cyan"] and not controls["has_magenta"] and not controls["has_yellow"]:
+		if controls["has_gobo"]:
+			controls["gobo_slots"] = binding.get("gobo_slots", [])
+			controls["gobo_ranges"] = binding.get("gobo_ranges", [])
+
+		if not controls["has_dimmer"] and not controls["has_pan"] and not controls["has_tilt"] and not controls["has_zoom"] and not controls["has_cyan"] and not controls["has_magenta"] and not controls["has_yellow"] and not controls["has_gobo"]:
 			continue
 		apply_fixture_callback.call(fixture_uuid, controls)
 

@@ -188,6 +188,33 @@ Dictionary PeravizLoader::build_fixture_dimmer_bindings(int universe_offset) con
         item["yellow_channel_index_0"] = binding.yellow.coarse_dmx_channel_index_0;
         item["yellow_fine_channel_index_0"] = binding.yellow.fine_dmx_channel_index_0;
         item["yellow_ultra_fine_channel_index_0"] = binding.yellow.ultra_fine_dmx_channel_index_0;
+        item["gobo_channel_index_0"] = binding.gobo.coarse_dmx_channel_index_0;
+        item["gobo_fine_channel_index_0"] = binding.gobo.fine_dmx_channel_index_0;
+        item["gobo_ultra_fine_channel_index_0"] = binding.gobo.ultra_fine_dmx_channel_index_0;
+
+        Array gobo_slots;
+        gobo_slots.resize(static_cast<int64_t>(binding.gobo_slots.size()));
+        for (int64_t slot_index = 0; slot_index < static_cast<int64_t>(binding.gobo_slots.size()); ++slot_index) {
+            const auto &slot = binding.gobo_slots[static_cast<size_t>(slot_index)];
+            Dictionary slot_item;
+            slot_item["slot_index"] = slot.slot_index;
+            slot_item["image_path"] = String(slot.image_path.c_str());
+            gobo_slots[slot_index] = slot_item;
+        }
+        item["gobo_slots"] = gobo_slots;
+
+        Array gobo_ranges;
+        gobo_ranges.resize(static_cast<int64_t>(binding.gobo_ranges.size()));
+        for (int64_t range_index = 0; range_index < static_cast<int64_t>(binding.gobo_ranges.size()); ++range_index) {
+            const auto &range = binding.gobo_ranges[static_cast<size_t>(range_index)];
+            Dictionary range_item;
+            range_item["dmx_from"] = range.dmx_from;
+            range_item["dmx_to"] = range.dmx_to;
+            range_item["slot_index"] = range.slot_index;
+            gobo_ranges[range_index] = range_item;
+        }
+        item["gobo_ranges"] = gobo_ranges;
+
         item["has_zoom_physical_limits"] = binding.has_zoom_physical_limits;
         item["zoom_physical_min_degrees"] = binding.zoom_physical_min_degrees;
         item["zoom_physical_max_degrees"] = binding.zoom_physical_max_degrees;
