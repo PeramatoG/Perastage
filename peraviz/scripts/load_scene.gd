@@ -44,7 +44,7 @@ var _fixture_emissive_cache: Dictionary = {}
 var _fixture_lens_material_cache: Dictionary = {}
 var _fixture_emitter_light_cache: Dictionary = {}
 var _fixture_emitter_photometrics: Dictionary = {}
-var _gobo_texture_cache: Dictionary = {}
+var _fixture_gobo_projector: FixtureGoboProjector = null
 var _updating_fixture_controls: bool = false
 var _visual_environment_baseline := {
 	"ambient_light_energy": 0.2,
@@ -85,6 +85,7 @@ const DmxFixtureRuntimeScript = preload("res://scripts/dmx_fixture_runtime.gd")
 const BeamRendererBaseScript = preload("res://scripts/beam_renderers/beam_renderer_base.gd")
 const LegacyConeBeamRendererScript = preload("res://scripts/beam_renderers/legacy_cone_beam_renderer.gd")
 const VolumetricBeamRendererScript = preload("res://scripts/beam_renderers/volumetric_beam_renderer.gd")
+const FixtureGoboProjectorScript = preload("res://scripts/fixture_gobo_projector.gd")
 
 const DEBUG_TOGGLE_KEY: Key = KEY_C
 const MANUAL_TEST_FLAG: String = "--peraviz_manual_fixture_test"
@@ -216,6 +217,7 @@ func _ready() -> void:
 	_capture_visual_environment_baseline()
 	_load_visual_settings_from_project()
 	_initialize_beam_renderers()
+	_fixture_gobo_projector = FixtureGoboProjectorScript.new()
 	visual_settings_window.configure(_visual_settings)
 	_apply_visual_settings(_visual_settings)
 
@@ -992,7 +994,8 @@ func _clear_scene() -> void:
 	_fixture_lens_material_cache.clear()
 	_fixture_emitter_light_cache.clear()
 	_fixture_emitter_photometrics.clear()
-	_gobo_texture_cache.clear()
+	if _fixture_gobo_projector != null:
+		_fixture_gobo_projector.clear_cache()
 	_has_loaded_bounds = false
 	_clear_debug_gizmos()
 
@@ -1831,71 +1834,8 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 		"distance_cull_m": BEAM_DISTANCE_CULL_M,
 	}
 	_update_beam_for_light(light, beam_params)
-	_apply_gobo_projection(light, controls)
-
-func _apply_gobo_projection(light: SpotLight3D, controls: Dictionary) -> void:
-	if light == null or not is_instance_valid(light):
-		return
-	if not bool(controls.get("has_gobo", false)):
-		light.projector = null
-		return
-
-	var active_slot_index: int = _resolve_active_gobo_slot_index(controls)
-	if active_slot_index <= 0:
-		light.projector = null
-		return
-
-	var gobo_texture: Texture2D = _resolve_gobo_texture_for_slot(controls, active_slot_index)
-	light.projector = gobo_texture
-
-func _resolve_active_gobo_slot_index(controls: Dictionary) -> int:
-	var gobo_ranges: Array = controls.get("gobo_ranges", [])
-	if gobo_ranges.is_empty():
-		return -1
-	var gobo_raw: int = int(round(clamp(float(controls.get("gobo_norm", 0.0)), 0.0, 1.0) * 255.0))
-	if controls.has("gobo_raw_value") and controls.has("gobo_resolution_bits"):
-		var raw_value: int = int(controls.get("gobo_raw_value", gobo_raw))
-		var resolution_bits: int = int(controls.get("gobo_resolution_bits", 8))
-		if resolution_bits > 8:
-			var shift_bits: int = max(0, resolution_bits - 8)
-			gobo_raw = raw_value >> shift_bits
-		else:
-			gobo_raw = raw_value
-	gobo_raw = clampi(gobo_raw, 0, 255)
-
-	for item in gobo_ranges:
-		if item is not Dictionary:
-			continue
-		var dmx_from: int = int(item.get("dmx_from", 0))
-		var dmx_to: int = int(item.get("dmx_to", dmx_from))
-		if dmx_to < dmx_from:
-			var swap_value: int = dmx_from
-			dmx_from = dmx_to
-			dmx_to = swap_value
-		if gobo_raw >= dmx_from and gobo_raw <= dmx_to:
-			return int(item.get("slot_index", -1))
-	return -1
-
-func _resolve_gobo_texture_for_slot(controls: Dictionary, slot_index: int) -> Texture2D:
-	var gobo_slots: Array = controls.get("gobo_slots", [])
-	for item in gobo_slots:
-		if item is not Dictionary:
-			continue
-		if int(item.get("slot_index", -1)) != slot_index:
-			continue
-		var image_path: String = str(item.get("image_path", ""))
-		if image_path.is_empty():
-			return null
-		if _gobo_texture_cache.has(image_path):
-			return _gobo_texture_cache[image_path] as Texture2D
-		var image := Image.new()
-		var load_error: Error = image.load(image_path)
-		if load_error != OK:
-			return null
-		var texture: ImageTexture = ImageTexture.create_from_image(image)
-		_gobo_texture_cache[image_path] = texture
-		return texture
-	return null
+	if _fixture_gobo_projector != null:
+		_fixture_gobo_projector.apply_gobo_projection(light, controls)
 
 func _resolve_zoom_beam_limits(light: SpotLight3D, controls: Dictionary) -> Dictionary:
 	# min/max beam angles are kept as full GDTF beam apertures (not half-angle).
