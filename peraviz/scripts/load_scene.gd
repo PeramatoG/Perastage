@@ -2073,16 +2073,15 @@ func _derive_emitter_color(photometric: Dictionary, controls: Dictionary = {}, c
 		# bias the mix (e.g. weak red output on cool bases).
 		base_color = Color.WHITE
 	else:
-		var wavelength: float = float(photometric.get("dominant_wavelength", 0.0))
-		if wavelength > 0.0:
-			base_color = _wavelength_to_rgb(wavelength)
-		elif bool(photometric.get("has_color_temperature", false)):
+		if bool(photometric.get("has_color_temperature", false)):
 			base_color = _color_temperature_to_rgb(
 				float(photometric.get("color_temperature", 6000.0)),
 				clamp(color_temperature_strength, 0.0, 1.0)
 			)
 		else:
 			# Keep default emitters visually neutral.
+			# Dominant wavelength from photometrics is often too spectral/peaky for
+			# runtime beam feedback and can introduce a persistent blue cast.
 			base_color = Color.WHITE
 
 	var filter_color: Color = cmy_filter.get("color", Color.WHITE)
