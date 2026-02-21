@@ -2,6 +2,7 @@
 
 #include <map>
 #include <array>
+#include <algorithm>
 #include <set>
 #include <string>
 #include <unordered_map>
@@ -112,6 +113,64 @@ wxImage BuildWxImageFromRgba(const std::vector<unsigned char> &pixels, int width
   return image;
 }
 
+wxImage CropAndZoomFixture(const wxImage &source) {
+  if (!source.IsOk())
+    return source;
+
+  const int width = source.GetWidth();
+  const int height = source.GetHeight();
+  if (width <= 0 || height <= 0)
+    return source;
+
+  const unsigned char *rgb = source.GetData();
+  if (!rgb)
+    return source;
+  const unsigned char *alpha = source.HasAlpha() ? source.GetAlpha() : nullptr;
+
+  int minX = width;
+  int minY = height;
+  int maxX = -1;
+  int maxY = -1;
+
+  for (int y = 0; y < height; ++y) {
+    for (int x = 0; x < width; ++x) {
+      const size_t idx = static_cast<size_t>(y) * static_cast<size_t>(width) +
+                         static_cast<size_t>(x);
+      const unsigned char r = rgb[idx * 3 + 0];
+      const unsigned char g = rgb[idx * 3 + 1];
+      const unsigned char b = rgb[idx * 3 + 2];
+      const unsigned char a = alpha ? alpha[idx] : 255;
+      const bool opaqueEnough = a > 10;
+      const bool isBackgroundWhite = r > 245 && g > 245 && b > 245;
+      if (!opaqueEnough || isBackgroundWhite)
+        continue;
+
+      minX = std::min(minX, x);
+      minY = std::min(minY, y);
+      maxX = std::max(maxX, x);
+      maxY = std::max(maxY, y);
+    }
+  }
+
+  if (maxX < minX || maxY < minY)
+    return source;
+
+  const int contentW = maxX - minX + 1;
+  const int contentH = maxY - minY + 1;
+  const int padX = std::max(16, contentW / 12);
+  const int padY = std::max(16, contentH / 12);
+
+  const int cropX = std::max(0, minX - padX);
+  const int cropY = std::max(0, minY - padY);
+  const int cropW = std::min(width - cropX, contentW + padX * 2);
+  const int cropH = std::min(height - cropY, contentH + padY * 2);
+
+  if (cropW <= 0 || cropH <= 0)
+    return source;
+
+  return source.GetSubImage(wxRect(cropX, cropY, cropW, cropH));
+}
+
 } // namespace
 
 void RunFixtureSymbolGeneration(MainWindow &window) {
@@ -160,6 +219,7 @@ void RunFixtureSymbolGeneration(MainWindow &window) {
           {"label_show_dmx_top", 0.0f},
           {"label_show_dmx_front", 0.0f},
           {"label_show_dmx_side", 0.0f},
+          {"view2d_top_fixtures_inverted", 0.0f},
       });
 
   capturePanel->SetRenderMode(Viewer2DRenderMode::White);
@@ -167,6 +227,7 @@ void RunFixtureSymbolGeneration(MainWindow &window) {
   const Viewer2DView previousView = capturePanel->GetView();
 
   offscreenRenderer->SetViewportSize(wxSize(1200, 1200));
+  offscreenRenderer->PrepareForCapture();
 
   std::array<wxImage, 4> images;
   const std::array<Viewer2DView, 4> views = {Viewer2DView::Front,
@@ -177,7 +238,6 @@ void RunFixtureSymbolGeneration(MainWindow &window) {
   for (size_t i = 0; i < views.size(); ++i) {
     capturePanel->SetView(views[i]);
     capturePanel->UpdateScene(true);
-    offscreenRenderer->PrepareForCapture();
 
     std::vector<unsigned char> pixels;
     int width = 0;
@@ -188,7 +248,13 @@ void RunFixtureSymbolGeneration(MainWindow &window) {
       break;
     }
 
-    images[i] = BuildWxImageFromRgba(pixels, width, height);
+    wxImage image = BuildWxImageFromRgba(pixels, width, height);
+    if (image.IsOk()) {
+      image = image.Mirror(false);
+      image = image.Mirror(true);
+      image = CropAndZoomFixture(image);
+    }
+    images[i] = std::move(image);
     if (!images[i].IsOk()) {
       allOk = false;
       break;
