@@ -564,19 +564,30 @@ void MainWindow::OnAutoColor(wxCommandEvent &WXUNUSED(event)) {
     }
   }
 
+  const auto selectedFixtureIds = cfg.GetSelectedFixtures();
+  const bool hasFixtureSelection = !selectedFixtureIds.empty();
+  std::set<std::string> selectedFixtureSet(selectedFixtureIds.begin(),
+                                           selectedFixtureIds.end());
+
   std::map<std::string, std::string> typeColors;
   for (auto &[uuid, f] : scene.fixtures) {
+    if (hasFixtureSelection && selectedFixtureSet.find(uuid) == selectedFixtureSet.end())
+      continue;
+
     if (!f.gdtfSpec.empty()) {
       auto it = typeColors.find(f.gdtfSpec);
       if (it == typeColors.end()) {
         std::string c =
-            (f.color.empty() || isWhiteColor(f.color)) ? randHex() : f.color;
+            hasFixtureSelection ? randHex()
+                                : ((f.color.empty() || isWhiteColor(f.color))
+                                       ? randHex()
+                                       : f.color);
         typeColors[f.gdtfSpec] = c;
         f.color = c;
       } else {
         f.color = it->second;
       }
-    } else if (f.color.empty() || isWhiteColor(f.color)) {
+    } else if (hasFixtureSelection || f.color.empty() || isWhiteColor(f.color)) {
       f.color = randHex();
     }
   }
