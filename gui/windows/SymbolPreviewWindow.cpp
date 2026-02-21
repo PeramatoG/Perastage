@@ -4,6 +4,7 @@
 #include <cmath>
 
 #include <wx/dcbuffer.h>
+#include <wx/bitmap.h>
 
 SymbolPreviewWindow::SymbolPreviewWindow(wxWindow *parent, const wxImage &image)
     : wxFrame(parent, wxID_ANY, "Fixture Symbol Preview", wxDefaultPosition,

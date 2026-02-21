@@ -1,6 +1,7 @@
 #pragma once
 
 #include <wx/frame.h>
+#include <wx/image.h>
 
 class SymbolPreviewWindow : public wxFrame {
 public:
