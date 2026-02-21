@@ -13,6 +13,7 @@ public:
 
 private:
   void OnPaint(wxPaintEvent &event);
+  void OnSize(wxSizeEvent &event);
   void DrawCell(wxDC &dc, const wxRect &cell, const symbols::Symbol2D *symbol,
                 const wxString &label);
   static const symbols::Symbol2D *FindSymbol(
