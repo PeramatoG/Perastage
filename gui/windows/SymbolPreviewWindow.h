@@ -21,8 +21,6 @@ private:
 
   void OnPaint(wxPaintEvent &event);
   void OnSize(wxSizeEvent &event);
-  void OnLeftUp(wxMouseEvent &event);
-  void OnRightUp(wxMouseEvent &event);
   void OnContextMenu(wxContextMenuEvent &event);
   void OnExportSelectedView(wxCommandEvent &event);
   void ShowExportMenuAt(const wxPoint &point);

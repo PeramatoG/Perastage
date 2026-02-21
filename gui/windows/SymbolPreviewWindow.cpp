@@ -51,8 +51,6 @@ SymbolPreviewWindow::SymbolPreviewWindow(wxWindow *parent,
   SetBackgroundStyle(wxBG_STYLE_PAINT);
   Bind(wxEVT_PAINT, &SymbolPreviewWindow::OnPaint, this);
   Bind(wxEVT_SIZE, &SymbolPreviewWindow::OnSize, this);
-  Bind(wxEVT_LEFT_UP, &SymbolPreviewWindow::OnLeftUp, this);
-  Bind(wxEVT_RIGHT_UP, &SymbolPreviewWindow::OnRightUp, this);
   Bind(wxEVT_CONTEXT_MENU, &SymbolPreviewWindow::OnContextMenu, this);
   Bind(wxEVT_MENU, &SymbolPreviewWindow::OnExportSelectedView, this,
        ID_ExportSelectedViewAsSvg);
@@ -126,14 +124,6 @@ void SymbolPreviewWindow::ShowExportMenuAt(const wxPoint &point) {
   wxMenu menu;
   menu.Append(ID_ExportSelectedViewAsSvg, "Export this view as SVG...");
   PopupMenu(&menu, point);
-}
-
-void SymbolPreviewWindow::OnLeftUp(wxMouseEvent &event) {
-  ShowExportMenuAt(event.GetPosition());
-}
-
-void SymbolPreviewWindow::OnRightUp(wxMouseEvent &event) {
-  ShowExportMenuAt(event.GetPosition());
 }
 
 void SymbolPreviewWindow::OnContextMenu(wxContextMenuEvent &event) {
