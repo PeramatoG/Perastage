@@ -24,6 +24,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/layout2dviewdialog.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/layouteventtabledialog.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/layoutimageutils.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/layoutlegenditems.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/layoutpanel.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/layouttextdialog.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/layouttextutils.cpp
