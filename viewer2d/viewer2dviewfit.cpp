@@ -32,8 +32,11 @@ void ExpandProjectedBounds(const ISelectionContext::BoundingBox &box,
     axisBMax = box.max[2];
     break;
   case Viewer2DView::Side:
-    axisAMin = box.min[1];
-    axisAMax = box.max[1];
+    // Side view projects world Y onto screen X with a mirrored sign.
+    // Convert [minY, maxY] into the projected range [-maxY, -minY]
+    // so fitting and centering match the rendered orientation.
+    axisAMin = -box.max[1];
+    axisAMax = -box.min[1];
     axisBMin = box.min[2];
     axisBMax = box.max[2];
     break;
