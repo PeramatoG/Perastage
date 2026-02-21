@@ -32,6 +32,12 @@ struct PixelMask {
   }
 };
 
+struct RgbColor {
+  unsigned char r = 255;
+  unsigned char g = 255;
+  unsigned char b = 255;
+};
+
 int PixelIndex(const PixelMask &mask, int x, int y) {
   return y * mask.width + x;
 }
@@ -61,6 +67,40 @@ PixelMask BuildFillMask(const RenderedSymbolImage &render,
   mask.value.assign(static_cast<size_t>(render.width) * static_cast<size_t>(render.height),
                     0);
 
+  const auto pixelRgb = [&](int x, int y) {
+    const size_t idx = (static_cast<size_t>(y) * static_cast<size_t>(render.width) +
+                        static_cast<size_t>(x)) *
+                       4;
+    return RgbColor{render.rgba[idx + 0], render.rgba[idx + 1], render.rgba[idx + 2]};
+  };
+
+  const auto isNear = [&](const RgbColor &a, const RgbColor &b) {
+    return std::abs(static_cast<int>(a.r) - static_cast<int>(b.r)) <=
+               params.backgroundTolerance &&
+           std::abs(static_cast<int>(a.g) - static_cast<int>(b.g)) <=
+               params.backgroundTolerance &&
+           std::abs(static_cast<int>(a.b) - static_cast<int>(b.b)) <=
+               params.backgroundTolerance;
+  };
+
+  std::array<RgbColor, 4> corners = {
+      pixelRgb(0, 0), pixelRgb(render.width - 1, 0),
+      pixelRgb(0, render.height - 1), pixelRgb(render.width - 1, render.height - 1)};
+
+  RgbColor background = corners[0];
+  int bestCount = -1;
+  for (const auto &candidate : corners) {
+    int count = 0;
+    for (const auto &sample : corners) {
+      if (isNear(candidate, sample))
+        ++count;
+    }
+    if (count > bestCount) {
+      bestCount = count;
+      background = candidate;
+    }
+  }
+
   const size_t pixelCount = static_cast<size_t>(render.width) *
                             static_cast<size_t>(render.height);
   for (size_t i = 0; i < pixelCount; ++i) {
@@ -70,9 +110,9 @@ PixelMask BuildFillMask(const RenderedSymbolImage &render,
     const unsigned char a = render.rgba[i * 4 + 3];
 
     const bool visible = a > params.fillAlphaThreshold;
-    const bool nonWhite = !(r > params.whiteThreshold && g > params.whiteThreshold &&
-                            b > params.whiteThreshold);
-    if (visible && nonWhite)
+    const RgbColor current{r, g, b};
+    const bool isBackgroundColor = isNear(current, background);
+    if (visible && !isBackgroundColor)
       mask.value[i] = 1;
   }
   return mask;
