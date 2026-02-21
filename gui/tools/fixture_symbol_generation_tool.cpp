@@ -14,9 +14,9 @@
 #include "dialogs/GenerateFixtureSymbolsDialog.h"
 #include "guiconfigservices.h"
 #include "mainwindow.h"
-#include "models/sceneobject.h"
-#include "models/support.h"
-#include "models/truss.h"
+#include "sceneobject.h"
+#include "support.h"
+#include "truss.h"
 #include "opaque_pass_utils.h"
 #include "symbols/Symbol2DImageBuilder.h"
 #include "viewer2doffscreenrenderer.h"
@@ -63,19 +63,32 @@ bool FixtureMatchesModelKeys(const Fixture &fixture,
   return false;
 }
 
+std::string FindSingleFixtureUuidForModelKeys(
+    const std::unordered_map<std::string, Fixture> &fixtures,
+    const std::vector<std::string> &modelKeys) {
+  std::string selectedUuid;
+  for (const auto &[uuid, fixture] : fixtures) {
+    if (!FixtureMatchesModelKeys(fixture, modelKeys))
+      continue;
+    if (selectedUuid.empty() || uuid < selectedUuid)
+      selectedUuid = uuid;
+  }
+  return selectedUuid;
+}
+
 class ScopedFixtureColorOverride {
 public:
-  ScopedFixtureColorOverride(ConfigManager &cfg,
-                             const std::vector<std::string> &modelKeys,
+  ScopedFixtureColorOverride(ConfigManager &cfg, const std::string &fixtureUuid,
                              const std::string &forcedHex)
       : cfg_(cfg) {
+    if (fixtureUuid.empty())
+      return;
     auto &fixtures = cfg_.GetScene().fixtures;
-    for (auto &[uuid, fixture] : fixtures) {
-      if (!FixtureMatchesModelKeys(fixture, modelKeys))
-        continue;
-      previous_.emplace_back(uuid, fixture.color);
-      fixture.color = forcedHex;
-    }
+    auto it = fixtures.find(fixtureUuid);
+    if (it == fixtures.end())
+      return;
+    previous_.emplace_back(it->first, it->second.color);
+    it->second.color = forcedHex;
   }
 
   ~ScopedFixtureColorOverride() {
@@ -95,7 +108,7 @@ private:
 class ScopedSymbolCaptureSceneOverride {
 public:
   ScopedSymbolCaptureSceneOverride(ConfigManager &cfg,
-                                   const std::vector<std::string> &modelKeys)
+                                   const std::string &fixtureUuid)
       : cfg_(cfg) {
     auto &scene = cfg_.GetScene();
     originalFixtures_ = scene.fixtures;
@@ -104,9 +117,10 @@ public:
     originalSupports_ = scene.supports;
 
     std::unordered_map<std::string, Fixture> filteredFixtures;
-    for (const auto &[uuid, fixture] : scene.fixtures) {
-      if (FixtureMatchesModelKeys(fixture, modelKeys))
-        filteredFixtures.emplace(uuid, fixture);
+    if (!fixtureUuid.empty()) {
+      auto fixtureIt = scene.fixtures.find(fixtureUuid);
+      if (fixtureIt != scene.fixtures.end())
+        filteredFixtures.emplace(fixtureIt->first, fixtureIt->second);
     }
 
     scene.fixtures = std::move(filteredFixtures);
@@ -215,11 +229,19 @@ void RunFixtureSymbolGeneration(MainWindow &window) {
   }
 
   ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
+  const std::string selectedFixtureUuid =
+      FindSingleFixtureUuidForModelKeys(cfg.GetScene().fixtures,
+                                        options[static_cast<size_t>(selection)].modelKeys);
+  if (selectedFixtureUuid.empty()) {
+    wxMessageBox("Could not isolate a fixture instance for this fixture type.",
+                 "Generate Fixture Symbols", wxOK | wxICON_ERROR, &window);
+    return;
+  }
+
   const std::string forcedFixtureColor = "#3FA9F5";
-  ScopedSymbolCaptureSceneOverride isolatedSceneOverride(
-      cfg, options[static_cast<size_t>(selection)].modelKeys);
-  ScopedFixtureColorOverride selectedFixtureColorOverride(
-      cfg, options[static_cast<size_t>(selection)].modelKeys, forcedFixtureColor);
+  ScopedSymbolCaptureSceneOverride isolatedSceneOverride(cfg, selectedFixtureUuid);
+  ScopedFixtureColorOverride selectedFixtureColorOverride(cfg, selectedFixtureUuid,
+                                                          forcedFixtureColor);
   ScopedFloatConfigOverride displayOverride(
       cfg,
       {
