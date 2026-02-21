@@ -3,6 +3,7 @@
 #include <map>
 #include <set>
 #include <string>
+#include <vector>
 
 #include <wx/msgdlg.h>
 
@@ -11,9 +12,9 @@
 #include "dialogs/GenerateFixtureSymbolsDialog.h"
 #include "mainwindow.h"
 #include "opaque_pass_utils.h"
+#include "viewer2doffscreenrenderer.h"
 #include "viewer2dpanel.h"
 #include "windows/SymbolPreviewWindow.h"
-#include "symbols/Symbol2DBuilder.h"
 
 namespace tools {
 namespace {
@@ -61,6 +62,32 @@ void CaptureRequiredViews(Viewer2DPanel *panel) {
   panel->SetView(previous);
 }
 
+wxImage BuildWxImageFromRgba(const std::vector<unsigned char> &pixels, int width,
+                             int height) {
+  if (width <= 0 || height <= 0)
+    return wxImage();
+
+  const size_t pixelCount = static_cast<size_t>(width) *
+                            static_cast<size_t>(height);
+  const size_t expectedBytes = pixelCount * 4;
+  if (pixels.size() < expectedBytes)
+    return wxImage();
+
+  unsigned char *rgb = new unsigned char[pixelCount * 3];
+  unsigned char *alpha = new unsigned char[pixelCount];
+  for (size_t i = 0; i < pixelCount; ++i) {
+    rgb[i * 3 + 0] = pixels[i * 4 + 0];
+    rgb[i * 3 + 1] = pixels[i * 4 + 1];
+    rgb[i * 3 + 2] = pixels[i * 4 + 2];
+    alpha[i] = pixels[i * 4 + 3];
+  }
+
+  wxImage image(width, height);
+  image.SetData(rgb, true);
+  image.SetAlpha(alpha, true);
+  return image;
+}
+
 } // namespace
 
 void RunFixtureSymbolGeneration(MainWindow &window) {
@@ -88,17 +115,39 @@ void RunFixtureSymbolGeneration(MainWindow &window) {
     return;
   }
 
+  Viewer2DOffscreenRenderer *offscreenRenderer = window.GetOffscreenRenderer();
+  if (!offscreenRenderer) {
+    wxMessageBox("Could not prepare offscreen renderer.",
+                 "Generate Fixture Symbols", wxOK | wxICON_ERROR, &window);
+    return;
+  }
+
   CaptureRequiredViews(capturePanel);
-  auto snapshot = capturePanel->GetBottomSymbolCacheSnapshot();
-  if (!snapshot) {
-    wxMessageBox("Could not capture symbol data.", "Generate Fixture Symbols",
+  const Viewer2DView previousView = capturePanel->GetView();
+  capturePanel->SetView(Viewer2DView::Top);
+
+  offscreenRenderer->SetViewportSize(wxSize(1200, 1200));
+  offscreenRenderer->PrepareForCapture();
+
+  std::vector<unsigned char> pixels;
+  int width = 0;
+  int height = 0;
+  const bool ok = capturePanel->RenderToRGBA(pixels, width, height);
+  capturePanel->SetView(previousView);
+  if (!ok || width <= 0 || height <= 0) {
+    wxMessageBox("Could not capture source image from 2D viewer.",
+                 "Generate Fixture Symbols", wxOK | wxICON_ERROR, &window);
+    return;
+  }
+
+  wxImage image = BuildWxImageFromRgba(pixels, width, height);
+  if (!image.IsOk()) {
+    wxMessageBox("Captured image is not valid.", "Generate Fixture Symbols",
                  wxOK | wxICON_ERROR, &window);
     return;
   }
 
-  auto symbols = symbols::Symbol2DBuilder::BuildForFixtureModelKeys(
-      options[selection].modelKeys, *snapshot);
-  SymbolPreviewWindow *preview = new SymbolPreviewWindow(&window, std::move(symbols));
+  SymbolPreviewWindow *preview = new SymbolPreviewWindow(&window, image);
   preview->Show();
 }
 
