@@ -53,6 +53,7 @@ struct RenderFrameContext {
   Viewer2DView view = Viewer2DView::Top;
   bool wireframe = false;
   bool showGrid = true;
+  bool showAxes = true;
   int gridStyle = 0;
   float gridR = 0.35f;
   float gridG = 0.35f;
