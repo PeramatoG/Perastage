@@ -377,6 +377,25 @@ void Viewer2DPanel::ApplyViewState(float offsetX, float offsetY, float zoom,
   m_renderMode = renderMode;
 }
 
+bool Viewer2DPanel::FitViewToScene() {
+  int width = 0;
+  int height = 0;
+  GetClientSize(&width, &height);
+  viewer2d::ViewFitResult fit;
+  if (!viewer2d::ComputeViewFit(m_controller, m_view, width, height, fit))
+    return false;
+
+  m_offsetX = fit.offsetXPixels;
+  m_offsetY = fit.offsetYPixels;
+  m_zoom = fit.zoom;
+  if (m_zoom < 0.1f)
+    m_zoom = 0.1f;
+  if (m_persistViewState)
+    SaveViewToConfig();
+  Refresh();
+  return true;
+}
+
 void Viewer2DPanel::RequestFrameCapture() { m_captureNextFrame = true; }
 
 void Viewer2DPanel::CaptureFrameAsync(
@@ -1772,17 +1791,10 @@ void Viewer2DPanel::OnKeyDown(wxKeyEvent &event) {
     break;
   case 'F':
   case 'f': {
-    int width = 0;
-    int height = 0;
-    GetClientSize(&width, &height);
-    viewer2d::ViewFitResult fit;
-    if (!viewer2d::ComputeViewFit(m_controller, m_view, width, height, fit)) {
+    if (!FitViewToScene()) {
       event.Skip();
       return;
     }
-    m_offsetX = fit.offsetXPixels;
-    m_offsetY = fit.offsetYPixels;
-    m_zoom = fit.zoom;
     break;
   }
   default:

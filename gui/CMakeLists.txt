@@ -4,6 +4,9 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/columnselectiondialog.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/consolepanel.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/dictionaryeditdialog.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/tools/fixture_symbol_generation_tool.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/windows/SymbolPreviewWindow.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/dialogs/GenerateFixtureSymbolsDialog.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/exportfixturedialog.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/exportobjectdialog.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/exporttrussdialog.cpp
