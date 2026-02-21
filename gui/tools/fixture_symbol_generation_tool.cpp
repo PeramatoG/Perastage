@@ -197,6 +197,7 @@ void RunFixtureSymbolGeneration(MainWindow &window) {
       {
           {"grid_show", 0.0f},
           {"view2d_dark_mode", 0.0f},
+          {"view2d_render_mode", static_cast<float>(Viewer2DRenderMode::White)},
           {"label_show_name_top", 0.0f},
           {"label_show_name_front", 0.0f},
           {"label_show_name_side", 0.0f},
@@ -208,11 +209,21 @@ void RunFixtureSymbolGeneration(MainWindow &window) {
           {"label_show_dmx_side", 0.0f},
       });
 
-  capturePanel->SetRenderMode(Viewer2DRenderMode::White);
   const Viewer2DView previousView = capturePanel->GetView();
 
   offscreenRenderer->SetViewportSize(wxSize(1200, 1200));
   offscreenRenderer->PrepareForCapture();
+  capturePanel->SetRenderMode(Viewer2DRenderMode::White);
+
+  // Warm up one offscreen frame so the first requested orthographic capture
+  // does not suffer from stale GL/controller state on first invocation.
+  capturePanel->UpdateScene(true);
+  {
+    std::vector<unsigned char> warmupPixels;
+    int warmupWidth = 0;
+    int warmupHeight = 0;
+    (void)capturePanel->RenderToRGBA(warmupPixels, warmupWidth, warmupHeight);
+  }
 
   std::array<wxImage, 4> images;
   struct CaptureRequest {
