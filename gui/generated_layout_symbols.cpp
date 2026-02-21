@@ -27,17 +27,17 @@ SymbolViewKind ToSymbolViewKind(symbols::SymbolView view) {
 CommandBuffer BuildCommandBufferFromGeneratedSymbol(const symbols::Symbol2D &symbol) {
   CommandBuffer buffer;
   CanvasStroke stroke{};
-  stroke.r = 0.0f;
-  stroke.g = 0.0f;
-  stroke.b = 0.0f;
-  stroke.a = 1.0f;
+  stroke.color.r = 0.0f;
+  stroke.color.g = 0.0f;
+  stroke.color.b = 0.0f;
+  stroke.color.a = 1.0f;
   stroke.width = std::max(1.0f, symbol.strokeWidthPx) * 0.1f;
 
   CanvasFill fill{};
-  fill.r = 0.88f;
-  fill.g = 0.88f;
-  fill.b = 0.88f;
-  fill.a = 1.0f;
+  fill.color.r = 0.88f;
+  fill.color.g = 0.88f;
+  fill.color.b = 0.88f;
+  fill.color.a = 1.0f;
 
   for (const auto &polygon : symbol.fill) {
     if (polygon.outer.size() < 3)
@@ -76,7 +76,7 @@ CommandBuffer BuildCommandBufferFromGeneratedSymbol(const symbols::Symbol2D &sym
 
 } // namespace
 
-std::shared_ptr<SymbolDefinitionSnapshot>
+std::shared_ptr<const SymbolDefinitionSnapshot>
 CaptureGeneratedLayoutSymbolSnapshot(Viewer2DOffscreenRenderer &renderer,
                                      ConfigManager &cfg,
                                      const std::vector<std::string> &modelKeys) {
