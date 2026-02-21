@@ -1,5 +1,5 @@
 shader_type spatial;
-render_mode unshaded, blend_add, cull_disabled, depth_draw_opaque;
+render_mode unshaded, blend_add, cull_disabled, depth_draw_never;
 
 uniform sampler2D DEPTH_TEXTURE : hint_depth_texture, filter_linear_mipmap;
 uniform bool gobo_enabled = false;
@@ -136,7 +136,9 @@ void fragment() {
 	}
 
 	float final_alpha = feather_alpha * depth_mult * dist_fade * gobo_multiplier;
-	ALBEDO = base_color.rgb * brightness * gobo_multiplier;
-	ALPHA = clamp(final_alpha * base_color.a, 0.0, 1.0);
-	EMISSION = ALBEDO * ALPHA;
+	float out_alpha = clamp(final_alpha * base_color.a, 0.0, 1.0);
+	vec3 scatter_color = base_color.rgb * brightness * gobo_multiplier;
+	ALBEDO = vec3(0.0);
+	ALPHA = out_alpha;
+	EMISSION = scatter_color * out_alpha;
 }
