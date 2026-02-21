@@ -19,6 +19,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/riderimporter.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/scenedatamanager.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/simplecrypt.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/symbols/Symbol2DImageBuilder.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/symbols/Symbol2DBuilder.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/trussdictionary.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/truss_gdtf_builder.cpp

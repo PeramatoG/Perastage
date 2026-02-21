@@ -1,8 +1,8 @@
 #include "tools/fixture_symbol_generation_tool.h"
 
-#include <map>
-#include <array>
 #include <algorithm>
+#include <array>
+#include <map>
 #include <set>
 #include <string>
 #include <unordered_map>
@@ -10,11 +10,12 @@
 
 #include <wx/msgdlg.h>
 
-#include "guiconfigservices.h"
 #include "configmanager.h"
 #include "dialogs/GenerateFixtureSymbolsDialog.h"
+#include "guiconfigservices.h"
 #include "mainwindow.h"
 #include "opaque_pass_utils.h"
+#include "symbols/Symbol2DImageBuilder.h"
 #include "viewer2doffscreenrenderer.h"
 #include "viewer2dpanel.h"
 #include "windows/SymbolPreviewWindow.h"
@@ -75,88 +76,24 @@ std::vector<FixtureSymbolTypeOption> BuildFixtureOptions() {
   return options;
 }
 
-wxImage BuildWxImageFromRgba(const std::vector<unsigned char> &pixels, int width,
-                             int height) {
-  if (width <= 0 || height <= 0)
-    return wxImage();
-
-  const size_t pixelCount = static_cast<size_t>(width) *
-                            static_cast<size_t>(height);
-  const size_t expectedBytes = pixelCount * 4;
-  if (pixels.size() < expectedBytes)
-    return wxImage();
-
-  unsigned char *rgb = new unsigned char[pixelCount * 3];
-  unsigned char *alpha = new unsigned char[pixelCount];
-  for (size_t i = 0; i < pixelCount; ++i) {
-    rgb[i * 3 + 0] = pixels[i * 4 + 0];
-    rgb[i * 3 + 1] = pixels[i * 4 + 1];
-    rgb[i * 3 + 2] = pixels[i * 4 + 2];
-    alpha[i] = pixels[i * 4 + 3];
-  }
-
-  wxImage image(width, height);
-  image.SetData(rgb, true);
-  image.SetAlpha(alpha, true);
-  return image;
-}
-
-wxImage CropAndZoomFixture(const wxImage &source) {
-  if (!source.IsOk())
-    return source;
-
-  const int width = source.GetWidth();
-  const int height = source.GetHeight();
-  if (width <= 0 || height <= 0)
-    return source;
-
-  const unsigned char *rgb = source.GetData();
-  if (!rgb)
-    return source;
-  const unsigned char *alpha = source.HasAlpha() ? source.GetAlpha() : nullptr;
-
-  int minX = width;
-  int minY = height;
-  int maxX = -1;
-  int maxY = -1;
-
-  for (int y = 0; y < height; ++y) {
-    for (int x = 0; x < width; ++x) {
-      const size_t idx = static_cast<size_t>(y) * static_cast<size_t>(width) +
-                         static_cast<size_t>(x);
-      const unsigned char r = rgb[idx * 3 + 0];
-      const unsigned char g = rgb[idx * 3 + 1];
-      const unsigned char b = rgb[idx * 3 + 2];
-      const unsigned char a = alpha ? alpha[idx] : 255;
-      const bool opaqueEnough = a > 10;
-      const bool isBackgroundWhite = r > 245 && g > 245 && b > 245;
-      if (!opaqueEnough || isBackgroundWhite)
-        continue;
-
-      minX = std::min(minX, x);
-      minY = std::min(minY, y);
-      maxX = std::max(maxX, x);
-      maxY = std::max(maxY, y);
+void MirrorImageHorizontally(symbols::RenderedSymbolImage &render) {
+  if (render.width <= 0 || render.height <= 0)
+    return;
+  for (int y = 0; y < render.height; ++y) {
+    for (int x = 0; x < render.width / 2; ++x) {
+      const int opposite = render.width - 1 - x;
+      const size_t left =
+          (static_cast<size_t>(y) * static_cast<size_t>(render.width) +
+           static_cast<size_t>(x)) *
+          4;
+      const size_t right =
+          (static_cast<size_t>(y) * static_cast<size_t>(render.width) +
+           static_cast<size_t>(opposite)) *
+          4;
+      for (size_t c = 0; c < 4; ++c)
+        std::swap(render.rgba[left + c], render.rgba[right + c]);
     }
   }
-
-  if (maxX < minX || maxY < minY)
-    return source;
-
-  const int contentW = maxX - minX + 1;
-  const int contentH = maxY - minY + 1;
-  const int padX = std::max(16, contentW / 12);
-  const int padY = std::max(16, contentH / 12);
-
-  const int cropX = std::max(0, minX - padX);
-  const int cropY = std::max(0, minY - padY);
-  const int cropW = std::min(width - cropX, contentW + padX * 2);
-  const int cropH = std::min(height - cropY, contentH + padY * 2);
-
-  if (cropW <= 0 || cropH <= 0)
-    return source;
-
-  return source.GetSubImage(wxRect(cropX, cropY, cropW, cropH));
 }
 
 } // namespace
@@ -214,9 +151,6 @@ void RunFixtureSymbolGeneration(MainWindow &window) {
   offscreenRenderer->SetViewportSize(wxSize(1200, 1200));
   offscreenRenderer->PrepareForCapture();
   capturePanel->SetRenderMode(Viewer2DRenderMode::White);
-
-  // Warm up one offscreen frame so the first requested orthographic capture
-  // does not suffer from stale GL/controller state on first invocation.
   capturePanel->UpdateScene(true);
   {
     std::vector<unsigned char> warmupPixels;
@@ -225,49 +159,40 @@ void RunFixtureSymbolGeneration(MainWindow &window) {
     (void)capturePanel->RenderToRGBA(warmupPixels, warmupWidth, warmupHeight);
   }
 
-  std::array<wxImage, 4> images;
   struct CaptureRequest {
     Viewer2DView view = Viewer2DView::Top;
     float topFixturesInverted = 0.0f;
     bool mirrorSideHorizontally = false;
+    symbols::SymbolView symbolView = symbols::SymbolView::Top;
   };
   const std::array<CaptureRequest, 4> requests = {
-      CaptureRequest{Viewer2DView::Front, 0.0f, false},
-      CaptureRequest{Viewer2DView::Top, 0.0f, false},
-      CaptureRequest{Viewer2DView::Side, 0.0f, true},
-      CaptureRequest{Viewer2DView::Top, 1.0f, false},
+      CaptureRequest{Viewer2DView::Front, 0.0f, false, symbols::SymbolView::Front},
+      CaptureRequest{Viewer2DView::Top, 0.0f, false, symbols::SymbolView::Top},
+      CaptureRequest{Viewer2DView::Side, 0.0f, true, symbols::SymbolView::Left},
+      CaptureRequest{Viewer2DView::Top, 1.0f, false, symbols::SymbolView::Bottom},
   };
-  bool allOk = true;
-  for (size_t i = 0; i < requests.size(); ++i) {
-    ScopedFloatConfigOverride topViewOverride(
-        cfg, {{"view2d_top_fixtures_inverted", requests[i].topFixturesInverted}});
 
-    capturePanel->SetView(requests[i].view);
+  std::vector<symbols::RenderedSymbolImage> renders;
+  renders.reserve(requests.size());
+  bool allOk = true;
+  for (const auto &request : requests) {
+    ScopedFloatConfigOverride topViewOverride(
+        cfg, {{"view2d_top_fixtures_inverted", request.topFixturesInverted}});
+
+    capturePanel->SetView(request.view);
     capturePanel->UpdateScene(true);
     capturePanel->FitViewToScene();
 
-    std::vector<unsigned char> pixels;
-    int width = 0;
-    int height = 0;
-    bool ok = capturePanel->RenderToRGBA(pixels, width, height);
-    if (!ok || width <= 0 || height <= 0) {
+    symbols::RenderedSymbolImage render;
+    render.view = request.symbolView;
+    bool ok = capturePanel->RenderToRGBA(render.rgba, render.width, render.height);
+    if (!ok || render.width <= 0 || render.height <= 0) {
       allOk = false;
       break;
     }
-
-    wxImage image = BuildWxImageFromRgba(pixels, width, height);
-    if (image.IsOk()) {
-      image = image.Mirror(false);
-      image = image.Mirror(true);
-      if (requests[i].mirrorSideHorizontally)
-        image = image.Mirror(true);
-      image = CropAndZoomFixture(image);
-    }
-    images[i] = std::move(image);
-    if (!images[i].IsOk()) {
-      allOk = false;
-      break;
-    }
+    if (request.mirrorSideHorizontally)
+      MirrorImageHorizontally(render);
+    renders.push_back(std::move(render));
   }
   capturePanel->SetView(previousView);
 
@@ -277,7 +202,14 @@ void RunFixtureSymbolGeneration(MainWindow &window) {
     return;
   }
 
-  SymbolPreviewWindow *preview = new SymbolPreviewWindow(&window, images);
+  auto symbols = symbols::Symbol2DImageBuilder::BuildFromRenderedImages(renders);
+  if (symbols.size() != requests.size()) {
+    wxMessageBox("Could not generate all fixture symbols from captured views.",
+                 "Generate Fixture Symbols", wxOK | wxICON_ERROR, &window);
+    return;
+  }
+
+  SymbolPreviewWindow *preview = new SymbolPreviewWindow(&window, std::move(symbols));
   preview->Show();
 }
 
