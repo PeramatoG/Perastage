@@ -2,11 +2,20 @@
 
 #include <algorithm>
 #include <cmath>
+#include <string>
 #include <vector>
 
 #include <wx/dcbuffer.h>
+#include <wx/filedlg.h>
+#include <wx/menu.h>
+#include <wx/msgdlg.h>
+#include <wx/utils.h>
+
+#include "windows/symbol_preview_exporter.h"
 
 namespace {
+
+constexpr int ID_ExportSelectedViewAsSvg = wxID_HIGHEST + 240;
 
 wxPoint ToScreenPoint(const symbols::Point2D &p, const symbols::Aabb2D &bounds,
                       double scale, int originX, int originY) {
@@ -42,6 +51,9 @@ SymbolPreviewWindow::SymbolPreviewWindow(wxWindow *parent,
   SetBackgroundStyle(wxBG_STYLE_PAINT);
   Bind(wxEVT_PAINT, &SymbolPreviewWindow::OnPaint, this);
   Bind(wxEVT_SIZE, &SymbolPreviewWindow::OnSize, this);
+  Bind(wxEVT_CONTEXT_MENU, &SymbolPreviewWindow::OnContextMenu, this);
+  Bind(wxEVT_MENU, &SymbolPreviewWindow::OnExportSelectedView, this,
+       ID_ExportSelectedViewAsSvg);
 }
 
 const symbols::Symbol2D *SymbolPreviewWindow::FindSymbol(
@@ -53,9 +65,106 @@ const symbols::Symbol2D *SymbolPreviewWindow::FindSymbol(
   return it == symbols.end() ? nullptr : &(*it);
 }
 
+wxString SymbolPreviewWindow::ViewLabel(symbols::SymbolView view) {
+  switch (view) {
+  case symbols::SymbolView::Front:
+    return "Front";
+  case symbols::SymbolView::Top:
+    return "Top";
+  case symbols::SymbolView::Bottom:
+    return "Bottom";
+  case symbols::SymbolView::Left:
+    return "Left";
+  }
+  return "View";
+}
+
+std::vector<SymbolPreviewWindow::PreviewCell>
+SymbolPreviewWindow::BuildPreviewCells(const wxSize &size) const {
+  const int pad = 14;
+  const int cellW = std::max(1, (size.GetWidth() - pad * 3) / 2);
+  const int cellH = std::max(1, (size.GetHeight() - pad * 3) / 2);
+
+  return {
+      {wxRect(pad, pad, cellW, cellH), symbols::SymbolView::Front, "Front"},
+      {wxRect(pad * 2 + cellW, pad, cellW, cellH), symbols::SymbolView::Top, "Top"},
+      {wxRect(pad, pad * 2 + cellH, cellW, cellH), symbols::SymbolView::Left, "Left"},
+      {wxRect(pad * 2 + cellW, pad * 2 + cellH, cellW, cellH),
+       symbols::SymbolView::Bottom, "Bottom"},
+  };
+}
+
+std::optional<SymbolPreviewWindow::PreviewCell>
+SymbolPreviewWindow::FindCellAt(const wxPoint &point) const {
+  for (const auto &cell : BuildPreviewCells(GetClientSize())) {
+    if (cell.rect.Contains(point))
+      return cell;
+  }
+  return std::nullopt;
+}
+
 void SymbolPreviewWindow::OnSize(wxSizeEvent &event) {
   Refresh(false);
   event.Skip();
+}
+
+void SymbolPreviewWindow::ShowExportMenuAt(const wxPoint &point) {
+  const auto cell = FindCellAt(point);
+  if (!cell.has_value())
+    return;
+
+  const symbols::Symbol2D *symbol = FindSymbol(symbols_, cell->view);
+  if (!symbol || !symbol->bounds.valid) {
+    wxMessageBox("This view has no drawable symbol to export.",
+                 "Fixture Symbol Preview", wxOK | wxICON_INFORMATION, this);
+    return;
+  }
+
+  selectedViewForExport_ = cell->view;
+  wxMenu menu;
+  menu.Append(ID_ExportSelectedViewAsSvg, "Export this view as SVG...");
+  PopupMenu(&menu, point);
+}
+
+void SymbolPreviewWindow::OnContextMenu(wxContextMenuEvent &event) {
+  wxPoint screenPoint = event.GetPosition();
+  wxPoint clientPoint = screenPoint;
+  if (screenPoint == wxDefaultPosition)
+    clientPoint = ScreenToClient(wxGetMousePosition());
+  else
+    clientPoint = ScreenToClient(screenPoint);
+
+  ShowExportMenuAt(clientPoint);
+}
+
+void SymbolPreviewWindow::OnExportSelectedView(wxCommandEvent &WXUNUSED(event)) {
+  if (!selectedViewForExport_.has_value())
+    return;
+
+  const symbols::SymbolView view = selectedViewForExport_.value();
+  const symbols::Symbol2D *symbol = FindSymbol(symbols_, view);
+  if (!symbol || !symbol->bounds.valid)
+    return;
+
+  const wxString viewLabel = ViewLabel(view);
+  const wxString suggestedName =
+      "fixture_symbol_" + viewLabel.Lower() + ".svg";
+  wxFileDialog saveDialog(this, "Export Symbol View as SVG", wxEmptyString,
+                          suggestedName, "SVG files (*.svg)|*.svg",
+                          wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
+  if (saveDialog.ShowModal() != wxID_OK)
+    return;
+
+  std::string errorMessage;
+  if (!symbol_preview::ExportSymbolToSvg(*symbol,
+                                         saveDialog.GetPath().ToStdString(),
+                                         errorMessage)) {
+    wxMessageBox(errorMessage, "Export Symbol View", wxOK | wxICON_ERROR, this);
+    return;
+  }
+
+  wxMessageBox("Symbol view exported successfully.", "Export Symbol View",
+               wxOK | wxICON_INFORMATION, this);
 }
 
 void SymbolPreviewWindow::OnPaint(wxPaintEvent &WXUNUSED(event)) {
@@ -63,19 +172,9 @@ void SymbolPreviewWindow::OnPaint(wxPaintEvent &WXUNUSED(event)) {
   dc.SetBackground(wxBrush(wxColour(248, 248, 248)));
   dc.Clear();
 
-  wxSize size = GetClientSize();
-  const int pad = 14;
-  const int cellW = std::max(1, (size.GetWidth() - pad * 3) / 2);
-  const int cellH = std::max(1, (size.GetHeight() - pad * 3) / 2);
-
-  DrawCell(dc, wxRect(pad, pad, cellW, cellH),
-           FindSymbol(symbols_, symbols::SymbolView::Front), "Front");
-  DrawCell(dc, wxRect(pad * 2 + cellW, pad, cellW, cellH),
-           FindSymbol(symbols_, symbols::SymbolView::Top), "Top");
-  DrawCell(dc, wxRect(pad, pad * 2 + cellH, cellW, cellH),
-           FindSymbol(symbols_, symbols::SymbolView::Left), "Left");
-  DrawCell(dc, wxRect(pad * 2 + cellW, pad * 2 + cellH, cellW, cellH),
-           FindSymbol(symbols_, symbols::SymbolView::Bottom), "Bottom");
+  for (const auto &cell : BuildPreviewCells(GetClientSize())) {
+    DrawCell(dc, cell.rect, FindSymbol(symbols_, cell.view), cell.label);
+  }
 }
 
 void SymbolPreviewWindow::DrawCell(wxDC &dc, const wxRect &cell,

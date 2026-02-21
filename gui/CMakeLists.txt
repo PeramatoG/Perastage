@@ -7,6 +7,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/tools/fixture_symbol_generation_tool.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tools/scene_model_symbol_capture_service.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/windows/SymbolPreviewWindow.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/windows/symbol_preview_exporter.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/dialogs/GenerateFixtureSymbolsDialog.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/exportfixturedialog.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/exportobjectdialog.cpp
