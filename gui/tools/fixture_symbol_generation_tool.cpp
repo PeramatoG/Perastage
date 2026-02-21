@@ -4,6 +4,7 @@
 #include <array>
 #include <set>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include <wx/msgdlg.h>
@@ -19,6 +20,28 @@
 
 namespace tools {
 namespace {
+
+class ScopedFloatConfigOverride {
+public:
+  ScopedFloatConfigOverride(ConfigManager &cfg,
+                            std::initializer_list<std::pair<const char *, float>> values)
+      : cfg_(cfg) {
+    for (const auto &entry : values) {
+      const std::string key(entry.first);
+      previous_[key] = cfg_.GetFloat(key);
+      cfg_.SetFloat(key, entry.second);
+    }
+  }
+
+  ~ScopedFloatConfigOverride() {
+    for (const auto &[key, value] : previous_)
+      cfg_.SetFloat(key, value);
+  }
+
+private:
+  ConfigManager &cfg_;
+  std::unordered_map<std::string, float> previous_;
+};
 
 std::vector<FixtureSymbolTypeOption> BuildFixtureOptions() {
   std::vector<FixtureSymbolTypeOption> options;
@@ -109,20 +132,37 @@ void RunFixtureSymbolGeneration(MainWindow &window) {
     return;
   }
 
-  Viewer2DPanel *capturePanel = window.GetLayoutCapturePanel();
-  if (!capturePanel) {
-    wxMessageBox("2D viewer is not available for symbol generation.",
-                 "Generate Fixture Symbols", wxOK | wxICON_WARNING, &window);
-    return;
-  }
-
   Viewer2DOffscreenRenderer *offscreenRenderer = window.GetOffscreenRenderer();
   if (!offscreenRenderer) {
     wxMessageBox("Could not prepare offscreen renderer.",
                  "Generate Fixture Symbols", wxOK | wxICON_ERROR, &window);
     return;
   }
+  Viewer2DPanel *capturePanel = offscreenRenderer->GetPanel();
+  if (!capturePanel) {
+    wxMessageBox("Could not create 2D capture panel instance.",
+                 "Generate Fixture Symbols", wxOK | wxICON_ERROR, &window);
+    return;
+  }
 
+  ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
+  ScopedFloatConfigOverride displayOverride(
+      cfg,
+      {
+          {"grid_show", 0.0f},
+          {"view2d_dark_mode", 0.0f},
+          {"label_show_name_top", 0.0f},
+          {"label_show_name_front", 0.0f},
+          {"label_show_name_side", 0.0f},
+          {"label_show_id_top", 0.0f},
+          {"label_show_id_front", 0.0f},
+          {"label_show_id_side", 0.0f},
+          {"label_show_dmx_top", 0.0f},
+          {"label_show_dmx_front", 0.0f},
+          {"label_show_dmx_side", 0.0f},
+      });
+
+  capturePanel->SetRenderMode(Viewer2DRenderMode::White);
   CaptureRequiredViews(capturePanel);
   const Viewer2DView previousView = capturePanel->GetView();
 
@@ -136,6 +176,7 @@ void RunFixtureSymbolGeneration(MainWindow &window) {
   bool allOk = true;
   for (size_t i = 0; i < views.size(); ++i) {
     capturePanel->SetView(views[i]);
+    capturePanel->UpdateScene(true);
     offscreenRenderer->PrepareForCapture();
 
     std::vector<unsigned char> pixels;
