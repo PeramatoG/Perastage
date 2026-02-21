@@ -1,6 +1,7 @@
 #include "tools/fixture_symbol_generation_tool.h"
 
 #include <map>
+#include <array>
 #include <set>
 #include <string>
 #include <vector>
@@ -124,30 +125,43 @@ void RunFixtureSymbolGeneration(MainWindow &window) {
 
   CaptureRequiredViews(capturePanel);
   const Viewer2DView previousView = capturePanel->GetView();
-  capturePanel->SetView(Viewer2DView::Top);
 
   offscreenRenderer->SetViewportSize(wxSize(1200, 1200));
-  offscreenRenderer->PrepareForCapture();
 
-  std::vector<unsigned char> pixels;
-  int width = 0;
-  int height = 0;
-  const bool ok = capturePanel->RenderToRGBA(pixels, width, height);
+  std::array<wxImage, 4> images;
+  const std::array<Viewer2DView, 4> views = {Viewer2DView::Front,
+                                             Viewer2DView::Top,
+                                             Viewer2DView::Side,
+                                             Viewer2DView::Bottom};
+  bool allOk = true;
+  for (size_t i = 0; i < views.size(); ++i) {
+    capturePanel->SetView(views[i]);
+    offscreenRenderer->PrepareForCapture();
+
+    std::vector<unsigned char> pixels;
+    int width = 0;
+    int height = 0;
+    const bool ok = capturePanel->RenderToRGBA(pixels, width, height);
+    if (!ok || width <= 0 || height <= 0) {
+      allOk = false;
+      break;
+    }
+
+    images[i] = BuildWxImageFromRgba(pixels, width, height);
+    if (!images[i].IsOk()) {
+      allOk = false;
+      break;
+    }
+  }
   capturePanel->SetView(previousView);
-  if (!ok || width <= 0 || height <= 0) {
-    wxMessageBox("Could not capture source image from 2D viewer.",
+
+  if (!allOk) {
+    wxMessageBox("Could not capture all orthographic source images from the 2D viewer.",
                  "Generate Fixture Symbols", wxOK | wxICON_ERROR, &window);
     return;
   }
 
-  wxImage image = BuildWxImageFromRgba(pixels, width, height);
-  if (!image.IsOk()) {
-    wxMessageBox("Captured image is not valid.", "Generate Fixture Symbols",
-                 wxOK | wxICON_ERROR, &window);
-    return;
-  }
-
-  SymbolPreviewWindow *preview = new SymbolPreviewWindow(&window, image);
+  SymbolPreviewWindow *preview = new SymbolPreviewWindow(&window, images);
   preview->Show();
 }
 
