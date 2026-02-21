@@ -1,9 +1,12 @@
 #include "legendsymbolcapture.h"
 
 #include <algorithm>
-#include <unordered_map>
+#include <cstddef>
+#include <functional>
+#include <mutex>
 #include <unordered_set>
 #include <utility>
+#include <vector>
 
 #include "configmanager.h"
 #include "legendutils.h"
@@ -28,6 +31,34 @@ private:
   ConfigManager &cfg_;
   std::unordered_set<std::string> previous_;
 };
+
+struct LegendCaptureTarget {
+  std::string modelKey;
+  std::string fixtureUuid;
+
+  bool operator==(const LegendCaptureTarget &other) const {
+    return modelKey == other.modelKey && fixtureUuid == other.fixtureUuid;
+  }
+};
+
+struct LegendSymbolSnapshotCache {
+  size_t fingerprint = 0;
+  std::shared_ptr<const SymbolDefinitionSnapshot> snapshot;
+};
+
+size_t HashCombine(size_t seed, size_t value) {
+  seed ^= value + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+  return seed;
+}
+
+size_t HashTargets(const std::vector<LegendCaptureTarget> &targets) {
+  size_t seed = 0;
+  for (const auto &target : targets) {
+    seed = HashCombine(seed, std::hash<std::string>{}(target.modelKey));
+    seed = HashCombine(seed, std::hash<std::string>{}(target.fixtureUuid));
+  }
+  return seed;
+}
 
 SymbolViewKind ToSymbolViewKind(symbols::SymbolView view) {
   switch (view) {
@@ -104,22 +135,28 @@ SymbolDefinition BuildDefinitionFromToolSymbol(const std::string &modelKey,
   return definition;
 }
 
-std::vector<std::pair<std::string, std::string>>
-CollectLegendFixtureTargets(const ConfigManager &cfg) {
-  std::vector<std::pair<std::string, std::string>> targets;
+std::vector<LegendCaptureTarget> CollectLegendFixtureTargets(
+    const ConfigManager &cfg) {
+  std::vector<LegendCaptureTarget> targets;
   const auto &scene = cfg.GetScene();
   for (const auto &[uuid, fixture] : scene.fixtures) {
     const std::string modelKey = BuildFixtureSymbolKey(fixture, scene.basePath);
     if (modelKey.empty())
       continue;
-    targets.emplace_back(modelKey, uuid);
+    targets.push_back(LegendCaptureTarget{modelKey, uuid});
   }
 
   std::sort(targets.begin(), targets.end(),
-            [](const auto &lhs, const auto &rhs) { return lhs.first < rhs.first; });
+            [](const LegendCaptureTarget &lhs, const LegendCaptureTarget &rhs) {
+              if (lhs.modelKey == rhs.modelKey)
+                return lhs.fixtureUuid < rhs.fixtureUuid;
+              return lhs.modelKey < rhs.modelKey;
+            });
+
   targets.erase(std::unique(targets.begin(), targets.end(),
-                            [](const auto &lhs, const auto &rhs) {
-                              return lhs.first == rhs.first;
+                            [](const LegendCaptureTarget &lhs,
+                               const LegendCaptureTarget &rhs) {
+                              return lhs.modelKey == rhs.modelKey;
                             }),
                 targets.end());
   return targets;
@@ -127,31 +164,29 @@ CollectLegendFixtureTargets(const ConfigManager &cfg) {
 
 std::shared_ptr<const SymbolDefinitionSnapshot>
 CaptureLegendSymbolSnapshotWithTool(Viewer2DOffscreenRenderer *offscreenRenderer,
-                                    ConfigManager &cfg) {
-  if (!offscreenRenderer)
-    return {};
-
-  const auto targets = CollectLegendFixtureTargets(cfg);
-  if (targets.empty())
+                                    ConfigManager &cfg,
+                                    const std::vector<LegendCaptureTarget>
+                                        &targets) {
+  if (!offscreenRenderer || targets.empty())
     return {};
 
   auto snapshot = std::make_shared<SymbolDefinitionSnapshot>();
   uint32_t nextSymbolId = 1;
 
-  for (const auto &[modelKey, fixtureUuid] : targets) {
+  for (const auto &target : targets) {
     tools::SceneModelSymbolCaptureOptions options;
     options.alignToLocalAxes = false;
     const auto capture = tools::CaptureSceneModelOrthographicSymbols(
         *offscreenRenderer, cfg,
         tools::SceneModelSymbolTarget{tools::SceneModelKind::Fixture,
-                                      fixtureUuid},
+                                      target.fixtureUuid},
         options);
     if (!capture.ok)
       continue;
 
     for (const auto &toolSymbol : capture.symbols) {
-      SymbolDefinition definition =
-          BuildDefinitionFromToolSymbol(modelKey, toolSymbol, nextSymbolId++);
+      SymbolDefinition definition = BuildDefinitionFromToolSymbol(
+          target.modelKey, toolSymbol, nextSymbolId++);
       snapshot->emplace(definition.symbolId, std::move(definition));
     }
   }
@@ -169,6 +204,33 @@ CaptureLegendSymbolSnapshot(Viewer2DOffscreenRenderer *offscreenRenderer,
                             ConfigManager &cfg,
                             bool requireTopAndFrontViews) {
   (void)requireTopAndFrontViews;
+
+  static std::mutex cacheMutex;
+  static LegendSymbolSnapshotCache cache;
+
+  const auto targets = CollectLegendFixtureTargets(cfg);
+  if (targets.empty())
+    return {};
+
+  const size_t fingerprint = HashTargets(targets);
+  {
+    std::lock_guard<std::mutex> lock(cacheMutex);
+    if (cache.snapshot && cache.fingerprint == fingerprint)
+      return cache.snapshot;
+  }
+
   ScopedHiddenLayersClear hiddenLayersGuard(cfg);
-  return CaptureLegendSymbolSnapshotWithTool(offscreenRenderer, cfg);
+  std::shared_ptr<const SymbolDefinitionSnapshot> snapshot =
+      CaptureLegendSymbolSnapshotWithTool(offscreenRenderer, cfg, targets);
+
+  if (!snapshot)
+    return {};
+
+  {
+    std::lock_guard<std::mutex> lock(cacheMutex);
+    cache.fingerprint = fingerprint;
+    cache.snapshot = snapshot;
+  }
+
+  return snapshot;
 }
