@@ -347,7 +347,7 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
           auto textsToExport = std::move(*exportTexts);
           if (capturePanel) {
             auto legendSymbols =
-                CaptureLegendSymbolSnapshot(capturePanel, *cfgPtr, true);
+                CaptureLegendSymbolSnapshot(offscreenRenderer, *cfgPtr, true);
             for (auto &legend : legendsToExport) {
               legend.symbolSnapshot = legendSymbols;
             }

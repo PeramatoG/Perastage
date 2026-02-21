@@ -1532,7 +1532,7 @@ void LayoutViewerPanel::RebuildCachedTexture() {
     ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
     std::shared_ptr<const SymbolDefinitionSnapshot> legendSymbols;
     if (!currentLayout.legendViews.empty()) {
-      legendSymbols = CaptureLegendSymbolSnapshot(capturePanel, cfg, true);
+      legendSymbols = CaptureLegendSymbolSnapshot(offscreenRenderer, cfg, true);
     }
     std::vector<unsigned char> legendPixels;
     std::vector<unsigned char> eventTablePixels;
