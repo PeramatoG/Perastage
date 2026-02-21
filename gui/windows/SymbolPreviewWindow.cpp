@@ -124,6 +124,21 @@ void SymbolPreviewWindow::DrawCell(wxDC &dc, const wxRect &cell,
           ToScreenPoint(p, symbol->bounds, scale, originX, originY));
 
     dc.DrawPolygon(static_cast<int>(pts.size()), pts.data());
+
+    if (!polygon.holes.empty()) {
+      dc.SetBrush(*wxWHITE_BRUSH);
+      for (const auto &hole : polygon.holes) {
+        if (hole.size() < 3)
+          continue;
+        std::vector<wxPoint> holePts;
+        holePts.reserve(hole.size());
+        for (const auto &p : hole)
+          holePts.push_back(
+              ToScreenPoint(p, symbol->bounds, scale, originX, originY));
+        dc.DrawPolygon(static_cast<int>(holePts.size()), holePts.data());
+      }
+      dc.SetBrush(wxBrush(wxColour(224, 224, 224)));
+    }
   }
 
   const int strokePx =

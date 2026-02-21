@@ -85,6 +85,20 @@ bool PointInPolygon(const Point2D &point, const Polyline2D &polygon) {
   return inside;
 }
 
+Point2D PolygonProbePoint(const Polyline2D &polygon) {
+  Point2D probe{};
+  if (polygon.empty())
+    return probe;
+  for (const auto &p : polygon) {
+    probe.x += p.x;
+    probe.y += p.y;
+  }
+  const float inv = 1.0f / static_cast<float>(polygon.size());
+  probe.x *= inv;
+  probe.y *= inv;
+  return probe;
+}
+
 int PixelIndex(const PixelMask &mask, int x, int y) {
   return y * mask.width + x;
 }
@@ -279,7 +293,7 @@ std::vector<PolygonWithHoles2D> ExtractFillPolygons(const PixelMask &fillMask) {
     infos.push_back(LoopInfo{std::move(loop), std::abs(SignedArea(loop))});
 
   for (size_t i = 0; i < infos.size(); ++i) {
-    const Point2D probe = infos[i].polygon.front();
+    const Point2D probe = PolygonProbePoint(infos[i].polygon);
     int depth = 0;
     int owner = -1;
     float ownerArea = std::numeric_limits<float>::max();
