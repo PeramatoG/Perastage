@@ -217,8 +217,12 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
                  this);
     return;
   }
-  if (layout->view2dViews.empty()) {
-    wxMessageBox("The selected layout has no 2D views to print.",
+  const bool layoutIsEmpty =
+      layout->view2dViews.empty() && layout->legendViews.empty() &&
+      layout->eventTables.empty() && layout->textViews.empty() &&
+      layout->imageViews.empty();
+  if (layoutIsEmpty) {
+    wxMessageBox("The selected layout is empty.",
                  "Print Layout", wxOK | wxICON_INFORMATION, this);
     return;
   }
