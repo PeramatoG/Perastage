@@ -6,7 +6,7 @@
 
 #include <wx/msgdlg.h>
 
-#include "configservices.h"
+#include "guiconfigservices.h"
 #include "dialogs/GenerateFixtureSymbolsDialog.h"
 #include "mainwindow.h"
 #include "opaque_pass_utils.h"
