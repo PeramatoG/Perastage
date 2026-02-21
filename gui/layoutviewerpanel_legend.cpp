@@ -19,11 +19,8 @@
 
 #include <algorithm>
 #include <cmath>
-#include <exception>
-#include <filesystem>
 #include <functional>
 #include <limits>
-#include <map>
 #include <unordered_map>
 #include <vector>
 
@@ -36,15 +33,11 @@
 #  include <GL/glu.h>
 #endif
 
-#include "configmanager.h"
-#include "guiconfigservices.h"
-#include "gdtfloader.h"
 #include "layoutviewerpanel_shared.h"
-#include "legendutils.h"
+#include "layoutlegenditems.h"
 #include "LayoutManager.h"
 #include "viewer2dcommandrenderer.h"
 #include <wx/dcgraph.h>
-#include <wx/filename.h>
 #include <wx/graphics.h>
 
 namespace {
@@ -724,80 +717,18 @@ void LayoutViewerPanel::RefreshLegendData() {
 
 std::vector<LayoutViewerPanel::LegendItem>
 LayoutViewerPanel::BuildLegendItems() const {
-  struct LegendAggregate {
-    int count = 0;
-    std::optional<int> channelCount;
-    bool mixedChannels = false;
-    std::string symbolKey;
-    bool mixedSymbols = false;
-  };
-
-  std::map<std::string, LegendAggregate> aggregates;
-  const auto &fixtures = GetDefaultGuiConfigServices().LegacyConfigManager().GetScene().fixtures;
-  const std::string &basePath = GetDefaultGuiConfigServices().LegacyConfigManager().GetScene().basePath;
-  for (const auto &[uuid, fixture] : fixtures) {
-    (void)uuid;
-    std::string typeName = fixture.typeName;
-    std::string fullPath;
-    if (!fixture.gdtfSpec.empty()) {
-      try {
-        std::filesystem::path p =
-            basePath.empty()
-                ? std::filesystem::u8path(fixture.gdtfSpec)
-                : std::filesystem::u8path(basePath) /
-                      std::filesystem::u8path(fixture.gdtfSpec);
-        fullPath = p.string();
-      } catch (const std::exception &) {
-        fullPath.clear();
-      }
-    }
-    if (typeName.empty() && !fullPath.empty()) {
-      wxFileName fn(fullPath);
-      typeName = fn.GetFullName().ToStdString();
-    }
-    if (typeName.empty())
-      typeName = "Unknown";
-
-    int chCount = GetGdtfModeChannelCount(fullPath, fixture.gdtfMode);
-    const std::string symbolKey = BuildFixtureSymbolKey(fixture, basePath);
-    LegendAggregate &agg = aggregates[typeName];
-    agg.count += 1;
-    if (chCount >= 0) {
-      if (!agg.channelCount.has_value()) {
-        agg.channelCount = chCount;
-      } else if (agg.channelCount.value() != chCount) {
-        agg.mixedChannels = true;
-      }
-    }
-    if (!symbolKey.empty()) {
-      if (agg.symbolKey.empty()) {
-        agg.symbolKey = symbolKey;
-      } else if (agg.symbolKey != symbolKey) {
-        agg.mixedSymbols = true;
-      }
-    }
-  }
-
+  std::vector<SharedLayoutLegendItem> sharedItems =
+      BuildSharedLayoutLegendItems();
   std::vector<LegendItem> items;
-  items.reserve(aggregates.size());
-  for (const auto &[typeName, agg] : aggregates) {
+  items.reserve(sharedItems.size());
+  for (const auto &shared : sharedItems) {
     LegendItem item;
-    item.typeName = typeName;
-    item.count = agg.count;
-    if (agg.channelCount.has_value() && !agg.mixedChannels)
-      item.channelCount = agg.channelCount;
-    if (!agg.mixedSymbols)
-      item.symbolKey = agg.symbolKey;
-    items.push_back(item);
+    item.typeName = shared.typeName;
+    item.count = shared.count;
+    item.channelCount = shared.channelCount;
+    item.symbolKey = shared.symbolKey;
+    items.push_back(std::move(item));
   }
-
-  if (items.empty()) {
-    LegendItem item;
-    item.typeName = "No fixtures";
-    item.count = 0;
-    items.push_back(item);
-  }
-
   return items;
 }
 
