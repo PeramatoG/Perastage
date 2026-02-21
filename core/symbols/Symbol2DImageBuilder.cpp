@@ -8,6 +8,7 @@
 #include <optional>
 #include <queue>
 #include <set>
+#include <limits>
 #include <unordered_map>
 
 namespace symbols {
@@ -54,6 +55,35 @@ struct GridPointHash {
            static_cast<size_t>(static_cast<uint32_t>(p.y));
   }
 };
+
+float SignedArea(const Polyline2D &polyline) {
+  if (polyline.size() < 3)
+    return 0.0f;
+  double area = 0.0;
+  for (size_t i = 0; i < polyline.size(); ++i) {
+    const Point2D &a = polyline[i];
+    const Point2D &b = polyline[(i + 1) % polyline.size()];
+    area += static_cast<double>(a.x) * static_cast<double>(b.y) -
+            static_cast<double>(b.x) * static_cast<double>(a.y);
+  }
+  return static_cast<float>(0.5 * area);
+}
+
+bool PointInPolygon(const Point2D &point, const Polyline2D &polygon) {
+  if (polygon.size() < 3)
+    return false;
+  bool inside = false;
+  for (size_t i = 0, j = polygon.size() - 1; i < polygon.size(); j = i++) {
+    const Point2D &pi = polygon[i];
+    const Point2D &pj = polygon[j];
+    const bool intersect =
+        ((pi.y > point.y) != (pj.y > point.y)) &&
+        (point.x < (pj.x - pi.x) * (point.y - pi.y) / (pj.y - pi.y + 1e-6f) + pi.x);
+    if (intersect)
+      inside = !inside;
+  }
+  return inside;
+}
 
 int PixelIndex(const PixelMask &mask, int x, int y) {
   return y * mask.width + x;
@@ -163,127 +193,133 @@ PixelMask BuildLineMask(const RenderedSymbolImage &render,
   return mask;
 }
 
-Polyline2D TraceOuterPolygon(const PixelMask &fillMask) {
+std::vector<PolygonWithHoles2D> ExtractFillPolygons(const PixelMask &fillMask) {
   const int w = fillMask.width;
   const int h = fillMask.height;
-  Polyline2D outer;
+  std::vector<PolygonWithHoles2D> result;
   if (w <= 0 || h <= 0)
-    return outer;
-
-  std::vector<unsigned char> visited(static_cast<size_t>(w) * static_cast<size_t>(h), 0);
-  std::vector<std::pair<int, int>> largestComponent;
-
-  for (int y = 0; y < h; ++y) {
-    for (int x = 0; x < w; ++x) {
-      const size_t idx = static_cast<size_t>(y) * static_cast<size_t>(w) +
-                         static_cast<size_t>(x);
-      if (!fillMask.Get(x, y) || visited[idx])
-        continue;
-
-      std::vector<std::pair<int, int>> component;
-      std::vector<std::pair<int, int>> queue;
-      queue.emplace_back(x, y);
-      visited[idx] = 1;
-
-      for (size_t qi = 0; qi < queue.size(); ++qi) {
-        const auto [cx, cy] = queue[qi];
-        component.emplace_back(cx, cy);
-        static constexpr std::array<std::pair<int, int>, 4> kNeighbors = {
-            {{1, 0}, {-1, 0}, {0, 1}, {0, -1}}};
-        for (const auto &[ox, oy] : kNeighbors) {
-          const int nx = cx + ox;
-          const int ny = cy + oy;
-          if (!fillMask.InBounds(nx, ny) || !fillMask.Get(nx, ny))
-            continue;
-          const size_t nidx = static_cast<size_t>(ny) * static_cast<size_t>(w) +
-                              static_cast<size_t>(nx);
-          if (visited[nidx])
-            continue;
-          visited[nidx] = 1;
-          queue.emplace_back(nx, ny);
-        }
-      }
-
-      if (component.size() > largestComponent.size())
-        largestComponent = std::move(component);
-    }
-  }
-
-  if (largestComponent.empty())
-    return outer;
-
-  std::vector<unsigned char> componentMask(static_cast<size_t>(w) * static_cast<size_t>(h), 0);
-  for (const auto &[x, y] : largestComponent) {
-    const size_t idx = static_cast<size_t>(y) * static_cast<size_t>(w) +
-                       static_cast<size_t>(x);
-    componentMask[idx] = 1;
-  }
+    return result;
 
   std::unordered_multimap<GridPoint, GridPoint, GridPointHash> edges;
-  auto hasComponentAt = [&](int x, int y) {
+  auto isFilledAt = [&](int x, int y) {
     if (x < 0 || y < 0 || x >= w || y >= h)
       return false;
-    const size_t idx = static_cast<size_t>(y) * static_cast<size_t>(w) +
-                       static_cast<size_t>(x);
-    return componentMask[idx] != 0;
+    return fillMask.Get(x, y) != 0;
   };
   auto addEdge = [&edges](GridPoint a, GridPoint b) { edges.emplace(a, b); };
 
-  for (const auto &[x, y] : largestComponent) {
-    if (!hasComponentAt(x, y - 1))
-      addEdge(GridPoint{x, y}, GridPoint{x + 1, y});
-    if (!hasComponentAt(x + 1, y))
-      addEdge(GridPoint{x + 1, y}, GridPoint{x + 1, y + 1});
-    if (!hasComponentAt(x, y + 1))
-      addEdge(GridPoint{x + 1, y + 1}, GridPoint{x, y + 1});
-    if (!hasComponentAt(x - 1, y))
-      addEdge(GridPoint{x, y + 1}, GridPoint{x, y});
+  for (int y = 0; y < h; ++y) {
+    for (int x = 0; x < w; ++x) {
+      if (!fillMask.Get(x, y))
+        continue;
+      if (!isFilledAt(x, y - 1))
+        addEdge(GridPoint{x, y}, GridPoint{x + 1, y});
+      if (!isFilledAt(x + 1, y))
+        addEdge(GridPoint{x + 1, y}, GridPoint{x + 1, y + 1});
+      if (!isFilledAt(x, y + 1))
+        addEdge(GridPoint{x + 1, y + 1}, GridPoint{x, y + 1});
+      if (!isFilledAt(x - 1, y))
+        addEdge(GridPoint{x, y + 1}, GridPoint{x, y});
+    }
   }
 
   if (edges.empty())
-    return outer;
+    return result;
 
-  auto currentIt = std::min_element(
-      edges.begin(), edges.end(), [](const auto &a, const auto &b) {
-        if (a.first.y != b.first.y)
-          return a.first.y < b.first.y;
-        if (a.first.x != b.first.x)
-          return a.first.x < b.first.x;
-        if (a.second.y != b.second.y)
-          return a.second.y < b.second.y;
-        return a.second.x < b.second.x;
-      });
-  GridPoint start = currentIt->first;
-  GridPoint current = start;
-  GridPoint next = currentIt->second;
-  edges.erase(currentIt);
-
-  outer.push_back(ToVertexPoint(start.x, start.y, h));
-  outer.push_back(ToVertexPoint(next.x, next.y, h));
-  current = next;
-
+  std::vector<Polyline2D> loops;
   const size_t maxSteps = static_cast<size_t>(w) * static_cast<size_t>(h) * 8;
-  for (size_t step = 0; step < maxSteps; ++step) {
-    auto range = edges.equal_range(current);
-    if (range.first == range.second)
-      break;
+  while (!edges.empty()) {
+    auto currentIt = edges.begin();
+    GridPoint start = currentIt->first;
+    GridPoint current = start;
+    GridPoint next = currentIt->second;
+    edges.erase(currentIt);
 
-    auto take = range.first;
-    GridPoint candidate = take->second;
-    edges.erase(take);
+    Polyline2D loop;
+    loop.push_back(ToVertexPoint(start.x, start.y, h));
+    loop.push_back(ToVertexPoint(next.x, next.y, h));
+    current = next;
 
-    outer.push_back(ToVertexPoint(candidate.x, candidate.y, h));
-    current = candidate;
-    if (current == start)
-      break;
+    for (size_t step = 0; step < maxSteps; ++step) {
+      auto range = edges.equal_range(current);
+      if (range.first == range.second)
+        break;
+
+      auto take = range.first;
+      GridPoint candidate = take->second;
+      edges.erase(take);
+
+      loop.push_back(ToVertexPoint(candidate.x, candidate.y, h));
+      current = candidate;
+      if (current == start)
+        break;
+    }
+
+    if (loop.size() >= 2 && loop.front().x == loop.back().x &&
+        loop.front().y == loop.back().y) {
+      loop.pop_back();
+    }
+    if (loop.size() >= 3)
+      loops.push_back(std::move(loop));
   }
 
-  if (outer.size() >= 2 && outer.front().x == outer.back().x &&
-      outer.front().y == outer.back().y) {
-    outer.pop_back();
+  if (loops.empty())
+    return result;
+
+  struct LoopInfo {
+    Polyline2D polygon;
+    float areaAbs = 0.0f;
+    int depth = 0;
+    bool isOuter = true;
+    int ownerOuter = -1;
+  };
+  std::vector<LoopInfo> infos;
+  infos.reserve(loops.size());
+  for (auto &loop : loops)
+    infos.push_back(LoopInfo{std::move(loop), std::abs(SignedArea(loop))});
+
+  for (size_t i = 0; i < infos.size(); ++i) {
+    const Point2D probe = infos[i].polygon.front();
+    int depth = 0;
+    int owner = -1;
+    float ownerArea = std::numeric_limits<float>::max();
+    for (size_t j = 0; j < infos.size(); ++j) {
+      if (i == j)
+        continue;
+      if (!PointInPolygon(probe, infos[j].polygon))
+        continue;
+      ++depth;
+      if (infos[j].areaAbs < ownerArea) {
+        ownerArea = infos[j].areaAbs;
+        owner = static_cast<int>(j);
+      }
+    }
+    infos[i].depth = depth;
+    infos[i].isOuter = (depth % 2 == 0);
+    infos[i].ownerOuter = owner;
   }
 
-  return outer;
+  std::unordered_map<int, int> outerMap;
+  for (size_t i = 0; i < infos.size(); ++i) {
+    if (!infos[i].isOuter)
+      continue;
+    outerMap[static_cast<int>(i)] = static_cast<int>(result.size());
+    result.push_back(PolygonWithHoles2D{infos[i].polygon, {}});
+  }
+
+  for (size_t i = 0; i < infos.size(); ++i) {
+    if (infos[i].isOuter)
+      continue;
+
+    int owner = infos[i].ownerOuter;
+    while (owner >= 0 && !infos[static_cast<size_t>(owner)].isOuter)
+      owner = infos[static_cast<size_t>(owner)].ownerOuter;
+    auto ownerIt = outerMap.find(owner);
+    if (ownerIt != outerMap.end())
+      result[static_cast<size_t>(ownerIt->second)].holes.push_back(infos[i].polygon);
+  }
+
+  return result;
 }
 
 int CountNeighbors(const PixelMask &mask, int x, int y) {
@@ -484,9 +520,7 @@ Symbol2DImageBuilder::BuildFromRenderedImages(
     symbol.view = render.view;
     symbol.strokeWidthPx = params.previewStrokeWidthPx;
 
-    Polyline2D fillPolygon = TraceOuterPolygon(fillMask);
-    if (fillPolygon.size() >= 3)
-      symbol.fill.push_back(PolygonWithHoles2D{fillPolygon, {}});
+    symbol.fill = ExtractFillPolygons(fillMask);
 
     symbol.strokes = ExtractPolylines(lineMask, params);
 
