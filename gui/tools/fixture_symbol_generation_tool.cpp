@@ -206,7 +206,6 @@ void RunFixtureSymbolGeneration(MainWindow &window) {
           {"label_show_dmx_top", 0.0f},
           {"label_show_dmx_front", 0.0f},
           {"label_show_dmx_side", 0.0f},
-          {"view2d_top_fixtures_inverted", 0.0f},
       });
 
   capturePanel->SetRenderMode(Viewer2DRenderMode::White);
@@ -216,21 +215,25 @@ void RunFixtureSymbolGeneration(MainWindow &window) {
   offscreenRenderer->PrepareForCapture();
 
   std::array<wxImage, 4> images;
-  const std::array<Viewer2DView, 4> views = {Viewer2DView::Front,
-                                             Viewer2DView::Top,
-                                             Viewer2DView::Side,
-                                             Viewer2DView::Bottom};
+  struct CaptureRequest {
+    Viewer2DView view = Viewer2DView::Top;
+    float topFixturesInverted = 0.0f;
+    bool mirrorSideHorizontally = false;
+  };
+  const std::array<CaptureRequest, 4> requests = {
+      CaptureRequest{Viewer2DView::Front, 0.0f, false},
+      CaptureRequest{Viewer2DView::Top, 0.0f, false},
+      CaptureRequest{Viewer2DView::Side, 0.0f, true},
+      CaptureRequest{Viewer2DView::Top, 1.0f, false},
+  };
   bool allOk = true;
-  for (size_t i = 0; i < views.size(); ++i) {
-    capturePanel->SetView(views[i]);
+  for (size_t i = 0; i < requests.size(); ++i) {
+    ScopedFloatConfigOverride topViewOverride(
+        cfg, {{"view2d_top_fixtures_inverted", requests[i].topFixturesInverted}});
+
+    capturePanel->SetView(requests[i].view);
     capturePanel->UpdateScene(true);
-    const bool fitOk = capturePanel->FitViewToScene();
-    if (fitOk) {
-      Viewer2DViewState fitState = capturePanel->GetViewState();
-      capturePanel->ApplyViewState(fitState.offsetPixelsX, fitState.offsetPixelsY,
-                                   fitState.zoom * 1.2f, views[i],
-                                   Viewer2DRenderMode::White);
-    }
+    capturePanel->FitViewToScene();
 
     std::vector<unsigned char> pixels;
     int width = 0;
@@ -245,6 +248,8 @@ void RunFixtureSymbolGeneration(MainWindow &window) {
     if (image.IsOk()) {
       image = image.Mirror(false);
       image = image.Mirror(true);
+      if (requests[i].mirrorSideHorizontally)
+        image = image.Mirror(true);
       image = CropAndZoomFixture(image);
     }
     images[i] = std::move(image);
