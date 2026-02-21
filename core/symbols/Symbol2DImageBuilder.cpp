@@ -4,6 +4,7 @@
 #include <array>
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <optional>
 #include <queue>
 #include <set>
@@ -38,12 +39,32 @@ struct RgbColor {
   unsigned char b = 255;
 };
 
+struct GridPoint {
+  int x = 0;
+  int y = 0;
+
+  bool operator==(const GridPoint &other) const {
+    return x == other.x && y == other.y;
+  }
+};
+
+struct GridPointHash {
+  size_t operator()(const GridPoint &p) const {
+    return (static_cast<size_t>(static_cast<uint32_t>(p.x)) << 32) ^
+           static_cast<size_t>(static_cast<uint32_t>(p.y));
+  }
+};
+
 int PixelIndex(const PixelMask &mask, int x, int y) {
   return y * mask.width + x;
 }
 
 Point2D ToPoint(int x, int y, int imageHeight) {
   return Point2D{static_cast<float>(x), static_cast<float>(imageHeight - 1 - y)};
+}
+
+Point2D ToVertexPoint(int x, int y, int imageHeight) {
+  return Point2D{static_cast<float>(x), static_cast<float>(imageHeight - y)};
 }
 
 void ExtendBounds(Aabb2D &bounds, const Point2D &p) {
@@ -143,30 +164,125 @@ PixelMask BuildLineMask(const RenderedSymbolImage &render,
 }
 
 Polyline2D TraceOuterPolygon(const PixelMask &fillMask) {
-  int minX = fillMask.width;
-  int minY = fillMask.height;
-  int maxX = -1;
-  int maxY = -1;
+  const int w = fillMask.width;
+  const int h = fillMask.height;
+  Polyline2D outer;
+  if (w <= 0 || h <= 0)
+    return outer;
 
-  for (int y = 0; y < fillMask.height; ++y) {
-    for (int x = 0; x < fillMask.width; ++x) {
-      if (!fillMask.Get(x, y))
+  std::vector<unsigned char> visited(static_cast<size_t>(w) * static_cast<size_t>(h), 0);
+  std::vector<std::pair<int, int>> largestComponent;
+
+  for (int y = 0; y < h; ++y) {
+    for (int x = 0; x < w; ++x) {
+      const size_t idx = static_cast<size_t>(y) * static_cast<size_t>(w) +
+                         static_cast<size_t>(x);
+      if (!fillMask.Get(x, y) || visited[idx])
         continue;
-      minX = std::min(minX, x);
-      minY = std::min(minY, y);
-      maxX = std::max(maxX, x);
-      maxY = std::max(maxY, y);
+
+      std::vector<std::pair<int, int>> component;
+      std::vector<std::pair<int, int>> queue;
+      queue.emplace_back(x, y);
+      visited[idx] = 1;
+
+      for (size_t qi = 0; qi < queue.size(); ++qi) {
+        const auto [cx, cy] = queue[qi];
+        component.emplace_back(cx, cy);
+        static constexpr std::array<std::pair<int, int>, 4> kNeighbors = {
+            {{1, 0}, {-1, 0}, {0, 1}, {0, -1}}};
+        for (const auto &[ox, oy] : kNeighbors) {
+          const int nx = cx + ox;
+          const int ny = cy + oy;
+          if (!fillMask.InBounds(nx, ny) || !fillMask.Get(nx, ny))
+            continue;
+          const size_t nidx = static_cast<size_t>(ny) * static_cast<size_t>(w) +
+                              static_cast<size_t>(nx);
+          if (visited[nidx])
+            continue;
+          visited[nidx] = 1;
+          queue.emplace_back(nx, ny);
+        }
+      }
+
+      if (component.size() > largestComponent.size())
+        largestComponent = std::move(component);
     }
   }
 
-  Polyline2D outer;
-  if (maxX < minX || maxY < minY)
+  if (largestComponent.empty())
     return outer;
 
-  outer.push_back(ToPoint(minX, minY, fillMask.height));
-  outer.push_back(ToPoint(maxX + 1, minY, fillMask.height));
-  outer.push_back(ToPoint(maxX + 1, maxY + 1, fillMask.height));
-  outer.push_back(ToPoint(minX, maxY + 1, fillMask.height));
+  std::vector<unsigned char> componentMask(static_cast<size_t>(w) * static_cast<size_t>(h), 0);
+  for (const auto &[x, y] : largestComponent) {
+    const size_t idx = static_cast<size_t>(y) * static_cast<size_t>(w) +
+                       static_cast<size_t>(x);
+    componentMask[idx] = 1;
+  }
+
+  std::unordered_multimap<GridPoint, GridPoint, GridPointHash> edges;
+  auto hasComponentAt = [&](int x, int y) {
+    if (x < 0 || y < 0 || x >= w || y >= h)
+      return false;
+    const size_t idx = static_cast<size_t>(y) * static_cast<size_t>(w) +
+                       static_cast<size_t>(x);
+    return componentMask[idx] != 0;
+  };
+  auto addEdge = [&edges](GridPoint a, GridPoint b) { edges.emplace(a, b); };
+
+  for (const auto &[x, y] : largestComponent) {
+    if (!hasComponentAt(x, y - 1))
+      addEdge(GridPoint{x, y}, GridPoint{x + 1, y});
+    if (!hasComponentAt(x + 1, y))
+      addEdge(GridPoint{x + 1, y}, GridPoint{x + 1, y + 1});
+    if (!hasComponentAt(x, y + 1))
+      addEdge(GridPoint{x + 1, y + 1}, GridPoint{x, y + 1});
+    if (!hasComponentAt(x - 1, y))
+      addEdge(GridPoint{x, y + 1}, GridPoint{x, y});
+  }
+
+  if (edges.empty())
+    return outer;
+
+  auto currentIt = std::min_element(
+      edges.begin(), edges.end(), [](const auto &a, const auto &b) {
+        if (a.first.y != b.first.y)
+          return a.first.y < b.first.y;
+        if (a.first.x != b.first.x)
+          return a.first.x < b.first.x;
+        if (a.second.y != b.second.y)
+          return a.second.y < b.second.y;
+        return a.second.x < b.second.x;
+      });
+  GridPoint start = currentIt->first;
+  GridPoint current = start;
+  GridPoint next = currentIt->second;
+  edges.erase(currentIt);
+
+  outer.push_back(ToVertexPoint(start.x, start.y, h));
+  outer.push_back(ToVertexPoint(next.x, next.y, h));
+  current = next;
+
+  const size_t maxSteps = static_cast<size_t>(w) * static_cast<size_t>(h) * 8;
+  for (size_t step = 0; step < maxSteps; ++step) {
+    auto range = edges.equal_range(current);
+    if (range.first == range.second)
+      break;
+
+    auto take = range.first;
+    GridPoint candidate = take->second;
+    edges.erase(take);
+
+    outer.push_back(ToVertexPoint(candidate.x, candidate.y, h));
+    current = candidate;
+    if (current == start)
+      break;
+  }
+
+  if (outer.size() >= 2 && outer.front().x == outer.back().x &&
+      outer.front().y == outer.back().y) {
+    outer.pop_back();
+  }
+
   return outer;
 }
 
