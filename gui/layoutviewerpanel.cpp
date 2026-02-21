@@ -58,6 +58,7 @@
 
 #include "configmanager.h"
 #include "guiconfigservices.h"
+#include "generated_layout_symbols.h"
 #include "legendsymbolcapture.h"
 #include "LayoutManager.h"
 #include "logger.h"
@@ -362,6 +363,8 @@ void LayoutViewerPanel::SetLayoutDefinition(
     isLoading = false;
     legendItems_.clear();
     legendDataHash = 0;
+    generatedLegendSymbols_.reset();
+    generatedLegendHash_ = 0;
     pendingFitOnResize = true;
     ResetViewToFit();
     Refresh();
@@ -1532,7 +1535,22 @@ void LayoutViewerPanel::RebuildCachedTexture() {
     ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
     std::shared_ptr<const SymbolDefinitionSnapshot> legendSymbols;
     if (!currentLayout.legendViews.empty()) {
-      legendSymbols = CaptureLegendSymbolSnapshot(capturePanel, cfg, true);
+      if (generatedLegendHash_ != legendDataHash) {
+        std::vector<std::string> legendModelKeys;
+        legendModelKeys.reserve(legendItems_.size());
+        for (const auto &item : legendItems_) {
+          if (!item.symbolKey.empty())
+            legendModelKeys.push_back(item.symbolKey);
+        }
+        generatedLegendSymbols_ =
+            CaptureGeneratedLayoutSymbolSnapshot(*offscreenRenderer, cfg,
+                                                legendModelKeys);
+        generatedLegendHash_ = legendDataHash;
+      }
+      legendSymbols = generatedLegendSymbols_;
+      if (!legendSymbols || legendSymbols->empty()) {
+        legendSymbols = CaptureLegendSymbolSnapshot(capturePanel, cfg, true);
+      }
     }
     std::vector<unsigned char> legendPixels;
     std::vector<unsigned char> eventTablePixels;

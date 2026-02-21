@@ -704,6 +704,8 @@ void LayoutViewerPanel::RefreshLegendData() {
     return;
   legendItems_ = std::move(items);
   legendDataHash = newHash;
+  generatedLegendSymbols_.reset();
+  generatedLegendHash_ = 0;
   if (legendItems_.size() == 1 &&
       legendItems_.front().typeName == "No fixtures") {
     return;
