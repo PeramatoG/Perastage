@@ -18,7 +18,6 @@
 #include "mainwindow.h"
 
 #include <algorithm>
-#include <array>
 #include <cctype>
 #include <cmath>
 #include <chrono>
@@ -120,6 +119,7 @@ using json = nlohmann::json;
 #include "viewer2drenderpanel.h"
 #include "viewer2dstate.h"
 #include "viewer3dpanel.h"
+#include "viewer3dcontroller.h"
 #include "LayoutManager.h"
 #ifdef _WIN32
 #define popen _popen
@@ -133,6 +133,18 @@ MainWindow *MainWindow::Instance() { return s_instance; }
 void MainWindow::SetInstance(MainWindow *inst) { s_instance = inst; }
 
 namespace {
+void PersistFixtureTypeAutoColors(ConfigManager &configManager) {
+  auto &scene = configManager.GetScene();
+  for (auto &[uuid, fixture] : scene.fixtures) {
+    (void)uuid;
+    if (!fixture.color.empty())
+      continue;
+
+    fixture.color =
+        Viewer3DController::BuildFixtureTypeAutoColorHex(fixture.gdtfSpec);
+  }
+}
+
 void LogMissingIcon(const std::filesystem::path &path) {
   wxLogWarning("Main window icon not found at '%s'", path.string().c_str());
 }
@@ -452,6 +464,7 @@ void MainWindow::OnPaneClose(wxAuiManagerEvent &event) {
 bool MainWindow::LoadProjectFromPath(const std::string &path) {
   if (!GetDefaultGuiConfigServices().LegacyConfigManager().LoadProject(path))
     return false;
+
 
   Ensure3DViewport();
 
@@ -801,6 +814,9 @@ void MainWindow::SyncSceneData() {
     hoistPanel->UpdateSceneData();
   if (sceneObjPanel)
     sceneObjPanel->UpdateSceneData();
+
+  PersistFixtureTypeAutoColors(
+      GetDefaultGuiConfigServices().LegacyConfigManager());
 }
 
 void MainWindow::RefreshAfterSceneChange(bool refreshViewport) {

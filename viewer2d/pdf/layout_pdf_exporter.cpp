@@ -677,8 +677,8 @@ Viewer2DExportResult ExportLayoutToPdf(
     const std::filesystem::path &outputPath) {
   Viewer2DExportResult result{};
 
-  if (views.empty()) {
-    result.message = "No layout views were provided for export.";
+  if (views.empty() && legends.empty() && tables.empty() && texts.empty()) {
+    result.message = "The selected layout is empty.";
     return result;
   }
 
@@ -851,7 +851,8 @@ Viewer2DExportResult ExportLayoutToPdf(
     }
   }
 
-  if (layoutGroups.empty()) {
+  if (layoutGroups.empty() && legends.empty() && tables.empty() &&
+      texts.empty()) {
     result.message = "Nothing to export";
     return result;
   }
