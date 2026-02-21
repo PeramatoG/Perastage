@@ -272,7 +272,7 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
   const double scaleY =
       layoutPageH > 0.0 ? outputPageH / layoutPageH : 1.0;
 
-  const bool useSimplifiedFootprints = !settings.detailedFootprints;
+  const bool useSymbolInstancingForLayoutViews = true;
   const bool includeGrid = settings.includeGrid;
   std::vector<layouts::Layout2DViewDefinition> layoutViews =
       layout->view2dViews;
@@ -327,7 +327,8 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
       std::make_shared<std::function<void(size_t)>>();
   *captureNext =
       [this, captureNext, exportViews, layoutViews, offscreenRenderer,
-       capturePanel, cfgPtr, useSimplifiedFootprints, includeGrid, scaleX,
+       capturePanel, cfgPtr, useSymbolInstancingForLayoutViews,
+       includeGrid, scaleX,
        scaleY, outputPageW, outputPageH, outputLandscape, exportLegends,
        exportTables, exportTexts, outputPathWx](size_t index) mutable {
         if (index >= layoutViews.size()) {
@@ -337,7 +338,7 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
           opts.marginPt = 0.0;
           opts.landscape = outputLandscape;
           opts.printIncludeGrid = includeGrid;
-          opts.useSimplifiedFootprints = useSimplifiedFootprints;
+          opts.useSimplifiedFootprints = useSymbolInstancingForLayoutViews;
           std::filesystem::path outputPath(
               std::filesystem::path(outputPathWx.ToStdWstring()));
           wxString outputPathDisplay = outputPathWx;
@@ -431,7 +432,7 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
               exportViews->push_back(std::move(data));
               (*captureNext)(exportViews->size());
             },
-            useSimplifiedFootprints, includeGrid);
+            useSymbolInstancingForLayoutViews, includeGrid);
       };
 
   (*captureNext)(0);

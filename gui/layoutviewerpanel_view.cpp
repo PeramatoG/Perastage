@@ -214,7 +214,8 @@ void LayoutViewerPanel::DrawViewElement(
           cache.renderZoom = 0.0;
           RequestRenderRebuild();
           Refresh();
-        });
+        },
+        true);
   }
 
   wxRect frameRect;
