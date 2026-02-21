@@ -28,6 +28,7 @@
 
 #include "configmanager.h"
 #include "guiconfigservices.h"
+#include "generated_layout_symbols.h"
 #include "legendsymbolcapture.h"
 #include "consolepanel.h"
 #include "fixturetablepanel.h"
@@ -347,8 +348,18 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
           auto tablesToExport = std::move(*exportTables);
           auto textsToExport = std::move(*exportTexts);
           if (capturePanel) {
-            auto legendSymbols =
-                CaptureLegendSymbolSnapshot(capturePanel, *cfgPtr, true);
+            std::vector<std::string> legendModelKeys;
+            for (const auto &legend : legendsToExport) {
+              for (const auto &item : legend.items) {
+                if (!item.symbolKey.empty())
+                  legendModelKeys.push_back(item.symbolKey);
+              }
+            }
+            auto legendSymbols = CaptureGeneratedLayoutSymbolSnapshot(
+                *offscreenRenderer, *cfgPtr, legendModelKeys);
+            if (!legendSymbols || legendSymbols->empty()) {
+              legendSymbols = CaptureLegendSymbolSnapshot(capturePanel, *cfgPtr, true);
+            }
             for (auto &legend : legendsToExport) {
               legend.symbolSnapshot = legendSymbols;
             }
