@@ -22,7 +22,10 @@ private:
   void OnPaint(wxPaintEvent &event);
   void OnSize(wxSizeEvent &event);
   void OnLeftDown(wxMouseEvent &event);
+  void OnRightDown(wxMouseEvent &event);
+  void OnContextMenu(wxContextMenuEvent &event);
   void OnExportSelectedView(wxCommandEvent &event);
+  void ShowExportMenuAt(const wxPoint &point);
   void DrawCell(wxDC &dc, const wxRect &cell, const symbols::Symbol2D *symbol,
                 const wxString &label);
   std::vector<PreviewCell> BuildPreviewCells(const wxSize &size) const;

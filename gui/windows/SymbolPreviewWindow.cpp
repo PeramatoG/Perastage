@@ -9,6 +9,7 @@
 #include <wx/filedlg.h>
 #include <wx/menu.h>
 #include <wx/msgdlg.h>
+#include <wx/utils.h>
 
 #include "windows/symbol_preview_exporter.h"
 
@@ -51,6 +52,8 @@ SymbolPreviewWindow::SymbolPreviewWindow(wxWindow *parent,
   Bind(wxEVT_PAINT, &SymbolPreviewWindow::OnPaint, this);
   Bind(wxEVT_SIZE, &SymbolPreviewWindow::OnSize, this);
   Bind(wxEVT_LEFT_DOWN, &SymbolPreviewWindow::OnLeftDown, this);
+  Bind(wxEVT_RIGHT_DOWN, &SymbolPreviewWindow::OnRightDown, this);
+  Bind(wxEVT_CONTEXT_MENU, &SymbolPreviewWindow::OnContextMenu, this);
   Bind(wxEVT_MENU, &SymbolPreviewWindow::OnExportSelectedView, this,
        ID_ExportSelectedViewAsSvg);
 }
@@ -107,12 +110,10 @@ void SymbolPreviewWindow::OnSize(wxSizeEvent &event) {
   event.Skip();
 }
 
-void SymbolPreviewWindow::OnLeftDown(wxMouseEvent &event) {
-  const auto cell = FindCellAt(event.GetPosition());
-  if (!cell.has_value()) {
-    event.Skip();
+void SymbolPreviewWindow::ShowExportMenuAt(const wxPoint &point) {
+  const auto cell = FindCellAt(point);
+  if (!cell.has_value())
     return;
-  }
 
   const symbols::Symbol2D *symbol = FindSymbol(symbols_, cell->view);
   if (!symbol || !symbol->bounds.valid) {
@@ -124,7 +125,26 @@ void SymbolPreviewWindow::OnLeftDown(wxMouseEvent &event) {
   selectedViewForExport_ = cell->view;
   wxMenu menu;
   menu.Append(ID_ExportSelectedViewAsSvg, "Export this view as SVG...");
-  PopupMenu(&menu, event.GetPosition());
+  PopupMenu(&menu, point);
+}
+
+void SymbolPreviewWindow::OnLeftDown(wxMouseEvent &event) {
+  ShowExportMenuAt(event.GetPosition());
+}
+
+void SymbolPreviewWindow::OnRightDown(wxMouseEvent &event) {
+  ShowExportMenuAt(event.GetPosition());
+}
+
+void SymbolPreviewWindow::OnContextMenu(wxContextMenuEvent &event) {
+  wxPoint screenPoint = event.GetPosition();
+  wxPoint clientPoint = screenPoint;
+  if (screenPoint == wxDefaultPosition)
+    clientPoint = ScreenToClient(wxGetMousePosition());
+  else
+    clientPoint = ScreenToClient(screenPoint);
+
+  ShowExportMenuAt(clientPoint);
 }
 
 void SymbolPreviewWindow::OnExportSelectedView(wxCommandEvent &WXUNUSED(event)) {
