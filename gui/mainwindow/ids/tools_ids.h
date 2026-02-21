@@ -11,3 +11,4 @@ inline constexpr int ID_Tools_ExportSceneObject = ID_Tools_ExportTruss + 1;
 inline constexpr int ID_Tools_AutoPatch = ID_Tools_ExportSceneObject + 1;
 inline constexpr int ID_Tools_AutoColor = ID_Tools_AutoPatch + 1;
 inline constexpr int ID_Tools_ConvertToHoist = ID_Tools_AutoColor + 1;
+inline constexpr int ID_Tools_GenerateFixtureSymbols = ID_Tools_ConvertToHoist + 1;
