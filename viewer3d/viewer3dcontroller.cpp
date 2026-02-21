@@ -888,6 +888,7 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
   context.mode = mode;
   context.view = view;
   context.showGrid = showGrid;
+  context.showAxes = !is2DViewer;
   context.gridStyle = gridStyle;
   context.gridR = gridR;
   context.gridG = gridG;
@@ -1095,7 +1096,8 @@ void Viewer3DController::RenderOverlayFrame(const RenderFrameContext &context,
     glEnable(GL_DEPTH_TEST);
   }
 
-  DrawAxes();
+  if (context.showAxes)
+    DrawAxes();
 }
 
 void Viewer3DController::FinalizeRenderFrame() {
