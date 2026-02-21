@@ -3,6 +3,7 @@
 #include <map>
 #include <array>
 #include <algorithm>
+#include <optional>
 #include <set>
 #include <string>
 #include <unordered_map>
@@ -73,6 +74,24 @@ std::vector<FixtureSymbolTypeOption> BuildFixtureOptions() {
     options.push_back(std::move(option));
   }
   return options;
+}
+
+std::optional<std::array<float, 3>> FindFixtureCenter(
+    const FixtureSymbolTypeOption &option) {
+  const auto &scene = GetDefaultGuiConfigServices().LegacyConfigManager().GetScene();
+  for (const auto &[uuid, fixture] : scene.fixtures) {
+    (void)uuid;
+    const std::string normalizedSpec = fixture.gdtfSpec.empty()
+                                           ? std::string()
+                                           : NormalizeModelKey(fixture.gdtfSpec);
+    const bool matches = std::find(option.modelKeys.begin(), option.modelKeys.end(),
+                                   fixture.typeName) != option.modelKeys.end() ||
+                         std::find(option.modelKeys.begin(), option.modelKeys.end(),
+                                   normalizedSpec) != option.modelKeys.end();
+    if (matches)
+      return fixture.transform.o;
+  }
+  return std::nullopt;
 }
 
 wxImage BuildWxImageFromRgba(const std::vector<unsigned char> &pixels, int width,
@@ -159,6 +178,68 @@ wxImage CropAndZoomFixture(const wxImage &source) {
   return source.GetSubImage(wxRect(cropX, cropY, cropW, cropH));
 }
 
+bool DetectContentBounds(const wxImage &source, int &minX, int &minY, int &maxX,
+                         int &maxY) {
+  minX = source.GetWidth();
+  minY = source.GetHeight();
+  maxX = -1;
+  maxY = -1;
+  if (!source.IsOk())
+    return false;
+
+  const unsigned char *rgb = source.GetData();
+  if (!rgb)
+    return false;
+  const unsigned char *alpha = source.HasAlpha() ? source.GetAlpha() : nullptr;
+  const int width = source.GetWidth();
+  const int height = source.GetHeight();
+
+  for (int y = 0; y < height; ++y) {
+    for (int x = 0; x < width; ++x) {
+      const size_t idx = static_cast<size_t>(y) * static_cast<size_t>(width) +
+                         static_cast<size_t>(x);
+      const unsigned char r = rgb[idx * 3 + 0];
+      const unsigned char g = rgb[idx * 3 + 1];
+      const unsigned char b = rgb[idx * 3 + 2];
+      const unsigned char a = alpha ? alpha[idx] : 255;
+      const bool opaqueEnough = a > 10;
+      const bool isBackgroundWhite = r > 245 && g > 245 && b > 245;
+      if (!opaqueEnough || isBackgroundWhite)
+        continue;
+
+      minX = std::min(minX, x);
+      minY = std::min(minY, y);
+      maxX = std::max(maxX, x);
+      maxY = std::max(maxY, y);
+    }
+  }
+  return maxX >= minX && maxY >= minY;
+}
+
+void ComputeViewOffsetsFromCenter(const std::array<float, 3> &center, Viewer2DView view,
+                                  float &offsetX, float &offsetY) {
+  constexpr float kPixelsPerMeter = 25.0f;
+  float axisA = 0.0f;
+  float axisB = 0.0f;
+  switch (view) {
+  case Viewer2DView::Top:
+  case Viewer2DView::Bottom:
+    axisA = center[0];
+    axisB = center[1];
+    break;
+  case Viewer2DView::Front:
+    axisA = center[0];
+    axisB = center[2];
+    break;
+  case Viewer2DView::Side:
+    axisA = -center[1];
+    axisB = center[2];
+    break;
+  }
+  offsetX = -axisA * kPixelsPerMeter;
+  offsetY = -axisB * kPixelsPerMeter;
+}
+
 } // namespace
 
 void RunFixtureSymbolGeneration(MainWindow &window) {
@@ -178,6 +259,9 @@ void RunFixtureSymbolGeneration(MainWindow &window) {
       selection >= static_cast<int>(options.size())) {
     return;
   }
+  const FixtureSymbolTypeOption &selectedType = options[selection];
+  const std::optional<std::array<float, 3>> fixtureCenter =
+      FindFixtureCenter(selectedType);
 
   Viewer2DOffscreenRenderer *offscreenRenderer = window.GetOffscreenRenderer();
   if (!offscreenRenderer) {
@@ -223,7 +307,12 @@ void RunFixtureSymbolGeneration(MainWindow &window) {
                                              Viewer2DView::Bottom};
   bool allOk = true;
   for (size_t i = 0; i < views.size(); ++i) {
-    capturePanel->SetView(views[i]);
+    float offsetX = 0.0f;
+    float offsetY = 0.0f;
+    if (fixtureCenter)
+      ComputeViewOffsetsFromCenter(*fixtureCenter, views[i], offsetX, offsetY);
+    capturePanel->ApplyViewState(offsetX, offsetY, 1.0f, views[i],
+                                 Viewer2DRenderMode::White);
     capturePanel->UpdateScene(true);
     bool captureViewOk = false;
     capturePanel->CaptureFrameNow(
@@ -239,7 +328,7 @@ void RunFixtureSymbolGeneration(MainWindow &window) {
     std::vector<unsigned char> pixels;
     int width = 0;
     int height = 0;
-    const bool ok = capturePanel->RenderToRGBA(pixels, width, height);
+    bool ok = capturePanel->RenderToRGBA(pixels, width, height);
     if (!ok || width <= 0 || height <= 0) {
       allOk = false;
       break;
@@ -247,6 +336,31 @@ void RunFixtureSymbolGeneration(MainWindow &window) {
 
     wxImage image = BuildWxImageFromRgba(pixels, width, height);
     if (image.IsOk()) {
+      int minX = 0;
+      int minY = 0;
+      int maxX = 0;
+      int maxY = 0;
+      if (DetectContentBounds(image, minX, minY, maxX, maxY)) {
+        const int bboxW = maxX - minX + 1;
+        const int bboxH = maxY - minY + 1;
+        if (bboxW > 0 && bboxH > 0) {
+          constexpr float kTargetFill = 0.82f;
+          const float scaleX = static_cast<float>(width) * kTargetFill /
+                               static_cast<float>(bboxW);
+          const float scaleY = static_cast<float>(height) * kTargetFill /
+                               static_cast<float>(bboxH);
+          const float zoomScale = std::clamp(std::min(scaleX, scaleY), 1.0f, 6.0f);
+          if (zoomScale > 1.05f) {
+            capturePanel->ApplyViewState(offsetX, offsetY, zoomScale, views[i],
+                                         Viewer2DRenderMode::White);
+            capturePanel->UpdateScene(true);
+            ok = capturePanel->RenderToRGBA(pixels, width, height);
+            if (ok && width > 0 && height > 0)
+              image = BuildWxImageFromRgba(pixels, width, height);
+          }
+        }
+      }
+
       image = image.Mirror(false);
       image = image.Mirror(true);
       image = CropAndZoomFixture(image);
