@@ -18,10 +18,6 @@
 #include "mainwindow.h"
 
 #include <algorithm>
-#include <array>
-#include <cstdint>
-#include <iomanip>
-#include <sstream>
 #include <cctype>
 #include <cmath>
 #include <chrono>
@@ -38,7 +34,6 @@
 #include <set>
 #include <random>
 #include <string>
-#include <string_view>
 #include <thread>
 #include <tinyxml2.h>
 #include <wx/aboutdlg.h>
@@ -124,6 +119,7 @@ using json = nlohmann::json;
 #include "viewer2drenderpanel.h"
 #include "viewer2dstate.h"
 #include "viewer3dpanel.h"
+#include "viewer3dcontroller.h"
 #include "LayoutManager.h"
 #ifdef _WIN32
 #define popen _popen
@@ -137,81 +133,15 @@ MainWindow *MainWindow::Instance() { return s_instance; }
 void MainWindow::SetInstance(MainWindow *inst) { s_instance = inst; }
 
 namespace {
-uint32_t HashFixtureTypeKey(std::string_view value) {
-  uint32_t hash = 2166136261u;
-  for (unsigned char c : value) {
-    hash ^= c;
-    hash *= 16777619u;
-  }
-  return hash;
-}
-
-std::array<float, 3> HsvToRgb(float h, float s, float v) {
-  const float c = v * s;
-  const float hh = h * 6.0f;
-  const float x = c * (1.0f - std::fabs(std::fmod(hh, 2.0f) - 1.0f));
-  float r = 0.0f;
-  float g = 0.0f;
-  float b = 0.0f;
-
-  if (hh >= 0.0f && hh < 1.0f) {
-    r = c;
-    g = x;
-  } else if (hh >= 1.0f && hh < 2.0f) {
-    r = x;
-    g = c;
-  } else if (hh >= 2.0f && hh < 3.0f) {
-    g = c;
-    b = x;
-  } else if (hh >= 3.0f && hh < 4.0f) {
-    g = x;
-    b = c;
-  } else if (hh >= 4.0f && hh < 5.0f) {
-    r = x;
-    b = c;
-  } else {
-    r = c;
-    b = x;
-  }
-
-  const float m = v - c;
-  return {r + m, g + m, b + m};
-}
-
-std::array<float, 3> MakeFixtureTypeAutoColor(std::string_view key) {
-  if (key.empty())
-    key = "default";
-
-  const uint32_t hash = HashFixtureTypeKey(key);
-  const float hue = static_cast<float>(hash % 360u) / 360.0f;
-  const float sat =
-      0.55f + static_cast<float>((hash >> 8) & 0xFFu) / 255.0f * 0.35f;
-  const float val =
-      0.7f + static_cast<float>((hash >> 16) & 0xFFu) / 255.0f * 0.25f;
-  return HsvToRgb(hue, sat, val);
-}
-
-std::string FixtureColorToHex(const std::array<float, 3> &rgb) {
-  auto toByte = [](float channel) {
-    const float clamped = std::max(0.0f, std::min(1.0f, channel));
-    return static_cast<int>(std::lround(clamped * 255.0f));
-  };
-
-  std::ostringstream stream;
-  stream << '#' << std::uppercase << std::hex << std::setfill('0')
-         << std::setw(2) << toByte(rgb[0]) << std::setw(2) << toByte(rgb[1])
-         << std::setw(2) << toByte(rgb[2]);
-  return stream.str();
-}
-
-void PersistFixtureTypeAutoColors(MVRScene &scene) {
+void PersistFixtureTypeAutoColors(ConfigManager &configManager) {
+  auto &scene = configManager.GetScene();
   for (auto &[uuid, fixture] : scene.fixtures) {
     (void)uuid;
     if (!fixture.color.empty())
       continue;
 
     fixture.color =
-        FixtureColorToHex(MakeFixtureTypeAutoColor("type:" + fixture.gdtfSpec));
+        Viewer3DController::BuildFixtureTypeAutoColorHex(fixture.gdtfSpec);
   }
 }
 
@@ -886,7 +816,7 @@ void MainWindow::SyncSceneData() {
     sceneObjPanel->UpdateSceneData();
 
   PersistFixtureTypeAutoColors(
-      GetDefaultGuiConfigServices().LegacyConfigManager().GetScene());
+      GetDefaultGuiConfigServices().LegacyConfigManager());
 }
 
 void MainWindow::RefreshAfterSceneChange(bool refreshViewport) {

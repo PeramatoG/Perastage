@@ -122,6 +122,7 @@ public:
                                                        int height) const;
 
   void SetLayerColor(const std::string &layer, const std::string &hex);
+  static std::string BuildFixtureTypeAutoColorHex(const std::string &fixtureTypeKey);
   std::shared_ptr<const SymbolDefinitionSnapshot>
   GetBottomSymbolCacheSnapshot() const;
 
