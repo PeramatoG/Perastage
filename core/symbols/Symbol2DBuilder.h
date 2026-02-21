@@ -1,12 +1,10 @@
 #pragma once
 
-#include <memory>
 #include <string>
 #include <vector>
 
 #include "Symbol2D.h"
-
-struct SymbolDefinitionSnapshot;
+#include "symbolcache.h"
 
 namespace symbols {
 
