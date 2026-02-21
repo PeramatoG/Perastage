@@ -65,6 +65,7 @@
 #include "simplecrypt.h"
 #include "support.h"
 #include "trussloader.h"
+#include "tools/fixture_symbol_generation_tool.h"
 #include "trusstablepanel.h"
 #include "viewer2dpanel.h"
 #include "viewer3dpanel.h"
@@ -374,6 +375,7 @@ void MainWindow::CreateMenuBar() {
   toolsMenu->Append(ID_Tools_AutoPatch, "Auto patch");
   toolsMenu->Append(ID_Tools_AutoColor, "Auto color");
   toolsMenu->Append(ID_Tools_ConvertToHoist, "Convert to Hoist");
+  toolsMenu->Append(ID_Tools_GenerateFixtureSymbols, "Generate Fixture Symbols...");
 
   menuBar->Append(toolsMenu, "&Tools");
 
@@ -647,6 +649,11 @@ void MainWindow::OnConvertToHoist(wxCommandEvent &WXUNUSED(event)) {
   wxMessageBox(wxString::Format("Converted %zu fixture(s) to hoists.",
                                 newIds.size()),
                "Convert to Hoist", wxOK | wxICON_INFORMATION);
+}
+
+
+void MainWindow::OnGenerateFixtureSymbols(wxCommandEvent &WXUNUSED(event)) {
+  tools::RunFixtureSymbolGeneration(*this);
 }
 
 void MainWindow::OnClose(wxCommandEvent &event) {
