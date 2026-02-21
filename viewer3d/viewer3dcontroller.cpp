@@ -76,6 +76,7 @@
 #include <nanovg.h>
 #include <nanovg_gl.h>
 #include <cstdint>
+#include <iomanip>
 #include <string_view>
 #include <sstream>
 #include <unordered_map>
@@ -424,6 +425,19 @@ static bool HexToRGB(const std::string &hex, float &r, float &g, float &b) {
   g = ((value >> 8) & 0xFF) / 255.0f;
   b = (value & 0xFF) / 255.0f;
   return true;
+}
+
+static std::string RGBToHex(const std::array<float, 3> &rgb) {
+  auto toByte = [](float channel) {
+    const float clamped = std::max(0.0f, std::min(1.0f, channel));
+    return static_cast<int>(std::lround(clamped * 255.0f));
+  };
+
+  std::ostringstream stream;
+  stream << '#' << std::uppercase << std::hex << std::setfill('0')
+         << std::setw(2) << toByte(rgb[0]) << std::setw(2) << toByte(rgb[1])
+         << std::setw(2) << toByte(rgb[2]);
+  return stream.str();
 }
 
 static void MatrixToArray(const Matrix &m, float out[16]) {
@@ -1448,6 +1462,11 @@ void Viewer3DController::SetLayerColor(const std::string &layer,
     m_impl->layerColors[layer] = c;
   else
     m_impl->layerColors.erase(layer);
+}
+
+std::string Viewer3DController::BuildFixtureTypeAutoColorHex(
+    const std::string &fixtureTypeKey) {
+  return RGBToHex(MakeDeterministicColor("type:" + fixtureTypeKey));
 }
 
 std::shared_ptr<const SymbolDefinitionSnapshot>
