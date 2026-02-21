@@ -75,18 +75,6 @@ std::vector<FixtureSymbolTypeOption> BuildFixtureOptions() {
   return options;
 }
 
-void CaptureRequiredViews(Viewer2DPanel *panel) {
-  if (!panel)
-    return;
-  const Viewer2DView previous = panel->GetView();
-  for (Viewer2DView view : {Viewer2DView::Front, Viewer2DView::Top,
-                            Viewer2DView::Bottom, Viewer2DView::Side}) {
-    panel->SetView(view);
-    panel->CaptureFrameNow([](CommandBuffer, Viewer2DViewState) {}, true, false);
-  }
-  panel->SetView(previous);
-}
-
 wxImage BuildWxImageFromRgba(const std::vector<unsigned char> &pixels, int width,
                              int height) {
   if (width <= 0 || height <= 0)
@@ -223,7 +211,6 @@ void RunFixtureSymbolGeneration(MainWindow &window) {
       });
 
   capturePanel->SetRenderMode(Viewer2DRenderMode::White);
-  CaptureRequiredViews(capturePanel);
   const Viewer2DView previousView = capturePanel->GetView();
 
   offscreenRenderer->SetViewportSize(wxSize(1200, 1200));
@@ -238,6 +225,16 @@ void RunFixtureSymbolGeneration(MainWindow &window) {
   for (size_t i = 0; i < views.size(); ++i) {
     capturePanel->SetView(views[i]);
     capturePanel->UpdateScene(true);
+    bool captureViewOk = false;
+    capturePanel->CaptureFrameNow(
+        [&](CommandBuffer, Viewer2DViewState state) {
+          captureViewOk = (state.view == views[i]);
+        },
+        true, false);
+    if (!captureViewOk) {
+      allOk = false;
+      break;
+    }
 
     std::vector<unsigned char> pixels;
     int width = 0;
