@@ -33,7 +33,13 @@ Viewer2DOffscreenRenderer::Viewer2DOffscreenRenderer(wxWindow *parent) {
   panel_->UpdateScene(true);
 }
 
-Viewer2DOffscreenRenderer::~Viewer2DOffscreenRenderer() = default;
+Viewer2DOffscreenRenderer::~Viewer2DOffscreenRenderer() {
+  if (host_) {
+    host_->Destroy();
+    host_ = nullptr;
+    panel_ = nullptr;
+  }
+}
 
 void Viewer2DOffscreenRenderer::SetViewportSize(const wxSize &size) {
   if (!panel_)
