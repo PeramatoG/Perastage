@@ -224,23 +224,12 @@ void RunFixtureSymbolGeneration(MainWindow &window) {
   for (size_t i = 0; i < views.size(); ++i) {
     capturePanel->SetView(views[i]);
     capturePanel->UpdateScene(true);
-    if (!capturePanel->FitViewToScene()) {
-      allOk = false;
-      break;
-    }
-    Viewer2DViewState fitState = capturePanel->GetViewState();
-    capturePanel->ApplyViewState(fitState.offsetPixelsX, fitState.offsetPixelsY,
-                                 fitState.zoom * 1.2f, views[i],
-                                 Viewer2DRenderMode::White);
-    bool captureViewOk = false;
-    capturePanel->CaptureFrameNow(
-        [&](CommandBuffer, Viewer2DViewState state) {
-          captureViewOk = (state.view == views[i]);
-        },
-        true, false);
-    if (!captureViewOk) {
-      allOk = false;
-      break;
+    const bool fitOk = capturePanel->FitViewToScene();
+    if (fitOk) {
+      Viewer2DViewState fitState = capturePanel->GetViewState();
+      capturePanel->ApplyViewState(fitState.offsetPixelsX, fitState.offsetPixelsY,
+                                   fitState.zoom * 1.2f, views[i],
+                                   Viewer2DRenderMode::White);
     }
 
     std::vector<unsigned char> pixels;
