@@ -1,19 +1,23 @@
 #pragma once
 
-#include <array>
+#include <vector>
 
 #include <wx/frame.h>
-#include <wx/image.h>
+
+#include "symbols/Symbol2D.h"
 
 class SymbolPreviewWindow : public wxFrame {
 public:
   SymbolPreviewWindow(wxWindow *parent,
-                      const std::array<wxImage, 4> &images);
+                      std::vector<symbols::Symbol2D> symbols);
 
 private:
   void OnPaint(wxPaintEvent &event);
-  void DrawCell(wxDC &dc, const wxRect &cell, const wxImage &image,
+  void OnSize(wxSizeEvent &event);
+  void DrawCell(wxDC &dc, const wxRect &cell, const symbols::Symbol2D *symbol,
                 const wxString &label);
+  static const symbols::Symbol2D *FindSymbol(
+      const std::vector<symbols::Symbol2D> &symbols, symbols::SymbolView view);
 
-  std::array<wxImage, 4> images_;
+  std::vector<symbols::Symbol2D> symbols_;
 };
