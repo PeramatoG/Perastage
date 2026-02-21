@@ -23,20 +23,74 @@ instance uniform float far_fade_end : hint_range(0.1, 100.0) = 80.0;
 instance uniform float max_brightness : hint_range(1.0, 50.0) = 10.0;
 instance uniform bool depth_feather_enabled = true;
 instance uniform float depth_fade_distance : hint_range(0.01, 5.0) = 0.5;
+instance uniform float cone_top_radius = 0.02;
+instance uniform float cone_bottom_radius = 0.8;
+instance uniform float cone_height = 8.0;
 
 varying vec3 vertex_view;
+varying vec3 local_pos;
+varying vec3 local_camera;
 
-float sample_gobo_polar(float axial01, float angle01) {
-	float rotated_angle = fract(angle01 + (gobo_rotation_rad / 6.28318530718));
-	float radial_proxy = clamp(axial01, 0.0, 1.0);
-	vec2 gobo_uv = vec2(rotated_angle, radial_proxy);
-	float gobo_sample = textureLod(gobo_texture, gobo_uv, gobo_mip_bias).r;
-	float gobo_curve = pow(max(gobo_sample, 0.0001), gobo_gamma);
-	return mix(1.0, gobo_curve, gobo_strength);
+float gobo_curve(float sample_value) {
+	float clamped_sample = pow(max(sample_value, 0.0001), gobo_gamma);
+	return mix(1.0, clamped_sample, gobo_strength);
+}
+
+float sample_gobo_plane(vec2 plane_uv) {
+	float c = cos(gobo_rotation_rad);
+	float s = sin(gobo_rotation_rad);
+	mat2 rot = mat2(c, -s, s, c);
+	vec2 rotated = rot * plane_uv;
+	vec2 tex_uv = rotated * 0.5 + vec2(0.5);
+	if (tex_uv.x < 0.0 || tex_uv.x > 1.0 || tex_uv.y < 0.0 || tex_uv.y > 1.0) {
+		return 0.0;
+	}
+	float raw = textureLod(gobo_texture, tex_uv, gobo_mip_bias).r;
+	return gobo_curve(raw);
+}
+
+float sample_gobo_volume_slice() {
+	float axial01 = clamp((local_pos.y / max(cone_height, 0.0001)) + 0.5, 0.0, 1.0);
+	float slice_radius = mix(cone_top_radius, cone_bottom_radius, axial01);
+	if (slice_radius <= 0.0001) {
+		return 1.0;
+	}
+
+	vec2 p2 = local_pos.xz;
+	vec2 view2 = normalize(local_pos.xz - local_camera.xz);
+	if (length(view2) < 0.0001) {
+		return sample_gobo_plane(p2 / slice_radius);
+	}
+
+	float b = dot(p2, view2);
+	float c = dot(p2, p2) - (slice_radius * slice_radius);
+	float disc = max((b * b) - c, 0.0);
+	float sqrt_disc = sqrt(disc);
+	float t0 = -b - sqrt_disc;
+	float t1 = -b + sqrt_disc;
+	float span = max(t1 - t0, 0.0001);
+
+	const int STEPS = 5;
+	float accum = 0.0;
+	for (int i = 0; i < STEPS; i++) {
+		float f = (float(i) + 0.5) / float(STEPS);
+		float t = mix(t0, t1, f);
+		vec2 q2 = p2 + view2 * t;
+		float radial = length(q2) / slice_radius;
+		if (radial <= 1.0) {
+			accum += sample_gobo_plane(q2 / slice_radius);
+		}
+	}
+
+	float avg = accum / float(STEPS);
+	float path_gain = clamp(span / max(slice_radius * 2.0, 0.0001), 0.25, 1.0);
+	return mix(avg, avg * path_gain, 0.45);
 }
 
 void vertex() {
 	vertex_view = (MODELVIEW_MATRIX * vec4(VERTEX, 1.0)).xyz;
+	local_pos = VERTEX;
+	local_camera = (inverse(MODEL_MATRIX) * vec4(CAMERA_POSITION_WORLD, 1.0)).xyz;
 	POSITION = PROJECTION_MATRIX * vec4(vertex_view, 1.0);
 }
 
@@ -78,7 +132,7 @@ void fragment() {
 
 	float gobo_multiplier = 1.0;
 	if (gobo_enabled) {
-		gobo_multiplier = sample_gobo_polar(1.0 - UV.y, UV.x);
+		gobo_multiplier = sample_gobo_volume_slice();
 	}
 
 	float final_alpha = feather_alpha * depth_mult * dist_fade * gobo_multiplier;

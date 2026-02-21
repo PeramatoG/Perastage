@@ -82,6 +82,8 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 		cone_mesh.top_radius = max(lens_radius, 0.003)
 		cone_mesh.bottom_radius = bottom_radius
 		cone_mesh.height = beam_range
+		cone.set_instance_shader_parameter("cone_top_radius", cone_mesh.top_radius)
+		cone.set_instance_shader_parameter("cone_bottom_radius", cone_mesh.bottom_radius)
 	cone.position = Vector3(0.0, 0.0, -beam_range * 0.5)
 	cone.visible = true
 
@@ -104,6 +106,7 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	cone.set_instance_shader_parameter("depth_feather_enabled", true)
 	cone.set_instance_shader_parameter("depth_fade_distance", 0.5)
 	cone.set_instance_shader_parameter("max_brightness", lerp(1.0, 10.0, intensity))
+	cone.set_instance_shader_parameter("cone_height", max(beam_range, 0.001))
 
 func cleanup_beam(light: SpotLight3D) -> void:
 	if not light.has_meta(BEAM_META_KEY):

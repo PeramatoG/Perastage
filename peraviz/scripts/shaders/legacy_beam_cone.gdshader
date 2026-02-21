@@ -14,6 +14,8 @@ instance uniform float far_alpha = 0.004;
 instance uniform float near_emission = 0.45;
 instance uniform float far_emission = 0.04;
 instance uniform float cone_height = 15.0;
+instance uniform float cone_top_radius = 0.02;
+instance uniform float cone_bottom_radius = 0.8;
 instance uniform float fade_end_ratio = 0.82;
 instance uniform float lateral_softness = 0.35;
 instance uniform float lateral_emission_boost = 0.16;
@@ -21,19 +23,32 @@ instance uniform float volumetric_noise_strength = 0.06;
 instance uniform float volumetric_noise_scale = 14.0;
 
 varying float beam_axial;
+varying vec3 local_pos;
 
-float sample_gobo_polar(float axial01, float angle01) {
-	float rotated_angle = fract(angle01 + (gobo_rotation_rad / 6.28318530718));
-	float radial_proxy = clamp(axial01, 0.0, 1.0);
-	vec2 gobo_uv = vec2(rotated_angle, radial_proxy);
-	float gobo_sample = textureLod(gobo_texture, gobo_uv, gobo_mip_bias).r;
-	float gobo_curve = pow(max(gobo_sample, 0.0001), gobo_gamma);
-	return mix(1.0, gobo_curve, gobo_strength);
+float sample_gobo_beamspace() {
+	float axial01 = clamp((local_pos.y / max(cone_height, 0.0001)) + 0.5, 0.0, 1.0);
+	float slice_radius = mix(cone_top_radius, cone_bottom_radius, axial01);
+	if (slice_radius <= 0.0001) {
+		return 1.0;
+	}
+
+	vec2 plane = local_pos.xz / slice_radius;
+	float c = cos(gobo_rotation_rad);
+	float s = sin(gobo_rotation_rad);
+	mat2 rot = mat2(c, -s, s, c);
+	vec2 uv = (rot * plane) * 0.5 + vec2(0.5);
+	if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) {
+		return 0.0;
+	}
+	float raw = textureLod(gobo_texture, uv, gobo_mip_bias).r;
+	float curved = pow(max(raw, 0.0001), gobo_gamma);
+	return mix(1.0, curved, gobo_strength);
 }
 
 void vertex() {
 	float normalized_y = (VERTEX.y / max(cone_height, 0.0001)) + 0.5;
 	beam_axial = clamp(normalized_y, 0.0, 1.0);
+	local_pos = VERTEX;
 }
 
 void fragment() {
@@ -47,7 +62,9 @@ void fragment() {
 	float center_boost = (1.0 + (lateral_emission_boost * lateral_fade)) * beam_noise;
 	float gobo_multiplier = 1.0;
 	if (gobo_enabled) {
-		gobo_multiplier = sample_gobo_polar(beam_axial, UV.x);
+		gobo_multiplier = sample_gobo_beamspace();
+		float edge_through = mix(0.75, 1.0, lateral_fade);
+		gobo_multiplier *= edge_through;
 	}
 	ALBEDO = beam_color.rgb;
 	ALPHA = mix(far_alpha, near_alpha, near_factor) * end_fade * lateral_fade * gobo_multiplier;
