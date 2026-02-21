@@ -14,6 +14,9 @@
 #include "dialogs/GenerateFixtureSymbolsDialog.h"
 #include "guiconfigservices.h"
 #include "mainwindow.h"
+#include "models/sceneobject.h"
+#include "models/support.h"
+#include "models/truss.h"
 #include "opaque_pass_utils.h"
 #include "symbols/Symbol2DImageBuilder.h"
 #include "viewer2doffscreenrenderer.h"
@@ -87,6 +90,45 @@ public:
 private:
   ConfigManager &cfg_;
   std::vector<std::pair<std::string, std::string>> previous_;
+};
+
+class ScopedSymbolCaptureSceneOverride {
+public:
+  ScopedSymbolCaptureSceneOverride(ConfigManager &cfg,
+                                   const std::vector<std::string> &modelKeys)
+      : cfg_(cfg) {
+    auto &scene = cfg_.GetScene();
+    originalFixtures_ = scene.fixtures;
+    originalTrusses_ = scene.trusses;
+    originalSceneObjects_ = scene.sceneObjects;
+    originalSupports_ = scene.supports;
+
+    std::unordered_map<std::string, Fixture> filteredFixtures;
+    for (const auto &[uuid, fixture] : scene.fixtures) {
+      if (FixtureMatchesModelKeys(fixture, modelKeys))
+        filteredFixtures.emplace(uuid, fixture);
+    }
+
+    scene.fixtures = std::move(filteredFixtures);
+    scene.trusses.clear();
+    scene.sceneObjects.clear();
+    scene.supports.clear();
+  }
+
+  ~ScopedSymbolCaptureSceneOverride() {
+    auto &scene = cfg_.GetScene();
+    scene.fixtures = std::move(originalFixtures_);
+    scene.trusses = std::move(originalTrusses_);
+    scene.sceneObjects = std::move(originalSceneObjects_);
+    scene.supports = std::move(originalSupports_);
+  }
+
+private:
+  ConfigManager &cfg_;
+  std::unordered_map<std::string, Fixture> originalFixtures_;
+  std::unordered_map<std::string, Truss> originalTrusses_;
+  std::unordered_map<std::string, SceneObject> originalSceneObjects_;
+  std::unordered_map<std::string, Support> originalSupports_;
 };
 
 std::vector<FixtureSymbolTypeOption> BuildFixtureOptions() {
@@ -174,6 +216,8 @@ void RunFixtureSymbolGeneration(MainWindow &window) {
 
   ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
   const std::string forcedFixtureColor = "#3FA9F5";
+  ScopedSymbolCaptureSceneOverride isolatedSceneOverride(
+      cfg, options[static_cast<size_t>(selection)].modelKeys);
   ScopedFixtureColorOverride selectedFixtureColorOverride(
       cfg, options[static_cast<size_t>(selection)].modelKeys, forcedFixtureColor);
   ScopedFloatConfigOverride displayOverride(
