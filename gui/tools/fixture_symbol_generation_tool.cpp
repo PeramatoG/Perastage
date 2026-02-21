@@ -45,6 +45,50 @@ private:
   std::unordered_map<std::string, float> previous_;
 };
 
+bool FixtureMatchesModelKeys(const Fixture &fixture,
+                             const std::vector<std::string> &modelKeys) {
+  if (!fixture.gdtfSpec.empty() &&
+      std::find(modelKeys.begin(), modelKeys.end(),
+                NormalizeModelKey(fixture.gdtfSpec)) != modelKeys.end()) {
+    return true;
+  }
+  if (!fixture.typeName.empty() &&
+      std::find(modelKeys.begin(), modelKeys.end(), fixture.typeName) !=
+          modelKeys.end()) {
+    return true;
+  }
+  return false;
+}
+
+class ScopedFixtureColorOverride {
+public:
+  ScopedFixtureColorOverride(ConfigManager &cfg,
+                             const std::vector<std::string> &modelKeys,
+                             const std::string &forcedHex)
+      : cfg_(cfg) {
+    auto &fixtures = cfg_.GetScene().fixtures;
+    for (auto &[uuid, fixture] : fixtures) {
+      if (!FixtureMatchesModelKeys(fixture, modelKeys))
+        continue;
+      previous_.emplace_back(uuid, fixture.color);
+      fixture.color = forcedHex;
+    }
+  }
+
+  ~ScopedFixtureColorOverride() {
+    auto &fixtures = cfg_.GetScene().fixtures;
+    for (const auto &[uuid, color] : previous_) {
+      auto it = fixtures.find(uuid);
+      if (it != fixtures.end())
+        it->second.color = color;
+    }
+  }
+
+private:
+  ConfigManager &cfg_;
+  std::vector<std::pair<std::string, std::string>> previous_;
+};
+
 std::vector<FixtureSymbolTypeOption> BuildFixtureOptions() {
   std::vector<FixtureSymbolTypeOption> options;
   auto &scene = GetDefaultGuiConfigServices().LegacyConfigManager().GetScene();
@@ -129,12 +173,16 @@ void RunFixtureSymbolGeneration(MainWindow &window) {
   }
 
   ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
+  const std::string forcedFixtureColor = "#3FA9F5";
+  ScopedFixtureColorOverride selectedFixtureColorOverride(
+      cfg, options[static_cast<size_t>(selection)].modelKeys, forcedFixtureColor);
   ScopedFloatConfigOverride displayOverride(
       cfg,
       {
           {"grid_show", 0.0f},
           {"view2d_dark_mode", 0.0f},
-          {"view2d_render_mode", static_cast<float>(Viewer2DRenderMode::White)},
+          {"view2d_render_mode",
+           static_cast<float>(Viewer2DRenderMode::ByFixtureType)},
           {"label_show_name_top", 0.0f},
           {"label_show_name_front", 0.0f},
           {"label_show_name_side", 0.0f},
@@ -150,7 +198,7 @@ void RunFixtureSymbolGeneration(MainWindow &window) {
 
   offscreenRenderer->SetViewportSize(wxSize(1200, 1200));
   offscreenRenderer->PrepareForCapture();
-  capturePanel->SetRenderMode(Viewer2DRenderMode::White);
+  capturePanel->SetRenderMode(Viewer2DRenderMode::ByFixtureType);
   capturePanel->UpdateScene(true);
   {
     std::vector<unsigned char> warmupPixels;
