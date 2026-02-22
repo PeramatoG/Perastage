@@ -158,26 +158,6 @@ static std::string ExportSafeTrussModelFile(const std::string &modelFile) {
 }
 
 
-static std::string SlugifyArchiveName(const std::string &input) {
-  std::string out;
-  out.reserve(input.size());
-  bool lastUnderscore = false;
-  for (unsigned char c : input) {
-    if (std::isalnum(c) != 0) {
-      out.push_back(static_cast<char>(std::tolower(c)));
-      lastUnderscore = false;
-    } else if (!lastUnderscore) {
-      out.push_back('_');
-      lastUnderscore = true;
-    }
-  }
-  while (!out.empty() && out.front() == '_')
-    out.erase(out.begin());
-  while (!out.empty() && out.back() == '_')
-    out.pop_back();
-  return out;
-}
-
 static bool IsValidMvrFileName(const std::string &value) {
   if (value.empty())
     return false;
@@ -932,9 +912,7 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
       addInt("UnitNumber", f.unitNumber);
     addInt("CustomId", f.customId);
     addInt("CustomIdType", f.customIdType);
-    std::string fixtureSlug = SlugifyArchiveName(f.typeName);
-    std::string fixtureFallback = SanitizeArchiveFileName(f.gdtfSpec, "fixture.gdtf");
-    std::string fixtureName = fixtureSlug.empty() ? fixtureFallback : (fixtureSlug + ".gdtf");
+    std::string fixtureName = SanitizeArchiveFileName(f.gdtfSpec, "fixture.gdtf");
     std::string fixtureGdtfArchivePath = registerGdtfResource(f.uuid, f.gdtfSpec, fixtureName);
     addStr("GDTFSpec", fixtureGdtfArchivePath);
     if (!f.gdtfSpec.empty() &&
@@ -1078,8 +1056,7 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
       }
     }
 
-    std::string trussSlug = SlugifyArchiveName(t.model.empty() ? t.name : t.model);
-    std::string trussPreferredName = trussSlug.empty() ? "truss.gdtf" : (trussSlug + ".gdtf");
+    std::string trussPreferredName = SanitizeArchiveFileName(trussSourceGdtf, "truss.gdtf");
     std::string trussGdtfArchivePath = registerGdtfResource(t.uuid, trussSourceGdtf, trussPreferredName);
     if (!trussGdtfArchivePath.empty()) {
       tinyxml2::XMLElement *e = doc.NewElement("GDTFSpec");
