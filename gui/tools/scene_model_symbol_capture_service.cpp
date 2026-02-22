@@ -11,12 +11,15 @@
 #include "sceneobject.h"
 #include "support.h"
 #include "symbols/Symbol2DImageBuilder.h"
+#include "symbols/SymbolGeometrySimplifier.h"
 #include "truss.h"
 #include "viewer2doffscreenrenderer.h"
 #include "viewer2dpanel.h"
 
 namespace tools {
 namespace {
+
+constexpr float kSymbolRdpEpsilon = 1.0f;
 
 class ScopedFloatConfigOverride {
 public:
@@ -257,6 +260,9 @@ CaptureSceneModelOrthographicSymbols(Viewer2DOffscreenRenderer &renderer,
     result.error = "Could not generate all symbols from captured views.";
     return result;
   }
+
+  for (auto &symbol : symbols)
+    symbols::SimplifySymbolGeometry(symbol, kSymbolRdpEpsilon);
 
   result.ok = true;
   result.symbols = std::move(symbols);
