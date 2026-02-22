@@ -117,13 +117,13 @@ static std::string SanitizeArchiveFileName(const std::string &input,
                                            const std::string &fallbackName) {
   std::string candidate = TrimAscii(input);
   std::replace(candidate.begin(), candidate.end(), '\\', '/');
-  if (candidate.find(':') != std::string::npos || (!candidate.empty() && candidate.front() == '/'))
-    candidate.clear();
-  while (!candidate.empty() && candidate.front() == '/')
-    candidate.erase(candidate.begin());
   if (candidate.empty())
-    candidate = fallbackName;
-  return fs::path(candidate).filename().generic_string();
+    return fallbackName;
+
+  const std::string fileName = fs::path(candidate).filename().generic_string();
+  if (!fileName.empty())
+    return fileName;
+  return fallbackName;
 }
 
 static std::string ExportSafeTrussModelFile(const std::string &modelFile) {
