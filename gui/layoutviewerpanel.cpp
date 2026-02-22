@@ -560,23 +560,35 @@ void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
 
     const layouts::Layout2DViewDefinition *activeView =
         static_cast<const LayoutViewerPanel *>(this)->GetEditableView();
-    const int activeViewId =
+    const bool showDeferredResizeOverlay =
+        deferredResizeFrame_.has_value() && dragMode != FrameDragMode::None &&
+        dragMode != FrameDragMode::Move;
+    const int selectedViewId =
         selectedElementType == SelectedElementType::View2D && activeView
             ? activeView->id
             : -1;
-    const int activeLegendId =
+    const int selectedLegendId =
         selectedElementType == SelectedElementType::Legend ? selectedElementId
                                                            : -1;
-    const int activeEventTableId =
+    const int selectedEventTableId =
         selectedElementType == SelectedElementType::EventTable
             ? selectedElementId
             : -1;
-    const int activeTextId =
+    const int selectedTextId =
         selectedElementType == SelectedElementType::Text ? selectedElementId
                                                          : -1;
-    const int activeImageId =
+    const int selectedImageId =
         selectedElementType == SelectedElementType::Image ? selectedElementId
                                                           : -1;
+
+    const int activeViewId = showDeferredResizeOverlay ? -1 : selectedViewId;
+    const int activeLegendId =
+        showDeferredResizeOverlay ? -1 : selectedLegendId;
+    const int activeEventTableId =
+        showDeferredResizeOverlay ? -1 : selectedEventTableId;
+    const int activeTextId = showDeferredResizeOverlay ? -1 : selectedTextId;
+    const int activeImageId =
+        showDeferredResizeOverlay ? -1 : selectedImageId;
 
     Viewer2DPanel *capturePanel = nullptr;
     Viewer2DOffscreenRenderer *offscreenRenderer = nullptr;
@@ -649,6 +661,9 @@ void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
       }
     }
 
+    if (showDeferredResizeOverlay)
+      DrawDeferredResizeOverlay();
+
     const bool texturesReady = AreTexturesReady();
     auto hasTexture = [](const auto &cacheMap, int id) {
       auto it = cacheMap.find(id);
@@ -659,36 +674,36 @@ void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
       if (!activeView) {
         activeElementHasTexture = false;
       } else {
-        activeElementHasTexture = hasTexture(viewCaches_, activeViewId);
+        activeElementHasTexture = hasTexture(viewCaches_, selectedViewId);
       }
     } else if (selectedElementType == SelectedElementType::Legend) {
-      const auto *legend = findLegendById(activeLegendId);
+      const auto *legend = findLegendById(selectedLegendId);
       if (!legend) {
         activeElementHasTexture = false;
       } else {
-        activeElementHasTexture = hasTexture(legendCaches_, activeLegendId);
+        activeElementHasTexture = hasTexture(legendCaches_, selectedLegendId);
       }
     } else if (selectedElementType == SelectedElementType::EventTable) {
-      const auto *table = findEventTableById(activeEventTableId);
+      const auto *table = findEventTableById(selectedEventTableId);
       if (!table) {
         activeElementHasTexture = false;
       } else {
         activeElementHasTexture =
-            hasTexture(eventTableCaches_, activeEventTableId);
+            hasTexture(eventTableCaches_, selectedEventTableId);
       }
     } else if (selectedElementType == SelectedElementType::Text) {
-      const auto *text = findTextById(activeTextId);
+      const auto *text = findTextById(selectedTextId);
       if (!text) {
         activeElementHasTexture = false;
       } else {
-        activeElementHasTexture = hasTexture(textCaches_, activeTextId);
+        activeElementHasTexture = hasTexture(textCaches_, selectedTextId);
       }
     } else if (selectedElementType == SelectedElementType::Image) {
-      const auto *image = findImageById(activeImageId);
+      const auto *image = findImageById(selectedImageId);
       if (!image) {
         activeElementHasTexture = false;
       } else {
-        activeElementHasTexture = hasTexture(imageCaches_, activeImageId);
+        activeElementHasTexture = hasTexture(imageCaches_, selectedImageId);
       }
     }
     const bool showLoadingOverlay =
@@ -749,6 +764,44 @@ void LayoutViewerPanel::DrawLoadingOverlay(const wxSize &size) {
   glVertex2f(x, y + textHeight);
   glEnd();
   glDisable(GL_TEXTURE_2D);
+}
+
+void LayoutViewerPanel::DrawDeferredResizeOverlay() {
+  if (!deferredResizeFrame_.has_value())
+    return;
+  if (dragMode == FrameDragMode::None || dragMode == FrameDragMode::Move)
+    return;
+
+  wxRect frameRect;
+  if (!GetFrameRect(*deferredResizeFrame_, frameRect))
+    return;
+
+  glColor4ub(160, 160, 160, 110);
+  glBegin(GL_QUADS);
+  glVertex2f(static_cast<float>(frameRect.GetLeft()),
+             static_cast<float>(frameRect.GetTop()));
+  glVertex2f(static_cast<float>(frameRect.GetRight()),
+             static_cast<float>(frameRect.GetTop()));
+  glVertex2f(static_cast<float>(frameRect.GetRight()),
+             static_cast<float>(frameRect.GetBottom()));
+  glVertex2f(static_cast<float>(frameRect.GetLeft()),
+             static_cast<float>(frameRect.GetBottom()));
+  glEnd();
+
+  glColor4ub(0, 128, 255, 255);
+  glLineWidth(2.0f);
+  glBegin(GL_LINE_LOOP);
+  glVertex2f(static_cast<float>(frameRect.GetLeft()),
+             static_cast<float>(frameRect.GetTop()));
+  glVertex2f(static_cast<float>(frameRect.GetRight()),
+             static_cast<float>(frameRect.GetTop()));
+  glVertex2f(static_cast<float>(frameRect.GetRight()),
+             static_cast<float>(frameRect.GetBottom()));
+  glVertex2f(static_cast<float>(frameRect.GetLeft()),
+             static_cast<float>(frameRect.GetBottom()));
+  glEnd();
+
+  DrawSelectionHandles(frameRect);
 }
 
 void LayoutViewerPanel::EnsureLoadingTextTexture() {
@@ -1094,6 +1147,7 @@ void LayoutViewerPanel::OnMouseMove(wxMouseEvent &event) {
       ApplyFrameUpdateToSelection(frame, true);
     } else {
       deferredResizeFrame_ = frame;
+      Refresh();
     }
     return;
   }

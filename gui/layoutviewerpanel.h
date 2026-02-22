@@ -149,6 +149,7 @@ private:
                        int activeTextId);
   void DrawImageElement(const layouts::LayoutImageDefinition &image,
                         int activeImageId);
+  void DrawDeferredResizeOverlay();
   void DrawLoadingOverlay(const wxSize &size);
   void EnsureLoadingTextTexture();
   void ClearLoadingTextTexture();
