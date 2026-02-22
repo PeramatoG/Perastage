@@ -150,7 +150,7 @@ RiggingPanel::RiggingPanel(wxWindow *parent) : wxPanel(parent, wxID_ANY) {
   table->AppendTextColumn("Total Weight (kg)", wxDATAVIEW_CELL_INERT,
                           wxCOL_WIDTH_AUTOSIZE, wxALIGN_RIGHT,
                           wxDATAVIEW_COL_RESIZABLE);
-  table->AppendTextColumn("Total Weight +5% (kg)", wxDATAVIEW_CELL_INERT,
+  table->AppendTextColumn("Rounded Total Weight +5% (kg)", wxDATAVIEW_CELL_INERT,
                           wxCOL_WIDTH_AUTOSIZE, wxALIGN_RIGHT,
                           wxDATAVIEW_COL_RESIZABLE);
 
