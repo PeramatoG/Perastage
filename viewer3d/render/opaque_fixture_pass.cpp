@@ -18,6 +18,7 @@
 #include "matrixutils.h"
 #include "configmanager.h"
 #include "opaque_pass_utils.h"
+#include "perastage_svg_symbol_builder.h"
 #include "scenedatamanager.h"
 #include "viewer3dcontroller.h"
 
@@ -149,6 +150,14 @@ void OpaqueFixturePass::Render(
         const auto &symbol =
             controller.m_bottomSymbolCache.GetOrCreate(symbolKey, [&](const SymbolKey &,
                                                          uint32_t symbolId) {
+              SymbolDefinition svgDefinition{};
+              if (TryBuildPerastageSvgSymbolDefinition(gdtfPath,
+                                                       symbolKey.viewKind,
+                                                       symbolId,
+                                                       svgDefinition)) {
+                return svgDefinition;
+              }
+
               SymbolDefinition definition{};
               definition.symbolId = symbolId;
               auto localCanvas =

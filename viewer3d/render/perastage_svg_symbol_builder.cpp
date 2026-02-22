@@ -1,0 +1,88 @@
+#include "perastage_svg_symbol_builder.h"
+
+#include <vector>
+
+#include "opaque_pass_utils.h"
+#include "symbols/PerastageSvgSymbol.h"
+
+namespace {
+constexpr float kDefaultStrokeWidth = 1.0f;
+
+void AppendSvgPolygon(const PerastageSvgPolygon &polygon, CommandBuffer &buffer) {
+  if (polygon.points.size() < 3)
+    return;
+
+  PolygonCommand poly{};
+  poly.points.reserve(polygon.points.size() * 2);
+  for (const auto &point : polygon.points) {
+    poly.points.push_back(static_cast<float>(point.x));
+    poly.points.push_back(static_cast<float>(point.y));
+  }
+  poly.stroke.color = {0.0f, 0.0f, 0.0f, 1.0f};
+  poly.stroke.width = kDefaultStrokeWidth;
+  poly.fill.color = {0.878f, 0.878f, 0.878f, 1.0f};
+  poly.hasFill = true;
+
+  buffer.commands.emplace_back(std::move(poly));
+  buffer.metadata.push_back({true, true});
+  buffer.sources.push_back("svg");
+}
+
+void AppendSvgPolyline(const PerastageSvgPolyline &line, CommandBuffer &buffer) {
+  if (line.points.size() < 2)
+    return;
+
+  PolylineCommand polyline{};
+  polyline.points.reserve(line.points.size() * 2);
+  for (const auto &point : line.points) {
+    polyline.points.push_back(static_cast<float>(point.x));
+    polyline.points.push_back(static_cast<float>(point.y));
+  }
+  polyline.stroke.color = {0.0f, 0.0f, 0.0f, 1.0f};
+  polyline.stroke.width = kDefaultStrokeWidth;
+
+  buffer.commands.emplace_back(std::move(polyline));
+  buffer.metadata.push_back({true, false});
+  buffer.sources.push_back("svg");
+}
+} // namespace
+
+bool TryBuildPerastageSvgSymbolDefinition(const std::string &gdtfPath,
+                                          SymbolViewKind viewKind,
+                                          uint32_t symbolId,
+                                          SymbolDefinition &out) {
+  PerastageSvgSymbolData svg;
+  if (!LoadPerastageSvgSymbolFromGdtf(gdtfPath, viewKind, svg))
+    return false;
+  if (!svg.IsValid())
+    return false;
+
+  out = SymbolDefinition{};
+  out.symbolId = symbolId;
+  out.localCommands.currentSourceKey = "svg";
+
+  for (const auto &polygon : svg.fills)
+    AppendSvgPolygon(polygon, out.localCommands);
+  for (const auto &line : svg.strokes)
+    AppendSvgPolyline(line, out.localCommands);
+
+  if (out.localCommands.commands.empty())
+    return false;
+
+  for (auto &cmd : out.localCommands.commands) {
+    if (auto *polygon = std::get_if<PolygonCommand>(&cmd)) {
+      for (size_t i = 0; i + 1 < polygon->points.size(); i += 2) {
+        polygon->points[i] += static_cast<float>(svg.offsetXmm);
+        polygon->points[i + 1] += static_cast<float>(svg.offsetYmm);
+      }
+    } else if (auto *polyline = std::get_if<PolylineCommand>(&cmd)) {
+      for (size_t i = 0; i + 1 < polyline->points.size(); i += 2) {
+        polyline->points[i] += static_cast<float>(svg.offsetXmm);
+        polyline->points[i + 1] += static_cast<float>(svg.offsetYmm);
+      }
+    }
+  }
+
+  out.bounds = ComputeSymbolBounds(out.localCommands);
+  return true;
+}

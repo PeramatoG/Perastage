@@ -11,6 +11,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/render/opaque_fixture_pass.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/render/opaque_object_pass.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/render/opaque_pass_utils.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/render/perastage_svg_symbol_builder.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/render/opaque_truss_pass.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/render/render_pipeline.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/render/scenerenderer.cpp
