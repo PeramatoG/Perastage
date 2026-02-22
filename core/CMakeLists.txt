@@ -5,6 +5,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/credentialstore.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtfdictionary.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtfnet.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/geometry/RdpSimplifier.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/guiconfigservices.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/layouts/LayoutCollection.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/layouts/LayoutManager.cpp
@@ -20,6 +21,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/scenedatamanager.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/simplecrypt.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/symbols/Symbol2DImageBuilder.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/symbols/SymbolGeometrySimplifier.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/symbols/Symbol2DBuilder.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/trussdictionary.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/truss_gdtf_builder.cpp

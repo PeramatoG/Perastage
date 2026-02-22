@@ -40,6 +40,12 @@ add_executable(matrixutils_test matrixutils_test.cpp)
 target_include_directories(matrixutils_test PRIVATE ../models)
 add_test(NAME MatrixUtilsParsingAndComposition COMMAND matrixutils_test)
 
+add_executable(rdp_simplifier_test
+               rdp_simplifier_test.cpp
+               ../core/geometry/RdpSimplifier.cpp)
+target_include_directories(rdp_simplifier_test PRIVATE ../core)
+add_test(NAME RdpSimplifierGeometry COMMAND rdp_simplifier_test)
+
 add_executable(pdf_font_metrics_test
                pdf_font_metrics_test.cpp
                ../viewer2d/pdf/font_metrics.cpp)
