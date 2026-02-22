@@ -43,14 +43,46 @@ bool ReadAllBytes(wxZipInputStream &zip, std::string &out) {
 }
 
 std::string ResolveGdtfPath(const Fixture &fixture) {
-  if (fixture.typeName.empty())
+  auto dictOpt = GdtfDictionary::Load();
+  if (!dictOpt)
     return {};
 
-  const auto dictEntry = GdtfDictionary::Get(fixture.typeName);
-  if (!dictEntry || dictEntry->path.empty())
-    return {};
+  const auto &dict = *dictOpt;
+  auto findByKey = [&](const std::string &key) -> std::string {
+    if (key.empty())
+      return {};
+    auto it = dict.find(key);
+    if (it == dict.end() || it->second.path.empty())
+      return {};
+    std::error_code ec;
+    if (!fs::exists(it->second.path, ec) || ec)
+      return {};
+    return it->second.path;
+  };
 
-  return dictEntry->path;
+  if (std::string byType = findByKey(fixture.typeName); !byType.empty())
+    return byType;
+
+  const fs::path specPath = fs::path(fixture.gdtfSpec);
+  const std::string specFileName = specPath.filename().string();
+
+  if (!specFileName.empty()) {
+    for (const auto &[type, entry] : dict) {
+      (void)type;
+      if (entry.path.empty())
+        continue;
+
+      const fs::path entryPath = fs::path(entry.path);
+      if (entryPath.filename() != specFileName)
+        continue;
+
+      std::error_code ec;
+      if (fs::exists(entryPath, ec) && !ec)
+        return entryPath.string();
+    }
+  }
+
+  return {};
 }
 
 const symbols::Symbol2D *FindSymbol(const std::vector<symbols::Symbol2D> &symbols,
@@ -196,21 +228,23 @@ bool RewriteGdtf(const fs::path &sourcePath,
   }
 
   const fs::path tempPath = sourcePath.string() + ".tmp";
-  wxFileOutputStream output(tempPath.string());
-  if (!output.IsOk()) {
-    errorMessage = "Could not open temporary GDTF file for writing.";
-    return false;
-  }
+  {
+    wxFileOutputStream output(tempPath.string());
+    if (!output.IsOk()) {
+      errorMessage = "Could not open temporary GDTF file for writing.";
+      return false;
+    }
 
-  wxZipOutputStream zipOutput(output);
-  for (const auto &[name, content] : entries) {
-    auto *zipEntry = new wxZipEntry(name);
-    zipEntry->SetMethod(wxZIP_METHOD_DEFLATE);
-    zipOutput.PutNextEntry(zipEntry);
-    zipOutput.Write(content.data(), content.size());
-    zipOutput.CloseEntry();
+    wxZipOutputStream zipOutput(output);
+    for (const auto &[name, content] : entries) {
+      auto *zipEntry = new wxZipEntry(name);
+      zipEntry->SetMethod(wxZIP_METHOD_DEFLATE);
+      zipOutput.PutNextEntry(zipEntry);
+      zipOutput.Write(content.data(), content.size());
+      zipOutput.CloseEntry();
+    }
+    zipOutput.Close();
   }
-  zipOutput.Close();
 
   std::error_code ec;
   fs::rename(tempPath, sourcePath, ec);
@@ -239,16 +273,16 @@ bool ApplySymbolsToFixtureGdtf(const std::vector<symbols::Symbol2D> &symbols,
   }
 
   ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
-  MvrScene &scene = cfg.GetScene();
-  auto fixtureIt = scene.fixtures.find(fixtureUuid);
-  if (fixtureIt == scene.fixtures.end()) {
+  const auto &fixtures = cfg.GetScene().fixtures;
+  auto fixtureIt = fixtures.find(fixtureUuid);
+  if (fixtureIt == fixtures.end()) {
     errorMessage = "Could not resolve the selected fixture in the scene.";
     return false;
   }
 
   const std::string gdtfPath = ResolveGdtfPath(fixtureIt->second);
   if (gdtfPath.empty()) {
-    errorMessage = "Could not resolve the fixture GDTF file path. Only fixtures present in the GDTF dictionary can be updated.";
+    errorMessage = "Could not resolve fixture GDTF in dictionary (by type or file name).";
     return false;
   }
 
