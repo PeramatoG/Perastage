@@ -57,6 +57,7 @@ std::vector<LayoutLegendItem> BuildLayoutLegendItems() {
     item.count = shared.count;
     item.channelCount = shared.channelCount;
     item.symbolKey = shared.symbolKey;
+    item.symbolFillHex = shared.symbolFillHex;
     items.push_back(std::move(item));
   }
   return items;
