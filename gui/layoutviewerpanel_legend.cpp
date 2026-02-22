@@ -933,6 +933,13 @@ wxImage LayoutViewerPanel::BuildLegendImage(
                                   symbolSize / symbol->viewBoxHeight);
     return symbol->viewBoxHeight * scale;
   };
+
+  auto pairGapForRow = [&](const PerastageSvgSymbolData *topSvg,
+                           const PerastageSvgSymbolData *frontSvg) {
+    if (topSvg || frontSvg)
+      return std::max(1.0, static_cast<double>(symbolSize) * 0.08);
+    return symbolPairGapPx;
+  };
   double maxSymbolPairWidth = symbolSize;
   for (const auto &item : items) {
       if (item.symbolKey.empty())
@@ -951,7 +958,7 @@ wxImage LayoutViewerPanel::BuildLegendImage(
                                          : symbolDrawWidth(frontSymbol);
       double rowPairWidth = std::max(topDrawW, frontDrawW);
       if (topDrawW > 0.0 && frontDrawW > 0.0)
-        rowPairWidth = topDrawW + frontDrawW + symbolPairGapPx;
+        rowPairWidth = topDrawW + frontDrawW + pairGapForRow(topSvg, frontSvg);
       maxSymbolPairWidth = std::max(maxSymbolPairWidth, rowPairWidth);
     }
   const int symbolSlotSize = std::max(
@@ -1101,7 +1108,7 @@ wxImage LayoutViewerPanel::BuildLegendImage(
         const double slotWidth = static_cast<double>(symbolSlotSize);
         double rowPairWidth = std::max(topDrawW, frontDrawW);
         if (topDrawW > 0.0 && frontDrawW > 0.0)
-          rowPairWidth = topDrawW + frontDrawW + symbolPairGapPx;
+          rowPairWidth = topDrawW + frontDrawW + pairGapForRow(topSvg, frontSvg);
         const double rowStart =
             xSymbol + std::max(0.0, (slotWidth - rowPairWidth) * 0.5);
         double leftSlotWidth = rowPairWidth;
@@ -1111,7 +1118,7 @@ wxImage LayoutViewerPanel::BuildLegendImage(
         if (topDrawW > 0.0 && frontDrawW > 0.0) {
           leftSlotWidth = topDrawW;
           rightSlotWidth = frontDrawW;
-          frontSlotLeft = rowStart + topDrawW + symbolPairGapPx;
+          frontSlotLeft = rowStart + topDrawW + pairGapForRow(topSvg, frontSvg);
         } else if (frontDrawW > 0.0) {
           frontSlotLeft = rowStart;
         }

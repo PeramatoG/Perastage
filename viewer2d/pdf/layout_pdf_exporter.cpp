@@ -1319,6 +1319,13 @@ Viewer2DExportResult ExportLayoutToPdf(
                                     symbolSize / symbol->viewBoxHeight);
       return symbol->viewBoxHeight * scale;
     };
+
+    auto pairGapForRow = [&](const PerastageSvgSymbolData *topSvg,
+                             const PerastageSvgSymbolData *frontSvg) {
+      if (topSvg || frontSvg)
+        return std::max(1.0, symbolSize * 0.08);
+      return symbolPairGapSize;
+    };
     double maxSymbolPairWidth = symbolSize;
     const SymbolDefinitionSnapshot *legendSymbolsForSizing =
         legend.symbolSnapshot ? legend.symbolSnapshot.get()
@@ -1344,7 +1351,7 @@ Viewer2DExportResult ExportLayoutToPdf(
             frontSvg ? symbolDrawWidthSvg(frontSvg) : symbolDrawWidth(frontSymbol);
         double rowPairWidth = std::max(topDrawW, frontDrawW);
         if (topDrawW > 0.0 && frontDrawW > 0.0)
-          rowPairWidth = topDrawW + frontDrawW + symbolPairGapSize;
+          rowPairWidth = topDrawW + frontDrawW + pairGapForRow(topSvg, frontSvg);
         maxSymbolPairWidth = std::max(maxSymbolPairWidth, rowPairWidth);
       }
     const double symbolSlotSize = std::max(
@@ -1431,7 +1438,7 @@ Viewer2DExportResult ExportLayoutToPdf(
           double symbolBoxY = rowBottom + (rowHeight - symbolSize) * 0.5;
           double rowPairWidth = std::max(topDrawW, frontDrawW);
           if (topDrawW > 0.0 && frontDrawW > 0.0)
-            rowPairWidth = topDrawW + frontDrawW + symbolPairGapSize;
+            rowPairWidth = topDrawW + frontDrawW + pairGapForRow(topSvg, frontSvg);
           const double rowStart =
               xSymbol + std::max(0.0, (symbolSlotSize - rowPairWidth) * 0.5);
           double leftSlotWidth = rowPairWidth;
@@ -1441,7 +1448,7 @@ Viewer2DExportResult ExportLayoutToPdf(
           if (topDrawW > 0.0 && frontDrawW > 0.0) {
             leftSlotWidth = topDrawW;
             rightSlotWidth = frontDrawW;
-            frontSlotLeft = rowStart + topDrawW + symbolPairGapSize;
+            frontSlotLeft = rowStart + topDrawW + pairGapForRow(topSvg, frontSvg);
           } else if (frontDrawW > 0.0) {
             frontSlotLeft = rowStart;
           }
