@@ -5,6 +5,7 @@
 #include <memory>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -50,26 +51,46 @@ bool ReadAllBytes(wxZipInputStream &zip, std::string &out) {
   return true;
 }
 
-std::string ResolveGdtfPath(const Fixture &fixture) {
+std::string ResolveSceneGdtfPath(const Fixture &fixture, const MvrScene &scene) {
+  const fs::path specPath = fs::path(fixture.gdtfSpec);
+  if (specPath.empty())
+    return {};
+
+  std::error_code ec;
+  if (specPath.is_absolute() && fs::exists(specPath, ec) && !ec)
+    return specPath.string();
+
+  if (!scene.basePath.empty()) {
+    ec.clear();
+    const fs::path fromScene = fs::path(scene.basePath) / specPath;
+    if (fs::exists(fromScene, ec) && !ec)
+      return fromScene.string();
+  }
+
+  ec.clear();
+  const fs::path fromCwd = fs::current_path(ec) / specPath;
+  if (!ec && fs::exists(fromCwd, ec) && !ec)
+    return fromCwd.string();
+
+  return {};
+}
+
+std::string ResolveLibraryGdtfPath(const Fixture &fixture) {
   const fs::path specPath = fs::path(fixture.gdtfSpec);
   const std::string specFileName = specPath.filename().string();
+  if (specFileName.empty())
+    return {};
 
   std::error_code ec;
   const fs::path fixturesLibrary =
       fs::path(ProjectUtils::GetDefaultLibraryPath("fixtures"));
-
-  if (!specFileName.empty()) {
-    const fs::path preferredPath = fixturesLibrary / specFileName;
-    if (fs::exists(preferredPath, ec) && !ec)
-      return preferredPath.string();
-  }
-
-  if (specPath.is_absolute() && fs::exists(specPath, ec) && !ec)
-    return specPath.string();
+  const fs::path preferredPath = fixturesLibrary / specFileName;
+  if (fs::exists(preferredPath, ec) && !ec)
+    return preferredPath.string();
 
   auto dictOpt = GdtfDictionary::Load();
   if (!dictOpt)
-    return {};
+    return preferredPath.string();
 
   const auto &dict = *dictOpt;
   auto findByKey = [&](const std::string &key) -> std::string {
@@ -87,23 +108,21 @@ std::string ResolveGdtfPath(const Fixture &fixture) {
   if (std::string byType = findByKey(fixture.typeName); !byType.empty())
     return byType;
 
-  if (!specFileName.empty()) {
-    for (const auto &[type, entry] : dict) {
-      (void)type;
-      if (entry.path.empty())
-        continue;
+  for (const auto &[type, entry] : dict) {
+    (void)type;
+    if (entry.path.empty())
+      continue;
 
-      const fs::path entryPath = fs::path(entry.path);
-      if (entryPath.filename() != specFileName)
-        continue;
+    const fs::path entryPath = fs::path(entry.path);
+    if (entryPath.filename() != specFileName)
+      continue;
 
-      std::error_code localEc;
-      if (fs::exists(entryPath, localEc) && !localEc)
-        return entryPath.string();
-    }
+    std::error_code localEc;
+    if (fs::exists(entryPath, localEc) && !localEc)
+      return entryPath.string();
   }
 
-  return {};
+  return preferredPath.string();
 }
 
 const symbols::Symbol2D *FindSymbol(const std::vector<symbols::Symbol2D> &symbols,
@@ -337,9 +356,20 @@ bool ApplySymbolsToFixtureGdtf(const std::vector<symbols::Symbol2D> &symbols,
     return false;
   }
 
-  const std::string gdtfPath = ResolveGdtfPath(fixtureIt->second);
-  if (gdtfPath.empty()) {
-    errorMessage = "Could not resolve fixture GDTF path in fixtures library.";
+  const MvrScene &scene = cfg.GetScene();
+  std::vector<fs::path> targetPaths;
+  std::unordered_set<std::string> uniqueTargets;
+
+  const std::string scenePath = ResolveSceneGdtfPath(fixtureIt->second, scene);
+  if (!scenePath.empty() && uniqueTargets.insert(scenePath).second)
+    targetPaths.emplace_back(scenePath);
+
+  const std::string libraryPath = ResolveLibraryGdtfPath(fixtureIt->second);
+  if (!libraryPath.empty() && uniqueTargets.insert(libraryPath).second)
+    targetPaths.emplace_back(libraryPath);
+
+  if (targetPaths.empty()) {
+    errorMessage = "Could not resolve fixture GDTF path in scene or fixtures library.";
     return false;
   }
 
@@ -377,7 +407,12 @@ bool ApplySymbolsToFixtureGdtf(const std::vector<symbols::Symbol2D> &symbols,
     return false;
   }
 
-  return RewriteGdtf(fs::path(gdtfPath), payloads, errorMessage);
+  for (const auto &targetPath : targetPaths) {
+    if (!RewriteGdtf(targetPath, payloads, errorMessage))
+      return false;
+  }
+
+  return true;
 }
 
 } // namespace symbol_preview
