@@ -129,6 +129,86 @@ std::string ResolveLibraryGdtfPath(const Fixture &fixture) {
   return {};
 }
 
+
+std::string ResolveModelSvgBasename(const fs::path &gdtfPath,
+                                    std::string &errorMessage) {
+  wxFileInputStream input(gdtfPath.string());
+  if (!input.IsOk()) {
+    errorMessage = "Could not open fixture GDTF file for reading.";
+    return {};
+  }
+
+  wxZipInputStream zipInput(input);
+  std::unique_ptr<wxZipEntry> entry;
+  std::string descriptionXml;
+  while ((entry.reset(zipInput.GetNextEntry())), entry) {
+    if (entry->IsDir())
+      continue;
+    if (NormalizeArchivePath(entry->GetName().ToStdString()) != "description.xml")
+      continue;
+    if (!ReadAllBytes(zipInput, descriptionXml)) {
+      errorMessage = "Could not read description.xml from the GDTF file.";
+      return {};
+    }
+    break;
+  }
+
+  if (descriptionXml.empty()) {
+    errorMessage = "The GDTF file does not contain description.xml.";
+    return {};
+  }
+
+  tinyxml2::XMLDocument doc;
+  if (doc.Parse(descriptionXml.c_str(), descriptionXml.size()) !=
+      tinyxml2::XML_SUCCESS) {
+    errorMessage = "Could not parse description.xml from the GDTF file.";
+    return {};
+  }
+
+  tinyxml2::XMLElement *fixtureType = doc.FirstChildElement("GDTF");
+  if (fixtureType)
+    fixtureType = fixtureType->FirstChildElement("FixtureType");
+  if (!fixtureType)
+    fixtureType = doc.FirstChildElement("FixtureType");
+  if (!fixtureType) {
+    errorMessage = "Could not find FixtureType node in description.xml.";
+    return {};
+  }
+
+  tinyxml2::XMLElement *models = fixtureType->FirstChildElement("Models");
+  if (!models) {
+    errorMessage = "Could not find Models node in description.xml.";
+    return {};
+  }
+
+  tinyxml2::XMLElement *targetModel = nullptr;
+  for (tinyxml2::XMLElement *model = models->FirstChildElement("Model"); model;
+       model = model->NextSiblingElement("Model")) {
+    const char *name = model->Attribute("Name");
+    if (name && std::string(name) == "Main") {
+      targetModel = model;
+      break;
+    }
+    if (!targetModel)
+      targetModel = model;
+  }
+
+  if (!targetModel) {
+    errorMessage = "Could not find any Model node in description.xml.";
+    return {};
+  }
+
+  const char *fileAttr = targetModel->Attribute("File");
+  if (fileAttr && std::string(fileAttr).size() > 0)
+    return std::string(fileAttr);
+
+  const char *nameAttr = targetModel->Attribute("Name");
+  if (nameAttr && std::string(nameAttr).size() > 0)
+    return std::string(nameAttr);
+
+  return "main";
+}
+
 const symbols::Symbol2D *FindSymbol(const std::vector<symbols::Symbol2D> &symbols,
                                     symbols::SymbolView view) {
   for (const auto &symbol : symbols) {
@@ -158,6 +238,9 @@ bool BuildSymbolPayload(const std::vector<symbols::Symbol2D> &symbols,
 
 bool PatchDescriptionXml(const std::string &xml,
                          const std::unordered_map<std::string, SymbolPayload> &payloads,
+                         const std::string &topPath,
+                         const std::string &sidePath,
+                         const std::string &frontPath,
                          std::string &updatedXml,
                          std::string &errorMessage) {
   tinyxml2::XMLDocument doc;
@@ -210,9 +293,9 @@ bool PatchDescriptionXml(const std::string &xml,
     targetModel->SetAttribute(yAttr, it->second.offsetY);
   };
 
-  setOffsets("models/svg/main.svg", "SVGOffsetX", "SVGOffsetY");
-  setOffsets("models/svg_side/main.svg", "SVGSideOffsetX", "SVGSideOffsetY");
-  setOffsets("models/svg_front/main.svg", "SVGFrontOffsetX", "SVGFrontOffsetY");
+  setOffsets(topPath.c_str(), "SVGOffsetX", "SVGOffsetY");
+  setOffsets(sidePath.c_str(), "SVGSideOffsetX", "SVGSideOffsetY");
+  setOffsets(frontPath.c_str(), "SVGFrontOffsetX", "SVGFrontOffsetY");
 
   tinyxml2::XMLPrinter printer;
   doc.Print(&printer);
@@ -251,6 +334,9 @@ bool VerifyArchiveEntries(const fs::path &archivePath,
 
 bool RewriteGdtf(const fs::path &sourcePath,
                  const std::unordered_map<std::string, SymbolPayload> &payloads,
+                 const std::string &topPath,
+                 const std::string &sidePath,
+                 const std::string &frontPath,
                  std::string &errorMessage) {
   std::vector<std::pair<std::string, std::string>> entries;
   {
@@ -283,8 +369,8 @@ bool RewriteGdtf(const fs::path &sourcePath,
   }
 
   std::string updatedDescription;
-  if (!PatchDescriptionXml(descriptionIt->second, payloads, updatedDescription,
-                           errorMessage)) {
+  if (!PatchDescriptionXml(descriptionIt->second, payloads, topPath, sidePath,
+                           frontPath, updatedDescription, errorMessage)) {
     return false;
   }
 
@@ -377,31 +463,37 @@ bool ApplySymbolsToFixtureGdtf(const std::vector<symbols::Symbol2D> &symbols,
     return false;
   }
 
+  std::string modelSvgBase = ResolveModelSvgBasename(targetPaths.front(), errorMessage);
+  if (modelSvgBase.empty())
+    return false;
+
+  const std::string topSvgPath = "models/svg/" + modelSvgBase + ".svg";
+  const std::string sideSvgPath = "models/svg_side/" + modelSvgBase + ".svg";
+  const std::string frontSvgPath = "models/svg_front/" + modelSvgBase + ".svg";
+  const std::string bottomSvgPath = "models/svg/" + modelSvgBase + "_bottom.svg";
+
   std::unordered_map<std::string, SymbolPayload> payloads;
   SymbolPayload topPayload;
-  if (BuildSymbolPayload(symbols, symbols::SymbolView::Top, "models/svg/main.svg",
+  if (BuildSymbolPayload(symbols, symbols::SymbolView::Top, topSvgPath,
                          topPayload, errorMessage)) {
     payloads[topPayload.archivePath] = std::move(topPayload);
   }
 
   SymbolPayload sidePayload;
-  if (BuildSymbolPayload(symbols, symbols::SymbolView::Left,
-                         "models/svg_side/main.svg", sidePayload,
-                         errorMessage)) {
+  if (BuildSymbolPayload(symbols, symbols::SymbolView::Left, sideSvgPath,
+                         sidePayload, errorMessage)) {
     payloads[sidePayload.archivePath] = std::move(sidePayload);
   }
 
   SymbolPayload frontPayload;
-  if (BuildSymbolPayload(symbols, symbols::SymbolView::Front,
-                         "models/svg_front/main.svg", frontPayload,
-                         errorMessage)) {
+  if (BuildSymbolPayload(symbols, symbols::SymbolView::Front, frontSvgPath,
+                         frontPayload, errorMessage)) {
     payloads[frontPayload.archivePath] = std::move(frontPayload);
   }
 
   SymbolPayload bottomPayload;
-  if (BuildSymbolPayload(symbols, symbols::SymbolView::Bottom,
-                         "models/svg/bottom.svg", bottomPayload,
-                         errorMessage)) {
+  if (BuildSymbolPayload(symbols, symbols::SymbolView::Bottom, bottomSvgPath,
+                         bottomPayload, errorMessage)) {
     payloads[bottomPayload.archivePath] = std::move(bottomPayload);
   }
 
@@ -412,7 +504,8 @@ bool ApplySymbolsToFixtureGdtf(const std::vector<symbols::Symbol2D> &symbols,
   }
 
   for (const auto &targetPath : targetPaths) {
-    if (!RewriteGdtf(targetPath, payloads, errorMessage))
+    if (!RewriteGdtf(targetPath, payloads, topSvgPath, sideSvgPath, frontSvgPath,
+                     errorMessage))
       return false;
   }
 
