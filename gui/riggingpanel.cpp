@@ -29,8 +29,12 @@
 namespace {
 constexpr const char *UNASSIGNED_POSITION = "Unassigned";
 
-float CeilToNearestHalfTen(float value) {
-  return std::ceil(value / 5.0f) * 5.0f;
+float RoundUpToNextFiveKg(float valueKg) {
+  constexpr float kFiveKgStep = 5.0f;
+  constexpr float kSafetyMarginFactor = 0.05f;
+
+  const float totalWithSafetyMargin = valueKg + (valueKg * kSafetyMarginFactor);
+  return std::ceil(totalWithSafetyMargin / kFiveKgStep) * kFiveKgStep;
 }
 
 bool IsRedCell(const ColorfulDataViewListStore *store, int row, int col) {
@@ -227,7 +231,7 @@ void RiggingPanel::RefreshData() {
   for (const auto &[position, totals] : rows) {
     float totalWeight =
         totals.fixtureWeight + totals.trussWeight + totals.hoistWeight;
-    float roundedFivePercentIncrease = CeilToNearestHalfTen(totalWeight * 1.05f);
+    float roundedFivePercentIncrease = RoundUpToNextFiveKg(totalWeight);
     wxVector<wxVariant> row;
     row.push_back(wxString::FromUTF8(position));
     row.push_back(wxString::Format("%d", totals.fixtures));
