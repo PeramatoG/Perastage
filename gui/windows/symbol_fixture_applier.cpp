@@ -1,6 +1,7 @@
 #include "windows/symbol_fixture_applier.h"
 
 #include <algorithm>
+#include <cctype>
 #include <filesystem>
 #include <memory>
 #include <string>
@@ -36,6 +37,17 @@ std::string NormalizeArchivePath(std::string value) {
   while (!value.empty() && value.front() == '/')
     value.erase(value.begin());
   return value;
+}
+
+
+std::string CanonicalFileKey(const std::string &value) {
+  std::string out;
+  out.reserve(value.size());
+  for (unsigned char c : value) {
+    if (std::isalnum(c) != 0)
+      out.push_back(static_cast<char>(std::tolower(c)));
+  }
+  return out;
 }
 
 bool ReadAllBytes(wxZipInputStream &zip, std::string &out) {
@@ -78,51 +90,73 @@ std::string ResolveSceneGdtfPath(const Fixture &fixture, const MvrScene &scene) 
 std::string ResolveLibraryGdtfPath(const Fixture &fixture) {
   const fs::path specPath = fs::path(fixture.gdtfSpec);
   const std::string specFileName = specPath.filename().string();
-  if (specFileName.empty())
-    return {};
 
   std::error_code ec;
   const fs::path fixturesLibrary =
       fs::path(ProjectUtils::GetDefaultLibraryPath("fixtures"));
-  const fs::path preferredPath = fixturesLibrary / specFileName;
-  if (fs::exists(preferredPath, ec) && !ec)
-    return preferredPath.string();
 
   auto dictOpt = GdtfDictionary::Load();
-  if (!dictOpt)
-    return preferredPath.string();
+  if (dictOpt) {
+    const auto &dict = *dictOpt;
+    auto findByKey = [&](const std::string &key) -> std::string {
+      if (key.empty())
+        return {};
+      auto it = dict.find(key);
+      if (it == dict.end() || it->second.path.empty())
+        return {};
+      std::error_code localEc;
+      if (!fs::exists(it->second.path, localEc) || localEc)
+        return {};
+      return it->second.path;
+    };
 
-  const auto &dict = *dictOpt;
-  auto findByKey = [&](const std::string &key) -> std::string {
-    if (key.empty())
-      return {};
-    auto it = dict.find(key);
-    if (it == dict.end() || it->second.path.empty())
-      return {};
-    std::error_code localEc;
-    if (!fs::exists(it->second.path, localEc) || localEc)
-      return {};
-    return it->second.path;
-  };
+    if (std::string byType = findByKey(fixture.typeName); !byType.empty())
+      return byType;
 
-  if (std::string byType = findByKey(fixture.typeName); !byType.empty())
-    return byType;
+    if (!specFileName.empty()) {
+      for (const auto &[type, entry] : dict) {
+        (void)type;
+        if (entry.path.empty())
+          continue;
 
-  for (const auto &[type, entry] : dict) {
-    (void)type;
-    if (entry.path.empty())
-      continue;
+        const fs::path entryPath = fs::path(entry.path);
+        if (entryPath.filename() != specFileName)
+          continue;
 
-    const fs::path entryPath = fs::path(entry.path);
-    if (entryPath.filename() != specFileName)
-      continue;
-
-    std::error_code localEc;
-    if (fs::exists(entryPath, localEc) && !localEc)
-      return entryPath.string();
+        std::error_code localEc;
+        if (fs::exists(entryPath, localEc) && !localEc)
+          return entryPath.string();
+      }
+    }
   }
 
-  return preferredPath.string();
+  if (!specFileName.empty()) {
+    ec.clear();
+    const fs::path exactPath = fixturesLibrary / specFileName;
+    if (fs::exists(exactPath, ec) && !ec)
+      return exactPath.string();
+
+    const std::string wantedKey = CanonicalFileKey(fs::path(specFileName).stem().string());
+    if (!wantedKey.empty()) {
+      for (fs::directory_iterator it(fixturesLibrary, ec), end; !ec && it != end;
+           it.increment(ec)) {
+        if (ec)
+          break;
+        if (!it->is_regular_file(ec) || ec)
+          continue;
+
+        const fs::path candidate = it->path();
+        if (candidate.extension() != ".gdtf")
+          continue;
+
+        const std::string candidateKey = CanonicalFileKey(candidate.stem().string());
+        if (candidateKey == wantedKey)
+          return candidate.string();
+      }
+    }
+  }
+
+  return {};
 }
 
 const symbols::Symbol2D *FindSymbol(const std::vector<symbols::Symbol2D> &symbols,
