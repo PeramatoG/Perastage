@@ -30,6 +30,13 @@ struct SymbolPayload {
   float offsetY = 0.0f;
 };
 
+std::string NormalizeArchivePath(std::string value) {
+  std::replace(value.begin(), value.end(), '\\', '/');
+  while (!value.empty() && value.front() == '/')
+    value.erase(value.begin());
+  return value;
+}
+
 bool ReadAllBytes(wxZipInputStream &zip, std::string &out) {
   out.clear();
   char buffer[4096];
@@ -117,7 +124,7 @@ bool BuildSymbolPayload(const std::vector<symbols::Symbol2D> &symbols,
   if (!symbol || !symbol->bounds.valid)
     return false;
 
-  out.archivePath = archivePath;
+  out.archivePath = NormalizeArchivePath(archivePath);
   out.offsetX = -symbol->bounds.min.x;
   out.offsetY = -symbol->bounds.min.y;
   if (!symbol_preview::ExportSymbolToSvgString(*symbol, out.svg, errorMessage))
@@ -200,12 +207,12 @@ bool VerifyArchiveEntries(const fs::path &archivePath,
   std::unordered_map<std::string, bool> found;
   for (const auto &[path, payload] : payloads) {
     (void)payload;
-    found[path] = false;
+    found[NormalizeArchivePath(path)] = false;
   }
 
   std::unique_ptr<wxZipEntry> entry;
   while ((entry.reset(zipInput.GetNextEntry())), entry) {
-    const std::string name = entry->GetName().ToStdString();
+    const std::string name = NormalizeArchivePath(entry->GetName().ToStdString());
     auto it = found.find(name);
     if (it != found.end())
       it->second = true;
@@ -260,14 +267,16 @@ bool RewriteGdtf(const fs::path &sourcePath,
 
   descriptionIt->second = std::move(updatedDescription);
   for (const auto &[path, payload] : payloads) {
+    const std::string normalizedPath = NormalizeArchivePath(path);
     auto existing = std::find_if(entries.begin(), entries.end(),
                                  [&](const auto &entry) {
-                                   return entry.first == path;
+                                   return NormalizeArchivePath(entry.first) ==
+                                          normalizedPath;
                                  });
     if (existing != entries.end())
       existing->second = payload.svg;
     else
-      entries.emplace_back(path, payload.svg);
+      entries.emplace_back(normalizedPath, payload.svg);
   }
 
   const fs::path tempPath = sourcePath.string() + ".tmp";
