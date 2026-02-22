@@ -1,7 +1,6 @@
 #include "windows/symbol_fixture_applier.h"
 
 #include <algorithm>
-#include <cctype>
 #include <filesystem>
 #include <memory>
 #include <string>
@@ -39,16 +38,6 @@ std::string NormalizeArchivePath(std::string value) {
   return value;
 }
 
-
-std::string CanonicalFileKey(const std::string &value) {
-  std::string out;
-  out.reserve(value.size());
-  for (unsigned char c : value) {
-    if (std::isalnum(c) != 0)
-      out.push_back(static_cast<char>(std::tolower(c)));
-  }
-  return out;
-}
 
 bool ReadAllBytes(wxZipInputStream &zip, std::string &out) {
   out.clear();
@@ -135,25 +124,6 @@ std::string ResolveLibraryGdtfPath(const Fixture &fixture) {
     const fs::path exactPath = fixturesLibrary / specFileName;
     if (fs::exists(exactPath, ec) && !ec)
       return exactPath.string();
-
-    const std::string wantedKey = CanonicalFileKey(fs::path(specFileName).stem().string());
-    if (!wantedKey.empty()) {
-      for (fs::directory_iterator it(fixturesLibrary, ec), end; !ec && it != end;
-           it.increment(ec)) {
-        if (ec)
-          break;
-        if (!it->is_regular_file(ec) || ec)
-          continue;
-
-        const fs::path candidate = it->path();
-        if (candidate.extension() != ".gdtf")
-          continue;
-
-        const std::string candidateKey = CanonicalFileKey(candidate.stem().string());
-        if (candidateKey == wantedKey)
-          return candidate.string();
-      }
-    }
   }
 
   return {};
