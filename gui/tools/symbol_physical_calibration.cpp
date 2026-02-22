@@ -10,7 +10,7 @@
 #include "gdtfdictionary.h"
 #include "projectutils.h"
 #include "types.h"
-#include "viewer3d/gdtfloader.h"
+#include "gdtfloader.h"
 
 namespace fs = std::filesystem;
 
