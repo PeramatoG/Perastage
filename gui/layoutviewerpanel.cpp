@@ -315,6 +315,9 @@ LayoutViewerPanel::LayoutViewerPanel(wxWindow *parent)
 }
 
 LayoutViewerPanel::~LayoutViewerPanel() {
+  if (HasCapture()) {
+    ReleaseMouse();
+  }
   Unbind(wxEVT_TIMER, &LayoutViewerPanel::OnLoadingTimer, this,
          kLoadingTimerId);
   Unbind(wxEVT_TIMER, &LayoutViewerPanel::OnRenderDelayTimer, this,
