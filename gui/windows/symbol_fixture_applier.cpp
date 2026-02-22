@@ -44,6 +44,22 @@ bool ReadAllBytes(wxZipInputStream &zip, std::string &out) {
 }
 
 std::string ResolveGdtfPath(const Fixture &fixture) {
+  const fs::path specPath = fs::path(fixture.gdtfSpec);
+  const std::string specFileName = specPath.filename().string();
+
+  std::error_code ec;
+  const fs::path fixturesLibrary =
+      fs::path(ProjectUtils::GetDefaultLibraryPath("fixtures"));
+
+  if (!specFileName.empty()) {
+    const fs::path preferredPath = fixturesLibrary / specFileName;
+    if (fs::exists(preferredPath, ec) && !ec)
+      return preferredPath.string();
+  }
+
+  if (specPath.is_absolute() && fs::exists(specPath, ec) && !ec)
+    return specPath.string();
+
   auto dictOpt = GdtfDictionary::Load();
   if (!dictOpt)
     return {};
@@ -55,17 +71,14 @@ std::string ResolveGdtfPath(const Fixture &fixture) {
     auto it = dict.find(key);
     if (it == dict.end() || it->second.path.empty())
       return {};
-    std::error_code ec;
-    if (!fs::exists(it->second.path, ec) || ec)
+    std::error_code localEc;
+    if (!fs::exists(it->second.path, localEc) || localEc)
       return {};
     return it->second.path;
   };
 
   if (std::string byType = findByKey(fixture.typeName); !byType.empty())
     return byType;
-
-  const fs::path specPath = fs::path(fixture.gdtfSpec);
-  const std::string specFileName = specPath.filename().string();
 
   if (!specFileName.empty()) {
     for (const auto &[type, entry] : dict) {
@@ -77,24 +90,10 @@ std::string ResolveGdtfPath(const Fixture &fixture) {
       if (entryPath.filename() != specFileName)
         continue;
 
-      std::error_code ec;
-      if (fs::exists(entryPath, ec) && !ec)
+      std::error_code localEc;
+      if (fs::exists(entryPath, localEc) && !localEc)
         return entryPath.string();
     }
-  }
-
-  std::error_code ec;
-  const fs::path fixturesLibrary =
-      fs::path(ProjectUtils::GetDefaultLibraryPath("fixtures"));
-
-  if (specPath.is_absolute() && fs::exists(specPath, ec) && !ec)
-    return specPath.string();
-
-  if (!specFileName.empty()) {
-    ec.clear();
-    const fs::path fromLibrary = fixturesLibrary / specFileName;
-    if (fs::exists(fromLibrary, ec) && !ec)
-      return fromLibrary.string();
   }
 
   return {};
@@ -191,6 +190,35 @@ bool PatchDescriptionXml(const std::string &xml,
   return true;
 }
 
+bool VerifyArchiveEntries(const fs::path &archivePath,
+                        const std::unordered_map<std::string, SymbolPayload> &payloads) {
+  wxFileInputStream input(archivePath.string());
+  if (!input.IsOk())
+    return false;
+
+  wxZipInputStream zipInput(input);
+  std::unordered_map<std::string, bool> found;
+  for (const auto &[path, payload] : payloads) {
+    (void)payload;
+    found[path] = false;
+  }
+
+  std::unique_ptr<wxZipEntry> entry;
+  while ((entry.reset(zipInput.GetNextEntry())), entry) {
+    const std::string name = entry->GetName().ToStdString();
+    auto it = found.find(name);
+    if (it != found.end())
+      it->second = true;
+  }
+
+  for (const auto &[path, wasFound] : found) {
+    (void)path;
+    if (!wasFound)
+      return false;
+  }
+  return true;
+}
+
 bool RewriteGdtf(const fs::path &sourcePath,
                  const std::unordered_map<std::string, SymbolPayload> &payloads,
                  std::string &errorMessage) {
@@ -271,6 +299,11 @@ bool RewriteGdtf(const fs::path &sourcePath,
   }
   if (ec) {
     errorMessage = "Could not replace the original GDTF file.";
+    return false;
+  }
+
+  if (!VerifyArchiveEntries(sourcePath, payloads)) {
+    errorMessage = "GDTF was saved but generated SVG views were not found in archive.";
     return false;
   }
 

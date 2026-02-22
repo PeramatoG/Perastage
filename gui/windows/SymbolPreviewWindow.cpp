@@ -194,7 +194,7 @@ void SymbolPreviewWindow::OnApplySymbolToFixture(wxCommandEvent &WXUNUSED(event)
     return;
   }
 
-  wxMessageBox("Symbol views applied to fixture GDTF successfully.",
+  wxMessageBox("Symbol views applied to fixture GDTF successfully.\nCheck the file in your fixtures library.",
                "Apply Views to Fixture", wxOK | wxICON_INFORMATION, this);
 }
 
