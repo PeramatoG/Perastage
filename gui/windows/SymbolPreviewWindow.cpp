@@ -11,11 +11,13 @@
 #include <wx/msgdlg.h>
 #include <wx/utils.h>
 
+#include "windows/symbol_fixture_applier.h"
 #include "windows/symbol_preview_exporter.h"
 
 namespace {
 
 constexpr int ID_ExportSelectedViewAsSvg = wxID_HIGHEST + 240;
+constexpr int ID_ApplySymbolToFixture = wxID_HIGHEST + 241;
 
 wxPoint ToScreenPoint(const symbols::Point2D &p, const symbols::Aabb2D &bounds,
                       double scale, int originX, int originY) {
@@ -44,16 +46,19 @@ void DrawPolyline(wxDC &dc, const symbols::Polyline2D &line,
 } // namespace
 
 SymbolPreviewWindow::SymbolPreviewWindow(wxWindow *parent,
-                                         std::vector<symbols::Symbol2D> symbols)
+                                         std::vector<symbols::Symbol2D> symbols,
+                                         std::string fixtureUuid)
     : wxFrame(parent, wxID_ANY, "Fixture Symbol Preview", wxDefaultPosition,
               wxSize(1000, 760), wxDEFAULT_FRAME_STYLE | wxFRAME_FLOAT_ON_PARENT),
-      symbols_(std::move(symbols)) {
+      symbols_(std::move(symbols)), fixtureUuid_(std::move(fixtureUuid)) {
   SetBackgroundStyle(wxBG_STYLE_PAINT);
   Bind(wxEVT_PAINT, &SymbolPreviewWindow::OnPaint, this);
   Bind(wxEVT_SIZE, &SymbolPreviewWindow::OnSize, this);
   Bind(wxEVT_CONTEXT_MENU, &SymbolPreviewWindow::OnContextMenu, this);
   Bind(wxEVT_MENU, &SymbolPreviewWindow::OnExportSelectedView, this,
        ID_ExportSelectedViewAsSvg);
+  Bind(wxEVT_MENU, &SymbolPreviewWindow::OnApplySymbolToFixture, this,
+       ID_ApplySymbolToFixture);
 }
 
 const symbols::Symbol2D *SymbolPreviewWindow::FindSymbol(
@@ -123,6 +128,7 @@ void SymbolPreviewWindow::ShowExportMenuAt(const wxPoint &point) {
   selectedViewForExport_ = cell->view;
   wxMenu menu;
   menu.Append(ID_ExportSelectedViewAsSvg, "Export this view as SVG...");
+  menu.Append(ID_ApplySymbolToFixture, "Apply symbol to fixture...");
   PopupMenu(&menu, point);
 }
 
@@ -165,6 +171,19 @@ void SymbolPreviewWindow::OnExportSelectedView(wxCommandEvent &WXUNUSED(event)) 
 
   wxMessageBox("Symbol view exported successfully.", "Export Symbol View",
                wxOK | wxICON_INFORMATION, this);
+}
+
+
+void SymbolPreviewWindow::OnApplySymbolToFixture(wxCommandEvent &WXUNUSED(event)) {
+  std::string errorMessage;
+  if (!symbol_preview::ApplySymbolsToFixtureGdtf(symbols_, fixtureUuid_, errorMessage)) {
+    wxMessageBox(errorMessage, "Apply Symbol to Fixture", wxOK | wxICON_ERROR,
+                 this);
+    return;
+  }
+
+  wxMessageBox("Symbol views applied to fixture GDTF successfully.",
+               "Apply Symbol to Fixture", wxOK | wxICON_INFORMATION, this);
 }
 
 void SymbolPreviewWindow::OnPaint(wxPaintEvent &WXUNUSED(event)) {

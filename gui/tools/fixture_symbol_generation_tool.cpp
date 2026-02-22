@@ -128,8 +128,8 @@ void RunFixtureSymbolGeneration(MainWindow &window) {
     return;
   }
 
-  SymbolPreviewWindow *preview =
-      new SymbolPreviewWindow(&window, std::move(capture.symbols));
+  SymbolPreviewWindow *preview = new SymbolPreviewWindow(
+      &window, std::move(capture.symbols), selectedFixtureUuid);
   preview->Show();
 }
 

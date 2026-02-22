@@ -1,6 +1,7 @@
 #pragma once
 
 #include <optional>
+#include <string>
 #include <vector>
 
 #include <wx/frame.h>
@@ -9,8 +10,8 @@
 
 class SymbolPreviewWindow : public wxFrame {
 public:
-  SymbolPreviewWindow(wxWindow *parent,
-                      std::vector<symbols::Symbol2D> symbols);
+  SymbolPreviewWindow(wxWindow *parent, std::vector<symbols::Symbol2D> symbols,
+                      std::string fixtureUuid);
 
 private:
   struct PreviewCell {
@@ -23,6 +24,7 @@ private:
   void OnSize(wxSizeEvent &event);
   void OnContextMenu(wxContextMenuEvent &event);
   void OnExportSelectedView(wxCommandEvent &event);
+  void OnApplySymbolToFixture(wxCommandEvent &event);
   void ShowExportMenuAt(const wxPoint &point);
   void DrawCell(wxDC &dc, const wxRect &cell, const symbols::Symbol2D *symbol,
                 const wxString &label);
@@ -34,5 +36,6 @@ private:
   static wxString ViewLabel(symbols::SymbolView view);
 
   std::vector<symbols::Symbol2D> symbols_;
+  std::string fixtureUuid_;
   std::optional<symbols::SymbolView> selectedViewForExport_;
 };
