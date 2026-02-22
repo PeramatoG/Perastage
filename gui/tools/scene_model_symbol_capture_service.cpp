@@ -1,6 +1,8 @@
 #include "tools/scene_model_symbol_capture_service.h"
 
 #include <array>
+#include <cmath>
+#include <limits>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -15,6 +17,7 @@
 #include "truss.h"
 #include "viewer2doffscreenrenderer.h"
 #include "viewer2dpanel.h"
+#include "viewer2dcommandrenderer.h"
 
 namespace tools {
 namespace {
@@ -232,13 +235,59 @@ CaptureSceneModelOrthographicSymbols(Viewer2DOffscreenRenderer &renderer,
   std::vector<symbols::RenderedSymbolImage> renders;
   renders.reserve(requests.size());
 
+  struct PreparedViewState {
+    Viewer2DViewState state;
+    CaptureRequest request;
+  };
+
+  std::vector<PreparedViewState> preparedStates;
+  preparedStates.reserve(requests.size());
+
+  float commonOrthographicZoom = std::numeric_limits<float>::max();
   for (const auto &request : requests) {
     ScopedFloatConfigOverride topViewOverride(
         cfg, {{"view2d_top_fixtures_inverted", request.topFixturesInverted}});
 
     capturePanel->SetView(request.view);
     capturePanel->UpdateScene(true);
-    capturePanel->FitViewToScene();
+    if (!capturePanel->FitViewToScene()) {
+      capturePanel->SetView(previousView);
+      result.error = "Could not compute a common orthographic fit for all symbol views.";
+      return result;
+    }
+
+    Viewer2DViewState fitState = capturePanel->GetViewState();
+    commonOrthographicZoom = std::min(commonOrthographicZoom, fitState.zoom);
+    preparedStates.push_back(PreparedViewState{fitState, request});
+  }
+
+  if (!std::isfinite(commonOrthographicZoom) || commonOrthographicZoom <= 0.0f) {
+    capturePanel->SetView(previousView);
+    result.error = "Computed orthographic zoom is invalid for symbol capture.";
+    return result;
+  }
+
+  const double commonWorldToPixelScale =
+      viewer2d::kViewer2DPixelsPerMeter * static_cast<double>(commonOrthographicZoom);
+  if (!std::isfinite(commonWorldToPixelScale) || commonWorldToPixelScale <= 0.0) {
+    capturePanel->SetView(previousView);
+    result.error = "Computed world-to-pixel scale is invalid for symbol capture.";
+    return result;
+  }
+
+  for (const auto &preparedState : preparedStates) {
+    const auto &request = preparedState.request;
+    ScopedFloatConfigOverride topViewOverride(
+        cfg, {{"view2d_top_fixtures_inverted", request.topFixturesInverted}});
+
+    capturePanel->ApplyViewState(preparedState.state.offsetPixelsX,
+                                 preparedState.state.offsetPixelsY,
+                                 commonOrthographicZoom, request.view,
+                                 Viewer2DRenderMode::ByFixtureType);
+    capturePanel->UpdateScene(true);
+
+    // Keep a single world-unit scale (GDTF physical units) across Front/Top/
+    // Side/Bottom captures so inter-view proportions remain physically valid.
 
     symbols::RenderedSymbolImage render;
     render.view = request.symbolView;
