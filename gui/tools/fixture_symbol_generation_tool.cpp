@@ -15,6 +15,7 @@
 #include "mainwindow.h"
 #include "opaque_pass_utils.h"
 #include "tools/scene_model_symbol_capture_service.h"
+#include "tools/symbol_physical_calibration.h"
 #include "viewer2doffscreenrenderer.h"
 #include "windows/SymbolPreviewWindow.h"
 
@@ -124,6 +125,15 @@ void RunFixtureSymbolGeneration(MainWindow &window) {
       captureOptions);
   if (!capture.ok) {
     wxMessageBox(capture.error, "Generate Fixture Symbols", wxOK | wxICON_ERROR,
+                 &window);
+    return;
+  }
+
+  std::string calibrationError;
+  if (!CalibrateFixtureSymbolsToPhysicalUnits(cfg, selectedFixtureUuid,
+                                              capture.symbols,
+                                              calibrationError)) {
+    wxMessageBox(calibrationError, "Generate Fixture Symbols", wxOK | wxICON_ERROR,
                  &window);
     return;
   }

@@ -2,6 +2,7 @@
 
 #include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <wx/frame.h>
@@ -27,10 +28,12 @@ private:
   void OnApplySymbolToFixture(wxCommandEvent &event);
   void ShowExportMenuAt(const wxPoint &point);
   void DrawCell(wxDC &dc, const wxRect &cell, const symbols::Symbol2D *symbol,
-                const wxString &label);
+                const wxString &label, double referenceWidth,
+                double referenceHeight);
   std::vector<PreviewCell> BuildPreviewCells(const wxSize &size) const;
   std::optional<PreviewCell> FindCellAt(const wxPoint &point) const;
   bool HasAnyValidSymbol() const;
+  std::pair<double, double> ComputeReferenceDimensions() const;
 
   static const symbols::Symbol2D *FindSymbol(
       const std::vector<symbols::Symbol2D> &symbols, symbols::SymbolView view);

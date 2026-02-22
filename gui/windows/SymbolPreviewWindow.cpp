@@ -203,14 +203,34 @@ void SymbolPreviewWindow::OnPaint(wxPaintEvent &WXUNUSED(event)) {
   dc.SetBackground(wxBrush(wxColour(248, 248, 248)));
   dc.Clear();
 
+  const auto [referenceWidth, referenceHeight] = ComputeReferenceDimensions();
   for (const auto &cell : BuildPreviewCells(GetClientSize())) {
-    DrawCell(dc, cell.rect, FindSymbol(symbols_, cell.view), cell.label);
+    DrawCell(dc, cell.rect, FindSymbol(symbols_, cell.view), cell.label,
+             referenceWidth, referenceHeight);
   }
+}
+
+
+std::pair<double, double> SymbolPreviewWindow::ComputeReferenceDimensions() const {
+  double maxWidth = 1.0;
+  double maxHeight = 1.0;
+  for (const auto &symbol : symbols_) {
+    if (!symbol.bounds.valid)
+      continue;
+    const double width =
+        std::max(1.0, static_cast<double>(symbol.bounds.max.x - symbol.bounds.min.x));
+    const double height =
+        std::max(1.0, static_cast<double>(symbol.bounds.max.y - symbol.bounds.min.y));
+    maxWidth = std::max(maxWidth, width);
+    maxHeight = std::max(maxHeight, height);
+  }
+  return {maxWidth, maxHeight};
 }
 
 void SymbolPreviewWindow::DrawCell(wxDC &dc, const wxRect &cell,
                                    const symbols::Symbol2D *symbol,
-                                   const wxString &label) {
+                                   const wxString &label, double referenceWidth,
+                                   double referenceHeight) {
   dc.SetPen(wxPen(wxColour(210, 210, 210), 1));
   dc.SetBrush(*wxWHITE_BRUSH);
   dc.DrawRectangle(cell);
@@ -233,8 +253,9 @@ void SymbolPreviewWindow::DrawCell(wxDC &dc, const wxRect &cell,
       std::max(1.0, static_cast<double>(symbol->bounds.max.x - symbol->bounds.min.x));
   const double symbolH =
       std::max(1.0, static_cast<double>(symbol->bounds.max.y - symbol->bounds.min.y));
-  const double scale = std::min(static_cast<double>(contentRect.GetWidth()) / symbolW,
-                                static_cast<double>(contentRect.GetHeight()) / symbolH);
+  const double scale =
+      std::min(static_cast<double>(contentRect.GetWidth()) / std::max(1.0, referenceWidth),
+               static_cast<double>(contentRect.GetHeight()) / std::max(1.0, referenceHeight));
 
   const int drawW = std::max(1, static_cast<int>(std::round(symbolW * scale)));
   const int drawH = std::max(1, static_cast<int>(std::round(symbolH * scale)));
