@@ -10,6 +10,7 @@ struct RenderedSymbolImage {
   SymbolView view = SymbolView::Top;
   int width = 0;
   int height = 0;
+  float worldUnitsPerPixel = 1.0f;
   std::vector<unsigned char> rgba;
 };
 

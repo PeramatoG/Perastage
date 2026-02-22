@@ -291,6 +291,8 @@ CaptureSceneModelOrthographicSymbols(Viewer2DOffscreenRenderer &renderer,
 
     symbols::RenderedSymbolImage render;
     render.view = request.symbolView;
+    render.worldUnitsPerPixel =
+        static_cast<float>(1.0 / commonWorldToPixelScale);
     const bool ok = capturePanel->RenderToRGBA(render.rgba, render.width, render.height);
     if (!ok || render.width <= 0 || render.height <= 0) {
       capturePanel->SetView(previousView);

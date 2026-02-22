@@ -103,12 +103,16 @@ int PixelIndex(const PixelMask &mask, int x, int y) {
   return y * mask.width + x;
 }
 
-Point2D ToPoint(int x, int y, int imageHeight) {
-  return Point2D{static_cast<float>(x), static_cast<float>(imageHeight - 1 - y)};
+Point2D ToPoint(int x, int y, int imageHeight, float worldUnitsPerPixel) {
+  const float scale = worldUnitsPerPixel > 0.0f ? worldUnitsPerPixel : 1.0f;
+  return Point2D{static_cast<float>(x) * scale,
+                 static_cast<float>(imageHeight - 1 - y) * scale};
 }
 
-Point2D ToVertexPoint(int x, int y, int imageHeight) {
-  return Point2D{static_cast<float>(x), static_cast<float>(imageHeight - y)};
+Point2D ToVertexPoint(int x, int y, int imageHeight, float worldUnitsPerPixel) {
+  const float scale = worldUnitsPerPixel > 0.0f ? worldUnitsPerPixel : 1.0f;
+  return Point2D{static_cast<float>(x) * scale,
+                 static_cast<float>(imageHeight - y) * scale};
 }
 
 void ExtendBounds(Aabb2D &bounds, const Point2D &p) {
@@ -207,7 +211,8 @@ PixelMask BuildLineMask(const RenderedSymbolImage &render,
   return mask;
 }
 
-std::vector<PolygonWithHoles2D> ExtractFillPolygons(const PixelMask &fillMask) {
+std::vector<PolygonWithHoles2D> ExtractFillPolygons(const PixelMask &fillMask,
+                                             float worldUnitsPerPixel) {
   const int w = fillMask.width;
   const int h = fillMask.height;
   std::vector<PolygonWithHoles2D> result;
@@ -250,8 +255,8 @@ std::vector<PolygonWithHoles2D> ExtractFillPolygons(const PixelMask &fillMask) {
     edges.erase(currentIt);
 
     Polyline2D loop;
-    loop.push_back(ToVertexPoint(start.x, start.y, h));
-    loop.push_back(ToVertexPoint(next.x, next.y, h));
+    loop.push_back(ToVertexPoint(start.x, start.y, h, worldUnitsPerPixel));
+    loop.push_back(ToVertexPoint(next.x, next.y, h, worldUnitsPerPixel));
     current = next;
 
     for (size_t step = 0; step < maxSteps; ++step) {
@@ -263,7 +268,7 @@ std::vector<PolygonWithHoles2D> ExtractFillPolygons(const PixelMask &fillMask) {
       GridPoint candidate = take->second;
       edges.erase(take);
 
-      loop.push_back(ToVertexPoint(candidate.x, candidate.y, h));
+      loop.push_back(ToVertexPoint(candidate.x, candidate.y, h, worldUnitsPerPixel));
       current = candidate;
       if (current == start)
         break;
@@ -408,7 +413,8 @@ void ThinZhangSuen(PixelMask &mask) {
 }
 
 std::vector<Polyline2D> ExtractPolylines(const PixelMask &skeleton,
-                                         const ImageBuildParams &params) {
+                                         const ImageBuildParams &params,
+                                         float worldUnitsPerPixel) {
   const int w = skeleton.width;
   const int h = skeleton.height;
   std::vector<std::vector<int>> adjacency(static_cast<size_t>(w * h));
@@ -446,10 +452,10 @@ std::vector<Polyline2D> ExtractPolylines(const PixelMask &skeleton,
     return visitedEdges.find({a, b}) != visitedEdges.end();
   };
 
-  auto nodeToPoint = [w, h](int node) {
+  auto nodeToPoint = [w, h, worldUnitsPerPixel](int node) {
     const int x = node % w;
     const int y = node / w;
-    return ToPoint(x, y, h);
+    return ToPoint(x, y, h, worldUnitsPerPixel);
   };
 
   auto walkFrom = [&](int start, int next) {
@@ -534,9 +540,12 @@ Symbol2DImageBuilder::BuildFromRenderedImages(
     symbol.view = render.view;
     symbol.strokeWidthPx = params.previewStrokeWidthPx;
 
-    symbol.fill = ExtractFillPolygons(fillMask);
+    const float worldUnitsPerPixel =
+        render.worldUnitsPerPixel > 0.0f ? render.worldUnitsPerPixel : 1.0f;
 
-    symbol.strokes = ExtractPolylines(lineMask, params);
+    symbol.fill = ExtractFillPolygons(fillMask, worldUnitsPerPixel);
+
+    symbol.strokes = ExtractPolylines(lineMask, params, worldUnitsPerPixel);
 
     for (const auto &polygon : symbol.fill)
       for (const auto &p : polygon.outer)

@@ -46,6 +46,13 @@ add_executable(rdp_simplifier_test
 target_include_directories(rdp_simplifier_test PRIVATE ../core)
 add_test(NAME RdpSimplifierGeometry COMMAND rdp_simplifier_test)
 
+add_executable(symbol2d_image_builder_scale_test
+               symbol2d_image_builder_scale_test.cpp
+               ../core/symbols/Symbol2DImageBuilder.cpp
+               ../gui/windows/symbol_preview_exporter.cpp)
+target_include_directories(symbol2d_image_builder_scale_test PRIVATE .. ../core ../gui)
+add_test(NAME Symbol2DImageBuilderScale COMMAND symbol2d_image_builder_scale_test)
+
 add_executable(pdf_font_metrics_test
                pdf_font_metrics_test.cpp
                ../viewer2d/pdf/font_metrics.cpp)

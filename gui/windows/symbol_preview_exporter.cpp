@@ -1,21 +1,68 @@
 #include "windows/symbol_preview_exporter.h"
 
+#include <algorithm>
 #include <fstream>
 #include <sstream>
 
 namespace symbol_preview {
 namespace {
 
+symbols::Point2D NormalizePointToBounds(const symbols::Point2D &point,
+                                        const symbols::Aabb2D &bounds) {
+  return symbols::Point2D{point.x - bounds.min.x, bounds.max.y - point.y};
+}
+
+void ExtendBounds(symbols::Aabb2D &bounds, const symbols::Point2D &point) {
+  if (!bounds.valid) {
+    bounds.min = point;
+    bounds.max = point;
+    bounds.valid = true;
+    return;
+  }
+  bounds.min.x = std::min(bounds.min.x, point.x);
+  bounds.min.y = std::min(bounds.min.y, point.y);
+  bounds.max.x = std::max(bounds.max.x, point.x);
+  bounds.max.y = std::max(bounds.max.y, point.y);
+}
+
+symbols::Aabb2D BuildNormalizedPhysicalBounds(const symbols::Symbol2D &symbol) {
+  symbols::Aabb2D normalized;
+  if (!symbol.bounds.valid)
+    return normalized;
+
+  for (const auto &polygon : symbol.fill) {
+    for (const auto &point : polygon.outer)
+      ExtendBounds(normalized, NormalizePointToBounds(point, symbol.bounds));
+    for (const auto &hole : polygon.holes)
+      for (const auto &point : hole)
+        ExtendBounds(normalized, NormalizePointToBounds(point, symbol.bounds));
+  }
+
+  for (const auto &line : symbol.strokes)
+    for (const auto &point : line)
+      ExtendBounds(normalized, NormalizePointToBounds(point, symbol.bounds));
+
+  if (!normalized.valid)
+    normalized = symbols::Aabb2D{symbols::Point2D{0.0f, 0.0f},
+                                 symbols::Point2D{symbol.bounds.max.x - symbol.bounds.min.x,
+                                                  symbol.bounds.max.y - symbol.bounds.min.y},
+                                 true};
+  return normalized;
+}
+
+
 std::string BuildPoints(const symbols::Polyline2D &line,
-                        const symbols::Aabb2D &bounds) {
+                        const symbols::Aabb2D &sourceBounds) {
   std::ostringstream stream;
   bool first = true;
   for (const auto &point : line) {
     if (!first)
       stream << ' ';
     first = false;
-    const float x = point.x - bounds.min.x;
-    const float y = bounds.max.y - point.y;
+    const symbols::Point2D normalizedPoint =
+        NormalizePointToBounds(point, sourceBounds);
+    const float x = normalizedPoint.x;
+    const float y = normalizedPoint.y;
     stream << x << ',' << y;
   }
   return stream.str();
@@ -28,8 +75,9 @@ bool BuildSvgContent(const symbols::Symbol2D &symbol, std::string &svgContent,
     return false;
   }
 
-  const float width = symbol.bounds.max.x - symbol.bounds.min.x;
-  const float height = symbol.bounds.max.y - symbol.bounds.min.y;
+  const symbols::Aabb2D normalizedBounds = BuildNormalizedPhysicalBounds(symbol);
+  const float width = normalizedBounds.valid ? (normalizedBounds.max.x - normalizedBounds.min.x) : 0.0f;
+  const float height = normalizedBounds.valid ? (normalizedBounds.max.y - normalizedBounds.min.y) : 0.0f;
   if (width <= 0.0f || height <= 0.0f) {
     errorMessage = "The selected view has invalid bounds.";
     return false;
