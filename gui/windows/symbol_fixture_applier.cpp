@@ -2,7 +2,6 @@
 
 #include <filesystem>
 #include <memory>
-#include <sstream>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -42,24 +41,24 @@ bool ReadAllBytes(wxZipInputStream &zip, std::string &out) {
   return true;
 }
 
-std::string ResolveGdtfPath(const Fixture &fixture, const Scene &scene) {
+std::string ResolveGdtfPath(const Fixture &fixture, const MvrScene &scene) {
   if (fixture.gdtfSpec.empty())
     return {};
 
-  const fs::path specPath = fs::u8path(fixture.gdtfSpec);
+  const fs::path specPath = fs::path(fixture.gdtfSpec);
   std::error_code ec;
   if (specPath.is_absolute() && fs::exists(specPath, ec) && !ec)
     return specPath.string();
 
   if (!scene.basePath.empty()) {
-    fs::path localPath = fs::u8path(scene.basePath) / specPath;
+    fs::path localPath = fs::path(scene.basePath) / specPath;
     ec.clear();
     if (fs::exists(localPath, ec) && !ec)
       return localPath.string();
   }
 
   fs::path libraryPath =
-      fs::u8path(ProjectUtils::GetDefaultLibraryPath("fixtures")) / specPath.filename();
+      fs::path(ProjectUtils::GetDefaultLibraryPath("fixtures")) / specPath.filename();
   ec.clear();
   if (fs::exists(libraryPath, ec) && !ec)
     return libraryPath.string();
@@ -241,7 +240,7 @@ bool ApplySymbolsToFixtureGdtf(const std::vector<symbols::Symbol2D> &symbols,
   }
 
   ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
-  Scene &scene = cfg.GetScene();
+  MvrScene &scene = cfg.GetScene();
   auto fixtureIt = scene.fixtures.find(fixtureUuid);
   if (fixtureIt == scene.fixtures.end()) {
     errorMessage = "Could not resolve the selected fixture in the scene.";
@@ -281,7 +280,7 @@ bool ApplySymbolsToFixtureGdtf(const std::vector<symbols::Symbol2D> &symbols,
     return false;
   }
 
-  return RewriteGdtf(fs::u8path(gdtfPath), payloads, errorMessage);
+  return RewriteGdtf(fs::path(gdtfPath), payloads, errorMessage);
 }
 
 } // namespace symbol_preview
