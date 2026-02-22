@@ -149,6 +149,7 @@ private:
                        int activeTextId);
   void DrawImageElement(const layouts::LayoutImageDefinition &image,
                         int activeImageId);
+  void DrawDeferredResizeOverlay();
   void DrawLoadingOverlay(const wxSize &size);
   void EnsureLoadingTextTexture();
   void ClearLoadingTextTexture();
@@ -170,6 +171,8 @@ private:
                        bool updatePosition);
   void UpdateImageFrame(const layouts::Layout2DViewFrame &frame,
                         bool updatePosition);
+  void ApplyFrameUpdateToSelection(const layouts::Layout2DViewFrame &frame,
+                                   bool updatePosition);
   bool InitGL();
   void RebuildCachedTexture();
   void ClearCachedTexture();
@@ -270,6 +273,7 @@ private:
   FrameDragMode hoverMode = FrameDragMode::None;
   wxPoint dragStartPos{0, 0};
   layouts::Layout2DViewFrame dragStartFrame;
+  std::optional<layouts::Layout2DViewFrame> deferredResizeFrame_;
   int layoutVersion = 0;
   int viewRenderVersion = 0;
   bool captureInProgress = false;
