@@ -1319,6 +1319,16 @@ Viewer2DExportResult ExportLayoutToPdf(
                                     symbolSize / symbol->viewBoxHeight);
       return symbol->viewBoxHeight * scale;
     };
+    auto sharedPairScaleSvg = [&](const PerastageSvgSymbolData *topSvg,
+                                  const PerastageSvgSymbolData *frontSvg) {
+      if (!topSvg || !frontSvg)
+        return 0.0;
+      const double topScale =
+          std::min(symbolSize / topSvg->viewBoxWidth, symbolSize / topSvg->viewBoxHeight);
+      const double frontScale = std::min(symbolSize / frontSvg->viewBoxWidth,
+                                         symbolSize / frontSvg->viewBoxHeight);
+      return std::min(topScale, frontScale);
+    };
 
     auto pairGapForRow = [&](const PerastageSvgSymbolData *topSvg,
                              const PerastageSvgSymbolData *frontSvg) {
@@ -1345,10 +1355,17 @@ Viewer2DExportResult ExportLayoutToPdf(
             ? FindSymbolDefinitionExact(legendSymbolsForSizing, item.symbolKey,
                                        SymbolViewKind::Front)
             : nullptr;
+        const double pairScaleSvg = sharedPairScaleSvg(topSvg, frontSvg);
         const double topDrawW =
-            topSvg ? symbolDrawWidthSvg(topSvg) : symbolDrawWidth(topSymbol);
+            (topSvg && pairScaleSvg > 0.0)
+                ? topSvg->viewBoxWidth * pairScaleSvg
+                : (topSvg ? symbolDrawWidthSvg(topSvg)
+                          : symbolDrawWidth(topSymbol));
         const double frontDrawW =
-            frontSvg ? symbolDrawWidthSvg(frontSvg) : symbolDrawWidth(frontSymbol);
+            (frontSvg && pairScaleSvg > 0.0)
+                ? frontSvg->viewBoxWidth * pairScaleSvg
+                : (frontSvg ? symbolDrawWidthSvg(frontSvg)
+                            : symbolDrawWidth(frontSymbol));
         double rowPairWidth = std::max(topDrawW, frontDrawW);
         if (topDrawW > 0.0 && frontDrawW > 0.0)
           rowPairWidth = topDrawW + frontDrawW + pairGapForRow(topSvg, frontSvg);
@@ -1425,14 +1442,27 @@ Viewer2DExportResult ExportLayoutToPdf(
             ? FindSymbolDefinitionExact(legendSymbols, item.symbolKey,
                                        SymbolViewKind::Front)
             : nullptr;
+        const double pairScaleSvg = sharedPairScaleSvg(topSvg, frontSvg);
         const double topDrawW =
-            topSvg ? symbolDrawWidthSvg(topSvg) : symbolDrawWidth(topSymbol);
+            (topSvg && pairScaleSvg > 0.0)
+                ? topSvg->viewBoxWidth * pairScaleSvg
+                : (topSvg ? symbolDrawWidthSvg(topSvg)
+                          : symbolDrawWidth(topSymbol));
         const double frontDrawW =
-            frontSvg ? symbolDrawWidthSvg(frontSvg) : symbolDrawWidth(frontSymbol);
+            (frontSvg && pairScaleSvg > 0.0)
+                ? frontSvg->viewBoxWidth * pairScaleSvg
+                : (frontSvg ? symbolDrawWidthSvg(frontSvg)
+                            : symbolDrawWidth(frontSymbol));
         const double topDrawH =
-            topSvg ? symbolDrawHeightSvg(topSvg) : symbolDrawHeight(topSymbol);
+            (topSvg && pairScaleSvg > 0.0)
+                ? topSvg->viewBoxHeight * pairScaleSvg
+                : (topSvg ? symbolDrawHeightSvg(topSvg)
+                          : symbolDrawHeight(topSymbol));
         const double frontDrawH =
-            frontSvg ? symbolDrawHeightSvg(frontSvg) : symbolDrawHeight(frontSymbol);
+            (frontSvg && pairScaleSvg > 0.0)
+                ? frontSvg->viewBoxHeight * pairScaleSvg
+                : (frontSvg ? symbolDrawHeightSvg(frontSvg)
+                            : symbolDrawHeight(frontSymbol));
         if (topDrawW > 0.0 || frontDrawW > 0.0) {
           double rowBottom = rowTop - rowHeight;
           double symbolBoxY = rowBottom + (rowHeight - symbolSize) * 0.5;
@@ -1479,11 +1509,13 @@ Viewer2DExportResult ExportLayoutToPdf(
                           << nameIt->second << " Do\nQ\n";
           };
           auto drawSvg = [&](const PerastageSvgSymbolData *svg, double drawLeft,
-                             double drawW, double drawH) {
+                             double drawW, double drawH, double scaleOverride) {
             if (!svg || drawW <= 0.0 || drawH <= 0.0)
               return;
-            const double scale = std::min(symbolSize / svg->viewBoxWidth,
-                                          symbolSize / svg->viewBoxHeight);
+            const double scale = scaleOverride > 0.0
+                                     ? scaleOverride
+                                     : std::min(symbolSize / svg->viewBoxWidth,
+                                                symbolSize / svg->viewBoxHeight);
             if (scale <= 0.0)
               return;
             const double ox = drawLeft + svg->offsetXmm * scale;
@@ -1528,7 +1560,7 @@ Viewer2DExportResult ExportLayoutToPdf(
             double symbolLeft =
                 topSlotLeft + std::max(0.0, (leftSlotWidth - topDrawW) * 0.5);
             if (topSvg)
-              drawSvg(topSvg, symbolLeft, topDrawW, topDrawH);
+              drawSvg(topSvg, symbolLeft, topDrawW, topDrawH, pairScaleSvg);
             else
               drawSymbol(topSymbol, topDrawW, topDrawH, symbolLeft);
           }
@@ -1537,7 +1569,7 @@ Viewer2DExportResult ExportLayoutToPdf(
                 frontSlotLeft +
                 std::max(0.0, (rightSlotWidth - frontDrawW) * 0.5);
             if (frontSvg)
-              drawSvg(frontSvg, symbolLeft, frontDrawW, frontDrawH);
+              drawSvg(frontSvg, symbolLeft, frontDrawW, frontDrawH, pairScaleSvg);
             else
               drawSymbol(frontSymbol, frontDrawW, frontDrawH, symbolLeft);
           }

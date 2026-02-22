@@ -933,6 +933,16 @@ wxImage LayoutViewerPanel::BuildLegendImage(
                                   symbolSize / symbol->viewBoxHeight);
     return symbol->viewBoxHeight * scale;
   };
+  auto sharedPairScaleSvg = [&](const PerastageSvgSymbolData *topSvg,
+                                const PerastageSvgSymbolData *frontSvg) {
+    if (!topSvg || !frontSvg)
+      return 0.0;
+    const double topScale =
+        std::min(symbolSize / topSvg->viewBoxWidth, symbolSize / topSvg->viewBoxHeight);
+    const double frontScale = std::min(symbolSize / frontSvg->viewBoxWidth,
+                                       symbolSize / frontSvg->viewBoxHeight);
+    return std::min(topScale, frontScale);
+  };
 
   auto pairGapForRow = [&](const PerastageSvgSymbolData *topSvg,
                            const PerastageSvgSymbolData *frontSvg) {
@@ -952,10 +962,16 @@ wxImage LayoutViewerPanel::BuildLegendImage(
           symbols, item.symbolKey, SymbolViewKind::Top);
       const SymbolDefinition *frontSymbol = FindSymbolDefinitionExact(
           symbols, item.symbolKey, SymbolViewKind::Front);
+      const double pairScaleSvg = sharedPairScaleSvg(topSvg, frontSvg);
       const double topDrawW =
-          topSvg ? symbolDrawWidthSvg(topSvg) : symbolDrawWidth(topSymbol);
-      const double frontDrawW = frontSvg ? symbolDrawWidthSvg(frontSvg)
-                                         : symbolDrawWidth(frontSymbol);
+          (topSvg && pairScaleSvg > 0.0)
+              ? topSvg->viewBoxWidth * pairScaleSvg
+              : (topSvg ? symbolDrawWidthSvg(topSvg) : symbolDrawWidth(topSymbol));
+      const double frontDrawW =
+          (frontSvg && pairScaleSvg > 0.0)
+              ? frontSvg->viewBoxWidth * pairScaleSvg
+              : (frontSvg ? symbolDrawWidthSvg(frontSvg)
+                          : symbolDrawWidth(frontSymbol));
       double rowPairWidth = std::max(topDrawW, frontDrawW);
       if (topDrawW > 0.0 && frontDrawW > 0.0)
         rowPairWidth = topDrawW + frontDrawW + pairGapForRow(topSvg, frontSvg);
@@ -1058,11 +1074,13 @@ wxImage LayoutViewerPanel::BuildLegendImage(
                                   mapping);
       };
       auto drawSvg = [&](const PerastageSvgSymbolData *symbol, double drawLeft,
-                         double drawTop) {
+                         double drawTop, double scaleOverride) {
         if (!symbol)
           return;
-        const double scale = std::min(symbolSize / symbol->viewBoxWidth,
-                                      symbolSize / symbol->viewBoxHeight);
+        const double scale = scaleOverride > 0.0
+                                 ? scaleOverride
+                                 : std::min(symbolSize / symbol->viewBoxWidth,
+                                            symbolSize / symbol->viewBoxHeight);
         if (scale <= 0.0)
           return;
         wxGraphicsContext *gc = dc.GetGraphicsContext();
@@ -1096,14 +1114,23 @@ wxImage LayoutViewerPanel::BuildLegendImage(
         }
         gc->PopState();
       };
-      const double topDrawW = topSvg ? symbolDrawWidthSvg(topSvg)
-                                     : symbolDrawWidth(topSymbol);
-      const double frontDrawW = frontSvg ? symbolDrawWidthSvg(frontSvg)
-                                         : symbolDrawWidth(frontSymbol);
-      const double topDrawH = topSvg ? symbolDrawHeightSvg(topSvg)
-                                     : symbolDrawHeight(topSymbol);
-      const double frontDrawH = frontSvg ? symbolDrawHeightSvg(frontSvg)
-                                         : symbolDrawHeight(frontSymbol);
+      const double pairScaleSvg = sharedPairScaleSvg(topSvg, frontSvg);
+      const double topDrawW = (topSvg && pairScaleSvg > 0.0)
+                                  ? topSvg->viewBoxWidth * pairScaleSvg
+                                  : (topSvg ? symbolDrawWidthSvg(topSvg)
+                                            : symbolDrawWidth(topSymbol));
+      const double frontDrawW = (frontSvg && pairScaleSvg > 0.0)
+                                    ? frontSvg->viewBoxWidth * pairScaleSvg
+                                    : (frontSvg ? symbolDrawWidthSvg(frontSvg)
+                                                : symbolDrawWidth(frontSymbol));
+      const double topDrawH = (topSvg && pairScaleSvg > 0.0)
+                                  ? topSvg->viewBoxHeight * pairScaleSvg
+                                  : (topSvg ? symbolDrawHeightSvg(topSvg)
+                                            : symbolDrawHeight(topSymbol));
+      const double frontDrawH = (frontSvg && pairScaleSvg > 0.0)
+                                    ? frontSvg->viewBoxHeight * pairScaleSvg
+                                    : (frontSvg ? symbolDrawHeightSvg(frontSvg)
+                                                : symbolDrawHeight(frontSymbol));
       if (topDrawW > 0.0 || frontDrawW > 0.0) {
         const double slotWidth = static_cast<double>(symbolSlotSize);
         double rowPairWidth = std::max(topDrawW, frontDrawW);
@@ -1128,7 +1155,7 @@ wxImage LayoutViewerPanel::BuildLegendImage(
           double symbolDrawLeft =
               topSlotLeft + std::max(0.0, (leftSlotWidth - topDrawW) * 0.5);
           if (topSvg)
-            drawSvg(topSvg, symbolDrawLeft, symbolDrawTop);
+            drawSvg(topSvg, symbolDrawLeft, symbolDrawTop, pairScaleSvg);
           else
             drawSymbol(topSymbol, symbolDrawLeft, symbolDrawTop);
         }
@@ -1139,7 +1166,7 @@ wxImage LayoutViewerPanel::BuildLegendImage(
               frontSlotLeft +
               std::max(0.0, (rightSlotWidth - frontDrawW) * 0.5);
           if (frontSvg)
-            drawSvg(frontSvg, symbolDrawLeft, symbolDrawTop);
+            drawSvg(frontSvg, symbolDrawLeft, symbolDrawTop, pairScaleSvg);
           else
             drawSymbol(frontSymbol, symbolDrawLeft, symbolDrawTop);
         }
