@@ -51,6 +51,7 @@ private:
     int count = 0;
     std::optional<int> channelCount;
     std::string symbolKey;
+    std::optional<std::string> symbolFillHex;
   };
 
   struct ViewCache {

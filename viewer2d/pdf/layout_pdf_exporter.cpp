@@ -64,6 +64,35 @@ static bool ShouldTraceLabelOrder() {
   return enabled;
 }
 
+
+std::array<double, 3> ResolveLegendSvgFillRgb(
+    const std::optional<std::string> &hexColor) {
+  constexpr std::array<double, 3> kDefaultGray = {0.878, 0.878, 0.878};
+  if (!hexColor.has_value())
+    return kDefaultGray;
+
+  std::string value = *hexColor;
+  value.erase(std::remove_if(value.begin(), value.end(), [](unsigned char ch) {
+                return std::isspace(ch) != 0;
+              }),
+              value.end());
+  if (!value.empty() && value.front() == '#')
+    value.erase(value.begin());
+  if (value.size() != 6)
+    return kDefaultGray;
+  if (!std::all_of(value.begin(), value.end(), [](unsigned char ch) {
+        return std::isxdigit(ch) != 0;
+      })) {
+    return kDefaultGray;
+  }
+
+  auto parse = [&](size_t offset) {
+    return static_cast<double>(std::stoi(value.substr(offset, 2), nullptr, 16)) /
+           255.0;
+  };
+  return {parse(0), parse(2), parse(4)};
+}
+
 double ComputeTextLineAdvance(double ascent, double descent) {
   // Negative because PDF moves the text cursor downward with a negative y
   // translation. The advance mirrors the ascent + descent used by the
@@ -1508,7 +1537,9 @@ Viewer2DExportResult ExportLayoutToPdf(
                           << formatter.Format(symbolOffsetY) << " cm\n/"
                           << nameIt->second << " Do\nQ\n";
           };
-          auto drawSvg = [&](const PerastageSvgSymbolData *svg, double drawLeft,
+          auto drawSvg = [&](const PerastageSvgSymbolData *svg,
+                             const std::optional<std::string> &fillHex,
+                             double drawLeft,
                              double drawW, double drawH, double scaleOverride) {
             if (!svg || drawW <= 0.0 || drawH <= 0.0)
               return;
@@ -1523,7 +1554,10 @@ Viewer2DExportResult ExportLayoutToPdf(
                               svg->offsetYmm * scale;
             contentStream << "q\n1 0 0 1 " << formatter.Format(ox) << ' '
                           << formatter.Format(oy) << " cm\n";
-            contentStream << "0.878 0.878 0.878 rg\n";
+            const auto fillRgb = ResolveLegendSvgFillRgb(fillHex);
+            contentStream << formatter.Format(fillRgb[0]) << " "
+                          << formatter.Format(fillRgb[1]) << " "
+                          << formatter.Format(fillRgb[2]) << " rg\n";
             for (const auto &polygon : svg->fills) {
               if (polygon.points.size() < 3)
                 continue;
@@ -1560,7 +1594,7 @@ Viewer2DExportResult ExportLayoutToPdf(
             double symbolLeft =
                 topSlotLeft + std::max(0.0, (leftSlotWidth - topDrawW) * 0.5);
             if (topSvg)
-              drawSvg(topSvg, symbolLeft, topDrawW, topDrawH, pairScaleSvg);
+              drawSvg(topSvg, item.symbolFillHex, symbolLeft, topDrawW, topDrawH, pairScaleSvg);
             else
               drawSymbol(topSymbol, topDrawW, topDrawH, symbolLeft);
           }
@@ -1569,7 +1603,7 @@ Viewer2DExportResult ExportLayoutToPdf(
                 frontSlotLeft +
                 std::max(0.0, (rightSlotWidth - frontDrawW) * 0.5);
             if (frontSvg)
-              drawSvg(frontSvg, symbolLeft, frontDrawW, frontDrawH, pairScaleSvg);
+              drawSvg(frontSvg, item.symbolFillHex, symbolLeft, frontDrawW, frontDrawH, pairScaleSvg);
             else
               drawSymbol(frontSymbol, frontDrawW, frontDrawH, symbolLeft);
           }

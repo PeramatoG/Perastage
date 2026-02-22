@@ -171,6 +171,16 @@ wxColour ToWxColor(const CanvasColor &color) {
                   clamp(color.a));
 }
 
+wxColour ResolveLegendSvgFillColor(const std::optional<std::string> &hexColor) {
+  if (!hexColor.has_value())
+    return wxColour(224, 224, 224);
+
+  wxColour parsed(wxString::FromUTF8(hexColor.value()));
+  if (!parsed.IsOk())
+    return wxColour(224, 224, 224);
+  return parsed;
+}
+
 class LegendSymbolBackend : public viewer2d::IViewer2DCommandBackend {
 public:
   explicit LegendSymbolBackend(wxGCDC &dc)
@@ -729,6 +739,7 @@ LayoutViewerPanel::BuildLegendItems() const {
     item.count = shared.count;
     item.channelCount = shared.channelCount;
     item.symbolKey = shared.symbolKey;
+    item.symbolFillHex = shared.symbolFillHex;
     items.push_back(std::move(item));
   }
   return items;
@@ -745,6 +756,7 @@ size_t LayoutViewerPanel::HashLegendItems(
     int chValue = item.channelCount.value_or(-1);
     hash ^= intHasher(chValue) + 0x9e3779b9 + (hash << 6) + (hash >> 2);
     hash ^= strHasher(item.symbolKey) + 0x9e3779b9 + (hash << 6) + (hash >> 2);
+    hash ^= strHasher(item.symbolFillHex.value_or("")) + 0x9e3779b9 + (hash << 6) + (hash >> 2);
   }
   return hash;
 }
@@ -1073,8 +1085,9 @@ wxImage LayoutViewerPanel::BuildLegendImage(
                                   Transform2D::Identity(), symbols, backend,
                                   mapping);
       };
-      auto drawSvg = [&](const PerastageSvgSymbolData *symbol, double drawLeft,
-                         double drawTop, double scaleOverride) {
+      auto drawSvg = [&](const PerastageSvgSymbolData *symbol,
+                         const std::optional<std::string> &fillHex,
+                         double drawLeft, double drawTop, double scaleOverride) {
         if (!symbol)
           return;
         const double scale = scaleOverride > 0.0
@@ -1089,7 +1102,7 @@ wxImage LayoutViewerPanel::BuildLegendImage(
         gc->PushState();
         gc->Translate(drawLeft, drawTop);
         gc->Scale(scale, scale);
-        gc->SetBrush(wxBrush(wxColour(224, 224, 224)));
+        gc->SetBrush(wxBrush(ResolveLegendSvgFillColor(fillHex)));
         gc->SetPen(*wxTRANSPARENT_PEN);
         for (const auto &polygon : symbol->fills) {
           if (polygon.points.empty())
@@ -1155,7 +1168,7 @@ wxImage LayoutViewerPanel::BuildLegendImage(
           double symbolDrawLeft =
               topSlotLeft + std::max(0.0, (leftSlotWidth - topDrawW) * 0.5);
           if (topSvg)
-            drawSvg(topSvg, symbolDrawLeft, symbolDrawTop, pairScaleSvg);
+            drawSvg(topSvg, item.symbolFillHex, symbolDrawLeft, symbolDrawTop, pairScaleSvg);
           else
             drawSymbol(topSymbol, symbolDrawLeft, symbolDrawTop);
         }
@@ -1166,7 +1179,7 @@ wxImage LayoutViewerPanel::BuildLegendImage(
               frontSlotLeft +
               std::max(0.0, (rightSlotWidth - frontDrawW) * 0.5);
           if (frontSvg)
-            drawSvg(frontSvg, symbolDrawLeft, symbolDrawTop, pairScaleSvg);
+            drawSvg(frontSvg, item.symbolFillHex, symbolDrawLeft, symbolDrawTop, pairScaleSvg);
           else
             drawSymbol(frontSymbol, symbolDrawLeft, symbolDrawTop);
         }

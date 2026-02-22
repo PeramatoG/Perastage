@@ -18,6 +18,7 @@
 #include "layoutlegenditems.h"
 
 #include <filesystem>
+#include <cctype>
 #include <map>
 
 #include <wx/filename.h>
@@ -33,7 +34,30 @@ struct LegendAggregate {
   std::optional<int> channelCount;
   bool mixedChannels = false;
   std::string symbolKey;
+  std::optional<std::string> firstColor;
+  bool hasMixedColors = false;
 };
+
+std::optional<std::string> NormalizeHexColor(const std::string &raw) {
+  std::string value;
+  value.reserve(raw.size());
+  for (char ch : raw) {
+    if (!std::isspace(static_cast<unsigned char>(ch)))
+      value.push_back(ch);
+  }
+  if (value.empty())
+    return std::nullopt;
+  if (!value.empty() && value.front() == '#')
+    value.erase(value.begin());
+  if (value.size() != 6)
+    return std::nullopt;
+  for (char &ch : value) {
+    if (!std::isxdigit(static_cast<unsigned char>(ch)))
+      return std::nullopt;
+    ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
+  }
+  return "#" + value;
+}
 } // namespace
 
 std::vector<SharedLayoutLegendItem> BuildSharedLayoutLegendItems() {
@@ -84,6 +108,16 @@ std::vector<SharedLayoutLegendItem> BuildSharedLayoutLegendItems() {
     // symbol even when the type contains mixed fixture variants.
     if (agg.symbolKey.empty() && !symbolKey.empty())
       agg.symbolKey = symbolKey;
+
+    const std::optional<std::string> fixtureColor =
+        NormalizeHexColor(fixture.color);
+    if (!fixtureColor.has_value())
+      continue;
+    if (!agg.firstColor.has_value()) {
+      agg.firstColor = fixtureColor;
+    } else if (agg.firstColor.value() != fixtureColor.value()) {
+      agg.hasMixedColors = true;
+    }
   }
 
   std::vector<SharedLayoutLegendItem> items;
@@ -95,6 +129,8 @@ std::vector<SharedLayoutLegendItem> BuildSharedLayoutLegendItems() {
     if (agg.channelCount.has_value() && !agg.mixedChannels)
       item.channelCount = agg.channelCount;
     item.symbolKey = agg.symbolKey;
+    if (agg.firstColor.has_value() && !agg.hasMixedColors)
+      item.symbolFillHex = agg.firstColor;
     items.push_back(item);
   }
 
@@ -107,4 +143,3 @@ std::vector<SharedLayoutLegendItem> BuildSharedLayoutLegendItems() {
 
   return items;
 }
-
