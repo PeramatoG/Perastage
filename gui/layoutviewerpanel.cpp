@@ -880,6 +880,7 @@ void LayoutViewerPanel::OnSize(wxSizeEvent &) {
 
 void LayoutViewerPanel::OnLeftDown(wxMouseEvent &event) {
   SetFocus();
+  deferredResizeFrame_.reset();
   const wxPoint pos = event.GetPosition();
   SelectElementAtPosition(pos);
   layouts::Layout2DViewFrame selectedFrame;
@@ -906,6 +907,10 @@ void LayoutViewerPanel::OnLeftDown(wxMouseEvent &event) {
 
 void LayoutViewerPanel::OnLeftUp(wxMouseEvent &) {
   if (dragMode != FrameDragMode::None) {
+    if (dragMode != FrameDragMode::Move && deferredResizeFrame_.has_value()) {
+      ApplyFrameUpdateToSelection(*deferredResizeFrame_, false);
+    }
+    deferredResizeFrame_.reset();
     dragMode = FrameDragMode::None;
     layouts::LayoutManager::Get().EndBatchUpdate();
     if (HasCapture())
@@ -1084,16 +1089,11 @@ void LayoutViewerPanel::OnMouseMove(wxMouseEvent &event) {
         }
       }
     }
-    if (selectedElementType == SelectedElementType::Legend) {
-      UpdateLegendFrame(frame, dragMode == FrameDragMode::Move);
-    } else if (selectedElementType == SelectedElementType::EventTable) {
-      UpdateEventTableFrame(frame, dragMode == FrameDragMode::Move);
-    } else if (selectedElementType == SelectedElementType::Text) {
-      UpdateTextFrame(frame, dragMode == FrameDragMode::Move);
-    } else if (selectedElementType == SelectedElementType::Image) {
-      UpdateImageFrame(frame, dragMode == FrameDragMode::Move);
+    const bool updatePosition = dragMode == FrameDragMode::Move;
+    if (updatePosition) {
+      ApplyFrameUpdateToSelection(frame, true);
     } else {
-      UpdateFrame(frame, dragMode == FrameDragMode::Move);
+      deferredResizeFrame_ = frame;
     }
     return;
   }
@@ -1140,10 +1140,26 @@ void LayoutViewerPanel::OnMouseWheel(wxMouseEvent &event) {
 
 void LayoutViewerPanel::OnCaptureLost(wxMouseCaptureLostEvent &) {
   isPanning = false;
+  deferredResizeFrame_.reset();
   if (dragMode != FrameDragMode::None) {
     layouts::LayoutManager::Get().EndBatchUpdate();
   }
   dragMode = FrameDragMode::None;
+}
+
+void LayoutViewerPanel::ApplyFrameUpdateToSelection(
+    const layouts::Layout2DViewFrame &frame, bool updatePosition) {
+  if (selectedElementType == SelectedElementType::Legend) {
+    UpdateLegendFrame(frame, updatePosition);
+  } else if (selectedElementType == SelectedElementType::EventTable) {
+    UpdateEventTableFrame(frame, updatePosition);
+  } else if (selectedElementType == SelectedElementType::Text) {
+    UpdateTextFrame(frame, updatePosition);
+  } else if (selectedElementType == SelectedElementType::Image) {
+    UpdateImageFrame(frame, updatePosition);
+  } else {
+    UpdateFrame(frame, updatePosition);
+  }
 }
 
 void LayoutViewerPanel::OnRightUp(wxMouseEvent &event) {
