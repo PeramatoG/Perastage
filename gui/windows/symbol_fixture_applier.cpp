@@ -15,6 +15,7 @@
 #include "configmanager.h"
 #include "guiconfigservices.h"
 #include "gdtfdictionary.h"
+#include "projectutils.h"
 #include "windows/symbol_preview_exporter.h"
 
 namespace fs = std::filesystem;
@@ -80,6 +81,20 @@ std::string ResolveGdtfPath(const Fixture &fixture) {
       if (fs::exists(entryPath, ec) && !ec)
         return entryPath.string();
     }
+  }
+
+  std::error_code ec;
+  const fs::path fixturesLibrary =
+      fs::path(ProjectUtils::GetDefaultLibraryPath("fixtures"));
+
+  if (specPath.is_absolute() && fs::exists(specPath, ec) && !ec)
+    return specPath.string();
+
+  if (!specFileName.empty()) {
+    ec.clear();
+    const fs::path fromLibrary = fixturesLibrary / specFileName;
+    if (fs::exists(fromLibrary, ec) && !ec)
+      return fromLibrary.string();
   }
 
   return {};
@@ -282,7 +297,7 @@ bool ApplySymbolsToFixtureGdtf(const std::vector<symbols::Symbol2D> &symbols,
 
   const std::string gdtfPath = ResolveGdtfPath(fixtureIt->second);
   if (gdtfPath.empty()) {
-    errorMessage = "Could not resolve fixture GDTF in dictionary (by type or file name).";
+    errorMessage = "Could not resolve fixture GDTF path in fixtures library.";
     return false;
   }
 
