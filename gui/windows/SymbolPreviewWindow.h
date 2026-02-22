@@ -30,6 +30,7 @@ private:
                 const wxString &label);
   std::vector<PreviewCell> BuildPreviewCells(const wxSize &size) const;
   std::optional<PreviewCell> FindCellAt(const wxPoint &point) const;
+  bool HasAnyValidSymbol() const;
 
   static const symbols::Symbol2D *FindSymbol(
       const std::vector<symbols::Symbol2D> &symbols, symbols::SymbolView view);

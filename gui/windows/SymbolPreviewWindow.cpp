@@ -113,22 +113,34 @@ void SymbolPreviewWindow::OnSize(wxSizeEvent &event) {
   event.Skip();
 }
 
+bool SymbolPreviewWindow::HasAnyValidSymbol() const {
+  for (const auto &symbol : symbols_) {
+    if (symbol.bounds.valid)
+      return true;
+  }
+  return false;
+}
+
 void SymbolPreviewWindow::ShowExportMenuAt(const wxPoint &point) {
   const auto cell = FindCellAt(point);
   if (!cell.has_value())
     return;
 
   const symbols::Symbol2D *symbol = FindSymbol(symbols_, cell->view);
-  if (!symbol || !symbol->bounds.valid) {
-    wxMessageBox("This view has no drawable symbol to export.",
+  wxMenu menu;
+  if (symbol && symbol->bounds.valid) {
+    selectedViewForExport_ = cell->view;
+    menu.Append(ID_ExportSelectedViewAsSvg, "Export this view as SVG...");
+  }
+
+  if (HasAnyValidSymbol())
+    menu.Append(ID_ApplySymbolToFixture, "Apply views to fixture...");
+
+  if (menu.GetMenuItemCount() == 0) {
+    wxMessageBox("No valid symbol views are available.",
                  "Fixture Symbol Preview", wxOK | wxICON_INFORMATION, this);
     return;
   }
-
-  selectedViewForExport_ = cell->view;
-  wxMenu menu;
-  menu.Append(ID_ExportSelectedViewAsSvg, "Export this view as SVG...");
-  menu.Append(ID_ApplySymbolToFixture, "Apply symbol to fixture...");
   PopupMenu(&menu, point);
 }
 
@@ -177,13 +189,13 @@ void SymbolPreviewWindow::OnExportSelectedView(wxCommandEvent &WXUNUSED(event)) 
 void SymbolPreviewWindow::OnApplySymbolToFixture(wxCommandEvent &WXUNUSED(event)) {
   std::string errorMessage;
   if (!symbol_preview::ApplySymbolsToFixtureGdtf(symbols_, fixtureUuid_, errorMessage)) {
-    wxMessageBox(errorMessage, "Apply Symbol to Fixture", wxOK | wxICON_ERROR,
+    wxMessageBox(errorMessage, "Apply Views to Fixture", wxOK | wxICON_ERROR,
                  this);
     return;
   }
 
   wxMessageBox("Symbol views applied to fixture GDTF successfully.",
-               "Apply Symbol to Fixture", wxOK | wxICON_INFORMATION, this);
+               "Apply Views to Fixture", wxOK | wxICON_INFORMATION, this);
 }
 
 void SymbolPreviewWindow::OnPaint(wxPaintEvent &WXUNUSED(event)) {

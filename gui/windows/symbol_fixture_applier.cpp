@@ -1,5 +1,6 @@
 #include "windows/symbol_fixture_applier.h"
 
+#include <algorithm>
 #include <filesystem>
 #include <memory>
 #include <string>
@@ -13,7 +14,7 @@
 
 #include "configmanager.h"
 #include "guiconfigservices.h"
-#include "projectutils.h"
+#include "gdtfdictionary.h"
 #include "windows/symbol_preview_exporter.h"
 
 namespace fs = std::filesystem;
@@ -41,29 +42,15 @@ bool ReadAllBytes(wxZipInputStream &zip, std::string &out) {
   return true;
 }
 
-std::string ResolveGdtfPath(const Fixture &fixture, const MvrScene &scene) {
-  if (fixture.gdtfSpec.empty())
+std::string ResolveGdtfPath(const Fixture &fixture) {
+  if (fixture.typeName.empty())
     return {};
 
-  const fs::path specPath = fs::path(fixture.gdtfSpec);
-  std::error_code ec;
-  if (specPath.is_absolute() && fs::exists(specPath, ec) && !ec)
-    return specPath.string();
+  const auto dictEntry = GdtfDictionary::Get(fixture.typeName);
+  if (!dictEntry || dictEntry->path.empty())
+    return {};
 
-  if (!scene.basePath.empty()) {
-    fs::path localPath = fs::path(scene.basePath) / specPath;
-    ec.clear();
-    if (fs::exists(localPath, ec) && !ec)
-      return localPath.string();
-  }
-
-  fs::path libraryPath =
-      fs::path(ProjectUtils::GetDefaultLibraryPath("fixtures")) / specPath.filename();
-  ec.clear();
-  if (fs::exists(libraryPath, ec) && !ec)
-    return libraryPath.string();
-
-  return {};
+  return dictEntry->path;
 }
 
 const symbols::Symbol2D *FindSymbol(const std::vector<symbols::Symbol2D> &symbols,
@@ -160,27 +147,31 @@ bool PatchDescriptionXml(const std::string &xml,
 bool RewriteGdtf(const fs::path &sourcePath,
                  const std::unordered_map<std::string, SymbolPayload> &payloads,
                  std::string &errorMessage) {
-  wxFileInputStream input(sourcePath.string());
-  if (!input.IsOk()) {
-    errorMessage = "Could not open fixture GDTF file for reading.";
-    return false;
+  std::vector<std::pair<std::string, std::string>> entries;
+  {
+    wxFileInputStream input(sourcePath.string());
+    if (!input.IsOk()) {
+      errorMessage = "Could not open fixture GDTF file for reading.";
+      return false;
+    }
+
+    wxZipInputStream zipInput(input);
+    std::unique_ptr<wxZipEntry> entry;
+    while ((entry.reset(zipInput.GetNextEntry())), entry) {
+      const std::string name = entry->GetName().ToStdString();
+      if (entry->IsDir())
+        continue;
+
+      std::string content;
+      ReadAllBytes(zipInput, content);
+      entries.emplace_back(name, std::move(content));
+    }
   }
 
-  wxZipInputStream zipInput(input);
-  std::unordered_map<std::string, std::string> entries;
-
-  std::unique_ptr<wxZipEntry> entry;
-  while ((entry.reset(zipInput.GetNextEntry())), entry) {
-    const std::string name = entry->GetName().ToStdString();
-    if (entry->IsDir())
-      continue;
-
-    std::string content;
-    ReadAllBytes(zipInput, content);
-    entries[name] = std::move(content);
-  }
-
-  auto descriptionIt = entries.find("description.xml");
+  auto descriptionIt = std::find_if(entries.begin(), entries.end(),
+                                    [](const auto &entry) {
+                                      return entry.first == "description.xml";
+                                    });
   if (descriptionIt == entries.end()) {
     errorMessage = "The GDTF file does not contain description.xml.";
     return false;
@@ -192,9 +183,17 @@ bool RewriteGdtf(const fs::path &sourcePath,
     return false;
   }
 
-  entries["description.xml"] = std::move(updatedDescription);
-  for (const auto &[path, payload] : payloads)
-    entries[path] = payload.svg;
+  descriptionIt->second = std::move(updatedDescription);
+  for (const auto &[path, payload] : payloads) {
+    auto existing = std::find_if(entries.begin(), entries.end(),
+                                 [&](const auto &entry) {
+                                   return entry.first == path;
+                                 });
+    if (existing != entries.end())
+      existing->second = payload.svg;
+    else
+      entries.emplace_back(path, payload.svg);
+  }
 
   const fs::path tempPath = sourcePath.string() + ".tmp";
   wxFileOutputStream output(tempPath.string());
@@ -247,9 +246,9 @@ bool ApplySymbolsToFixtureGdtf(const std::vector<symbols::Symbol2D> &symbols,
     return false;
   }
 
-  const std::string gdtfPath = ResolveGdtfPath(fixtureIt->second, scene);
+  const std::string gdtfPath = ResolveGdtfPath(fixtureIt->second);
   if (gdtfPath.empty()) {
-    errorMessage = "Could not resolve the fixture GDTF file path.";
+    errorMessage = "Could not resolve the fixture GDTF file path. Only fixtures present in the GDTF dictionary can be updated.";
     return false;
   }
 
@@ -274,9 +273,16 @@ bool ApplySymbolsToFixtureGdtf(const std::vector<symbols::Symbol2D> &symbols,
     payloads[frontPayload.archivePath] = std::move(frontPayload);
   }
 
+  SymbolPayload bottomPayload;
+  if (BuildSymbolPayload(symbols, symbols::SymbolView::Bottom,
+                         "models/svg/bottom.svg", bottomPayload,
+                         errorMessage)) {
+    payloads[bottomPayload.archivePath] = std::move(bottomPayload);
+  }
+
   if (payloads.empty()) {
     errorMessage =
-        "No valid Top, Left, or Front symbol was available to apply to the fixture.";
+        "No valid symbol views were available to apply to the fixture.";
     return false;
   }
 
