@@ -10,5 +10,8 @@ bool ExportSymbolToSvg(const symbols::Symbol2D &symbol,
                        const std::string &filePath,
                        std::string &errorMessage);
 
-} // namespace symbol_preview
+bool ExportSymbolToSvgString(const symbols::Symbol2D &symbol,
+                             std::string &svgContent,
+                             std::string &errorMessage);
 
+} // namespace symbol_preview

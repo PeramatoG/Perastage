@@ -21,11 +21,8 @@ std::string BuildPoints(const symbols::Polyline2D &line,
   return stream.str();
 }
 
-} // namespace
-
-bool ExportSymbolToSvg(const symbols::Symbol2D &symbol,
-                       const std::string &filePath,
-                       std::string &errorMessage) {
+bool BuildSvgContent(const symbols::Symbol2D &symbol, std::string &svgContent,
+                     std::string &errorMessage) {
   if (!symbol.bounds.valid) {
     errorMessage = "The selected view has no drawable symbol.";
     return false;
@@ -38,12 +35,7 @@ bool ExportSymbolToSvg(const symbols::Symbol2D &symbol,
     return false;
   }
 
-  std::ofstream file(filePath);
-  if (!file.is_open()) {
-    errorMessage = "Could not open the output file.";
-    return false;
-  }
-
+  std::ostringstream file;
   file << "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n";
   file << "<svg xmlns=\"http://www.w3.org/2000/svg\" version=\"1.1\" "
           "viewBox=\"0 0 "
@@ -78,8 +70,33 @@ bool ExportSymbolToSvg(const symbols::Symbol2D &symbol,
     return false;
   }
 
+  svgContent = file.str();
   return true;
 }
 
-} // namespace symbol_preview
+} // namespace
 
+bool ExportSymbolToSvg(const symbols::Symbol2D &symbol,
+                       const std::string &filePath,
+                       std::string &errorMessage) {
+  std::string svgContent;
+  if (!BuildSvgContent(symbol, svgContent, errorMessage))
+    return false;
+
+  std::ofstream file(filePath);
+  if (!file.is_open()) {
+    errorMessage = "Could not open the output file.";
+    return false;
+  }
+
+  file << svgContent;
+  return file.good();
+}
+
+bool ExportSymbolToSvgString(const symbols::Symbol2D &symbol,
+                             std::string &svgContent,
+                             std::string &errorMessage) {
+  return BuildSvgContent(symbol, svgContent, errorMessage);
+}
+
+} // namespace symbol_preview
