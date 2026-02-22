@@ -27,6 +27,7 @@
 #include <fstream>
 #include <iomanip>
 #include <limits>
+#include <optional>
 #include <sstream>
 #include <string>
 #include <string_view>
@@ -42,6 +43,7 @@
 #include "pdf_draw_commands.h"
 #include "pdf_font_metrics.h"
 #include "pdf_objects.h"
+#include "symbols/PerastageSvgSymbol.h"
 #include "viewer2dcommandrenderer.h"
 
 namespace {
@@ -860,6 +862,39 @@ Viewer2DExportResult ExportLayoutToPdf(
   FloatFormatter formatter(options.floatPrecision);
   std::unordered_map<std::string, size_t> xObjectNameIds;
   std::unordered_map<uint32_t, std::string> legendSymbolNames;
+  struct LegendSvgCacheKey {
+    std::string symbolKey;
+    SymbolViewKind viewKind = SymbolViewKind::Top;
+
+    bool operator==(const LegendSvgCacheKey &other) const {
+      return symbolKey == other.symbolKey && viewKind == other.viewKind;
+    }
+  };
+  struct LegendSvgCacheHasher {
+    size_t operator()(const LegendSvgCacheKey &key) const {
+      return std::hash<std::string>{}(key.symbolKey) ^
+             (static_cast<size_t>(key.viewKind) << 1);
+    }
+  };
+  std::unordered_map<LegendSvgCacheKey, std::optional<PerastageSvgSymbolData>,
+                     LegendSvgCacheHasher>
+      legendSvgCache;
+  auto findLegendSvg = [&](const std::string &symbolKey,
+                           SymbolViewKind viewKind)
+      -> const PerastageSvgSymbolData * {
+    if (symbolKey.empty())
+      return nullptr;
+    LegendSvgCacheKey cacheKey{symbolKey, viewKind};
+    auto it = legendSvgCache.find(cacheKey);
+    if (it == legendSvgCache.end()) {
+      PerastageSvgSymbolData data;
+      std::optional<PerastageSvgSymbolData> loaded;
+      if (LoadPerastageSvgSymbolFromGdtf(symbolKey, viewKind, data))
+        loaded = std::move(data);
+      it = legendSvgCache.emplace(std::move(cacheKey), std::move(loaded)).first;
+    }
+    return it->second ? &it->second.value() : nullptr;
+  };
   const double legendStrokeScale = 1.0 / viewer2d::kViewer2DPixelsPerMeter;
   auto makeLegendIdName = [](uint32_t symbolId) {
     return "L" + std::to_string(symbolId);
@@ -873,10 +908,8 @@ Viewer2DExportResult ExportLayoutToPdf(
   for (const auto &legend : legends) {
     const SymbolDefinitionSnapshot *legendSymbols =
         legend.symbolSnapshot ? legend.symbolSnapshot.get() : symbolSnapshot.get();
-    if (!legendSymbols)
-      continue;
     for (const auto &item : legend.items) {
-      if (item.symbolKey.empty())
+      if (item.symbolKey.empty() || !legendSymbols)
         continue;
       const SymbolDefinition *topSymbol = FindSymbolDefinitionPreferred(
           legendSymbols, item.symbolKey, SymbolViewKind::Top);
@@ -1272,26 +1305,48 @@ Viewer2DExportResult ExportLayoutToPdf(
       double scale = std::min(symbolSize / symbolW, symbolSize / symbolH);
       return symbolH * scale;
     };
+    auto symbolDrawWidthSvg = [&](const PerastageSvgSymbolData *symbol) -> double {
+      if (!symbol || symbol->viewBoxWidth <= 0.0 || symbol->viewBoxHeight <= 0.0)
+        return 0.0;
+      const double scale = std::min(symbolSize / symbol->viewBoxWidth,
+                                    symbolSize / symbol->viewBoxHeight);
+      return symbol->viewBoxWidth * scale;
+    };
+    auto symbolDrawHeightSvg = [&](const PerastageSvgSymbolData *symbol) -> double {
+      if (!symbol || symbol->viewBoxWidth <= 0.0 || symbol->viewBoxHeight <= 0.0)
+        return 0.0;
+      const double scale = std::min(symbolSize / symbol->viewBoxWidth,
+                                    symbolSize / symbol->viewBoxHeight);
+      return symbol->viewBoxHeight * scale;
+    };
     double maxSymbolPairWidth = symbolSize;
     const SymbolDefinitionSnapshot *legendSymbolsForSizing =
         legend.symbolSnapshot ? legend.symbolSnapshot.get()
                               : symbolSnapshot.get();
-    if (legendSymbolsForSizing) {
-      for (const auto &item : legend.items) {
+    for (const auto &item : legend.items) {
         if (item.symbolKey.empty())
           continue;
-        const SymbolDefinition *topSymbol = FindSymbolDefinitionPreferred(
-            legendSymbolsForSizing, item.symbolKey, SymbolViewKind::Top);
-        const SymbolDefinition *frontSymbol = FindSymbolDefinitionExact(
-            legendSymbolsForSizing, item.symbolKey, SymbolViewKind::Front);
-        const double topDrawW = symbolDrawWidth(topSymbol);
-        const double frontDrawW = symbolDrawWidth(frontSymbol);
+        const PerastageSvgSymbolData *topSvg =
+            findLegendSvg(item.symbolKey, SymbolViewKind::Top);
+        const PerastageSvgSymbolData *frontSvg =
+            findLegendSvg(item.symbolKey, SymbolViewKind::Front);
+        const SymbolDefinition *topSymbol = legendSymbolsForSizing
+            ? FindSymbolDefinitionPreferred(legendSymbolsForSizing, item.symbolKey,
+                                           SymbolViewKind::Top)
+            : nullptr;
+        const SymbolDefinition *frontSymbol = legendSymbolsForSizing
+            ? FindSymbolDefinitionExact(legendSymbolsForSizing, item.symbolKey,
+                                       SymbolViewKind::Front)
+            : nullptr;
+        const double topDrawW =
+            topSvg ? symbolDrawWidthSvg(topSvg) : symbolDrawWidth(topSymbol);
+        const double frontDrawW =
+            frontSvg ? symbolDrawWidthSvg(frontSvg) : symbolDrawWidth(frontSymbol);
         double rowPairWidth = std::max(topDrawW, frontDrawW);
         if (topDrawW > 0.0 && frontDrawW > 0.0)
           rowPairWidth = topDrawW + frontDrawW + symbolPairGapSize;
         maxSymbolPairWidth = std::max(maxSymbolPairWidth, rowPairWidth);
       }
-    }
     const double symbolSlotSize = std::max(
         4.0, maxSymbolPairWidth * kLegendSymbolColumnScale);
     const double rowHeight =
@@ -1351,14 +1406,26 @@ Viewer2DExportResult ExportLayoutToPdf(
         const SymbolDefinitionSnapshot *legendSymbols =
             legend.symbolSnapshot ? legend.symbolSnapshot.get()
                                   : symbolSnapshot.get();
-        const SymbolDefinition *topSymbol = FindSymbolDefinitionPreferred(
-            legendSymbols, item.symbolKey, SymbolViewKind::Top);
-        const SymbolDefinition *frontSymbol = FindSymbolDefinitionExact(
-            legendSymbols, item.symbolKey, SymbolViewKind::Front);
-        const double topDrawW = symbolDrawWidth(topSymbol);
-        const double frontDrawW = symbolDrawWidth(frontSymbol);
-        const double topDrawH = symbolDrawHeight(topSymbol);
-        const double frontDrawH = symbolDrawHeight(frontSymbol);
+        const PerastageSvgSymbolData *topSvg =
+            findLegendSvg(item.symbolKey, SymbolViewKind::Top);
+        const PerastageSvgSymbolData *frontSvg =
+            findLegendSvg(item.symbolKey, SymbolViewKind::Front);
+        const SymbolDefinition *topSymbol = legendSymbols
+            ? FindSymbolDefinitionPreferred(legendSymbols, item.symbolKey,
+                                           SymbolViewKind::Top)
+            : nullptr;
+        const SymbolDefinition *frontSymbol = legendSymbols
+            ? FindSymbolDefinitionExact(legendSymbols, item.symbolKey,
+                                       SymbolViewKind::Front)
+            : nullptr;
+        const double topDrawW =
+            topSvg ? symbolDrawWidthSvg(topSvg) : symbolDrawWidth(topSymbol);
+        const double frontDrawW =
+            frontSvg ? symbolDrawWidthSvg(frontSvg) : symbolDrawWidth(frontSymbol);
+        const double topDrawH =
+            topSvg ? symbolDrawHeightSvg(topSvg) : symbolDrawHeight(topSymbol);
+        const double frontDrawH =
+            frontSvg ? symbolDrawHeightSvg(frontSvg) : symbolDrawHeight(frontSymbol);
         if (topDrawW > 0.0 || frontDrawW > 0.0) {
           double rowBottom = rowTop - rowHeight;
           double symbolBoxY = rowBottom + (rowHeight - symbolSize) * 0.5;
@@ -1404,16 +1471,68 @@ Viewer2DExportResult ExportLayoutToPdf(
                           << formatter.Format(symbolOffsetY) << " cm\n/"
                           << nameIt->second << " Do\nQ\n";
           };
-          if (topDrawW > 0.0) {
+          auto drawSvg = [&](const PerastageSvgSymbolData *svg, double drawLeft,
+                             double drawW, double drawH) {
+            if (!svg || drawW <= 0.0 || drawH <= 0.0)
+              return;
+            const double scale = std::min(symbolSize / svg->viewBoxWidth,
+                                          symbolSize / svg->viewBoxHeight);
+            if (scale <= 0.0)
+              return;
+            const double ox = drawLeft + svg->offsetXmm * scale;
+            const double oy = symbolBoxY + (symbolSize - drawH) * 0.5 +
+                              svg->offsetYmm * scale;
+            contentStream << "q\n1 0 0 1 " << formatter.Format(ox) << ' '
+                          << formatter.Format(oy) << " cm\n";
+            contentStream << "0.878 0.878 0.878 rg\n";
+            for (const auto &polygon : svg->fills) {
+              if (polygon.points.size() < 3)
+                continue;
+              contentStream << formatter.Format(polygon.points[0].x * scale)
+                            << ' '
+                            << formatter.Format((svg->viewBoxHeight - polygon.points[0].y) * scale)
+                            << " m\n";
+              for (size_t i = 1; i < polygon.points.size(); ++i) {
+                contentStream << formatter.Format(polygon.points[i].x * scale)
+                              << ' '
+                              << formatter.Format((svg->viewBoxHeight - polygon.points[i].y) * scale)
+                              << " l\n";
+              }
+              contentStream << "h f\n";
+            }
+            contentStream << "0 0 0 RG 1 w\n";
+            for (const auto &line : svg->strokes) {
+              if (line.points.size() < 2)
+                continue;
+              contentStream << formatter.Format(line.points[0].x * scale) << ' '
+                            << formatter.Format((svg->viewBoxHeight - line.points[0].y) * scale)
+                            << " m\n";
+              for (size_t i = 1; i < line.points.size(); ++i) {
+                contentStream << formatter.Format(line.points[i].x * scale)
+                              << ' '
+                              << formatter.Format((svg->viewBoxHeight - line.points[i].y) * scale)
+                              << " l\n";
+              }
+              contentStream << "S\n";
+            }
+            contentStream << "Q\n";
+          };
+                    if (topDrawW > 0.0) {
             double symbolLeft =
                 topSlotLeft + std::max(0.0, (leftSlotWidth - topDrawW) * 0.5);
-            drawSymbol(topSymbol, topDrawW, topDrawH, symbolLeft);
+            if (topSvg)
+              drawSvg(topSvg, symbolLeft, topDrawW, topDrawH);
+            else
+              drawSymbol(topSymbol, topDrawW, topDrawH, symbolLeft);
           }
           if (frontDrawW > 0.0) {
             double symbolLeft =
                 frontSlotLeft +
                 std::max(0.0, (rightSlotWidth - frontDrawW) * 0.5);
-            drawSymbol(frontSymbol, frontDrawW, frontDrawH, symbolLeft);
+            if (frontSvg)
+              drawSvg(frontSvg, symbolLeft, frontDrawW, frontDrawH);
+            else
+              drawSymbol(frontSymbol, frontDrawW, frontDrawH, symbolLeft);
           }
         }
       }
