@@ -1114,7 +1114,7 @@ wxImage LayoutViewerPanel::BuildLegendImage(
       const PerastageSvgSymbolData *frontSvg =
           findSvgSymbol(item.symbolKey, SymbolViewKind::Front);
       auto drawSymbol = [&](const SymbolDefinition *symbol, double drawCenterX,
-                            double drawCenterY) {
+                            double drawTop) {
         if (!symbol)
           return;
         const float symbolW = symbol->bounds.max.x - symbol->bounds.min.x;
@@ -1130,8 +1130,7 @@ wxImage LayoutViewerPanel::BuildLegendImage(
         mapping.scale = scale;
         mapping.offsetX =
             drawCenterX - (0.0 - static_cast<double>(mapping.minX)) * mapping.scale;
-        mapping.offsetY = drawCenterY - drawH -
-                          (0.0 - static_cast<double>(mapping.minY)) * mapping.scale;
+        mapping.offsetY = drawTop;
         mapping.drawHeight = drawH;
         backend.SetStrokeScale(
             mapping.scale > 0.0 ? 1.0 / mapping.scale : 1.0);
@@ -1210,7 +1209,7 @@ wxImage LayoutViewerPanel::BuildLegendImage(
         else
           drawSymbol(topSymbol,
                      xTopSymbol + static_cast<double>(topSymbolColumnSize) * 0.5,
-                     y + static_cast<double>(rowHeightPx) * 0.5);
+                     symbolDrawTop);
       }
       if (frontDrawW > 0.0) {
         const double symbolDrawTop =
@@ -1224,7 +1223,7 @@ wxImage LayoutViewerPanel::BuildLegendImage(
         else
           drawSymbol(frontSymbol,
                      xFrontSymbol + static_cast<double>(frontSymbolColumnSize) * 0.5,
-                     y + static_cast<double>(rowHeightPx) * 0.5);
+                     symbolDrawTop);
       }
     }
     dc.DrawText(rowText.countText, xCount, y + textOffset);
