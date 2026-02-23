@@ -1,8 +1,10 @@
 #include "windows/symbol_fixture_applier.h"
 
 #include <algorithm>
+#include <cctype>
 #include <filesystem>
 #include <memory>
+#include <sstream>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -33,9 +35,49 @@ struct SymbolPayload {
 
 std::string NormalizeArchivePath(std::string value) {
   std::replace(value.begin(), value.end(), '\\', '/');
+  while (value.rfind("./", 0) == 0)
+    value.erase(0, 2);
   while (!value.empty() && value.front() == '/')
     value.erase(value.begin());
   return value;
+}
+
+std::string ToLowerCopy(std::string value) {
+  std::transform(value.begin(), value.end(), value.begin(),
+                 [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
+  return value;
+}
+
+bool IsDescriptionXmlPath(const std::string &archivePath) {
+  const std::string normalized = ToLowerCopy(NormalizeArchivePath(archivePath));
+  return normalized == "description.xml" ||
+         normalized.size() > sizeof("/description.xml") - 1 &&
+             normalized.rfind("/description.xml") ==
+                 normalized.size() - (sizeof("/description.xml") - 1);
+}
+
+std::string BuildDescriptionMissingMessage(
+    const fs::path &gdtfPath,
+    const std::vector<std::string> &sampleEntries,
+    bool foundCaseInsensitiveVariant) {
+  std::ostringstream message;
+  message << "Could not locate description.xml in GDTF archive: "
+          << gdtfPath.string() << ".";
+  if (foundCaseInsensitiveVariant) {
+    message
+        << " A case-insensitive match was found, but this loader requires the canonical "
+           "name/path (description.xml).";
+  }
+  if (!sampleEntries.empty()) {
+    message << " Sample archive entries: ";
+    for (size_t i = 0; i < sampleEntries.size(); ++i) {
+      if (i > 0)
+        message << ", ";
+      message << sampleEntries[i];
+    }
+    message << ".";
+  }
+  return message.str();
 }
 
 
@@ -141,10 +183,20 @@ std::string ResolveModelSvgBasename(const fs::path &gdtfPath,
   wxZipInputStream zipInput(input);
   std::unique_ptr<wxZipEntry> entry;
   std::string descriptionXml;
+  std::vector<std::string> sampleEntries;
+  bool foundCaseInsensitiveVariant = false;
   while ((entry.reset(zipInput.GetNextEntry())), entry) {
     if (entry->IsDir())
       continue;
-    if (NormalizeArchivePath(entry->GetName().ToStdString()) != "description.xml")
+    const std::string entryName = entry->GetName().ToStdString();
+    const std::string normalizedEntry = NormalizeArchivePath(entryName);
+    if (sampleEntries.size() < 5)
+      sampleEntries.push_back(normalizedEntry);
+
+    if (ToLowerCopy(normalizedEntry) == "description.xml")
+      foundCaseInsensitiveVariant = true;
+
+    if (!IsDescriptionXmlPath(normalizedEntry))
       continue;
     if (!ReadAllBytes(zipInput, descriptionXml)) {
       errorMessage = "Could not read description.xml from the GDTF file.";
@@ -154,7 +206,8 @@ std::string ResolveModelSvgBasename(const fs::path &gdtfPath,
   }
 
   if (descriptionXml.empty()) {
-    errorMessage = "The GDTF file does not contain description.xml.";
+    errorMessage = BuildDescriptionMissingMessage(gdtfPath, sampleEntries,
+                                                  foundCaseInsensitiveVariant);
     return {};
   }
 
@@ -339,6 +392,8 @@ bool RewriteGdtf(const fs::path &sourcePath,
                  const std::string &frontPath,
                  std::string &errorMessage) {
   std::vector<std::pair<std::string, std::string>> entries;
+  std::vector<std::string> sampleEntries;
+  bool foundCaseInsensitiveVariant = false;
   {
     wxFileInputStream input(sourcePath.string());
     if (!input.IsOk()) {
@@ -353,6 +408,12 @@ bool RewriteGdtf(const fs::path &sourcePath,
       if (entry->IsDir())
         continue;
 
+      const std::string normalizedName = NormalizeArchivePath(name);
+      if (sampleEntries.size() < 5)
+        sampleEntries.push_back(normalizedName);
+      if (ToLowerCopy(normalizedName) == "description.xml")
+        foundCaseInsensitiveVariant = true;
+
       std::string content;
       ReadAllBytes(zipInput, content);
       entries.emplace_back(name, std::move(content));
@@ -361,10 +422,11 @@ bool RewriteGdtf(const fs::path &sourcePath,
 
   auto descriptionIt = std::find_if(entries.begin(), entries.end(),
                                     [](const auto &entry) {
-                                      return entry.first == "description.xml";
+                                      return IsDescriptionXmlPath(entry.first);
                                     });
   if (descriptionIt == entries.end()) {
-    errorMessage = "The GDTF file does not contain description.xml.";
+    errorMessage = BuildDescriptionMissingMessage(sourcePath, sampleEntries,
+                                                  foundCaseInsensitiveVariant);
     return false;
   }
 
