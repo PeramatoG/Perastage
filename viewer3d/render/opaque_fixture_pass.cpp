@@ -7,6 +7,9 @@
 #undef DrawText
 #endif
 
+#include <algorithm>
+#include <cmath>
+
 #include <GL/glew.h>
 #ifdef __APPLE__
 #define GL_SILENCE_DEPRECATION
@@ -21,6 +24,19 @@
 #include "perastage_svg_symbol_builder.h"
 #include "scenedatamanager.h"
 #include "viewer3dcontroller.h"
+
+namespace {
+uint32_t BuildSymbolStyleVersion(float r, float g, float b) {
+  auto to8 = [](float c) {
+    const float clamped = std::clamp(c, 0.0f, 1.0f);
+    return static_cast<uint32_t>(std::lround(clamped * 255.0f));
+  };
+  const uint32_t r8 = to8(r);
+  const uint32_t g8 = to8(g);
+  const uint32_t b8 = to8(b);
+  return 1u + (r8 << 16) + (g8 << 8) + b8;
+}
+} // namespace
 
 void OpaqueFixturePass::Render(
     Viewer3DController &controller, const RenderFrameContext &context,
@@ -145,7 +161,7 @@ void OpaqueFixturePass::Render(
         SymbolKey symbolKey;
         symbolKey.modelKey = modelKey;
         symbolKey.viewKind = resolveSymbolView(fixtureCaptureView);
-        symbolKey.styleVersion = 1;
+        symbolKey.styleVersion = BuildSymbolStyleVersion(r, g, b);
 
         const auto &symbol =
             controller.m_bottomSymbolCache.GetOrCreate(symbolKey, [&](const SymbolKey &,

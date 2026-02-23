@@ -51,6 +51,7 @@ using namespace layout_pdf_internal;
 
 constexpr double kLegendContentScale = 0.7;
 constexpr double kPdfPointsPerPixel = 72.0 / 96.0;
+constexpr double kMillimetersToMeters = 0.001;
 constexpr double kLegendSymbolSize =
     96.0 * 2.0 / 3.0 * kLegendContentScale;
 constexpr double kLegendFontScale =
@@ -942,6 +943,30 @@ Viewer2DExportResult ExportLayoutToPdf(
     }
     return it->second ? &it->second.value() : nullptr;
   };
+  auto resolveSymbolFillRgb = [&](const SymbolDefinition &definition) {
+    std::array<double, 3> fillRgb = {224.0 / 255.0, 224.0 / 255.0, 224.0 / 255.0};
+    for (const auto &cmd : definition.localCommands.commands) {
+      if (const auto *polygon = std::get_if<PolygonCommand>(&cmd)) {
+        if (polygon->hasFill) {
+          fillRgb = {polygon->fill.color.r, polygon->fill.color.g,
+                     polygon->fill.color.b};
+          break;
+        }
+      } else if (const auto *rect = std::get_if<RectangleCommand>(&cmd)) {
+        if (rect->hasFill) {
+          fillRgb = {rect->fill.color.r, rect->fill.color.g, rect->fill.color.b};
+          break;
+        }
+      } else if (const auto *circle = std::get_if<CircleCommand>(&cmd)) {
+        if (circle->hasFill) {
+          fillRgb = {circle->fill.color.r, circle->fill.color.g,
+                     circle->fill.color.b};
+          break;
+        }
+      }
+    }
+    return fillRgb;
+  };
   const double legendStrokeScale = 1.0 / viewer2d::kViewer2DPixelsPerMeter;
   auto makeLegendIdName = [](uint32_t symbolId) {
     return "L" + std::to_string(symbolId);
@@ -1229,13 +1254,27 @@ Viewer2DExportResult ExportLayoutToPdf(
         auto defIt = symbolSnapshot->find(entry.first);
         if (defIt == symbolSnapshot->end())
           continue;
-        xObjectNameIds[entry.second] =
-            appendSymbolObject(entry.second,
-                               defIt->second.localCommands.commands,
-                               defIt->second.localCommands.metadata,
-                               defIt->second.localCommands.sources,
-                               1.0, group.strokeScale,
-                               defIt->second.bounds);
+        bool usedSvg = false;
+        if (!defIt->second.key.modelKey.empty()) {
+          if (const PerastageSvgSymbolData *svg =
+                  findLegendSvg(defIt->second.key.modelKey,
+                                defIt->second.key.viewKind)) {
+            xObjectNameIds[entry.second] =
+                appendPerastageSvgSymbolObject(*svg, kMillimetersToMeters,
+                                               group.strokeScale,
+                                               resolveSymbolFillRgb(defIt->second));
+            usedSvg = true;
+          }
+        }
+        if (!usedSvg) {
+          xObjectNameIds[entry.second] =
+              appendSymbolObject(entry.second,
+                                 defIt->second.localCommands.commands,
+                                 defIt->second.localCommands.metadata,
+                                 defIt->second.localCommands.sources,
+                                 1.0, group.strokeScale,
+                                 defIt->second.bounds);
+        }
       }
     }
   }
