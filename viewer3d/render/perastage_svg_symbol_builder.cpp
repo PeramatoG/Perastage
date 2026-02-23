@@ -1,6 +1,8 @@
 #include "perastage_svg_symbol_builder.h"
 
+#include <algorithm>
 #include <vector>
+#include <limits>
 
 #include "opaque_pass_utils.h"
 #include "symbols/PerastageSvgSymbol.h"
@@ -8,6 +10,51 @@
 namespace {
 constexpr float kDefaultStrokeWidthMeters = 0.001f;
 constexpr float kMillimetersToMeters = 0.001f;
+
+void MirrorSymbolGeometryAroundMinCorner(CommandBuffer &buffer) {
+  float minX = std::numeric_limits<float>::max();
+  float minY = std::numeric_limits<float>::max();
+  bool hasPoint = false;
+
+  auto visitPoints = [&](auto &points, const auto &fn) {
+    for (size_t i = 0; i + 1 < points.size(); i += 2)
+      fn(points[i], points[i + 1]);
+  };
+
+  for (auto &cmd : buffer.commands) {
+    if (auto *polygon = std::get_if<PolygonCommand>(&cmd)) {
+      visitPoints(polygon->points, [&](float x, float y) {
+        hasPoint = true;
+        minX = std::min(minX, x);
+        minY = std::min(minY, y);
+      });
+    } else if (auto *polyline = std::get_if<PolylineCommand>(&cmd)) {
+      visitPoints(polyline->points, [&](float x, float y) {
+        hasPoint = true;
+        minX = std::min(minX, x);
+        minY = std::min(minY, y);
+      });
+    }
+  }
+
+  if (!hasPoint)
+    return;
+
+  for (auto &cmd : buffer.commands) {
+    if (auto *polygon = std::get_if<PolygonCommand>(&cmd)) {
+      visitPoints(polygon->points, [&](float &x, float &y) {
+        x = 2.0f * minX - x;
+        y = 2.0f * minY - y;
+      });
+    } else if (auto *polyline = std::get_if<PolylineCommand>(&cmd)) {
+      visitPoints(polyline->points, [&](float &x, float &y) {
+        x = 2.0f * minX - x;
+        y = 2.0f * minY - y;
+      });
+    }
+  }
+}
+
 
 void AppendSvgPolygon(const PerastageSvgPolygon &polygon,
                       const std::array<float, 3> &fillColor,
@@ -88,6 +135,9 @@ bool TryBuildPerastageSvgSymbolDefinition(const std::string &gdtfPath,
       }
     }
   }
+
+  if (viewKind == SymbolViewKind::Bottom && svg.viewKind == SymbolViewKind::Top)
+    MirrorSymbolGeometryAroundMinCorner(out.localCommands);
 
   out.bounds = ComputeSymbolBounds(out.localCommands);
   return true;
