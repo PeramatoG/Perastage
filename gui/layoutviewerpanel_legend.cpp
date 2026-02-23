@@ -46,8 +46,8 @@ namespace {
 constexpr double kLegendContentScale = 0.7;
 constexpr int kLegendSymbolSizePx =
     static_cast<int>(64 * kLegendContentScale);
-constexpr double kLegendFallbackSymbolScale = 1.08;
-constexpr double kLegendSvgSymbolScale = 0.92;
+constexpr double kLegendFallbackSymbolScale = 1.2;
+constexpr double kLegendSvgSymbolScale = 0.8;
 
 int SymbolViewRank(SymbolViewKind kind) {
   switch (kind) {
@@ -960,12 +960,7 @@ wxImage LayoutViewerPanel::BuildLegendImage(
     return std::min(topScale, frontScale);
   };
 
-  auto pairGapForRow = [&](const PerastageSvgSymbolData *topSvg,
-                           const PerastageSvgSymbolData *frontSvg) {
-    if (topSvg || frontSvg)
-      return std::max(1.0, static_cast<double>(symbolSize) * 0.08);
-    return symbolPairGapPx;
-  };
+  auto pairGapForRow = [&]() { return symbolPairGapPx; };
   double maxSymbolPairWidth = symbolSize;
   for (const auto &item : items) {
       if (item.symbolKey.empty())
@@ -990,7 +985,7 @@ wxImage LayoutViewerPanel::BuildLegendImage(
                           : symbolDrawWidth(frontSymbol));
       double rowPairWidth = std::max(topDrawW, frontDrawW);
       if (topDrawW > 0.0 && frontDrawW > 0.0)
-        rowPairWidth = topDrawW + frontDrawW + pairGapForRow(topSvg, frontSvg);
+        rowPairWidth = topDrawW + frontDrawW + pairGapForRow();
       maxSymbolPairWidth = std::max(maxSymbolPairWidth, rowPairWidth);
     }
   const int symbolSlotSize = std::max(
@@ -1159,7 +1154,7 @@ wxImage LayoutViewerPanel::BuildLegendImage(
         const double slotWidth = static_cast<double>(symbolSlotSize);
         double rowPairWidth = std::max(topDrawW, frontDrawW);
         if (topDrawW > 0.0 && frontDrawW > 0.0)
-          rowPairWidth = topDrawW + frontDrawW + pairGapForRow(topSvg, frontSvg);
+          rowPairWidth = topDrawW + frontDrawW + pairGapForRow();
         const double rowStart =
             xSymbol + std::max(0.0, (slotWidth - rowPairWidth) * 0.5);
         double leftSlotWidth = rowPairWidth;
@@ -1169,7 +1164,7 @@ wxImage LayoutViewerPanel::BuildLegendImage(
         if (topDrawW > 0.0 && frontDrawW > 0.0) {
           leftSlotWidth = topDrawW;
           rightSlotWidth = frontDrawW;
-          frontSlotLeft = rowStart + topDrawW + pairGapForRow(topSvg, frontSvg);
+          frontSlotLeft = rowStart + topDrawW + pairGapForRow();
         } else if (frontDrawW > 0.0) {
           frontSlotLeft = rowStart;
         }
