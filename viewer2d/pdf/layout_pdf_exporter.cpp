@@ -67,6 +67,17 @@ static bool ShouldTraceLabelOrder() {
 }
 
 
+
+bool ShouldLoadLegendSvgFromKey(const std::string &symbolKey) {
+  if (symbolKey.empty())
+    return false;
+
+  std::filesystem::path symbolPath(symbolKey);
+  std::string extension = symbolPath.extension().string();
+  std::transform(extension.begin(), extension.end(), extension.begin(),
+                 [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
+  return extension == ".gdtf";
+}
 std::array<double, 3> ResolveLegendSvgFillRgb(
     const std::optional<std::string> &hexColor) {
   constexpr std::array<double, 3> kDefaultGray = {0.878, 0.878, 0.878};
@@ -910,18 +921,23 @@ Viewer2DExportResult ExportLayoutToPdf(
   std::unordered_map<LegendSvgCacheKey, std::optional<PerastageSvgSymbolData>,
                      LegendSvgCacheHasher>
       legendSvgCache;
+  std::string firstLegendSvgLoadError;
   auto findLegendSvg = [&](const std::string &symbolKey,
                            SymbolViewKind viewKind)
       -> const PerastageSvgSymbolData * {
-    if (symbolKey.empty())
+    if (!ShouldLoadLegendSvgFromKey(symbolKey))
       return nullptr;
     LegendSvgCacheKey cacheKey{symbolKey, viewKind};
     auto it = legendSvgCache.find(cacheKey);
     if (it == legendSvgCache.end()) {
       PerastageSvgSymbolData data;
       std::optional<PerastageSvgSymbolData> loaded;
-      if (LoadPerastageSvgSymbolFromGdtf(symbolKey, viewKind, data))
+      std::string loadError;
+      if (LoadPerastageSvgSymbolFromGdtf(symbolKey, viewKind, data, &loadError)) {
         loaded = std::move(data);
+      } else if (firstLegendSvgLoadError.empty() && !loadError.empty()) {
+        firstLegendSvgLoadError = loadError;
+      }
       it = legendSvgCache.emplace(std::move(cacheKey), std::move(loaded)).first;
     }
     return it->second ? &it->second.value() : nullptr;
@@ -2017,6 +2033,10 @@ Viewer2DExportResult ExportLayoutToPdf(
     file << "trailer\n<< /Size " << (objects.size() + 1)
          << " /Root " << catalogIndex
          << " 0 R >>\nstartxref\n" << xrefPos << "\n%%EOF";
+    if (!firstLegendSvgLoadError.empty()) {
+      result.message =
+          "Legend SVG symbols were skipped. Reason: " + firstLegendSvgLoadError;
+    }
     result.success = true;
   } catch (const std::exception &ex) {
     result.message =

@@ -1,9 +1,11 @@
 #include "symbols/PerastageSvgSymbol.h"
 
 #include <algorithm>
+#include <array>
 #include <cctype>
 #include <cmath>
 #include <cstdlib>
+#include <fstream>
 #include <optional>
 #include <memory>
 #include <string_view>
@@ -35,15 +37,58 @@ bool ReadAllBytes(wxZipInputStream &zip, std::string &out) {
   return true;
 }
 
-bool ReadZipEntries(const std::string &zipPath,
-                    std::unordered_map<std::string, std::string> &entries) {
-  wxFileInputStream input(zipPath);
-  if (!input.IsOk())
+bool IsZipSignature(const std::string &zipPath) {
+  std::ifstream input(zipPath, std::ios::binary);
+  if (!input.is_open())
     return false;
+
+  std::array<unsigned char, 4> header{0, 0, 0, 0};
+  input.read(reinterpret_cast<char *>(header.data()),
+             static_cast<std::streamsize>(header.size()));
+  if (input.gcount() < static_cast<std::streamsize>(header.size()))
+    return false;
+
+  const bool isLocalHeader =
+      header[0] == 0x50 && header[1] == 0x4b && header[2] == 0x03 &&
+      header[3] == 0x04;
+  const bool isEmptyArchive =
+      header[0] == 0x50 && header[1] == 0x4b && header[2] == 0x05 &&
+      header[3] == 0x06;
+  const bool isSpannedArchive =
+      header[0] == 0x50 && header[1] == 0x4b && header[2] == 0x07 &&
+      header[3] == 0x08;
+  return isLocalHeader || isEmptyArchive || isSpannedArchive;
+}
+
+bool ReadZipEntries(const std::string &zipPath,
+                    std::unordered_map<std::string, std::string> &entries,
+                    std::string *errorDetails) {
+  if (zipPath.empty()) {
+    if (errorDetails)
+      *errorDetails = "GDTF path is empty.";
+    return false;
+  }
+
+  if (!IsZipSignature(zipPath)) {
+    if (errorDetails) {
+      *errorDetails = "The selected file is not a valid ZIP/GDTF archive: " +
+                      zipPath;
+    }
+    return false;
+  }
+
+  wxFileInputStream input(zipPath);
+  if (!input.IsOk()) {
+    if (errorDetails)
+      *errorDetails = "Could not open GDTF archive: " + zipPath;
+    return false;
+  }
 
   wxZipInputStream zipInput(input);
   std::unique_ptr<wxZipEntry> entry;
+  bool hasEntries = false;
   while ((entry.reset(zipInput.GetNextEntry())), entry) {
+    hasEntries = true;
     if (entry->IsDir())
       continue;
     std::string content;
@@ -51,6 +96,11 @@ bool ReadZipEntries(const std::string &zipPath,
       continue;
     entries[NormalizeArchivePath(entry->GetName().ToStdString())] =
         std::move(content);
+  }
+
+  if (!hasEntries && errorDetails) {
+    *errorDetails = "The GDTF archive does not contain readable ZIP entries: " +
+                    zipPath;
   }
   return true;
 }
@@ -420,28 +470,45 @@ bool ReadOffset(const tinyxml2::XMLElement *model, const char *attr,
 
 bool LoadPerastageSvgSymbolFromGdtf(const std::string &gdtfPath,
                                     SymbolViewKind requestedView,
-                                    PerastageSvgSymbolData &out) {
+                                    PerastageSvgSymbolData &out,
+                                    std::string *errorDetails) {
   std::unordered_map<std::string, std::string> entries;
-  if (!ReadZipEntries(gdtfPath, entries))
+  if (!ReadZipEntries(gdtfPath, entries, errorDetails))
     return false;
 
   auto descIt = entries.find("description.xml");
-  if (descIt == entries.end())
+  if (descIt == entries.end()) {
+    if (errorDetails)
+      *errorDetails = "description.xml was not found in GDTF archive: " +
+                      gdtfPath;
     return false;
+  }
 
   tinyxml2::XMLDocument description;
   if (description.Parse(descIt->second.c_str(), descIt->second.size()) !=
       tinyxml2::XML_SUCCESS) {
+    if (errorDetails)
+      *errorDetails = "description.xml could not be parsed for GDTF archive: " +
+                      gdtfPath;
     return false;
   }
 
   const tinyxml2::XMLElement *fixtureType = ResolveFixtureType(description);
-  if (!fixtureType)
+  if (!fixtureType) {
+    if (errorDetails)
+      *errorDetails = "FixtureType section is missing in GDTF archive: " +
+                      gdtfPath;
     return false;
+  }
 
   const char *editor = fixtureType->Attribute("Editor");
-  if (!editor || !EqualsNoCase(editor, "Perastage"))
+  if (!editor || !EqualsNoCase(editor, "Perastage")) {
+    if (errorDetails)
+      *errorDetails =
+          "GDTF archive does not contain Perastage-generated SVG symbols: " +
+          gdtfPath;
     return false;
+  }
 
   const tinyxml2::XMLElement *model = ResolveTargetModel(fixtureType);
   const std::string baseName = ResolveModelSvgBasename(model);
@@ -479,7 +546,14 @@ bool LoadPerastageSvgSymbolFromGdtf(const std::string &gdtfPath,
       continue;
 
     out = std::move(parsed);
+    if (errorDetails)
+      errorDetails->clear();
     return true;
+  }
+
+  if (errorDetails) {
+    *errorDetails = "No valid SVG symbol was found in GDTF archive: " +
+                    gdtfPath;
   }
 
   return false;

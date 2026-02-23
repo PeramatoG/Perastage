@@ -37,4 +37,5 @@ struct PerastageSvgSymbolData {
 
 bool LoadPerastageSvgSymbolFromGdtf(const std::string &gdtfPath,
                                     SymbolViewKind requestedView,
-                                    PerastageSvgSymbolData &out);
+                                    PerastageSvgSymbolData &out,
+                                    std::string *errorDetails = nullptr);
