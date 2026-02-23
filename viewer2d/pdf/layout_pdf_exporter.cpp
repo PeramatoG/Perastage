@@ -921,7 +921,7 @@ Viewer2DExportResult ExportLayoutToPdf(
   std::unordered_map<LegendSvgCacheKey, std::optional<PerastageSvgSymbolData>,
                      LegendSvgCacheHasher>
       legendSvgCache;
-  std::string firstLegendSvgLoadError;
+  std::unordered_map<std::string, std::string> svgLoadIssues;
   auto findLegendSvg = [&](const std::string &symbolKey,
                            SymbolViewKind viewKind)
       -> const PerastageSvgSymbolData * {
@@ -935,8 +935,8 @@ Viewer2DExportResult ExportLayoutToPdf(
       std::string loadError;
       if (LoadPerastageSvgSymbolFromGdtf(symbolKey, viewKind, data, &loadError)) {
         loaded = std::move(data);
-      } else if (firstLegendSvgLoadError.empty() && !loadError.empty()) {
-        firstLegendSvgLoadError = loadError;
+      } else if (!loadError.empty()) {
+        svgLoadIssues.emplace(symbolKey, loadError);
       }
       it = legendSvgCache.emplace(std::move(cacheKey), std::move(loaded)).first;
     }
@@ -1229,28 +1229,13 @@ Viewer2DExportResult ExportLayoutToPdf(
         auto defIt = symbolSnapshot->find(entry.first);
         if (defIt == symbolSnapshot->end())
           continue;
-        bool usedSvg = false;
-        if (!defIt->second.key.modelKey.empty()) {
-          if (const PerastageSvgSymbolData *svg =
-                  findLegendSvg(defIt->second.key.modelKey,
-                                defIt->second.key.viewKind)) {
-            constexpr std::array<double, 3> kDefaultSvgFillRgb = {
-                224.0 / 255.0, 224.0 / 255.0, 224.0 / 255.0};
-            xObjectNameIds[entry.second] =
-                appendPerastageSvgSymbolObject(*svg, 1.0, group.strokeScale,
-                                               kDefaultSvgFillRgb);
-            usedSvg = true;
-          }
-        }
-        if (!usedSvg) {
-          xObjectNameIds[entry.second] =
-              appendSymbolObject(entry.second,
-                                 defIt->second.localCommands.commands,
-                                 defIt->second.localCommands.metadata,
-                                 defIt->second.localCommands.sources,
-                                 1.0, group.strokeScale,
-                                 defIt->second.bounds);
-        }
+        xObjectNameIds[entry.second] =
+            appendSymbolObject(entry.second,
+                               defIt->second.localCommands.commands,
+                               defIt->second.localCommands.metadata,
+                               defIt->second.localCommands.sources,
+                               1.0, group.strokeScale,
+                               defIt->second.bounds);
       }
     }
   }
@@ -2075,9 +2060,20 @@ Viewer2DExportResult ExportLayoutToPdf(
     file << "trailer\n<< /Size " << (objects.size() + 1)
          << " /Root " << catalogIndex
          << " 0 R >>\nstartxref\n" << xrefPos << "\n%%EOF";
-    if (!firstLegendSvgLoadError.empty()) {
-      result.message =
-          "Legend SVG symbols were skipped. Reason: " + firstLegendSvgLoadError;
+    if (!svgLoadIssues.empty()) {
+      std::vector<std::string> failedKeys;
+      failedKeys.reserve(svgLoadIssues.size());
+      for (const auto &entry : svgLoadIssues)
+        failedKeys.push_back(entry.first);
+      std::sort(failedKeys.begin(), failedKeys.end());
+
+      std::ostringstream details;
+      details << "SVG symbols were skipped for " << failedKeys.size()
+              << " model(s).";
+      for (const auto &key : failedKeys) {
+        details << "\n- " << key;
+      }
+      result.message = details.str();
     }
     result.success = true;
   } catch (const std::exception &ex) {
