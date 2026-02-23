@@ -48,6 +48,7 @@ constexpr int kLegendSymbolSizePx =
     static_cast<int>(64 * kLegendContentScale);
 constexpr double kLegendFallbackSymbolScale = 2.0;
 constexpr double kLegendSvgSymbolScale = 0.4;
+constexpr double kLegendMaxSymbolSlotScale = 1.45;
 
 int SymbolViewRank(SymbolViewKind kind) {
   switch (kind) {
@@ -777,15 +778,14 @@ wxImage LayoutViewerPanel::BuildLegendImage(
   dc.SetTextForeground(wxColour(20, 20, 20));
   dc.SetPen(*wxTRANSPARENT_PEN);
 
-  const int paddingLeft = 2;
-  const int paddingRight = 4;
-  const int paddingTop = 6;
-  const int paddingBottom = 2;
-  const int columnGap = 8;
-  const int symbolColumnGap = 2;
+  const int paddingLeft = 0;
+  const int paddingRight = 0;
+  const int paddingTop = 0;
+  const int paddingBottom = 0;
+  const int columnGap = 6;
+  const int symbolColumnGap = 0;
   constexpr double kLegendLineSpacingScale = 1.0;
   constexpr double kLegendSymbolColumnScale = 1.0;
-  constexpr double kLegendSymbolPairOverlapScale = 0.5;
   const int totalRows = static_cast<int>(items.size()) + 1;
   const int baseHeight = logicalSize.GetHeight() > 0 ? logicalSize.GetHeight()
                                                      : size.GetHeight();
@@ -853,7 +853,6 @@ wxImage LayoutViewerPanel::BuildLegendImage(
     maxCountWidth = std::max(maxCountWidth, measureTextWidth(row.countText));
     maxChWidth = std::max(maxChWidth, measureTextWidth(row.chText));
   }
-  const int leftTrimPx = measureTextWidth("000");
   const int chExtraWidthPx = measureTextWidth("0");
   maxChWidth += chExtraWidthPx;
 
@@ -876,9 +875,6 @@ wxImage LayoutViewerPanel::BuildLegendImage(
       std::max(4.0, static_cast<double>(symbolSize) * kLegendFallbackSymbolScale);
   const double svgSymbolSize =
       std::max(4.0, static_cast<double>(symbolSize) * kLegendSvgSymbolScale);
-  const double symbolPairGapPx =
-      -std::max(1.0, static_cast<double>(symbolSize) *
-                         kLegendSymbolPairOverlapScale);
   auto symbolDrawWidth = [&](const SymbolDefinition *symbol) -> double {
     if (!symbol)
       return 0.0;
@@ -935,62 +931,115 @@ wxImage LayoutViewerPanel::BuildLegendImage(
     }
     return cacheIt->second ? &cacheIt->second.value() : nullptr;
   };
-  auto symbolDrawWidthSvg = [&](const PerastageSvgSymbolData *symbol) -> double {
-    if (!symbol || symbol->viewBoxWidth <= 0.0 || symbol->viewBoxHeight <= 0.0)
+  struct SvgGeometryMetrics {
+    bool valid = false;
+    double minX = 0.0;
+    double minY = 0.0;
+    double width = 0.0;
+    double height = 0.0;
+  };
+  auto svgGeometryMetrics =
+      [&](const PerastageSvgSymbolData *symbol) -> SvgGeometryMetrics {
+    SvgGeometryMetrics metrics;
+    if (!symbol)
+      return metrics;
+
+    bool hasPoint = false;
+    double minX = 0.0;
+    double minY = 0.0;
+    double maxX = 0.0;
+    double maxY = 0.0;
+    auto includePoint = [&](const PerastageSvgPoint &pt) {
+      if (!hasPoint) {
+        minX = maxX = pt.x;
+        minY = maxY = pt.y;
+        hasPoint = true;
+        return;
+      }
+      minX = std::min(minX, pt.x);
+      minY = std::min(minY, pt.y);
+      maxX = std::max(maxX, pt.x);
+      maxY = std::max(maxY, pt.y);
+    };
+
+    for (const auto &polygon : symbol->fills) {
+      for (const auto &pt : polygon.points)
+        includePoint({pt.x + symbol->offsetXmm, pt.y + symbol->offsetYmm});
+      for (const auto &hole : polygon.holes)
+        for (const auto &pt : hole)
+          includePoint({pt.x + symbol->offsetXmm, pt.y + symbol->offsetYmm});
+    }
+    for (const auto &line : symbol->strokes)
+      for (const auto &pt : line.points)
+        includePoint({pt.x + symbol->offsetXmm, pt.y + symbol->offsetYmm});
+
+    if (!hasPoint)
+      return metrics;
+
+    metrics.minX = minX;
+    metrics.minY = minY;
+    metrics.width = std::max(0.0, maxX - minX);
+    metrics.height = std::max(0.0, maxY - minY);
+    metrics.valid = metrics.width > 0.0 && metrics.height > 0.0;
+    return metrics;
+  };
+  auto svgScaleForDraw = [&](const PerastageSvgSymbolData *symbol) -> double {
+    SvgGeometryMetrics metrics = svgGeometryMetrics(symbol);
+    if (!metrics.valid)
       return 0.0;
-    const double scale = std::min(svgSymbolSize / symbol->viewBoxWidth,
-                                  svgSymbolSize / symbol->viewBoxHeight);
-    return symbol->viewBoxWidth * scale;
+    return std::min(svgSymbolSize / metrics.width, svgSymbolSize / metrics.height);
+  };
+  auto symbolDrawWidthSvg = [&](const PerastageSvgSymbolData *symbol) -> double {
+    SvgGeometryMetrics metrics = svgGeometryMetrics(symbol);
+    const double scale = svgScaleForDraw(symbol);
+    if (!metrics.valid || scale <= 0.0)
+      return 0.0;
+    return metrics.width * scale;
   };
   auto symbolDrawHeightSvg = [&](const PerastageSvgSymbolData *symbol) -> double {
-    if (!symbol || symbol->viewBoxWidth <= 0.0 || symbol->viewBoxHeight <= 0.0)
+    SvgGeometryMetrics metrics = svgGeometryMetrics(symbol);
+    const double scale = svgScaleForDraw(symbol);
+    if (!metrics.valid || scale <= 0.0)
       return 0.0;
-    const double scale = std::min(svgSymbolSize / symbol->viewBoxWidth,
-                                  svgSymbolSize / symbol->viewBoxHeight);
-    return symbol->viewBoxHeight * scale;
-  };
-  auto sharedPairScaleSvg = [&](const PerastageSvgSymbolData *topSvg,
-                                const PerastageSvgSymbolData *frontSvg) {
-    if (!topSvg || !frontSvg)
-      return 0.0;
-    const double topScale = std::min(svgSymbolSize / topSvg->viewBoxWidth,
-                                     svgSymbolSize / topSvg->viewBoxHeight);
-    const double frontScale = std::min(svgSymbolSize / frontSvg->viewBoxWidth,
-                                       svgSymbolSize / frontSvg->viewBoxHeight);
-    return std::min(topScale, frontScale);
+    return metrics.height * scale;
   };
 
-  auto pairGapForRow = [&]() { return symbolPairGapPx; };
-  double maxSymbolPairWidth = symbolSize;
+  double maxTopSymbolColumnWidth = 0.0;
+  double maxFrontSymbolColumnWidth = 0.0;
   for (const auto &item : items) {
-      if (item.symbolKey.empty())
-        continue;
-      const PerastageSvgSymbolData *topSvg =
-          findSvgSymbol(item.symbolKey, SymbolViewKind::Top);
-      const PerastageSvgSymbolData *frontSvg =
-          findSvgSymbol(item.symbolKey, SymbolViewKind::Front);
-      const SymbolDefinition *topSymbol = FindSymbolDefinitionPreferred(
-          symbols, item.symbolKey, SymbolViewKind::Top);
-      const SymbolDefinition *frontSymbol = FindSymbolDefinitionExact(
-          symbols, item.symbolKey, SymbolViewKind::Front);
-      const double pairScaleSvg = sharedPairScaleSvg(topSvg, frontSvg);
-      const double topDrawW =
-          (topSvg && pairScaleSvg > 0.0)
-              ? topSvg->viewBoxWidth * pairScaleSvg
-              : (topSvg ? symbolDrawWidthSvg(topSvg) : symbolDrawWidth(topSymbol));
-      const double frontDrawW =
-          (frontSvg && pairScaleSvg > 0.0)
-              ? frontSvg->viewBoxWidth * pairScaleSvg
-              : (frontSvg ? symbolDrawWidthSvg(frontSvg)
-                          : symbolDrawWidth(frontSymbol));
-      double rowPairWidth = std::max(topDrawW, frontDrawW);
-      if (topDrawW > 0.0 && frontDrawW > 0.0)
-        rowPairWidth = topDrawW + frontDrawW + pairGapForRow();
-      maxSymbolPairWidth = std::max(maxSymbolPairWidth, rowPairWidth);
-    }
-  const int symbolSlotSize = std::max(
-      4, static_cast<int>(std::ceil(maxSymbolPairWidth *
-                                    kLegendSymbolColumnScale)));
+    if (item.symbolKey.empty())
+      continue;
+    const PerastageSvgSymbolData *topSvg =
+        findSvgSymbol(item.symbolKey, SymbolViewKind::Top);
+    const PerastageSvgSymbolData *frontSvg =
+        findSvgSymbol(item.symbolKey, SymbolViewKind::Front);
+    const SymbolDefinition *topSymbol =
+        FindSymbolDefinitionPreferred(symbols, item.symbolKey, SymbolViewKind::Top);
+    const SymbolDefinition *frontSymbol =
+        FindSymbolDefinitionExact(symbols, item.symbolKey, SymbolViewKind::Front);
+    const double topDrawW =
+        topSvg ? symbolDrawWidthSvg(topSvg) : symbolDrawWidth(topSymbol);
+    const double frontDrawW =
+        frontSvg ? symbolDrawWidthSvg(frontSvg) : symbolDrawWidth(frontSymbol);
+    maxTopSymbolColumnWidth = std::max(maxTopSymbolColumnWidth, topDrawW);
+    maxFrontSymbolColumnWidth = std::max(maxFrontSymbolColumnWidth, frontDrawW);
+  }
+  const int maxSymbolColumnSize =
+      std::max(4, static_cast<int>(std::lround(symbolSize *
+                                               kLegendMaxSymbolSlotScale)));
+  const int limitedSymbolColumnSize = std::max(4, (maxSymbolColumnSize * 2) / 5);
+  const double maxMeasuredSymbolColumnWidth =
+      static_cast<double>(limitedSymbolColumnSize);
+  const int topSymbolColumnSize = std::clamp(
+      static_cast<int>(std::ceil(std::min(maxTopSymbolColumnWidth,
+                                          maxMeasuredSymbolColumnWidth) *
+                                 kLegendSymbolColumnScale)),
+      0, limitedSymbolColumnSize);
+  const int frontSymbolColumnSize = std::clamp(
+      static_cast<int>(std::ceil(std::min(maxFrontSymbolColumnWidth,
+                                          maxMeasuredSymbolColumnWidth) *
+                                 kLegendSymbolColumnScale)),
+      0, limitedSymbolColumnSize);
   const int rowHeightPx = baseRowHeightPx;
   const int paddingLeftPx =
       std::max(0, static_cast<int>(std::lround(paddingLeft * renderZoom)));
@@ -1004,8 +1053,9 @@ wxImage LayoutViewerPanel::BuildLegendImage(
       std::max(0, static_cast<int>(std::lround(columnGap * renderZoom)));
   const int symbolColumnGapPx =
       std::max(0, static_cast<int>(std::lround(symbolColumnGap * renderZoom)));
-  int xSymbol = paddingLeftPx - leftTrimPx;
-  int xCount = xSymbol + symbolSlotSize + symbolColumnGapPx;
+  int xTopSymbol = paddingLeftPx;
+  int xFrontSymbol = xTopSymbol + topSymbolColumnSize + symbolColumnGapPx;
+  int xCount = xFrontSymbol + frontSymbolColumnSize + columnGapPx;
   int xType = xCount + maxCountWidth + columnGapPx;
   int xCh = size.GetWidth() - paddingRightPx - maxChWidth;
   if (xCh < xType + columnGapPx)
@@ -1039,7 +1089,7 @@ wxImage LayoutViewerPanel::BuildLegendImage(
 
   y += rowHeightPx;
   dc.SetPen(wxPen(wxColour(200, 200, 200)));
-  dc.DrawLine(xSymbol, y, size.GetWidth() - paddingRightPx, y);
+  dc.DrawLine(xTopSymbol, y, size.GetWidth() - paddingRightPx, y);
   y += separatorGapPx;
 
   dc.SetFont(baseFont);
@@ -1059,7 +1109,7 @@ wxImage LayoutViewerPanel::BuildLegendImage(
           findSvgSymbol(item.symbolKey, SymbolViewKind::Top);
       const PerastageSvgSymbolData *frontSvg =
           findSvgSymbol(item.symbolKey, SymbolViewKind::Front);
-      auto drawSymbol = [&](const SymbolDefinition *symbol, double drawLeft,
+      auto drawSymbol = [&](const SymbolDefinition *symbol, double drawCenterX,
                             double drawTop) {
         if (!symbol)
           return;
@@ -1074,7 +1124,8 @@ wxImage LayoutViewerPanel::BuildLegendImage(
         mapping.minX = symbol->bounds.min.x;
         mapping.minY = symbol->bounds.min.y;
         mapping.scale = scale;
-        mapping.offsetX = drawLeft;
+        mapping.offsetX =
+            drawCenterX - (0.0 - static_cast<double>(mapping.minX)) * mapping.scale;
         mapping.offsetY = drawTop;
         mapping.drawHeight = drawH;
         backend.SetStrokeScale(
@@ -1085,14 +1136,12 @@ wxImage LayoutViewerPanel::BuildLegendImage(
       };
       auto drawSvg = [&](const PerastageSvgSymbolData *symbol,
                          const std::optional<std::string> &fillHex,
-                         double drawLeft, double drawTop, double scaleOverride) {
+                         double drawLeft, double drawTop) {
         if (!symbol)
           return;
-        const double scale = scaleOverride > 0.0
-                                 ? scaleOverride
-                                 : std::min(svgSymbolSize / symbol->viewBoxWidth,
-                                            svgSymbolSize / symbol->viewBoxHeight);
-        if (scale <= 0.0)
+        const SvgGeometryMetrics metrics = svgGeometryMetrics(symbol);
+        const double scale = svgScaleForDraw(symbol);
+        if (!metrics.valid || scale <= 0.0)
           return;
         wxGraphicsContext *gc = dc.GetGraphicsContext();
         if (!gc)
@@ -1100,6 +1149,8 @@ wxImage LayoutViewerPanel::BuildLegendImage(
         gc->PushState();
         gc->Translate(drawLeft, drawTop);
         gc->Scale(scale, scale);
+        gc->Translate(symbol->offsetXmm, symbol->offsetYmm);
+        gc->Translate(-metrics.minX, -metrics.minY);
         gc->SetBrush(wxBrush(ResolveLegendSvgFillColor(fillHex)));
         gc->SetPen(*wxTRANSPARENT_PEN);
         for (const auto &polygon : symbol->fills) {
@@ -1133,62 +1184,42 @@ wxImage LayoutViewerPanel::BuildLegendImage(
         }
         gc->PopState();
       };
-      const double pairScaleSvg = sharedPairScaleSvg(topSvg, frontSvg);
-      const double topDrawW = (topSvg && pairScaleSvg > 0.0)
-                                  ? topSvg->viewBoxWidth * pairScaleSvg
-                                  : (topSvg ? symbolDrawWidthSvg(topSvg)
-                                            : symbolDrawWidth(topSymbol));
-      const double frontDrawW = (frontSvg && pairScaleSvg > 0.0)
-                                    ? frontSvg->viewBoxWidth * pairScaleSvg
-                                    : (frontSvg ? symbolDrawWidthSvg(frontSvg)
-                                                : symbolDrawWidth(frontSymbol));
-      const double topDrawH = (topSvg && pairScaleSvg > 0.0)
-                                  ? topSvg->viewBoxHeight * pairScaleSvg
-                                  : (topSvg ? symbolDrawHeightSvg(topSvg)
-                                            : symbolDrawHeight(topSymbol));
-      const double frontDrawH = (frontSvg && pairScaleSvg > 0.0)
-                                    ? frontSvg->viewBoxHeight * pairScaleSvg
-                                    : (frontSvg ? symbolDrawHeightSvg(frontSvg)
-                                                : symbolDrawHeight(frontSymbol));
-      if (topDrawW > 0.0 || frontDrawW > 0.0) {
-        const double slotWidth = static_cast<double>(symbolSlotSize);
-        double rowPairWidth = std::max(topDrawW, frontDrawW);
-        if (topDrawW > 0.0 && frontDrawW > 0.0)
-          rowPairWidth = topDrawW + frontDrawW + pairGapForRow();
-        const double rowStart =
-            xSymbol + std::max(0.0, (slotWidth - rowPairWidth) * 0.5);
-        double leftSlotWidth = rowPairWidth;
-        double rightSlotWidth = rowPairWidth;
-        double topSlotLeft = rowStart;
-        double frontSlotLeft = rowStart;
-        if (topDrawW > 0.0 && frontDrawW > 0.0) {
-          leftSlotWidth = topDrawW;
-          rightSlotWidth = frontDrawW;
-          frontSlotLeft = rowStart + topDrawW + pairGapForRow();
-        } else if (frontDrawW > 0.0) {
-          frontSlotLeft = rowStart;
-        }
-        if (topDrawW > 0.0) {
-          double symbolDrawTop =
-              y + (static_cast<double>(rowHeightPx) - topDrawH) * 0.5;
-          double symbolDrawLeft =
-              topSlotLeft + std::max(0.0, (leftSlotWidth - topDrawW) * 0.5);
-          if (topSvg)
-            drawSvg(topSvg, item.symbolFillHex, symbolDrawLeft, symbolDrawTop, pairScaleSvg);
-          else
-            drawSymbol(topSymbol, symbolDrawLeft, symbolDrawTop);
-        }
-        if (frontDrawW > 0.0) {
-          double symbolDrawTop =
-              y + (static_cast<double>(rowHeightPx) - frontDrawH) * 0.5;
-          double symbolDrawLeft =
-              frontSlotLeft +
-              std::max(0.0, (rightSlotWidth - frontDrawW) * 0.5);
-          if (frontSvg)
-            drawSvg(frontSvg, item.symbolFillHex, symbolDrawLeft, symbolDrawTop, pairScaleSvg);
-          else
-            drawSymbol(frontSymbol, symbolDrawLeft, symbolDrawTop);
-        }
+      const double topDrawW =
+          topSvg ? symbolDrawWidthSvg(topSvg) : symbolDrawWidth(topSymbol);
+      const double frontDrawW =
+          frontSvg ? symbolDrawWidthSvg(frontSvg) : symbolDrawWidth(frontSymbol);
+      const double topDrawH =
+          topSvg ? symbolDrawHeightSvg(topSvg) : symbolDrawHeight(topSymbol);
+      const double frontDrawH =
+          frontSvg ? symbolDrawHeightSvg(frontSvg)
+                   : symbolDrawHeight(frontSymbol);
+      if (topDrawW > 0.0) {
+        const double symbolDrawTop =
+            y + (static_cast<double>(rowHeightPx) - topDrawH) * 0.5;
+        const double symbolDrawLeft =
+            xTopSymbol +
+            std::max(0.0, (static_cast<double>(topSymbolColumnSize) - topDrawW) *
+                                 0.5);
+        if (topSvg)
+          drawSvg(topSvg, item.symbolFillHex, symbolDrawLeft, symbolDrawTop);
+        else
+          drawSymbol(topSymbol,
+                     xTopSymbol + static_cast<double>(topSymbolColumnSize) * 0.5,
+                     symbolDrawTop);
+      }
+      if (frontDrawW > 0.0) {
+        const double symbolDrawTop =
+            y + (static_cast<double>(rowHeightPx) - frontDrawH) * 0.5;
+        const double symbolDrawLeft =
+            xFrontSymbol +
+            std::max(0.0, (static_cast<double>(frontSymbolColumnSize) - frontDrawW) *
+                                 0.5);
+        if (frontSvg)
+          drawSvg(frontSvg, item.symbolFillHex, symbolDrawLeft, symbolDrawTop);
+        else
+          drawSymbol(frontSymbol,
+                     xFrontSymbol + static_cast<double>(frontSymbolColumnSize) * 0.5,
+                     symbolDrawTop);
       }
     }
     dc.DrawText(rowText.countText, xCount, y + textOffset);
