@@ -1113,8 +1113,8 @@ wxImage LayoutViewerPanel::BuildLegendImage(
           findSvgSymbol(item.symbolKey, SymbolViewKind::Top);
       const PerastageSvgSymbolData *frontSvg =
           findSvgSymbol(item.symbolKey, SymbolViewKind::Front);
-      auto drawSymbol = [&](const SymbolDefinition *symbol, double drawLeft,
-                            double drawTop) {
+      auto drawSymbol = [&](const SymbolDefinition *symbol, double drawCenterX,
+                            double drawCenterY) {
         if (!symbol)
           return;
         const float symbolW = symbol->bounds.max.x - symbol->bounds.min.x;
@@ -1128,8 +1128,10 @@ wxImage LayoutViewerPanel::BuildLegendImage(
         mapping.minX = symbol->bounds.min.x;
         mapping.minY = symbol->bounds.min.y;
         mapping.scale = scale;
-        mapping.offsetX = drawLeft;
-        mapping.offsetY = drawTop;
+        mapping.offsetX =
+            drawCenterX - (0.0 - static_cast<double>(mapping.minX)) * mapping.scale;
+        mapping.offsetY = drawCenterY - drawH -
+                          (0.0 - static_cast<double>(mapping.minY)) * mapping.scale;
         mapping.drawHeight = drawH;
         backend.SetStrokeScale(
             mapping.scale > 0.0 ? 1.0 / mapping.scale : 1.0);
@@ -1206,7 +1208,9 @@ wxImage LayoutViewerPanel::BuildLegendImage(
         if (topSvg)
           drawSvg(topSvg, item.symbolFillHex, symbolDrawLeft, symbolDrawTop);
         else
-          drawSymbol(topSymbol, symbolDrawLeft, symbolDrawTop);
+          drawSymbol(topSymbol,
+                     xTopSymbol + static_cast<double>(topSymbolColumnSize) * 0.5,
+                     y + static_cast<double>(rowHeightPx) * 0.5);
       }
       if (frontDrawW > 0.0) {
         const double symbolDrawTop =
@@ -1218,7 +1222,9 @@ wxImage LayoutViewerPanel::BuildLegendImage(
         if (frontSvg)
           drawSvg(frontSvg, item.symbolFillHex, symbolDrawLeft, symbolDrawTop);
         else
-          drawSymbol(frontSymbol, symbolDrawLeft, symbolDrawTop);
+          drawSymbol(frontSymbol,
+                     xFrontSymbol + static_cast<double>(frontSymbolColumnSize) * 0.5,
+                     y + static_cast<double>(rowHeightPx) * 0.5);
       }
     }
     dc.DrawText(rowText.countText, xCount, y + textOffset);
