@@ -193,6 +193,13 @@ ResourceSyncResult ResourceSyncSystem::Sync(
     state.lastSceneSignature = sceneSignature;
     state.hasSceneSignature = true;
     result.sceneChanged = true;
+
+    // Retry previously failed GDTF loads whenever the visible scene changes.
+    // This prevents stale failure caches when a fixture GDTF path is updated
+    // (or a previously invalid file gets replaced) without changing basePath.
+    state.failedGdtfReasons.clear();
+    state.reportedGdtfFailureCounts.clear();
+    state.reportedGdtfFailureReasons.clear();
   }
   result.sceneSignature = state.lastSceneSignature;
   result.hasSceneSignature = state.hasSceneSignature;
