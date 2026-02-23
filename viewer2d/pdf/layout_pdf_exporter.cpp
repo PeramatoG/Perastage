@@ -55,6 +55,8 @@ constexpr double kLegendSymbolSize =
     96.0 * 2.0 / 3.0 * kLegendContentScale;
 constexpr double kLegendFontScale =
     (2.0 / 3.0) * kLegendContentScale;
+constexpr double kLegendFallbackSymbolScale = 1.08;
+constexpr double kLegendSvgSymbolScale = 0.92;
 constexpr std::array<const char *, 7> kEventTableLabels = {
     "Venue:", "Location:", "Date:", "Stage:",
     "Version:", "Design:", "Mail:"};
@@ -1419,6 +1421,10 @@ Viewer2DExportResult ExportLayoutToPdf(
     const double lineHeight = textHeightEstimate + separatorGap;
     const double symbolSize =
         std::max(4.0, kLegendSymbolSize * fontScale);
+    const double fallbackSymbolSize =
+        std::max(4.0, symbolSize * kLegendFallbackSymbolScale);
+    const double svgSymbolSize =
+        std::max(4.0, symbolSize * kLegendSvgSymbolScale);
     const double symbolPairGapSize =
         -std::max(1.0, symbolSize * kLegendSymbolPairOverlapScale);
     auto symbolDrawWidth = [&](const SymbolDefinition *symbol) -> double {
@@ -1428,7 +1434,8 @@ Viewer2DExportResult ExportLayoutToPdf(
       const double symbolH = symbol->bounds.max.y - symbol->bounds.min.y;
       if (symbolW <= 0.0 || symbolH <= 0.0)
         return 0.0;
-      double scale = std::min(symbolSize / symbolW, symbolSize / symbolH);
+      double scale =
+          std::min(fallbackSymbolSize / symbolW, fallbackSymbolSize / symbolH);
       return symbolW * scale;
     };
     auto symbolDrawHeight = [&](const SymbolDefinition *symbol) -> double {
@@ -1438,31 +1445,32 @@ Viewer2DExportResult ExportLayoutToPdf(
       const double symbolH = symbol->bounds.max.y - symbol->bounds.min.y;
       if (symbolW <= 0.0 || symbolH <= 0.0)
         return 0.0;
-      double scale = std::min(symbolSize / symbolW, symbolSize / symbolH);
+      double scale =
+          std::min(fallbackSymbolSize / symbolW, fallbackSymbolSize / symbolH);
       return symbolH * scale;
     };
     auto symbolDrawWidthSvg = [&](const PerastageSvgSymbolData *symbol) -> double {
       if (!symbol || symbol->viewBoxWidth <= 0.0 || symbol->viewBoxHeight <= 0.0)
         return 0.0;
-      const double scale = std::min(symbolSize / symbol->viewBoxWidth,
-                                    symbolSize / symbol->viewBoxHeight);
+      const double scale = std::min(svgSymbolSize / symbol->viewBoxWidth,
+                                    svgSymbolSize / symbol->viewBoxHeight);
       return symbol->viewBoxWidth * scale;
     };
     auto symbolDrawHeightSvg = [&](const PerastageSvgSymbolData *symbol) -> double {
       if (!symbol || symbol->viewBoxWidth <= 0.0 || symbol->viewBoxHeight <= 0.0)
         return 0.0;
-      const double scale = std::min(symbolSize / symbol->viewBoxWidth,
-                                    symbolSize / symbol->viewBoxHeight);
+      const double scale = std::min(svgSymbolSize / symbol->viewBoxWidth,
+                                    svgSymbolSize / symbol->viewBoxHeight);
       return symbol->viewBoxHeight * scale;
     };
     auto sharedPairScaleSvg = [&](const PerastageSvgSymbolData *topSvg,
                                   const PerastageSvgSymbolData *frontSvg) {
       if (!topSvg || !frontSvg)
         return 0.0;
-      const double topScale =
-          std::min(symbolSize / topSvg->viewBoxWidth, symbolSize / topSvg->viewBoxHeight);
-      const double frontScale = std::min(symbolSize / frontSvg->viewBoxWidth,
-                                         symbolSize / frontSvg->viewBoxHeight);
+      const double topScale = std::min(svgSymbolSize / topSvg->viewBoxWidth,
+                                       svgSymbolSize / topSvg->viewBoxHeight);
+      const double frontScale = std::min(svgSymbolSize / frontSvg->viewBoxWidth,
+                                         svgSymbolSize / frontSvg->viewBoxHeight);
       return std::min(topScale, frontScale);
     };
 
@@ -1633,7 +1641,8 @@ Viewer2DExportResult ExportLayoutToPdf(
             if (symbolW <= 0.0 || symbolH <= 0.0)
               return;
             double scale =
-                std::min(symbolSize / symbolW, symbolSize / symbolH);
+                std::min(fallbackSymbolSize / symbolW,
+                         fallbackSymbolSize / symbolH);
             double symbolOffsetX =
                 drawLeft - symbol->bounds.min.x * scale;
             double symbolOffsetY =
@@ -1652,8 +1661,8 @@ Viewer2DExportResult ExportLayoutToPdf(
               return;
             const double scale = scaleOverride > 0.0
                                      ? scaleOverride
-                                     : std::min(symbolSize / svg->viewBoxWidth,
-                                                symbolSize / svg->viewBoxHeight);
+                                     : std::min(svgSymbolSize / svg->viewBoxWidth,
+                                                svgSymbolSize / svg->viewBoxHeight);
             if (scale <= 0.0)
               return;
             const double ox = drawLeft + svg->offsetXmm * scale;
