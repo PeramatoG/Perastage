@@ -67,6 +67,17 @@ static bool ShouldTraceLabelOrder() {
 }
 
 
+
+bool ShouldLoadLegendSvgFromKey(const std::string &symbolKey) {
+  if (symbolKey.empty())
+    return false;
+
+  std::filesystem::path symbolPath(symbolKey);
+  std::string extension = symbolPath.extension().string();
+  std::transform(extension.begin(), extension.end(), extension.begin(),
+                 [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
+  return extension == ".gdtf";
+}
 std::array<double, 3> ResolveLegendSvgFillRgb(
     const std::optional<std::string> &hexColor) {
   constexpr std::array<double, 3> kDefaultGray = {0.878, 0.878, 0.878};
@@ -914,7 +925,7 @@ Viewer2DExportResult ExportLayoutToPdf(
   auto findLegendSvg = [&](const std::string &symbolKey,
                            SymbolViewKind viewKind)
       -> const PerastageSvgSymbolData * {
-    if (symbolKey.empty())
+    if (!ShouldLoadLegendSvgFromKey(symbolKey))
       return nullptr;
     LegendSvgCacheKey cacheKey{symbolKey, viewKind};
     auto it = legendSvgCache.find(cacheKey);
