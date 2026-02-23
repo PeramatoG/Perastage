@@ -105,18 +105,6 @@ bool ReadZipEntries(const std::string &zipPath,
   return true;
 }
 
-bool EqualsNoCase(std::string_view a, std::string_view b) {
-  if (a.size() != b.size())
-    return false;
-  for (size_t i = 0; i < a.size(); ++i) {
-    if (std::tolower(static_cast<unsigned char>(a[i])) !=
-        std::tolower(static_cast<unsigned char>(b[i]))) {
-      return false;
-    }
-  }
-  return true;
-}
-
 const tinyxml2::XMLElement *ResolveFixtureType(const tinyxml2::XMLDocument &doc) {
   const tinyxml2::XMLElement *fixtureType = doc.FirstChildElement("GDTF");
   if (fixtureType)
@@ -500,15 +488,6 @@ bool LoadPerastageSvgSymbolFromGdtf(const std::string &gdtfPath,
     if (errorDetails)
       *errorDetails = "FixtureType section is missing in GDTF archive: " +
                       gdtfPath;
-    return false;
-  }
-
-  const char *editor = fixtureType->Attribute("Editor");
-  if (!editor || !EqualsNoCase(editor, "Perastage")) {
-    if (errorDetails)
-      *errorDetails =
-          "GDTF archive does not contain Perastage-generated SVG symbols: " +
-          gdtfPath;
     return false;
   }
 
