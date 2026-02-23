@@ -942,6 +942,28 @@ Viewer2DExportResult ExportLayoutToPdf(
     }
     return it->second ? &it->second.value() : nullptr;
   };
+  auto resolveSymbolFillRgb = [&](const SymbolDefinition &definition) {
+    std::array<double, 3> fillRgb = {224.0 / 255.0, 224.0 / 255.0,
+                                     224.0 / 255.0};
+    for (const auto &cmd : definition.localCommands.commands) {
+      if (const auto *polygon = std::get_if<PolygonCommand>(&cmd)) {
+        if (polygon->hasFill)
+          return std::array<double, 3>{polygon->fill.color.r,
+                                       polygon->fill.color.g,
+                                       polygon->fill.color.b};
+      } else if (const auto *rect = std::get_if<RectangleCommand>(&cmd)) {
+        if (rect->hasFill)
+          return std::array<double, 3>{rect->fill.color.r, rect->fill.color.g,
+                                       rect->fill.color.b};
+      } else if (const auto *circle = std::get_if<CircleCommand>(&cmd)) {
+        if (circle->hasFill)
+          return std::array<double, 3>{circle->fill.color.r,
+                                       circle->fill.color.g,
+                                       circle->fill.color.b};
+      }
+    }
+    return fillRgb;
+  };
   const double legendStrokeScale = 1.0 / viewer2d::kViewer2DPixelsPerMeter;
   auto makeLegendIdName = [](uint32_t symbolId) {
     return "L" + std::to_string(symbolId);
@@ -1117,6 +1139,7 @@ Viewer2DExportResult ExportLayoutToPdf(
   };
 
   auto appendPerastageSvgSymbolObject = [&](const PerastageSvgSymbolData &svg,
+                                            SymbolViewKind requestedViewKind,
                                             double symbolScale,
                                             double strokeScale,
                                             const std::array<double, 3> &fillRgb) {
@@ -1152,6 +1175,46 @@ Viewer2DExportResult ExportLayoutToPdf(
       maxY = svg.offsetYmm + svg.viewBoxHeight;
     }
 
+    auto transformedSvgPoint = [&](double x, double y) {
+      const double rawX = x + svg.offsetXmm;
+      const double rawY = y + svg.offsetYmm;
+      if (requestedViewKind == SymbolViewKind::Bottom &&
+          svg.viewKind == SymbolViewKind::Top) {
+        return std::array<double, 2>{2.0 * minX - rawX, 2.0 * minY - rawY};
+      }
+      return std::array<double, 2>{rawX, rawY};
+    };
+
+    double transformedMinX = std::numeric_limits<double>::max();
+    double transformedMinY = std::numeric_limits<double>::max();
+    double transformedMaxX = std::numeric_limits<double>::lowest();
+    double transformedMaxY = std::numeric_limits<double>::lowest();
+    auto includeTransformedPoint = [&](double x, double y) {
+      transformedMinX = std::min(transformedMinX, x);
+      transformedMinY = std::min(transformedMinY, y);
+      transformedMaxX = std::max(transformedMaxX, x);
+      transformedMaxY = std::max(transformedMaxY, y);
+    };
+
+    for (const auto &polygon : svg.fills) {
+      for (const auto &pt : polygon.points) {
+        const auto transformedPoint = transformedSvgPoint(pt.x, pt.y);
+        includeTransformedPoint(transformedPoint[0], transformedPoint[1]);
+      }
+      for (const auto &hole : polygon.holes) {
+        for (const auto &pt : hole) {
+          const auto transformedPoint = transformedSvgPoint(pt.x, pt.y);
+          includeTransformedPoint(transformedPoint[0], transformedPoint[1]);
+        }
+      }
+    }
+    for (const auto &line : svg.strokes) {
+      for (const auto &pt : line.points) {
+        const auto transformedPoint = transformedSvgPoint(pt.x, pt.y);
+        includeTransformedPoint(transformedPoint[0], transformedPoint[1]);
+      }
+    }
+
     std::ostringstream symbolContent;
     symbolContent << formatter.Format(fillRgb[0]) << " "
                   << formatter.Format(fillRgb[1]) << " "
@@ -1161,15 +1224,15 @@ Viewer2DExportResult ExportLayoutToPdf(
     auto appendPolygonPath = [&](const std::vector<PerastageSvgPoint> &points) {
       if (points.size() < 3)
         return;
-      symbolContent << formatter.Format((points[0].x + svg.offsetXmm) * symbolScale)
+      symbolContent << formatter.Format(transformedSvgPoint(points[0].x, points[0].y)[0] * symbolScale)
                     << ' '
-                    << formatter.Format((points[0].y + svg.offsetYmm) * symbolScale)
+                    << formatter.Format(transformedSvgPoint(points[0].x, points[0].y)[1] * symbolScale)
                     << " m\n";
       for (size_t i = 1; i < points.size(); ++i) {
         symbolContent
-            << formatter.Format((points[i].x + svg.offsetXmm) * symbolScale)
+            << formatter.Format(transformedSvgPoint(points[i].x, points[i].y)[0] * symbolScale)
             << ' '
-            << formatter.Format((points[i].y + svg.offsetYmm) * symbolScale)
+            << formatter.Format(transformedSvgPoint(points[i].x, points[i].y)[1] * symbolScale)
             << " l\n";
       }
       symbolContent << "h\n";
@@ -1187,15 +1250,15 @@ Viewer2DExportResult ExportLayoutToPdf(
       if (line.points.size() < 2)
         continue;
       symbolContent
-          << formatter.Format((line.points[0].x + svg.offsetXmm) * symbolScale)
+          << formatter.Format(transformedSvgPoint(line.points[0].x, line.points[0].y)[0] * symbolScale)
           << ' '
-          << formatter.Format((line.points[0].y + svg.offsetYmm) * symbolScale)
+          << formatter.Format(transformedSvgPoint(line.points[0].x, line.points[0].y)[1] * symbolScale)
           << " m\n";
       for (size_t i = 1; i < line.points.size(); ++i) {
         symbolContent
-            << formatter.Format((line.points[i].x + svg.offsetXmm) * symbolScale)
+            << formatter.Format(transformedSvgPoint(line.points[i].x, line.points[i].y)[0] * symbolScale)
             << ' '
-            << formatter.Format((line.points[i].y + svg.offsetYmm) * symbolScale)
+            << formatter.Format(transformedSvgPoint(line.points[i].x, line.points[i].y)[1] * symbolScale)
             << " l\n";
       }
       symbolContent << "S\n";
@@ -1211,11 +1274,18 @@ Viewer2DExportResult ExportLayoutToPdf(
     const std::string &stream = compressed ? compressedSymbol : symbolStream;
 
     std::ostringstream xobj;
+    if (transformedMinX > transformedMaxX || transformedMinY > transformedMaxY) {
+      transformedMinX = minX;
+      transformedMinY = minY;
+      transformedMaxX = maxX;
+      transformedMaxY = maxY;
+    }
+
     xobj << "<< /Type /XObject /Subtype /Form /BBox ["
-         << formatter.Format(minX * symbolScale) << ' '
-         << formatter.Format(minY * symbolScale) << ' '
-         << formatter.Format(maxX * symbolScale) << ' '
-         << formatter.Format(maxY * symbolScale)
+         << formatter.Format(transformedMinX * symbolScale) << ' '
+         << formatter.Format(transformedMinY * symbolScale) << ' '
+         << formatter.Format(transformedMaxX * symbolScale) << ' '
+         << formatter.Format(transformedMaxY * symbolScale)
          << "] /Resources << >> /Length " << stream.size();
     if (compressed)
       xobj << " /Filter /FlateDecode";
@@ -1259,13 +1329,27 @@ Viewer2DExportResult ExportLayoutToPdf(
         auto defIt = symbolSnapshot->find(entry.first);
         if (defIt == symbolSnapshot->end())
           continue;
-        xObjectNameIds[entry.second] =
-            appendSymbolObject(entry.second,
-                               defIt->second.localCommands.commands,
-                               defIt->second.localCommands.metadata,
-                               defIt->second.localCommands.sources,
-                               1.0, group.strokeScale,
-                               defIt->second.bounds);
+        bool usedSvg = false;
+        if (!defIt->second.key.modelKey.empty()) {
+          if (const PerastageSvgSymbolData *svg =
+                  findLegendSvg(defIt->second.key.modelKey,
+                                defIt->second.key.viewKind)) {
+            xObjectNameIds[entry.second] =
+                appendPerastageSvgSymbolObject(*svg, defIt->second.key.viewKind,
+                                               0.001, group.strokeScale,
+                                               resolveSymbolFillRgb(defIt->second));
+            usedSvg = true;
+          }
+        }
+        if (!usedSvg) {
+          xObjectNameIds[entry.second] =
+              appendSymbolObject(entry.second,
+                                 defIt->second.localCommands.commands,
+                                 defIt->second.localCommands.metadata,
+                                 defIt->second.localCommands.sources,
+                                 1.0, group.strokeScale,
+                                 defIt->second.bounds);
+        }
       }
     }
   }
@@ -1294,8 +1378,8 @@ Viewer2DExportResult ExportLayoutToPdf(
           constexpr std::array<double, 3> kDefaultSvgFillRgb = {
               224.0 / 255.0, 224.0 / 255.0, 224.0 / 255.0};
           xObjectNameIds[entry.second] =
-              appendPerastageSvgSymbolObject(*svg, symbolScale,
-                                             legendStrokeScale,
+              appendPerastageSvgSymbolObject(*svg, defIt->second.key.viewKind,
+                                             symbolScale, legendStrokeScale,
                                              kDefaultSvgFillRgb);
           usedSvg = true;
         }
