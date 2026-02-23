@@ -1094,12 +1094,12 @@ bool Viewer3DPanel::ShouldPauseHeavyTasks()
     if ((now - m_lastInteractionTime) < kPauseDelay)
         return true;
 
-    const bool fastInteractionMode = IsFastInteractionModeEnabled();
-
     m_isInteracting = false;
     m_cameraMoving = false;
     m_controller.SetInteracting(false);
     m_controller.SetCameraMoving(false);
+
+    const bool fastInteractionMode = IsFastInteractionModeEnabled();
 
     if (fastInteractionMode) {
         m_controller.UpdateResourcesIfDirty();
