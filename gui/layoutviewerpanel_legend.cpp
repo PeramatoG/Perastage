@@ -46,8 +46,8 @@ namespace {
 constexpr double kLegendContentScale = 0.7;
 constexpr int kLegendSymbolSizePx =
     static_cast<int>(64 * kLegendContentScale);
-constexpr double kLegendFallbackSymbolScale = 1.2;
-constexpr double kLegendSvgSymbolScale = 0.8;
+constexpr double kLegendFallbackSymbolScale = 1.5;
+constexpr double kLegendSvgSymbolScale = 0.5;
 
 int SymbolViewRank(SymbolViewKind kind) {
   switch (kind) {

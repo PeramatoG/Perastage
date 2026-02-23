@@ -55,8 +55,8 @@ constexpr double kLegendSymbolSize =
     96.0 * 2.0 / 3.0 * kLegendContentScale;
 constexpr double kLegendFontScale =
     (2.0 / 3.0) * kLegendContentScale;
-constexpr double kLegendFallbackSymbolScale = 1.2;
-constexpr double kLegendSvgSymbolScale = 0.8;
+constexpr double kLegendFallbackSymbolScale = 1.5;
+constexpr double kLegendSvgSymbolScale = 0.5;
 constexpr std::array<const char *, 7> kEventTableLabels = {
     "Venue:", "Location:", "Date:", "Stage:",
     "Version:", "Design:", "Mail:"};
