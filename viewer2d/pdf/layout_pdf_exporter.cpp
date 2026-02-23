@@ -1407,7 +1407,8 @@ Viewer2DExportResult ExportLayoutToPdf(
         totalRows > 0 ? (availableHeight / static_cast<double>(totalRows)) - 2.0
                       : 10.0;
     fontSize = std::clamp(fontSize, 6.0, 14.0);
-    fontSize *= kLegendFontScale;
+    // Compensate PDF point units so legend typography matches on-screen Layout Viewer sizing.
+    fontSize *= (kLegendFontScale * 1.5);
     const double fontScale =
         std::clamp(fontSize / (14.0 * kLegendFontScale), 0.0, 1.0);
 
@@ -1676,7 +1677,7 @@ Viewer2DExportResult ExportLayoutToPdf(
         const double frontDrawH =
             frontSvg ? symbolDrawHeightSvg(frontSvg) : symbolDrawHeight(frontSymbol);
 
-        auto drawSymbol = [&](const SymbolDefinition *symbol, double drawLeft,
+        auto drawSymbol = [&](const SymbolDefinition *symbol, double drawCenterX,
                               double drawBottom) {
           if (!symbol)
             return;
@@ -1692,10 +1693,11 @@ Viewer2DExportResult ExportLayoutToPdf(
           if (xObjectScale <= 0.0)
             return;
           const double placementScale = fallbackSymbolSize / kLegendSymbolSize;
-          const double minX = symbol->bounds.min.x * xObjectScale;
-          const double minY = symbol->bounds.min.y * xObjectScale;
-          const double symbolOffsetX = drawLeft - minX * placementScale;
-          const double symbolOffsetY = drawBottom - minY * placementScale;
+          const double finalScale = placementScale * xObjectScale;
+          const double symbolOffsetX =
+              drawCenterX + static_cast<double>(symbol->bounds.min.x) * finalScale;
+          // Symbol XObjects are authored with minY mapped to 0, so row bottom is the insertion Y.
+          const double symbolOffsetY = drawBottom;
           contentStream << "q\n"
                         << formatter.Format(placementScale) << " 0 0 "
                         << formatter.Format(placementScale) << ' '
@@ -1766,7 +1768,9 @@ Viewer2DExportResult ExportLayoutToPdf(
           if (topSvg)
             drawSvg(topSvg, item.symbolFillHex, symbolDrawLeft, symbolDrawBottom);
           else
-            drawSymbol(topSymbol, symbolDrawLeft, symbolDrawBottom);
+            drawSymbol(topSymbol,
+                       xTopSymbol + static_cast<double>(topSymbolColumnSize) * 0.5,
+                       symbolDrawBottom);
         }
         if (frontDrawW > 0.0) {
           const double symbolDrawBottom =
@@ -1776,7 +1780,9 @@ Viewer2DExportResult ExportLayoutToPdf(
           if (frontSvg)
             drawSvg(frontSvg, item.symbolFillHex, symbolDrawLeft, symbolDrawBottom);
           else
-            drawSymbol(frontSymbol, symbolDrawLeft, symbolDrawBottom);
+            drawSymbol(frontSymbol,
+                       xFrontSymbol + static_cast<double>(frontSymbolColumnSize) * 0.5,
+                       symbolDrawBottom);
         }
       }
 
