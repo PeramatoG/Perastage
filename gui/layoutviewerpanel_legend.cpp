@@ -47,7 +47,7 @@ constexpr double kLegendContentScale = 0.7;
 constexpr int kLegendSymbolSizePx =
     static_cast<int>(64 * kLegendContentScale);
 constexpr double kLegendFallbackSymbolScale = 2.0;
-constexpr double kLegendSvgSymbolScale = 0.2;
+constexpr double kLegendSvgSymbolScale = 0.4;
 
 int SymbolViewRank(SymbolViewKind kind) {
   switch (kind) {
@@ -777,7 +777,7 @@ wxImage LayoutViewerPanel::BuildLegendImage(
   dc.SetTextForeground(wxColour(20, 20, 20));
   dc.SetPen(*wxTRANSPARENT_PEN);
 
-  const int paddingLeft = 4;
+  const int paddingLeft = 2;
   const int paddingRight = 4;
   const int paddingTop = 6;
   const int paddingBottom = 2;

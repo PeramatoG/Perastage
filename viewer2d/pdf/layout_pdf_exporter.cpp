@@ -56,7 +56,7 @@ constexpr double kLegendSymbolSize =
 constexpr double kLegendFontScale =
     (2.0 / 3.0) * kLegendContentScale;
 constexpr double kLegendFallbackSymbolScale = 2.0;
-constexpr double kLegendSvgSymbolScale = 0.2;
+constexpr double kLegendSvgSymbolScale = 0.4;
 constexpr std::array<const char *, 7> kEventTableLabels = {
     "Venue:", "Location:", "Date:", "Stage:",
     "Version:", "Design:", "Mail:"};
@@ -1374,7 +1374,7 @@ Viewer2DExportResult ExportLayoutToPdf(
                   << formatter.Format(frameW) << ' '
                   << formatter.Format(frameH) << " re f\n";
 
-    const double paddingLeft = 4.0;
+    const double paddingLeft = 2.0;
     const double paddingRight = 4.0;
     const double paddingTop = 6.0;
     const double paddingBottom = 2.0;
