@@ -1099,13 +1099,10 @@ bool Viewer3DPanel::ShouldPauseHeavyTasks()
     m_controller.SetInteracting(false);
     m_controller.SetCameraMoving(false);
 
-    // Flush deferred scene/resource updates when camera interaction ends.
-    // Some workflows trigger UpdateScene() while moving (for example rider
-    // auto-creation or fixture GDTF swaps), and those updates are intentionally
-    // skipped during interaction to keep navigation responsive.
-    m_controller.UpdateResourcesIfDirty();
+    const bool fastInteractionMode = IsFastInteractionModeEnabled();
 
-    if (IsFastInteractionModeEnabled()) {
+    if (fastInteractionMode) {
+        m_controller.UpdateResourcesIfDirty();
         m_controller.RebuildVisibleSetCache();
         m_mouseMoved = true;
     }
