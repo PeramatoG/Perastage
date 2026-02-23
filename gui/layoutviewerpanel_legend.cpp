@@ -48,7 +48,7 @@ constexpr int kLegendSymbolSizePx =
     static_cast<int>(64 * kLegendContentScale);
 constexpr double kLegendFallbackSymbolScale = 2.0;
 constexpr double kLegendSvgSymbolScale = 0.4;
-constexpr double kLegendMaxSymbolSlotScale = 2.4;
+constexpr double kLegendMaxSymbolSlotScale = 1.45;
 
 int SymbolViewRank(SymbolViewKind kind) {
   switch (kind) {
@@ -986,11 +986,15 @@ wxImage LayoutViewerPanel::BuildLegendImage(
   const int maxSymbolColumnSize =
       std::max(4, static_cast<int>(std::lround(symbolSize *
                                                kLegendMaxSymbolSlotScale)));
+  const double maxMeasuredSymbolColumnWidth = static_cast<double>(maxSymbolColumnSize);
   const int topSymbolColumnSize = std::clamp(
-      static_cast<int>(std::ceil(maxTopSymbolColumnWidth * kLegendSymbolColumnScale)),
+      static_cast<int>(std::ceil(std::min(maxTopSymbolColumnWidth,
+                                          maxMeasuredSymbolColumnWidth) *
+                                 kLegendSymbolColumnScale)),
       0, maxSymbolColumnSize);
   const int frontSymbolColumnSize = std::clamp(
-      static_cast<int>(std::ceil(maxFrontSymbolColumnWidth *
+      static_cast<int>(std::ceil(std::min(maxFrontSymbolColumnWidth,
+                                          maxMeasuredSymbolColumnWidth) *
                                  kLegendSymbolColumnScale)),
       0, maxSymbolColumnSize);
   const int rowHeightPx = baseRowHeightPx;
@@ -1158,7 +1162,8 @@ wxImage LayoutViewerPanel::BuildLegendImage(
             y + (static_cast<double>(rowHeightPx) - topDrawH) * 0.5;
         const double symbolDrawLeft =
             xTopSymbol +
-            std::max(0.0, static_cast<double>(topSymbolColumnSize) - topDrawW);
+            std::max(0.0, (static_cast<double>(topSymbolColumnSize) - topDrawW) *
+                                 0.5);
         if (topSvg)
           drawSvg(topSvg, item.symbolFillHex, symbolDrawLeft, symbolDrawTop, pairScaleSvg);
         else
@@ -1167,7 +1172,10 @@ wxImage LayoutViewerPanel::BuildLegendImage(
       if (frontDrawW > 0.0) {
         const double symbolDrawTop =
             y + (static_cast<double>(rowHeightPx) - frontDrawH) * 0.5;
-        const double symbolDrawLeft = xFrontSymbol;
+        const double symbolDrawLeft =
+            xFrontSymbol +
+            std::max(0.0, (static_cast<double>(frontSymbolColumnSize) - frontDrawW) *
+                                 0.5);
         if (frontSvg)
           drawSvg(frontSvg, item.symbolFillHex, symbolDrawLeft, symbolDrawTop, pairScaleSvg);
         else
