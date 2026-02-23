@@ -144,8 +144,9 @@ void EmitGrid(ICanvas2D &canvas, int style, Viewer2DView view, float r, float g,
   }
 }
 
-std::string BuildFixtureDebugReport(const CommandBuffer &buffer,
-                                    const std::string &debugKey) {
+std::string BuildFixtureDebugReport(
+    const CommandBuffer &buffer, const SymbolDefinitionSnapshot *symbols,
+    const std::string &debugKey) {
   if (debugKey.empty())
     return {};
 
@@ -153,6 +154,11 @@ std::string BuildFixtureDebugReport(const CommandBuffer &buffer,
   size_t filledPolygons = 0;
   size_t strokedPolygons = 0;
   std::map<int, size_t> histogram;
+  size_t symbolInstances = 0;
+  size_t svgBackedInstances = 0;
+  size_t fallbackBackedInstances = 0;
+  std::set<uint32_t> uniqueSymbolIds;
+  std::map<std::string, size_t> symbolSourceHistogram;
 
   auto getMeta = [&](size_t idx) -> CommandMetadata {
     if (idx < buffer.metadata.size())
@@ -182,18 +188,56 @@ std::string BuildFixtureDebugReport(const CommandBuffer &buffer,
       addEntry(static_cast<int>(poly.points.size() / 2));
     } else if (std::holds_alternative<RectangleCommand>(cmd)) {
       addEntry(4);
+    } else if (std::holds_alternative<SymbolInstanceCommand>(cmd)) {
+      const auto &instance = std::get<SymbolInstanceCommand>(cmd);
+      ++symbolInstances;
+      uniqueSymbolIds.insert(instance.symbolId);
+      bool svgBacked = false;
+      bool hasDefinition = false;
+      if (symbols) {
+        auto it = symbols->find(instance.symbolId);
+        if (it != symbols->end()) {
+          hasDefinition = true;
+          for (const auto &source : it->second.localCommands.sources) {
+            if (source == "svg") {
+              svgBacked = true;
+              break;
+            }
+          }
+          if (!it->second.localCommands.sources.empty()) {
+            ++symbolSourceHistogram[it->second.localCommands.sources.front()];
+          } else {
+            ++symbolSourceHistogram["<no-source>"];
+          }
+        }
+      }
+      if (svgBacked)
+        ++svgBackedInstances;
+      else if (hasDefinition)
+        ++fallbackBackedInstances;
     }
   }
 
-  if (polygonCount == 0)
+  if (polygonCount == 0 && symbolInstances == 0)
     return {};
 
   std::ostringstream out;
   out << "Fixture capture debug ['" << debugKey << "']: polygons="
       << polygonCount << ", filled=" << filledPolygons
-      << ", stroked=" << strokedPolygons << "\nVertex histogram:";
+      << ", stroked=" << strokedPolygons
+      << ", symbolInstances=" << symbolInstances
+      << ", svgBackedInstances=" << svgBackedInstances
+      << ", fallbackBackedInstances=" << fallbackBackedInstances
+      << ", uniqueSymbolIds=" << uniqueSymbolIds.size()
+      << "\nVertex histogram:";
   for (const auto &[verts, count] : histogram)
     out << ' ' << verts << "->" << count;
+
+  if (!symbolSourceHistogram.empty()) {
+    out << "\nSymbol source histogram:";
+    for (const auto &[source, count] : symbolSourceHistogram)
+      out << ' ' << source << "->" << count;
+  }
 
   return out.str();
 }
@@ -709,8 +753,9 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
       debugKey = ConfigManager::Get().GetValue("print_plan_fixture_debug_key");
     }
     if (debugKey && !debugKey->empty()) {
-      m_lastFixtureDebugReport =
-          BuildFixtureDebugReport(m_lastCapturedFrame, *debugKey);
+      auto symbolSnapshot = m_controller.GetBottomSymbolCacheSnapshot();
+      m_lastFixtureDebugReport = BuildFixtureDebugReport(
+          m_lastCapturedFrame, symbolSnapshot.get(), *debugKey);
         if (!m_lastFixtureDebugReport.empty()) {
           wxLogMessage("%s", wxString::FromUTF8(m_lastFixtureDebugReport));
         }
