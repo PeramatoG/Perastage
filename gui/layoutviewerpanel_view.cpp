@@ -18,7 +18,10 @@
 #include "layoutviewerpanel.h"
 
 #include <algorithm>
+#include <map>
 #include <memory>
+#include <set>
+#include <sstream>
 
 // Include GLEW or other OpenGL loader first if present
 #ifdef __APPLE__
@@ -30,10 +33,79 @@
 #endif
 
 #include "configmanager.h"
+#include "consolepanel.h"
 #include "guiconfigservices.h"
 #include "LayoutManager.h"
 #include "viewer2doffscreenrenderer.h"
 #include "viewer2dstate.h"
+
+
+namespace {
+std::string BuildLayoutCaptureSymbolDiagnostics(
+    const CommandBuffer &buffer, const SymbolDefinitionSnapshot *symbols, int viewId) {
+  size_t symbolInstances = 0;
+  size_t svgBackedInstances = 0;
+  size_t fallbackBackedInstances = 0;
+  size_t unresolvedInstances = 0;
+  std::set<uint32_t> uniqueSymbolIds;
+  std::map<std::string, size_t> sourceHistogram;
+
+  for (const auto &cmd : buffer.commands) {
+    if (!std::holds_alternative<SymbolInstanceCommand>(cmd))
+      continue;
+    const auto &instance = std::get<SymbolInstanceCommand>(cmd);
+    ++symbolInstances;
+    uniqueSymbolIds.insert(instance.symbolId);
+
+    const SymbolDefinition *def = nullptr;
+    if (symbols) {
+      auto it = symbols->find(instance.symbolId);
+      if (it != symbols->end())
+        def = &it->second;
+    }
+    if (!def) {
+      ++unresolvedInstances;
+      continue;
+    }
+
+    bool svgBacked = false;
+    for (const auto &source : def->localCommands.sources) {
+      if (source == "svg") {
+        svgBacked = true;
+        break;
+      }
+    }
+    if (svgBacked)
+      ++svgBackedInstances;
+    else
+      ++fallbackBackedInstances;
+
+    if (!def->localCommands.sources.empty())
+      ++sourceHistogram[def->localCommands.sources.front()];
+    else
+      ++sourceHistogram["<no-source>"];
+  }
+
+  if (symbolInstances == 0)
+    return {};
+
+  std::ostringstream out;
+  out << "Layout view capture diagnostics [viewId=" << viewId
+      << "]: symbolInstances=" << symbolInstances
+      << ", svgBackedInstances=" << svgBackedInstances
+      << ", fallbackBackedInstances=" << fallbackBackedInstances
+      << ", unresolvedInstances=" << unresolvedInstances
+      << ", uniqueSymbolIds=" << uniqueSymbolIds.size();
+
+  if (!sourceHistogram.empty()) {
+    out << "\nSymbol source histogram:";
+    for (const auto &[source, count] : sourceHistogram)
+      out << ' ' << source << "->" << count;
+  }
+
+  return out.str();
+}
+} // namespace
 
 layouts::Layout2DViewDefinition *LayoutViewerPanel::GetEditableView() {
   if (currentLayout.view2dViews.empty())
@@ -203,6 +275,15 @@ void LayoutViewerPanel::DrawViewElement(
           cache.symbols.reset();
           if (capturePanel) {
             cache.symbols = capturePanel->GetBottomSymbolCacheSnapshot();
+          }
+          const std::string captureDiagnostics =
+              BuildLayoutCaptureSymbolDiagnostics(cache.buffer,
+                                                  cache.symbols.get(), viewId);
+          if (!captureDiagnostics.empty()) {
+            wxLogMessage("%s", wxString::FromUTF8(captureDiagnostics));
+            if (ConsolePanel::Instance())
+              ConsolePanel::Instance()->AppendMessage(
+                  wxString::FromUTF8(captureDiagnostics));
           }
           cache.hasCapture = !cache.buffer.commands.empty();
           cache.captureVersion = viewRenderVersion;
