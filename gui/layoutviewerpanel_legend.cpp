@@ -1027,7 +1027,7 @@ wxImage LayoutViewerPanel::BuildLegendImage(
   const int maxSymbolColumnSize =
       std::max(4, static_cast<int>(std::lround(symbolSize *
                                                kLegendMaxSymbolSlotScale)));
-  const int limitedSymbolColumnSize = std::max(4, maxSymbolColumnSize / 2);
+  const int limitedSymbolColumnSize = std::max(4, (maxSymbolColumnSize * 2) / 5);
   const double maxMeasuredSymbolColumnWidth =
       static_cast<double>(limitedSymbolColumnSize);
   const int topSymbolColumnSize = std::clamp(
@@ -1083,12 +1083,6 @@ wxImage LayoutViewerPanel::BuildLegendImage(
   int y = paddingTopPx;
   const int textOffset = std::max(0, (rowHeightPx - textHeight) / 2);
   dc.SetFont(headerFont);
-  const int topHeaderX =
-      xTopSymbol + std::max(0, (topSymbolColumnSize - measureTextWidth("I")) / 2);
-  const int frontHeaderX = xFrontSymbol +
-                           std::max(0, (frontSymbolColumnSize - measureTextWidth("I")) / 2);
-  dc.DrawText("I", topHeaderX, y + textOffset);
-  dc.DrawText("I", frontHeaderX, y + textOffset);
   dc.DrawText("Count", xCount, y + textOffset);
   dc.DrawText("Type", xType, y + textOffset);
   dc.DrawText("Ch", xCh, y + textOffset);
