@@ -60,7 +60,6 @@
 #include "guiconfigservices.h"
 #include "legendsymbolcapture.h"
 #include "LayoutManager.h"
-#include "layoutviewerviewrenderer.h"
 #include "logger.h"
 #include "mainwindow.h"
 #include "viewer2doffscreenrenderer.h"
@@ -1635,47 +1634,28 @@ void LayoutViewerPanel::RebuildCachedTexture() {
         continue;
       }
   
-      Viewer2DViewState renderViewState = cache.viewState;
-      if (renderZoom != 1.0)
-        renderViewState.zoom *= static_cast<float>(renderZoom);
-      renderViewState.viewportWidth = renderSize.GetWidth();
-      renderViewState.viewportHeight = renderSize.GetHeight();
+      offscreenRenderer->SetViewportSize(renderSize);
+      offscreenRenderer->PrepareForCapture();
 
-      wxImage image = RenderLayoutViewCommandBufferToImage(
-          renderSize, cache.buffer, renderViewState, cache.symbols.get());
-      if (!image.IsOk()) {
-        ClearCachedTexture(cache);
-        cache.textureSize = wxSize(0, 0);
-        cache.renderZoom = 0.0;
-        continue;
+      viewer2d::Viewer2DState renderState = cache.renderState;
+      if (renderZoom != 1.0) {
+        renderState.camera.zoom *= static_cast<float>(renderZoom);
       }
-      image = image.Mirror(false);
-      if (!image.HasAlpha())
-        image.InitAlpha();
+      renderState.camera.viewportWidth = renderSize.GetWidth();
+      renderState.camera.viewportHeight = renderSize.GetHeight();
 
-      const int width = image.GetWidth();
-      const int height = image.GetHeight();
-      const unsigned char *rgb = image.GetData();
-      const unsigned char *alpha = image.GetAlpha();
-      if (!rgb || width <= 0 || height <= 0) {
-        ClearCachedTexture(cache);
-        cache.textureSize = wxSize(0, 0);
-        cache.renderZoom = 0.0;
-        continue;
-      }
+      auto stateGuard = std::make_shared<viewer2d::ScopedViewer2DState>(
+          capturePanel, nullptr, cfg, renderState, nullptr, nullptr, false);
 
       std::vector<unsigned char> pixels;
-      if (!TryAllocatePixelBuffer(pixels, width, height, "layout view")) {
+      int width = 0;
+      int height = 0;
+      if (!capturePanel->RenderToRGBA(pixels, width, height) || width <= 0 ||
+          height <= 0) {
         ClearCachedTexture(cache);
         cache.textureSize = wxSize(0, 0);
         cache.renderZoom = 0.0;
         continue;
-      }
-      for (int i = 0; i < width * height; ++i) {
-        pixels[static_cast<size_t>(i) * 4] = rgb[i * 3];
-        pixels[static_cast<size_t>(i) * 4 + 1] = rgb[i * 3 + 1];
-        pixels[static_cast<size_t>(i) * 4 + 2] = rgb[i * 3 + 2];
-        pixels[static_cast<size_t>(i) * 4 + 3] = alpha ? alpha[i] : 255;
       }
   
       if (!InitGL()) {
