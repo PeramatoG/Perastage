@@ -778,10 +778,10 @@ wxImage LayoutViewerPanel::BuildLegendImage(
   dc.SetTextForeground(wxColour(20, 20, 20));
   dc.SetPen(*wxTRANSPARENT_PEN);
 
-  const int paddingLeft = 2;
-  const int paddingRight = 4;
-  const int paddingTop = 6;
-  const int paddingBottom = 2;
+  const int paddingLeft = 0;
+  const int paddingRight = 0;
+  const int paddingTop = 0;
+  const int paddingBottom = 0;
   const int columnGap = 6;
   const int symbolColumnGap = 0;
   constexpr double kLegendLineSpacingScale = 1.0;
@@ -1081,6 +1081,12 @@ wxImage LayoutViewerPanel::BuildLegendImage(
   int y = paddingTopPx;
   const int textOffset = std::max(0, (rowHeightPx - textHeight) / 2);
   dc.SetFont(headerFont);
+  const int topHeaderX =
+      xTopSymbol + std::max(0, (topSymbolColumnSize - measureTextWidth("I")) / 2);
+  const int frontHeaderX = xFrontSymbol +
+                           std::max(0, (frontSymbolColumnSize - measureTextWidth("I")) / 2);
+  dc.DrawText("I", topHeaderX, y + textOffset);
+  dc.DrawText("I", frontHeaderX, y + textOffset);
   dc.DrawText("Count", xCount, y + textOffset);
   dc.DrawText("Type", xType, y + textOffset);
   dc.DrawText("Ch", xCh, y + textOffset);
