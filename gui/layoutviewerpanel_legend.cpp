@@ -48,6 +48,9 @@ constexpr int kLegendSymbolSizePx =
     static_cast<int>(64 * kLegendContentScale);
 constexpr double kLegendFallbackSymbolScale = 2.0;
 constexpr double kLegendSvgSymbolScale = 0.4;
+constexpr double kLegendFallbackPairOverlapScale = 0.85;
+constexpr double kLegendSvgPairGapScale = 0.18;
+constexpr double kLegendMaxSymbolSlotScale = 2.4;
 
 int SymbolViewRank(SymbolViewKind kind) {
   switch (kind) {
@@ -785,7 +788,6 @@ wxImage LayoutViewerPanel::BuildLegendImage(
   const int symbolColumnGap = 2;
   constexpr double kLegendLineSpacingScale = 1.0;
   constexpr double kLegendSymbolColumnScale = 1.0;
-  constexpr double kLegendSymbolPairOverlapScale = 0.5;
   const int totalRows = static_cast<int>(items.size()) + 1;
   const int baseHeight = logicalSize.GetHeight() > 0 ? logicalSize.GetHeight()
                                                      : size.GetHeight();
@@ -876,9 +878,11 @@ wxImage LayoutViewerPanel::BuildLegendImage(
       std::max(4.0, static_cast<double>(symbolSize) * kLegendFallbackSymbolScale);
   const double svgSymbolSize =
       std::max(4.0, static_cast<double>(symbolSize) * kLegendSvgSymbolScale);
-  const double symbolPairGapPx =
+  const double fallbackSymbolPairGapPx =
       -std::max(1.0, static_cast<double>(symbolSize) *
-                         kLegendSymbolPairOverlapScale);
+                         kLegendFallbackPairOverlapScale);
+  const double svgSymbolPairGapPx =
+      std::max(1.0, static_cast<double>(symbolSize) * kLegendSvgPairGapScale);
   auto symbolDrawWidth = [&](const SymbolDefinition *symbol) -> double {
     if (!symbol)
       return 0.0;
@@ -960,7 +964,12 @@ wxImage LayoutViewerPanel::BuildLegendImage(
     return std::min(topScale, frontScale);
   };
 
-  auto pairGapForRow = [&]() { return symbolPairGapPx; };
+  auto pairGapForRow = [&](const PerastageSvgSymbolData *topSvg,
+                           const PerastageSvgSymbolData *frontSvg) {
+    if (topSvg && frontSvg)
+      return svgSymbolPairGapPx;
+    return fallbackSymbolPairGapPx;
+  };
   double maxSymbolPairWidth = symbolSize;
   for (const auto &item : items) {
       if (item.symbolKey.empty())
@@ -985,12 +994,15 @@ wxImage LayoutViewerPanel::BuildLegendImage(
                           : symbolDrawWidth(frontSymbol));
       double rowPairWidth = std::max(topDrawW, frontDrawW);
       if (topDrawW > 0.0 && frontDrawW > 0.0)
-        rowPairWidth = topDrawW + frontDrawW + pairGapForRow();
+        rowPairWidth = topDrawW + frontDrawW + pairGapForRow(topSvg, frontSvg);
       maxSymbolPairWidth = std::max(maxSymbolPairWidth, rowPairWidth);
     }
-  const int symbolSlotSize = std::max(
-      4, static_cast<int>(std::ceil(maxSymbolPairWidth *
-                                    kLegendSymbolColumnScale)));
+  const int maxSymbolSlotSize =
+      std::max(4, static_cast<int>(std::lround(symbolSize *
+                                               kLegendMaxSymbolSlotScale)));
+  const int symbolSlotSize = std::clamp(
+      static_cast<int>(std::ceil(maxSymbolPairWidth * kLegendSymbolColumnScale)),
+      4, maxSymbolSlotSize);
   const int rowHeightPx = baseRowHeightPx;
   const int paddingLeftPx =
       std::max(0, static_cast<int>(std::lround(paddingLeft * renderZoom)));
@@ -1154,7 +1166,7 @@ wxImage LayoutViewerPanel::BuildLegendImage(
         const double slotWidth = static_cast<double>(symbolSlotSize);
         double rowPairWidth = std::max(topDrawW, frontDrawW);
         if (topDrawW > 0.0 && frontDrawW > 0.0)
-          rowPairWidth = topDrawW + frontDrawW + pairGapForRow();
+          rowPairWidth = topDrawW + frontDrawW + pairGapForRow(topSvg, frontSvg);
         const double rowStart =
             xSymbol + std::max(0.0, (slotWidth - rowPairWidth) * 0.5);
         double leftSlotWidth = rowPairWidth;
@@ -1164,7 +1176,8 @@ wxImage LayoutViewerPanel::BuildLegendImage(
         if (topDrawW > 0.0 && frontDrawW > 0.0) {
           leftSlotWidth = topDrawW;
           rightSlotWidth = frontDrawW;
-          frontSlotLeft = rowStart + topDrawW + pairGapForRow();
+          frontSlotLeft =
+              rowStart + topDrawW + pairGapForRow(topSvg, frontSvg);
         } else if (frontDrawW > 0.0) {
           frontSlotLeft = rowStart;
         }
