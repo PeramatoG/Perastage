@@ -16,6 +16,7 @@ struct PerastageSvgPolyline {
 
 struct PerastageSvgPolygon {
   std::vector<PerastageSvgPoint> points;
+  std::vector<std::vector<PerastageSvgPoint>> holes;
 };
 
 struct PerastageSvgSymbolData {

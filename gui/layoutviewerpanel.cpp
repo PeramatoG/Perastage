@@ -1636,17 +1636,17 @@ void LayoutViewerPanel::RebuildCachedTexture() {
   
       offscreenRenderer->SetViewportSize(renderSize);
       offscreenRenderer->PrepareForCapture();
-  
+
       viewer2d::Viewer2DState renderState = cache.renderState;
       if (renderZoom != 1.0) {
         renderState.camera.zoom *= static_cast<float>(renderZoom);
       }
       renderState.camera.viewportWidth = renderSize.GetWidth();
       renderState.camera.viewportHeight = renderSize.GetHeight();
-  
+
       auto stateGuard = std::make_shared<viewer2d::ScopedViewer2DState>(
           capturePanel, nullptr, cfg, renderState, nullptr, nullptr, false);
-  
+
       std::vector<unsigned char> pixels;
       int width = 0;
       int height = 0;
