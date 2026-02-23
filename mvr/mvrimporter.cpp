@@ -915,7 +915,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
               if (tinyxml2::XMLElement *mf =
                       info->FirstChildElement("ModelFile"))
                 if (mf->GetText())
-                  truss.modelFile = Trim(mf->GetText());
+                  truss.modelFile = mf->GetText();
               if (tinyxml2::XMLElement *hp = info->FirstChildElement("HangPos"))
                 if (hp->GetText())
                   truss.positionName = Trim(hp->GetText());

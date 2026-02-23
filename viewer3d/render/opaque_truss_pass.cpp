@@ -150,7 +150,7 @@ void OpaqueTrussPass::Render(
 
       if (!modelKey.empty()) {
         SymbolKey symbolKey;
-        symbolKey.modelKey = "truss:" + modelKey;
+        symbolKey.modelKey = modelKey;
         symbolKey.viewKind = resolveSymbolView(captureView);
         symbolKey.styleVersion = 1;
 
