@@ -170,6 +170,7 @@ void OpaqueFixturePass::Render(
               if (TryBuildPerastageSvgSymbolDefinition(gdtfPath,
                                                        symbolKey.viewKind,
                                                        symbolId,
+                                                       {r, g, b},
                                                        svgDefinition)) {
                 return svgDefinition;
               }

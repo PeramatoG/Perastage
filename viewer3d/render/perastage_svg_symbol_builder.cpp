@@ -9,7 +9,9 @@ namespace {
 constexpr float kDefaultStrokeWidthMeters = 0.001f;
 constexpr float kMillimetersToMeters = 0.001f;
 
-void AppendSvgPolygon(const PerastageSvgPolygon &polygon, CommandBuffer &buffer) {
+void AppendSvgPolygon(const PerastageSvgPolygon &polygon,
+                      const std::array<float, 3> &fillColor,
+                      CommandBuffer &buffer) {
   if (polygon.points.size() < 3)
     return;
 
@@ -21,7 +23,7 @@ void AppendSvgPolygon(const PerastageSvgPolygon &polygon, CommandBuffer &buffer)
   }
   poly.stroke.color = {0.0f, 0.0f, 0.0f, 1.0f};
   poly.stroke.width = kDefaultStrokeWidthMeters;
-  poly.fill.color = {0.878f, 0.878f, 0.878f, 1.0f};
+  poly.fill.color = {fillColor[0], fillColor[1], fillColor[2], 1.0f};
   poly.hasFill = true;
 
   buffer.commands.emplace_back(std::move(poly));
@@ -51,6 +53,7 @@ void AppendSvgPolyline(const PerastageSvgPolyline &line, CommandBuffer &buffer) 
 bool TryBuildPerastageSvgSymbolDefinition(const std::string &gdtfPath,
                                           SymbolViewKind viewKind,
                                           uint32_t symbolId,
+                                          const std::array<float, 3> &fillColor,
                                           SymbolDefinition &out) {
   PerastageSvgSymbolData svg;
   if (!LoadPerastageSvgSymbolFromGdtf(gdtfPath, viewKind, svg))
@@ -63,7 +66,7 @@ bool TryBuildPerastageSvgSymbolDefinition(const std::string &gdtfPath,
   out.localCommands.currentSourceKey = "svg";
 
   for (const auto &polygon : svg.fills)
-    AppendSvgPolygon(polygon, out.localCommands);
+    AppendSvgPolygon(polygon, fillColor, out.localCommands);
   for (const auto &line : svg.strokes)
     AppendSvgPolyline(line, out.localCommands);
 

@@ -1145,25 +1145,57 @@ Viewer2DExportResult ExportLayoutToPdf(
                                             double symbolScale,
                                             double strokeScale,
                                             const std::array<double, 3> &fillRgb) {
+    double minX = std::numeric_limits<double>::max();
+    double minY = std::numeric_limits<double>::max();
+    double maxX = std::numeric_limits<double>::lowest();
+    double maxY = std::numeric_limits<double>::lowest();
+    bool hasGeometry = false;
+    auto includePoint = [&](double x, double y) {
+      hasGeometry = true;
+      minX = std::min(minX, x);
+      minY = std::min(minY, y);
+      maxX = std::max(maxX, x);
+      maxY = std::max(maxY, y);
+    };
+
+    for (const auto &polygon : svg.fills) {
+      for (const auto &pt : polygon.points)
+        includePoint(pt.x + svg.offsetXmm, pt.y + svg.offsetYmm);
+      for (const auto &hole : polygon.holes) {
+        for (const auto &pt : hole)
+          includePoint(pt.x + svg.offsetXmm, pt.y + svg.offsetYmm);
+      }
+    }
+    for (const auto &line : svg.strokes) {
+      for (const auto &pt : line.points)
+        includePoint(pt.x + svg.offsetXmm, pt.y + svg.offsetYmm);
+    }
+    if (!hasGeometry) {
+      minX = svg.offsetXmm;
+      minY = svg.offsetYmm;
+      maxX = svg.offsetXmm + svg.viewBoxWidth;
+      maxY = svg.offsetYmm + svg.viewBoxHeight;
+    }
+
     std::ostringstream symbolContent;
     symbolContent << formatter.Format(fillRgb[0]) << " "
                   << formatter.Format(fillRgb[1]) << " "
                   << formatter.Format(fillRgb[2]) << " rg\n";
     symbolContent << "0 0 0 RG " << formatter.Format(strokeScale) << " w\n";
-    symbolContent << "q\n1 0 0 1 "
-                  << formatter.Format(svg.offsetXmm * symbolScale) << " "
-                  << formatter.Format(svg.offsetYmm * symbolScale) << " cm\n";
 
     auto appendPolygonPath = [&](const std::vector<PerastageSvgPoint> &points) {
       if (points.size() < 3)
         return;
-      symbolContent << formatter.Format(points[0].x * symbolScale) << ' '
-                    << formatter.Format((svg.viewBoxHeight - points[0].y) * symbolScale)
+      symbolContent << formatter.Format((points[0].x + svg.offsetXmm) * symbolScale)
+                    << ' '
+                    << formatter.Format((points[0].y + svg.offsetYmm) * symbolScale)
                     << " m\n";
       for (size_t i = 1; i < points.size(); ++i) {
-        symbolContent << formatter.Format(points[i].x * symbolScale) << ' '
-                      << formatter.Format((svg.viewBoxHeight - points[i].y) * symbolScale)
-                      << " l\n";
+        symbolContent
+            << formatter.Format((points[i].x + svg.offsetXmm) * symbolScale)
+            << ' '
+            << formatter.Format((points[i].y + svg.offsetYmm) * symbolScale)
+            << " l\n";
       }
       symbolContent << "h\n";
     };
@@ -1179,17 +1211,20 @@ Viewer2DExportResult ExportLayoutToPdf(
     for (const auto &line : svg.strokes) {
       if (line.points.size() < 2)
         continue;
-      symbolContent << formatter.Format(line.points[0].x * symbolScale) << ' '
-                    << formatter.Format((svg.viewBoxHeight - line.points[0].y) * symbolScale)
-                    << " m\n";
+      symbolContent
+          << formatter.Format((line.points[0].x + svg.offsetXmm) * symbolScale)
+          << ' '
+          << formatter.Format((line.points[0].y + svg.offsetYmm) * symbolScale)
+          << " m\n";
       for (size_t i = 1; i < line.points.size(); ++i) {
-        symbolContent << formatter.Format(line.points[i].x * symbolScale) << ' '
-                      << formatter.Format((svg.viewBoxHeight - line.points[i].y) * symbolScale)
-                      << " l\n";
+        symbolContent
+            << formatter.Format((line.points[i].x + svg.offsetXmm) * symbolScale)
+            << ' '
+            << formatter.Format((line.points[i].y + svg.offsetYmm) * symbolScale)
+            << " l\n";
       }
       symbolContent << "S\n";
     }
-    symbolContent << "Q\n";
 
     std::string symbolStream = symbolContent.str();
     std::string compressedSymbol;
@@ -1199,16 +1234,13 @@ Viewer2DExportResult ExportLayoutToPdf(
       compressed = PdfDeflater::Compress(symbolStream, compressedSymbol, error);
     }
     const std::string &stream = compressed ? compressedSymbol : symbolStream;
-    const double minX = svg.offsetXmm * symbolScale;
-    const double minY = svg.offsetYmm * symbolScale;
-    const double maxX = (svg.offsetXmm + svg.viewBoxWidth) * symbolScale;
-    const double maxY = (svg.offsetYmm + svg.viewBoxHeight) * symbolScale;
+
     std::ostringstream xobj;
     xobj << "<< /Type /XObject /Subtype /Form /BBox ["
-         << formatter.Format(std::min(minX, maxX)) << ' '
-         << formatter.Format(std::min(minY, maxY)) << ' '
-         << formatter.Format(std::max(minX, maxX)) << ' '
-         << formatter.Format(std::max(minY, maxY))
+         << formatter.Format(minX * symbolScale) << ' '
+         << formatter.Format(minY * symbolScale) << ' '
+         << formatter.Format(maxX * symbolScale) << ' '
+         << formatter.Format(maxY * symbolScale)
          << "] /Resources << >> /Length " << stream.size();
     if (compressed)
       xobj << " /Filter /FlateDecode";
@@ -1216,7 +1248,6 @@ Viewer2DExportResult ExportLayoutToPdf(
     objects.push_back({xobj.str()});
     return objects.size();
   };
-
 
   auto populateViewSymbolNames =
       [&](const LayoutCommandGroup &group,
