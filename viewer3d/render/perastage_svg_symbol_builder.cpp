@@ -11,8 +11,7 @@ namespace {
 constexpr float kDefaultStrokeWidthMeters = 0.001f;
 constexpr float kMillimetersToMeters = 0.001f;
 
-void MirrorSymbolGeometryAroundMinCorner(CommandBuffer &buffer) {
-  float minX = std::numeric_limits<float>::max();
+void MirrorSymbolGeometryForBottomFallback(CommandBuffer &buffer) {
   float minY = std::numeric_limits<float>::max();
   bool hasPoint = false;
 
@@ -23,15 +22,13 @@ void MirrorSymbolGeometryAroundMinCorner(CommandBuffer &buffer) {
 
   for (auto &cmd : buffer.commands) {
     if (auto *polygon = std::get_if<PolygonCommand>(&cmd)) {
-      visitPoints(polygon->points, [&](float x, float y) {
+      visitPoints(polygon->points, [&](float, float y) {
         hasPoint = true;
-        minX = std::min(minX, x);
         minY = std::min(minY, y);
       });
     } else if (auto *polyline = std::get_if<PolylineCommand>(&cmd)) {
-      visitPoints(polyline->points, [&](float x, float y) {
+      visitPoints(polyline->points, [&](float, float y) {
         hasPoint = true;
-        minX = std::min(minX, x);
         minY = std::min(minY, y);
       });
     }
@@ -42,13 +39,11 @@ void MirrorSymbolGeometryAroundMinCorner(CommandBuffer &buffer) {
 
   for (auto &cmd : buffer.commands) {
     if (auto *polygon = std::get_if<PolygonCommand>(&cmd)) {
-      visitPoints(polygon->points, [&](float &x, float &y) {
-        x = 2.0f * minX - x;
+      visitPoints(polygon->points, [&](float &, float &y) {
         y = 2.0f * minY - y;
       });
     } else if (auto *polyline = std::get_if<PolylineCommand>(&cmd)) {
-      visitPoints(polyline->points, [&](float &x, float &y) {
-        x = 2.0f * minX - x;
+      visitPoints(polyline->points, [&](float &, float &y) {
         y = 2.0f * minY - y;
       });
     }
@@ -76,6 +71,34 @@ void AppendSvgPolygon(const PerastageSvgPolygon &polygon,
   buffer.commands.emplace_back(std::move(poly));
   buffer.metadata.push_back({true, true});
   buffer.sources.push_back("svg");
+}
+
+
+void AppendSvgHoleContours(const PerastageSvgPolygon &polygon,
+                           CommandBuffer &buffer) {
+  for (const auto &hole : polygon.holes) {
+    if (hole.size() < 3)
+      continue;
+
+    PolylineCommand contour{};
+    contour.points.reserve((hole.size() + 1) * 2);
+    for (const auto &point : hole) {
+      contour.points.push_back(static_cast<float>(point.x) *
+                               kMillimetersToMeters);
+      contour.points.push_back(static_cast<float>(point.y) *
+                               kMillimetersToMeters);
+    }
+    contour.points.push_back(static_cast<float>(hole.front().x) *
+                             kMillimetersToMeters);
+    contour.points.push_back(static_cast<float>(hole.front().y) *
+                             kMillimetersToMeters);
+    contour.stroke.color = {0.0f, 0.0f, 0.0f, 1.0f};
+    contour.stroke.width = kDefaultStrokeWidthMeters;
+
+    buffer.commands.emplace_back(std::move(contour));
+    buffer.metadata.push_back({true, false});
+    buffer.sources.push_back("svg");
+  }
 }
 
 void AppendSvgPolyline(const PerastageSvgPolyline &line, CommandBuffer &buffer) {
@@ -112,8 +135,10 @@ bool TryBuildPerastageSvgSymbolDefinition(const std::string &gdtfPath,
   out.symbolId = symbolId;
   out.localCommands.currentSourceKey = "svg";
 
-  for (const auto &polygon : svg.fills)
+  for (const auto &polygon : svg.fills) {
     AppendSvgPolygon(polygon, fillColor, out.localCommands);
+    AppendSvgHoleContours(polygon, out.localCommands);
+  }
   for (const auto &line : svg.strokes)
     AppendSvgPolyline(line, out.localCommands);
 
@@ -137,7 +162,7 @@ bool TryBuildPerastageSvgSymbolDefinition(const std::string &gdtfPath,
   }
 
   if (viewKind == SymbolViewKind::Bottom && svg.viewKind == SymbolViewKind::Top)
-    MirrorSymbolGeometryAroundMinCorner(out.localCommands);
+    MirrorSymbolGeometryForBottomFallback(out.localCommands);
 
   out.bounds = ComputeSymbolBounds(out.localCommands);
   return true;
