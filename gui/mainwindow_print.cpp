@@ -373,9 +373,14 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
                                wxString::FromUTF8(res.message);
                 wxMessageBox(msg, "Print Layout", wxOK | wxICON_ERROR, this);
               } else {
-                wxMessageBox(wxString::Format("Layout saved to %s",
-                                              outputPathDisplay),
-                             "Print Layout", wxOK | wxICON_INFORMATION, this);
+                wxString successMessage =
+                    wxString::Format("Layout saved to %s", outputPathDisplay);
+                if (!res.message.empty()) {
+                  successMessage += "\n\nAdditional details:\n" +
+                                    wxString::FromUTF8(res.message);
+                }
+                wxMessageBox(successMessage, "Print Layout",
+                             wxOK | wxICON_INFORMATION, this);
               }
             });
           }).detach();
