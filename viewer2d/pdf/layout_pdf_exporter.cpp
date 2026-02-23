@@ -1687,11 +1687,19 @@ Viewer2DExportResult ExportLayoutToPdf(
           const double symbolH = symbol->bounds.max.y - symbol->bounds.min.y;
           if (symbolW <= 0.0 || symbolH <= 0.0)
             return;
-          const double scale =
-              std::min(fallbackSymbolSize / symbolW, fallbackSymbolSize / symbolH);
-          const double symbolOffsetX = drawLeft - symbol->bounds.min.x * scale;
-          const double symbolOffsetY = drawBottom - symbol->bounds.min.y * scale;
-          contentStream << "q\n1 0 0 1 " << formatter.Format(symbolOffsetX) << ' '
+          const double xObjectScale =
+              std::min(kLegendSymbolSize / symbolW, kLegendSymbolSize / symbolH);
+          if (xObjectScale <= 0.0)
+            return;
+          const double placementScale = fallbackSymbolSize / kLegendSymbolSize;
+          const double minX = symbol->bounds.min.x * xObjectScale;
+          const double minY = symbol->bounds.min.y * xObjectScale;
+          const double symbolOffsetX = drawLeft - minX * placementScale;
+          const double symbolOffsetY = drawBottom - minY * placementScale;
+          contentStream << "q\n"
+                        << formatter.Format(placementScale) << " 0 0 "
+                        << formatter.Format(placementScale) << ' '
+                        << formatter.Format(symbolOffsetX) << ' '
                         << formatter.Format(symbolOffsetY) << " cm\n/"
                         << nameIt->second << " Do\nQ\n";
         };
