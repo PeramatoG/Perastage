@@ -41,6 +41,24 @@
 
 
 namespace {
+const char *SymbolViewKindToString(SymbolViewKind viewKind) {
+  switch (viewKind) {
+  case SymbolViewKind::Top:
+    return "Top";
+  case SymbolViewKind::Bottom:
+    return "Bottom";
+  case SymbolViewKind::Left:
+    return "Left";
+  case SymbolViewKind::Right:
+    return "Right";
+  case SymbolViewKind::Front:
+    return "Front";
+  case SymbolViewKind::Back:
+    return "Back";
+  }
+  return "Unknown";
+}
+
 std::string BuildLayoutCaptureSymbolDiagnostics(
     const CommandBuffer &buffer, const SymbolDefinitionSnapshot *symbols, int viewId) {
   size_t symbolInstances = 0;
@@ -49,6 +67,7 @@ std::string BuildLayoutCaptureSymbolDiagnostics(
   size_t unresolvedInstances = 0;
   std::set<uint32_t> uniqueSymbolIds;
   std::map<std::string, size_t> sourceHistogram;
+  std::map<uint32_t, size_t> instancesBySymbolId;
 
   for (const auto &cmd : buffer.commands) {
     if (!std::holds_alternative<SymbolInstanceCommand>(cmd))
@@ -56,6 +75,7 @@ std::string BuildLayoutCaptureSymbolDiagnostics(
     const auto &instance = std::get<SymbolInstanceCommand>(cmd);
     ++symbolInstances;
     uniqueSymbolIds.insert(instance.symbolId);
+    ++instancesBySymbolId[instance.symbolId];
 
     const SymbolDefinition *def = nullptr;
     if (symbols) {
@@ -101,6 +121,35 @@ std::string BuildLayoutCaptureSymbolDiagnostics(
     out << "\nSymbol source histogram:";
     for (const auto &[source, count] : sourceHistogram)
       out << ' ' << source << "->" << count;
+  }
+
+  if (!instancesBySymbolId.empty()) {
+    out << "\nSymbol details:";
+    for (const auto &[symbolId, instanceCount] : instancesBySymbolId) {
+      out << " [id=" << symbolId << ", instances=" << instanceCount;
+      if (!symbols) {
+        out << ", definition=missing]";
+        continue;
+      }
+      auto it = symbols->find(symbolId);
+      if (it == symbols->end()) {
+        out << ", definition=missing]";
+        continue;
+      }
+      const auto &definition = it->second;
+      bool svgBacked = false;
+      for (const auto &source : definition.localCommands.sources) {
+        if (source == "svg") {
+          svgBacked = true;
+          break;
+        }
+      }
+      out << ", modelKey='" << definition.key.modelKey << "'"
+          << ", view=" << SymbolViewKindToString(definition.key.viewKind)
+          << ", backing=" << (svgBacked ? "svg" : "fallback")
+          << ", commandSources=" << definition.localCommands.sources.size()
+          << "]";
+    }
   }
 
   return out.str();
