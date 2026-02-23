@@ -1681,29 +1681,31 @@ Viewer2DExportResult ExportLayoutToPdf(
                               double drawBottom) {
           if (!symbol)
             return;
-          auto nameIt = legendSymbolNames.find(symbol->symbolId);
-          if (nameIt == legendSymbolNames.end())
-            return;
           const double symbolW = symbol->bounds.max.x - symbol->bounds.min.x;
           const double symbolH = symbol->bounds.max.y - symbol->bounds.min.y;
           if (symbolW <= 0.0 || symbolH <= 0.0)
             return;
-          const double xObjectScale =
-              std::min(kLegendSymbolSize / symbolW, kLegendSymbolSize / symbolH);
-          if (xObjectScale <= 0.0)
-            return;
-          const double placementScale = fallbackSymbolSize / kLegendSymbolSize;
-          const double finalScale = placementScale * xObjectScale;
-          const double symbolOffsetX =
-              drawCenterX + static_cast<double>(symbol->bounds.min.x) * finalScale;
-          // Symbol XObjects are authored with minY mapped to 0, so row bottom is the insertion Y.
-          const double symbolOffsetY = drawBottom;
-          contentStream << "q\n"
-                        << formatter.Format(placementScale) << " 0 0 "
-                        << formatter.Format(placementScale) << ' '
-                        << formatter.Format(symbolOffsetX) << ' '
-                        << formatter.Format(symbolOffsetY) << " cm\n/"
-                        << nameIt->second << " Do\nQ\n";
+          const double scale =
+              std::min(fallbackSymbolSize / symbolW, fallbackSymbolSize / symbolH);
+          const double drawH = symbolH * scale;
+          Mapping symbolMapping{};
+          symbolMapping.minX = symbol->bounds.min.x;
+          symbolMapping.minY = symbol->bounds.min.y;
+          symbolMapping.scale = scale;
+          symbolMapping.offsetX =
+              drawCenterX - (0.0 - static_cast<double>(symbolMapping.minX)) * scale;
+          symbolMapping.offsetY = drawBottom;
+          symbolMapping.drawHeight = drawH;
+          symbolMapping.flipY = false;
+
+          RenderOptions symbolOptions{};
+          symbolOptions.includeText = false;
+          symbolOptions.strokeScale = legendStrokeScale;
+          contentStream << RenderCommandsToStream(symbol->localCommands.commands,
+                                                  symbol->localCommands.metadata,
+                                                  symbol->localCommands.sources,
+                                                  symbolMapping, formatter,
+                                                  symbolOptions);
         };
 
         auto drawSvg = [&](const PerastageSvgSymbolData *svg,
