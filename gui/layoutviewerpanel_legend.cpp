@@ -783,7 +783,7 @@ wxImage LayoutViewerPanel::BuildLegendImage(
   const int paddingTop = 6;
   const int paddingBottom = 2;
   const int columnGap = 6;
-  const int symbolColumnGap = 1;
+  const int symbolColumnGap = 0;
   constexpr double kLegendLineSpacingScale = 1.0;
   constexpr double kLegendSymbolColumnScale = 1.0;
   const int totalRows = static_cast<int>(items.size()) + 1;
@@ -853,7 +853,6 @@ wxImage LayoutViewerPanel::BuildLegendImage(
     maxCountWidth = std::max(maxCountWidth, measureTextWidth(row.countText));
     maxChWidth = std::max(maxChWidth, measureTextWidth(row.chText));
   }
-  const int leftTrimPx = measureTextWidth("000");
   const int chExtraWidthPx = measureTextWidth("0");
   maxChWidth += chExtraWidthPx;
 
@@ -965,14 +964,14 @@ wxImage LayoutViewerPanel::BuildLegendImage(
 
     for (const auto &polygon : symbol->fills) {
       for (const auto &pt : polygon.points)
-        includePoint(pt);
+        includePoint({pt.x + symbol->offsetXmm, pt.y + symbol->offsetYmm});
       for (const auto &hole : polygon.holes)
         for (const auto &pt : hole)
-          includePoint(pt);
+          includePoint({pt.x + symbol->offsetXmm, pt.y + symbol->offsetYmm});
     }
     for (const auto &line : symbol->strokes)
       for (const auto &pt : line.points)
-        includePoint(pt);
+        includePoint({pt.x + symbol->offsetXmm, pt.y + symbol->offsetYmm});
 
     if (!hasPoint)
       return metrics;
@@ -1052,7 +1051,7 @@ wxImage LayoutViewerPanel::BuildLegendImage(
       std::max(0, static_cast<int>(std::lround(columnGap * renderZoom)));
   const int symbolColumnGapPx =
       std::max(0, static_cast<int>(std::lround(symbolColumnGap * renderZoom)));
-  int xTopSymbol = std::max(0, paddingLeftPx - leftTrimPx);
+  int xTopSymbol = paddingLeftPx;
   int xFrontSymbol = xTopSymbol + topSymbolColumnSize + symbolColumnGapPx;
   int xCount = xFrontSymbol + frontSymbolColumnSize + columnGapPx;
   int xType = xCount + maxCountWidth + columnGapPx;
@@ -1147,6 +1146,7 @@ wxImage LayoutViewerPanel::BuildLegendImage(
         gc->PushState();
         gc->Translate(drawLeft, drawTop);
         gc->Scale(scale, scale);
+        gc->Translate(symbol->offsetXmm, symbol->offsetYmm);
         gc->Translate(-metrics.minX, -metrics.minY);
         gc->SetBrush(wxBrush(ResolveLegendSvgFillColor(fillHex)));
         gc->SetPen(*wxTRANSPARENT_PEN);
