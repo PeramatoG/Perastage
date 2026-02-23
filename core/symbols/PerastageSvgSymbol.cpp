@@ -188,6 +188,26 @@ std::string TrimAscii(std::string value) {
   return value;
 }
 
+bool StartsWithPerastageEditor(std::string value) {
+  value = TrimAscii(std::move(value));
+  std::transform(value.begin(), value.end(), value.begin(),
+                 [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
+  return value.rfind("perastage", 0) == 0;
+}
+
+const char *ResolveEditorAttribute(const tinyxml2::XMLDocument &doc,
+                                   const tinyxml2::XMLElement *fixtureType) {
+  if (fixtureType) {
+    const char *editor = fixtureType->Attribute("Editor");
+    if (editor && *editor)
+      return editor;
+  }
+  const tinyxml2::XMLElement *gdtf = doc.FirstChildElement("GDTF");
+  if (!gdtf)
+    return nullptr;
+  return gdtf->Attribute("Editor");
+}
+
 std::optional<double> ParsePercentOrInt255(std::string value) {
   value = TrimAscii(std::move(value));
   if (value.empty())
@@ -488,6 +508,16 @@ bool LoadPerastageSvgSymbolFromGdtf(const std::string &gdtfPath,
     if (errorDetails)
       *errorDetails = "FixtureType section is missing in GDTF archive: " +
                       gdtfPath;
+    return false;
+  }
+
+  const char *editor = ResolveEditorAttribute(description, fixtureType);
+  if (!editor || !StartsWithPerastageEditor(editor)) {
+    if (errorDetails) {
+      const std::string value = editor ? std::string(editor) : std::string("<missing>");
+      *errorDetails = "GDTF archive editor is not recognized as Perastage (Editor=\"" +
+                      value + "\"): " + gdtfPath;
+    }
     return false;
   }
 
