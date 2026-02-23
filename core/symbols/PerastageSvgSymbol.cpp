@@ -444,6 +444,8 @@ bool ParseSvgData(const std::string &svgXml, PerastageSvgSymbolData &out) {
   if (!ParseDoubles(svg->Attribute("viewBox"), viewBox) || viewBox.size() < 4)
     return false;
 
+  out.viewBoxMinX = viewBox[0];
+  out.viewBoxMinY = viewBox[1];
   out.viewBoxWidth = viewBox[2];
   out.viewBoxHeight = viewBox[3];
   if (out.viewBoxWidth <= 0.0 || out.viewBoxHeight <= 0.0)

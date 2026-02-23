@@ -1132,12 +1132,12 @@ Viewer2DExportResult ExportLayoutToPdf(
     auto appendPolygonPath = [&](const std::vector<PerastageSvgPoint> &points) {
       if (points.size() < 3)
         return;
-      symbolContent << formatter.Format(points[0].x * symbolScale) << ' '
-                    << formatter.Format((svg.viewBoxHeight - points[0].y) * symbolScale)
+      symbolContent << formatter.Format((points[0].x - svg.viewBoxMinX) * symbolScale) << ' '
+                    << formatter.Format((svg.viewBoxMinY + svg.viewBoxHeight - points[0].y) * symbolScale)
                     << " m\n";
       for (size_t i = 1; i < points.size(); ++i) {
-        symbolContent << formatter.Format(points[i].x * symbolScale) << ' '
-                      << formatter.Format((svg.viewBoxHeight - points[i].y) * symbolScale)
+        symbolContent << formatter.Format((points[i].x - svg.viewBoxMinX) * symbolScale) << ' '
+                      << formatter.Format((svg.viewBoxMinY + svg.viewBoxHeight - points[i].y) * symbolScale)
                       << " l\n";
       }
       symbolContent << "h\n";
@@ -1154,12 +1154,12 @@ Viewer2DExportResult ExportLayoutToPdf(
     for (const auto &line : svg.strokes) {
       if (line.points.size() < 2)
         continue;
-      symbolContent << formatter.Format(line.points[0].x * symbolScale) << ' '
-                    << formatter.Format((svg.viewBoxHeight - line.points[0].y) * symbolScale)
+      symbolContent << formatter.Format((line.points[0].x - svg.viewBoxMinX) * symbolScale) << ' '
+                    << formatter.Format((svg.viewBoxMinY + svg.viewBoxHeight - line.points[0].y) * symbolScale)
                     << " m\n";
       for (size_t i = 1; i < line.points.size(); ++i) {
-        symbolContent << formatter.Format(line.points[i].x * symbolScale) << ' '
-                      << formatter.Format((svg.viewBoxHeight - line.points[i].y) * symbolScale)
+        symbolContent << formatter.Format((line.points[i].x - svg.viewBoxMinX) * symbolScale) << ' '
+                      << formatter.Format((svg.viewBoxMinY + svg.viewBoxHeight - line.points[i].y) * symbolScale)
                       << " l\n";
       }
       symbolContent << "S\n";
@@ -1691,12 +1691,12 @@ Viewer2DExportResult ExportLayoutToPdf(
               auto appendPolygonPath = [&](const std::vector<PerastageSvgPoint> &points) {
                 if (points.size() < 3)
                   return;
-                contentStream << formatter.Format(points[0].x * scale) << ' '
-                              << formatter.Format((svg->viewBoxHeight - points[0].y) * scale)
+                contentStream << formatter.Format((points[0].x - svg->viewBoxMinX) * scale) << ' '
+                              << formatter.Format((svg->viewBoxMinY + svg->viewBoxHeight - points[0].y) * scale)
                               << " m\n";
                 for (size_t i = 1; i < points.size(); ++i) {
-                  contentStream << formatter.Format(points[i].x * scale) << ' '
-                                << formatter.Format((svg->viewBoxHeight - points[i].y) * scale)
+                  contentStream << formatter.Format((points[i].x - svg->viewBoxMinX) * scale) << ' '
+                                << formatter.Format((svg->viewBoxMinY + svg->viewBoxHeight - points[i].y) * scale)
                                 << " l\n";
                 }
                 contentStream << "h\n";
@@ -1714,13 +1714,13 @@ Viewer2DExportResult ExportLayoutToPdf(
             for (const auto &line : svg->strokes) {
               if (line.points.size() < 2)
                 continue;
-              contentStream << formatter.Format(line.points[0].x * scale) << ' '
-                            << formatter.Format((svg->viewBoxHeight - line.points[0].y) * scale)
+              contentStream << formatter.Format((line.points[0].x - svg->viewBoxMinX) * scale) << ' '
+                            << formatter.Format((svg->viewBoxMinY + svg->viewBoxHeight - line.points[0].y) * scale)
                             << " m\n";
               for (size_t i = 1; i < line.points.size(); ++i) {
-                contentStream << formatter.Format(line.points[i].x * scale)
+                contentStream << formatter.Format((line.points[i].x - svg->viewBoxMinX) * scale)
                               << ' '
-                              << formatter.Format((svg->viewBoxHeight - line.points[i].y) * scale)
+                              << formatter.Format((svg->viewBoxMinY + svg->viewBoxHeight - line.points[i].y) * scale)
                               << " l\n";
               }
               contentStream << "S\n";

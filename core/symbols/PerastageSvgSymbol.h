@@ -22,6 +22,8 @@ struct PerastageSvgPolygon {
 struct PerastageSvgSymbolData {
   std::string sourcePath;
   SymbolViewKind viewKind = SymbolViewKind::Top;
+  double viewBoxMinX = 0.0;
+  double viewBoxMinY = 0.0;
   double viewBoxWidth = 0.0;
   double viewBoxHeight = 0.0;
   double offsetXmm = 0.0;
