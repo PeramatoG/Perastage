@@ -145,7 +145,8 @@ void OpaqueFixturePass::Render(
         SymbolKey symbolKey;
         symbolKey.modelKey = modelKey;
         symbolKey.viewKind = resolveSymbolView(fixtureCaptureView);
-        symbolKey.styleVersion = 1;
+        symbolKey.styleVersion =
+            controller.m_captureUsePerastageSvgSymbols ? 2u : 1u;
 
         const auto &symbol =
             controller.m_bottomSymbolCache.GetOrCreate(symbolKey, [&](const SymbolKey &,
