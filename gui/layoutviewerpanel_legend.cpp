@@ -782,8 +782,8 @@ wxImage LayoutViewerPanel::BuildLegendImage(
   const int paddingRight = 4;
   const int paddingTop = 6;
   const int paddingBottom = 2;
-  const int columnGap = 8;
-  const int symbolColumnGap = 2;
+  const int columnGap = 6;
+  const int symbolColumnGap = 1;
   constexpr double kLegendLineSpacingScale = 1.0;
   constexpr double kLegendSymbolColumnScale = 1.0;
   const int totalRows = static_cast<int>(items.size()) + 1;
@@ -1158,7 +1158,7 @@ wxImage LayoutViewerPanel::BuildLegendImage(
             y + (static_cast<double>(rowHeightPx) - topDrawH) * 0.5;
         const double symbolDrawLeft =
             xTopSymbol +
-            std::max(0.0, (static_cast<double>(topSymbolColumnSize) - topDrawW) * 0.5);
+            std::max(0.0, static_cast<double>(topSymbolColumnSize) - topDrawW);
         if (topSvg)
           drawSvg(topSvg, item.symbolFillHex, symbolDrawLeft, symbolDrawTop, pairScaleSvg);
         else
@@ -1167,9 +1167,7 @@ wxImage LayoutViewerPanel::BuildLegendImage(
       if (frontDrawW > 0.0) {
         const double symbolDrawTop =
             y + (static_cast<double>(rowHeightPx) - frontDrawH) * 0.5;
-        const double symbolDrawLeft =
-            xFrontSymbol +
-            std::max(0.0, (static_cast<double>(frontSymbolColumnSize) - frontDrawW) * 0.5);
+        const double symbolDrawLeft = xFrontSymbol;
         if (frontSvg)
           drawSvg(frontSvg, item.symbolFillHex, symbolDrawLeft, symbolDrawTop, pairScaleSvg);
         else
