@@ -193,7 +193,7 @@ void MainWindow::OnPrintViewer2D(wxCommandEvent &WXUNUSED(event)) {
           });
         }).detach();
       },
-      opts.useSimplifiedFootprints, opts.printIncludeGrid);
+      opts.useSimplifiedFootprints, opts.printIncludeGrid, false);
 }
 
 void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
@@ -441,7 +441,7 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
               exportViews->push_back(std::move(data));
               (*captureNext)(exportViews->size());
             },
-            useSimplifiedFootprints, includeGrid);
+            useSimplifiedFootprints, includeGrid, true);
       };
 
   (*captureNext)(0);

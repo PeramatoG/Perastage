@@ -92,11 +92,13 @@ public:
   void CaptureFrameAsync(
       std::function<void(CommandBuffer, Viewer2DViewState)> callback,
       bool useSimplifiedFootprints = false,
-      bool includeGridInCapture = true);
+      bool includeGridInCapture = true,
+      bool usePerastageSvgSymbols = false);
   void CaptureFrameNow(
       std::function<void(CommandBuffer, Viewer2DViewState)> callback,
       bool useSimplifiedFootprints = false,
-      bool includeGridInCapture = true);
+      bool includeGridInCapture = true,
+      bool usePerastageSvgSymbols = false);
 
   bool RenderToRGBA(std::vector<unsigned char> &pixels, int &width,
                     int &height);
@@ -201,6 +203,7 @@ private:
   bool m_captureNextFrame = false;
   bool m_useSimplifiedFootprints = false;
   bool m_captureIncludeGrid = true;
+  bool m_usePerastageSvgSymbols = false;
   CommandBuffer m_lastCapturedFrame;
   std::function<void(CommandBuffer, Viewer2DViewState)> m_captureCallback;
   std::string m_lastFixtureDebugReport;

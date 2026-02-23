@@ -119,6 +119,7 @@ struct Viewer3DController::Impl {
   bool captureIncludeGrid = true;
   bool captureOnly = false;
   bool captureUseSymbols = false;
+  bool captureUsePerastageSvgSymbols = false;
   SymbolCache bottomSymbolCache;
   bool darkMode = false;
   bool showSelectionOutline2D = false;
@@ -619,6 +620,7 @@ Viewer3DController::Viewer3DController()
       m_captureIncludeGrid(m_impl->captureIncludeGrid),
       m_captureOnly(m_impl->captureOnly),
       m_captureUseSymbols(m_impl->captureUseSymbols),
+      m_captureUsePerastageSvgSymbols(m_impl->captureUsePerastageSvgSymbols),
       m_bottomSymbolCache(m_impl->bottomSymbolCache) {
   m_impl->sceneRenderer = std::make_unique<SceneRenderer>(*this);
   m_impl->visibilitySystem = std::make_unique<VisibilitySystem>(*this);
@@ -1138,11 +1140,14 @@ void Viewer3DController::SetSelectionOutlineEnabled(bool enabled) {
 
 void Viewer3DController::SetCaptureCanvas(ICanvas2D *canvas, Viewer2DView view,
                                           bool includeGrid,
-                                          bool useSymbolInstancing) {
+                                          bool useSymbolInstancing,
+                                          bool usePerastageSvgSymbols) {
   m_impl->captureCanvas = canvas;
   m_impl->captureView = view;
   m_impl->captureIncludeGrid = includeGrid;
   m_impl->captureUseSymbols = canvas ? useSymbolInstancing : false;
+  m_impl->captureUsePerastageSvgSymbols =
+      canvas ? usePerastageSvgSymbols : false;
 }
 
 bool Viewer3DController::IsCameraMoving() const { return m_impl->cameraMoving; }

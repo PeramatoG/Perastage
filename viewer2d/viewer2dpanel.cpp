@@ -400,7 +400,8 @@ void Viewer2DPanel::RequestFrameCapture() { m_captureNextFrame = true; }
 
 void Viewer2DPanel::CaptureFrameAsync(
     std::function<void(CommandBuffer, Viewer2DViewState)> callback,
-    bool useSimplifiedFootprints, bool includeGridInCapture) {
+    bool useSimplifiedFootprints, bool includeGridInCapture,
+    bool usePerastageSvgSymbols) {
   m_captureCallback = std::move(callback);
   m_useSimplifiedFootprints = useSimplifiedFootprints;
   if (!m_useSimplifiedFootprints &&
@@ -410,15 +411,17 @@ void Viewer2DPanel::CaptureFrameAsync(
     m_useSimplifiedFootprints = true;
   }
   m_captureIncludeGrid = includeGridInCapture;
+  m_usePerastageSvgSymbols = usePerastageSvgSymbols;
   RequestFrameCapture();
   Refresh();
 }
 
 void Viewer2DPanel::CaptureFrameNow(
     std::function<void(CommandBuffer, Viewer2DViewState)> callback,
-    bool useSimplifiedFootprints, bool includeGridInCapture) {
+    bool useSimplifiedFootprints, bool includeGridInCapture,
+    bool usePerastageSvgSymbols) {
   CaptureFrameAsync(std::move(callback), useSimplifiedFootprints,
-                    includeGridInCapture);
+                    includeGridInCapture, usePerastageSvgSymbols);
   if (m_allowOffscreenRender) {
     m_forceOffscreenRender = true;
     InitGL();
@@ -614,7 +617,8 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
     recordingCanvas->SetTransform(transform);
     m_controller.SetCaptureCanvas(recordingCanvas.get(), m_view,
                                   m_captureIncludeGrid,
-                                  m_useSimplifiedFootprints);
+                                  m_useSimplifiedFootprints,
+                                  m_usePerastageSvgSymbols);
   } else {
     m_controller.SetCaptureCanvas(nullptr, m_view);
   }

@@ -159,7 +159,8 @@ void OpaqueTrussPass::Render(
             controller.m_bottomSymbolCache.GetOrCreate(symbolKey, [&](const SymbolKey &,
                                                            uint32_t symbolId) {
               SymbolDefinition svgDefinition{};
-              if (!t.gdtfSpec.empty() &&
+              if (controller.m_captureUsePerastageSvgSymbols &&
+                  !t.gdtfSpec.empty() &&
                   TryBuildPerastageSvgSymbolDefinition(t.gdtfSpec,
                                                        symbolKey.viewKind,
                                                        symbolId,

@@ -128,7 +128,8 @@ public:
 
   void SetCaptureCanvas(ICanvas2D *canvas, Viewer2DView view,
                         bool includeGrid = true,
-                        bool useSymbolInstancing = false);
+                        bool useSymbolInstancing = false,
+                        bool usePerastageSvgSymbols = false);
 
 private:
   struct Impl;
@@ -148,6 +149,7 @@ private:
   bool &m_captureIncludeGrid;
   bool &m_captureOnly;
   bool &m_captureUseSymbols;
+  bool &m_captureUsePerastageSvgSymbols;
   SymbolCache &m_bottomSymbolCache;
 
   const VisibleSet &PrepareRenderFrame(const RenderFrameContext &context,
