@@ -17,6 +17,7 @@
 
 #include "matrixutils.h"
 #include "opaque_pass_utils.h"
+#include "perastage_svg_symbol_builder.h"
 #include "scenedatamanager.h"
 #include "viewer3dcontroller.h"
 
@@ -157,6 +158,15 @@ void OpaqueTrussPass::Render(
         const auto &symbol =
             controller.m_bottomSymbolCache.GetOrCreate(symbolKey, [&](const SymbolKey &,
                                                            uint32_t symbolId) {
+              SymbolDefinition svgDefinition{};
+              if (!t.gdtfSpec.empty() &&
+                  TryBuildPerastageSvgSymbolDefinition(t.gdtfSpec,
+                                                       symbolKey.viewKind,
+                                                       symbolId,
+                                                       svgDefinition)) {
+                return svgDefinition;
+              }
+
               SymbolDefinition definition{};
               definition.symbolId = symbolId;
               auto localCanvas =
