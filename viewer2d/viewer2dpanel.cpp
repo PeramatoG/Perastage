@@ -617,7 +617,8 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
     recordingCanvas->SetTransform(transform);
     m_controller.SetCaptureCanvas(recordingCanvas.get(), m_view,
                                   m_captureIncludeGrid,
-                                  m_useSimplifiedFootprints,
+                                  m_useSimplifiedFootprints ||
+                                      m_usePerastageSvgSymbols,
                                   m_usePerastageSvgSymbols);
   } else {
     m_controller.SetCaptureCanvas(nullptr, m_view);
