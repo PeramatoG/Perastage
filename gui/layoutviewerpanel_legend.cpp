@@ -46,6 +46,8 @@ namespace {
 constexpr double kLegendContentScale = 0.7;
 constexpr int kLegendSymbolSizePx =
     static_cast<int>(64 * kLegendContentScale);
+constexpr double kLegendFallbackSymbolScale = 2.0;
+constexpr double kLegendSvgSymbolScale = 0.4;
 
 int SymbolViewRank(SymbolViewKind kind) {
   switch (kind) {
@@ -775,7 +777,7 @@ wxImage LayoutViewerPanel::BuildLegendImage(
   dc.SetTextForeground(wxColour(20, 20, 20));
   dc.SetPen(*wxTRANSPARENT_PEN);
 
-  const int paddingLeft = 4;
+  const int paddingLeft = 2;
   const int paddingRight = 4;
   const int paddingTop = 6;
   const int paddingBottom = 2;
@@ -870,6 +872,10 @@ wxImage LayoutViewerPanel::BuildLegendImage(
   const int desiredSymbolSize = static_cast<int>(std::lround(
       kLegendSymbolSizePx * renderZoom * fontScale));
   const int symbolSize = std::max(4, desiredSymbolSize);
+  const double fallbackSymbolSize =
+      std::max(4.0, static_cast<double>(symbolSize) * kLegendFallbackSymbolScale);
+  const double svgSymbolSize =
+      std::max(4.0, static_cast<double>(symbolSize) * kLegendSvgSymbolScale);
   const double symbolPairGapPx =
       -std::max(1.0, static_cast<double>(symbolSize) *
                          kLegendSymbolPairOverlapScale);
@@ -881,8 +887,7 @@ wxImage LayoutViewerPanel::BuildLegendImage(
     if (symbolW <= 0.0f || symbolH <= 0.0f)
       return 0.0;
     double scale =
-        std::min(static_cast<double>(symbolSize) / symbolW,
-                 static_cast<double>(symbolSize) / symbolH);
+        std::min(fallbackSymbolSize / symbolW, fallbackSymbolSize / symbolH);
     return symbolW * scale;
   };
   auto symbolDrawHeight = [&](const SymbolDefinition *symbol) -> double {
@@ -893,8 +898,7 @@ wxImage LayoutViewerPanel::BuildLegendImage(
     if (symbolW <= 0.0f || symbolH <= 0.0f)
       return 0.0;
     double scale =
-        std::min(static_cast<double>(symbolSize) / symbolW,
-                 static_cast<double>(symbolSize) / symbolH);
+        std::min(fallbackSymbolSize / symbolW, fallbackSymbolSize / symbolH);
     return symbolH * scale;
   };
 
@@ -934,34 +938,29 @@ wxImage LayoutViewerPanel::BuildLegendImage(
   auto symbolDrawWidthSvg = [&](const PerastageSvgSymbolData *symbol) -> double {
     if (!symbol || symbol->viewBoxWidth <= 0.0 || symbol->viewBoxHeight <= 0.0)
       return 0.0;
-    const double scale = std::min(symbolSize / symbol->viewBoxWidth,
-                                  symbolSize / symbol->viewBoxHeight);
+    const double scale = std::min(svgSymbolSize / symbol->viewBoxWidth,
+                                  svgSymbolSize / symbol->viewBoxHeight);
     return symbol->viewBoxWidth * scale;
   };
   auto symbolDrawHeightSvg = [&](const PerastageSvgSymbolData *symbol) -> double {
     if (!symbol || symbol->viewBoxWidth <= 0.0 || symbol->viewBoxHeight <= 0.0)
       return 0.0;
-    const double scale = std::min(symbolSize / symbol->viewBoxWidth,
-                                  symbolSize / symbol->viewBoxHeight);
+    const double scale = std::min(svgSymbolSize / symbol->viewBoxWidth,
+                                  svgSymbolSize / symbol->viewBoxHeight);
     return symbol->viewBoxHeight * scale;
   };
   auto sharedPairScaleSvg = [&](const PerastageSvgSymbolData *topSvg,
                                 const PerastageSvgSymbolData *frontSvg) {
     if (!topSvg || !frontSvg)
       return 0.0;
-    const double topScale =
-        std::min(symbolSize / topSvg->viewBoxWidth, symbolSize / topSvg->viewBoxHeight);
-    const double frontScale = std::min(symbolSize / frontSvg->viewBoxWidth,
-                                       symbolSize / frontSvg->viewBoxHeight);
+    const double topScale = std::min(svgSymbolSize / topSvg->viewBoxWidth,
+                                     svgSymbolSize / topSvg->viewBoxHeight);
+    const double frontScale = std::min(svgSymbolSize / frontSvg->viewBoxWidth,
+                                       svgSymbolSize / frontSvg->viewBoxHeight);
     return std::min(topScale, frontScale);
   };
 
-  auto pairGapForRow = [&](const PerastageSvgSymbolData *topSvg,
-                           const PerastageSvgSymbolData *frontSvg) {
-    if (topSvg || frontSvg)
-      return std::max(1.0, static_cast<double>(symbolSize) * 0.08);
-    return symbolPairGapPx;
-  };
+  auto pairGapForRow = [&]() { return symbolPairGapPx; };
   double maxSymbolPairWidth = symbolSize;
   for (const auto &item : items) {
       if (item.symbolKey.empty())
@@ -986,7 +985,7 @@ wxImage LayoutViewerPanel::BuildLegendImage(
                           : symbolDrawWidth(frontSymbol));
       double rowPairWidth = std::max(topDrawW, frontDrawW);
       if (topDrawW > 0.0 && frontDrawW > 0.0)
-        rowPairWidth = topDrawW + frontDrawW + pairGapForRow(topSvg, frontSvg);
+        rowPairWidth = topDrawW + frontDrawW + pairGapForRow();
       maxSymbolPairWidth = std::max(maxSymbolPairWidth, rowPairWidth);
     }
   const int symbolSlotSize = std::max(
@@ -1069,8 +1068,7 @@ wxImage LayoutViewerPanel::BuildLegendImage(
         if (symbolW <= 0.0f || symbolH <= 0.0f)
           return;
         double scale =
-            std::min(static_cast<double>(symbolSize) / symbolW,
-                     static_cast<double>(symbolSize) / symbolH);
+            std::min(fallbackSymbolSize / symbolW, fallbackSymbolSize / symbolH);
         double drawH = symbolH * scale;
         viewer2d::Viewer2DRenderMapping mapping{};
         mapping.minX = symbol->bounds.min.x;
@@ -1092,8 +1090,8 @@ wxImage LayoutViewerPanel::BuildLegendImage(
           return;
         const double scale = scaleOverride > 0.0
                                  ? scaleOverride
-                                 : std::min(symbolSize / symbol->viewBoxWidth,
-                                            symbolSize / symbol->viewBoxHeight);
+                                 : std::min(svgSymbolSize / symbol->viewBoxWidth,
+                                            svgSymbolSize / symbol->viewBoxHeight);
         if (scale <= 0.0)
           return;
         wxGraphicsContext *gc = dc.GetGraphicsContext();
@@ -1156,7 +1154,7 @@ wxImage LayoutViewerPanel::BuildLegendImage(
         const double slotWidth = static_cast<double>(symbolSlotSize);
         double rowPairWidth = std::max(topDrawW, frontDrawW);
         if (topDrawW > 0.0 && frontDrawW > 0.0)
-          rowPairWidth = topDrawW + frontDrawW + pairGapForRow(topSvg, frontSvg);
+          rowPairWidth = topDrawW + frontDrawW + pairGapForRow();
         const double rowStart =
             xSymbol + std::max(0.0, (slotWidth - rowPairWidth) * 0.5);
         double leftSlotWidth = rowPairWidth;
@@ -1166,7 +1164,7 @@ wxImage LayoutViewerPanel::BuildLegendImage(
         if (topDrawW > 0.0 && frontDrawW > 0.0) {
           leftSlotWidth = topDrawW;
           rightSlotWidth = frontDrawW;
-          frontSlotLeft = rowStart + topDrawW + pairGapForRow(topSvg, frontSvg);
+          frontSlotLeft = rowStart + topDrawW + pairGapForRow();
         } else if (frontDrawW > 0.0) {
           frontSlotLeft = rowStart;
         }
