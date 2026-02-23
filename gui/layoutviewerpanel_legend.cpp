@@ -957,7 +957,8 @@ wxImage LayoutViewerPanel::BuildLegendImage(
     return std::min(topScale, frontScale);
   };
 
-  double maxSymbolColumnWidth = symbolSize;
+  double maxTopSymbolColumnWidth = 0.0;
+  double maxFrontSymbolColumnWidth = 0.0;
   for (const auto &item : items) {
     if (item.symbolKey.empty())
       continue;
@@ -979,15 +980,19 @@ wxImage LayoutViewerPanel::BuildLegendImage(
             ? frontSvg->viewBoxWidth * pairScaleSvg
             : (frontSvg ? symbolDrawWidthSvg(frontSvg)
                         : symbolDrawWidth(frontSymbol));
-    maxSymbolColumnWidth = std::max(maxSymbolColumnWidth, topDrawW);
-    maxSymbolColumnWidth = std::max(maxSymbolColumnWidth, frontDrawW);
+    maxTopSymbolColumnWidth = std::max(maxTopSymbolColumnWidth, topDrawW);
+    maxFrontSymbolColumnWidth = std::max(maxFrontSymbolColumnWidth, frontDrawW);
   }
   const int maxSymbolColumnSize =
       std::max(4, static_cast<int>(std::lround(symbolSize *
                                                kLegendMaxSymbolSlotScale)));
-  const int symbolColumnSize = std::clamp(
-      static_cast<int>(std::ceil(maxSymbolColumnWidth * kLegendSymbolColumnScale)),
-      4, maxSymbolColumnSize);
+  const int topSymbolColumnSize = std::clamp(
+      static_cast<int>(std::ceil(maxTopSymbolColumnWidth * kLegendSymbolColumnScale)),
+      0, maxSymbolColumnSize);
+  const int frontSymbolColumnSize = std::clamp(
+      static_cast<int>(std::ceil(maxFrontSymbolColumnWidth *
+                                 kLegendSymbolColumnScale)),
+      0, maxSymbolColumnSize);
   const int rowHeightPx = baseRowHeightPx;
   const int paddingLeftPx =
       std::max(0, static_cast<int>(std::lround(paddingLeft * renderZoom)));
@@ -1002,8 +1007,8 @@ wxImage LayoutViewerPanel::BuildLegendImage(
   const int symbolColumnGapPx =
       std::max(0, static_cast<int>(std::lround(symbolColumnGap * renderZoom)));
   int xTopSymbol = std::max(0, paddingLeftPx - leftTrimPx);
-  int xFrontSymbol = xTopSymbol + symbolColumnSize + symbolColumnGapPx;
-  int xCount = xFrontSymbol + symbolColumnSize + columnGapPx;
+  int xFrontSymbol = xTopSymbol + topSymbolColumnSize + symbolColumnGapPx;
+  int xCount = xFrontSymbol + frontSymbolColumnSize + columnGapPx;
   int xType = xCount + maxCountWidth + columnGapPx;
   int xCh = size.GetWidth() - paddingRightPx - maxChWidth;
   if (xCh < xType + columnGapPx)
@@ -1031,8 +1036,6 @@ wxImage LayoutViewerPanel::BuildLegendImage(
   int y = paddingTopPx;
   const int textOffset = std::max(0, (rowHeightPx - textHeight) / 2);
   dc.SetFont(headerFont);
-  dc.DrawText("Top", xTopSymbol, y + textOffset);
-  dc.DrawText("Front", xFrontSymbol, y + textOffset);
   dc.DrawText("Count", xCount, y + textOffset);
   dc.DrawText("Type", xType, y + textOffset);
   dc.DrawText("Ch", xCh, y + textOffset);
@@ -1155,7 +1158,7 @@ wxImage LayoutViewerPanel::BuildLegendImage(
             y + (static_cast<double>(rowHeightPx) - topDrawH) * 0.5;
         const double symbolDrawLeft =
             xTopSymbol +
-            std::max(0.0, (static_cast<double>(symbolColumnSize) - topDrawW) * 0.5);
+            std::max(0.0, (static_cast<double>(topSymbolColumnSize) - topDrawW) * 0.5);
         if (topSvg)
           drawSvg(topSvg, item.symbolFillHex, symbolDrawLeft, symbolDrawTop, pairScaleSvg);
         else
@@ -1166,7 +1169,7 @@ wxImage LayoutViewerPanel::BuildLegendImage(
             y + (static_cast<double>(rowHeightPx) - frontDrawH) * 0.5;
         const double symbolDrawLeft =
             xFrontSymbol +
-            std::max(0.0, (static_cast<double>(symbolColumnSize) - frontDrawW) * 0.5);
+            std::max(0.0, (static_cast<double>(frontSymbolColumnSize) - frontDrawW) * 0.5);
         if (frontSvg)
           drawSvg(frontSvg, item.symbolFillHex, symbolDrawLeft, symbolDrawTop, pairScaleSvg);
         else
