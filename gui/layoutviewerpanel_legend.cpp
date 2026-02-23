@@ -1112,7 +1112,15 @@ wxImage LayoutViewerPanel::BuildLegendImage(
           for (size_t i = 1; i < polygon.points.size(); ++i)
             path.AddLineToPoint(polygon.points[i].x, polygon.points[i].y);
           path.CloseSubpath();
-          gc->FillPath(path);
+          for (const auto &hole : polygon.holes) {
+            if (hole.size() < 3)
+              continue;
+            path.MoveToPoint(hole.front().x, hole.front().y);
+            for (size_t i = 1; i < hole.size(); ++i)
+              path.AddLineToPoint(hole[i].x, hole[i].y);
+            path.CloseSubpath();
+          }
+          gc->FillPath(path, wxODDEVEN_RULE);
         }
         gc->SetBrush(*wxTRANSPARENT_BRUSH);
         gc->SetPen(wxPen(*wxBLACK, 1));

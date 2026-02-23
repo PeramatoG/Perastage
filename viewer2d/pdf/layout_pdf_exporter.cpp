@@ -1561,17 +1561,27 @@ Viewer2DExportResult ExportLayoutToPdf(
             for (const auto &polygon : svg->fills) {
               if (polygon.points.size() < 3)
                 continue;
-              contentStream << formatter.Format(polygon.points[0].x * scale)
-                            << ' '
-                            << formatter.Format((svg->viewBoxHeight - polygon.points[0].y) * scale)
-                            << " m\n";
-              for (size_t i = 1; i < polygon.points.size(); ++i) {
-                contentStream << formatter.Format(polygon.points[i].x * scale)
-                              << ' '
-                              << formatter.Format((svg->viewBoxHeight - polygon.points[i].y) * scale)
-                              << " l\n";
+              auto appendPolygonPath = [&](const std::vector<PerastageSvgPoint> &points) {
+                if (points.size() < 3)
+                  return;
+                contentStream << formatter.Format(points[0].x * scale) << ' '
+                              << formatter.Format((svg->viewBoxHeight - points[0].y) * scale)
+                              << " m\n";
+                for (size_t i = 1; i < points.size(); ++i) {
+                  contentStream << formatter.Format(points[i].x * scale) << ' '
+                                << formatter.Format((svg->viewBoxHeight - points[i].y) * scale)
+                                << " l\n";
+                }
+                contentStream << "h\n";
+              };
+              appendPolygonPath(polygon.points);
+              for (const auto &hole : polygon.holes)
+                appendPolygonPath(hole);
+              if (!polygon.holes.empty()) {
+                contentStream << "f*\n";
+              } else {
+                contentStream << "f\n";
               }
-              contentStream << "h f\n";
             }
             contentStream << "0 0 0 RG 1 w\n";
             for (const auto &line : svg->strokes) {
