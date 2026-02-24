@@ -271,8 +271,7 @@ void ResolveSymbolSvgColors(const SymbolDefinition &symbol,
 }
 
 
-int ResolveSymbolStrokeWidthPx(const SymbolDefinition &symbol,
-                               const viewer2d::Viewer2DRenderMapping &mapping) {
+int ResolveSymbolStrokeWidthPx(const SymbolDefinition &symbol) {
   float strokeWidth = 1.0f;
   for (const auto &cmd : symbol.localCommands.commands) {
     if (const auto *line = std::get_if<LineCommand>(&cmd)) {
@@ -292,7 +291,7 @@ int ResolveSymbolStrokeWidthPx(const SymbolDefinition &symbol,
       break;
     }
   }
-  return std::max(1, static_cast<int>(std::lround(strokeWidth * mapping.scale)));
+  return std::max(1, static_cast<int>(std::lround(strokeWidth)));
 }
 
 void RenderCommandBuffer(wxGCDC &dc, const CommandBuffer &buffer,
@@ -333,7 +332,7 @@ void RenderCommandBuffer(wxGCDC &dc, const CommandBuffer &buffer,
     wxPen pen(wxColour(static_cast<unsigned char>(std::clamp(stroke.color.r, 0.0f, 1.0f) * 255.0f),
                        static_cast<unsigned char>(std::clamp(stroke.color.g, 0.0f, 1.0f) * 255.0f),
                        static_cast<unsigned char>(std::clamp(stroke.color.b, 0.0f, 1.0f) * 255.0f)),
-              std::max(1, static_cast<int>(std::lround(stroke.width * mapping.scale))));
+              std::max(1, static_cast<int>(std::lround(stroke.width))));
     dc.SetPen(pen);
     if (fill) {
       dc.SetBrush(wxBrush(wxColour(
@@ -353,7 +352,7 @@ void RenderCommandBuffer(wxGCDC &dc, const CommandBuffer &buffer,
       dc.SetPen(wxPen(wxColour(static_cast<unsigned char>(line->stroke.color.r * 255.0f),
                                static_cast<unsigned char>(line->stroke.color.g * 255.0f),
                                static_cast<unsigned char>(line->stroke.color.b * 255.0f)),
-                      std::max(1, static_cast<int>(std::lround(line->stroke.width * mapping.scale)))));
+                      std::max(1, static_cast<int>(std::lround(line->stroke.width)))));
       dc.DrawLine(ToWxPoint(p0), ToWxPoint(p1));
     } else if (const auto *polyline = std::get_if<PolylineCommand>(&cmd)) {
       if (polyline->points.size() < 4)
@@ -365,7 +364,7 @@ void RenderCommandBuffer(wxGCDC &dc, const CommandBuffer &buffer,
       dc.SetPen(wxPen(wxColour(static_cast<unsigned char>(polyline->stroke.color.r * 255.0f),
                                static_cast<unsigned char>(polyline->stroke.color.g * 255.0f),
                                static_cast<unsigned char>(polyline->stroke.color.b * 255.0f)),
-                      std::max(1, static_cast<int>(std::lround(polyline->stroke.width * mapping.scale)))));
+                      std::max(1, static_cast<int>(std::lround(polyline->stroke.width)))));
       DrawPolyline(dc, points);
     } else if (const auto *poly = std::get_if<PolygonCommand>(&cmd)) {
       drawPolygon(poly->points, poly->stroke, poly->hasFill ? &poly->fill : nullptr);
@@ -391,7 +390,7 @@ void RenderCommandBuffer(wxGCDC &dc, const CommandBuffer &buffer,
           const Transform2D svgToSymbol =
               BuildSvgToSymbolTransform(it->second, *svg);
           const int strokeWidthPx =
-              ResolveSymbolStrokeWidthPx(it->second, mapping);
+              ResolveSymbolStrokeWidthPx(it->second);
           DrawSvgSymbol(dc, mapping, ComposeTransform(combined, svgToSymbol),
                         *svg, fillColor, strokeColor, strokeWidthPx);
           renderedSvg = true;
