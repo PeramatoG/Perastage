@@ -63,6 +63,7 @@
 #include "label_render_system.h"
 #include "selectionsystem.h"
 #include "gl_primitive_renderer.h"
+#include "lighting_profile.h"
 
 #include <wx/wx.h>
 #define NANOVG_GL2_IMPLEMENTATION
@@ -1406,29 +1407,7 @@ void Viewer3DController::ApplyTransform(const float matrix[16],
 
 // Initializes simple lighting for the scene
 void Viewer3DController::SetupBasicLighting() {
-  glEnable(GL_LIGHTING);
-  // Keep normal lengths stable after model transforms with scaling.
-  glEnable(GL_NORMALIZE);
-  glEnable(GL_LIGHT0);
-  glEnable(GL_CULL_FACE);
-  glCullFace(GL_BACK);
-  glFrontFace(GL_CCW);
-
-  GLfloat ambient[] = {0.2f, 0.2f, 0.2f, 1.0f};
-  GLfloat diffuse[] = {0.8f, 0.8f, 0.8f, 1.0f};
-  GLfloat specular[] = {1.0f, 1.0f, 1.0f, 1.0f};
-  GLfloat position[] = {2.0f, -4.0f, 5.0f, 0.0f};
-
-  glLightfv(GL_LIGHT0, GL_AMBIENT, ambient);
-  glLightfv(GL_LIGHT0, GL_DIFFUSE, diffuse);
-  glLightfv(GL_LIGHT0, GL_SPECULAR, specular);
-  glLightfv(GL_LIGHT0, GL_POSITION, position);
-
-  glLightModeli(GL_LIGHT_MODEL_TWO_SIDE, GL_TRUE);
-
-  glEnable(GL_COLOR_MATERIAL);
-  glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE);
-  glShadeModel(GL_SMOOTH);
+  Viewer3DLightingProfile::ApplyEnhancedBasicLighting();
 }
 
 void Viewer3DController::DrawFixtureLabels(int width, int height) {
