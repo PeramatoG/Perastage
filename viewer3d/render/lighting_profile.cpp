@@ -17,6 +17,20 @@
 
 namespace Viewer3DLightingProfile {
 
+namespace {
+float Clamp01(float value) {
+  if (value < 0.0f)
+    return 0.0f;
+  if (value > 1.0f)
+    return 1.0f;
+  return value;
+}
+
+float Lerp(float from, float to, float t) {
+  return from + ((to - from) * t);
+}
+} // namespace
+
 void ApplyEnhancedBasicLighting(const LightingOptions &options) {
   glEnable(GL_LIGHTING);
   // Keep normal lengths stable after model transforms with scaling.
@@ -27,8 +41,10 @@ void ApplyEnhancedBasicLighting(const LightingOptions &options) {
 
   // Slightly lower ambient contribution and add multiple directional lights.
   // This improves depth cues for similar gray materials at low runtime cost.
-  const float globalAmbientIntensity =
-      options.ambientOcclusionEnabled ? 0.08f : 0.14f;
+  const float aoStrength =
+      options.ambientOcclusionEnabled ? Clamp01(options.ambientOcclusionStrength)
+                                      : 0.0f;
+  const float globalAmbientIntensity = Lerp(0.14f, 0.03f, aoStrength);
   const GLfloat globalAmbient[] = {globalAmbientIntensity,
                                    globalAmbientIntensity,
                                    globalAmbientIntensity, 1.0f};
@@ -47,8 +63,7 @@ void ApplyEnhancedBasicLighting(const LightingOptions &options) {
   glLightfv(GL_LIGHT0, GL_POSITION, keyPosition);
 
   const GLfloat fillAmbient[] = {0.0f, 0.0f, 0.0f, 1.0f};
-  const float fillDiffuseIntensity =
-      options.ambientOcclusionEnabled ? 0.24f : 0.32f;
+  const float fillDiffuseIntensity = Lerp(0.32f, 0.12f, aoStrength);
   const GLfloat fillDiffuse[] = {fillDiffuseIntensity, fillDiffuseIntensity,
                                  fillDiffuseIntensity + 0.04f, 1.0f};
   const GLfloat fillSpecular[] = {0.0f, 0.0f, 0.0f, 1.0f};
