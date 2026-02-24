@@ -25,6 +25,7 @@ void PropagateTypeValues(wxDataViewListCtrl *table,
 
 void UpdateSceneData(ISceneAdapter &adapter, wxDataViewListCtrl *table,
                      const std::vector<std::string> &rowUuids,
-                     const std::vector<wxString> &gdtfPaths);
+                     const std::vector<wxString> &gdtfPaths,
+                     bool logChanges = true);
 
 } // namespace FixtureTableEditService

@@ -1186,9 +1186,10 @@ void FixtureTablePanel::PropagateTypeValues(
   FixtureTableEditService::PropagateTypeValues(table, selections, col);
 }
 
-void FixtureTablePanel::UpdateSceneData() {
+void FixtureTablePanel::UpdateSceneData(bool logChanges) {
   ConfigManagerSceneAdapter adapter;
-  FixtureTableEditService::UpdateSceneData(adapter, table, rowUuids, gdtfPaths);
+  FixtureTableEditService::UpdateSceneData(adapter, table, rowUuids, gdtfPaths,
+                                         logChanges);
 
   HighlightDuplicateFixtureIds();
 

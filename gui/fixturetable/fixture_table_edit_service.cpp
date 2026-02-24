@@ -53,37 +53,46 @@ void PropagateTypeValues(wxDataViewListCtrl *table,
 
 void UpdateSceneData(ISceneAdapter &adapter, wxDataViewListCtrl *table,
                      const std::vector<std::string> &rowUuids,
-                     const std::vector<wxString> &gdtfPaths) {
-  adapter.PushUndoState("edit fixture");
+                     const std::vector<wxString> &gdtfPaths,
+                     bool logChanges) {
   auto &scene = adapter.GetScene();
 
   size_t updatedCount = 0;
   wxString firstName, firstUuid;
+  bool anyChanged = false;
+  bool undoPushed = false;
+  auto pushUndoIfNeeded = [&]() {
+    if (!undoPushed) {
+      adapter.PushUndoState("edit fixture");
+      undoPushed = true;
+    }
+  };
 
   size_t count = std::min((size_t)table->GetItemCount(), rowUuids.size());
+  // Keep scene writes and undo states limited to rows with real changes.
   for (size_t i = 0; i < count; ++i) {
     auto it = scene.fixtures.find(rowUuids[i]);
     if (it == scene.fixtures.end())
       continue;
 
+    const Fixture old = it->second;
+    Fixture next = old;
+
     if (i < gdtfPaths.size())
-      it->second.gdtfSpec = std::string(gdtfPaths[i].ToUTF8());
+      next.gdtfSpec = std::string(gdtfPaths[i].ToUTF8());
 
     wxVariant v;
     table->GetValue(v, i, 1);
-    it->second.instanceName = std::string(v.GetString().ToUTF8());
+    next.instanceName = std::string(v.GetString().ToUTF8());
 
     table->GetValue(v, i, 0);
-    it->second.fixtureId = static_cast<int>(v.GetLong());
+    next.fixtureId = static_cast<int>(v.GetLong());
 
     table->GetValue(v, i, 3);
-    std::string layerStr = std::string(v.GetString().ToUTF8());
-    it->second.layer = layerStr;
+    next.layer = std::string(v.GetString().ToUTF8());
 
     table->GetValue(v, i, 4);
-    it->second.positionName = std::string(v.GetString().ToUTF8());
-    if (!it->second.position.empty())
-      scene.positions[it->second.position] = it->second.positionName;
+    next.positionName = std::string(v.GetString().ToUTF8());
 
     table->GetValue(v, i, 5);
     long uni = v.GetLong();
@@ -91,15 +100,15 @@ void UpdateSceneData(ISceneAdapter &adapter, wxDataViewListCtrl *table,
     long ch = v.GetLong();
 
     table->GetValue(v, i, 2);
-    it->second.typeName = std::string(v.GetString().ToUTF8());
+    next.typeName = std::string(v.GetString().ToUTF8());
 
     table->GetValue(v, i, 7);
-    it->second.gdtfMode = std::string(v.GetString().ToUTF8());
+    next.gdtfMode = std::string(v.GetString().ToUTF8());
 
     if (uni > 0 && ch > 0)
-      it->second.address = wxString::Format("%ld.%ld", uni, ch).ToStdString();
+      next.address = wxString::Format("%ld.%ld", uni, ch).ToStdString();
     else
-      it->second.address.clear();
+      next.address.clear();
 
     double x = 0, y = 0, z = 0;
     table->GetValue(v, i, 10);
@@ -113,29 +122,29 @@ void UpdateSceneData(ISceneAdapter &adapter, wxDataViewListCtrl *table,
     table->GetValue(v, i, 13);
     {
       wxString s = v.GetString();
-      s.Replace("\u00B0", "");
+      s.Replace("°", "");
       s.ToDouble(&roll);
     }
     table->GetValue(v, i, 14);
     {
       wxString s = v.GetString();
-      s.Replace("\u00B0", "");
+      s.Replace("°", "");
       s.ToDouble(&pitch);
     }
     table->GetValue(v, i, 15);
     {
       wxString s = v.GetString();
-      s.Replace("\u00B0", "");
+      s.Replace("°", "");
       s.ToDouble(&yaw);
     }
 
-    const auto currentEuler = MatrixUtils::MatrixToEuler(it->second.transform);
+    const auto currentEuler = MatrixUtils::MatrixToEuler(old.transform);
     const bool transformChanged =
-        wxString::Format("%.3f", it->second.transform.o[0] / 1000.0f) !=
+        wxString::Format("%.3f", old.transform.o[0] / 1000.0f) !=
             wxString::Format("%.3f", x) ||
-        wxString::Format("%.3f", it->second.transform.o[1] / 1000.0f) !=
+        wxString::Format("%.3f", old.transform.o[1] / 1000.0f) !=
             wxString::Format("%.3f", y) ||
-        wxString::Format("%.3f", it->second.transform.o[2] / 1000.0f) !=
+        wxString::Format("%.3f", old.transform.o[2] / 1000.0f) !=
             wxString::Format("%.3f", z) ||
         wxString::Format("%.1f", currentEuler[2]) !=
             wxString::Format("%.1f", roll) ||
@@ -148,8 +157,8 @@ void UpdateSceneData(ISceneAdapter &adapter, wxDataViewListCtrl *table,
       Matrix rot = MatrixUtils::EulerToMatrix(
           static_cast<float>(yaw), static_cast<float>(pitch),
           static_cast<float>(roll));
-      it->second.transform = MatrixUtils::ApplyRotationPreservingScale(
-          it->second.transform, rot,
+      next.transform = MatrixUtils::ApplyRotationPreservingScale(
+          old.transform, rot,
           {static_cast<float>(x * 1000.0), static_cast<float>(y * 1000.0),
            static_cast<float>(z * 1000.0)});
     }
@@ -157,12 +166,12 @@ void UpdateSceneData(ISceneAdapter &adapter, wxDataViewListCtrl *table,
     table->GetValue(v, i, 16);
     double pw = 0.0;
     v.GetString().ToDouble(&pw);
-    it->second.powerConsumptionW = static_cast<float>(pw);
+    next.powerConsumptionW = static_cast<float>(pw);
 
     table->GetValue(v, i, 17);
     double wt = 0.0;
     v.GetString().ToDouble(&wt);
-    it->second.weightKg = static_cast<float>(wt);
+    next.weightKg = static_cast<float>(wt);
 
     table->GetValue(v, i, 18);
     if (v.GetType() == "wxDataViewIconText") {
@@ -170,14 +179,35 @@ void UpdateSceneData(ISceneAdapter &adapter, wxDataViewListCtrl *table,
       icon << v;
       wxString txt = icon.GetText();
       if (!txt.IsEmpty())
-        it->second.color = std::string(txt.ToUTF8());
+        next.color = std::string(txt.ToUTF8());
       else
-        it->second.color.clear();
+        next.color.clear();
     } else {
-      it->second.color = std::string(v.GetString().ToUTF8());
+      next.color = std::string(v.GetString().ToUTF8());
     }
 
-    if (ConsolePanel::Instance()) {
+    const bool fixtureChanged = old.gdtfSpec != next.gdtfSpec ||
+                                old.instanceName != next.instanceName ||
+                                old.fixtureId != next.fixtureId ||
+                                old.layer != next.layer ||
+                                old.positionName != next.positionName ||
+                                old.address != next.address ||
+                                old.typeName != next.typeName ||
+                                old.gdtfMode != next.gdtfMode ||
+                                transformChanged ||
+                                old.powerConsumptionW != next.powerConsumptionW ||
+                                old.weightKg != next.weightKg ||
+                                old.color != next.color;
+    if (!fixtureChanged)
+      continue;
+
+    pushUndoIfNeeded();
+    anyChanged = true;
+    it->second = next;
+    if (!it->second.position.empty())
+      scene.positions[it->second.position] = it->second.positionName;
+
+    if (logChanges && ConsolePanel::Instance()) {
       ++updatedCount;
       if (updatedCount == 1) {
         firstName = wxString::FromUTF8(it->second.instanceName.c_str());
@@ -186,15 +216,21 @@ void UpdateSceneData(ISceneAdapter &adapter, wxDataViewListCtrl *table,
     }
   }
 
-  if (ConsolePanel::Instance()) {
-    wxString msg;
-    if (updatedCount == 1)
-      msg = wxString::Format("Updated fixture %s (UUID %s)", firstName,
-                             firstUuid);
-    else if (updatedCount > 1)
-      msg = wxString::Format("Updated %zu fixtures", updatedCount);
-    if (!msg.empty())
-      ConsolePanel::Instance()->AppendMessage(msg);
+  if (!anyChanged)
+    return;
+
+  if (logChanges) {
+    ConsolePanel *console = ConsolePanel::Instance();
+    if (console) {
+      wxString msg;
+      if (updatedCount == 1)
+        msg = wxString::Format("Updated fixture %s (UUID %s)", firstName,
+                               firstUuid);
+      else if (updatedCount > 1)
+        msg = wxString::Format("Updated %zu fixtures", updatedCount);
+      if (!msg.empty())
+        console->AppendMessage(msg);
+    }
   }
 }
 

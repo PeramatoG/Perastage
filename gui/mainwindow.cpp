@@ -806,14 +806,15 @@ void MainWindow::ActivateLayoutView(const std::string &layoutName) {
 }
 
 void MainWindow::SyncSceneData() {
+  // Automatic sync should remain silent to avoid noisy save/close logs.
   if (fixturePanel)
-    fixturePanel->UpdateSceneData();
+    fixturePanel->UpdateSceneData(false);
   if (trussPanel)
-    trussPanel->UpdateSceneData();
+    trussPanel->UpdateSceneData(false);
   if (hoistPanel)
-    hoistPanel->UpdateSceneData();
+    hoistPanel->UpdateSceneData(false);
   if (sceneObjPanel)
-    sceneObjPanel->UpdateSceneData();
+    sceneObjPanel->UpdateSceneData(false);
 
   PersistFixtureTypeAutoColors(
       GetDefaultGuiConfigServices().LegacyConfigManager());

@@ -37,6 +37,7 @@
 #include <wx/filename.h>
 #include <algorithm>
 #include <unordered_map>
+#include <unordered_set>
 #include <wx/notebook.h>
 #include <wx/choicdlg.h>
 #include <wx/wupdlock.h> // freeze/thaw UI during batch edits
@@ -51,6 +52,31 @@ struct RangeParts {
     bool usedSeparator = false;
     bool trailingSeparator = false;
 };
+
+
+
+void AppendTrussUpdateLog(const std::vector<std::pair<std::string, std::string>>& updates,
+                          bool logChanges)
+{
+    if (!logChanges)
+        return;
+
+    ConsolePanel* console = ConsolePanel::Instance();
+    if (!console || updates.empty())
+        return;
+
+    if (updates.size() == 1)
+    {
+        const auto& [name, uuid] = updates.front();
+        console->AppendMessage(
+            wxString::Format("Updated truss %s (UUID %s)",
+                             wxString::FromUTF8(name.c_str()),
+                             wxString::FromUTF8(uuid.c_str())));
+        return;
+    }
+
+    console->AppendMessage(wxString::Format("Updated %zu trusses", updates.size()));
+}
 
 bool IsNumChar(char c)
 {
@@ -711,10 +737,9 @@ void TrussTablePanel::ApplyPositionValueUpdates(
     }
 }
 
-void TrussTablePanel::UpdateSceneData()
+void TrussTablePanel::UpdateSceneData(bool logChanges)
 {
     ConfigManager& cfg = guiConfigServices->LegacyConfigManager();
-    cfg.PushUndoState("edit truss");
     auto& scene = cfg.GetScene();
     size_t count = std::min((size_t)table->GetItemCount(), rowUuids.size());
 
@@ -725,139 +750,174 @@ void TrussTablePanel::UpdateSceneData()
         float weight;
     };
     std::unordered_map<std::string, Dim> dims;
+    std::unordered_set<std::string> changedTrussIds;
+    std::vector<std::pair<std::string, std::string>> updatedTrusses;
 
     auto makeKey = [](const std::string& n,
                       const std::string& m,
                       const std::string& mo) {
-        return n + "\x1F" + m + "\x1F" + mo;
+        return n + "" + m + "" + mo;
     };
 
-    // First pass: update scene data from the table and track changed groups
+    bool undoPushed = false;
+    bool anyChanged = false;
+    auto pushUndoIfNeeded = [&]() {
+        if (!undoPushed)
+        {
+            cfg.PushUndoState("edit truss");
+            undoPushed = true;
+        }
+    };
+
+    // First pass: compute row updates and track canonical dimensions per truss group.
     for (size_t i = 0; i < count; ++i)
     {
         auto it = scene.trusses.find(rowUuids[i]);
         if (it == scene.trusses.end())
             continue;
 
-        Truss old = it->second;
+        const Truss old = it->second;
+        Truss next = old;
         wxVariant v;
 
         table->GetValue(v, i, 0);
-        it->second.name = std::string(v.GetString().mb_str());
+        next.name = std::string(v.GetString().mb_str());
+
         table->GetValue(v, i, 1);
         std::string layerStr = std::string(v.GetString().mb_str());
         if (layerStr.empty())
-            it->second.layer.clear();
+            next.layer.clear();
         else
-            it->second.layer = layerStr;
+            next.layer = layerStr;
+
         if (i < symbolPaths.size())
-            it->second.symbolFile = std::string(symbolPaths[i].ToUTF8());
+            next.symbolFile = std::string(symbolPaths[i].ToUTF8());
         else if (i < modelPaths.size())
-            it->second.symbolFile = std::string(modelPaths[i].ToUTF8());
+            next.symbolFile = std::string(modelPaths[i].ToUTF8());
         else {
             table->GetValue(v, i, 2);
-            it->second.symbolFile = std::string(v.GetString().ToUTF8());
+            next.symbolFile = std::string(v.GetString().ToUTF8());
         }
+
         if (i < modelPaths.size())
-            it->second.modelFile = std::string(modelPaths[i].ToUTF8());
+            next.modelFile = std::string(modelPaths[i].ToUTF8());
         else {
             table->GetValue(v, i, 2);
-            it->second.modelFile = std::string(v.GetString().ToUTF8());
+            next.modelFile = std::string(v.GetString().ToUTF8());
         }
+
         table->GetValue(v, i, 3);
-        it->second.positionName = std::string(v.GetString().mb_str());
-        if (!it->second.position.empty())
-            scene.positions[it->second.position] = it->second.positionName;
+        next.positionName = std::string(v.GetString().mb_str());
 
-        double x=0, y=0, z=0;
-        table->GetValue(v, i, 4); v.GetString().ToDouble(&x);
-        table->GetValue(v, i, 5); v.GetString().ToDouble(&y);
-        table->GetValue(v, i, 6); v.GetString().ToDouble(&z);
+        double x = 0, y = 0, z = 0;
+        table->GetValue(v, i, 4);
+        v.GetString().ToDouble(&x);
+        table->GetValue(v, i, 5);
+        v.GetString().ToDouble(&y);
+        table->GetValue(v, i, 6);
+        v.GetString().ToDouble(&z);
 
-        double roll=0, pitch=0, yaw=0;
-        table->GetValue(v, i, 7); {
-            wxString s = v.GetString(); s.Replace("\u00B0", ""); s.ToDouble(&roll);
+        double roll = 0, pitch = 0, yaw = 0;
+        table->GetValue(v, i, 7);
+        {
+            wxString s = v.GetString();
+            s.Replace("°", "");
+            s.ToDouble(&roll);
         }
-        table->GetValue(v, i, 8); {
-            wxString s = v.GetString(); s.Replace("\u00B0", ""); s.ToDouble(&pitch);
+        table->GetValue(v, i, 8);
+        {
+            wxString s = v.GetString();
+            s.Replace("°", "");
+            s.ToDouble(&pitch);
         }
-        table->GetValue(v, i, 9); {
-            wxString s = v.GetString(); s.Replace("\u00B0", ""); s.ToDouble(&yaw);
+        table->GetValue(v, i, 9);
+        {
+            wxString s = v.GetString();
+            s.Replace("°", "");
+            s.ToDouble(&yaw);
         }
 
-        const auto currentEuler = MatrixUtils::MatrixToEuler(it->second.transform);
+        const auto currentEuler = MatrixUtils::MatrixToEuler(old.transform);
         const bool transformChanged =
-            wxString::Format("%.3f", it->second.transform.o[0] / 1000.0f) !=
+            wxString::Format("%.3f", old.transform.o[0] / 1000.0f) !=
                 wxString::Format("%.3f", x) ||
-            wxString::Format("%.3f", it->second.transform.o[1] / 1000.0f) !=
+            wxString::Format("%.3f", old.transform.o[1] / 1000.0f) !=
                 wxString::Format("%.3f", y) ||
-            wxString::Format("%.3f", it->second.transform.o[2] / 1000.0f) !=
+            wxString::Format("%.3f", old.transform.o[2] / 1000.0f) !=
                 wxString::Format("%.3f", z) ||
-            wxString::Format("%.1f", currentEuler[2]) !=
-                wxString::Format("%.1f", roll) ||
-            wxString::Format("%.1f", currentEuler[1]) !=
-                wxString::Format("%.1f", pitch) ||
-            wxString::Format("%.1f", currentEuler[0]) !=
-                wxString::Format("%.1f", yaw);
+            wxString::Format("%.1f", currentEuler[2]) != wxString::Format("%.1f", roll) ||
+            wxString::Format("%.1f", currentEuler[1]) != wxString::Format("%.1f", pitch) ||
+            wxString::Format("%.1f", currentEuler[0]) != wxString::Format("%.1f", yaw);
 
-        if (transformChanged) {
+        if (transformChanged)
+        {
             Matrix rot = MatrixUtils::EulerToMatrix(static_cast<float>(yaw),
                                                     static_cast<float>(pitch),
                                                     static_cast<float>(roll));
-            it->second.transform = MatrixUtils::ApplyRotationPreservingScale(
-                it->second.transform, rot,
+            next.transform = MatrixUtils::ApplyRotationPreservingScale(
+                old.transform, rot,
                 {static_cast<float>(x * 1000.0),
                  static_cast<float>(y * 1000.0),
                  static_cast<float>(z * 1000.0)});
         }
 
         table->GetValue(v, i, 10);
-        it->second.manufacturer = std::string(v.GetString().mb_str());
+        next.manufacturer = std::string(v.GetString().mb_str());
         table->GetValue(v, i, 11);
-        it->second.model = std::string(v.GetString().mb_str());
+        next.model = std::string(v.GetString().mb_str());
 
-        double len=0.0, wid=0.0, hei=0.0, weight=0.0;
-        table->GetValue(v, i, 12); v.GetString().ToDouble(&len);
-        table->GetValue(v, i, 13); v.GetString().ToDouble(&wid);
-        table->GetValue(v, i, 14); v.GetString().ToDouble(&hei);
-        table->GetValue(v, i, 15); v.GetString().ToDouble(&weight);
-        it->second.lengthMm = static_cast<float>(len * 1000.0);
-        it->second.widthMm = static_cast<float>(wid * 1000.0);
-        it->second.heightMm = static_cast<float>(hei * 1000.0);
-        it->second.weightKg = static_cast<float>(weight);
+        double len = 0.0, wid = 0.0, hei = 0.0, weight = 0.0;
+        table->GetValue(v, i, 12);
+        v.GetString().ToDouble(&len);
+        table->GetValue(v, i, 13);
+        v.GetString().ToDouble(&wid);
+        table->GetValue(v, i, 14);
+        v.GetString().ToDouble(&hei);
+        table->GetValue(v, i, 15);
+        v.GetString().ToDouble(&weight);
+        next.lengthMm = static_cast<float>(len * 1000.0);
+        next.widthMm = static_cast<float>(wid * 1000.0);
+        next.heightMm = static_cast<float>(hei * 1000.0);
+        next.weightKg = static_cast<float>(weight);
 
-        std::string key = makeKey(it->second.name,
-                                  it->second.manufacturer,
-                                  it->second.model);
+        const bool trussChanged =
+            old.name != next.name ||
+            old.layer != next.layer ||
+            old.modelFile != next.modelFile ||
+            old.symbolFile != next.symbolFile ||
+            old.positionName != next.positionName ||
+            transformChanged ||
+            old.manufacturer != next.manufacturer ||
+            old.model != next.model ||
+            old.lengthMm != next.lengthMm ||
+            old.widthMm != next.widthMm ||
+            old.heightMm != next.heightMm ||
+            old.weightKg != next.weightKg;
 
-        // If any relevant value changed, update canonical dimensions
-        if (old.name != it->second.name ||
-            old.manufacturer != it->second.manufacturer ||
-            old.model != it->second.model ||
-            old.lengthMm != it->second.lengthMm ||
-            old.widthMm != it->second.widthMm ||
-            old.heightMm != it->second.heightMm ||
-            old.weightKg != it->second.weightKg)
+        if (trussChanged)
         {
-            dims[key] = {it->second.lengthMm, it->second.widthMm,
-                         it->second.heightMm, it->second.weightKg};
-        }
-        else if (!dims.count(key))
-        {
-            dims[key] = {it->second.lengthMm, it->second.widthMm,
-                         it->second.heightMm, it->second.weightKg};
+            pushUndoIfNeeded();
+            anyChanged = true;
+            it->second = next;
+            if (!it->second.position.empty())
+                scene.positions[it->second.position] = it->second.positionName;
+            changedTrussIds.insert(it->second.uuid);
+            updatedTrusses.emplace_back(it->second.name, it->second.uuid);
         }
 
-        if (ConsolePanel::Instance()) {
-            wxString msg = wxString::Format(
-                "Updated truss %s (UUID %s)",
-                wxString::FromUTF8(it->second.name.c_str()),
-                wxString::FromUTF8(it->second.uuid.c_str()));
-            ConsolePanel::Instance()->AppendMessage(msg);
+        const Truss& canonicalSource = trussChanged ? it->second : old;
+        std::string key = makeKey(canonicalSource.name,
+                                  canonicalSource.manufacturer,
+                                  canonicalSource.model);
+
+        if (trussChanged || !dims.count(key))
+        {
+            dims[key] = {canonicalSource.lengthMm, canonicalSource.widthMm,
+                         canonicalSource.heightMm, canonicalSource.weightKg};
         }
     }
 
-    // Second pass: apply canonical dimensions to all members of each group
+    // Second pass: synchronize dimensions across equal truss type groups.
     for (size_t i = 0; i < count; ++i)
     {
         auto it = scene.trusses.find(rowUuids[i]);
@@ -867,37 +927,45 @@ void TrussTablePanel::UpdateSceneData()
         std::string key = makeKey(it->second.name,
                                   it->second.manufacturer,
                                   it->second.model);
-
         auto dit = dims.find(key);
         if (dit == dims.end())
             continue;
 
-        float lenMm = dit->second.len;
-        float widMm = dit->second.wid;
-        float heiMm = dit->second.hei;
-        float weightKg = dit->second.weight;
+        const float lenMm = dit->second.len;
+        const float widMm = dit->second.wid;
+        const float heiMm = dit->second.hei;
+        const float weightKg = dit->second.weight;
 
         if (it->second.lengthMm != lenMm || it->second.widthMm != widMm ||
             it->second.heightMm != heiMm || it->second.weightKg != weightKg)
         {
+            pushUndoIfNeeded();
+            anyChanged = true;
             it->second.lengthMm = lenMm;
             it->second.widthMm = widMm;
             it->second.heightMm = heiMm;
             it->second.weightKg = weightKg;
+
             wxString lenStr = wxString::Format("%.2f", lenMm / 1000.0f);
-            wxString widStr = widMm > 0.0f
-                                   ? wxString::Format("%.2f", widMm / 1000.0f)
-                                   : wxString();
-            wxString heiStr = heiMm > 0.0f
-                                   ? wxString::Format("%.2f", heiMm / 1000.0f)
-                                   : wxString();
+            wxString widStr =
+                widMm > 0.0f ? wxString::Format("%.2f", widMm / 1000.0f) : wxString();
+            wxString heiStr =
+                heiMm > 0.0f ? wxString::Format("%.2f", heiMm / 1000.0f) : wxString();
             wxString weiStr = wxString::Format("%.2f", weightKg);
             table->SetValue(wxVariant(lenStr), i, 12);
             table->SetValue(wxVariant(widStr), i, 13);
             table->SetValue(wxVariant(heiStr), i, 14);
             table->SetValue(wxVariant(weiStr), i, 15);
+
+            if (changedTrussIds.insert(it->second.uuid).second)
+                updatedTrusses.emplace_back(it->second.name, it->second.uuid);
         }
     }
+
+    AppendTrussUpdateLog(updatedTrusses, logChanges);
+
+    if (!anyChanged)
+        return;
 
     if (SummaryPanel::Instance() && IsActivePage())
         SummaryPanel::Instance()->ShowTrussSummary();

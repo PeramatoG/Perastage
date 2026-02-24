@@ -42,7 +42,7 @@ public:
   static HoistTablePanel *Instance();
   static void SetInstance(HoistTablePanel *panel);
 
-  void UpdateSceneData();
+  void UpdateSceneData(bool logChanges = true);
 
 private:
   ColorfulDataViewListStore *store;
