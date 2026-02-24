@@ -2,6 +2,10 @@
 
 namespace Viewer3DLightingProfile {
 
-void ApplyEnhancedBasicLighting();
+struct LightingOptions {
+  bool ambientOcclusionEnabled = true;
+};
+
+void ApplyEnhancedBasicLighting(const LightingOptions &options);
 
 } // namespace Viewer3DLightingProfile

@@ -960,6 +960,8 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
   const bool isByLayerMode = context.mode == Viewer2DRenderMode::ByLayer;
 
   context.useLighting = !context.wireframe;
+  context.useAmbientOcclusion =
+      cfg.GetFloat("viewer3d_ambient_occlusion") >= 0.5f;
 
   const bool shouldDrawGrid = context.showGrid;
   const bool shouldDrawGridBeforeScene = shouldDrawGrid && !context.gridOnTop;
@@ -1050,7 +1052,7 @@ void Viewer3DController::RenderOpaqueFrame(const RenderFrameContext &context,
   const Viewer2DView view = context.view;
 
   if (context.useLighting)
-    SetupBasicLighting();
+    SetupBasicLighting(context.useAmbientOcclusion);
   else
     glDisable(GL_LIGHTING);
 
@@ -1406,8 +1408,10 @@ void Viewer3DController::ApplyTransform(const float matrix[16],
 }
 
 // Initializes simple lighting for the scene
-void Viewer3DController::SetupBasicLighting() {
-  Viewer3DLightingProfile::ApplyEnhancedBasicLighting();
+void Viewer3DController::SetupBasicLighting(bool ambientOcclusionEnabled) {
+  Viewer3DLightingProfile::LightingOptions options;
+  options.ambientOcclusionEnabled = ambientOcclusionEnabled;
+  Viewer3DLightingProfile::ApplyEnhancedBasicLighting(options);
 }
 
 void Viewer3DController::DrawFixtureLabels(int width, int height) {
