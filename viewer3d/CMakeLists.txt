@@ -8,6 +8,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/meshprimitives.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/picking/selectionsystem.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/render/gl_primitive_renderer.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/render/lighting_profile.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/render/opaque_fixture_pass.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/render/opaque_object_pass.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/render/opaque_pass_utils.cpp
