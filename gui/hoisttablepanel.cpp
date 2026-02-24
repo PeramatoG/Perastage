@@ -26,6 +26,7 @@
 #include "riggingpanel.h"
 #include "stringutils.h"
 #include "summarypanel.h"
+#include "dataview_edit_commit.h"
 #include "support.h"
 #include "viewer2dpanel.h"
 #include "viewer3dpanel.h"
@@ -514,7 +515,7 @@ void HoistTablePanel::UpdateSelectionHighlight() {
 void HoistTablePanel::UpdateSceneData(bool logChanges) {
   // Ensure in-place cell editors commit pending values before reading table rows.
   if (table)
-    table->FinishEditing();
+    DataViewEditCommit::CommitPendingEdit(table);
   (void)logChanges;
   ConfigManager &cfg = guiConfigServices->LegacyConfigManager();
   auto &scene = cfg.GetScene();

@@ -1,6 +1,7 @@
 #include "fixture_table_edit_service.h"
 
 #include "consolepanel.h"
+#include "../dataview_edit_commit.h"
 #include "matrixutils.h"
 
 #include <algorithm>
@@ -57,7 +58,7 @@ void UpdateSceneData(ISceneAdapter &adapter, wxDataViewListCtrl *table,
                      bool logChanges) {
   // Ensure in-place cell editors commit pending values before reading table rows.
   if (table)
-    table->FinishEditing();
+    DataViewEditCommit::CommitPendingEdit(table);
 
   auto &scene = adapter.GetScene();
 
