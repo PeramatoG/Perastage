@@ -739,6 +739,10 @@ void TrussTablePanel::ApplyPositionValueUpdates(
 
 void TrussTablePanel::UpdateSceneData(bool logChanges)
 {
+    // Ensure in-place cell editors commit pending values before reading table rows.
+    if (table)
+        table->FinishEditing();
+
     ConfigManager& cfg = guiConfigServices->LegacyConfigManager();
     auto& scene = cfg.GetScene();
     size_t count = std::min((size_t)table->GetItemCount(), rowUuids.size());

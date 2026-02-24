@@ -55,6 +55,10 @@ void UpdateSceneData(ISceneAdapter &adapter, wxDataViewListCtrl *table,
                      const std::vector<std::string> &rowUuids,
                      const std::vector<wxString> &gdtfPaths,
                      bool logChanges) {
+  // Ensure in-place cell editors commit pending values before reading table rows.
+  if (table)
+    table->FinishEditing();
+
   auto &scene = adapter.GetScene();
 
   size_t updatedCount = 0;
