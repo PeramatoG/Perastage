@@ -20,6 +20,7 @@ namespace tools {
 namespace {
 
 constexpr float kSymbolRdpEpsilon = 1.0f;
+constexpr bool kDebugOverlayGeneratedSymbolsWithX = true;
 
 class ScopedFloatConfigOverride {
 public:
@@ -164,6 +165,28 @@ void MirrorImageHorizontally(symbols::RenderedSymbolImage &render) {
   }
 }
 
+void AddDebugXOverlay(symbols::Symbol2D &symbol) {
+  if (!symbol.bounds.valid)
+    return;
+
+  // Temporary debug marker to quickly verify generated symbols vs fallback symbols.
+  // Remove this function call once visual validation is complete.
+  const symbols::Point2D topLeft{symbol.bounds.min.x, symbol.bounds.min.y};
+  const symbols::Point2D topRight{symbol.bounds.max.x, symbol.bounds.min.y};
+  const symbols::Point2D bottomLeft{symbol.bounds.min.x, symbol.bounds.max.y};
+  const symbols::Point2D bottomRight{symbol.bounds.max.x, symbol.bounds.max.y};
+
+  symbol.strokes.push_back(symbols::Polyline2D{topLeft, bottomRight});
+  symbol.strokes.push_back(symbols::Polyline2D{topRight, bottomLeft});
+}
+
+void AddDebugXOverlayToSymbols(std::vector<symbols::Symbol2D> &symbolsToMark) {
+  if (!kDebugOverlayGeneratedSymbolsWithX)
+    return;
+  for (auto &symbol : symbolsToMark)
+    AddDebugXOverlay(symbol);
+}
+
 } // namespace
 
 SceneModelSymbolCaptureResult
@@ -263,6 +286,8 @@ CaptureSceneModelOrthographicSymbols(Viewer2DOffscreenRenderer &renderer,
 
   for (auto &symbol : symbols)
     symbols::SimplifySymbolGeometry(symbol, kSymbolRdpEpsilon);
+
+  AddDebugXOverlayToSymbols(symbols);
 
   result.ok = true;
   result.symbols = std::move(symbols);
