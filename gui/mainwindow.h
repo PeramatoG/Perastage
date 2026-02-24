@@ -70,6 +70,7 @@ public:
   bool IsLayout2DViewEditing() const;
   void PersistLayout2DViewState();
   void RestoreLayout2DViewState(int viewId);
+  void RefreshAfterFixtureSymbolUpdate();
 
 private:
   void SetupLayout();   // Set up main window layout

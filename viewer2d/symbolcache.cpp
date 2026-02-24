@@ -45,3 +45,9 @@ std::shared_ptr<SymbolDefinitionSnapshot> SymbolCache::Snapshot() const {
   }
   return snapshot;
 }
+
+void SymbolCache::Clear() {
+  definitions_.clear();
+  idToKey_.clear();
+  nextSymbolId_ = 1;
+}

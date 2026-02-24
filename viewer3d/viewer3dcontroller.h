@@ -125,6 +125,7 @@ public:
   static std::string BuildFixtureTypeAutoColorHex(const std::string &fixtureTypeKey);
   std::shared_ptr<const SymbolDefinitionSnapshot>
   GetBottomSymbolCacheSnapshot() const;
+  void ClearBottomSymbolCache();
 
   void SetCaptureCanvas(ICanvas2D *canvas, Viewer2DView view,
                         bool includeGrid = true,

@@ -11,6 +11,7 @@
 #include <wx/msgdlg.h>
 #include <wx/utils.h>
 
+#include "mainwindow.h"
 #include "windows/symbol_fixture_applier.h"
 #include "windows/symbol_preview_exporter.h"
 
@@ -193,6 +194,9 @@ void SymbolPreviewWindow::OnApplySymbolToFixture(wxCommandEvent &WXUNUSED(event)
                  this);
     return;
   }
+
+  if (MainWindow *mainWindow = MainWindow::Instance())
+    mainWindow->RefreshAfterFixtureSymbolUpdate();
 
   wxMessageBox("Symbol views applied to fixture GDTF successfully.\nCheck the file in your fixtures library.",
                "Apply Views to Fixture", wxOK | wxICON_INFORMATION, this);
