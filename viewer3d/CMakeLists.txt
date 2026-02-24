@@ -16,6 +16,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/render/opaque_truss_pass.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/render/render_pipeline.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/render/scenerenderer.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/render/screen_space_ambient_occlusion_pass.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/resources/resource_sync_system.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/viewer3dcamera.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/viewer3dcontroller.cpp

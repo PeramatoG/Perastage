@@ -2,6 +2,8 @@
 
 #include "viewer3dcontroller.h"
 
+#include "screen_space_ambient_occlusion_pass.h"
+
 #include <cassert>
 
 RenderPipeline::RenderPipeline(Viewer3DController &controller)
@@ -23,6 +25,7 @@ void RenderPipeline::Execute(const RenderFrameContext &context) {
   } guard{*this};
 
   RenderOpaque();
+  ScreenSpaceAmbientOcclusionPass::Render(m_context);
   RenderOverlays();
 }
 
