@@ -1669,6 +1669,7 @@ void LayoutViewerPanel::RebuildCachedTexture() {
         wxImage svgOverlay = RenderLayoutViewSvgSymbolsOverlayToImage(
             renderSize, cache.buffer, overlayState, cache.symbols.get());
         if (svgOverlay.IsOk()) {
+          svgOverlay = svgOverlay.Mirror(false);
           if (!svgOverlay.HasAlpha())
             svgOverlay.InitAlpha();
           const unsigned char *overlayRgb = svgOverlay.GetData();
