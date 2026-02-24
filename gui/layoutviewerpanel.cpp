@@ -42,7 +42,6 @@
 #endif
 
 #include "layoutviewerpanel.h"
-#include "layoutviewerviewrenderer.h"
 
 #ifndef GL_CLAMP_TO_EDGE
 #define GL_CLAMP_TO_EDGE 0x812F
@@ -1635,6 +1634,9 @@ void LayoutViewerPanel::RebuildCachedTexture() {
         continue;
       }
   
+      offscreenRenderer->SetViewportSize(renderSize);
+      offscreenRenderer->PrepareForCapture();
+
       viewer2d::Viewer2DState renderState = cache.renderState;
       if (renderZoom != 1.0) {
         renderState.camera.zoom *= static_cast<float>(renderZoom);
@@ -1642,53 +1644,18 @@ void LayoutViewerPanel::RebuildCachedTexture() {
       renderState.camera.viewportWidth = renderSize.GetWidth();
       renderState.camera.viewportHeight = renderSize.GetHeight();
 
-      Viewer2DViewState viewState;
-      viewState.offsetPixelsX = renderState.camera.offsetPixelsX;
-      viewState.offsetPixelsY = renderState.camera.offsetPixelsY;
-      viewState.zoom = renderState.camera.zoom;
-      viewState.viewportWidth = renderState.camera.viewportWidth;
-      viewState.viewportHeight = renderState.camera.viewportHeight;
-      viewState.view = static_cast<Viewer2DView>(renderState.camera.view);
+      auto stateGuard = std::make_shared<viewer2d::ScopedViewer2DState>(
+          capturePanel, nullptr, cfg, renderState, nullptr, nullptr, false);
 
-      wxImage image = RenderLayoutViewCommandBufferToImage(
-          renderSize, cache.buffer, viewState,
-          cache.symbols ? cache.symbols.get() : nullptr);
-      if (!image.IsOk()) {
+      std::vector<unsigned char> pixels;
+      int width = 0;
+      int height = 0;
+      if (!capturePanel->RenderToRGBA(pixels, width, height) || width <= 0 ||
+          height <= 0) {
         ClearCachedTexture(cache);
         cache.textureSize = wxSize(0, 0);
         cache.renderZoom = 0.0;
         continue;
-      }
-
-      if (!image.HasAlpha()) {
-        image.InitAlpha();
-        unsigned char *createdAlpha = image.GetAlpha();
-        if (createdAlpha) {
-          const size_t pixelCount =
-              static_cast<size_t>(image.GetWidth()) *
-              static_cast<size_t>(image.GetHeight());
-          std::fill_n(createdAlpha, pixelCount, 255);
-        }
-      }
-      const int width = image.GetWidth();
-      const int height = image.GetHeight();
-      const unsigned char *rgb = image.GetData();
-      const unsigned char *alpha = image.GetAlpha();
-      if (!rgb || !alpha) {
-        ClearCachedTexture(cache);
-        cache.textureSize = wxSize(0, 0);
-        cache.renderZoom = 0.0;
-        continue;
-      }
-      const size_t pixelCount = static_cast<size_t>(width) * static_cast<size_t>(height);
-      std::vector<unsigned char> pixels(pixelCount * 4);
-      for (size_t i = 0; i < pixelCount; ++i) {
-        const size_t rgbOffset = i * 3;
-        const size_t rgbaOffset = i * 4;
-        pixels[rgbaOffset] = rgb[rgbOffset];
-        pixels[rgbaOffset + 1] = rgb[rgbOffset + 1];
-        pixels[rgbaOffset + 2] = rgb[rgbOffset + 2];
-        pixels[rgbaOffset + 3] = alpha[i];
       }
   
       if (!InitGL()) {
