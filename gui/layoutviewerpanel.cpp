@@ -42,6 +42,7 @@
 #endif
 
 #include "layoutviewerpanel.h"
+#include "layoutviewerviewrenderer.h"
 
 #ifndef GL_CLAMP_TO_EDGE
 #define GL_CLAMP_TO_EDGE 0x812F
@@ -1657,7 +1658,53 @@ void LayoutViewerPanel::RebuildCachedTexture() {
         cache.renderZoom = 0.0;
         continue;
       }
-  
+
+      if (cache.symbols && !cache.buffer.commands.empty()) {
+        Viewer2DViewState overlayState = cache.viewState;
+        overlayState.viewportWidth = renderSize.GetWidth();
+        overlayState.viewportHeight = renderSize.GetHeight();
+        if (renderZoom != 1.0)
+          overlayState.zoom *= static_cast<float>(renderZoom);
+
+        wxImage svgOverlay = RenderLayoutViewSvgSymbolsOverlayToImage(
+            renderSize, cache.buffer, overlayState, cache.symbols.get());
+        if (svgOverlay.IsOk()) {
+          if (!svgOverlay.HasAlpha())
+            svgOverlay.InitAlpha();
+          const unsigned char *overlayRgb = svgOverlay.GetData();
+          const unsigned char *overlayAlpha = svgOverlay.GetAlpha();
+          if (overlayRgb && overlayAlpha &&
+              svgOverlay.GetWidth() == width &&
+              svgOverlay.GetHeight() == height) {
+            const size_t pixelCount =
+                static_cast<size_t>(width) * static_cast<size_t>(height);
+            for (size_t i = 0; i < pixelCount; ++i) {
+              const unsigned char srcA = overlayAlpha[i];
+              if (srcA == 0)
+                continue;
+              const size_t rgbaIndex = i * 4;
+              const size_t rgbIndex = i * 3;
+              const unsigned int invA = static_cast<unsigned int>(255 - srcA);
+              pixels[rgbaIndex] = static_cast<unsigned char>(
+                  (static_cast<unsigned int>(overlayRgb[rgbIndex]) * srcA +
+                   static_cast<unsigned int>(pixels[rgbaIndex]) * invA) /
+                  255);
+              pixels[rgbaIndex + 1] = static_cast<unsigned char>(
+                  (static_cast<unsigned int>(overlayRgb[rgbIndex + 1]) * srcA +
+                   static_cast<unsigned int>(pixels[rgbaIndex + 1]) * invA) /
+                  255);
+              pixels[rgbaIndex + 2] = static_cast<unsigned char>(
+                  (static_cast<unsigned int>(overlayRgb[rgbIndex + 2]) * srcA +
+                   static_cast<unsigned int>(pixels[rgbaIndex + 2]) * invA) /
+                  255);
+              pixels[rgbaIndex + 3] = static_cast<unsigned char>(
+                  std::max(static_cast<unsigned int>(pixels[rgbaIndex + 3]),
+                           static_cast<unsigned int>(srcA)));
+            }
+          }
+        }
+      }
+
       if (!InitGL()) {
         clearLoadingState();
         NotifyRenderReady();

@@ -123,7 +123,8 @@ void RenderCommandBuffer(wxGCDC &dc, const CommandBuffer &buffer,
                                             std::optional<PerastageSvgSymbolData>,
                                             SvgLookupHasher> &svgCache,
                          const Transform2D &localTransform,
-                         const CanvasTransform &canvasTransform) {
+                         const CanvasTransform &canvasTransform,
+                         bool renderSvgSymbolsOnly) {
   if (buffer.commands.empty())
     return;
 
@@ -169,6 +170,8 @@ void RenderCommandBuffer(wxGCDC &dc, const CommandBuffer &buffer,
 
   for (const auto &cmd : buffer.commands) {
     if (const auto *line = std::get_if<LineCommand>(&cmd)) {
+      if (renderSvgSymbolsOnly)
+        continue;
       const auto p0 = mapTransformedPoint(line->x0, line->y0);
       const auto p1 = mapTransformedPoint(line->x1, line->y1);
       dc.SetPen(wxPen(wxColour(static_cast<unsigned char>(line->stroke.color.r * 255.0f),
@@ -177,6 +180,8 @@ void RenderCommandBuffer(wxGCDC &dc, const CommandBuffer &buffer,
                       std::max(1, static_cast<int>(std::lround(line->stroke.width * mapping.scale)))));
       dc.DrawLine(ToWxPoint(p0), ToWxPoint(p1));
     } else if (const auto *polyline = std::get_if<PolylineCommand>(&cmd)) {
+      if (renderSvgSymbolsOnly)
+        continue;
       if (polyline->points.size() < 4)
         continue;
       std::vector<viewer2d::Viewer2DRenderPoint> points;
@@ -189,8 +194,12 @@ void RenderCommandBuffer(wxGCDC &dc, const CommandBuffer &buffer,
                       std::max(1, static_cast<int>(std::lround(polyline->stroke.width * mapping.scale)))));
       DrawPolyline(dc, points);
     } else if (const auto *poly = std::get_if<PolygonCommand>(&cmd)) {
+      if (renderSvgSymbolsOnly)
+        continue;
       drawPolygon(poly->points, poly->stroke, poly->hasFill ? &poly->fill : nullptr);
     } else if (const auto *rect = std::get_if<RectangleCommand>(&cmd)) {
+      if (renderSvgSymbolsOnly)
+        continue;
       const std::vector<float> pts = {rect->x, rect->y, rect->x + rect->w, rect->y,
                                       rect->x + rect->w, rect->y + rect->h, rect->x,
                                       rect->y + rect->h};
@@ -220,9 +229,10 @@ void RenderCommandBuffer(wxGCDC &dc, const CommandBuffer &buffer,
           renderedSvg = true;
         }
       }
-      if (!renderedSvg) {
+      if (!renderedSvg && !renderSvgSymbolsOnly) {
         RenderCommandBuffer(dc, it->second.localCommands, mapping, symbols,
-                            svgCache, combined, currentTransform);
+                            svgCache, combined, currentTransform,
+                            renderSvgSymbolsOnly);
       }
     } else if (const auto *save = std::get_if<SaveCommand>(&cmd)) {
       (void)save;
@@ -264,8 +274,64 @@ wxImage RenderLayoutViewCommandBufferToImage(
   std::unordered_map<SvgLookupKey, std::optional<PerastageSvgSymbolData>, SvgLookupHasher>
       svgCache;
   RenderCommandBuffer(dc, buffer, mapping, symbols, svgCache,
-                      Transform2D::Identity(), CanvasTransform{});
+                      Transform2D::Identity(), CanvasTransform{}, false);
 
   memoryDc.SelectObject(wxNullBitmap);
   return bitmap.ConvertToImage();
+}
+
+wxImage RenderLayoutViewSvgSymbolsOverlayToImage(
+    const wxSize &size, const CommandBuffer &buffer,
+    const Viewer2DViewState &viewState,
+    const SymbolDefinitionSnapshot *symbols) {
+  if (size.GetWidth() <= 0 || size.GetHeight() <= 0 || !symbols)
+    return wxImage();
+
+  viewer2d::Viewer2DRenderMapping mapping{};
+  if (!viewer2d::BuildViewMapping(viewState, static_cast<double>(size.GetWidth()),
+                                  static_cast<double>(size.GetHeight()), 0.0,
+                                  mapping)) {
+    return wxImage();
+  }
+
+  constexpr unsigned char kKeyR = 255;
+  constexpr unsigned char kKeyG = 0;
+  constexpr unsigned char kKeyB = 255;
+
+  wxBitmap bitmap(size.GetWidth(), size.GetHeight(), 32);
+  wxMemoryDC memoryDc;
+  memoryDc.SelectObject(bitmap);
+  memoryDc.SetBackground(wxBrush(wxColour(kKeyR, kKeyG, kKeyB)));
+  memoryDc.Clear();
+
+  wxGCDC dc(memoryDc);
+  if (wxGraphicsContext *gc = dc.GetGraphicsContext())
+    gc->SetAntialiasMode(wxANTIALIAS_NONE);
+  std::unordered_map<SvgLookupKey, std::optional<PerastageSvgSymbolData>, SvgLookupHasher>
+      svgCache;
+  RenderCommandBuffer(dc, buffer, mapping, symbols, svgCache,
+                      Transform2D::Identity(), CanvasTransform{}, true);
+
+  memoryDc.SelectObject(wxNullBitmap);
+  wxImage image = bitmap.ConvertToImage();
+  if (!image.IsOk())
+    return wxImage();
+  if (!image.HasAlpha())
+    image.InitAlpha();
+
+  unsigned char *rgb = image.GetData();
+  unsigned char *alpha = image.GetAlpha();
+  if (!rgb || !alpha)
+    return wxImage();
+
+  const size_t pixelCount = static_cast<size_t>(image.GetWidth()) *
+                            static_cast<size_t>(image.GetHeight());
+  for (size_t i = 0; i < pixelCount; ++i) {
+    const size_t rgbIndex = i * 3;
+    const bool isKey = rgb[rgbIndex] == kKeyR && rgb[rgbIndex + 1] == kKeyG &&
+                       rgb[rgbIndex + 2] == kKeyB;
+    alpha[i] = isKey ? 0 : 255;
+  }
+
+  return image;
 }
