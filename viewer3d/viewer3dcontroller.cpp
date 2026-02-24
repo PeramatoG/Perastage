@@ -962,6 +962,8 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
   context.useLighting = !context.wireframe;
   context.useAmbientOcclusion =
       cfg.GetFloat("viewer3d_ambient_occlusion") >= 0.5f;
+  context.ambientOcclusionStrength =
+      cfg.GetFloat("viewer3d_ambient_occlusion_strength");
 
   const bool shouldDrawGrid = context.showGrid;
   const bool shouldDrawGridBeforeScene = shouldDrawGrid && !context.gridOnTop;
@@ -1052,7 +1054,8 @@ void Viewer3DController::RenderOpaqueFrame(const RenderFrameContext &context,
   const Viewer2DView view = context.view;
 
   if (context.useLighting)
-    SetupBasicLighting(context.useAmbientOcclusion);
+    SetupBasicLighting(context.useAmbientOcclusion,
+                      context.ambientOcclusionStrength);
   else
     glDisable(GL_LIGHTING);
 
@@ -1408,9 +1411,11 @@ void Viewer3DController::ApplyTransform(const float matrix[16],
 }
 
 // Initializes simple lighting for the scene
-void Viewer3DController::SetupBasicLighting(bool ambientOcclusionEnabled) {
+void Viewer3DController::SetupBasicLighting(bool ambientOcclusionEnabled,
+                                          float ambientOcclusionStrength) {
   Viewer3DLightingProfile::LightingOptions options;
   options.ambientOcclusionEnabled = ambientOcclusionEnabled;
+  options.ambientOcclusionStrength = ambientOcclusionStrength;
   Viewer3DLightingProfile::ApplyEnhancedBasicLighting(options);
 }
 
