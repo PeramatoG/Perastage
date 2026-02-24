@@ -951,6 +951,7 @@ void MainWindow::EnableShortcuts(bool enable) {
 
 void MainWindow::RefreshAfterFixtureSymbolUpdate() {
   if (viewport2DPanel) {
+    viewport2DPanel->InvalidateBottomSymbolCache();
     viewport2DPanel->UpdateScene(true);
     viewport2DPanel->Refresh();
   }

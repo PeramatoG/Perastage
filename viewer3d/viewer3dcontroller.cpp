@@ -1474,6 +1474,10 @@ Viewer3DController::GetBottomSymbolCacheSnapshot() const {
   return m_impl->bottomSymbolCache.Snapshot();
 }
 
+void Viewer3DController::ClearBottomSymbolCache() {
+  m_impl->bottomSymbolCache.Clear();
+}
+
 void Viewer3DController::DrawMeshWithOutline(
     const Mesh &mesh, float r, float g, float b, float scale, bool highlight,
     bool selected, float cx, float cy, float cz, bool wireframe,
