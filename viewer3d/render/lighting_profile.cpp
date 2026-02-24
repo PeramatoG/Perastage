@@ -17,7 +17,7 @@
 
 namespace Viewer3DLightingProfile {
 
-void ApplyEnhancedBasicLighting() {
+void ApplyEnhancedBasicLighting(const LightingOptions &options) {
   glEnable(GL_LIGHTING);
   // Keep normal lengths stable after model transforms with scaling.
   glEnable(GL_NORMALIZE);
@@ -27,7 +27,11 @@ void ApplyEnhancedBasicLighting() {
 
   // Slightly lower ambient contribution and add multiple directional lights.
   // This improves depth cues for similar gray materials at low runtime cost.
-  const GLfloat globalAmbient[] = {0.14f, 0.14f, 0.14f, 1.0f};
+  const float globalAmbientIntensity =
+      options.ambientOcclusionEnabled ? 0.08f : 0.14f;
+  const GLfloat globalAmbient[] = {globalAmbientIntensity,
+                                   globalAmbientIntensity,
+                                   globalAmbientIntensity, 1.0f};
   glLightModelfv(GL_LIGHT_MODEL_AMBIENT, globalAmbient);
   glLightModeli(GL_LIGHT_MODEL_TWO_SIDE, GL_TRUE);
 
@@ -43,7 +47,10 @@ void ApplyEnhancedBasicLighting() {
   glLightfv(GL_LIGHT0, GL_POSITION, keyPosition);
 
   const GLfloat fillAmbient[] = {0.0f, 0.0f, 0.0f, 1.0f};
-  const GLfloat fillDiffuse[] = {0.32f, 0.32f, 0.36f, 1.0f};
+  const float fillDiffuseIntensity =
+      options.ambientOcclusionEnabled ? 0.24f : 0.32f;
+  const GLfloat fillDiffuse[] = {fillDiffuseIntensity, fillDiffuseIntensity,
+                                 fillDiffuseIntensity + 0.04f, 1.0f};
   const GLfloat fillSpecular[] = {0.0f, 0.0f, 0.0f, 1.0f};
   const GLfloat fillPosition[] = {-1.5f, 2.0f, 1.0f, 0.0f};
 
