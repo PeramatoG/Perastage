@@ -28,6 +28,37 @@ struct SvgLookupHasher {
   }
 };
 
+const PerastageSvgSymbolData *FindSvgSymbolForView(
+    const std::string &modelKey, SymbolViewKind requestedView,
+    std::unordered_map<SvgLookupKey, std::optional<PerastageSvgSymbolData>,
+                       SvgLookupHasher> &svgCache) {
+  if (modelKey.empty())
+    return nullptr;
+
+  auto loadCached = [&](SymbolViewKind view) -> const PerastageSvgSymbolData * {
+    const SvgLookupKey cacheKey{modelKey, view};
+    auto cacheIt = svgCache.find(cacheKey);
+    if (cacheIt == svgCache.end()) {
+      std::optional<PerastageSvgSymbolData> loaded;
+      PerastageSvgSymbolData data;
+      if (LoadPerastageSvgSymbolFromGdtf(modelKey, view, data))
+        loaded = std::move(data);
+      cacheIt = svgCache.emplace(cacheKey, std::move(loaded)).first;
+    }
+    return cacheIt->second ? &cacheIt->second.value() : nullptr;
+  };
+
+  if (const PerastageSvgSymbolData *exact = loadCached(requestedView))
+    return exact;
+
+  if (requestedView == SymbolViewKind::Bottom)
+    return loadCached(SymbolViewKind::Top);
+  if (requestedView == SymbolViewKind::Top)
+    return loadCached(SymbolViewKind::Bottom);
+
+  return nullptr;
+}
+
 Transform2D ComposeTransform(const Transform2D &a, const Transform2D &b) {
   Transform2D out;
   out.a = a.a * b.a + a.c * b.b;
@@ -213,19 +244,10 @@ void RenderCommandBuffer(wxGCDC &dc, const CommandBuffer &buffer,
       const Transform2D combined = ComposeTransform(localTransform, instance->transform);
       bool renderedSvg = false;
       if (!it->second.key.modelKey.empty()) {
-        SvgLookupKey cacheKey{it->second.key.modelKey, it->second.key.viewKind};
-        auto svgIt = svgCache.find(cacheKey);
-        if (svgIt == svgCache.end()) {
-          std::optional<PerastageSvgSymbolData> loaded;
-          PerastageSvgSymbolData data;
-          if (LoadPerastageSvgSymbolFromGdtf(it->second.key.modelKey,
-                                             it->second.key.viewKind, data)) {
-            loaded = std::move(data);
-          }
-          svgIt = svgCache.emplace(std::move(cacheKey), std::move(loaded)).first;
-        }
-        if (svgIt->second.has_value()) {
-          DrawSvgSymbol(dc, mapping, combined, svgIt->second.value());
+        if (const PerastageSvgSymbolData *svg =
+                FindSvgSymbolForView(it->second.key.modelKey,
+                                     it->second.key.viewKind, svgCache)) {
+          DrawSvgSymbol(dc, mapping, combined, *svg);
           renderedSvg = true;
         }
       }
