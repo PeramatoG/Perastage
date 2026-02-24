@@ -2,16 +2,21 @@
 
 #include <algorithm>
 #include <cmath>
+#include <filesystem>
 #include <optional>
 #include <unordered_map>
 
 #include <wx/dcgraph.h>
 #include <wx/dcmemory.h>
 
+#include "guiconfigservices.h"
+#include "legendutils.h"
 #include "symbols/PerastageSvgSymbol.h"
 #include "viewer2dcommandrenderer.h"
 
 namespace {
+namespace fs = std::filesystem;
+
 struct SvgLookupKey {
   std::string modelKey;
   SymbolViewKind view = SymbolViewKind::Top;
@@ -28,20 +33,68 @@ struct SvgLookupHasher {
   }
 };
 
+std::string NormalizePathSeparators(const std::string &path) {
+  std::string out = path;
+  const char sep = static_cast<char>(fs::path::preferred_separator);
+  std::replace(out.begin(), out.end(), '\\', sep);
+  return out;
+}
+
+std::string NormalizeModelPath(const std::string &path) {
+  if (path.empty())
+    return {};
+  fs::path normalized(path);
+  normalized = normalized.lexically_normal();
+  return NormalizePathSeparators(normalized.string());
+}
+
+std::string ResolveSvgLookupModelKey(
+    const std::string &modelKey,
+    std::unordered_map<std::string, std::string> &resolvedModelKeyCache) {
+  auto it = resolvedModelKeyCache.find(modelKey);
+  if (it != resolvedModelKeyCache.end())
+    return it->second;
+
+  std::string resolved = modelKey;
+  const std::string normalizedModel = NormalizeModelPath(modelKey);
+
+  const auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
+  const auto &scene = cfg.GetScene();
+  for (const auto &[uuid, fixture] : scene.fixtures) {
+    (void)uuid;
+    const std::string fixtureSpec = NormalizeModelPath(fixture.gdtfSpec);
+    if (!fixtureSpec.empty() && fixtureSpec == normalizedModel) {
+      resolved = BuildFixtureSymbolKey(fixture, scene.basePath);
+      break;
+    }
+    if (!fixture.typeName.empty() && fixture.typeName == modelKey) {
+      resolved = BuildFixtureSymbolKey(fixture, scene.basePath);
+      break;
+    }
+  }
+
+  resolvedModelKeyCache.emplace(modelKey, resolved);
+  return resolved;
+}
+
 const PerastageSvgSymbolData *FindSvgSymbolForView(
     const std::string &modelKey, SymbolViewKind requestedView,
     std::unordered_map<SvgLookupKey, std::optional<PerastageSvgSymbolData>,
-                       SvgLookupHasher> &svgCache) {
+                       SvgLookupHasher> &svgCache,
+    std::unordered_map<std::string, std::string> &resolvedModelKeyCache) {
   if (modelKey.empty())
     return nullptr;
 
+  const std::string lookupModelKey =
+      ResolveSvgLookupModelKey(modelKey, resolvedModelKeyCache);
+
   auto loadCached = [&](SymbolViewKind view) -> const PerastageSvgSymbolData * {
-    const SvgLookupKey cacheKey{modelKey, view};
+    const SvgLookupKey cacheKey{lookupModelKey, view};
     auto cacheIt = svgCache.find(cacheKey);
     if (cacheIt == svgCache.end()) {
       std::optional<PerastageSvgSymbolData> loaded;
       PerastageSvgSymbolData data;
-      if (LoadPerastageSvgSymbolFromGdtf(modelKey, view, data))
+      if (LoadPerastageSvgSymbolFromGdtf(lookupModelKey, view, data))
         loaded = std::move(data);
       cacheIt = svgCache.emplace(cacheKey, std::move(loaded)).first;
     }
@@ -153,6 +206,8 @@ void RenderCommandBuffer(wxGCDC &dc, const CommandBuffer &buffer,
                          std::unordered_map<SvgLookupKey,
                                             std::optional<PerastageSvgSymbolData>,
                                             SvgLookupHasher> &svgCache,
+                         std::unordered_map<std::string, std::string>
+                             &resolvedModelKeyCache,
                          const Transform2D &localTransform,
                          const CanvasTransform &canvasTransform,
                          bool renderSvgSymbolsOnly) {
@@ -246,14 +301,16 @@ void RenderCommandBuffer(wxGCDC &dc, const CommandBuffer &buffer,
       if (!it->second.key.modelKey.empty()) {
         if (const PerastageSvgSymbolData *svg =
                 FindSvgSymbolForView(it->second.key.modelKey,
-                                     it->second.key.viewKind, svgCache)) {
+                                     it->second.key.viewKind, svgCache,
+                                     resolvedModelKeyCache)) {
           DrawSvgSymbol(dc, mapping, combined, *svg);
           renderedSvg = true;
         }
       }
       if (!renderedSvg && !renderSvgSymbolsOnly) {
         RenderCommandBuffer(dc, it->second.localCommands, mapping, symbols,
-                            svgCache, combined, currentTransform,
+                            svgCache, resolvedModelKeyCache, combined,
+                            currentTransform,
                             renderSvgSymbolsOnly);
       }
     } else if (const auto *save = std::get_if<SaveCommand>(&cmd)) {
@@ -295,8 +352,10 @@ wxImage RenderLayoutViewCommandBufferToImage(
   wxGCDC dc(memoryDc);
   std::unordered_map<SvgLookupKey, std::optional<PerastageSvgSymbolData>, SvgLookupHasher>
       svgCache;
+  std::unordered_map<std::string, std::string> resolvedModelKeyCache;
   RenderCommandBuffer(dc, buffer, mapping, symbols, svgCache,
-                      Transform2D::Identity(), CanvasTransform{}, false);
+                      resolvedModelKeyCache, Transform2D::Identity(),
+                      CanvasTransform{}, false);
 
   memoryDc.SelectObject(wxNullBitmap);
   return bitmap.ConvertToImage();
@@ -331,8 +390,10 @@ wxImage RenderLayoutViewSvgSymbolsOverlayToImage(
     gc->SetAntialiasMode(wxANTIALIAS_NONE);
   std::unordered_map<SvgLookupKey, std::optional<PerastageSvgSymbolData>, SvgLookupHasher>
       svgCache;
+  std::unordered_map<std::string, std::string> resolvedModelKeyCache;
   RenderCommandBuffer(dc, buffer, mapping, symbols, svgCache,
-                      Transform2D::Identity(), CanvasTransform{}, true);
+                      resolvedModelKeyCache, Transform2D::Identity(),
+                      CanvasTransform{}, true);
 
   memoryDc.SelectObject(wxNullBitmap);
   wxImage image = bitmap.ConvertToImage();
