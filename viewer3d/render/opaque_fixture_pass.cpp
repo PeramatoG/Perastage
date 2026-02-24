@@ -15,6 +15,8 @@
 #include <GL/gl.h>
 #endif
 
+#include <filesystem>
+
 #include "matrixutils.h"
 #include "configmanager.h"
 #include "opaque_pass_utils.h"
@@ -151,8 +153,24 @@ void OpaqueFixturePass::Render(
             controller.m_bottomSymbolCache.GetOrCreate(symbolKey, [&](const SymbolKey &,
                                                          uint32_t symbolId) {
               SymbolDefinition svgDefinition{};
-              const std::string svgSourcePath =
-                  !gdtfPath.empty() ? gdtfPath : f.gdtfSpec;
+              std::string svgSourcePath = gdtfPath;
+              if (svgSourcePath.empty() && !f.gdtfSpec.empty()) {
+                std::filesystem::path specPath =
+                    std::filesystem::u8path(f.gdtfSpec);
+                if (specPath.is_absolute()) {
+                  svgSourcePath = specPath.string();
+                } else {
+                  const std::string &sceneBasePath =
+                      ConfigManager::Get().GetScene().basePath;
+                  if (!sceneBasePath.empty()) {
+                    svgSourcePath =
+                        (std::filesystem::u8path(sceneBasePath) / specPath)
+                            .string();
+                  } else {
+                    svgSourcePath = specPath.string();
+                  }
+                }
+              }
               if (!svgSourcePath.empty() &&
                   TryBuildPerastageSvgSymbolDefinition(svgSourcePath,
                                                        symbolKey.viewKind,
