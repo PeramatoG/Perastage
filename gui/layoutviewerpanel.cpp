@@ -1642,8 +1642,16 @@ void LayoutViewerPanel::RebuildCachedTexture() {
       renderState.camera.viewportWidth = renderSize.GetWidth();
       renderState.camera.viewportHeight = renderSize.GetHeight();
 
+      Viewer2DViewState viewState;
+      viewState.offsetPixelsX = renderState.camera.offsetPixelsX;
+      viewState.offsetPixelsY = renderState.camera.offsetPixelsY;
+      viewState.zoom = renderState.camera.zoom;
+      viewState.viewportWidth = renderState.camera.viewportWidth;
+      viewState.viewportHeight = renderState.camera.viewportHeight;
+      viewState.view = static_cast<Viewer2DView>(renderState.camera.view);
+
       wxImage image = RenderLayoutViewCommandBufferToImage(
-          renderSize, cache.buffer, renderState.camera,
+          renderSize, cache.buffer, viewState,
           cache.symbols ? cache.symbols.get() : nullptr);
       if (!image.IsOk()) {
         ClearCachedTexture(cache);
