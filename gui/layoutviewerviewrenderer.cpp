@@ -29,12 +29,6 @@ struct SvgLookupHasher {
 };
 
 
-SymbolViewKind ResolveSvgViewKind(SymbolViewKind requested) {
-  // Layout fixtures in top view can be authored with geometry stored in bottom
-  // view orientation in GDTF. Keep top as primary and then fallback to bottom.
-  return requested;
-}
-
 const PerastageSvgSymbolData *FindSvgSymbolCached(
     std::unordered_map<SvgLookupKey, std::optional<PerastageSvgSymbolData>,
                        SvgLookupHasher> &svgCache,
@@ -53,8 +47,7 @@ const PerastageSvgSymbolData *FindSvgSymbolCached(
     return svgIt->second.has_value() ? &svgIt->second.value() : nullptr;
   };
 
-  if (const PerastageSvgSymbolData *svg =
-          lookup(ResolveSvgViewKind(requestedView))) {
+  if (const PerastageSvgSymbolData *svg = lookup(requestedView)) {
     return svg;
   }
 
@@ -153,6 +146,90 @@ void DrawSvgSymbol(wxGCDC &dc, const viewer2d::Viewer2DRenderMapping &mapping,
     }
     DrawPolyline(dc, mapped);
   }
+}
+
+
+struct SvgGeometryMetrics {
+  bool valid = false;
+  double minX = 0.0;
+  double minY = 0.0;
+  double width = 0.0;
+  double height = 0.0;
+};
+
+SvgGeometryMetrics ComputeSvgGeometryMetrics(const PerastageSvgSymbolData &svg) {
+  SvgGeometryMetrics metrics;
+  bool hasPoint = false;
+  double minX = 0.0;
+  double minY = 0.0;
+  double maxX = 0.0;
+  double maxY = 0.0;
+
+  auto includePoint = [&](const PerastageSvgPoint &pt) {
+    const double x = pt.x + svg.offsetXmm;
+    const double y = pt.y + svg.offsetYmm;
+    if (!hasPoint) {
+      minX = maxX = x;
+      minY = maxY = y;
+      hasPoint = true;
+      return;
+    }
+    minX = std::min(minX, x);
+    minY = std::min(minY, y);
+    maxX = std::max(maxX, x);
+    maxY = std::max(maxY, y);
+  };
+
+  for (const auto &polygon : svg.fills) {
+    for (const auto &pt : polygon.points)
+      includePoint(pt);
+    for (const auto &hole : polygon.holes)
+      for (const auto &pt : hole)
+        includePoint(pt);
+  }
+  for (const auto &line : svg.strokes)
+    for (const auto &pt : line.points)
+      includePoint(pt);
+
+  if (!hasPoint)
+    return metrics;
+
+  metrics.minX = minX;
+  metrics.minY = minY;
+  metrics.width = std::max(0.0, maxX - minX);
+  metrics.height = std::max(0.0, maxY - minY);
+  metrics.valid = metrics.width > 0.0 && metrics.height > 0.0;
+  return metrics;
+}
+
+Transform2D BuildSvgToSymbolTransform(const SymbolDefinition &symbol,
+                                      const PerastageSvgSymbolData &svg) {
+  Transform2D out = Transform2D::Identity();
+
+  const SvgGeometryMetrics source = ComputeSvgGeometryMetrics(svg);
+  const double targetW =
+      static_cast<double>(symbol.bounds.max.x - symbol.bounds.min.x);
+  const double targetH =
+      static_cast<double>(symbol.bounds.max.y - symbol.bounds.min.y);
+  if (!source.valid || targetW <= 0.0 || targetH <= 0.0)
+    return out;
+
+  const double uniformScale = std::min(targetW / source.width, targetH / source.height);
+  if (!(uniformScale > 0.0))
+    return out;
+
+  const double drawW = source.width * uniformScale;
+  const double drawH = source.height * uniformScale;
+  const double targetMinX =
+      static_cast<double>(symbol.bounds.min.x) + (targetW - drawW) * 0.5;
+  const double targetMinY =
+      static_cast<double>(symbol.bounds.min.y) + (targetH - drawH) * 0.5;
+
+  out.a = static_cast<float>(uniformScale);
+  out.d = static_cast<float>(uniformScale);
+  out.tx = static_cast<float>(targetMinX - source.minX * uniformScale);
+  out.ty = static_cast<float>(targetMinY - source.minY * uniformScale);
+  return out;
 }
 
 void ResolveSymbolSvgColors(const SymbolDefinition &symbol,
@@ -284,7 +361,10 @@ void RenderCommandBuffer(wxGCDC &dc, const CommandBuffer &buffer,
           wxColour fillColor;
           wxColour strokeColor;
           ResolveSymbolSvgColors(it->second, fillColor, strokeColor);
-          DrawSvgSymbol(dc, mapping, combined, *svg, fillColor, strokeColor);
+          const Transform2D svgToSymbol =
+              BuildSvgToSymbolTransform(it->second, *svg);
+          DrawSvgSymbol(dc, mapping, ComposeTransform(combined, svgToSymbol),
+                        *svg, fillColor, strokeColor);
           renderedSvg = true;
         }
       }
