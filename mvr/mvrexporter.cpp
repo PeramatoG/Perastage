@@ -1075,8 +1075,9 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     mat->SetText(mstr.c_str());
     te->InsertEndChild(mat);
 
-    const bool shouldWriteMvrTrussMetadata = trussGdtfArchivePath.empty();
-    bool hasMeta = shouldWriteMvrTrussMetadata &&
+    // Keep Perastage truss metadata in UserData even when a GDTF resource exists.
+    // This preserves user-edited dimensions/weight as authoritative instance overrides.
+    bool hasMeta =
                    (!t.manufacturer.empty() || !t.model.empty() ||
                     t.lengthMm != 0.0f || t.widthMm != 0.0f ||
                     t.heightMm != 0.0f || t.weightKg != 0.0f ||
