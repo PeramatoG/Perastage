@@ -9,6 +9,7 @@
 #include <wx/dcgraph.h>
 #include <wx/dcmemory.h>
 
+#include "configmanager.h"
 #include "guiconfigservices.h"
 #include "legendutils.h"
 #include "symbols/PerastageSvgSymbol.h"
@@ -60,8 +61,8 @@ std::string ResolveSvgLookupModelKey(
 
   const auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
   const auto &scene = cfg.GetScene();
-  for (const auto &[uuid, fixture] : scene.fixtures) {
-    (void)uuid;
+  for (const auto &entry : scene.fixtures) {
+    const Fixture &fixture = entry.second;
     const std::string fixtureSpec = NormalizeModelPath(fixture.gdtfSpec);
     if (!fixtureSpec.empty() && fixtureSpec == normalizedModel) {
       resolved = BuildFixtureSymbolKey(fixture, scene.basePath);
