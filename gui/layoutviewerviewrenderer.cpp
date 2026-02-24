@@ -12,6 +12,7 @@
 #include "viewer2dcommandrenderer.h"
 
 namespace {
+constexpr double kMillimetersToMeters = 0.001;
 struct SvgLookupKey {
   std::string modelKey;
   SymbolViewKind view = SymbolViewKind::Top;
@@ -109,13 +110,13 @@ void DrawSvgSymbol(wxGCDC &dc, const viewer2d::Viewer2DRenderMapping &mapping,
     if (poly.size() < 3)
       return;
     auto start = MapPoint(mapping, transform,
-                          static_cast<float>(poly.front().x + svg.offsetXmm),
-                          static_cast<float>(poly.front().y + svg.offsetYmm));
+                          static_cast<float>((poly.front().x + svg.offsetXmm) * kMillimetersToMeters),
+                          static_cast<float>((poly.front().y + svg.offsetYmm) * kMillimetersToMeters));
     path.MoveToPoint(start.x, start.y);
     for (size_t i = 1; i < poly.size(); ++i) {
       auto mapped = MapPoint(mapping, transform,
-                             static_cast<float>(poly[i].x + svg.offsetXmm),
-                             static_cast<float>(poly[i].y + svg.offsetYmm));
+                             static_cast<float>((poly[i].x + svg.offsetXmm) * kMillimetersToMeters),
+                             static_cast<float>((poly[i].y + svg.offsetYmm) * kMillimetersToMeters));
       path.AddLineToPoint(mapped.x, mapped.y);
     }
     path.CloseSubpath();
@@ -141,8 +142,8 @@ void DrawSvgSymbol(wxGCDC &dc, const viewer2d::Viewer2DRenderMapping &mapping,
     mapped.reserve(line.points.size());
     for (const auto &point : line.points) {
       mapped.push_back(MapPoint(mapping, transform,
-                                static_cast<float>(point.x + svg.offsetXmm),
-                                static_cast<float>(point.y + svg.offsetYmm)));
+                                static_cast<float>((point.x + svg.offsetXmm) * kMillimetersToMeters),
+                                static_cast<float>((point.y + svg.offsetYmm) * kMillimetersToMeters)));
     }
     DrawPolyline(dc, mapped);
   }
@@ -166,8 +167,8 @@ SvgGeometryMetrics ComputeSvgGeometryMetrics(const PerastageSvgSymbolData &svg) 
   double maxY = 0.0;
 
   auto includePoint = [&](const PerastageSvgPoint &pt) {
-    const double x = pt.x + svg.offsetXmm;
-    const double y = pt.y + svg.offsetYmm;
+    const double x = (pt.x + svg.offsetXmm) * kMillimetersToMeters;
+    const double y = (pt.y + svg.offsetYmm) * kMillimetersToMeters;
     if (!hasPoint) {
       minX = maxX = x;
       minY = maxY = y;
