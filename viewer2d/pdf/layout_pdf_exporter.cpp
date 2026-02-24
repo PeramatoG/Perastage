@@ -106,6 +106,28 @@ std::array<double, 3> ResolveLegendSvgFillRgb(
   return {parse(0), parse(2), parse(4)};
 }
 
+
+std::array<double, 3> ResolveSymbolSvgFillRgb(
+    const SymbolDefinition &symbol,
+    const std::array<double, 3> &fallback) {
+  for (const auto &cmd : symbol.localCommands.commands) {
+    if (const auto *polygon = std::get_if<PolygonCommand>(&cmd)) {
+      if (polygon->hasFill) {
+        return {std::clamp(static_cast<double>(polygon->fill.color.r), 0.0, 1.0),
+                std::clamp(static_cast<double>(polygon->fill.color.g), 0.0, 1.0),
+                std::clamp(static_cast<double>(polygon->fill.color.b), 0.0, 1.0)};
+      }
+    } else if (const auto *rectangle = std::get_if<RectangleCommand>(&cmd)) {
+      if (rectangle->hasFill) {
+        return {std::clamp(static_cast<double>(rectangle->fill.color.r), 0.0, 1.0),
+                std::clamp(static_cast<double>(rectangle->fill.color.g), 0.0, 1.0),
+                std::clamp(static_cast<double>(rectangle->fill.color.b), 0.0, 1.0)};
+      }
+    }
+  }
+  return fallback;
+}
+
 double ComputeTextLineAdvance(double ascent, double descent) {
   // Negative because PDF moves the text cursor downward with a negative y
   // translation. The advance mirrors the ascent + descent used by the
@@ -1236,9 +1258,11 @@ Viewer2DExportResult ExportLayoutToPdf(
                                 defIt->second.key.viewKind)) {
             constexpr std::array<double, 3> kDefaultSvgFillRgb = {
                 224.0 / 255.0, 224.0 / 255.0, 224.0 / 255.0};
+            const auto fillRgb =
+                ResolveSymbolSvgFillRgb(defIt->second, kDefaultSvgFillRgb);
             xObjectNameIds[entry.second] =
                 appendPerastageSvgSymbolObject(*svg, 1.0, group.strokeScale,
-                                               kDefaultSvgFillRgb);
+                                               fillRgb);
             usedSvg = true;
           }
         }
@@ -1278,10 +1302,12 @@ Viewer2DExportResult ExportLayoutToPdf(
                               defIt->second.key.viewKind)) {
           constexpr std::array<double, 3> kDefaultSvgFillRgb = {
               224.0 / 255.0, 224.0 / 255.0, 224.0 / 255.0};
+          const auto fillRgb =
+              ResolveSymbolSvgFillRgb(defIt->second, kDefaultSvgFillRgb);
           xObjectNameIds[entry.second] =
               appendPerastageSvgSymbolObject(*svg, symbolScale,
                                              legendStrokeScale,
-                                             kDefaultSvgFillRgb);
+                                             fillRgb);
           usedSvg = true;
         }
       }

@@ -42,6 +42,7 @@
 #endif
 
 #include "layoutviewerpanel.h"
+#include "layoutviewerviewrenderer.h"
 
 #ifndef GL_CLAMP_TO_EDGE
 #define GL_CLAMP_TO_EDGE 0x812F
@@ -1634,9 +1635,6 @@ void LayoutViewerPanel::RebuildCachedTexture() {
         continue;
       }
   
-      offscreenRenderer->SetViewportSize(renderSize);
-      offscreenRenderer->PrepareForCapture();
-
       viewer2d::Viewer2DState renderState = cache.renderState;
       if (renderZoom != 1.0) {
         renderState.camera.zoom *= static_cast<float>(renderZoom);
@@ -1644,18 +1642,36 @@ void LayoutViewerPanel::RebuildCachedTexture() {
       renderState.camera.viewportWidth = renderSize.GetWidth();
       renderState.camera.viewportHeight = renderSize.GetHeight();
 
-      auto stateGuard = std::make_shared<viewer2d::ScopedViewer2DState>(
-          capturePanel, nullptr, cfg, renderState, nullptr, nullptr, false);
-
-      std::vector<unsigned char> pixels;
-      int width = 0;
-      int height = 0;
-      if (!capturePanel->RenderToRGBA(pixels, width, height) || width <= 0 ||
-          height <= 0) {
+      wxImage image = RenderLayoutViewCommandBufferToImage(
+          renderSize, cache.buffer, renderState.camera,
+          cache.symbols ? cache.symbols.get() : nullptr);
+      if (!image.IsOk()) {
         ClearCachedTexture(cache);
         cache.textureSize = wxSize(0, 0);
         cache.renderZoom = 0.0;
         continue;
+      }
+
+      if (!image.HasAlpha())
+        image.InitAlpha();
+      const int width = image.GetWidth();
+      const int height = image.GetHeight();
+      std::vector<unsigned char> pixels;
+      pixels.reserve(static_cast<size_t>(width) * static_cast<size_t>(height) * 4);
+      const unsigned char *rgb = image.GetData();
+      const unsigned char *alpha = image.GetAlpha();
+      if (!rgb || !alpha) {
+        ClearCachedTexture(cache);
+        cache.textureSize = wxSize(0, 0);
+        cache.renderZoom = 0.0;
+        continue;
+      }
+      const size_t pixelCount = static_cast<size_t>(width) * static_cast<size_t>(height);
+      for (size_t i = 0; i < pixelCount; ++i) {
+        pixels.push_back(rgb[i * 3]);
+        pixels.push_back(rgb[i * 3 + 1]);
+        pixels.push_back(rgb[i * 3 + 2]);
+        pixels.push_back(alpha[i]);
       }
   
       if (!InitGL()) {

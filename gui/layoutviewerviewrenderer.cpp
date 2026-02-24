@@ -67,7 +67,9 @@ void DrawPolyline(wxDC &dc, const std::vector<viewer2d::Viewer2DRenderPoint> &po
 
 void DrawSvgSymbol(wxGCDC &dc, const viewer2d::Viewer2DRenderMapping &mapping,
                    const Transform2D &transform,
-                   const PerastageSvgSymbolData &svg) {
+                   const PerastageSvgSymbolData &svg,
+                   const wxColour &fillColor,
+                   const wxColour &strokeColor) {
   wxGraphicsContext *gc = dc.GetGraphicsContext();
   if (!gc)
     return;
@@ -90,7 +92,7 @@ void DrawSvgSymbol(wxGCDC &dc, const viewer2d::Viewer2DRenderMapping &mapping,
   };
 
   gc->SetPen(*wxTRANSPARENT_PEN);
-  gc->SetBrush(wxBrush(wxColour(224, 224, 224)));
+  gc->SetBrush(wxBrush(fillColor));
   for (const auto &polygon : svg.fills) {
     if (polygon.points.size() < 3)
       continue;
@@ -101,7 +103,7 @@ void DrawSvgSymbol(wxGCDC &dc, const viewer2d::Viewer2DRenderMapping &mapping,
     gc->FillPath(path, wxODDEVEN_RULE);
   }
 
-  dc.SetPen(wxPen(*wxBLACK, 1));
+  dc.SetPen(wxPen(strokeColor, 1));
   for (const auto &line : svg.strokes) {
     if (line.points.size() < 2)
       continue;
@@ -113,6 +115,42 @@ void DrawSvgSymbol(wxGCDC &dc, const viewer2d::Viewer2DRenderMapping &mapping,
                                 static_cast<float>(point.y + svg.offsetYmm)));
     }
     DrawPolyline(dc, mapped);
+  }
+}
+
+void ResolveSymbolSvgColors(const SymbolDefinition &symbol,
+                            wxColour &fillColor,
+                            wxColour &strokeColor) {
+  fillColor = wxColour(224, 224, 224);
+  strokeColor = *wxBLACK;
+
+  for (const auto &cmd : symbol.localCommands.commands) {
+    if (const auto *polygon = std::get_if<PolygonCommand>(&cmd)) {
+      if (polygon->hasFill) {
+        fillColor = wxColour(
+            static_cast<unsigned char>(std::clamp(polygon->fill.color.r, 0.0f, 1.0f) * 255.0f),
+            static_cast<unsigned char>(std::clamp(polygon->fill.color.g, 0.0f, 1.0f) * 255.0f),
+            static_cast<unsigned char>(std::clamp(polygon->fill.color.b, 0.0f, 1.0f) * 255.0f));
+      }
+      strokeColor = wxColour(
+          static_cast<unsigned char>(std::clamp(polygon->stroke.color.r, 0.0f, 1.0f) * 255.0f),
+          static_cast<unsigned char>(std::clamp(polygon->stroke.color.g, 0.0f, 1.0f) * 255.0f),
+          static_cast<unsigned char>(std::clamp(polygon->stroke.color.b, 0.0f, 1.0f) * 255.0f));
+      return;
+    }
+    if (const auto *rectangle = std::get_if<RectangleCommand>(&cmd)) {
+      if (rectangle->hasFill) {
+        fillColor = wxColour(
+            static_cast<unsigned char>(std::clamp(rectangle->fill.color.r, 0.0f, 1.0f) * 255.0f),
+            static_cast<unsigned char>(std::clamp(rectangle->fill.color.g, 0.0f, 1.0f) * 255.0f),
+            static_cast<unsigned char>(std::clamp(rectangle->fill.color.b, 0.0f, 1.0f) * 255.0f));
+      }
+      strokeColor = wxColour(
+          static_cast<unsigned char>(std::clamp(rectangle->stroke.color.r, 0.0f, 1.0f) * 255.0f),
+          static_cast<unsigned char>(std::clamp(rectangle->stroke.color.g, 0.0f, 1.0f) * 255.0f),
+          static_cast<unsigned char>(std::clamp(rectangle->stroke.color.b, 0.0f, 1.0f) * 255.0f));
+      return;
+    }
   }
 }
 
@@ -216,7 +254,11 @@ void RenderCommandBuffer(wxGCDC &dc, const CommandBuffer &buffer,
           svgIt = svgCache.emplace(std::move(cacheKey), std::move(loaded)).first;
         }
         if (svgIt->second.has_value()) {
-          DrawSvgSymbol(dc, mapping, combined, svgIt->second.value());
+          wxColour fillColor;
+          wxColour strokeColor;
+          ResolveSymbolSvgColors(it->second, fillColor, strokeColor);
+          DrawSvgSymbol(dc, mapping, combined, svgIt->second.value(), fillColor,
+                        strokeColor);
           renderedSvg = true;
         }
       }
