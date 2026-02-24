@@ -151,7 +151,10 @@ void OpaqueFixturePass::Render(
             controller.m_bottomSymbolCache.GetOrCreate(symbolKey, [&](const SymbolKey &,
                                                          uint32_t symbolId) {
               SymbolDefinition svgDefinition{};
-              if (TryBuildPerastageSvgSymbolDefinition(gdtfPath,
+              const std::string svgSourcePath =
+                  !gdtfPath.empty() ? gdtfPath : f.gdtfSpec;
+              if (!svgSourcePath.empty() &&
+                  TryBuildPerastageSvgSymbolDefinition(svgSourcePath,
                                                        symbolKey.viewKind,
                                                        symbolId,
                                                        svgDefinition)) {
