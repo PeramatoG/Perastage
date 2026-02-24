@@ -100,7 +100,8 @@ void DrawSvgSymbol(wxGCDC &dc, const viewer2d::Viewer2DRenderMapping &mapping,
                    const Transform2D &transform,
                    const PerastageSvgSymbolData &svg,
                    const wxColour &fillColor,
-                   const wxColour &strokeColor) {
+                   const wxColour &strokeColor,
+                   int strokeWidthPx) {
   wxGraphicsContext *gc = dc.GetGraphicsContext();
   if (!gc)
     return;
@@ -134,7 +135,7 @@ void DrawSvgSymbol(wxGCDC &dc, const viewer2d::Viewer2DRenderMapping &mapping,
     gc->FillPath(path, wxODDEVEN_RULE);
   }
 
-  dc.SetPen(wxPen(strokeColor, 1));
+  dc.SetPen(wxPen(strokeColor, std::max(1, strokeWidthPx)));
   for (const auto &line : svg.strokes) {
     if (line.points.size() < 2)
       continue;
@@ -269,6 +270,31 @@ void ResolveSymbolSvgColors(const SymbolDefinition &symbol,
   }
 }
 
+
+int ResolveSymbolStrokeWidthPx(const SymbolDefinition &symbol,
+                               const viewer2d::Viewer2DRenderMapping &mapping) {
+  float strokeWidth = 1.0f;
+  for (const auto &cmd : symbol.localCommands.commands) {
+    if (const auto *line = std::get_if<LineCommand>(&cmd)) {
+      strokeWidth = line->stroke.width;
+      break;
+    }
+    if (const auto *polyline = std::get_if<PolylineCommand>(&cmd)) {
+      strokeWidth = polyline->stroke.width;
+      break;
+    }
+    if (const auto *polygon = std::get_if<PolygonCommand>(&cmd)) {
+      strokeWidth = polygon->stroke.width;
+      break;
+    }
+    if (const auto *rectangle = std::get_if<RectangleCommand>(&cmd)) {
+      strokeWidth = rectangle->stroke.width;
+      break;
+    }
+  }
+  return std::max(1, static_cast<int>(std::lround(strokeWidth * mapping.scale)));
+}
+
 void RenderCommandBuffer(wxGCDC &dc, const CommandBuffer &buffer,
                          const viewer2d::Viewer2DRenderMapping &mapping,
                          const SymbolDefinitionSnapshot *symbols,
@@ -364,8 +390,10 @@ void RenderCommandBuffer(wxGCDC &dc, const CommandBuffer &buffer,
           ResolveSymbolSvgColors(it->second, fillColor, strokeColor);
           const Transform2D svgToSymbol =
               BuildSvgToSymbolTransform(it->second, *svg);
+          const int strokeWidthPx =
+              ResolveSymbolStrokeWidthPx(it->second, mapping);
           DrawSvgSymbol(dc, mapping, ComposeTransform(combined, svgToSymbol),
-                        *svg, fillColor, strokeColor);
+                        *svg, fillColor, strokeColor, strokeWidthPx);
           renderedSvg = true;
         }
       }
