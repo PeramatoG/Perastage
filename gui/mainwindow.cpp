@@ -948,3 +948,14 @@ void MainWindow::EnableShortcuts(bool enable) {
   else
     SetAcceleratorTable(wxAcceleratorTable());
 }
+
+void MainWindow::RefreshAfterFixtureSymbolUpdate() {
+  if (viewport2DPanel) {
+    viewport2DPanel->UpdateScene(true);
+    viewport2DPanel->Refresh();
+  }
+  if (layoutViewerPanel) {
+    layoutViewerPanel->RefreshLegendData();
+    layoutViewerPanel->Refresh();
+  }
+}

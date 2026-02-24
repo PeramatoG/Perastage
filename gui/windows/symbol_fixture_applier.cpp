@@ -571,6 +571,11 @@ bool ApplySymbolsToFixtureGdtf(const std::vector<symbols::Symbol2D> &symbols,
       return false;
   }
 
+  if (libraryPath.empty() && !scenePath.empty() && !fixtureIt->second.typeName.empty()) {
+    GdtfDictionary::Update(fixtureIt->second.typeName, scenePath,
+                           fixtureIt->second.gdtfMode);
+  }
+
   return true;
 }
 
