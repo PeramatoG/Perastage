@@ -44,6 +44,7 @@ public:
   layouts::Layout2DViewDefinition *GetEditableView();
   const layouts::Layout2DViewDefinition *GetEditableView() const;
   void RefreshLegendData();
+  void RefreshAfterFixtureSymbolUpdate();
 
 private:
   struct LegendItem {

@@ -955,8 +955,6 @@ void MainWindow::RefreshAfterFixtureSymbolUpdate() {
     viewport2DPanel->UpdateScene(true);
     viewport2DPanel->Refresh();
   }
-  if (layoutViewerPanel) {
-    layoutViewerPanel->RefreshLegendData();
-    layoutViewerPanel->Refresh();
-  }
+  if (layoutViewerPanel)
+    layoutViewerPanel->RefreshAfterFixtureSymbolUpdate();
 }
