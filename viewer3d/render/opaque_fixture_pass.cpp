@@ -15,12 +15,16 @@
 #include <GL/gl.h>
 #endif
 
+#include <optional>
+
 #include "matrixutils.h"
 #include "configmanager.h"
 #include "opaque_pass_utils.h"
 #include "perastage_svg_symbol_builder.h"
 #include "scenedatamanager.h"
 #include "viewer3dcontroller.h"
+
+#include "canvas2d.h"
 
 void OpaqueFixturePass::Render(
     Viewer3DController &controller, const RenderFrameContext &context,
@@ -119,15 +123,13 @@ void OpaqueFixturePass::Render(
       gdtfPath = gdtfPathIt->second.resolvedPath;
     auto itg = controller.m_resourceSyncState.loadedGdtf.find(gdtfPath);
 
-    const bool useSymbolInstancing =
-        (controller.m_captureUseSymbols &&
-         (controller.m_captureView == Viewer2DView::Bottom ||
-          controller.m_captureView == Viewer2DView::Top ||
-          controller.m_captureView == Viewer2DView::Front ||
-          controller.m_captureView == Viewer2DView::Side) &&
-         !highlight && !selected);
-    bool placedInstance = false;
-    if (useSymbolInstancing && controller.m_captureCanvas && !skipCapture) {
+    std::optional<std::reference_wrapper<const SymbolDefinition>> resolvedSymbol;
+    std::optional<Transform2D> resolvedSymbolTransform;
+    const bool canResolveSymbol =
+        (is2DViewer ||
+         (controller.m_captureUseSymbols && controller.m_captureCanvas && !skipCapture)) &&
+        !highlight && !selected;
+    if (canResolveSymbol) {
       std::string modelKey = NormalizeModelKey(gdtfPath);
       if (modelKey.empty() && !f.gdtfSpec.empty())
         modelKey = NormalizeModelKey(f.gdtfSpec);
@@ -137,19 +139,18 @@ void OpaqueFixturePass::Render(
         modelKey = "unknown";
 
       if (!modelKey.empty()) {
-        const Viewer2DView fixtureCaptureView =
-            isTopView2D && forceBottomViewForTopFixtures
+        const Viewer2DView symbolView =
+            (isTopView2D && forceBottomViewForTopFixtures)
                 ? Viewer2DView::Bottom
-                : controller.m_captureView;
+                : (is2DViewer ? context.view : controller.m_captureView);
 
         SymbolKey symbolKey;
         symbolKey.modelKey = modelKey;
-        symbolKey.viewKind = resolveSymbolView(fixtureCaptureView);
+        symbolKey.viewKind = resolveSymbolView(symbolView);
         symbolKey.styleVersion = 1;
 
-        const auto &symbol =
-            controller.m_bottomSymbolCache.GetOrCreate(symbolKey, [&](const SymbolKey &,
-                                                         uint32_t symbolId) {
+        const auto &symbol = controller.m_bottomSymbolCache.GetOrCreate(
+            symbolKey, [&](const SymbolKey &, uint32_t symbolId) {
               SymbolDefinition svgDefinition{};
               if (TryBuildPerastageSvgSymbolDefinition(gdtfPath,
                                                        symbolKey.viewKind,
@@ -171,7 +172,7 @@ void OpaqueFixturePass::Render(
               bool prevCaptureOnly = controller.m_captureOnly;
               bool prevIncludeGrid = controller.m_captureIncludeGrid;
               controller.m_captureCanvas = localCanvas.get();
-              controller.m_captureView = fixtureCaptureView;
+              controller.m_captureView = symbolView;
               controller.m_captureOnly = true;
               controller.m_captureIncludeGrid = false;
 
@@ -219,12 +220,15 @@ void OpaqueFixturePass::Render(
               return definition;
             });
 
-        Transform2D instanceTransform =
-            BuildInstanceTransform2D(fixtureTransform, fixtureCaptureView);
-        controller.m_captureCanvas->PlaceSymbolInstance(symbol.symbolId,
-                                                        instanceTransform);
-        placedInstance = true;
+        resolvedSymbol = std::cref(symbol);
+        resolvedSymbolTransform = BuildInstanceTransform2D(fixtureTransform, symbolView);
       }
+    }
+
+    if (resolvedSymbol && controller.m_captureCanvas && controller.m_captureUseSymbols &&
+        !skipCapture && resolvedSymbolTransform) {
+      controller.m_captureCanvas->PlaceSymbolInstance(
+          resolvedSymbol->get().symbolId, *resolvedSymbolTransform);
     }
 
     auto drawFixtureGeometry = [&]() {
@@ -271,7 +275,26 @@ void OpaqueFixturePass::Render(
       }
     };
 
-    if (placedInstance) {
+    if (is2DViewer && resolvedSymbol && resolvedSymbolTransform) {
+      glPopMatrix();
+      auto rasterCanvas = CreateRasterCanvas(CanvasTransform{});
+      if (rasterCanvas) {
+        rasterCanvas->BeginFrame();
+        CommandBuffer symbolBuffer;
+        symbolBuffer.commands.push_back(
+            SymbolInstanceCommand{resolvedSymbol->get().symbolId,
+                                  *resolvedSymbolTransform});
+        ReplayCommandBuffer(symbolBuffer, *rasterCanvas,
+                            &controller.m_bottomSymbolCache);
+        rasterCanvas->EndFrame();
+      }
+      if (controller.m_captureCanvas && !skipCapture)
+        controller.m_captureCanvas->SetSourceKey("unknown");
+      continue;
+    }
+
+    if (resolvedSymbol && controller.m_captureCanvas && controller.m_captureUseSymbols &&
+        !skipCapture) {
       ICanvas2D *prevCanvas = controller.m_captureCanvas;
       bool prevCaptureOnly = controller.m_captureOnly;
       controller.m_captureCanvas = nullptr;

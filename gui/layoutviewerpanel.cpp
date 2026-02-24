@@ -42,7 +42,6 @@
 #endif
 
 #include "layoutviewerpanel.h"
-#include "layoutviewerviewrenderer.h"
 
 #ifndef GL_CLAMP_TO_EDGE
 #define GL_CLAMP_TO_EDGE 0x812F
@@ -1638,46 +1637,25 @@ void LayoutViewerPanel::RebuildCachedTexture() {
       offscreenRenderer->SetViewportSize(renderSize);
       offscreenRenderer->PrepareForCapture();
 
-      Viewer2DViewState renderViewState = cache.viewState;
-      renderViewState.viewportWidth = renderSize.GetWidth();
-      renderViewState.viewportHeight = renderSize.GetHeight();
+      viewer2d::Viewer2DState renderState = cache.renderState;
       if (renderZoom != 1.0) {
-        renderViewState.zoom *= static_cast<float>(renderZoom);
+        renderState.camera.zoom *= static_cast<float>(renderZoom);
       }
+      renderState.camera.viewportWidth = renderSize.GetWidth();
+      renderState.camera.viewportHeight = renderSize.GetHeight();
 
-      wxImage image = RenderLayoutViewCommandBufferToImage(
-          renderSize, cache.buffer, renderViewState, cache.symbols.get());
-      if (!image.IsOk()) {
-        ClearCachedTexture(cache);
-        cache.textureSize = wxSize(0, 0);
-        cache.renderZoom = 0.0;
-        continue;
-      }
-      image = image.Mirror(false);
-      if (!image.HasAlpha())
-        image.InitAlpha();
-      const int width = image.GetWidth();
-      const int height = image.GetHeight();
-      const unsigned char *rgb = image.GetData();
-      const unsigned char *alpha = image.GetAlpha();
+      auto stateGuard = std::make_shared<viewer2d::ScopedViewer2DState>(
+          capturePanel, nullptr, cfg, renderState, nullptr, nullptr, false);
+
       std::vector<unsigned char> pixels;
-      if (!rgb || !alpha || width <= 0 || height <= 0 ||
-          !TryAllocatePixelBuffer(pixels, width, height, "view")) {
+      int width = 0;
+      int height = 0;
+      if (!capturePanel->RenderToRGBA(pixels, width, height) || width <= 0 ||
+          height <= 0) {
         ClearCachedTexture(cache);
         cache.textureSize = wxSize(0, 0);
         cache.renderZoom = 0.0;
         continue;
-      }
-      const size_t pixelCount = static_cast<size_t>(width) *
-                                static_cast<size_t>(height);
-      unsigned char *dst = pixels.data();
-      for (size_t i = 0; i < pixelCount; ++i) {
-        const size_t src = i * 3;
-        const size_t dstIdx = i * 4;
-        dst[dstIdx] = rgb[src];
-        dst[dstIdx + 1] = rgb[src + 1];
-        dst[dstIdx + 2] = rgb[src + 2];
-        dst[dstIdx + 3] = alpha[i];
       }
   
       if (!InitGL()) {
