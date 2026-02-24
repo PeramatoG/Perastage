@@ -1660,12 +1660,18 @@ void LayoutViewerPanel::RebuildCachedTexture() {
         continue;
       }
 
-      if (!image.HasAlpha())
+      if (!image.HasAlpha()) {
         image.InitAlpha();
+        unsigned char *createdAlpha = image.GetAlpha();
+        if (createdAlpha) {
+          const size_t pixelCount =
+              static_cast<size_t>(image.GetWidth()) *
+              static_cast<size_t>(image.GetHeight());
+          std::fill_n(createdAlpha, pixelCount, 255);
+        }
+      }
       const int width = image.GetWidth();
       const int height = image.GetHeight();
-      std::vector<unsigned char> pixels;
-      pixels.reserve(static_cast<size_t>(width) * static_cast<size_t>(height) * 4);
       const unsigned char *rgb = image.GetData();
       const unsigned char *alpha = image.GetAlpha();
       if (!rgb || !alpha) {
@@ -1675,11 +1681,14 @@ void LayoutViewerPanel::RebuildCachedTexture() {
         continue;
       }
       const size_t pixelCount = static_cast<size_t>(width) * static_cast<size_t>(height);
+      std::vector<unsigned char> pixels(pixelCount * 4);
       for (size_t i = 0; i < pixelCount; ++i) {
-        pixels.push_back(rgb[i * 3]);
-        pixels.push_back(rgb[i * 3 + 1]);
-        pixels.push_back(rgb[i * 3 + 2]);
-        pixels.push_back(alpha[i]);
+        const size_t rgbOffset = i * 3;
+        const size_t rgbaOffset = i * 4;
+        pixels[rgbaOffset] = rgb[rgbOffset];
+        pixels[rgbaOffset + 1] = rgb[rgbOffset + 1];
+        pixels[rgbaOffset + 2] = rgb[rgbOffset + 2];
+        pixels[rgbaOffset + 3] = alpha[i];
       }
   
       if (!InitGL()) {

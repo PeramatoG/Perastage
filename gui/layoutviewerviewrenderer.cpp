@@ -28,6 +28,43 @@ struct SvgLookupHasher {
   }
 };
 
+
+SymbolViewKind ResolveSvgViewKind(SymbolViewKind requested) {
+  // Layout fixtures in top view can be authored with geometry stored in bottom
+  // view orientation in GDTF. Keep top as primary and then fallback to bottom.
+  return requested;
+}
+
+const PerastageSvgSymbolData *FindSvgSymbolCached(
+    std::unordered_map<SvgLookupKey, std::optional<PerastageSvgSymbolData>,
+                       SvgLookupHasher> &svgCache,
+    const std::string &modelKey, SymbolViewKind requestedView) {
+  auto lookup = [&](SymbolViewKind view) -> const PerastageSvgSymbolData * {
+    SvgLookupKey cacheKey{modelKey, view};
+    auto svgIt = svgCache.find(cacheKey);
+    if (svgIt == svgCache.end()) {
+      std::optional<PerastageSvgSymbolData> loaded;
+      PerastageSvgSymbolData data;
+      if (LoadPerastageSvgSymbolFromGdtf(modelKey, view, data)) {
+        loaded = std::move(data);
+      }
+      svgIt = svgCache.emplace(std::move(cacheKey), std::move(loaded)).first;
+    }
+    return svgIt->second.has_value() ? &svgIt->second.value() : nullptr;
+  };
+
+  if (const PerastageSvgSymbolData *svg =
+          lookup(ResolveSvgViewKind(requestedView))) {
+    return svg;
+  }
+
+  if (requestedView == SymbolViewKind::Top) {
+    return lookup(SymbolViewKind::Bottom);
+  }
+
+  return nullptr;
+}
+
 Transform2D ComposeTransform(const Transform2D &a, const Transform2D &b) {
   Transform2D out;
   out.a = a.a * b.a + a.c * b.b;
@@ -242,23 +279,12 @@ void RenderCommandBuffer(wxGCDC &dc, const CommandBuffer &buffer,
       const Transform2D combined = ComposeTransform(localTransform, instance->transform);
       bool renderedSvg = false;
       if (!it->second.key.modelKey.empty()) {
-        SvgLookupKey cacheKey{it->second.key.modelKey, it->second.key.viewKind};
-        auto svgIt = svgCache.find(cacheKey);
-        if (svgIt == svgCache.end()) {
-          std::optional<PerastageSvgSymbolData> loaded;
-          PerastageSvgSymbolData data;
-          if (LoadPerastageSvgSymbolFromGdtf(it->second.key.modelKey,
-                                             it->second.key.viewKind, data)) {
-            loaded = std::move(data);
-          }
-          svgIt = svgCache.emplace(std::move(cacheKey), std::move(loaded)).first;
-        }
-        if (svgIt->second.has_value()) {
+        if (const PerastageSvgSymbolData *svg = FindSvgSymbolCached(
+                svgCache, it->second.key.modelKey, it->second.key.viewKind)) {
           wxColour fillColor;
           wxColour strokeColor;
           ResolveSymbolSvgColors(it->second, fillColor, strokeColor);
-          DrawSvgSymbol(dc, mapping, combined, svgIt->second.value(), fillColor,
-                        strokeColor);
+          DrawSvgSymbol(dc, mapping, combined, *svg, fillColor, strokeColor);
           renderedSvg = true;
         }
       }

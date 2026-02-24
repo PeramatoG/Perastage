@@ -949,20 +949,34 @@ Viewer2DExportResult ExportLayoutToPdf(
       -> const PerastageSvgSymbolData * {
     if (!ShouldLoadLegendSvgFromKey(symbolKey))
       return nullptr;
-    LegendSvgCacheKey cacheKey{symbolKey, viewKind};
-    auto it = legendSvgCache.find(cacheKey);
-    if (it == legendSvgCache.end()) {
-      PerastageSvgSymbolData data;
-      std::optional<PerastageSvgSymbolData> loaded;
-      std::string loadError;
-      if (LoadPerastageSvgSymbolFromGdtf(symbolKey, viewKind, data, &loadError)) {
-        loaded = std::move(data);
-      } else if (firstLegendSvgLoadError.empty() && !loadError.empty()) {
-        firstLegendSvgLoadError = loadError;
+
+    auto lookup = [&](SymbolViewKind lookupViewKind)
+        -> const PerastageSvgSymbolData * {
+      LegendSvgCacheKey cacheKey{symbolKey, lookupViewKind};
+      auto it = legendSvgCache.find(cacheKey);
+      if (it == legendSvgCache.end()) {
+        PerastageSvgSymbolData data;
+        std::optional<PerastageSvgSymbolData> loaded;
+        std::string loadError;
+        if (LoadPerastageSvgSymbolFromGdtf(symbolKey, lookupViewKind, data,
+                                           &loadError)) {
+          loaded = std::move(data);
+        } else if (firstLegendSvgLoadError.empty() && !loadError.empty()) {
+          firstLegendSvgLoadError = loadError;
+        }
+        it =
+            legendSvgCache.emplace(std::move(cacheKey), std::move(loaded)).first;
       }
-      it = legendSvgCache.emplace(std::move(cacheKey), std::move(loaded)).first;
-    }
-    return it->second ? &it->second.value() : nullptr;
+      return it->second ? &it->second.value() : nullptr;
+    };
+
+    if (const PerastageSvgSymbolData *svg = lookup(viewKind))
+      return svg;
+
+    if (viewKind == SymbolViewKind::Top)
+      return lookup(SymbolViewKind::Bottom);
+
+    return nullptr;
   };
   const double legendStrokeScale = 1.0 / viewer2d::kViewer2DPixelsPerMeter;
   auto makeLegendIdName = [](uint32_t symbolId) {
