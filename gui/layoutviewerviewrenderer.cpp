@@ -50,9 +50,11 @@ std::string NormalizeModelPath(const std::string &path) {
 }
 
 std::string ResolveSvgLookupModelKey(
-    const std::string &modelKey,
+    const std::string &modelKey, const std::string &sourceKey,
     std::unordered_map<std::string, std::string> &resolvedModelKeyCache) {
-  auto it = resolvedModelKeyCache.find(modelKey);
+  const std::string cacheLookupKey = sourceKey.empty() ? modelKey
+                                                        : (sourceKey + "\n" + modelKey);
+  auto it = resolvedModelKeyCache.find(cacheLookupKey);
   if (it != resolvedModelKeyCache.end())
     return it->second;
 
@@ -61,9 +63,21 @@ std::string ResolveSvgLookupModelKey(
 
   const auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
   const auto &scene = cfg.GetScene();
+  if (!sourceKey.empty()) {
+    for (const auto &entry : scene.fixtures) {
+      const Fixture &fixture = entry.second;
+      if (fixture.typeName == sourceKey) {
+        resolved = BuildFixtureSymbolKey(fixture, scene.basePath);
+        break;
+      }
+    }
+  }
+
   for (const auto &entry : scene.fixtures) {
     const Fixture &fixture = entry.second;
     const std::string fixtureSpec = NormalizeModelPath(fixture.gdtfSpec);
+    if (!resolved.empty() && resolved != modelKey)
+      break;
     if (!fixtureSpec.empty() && fixtureSpec == normalizedModel) {
       resolved = BuildFixtureSymbolKey(fixture, scene.basePath);
       break;
@@ -74,12 +88,13 @@ std::string ResolveSvgLookupModelKey(
     }
   }
 
-  resolvedModelKeyCache.emplace(modelKey, resolved);
+  resolvedModelKeyCache.emplace(cacheLookupKey, resolved);
   return resolved;
 }
 
 const PerastageSvgSymbolData *FindSvgSymbolForView(
-    const std::string &modelKey, SymbolViewKind requestedView,
+    const std::string &modelKey, const std::string &sourceKey,
+    SymbolViewKind requestedView,
     std::unordered_map<SvgLookupKey, std::optional<PerastageSvgSymbolData>,
                        SvgLookupHasher> &svgCache,
     std::unordered_map<std::string, std::string> &resolvedModelKeyCache) {
@@ -87,7 +102,7 @@ const PerastageSvgSymbolData *FindSvgSymbolForView(
     return nullptr;
 
   const std::string lookupModelKey =
-      ResolveSvgLookupModelKey(modelKey, resolvedModelKeyCache);
+      ResolveSvgLookupModelKey(modelKey, sourceKey, resolvedModelKeyCache);
 
   auto loadCached = [&](SymbolViewKind view) -> const PerastageSvgSymbolData * {
     const SvgLookupKey cacheKey{lookupModelKey, view};
@@ -274,7 +289,10 @@ void RenderCommandBuffer(wxGCDC &dc, const CommandBuffer &buffer,
     dc.DrawPolygon(static_cast<int>(wxPoints.size()), wxPoints.data());
   };
 
-  for (const auto &cmd : buffer.commands) {
+  for (size_t cmdIndex = 0; cmdIndex < buffer.commands.size(); ++cmdIndex) {
+    const auto &cmd = buffer.commands[cmdIndex];
+    const std::string sourceKey =
+        cmdIndex < buffer.sources.size() ? buffer.sources[cmdIndex] : std::string();
     if (const auto *line = std::get_if<LineCommand>(&cmd)) {
       if (renderSvgSymbolsOnly)
         continue;
@@ -325,8 +343,8 @@ void RenderCommandBuffer(wxGCDC &dc, const CommandBuffer &buffer,
         if (debugInfo)
           debugInfo->svgLookupAttempts += 1;
         if (!renderedSvg) {
-          if (const PerastageSvgSymbolData *svg =
-                  FindSvgSymbolForView(it->second.key.modelKey,
+              if (const PerastageSvgSymbolData *svg =
+                  FindSvgSymbolForView(it->second.key.modelKey, sourceKey,
                                        it->second.key.viewKind, svgCache,
                                        resolvedModelKeyCache)) {
             DrawSvgSymbol(dc, mapping, combined, *svg);
