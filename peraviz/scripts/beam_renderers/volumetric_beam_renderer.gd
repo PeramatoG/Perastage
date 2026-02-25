@@ -99,7 +99,7 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	cone.set_instance_shader_parameter("gobo_edge_softness", GOBO_EDGE_SOFTNESS)
 	cone.set_instance_shader_parameter("gobo_radial_softness", GOBO_RADIAL_SOFTNESS)
 
-	_update_gobo_overlay(light)
+	update_gobo_overlay(light)
 
 func update_gobo_overlay(light: SpotLight3D) -> void:
 	if not light.has_meta(BEAM_META_KEY):
