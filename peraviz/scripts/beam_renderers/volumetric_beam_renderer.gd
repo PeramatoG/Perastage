@@ -6,8 +6,11 @@ const BEAM_META_KEY: String = "peraviz_volumetric_beam"
 const GOBO_OVERLAY_META_KEY: String = "peraviz_gobo_overlay"
 const EMITTER_CONE_MAX_BASE_RADIUS_M: float = 10.0
 const VOLUMETRIC_INTENSITY_SCALE: float = 0.62
-const GOBO_OVERLAY_INTENSITY_SCALE: float = 1.2
-const GOBO_OVERLAY_MIN_DISTANCE_M: float = 0.05
+const GOBO_OVERLAY_DISTANCE_MULTIPLIER: float = 1.1
+const GOBO_OVERLAY_MIN_DISTANCE_M: float = 0.008
+const GOBO_MASK_CUTOFF: float = 0.5
+const GOBO_EDGE_SOFTNESS: float = 0.01
+const GOBO_RADIAL_SOFTNESS: float = 0.01
 
 var _shared_material: ShaderMaterial
 var _gobo_overlay_shader: Shader = preload("res://scripts/shaders/volumetric_gobo_overlay.gdshader")
@@ -144,9 +147,10 @@ func _update_gobo_overlay(light: SpotLight3D, params: Dictionary) -> void:
 	var beam_angle: float = max(float(params.get("beam_angle", 1.0)), 0.1)
 	var lens_radius: float = max(float(params.get("lens_radius", 0.03)), 0.005)
 	var half_angle_deg: float = beam_angle * 0.5
-	var overlay_distance: float = max(beam_range * 0.05, lens_radius * 2.0, GOBO_OVERLAY_MIN_DISTANCE_M)
-	var radius: float = tan(deg_to_rad(half_angle_deg)) * overlay_distance
-	radius = max(radius, lens_radius)
+	var overlay_distance: float = max(lens_radius * GOBO_OVERLAY_DISTANCE_MULTIPLIER, GOBO_OVERLAY_MIN_DISTANCE_M)
+	overlay_distance = min(overlay_distance, beam_range * 0.2)
+	var projected_radius: float = tan(deg_to_rad(half_angle_deg)) * overlay_distance
+	var radius: float = max(lens_radius, projected_radius)
 
 	overlay.position = Vector3(0.0, 0.0, -overlay_distance)
 	overlay.scale = Vector3(radius * 2.0, radius * 2.0, 1.0)
@@ -156,8 +160,10 @@ func _update_gobo_overlay(light: SpotLight3D, params: Dictionary) -> void:
 		overlay.visible = false
 		return
 	overlay_material.set_shader_parameter("gobo_texture", gobo_texture)
-	overlay_material.set_shader_parameter("intensity", clamp(intensity * GOBO_OVERLAY_INTENSITY_SCALE, 0.0, 3.0))
-	overlay_material.set_shader_parameter("radial_softness", 0.08)
+	overlay_material.set_shader_parameter("mask_cutoff", GOBO_MASK_CUTOFF)
+	overlay_material.set_shader_parameter("edge_softness", GOBO_EDGE_SOFTNESS)
+	overlay_material.set_shader_parameter("radial_softness", GOBO_RADIAL_SOFTNESS)
+	overlay_material.set_shader_parameter("mask_strength", clamp(intensity, 0.0, 1.0))
 	overlay.visible = true
 
 func _hide_gobo_overlay(light: SpotLight3D) -> void:

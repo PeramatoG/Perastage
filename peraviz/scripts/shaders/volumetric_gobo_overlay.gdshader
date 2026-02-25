@@ -1,20 +1,23 @@
 shader_type spatial;
 
-render_mode unshaded, blend_add, cull_disabled, depth_draw_never;
+render_mode unshaded, blend_mul, cull_disabled, depth_draw_never;
 
 uniform sampler2D gobo_texture : hint_albedo;
-uniform float intensity : hint_range(0.0, 3.0) = 1.0;
-uniform float radial_softness : hint_range(0.001, 1.0) = 0.08;
+uniform float mask_cutoff : hint_range(0.0, 1.0) = 0.5;
+uniform float edge_softness : hint_range(0.0, 0.2) = 0.01;
+uniform float radial_softness : hint_range(0.0, 0.2) = 0.01;
+uniform float mask_strength : hint_range(0.0, 1.0) = 1.0;
 
 void fragment() {
 	vec4 gobo_sample = texture(gobo_texture, UV);
 	float gobo_luma = dot(gobo_sample.rgb, vec3(0.299, 0.587, 0.114));
+	float thresholded = smoothstep(mask_cutoff - edge_softness, mask_cutoff + edge_softness, gobo_luma);
+
 	float radial_distance = length(UV - vec2(0.5));
 	float radial_falloff = 1.0 - smoothstep(0.5 - radial_softness, 0.5, radial_distance);
-	float alpha = gobo_sample.a * gobo_luma * radial_falloff * intensity;
-	vec3 gobo_color = gobo_sample.rgb * radial_falloff * intensity;
+	float mask = mix(1.0, thresholded * radial_falloff, mask_strength);
 
-	ALBEDO = gobo_color;
-	ALPHA = alpha;
-	EMISSION = gobo_color * alpha;
+	ALBEDO = vec3(mask);
+	ALPHA = 1.0;
+	EMISSION = vec3(0.0);
 }
