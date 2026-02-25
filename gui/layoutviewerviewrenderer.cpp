@@ -315,7 +315,10 @@ void RenderCommandBuffer(wxGCDC &dc, const CommandBuffer &buffer,
             debugInfo->svgResolved += 1;
         }
       }
-      if (!renderedSvg && !renderSvgSymbolsOnly) {
+      if (!renderedSvg && renderSvgSymbolsOnly)
+        continue;
+
+      if (!renderedSvg) {
         if (debugInfo)
           debugInfo->fallbackRenderCount += 1;
         RenderCommandBuffer(dc, it->second.localCommands, mapping, symbols,

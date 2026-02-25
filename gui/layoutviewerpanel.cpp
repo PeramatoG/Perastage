@@ -1678,7 +1678,8 @@ void LayoutViewerPanel::RebuildCachedTexture() {
                   << "instances=" << svgDebugInfo.symbolInstanceCommands << "\n"
                   << "svg lookups=" << svgDebugInfo.svgLookupAttempts << "\n"
                   << "svg resolved=" << svgDebugInfo.svgResolved << "\n"
-                  << "fallback used=" << svgDebugInfo.fallbackRenderCount;
+                  << "fallback used (non-overlay path)="
+                  << svgDebugInfo.fallbackRenderCount;
           wxMessageBox(wxString::FromUTF8(message.str()), "Perastage SVG debug",
                        wxOK | wxICON_INFORMATION, this);
         }
