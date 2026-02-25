@@ -58,5 +58,38 @@ int main() {
     }
   }
 
+
+  {
+    Matrix base = MatrixUtils::EulerToMatrix(0.0f, 0.0f, 0.0f);
+    Matrix mirroredEven = base;
+    for (int i = 0; i < 3; ++i) {
+      mirroredEven.u[i] = -mirroredEven.u[i];
+      mirroredEven.v[i] = -mirroredEven.v[i];
+    }
+
+    const auto baseEuler = MatrixUtils::MatrixToEuler(base);
+    const auto mirroredEuler = MatrixUtils::MatrixToEuler(mirroredEven);
+    if (!Near(baseEuler[0], mirroredEuler[0], 1e-4f) ||
+        !Near(baseEuler[1], mirroredEuler[1], 1e-4f) ||
+        !Near(baseEuler[2], mirroredEuler[2], 1e-4f)) {
+      std::cerr << "MatrixToEuler canonicalization failed for even-axis mirror\n";
+      return 1;
+    }
+  }
+
+  {
+    Matrix mirroredOdd = MatrixUtils::EulerToMatrix(0.0f, 0.0f, 0.0f);
+    for (int i = 0; i < 3; ++i)
+      mirroredOdd.u[i] = -mirroredOdd.u[i];
+
+    const auto mirroredEuler = MatrixUtils::MatrixToEuler(mirroredOdd);
+    if (!Near(mirroredEuler[0], 0.0f, 1e-4f) ||
+        !Near(mirroredEuler[1], 0.0f, 1e-4f) ||
+        !Near(mirroredEuler[2], 0.0f, 1e-4f)) {
+      std::cerr << "MatrixToEuler canonicalization failed for odd-axis mirror\n";
+      return 1;
+    }
+  }
+
   return 0;
 }

@@ -235,43 +235,15 @@ void SceneRenderer::DrawMesh(const Mesh &mesh, float scale, const float *modelMa
     glDisable(GL_CULL_FACE);
 
   const bool hasNormals = mesh.normals.size() >= mesh.vertices.size();
-  const bool transformInstanceNormals = (modelMatrix != nullptr) && hasNormals;
   const bool flipWinding =
-      transformInstanceNormals && TransformDeterminant(modelMatrix) < 0.0f;
-
-  std::vector<float> transformedNormals;
-  if (transformInstanceNormals) {
-    transformedNormals.resize(mesh.normals.size());
-    for (size_t i = 0; i + 2 < mesh.normals.size(); i += 3) {
-      std::array<float, 3> n = {mesh.normals[i], mesh.normals[i + 1],
-                                mesh.normals[i + 2]};
-      auto transformed = TransformNormal(n, modelMatrix);
-      if (flipWinding) {
-        transformed[0] = -transformed[0];
-        transformed[1] = -transformed[1];
-        transformed[2] = -transformed[2];
-      }
-      transformedNormals[i] = transformed[0];
-      transformedNormals[i + 1] = transformed[1];
-      transformedNormals[i + 2] = transformed[2];
-    }
-  }
+      (modelMatrix != nullptr) && TransformDeterminant(modelMatrix) < 0.0f;
 
   const std::vector<unsigned short> *triangleIndices = &mesh.indices;
-  if (flipWinding) {
-    if (mesh.flippedIndicesCache.size() != mesh.indices.size()) {
-      mesh.flippedIndicesCache = mesh.indices;
-      for (size_t i = 0; i + 2 < mesh.flippedIndicesCache.size(); i += 3)
-        std::swap(mesh.flippedIndicesCache[i + 1],
-                  mesh.flippedIndicesCache[i + 2]);
-    }
-    triangleIndices = &mesh.flippedIndicesCache;
-  }
 
   const bool gpuHandlesValid = glIsBuffer(mesh.vboVertices) == GL_TRUE &&
                                glIsBuffer(mesh.vboNormals) == GL_TRUE &&
                                glIsBuffer(mesh.eboTriangles) == GL_TRUE;
-  const bool requiresCpuDrawPath = transformInstanceNormals || flipWinding;
+  const bool requiresCpuDrawPath = false;
   const bool canUseGpuTriangles =
       mesh.buffersReady && mesh.vao != 0 && mesh.vboVertices != 0 &&
       mesh.vboNormals != 0 && mesh.eboTriangles != 0 && gpuHandlesValid &&
@@ -319,8 +291,7 @@ void SceneRenderer::DrawMesh(const Mesh &mesh, float scale, const float *modelMa
       const float v2y = mesh.vertices[i2 * 3 + 1] * scale;
       const float v2z = mesh.vertices[i2 * 3 + 2] * scale;
 
-      const auto &normalData =
-          transformInstanceNormals ? transformedNormals : mesh.normals;
+      const auto &normalData = mesh.normals;
 
       if (useFaceNormals) {
         if (hasNormals) {
@@ -341,10 +312,13 @@ void SceneRenderer::DrawMesh(const Mesh &mesh, float scale, const float *modelMa
           float ny = (v1z - v0z) * (v2x - v0x) - (v1x - v0x) * (v2z - v0z);
           float nz = (v1x - v0x) * (v2y - v0y) - (v1y - v0y) * (v2x - v0x);
           const float len = std::sqrt(nx * nx + ny * ny + nz * nz);
-          if (len > 0.0f)
-            glNormal3f(nx / len, ny / len, nz / len);
-          else
+          if (len > 0.0f) {
+            const float sign = flipWinding ? -1.0f : 1.0f;
+            glNormal3f((nx / len) * sign, (ny / len) * sign,
+                       (nz / len) * sign);
+          } else {
             glNormal3f(0.0f, 0.0f, 1.0f);
+          }
         }
 
         glVertex3f(v0x, v0y, v0z);
