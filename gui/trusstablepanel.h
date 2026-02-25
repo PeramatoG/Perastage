@@ -46,7 +46,7 @@ public:
     static TrussTablePanel* Instance();
     static void SetInstance(TrussTablePanel* panel);
 
-    void UpdateSceneData();
+    void UpdateSceneData(bool logChanges = true);
 
 private:
     ColorfulDataViewListStore* store;

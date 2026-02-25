@@ -26,6 +26,7 @@
 #include "riggingpanel.h"
 #include "stringutils.h"
 #include "summarypanel.h"
+#include "dataview_edit_commit.h"
 #include "support.h"
 #include "viewer2dpanel.h"
 #include "viewer3dpanel.h"
@@ -511,38 +512,51 @@ void HoistTablePanel::UpdateSelectionHighlight() {
   store->SetSelectedRows(selectedRows);
 }
 
-void HoistTablePanel::UpdateSceneData() {
+void HoistTablePanel::UpdateSceneData(bool logChanges) {
+  // Ensure in-place cell editors commit pending values before reading table rows.
+  if (table)
+    DataViewEditCommit::CommitPendingEdit(table);
+  (void)logChanges;
   ConfigManager &cfg = guiConfigServices->LegacyConfigManager();
-  cfg.PushUndoState("edit support");
   auto &scene = cfg.GetScene();
   size_t count = std::min((size_t)table->GetItemCount(), rowUuids.size());
+  bool anyChanged = false;
+  bool undoPushed = false;
+  auto pushUndoIfNeeded = [&]() {
+    if (!undoPushed) {
+      cfg.PushUndoState("edit support");
+      undoPushed = true;
+    }
+  };
+
+  // Apply table values only when a support row actually changed.
   for (size_t i = 0; i < count; ++i) {
     auto it = scene.supports.find(rowUuids[i]);
     if (it == scene.supports.end())
       continue;
 
+    const Support old = it->second;
+    Support next = old;
+
     wxVariant v;
     table->GetValue(v, i, 1);
-    it->second.name = std::string(v.GetString().ToUTF8());
+    next.name = std::string(v.GetString().ToUTF8());
 
     table->GetValue(v, i, 2);
-    it->second.function = std::string(v.GetString().ToUTF8());
+    next.function = std::string(v.GetString().ToUTF8());
 
     table->GetValue(v, i, 3);
-    it->second.hoistFunction =
-        NormalizeHoistFunction(std::string(v.GetString().ToUTF8()));
+    next.hoistFunction = NormalizeHoistFunction(std::string(v.GetString().ToUTF8()));
 
     table->GetValue(v, i, 4);
     std::string layerStr = std::string(v.GetString().ToUTF8());
     if (layerStr.empty())
-      it->second.layer.clear();
+      next.layer.clear();
     else
-      it->second.layer = layerStr;
+      next.layer = layerStr;
 
     table->GetValue(v, i, 5);
-    it->second.positionName = std::string(v.GetString().ToUTF8());
-    if (!it->second.position.empty())
-      scene.positions[it->second.position] = it->second.positionName;
+    next.positionName = std::string(v.GetString().ToUTF8());
 
     double x = 0, y = 0, z = 0;
     table->GetValue(v, i, 6);
@@ -556,29 +570,29 @@ void HoistTablePanel::UpdateSceneData() {
     table->GetValue(v, i, 9);
     {
       wxString s = v.GetString();
-      s.Replace("\u00B0", "");
+      s.Replace("°", "");
       s.ToDouble(&roll);
     }
     table->GetValue(v, i, 10);
     {
       wxString s = v.GetString();
-      s.Replace("\u00B0", "");
+      s.Replace("°", "");
       s.ToDouble(&pitch);
     }
     table->GetValue(v, i, 11);
     {
       wxString s = v.GetString();
-      s.Replace("\u00B0", "");
+      s.Replace("°", "");
       s.ToDouble(&yaw);
     }
 
-    const auto currentEuler = MatrixUtils::MatrixToEuler(it->second.transform);
+    const auto currentEuler = MatrixUtils::MatrixToEuler(old.transform);
     const bool transformChanged =
-        wxString::Format("%.3f", it->second.transform.o[0] / 1000.0f) !=
+        wxString::Format("%.3f", old.transform.o[0] / 1000.0f) !=
             wxString::Format("%.3f", x) ||
-        wxString::Format("%.3f", it->second.transform.o[1] / 1000.0f) !=
+        wxString::Format("%.3f", old.transform.o[1] / 1000.0f) !=
             wxString::Format("%.3f", y) ||
-        wxString::Format("%.3f", it->second.transform.o[2] / 1000.0f) !=
+        wxString::Format("%.3f", old.transform.o[2] / 1000.0f) !=
             wxString::Format("%.3f", z) ||
         wxString::Format("%.1f", currentEuler[2]) != wxString::Format("%.1f", roll) ||
         wxString::Format("%.1f", currentEuler[1]) != wxString::Format("%.1f", pitch) ||
@@ -588,8 +602,8 @@ void HoistTablePanel::UpdateSceneData() {
       Matrix rot = MatrixUtils::EulerToMatrix(static_cast<float>(yaw),
                                               static_cast<float>(pitch),
                                               static_cast<float>(roll));
-      it->second.transform = MatrixUtils::ApplyRotationPreservingScale(
-          it->second.transform, rot,
+      next.transform = MatrixUtils::ApplyRotationPreservingScale(
+          old.transform, rot,
           {static_cast<float>(x * 1000.0), static_cast<float>(y * 1000.0),
            static_cast<float>(z * 1000.0)});
     }
@@ -597,24 +611,44 @@ void HoistTablePanel::UpdateSceneData() {
     table->GetValue(v, i, 12);
     double chainLen = 0.0;
     v.GetString().ToDouble(&chainLen);
-    it->second.chainLength = static_cast<float>(chainLen);
+    next.chainLength = static_cast<float>(chainLen);
 
     table->GetValue(v, i, 13);
     double capacity = 0.0;
     v.GetString().ToDouble(&capacity);
-    it->second.capacityKg = static_cast<float>(capacity);
+    next.capacityKg = static_cast<float>(capacity);
 
     table->GetValue(v, i, 14);
     double weight = 0.0;
     v.GetString().ToDouble(&weight);
-    it->second.weightKg = static_cast<float>(weight);
+    next.weightKg = static_cast<float>(weight);
+
+    const bool supportChanged = old.name != next.name || old.function != next.function ||
+                                old.hoistFunction != next.hoistFunction ||
+                                old.layer != next.layer ||
+                                old.positionName != next.positionName || transformChanged ||
+                                old.chainLength != next.chainLength ||
+                                old.capacityKg != next.capacityKg ||
+                                old.weightKg != next.weightKg;
+    if (!supportChanged)
+      continue;
+
+    pushUndoIfNeeded();
+    anyChanged = true;
+    it->second = next;
+    if (!it->second.position.empty())
+      scene.positions[it->second.position] = it->second.positionName;
   }
+
+  if (!anyChanged)
+    return;
 
   if (SummaryPanel::Instance())
     SummaryPanel::Instance()->ShowHoistSummary();
   if (RiggingPanel::Instance())
     RiggingPanel::Instance()->RefreshData();
 }
+
 
 HoistTablePanel *HoistTablePanel::Instance() { return s_instance; }
 

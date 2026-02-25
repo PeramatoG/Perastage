@@ -46,7 +46,7 @@ public:
     static SceneObjectTablePanel* Instance();
     static void SetInstance(SceneObjectTablePanel* panel);
 
-    void UpdateSceneData();
+    void UpdateSceneData(bool logChanges = true);
 
 private:
     ColorfulDataViewListStore* store;

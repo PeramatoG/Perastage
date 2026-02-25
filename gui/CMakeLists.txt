@@ -4,6 +4,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/columnselectiondialog.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/consolepanel.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/dictionaryeditdialog.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/dataview_edit_commit.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tools/fixture_symbol_generation_tool.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tools/scene_model_symbol_capture_service.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tools/symbol_physical_calibration.cpp

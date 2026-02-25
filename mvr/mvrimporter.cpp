@@ -881,6 +881,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
           }
         }
 
+
         const bool hasGdtfMetadataAuthority = !truss.gdtfSpec.empty() && !gdtfLoadFailed;
 
         if (tinyxml2::XMLElement *ud = node->FirstChildElement("UserData")) {
@@ -888,6 +889,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                data = data->NextSiblingElement("Data")) {
             if (tinyxml2::XMLElement *info =
                     data->FirstChildElement("TrussInfo")) {
+              // GDTF values are authoritative when available. TrussInfo is used
+              // only as fallback metadata if GDTF could not be loaded.
               if (!hasGdtfMetadataAuthority) {
                 if (tinyxml2::XMLElement *m =
                         info->FirstChildElement("Manufacturer"))
