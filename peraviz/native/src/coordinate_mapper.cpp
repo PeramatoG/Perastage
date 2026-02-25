@@ -65,8 +65,13 @@ Matrix apply_axis_signs(const Matrix &m, int sx, int sy, int sz) {
     return out;
 }
 
+float axis_sign_from_canonical_axis(const std::array<float, 3> &axis, int canonical_axis_index) {
+    const float dot = axis[canonical_axis_index];
+    return (dot >= 0.0F) ? 1.0F : -1.0F;
+}
+
 void decompose_rotation_and_signed_scale(const Matrix &normalized_basis,
-                                         const std::array<float, 3> &positive_scale,
+                                         const std::array<float, 3> &initial_signed_scale,
                                          Matrix &rotation_only,
                                          std::array<float, 3> &signed_scale) {
     const float handedness = dot_product(cross_product(normalized_basis.u, normalized_basis.v),
@@ -75,12 +80,16 @@ void decompose_rotation_and_signed_scale(const Matrix &normalized_basis,
 
     float best_score = std::numeric_limits<float>::infinity();
     Matrix best_rotation = normalized_basis;
-    std::array<float, 3> best_scale = positive_scale;
+    std::array<float, 3> best_scale = initial_signed_scale;
 
     for (int sx : {-1, 1}) {
         for (int sy : {-1, 1}) {
             for (int sz : {-1, 1}) {
+                const int negatives = (sx < 0 ? 1 : 0) + (sy < 0 ? 1 : 0) + (sz < 0 ? 1 : 0);
                 if ((sx * sy * sz) != target_parity) {
+                    continue;
+                }
+                if (target_parity < 0 && negatives != 1) {
                     continue;
                 }
 
@@ -93,9 +102,9 @@ void decompose_rotation_and_signed_scale(const Matrix &normalized_basis,
 
                 best_score = score;
                 best_rotation = candidate_rotation;
-                best_scale = {positive_scale[0] * static_cast<float>(sx),
-                              positive_scale[1] * static_cast<float>(sy),
-                              positive_scale[2] * static_cast<float>(sz)};
+                best_scale = {initial_signed_scale[0] * static_cast<float>(sx),
+                              initial_signed_scale[1] * static_cast<float>(sy),
+                              initial_signed_scale[2] * static_cast<float>(sz)};
             }
         }
     }
@@ -137,12 +146,22 @@ SceneTransform to_godot_transform(const Matrix &source_local) {
     transform.position = map_position_mm_to_m(source_local.o);
 
     const Matrix basis = to_godot_local_basis(source_local);
-    const auto positive_scale = extract_scale(basis);
-    const Matrix normalized_basis = normalize_basis(basis, positive_scale);
+    const auto absolute_scale = extract_scale(basis);
+    const std::array<float, 3> axis_signs = {
+        axis_sign_from_canonical_axis(basis.u, 0),
+        axis_sign_from_canonical_axis(basis.v, 1),
+        axis_sign_from_canonical_axis(basis.w, 2)
+    };
+    const std::array<float, 3> initial_signed_scale = {
+        absolute_scale[0] * axis_signs[0],
+        absolute_scale[1] * axis_signs[1],
+        absolute_scale[2] * axis_signs[2]
+    };
+    const Matrix normalized_basis = normalize_basis(basis, absolute_scale);
 
     Matrix rotation_only;
     std::array<float, 3> signed_scale;
-    decompose_rotation_and_signed_scale(normalized_basis, positive_scale,
+    decompose_rotation_and_signed_scale(normalized_basis, initial_signed_scale,
                                         rotation_only, signed_scale);
 
     transform.scale = {signed_scale[0], signed_scale[1], signed_scale[2]};

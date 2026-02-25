@@ -239,11 +239,21 @@ void SceneRenderer::DrawMesh(const Mesh &mesh, float scale, const float *modelMa
       (modelMatrix != nullptr) && TransformDeterminant(modelMatrix) < 0.0f;
 
   const std::vector<unsigned short> *triangleIndices = &mesh.indices;
+  if (flipWinding) {
+    if (mesh.flippedIndicesCache.size() != mesh.indices.size()) {
+      mesh.flippedIndicesCache = mesh.indices;
+      for (size_t i = 0; i + 2 < mesh.flippedIndicesCache.size(); i += 3) {
+        std::swap(mesh.flippedIndicesCache[i + 1],
+                  mesh.flippedIndicesCache[i + 2]);
+      }
+    }
+    triangleIndices = &mesh.flippedIndicesCache;
+  }
 
   const bool gpuHandlesValid = glIsBuffer(mesh.vboVertices) == GL_TRUE &&
                                glIsBuffer(mesh.vboNormals) == GL_TRUE &&
                                glIsBuffer(mesh.eboTriangles) == GL_TRUE;
-  const bool requiresCpuDrawPath = false;
+  const bool requiresCpuDrawPath = flipWinding;
   const bool canUseGpuTriangles =
       mesh.buffersReady && mesh.vao != 0 && mesh.vboVertices != 0 &&
       mesh.vboNormals != 0 && mesh.eboTriangles != 0 && gpuHandlesValid &&
@@ -292,6 +302,7 @@ void SceneRenderer::DrawMesh(const Mesh &mesh, float scale, const float *modelMa
       const float v2z = mesh.vertices[i2 * 3 + 2] * scale;
 
       const auto &normalData = mesh.normals;
+      const float mirroredSign = flipWinding ? -1.0f : 1.0f;
 
       if (useFaceNormals) {
         if (hasNormals) {
@@ -303,7 +314,9 @@ void SceneRenderer::DrawMesh(const Mesh &mesh, float scale, const float *modelMa
                      normalData[i2 * 3 + 2];
           const float alen = std::sqrt(ax * ax + ay * ay + az * az);
           if (alen > 0.0f) {
-            glNormal3f(ax / alen, ay / alen, az / alen);
+            glNormal3f((ax / alen) * mirroredSign,
+                       (ay / alen) * mirroredSign,
+                       (az / alen) * mirroredSign);
           } else {
             glNormal3f(0.0f, 0.0f, 1.0f);
           }
@@ -313,9 +326,9 @@ void SceneRenderer::DrawMesh(const Mesh &mesh, float scale, const float *modelMa
           float nz = (v1x - v0x) * (v2y - v0y) - (v1y - v0y) * (v2x - v0x);
           const float len = std::sqrt(nx * nx + ny * ny + nz * nz);
           if (len > 0.0f) {
-            const float sign = flipWinding ? -1.0f : 1.0f;
-            glNormal3f((nx / len) * sign, (ny / len) * sign,
-                       (nz / len) * sign);
+            glNormal3f((nx / len) * mirroredSign,
+                       (ny / len) * mirroredSign,
+                       (nz / len) * mirroredSign);
           } else {
             glNormal3f(0.0f, 0.0f, 1.0f);
           }
@@ -328,14 +341,17 @@ void SceneRenderer::DrawMesh(const Mesh &mesh, float scale, const float *modelMa
       }
 
       if (hasNormals) {
-        glNormal3f(normalData[i0 * 3], normalData[i0 * 3 + 1],
-                   normalData[i0 * 3 + 2]);
+        glNormal3f(normalData[i0 * 3] * mirroredSign,
+                   normalData[i0 * 3 + 1] * mirroredSign,
+                   normalData[i0 * 3 + 2] * mirroredSign);
         glVertex3f(v0x, v0y, v0z);
-        glNormal3f(normalData[i1 * 3], normalData[i1 * 3 + 1],
-                   normalData[i1 * 3 + 2]);
+        glNormal3f(normalData[i1 * 3] * mirroredSign,
+                   normalData[i1 * 3 + 1] * mirroredSign,
+                   normalData[i1 * 3 + 2] * mirroredSign);
         glVertex3f(v1x, v1y, v1z);
-        glNormal3f(normalData[i2 * 3], normalData[i2 * 3 + 1],
-                   normalData[i2 * 3 + 2]);
+        glNormal3f(normalData[i2 * 3] * mirroredSign,
+                   normalData[i2 * 3 + 1] * mirroredSign,
+                   normalData[i2 * 3 + 2] * mirroredSign);
         glVertex3f(v2x, v2y, v2z);
       } else {
         float nx = (v1y - v0y) * (v2z - v0z) - (v1z - v0z) * (v2y - v0y);
@@ -348,7 +364,8 @@ void SceneRenderer::DrawMesh(const Mesh &mesh, float scale, const float *modelMa
           nz /= len;
         }
 
-        glNormal3f(nx, ny, nz);
+        glNormal3f(nx * mirroredSign, ny * mirroredSign,
+                   nz * mirroredSign);
         glVertex3f(v0x, v0y, v0z);
         glVertex3f(v1x, v1y, v1z);
         glVertex3f(v2x, v2y, v2z);

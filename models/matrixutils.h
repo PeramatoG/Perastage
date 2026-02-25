@@ -189,7 +189,10 @@ namespace MatrixUtils {
         for (int sx : {-1, 1}) {
             for (int sy : {-1, 1}) {
                 for (int sz : {-1, 1}) {
+                    const int negatives = (sx < 0 ? 1 : 0) + (sy < 0 ? 1 : 0) + (sz < 0 ? 1 : 0);
                     if ((sx * sy * sz) != requiredParity)
+                        continue;
+                    if (requiredParity < 0 && negatives != 1)
                         continue;
 
                     const Matrix candidate = ApplyAxisSigns(normalized, sx, sy, sz);
