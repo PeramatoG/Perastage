@@ -3,10 +3,14 @@ extends BeamRendererBase
 class_name VolumetricBeamRenderer
 
 const BEAM_META_KEY: String = "peraviz_volumetric_beam"
+const GOBO_OVERLAY_META_KEY: String = "peraviz_gobo_overlay"
 const EMITTER_CONE_MAX_BASE_RADIUS_M: float = 10.0
 const VOLUMETRIC_INTENSITY_SCALE: float = 0.62
+const GOBO_OVERLAY_INTENSITY_SCALE: float = 1.2
+const GOBO_OVERLAY_MIN_DISTANCE_M: float = 0.05
 
 var _shared_material: ShaderMaterial
+var _gobo_overlay_shader: Shader = preload("res://scripts/shaders/volumetric_gobo_overlay.gdshader")
 var _camera: Camera3D
 var _settings: Dictionary = {}
 
@@ -39,6 +43,19 @@ func ensure_beam(light: SpotLight3D) -> void:
 	light.add_child(cone)
 	light.set_meta(BEAM_META_KEY, cone)
 
+	var overlay_mesh := QuadMesh.new()
+	overlay_mesh.size = Vector2.ONE
+	var overlay := MeshInstance3D.new()
+	overlay.name = "PeravizGoboOverlay"
+	overlay.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	overlay.mesh = overlay_mesh
+	overlay.visible = false
+	var overlay_material := ShaderMaterial.new()
+	overlay_material.shader = _gobo_overlay_shader
+	overlay.material_override = overlay_material
+	light.add_child(overlay)
+	light.set_meta(GOBO_OVERLAY_META_KEY, overlay)
+
 func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	ensure_beam(light)
 	var cone: MeshInstance3D = light.get_meta(BEAM_META_KEY) as MeshInstance3D
@@ -49,6 +66,7 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	var threshold: float = float(params.get("intensity_visibility_threshold", 0.015))
 	if intensity <= threshold or not bool(params.get("is_visible", true)):
 		cone.visible = false
+		_hide_gobo_overlay(light)
 		return
 
 	var beam_range: float = max(float(params.get("beam_range", 0.1)), 0.01)
@@ -61,6 +79,7 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 		var cam_distance: float = _camera.global_position.distance_to(light.global_position)
 		if cam_distance > distance_limit or _camera.is_position_behind(light.global_position):
 			cone.visible = false
+			_hide_gobo_overlay(light)
 			return
 
 	var half_angle_deg: float = beam_angle * 0.5
@@ -90,6 +109,64 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	cone.set_instance_shader_parameter("depth_fade_distance", 0.5)
 	cone.set_instance_shader_parameter("max_brightness", lerp(1.0, 10.0, intensity))
 
+	var gobo_overlay_params := {
+		"beam_range": beam_range,
+		"beam_angle": beam_angle,
+		"lens_radius": lens_radius,
+		"scaled_intensity": intensity,
+	}
+	_update_gobo_overlay(light, gobo_overlay_params)
+
+func update_gobo_overlay(light: SpotLight3D) -> void:
+	if not light.has_meta("peraviz_beam_last_params"):
+		return
+	var params: Dictionary = light.get_meta("peraviz_beam_last_params", {})
+	if params.is_empty():
+		return
+	_update_gobo_overlay(light, params)
+
+func _update_gobo_overlay(light: SpotLight3D, params: Dictionary) -> void:
+	var overlay: MeshInstance3D = light.get_meta(GOBO_OVERLAY_META_KEY) as MeshInstance3D if light.has_meta(GOBO_OVERLAY_META_KEY) else null
+	if overlay == null:
+		return
+
+	var gobo_texture: Texture2D = light.light_projector
+	if gobo_texture == null:
+		overlay.visible = false
+		return
+
+	var intensity: float = clamp(float(params.get("scaled_intensity", 0.0)), 0.0, 3.0)
+	if intensity <= 0.001:
+		overlay.visible = false
+		return
+
+	var beam_range: float = max(float(params.get("beam_range", 0.1)), GOBO_OVERLAY_MIN_DISTANCE_M)
+	var beam_angle: float = max(float(params.get("beam_angle", 1.0)), 0.1)
+	var lens_radius: float = max(float(params.get("lens_radius", 0.03)), 0.005)
+	var half_angle_deg: float = beam_angle * 0.5
+	var overlay_distance: float = max(beam_range * 0.05, lens_radius * 2.0, GOBO_OVERLAY_MIN_DISTANCE_M)
+	var radius: float = tan(deg_to_rad(half_angle_deg)) * overlay_distance
+	radius = max(radius, lens_radius)
+
+	overlay.position = Vector3(0.0, 0.0, -overlay_distance)
+	overlay.scale = Vector3(radius * 2.0, radius * 2.0, 1.0)
+
+	var overlay_material: ShaderMaterial = overlay.material_override as ShaderMaterial
+	if overlay_material == null:
+		overlay.visible = false
+		return
+	overlay_material.set_shader_parameter("gobo_texture", gobo_texture)
+	overlay_material.set_shader_parameter("intensity", clamp(intensity * GOBO_OVERLAY_INTENSITY_SCALE, 0.0, 3.0))
+	overlay_material.set_shader_parameter("radial_softness", 0.08)
+	overlay.visible = true
+
+func _hide_gobo_overlay(light: SpotLight3D) -> void:
+	if not light.has_meta(GOBO_OVERLAY_META_KEY):
+		return
+	var overlay: MeshInstance3D = light.get_meta(GOBO_OVERLAY_META_KEY) as MeshInstance3D
+	if overlay != null:
+		overlay.visible = false
+
 func cleanup_beam(light: SpotLight3D) -> void:
 	if not light.has_meta(BEAM_META_KEY):
 		return
@@ -97,3 +174,8 @@ func cleanup_beam(light: SpotLight3D) -> void:
 	if cone != null and is_instance_valid(cone):
 		cone.queue_free()
 	light.remove_meta(BEAM_META_KEY)
+	if light.has_meta(GOBO_OVERLAY_META_KEY):
+		var overlay: MeshInstance3D = light.get_meta(GOBO_OVERLAY_META_KEY) as MeshInstance3D
+		if overlay != null and is_instance_valid(overlay):
+			overlay.queue_free()
+		light.remove_meta(GOBO_OVERLAY_META_KEY)

@@ -11,5 +11,8 @@ func ensure_beam(_light: SpotLight3D) -> void:
 func update_beam(_light: SpotLight3D, _params: Dictionary) -> void:
 	pass
 
+func update_gobo_overlay(_light: SpotLight3D) -> void:
+	pass
+
 func cleanup_beam(_light: SpotLight3D) -> void:
 	pass
