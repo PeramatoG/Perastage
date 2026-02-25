@@ -201,6 +201,24 @@ void DrawSvgSymbol(wxGCDC &dc, const viewer2d::Viewer2DRenderMapping &mapping,
   }
 }
 
+void DrawResolvedSvgDebugMarker(wxGCDC &dc,
+                                const viewer2d::Viewer2DRenderMapping &mapping,
+                                const Transform2D &transform) {
+  const auto center = MapPoint(mapping, transform, 0.0f, 0.0f);
+  dc.SetPen(wxPen(wxColour(220, 20, 60), 2));
+  dc.DrawLine(static_cast<int>(std::lround(center.x - 6.0)),
+              static_cast<int>(std::lround(center.y)),
+              static_cast<int>(std::lround(center.x + 6.0)),
+              static_cast<int>(std::lround(center.y)));
+  dc.DrawLine(static_cast<int>(std::lround(center.x)),
+              static_cast<int>(std::lround(center.y - 6.0)),
+              static_cast<int>(std::lround(center.x)),
+              static_cast<int>(std::lround(center.y + 6.0)));
+  dc.SetTextForeground(wxColour(220, 20, 60));
+  dc.DrawText("S", static_cast<int>(std::lround(center.x + 8.0)),
+              static_cast<int>(std::lround(center.y - 10.0)));
+}
+
 void RenderCommandBuffer(wxGCDC &dc, const CommandBuffer &buffer,
                          const viewer2d::Viewer2DRenderMapping &mapping,
                          const SymbolDefinitionSnapshot *symbols,
@@ -310,6 +328,8 @@ void RenderCommandBuffer(wxGCDC &dc, const CommandBuffer &buffer,
                                      it->second.key.viewKind, svgCache,
                                      resolvedModelKeyCache)) {
           DrawSvgSymbol(dc, mapping, combined, *svg);
+          if (renderSvgSymbolsOnly)
+            DrawResolvedSvgDebugMarker(dc, mapping, combined);
           renderedSvg = true;
           if (debugInfo)
             debugInfo->svgResolved += 1;
