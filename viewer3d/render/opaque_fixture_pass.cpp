@@ -24,6 +24,35 @@
 #include "scenedatamanager.h"
 #include "viewer3dcontroller.h"
 
+namespace {
+namespace fs = std::filesystem;
+
+std::string FindFileRecursive(const std::string &baseDir,
+                              const std::string &fileName) {
+  if (baseDir.empty() || fileName.empty())
+    return {};
+  std::error_code ec;
+  fs::recursive_directory_iterator it(
+      baseDir, fs::directory_options::skip_permission_denied, ec);
+  fs::recursive_directory_iterator end;
+  if (ec)
+    return {};
+  for (; it != end; it.increment(ec)) {
+    if (ec) {
+      ec.clear();
+      continue;
+    }
+    if (!it->is_regular_file(ec) || ec) {
+      ec.clear();
+      continue;
+    }
+    if (it->path().filename() == fileName)
+      return it->path().string();
+  }
+  return {};
+}
+} // namespace
+
 void OpaqueFixturePass::Render(
     Viewer3DController &controller, const RenderFrameContext &context,
     const Viewer3DVisibleSet &visibleSet,
@@ -37,7 +66,6 @@ void OpaqueFixturePass::Render(
   const bool isTopView2D = is2DViewer && context.view == Viewer2DView::Top;
 
   const auto &fixtures = SceneDataManager::Instance().GetFixtures();
-  namespace fs = std::filesystem;
 
   // Top-view fixtures support two drawing modes:
   // - natural top view (real top)
@@ -129,6 +157,9 @@ void OpaqueFixturePass::Render(
       std::error_code ec;
       if (fs::exists(candidate, ec) && !ec)
         svgSourcePath = NormalizeModelKey(candidate.string());
+      else if (!basePath.empty())
+        svgSourcePath = FindFileRecursive(
+            basePath, fs::path(f.gdtfSpec).filename().string());
     }
     auto itg = controller.m_resourceSyncState.loadedGdtf.find(gdtfPath);
 
