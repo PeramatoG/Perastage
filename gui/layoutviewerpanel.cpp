@@ -96,6 +96,7 @@ constexpr int kSendToBackMenuId = wxID_HIGHEST + 500;
 constexpr int kLoadingTimerId = wxID_HIGHEST + 501;
 constexpr int kRenderDelayTimerId = wxID_HIGHEST + 502;
 constexpr int kLoadingOverlayDelayMs = 150;
+constexpr bool kShowOnlySvgOverlayForDebug = true;
 
 unsigned int *gActivePixelUnpackPbo = nullptr;
 size_t *gActivePixelUnpackPboBytes = nullptr;
@@ -1658,6 +1659,18 @@ void LayoutViewerPanel::RebuildCachedTexture() {
         cache.textureSize = wxSize(0, 0);
         cache.renderZoom = 0.0;
         continue;
+      }
+
+      if (kShowOnlySvgOverlayForDebug) {
+        const size_t pixelCount = static_cast<size_t>(width) *
+                                  static_cast<size_t>(height);
+        for (size_t i = 0; i < pixelCount; ++i) {
+          const size_t rgbaIndex = i * 4;
+          pixels[rgbaIndex] = 255;
+          pixels[rgbaIndex + 1] = 255;
+          pixels[rgbaIndex + 2] = 255;
+          pixels[rgbaIndex + 3] = 255;
+        }
       }
 
       if (cache.symbols && !cache.buffer.commands.empty()) {
