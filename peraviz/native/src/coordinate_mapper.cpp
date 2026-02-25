@@ -30,6 +30,25 @@ Matrix normalize_basis(const Matrix &m, const std::array<float, 3> &scale) {
     return out;
 }
 
+float dot_product(const std::array<float, 3> &a, const std::array<float, 3> &b) {
+    return (a[0] * b[0]) + (a[1] * b[1]) + (a[2] * b[2]);
+}
+
+std::array<float, 3> cross_product(const std::array<float, 3> &a, const std::array<float, 3> &b) {
+    return {a[1] * b[2] - a[2] * b[1],
+            a[2] * b[0] - a[0] * b[2],
+            a[0] * b[1] - a[1] * b[0]};
+}
+
+void flip_basis_axis(Matrix &m, int axis) {
+    auto factor = (axis == 0) ? -1.0F : 1.0F;
+    m.u = scale_axis(m.u, factor);
+    factor = (axis == 1) ? -1.0F : 1.0F;
+    m.v = scale_axis(m.v, factor);
+    factor = (axis == 2) ? -1.0F : 1.0F;
+    m.w = scale_axis(m.w, factor);
+}
+
 } // namespace
 
 namespace peraviz::coordinate_mapper {
@@ -72,6 +91,27 @@ SceneTransform to_godot_transform(const Matrix &source_local) {
     transform.scale = {scale[0], scale[1], scale[2]};
 
     Matrix rotation_only = normalize_basis(basis, scale);
+    const auto handedness = dot_product(cross_product(rotation_only.u, rotation_only.v),
+                                        rotation_only.w);
+    if (handedness < 0.0F) {
+        int axis_to_flip = 0;
+        if (std::fabs(scale[1]) < std::fabs(scale[axis_to_flip])) {
+            axis_to_flip = 1;
+        }
+        if (std::fabs(scale[2]) < std::fabs(scale[axis_to_flip])) {
+            axis_to_flip = 2;
+        }
+
+        flip_basis_axis(rotation_only, axis_to_flip);
+        if (axis_to_flip == 0) {
+            transform.scale.x = -transform.scale.x;
+        } else if (axis_to_flip == 1) {
+            transform.scale.y = -transform.scale.y;
+        } else {
+            transform.scale.z = -transform.scale.z;
+        }
+    }
+
     const auto euler = MatrixUtils::MatrixToEuler(rotation_only);
     transform.rotation_degrees = {euler[0], euler[1], euler[2]};
 
