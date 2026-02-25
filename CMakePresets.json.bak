@@ -50,66 +50,6 @@
       },
       "binaryDir": "${sourceDir}/build/${presetName}"
     },
-	{
-	  "name": "wsl-x64-release",
-	  "displayName": "WSL (Linux) x64 Release",
-	  "description": "WSL/Linux Release build using system packages (no Windows vcpkg)",
-	  "generator": "Ninja",
-	  "binaryDir": "${sourceDir}/build/${presetName}",
-	  "cacheVariables": {
-		"CMAKE_BUILD_TYPE": "Release",
-		"CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}",
-		"CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
-		"CMAKE_CXX_STANDARD": "20",
-		"CMAKE_CXX_STANDARD_REQUIRED": "ON",
-		"CMAKE_CXX_EXTENSIONS": "OFF",
-
-		"PERAVIZ_ENABLE_NATIVE": "OFF",
-
-		"CMAKE_FIND_USE_PACKAGE_REGISTRY": "OFF",
-		"CMAKE_FIND_USE_SYSTEM_PACKAGE_REGISTRY": "OFF",
-		"CMAKE_FIND_PACKAGE_PREFER_CONFIG": "OFF",
-		"CURL_NO_CURL_CMAKE": "ON",
-
-		"CMAKE_IGNORE_PREFIX_PATH": "/mnt/c;/mnt/c/vcpkg;/mnt/c/vcpkg/installed;/mnt/c/vcpkg/installed/x64-windows",
-		"CMAKE_IGNORE_PATH": "/mnt/c;/mnt/c/vcpkg;/mnt/c/vcpkg/installed;/mnt/c/vcpkg/installed/x64-windows"
-	  },
-	  "condition": {
-		"type": "equals",
-		"lhs": "${hostSystemName}",
-		"rhs": "Linux"
-	  }
-	},
-	{
-	  "name": "wsl-x64-debug",
-	  "displayName": "WSL (Linux) x64 Debug",
-	  "description": "WSL/Linux Debug build with symbols for GDB (no Windows vcpkg)",
-	  "generator": "Ninja",
-	  "binaryDir": "${sourceDir}/build/${presetName}",
-	  "cacheVariables": {
-		"CMAKE_BUILD_TYPE": "Debug",
-		"CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}",
-		"CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
-		"CMAKE_CXX_STANDARD": "20",
-		"CMAKE_CXX_STANDARD_REQUIRED": "ON",
-		"CMAKE_CXX_EXTENSIONS": "OFF",
-
-		"PERAVIZ_ENABLE_NATIVE": "OFF",
-
-		"CMAKE_FIND_USE_PACKAGE_REGISTRY": "OFF",
-		"CMAKE_FIND_USE_SYSTEM_PACKAGE_REGISTRY": "OFF",
-		"CMAKE_FIND_PACKAGE_PREFER_CONFIG": "OFF",
-		"CURL_NO_CURL_CMAKE": "ON",
-
-		"CMAKE_IGNORE_PREFIX_PATH": "/mnt/c;/mnt/c/vcpkg;/mnt/c/vcpkg/installed;/mnt/c/vcpkg/installed/x64-windows",
-		"CMAKE_IGNORE_PATH": "/mnt/c;/mnt/c/vcpkg;/mnt/c/vcpkg/installed;/mnt/c/vcpkg/installed/x64-windows"
-	  },
-	  "condition": {
-		"type": "equals",
-		"lhs": "${hostSystemName}",
-		"rhs": "Linux"
-	  }
-	},
     {
       "name": "win-x64-release",
       "displayName": "Windows x64 Release (VS)",
@@ -229,33 +169,6 @@
       "configurePreset": "mac-arm64-debug",
       "jobs": 8
     },
-	{
-	"name": "wsl-release-build",
-	"displayName": "WSL Release Build",
-	"description": "Build Perastage Release in WSL (Linux)",
-	"configurePreset": "wsl-x64-release",
-	"jobs": 8,
-	"verbose": false
-	},
-	{
-	"name": "wsl-debug-build",
-	"displayName": "WSL Debug Build",
-	"description": "Build Perastage Debug in WSL (Linux)",
-	"configurePreset": "wsl-x64-debug",
-	"jobs": 8,
-	"verbose": false
-	},
-	{
-	"name": "wsl-release-stage",
-	"displayName": "WSL Release Stage",
-	"description": "Build and stage runtime files into out/install (safe path) in WSL (Linux)",
-	"configurePreset": "wsl-x64-release",
-	"targets": [
-	"perastage_stage"
-	],
-	"jobs": 8,
-	"verbose": false
-	},
     {
       "name": "win-release-build-ninja",
       "displayName": "Build Windows Release (Ninja)",
