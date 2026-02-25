@@ -92,7 +92,7 @@ The most important directories are:
 | `viewer2d/` | 2D plan view renderer and capture utilities. |
 | `third_party/` | Vendored third-party headers (for example `json.hpp`) kept separate from project modules. |
 | `library/` | Built‑in data: fixture dictionary, default trusses, textures, scene objects and example projects (`library/scene_objects/`, etc.). |
-| `resources/` | Application icon, Windows resource script and additional images (including `perastag3d.png` for this README). |
+| `resources/` | Application icon, Windows resource script and additional images (including `perastage3d.png` for this README). |
 | `tests/` | Unit tests using Catch2. |
 | `docs/` | Informal documentation and specs (MVR/GDTF notes). |
 
@@ -115,9 +115,22 @@ cmake ..
 cmake --build .
 ```
 
-The `perastage_stage` target (Release configuration) copies runtime resources into `out/install/x64-Release` ready for packaging with Inno Setup.  Use `perastage_symbols` to collect `.pdb` files for crash analysis on Windows.
+The `perastage_stage` target (Release configuration) stages runtime resources into `out/install/<CONFIG>` (for example `out/install/Release`) ready for packaging with Inno Setup.  Use `perastage_symbols` to collect `.pdb` files for crash analysis on Windows.
 
 Run tests from the build directory with `ctest` to execute unit tests.
+
+### Optional Peraviz and DMX integration
+
+Perastage includes an optional **Peraviz** viewer and DMX/Art‑Net receiver built on top of the Godot engine. These components are off by default and require extra dependencies.
+
+- To enable the native Peraviz subtarget, configure CMake with `-DPERAVIZ_ENABLE_NATIVE=ON`. This target uses Python 3 to generate bindings during the build; make sure Python 3 is installed and discoverable.
+- To enable DMX/Art‑Net reception within the Peraviz viewer, pass `-DPERAVIZ_ENABLE_DMX=ON` in addition to the above option.
+
+These options are considered experimental and are not required for the core Perastage application. See `peraviz/` for details.
+
+### Project file format
+
+Perastage project files (`*.psproj`) are standard ZIP archives. A project typically contains a `config.json` file storing user preferences and layout settings and a `scene.mvr` file storing the show data in MVR format. You can inspect or extract these files with any ZIP utility. When Perastage saves a project, it writes the updated `config.json` and `scene.mvr` back into the archive.
 
 ---
 
@@ -138,7 +151,7 @@ These checks validate that per-instance normal transformation and mirrored-trans
 ## Windows packaging
 
 1. Build the Release configuration.
-2. Run the `perastage_stage` target to populate the staging directory (`out/install/x64-Release`).
+2. Run the `perastage_stage` target to populate the staging directory (`out/install/<CONFIG>`, for example `out/install/Release`).
 3. Use an installer tool such as **Inno Setup** to create a self‑extracting installer and uninstaller.  The staging directory already contains the executable, DLLs, help files, library data and resources.
 4. Optionally provide a portable ZIP archive for users who prefer not to run an installer.
 

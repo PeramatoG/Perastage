@@ -94,6 +94,7 @@ Notes:
 | Alt + arrow keys | Zoom in/out |
 | Numpad 1 / 3 / 7 | Front / Right / Top views |
 | Numpad 5 | Reset camera orientation |
+| F | Frame scene (fit all objects in view) |
 
 ### 2D Viewer (keyboard)
 
@@ -148,6 +149,7 @@ Notes:
 ## Panels
 
 - **Console** shows status messages and accepts console commands.
+- **Layers** shows layer list, visibility, and active layer for new items.
 - **Layouts** manages printable layout pages.
 - **Summary** shows counts and statistics per object type.
 - **Rigging** aggregates total weights and highlights missing data.
@@ -159,7 +161,7 @@ Notes:
 ## Inicio rápido
 
 1. Abre la aplicación.
-2. Usa **Archivo > Importar MVR...** para cargar un `.mvr`.
+2. Usa **File > Import MVR...** para cargar un `.mvr`.
 3. Usa las pestañas (**Fixtures**, **Trusses**, **Hoists**, **Objects**) para revisar los datos.
 4. Activa/desactiva paneles desde el menú **View** si alguno está oculto.
 
@@ -167,7 +169,7 @@ Notes:
 
 Los proyectos de Perastage (`.psproj`) guardan la escena, los layouts y la configuración del usuario.
 
-**Archivo > Nuevo / Cargar / Guardar / Guardar como...**
+**File > New / Load / Save / Save As...**
 
 - **Nuevo** crea un proyecto en blanco.
 - **Cargar** abre un `.psproj` existente.
@@ -249,6 +251,7 @@ Notas:
 | Alt + flechas | Zoom +/- |
 | Numpad 1 / 3 / 7 | Vista frontal / derecha / superior |
 | Numpad 5 | Resetear cámara |
+| F | Encuadrar escena (ajustar todo a vista) |
 
 ### Visor 2D (teclado)
 
@@ -303,6 +306,7 @@ Notas:
 ## Paneles
 
 - **Console** muestra mensajes de estado y acepta comandos.
+- **Layers** muestra capas, visibilidad y la capa activa para nuevos elementos.
 - **Layouts** gestiona las páginas de layout.
 - **Summary** muestra conteos y estadísticas por tipo.
 - **Rigging** agrega pesos totales y marca datos faltantes.
