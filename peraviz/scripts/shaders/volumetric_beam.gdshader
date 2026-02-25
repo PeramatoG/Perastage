@@ -1,5 +1,5 @@
 shader_type spatial;
-render_mode unshaded, blend_add, cull_disabled, depth_draw_opaque;
+render_mode unshaded, blend_add, cull_disabled, depth_draw_never;
 
 uniform sampler2D DEPTH_TEXTURE : hint_depth_texture, filter_linear_mipmap;
 
@@ -24,6 +24,7 @@ instance uniform float beam_bottom_radius : hint_range(0.01, 30.0) = 0.8;
 instance uniform float gobo_mask_cutoff : hint_range(0.0, 1.0) = 0.55;
 instance uniform float gobo_edge_softness : hint_range(0.0, 0.2) = 0.005;
 instance uniform float gobo_radial_softness : hint_range(0.0, 0.2) = 0.005;
+instance uniform float volumetric_alpha_scale : hint_range(0.05, 1.0) = 0.35;
 
 varying vec3 vertex_view;
 varying vec3 vertex_local;
@@ -91,6 +92,6 @@ void fragment() {
 	float gobo_mask = compute_gobo_mask(vertex_local, UV);
 	float final_alpha = feather_alpha * depth_mult * dist_fade * gobo_mask;
 	ALBEDO = base_color.rgb * brightness * gobo_mask;
-	ALPHA = clamp(final_alpha * base_color.a, 0.0, 1.0);
+	ALPHA = clamp(final_alpha * base_color.a * volumetric_alpha_scale, 0.0, 1.0);
 	EMISSION = ALBEDO * ALPHA;
 }
