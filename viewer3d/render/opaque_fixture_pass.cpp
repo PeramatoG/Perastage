@@ -15,6 +15,8 @@
 #include <GL/gl.h>
 #endif
 
+#include <filesystem>
+
 #include "matrixutils.h"
 #include "configmanager.h"
 #include "opaque_pass_utils.h"
@@ -35,6 +37,7 @@ void OpaqueFixturePass::Render(
   const bool isTopView2D = is2DViewer && context.view == Viewer2DView::Top;
 
   const auto &fixtures = SceneDataManager::Instance().GetFixtures();
+  namespace fs = std::filesystem;
 
   // Top-view fixtures support two drawing modes:
   // - natural top view (real top)
@@ -117,6 +120,16 @@ void OpaqueFixturePass::Render(
     if (gdtfPathIt != controller.m_resourceSyncState.resolvedGdtfSpecs.end() &&
         gdtfPathIt->second.attempted)
       gdtfPath = gdtfPathIt->second.resolvedPath;
+    std::string svgSourcePath = gdtfPath;
+    if (svgSourcePath.empty() && !f.gdtfSpec.empty()) {
+      const std::string basePath = ConfigManager::Get().GetScene().basePath;
+      fs::path candidate = basePath.empty() ? fs::path(f.gdtfSpec)
+                                            : (fs::path(basePath) /
+                                               fs::path(f.gdtfSpec));
+      std::error_code ec;
+      if (fs::exists(candidate, ec) && !ec)
+        svgSourcePath = NormalizeModelKey(candidate.string());
+    }
     auto itg = controller.m_resourceSyncState.loadedGdtf.find(gdtfPath);
 
     const bool useSymbolInstancing =
@@ -128,7 +141,7 @@ void OpaqueFixturePass::Render(
          !highlight && !selected);
     bool placedInstance = false;
     if (useSymbolInstancing && controller.m_captureCanvas && !skipCapture) {
-      std::string modelKey = NormalizeModelKey(gdtfPath);
+      std::string modelKey = NormalizeModelKey(svgSourcePath);
       if (modelKey.empty() && !f.gdtfSpec.empty())
         modelKey = NormalizeModelKey(f.gdtfSpec);
       if (modelKey.empty() && !f.typeName.empty())
@@ -151,7 +164,7 @@ void OpaqueFixturePass::Render(
             controller.m_bottomSymbolCache.GetOrCreate(symbolKey, [&](const SymbolKey &,
                                                          uint32_t symbolId) {
               SymbolDefinition svgDefinition{};
-              if (TryBuildPerastageSvgSymbolDefinition(gdtfPath,
+              if (TryBuildPerastageSvgSymbolDefinition(svgSourcePath,
                                                        symbolKey.viewKind,
                                                        symbolId,
                                                        svgDefinition)) {
