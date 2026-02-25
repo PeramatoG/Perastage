@@ -315,13 +315,15 @@ void RenderCommandBuffer(wxGCDC &dc, const CommandBuffer &buffer,
             debugInfo->svgResolved += 1;
         }
       }
-      if (!renderedSvg && !renderSvgSymbolsOnly) {
+      if (!renderedSvg) {
         if (debugInfo)
           debugInfo->fallbackRenderCount += 1;
+        // When generating the SVG overlay, symbol instances without SVG must
+        // still render their fallback geometry so the symbol decision matches
+        // legend behavior (SVG when available, fallback otherwise).
         RenderCommandBuffer(dc, it->second.localCommands, mapping, symbols,
-                            svgCache, resolvedModelKeyCache, debugInfo, combined,
-                            currentTransform,
-                            renderSvgSymbolsOnly);
+                            svgCache, resolvedModelKeyCache, debugInfo,
+                            combined, currentTransform, false);
       }
     } else if (const auto *save = std::get_if<SaveCommand>(&cmd)) {
       (void)save;
