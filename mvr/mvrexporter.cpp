@@ -49,8 +49,18 @@ namespace fs = std::filesystem;
 
 struct GdtfOverrides {
   std::string color;
+  bool hasWeightKg = false;
   float weightKg = 0.0f;
+  bool hasPowerW = false;
   float powerW = 0.0f;
+  bool hasLengthMm = false;
+  float lengthMm = 0.0f;
+  bool hasWidthMm = false;
+  float widthMm = 0.0f;
+  bool hasHeightMm = false;
+  float heightMm = 0.0f;
+  std::string manufacturer;
+  std::string model;
 };
 
 struct ResourceEntry {
@@ -551,26 +561,47 @@ static std::string CreatePatchedGdtf(const std::string &gdtfPath,
         m->SetAttribute("Color", cie.c_str());
     }
   }
-  if (ov.weightKg != 0.0f || ov.powerW != 0.0f) {
+  if (ov.hasWeightKg || ov.hasPowerW) {
     tinyxml2::XMLElement *phys = ft->FirstChildElement("PhysicalDescriptions");
     if (!phys)
       phys = ft->InsertNewChildElement("PhysicalDescriptions");
     tinyxml2::XMLElement *props = phys->FirstChildElement("Properties");
     if (!props)
       props = phys->InsertNewChildElement("Properties");
-    if (ov.weightKg != 0.0f) {
+    if (ov.hasWeightKg) {
       tinyxml2::XMLElement *w = props->FirstChildElement("Weight");
       if (!w)
         w = props->InsertNewChildElement("Weight");
       w->SetAttribute("Value", ov.weightKg);
     }
-    if (ov.powerW != 0.0f) {
+    if (ov.hasPowerW) {
       tinyxml2::XMLElement *p = props->FirstChildElement("PowerConsumption");
       if (!p)
         p = props->InsertNewChildElement("PowerConsumption");
       p->SetAttribute("Value", ov.powerW);
     }
   }
+  if (!ov.manufacturer.empty())
+    ft->SetAttribute("Manufacturer", ov.manufacturer.c_str());
+  if (!ov.model.empty())
+    ft->SetAttribute("Name", ov.model.c_str());
+
+  if (ov.hasLengthMm || ov.hasWidthMm || ov.hasHeightMm) {
+    tinyxml2::XMLElement *models = ft->FirstChildElement("Models");
+    tinyxml2::XMLElement *model =
+        models ? models->FirstChildElement("Model") : nullptr;
+    if (!models)
+      models = ft->InsertNewChildElement("Models");
+    if (!model)
+      model = models->InsertNewChildElement("Model");
+    if (ov.hasLengthMm)
+      model->SetAttribute("Length", ov.lengthMm / 1000.0f);
+    if (ov.hasWidthMm)
+      model->SetAttribute("Width", ov.widthMm / 1000.0f);
+    if (ov.hasHeightMm)
+      model->SetAttribute("Height", ov.heightMm / 1000.0f);
+  }
+
   doc.SaveFile(descPath.c_str());
   std::string outPath = tempDir + ".gdtf";
   if (!ZipDir(tempDir, outPath))
@@ -645,12 +676,13 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
   };
 
   auto registerResource = [&](const std::string &rawSource,
-                              const std::string &preferredArchivePath) -> std::string {
+                              const std::string &preferredArchivePath,
+                              bool allowReuseBySource = true) -> std::string {
     if (rawSource.empty())
       return {};
     std::string normalizedSource = normalizeSourcePath(rawSource);
     auto srcIt = sourceToArchivePath.find(normalizedSource);
-    if (srcIt != sourceToArchivePath.end())
+    if (allowReuseBySource && srcIt != sourceToArchivePath.end())
       return srcIt->second;
 
     std::string archivePath = EnsureUniqueArchivePath(preferredArchivePath, reservedArchivePaths);
@@ -661,14 +693,16 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
 
   auto registerGdtfResource = [&](const std::string &objectUuid,
                                   const std::string &rawGdtfPath,
-                                  const std::string &preferredName) -> std::string {
+                                  const std::string &preferredName,
+                                  bool allowReuseBySource = true) -> std::string {
     if (rawGdtfPath.empty())
       return {};
 
     std::string fileName = preferredName;
     if (fileName.empty())
       fileName = SanitizeArchiveFileName(rawGdtfPath, "fixture.gdtf");
-    std::string archivePath = registerResource(rawGdtfPath, fileName);
+    std::string archivePath =
+        registerResource(rawGdtfPath, fileName, allowReuseBySource);
     if (!objectUuid.empty() && !archivePath.empty())
       gdtfArchiveByObjectUuid[objectUuid] = archivePath;
     return archivePath;
@@ -889,10 +923,14 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
       auto &ov = gdtfOverrides[fixtureGdtfArchivePath];
       if (!f.color.empty())
         ov.color = f.color;
-      if (f.weightKg != 0.0f)
+      if (f.weightKg != 0.0f) {
+        ov.hasWeightKg = true;
         ov.weightKg = f.weightKg;
-      if (f.powerConsumptionW != 0.0f)
+      }
+      if (f.powerConsumptionW != 0.0f) {
+        ov.hasPowerW = true;
         ov.powerW = f.powerConsumptionW;
+      }
     }
     addStr("GDTFMode", f.gdtfMode);
     addStr("Focus", f.focus);
@@ -1024,8 +1062,14 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
       }
     }
 
-    std::string trussPreferredName = SanitizeArchiveFileName(trussSourceGdtf, "truss.gdtf");
-    std::string trussGdtfArchivePath = registerGdtfResource(t.uuid, trussSourceGdtf, trussPreferredName);
+    std::string trussPreferredName =
+        SanitizeArchiveFileName(trussSourceGdtf, "truss.gdtf");
+    std::string trussUniqueName = SanitizeArchiveFileName(
+        (t.uuid.empty() ? std::string("truss") : t.uuid) + "-" +
+            trussPreferredName,
+        "truss.gdtf");
+    std::string trussGdtfArchivePath =
+        registerGdtfResource(t.uuid, trussSourceGdtf, trussUniqueName, false);
     if (!trussGdtfArchivePath.empty()) {
       tinyxml2::XMLElement *e = doc.NewElement("GDTFSpec");
       e->SetText(trussGdtfArchivePath.c_str());
@@ -1034,6 +1078,18 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
       tinyxml2::XMLElement *modeElement = doc.NewElement("GDTFMode");
       modeElement->SetText(t.gdtfMode.empty() ? "Default" : t.gdtfMode.c_str());
       te->InsertEndChild(modeElement);
+
+      auto &ov = gdtfOverrides[trussGdtfArchivePath];
+      ov.hasLengthMm = true;
+      ov.lengthMm = t.lengthMm;
+      ov.hasWidthMm = true;
+      ov.widthMm = t.widthMm;
+      ov.hasHeightMm = true;
+      ov.heightMm = t.heightMm;
+      ov.hasWeightKg = true;
+      ov.weightKg = t.weightKg;
+      ov.manufacturer = t.manufacturer;
+      ov.model = t.model;
     }
     if (!t.function.empty()) {
       tinyxml2::XMLElement *e = doc.NewElement("Function");
@@ -1075,9 +1131,8 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     mat->SetText(mstr.c_str());
     te->InsertEndChild(mat);
 
-    // Keep Perastage truss metadata in UserData even when a GDTF resource exists.
-    // This preserves user-edited dimensions/weight as authoritative instance overrides.
-    bool hasMeta =
+    const bool shouldWriteMvrTrussMetadata = trussGdtfArchivePath.empty();
+    bool hasMeta = shouldWriteMvrTrussMetadata &&
                    (!t.manufacturer.empty() || !t.model.empty() ||
                     t.lengthMm != 0.0f || t.widthMm != 0.0f ||
                     t.heightMm != 0.0f || t.weightKg != 0.0f ||
