@@ -345,17 +345,18 @@ void RenderCommandBuffer(wxGCDC &dc, const CommandBuffer &buffer,
       if (!it->second.key.modelKey.empty()) {
         if (debugInfo)
           debugInfo->svgLookupAttempts += 1;
-        if (!renderedSvg &&
-            (const PerastageSvgSymbolData *svg =
-                FindSvgSymbolForView(it->second.key.modelKey,
-                                     it->second.key.viewKind, svgCache,
-                                     resolvedModelKeyCache))) {
-          DrawSvgSymbol(dc, mapping, combined, *svg);
-          if (renderSvgSymbolsOnly)
-            DrawResolvedSvgDebugMarker(dc, mapping, combined);
-          renderedSvg = true;
-          if (debugInfo)
-            debugInfo->svgResolved += 1;
+        if (!renderedSvg) {
+          if (const PerastageSvgSymbolData *svg =
+                  FindSvgSymbolForView(it->second.key.modelKey,
+                                       it->second.key.viewKind, svgCache,
+                                       resolvedModelKeyCache)) {
+            DrawSvgSymbol(dc, mapping, combined, *svg);
+            if (renderSvgSymbolsOnly)
+              DrawResolvedSvgDebugMarker(dc, mapping, combined);
+            renderedSvg = true;
+            if (debugInfo)
+              debugInfo->svgResolved += 1;
+          }
         }
       }
       if (!renderedSvg && renderSvgSymbolsOnly)
