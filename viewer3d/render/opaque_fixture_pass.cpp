@@ -148,8 +148,8 @@ void OpaqueFixturePass::Render(
     if (gdtfPathIt != controller.m_resourceSyncState.resolvedGdtfSpecs.end() &&
         gdtfPathIt->second.attempted)
       gdtfPath = gdtfPathIt->second.resolvedPath;
-    std::string svgSourcePath = gdtfPath;
-    if (svgSourcePath.empty() && !f.gdtfSpec.empty()) {
+    std::string svgSourcePath;
+    if (!f.gdtfSpec.empty()) {
       const std::string basePath = ConfigManager::Get().GetScene().basePath;
       fs::path candidate = basePath.empty() ? fs::path(f.gdtfSpec)
                                             : (fs::path(basePath) /
@@ -161,6 +161,8 @@ void OpaqueFixturePass::Render(
         svgSourcePath = FindFileRecursive(
             basePath, fs::path(f.gdtfSpec).filename().string());
     }
+    if (svgSourcePath.empty())
+      svgSourcePath = gdtfPath;
     auto itg = controller.m_resourceSyncState.loadedGdtf.find(gdtfPath);
 
     const bool useSymbolInstancing =
