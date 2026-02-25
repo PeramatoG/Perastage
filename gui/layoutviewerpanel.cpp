@@ -42,6 +42,7 @@
 #endif
 
 #include "layoutviewerpanel.h"
+#include "layoutviewerviewrenderer.h"
 
 #ifndef GL_CLAMP_TO_EDGE
 #define GL_CLAMP_TO_EDGE 0x812F
@@ -1650,14 +1651,53 @@ void LayoutViewerPanel::RebuildCachedTexture() {
       std::vector<unsigned char> pixels;
       int width = 0;
       int height = 0;
-      if (!capturePanel->RenderToRGBA(pixels, width, height) || width <= 0 ||
-          height <= 0) {
-        ClearCachedTexture(cache);
-        cache.textureSize = wxSize(0, 0);
-        cache.renderZoom = 0.0;
-        continue;
+
+      bool renderedFromCommandBuffer = false;
+      if (cache.symbols && !cache.buffer.commands.empty()) {
+        Viewer2DViewState commandBufferState = cache.viewState;
+        commandBufferState.viewportWidth = renderSize.GetWidth();
+        commandBufferState.viewportHeight = renderSize.GetHeight();
+        if (renderZoom != 1.0)
+          commandBufferState.zoom *= static_cast<float>(renderZoom);
+
+        wxImage commandBufferImage = RenderLayoutViewCommandBufferToImage(
+            renderSize, cache.buffer, commandBufferState, cache.symbols.get());
+        if (commandBufferImage.IsOk()) {
+          commandBufferImage = commandBufferImage.Mirror(false);
+          if (!commandBufferImage.HasAlpha())
+            commandBufferImage.InitAlpha();
+          const unsigned char *rgb = commandBufferImage.GetData();
+          const unsigned char *alpha = commandBufferImage.GetAlpha();
+          width = commandBufferImage.GetWidth();
+          height = commandBufferImage.GetHeight();
+          if (rgb && alpha && width > 0 && height > 0 &&
+              TryAllocatePixelBuffer(pixels, width, height,
+                                     "view command buffer")) {
+            const size_t pixelCount =
+                static_cast<size_t>(width) * static_cast<size_t>(height);
+            for (size_t i = 0; i < pixelCount; ++i) {
+              const size_t rgbIndex = i * 3;
+              const size_t rgbaIndex = i * 4;
+              pixels[rgbaIndex] = rgb[rgbIndex];
+              pixels[rgbaIndex + 1] = rgb[rgbIndex + 1];
+              pixels[rgbaIndex + 2] = rgb[rgbIndex + 2];
+              pixels[rgbaIndex + 3] = alpha[i];
+            }
+            renderedFromCommandBuffer = true;
+          }
+        }
       }
-  
+
+      if (!renderedFromCommandBuffer) {
+        if (!capturePanel->RenderToRGBA(pixels, width, height) || width <= 0 ||
+            height <= 0) {
+          ClearCachedTexture(cache);
+          cache.textureSize = wxSize(0, 0);
+          cache.renderZoom = 0.0;
+          continue;
+        }
+      }
+
       if (!InitGL()) {
         clearLoadingState();
         NotifyRenderReady();

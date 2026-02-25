@@ -15,12 +15,43 @@
 #include <GL/gl.h>
 #endif
 
+#include <filesystem>
+
 #include "matrixutils.h"
 #include "configmanager.h"
 #include "opaque_pass_utils.h"
 #include "perastage_svg_symbol_builder.h"
 #include "scenedatamanager.h"
 #include "viewer3dcontroller.h"
+
+namespace {
+namespace fs = std::filesystem;
+
+std::string FindFileRecursive(const std::string &baseDir,
+                              const std::string &fileName) {
+  if (baseDir.empty() || fileName.empty())
+    return {};
+  std::error_code ec;
+  fs::recursive_directory_iterator it(
+      baseDir, fs::directory_options::skip_permission_denied, ec);
+  fs::recursive_directory_iterator end;
+  if (ec)
+    return {};
+  for (; it != end; it.increment(ec)) {
+    if (ec) {
+      ec.clear();
+      continue;
+    }
+    if (!it->is_regular_file(ec) || ec) {
+      ec.clear();
+      continue;
+    }
+    if (it->path().filename() == fileName)
+      return it->path().string();
+  }
+  return {};
+}
+} // namespace
 
 void OpaqueFixturePass::Render(
     Viewer3DController &controller, const RenderFrameContext &context,
@@ -117,6 +148,21 @@ void OpaqueFixturePass::Render(
     if (gdtfPathIt != controller.m_resourceSyncState.resolvedGdtfSpecs.end() &&
         gdtfPathIt->second.attempted)
       gdtfPath = gdtfPathIt->second.resolvedPath;
+    std::string svgSourcePath;
+    if (!f.gdtfSpec.empty()) {
+      const std::string basePath = ConfigManager::Get().GetScene().basePath;
+      fs::path candidate = basePath.empty() ? fs::path(f.gdtfSpec)
+                                            : (fs::path(basePath) /
+                                               fs::path(f.gdtfSpec));
+      std::error_code ec;
+      if (fs::exists(candidate, ec) && !ec)
+        svgSourcePath = NormalizeModelKey(candidate.string());
+      else if (!basePath.empty())
+        svgSourcePath = FindFileRecursive(
+            basePath, fs::path(f.gdtfSpec).filename().string());
+    }
+    if (svgSourcePath.empty())
+      svgSourcePath = gdtfPath;
     auto itg = controller.m_resourceSyncState.loadedGdtf.find(gdtfPath);
 
     const bool useSymbolInstancing =
@@ -128,7 +174,7 @@ void OpaqueFixturePass::Render(
          !highlight && !selected);
     bool placedInstance = false;
     if (useSymbolInstancing && controller.m_captureCanvas && !skipCapture) {
-      std::string modelKey = NormalizeModelKey(gdtfPath);
+      std::string modelKey = NormalizeModelKey(svgSourcePath);
       if (modelKey.empty() && !f.gdtfSpec.empty())
         modelKey = NormalizeModelKey(f.gdtfSpec);
       if (modelKey.empty() && !f.typeName.empty())
@@ -151,7 +197,7 @@ void OpaqueFixturePass::Render(
             controller.m_bottomSymbolCache.GetOrCreate(symbolKey, [&](const SymbolKey &,
                                                          uint32_t symbolId) {
               SymbolDefinition svgDefinition{};
-              if (TryBuildPerastageSvgSymbolDefinition(gdtfPath,
+              if (TryBuildPerastageSvgSymbolDefinition(svgSourcePath,
                                                        symbolKey.viewKind,
                                                        symbolId,
                                                        svgDefinition)) {
