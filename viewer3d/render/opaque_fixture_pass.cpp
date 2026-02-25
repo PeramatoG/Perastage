@@ -243,11 +243,6 @@ void OpaqueFixturePass::Render(
           float m2[16];
           MatrixToArray(obj.transform, m2);
           controller.ApplyTransform(m2, false);
-
-          const Matrix worldTransform = MatrixUtils::Multiply(f.transform, obj.transform);
-          float worldMatrix[16];
-          MatrixToArray(worldTransform, worldMatrix);
-
           auto applyCapture =
               [fixtureTransform, objTransform = obj.transform](
                   const std::array<float, 3> &p) {
@@ -266,7 +261,7 @@ void OpaqueFixturePass::Render(
           controller.DrawMeshWithOutline(obj.mesh, partR, partG, partB,
                                          RENDER_SCALE, highlight, selected, cx,
                                          cy, cz, wireframe, mode, applyCapture,
-                                         drawUnlit, worldMatrix);
+                                         drawUnlit);
           glPopMatrix();
         }
       } else {
