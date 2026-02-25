@@ -141,7 +141,7 @@ Viewer2DRenderPanel::Viewer2DRenderPanel(wxWindow *parent)
                       this);
 
   m_showLabelAddress =
-      new wxCheckBox(labelBoxParent, wxID_ANY, "Show DMX address");
+      new wxCheckBox(labelBoxParent, wxID_ANY, "Show DMX");
   m_showLabelAddress->SetValue(
       cfg.GetFloat(DMX_KEYS[m_view->GetSelection()]) != 0.0f);
   m_showLabelAddress->Bind(wxEVT_CHECKBOX,
