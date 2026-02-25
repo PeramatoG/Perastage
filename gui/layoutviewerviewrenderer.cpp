@@ -220,6 +220,14 @@ wxPoint ToWxPoint(const viewer2d::Viewer2DRenderPoint &point) {
                  static_cast<int>(std::lround(point.y)));
 }
 
+wxColour ToWxColor(const CanvasColor &color) {
+  auto clamp = [](float value) -> unsigned char {
+    return static_cast<unsigned char>(std::clamp(value, 0.0f, 1.0f) * 255.0f);
+  };
+  return wxColour(clamp(color.r), clamp(color.g), clamp(color.b),
+                  clamp(color.a));
+}
+
 void DrawPolyline(wxDC &dc, const std::vector<viewer2d::Viewer2DRenderPoint> &points) {
   if (points.size() < 2)
     return;
@@ -338,16 +346,11 @@ void RenderCommandBuffer(wxGCDC &dc, const CommandBuffer &buffer,
       const auto mapped = mapTransformedPoint(points[i], points[i + 1]);
       wxPoints.push_back(ToWxPoint(mapped));
     }
-    wxPen pen(wxColour(static_cast<unsigned char>(std::clamp(stroke.color.r, 0.0f, 1.0f) * 255.0f),
-                       static_cast<unsigned char>(std::clamp(stroke.color.g, 0.0f, 1.0f) * 255.0f),
-                       static_cast<unsigned char>(std::clamp(stroke.color.b, 0.0f, 1.0f) * 255.0f)),
+    wxPen pen(ToWxColor(stroke.color),
               std::max(1, static_cast<int>(std::lround(stroke.width * mapping.scale))));
     dc.SetPen(pen);
     if (fill) {
-      dc.SetBrush(wxBrush(wxColour(
-          static_cast<unsigned char>(std::clamp(fill->color.r, 0.0f, 1.0f) * 255.0f),
-          static_cast<unsigned char>(std::clamp(fill->color.g, 0.0f, 1.0f) * 255.0f),
-          static_cast<unsigned char>(std::clamp(fill->color.b, 0.0f, 1.0f) * 255.0f))));
+      dc.SetBrush(wxBrush(ToWxColor(fill->color)));
     } else {
       dc.SetBrush(*wxTRANSPARENT_BRUSH);
     }
@@ -363,9 +366,7 @@ void RenderCommandBuffer(wxGCDC &dc, const CommandBuffer &buffer,
         continue;
       const auto p0 = mapTransformedPoint(line->x0, line->y0);
       const auto p1 = mapTransformedPoint(line->x1, line->y1);
-      dc.SetPen(wxPen(wxColour(static_cast<unsigned char>(line->stroke.color.r * 255.0f),
-                               static_cast<unsigned char>(line->stroke.color.g * 255.0f),
-                               static_cast<unsigned char>(line->stroke.color.b * 255.0f)),
+      dc.SetPen(wxPen(ToWxColor(line->stroke.color),
                       std::max(1, static_cast<int>(std::lround(line->stroke.width * mapping.scale)))));
       dc.DrawLine(ToWxPoint(p0), ToWxPoint(p1));
     } else if (const auto *polyline = std::get_if<PolylineCommand>(&cmd)) {
@@ -377,9 +378,7 @@ void RenderCommandBuffer(wxGCDC &dc, const CommandBuffer &buffer,
       points.reserve(polyline->points.size() / 2);
       for (size_t i = 0; i + 1 < polyline->points.size(); i += 2)
         points.push_back(mapTransformedPoint(polyline->points[i], polyline->points[i + 1]));
-      dc.SetPen(wxPen(wxColour(static_cast<unsigned char>(polyline->stroke.color.r * 255.0f),
-                               static_cast<unsigned char>(polyline->stroke.color.g * 255.0f),
-                               static_cast<unsigned char>(polyline->stroke.color.b * 255.0f)),
+      dc.SetPen(wxPen(ToWxColor(polyline->stroke.color),
                       std::max(1, static_cast<int>(std::lround(polyline->stroke.width * mapping.scale)))));
       DrawPolyline(dc, points);
     } else if (const auto *poly = std::get_if<PolygonCommand>(&cmd)) {
