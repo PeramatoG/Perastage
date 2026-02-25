@@ -209,6 +209,7 @@ void RenderCommandBuffer(wxGCDC &dc, const CommandBuffer &buffer,
                                             SvgLookupHasher> &svgCache,
                          std::unordered_map<std::string, std::string>
                              &resolvedModelKeyCache,
+                         LayoutViewSvgOverlayDebugInfo *debugInfo,
                          const Transform2D &localTransform,
                          const CanvasTransform &canvasTransform,
                          bool renderSvgSymbolsOnly) {
@@ -292,6 +293,8 @@ void RenderCommandBuffer(wxGCDC &dc, const CommandBuffer &buffer,
                                       rect->y + rect->h};
       drawPolygon(pts, rect->stroke, rect->hasFill ? &rect->fill : nullptr);
     } else if (const auto *instance = std::get_if<SymbolInstanceCommand>(&cmd)) {
+      if (debugInfo)
+        debugInfo->symbolInstanceCommands += 1;
       if (!symbols)
         continue;
       auto it = symbols->find(instance->symbolId);
@@ -300,17 +303,23 @@ void RenderCommandBuffer(wxGCDC &dc, const CommandBuffer &buffer,
       const Transform2D combined = ComposeTransform(localTransform, instance->transform);
       bool renderedSvg = false;
       if (!it->second.key.modelKey.empty()) {
+        if (debugInfo)
+          debugInfo->svgLookupAttempts += 1;
         if (const PerastageSvgSymbolData *svg =
                 FindSvgSymbolForView(it->second.key.modelKey,
                                      it->second.key.viewKind, svgCache,
                                      resolvedModelKeyCache)) {
           DrawSvgSymbol(dc, mapping, combined, *svg);
           renderedSvg = true;
+          if (debugInfo)
+            debugInfo->svgResolved += 1;
         }
       }
       if (!renderedSvg && !renderSvgSymbolsOnly) {
+        if (debugInfo)
+          debugInfo->fallbackRenderCount += 1;
         RenderCommandBuffer(dc, it->second.localCommands, mapping, symbols,
-                            svgCache, resolvedModelKeyCache, combined,
+                            svgCache, resolvedModelKeyCache, debugInfo, combined,
                             currentTransform,
                             renderSvgSymbolsOnly);
       }
@@ -355,7 +364,7 @@ wxImage RenderLayoutViewCommandBufferToImage(
       svgCache;
   std::unordered_map<std::string, std::string> resolvedModelKeyCache;
   RenderCommandBuffer(dc, buffer, mapping, symbols, svgCache,
-                      resolvedModelKeyCache, Transform2D::Identity(),
+                      resolvedModelKeyCache, nullptr, Transform2D::Identity(),
                       CanvasTransform{}, false);
 
   memoryDc.SelectObject(wxNullBitmap);
@@ -365,7 +374,10 @@ wxImage RenderLayoutViewCommandBufferToImage(
 wxImage RenderLayoutViewSvgSymbolsOverlayToImage(
     const wxSize &size, const CommandBuffer &buffer,
     const Viewer2DViewState &viewState,
-    const SymbolDefinitionSnapshot *symbols) {
+    const SymbolDefinitionSnapshot *symbols,
+    LayoutViewSvgOverlayDebugInfo *debugInfo) {
+  if (debugInfo)
+    *debugInfo = LayoutViewSvgOverlayDebugInfo{};
   if (size.GetWidth() <= 0 || size.GetHeight() <= 0 || !symbols)
     return wxImage();
 
@@ -393,7 +405,7 @@ wxImage RenderLayoutViewSvgSymbolsOverlayToImage(
       svgCache;
   std::unordered_map<std::string, std::string> resolvedModelKeyCache;
   RenderCommandBuffer(dc, buffer, mapping, symbols, svgCache,
-                      resolvedModelKeyCache, Transform2D::Identity(),
+                      resolvedModelKeyCache, debugInfo, Transform2D::Identity(),
                       CanvasTransform{}, true);
 
   memoryDc.SelectObject(wxNullBitmap);

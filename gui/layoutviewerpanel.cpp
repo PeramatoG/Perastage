@@ -16,11 +16,13 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include <algorithm>
+#include <cstdlib>
 #include <cmath>
 #include <cstdio>
 #include <cstring>
 #include <memory>
 #include <new>
+#include <sstream>
 #include <vector>
 #include <wx/weakref.h>
 
@@ -1666,8 +1668,22 @@ void LayoutViewerPanel::RebuildCachedTexture() {
         if (renderZoom != 1.0)
           overlayState.zoom *= static_cast<float>(renderZoom);
 
+        LayoutViewSvgOverlayDebugInfo svgDebugInfo;
         wxImage svgOverlay = RenderLayoutViewSvgSymbolsOverlayToImage(
-            renderSize, cache.buffer, overlayState, cache.symbols.get());
+            renderSize, cache.buffer, overlayState, cache.symbols.get(),
+            &svgDebugInfo);
+        const char *debugPopupEnv = std::getenv("PERASTAGE_LAYOUT_SVG_DEBUG_POPUP");
+        if (debugPopupEnv && std::string(debugPopupEnv) == "1") {
+          std::ostringstream message;
+          message << "Layout View2D SVG debug\n"
+                  << "viewId=" << view.id << "\n"
+                  << "instances=" << svgDebugInfo.symbolInstanceCommands << "\n"
+                  << "svg lookups=" << svgDebugInfo.svgLookupAttempts << "\n"
+                  << "svg resolved=" << svgDebugInfo.svgResolved << "\n"
+                  << "fallback used=" << svgDebugInfo.fallbackRenderCount;
+          wxMessageBox(wxString::FromUTF8(message.str()), "Perastage SVG debug",
+                       wxOK | wxICON_INFORMATION, this);
+        }
         if (svgOverlay.IsOk()) {
           svgOverlay = svgOverlay.Mirror(false);
           if (!svgOverlay.HasAlpha())
