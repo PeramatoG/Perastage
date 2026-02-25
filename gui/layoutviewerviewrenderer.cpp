@@ -219,17 +219,6 @@ void DrawResolvedSvgDebugMarker(wxGCDC &dc,
               static_cast<int>(std::lround(center.y - 10.0)));
 }
 
-bool IsSvgSymbolDefinition(const SymbolDefinition &definition) {
-  if (definition.localCommands.commands.empty() ||
-      definition.localCommands.sources.empty())
-    return false;
-  for (const auto &source : definition.localCommands.sources) {
-    if (source != "svg")
-      return false;
-  }
-  return true;
-}
-
 void RenderCommandBuffer(wxGCDC &dc, const CommandBuffer &buffer,
                          const viewer2d::Viewer2DRenderMapping &mapping,
                          const SymbolDefinitionSnapshot *symbols,
@@ -331,16 +320,6 @@ void RenderCommandBuffer(wxGCDC &dc, const CommandBuffer &buffer,
         continue;
       const Transform2D combined = ComposeTransform(localTransform, instance->transform);
       bool renderedSvg = false;
-
-      if (renderSvgSymbolsOnly && IsSvgSymbolDefinition(it->second)) {
-        RenderCommandBuffer(dc, it->second.localCommands, mapping, symbols,
-                            svgCache, resolvedModelKeyCache, debugInfo,
-                            combined, currentTransform, false);
-        DrawResolvedSvgDebugMarker(dc, mapping, combined);
-        renderedSvg = true;
-        if (debugInfo)
-          debugInfo->svgResolved += 1;
-      }
 
       if (!it->second.key.modelKey.empty()) {
         if (debugInfo)
