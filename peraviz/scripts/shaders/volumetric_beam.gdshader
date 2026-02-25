@@ -17,44 +17,16 @@ instance uniform float far_fade_end : hint_range(0.1, 100.0) = 80.0;
 instance uniform float max_brightness : hint_range(1.0, 50.0) = 10.0;
 instance uniform bool depth_feather_enabled = true;
 instance uniform float depth_fade_distance : hint_range(0.01, 5.0) = 0.5;
-instance uniform bool gobo_enabled = false;
-instance uniform sampler2D gobo_texture : hint_albedo;
-instance uniform float beam_top_radius : hint_range(0.001, 1.0) = 0.03;
-instance uniform float beam_bottom_radius : hint_range(0.01, 30.0) = 0.8;
-instance uniform float gobo_mask_cutoff : hint_range(0.0, 1.0) = 0.55;
-instance uniform float gobo_edge_softness : hint_range(0.0, 0.2) = 0.005;
-instance uniform float gobo_radial_softness : hint_range(0.0, 0.2) = 0.005;
-instance uniform float volumetric_alpha_scale : hint_range(0.05, 1.0) = 0.35;
 
 varying vec3 vertex_view;
-varying vec3 vertex_local;
 
 void vertex() {
-	vertex_local = VERTEX;
 	vertex_view = (MODELVIEW_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	POSITION = PROJECTION_MATRIX * vec4(vertex_view, 1.0);
 }
 
 float get_linear_depth(float raw_depth, mat4 inv_proj_mat) {
 	return 1.0 / (raw_depth * inv_proj_mat[2][3] + inv_proj_mat[3][3]);
-}
-
-float compute_gobo_mask(vec3 local_position, vec2 cone_uv) {
-	if (!gobo_enabled) {
-		return 1.0;
-	}
-
-	float axis_t = clamp(cone_uv.y, 0.0, 1.0);
-	float beam_radius = max(mix(beam_top_radius, beam_bottom_radius, axis_t), 0.0001);
-	vec2 radial = local_position.xz / beam_radius;
-	vec2 gobo_uv = radial * 0.5 + vec2(0.5);
-	float radial_dist = length(gobo_uv - vec2(0.5));
-	float radial_falloff = 1.0 - smoothstep(0.5 - gobo_radial_softness, 0.5, radial_dist);
-
-	vec4 gobo_sample = texture(gobo_texture, gobo_uv);
-	float gobo_luma = dot(gobo_sample.rgb, vec3(0.299, 0.587, 0.114));
-	float hard_mask = smoothstep(gobo_mask_cutoff - gobo_edge_softness, gobo_mask_cutoff + gobo_edge_softness, gobo_luma);
-	return clamp(hard_mask * radial_falloff, 0.0, 1.0);
 }
 
 void fragment() {
@@ -89,9 +61,8 @@ void fragment() {
 		}
 	}
 
-	float gobo_mask = compute_gobo_mask(vertex_local, UV);
-	float final_alpha = feather_alpha * depth_mult * dist_fade * gobo_mask;
-	ALBEDO = base_color.rgb * brightness * gobo_mask;
-	ALPHA = clamp(final_alpha * base_color.a * volumetric_alpha_scale, 0.0, 1.0);
+	float final_alpha = feather_alpha * depth_mult * dist_fade;
+	ALBEDO = base_color.rgb * brightness;
+	ALPHA = clamp(final_alpha * base_color.a, 0.0, 1.0);
 	EMISSION = ALBEDO * ALPHA;
 }
