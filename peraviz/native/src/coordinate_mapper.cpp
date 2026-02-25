@@ -3,7 +3,6 @@
 #include "peraviz_debug_runtime.h"
 
 #include <cmath>
-#include <limits>
 
 namespace {
 
@@ -29,88 +28,6 @@ Matrix normalize_basis(const Matrix &m, const std::array<float, 3> &scale) {
         out.w[i] = safe_div(out.w[i], scale[2]);
     }
     return out;
-}
-
-float dot_product(const std::array<float, 3> &a, const std::array<float, 3> &b) {
-    return (a[0] * b[0]) + (a[1] * b[1]) + (a[2] * b[2]);
-}
-
-std::array<float, 3> cross_product(const std::array<float, 3> &a, const std::array<float, 3> &b) {
-    return {a[1] * b[2] - a[2] * b[1],
-            a[2] * b[0] - a[0] * b[2],
-            a[0] * b[1] - a[1] * b[0]};
-}
-
-float wrap_degrees(float value) {
-    while (value > 180.0F) {
-        value -= 360.0F;
-    }
-    while (value < -180.0F) {
-        value += 360.0F;
-    }
-    return value;
-}
-
-float euler_score(const std::array<float, 3> &euler_degrees) {
-    return std::fabs(wrap_degrees(euler_degrees[0])) +
-           std::fabs(wrap_degrees(euler_degrees[1])) +
-           std::fabs(wrap_degrees(euler_degrees[2]));
-}
-
-Matrix apply_axis_signs(const Matrix &m, int sx, int sy, int sz) {
-    Matrix out = m;
-    out.u = scale_axis(out.u, (sx < 0) ? -1.0F : 1.0F);
-    out.v = scale_axis(out.v, (sy < 0) ? -1.0F : 1.0F);
-    out.w = scale_axis(out.w, (sz < 0) ? -1.0F : 1.0F);
-    return out;
-}
-
-float axis_sign_from_canonical_axis(const std::array<float, 3> &axis, int canonical_axis_index) {
-    const float dot = axis[canonical_axis_index];
-    return (dot >= 0.0F) ? 1.0F : -1.0F;
-}
-
-void decompose_rotation_and_signed_scale(const Matrix &normalized_basis,
-                                         const std::array<float, 3> &initial_signed_scale,
-                                         Matrix &rotation_only,
-                                         std::array<float, 3> &signed_scale) {
-    const float handedness = dot_product(cross_product(normalized_basis.u, normalized_basis.v),
-                                         normalized_basis.w);
-    const int target_parity = (handedness < 0.0F) ? -1 : 1;
-
-    float best_score = std::numeric_limits<float>::infinity();
-    Matrix best_rotation = normalized_basis;
-    std::array<float, 3> best_scale = initial_signed_scale;
-
-    for (int sx : {-1, 1}) {
-        for (int sy : {-1, 1}) {
-            for (int sz : {-1, 1}) {
-                const int negatives = (sx < 0 ? 1 : 0) + (sy < 0 ? 1 : 0) + (sz < 0 ? 1 : 0);
-                if ((sx * sy * sz) != target_parity) {
-                    continue;
-                }
-                if (target_parity < 0 && negatives != 1) {
-                    continue;
-                }
-
-                const Matrix candidate_rotation = apply_axis_signs(normalized_basis, sx, sy, sz);
-                const auto candidate_euler = MatrixUtils::MatrixToEuler(candidate_rotation);
-                const float score = euler_score(candidate_euler);
-                if (score >= best_score) {
-                    continue;
-                }
-
-                best_score = score;
-                best_rotation = candidate_rotation;
-                best_scale = {initial_signed_scale[0] * static_cast<float>(sx),
-                              initial_signed_scale[1] * static_cast<float>(sy),
-                              initial_signed_scale[2] * static_cast<float>(sz)};
-            }
-        }
-    }
-
-    rotation_only = best_rotation;
-    signed_scale = best_scale;
 }
 
 } // namespace
@@ -145,31 +62,16 @@ SceneTransform to_godot_transform(const Matrix &source_local) {
     SceneTransform transform;
     transform.position = map_position_mm_to_m(source_local.o);
 
-    const Matrix basis = to_godot_local_basis(source_local);
-    const auto absolute_scale = extract_scale(basis);
-    const std::array<float, 3> axis_signs = {
-        axis_sign_from_canonical_axis(basis.u, 0),
-        axis_sign_from_canonical_axis(basis.v, 1),
-        axis_sign_from_canonical_axis(basis.w, 2)
-    };
-    const std::array<float, 3> initial_signed_scale = {
-        absolute_scale[0] * axis_signs[0],
-        absolute_scale[1] * axis_signs[1],
-        absolute_scale[2] * axis_signs[2]
-    };
-    const Matrix normalized_basis = normalize_basis(basis, absolute_scale);
-
-    Matrix rotation_only;
-    std::array<float, 3> signed_scale;
-    decompose_rotation_and_signed_scale(normalized_basis, initial_signed_scale,
-                                        rotation_only, signed_scale);
-
-    transform.scale = {signed_scale[0], signed_scale[1], signed_scale[2]};
-    transform.basis_x = {rotation_only.u[0], rotation_only.u[1], rotation_only.u[2]};
-    transform.basis_y = {rotation_only.v[0], rotation_only.v[1], rotation_only.v[2]};
-    transform.basis_z = {rotation_only.w[0], rotation_only.w[1], rotation_only.w[2]};
+    Matrix basis = to_godot_local_basis(source_local);
+    transform.basis_x = {basis.u[0], basis.u[1], basis.u[2]};
+    transform.basis_y = {basis.v[0], basis.v[1], basis.v[2]};
+    transform.basis_z = {basis.w[0], basis.w[1], basis.w[2]};
     transform.has_basis = true;
 
+    const auto scale = extract_scale(basis);
+    transform.scale = {scale[0], scale[1], scale[2]};
+
+    Matrix rotation_only = normalize_basis(basis, scale);
     const auto euler = MatrixUtils::MatrixToEuler(rotation_only);
     transform.rotation_degrees = {euler[0], euler[1], euler[2]};
 

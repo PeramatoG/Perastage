@@ -810,20 +810,17 @@ func _set_double_sided_surface_material(mesh_instance: MeshInstance3D, surface_i
 	return false
 
 func _extract_visual_scale_hint(data: Dictionary) -> float:
-	var node_scale: Vector3 = data.get("scale", Vector3.ONE)
-	var average_scale: float = (abs(node_scale.x) + abs(node_scale.y) + abs(node_scale.z)) / 3.0
-	if not is_finite(average_scale):
-		average_scale = 1.0
-
 	if bool(data.get("has_basis", false)):
 		var basis_x: Vector3 = data.get("basis_x", Vector3.RIGHT)
 		var basis_y: Vector3 = data.get("basis_y", Vector3.UP)
 		var basis_z: Vector3 = data.get("basis_z", Vector3.BACK)
 		var average_basis_length: float = (basis_x.length() + basis_y.length() + basis_z.length()) / 3.0
-		if not is_finite(average_basis_length):
-			average_basis_length = 1.0
-		return max(average_basis_length * average_scale, 0.0001)
+		return max(average_basis_length, 0.0001)
 
+	var node_scale: Vector3 = data.get("scale", Vector3.ONE)
+	var average_scale: float = (abs(node_scale.x) + abs(node_scale.y) + abs(node_scale.z)) / 3.0
+	if not is_finite(average_scale):
+		return 1.0
 	return max(average_scale, 0.0001)
 
 func _load_3d_asset(asset_path: String, asset_kind_hint: String = "") -> Variant:

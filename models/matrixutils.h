@@ -22,7 +22,6 @@
 #include <sstream>
 #include <cmath>
 #include <vector>
-#include <limits>
 #include "types.h"
 
 #ifndef M_PI
@@ -55,60 +54,6 @@ namespace MatrixUtils {
             out.w[i] *= scales[2];
         }
         out.o = translation;
-        return out;
-    }
-
-
-    inline Matrix NormalizeRotation(const Matrix& source)
-    {
-        Matrix out = source;
-        const auto scales = ExtractScale(source);
-        auto safeDiv = [](float value, float scale) {
-            return std::abs(scale) > 1e-6f ? value / scale : value;
-        };
-
-        for (int i = 0; i < 3; ++i) {
-            out.u[i] = safeDiv(out.u[i], scales[0]);
-            out.v[i] = safeDiv(out.v[i], scales[1]);
-            out.w[i] = safeDiv(out.w[i], scales[2]);
-        }
-        return out;
-    }
-
-    inline float BasisDeterminant(const Matrix& m)
-    {
-        return m.u[0] * (m.v[1] * m.w[2] - m.v[2] * m.w[1]) -
-               m.v[0] * (m.u[1] * m.w[2] - m.u[2] * m.w[1]) +
-               m.w[0] * (m.u[1] * m.v[2] - m.u[2] * m.v[1]);
-    }
-
-    inline float WrapDegrees(float value)
-    {
-        while (value > 180.0f)
-            value -= 360.0f;
-        while (value < -180.0f)
-            value += 360.0f;
-        return value;
-    }
-
-    inline float EulerMagnitudeScore(const std::array<float, 3>& euler)
-    {
-        return std::abs(WrapDegrees(euler[0])) +
-               std::abs(WrapDegrees(euler[1])) +
-               std::abs(WrapDegrees(euler[2]));
-    }
-
-    inline Matrix ApplyAxisSigns(const Matrix& source, int sx, int sy, int sz)
-    {
-        Matrix out = source;
-        const float signX = (sx < 0) ? -1.0f : 1.0f;
-        const float signY = (sy < 0) ? -1.0f : 1.0f;
-        const float signZ = (sz < 0) ? -1.0f : 1.0f;
-        for (int i = 0; i < 3; ++i) {
-            out.u[i] *= signX;
-            out.v[i] *= signY;
-            out.w[i] *= signZ;
-        }
         return out;
     }
 
@@ -156,58 +101,29 @@ namespace MatrixUtils {
     // Convert rotation part of matrix to Euler angles (degrees, yaw/pitch/roll)
     inline std::array<float, 3> MatrixToEuler(const Matrix& m)
     {
-        const Matrix normalized = NormalizeRotation(m);
-        const float determinant = BasisDeterminant(normalized);
-        const int requiredParity = (determinant < 0.0f) ? -1 : 1;
+        float r00 = m.u[0];
+        float r01 = m.u[1];
+        float r02 = m.u[2];
+        float r10 = m.v[0];
+        float r11 = m.v[1];
+        float r12 = m.v[2];
+        float r20 = m.w[0];
+        float r21 = m.w[1];
+        float r22 = m.w[2];
 
-        const float toDeg = 180.0f / static_cast<float>(M_PI);
-        auto rawEulerFromMatrix = [&](const Matrix& basis) {
-            const float r00 = basis.u[0];
-            const float r01 = basis.u[1];
-            const float r10 = basis.v[0];
-            const float r11 = basis.v[1];
-            const float r20 = basis.w[0];
-            const float r21 = basis.w[1];
-            const float r22 = basis.w[2];
-
-            const float pitch = std::atan2(-r20, std::sqrt(r00 * r00 + r10 * r10));
-            float yaw = 0.0f;
-            float roll = 0.0f;
-            if (std::abs(std::cos(pitch)) > 1e-6f) {
-                yaw = std::atan2(r10, r00);
-                roll = std::atan2(r21, r22);
-            } else {
-                yaw = 0.0f;
-                roll = std::atan2(-r01, r11);
-            }
-            return std::array<float, 3>{yaw * toDeg, pitch * toDeg, roll * toDeg};
-        };
-
-        std::array<float, 3> bestEuler{0.0f, 0.0f, 0.0f};
-        float bestScore = std::numeric_limits<float>::infinity();
-
-        for (int sx : {-1, 1}) {
-            for (int sy : {-1, 1}) {
-                for (int sz : {-1, 1}) {
-                    const int negatives = (sx < 0 ? 1 : 0) + (sy < 0 ? 1 : 0) + (sz < 0 ? 1 : 0);
-                    if ((sx * sy * sz) != requiredParity)
-                        continue;
-                    if (requiredParity < 0 && negatives != 1)
-                        continue;
-
-                    const Matrix candidate = ApplyAxisSigns(normalized, sx, sy, sz);
-                    const auto euler = rawEulerFromMatrix(candidate);
-                    const float score = EulerMagnitudeScore(euler);
-                    if (score >= bestScore)
-                        continue;
-
-                    bestScore = score;
-                    bestEuler = euler;
-                }
-            }
+        float pitch = std::atan2(-r20, std::sqrt(r00 * r00 + r10 * r10));
+        float yaw, roll;
+        if (std::abs(std::cos(pitch)) > 1e-6f) {
+            yaw = std::atan2(r10, r00);
+            roll = std::atan2(r21, r22);
+        }
+        else {
+            yaw = 0.0f;
+            roll = std::atan2(-r01, r11);
         }
 
-        return bestEuler;
+        const float toDeg = 180.0f / static_cast<float>(M_PI);
+        return { yaw * toDeg, pitch * toDeg, roll * toDeg };
     }
 
     // Build a rotation matrix from Euler angles in degrees (yaw/pitch/roll)
