@@ -125,6 +125,7 @@ public:
   static std::string BuildFixtureTypeAutoColorHex(const std::string &fixtureTypeKey);
   std::shared_ptr<const SymbolDefinitionSnapshot>
   GetBottomSymbolCacheSnapshot() const;
+  void ClearBottomSymbolCache();
 
   void SetCaptureCanvas(ICanvas2D *canvas, Viewer2DView view,
                         bool includeGrid = true,
@@ -203,7 +204,8 @@ private:
   void DrawGrid(int style, float r, float g, float b,
                 Viewer2DView view = Viewer2DView::Top);
   void DrawAxes();
-  void SetupBasicLighting();
+  void SetupBasicLighting(bool ambientOcclusionEnabled,
+                          float ambientOcclusionStrength);
   void SetupMaterialFromRGB(float r, float g, float b);
   void SetGLColor(float r, float g, float b) const override;
   std::array<float, 3> AdjustColor(float r, float g, float b) const;

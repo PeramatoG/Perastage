@@ -72,6 +72,7 @@ public:
                                       const BuilderFn &builder);
   const SymbolDefinition *GetById(uint32_t id) const;
   std::shared_ptr<SymbolDefinitionSnapshot> Snapshot() const;
+  void Clear();
 
   uint64_t HitCount() const { return hits_; }
   uint64_t MissCount() const { return misses_; }

@@ -63,6 +63,7 @@
 #include "label_render_system.h"
 #include "selectionsystem.h"
 #include "gl_primitive_renderer.h"
+#include "lighting_profile.h"
 
 #include <wx/wx.h>
 #define NANOVG_GL2_IMPLEMENTATION
@@ -959,6 +960,10 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
   const bool isByLayerMode = context.mode == Viewer2DRenderMode::ByLayer;
 
   context.useLighting = !context.wireframe;
+  context.useAmbientOcclusion =
+      cfg.GetFloat("viewer3d_ambient_occlusion") >= 0.5f;
+  context.ambientOcclusionStrength =
+      cfg.GetFloat("viewer3d_ambient_occlusion_strength");
 
   const bool shouldDrawGrid = context.showGrid;
   const bool shouldDrawGridBeforeScene = shouldDrawGrid && !context.gridOnTop;
@@ -1049,7 +1054,8 @@ void Viewer3DController::RenderOpaqueFrame(const RenderFrameContext &context,
   const Viewer2DView view = context.view;
 
   if (context.useLighting)
-    SetupBasicLighting();
+    SetupBasicLighting(context.useAmbientOcclusion,
+                      context.ambientOcclusionStrength);
   else
     glDisable(GL_LIGHTING);
 
@@ -1405,30 +1411,12 @@ void Viewer3DController::ApplyTransform(const float matrix[16],
 }
 
 // Initializes simple lighting for the scene
-void Viewer3DController::SetupBasicLighting() {
-  glEnable(GL_LIGHTING);
-  // Keep normal lengths stable after model transforms with scaling.
-  glEnable(GL_NORMALIZE);
-  glEnable(GL_LIGHT0);
-  glEnable(GL_CULL_FACE);
-  glCullFace(GL_BACK);
-  glFrontFace(GL_CCW);
-
-  GLfloat ambient[] = {0.2f, 0.2f, 0.2f, 1.0f};
-  GLfloat diffuse[] = {0.8f, 0.8f, 0.8f, 1.0f};
-  GLfloat specular[] = {1.0f, 1.0f, 1.0f, 1.0f};
-  GLfloat position[] = {2.0f, -4.0f, 5.0f, 0.0f};
-
-  glLightfv(GL_LIGHT0, GL_AMBIENT, ambient);
-  glLightfv(GL_LIGHT0, GL_DIFFUSE, diffuse);
-  glLightfv(GL_LIGHT0, GL_SPECULAR, specular);
-  glLightfv(GL_LIGHT0, GL_POSITION, position);
-
-  glLightModeli(GL_LIGHT_MODEL_TWO_SIDE, GL_TRUE);
-
-  glEnable(GL_COLOR_MATERIAL);
-  glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE);
-  glShadeModel(GL_SMOOTH);
+void Viewer3DController::SetupBasicLighting(bool ambientOcclusionEnabled,
+                                          float ambientOcclusionStrength) {
+  Viewer3DLightingProfile::LightingOptions options;
+  options.ambientOcclusionEnabled = ambientOcclusionEnabled;
+  options.ambientOcclusionStrength = ambientOcclusionStrength;
+  Viewer3DLightingProfile::ApplyEnhancedBasicLighting(options);
 }
 
 void Viewer3DController::DrawFixtureLabels(int width, int height) {
@@ -1472,6 +1460,10 @@ std::string Viewer3DController::BuildFixtureTypeAutoColorHex(
 std::shared_ptr<const SymbolDefinitionSnapshot>
 Viewer3DController::GetBottomSymbolCacheSnapshot() const {
   return m_impl->bottomSymbolCache.Snapshot();
+}
+
+void Viewer3DController::ClearBottomSymbolCache() {
+  m_impl->bottomSymbolCache.Clear();
 }
 
 void Viewer3DController::DrawMeshWithOutline(

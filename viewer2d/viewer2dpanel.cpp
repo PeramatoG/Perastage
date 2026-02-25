@@ -518,6 +518,10 @@ Viewer2DPanel::GetBottomSymbolCacheSnapshot() const {
   return m_controller.GetBottomSymbolCacheSnapshot();
 }
 
+void Viewer2DPanel::InvalidateBottomSymbolCache() {
+  m_controller.ClearBottomSymbolCache();
+}
+
 void Viewer2DPanel::InitGL() {
   if (!IsShownOnScreen() && !m_forceOffscreenRender &&
       !m_allowOffscreenRender) {

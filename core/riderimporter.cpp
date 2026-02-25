@@ -152,6 +152,26 @@ bool IsRenderableTrussGeometry(const std::string &path) {
   return ext == ".3ds" || ext == ".glb";
 }
 
+std::filesystem::path ResolveTrussSymbolPath(const Truss &truss) {
+  std::filesystem::path symbolPath = std::filesystem::u8path(truss.symbolFile);
+  if (symbolPath.is_absolute())
+    return symbolPath;
+
+  if (!truss.modelFile.empty()) {
+    std::filesystem::path modelPath = std::filesystem::u8path(truss.modelFile);
+    if (modelPath.is_absolute())
+      return modelPath.parent_path() / symbolPath;
+  }
+
+  if (!truss.gdtfSpec.empty()) {
+    std::filesystem::path gdtfPath = std::filesystem::u8path(truss.gdtfSpec);
+    if (gdtfPath.is_absolute())
+      return gdtfPath.parent_path() / symbolPath;
+  }
+
+  return symbolPath;
+}
+
 std::string DescribeTrussForLog(const Truss &truss) {
   const std::string displayName = truss.name.empty() ? "(unnamed)" : truss.name;
   std::ostringstream oss;
@@ -748,8 +768,9 @@ bool RiderImporter::ImportText(const std::string &text) {
       continue;
 
     Truss &t = trussIt->second;
+    const std::filesystem::path resolvedSymbolPath = ResolveTrussSymbolPath(t);
     if (IsRenderableTrussGeometry(t.symbolFile) &&
-        std::filesystem::exists(std::filesystem::u8path(t.symbolFile)))
+        std::filesystem::exists(resolvedSymbolPath))
       continue;
 
     Truss parsed;
@@ -831,9 +852,11 @@ bool RiderImporter::ImportText(const std::string &text) {
     if (!parsed.crossSection.empty())
       t.crossSection = parsed.crossSection;
 
+    const std::filesystem::path resolvedSymbolPathAfterDefinition =
+        ResolveTrussSymbolPath(t);
     bool symbolLooksRenderable = IsRenderableTrussGeometry(t.symbolFile);
     bool symbolExists =
-        symbolLooksRenderable && std::filesystem::exists(std::filesystem::u8path(t.symbolFile));
+        symbolLooksRenderable && std::filesystem::exists(resolvedSymbolPathAfterDefinition);
     if (!symbolExists) {
       std::ostringstream reason;
       if (t.symbolFile.empty()) {
@@ -841,7 +864,8 @@ bool RiderImporter::ImportText(const std::string &text) {
       } else if (!symbolLooksRenderable) {
         reason << "symbolFile extension is not .3ds/.glb";
       } else {
-        reason << "symbolFile does not exist on disk";
+        reason << "symbolFile does not exist on disk (checked path='"
+               << resolvedSymbolPathAfterDefinition.string() << "')";
       }
       std::ostringstream oss;
       oss << "Rider import truss fallback to dummy box: "

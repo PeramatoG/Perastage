@@ -268,7 +268,7 @@ void MainWindow::SetupLayout() {
                                       .Layer(1)
                                       .Row(0)
                                       .Position(0)
-                                      .BestSize(200, 300)
+                                      .BestSize(250, 300)
                                       .CloseButton(true)
                                       .MaximizeButton(true)
                                       .PaneBorder(true));
@@ -311,7 +311,7 @@ void MainWindow::SetupLayout() {
                                         .Layer(1)
                                         .Row(0)
                                         .Position(1)
-                                        .BestSize(200, 150)
+                                        .BestSize(250, 150)
                                         .CloseButton(true)
                                         .MaximizeButton(true)
                                         .PaneBorder(true));

@@ -115,6 +115,7 @@ public:
 
   std::shared_ptr<const SymbolDefinitionSnapshot>
   GetBottomSymbolCacheSnapshot() const;
+  void InvalidateBottomSymbolCache();
 
   void SetLayoutEditOverlay(std::optional<float> aspectRatio,
                             std::optional<wxSize> viewportSize = std::nullopt);

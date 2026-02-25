@@ -183,3 +183,22 @@ void LayoutViewerPanel::InvalidateRenderIfFrameChanged() {
   lastPageWidthPt = pageWidth;
   lastPageHeightPt = pageHeight;
 }
+
+void LayoutViewerPanel::RefreshAfterFixtureSymbolUpdate() {
+  viewRenderVersion++;
+  captureInProgress = false;
+
+  for (auto &entry : viewCaches_) {
+    ViewCache &cache = entry.second;
+    cache.captureVersion = -1;
+    cache.captureInProgress = false;
+    cache.renderDirty = true;
+  }
+
+  for (auto &entry : legendCaches_)
+    entry.second.renderDirty = true;
+
+  renderDirty = true;
+  RequestRenderRebuild();
+  Refresh();
+}

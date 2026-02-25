@@ -112,6 +112,14 @@ static bool IsRenderableTrussGeometry(const std::string &path) {
   return ext == ".3ds" || ext == ".glb";
 }
 
+static fs::path ResolveSceneRelativePath(const std::string &basePath,
+                                         const std::string &pathText) {
+  fs::path path = fs::u8path(pathText);
+  if (path.is_absolute() || basePath.empty())
+    return path;
+  return fs::u8path(basePath) / path;
+}
+
 static std::string DescribeTrussForLog(const Truss &truss) {
   const std::string displayName = truss.name.empty() ? "(unnamed)" : truss.name;
   std::ostringstream oss;
@@ -543,6 +551,14 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
     return ToString(path.u8string());
   };
 
+  auto normalizeAndResolveGeometryFileName = [&](std::string fileName) {
+    std::string normalized = normalizeGeometryFileName(std::move(fileName));
+    if (normalized.empty())
+      return normalized;
+    const fs::path resolved = ResolveSceneRelativePath(scene.basePath, normalized);
+    return ToString(resolved.u8string());
+  };
+
   auto appendGeometryInstance = [&](std::vector<GeometryInstance> &instances,
                                     const std::string &fileName,
                                     const Matrix &localTransform) {
@@ -844,7 +860,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                   geos->FirstChildElement("Geometry3D")) {
             const char *file = g3d->Attribute("fileName");
             if (file)
-              truss.symbolFile = file;
+              truss.symbolFile = normalizeAndResolveGeometryFileName(file);
             Matrix geoMatrix = MatrixUtils::Identity();
             parseMatrixOrIdentity(g3d, "Matrix", "Truss/Geometry3D", geoMatrix, true);
             truss.transform = MatrixUtils::Multiply(nodeTransform, geoMatrix);
@@ -856,13 +872,15 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
             resolveSymdefReference(sym, symGeometries, symType, symMatrix);
             Matrix symLocal = symMatrix;
             if (!symGeometries.empty()) {
-              truss.symbolFile = symGeometries.front().file;
+              truss.symbolFile =
+                  normalizeAndResolveGeometryFileName(symGeometries.front().file);
               symLocal = MatrixUtils::Multiply(symMatrix,
                                                symGeometries.front().transform);
             }
             truss.transform = MatrixUtils::Multiply(nodeTransform, symLocal);
           }
         }
+
 
         const bool hasGdtfMetadataAuthority = !truss.gdtfSpec.empty() && !gdtfLoadFailed;
 
@@ -871,6 +889,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                data = data->NextSiblingElement("Data")) {
             if (tinyxml2::XMLElement *info =
                     data->FirstChildElement("TrussInfo")) {
+              // GDTF values are authoritative when available. TrussInfo is used
+              // only as fallback metadata if GDTF could not be loaded.
               if (!hasGdtfMetadataAuthority) {
                 if (tinyxml2::XMLElement *m =
                         info->FirstChildElement("Manufacturer"))
@@ -924,9 +944,10 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
           }
         }
 
+        const fs::path resolvedSymbolPath =
+            ResolveSceneRelativePath(scene.basePath, truss.symbolFile);
         const bool symbolRenderable = IsRenderableTrussGeometry(truss.symbolFile);
-        const bool symbolExists =
-            symbolRenderable && fs::exists(fs::u8path(truss.symbolFile));
+        const bool symbolExists = symbolRenderable && fs::exists(resolvedSymbolPath);
         if (!symbolExists) {
           std::ostringstream reason;
           if (truss.symbolFile.empty()) {
@@ -934,7 +955,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
           } else if (!symbolRenderable) {
             reason << "symbolFile extension is not .3ds/.glb";
           } else {
-            reason << "symbolFile does not exist on disk";
+            reason << "symbolFile does not exist on disk (checked path='"
+                   << ToString(resolvedSymbolPath.u8string()) << "')";
           }
           if (gdtfLoadFailed)
             reason << "; LoadTrussDefinition(gdtfSpec) returned false";

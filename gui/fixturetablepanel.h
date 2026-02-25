@@ -47,7 +47,7 @@ public:
     static FixtureTablePanel* Instance();
     static void SetInstance(FixtureTablePanel* panel);
 
-    void UpdateSceneData();
+    void UpdateSceneData(bool logChanges = true);
 
 private:
     friend class FixtureEditDialog; // allow dialog to access internals

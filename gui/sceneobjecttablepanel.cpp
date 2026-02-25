@@ -24,6 +24,7 @@
 #include "matrixutils.h"
 #include "stringutils.h"
 #include "summarypanel.h"
+#include "dataview_edit_commit.h"
 #include "viewer2dpanel.h"
 #include "viewer3dpanel.h"
 #include <algorithm>
@@ -544,48 +545,78 @@ void SceneObjectTablePanel::ApplyPositionValueUpdates(
     }
 }
 
-void SceneObjectTablePanel::UpdateSceneData()
+void SceneObjectTablePanel::UpdateSceneData(bool logChanges)
 {
+    // Ensure in-place cell editors commit pending values before reading table rows.
+    if (table)
+        DataViewEditCommit::CommitPendingEdit(table);
+    (void)logChanges;
     ConfigManager& cfg = guiConfigServices->LegacyConfigManager();
-    cfg.PushUndoState("edit scene object");
     auto& scene = cfg.GetScene();
     size_t count = std::min((size_t)table->GetItemCount(), rowUuids.size());
+    bool anyChanged = false;
+    bool undoPushed = false;
+    auto pushUndoIfNeeded = [&]() {
+        if (!undoPushed)
+        {
+            cfg.PushUndoState("edit scene object");
+            undoPushed = true;
+        }
+    };
+
+    // Persist row values only when layer or transform differs from scene data.
     for (size_t i = 0; i < count; ++i)
     {
         auto it = scene.sceneObjects.find(rowUuids[i]);
         if (it == scene.sceneObjects.end())
             continue;
 
+        const SceneObject old = it->second;
+        SceneObject next = old;
         wxVariant v;
+
         table->GetValue(v, i, 1);
         std::string layerStr = std::string(v.GetString().mb_str());
         if (layerStr.empty())
-            it->second.layer.clear();
+            next.layer.clear();
         else
-            it->second.layer = layerStr;
-        double x=0, y=0, z=0;
-        table->GetValue(v, i, 3); v.GetString().ToDouble(&x);
-        table->GetValue(v, i, 4); v.GetString().ToDouble(&y);
-        table->GetValue(v, i, 5); v.GetString().ToDouble(&z);
+            next.layer = layerStr;
 
-        double roll=0, pitch=0, yaw=0;
-        table->GetValue(v, i, 6); {
-            wxString s = v.GetString(); s.Replace("\u00B0", ""); s.ToDouble(&roll);
+        double x = 0, y = 0, z = 0;
+        table->GetValue(v, i, 3);
+        v.GetString().ToDouble(&x);
+        table->GetValue(v, i, 4);
+        v.GetString().ToDouble(&y);
+        table->GetValue(v, i, 5);
+        v.GetString().ToDouble(&z);
+
+        double roll = 0, pitch = 0, yaw = 0;
+        table->GetValue(v, i, 6);
+        {
+            wxString s = v.GetString();
+            s.Replace("°", "");
+            s.ToDouble(&roll);
         }
-        table->GetValue(v, i, 7); {
-            wxString s = v.GetString(); s.Replace("\u00B0", ""); s.ToDouble(&pitch);
+        table->GetValue(v, i, 7);
+        {
+            wxString s = v.GetString();
+            s.Replace("°", "");
+            s.ToDouble(&pitch);
         }
-        table->GetValue(v, i, 8); {
-            wxString s = v.GetString(); s.Replace("\u00B0", ""); s.ToDouble(&yaw);
+        table->GetValue(v, i, 8);
+        {
+            wxString s = v.GetString();
+            s.Replace("°", "");
+            s.ToDouble(&yaw);
         }
 
-        const auto currentEuler = MatrixUtils::MatrixToEuler(it->second.transform);
+        const auto currentEuler = MatrixUtils::MatrixToEuler(old.transform);
         const bool transformChanged =
-            wxString::Format("%.3f", it->second.transform.o[0] / 1000.0f) !=
+            wxString::Format("%.3f", old.transform.o[0] / 1000.0f) !=
                 wxString::Format("%.3f", x) ||
-            wxString::Format("%.3f", it->second.transform.o[1] / 1000.0f) !=
+            wxString::Format("%.3f", old.transform.o[1] / 1000.0f) !=
                 wxString::Format("%.3f", y) ||
-            wxString::Format("%.3f", it->second.transform.o[2] / 1000.0f) !=
+            wxString::Format("%.3f", old.transform.o[2] / 1000.0f) !=
                 wxString::Format("%.3f", z) ||
             wxString::Format("%.1f", currentEuler[2]) !=
                 wxString::Format("%.1f", roll) ||
@@ -594,21 +625,34 @@ void SceneObjectTablePanel::UpdateSceneData()
             wxString::Format("%.1f", currentEuler[0]) !=
                 wxString::Format("%.1f", yaw);
 
-        if (transformChanged) {
+        if (transformChanged)
+        {
             Matrix rot = MatrixUtils::EulerToMatrix(static_cast<float>(yaw),
                                                     static_cast<float>(pitch),
                                                     static_cast<float>(roll));
-            it->second.transform = MatrixUtils::ApplyRotationPreservingScale(
-                it->second.transform, rot,
+            next.transform = MatrixUtils::ApplyRotationPreservingScale(
+                old.transform, rot,
                 {static_cast<float>(x * 1000.0),
                  static_cast<float>(y * 1000.0),
                  static_cast<float>(z * 1000.0)});
         }
+
+        const bool objectChanged = old.layer != next.layer || transformChanged;
+        if (!objectChanged)
+            continue;
+
+        pushUndoIfNeeded();
+        anyChanged = true;
+        it->second = next;
     }
+
+    if (!anyChanged)
+        return;
 
     if (SummaryPanel::Instance() && IsActivePage())
         SummaryPanel::Instance()->ShowSceneObjectSummary();
 }
+
 
 SceneObjectTablePanel* SceneObjectTablePanel::Instance()
 {

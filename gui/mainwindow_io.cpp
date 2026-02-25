@@ -82,9 +82,11 @@ void MainWindow::OnSave(wxCommandEvent &event) {
     OnSaveAs(event);
     return;
   }
+  auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
+  // Always sync table edits before saving; each panel now applies only real changes.
   SyncSceneData();
   SaveUserConfigWithViewport2DState();
-  if (!GetDefaultGuiConfigServices().LegacyConfigManager().SaveProject(currentProjectPath))
+  if (!cfg.SaveProject(currentProjectPath))
     wxMessageBox("Failed to save project.", "Error", wxICON_ERROR);
   else {
     ProjectUtils::SaveLastProjectPath(currentProjectPath);
@@ -114,9 +116,11 @@ void MainWindow::OnSaveAs(wxCommandEvent &event) {
     return;
 
   currentProjectPath = dlg.GetPath().ToStdString();
+  auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
+  // Always sync table edits before saving; each panel now applies only real changes.
   SyncSceneData();
   SaveUserConfigWithViewport2DState();
-  if (!GetDefaultGuiConfigServices().LegacyConfigManager().SaveProject(currentProjectPath))
+  if (!cfg.SaveProject(currentProjectPath))
     wxMessageBox("Failed to save project.", "Error", wxICON_ERROR);
   else {
     ProjectUtils::SaveLastProjectPath(currentProjectPath);

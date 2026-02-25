@@ -62,6 +62,8 @@ struct RenderFrameContext {
   bool is2DViewer = false;
 
   bool useLighting = true;
+  bool useAmbientOcclusion = true;
+  float ambientOcclusionStrength = 1.0f;
   bool drawGridBeforeScene = false;
   bool drawGridAfterScene = false;
   bool useFrustumCulling = false;
