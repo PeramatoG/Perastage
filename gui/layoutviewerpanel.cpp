@@ -16,7 +16,6 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include <algorithm>
-#include <cstdlib>
 #include <cmath>
 #include <cstdio>
 #include <cstring>
@@ -1672,8 +1671,7 @@ void LayoutViewerPanel::RebuildCachedTexture() {
         wxImage svgOverlay = RenderLayoutViewSvgSymbolsOverlayToImage(
             renderSize, cache.buffer, overlayState, cache.symbols.get(),
             &svgDebugInfo);
-        const char *debugPopupEnv = std::getenv("PERASTAGE_LAYOUT_SVG_DEBUG_POPUP");
-        if (debugPopupEnv && std::string(debugPopupEnv) == "1") {
+        {
           std::ostringstream message;
           message << "Layout View2D SVG debug\n"
                   << "viewId=" << view.id << "\n"
