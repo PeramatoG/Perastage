@@ -17,6 +17,7 @@
 
 namespace {
 namespace fs = std::filesystem;
+constexpr bool kDisableFallbackSymbolRenderingForDebug = true;
 
 struct SvgLookupKey {
   std::string modelKey;
@@ -360,6 +361,8 @@ void RenderCommandBuffer(wxGCDC &dc, const CommandBuffer &buffer,
         continue;
 
       if (!renderedSvg) {
+        if (kDisableFallbackSymbolRenderingForDebug)
+          continue;
         if (debugInfo)
           debugInfo->fallbackRenderCount += 1;
         RenderCommandBuffer(dc, it->second.localCommands, mapping, symbols,
