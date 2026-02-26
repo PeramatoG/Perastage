@@ -1010,11 +1010,11 @@ wxImage LayoutViewerPanel::BuildLegendImage(
     if (item.symbolKey.empty())
       continue;
     const PerastageSvgSymbolData *topSvg =
-        findSvgSymbol(item.symbolKey, SymbolViewKind::Top);
+        findSvgSymbol(item.symbolKey, SymbolViewKind::Bottom);
     const PerastageSvgSymbolData *frontSvg =
         findSvgSymbol(item.symbolKey, SymbolViewKind::Front);
-    const SymbolDefinition *topSymbol =
-        FindSymbolDefinitionPreferred(symbols, item.symbolKey, SymbolViewKind::Top);
+    const SymbolDefinition *topSymbol = FindSymbolDefinitionPreferred(
+        symbols, item.symbolKey, SymbolViewKind::Bottom);
     const SymbolDefinition *frontSymbol =
         FindSymbolDefinitionExact(symbols, item.symbolKey, SymbolViewKind::Front);
     const double topDrawW =
@@ -1102,11 +1102,11 @@ wxImage LayoutViewerPanel::BuildLegendImage(
     wxString typeText = trimTextToWidth(rowText.typeText, typeWidth);
     if (!item.symbolKey.empty()) {
       const SymbolDefinition *topSymbol = FindSymbolDefinitionPreferred(
-          symbols, item.symbolKey, SymbolViewKind::Top);
+          symbols, item.symbolKey, SymbolViewKind::Bottom);
       const SymbolDefinition *frontSymbol = FindSymbolDefinitionExact(
           symbols, item.symbolKey, SymbolViewKind::Front);
       const PerastageSvgSymbolData *topSvg =
-          findSvgSymbol(item.symbolKey, SymbolViewKind::Top);
+          findSvgSymbol(item.symbolKey, SymbolViewKind::Bottom);
       const PerastageSvgSymbolData *frontSvg =
           findSvgSymbol(item.symbolKey, SymbolViewKind::Front);
       auto drawSymbol = [&](const SymbolDefinition *symbol, double drawCenterX,
