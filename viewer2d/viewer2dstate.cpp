@@ -114,9 +114,12 @@ void ApplyState(Viewer2DPanel *panel, Viewer2DRenderPanel *renderPanel,
   cfg.SetFloat("view2d_render_mode",
                static_cast<float>(state.renderOptions.renderMode));
   cfg.SetFloat("view2d_dark_mode", state.renderOptions.darkMode ? 1.0f : 0.0f);
-  cfg.SetFloat("view2d_top_fixtures_inverted",
-               state.renderOptions.forceBottomViewForTopFixtures ? 1.0f
-                                                                  : 0.0f);
+  if (state.renderOptions.forceBottomViewForTopFixtures.has_value()) {
+    cfg.SetFloat("view2d_top_fixtures_inverted",
+                 state.renderOptions.forceBottomViewForTopFixtures.value()
+                     ? 1.0f
+                     : 0.0f);
+  }
   cfg.SetFloat("grid_show", state.renderOptions.showGrid ? 1.0f : 0.0f);
   cfg.SetFloat("grid_style", static_cast<float>(state.renderOptions.gridStyle));
   cfg.SetFloat("grid_color_r", state.renderOptions.gridColorR);

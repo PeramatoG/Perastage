@@ -65,23 +65,29 @@ nlohmann::json ToJson(const Layout2DViewDefinition &view) {
         {"viewportHeight", camera.viewportHeight},
         {"view", camera.view}}},
       {"renderOptions",
-       {{"renderMode", options.renderMode},
-        {"darkMode", options.darkMode},
-        {"forceBottomViewForTopFixtures", options.forceBottomViewForTopFixtures},
-        {"showGrid", options.showGrid},
-        {"gridStyle", options.gridStyle},
-        {"gridColorR", options.gridColorR},
-        {"gridColorG", options.gridColorG},
-        {"gridColorB", options.gridColorB},
-        {"gridDrawAbove", options.gridDrawAbove},
-        {"showLabelName", options.showLabelName},
-        {"showLabelId", options.showLabelId},
-        {"showLabelDmx", options.showLabelDmx},
-        {"labelFontSizeName", options.labelFontSizeName},
-        {"labelFontSizeId", options.labelFontSizeId},
-        {"labelFontSizeDmx", options.labelFontSizeDmx},
-        {"labelOffsetDistance", options.labelOffsetDistance},
-        {"labelOffsetAngle", options.labelOffsetAngle}}},
+       [&options]() {
+         nlohmann::json renderOptions{{"renderMode", options.renderMode},
+                                      {"darkMode", options.darkMode},
+                                      {"showGrid", options.showGrid},
+                                      {"gridStyle", options.gridStyle},
+                                      {"gridColorR", options.gridColorR},
+                                      {"gridColorG", options.gridColorG},
+                                      {"gridColorB", options.gridColorB},
+                                      {"gridDrawAbove", options.gridDrawAbove},
+                                      {"showLabelName", options.showLabelName},
+                                      {"showLabelId", options.showLabelId},
+                                      {"showLabelDmx", options.showLabelDmx},
+                                      {"labelFontSizeName", options.labelFontSizeName},
+                                      {"labelFontSizeId", options.labelFontSizeId},
+                                      {"labelFontSizeDmx", options.labelFontSizeDmx},
+                                      {"labelOffsetDistance", options.labelOffsetDistance},
+                                      {"labelOffsetAngle", options.labelOffsetAngle}};
+         if (options.forceBottomViewForTopFixtures.has_value()) {
+           renderOptions["forceBottomViewForTopFixtures"] =
+               options.forceBottomViewForTopFixtures.value();
+         }
+         return renderOptions;
+       }()},
       {"layers", {{"hiddenLayers", layers.hiddenLayers}}},
   };
 }
