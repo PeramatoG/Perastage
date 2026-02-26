@@ -1,7 +1,7 @@
 shader_type spatial;
 render_mode unshaded, cull_disabled, depth_draw_opaque;
 
-instance uniform sampler2D gobo_texture;
+uniform sampler2D gobo_texture;
 instance uniform float gobo_cutoff : hint_range(0.0, 1.0) = 0.5;
 instance uniform vec2 gobo_size = vec2(0.1, 0.1);
 instance uniform float gobo_thickness : hint_range(0.0005, 0.05) = 0.003;

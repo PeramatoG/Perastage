@@ -10,16 +10,16 @@ const GOBO_OCCLUDER_DISTANCE_M: float = 0.02
 const GOBO_OCCLUDER_SIZE_PADDING: float = 1.1
 const GOBO_OCCLUDER_THICKNESS_M: float = 0.003
 
-var _shared_material: ShaderMaterial
-var _gobo_occluder_material: ShaderMaterial
+var _beam_material_template: ShaderMaterial
+var _gobo_occluder_material_template: ShaderMaterial
 var _camera: Camera3D
 var _settings: Dictionary = {}
 
 func _init() -> void:
-	_shared_material = ShaderMaterial.new()
-	_shared_material.shader = load("res://scripts/shaders/volumetric_beam.gdshader")
-	_gobo_occluder_material = ShaderMaterial.new()
-	_gobo_occluder_material.shader = load("res://scripts/shaders/gobo_occluder.gdshader")
+	_beam_material_template = ShaderMaterial.new()
+	_beam_material_template.shader = load("res://scripts/shaders/volumetric_beam.gdshader")
+	_gobo_occluder_material_template = ShaderMaterial.new()
+	_gobo_occluder_material_template.shader = load("res://scripts/shaders/gobo_occluder.gdshader")
 
 func configure(view_camera: Camera3D, settings: Dictionary) -> void:
 	_camera = view_camera
@@ -39,7 +39,7 @@ func ensure_beam(light: SpotLight3D) -> void:
 		cone.name = "PeravizVolumetricBeam"
 		cone.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		cone.mesh = cone_mesh
-		cone.material_override = _shared_material
+		cone.material_override = _beam_material_template.duplicate(true)
 		cone.rotation_degrees.x = 90.0
 		cone.visible = false
 		light.add_child(cone)
@@ -51,7 +51,7 @@ func ensure_beam(light: SpotLight3D) -> void:
 		var gobo_occluder := MeshInstance3D.new()
 		gobo_occluder.name = "PeravizGoboOccluder"
 		gobo_occluder.mesh = gobo_mesh
-		gobo_occluder.material_override = _gobo_occluder_material
+		gobo_occluder.material_override = _gobo_occluder_material_template.duplicate(true)
 		gobo_occluder.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
 		gobo_occluder.visible = false
 		light.add_child(gobo_occluder)
@@ -134,11 +134,18 @@ func _update_gobo_occluder(light: SpotLight3D, cone: MeshInstance3D, gobo_occlud
 	if gobo_occluder == null:
 		return
 
+	var cone_material: ShaderMaterial = cone.material_override as ShaderMaterial
+	var gobo_material: ShaderMaterial = gobo_occluder.material_override as ShaderMaterial
+	if cone_material == null or gobo_material == null:
+		return
+
 	var gobo_texture: Texture2D = light.light_projector
 	var gobo_active := gobo_texture != null
 	cone.set_instance_shader_parameter("gobo_enabled", gobo_active)
 	if not gobo_active:
 		gobo_occluder.visible = false
+		cone_material.set_shader_parameter("gobo_texture", null)
+		gobo_material.set_shader_parameter("gobo_texture", null)
 		cone.set_instance_shader_parameter("gobo_strength", 1.0)
 		cone.set_instance_shader_parameter("gobo_start_ratio", 0.0)
 		cone.set_instance_shader_parameter("gobo_cutoff", 0.5)
@@ -166,12 +173,12 @@ func _update_gobo_occluder(light: SpotLight3D, cone: MeshInstance3D, gobo_occlud
 
 	gobo_occluder.position = Vector3(0.0, 0.0, -(GOBO_OCCLUDER_DISTANCE_M + (GOBO_OCCLUDER_THICKNESS_M * 0.5)))
 	gobo_occluder.visible = true
-	gobo_occluder.set_instance_shader_parameter("gobo_texture", gobo_texture)
+	gobo_material.set_shader_parameter("gobo_texture", gobo_texture)
 	gobo_occluder.set_instance_shader_parameter("gobo_cutoff", 0.5)
 	gobo_occluder.set_instance_shader_parameter("gobo_size", Vector2(gobo_width, gobo_height))
 	gobo_occluder.set_instance_shader_parameter("gobo_thickness", GOBO_OCCLUDER_THICKNESS_M)
 
-	cone.set_instance_shader_parameter("gobo_texture", gobo_texture)
+	cone_material.set_shader_parameter("gobo_texture", gobo_texture)
 	cone.set_instance_shader_parameter("gobo_strength", 1.0)
 	cone.set_instance_shader_parameter("gobo_rotation", 0.0)
 	cone.set_instance_shader_parameter("gobo_start_ratio", clamp(GOBO_OCCLUDER_DISTANCE_M / beam_range, 0.0, 1.0))

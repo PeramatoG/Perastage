@@ -17,7 +17,7 @@ instance uniform float far_fade_end : hint_range(0.1, 100.0) = 80.0;
 instance uniform float max_brightness : hint_range(1.0, 50.0) = 10.0;
 instance uniform bool depth_feather_enabled = true;
 instance uniform float depth_fade_distance : hint_range(0.01, 5.0) = 0.5;
-instance uniform sampler2D gobo_texture;
+uniform sampler2D gobo_texture;
 instance uniform bool gobo_enabled = false;
 instance uniform float gobo_strength : hint_range(0.0, 1.0) = 1.0;
 instance uniform float beam_top_radius : hint_range(0.001, 100.0) = 0.02;
