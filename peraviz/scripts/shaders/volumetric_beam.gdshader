@@ -34,12 +34,11 @@ instance uniform float beam_top_radius = 0.02;
 instance uniform float beam_bottom_radius = 0.8;
 
 varying vec3 v_view;
-varying float v_depth;
+varying vec3 v_local;
 
 void vertex() {
+	v_local = VERTEX;
 	v_view = (MODELVIEW_MATRIX * vec4(VERTEX, 1.0)).xyz;
-	// Distance from the fixture along the beam axis (positive along -Z in view space).
-	v_depth = -v_view.z;
 	POSITION = PROJECTION_MATRIX * vec4(v_view, 1.0);
 }
 
@@ -82,18 +81,19 @@ void fragment() {
 	float final_alpha = feather_alpha * depth_mult * dist_fade;
 	float gobo_open = 1.0;
 	if (gobo_enabled) {
-		vec3 vertex_local = VERTEX;
-		float axis_pos = (beam_height * 0.5) - (vertex_local.y * gobo_axis_sign);
+		float axis_pos = (beam_height * 0.5) - (v_local.y * gobo_axis_sign);
 		float axis_dist = clamp(axis_pos, 0.001, beam_height);
 		float gobo_plane_dist = gobo_start_ratio * beam_height;
 		if (axis_pos >= gobo_plane_dist) {
 			float t = axis_pos / beam_height;
 			float radius_at_point = mix(beam_top_radius, beam_bottom_radius, clamp(t, 0.0, 1.0));
-			vec2 radial_pos = vec2(vertex_local.x, vertex_local.z);
-			vec2 norm_radial = radial_pos / max(radius_at_point, 0.001);
+			vec2 radial_pos = vec2(v_local.x, v_local.z);
+			if (length(radial_pos) > (radius_at_point + 0.001)) {
+				discard;
+			}
 
 			float projection_scale = gobo_plane_dist / axis_dist;
-			vec2 gobo_plane_pos = norm_radial * projection_scale;
+			vec2 gobo_plane_pos = radial_pos * projection_scale;
 
 			float sin_rot = sin(gobo_rotation);
 			float cos_rot = cos(gobo_rotation);
@@ -102,14 +102,21 @@ void fragment() {
 				gobo_plane_pos.x * sin_rot + gobo_plane_pos.y * cos_rot
 			);
 			vec2 half_size = max(gobo_size * 0.5, vec2(0.001));
-			vec2 gobo_uv = rotated / half_size * 0.5 + 0.5;
+			vec2 gobo_uv = rotated / half_size + vec2(0.5);
 
 			if (gobo_uv.x < 0.0 || gobo_uv.x > 1.0 || gobo_uv.y < 0.0 || gobo_uv.y > 1.0) {
 				gobo_open = 0.0;
 			} else {
-				vec4 texel = texture(gobo_texture, gobo_uv);
-				float luminance = dot(texel.rgb, vec3(0.299, 0.587, 0.114)) * texel.a;
-				gobo_open = step(gobo_cutoff, luminance);
+				const int LINE_SAMPLE_COUNT = 6;
+				float gobo_acc = 0.0;
+				for (int i = 0; i < LINE_SAMPLE_COUNT; i++) {
+					float sample_t = (float(i) + 0.5) / float(LINE_SAMPLE_COUNT);
+					vec2 sample_uv = mix(vec2(0.5), gobo_uv, sample_t);
+					vec4 texel = texture(gobo_texture, sample_uv);
+					float luminance = dot(texel.rgb, vec3(0.299, 0.587, 0.114)) * texel.a;
+					gobo_acc += smoothstep(gobo_cutoff - 0.12, gobo_cutoff + 0.12, luminance);
+				}
+				gobo_open = gobo_acc / float(LINE_SAMPLE_COUNT);
 			}
 		} else {
 			gobo_open = 1.0;
