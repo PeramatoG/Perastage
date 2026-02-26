@@ -31,12 +31,14 @@
 class MyApp : public wxApp {
 public:
   virtual bool OnInit() override;
+  int OnExit() override;
   int FilterEvent(wxEvent &event) override;
   bool OnExceptionInMainLoop() override;
   void OnUnhandledException() override;
 
 private:
   std::string last_event_summary_;
+  std::thread project_loader_thread_;
 };
 
 wxIMPLEMENT_APP(MyApp);
@@ -74,7 +76,7 @@ bool MyApp::OnInit() {
 
   if (lastPathOpt) {
     std::string lastPath = *lastPathOpt;
-    std::thread([mainWindowRef, lastPath]() {
+    project_loader_thread_ = std::thread([mainWindowRef, lastPath]() {
       try {
         namespace fs = std::filesystem;
         bool loaded = false;
@@ -116,7 +118,7 @@ bool MyApp::OnInit() {
           wxQueueEvent(mainWindowRef.get(), evt.Clone());
         }
       }
-    }).detach();
+    });
   } else if (mainWindowRef) {
     wxCommandEvent evt(EVT_PROJECT_LOADED);
     evt.SetInt(0);
@@ -125,6 +127,13 @@ bool MyApp::OnInit() {
   }
 
   return true;
+}
+
+int MyApp::OnExit() {
+  if (project_loader_thread_.joinable()) {
+    project_loader_thread_.join();
+  }
+  return wxApp::OnExit();
 }
 
 int MyApp::FilterEvent(wxEvent &event) {
