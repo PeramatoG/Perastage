@@ -8,6 +8,7 @@
 #include <fstream>
 #include <optional>
 #include <memory>
+#include <filesystem>
 #include <string_view>
 #include <unordered_map>
 #include <utility>
@@ -155,6 +156,23 @@ std::string ResolveModelSvgBasename(const tinyxml2::XMLElement *targetModel) {
   if (nameAttr && *nameAttr)
     return nameAttr;
   return "main";
+}
+
+std::vector<std::string> BuildSvgBaseNameCandidates(const std::string &baseName) {
+  std::vector<std::string> candidates;
+  if (baseName.empty()) {
+    candidates.push_back("main");
+    return candidates;
+  }
+
+  candidates.push_back(baseName);
+
+  const std::filesystem::path basePath(baseName);
+  const std::string stem = basePath.stem().string();
+  if (!stem.empty() && stem != baseName)
+    candidates.push_back(stem);
+
+  return candidates;
 }
 
 bool ParseDoubles(const char *text, std::vector<double> &out) {
@@ -599,6 +617,8 @@ bool LoadPerastageSvgSymbolFromGdtf(const std::string &gdtfPath,
 
   const tinyxml2::XMLElement *model = ResolveTargetModel(fixtureType);
   const std::string baseName = ResolveModelSvgBasename(model);
+  const std::vector<std::string> baseNameCandidates =
+      BuildSvgBaseNameCandidates(baseName);
 
   struct Candidate {
     SymbolViewKind viewKind;
@@ -608,15 +628,31 @@ bool LoadPerastageSvgSymbolFromGdtf(const std::string &gdtfPath,
   };
 
   std::vector<Candidate> candidates;
-  if (requestedView == SymbolViewKind::Front) {
-    candidates.push_back({SymbolViewKind::Front,
-                          "models/svg_front/" + baseName + ".svg",
-                          "SVGFrontOffsetX", "SVGFrontOffsetY"});
-    candidates.push_back({SymbolViewKind::Top, "models/svg/" + baseName + ".svg",
-                          "SVGOffsetX", "SVGOffsetY"});
+  auto pushTopCandidates = [&]() {
+    for (const auto &name : baseNameCandidates)
+      candidates.push_back(
+          {SymbolViewKind::Top, "models/svg/" + name + ".svg", "SVGOffsetX",
+           "SVGOffsetY"});
+  };
+  if (requestedView == SymbolViewKind::Bottom) {
+    for (const auto &name : baseNameCandidates) {
+      candidates.push_back({SymbolViewKind::Bottom,
+                            "models/svg/" + name + "_bottom.svg",
+                            "SVGOffsetX", "SVGOffsetY"});
+      candidates.push_back({SymbolViewKind::Bottom,
+                            "models/svg_bottom/" + name + ".svg",
+                            "SVGOffsetX", "SVGOffsetY"});
+    }
+    pushTopCandidates();
+  } else if (requestedView == SymbolViewKind::Front) {
+    for (const auto &name : baseNameCandidates) {
+      candidates.push_back({SymbolViewKind::Front,
+                            "models/svg_front/" + name + ".svg",
+                            "SVGFrontOffsetX", "SVGFrontOffsetY"});
+    }
+    pushTopCandidates();
   } else {
-    candidates.push_back({SymbolViewKind::Top, "models/svg/" + baseName + ".svg",
-                          "SVGOffsetX", "SVGOffsetY"});
+    pushTopCandidates();
   }
 
   for (const auto &candidate : candidates) {

@@ -958,7 +958,7 @@ Viewer2DExportResult ExportLayoutToPdf(
       if (item.symbolKey.empty() || !legendSymbols)
         continue;
       const SymbolDefinition *topSymbol = FindSymbolDefinitionPreferred(
-          legendSymbols, item.symbolKey, SymbolViewKind::Top);
+          legendSymbols, item.symbolKey, SymbolViewKind::Bottom);
       const SymbolDefinition *frontSymbol = FindSymbolDefinitionExact(
           legendSymbols, item.symbolKey, SymbolViewKind::Front);
       addLegendSymbol(topSymbol);
@@ -1538,12 +1538,12 @@ Viewer2DExportResult ExportLayoutToPdf(
       if (item.symbolKey.empty())
         continue;
       const PerastageSvgSymbolData *topSvg =
-          findLegendSvg(item.symbolKey, SymbolViewKind::Top);
+          findLegendSvg(item.symbolKey, SymbolViewKind::Bottom);
       const PerastageSvgSymbolData *frontSvg =
           findLegendSvg(item.symbolKey, SymbolViewKind::Front);
       const SymbolDefinition *topSymbol = legendSymbolsForSizing
           ? FindSymbolDefinitionPreferred(legendSymbolsForSizing, item.symbolKey,
-                                          SymbolViewKind::Top)
+                                          SymbolViewKind::Bottom)
           : nullptr;
       const SymbolDefinition *frontSymbol = legendSymbolsForSizing
           ? FindSymbolDefinitionExact(legendSymbolsForSizing, item.symbolKey,
@@ -1642,12 +1642,12 @@ Viewer2DExportResult ExportLayoutToPdf(
             legend.symbolSnapshot ? legend.symbolSnapshot.get()
                                   : symbolSnapshot.get();
         const PerastageSvgSymbolData *topSvg =
-            findLegendSvg(item.symbolKey, SymbolViewKind::Top);
+            findLegendSvg(item.symbolKey, SymbolViewKind::Bottom);
         const PerastageSvgSymbolData *frontSvg =
             findLegendSvg(item.symbolKey, SymbolViewKind::Front);
         const SymbolDefinition *topSymbol = legendSymbols
             ? FindSymbolDefinitionPreferred(legendSymbols, item.symbolKey,
-                                           SymbolViewKind::Top)
+                                           SymbolViewKind::Bottom)
             : nullptr;
         const SymbolDefinition *frontSymbol = legendSymbols
             ? FindSymbolDefinitionExact(legendSymbols, item.symbolKey,
