@@ -23,6 +23,7 @@ instance uniform float gobo_strength : hint_range(0.0, 1.0) = 1.0;
 instance uniform float beam_top_radius : hint_range(0.001, 100.0) = 0.02;
 instance uniform float beam_bottom_radius : hint_range(0.001, 100.0) = 0.8;
 instance uniform float gobo_rotation : hint_range(-6.2831853, 6.2831853) = 0.0;
+instance uniform float gobo_start_ratio : hint_range(0.0, 1.0) = 0.0;
 
 varying vec3 vertex_view;
 varying vec3 vertex_local;
@@ -82,8 +83,10 @@ void fragment() {
 		vec2 gobo_uv = rotated / max(current_radius, 0.001) * 0.5 + 0.5;
 		float gobo_sample = texture(gobo_texture, gobo_uv).r;
 		float gobo_mult = mix(1.0, gobo_sample, gobo_strength);
-		brightness *= gobo_mult;
-		final_alpha *= gobo_mult;
+		float gobo_mask = smoothstep(gobo_start_ratio, min(gobo_start_ratio + 0.02, 1.0), UV.y);
+		float modulated = mix(1.0, gobo_mult, gobo_mask);
+		brightness *= modulated;
+		final_alpha *= modulated;
 	}
 
 	ALBEDO = base_color.rgb * brightness;

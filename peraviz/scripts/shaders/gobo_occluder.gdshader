@@ -14,7 +14,8 @@ void vertex() {
 
 void fragment() {
 	ALBEDO = vec3(0.0);
-	if (abs(local_pos.z) > (gobo_thickness * 0.35)) {
+	float face_z = abs(local_pos.z);
+	if (face_z < (gobo_thickness * 0.45)) {
 		return;
 	}
 
