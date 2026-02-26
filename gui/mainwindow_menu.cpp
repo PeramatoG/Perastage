@@ -42,6 +42,7 @@
 
 #include "addfixturedialog.h"
 #include "autopatcher.h"
+#include "build_profile_ui.h"
 #include "configmanager.h"
 #include "guiconfigservices.h"
 #include "consolepanel.h"
@@ -320,7 +321,9 @@ void MainWindow::CreateMenuBar() {
   fileMenu->AppendSeparator();
   fileMenu->Append(ID_File_ImportMVR, "Import MVR...");
   fileMenu->Append(ID_File_ExportMVR, "Export MVR...");
-  fileMenu->Append(ID_File_PrintViewer2D, "Print Viewer 2D...");
+  if (ui::ShouldShowPrintViewer2DDialog()) {
+    fileMenu->Append(ID_File_PrintViewer2D, "Print Viewer 2D...");
+  }
   fileMenu->Append(ID_File_PrintLayout, "Print Layout...");
   fileMenu->Append(ID_File_PrintTable, "Print Table...");
   fileMenu->Append(ID_File_ExportCSV, "Export CSV...");
@@ -375,7 +378,10 @@ void MainWindow::CreateMenuBar() {
   toolsMenu->Append(ID_Tools_AutoPatch, "Auto patch");
   toolsMenu->Append(ID_Tools_AutoColor, "Auto color");
   toolsMenu->Append(ID_Tools_ConvertToHoist, "Convert to Hoist");
-  toolsMenu->Append(ID_Tools_GenerateFixtureSymbols, "Generate Fixture Symbols...");
+  if (ui::ShouldShowGenerateFixtureSymbolsTool()) {
+    toolsMenu->Append(ID_Tools_GenerateFixtureSymbols,
+                      "Generate Fixture Symbols...");
+  }
 
   menuBar->Append(toolsMenu, "&Tools");
 
@@ -664,6 +670,9 @@ void MainWindow::OnConvertToHoist(wxCommandEvent &WXUNUSED(event)) {
 
 
 void MainWindow::OnGenerateFixtureSymbols(wxCommandEvent &WXUNUSED(event)) {
+  if (!ui::ShouldShowGenerateFixtureSymbolsTool())
+    return;
+
   tools::RunFixtureSymbolGeneration(*this);
 }
 
