@@ -1230,28 +1230,13 @@ Viewer2DExportResult ExportLayoutToPdf(
         auto defIt = groupSymbols->find(entry.first);
         if (defIt == groupSymbols->end())
           continue;
-        bool usedSvg = false;
-        if (!defIt->second.key.modelKey.empty()) {
-          if (const PerastageSvgSymbolData *svg =
-                  findLegendSvg(defIt->second.key.modelKey,
-                                defIt->second.key.viewKind)) {
-            constexpr std::array<double, 3> kDefaultSvgFillRgb = {
-                224.0 / 255.0, 224.0 / 255.0, 224.0 / 255.0};
-            xObjectNameIds[entry.second] =
-                appendPerastageSvgSymbolObject(*svg, 1.0, group.strokeScale,
-                                               kDefaultSvgFillRgb);
-            usedSvg = true;
-          }
-        }
-        if (!usedSvg) {
-          xObjectNameIds[entry.second] =
-              appendSymbolObject(entry.second,
-                                 defIt->second.localCommands.commands,
-                                 defIt->second.localCommands.metadata,
-                                 defIt->second.localCommands.sources,
-                                 1.0, group.strokeScale,
-                                 defIt->second.bounds);
-        }
+        xObjectNameIds[entry.second] =
+            appendSymbolObject(entry.second,
+                               defIt->second.localCommands.commands,
+                               defIt->second.localCommands.metadata,
+                               defIt->second.localCommands.sources,
+                               1.0, group.strokeScale,
+                               defIt->second.bounds);
       }
     }
   }
