@@ -1069,6 +1069,7 @@ wxImage LayoutViewerPanel::BuildLegendImage(
       std::max(0, static_cast<int>(std::lround(columnGap * renderZoom)));
   int symbolColumnGapPx =
       std::max(0, static_cast<int>(std::lround(symbolColumnGap * renderZoom)));
+  int symbolOuterMarginPx = 0;
 
   if (hasSvgSymbols && !hasFallbackSymbols) {
     const int minSvgColumnSize =
@@ -1080,10 +1081,12 @@ wxImage LayoutViewerPanel::BuildLegendImage(
           std::max(frontSymbolColumnSize, minSvgColumnSize);
     symbolColumnGapPx =
         std::max(symbolColumnGapPx,
-                 std::max(2, static_cast<int>(std::lround(4.0 * renderZoom))));
+                 std::max(1, static_cast<int>(std::lround(2.5 * renderZoom))));
+    symbolOuterMarginPx =
+        std::max(1, static_cast<int>(std::lround(2.0 * renderZoom)));
   }
 
-  int xTopSymbol = paddingLeftPx;
+  int xTopSymbol = paddingLeftPx + symbolOuterMarginPx;
   int xFrontSymbol = xTopSymbol + topSymbolColumnSize + symbolColumnGapPx;
   int xCount = xFrontSymbol + frontSymbolColumnSize + columnGapPx;
   int xType = xCount + maxCountWidth + columnGapPx;
