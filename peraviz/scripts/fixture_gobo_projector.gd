@@ -4,11 +4,11 @@ class_name FixtureGoboProjector
 const FAKE_GOBO_TEXTURE_SIZE: int = 128
 const GOBO_QUAD_META_KEY: String = "peraviz_gobo_alpha_quad"
 const GOBO_QUAD_MATERIAL_META_KEY: String = "peraviz_gobo_alpha_quad_material"
-const GOBO_QUAD_DISTANCE_RATIO_OF_RANGE: float = 0.03
-const GOBO_QUAD_MIN_DISTANCE_M: float = 0.08
-const GOBO_QUAD_MAX_DISTANCE_M: float = 1.5
+const GOBO_QUAD_DEBUG_DISTANCE_M: float = 1.0
 const GOBO_QUAD_MIN_SIZE_M: float = 0.015
-const GOBO_QUAD_MAX_SIZE_M: float = 2.5
+const GOBO_QUAD_MAX_SIZE_M: float = 4.0
+const GOBO_UV_OFFSET_DEFAULT: Vector2 = Vector2.ZERO
+const GOBO_UV_SCALE_DEFAULT: Vector2 = Vector2.ONE
 
 const GOBO_ALPHA_QUAD_SHADER: Shader = preload("res://scripts/shaders/gobo_alpha_quad.gdshader")
 
@@ -189,14 +189,16 @@ func _apply_gobo_alpha_quad(light: SpotLight3D, gobo_texture: Texture2D) -> void
 	if quad_material == null:
 		return
 
+	var texture_fit: Dictionary = _resolve_texture_fit(gobo_texture)
 	quad_material.set_shader_parameter("gobo_texture", gobo_texture)
-	quad_material.set_shader_parameter("alpha_cutoff", 0.35)
+	quad_material.set_shader_parameter("alpha_cutoff", 0.5)
+	quad_material.set_shader_parameter("uv_offset", texture_fit.get("uv_offset", GOBO_UV_OFFSET_DEFAULT))
+	quad_material.set_shader_parameter("uv_scale", texture_fit.get("uv_scale", GOBO_UV_SCALE_DEFAULT))
 	quad.material_override = quad_material
 	quad.visible = true
 
 	var cone_half_angle_rad: float = deg_to_rad(max(light.spot_angle, 0.1))
-	var beam_range: float = max(light.spot_range, GOBO_QUAD_MIN_DISTANCE_M)
-	var quad_distance: float = clamp(beam_range * GOBO_QUAD_DISTANCE_RATIO_OF_RANGE, GOBO_QUAD_MIN_DISTANCE_M, min(GOBO_QUAD_MAX_DISTANCE_M, beam_range * 0.35))
+	var quad_distance: float = GOBO_QUAD_DEBUG_DISTANCE_M
 	var quad_radius: float = tan(cone_half_angle_rad) * quad_distance
 	var quad_size: float = clamp(quad_radius * 2.0, GOBO_QUAD_MIN_SIZE_M, GOBO_QUAD_MAX_SIZE_M)
 	var quad_mesh: QuadMesh = quad.mesh as QuadMesh
@@ -215,8 +217,8 @@ func _ensure_gobo_alpha_quad(light: SpotLight3D) -> MeshInstance3D:
 	var quad := MeshInstance3D.new()
 	quad.name = "PeravizGoboAlphaQuad"
 	quad.mesh = quad_mesh
-	# Keep helper mesh invisible while still contributing alpha-cut shadows to the spotlight.
-	quad.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY
+	# Debug mode: keep the gobo quad visible while validating alignment and shadow response.
+	quad.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
 	quad.visible = false
 	light.add_child(quad)
 	light.set_meta(GOBO_QUAD_META_KEY, quad)
@@ -238,3 +240,38 @@ func _clear_gobo_alpha_quad(light: SpotLight3D) -> void:
 		var quad: MeshInstance3D = light.get_meta(GOBO_QUAD_META_KEY) as MeshInstance3D
 		if quad != null and is_instance_valid(quad):
 			quad.visible = false
+
+
+func _resolve_texture_fit(gobo_texture: Texture2D) -> Dictionary:
+	if gobo_texture == null:
+		return {
+			"uv_offset": GOBO_UV_OFFSET_DEFAULT,
+			"uv_scale": GOBO_UV_SCALE_DEFAULT,
+		}
+
+	var texture_size: Vector2 = gobo_texture.get_size()
+	if texture_size.x <= 0.0 or texture_size.y <= 0.0:
+		return {
+			"uv_offset": GOBO_UV_OFFSET_DEFAULT,
+			"uv_scale": GOBO_UV_SCALE_DEFAULT,
+		}
+
+	var aspect_ratio: float = texture_size.x / texture_size.y
+	if is_equal_approx(aspect_ratio, 1.0):
+		return {
+			"uv_offset": GOBO_UV_OFFSET_DEFAULT,
+			"uv_scale": GOBO_UV_SCALE_DEFAULT,
+		}
+
+	if aspect_ratio > 1.0:
+		var y_scale: float = clamp(1.0 / aspect_ratio, 0.001, 1.0)
+		return {
+			"uv_offset": Vector2(0.0, (1.0 - y_scale) * 0.5),
+			"uv_scale": Vector2(1.0, y_scale),
+		}
+
+	var x_scale: float = clamp(aspect_ratio, 0.001, 1.0)
+	return {
+		"uv_offset": Vector2((1.0 - x_scale) * 0.5, 0.0),
+		"uv_scale": Vector2(x_scale, 1.0),
+	}
