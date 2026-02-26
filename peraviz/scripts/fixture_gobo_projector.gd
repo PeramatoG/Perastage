@@ -190,7 +190,7 @@ func _apply_gobo_alpha_quad(light: SpotLight3D, gobo_texture: Texture2D) -> void
 		return
 
 	quad_material.set_shader_parameter("gobo_texture", gobo_texture)
-	quad_material.set_shader_parameter("alpha_cutoff", 0.5)
+	quad_material.set_shader_parameter("alpha_cutoff", 0.35)
 	quad.material_override = quad_material
 	quad.visible = true
 
@@ -215,6 +215,7 @@ func _ensure_gobo_alpha_quad(light: SpotLight3D) -> MeshInstance3D:
 	var quad := MeshInstance3D.new()
 	quad.name = "PeravizGoboAlphaQuad"
 	quad.mesh = quad_mesh
+	# Keep helper mesh invisible while still contributing alpha-cut shadows to the spotlight.
 	quad.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY
 	quad.visible = false
 	light.add_child(quad)
