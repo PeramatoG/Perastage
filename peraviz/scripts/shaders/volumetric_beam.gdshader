@@ -23,7 +23,6 @@ instance uniform float gobo_cutoff : hint_range(0.0, 1.0) = 0.5;
 instance uniform float gobo_start_ratio : hint_range(0.0, 1.0) = 0.0;
 instance uniform float gobo_rotation : hint_range(-6.2831853, 6.2831853) = 0.0;
 instance uniform vec2 gobo_size = vec2(0.08, 0.08);
-instance uniform float beam_height : hint_range(0.01, 200.0) = 8.0;
 instance uniform float beam_top_radius : hint_range(0.001, 100.0) = 0.02;
 instance uniform float beam_bottom_radius : hint_range(0.001, 100.0) = 0.8;
 
@@ -74,12 +73,18 @@ void fragment() {
 
 	float final_alpha = feather_alpha * depth_mult * dist_fade;
 	if (gobo_enabled) {
-		float distance_from_lens = clamp((beam_height * 0.5) - vertex_local.y, 0.0, beam_height);
-		float axis_ratio = distance_from_lens / max(beam_height, 0.001);
+		vec2 radial_pos = vec2(vertex_local.x, -vertex_local.z);
+		float radial_len = length(radial_pos);
+		float uv_axis = clamp(UV.y, 0.0, 1.0);
+		float axis_a = uv_axis;
+		float axis_b = 1.0 - uv_axis;
+		float radius_a = mix(beam_top_radius, beam_bottom_radius, axis_a);
+		float radius_b = mix(beam_top_radius, beam_bottom_radius, axis_b);
+		float use_b = step(abs(radial_len - radius_b), abs(radial_len - radius_a));
+		float axis_ratio = mix(axis_a, axis_b, use_b);
 		if (axis_ratio >= gobo_start_ratio) {
 			float current_radius = mix(beam_top_radius, beam_bottom_radius, axis_ratio);
 			float gobo_plane_radius = mix(beam_top_radius, beam_bottom_radius, gobo_start_ratio);
-			vec2 radial_pos = vec2(vertex_local.x, -vertex_local.z);
 			vec2 radial_dir = radial_pos / max(current_radius, 0.001);
 			vec2 gobo_plane_pos = radial_dir * gobo_plane_radius;
 			float sin_angle = sin(gobo_rotation);

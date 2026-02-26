@@ -100,7 +100,6 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	var intensity_alpha: float = clamp(intensity * VOLUMETRIC_INTENSITY_SCALE, 0.0, 1.0)
 	cone.set_instance_shader_parameter("base_color", Color(beam_color.r, beam_color.g, beam_color.b, intensity_alpha))
 	cone.set_instance_shader_parameter("max_brightness", lerp(1.0, 10.0, intensity))
-	cone.set_instance_shader_parameter("beam_height", beam_range)
 	if cone_mesh != null:
 		cone.set_instance_shader_parameter("beam_top_radius", cone_mesh.top_radius)
 		cone.set_instance_shader_parameter("beam_bottom_radius", cone_mesh.bottom_radius)
