@@ -9,6 +9,9 @@ const GOBO_QUAD_MIN_SIZE_M: float = 0.015
 const GOBO_QUAD_MAX_SIZE_M: float = 4.0
 const GOBO_UV_OFFSET_DEFAULT: Vector2 = Vector2.ZERO
 const GOBO_UV_SCALE_DEFAULT: Vector2 = Vector2.ONE
+const GOBO_SHADOW_BIAS: float = 0.002
+const GOBO_SHADOW_NORMAL_BIAS: float = 0.08
+const GOBO_SHADOW_BLUR: float = 0.0
 
 const GOBO_ALPHA_QUAD_SHADER: Shader = preload("res://scripts/shaders/gobo_alpha_quad.gdshader")
 
@@ -23,6 +26,7 @@ func apply_gobo_projection(light: SpotLight3D, controls: Dictionary) -> void:
 	if not bool(controls.get("has_gobo", false)):
 		light.light_projector = null
 		light.shadow_enabled = false
+		_restore_shadow_defaults(light)
 		_clear_gobo_alpha_quad(light)
 		return
 
@@ -54,12 +58,35 @@ func apply_gobo_projection(light: SpotLight3D, controls: Dictionary) -> void:
 	if active_textures.is_empty():
 		light.light_projector = null
 		light.shadow_enabled = false
+		_restore_shadow_defaults(light)
 		_clear_gobo_alpha_quad(light)
 		return
 
+	_capture_shadow_defaults_if_needed(light)
 	light.shadow_enabled = true
+	light.shadow_bias = GOBO_SHADOW_BIAS
+	light.shadow_normal_bias = GOBO_SHADOW_NORMAL_BIAS
+	light.shadow_blur = GOBO_SHADOW_BLUR
 	light.light_projector = null
 	_apply_gobo_alpha_quad(light, _compose_gobo_textures(active_textures))
+
+func _capture_shadow_defaults_if_needed(light: SpotLight3D) -> void:
+	if light == null or not is_instance_valid(light):
+		return
+	if not light.has_meta("peraviz_shadow_defaults_captured"):
+		light.set_meta("peraviz_shadow_defaults_captured", true)
+		light.set_meta("peraviz_shadow_default_bias", light.shadow_bias)
+		light.set_meta("peraviz_shadow_default_normal_bias", light.shadow_normal_bias)
+		light.set_meta("peraviz_shadow_default_blur", light.shadow_blur)
+
+func _restore_shadow_defaults(light: SpotLight3D) -> void:
+	if light == null or not is_instance_valid(light):
+		return
+	if not light.has_meta("peraviz_shadow_defaults_captured"):
+		return
+	light.shadow_bias = float(light.get_meta("peraviz_shadow_default_bias"))
+	light.shadow_normal_bias = float(light.get_meta("peraviz_shadow_default_normal_bias"))
+	light.shadow_blur = float(light.get_meta("peraviz_shadow_default_blur"))
 
 func _resolve_gobo_raw_8bit(controls: Dictionary) -> int:
 	var gobo_raw: int = int(round(clamp(float(controls.get("gobo_norm", 0.0)), 0.0, 1.0) * 255.0))
