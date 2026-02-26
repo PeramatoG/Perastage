@@ -24,12 +24,11 @@ instance uniform float beam_top_radius : hint_range(0.001, 100.0) = 0.02;
 instance uniform float beam_bottom_radius : hint_range(0.001, 100.0) = 0.8;
 instance uniform float gobo_rotation : hint_range(-6.2831853, 6.2831853) = 0.0;
 instance uniform float gobo_start_ratio : hint_range(0.0, 1.0) = 0.0;
+instance uniform float gobo_cutoff : hint_range(0.0, 1.0) = 0.5;
 
 varying vec3 vertex_view;
-varying vec3 vertex_local;
 
 void vertex() {
-	vertex_local = VERTEX;
 	vertex_view = (MODELVIEW_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	POSITION = PROJECTION_MATRIX * vec4(vertex_view, 1.0);
 }
@@ -73,7 +72,7 @@ void fragment() {
 	float final_alpha = feather_alpha * depth_mult * dist_fade;
 	if (gobo_enabled) {
 		float current_radius = mix(beam_top_radius, beam_bottom_radius, UV.y);
-		vec2 radial_pos = vertex_local.xz;
+		vec2 radial_pos = vertex_view.xy;
 		float sin_angle = sin(gobo_rotation);
 		float cos_angle = cos(gobo_rotation);
 		vec2 rotated = vec2(
@@ -81,9 +80,11 @@ void fragment() {
 			radial_pos.x * sin_angle + radial_pos.y * cos_angle
 		);
 		vec2 gobo_uv = rotated / max(current_radius, 0.001) * 0.5 + 0.5;
-		float gobo_sample = texture(gobo_texture, gobo_uv).r;
-		float gobo_mult = mix(1.0, gobo_sample, gobo_strength);
-		float gobo_mask = smoothstep(gobo_start_ratio, min(gobo_start_ratio + 0.02, 1.0), UV.y);
+		vec4 gobo_texel = texture(gobo_texture, gobo_uv);
+		float gobo_luma = dot(gobo_texel.rgb, vec3(0.299, 0.587, 0.114));
+		float gobo_open = step(gobo_cutoff, gobo_luma);
+		float gobo_mult = mix(1.0, gobo_open, gobo_strength);
+		float gobo_mask = smoothstep(gobo_start_ratio, min(gobo_start_ratio + 0.03, 1.0), UV.y);
 		float modulated = mix(1.0, gobo_mult, gobo_mask);
 		brightness *= modulated;
 		final_alpha *= modulated;

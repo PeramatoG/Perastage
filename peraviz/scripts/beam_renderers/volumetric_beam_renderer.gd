@@ -141,6 +141,7 @@ func _update_gobo_occluder(light: SpotLight3D, cone: MeshInstance3D, gobo_occlud
 		gobo_occluder.visible = false
 		cone.set_instance_shader_parameter("gobo_strength", 1.0)
 		cone.set_instance_shader_parameter("gobo_start_ratio", 0.0)
+		cone.set_instance_shader_parameter("gobo_cutoff", 0.5)
 		return
 
 	light.shadow_enabled = true
@@ -171,6 +172,7 @@ func _update_gobo_occluder(light: SpotLight3D, cone: MeshInstance3D, gobo_occlud
 	gobo_occluder.set_instance_shader_parameter("gobo_thickness", GOBO_OCCLUDER_THICKNESS_M)
 
 	cone.set_instance_shader_parameter("gobo_texture", gobo_texture)
-	cone.set_instance_shader_parameter("gobo_strength", 0.85)
+	cone.set_instance_shader_parameter("gobo_strength", 1.0)
 	cone.set_instance_shader_parameter("gobo_rotation", 0.0)
 	cone.set_instance_shader_parameter("gobo_start_ratio", clamp(GOBO_OCCLUDER_DISTANCE_M / beam_range, 0.0, 1.0))
+	cone.set_instance_shader_parameter("gobo_cutoff", 0.5)
