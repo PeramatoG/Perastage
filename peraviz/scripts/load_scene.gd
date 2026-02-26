@@ -271,6 +271,8 @@ func _apply_visual_settings(settings: Dictionary) -> void:
 		world_environment.environment.ambient_light_energy = float(_visual_environment_baseline.get("ambient_light_energy", 0.2)) * float(_visual_settings.get("ambient_multiplier", 1.0))
 		world_environment.environment.glow_bloom = float(_visual_environment_baseline.get("glow_bloom", 0.05)) * float(_visual_settings.get("bloom_multiplier", 1.0))
 		world_environment.environment.background_color = _visual_settings.get("background_color", _visual_environment_baseline.get("background_color", Color(0.129412, 0.137255, 0.156863, 1.0)))
+		world_environment.environment.volumetric_fog_enabled = true
+		world_environment.environment.volumetric_fog_density = 0.01
 
 	_update_beam_renderer_mode(false)
 	_save_visual_settings_to_project()

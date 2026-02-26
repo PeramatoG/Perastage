@@ -38,6 +38,13 @@ size_t LayoutViewerPanel::HashViewContent(
   HashCombine(seed, std::hash<int>{}(view.camera.view));
   HashCombine(seed, std::hash<int>{}(view.renderOptions.renderMode));
   HashCombine(seed, std::hash<bool>{}(view.renderOptions.darkMode));
+  if (view.renderOptions.forceBottomViewForTopFixtures.has_value()) {
+    HashCombine(seed, std::hash<int>{}(1));
+    HashCombine(seed, std::hash<bool>{}(
+                          view.renderOptions.forceBottomViewForTopFixtures.value()));
+  } else {
+    HashCombine(seed, std::hash<int>{}(0));
+  }
   HashCombine(seed, std::hash<bool>{}(view.renderOptions.showGrid));
   HashCombine(seed, std::hash<int>{}(view.renderOptions.gridStyle));
   HashCombineFloat(seed, view.renderOptions.gridColorR);
