@@ -104,6 +104,8 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	if cone_mesh != null:
 		cone.set_instance_shader_parameter("beam_top_radius", cone_mesh.top_radius)
 		cone.set_instance_shader_parameter("beam_bottom_radius", cone_mesh.bottom_radius)
+		cone.set_instance_shader_parameter("gobo_segment_count", float(cone_mesh.radial_segments))
+		cone.set_instance_shader_parameter("gobo_ring_count", float(cone_mesh.rings))
 
 	_update_gobo_occluder(light, cone, gobo_occluder, beam_angle, beam_range, lens_radius)
 

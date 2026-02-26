@@ -27,6 +27,8 @@ instance uniform float gobo_axis_sign : hint_range(-1.0, 1.0) = 1.0;
 instance uniform float beam_height : hint_range(0.01, 200.0) = 8.0;
 instance uniform float beam_top_radius : hint_range(0.001, 100.0) = 0.02;
 instance uniform float beam_bottom_radius : hint_range(0.001, 100.0) = 0.8;
+instance uniform float gobo_segment_count : hint_range(1.0, 256.0) = 48.0;
+instance uniform float gobo_ring_count : hint_range(1.0, 256.0) = 12.0;
 
 varying vec3 vertex_view;
 varying vec3 vertex_local;
@@ -75,11 +77,17 @@ void fragment() {
 
 	float final_alpha = feather_alpha * depth_mult * dist_fade;
 	if (gobo_enabled) {
-		vec2 radial_pos = vec2(vertex_local.x, -vertex_local.z);
 		float axis_distance = clamp((beam_height * 0.5) - (vertex_local.y * gobo_axis_sign), 0.0, beam_height);
 		float axis_ratio = axis_distance / max(beam_height, 0.001);
 		float gobo_plane_distance = gobo_start_ratio * beam_height;
 		if (axis_ratio >= gobo_start_ratio && axis_distance > 0.001) {
+			float seg_count = max(gobo_segment_count, 1.0);
+			float ring_count = max(gobo_ring_count, 1.0);
+			float seg_u = (floor(fract(UV.x) * seg_count) + 0.5) / seg_count;
+			float ring_v = (floor(axis_ratio * ring_count) + 0.5) / ring_count;
+			float current_radius = mix(beam_top_radius, beam_bottom_radius, clamp(ring_v, 0.0, 1.0));
+			float angle = seg_u * 6.2831853;
+			vec2 radial_pos = vec2(cos(angle), sin(angle)) * current_radius;
 			float projection_scale = gobo_plane_distance / axis_distance;
 			vec2 gobo_plane_pos = radial_pos * projection_scale;
 			float sin_angle = sin(gobo_rotation);
