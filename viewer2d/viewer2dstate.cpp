@@ -236,8 +236,14 @@ Viewer2DState FromLayoutDefinition(const layouts::Layout2DViewDefinition &view) 
 }
 
 void ApplyEditorRenderOptions(Viewer2DState &state, const ConfigManager &cfg) {
+  const std::optional<bool> preservedForceBottomSetting =
+      state.renderOptions.forceBottomViewForTopFixtures;
   Viewer2DState editorState = CaptureState(nullptr, cfg);
   state.renderOptions = editorState.renderOptions;
+  if (preservedForceBottomSetting.has_value()) {
+    state.renderOptions.forceBottomViewForTopFixtures =
+        preservedForceBottomSetting;
+  }
 }
 
 layouts::Layout2DViewDefinition ToLayoutDefinition(
