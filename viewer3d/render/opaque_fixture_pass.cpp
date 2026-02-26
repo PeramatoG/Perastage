@@ -15,6 +15,7 @@
 #include <GL/gl.h>
 #endif
 
+#include <algorithm>
 #include <filesystem>
 
 #include "matrixutils.h"
@@ -50,6 +51,53 @@ std::string FindFileRecursive(const std::string &baseDir,
       return it->path().string();
   }
   return {};
+}
+
+
+std::string NormalizePathSeparators(const std::string &path) {
+  std::string out = path;
+  const char sep = static_cast<char>(fs::path::preferred_separator);
+  std::replace(out.begin(), out.end(), '\\', sep);
+  return out;
+}
+
+std::string NormalizeModelKeyPath(const std::string &path) {
+  if (path.empty())
+    return {};
+  fs::path normalized(path);
+  normalized = normalized.lexically_normal();
+  return NormalizePathSeparators(normalized.string());
+}
+
+std::string ResolveFixtureSymbolKeyPath(const Fixture &fixture,
+                                        const std::string &basePath) {
+  if (fixture.gdtfSpec.empty())
+    return {};
+
+  const fs::path specPath = fs::path(NormalizePathSeparators(fixture.gdtfSpec));
+  const fs::path candidate = basePath.empty() ? specPath : (fs::path(basePath) / specPath);
+  std::error_code ec;
+  if (fs::exists(candidate, ec) && !ec)
+    return NormalizeModelKeyPath(candidate.string());
+
+  if (!basePath.empty()) {
+    const std::string recursive =
+        FindFileRecursive(basePath, specPath.filename().string());
+    if (!recursive.empty())
+      return NormalizeModelKeyPath(recursive);
+  }
+
+  return NormalizeModelKeyPath(fixture.gdtfSpec);
+}
+
+std::string BuildFixtureSymbolModelKey(const Fixture &fixture,
+                                       const std::string &basePath) {
+  std::string modelKey = ResolveFixtureSymbolKeyPath(fixture, basePath);
+  if (modelKey.empty() && !fixture.typeName.empty())
+    modelKey = fixture.typeName;
+  if (modelKey.empty())
+    modelKey = "unknown";
+  return modelKey;
 }
 } // namespace
 
@@ -148,21 +196,17 @@ void OpaqueFixturePass::Render(
     if (gdtfPathIt != controller.m_resourceSyncState.resolvedGdtfSpecs.end() &&
         gdtfPathIt->second.attempted)
       gdtfPath = gdtfPathIt->second.resolvedPath;
+    const std::string sceneBasePath = ConfigManager::Get().GetScene().basePath;
+    const std::string modelKey = BuildFixtureSymbolModelKey(f, sceneBasePath);
+
     std::string svgSourcePath;
-    if (!f.gdtfSpec.empty()) {
-      const std::string basePath = ConfigManager::Get().GetScene().basePath;
-      fs::path candidate = basePath.empty() ? fs::path(f.gdtfSpec)
-                                            : (fs::path(basePath) /
-                                               fs::path(f.gdtfSpec));
-      std::error_code ec;
-      if (fs::exists(candidate, ec) && !ec)
-        svgSourcePath = NormalizeModelKey(candidate.string());
-      else if (!basePath.empty())
-        svgSourcePath = FindFileRecursive(
-            basePath, fs::path(f.gdtfSpec).filename().string());
+    std::error_code sourcePathError;
+    if (fs::exists(fs::path(modelKey), sourcePathError) && !sourcePathError) {
+      svgSourcePath = modelKey;
+    } else if (!gdtfPath.empty()) {
+      svgSourcePath = NormalizeModelKeyPath(gdtfPath);
     }
-    if (svgSourcePath.empty())
-      svgSourcePath = gdtfPath;
+
     auto itg = controller.m_resourceSyncState.loadedGdtf.find(gdtfPath);
 
     const bool useSymbolInstancing =
@@ -174,14 +218,6 @@ void OpaqueFixturePass::Render(
          !highlight && !selected);
     bool placedInstance = false;
     if (useSymbolInstancing && controller.m_captureCanvas && !skipCapture) {
-      std::string modelKey = NormalizeModelKey(svgSourcePath);
-      if (modelKey.empty() && !f.gdtfSpec.empty())
-        modelKey = NormalizeModelKey(f.gdtfSpec);
-      if (modelKey.empty() && !f.typeName.empty())
-        modelKey = f.typeName;
-      if (modelKey.empty())
-        modelKey = "unknown";
-
       if (!modelKey.empty()) {
         const Viewer2DView fixtureCaptureView =
             isTopView2D && forceBottomViewForTopFixtures
@@ -197,7 +233,8 @@ void OpaqueFixturePass::Render(
             controller.m_bottomSymbolCache.GetOrCreate(symbolKey, [&](const SymbolKey &,
                                                          uint32_t symbolId) {
               SymbolDefinition svgDefinition{};
-              if (TryBuildPerastageSvgSymbolDefinition(svgSourcePath,
+              if (!svgSourcePath.empty() &&
+                  TryBuildPerastageSvgSymbolDefinition(svgSourcePath,
                                                        symbolKey.viewKind,
                                                        symbolId,
                                                        svgDefinition)) {
