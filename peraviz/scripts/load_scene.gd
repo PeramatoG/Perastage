@@ -1839,9 +1839,13 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 		"intensity_visibility_threshold": BEAM_INTENSITY_VISIBILITY_THRESHOLD,
 		"distance_cull_m": BEAM_DISTANCE_CULL_M,
 	}
-	_update_beam_for_light(light, beam_params)
+	var gobo_changed: bool = false
 	if _fixture_gobo_projector != null:
-		_fixture_gobo_projector.apply_gobo_projection(light, controls)
+		gobo_changed = _fixture_gobo_projector.apply_gobo_projection(light, controls)
+	_update_beam_for_light(light, beam_params)
+	if gobo_changed:
+		# Re-apply beam uniforms immediately when gobo texture changes so volumetric modulation updates without frame delay.
+		_update_beam_for_light(light, beam_params)
 
 func _resolve_zoom_beam_limits(light: SpotLight3D, controls: Dictionary) -> Dictionary:
 	# min/max beam angles are kept as full GDTF beam apertures (not half-angle).

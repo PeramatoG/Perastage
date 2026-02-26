@@ -8,13 +8,14 @@ var _texture_cache: Dictionary = {}
 func clear_cache() -> void:
 	_texture_cache.clear()
 
-func apply_gobo_projection(light: SpotLight3D, controls: Dictionary) -> void:
+func apply_gobo_projection(light: SpotLight3D, controls: Dictionary) -> bool:
 	if light == null or not is_instance_valid(light):
-		return
+		return false
+	var previous_projector: Texture2D = light.light_projector
 	if not bool(controls.get("has_gobo", false)):
 		light.light_projector = null
 		light.shadow_enabled = false
-		return
+		return previous_projector != null
 
 	var runtime_bindings: Array = controls.get("gobo_runtime_bindings", [])
 	if runtime_bindings.is_empty():
@@ -44,11 +45,12 @@ func apply_gobo_projection(light: SpotLight3D, controls: Dictionary) -> void:
 	if active_textures.is_empty():
 		light.light_projector = null
 		light.shadow_enabled = false
-		return
+		return previous_projector != null
 
 	light.shadow_enabled = true
 	_warn_if_projector_unsupported(light)
 	light.light_projector = _compose_gobo_textures(active_textures)
+	return light.light_projector != previous_projector
 
 func _resolve_gobo_raw_8bit(controls: Dictionary) -> int:
 	var gobo_raw: int = int(round(clamp(float(controls.get("gobo_norm", 0.0)), 0.0, 1.0) * 255.0))
