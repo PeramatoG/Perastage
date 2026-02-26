@@ -199,6 +199,76 @@ std::string TrimAscii(std::string value) {
     value.pop_back();
   return value;
 }
+std::optional<double> ParseSvgLengthToMillimeters(const char *text) {
+  if (!text)
+    return std::nullopt;
+
+  std::string value = TrimAscii(text);
+  if (value.empty())
+    return std::nullopt;
+
+  size_t unitPos = value.size();
+  while (unitPos > 0) {
+    const unsigned char ch = static_cast<unsigned char>(value[unitPos - 1]);
+    if (!std::isalpha(ch))
+      break;
+    --unitPos;
+  }
+
+  std::string numberPart = TrimAscii(value.substr(0, unitPos));
+  std::string unitPart = TrimAscii(value.substr(unitPos));
+  std::transform(unitPart.begin(), unitPart.end(), unitPart.begin(),
+                 [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
+
+  char *end = nullptr;
+  const double raw = std::strtod(numberPart.c_str(), &end);
+  if (end == numberPart.c_str())
+    return std::nullopt;
+
+  if (unitPart.empty() || unitPart == "mm")
+    return raw;
+  if (unitPart == "cm")
+    return raw * 10.0;
+  if (unitPart == "m")
+    return raw * 1000.0;
+  if (unitPart == "in")
+    return raw * 25.4;
+  if (unitPart == "pt")
+    return raw * (25.4 / 72.0);
+  if (unitPart == "pc")
+    return raw * (25.4 / 6.0);
+  if (unitPart == "px")
+    return raw * (25.4 / 96.0);
+
+  return std::nullopt;
+}
+
+void ScaleSvgGeometry(PerastageSvgSymbolData &symbol, double scaleX,
+                      double scaleY) {
+  for (auto &polygon : symbol.fills) {
+    for (auto &point : polygon.points) {
+      point.x *= scaleX;
+      point.y *= scaleY;
+    }
+    for (auto &hole : polygon.holes) {
+      for (auto &point : hole) {
+        point.x *= scaleX;
+        point.y *= scaleY;
+      }
+    }
+  }
+
+  for (auto &line : symbol.strokes) {
+    for (auto &point : line.points) {
+      point.x *= scaleX;
+      point.y *= scaleY;
+    }
+  }
+
+  symbol.viewBoxWidth *= scaleX;
+  symbol.viewBoxHeight *= scaleY;
+}
+
 
 std::optional<double> ParsePercentOrInt255(std::string value) {
   value = TrimAscii(std::move(value));
@@ -453,6 +523,21 @@ bool ParseSvgData(const std::string &svgXml, PerastageSvgSymbolData &out) {
   out.strokes.clear();
   CollectSvgElements(svg, rawPolygons, out.strokes);
   AssignWhitePolygonsAsHoles(rawPolygons, out.fills);
+
+  const std::optional<double> svgWidthMm =
+      ParseSvgLengthToMillimeters(svg->Attribute("width"));
+  const std::optional<double> svgHeightMm =
+      ParseSvgLengthToMillimeters(svg->Attribute("height"));
+  if (svgWidthMm.has_value() && svgHeightMm.has_value() &&
+      *svgWidthMm > 0.0 && *svgHeightMm > 0.0) {
+    const double scaleX = *svgWidthMm / viewBox[2];
+    const double scaleY = *svgHeightMm / viewBox[3];
+    if (std::isfinite(scaleX) && std::isfinite(scaleY) && scaleX > 0.0 &&
+        scaleY > 0.0) {
+      ScaleSvgGeometry(out, scaleX, scaleY);
+    }
+  }
+
   return out.IsValid();
 }
 
