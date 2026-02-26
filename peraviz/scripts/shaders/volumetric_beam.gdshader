@@ -23,6 +23,7 @@ instance uniform float gobo_cutoff : hint_range(0.0, 1.0) = 0.5;
 instance uniform float gobo_start_ratio : hint_range(0.0, 1.0) = 0.0;
 instance uniform float gobo_rotation : hint_range(-6.2831853, 6.2831853) = 0.0;
 instance uniform vec2 gobo_size = vec2(0.08, 0.08);
+instance uniform float beam_height : hint_range(0.01, 200.0) = 8.0;
 
 varying vec3 vertex_view;
 varying vec3 vertex_local;
@@ -70,28 +71,32 @@ void fragment() {
 	}
 
 	float final_alpha = feather_alpha * depth_mult * dist_fade;
-	if (gobo_enabled && UV.y >= gobo_start_ratio) {
-		float depth_ratio = max(UV.y, 0.001);
-		float projection_scale = gobo_start_ratio / depth_ratio;
-		vec2 gobo_plane_pos = vertex_local.xz * projection_scale;
-		float sin_angle = sin(gobo_rotation);
-		float cos_angle = cos(gobo_rotation);
-		vec2 rotated = vec2(
-			gobo_plane_pos.x * cos_angle - gobo_plane_pos.y * sin_angle,
-			gobo_plane_pos.x * sin_angle + gobo_plane_pos.y * cos_angle
-		);
-		vec2 half_size = max(gobo_size * 0.5, vec2(0.001));
-		vec2 gobo_uv = rotated / half_size * 0.5 + 0.5;
-		float inside = step(0.0, gobo_uv.x) * step(gobo_uv.x, 1.0) * step(0.0, gobo_uv.y) * step(gobo_uv.y, 1.0);
-		float gobo_open = 0.0;
-		if (inside > 0.5) {
-			vec4 texel = texture(gobo_texture, gobo_uv);
-			float luma = dot(texel.rgb, vec3(0.299, 0.587, 0.114));
-			float effective_luma = luma * texel.a;
-			gobo_open = step(gobo_cutoff, effective_luma);
+	if (gobo_enabled) {
+		float distance_from_lens = (beam_height * 0.5) - vertex_local.y;
+		float gobo_start_distance = gobo_start_ratio * beam_height;
+		if (distance_from_lens >= gobo_start_distance && distance_from_lens > 0.001) {
+			float projection_scale = gobo_start_distance / distance_from_lens;
+			vec2 radial_pos = vec2(vertex_local.x, -vertex_local.z);
+			vec2 gobo_plane_pos = radial_pos * projection_scale;
+			float sin_angle = sin(gobo_rotation);
+			float cos_angle = cos(gobo_rotation);
+			vec2 rotated = vec2(
+				gobo_plane_pos.x * cos_angle - gobo_plane_pos.y * sin_angle,
+				gobo_plane_pos.x * sin_angle + gobo_plane_pos.y * cos_angle
+			);
+			vec2 half_size = max(gobo_size * 0.5, vec2(0.001));
+			vec2 gobo_uv = rotated / half_size * 0.5 + 0.5;
+			float inside = step(0.0, gobo_uv.x) * step(gobo_uv.x, 1.0) * step(0.0, gobo_uv.y) * step(gobo_uv.y, 1.0);
+			float gobo_open = 0.0;
+			if (inside > 0.5) {
+				vec4 texel = texture(gobo_texture, gobo_uv);
+				float luma = dot(texel.rgb, vec3(0.299, 0.587, 0.114));
+				float effective_luma = luma * texel.a;
+				gobo_open = step(gobo_cutoff, effective_luma);
+			}
+			brightness *= gobo_open;
+			final_alpha *= gobo_open;
 		}
-		brightness *= gobo_open;
-		final_alpha *= gobo_open;
 	}
 
 	ALBEDO = base_color.rgb * brightness;

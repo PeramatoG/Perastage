@@ -100,6 +100,7 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	var intensity_alpha: float = clamp(intensity * VOLUMETRIC_INTENSITY_SCALE, 0.0, 1.0)
 	cone.set_instance_shader_parameter("base_color", Color(beam_color.r, beam_color.g, beam_color.b, intensity_alpha))
 	cone.set_instance_shader_parameter("max_brightness", lerp(1.0, 10.0, intensity))
+	cone.set_instance_shader_parameter("beam_height", beam_range)
 
 	_update_gobo_occluder(light, cone, gobo_occluder, beam_angle, beam_range, lens_radius)
 
@@ -166,4 +167,6 @@ func _update_gobo_occluder(light: SpotLight3D, cone: MeshInstance3D, gobo_occlud
 	var cone_material: ShaderMaterial = cone.material_override as ShaderMaterial
 	if cone_material != null:
 		cone_material.set_shader_parameter("gobo_texture", gobo_texture)
+	else:
+		cone.set_instance_shader_parameter("gobo_enabled", false)
 
