@@ -2,6 +2,7 @@ shader_type spatial;
 render_mode unshaded, blend_add, cull_disabled, depth_draw_opaque;
 
 uniform sampler2D DEPTH_TEXTURE : hint_depth_texture, filter_linear_mipmap;
+uniform sampler2D gobo_texture;
 
 instance uniform vec4 base_color : source_color = vec4(1.0, 0.95, 0.85, 0.5);
 uniform float falloff_power : hint_range(0.1, 10.0) = 8.0;
@@ -17,10 +18,17 @@ uniform float far_fade_end : hint_range(0.1, 100.0) = 80.0;
 instance uniform float max_brightness : hint_range(1.0, 50.0) = 10.0;
 uniform bool depth_feather_enabled = true;
 uniform float depth_fade_distance : hint_range(0.01, 5.0) = 0.5;
+instance uniform bool gobo_enabled = false;
+instance uniform float gobo_cutoff : hint_range(0.0, 1.0) = 0.5;
+instance uniform float gobo_start_ratio : hint_range(0.0, 1.0) = 0.0;
+instance uniform float gobo_rotation : hint_range(-6.2831853, 6.2831853) = 0.0;
+instance uniform vec2 gobo_size = vec2(0.08, 0.08);
 
 varying vec3 vertex_view;
+varying vec3 vertex_local;
 
 void vertex() {
+	vertex_local = VERTEX;
 	vertex_view = (MODELVIEW_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	POSITION = PROJECTION_MATRIX * vec4(vertex_view, 1.0);
 }
@@ -62,6 +70,30 @@ void fragment() {
 	}
 
 	float final_alpha = feather_alpha * depth_mult * dist_fade;
+	if (gobo_enabled && UV.y >= gobo_start_ratio) {
+		float depth_ratio = max(UV.y, 0.001);
+		float projection_scale = gobo_start_ratio / depth_ratio;
+		vec2 gobo_plane_pos = vertex_local.xz * projection_scale;
+		float sin_angle = sin(gobo_rotation);
+		float cos_angle = cos(gobo_rotation);
+		vec2 rotated = vec2(
+			gobo_plane_pos.x * cos_angle - gobo_plane_pos.y * sin_angle,
+			gobo_plane_pos.x * sin_angle + gobo_plane_pos.y * cos_angle
+		);
+		vec2 half_size = max(gobo_size * 0.5, vec2(0.001));
+		vec2 gobo_uv = rotated / half_size * 0.5 + 0.5;
+		float inside = step(0.0, gobo_uv.x) * step(gobo_uv.x, 1.0) * step(0.0, gobo_uv.y) * step(gobo_uv.y, 1.0);
+		float gobo_open = 0.0;
+		if (inside > 0.5) {
+			vec4 texel = texture(gobo_texture, gobo_uv);
+			float luma = dot(texel.rgb, vec3(0.299, 0.587, 0.114));
+			float effective_luma = luma * texel.a;
+			gobo_open = step(gobo_cutoff, effective_luma);
+		}
+		brightness *= gobo_open;
+		final_alpha *= gobo_open;
+	}
+
 	ALBEDO = base_color.rgb * brightness;
 	ALPHA = clamp(final_alpha * base_color.a, 0.0, 1.0);
 	EMISSION = ALBEDO * ALPHA;
