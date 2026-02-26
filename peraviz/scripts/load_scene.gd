@@ -313,6 +313,8 @@ func _refresh_emitter_visual_scalars() -> void:
 func _apply_visual_scalars_to_light(light: SpotLight3D) -> void:
 	var base_energy: float = float(light.get_meta("peraviz_base_light_energy", light.light_energy))
 	light.light_energy = base_energy * float(_visual_settings.get("spot_multiplier", 1.0))
+	var base_fog_energy: float = float(light.get_meta("peraviz_base_volumetric_fog_energy", light.light_volumetric_fog_energy))
+	light.light_volumetric_fog_energy = base_fog_energy * float(_visual_settings.get("beam_multiplier", 1.0))
 	_update_existing_beam_material_scalars(light)
 
 func _update_existing_beam_material_scalars(light: SpotLight3D) -> void:
@@ -1608,6 +1610,8 @@ func _find_or_create_emitter_light(emitter_node: Node3D) -> SpotLight3D:
 			# Keep spotlight footprint behavior stable while pan/tilt moves the fixture.
 			# Self/caster shadows from fixture geometry can clip the floor footprint.
 			child.shadow_enabled = false
+			if not child.has_meta("peraviz_base_volumetric_fog_energy"):
+				child.set_meta("peraviz_base_volumetric_fog_energy", child.light_volumetric_fog_energy)
 			child.set_meta("peraviz_lens_radius", lens_radius)
 			return child
 
@@ -1620,6 +1624,8 @@ func _find_or_create_emitter_light(emitter_node: Node3D) -> SpotLight3D:
 	light.spot_range = 60.0
 	light.spot_angle = 25.0
 	light.spot_attenuation = 1.0
+	light.light_volumetric_fog_energy = 1.0
+	light.set_meta("peraviz_base_volumetric_fog_energy", light.light_volumetric_fog_energy)
 	light.set_meta("peraviz_lens_radius", lens_radius)
 	emitter_node.add_child(light)
 	return light
@@ -1803,6 +1809,9 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 	var base_light_energy: float = luminous_flux * normalized_dimmer * EMITTER_LIGHT_ENERGY_SCALE
 	light.set_meta("peraviz_base_light_energy", base_light_energy)
 	light.light_energy = base_light_energy * float(_visual_settings.get("spot_multiplier", 1.0))
+	var base_fog_energy: float = max(normalized_dimmer, 0.0)
+	light.set_meta("peraviz_base_volumetric_fog_energy", base_fog_energy)
+	light.light_volumetric_fog_energy = base_fog_energy * float(_visual_settings.get("beam_multiplier", 1.0))
 	var beam_half_angle_deg: float = beam_angle * 0.5
 	# Godot 4.2 SpotLight3D.spot_angle behaves as cone half-angle in degrees.
 	# Keep zoom/beam limits as full GDTF aperture, and convert here for light projection.

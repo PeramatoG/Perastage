@@ -1,7 +1,7 @@
 extends RefCounted
 class_name FixtureGoboProjector
 
-const FAKE_GOBO_TEXTURE_SIZE: int = 128
+const FAKE_GOBO_TEXTURE_SIZE: int = 512
 const GOBO_QUAD_META_KEY: String = "peraviz_gobo_alpha_quad"
 const GOBO_QUAD_MATERIAL_META_KEY: String = "peraviz_gobo_alpha_quad_material"
 const GOBO_QUAD_DEBUG_DISTANCE_M: float = 1.0
@@ -10,8 +10,8 @@ const GOBO_QUAD_MAX_SIZE_M: float = 4.0
 const GOBO_UV_OFFSET_DEFAULT: Vector2 = Vector2.ZERO
 const GOBO_UV_SCALE_DEFAULT: Vector2 = Vector2.ONE
 const GOBO_SHADOW_BIAS: float = 0.002
-const GOBO_SHADOW_NORMAL_BIAS: float = 0.08
-const GOBO_SHADOW_BLUR: float = 0.0
+const GOBO_SHADOW_NORMAL_BIAS: float = 0.03
+const GOBO_SHADOW_BLUR: float = 0.35
 
 const GOBO_ALPHA_QUAD_SHADER: Shader = preload("res://scripts/shaders/gobo_alpha_quad.gdshader")
 
@@ -134,7 +134,6 @@ func _resolve_gobo_texture_for_slot(controls: Dictionary, slot_index: int) -> Te
 		var load_error: Error = image.load(image_path)
 		if load_error != OK:
 			return null
-		image.generate_mipmaps()
 		var texture: ImageTexture = ImageTexture.create_from_image(image)
 		_texture_cache[image_path] = texture
 		return texture
@@ -172,7 +171,6 @@ func _compose_gobo_textures(textures: Array[Texture2D]) -> Texture2D:
 				var out_luma: float = dst.r * src_luma
 				composed.set_pixel(x, y, Color(out_luma, out_luma, out_luma, 1.0))
 
-	composed.generate_mipmaps()
 	var out_texture: ImageTexture = ImageTexture.create_from_image(composed)
 	_texture_cache[cache_key] = out_texture
 	return out_texture
@@ -199,7 +197,6 @@ func _resolve_fake_gobo_texture(gobo_raw_8bit: int) -> Texture2D:
 				if checker:
 					image.set_pixel(x, y, Color(0.0, 0.0, 0.0, 1.0))
 
-	image.generate_mipmaps()
 	var texture: ImageTexture = ImageTexture.create_from_image(image)
 	_texture_cache[cache_key] = texture
 	return texture
