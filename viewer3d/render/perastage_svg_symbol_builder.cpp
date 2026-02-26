@@ -28,8 +28,10 @@ void AppendSvgPolygon(const PerastageSvgPolygon &polygon,
   poly.hasFill = true;
 
   buffer.commands.emplace_back(std::move(poly));
-  buffer.metadata.push_back({true, true});
-  buffer.sources.push_back("svg");
+  // Keep fills in a dedicated source/layer so PDF replay renders fills
+  // before strokes and preserves interior stroke details.
+  buffer.metadata.push_back({false, true});
+  buffer.sources.push_back("svg_fill");
 }
 
 void AppendSvgPolyline(const PerastageSvgPolyline &line, CommandBuffer &buffer) {
@@ -47,7 +49,7 @@ void AppendSvgPolyline(const PerastageSvgPolyline &line, CommandBuffer &buffer) 
 
   buffer.commands.emplace_back(std::move(polyline));
   buffer.metadata.push_back({true, false});
-  buffer.sources.push_back("svg");
+  buffer.sources.push_back("svg_stroke");
 }
 } // namespace
 
