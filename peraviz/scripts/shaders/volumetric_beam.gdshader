@@ -24,10 +24,14 @@ uniform float depth_fade_distance : hint_range(0.01, 5.0) = 0.5;
 
 // Whether to modulate the volumetric beam by the gobo pattern.
 instance uniform bool gobo_enabled = false;
-// Ratio of beam radius to distance from the emitter gate: tan(spot_angle / 2).
-instance uniform float tan_half_angle = 0.0;
-// How many radial samples to take while integrating the mask from center to shell.
-instance uniform int radial_samples = 4;
+instance uniform float gobo_cutoff = 0.5;
+instance uniform float gobo_start_ratio = 0.0025;
+instance uniform float gobo_rotation = 0.0;
+instance uniform vec2 gobo_size = vec2(0.08, 0.08);
+instance uniform float gobo_axis_sign = 1.0;
+instance uniform float beam_height = 8.0;
+instance uniform float beam_top_radius = 0.02;
+instance uniform float beam_bottom_radius = 0.8;
 
 varying vec3 v_view;
 varying float v_depth;
@@ -76,35 +80,44 @@ void fragment() {
 	}
 
 	float final_alpha = feather_alpha * depth_mult * dist_fade;
-	float gobo_intensity = 1.0;
+	float gobo_open = 1.0;
 	if (gobo_enabled) {
-		if (v_depth <= 0.0 || tan_half_angle <= 0.0) {
-			discard;
-		}
+		vec3 vertex_local = VERTEX;
+		float axis_pos = (beam_height * 0.5) - (vertex_local.y * gobo_axis_sign);
+		float axis_dist = clamp(axis_pos, 0.001, beam_height);
+		float gobo_plane_dist = gobo_start_ratio * beam_height;
+		if (axis_pos >= gobo_plane_dist) {
+			float t = axis_pos / beam_height;
+			float radius_at_point = mix(beam_top_radius, beam_bottom_radius, clamp(t, 0.0, 1.0));
+			vec2 radial_pos = vec2(vertex_local.x, vertex_local.z);
+			vec2 norm_radial = radial_pos / max(radius_at_point, 0.001);
 
-		// Project the fragment onto the gobo gate at the emitter and let UVs expand with distance.
-		vec2 gobo_uv = vec2(0.5) + (v_view.xy / (v_depth * 2.0 * tan_half_angle));
-		const int MAX_RADIAL_SAMPLES = 16;
-		int sample_count = clamp(radial_samples, 1, MAX_RADIAL_SAMPLES);
-		float gobo_acc = 0.0;
-		// Integrate from center to shell so blocked areas attenuate the entire beam interior,
-		// mirroring a physical gobo plate with shaped holes.
-		for (int i = 0; i < MAX_RADIAL_SAMPLES; i++) {
-			if (i >= sample_count) {
-				break;
+			float projection_scale = gobo_plane_dist / axis_dist;
+			vec2 gobo_plane_pos = norm_radial * projection_scale;
+
+			float sin_rot = sin(gobo_rotation);
+			float cos_rot = cos(gobo_rotation);
+			vec2 rotated = vec2(
+				gobo_plane_pos.x * cos_rot - gobo_plane_pos.y * sin_rot,
+				gobo_plane_pos.x * sin_rot + gobo_plane_pos.y * cos_rot
+			);
+			vec2 half_size = max(gobo_size * 0.5, vec2(0.001));
+			vec2 gobo_uv = rotated / half_size * 0.5 + 0.5;
+
+			if (gobo_uv.x < 0.0 || gobo_uv.x > 1.0 || gobo_uv.y < 0.0 || gobo_uv.y > 1.0) {
+				gobo_open = 0.0;
+			} else {
+				vec4 texel = texture(gobo_texture, gobo_uv);
+				float luminance = dot(texel.rgb, vec3(0.299, 0.587, 0.114)) * texel.a;
+				gobo_open = step(gobo_cutoff, luminance);
 			}
-			float t = (float(i) + 0.5) / float(sample_count);
-			vec2 sample_uv = mix(vec2(0.5, 0.5), gobo_uv, t);
-			gobo_acc += texture(gobo_texture, sample_uv).r;
-		}
-		gobo_intensity = gobo_acc / float(sample_count);
-		if (gobo_intensity < 0.001) {
-			discard;
+		} else {
+			gobo_open = 1.0;
 		}
 	}
 
-	brightness *= gobo_intensity;
-	final_alpha *= gobo_intensity;
+	brightness *= gobo_open;
+	final_alpha *= gobo_open;
 	if (final_alpha < 0.001) {
 		discard;
 	}
