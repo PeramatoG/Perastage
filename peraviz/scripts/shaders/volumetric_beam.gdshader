@@ -74,7 +74,8 @@ void fragment() {
 
 	float final_alpha = feather_alpha * depth_mult * dist_fade;
 	if (gobo_enabled) {
-		float axis_ratio = clamp(UV.y, 0.0, 1.0);
+		float distance_from_lens = clamp((beam_height * 0.5) - vertex_local.y, 0.0, beam_height);
+		float axis_ratio = distance_from_lens / max(beam_height, 0.001);
 		if (axis_ratio >= gobo_start_ratio) {
 			float current_radius = mix(beam_top_radius, beam_bottom_radius, axis_ratio);
 			float gobo_plane_radius = mix(beam_top_radius, beam_bottom_radius, gobo_start_ratio);
