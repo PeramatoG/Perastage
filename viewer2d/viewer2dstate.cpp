@@ -66,6 +66,8 @@ Viewer2DState CaptureState(const Viewer2DPanel *panel,
   state.renderOptions.renderMode =
       static_cast<int>(cfg.GetFloat("view2d_render_mode"));
   state.renderOptions.darkMode = cfg.GetFloat("view2d_dark_mode") != 0.0f;
+  state.renderOptions.forceBottomViewForTopFixtures =
+      cfg.GetFloat("view2d_top_fixtures_inverted") != 0.0f;
   state.renderOptions.showGrid = cfg.GetFloat("grid_show") != 0.0f;
   state.renderOptions.gridStyle =
       static_cast<int>(cfg.GetFloat("grid_style"));
@@ -112,6 +114,12 @@ void ApplyState(Viewer2DPanel *panel, Viewer2DRenderPanel *renderPanel,
   cfg.SetFloat("view2d_render_mode",
                static_cast<float>(state.renderOptions.renderMode));
   cfg.SetFloat("view2d_dark_mode", state.renderOptions.darkMode ? 1.0f : 0.0f);
+  if (state.renderOptions.forceBottomViewForTopFixtures.has_value()) {
+    cfg.SetFloat("view2d_top_fixtures_inverted",
+                 state.renderOptions.forceBottomViewForTopFixtures.value()
+                     ? 1.0f
+                     : 0.0f);
+  }
   cfg.SetFloat("grid_show", state.renderOptions.showGrid ? 1.0f : 0.0f);
   cfg.SetFloat("grid_style", static_cast<float>(state.renderOptions.gridStyle));
   cfg.SetFloat("grid_color_r", state.renderOptions.gridColorR);
@@ -228,8 +236,14 @@ Viewer2DState FromLayoutDefinition(const layouts::Layout2DViewDefinition &view) 
 }
 
 void ApplyEditorRenderOptions(Viewer2DState &state, const ConfigManager &cfg) {
+  const std::optional<bool> preservedForceBottomSetting =
+      state.renderOptions.forceBottomViewForTopFixtures;
   Viewer2DState editorState = CaptureState(nullptr, cfg);
   state.renderOptions = editorState.renderOptions;
+  if (preservedForceBottomSetting.has_value()) {
+    state.renderOptions.forceBottomViewForTopFixtures =
+        preservedForceBottomSetting;
+  }
 }
 
 layouts::Layout2DViewDefinition ToLayoutDefinition(
