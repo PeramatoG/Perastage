@@ -316,8 +316,10 @@ void OpaqueFixturePass::Render(
     auto itg = controller.m_resourceSyncState.loadedGdtf.find(gdtfPath);
 
     bool renderedPerastageSvg = false;
+    const bool captureRecordingActive = controller.m_captureCanvas && !skipCapture;
     const bool preferLayoutSvg =
-        context.preferPerastageSvgSymbolsForLayouts && is2DViewer;
+        context.preferPerastageSvgSymbolsForLayouts && is2DViewer &&
+        !captureRecordingActive;
     if (preferLayoutSvg && !svgSourcePath.empty()) {
       const Viewer2DView fixtureView =
           isTopView2D && forceBottomViewForTopFixtures ? Viewer2DView::Bottom
