@@ -142,7 +142,7 @@ func _compose_gobo_textures(textures: Array[Texture2D]) -> Texture2D:
 	return out_texture
 
 func _resolve_fake_gobo_texture(gobo_raw_8bit: int) -> Texture2D:
-	var fake_bucket: int = gobo_raw_8bit / 8
+	var fake_bucket: int = gobo_raw_8bit >> 3
 	var cache_key: String = "__fake_gobo_%d" % fake_bucket
 	if _texture_cache.has(cache_key):
 		return _texture_cache[cache_key] as Texture2D
@@ -159,7 +159,9 @@ func _resolve_fake_gobo_texture(gobo_raw_8bit: int) -> Texture2D:
 				var dist: float = uv.length()
 				if dist > max_radius:
 					continue
-				var checker: bool = (((x / step) + (y / step) + fake_bucket) % 2) == 0
+				var x_cell: int = int(floor(float(x) / float(step)))
+				var y_cell: int = int(floor(float(y) / float(step)))
+				var checker: bool = (((x_cell + y_cell) + fake_bucket) % 2) == 0
 				if checker:
 					image.set_pixel(x, y, Color(0.0, 0.0, 0.0, 1.0))
 

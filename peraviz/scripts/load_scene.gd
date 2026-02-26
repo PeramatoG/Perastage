@@ -2011,13 +2011,13 @@ func _update_emitter_beam_cone(light: SpotLight3D, beam_angle: float, beam_range
 
 	var intensity: float = clamp(normalized_dimmer, 0.0, 1.0)
 	light.set_meta("peraviz_beam_base_intensity", intensity)
-	var is_visible: bool = intensity > 0.015
+	var beam_is_visible: bool = intensity > 0.015
 	if cone != null:
-		cone.visible = is_visible
+		cone.visible = beam_is_visible
 	if mid_cone != null:
-		mid_cone.visible = is_visible
+		mid_cone.visible = beam_is_visible
 	if core_cone != null:
-		core_cone.visible = is_visible
+		core_cone.visible = beam_is_visible
 
 	var beam_multiplier: float = float(_visual_settings.get("beam_multiplier", 1.0))
 	var scaled_intensity: float = clamp(intensity * beam_multiplier, 0.0, 3.0)
