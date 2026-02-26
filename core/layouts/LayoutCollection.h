@@ -45,6 +45,7 @@ struct Layout2DViewCameraState {
 struct Layout2DViewRenderOptions {
   int renderMode = 2;
   bool darkMode = true;
+  bool forceBottomViewForTopFixtures = true;
   bool showGrid = true;
   int gridStyle = 0;
   float gridColorR = 0.35f;

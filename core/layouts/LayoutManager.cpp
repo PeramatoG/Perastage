@@ -67,6 +67,7 @@ nlohmann::json ToJson(const Layout2DViewDefinition &view) {
       {"renderOptions",
        {{"renderMode", options.renderMode},
         {"darkMode", options.darkMode},
+        {"forceBottomViewForTopFixtures", options.forceBottomViewForTopFixtures},
         {"showGrid", options.showGrid},
         {"gridStyle", options.gridStyle},
         {"gridColorR", options.gridColorR},
@@ -233,6 +234,9 @@ void ReadRenderOptions(const nlohmann::json &obj,
     options.renderMode = it->get<int>();
   if (auto it = obj.find("darkMode"); it != obj.end() && it->is_boolean())
     options.darkMode = it->get<bool>();
+  if (auto it = obj.find("forceBottomViewForTopFixtures");
+      it != obj.end() && it->is_boolean())
+    options.forceBottomViewForTopFixtures = it->get<bool>();
   if (auto it = obj.find("showGrid"); it != obj.end() && it->is_boolean())
     options.showGrid = it->get<bool>();
   if (auto it = obj.find("gridStyle"); it != obj.end() && it->is_number())
@@ -698,6 +702,9 @@ bool ParseLayout(const nlohmann::json &value, LayoutDefinition &out) {
         if (auto it = viewObj.find("darkMode");
             it != viewObj.end() && it->is_boolean())
           options.darkMode = it->get<bool>();
+        if (auto it = viewObj.find("forceBottomViewForTopFixtures");
+            it != viewObj.end() && it->is_boolean())
+          options.forceBottomViewForTopFixtures = it->get<bool>();
         if (auto it = viewObj.find("showGrid");
             it != viewObj.end() && it->is_boolean())
           options.showGrid = it->get<bool>();

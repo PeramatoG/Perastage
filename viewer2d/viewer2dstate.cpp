@@ -66,6 +66,8 @@ Viewer2DState CaptureState(const Viewer2DPanel *panel,
   state.renderOptions.renderMode =
       static_cast<int>(cfg.GetFloat("view2d_render_mode"));
   state.renderOptions.darkMode = cfg.GetFloat("view2d_dark_mode") != 0.0f;
+  state.renderOptions.forceBottomViewForTopFixtures =
+      cfg.GetFloat("view2d_top_fixtures_inverted") != 0.0f;
   state.renderOptions.showGrid = cfg.GetFloat("grid_show") != 0.0f;
   state.renderOptions.gridStyle =
       static_cast<int>(cfg.GetFloat("grid_style"));
@@ -112,6 +114,9 @@ void ApplyState(Viewer2DPanel *panel, Viewer2DRenderPanel *renderPanel,
   cfg.SetFloat("view2d_render_mode",
                static_cast<float>(state.renderOptions.renderMode));
   cfg.SetFloat("view2d_dark_mode", state.renderOptions.darkMode ? 1.0f : 0.0f);
+  cfg.SetFloat("view2d_top_fixtures_inverted",
+               state.renderOptions.forceBottomViewForTopFixtures ? 1.0f
+                                                                  : 0.0f);
   cfg.SetFloat("grid_show", state.renderOptions.showGrid ? 1.0f : 0.0f);
   cfg.SetFloat("grid_style", static_cast<float>(state.renderOptions.gridStyle));
   cfg.SetFloat("grid_color_r", state.renderOptions.gridColorR);
