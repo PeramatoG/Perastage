@@ -5,7 +5,7 @@ uniform sampler2D DEPTH_TEXTURE : hint_depth_texture, filter_linear_mipmap;
 // Godot Light3D projector textures affect lit surfaces, not built-in volumetric fog.
 // This shader performs explicit gobo masking inside the beam volume.
 // The gobo mask sampled in beam space. White passes light; black blocks it.
-uniform sampler2D gobo_texture : hint_black_white;
+uniform sampler2D gobo_texture : source_color, hint_default_white;
 
 instance uniform vec4 base_color : source_color = vec4(1.0, 0.95, 0.85, 0.5);
 uniform float falloff_power : hint_range(0.1, 10.0) = 8.0;
