@@ -1,8 +1,7 @@
 shader_type spatial;
-render_mode blend_mix, depth_prepass_alpha, cull_disabled, unshaded;
+render_mode depth_draw_opaque, cull_disabled, unshaded;
 
 uniform sampler2D gobo_texture : source_color;
-uniform float alpha_cutoff : hint_range(0.0, 1.0) = 0.5;
 uniform vec2 uv_offset = vec2(0.0, 0.0);
 uniform vec2 uv_scale = vec2(1.0, 1.0);
 uniform float bw_threshold : hint_range(0.0, 1.0) = 0.5;
@@ -21,7 +20,10 @@ void fragment() {
 	float gobo_blocker = (1.0 - step(bw_threshold, luma)) * gobo_sample.a;
 	float blocker = clamp(max(gobo_blocker, outside_circle), 0.0, 1.0);
 
-	ALBEDO = mix(vec3(1.0), vec3(0.0), blocker);
-	ALPHA = blocker;
-	ALPHA_SCISSOR_THRESHOLD = alpha_cutoff;
+	if (blocker < 0.5) {
+		discard;
+	}
+
+	ALBEDO = vec3(0.0);
+	ALPHA = 1.0;
 }

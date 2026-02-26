@@ -191,7 +191,6 @@ func _apply_gobo_alpha_quad(light: SpotLight3D, gobo_texture: Texture2D) -> void
 
 	var texture_fit: Dictionary = _resolve_texture_fit(gobo_texture)
 	quad_material.set_shader_parameter("gobo_texture", gobo_texture)
-	quad_material.set_shader_parameter("alpha_cutoff", 0.5)
 	quad_material.set_shader_parameter("uv_offset", texture_fit.get("uv_offset", GOBO_UV_OFFSET_DEFAULT))
 	quad_material.set_shader_parameter("uv_scale", texture_fit.get("uv_scale", GOBO_UV_SCALE_DEFAULT))
 	quad.material_override = quad_material
