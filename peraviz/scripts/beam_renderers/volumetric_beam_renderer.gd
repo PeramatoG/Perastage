@@ -101,18 +101,6 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 
 	var intensity_alpha: float = clamp(intensity * VOLUMETRIC_INTENSITY_SCALE, 0.0, 1.0)
 	cone.set_instance_shader_parameter("base_color", Color(beam_color.r, beam_color.g, beam_color.b, intensity_alpha))
-	cone.set_instance_shader_parameter("falloff_power", 8.0)
-	cone.set_instance_shader_parameter("facing_boost", 1.5)
-	cone.set_instance_shader_parameter("facing_power", 4.0)
-	cone.set_instance_shader_parameter("boost_along_y", 1.0)
-	cone.set_instance_shader_parameter("feather_sharpness", 4.0)
-	cone.set_instance_shader_parameter("feather_intensity", 1.0)
-	cone.set_instance_shader_parameter("near_fade_start", 0.01)
-	cone.set_instance_shader_parameter("near_fade_end", min(max(1.0, beam_range * 0.04), 50.0))
-	cone.set_instance_shader_parameter("far_fade_start", min(max(25.0, beam_range * 0.45), 100.0))
-	cone.set_instance_shader_parameter("far_fade_end", min(max(80.0, beam_range * 0.9), 100.0))
-	cone.set_instance_shader_parameter("depth_feather_enabled", true)
-	cone.set_instance_shader_parameter("depth_fade_distance", 0.5)
 	cone.set_instance_shader_parameter("max_brightness", lerp(1.0, 10.0, intensity))
 
 	_update_gobo_occluder(light, cone, gobo_occluder, beam_angle, beam_range, lens_radius)

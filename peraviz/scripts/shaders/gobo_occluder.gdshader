@@ -15,17 +15,14 @@ void vertex() {
 void fragment() {
 	ALBEDO = vec3(0.0);
 	float face_z = abs(local_pos.z);
-	if (face_z < (gobo_thickness * 0.45)) {
-		return;
-	}
-
 	vec2 uv = (local_pos.xy / max(gobo_size, vec2(0.001))) + vec2(0.5);
-	if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) {
-		return;
-	}
-	vec4 tex = texture(gobo_texture, uv);
-	float luma = dot(tex.rgb, vec3(0.299, 0.587, 0.114));
-	if (luma >= gobo_cutoff) {
-		discard;
+	float inside_uv = step(0.0, uv.x) * step(uv.x, 1.0) * step(0.0, uv.y) * step(uv.y, 1.0);
+	float is_plate_face = step(gobo_thickness * 0.45, face_z);
+	if (is_plate_face > 0.5 && inside_uv > 0.5) {
+		vec4 tex = texture(gobo_texture, uv);
+		float luma = dot(tex.rgb, vec3(0.299, 0.587, 0.114));
+		if (luma >= gobo_cutoff) {
+			discard;
+		}
 	}
 }
