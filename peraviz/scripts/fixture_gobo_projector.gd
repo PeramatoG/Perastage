@@ -2,6 +2,15 @@ extends RefCounted
 class_name FixtureGoboProjector
 
 const FAKE_GOBO_TEXTURE_SIZE: int = 128
+const GOBO_QUAD_META_KEY: String = "peraviz_gobo_alpha_quad"
+const GOBO_QUAD_MATERIAL_META_KEY: String = "peraviz_gobo_alpha_quad_material"
+const GOBO_QUAD_DISTANCE_SCALE: float = 1.2
+const GOBO_QUAD_MIN_DISTANCE_M: float = 0.01
+const GOBO_QUAD_MAX_DISTANCE_M: float = 0.08
+const GOBO_QUAD_MIN_SIZE_M: float = 0.012
+const GOBO_QUAD_MAX_SIZE_M: float = 0.35
+
+const GOBO_ALPHA_QUAD_SHADER: Shader = preload("res://scripts/shaders/gobo_alpha_quad.gdshader")
 
 var _texture_cache: Dictionary = {}
 
@@ -14,6 +23,7 @@ func apply_gobo_projection(light: SpotLight3D, controls: Dictionary) -> void:
 	if not bool(controls.get("has_gobo", false)):
 		light.light_projector = null
 		light.shadow_enabled = false
+		_clear_gobo_alpha_quad(light)
 		return
 
 	var runtime_bindings: Array = controls.get("gobo_runtime_bindings", [])
@@ -44,11 +54,12 @@ func apply_gobo_projection(light: SpotLight3D, controls: Dictionary) -> void:
 	if active_textures.is_empty():
 		light.light_projector = null
 		light.shadow_enabled = false
+		_clear_gobo_alpha_quad(light)
 		return
 
 	light.shadow_enabled = true
-	_warn_if_projector_unsupported(light)
-	light.light_projector = _compose_gobo_textures(active_textures)
+	light.light_projector = null
+	_apply_gobo_alpha_quad(light, _compose_gobo_textures(active_textures))
 
 func _resolve_gobo_raw_8bit(controls: Dictionary) -> int:
 	var gobo_raw: int = int(round(clamp(float(controls.get("gobo_norm", 0.0)), 0.0, 1.0) * 255.0))
@@ -166,11 +177,63 @@ func _resolve_fake_gobo_texture(gobo_raw_8bit: int) -> Texture2D:
 	_texture_cache[cache_key] = texture
 	return texture
 
-func _warn_if_projector_unsupported(light: SpotLight3D) -> void:
-	if light.has_meta("peraviz_projector_support_checked"):
+func _apply_gobo_alpha_quad(light: SpotLight3D, gobo_texture: Texture2D) -> void:
+	if gobo_texture == null:
+		_clear_gobo_alpha_quad(light)
 		return
-	light.set_meta("peraviz_projector_support_checked", true)
-	if RenderingServer.has_method("get_current_rendering_method"):
-		var rendering_method: String = str(RenderingServer.get_current_rendering_method())
-		if rendering_method == "gl_compatibility":
-			push_warning("Peraviz gobo projector is not supported in Compatibility renderer. Use Forward+ or Mobile.")
+	var quad: MeshInstance3D = _ensure_gobo_alpha_quad(light)
+	if quad == null:
+		return
+
+	var quad_material: ShaderMaterial = _ensure_gobo_alpha_quad_material(light)
+	if quad_material == null:
+		return
+
+	quad_material.set_shader_parameter("gobo_texture", gobo_texture)
+	quad_material.set_shader_parameter("alpha_cutoff", 0.25)
+	quad.material_override = quad_material
+	quad.visible = true
+
+	var lens_radius: float = max(float(light.get_meta("peraviz_lens_radius", 0.03)), 0.005)
+	var quad_distance: float = clamp(lens_radius * GOBO_QUAD_DISTANCE_SCALE, GOBO_QUAD_MIN_DISTANCE_M, GOBO_QUAD_MAX_DISTANCE_M)
+	var cone_half_angle_rad: float = deg_to_rad(max(light.spot_angle, 0.1))
+	var quad_radius: float = tan(cone_half_angle_rad) * quad_distance
+	var quad_size: float = clamp(max(quad_radius * 2.0, lens_radius * 2.0), GOBO_QUAD_MIN_SIZE_M, GOBO_QUAD_MAX_SIZE_M)
+	var quad_mesh: QuadMesh = quad.mesh as QuadMesh
+	if quad_mesh != null:
+		quad_mesh.size = Vector2(quad_size, quad_size)
+	quad.position = Vector3(0.0, 0.0, -quad_distance)
+
+func _ensure_gobo_alpha_quad(light: SpotLight3D) -> MeshInstance3D:
+	if light.has_meta(GOBO_QUAD_META_KEY):
+		var existing_quad: MeshInstance3D = light.get_meta(GOBO_QUAD_META_KEY) as MeshInstance3D
+		if existing_quad != null and is_instance_valid(existing_quad):
+			return existing_quad
+
+	var quad_mesh := QuadMesh.new()
+	quad_mesh.size = Vector2(0.06, 0.06)
+	var quad := MeshInstance3D.new()
+	quad.name = "PeravizGoboAlphaQuad"
+	quad.mesh = quad_mesh
+	quad.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+	quad.visible = false
+	light.add_child(quad)
+	light.set_meta(GOBO_QUAD_META_KEY, quad)
+	return quad
+
+func _ensure_gobo_alpha_quad_material(light: SpotLight3D) -> ShaderMaterial:
+	if light.has_meta(GOBO_QUAD_MATERIAL_META_KEY):
+		var existing_material: ShaderMaterial = light.get_meta(GOBO_QUAD_MATERIAL_META_KEY) as ShaderMaterial
+		if existing_material != null and is_instance_valid(existing_material):
+			return existing_material
+
+	var material := ShaderMaterial.new()
+	material.shader = GOBO_ALPHA_QUAD_SHADER
+	light.set_meta(GOBO_QUAD_MATERIAL_META_KEY, material)
+	return material
+
+func _clear_gobo_alpha_quad(light: SpotLight3D) -> void:
+	if light.has_meta(GOBO_QUAD_META_KEY):
+		var quad: MeshInstance3D = light.get_meta(GOBO_QUAD_META_KEY) as MeshInstance3D
+		if quad != null and is_instance_valid(quad):
+			quad.visible = false

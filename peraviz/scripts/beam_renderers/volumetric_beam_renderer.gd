@@ -45,6 +45,10 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	if cone == null:
 		return
 
+	if bool(params.get("disable_beam_mesh", false)):
+		cone.visible = false
+		return
+
 	var intensity: float = clamp(float(params.get("scaled_intensity", 0.0)), 0.0, 3.0)
 	var threshold: float = float(params.get("intensity_visibility_threshold", 0.015))
 	if intensity <= threshold or not bool(params.get("is_visible", true)):
