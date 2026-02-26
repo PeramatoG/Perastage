@@ -21,7 +21,8 @@ void fragment() {
 	if (is_plate_face > 0.5 && inside_uv > 0.5) {
 		vec4 tex = texture(gobo_texture, uv);
 		float luma = dot(tex.rgb, vec3(0.299, 0.587, 0.114));
-		if (luma >= gobo_cutoff) {
+		float effective_luma = luma * tex.a;
+		if (effective_luma >= gobo_cutoff) {
 			discard;
 		}
 	}
