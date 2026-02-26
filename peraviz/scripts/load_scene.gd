@@ -50,6 +50,8 @@ var _visual_environment_baseline := {
 	"ambient_light_energy": 0.2,
 	"glow_bloom": 0.05,
 	"background_color": Color(0.129412, 0.137255, 0.156863, 1.0),
+	"volumetric_fog_density": 0.032,
+	"volumetric_fog_anisotropy": 0.82,
 }
 var _visual_settings := {
 	"ambient_multiplier": 1.0,
@@ -245,6 +247,8 @@ func _capture_visual_environment_baseline() -> void:
 	_visual_environment_baseline["ambient_light_energy"] = float(world_environment.environment.ambient_light_energy)
 	_visual_environment_baseline["glow_bloom"] = float(world_environment.environment.glow_bloom)
 	_visual_environment_baseline["background_color"] = world_environment.environment.background_color
+	_visual_environment_baseline["volumetric_fog_density"] = float(world_environment.environment.volumetric_fog_density)
+	_visual_environment_baseline["volumetric_fog_anisotropy"] = float(world_environment.environment.volumetric_fog_anisotropy)
 	_visual_settings["background_color"] = _visual_environment_baseline["background_color"]
 
 func _load_visual_settings_from_project() -> void:
@@ -271,6 +275,8 @@ func _apply_visual_settings(settings: Dictionary) -> void:
 		world_environment.environment.ambient_light_energy = float(_visual_environment_baseline.get("ambient_light_energy", 0.2)) * float(_visual_settings.get("ambient_multiplier", 1.0))
 		world_environment.environment.glow_bloom = float(_visual_environment_baseline.get("glow_bloom", 0.05)) * float(_visual_settings.get("bloom_multiplier", 1.0))
 		world_environment.environment.background_color = _visual_settings.get("background_color", _visual_environment_baseline.get("background_color", Color(0.129412, 0.137255, 0.156863, 1.0)))
+		world_environment.environment.volumetric_fog_density = float(_visual_environment_baseline.get("volumetric_fog_density", 0.032)) * float(_visual_settings.get("beam_haze_density", 0.17)) / 0.17
+		world_environment.environment.volumetric_fog_anisotropy = clamp(float(_visual_settings.get("beam_anisotropy", 0.62)), 0.0, 0.95)
 
 	_update_beam_renderer_mode(false)
 	_save_visual_settings_to_project()
