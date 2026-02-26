@@ -127,6 +127,7 @@ const EMITTER_LIGHT_RANGE_BEAM_RADIUS_MULTIPLIER: float = 500.0
 const EMITTER_LIGHT_ENERGY_SCALE: float = 0.02
 const EMITTER_LIGHT_MAX_BEAM_ANGLE_DEG: float = 180.0
 const BEAM_COLOR_TEMPERATURE_STRENGTH: float = 0.04
+const EMITTER_VOLUMETRIC_FOG_ENERGY_SCALE: float = 4.5
 const EMITTER_ZOOM_DEFAULT_MIN_BEAM_ANGLE_DEG: float = 4.0
 const EMITTER_ZOOM_DEFAULT_MAX_BEAM_ANGLE_DEG: float = EMITTER_LIGHT_MAX_BEAM_ANGLE_DEG
 const EMITTER_ZOOM_LENS_RANGE_REFERENCE_M: float = 12.0
@@ -320,7 +321,7 @@ func _apply_visual_scalars_to_light(light: SpotLight3D) -> void:
 	var base_energy: float = float(light.get_meta("peraviz_base_light_energy", light.light_energy))
 	light.light_energy = base_energy * float(_visual_settings.get("spot_multiplier", 1.0))
 	var base_fog_energy: float = float(light.get_meta("peraviz_base_volumetric_fog_energy", light.light_volumetric_fog_energy))
-	light.light_volumetric_fog_energy = base_fog_energy * float(_visual_settings.get("beam_multiplier", 1.0))
+	light.light_volumetric_fog_energy = base_fog_energy * EMITTER_VOLUMETRIC_FOG_ENERGY_SCALE * float(_visual_settings.get("beam_multiplier", 1.0))
 	_update_existing_beam_material_scalars(light)
 
 func _update_existing_beam_material_scalars(light: SpotLight3D) -> void:
@@ -1817,7 +1818,7 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 	light.light_energy = base_light_energy * float(_visual_settings.get("spot_multiplier", 1.0))
 	var base_fog_energy: float = max(normalized_dimmer, 0.0)
 	light.set_meta("peraviz_base_volumetric_fog_energy", base_fog_energy)
-	light.light_volumetric_fog_energy = base_fog_energy * float(_visual_settings.get("beam_multiplier", 1.0))
+	light.light_volumetric_fog_energy = base_fog_energy * EMITTER_VOLUMETRIC_FOG_ENERGY_SCALE * float(_visual_settings.get("beam_multiplier", 1.0))
 	var beam_half_angle_deg: float = beam_angle * 0.5
 	# Godot 4.2 SpotLight3D.spot_angle behaves as cone half-angle in degrees.
 	# Keep zoom/beam limits as full GDTF aperture, and convert here for light projection.

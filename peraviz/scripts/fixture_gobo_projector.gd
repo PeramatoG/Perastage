@@ -11,6 +11,9 @@ const GOBO_QUAD_MIN_SIZE_M: float = 0.015
 const GOBO_QUAD_MAX_SIZE_M: float = 2.5
 const GOBO_UV_OFFSET_DEFAULT: Vector2 = Vector2.ZERO
 const GOBO_UV_SCALE_DEFAULT: Vector2 = Vector2.ONE
+const GOBO_SHADOW_BIAS: float = 0.0015
+const GOBO_SHADOW_NORMAL_BIAS: float = 0.02
+const GOBO_SHADOW_BLUR: float = 0.05
 
 const GOBO_ALPHA_QUAD_SHADER: Shader = preload("res://scripts/shaders/gobo_alpha_quad.gdshader")
 
@@ -63,6 +66,9 @@ func apply_gobo_projection(light: SpotLight3D, controls: Dictionary) -> void:
 
 	_capture_shadow_defaults_if_needed(light)
 	light.shadow_enabled = true
+	light.shadow_bias = GOBO_SHADOW_BIAS
+	light.shadow_normal_bias = GOBO_SHADOW_NORMAL_BIAS
+	light.shadow_blur = GOBO_SHADOW_BLUR
 	light.light_projector = null
 	_apply_gobo_alpha_quad(light, _compose_gobo_textures(active_textures))
 
