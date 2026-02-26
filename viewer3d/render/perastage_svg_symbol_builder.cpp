@@ -1,5 +1,6 @@
 #include "perastage_svg_symbol_builder.h"
 
+#include <algorithm>
 #include <vector>
 
 #include "opaque_pass_utils.h"
@@ -57,6 +58,40 @@ bool TryBuildPerastageSvgSymbolDefinition(const std::string &gdtfPath,
   if (!svg.IsValid())
     return false;
 
+  double minX = 0.0;
+  double minY = 0.0;
+  double maxX = 0.0;
+  double maxY = 0.0;
+  bool hasBounds = false;
+  auto includePoint = [&](const PerastageSvgPoint &point) {
+    const double px = point.x + svg.offsetXmm;
+    const double py = point.y + svg.offsetYmm;
+    if (!hasBounds) {
+      minX = maxX = px;
+      minY = maxY = py;
+      hasBounds = true;
+      return;
+    }
+    minX = std::min(minX, px);
+    minY = std::min(minY, py);
+    maxX = std::max(maxX, px);
+    maxY = std::max(maxY, py);
+  };
+  for (const auto &polygon : svg.fills) {
+    for (const auto &point : polygon.points)
+      includePoint(point);
+    for (const auto &hole : polygon.holes) {
+      for (const auto &point : hole)
+        includePoint(point);
+    }
+  }
+  for (const auto &line : svg.strokes) {
+    for (const auto &point : line.points)
+      includePoint(point);
+  }
+  const double anchorX = hasBounds ? (minX + maxX) * 0.5 : 0.0;
+  const double anchorY = hasBounds ? (minY + maxY) * 0.5 : 0.0;
+
   out = SymbolDefinition{};
   out.symbolId = symbolId;
   out.localCommands.currentSourceKey = "svg";
@@ -72,13 +107,13 @@ bool TryBuildPerastageSvgSymbolDefinition(const std::string &gdtfPath,
   for (auto &cmd : out.localCommands.commands) {
     if (auto *polygon = std::get_if<PolygonCommand>(&cmd)) {
       for (size_t i = 0; i + 1 < polygon->points.size(); i += 2) {
-        polygon->points[i] += static_cast<float>(svg.offsetXmm);
-        polygon->points[i + 1] += static_cast<float>(svg.offsetYmm);
+        polygon->points[i] += static_cast<float>(svg.offsetXmm - anchorX);
+        polygon->points[i + 1] += static_cast<float>(svg.offsetYmm - anchorY);
       }
     } else if (auto *polyline = std::get_if<PolylineCommand>(&cmd)) {
       for (size_t i = 0; i + 1 < polyline->points.size(); i += 2) {
-        polyline->points[i] += static_cast<float>(svg.offsetXmm);
-        polyline->points[i + 1] += static_cast<float>(svg.offsetYmm);
+        polyline->points[i] += static_cast<float>(svg.offsetXmm - anchorX);
+        polyline->points[i + 1] += static_cast<float>(svg.offsetYmm - anchorY);
       }
     }
   }

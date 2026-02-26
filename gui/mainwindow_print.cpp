@@ -378,10 +378,6 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
               } else {
                 wxString successMessage =
                     wxString::Format("Layout saved to %s", outputPathDisplay);
-                if (!res.message.empty()) {
-                  successMessage += "\n\nAdditional details:\n" +
-                                    wxString::FromUTF8(res.message);
-                }
                 wxMessageBox(successMessage, "Print Layout",
                              wxOK | wxICON_INFORMATION, this);
               }
