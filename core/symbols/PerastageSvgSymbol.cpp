@@ -225,7 +225,9 @@ std::optional<double> ParseSvgLengthToMillimeters(const char *text) {
   if (end == numberPart.c_str())
     return std::nullopt;
 
-  if (unitPart.empty() || unitPart == "mm")
+  if (unitPart.empty())
+    return std::nullopt;
+  if (unitPart == "mm")
     return raw;
   if (unitPart == "cm")
     return raw * 10.0;
