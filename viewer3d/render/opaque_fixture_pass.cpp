@@ -17,12 +17,16 @@
 
 #include <algorithm>
 #include <filesystem>
+#include <optional>
+#include <unordered_map>
+#include <vector>
 
 #include "matrixutils.h"
 #include "configmanager.h"
 #include "opaque_pass_utils.h"
 #include "perastage_svg_symbol_builder.h"
 #include "scenedatamanager.h"
+#include "symbols/PerastageSvgSymbol.h"
 #include "viewer3dcontroller.h"
 
 namespace {
@@ -99,6 +103,69 @@ std::string BuildFixtureSymbolModelKey(const Fixture &fixture,
     modelKey = "unknown";
   return modelKey;
 }
+
+struct SvgSymbolCacheKey {
+  std::string gdtfPath;
+  SymbolViewKind viewKind = SymbolViewKind::Top;
+
+  bool operator==(const SvgSymbolCacheKey &other) const {
+    return gdtfPath == other.gdtfPath && viewKind == other.viewKind;
+  }
+};
+
+struct SvgSymbolCacheKeyHasher {
+  size_t operator()(const SvgSymbolCacheKey &key) const {
+    return std::hash<std::string>{}(key.gdtfPath) ^
+           (static_cast<size_t>(key.viewKind) << 1);
+  }
+};
+
+std::vector<SymbolViewKind> BuildSymbolViewCandidates(SymbolViewKind requested) {
+  if (requested == SymbolViewKind::Top)
+    return {SymbolViewKind::Top, SymbolViewKind::Bottom};
+  if (requested == SymbolViewKind::Bottom)
+    return {SymbolViewKind::Bottom, SymbolViewKind::Top};
+  if (requested == SymbolViewKind::Front)
+    return {SymbolViewKind::Front, SymbolViewKind::Top};
+  return {requested};
+}
+
+bool DrawPerastageSvgInFixturePass(const PerastageSvgSymbolData &svg, float fillR,
+                                   float fillG, float fillB) {
+  if (!svg.IsValid())
+    return false;
+
+  glPushMatrix();
+  glScalef(RENDER_SCALE, RENDER_SCALE, RENDER_SCALE);
+
+  glColor3f(fillR, fillG, fillB);
+  for (const auto &polygon : svg.fills) {
+    if (polygon.points.size() < 3)
+      continue;
+    glBegin(GL_POLYGON);
+    for (const auto &point : polygon.points) {
+      glVertex3f(static_cast<float>(point.x + svg.offsetXmm),
+                 static_cast<float>(point.y + svg.offsetYmm), 0.0f);
+    }
+    glEnd();
+  }
+
+  glColor3f(0.0f, 0.0f, 0.0f);
+  glLineWidth(1.0f);
+  for (const auto &line : svg.strokes) {
+    if (line.points.size() < 2)
+      continue;
+    glBegin(GL_LINE_STRIP);
+    for (const auto &point : line.points) {
+      glVertex3f(static_cast<float>(point.x + svg.offsetXmm),
+                 static_cast<float>(point.y + svg.offsetYmm), 0.0f);
+    }
+    glEnd();
+  }
+
+  glPopMatrix();
+  return true;
+}
 } // namespace
 
 void OpaqueFixturePass::Render(
@@ -114,6 +181,9 @@ void OpaqueFixturePass::Render(
   const bool isTopView2D = is2DViewer && context.view == Viewer2DView::Top;
 
   const auto &fixtures = SceneDataManager::Instance().GetFixtures();
+  std::unordered_map<SvgSymbolCacheKey, std::optional<PerastageSvgSymbolData>,
+                     SvgSymbolCacheKeyHasher>
+      perastageSvgCache;
 
   // Top-view fixtures support two drawing modes:
   // - natural top view (real top)
@@ -208,6 +278,35 @@ void OpaqueFixturePass::Render(
     }
 
     auto itg = controller.m_resourceSyncState.loadedGdtf.find(gdtfPath);
+
+    bool renderedPerastageSvg = false;
+    const bool preferLayoutSvg =
+        context.preferPerastageSvgSymbolsForLayouts && is2DViewer;
+    if (preferLayoutSvg && !svgSourcePath.empty()) {
+      const Viewer2DView fixtureView =
+          isTopView2D && forceBottomViewForTopFixtures ? Viewer2DView::Bottom
+                                                       : context.view;
+      const SymbolViewKind requestedView = resolveSymbolView(fixtureView);
+      const std::vector<SymbolViewKind> candidates =
+          BuildSymbolViewCandidates(requestedView);
+      for (SymbolViewKind candidateView : candidates) {
+        const SvgSymbolCacheKey cacheKey{svgSourcePath, candidateView};
+        auto cacheIt = perastageSvgCache.find(cacheKey);
+        if (cacheIt == perastageSvgCache.end()) {
+          std::optional<PerastageSvgSymbolData> loaded;
+          PerastageSvgSymbolData svg;
+          if (LoadPerastageSvgSymbolFromGdtf(svgSourcePath, candidateView, svg))
+            loaded = std::move(svg);
+          cacheIt = perastageSvgCache.emplace(cacheKey, std::move(loaded)).first;
+        }
+        if (!cacheIt->second.has_value())
+          continue;
+        renderedPerastageSvg = DrawPerastageSvgInFixturePass(
+            cacheIt->second.value(), r, g, b);
+        if (renderedPerastageSvg)
+          break;
+      }
+    }
 
     const bool useSymbolInstancing =
         (controller.m_captureUseSymbols &&
@@ -353,6 +452,13 @@ void OpaqueFixturePass::Render(
                                        applyFixtureCapture);
       }
     };
+
+    if (renderedPerastageSvg) {
+      glPopMatrix();
+      if (controller.m_captureCanvas && !skipCapture)
+        controller.m_captureCanvas->SetSourceKey("unknown");
+      continue;
+    }
 
     if (placedInstance) {
       ICanvas2D *prevCanvas = controller.m_captureCanvas;
