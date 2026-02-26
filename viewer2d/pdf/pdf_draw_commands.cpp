@@ -340,17 +340,23 @@ void AppendSymbolInstance(std::ostringstream &out, const FloatFormatter &fmt,
                           const Mapping &mapping,
                           const Transform2D &transform,
                           const std::string &name) {
-  const double linearScale = mapping.scale;
-  double translateX = mapping.scale * transform.tx +
-                      mapping.offsetX - mapping.minX * mapping.scale;
-  double translateY = mapping.scale * transform.ty +
-                      mapping.offsetY - mapping.minY * mapping.scale;
-  out << "q\n" << fmt.Format(transform.a * linearScale) << ' '
-      << fmt.Format(transform.b * linearScale) << ' '
-      << fmt.Format(transform.c * linearScale) << ' '
-      << fmt.Format(transform.d * linearScale)
-      << ' ' << fmt.Format(translateX) << ' ' << fmt.Format(translateY)
-      << " cm\n/" << name << " Do\nQ\n";
+  // Build the PDF matrix by mapping the symbol origin and basis vectors through
+  // the same world->page conversion used for regular commands. This keeps
+  // SymbolInstanceCommand placement aligned with primitive drawing, including
+  // Y-axis inversion.
+  const Point origin = MapWithMapping(transform.tx, transform.ty, mapping);
+  const Point axisX =
+      MapWithMapping(transform.tx + transform.a, transform.ty + transform.b,
+                     mapping);
+  const Point axisY =
+      MapWithMapping(transform.tx + transform.c, transform.ty + transform.d,
+                     mapping);
+
+  out << "q\n" << fmt.Format(axisX.x - origin.x) << ' '
+      << fmt.Format(axisX.y - origin.y) << ' '
+      << fmt.Format(axisY.x - origin.x) << ' '
+      << fmt.Format(axisY.y - origin.y) << ' ' << fmt.Format(origin.x) << ' '
+      << fmt.Format(origin.y) << " cm\n/" << name << " Do\nQ\n";
 }
 
 int SymbolViewRank(SymbolViewKind kind) {

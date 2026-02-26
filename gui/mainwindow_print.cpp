@@ -328,6 +328,9 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
       std::make_shared<std::vector<LayoutTextExportData>>(
           std::move(layoutTexts));
 
+  if (capturePanel)
+    capturePanel->SetPreferPerastageSvgSymbolsForLayouts(true);
+
   auto captureNext =
       std::make_shared<std::function<void(size_t)>>();
   *captureNext =
@@ -375,15 +378,13 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
               } else {
                 wxString successMessage =
                     wxString::Format("Layout saved to %s", outputPathDisplay);
-                if (!res.message.empty()) {
-                  successMessage += "\n\nAdditional details:\n" +
-                                    wxString::FromUTF8(res.message);
-                }
                 wxMessageBox(successMessage, "Print Layout",
                              wxOK | wxICON_INFORMATION, this);
               }
             });
           }).detach();
+          if (capturePanel)
+            capturePanel->SetPreferPerastageSvgSymbolsForLayouts(false);
           return;
         }
 

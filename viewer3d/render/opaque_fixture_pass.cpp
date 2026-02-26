@@ -16,6 +16,7 @@
 #endif
 
 #include <algorithm>
+#include <cmath>
 #include <filesystem>
 #include <optional>
 #include <unordered_map>
@@ -119,6 +120,14 @@ struct SvgSymbolCacheKeyHasher {
            (static_cast<size_t>(key.viewKind) << 1);
   }
 };
+
+uint32_t BuildFixtureSymbolStyleVersion(float r, float g, float b) {
+  auto toByte = [](float value) -> uint32_t {
+    const float clamped = std::clamp(value, 0.0f, 1.0f);
+    return static_cast<uint32_t>(std::lround(clamped * 255.0f));
+  };
+  return 0x1000000u | (toByte(r) << 16) | (toByte(g) << 8) | toByte(b);
+}
 
 std::vector<SymbolViewKind> BuildSymbolViewCandidates(SymbolViewKind requested) {
   if (requested == SymbolViewKind::Top)
@@ -316,8 +325,10 @@ void OpaqueFixturePass::Render(
     auto itg = controller.m_resourceSyncState.loadedGdtf.find(gdtfPath);
 
     bool renderedPerastageSvg = false;
+    const bool captureRecordingActive = controller.m_captureCanvas && !skipCapture;
     const bool preferLayoutSvg =
-        context.preferPerastageSvgSymbolsForLayouts && is2DViewer;
+        context.preferPerastageSvgSymbolsForLayouts && is2DViewer &&
+        !captureRecordingActive;
     if (preferLayoutSvg && !svgSourcePath.empty()) {
       const Viewer2DView fixtureView =
           isTopView2D && forceBottomViewForTopFixtures ? Viewer2DView::Bottom
@@ -362,7 +373,7 @@ void OpaqueFixturePass::Render(
         SymbolKey symbolKey;
         symbolKey.modelKey = modelKey;
         symbolKey.viewKind = resolveSymbolView(fixtureCaptureView);
-        symbolKey.styleVersion = 1;
+        symbolKey.styleVersion = BuildFixtureSymbolStyleVersion(r, g, b);
 
         const auto &symbol =
             controller.m_bottomSymbolCache.GetOrCreate(symbolKey, [&](const SymbolKey &,
@@ -372,6 +383,7 @@ void OpaqueFixturePass::Render(
                   TryBuildPerastageSvgSymbolDefinition(svgSourcePath,
                                                        symbolKey.viewKind,
                                                        symbolId,
+                                                       {r, g, b},
                                                        svgDefinition)) {
                 return svgDefinition;
               }

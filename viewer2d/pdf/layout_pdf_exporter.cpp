@@ -762,6 +762,7 @@ Viewer2DExportResult ExportLayoutToPdf(
     double frameH = 0.0;
     std::unordered_set<std::string> usedSymbolKeys;
     std::unordered_set<uint32_t> usedSymbolIds;
+    std::shared_ptr<const SymbolDefinitionSnapshot> symbolSnapshot = nullptr;
     double strokeScale = 1.0;
     size_t viewIndex = 0;
   };
@@ -879,6 +880,7 @@ Viewer2DExportResult ExportLayoutToPdf(
                             static_cast<double>(view.frame.height),
                             std::move(viewSymbolKeys),
                             std::move(viewSymbolIds),
+                            view.symbolSnapshot,
                             strokeScale,
                             idx});
 
@@ -921,7 +923,6 @@ Viewer2DExportResult ExportLayoutToPdf(
   std::unordered_map<LegendSvgCacheKey, std::optional<PerastageSvgSymbolData>,
                      LegendSvgCacheHasher>
       legendSvgCache;
-  std::string firstLegendSvgLoadError;
   auto findLegendSvg = [&](const std::string &symbolKey,
                            SymbolViewKind viewKind)
       -> const PerastageSvgSymbolData * {
@@ -935,8 +936,6 @@ Viewer2DExportResult ExportLayoutToPdf(
       std::string loadError;
       if (LoadPerastageSvgSymbolFromGdtf(symbolKey, viewKind, data, &loadError)) {
         loaded = std::move(data);
-      } else if (firstLegendSvgLoadError.empty() && !loadError.empty()) {
-        firstLegendSvgLoadError = loadError;
       }
       it = legendSvgCache.emplace(std::move(cacheKey), std::move(loaded)).first;
     }
@@ -1224,33 +1223,20 @@ Viewer2DExportResult ExportLayoutToPdf(
                              1.0, group.strokeScale, bounds);
     }
 
-    if (symbolSnapshot) {
+    const SymbolDefinitionSnapshot *groupSymbols =
+        group.symbolSnapshot ? group.symbolSnapshot.get() : symbolSnapshot.get();
+    if (groupSymbols) {
       for (const auto &entry : viewIdNames) {
-        auto defIt = symbolSnapshot->find(entry.first);
-        if (defIt == symbolSnapshot->end())
+        auto defIt = groupSymbols->find(entry.first);
+        if (defIt == groupSymbols->end())
           continue;
-        bool usedSvg = false;
-        if (!defIt->second.key.modelKey.empty()) {
-          if (const PerastageSvgSymbolData *svg =
-                  findLegendSvg(defIt->second.key.modelKey,
-                                defIt->second.key.viewKind)) {
-            constexpr std::array<double, 3> kDefaultSvgFillRgb = {
-                224.0 / 255.0, 224.0 / 255.0, 224.0 / 255.0};
-            xObjectNameIds[entry.second] =
-                appendPerastageSvgSymbolObject(*svg, 1.0, group.strokeScale,
-                                               kDefaultSvgFillRgb);
-            usedSvg = true;
-          }
-        }
-        if (!usedSvg) {
-          xObjectNameIds[entry.second] =
-              appendSymbolObject(entry.second,
-                                 defIt->second.localCommands.commands,
-                                 defIt->second.localCommands.metadata,
-                                 defIt->second.localCommands.sources,
-                                 1.0, group.strokeScale,
-                                 defIt->second.bounds);
-        }
+        xObjectNameIds[entry.second] =
+            appendSymbolObject(entry.second,
+                               defIt->second.localCommands.commands,
+                               defIt->second.localCommands.metadata,
+                               defIt->second.localCommands.sources,
+                               1.0, group.strokeScale,
+                               defIt->second.bounds);
       }
     }
   }
@@ -2075,10 +2061,6 @@ Viewer2DExportResult ExportLayoutToPdf(
     file << "trailer\n<< /Size " << (objects.size() + 1)
          << " /Root " << catalogIndex
          << " 0 R >>\nstartxref\n" << xrefPos << "\n%%EOF";
-    if (!firstLegendSvgLoadError.empty()) {
-      result.message =
-          "Legend SVG symbols were skipped. Reason: " + firstLegendSvgLoadError;
-    }
     result.success = true;
   } catch (const std::exception &ex) {
     result.message =
