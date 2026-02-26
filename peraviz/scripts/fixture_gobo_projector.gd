@@ -4,9 +4,9 @@ class_name FixtureGoboProjector
 const FAKE_GOBO_TEXTURE_SIZE: int = 512
 const GOBO_QUAD_META_KEY: String = "peraviz_gobo_alpha_quad"
 const GOBO_QUAD_MATERIAL_META_KEY: String = "peraviz_gobo_alpha_quad_material"
-const GOBO_QUAD_DISTANCE_RATIO_OF_RANGE: float = 0.08
-const GOBO_QUAD_MIN_DISTANCE_M: float = 0.22
-const GOBO_QUAD_MAX_DISTANCE_M: float = 2.0
+const GOBO_QUAD_DISTANCE_RATIO_OF_RANGE: float = 0.12
+const GOBO_QUAD_MIN_DISTANCE_M: float = 0.35
+const GOBO_QUAD_MAX_DISTANCE_M: float = 2.4
 const GOBO_QUAD_MIN_SIZE_M: float = 0.015
 const GOBO_QUAD_MAX_SIZE_M: float = 2.5
 const GOBO_UV_OFFSET_DEFAULT: Vector2 = Vector2.ZERO
