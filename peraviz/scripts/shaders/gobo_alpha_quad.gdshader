@@ -1,5 +1,5 @@
 shader_type spatial;
-render_mode depth_draw_opaque, cull_disabled, unshaded;
+render_mode depth_prepass_alpha, cull_disabled, unshaded;
 
 uniform sampler2D gobo_texture : source_color;
 uniform vec2 uv_offset = vec2(0.0, 0.0);

@@ -203,7 +203,7 @@ func _apply_gobo_alpha_quad(light: SpotLight3D, gobo_texture: Texture2D) -> void
 	var quad_mesh: QuadMesh = quad.mesh as QuadMesh
 	if quad_mesh != null:
 		quad_mesh.size = Vector2(quad_size, quad_size)
-	quad.position = Vector3(0.0, 0.0, -quad_distance)
+	_update_quad_global_transform(light, quad, quad_distance)
 
 func _ensure_gobo_alpha_quad(light: SpotLight3D) -> MeshInstance3D:
 	if light.has_meta(GOBO_QUAD_META_KEY):
@@ -216,10 +216,13 @@ func _ensure_gobo_alpha_quad(light: SpotLight3D) -> MeshInstance3D:
 	var quad := MeshInstance3D.new()
 	quad.name = "PeravizGoboAlphaQuad"
 	quad.mesh = quad_mesh
-	# Debug mode: keep the gobo quad visible while validating alignment and shadow response.
-	quad.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+	# Keep helper mesh invisible in camera while still contributing shadows.
+	quad.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY
 	quad.visible = false
-	light.add_child(quad)
+	var quad_parent: Node = light.get_parent()
+	if quad_parent == null:
+		quad_parent = light
+	quad_parent.add_child(quad)
 	light.set_meta(GOBO_QUAD_META_KEY, quad)
 	return quad
 
@@ -233,6 +236,13 @@ func _ensure_gobo_alpha_quad_material(light: SpotLight3D) -> ShaderMaterial:
 	material.shader = GOBO_ALPHA_QUAD_SHADER
 	light.set_meta(GOBO_QUAD_MATERIAL_META_KEY, material)
 	return material
+
+
+func _update_quad_global_transform(light: SpotLight3D, quad: MeshInstance3D, quad_distance: float) -> void:
+	if light == null or quad == null:
+		return
+	var offset_transform := Transform3D(Basis.IDENTITY, Vector3(0.0, 0.0, -quad_distance))
+	quad.global_transform = light.global_transform * offset_transform
 
 func _clear_gobo_alpha_quad(light: SpotLight3D) -> void:
 	if light.has_meta(GOBO_QUAD_META_KEY):
