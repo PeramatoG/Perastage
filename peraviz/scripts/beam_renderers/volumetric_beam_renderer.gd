@@ -134,6 +134,7 @@ func _update_gobo_occluder(light: SpotLight3D, cone: MeshInstance3D, gobo_occlud
 		gobo_occluder.visible = false
 		gobo_material.set_shader_parameter("gobo_texture", null)
 		cone.set_instance_shader_parameter("gobo_enabled", false)
+		cone.set_instance_shader_parameter("gobo_axis_sign", 1.0)
 		return
 
 	light.shadow_enabled = true
@@ -167,6 +168,10 @@ func _update_gobo_occluder(light: SpotLight3D, cone: MeshInstance3D, gobo_occlud
 	cone.set_instance_shader_parameter("gobo_start_ratio", clamp(GOBO_OCCLUDER_DISTANCE_M / beam_range, 0.0, 1.0))
 	cone.set_instance_shader_parameter("gobo_rotation", 0.0)
 	cone.set_instance_shader_parameter("gobo_size", Vector2(gobo_width, gobo_height))
+	var beam_world_dir: Vector3 = -light.global_transform.basis.z.normalized()
+	var cone_axis_world: Vector3 = (cone.global_transform.basis * Vector3.DOWN).normalized()
+	var axis_sign: float = 1.0 if cone_axis_world.dot(beam_world_dir) >= 0.0 else -1.0
+	cone.set_instance_shader_parameter("gobo_axis_sign", axis_sign)
 	var cone_material: ShaderMaterial = cone.material_override as ShaderMaterial
 	if cone_material != null:
 		cone_material.set_shader_parameter("gobo_texture", gobo_texture)
