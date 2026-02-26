@@ -3,7 +3,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/addressdialog.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/columnselectiondialog.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/consolepanel.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/build_profile_ui.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/ui_feature_flags.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/dictionaryeditdialog.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/dataview_edit_commit.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tools/fixture_symbol_generation_tool.cpp

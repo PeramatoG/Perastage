@@ -15,27 +15,36 @@
  * You should have received a copy of the GNU General Public License
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
-#include "build_profile_ui.h"
+#include "ui_feature_flags.h"
 
 #include "Viewer2DPrintSettings.h"
 
+namespace {
+
+constexpr bool kIsDebugBuild =
+#ifdef NDEBUG
+    false;
+#else
+    true;
+#endif
+
+} // namespace
+
 namespace ui {
 
-bool IsDebugBuild() {
-#ifdef NDEBUG
+bool IsFeatureEnabled(FeatureFlag flag) {
+  switch (flag) {
+  case FeatureFlag::PrintViewer2DDialog:
+  case FeatureFlag::GenerateFixtureSymbols:
+    return kIsDebugBuild;
+  }
+
   return false;
-#else
-  return true;
-#endif
 }
-
-bool ShouldShowPrintViewer2DDialog() { return IsDebugBuild(); }
-
-bool ShouldShowGenerateFixtureSymbolsTool() { return IsDebugBuild(); }
 
 void ApplyBuildDefaultsToViewer2DPrintSettings(
     print::Viewer2DPrintSettings &settings) {
-  if (IsDebugBuild())
+  if (kIsDebugBuild)
     return;
 
   settings.pageSize = print::PageSize::A4;
@@ -44,4 +53,3 @@ void ApplyBuildDefaultsToViewer2DPrintSettings(
 }
 
 } // namespace ui
-

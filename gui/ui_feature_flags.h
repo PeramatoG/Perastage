@@ -23,11 +23,13 @@ struct Viewer2DPrintSettings;
 
 namespace ui {
 
-bool IsDebugBuild();
-bool ShouldShowPrintViewer2DDialog();
-bool ShouldShowGenerateFixtureSymbolsTool();
+enum class FeatureFlag {
+  PrintViewer2DDialog,
+  GenerateFixtureSymbols,
+};
+
+bool IsFeatureEnabled(FeatureFlag flag);
 void ApplyBuildDefaultsToViewer2DPrintSettings(
     print::Viewer2DPrintSettings &settings);
 
 } // namespace ui
-

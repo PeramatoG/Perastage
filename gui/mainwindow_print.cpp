@@ -27,7 +27,7 @@
 #include <wx/choicdlg.h>
 
 #include "configmanager.h"
-#include "build_profile_ui.h"
+#include "ui_feature_flags.h"
 #include "guiconfigservices.h"
 #include "legendsymbolcapture.h"
 #include "consolepanel.h"
@@ -68,7 +68,7 @@ std::vector<LayoutLegendItem> BuildLayoutLegendItems() {
 void MainWindow::OnPrintMenu(wxCommandEvent &WXUNUSED(event)) {
   wxArrayString choices;
   choices.Add("Layout");
-  if (ui::ShouldShowPrintViewer2DDialog())
+  if (ui::IsFeatureEnabled(ui::FeatureFlag::PrintViewer2DDialog))
     choices.Add("Vista 2D");
   choices.Add("Tabla");
 
@@ -81,7 +81,8 @@ void MainWindow::OnPrintMenu(wxCommandEvent &WXUNUSED(event)) {
   const int selection = dialog.GetSelection();
   if (selection == 0) {
     OnPrintLayout(printEvent);
-  } else if (ui::ShouldShowPrintViewer2DDialog() && selection == 1) {
+  } else if (ui::IsFeatureEnabled(ui::FeatureFlag::PrintViewer2DDialog) &&
+             selection == 1) {
     OnPrintViewer2D(printEvent);
   } else {
     OnPrintTable(printEvent);
@@ -102,7 +103,7 @@ void MainWindow::OnPrintViewer2D(wxCommandEvent &WXUNUSED(event)) {
   ConfigManager *cfgPtr = &cfg;
   print::Viewer2DPrintSettings settings =
       print::Viewer2DPrintSettings::LoadFromConfig(cfg);
-  if (ui::ShouldShowPrintViewer2DDialog()) {
+  if (ui::IsFeatureEnabled(ui::FeatureFlag::PrintViewer2DDialog)) {
     Viewer2DPrintDialog settingsDialog(this, settings);
     if (settingsDialog.ShowModal() != wxID_OK)
       return;
