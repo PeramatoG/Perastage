@@ -135,6 +135,42 @@ bool DrawPerastageSvgInFixturePass(const PerastageSvgSymbolData &svg, float fill
   if (!svg.IsValid())
     return false;
 
+  double minX = 0.0;
+  double minY = 0.0;
+  double maxX = 0.0;
+  double maxY = 0.0;
+  bool hasBounds = false;
+  auto includePoint = [&](const PerastageSvgPoint &point) {
+    const double px = point.x + svg.offsetXmm;
+    const double py = point.y + svg.offsetYmm;
+    if (!hasBounds) {
+      minX = maxX = px;
+      minY = maxY = py;
+      hasBounds = true;
+      return;
+    }
+    minX = std::min(minX, px);
+    minY = std::min(minY, py);
+    maxX = std::max(maxX, px);
+    maxY = std::max(maxY, py);
+  };
+
+  for (const auto &polygon : svg.fills) {
+    for (const auto &point : polygon.points)
+      includePoint(point);
+    for (const auto &hole : polygon.holes) {
+      for (const auto &point : hole)
+        includePoint(point);
+    }
+  }
+  for (const auto &line : svg.strokes) {
+    for (const auto &point : line.points)
+      includePoint(point);
+  }
+
+  const double anchorX = hasBounds ? (minX + maxX) * 0.5 : 0.0;
+  const double anchorY = hasBounds ? (minY + maxY) * 0.5 : 0.0;
+
   glPushMatrix();
   glScalef(RENDER_SCALE, RENDER_SCALE, RENDER_SCALE);
 
@@ -144,8 +180,8 @@ bool DrawPerastageSvgInFixturePass(const PerastageSvgSymbolData &svg, float fill
       continue;
     glBegin(GL_POLYGON);
     for (const auto &point : polygon.points) {
-      glVertex3f(static_cast<float>(point.x + svg.offsetXmm),
-                 static_cast<float>(point.y + svg.offsetYmm), 0.0f);
+      glVertex3f(static_cast<float>(point.x + svg.offsetXmm - anchorX),
+                 static_cast<float>(point.y + svg.offsetYmm - anchorY), 0.0f);
     }
     glEnd();
   }
@@ -157,8 +193,8 @@ bool DrawPerastageSvgInFixturePass(const PerastageSvgSymbolData &svg, float fill
       continue;
     glBegin(GL_LINE_STRIP);
     for (const auto &point : line.points) {
-      glVertex3f(static_cast<float>(point.x + svg.offsetXmm),
-                 static_cast<float>(point.y + svg.offsetYmm), 0.0f);
+      glVertex3f(static_cast<float>(point.x + svg.offsetXmm - anchorX),
+                 static_cast<float>(point.y + svg.offsetYmm - anchorY), 0.0f);
     }
     glEnd();
   }
