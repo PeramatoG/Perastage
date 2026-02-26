@@ -17,10 +17,18 @@ instance uniform float far_fade_end : hint_range(0.1, 100.0) = 80.0;
 instance uniform float max_brightness : hint_range(1.0, 50.0) = 10.0;
 instance uniform bool depth_feather_enabled = true;
 instance uniform float depth_fade_distance : hint_range(0.01, 5.0) = 0.5;
+instance uniform sampler2D gobo_texture;
+instance uniform bool gobo_enabled = false;
+instance uniform float gobo_strength : hint_range(0.0, 1.0) = 1.0;
+instance uniform float beam_top_radius : hint_range(0.001, 100.0) = 0.02;
+instance uniform float beam_bottom_radius : hint_range(0.001, 100.0) = 0.8;
+instance uniform float gobo_rotation : hint_range(-6.2831853, 6.2831853) = 0.0;
 
 varying vec3 vertex_view;
+varying vec3 vertex_local;
 
 void vertex() {
+	vertex_local = VERTEX;
 	vertex_view = (MODELVIEW_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	POSITION = PROJECTION_MATRIX * vec4(vertex_view, 1.0);
 }
@@ -62,6 +70,22 @@ void fragment() {
 	}
 
 	float final_alpha = feather_alpha * depth_mult * dist_fade;
+	if (gobo_enabled) {
+		float current_radius = mix(beam_top_radius, beam_bottom_radius, UV.y);
+		vec2 radial_pos = vertex_local.xz;
+		float sin_angle = sin(gobo_rotation);
+		float cos_angle = cos(gobo_rotation);
+		vec2 rotated = vec2(
+			radial_pos.x * cos_angle - radial_pos.y * sin_angle,
+			radial_pos.x * sin_angle + radial_pos.y * cos_angle
+		);
+		vec2 gobo_uv = rotated / max(current_radius, 0.001) * 0.5 + 0.5;
+		float gobo_sample = texture(gobo_texture, gobo_uv).r;
+		float gobo_mult = mix(1.0, gobo_sample, gobo_strength);
+		brightness *= gobo_mult;
+		final_alpha *= gobo_mult;
+	}
+
 	ALBEDO = base_color.rgb * brightness;
 	ALPHA = clamp(final_alpha * base_color.a, 0.0, 1.0);
 	EMISSION = ALBEDO * ALPHA;

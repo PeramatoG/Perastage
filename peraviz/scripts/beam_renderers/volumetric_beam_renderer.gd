@@ -8,6 +8,7 @@ const EMITTER_CONE_MAX_BASE_RADIUS_M: float = 10.0
 const VOLUMETRIC_INTENSITY_SCALE: float = 0.62
 const GOBO_OCCLUDER_DISTANCE_M: float = 0.02
 const GOBO_OCCLUDER_SIZE_PADDING: float = 1.1
+const GOBO_OCCLUDER_THICKNESS_M: float = 0.003
 
 var _shared_material: ShaderMaterial
 var _gobo_occluder_material: ShaderMaterial
@@ -45,13 +46,13 @@ func ensure_beam(light: SpotLight3D) -> void:
 		light.set_meta(BEAM_META_KEY, cone)
 
 	if not light.has_meta(GOBO_OCCLUDER_META_KEY):
-		var gobo_mesh := QuadMesh.new()
-		gobo_mesh.size = Vector2(0.08, 0.08)
+		var gobo_mesh := BoxMesh.new()
+		gobo_mesh.size = Vector3(0.08, 0.08, GOBO_OCCLUDER_THICKNESS_M)
 		var gobo_occluder := MeshInstance3D.new()
 		gobo_occluder.name = "PeravizGoboOccluder"
 		gobo_occluder.mesh = gobo_mesh
 		gobo_occluder.material_override = _gobo_occluder_material
-		gobo_occluder.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_DOUBLE_SIDED
+		gobo_occluder.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
 		gobo_occluder.visible = false
 		light.add_child(gobo_occluder)
 		light.set_meta(GOBO_OCCLUDER_META_KEY, gobo_occluder)
@@ -93,6 +94,8 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 		cone_mesh.top_radius = max(lens_radius, 0.003)
 		cone_mesh.bottom_radius = bottom_radius
 		cone_mesh.height = beam_range
+		cone.set_instance_shader_parameter("beam_top_radius", cone_mesh.top_radius)
+		cone.set_instance_shader_parameter("beam_bottom_radius", cone_mesh.bottom_radius)
 	cone.position = Vector3(0.0, 0.0, -beam_range * 0.5)
 	cone.visible = true
 
@@ -112,7 +115,7 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	cone.set_instance_shader_parameter("depth_fade_distance", 0.5)
 	cone.set_instance_shader_parameter("max_brightness", lerp(1.0, 10.0, intensity))
 
-	_update_gobo_occluder(light, gobo_occluder, beam_angle, lens_radius)
+	_update_gobo_occluder(light, cone, gobo_occluder, beam_angle, lens_radius)
 
 func cleanup_beam(light: SpotLight3D) -> void:
 	if light.has_meta(BEAM_META_KEY):
@@ -127,24 +130,44 @@ func cleanup_beam(light: SpotLight3D) -> void:
 			gobo_occluder.queue_free()
 		light.remove_meta(GOBO_OCCLUDER_META_KEY)
 
-func _update_gobo_occluder(light: SpotLight3D, gobo_occluder: MeshInstance3D, beam_angle: float, lens_radius: float) -> void:
+func _update_gobo_occluder(light: SpotLight3D, cone: MeshInstance3D, gobo_occluder: MeshInstance3D, beam_angle: float, lens_radius: float) -> void:
 	if gobo_occluder == null:
 		return
 
 	var gobo_texture: Texture2D = light.light_projector
-	if gobo_texture == null:
+	var gobo_active := gobo_texture != null
+	cone.set_instance_shader_parameter("gobo_enabled", gobo_active)
+	if not gobo_active:
 		gobo_occluder.visible = false
 		return
 
 	light.shadow_enabled = true
 	var half_angle_rad: float = deg_to_rad(beam_angle * 0.5)
 	var gobo_radius: float = max(tan(half_angle_rad) * GOBO_OCCLUDER_DISTANCE_M, lens_radius)
-	var gobo_size: float = max(gobo_radius * 2.0 * GOBO_OCCLUDER_SIZE_PADDING, 0.01)
-	var gobo_mesh: QuadMesh = gobo_occluder.mesh as QuadMesh
-	if gobo_mesh != null:
-		gobo_mesh.size = Vector2(gobo_size, gobo_size)
+	var base_size: float = max(gobo_radius * 2.0 * GOBO_OCCLUDER_SIZE_PADDING, 0.01)
+	var texture_aspect: float = 1.0
+	if gobo_texture.get_height() > 0:
+		texture_aspect = float(gobo_texture.get_width()) / float(gobo_texture.get_height())
+	texture_aspect = max(texture_aspect, 0.01)
 
-	gobo_occluder.position = Vector3(0.0, 0.0, -GOBO_OCCLUDER_DISTANCE_M)
+	var gobo_width: float = base_size
+	var gobo_height: float = base_size
+	if texture_aspect > 1.0:
+		gobo_width *= texture_aspect
+	else:
+		gobo_height /= texture_aspect
+
+	var gobo_mesh: BoxMesh = gobo_occluder.mesh as BoxMesh
+	if gobo_mesh != null:
+		gobo_mesh.size = Vector3(gobo_width, gobo_height, GOBO_OCCLUDER_THICKNESS_M)
+
+	gobo_occluder.position = Vector3(0.0, 0.0, -(GOBO_OCCLUDER_DISTANCE_M + (GOBO_OCCLUDER_THICKNESS_M * 0.5)))
 	gobo_occluder.visible = true
 	gobo_occluder.set_instance_shader_parameter("gobo_texture", gobo_texture)
 	gobo_occluder.set_instance_shader_parameter("gobo_cutoff", 0.5)
+	gobo_occluder.set_instance_shader_parameter("gobo_size", Vector2(gobo_width, gobo_height))
+	gobo_occluder.set_instance_shader_parameter("gobo_thickness", GOBO_OCCLUDER_THICKNESS_M)
+
+	cone.set_instance_shader_parameter("gobo_texture", gobo_texture)
+	cone.set_instance_shader_parameter("gobo_strength", 1.0)
+	cone.set_instance_shader_parameter("gobo_rotation", 0.0)
