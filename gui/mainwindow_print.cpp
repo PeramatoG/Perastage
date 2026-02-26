@@ -328,6 +328,9 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
       std::make_shared<std::vector<LayoutTextExportData>>(
           std::move(layoutTexts));
 
+  if (capturePanel)
+    capturePanel->SetPreferPerastageSvgSymbolsForLayouts(true);
+
   auto captureNext =
       std::make_shared<std::function<void(size_t)>>();
   *captureNext =
@@ -384,6 +387,8 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
               }
             });
           }).detach();
+          if (capturePanel)
+            capturePanel->SetPreferPerastageSvgSymbolsForLayouts(false);
           return;
         }
 
