@@ -608,7 +608,13 @@ bool LoadPerastageSvgSymbolFromGdtf(const std::string &gdtfPath,
   };
 
   std::vector<Candidate> candidates;
-  if (requestedView == SymbolViewKind::Front) {
+  if (requestedView == SymbolViewKind::Bottom) {
+    candidates.push_back({SymbolViewKind::Bottom,
+                          "models/svg/" + baseName + "_bottom.svg",
+                          "SVGOffsetX", "SVGOffsetY"});
+    candidates.push_back({SymbolViewKind::Top, "models/svg/" + baseName + ".svg",
+                          "SVGOffsetX", "SVGOffsetY"});
+  } else if (requestedView == SymbolViewKind::Front) {
     candidates.push_back({SymbolViewKind::Front,
                           "models/svg_front/" + baseName + ".svg",
                           "SVGFrontOffsetX", "SVGFrontOffsetY"});
