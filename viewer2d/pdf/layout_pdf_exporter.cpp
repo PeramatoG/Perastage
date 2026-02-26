@@ -762,6 +762,7 @@ Viewer2DExportResult ExportLayoutToPdf(
     double frameH = 0.0;
     std::unordered_set<std::string> usedSymbolKeys;
     std::unordered_set<uint32_t> usedSymbolIds;
+    std::shared_ptr<const SymbolDefinitionSnapshot> symbolSnapshot = nullptr;
     double strokeScale = 1.0;
     size_t viewIndex = 0;
   };
@@ -879,6 +880,7 @@ Viewer2DExportResult ExportLayoutToPdf(
                             static_cast<double>(view.frame.height),
                             std::move(viewSymbolKeys),
                             std::move(viewSymbolIds),
+                            view.symbolSnapshot,
                             strokeScale,
                             idx});
 
@@ -1224,10 +1226,12 @@ Viewer2DExportResult ExportLayoutToPdf(
                              1.0, group.strokeScale, bounds);
     }
 
-    if (symbolSnapshot) {
+    const SymbolDefinitionSnapshot *groupSymbols =
+        group.symbolSnapshot ? group.symbolSnapshot.get() : symbolSnapshot.get();
+    if (groupSymbols) {
       for (const auto &entry : viewIdNames) {
-        auto defIt = symbolSnapshot->find(entry.first);
-        if (defIt == symbolSnapshot->end())
+        auto defIt = groupSymbols->find(entry.first);
+        if (defIt == groupSymbols->end())
           continue;
         bool usedSvg = false;
         if (!defIt->second.key.modelKey.empty()) {
