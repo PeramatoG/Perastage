@@ -100,6 +100,9 @@ public:
 
   bool RenderToRGBA(std::vector<unsigned char> &pixels, int &width,
                     int &height);
+  void SetPreferPerastageSvgSymbolsForLayouts(bool enabled) {
+    m_preferPerastageSvgSymbolsForLayouts = enabled;
+  }
 
   // Accessor for the last recorded set of drawing commands. The buffer is
   // cleared and re-populated on every requested capture.
@@ -226,6 +229,7 @@ private:
   std::optional<wxSize> m_layoutEditBaseSize;
   std::optional<wxSize> m_layoutEditViewportSize;
   float m_layoutEditScale = 1.0f;
+  bool m_preferPerastageSvgSymbolsForLayouts = false;
 
   wxDECLARE_EVENT_TABLE();
 };

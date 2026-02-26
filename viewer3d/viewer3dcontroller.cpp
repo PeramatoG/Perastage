@@ -895,7 +895,8 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
                                      Viewer2DView view, bool showGrid,
                                      int gridStyle, float gridR, float gridG,
                                      float gridB, bool gridOnTop,
-                                     bool is2DViewer) {
+                                     bool is2DViewer,
+                                     bool preferPerastageSvgSymbolsForLayouts) {
   ConfigManager &cfg = ConfigManager::Get();
 
   RenderFrameContext context;
@@ -910,6 +911,8 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
   context.gridB = gridB;
   context.gridOnTop = gridOnTop;
   context.is2DViewer = is2DViewer;
+  context.preferPerastageSvgSymbolsForLayouts =
+      preferPerastageSvgSymbolsForLayouts;
 
   m_impl->useAdaptiveLineProfile =
       cfg.GetFloat("viewer3d_adaptive_line_profile") >= 0.5f;
