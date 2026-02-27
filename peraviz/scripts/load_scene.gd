@@ -705,12 +705,13 @@ func _apply_mirrored_instance_winding(mesh_instance: MeshInstance3D) -> void:
 
 func _has_mirrored_transform_in_hierarchy(node: Node3D) -> bool:
 	var current: Node = node
+	var has_mirrored_parity: bool = false
 	while current is Node3D:
 		var node3d: Node3D = current
 		if node3d.transform.basis.determinant() < 0.0:
-			return true
+			has_mirrored_parity = not has_mirrored_parity
 		current = node3d.get_parent()
-	return false
+	return has_mirrored_parity
 
 func _get_or_create_mirrored_mesh(source_mesh: Mesh) -> Mesh:
 	if source_mesh == null:
@@ -739,6 +740,14 @@ func _create_mesh_with_flipped_winding(source_mesh: Mesh) -> ArrayMesh:
 		if arrays.is_empty():
 			continue
 
+		var primitive_type: int = source_array_mesh.surface_get_primitive_type(surface_index)
+		if primitive_type != Mesh.PRIMITIVE_TRIANGLES:
+			mirrored.add_surface_from_arrays(primitive_type, arrays, [], {}, source_array_mesh.surface_get_format(surface_index))
+			var passthrough_material: Material = source_array_mesh.surface_get_material(surface_index)
+			if passthrough_material != null:
+				mirrored.surface_set_material(surface_index, passthrough_material)
+			continue
+
 		var indices: PackedInt32Array = arrays[Mesh.ARRAY_INDEX]
 		if not indices.is_empty():
 			for i in range(0, indices.size() - 2, 3):
@@ -746,14 +755,45 @@ func _create_mesh_with_flipped_winding(source_mesh: Mesh) -> ArrayMesh:
 				indices[i + 1] = indices[i + 2]
 				indices[i + 2] = tmp
 			arrays[Mesh.ARRAY_INDEX] = indices
+		else:
+			_flip_triangle_vertex_order_for_unindexed_surface(arrays)
 
-		mirrored.add_surface_from_arrays(source_array_mesh.surface_get_primitive_type(surface_index), arrays, [], {}, source_array_mesh.surface_get_format(surface_index))
+		mirrored.add_surface_from_arrays(primitive_type, arrays, [], {}, source_array_mesh.surface_get_format(surface_index))
 
 		var surface_material: Material = source_array_mesh.surface_get_material(surface_index)
 		if surface_material != null:
 			mirrored.surface_set_material(surface_index, surface_material)
 
 	return mirrored
+
+func _flip_triangle_vertex_order_for_unindexed_surface(arrays: Array) -> void:
+	var vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+	if vertices.size() < 3:
+		return
+	for i in range(0, vertices.size() - 2, 3):
+		var tmp_vertex: Vector3 = vertices[i + 1]
+		vertices[i + 1] = vertices[i + 2]
+		vertices[i + 2] = tmp_vertex
+	arrays[Mesh.ARRAY_VERTEX] = vertices
+
+	var normals: PackedVector3Array = arrays[Mesh.ARRAY_NORMAL]
+	if normals.size() == vertices.size():
+		for i in range(0, normals.size() - 2, 3):
+			var tmp_normal: Vector3 = normals[i + 1]
+			normals[i + 1] = normals[i + 2]
+			normals[i + 2] = tmp_normal
+		arrays[Mesh.ARRAY_NORMAL] = normals
+
+	var tangents: PackedFloat32Array = arrays[Mesh.ARRAY_TANGENT]
+	if tangents.size() == vertices.size() * 4:
+		for i in range(0, vertices.size() - 2, 3):
+			var b1: int = (i + 1) * 4
+			var b2: int = (i + 2) * 4
+			for c in range(4):
+				var tmp_tangent: float = tangents[b1 + c]
+				tangents[b1 + c] = tangents[b2 + c]
+				tangents[b2 + c] = tmp_tangent
+		arrays[Mesh.ARRAY_TANGENT] = tangents
 
 func _extract_visual_scale_hint(data: Dictionary) -> float:
 	if bool(data.get("has_basis", false)):
