@@ -1792,11 +1792,13 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 	var luminous_flux: float = max(float(photometric.get("luminous_flux", 10000.0)), 0.0)
 	var beam_angle: float = clamp(float(photometric.get("beam_angle", 25.0)), 0.1, EMITTER_LIGHT_MAX_BEAM_ANGLE_DEG)
 	var field_angle: float = clamp(float(photometric.get("field_angle", beam_angle)), beam_angle, EMITTER_LIGHT_MAX_BEAM_ANGLE_DEG)
+	var zoom_min_angle: float = EMITTER_ZOOM_DEFAULT_MIN_BEAM_ANGLE_DEG
+	var zoom_max_angle: float = EMITTER_ZOOM_DEFAULT_MAX_BEAM_ANGLE_DEG
 	if bool(controls.get("has_zoom", false)):
 		var zoom_norm: float = clamp(float(controls.get("zoom_norm", 0.0)), 0.0, 1.0)
 		var zoom_limits: Dictionary = _resolve_zoom_beam_limits(light, controls)
-		var zoom_min_angle: float = float(zoom_limits.get("min_beam_angle", EMITTER_ZOOM_DEFAULT_MIN_BEAM_ANGLE_DEG))
-		var zoom_max_angle: float = float(zoom_limits.get("max_beam_angle", EMITTER_ZOOM_DEFAULT_MAX_BEAM_ANGLE_DEG))
+		zoom_min_angle = float(zoom_limits.get("min_beam_angle", zoom_min_angle))
+		zoom_max_angle = float(zoom_limits.get("max_beam_angle", zoom_max_angle))
 		beam_angle = lerp(zoom_min_angle, zoom_max_angle, zoom_norm)
 		field_angle = max(field_angle, beam_angle)
 	var beam_radius_m: float = max(float(photometric.get("beam_radius", 0.05)), 0.001)
@@ -1841,6 +1843,8 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 		"fade_end_ratio": EMITTER_CONE_FADE_END_RATIO,
 		"intensity_visibility_threshold": BEAM_INTENSITY_VISIBILITY_THRESHOLD,
 		"distance_cull_m": BEAM_DISTANCE_CULL_M,
+		"zoom_min_beam_angle": zoom_min_angle,
+		"zoom_max_beam_angle": zoom_max_angle,
 	}
 	var gobo_changed: bool = false
 	if _fixture_gobo_projector != null:

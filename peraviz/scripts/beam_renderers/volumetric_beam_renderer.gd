@@ -8,8 +8,6 @@ const EMITTER_CONE_MAX_BASE_RADIUS_M: float = 10.0
 const VOLUMETRIC_INTENSITY_SCALE: float = 0.62
 const GOBO_OCCLUDER_DISTANCE_M: float = 0.043
 const GOBO_PLANE_BASE_SIZE_M: float = 0.017
-const GOBO_SIZE_ZOOM_MIN_DEG: float = 4.0
-const GOBO_SIZE_ZOOM_MAX_DEG: float = 50.0
 const GOBO_SIZE_SCALE_MIN: float = 0.555
 const GOBO_SIZE_SCALE_MAX: float = 6.4
 const GOBO_CUTOFF_THRESHOLD: float = 0.5
@@ -110,7 +108,7 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	cone.set_instance_shader_parameter("beam_bottom_radius", bottom_radius)
 	cone.set_instance_shader_parameter("beam_height", beam_range)
 
-	_update_gobo_occluder(light, cone, gobo_occluder, beam_angle, beam_range)
+	_update_gobo_occluder(light, cone, gobo_occluder, beam_angle, beam_range, params)
 
 func cleanup_beam(light: SpotLight3D) -> void:
 	if light.has_meta(BEAM_META_KEY):
@@ -125,7 +123,7 @@ func cleanup_beam(light: SpotLight3D) -> void:
 			gobo_occluder.queue_free()
 		light.remove_meta(GOBO_OCCLUDER_META_KEY)
 
-func _update_gobo_occluder(light: SpotLight3D, cone: MeshInstance3D, gobo_occluder: MeshInstance3D, beam_angle: float, beam_range: float) -> void:
+func _update_gobo_occluder(light: SpotLight3D, cone: MeshInstance3D, gobo_occluder: MeshInstance3D, beam_angle: float, beam_range: float, params: Dictionary) -> void:
 	if gobo_occluder == null:
 		return
 
@@ -147,7 +145,15 @@ func _update_gobo_occluder(light: SpotLight3D, cone: MeshInstance3D, gobo_occlud
 
 	light.shadow_enabled = true
 	var gobo_zoom_value: float = beam_angle
-	var gobo_size_mult: float = remap(clamp(gobo_zoom_value, GOBO_SIZE_ZOOM_MIN_DEG, GOBO_SIZE_ZOOM_MAX_DEG), GOBO_SIZE_ZOOM_MIN_DEG, GOBO_SIZE_ZOOM_MAX_DEG, GOBO_SIZE_SCALE_MIN, GOBO_SIZE_SCALE_MAX)
+	var zoom_min_angle: float = float(params.get("zoom_min_beam_angle", beam_angle))
+	var zoom_max_angle: float = float(params.get("zoom_max_beam_angle", beam_angle))
+	if zoom_max_angle < zoom_min_angle:
+		var swap_value: float = zoom_min_angle
+		zoom_min_angle = zoom_max_angle
+		zoom_max_angle = swap_value
+	zoom_min_angle = max(zoom_min_angle, 0.1)
+	zoom_max_angle = max(zoom_max_angle, zoom_min_angle + 0.001)
+	var gobo_size_mult: float = remap(clamp(gobo_zoom_value, zoom_min_angle, zoom_max_angle), zoom_min_angle, zoom_max_angle, GOBO_SIZE_SCALE_MIN, GOBO_SIZE_SCALE_MAX)
 	gobo_occluder.scale = Vector3(gobo_size_mult, gobo_size_mult, 1.0)
 	gobo_occluder.position = Vector3(0.0, 0.0, -GOBO_OCCLUDER_DISTANCE_M)
 	gobo_occluder.visible = true
