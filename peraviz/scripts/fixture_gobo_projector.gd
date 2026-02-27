@@ -12,9 +12,7 @@ func clear_cache() -> void:
 func apply_gobo_projection(light: SpotLight3D, controls: Dictionary) -> bool:
 	if light == null or not is_instance_valid(light):
 		return false
-	var previous_meta_texture: Texture2D = null
-	if light.has_meta(GOBO_TEXTURE_META_KEY):
-		previous_meta_texture = light.get_meta(GOBO_TEXTURE_META_KEY) as Texture2D
+	var previous_meta_texture: Texture2D = light.get_meta(GOBO_TEXTURE_META_KEY, null) as Texture2D
 	if not bool(controls.get("has_gobo", false)):
 		light.set_meta(GOBO_TEXTURE_META_KEY, null)
 		light.light_projector = null

@@ -8,7 +8,10 @@ const EMITTER_CONE_MAX_BASE_RADIUS_M: float = 10.0
 const VOLUMETRIC_INTENSITY_SCALE: float = 0.62
 const GOBO_OCCLUDER_DISTANCE_M: float = 0.043
 const GOBO_PLANE_BASE_SIZE_M: float = 0.017
-const GOBO_LENS_DIAMETER_MIN_M: float = 0.006
+const GOBO_SIZE_ZOOM_MIN_DEG: float = 4.0
+const GOBO_SIZE_ZOOM_MAX_DEG: float = 50.0
+const GOBO_SIZE_SCALE_MIN: float = 0.555
+const GOBO_SIZE_SCALE_MAX: float = 6.4
 
 var _beam_material_template: ShaderMaterial
 var _gobo_occluder_material_template: ShaderMaterial
@@ -106,7 +109,7 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	cone.set_instance_shader_parameter("beam_bottom_radius", bottom_radius)
 	cone.set_instance_shader_parameter("beam_height", beam_range)
 
-	_update_gobo_occluder(light, cone, gobo_occluder, beam_range, lens_radius)
+	_update_gobo_occluder(light, cone, gobo_occluder, beam_angle, beam_range)
 
 func cleanup_beam(light: SpotLight3D) -> void:
 	if light.has_meta(BEAM_META_KEY):
@@ -121,7 +124,7 @@ func cleanup_beam(light: SpotLight3D) -> void:
 			gobo_occluder.queue_free()
 		light.remove_meta(GOBO_OCCLUDER_META_KEY)
 
-func _update_gobo_occluder(light: SpotLight3D, cone: MeshInstance3D, gobo_occluder: MeshInstance3D, beam_range: float, lens_radius: float) -> void:
+func _update_gobo_occluder(light: SpotLight3D, cone: MeshInstance3D, gobo_occluder: MeshInstance3D, beam_angle: float, beam_range: float) -> void:
 	if gobo_occluder == null:
 		return
 
@@ -129,9 +132,7 @@ func _update_gobo_occluder(light: SpotLight3D, cone: MeshInstance3D, gobo_occlud
 	if gobo_material == null:
 		return
 
-	var gobo_texture: Texture2D = null
-	if light.has_meta("peraviz_gobo_texture"):
-		gobo_texture = light.get_meta("peraviz_gobo_texture") as Texture2D
+	var gobo_texture: Texture2D = light.get_meta("peraviz_gobo_texture", null) as Texture2D
 	var gobo_active := gobo_texture != null
 	if not gobo_active:
 		gobo_occluder.visible = false
@@ -144,15 +145,13 @@ func _update_gobo_occluder(light: SpotLight3D, cone: MeshInstance3D, gobo_occlud
 		return
 
 	light.shadow_enabled = true
-	var lens_diameter: float = max(lens_radius * 2.0, GOBO_LENS_DIAMETER_MIN_M)
-	var gobo_plane_size: float = lens_diameter
-	var gobo_mesh: QuadMesh = gobo_occluder.mesh as QuadMesh
-	if gobo_mesh != null:
-		gobo_mesh.size = Vector2(gobo_plane_size, gobo_plane_size)
-	gobo_occluder.scale = Vector3.ONE
+	var gobo_zoom_value: float = beam_angle
+	var gobo_size_mult: float = remap(clamp(gobo_zoom_value, GOBO_SIZE_ZOOM_MIN_DEG, GOBO_SIZE_ZOOM_MAX_DEG), GOBO_SIZE_ZOOM_MIN_DEG, GOBO_SIZE_ZOOM_MAX_DEG, GOBO_SIZE_SCALE_MIN, GOBO_SIZE_SCALE_MAX)
+	gobo_occluder.scale = Vector3(gobo_size_mult, gobo_size_mult, 1.0)
 	gobo_occluder.position = Vector3(0.0, 0.0, -GOBO_OCCLUDER_DISTANCE_M)
 	gobo_occluder.visible = true
 	gobo_material.set_shader_parameter("gobo_texture", gobo_texture)
+	var gobo_plane_size: float = GOBO_PLANE_BASE_SIZE_M * gobo_size_mult
 	cone.set_instance_shader_parameter("gobo_enabled", true)
 	cone.set_instance_shader_parameter("gobo_cutoff", 0.5)
 	cone.set_instance_shader_parameter("gobo_start_ratio", GOBO_OCCLUDER_DISTANCE_M / max(beam_range, 0.001))
