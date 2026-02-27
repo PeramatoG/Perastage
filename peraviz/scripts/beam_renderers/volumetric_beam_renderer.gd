@@ -145,7 +145,7 @@ func _update_gobo_occluder(light: SpotLight3D, cone: MeshInstance3D, gobo_occlud
 	var gobo_distance_m: float = min(GOBO_OCCLUDER_DISTANCE_M, beam_range)
 	var gobo_ratio: float = clamp(gobo_distance_m / max(beam_range, 0.001), 0.0, 1.0)
 	var gobo_radius_m: float = lerp(beam_top_radius, beam_bottom_radius, gobo_ratio)
-	var gobo_diameter_m: float = max(gobo_radius_m * 2.0, GOBO_PLANE_BASE_SIZE_M)
+	var gobo_diameter_m: float = max(gobo_radius_m * 2.0, 0.001)
 	var gobo_mesh: QuadMesh = gobo_occluder.mesh as QuadMesh
 	if gobo_mesh != null:
 		gobo_mesh.size = Vector2(gobo_diameter_m, gobo_diameter_m)
