@@ -1841,7 +1841,7 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 		"fade_end_ratio": EMITTER_CONE_FADE_END_RATIO,
 		"intensity_visibility_threshold": BEAM_INTENSITY_VISIBILITY_THRESHOLD,
 		"distance_cull_m": BEAM_DISTANCE_CULL_M,
-		"gobo_optics": _build_gobo_optics_profile(controls, photometric, lens_radius),
+		"gobo_optics": _build_gobo_optics_profile(controls, photometric),
 	}
 	var gobo_changed: bool = false
 	if _fixture_gobo_projector != null:
@@ -1851,7 +1851,7 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 		# Re-apply beam uniforms immediately when gobo texture changes so volumetric modulation updates without frame delay.
 		_update_beam_for_light(light, beam_params)
 
-func _build_gobo_optics_profile(controls: Dictionary, photometric: Dictionary, lens_radius: float) -> Dictionary:
+func _build_gobo_optics_profile(controls: Dictionary, photometric: Dictionary) -> Dictionary:
 	var profile := {
 		"has_gdtf_data": false,
 	}
@@ -1864,14 +1864,24 @@ func _build_gobo_optics_profile(controls: Dictionary, photometric: Dictionary, l
 			profile["zoom_max_deg"] = raw_zoom_max_deg
 			profile["has_gdtf_data"] = true
 
-	if bool(photometric.get("beam_radius_from_gdtf", false)):
-		var beam_radius_m: float = max(float(photometric.get("beam_radius", 0.0)), 0.0)
-		if beam_radius_m > 0.0:
-			profile["plane_base_size_m"] = beam_radius_m * 2.0
-			profile["has_gdtf_data"] = true
+	# Beam radius in GDTF describes emitted beam footprint and does not map 1:1 to gobo wheel aperture.
+	# Preserve legacy volumetric look unless explicit gobo optics values are provided by fixture data.
+	var explicit_plane_size_m: float = max(float(controls.get("gobo_plane_base_size_m", photometric.get("gobo_plane_base_size_m", -1.0))), -1.0)
+	if explicit_plane_size_m > 0.0:
+		profile["plane_base_size_m"] = explicit_plane_size_m
+		profile["has_gdtf_data"] = true
 
-	if bool(profile.get("has_gdtf_data", false)):
-		profile["occluder_distance_m"] = max(lens_radius * 1.35, 0.01)
+	var explicit_occluder_distance_m: float = max(float(controls.get("gobo_occluder_distance_m", photometric.get("gobo_occluder_distance_m", -1.0))), -1.0)
+	if explicit_occluder_distance_m > 0.0:
+		profile["occluder_distance_m"] = explicit_occluder_distance_m
+		profile["has_gdtf_data"] = true
+
+	var explicit_size_scale_min: float = max(float(controls.get("gobo_size_scale_min", photometric.get("gobo_size_scale_min", -1.0))), -1.0)
+	var explicit_size_scale_max: float = max(float(controls.get("gobo_size_scale_max", photometric.get("gobo_size_scale_max", -1.0))), -1.0)
+	if explicit_size_scale_min > 0.0 and explicit_size_scale_max >= explicit_size_scale_min:
+		profile["size_scale_min"] = explicit_size_scale_min
+		profile["size_scale_max"] = explicit_size_scale_max
+		profile["has_gdtf_data"] = true
 
 	return profile
 
