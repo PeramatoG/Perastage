@@ -38,6 +38,7 @@ var _debug_coords_enabled: bool = false
 var _debug_asset_cache_enabled: bool = false
 var _inside_out_heuristic_enabled: bool = false
 var _force_best_winding_3ds: bool = true
+var _force_invert_all_faces: bool = true
 var _debug_gizmos_root: Node3D
 var _manual_fixture_test_enabled: bool = false
 var _selected_fixture_uuid: String = ""
@@ -90,6 +91,7 @@ const VolumetricBeamRendererScript = preload("res://scripts/beam_renderers/volum
 const FixtureGoboProjectorScript = preload("res://scripts/fixture_gobo_projector.gd")
 const MeshWindingUtilsScript = preload("res://scripts/mesh_winding_utils.gd")
 const MeshRuntimeMirrorFixScript = preload("res://scripts/mesh_runtime_mirror_fix.gd")
+const MeshFaceFlipUtilsScript = preload("res://scripts/mesh_face_flip_utils.gd")
 
 const DEBUG_TOGGLE_KEY: Key = KEY_C
 const MANUAL_TEST_FLAG: String = "--peraviz_manual_fixture_test"
@@ -206,6 +208,7 @@ func _ready() -> void:
 	_debug_asset_cache_enabled = bool(ProjectSettings.get_setting("peraviz_debug_asset_cache", false))
 	_inside_out_heuristic_enabled = bool(ProjectSettings.get_setting("peraviz_debug_inside_out_heuristic", false))
 	_force_best_winding_3ds = bool(ProjectSettings.get_setting("peraviz_force_best_winding_3ds", true))
+	_force_invert_all_faces = bool(ProjectSettings.get_setting("peraviz_force_invert_all_faces", true))
 	_manual_fixture_test_enabled = _read_manual_fixture_test_setting()
 	manual_fixture_toggle.button_pressed = _manual_fixture_test_enabled
 	_asset_cache.configure_debug_logging(_debug_asset_cache_enabled, 100)
@@ -589,6 +592,10 @@ func _build_node_tree(nodes: Array) -> void:
 				parent_node = _node_index[parent_id]
 			parent_node.add_child(node)
 			_apply_runtime_winding_fix_if_mirrored(node)
+			if _force_invert_all_faces:
+				var updated_count: int = MeshFaceFlipUtilsScript.apply_to_node_tree(node, _asset_cache)
+				if updated_count > 0:
+					print("[PeravizMeshWinding] event=force_invert_all_faces_applied root=", node.name, " meshes=", updated_count)
 			_expand_loaded_bounds_from_node(node)
 
 func _apply_runtime_winding_fix_if_mirrored(root: Node3D) -> void:

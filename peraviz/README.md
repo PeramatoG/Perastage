@@ -103,6 +103,7 @@ Peraviz supports both embedded **GLB/glTF** models and **3DS** meshes found in G
   - An optional heuristic safety net can detect likely inside-out closed meshes and auto-fix winding/normals when enabled.
   - Heuristic mode can be toggled with project setting `peraviz_debug_inside_out_heuristic`.
   - A deterministic best-orientation pass is enabled by default (`peraviz_force_best_winding_3ds`) and chooses flipped winding when outward ratio improves significantly.
+  - Temporary debug switch `peraviz_force_invert_all_faces` (enabled by default in current troubleshooting) inverts winding/normals for all loaded meshes to validate whether rendering issues are strictly face-orientation related.
 
 - **Material culling defaults**
   - Solid fixture parts keep standard backface culling.
