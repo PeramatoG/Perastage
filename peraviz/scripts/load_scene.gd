@@ -118,6 +118,8 @@ const DOUBLE_SIDED_NAME_HINTS: Array[String] = [
 const DOUBLE_SIDED_MATERIAL_HINTS: Array[String] = [
 	"lens", "glass", "visor", "fabric", "cloth", "curtain", "thin", "plane"
 ]
+const ORIENTATION_SCORE_EPSILON: float = 0.0001
+const ORIENTATION_SCORE_MIN_AREA: float = 0.0000001
 const IMPORTED_CONTENT_SCALE: float = 1.0
 const EMITTER_LIGHT_MIN_RANGE_M: float = 12.0
 const EMITTER_LIGHT_MAX_RANGE_M: float = 150.0
@@ -669,6 +671,7 @@ func _build_visual_node(data: Dictionary, item_type: String, item_class: String,
 		var loaded: Variant = _load_3d_asset(asset_path, asset_kind)
 		if loaded is Node3D:
 			var loaded_node: Node3D = loaded
+			_normalize_loaded_mesh_normals_and_winding(loaded_node)
 			_apply_selective_double_sided_to_candidates(loaded_node, data)
 			return loaded_node
 		print("[Peraviz] Asset fallback for missing/invalid model: ", asset_path, " type=", item_type, " class=", item_class, " asset_kind=", asset_kind)
@@ -719,6 +722,143 @@ func _collect_mesh_instances_recursive(root: Node3D) -> Array[MeshInstance3D]:
 		if child is Node3D:
 			output.append_array(_collect_mesh_instances_recursive(child))
 	return output
+
+func _normalize_loaded_mesh_normals_and_winding(model_root: Node3D) -> void:
+	if model_root == null:
+		return
+
+	for mesh_instance in _collect_mesh_instances_recursive(model_root):
+		if mesh_instance == null or mesh_instance.mesh == null:
+			continue
+		if mesh_instance.mesh is not ArrayMesh:
+			continue
+
+		var source_mesh: ArrayMesh = mesh_instance.mesh as ArrayMesh
+		var normalized_mesh: ArrayMesh = _build_normalized_array_mesh(source_mesh)
+		if normalized_mesh == null:
+			continue
+		mesh_instance.mesh = normalized_mesh
+
+func _build_normalized_array_mesh(source_mesh: ArrayMesh) -> ArrayMesh:
+	if source_mesh == null:
+		return null
+
+	var output_mesh := ArrayMesh.new()
+	for surface_index in range(source_mesh.get_surface_count()):
+		var primitive_type: Mesh.PrimitiveType = source_mesh.surface_get_primitive_type(surface_index)
+		var arrays: Array = source_mesh.surface_get_arrays(surface_index)
+		if primitive_type != Mesh.PRIMITIVE_TRIANGLES:
+			output_mesh.add_surface_from_arrays(primitive_type, arrays)
+			var non_triangle_material: Material = source_mesh.surface_get_material(surface_index)
+			if non_triangle_material != null:
+				output_mesh.surface_set_material(output_mesh.get_surface_count() - 1, non_triangle_material)
+			continue
+
+		if arrays.size() <= Mesh.ARRAY_INDEX:
+			output_mesh.add_surface_from_arrays(primitive_type, arrays)
+			continue
+
+		var vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+		if vertices.is_empty():
+			output_mesh.add_surface_from_arrays(primitive_type, arrays)
+			continue
+
+		var indices: PackedInt32Array = arrays[Mesh.ARRAY_INDEX]
+		if indices.is_empty():
+			indices = PackedInt32Array()
+			indices.resize(vertices.size())
+			for i in range(vertices.size()):
+				indices[i] = i
+
+		if indices.size() < 3:
+			output_mesh.add_surface_from_arrays(primitive_type, arrays)
+			continue
+
+		var corrected_indices: PackedInt32Array = indices
+		if _should_flip_surface_winding(vertices, indices):
+			corrected_indices = _flip_triangle_indices(indices)
+
+		arrays[Mesh.ARRAY_INDEX] = corrected_indices
+		arrays[Mesh.ARRAY_NORMAL] = _compute_surface_normals(vertices, corrected_indices)
+		output_mesh.add_surface_from_arrays(primitive_type, arrays)
+
+		var surface_material: Material = source_mesh.surface_get_material(surface_index)
+		if surface_material != null:
+			output_mesh.surface_set_material(output_mesh.get_surface_count() - 1, surface_material)
+
+	return output_mesh if output_mesh.get_surface_count() > 0 else null
+
+func _should_flip_surface_winding(vertices: PackedVector3Array, indices: PackedInt32Array) -> bool:
+	if vertices.is_empty() or indices.size() < 3:
+		return false
+
+	var centroid := Vector3.ZERO
+	for vertex in vertices:
+		centroid += vertex
+	centroid /= float(vertices.size())
+
+	var orientation_score: float = 0.0
+	var total_area: float = 0.0
+	for i in range(0, indices.size() - 2, 3):
+		var i0: int = indices[i]
+		var i1: int = indices[i + 1]
+		var i2: int = indices[i + 2]
+		if i0 < 0 or i1 < 0 or i2 < 0:
+			continue
+		if i0 >= vertices.size() or i1 >= vertices.size() or i2 >= vertices.size():
+			continue
+
+		var v0: Vector3 = vertices[i0]
+		var v1: Vector3 = vertices[i1]
+		var v2: Vector3 = vertices[i2]
+		var face_normal: Vector3 = (v1 - v0).cross(v2 - v0)
+		var area: float = face_normal.length()
+		if area <= ORIENTATION_SCORE_MIN_AREA:
+			continue
+
+		var triangle_centroid: Vector3 = (v0 + v1 + v2) / 3.0
+		orientation_score += face_normal.dot(triangle_centroid - centroid)
+		total_area += area
+
+	if total_area <= ORIENTATION_SCORE_MIN_AREA:
+		return false
+	return abs(orientation_score) > total_area * ORIENTATION_SCORE_EPSILON and orientation_score < 0.0
+
+func _flip_triangle_indices(indices: PackedInt32Array) -> PackedInt32Array:
+	var flipped: PackedInt32Array = indices
+	for i in range(0, flipped.size() - 2, 3):
+		var tmp: int = flipped[i + 1]
+		flipped[i + 1] = flipped[i + 2]
+		flipped[i + 2] = tmp
+	return flipped
+
+func _compute_surface_normals(vertices: PackedVector3Array, indices: PackedInt32Array) -> PackedVector3Array:
+	var normals := PackedVector3Array()
+	normals.resize(vertices.size())
+	for i in range(vertices.size()):
+		normals[i] = Vector3.ZERO
+
+	for i in range(0, indices.size() - 2, 3):
+		var i0: int = indices[i]
+		var i1: int = indices[i + 1]
+		var i2: int = indices[i + 2]
+		if i0 < 0 or i1 < 0 or i2 < 0:
+			continue
+		if i0 >= vertices.size() or i1 >= vertices.size() or i2 >= vertices.size():
+			continue
+
+		var face_normal: Vector3 = (vertices[i1] - vertices[i0]).cross(vertices[i2] - vertices[i0])
+		normals[i0] += face_normal
+		normals[i1] += face_normal
+		normals[i2] += face_normal
+
+	for i in range(normals.size()):
+		if normals[i].length_squared() > 0.0:
+			normals[i] = normals[i].normalized()
+		else:
+			normals[i] = Vector3.UP
+
+	return normals
 
 func _should_enable_double_sided(mesh_instance: MeshInstance3D, material: Material, source_data: Dictionary) -> bool:
 	if mesh_instance == null:
