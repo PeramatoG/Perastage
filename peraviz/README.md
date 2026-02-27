@@ -93,6 +93,7 @@ Peraviz supports both embedded **GLB/glTF** models and **3DS** meshes found in G
     - `godot_y = z`
     - `godot_z = -y`
   - Source units are treated as millimeters and converted to meters (`0.001`).
+  - Object-local coordinate chunks from 3DS (`0x4160`) are applied before Godot conversion so multi-object fixture meshes keep correct subobject placement and orientation.
   - This conversion keeps a right-handed basis and avoids mirror transforms caused by signless axis swaps.
 
 - **Winding correction strategy**

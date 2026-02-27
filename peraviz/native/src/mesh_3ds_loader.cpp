@@ -24,6 +24,36 @@ struct MeshData {
     std::vector<float> normals;
 };
 
+struct LocalCoordinateSystem {
+    std::array<float, 3> u{1.0F, 0.0F, 0.0F};
+    std::array<float, 3> v{0.0F, 1.0F, 0.0F};
+    std::array<float, 3> w{0.0F, 0.0F, 1.0F};
+    std::array<float, 3> o{0.0F, 0.0F, 0.0F};
+};
+
+void apply_local_coordinate_system(MeshData &mesh, size_t vertex_start, size_t vertex_count,
+                                   const LocalCoordinateSystem &lcs) {
+    const size_t max_vertex_count = mesh.vertices.size() / 3;
+    if (vertex_start >= max_vertex_count || vertex_count == 0) {
+        return;
+    }
+    const size_t clamped_count = std::min(vertex_count, max_vertex_count - vertex_start);
+    for (size_t i = 0; i < clamped_count; ++i) {
+        const size_t index = (vertex_start + i) * 3;
+        const float x = mesh.vertices[index];
+        const float y = mesh.vertices[index + 1];
+        const float z = mesh.vertices[index + 2];
+
+        const float tx = (lcs.u[0] * x) + (lcs.v[0] * y) + (lcs.w[0] * z) + lcs.o[0];
+        const float ty = (lcs.u[1] * x) + (lcs.v[1] * y) + (lcs.w[1] * z) + lcs.o[1];
+        const float tz = (lcs.u[2] * x) + (lcs.v[2] * y) + (lcs.w[2] * z) + lcs.o[2];
+
+        mesh.vertices[index] = tx;
+        mesh.vertices[index + 1] = ty;
+        mesh.vertices[index + 2] = tz;
+    }
+}
+
 bool read_chunk(std::ifstream &file, Chunk &chunk) {
     if (!file.read(reinterpret_cast<char *>(&chunk.id), sizeof(chunk.id))) {
         return false;
@@ -102,6 +132,10 @@ void compute_normals(MeshData &mesh) {
 
 void parse_mesh_chunk(std::ifstream &file, std::streampos mesh_end, MeshData &mesh,
                       size_t vertex_base) {
+    size_t object_vertex_count = 0;
+    LocalCoordinateSystem local_coords;
+    bool has_local_coords = false;
+
     while (file.good() && file.tellg() < mesh_end) {
         Chunk chunk;
         if (!read_chunk(file, chunk)) {
@@ -119,6 +153,7 @@ void parse_mesh_chunk(std::ifstream &file, std::streampos mesh_end, MeshData &me
             mesh.vertices.resize(start + static_cast<size_t>(count) * 3U);
             file.read(reinterpret_cast<char *>(mesh.vertices.data() + start),
                       static_cast<std::streamsize>(count) * 3 * sizeof(float));
+            object_vertex_count = static_cast<size_t>(count);
         } else if (chunk.id == 0x4120) {
             uint16_t count = 0;
             file.read(reinterpret_cast<char *>(&count), sizeof(count));
@@ -144,9 +179,23 @@ void parse_mesh_chunk(std::ifstream &file, std::streampos mesh_end, MeshData &me
                 mesh.indices[idx + 2] =
                     static_cast<uint32_t>(c) + static_cast<uint32_t>(vertex_base);
             }
+        } else if (chunk.id == 0x4160) {
+            file.read(reinterpret_cast<char *>(local_coords.u.data()),
+                      3 * sizeof(float));
+            file.read(reinterpret_cast<char *>(local_coords.v.data()),
+                      3 * sizeof(float));
+            file.read(reinterpret_cast<char *>(local_coords.w.data()),
+                      3 * sizeof(float));
+            file.read(reinterpret_cast<char *>(local_coords.o.data()),
+                      3 * sizeof(float));
+            has_local_coords = true;
         }
 
         file.seekg(next);
+    }
+
+    if (has_local_coords && object_vertex_count > 0) {
+        apply_local_coordinate_system(mesh, vertex_base, object_vertex_count, local_coords);
     }
 }
 
