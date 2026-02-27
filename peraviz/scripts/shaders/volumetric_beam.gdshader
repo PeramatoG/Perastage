@@ -36,6 +36,33 @@ instance uniform float beam_bottom_radius = 0.8;
 varying vec3 v_view;
 varying vec3 v_local;
 
+float gobo_luminance_at(vec2 uv) {
+	vec4 texel = texture(gobo_texture, uv);
+	return dot(texel.rgb, vec3(0.299, 0.587, 0.114)) * texel.a;
+}
+
+float sample_gobo_cone_opening(vec2 uv, float axis_ratio) {
+	if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) {
+		return 0.0;
+	}
+
+	float blur = mix(0.001, 0.035, clamp(axis_ratio, 0.0, 1.0));
+	float softness = mix(0.05, 0.22, clamp(axis_ratio, 0.0, 1.0));
+
+	float acc = gobo_luminance_at(uv) * 3.0;
+	acc += gobo_luminance_at(uv + vec2(blur, 0.0));
+	acc += gobo_luminance_at(uv + vec2(-blur, 0.0));
+	acc += gobo_luminance_at(uv + vec2(0.0, blur));
+	acc += gobo_luminance_at(uv + vec2(0.0, -blur));
+	acc += gobo_luminance_at(uv + vec2(blur, blur));
+	acc += gobo_luminance_at(uv + vec2(-blur, blur));
+	acc += gobo_luminance_at(uv + vec2(blur, -blur));
+	acc += gobo_luminance_at(uv + vec2(-blur, -blur));
+
+	float luminance = acc / 11.0;
+	return smoothstep(gobo_cutoff - softness, gobo_cutoff + softness, luminance);
+}
+
 void vertex() {
 	v_local = VERTEX;
 	v_view = (MODELVIEW_MATRIX * vec4(VERTEX, 1.0)).xyz;
@@ -103,21 +130,8 @@ void fragment() {
 			);
 			vec2 half_size = max(gobo_size * 0.5, vec2(0.001));
 			vec2 gobo_uv = rotated / half_size + vec2(0.5);
-
-			if (gobo_uv.x < 0.0 || gobo_uv.x > 1.0 || gobo_uv.y < 0.0 || gobo_uv.y > 1.0) {
-				gobo_open = 0.0;
-			} else {
-				const int LINE_SAMPLE_COUNT = 6;
-				float gobo_acc = 0.0;
-				for (int i = 0; i < LINE_SAMPLE_COUNT; i++) {
-					float sample_t = (float(i) + 0.5) / float(LINE_SAMPLE_COUNT);
-					vec2 sample_uv = mix(vec2(0.5), gobo_uv, sample_t);
-					vec4 texel = texture(gobo_texture, sample_uv);
-					float luminance = dot(texel.rgb, vec3(0.299, 0.587, 0.114)) * texel.a;
-					gobo_acc += smoothstep(gobo_cutoff - 0.12, gobo_cutoff + 0.12, luminance);
-				}
-				gobo_open = gobo_acc / float(LINE_SAMPLE_COUNT);
-			}
+			float axis_ratio = (axis_pos - gobo_plane_dist) / max(beam_height - gobo_plane_dist, 0.001);
+			gobo_open = sample_gobo_cone_opening(gobo_uv, axis_ratio);
 		} else {
 			gobo_open = 1.0;
 		}
