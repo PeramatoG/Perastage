@@ -31,6 +31,12 @@ struct LocalCoordinateSystem {
     std::array<float, 3> o{0.0F, 0.0F, 0.0F};
 };
 
+float determinant3x3(const LocalCoordinateSystem &lcs) {
+    return lcs.u[0] * ((lcs.v[1] * lcs.w[2]) - (lcs.v[2] * lcs.w[1])) -
+           lcs.v[0] * ((lcs.u[1] * lcs.w[2]) - (lcs.u[2] * lcs.w[1])) +
+           lcs.w[0] * ((lcs.u[1] * lcs.v[2]) - (lcs.u[2] * lcs.v[1]));
+}
+
 void apply_local_coordinate_system(MeshData &mesh, size_t vertex_start, size_t vertex_count,
                                    const LocalCoordinateSystem &lcs) {
     const size_t max_vertex_count = mesh.vertices.size() / 3;
@@ -51,6 +57,19 @@ void apply_local_coordinate_system(MeshData &mesh, size_t vertex_start, size_t v
         mesh.vertices[index] = tx;
         mesh.vertices[index + 1] = ty;
         mesh.vertices[index + 2] = tz;
+    }
+}
+
+void reverse_winding_range(MeshData &mesh, size_t index_start, size_t triangle_count) {
+    const size_t max_triangle_count = mesh.indices.size() / 3;
+    if (index_start >= mesh.indices.size() || triangle_count == 0) {
+        return;
+    }
+    const size_t start_triangle = index_start / 3;
+    const size_t clamped_triangles = std::min(triangle_count, max_triangle_count - start_triangle);
+    for (size_t t = 0; t < clamped_triangles; ++t) {
+        const size_t i = index_start + (t * 3);
+        std::swap(mesh.indices[i + 1], mesh.indices[i + 2]);
     }
 }
 
@@ -133,6 +152,8 @@ void compute_normals(MeshData &mesh) {
 void parse_mesh_chunk(std::ifstream &file, std::streampos mesh_end, MeshData &mesh,
                       size_t vertex_base) {
     size_t object_vertex_count = 0;
+    size_t object_index_start = mesh.indices.size();
+    size_t object_triangle_count = 0;
     LocalCoordinateSystem local_coords;
     bool has_local_coords = false;
 
@@ -157,6 +178,8 @@ void parse_mesh_chunk(std::ifstream &file, std::streampos mesh_end, MeshData &me
         } else if (chunk.id == 0x4120) {
             uint16_t count = 0;
             file.read(reinterpret_cast<char *>(&count), sizeof(count));
+            object_index_start = mesh.indices.size();
+            object_triangle_count = static_cast<size_t>(count);
 
             const size_t start = mesh.indices.size();
             mesh.indices.resize(start + static_cast<size_t>(count) * 3U);
@@ -196,6 +219,9 @@ void parse_mesh_chunk(std::ifstream &file, std::streampos mesh_end, MeshData &me
 
     if (has_local_coords && object_vertex_count > 0) {
         apply_local_coordinate_system(mesh, vertex_base, object_vertex_count, local_coords);
+        if (determinant3x3(local_coords) < 0.0F && object_triangle_count > 0) {
+            reverse_winding_range(mesh, object_index_start, object_triangle_count);
+        }
     }
 }
 
