@@ -758,8 +758,6 @@ func _create_mesh_with_flipped_winding(source_mesh: Mesh) -> ArrayMesh:
 		else:
 			_flip_triangle_vertex_order_for_unindexed_surface(arrays)
 
-		_invert_surface_normals_and_tangents(arrays)
-
 		mirrored.add_surface_from_arrays(primitive_type, arrays, [], {}, source_array_mesh.surface_get_format(surface_index))
 
 		var surface_material: Material = source_array_mesh.surface_get_material(surface_index)
@@ -767,21 +765,6 @@ func _create_mesh_with_flipped_winding(source_mesh: Mesh) -> ArrayMesh:
 			mirrored.surface_set_material(surface_index, surface_material)
 
 	return mirrored
-
-func _invert_surface_normals_and_tangents(arrays: Array) -> void:
-	var normals: PackedVector3Array = arrays[Mesh.ARRAY_NORMAL]
-	if not normals.is_empty():
-		for i in range(normals.size()):
-			normals[i] = -normals[i]
-		arrays[Mesh.ARRAY_NORMAL] = normals
-
-	var tangents: PackedFloat32Array = arrays[Mesh.ARRAY_TANGENT]
-	if not tangents.is_empty():
-		for i in range(0, tangents.size() - 3, 4):
-			tangents[i] = -tangents[i]
-			tangents[i + 1] = -tangents[i + 1]
-			tangents[i + 2] = -tangents[i + 2]
-		arrays[Mesh.ARRAY_TANGENT] = tangents
 
 func _flip_triangle_vertex_order_for_unindexed_surface(arrays: Array) -> void:
 	var vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
@@ -792,25 +775,6 @@ func _flip_triangle_vertex_order_for_unindexed_surface(arrays: Array) -> void:
 		vertices[i + 1] = vertices[i + 2]
 		vertices[i + 2] = tmp_vertex
 	arrays[Mesh.ARRAY_VERTEX] = vertices
-
-	var normals: PackedVector3Array = arrays[Mesh.ARRAY_NORMAL]
-	if normals.size() == vertices.size():
-		for i in range(0, normals.size() - 2, 3):
-			var tmp_normal: Vector3 = normals[i + 1]
-			normals[i + 1] = normals[i + 2]
-			normals[i + 2] = tmp_normal
-		arrays[Mesh.ARRAY_NORMAL] = normals
-
-	var tangents: PackedFloat32Array = arrays[Mesh.ARRAY_TANGENT]
-	if tangents.size() == vertices.size() * 4:
-		for i in range(0, vertices.size() - 2, 3):
-			var b1: int = (i + 1) * 4
-			var b2: int = (i + 2) * 4
-			for c in range(4):
-				var tmp_tangent: float = tangents[b1 + c]
-				tangents[b1 + c] = tangents[b2 + c]
-				tangents[b2 + c] = tmp_tangent
-		arrays[Mesh.ARRAY_TANGENT] = tangents
 
 func _extract_visual_scale_hint(data: Dictionary) -> float:
 	if bool(data.get("has_basis", false)):
