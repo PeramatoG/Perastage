@@ -106,7 +106,7 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	cone.set_instance_shader_parameter("beam_bottom_radius", bottom_radius)
 	cone.set_instance_shader_parameter("beam_height", beam_range)
 
-	_update_gobo_occluder(light, cone, gobo_occluder, beam_range, max(lens_radius, 0.003), bottom_radius)
+	_update_gobo_occluder(light, cone, gobo_occluder, beam_angle, beam_range, max(lens_radius, 0.003))
 
 func cleanup_beam(light: SpotLight3D) -> void:
 	if light.has_meta(BEAM_META_KEY):
@@ -121,7 +121,7 @@ func cleanup_beam(light: SpotLight3D) -> void:
 			gobo_occluder.queue_free()
 		light.remove_meta(GOBO_OCCLUDER_META_KEY)
 
-func _update_gobo_occluder(light: SpotLight3D, cone: MeshInstance3D, gobo_occluder: MeshInstance3D, beam_range: float, beam_top_radius: float, beam_bottom_radius: float) -> void:
+func _update_gobo_occluder(light: SpotLight3D, cone: MeshInstance3D, gobo_occluder: MeshInstance3D, beam_angle: float, beam_range: float, beam_top_radius: float) -> void:
 	if gobo_occluder == null:
 		return
 
@@ -143,8 +143,8 @@ func _update_gobo_occluder(light: SpotLight3D, cone: MeshInstance3D, gobo_occlud
 
 	light.shadow_enabled = true
 	var gobo_distance_m: float = min(GOBO_OCCLUDER_DISTANCE_M, beam_range)
-	var gobo_ratio: float = clamp(gobo_distance_m / max(beam_range, 0.001), 0.0, 1.0)
-	var gobo_radius_m: float = lerp(beam_top_radius, beam_bottom_radius, gobo_ratio)
+	var gobo_half_angle_rad: float = deg_to_rad(beam_angle * 0.5)
+	var gobo_radius_m: float = beam_top_radius + tan(gobo_half_angle_rad) * gobo_distance_m
 	var gobo_diameter_m: float = max(gobo_radius_m * 2.0, 0.001)
 	var gobo_mesh: QuadMesh = gobo_occluder.mesh as QuadMesh
 	if gobo_mesh != null:
@@ -165,7 +165,7 @@ func _update_gobo_occluder(light: SpotLight3D, cone: MeshInstance3D, gobo_occlud
 		if gobo_mesh != null:
 			assert(is_equal_approx(quad_size.x, gobo_size_for_shader.x))
 			assert(is_equal_approx(quad_size.y, gobo_size_for_shader.y))
-		print("[VolumetricBeamRenderer][Debug] gobo_ratio=", gobo_ratio, " gobo_diameter_m=", gobo_diameter_m, " quad_mesh_size=", quad_size, " gobo_size_shader=", gobo_size_for_shader)
+		print("[VolumetricBeamRenderer][Debug] beam_angle=", beam_angle, " gobo_diameter_m=", gobo_diameter_m, " quad_mesh_size=", quad_size, " gobo_size_shader=", gobo_size_for_shader)
 	var cone_material: ShaderMaterial = cone.material_override as ShaderMaterial
 	if cone_material != null:
 		cone_material.set_shader_parameter("gobo_texture", gobo_texture)
