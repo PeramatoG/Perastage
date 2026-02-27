@@ -57,7 +57,6 @@ func ensure_beam(light: SpotLight3D) -> void:
 		gobo_occluder.material_override = _gobo_occluder_material_template.duplicate(true)
 		gobo_occluder.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
 		gobo_occluder.visible = false
-		gobo_occluder.set_disable_scale(true)
 		light.add_child(gobo_occluder)
 		light.set_meta(GOBO_OCCLUDER_META_KEY, gobo_occluder)
 
