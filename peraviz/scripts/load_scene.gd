@@ -353,6 +353,7 @@ func _on_file_selected(path: String) -> void:
 	_clear_debug_gizmos()
 
 	_build_node_tree(nodes)
+	_correct_mirrored_mesh_instances()
 	_register_fixture_registry(nodes)
 	_refresh_dmx_fixture_bindings()
 	_populate_fixture_list()
@@ -720,6 +721,61 @@ func _collect_mesh_instances_recursive(root: Node3D) -> Array[MeshInstance3D]:
 			output.append_array(_collect_mesh_instances_recursive(child))
 	return output
 
+func _correct_mirrored_mesh_instances() -> void:
+	var flipped_mesh_cache: Dictionary = {}
+	for mesh_instance in _collect_mesh_instances_recursive(proxies_root):
+		if mesh_instance == null or mesh_instance.mesh == null:
+			continue
+		if not _has_mirrored_transform_in_hierarchy(mesh_instance):
+			continue
+		if not (mesh_instance.mesh is ArrayMesh):
+			continue
+
+		var source_mesh: ArrayMesh = mesh_instance.mesh as ArrayMesh
+		var cache_key: int = source_mesh.get_instance_id()
+		var flipped_cached: Variant = flipped_mesh_cache.get(cache_key)
+		if flipped_cached is ArrayMesh:
+			mesh_instance.mesh = flipped_cached
+			continue
+
+		var flipped_mesh: ArrayMesh = _build_winding_flipped_array_mesh(source_mesh)
+		if flipped_mesh == null:
+			continue
+		flipped_mesh_cache[cache_key] = flipped_mesh
+		mesh_instance.mesh = flipped_mesh
+
+func _build_winding_flipped_array_mesh(source_mesh: ArrayMesh) -> ArrayMesh:
+	if source_mesh == null:
+		return null
+
+	var flipped_mesh := ArrayMesh.new()
+	for surface_index in range(source_mesh.get_surface_count()):
+		var primitive_type: int = source_mesh.surface_get_primitive_type(surface_index)
+		var arrays: Array = source_mesh.surface_get_arrays(surface_index)
+		if arrays.is_empty():
+			continue
+
+		var indices: PackedInt32Array = arrays[Mesh.ARRAY_INDEX]
+		if not indices.is_empty() and indices.size() % 3 == 0:
+			for i in range(0, indices.size(), 3):
+				var i1: int = indices[i + 1]
+				indices[i + 1] = indices[i + 2]
+				indices[i + 2] = i1
+			arrays[Mesh.ARRAY_INDEX] = indices
+
+		var normals: PackedVector3Array = arrays[Mesh.ARRAY_NORMAL]
+		if not normals.is_empty():
+			for i in range(normals.size()):
+				normals[i] = -normals[i]
+			arrays[Mesh.ARRAY_NORMAL] = normals
+
+		flipped_mesh.add_surface_from_arrays(primitive_type, arrays)
+		flipped_mesh.surface_set_material(surface_index, source_mesh.surface_get_material(surface_index))
+
+	if flipped_mesh.get_surface_count() == 0:
+		return null
+	return flipped_mesh
+
 func _should_enable_double_sided(mesh_instance: MeshInstance3D, material: Material, source_data: Dictionary) -> bool:
 	if mesh_instance == null:
 		return false
@@ -757,12 +813,17 @@ func _should_enable_double_sided(mesh_instance: MeshInstance3D, material: Materi
 
 func _has_mirrored_transform_in_hierarchy(node: Node3D) -> bool:
 	var current: Node = node
+	var sign: float = 1.0
 	while current is Node3D:
 		var node3d: Node3D = current
-		if node3d.transform.basis.determinant() < 0.0:
-			return true
+		var determinant: float = node3d.transform.basis.determinant()
+		if not is_finite(determinant) or is_zero_approx(determinant):
+			current = node3d.get_parent()
+			continue
+		if determinant < 0.0:
+			sign = -sign
 		current = node3d.get_parent()
-	return false
+	return sign < 0.0
 
 func _contains_any_hint(candidate: String, hints: Array[String]) -> bool:
 	if candidate.is_empty():
