@@ -12,7 +12,7 @@ const GOBO_SIZE_ZOOM_MIN_DEG: float = 4.0
 const GOBO_SIZE_ZOOM_MAX_DEG: float = 50.0
 const GOBO_SIZE_SCALE_MIN: float = 0.555
 const GOBO_SIZE_SCALE_MAX: float = 6.4
-const GOBO_OUTPUT_SCALE_COMPENSATION: float = 0.88
+const GOBO_OUTPUT_SCALE_COMPENSATION: float = 0.62
 
 var _beam_material_template: ShaderMaterial
 var _gobo_occluder_material_template: ShaderMaterial
@@ -133,7 +133,9 @@ func _update_gobo_occluder(light: SpotLight3D, cone: MeshInstance3D, gobo_occlud
 	if gobo_material == null:
 		return
 
-	var gobo_texture: Texture2D = light.get_meta("peraviz_gobo_texture", null) as Texture2D
+	var gobo_texture: Texture2D = null
+	if light.has_meta("peraviz_gobo_texture"):
+		gobo_texture = light.get_meta("peraviz_gobo_texture") as Texture2D
 	var gobo_active := gobo_texture != null
 	if not gobo_active:
 		gobo_occluder.visible = false
