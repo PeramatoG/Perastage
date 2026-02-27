@@ -1006,17 +1006,33 @@ wxImage LayoutViewerPanel::BuildLegendImage(
 
   double maxTopSymbolColumnWidth = 0.0;
   double maxFrontSymbolColumnWidth = 0.0;
+  bool hasSvgSymbols = false;
+  bool hasFallbackSymbols = false;
+  bool hasTopSvgSymbols = false;
+  bool hasFrontSvgSymbols = false;
   for (const auto &item : items) {
     if (item.symbolKey.empty())
       continue;
     const PerastageSvgSymbolData *topSvg =
-        findSvgSymbol(item.symbolKey, SymbolViewKind::Top);
+        findSvgSymbol(item.symbolKey, SymbolViewKind::Bottom);
     const PerastageSvgSymbolData *frontSvg =
         findSvgSymbol(item.symbolKey, SymbolViewKind::Front);
-    const SymbolDefinition *topSymbol =
-        FindSymbolDefinitionPreferred(symbols, item.symbolKey, SymbolViewKind::Top);
+    const SymbolDefinition *topSymbol = FindSymbolDefinitionPreferred(
+        symbols, item.symbolKey, SymbolViewKind::Bottom);
     const SymbolDefinition *frontSymbol =
         FindSymbolDefinitionExact(symbols, item.symbolKey, SymbolViewKind::Front);
+    if (topSvg) {
+      hasSvgSymbols = true;
+      hasTopSvgSymbols = true;
+    } else if (topSymbol) {
+      hasFallbackSymbols = true;
+    }
+    if (frontSvg) {
+      hasSvgSymbols = true;
+      hasFrontSvgSymbols = true;
+    } else if (frontSymbol) {
+      hasFallbackSymbols = true;
+    }
     const double topDrawW =
         topSvg ? symbolDrawWidthSvg(topSvg) : symbolDrawWidth(topSymbol);
     const double frontDrawW =
@@ -1030,12 +1046,12 @@ wxImage LayoutViewerPanel::BuildLegendImage(
   const int limitedSymbolColumnSize = std::max(4, (maxSymbolColumnSize * 2) / 5);
   const double maxMeasuredSymbolColumnWidth =
       static_cast<double>(limitedSymbolColumnSize);
-  const int topSymbolColumnSize = std::clamp(
+  int topSymbolColumnSize = std::clamp(
       static_cast<int>(std::ceil(std::min(maxTopSymbolColumnWidth,
                                           maxMeasuredSymbolColumnWidth) *
                                  kLegendSymbolColumnScale)),
       0, limitedSymbolColumnSize);
-  const int frontSymbolColumnSize = std::clamp(
+  int frontSymbolColumnSize = std::clamp(
       static_cast<int>(std::ceil(std::min(maxFrontSymbolColumnWidth,
                                           maxMeasuredSymbolColumnWidth) *
                                  kLegendSymbolColumnScale)),
@@ -1051,9 +1067,26 @@ wxImage LayoutViewerPanel::BuildLegendImage(
       std::max(0, static_cast<int>(std::lround(paddingBottom * renderZoom)));
   const int columnGapPx =
       std::max(0, static_cast<int>(std::lround(columnGap * renderZoom)));
-  const int symbolColumnGapPx =
+  int symbolColumnGapPx =
       std::max(0, static_cast<int>(std::lround(symbolColumnGap * renderZoom)));
-  int xTopSymbol = paddingLeftPx;
+  int symbolOuterMarginPx = 0;
+
+  if (hasSvgSymbols && !hasFallbackSymbols) {
+    const int minSvgColumnSize =
+        std::max(4, static_cast<int>(std::lround(symbolSize * 0.55)));
+    if (hasTopSvgSymbols)
+      topSymbolColumnSize = std::max(topSymbolColumnSize, minSvgColumnSize);
+    if (hasFrontSvgSymbols)
+      frontSymbolColumnSize =
+          std::max(frontSymbolColumnSize, minSvgColumnSize);
+    symbolColumnGapPx =
+        std::max(symbolColumnGapPx,
+                 std::max(1, static_cast<int>(std::lround(2.5 * renderZoom))));
+    symbolOuterMarginPx =
+        std::max(1, static_cast<int>(std::lround(2.0 * renderZoom)));
+  }
+
+  int xTopSymbol = paddingLeftPx + symbolOuterMarginPx;
   int xFrontSymbol = xTopSymbol + topSymbolColumnSize + symbolColumnGapPx;
   int xCount = xFrontSymbol + frontSymbolColumnSize + columnGapPx;
   int xType = xCount + maxCountWidth + columnGapPx;
@@ -1102,11 +1135,11 @@ wxImage LayoutViewerPanel::BuildLegendImage(
     wxString typeText = trimTextToWidth(rowText.typeText, typeWidth);
     if (!item.symbolKey.empty()) {
       const SymbolDefinition *topSymbol = FindSymbolDefinitionPreferred(
-          symbols, item.symbolKey, SymbolViewKind::Top);
+          symbols, item.symbolKey, SymbolViewKind::Bottom);
       const SymbolDefinition *frontSymbol = FindSymbolDefinitionExact(
           symbols, item.symbolKey, SymbolViewKind::Front);
       const PerastageSvgSymbolData *topSvg =
-          findSvgSymbol(item.symbolKey, SymbolViewKind::Top);
+          findSvgSymbol(item.symbolKey, SymbolViewKind::Bottom);
       const PerastageSvgSymbolData *frontSvg =
           findSvgSymbol(item.symbolKey, SymbolViewKind::Front);
       auto drawSymbol = [&](const SymbolDefinition *symbol, double drawCenterX,

@@ -271,6 +271,8 @@ func _apply_visual_settings(settings: Dictionary) -> void:
 		world_environment.environment.ambient_light_energy = float(_visual_environment_baseline.get("ambient_light_energy", 0.2)) * float(_visual_settings.get("ambient_multiplier", 1.0))
 		world_environment.environment.glow_bloom = float(_visual_environment_baseline.get("glow_bloom", 0.05)) * float(_visual_settings.get("bloom_multiplier", 1.0))
 		world_environment.environment.background_color = _visual_settings.get("background_color", _visual_environment_baseline.get("background_color", Color(0.129412, 0.137255, 0.156863, 1.0)))
+		world_environment.environment.volumetric_fog_enabled = true
+		world_environment.environment.volumetric_fog_density = 0.01
 
 	_update_beam_renderer_mode(false)
 	_save_visual_settings_to_project()
@@ -1837,9 +1839,13 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 		"intensity_visibility_threshold": BEAM_INTENSITY_VISIBILITY_THRESHOLD,
 		"distance_cull_m": BEAM_DISTANCE_CULL_M,
 	}
-	_update_beam_for_light(light, beam_params)
+	var gobo_changed: bool = false
 	if _fixture_gobo_projector != null:
-		_fixture_gobo_projector.apply_gobo_projection(light, controls)
+		gobo_changed = _fixture_gobo_projector.apply_gobo_projection(light, controls)
+	_update_beam_for_light(light, beam_params)
+	if gobo_changed:
+		# Re-apply beam uniforms immediately when gobo texture changes so volumetric modulation updates without frame delay.
+		_update_beam_for_light(light, beam_params)
 
 func _resolve_zoom_beam_limits(light: SpotLight3D, controls: Dictionary) -> Dictionary:
 	# min/max beam angles are kept as full GDTF beam apertures (not half-angle).
@@ -2005,13 +2011,13 @@ func _update_emitter_beam_cone(light: SpotLight3D, beam_angle: float, beam_range
 
 	var intensity: float = clamp(normalized_dimmer, 0.0, 1.0)
 	light.set_meta("peraviz_beam_base_intensity", intensity)
-	var is_visible: bool = intensity > 0.015
+	var beam_is_visible: bool = intensity > 0.015
 	if cone != null:
-		cone.visible = is_visible
+		cone.visible = beam_is_visible
 	if mid_cone != null:
-		mid_cone.visible = is_visible
+		mid_cone.visible = beam_is_visible
 	if core_cone != null:
-		core_cone.visible = is_visible
+		core_cone.visible = beam_is_visible
 
 	var beam_multiplier: float = float(_visual_settings.get("beam_multiplier", 1.0))
 	var scaled_intensity: float = clamp(intensity * beam_multiplier, 0.0, 3.0)

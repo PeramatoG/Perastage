@@ -397,3 +397,4 @@ peraviz/native/**/build/
 *.dylib
 /peraviz/docs/Capture_Demo.mvr
 /peraviz/.godot/global_script_class_cache.cfg
+/peraviz/.godot/uid_cache.bin

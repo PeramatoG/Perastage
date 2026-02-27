@@ -78,7 +78,8 @@ public:
                    float gridG = 0.35f,
                    float gridB = 0.35f,
                    bool gridOnTop = false,
-                   bool is2DViewer = false);
+                   bool is2DViewer = false,
+                   bool preferPerastageSvgSymbolsForLayouts = false);
 
   void SetDarkMode(bool enabled);
   void SetInteracting(bool interacting);

@@ -60,6 +60,7 @@ struct RenderFrameContext {
   float gridB = 0.35f;
   bool gridOnTop = false;
   bool is2DViewer = false;
+  bool preferPerastageSvgSymbolsForLayouts = false;
 
   bool useLighting = true;
   bool useAmbientOcclusion = true;

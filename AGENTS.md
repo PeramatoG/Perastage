@@ -43,3 +43,11 @@ Keep Perastage clean and modular while continuing to deliver new features, follo
 ## Change quality
 - Keep changes small, focused, and explicit in responsibility naming.
 - Before introducing cross-module coupling, prefer an interface/helper in the module that owns the responsibility.
+
+## Debug/Release UI gating policy
+- When a request asks to hide or disable UI behavior in Release while keeping it in Debug,
+  use `gui/ui_feature_flags.{h,cpp}` as the single integration point.
+- Prefer adding a new `ui::FeatureFlag` entry and wiring checks via
+  `ui::IsFeatureEnabled(...)` at call sites instead of scattering build macros.
+- Keep print-related Release defaults centralized in
+  `ui::ApplyBuildDefaultsToViewer2DPrintSettings(...)`.

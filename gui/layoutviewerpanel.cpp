@@ -1650,14 +1650,16 @@ void LayoutViewerPanel::RebuildCachedTexture() {
       std::vector<unsigned char> pixels;
       int width = 0;
       int height = 0;
-      if (!capturePanel->RenderToRGBA(pixels, width, height) || width <= 0 ||
-          height <= 0) {
+      capturePanel->SetPreferPerastageSvgSymbolsForLayouts(true);
+      const bool rendered = capturePanel->RenderToRGBA(pixels, width, height);
+      capturePanel->SetPreferPerastageSvgSymbolsForLayouts(false);
+      if (!rendered || width <= 0 || height <= 0) {
         ClearCachedTexture(cache);
         cache.textureSize = wxSize(0, 0);
         cache.renderZoom = 0.0;
         continue;
       }
-  
+
       if (!InitGL()) {
         clearLoadingState();
         NotifyRenderReady();

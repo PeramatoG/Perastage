@@ -27,6 +27,7 @@
 #include <wx/choicdlg.h>
 
 #include "configmanager.h"
+#include "ui_feature_flags.h"
 #include "guiconfigservices.h"
 #include "legendsymbolcapture.h"
 #include "consolepanel.h"
@@ -65,11 +66,11 @@ std::vector<LayoutLegendItem> BuildLayoutLegendItems() {
 }
 
 void MainWindow::OnPrintMenu(wxCommandEvent &WXUNUSED(event)) {
-  const wxArrayString choices = {
-      "Layout",
-      "Vista 2D",
-      "Tabla",
-  };
+  wxArrayString choices;
+  choices.Add("Layout");
+  if (ui::IsFeatureEnabled(ui::FeatureFlag::PrintViewer2DDialog))
+    choices.Add("Vista 2D");
+  choices.Add("Tabla");
 
   wxSingleChoiceDialog dialog(this, "Selecciona qué quieres imprimir:",
                               "Imprimir", choices);
@@ -80,9 +81,10 @@ void MainWindow::OnPrintMenu(wxCommandEvent &WXUNUSED(event)) {
   const int selection = dialog.GetSelection();
   if (selection == 0) {
     OnPrintLayout(printEvent);
-  } else if (selection == 1) {
+  } else if (ui::IsFeatureEnabled(ui::FeatureFlag::PrintViewer2DDialog) &&
+             selection == 1) {
     OnPrintViewer2D(printEvent);
-  } else if (selection == 2) {
+  } else {
     OnPrintTable(printEvent);
   }
 }
@@ -101,11 +103,14 @@ void MainWindow::OnPrintViewer2D(wxCommandEvent &WXUNUSED(event)) {
   ConfigManager *cfgPtr = &cfg;
   print::Viewer2DPrintSettings settings =
       print::Viewer2DPrintSettings::LoadFromConfig(cfg);
-  Viewer2DPrintDialog settingsDialog(this, settings);
-  if (settingsDialog.ShowModal() != wxID_OK)
-    return;
+  if (ui::IsFeatureEnabled(ui::FeatureFlag::PrintViewer2DDialog)) {
+    Viewer2DPrintDialog settingsDialog(this, settings);
+    if (settingsDialog.ShowModal() != wxID_OK)
+      return;
 
-  settings = settingsDialog.GetSettings();
+    settings = settingsDialog.GetSettings();
+  }
+  ui::ApplyBuildDefaultsToViewer2DPrintSettings(settings);
   settings.SaveToConfig(cfg);
 
   wxFileDialog dlg(this, "Save 2D view as", "", "viewer2d.pdf",
@@ -328,6 +333,9 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
       std::make_shared<std::vector<LayoutTextExportData>>(
           std::move(layoutTexts));
 
+  if (capturePanel)
+    capturePanel->SetPreferPerastageSvgSymbolsForLayouts(true);
+
   auto captureNext =
       std::make_shared<std::function<void(size_t)>>();
   *captureNext =
@@ -375,15 +383,13 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
               } else {
                 wxString successMessage =
                     wxString::Format("Layout saved to %s", outputPathDisplay);
-                if (!res.message.empty()) {
-                  successMessage += "\n\nAdditional details:\n" +
-                                    wxString::FromUTF8(res.message);
-                }
                 wxMessageBox(successMessage, "Print Layout",
                              wxOK | wxICON_INFORMATION, this);
               }
             });
           }).detach();
+          if (capturePanel)
+            capturePanel->SetPreferPerastageSvgSymbolsForLayouts(false);
           return;
         }
 
