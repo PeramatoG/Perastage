@@ -8,10 +8,6 @@ const EMITTER_CONE_MAX_BASE_RADIUS_M: float = 10.0
 const VOLUMETRIC_INTENSITY_SCALE: float = 0.62
 const GOBO_OCCLUDER_DISTANCE_M: float = 0.043
 const GOBO_PLANE_BASE_SIZE_M: float = 0.017
-const GOBO_SIZE_ZOOM_MIN_DEG: float = 4.0
-const GOBO_SIZE_ZOOM_MAX_DEG: float = 50.0
-const GOBO_SIZE_SCALE_MIN: float = 0.555
-const GOBO_SIZE_SCALE_MAX: float = 6.4
 
 var _beam_material_template: ShaderMaterial
 var _gobo_occluder_material_template: ShaderMaterial
@@ -146,10 +142,9 @@ func _update_gobo_occluder(light: SpotLight3D, cone: MeshInstance3D, gobo_occlud
 		return
 
 	light.shadow_enabled = true
-	var gobo_zoom_value: float = beam_angle
-	var gobo_size_mult: float = remap(clamp(gobo_zoom_value, GOBO_SIZE_ZOOM_MIN_DEG, GOBO_SIZE_ZOOM_MAX_DEG), GOBO_SIZE_ZOOM_MIN_DEG, GOBO_SIZE_ZOOM_MAX_DEG, GOBO_SIZE_SCALE_MIN, GOBO_SIZE_SCALE_MAX)
 	var gobo_distance_m: float = min(GOBO_OCCLUDER_DISTANCE_M, beam_range)
-	var gobo_diameter_m: float = GOBO_PLANE_BASE_SIZE_M * gobo_size_mult
+	var gobo_half_angle_rad: float = deg_to_rad(beam_angle * 0.5)
+	var gobo_diameter_m: float = max(2.0 * tan(gobo_half_angle_rad) * gobo_distance_m, 0.001)
 	var gobo_mesh: QuadMesh = gobo_occluder.mesh as QuadMesh
 	if gobo_mesh != null:
 		gobo_mesh.size = Vector2(gobo_diameter_m, gobo_diameter_m)
@@ -169,7 +164,7 @@ func _update_gobo_occluder(light: SpotLight3D, cone: MeshInstance3D, gobo_occlud
 		if gobo_mesh != null:
 			assert(is_equal_approx(quad_size.x, gobo_size_for_shader.x))
 			assert(is_equal_approx(quad_size.y, gobo_size_for_shader.y))
-		print("[VolumetricBeamRenderer][Debug] gobo_diameter_m=", gobo_diameter_m, " quad_mesh_size=", quad_size, " gobo_size_shader=", gobo_size_for_shader)
+		print("[VolumetricBeamRenderer][Debug] beam_angle=", beam_angle, " gobo_diameter_m=", gobo_diameter_m, " quad_mesh_size=", quad_size, " gobo_size_shader=", gobo_size_for_shader)
 	var cone_material: ShaderMaterial = cone.material_override as ShaderMaterial
 	if cone_material != null:
 		cone_material.set_shader_parameter("gobo_texture", gobo_texture)
