@@ -126,15 +126,15 @@ const EMITTER_LIGHT_ENERGY_SCALE: float = 0.02
 const EMITTER_LIGHT_MAX_BEAM_ANGLE_DEG: float = 180.0
 const BEAM_COLOR_TEMPERATURE_STRENGTH: float = 0.04
 const EMITTER_ZOOM_DEFAULT_MIN_BEAM_ANGLE_DEG: float = 4.0
-const EMITTER_ZOOM_DEFAULT_MAX_BEAM_ANGLE_DEG: float = EMITTER_LIGHT_MAX_BEAM_ANGLE_DEG
+const EMITTER_ZOOM_DEFAULT_MAX_BEAM_ANGLE_DEG: float = 50.0
 const EMITTER_ZOOM_LENS_RANGE_REFERENCE_M: float = 12.0
-const EMITTER_CONE_MAX_BASE_RADIUS_M: float = 10.0
+const EMITTER_CONE_MAX_BASE_RADIUS_M: float = 80.0
 const EMITTER_LIGHT_MAX_FOOTPRINT_RADIUS_M: float = EMITTER_CONE_MAX_BASE_RADIUS_M
 const EMITTER_LIGHT_MIN_EFFECTIVE_RANGE_M: float = 0.75
 const EMITTER_BEAM_LENGTH_SCALE: float = 3.0
 const EMITTER_LIGHT_FOOTPRINT_RANGE_MULTIPLIER: float = 1.0
-const EMITTER_LIGHT_SPOT_ATTENUATION_FLOOR: float = 1.5
-const EMITTER_LIGHT_SPOT_ATTENUATION_CEIL: float = 0.9
+const EMITTER_LIGHT_SPOT_ATTENUATION_FLOOR: float = 0.0
+const EMITTER_LIGHT_SPOT_ATTENUATION_CEIL: float = 1.0
 const EMITTER_CONE_FADE_END_RATIO: float = 0.82
 const EMITTER_CONE_NEAR_ALPHA: float = 0.16
 const EMITTER_CONE_FAR_ALPHA: float = 0.004
@@ -1818,9 +1818,8 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 	if beam_slope > 0.0001:
 		max_spot_range_from_footprint = max(EMITTER_LIGHT_MAX_FOOTPRINT_RADIUS_M / beam_slope, EMITTER_LIGHT_MIN_EFFECTIVE_RANGE_M)
 	var cone_range: float = clamp(min(nominal_spot_range, max_spot_range_from_footprint), EMITTER_LIGHT_MIN_EFFECTIVE_RANGE_M, EMITTER_LIGHT_MAX_RANGE_M)
-	# Keep beam-cone range behavior unchanged, but make projector footprint scale with zoom.
-	var projector_range: float = clamp(nominal_spot_range * EMITTER_LIGHT_FOOTPRINT_RANGE_MULTIPLIER, EMITTER_LIGHT_MIN_EFFECTIVE_RANGE_M, EMITTER_LIGHT_MAX_RANGE_M)
-	light.spot_range = projector_range
+	# Keep projector and beam cone in the same physical range model to preserve proportions.
+	light.spot_range = clamp(cone_range * EMITTER_LIGHT_FOOTPRINT_RANGE_MULTIPLIER, EMITTER_LIGHT_MIN_EFFECTIVE_RANGE_M, EMITTER_LIGHT_MAX_RANGE_M)
 	light.light_color = _derive_emitter_color(photometric, controls)
 	var beam_color: Color = _derive_emitter_color(photometric, controls, BEAM_COLOR_TEMPERATURE_STRENGTH)
 	var beam_radius_from_gdtf: bool = bool(photometric.get("beam_radius_from_gdtf", false))

@@ -2,7 +2,7 @@ extends BeamRendererBase
 
 class_name LegacyConeBeamRenderer
 
-const EMITTER_CONE_MAX_BASE_RADIUS_M: float = 10.0
+const EMITTER_CONE_MAX_BASE_RADIUS_M: float = 80.0
 const EMITTER_CONE_FADE_END_RATIO: float = 0.82
 const EMITTER_CONE_NEAR_ALPHA: float = 0.16
 const EMITTER_CONE_FAR_ALPHA: float = 0.004
