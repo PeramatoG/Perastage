@@ -129,7 +129,6 @@ const EMITTER_ZOOM_DEFAULT_MIN_BEAM_ANGLE_DEG: float = 4.0
 const EMITTER_ZOOM_DEFAULT_MAX_BEAM_ANGLE_DEG: float = EMITTER_LIGHT_MAX_BEAM_ANGLE_DEG
 const EMITTER_ZOOM_LENS_RANGE_REFERENCE_M: float = 12.0
 const EMITTER_CONE_MAX_BASE_RADIUS_M: float = 10.0
-const EMITTER_LIGHT_MAX_FOOTPRINT_RADIUS_M: float = EMITTER_CONE_MAX_BASE_RADIUS_M
 const EMITTER_LIGHT_MIN_EFFECTIVE_RANGE_M: float = 0.75
 const EMITTER_BEAM_LENGTH_SCALE: float = 3.0
 const EMITTER_LIGHT_FOOTPRINT_RANGE_MULTIPLIER: float = 1.0
@@ -1812,14 +1811,9 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 	# Keep zoom/beam limits as full GDTF aperture, and convert here for light projection.
 	light.spot_angle = beam_half_angle_deg
 	light.spot_attenuation = clamp(beam_angle / field_angle, EMITTER_LIGHT_SPOT_ATTENUATION_FLOOR, EMITTER_LIGHT_SPOT_ATTENUATION_CEIL)
-	var beam_slope: float = tan(deg_to_rad(beam_half_angle_deg))
 	var nominal_spot_range: float = beam_radius_m * EMITTER_LIGHT_RANGE_BEAM_RADIUS_MULTIPLIER * EMITTER_BEAM_LENGTH_SCALE
-	var max_spot_range_from_footprint: float = EMITTER_LIGHT_MAX_RANGE_M
-	if beam_slope > 0.0001:
-		max_spot_range_from_footprint = max(EMITTER_LIGHT_MAX_FOOTPRINT_RADIUS_M / beam_slope, EMITTER_LIGHT_MIN_EFFECTIVE_RANGE_M)
-	var cone_range: float = clamp(min(nominal_spot_range, max_spot_range_from_footprint), EMITTER_LIGHT_MIN_EFFECTIVE_RANGE_M, EMITTER_LIGHT_MAX_RANGE_M)
-	# SpotLight3D footprint follows transform by default in Godot; this extension only
-	# avoids early floor clipping on steep tilt while keeping cone visuals unchanged.
+	var cone_range: float = clamp(nominal_spot_range, EMITTER_LIGHT_MIN_EFFECTIVE_RANGE_M, EMITTER_LIGHT_MAX_RANGE_M)
+	# Keep spot range independent from zoom so beam aperture controls projected footprint.
 	light.spot_range = clamp(cone_range * EMITTER_LIGHT_FOOTPRINT_RANGE_MULTIPLIER, EMITTER_LIGHT_MIN_EFFECTIVE_RANGE_M, EMITTER_LIGHT_MAX_RANGE_M)
 	light.light_color = _derive_emitter_color(photometric, controls)
 	var beam_color: Color = _derive_emitter_color(photometric, controls, BEAM_COLOR_TEMPERATURE_STRENGTH)
