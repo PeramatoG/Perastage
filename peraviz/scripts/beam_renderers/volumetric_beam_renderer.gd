@@ -154,7 +154,7 @@ func _update_gobo_occluder(light: SpotLight3D, cone: MeshInstance3D, gobo_occlud
 	var gobo_zoom_value: float = beam_angle
 	var gobo_size_mult: float = remap(clamp(gobo_zoom_value, zoom_min_deg, zoom_max_deg), zoom_min_deg, zoom_max_deg, size_scale_min, size_scale_max)
 	var gobo_plane_size: float = plane_base_size_m * gobo_size_mult
-	var max_plane_size: float = _compute_max_gobo_plane_size(cone, beam_range, occluder_distance_m)
+	var max_plane_size: float = _compute_max_gobo_plane_size(cone, beam_angle, beam_range, occluder_distance_m)
 	gobo_plane_size = min(gobo_plane_size, max_plane_size)
 	gobo_size_mult = max(gobo_plane_size / max(plane_base_size_m, 0.001), 0.001)
 	gobo_occluder.scale = Vector3(gobo_size_mult, gobo_size_mult, 1.0)
@@ -173,15 +173,20 @@ func _update_gobo_occluder(light: SpotLight3D, cone: MeshInstance3D, gobo_occlud
 	else:
 		cone.set_instance_shader_parameter("gobo_enabled", false)
 
-func _compute_max_gobo_plane_size(cone: MeshInstance3D, beam_range: float, occluder_distance_m: float) -> float:
+func _compute_max_gobo_plane_size(cone: MeshInstance3D, beam_angle: float, beam_range: float, occluder_distance_m: float) -> float:
+	var half_angle_rad: float = deg_to_rad(max(beam_angle, 0.1) * 0.5)
+	var angle_radius: float = tan(half_angle_rad) * max(occluder_distance_m, 0.001)
+	var radius_cap: float = max(angle_radius, 0.001)
+
 	var cone_mesh: CylinderMesh = cone.mesh as CylinderMesh
-	if cone_mesh == null:
-		return GOBO_PLANE_BASE_SIZE_M * GOBO_SIZE_SCALE_MAX
-	var top_radius: float = max(cone_mesh.top_radius, 0.001)
-	var bottom_radius: float = max(cone_mesh.bottom_radius, top_radius)
-	var cone_t: float = clamp(occluder_distance_m / max(beam_range, 0.001), 0.0, 1.0)
-	var radius_at_plane: float = lerp(top_radius, bottom_radius, cone_t)
-	return max(radius_at_plane * 2.0 * 0.98, 0.001)
+	if cone_mesh != null:
+		var top_radius: float = max(cone_mesh.top_radius, 0.001)
+		var bottom_radius: float = max(cone_mesh.bottom_radius, top_radius)
+		var cone_t: float = clamp(occluder_distance_m / max(beam_range, 0.001), 0.0, 1.0)
+		var mesh_radius: float = lerp(top_radius, bottom_radius, cone_t)
+		radius_cap = min(radius_cap, max(mesh_radius, 0.001))
+
+	return max(radius_cap * 2.0 * 0.95, 0.001)
 
 func _resolve_gobo_optics(params: Dictionary) -> Dictionary:
 	var optics := {
