@@ -1857,11 +1857,12 @@ func _build_gobo_optics_profile(controls: Dictionary, photometric: Dictionary, l
 	}
 
 	if bool(controls.get("has_zoom_physical_limits", false)):
-		var zoom_min_deg: float = max(float(controls.get("zoom_physical_min_degrees", -1.0)), 0.1)
-		var zoom_max_deg: float = max(float(controls.get("zoom_physical_max_degrees", -1.0)), zoom_min_deg)
-		profile["zoom_min_deg"] = zoom_min_deg
-		profile["zoom_max_deg"] = zoom_max_deg
-		profile["has_gdtf_data"] = true
+		var raw_zoom_min_deg: float = float(controls.get("zoom_physical_min_degrees", -1.0))
+		var raw_zoom_max_deg: float = float(controls.get("zoom_physical_max_degrees", -1.0))
+		if raw_zoom_min_deg > 0.0 and raw_zoom_max_deg > raw_zoom_min_deg:
+			profile["zoom_min_deg"] = raw_zoom_min_deg
+			profile["zoom_max_deg"] = raw_zoom_max_deg
+			profile["has_gdtf_data"] = true
 
 	if bool(photometric.get("beam_radius_from_gdtf", false)):
 		var beam_radius_m: float = max(float(photometric.get("beam_radius", 0.0)), 0.0)

@@ -7,11 +7,11 @@ const GOBO_OCCLUDER_META_KEY: String = "peraviz_gobo_occluder"
 const EMITTER_CONE_MAX_BASE_RADIUS_M: float = 10.0
 const VOLUMETRIC_INTENSITY_SCALE: float = 0.62
 const GOBO_OCCLUDER_DISTANCE_M: float = 0.043
-const GOBO_PLANE_BASE_SIZE_M: float = 0.021
+const GOBO_PLANE_BASE_SIZE_M: float = 0.017
 const GOBO_SIZE_ZOOM_MIN_DEG: float = 4.0
 const GOBO_SIZE_ZOOM_MAX_DEG: float = 50.0
 const GOBO_SIZE_SCALE_MIN: float = 0.555
-const GOBO_SIZE_SCALE_MAX: float = 7.5
+const GOBO_SIZE_SCALE_MAX: float = 6.4
 
 var _beam_material_template: ShaderMaterial
 var _gobo_occluder_material_template: ShaderMaterial
@@ -57,7 +57,6 @@ func ensure_beam(light: SpotLight3D) -> void:
 		gobo_occluder.material_override = _gobo_occluder_material_template.duplicate(true)
 		gobo_occluder.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
 		gobo_occluder.visible = false
-		gobo_occluder.set_disable_scale(true)
 		light.add_child(gobo_occluder)
 		light.set_meta(GOBO_OCCLUDER_META_KEY, gobo_occluder)
 
