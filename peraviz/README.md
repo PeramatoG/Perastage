@@ -96,14 +96,13 @@ Peraviz supports both embedded **GLB/glTF** models and **3DS** meshes found in G
   - This conversion keeps a right-handed basis and avoids mirror transforms caused by signless axis swaps.
 
 - **Winding correction strategy**
-  - When a mesh is instantiated under a transform with negative determinant, Peraviz flips triangle winding and normals at mesh build time.
-  - An optional heuristic safety net can also detect likely inside-out closed meshes and auto-fix them.
-  - Heuristic mode is enabled by default and can be toggled with project setting `peraviz_debug_inside_out_heuristic`.
+  - Peraviz keeps source triangle winding by default and avoids material-level double-sided workarounds.
+  - An optional heuristic safety net can detect likely inside-out closed meshes and auto-fix winding/normals when enabled.
+  - Heuristic mode can be toggled with project setting `peraviz_debug_inside_out_heuristic`.
 
 - **Material culling defaults**
   - Solid fixture parts keep standard backface culling.
-  - For mirrored transform chains, Peraviz applies front-face culling override on affected surfaces to preserve exterior rendering without forcing global double-sided materials.
-  - Double-sided rendering remains opt-in for likely thin or transparent surfaces.
+  - Solid fixture materials are not force-overridden to double-sided as a generic workaround.
 
 #### Mesh diagnostics harness
 

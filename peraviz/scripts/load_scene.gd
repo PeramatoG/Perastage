@@ -36,7 +36,7 @@ var _node_index: Dictionary = {}
 var _asset_cache := PeravizRuntimeAssetCache.new()
 var _debug_coords_enabled: bool = false
 var _debug_asset_cache_enabled: bool = false
-var _inside_out_heuristic_enabled: bool = true
+var _inside_out_heuristic_enabled: bool = false
 var _debug_gizmos_root: Node3D
 var _manual_fixture_test_enabled: bool = false
 var _selected_fixture_uuid: String = ""
@@ -114,12 +114,6 @@ const DEFAULT_EMITTER_PHOTOMETRICS := {
 # (aligned with fixture lens output in runtime scenes) while still inheriting GDTF emitter transforms.
 const EMITTER_LIGHT_DIRECTION_FIX: Vector3 = Vector3(-90.0, 0.0, 0.0)
 const LENS_TINT_COLOR: Color = Color(0.72, 0.86, 1.0, 0.38)
-const DOUBLE_SIDED_NAME_HINTS: Array[String] = [
-	"lens", "glass", "visor", "shade", "shield", "fabric", "cloth", "curtain", "scrim", "flag", "plane", "card"
-]
-const DOUBLE_SIDED_MATERIAL_HINTS: Array[String] = [
-	"lens", "glass", "visor", "fabric", "cloth", "curtain", "thin", "plane"
-]
 const IMPORTED_CONTENT_SCALE: float = 1.0
 const EMITTER_LIGHT_MIN_RANGE_M: float = 12.0
 const EMITTER_LIGHT_MAX_RANGE_M: float = 150.0
@@ -208,7 +202,7 @@ func _ready() -> void:
 	status_label.text = "Select a .mvr file"
 	_debug_coords_enabled = bool(ProjectSettings.get_setting("peraviz_debug_coords", false))
 	_debug_asset_cache_enabled = bool(ProjectSettings.get_setting("peraviz_debug_asset_cache", false))
-	_inside_out_heuristic_enabled = bool(ProjectSettings.get_setting("peraviz_debug_inside_out_heuristic", true))
+	_inside_out_heuristic_enabled = bool(ProjectSettings.get_setting("peraviz_debug_inside_out_heuristic", false))
 	_manual_fixture_test_enabled = _read_manual_fixture_test_setting()
 	manual_fixture_toggle.button_pressed = _manual_fixture_test_enabled
 	_asset_cache.configure_debug_logging(_debug_asset_cache_enabled, 100)
@@ -611,16 +605,18 @@ func _create_scene_node(data: Dictionary) -> Node3D:
 	var node_position: Vector3 = _safe_position(data.get("pos", Vector3.ZERO), "create_scene_node:" + root.name)
 	if bool(data.get("has_basis", false)):
 		var node_basis: Basis = _safe_basis_from_data(data)
-		var safe_scale: Vector3 = _safe_scale_from_data(data, "create_scene_node_basis:" + root.name)
-		node_basis = node_basis.scaled(safe_scale)
 		if not _is_basis_valid(node_basis):
-			print("[PeravizCoordDebug] event=scaled_basis_invalid_fallback node=", root.name, " scale=", safe_scale)
-			node_basis = Basis.IDENTITY.scaled(safe_scale)
+			print("[PeravizCoordDebug] event=basis_invalid_fallback node=", root.name)
+			node_basis = Basis.IDENTITY
 		root.transform = Transform3D(node_basis, node_position)
 	else:
 		root.position = node_position
 		root.rotation_degrees = data.get("rot", Vector3.ZERO)
 		root.scale = _safe_scale_from_data(data, "create_scene_node_euler:" + root.name)
+
+	root.set_meta("peraviz_local_basis_determinant", root.transform.basis.determinant())
+	if root.transform.basis.determinant() < 0.0:
+		print("[PeravizCoordDebug] event=negative_local_determinant node=", root.name, " det=", root.transform.basis.determinant())
 
 	if is_axis:
 		var pivot := Node3D.new()
@@ -633,7 +629,7 @@ func _create_scene_node(data: Dictionary) -> Node3D:
 		root.add_child(emitter)
 
 	var visual_scale_hint: float = _extract_visual_scale_hint(data)
-	var model_node: Node3D = _build_visual_node(data, item_type, item_class, is_fixture, visual_scale_hint, root.transform.basis)
+	var model_node: Node3D = _build_visual_node(data, item_type, item_class, is_fixture, visual_scale_hint)
 	if model_node != null:
 		root.add_child(model_node)
 		if item_type == "fixture_geometry":
@@ -665,14 +661,13 @@ func _reparent_fixture_visual_children(geometry_node: Node3D, model_root: Node3D
 	if moved_any_child:
 		model_root.queue_free()
 
-func _build_visual_node(data: Dictionary, item_type: String, item_class: String, is_fixture: bool, visual_scale_hint: float, node_basis: Basis) -> Node3D:
+func _build_visual_node(data: Dictionary, item_type: String, item_class: String, is_fixture: bool, visual_scale_hint: float) -> Node3D:
 	var asset_path: String = str(data.get("asset_path", ""))
 	var asset_kind: String = _extract_asset_kind(data, asset_path)
 	if not asset_path.is_empty():
-		var loaded: Variant = _load_3d_asset(asset_path, asset_kind, node_basis, data)
+		var loaded: Variant = _load_3d_asset(asset_path, asset_kind, data)
 		if loaded is Node3D:
 			var loaded_node: Node3D = loaded
-			_apply_selective_double_sided_to_candidates(loaded_node, data)
 			return loaded_node
 		print("[Peraviz] Asset fallback for missing/invalid model: ", asset_path, " type=", item_type, " class=", item_class, " asset_kind=", asset_kind)
 
@@ -682,165 +677,6 @@ func _build_visual_node(data: Dictionary, item_type: String, item_class: String,
 		return null
 
 	return _create_dummy_mesh(is_fixture, visual_scale_hint)
-
-func _apply_selective_double_sided_to_candidates(model_root: Node3D, source_data: Dictionary) -> void:
-	if model_root == null:
-		return
-
-	var tagged_meshes: int = 0
-	var tagged_surfaces: int = 0
-	for mesh_instance in _collect_mesh_instances_recursive(model_root):
-		if mesh_instance.mesh == null:
-			continue
-
-		var tagged_surface_indices := PackedInt32Array()
-		var mesh_is_mirrored: bool = _has_mirrored_transform_in_hierarchy(mesh_instance)
-		for surface_index in range(mesh_instance.mesh.get_surface_count()):
-			var active_material: Material = mesh_instance.get_active_material(surface_index)
-			if mesh_is_mirrored:
-				if _set_mirrored_surface_culling(mesh_instance, surface_index, active_material):
-					tagged_surface_indices.append(surface_index)
-				continue
-			if not _should_enable_double_sided(mesh_instance, active_material, source_data):
-				continue
-			if _set_double_sided_surface_material(mesh_instance, surface_index, active_material):
-				tagged_surface_indices.append(surface_index)
-
-		if tagged_surface_indices.is_empty():
-			continue
-		tagged_meshes += 1
-		tagged_surfaces += tagged_surface_indices.size()
-		mesh_instance.set_meta("peraviz_double_sided_surface_indices", tagged_surface_indices)
-		mesh_instance.set_meta("peraviz_double_sided_candidate", true)
-
-	if tagged_surfaces > 0:
-		model_root.set_meta("peraviz_double_sided_mesh_count", tagged_meshes)
-		model_root.set_meta("peraviz_double_sided_surface_count", tagged_surfaces)
-
-func _collect_mesh_instances_recursive(root: Node3D) -> Array[MeshInstance3D]:
-	var output: Array[MeshInstance3D] = []
-	if root == null:
-		return output
-	if root is MeshInstance3D:
-		output.append(root)
-	for child in root.get_children():
-		if child is Node3D:
-			output.append_array(_collect_mesh_instances_recursive(child))
-	return output
-
-func _should_enable_double_sided(mesh_instance: MeshInstance3D, material: Material, source_data: Dictionary) -> bool:
-	if mesh_instance == null:
-		return false
-
-	var mesh_name_hint: String = mesh_instance.name.to_lower()
-	var geometry_name_hint: String = str(source_data.get("name", "")).to_lower()
-	if _contains_any_hint(mesh_name_hint, DOUBLE_SIDED_NAME_HINTS):
-		return true
-	if _contains_any_hint(geometry_name_hint, DOUBLE_SIDED_NAME_HINTS):
-		return true
-
-	if material != null:
-		var material_name_hint: String = material.resource_name.to_lower()
-		if _contains_any_hint(material_name_hint, DOUBLE_SIDED_MATERIAL_HINTS):
-			return true
-
-		if material is BaseMaterial3D:
-			var base_material: BaseMaterial3D = material
-			if base_material.transparency != BaseMaterial3D.TRANSPARENCY_DISABLED and (
-				mesh_name_hint.contains("lens") or mesh_name_hint.contains("glass") or
-				geometry_name_hint.contains("lens") or geometry_name_hint.contains("glass")
-			):
-				return true
-
-	if _looks_like_thin_plane(mesh_instance):
-		return true
-	return false
-
-func _has_mirrored_transform_in_hierarchy(node: Node3D) -> bool:
-	var current: Node = node
-	while current is Node3D:
-		var node3d: Node3D = current
-		if node3d.transform.basis.determinant() < 0.0:
-			return true
-		current = node3d.get_parent()
-	return false
-
-func _set_mirrored_surface_culling(mesh_instance: MeshInstance3D, surface_index: int, active_material: Material) -> bool:
-	if mesh_instance == null:
-		return false
-	if active_material is BaseMaterial3D:
-		var source_material: BaseMaterial3D = active_material
-		if source_material.cull_mode == BaseMaterial3D.CULL_DISABLED:
-			return false
-		if source_material.cull_mode == BaseMaterial3D.CULL_FRONT:
-			return true
-		var override_material: BaseMaterial3D = source_material.duplicate(true)
-		override_material.cull_mode = BaseMaterial3D.CULL_FRONT
-		mesh_instance.set_surface_override_material(surface_index, override_material)
-		print("[PeravizMeshWinding] event=mirrored_surface_cull_front node=", mesh_instance.name, " surface=", surface_index)
-		return true
-
-	if active_material == null and mesh_instance.mesh != null:
-		var mesh_surface_material: Material = mesh_instance.mesh.surface_get_material(surface_index)
-		if mesh_surface_material is BaseMaterial3D:
-			var surface_source: BaseMaterial3D = mesh_surface_material
-			if surface_source.cull_mode == BaseMaterial3D.CULL_DISABLED:
-				return false
-			if surface_source.cull_mode == BaseMaterial3D.CULL_FRONT:
-				return true
-			var surface_override: BaseMaterial3D = surface_source.duplicate(true)
-			surface_override.cull_mode = BaseMaterial3D.CULL_FRONT
-			mesh_instance.set_surface_override_material(surface_index, surface_override)
-			print("[PeravizMeshWinding] event=mirrored_surface_cull_front node=", mesh_instance.name, " surface=", surface_index)
-			return true
-	return false
-
-func _contains_any_hint(candidate: String, hints: Array[String]) -> bool:
-	if candidate.is_empty():
-		return false
-	for hint in hints:
-		if candidate.contains(hint):
-			return true
-	return false
-
-func _looks_like_thin_plane(mesh_instance: MeshInstance3D) -> bool:
-	if mesh_instance == null:
-		return false
-	var bounds: AABB = mesh_instance.get_aabb()
-	if bounds.size == Vector3.ZERO:
-		return false
-	var sx: float = abs(bounds.size.x)
-	var sy: float = abs(bounds.size.y)
-	var sz: float = abs(bounds.size.z)
-	var min_dim: float = min(sx, min(sy, sz))
-	var max_dim: float = max(sx, max(sy, sz))
-	if max_dim <= 0.0001:
-		return false
-	return min_dim <= max_dim * 0.04
-
-func _set_double_sided_surface_material(mesh_instance: MeshInstance3D, surface_index: int, active_material: Material) -> bool:
-	if mesh_instance == null:
-		return false
-	if active_material is BaseMaterial3D:
-		var source_material: BaseMaterial3D = active_material
-		if source_material.cull_mode == BaseMaterial3D.CULL_DISABLED:
-			return true
-		var override_material: BaseMaterial3D = source_material.duplicate(true)
-		override_material.cull_mode = BaseMaterial3D.CULL_DISABLED
-		mesh_instance.set_surface_override_material(surface_index, override_material)
-		return true
-
-	if active_material == null and mesh_instance.mesh != null:
-		var mesh_surface_material: Material = mesh_instance.mesh.surface_get_material(surface_index)
-		if mesh_surface_material is BaseMaterial3D:
-			var surface_source: BaseMaterial3D = mesh_surface_material
-			if surface_source.cull_mode == BaseMaterial3D.CULL_DISABLED:
-				return true
-			var surface_override: BaseMaterial3D = surface_source.duplicate(true)
-			surface_override.cull_mode = BaseMaterial3D.CULL_DISABLED
-			mesh_instance.set_surface_override_material(surface_index, surface_override)
-			return true
-	return false
 
 func _extract_visual_scale_hint(data: Dictionary) -> float:
 	if bool(data.get("has_basis", false)):
@@ -856,15 +692,14 @@ func _extract_visual_scale_hint(data: Dictionary) -> float:
 		return 1.0
 	return max(average_scale, 0.0001)
 
-func _load_3d_asset(asset_path: String, asset_kind_hint: String = "", node_basis: Basis = Basis.IDENTITY, source_data: Dictionary = {}) -> Variant:
+func _load_3d_asset(asset_path: String, asset_kind_hint: String = "", source_data: Dictionary = {}) -> Variant:
 	var resolved_asset_kind: String = asset_kind_hint.to_lower()
 	if resolved_asset_kind.is_empty() or resolved_asset_kind == "none":
 		resolved_asset_kind = _infer_asset_kind_from_extension(asset_path)
 
 	var extension: String = asset_path.get_extension().to_lower()
 	if resolved_asset_kind == "mesh" or extension == "3ds":
-		var mesh_cache_key: String = "%s|det_sign:%d" % [asset_path, -1 if node_basis.determinant() < 0.0 else 1]
-		var cached_mesh: Mesh = _asset_cache.get_mesh(mesh_cache_key)
+		var cached_mesh: Mesh = _asset_cache.get_mesh(asset_path)
 		if cached_mesh != null:
 			var cached_mesh_instance := MeshInstance3D.new()
 			cached_mesh_instance.mesh = cached_mesh
@@ -872,13 +707,13 @@ func _load_3d_asset(asset_path: String, asset_kind_hint: String = "", node_basis
 
 		var mesh_data: Dictionary = _loader.load_3ds_mesh_data(asset_path)
 		if not bool(mesh_data.get("ok", false)):
-			_asset_cache.mark_failed(mesh_cache_key)
+			_asset_cache.mark_failed(asset_path)
 			return null
-		var mesh: ArrayMesh = _build_3ds_mesh(mesh_data, node_basis, source_data, mesh_cache_key)
+		var mesh: ArrayMesh = _build_3ds_mesh(mesh_data, source_data, asset_path)
 		if mesh == null:
-			_asset_cache.mark_failed(mesh_cache_key)
+			_asset_cache.mark_failed(asset_path)
 			return null
-		_asset_cache.store_mesh(mesh_cache_key, mesh)
+		_asset_cache.store_mesh(asset_path, mesh)
 		var mesh_instance := MeshInstance3D.new()
 		mesh_instance.mesh = mesh
 		return mesh_instance
@@ -940,17 +775,16 @@ func _infer_asset_kind_from_extension(asset_path: String) -> String:
 	return "none"
 
 
-func _build_3ds_mesh(mesh_data: Dictionary, node_basis: Basis, source_data: Dictionary, log_context: String) -> ArrayMesh:
+func _build_3ds_mesh(mesh_data: Dictionary, source_data: Dictionary, log_context: String) -> ArrayMesh:
 	var vertices: PackedVector3Array = mesh_data.get("vertices", PackedVector3Array())
 	var normals: PackedVector3Array = mesh_data.get("normals", PackedVector3Array())
 	var indices: PackedInt32Array = mesh_data.get("indices", PackedInt32Array())
 	if vertices.is_empty() or indices.is_empty():
 		return null
 
-	var det_fix: Dictionary = MeshWindingUtilsScript.apply_transform_winding_fix_if_needed(vertices, normals, indices, node_basis, log_context)
 	var heuristic_fix: Dictionary = MeshWindingUtilsScript.apply_inside_out_heuristic_if_enabled(vertices, normals, indices, _inside_out_heuristic_enabled, log_context)
-	if bool(det_fix.get("applied", false)) or bool(heuristic_fix.get("applied", false)):
-		print("[PeravizMeshWinding] event=mesh_fix_summary context=", log_context, " node=", str(source_data.get("name", "")), " det_fix=", det_fix, " heuristic_fix=", heuristic_fix, " triangles=", indices.size() / 3, " vertices=", vertices.size())
+	if bool(heuristic_fix.get("applied", false)):
+		print("[PeravizMeshWinding] event=mesh_heuristic_fix_summary context=", log_context, " node=", str(source_data.get("name", "")), " heuristic_fix=", heuristic_fix, " triangles=", indices.size() / 3, " vertices=", vertices.size())
 
 	var arrays: Array = []
 	arrays.resize(Mesh.ARRAY_MAX)
