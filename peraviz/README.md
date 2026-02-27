@@ -102,6 +102,7 @@ Peraviz supports both embedded **GLB/glTF** models and **3DS** meshes found in G
   - If a 3DS mesh ends under a mirrored transform hierarchy at runtime, Peraviz builds a mirrored mesh variant (winding and normals flipped) so backface culling still renders exterior faces.
   - An optional heuristic safety net can detect likely inside-out closed meshes and auto-fix winding/normals when enabled.
   - Heuristic mode can be toggled with project setting `peraviz_debug_inside_out_heuristic`.
+  - A deterministic best-orientation pass is enabled by default (`peraviz_force_best_winding_3ds`) and chooses flipped winding when outward ratio improves significantly.
 
 - **Material culling defaults**
   - Solid fixture parts keep standard backface culling.

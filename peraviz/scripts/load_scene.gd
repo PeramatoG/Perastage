@@ -37,6 +37,7 @@ var _asset_cache := PeravizRuntimeAssetCache.new()
 var _debug_coords_enabled: bool = false
 var _debug_asset_cache_enabled: bool = false
 var _inside_out_heuristic_enabled: bool = false
+var _force_best_winding_3ds: bool = true
 var _debug_gizmos_root: Node3D
 var _manual_fixture_test_enabled: bool = false
 var _selected_fixture_uuid: String = ""
@@ -204,6 +205,7 @@ func _ready() -> void:
 	_debug_coords_enabled = bool(ProjectSettings.get_setting("peraviz_debug_coords", false))
 	_debug_asset_cache_enabled = bool(ProjectSettings.get_setting("peraviz_debug_asset_cache", false))
 	_inside_out_heuristic_enabled = bool(ProjectSettings.get_setting("peraviz_debug_inside_out_heuristic", false))
+	_force_best_winding_3ds = bool(ProjectSettings.get_setting("peraviz_force_best_winding_3ds", true))
 	_manual_fixture_test_enabled = _read_manual_fixture_test_setting()
 	manual_fixture_toggle.button_pressed = _manual_fixture_test_enabled
 	_asset_cache.configure_debug_logging(_debug_asset_cache_enabled, 100)
@@ -819,6 +821,21 @@ func _build_3ds_mesh(mesh_data: Dictionary, source_data: Dictionary, log_context
 	var indices: PackedInt32Array = mesh_data.get("indices", PackedInt32Array())
 	if vertices.is_empty() or indices.is_empty():
 		return null
+
+	if _force_best_winding_3ds:
+		var original_metrics: Dictionary = MeshWindingUtilsScript.compute_outward_ratio(vertices, indices)
+		var flipped_indices: PackedInt32Array = indices.duplicate()
+		var flipped_normals: PackedVector3Array = normals.duplicate()
+		MeshWindingUtilsScript.apply_winding_fix(flipped_indices, flipped_normals)
+		var flipped_metrics: Dictionary = MeshWindingUtilsScript.compute_outward_ratio(vertices, flipped_indices)
+		var original_ratio: float = float(original_metrics.get("outward_ratio", 1.0))
+		var flipped_ratio: float = float(flipped_metrics.get("outward_ratio", 1.0))
+		if flipped_ratio > original_ratio + 0.08:
+			indices = flipped_indices
+			normals = flipped_normals
+			print("[PeravizMeshWinding] event=best_winding_flip_applied context=", log_context,
+				" node=", str(source_data.get("name", "")),
+				" ratio_before=", original_ratio, " ratio_after=", flipped_ratio)
 
 	var heuristic_fix: Dictionary = MeshWindingUtilsScript.apply_inside_out_heuristic_if_enabled(vertices, normals, indices, _inside_out_heuristic_enabled, log_context)
 	if bool(heuristic_fix.get("applied", false)):
