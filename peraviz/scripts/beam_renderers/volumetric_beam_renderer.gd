@@ -51,7 +51,7 @@ func ensure_beam(light: SpotLight3D) -> void:
 		gobo_occluder.name = "PeravizGoboOccluder"
 		gobo_occluder.mesh = gobo_mesh
 		gobo_occluder.material_override = _gobo_occluder_material_template.duplicate(true)
-		gobo_occluder.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+		gobo_occluder.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY
 		gobo_occluder.visible = false
 		gobo_occluder.set_disable_scale(true)
 		light.add_child(gobo_occluder)
@@ -151,6 +151,7 @@ func _update_gobo_occluder(light: SpotLight3D, cone: MeshInstance3D, gobo_occlud
 	if gobo_mesh != null:
 		gobo_mesh.size = Vector2(gobo_occluder_plane_size, gobo_occluder_plane_size)
 	gobo_occluder.scale = Vector3.ONE
+	gobo_occluder.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY
 	gobo_occluder.position = Vector3(0.0, 0.0, -GOBO_OCCLUDER_DISTANCE_M)
 	gobo_occluder.visible = true
 	gobo_material.set_shader_parameter("gobo_texture", gobo_texture)
