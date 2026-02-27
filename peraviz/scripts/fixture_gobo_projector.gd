@@ -2,6 +2,7 @@ extends RefCounted
 class_name FixtureGoboProjector
 
 const FAKE_GOBO_TEXTURE_SIZE: int = 128
+const GOBO_TEXTURE_META_KEY: String = "peraviz_gobo_texture"
 
 var _texture_cache: Dictionary = {}
 
@@ -11,11 +12,12 @@ func clear_cache() -> void:
 func apply_gobo_projection(light: SpotLight3D, controls: Dictionary) -> bool:
 	if light == null or not is_instance_valid(light):
 		return false
-	var previous_projector: Texture2D = light.light_projector
+	var previous_meta_texture: Texture2D = light.get_meta(GOBO_TEXTURE_META_KEY, null) as Texture2D
 	if not bool(controls.get("has_gobo", false)):
+		light.set_meta(GOBO_TEXTURE_META_KEY, null)
 		light.light_projector = null
 		light.shadow_enabled = false
-		return previous_projector != null
+		return previous_meta_texture != null
 
 	var runtime_bindings: Array = controls.get("gobo_runtime_bindings", [])
 	if runtime_bindings.is_empty():
@@ -43,14 +45,17 @@ func apply_gobo_projection(light: SpotLight3D, controls: Dictionary) -> bool:
 			active_textures.append(gobo_texture)
 
 	if active_textures.is_empty():
+		light.set_meta(GOBO_TEXTURE_META_KEY, null)
 		light.light_projector = null
 		light.shadow_enabled = false
-		return previous_projector != null
+		return previous_meta_texture != null
 
 	light.shadow_enabled = true
-	_warn_if_projector_unsupported(light)
-	light.light_projector = _compose_gobo_textures(active_textures)
-	return light.light_projector != previous_projector
+	var composed_gobo: Texture2D = _compose_gobo_textures(active_textures)
+	light.set_meta(GOBO_TEXTURE_META_KEY, composed_gobo)
+	# Keep projector disabled in the sample-like path to avoid double gobo projection.
+	light.light_projector = null
+	return composed_gobo != previous_meta_texture
 
 func _resolve_gobo_raw_8bit(controls: Dictionary) -> int:
 	var gobo_raw: int = int(round(clamp(float(controls.get("gobo_norm", 0.0)), 0.0, 1.0) * 255.0))

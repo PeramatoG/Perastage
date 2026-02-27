@@ -131,7 +131,7 @@ func _update_gobo_occluder(light: SpotLight3D, cone: MeshInstance3D, gobo_occlud
 	if gobo_material == null:
 		return
 
-	var gobo_texture: Texture2D = light.light_projector
+	var gobo_texture: Texture2D = light.get_meta("peraviz_gobo_texture", null) as Texture2D
 	var gobo_active := gobo_texture != null
 	if not gobo_active:
 		gobo_occluder.visible = false
@@ -156,6 +156,6 @@ func _update_gobo_occluder(light: SpotLight3D, cone: MeshInstance3D, gobo_occlud
 	cone.set_instance_shader_parameter("gobo_axis_sign", 1.0)
 	var cone_material: ShaderMaterial = cone.material_override as ShaderMaterial
 	if cone_material != null:
-		cone_material.set_shader_parameter("gobo_texture", gobo_texture)
+		cone_material.set_shader_parameter("gobo_texture", null)
 	else:
 		cone.set_instance_shader_parameter("gobo_enabled", false)
