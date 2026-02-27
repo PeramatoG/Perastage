@@ -151,12 +151,15 @@ func _update_gobo_occluder(light: SpotLight3D, cone: MeshInstance3D, gobo_occlud
 	gobo_occluder.position = Vector3(0.0, 0.0, -GOBO_OCCLUDER_DISTANCE_M)
 	gobo_occluder.visible = true
 	gobo_material.set_shader_parameter("gobo_texture", gobo_texture)
-	# Keep volumetric beam modulation disabled to match the sample behavior.
-	# Gobo visibility is driven by the occluder plane + spotlight shadowing.
-	cone.set_instance_shader_parameter("gobo_enabled", false)
+	var gobo_plane_size: float = GOBO_PLANE_BASE_SIZE_M * gobo_size_mult
+	cone.set_instance_shader_parameter("gobo_enabled", true)
+	cone.set_instance_shader_parameter("gobo_cutoff", 0.5)
+	cone.set_instance_shader_parameter("gobo_start_ratio", GOBO_OCCLUDER_DISTANCE_M / max(float(light.spot_range), 0.001))
+	cone.set_instance_shader_parameter("gobo_rotation", 0.0)
+	cone.set_instance_shader_parameter("gobo_size", Vector2(gobo_plane_size, gobo_plane_size))
 	cone.set_instance_shader_parameter("gobo_axis_sign", 1.0)
 	var cone_material: ShaderMaterial = cone.material_override as ShaderMaterial
 	if cone_material != null:
-		cone_material.set_shader_parameter("gobo_texture", null)
+		cone_material.set_shader_parameter("gobo_texture", gobo_texture)
 	else:
 		cone.set_instance_shader_parameter("gobo_enabled", false)
