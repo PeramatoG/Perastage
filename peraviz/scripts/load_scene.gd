@@ -44,6 +44,7 @@ var _fixture_emissive_cache: Dictionary = {}
 var _fixture_lens_material_cache: Dictionary = {}
 var _fixture_emitter_light_cache: Dictionary = {}
 var _fixture_emitter_photometrics: Dictionary = {}
+var _mirrored_mesh_cache: Dictionary = {}
 var _fixture_gobo_projector: FixtureGoboProjector = null
 var _updating_fixture_controls: bool = false
 var _visual_environment_baseline := {
@@ -112,12 +113,6 @@ const DEFAULT_EMITTER_PHOTOMETRICS := {
 # (aligned with fixture lens output in runtime scenes) while still inheriting GDTF emitter transforms.
 const EMITTER_LIGHT_DIRECTION_FIX: Vector3 = Vector3(-90.0, 0.0, 0.0)
 const LENS_TINT_COLOR: Color = Color(0.72, 0.86, 1.0, 0.38)
-const DOUBLE_SIDED_NAME_HINTS: Array[String] = [
-	"lens", "glass", "visor", "shade", "shield", "fabric", "cloth", "curtain", "scrim", "flag", "plane", "card"
-]
-const DOUBLE_SIDED_MATERIAL_HINTS: Array[String] = [
-	"lens", "glass", "visor", "fabric", "cloth", "curtain", "thin", "plane"
-]
 const IMPORTED_CONTENT_SCALE: float = 1.0
 const EMITTER_LIGHT_MIN_RANGE_M: float = 12.0
 const EMITTER_LIGHT_MAX_RANGE_M: float = 150.0
@@ -669,7 +664,7 @@ func _build_visual_node(data: Dictionary, item_type: String, item_class: String,
 		var loaded: Variant = _load_3d_asset(asset_path, asset_kind)
 		if loaded is Node3D:
 			var loaded_node: Node3D = loaded
-			_apply_selective_double_sided_to_candidates(loaded_node, data)
+			_apply_mesh_winding_compatibility(loaded_node)
 			return loaded_node
 		print("[Peraviz] Asset fallback for missing/invalid model: ", asset_path, " type=", item_type, " class=", item_class, " asset_kind=", asset_kind)
 
@@ -680,34 +675,12 @@ func _build_visual_node(data: Dictionary, item_type: String, item_class: String,
 
 	return _create_dummy_mesh(is_fixture, visual_scale_hint)
 
-func _apply_selective_double_sided_to_candidates(model_root: Node3D, source_data: Dictionary) -> void:
+func _apply_mesh_winding_compatibility(model_root: Node3D) -> void:
 	if model_root == null:
 		return
 
-	var tagged_meshes: int = 0
-	var tagged_surfaces: int = 0
 	for mesh_instance in _collect_mesh_instances_recursive(model_root):
-		if mesh_instance.mesh == null:
-			continue
-
-		var tagged_surface_indices := PackedInt32Array()
-		for surface_index in range(mesh_instance.mesh.get_surface_count()):
-			var active_material: Material = mesh_instance.get_active_material(surface_index)
-			if not _should_enable_double_sided(mesh_instance, active_material, source_data):
-				continue
-			if _set_double_sided_surface_material(mesh_instance, surface_index, active_material):
-				tagged_surface_indices.append(surface_index)
-
-		if tagged_surface_indices.is_empty():
-			continue
-		tagged_meshes += 1
-		tagged_surfaces += tagged_surface_indices.size()
-		mesh_instance.set_meta("peraviz_double_sided_surface_indices", tagged_surface_indices)
-		mesh_instance.set_meta("peraviz_double_sided_candidate", true)
-
-	if tagged_surfaces > 0:
-		model_root.set_meta("peraviz_double_sided_mesh_count", tagged_meshes)
-		model_root.set_meta("peraviz_double_sided_surface_count", tagged_surfaces)
+		_apply_mirrored_instance_winding(mesh_instance)
 
 func _collect_mesh_instances_recursive(root: Node3D) -> Array[MeshInstance3D]:
 	var output: Array[MeshInstance3D] = []
@@ -720,40 +693,15 @@ func _collect_mesh_instances_recursive(root: Node3D) -> Array[MeshInstance3D]:
 			output.append_array(_collect_mesh_instances_recursive(child))
 	return output
 
-func _should_enable_double_sided(mesh_instance: MeshInstance3D, material: Material, source_data: Dictionary) -> bool:
-	if mesh_instance == null:
-		return false
+func _apply_mirrored_instance_winding(mesh_instance: MeshInstance3D) -> void:
+	if mesh_instance == null or mesh_instance.mesh == null:
+		return
+	if not _has_mirrored_transform_in_hierarchy(mesh_instance):
+		return
 
-	var source_type: String = str(source_data.get("type", "")).to_lower()
-	if source_type == "fixture_geometry":
-		return true
-
-	if _has_mirrored_transform_in_hierarchy(mesh_instance):
-		return true
-
-	var mesh_name_hint: String = mesh_instance.name.to_lower()
-	var geometry_name_hint: String = str(source_data.get("name", "")).to_lower()
-	if _contains_any_hint(mesh_name_hint, DOUBLE_SIDED_NAME_HINTS):
-		return true
-	if _contains_any_hint(geometry_name_hint, DOUBLE_SIDED_NAME_HINTS):
-		return true
-
-	if material != null:
-		var material_name_hint: String = material.resource_name.to_lower()
-		if _contains_any_hint(material_name_hint, DOUBLE_SIDED_MATERIAL_HINTS):
-			return true
-
-		if material is BaseMaterial3D:
-			var base_material: BaseMaterial3D = material
-			if base_material.transparency != BaseMaterial3D.TRANSPARENCY_DISABLED and (
-				mesh_name_hint.contains("lens") or mesh_name_hint.contains("glass") or
-				geometry_name_hint.contains("lens") or geometry_name_hint.contains("glass")
-			):
-				return true
-
-	if _looks_like_thin_plane(mesh_instance):
-		return true
-	return false
+	var mirrored_mesh: Mesh = _get_or_create_mirrored_mesh(mesh_instance.mesh)
+	if mirrored_mesh != null:
+		mesh_instance.mesh = mirrored_mesh
 
 func _has_mirrored_transform_in_hierarchy(node: Node3D) -> bool:
 	var current: Node = node
@@ -764,52 +712,48 @@ func _has_mirrored_transform_in_hierarchy(node: Node3D) -> bool:
 		current = node3d.get_parent()
 	return false
 
-func _contains_any_hint(candidate: String, hints: Array[String]) -> bool:
-	if candidate.is_empty():
-		return false
-	for hint in hints:
-		if candidate.contains(hint):
-			return true
-	return false
+func _get_or_create_mirrored_mesh(source_mesh: Mesh) -> Mesh:
+	if source_mesh == null:
+		return null
 
-func _looks_like_thin_plane(mesh_instance: MeshInstance3D) -> bool:
-	if mesh_instance == null:
-		return false
-	var bounds: AABB = mesh_instance.get_aabb()
-	if bounds.size == Vector3.ZERO:
-		return false
-	var sx: float = abs(bounds.size.x)
-	var sy: float = abs(bounds.size.y)
-	var sz: float = abs(bounds.size.z)
-	var min_dim: float = min(sx, min(sy, sz))
-	var max_dim: float = max(sx, max(sy, sz))
-	if max_dim <= 0.0001:
-		return false
-	return min_dim <= max_dim * 0.04
+	var source_rid: RID = source_mesh.get_rid()
+	if _mirrored_mesh_cache.has(source_rid):
+		return _mirrored_mesh_cache[source_rid]
 
-func _set_double_sided_surface_material(mesh_instance: MeshInstance3D, surface_index: int, active_material: Material) -> bool:
-	if mesh_instance == null:
-		return false
-	if active_material is BaseMaterial3D:
-		var source_material: BaseMaterial3D = active_material
-		if source_material.cull_mode == BaseMaterial3D.CULL_DISABLED:
-			return true
-		var override_material: BaseMaterial3D = source_material.duplicate(true)
-		override_material.cull_mode = BaseMaterial3D.CULL_DISABLED
-		mesh_instance.set_surface_override_material(surface_index, override_material)
-		return true
+	var mirrored: ArrayMesh = _create_mesh_with_flipped_winding(source_mesh)
+	if mirrored != null:
+		_mirrored_mesh_cache[source_rid] = mirrored
+	return mirrored
 
-	if active_material == null and mesh_instance.mesh != null:
-		var mesh_surface_material: Material = mesh_instance.mesh.surface_get_material(surface_index)
-		if mesh_surface_material is BaseMaterial3D:
-			var surface_source: BaseMaterial3D = mesh_surface_material
-			if surface_source.cull_mode == BaseMaterial3D.CULL_DISABLED:
-				return true
-			var surface_override: BaseMaterial3D = surface_source.duplicate(true)
-			surface_override.cull_mode = BaseMaterial3D.CULL_DISABLED
-			mesh_instance.set_surface_override_material(surface_index, surface_override)
-			return true
-	return false
+func _create_mesh_with_flipped_winding(source_mesh: Mesh) -> ArrayMesh:
+	if source_mesh == null:
+		return null
+
+	var source_array_mesh: ArrayMesh = source_mesh as ArrayMesh
+	if source_array_mesh == null:
+		return null
+
+	var mirrored := ArrayMesh.new()
+	for surface_index in range(source_array_mesh.get_surface_count()):
+		var arrays: Array = source_array_mesh.surface_get_arrays(surface_index)
+		if arrays.is_empty():
+			continue
+
+		var indices: PackedInt32Array = arrays[Mesh.ARRAY_INDEX]
+		if not indices.is_empty():
+			for i in range(0, indices.size() - 2, 3):
+				var tmp: int = indices[i + 1]
+				indices[i + 1] = indices[i + 2]
+				indices[i + 2] = tmp
+			arrays[Mesh.ARRAY_INDEX] = indices
+
+		mirrored.add_surface_from_arrays(source_array_mesh.surface_get_primitive_type(surface_index), arrays, [], {}, source_array_mesh.surface_get_format(surface_index))
+
+		var surface_material: Material = source_array_mesh.surface_get_material(surface_index)
+		if surface_material != null:
+			mirrored.surface_set_material(surface_index, surface_material)
+
+	return mirrored
 
 func _extract_visual_scale_hint(data: Dictionary) -> float:
 	if bool(data.get("has_basis", false)):
@@ -983,7 +927,6 @@ func _create_gdtf_primitive_mesh(data: Dictionary) -> Node3D:
 	var material := StandardMaterial3D.new()
 	material.albedo_color = Color(0.2, 0.2, 0.22, 1.0)
 	material.roughness = 0.3
-	material.cull_mode = BaseMaterial3D.CULL_DISABLED
 	mesh_instance.material_override = material
 	return mesh_instance
 
@@ -994,6 +937,7 @@ func _clear_scene() -> void:
 		child.queue_free()
 	_node_index.clear()
 	_asset_cache.clear()
+	_mirrored_mesh_cache.clear()
 	_fixture_emissive_cache.clear()
 	_fixture_lens_material_cache.clear()
 	_fixture_emitter_light_cache.clear()
