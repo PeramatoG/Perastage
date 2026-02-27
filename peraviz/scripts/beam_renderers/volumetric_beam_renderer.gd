@@ -144,9 +144,12 @@ func _update_gobo_occluder(light: SpotLight3D, cone: MeshInstance3D, gobo_occlud
 	var half_angle_rad: float = deg_to_rad(beam_angle * 0.5)
 	var beam_diameter_at_gobo: float = (2.0 * max(lens_radius, 0.003)) + (2.0 * tan(half_angle_rad) * GOBO_OCCLUDER_DISTANCE_M)
 	var gobo_plane_size: float = max(beam_diameter_at_gobo, GOBO_MIN_PLANE_SIZE_M)
+	var light_scale: Vector3 = light.global_basis.get_scale()
+	var light_uniform_scale: float = max(max(abs(light_scale.x), abs(light_scale.y)), abs(light_scale.z))
+	var gobo_occluder_plane_size: float = gobo_plane_size * max(light_uniform_scale, 0.001)
 	var gobo_mesh: QuadMesh = gobo_occluder.mesh as QuadMesh
 	if gobo_mesh != null:
-		gobo_mesh.size = Vector2(gobo_plane_size, gobo_plane_size)
+		gobo_mesh.size = Vector2(gobo_occluder_plane_size, gobo_occluder_plane_size)
 	gobo_occluder.scale = Vector3.ONE
 	gobo_occluder.position = Vector3(0.0, 0.0, -GOBO_OCCLUDER_DISTANCE_M)
 	gobo_occluder.visible = true
