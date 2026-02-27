@@ -92,9 +92,7 @@ void fragment() {
 				discard;
 			}
 
-			float beam_slope = (beam_bottom_radius - beam_top_radius) / max(beam_height, 0.001);
-			float radius_at_gobo = max(beam_top_radius + (beam_slope * gobo_plane_dist), 0.001);
-			float projection_scale = radius_at_gobo / max(radius_at_point, 0.001);
+			float projection_scale = gobo_plane_dist / axis_dist;
 			vec2 gobo_plane_pos = radial_pos * projection_scale;
 
 			float sin_rot = sin(gobo_rotation);

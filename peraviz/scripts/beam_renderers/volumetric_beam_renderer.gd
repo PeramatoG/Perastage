@@ -51,7 +51,7 @@ func ensure_beam(light: SpotLight3D) -> void:
 		gobo_occluder.name = "PeravizGoboOccluder"
 		gobo_occluder.mesh = gobo_mesh
 		gobo_occluder.material_override = _gobo_occluder_material_template.duplicate(true)
-		gobo_occluder.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY
+		gobo_occluder.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
 		gobo_occluder.visible = false
 		gobo_occluder.set_disable_scale(true)
 		light.add_child(gobo_occluder)
@@ -88,7 +88,7 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 
 	var half_angle_deg: float = beam_angle * 0.5
 	var tan_half_angle: float = tan(deg_to_rad(half_angle_deg))
-	var radius: float = max(lens_radius, 0.003) + (tan_half_angle * beam_range)
+	var radius: float = tan_half_angle * beam_range
 	var bottom_radius: float = clamp(radius, 0.03, EMITTER_CONE_MAX_BASE_RADIUS_M)
 	var cone_mesh: CylinderMesh = cone.mesh as CylinderMesh
 	if cone_mesh != null:
@@ -105,7 +105,7 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	cone.set_instance_shader_parameter("beam_bottom_radius", bottom_radius)
 	cone.set_instance_shader_parameter("beam_height", beam_range)
 
-	_update_gobo_occluder(light, cone, gobo_occluder, beam_angle, beam_range, lens_radius)
+	_update_gobo_occluder(light, cone, gobo_occluder, beam_angle, beam_range)
 
 func cleanup_beam(light: SpotLight3D) -> void:
 	if light.has_meta(BEAM_META_KEY):
@@ -120,7 +120,7 @@ func cleanup_beam(light: SpotLight3D) -> void:
 			gobo_occluder.queue_free()
 		light.remove_meta(GOBO_OCCLUDER_META_KEY)
 
-func _update_gobo_occluder(light: SpotLight3D, cone: MeshInstance3D, gobo_occluder: MeshInstance3D, beam_angle: float, beam_range: float, lens_radius: float) -> void:
+func _update_gobo_occluder(light: SpotLight3D, cone: MeshInstance3D, gobo_occluder: MeshInstance3D, beam_angle: float, beam_range: float) -> void:
 	if gobo_occluder == null:
 		return
 
@@ -142,16 +142,12 @@ func _update_gobo_occluder(light: SpotLight3D, cone: MeshInstance3D, gobo_occlud
 
 	light.shadow_enabled = true
 	var half_angle_rad: float = deg_to_rad(beam_angle * 0.5)
-	var beam_diameter_at_gobo: float = (2.0 * max(lens_radius, 0.003)) + (2.0 * tan(half_angle_rad) * GOBO_OCCLUDER_DISTANCE_M)
+	var beam_diameter_at_gobo: float = 2.0 * tan(half_angle_rad) * GOBO_OCCLUDER_DISTANCE_M
 	var gobo_plane_size: float = max(beam_diameter_at_gobo, GOBO_MIN_PLANE_SIZE_M)
-	var light_scale: Vector3 = light.global_basis.get_scale()
-	var light_uniform_scale: float = max(max(abs(light_scale.x), abs(light_scale.y)), abs(light_scale.z))
-	var gobo_occluder_plane_size: float = gobo_plane_size * max(light_uniform_scale, 0.001)
 	var gobo_mesh: QuadMesh = gobo_occluder.mesh as QuadMesh
 	if gobo_mesh != null:
-		gobo_mesh.size = Vector2(gobo_occluder_plane_size, gobo_occluder_plane_size)
+		gobo_mesh.size = Vector2(gobo_plane_size, gobo_plane_size)
 	gobo_occluder.scale = Vector3.ONE
-	gobo_occluder.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY
 	gobo_occluder.position = Vector3(0.0, 0.0, -GOBO_OCCLUDER_DISTANCE_M)
 	gobo_occluder.visible = true
 	gobo_material.set_shader_parameter("gobo_texture", gobo_texture)
@@ -159,7 +155,7 @@ func _update_gobo_occluder(light: SpotLight3D, cone: MeshInstance3D, gobo_occlud
 	cone.set_instance_shader_parameter("gobo_cutoff", 0.5)
 	cone.set_instance_shader_parameter("gobo_start_ratio", GOBO_OCCLUDER_DISTANCE_M / max(beam_range, 0.001))
 	cone.set_instance_shader_parameter("gobo_rotation", 0.0)
-	cone.set_instance_shader_parameter("gobo_size", Vector2(gobo_occluder_plane_size, gobo_occluder_plane_size))
+	cone.set_instance_shader_parameter("gobo_size", Vector2(gobo_plane_size, gobo_plane_size))
 	cone.set_instance_shader_parameter("gobo_axis_sign", 1.0)
 	var cone_material: ShaderMaterial = cone.material_override as ShaderMaterial
 	if cone_material != null:
