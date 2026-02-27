@@ -145,7 +145,7 @@ func _update_gobo_occluder(light: SpotLight3D, cone: MeshInstance3D, gobo_occlud
 		return
 
 	light.shadow_enabled = true
-	var gobo_zoom_value: float = light.spot_angle
+	var gobo_zoom_value: float = beam_angle
 	var gobo_size_mult: float = remap(clamp(gobo_zoom_value, GOBO_SIZE_ZOOM_MIN_DEG, GOBO_SIZE_ZOOM_MAX_DEG), GOBO_SIZE_ZOOM_MIN_DEG, GOBO_SIZE_ZOOM_MAX_DEG, GOBO_SIZE_SCALE_MIN, GOBO_SIZE_SCALE_MAX)
 	gobo_occluder.scale = Vector3(gobo_size_mult, gobo_size_mult, 1.0)
 	gobo_occluder.position = Vector3(0.0, 0.0, -GOBO_OCCLUDER_DISTANCE_M)
