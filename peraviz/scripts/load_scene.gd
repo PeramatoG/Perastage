@@ -1818,9 +1818,9 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 	if beam_slope > 0.0001:
 		max_spot_range_from_footprint = max(EMITTER_LIGHT_MAX_FOOTPRINT_RADIUS_M / beam_slope, EMITTER_LIGHT_MIN_EFFECTIVE_RANGE_M)
 	var cone_range: float = clamp(min(nominal_spot_range, max_spot_range_from_footprint), EMITTER_LIGHT_MIN_EFFECTIVE_RANGE_M, EMITTER_LIGHT_MAX_RANGE_M)
-	# SpotLight3D footprint follows transform by default in Godot; this extension only
-	# avoids early floor clipping on steep tilt while keeping cone visuals unchanged.
-	light.spot_range = clamp(cone_range * EMITTER_LIGHT_FOOTPRINT_RANGE_MULTIPLIER, EMITTER_LIGHT_MIN_EFFECTIVE_RANGE_M, EMITTER_LIGHT_MAX_RANGE_M)
+	# Keep beam-cone range behavior unchanged, but make projector footprint scale with zoom.
+	var projector_range: float = clamp(nominal_spot_range * EMITTER_LIGHT_FOOTPRINT_RANGE_MULTIPLIER, EMITTER_LIGHT_MIN_EFFECTIVE_RANGE_M, EMITTER_LIGHT_MAX_RANGE_M)
+	light.spot_range = projector_range
 	light.light_color = _derive_emitter_color(photometric, controls)
 	var beam_color: Color = _derive_emitter_color(photometric, controls, BEAM_COLOR_TEMPERATURE_STRENGTH)
 	var beam_radius_from_gdtf: bool = bool(photometric.get("beam_radius_from_gdtf", false))
