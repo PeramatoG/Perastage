@@ -58,6 +58,7 @@ func ensure_beam(light: SpotLight3D) -> void:
 		gobo_occluder.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
 		gobo_occluder.visible = false
 		gobo_occluder.set_disable_scale(true)
+		gobo_occluder.scale = Vector3.ONE
 		light.add_child(gobo_occluder)
 		light.set_meta(GOBO_OCCLUDER_META_KEY, gobo_occluder)
 
@@ -147,17 +148,28 @@ func _update_gobo_occluder(light: SpotLight3D, cone: MeshInstance3D, gobo_occlud
 	light.shadow_enabled = true
 	var gobo_zoom_value: float = beam_angle
 	var gobo_size_mult: float = remap(clamp(gobo_zoom_value, GOBO_SIZE_ZOOM_MIN_DEG, GOBO_SIZE_ZOOM_MAX_DEG), GOBO_SIZE_ZOOM_MIN_DEG, GOBO_SIZE_ZOOM_MAX_DEG, GOBO_SIZE_SCALE_MIN, GOBO_SIZE_SCALE_MAX)
-	gobo_occluder.scale = Vector3(gobo_size_mult, gobo_size_mult, 1.0)
-	gobo_occluder.position = Vector3(0.0, 0.0, -GOBO_OCCLUDER_DISTANCE_M)
+	var gobo_distance_m: float = min(GOBO_OCCLUDER_DISTANCE_M, beam_range)
+	var gobo_diameter_m: float = GOBO_PLANE_BASE_SIZE_M * gobo_size_mult
+	var gobo_mesh: QuadMesh = gobo_occluder.mesh as QuadMesh
+	if gobo_mesh != null:
+		gobo_mesh.size = Vector2(gobo_diameter_m, gobo_diameter_m)
+	gobo_occluder.scale = Vector3.ONE
+	gobo_occluder.position = Vector3(0.0, 0.0, -gobo_distance_m)
 	gobo_occluder.visible = true
 	gobo_material.set_shader_parameter("gobo_texture", gobo_texture)
-	var gobo_plane_size: float = GOBO_PLANE_BASE_SIZE_M * gobo_size_mult
+	var gobo_size_for_shader := Vector2(gobo_diameter_m, gobo_diameter_m)
 	cone.set_instance_shader_parameter("gobo_enabled", true)
 	cone.set_instance_shader_parameter("gobo_cutoff", 0.5)
-	cone.set_instance_shader_parameter("gobo_start_ratio", GOBO_OCCLUDER_DISTANCE_M / max(beam_range, 0.001))
+	cone.set_instance_shader_parameter("gobo_start_ratio", gobo_distance_m / max(beam_range, 0.001))
 	cone.set_instance_shader_parameter("gobo_rotation", 0.0)
-	cone.set_instance_shader_parameter("gobo_size", Vector2(gobo_plane_size, gobo_plane_size))
+	cone.set_instance_shader_parameter("gobo_size", gobo_size_for_shader)
 	cone.set_instance_shader_parameter("gobo_axis_sign", 1.0)
+	if OS.is_debug_build():
+		var quad_size: Vector2 = gobo_mesh.size if gobo_mesh != null else Vector2.ZERO
+		if gobo_mesh != null:
+			assert(is_equal_approx(quad_size.x, gobo_size_for_shader.x))
+			assert(is_equal_approx(quad_size.y, gobo_size_for_shader.y))
+		print("[VolumetricBeamRenderer][Debug] gobo_diameter_m=", gobo_diameter_m, " quad_mesh_size=", quad_size, " gobo_size_shader=", gobo_size_for_shader)
 	var cone_material: ShaderMaterial = cone.material_override as ShaderMaterial
 	if cone_material != null:
 		cone_material.set_shader_parameter("gobo_texture", gobo_texture)
