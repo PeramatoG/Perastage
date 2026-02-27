@@ -79,7 +79,45 @@ Peraviz currently supports two beam rendering modes:
 - If gobo media is missing or malformed, Peraviz can generate a simple “fake” gobo texture to validate DMX bindings.
 - Note: projector behavior is not reliable in Godot’s **Compatibility renderer**; Forward+ / Mobile rendering is recommended for predictable results.
 
-### 6) Debug and validation workflow
+### 6) Embedded model import robustness (GLB + 3DS)
+
+Peraviz supports both embedded **GLB/glTF** models and **3DS** meshes found in GDTF archives.
+
+- **GLB/glTF path**
+  - Loaded through Godot's `GLTFDocument` scene generation.
+  - Preserves asset-authored orientation/scale as provided by the glTF pipeline.
+
+- **3DS path**
+  - Uses native loader mesh extraction and applies a dedicated Z-up to Y-up conversion:
+    - `godot_x = x`
+    - `godot_y = z`
+    - `godot_z = -y`
+  - Source units are treated as millimeters and converted to meters (`0.001`).
+  - This conversion keeps a right-handed basis and avoids mirror transforms caused by signless axis swaps.
+
+- **Winding correction strategy**
+  - When a mesh is instantiated under a transform with negative determinant, Peraviz flips triangle winding and normals at mesh build time.
+  - An optional heuristic safety net can also detect likely inside-out closed meshes and auto-fix them.
+  - Heuristic mode is controlled by project setting `peraviz_debug_inside_out_heuristic`.
+
+- **Material culling defaults**
+  - Solid fixture parts keep standard backface culling.
+  - Double-sided rendering remains opt-in for likely thin or transparent surfaces.
+
+#### Mesh diagnostics harness
+
+If fixture files cannot be checked into the repository, use this headless helper with extracted model files:
+
+```bash
+godot --headless --path peraviz -s res://scripts/gdtf_mesh_diagnostics.gd -- \
+  --mesh=/absolute/path/models/3ds/base.3ds \
+  --mesh=/absolute/path/models/gltf/base.glb \
+  --heuristic
+```
+
+The script prints per-mesh triangle/vertex counts and whether determinant-based and heuristic winding fixes were triggered.
+
+### 7) Debug and validation workflow
 
 Peraviz includes explicit tooling to make import correctness reproducible:
 

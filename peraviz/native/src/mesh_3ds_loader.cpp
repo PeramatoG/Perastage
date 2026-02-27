@@ -13,8 +13,6 @@
 
 namespace {
 
-constexpr float kMillimetersToMeters = 0.001F;
-
 struct Chunk {
     uint16_t id = 0;
     uint32_t length = 0;
@@ -236,13 +234,13 @@ bool load_3ds_mesh_data(const godot::String &path,
 
     out_vertices.resize(static_cast<int64_t>(mesh.vertices.size() / 3));
     for (int64_t i = 0; i < out_vertices.size(); ++i) {
-        const std::array<float, 3> source_vertex = {
-            mesh.vertices[i * 3] * kMillimetersToMeters,
-            mesh.vertices[i * 3 + 1] * kMillimetersToMeters,
-            mesh.vertices[i * 3 + 2] * kMillimetersToMeters,
+        const std::array<float, 3> source_vertex_mm = {
+            mesh.vertices[i * 3],
+            mesh.vertices[i * 3 + 1],
+            mesh.vertices[i * 3 + 2],
         };
-        const auto mapped = coordinate_mapper::map_source_vector_to_godot(source_vertex);
-        out_vertices.set(i, godot::Vector3(mapped[0], mapped[1], mapped[2]));
+        const Vec3 mapped = coordinate_mapper::map_3ds_position_mm_to_godot_m(source_vertex_mm);
+        out_vertices.set(i, godot::Vector3(mapped.x, mapped.y, mapped.z));
     }
 
     out_normals.resize(static_cast<int64_t>(mesh.normals.size() / 3));
@@ -252,8 +250,8 @@ bool load_3ds_mesh_data(const godot::String &path,
             mesh.normals[i * 3 + 1],
             mesh.normals[i * 3 + 2],
         };
-        const auto mapped = coordinate_mapper::map_source_vector_to_godot(source_normal);
-        out_normals.set(i, godot::Vector3(mapped[0], mapped[1], mapped[2]));
+        const Vec3 mapped = coordinate_mapper::map_3ds_direction_to_godot(source_normal);
+        out_normals.set(i, godot::Vector3(mapped.x, mapped.y, mapped.z));
     }
 
     out_indices.resize(static_cast<int64_t>(mesh.indices.size()));

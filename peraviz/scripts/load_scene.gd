@@ -36,6 +36,7 @@ var _node_index: Dictionary = {}
 var _asset_cache := PeravizRuntimeAssetCache.new()
 var _debug_coords_enabled: bool = false
 var _debug_asset_cache_enabled: bool = false
+var _inside_out_heuristic_enabled: bool = false
 var _debug_gizmos_root: Node3D
 var _manual_fixture_test_enabled: bool = false
 var _selected_fixture_uuid: String = ""
@@ -86,6 +87,7 @@ const BeamRendererBaseScript = preload("res://scripts/beam_renderers/beam_render
 const LegacyConeBeamRendererScript = preload("res://scripts/beam_renderers/legacy_cone_beam_renderer.gd")
 const VolumetricBeamRendererScript = preload("res://scripts/beam_renderers/volumetric_beam_renderer.gd")
 const FixtureGoboProjectorScript = preload("res://scripts/fixture_gobo_projector.gd")
+const MeshWindingUtilsScript = preload("res://scripts/mesh_winding_utils.gd")
 
 const DEBUG_TOGGLE_KEY: Key = KEY_C
 const MANUAL_TEST_FLAG: String = "--peraviz_manual_fixture_test"
@@ -206,6 +208,7 @@ func _ready() -> void:
 	status_label.text = "Select a .mvr file"
 	_debug_coords_enabled = bool(ProjectSettings.get_setting("peraviz_debug_coords", false))
 	_debug_asset_cache_enabled = bool(ProjectSettings.get_setting("peraviz_debug_asset_cache", false))
+	_inside_out_heuristic_enabled = bool(ProjectSettings.get_setting("peraviz_debug_inside_out_heuristic", false))
 	_manual_fixture_test_enabled = _read_manual_fixture_test_setting()
 	manual_fixture_toggle.button_pressed = _manual_fixture_test_enabled
 	_asset_cache.configure_debug_logging(_debug_asset_cache_enabled, 100)
@@ -630,7 +633,7 @@ func _create_scene_node(data: Dictionary) -> Node3D:
 		root.add_child(emitter)
 
 	var visual_scale_hint: float = _extract_visual_scale_hint(data)
-	var model_node: Node3D = _build_visual_node(data, item_type, item_class, is_fixture, visual_scale_hint)
+	var model_node: Node3D = _build_visual_node(data, item_type, item_class, is_fixture, visual_scale_hint, root.transform.basis)
 	if model_node != null:
 		root.add_child(model_node)
 		if item_type == "fixture_geometry":
@@ -662,11 +665,11 @@ func _reparent_fixture_visual_children(geometry_node: Node3D, model_root: Node3D
 	if moved_any_child:
 		model_root.queue_free()
 
-func _build_visual_node(data: Dictionary, item_type: String, item_class: String, is_fixture: bool, visual_scale_hint: float) -> Node3D:
+func _build_visual_node(data: Dictionary, item_type: String, item_class: String, is_fixture: bool, visual_scale_hint: float, node_basis: Basis) -> Node3D:
 	var asset_path: String = str(data.get("asset_path", ""))
 	var asset_kind: String = _extract_asset_kind(data, asset_path)
 	if not asset_path.is_empty():
-		var loaded: Variant = _load_3d_asset(asset_path, asset_kind)
+		var loaded: Variant = _load_3d_asset(asset_path, asset_kind, node_basis, data)
 		if loaded is Node3D:
 			var loaded_node: Node3D = loaded
 			_apply_selective_double_sided_to_candidates(loaded_node, data)
@@ -723,10 +726,6 @@ func _collect_mesh_instances_recursive(root: Node3D) -> Array[MeshInstance3D]:
 func _should_enable_double_sided(mesh_instance: MeshInstance3D, material: Material, source_data: Dictionary) -> bool:
 	if mesh_instance == null:
 		return false
-
-	var source_type: String = str(source_data.get("type", "")).to_lower()
-	if source_type == "fixture_geometry":
-		return true
 
 	if _has_mirrored_transform_in_hierarchy(mesh_instance):
 		return true
@@ -825,14 +824,15 @@ func _extract_visual_scale_hint(data: Dictionary) -> float:
 		return 1.0
 	return max(average_scale, 0.0001)
 
-func _load_3d_asset(asset_path: String, asset_kind_hint: String = "") -> Variant:
+func _load_3d_asset(asset_path: String, asset_kind_hint: String = "", node_basis: Basis = Basis.IDENTITY, source_data: Dictionary = {}) -> Variant:
 	var resolved_asset_kind: String = asset_kind_hint.to_lower()
 	if resolved_asset_kind.is_empty() or resolved_asset_kind == "none":
 		resolved_asset_kind = _infer_asset_kind_from_extension(asset_path)
 
 	var extension: String = asset_path.get_extension().to_lower()
 	if resolved_asset_kind == "mesh" or extension == "3ds":
-		var cached_mesh: Mesh = _asset_cache.get_mesh(asset_path)
+		var mesh_cache_key: String = "%s|det_sign:%d" % [asset_path, -1 if node_basis.determinant() < 0.0 else 1]
+		var cached_mesh: Mesh = _asset_cache.get_mesh(mesh_cache_key)
 		if cached_mesh != null:
 			var cached_mesh_instance := MeshInstance3D.new()
 			cached_mesh_instance.mesh = cached_mesh
@@ -840,13 +840,13 @@ func _load_3d_asset(asset_path: String, asset_kind_hint: String = "") -> Variant
 
 		var mesh_data: Dictionary = _loader.load_3ds_mesh_data(asset_path)
 		if not bool(mesh_data.get("ok", false)):
-			_asset_cache.mark_failed(asset_path)
+			_asset_cache.mark_failed(mesh_cache_key)
 			return null
-		var mesh: ArrayMesh = _build_3ds_mesh(mesh_data)
+		var mesh: ArrayMesh = _build_3ds_mesh(mesh_data, node_basis, source_data, mesh_cache_key)
 		if mesh == null:
-			_asset_cache.mark_failed(asset_path)
+			_asset_cache.mark_failed(mesh_cache_key)
 			return null
-		_asset_cache.store_mesh(asset_path, mesh)
+		_asset_cache.store_mesh(mesh_cache_key, mesh)
 		var mesh_instance := MeshInstance3D.new()
 		mesh_instance.mesh = mesh
 		return mesh_instance
@@ -908,12 +908,17 @@ func _infer_asset_kind_from_extension(asset_path: String) -> String:
 	return "none"
 
 
-func _build_3ds_mesh(mesh_data: Dictionary) -> ArrayMesh:
+func _build_3ds_mesh(mesh_data: Dictionary, node_basis: Basis, source_data: Dictionary, log_context: String) -> ArrayMesh:
 	var vertices: PackedVector3Array = mesh_data.get("vertices", PackedVector3Array())
 	var normals: PackedVector3Array = mesh_data.get("normals", PackedVector3Array())
 	var indices: PackedInt32Array = mesh_data.get("indices", PackedInt32Array())
 	if vertices.is_empty() or indices.is_empty():
 		return null
+
+	var det_fix: Dictionary = MeshWindingUtilsScript.apply_transform_winding_fix_if_needed(vertices, normals, indices, node_basis, log_context)
+	var heuristic_fix: Dictionary = MeshWindingUtilsScript.apply_inside_out_heuristic_if_enabled(vertices, normals, indices, _inside_out_heuristic_enabled, log_context)
+	if bool(det_fix.get("applied", false)) or bool(heuristic_fix.get("applied", false)):
+		print("[PeravizMeshWinding] event=mesh_fix_summary context=", log_context, " node=", str(source_data.get("name", "")), " det_fix=", det_fix, " heuristic_fix=", heuristic_fix, " triangles=", indices.size() / 3, " vertices=", vertices.size())
 
 	var arrays: Array = []
 	arrays.resize(Mesh.ARRAY_MAX)

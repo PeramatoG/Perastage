@@ -39,6 +39,15 @@ Vec3 map_position_mm_to_m(const std::array<float, 3> &source_mm) {
                 -source_mm[1] / 1000.0F};
 }
 
+Vec3 map_3ds_position_mm_to_godot_m(const std::array<float, 3> &source_mm) {
+    return map_position_mm_to_m(source_mm);
+}
+
+Vec3 map_3ds_direction_to_godot(const std::array<float, 3> &source_direction) {
+    const auto mapped = map_source_vector_to_godot(source_direction);
+    return Vec3{mapped[0], mapped[1], mapped[2]};
+}
+
 std::array<float, 3> map_source_vector_to_godot(const std::array<float, 3> &source) {
     return {source[0], source[2], -source[1]};
 }
