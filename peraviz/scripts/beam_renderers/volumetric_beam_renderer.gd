@@ -106,7 +106,7 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	cone.set_instance_shader_parameter("beam_bottom_radius", bottom_radius)
 	cone.set_instance_shader_parameter("beam_height", beam_range)
 
-	_update_gobo_occluder(light, cone, gobo_occluder, beam_angle, beam_range, max(lens_radius, 0.003))
+	_update_gobo_occluder(light, cone, gobo_occluder, beam_angle, beam_range, max(lens_radius, 0.003), bottom_radius)
 
 func cleanup_beam(light: SpotLight3D) -> void:
 	if light.has_meta(BEAM_META_KEY):
@@ -121,7 +121,7 @@ func cleanup_beam(light: SpotLight3D) -> void:
 			gobo_occluder.queue_free()
 		light.remove_meta(GOBO_OCCLUDER_META_KEY)
 
-func _update_gobo_occluder(light: SpotLight3D, cone: MeshInstance3D, gobo_occluder: MeshInstance3D, beam_angle: float, beam_range: float, beam_top_radius: float) -> void:
+func _update_gobo_occluder(light: SpotLight3D, cone: MeshInstance3D, gobo_occluder: MeshInstance3D, beam_angle: float, beam_range: float, beam_top_radius: float, beam_bottom_radius: float) -> void:
 	if gobo_occluder == null:
 		return
 
@@ -154,18 +154,23 @@ func _update_gobo_occluder(light: SpotLight3D, cone: MeshInstance3D, gobo_occlud
 	gobo_occluder.visible = true
 	gobo_material.set_shader_parameter("gobo_texture", gobo_texture)
 	var gobo_size_for_shader := Vector2(gobo_diameter_m, gobo_diameter_m)
+	var beam_radius_slope: float = (beam_bottom_radius - beam_top_radius) / max(beam_range, 0.001)
+	var gobo_apex_offset_m: float = 0.0
+	if beam_radius_slope > 0.0001:
+		gobo_apex_offset_m = beam_top_radius / beam_radius_slope
 	cone.set_instance_shader_parameter("gobo_enabled", true)
 	cone.set_instance_shader_parameter("gobo_cutoff", 0.5)
 	cone.set_instance_shader_parameter("gobo_start_ratio", gobo_distance_m / max(beam_range, 0.001))
 	cone.set_instance_shader_parameter("gobo_rotation", 0.0)
 	cone.set_instance_shader_parameter("gobo_size", gobo_size_for_shader)
 	cone.set_instance_shader_parameter("gobo_axis_sign", 1.0)
+	cone.set_instance_shader_parameter("gobo_apex_offset", gobo_apex_offset_m)
 	if OS.is_debug_build():
 		var quad_size: Vector2 = gobo_mesh.size if gobo_mesh != null else Vector2.ZERO
 		if gobo_mesh != null:
 			assert(is_equal_approx(quad_size.x, gobo_size_for_shader.x))
 			assert(is_equal_approx(quad_size.y, gobo_size_for_shader.y))
-		print("[VolumetricBeamRenderer][Debug] beam_angle=", beam_angle, " gobo_diameter_m=", gobo_diameter_m, " quad_mesh_size=", quad_size, " gobo_size_shader=", gobo_size_for_shader)
+		print("[VolumetricBeamRenderer][Debug] beam_angle=", beam_angle, " gobo_apex_offset_m=", gobo_apex_offset_m, " gobo_diameter_m=", gobo_diameter_m, " quad_mesh_size=", quad_size, " gobo_size_shader=", gobo_size_for_shader)
 	var cone_material: ShaderMaterial = cone.material_override as ShaderMaterial
 	if cone_material != null:
 		cone_material.set_shader_parameter("gobo_texture", gobo_texture)
