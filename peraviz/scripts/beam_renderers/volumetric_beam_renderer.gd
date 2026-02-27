@@ -55,7 +55,7 @@ func ensure_beam(light: SpotLight3D) -> void:
 		gobo_occluder.name = "PeravizGoboOccluder"
 		gobo_occluder.mesh = gobo_mesh
 		gobo_occluder.material_override = _gobo_occluder_material_template.duplicate(true)
-		gobo_occluder.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+		gobo_occluder.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY
 		gobo_occluder.visible = false
 		light.add_child(gobo_occluder)
 		light.set_meta(GOBO_OCCLUDER_META_KEY, gobo_occluder)
@@ -108,7 +108,7 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	cone.set_instance_shader_parameter("beam_bottom_radius", bottom_radius)
 	cone.set_instance_shader_parameter("beam_height", beam_range)
 
-	_update_gobo_occluder(light, cone, gobo_occluder, beam_angle, beam_range, params)
+	_update_gobo_occluder(light, cone, gobo_occluder, beam_angle, beam_range)
 
 func cleanup_beam(light: SpotLight3D) -> void:
 	if light.has_meta(BEAM_META_KEY):
@@ -123,7 +123,7 @@ func cleanup_beam(light: SpotLight3D) -> void:
 			gobo_occluder.queue_free()
 		light.remove_meta(GOBO_OCCLUDER_META_KEY)
 
-func _update_gobo_occluder(light: SpotLight3D, cone: MeshInstance3D, gobo_occluder: MeshInstance3D, beam_angle: float, beam_range: float, params: Dictionary) -> void:
+func _update_gobo_occluder(light: SpotLight3D, cone: MeshInstance3D, gobo_occluder: MeshInstance3D, beam_angle: float, beam_range: float) -> void:
 	if gobo_occluder == null:
 		return
 
@@ -144,26 +144,16 @@ func _update_gobo_occluder(light: SpotLight3D, cone: MeshInstance3D, gobo_occlud
 		return
 
 	light.shadow_enabled = true
-	var gobo_optics: Dictionary = _resolve_gobo_optics(params)
-	var zoom_min_deg: float = float(gobo_optics.get("zoom_min_deg", GOBO_SIZE_ZOOM_MIN_DEG))
-	var zoom_max_deg: float = float(gobo_optics.get("zoom_max_deg", GOBO_SIZE_ZOOM_MAX_DEG))
-	var size_scale_min: float = float(gobo_optics.get("size_scale_min", GOBO_SIZE_SCALE_MIN))
-	var size_scale_max: float = float(gobo_optics.get("size_scale_max", GOBO_SIZE_SCALE_MAX))
-	var occluder_distance_m: float = float(gobo_optics.get("occluder_distance_m", GOBO_OCCLUDER_DISTANCE_M))
-	var plane_base_size_m: float = float(gobo_optics.get("plane_base_size_m", GOBO_PLANE_BASE_SIZE_M))
 	var gobo_zoom_value: float = beam_angle
-	var gobo_size_mult: float = remap(clamp(gobo_zoom_value, zoom_min_deg, zoom_max_deg), zoom_min_deg, zoom_max_deg, size_scale_min, size_scale_max)
-	var gobo_plane_size: float = plane_base_size_m * gobo_size_mult
-	var max_plane_size: float = _compute_max_gobo_plane_size(cone, beam_angle, beam_range, occluder_distance_m)
-	gobo_plane_size = min(gobo_plane_size, max_plane_size)
-	gobo_size_mult = max(gobo_plane_size / max(plane_base_size_m, 0.001), 0.001)
+	var gobo_size_mult: float = remap(clamp(gobo_zoom_value, GOBO_SIZE_ZOOM_MIN_DEG, GOBO_SIZE_ZOOM_MAX_DEG), GOBO_SIZE_ZOOM_MIN_DEG, GOBO_SIZE_ZOOM_MAX_DEG, GOBO_SIZE_SCALE_MIN, GOBO_SIZE_SCALE_MAX)
 	gobo_occluder.scale = Vector3(gobo_size_mult, gobo_size_mult, 1.0)
-	gobo_occluder.position = Vector3(0.0, 0.0, -occluder_distance_m)
+	gobo_occluder.position = Vector3(0.0, 0.0, -GOBO_OCCLUDER_DISTANCE_M)
 	gobo_occluder.visible = true
 	gobo_material.set_shader_parameter("gobo_texture", gobo_texture)
+	var gobo_plane_size: float = GOBO_PLANE_BASE_SIZE_M * gobo_size_mult
 	cone.set_instance_shader_parameter("gobo_enabled", true)
 	cone.set_instance_shader_parameter("gobo_cutoff", 0.5)
-	cone.set_instance_shader_parameter("gobo_start_ratio", occluder_distance_m / max(beam_range, 0.001))
+	cone.set_instance_shader_parameter("gobo_start_ratio", GOBO_OCCLUDER_DISTANCE_M / max(beam_range, 0.001))
 	cone.set_instance_shader_parameter("gobo_rotation", 0.0)
 	cone.set_instance_shader_parameter("gobo_size", Vector2(gobo_plane_size, gobo_plane_size))
 	cone.set_instance_shader_parameter("gobo_axis_sign", 1.0)
@@ -172,41 +162,3 @@ func _update_gobo_occluder(light: SpotLight3D, cone: MeshInstance3D, gobo_occlud
 		cone_material.set_shader_parameter("gobo_texture", gobo_texture)
 	else:
 		cone.set_instance_shader_parameter("gobo_enabled", false)
-
-func _compute_max_gobo_plane_size(cone: MeshInstance3D, beam_angle: float, beam_range: float, occluder_distance_m: float) -> float:
-	var half_angle_rad: float = deg_to_rad(max(beam_angle, 0.1) * 0.5)
-	var angle_radius: float = tan(half_angle_rad) * max(occluder_distance_m, 0.001)
-	var radius_cap: float = max(angle_radius, 0.001)
-
-	var cone_mesh: CylinderMesh = cone.mesh as CylinderMesh
-	if cone_mesh != null:
-		var top_radius: float = max(cone_mesh.top_radius, 0.001)
-		var bottom_radius: float = max(cone_mesh.bottom_radius, top_radius)
-		var cone_t: float = clamp(occluder_distance_m / max(beam_range, 0.001), 0.0, 1.0)
-		var mesh_radius: float = lerp(top_radius, bottom_radius, cone_t)
-		radius_cap = min(radius_cap, max(mesh_radius, 0.001))
-
-	return max(radius_cap * 2.0 * 0.95, 0.001)
-
-func _resolve_gobo_optics(params: Dictionary) -> Dictionary:
-	var optics := {
-		"zoom_min_deg": GOBO_SIZE_ZOOM_MIN_DEG,
-		"zoom_max_deg": GOBO_SIZE_ZOOM_MAX_DEG,
-		"size_scale_min": GOBO_SIZE_SCALE_MIN,
-		"size_scale_max": GOBO_SIZE_SCALE_MAX,
-		"occluder_distance_m": GOBO_OCCLUDER_DISTANCE_M,
-		"plane_base_size_m": GOBO_PLANE_BASE_SIZE_M,
-	}
-	var source: Dictionary = params.get("gobo_optics", {})
-	if source.is_empty() or not bool(source.get("has_gdtf_data", false)):
-		return optics
-
-	var source_zoom_min: float = max(float(source.get("zoom_min_deg", optics["zoom_min_deg"])), 0.1)
-	var source_zoom_max: float = max(float(source.get("zoom_max_deg", optics["zoom_max_deg"])), source_zoom_min)
-	optics["zoom_min_deg"] = source_zoom_min
-	optics["zoom_max_deg"] = source_zoom_max
-	optics["size_scale_min"] = max(float(source.get("size_scale_min", optics["size_scale_min"])), 0.01)
-	optics["size_scale_max"] = max(float(source.get("size_scale_max", optics["size_scale_max"])), float(optics["size_scale_min"]))
-	optics["occluder_distance_m"] = max(float(source.get("occluder_distance_m", optics["occluder_distance_m"])), 0.001)
-	optics["plane_base_size_m"] = max(float(source.get("plane_base_size_m", optics["plane_base_size_m"])), 0.001)
-	return optics
