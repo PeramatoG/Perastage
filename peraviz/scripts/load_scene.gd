@@ -88,6 +88,7 @@ const LegacyConeBeamRendererScript = preload("res://scripts/beam_renderers/legac
 const VolumetricBeamRendererScript = preload("res://scripts/beam_renderers/volumetric_beam_renderer.gd")
 const FixtureGoboProjectorScript = preload("res://scripts/fixture_gobo_projector.gd")
 const MeshWindingUtilsScript = preload("res://scripts/mesh_winding_utils.gd")
+const MeshRuntimeMirrorFixScript = preload("res://scripts/mesh_runtime_mirror_fix.gd")
 
 const DEBUG_TOGGLE_KEY: Key = KEY_C
 const MANUAL_TEST_FLAG: String = "--peraviz_manual_fixture_test"
@@ -585,7 +586,42 @@ func _build_node_tree(nodes: Array) -> void:
 			if not parent_id.is_empty() and _node_index.has(parent_id):
 				parent_node = _node_index[parent_id]
 			parent_node.add_child(node)
+			_apply_runtime_winding_fix_if_mirrored(node)
 			_expand_loaded_bounds_from_node(node)
+
+func _apply_runtime_winding_fix_if_mirrored(root: Node3D) -> void:
+	if root == null:
+		return
+	for mesh_instance in _collect_mesh_instances_recursive(root):
+		if mesh_instance.mesh == null:
+			continue
+		if str(mesh_instance.get_meta("peraviz_mesh_source", "")) != "3ds":
+			continue
+		if MeshRuntimeMirrorFixScript.hierarchy_determinant_sign(mesh_instance) >= 0.0:
+			continue
+
+		var asset_path: String = str(mesh_instance.get_meta("peraviz_asset_path", ""))
+		var cache_key: String = asset_path + "#runtime_mirror"
+		var mirrored_mesh: Mesh = _asset_cache.get_mesh(cache_key)
+		if mirrored_mesh == null:
+			mirrored_mesh = MeshRuntimeMirrorFixScript.build_flipped_winding_mesh(mesh_instance.mesh)
+			if mirrored_mesh != null:
+				_asset_cache.store_mesh(cache_key, mirrored_mesh)
+		if mirrored_mesh != null:
+			mesh_instance.mesh = mirrored_mesh
+			print("[PeravizMeshWinding] event=runtime_mirror_fix_applied asset=", asset_path,
+				" node=", mesh_instance.name)
+
+func _collect_mesh_instances_recursive(root: Node3D) -> Array[MeshInstance3D]:
+	var output: Array[MeshInstance3D] = []
+	if root == null:
+		return output
+	if root is MeshInstance3D:
+		output.append(root)
+	for child in root.get_children():
+		if child is Node3D:
+			output.append_array(_collect_mesh_instances_recursive(child))
+	return output
 
 func _create_scene_node(data: Dictionary) -> Node3D:
 	var item_type: String = str(data.get("type", "scene_object"))
@@ -716,6 +752,8 @@ func _load_3d_asset(asset_path: String, asset_kind_hint: String = "", source_dat
 		_asset_cache.store_mesh(asset_path, mesh)
 		var mesh_instance := MeshInstance3D.new()
 		mesh_instance.mesh = mesh
+		mesh_instance.set_meta("peraviz_mesh_source", "3ds")
+		mesh_instance.set_meta("peraviz_asset_path", asset_path)
 		return mesh_instance
 
 	if resolved_asset_kind == "scene" or extension == "glb" or extension == "gltf":

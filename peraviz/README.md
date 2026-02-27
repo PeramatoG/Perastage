@@ -98,6 +98,7 @@ Peraviz supports both embedded **GLB/glTF** models and **3DS** meshes found in G
 
 - **Winding correction strategy**
   - Peraviz keeps source triangle winding by default and avoids material-level double-sided workarounds.
+  - If a 3DS mesh ends under a mirrored transform hierarchy at runtime, Peraviz builds a mirrored mesh variant (winding and normals flipped) so backface culling still renders exterior faces.
   - An optional heuristic safety net can detect likely inside-out closed meshes and auto-fix winding/normals when enabled.
   - Heuristic mode can be toggled with project setting `peraviz_debug_inside_out_heuristic`.
 
