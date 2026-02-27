@@ -88,7 +88,7 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 
 	var half_angle_deg: float = beam_angle * 0.5
 	var tan_half_angle: float = tan(deg_to_rad(half_angle_deg))
-	var radius: float = tan_half_angle * beam_range
+	var radius: float = max(lens_radius, 0.003) + (tan_half_angle * beam_range)
 	var bottom_radius: float = clamp(radius, 0.03, EMITTER_CONE_MAX_BASE_RADIUS_M)
 	var cone_mesh: CylinderMesh = cone.mesh as CylinderMesh
 	if cone_mesh != null:
