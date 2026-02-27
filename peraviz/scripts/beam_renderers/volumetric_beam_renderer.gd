@@ -7,11 +7,11 @@ const GOBO_OCCLUDER_META_KEY: String = "peraviz_gobo_occluder"
 const EMITTER_CONE_MAX_BASE_RADIUS_M: float = 10.0
 const VOLUMETRIC_INTENSITY_SCALE: float = 0.62
 const GOBO_OCCLUDER_DISTANCE_M: float = 0.043
-const GOBO_PLANE_BASE_SIZE_M: float = 0.017
+const GOBO_PLANE_BASE_SIZE_M: float = 0.021
 const GOBO_SIZE_ZOOM_MIN_DEG: float = 4.0
 const GOBO_SIZE_ZOOM_MAX_DEG: float = 50.0
 const GOBO_SIZE_SCALE_MIN: float = 0.555
-const GOBO_SIZE_SCALE_MAX: float = 6.4
+const GOBO_SIZE_SCALE_MAX: float = 7.5
 
 var _beam_material_template: ShaderMaterial
 var _gobo_occluder_material_template: ShaderMaterial
@@ -109,7 +109,7 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	cone.set_instance_shader_parameter("beam_bottom_radius", bottom_radius)
 	cone.set_instance_shader_parameter("beam_height", beam_range)
 
-	_update_gobo_occluder(light, cone, gobo_occluder, beam_angle, beam_range)
+	_update_gobo_occluder(light, cone, gobo_occluder, beam_angle, beam_range, params)
 
 func cleanup_beam(light: SpotLight3D) -> void:
 	if light.has_meta(BEAM_META_KEY):
@@ -124,7 +124,7 @@ func cleanup_beam(light: SpotLight3D) -> void:
 			gobo_occluder.queue_free()
 		light.remove_meta(GOBO_OCCLUDER_META_KEY)
 
-func _update_gobo_occluder(light: SpotLight3D, cone: MeshInstance3D, gobo_occluder: MeshInstance3D, beam_angle: float, beam_range: float) -> void:
+func _update_gobo_occluder(light: SpotLight3D, cone: MeshInstance3D, gobo_occluder: MeshInstance3D, beam_angle: float, beam_range: float, params: Dictionary) -> void:
 	if gobo_occluder == null:
 		return
 
@@ -145,16 +145,23 @@ func _update_gobo_occluder(light: SpotLight3D, cone: MeshInstance3D, gobo_occlud
 		return
 
 	light.shadow_enabled = true
+	var gobo_optics: Dictionary = _resolve_gobo_optics(params)
+	var zoom_min_deg: float = float(gobo_optics.get("zoom_min_deg", GOBO_SIZE_ZOOM_MIN_DEG))
+	var zoom_max_deg: float = float(gobo_optics.get("zoom_max_deg", GOBO_SIZE_ZOOM_MAX_DEG))
+	var size_scale_min: float = float(gobo_optics.get("size_scale_min", GOBO_SIZE_SCALE_MIN))
+	var size_scale_max: float = float(gobo_optics.get("size_scale_max", GOBO_SIZE_SCALE_MAX))
+	var occluder_distance_m: float = float(gobo_optics.get("occluder_distance_m", GOBO_OCCLUDER_DISTANCE_M))
+	var plane_base_size_m: float = float(gobo_optics.get("plane_base_size_m", GOBO_PLANE_BASE_SIZE_M))
 	var gobo_zoom_value: float = beam_angle
-	var gobo_size_mult: float = remap(clamp(gobo_zoom_value, GOBO_SIZE_ZOOM_MIN_DEG, GOBO_SIZE_ZOOM_MAX_DEG), GOBO_SIZE_ZOOM_MIN_DEG, GOBO_SIZE_ZOOM_MAX_DEG, GOBO_SIZE_SCALE_MIN, GOBO_SIZE_SCALE_MAX)
+	var gobo_size_mult: float = remap(clamp(gobo_zoom_value, zoom_min_deg, zoom_max_deg), zoom_min_deg, zoom_max_deg, size_scale_min, size_scale_max)
 	gobo_occluder.scale = Vector3(gobo_size_mult, gobo_size_mult, 1.0)
-	gobo_occluder.position = Vector3(0.0, 0.0, -GOBO_OCCLUDER_DISTANCE_M)
+	gobo_occluder.position = Vector3(0.0, 0.0, -occluder_distance_m)
 	gobo_occluder.visible = true
 	gobo_material.set_shader_parameter("gobo_texture", gobo_texture)
-	var gobo_plane_size: float = GOBO_PLANE_BASE_SIZE_M * gobo_size_mult
+	var gobo_plane_size: float = plane_base_size_m * gobo_size_mult
 	cone.set_instance_shader_parameter("gobo_enabled", true)
 	cone.set_instance_shader_parameter("gobo_cutoff", 0.5)
-	cone.set_instance_shader_parameter("gobo_start_ratio", GOBO_OCCLUDER_DISTANCE_M / max(beam_range, 0.001))
+	cone.set_instance_shader_parameter("gobo_start_ratio", occluder_distance_m / max(beam_range, 0.001))
 	cone.set_instance_shader_parameter("gobo_rotation", 0.0)
 	cone.set_instance_shader_parameter("gobo_size", Vector2(gobo_plane_size, gobo_plane_size))
 	cone.set_instance_shader_parameter("gobo_axis_sign", 1.0)
@@ -163,3 +170,26 @@ func _update_gobo_occluder(light: SpotLight3D, cone: MeshInstance3D, gobo_occlud
 		cone_material.set_shader_parameter("gobo_texture", gobo_texture)
 	else:
 		cone.set_instance_shader_parameter("gobo_enabled", false)
+
+func _resolve_gobo_optics(params: Dictionary) -> Dictionary:
+	var optics := {
+		"zoom_min_deg": GOBO_SIZE_ZOOM_MIN_DEG,
+		"zoom_max_deg": GOBO_SIZE_ZOOM_MAX_DEG,
+		"size_scale_min": GOBO_SIZE_SCALE_MIN,
+		"size_scale_max": GOBO_SIZE_SCALE_MAX,
+		"occluder_distance_m": GOBO_OCCLUDER_DISTANCE_M,
+		"plane_base_size_m": GOBO_PLANE_BASE_SIZE_M,
+	}
+	var source: Dictionary = params.get("gobo_optics", {})
+	if source.is_empty() or not bool(source.get("has_gdtf_data", false)):
+		return optics
+
+	var source_zoom_min: float = max(float(source.get("zoom_min_deg", optics["zoom_min_deg"])), 0.1)
+	var source_zoom_max: float = max(float(source.get("zoom_max_deg", optics["zoom_max_deg"])), source_zoom_min)
+	optics["zoom_min_deg"] = source_zoom_min
+	optics["zoom_max_deg"] = source_zoom_max
+	optics["size_scale_min"] = max(float(source.get("size_scale_min", optics["size_scale_min"])), 0.01)
+	optics["size_scale_max"] = max(float(source.get("size_scale_max", optics["size_scale_max"])), float(optics["size_scale_min"]))
+	optics["occluder_distance_m"] = max(float(source.get("occluder_distance_m", optics["occluder_distance_m"])), 0.001)
+	optics["plane_base_size_m"] = max(float(source.get("plane_base_size_m", optics["plane_base_size_m"])), 0.001)
+	return optics

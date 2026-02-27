@@ -1841,6 +1841,7 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 		"fade_end_ratio": EMITTER_CONE_FADE_END_RATIO,
 		"intensity_visibility_threshold": BEAM_INTENSITY_VISIBILITY_THRESHOLD,
 		"distance_cull_m": BEAM_DISTANCE_CULL_M,
+		"gobo_optics": _build_gobo_optics_profile(controls, photometric, lens_radius),
 	}
 	var gobo_changed: bool = false
 	if _fixture_gobo_projector != null:
@@ -1849,6 +1850,29 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 	if gobo_changed:
 		# Re-apply beam uniforms immediately when gobo texture changes so volumetric modulation updates without frame delay.
 		_update_beam_for_light(light, beam_params)
+
+func _build_gobo_optics_profile(controls: Dictionary, photometric: Dictionary, lens_radius: float) -> Dictionary:
+	var profile := {
+		"has_gdtf_data": false,
+	}
+
+	if bool(controls.get("has_zoom_physical_limits", false)):
+		var zoom_min_deg: float = max(float(controls.get("zoom_physical_min_degrees", -1.0)), 0.1)
+		var zoom_max_deg: float = max(float(controls.get("zoom_physical_max_degrees", -1.0)), zoom_min_deg)
+		profile["zoom_min_deg"] = zoom_min_deg
+		profile["zoom_max_deg"] = zoom_max_deg
+		profile["has_gdtf_data"] = true
+
+	if bool(photometric.get("beam_radius_from_gdtf", false)):
+		var beam_radius_m: float = max(float(photometric.get("beam_radius", 0.0)), 0.0)
+		if beam_radius_m > 0.0:
+			profile["plane_base_size_m"] = beam_radius_m * 2.0
+			profile["has_gdtf_data"] = true
+
+	if bool(profile.get("has_gdtf_data", false)):
+		profile["occluder_distance_m"] = max(lens_radius * 1.35, 0.01)
+
+	return profile
 
 func _resolve_zoom_beam_limits(light: SpotLight3D, controls: Dictionary) -> Dictionary:
 	# min/max beam angles are kept as full GDTF beam apertures (not half-angle).
