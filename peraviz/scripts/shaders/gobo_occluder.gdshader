@@ -1,29 +1,36 @@
 shader_type spatial;
-render_mode unshaded, cull_disabled, depth_draw_opaque;
+render_mode blend_mix, depth_draw_opaque, cull_back, diffuse_lambert, specular_schlick_ggx;
 
 uniform sampler2D gobo_texture;
-instance uniform float gobo_cutoff : hint_range(0.0, 1.0) = 0.5;
-instance uniform vec2 gobo_size = vec2(0.1, 0.1);
-instance uniform float gobo_thickness : hint_range(0.0005, 0.05) = 0.003;
 
-varying vec3 local_pos;
 
-void vertex() {
-	local_pos = VERTEX;
-}
 
 void fragment() {
-	ALBEDO = vec3(0.0);
-	float face_z = abs(local_pos.z);
-	vec2 uv = (local_pos.xy / max(gobo_size, vec2(0.001))) + vec2(0.5);
-	float inside_uv = step(0.0, uv.x) * step(uv.x, 1.0) * step(0.0, uv.y) * step(uv.y, 1.0);
-	float is_plate_face = step(gobo_thickness * 0.45, face_z);
-	if (is_plate_face > 0.5 && inside_uv > 0.5) {
-		vec4 tex = texture(gobo_texture, uv);
-		float luma = dot(tex.rgb, vec3(0.299, 0.587, 0.114));
-		float effective_luma = luma * tex.a;
-		if (effective_luma >= gobo_cutoff) {
-			discard;
-		}
+	vec4 n_out2p0;
+// Texture2D:2
+	n_out2p0 = texture(gobo_texture, UV);
+
+
+	float n_out3p0;
+// Remap:3
+	float n_in3p1 = 0.00000;
+	float n_in3p2 = 1.00000;
+	float n_in3p3 = 1.00000;
+	float n_in3p4 = 0.00000;
+	{
+		float __input_range = n_in3p2 - n_in3p1;
+		float __output_range = n_in3p4 - n_in3p3;
+		n_out3p0 = n_in3p3 + __output_range * ((n_out2p0.x - n_in3p1) / __input_range);
 	}
+
+
+// FloatConstant:4
+	float n_out4p0 = 0.500000;
+
+
+// Output:0
+	ALPHA = n_out3p0;
+	ALPHA_SCISSOR_THRESHOLD = n_out4p0;
+
+
 }
