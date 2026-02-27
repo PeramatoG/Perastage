@@ -6,7 +6,7 @@ const BEAM_META_KEY: String = "peraviz_volumetric_beam"
 const GOBO_OCCLUDER_META_KEY: String = "peraviz_gobo_occluder"
 const EMITTER_CONE_MAX_BASE_RADIUS_M: float = 10.0
 const VOLUMETRIC_INTENSITY_SCALE: float = 0.62
-const GOBO_OCCLUDER_DISTANCE_M: float = 0.02
+const GOBO_OCCLUDER_DISTANCE_M: float = 0.043
 const GOBO_OCCLUDER_SIZE_PADDING: float = 1.1
 const GOBO_OCCLUDER_THICKNESS_M: float = 0.003
 
