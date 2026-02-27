@@ -13,7 +13,6 @@ const GOBO_SIZE_ZOOM_MAX_DEG: float = 50.0
 const GOBO_SIZE_SCALE_MIN: float = 0.555
 const GOBO_SIZE_SCALE_MAX: float = 6.4
 const GOBO_FOOTPRINT_CONE_FILL_RATIO: float = 1.0
-const GOBO_VOLUMETRIC_CONE_FILL_RATIO: float = 0.86
 
 var _beam_material_template: ShaderMaterial
 var _gobo_occluder_material_template: ShaderMaterial
@@ -161,9 +160,7 @@ func _update_gobo_occluder(light: SpotLight3D, cone: MeshInstance3D, gobo_occlud
 	gobo_occluder.position = Vector3(0.0, 0.0, -GOBO_OCCLUDER_DISTANCE_M)
 	gobo_occluder.visible = true
 	gobo_material.set_shader_parameter("gobo_texture", gobo_texture)
-	var gobo_plane_size_raw: float = GOBO_PLANE_BASE_SIZE_M * gobo_size_mult
-	var volumetric_plane_cap: float = cone_diameter_at_occluder * GOBO_VOLUMETRIC_CONE_FILL_RATIO
-	var gobo_plane_size: float = min(gobo_plane_size_raw, volumetric_plane_cap)
+	var gobo_plane_size: float = GOBO_PLANE_BASE_SIZE_M * gobo_size_mult
 	cone.set_instance_shader_parameter("gobo_enabled", true)
 	cone.set_instance_shader_parameter("gobo_cutoff", 0.5)
 	cone.set_instance_shader_parameter("gobo_start_ratio", GOBO_OCCLUDER_DISTANCE_M / max(beam_range, 0.001))
