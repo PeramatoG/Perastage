@@ -29,7 +29,6 @@ instance uniform float gobo_start_ratio = 0.0025;
 instance uniform float gobo_rotation = 0.0;
 instance uniform vec2 gobo_size = vec2(0.08, 0.08);
 instance uniform float gobo_axis_sign = 1.0;
-instance uniform float gobo_apex_offset = 0.0;
 instance uniform float beam_height = 8.0;
 instance uniform float beam_top_radius = 0.02;
 instance uniform float beam_bottom_radius = 0.8;
@@ -93,7 +92,7 @@ void fragment() {
 				discard;
 			}
 
-			float projection_scale = (gobo_plane_dist + gobo_apex_offset) / max(axis_dist + gobo_apex_offset, 0.001);
+			float projection_scale = gobo_plane_dist / axis_dist;
 			vec2 gobo_plane_pos = radial_pos * projection_scale;
 
 			float sin_rot = sin(gobo_rotation);
