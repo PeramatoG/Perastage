@@ -105,7 +105,7 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	cone.set_instance_shader_parameter("beam_bottom_radius", bottom_radius)
 	cone.set_instance_shader_parameter("beam_height", beam_range)
 
-	_update_gobo_occluder(light, cone, gobo_occluder, beam_angle, beam_range)
+	_update_gobo_occluder(light, cone, gobo_occluder, beam_angle, beam_range, lens_radius)
 
 func cleanup_beam(light: SpotLight3D) -> void:
 	if light.has_meta(BEAM_META_KEY):
@@ -120,7 +120,7 @@ func cleanup_beam(light: SpotLight3D) -> void:
 			gobo_occluder.queue_free()
 		light.remove_meta(GOBO_OCCLUDER_META_KEY)
 
-func _update_gobo_occluder(light: SpotLight3D, cone: MeshInstance3D, gobo_occluder: MeshInstance3D, beam_angle: float, beam_range: float) -> void:
+func _update_gobo_occluder(light: SpotLight3D, cone: MeshInstance3D, gobo_occluder: MeshInstance3D, beam_angle: float, beam_range: float, lens_radius: float) -> void:
 	if gobo_occluder == null:
 		return
 
@@ -142,7 +142,7 @@ func _update_gobo_occluder(light: SpotLight3D, cone: MeshInstance3D, gobo_occlud
 
 	light.shadow_enabled = true
 	var half_angle_rad: float = deg_to_rad(beam_angle * 0.5)
-	var beam_diameter_at_gobo: float = 2.0 * tan(half_angle_rad) * GOBO_OCCLUDER_DISTANCE_M
+	var beam_diameter_at_gobo: float = (2.0 * max(lens_radius, 0.003)) + (2.0 * tan(half_angle_rad) * GOBO_OCCLUDER_DISTANCE_M)
 	var gobo_plane_size: float = max(beam_diameter_at_gobo, GOBO_MIN_PLANE_SIZE_M)
 	var gobo_mesh: QuadMesh = gobo_occluder.mesh as QuadMesh
 	if gobo_mesh != null:
