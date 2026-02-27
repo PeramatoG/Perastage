@@ -36,7 +36,7 @@ var _node_index: Dictionary = {}
 var _asset_cache := PeravizRuntimeAssetCache.new()
 var _debug_coords_enabled: bool = false
 var _debug_asset_cache_enabled: bool = false
-var _inside_out_heuristic_enabled: bool = false
+var _inside_out_heuristic_enabled: bool = true
 var _debug_gizmos_root: Node3D
 var _manual_fixture_test_enabled: bool = false
 var _selected_fixture_uuid: String = ""
@@ -208,7 +208,7 @@ func _ready() -> void:
 	status_label.text = "Select a .mvr file"
 	_debug_coords_enabled = bool(ProjectSettings.get_setting("peraviz_debug_coords", false))
 	_debug_asset_cache_enabled = bool(ProjectSettings.get_setting("peraviz_debug_asset_cache", false))
-	_inside_out_heuristic_enabled = bool(ProjectSettings.get_setting("peraviz_debug_inside_out_heuristic", false))
+	_inside_out_heuristic_enabled = bool(ProjectSettings.get_setting("peraviz_debug_inside_out_heuristic", true))
 	_manual_fixture_test_enabled = _read_manual_fixture_test_setting()
 	manual_fixture_toggle.button_pressed = _manual_fixture_test_enabled
 	_asset_cache.configure_debug_logging(_debug_asset_cache_enabled, 100)
@@ -694,8 +694,13 @@ func _apply_selective_double_sided_to_candidates(model_root: Node3D, source_data
 			continue
 
 		var tagged_surface_indices := PackedInt32Array()
+		var mesh_is_mirrored: bool = _has_mirrored_transform_in_hierarchy(mesh_instance)
 		for surface_index in range(mesh_instance.mesh.get_surface_count()):
 			var active_material: Material = mesh_instance.get_active_material(surface_index)
+			if mesh_is_mirrored:
+				if _set_mirrored_surface_culling(mesh_instance, surface_index, active_material):
+					tagged_surface_indices.append(surface_index)
+				continue
 			if not _should_enable_double_sided(mesh_instance, active_material, source_data):
 				continue
 			if _set_double_sided_surface_material(mesh_instance, surface_index, active_material):
@@ -726,9 +731,6 @@ func _collect_mesh_instances_recursive(root: Node3D) -> Array[MeshInstance3D]:
 func _should_enable_double_sided(mesh_instance: MeshInstance3D, material: Material, source_data: Dictionary) -> bool:
 	if mesh_instance == null:
 		return false
-
-	if _has_mirrored_transform_in_hierarchy(mesh_instance):
-		return true
 
 	var mesh_name_hint: String = mesh_instance.name.to_lower()
 	var geometry_name_hint: String = str(source_data.get("name", "")).to_lower()
@@ -761,6 +763,36 @@ func _has_mirrored_transform_in_hierarchy(node: Node3D) -> bool:
 		if node3d.transform.basis.determinant() < 0.0:
 			return true
 		current = node3d.get_parent()
+	return false
+
+func _set_mirrored_surface_culling(mesh_instance: MeshInstance3D, surface_index: int, active_material: Material) -> bool:
+	if mesh_instance == null:
+		return false
+	if active_material is BaseMaterial3D:
+		var source_material: BaseMaterial3D = active_material
+		if source_material.cull_mode == BaseMaterial3D.CULL_DISABLED:
+			return false
+		if source_material.cull_mode == BaseMaterial3D.CULL_FRONT:
+			return true
+		var override_material: BaseMaterial3D = source_material.duplicate(true)
+		override_material.cull_mode = BaseMaterial3D.CULL_FRONT
+		mesh_instance.set_surface_override_material(surface_index, override_material)
+		print("[PeravizMeshWinding] event=mirrored_surface_cull_front node=", mesh_instance.name, " surface=", surface_index)
+		return true
+
+	if active_material == null and mesh_instance.mesh != null:
+		var mesh_surface_material: Material = mesh_instance.mesh.surface_get_material(surface_index)
+		if mesh_surface_material is BaseMaterial3D:
+			var surface_source: BaseMaterial3D = mesh_surface_material
+			if surface_source.cull_mode == BaseMaterial3D.CULL_DISABLED:
+				return false
+			if surface_source.cull_mode == BaseMaterial3D.CULL_FRONT:
+				return true
+			var surface_override: BaseMaterial3D = surface_source.duplicate(true)
+			surface_override.cull_mode = BaseMaterial3D.CULL_FRONT
+			mesh_instance.set_surface_override_material(surface_index, surface_override)
+			print("[PeravizMeshWinding] event=mirrored_surface_cull_front node=", mesh_instance.name, " surface=", surface_index)
+			return true
 	return false
 
 func _contains_any_hint(candidate: String, hints: Array[String]) -> bool:
