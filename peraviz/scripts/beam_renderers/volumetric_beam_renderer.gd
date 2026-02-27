@@ -28,6 +28,7 @@ func configure(view_camera: Camera3D, settings: Dictionary) -> void:
 	_settings = settings.duplicate(true)
 
 func ensure_beam(light: SpotLight3D) -> void:
+	# PeravizVolumetricBeam carries the volumetric cone visualization.
 	if not light.has_meta(BEAM_META_KEY):
 		var cone_mesh := CylinderMesh.new()
 		cone_mesh.radial_segments = 48
@@ -47,6 +48,7 @@ func ensure_beam(light: SpotLight3D) -> void:
 		light.add_child(cone)
 		light.set_meta(BEAM_META_KEY, cone)
 
+	# PeravizGoboOccluder is a near-lens mask plane used for gobo shadow projection.
 	if not light.has_meta(GOBO_OCCLUDER_META_KEY):
 		var gobo_mesh := QuadMesh.new()
 		gobo_mesh.size = Vector2(GOBO_PLANE_BASE_SIZE_M, GOBO_PLANE_BASE_SIZE_M)
@@ -56,7 +58,7 @@ func ensure_beam(light: SpotLight3D) -> void:
 		gobo_occluder.material_override = _gobo_occluder_material_template.duplicate(true)
 		gobo_occluder.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
 		gobo_occluder.visible = false
-		gobo_occluder.set_disable_scale(true)
+		# Keep scale enabled: zoom drives gobo footprint through occluder scaling.
 		light.add_child(gobo_occluder)
 		light.set_meta(GOBO_OCCLUDER_META_KEY, gobo_occluder)
 
