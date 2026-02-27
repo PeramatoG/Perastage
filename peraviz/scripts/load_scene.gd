@@ -1819,6 +1819,9 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 	# SpotLight3D footprint follows transform by default in Godot; this extension only
 	# avoids early floor clipping on steep tilt while keeping cone visuals unchanged.
 	light.spot_range = clamp(cone_range * EMITTER_LIGHT_FOOTPRINT_RANGE_MULTIPLIER, EMITTER_LIGHT_MIN_EFFECTIVE_RANGE_M, EMITTER_LIGHT_MAX_RANGE_M)
+	if bool(controls.get("has_gobo", false)):
+		# Sample-like fallback for gobo readability: keep spotlight range in a tight zoom-linked window.
+		light.spot_range = remap(clamp(beam_angle, 6.0, 50.0), 6.0, 50.0, 60.0, 30.0)
 	light.light_color = _derive_emitter_color(photometric, controls)
 	var beam_color: Color = _derive_emitter_color(photometric, controls, BEAM_COLOR_TEMPERATURE_STRENGTH)
 	var beam_radius_from_gdtf: bool = bool(photometric.get("beam_radius_from_gdtf", false))
