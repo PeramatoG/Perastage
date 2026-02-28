@@ -58,3 +58,5 @@ If the footprint looks correct on the floor but the beam in air looks too soft, 
 Peraviz now applies those shadow-cookie defaults when gobos are active in `shadow_cookie` mode, while keeping them user-tunable from Visual Settings.
 
 - Keep volumetric beam extent aligned with `SpotLight3D.spot_range`; if those diverge, the fog cone can look much larger than the cookie footprint.
+
+- Ensure `SpotLight3D.spot_angle` is treated as full aperture (not half-angle), otherwise the cookie can be clipped and only partially visible on the floor.

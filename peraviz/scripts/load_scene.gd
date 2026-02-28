@@ -1559,9 +1559,9 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 	light.set_meta("peraviz_base_light_energy", base_light_energy)
 	light.light_energy = base_light_energy * float(_visual_settings.get("spot_multiplier", 1.0))
 	var beam_half_angle_deg: float = beam_angle * 0.5
-	# Godot 4.2 SpotLight3D.spot_angle behaves as cone half-angle in degrees.
-	# Keep zoom/beam limits as full GDTF aperture, and convert here for light projection.
-	light.spot_angle = beam_half_angle_deg
+	# In current Godot versions used by Peraviz, SpotLight3D.spot_angle is the full cone aperture.
+	# Keep GDTF beam angles as full apertures and pass them through directly.
+	light.spot_angle = beam_angle
 	var spot_attenuation: float = clamp(beam_angle / max(field_angle, 0.1), EMITTER_LIGHT_SPOT_ATTENUATION_MIN, EMITTER_LIGHT_SPOT_ATTENUATION_MAX)
 	var beam_slope: float = tan(deg_to_rad(beam_half_angle_deg))
 	var nominal_spot_range: float = beam_radius_m * EMITTER_LIGHT_RANGE_BEAM_RADIUS_MULTIPLIER * EMITTER_BEAM_LENGTH_SCALE
