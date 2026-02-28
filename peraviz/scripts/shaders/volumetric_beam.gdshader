@@ -27,6 +27,7 @@ instance uniform bool gobo_enabled = false;
 instance uniform float gobo_cutoff = 0.5;
 instance uniform float gobo_start_ratio = 0.0025;
 instance uniform float gobo_rotation = 0.0;
+// This must match the world-space size used by the gobo occluder mesh for alignment.
 instance uniform vec2 gobo_size = vec2(0.08, 0.08);
 instance uniform float gobo_axis_sign = 1.0;
 instance uniform float beam_height = 8.0;
