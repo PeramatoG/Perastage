@@ -74,6 +74,15 @@ add_executable(layout_template_serializer_test
                ../core/layouts/LayoutTemplateSerializer.cpp)
 add_test(NAME LayoutTemplateSerializer COMMAND layout_template_serializer_test)
 
+add_executable(layout_template_import_name_collision_test
+               layout_template_import_name_collision_test.cpp
+               configmanager_layoutmanager_stub.cpp
+               ../core/layouts/LayoutManager.cpp
+               ../core/layouts/LayoutCollection.cpp
+               ../core/layouts/LayoutTemplateSerializer.cpp)
+add_test(NAME LayoutTemplateImportNameCollision
+         COMMAND layout_template_import_name_collision_test)
+
 function(set_library_env TEST_NAME)
     set_tests_properties(${TEST_NAME} PROPERTIES ENVIRONMENT "PERASTAGE_LIBRARY_PATH=${CMAKE_SOURCE_DIR}/library")
 endfunction()
