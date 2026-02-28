@@ -6,13 +6,13 @@ const BEAM_META_KEY: String = "peraviz_volumetric_beam"
 const GOBO_OCCLUDER_META_KEY: String = "peraviz_gobo_occluder"
 const EMITTER_CONE_MAX_BASE_RADIUS_M: float = 10.0
 const VOLUMETRIC_INTENSITY_SCALE: float = 0.62
-const GOBO_OCCLUDER_DISTANCE_M: float = 0.043
-const GOBO_PLANE_BASE_SIZE_M: float = 0.017
-const GOBO_SIZE_ZOOM_MIN_DEG: float = 4.0
-const GOBO_SIZE_ZOOM_MAX_DEG: float = 50.0
-const GOBO_SIZE_SCALE_MIN: float = 0.555
-const GOBO_SIZE_SCALE_MAX: float = 6.4
-const GOBO_FOOTPRINT_CONE_FILL_RATIO: float = 1.0
+
+# Distance from the emitter origin to the gobo occluder plane.
+var gobo_occluder_distance_m: float = 0.043
+# Physical side size of the gobo occluder mesh (before scale multiplier).
+var gobo_plane_base_size_m: float = 0.017
+# Controls how much of the cone diameter should be used by the gobo footprint.
+var gobo_footprint_cone_fill_ratio: float = 1.0
 
 var _beam_material_template: ShaderMaterial
 var _gobo_occluder_material_template: ShaderMaterial
@@ -28,6 +28,9 @@ func _init() -> void:
 func configure(view_camera: Camera3D, settings: Dictionary) -> void:
 	_camera = view_camera
 	_settings = settings.duplicate(true)
+	gobo_occluder_distance_m = max(float(_settings.get("gobo_occluder_distance_m", gobo_occluder_distance_m)), 0.001)
+	gobo_plane_base_size_m = max(float(_settings.get("gobo_plane_base_size_m", gobo_plane_base_size_m)), 0.001)
+	gobo_footprint_cone_fill_ratio = max(float(_settings.get("gobo_footprint_cone_fill_ratio", gobo_footprint_cone_fill_ratio)), 0.001)
 
 func ensure_beam(light: SpotLight3D) -> void:
 	if not light.has_meta(BEAM_META_KEY):
@@ -51,7 +54,7 @@ func ensure_beam(light: SpotLight3D) -> void:
 
 	if not light.has_meta(GOBO_OCCLUDER_META_KEY):
 		var gobo_mesh := QuadMesh.new()
-		gobo_mesh.size = Vector2(GOBO_PLANE_BASE_SIZE_M, GOBO_PLANE_BASE_SIZE_M)
+		gobo_mesh.size = Vector2(gobo_plane_base_size_m, gobo_plane_base_size_m)
 		var gobo_occluder := MeshInstance3D.new()
 		gobo_occluder.name = "PeravizGoboOccluder"
 		gobo_occluder.mesh = gobo_mesh
@@ -112,9 +115,9 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	_update_gobo_occluder(light, cone, gobo_occluder, beam_angle, beam_range)
 
 
-func _compute_cone_diameter_at_occluder(beam_angle: float) -> float:
+func _compute_cone_diameter_at_occluder(beam_angle: float, occluder_distance_m: float = gobo_occluder_distance_m) -> float:
 	var half_angle_rad: float = deg_to_rad(max(beam_angle, 0.1) * 0.5)
-	var cone_radius_at_occluder: float = tan(half_angle_rad) * GOBO_OCCLUDER_DISTANCE_M
+	var cone_radius_at_occluder: float = tan(half_angle_rad) * max(occluder_distance_m, 0.001)
 	return max(cone_radius_at_occluder * 2.0, 0.001)
 
 func cleanup_beam(light: SpotLight3D) -> void:
@@ -151,19 +154,23 @@ func _update_gobo_occluder(light: SpotLight3D, cone: MeshInstance3D, gobo_occlud
 		return
 
 	light.shadow_enabled = true
-	var gobo_zoom_value: float = beam_angle
-	var gobo_size_mult: float = remap(clamp(gobo_zoom_value, GOBO_SIZE_ZOOM_MIN_DEG, GOBO_SIZE_ZOOM_MAX_DEG), GOBO_SIZE_ZOOM_MIN_DEG, GOBO_SIZE_ZOOM_MAX_DEG, GOBO_SIZE_SCALE_MIN, GOBO_SIZE_SCALE_MAX)
-	var cone_diameter_at_occluder: float = _compute_cone_diameter_at_occluder(beam_angle)
-	var footprint_plane_size: float = cone_diameter_at_occluder * GOBO_FOOTPRINT_CONE_FILL_RATIO
-	var footprint_scale: float = max(footprint_plane_size / GOBO_PLANE_BASE_SIZE_M, 0.001)
+	var occluder_distance_m: float = max(float(light.get_meta("peraviz_gobo_occluder_distance_m", gobo_occluder_distance_m)), 0.001)
+	var plane_base_size_m: float = max(float(light.get_meta("peraviz_gobo_plane_base_size_m", gobo_plane_base_size_m)), 0.001)
+	var cone_fill_ratio: float = max(float(light.get_meta("peraviz_gobo_footprint_cone_fill_ratio", gobo_footprint_cone_fill_ratio)), 0.001)
+	var cone_diameter_at_occluder: float = _compute_cone_diameter_at_occluder(beam_angle, occluder_distance_m)
+	var footprint_plane_size: float = cone_diameter_at_occluder * cone_fill_ratio
+	var footprint_scale: float = max(footprint_plane_size / plane_base_size_m, 0.001)
+	var gobo_mesh: QuadMesh = gobo_occluder.mesh as QuadMesh
+	if gobo_mesh != null:
+		gobo_mesh.size = Vector2(plane_base_size_m, plane_base_size_m)
 	gobo_occluder.scale = Vector3(footprint_scale, footprint_scale, 1.0)
-	gobo_occluder.position = Vector3(0.0, 0.0, -GOBO_OCCLUDER_DISTANCE_M)
+	gobo_occluder.position = Vector3(0.0, 0.0, -occluder_distance_m)
 	gobo_occluder.visible = true
 	gobo_material.set_shader_parameter("gobo_texture", gobo_texture)
-	var gobo_plane_size: float = GOBO_PLANE_BASE_SIZE_M * gobo_size_mult
+	var gobo_plane_size: float = footprint_plane_size
 	cone.set_instance_shader_parameter("gobo_enabled", true)
 	cone.set_instance_shader_parameter("gobo_cutoff", 0.5)
-	cone.set_instance_shader_parameter("gobo_start_ratio", GOBO_OCCLUDER_DISTANCE_M / max(beam_range, 0.001))
+	cone.set_instance_shader_parameter("gobo_start_ratio", occluder_distance_m / max(beam_range, 0.001))
 	cone.set_instance_shader_parameter("gobo_rotation", 0.0)
 	cone.set_instance_shader_parameter("gobo_size", Vector2(gobo_plane_size, gobo_plane_size))
 	cone.set_instance_shader_parameter("gobo_axis_sign", 1.0)

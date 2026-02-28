@@ -29,3 +29,24 @@ Shader shaping uses:
 
 - **Axial factor** from local mesh Y to control near-lens intensity and far-end fade.
 - **Radial factor** from local XZ distance to keep the center denser than edges.
+
+
+## Volumetric gobo geometry tuning
+
+`VolumetricBeamRenderer` now derives gobo projection size directly from beam cone geometry at the occluder plane.
+There is no zoom remap multiplier anymore.
+
+You can tune these public renderer properties (or pass the same keys in renderer settings):
+
+- `gobo_occluder_distance_m` (default `0.043`): distance from lens origin to gobo occluder plane.
+- `gobo_plane_base_size_m` (default `0.017`): physical side size of the occluder quad mesh before runtime scaling.
+- `gobo_footprint_cone_fill_ratio` (default `1.0`): fill ratio applied to cone diameter at occluder depth.
+
+For fixture-specific overrides, set these light metadata keys:
+
+- `peraviz_gobo_occluder_distance_m`
+- `peraviz_gobo_plane_base_size_m`
+- `peraviz_gobo_footprint_cone_fill_ratio`
+
+The volumetric shader uniforms remain unchanged:
+`gobo_size`, `gobo_start_ratio`, and `gobo_texture`.
