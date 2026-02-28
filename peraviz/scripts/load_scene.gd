@@ -134,9 +134,9 @@ const EMITTER_LIGHT_FOOTPRINT_RANGE_MULTIPLIER: float = 1.0
 const EMITTER_LIGHT_SPOT_ATTENUATION_MIN: float = 0.0669
 const EMITTER_LIGHT_SPOT_ATTENUATION_MAX: float = 1.5
 const GOBO_SHADOW_COOKIE_BEAM_ATTENUATION: float = 0.5
-const GOBO_SHADOW_COOKIE_SHADOW_BIAS: float = 0.015
-const GOBO_SHADOW_COOKIE_SHADOW_NORMAL_BIAS: float = 0.4
-const GOBO_SHADOW_COOKIE_SHADOW_BLUR: float = 0.1
+const GOBO_SHADOW_COOKIE_SHADOW_BIAS: float = 0.03
+const GOBO_SHADOW_COOKIE_SHADOW_NORMAL_BIAS: float = 0.8
+const GOBO_SHADOW_COOKIE_SHADOW_BLUR: float = 0.35
 const GOBO_SHADOW_COOKIE_MESH_BEAM_INTENSITY_MULTIPLIER: float = 0.22
 const EMITTER_CONE_FADE_END_RATIO: float = 0.82
 const EMITTER_CONE_NEAR_ALPHA: float = 0.16
@@ -276,6 +276,8 @@ func _apply_visual_settings(settings: Dictionary) -> void:
 		world_environment.environment.background_color = _visual_settings.get("background_color", _visual_environment_baseline.get("background_color", Color(0.129412, 0.137255, 0.156863, 1.0)))
 		world_environment.environment.volumetric_fog_enabled = true
 		world_environment.environment.volumetric_fog_density = float(_visual_settings.get("volumetric_fog_density", 0.01))
+		world_environment.environment.volumetric_fog_filter_active = true
+		world_environment.environment.volumetric_fog_detail_spread = 0.7
 
 	_update_beam_renderer_mode(false)
 	_save_visual_settings_to_project()

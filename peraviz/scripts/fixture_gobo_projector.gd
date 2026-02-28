@@ -125,7 +125,6 @@ func _resolve_gobo_texture_for_slot(controls: Dictionary, slot_index: int) -> Te
 		var load_error: Error = image.load(image_path)
 		if load_error != OK:
 			return null
-		image.generate_mipmaps()
 		var texture: ImageTexture = ImageTexture.create_from_image(image)
 		_texture_cache[image_path] = texture
 		return texture
@@ -163,7 +162,6 @@ func _compose_gobo_textures(textures: Array[Texture2D]) -> Texture2D:
 				var out_luma: float = dst.r * src_luma
 				composed.set_pixel(x, y, Color(out_luma, out_luma, out_luma, 1.0))
 
-	composed.generate_mipmaps()
 	var out_texture: ImageTexture = ImageTexture.create_from_image(composed)
 	_texture_cache[cache_key] = out_texture
 	return out_texture
@@ -192,7 +190,6 @@ func _resolve_fake_gobo_texture(gobo_raw_8bit: int) -> Texture2D:
 				if checker:
 					image.set_pixel(x, y, Color(0.0, 0.0, 0.0, 1.0))
 
-	image.generate_mipmaps()
 	var texture: ImageTexture = ImageTexture.create_from_image(image)
 	_texture_cache[cache_key] = texture
 	return texture

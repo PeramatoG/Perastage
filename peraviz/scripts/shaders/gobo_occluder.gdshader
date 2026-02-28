@@ -1,7 +1,7 @@
 shader_type spatial;
 render_mode blend_mix, depth_draw_opaque, cull_back, diffuse_lambert, specular_schlick_ggx;
 
-uniform sampler2D gobo_texture;
+uniform sampler2D gobo_texture : source_color, filter_linear, repeat_disable;
 
 // Shadow-cookie path: alpha scissor on this quad drives the SpotLight3D shadow map.
 // Keep this material on an occluder mesh near the lens to get volumetric fog patterning.
