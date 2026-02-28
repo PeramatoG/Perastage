@@ -69,6 +69,11 @@ target_include_directories(fixture_table_parser_test PRIVATE .. ../gui)
 target_link_libraries(fixture_table_parser_test PRIVATE ${wxWidgets_LIBRARIES})
 add_test(NAME FixtureTableParser COMMAND fixture_table_parser_test)
 
+add_executable(layout_template_serializer_test
+               layout_template_serializer_test.cpp
+               ../core/layouts/LayoutTemplateSerializer.cpp)
+add_test(NAME LayoutTemplateSerializer COMMAND layout_template_serializer_test)
+
 function(set_library_env TEST_NAME)
     set_tests_properties(${TEST_NAME} PROPERTIES ENVIRONMENT "PERASTAGE_LIBRARY_PATH=${CMAKE_SOURCE_DIR}/library")
 endfunction()
