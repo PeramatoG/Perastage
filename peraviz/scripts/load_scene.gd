@@ -61,6 +61,12 @@ var _visual_settings := {
 	"beam_anisotropy": 0.62,
 	"beam_noise_amount": 0.06,
 	"beam_noise_scale": 1.4,
+	"volumetric_fog_density": 0.01,
+	"light_volumetric_fog_energy": 1.0,
+	"gobo_scale_ratio": 1.0,
+	"gobo_debug_show_occluder": false,
+	"gobo_debug_log_parameters": false,
+	"gobo_projection_mode": "shadow_cookie",
 	"background_color": Color(0.129412, 0.137255, 0.156863, 1.0),
 }
 
@@ -264,7 +270,7 @@ func _apply_visual_settings(settings: Dictionary) -> void:
 		world_environment.environment.glow_bloom = float(_visual_environment_baseline.get("glow_bloom", 0.05)) * float(_visual_settings.get("bloom_multiplier", 1.0))
 		world_environment.environment.background_color = _visual_settings.get("background_color", _visual_environment_baseline.get("background_color", Color(0.129412, 0.137255, 0.156863, 1.0)))
 		world_environment.environment.volumetric_fog_enabled = true
-		world_environment.environment.volumetric_fog_density = 0.01
+		world_environment.environment.volumetric_fog_density = float(_visual_settings.get("volumetric_fog_density", 0.01))
 
 	_update_beam_renderer_mode(false)
 	_save_visual_settings_to_project()
@@ -307,6 +313,7 @@ func _refresh_emitter_visual_scalars() -> void:
 func _apply_visual_scalars_to_light(light: SpotLight3D) -> void:
 	var base_energy: float = float(light.get_meta("peraviz_base_light_energy", light.light_energy))
 	light.light_energy = base_energy * float(_visual_settings.get("spot_multiplier", 1.0))
+	light.light_volumetric_fog_energy = float(_visual_settings.get("light_volumetric_fog_energy", 1.0))
 	_update_existing_beam_material_scalars(light)
 
 func _update_existing_beam_material_scalars(light: SpotLight3D) -> void:
@@ -1585,7 +1592,10 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 	}
 	var gobo_changed: bool = false
 	if _fixture_gobo_projector != null:
-		gobo_changed = _fixture_gobo_projector.apply_gobo_projection(light, controls)
+		var gobo_controls: Dictionary = controls.duplicate(true)
+		gobo_controls["gobo_projection_mode"] = str(_visual_settings.get("gobo_projection_mode", "shadow_cookie"))
+		gobo_changed = _fixture_gobo_projector.apply_gobo_projection(light, gobo_controls)
+	light.light_volumetric_fog_energy = float(_visual_settings.get("light_volumetric_fog_energy", 1.0))
 	_update_beam_for_light(light, beam_params)
 	if gobo_changed:
 		# Re-apply beam uniforms immediately when gobo texture changes so volumetric modulation updates without frame delay.
