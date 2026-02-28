@@ -139,8 +139,22 @@ std::vector<SymbolViewKind> BuildSymbolViewCandidates(SymbolViewKind requested) 
   return {requested};
 }
 
-bool DrawPerastageSvgInFixturePass(const PerastageSvgSymbolData &svg, float fillR,
-                                   float fillG, float fillB) {
+std::array<float, 3> BuildSvgVertexForView(float x, float y, Viewer2DView view) {
+  switch (view) {
+  case Viewer2DView::Front:
+    return {x, 0.0f, y};
+  case Viewer2DView::Side:
+    return {0.0f, -x, y};
+  case Viewer2DView::Top:
+  case Viewer2DView::Bottom:
+  default:
+    return {x, y, 0.0f};
+  }
+}
+
+bool DrawPerastageSvgInFixturePass(const PerastageSvgSymbolData &svg,
+                                   Viewer2DView view, float fillR, float fillG,
+                                   float fillB) {
   if (!svg.IsValid())
     return false;
 
@@ -178,7 +192,10 @@ bool DrawPerastageSvgInFixturePass(const PerastageSvgSymbolData &svg, float fill
   }
 
   const double anchorX = hasBounds ? (minX + maxX) * 0.5 : 0.0;
-  const double anchorY = hasBounds ? (minY + maxY) * 0.5 : 0.0;
+  const bool useTopHangAnchor =
+      view == Viewer2DView::Front || view == Viewer2DView::Side;
+  const double anchorY =
+      hasBounds ? (useTopHangAnchor ? maxY : (minY + maxY) * 0.5) : 0.0;
 
   glPushMatrix();
   glScalef(RENDER_SCALE, RENDER_SCALE, RENDER_SCALE);
@@ -189,8 +206,11 @@ bool DrawPerastageSvgInFixturePass(const PerastageSvgSymbolData &svg, float fill
       continue;
     glBegin(GL_POLYGON);
     for (const auto &point : polygon.points) {
-      glVertex3f(static_cast<float>(point.x + svg.offsetXmm - anchorX),
-                 static_cast<float>(point.y + svg.offsetYmm - anchorY), 0.0f);
+      const auto vertex =
+          BuildSvgVertexForView(static_cast<float>(point.x + svg.offsetXmm - anchorX),
+                                static_cast<float>(point.y + svg.offsetYmm - anchorY),
+                                view);
+      glVertex3f(vertex[0], vertex[1], vertex[2]);
     }
     glEnd();
   }
@@ -202,14 +222,31 @@ bool DrawPerastageSvgInFixturePass(const PerastageSvgSymbolData &svg, float fill
       continue;
     glBegin(GL_LINE_STRIP);
     for (const auto &point : line.points) {
-      glVertex3f(static_cast<float>(point.x + svg.offsetXmm - anchorX),
-                 static_cast<float>(point.y + svg.offsetYmm - anchorY), 0.0f);
+      const auto vertex =
+          BuildSvgVertexForView(static_cast<float>(point.x + svg.offsetXmm - anchorX),
+                                static_cast<float>(point.y + svg.offsetYmm - anchorY),
+                                view);
+      glVertex3f(vertex[0], vertex[1], vertex[2]);
     }
     glEnd();
   }
 
   glPopMatrix();
   return true;
+}
+
+void CancelFixtureRotationForLayoutSvg(const Matrix &fixtureTransform,
+                                       Viewer2DView view) {
+  if (view != Viewer2DView::Front && view != Viewer2DView::Side)
+    return;
+
+  float inverseRotation[16] = {
+      fixtureTransform.u[0], fixtureTransform.v[0], fixtureTransform.w[0], 0.0f,
+      fixtureTransform.u[1], fixtureTransform.v[1], fixtureTransform.w[1], 0.0f,
+      fixtureTransform.u[2], fixtureTransform.v[2], fixtureTransform.w[2], 0.0f,
+      0.0f,                 0.0f,                 0.0f,                 1.0f,
+  };
+  glMultMatrixf(inverseRotation);
 }
 } // namespace
 
@@ -348,8 +385,9 @@ void OpaqueFixturePass::Render(
         }
         if (!cacheIt->second.has_value())
           continue;
+        CancelFixtureRotationForLayoutSvg(f.transform, context.view);
         renderedPerastageSvg = DrawPerastageSvgInFixturePass(
-            cacheIt->second.value(), r, g, b);
+            cacheIt->second.value(), context.view, r, g, b);
         if (renderedPerastageSvg)
           break;
       }
