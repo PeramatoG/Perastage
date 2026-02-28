@@ -1027,7 +1027,7 @@ void LayoutViewerPanel::OnKeyDown(wxKeyEvent &event) {
     }
     return;
   }
-  if (key == 'Z' || key == 'z') {
+  if (key == 'F' || key == 'f') {
     ResetViewToFit();
     RequestRenderRebuild();
     Refresh();
