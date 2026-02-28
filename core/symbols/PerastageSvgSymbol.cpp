@@ -651,6 +651,14 @@ bool LoadPerastageSvgSymbolFromGdtf(const std::string &gdtfPath,
                             "SVGFrontOffsetX", "SVGFrontOffsetY"});
     }
     pushTopCandidates();
+  } else if (requestedView == SymbolViewKind::Left ||
+             requestedView == SymbolViewKind::Right) {
+    for (const auto &name : baseNameCandidates) {
+      candidates.push_back(
+          {requestedView, "models/svg_side/" + name + ".svg",
+           "SVGSideOffsetX", "SVGSideOffsetY"});
+    }
+    pushTopCandidates();
   } else {
     pushTopCandidates();
   }
