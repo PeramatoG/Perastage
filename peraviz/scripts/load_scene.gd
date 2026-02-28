@@ -61,8 +61,8 @@ var _visual_settings := {
 	"beam_anisotropy": 0.62,
 	"beam_noise_amount": 0.06,
 	"beam_noise_scale": 1.4,
-	"volumetric_fog_density": 0.02,
-	"light_volumetric_fog_energy": 3.5,
+	"volumetric_fog_density": 0.01,
+	"light_volumetric_fog_energy": 1.0,
 	"gobo_scale_ratio": 1.0,
 	"gobo_debug_show_occluder": false,
 	"gobo_debug_log_parameters": false,
@@ -1575,6 +1575,8 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 	if bool(controls.get("has_gobo", false)):
 		# Sample-like fallback for gobo readability: keep spotlight range in a tight zoom-linked window.
 		light.spot_range = remap(clamp(beam_angle, 6.0, 50.0), 6.0, 50.0, 60.0, 30.0)
+	# Keep volumetric beam extent aligned with the actual spot range to prevent oversized fog cones.
+	var effective_beam_range: float = light.spot_range
 	var gobo_projection_mode: String = str(_visual_settings.get("gobo_projection_mode", "shadow_cookie"))
 	var use_shadow_cookie_gobo: bool = bool(controls.get("has_gobo", false)) and gobo_projection_mode == "shadow_cookie"
 	if use_shadow_cookie_gobo:
@@ -1594,7 +1596,7 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 	light.set_meta("peraviz_beam_base_intensity", clamp(normalized_dimmer, 0.0, 1.0))
 	var beam_params := {
 		"beam_angle": beam_angle,
-		"beam_range": cone_range,
+		"beam_range": effective_beam_range,
 		"beam_color": beam_color,
 		"normalized_dimmer": clamp(normalized_dimmer, 0.0, 1.0),
 		"scaled_intensity": clamp(normalized_dimmer * float(_visual_settings.get("beam_multiplier", 1.0)), 0.0, 3.0),

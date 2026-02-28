@@ -52,7 +52,9 @@ If the footprint looks correct on the floor but the beam in air looks too soft, 
 
 - `SpotLight3D.spot_attenuation`: lower values (around `0.5`) produce a tighter/harder beam edge, similar to the #11987 sample.
 - `SpotLight3D.shadow_blur`: keep low (`~0.1`) for crisp cookie edges in volumetric fog.
-- `WorldEnvironment.volumetric_fog_density`: values around `0.02` make the in-air pattern much more legible than very low fog density.
-- `SpotLight3D.light_volumetric_fog_energy`: values around `3.0-4.0` help the fog beam read clearly without overexposing the floor footprint.
+- `WorldEnvironment.volumetric_fog_density`: start near `0.01` and increase gradually if needed; too much density quickly blooms the whole cone.
+- `SpotLight3D.light_volumetric_fog_energy`: start near `1.0` and raise carefully; high values can over-bloom the in-air beam.
 
 Peraviz now applies those shadow-cookie defaults when gobos are active in `shadow_cookie` mode, while keeping them user-tunable from Visual Settings.
+
+- Keep volumetric beam extent aligned with `SpotLight3D.spot_range`; if those diverge, the fog cone can look much larger than the cookie footprint.
