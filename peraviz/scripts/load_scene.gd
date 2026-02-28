@@ -41,7 +41,6 @@ var _manual_fixture_test_enabled: bool = false
 var _selected_fixture_uuid: String = ""
 var _fixture_manual_values: Dictionary = {}
 var _fixture_emissive_cache: Dictionary = {}
-var _fixture_lens_material_cache: Dictionary = {}
 var _fixture_emitter_light_cache: Dictionary = {}
 var _fixture_emitter_photometrics: Dictionary = {}
 var _fixture_gobo_projector: FixtureGoboProjector = null
@@ -111,13 +110,6 @@ const DEFAULT_EMITTER_PHOTOMETRICS := {
 # Keep emitter light direction aligned with fixture zero-position beam expectation
 # (aligned with fixture lens output in runtime scenes) while still inheriting GDTF emitter transforms.
 const EMITTER_LIGHT_DIRECTION_FIX: Vector3 = Vector3(-90.0, 0.0, 0.0)
-const LENS_TINT_COLOR: Color = Color(0.72, 0.86, 1.0, 0.38)
-const DOUBLE_SIDED_NAME_HINTS: Array[String] = [
-	"lens", "glass", "visor", "shade", "shield", "fabric", "cloth", "curtain", "scrim", "flag", "plane", "card"
-]
-const DOUBLE_SIDED_MATERIAL_HINTS: Array[String] = [
-	"lens", "glass", "visor", "fabric", "cloth", "curtain", "thin", "plane"
-]
 const IMPORTED_CONTENT_SCALE: float = 1.0
 const EMITTER_LIGHT_MIN_RANGE_M: float = 12.0
 const EMITTER_LIGHT_MAX_RANGE_M: float = 150.0
@@ -669,7 +661,6 @@ func _build_visual_node(data: Dictionary, item_type: String, item_class: String,
 		var loaded: Variant = _load_3d_asset(asset_path, asset_kind)
 		if loaded is Node3D:
 			var loaded_node: Node3D = loaded
-			_apply_selective_double_sided_to_candidates(loaded_node, data)
 			return loaded_node
 		print("[Peraviz] Asset fallback for missing/invalid model: ", asset_path, " type=", item_type, " class=", item_class, " asset_kind=", asset_kind)
 
@@ -679,137 +670,6 @@ func _build_visual_node(data: Dictionary, item_type: String, item_class: String,
 		return null
 
 	return _create_dummy_mesh(is_fixture, visual_scale_hint)
-
-func _apply_selective_double_sided_to_candidates(model_root: Node3D, source_data: Dictionary) -> void:
-	if model_root == null:
-		return
-
-	var tagged_meshes: int = 0
-	var tagged_surfaces: int = 0
-	for mesh_instance in _collect_mesh_instances_recursive(model_root):
-		if mesh_instance.mesh == null:
-			continue
-
-		var tagged_surface_indices := PackedInt32Array()
-		for surface_index in range(mesh_instance.mesh.get_surface_count()):
-			var active_material: Material = mesh_instance.get_active_material(surface_index)
-			if not _should_enable_double_sided(mesh_instance, active_material, source_data):
-				continue
-			if _set_double_sided_surface_material(mesh_instance, surface_index, active_material):
-				tagged_surface_indices.append(surface_index)
-
-		if tagged_surface_indices.is_empty():
-			continue
-		tagged_meshes += 1
-		tagged_surfaces += tagged_surface_indices.size()
-		mesh_instance.set_meta("peraviz_double_sided_surface_indices", tagged_surface_indices)
-		mesh_instance.set_meta("peraviz_double_sided_candidate", true)
-
-	if tagged_surfaces > 0:
-		model_root.set_meta("peraviz_double_sided_mesh_count", tagged_meshes)
-		model_root.set_meta("peraviz_double_sided_surface_count", tagged_surfaces)
-
-func _collect_mesh_instances_recursive(root: Node3D) -> Array[MeshInstance3D]:
-	var output: Array[MeshInstance3D] = []
-	if root == null:
-		return output
-	if root is MeshInstance3D:
-		output.append(root)
-	for child in root.get_children():
-		if child is Node3D:
-			output.append_array(_collect_mesh_instances_recursive(child))
-	return output
-
-func _should_enable_double_sided(mesh_instance: MeshInstance3D, material: Material, source_data: Dictionary) -> bool:
-	if mesh_instance == null:
-		return false
-
-	var source_type: String = str(source_data.get("type", "")).to_lower()
-	if source_type == "fixture_geometry":
-		return true
-
-	if _has_mirrored_transform_in_hierarchy(mesh_instance):
-		return true
-
-	var mesh_name_hint: String = mesh_instance.name.to_lower()
-	var geometry_name_hint: String = str(source_data.get("name", "")).to_lower()
-	if _contains_any_hint(mesh_name_hint, DOUBLE_SIDED_NAME_HINTS):
-		return true
-	if _contains_any_hint(geometry_name_hint, DOUBLE_SIDED_NAME_HINTS):
-		return true
-
-	if material != null:
-		var material_name_hint: String = material.resource_name.to_lower()
-		if _contains_any_hint(material_name_hint, DOUBLE_SIDED_MATERIAL_HINTS):
-			return true
-
-		if material is BaseMaterial3D:
-			var base_material: BaseMaterial3D = material
-			if base_material.transparency != BaseMaterial3D.TRANSPARENCY_DISABLED and (
-				mesh_name_hint.contains("lens") or mesh_name_hint.contains("glass") or
-				geometry_name_hint.contains("lens") or geometry_name_hint.contains("glass")
-			):
-				return true
-
-	if _looks_like_thin_plane(mesh_instance):
-		return true
-	return false
-
-func _has_mirrored_transform_in_hierarchy(node: Node3D) -> bool:
-	var current: Node = node
-	while current is Node3D:
-		var node3d: Node3D = current
-		if node3d.transform.basis.determinant() < 0.0:
-			return true
-		current = node3d.get_parent()
-	return false
-
-func _contains_any_hint(candidate: String, hints: Array[String]) -> bool:
-	if candidate.is_empty():
-		return false
-	for hint in hints:
-		if candidate.contains(hint):
-			return true
-	return false
-
-func _looks_like_thin_plane(mesh_instance: MeshInstance3D) -> bool:
-	if mesh_instance == null:
-		return false
-	var bounds: AABB = mesh_instance.get_aabb()
-	if bounds.size == Vector3.ZERO:
-		return false
-	var sx: float = abs(bounds.size.x)
-	var sy: float = abs(bounds.size.y)
-	var sz: float = abs(bounds.size.z)
-	var min_dim: float = min(sx, min(sy, sz))
-	var max_dim: float = max(sx, max(sy, sz))
-	if max_dim <= 0.0001:
-		return false
-	return min_dim <= max_dim * 0.04
-
-func _set_double_sided_surface_material(mesh_instance: MeshInstance3D, surface_index: int, active_material: Material) -> bool:
-	if mesh_instance == null:
-		return false
-	if active_material is BaseMaterial3D:
-		var source_material: BaseMaterial3D = active_material
-		if source_material.cull_mode == BaseMaterial3D.CULL_DISABLED:
-			return true
-		var override_material: BaseMaterial3D = source_material.duplicate(true)
-		override_material.cull_mode = BaseMaterial3D.CULL_DISABLED
-		mesh_instance.set_surface_override_material(surface_index, override_material)
-		return true
-
-	if active_material == null and mesh_instance.mesh != null:
-		var mesh_surface_material: Material = mesh_instance.mesh.surface_get_material(surface_index)
-		if mesh_surface_material is BaseMaterial3D:
-			var surface_source: BaseMaterial3D = mesh_surface_material
-			if surface_source.cull_mode == BaseMaterial3D.CULL_DISABLED:
-				return true
-			var surface_override: BaseMaterial3D = surface_source.duplicate(true)
-			surface_override.cull_mode = BaseMaterial3D.CULL_DISABLED
-			mesh_instance.set_surface_override_material(surface_index, surface_override)
-			return true
-	return false
 
 func _extract_visual_scale_hint(data: Dictionary) -> float:
 	if bool(data.get("has_basis", false)):
@@ -995,7 +855,6 @@ func _clear_scene() -> void:
 	_node_index.clear()
 	_asset_cache.clear()
 	_fixture_emissive_cache.clear()
-	_fixture_lens_material_cache.clear()
 	_fixture_emitter_light_cache.clear()
 	_fixture_emitter_photometrics.clear()
 	if _fixture_gobo_projector != null:
@@ -1424,14 +1283,6 @@ func _apply_dimmer_feedback_to_fixture(fixture_uuid: String, dimmer: float, cont
 	var normalized_dimmer: float = dimmer_percent / 100.0
 	var emitter_photometrics: Array = _get_fixture_emitter_photometrics(fixture_uuid)
 	var beam_color: Color = _resolve_fixture_beam_color(emitter_photometrics, controls)
-	var lens_nodes: Array = _to_node3d_array(_scene_registry.get_anchor(fixture_uuid, "lens"))
-	var has_explicit_lens_nodes: bool = not lens_nodes.is_empty()
-	if lens_nodes.is_empty():
-		lens_nodes = emitter_nodes
-	var lens_materials: Array = _collect_fixture_lens_materials(fixture_uuid, lens_nodes, has_explicit_lens_nodes)
-	_apply_lens_feedback_materials(lens_materials, beam_color, normalized_dimmer)
-	_apply_lens_feedback_to_nodes(lens_nodes, beam_color, normalized_dimmer)
-
 	var emissive_materials: Array = _collect_fixture_emissive_materials(fixture_uuid, geometry_nodes)
 	var energy_multiplier: float = lerp(0.0, 4.0, normalized_dimmer)
 	for material in emissive_materials:
@@ -1475,56 +1326,6 @@ func _collect_fixture_emitter_lights(fixture_uuid: String, emitter_nodes: Array)
 	_fixture_emitter_light_cache[fixture_uuid] = lights
 	return lights
 
-func _collect_fixture_lens_materials(fixture_uuid: String, emitter_nodes: Array, include_all_materials: bool = false) -> Array:
-	if _fixture_lens_material_cache.has(fixture_uuid):
-		return _fixture_lens_material_cache.get(fixture_uuid, [])
-
-	var materials: Array = []
-	for emitter_node in emitter_nodes:
-		_collect_lens_materials_recursive(emitter_node, materials, include_all_materials)
-	_fixture_lens_material_cache[fixture_uuid] = materials
-	return materials
-
-func _collect_lens_materials_recursive(node: Node3D, output_materials: Array, include_all_materials: bool = false) -> void:
-	if node == null:
-		return
-	if node is MeshInstance3D:
-		var mesh_instance: MeshInstance3D = node
-		for surface_index in range(mesh_instance.get_surface_override_material_count()):
-			var override_material: Material = mesh_instance.get_surface_override_material(surface_index)
-			_maybe_add_gdtf_lens_material(mesh_instance, override_material, output_materials, include_all_materials)
-		_maybe_add_gdtf_lens_material(mesh_instance, mesh_instance.material_override, output_materials, include_all_materials)
-		if mesh_instance.mesh != null:
-			for surface_index in range(mesh_instance.mesh.get_surface_count()):
-				var surface_material: Material = mesh_instance.mesh.surface_get_material(surface_index)
-				_maybe_add_gdtf_lens_material(mesh_instance, surface_material, output_materials, include_all_materials)
-
-	for child in node.get_children():
-		if child is Node3D:
-			_collect_lens_materials_recursive(child, output_materials, include_all_materials)
-
-func _maybe_add_gdtf_lens_material(mesh_instance: MeshInstance3D, material: Material, output_materials: Array, include_all_materials: bool = false) -> void:
-	if material == null or not (material is BaseMaterial3D):
-		return
-	if (not include_all_materials) and (not _is_gdtf_beam_lens_material(mesh_instance, material)):
-		return
-	if output_materials.has(material):
-		return
-	output_materials.append(material)
-
-func _is_gdtf_beam_lens_material(mesh_instance: MeshInstance3D, material: Material) -> bool:
-	# GDTF beam geometry is already represented by emitter anchors.
-	# Inside those anchors, lens surfaces are usually transparent or explicitly named lens/glass.
-	var name_hint: String = mesh_instance.name.to_lower()
-	if name_hint.contains("lens") or name_hint.contains("glass"):
-		return true
-	if material.resource_name.to_lower().contains("lens") or material.resource_name.to_lower().contains("glass"):
-		return true
-	if material is BaseMaterial3D:
-		var base_material: BaseMaterial3D = material
-		return base_material.transparency != BaseMaterial3D.TRANSPARENCY_DISABLED
-	return false
-
 func _resolve_fixture_beam_color(emitter_photometrics: Array, controls: Dictionary) -> Color:
 	if emitter_photometrics.is_empty():
 		return _derive_emitter_color(DEFAULT_EMITTER_PHOTOMETRICS, controls, BEAM_COLOR_TEMPERATURE_STRENGTH)
@@ -1540,66 +1341,6 @@ func _resolve_fixture_beam_color(emitter_photometrics: Array, controls: Dictiona
 		return _derive_emitter_color(DEFAULT_EMITTER_PHOTOMETRICS, controls, BEAM_COLOR_TEMPERATURE_STRENGTH)
 	var inverse_samples: float = 1.0 / float(samples)
 	return Color(accumulated_color.r * inverse_samples, accumulated_color.g * inverse_samples, accumulated_color.b * inverse_samples, 1.0)
-
-func _apply_lens_feedback_materials(lens_materials: Array, beam_color: Color, normalized_dimmer: float) -> void:
-	var dimmer_mix: float = clamp(normalized_dimmer, 0.0, 1.0)
-	for material in lens_materials:
-		if material is not BaseMaterial3D:
-			continue
-		_apply_lens_feedback_to_material(material as BaseMaterial3D, beam_color, dimmer_mix)
-
-func _apply_lens_feedback_to_nodes(lens_nodes: Array, beam_color: Color, normalized_dimmer: float) -> void:
-	var dimmer_mix: float = clamp(normalized_dimmer, 0.0, 1.0)
-	for lens_root in lens_nodes:
-		_apply_lens_feedback_to_node_recursive(lens_root, beam_color, dimmer_mix)
-
-func _apply_lens_feedback_to_node_recursive(node: Node3D, beam_color: Color, dimmer_mix: float) -> void:
-	if node == null:
-		return
-	if node is MeshInstance3D:
-		var mesh_instance: MeshInstance3D = node
-		if mesh_instance.mesh != null:
-			for surface_index in range(mesh_instance.mesh.get_surface_count()):
-				var current_material: Material = mesh_instance.get_active_material(surface_index)
-				var target_material: BaseMaterial3D = _ensure_lens_surface_material(mesh_instance, surface_index, current_material)
-				if target_material != null:
-					_apply_lens_feedback_to_material(target_material, beam_color, dimmer_mix)
-	for child in node.get_children():
-		if child is Node3D:
-			_apply_lens_feedback_to_node_recursive(child, beam_color, dimmer_mix)
-
-func _ensure_lens_surface_material(mesh_instance: MeshInstance3D, surface_index: int, source_material: Material) -> BaseMaterial3D:
-	if source_material is BaseMaterial3D:
-		return source_material
-	var existing_override: Material = mesh_instance.get_surface_override_material(surface_index)
-	if existing_override is BaseMaterial3D and bool(existing_override.get_meta("peraviz_lens_runtime_override", false)):
-		return existing_override
-	var runtime_material := StandardMaterial3D.new()
-	runtime_material.set_meta("peraviz_lens_runtime_override", true)
-	runtime_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	runtime_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	runtime_material.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
-	runtime_material.cull_mode = BaseMaterial3D.CULL_DISABLED
-	runtime_material.albedo_color = Color(LENS_TINT_COLOR.r, LENS_TINT_COLOR.g, LENS_TINT_COLOR.b, max(LENS_TINT_COLOR.a, 0.35))
-	runtime_material.emission_enabled = true
-	runtime_material.emission = Color.BLACK
-	runtime_material.emission_energy_multiplier = 0.0
-	mesh_instance.set_surface_override_material(surface_index, runtime_material)
-	return runtime_material
-
-func _apply_lens_feedback_to_material(lens_material: BaseMaterial3D, beam_color: Color, dimmer_mix: float) -> void:
-	lens_material.emission_enabled = true
-	lens_material.emission = beam_color
-	lens_material.emission_energy_multiplier = lerp(0.0, 4.5, dimmer_mix)
-	lens_material.disable_receive_shadows = true
-	lens_material.cull_mode = BaseMaterial3D.CULL_DISABLED
-	var alpha: float = lens_material.albedo_color.a
-	lens_material.albedo_color = Color(
-		lerp(LENS_TINT_COLOR.r, beam_color.r, dimmer_mix),
-		lerp(LENS_TINT_COLOR.g, beam_color.g, dimmer_mix),
-		lerp(LENS_TINT_COLOR.b, beam_color.b, dimmer_mix),
-		alpha
-	)
 
 func _find_or_create_emitter_light(emitter_node: Node3D) -> SpotLight3D:
 	var lens_radius: float = _estimate_emitter_lens_radius(emitter_node)
