@@ -19,11 +19,73 @@
 
 #include <array>
 #include <exception>
+#include <filesystem>
+#include <unordered_set>
 
 namespace layouts {
 namespace {
+namespace fs = std::filesystem;
+
 constexpr std::array<const char *, 7> kEventTableFieldKeys = {
     "venue", "location", "date", "stage", "version", "design", "mail"};
+
+constexpr int kFrameMinPosition = -200000;
+constexpr int kFrameMaxPosition = 200000;
+constexpr int kFrameMinSize = 0;
+constexpr int kFrameMaxSize = 200000;
+constexpr int kViewportMin = 0;
+constexpr int kViewportMax = 200000;
+constexpr int kCameraMinView = 0;
+constexpr int kCameraMaxView = 2;
+constexpr float kZoomMin = 0.01f;
+constexpr float kZoomMax = 1000.0f;
+constexpr float kColorMin = 0.0f;
+constexpr float kColorMax = 1.0f;
+constexpr float kFontSizeMin = 0.1f;
+constexpr float kFontSizeMax = 1000.0f;
+constexpr float kOffsetDistanceMin = -1000.0f;
+constexpr float kOffsetDistanceMax = 1000.0f;
+constexpr float kOffsetAngleMin = -3600.0f;
+constexpr float kOffsetAngleMax = 3600.0f;
+constexpr float kAspectRatioMin = 0.01f;
+constexpr float kAspectRatioMax = 100.0f;
+constexpr const char *kImagePathPolicy = "preserve_original_path";
+thread_local LayoutTemplateImportReport *g_activeImportReport = nullptr;
+
+struct ParseContext {
+  LayoutTemplateImportReport *report = nullptr;
+  std::string location;
+};
+
+void AddWarning(const ParseContext &ctx, const std::string &message) {
+  if (ctx.report == nullptr)
+    return;
+  if (ctx.location.empty()) {
+    ctx.report->warnings.push_back(message);
+    return;
+  }
+  ctx.report->warnings.push_back(ctx.location + ": " + message);
+}
+
+ParseContext ChildContext(const ParseContext &ctx, const std::string &suffix) {
+  if (ctx.location.empty())
+    return ParseContext{ctx.report, suffix};
+  return ParseContext{ctx.report, ctx.location + suffix};
+}
+
+template <typename T>
+T ClampValue(T value, T minValue, T maxValue, const ParseContext &ctx,
+             const char *fieldName) {
+  if (value < minValue) {
+    AddWarning(ctx, std::string("Clamped '") + fieldName + "' to minimum value.");
+    return minValue;
+  }
+  if (value > maxValue) {
+    AddWarning(ctx, std::string("Clamped '") + fieldName + "' to maximum value.");
+    return maxValue;
+  }
+  return value;
+}
 
 std::string PageSizeToString(print::PageSize size) {
   switch (size) {
@@ -145,10 +207,16 @@ nlohmann::json ToJson(const LayoutImageDefinition &image) {
 }
 
 void ReadBoolArray(const nlohmann::json &obj, const char *key,
-                   std::array<bool, 3> &out) {
+                   std::array<bool, 3> &out, const ParseContext &ctx) {
   auto it = obj.find(key);
-  if (it == obj.end() || !it->is_array())
+  if (it == obj.end())
     return;
+  if (!it->is_array()) {
+    AddWarning(ctx, std::string("Ignored '") + key + "' because it is not an array.");
+    return;
+  }
+  if (it->size() != out.size())
+    AddWarning(ctx, std::string("Expected '") + key + "' array size 3.");
 
   for (size_t idx = 0; idx < out.size() && idx < it->size(); ++idx) {
     const auto &entry = (*it)[idx];
@@ -158,49 +226,69 @@ void ReadBoolArray(const nlohmann::json &obj, const char *key,
 }
 
 void ReadFloatArray(const nlohmann::json &obj, const char *key,
-                    std::array<float, 3> &out) {
+                    std::array<float, 3> &out, float minValue,
+                    float maxValue, const ParseContext &ctx) {
   auto it = obj.find(key);
-  if (it == obj.end() || !it->is_array())
+  if (it == obj.end())
     return;
+  if (!it->is_array()) {
+    AddWarning(ctx, std::string("Ignored '") + key + "' because it is not an array.");
+    return;
+  }
+  if (it->size() != out.size())
+    AddWarning(ctx, std::string("Expected '") + key + "' array size 3.");
 
   for (size_t idx = 0; idx < out.size() && idx < it->size(); ++idx) {
     const auto &entry = (*it)[idx];
-    if (entry.is_number())
-      out[idx] = entry.get<float>();
+    if (entry.is_number()) {
+      out[idx] = ClampValue(entry.get<float>(), minValue, maxValue, ctx, key);
+    }
   }
 }
 
-void ReadFrame(const nlohmann::json &obj, Layout2DViewFrame &frame) {
+void ReadFrame(const nlohmann::json &obj, Layout2DViewFrame &frame,
+               const ParseContext &ctx) {
   if (auto it = obj.find("x"); it != obj.end() && it->is_number_integer())
-    frame.x = it->get<int>();
+    frame.x = ClampValue(it->get<int>(), kFrameMinPosition, kFrameMaxPosition,
+                         ctx, "frame.x");
   if (auto it = obj.find("y"); it != obj.end() && it->is_number_integer())
-    frame.y = it->get<int>();
+    frame.y = ClampValue(it->get<int>(), kFrameMinPosition, kFrameMaxPosition,
+                         ctx, "frame.y");
   if (auto it = obj.find("width"); it != obj.end() && it->is_number_integer())
-    frame.width = it->get<int>();
+    frame.width = ClampValue(it->get<int>(), kFrameMinSize, kFrameMaxSize, ctx,
+                             "frame.width");
   if (auto it = obj.find("height"); it != obj.end() && it->is_number_integer())
-    frame.height = it->get<int>();
+    frame.height = ClampValue(it->get<int>(), kFrameMinSize, kFrameMaxSize, ctx,
+                              "frame.height");
 }
 
-void ReadCamera(const nlohmann::json &obj, Layout2DViewCameraState &camera) {
+void ReadCamera(const nlohmann::json &obj, Layout2DViewCameraState &camera,
+                const ParseContext &ctx) {
   if (auto it = obj.find("offsetPixelsX"); it != obj.end() && it->is_number())
     camera.offsetPixelsX = it->get<float>();
   if (auto it = obj.find("offsetPixelsY"); it != obj.end() && it->is_number())
     camera.offsetPixelsY = it->get<float>();
   if (auto it = obj.find("zoom"); it != obj.end() && it->is_number())
-    camera.zoom = it->get<float>();
+    camera.zoom = ClampValue(it->get<float>(), kZoomMin, kZoomMax, ctx,
+                             "camera.zoom");
   if (auto it = obj.find("viewportWidth");
       it != obj.end() && it->is_number_integer())
-    camera.viewportWidth = it->get<int>();
+    camera.viewportWidth = ClampValue(it->get<int>(), kViewportMin,
+                                      kViewportMax, ctx, "camera.viewportWidth");
   if (auto it = obj.find("viewportHeight");
       it != obj.end() && it->is_number_integer())
-    camera.viewportHeight = it->get<int>();
-  if (auto it = obj.find("view"); it != obj.end() && it->is_number())
-    camera.view = it->get<int>();
+    camera.viewportHeight = ClampValue(it->get<int>(), kViewportMin,
+                                       kViewportMax, ctx,
+                                       "camera.viewportHeight");
+  if (auto it = obj.find("view"); it != obj.end() && it->is_number_integer())
+    camera.view = ClampValue(it->get<int>(), kCameraMinView, kCameraMaxView, ctx,
+                             "camera.view");
 }
 
 void ReadRenderOptions(const nlohmann::json &obj,
-                       Layout2DViewRenderOptions &options) {
-  if (auto it = obj.find("renderMode"); it != obj.end() && it->is_number())
+                       Layout2DViewRenderOptions &options,
+                       const ParseContext &ctx) {
+  if (auto it = obj.find("renderMode"); it != obj.end() && it->is_number_integer())
     options.renderMode = it->get<int>();
   if (auto it = obj.find("darkMode"); it != obj.end() && it->is_boolean())
     options.darkMode = it->get<bool>();
@@ -209,41 +297,67 @@ void ReadRenderOptions(const nlohmann::json &obj,
     options.forceBottomViewForTopFixtures = it->get<bool>();
   if (auto it = obj.find("showGrid"); it != obj.end() && it->is_boolean())
     options.showGrid = it->get<bool>();
-  if (auto it = obj.find("gridStyle"); it != obj.end() && it->is_number())
+  if (auto it = obj.find("gridStyle"); it != obj.end() && it->is_number_integer())
     options.gridStyle = it->get<int>();
   if (auto it = obj.find("gridColorR"); it != obj.end() && it->is_number())
-    options.gridColorR = it->get<float>();
+    options.gridColorR = ClampValue(it->get<float>(), kColorMin, kColorMax, ctx,
+                                    "renderOptions.gridColorR");
   if (auto it = obj.find("gridColorG"); it != obj.end() && it->is_number())
-    options.gridColorG = it->get<float>();
+    options.gridColorG = ClampValue(it->get<float>(), kColorMin, kColorMax, ctx,
+                                    "renderOptions.gridColorG");
   if (auto it = obj.find("gridColorB"); it != obj.end() && it->is_number())
-    options.gridColorB = it->get<float>();
+    options.gridColorB = ClampValue(it->get<float>(), kColorMin, kColorMax, ctx,
+                                    "renderOptions.gridColorB");
   if (auto it = obj.find("gridDrawAbove"); it != obj.end() && it->is_boolean())
     options.gridDrawAbove = it->get<bool>();
-  ReadBoolArray(obj, "showLabelName", options.showLabelName);
-  ReadBoolArray(obj, "showLabelId", options.showLabelId);
-  ReadBoolArray(obj, "showLabelDmx", options.showLabelDmx);
+
+  ReadBoolArray(obj, "showLabelName", options.showLabelName, ctx);
+  ReadBoolArray(obj, "showLabelId", options.showLabelId, ctx);
+  ReadBoolArray(obj, "showLabelDmx", options.showLabelDmx, ctx);
+
   if (auto it = obj.find("labelFontSizeName"); it != obj.end() && it->is_number())
-    options.labelFontSizeName = it->get<float>();
+    options.labelFontSizeName = ClampValue(it->get<float>(), kFontSizeMin,
+                                           kFontSizeMax, ctx,
+                                           "renderOptions.labelFontSizeName");
   if (auto it = obj.find("labelFontSizeId"); it != obj.end() && it->is_number())
-    options.labelFontSizeId = it->get<float>();
+    options.labelFontSizeId = ClampValue(it->get<float>(), kFontSizeMin,
+                                         kFontSizeMax, ctx,
+                                         "renderOptions.labelFontSizeId");
   if (auto it = obj.find("labelFontSizeDmx"); it != obj.end() && it->is_number())
-    options.labelFontSizeDmx = it->get<float>();
-  ReadFloatArray(obj, "labelOffsetDistance", options.labelOffsetDistance);
-  ReadFloatArray(obj, "labelOffsetAngle", options.labelOffsetAngle);
+    options.labelFontSizeDmx = ClampValue(it->get<float>(), kFontSizeMin,
+                                          kFontSizeMax, ctx,
+                                          "renderOptions.labelFontSizeDmx");
+
+  ReadFloatArray(obj, "labelOffsetDistance", options.labelOffsetDistance,
+                 kOffsetDistanceMin, kOffsetDistanceMax, ctx);
+  ReadFloatArray(obj, "labelOffsetAngle", options.labelOffsetAngle,
+                 kOffsetAngleMin, kOffsetAngleMax, ctx);
 }
 
-void ReadLayers(const nlohmann::json &obj, Layout2DViewLayers &layers) {
-  if (auto it = obj.find("hiddenLayers"); it != obj.end() && it->is_array()) {
+void ReadLayers(const nlohmann::json &obj, Layout2DViewLayers &layers,
+                const ParseContext &ctx) {
+  if (auto it = obj.find("hiddenLayers"); it != obj.end()) {
+    if (!it->is_array()) {
+      AddWarning(ctx, "Ignored 'hiddenLayers' because it is not an array.");
+      return;
+    }
+
     layers.hiddenLayers.clear();
+    std::unordered_set<std::string> dedupe;
     for (const auto &entry : *it) {
-      if (entry.is_string())
-        layers.hiddenLayers.push_back(entry.get<std::string>());
+      if (!entry.is_string())
+        continue;
+      std::string layerName = entry.get<std::string>();
+      if (layerName.empty())
+        continue;
+      if (dedupe.insert(layerName).second)
+        layers.hiddenLayers.push_back(std::move(layerName));
     }
   }
 }
 
-bool ParseLayout2DView(const nlohmann::json &value,
-                       Layout2DViewDefinition &out) {
+bool ParseLayout2DView(const nlohmann::json &value, Layout2DViewDefinition &out,
+                       const ParseContext &ctx) {
   if (!value.is_object())
     return false;
 
@@ -254,21 +368,24 @@ bool ParseLayout2DView(const nlohmann::json &value,
 
   auto frameIt = value.find("frame");
   if (frameIt != value.end() && frameIt->is_object())
-    ReadFrame(*frameIt, out.frame);
+    ReadFrame(*frameIt, out.frame, ctx);
+
   auto cameraIt = value.find("camera");
   if (cameraIt != value.end() && cameraIt->is_object())
-    ReadCamera(*cameraIt, out.camera);
+    ReadCamera(*cameraIt, out.camera, ctx);
+
   auto renderIt = value.find("renderOptions");
   if (renderIt != value.end() && renderIt->is_object())
-    ReadRenderOptions(*renderIt, out.renderOptions);
+    ReadRenderOptions(*renderIt, out.renderOptions, ctx);
+
   auto layersIt = value.find("layers");
   if (layersIt != value.end() && layersIt->is_object())
-    ReadLayers(*layersIt, out.layers);
+    ReadLayers(*layersIt, out.layers, ctx);
   return true;
 }
 
-bool ParseLayoutLegend(const nlohmann::json &value,
-                       LayoutLegendDefinition &out) {
+bool ParseLayoutLegend(const nlohmann::json &value, LayoutLegendDefinition &out,
+                       const ParseContext &ctx) {
   if (!value.is_object())
     return false;
 
@@ -278,7 +395,7 @@ bool ParseLayoutLegend(const nlohmann::json &value,
     out.zIndex = zIt->get<int>();
   auto frameIt = value.find("frame");
   if (frameIt != value.end() && frameIt->is_object())
-    ReadFrame(*frameIt, out.frame);
+    ReadFrame(*frameIt, out.frame, ctx);
   return true;
 }
 
@@ -295,7 +412,8 @@ void ReadEventTableFields(const nlohmann::json &obj,
 }
 
 bool ParseLayoutEventTable(const nlohmann::json &value,
-                           LayoutEventTableDefinition &out) {
+                           LayoutEventTableDefinition &out,
+                           const ParseContext &ctx) {
   if (!value.is_object())
     return false;
 
@@ -305,14 +423,15 @@ bool ParseLayoutEventTable(const nlohmann::json &value,
     out.zIndex = zIt->get<int>();
   auto frameIt = value.find("frame");
   if (frameIt != value.end() && frameIt->is_object())
-    ReadFrame(*frameIt, out.frame);
+    ReadFrame(*frameIt, out.frame, ctx);
   auto fieldsIt = value.find("fields");
   if (fieldsIt != value.end())
     ReadEventTableFields(*fieldsIt, out.fields);
   return true;
 }
 
-bool ParseLayoutText(const nlohmann::json &value, LayoutTextDefinition &out) {
+bool ParseLayoutText(const nlohmann::json &value, LayoutTextDefinition &out,
+                     const ParseContext &ctx) {
   if (!value.is_object())
     return false;
 
@@ -322,7 +441,7 @@ bool ParseLayoutText(const nlohmann::json &value, LayoutTextDefinition &out) {
     out.zIndex = zIt->get<int>();
   auto frameIt = value.find("frame");
   if (frameIt != value.end() && frameIt->is_object())
-    ReadFrame(*frameIt, out.frame);
+    ReadFrame(*frameIt, out.frame, ctx);
   if (auto textIt = value.find("text"); textIt != value.end() && textIt->is_string())
     out.text = textIt->get<std::string>();
   if (auto richIt = value.find("richText"); richIt != value.end() && richIt->is_string())
@@ -336,7 +455,8 @@ bool ParseLayoutText(const nlohmann::json &value, LayoutTextDefinition &out) {
   return true;
 }
 
-bool ParseLayoutImage(const nlohmann::json &value, LayoutImageDefinition &out) {
+bool ParseLayoutImage(const nlohmann::json &value, LayoutImageDefinition &out,
+                      const ParseContext &ctx) {
   if (!value.is_object())
     return false;
 
@@ -346,16 +466,21 @@ bool ParseLayoutImage(const nlohmann::json &value, LayoutImageDefinition &out) {
     out.zIndex = zIt->get<int>();
   auto frameIt = value.find("frame");
   if (frameIt != value.end() && frameIt->is_object())
-    ReadFrame(*frameIt, out.frame);
-  if (auto pathIt = value.find("path"); pathIt != value.end() && pathIt->is_string())
+    ReadFrame(*frameIt, out.frame, ctx);
+  if (auto pathIt = value.find("path"); pathIt != value.end() && pathIt->is_string()) {
     out.imagePath = pathIt->get<std::string>();
+    if (!out.imagePath.empty() && !fs::exists(fs::path(out.imagePath)))
+      AddWarning(ctx, "Image path does not exist. Path kept as-is by policy.");
+  }
   if (auto ratioIt = value.find("aspectRatio");
       ratioIt != value.end() && ratioIt->is_number())
-    out.aspectRatio = ratioIt->get<float>();
+    out.aspectRatio = ClampValue(ratioIt->get<float>(), kAspectRatioMin,
+                                 kAspectRatioMax, ctx, "image.aspectRatio");
   return true;
 }
 
-bool ParseLegacySingleView(const nlohmann::json &value, LayoutDefinition &out) {
+bool ParseLegacySingleView(const nlohmann::json &value, LayoutDefinition &out,
+                           const ParseContext &ctx) {
   const auto viewStateIt = value.find("view2dState");
   if (viewStateIt == value.end() || !viewStateIt->is_object())
     return true;
@@ -366,8 +491,8 @@ bool ParseLegacySingleView(const nlohmann::json &value, LayoutDefinition &out) {
   Layout2DViewRenderOptions options;
   Layout2DViewLayers layers;
 
-  ReadCamera(viewObj, camera);
-  ReadRenderOptions(viewObj, options);
+  ReadCamera(viewObj, camera, ChildContext(ctx, ".view2dState"));
+  ReadRenderOptions(viewObj, options, ChildContext(ctx, ".view2dState"));
 
   if (auto it = viewObj.find("hiddenLayers"); it != viewObj.end() && it->is_array()) {
     for (const auto &entry : *it) {
@@ -378,10 +503,12 @@ bool ParseLegacySingleView(const nlohmann::json &value, LayoutDefinition &out) {
 
   Layout2DViewFrame frame;
   if (auto it = viewObj.find("frameWidth"); it != viewObj.end() && it->is_number_integer())
-    frame.width = it->get<int>();
+    frame.width = ClampValue(it->get<int>(), kFrameMinSize, kFrameMaxSize, ctx,
+                             "view2dState.frameWidth");
   if (auto it = viewObj.find("frameHeight");
       it != viewObj.end() && it->is_number_integer())
-    frame.height = it->get<int>();
+    frame.height = ClampValue(it->get<int>(), kFrameMinSize, kFrameMaxSize, ctx,
+                              "view2dState.frameHeight");
 
   view.frame = frame;
   view.camera = camera;
@@ -391,12 +518,63 @@ bool ParseLegacySingleView(const nlohmann::json &value, LayoutDefinition &out) {
   return true;
 }
 
+template <typename T, typename ParseFn>
+void ParseElementArray(const nlohmann::json &layoutValue, const char *key,
+                       std::vector<T> &target,
+                       LayoutTemplateImportReport::ElementStats *stats,
+                       bool &hasZIndex, const ParseContext &ctx,
+                       ParseFn parseFn) {
+  target.clear();
+  auto entriesIt = layoutValue.find(key);
+  if (entriesIt == layoutValue.end())
+    return;
+  if (!entriesIt->is_array()) {
+    AddWarning(ctx, std::string("Ignored '") + key + "' because it is not an array.");
+    return;
+  }
+
+  for (size_t idx = 0; idx < entriesIt->size(); ++idx) {
+    const auto &entry = (*entriesIt)[idx];
+    ParseContext entryCtx = ChildContext(ctx, std::string(".") + key + "[" +
+                                                  std::to_string(idx) + "]");
+    if (entry.is_object() && entry.find("zIndex") != entry.end())
+      hasZIndex = true;
+
+    T element;
+    if (!parseFn(entry, element, entryCtx)) {
+      if (stats != nullptr)
+        ++stats->skipped;
+      AddWarning(entryCtx, "Skipped element because it is not a valid object.");
+      continue;
+    }
+
+    if (stats != nullptr)
+      ++stats->imported;
+
+    bool replaced = false;
+    if (element.id > 0) {
+      for (auto &existing : target) {
+        if (existing.id == element.id) {
+          existing = element;
+          replaced = true;
+          break;
+        }
+      }
+    }
+    if (!replaced)
+      target.push_back(std::move(element));
+  }
+}
+
 } // namespace
 
 nlohmann::json ToJson(const LayoutDefinition &layout) {
   nlohmann::json data{{"name", layout.name},
-                      {"pageSize", PageSizeToString(layout.pageSetup.pageSize)},
-                      {"landscape", layout.pageSetup.landscape}};
+                      {"pageSetup",
+                       {{"pageSize", PageSizeToString(layout.pageSetup.pageSize)},
+                        {"landscape", layout.pageSetup.landscape}}},
+                      {"resources",
+                       {{"imagePathPolicy", kImagePathPolicy}}}};
 
   if (!layout.view2dViews.empty()) {
     data["view2dViews"] = nlohmann::json::array();
@@ -449,146 +627,49 @@ bool FromJson(const nlohmann::json &value, LayoutDefinition &out,
       return false;
     }
 
-    const auto sizeIt = value.find("pageSize");
-    out.pageSetup.pageSize =
-        (sizeIt != value.end() && sizeIt->is_string())
-            ? PageSizeFromString(sizeIt->get<std::string>())
-            : print::PageSize::A4;
+    if (const auto pageSetupIt = value.find("pageSetup");
+        pageSetupIt != value.end() && pageSetupIt->is_object()) {
+      const auto sizeIt = pageSetupIt->find("pageSize");
+      if (sizeIt != pageSetupIt->end() && sizeIt->is_string())
+        out.pageSetup.pageSize = PageSizeFromString(sizeIt->get<std::string>());
+      else
+        out.pageSetup.pageSize = print::PageSize::A4;
 
-    const auto landscapeIt = value.find("landscape");
-    out.pageSetup.landscape =
-        landscapeIt != value.end() && landscapeIt->is_boolean()
-            ? landscapeIt->get<bool>()
-            : false;
+      const auto landscapeIt = pageSetupIt->find("landscape");
+      out.pageSetup.landscape =
+          landscapeIt != pageSetupIt->end() && landscapeIt->is_boolean()
+              ? landscapeIt->get<bool>()
+              : false;
+    } else {
+      const auto sizeIt = value.find("pageSize");
+      out.pageSetup.pageSize =
+          (sizeIt != value.end() && sizeIt->is_string())
+              ? PageSizeFromString(sizeIt->get<std::string>())
+              : print::PageSize::A4;
 
-    out.view2dViews.clear();
+      const auto landscapeIt = value.find("landscape");
+      out.pageSetup.landscape =
+          landscapeIt != value.end() && landscapeIt->is_boolean()
+              ? landscapeIt->get<bool>()
+              : false;
+    }
+
     bool hasZIndex = false;
-    if (auto viewsIt = value.find("view2dViews");
-        viewsIt != value.end() && viewsIt->is_array()) {
-      for (const auto &entry : *viewsIt) {
-        if (entry.is_object() && entry.find("zIndex") != entry.end())
-          hasZIndex = true;
-        Layout2DViewDefinition view;
-        if (!ParseLayout2DView(entry, view))
-          continue;
+    ParseContext rootCtx{g_activeImportReport, "layout[" + out.name + "]"};
 
-        bool replaced = false;
-        if (view.id > 0) {
-          for (auto &existing : out.view2dViews) {
-            if (existing.id == view.id) {
-              existing = view;
-              replaced = true;
-              break;
-            }
-          }
-        }
-        if (!replaced)
-          out.view2dViews.push_back(std::move(view));
-      }
-    }
-
-    out.legendViews.clear();
-    if (auto legendsIt = value.find("legendViews");
-        legendsIt != value.end() && legendsIt->is_array()) {
-      for (const auto &entry : *legendsIt) {
-        if (entry.is_object() && entry.find("zIndex") != entry.end())
-          hasZIndex = true;
-        LayoutLegendDefinition legend;
-        if (!ParseLayoutLegend(entry, legend))
-          continue;
-
-        bool replaced = false;
-        if (legend.id > 0) {
-          for (auto &existing : out.legendViews) {
-            if (existing.id == legend.id) {
-              existing = legend;
-              replaced = true;
-              break;
-            }
-          }
-        }
-        if (!replaced)
-          out.legendViews.push_back(std::move(legend));
-      }
-    }
-
-    out.eventTables.clear();
-    if (auto tablesIt = value.find("eventTables");
-        tablesIt != value.end() && tablesIt->is_array()) {
-      for (const auto &entry : *tablesIt) {
-        if (entry.is_object() && entry.find("zIndex") != entry.end())
-          hasZIndex = true;
-        LayoutEventTableDefinition table;
-        if (!ParseLayoutEventTable(entry, table))
-          continue;
-
-        bool replaced = false;
-        if (table.id > 0) {
-          for (auto &existing : out.eventTables) {
-            if (existing.id == table.id) {
-              existing = table;
-              replaced = true;
-              break;
-            }
-          }
-        }
-        if (!replaced)
-          out.eventTables.push_back(std::move(table));
-      }
-    }
-
-    out.textViews.clear();
-    if (auto textsIt = value.find("textViews");
-        textsIt != value.end() && textsIt->is_array()) {
-      for (const auto &entry : *textsIt) {
-        if (entry.is_object() && entry.find("zIndex") != entry.end())
-          hasZIndex = true;
-        LayoutTextDefinition text;
-        if (!ParseLayoutText(entry, text))
-          continue;
-
-        bool replaced = false;
-        if (text.id > 0) {
-          for (auto &existing : out.textViews) {
-            if (existing.id == text.id) {
-              existing = text;
-              replaced = true;
-              break;
-            }
-          }
-        }
-        if (!replaced)
-          out.textViews.push_back(std::move(text));
-      }
-    }
-
-    out.imageViews.clear();
-    if (auto imagesIt = value.find("imageViews");
-        imagesIt != value.end() && imagesIt->is_array()) {
-      for (const auto &entry : *imagesIt) {
-        if (entry.is_object() && entry.find("zIndex") != entry.end())
-          hasZIndex = true;
-        LayoutImageDefinition image;
-        if (!ParseLayoutImage(entry, image))
-          continue;
-
-        bool replaced = false;
-        if (image.id > 0) {
-          for (auto &existing : out.imageViews) {
-            if (existing.id == image.id) {
-              existing = image;
-              replaced = true;
-              break;
-            }
-          }
-        }
-        if (!replaced)
-          out.imageViews.push_back(std::move(image));
-      }
-    }
+    ParseElementArray(value, "view2dViews", out.view2dViews, nullptr, hasZIndex,
+                      rootCtx, ParseLayout2DView);
+    ParseElementArray(value, "legendViews", out.legendViews, nullptr, hasZIndex,
+                      rootCtx, ParseLayoutLegend);
+    ParseElementArray(value, "eventTables", out.eventTables, nullptr, hasZIndex,
+                      rootCtx, ParseLayoutEventTable);
+    ParseElementArray(value, "textViews", out.textViews, nullptr, hasZIndex,
+                      rootCtx, ParseLayoutText);
+    ParseElementArray(value, "imageViews", out.imageViews, nullptr, hasZIndex,
+                      rootCtx, ParseLayoutImage);
 
     if (out.view2dViews.empty()) {
-      if (!ParseLegacySingleView(value, out)) {
+      if (!ParseLegacySingleView(value, out, rootCtx)) {
         if (error != nullptr)
           *error = "Failed to parse legacy 2D view state.";
         return false;
@@ -623,11 +704,13 @@ nlohmann::json ToTemplateDocument(const std::vector<LayoutDefinition> &layouts) 
     serializedLayouts.push_back(ToJson(layout));
 
   return {{"schemaVersion", kLayoutTemplateSchemaVersion},
-          {"layouts", std::move(serializedLayouts)}};
+          {"layouts", std::move(serializedLayouts)},
+          {"resources", {{"imagePathPolicy", kImagePathPolicy}}}};
 }
 
 bool FromTemplateDocument(const nlohmann::json &value,
                           std::vector<LayoutDefinition> &layouts,
+                          LayoutTemplateImportReport *report,
                           std::string *error) {
   try {
     const nlohmann::json *layoutArray = nullptr;
@@ -639,27 +722,42 @@ bool FromTemplateDocument(const nlohmann::json &value,
           (!schemaIt->is_number_integer() || schemaIt->get<int>() < 1)) {
         if (error != nullptr)
           *error = "Invalid schemaVersion in layout template document.";
+        if (report != nullptr)
+          report->errors.push_back(*error);
         return false;
       }
       auto layoutsIt = value.find("layouts");
       if (layoutsIt == value.end() || !layoutsIt->is_array()) {
         if (error != nullptr)
           *error = "Layout template document must contain a 'layouts' array.";
+        if (report != nullptr)
+          report->errors.push_back(*error);
         return false;
       }
       layoutArray = &(*layoutsIt);
     } else {
       if (error != nullptr)
         *error = "Layout template document must be an object or array.";
+      if (report != nullptr)
+        report->errors.push_back(*error);
       return false;
     }
 
     std::vector<LayoutDefinition> loaded;
-    for (const auto &entry : *layoutArray) {
+    LayoutTemplateImportReport *previousReport = g_activeImportReport;
+    g_activeImportReport = report;
+    for (size_t idx = 0; idx < layoutArray->size(); ++idx) {
+      const auto &entry = (*layoutArray)[idx];
       LayoutDefinition layout;
       std::string layoutError;
-      if (!FromJson(entry, layout, &layoutError))
+      if (!FromJson(entry, layout, &layoutError)) {
+        if (report != nullptr) {
+          ++report->layouts.skipped;
+          report->errors.push_back("layouts[" + std::to_string(idx) + "]: " +
+                                   layoutError);
+        }
         continue;
+      }
 
       bool duplicate = false;
       for (const auto &existing : loaded) {
@@ -668,17 +766,43 @@ bool FromTemplateDocument(const nlohmann::json &value,
           break;
         }
       }
-      if (!duplicate)
-        loaded.push_back(std::move(layout));
+      if (duplicate) {
+        if (report != nullptr) {
+          ++report->layouts.skipped;
+          report->warnings.push_back("layouts[" + std::to_string(idx) +
+                                     "]: Duplicate layout name skipped.");
+        }
+        continue;
+      }
+
+      if (report != nullptr) {
+        ++report->layouts.imported;
+        report->view2dViews.imported += static_cast<int>(layout.view2dViews.size());
+        report->legendViews.imported += static_cast<int>(layout.legendViews.size());
+        report->eventTables.imported += static_cast<int>(layout.eventTables.size());
+        report->textViews.imported += static_cast<int>(layout.textViews.size());
+        report->imageViews.imported += static_cast<int>(layout.imageViews.size());
+      }
+      loaded.push_back(std::move(layout));
     }
 
     layouts = std::move(loaded);
+    g_activeImportReport = previousReport;
     return true;
   } catch (const std::exception &ex) {
+    g_activeImportReport = nullptr;
     if (error != nullptr)
       *error = ex.what();
+    if (report != nullptr)
+      report->errors.push_back(*error);
     return false;
   }
+}
+
+bool FromTemplateDocument(const nlohmann::json &value,
+                          std::vector<LayoutDefinition> &layouts,
+                          std::string *error) {
+  return FromTemplateDocument(value, layouts, nullptr, error);
 }
 
 } // namespace layouts
