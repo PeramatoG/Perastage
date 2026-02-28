@@ -168,3 +168,30 @@ rg -n "PeravizCoordDebug|PeravizBaseline|PeravizNative|PeravizCoordDebugLegend" 
 ```
 
 This produces a concise trace to verify scale, axis remap, handedness declaration, beam local reference, and per-node transform mapping.
+
+
+## 7) 3DS mesh winding correction and mirrored transforms
+
+Peraviz applies two winding safeguards for `.3ds` assets (mesh import path only):
+
+1. **Axis/unit conversion before winding checks**
+   - Positions are converted from mm to m and remapped `(x, y, z) -> (x, z, -y)`.
+   - Normals are remapped with the same axis conversion.
+
+2. **Outward-winding correction in native loader**
+   - The 3DS loader computes a centroid-based orientation score.
+   - For each triangle it accumulates an area-weighted signed term using:
+     - triangle normal (`cross(edge1, edge2)`),
+     - triangle centroid offset from the mesh centroid,
+     - and normal length as weight.
+   - If the score is negative, triangle indices are flipped (`i1 <-> i2`) and vertex normals are negated.
+
+3. **Negative determinant compensation in Godot mesh build**
+   - `_build_3ds_mesh()` checks mirrored transforms via hierarchy determinant (`basis.determinant() < 0`).
+   - For mirrored instances, indices and normals are flipped again so front faces remain outward after transform.
+
+4. **Double-sided material policy**
+   - Double-sided culling is now reserved for thin/translucent candidates (for example `lens` / `glass` hints, thin-plane geometry).
+   - Mirrored-transform detection is not used as a blanket trigger for disabling culling.
+
+GLB/glTF scene import path is intentionally unchanged by this logic.

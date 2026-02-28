@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <fstream>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace {
@@ -25,6 +26,102 @@ struct MeshData {
     std::vector<uint32_t> indices;
     std::vector<float> normals;
 };
+
+float dot3(float ax, float ay, float az, float bx, float by, float bz) {
+    return ax * bx + ay * by + az * bz;
+}
+
+void cross3(float ax, float ay, float az, float bx, float by, float bz, float &rx, float &ry,
+            float &rz) {
+    rx = ay * bz - az * by;
+    ry = az * bx - ax * bz;
+    rz = ax * by - ay * bx;
+}
+
+// Ensures triangle winding points away from the mesh centroid after Godot axis mapping.
+// The score is area-weighted by triangle normal length and signed by the direction from the
+// global centroid to each triangle centroid. A negative score means most faces are inward.
+void ensure_outward_winding(std::vector<float> &vertices,
+                            std::vector<uint32_t> &indices,
+                            std::vector<float> &normals) {
+    const size_t vertex_count = vertices.size() / 3;
+    if (vertex_count == 0 || indices.size() < 3) {
+        return;
+    }
+
+    float centroid_x = 0.0F;
+    float centroid_y = 0.0F;
+    float centroid_z = 0.0F;
+    for (size_t i = 0; i < vertex_count; ++i) {
+        centroid_x += vertices[i * 3];
+        centroid_y += vertices[i * 3 + 1];
+        centroid_z += vertices[i * 3 + 2];
+    }
+    const float inv_vertex_count = 1.0F / static_cast<float>(vertex_count);
+    centroid_x *= inv_vertex_count;
+    centroid_y *= inv_vertex_count;
+    centroid_z *= inv_vertex_count;
+
+    double orientation_score = 0.0;
+    for (size_t i = 0; i + 2 < indices.size(); i += 3) {
+        const uint32_t i0 = indices[i];
+        const uint32_t i1 = indices[i + 1];
+        const uint32_t i2 = indices[i + 2];
+        if (i0 >= vertex_count || i1 >= vertex_count || i2 >= vertex_count) {
+            continue;
+        }
+
+        const float v0x = vertices[i0 * 3];
+        const float v0y = vertices[i0 * 3 + 1];
+        const float v0z = vertices[i0 * 3 + 2];
+        const float v1x = vertices[i1 * 3];
+        const float v1y = vertices[i1 * 3 + 1];
+        const float v1z = vertices[i1 * 3 + 2];
+        const float v2x = vertices[i2 * 3];
+        const float v2y = vertices[i2 * 3 + 1];
+        const float v2z = vertices[i2 * 3 + 2];
+
+        const float e1x = v1x - v0x;
+        const float e1y = v1y - v0y;
+        const float e1z = v1z - v0z;
+        const float e2x = v2x - v0x;
+        const float e2y = v2y - v0y;
+        const float e2z = v2z - v0z;
+
+        float nx = 0.0F;
+        float ny = 0.0F;
+        float nz = 0.0F;
+        cross3(e1x, e1y, e1z, e2x, e2y, e2z, nx, ny, nz);
+
+        const float normal_len = std::sqrt(nx * nx + ny * ny + nz * nz);
+        if (normal_len <= 1e-8F) {
+            continue;
+        }
+
+        const float tri_center_x = (v0x + v1x + v2x) / 3.0F;
+        const float tri_center_y = (v0y + v1y + v2y) / 3.0F;
+        const float tri_center_z = (v0z + v1z + v2z) / 3.0F;
+
+        const float cx = tri_center_x - centroid_x;
+        const float cy = tri_center_y - centroid_y;
+        const float cz = tri_center_z - centroid_z;
+        const float signed_term = dot3(nx, ny, nz, cx, cy, cz);
+        orientation_score += static_cast<double>(signed_term) * static_cast<double>(normal_len);
+    }
+
+    if (orientation_score >= 0.0) {
+        return;
+    }
+
+    for (size_t i = 0; i + 2 < indices.size(); i += 3) {
+        std::swap(indices[i + 1], indices[i + 2]);
+    }
+    for (size_t i = 0; i + 2 < normals.size(); i += 3) {
+        normals[i] = -normals[i];
+        normals[i + 1] = -normals[i + 1];
+        normals[i + 2] = -normals[i + 2];
+    }
+}
 
 bool read_chunk(std::ifstream &file, Chunk &chunk) {
     if (!file.read(reinterpret_cast<char *>(&chunk.id), sizeof(chunk.id))) {
@@ -234,26 +331,44 @@ bool load_3ds_mesh_data(const godot::String &path,
         return false;
     }
 
-    out_vertices.resize(static_cast<int64_t>(mesh.vertices.size() / 3));
-    for (int64_t i = 0; i < out_vertices.size(); ++i) {
+    std::vector<float> mapped_vertices(mesh.vertices.size());
+    for (size_t i = 0; i < mesh.vertices.size() / 3; ++i) {
         const std::array<float, 3> source_vertex = {
             mesh.vertices[i * 3] * kMillimetersToMeters,
             mesh.vertices[i * 3 + 1] * kMillimetersToMeters,
             mesh.vertices[i * 3 + 2] * kMillimetersToMeters,
         };
         const auto mapped = coordinate_mapper::map_source_vector_to_godot(source_vertex);
-        out_vertices.set(i, godot::Vector3(mapped[0], mapped[1], mapped[2]));
+        mapped_vertices[i * 3] = mapped[0];
+        mapped_vertices[i * 3 + 1] = mapped[1];
+        mapped_vertices[i * 3 + 2] = mapped[2];
     }
 
-    out_normals.resize(static_cast<int64_t>(mesh.normals.size() / 3));
-    for (int64_t i = 0; i < out_normals.size(); ++i) {
+    std::vector<float> mapped_normals(mesh.normals.size());
+    for (size_t i = 0; i < mesh.normals.size() / 3; ++i) {
         const std::array<float, 3> source_normal = {
             mesh.normals[i * 3],
             mesh.normals[i * 3 + 1],
             mesh.normals[i * 3 + 2],
         };
         const auto mapped = coordinate_mapper::map_source_vector_to_godot(source_normal);
-        out_normals.set(i, godot::Vector3(mapped[0], mapped[1], mapped[2]));
+        mapped_normals[i * 3] = mapped[0];
+        mapped_normals[i * 3 + 1] = mapped[1];
+        mapped_normals[i * 3 + 2] = mapped[2];
+    }
+
+    ensure_outward_winding(mapped_vertices, mesh.indices, mapped_normals);
+
+    out_vertices.resize(static_cast<int64_t>(mapped_vertices.size() / 3));
+    for (int64_t i = 0; i < out_vertices.size(); ++i) {
+        out_vertices.set(i, godot::Vector3(mapped_vertices[i * 3], mapped_vertices[i * 3 + 1],
+                                           mapped_vertices[i * 3 + 2]));
+    }
+
+    out_normals.resize(static_cast<int64_t>(mapped_normals.size() / 3));
+    for (int64_t i = 0; i < out_normals.size(); ++i) {
+        out_normals.set(i, godot::Vector3(mapped_normals[i * 3], mapped_normals[i * 3 + 1],
+                                          mapped_normals[i * 3 + 2]));
     }
 
     out_indices.resize(static_cast<int64_t>(mesh.indices.size()));

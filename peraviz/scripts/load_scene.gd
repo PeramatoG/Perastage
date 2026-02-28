@@ -630,7 +630,7 @@ func _create_scene_node(data: Dictionary) -> Node3D:
 		root.add_child(emitter)
 
 	var visual_scale_hint: float = _extract_visual_scale_hint(data)
-	var model_node: Node3D = _build_visual_node(data, item_type, item_class, is_fixture, visual_scale_hint)
+	var model_node: Node3D = _build_visual_node(data, item_type, item_class, is_fixture, visual_scale_hint, root)
 	if model_node != null:
 		root.add_child(model_node)
 		if item_type == "fixture_geometry":
@@ -662,11 +662,11 @@ func _reparent_fixture_visual_children(geometry_node: Node3D, model_root: Node3D
 	if moved_any_child:
 		model_root.queue_free()
 
-func _build_visual_node(data: Dictionary, item_type: String, item_class: String, is_fixture: bool, visual_scale_hint: float) -> Node3D:
+func _build_visual_node(data: Dictionary, item_type: String, item_class: String, is_fixture: bool, visual_scale_hint: float, owner_node: Node3D) -> Node3D:
 	var asset_path: String = str(data.get("asset_path", ""))
 	var asset_kind: String = _extract_asset_kind(data, asset_path)
 	if not asset_path.is_empty():
-		var loaded: Variant = _load_3d_asset(asset_path, asset_kind)
+		var loaded: Variant = _load_3d_asset(asset_path, asset_kind, owner_node)
 		if loaded is Node3D:
 			var loaded_node: Node3D = loaded
 			_apply_selective_double_sided_to_candidates(loaded_node, data)
@@ -726,9 +726,6 @@ func _should_enable_double_sided(mesh_instance: MeshInstance3D, material: Materi
 
 	var source_type: String = str(source_data.get("type", "")).to_lower()
 	if source_type == "fixture_geometry":
-		return true
-
-	if _has_mirrored_transform_in_hierarchy(mesh_instance):
 		return true
 
 	var mesh_name_hint: String = mesh_instance.name.to_lower()
@@ -825,7 +822,7 @@ func _extract_visual_scale_hint(data: Dictionary) -> float:
 		return 1.0
 	return max(average_scale, 0.0001)
 
-func _load_3d_asset(asset_path: String, asset_kind_hint: String = "") -> Variant:
+func _load_3d_asset(asset_path: String, asset_kind_hint: String = "", owner_node: Node3D = null) -> Variant:
 	var resolved_asset_kind: String = asset_kind_hint.to_lower()
 	if resolved_asset_kind.is_empty() or resolved_asset_kind == "none":
 		resolved_asset_kind = _infer_asset_kind_from_extension(asset_path)
@@ -842,7 +839,7 @@ func _load_3d_asset(asset_path: String, asset_kind_hint: String = "") -> Variant
 		if not bool(mesh_data.get("ok", false)):
 			_asset_cache.mark_failed(asset_path)
 			return null
-		var mesh: ArrayMesh = _build_3ds_mesh(mesh_data)
+		var mesh: ArrayMesh = _build_3ds_mesh(mesh_data, owner_node)
 		if mesh == null:
 			_asset_cache.mark_failed(asset_path)
 			return null
@@ -908,12 +905,22 @@ func _infer_asset_kind_from_extension(asset_path: String) -> String:
 	return "none"
 
 
-func _build_3ds_mesh(mesh_data: Dictionary) -> ArrayMesh:
+func _build_3ds_mesh(mesh_data: Dictionary, owner_node: Node3D = null) -> ArrayMesh:
 	var vertices: PackedVector3Array = mesh_data.get("vertices", PackedVector3Array())
 	var normals: PackedVector3Array = mesh_data.get("normals", PackedVector3Array())
 	var indices: PackedInt32Array = mesh_data.get("indices", PackedInt32Array())
 	if vertices.is_empty() or indices.is_empty():
 		return null
+
+	## Mirror compensation: a negative determinant reverses front-face winding.
+	var is_mirrored: bool = owner_node != null and _has_mirrored_transform_in_hierarchy(owner_node)
+	if is_mirrored:
+		_flip_triangles_and_normals(indices, normals)
+
+	## Safety-net heuristic for malformed assets that still look inward after primary fixes.
+	if _looks_inside_out(vertices, indices, 128):
+		push_warning("[Peraviz] 3DS mesh still appears inward after initial winding fixes; applying fallback flip")
+		_flip_triangles_and_normals(indices, normals)
 
 	var arrays: Array = []
 	arrays.resize(Mesh.ARRAY_MAX)
@@ -924,6 +931,56 @@ func _build_3ds_mesh(mesh_data: Dictionary) -> ArrayMesh:
 	var array_mesh := ArrayMesh.new()
 	array_mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
 	return array_mesh
+
+
+# Reverses triangle winding and flips normals to keep lighting consistent.
+func _flip_triangles_and_normals(indices: PackedInt32Array, normals: PackedVector3Array) -> void:
+	var triangle_count: int = indices.size() / 3
+	for triangle_idx in range(triangle_count):
+		var base: int = triangle_idx * 3
+		var i1: int = indices[base + 1]
+		indices[base + 1] = indices[base + 2]
+		indices[base + 2] = i1
+
+	for normal_idx in range(normals.size()):
+		normals[normal_idx] = -normals[normal_idx]
+
+
+# Samples triangles and checks whether normals generally point toward the mesh centroid.
+func _looks_inside_out(vertices: PackedVector3Array, indices: PackedInt32Array, max_triangles: int) -> bool:
+	if vertices.is_empty() or indices.size() < 3:
+		return false
+
+	var centroid := Vector3.ZERO
+	for v in vertices:
+		centroid += v
+	centroid /= float(vertices.size())
+
+	var orientation_score: float = 0.0
+	var triangle_count: int = indices.size() / 3
+	var step: int = max(1, int(ceil(float(triangle_count) / float(max(1, max_triangles)))))
+	for triangle_idx in range(0, triangle_count, step):
+		var base: int = triangle_idx * 3
+		var i0: int = indices[base]
+		var i1: int = indices[base + 1]
+		var i2: int = indices[base + 2]
+		if i0 < 0 or i1 < 0 or i2 < 0:
+			continue
+		if i0 >= vertices.size() or i1 >= vertices.size() or i2 >= vertices.size():
+			continue
+
+		var v0: Vector3 = vertices[i0]
+		var v1: Vector3 = vertices[i1]
+		var v2: Vector3 = vertices[i2]
+		var normal: Vector3 = (v1 - v0).cross(v2 - v0)
+		var normal_len: float = normal.length()
+		if normal_len <= 1e-7:
+			continue
+
+		var triangle_center: Vector3 = (v0 + v1 + v2) / 3.0
+		orientation_score += normal.dot(triangle_center - centroid) * normal_len
+
+	return orientation_score < 0.0
 
 
 func _create_dummy_mesh(is_fixture: bool, visual_scale_hint: float) -> Node3D:
