@@ -96,7 +96,10 @@ bool TryBuildPerastageSvgSymbolDefinition(const std::string &gdtfPath,
       includePoint(point);
   }
   const double anchorX = hasBounds ? (minX + maxX) * 0.5 : 0.0;
-  const double anchorY = hasBounds ? (minY + maxY) * 0.5 : 0.0;
+  const bool useTopHangAnchor =
+      viewKind == SymbolViewKind::Front || viewKind == SymbolViewKind::Side;
+  const double anchorY =
+      hasBounds ? (useTopHangAnchor ? maxY : (minY + maxY) * 0.5) : 0.0;
 
   out = SymbolDefinition{};
   out.symbolId = symbolId;
