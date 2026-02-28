@@ -75,7 +75,8 @@ endfunction()
 
 set(LAYOUT_SOURCES
     ../core/layouts/LayoutManager.cpp
-    ../core/layouts/LayoutCollection.cpp)
+    ../core/layouts/LayoutCollection.cpp
+    ../core/layouts/LayoutTemplateSerializer.cpp)
 
 if(TARGET podofo::podofo)
     add_executable(pdf_text_test pdf_text_test.cpp ../core/pdftext.cpp)
