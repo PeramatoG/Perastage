@@ -1,7 +1,7 @@
 extends RefCounted
 class_name FixtureGoboProjector
 
-const FAKE_GOBO_TEXTURE_SIZE: int = 128
+const FAKE_GOBO_TEXTURE_SIZE: int = 512
 const GOBO_TEXTURE_META_KEY: String = "peraviz_gobo_texture"
 const GOBO_MODE_META_KEY: String = "peraviz_gobo_projection_mode"
 

@@ -56,3 +56,10 @@ If the footprint looks correct on the floor but the beam in air looks too soft, 
 - `SpotLight3D.light_volumetric_fog_energy`: values around `3.0-4.0` help the fog beam read clearly without overexposing the floor footprint.
 
 Peraviz now applies those shadow-cookie defaults when gobos are active in `shadow_cookie` mode, while keeping them user-tunable from Visual Settings.
+
+
+### Scale and resolution notes
+
+- Yes: scene scale directly affects how sharp the shadow-cookie appears in fog. If fixture/lens transforms are much larger or smaller than expected meters, the occluder can sample too few shadow texels and look diffuse.
+- Shadow-cookie sharpness depends strongly on positional shadow atlas resolution and gobo mask resolution. Peraviz now uses higher runtime gobo mask resolution and higher positional shadow atlas defaults to reduce line artifacts.
+- If you still see square fog borders, it is usually volumetric fog froxel resolution. Increase volumetric fog quality settings (`volume_size`, filtering) and reduce additive mesh beam intensity so native fog shadowing dominates.

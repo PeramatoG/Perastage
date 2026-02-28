@@ -39,8 +39,8 @@ func configure(view_camera: Camera3D, settings: Dictionary) -> void:
 func ensure_beam(light: SpotLight3D) -> void:
 	if not light.has_meta(BEAM_META_KEY):
 		var cone_mesh := CylinderMesh.new()
-		cone_mesh.radial_segments = 48
-		cone_mesh.rings = 12
+		cone_mesh.radial_segments = 96
+		cone_mesh.rings = 24
 		cone_mesh.top_radius = 0.02
 		cone_mesh.bottom_radius = 0.8
 		cone_mesh.height = 8.0
