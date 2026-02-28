@@ -211,6 +211,20 @@ bool DrawPerastageSvgInFixturePass(const PerastageSvgSymbolData &svg, float fill
   glPopMatrix();
   return true;
 }
+
+void CancelFixtureRotationForLayoutSvg(const Matrix &fixtureTransform,
+                                       Viewer2DView view) {
+  if (view != Viewer2DView::Front && view != Viewer2DView::Side)
+    return;
+
+  float inverseRotation[16] = {
+      fixtureTransform.u[0], fixtureTransform.v[0], fixtureTransform.w[0], 0.0f,
+      fixtureTransform.u[1], fixtureTransform.v[1], fixtureTransform.w[1], 0.0f,
+      fixtureTransform.u[2], fixtureTransform.v[2], fixtureTransform.w[2], 0.0f,
+      0.0f,                 0.0f,                 0.0f,                 1.0f,
+  };
+  glMultMatrixf(inverseRotation);
+}
 } // namespace
 
 void OpaqueFixturePass::Render(
@@ -348,6 +362,7 @@ void OpaqueFixturePass::Render(
         }
         if (!cacheIt->second.has_value())
           continue;
+        CancelFixtureRotationForLayoutSvg(f.transform, context.view);
         renderedPerastageSvg = DrawPerastageSvgInFixturePass(
             cacheIt->second.value(), r, g, b);
         if (renderedPerastageSvg)
