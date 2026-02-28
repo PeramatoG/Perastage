@@ -44,3 +44,15 @@ Use it only when intentionally testing projector behavior.
 - For malformed/missing media, a temporary fake gobo texture can be generated for DMX/debug validation.
 - When multiple gobo wheels are active, Peraviz composes them into a single mask texture by multiplying wheel masks.
 - Compatibility renderer (`gl_compatibility`) can produce different or limited results; Forward+ is recommended.
+
+
+## Hard beam troubleshooting (in-air gobo visibility)
+
+If the footprint looks correct on the floor but the beam in air looks too soft, these values are the main drivers:
+
+- `SpotLight3D.spot_attenuation`: lower values (around `0.5`) produce a tighter/harder beam edge, similar to the #11987 sample.
+- `SpotLight3D.shadow_blur`: keep low (`~0.1`) for crisp cookie edges in volumetric fog.
+- `WorldEnvironment.volumetric_fog_density`: values around `0.02` make the in-air pattern much more legible than very low fog density.
+- `SpotLight3D.light_volumetric_fog_energy`: values around `3.0-4.0` help the fog beam read clearly without overexposing the floor footprint.
+
+Peraviz now applies those shadow-cookie defaults when gobos are active in `shadow_cookie` mode, while keeping them user-tunable from Visual Settings.

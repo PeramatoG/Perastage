@@ -61,8 +61,8 @@ var _visual_settings := {
 	"beam_anisotropy": 0.62,
 	"beam_noise_amount": 0.06,
 	"beam_noise_scale": 1.4,
-	"volumetric_fog_density": 0.01,
-	"light_volumetric_fog_energy": 1.0,
+	"volumetric_fog_density": 0.02,
+	"light_volumetric_fog_energy": 3.5,
 	"gobo_scale_ratio": 1.0,
 	"gobo_debug_show_occluder": false,
 	"gobo_debug_log_parameters": false,
@@ -131,8 +131,13 @@ const EMITTER_LIGHT_MAX_FOOTPRINT_RADIUS_M: float = EMITTER_CONE_MAX_BASE_RADIUS
 const EMITTER_LIGHT_MIN_EFFECTIVE_RANGE_M: float = 0.75
 const EMITTER_BEAM_LENGTH_SCALE: float = 3.0
 const EMITTER_LIGHT_FOOTPRINT_RANGE_MULTIPLIER: float = 1.0
-const EMITTER_LIGHT_SPOT_ATTENUATION_FLOOR: float = 1.5
-const EMITTER_LIGHT_SPOT_ATTENUATION_CEIL: float = 0.9
+const EMITTER_LIGHT_SPOT_ATTENUATION_MIN: float = 0.0669
+const EMITTER_LIGHT_SPOT_ATTENUATION_MAX: float = 1.5
+const GOBO_SHADOW_COOKIE_BEAM_ATTENUATION: float = 0.5
+const GOBO_SHADOW_COOKIE_SHADOW_BIAS: float = 0.015
+const GOBO_SHADOW_COOKIE_SHADOW_NORMAL_BIAS: float = 0.4
+const GOBO_SHADOW_COOKIE_SHADOW_BLUR: float = 0.1
+const GOBO_SHADOW_COOKIE_MESH_BEAM_INTENSITY_MULTIPLIER: float = 0.22
 const EMITTER_CONE_FADE_END_RATIO: float = 0.82
 const EMITTER_CONE_NEAR_ALPHA: float = 0.16
 const EMITTER_CONE_FAR_ALPHA: float = 0.004
@@ -1557,7 +1562,7 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 	# Godot 4.2 SpotLight3D.spot_angle behaves as cone half-angle in degrees.
 	# Keep zoom/beam limits as full GDTF aperture, and convert here for light projection.
 	light.spot_angle = beam_half_angle_deg
-	light.spot_attenuation = clamp(beam_angle / field_angle, EMITTER_LIGHT_SPOT_ATTENUATION_FLOOR, EMITTER_LIGHT_SPOT_ATTENUATION_CEIL)
+	var spot_attenuation: float = clamp(beam_angle / max(field_angle, 0.1), EMITTER_LIGHT_SPOT_ATTENUATION_MIN, EMITTER_LIGHT_SPOT_ATTENUATION_MAX)
 	var beam_slope: float = tan(deg_to_rad(beam_half_angle_deg))
 	var nominal_spot_range: float = beam_radius_m * EMITTER_LIGHT_RANGE_BEAM_RADIUS_MULTIPLIER * EMITTER_BEAM_LENGTH_SCALE
 	var max_spot_range_from_footprint: float = EMITTER_LIGHT_MAX_RANGE_M
@@ -1570,6 +1575,15 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 	if bool(controls.get("has_gobo", false)):
 		# Sample-like fallback for gobo readability: keep spotlight range in a tight zoom-linked window.
 		light.spot_range = remap(clamp(beam_angle, 6.0, 50.0), 6.0, 50.0, 60.0, 30.0)
+	var gobo_projection_mode: String = str(_visual_settings.get("gobo_projection_mode", "shadow_cookie"))
+	var use_shadow_cookie_gobo: bool = bool(controls.get("has_gobo", false)) and gobo_projection_mode == "shadow_cookie"
+	if use_shadow_cookie_gobo:
+		# Match the #11987 reference setup: tighter angle attenuation + sharp shadows improve in-air beam definition.
+		spot_attenuation = min(spot_attenuation, GOBO_SHADOW_COOKIE_BEAM_ATTENUATION)
+		light.shadow_bias = GOBO_SHADOW_COOKIE_SHADOW_BIAS
+		light.shadow_normal_bias = GOBO_SHADOW_COOKIE_SHADOW_NORMAL_BIAS
+		light.shadow_blur = GOBO_SHADOW_COOKIE_SHADOW_BLUR
+	light.spot_attenuation = spot_attenuation
 	light.light_color = _derive_emitter_color(photometric, controls)
 	var beam_color: Color = _derive_emitter_color(photometric, controls, BEAM_COLOR_TEMPERATURE_STRENGTH)
 	var beam_radius_from_gdtf: bool = bool(photometric.get("beam_radius_from_gdtf", false))
@@ -1590,6 +1604,10 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 		"intensity_visibility_threshold": BEAM_INTENSITY_VISIBILITY_THRESHOLD,
 		"distance_cull_m": BEAM_DISTANCE_CULL_M,
 	}
+	if use_shadow_cookie_gobo:
+		# Let native volumetric fog carry most of the hard-edged cookie shape.
+		beam_params["scaled_intensity"] = float(beam_params.get("scaled_intensity", 0.0)) * GOBO_SHADOW_COOKIE_MESH_BEAM_INTENSITY_MULTIPLIER
+
 	var gobo_changed: bool = false
 	if _fixture_gobo_projector != null:
 		var gobo_controls: Dictionary = controls.duplicate(true)
