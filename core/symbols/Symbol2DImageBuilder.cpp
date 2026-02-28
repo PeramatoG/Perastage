@@ -313,6 +313,27 @@ std::vector<PolygonWithHoles2D> ExtractFillPolygons(const PixelMask &fillMask) {
     infos[i].ownerOuter = owner;
   }
 
+  bool anyOuter = false;
+  for (const auto& info : infos) {
+      if (info.isOuter) {
+          anyOuter = true;
+          break;
+      }
+  }
+
+  // Fallback: if nesting classification produced no outer loops, treat the largest
+  // loop as outer. This avoids losing fill when probe-point classification fails.
+  if (!anyOuter && !infos.empty()) {
+      size_t best = 0;
+      for (size_t k = 1; k < infos.size(); ++k) {
+          if (infos[k].areaAbs > infos[best].areaAbs)
+              best = k;
+      }
+      infos[best].isOuter = true;
+      infos[best].ownerOuter = -1;
+      infos[best].depth = 0;
+  }
+
   std::unordered_map<int, int> outerMap;
   for (size_t i = 0; i < infos.size(); ++i) {
     if (!infos[i].isOuter)
