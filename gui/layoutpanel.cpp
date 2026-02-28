@@ -20,6 +20,7 @@
 #include "columnutils.h"
 #include "LayoutManager.h"
 #include <wx/choicdlg.h>
+#include <wx/filedlg.h>
 
 LayoutPanel *LayoutPanel::s_instance = nullptr;
 wxDEFINE_EVENT(EVT_LAYOUT_SELECTED, wxCommandEvent);
@@ -37,9 +38,15 @@ LayoutPanel::LayoutPanel(wxWindow *parent) : wxPanel(parent, wxID_ANY) {
   auto *addBtn = new wxButton(this, wxID_ADD, "Add");
   auto *renameBtn = new wxButton(this, wxID_EDIT, "Rename");
   auto *delBtn = new wxButton(this, wxID_DELETE, "Delete");
+  auto *exportTemplateBtn =
+      new wxButton(this, wxID_ANY, "Export template");
+  auto *importTemplateBtn =
+      new wxButton(this, wxID_ANY, "Import template");
   btnSizer->Add(addBtn, 0, wxALL, 5);
   btnSizer->Add(renameBtn, 0, wxALL, 5);
   btnSizer->Add(delBtn, 0, wxALL, 5);
+  btnSizer->Add(exportTemplateBtn, 0, wxALL, 5);
+  btnSizer->Add(importTemplateBtn, 0, wxALL, 5);
   sizer->Add(btnSizer, 0, wxALIGN_LEFT);
 
   SetSizer(sizer);
@@ -51,6 +58,10 @@ LayoutPanel::LayoutPanel(wxWindow *parent) : wxPanel(parent, wxID_ANY) {
   addBtn->Bind(wxEVT_BUTTON, &LayoutPanel::OnAddLayout, this);
   renameBtn->Bind(wxEVT_BUTTON, &LayoutPanel::OnRenameLayout, this);
   delBtn->Bind(wxEVT_BUTTON, &LayoutPanel::OnDeleteLayout, this);
+  exportTemplateBtn->Bind(wxEVT_BUTTON,
+                          &LayoutPanel::OnExportLayoutTemplate, this);
+  importTemplateBtn->Bind(wxEVT_BUTTON,
+                          &LayoutPanel::OnImportLayoutTemplate, this);
 
   ReloadLayouts();
 }
@@ -252,6 +263,55 @@ void LayoutPanel::OnDeleteLayout(wxCommandEvent &) {
   if (layoutName == currentLayout)
     currentLayout.clear();
   ReloadLayouts();
+}
+
+void LayoutPanel::OnExportLayoutTemplate(wxCommandEvent &) {
+  if (!list)
+    return;
+
+  const int sel = list->GetSelectedRow();
+  if (sel == wxNOT_FOUND)
+    return;
+
+  const wxString selectedName = list->GetTextValue(sel, 0);
+  wxFileDialog saveDialog(this, "Export layout template", wxEmptyString,
+                          selectedName + ".json",
+                          "JSON files (*.json)|*.json",
+                          wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
+  if (saveDialog.ShowModal() != wxID_OK)
+    return;
+
+  std::string error;
+  if (!layouts::LayoutManager::Get().ExportLayoutTemplate(
+          selectedName.ToStdString(), saveDialog.GetPath().ToStdString(),
+          &error)) {
+    wxMessageBox("Could not export layout template.\n" +
+                     wxString::FromUTF8(error),
+                 "Export template", wxOK | wxICON_ERROR, this);
+    return;
+  }
+}
+
+void LayoutPanel::OnImportLayoutTemplate(wxCommandEvent &) {
+  wxFileDialog openDialog(this, "Import layout template", wxEmptyString,
+                          wxEmptyString, "JSON files (*.json)|*.json",
+                          wxFD_OPEN | wxFD_FILE_MUST_EXIST);
+  if (openDialog.ShowModal() != wxID_OK)
+    return;
+
+  std::string importedLayoutName;
+  std::string error;
+  if (!layouts::LayoutManager::Get().ImportLayoutTemplate(
+          openDialog.GetPath().ToStdString(), &importedLayoutName, &error)) {
+    wxMessageBox("Could not import layout template.\n" +
+                     wxString::FromUTF8(error),
+                 "Import template", wxOK | wxICON_ERROR, this);
+    return;
+  }
+
+  currentLayout = importedLayoutName;
+  ReloadLayouts();
+  EmitLayoutSelected(importedLayoutName);
 }
 
 void LayoutPanel::EmitLayoutSelected(const std::string &layoutName) {

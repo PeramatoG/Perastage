@@ -22,6 +22,8 @@
 #include "json.hpp"
 
 #include <algorithm>
+#include <fstream>
+#include <iterator>
 #include <unordered_set>
 
 namespace layouts {
@@ -294,6 +296,92 @@ bool LayoutManager::MoveLayoutImage(const std::string &name, int imageId,
   return true;
 }
 
+bool LayoutManager::ExportLayoutTemplate(const std::string &name,
+                                         const std::string &filePath,
+                                         std::string *error) const {
+  const auto &items = layouts.Items();
+  auto it = std::find_if(items.begin(), items.end(),
+                         [&name](const LayoutDefinition &layout) {
+                           return layout.name == name;
+                         });
+  if (it == items.end()) {
+    if (error)
+      *error = "Layout not found.";
+    return false;
+  }
+
+  std::ofstream out(filePath, std::ios::binary);
+  if (!out.is_open()) {
+    if (error)
+      *error = "Could not open destination file.";
+    return false;
+  }
+
+  const nlohmann::json doc = ToTemplateDocument({*it});
+  out << doc.dump(2);
+  if (!out.good()) {
+    if (error)
+      *error = "Could not write template file.";
+    return false;
+  }
+
+  return true;
+}
+
+bool LayoutManager::ImportLayoutTemplate(const std::string &filePath,
+                                         std::string *importedLayoutName,
+                                         std::string *error) {
+  std::ifstream in(filePath, std::ios::binary);
+  if (!in.is_open()) {
+    if (error)
+      *error = "Could not open template file.";
+    return false;
+  }
+
+  const std::string fileContent((std::istreambuf_iterator<char>(in)),
+                                std::istreambuf_iterator<char>());
+  nlohmann::json parsed;
+  try {
+    parsed = nlohmann::json::parse(fileContent);
+  } catch (const std::exception &ex) {
+    if (error)
+      *error = ex.what();
+    return false;
+  }
+
+  std::vector<LayoutDefinition> loaded;
+  std::string parseError;
+  if (!FromTemplateDocument(parsed, loaded, &parseError)) {
+    if (error)
+      *error = parseError;
+    return false;
+  }
+  if (loaded.empty()) {
+    if (error)
+      *error = "Template does not contain any layouts.";
+    return false;
+  }
+
+  LayoutDefinition imported = loaded.front();
+  EnsureUniqueViewIds(imported);
+  EnsureUniqueLegendIds(imported);
+  EnsureUniqueEventTableIds(imported);
+  EnsureUniqueTextIds(imported);
+  EnsureUniqueImageIds(imported);
+  imported.name = MakeUniqueLayoutName(imported.name);
+
+  if (!layouts.AddLayout(imported)) {
+    if (error)
+      *error = "Could not add imported layout.";
+    return false;
+  }
+
+  if (importedLayoutName)
+    *importedLayoutName = imported.name;
+  SyncToConfig();
+  return true;
+}
+
 void LayoutManager::BeginBatchUpdate() { ++batchDepth; }
 
 void LayoutManager::EndBatchUpdate() {
@@ -350,6 +438,27 @@ void LayoutManager::SyncToConfig() {
   }
   pendingSync = false;
   SaveToConfig(ConfigManager::Get());
+}
+
+std::string LayoutManager::MakeUniqueLayoutName(
+    const std::string &baseName) const {
+  const std::string safeBase = baseName.empty() ? "Layout" : baseName;
+  std::string candidate = safeBase;
+  int suffix = 2;
+
+  const auto &items = layouts.Items();
+  auto exists = [&items](const std::string &name) {
+    return std::any_of(items.begin(), items.end(),
+                       [&name](const LayoutDefinition &layout) {
+                         return layout.name == name;
+                       });
+  };
+
+  while (exists(candidate)) {
+    candidate = safeBase + " (" + std::to_string(suffix) + ")";
+    ++suffix;
+  }
+  return candidate;
 }
 
 } // namespace layouts

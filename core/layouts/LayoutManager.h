@@ -54,6 +54,12 @@ public:
                          const LayoutImageDefinition &image);
   bool RemoveLayoutImage(const std::string &name, int imageId);
   bool MoveLayoutImage(const std::string &name, int imageId, bool toFront);
+  bool ExportLayoutTemplate(const std::string &name,
+                            const std::string &filePath,
+                            std::string *error) const;
+  bool ImportLayoutTemplate(const std::string &filePath,
+                            std::string *importedLayoutName,
+                            std::string *error);
 
   void BeginBatchUpdate();
   void EndBatchUpdate();
@@ -64,6 +70,7 @@ public:
 
 private:
   LayoutManager();
+  std::string MakeUniqueLayoutName(const std::string &baseName) const;
   void SyncToConfig();
 
   LayoutCollection layouts;

@@ -36,6 +36,8 @@ private:
   void OnAddLayout(wxCommandEvent &evt);
   void OnRenameLayout(wxCommandEvent &evt);
   void OnDeleteLayout(wxCommandEvent &evt);
+  void OnExportLayoutTemplate(wxCommandEvent &evt);
+  void OnImportLayoutTemplate(wxCommandEvent &evt);
   void EmitLayoutSelected(const std::string &layoutName);
 
   wxDataViewListCtrl *list = nullptr;
