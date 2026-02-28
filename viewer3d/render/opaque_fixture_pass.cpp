@@ -192,7 +192,10 @@ bool DrawPerastageSvgInFixturePass(const PerastageSvgSymbolData &svg,
   }
 
   const double anchorX = hasBounds ? (minX + maxX) * 0.5 : 0.0;
-  const double anchorY = hasBounds ? (minY + maxY) * 0.5 : 0.0;
+  const bool useTopHangAnchor =
+      view == Viewer2DView::Front || view == Viewer2DView::Side;
+  const double anchorY =
+      hasBounds ? (useTopHangAnchor ? maxY : (minY + maxY) * 0.5) : 0.0;
 
   glPushMatrix();
   glScalef(RENDER_SCALE, RENDER_SCALE, RENDER_SCALE);
