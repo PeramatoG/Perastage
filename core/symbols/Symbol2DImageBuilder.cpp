@@ -326,8 +326,18 @@ std::vector<PolygonWithHoles2D> ExtractFillPolygons(const PixelMask &fillMask) {
       continue;
 
     int owner = infos[i].ownerOuter;
-    while (owner >= 0 && !infos[static_cast<size_t>(owner)].isOuter)
-      owner = infos[static_cast<size_t>(owner)].ownerOuter;
+    int safety = 0;
+    while (owner >= 0 && !infos[static_cast<size_t>(owner)].isOuter) {
+        const int next = infos[static_cast<size_t>(owner)].ownerOuter;
+
+        // Guard against cyclic ownership chains caused by degenerate polygon nesting.
+        if (next == owner || ++safety > static_cast<int>(infos.size())) {
+            owner = -1;
+            break;
+        }
+
+        owner = next;
+    }
     auto ownerIt = outerMap.find(owner);
     if (ownerIt != outerMap.end())
       result[static_cast<size_t>(ownerIt->second)].holes.push_back(infos[i].polygon);
