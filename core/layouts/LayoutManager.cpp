@@ -329,7 +329,8 @@ bool LayoutManager::ExportLayoutTemplate(const std::string &name,
 }
 
 bool LayoutManager::ImportLayoutTemplate(const std::string &filePath,
-                                         std::string *importedLayoutName,
+                                         const std::string &preferredName,
+                                         std::string *createdLayoutName,
                                          std::string *error) {
   std::ifstream in(filePath, std::ios::binary);
   if (!in.is_open()) {
@@ -368,17 +369,18 @@ bool LayoutManager::ImportLayoutTemplate(const std::string &filePath,
   EnsureUniqueEventTableIds(imported);
   EnsureUniqueTextIds(imported);
   EnsureUniqueImageIds(imported);
+  if (!preferredName.empty())
+    imported.name = preferredName;
   imported.name = MakeUniqueLayoutName(imported.name);
 
-  if (!layouts.AddLayout(imported)) {
+  if (!AddLayout(imported)) {
     if (error)
       *error = "Could not add imported layout.";
     return false;
   }
 
-  if (importedLayoutName)
-    *importedLayoutName = imported.name;
-  SyncToConfig();
+  if (createdLayoutName)
+    *createdLayoutName = imported.name;
   return true;
 }
 

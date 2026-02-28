@@ -58,7 +58,8 @@ public:
                             const std::string &filePath,
                             std::string *error) const;
   bool ImportLayoutTemplate(const std::string &filePath,
-                            std::string *importedLayoutName,
+                            const std::string &preferredName,
+                            std::string *createdLayoutName,
                             std::string *error);
 
   void BeginBatchUpdate();

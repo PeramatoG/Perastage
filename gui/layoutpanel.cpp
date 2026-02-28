@@ -302,7 +302,8 @@ void LayoutPanel::OnImportLayoutTemplate(wxCommandEvent &) {
   std::string importedLayoutName;
   std::string error;
   if (!layouts::LayoutManager::Get().ImportLayoutTemplate(
-          openDialog.GetPath().ToStdString(), &importedLayoutName, &error)) {
+          openDialog.GetPath().ToStdString(), std::string(),
+          &importedLayoutName, &error)) {
     wxMessageBox("Could not import layout template.\n" +
                      wxString::FromUTF8(error),
                  "Import template", wxOK | wxICON_ERROR, this);
