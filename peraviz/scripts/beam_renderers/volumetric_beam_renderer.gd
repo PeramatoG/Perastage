@@ -10,7 +10,9 @@ const VOLUMETRIC_INTENSITY_SCALE: float = 0.75
 const GOBO_OCCLUDER_DISTANCE_M: float = 0.043
 const GOBO_PLANE_BASE_SIZE_M: float = 0.017
 const GOBO_FOOTPRINT_CONE_FILL_RATIO: float = 1.0
-const GOBO_COOKIE_OVERSCAN_RATIO: float = 1.12
+const GOBO_COOKIE_OVERSCAN_RATIO: float = 1.05
+const GOBO_PLANE_MIN_SIZE_M: float = 0.012
+const GOBO_PLANE_MIN_LENS_MULTIPLIER: float = 1.35
 const GOBO_DEBUG_MATERIAL_COLOR: Color = Color(0.1, 0.9, 0.2, 0.3)
 const GOBO_DEBUG_LOG_THROTTLE_MS: int = 400
 
@@ -184,9 +186,16 @@ func _update_gobo_occluder(light: SpotLight3D, cone: MeshInstance3D, gobo_occlud
 	var gobo_scale_ratio: float = max(float(_settings.get("gobo_scale_ratio", 1.0)), 0.001)
 	var cone_diameter_at_occluder: float = _compute_cone_diameter_at_occluder(beam_angle)
 	var footprint_plane_size: float = cone_diameter_at_occluder * GOBO_FOOTPRINT_CONE_FILL_RATIO
+	var cone_mesh: CylinderMesh = cone.mesh as CylinderMesh
+	var lens_diameter_hint: float = GOBO_PLANE_MIN_SIZE_M
+	if cone_mesh != null:
+		lens_diameter_hint = max(cone_mesh.top_radius * 2.0 * GOBO_PLANE_MIN_LENS_MULTIPLIER, GOBO_PLANE_MIN_SIZE_M)
+	# Keep a minimum occluder size for tight zoom angles. Tiny quads lose effective shadow-map
+	# coverage and collapse to an untextured circular beam when bias/PCF filtering dominates.
+	var minimum_plane_size: float = max(GOBO_PLANE_MIN_SIZE_M, lens_diameter_hint)
 	# Slight overscan avoids having the cone boundary and cookie boundary collide exactly,
 	# which reduces checker/dither-like borders in volumetric fog froxels.
-	var gobo_plane_size_world: float = max(footprint_plane_size * gobo_scale_ratio * GOBO_COOKIE_OVERSCAN_RATIO, 0.001)
+	var gobo_plane_size_world: float = max(footprint_plane_size * gobo_scale_ratio * GOBO_COOKIE_OVERSCAN_RATIO, minimum_plane_size)
 	var footprint_scale: float = max(gobo_plane_size_world / GOBO_PLANE_BASE_SIZE_M, 0.001)
 	gobo_occluder.scale = Vector3(footprint_scale, footprint_scale, 1.0)
 	gobo_occluder.position = Vector3(0.0, 0.0, -GOBO_OCCLUDER_DISTANCE_M)

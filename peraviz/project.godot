@@ -29,6 +29,6 @@ rendering_device/driver.windows="d3d12"
 
 rendering/lights_and_shadows/positional_shadow/atlas_size=4096
 rendering/environment/volumetric_fog/volume_size=256
-rendering/environment/volumetric_fog/volume_depth=192
+rendering/environment/volumetric_fog/volume_depth=128
 rendering/environment/volumetric_fog/temporal_reprojection_enabled=true
 rendering/environment/volumetric_fog/use_filter=true
