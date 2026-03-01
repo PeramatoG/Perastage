@@ -90,15 +90,6 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 			gobo_occluder.visible = false
 		return
 
-	if prefer_native_shadow_cookie:
-		# Keep native volumetric visibility independent from additive beam-mesh intensity threshold.
-		# In shadow-cookie mode the real SpotLight volumetric contribution must remain active.
-		if gobo_occluder == null:
-			return
-		cone.visible = false
-		_update_gobo_occluder(light, cone, gobo_occluder, beam_angle, beam_range, false)
-		return
-
 	if intensity <= threshold:
 		cone.visible = false
 		if gobo_occluder != null:
@@ -117,6 +108,12 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 				gobo_occluder.visible = false
 			return
 
+	# In native shadow-cookie mode keep a subtle non-gobo mesh cone only for beam readability,
+	# while cookie patterning in air still comes from SpotLight shadows in volumetric fog.
+	var mesh_intensity: float = intensity
+	if prefer_native_shadow_cookie:
+		mesh_intensity = max(intensity * 0.35, threshold * 1.1)
+
 	var half_angle_deg: float = beam_angle * 0.5
 	var tan_half_angle: float = tan(deg_to_rad(half_angle_deg))
 	var radius: float = tan_half_angle * beam_range
@@ -129,14 +126,14 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	cone.position = Vector3(0.0, 0.0, -beam_range * 0.5)
 	cone.visible = true
 
-	var intensity_alpha: float = clamp(intensity * VOLUMETRIC_INTENSITY_SCALE, 0.0, 1.0)
+	var intensity_alpha: float = clamp(mesh_intensity * VOLUMETRIC_INTENSITY_SCALE, 0.0, 1.0)
 	cone.set_instance_shader_parameter("base_color", Color(beam_color.r, beam_color.g, beam_color.b, intensity_alpha))
-	cone.set_instance_shader_parameter("max_brightness", lerp(1.0, 10.0, intensity))
+	cone.set_instance_shader_parameter("max_brightness", lerp(1.0, 10.0, mesh_intensity))
 	cone.set_instance_shader_parameter("beam_top_radius", max(lens_radius, 0.003))
 	cone.set_instance_shader_parameter("beam_bottom_radius", bottom_radius)
 	cone.set_instance_shader_parameter("beam_height", beam_range)
 
-	_update_gobo_occluder(light, cone, gobo_occluder, beam_angle, beam_range)
+	_update_gobo_occluder(light, cone, gobo_occluder, beam_angle, beam_range, not prefer_native_shadow_cookie)
 
 func _compute_cone_diameter_at_occluder(beam_angle: float) -> float:
 	var half_angle_rad: float = deg_to_rad(max(beam_angle, 0.1) * 0.5)

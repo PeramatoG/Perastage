@@ -15,7 +15,7 @@ const DEFAULT_SETTINGS := {
 	"beam_anisotropy": 0.62,
 	"beam_noise_amount": 0.06,
 	"beam_noise_scale": 1.4,
-	"volumetric_fog_density": 0.02,
+	"volumetric_fog_density": 0.012,
 	"light_volumetric_fog_energy": 2.0,
 	"gobo_scale_ratio": 1.0,
 	"gobo_debug_show_occluder": false,

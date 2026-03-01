@@ -9,7 +9,7 @@ background_color = Color(0.03, 0.03, 0.04, 1)
 ambient_light_source = 3
 ambient_light_energy = 0.25
 volumetric_fog_enabled = true
-volumetric_fog_density = 0.02
+volumetric_fog_density = 0.012
 volumetric_fog_volume_size = 256
 volumetric_fog_depth = 64.0
 volumetric_fog_filter_active = true
@@ -51,7 +51,7 @@ spot_angle = 16.0
 shadow_enabled = true
 shadow_bias = 0.02
 shadow_normal_bias = 0.8
-shadow_blur = 0.7
+shadow_blur = 0.2
 
 [node name="GoboOccluder" type="MeshInstance3D" parent="SpotLight3D"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.043)

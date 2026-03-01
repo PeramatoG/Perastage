@@ -61,7 +61,7 @@ var _visual_settings := {
 	"beam_anisotropy": 0.62,
 	"beam_noise_amount": 0.06,
 	"beam_noise_scale": 1.4,
-	"volumetric_fog_density": 0.02,
+	"volumetric_fog_density": 0.012,
 	"light_volumetric_fog_energy": 2.0,
 	"gobo_scale_ratio": 1.0,
 	"gobo_debug_show_occluder": false,
@@ -140,8 +140,8 @@ const EMITTER_LIGHT_SPOT_ATTENUATION_MAX: float = 1.5
 const GOBO_SHADOW_COOKIE_BEAM_ATTENUATION: float = 0.5
 const GOBO_SHADOW_COOKIE_SHADOW_BIAS: float = 0.02
 const GOBO_SHADOW_COOKIE_SHADOW_NORMAL_BIAS: float = 0.8
-const GOBO_SHADOW_COOKIE_SHADOW_BLUR: float = 0.7
-const GOBO_SHADOW_COOKIE_MESH_BEAM_INTENSITY_MULTIPLIER: float = 0.2
+const GOBO_SHADOW_COOKIE_SHADOW_BLUR: float = 0.2
+const GOBO_SHADOW_COOKIE_MESH_BEAM_INTENSITY_MULTIPLIER: float = 0.55
 const EMITTER_CONE_FADE_END_RATIO: float = 0.82
 const EMITTER_CONE_NEAR_ALPHA: float = 0.16
 const EMITTER_CONE_FAR_ALPHA: float = 0.004
