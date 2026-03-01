@@ -1300,12 +1300,63 @@ void MainWindow::OnAddSceneObject(wxCommandEvent &WXUNUSED(event)) {
 }
 
 void MainWindow::OnDelete(wxCommandEvent &WXUNUSED(event)) {
-  if (fixturePanel && fixturePanel->IsActivePage())
+  ConfigManager &cfg = guiConfigServices->LegacyConfigManager();
+
+  auto ensureFixtureSelection = [&]() {
+    if (fixturePanel && fixturePanel->GetSelectedUuids().empty())
+      fixturePanel->SelectByUuid(cfg.GetSelectedFixtures());
+  };
+  auto ensureTrussSelection = [&]() {
+    if (trussPanel && trussPanel->GetSelectedUuids().empty())
+      trussPanel->SelectByUuid(cfg.GetSelectedTrusses());
+  };
+  auto ensureSupportSelection = [&]() {
+    if (hoistPanel && hoistPanel->GetSelectedUuids().empty())
+      hoistPanel->SelectByUuid(cfg.GetSelectedSupports());
+  };
+  auto ensureObjectSelection = [&]() {
+    if (sceneObjPanel && sceneObjPanel->GetSelectedUuids().empty())
+      sceneObjPanel->SelectByUuid(cfg.GetSelectedSceneObjects());
+  };
+
+  if (fixturePanel && fixturePanel->IsActivePage()) {
+    ensureFixtureSelection();
     fixturePanel->DeleteSelected();
-  else if (trussPanel && trussPanel->IsActivePage())
+    return;
+  }
+  if (trussPanel && trussPanel->IsActivePage()) {
+    ensureTrussSelection();
     trussPanel->DeleteSelected();
-  else if (hoistPanel && hoistPanel->IsActivePage())
+    return;
+  }
+  if (hoistPanel && hoistPanel->IsActivePage()) {
+    ensureSupportSelection();
     hoistPanel->DeleteSelected();
-  else if (sceneObjPanel && sceneObjPanel->IsActivePage())
+    return;
+  }
+  if (sceneObjPanel && sceneObjPanel->IsActivePage()) {
+    ensureObjectSelection();
     sceneObjPanel->DeleteSelected();
+    return;
+  }
+
+  if (fixturePanel && !cfg.GetSelectedFixtures().empty()) {
+    ensureFixtureSelection();
+    fixturePanel->DeleteSelected();
+    return;
+  }
+  if (trussPanel && !cfg.GetSelectedTrusses().empty()) {
+    ensureTrussSelection();
+    trussPanel->DeleteSelected();
+    return;
+  }
+  if (hoistPanel && !cfg.GetSelectedSupports().empty()) {
+    ensureSupportSelection();
+    hoistPanel->DeleteSelected();
+    return;
+  }
+  if (sceneObjPanel && !cfg.GetSelectedSceneObjects().empty()) {
+    ensureObjectSelection();
+    sceneObjPanel->DeleteSelected();
+  }
 }

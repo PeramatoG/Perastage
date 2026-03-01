@@ -40,6 +40,7 @@
 #endif
 
 #include "viewer2dpanel.h"
+#include "mainwindow.h"
 #include "configmanager.h"
 #include "canvas2d.h"
 #include "fixturetablepanel.h"
@@ -1848,6 +1849,16 @@ void Viewer2DPanel::OnKeyDown(wxKeyEvent &event) {
     else
       m_offsetY += panStep;
     break;
+  case WXK_DELETE:
+  case WXK_NUMPAD_DELETE: {
+    if (MainWindow::Instance()) {
+      wxCommandEvent deleteEvent(wxEVT_MENU, ID_Edit_Delete);
+      MainWindow::Instance()->GetEventHandler()->ProcessEvent(deleteEvent);
+      return;
+    }
+    event.Skip();
+    return;
+  }
   case 'F':
   case 'f': {
     if (!FitViewToScene()) {

@@ -1061,6 +1061,7 @@ void TrussTablePanel::DeleteSelected()
             rows.push_back(r);
     }
     std::sort(rows.begin(), rows.end(), std::greater<int>());
+    rows.erase(std::unique(rows.begin(), rows.end()), rows.end());
 
     auto& scene = guiConfigServices->LegacyConfigManager().GetScene();
     for (int r : rows) {
