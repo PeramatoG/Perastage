@@ -282,7 +282,8 @@ func _apply_visual_settings(settings: Dictionary) -> void:
 		world_environment.environment.background_color = _visual_settings.get("background_color", _visual_environment_baseline.get("background_color", Color(0.129412, 0.137255, 0.156863, 1.0)))
 		world_environment.environment.volumetric_fog_enabled = true
 		world_environment.environment.volumetric_fog_density = float(_visual_settings.get("volumetric_fog_density", 0.05))
-		world_environment.environment.volumetric_fog_fade = float(_visual_settings.get("volumetric_fog_fade", 0.1))
+		if _environment_has_property(world_environment.environment, "volumetric_fog_fade"):
+			world_environment.environment.set("volumetric_fog_fade", float(_visual_settings.get("volumetric_fog_fade", 0.1)))
 
 	# Godot volumetric fog froxel controls are renderer-level project settings.
 	# Keep them aligned with visual settings for the #11987 shadow-cookie workflow.
