@@ -212,9 +212,9 @@ func _maybe_log_gobo_parameters(light: SpotLight3D, beam_angle: float, beam_rang
 		return
 	_last_gobo_debug_log_ticks_by_light[light_id] = now_ticks
 
-	var volumetric_size: int = int(round(float(_settings.get("volumetric_fog_volume_size", -1))))
-	var volumetric_depth: float = float(_settings.get("volumetric_fog_depth", -1.0))
-	var volumetric_filter_active: bool = bool(_settings.get("volumetric_fog_use_filter", true))
+	var volumetric_size: int = int(ProjectSettings.get_setting("rendering/environment/volumetric_fog/volume_size", int(round(float(_settings.get("volumetric_fog_volume_size", -1))))))
+	var volumetric_depth: float = float(ProjectSettings.get_setting("rendering/environment/volumetric_fog/volume_depth", int(round(float(_settings.get("volumetric_fog_depth", -1.0))))))
+	var volumetric_filter_active: bool = bool(ProjectSettings.get_setting("rendering/environment/volumetric_fog/use_filter", bool(_settings.get("volumetric_fog_use_filter", true))))
 	var beam_angle_source: String = str(light.get_meta("peraviz_beam_angle_source", "unknown"))
 	if bool(_settings.get("gobo_debug_log_volumetric_details", false)):
 		print("[PeravizGoboDebug] light=", light.name,

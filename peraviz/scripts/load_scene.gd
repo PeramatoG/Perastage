@@ -218,7 +218,7 @@ func _ready() -> void:
 	_asset_cache.configure_debug_logging(_debug_asset_cache_enabled, 100)
 	_ensure_debug_gizmo_root()
 	_update_debug_legend()
-	_refresh_emitter_visual_scalars()
+	_refresh_emitter_light_scalars()
 	_refresh_fixture_debug_panel()
 	_setup_dmx_controls()
 	_setup_dmx_fixture_runtime()
@@ -270,6 +270,7 @@ func _initialize_beam_renderers() -> void:
 	_update_beam_renderer_mode(true)
 
 func _apply_visual_settings(settings: Dictionary) -> void:
+	var previous_settings: Dictionary = _visual_settings.duplicate(true)
 	for key in _visual_settings.keys():
 		if settings.has(key):
 			_visual_settings[key] = settings[key]
@@ -280,15 +281,23 @@ func _apply_visual_settings(settings: Dictionary) -> void:
 		world_environment.environment.background_color = _visual_settings.get("background_color", _visual_environment_baseline.get("background_color", Color(0.129412, 0.137255, 0.156863, 1.0)))
 		world_environment.environment.volumetric_fog_enabled = true
 		world_environment.environment.volumetric_fog_density = float(_visual_settings.get("volumetric_fog_density", 0.01))
-		# Godot volumetric fog uses a froxel grid (Proposal #11987 workaround relies on this).
-		# Volume Size/Depth and Use Filter are exposed so users can trade aliasing vs. detail.
-		world_environment.environment.set("volumetric_fog_volume_size", int(round(float(_visual_settings.get("volumetric_fog_volume_size", 192)))))
-		world_environment.environment.set("volumetric_fog_depth", float(_visual_settings.get("volumetric_fog_depth", 64.0)))
-		world_environment.environment.set("volumetric_fog_filter_active", bool(_visual_settings.get("volumetric_fog_use_filter", true)))
+
+	# Godot volumetric fog froxel controls are renderer-level project settings.
+	# Keep them aligned with visual settings for the #11987 shadow-cookie workflow.
+	ProjectSettings.set_setting("rendering/environment/volumetric_fog/volume_size", int(round(float(_visual_settings.get("volumetric_fog_volume_size", 192)))))
+	ProjectSettings.set_setting("rendering/environment/volumetric_fog/volume_depth", int(round(float(_visual_settings.get("volumetric_fog_depth", 64.0)))))
+	ProjectSettings.set_setting("rendering/environment/volumetric_fog/use_filter", bool(_visual_settings.get("volumetric_fog_use_filter", true)))
 
 	_update_beam_renderer_mode(false)
 	_save_visual_settings_to_project()
-	_refresh_emitter_visual_scalars()
+	_refresh_emitter_light_scalars()
+
+	var beam_scalar_changed: bool = (
+		not is_equal_approx(float(previous_settings.get("beam_multiplier", 1.0)), float(_visual_settings.get("beam_multiplier", 1.0)))
+		or int(previous_settings.get("beam_quality", 1)) != int(_visual_settings.get("beam_quality", 1))
+	)
+	if beam_scalar_changed:
+		_refresh_existing_beam_material_scalars()
 
 func _update_beam_renderer_mode(force_refresh: bool) -> void:
 	var requested_mode: int = int(clamp(int(_visual_settings.get("beam_render_mode", BEAM_RENDER_MODE_VOLUMETRIC)), BEAM_RENDER_MODE_VOLUMETRIC, BEAM_RENDER_MODE_LEGACY))
@@ -317,18 +326,24 @@ func _cleanup_light_beam_renderers(light: SpotLight3D) -> void:
 		if renderer is BeamRendererBase:
 			renderer.cleanup_beam(light)
 
-func _refresh_emitter_visual_scalars() -> void:
+func _refresh_emitter_light_scalars() -> void:
 	for fixture_uuid in _fixture_emitter_light_cache.keys():
 		var lights: Array = _fixture_emitter_light_cache.get(fixture_uuid, [])
 		for light in lights:
 			if light is SpotLight3D and is_instance_valid(light):
-				_apply_visual_scalars_to_light(light)
+				_apply_light_scalars_to_light(light)
 
-func _apply_visual_scalars_to_light(light: SpotLight3D) -> void:
+func _refresh_existing_beam_material_scalars() -> void:
+	for fixture_uuid in _fixture_emitter_light_cache.keys():
+		var lights: Array = _fixture_emitter_light_cache.get(fixture_uuid, [])
+		for light in lights:
+			if light is SpotLight3D and is_instance_valid(light):
+				_update_existing_beam_material_scalars(light)
+
+func _apply_light_scalars_to_light(light: SpotLight3D) -> void:
 	var base_energy: float = float(light.get_meta("peraviz_base_light_energy", light.light_energy))
 	light.light_energy = base_energy * float(_visual_settings.get("spot_multiplier", 1.0))
 	light.light_volumetric_fog_energy = float(_visual_settings.get("light_volumetric_fog_energy", 1.0))
-	_update_existing_beam_material_scalars(light)
 
 func _update_existing_beam_material_scalars(light: SpotLight3D) -> void:
 	var base_intensity: float = float(light.get_meta("peraviz_beam_base_intensity", 0.0))
@@ -337,6 +352,12 @@ func _update_existing_beam_material_scalars(light: SpotLight3D) -> void:
 		return
 	var beam_multiplier: float = float(_visual_settings.get("beam_multiplier", 1.0))
 	beam_params["scaled_intensity"] = clamp(base_intensity * beam_multiplier, 0.0, 3.0)
+	var use_shadow_cookie_gobo: bool = (
+		int(light.get_meta("peraviz_gobo_projection_mode", 0)) == FixtureGoboProjector.ProjectionMode.SHADOW_COOKIE
+		and light.get_meta("peraviz_gobo_texture", null) != null
+	)
+	if use_shadow_cookie_gobo:
+		beam_params["scaled_intensity"] = float(beam_params.get("scaled_intensity", 0.0)) * GOBO_SHADOW_COOKIE_MESH_BEAM_INTENSITY_MULTIPLIER
 	beam_params["beam_quality"] = int(_visual_settings.get("beam_quality", 1))
 	_update_beam_for_light(light, beam_params)
 
@@ -384,7 +405,7 @@ func _on_file_selected(path: String) -> void:
 			" material(hit/miss)=", hit_by_kind.get("material", 0), "/", miss_by_kind.get("material", 0))
 	status_label.text = "Nodes: %d (press F to focus, C debug coords)" % nodes.size()
 	_update_debug_legend()
-	_refresh_emitter_visual_scalars()
+	_refresh_emitter_light_scalars()
 
 func _on_manual_fixture_toggle(enabled: bool) -> void:
 	_manual_fixture_test_enabled = enabled
