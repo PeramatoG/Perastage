@@ -90,7 +90,7 @@ func _build_ui() -> void:
 
 	_ambient_slider = _add_slider_row(container, "Ambient light", "ambient_multiplier", 0.0, 3.0, 0.01)
 	_spot_slider = _add_slider_row(container, "Spot intensity", "spot_multiplier", 0.0, 3.0, 0.01)
-	_beam_slider = _add_slider_row(container, "Beam intensity", "beam_multiplier", 0.0, 3.0, 0.01)
+	_beam_slider = _add_slider_row(container, "Beam intensity", "beam_multiplier", 0.0, 8.0, 0.01)
 	_bloom_slider = _add_slider_row(container, "Bloom", "bloom_multiplier", 0.0, 3.0, 0.01)
 	_fog_density_slider = _add_slider_row(container, "Volumetric fog density", "volumetric_fog_density", 0.0, 0.08, 0.001)
 	_fog_volume_size_slider = _add_slider_row(container, "Fog volume size", "volumetric_fog_volume_size", 64.0, 512.0, 32.0)

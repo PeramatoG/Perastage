@@ -6,7 +6,7 @@ const BEAM_META_KEY: String = "peraviz_volumetric_beam"
 const GOBO_OCCLUDER_META_KEY: String = "peraviz_gobo_occluder"
 const GOBO_OCCLUDER_SHADER_MATERIAL_META_KEY: String = "peraviz_gobo_occluder_shader_material"
 const EMITTER_CONE_MAX_BASE_RADIUS_M: float = 10.0
-const VOLUMETRIC_INTENSITY_SCALE: float = 0.62
+const VOLUMETRIC_INTENSITY_SCALE: float = 0.75
 const GOBO_OCCLUDER_DISTANCE_M: float = 0.043
 const GOBO_PLANE_BASE_SIZE_M: float = 0.017
 const GOBO_FOOTPRINT_CONE_FILL_RATIO: float = 1.0
@@ -78,7 +78,7 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	if cone == null:
 		return
 
-	var intensity: float = clamp(float(params.get("scaled_intensity", 0.0)), 0.0, 3.0)
+	var intensity: float = clamp(float(params.get("scaled_intensity", 0.0)), 0.0, 8.0)
 	var threshold: float = float(params.get("intensity_visibility_threshold", 0.015))
 	if intensity <= threshold or not bool(params.get("is_visible", true)):
 		cone.visible = false
@@ -188,7 +188,7 @@ func _update_gobo_occluder(light: SpotLight3D, cone: MeshInstance3D, gobo_occlud
 		gobo_occluder.material_override = gobo_material
 
 	cone.set_instance_shader_parameter("gobo_enabled", true)
-	cone.set_instance_shader_parameter("gobo_cutoff", 0.5)
+	cone.set_instance_shader_parameter("gobo_cutoff", 0.38)
 	cone.set_instance_shader_parameter("gobo_start_ratio", GOBO_OCCLUDER_DISTANCE_M / max(beam_range, 0.001))
 	cone.set_instance_shader_parameter("gobo_rotation", 0.0)
 	cone.set_instance_shader_parameter("gobo_size", Vector2(gobo_plane_size_world, gobo_plane_size_world))

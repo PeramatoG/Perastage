@@ -141,7 +141,7 @@ const GOBO_SHADOW_COOKIE_BEAM_ATTENUATION: float = 0.5
 const GOBO_SHADOW_COOKIE_SHADOW_BIAS: float = 0.03
 const GOBO_SHADOW_COOKIE_SHADOW_NORMAL_BIAS: float = 0.8
 const GOBO_SHADOW_COOKIE_SHADOW_BLUR: float = 0.35
-const GOBO_SHADOW_COOKIE_MESH_BEAM_INTENSITY_MULTIPLIER: float = 0.1
+const GOBO_SHADOW_COOKIE_MESH_BEAM_INTENSITY_MULTIPLIER: float = 0.2
 const EMITTER_CONE_FADE_END_RATIO: float = 0.82
 const EMITTER_CONE_NEAR_ALPHA: float = 0.16
 const EMITTER_CONE_FAR_ALPHA: float = 0.004
@@ -152,6 +152,7 @@ const BEAM_RENDER_MODE_VOLUMETRIC: int = 0
 const BEAM_RENDER_MODE_LEGACY: int = 1
 const BEAM_INTENSITY_VISIBILITY_THRESHOLD: float = 0.015
 const BEAM_DISTANCE_CULL_M: float = 180.0
+const BEAM_INTENSITY_MAX: float = 8.0
 
 const ENV_QUALITY_PRESET_SETTING: String = "peraviz_environment_quality"
 const ENV_QUALITY_PRESET_DEFAULT: String = "medium"
@@ -284,9 +285,18 @@ func _apply_visual_settings(settings: Dictionary) -> void:
 
 	# Godot volumetric fog froxel controls are renderer-level project settings.
 	# Keep them aligned with visual settings for the #11987 shadow-cookie workflow.
-	ProjectSettings.set_setting("rendering/environment/volumetric_fog/volume_size", int(round(float(_visual_settings.get("volumetric_fog_volume_size", 192)))))
-	ProjectSettings.set_setting("rendering/environment/volumetric_fog/volume_depth", int(round(float(_visual_settings.get("volumetric_fog_depth", 64.0)))))
-	ProjectSettings.set_setting("rendering/environment/volumetric_fog/use_filter", bool(_visual_settings.get("volumetric_fog_use_filter", true)))
+	var fog_volume_size: int = int(round(float(_visual_settings.get("volumetric_fog_volume_size", 192))))
+	var fog_volume_depth: int = int(round(float(_visual_settings.get("volumetric_fog_depth", 64.0))) )
+	var fog_use_filter: bool = bool(_visual_settings.get("volumetric_fog_use_filter", true))
+	ProjectSettings.set_setting("rendering/environment/volumetric_fog/volume_size", fog_volume_size)
+	ProjectSettings.set_setting("rendering/environment/volumetric_fog/volume_depth", fog_volume_depth)
+	ProjectSettings.set_setting("rendering/environment/volumetric_fog/use_filter", fog_use_filter)
+	# This setting can require a renderer restart in Godot to re-allocate froxel buffers.
+	ProjectSettings.save()
+	if world_environment != null and world_environment.environment != null and _environment_has_property(world_environment.environment, "volumetric_fog_length"):
+		world_environment.environment.set("volumetric_fog_length", float(fog_volume_depth))
+	if status_label != null:
+		status_label.text = "Volumetric fog quality changes may require scene reload to fully apply (Godot froxel grid)."
 
 	_update_beam_renderer_mode(false)
 	_save_visual_settings_to_project()
@@ -298,6 +308,15 @@ func _apply_visual_settings(settings: Dictionary) -> void:
 	)
 	if beam_scalar_changed:
 		_refresh_existing_beam_material_scalars()
+
+
+func _environment_has_property(environment: Environment, property_name: String) -> bool:
+	if environment == null:
+		return false
+	for entry in environment.get_property_list():
+		if str(entry.get("name", "")) == property_name:
+			return true
+	return false
 
 func _update_beam_renderer_mode(force_refresh: bool) -> void:
 	var requested_mode: int = int(clamp(int(_visual_settings.get("beam_render_mode", BEAM_RENDER_MODE_VOLUMETRIC)), BEAM_RENDER_MODE_VOLUMETRIC, BEAM_RENDER_MODE_LEGACY))
@@ -351,7 +370,7 @@ func _update_existing_beam_material_scalars(light: SpotLight3D) -> void:
 	if beam_params.is_empty():
 		return
 	var beam_multiplier: float = float(_visual_settings.get("beam_multiplier", 1.0))
-	beam_params["scaled_intensity"] = clamp(base_intensity * beam_multiplier, 0.0, 3.0)
+	beam_params["scaled_intensity"] = clamp(base_intensity * beam_multiplier, 0.0, BEAM_INTENSITY_MAX)
 	var use_shadow_cookie_gobo: bool = (
 		int(light.get_meta("peraviz_gobo_projection_mode", 0)) == FixtureGoboProjector.ProjectionMode.SHADOW_COOKIE
 		and light.get_meta("peraviz_gobo_texture", null) != null
@@ -1629,7 +1648,7 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 		"beam_angle_source": "gdtf_full_angle_deg",
 		"beam_color": beam_color,
 		"normalized_dimmer": clamp(normalized_dimmer, 0.0, 1.0),
-		"scaled_intensity": clamp(normalized_dimmer * float(_visual_settings.get("beam_multiplier", 1.0)), 0.0, 3.0),
+		"scaled_intensity": clamp(normalized_dimmer * float(_visual_settings.get("beam_multiplier", 1.0)), 0.0, BEAM_INTENSITY_MAX),
 		"lens_radius": lens_radius,
 		"is_visible": light.visible,
 		"fade_end_ratio": EMITTER_CONE_FADE_END_RATIO,
@@ -1826,7 +1845,7 @@ func _update_emitter_beam_cone(light: SpotLight3D, beam_angle: float, beam_range
 		core_cone.visible = beam_is_visible
 
 	var beam_multiplier: float = float(_visual_settings.get("beam_multiplier", 1.0))
-	var scaled_intensity: float = clamp(intensity * beam_multiplier, 0.0, 3.0)
+	var scaled_intensity: float = clamp(intensity * beam_multiplier, 0.0, BEAM_INTENSITY_MAX)
 	var beam_half_angle_deg: float = beam_angle * 0.5
 	var radius: float = tan(deg_to_rad(beam_half_angle_deg)) * beam_range
 	var lens_radius: float = max(float(light.get_meta("peraviz_lens_radius", 0.03)), 0.005)
