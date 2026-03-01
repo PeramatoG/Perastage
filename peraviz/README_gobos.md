@@ -52,8 +52,8 @@ If the footprint looks correct on the floor but the beam in air looks too soft, 
 
 - `SpotLight3D.spot_attenuation`: lower values (around `0.5`) produce a tighter/harder beam edge, similar to the #11987 sample.
 - `SpotLight3D.shadow_blur`: keep low (`~0.1`) for crisp cookie edges in volumetric fog.
-- `WorldEnvironment.volumetric_fog_density`: values around `0.02` make the in-air pattern much more legible than very low fog density.
-- `SpotLight3D.light_volumetric_fog_energy`: values around `3.0-4.0` help the fog beam read clearly without overexposing the floor footprint.
+- `WorldEnvironment.volumetric_fog_density`: values around `0.03-0.05` make the in-air pattern much more legible than very low fog density.
+- `SpotLight3D.light_volumetric_fog_energy`: values around `8.0-12.0` usually make the beam read clearly with dense haze; tune down if floor footprint clips too early.
 
 Peraviz now applies those shadow-cookie defaults when gobos are active in `shadow_cookie` mode, while keeping them user-tunable from Visual Settings.
 
@@ -62,4 +62,4 @@ Peraviz now applies those shadow-cookie defaults when gobos are active in `shado
 
 - Yes: scene scale directly affects how sharp the shadow-cookie appears in fog. If fixture/lens transforms are much larger or smaller than expected meters, the occluder can sample too few shadow texels and look diffuse.
 - Shadow-cookie sharpness depends strongly on positional shadow atlas resolution and gobo mask resolution. Peraviz now uses higher runtime gobo mask resolution and higher positional shadow atlas defaults to reduce line artifacts.
-- If you still see square fog borders, it is usually volumetric fog froxel resolution. Increase volumetric fog quality settings (`volume_size`, filtering) and reduce additive mesh beam intensity so native fog shadowing dominates.
+- If you still see square fog borders, it is usually volumetric fog froxel resolution or insufficient fog depth for large worlds. Increase volumetric fog quality settings (`volume_size`, `volume_depth`, filtering) and reduce additive mesh beam intensity so native fog shadowing dominates.

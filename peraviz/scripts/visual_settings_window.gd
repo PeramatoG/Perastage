@@ -15,15 +15,15 @@ const DEFAULT_SETTINGS := {
 	"beam_anisotropy": 0.62,
 	"beam_noise_amount": 0.06,
 	"beam_noise_scale": 1.4,
-	"volumetric_fog_density": 0.012,
-	"light_volumetric_fog_energy": 2.0,
+	"volumetric_fog_density": 0.035,
+	"light_volumetric_fog_energy": 10.0,
 	"gobo_scale_ratio": 1.0,
 	"gobo_debug_show_occluder": false,
 	"gobo_debug_log_parameters": false,
 	"gobo_debug_log_volumetric_details": false,
 	"gobo_projection_mode": "shadow_cookie",
 	"volumetric_fog_volume_size": 256,
-	"volumetric_fog_depth": 64.0,
+	"volumetric_fog_depth": 192.0,
 	"volumetric_fog_use_filter": true,
 	"background_color": Color(0.129412, 0.137255, 0.156863, 1.0),
 }
@@ -92,10 +92,10 @@ func _build_ui() -> void:
 	_spot_slider = _add_slider_row(container, "Spot intensity", "spot_multiplier", 0.0, 3.0, 0.01)
 	_beam_slider = _add_slider_row(container, "Beam intensity", "beam_multiplier", 0.0, 8.0, 0.01)
 	_bloom_slider = _add_slider_row(container, "Bloom", "bloom_multiplier", 0.0, 3.0, 0.01)
-	_fog_density_slider = _add_slider_row(container, "Volumetric fog density", "volumetric_fog_density", 0.0, 0.08, 0.001)
+	_fog_density_slider = _add_slider_row(container, "Volumetric fog density", "volumetric_fog_density", 0.0, 0.12, 0.001)
 	_fog_volume_size_slider = _add_slider_row(container, "Fog volume size", "volumetric_fog_volume_size", 64.0, 512.0, 32.0)
-	_fog_depth_slider = _add_slider_row(container, "Fog volume depth", "volumetric_fog_depth", 16.0, 256.0, 4.0)
-	_light_fog_energy_slider = _add_slider_row(container, "Light fog energy", "light_volumetric_fog_energy", 0.0, 8.0, 0.05)
+	_fog_depth_slider = _add_slider_row(container, "Fog volume depth", "volumetric_fog_depth", 16.0, 512.0, 4.0)
+	_light_fog_energy_slider = _add_slider_row(container, "Light fog energy", "light_volumetric_fog_energy", 0.0, 20.0, 0.05)
 	_gobo_scale_slider = _add_slider_row(container, "Gobo scale ratio", "gobo_scale_ratio", 0.2, 2.5, 0.01)
 	_beam_render_mode_option = _add_option_row(container, "Beam rendering", ["Volumetric (default)", "Lightweight (legacy)"], _on_beam_render_mode_selected)
 	_beam_quality_option = _add_option_row(container, "Beam quality", ["Low", "Medium", "High"], _on_beam_quality_selected)
