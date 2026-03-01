@@ -458,6 +458,59 @@ void Viewer2DPanel::SetLayoutEditOverlayScale(float scale) {
   Refresh();
 }
 
+void Viewer2DPanel::SetCursorWorldPositionCallback(
+    CursorWorldPositionCallback callback) {
+  m_cursorWorldPositionCallback = std::move(callback);
+}
+
+std::optional<std::array<float, 3>>
+Viewer2DPanel::ComputeWorldPositionFromScreen(const wxPoint &screenPos) const {
+  const wxSize size = GetClientSize();
+  const int width = size.GetWidth();
+  const int height = size.GetHeight();
+  if (width <= 0 || height <= 0)
+    return std::nullopt;
+
+  const float pixelsPerMeter = PIXELS_PER_METER * m_zoom;
+  if (pixelsPerMeter <= 0.0f)
+    return std::nullopt;
+
+  const float offsetMetersX = m_offsetX / PIXELS_PER_METER;
+  const float offsetMetersY = m_offsetY / PIXELS_PER_METER;
+
+  const float viewX =
+      (static_cast<float>(screenPos.x) - static_cast<float>(width) * 0.5f) /
+          pixelsPerMeter -
+      offsetMetersX;
+  const float viewY =
+      (static_cast<float>(height) * 0.5f - static_cast<float>(screenPos.y)) /
+          pixelsPerMeter -
+      offsetMetersY;
+
+  switch (m_view) {
+  case Viewer2DView::Top:
+  case Viewer2DView::Bottom:
+    return std::array<float, 3>{viewX, viewY, 0.0f};
+  case Viewer2DView::Front:
+    return std::array<float, 3>{viewX, 0.0f, viewY};
+  case Viewer2DView::Side:
+    return std::array<float, 3>{0.0f, viewX, viewY};
+  }
+  return std::array<float, 3>{viewX, viewY, 0.0f};
+}
+
+void Viewer2DPanel::NotifyCursorWorldPosition(const wxPoint &screenPos) {
+  if (!m_cursorWorldPositionCallback)
+    return;
+  m_cursorWorldPositionCallback(ComputeWorldPositionFromScreen(screenPos));
+}
+
+void Viewer2DPanel::ClearCursorWorldPosition() {
+  if (!m_cursorWorldPositionCallback)
+    return;
+  m_cursorWorldPositionCallback(std::nullopt);
+}
+
 std::optional<wxSize> Viewer2DPanel::GetLayoutEditOverlaySize() const {
   if (!m_layoutEditAspect)
     return std::nullopt;
@@ -1670,6 +1723,7 @@ void Viewer2DPanel::OnCaptureLost(wxMouseCaptureLostEvent &WXUNUSED(event)) {
 
 void Viewer2DPanel::OnMouseMove(wxMouseEvent &event) {
   wxPoint pos = event.GetPosition();
+  NotifyCursorWorldPosition(pos);
 
   if (m_dragMode == DragMode::RectSelection && event.Dragging()) {
     m_rectSelectEnd = pos;
@@ -1816,12 +1870,14 @@ void Viewer2DPanel::OnKeyDown(wxKeyEvent &event) {
 
 void Viewer2DPanel::OnMouseEnter(wxMouseEvent &event) {
   m_mouseInside = true;
+  NotifyCursorWorldPosition(event.GetPosition());
   SetFocus();
   event.Skip();
 }
 
 void Viewer2DPanel::OnMouseLeave(wxMouseEvent &event) {
   m_mouseInside = false;
+  ClearCursorWorldPosition();
   if (m_enableSelection) {
     m_hasHover = false;
     m_hoverUuid.clear();
