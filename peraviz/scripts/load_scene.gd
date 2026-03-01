@@ -415,9 +415,14 @@ func _supports_fog_light_projectors() -> bool:
 func _should_prefer_native_cookie_volumetric(light: SpotLight3D) -> bool:
 	if light == null or not is_instance_valid(light):
 		return false
-	if light.get_meta("peraviz_gobo_texture", null) == null:
+	if not light.has_meta("peraviz_gobo_texture"):
 		return false
-	var projection_mode: int = int(light.get_meta("peraviz_gobo_projection_mode", FixtureGoboProjector.ProjectionMode.SHADOW_COOKIE))
+	var gobo_texture: Texture2D = light.get_meta("peraviz_gobo_texture") as Texture2D
+	if gobo_texture == null:
+		return false
+	var projection_mode: int = FixtureGoboProjector.ProjectionMode.SHADOW_COOKIE
+	if light.has_meta("peraviz_gobo_projection_mode"):
+		projection_mode = int(light.get_meta("peraviz_gobo_projection_mode"))
 	if projection_mode == FixtureGoboProjector.ProjectionMode.SHADOW_COOKIE:
 		return true
 	if projection_mode == FixtureGoboProjector.ProjectionMode.PROJECTOR_COOKIE:
