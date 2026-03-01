@@ -154,6 +154,11 @@ func _resolve_gobo_texture_for_slot(controls: Dictionary, slot_index: int) -> Te
 			return null
 		if _texture_cache.has(image_path):
 			return _texture_cache[image_path] as Texture2D
+		if ResourceLoader.exists(image_path):
+			var loaded: Resource = ResourceLoader.load(image_path)
+			if loaded is Texture2D:
+				_texture_cache[image_path] = loaded
+				return loaded as Texture2D
 		var image := Image.new()
 		var load_error: Error = image.load(image_path)
 		if load_error != OK:
