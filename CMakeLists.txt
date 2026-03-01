@@ -1,7 +1,10 @@
 cmake_minimum_required(VERSION 3.21)
 cmake_policy(SET CMP0074 NEW)
 
-project(Perastage VERSION 1.0 LANGUAGES CXX)
+project(Perastage VERSION 0.1.0 LANGUAGES CXX)
+
+set(PERASTAGE_APP_VERSION "${PROJECT_VERSION}")
+set(PERASTAGE_APP_VERSION_DISPLAY "beta ${PROJECT_VERSION}")
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -121,6 +124,10 @@ add_executable(${PROJECT_NAME} main.cpp
 )
 
 target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_20)
+target_compile_definitions(${PROJECT_NAME} PRIVATE
+    PERASTAGE_APP_VERSION="${PERASTAGE_APP_VERSION}"
+    PERASTAGE_APP_VERSION_DISPLAY="${PERASTAGE_APP_VERSION_DISPLAY}"
+)
 
 if(MSVC)
     target_compile_options(${PROJECT_NAME} PRIVATE /Zc:__cplusplus)

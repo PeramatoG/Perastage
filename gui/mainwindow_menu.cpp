@@ -43,6 +43,7 @@
 #include "addfixturedialog.h"
 #include "autopatcher.h"
 #include "ui_feature_flags.h"
+#include "app_version.h"
 #include "configmanager.h"
 #include "guiconfigservices.h"
 #include "consolepanel.h"
@@ -798,8 +799,8 @@ void MainWindow::OnShowHelp(wxCommandEvent &WXUNUSED(event)) {
 
 void MainWindow::OnShowAbout(wxCommandEvent &WXUNUSED(event)) {
   wxAboutDialogInfo info;
-  info.SetName("Perastage");
-  info.SetVersion("1.0");
+  info.SetName(app::kName);
+  info.SetVersion(app::kVersionDisplay);
   wxString description =
       "High-performance MVR scene viewer with 3D rendering support.\n\n"
       "This application makes use of the following open-source libraries:\n"

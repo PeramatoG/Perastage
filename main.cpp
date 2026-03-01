@@ -15,6 +15,7 @@
  * You should have received a copy of the GNU General Public License
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
+#include "app_version.h"
 #include "configmanager.h"
 #include "logger.h"
 #include "mainwindow.h"
@@ -44,7 +45,7 @@ private:
 wxIMPLEMENT_APP(MyApp);
 
 bool MyApp::OnInit() {
-  SetAppName("Perastage");
+  SetAppName(app::kName);
   SetVendorName("Perasoft");
 
   // Enable support for common image formats used by the app
@@ -65,7 +66,7 @@ bool MyApp::OnInit() {
   Logger::Instance();
 
   SplashScreen::SetMessage("Creating main window...");
-  MainWindow *mainWindow = new MainWindow("Perastage");
+  MainWindow *mainWindow = new MainWindow(app::kName);
   mainWindow->Show(true);
   // Start maximized so minimize and restore buttons remain available
   mainWindow->Maximize(true);

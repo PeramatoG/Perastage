@@ -22,6 +22,7 @@
 
 #include <wx/notebook.h>
 
+#include "app_version.h"
 #include "configmanager.h"
 #include "guiconfigservices.h"
 #include "consolepanel.h"
@@ -346,6 +347,12 @@ void MainWindow::SetupLayout() {
   entries[3].Set(wxACCEL_NORMAL, (int)'4', ID_Select_Objects);
   m_accel = wxAcceleratorTable(4, entries);
   SetAcceleratorTable(m_accel);
+
+  CreateStatusBar(2);
+  const int statusWidths[] = {-1, 220};
+  SetStatusWidths(2, statusWidths);
+  SetStatusText("Ready", 0);
+  SetStatusText("Version " + wxString::FromUTF8(app::kVersionDisplay), 1);
 
   // Ensure the View menu reflects the actual pane visibility
   UpdateViewMenuChecks();

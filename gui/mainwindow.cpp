@@ -64,6 +64,7 @@ class wxZipStreamLink;
 
 using json = nlohmann::json;
 #include "addfixturedialog.h"
+#include "app_version.h"
 #include "autopatcher.h"
 #include "configmanager.h"
 #include "guiconfigservices.h"
@@ -553,7 +554,7 @@ void MainWindow::ResetProject() {
 }
 
 void MainWindow::UpdateTitle() {
-  wxString title = "Perastage";
+  wxString title = app::kName;
   if (!currentProjectPath.empty()) {
     wxFileName fn(wxString::FromUTF8(currentProjectPath));
     title += " - " + fn.GetName();
