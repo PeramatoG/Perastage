@@ -96,7 +96,7 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 		if gobo_occluder == null:
 			return
 		cone.visible = false
-		_update_gobo_occluder(light, cone, gobo_occluder, beam_angle, beam_range)
+		_update_gobo_occluder(light, cone, gobo_occluder, beam_angle, beam_range, false)
 		return
 
 	if intensity <= threshold:
@@ -158,7 +158,7 @@ func cleanup_beam(light: SpotLight3D) -> void:
 	if light.has_meta(GOBO_OCCLUDER_SHADER_MATERIAL_META_KEY):
 		light.remove_meta(GOBO_OCCLUDER_SHADER_MATERIAL_META_KEY)
 
-func _update_gobo_occluder(light: SpotLight3D, cone: MeshInstance3D, gobo_occluder: MeshInstance3D, beam_angle: float, beam_range: float) -> void:
+func _update_gobo_occluder(light: SpotLight3D, cone: MeshInstance3D, gobo_occluder: MeshInstance3D, beam_angle: float, beam_range: float, update_cone_shader: bool = true) -> void:
 	if gobo_occluder == null:
 		return
 
@@ -204,15 +204,18 @@ func _update_gobo_occluder(light: SpotLight3D, cone: MeshInstance3D, gobo_occlud
 		gobo_occluder.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY
 		gobo_occluder.material_override = gobo_material
 
-	cone.set_instance_shader_parameter("gobo_enabled", true)
-	cone.set_instance_shader_parameter("gobo_cutoff", 0.38)
-	cone.set_instance_shader_parameter("gobo_start_ratio", GOBO_OCCLUDER_DISTANCE_M / max(beam_range, 0.001))
-	cone.set_instance_shader_parameter("gobo_rotation", 0.0)
-	cone.set_instance_shader_parameter("gobo_size", Vector2(gobo_plane_size_world, gobo_plane_size_world))
-	cone.set_instance_shader_parameter("gobo_axis_sign", 1.0)
-	var cone_material: ShaderMaterial = cone.material_override as ShaderMaterial
-	if cone_material != null:
-		cone_material.set_shader_parameter("gobo_texture", gobo_texture)
+	if update_cone_shader:
+		cone.set_instance_shader_parameter("gobo_enabled", true)
+		cone.set_instance_shader_parameter("gobo_cutoff", 0.38)
+		cone.set_instance_shader_parameter("gobo_start_ratio", GOBO_OCCLUDER_DISTANCE_M / max(beam_range, 0.001))
+		cone.set_instance_shader_parameter("gobo_rotation", 0.0)
+		cone.set_instance_shader_parameter("gobo_size", Vector2(gobo_plane_size_world, gobo_plane_size_world))
+		cone.set_instance_shader_parameter("gobo_axis_sign", 1.0)
+		var cone_material: ShaderMaterial = cone.material_override as ShaderMaterial
+		if cone_material != null:
+			cone_material.set_shader_parameter("gobo_texture", gobo_texture)
+		else:
+			cone.set_instance_shader_parameter("gobo_enabled", false)
 	else:
 		cone.set_instance_shader_parameter("gobo_enabled", false)
 
