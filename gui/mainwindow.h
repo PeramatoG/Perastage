@@ -24,6 +24,8 @@
 
 #include <memory>
 #include <optional>
+#include <unordered_set>
+#include <vector>
 
 wxDECLARE_EVENT(EVT_PROJECT_LOADED, wxCommandEvent);
 
@@ -200,6 +202,9 @@ private:
   void SyncLayerVisibilityPanels();
   bool ConfirmSaveIfDirty(const wxString &actionLabel,
                           const wxString &dialogTitle);
+  void StartFixtureSymbolAutoUpdateForLoadedScene();
+  void ProcessNextFixtureSymbolAutoUpdate();
+  void FlushPendingFixtureSymbolLibraryUpdates();
   std::string defaultLayoutPerspective;
   std::string default2DLayoutPerspective;
   std::string defaultLayoutModePerspective;
@@ -212,6 +217,10 @@ private:
   Viewer2DRenderPanel *layout2DViewEditRenderPanel = nullptr;
   std::optional<viewer2d::Viewer2DState> standalone2DState;
   std::unique_ptr<wxBusyCursor> layoutRenderCursor;
+  std::vector<std::string> fixtureSymbolAutoUpdateQueue;
+  std::unordered_set<std::string> fixtureSymbolAutoUpdateProcessedKeys;
+  std::unordered_set<std::string> fixtureSymbolPendingLibrarySyncUuids;
+  bool fixtureSymbolAutoUpdateRunning = false;
 
   friend class MainWindowIoController;
   friend class MainWindowLayoutController;
