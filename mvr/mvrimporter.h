@@ -17,6 +17,7 @@
  */
 #pragma once
 
+#include <unordered_map>
 #include <string>
 
 // Responsible for importing .mvr files into the application's internal data model
@@ -38,6 +39,8 @@ public:
                                   bool applyDictionary = true);
 
 private:
+    std::unordered_map<std::string, std::string> pathRemap;
+
     // Creates a temporary directory for extracting the contents of the MVR archive
     std::string CreateTemporaryDirectory();
 
@@ -49,4 +52,7 @@ private:
     // If applyDictionary is false, existing GDTF assignments are kept intact
     bool ParseSceneXml(const std::string& sceneXmlPath, bool promptConflicts,
                        bool applyDictionary);
+
+    std::string NormalizeArchivePath(const std::string& archivePath) const;
+    std::string RemapArchivePathIfNeeded(const std::string& archivePath) const;
 };

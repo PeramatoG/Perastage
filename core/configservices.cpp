@@ -1,6 +1,7 @@
 #include "configservices.h"
 
 #include "json.hpp"
+#include "logger.h"
 
 #include <algorithm>
 #include <charconv>
@@ -518,7 +519,7 @@ bool ProjectSession::SaveProject(const std::string &path,
   if (!saveConfig || !saveScene)
     return false;
 
-  TempDir tempDir("PerastageProj_");
+  TempDir tempDir("psp_");
   if (!tempDir.Valid())
     return false;
 
@@ -571,7 +572,7 @@ bool ProjectSession::LoadProject(const std::string &path,
     return false;
   wxZipInputStream zip(in);
 
-  TempDir tempDir("PerastageProj_");
+  TempDir tempDir("psp_");
   if (!tempDir.Valid())
     return false;
 
@@ -622,10 +623,22 @@ bool ProjectSession::LoadProject(const std::string &path,
   }
 
   bool ok = true;
-  if (!scenePath.empty())
-    ok &= loadScene(scenePath.string());
-  if (!configPath.empty())
-    ok &= loadConfig(configPath.string());
+  if (!scenePath.empty()) {
+    const bool sceneOk = loadScene(scenePath.string());
+    if (!sceneOk) {
+      Logger::Instance().Log(Logger::Level::Error,
+                             "ProjectSession::LoadProject failed while loading scene.mvr from extracted project package.");
+    }
+    ok &= sceneOk;
+  }
+  if (!configPath.empty()) {
+    const bool configOk = loadConfig(configPath.string());
+    if (!configOk) {
+      Logger::Instance().Log(Logger::Level::Error,
+                             "ProjectSession::LoadProject failed while loading config.json from extracted project package.");
+    }
+    ok &= configOk;
+  }
   return ok;
 }
 

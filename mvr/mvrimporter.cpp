@@ -42,6 +42,7 @@
 #include <sstream>
 #include <string>
 #include <string_view>
+#include <system_error>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
@@ -72,6 +73,41 @@ static std::string Trim(const std::string &s) {
     return {};
   size_t end = s.find_last_not_of(ws);
   return s.substr(start, end - start + 1);
+}
+
+static std::string NormalizeSlashes(std::string path) {
+  std::replace(path.begin(), path.end(), '\\', '/');
+  return path;
+}
+
+static std::string ToLowerAscii(std::string text) {
+  std::transform(text.begin(), text.end(), text.begin(), [](unsigned char c) {
+    return static_cast<char>(std::tolower(c));
+  });
+  return text;
+}
+
+static std::string GenerateShortToken(size_t length = 10) {
+  static constexpr char kAlphabet[] = "0123456789abcdefghijklmnopqrstuvwxyz";
+  std::random_device rd;
+  std::mt19937_64 rng(rd());
+  std::uniform_int_distribution<size_t> dist(0, sizeof(kAlphabet) - 2);
+
+  std::string token;
+  token.reserve(length);
+  for (size_t i = 0; i < length; ++i)
+    token.push_back(kAlphabet[dist(rng)]);
+  return token;
+}
+
+static bool IsPathLikelyTooLong(const fs::path &path) {
+#ifdef _WIN32
+  constexpr size_t kLegacyMaxPathSafetyLimit = 245;
+  return ToString(path.u8string()).size() >= kLegacyMaxPathSafetyLimit;
+#else
+  (void)path;
+  return false;
+#endif
 }
 
 static bool TryParseFloat(const std::string &text, float &out) {
@@ -248,6 +284,7 @@ PromptGdtfConflicts(const std::vector<GdtfConflict> &conflicts) {
 bool MvrImporter::ImportFromFile(const std::string &filePath,
                                  bool promptConflicts,
                                  bool applyDictionary) {
+  pathRemap.clear();
   // Treat the incoming path as UTF-8 to preserve any non-ASCII characters
   fs::path path = fs::u8path(filePath);
 
@@ -298,17 +335,38 @@ bool MvrImporter::ImportFromFile(const std::string &filePath,
   return ParseSceneXml(scenePath, promptConflicts, applyDictionary);
 }
 
+std::string MvrImporter::NormalizeArchivePath(const std::string &archivePath) const {
+  std::string normalized = Trim(NormalizeSlashes(archivePath));
+#ifdef _WIN32
+  normalized = ToLowerAscii(normalized);
+#endif
+  return normalized;
+}
+
+std::string MvrImporter::RemapArchivePathIfNeeded(const std::string &archivePath) const {
+  const std::string normalized = NormalizeArchivePath(archivePath);
+  auto it = pathRemap.find(normalized);
+  if (it != pathRemap.end())
+    return it->second;
+  return archivePath;
+}
+
 std::string MvrImporter::CreateTemporaryDirectory() {
-  auto now = std::chrono::system_clock::now().time_since_epoch().count();
-  std::string folderName = "Perastage_" + std::to_string(now);
-
   fs::path tempBase = fs::temp_directory_path();
-  fs::path fullPath = tempBase / folderName;
+  for (int attempt = 0; attempt < 32; ++attempt) {
+    fs::path fullPath = tempBase / ("ps_" + GenerateShortToken());
+    std::error_code ec;
+    if (fs::create_directory(fullPath, ec) && !ec) {
+      // Return the path encoded as UTF-8 so it can safely be converted back
+      // using fs::u8path or passed to wxWidgets APIs expecting UTF-8 strings.
+      return ToString(fullPath.u8string());
+    }
+  }
 
-  fs::create_directory(fullPath);
-  // Return the path encoded as UTF-8 so it can safely be converted back
-  // using fs::u8path or passed to wxWidgets APIs expecting UTF-8 strings.
-  return ToString(fullPath.u8string());
+  fs::path fallback = tempBase / ("ps_" + std::to_string(
+                                      std::chrono::system_clock::now().time_since_epoch().count()));
+  fs::create_directory(fallback);
+  return ToString(fallback.u8string());
 }
 
 bool MvrImporter::ExtractMvrZip(const std::string &mvrPath,
@@ -324,8 +382,8 @@ bool MvrImporter::ExtractMvrZip(const std::string &mvrPath,
 
   while ((entry.reset(zipStream.GetNextEntry())), entry) {
     // Extract entry names using UTF-8 to preserve special characters
-    std::string filename = entry->GetName().ToUTF8().data();
-    fs::path fullPath = fs::u8path(destDir) / fs::u8path(filename);
+    std::string entryName = entry->GetName().ToUTF8().data();
+    fs::path fullPath = fs::u8path(destDir) / fs::u8path(entryName);
 
     if (entry->IsDir()) {
       std::string dirUtf8 = ToString(fullPath.u8string());
@@ -338,10 +396,58 @@ bool MvrImporter::ExtractMvrZip(const std::string &mvrPath,
     wxFileName::Mkdir(wxString::FromUTF8(parentUtf8.c_str()), wxS_DIR_DEFAULT,
                       wxPATH_MKDIR_FULL);
 
-    std::ofstream output(fullPath, std::ios::binary);
+    const std::string normalizedEntryName = NormalizeArchivePath(entryName);
+    const size_t fullPathLength = ToString(fullPath.u8string()).size();
+
+    auto tryOpenOutput = [](const fs::path &path) {
+      return std::ofstream(path, std::ios::binary);
+    };
+
+    std::ofstream output;
+    bool remapped = false;
+    if (!IsPathLikelyTooLong(fullPath))
+      output = tryOpenOutput(fullPath);
+
     if (!output.is_open()) {
-      LogMessage("Cannot create file: " + ToString(fullPath.u8string()));
+      fs::path longDir = fs::u8path(destDir) / "_long";
+      std::string extension = fs::u8path(entryName).extension().string();
+      std::string hashBase = std::to_string(std::hash<std::string>{}(normalizedEntryName));
+      wxFileName::Mkdir(wxString::FromUTF8(ToString(longDir.u8string()).c_str()),
+                        wxS_DIR_DEFAULT, wxPATH_MKDIR_FULL);
+
+      for (int suffix = 0; suffix < 64 && !output.is_open(); ++suffix) {
+        std::string candidateName = hashBase;
+        if (suffix > 0)
+          candidateName += "_" + std::to_string(suffix);
+        candidateName += extension;
+        fs::path candidatePath = longDir / fs::u8path(candidateName);
+        output = tryOpenOutput(candidatePath);
+        if (output.is_open()) {
+          fullPath = candidatePath;
+          pathRemap[normalizedEntryName] = ToString((fs::path("_long") /
+                                                     fs::u8path(candidateName))
+                                                        .u8string());
+          remapped = true;
+        }
+      }
+    }
+
+    if (!output.is_open()) {
+      std::ostringstream msg;
+      msg << "Cannot create file while extracting MVR entry. entry='" << entryName
+          << "', path='" << ToString(fullPath.u8string())
+          << "', pathLength=" << fullPathLength;
+      LogMessage(Logger::Level::Error, msg.str());
       return false;
+    }
+
+    if (remapped) {
+      const std::string remappedPath = pathRemap[normalizedEntryName];
+      std::ostringstream warn;
+      warn << "MVR extraction remapped long path entry. entry='" << entryName
+           << "', remapped='" << remappedPath
+           << "', originalLength=" << fullPathLength;
+      LogMessage(Logger::Level::Warn, warn.str());
     }
 
     char buffer[4096];
@@ -467,7 +573,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         if (std::string(name) == "Geometry3D") {
           SymdefGeometry g;
           if (const char *fname = child->Attribute("fileName"))
-            g.file = fname;
+            g.file = RemapArchivePathIfNeeded(fname);
           if (const char *type = child->Attribute("geometryType"))
             g.geometryType = Trim(type);
           g.transform = composed;
@@ -555,7 +661,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
     std::string normalized = normalizeGeometryFileName(std::move(fileName));
     if (normalized.empty())
       return normalized;
-    const fs::path resolved = ResolveSceneRelativePath(scene.basePath, normalized);
+    std::string remapped = RemapArchivePathIfNeeded(normalized);
+    const fs::path resolved = ResolveSceneRelativePath(scene.basePath, remapped);
     return ToString(resolved.u8string());
   };
 
@@ -566,7 +673,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
     if (normalized.empty())
       return;
     GeometryInstance instance;
-    instance.modelFile = normalized;
+    instance.modelFile = RemapArchivePathIfNeeded(normalized);
     instance.localTransform = localTransform;
     instances.push_back(std::move(instance));
   };
@@ -735,6 +842,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
           }
         }
         if (!fixture.gdtfSpec.empty()) {
+          fixture.gdtfSpec = RemapArchivePathIfNeeded(fixture.gdtfSpec);
           fs::path p =
               scene.basePath.empty()
                   ? fs::u8path(fixture.gdtfSpec)
@@ -824,6 +932,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
 
         bool gdtfLoadFailed = false;
         if (!truss.gdtfSpec.empty()) {
+          truss.gdtfSpec = RemapArchivePathIfNeeded(truss.gdtfSpec);
           fs::path gdtfPath = scene.basePath.empty()
                                   ? fs::u8path(truss.gdtfSpec)
                                   : fs::u8path(scene.basePath) / fs::u8path(truss.gdtfSpec);
@@ -994,7 +1103,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
           return {};
         };
 
-        support.gdtfSpec = readText("GDTFSpec");
+        support.gdtfSpec = RemapArchivePathIfNeeded(readText("GDTFSpec"));
         support.gdtfMode = readText("GDTFMode");
         support.function = readText("Function");
         support.hoistFunction = NormalizeHoistFunction(support.function);
