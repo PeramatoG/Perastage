@@ -10,6 +10,7 @@ const VOLUMETRIC_INTENSITY_SCALE: float = 0.62
 const GOBO_OCCLUDER_DISTANCE_M: float = 0.043
 const GOBO_PLANE_BASE_SIZE_M: float = 0.017
 const GOBO_FOOTPRINT_CONE_FILL_RATIO: float = 1.0
+const GOBO_COOKIE_OVERSCAN_RATIO: float = 1.12
 const GOBO_DEBUG_MATERIAL_COLOR: Color = Color(0.1, 0.9, 0.2, 0.3)
 const GOBO_DEBUG_LOG_THROTTLE_MS: int = 400
 
@@ -18,7 +19,7 @@ var _gobo_occluder_material_template: ShaderMaterial
 var _gobo_occluder_debug_material: StandardMaterial3D
 var _camera: Camera3D
 var _settings: Dictionary = {}
-var _last_gobo_debug_log_ticks: int = 0
+var _last_gobo_debug_log_ticks_by_light: Dictionary = {}
 
 func _init() -> void:
 	_beam_material_template = ShaderMaterial.new()
@@ -169,7 +170,9 @@ func _update_gobo_occluder(light: SpotLight3D, cone: MeshInstance3D, gobo_occlud
 	var gobo_scale_ratio: float = max(float(_settings.get("gobo_scale_ratio", 1.0)), 0.001)
 	var cone_diameter_at_occluder: float = _compute_cone_diameter_at_occluder(beam_angle)
 	var footprint_plane_size: float = cone_diameter_at_occluder * GOBO_FOOTPRINT_CONE_FILL_RATIO
-	var gobo_plane_size_world: float = max(footprint_plane_size * gobo_scale_ratio, 0.001)
+	# Slight overscan avoids having the cone boundary and cookie boundary collide exactly,
+	# which reduces checker/dither-like borders in volumetric fog froxels.
+	var gobo_plane_size_world: float = max(footprint_plane_size * gobo_scale_ratio * GOBO_COOKIE_OVERSCAN_RATIO, 0.001)
 	var footprint_scale: float = max(gobo_plane_size_world / GOBO_PLANE_BASE_SIZE_M, 0.001)
 	gobo_occluder.scale = Vector3(footprint_scale, footprint_scale, 1.0)
 	gobo_occluder.position = Vector3(0.0, 0.0, -GOBO_OCCLUDER_DISTANCE_M)
@@ -196,28 +199,46 @@ func _update_gobo_occluder(light: SpotLight3D, cone: MeshInstance3D, gobo_occlud
 	else:
 		cone.set_instance_shader_parameter("gobo_enabled", false)
 
-	_maybe_log_gobo_parameters(light, beam_angle, gobo_plane_size_world)
+	_maybe_log_gobo_parameters(light, beam_angle, beam_range, gobo_plane_size_world)
 
-func _maybe_log_gobo_parameters(light: SpotLight3D, beam_angle: float, gobo_plane_size_world: float) -> void:
+func _maybe_log_gobo_parameters(light: SpotLight3D, beam_angle: float, beam_range_visual: float, gobo_plane_size_world: float) -> void:
 	if not bool(_settings.get("gobo_debug_log_parameters", false)):
 		return
 
+	var light_id: int = light.get_instance_id()
 	var now_ticks: int = Time.get_ticks_msec()
-	if (now_ticks - _last_gobo_debug_log_ticks) < GOBO_DEBUG_LOG_THROTTLE_MS:
+	var last_ticks: int = int(_last_gobo_debug_log_ticks_by_light.get(light_id, 0))
+	if (now_ticks - last_ticks) < GOBO_DEBUG_LOG_THROTTLE_MS:
 		return
-	_last_gobo_debug_log_ticks = now_ticks
+	_last_gobo_debug_log_ticks_by_light[light_id] = now_ticks
 
-	var atlas_size: String = "n/a"
-	if RenderingServer.has_method("get_rendering_info"):
-		atlas_size = "%s" % RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_OBJECTS_IN_FRAME)
-	print("[PeravizGoboDebug] light=", light.name,
-		" occluder_distance_m=", GOBO_OCCLUDER_DISTANCE_M,
-		" beam_angle=", beam_angle,
-		" spot_attenuation=", light.spot_attenuation,
-		" light_volumetric_fog_energy=", light.light_volumetric_fog_energy,
-		" fog_density_setting=", float(_settings.get("volumetric_fog_density", 0.0)),
-		" shadow_bias=", light.shadow_bias,
-		" shadow_normal_bias=", light.shadow_normal_bias,
-		" shadow_blur=", light.shadow_blur,
-		" atlas_info=", atlas_size,
-		" gobo_size_world=", gobo_plane_size_world)
+	var volumetric_size: int = int(round(float(_settings.get("volumetric_fog_volume_size", -1))))
+	var volumetric_depth: float = float(_settings.get("volumetric_fog_depth", -1.0))
+	var volumetric_filter_active: bool = bool(_settings.get("volumetric_fog_use_filter", true))
+	var beam_angle_source: String = str(light.get_meta("peraviz_beam_angle_source", "unknown"))
+	if bool(_settings.get("gobo_debug_log_volumetric_details", false)):
+		print("[PeravizGoboDebug] light=", light.name,
+			" spot_angle_half_deg=", light.spot_angle,
+			" beam_angle_source=", beam_angle_source,
+			" beam_angle_full_deg=", beam_angle,
+			" spot_range=", light.spot_range,
+			" beam_range_visual=", beam_range_visual,
+			" spot_attenuation=", light.spot_attenuation,
+			" shadow_bias=", light.shadow_bias,
+			" shadow_normal_bias=", light.shadow_normal_bias,
+			" shadow_blur=", light.shadow_blur,
+			" light_volumetric_fog_energy=", light.light_volumetric_fog_energy,
+			" env_volumetric_density=", float(_settings.get("volumetric_fog_density", 0.0)),
+			" env_volume_size=", volumetric_size,
+			" env_volume_depth=", volumetric_depth,
+			" env_use_filter=", volumetric_filter_active,
+			" gobo_size_world=", gobo_plane_size_world)
+	else:
+		print("[PeravizGoboDebug] light=", light.name,
+			" spot_angle_half_deg=", light.spot_angle,
+			" beam_angle_full_deg=", beam_angle,
+			" spot_range=", light.spot_range,
+			" beam_range_visual=", beam_range_visual,
+			" shadow_blur=", light.shadow_blur,
+			" env_volume_size=", volumetric_size,
+			" env_use_filter=", volumetric_filter_active)

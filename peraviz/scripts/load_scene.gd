@@ -66,7 +66,11 @@ var _visual_settings := {
 	"gobo_scale_ratio": 1.0,
 	"gobo_debug_show_occluder": false,
 	"gobo_debug_log_parameters": false,
+	"gobo_debug_log_volumetric_details": false,
 	"gobo_projection_mode": "shadow_cookie",
+	"volumetric_fog_volume_size": 192,
+	"volumetric_fog_depth": 64.0,
+	"volumetric_fog_use_filter": true,
 	"background_color": Color(0.129412, 0.137255, 0.156863, 1.0),
 }
 
@@ -276,6 +280,11 @@ func _apply_visual_settings(settings: Dictionary) -> void:
 		world_environment.environment.background_color = _visual_settings.get("background_color", _visual_environment_baseline.get("background_color", Color(0.129412, 0.137255, 0.156863, 1.0)))
 		world_environment.environment.volumetric_fog_enabled = true
 		world_environment.environment.volumetric_fog_density = float(_visual_settings.get("volumetric_fog_density", 0.01))
+		# Godot volumetric fog uses a froxel grid (Proposal #11987 workaround relies on this).
+		# Volume Size/Depth and Use Filter are exposed so users can trade aliasing vs. detail.
+		world_environment.environment.set("volumetric_fog_volume_size", int(round(float(_visual_settings.get("volumetric_fog_volume_size", 192)))))
+		world_environment.environment.set("volumetric_fog_depth", float(_visual_settings.get("volumetric_fog_depth", 64.0)))
+		world_environment.environment.set("volumetric_fog_filter_active", bool(_visual_settings.get("volumetric_fog_use_filter", true)))
 
 	_update_beam_renderer_mode(false)
 	_save_visual_settings_to_project()
@@ -1592,9 +1601,11 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 	if source_beam_radius > 0.0:
 		lens_radius = max(source_beam_radius, 0.005)
 	light.set_meta("peraviz_beam_base_intensity", clamp(normalized_dimmer, 0.0, 1.0))
+	light.set_meta("peraviz_beam_angle_source", "gdtf_full_angle_deg")
 	var beam_params := {
 		"beam_angle": beam_angle,
-		"beam_range": cone_range,
+		"beam_range": light.spot_range,
+		"beam_angle_source": "gdtf_full_angle_deg",
 		"beam_color": beam_color,
 		"normalized_dimmer": clamp(normalized_dimmer, 0.0, 1.0),
 		"scaled_intensity": clamp(normalized_dimmer * float(_visual_settings.get("beam_multiplier", 1.0)), 0.0, 3.0),
@@ -1603,6 +1614,8 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 		"fade_end_ratio": EMITTER_CONE_FADE_END_RATIO,
 		"intensity_visibility_threshold": BEAM_INTENSITY_VISIBILITY_THRESHOLD,
 		"distance_cull_m": BEAM_DISTANCE_CULL_M,
+		"spot_angle_half_deg": light.spot_angle,
+		"spot_range": light.spot_range,
 	}
 	if use_shadow_cookie_gobo:
 		# Let native volumetric fog carry most of the hard-edged cookie shape.
