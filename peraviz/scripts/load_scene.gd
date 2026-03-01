@@ -68,8 +68,8 @@ var _visual_settings := {
 	"gobo_debug_log_parameters": false,
 	"gobo_debug_log_volumetric_details": false,
 	"gobo_projection_mode": "shadow_cookie",
-	"volumetric_fog_volume_size": 256,
-	"volumetric_fog_depth": 64.0,
+	"volumetric_fog_volume_size": 384,
+	"volumetric_fog_depth": 48.0,
 	"volumetric_fog_use_filter": true,
 	"background_color": Color(0.129412, 0.137255, 0.156863, 1.0),
 }
@@ -86,6 +86,7 @@ var _dmx_fixture_runtime = null
 var _beam_renderers: Dictionary = {}
 var _active_beam_renderer: BeamRendererBase
 var _active_beam_mode: int = -1
+var _gobo_fog_quality_boost_applied: bool = false
 
 
 const DmxMonitorWindowScript = preload("res://scripts/dmx_monitor_window.gd")
@@ -142,6 +143,11 @@ const GOBO_SHADOW_COOKIE_SHADOW_BIAS: float = 0.02
 const GOBO_SHADOW_COOKIE_SHADOW_NORMAL_BIAS: float = 0.8
 const GOBO_SHADOW_COOKIE_SHADOW_BLUR: float = 0.2
 const GOBO_NATIVE_COOKIE_MESH_BEAM_INTENSITY_MULTIPLIER: float = 0.55
+const GOBO_COOKIE_RANGE_MIN_M: float = 22.0
+const GOBO_COOKIE_RANGE_MAX_M: float = 36.0
+const GOBO_FOG_MIN_VOLUME_SIZE: int = 384
+const GOBO_FOG_MAX_DEPTH_M: float = 48.0
+const GOBO_MIN_SHADOW_ATLAS_SIZE: int = 8192
 const EMITTER_CONE_FADE_END_RATIO: float = 0.82
 const EMITTER_CONE_NEAR_ALPHA: float = 0.16
 const EMITTER_CONE_FAR_ALPHA: float = 0.004
@@ -428,6 +434,50 @@ func _should_prefer_native_cookie_volumetric(light: SpotLight3D) -> bool:
 	if projection_mode == FixtureGoboProjector.ProjectionMode.PROJECTOR_COOKIE:
 		return _supports_fog_light_projectors()
 	return false
+
+func _should_apply_gobo_fog_quality_boost() -> bool:
+	return bool(ProjectSettings.get_setting("peraviz_auto_gobo_fog_quality", true))
+
+func _ensure_gobo_fog_quality_defaults() -> void:
+	if _gobo_fog_quality_boost_applied and not _should_apply_gobo_fog_quality_boost():
+		return
+	if not _should_apply_gobo_fog_quality_boost():
+		return
+
+	var changed: bool = false
+	var shadow_atlas_key: String = "rendering/lights_and_shadows/positional_shadow/atlas_size"
+	var current_shadow_atlas: int = int(ProjectSettings.get_setting(shadow_atlas_key, 4096))
+	if current_shadow_atlas < GOBO_MIN_SHADOW_ATLAS_SIZE:
+		ProjectSettings.set_setting(shadow_atlas_key, GOBO_MIN_SHADOW_ATLAS_SIZE)
+		changed = true
+
+	var fog_size_key: String = "rendering/environment/volumetric_fog/volume_size"
+	var fog_depth_key: String = "rendering/environment/volumetric_fog/volume_depth"
+	var fog_filter_key: String = "rendering/environment/volumetric_fog/use_filter"
+	var current_volume_size: int = int(ProjectSettings.get_setting(fog_size_key, int(_visual_settings.get("volumetric_fog_volume_size", 256))))
+	var current_volume_depth: float = float(ProjectSettings.get_setting(fog_depth_key, float(_visual_settings.get("volumetric_fog_depth", 64.0))))
+	var current_use_filter: bool = bool(ProjectSettings.get_setting(fog_filter_key, bool(_visual_settings.get("volumetric_fog_use_filter", true))))
+
+	var target_volume_size: int = max(current_volume_size, GOBO_FOG_MIN_VOLUME_SIZE)
+	var target_volume_depth: float = min(current_volume_depth, GOBO_FOG_MAX_DEPTH_M)
+	if current_volume_size != target_volume_size:
+		ProjectSettings.set_setting(fog_size_key, target_volume_size)
+		_visual_settings["volumetric_fog_volume_size"] = target_volume_size
+		changed = true
+	if not is_equal_approx(current_volume_depth, target_volume_depth):
+		ProjectSettings.set_setting(fog_depth_key, target_volume_depth)
+		_visual_settings["volumetric_fog_depth"] = target_volume_depth
+		changed = true
+	if not current_use_filter:
+		ProjectSettings.set_setting(fog_filter_key, true)
+		_visual_settings["volumetric_fog_use_filter"] = true
+		changed = true
+
+	if changed and world_environment != null and world_environment.environment != null:
+		_apply_environment_froxel_settings(world_environment.environment, target_volume_size, int(round(target_volume_depth)), true)
+		if status_label != null:
+			status_label.text = "Applied gobo fog quality defaults (atlas/froxel). Reload scene for full froxel buffer update."
+	_gobo_fog_quality_boost_applied = true
 
 func _update_beam_for_light(light: SpotLight3D, beam_params: Dictionary) -> void:
 	if _active_beam_renderer == null:
@@ -1672,7 +1722,7 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 	light.spot_range = clamp(cone_range * EMITTER_LIGHT_FOOTPRINT_RANGE_MULTIPLIER, EMITTER_LIGHT_MIN_EFFECTIVE_RANGE_M, EMITTER_LIGHT_MAX_RANGE_M)
 	if bool(controls.get("has_gobo", false)):
 		# Sample-like fallback for gobo readability: keep spotlight range in a tight zoom-linked window.
-		light.spot_range = remap(clamp(beam_angle, 6.0, 50.0), 6.0, 50.0, 60.0, 30.0)
+		light.spot_range = remap(clamp(beam_angle, 6.0, 50.0), 6.0, 50.0, GOBO_COOKIE_RANGE_MAX_M, GOBO_COOKIE_RANGE_MIN_M)
 	var gobo_projection_mode: String = str(_visual_settings.get("gobo_projection_mode", "shadow_cookie"))
 	var use_shadow_cookie_gobo: bool = bool(controls.get("has_gobo", false)) and gobo_projection_mode == "shadow_cookie"
 	if use_shadow_cookie_gobo:
@@ -1713,6 +1763,7 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 		gobo_changed = _fixture_gobo_projector.apply_gobo_projection(light, gobo_controls)
 
 	if _should_prefer_native_cookie_volumetric(light):
+		_ensure_gobo_fog_quality_defaults()
 		# Keep mesh beam subtle when the native fog pipeline already carries gobo cookies
 		# (shadow-cookie workaround and Godot fog projector path).
 		beam_params["prefer_native_cookie_volumetric"] = true
