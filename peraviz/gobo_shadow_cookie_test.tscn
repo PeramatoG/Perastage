@@ -11,8 +11,8 @@ ambient_light_energy = 0.25
 volumetric_fog_enabled = true
 volumetric_fog_density = 0.02
 volumetric_fog_volume_size = 256
-volumetric_fog_depth = 128.0
-volumetric_fog_filter_active = false
+volumetric_fog_depth = 64.0
+volumetric_fog_filter_active = true
 volumetric_fog_albedo = Color(0.9, 0.9, 0.95, 1)
 
 [sub_resource type="StandardMaterial3D" id="FloorMaterial"]
@@ -49,9 +49,9 @@ light_volumetric_fog_energy = 3.5
 spot_range = 14.0
 spot_angle = 16.0
 shadow_enabled = true
-shadow_bias = 0.01
-shadow_normal_bias = 0.25
-shadow_blur = 0.0
+shadow_bias = 0.02
+shadow_normal_bias = 0.8
+shadow_blur = 0.7
 
 [node name="GoboOccluder" type="MeshInstance3D" parent="SpotLight3D"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.043)

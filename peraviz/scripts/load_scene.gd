@@ -69,8 +69,8 @@ var _visual_settings := {
 	"gobo_debug_log_volumetric_details": false,
 	"gobo_projection_mode": "shadow_cookie",
 	"volumetric_fog_volume_size": 256,
-	"volumetric_fog_depth": 128.0,
-	"volumetric_fog_use_filter": false,
+	"volumetric_fog_depth": 64.0,
+	"volumetric_fog_use_filter": true,
 	"background_color": Color(0.129412, 0.137255, 0.156863, 1.0),
 }
 
@@ -138,9 +138,9 @@ const EMITTER_LIGHT_FOOTPRINT_RANGE_MULTIPLIER: float = 1.0
 const EMITTER_LIGHT_SPOT_ATTENUATION_MIN: float = 0.0669
 const EMITTER_LIGHT_SPOT_ATTENUATION_MAX: float = 1.5
 const GOBO_SHADOW_COOKIE_BEAM_ATTENUATION: float = 0.5
-const GOBO_SHADOW_COOKIE_SHADOW_BIAS: float = 0.015
-const GOBO_SHADOW_COOKIE_SHADOW_NORMAL_BIAS: float = 0.4
-const GOBO_SHADOW_COOKIE_SHADOW_BLUR: float = 0.0
+const GOBO_SHADOW_COOKIE_SHADOW_BIAS: float = 0.02
+const GOBO_SHADOW_COOKIE_SHADOW_NORMAL_BIAS: float = 0.8
+const GOBO_SHADOW_COOKIE_SHADOW_BLUR: float = 0.7
 const GOBO_SHADOW_COOKIE_MESH_BEAM_INTENSITY_MULTIPLIER: float = 0.2
 const EMITTER_CONE_FADE_END_RATIO: float = 0.82
 const EMITTER_CONE_NEAR_ALPHA: float = 0.16
@@ -286,8 +286,8 @@ func _apply_visual_settings(settings: Dictionary) -> void:
 	# Godot volumetric fog froxel controls are renderer-level project settings.
 	# Keep them aligned with visual settings for the #11987 shadow-cookie workflow.
 	var fog_volume_size: int = int(round(float(_visual_settings.get("volumetric_fog_volume_size", 256))))
-	var fog_volume_depth: int = int(round(float(_visual_settings.get("volumetric_fog_depth", 128.0))) )
-	var fog_use_filter: bool = bool(_visual_settings.get("volumetric_fog_use_filter", false))
+	var fog_volume_depth: int = int(round(float(_visual_settings.get("volumetric_fog_depth", 64.0))) )
+	var fog_use_filter: bool = bool(_visual_settings.get("volumetric_fog_use_filter", true))
 	ProjectSettings.set_setting("rendering/environment/volumetric_fog/volume_size", fog_volume_size)
 	ProjectSettings.set_setting("rendering/environment/volumetric_fog/volume_depth", fog_volume_depth)
 	ProjectSettings.set_setting("rendering/environment/volumetric_fog/use_filter", fog_use_filter)
