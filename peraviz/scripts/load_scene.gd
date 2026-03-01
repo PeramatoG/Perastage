@@ -1658,7 +1658,9 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 		"spot_range": light.spot_range,
 	}
 	if use_shadow_cookie_gobo:
-		# Let native volumetric fog carry most of the hard-edged cookie shape.
+		# Match the #11987 workaround behavior: keep occluder shadows for native volumetric fog,
+		# but disable the additive fake beam mesh to avoid concentric/double cone artifacts.
+		beam_params["prefer_native_shadow_cookie_volumetric"] = true
 		beam_params["scaled_intensity"] = float(beam_params.get("scaled_intensity", 0.0)) * GOBO_SHADOW_COOKIE_MESH_BEAM_INTENSITY_MULTIPLIER
 
 	var gobo_changed: bool = false

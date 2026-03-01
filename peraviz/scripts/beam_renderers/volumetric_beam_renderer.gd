@@ -80,14 +80,23 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 
 	var intensity: float = clamp(float(params.get("scaled_intensity", 0.0)), 0.0, 8.0)
 	var threshold: float = float(params.get("intensity_visibility_threshold", 0.015))
+	var beam_range: float = max(float(params.get("beam_range", 0.1)), 0.01)
+	var beam_angle: float = max(float(params.get("beam_angle", 1.0)), 0.1)
+	var prefer_native_shadow_cookie: bool = bool(params.get("prefer_native_shadow_cookie_volumetric", false))
+
 	if intensity <= threshold or not bool(params.get("is_visible", true)):
 		cone.visible = false
 		if gobo_occluder != null:
 			gobo_occluder.visible = false
 		return
 
-	var beam_range: float = max(float(params.get("beam_range", 0.1)), 0.01)
-	var beam_angle: float = max(float(params.get("beam_angle", 1.0)), 0.1)
+	if prefer_native_shadow_cookie:
+		# Keep only the occluder-driven shadow-cookie path so Godot's native volumetric fog
+		# carries the in-air gobo pattern without additive concentric beam mesh artifacts.
+		cone.visible = false
+		_update_gobo_occluder(light, cone, gobo_occluder, beam_angle, beam_range)
+		return
+
 	var beam_color: Color = params.get("beam_color", Color.WHITE)
 	var lens_radius: float = max(float(params.get("lens_radius", 0.03)), 0.005)
 	var distance_limit: float = float(params.get("distance_cull_m", 180.0))
