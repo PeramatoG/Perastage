@@ -48,7 +48,7 @@ func apply_gobo_projection(light: SpotLight3D, controls: Dictionary) -> bool:
 			"gobo_slots": wheel.get("slots", []),
 		}
 		var gobo_texture: Texture2D = _resolve_gobo_texture_for_slot(wheel_controls, slot_index)
-		if gobo_texture == null:
+		if gobo_texture == null and _should_use_fake_gobo_fallback():
 			gobo_texture = _resolve_fake_gobo_texture(int(wheel.get("raw_8bit", 0)))
 		if gobo_texture != null:
 			active_textures.append(gobo_texture)
@@ -72,6 +72,10 @@ func apply_gobo_projection(light: SpotLight3D, controls: Dictionary) -> bool:
 		# Keep projector disabled in the sample-like path to avoid double gobo projection.
 		light.light_projector = null
 	return composed_gobo != previous_meta_texture
+
+
+func _should_use_fake_gobo_fallback() -> bool:
+	return bool(ProjectSettings.get_setting("peraviz_gobo_use_fake_texture_fallback", false))
 
 func _resolve_projection_mode(controls: Dictionary) -> int:
 	var mode_name: String = str(controls.get("gobo_projection_mode", "shadow_cookie")).to_lower()

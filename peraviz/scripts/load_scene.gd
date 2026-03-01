@@ -141,7 +141,7 @@ const GOBO_SHADOW_COOKIE_BEAM_ATTENUATION: float = 0.5
 const GOBO_SHADOW_COOKIE_SHADOW_BIAS: float = 0.02
 const GOBO_SHADOW_COOKIE_SHADOW_NORMAL_BIAS: float = 0.8
 const GOBO_SHADOW_COOKIE_SHADOW_BLUR: float = 0.2
-const GOBO_SHADOW_COOKIE_MESH_BEAM_INTENSITY_MULTIPLIER: float = 0.55
+const GOBO_NATIVE_COOKIE_MESH_BEAM_INTENSITY_MULTIPLIER: float = 0.55
 const EMITTER_CONE_FADE_END_RATIO: float = 0.82
 const EMITTER_CONE_NEAR_ALPHA: float = 0.16
 const EMITTER_CONE_FAR_ALPHA: float = 0.004
@@ -389,14 +389,45 @@ func _update_existing_beam_material_scalars(light: SpotLight3D) -> void:
 		return
 	var beam_multiplier: float = float(_visual_settings.get("beam_multiplier", 1.0))
 	beam_params["scaled_intensity"] = clamp(base_intensity * beam_multiplier, 0.0, BEAM_INTENSITY_MAX)
-	var use_shadow_cookie_gobo: bool = (
-		int(light.get_meta("peraviz_gobo_projection_mode", 0)) == FixtureGoboProjector.ProjectionMode.SHADOW_COOKIE
-		and light.get_meta("peraviz_gobo_texture", null) != null
-	)
-	if use_shadow_cookie_gobo:
-		beam_params["scaled_intensity"] = float(beam_params.get("scaled_intensity", 0.0)) * GOBO_SHADOW_COOKIE_MESH_BEAM_INTENSITY_MULTIPLIER
+	if _should_prefer_native_cookie_volumetric(light):
+		beam_params["prefer_native_cookie_volumetric"] = true
+		beam_params["scaled_intensity"] = float(beam_params.get("scaled_intensity", 0.0)) * GOBO_NATIVE_COOKIE_MESH_BEAM_INTENSITY_MULTIPLIER
+	else:
+		beam_params["prefer_native_cookie_volumetric"] = false
 	beam_params["beam_quality"] = int(_visual_settings.get("beam_quality", 1))
 	_update_beam_for_light(light, beam_params)
+
+func _supports_fog_light_projectors() -> bool:
+	var override_mode: String = str(ProjectSettings.get_setting("peraviz_fog_light_projectors", "auto")).to_lower()
+	if override_mode == "enabled":
+		return true
+	if override_mode == "disabled":
+		return false
+	var version_info: Dictionary = Engine.get_version_info()
+	var major: int = int(version_info.get("major", 0))
+	var minor: int = int(version_info.get("minor", 0))
+	if major > 4:
+		return true
+	if major < 4:
+		return false
+	return minor >= 5
+
+func _should_prefer_native_cookie_volumetric(light: SpotLight3D) -> bool:
+	if light == null or not is_instance_valid(light):
+		return false
+	if not light.has_meta("peraviz_gobo_texture"):
+		return false
+	var gobo_texture: Texture2D = light.get_meta("peraviz_gobo_texture") as Texture2D
+	if gobo_texture == null:
+		return false
+	var projection_mode: int = FixtureGoboProjector.ProjectionMode.SHADOW_COOKIE
+	if light.has_meta("peraviz_gobo_projection_mode"):
+		projection_mode = int(light.get_meta("peraviz_gobo_projection_mode"))
+	if projection_mode == FixtureGoboProjector.ProjectionMode.SHADOW_COOKIE:
+		return true
+	if projection_mode == FixtureGoboProjector.ProjectionMode.PROJECTOR_COOKIE:
+		return _supports_fog_light_projectors()
+	return false
 
 func _update_beam_for_light(light: SpotLight3D, beam_params: Dictionary) -> void:
 	if _active_beam_renderer == null:
@@ -1675,17 +1706,19 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 		"spot_angle_half_deg": light.spot_angle,
 		"spot_range": light.spot_range,
 	}
-	if use_shadow_cookie_gobo:
-		# Match the #11987 workaround behavior: keep occluder shadows for native volumetric fog,
-		# but disable the additive fake beam mesh to avoid concentric/double cone artifacts.
-		beam_params["prefer_native_shadow_cookie_volumetric"] = true
-		beam_params["scaled_intensity"] = float(beam_params.get("scaled_intensity", 0.0)) * GOBO_SHADOW_COOKIE_MESH_BEAM_INTENSITY_MULTIPLIER
-
 	var gobo_changed: bool = false
 	if _fixture_gobo_projector != null:
 		var gobo_controls: Dictionary = controls.duplicate(true)
 		gobo_controls["gobo_projection_mode"] = str(_visual_settings.get("gobo_projection_mode", "shadow_cookie"))
 		gobo_changed = _fixture_gobo_projector.apply_gobo_projection(light, gobo_controls)
+
+	if _should_prefer_native_cookie_volumetric(light):
+		# Keep mesh beam subtle when the native fog pipeline already carries gobo cookies
+		# (shadow-cookie workaround and Godot fog projector path).
+		beam_params["prefer_native_cookie_volumetric"] = true
+		beam_params["scaled_intensity"] = float(beam_params.get("scaled_intensity", 0.0)) * GOBO_NATIVE_COOKIE_MESH_BEAM_INTENSITY_MULTIPLIER
+	else:
+		beam_params["prefer_native_cookie_volumetric"] = false
 	light.light_volumetric_fog_energy = float(_visual_settings.get("light_volumetric_fog_energy", 1.0))
 	_update_beam_for_light(light, beam_params)
 	if gobo_changed:
