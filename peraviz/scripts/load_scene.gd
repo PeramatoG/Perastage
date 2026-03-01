@@ -534,7 +534,7 @@ func _on_file_selected(path: String) -> void:
 			" mesh(hit/miss)=", hit_by_kind.get("mesh", 0), "/", miss_by_kind.get("mesh", 0),
 			" scene(hit/miss)=", hit_by_kind.get("scene", 0), "/", miss_by_kind.get("scene", 0),
 			" material(hit/miss)=", hit_by_kind.get("material", 0), "/", miss_by_kind.get("material", 0))
-	status_label.text = "Nodes: %d (F focus, C debug coords, F5 reload MVR)" % nodes.size()
+	status_label.text = "Nodes: %d (F focus, C debug coords, F5 rebind MVR/DMX)" % nodes.size()
 	_update_debug_legend()
 	_refresh_emitter_light_scalars()
 
@@ -565,12 +565,11 @@ func _reload_loaded_mvr_after_fog_changes() -> void:
 
 func _reload_current_scene_from_shortcut() -> void:
 	if _reload_loaded_mvr_data():
+		if status_label != null:
+			status_label.text = "Reloaded current MVR data and refreshed DMX bindings."
 		return
-	if get_tree() == null:
-		return
-	var reload_error: Error = get_tree().reload_current_scene()
-	if reload_error != OK:
-		push_warning("Peraviz scene reload failed. Error=" + str(reload_error))
+	if status_label != null:
+		status_label.text = "No MVR loaded yet. Use Load .mvr first."
 
 func _on_fixture_list_item_selected(index: int) -> void:
 	if index < 0 or index >= fixture_list.get_item_count():
