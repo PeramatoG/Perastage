@@ -256,14 +256,13 @@ func _capture_visual_environment_baseline() -> void:
 	_visual_settings["background_color"] = _visual_environment_baseline["background_color"]
 
 func _load_visual_settings_from_project() -> void:
-	var stored_settings: Variant = ProjectSettings.get_setting(VISUAL_SETTINGS_PROJECT_KEY, {})
-	if stored_settings is Dictionary:
-		for key in _visual_settings.keys():
-			if stored_settings.has(key):
-				_visual_settings[key] = stored_settings[key]
+	# Debug workflow: keep visual settings ephemeral during runtime.
+	# Do not read prior persisted overrides from project settings.
+	return
 
 func _save_visual_settings_to_project() -> void:
-	ProjectSettings.set_setting(VISUAL_SETTINGS_PROJECT_KEY, _visual_settings.duplicate(true))
+	# Debug workflow: avoid writing visual overrides to project.godot.
+	return
 
 func _initialize_beam_renderers() -> void:
 	_beam_renderers[BEAM_RENDER_MODE_LEGACY] = LegacyConeBeamRendererScript.new()
@@ -294,7 +293,7 @@ func _apply_visual_settings(settings: Dictionary) -> void:
 	if world_environment != null and world_environment.environment != null:
 		_apply_environment_froxel_settings(world_environment.environment, fog_volume_size, fog_volume_depth, fog_use_filter)
 	# This setting can require a renderer restart in Godot to re-allocate froxel buffers.
-	ProjectSettings.save()
+	# Intentionally not persisted to disk in debug workflow.
 	if status_label != null:
 		status_label.text = "Volumetric fog quality changes may require scene reload to fully apply (Godot froxel grid)."
 
