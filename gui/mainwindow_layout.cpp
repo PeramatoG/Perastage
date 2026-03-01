@@ -348,11 +348,12 @@ void MainWindow::SetupLayout() {
   m_accel = wxAcceleratorTable(4, entries);
   SetAcceleratorTable(m_accel);
 
-  CreateStatusBar(2);
-  const int statusWidths[] = {-1, 220};
-  SetStatusWidths(2, statusWidths);
+  CreateStatusBar(3);
+  const int statusWidths[] = {-1, 260, 220};
+  SetStatusWidths(3, statusWidths);
   SetStatusText("Ready", 0);
-  SetStatusText("Version " + wxString::FromUTF8(app::kVersionDisplay), 1);
+  SetStatusText("X: -- m  Y: -- m  Z: -- m", 1);
+  SetStatusText("Version " + wxString::FromUTF8(app::kVersionDisplay), 2);
 
   // Ensure the View menu reflects the actual pane visibility
   UpdateViewMenuChecks();
@@ -775,6 +776,12 @@ void MainWindow::BeginLayout2DViewEdit() {
   Layout2DViewDialog dialog(this);
   layout2DViewEditPanel = dialog.GetViewerPanel();
   layout2DViewEditRenderPanel = dialog.GetRenderPanel();
+  if (layout2DViewEditPanel) {
+    layout2DViewEditPanel->SetCursorWorldPositionCallback(
+        [this](const std::optional<std::array<float, 3>> &positionMeters) {
+          UpdateCursorWorldPositionInStatusBar(positionMeters);
+        });
+  }
 
   Viewer2DPanel *prevPanel = Viewer2DPanel::Instance();
   Viewer2DRenderPanel *prevRenderPanel = Viewer2DRenderPanel::Instance();
@@ -813,6 +820,7 @@ void MainWindow::BeginLayout2DViewEdit() {
 
   layout2DViewEditPanel = nullptr;
   layout2DViewEditRenderPanel = nullptr;
+  ClearCursorWorldPositionInStatusBar();
   Viewer2DPanel::SetInstance(prevPanel);
   Viewer2DRenderPanel::SetInstance(prevRenderPanel);
 }

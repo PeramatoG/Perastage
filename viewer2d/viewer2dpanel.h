@@ -126,6 +126,10 @@ public:
   float GetLayoutEditOverlayScale() const { return m_layoutEditScale; }
   std::optional<wxSize> GetLayoutEditOverlaySize() const;
 
+  using CursorWorldPositionCallback =
+      std::function<void(const std::optional<std::array<float, 3>> &)>;
+  void SetCursorWorldPositionCallback(CursorWorldPositionCallback callback);
+
 private:
   enum class DragMode { None, View, Selection, RectSelection };
   enum class DragAxis { None, Horizontal, Vertical };
@@ -149,6 +153,10 @@ private:
   void OnCaptureLost(wxMouseCaptureLostEvent &event);
 
   std::array<float, 3> MapDragDelta(float dxMeters, float dyMeters) const;
+  std::optional<std::array<float, 3>>
+  ComputeWorldPositionFromScreen(const wxPoint &screenPos) const;
+  void NotifyCursorWorldPosition(const wxPoint &screenPos);
+  void ClearCursorWorldPosition();
   void ApplySelectionDelta(const std::array<float, 3> &deltaMeters);
   void FinalizeSelectionDrag();
   void ApplyRectangleSelection(const wxPoint &start, const wxPoint &end);
@@ -201,6 +209,7 @@ private:
   wxTimer m_interactionResumeTimer;
   bool m_enableSelection = true;
   std::string m_hoverUuid;
+  CursorWorldPositionCallback m_cursorWorldPositionCallback;
 
   bool m_captureNextFrame = false;
   bool m_useSimplifiedFootprints = false;

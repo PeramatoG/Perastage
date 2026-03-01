@@ -26,12 +26,14 @@
 #include <filesystem>
 #include <fstream>
 #include <functional>
+#include <iomanip>
 #include <iterator>
 #include <wx/event.h>
 #include <map>
 #include <memory>
 #include <optional>
 #include <set>
+#include <sstream>
 #include <random>
 #include <string>
 #include <thread>
@@ -338,6 +340,10 @@ void MainWindow::Ensure2DViewport() {
     return;
   int halfWidth = GetClientSize().GetWidth() / 2;
   viewport2DPanel = new Viewer2DPanel(this);
+  viewport2DPanel->SetCursorWorldPositionCallback(
+      [this](const std::optional<std::array<float, 3>> &positionMeters) {
+        UpdateCursorWorldPositionInStatusBar(positionMeters);
+      });
   Viewer2DPanel::SetInstance(viewport2DPanel);
   viewport2DPanel->LoadViewFromConfig();
   auiManager->AddPane(viewport2DPanel, wxAuiPaneInfo()
@@ -412,6 +418,28 @@ void MainWindow::Ensure2DViewport() {
     pane3d.Show();
     auiManager->Update();
   }
+}
+
+void MainWindow::UpdateCursorWorldPositionInStatusBar(
+    const std::optional<std::array<float, 3>> &positionMeters) {
+  if (!GetStatusBar())
+    return;
+  if (!positionMeters.has_value()) {
+    ClearCursorWorldPositionInStatusBar();
+    return;
+  }
+
+  std::ostringstream stream;
+  stream << std::fixed << std::setprecision(2) << "X: " << (*positionMeters)[0]
+         << " m  Y: " << (*positionMeters)[1] << " m  Z: "
+         << (*positionMeters)[2] << " m";
+  SetStatusText(wxString::FromUTF8(stream.str()), 1);
+}
+
+void MainWindow::ClearCursorWorldPositionInStatusBar() {
+  if (!GetStatusBar())
+    return;
+  SetStatusText("X: -- m  Y: -- m  Z: -- m", 1);
 }
 
 void MainWindow::Ensure2DViewportAvailable() { Ensure2DViewport(); }

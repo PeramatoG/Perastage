@@ -24,6 +24,7 @@
 
 #include <memory>
 #include <optional>
+#include <array>
 #include <unordered_set>
 #include <vector>
 
@@ -79,6 +80,9 @@ private:
   void CreateMenuBar(); // Create menus
   void CreateToolBars(); // Create toolbars
   void UpdateToolBarAvailability();
+  void UpdateCursorWorldPositionInStatusBar(
+      const std::optional<std::array<float, 3>> &positionMeters);
+  void ClearCursorWorldPositionInStatusBar();
   void UpdateTitle();   // Refresh window title
   void Ensure3DViewport();
   void Ensure2DViewport();
