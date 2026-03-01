@@ -112,7 +112,7 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	# while cookie patterning in air still comes from SpotLight shadows in volumetric fog.
 	var mesh_intensity: float = intensity
 	if prefer_native_shadow_cookie:
-		mesh_intensity = max(intensity * 0.35, threshold * 1.1)
+		mesh_intensity = max(intensity * 0.12, threshold * 1.05)
 
 	var half_angle_deg: float = beam_angle * 0.5
 	var tan_half_angle: float = tan(deg_to_rad(half_angle_deg))
