@@ -47,6 +47,12 @@
 #include "LayoutManager.h"
 
 namespace {
+void SetPrintStatus(MainWindow *window, const wxString &message) {
+  if (!window || !window->GetStatusBar())
+    return;
+  window->SetStatusText(message, 0);
+}
+
 std::vector<LayoutLegendItem> BuildLayoutLegendItems() {
   std::vector<SharedLayoutLegendItem> sharedItems =
       BuildSharedLayoutLegendItems();
@@ -136,6 +142,7 @@ void MainWindow::OnPrintViewer2D(wxCommandEvent &WXUNUSED(event)) {
   std::filesystem::path outputPath(
       std::filesystem::path(outputPathWx.ToStdWstring()));
   wxString outputPathDisplay = outputPathWx;
+  SetPrintStatus(this, "Printing 2D view...");
 
   wxSize captureSize = viewport2DPanel ? viewport2DPanel->GetClientSize()
                                        : GetClientSize();
@@ -189,8 +196,10 @@ void MainWindow::OnPrintViewer2D(wxCommandEvent &WXUNUSED(event)) {
             if (!res.success) {
               wxString msg = "Failed to generate PDF plan: " +
                              wxString::FromUTF8(res.message);
+              SetPrintStatus(this, "Print failed. Please review the error and try again.");
               wxMessageBox(msg, "Print Viewer 2D", wxOK | wxICON_ERROR, this);
             } else {
+              SetPrintStatus(this, "");
               wxMessageBox(wxString::Format("2D view saved to %s",
                                             outputPathDisplay),
                            "Print Viewer 2D", wxOK | wxICON_INFORMATION, this);
@@ -379,8 +388,11 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
               if (!res.success) {
                 wxString msg = "Failed to generate layout PDF: " +
                                wxString::FromUTF8(res.message);
+                SetPrintStatus(this,
+                               "Print failed. Please review the error and try again.");
                 wxMessageBox(msg, "Print Layout", wxOK | wxICON_ERROR, this);
               } else {
+                SetPrintStatus(this, "");
                 wxString successMessage =
                     wxString::Format("Layout saved to %s", outputPathDisplay);
                 wxMessageBox(successMessage, "Print Layout",
@@ -450,6 +462,7 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
             useSimplifiedFootprints, includeGrid);
       };
 
+  SetPrintStatus(this, "Printing layout...");
   (*captureNext)(0);
 }
 
