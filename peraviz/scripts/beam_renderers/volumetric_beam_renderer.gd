@@ -135,7 +135,9 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	cone.set_instance_shader_parameter("beam_bottom_radius", bottom_radius)
 	cone.set_instance_shader_parameter("beam_height", beam_range)
 
-	_update_gobo_occluder(light, cone, gobo_occluder, beam_angle, beam_range, not prefer_native_shadow_cookie)
+	# Keep gobo modulation active on the mesh beam even in native shadow-cookie mode.
+	# This acts as a fallback when volumetric fog shadowing under-resolves at distance/zoom.
+	_update_gobo_occluder(light, cone, gobo_occluder, beam_angle, beam_range, true)
 
 func _compute_cone_diameter_at_occluder(beam_angle: float) -> float:
 	var half_angle_rad: float = deg_to_rad(max(beam_angle, 0.1) * 0.5)
