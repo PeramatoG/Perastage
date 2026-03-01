@@ -68,9 +68,9 @@ var _visual_settings := {
 	"gobo_debug_log_parameters": false,
 	"gobo_debug_log_volumetric_details": false,
 	"gobo_projection_mode": "shadow_cookie",
-	"volumetric_fog_volume_size": 192,
-	"volumetric_fog_depth": 64.0,
-	"volumetric_fog_use_filter": true,
+	"volumetric_fog_volume_size": 256,
+	"volumetric_fog_depth": 128.0,
+	"volumetric_fog_use_filter": false,
 	"background_color": Color(0.129412, 0.137255, 0.156863, 1.0),
 }
 
@@ -138,9 +138,9 @@ const EMITTER_LIGHT_FOOTPRINT_RANGE_MULTIPLIER: float = 1.0
 const EMITTER_LIGHT_SPOT_ATTENUATION_MIN: float = 0.0669
 const EMITTER_LIGHT_SPOT_ATTENUATION_MAX: float = 1.5
 const GOBO_SHADOW_COOKIE_BEAM_ATTENUATION: float = 0.5
-const GOBO_SHADOW_COOKIE_SHADOW_BIAS: float = 0.03
-const GOBO_SHADOW_COOKIE_SHADOW_NORMAL_BIAS: float = 0.8
-const GOBO_SHADOW_COOKIE_SHADOW_BLUR: float = 0.35
+const GOBO_SHADOW_COOKIE_SHADOW_BIAS: float = 0.015
+const GOBO_SHADOW_COOKIE_SHADOW_NORMAL_BIAS: float = 0.4
+const GOBO_SHADOW_COOKIE_SHADOW_BLUR: float = 0.0
 const GOBO_SHADOW_COOKIE_MESH_BEAM_INTENSITY_MULTIPLIER: float = 0.2
 const EMITTER_CONE_FADE_END_RATIO: float = 0.82
 const EMITTER_CONE_NEAR_ALPHA: float = 0.16
@@ -285,16 +285,16 @@ func _apply_visual_settings(settings: Dictionary) -> void:
 
 	# Godot volumetric fog froxel controls are renderer-level project settings.
 	# Keep them aligned with visual settings for the #11987 shadow-cookie workflow.
-	var fog_volume_size: int = int(round(float(_visual_settings.get("volumetric_fog_volume_size", 192))))
-	var fog_volume_depth: int = int(round(float(_visual_settings.get("volumetric_fog_depth", 64.0))) )
-	var fog_use_filter: bool = bool(_visual_settings.get("volumetric_fog_use_filter", true))
+	var fog_volume_size: int = int(round(float(_visual_settings.get("volumetric_fog_volume_size", 256))))
+	var fog_volume_depth: int = int(round(float(_visual_settings.get("volumetric_fog_depth", 128.0))) )
+	var fog_use_filter: bool = bool(_visual_settings.get("volumetric_fog_use_filter", false))
 	ProjectSettings.set_setting("rendering/environment/volumetric_fog/volume_size", fog_volume_size)
 	ProjectSettings.set_setting("rendering/environment/volumetric_fog/volume_depth", fog_volume_depth)
 	ProjectSettings.set_setting("rendering/environment/volumetric_fog/use_filter", fog_use_filter)
+	if world_environment != null and world_environment.environment != null:
+		_apply_environment_froxel_settings(world_environment.environment, fog_volume_size, fog_volume_depth, fog_use_filter)
 	# This setting can require a renderer restart in Godot to re-allocate froxel buffers.
 	ProjectSettings.save()
-	if world_environment != null and world_environment.environment != null and _environment_has_property(world_environment.environment, "volumetric_fog_length"):
-		world_environment.environment.set("volumetric_fog_length", float(fog_volume_depth))
 	if status_label != null:
 		status_label.text = "Volumetric fog quality changes may require scene reload to fully apply (Godot froxel grid)."
 
@@ -309,6 +309,25 @@ func _apply_visual_settings(settings: Dictionary) -> void:
 	if beam_scalar_changed:
 		_refresh_existing_beam_material_scalars()
 
+
+func _apply_environment_froxel_settings(environment: Environment, fog_volume_size: int, fog_volume_depth: int, fog_use_filter: bool) -> void:
+	if environment == null:
+		return
+	var volume_size_candidates: PackedStringArray = PackedStringArray(["volumetric_fog_volume_size", "volume_size"])
+	for property_name in volume_size_candidates:
+		if _environment_has_property(environment, property_name):
+			environment.set(property_name, fog_volume_size)
+			break
+	var volume_depth_candidates: PackedStringArray = PackedStringArray(["volumetric_fog_depth", "volume_depth", "volumetric_fog_length"])
+	for property_name in volume_depth_candidates:
+		if _environment_has_property(environment, property_name):
+			environment.set(property_name, float(fog_volume_depth))
+			break
+	var use_filter_candidates: PackedStringArray = PackedStringArray(["volumetric_fog_filter_active", "use_filter"])
+	for property_name in use_filter_candidates:
+		if _environment_has_property(environment, property_name):
+			environment.set(property_name, fog_use_filter)
+			break
 
 func _environment_has_property(environment: Environment, property_name: String) -> bool:
 	if environment == null:

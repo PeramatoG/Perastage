@@ -84,17 +84,25 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	var beam_angle: float = max(float(params.get("beam_angle", 1.0)), 0.1)
 	var prefer_native_shadow_cookie: bool = bool(params.get("prefer_native_shadow_cookie_volumetric", false))
 
-	if intensity <= threshold or not bool(params.get("is_visible", true)):
+	if not bool(params.get("is_visible", true)):
 		cone.visible = false
 		if gobo_occluder != null:
 			gobo_occluder.visible = false
 		return
 
 	if prefer_native_shadow_cookie:
-		# Keep only the occluder-driven shadow-cookie path so Godot's native volumetric fog
-		# carries the in-air gobo pattern without additive concentric beam mesh artifacts.
+		# Keep native volumetric visibility independent from additive beam-mesh intensity threshold.
+		# In shadow-cookie mode the real SpotLight volumetric contribution must remain active.
+		if gobo_occluder == null:
+			return
 		cone.visible = false
 		_update_gobo_occluder(light, cone, gobo_occluder, beam_angle, beam_range)
+		return
+
+	if intensity <= threshold:
+		cone.visible = false
+		if gobo_occluder != null:
+			gobo_occluder.visible = false
 		return
 
 	var beam_color: Color = params.get("beam_color", Color.WHITE)
