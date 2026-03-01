@@ -545,12 +545,17 @@ func _on_fixture_list_item_selected(index: int) -> void:
 	var fixture_uuid: String = fixture_list.get_item_metadata(index)
 	_select_fixture_by_uuid(fixture_uuid, "list")
 
+func _mark_input_as_handled() -> void:
+	var viewport: Viewport = get_viewport()
+	if viewport != null:
+		viewport.set_input_as_handled()
+
 func _unhandled_input(event: InputEvent) -> void:
 	_sync_selection_state("input")
 
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_F:
 		_focus_loaded_scene()
-		get_viewport().set_input_as_handled()
+		_mark_input_as_handled()
 		return
 
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == DEBUG_TOGGLE_KEY:
@@ -559,19 +564,19 @@ func _unhandled_input(event: InputEvent) -> void:
 		print("[PeravizCoordDebug] event=toggle coords_debug=", _debug_coords_enabled)
 		_rebuild_debug_gizmos()
 		_update_debug_legend()
-		get_viewport().set_input_as_handled()
+		_mark_input_as_handled()
 		return
 
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == SCENE_RELOAD_KEY:
 		_reload_current_scene_from_shortcut()
-		get_viewport().set_input_as_handled()
+		_mark_input_as_handled()
 		return
 
 	if _manual_fixture_test_enabled and event is InputEventMouseButton:
 		var mouse_event := event as InputEventMouseButton
 		if mouse_event.pressed and mouse_event.button_index == MOUSE_BUTTON_LEFT:
 			_try_select_fixture_from_mouse(mouse_event.position)
-			get_viewport().set_input_as_handled()
+			_mark_input_as_handled()
 
 
 func _ensure_debug_gizmo_root() -> void:
