@@ -22,6 +22,7 @@
 #include "mvrimporter.h"
 #include <filesystem>
 #include <fstream>
+#include <iostream>
 #include <charconv>
 #include <sstream>
 #include <string_view>
@@ -404,10 +405,18 @@ bool ConfigManager::LoadProject(const std::string &path) {
 
   bool ok = projectSession.LoadProject(
       path, [this](const std::string &configPath) {
-        return LoadFromFile(configPath);
+        const bool loaded = LoadFromFile(configPath);
+        if (!loaded) {
+          std::cerr << "ConfigManager::LoadProject failed to load config.json from project package." << std::endl;
+        }
+        return loaded;
       },
       [](const std::string &scenePath) {
-        return MvrImporter::ImportAndRegister(scenePath, false);
+        const bool imported = MvrImporter::ImportAndRegister(scenePath, false);
+        if (!imported) {
+          std::cerr << "ConfigManager::LoadProject failed to import scene.mvr (check previous MVR extraction/import log lines)." << std::endl;
+        }
+        return imported;
       });
 
   if (ok) {
