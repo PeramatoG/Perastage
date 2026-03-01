@@ -98,6 +98,7 @@ const VolumetricBeamRendererScript = preload("res://scripts/beam_renderers/volum
 const FixtureGoboProjectorScript = preload("res://scripts/fixture_gobo_projector.gd")
 
 const DEBUG_TOGGLE_KEY: Key = KEY_C
+const SCENE_RELOAD_KEY: Key = KEY_F5
 const MANUAL_TEST_FLAG: String = "--peraviz_manual_fixture_test"
 const MANUAL_DEFAULTS := {
 	"pan": 0.0,
@@ -301,7 +302,7 @@ func _apply_visual_settings(settings: Dictionary) -> void:
 	# This setting can require a renderer restart in Godot to re-allocate froxel buffers.
 	# Intentionally not persisted to disk in debug workflow.
 	if status_label != null:
-		status_label.text = "Volumetric fog quality changes may require scene reload to fully apply (Godot froxel grid)."
+		status_label.text = "Volumetric fog quality changes may require scene reload (press F5) to fully apply."
 
 	_update_beam_renderer_mode(false)
 	_save_visual_settings_to_project()
@@ -476,7 +477,7 @@ func _ensure_gobo_fog_quality_defaults() -> void:
 	if changed and world_environment != null and world_environment.environment != null:
 		_apply_environment_froxel_settings(world_environment.environment, target_volume_size, int(round(target_volume_depth)), true)
 		if status_label != null:
-			status_label.text = "Applied gobo fog quality defaults (atlas/froxel). Reload scene for full froxel buffer update."
+			status_label.text = "Applied gobo fog quality defaults (atlas/froxel). Press F5 to reload scene."
 	_gobo_fog_quality_boost_applied = true
 
 func _update_beam_for_light(light: SpotLight3D, beam_params: Dictionary) -> void:
@@ -521,7 +522,7 @@ func _on_file_selected(path: String) -> void:
 			" mesh(hit/miss)=", hit_by_kind.get("mesh", 0), "/", miss_by_kind.get("mesh", 0),
 			" scene(hit/miss)=", hit_by_kind.get("scene", 0), "/", miss_by_kind.get("scene", 0),
 			" material(hit/miss)=", hit_by_kind.get("material", 0), "/", miss_by_kind.get("material", 0))
-	status_label.text = "Nodes: %d (press F to focus, C debug coords)" % nodes.size()
+	status_label.text = "Nodes: %d (F focus, C debug coords, F5 reload scene)" % nodes.size()
 	_update_debug_legend()
 	_refresh_emitter_light_scalars()
 
@@ -529,6 +530,14 @@ func _on_manual_fixture_toggle(enabled: bool) -> void:
 	_manual_fixture_test_enabled = enabled
 	ProjectSettings.set_setting("peraviz_manual_fixture_test", _manual_fixture_test_enabled)
 	_refresh_fixture_debug_panel()
+
+
+func _reload_current_scene_from_shortcut() -> void:
+	if get_tree() == null:
+		return
+	var reload_error: Error = get_tree().reload_current_scene()
+	if reload_error != OK:
+		push_warning("Peraviz scene reload failed. Error=" + str(reload_error))
 
 func _on_fixture_list_item_selected(index: int) -> void:
 	if index < 0 or index >= fixture_list.get_item_count():
@@ -550,6 +559,11 @@ func _unhandled_input(event: InputEvent) -> void:
 		print("[PeravizCoordDebug] event=toggle coords_debug=", _debug_coords_enabled)
 		_rebuild_debug_gizmos()
 		_update_debug_legend()
+		get_viewport().set_input_as_handled()
+		return
+
+	if event is InputEventKey and event.pressed and not event.echo and event.keycode == SCENE_RELOAD_KEY:
+		_reload_current_scene_from_shortcut()
 		get_viewport().set_input_as_handled()
 		return
 
