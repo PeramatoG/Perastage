@@ -15,8 +15,9 @@ const DEFAULT_SETTINGS := {
 	"beam_anisotropy": 0.62,
 	"beam_noise_amount": 0.06,
 	"beam_noise_scale": 1.4,
-	"volumetric_fog_density": 0.012,
-	"light_volumetric_fog_energy": 2.0,
+	"volumetric_fog_density": 0.05,
+	"volumetric_fog_fade": 0.1,
+	"light_volumetric_fog_energy": 3.5,
 	"gobo_scale_ratio": 1.0,
 	"gobo_debug_show_occluder": false,
 	"gobo_debug_log_parameters": false,
@@ -214,10 +215,10 @@ func _apply_settings_to_controls() -> void:
 	_spot_slider.value = float(_settings.get("spot_multiplier", 1.0))
 	_beam_slider.value = float(_settings.get("beam_multiplier", 1.0))
 	_bloom_slider.value = float(_settings.get("bloom_multiplier", 1.0))
-	_fog_density_slider.value = float(_settings.get("volumetric_fog_density", 0.01))
+	_fog_density_slider.value = float(_settings.get("volumetric_fog_density", 0.05))
 	_fog_volume_size_slider.value = float(_settings.get("volumetric_fog_volume_size", 256))
 	_fog_depth_slider.value = float(_settings.get("volumetric_fog_depth", 64.0))
-	_light_fog_energy_slider.value = float(_settings.get("light_volumetric_fog_energy", 1.0))
+	_light_fog_energy_slider.value = float(_settings.get("light_volumetric_fog_energy", 3.5))
 	_gobo_scale_slider.value = float(_settings.get("gobo_scale_ratio", 1.0))
 	_beam_render_mode_option.select(clamp(int(_settings.get("beam_render_mode", 0)), 0, 1))
 	_beam_quality_option.select(clamp(int(_settings.get("beam_quality", 1)), 0, 2))
@@ -259,10 +260,10 @@ func _update_value_labels() -> void:
 	_spot_value_label.text = "%.2f" % float(_settings.get("spot_multiplier", 1.0))
 	_beam_value_label.text = "%.2f" % float(_settings.get("beam_multiplier", 1.0))
 	_bloom_value_label.text = "%.2f" % float(_settings.get("bloom_multiplier", 1.0))
-	_fog_density_value_label.text = "%.3f" % float(_settings.get("volumetric_fog_density", 0.01))
+	_fog_density_value_label.text = "%.3f" % float(_settings.get("volumetric_fog_density", 0.05))
 	_fog_volume_size_value_label.text = "%d" % int(round(float(_settings.get("volumetric_fog_volume_size", 256))))
 	_fog_depth_value_label.text = "%.1f" % float(_settings.get("volumetric_fog_depth", 64.0))
-	_light_fog_energy_value_label.text = "%.2f" % float(_settings.get("light_volumetric_fog_energy", 1.0))
+	_light_fog_energy_value_label.text = "%.2f" % float(_settings.get("light_volumetric_fog_energy", 3.5))
 	_gobo_scale_value_label.text = "%.2f" % float(_settings.get("gobo_scale_ratio", 1.0))
 
 func _emit_settings_changed() -> void:

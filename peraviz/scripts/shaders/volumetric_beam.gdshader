@@ -25,10 +25,8 @@ uniform float depth_fade_distance : hint_range(0.01, 5.0) = 0.5;
 // Whether to modulate the volumetric beam by the gobo pattern.
 instance uniform bool gobo_enabled = false;
 instance uniform float gobo_cutoff = 0.5;
-instance uniform float gobo_start_ratio = 0.0025;
 instance uniform float gobo_rotation = 0.0;
-// This must match the world-space size used by the gobo occluder mesh for alignment.
-instance uniform vec2 gobo_size = vec2(0.08, 0.08);
+instance uniform vec2 gobo_size = vec2(1.6, 1.6);
 instance uniform float gobo_axis_sign = 1.0;
 instance uniform float beam_height = 8.0;
 instance uniform float beam_top_radius = 0.02;
@@ -84,7 +82,7 @@ void fragment() {
 	if (gobo_enabled) {
 		float axis_pos = (beam_height * 0.5) - (v_local.y * gobo_axis_sign);
 		float axis_dist = clamp(axis_pos, 0.001, beam_height);
-		float gobo_plane_dist = gobo_start_ratio * beam_height;
+		float gobo_plane_dist = 0.001;
 		if (axis_pos >= gobo_plane_dist) {
 			float t = axis_pos / beam_height;
 			float radius_at_point = mix(beam_top_radius, beam_bottom_radius, clamp(t, 0.0, 1.0));
@@ -102,7 +100,9 @@ void fragment() {
 				gobo_plane_pos.x * cos_rot - gobo_plane_pos.y * sin_rot,
 				gobo_plane_pos.x * sin_rot + gobo_plane_pos.y * cos_rot
 			);
-			vec2 half_size = max(gobo_size * 0.5, vec2(0.001));
+			vec2 default_gobo_size = vec2(beam_bottom_radius * 2.0, beam_bottom_radius * 2.0);
+			vec2 resolved_gobo_size = max(gobo_size, default_gobo_size);
+			vec2 half_size = max(resolved_gobo_size * 0.5, vec2(0.001));
 			vec2 gobo_uv = rotated / half_size + vec2(0.5);
 
 			if (gobo_uv.x < 0.0 || gobo_uv.x > 1.0 || gobo_uv.y < 0.0 || gobo_uv.y > 1.0) {

@@ -25,6 +25,8 @@ func apply_gobo_projection(light: SpotLight3D, controls: Dictionary) -> bool:
 		light.set_meta(GOBO_TEXTURE_META_KEY, null)
 		light.set_meta(GOBO_MODE_META_KEY, ProjectionMode.SHADOW_COOKIE)
 		light.light_projector = null
+		light.light_projector_scale = Vector2.ONE
+		light.light_projector_offset = Vector2.ZERO
 		light.shadow_enabled = false
 		return previous_meta_texture != null
 
@@ -57,21 +59,43 @@ func apply_gobo_projection(light: SpotLight3D, controls: Dictionary) -> bool:
 		light.set_meta(GOBO_TEXTURE_META_KEY, null)
 		light.set_meta(GOBO_MODE_META_KEY, ProjectionMode.SHADOW_COOKIE)
 		light.light_projector = null
+		light.light_projector_scale = Vector2.ONE
+		light.light_projector_offset = Vector2.ZERO
 		light.shadow_enabled = false
 		return previous_meta_texture != null
 
-	light.shadow_enabled = true
 	var composed_gobo: Texture2D = _compose_gobo_textures(active_textures)
 	light.set_meta(GOBO_TEXTURE_META_KEY, composed_gobo)
 	var projection_mode: int = _resolve_projection_mode(controls)
 	light.set_meta(GOBO_MODE_META_KEY, projection_mode)
+	var gobo_scale: Vector2 = _resolve_projector_scale(composed_gobo, controls)
+	light.light_projector_scale = gobo_scale
+	light.light_projector_offset = Vector2(0.0, 0.0)
+	light.light_volumetric_fog_energy = float(controls.get("light_volumetric_fog_energy", light.light_volumetric_fog_energy))
+	light.spot_attenuation = min(light.spot_attenuation, float(controls.get("shadow_cookie_spot_attenuation", light.spot_attenuation)))
 	if projection_mode == ProjectionMode.PROJECTOR_COOKIE:
 		_warn_if_projector_unsupported(light)
+		light.shadow_enabled = false
 		light.light_projector = composed_gobo
+		light.shadow_blur = 0.0
 	else:
-		# Keep projector disabled in the sample-like path to avoid double gobo projection.
+		light.shadow_enabled = true
+		light.shadow_bias = float(controls.get("shadow_cookie_shadow_bias", light.shadow_bias))
+		light.shadow_normal_bias = float(controls.get("shadow_cookie_shadow_normal_bias", light.shadow_normal_bias))
+		light.shadow_blur = float(controls.get("shadow_cookie_shadow_blur", light.shadow_blur))
+		# Keep projector disabled in the sample-like path to avoid double gobo projection on surfaces.
 		light.light_projector = null
 	return composed_gobo != previous_meta_texture
+
+func _resolve_projector_scale(gobo_texture: Texture2D, controls: Dictionary) -> Vector2:
+	var gobo_scale_ratio: float = max(float(controls.get("gobo_scale_ratio", 1.0)), 0.001)
+	var gobo_size: Vector2 = Vector2.ONE
+	if gobo_texture != null:
+		var width: float = max(float(gobo_texture.get_width()), 1.0)
+		var height: float = max(float(gobo_texture.get_height()), 1.0)
+		gobo_size = Vector2(width / max(height, 0.001), 1.0)
+	gobo_size *= gobo_scale_ratio
+	return Vector2(gobo_size.x, gobo_size.y)
 
 func _resolve_projection_mode(controls: Dictionary) -> int:
 	var mode_name: String = str(controls.get("gobo_projection_mode", "shadow_cookie")).to_lower()
