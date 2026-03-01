@@ -1,7 +1,7 @@
 extends RefCounted
 class_name FixtureGoboProjector
 
-const FAKE_GOBO_TEXTURE_SIZE: int = 512
+const FAKE_GOBO_TEXTURE_SIZE: int = 1024
 const GOBO_TEXTURE_META_KEY: String = "peraviz_gobo_texture"
 const GOBO_MODE_META_KEY: String = "peraviz_gobo_projection_mode"
 
@@ -153,7 +153,7 @@ func _compose_gobo_textures(textures: Array[Texture2D]) -> Texture2D:
 		if image == null:
 			continue
 		if image.get_width() != FAKE_GOBO_TEXTURE_SIZE or image.get_height() != FAKE_GOBO_TEXTURE_SIZE:
-			image.resize(FAKE_GOBO_TEXTURE_SIZE, FAKE_GOBO_TEXTURE_SIZE, Image.INTERPOLATE_BILINEAR)
+			image.resize(FAKE_GOBO_TEXTURE_SIZE, FAKE_GOBO_TEXTURE_SIZE, Image.INTERPOLATE_LANCZOS)
 		for y in range(FAKE_GOBO_TEXTURE_SIZE):
 			for x in range(FAKE_GOBO_TEXTURE_SIZE):
 				var dst: Color = composed.get_pixel(x, y)

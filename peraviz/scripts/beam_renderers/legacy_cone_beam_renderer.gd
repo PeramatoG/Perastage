@@ -39,7 +39,7 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	_attach_if_needed(light, core_cone)
 
 	var intensity: float = clamp(float(params.get("normalized_dimmer", 0.0)), 0.0, 1.0)
-	var scaled_intensity: float = clamp(float(params.get("scaled_intensity", 0.0)), 0.0, 3.0)
+	var scaled_intensity: float = clamp(float(params.get("scaled_intensity", 0.0)), 0.0, 8.0)
 	var beam_range: float = max(float(params.get("beam_range", 0.1)), 0.01)
 	var beam_angle: float = max(float(params.get("beam_angle", 1.0)), 0.1)
 	var beam_color: Color = params.get("beam_color", Color.WHITE)
