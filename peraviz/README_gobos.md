@@ -57,6 +57,14 @@ If the footprint looks correct on the floor but the beam in air looks too soft, 
 
 Peraviz now applies those shadow-cookie defaults when gobos are active in `shadow_cookie` mode, while keeping them user-tunable from Visual Settings.
 
+### Godot fog projector integration (PR #106395)
+
+Peraviz beam fallback is now prepared for engines where `SpotLight3D.light_projector` affects volumetric fog (Godot PR #106395):
+
+- If gobo mode is `projector_cookie` **and** fog projectors are supported, Peraviz keeps the mesh beam subtle so native fog projector patterning dominates.
+- If gobo mode is `shadow_cookie`, behavior remains the same (occluder + spotlight shadows in fog).
+- Runtime detection defaults to Godot `>= 4.5`, and can be overridden with project setting `peraviz_fog_light_projectors` (`"auto"`, `"enabled"`, `"disabled"`).
+
 
 ### Scale and resolution notes
 

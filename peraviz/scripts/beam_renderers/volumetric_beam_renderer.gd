@@ -82,7 +82,7 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	var threshold: float = float(params.get("intensity_visibility_threshold", 0.015))
 	var beam_range: float = max(float(params.get("beam_range", 0.1)), 0.01)
 	var beam_angle: float = max(float(params.get("beam_angle", 1.0)), 0.1)
-	var prefer_native_shadow_cookie: bool = bool(params.get("prefer_native_shadow_cookie_volumetric", false))
+	var prefer_native_cookie_volumetric: bool = bool(params.get("prefer_native_cookie_volumetric", false))
 
 	if not bool(params.get("is_visible", true)):
 		cone.visible = false
@@ -108,10 +108,10 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 				gobo_occluder.visible = false
 			return
 
-	# In native shadow-cookie mode keep a subtle non-gobo mesh cone only for beam readability,
-	# while cookie patterning in air still comes from SpotLight shadows in volumetric fog.
+	# In native fog-cookie mode keep a subtle non-gobo mesh cone only for beam readability,
+	# while cookie patterning in air comes from the spotlight fog pipeline.
 	var mesh_intensity: float = intensity
-	if prefer_native_shadow_cookie:
+	if prefer_native_cookie_volumetric:
 		mesh_intensity = max(intensity * 0.35, threshold * 1.1)
 
 	var half_angle_deg: float = beam_angle * 0.5
@@ -133,7 +133,7 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	cone.set_instance_shader_parameter("beam_bottom_radius", bottom_radius)
 	cone.set_instance_shader_parameter("beam_height", beam_range)
 
-	_update_gobo_occluder(light, cone, gobo_occluder, beam_angle, beam_range, not prefer_native_shadow_cookie)
+	_update_gobo_occluder(light, cone, gobo_occluder, beam_angle, beam_range, not prefer_native_cookie_volumetric)
 
 func _compute_cone_diameter_at_occluder(beam_angle: float) -> float:
 	var half_angle_rad: float = deg_to_rad(max(beam_angle, 0.1) * 0.5)
