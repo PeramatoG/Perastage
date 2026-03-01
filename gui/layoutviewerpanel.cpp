@@ -95,6 +95,102 @@ constexpr int kLoadingTimerId = wxID_HIGHEST + 501;
 constexpr int kRenderDelayTimerId = wxID_HIGHEST + 502;
 constexpr int kLoadingOverlayDelayMs = 150;
 
+bool AreEqual(const layouts::Layout2DViewFrame &lhs,
+              const layouts::Layout2DViewFrame &rhs) {
+  return lhs.x == rhs.x && lhs.y == rhs.y && lhs.width == rhs.width &&
+         lhs.height == rhs.height;
+}
+
+bool AreEqual(const layouts::Layout2DViewCameraState &lhs,
+              const layouts::Layout2DViewCameraState &rhs) {
+  return lhs.offsetPixelsX == rhs.offsetPixelsX &&
+         lhs.offsetPixelsY == rhs.offsetPixelsY && lhs.zoom == rhs.zoom &&
+         lhs.viewportWidth == rhs.viewportWidth &&
+         lhs.viewportHeight == rhs.viewportHeight && lhs.view == rhs.view;
+}
+
+bool AreEqual(const layouts::Layout2DViewRenderOptions &lhs,
+              const layouts::Layout2DViewRenderOptions &rhs) {
+  return lhs.renderMode == rhs.renderMode && lhs.darkMode == rhs.darkMode &&
+         lhs.forceBottomViewForTopFixtures == rhs.forceBottomViewForTopFixtures &&
+         lhs.showGrid == rhs.showGrid && lhs.gridStyle == rhs.gridStyle &&
+         lhs.gridColorR == rhs.gridColorR && lhs.gridColorG == rhs.gridColorG &&
+         lhs.gridColorB == rhs.gridColorB &&
+         lhs.gridDrawAbove == rhs.gridDrawAbove &&
+         lhs.showLabelName == rhs.showLabelName &&
+         lhs.showLabelId == rhs.showLabelId &&
+         lhs.showLabelDmx == rhs.showLabelDmx &&
+         lhs.labelFontSizeName == rhs.labelFontSizeName &&
+         lhs.labelFontSizeId == rhs.labelFontSizeId &&
+         lhs.labelFontSizeDmx == rhs.labelFontSizeDmx &&
+         lhs.labelOffsetDistance == rhs.labelOffsetDistance &&
+         lhs.labelOffsetAngle == rhs.labelOffsetAngle;
+}
+
+bool AreEqual(const layouts::Layout2DViewLayers &lhs,
+              const layouts::Layout2DViewLayers &rhs) {
+  return lhs.hiddenLayers == rhs.hiddenLayers;
+}
+
+bool AreEqual(const layouts::Layout2DViewDefinition &lhs,
+              const layouts::Layout2DViewDefinition &rhs) {
+  return lhs.id == rhs.id && lhs.zIndex == rhs.zIndex &&
+         AreEqual(lhs.frame, rhs.frame) && AreEqual(lhs.camera, rhs.camera) &&
+         AreEqual(lhs.renderOptions, rhs.renderOptions) &&
+         AreEqual(lhs.layers, rhs.layers);
+}
+
+bool AreEqual(const layouts::LayoutLegendDefinition &lhs,
+              const layouts::LayoutLegendDefinition &rhs) {
+  return lhs.id == rhs.id && lhs.zIndex == rhs.zIndex &&
+         AreEqual(lhs.frame, rhs.frame);
+}
+
+bool AreEqual(const layouts::LayoutEventTableDefinition &lhs,
+              const layouts::LayoutEventTableDefinition &rhs) {
+  return lhs.id == rhs.id && lhs.zIndex == rhs.zIndex &&
+         AreEqual(lhs.frame, rhs.frame) && lhs.fields == rhs.fields;
+}
+
+bool AreEqual(const layouts::LayoutTextDefinition &lhs,
+              const layouts::LayoutTextDefinition &rhs) {
+  return lhs.id == rhs.id && lhs.zIndex == rhs.zIndex &&
+         AreEqual(lhs.frame, rhs.frame) && lhs.text == rhs.text &&
+         lhs.richText == rhs.richText &&
+         lhs.solidBackground == rhs.solidBackground &&
+         lhs.drawFrame == rhs.drawFrame;
+}
+
+bool AreEqual(const layouts::LayoutImageDefinition &lhs,
+              const layouts::LayoutImageDefinition &rhs) {
+  return lhs.id == rhs.id && lhs.zIndex == rhs.zIndex &&
+         AreEqual(lhs.frame, rhs.frame) && lhs.imagePath == rhs.imagePath &&
+         lhs.aspectRatio == rhs.aspectRatio;
+}
+
+template <typename T>
+bool AreEqual(const std::vector<T> &lhs, const std::vector<T> &rhs) {
+  if (lhs.size() != rhs.size())
+    return false;
+
+  for (size_t i = 0; i < lhs.size(); ++i) {
+    if (!AreEqual(lhs[i], rhs[i]))
+      return false;
+  }
+  return true;
+}
+
+bool IsSameRenderableLayout(const layouts::LayoutDefinition &lhs,
+                            const layouts::LayoutDefinition &rhs) {
+  return lhs.pageSetup.pageSize == rhs.pageSetup.pageSize &&
+         lhs.pageSetup.landscape == rhs.pageSetup.landscape &&
+         AreEqual(lhs.view2dViews, rhs.view2dViews) &&
+         AreEqual(lhs.legendViews, rhs.legendViews) &&
+         AreEqual(lhs.eventTables, rhs.eventTables) &&
+         AreEqual(lhs.textViews, rhs.textViews) &&
+         AreEqual(lhs.imageViews, rhs.imageViews);
+}
+
 unsigned int *gActivePixelUnpackPbo = nullptr;
 size_t *gActivePixelUnpackPboBytes = nullptr;
 
@@ -331,6 +427,12 @@ LayoutViewerPanel::~LayoutViewerPanel() {
 
 void LayoutViewerPanel::SetLayoutDefinition(
     const layouts::LayoutDefinition &layout) {
+  if (IsSameRenderableLayout(currentLayout, layout)) {
+    currentLayout.name = layout.name;
+    NotifyRenderReady();
+    return;
+  }
+
   currentLayout = layout;
   if (!currentLayout.view2dViews.empty()) {
     selectedElementType = SelectedElementType::View2D;
