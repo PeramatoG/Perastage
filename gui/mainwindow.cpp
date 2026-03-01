@@ -510,6 +510,7 @@ bool MainWindow::LoadProjectFromPath(const std::string &path) {
   RefreshSummary();
   RefreshRigging();
   GetDefaultGuiConfigServices().LegacyConfigManager().MarkSaved();
+  StartFixtureSymbolAutoUpdateForLoadedScene();
   UpdateTitle();
   return true;
 }
@@ -517,6 +518,10 @@ bool MainWindow::LoadProjectFromPath(const std::string &path) {
 void MainWindow::ResetProject() {
   GetDefaultGuiConfigServices().LegacyConfigManager().Reset();
   GetDefaultGuiConfigServices().LegacyConfigManager().MarkSaved();
+  fixtureSymbolAutoUpdateQueue.clear();
+  fixtureSymbolAutoUpdateProcessedKeys.clear();
+  fixtureSymbolPendingLibrarySyncUuids.clear();
+  fixtureSymbolAutoUpdateRunning = false;
   currentProjectPath.clear();
   if (layoutPanel)
     layoutPanel->ReloadLayouts();

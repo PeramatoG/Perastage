@@ -494,7 +494,8 @@ bool RewriteGdtf(const fs::path &sourcePath,
 
 bool ApplySymbolsToFixtureGdtf(const std::vector<symbols::Symbol2D> &symbols,
                                const std::string &fixtureUuid,
-                               std::string &errorMessage) {
+                               std::string &errorMessage,
+                               const ApplySymbolsOptions &options) {
   if (fixtureUuid.empty()) {
     errorMessage = "No fixture was selected for this symbol preview.";
     return false;
@@ -509,23 +510,15 @@ bool ApplySymbolsToFixtureGdtf(const std::vector<symbols::Symbol2D> &symbols,
   }
 
   const MvrScene &scene = cfg.GetScene();
-  std::vector<fs::path> targetPaths;
-  std::unordered_set<std::string> uniqueTargets;
-
   const std::string scenePath = ResolveSceneGdtfPath(fixtureIt->second, scene);
-  if (!scenePath.empty() && uniqueTargets.insert(scenePath).second)
-    targetPaths.emplace_back(scenePath);
-
   const std::string libraryPath = ResolveLibraryGdtfPath(fixtureIt->second);
-  if (!libraryPath.empty() && uniqueTargets.insert(libraryPath).second)
-    targetPaths.emplace_back(libraryPath);
-
-  if (targetPaths.empty()) {
+  if (scenePath.empty() && libraryPath.empty()) {
     errorMessage = "Could not resolve fixture GDTF path in scene or fixtures library.";
     return false;
   }
 
-  std::string modelSvgBase = ResolveModelSvgBasename(targetPaths.front(), errorMessage);
+  const std::string inspectPath = scenePath.empty() ? libraryPath : scenePath;
+  std::string modelSvgBase = ResolveModelSvgBasename(inspectPath, errorMessage);
   if (modelSvgBase.empty())
     return false;
 
@@ -565,10 +558,20 @@ bool ApplySymbolsToFixtureGdtf(const std::vector<symbols::Symbol2D> &symbols,
     return false;
   }
 
-  for (const auto &targetPath : targetPaths) {
-    if (!RewriteGdtf(targetPath, payloads, topSvgPath, sideSvgPath, frontSvgPath,
-                     errorMessage))
+  if (options.updateSceneCopy && !scenePath.empty()) {
+    if (!RewriteGdtf(scenePath, payloads, topSvgPath, sideSvgPath, frontSvgPath,
+                     errorMessage)) {
       return false;
+    }
+  }
+
+  if (options.updateLibraryCopy && !libraryPath.empty()) {
+    const bool libraryEqualsScene = !scenePath.empty() && libraryPath == scenePath;
+    if (!libraryEqualsScene &&
+        !RewriteGdtf(libraryPath, payloads, topSvgPath, sideSvgPath, frontSvgPath,
+                     errorMessage)) {
+      return false;
+    }
   }
 
   if (libraryPath.empty() && !scenePath.empty() && !fixtureIt->second.typeName.empty()) {
@@ -576,6 +579,113 @@ bool ApplySymbolsToFixtureGdtf(const std::vector<symbols::Symbol2D> &symbols,
                            fixtureIt->second.gdtfMode);
   }
 
+  return true;
+}
+
+
+bool InspectFixtureSymbolState(const Fixture &fixture,
+                               const MvrScene &scene,
+                               FixtureSymbolInspectionResult &result,
+                               std::string &errorMessage) {
+  result = {};
+
+  const std::string scenePath = ResolveSceneGdtfPath(fixture, scene);
+  const std::string libraryPath = ResolveLibraryGdtfPath(fixture);
+  result.scenePath = scenePath;
+  result.libraryPath = libraryPath;
+
+  std::string inspectPath = scenePath.empty() ? libraryPath : scenePath;
+  if (inspectPath.empty())
+    return true;
+
+  result.hasResolvableGdtf = true;
+
+  wxFileInputStream input(inspectPath);
+  if (!input.IsOk()) {
+    errorMessage = "Could not open fixture GDTF file for inspection.";
+    return false;
+  }
+
+  wxZipInputStream zipInput(input);
+  std::unique_ptr<wxZipEntry> entry;
+  std::string descriptionXml;
+  while ((entry.reset(zipInput.GetNextEntry())), entry) {
+    if (entry->IsDir())
+      continue;
+    const std::string entryName = NormalizeArchivePath(entry->GetName().ToStdString());
+    if (!IsDescriptionXmlPath(entryName))
+      continue;
+    if (!ReadAllBytes(zipInput, descriptionXml)) {
+      errorMessage = "Could not read description.xml from the GDTF file.";
+      return false;
+    }
+    break;
+  }
+
+  if (descriptionXml.empty())
+    return true;
+
+  tinyxml2::XMLDocument doc;
+  if (doc.Parse(descriptionXml.c_str(), descriptionXml.size()) != tinyxml2::XML_SUCCESS)
+    return true;
+
+  tinyxml2::XMLElement *fixtureType = doc.FirstChildElement("GDTF");
+  if (fixtureType)
+    fixtureType = fixtureType->FirstChildElement("FixtureType");
+  if (!fixtureType)
+    fixtureType = doc.FirstChildElement("FixtureType");
+  if (!fixtureType)
+    return true;
+
+  const char *editor = fixtureType->Attribute("Editor");
+  result.editorIsPerastage = editor && std::string(editor) == "Perastage";
+
+  std::string modelSvgBase = ResolveModelSvgBasename(inspectPath, errorMessage);
+  if (modelSvgBase.empty()) {
+    errorMessage.clear();
+    return true;
+  }
+
+  const std::unordered_set<std::string> requiredPaths = {
+      NormalizeArchivePath("models/svg/" + modelSvgBase + ".svg"),
+      NormalizeArchivePath("models/svg_side/" + modelSvgBase + ".svg"),
+      NormalizeArchivePath("models/svg_front/" + modelSvgBase + ".svg")};
+
+  std::unordered_set<std::string> foundPaths;
+  wxFileInputStream inputSymbols(inspectPath);
+  if (!inputSymbols.IsOk())
+    return true;
+
+  wxZipInputStream zipSymbols(inputSymbols);
+  while ((entry.reset(zipSymbols.GetNextEntry())), entry) {
+    if (entry->IsDir())
+      continue;
+    const std::string normalized =
+        NormalizeArchivePath(entry->GetName().ToStdString());
+    if (requiredPaths.find(normalized) != requiredPaths.end())
+      foundPaths.insert(normalized);
+  }
+
+  result.hasValidSvgSymbolSet =
+      result.editorIsPerastage && foundPaths.size() == requiredPaths.size();
+  result.requiresSymbolGeneration = !result.hasValidSvgSymbolSet;
+  return true;
+}
+
+bool SyncFixtureGdtfToLibrary(const Fixture &fixture,
+                              const MvrScene &scene,
+                              std::string &errorMessage) {
+  const std::string scenePath = ResolveSceneGdtfPath(fixture, scene);
+  const std::string libraryPath = ResolveLibraryGdtfPath(fixture);
+  if (scenePath.empty() || libraryPath.empty() || scenePath == libraryPath)
+    return true;
+
+  std::error_code ec;
+  fs::copy_file(scenePath, libraryPath, fs::copy_options::overwrite_existing, ec);
+  if (ec) {
+    errorMessage = "Could not update fixture in the fixtures library.";
+    return false;
+  }
   return true;
 }
 
