@@ -117,7 +117,7 @@ func _update_gobo_projection(light: SpotLight3D, cone: MeshInstance3D, beam_bott
 			cone_material_disabled.set_shader_parameter("gobo_texture", null)
 		return
 
-	var projector_scale: Vector2 = light.light_projector_scale
+	var projector_scale: Vector2 = _resolve_light_projector_scale(light)
 	if projector_scale == Vector2.ZERO:
 		projector_scale = Vector2.ONE
 	var gobo_size: Vector2 = Vector2(beam_bottom_radius * 2.0, beam_bottom_radius * 2.0)
@@ -175,3 +175,12 @@ func _maybe_log_gobo_parameters(light: SpotLight3D, gobo_size_world: Vector2) ->
 			" shadow_blur=", light.shadow_blur,
 			" env_volume_size=", volumetric_size,
 			" env_use_filter=", volumetric_filter_active)
+
+func _resolve_light_projector_scale(light: SpotLight3D) -> Vector2:
+	for entry in light.get_property_list():
+		if str(entry.get("name", "")) == "light_projector_scale":
+			var value: Variant = light.get("light_projector_scale")
+			if value is Vector2:
+				return value
+			break
+	return Vector2.ONE

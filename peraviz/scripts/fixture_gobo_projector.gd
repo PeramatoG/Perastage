@@ -25,8 +25,7 @@ func apply_gobo_projection(light: SpotLight3D, controls: Dictionary) -> bool:
 		light.set_meta(GOBO_TEXTURE_META_KEY, null)
 		light.set_meta(GOBO_MODE_META_KEY, ProjectionMode.SHADOW_COOKIE)
 		light.light_projector = null
-		light.light_projector_scale = Vector2.ONE
-		light.light_projector_offset = Vector2.ZERO
+		_set_projector_transform(light, Vector2.ONE, Vector2.ZERO)
 		light.shadow_enabled = false
 		return previous_meta_texture != null
 
@@ -59,8 +58,7 @@ func apply_gobo_projection(light: SpotLight3D, controls: Dictionary) -> bool:
 		light.set_meta(GOBO_TEXTURE_META_KEY, null)
 		light.set_meta(GOBO_MODE_META_KEY, ProjectionMode.SHADOW_COOKIE)
 		light.light_projector = null
-		light.light_projector_scale = Vector2.ONE
-		light.light_projector_offset = Vector2.ZERO
+		_set_projector_transform(light, Vector2.ONE, Vector2.ZERO)
 		light.shadow_enabled = false
 		return previous_meta_texture != null
 
@@ -69,8 +67,7 @@ func apply_gobo_projection(light: SpotLight3D, controls: Dictionary) -> bool:
 	var projection_mode: int = _resolve_projection_mode(controls)
 	light.set_meta(GOBO_MODE_META_KEY, projection_mode)
 	var gobo_scale: Vector2 = _resolve_projector_scale(composed_gobo, controls)
-	light.light_projector_scale = gobo_scale
-	light.light_projector_offset = Vector2(0.0, 0.0)
+	_set_projector_transform(light, gobo_scale, Vector2(0.0, 0.0))
 	light.light_volumetric_fog_energy = float(controls.get("light_volumetric_fog_energy", light.light_volumetric_fog_energy))
 	light.spot_attenuation = min(light.spot_attenuation, float(controls.get("shadow_cookie_spot_attenuation", light.spot_attenuation)))
 	if projection_mode == ProjectionMode.PROJECTOR_COOKIE:
@@ -86,6 +83,18 @@ func apply_gobo_projection(light: SpotLight3D, controls: Dictionary) -> bool:
 		# Keep projector disabled in the sample-like path to avoid double gobo projection on surfaces.
 		light.light_projector = null
 	return composed_gobo != previous_meta_texture
+
+func _set_projector_transform(light: SpotLight3D, scale: Vector2, offset: Vector2) -> void:
+	if _light_has_property(light, "light_projector_scale"):
+		light.set("light_projector_scale", scale)
+	if _light_has_property(light, "light_projector_offset"):
+		light.set("light_projector_offset", offset)
+
+func _light_has_property(light: SpotLight3D, property_name: String) -> bool:
+	for entry in light.get_property_list():
+		if str(entry.get("name", "")) == property_name:
+			return true
+	return false
 
 func _resolve_projector_scale(gobo_texture: Texture2D, controls: Dictionary) -> Vector2:
 	var gobo_scale_ratio: float = max(float(controls.get("gobo_scale_ratio", 1.0)), 0.001)
