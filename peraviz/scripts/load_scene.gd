@@ -87,6 +87,9 @@ var _beam_renderers: Dictionary = {}
 var _active_beam_renderer: BeamRendererBase
 var _active_beam_mode: int = -1
 var _gobo_fog_quality_boost_applied: bool = false
+var _last_loaded_mvr_path: String = ""
+var _mvr_reload_pending: bool = false
+var _mvr_reload_in_progress: bool = false
 
 
 const DmxMonitorWindowScript = preload("res://scripts/dmx_monitor_window.gd")
@@ -302,7 +305,15 @@ func _apply_visual_settings(settings: Dictionary) -> void:
 	# This setting can require a renderer restart in Godot to re-allocate froxel buffers.
 	# Intentionally not persisted to disk in debug workflow.
 	if status_label != null:
-		status_label.text = "Volumetric fog quality changes may require scene reload (press F5) to fully apply."
+		status_label.text = "Volumetric fog quality updated. If froxel blocks remain, quality is applied automatically to current MVR."
+
+	var froxel_settings_changed: bool = (
+		int(previous_settings.get("volumetric_fog_volume_size", 256)) != int(_visual_settings.get("volumetric_fog_volume_size", 256))
+		or not is_equal_approx(float(previous_settings.get("volumetric_fog_depth", 64.0)), float(_visual_settings.get("volumetric_fog_depth", 64.0)))
+		or bool(previous_settings.get("volumetric_fog_use_filter", true)) != bool(_visual_settings.get("volumetric_fog_use_filter", true))
+	)
+	if froxel_settings_changed:
+		_queue_mvr_reload_for_fog_changes()
 
 	_update_beam_renderer_mode(false)
 	_save_visual_settings_to_project()
@@ -477,7 +488,7 @@ func _ensure_gobo_fog_quality_defaults() -> void:
 	if changed and world_environment != null and world_environment.environment != null:
 		_apply_environment_froxel_settings(world_environment.environment, target_volume_size, int(round(target_volume_depth)), true)
 		if status_label != null:
-			status_label.text = "Applied gobo fog quality defaults (atlas/froxel). Press F5 to reload scene."
+			status_label.text = "Applied gobo fog quality defaults (atlas/froxel) to current MVR."
 	_gobo_fog_quality_boost_applied = true
 
 func _update_beam_for_light(light: SpotLight3D, beam_params: Dictionary) -> void:
@@ -497,6 +508,7 @@ func _on_load_pressed() -> void:
 	picker.popup_centered_ratio(0.7)
 
 func _on_file_selected(path: String) -> void:
+	_last_loaded_mvr_path = path
 	_clear_scene()
 	var native_path: String = ProjectSettings.globalize_path(path)
 	var peraviz_debug_baseline: bool = bool(ProjectSettings.get_setting("peraviz_debug_baseline", false))
@@ -522,7 +534,7 @@ func _on_file_selected(path: String) -> void:
 			" mesh(hit/miss)=", hit_by_kind.get("mesh", 0), "/", miss_by_kind.get("mesh", 0),
 			" scene(hit/miss)=", hit_by_kind.get("scene", 0), "/", miss_by_kind.get("scene", 0),
 			" material(hit/miss)=", hit_by_kind.get("material", 0), "/", miss_by_kind.get("material", 0))
-	status_label.text = "Nodes: %d (F focus, C debug coords, F5 reload scene)" % nodes.size()
+	status_label.text = "Nodes: %d (F focus, C debug coords, F5 reload MVR)" % nodes.size()
 	_update_debug_legend()
 	_refresh_emitter_light_scalars()
 
@@ -532,7 +544,28 @@ func _on_manual_fixture_toggle(enabled: bool) -> void:
 	_refresh_fixture_debug_panel()
 
 
+func _reload_loaded_mvr_data() -> bool:
+	if _last_loaded_mvr_path.is_empty() or _mvr_reload_in_progress:
+		return false
+	_mvr_reload_in_progress = true
+	_on_file_selected(_last_loaded_mvr_path)
+	_mvr_reload_in_progress = false
+	return true
+
+func _queue_mvr_reload_for_fog_changes() -> void:
+	if _last_loaded_mvr_path.is_empty() or _mvr_reload_pending or _mvr_reload_in_progress:
+		return
+	_mvr_reload_pending = true
+	call_deferred("_reload_loaded_mvr_after_fog_changes")
+
+func _reload_loaded_mvr_after_fog_changes() -> void:
+	_mvr_reload_pending = false
+	if _reload_loaded_mvr_data() and status_label != null:
+		status_label.text = "Fog froxel changes applied by reloading current MVR data."
+
 func _reload_current_scene_from_shortcut() -> void:
+	if _reload_loaded_mvr_data():
+		return
 	if get_tree() == null:
 		return
 	var reload_error: Error = get_tree().reload_current_scene()
