@@ -167,14 +167,12 @@ void ConsolePanel::OnHelpButton(wxCommandEvent &) {
                       wxSize(620, 420),
                       wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER);
   auto *dialogSizer = new wxBoxSizer(wxVERTICAL);
-  auto *helpText = new wxTextCtrl(&helpDialog, wxID_ANY, "", wxDefaultPosition,
+  auto *helpText = new wxTextCtrl(&helpDialog, wxID_ANY,
+                                  BuildConsoleHelpContent(), wxDefaultPosition,
                                   wxDefaultSize,
-                                  wxTE_MULTILINE | wxTE_READONLY | wxTE_RICH2);
+                                  wxTE_MULTILINE | wxTE_READONLY);
   helpText->SetBackgroundColour(*wxBLACK);
   helpText->SetForegroundColour(wxColour(230, 230, 230));
-  helpText->SetDefaultStyle(
-      wxTextAttr(wxColour(230, 230, 230), *wxBLACK));
-  helpText->SetValue(BuildConsoleHelpContent());
   helpText->SetFont(
       wxFont(10, wxFONTFAMILY_TELETYPE, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL));
   dialogSizer->Add(helpText, 1, wxEXPAND | wxALL, 8);
