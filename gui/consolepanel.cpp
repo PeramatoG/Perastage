@@ -97,16 +97,8 @@ wxString BuildConsoleHelpContent() {
   helpPath.SetFullName("help.md");
   const wxString markdown = ReadUtf8File(helpPath.GetFullPath());
 
-  const wxLanguageInfo *languageInfo =
-      wxLocale::GetLanguageInfo(wxLocale::GetSystemLanguage());
-  const bool spanish = languageInfo &&
-                       languageInfo->CanonicalName.StartsWith("es");
-  const wxString preferredHeader =
-      spanish ? "Comandos de consola (completo)"
-              : "Console Commands (complete)";
-  const wxString fallbackHeader =
-      spanish ? "Console Commands (complete)"
-              : "Comandos de consola (completo)";
+  const wxString preferredHeader = "Console Commands (complete)";
+  const wxString fallbackHeader = "Comandos de consola (completo)";
 
   wxString section = ExtractConsoleSection(markdown, preferredHeader);
   if (section.IsEmpty())
@@ -178,6 +170,8 @@ void ConsolePanel::OnHelpButton(wxCommandEvent &) {
   auto *helpText = new wxTextCtrl(
       &helpDialog, wxID_ANY, BuildConsoleHelpContent(), wxDefaultPosition,
       wxDefaultSize, wxTE_MULTILINE | wxTE_READONLY | wxTE_RICH2);
+  helpText->SetBackgroundColour(*wxBLACK);
+  helpText->SetForegroundColour(*wxWHITE);
   helpText->SetFont(
       wxFont(10, wxFONTFAMILY_TELETYPE, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL));
   dialogSizer->Add(helpText, 1, wxEXPAND | wxALL, 8);
