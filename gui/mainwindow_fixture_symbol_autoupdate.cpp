@@ -1,7 +1,9 @@
 #include "mainwindow.h"
 
 #include <filesystem>
+#include <memory>
 #include <string>
+#include <unordered_map>
 
 #include "configmanager.h"
 #include "consolepanel.h"
@@ -11,6 +13,8 @@
 #include "tools/scene_model_symbol_capture_service.h"
 #include "tools/symbol_physical_calibration.h"
 #include "windows/symbol_fixture_applier.h"
+
+#include <wx/timer.h>
 
 namespace {
 
@@ -34,7 +38,34 @@ std::string BuildFixtureLabel(const Fixture &fixture) {
 
 void ReportFixtureAutoUpdate(MainWindow &window, ConsolePanel *console,
                              const std::string &message) {
+  static const int kStatusClearTimerId = wxWindow::NewControlId();
+  static std::unordered_map<MainWindow *, std::unique_ptr<wxTimer>> timers;
+  static std::unordered_map<MainWindow *, std::string> pendingStatusText;
+
+  auto timerIt = timers.find(&window);
+  if (timerIt == timers.end()) {
+    auto timer = std::make_unique<wxTimer>(&window, kStatusClearTimerId);
+    window.Bind(
+        wxEVT_TIMER,
+        [&window, &pendingStatusText](wxTimerEvent &) {
+          auto pendingIt = pendingStatusText.find(&window);
+          if (pendingIt == pendingStatusText.end())
+            return;
+          if (window.GetStatusBar() &&
+              window.GetStatusBar()->GetStatusText(0) ==
+                  wxString::FromUTF8(pendingIt->second)) {
+            window.SetStatusText("", 0);
+          }
+          pendingStatusText.erase(pendingIt);
+        },
+        kStatusClearTimerId);
+    timerIt = timers.emplace(&window, std::move(timer)).first;
+  }
+
   window.SetStatusText(wxString::FromUTF8(message), 0);
+  pendingStatusText[&window] = message;
+  timerIt->second->StartOnce(10000);
+
   if (console)
     console->AppendMessage(wxString::FromUTF8(message));
 }
