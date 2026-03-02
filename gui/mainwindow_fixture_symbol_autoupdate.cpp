@@ -133,6 +133,11 @@ void MainWindow::StartFixtureSymbolAutoUpdateForLoadedScene() {
 
 
 void MainWindow::ScheduleNextFixtureSymbolAutoUpdate(int delayMs) {
+  if (delayMs <= 1) {
+    CallAfter([this]() { ProcessNextFixtureSymbolAutoUpdate(); });
+    return;
+  }
+
   static const int kProcessNextTimerId = wxWindow::NewControlId();
   static std::unordered_map<MainWindow *, std::unique_ptr<wxTimer>> timers;
 
