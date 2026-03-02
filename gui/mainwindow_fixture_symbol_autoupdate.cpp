@@ -47,14 +47,14 @@ void ReportFixtureAutoUpdate(MainWindow &window, ConsolePanel *console,
     auto timer = std::make_unique<wxTimer>(&window, kStatusClearTimerId);
     window.Bind(
         wxEVT_TIMER,
-        [&window, &pendingStatusText](wxTimerEvent &) {
-          auto pendingIt = pendingStatusText.find(&window);
+        [windowPtr = &window](wxTimerEvent &) {
+          auto pendingIt = pendingStatusText.find(windowPtr);
           if (pendingIt == pendingStatusText.end())
             return;
-          if (window.GetStatusBar() &&
-              window.GetStatusBar()->GetStatusText(0) ==
+          if (windowPtr->GetStatusBar() &&
+              windowPtr->GetStatusBar()->GetStatusText(0) ==
                   wxString::FromUTF8(pendingIt->second)) {
-            window.SetStatusText("", 0);
+            windowPtr->SetStatusText("", 0);
           }
           pendingStatusText.erase(pendingIt);
         },
