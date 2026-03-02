@@ -132,6 +132,10 @@ int main() {
   std::ofstream(tempDir / "mesh.3ds") << "mesh";
   std::ofstream(tempDir / "models" / "truss_model.3ds") << "truss";
 
+  const std::string longToken(320, "x"[0]);
+  const fs::path longNamedGdtf = tempDir / ("VeryLongGeneratedName_" + longToken + ".gdtf");
+  std::ofstream(longNamedGdtf) << "LONG";
+
   scene.basePath = tempDir.generic_string();
   scene.provider.clear();
   scene.providerVersion.clear();
@@ -164,6 +168,13 @@ int main() {
   f3.gdtfSpec = (tempDir / "A" / "Same.gdtf").generic_string();
   f3.address = "6.121";
   scene.fixtures[f3.uuid] = f3;
+
+  Fixture fLong;
+  fLong.uuid = "fx-long";
+  fLong.instanceName = "Long Name Fixture";
+  fLong.gdtfSpec = longNamedGdtf.generic_string();
+  fLong.address = "7.1";
+  scene.fixtures[fLong.uuid] = fLong;
 
   Truss tr;
   tr.uuid = "tr-1";
@@ -214,6 +225,7 @@ int main() {
   bool sawAddress1 = false;
   bool sawAddress1025 = false;
   bool sawAddress2681 = false;
+  bool sawAddress3073 = false;
   bool sawNonNumericTrussNameFixtureIdConsistency = false;
   int mvrGeometryTrussCount = 0;
   int mvrGeometryTrussesWithGeometry3d = 0;
@@ -287,6 +299,8 @@ int main() {
               sawAddress1025 = true;
             if (absoluteAddress == ComputeAbsoluteDmx(6, 121))
               sawAddress2681 = true;
+            if (absoluteAddress == ComputeAbsoluteDmx(7, 1))
+              sawAddress3073 = true;
             ++fixtureAddressCount;
           }
 
@@ -320,6 +334,8 @@ int main() {
 
           if (auto *gdtf = cur->FirstChildElement("GDTFSpec"); gdtf && gdtf->GetText()) {
             std::string spec = gdtf->GetText();
+            const fs::path specPath(spec);
+            assert(specPath.filename().generic_string().size() <= 120);
             assert(spec.find(':') == std::string::npos);
             assert(spec.find('\\') == std::string::npos);
             assert(spec.find('/') == std::string::npos);
@@ -337,10 +353,11 @@ int main() {
   }
 
   assert(gdtfCount.size() >= 2);
-  assert(fixtureAddressCount == 3);
+  assert(fixtureAddressCount == 4);
   assert(sawAddress1);
   assert(sawAddress1025);
   assert(sawAddress2681);
+  assert(sawAddress3073);
   assert(sawNonNumericTrussNameFixtureIdConsistency);
   assert(mvrGeometryTrussCount == static_cast<int>(scene.trusses.size()));
   assert(mvrGeometryTrussesWithGeometry3d == mvrGeometryTrussCount);

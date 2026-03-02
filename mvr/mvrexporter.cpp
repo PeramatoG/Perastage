@@ -97,6 +97,25 @@ static std::string TrimAscii(std::string value) {
   return value;
 }
 
+static std::string TruncateFileNamePreservingExtension(const std::string &fileName,
+                                                       size_t maxLength) {
+  if (fileName.size() <= maxLength)
+    return fileName;
+
+  fs::path filePath(fileName);
+  const std::string extension = filePath.extension().generic_string();
+  const std::string stem = filePath.stem().generic_string();
+
+  if (maxLength <= extension.size())
+    return fileName.substr(0, maxLength);
+
+  const size_t stemMaxLength = maxLength - extension.size();
+  std::string truncatedStem = stem.substr(0, stemMaxLength);
+  if (truncatedStem.empty())
+    return fileName.substr(0, maxLength);
+  return truncatedStem + extension;
+}
+
 static std::string EnsureUniqueArchivePath(const std::string &proposed,
                                            std::unordered_set<std::string> &usedPaths) {
   fs::path path = fs::path(proposed).lexically_normal();
@@ -125,15 +144,16 @@ static std::string EnsureUniqueArchivePath(const std::string &proposed,
 
 static std::string SanitizeArchiveFileName(const std::string &input,
                                            const std::string &fallbackName) {
+  constexpr size_t kMaxArchiveFileNameLength = 120;
   std::string candidate = TrimAscii(input);
   std::replace(candidate.begin(), candidate.end(), '\\', '/');
   if (candidate.empty())
-    return fallbackName;
+    return TruncateFileNamePreservingExtension(fallbackName, kMaxArchiveFileNameLength);
 
   const std::string fileName = fs::path(candidate).filename().generic_string();
   if (!fileName.empty())
-    return fileName;
-  return fallbackName;
+    return TruncateFileNamePreservingExtension(fileName, kMaxArchiveFileNameLength);
+  return TruncateFileNamePreservingExtension(fallbackName, kMaxArchiveFileNameLength);
 }
 
 static bool IsValidMvrFileName(const std::string &value) {
