@@ -5,7 +5,6 @@
 #include <memory>
 #include <string>
 #include <sstream>
-#include <thread>
 #include <unordered_map>
 #include <vector>
 
@@ -18,7 +17,6 @@
 #include "tools/symbol_physical_calibration.h"
 #include "windows/symbol_fixture_applier.h"
 
-#include <wx/app.h>
 #include <wx/timer.h>
 #include <wx/weakref.h>
 
@@ -272,69 +270,42 @@ void MainWindow::ProcessNextFixtureSymbolAutoUpdate() {
     return;
   }
 
-  fixtureSymbolAutoUpdateWorkerBusy = true;
-  const Fixture fixtureCopy = fixture;
-  const MvrScene sceneSnapshot = cfg.GetScene();
-  const auto capturedSymbols = capture.symbols;
-  const auto inspectionSnapshot = inspection;
+  std::string applyError;
+  symbol_preview::ApplySymbolsOptions applyOptions;
+  applyOptions.updateSceneCopy = true;
+  applyOptions.updateLibraryCopy = true;
+  if (symbol_preview::ApplySymbolsToFixtureGdtf(capture.symbols, fixtureUuid,
+                                                applyError, applyOptions)) {
+    std::string locationMessage = "scene";
+    if (!inspection.scenePath.empty() && !inspection.libraryPath.empty())
+      locationMessage = "scene and library";
+    else if (!inspection.libraryPath.empty())
+      locationMessage = "library";
 
-  wxWeakRef<MainWindow> weakThis(this);
-  std::thread([weakThis, capturedSymbols, fixtureCopy, sceneSnapshot,
-               inspectionSnapshot, fixtureLabel]() {
-    std::string applyError;
-    symbol_preview::ApplySymbolsOptions applyOptions;
-    applyOptions.updateSceneCopy = true;
-    applyOptions.updateLibraryCopy = true;
-    const bool applied = symbol_preview::ApplySymbolsToFixtureGdtfForFixture(
-        capturedSymbols, fixtureCopy, sceneSnapshot, applyError, applyOptions);
+    ReportFixtureAutoUpdate(
+        *this, consolePanel,
+        "Fixture symbol auto-update: symbols generated for '" + fixtureLabel +
+            "' and " + locationMessage + " GDTF updated.",
+        false);
+    ++fixtureSymbolAutoUpdateGeneratedCount;
+    fixtureSymbolAutoUpdateGeneratedTypes.insert(
+        fixture.typeName.empty() ? fixtureLabel : fixture.typeName);
+    RefreshAfterFixtureSymbolUpdate();
+  } else {
+    ++fixtureSymbolAutoUpdateFailedCount;
+    ReportFixtureAutoUpdate(
+        *this, consolePanel,
+        "Fixture symbol auto-update: failed to apply symbols for '" +
+            fixtureLabel + "' (" +
+            (applyError.empty() ? std::string("unknown apply error")
+                                : applyError) +
+            ").",
+        false);
+  }
 
-    wxTheApp->CallAfter([weakThis, applied, applyError, inspectionSnapshot,
-                         fixtureLabel, fixtureType = fixtureCopy.typeName]() {
-      if (!weakThis)
-        return;
-
-      MainWindow *window = weakThis.get();
-      if (!window->fixtureSymbolAutoUpdateRunning) {
-        window->fixtureSymbolAutoUpdateWorkerBusy = false;
-        return;
-      }
-
-      if (applied) {
-        std::string locationMessage = "scene";
-        if (!inspectionSnapshot.scenePath.empty() &&
-            !inspectionSnapshot.libraryPath.empty())
-          locationMessage = "scene and library";
-        else if (!inspectionSnapshot.libraryPath.empty())
-          locationMessage = "library";
-
-        ReportFixtureAutoUpdate(
-            *window, window->consolePanel,
-            "Fixture symbol auto-update: symbols generated for '" + fixtureLabel +
-                "' and " + locationMessage + " GDTF updated.",
-            false);
-        ++window->fixtureSymbolAutoUpdateGeneratedCount;
-        window->fixtureSymbolAutoUpdateGeneratedTypes.insert(
-            fixtureType.empty() ? fixtureLabel : fixtureType);
-        window->RefreshAfterFixtureSymbolUpdate();
-      } else {
-        ++window->fixtureSymbolAutoUpdateFailedCount;
-        ReportFixtureAutoUpdate(
-            *window, window->consolePanel,
-            "Fixture symbol auto-update: failed to apply symbols for '" +
-                fixtureLabel + "' (" +
-                (applyError.empty() ? std::string("unknown apply error")
-                                    : applyError) +
-                ").",
-            false);
-      }
-
-      window->fixtureSymbolAutoUpdateWorkerBusy = false;
-      window->ScheduleNextFixtureSymbolAutoUpdate();
-    });
-  }).detach();
-
-
+  ScheduleNextFixtureSymbolAutoUpdate();
 }
+
 
 void MainWindow::FlushPendingFixtureSymbolLibraryUpdates() {
   if (fixtureSymbolPendingLibrarySyncUuids.empty())
