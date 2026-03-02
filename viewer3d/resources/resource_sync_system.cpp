@@ -3,6 +3,7 @@
 #include "loader3ds.h"
 #include "loaderglb.h"
 #include "matrixutils.h"
+#include "projectutils.h"
 
 #include <algorithm>
 #include <array>
@@ -167,6 +168,25 @@ std::string ResolveFromLibrarySuffix(const std::string &base,
   return {};
 }
 
+std::string ResolveFromDefaultLibrary(const std::string &fileName) {
+  if (fileName.empty())
+    return {};
+
+  const std::array<std::string, 3> librarySubdirs = {
+      "fixtures", "trusses", "scene_objects"};
+  for (const std::string &subdir : librarySubdirs) {
+    const fs::path root = fs::u8path(ProjectUtils::GetDefaultLibraryPath(subdir));
+    const std::string directResolved = ResolveExistingPath(root / fileName);
+    if (!directResolved.empty())
+      return directResolved;
+
+    const std::string recursiveResolved = FindFileRecursive(root.string(), fileName);
+    if (!recursiveResolved.empty())
+      return recursiveResolved;
+  }
+  return {};
+}
+
 std::string TrimPathRef(std::string value) {
   auto isTrim = [](unsigned char c) {
     return std::isspace(c) != 0 || c == '\r' || c == '\n' || c == '\t';
@@ -243,8 +263,13 @@ std::string ResolveGdtfPath(const std::string &base, const std::string &spec,
   if (!librarySuffixResolved.empty())
     return librarySuffixResolved;
 
+  const std::string fileName = fs::path(cleanSpec).filename().string();
+  const std::string defaultLibraryResolved = ResolveFromDefaultLibrary(fileName);
+  if (!defaultLibraryResolved.empty())
+    return defaultLibraryResolved;
+
   if (allowRecursiveFallback)
-    return FindFileRecursive(base, fs::path(cleanSpec).filename().string());
+    return FindFileRecursive(base, fileName);
   return {};
 }
 
