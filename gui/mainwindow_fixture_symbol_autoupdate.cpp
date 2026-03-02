@@ -102,7 +102,7 @@ void MainWindow::StartFixtureSymbolAutoUpdateForLoadedScene() {
   fixtureSymbolAutoUpdateProcessedKeys.clear();
   fixtureSymbolPendingLibrarySyncUuids.clear();
   fixtureSymbolAutoUpdateRunning = false;
-  window->fixtureSymbolAutoUpdateWorkerBusy = false;
+  fixtureSymbolAutoUpdateWorkerBusy = false;
   fixtureSymbolAutoUpdateGeneratedTypes.clear();
   fixtureSymbolAutoUpdateGeneratedCount = 0;
   fixtureSymbolAutoUpdateFailedCount = 0;
