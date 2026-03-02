@@ -433,17 +433,67 @@ bool ElementForcesWhiteFill(const tinyxml2::XMLElement *element) {
   return r >= kWhiteThreshold && g >= kWhiteThreshold && b >= kWhiteThreshold;
 }
 
-void CollectNonWhiteFillPolygons(
+double SignedArea(const std::vector<PerastageSvgPoint> &polygon) {
+  if (polygon.size() < 3)
+    return 0.0;
+  double area = 0.0;
+  for (size_t i = 0; i < polygon.size(); ++i) {
+    const auto &a = polygon[i];
+    const auto &b = polygon[(i + 1) % polygon.size()];
+    area += (a.x * b.y) - (b.x * a.y);
+  }
+  return area * 0.5;
+}
+
+bool IsPointInsidePolygon(const PerastageSvgPoint &point,
+                          const std::vector<PerastageSvgPoint> &polygon) {
+  bool inside = false;
+  const size_t count = polygon.size();
+  if (count < 3)
+    return false;
+  for (size_t i = 0, j = count - 1; i < count; j = i++) {
+    const auto &pi = polygon[i];
+    const auto &pj = polygon[j];
+    const bool intersects = ((pi.y > point.y) != (pj.y > point.y)) &&
+                            (point.x < (pj.x - pi.x) * (point.y - pi.y) /
+                                               ((pj.y - pi.y) == 0.0 ? 1e-12 : (pj.y - pi.y)) +
+                                           pi.x);
+    if (intersects)
+      inside = !inside;
+  }
+  return inside;
+}
+
+void AssignWhitePolygonsAsHoles(
     const std::vector<std::pair<std::vector<PerastageSvgPoint>, bool>> &rawPolygons,
     std::vector<PerastageSvgPolygon> &fills) {
   fills.clear();
-  fills.reserve(rawPolygons.size());
+  std::vector<double> fillAreas;
   for (const auto &entry : rawPolygons) {
     if (entry.second || entry.first.size() < 3)
       continue;
     PerastageSvgPolygon fill{};
     fill.points = entry.first;
     fills.push_back(std::move(fill));
+    fillAreas.push_back(std::abs(SignedArea(entry.first)));
+  }
+
+  for (const auto &entry : rawPolygons) {
+    if (!entry.second || entry.first.size() < 3)
+      continue;
+    const PerastageSvgPoint anchor = entry.first.front();
+    size_t ownerIndex = fills.size();
+    double ownerArea = 0.0;
+    for (size_t i = 0; i < fills.size(); ++i) {
+      if (!IsPointInsidePolygon(anchor, fills[i].points))
+        continue;
+      if (ownerIndex == fills.size() || fillAreas[i] < ownerArea) {
+        ownerIndex = i;
+        ownerArea = fillAreas[i];
+      }
+    }
+    if (ownerIndex < fills.size())
+      fills[ownerIndex].holes.push_back(entry.first);
   }
 }
 
@@ -492,7 +542,7 @@ bool ParseSvgData(const std::string &svgXml, PerastageSvgSymbolData &out) {
   std::vector<std::pair<std::vector<PerastageSvgPoint>, bool>> rawPolygons;
   out.strokes.clear();
   CollectSvgElements(svg, rawPolygons, out.strokes);
-  CollectNonWhiteFillPolygons(rawPolygons, out.fills);
+  AssignWhitePolygonsAsHoles(rawPolygons, out.fills);
 
   const std::optional<double> svgWidthMm =
       ParseSvgLengthToMillimeters(svg->Attribute("width"));
