@@ -80,7 +80,17 @@ SvgGeometryBounds ComputeSvgGeometryBounds(const PerastageSvgSymbolData &svg) {
 
 Transform2D BuildSvgToSymbolTransform(const PerastageSvgSymbolData &svg,
                                       const SymbolBounds &symbolBounds) {
-  const SvgGeometryBounds svgBounds = ComputeSvgGeometryBounds(svg);
+  SvgGeometryBounds svgBounds;
+  if (svg.viewBoxWidth > 0.0 && svg.viewBoxHeight > 0.0) {
+    svgBounds.minX = svg.offsetXmm;
+    svgBounds.minY = svg.offsetYmm;
+    svgBounds.maxX = svg.offsetXmm + svg.viewBoxWidth;
+    svgBounds.maxY = svg.offsetYmm + svg.viewBoxHeight;
+    svgBounds.valid = true;
+  } else {
+    svgBounds = ComputeSvgGeometryBounds(svg);
+  }
+
   const double srcW = svgBounds.maxX - svgBounds.minX;
   const double srcH = svgBounds.maxY - svgBounds.minY;
   const double dstW = static_cast<double>(symbolBounds.max.x - symbolBounds.min.x);
@@ -182,15 +192,42 @@ const PerastageSvgSymbolData *FindSvgSymbolForView(
     return cacheIt->second ? &cacheIt->second.value() : nullptr;
   };
 
-  if (const PerastageSvgSymbolData *exact = loadCached(requestedView))
-    return exact;
+  auto tryViews = [&](std::initializer_list<SymbolViewKind> views)
+      -> const PerastageSvgSymbolData * {
+    for (SymbolViewKind view : views) {
+      if (const PerastageSvgSymbolData *data = loadCached(view))
+        return data;
+    }
+    return nullptr;
+  };
 
-  if (requestedView == SymbolViewKind::Bottom)
-    return loadCached(SymbolViewKind::Top);
-  if (requestedView == SymbolViewKind::Top)
-    return loadCached(SymbolViewKind::Bottom);
-
-  return nullptr;
+  switch (requestedView) {
+  case SymbolViewKind::Top:
+    return tryViews({SymbolViewKind::Top, SymbolViewKind::Bottom,
+                     SymbolViewKind::Front, SymbolViewKind::Left,
+                     SymbolViewKind::Right, SymbolViewKind::Back});
+  case SymbolViewKind::Bottom:
+    return tryViews({SymbolViewKind::Bottom, SymbolViewKind::Top,
+                     SymbolViewKind::Front, SymbolViewKind::Left,
+                     SymbolViewKind::Right, SymbolViewKind::Back});
+  case SymbolViewKind::Front:
+    return tryViews({SymbolViewKind::Front, SymbolViewKind::Top,
+                     SymbolViewKind::Bottom, SymbolViewKind::Left,
+                     SymbolViewKind::Right, SymbolViewKind::Back});
+  case SymbolViewKind::Left:
+    return tryViews({SymbolViewKind::Left, SymbolViewKind::Top,
+                     SymbolViewKind::Bottom, SymbolViewKind::Front,
+                     SymbolViewKind::Right, SymbolViewKind::Back});
+  case SymbolViewKind::Right:
+    return tryViews({SymbolViewKind::Right, SymbolViewKind::Top,
+                     SymbolViewKind::Bottom, SymbolViewKind::Front,
+                     SymbolViewKind::Left, SymbolViewKind::Back});
+  case SymbolViewKind::Back:
+  default:
+    return tryViews({SymbolViewKind::Back, SymbolViewKind::Top,
+                     SymbolViewKind::Bottom, SymbolViewKind::Front,
+                     SymbolViewKind::Left, SymbolViewKind::Right});
+  }
 }
 
 Transform2D ComposeTransform(const Transform2D &a, const Transform2D &b) {
@@ -271,21 +308,27 @@ void DrawSvgSymbol(wxGCDC &dc, const viewer2d::Viewer2DRenderMapping &mapping,
     appendPath(path, polygon.points);
     for (const auto &hole : polygon.holes)
       appendPath(path, hole);
-    gc->FillPath(path, wxODDEVEN_RULE);
+    const auto fillRule =
+        polygon.holes.empty() ? wxWINDING_RULE : wxODDEVEN_RULE;
+    gc->FillPath(path, fillRule);
   }
 
-  dc.SetPen(wxPen(*wxBLACK, 1));
+  gc->SetPen(wxPen(*wxBLACK, 1));
   for (const auto &line : svg.strokes) {
     if (line.points.size() < 2)
       continue;
-    std::vector<viewer2d::Viewer2DRenderPoint> mapped;
-    mapped.reserve(line.points.size());
-    for (const auto &point : line.points) {
-      mapped.push_back(MapPoint(mapping, transform,
-                                static_cast<float>(point.x + svg.offsetXmm),
-                                static_cast<float>(point.y + svg.offsetYmm)));
+    wxGraphicsPath path = gc->CreatePath();
+    auto mapped = MapPoint(mapping, transform,
+                           static_cast<float>(line.points.front().x + svg.offsetXmm),
+                           static_cast<float>(line.points.front().y + svg.offsetYmm));
+    path.MoveToPoint(mapped.x, mapped.y);
+    for (size_t i = 1; i < line.points.size(); ++i) {
+      mapped = MapPoint(mapping, transform,
+                        static_cast<float>(line.points[i].x + svg.offsetXmm),
+                        static_cast<float>(line.points[i].y + svg.offsetYmm));
+      path.AddLineToPoint(mapped.x, mapped.y);
     }
-    DrawPolyline(dc, mapped);
+    gc->StrokePath(path);
   }
 }
 

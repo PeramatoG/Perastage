@@ -11,8 +11,10 @@
 #ifdef __APPLE__
 #define GL_SILENCE_DEPRECATION
 #include <OpenGL/gl.h>
+#include <OpenGL/glu.h>
 #else
 #include <GL/gl.h>
+#include <GL/glu.h>
 #endif
 
 #include <algorithm>
@@ -180,6 +182,118 @@ std::vector<SymbolViewKind> BuildSymbolViewCandidates(SymbolViewKind requested) 
   return {requested};
 }
 
+std::array<float, 3> BuildSvgVertexForView(float x, float y, Viewer2DView view);
+
+struct SvgTessellationContext {
+  std::vector<std::array<GLdouble, 3>> generatedVertices;
+};
+
+void TessBeginCallback(GLenum type, void *polygonData) {
+  (void)polygonData;
+  glBegin(type);
+}
+
+void TessVertexCallback(void *vertexData, void *polygonData) {
+  (void)polygonData;
+  const auto *vertex = static_cast<const GLdouble *>(vertexData);
+  glVertex3dv(vertex);
+}
+
+void TessEndCallback(void *polygonData) {
+  (void)polygonData;
+  glEnd();
+}
+
+void TessCombineCallback(GLdouble coords[3], void *vertexData[4],
+                                  GLfloat weight[4], void **outData,
+                                  void *polygonData) {
+  (void)vertexData;
+  (void)weight;
+  auto *context = static_cast<SvgTessellationContext *>(polygonData);
+  context->generatedVertices.push_back({coords[0], coords[1], coords[2]});
+  *outData = context->generatedVertices.back().data();
+}
+
+void TessErrorCallback(GLenum errorCode, void *polygonData) {
+  (void)polygonData;
+  (void)errorCode;
+}
+
+void AppendSvgContourVertices(std::vector<std::array<GLdouble, 3>> &storage,
+                              const std::vector<PerastageSvgPoint> &points,
+                              const PerastageSvgSymbolData &svg,
+                              Viewer2DView view, double anchorX,
+                              double anchorY) {
+  if (points.size() < 3)
+    return;
+  storage.reserve(storage.size() + points.size());
+  for (const auto &point : points) {
+    const auto vertex = BuildSvgVertexForView(
+        static_cast<float>(point.x + svg.offsetXmm - anchorX),
+        static_cast<float>(point.y + svg.offsetYmm - anchorY), view);
+    storage.push_back({static_cast<GLdouble>(vertex[0]),
+                       static_cast<GLdouble>(vertex[1]),
+                       static_cast<GLdouble>(vertex[2])});
+  }
+}
+
+void DrawSvgFilledPolygon(const PerastageSvgPolygon &polygon,
+                          const PerastageSvgSymbolData &svg,
+                          Viewer2DView view, double anchorX,
+                          double anchorY) {
+  if (polygon.points.size() < 3)
+    return;
+
+  GLUtesselator *tess = gluNewTess();
+  if (!tess)
+    return;
+
+  gluTessProperty(tess, GLU_TESS_WINDING_RULE, GLU_TESS_WINDING_ODD);
+  gluTessCallback(tess, GLU_TESS_BEGIN_DATA,
+                  reinterpret_cast<void (*)()>(TessBeginCallback));
+  gluTessCallback(tess, GLU_TESS_VERTEX_DATA,
+                  reinterpret_cast<void (*)()>(TessVertexCallback));
+  gluTessCallback(tess, GLU_TESS_END_DATA,
+                  reinterpret_cast<void (*)()>(TessEndCallback));
+  gluTessCallback(tess, GLU_TESS_COMBINE_DATA,
+                  reinterpret_cast<void (*)()>(TessCombineCallback));
+  gluTessCallback(tess, GLU_TESS_ERROR_DATA,
+                  reinterpret_cast<void (*)()>(TessErrorCallback));
+
+  SvgTessellationContext context;
+  std::vector<std::array<GLdouble, 3>> contourVertices;
+  AppendSvgContourVertices(contourVertices, polygon.points, svg, view, anchorX,
+                           anchorY);
+  for (const auto &hole : polygon.holes)
+    AppendSvgContourVertices(contourVertices, hole, svg, view, anchorX, anchorY);
+
+  if (contourVertices.size() < polygon.points.size()) {
+    gluDeleteTess(tess);
+    return;
+  }
+
+  size_t contourOffset = 0;
+  gluTessBeginPolygon(tess, &context);
+  auto emitContour = [&](const std::vector<PerastageSvgPoint> &points) {
+    if (points.size() < 3)
+      return;
+    gluTessBeginContour(tess);
+    for (size_t i = 0; i < points.size(); ++i) {
+      GLdouble *vertex = contourVertices[contourOffset + i].data();
+      gluTessVertex(tess, vertex, vertex);
+    }
+    gluTessEndContour(tess);
+    contourOffset += points.size();
+  };
+
+  emitContour(polygon.points);
+  for (const auto &hole : polygon.holes)
+    emitContour(hole);
+  gluTessEndPolygon(tess);
+
+  gluDeleteTess(tess);
+}
+
 std::array<float, 3> BuildSvgVertexForView(float x, float y, Viewer2DView view) {
   switch (view) {
   case Viewer2DView::Front:
@@ -242,19 +356,8 @@ bool DrawPerastageSvgInFixturePass(const PerastageSvgSymbolData &svg,
   glScalef(RENDER_SCALE, RENDER_SCALE, RENDER_SCALE);
 
   glColor3f(fillR, fillG, fillB);
-  for (const auto &polygon : svg.fills) {
-    if (polygon.points.size() < 3)
-      continue;
-    glBegin(GL_POLYGON);
-    for (const auto &point : polygon.points) {
-      const auto vertex =
-          BuildSvgVertexForView(static_cast<float>(point.x + svg.offsetXmm - anchorX),
-                                static_cast<float>(point.y + svg.offsetYmm - anchorY),
-                                view);
-      glVertex3f(vertex[0], vertex[1], vertex[2]);
-    }
-    glEnd();
-  }
+  for (const auto &polygon : svg.fills)
+    DrawSvgFilledPolygon(polygon, svg, view, anchorX, anchorY);
 
   glColor3f(0.0f, 0.0f, 0.0f);
   glLineWidth(1.0f);
