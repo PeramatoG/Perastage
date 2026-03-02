@@ -271,7 +271,9 @@ void DrawSvgSymbol(wxGCDC &dc, const viewer2d::Viewer2DRenderMapping &mapping,
     appendPath(path, polygon.points);
     for (const auto &hole : polygon.holes)
       appendPath(path, hole);
-    gc->FillPath(path, wxODDEVEN_RULE);
+    const auto fillRule =
+        polygon.holes.empty() ? wxWINDING_RULE : wxODDEVEN_RULE;
+    gc->FillPath(path, fillRule);
   }
 
   dc.SetPen(wxPen(*wxBLACK, 1));
