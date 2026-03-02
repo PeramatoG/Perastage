@@ -541,6 +541,54 @@ static void ParseModes(tinyxml2::XMLElement* ft,
 
 static void ParseProperties(tinyxml2::XMLElement* ft, float& weightKg, float& powerW)
 {
+    auto parseAttributeFloat = [](tinyxml2::XMLElement* element,
+                                  std::initializer_list<const char*> names,
+                                  float& outValue) -> bool {
+        if (!element)
+            return false;
+        for (const char* name : names) {
+            if (!name)
+                continue;
+            if (const char* raw = element->Attribute(name)) {
+                float parsed = 0.0f;
+                if (TryParseFloat(raw, parsed)) {
+                    outValue = parsed;
+                    return true;
+                }
+            }
+        }
+        return false;
+    };
+
+    auto collectGeometryPower = [&](auto&& self,
+                                    tinyxml2::XMLElement* node,
+                                    float& totalPowerW) -> void {
+        if (!node)
+            return;
+
+        for (tinyxml2::XMLElement* child = node->FirstChildElement();
+             child; child = child->NextSiblingElement())
+        {
+            const char* elementName = child->Name();
+            if (elementName && std::string(elementName) == "WiringObject") {
+                const char* componentType = child->Attribute("ComponentType");
+                const bool isConsumer = componentType &&
+                    std::string(componentType) == "Consumer";
+                if (isConsumer) {
+                    float payloadW = 0.0f;
+                    if (parseAttributeFloat(child,
+                                            {"ElectricalPayLoad", "ElectricalPayload"},
+                                            payloadW) &&
+                        payloadW > 0.0f) {
+                        totalPowerW += payloadW;
+                    }
+                }
+            }
+
+            self(self, child, totalPowerW);
+        }
+    };
+
     weightKg = 0.0f;
     powerW = 0.0f;
     if (!ft)
@@ -553,20 +601,29 @@ static void ParseProperties(tinyxml2::XMLElement* ft, float& weightKg, float& po
         return;
 
     if (tinyxml2::XMLElement* w = props->FirstChildElement("Weight")) {
-        if (const char* v = w->Attribute("Value")) {
-            float parsed = 0.0f;
-            if (TryParseFloat(v, parsed))
-                weightKg = parsed;
+        parseAttributeFloat(w, {"Value", "value"}, weightKg);
+    }
+
+    for (tinyxml2::XMLElement* pc = props->FirstChildElement("PowerConsumption");
+         pc; pc = pc->NextSiblingElement("PowerConsumption")) {
+        float parsed = 0.0f;
+        if (parseAttributeFloat(pc, {"Value", "PowerConsumption", "value"}, parsed) &&
+            parsed > 0.0f) {
+            powerW += parsed;
         }
     }
 
-    if (tinyxml2::XMLElement* pc = props->FirstChildElement("PowerConsumption")) {
-        if (const char* v = pc->Attribute("Value")) {
-            float parsed = 0.0f;
-            if (TryParseFloat(v, parsed))
-                powerW = parsed;
-        }
-    }
+    if (powerW > 0.0f)
+        return;
+
+    tinyxml2::XMLElement* geometries = ft->FirstChildElement("Geometries");
+    if (!geometries)
+        return;
+
+    float wiringPowerW = 0.0f;
+    collectGeometryPower(collectGeometryPower, geometries, wiringPowerW);
+    if (wiringPowerW > 0.0f)
+        powerW = wiringPowerW;
 }
 
 static std::string ParseModelColor(tinyxml2::XMLElement* ft)
