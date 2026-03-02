@@ -658,8 +658,10 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
         wxVariant cv;
         table->GetValue(cv, r, col);
         wxString cur = cv.GetString();
-        if (col >= 13 && col <= 15)
-          cur.Replace("\u00B0", "");
+        if (col >= 13 && col <= 15) {
+          if (!DegreeSymbol().empty())
+            cur.Replace(DegreeSymbol(), "");
+        }
         double curVal = 0.0;
         cur.ToDouble(&curVal);
         double newVal = curVal + delta;

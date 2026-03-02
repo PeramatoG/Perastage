@@ -9,6 +9,13 @@
 
 namespace FixtureTableEditService {
 
+namespace {
+const wxString &DegreeSymbol() {
+  static const wxString kDegreeSymbol = wxString::FromUTF8("\xC2\xB0");
+  return kDegreeSymbol;
+}
+}
+
 std::vector<int> BuildOrderedRows(const std::vector<int> &selectedRows,
                                   const std::vector<int> &selectionOrder) {
   std::vector<int> orderedRows;
@@ -127,19 +134,22 @@ void UpdateSceneData(ISceneAdapter &adapter, wxDataViewListCtrl *table,
     table->GetValue(v, i, 13);
     {
       wxString s = v.GetString();
-      s.Replace("°", "");
+      if (!DegreeSymbol().empty())
+        s.Replace(DegreeSymbol(), "");
       s.ToDouble(&roll);
     }
     table->GetValue(v, i, 14);
     {
       wxString s = v.GetString();
-      s.Replace("°", "");
+      if (!DegreeSymbol().empty())
+        s.Replace(DegreeSymbol(), "");
       s.ToDouble(&pitch);
     }
     table->GetValue(v, i, 15);
     {
       wxString s = v.GetString();
-      s.Replace("°", "");
+      if (!DegreeSymbol().empty())
+        s.Replace(DegreeSymbol(), "");
       s.ToDouble(&yaw);
     }
 

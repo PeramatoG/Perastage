@@ -314,8 +314,10 @@ void SceneObjectTablePanel::OnContextMenu(wxDataViewEvent& event)
                 wxVariant cv;
                 table->GetValue(cv, r, col);
                 wxString cur = cv.GetString();
-                if (col >= 6)
-                    cur.Replace("\u00B0", "");
+                if (col >= 6) {
+                    if (!DegreeSymbol().empty())
+                        cur.Replace(DegreeSymbol(), "");
+                }
                 double curVal = 0.0;
                 cur.ToDouble(&curVal);
                 double newVal = curVal + delta;
@@ -600,19 +602,22 @@ void SceneObjectTablePanel::UpdateSceneData(bool logChanges)
         table->GetValue(v, i, 6);
         {
             wxString s = v.GetString();
-            s.Replace("°", "");
+            if (!DegreeSymbol().empty())
+            s.Replace(DegreeSymbol(), "");
             s.ToDouble(&roll);
         }
         table->GetValue(v, i, 7);
         {
             wxString s = v.GetString();
-            s.Replace("°", "");
+            if (!DegreeSymbol().empty())
+            s.Replace(DegreeSymbol(), "");
             s.ToDouble(&pitch);
         }
         table->GetValue(v, i, 8);
         {
             wxString s = v.GetString();
-            s.Replace("°", "");
+            if (!DegreeSymbol().empty())
+            s.Replace(DegreeSymbol(), "");
             s.ToDouble(&yaw);
         }
 

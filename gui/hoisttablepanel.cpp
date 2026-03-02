@@ -360,8 +360,10 @@ void HoistTablePanel::OnContextMenu(wxDataViewEvent &event) {
         wxVariant cv;
         table->GetValue(cv, r, col);
         wxString cur = cv.GetString();
-        if (col >= 9 && col <= 11)
-          cur.Replace("\u00B0", "");
+        if (col >= 9 && col <= 11) {
+          if (!DegreeSymbol().empty())
+            cur.Replace(DegreeSymbol(), "");
+        }
         double curVal = 0.0;
         cur.ToDouble(&curVal);
         double newVal = curVal + delta;
@@ -576,19 +578,22 @@ void HoistTablePanel::UpdateSceneData(bool logChanges) {
     table->GetValue(v, i, 9);
     {
       wxString s = v.GetString();
-      s.Replace("°", "");
+      if (!DegreeSymbol().empty())
+            s.Replace(DegreeSymbol(), "");
       s.ToDouble(&roll);
     }
     table->GetValue(v, i, 10);
     {
       wxString s = v.GetString();
-      s.Replace("°", "");
+      if (!DegreeSymbol().empty())
+            s.Replace(DegreeSymbol(), "");
       s.ToDouble(&pitch);
     }
     table->GetValue(v, i, 11);
     {
       wxString s = v.GetString();
-      s.Replace("°", "");
+      if (!DegreeSymbol().empty())
+            s.Replace(DegreeSymbol(), "");
       s.ToDouble(&yaw);
     }
 
