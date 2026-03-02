@@ -192,15 +192,42 @@ const PerastageSvgSymbolData *FindSvgSymbolForView(
     return cacheIt->second ? &cacheIt->second.value() : nullptr;
   };
 
-  if (const PerastageSvgSymbolData *exact = loadCached(requestedView))
-    return exact;
+  auto tryViews = [&](std::initializer_list<SymbolViewKind> views)
+      -> const PerastageSvgSymbolData * {
+    for (SymbolViewKind view : views) {
+      if (const PerastageSvgSymbolData *data = loadCached(view))
+        return data;
+    }
+    return nullptr;
+  };
 
-  if (requestedView == SymbolViewKind::Bottom)
-    return loadCached(SymbolViewKind::Top);
-  if (requestedView == SymbolViewKind::Top)
-    return loadCached(SymbolViewKind::Bottom);
-
-  return nullptr;
+  switch (requestedView) {
+  case SymbolViewKind::Top:
+    return tryViews({SymbolViewKind::Top, SymbolViewKind::Bottom,
+                     SymbolViewKind::Front, SymbolViewKind::Left,
+                     SymbolViewKind::Right, SymbolViewKind::Back});
+  case SymbolViewKind::Bottom:
+    return tryViews({SymbolViewKind::Bottom, SymbolViewKind::Top,
+                     SymbolViewKind::Front, SymbolViewKind::Left,
+                     SymbolViewKind::Right, SymbolViewKind::Back});
+  case SymbolViewKind::Front:
+    return tryViews({SymbolViewKind::Front, SymbolViewKind::Top,
+                     SymbolViewKind::Bottom, SymbolViewKind::Left,
+                     SymbolViewKind::Right, SymbolViewKind::Back});
+  case SymbolViewKind::Left:
+    return tryViews({SymbolViewKind::Left, SymbolViewKind::Top,
+                     SymbolViewKind::Bottom, SymbolViewKind::Front,
+                     SymbolViewKind::Right, SymbolViewKind::Back});
+  case SymbolViewKind::Right:
+    return tryViews({SymbolViewKind::Right, SymbolViewKind::Top,
+                     SymbolViewKind::Bottom, SymbolViewKind::Front,
+                     SymbolViewKind::Left, SymbolViewKind::Back});
+  case SymbolViewKind::Back:
+  default:
+    return tryViews({SymbolViewKind::Back, SymbolViewKind::Top,
+                     SymbolViewKind::Bottom, SymbolViewKind::Front,
+                     SymbolViewKind::Left, SymbolViewKind::Right});
+  }
 }
 
 Transform2D ComposeTransform(const Transform2D &a, const Transform2D &b) {
