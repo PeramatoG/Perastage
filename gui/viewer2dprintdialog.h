@@ -30,15 +30,13 @@ public:
   print::Viewer2DPrintSettings GetSettings() const;
 
 private:
-  void ShowDetailedWarning();
-
   wxRadioButton *pageSizeA3Radio = nullptr;
   wxRadioButton *pageSizeA4Radio = nullptr;
   wxRadioButton *portraitRadio = nullptr;
   wxRadioButton *landscapeRadio = nullptr;
-  wxCheckBox *includeGridCheck = nullptr;
   wxRadioButton *detailedRadio = nullptr;
   wxRadioButton *schematicRadio = nullptr;
   bool showOrientation_ = true;
+  bool showElementsDetail_ = false;
   bool initialLandscape_ = false;
 };
