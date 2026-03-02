@@ -398,3 +398,4 @@ peraviz/native/**/build/
 /peraviz/docs/Capture_Demo.mvr
 /peraviz/.godot/global_script_class_cache.cfg
 /peraviz/.godot/uid_cache.bin
+/library/trusses/truss_dictionary.json.bak
