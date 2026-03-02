@@ -94,7 +94,24 @@ std::string NormalizePath(const std::string &path) {
   std::string out = path;
   char sep = static_cast<char>(fs::path::preferred_separator);
   std::replace(out.begin(), out.end(), '\\', sep);
+  std::replace(out.begin(), out.end(), '/', sep);
   return out;
+}
+
+std::string TrimPathRef(std::string value) {
+  auto isTrim = [](unsigned char c) {
+    return std::isspace(c) != 0 || c == '\r' || c == '\n' || c == '\t';
+  };
+
+  while (!value.empty() && isTrim(static_cast<unsigned char>(value.front())))
+    value.erase(value.begin());
+  while (!value.empty() && isTrim(static_cast<unsigned char>(value.back())))
+    value.pop_back();
+
+  if (value.size() >= 2 && value.front() == '"' && value.back() == '"')
+    return value.substr(1, value.size() - 2);
+
+  return value;
 }
 
 std::string NormalizeModelKey(const std::string &path) {
@@ -134,7 +151,7 @@ std::string ResolveGdtfPath(const std::string &base,
                             const std::string &spec) {
   if (spec.empty())
     return {};
-  const std::string cleanSpec = DecodePathEscapes(spec);
+  const std::string cleanSpec = DecodePathEscapes(TrimPathRef(spec));
   const std::string norm = NormalizePath(cleanSpec);
 
   fs::path absolute = fs::path(norm);
