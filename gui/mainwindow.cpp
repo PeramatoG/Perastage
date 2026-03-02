@@ -950,6 +950,7 @@ void MainWindow::OnProjectLoaded(wxCommandEvent &event) {
     RefreshSummary();
     RefreshRigging();
     GetDefaultGuiConfigServices().LegacyConfigManager().MarkSaved();
+    StartFixtureSymbolAutoUpdateForLoadedScene();
     UpdateTitle();
   } else {
     ResetProject();

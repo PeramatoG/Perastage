@@ -1,6 +1,9 @@
 #include "mainwindow.h"
 
+#include <filesystem>
+#include <memory>
 #include <string>
+#include <unordered_map>
 
 #include "configmanager.h"
 #include "consolepanel.h"
@@ -11,6 +14,8 @@
 #include "tools/symbol_physical_calibration.h"
 #include "windows/symbol_fixture_applier.h"
 
+#include <wx/timer.h>
+
 namespace {
 
 std::string BuildFixtureAutoUpdateKey(const Fixture &fixture) {
@@ -19,6 +24,50 @@ std::string BuildFixtureAutoUpdateKey(const Fixture &fixture) {
   if (!fixture.gdtfSpec.empty())
     return NormalizeModelKey(fixture.gdtfSpec);
   return {};
+}
+
+std::string BuildFixtureLabel(const Fixture &fixture) {
+  if (!fixture.typeName.empty())
+    return fixture.typeName;
+  if (!fixture.instanceName.empty())
+    return fixture.instanceName;
+  if (!fixture.gdtfSpec.empty())
+    return std::filesystem::path(fixture.gdtfSpec).filename().string();
+  return "unknown fixture";
+}
+
+void ReportFixtureAutoUpdate(MainWindow &window, ConsolePanel *console,
+                             const std::string &message) {
+  static const int kStatusClearTimerId = wxWindow::NewControlId();
+  static std::unordered_map<MainWindow *, std::unique_ptr<wxTimer>> timers;
+  static std::unordered_map<MainWindow *, std::string> pendingStatusText;
+
+  auto timerIt = timers.find(&window);
+  if (timerIt == timers.end()) {
+    auto timer = std::make_unique<wxTimer>(&window, kStatusClearTimerId);
+    window.Bind(
+        wxEVT_TIMER,
+        [windowPtr = &window](wxTimerEvent &) {
+          auto pendingIt = pendingStatusText.find(windowPtr);
+          if (pendingIt == pendingStatusText.end())
+            return;
+          if (windowPtr->GetStatusBar() &&
+              windowPtr->GetStatusBar()->GetStatusText(0) ==
+                  wxString::FromUTF8(pendingIt->second)) {
+            windowPtr->SetStatusText("", 0);
+          }
+          pendingStatusText.erase(pendingIt);
+        },
+        kStatusClearTimerId);
+    timerIt = timers.emplace(&window, std::move(timer)).first;
+  }
+
+  window.SetStatusText(wxString::FromUTF8(message), 0);
+  pendingStatusText[&window] = message;
+  timerIt->second->StartOnce(10000);
+
+  if (console)
+    console->AppendMessage(wxString::FromUTF8(message));
 }
 
 } // namespace
@@ -41,10 +90,15 @@ void MainWindow::StartFixtureSymbolAutoUpdateForLoadedScene() {
 
   fixtureSymbolAutoUpdateProcessedKeys.clear();
 
-  if (fixtureSymbolAutoUpdateQueue.empty())
+  if (fixtureSymbolAutoUpdateQueue.empty()) {
+    ReportFixtureAutoUpdate(*this, consolePanel,
+                            "Fixture symbol auto-update: no fixtures queued.");
     return;
+  }
 
   fixtureSymbolAutoUpdateRunning = true;
+  ReportFixtureAutoUpdate(*this, consolePanel,
+                          "Fixture symbol auto-update: started.");
   CallAfter([this]() { ProcessNextFixtureSymbolAutoUpdate(); });
 }
 
@@ -54,6 +108,8 @@ void MainWindow::ProcessNextFixtureSymbolAutoUpdate() {
 
   if (fixtureSymbolAutoUpdateQueue.empty()) {
     fixtureSymbolAutoUpdateRunning = false;
+    ReportFixtureAutoUpdate(*this, consolePanel,
+                            "Fixture symbol auto-update: completed.");
     return;
   }
 
@@ -67,7 +123,9 @@ void MainWindow::ProcessNextFixtureSymbolAutoUpdate() {
     return;
   }
 
-  const std::string key = BuildFixtureAutoUpdateKey(fixtureIt->second);
+  const Fixture &fixture = fixtureIt->second;
+  const std::string fixtureLabel = BuildFixtureLabel(fixture);
+  const std::string key = BuildFixtureAutoUpdateKey(fixture);
   if (key.empty() || !fixtureSymbolAutoUpdateProcessedKeys.insert(key).second) {
     CallAfter([this]() { ProcessNextFixtureSymbolAutoUpdate(); });
     return;
@@ -75,11 +133,13 @@ void MainWindow::ProcessNextFixtureSymbolAutoUpdate() {
 
   std::string inspectionError;
   symbol_preview::FixtureSymbolInspectionResult inspection;
-  if (!symbol_preview::InspectFixtureSymbolState(fixtureIt->second, cfg.GetScene(),
-                                                 inspection, inspectionError)) {
-    if (consolePanel && !inspectionError.empty()) {
-      consolePanel->AppendMessage(
-          "Fixture symbol auto-update skipped: " + wxString::FromUTF8(inspectionError));
+  if (!symbol_preview::InspectFixtureSymbolState(fixture, cfg.GetScene(), inspection,
+                                                 inspectionError)) {
+    if (!inspectionError.empty()) {
+      ReportFixtureAutoUpdate(
+          *this, consolePanel,
+          "Fixture symbol auto-update: skipped '" + fixtureLabel +
+              "' (inspection error: " + inspectionError + ").");
     }
     CallAfter([this]() { ProcessNextFixtureSymbolAutoUpdate(); });
     return;
@@ -90,9 +150,15 @@ void MainWindow::ProcessNextFixtureSymbolAutoUpdate() {
     return;
   }
 
+  ReportFixtureAutoUpdate(*this, consolePanel,
+                          "Fixture symbol auto-update: generating symbols for '" +
+                              fixtureLabel + "'.");
+
   Viewer2DOffscreenRenderer *offscreenRenderer = GetOffscreenRenderer();
   if (!offscreenRenderer) {
     fixtureSymbolAutoUpdateRunning = false;
+    ReportFixtureAutoUpdate(*this, consolePanel,
+                            "Fixture symbol auto-update: stopped (offscreen renderer unavailable)." );
     return;
   }
 
@@ -105,6 +171,12 @@ void MainWindow::ProcessNextFixtureSymbolAutoUpdate() {
       tools::SceneModelSymbolTarget{tools::SceneModelKind::Fixture, fixtureUuid},
       captureOptions);
   if (!capture.ok) {
+    ReportFixtureAutoUpdate(
+        *this, consolePanel,
+        "Fixture symbol auto-update: failed to capture symbols for '" + fixtureLabel +
+            "' (" + (capture.error.empty() ? std::string("unknown capture error")
+                                            : capture.error) +
+            ").");
     CallAfter([this]() { ProcessNextFixtureSymbolAutoUpdate(); });
     return;
   }
@@ -112,17 +184,41 @@ void MainWindow::ProcessNextFixtureSymbolAutoUpdate() {
   std::string calibrationError;
   if (!tools::CalibrateFixtureSymbolsToPhysicalUnits(
           cfg, fixtureUuid, capture.symbols, calibrationError)) {
+    ReportFixtureAutoUpdate(
+        *this, consolePanel,
+        "Fixture symbol auto-update: failed to calibrate symbols for '" +
+            fixtureLabel + "' (" +
+            (calibrationError.empty() ? std::string("unknown calibration error")
+                                      : calibrationError) +
+            ").");
     CallAfter([this]() { ProcessNextFixtureSymbolAutoUpdate(); });
     return;
   }
 
   std::string applyError;
   symbol_preview::ApplySymbolsOptions applyOptions;
-  applyOptions.updateSceneCopy = false;
+  applyOptions.updateSceneCopy = true;
   applyOptions.updateLibraryCopy = true;
   if (symbol_preview::ApplySymbolsToFixtureGdtf(capture.symbols, fixtureUuid,
                                                 applyError, applyOptions)) {
+    std::string locationMessage = "scene";
+    if (!inspection.scenePath.empty() && !inspection.libraryPath.empty())
+      locationMessage = "scene and library";
+    else if (!inspection.libraryPath.empty())
+      locationMessage = "library";
+
+    ReportFixtureAutoUpdate(*this, consolePanel,
+                            "Fixture symbol auto-update: symbols generated for '" +
+                                fixtureLabel + "' and " + locationMessage +
+                                " GDTF updated.");
     RefreshAfterFixtureSymbolUpdate();
+  } else {
+    ReportFixtureAutoUpdate(
+        *this, consolePanel,
+        "Fixture symbol auto-update: failed to apply symbols for '" + fixtureLabel +
+            "' (" + (applyError.empty() ? std::string("unknown apply error")
+                                         : applyError) +
+            ").");
   }
 
   CallAfter([this]() { ProcessNextFixtureSymbolAutoUpdate(); });
