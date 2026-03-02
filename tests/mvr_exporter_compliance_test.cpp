@@ -126,6 +126,7 @@ int main() {
   fs::create_directories(tempDir / "A");
   fs::create_directories(tempDir / "B");
   fs::create_directories(tempDir / "models");
+  fs::create_directories(tempDir / "C");
 
   std::ofstream(tempDir / "A" / "Same.gdtf") << "A";
   std::ofstream(tempDir / "B" / "Same.gdtf") << "B";
@@ -134,7 +135,9 @@ int main() {
 
   const std::string longToken(320, "x"[0]);
   const fs::path longNamedGdtf = tempDir / ("VeryLongGeneratedName_" + longToken + ".gdtf");
+  const fs::path duplicateLongNamedGdtf = tempDir / "C" / ("VeryLongGeneratedName_" + longToken + ".gdtf");
   std::ofstream(longNamedGdtf) << "LONG";
+  std::ofstream(duplicateLongNamedGdtf) << "LONG2";
 
   scene.basePath = tempDir.generic_string();
   scene.provider.clear();
@@ -175,6 +178,13 @@ int main() {
   fLong.gdtfSpec = longNamedGdtf.generic_string();
   fLong.address = "7.1";
   scene.fixtures[fLong.uuid] = fLong;
+
+  Fixture fLongDup;
+  fLongDup.uuid = "fx-long-dup";
+  fLongDup.instanceName = "Long Name Fixture Duplicate";
+  fLongDup.gdtfSpec = duplicateLongNamedGdtf.generic_string();
+  fLongDup.address = "8.1";
+  scene.fixtures[fLongDup.uuid] = fLongDup;
 
   Truss tr;
   tr.uuid = "tr-1";
@@ -226,6 +236,7 @@ int main() {
   bool sawAddress1025 = false;
   bool sawAddress2681 = false;
   bool sawAddress3073 = false;
+  bool sawAddress3585 = false;
   bool sawNonNumericTrussNameFixtureIdConsistency = false;
   int mvrGeometryTrussCount = 0;
   int mvrGeometryTrussesWithGeometry3d = 0;
@@ -301,6 +312,8 @@ int main() {
               sawAddress2681 = true;
             if (absoluteAddress == ComputeAbsoluteDmx(7, 1))
               sawAddress3073 = true;
+            if (absoluteAddress == ComputeAbsoluteDmx(8, 1))
+              sawAddress3585 = true;
             ++fixtureAddressCount;
           }
 
@@ -353,11 +366,12 @@ int main() {
   }
 
   assert(gdtfCount.size() >= 2);
-  assert(fixtureAddressCount == 4);
+  assert(fixtureAddressCount == 5);
   assert(sawAddress1);
   assert(sawAddress1025);
   assert(sawAddress2681);
   assert(sawAddress3073);
+  assert(sawAddress3585);
   assert(sawNonNumericTrussNameFixtureIdConsistency);
   assert(mvrGeometryTrussCount == static_cast<int>(scene.trusses.size()));
   assert(mvrGeometryTrussesWithGeometry3d == mvrGeometryTrussCount);

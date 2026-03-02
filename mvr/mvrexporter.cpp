@@ -118,8 +118,10 @@ static std::string TruncateFileNamePreservingExtension(const std::string &fileNa
 
 static std::string EnsureUniqueArchivePath(const std::string &proposed,
                                            std::unordered_set<std::string> &usedPaths) {
+  constexpr size_t kMaxArchiveEntryNameLength = 120;
   fs::path path = fs::path(proposed).lexically_normal();
-  std::string normalized = path.generic_string();
+  std::string normalized =
+      TruncateFileNamePreservingExtension(path.generic_string(), kMaxArchiveEntryNameLength);
   if (normalized.empty())
     normalized = "resource.bin";
   if (!usedPaths.contains(normalized)) {
@@ -127,13 +129,22 @@ static std::string EnsureUniqueArchivePath(const std::string &proposed,
     return normalized;
   }
 
-  fs::path stemPath = path;
+  fs::path stemPath = fs::path(normalized);
   std::string ext = stemPath.extension().generic_string();
   std::string stem = stemPath.stem().generic_string();
   fs::path parent = stemPath.parent_path();
   int index = 1;
   while (true) {
-    std::string candidate = (parent / (stem + "_" + std::to_string(index + 1) + ext)).generic_string();
+    const std::string suffix = "_" + std::to_string(index + 1);
+    std::string adjustedStem = stem;
+    const size_t candidateMaxStemLength =
+        (kMaxArchiveEntryNameLength > ext.size() + suffix.size())
+            ? kMaxArchiveEntryNameLength - ext.size() - suffix.size()
+            : 0;
+    if (adjustedStem.size() > candidateMaxStemLength)
+      adjustedStem = adjustedStem.substr(0, candidateMaxStemLength);
+    std::string candidate =
+        (parent / (adjustedStem + suffix + ext)).generic_string();
     if (!usedPaths.contains(candidate)) {
       usedPaths.insert(candidate);
       return candidate;
