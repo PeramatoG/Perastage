@@ -96,8 +96,11 @@ std::string ResolveFixtureSymbolKeyPath(const Fixture &fixture,
 }
 
 std::string BuildFixtureSymbolModelKey(const Fixture &fixture,
-                                       const std::string &basePath) {
-  std::string modelKey = ResolveFixtureSymbolKeyPath(fixture, basePath);
+                                       const std::string &basePath,
+                                       const std::string &resolvedGdtfPath) {
+  std::string modelKey = NormalizeModelKeyPath(resolvedGdtfPath);
+  if (modelKey.empty())
+    modelKey = ResolveFixtureSymbolKeyPath(fixture, basePath);
   if (modelKey.empty() && !fixture.typeName.empty())
     modelKey = fixture.typeName;
   if (modelKey.empty())
@@ -349,7 +352,8 @@ void OpaqueFixturePass::Render(
         gdtfPathIt->second.attempted)
       gdtfPath = gdtfPathIt->second.resolvedPath;
     const std::string sceneBasePath = ConfigManager::Get().GetScene().basePath;
-    const std::string modelKey = BuildFixtureSymbolModelKey(f, sceneBasePath);
+    const std::string modelKey =
+        BuildFixtureSymbolModelKey(f, sceneBasePath, gdtfPath);
 
     std::string svgSourcePath;
     std::error_code sourcePathError;
