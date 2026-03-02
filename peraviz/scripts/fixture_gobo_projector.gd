@@ -4,6 +4,7 @@ class_name FixtureGoboProjector
 const FAKE_GOBO_TEXTURE_SIZE: int = 1024
 const GOBO_TEXTURE_META_KEY: String = "peraviz_gobo_texture"
 const GOBO_MODE_META_KEY: String = "peraviz_gobo_projection_mode"
+const GOBO_PROJECTOR_SUPPORT_META_KEY: String = "peraviz_projector_support_checked"
 
 enum ProjectionMode {
 	SHADOW_COOKIE,
@@ -64,13 +65,14 @@ func apply_gobo_projection(light: SpotLight3D, controls: Dictionary) -> bool:
 	var composed_gobo: Texture2D = _compose_gobo_textures(active_textures)
 	light.set_meta(GOBO_TEXTURE_META_KEY, composed_gobo)
 	var projection_mode: int = _resolve_projection_mode(controls)
-	light.set_meta(GOBO_MODE_META_KEY, projection_mode)
-	if projection_mode == ProjectionMode.PROJECTOR_COOKIE:
-		_warn_if_projector_unsupported(light)
-		light.light_projector = composed_gobo
+	if projection_mode == ProjectionMode.PROJECTOR_COOKIE and _is_native_projector_supported(light):
+		_apply_projector_texture(light, composed_gobo)
+		_configure_projector_transform(light, controls)
+		light.set_meta(GOBO_MODE_META_KEY, ProjectionMode.PROJECTOR_COOKIE)
 	else:
-		# Keep projector disabled in the sample-like path to avoid double gobo projection.
-		light.light_projector = null
+		# Keep projector disabled in the fallback path to avoid double gobo projection.
+		_apply_projector_texture(light, null)
+		light.set_meta(GOBO_MODE_META_KEY, ProjectionMode.SHADOW_COOKIE)
 	return composed_gobo != previous_meta_texture
 
 func _resolve_projection_mode(controls: Dictionary) -> int:
@@ -195,11 +197,48 @@ func _resolve_fake_gobo_texture(gobo_raw_8bit: int) -> Texture2D:
 	return texture
 
 func _warn_if_projector_unsupported(light: SpotLight3D) -> void:
-	if light != null and light.has_meta("peraviz_projector_support_checked"):
+	if light != null and light.has_meta(GOBO_PROJECTOR_SUPPORT_META_KEY):
 		return
 	if light != null:
-		light.set_meta("peraviz_projector_support_checked", true)
+		light.set_meta(GOBO_PROJECTOR_SUPPORT_META_KEY, true)
 	if RenderingServer.has_method("get_current_rendering_method"):
 		var rendering_method: String = str(RenderingServer.get_current_rendering_method())
 		if rendering_method == "gl_compatibility":
 			push_warning("Peraviz gobo projector is not supported in Compatibility renderer. Use Forward+ or Mobile.")
+
+func _is_native_projector_supported(light: SpotLight3D) -> bool:
+	if light == null:
+		return false
+	_warn_if_projector_unsupported(light)
+	if not light.has_method("set_projector_scale"):
+		return false
+	if not light.has_method("set_projector_offset"):
+		return false
+	return true
+
+func _apply_projector_texture(light: SpotLight3D, texture: Texture2D) -> void:
+	if light == null:
+		return
+	light.light_projector = texture
+
+func _configure_projector_transform(light: SpotLight3D, controls: Dictionary) -> void:
+	if light == null:
+		return
+	var projector_scale: Vector2 = controls.get("projector_scale", Vector2.ONE)
+	var projector_offset: Vector2 = controls.get("projector_offset", Vector2.ZERO)
+	if light.has_method("set_projector_scale"):
+		light.call("set_projector_scale", projector_scale)
+	elif _has_light_property(light, "light_projector_scale"):
+		light.set("light_projector_scale", projector_scale)
+	if light.has_method("set_projector_offset"):
+		light.call("set_projector_offset", projector_offset)
+	elif _has_light_property(light, "light_projector_offset"):
+		light.set("light_projector_offset", projector_offset)
+
+func _has_light_property(light: Object, property_name: String) -> bool:
+	if light == null:
+		return false
+	for entry in light.get_property_list():
+		if str(entry.get("name", "")) == property_name:
+			return true
+	return false

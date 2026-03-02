@@ -57,24 +57,34 @@ func ensure_beam(light: SpotLight3D) -> void:
 		light.add_child(cone)
 		light.set_meta(BEAM_META_KEY, cone)
 
-	if not light.has_meta(GOBO_OCCLUDER_META_KEY):
-		var gobo_mesh := QuadMesh.new()
-		gobo_mesh.size = Vector2(GOBO_PLANE_BASE_SIZE_M, GOBO_PLANE_BASE_SIZE_M)
-		var gobo_occluder := MeshInstance3D.new()
-		gobo_occluder.name = "PeravizGoboOccluder"
-		gobo_occluder.mesh = gobo_mesh
-		var occluder_shader_material: ShaderMaterial = _gobo_occluder_material_template.duplicate(true)
-		gobo_occluder.material_override = occluder_shader_material
-		gobo_occluder.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY
-		gobo_occluder.visible = false
-		light.add_child(gobo_occluder)
-		light.set_meta(GOBO_OCCLUDER_META_KEY, gobo_occluder)
-		light.set_meta(GOBO_OCCLUDER_SHADER_MATERIAL_META_KEY, occluder_shader_material)
 
+
+func _ensure_gobo_occluder(light: SpotLight3D) -> MeshInstance3D:
+	if light.has_meta(GOBO_OCCLUDER_META_KEY):
+		return light.get_meta(GOBO_OCCLUDER_META_KEY) as MeshInstance3D
+
+	var gobo_mesh := QuadMesh.new()
+	gobo_mesh.size = Vector2(GOBO_PLANE_BASE_SIZE_M, GOBO_PLANE_BASE_SIZE_M)
+	var gobo_occluder := MeshInstance3D.new()
+	gobo_occluder.name = "PeravizGoboOccluder"
+	gobo_occluder.mesh = gobo_mesh
+	var occluder_shader_material: ShaderMaterial = _gobo_occluder_material_template.duplicate(true)
+	gobo_occluder.material_override = occluder_shader_material
+	gobo_occluder.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY
+	gobo_occluder.visible = false
+	light.add_child(gobo_occluder)
+	light.set_meta(GOBO_OCCLUDER_META_KEY, gobo_occluder)
+	light.set_meta(GOBO_OCCLUDER_SHADER_MATERIAL_META_KEY, occluder_shader_material)
+	return gobo_occluder
 func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	ensure_beam(light)
 	var cone: MeshInstance3D = light.get_meta(BEAM_META_KEY) as MeshInstance3D
-	var gobo_occluder: MeshInstance3D = light.get_meta(GOBO_OCCLUDER_META_KEY) as MeshInstance3D
+	var gobo_projection_mode: int = int(light.get_meta("peraviz_gobo_projection_mode", 0))
+	var gobo_occluder: MeshInstance3D = null
+	if gobo_projection_mode == 0:
+		gobo_occluder = _ensure_gobo_occluder(light)
+	elif light.has_meta(GOBO_OCCLUDER_META_KEY):
+		gobo_occluder = light.get_meta(GOBO_OCCLUDER_META_KEY) as MeshInstance3D
 	if cone == null:
 		return
 
@@ -166,7 +176,8 @@ func _update_gobo_occluder(light: SpotLight3D, cone: MeshInstance3D, gobo_occlud
 	var gobo_texture: Texture2D = light.get_meta("peraviz_gobo_texture", null) as Texture2D
 	var gobo_projection_mode: int = int(light.get_meta("peraviz_gobo_projection_mode", 0))
 	if gobo_projection_mode == 1:
-		gobo_occluder.visible = false
+		if gobo_occluder != null:
+			gobo_occluder.visible = false
 		cone.set_instance_shader_parameter("gobo_enabled", false)
 		return
 

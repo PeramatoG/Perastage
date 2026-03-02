@@ -15,13 +15,16 @@ const DEFAULT_SETTINGS := {
 	"beam_anisotropy": 0.62,
 	"beam_noise_amount": 0.06,
 	"beam_noise_scale": 1.4,
-	"volumetric_fog_density": 0.012,
-	"light_volumetric_fog_energy": 2.0,
+	"volumetric_fog_density": 0.02,
+	"volumetric_fog_fade": 0.1,
+	"light_volumetric_fog_energy": 3.5,
 	"gobo_scale_ratio": 1.0,
+	"gobo_offset_x": 0.0,
+	"gobo_offset_y": 0.0,
 	"gobo_debug_show_occluder": false,
 	"gobo_debug_log_parameters": false,
 	"gobo_debug_log_volumetric_details": false,
-	"gobo_projection_mode": "shadow_cookie",
+	"gobo_projection_mode": "projector_cookie",
 	"volumetric_fog_volume_size": 256,
 	"volumetric_fog_depth": 64.0,
 	"volumetric_fog_use_filter": true,
@@ -39,10 +42,16 @@ var _bloom_slider: HSlider
 var _bloom_value_label: Label
 var _fog_density_slider: HSlider
 var _fog_density_value_label: Label
+var _fog_fade_slider: HSlider
+var _fog_fade_value_label: Label
 var _light_fog_energy_slider: HSlider
 var _light_fog_energy_value_label: Label
 var _gobo_scale_slider: HSlider
 var _gobo_scale_value_label: Label
+var _gobo_offset_x_slider: HSlider
+var _gobo_offset_x_value_label: Label
+var _gobo_offset_y_slider: HSlider
+var _gobo_offset_y_value_label: Label
 var _fog_volume_size_slider: HSlider
 var _fog_volume_size_value_label: Label
 var _fog_depth_slider: HSlider
@@ -93,13 +102,16 @@ func _build_ui() -> void:
 	_beam_slider = _add_slider_row(container, "Beam intensity", "beam_multiplier", 0.0, 8.0, 0.01)
 	_bloom_slider = _add_slider_row(container, "Bloom", "bloom_multiplier", 0.0, 3.0, 0.01)
 	_fog_density_slider = _add_slider_row(container, "Volumetric fog density", "volumetric_fog_density", 0.0, 0.08, 0.001)
+	_fog_fade_slider = _add_slider_row(container, "Volumetric fog fade", "volumetric_fog_fade", 0.0, 1.0, 0.01)
 	_fog_volume_size_slider = _add_slider_row(container, "Fog volume size", "volumetric_fog_volume_size", 64.0, 512.0, 32.0)
 	_fog_depth_slider = _add_slider_row(container, "Fog volume depth", "volumetric_fog_depth", 16.0, 256.0, 4.0)
 	_light_fog_energy_slider = _add_slider_row(container, "Light fog energy", "light_volumetric_fog_energy", 0.0, 8.0, 0.05)
 	_gobo_scale_slider = _add_slider_row(container, "Gobo scale ratio", "gobo_scale_ratio", 0.2, 2.5, 0.01)
+	_gobo_offset_x_slider = _add_slider_row(container, "Gobo offset X", "gobo_offset_x", -1.0, 1.0, 0.01)
+	_gobo_offset_y_slider = _add_slider_row(container, "Gobo offset Y", "gobo_offset_y", -1.0, 1.0, 0.01)
 	_beam_render_mode_option = _add_option_row(container, "Beam rendering", ["Volumetric (default)", "Lightweight (legacy)"], _on_beam_render_mode_selected)
 	_beam_quality_option = _add_option_row(container, "Beam quality", ["Low", "Medium", "High"], _on_beam_quality_selected)
-	_gobo_projection_option = _add_option_row(container, "Gobo projection", ["Shadow cookie", "Projector cookie"], _on_gobo_projection_selected)
+	_gobo_projection_option = _add_option_row(container, "Gobo projection", ["Legacy shadow cookie", "Native projector (auto fallback)"], _on_gobo_projection_selected)
 	_add_toggle_row(container, "Debug gobo occluder", "gobo_debug_show_occluder")
 	_add_toggle_row(container, "Log gobo parameters", "gobo_debug_log_parameters")
 	_add_toggle_row(container, "Log volumetric internals", "gobo_debug_log_volumetric_details")
@@ -169,6 +181,8 @@ func _add_slider_row(parent: VBoxContainer,
 			_bloom_value_label = value_label
 		"volumetric_fog_density":
 			_fog_density_value_label = value_label
+		"volumetric_fog_fade":
+			_fog_fade_value_label = value_label
 		"volumetric_fog_volume_size":
 			_fog_volume_size_value_label = value_label
 		"volumetric_fog_depth":
@@ -177,6 +191,10 @@ func _add_slider_row(parent: VBoxContainer,
 			_light_fog_energy_value_label = value_label
 		"gobo_scale_ratio":
 			_gobo_scale_value_label = value_label
+		"gobo_offset_x":
+			_gobo_offset_x_value_label = value_label
+		"gobo_offset_y":
+			_gobo_offset_y_value_label = value_label
 
 	return slider
 
@@ -215,13 +233,16 @@ func _apply_settings_to_controls() -> void:
 	_beam_slider.value = float(_settings.get("beam_multiplier", 1.0))
 	_bloom_slider.value = float(_settings.get("bloom_multiplier", 1.0))
 	_fog_density_slider.value = float(_settings.get("volumetric_fog_density", 0.01))
+	_fog_fade_slider.value = float(_settings.get("volumetric_fog_fade", 0.1))
 	_fog_volume_size_slider.value = float(_settings.get("volumetric_fog_volume_size", 256))
 	_fog_depth_slider.value = float(_settings.get("volumetric_fog_depth", 64.0))
 	_light_fog_energy_slider.value = float(_settings.get("light_volumetric_fog_energy", 1.0))
 	_gobo_scale_slider.value = float(_settings.get("gobo_scale_ratio", 1.0))
+	_gobo_offset_x_slider.value = float(_settings.get("gobo_offset_x", 0.0))
+	_gobo_offset_y_slider.value = float(_settings.get("gobo_offset_y", 0.0))
 	_beam_render_mode_option.select(clamp(int(_settings.get("beam_render_mode", 0)), 0, 1))
 	_beam_quality_option.select(clamp(int(_settings.get("beam_quality", 1)), 0, 2))
-	var mode_name: String = str(_settings.get("gobo_projection_mode", "shadow_cookie")).to_lower()
+	var mode_name: String = str(_settings.get("gobo_projection_mode", "projector_cookie")).to_lower()
 	_gobo_projection_option.select(1 if mode_name == "projector_cookie" else 0)
 	_background_picker.color = _settings.get("background_color", DEFAULT_SETTINGS["background_color"])
 	_update_value_labels()
@@ -260,10 +281,13 @@ func _update_value_labels() -> void:
 	_beam_value_label.text = "%.2f" % float(_settings.get("beam_multiplier", 1.0))
 	_bloom_value_label.text = "%.2f" % float(_settings.get("bloom_multiplier", 1.0))
 	_fog_density_value_label.text = "%.3f" % float(_settings.get("volumetric_fog_density", 0.01))
+	_fog_fade_value_label.text = "%.2f" % float(_settings.get("volumetric_fog_fade", 0.1))
 	_fog_volume_size_value_label.text = "%d" % int(round(float(_settings.get("volumetric_fog_volume_size", 256))))
 	_fog_depth_value_label.text = "%.1f" % float(_settings.get("volumetric_fog_depth", 64.0))
 	_light_fog_energy_value_label.text = "%.2f" % float(_settings.get("light_volumetric_fog_energy", 1.0))
 	_gobo_scale_value_label.text = "%.2f" % float(_settings.get("gobo_scale_ratio", 1.0))
+	_gobo_offset_x_value_label.text = "%.2f" % float(_settings.get("gobo_offset_x", 0.0))
+	_gobo_offset_y_value_label.text = "%.2f" % float(_settings.get("gobo_offset_y", 0.0))
 
 func _emit_settings_changed() -> void:
 	settings_changed.emit(_settings.duplicate(true))

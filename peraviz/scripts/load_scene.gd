@@ -61,13 +61,16 @@ var _visual_settings := {
 	"beam_anisotropy": 0.62,
 	"beam_noise_amount": 0.06,
 	"beam_noise_scale": 1.4,
-	"volumetric_fog_density": 0.012,
-	"light_volumetric_fog_energy": 2.0,
+	"volumetric_fog_density": 0.02,
+	"volumetric_fog_fade": 0.1,
+	"light_volumetric_fog_energy": 3.5,
 	"gobo_scale_ratio": 1.0,
+	"gobo_offset_x": 0.0,
+	"gobo_offset_y": 0.0,
 	"gobo_debug_show_occluder": false,
 	"gobo_debug_log_parameters": false,
 	"gobo_debug_log_volumetric_details": false,
-	"gobo_projection_mode": "shadow_cookie",
+	"gobo_projection_mode": "projector_cookie",
 	"volumetric_fog_volume_size": 256,
 	"volumetric_fog_depth": 64.0,
 	"volumetric_fog_use_filter": true,
@@ -281,6 +284,10 @@ func _apply_visual_settings(settings: Dictionary) -> void:
 		world_environment.environment.background_color = _visual_settings.get("background_color", _visual_environment_baseline.get("background_color", Color(0.129412, 0.137255, 0.156863, 1.0)))
 		world_environment.environment.volumetric_fog_enabled = true
 		world_environment.environment.volumetric_fog_density = float(_visual_settings.get("volumetric_fog_density", 0.01))
+		if _environment_has_property(world_environment.environment, "volumetric_fog_fade"):
+			world_environment.environment.set("volumetric_fog_fade", float(_visual_settings.get("volumetric_fog_fade", 0.1)))
+		world_environment.environment.volumetric_fog_albedo = Color(1.0, 1.0, 1.0, 1.0)
+		world_environment.environment.volumetric_fog_emission = Color(0.0, 0.0, 0.0, 1.0)
 
 	# Godot volumetric fog froxel controls are renderer-level project settings.
 	# Keep them aligned with visual settings for the #11987 shadow-cookie workflow.
@@ -1642,7 +1649,7 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 	if bool(controls.get("has_gobo", false)):
 		# Sample-like fallback for gobo readability: keep spotlight range in a tight zoom-linked window.
 		light.spot_range = remap(clamp(beam_angle, 6.0, 50.0), 6.0, 50.0, 60.0, 30.0)
-	var gobo_projection_mode: String = str(_visual_settings.get("gobo_projection_mode", "shadow_cookie"))
+	var gobo_projection_mode: String = str(_visual_settings.get("gobo_projection_mode", "projector_cookie"))
 	var use_shadow_cookie_gobo: bool = bool(controls.get("has_gobo", false)) and gobo_projection_mode == "shadow_cookie"
 	if use_shadow_cookie_gobo:
 		# Match the #11987 reference setup: tighter angle attenuation + sharp shadows improve in-air beam definition.
@@ -1650,6 +1657,9 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 		light.shadow_bias = GOBO_SHADOW_COOKIE_SHADOW_BIAS
 		light.shadow_normal_bias = GOBO_SHADOW_COOKIE_SHADOW_NORMAL_BIAS
 		light.shadow_blur = GOBO_SHADOW_COOKIE_SHADOW_BLUR
+	else:
+		spot_attenuation = 0.5
+		light.shadow_blur = 0.1
 	light.spot_attenuation = spot_attenuation
 	light.light_color = _derive_emitter_color(photometric, controls)
 	var beam_color: Color = _derive_emitter_color(photometric, controls, BEAM_COLOR_TEMPERATURE_STRENGTH)
@@ -1684,7 +1694,13 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 	var gobo_changed: bool = false
 	if _fixture_gobo_projector != null:
 		var gobo_controls: Dictionary = controls.duplicate(true)
-		gobo_controls["gobo_projection_mode"] = str(_visual_settings.get("gobo_projection_mode", "shadow_cookie"))
+		gobo_controls["gobo_projection_mode"] = str(_visual_settings.get("gobo_projection_mode", "projector_cookie"))
+		var scale_ratio: float = max(float(_visual_settings.get("gobo_scale_ratio", 1.0)), 0.001)
+		gobo_controls["projector_scale"] = Vector2(scale_ratio, scale_ratio)
+		gobo_controls["projector_offset"] = Vector2(
+			float(_visual_settings.get("gobo_offset_x", 0.0)),
+			float(_visual_settings.get("gobo_offset_y", 0.0))
+		)
 		gobo_changed = _fixture_gobo_projector.apply_gobo_projection(light, gobo_controls)
 	light.light_volumetric_fog_energy = float(_visual_settings.get("light_volumetric_fog_energy", 1.0))
 	_update_beam_for_light(light, beam_params)
