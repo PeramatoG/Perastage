@@ -148,14 +148,14 @@ void PersistFixtureTypeAutoColors(ConfigManager &configManager) {
   }
 }
 
-void LogMissingIcon(const std::filesystem::path &path) {
-  wxLogWarning("Main window icon not found at '%s'", path.string().c_str());
-}
-
 wxString PathToWxString(const std::filesystem::path &path) {
   const std::u8string utf8 = path.u8string();
   const std::string utf8Str(utf8.begin(), utf8.end());
   return wxString::FromUTF8(utf8Str.c_str());
+}
+
+void LogMissingIcon(const std::filesystem::path &path) {
+  wxLogWarning("Main window icon not found at '%s'", PathToWxString(path));
 }
 
 wxFont BuildDefaultUiFont() {
