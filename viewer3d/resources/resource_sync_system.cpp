@@ -15,18 +15,6 @@ namespace fs = std::filesystem;
 
 namespace {
 
-std::string ResolvePathWithCaseFallback(const fs::path &path);
-
-std::string ToLowerAscii(std::string value) {
-  std::transform(value.begin(), value.end(), value.begin(),
-                 [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-  return value;
-}
-
-bool EqualsIgnoreAsciiCase(const std::string &lhs, const std::string &rhs) {
-  return ToLowerAscii(lhs) == ToLowerAscii(rhs);
-}
-
 std::string FindFileRecursive(const std::string &baseDir,
                               const std::string &fileName) {
   if (baseDir.empty())
@@ -44,13 +32,24 @@ std::string FindFileRecursive(const std::string &baseDir,
       ec.clear();
       continue;
     }
-    if (EqualsIgnoreAsciiCase(it->path().filename().string(), fileName))
+    if (it->path().filename() == fileName)
       return it->path().string();
   }
   return {};
 }
 
-std::string ResolveLibraryRelativePath(const std::string &spec) {
+std::string ResolveExistingPath(const fs::path &path) {
+  if (path.empty())
+    return {};
+
+  std::error_code ec;
+  if (fs::exists(path, ec))
+    return path.string();
+  return {};
+}
+
+std::string ResolveFromLibrarySuffix(const std::string &base,
+                                     const std::string &spec) {
   fs::path specPath(spec);
   std::vector<fs::path> parts;
   for (const auto &part : specPath) {
@@ -58,85 +57,34 @@ std::string ResolveLibraryRelativePath(const std::string &spec) {
       parts.push_back(part);
   }
 
+  fs::path suffix;
+  bool foundLibrary = false;
   for (size_t i = 0; i < parts.size(); ++i) {
-    if (!EqualsIgnoreAsciiCase(parts[i].string(), "library"))
+    if (parts[i] != "library")
       continue;
-
-    fs::path suffix;
+    foundLibrary = true;
     for (size_t j = i; j < parts.size(); ++j)
       suffix /= parts[j];
-
-    std::error_code ec;
-    const fs::path cwd = fs::current_path(ec);
-    if (ec)
-      return {};
-
-    const std::array<fs::path, 3> roots = {cwd, cwd.parent_path(), cwd.parent_path().parent_path()};
-    for (const fs::path &root : roots) {
-      if (root.empty())
-        continue;
-      const std::string resolved = ResolvePathWithCaseFallback(root / suffix);
-      if (!resolved.empty())
-        return resolved;
-    }
+    break;
   }
-
-  return {};
-}
-
-std::string ResolvePathWithCaseFallback(const fs::path &path) {
-  if (path.empty())
+  if (!foundLibrary || suffix.empty())
     return {};
 
   std::error_code ec;
-  if (fs::exists(path, ec))
-    return path.string();
-  ec.clear();
+  fs::path root = base.empty() ? fs::current_path(ec) : fs::path(base);
+  if (ec || root.empty())
+    return {};
 
-  fs::path current;
-  for (const auto &part : path) {
-    if (part.empty())
-      continue;
-
-    const std::string segment = part.string();
-    if (segment == "/" || segment == "\\") {
-      current /= part;
-      continue;
-    }
-
-    if (current.empty()) {
-      current /= part;
-      continue;
-    }
-
-    fs::path exactPath = current / part;
-    if (fs::exists(exactPath, ec)) {
-      current = exactPath;
-      ec.clear();
-      continue;
-    }
-    ec.clear();
-
-    bool matched = false;
-    for (const auto &entry : fs::directory_iterator(current, ec)) {
-      if (ec)
-        break;
-      if (!EqualsIgnoreAsciiCase(entry.path().filename().string(), segment))
-        continue;
-      current = entry.path();
-      matched = true;
+  for (fs::path probe = root; !probe.empty(); probe = probe.parent_path()) {
+    const std::string resolved = ResolveExistingPath(probe / suffix);
+    if (!resolved.empty())
+      return resolved;
+    if (probe == probe.parent_path())
       break;
-    }
-    if (ec || !matched)
-      return {};
-    ec.clear();
   }
 
-  if (fs::exists(current, ec))
-    return current.string();
   return {};
 }
-
 
 std::string TrimPathRef(std::string value) {
   auto isTrim = [](unsigned char c) {
@@ -183,62 +131,39 @@ std::string ResolveGdtfPath(const std::string &base, const std::string &spec,
   const std::array<std::string, 2> variants = {cleanSpec,
                                                NormalizePath(cleanSpec)};
 
-  std::error_code ec;
   for (const std::string &variant : variants) {
     fs::path absoluteCandidate = fs::path(variant);
     if (absoluteCandidate.is_absolute()) {
-      const std::string absoluteResolved =
-          ResolvePathWithCaseFallback(absoluteCandidate);
+      const std::string absoluteResolved = ResolveExistingPath(absoluteCandidate);
       if (!absoluteResolved.empty())
         return absoluteResolved;
     }
-    ec.clear();
 
-    fs::path relativeCandidate = fs::path(base) / absoluteCandidate;
     const std::string relativeResolved =
-        ResolvePathWithCaseFallback(relativeCandidate);
+        ResolveExistingPath(fs::path(base) / absoluteCandidate);
     if (!relativeResolved.empty())
       return relativeResolved;
-    ec.clear();
 
     fs::path utf8AbsoluteCandidate = fs::u8path(variant);
     if (utf8AbsoluteCandidate.is_absolute()) {
       const std::string utf8AbsoluteResolved =
-          ResolvePathWithCaseFallback(utf8AbsoluteCandidate);
+          ResolveExistingPath(utf8AbsoluteCandidate);
       if (!utf8AbsoluteResolved.empty())
         return utf8AbsoluteResolved;
     }
-    ec.clear();
 
-    fs::path utf8RelativeCandidate = fs::path(base) / utf8AbsoluteCandidate;
     const std::string utf8RelativeResolved =
-        ResolvePathWithCaseFallback(utf8RelativeCandidate);
+        ResolveExistingPath(fs::path(base) / utf8AbsoluteCandidate);
     if (!utf8RelativeResolved.empty())
       return utf8RelativeResolved;
-    ec.clear();
   }
 
-  const std::string libraryRelativeResolved = ResolveLibraryRelativePath(cleanSpec);
-  if (!libraryRelativeResolved.empty())
-    return libraryRelativeResolved;
+  const std::string librarySuffixResolved = ResolveFromLibrarySuffix(base, cleanSpec);
+  if (!librarySuffixResolved.empty())
+    return librarySuffixResolved;
 
-  if (allowRecursiveFallback) {
-    const std::string fileName = fs::path(cleanSpec).filename().string();
-    const std::string recursiveInBase = FindFileRecursive(base, fileName);
-    if (!recursiveInBase.empty())
-      return recursiveInBase;
-
-    std::error_code ec;
-    const fs::path cwd = fs::current_path(ec);
-    if (!ec) {
-      const std::array<fs::path, 3> roots = {cwd, cwd.parent_path(), cwd.parent_path().parent_path()};
-      for (const fs::path &root : roots) {
-        const std::string recursive = FindFileRecursive(root.string(), fileName);
-        if (!recursive.empty())
-          return recursive;
-      }
-    }
-  }
+  if (allowRecursiveFallback)
+    return FindFileRecursive(base, fs::path(cleanSpec).filename().string());
   return {};
 }
 
