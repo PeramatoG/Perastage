@@ -35,23 +35,36 @@ void SplashScreen::Show() {
   wxBoxSizer *sizer = new wxBoxSizer(wxVERTICAL);
 
   wxBitmap logoBmp;
-  wxIconBundle bundle;
   const std::filesystem::path resourceRoot = ProjectUtils::GetResourceRoot();
-  std::filesystem::path iconPath;
-  if (!resourceRoot.empty())
-    iconPath = resourceRoot / "Perastage.ico";
+  const std::filesystem::path splashLogoPath = resourceRoot / "Perastage_logo.png";
   std::error_code ec;
-  if (!iconPath.empty() && std::filesystem::exists(iconPath, ec)) {
-    bundle.AddIcon(PathToWxString(iconPath), wxBITMAP_TYPE_ICO);
-  } else {
-    LogMissingIcon(
-        iconPath.empty() ? std::filesystem::path("resources/Perastage.ico")
-                         : iconPath);
+  if (!resourceRoot.empty() && std::filesystem::exists(splashLogoPath, ec)) {
+    logoBmp.LoadFile(PathToWxString(splashLogoPath), wxBITMAP_TYPE_PNG);
   }
-  wxIcon icon = bundle.GetIcon(wxSize(256, 256));
-  if (icon.IsOk()) {
-    logoBmp = wxBitmap(icon);
-  } else {
+
+  if (!logoBmp.IsOk()) {
+    LogMissingIcon(splashLogoPath.empty()
+                       ? std::filesystem::path("resources/Perastage_logo.png")
+                       : splashLogoPath);
+
+    std::filesystem::path iconPath;
+    if (!resourceRoot.empty())
+      iconPath = resourceRoot / "Perastage.ico";
+    wxIconBundle bundle;
+    if (!iconPath.empty() && std::filesystem::exists(iconPath, ec)) {
+      bundle.AddIcon(PathToWxString(iconPath), wxBITMAP_TYPE_ICO);
+    } else {
+      LogMissingIcon(
+          iconPath.empty() ? std::filesystem::path("resources/Perastage.ico")
+                           : iconPath);
+    }
+    wxIcon icon = bundle.GetIcon(wxSize(256, 256));
+    if (icon.IsOk()) {
+      logoBmp = wxBitmap(icon);
+    }
+  }
+
+  if (!logoBmp.IsOk()) {
     const std::filesystem::path pngPath = resourceRoot / "perastage3d.png";
     if (!resourceRoot.empty() && std::filesystem::exists(pngPath, ec)) {
       logoBmp.LoadFile(PathToWxString(pngPath), wxBITMAP_TYPE_PNG);
