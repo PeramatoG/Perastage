@@ -33,6 +33,13 @@ bool ApplySymbolsToFixtureGdtf(const std::vector<symbols::Symbol2D> &symbols,
                                std::string &errorMessage,
                                const ApplySymbolsOptions &options = {});
 
+bool ApplySymbolsToFixtureGdtfForFixture(
+    const std::vector<symbols::Symbol2D> &symbols,
+    const Fixture &fixture,
+    const MvrScene &scene,
+    std::string &errorMessage,
+    const ApplySymbolsOptions &options = {});
+
 bool SyncFixtureGdtfToLibrary(const Fixture &fixture,
                               const MvrScene &scene,
                               std::string &errorMessage);

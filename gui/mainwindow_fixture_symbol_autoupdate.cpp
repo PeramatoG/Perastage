@@ -1,10 +1,13 @@
 #include "mainwindow.h"
 
+#include <algorithm>
 #include <filesystem>
 #include <memory>
 #include <string>
 #include <sstream>
+#include <thread>
 #include <unordered_map>
+#include <vector>
 
 #include "configmanager.h"
 #include "consolepanel.h"
@@ -15,6 +18,7 @@
 #include "tools/symbol_physical_calibration.h"
 #include "windows/symbol_fixture_applier.h"
 
+#include <wx/app.h>
 #include <wx/timer.h>
 
 namespace {
@@ -37,6 +41,23 @@ std::string BuildFixtureLabel(const Fixture &fixture) {
   return "unknown fixture";
 }
 
+
+std::string BuildGeneratedTypesSummary(
+    const std::unordered_set<std::string> &generatedTypes) {
+  if (generatedTypes.empty())
+    return "none";
+
+  std::vector<std::string> types(generatedTypes.begin(), generatedTypes.end());
+  std::sort(types.begin(), types.end());
+
+  std::ostringstream out;
+  for (size_t i = 0; i < types.size(); ++i) {
+    if (i > 0)
+      out << ", ";
+    out << "'" << types[i] << "'";
+  }
+  return out.str();
+}
 void ReportFixtureAutoUpdate(MainWindow &window, ConsolePanel *console,
                              const std::string &message,
                              bool appendToConsole = true) {
@@ -80,6 +101,8 @@ void MainWindow::StartFixtureSymbolAutoUpdateForLoadedScene() {
   fixtureSymbolAutoUpdateProcessedKeys.clear();
   fixtureSymbolPendingLibrarySyncUuids.clear();
   fixtureSymbolAutoUpdateRunning = false;
+  fixtureSymbolAutoUpdateWorkerBusy = false;
+  fixtureSymbolAutoUpdateGeneratedTypes.clear();
   fixtureSymbolAutoUpdateGeneratedCount = 0;
   fixtureSymbolAutoUpdateFailedCount = 0;
   fixtureSymbolAutoUpdateSkippedCount = 0;
@@ -105,7 +128,7 @@ void MainWindow::StartFixtureSymbolAutoUpdateForLoadedScene() {
   fixtureSymbolAutoUpdateRunning = true;
   ReportFixtureAutoUpdate(*this, consolePanel,
                           "Fixture symbol auto-update: started.");
-  ScheduleNextFixtureSymbolAutoUpdate(100);
+  ScheduleNextFixtureSymbolAutoUpdate(700);
 }
 
 
@@ -129,6 +152,8 @@ void MainWindow::ScheduleNextFixtureSymbolAutoUpdate(int delayMs) {
 void MainWindow::ProcessNextFixtureSymbolAutoUpdate() {
   if (!fixtureSymbolAutoUpdateRunning)
     return;
+  if (fixtureSymbolAutoUpdateWorkerBusy)
+    return;
 
   if (fixtureSymbolAutoUpdateQueue.empty()) {
     fixtureSymbolAutoUpdateRunning = false;
@@ -136,7 +161,10 @@ void MainWindow::ProcessNextFixtureSymbolAutoUpdate() {
     summary << "Fixture symbol auto-update: completed. generated="
             << fixtureSymbolAutoUpdateGeneratedCount
             << ", failed=" << fixtureSymbolAutoUpdateFailedCount
-            << ", skipped=" << fixtureSymbolAutoUpdateSkippedCount << ".";
+            << ", skipped=" << fixtureSymbolAutoUpdateSkippedCount
+            << ", generated types="
+            << BuildGeneratedTypesSummary(fixtureSymbolAutoUpdateGeneratedTypes)
+            << ".";
     if (consolePanel)
       consolePanel->AppendMessage(wxString::FromUTF8(summary.str()));
     ReportFixtureAutoUpdate(*this, consolePanel,
@@ -230,35 +258,63 @@ void MainWindow::ProcessNextFixtureSymbolAutoUpdate() {
     return;
   }
 
-  std::string applyError;
-  symbol_preview::ApplySymbolsOptions applyOptions;
-  applyOptions.updateSceneCopy = true;
-  applyOptions.updateLibraryCopy = true;
-  if (symbol_preview::ApplySymbolsToFixtureGdtf(capture.symbols, fixtureUuid,
-                                                applyError, applyOptions)) {
-    std::string locationMessage = "scene";
-    if (!inspection.scenePath.empty() && !inspection.libraryPath.empty())
-      locationMessage = "scene and library";
-    else if (!inspection.libraryPath.empty())
-      locationMessage = "library";
+  fixtureSymbolAutoUpdateWorkerBusy = true;
+  const Fixture fixtureCopy = fixture;
+  const MvrScene sceneSnapshot = cfg.GetScene();
+  const auto capturedSymbols = capture.symbols;
+  const auto inspectionSnapshot = inspection;
 
-    ReportFixtureAutoUpdate(*this, consolePanel,
-                            "Fixture symbol auto-update: symbols generated for '" +
-                                fixtureLabel + "' and " + locationMessage +
-                                " GDTF updated.", false);
-    ++fixtureSymbolAutoUpdateGeneratedCount;
-    RefreshAfterFixtureSymbolUpdate();
-  } else {
-    ++fixtureSymbolAutoUpdateFailedCount;
-    ReportFixtureAutoUpdate(
-        *this, consolePanel,
-        "Fixture symbol auto-update: failed to apply symbols for '" + fixtureLabel +
-            "' (" + (applyError.empty() ? std::string("unknown apply error")
-                                         : applyError) +
-            ").", false);
-  }
+  std::thread([this, capturedSymbols, fixtureCopy, sceneSnapshot,
+               inspectionSnapshot, fixtureLabel]() {
+    std::string applyError;
+    symbol_preview::ApplySymbolsOptions applyOptions;
+    applyOptions.updateSceneCopy = true;
+    applyOptions.updateLibraryCopy = true;
+    const bool applied = symbol_preview::ApplySymbolsToFixtureGdtfForFixture(
+        capturedSymbols, fixtureCopy, sceneSnapshot, applyError, applyOptions);
 
-  ScheduleNextFixtureSymbolAutoUpdate();
+    wxTheApp->CallAfter([this, applied, applyError, inspectionSnapshot,
+                         fixtureLabel, fixtureType = fixtureCopy.typeName]() {
+      if (!fixtureSymbolAutoUpdateRunning) {
+        fixtureSymbolAutoUpdateWorkerBusy = false;
+        return;
+      }
+
+      if (applied) {
+        std::string locationMessage = "scene";
+        if (!inspectionSnapshot.scenePath.empty() &&
+            !inspectionSnapshot.libraryPath.empty())
+          locationMessage = "scene and library";
+        else if (!inspectionSnapshot.libraryPath.empty())
+          locationMessage = "library";
+
+        ReportFixtureAutoUpdate(
+            *this, consolePanel,
+            "Fixture symbol auto-update: symbols generated for '" + fixtureLabel +
+                "' and " + locationMessage + " GDTF updated.",
+            false);
+        ++fixtureSymbolAutoUpdateGeneratedCount;
+        fixtureSymbolAutoUpdateGeneratedTypes.insert(
+            fixtureType.empty() ? fixtureLabel : fixtureType);
+        RefreshAfterFixtureSymbolUpdate();
+      } else {
+        ++fixtureSymbolAutoUpdateFailedCount;
+        ReportFixtureAutoUpdate(
+            *this, consolePanel,
+            "Fixture symbol auto-update: failed to apply symbols for '" +
+                fixtureLabel + "' (" +
+                (applyError.empty() ? std::string("unknown apply error")
+                                    : applyError) +
+                ").",
+            false);
+      }
+
+      fixtureSymbolAutoUpdateWorkerBusy = false;
+      ScheduleNextFixtureSymbolAutoUpdate();
+    });
+  }).detach();
+
+
 }
 
 void MainWindow::FlushPendingFixtureSymbolLibraryUpdates() {

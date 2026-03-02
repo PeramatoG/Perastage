@@ -548,9 +548,9 @@ bool MainWindow::LoadProjectFromPath(const std::string &path) {
   RefreshSummary();
   RefreshRigging();
   GetDefaultGuiConfigServices().LegacyConfigManager().MarkSaved();
-  StartFixtureSymbolAutoUpdateForLoadedScene();
   UpdateTitle();
   UnlockViewportInteraction();
+  StartFixtureSymbolAutoUpdateForLoadedScene();
   return true;
 }
 
@@ -560,7 +560,9 @@ void MainWindow::ResetProject() {
   fixtureSymbolAutoUpdateQueue.clear();
   fixtureSymbolAutoUpdateProcessedKeys.clear();
   fixtureSymbolPendingLibrarySyncUuids.clear();
+  fixtureSymbolAutoUpdateGeneratedTypes.clear();
   fixtureSymbolAutoUpdateRunning = false;
+  fixtureSymbolAutoUpdateWorkerBusy = false;
   fixtureSymbolAutoUpdateGeneratedCount = 0;
   fixtureSymbolAutoUpdateFailedCount = 0;
   fixtureSymbolAutoUpdateSkippedCount = 0;

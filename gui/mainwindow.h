@@ -227,7 +227,9 @@ private:
   std::vector<std::string> fixtureSymbolAutoUpdateQueue;
   std::unordered_set<std::string> fixtureSymbolAutoUpdateProcessedKeys;
   std::unordered_set<std::string> fixtureSymbolPendingLibrarySyncUuids;
+  std::unordered_set<std::string> fixtureSymbolAutoUpdateGeneratedTypes;
   bool fixtureSymbolAutoUpdateRunning = false;
+  bool fixtureSymbolAutoUpdateWorkerBusy = false;
   size_t fixtureSymbolAutoUpdateGeneratedCount = 0;
   size_t fixtureSymbolAutoUpdateFailedCount = 0;
   size_t fixtureSymbolAutoUpdateSkippedCount = 0;

@@ -10,6 +10,7 @@
 #include <cctype>
 #include <filesystem>
 #include <memory>
+#include <mutex>
 #include <sstream>
 #include <string>
 #include <unordered_map>
@@ -31,6 +32,8 @@ namespace fs = std::filesystem;
 
 namespace symbol_preview {
 namespace {
+
+std::mutex g_fixtureSymbolFileIoMutex;
 
 struct SymbolPayload {
   std::string archivePath;
@@ -528,9 +531,21 @@ bool ApplySymbolsToFixtureGdtf(const std::vector<symbols::Symbol2D> &symbols,
     return false;
   }
 
-  const MvrScene &scene = cfg.GetScene();
-  const std::string scenePath = ResolveSceneGdtfPath(fixtureIt->second, scene);
-  const std::string libraryPath = ResolveLibraryGdtfPath(fixtureIt->second);
+  return ApplySymbolsToFixtureGdtfForFixture(symbols, fixtureIt->second,
+                                             cfg.GetScene(), errorMessage,
+                                             options);
+}
+
+bool ApplySymbolsToFixtureGdtfForFixture(
+    const std::vector<symbols::Symbol2D> &symbols,
+    const Fixture &fixture,
+    const MvrScene &scene,
+    std::string &errorMessage,
+    const ApplySymbolsOptions &options) {
+  std::lock_guard<std::mutex> lock(g_fixtureSymbolFileIoMutex);
+
+  const std::string scenePath = ResolveSceneGdtfPath(fixture, scene);
+  const std::string libraryPath = ResolveLibraryGdtfPath(fixture);
   if (scenePath.empty() && libraryPath.empty()) {
     errorMessage = "Could not resolve fixture GDTF path in scene or fixtures library.";
     return false;
@@ -593,9 +608,8 @@ bool ApplySymbolsToFixtureGdtf(const std::vector<symbols::Symbol2D> &symbols,
     }
   }
 
-  if (libraryPath.empty() && !scenePath.empty() && !fixtureIt->second.typeName.empty()) {
-    GdtfDictionary::Update(fixtureIt->second.typeName, scenePath,
-                           fixtureIt->second.gdtfMode);
+  if (libraryPath.empty() && !scenePath.empty() && !fixture.typeName.empty()) {
+    GdtfDictionary::Update(fixture.typeName, scenePath, fixture.gdtfMode);
   }
 
   return true;
@@ -606,6 +620,7 @@ bool InspectFixtureSymbolState(const Fixture &fixture,
                                const MvrScene &scene,
                                FixtureSymbolInspectionResult &result,
                                std::string &errorMessage) {
+  std::lock_guard<std::mutex> lock(g_fixtureSymbolFileIoMutex);
   result = {};
 
   const std::string scenePath = ResolveSceneGdtfPath(fixture, scene);
@@ -694,6 +709,7 @@ bool InspectFixtureSymbolState(const Fixture &fixture,
 bool SyncFixtureGdtfToLibrary(const Fixture &fixture,
                               const MvrScene &scene,
                               std::string &errorMessage) {
+  std::lock_guard<std::mutex> lock(g_fixtureSymbolFileIoMutex);
   const std::string scenePath = ResolveSceneGdtfPath(fixture, scene);
   const std::string libraryPath = ResolveLibraryGdtfPath(fixture);
   if (scenePath.empty() || libraryPath.empty() || scenePath == libraryPath)
