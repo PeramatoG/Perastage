@@ -227,6 +227,9 @@ private:
   std::unordered_set<std::string> fixtureSymbolAutoUpdateProcessedKeys;
   std::unordered_set<std::string> fixtureSymbolPendingLibrarySyncUuids;
   bool fixtureSymbolAutoUpdateRunning = false;
+  size_t fixtureSymbolAutoUpdateGeneratedCount = 0;
+  size_t fixtureSymbolAutoUpdateFailedCount = 0;
+  size_t fixtureSymbolAutoUpdateSkippedCount = 0;
   int viewportInteractionLockDepth = 0;
 
   friend class MainWindowIoController;

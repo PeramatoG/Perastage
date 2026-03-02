@@ -561,6 +561,9 @@ void MainWindow::ResetProject() {
   fixtureSymbolAutoUpdateProcessedKeys.clear();
   fixtureSymbolPendingLibrarySyncUuids.clear();
   fixtureSymbolAutoUpdateRunning = false;
+  fixtureSymbolAutoUpdateGeneratedCount = 0;
+  fixtureSymbolAutoUpdateFailedCount = 0;
+  fixtureSymbolAutoUpdateSkippedCount = 0;
   currentProjectPath.clear();
   if (layoutPanel)
     layoutPanel->ReloadLayouts();
