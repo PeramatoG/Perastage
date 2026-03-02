@@ -52,7 +52,7 @@ RiderTextDialog::RiderTextDialog(wxWindow *parent,
   wxBoxSizer *headerSizer = new wxBoxSizer(wxHORIZONTAL);
   const wxString sourceTextLabel =
       sourceLabel.empty() ? wxString("No source loaded.")
-                          : wxString::Format("Loaded: %s", sourceLabel);
+                          : wxString("Loaded: ") + sourceLabel;
   sourceText = new wxStaticText(this, wxID_ANY, sourceTextLabel);
   headerSizer->Add(sourceText, 1, wxALIGN_CENTER_VERTICAL | wxRIGHT, 8);
   wxButton *loadButton = new wxButton(this, ID_RiderText_Load, "Load rider...");
@@ -98,7 +98,7 @@ void RiderTextDialog::OnLoadFromFile(wxCommandEvent &WXUNUSED(event)) {
   }
   sourceLabel = dlg.GetFilename();
   if (sourceText)
-    sourceText->SetLabel(wxString::Format("Loaded: %s", sourceLabel));
+    sourceText->SetLabel(wxString("Loaded: ") + sourceLabel);
   textCtrl->ChangeValue(wxString::FromUTF8(text));
   wxMessageBox("Rider imported successfully.", "Success", wxICON_INFORMATION);
 }
@@ -129,7 +129,7 @@ void RiderTextDialog::OnLoadExample(wxCommandEvent &WXUNUSED(event)) {
   textCtrl->ChangeValue(exampleText);
   sourceLabel = "Example text";
   if (sourceText)
-    sourceText->SetLabel(wxString::Format("Loaded: %s", sourceLabel));
+    sourceText->SetLabel(wxString("Loaded: ") + sourceLabel);
 }
 
 void RiderTextDialog::OnApply(wxCommandEvent &WXUNUSED(event)) {
