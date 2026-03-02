@@ -49,11 +49,18 @@ void SplashScreen::Show() {
                          : iconPath);
   }
   wxIcon icon = bundle.GetIcon(wxSize(256, 256));
-  if (icon.IsOk())
+  if (icon.IsOk()) {
     logoBmp = wxBitmap(icon);
-  else
-    logoBmp =
-        wxArtProvider::GetBitmap(wxART_MISSING_IMAGE, wxART_OTHER, wxSize(256, 256));
+  } else {
+    const std::filesystem::path pngPath = resourceRoot / "perastage3d.png";
+    if (!resourceRoot.empty() && std::filesystem::exists(pngPath, ec)) {
+      logoBmp.LoadFile(PathToWxString(pngPath), wxBITMAP_TYPE_PNG);
+    }
+    if (!logoBmp.IsOk()) {
+      logoBmp = wxArtProvider::GetBitmap(wxART_MISSING_IMAGE, wxART_OTHER,
+                                         wxSize(256, 256));
+    }
+  }
 
   wxStaticBitmap *logo = new wxStaticBitmap(panel, wxID_ANY, logoBmp);
 

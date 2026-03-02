@@ -137,10 +137,10 @@ void RiderTextDialog::OnLoadExample(wxCommandEvent &WXUNUSED(event)) {
 
 void RiderTextDialog::OnApply(wxCommandEvent &WXUNUSED(event)) {
   wxString value = textCtrl->GetValue();
-  std::string text = value.ToStdString(wxConvUTF8);
-  if (text.empty() && !value.empty()) {
-    text = value.ToStdString();
-  }
+  const wxScopedCharBuffer textBuffer = value.ToUTF8();
+  std::string text =
+      textBuffer ? std::string(textBuffer.data(), textBuffer.length())
+                 : value.ToStdString();
   if (text.empty()) {
     wxMessageBox("Rider text is empty.", "Error", wxICON_ERROR);
     return;

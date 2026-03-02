@@ -73,6 +73,14 @@
 #include "viewer3dpanel.h"
 
 namespace {
+
+std::string WxToUtf8(const wxString &value) {
+  const wxScopedCharBuffer utf8 = value.ToUTF8();
+  if (utf8)
+    return std::string(utf8.data(), utf8.length());
+  return value.ToStdString();
+}
+
 struct HelpMarkdown {
   std::string english;
   std::string spanish;
@@ -427,21 +435,21 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
       wxString::FromUTF8(loginDlg.GetUsername()).Trim(true).Trim(false);
   wxString password = wxString::FromUTF8(loginDlg.GetPassword());
   GetDefaultGuiConfigServices().LegacyConfigManager().SetValue("gdtf_username",
-                                std::string(username.mb_str()));
+                                WxToUtf8(username));
   GetDefaultGuiConfigServices().LegacyConfigManager().SetValue(
-      "gdtf_password", SimpleCrypt::Encode(std::string(password.mb_str())));
+      "gdtf_password", SimpleCrypt::Encode(WxToUtf8(password)));
   CredentialStore::Save(
-      {std::string(username.mb_str()), std::string(password.mb_str())});
+      {WxToUtf8(username), WxToUtf8(password)});
 
   if (!currentProjectPath.empty())
     GetDefaultGuiConfigServices().LegacyConfigManager().SaveProject(currentProjectPath);
 
   wxString cookieFileWx = wxFileName::GetTempDir() + "/gdtf_session.txt";
-  std::string cookieFile = std::string(cookieFileWx.mb_str());
+  std::string cookieFile = WxToUtf8(cookieFileWx);
   long httpCode = 0;
   if (consolePanel)
     consolePanel->AppendMessage("Logging into GDTF Share using libcurl");
-  if (!GdtfLogin(std::string(username.mb_str()), std::string(password.mb_str()),
+  if (!GdtfLogin(WxToUtf8(username), WxToUtf8(password),
                  cookieFile, httpCode)) {
     wxMessageBox("Failed to connect to GDTF Share.", "Login Error",
                  wxOK | wxICON_ERROR);
@@ -491,8 +499,8 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
         if (consolePanel)
           consolePanel->AppendMessage("Downloading via libcurl rid=" + rid);
         long dlCode = 0;
-        bool ok = GdtfDownload(std::string(rid.mb_str()),
-                               std::string(dest.mb_str()), cookieFile, dlCode);
+        bool ok = GdtfDownload(WxToUtf8(rid),
+                               WxToUtf8(dest), cookieFile, dlCode);
         if (consolePanel)
           consolePanel->AppendMessage(
               wxString::Format("Download HTTP code: %ld", dlCode));
@@ -746,7 +754,7 @@ void MainWindow::OnShowHelp(wxCommandEvent &WXUNUSED(event)) {
   helpPath.SetFullName("help.md");
   if (helpPath.Exists()) {
     // Read the file contents.
-    std::ifstream in(helpPath.GetFullPath().ToStdString());
+    std::ifstream in(WxToUtf8(helpPath.GetFullPath()));
     std::string markdown((std::istreambuf_iterator<char>(in)),
                          std::istreambuf_iterator<char>());
     HelpMarkdown help = SplitHelpMarkdown(markdown);
@@ -966,10 +974,10 @@ void MainWindow::OnAddFixture(wxCommandEvent &WXUNUSED(event)) {
       if (fdlg.ShowModal() != wxID_OK)
         return;
       wxString gdtfPathWx = fdlg.GetPath();
-      gdtfPath = std::string(gdtfPathWx.mb_str());
+      gdtfPath = WxToUtf8(gdtfPathWx);
       defaultName = GetGdtfFixtureName(gdtfPath);
       if (defaultName.empty())
-        defaultName = wxFileName(gdtfPathWx).GetName().ToStdString();
+        defaultName = WxToUtf8(wxFileName(gdtfPathWx).GetName());
     } else {
       int sel = chooseDlg.GetSelection();
       if (sel < 0 || sel >= static_cast<int>(types.size()))
@@ -990,10 +998,10 @@ void MainWindow::OnAddFixture(wxCommandEvent &WXUNUSED(event)) {
     if (fdlg.ShowModal() != wxID_OK)
       return;
     wxString gdtfPathWx = fdlg.GetPath();
-    gdtfPath = std::string(gdtfPathWx.mb_str());
+    gdtfPath = WxToUtf8(gdtfPathWx);
     defaultName = GetGdtfFixtureName(gdtfPath);
     if (defaultName.empty())
-      defaultName = wxFileName(gdtfPathWx).GetName().ToStdString();
+      defaultName = WxToUtf8(wxFileName(gdtfPathWx).GetName());
   }
 
   std::vector<std::string> modes = GetGdtfModes(gdtfPath);
@@ -1100,8 +1108,8 @@ void MainWindow::OnAddTruss(wxCommandEvent &WXUNUSED(event)) {
       if (fdlg.ShowModal() != wxID_OK)
         return;
       wxFileName fn(fdlg.GetPath());
-      defaultName = fn.GetName().ToStdString();
-      path = std::string(fdlg.GetPath().mb_str());
+      defaultName = WxToUtf8(fn.GetName());
+      path = WxToUtf8(fdlg.GetPath());
     } else {
       int sel = chooseDlg.GetSelection();
       if (sel < 0 || sel >= static_cast<int>(names.size()))
@@ -1117,8 +1125,8 @@ void MainWindow::OnAddTruss(wxCommandEvent &WXUNUSED(event)) {
     if (fdlg.ShowModal() != wxID_OK)
       return;
     wxFileName fn(fdlg.GetPath());
-    defaultName = fn.GetName().ToStdString();
-    path = std::string(fdlg.GetPath().mb_str());
+    defaultName = WxToUtf8(fn.GetName());
+    path = WxToUtf8(fdlg.GetPath());
   }
 
   Truss baseTruss;
@@ -1224,8 +1232,8 @@ void MainWindow::OnAddSceneObject(wxCommandEvent &WXUNUSED(event)) {
       if (fdlg.ShowModal() != wxID_OK)
         return;
       wxFileName fn(fdlg.GetPath());
-      defaultName = fn.GetName().ToStdString();
-      path = std::string(fdlg.GetPath().mb_str());
+      defaultName = WxToUtf8(fn.GetName());
+      path = WxToUtf8(fdlg.GetPath());
     } else {
       int sel = chooseDlg.GetSelection();
       if (sel < 0 || sel >= static_cast<int>(names.size()))
@@ -1241,8 +1249,8 @@ void MainWindow::OnAddSceneObject(wxCommandEvent &WXUNUSED(event)) {
     if (fdlg.ShowModal() != wxID_OK)
       return;
     wxFileName fn(fdlg.GetPath());
-    defaultName = fn.GetName().ToStdString();
-    path = std::string(fdlg.GetPath().mb_str());
+    defaultName = WxToUtf8(fn.GetName());
+    path = WxToUtf8(fdlg.GetPath());
   }
 
   long qty = wxGetNumberFromUser("Enter object quantity:", wxEmptyString,
