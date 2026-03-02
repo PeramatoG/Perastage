@@ -228,6 +228,27 @@ wxColour ToWxColor(const CanvasColor &color) {
                   clamp(color.a));
 }
 
+wxColour ResolveSymbolSvgFillColor(const SymbolDefinition &symbol) {
+  for (const auto &cmd : symbol.localCommands.commands) {
+    if (const auto *polygon = std::get_if<PolygonCommand>(&cmd)) {
+      if (!polygon->hasFill)
+        continue;
+      return ToWxColor(polygon->fill.color);
+    }
+    if (const auto *rect = std::get_if<RectangleCommand>(&cmd)) {
+      if (!rect->hasFill)
+        continue;
+      return ToWxColor(rect->fill.color);
+    }
+    if (const auto *circle = std::get_if<CircleCommand>(&cmd)) {
+      if (!circle->hasFill)
+        continue;
+      return ToWxColor(circle->fill.color);
+    }
+  }
+  return wxColour(224, 224, 224);
+}
+
 void DrawPolyline(wxDC &dc, const std::vector<viewer2d::Viewer2DRenderPoint> &points) {
   if (points.size() < 2)
     return;
@@ -240,7 +261,8 @@ void DrawPolyline(wxDC &dc, const std::vector<viewer2d::Viewer2DRenderPoint> &po
 
 void DrawSvgSymbol(wxGCDC &dc, const viewer2d::Viewer2DRenderMapping &mapping,
                    const Transform2D &transform,
-                   const PerastageSvgSymbolData &svg) {
+                   const PerastageSvgSymbolData &svg,
+                   const wxColour &fillColor) {
   wxGraphicsContext *gc = dc.GetGraphicsContext();
   if (!gc)
     return;
@@ -263,7 +285,7 @@ void DrawSvgSymbol(wxGCDC &dc, const viewer2d::Viewer2DRenderMapping &mapping,
   };
 
   gc->SetPen(*wxTRANSPARENT_PEN);
-  gc->SetBrush(wxBrush(wxColour(224, 224, 224)));
+  gc->SetBrush(wxBrush(fillColor));
   for (const auto &polygon : svg.fills) {
     if (polygon.points.size() < 3)
       continue;
@@ -397,7 +419,8 @@ void RenderCommandBuffer(wxGCDC &dc, const CommandBuffer &buffer,
             const Transform2D svgTransform =
                 ComposeTransform(combined,
                                  BuildSvgToSymbolTransform(*svg, it->second.bounds));
-            DrawSvgSymbol(dc, mapping, svgTransform, *svg);
+            DrawSvgSymbol(dc, mapping, svgTransform, *svg,
+                          ResolveSymbolSvgFillColor(it->second));
             renderedSvg = true;
             if (debugInfo)
               debugInfo->svgResolved += 1;

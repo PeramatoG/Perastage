@@ -177,6 +177,29 @@ const SymbolDefinition *FindSymbolDefinitionExact(
   return nullptr;
 }
 
+std::array<double, 3> ResolveSymbolDefinitionFillRgb(
+    const SymbolDefinition &symbol) {
+  for (const auto &cmd : symbol.localCommands.commands) {
+    if (const auto *polygon = std::get_if<PolygonCommand>(&cmd)) {
+      if (!polygon->hasFill)
+        continue;
+      return {polygon->fill.color.r, polygon->fill.color.g,
+              polygon->fill.color.b};
+    }
+    if (const auto *rect = std::get_if<RectangleCommand>(&cmd)) {
+      if (!rect->hasFill)
+        continue;
+      return {rect->fill.color.r, rect->fill.color.g, rect->fill.color.b};
+    }
+    if (const auto *circle = std::get_if<CircleCommand>(&cmd)) {
+      if (!circle->hasFill)
+        continue;
+      return {circle->fill.color.r, circle->fill.color.g, circle->fill.color.b};
+    }
+  }
+  return {0.878, 0.878, 0.878};
+}
+
 // Emits only the stroke portion of a drawing command. Keeping strokes and
 // fills in separate functions allows the caller to control layering
 // explicitly, which is required to match the on-screen 2D viewer where fills
@@ -619,11 +642,18 @@ Viewer2DExportResult ExportViewer2DToPdf(
       if (nameIt == xObjectIdNames.end())
         continue;
       const auto &definition = symbolSnapshot->at(symbolId);
-      xObjectIdIds[symbolId] =
-          appendSymbolObject(nameIt->second, definition.localCommands.commands,
-                             definition.localCommands.metadata,
-                             definition.localCommands.sources,
-                             definition.bounds);
+      if (const PerastageSvgSymbolData *svg = findLegendSvg(
+              definition.key.modelKey, definition.key.viewKind)) {
+        xObjectIdIds[symbolId] = appendPerastageSvgSymbolObject(
+            *svg, symbolScale, strokeScale,
+            ResolveSymbolDefinitionFillRgb(definition));
+      } else {
+        xObjectIdIds[symbolId] =
+            appendSymbolObject(nameIt->second, definition.localCommands.commands,
+                               definition.localCommands.metadata,
+                               definition.localCommands.sources,
+                               definition.bounds);
+      }
     }
   }
 
