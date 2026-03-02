@@ -445,6 +445,45 @@ double SignedArea(const std::vector<PerastageSvgPoint> &polygon) {
   return area * 0.5;
 }
 
+bool IsPointOnSegment(const PerastageSvgPoint &point,
+                      const PerastageSvgPoint &a,
+                      const PerastageSvgPoint &b) {
+  constexpr double kEpsilon = 1e-7;
+  const double dx = b.x - a.x;
+  const double dy = b.y - a.y;
+  const double px = point.x - a.x;
+  const double py = point.y - a.y;
+  const double cross = dx * py - dy * px;
+  if (std::abs(cross) > kEpsilon)
+    return false;
+
+  const double dot = px * dx + py * dy;
+  if (dot < -kEpsilon)
+    return false;
+
+  const double lenSq = dx * dx + dy * dy;
+  if (dot - lenSq > kEpsilon)
+    return false;
+
+  return true;
+}
+
+PerastageSvgPoint PolygonCentroid(
+    const std::vector<PerastageSvgPoint> &polygon) {
+  PerastageSvgPoint centroid{};
+  if (polygon.empty())
+    return centroid;
+
+  for (const auto &point : polygon) {
+    centroid.x += point.x;
+    centroid.y += point.y;
+  }
+  const double invCount = 1.0 / static_cast<double>(polygon.size());
+  centroid.x *= invCount;
+  centroid.y *= invCount;
+  return centroid;
+}
+
 bool IsPointInsidePolygon(const PerastageSvgPoint &point,
                           const std::vector<PerastageSvgPoint> &polygon) {
   bool inside = false;
@@ -454,6 +493,10 @@ bool IsPointInsidePolygon(const PerastageSvgPoint &point,
   for (size_t i = 0, j = count - 1; i < count; j = i++) {
     const auto &pi = polygon[i];
     const auto &pj = polygon[j];
+
+    if (IsPointOnSegment(point, pj, pi))
+      return true;
+
     const bool intersects = ((pi.y > point.y) != (pj.y > point.y)) &&
                             (point.x < (pj.x - pi.x) * (point.y - pi.y) /
                                                ((pj.y - pi.y) == 0.0 ? 1e-12 : (pj.y - pi.y)) +
@@ -481,17 +524,24 @@ void AssignWhitePolygonsAsHoles(
   for (const auto &entry : rawPolygons) {
     if (!entry.second || entry.first.size() < 3)
       continue;
-    const PerastageSvgPoint anchor = entry.first.front();
+    const PerastageSvgPoint anchor = PolygonCentroid(entry.first);
     size_t ownerIndex = fills.size();
     double ownerArea = 0.0;
-    for (size_t i = 0; i < fills.size(); ++i) {
-      if (!IsPointInsidePolygon(anchor, fills[i].points))
-        continue;
-      if (ownerIndex == fills.size() || fillAreas[i] < ownerArea) {
-        ownerIndex = i;
-        ownerArea = fillAreas[i];
+
+    auto tryAssignOwner = [&](const PerastageSvgPoint &candidateAnchor) {
+      for (size_t i = 0; i < fills.size(); ++i) {
+        if (!IsPointInsidePolygon(candidateAnchor, fills[i].points))
+          continue;
+        if (ownerIndex == fills.size() || fillAreas[i] < ownerArea) {
+          ownerIndex = i;
+          ownerArea = fillAreas[i];
+        }
       }
-    }
+    };
+
+    tryAssignOwner(anchor);
+    if (ownerIndex == fills.size())
+      tryAssignOwner(entry.first.front());
     if (ownerIndex < fills.size())
       fills[ownerIndex].holes.push_back(entry.first);
   }
@@ -607,13 +657,7 @@ bool LoadPerastageSvgSymbolFromGdtf(const std::string &gdtfPath,
   }
 
   const char *editor = fixtureType->Attribute("Editor");
-  if (!editor || !EqualsNoCase(editor, "Perastage")) {
-    if (errorDetails)
-      *errorDetails =
-          "GDTF archive does not contain Perastage-generated SVG symbols: " +
-          gdtfPath;
-    return false;
-  }
+  const bool editorIsPerastage = editor && EqualsNoCase(editor, "Perastage");
 
   const tinyxml2::XMLElement *model = ResolveTargetModel(fixtureType);
   const std::string baseName = ResolveModelSvgBasename(model);
@@ -683,8 +727,14 @@ bool LoadPerastageSvgSymbolFromGdtf(const std::string &gdtfPath,
   }
 
   if (errorDetails) {
-    *errorDetails = "No valid SVG symbol was found in GDTF archive: " +
-                    gdtfPath;
+    if (editorIsPerastage) {
+      *errorDetails = "No valid SVG symbol was found in GDTF archive: " +
+                      gdtfPath;
+    } else {
+      *errorDetails =
+          "No compatible SVG symbol was found in GDTF archive (Editor is not Perastage): " +
+          gdtfPath;
+    }
   }
 
   return false;

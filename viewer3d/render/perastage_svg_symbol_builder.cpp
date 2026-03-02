@@ -32,6 +32,29 @@ void AppendSvgPolygon(const PerastageSvgPolygon &polygon,
   // before strokes and preserves interior stroke details.
   buffer.metadata.push_back({false, true});
   buffer.sources.push_back("svg_fill");
+
+  // Some rendering paths replay symbol command buffers instead of drawing SVG
+  // polygons directly. Emit cutout polygons too so those paths preserve the
+  // same interior openings parsed from the source SVG.
+  for (const auto &hole : polygon.holes) {
+    if (hole.size() < 3)
+      continue;
+
+    PolygonCommand holePoly{};
+    holePoly.points.reserve(hole.size() * 2);
+    for (const auto &point : hole) {
+      holePoly.points.push_back(static_cast<float>(point.x));
+      holePoly.points.push_back(static_cast<float>(point.y));
+    }
+    holePoly.stroke.color = {1.0f, 1.0f, 1.0f, 1.0f};
+    holePoly.stroke.width = 0.0f;
+    holePoly.fill.color = {1.0f, 1.0f, 1.0f, 1.0f};
+    holePoly.hasFill = true;
+
+    buffer.commands.emplace_back(std::move(holePoly));
+    buffer.metadata.push_back({false, true});
+    buffer.sources.push_back("svg_hole");
+  }
 }
 
 void AppendSvgPolyline(const PerastageSvgPolyline &line, CommandBuffer &buffer) {
