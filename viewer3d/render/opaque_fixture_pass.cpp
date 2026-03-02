@@ -16,6 +16,7 @@
 #endif
 
 #include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <filesystem>
 #include <optional>
@@ -63,7 +64,39 @@ std::string NormalizePathSeparators(const std::string &path) {
   std::string out = path;
   const char sep = static_cast<char>(fs::path::preferred_separator);
   std::replace(out.begin(), out.end(), '\\', sep);
+  std::replace(out.begin(), out.end(), '/', sep);
   return out;
+}
+
+std::string DecodePathEscapes(const std::string &input) {
+  std::string out;
+  out.reserve(input.size());
+  for (size_t i = 0; i < input.size(); ++i) {
+    if (i + 2 < input.size() && input[i] == '%' && input[i + 1] == '2' &&
+        input[i + 2] == '0') {
+      out.push_back(' ');
+      i += 2;
+      continue;
+    }
+    out.push_back(input[i]);
+  }
+  return out;
+}
+
+std::string TrimPathRef(std::string value) {
+  auto isTrim = [](unsigned char c) {
+    return std::isspace(c) != 0 || c == '\r' || c == '\n' || c == '\t';
+  };
+
+  while (!value.empty() && isTrim(static_cast<unsigned char>(value.front())))
+    value.erase(value.begin());
+  while (!value.empty() && isTrim(static_cast<unsigned char>(value.back())))
+    value.pop_back();
+
+  if (value.size() >= 2 && value.front() == '"' && value.back() == '"')
+    return value.substr(1, value.size() - 2);
+
+  return value;
 }
 
 std::string NormalizeModelKeyPath(const std::string &path) {
@@ -79,7 +112,12 @@ std::string ResolveFixtureSymbolKeyPath(const Fixture &fixture,
   if (fixture.gdtfSpec.empty())
     return {};
 
-  const fs::path specPath = fs::path(NormalizePathSeparators(fixture.gdtfSpec));
+  const std::string cleanedSpec =
+      NormalizePathSeparators(DecodePathEscapes(TrimPathRef(fixture.gdtfSpec)));
+  if (cleanedSpec.empty())
+    return {};
+
+  const fs::path specPath = fs::path(cleanedSpec);
   const fs::path candidate = basePath.empty() ? specPath : (fs::path(basePath) / specPath);
   std::error_code ec;
   if (fs::exists(candidate, ec) && !ec)
@@ -92,7 +130,7 @@ std::string ResolveFixtureSymbolKeyPath(const Fixture &fixture,
       return NormalizeModelKeyPath(recursive);
   }
 
-  return NormalizeModelKeyPath(fixture.gdtfSpec);
+  return NormalizeModelKeyPath(cleanedSpec);
 }
 
 std::string BuildFixtureSymbolModelKey(const Fixture &fixture,

@@ -46,6 +46,7 @@ class wxZipStreamLink;
 #include <sstream>
 #include <cmath>
 #include <iomanip>
+#include <mutex>
 
 namespace fs = std::filesystem;
 
@@ -201,6 +202,7 @@ static std::unordered_map<std::string, GdtfCacheEntry> g_gdtfCache;
 static std::unordered_map<std::string, fs::file_time_type> g_failedGdtfCache;
 static std::unordered_map<std::string, size_t> g_gdtfFailedAttempts;
 static std::unordered_map<std::string, std::string> g_gdtfFailureReasons;
+static std::recursive_mutex g_gdtfCacheMutex;
 
 struct MissingModelLog
 {
@@ -896,6 +898,8 @@ bool LoadGdtfGeometryTree(const std::string& gdtfPath,
                           GdtfGeometryTree& outTree,
                           std::string* outError)
 {
+    std::lock_guard<std::recursive_mutex> lock(g_gdtfCacheMutex);
+
     outTree.nodes.clear();
     outTree.axisNodeIndices.clear();
     outTree.emitterNodeIndices.clear();
@@ -969,6 +973,8 @@ bool LoadGdtf(const std::string& gdtfPath,
               std::vector<GdtfObject>& outObjects,
               std::string* outError)
 {
+    std::lock_guard<std::recursive_mutex> lock(g_gdtfCacheMutex);
+
     outObjects.clear();
     if (outError)
         outError->clear();
@@ -1111,6 +1117,8 @@ bool LoadGdtf(const std::string& gdtfPath,
 int GetGdtfModeChannelCount(const std::string& gdtfPath,
                             const std::string& modeName)
 {
+    std::lock_guard<std::recursive_mutex> lock(g_gdtfCacheMutex);
+
     if (gdtfPath.empty() || modeName.empty())
         return -1;
 
@@ -1131,6 +1139,8 @@ int GetGdtfModeChannelCount(const std::string& gdtfPath,
 
 std::vector<std::string> GetGdtfModes(const std::string& gdtfPath)
 {
+    std::lock_guard<std::recursive_mutex> lock(g_gdtfCacheMutex);
+
     std::vector<std::string> result;
     if (gdtfPath.empty())
         return result;
@@ -1146,6 +1156,8 @@ std::vector<GdtfChannelInfo> GetGdtfModeChannels(
     const std::string& gdtfPath,
     const std::string& modeName)
 {
+    std::lock_guard<std::recursive_mutex> lock(g_gdtfCacheMutex);
+
     std::vector<GdtfChannelInfo> result;
     if (gdtfPath.empty() || modeName.empty())
         return result;
@@ -1162,6 +1174,8 @@ std::vector<GdtfChannelInfo> GetGdtfModeChannels(
 
 std::string GetGdtfFixtureName(const std::string& gdtfPath)
 {
+    std::lock_guard<std::recursive_mutex> lock(g_gdtfCacheMutex);
+
     if (gdtfPath.empty())
         return {};
 
@@ -1176,6 +1190,8 @@ bool GetGdtfProperties(const std::string& gdtfPath,
                        float& outWeightKg,
                        float& outPowerW)
 {
+    std::lock_guard<std::recursive_mutex> lock(g_gdtfCacheMutex);
+
     outWeightKg = 0.0f;
     outPowerW = 0.0f;
     if (gdtfPath.empty())
@@ -1192,6 +1208,8 @@ bool GetGdtfProperties(const std::string& gdtfPath,
 
 std::string GetGdtfModelColor(const std::string& gdtfPath)
 {
+    std::lock_guard<std::recursive_mutex> lock(g_gdtfCacheMutex);
+
     if (gdtfPath.empty())
         return {};
 
