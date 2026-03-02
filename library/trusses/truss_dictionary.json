@@ -1,8 +1,14 @@
 {
-    "TRUSS 2M": "FK40Q H-200.gdtf",
+    "TRUSS 0.5M": "FK40Q H-50.gdtf",
+    "TRUSS 1M": "FK40Q H-100.gdtf",
+	"TRUSS 2M": "FK40Q H-200.gdtf",
     "TRUSS 3M": "FK40Q H-300.gdtf",
-    "TRUSS 40X40 2M": "FK40Q H-200.gdtf",
+    "TRUSS 40X40 0.5M": "FK40Q H-50.gdtf",
+    "TRUSS 40X40 1M": "FK40Q H-100.gdtf",
+	"TRUSS 40X40 2M": "FK40Q H-200.gdtf",
     "TRUSS 40X40 3M": "FK40Q H-300.gdtf",
+	"TRUSS 40X40 PRO 0.5M": "FK40Q H-50.gdtf",
+    "TRUSS 40X40 PRO 1M": "FK40Q H-100.gdtf",
     "TRUSS 40X40 PRO 2M": "FK40Q H-200.gdtf",
     "TRUSS 40X40 PRO 3M": "FK40Q H-300.gdtf"
 }
