@@ -116,7 +116,6 @@ void MainWindow::OnPrintViewer2D(wxCommandEvent &WXUNUSED(event)) {
   }
   ui::ApplyBuildDefaultsToViewer2DPrintSettings(settings);
   settings.includeGrid = true;
-  settings.detailedFootprints = false;
   settings.SaveToConfig(cfg);
 
   wxFileDialog dlg(this, "Save 2D view as", "", "viewer2d.pdf",
@@ -266,7 +265,6 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
   settings.landscape = layout->pageSetup.landscape;
   ui::ApplyBuildDefaultsToViewer2DPrintSettings(settings);
   settings.includeGrid = true;
-  settings.detailedFootprints = false;
   settings.SaveToConfig(cfg);
 
   wxFileDialog dlg(this, "Save layout as", "", "layout.pdf",

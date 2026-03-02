@@ -25,6 +25,7 @@ namespace ui {
 
 enum class FeatureFlag {
   PrintViewer2DDialog,
+  PrintViewer2DElementsDetail,
   GenerateFixtureSymbols,
 };
 

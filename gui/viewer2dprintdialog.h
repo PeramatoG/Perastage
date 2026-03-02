@@ -34,6 +34,9 @@ private:
   wxRadioButton *pageSizeA4Radio = nullptr;
   wxRadioButton *portraitRadio = nullptr;
   wxRadioButton *landscapeRadio = nullptr;
+  wxRadioButton *detailedRadio = nullptr;
+  wxRadioButton *schematicRadio = nullptr;
   bool showOrientation_ = true;
+  bool showElementsDetail_ = false;
   bool initialLandscape_ = false;
 };
