@@ -1061,19 +1061,23 @@ void TrussTablePanel::DeleteSelected()
             rows.push_back(r);
     }
     std::sort(rows.begin(), rows.end(), std::greater<int>());
+    rows.erase(std::unique(rows.begin(), rows.end()), rows.end());
+
+    const std::vector<std::string> oldOrder = rowUuids;
+    const std::vector<wxString> oldModelPaths = modelPaths;
+    const std::vector<wxString> oldSymbolPaths = symbolPaths;
 
     auto& scene = guiConfigServices->LegacyConfigManager().GetScene();
     for (int r : rows) {
         if ((size_t)r < rowUuids.size()) {
             scene.trusses.erase(rowUuids[r]);
-            rowUuids.erase(rowUuids.begin() + r);
-            if ((size_t)r < modelPaths.size())
-                modelPaths.erase(modelPaths.begin() + r);
-            if ((size_t)r < symbolPaths.size())
-                symbolPaths.erase(symbolPaths.begin() + r);
             table->DeleteItem(r);
         }
     }
+
+    rowUuids = oldOrder;
+    modelPaths = oldModelPaths;
+    symbolPaths = oldSymbolPaths;
 
     if (Viewer3DPanel::Instance()) {
         Viewer3DPanel::Instance()->SetSelectedFixtures({});
@@ -1088,8 +1092,7 @@ void TrussTablePanel::DeleteSelected()
     if (SummaryPanel::Instance())
         SummaryPanel::Instance()->ShowTrussSummary();
 
-    std::vector<std::string> order = rowUuids;
-    ResyncRows(order, {});
+    ResyncRows(oldOrder, {});
 }
 
 void TrussTablePanel::ResyncRows(const std::vector<std::string>& oldOrder,

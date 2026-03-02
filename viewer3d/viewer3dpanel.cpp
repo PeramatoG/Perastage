@@ -39,6 +39,7 @@
 #endif
 
 #include "viewer3dpanel.h"
+#include "mainwindow.h"
 #include "consolepanel.h"
 #include "fixturetablepanel.h"
 #include "trusstablepanel.h"
@@ -982,6 +983,16 @@ void Viewer3DPanel::OnKeyDown(wxKeyEvent& event)
         case WXK_NUMPAD5: // Reset/isometric
             m_camera.Reset();
             break;
+        case WXK_DELETE:
+        case WXK_NUMPAD_DELETE: {
+            if (MainWindow::Instance()) {
+                wxCommandEvent deleteEvent(wxEVT_MENU, ID_Edit_Delete);
+                MainWindow::Instance()->GetEventHandler()->ProcessEvent(deleteEvent);
+                return;
+            }
+            event.Skip();
+            return;
+        }
         case 'F':
         case 'f': {
             int width = 0;
