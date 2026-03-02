@@ -330,9 +330,7 @@ void MainWindow::CreateMenuBar() {
   fileMenu->AppendSeparator();
   fileMenu->Append(ID_File_ImportMVR, "Import MVR...");
   fileMenu->Append(ID_File_ExportMVR, "Export MVR...");
-  if (ui::IsFeatureEnabled(ui::FeatureFlag::PrintViewer2DDialog)) {
-    fileMenu->Append(ID_File_PrintViewer2D, "Print Viewer 2D...");
-  }
+  fileMenu->Append(ID_File_PrintViewer2D, "Print Viewer 2D...");
   fileMenu->Append(ID_File_PrintLayout, "Print Layout...");
   fileMenu->Append(ID_File_PrintTable, "Print Table...");
   fileMenu->Append(ID_File_ExportCSV, "Export CSV...");
