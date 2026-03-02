@@ -167,6 +167,7 @@ void MainWindow::ProcessNextFixtureSymbolAutoUpdate() {
             << ".";
     if (consolePanel)
       consolePanel->AppendMessage(wxString::FromUTF8(summary.str()));
+    RefreshAfterFixtureSymbolUpdate();
     ReportFixtureAutoUpdate(*this, consolePanel,
                             "Fixture symbol auto-update: completed.", false);
     return;
