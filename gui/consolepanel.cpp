@@ -26,11 +26,101 @@
 #include "viewer2dpanel.h"
 #include "viewer3dpanel.h"
 #include <algorithm>
+#include <fstream>
 #include <charconv>
 #include <cctype>
 #include <exception>
 #include <sstream>
 #include <vector>
+#include <wx/filename.h>
+#include <wx/stdpaths.h>
+
+namespace {
+
+wxString ReadUtf8File(const wxString &path) {
+  std::ifstream in(path.ToStdString());
+  if (!in)
+    return {};
+  std::stringstream buffer;
+  buffer << in.rdbuf();
+  return wxString::FromUTF8(buffer.str());
+}
+
+wxString ExtractConsoleSection(const wxString &markdown,
+                              const wxString &header) {
+  const wxString startToken = "## " + header;
+  const int start = markdown.Find(startToken);
+  if (start == wxNOT_FOUND)
+    return {};
+
+  const int sectionStart = start + static_cast<int>(startToken.length());
+  wxString rest = markdown.Mid(sectionStart);
+  const int nextHeader = rest.Find("\n## ");
+  if (nextHeader != wxNOT_FOUND)
+    rest = rest.Left(nextHeader);
+
+  wxArrayString lines = wxSplit(rest, '\n', '\0');
+  wxString result;
+  for (const wxString &line : lines) {
+    wxString clean = line;
+    clean.Trim(true).Trim(false);
+    if (clean.IsEmpty()) {
+      result += "\n";
+      continue;
+    }
+
+    if (clean.StartsWith("| ---"))
+      continue;
+    if (clean.StartsWith("### ")) {
+      result += clean.Mid(4) + "\n";
+      continue;
+    }
+    if (clean.StartsWith("## ")) {
+      result += clean.Mid(3) + "\n";
+      continue;
+    }
+    if (clean.StartsWith("|")) {
+      wxString tableLine = clean;
+      tableLine.Replace("|", " ");
+      tableLine.Trim(true).Trim(false);
+      result += tableLine + "\n";
+      continue;
+    }
+    result += clean + "\n";
+  }
+
+  return result.Trim();
+}
+
+wxString BuildConsoleHelpContent() {
+  wxFileName helpPath(wxStandardPaths::Get().GetExecutablePath());
+  helpPath.SetFullName("help.md");
+  const wxString markdown = ReadUtf8File(helpPath.GetFullPath());
+
+  const wxString preferredHeader = "Console Commands (complete)";
+  const wxString fallbackHeader = "Comandos de consola (completo)";
+
+  wxString section = ExtractConsoleSection(markdown, preferredHeader);
+  if (section.IsEmpty())
+    section = ExtractConsoleSection(markdown, fallbackHeader);
+  if (!section.IsEmpty())
+    return section;
+
+  return "Console commands:\n"
+         "- clear\n"
+         "- f ...\n"
+         "- t ...\n"
+         "- pos x|y|z <values>\n"
+         "- pos <x>,<y>,<z>\n"
+         "- x|y|z <values>\n"
+         "- rot x|y|z <values>\n"
+         "Examples:\n"
+         "- f 1-5\n"
+         "- pos x 1 4\n"
+         "- rot z -- 10";
+}
+
+} // namespace
 
 ConsolePanel::ConsolePanel(wxWindow *parent) : wxPanel(parent, wxID_ANY) {
   wxBoxSizer *sizer = new wxBoxSizer(wxVERTICAL);
@@ -50,6 +140,16 @@ ConsolePanel::ConsolePanel(wxWindow *parent) : wxPanel(parent, wxID_ANY) {
   m_inputCtrl->Bind(wxEVT_KEY_DOWN, &ConsolePanel::OnInputKeyDown, this);
   m_inputCtrl->SetValue(">>> ");
   m_inputCtrl->SetInsertionPointEnd();
+  m_helpButton = new wxButton(this, wxID_ANY, "?", wxDefaultPosition,
+                              wxSize(24, 24), wxBU_EXACTFIT);
+  m_helpButton->SetToolTip(
+      "Show available console commands and examples.");
+  m_helpButton->Bind(wxEVT_BUTTON, &ConsolePanel::OnHelpButton, this);
+
+  wxBoxSizer *inputSizer = new wxBoxSizer(wxHORIZONTAL);
+  inputSizer->Add(m_inputCtrl, 1, wxEXPAND);
+  inputSizer->Add(m_helpButton, 0, wxLEFT, 4);
+
   const wxEventTypeTag<wxScrollWinEvent> scrollEvents[] = {
       wxEVT_SCROLLWIN_TOP,        wxEVT_SCROLLWIN_BOTTOM,
       wxEVT_SCROLLWIN_LINEUP,     wxEVT_SCROLLWIN_LINEDOWN,
@@ -58,8 +158,29 @@ ConsolePanel::ConsolePanel(wxWindow *parent) : wxPanel(parent, wxID_ANY) {
   for (const auto &evt : scrollEvents)
     m_textCtrl->Bind(evt, &ConsolePanel::OnScroll, this);
   sizer->Add(m_textCtrl, 1, wxEXPAND | wxALL, 5);
-  sizer->Add(m_inputCtrl, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 5);
+  sizer->Add(inputSizer, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 5);
   SetSizer(sizer);
+}
+
+void ConsolePanel::OnHelpButton(wxCommandEvent &) {
+  wxDialog helpDialog(this, wxID_ANY, "Console commands", wxDefaultPosition,
+                      wxSize(620, 420),
+                      wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER);
+  auto *dialogSizer = new wxBoxSizer(wxVERTICAL);
+  auto *helpText = new wxTextCtrl(&helpDialog, wxID_ANY,
+                                  BuildConsoleHelpContent(), wxDefaultPosition,
+                                  wxDefaultSize,
+                                  wxTE_MULTILINE | wxTE_READONLY);
+  helpText->SetBackgroundColour(*wxBLACK);
+  helpText->SetForegroundColour(wxColour(230, 230, 230));
+  helpText->SetFont(
+      wxFont(10, wxFONTFAMILY_TELETYPE, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL));
+  dialogSizer->Add(helpText, 1, wxEXPAND | wxALL, 8);
+  dialogSizer->Add(helpDialog.CreateButtonSizer(wxOK), 0,
+                  wxALIGN_RIGHT | wxLEFT | wxRIGHT | wxBOTTOM, 8);
+  helpDialog.SetSizerAndFit(dialogSizer);
+  helpDialog.SetSize(620, 420);
+  helpDialog.ShowModal();
 }
 
 void ConsolePanel::AppendMessage(const wxString &msg) {

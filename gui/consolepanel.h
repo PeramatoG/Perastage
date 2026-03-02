@@ -37,6 +37,7 @@ public:
 private:
     wxTextCtrl* m_textCtrl = nullptr;
     wxTextCtrl* m_inputCtrl = nullptr;
+    wxButton* m_helpButton = nullptr;
     bool m_autoScroll = true;
     wxString m_lastMessage;
     size_t m_repeatCount = 0;
@@ -48,5 +49,6 @@ private:
     void OnInputFocus(wxFocusEvent& event);
     void OnInputKillFocus(wxFocusEvent& event);
     void OnInputKeyDown(wxKeyEvent& event);
+    void OnHelpButton(wxCommandEvent& event);
     void ProcessCommand(const wxString& cmd);
 };
