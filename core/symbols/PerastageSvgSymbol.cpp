@@ -1,4 +1,5 @@
 #include "symbols/PerastageSvgSymbol.h"
+#include "startup_file_access_gate.h"
 
 #include <algorithm>
 #include <array>
@@ -627,6 +628,7 @@ bool LoadPerastageSvgSymbolFromGdtf(const std::string &gdtfPath,
                                     SymbolViewKind requestedView,
                                     PerastageSvgSymbolData &out,
                                     std::string *errorDetails) {
+  std::lock_guard<std::recursive_mutex> lock(StartupFileAccessGate::Mutex());
   std::unordered_map<std::string, std::string> entries;
   if (!ReadZipEntries(gdtfPath, entries, errorDetails))
     return false;

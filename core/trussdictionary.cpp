@@ -21,6 +21,7 @@
 #include "projectutils.h"
 #include "truss_gdtf_builder.h"
 #include "truss.h"
+#include "startup_file_access_gate.h"
 
 #include <algorithm>
 #include <cctype>
@@ -143,6 +144,7 @@ std::string NormalizeModelKey(const std::string &model) {
 
 bool ImportTrussFile(const std::string &inputPath, std::string &storedPath,
                      std::string &error) {
+  std::lock_guard<std::recursive_mutex> lock(StartupFileAccessGate::Mutex());
   storedPath.clear();
   fs::path src = fs::u8path(inputPath);
   if (!fs::exists(src)) {
@@ -174,6 +176,7 @@ bool ImportTrussFile(const std::string &inputPath, std::string &storedPath,
 }
 
 std::optional<std::unordered_map<std::string, std::string>> Load() {
+  std::lock_guard<std::recursive_mutex> lock(StartupFileAccessGate::Mutex());
   std::unordered_map<std::string, std::string> dict;
   fs::path file = GetDictFile();
   if (file.empty())
@@ -240,6 +243,7 @@ std::optional<std::unordered_map<std::string, std::string>> Load() {
 }
 
 void Save(const std::unordered_map<std::string, std::string> &dict) {
+  std::lock_guard<std::recursive_mutex> lock(StartupFileAccessGate::Mutex());
   fs::path file = GetDictFile();
   if (file.empty())
     return;
@@ -273,6 +277,7 @@ void Save(const std::unordered_map<std::string, std::string> &dict) {
 }
 
 std::optional<std::string> Get(const std::string &model) {
+  std::lock_guard<std::recursive_mutex> lock(StartupFileAccessGate::Mutex());
   const std::string normalizedModel = NormalizeModelKey(model);
   if (normalizedModel.empty())
     return std::nullopt;
@@ -296,6 +301,7 @@ std::optional<std::string> Get(const std::string &model) {
 }
 
 void Update(const std::string &model, const std::string &modelPath) {
+  std::lock_guard<std::recursive_mutex> lock(StartupFileAccessGate::Mutex());
   const std::string normalizedModel = NormalizeModelKey(model);
   if (normalizedModel.empty() || modelPath.empty())
     return;
