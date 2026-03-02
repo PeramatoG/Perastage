@@ -786,8 +786,8 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
                                                       selectionOrder);
 
         for (size_t i = 0; i < orderedRows.size(); ++i) {
-          wxString newName =
-              wxString::Format("%s %ld", prefix, baseNum + (long)i);
+          wxString newName = prefix + " " +
+                             wxString::Format("%ld", baseNum + (long)i);
           table->SetValue(wxVariant(newName), orderedRows[i], col);
         }
       } else {

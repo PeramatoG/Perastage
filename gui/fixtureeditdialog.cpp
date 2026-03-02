@@ -191,7 +191,7 @@ void FixtureEditDialog::UpdateChannels() {
     wxString func = wxString::FromUTF8(ch.function);
     if (func.empty())
       func = "-";
-    msg += wxString::Format("%d: %s\n", ch.channel, func);
+    msg += wxString::Format("%d: ", ch.channel) + func + "\n";
   }
   channelList->SetValue(msg);
   int chCount = GetGdtfModeChannelCount(std::string(gdtfPath.ToUTF8()),

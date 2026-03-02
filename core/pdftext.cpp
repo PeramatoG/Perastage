@@ -147,8 +147,8 @@ std::string ExtractPdfText(const std::string &path) {
       out.pop_back();
     return out;
   } catch (const PdfError &e) {
-    wxLogError("PoDoFo failed to extract text from '%s': %s",
-               wxString::FromUTF8(path), wxString::FromUTF8(e.what()));
+    wxLogError("PoDoFo failed to extract text from '" +
+               wxString::FromUTF8(path) + "': " + wxString::FromUTF8(e.what()));
   }
   return {};
 }

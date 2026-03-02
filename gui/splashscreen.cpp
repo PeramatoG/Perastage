@@ -20,7 +20,7 @@ wxString PathToWxString(const std::filesystem::path &path) {
 }
 
 void LogMissingIcon(const std::filesystem::path &path) {
-  wxLogWarning("Splash icon not found at '%s'", PathToWxString(path));
+  wxLogWarning("Splash icon not found at '" + PathToWxString(path) + "'");
 }
 }
 

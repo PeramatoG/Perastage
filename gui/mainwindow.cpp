@@ -155,7 +155,7 @@ wxString PathToWxString(const std::filesystem::path &path) {
 }
 
 void LogMissingIcon(const std::filesystem::path &path) {
-  wxLogWarning("Main window icon not found at '%s'", PathToWxString(path));
+  wxLogWarning("Main window icon not found at '" + PathToWxString(path) + "'");
 }
 
 wxFont BuildDefaultUiFont() {
@@ -473,7 +473,7 @@ bool MainWindow::ConfirmSaveIfDirty(const wxString &actionLabel,
 
   wxMessageDialog dlg(
       this,
-      wxString::Format("Do you want to save changes before %s?", actionLabel),
+      "Do you want to save changes before " + actionLabel + "?",
       dialogTitle, wxYES_NO | wxCANCEL | wxICON_QUESTION);
 
   int res = dlg.ShowModal();

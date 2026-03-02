@@ -229,8 +229,7 @@ void UpdateSceneData(ISceneAdapter &adapter, wxDataViewListCtrl *table,
     if (console) {
       wxString msg;
       if (updatedCount == 1)
-        msg = wxString::Format("Updated fixture %s (UUID %s)", firstName,
-                               firstUuid);
+        msg = "Updated fixture " + firstName + " (UUID " + firstUuid + ")";
       else if (updatedCount > 1)
         msg = wxString::Format("Updated %zu fixtures", updatedCount);
       if (!msg.empty())

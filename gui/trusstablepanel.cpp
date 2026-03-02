@@ -69,10 +69,8 @@ void AppendTrussUpdateLog(const std::vector<std::pair<std::string, std::string>>
     if (updates.size() == 1)
     {
         const auto& [name, uuid] = updates.front();
-        console->AppendMessage(
-            wxString::Format("Updated truss %s (UUID %s)",
-                             wxString::FromUTF8(name.c_str()),
-                             wxString::FromUTF8(uuid.c_str())));
+        console->AppendMessage("Updated truss " + wxString::FromUTF8(name) +
+                               " (UUID " + wxString::FromUTF8(uuid) + ")");
         return;
     }
 

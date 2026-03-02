@@ -79,8 +79,8 @@ void ConsolePanel::AppendMessage(const wxString &msg) {
 
   if (safeMsg == m_lastMessage) {
     m_repeatCount++;
-    wxString combined = wxString::Format("%s (repeated %zu times)", safeMsg,
-                                        m_repeatCount);
+    wxString combined = safeMsg + " (repeated " +
+                        wxString::Format("%zu", m_repeatCount) + " times)";
     long endPos = m_textCtrl->GetLastPosition();
     if (m_lastLineStart < endPos)
       m_textCtrl->Remove(m_lastLineStart, endPos);
@@ -323,8 +323,7 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
         auto end = token.data() + token.size();
         auto result = std::from_chars(begin, end, value);
         if (result.ec != std::errc{} || result.ptr != end) {
-          AppendMessage(wxString::Format("Invalid selection id: %s",
-                                         wxString::FromUTF8(token).c_str()));
+          AppendMessage("Invalid selection id: " + wxString::FromUTF8(token));
           return false;
         }
         return true;
