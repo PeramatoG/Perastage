@@ -286,8 +286,16 @@ Viewer2DPanel::Viewer2DPanel(wxWindow *parent, bool allowOffscreenRender,
 }
 
 Viewer2DPanel::~Viewer2DPanel() {
+  if (HasCapture())
+    ReleaseMouse();
   if (g_instance == this)
     g_instance = nullptr;
+  m_dragMode = DragMode::None;
+  m_dragAxis = DragAxis::None;
+  m_dragTarget = DragTarget::None;
+  m_dragSelectionUuids.clear();
+  m_dragSelectionMoved = false;
+  m_rectSelecting = false;
   m_interactionResumeTimer.Stop();
   StopDragTableUpdateWorker();
   delete m_glContext;
