@@ -997,6 +997,9 @@ void FixtureTablePanel::DeleteSelected() {
   if (SummaryPanel::Instance())
     SummaryPanel::Instance()->ShowFixtureSummary();
 
+  if (RiggingPanel::Instance())
+    RiggingPanel::Instance()->RefreshData();
+
   selectionOrder.clear();
   ResyncRows(oldOrder, {}, &oldPaths);
 }

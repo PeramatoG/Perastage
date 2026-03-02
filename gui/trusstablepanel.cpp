@@ -1101,6 +1101,9 @@ void TrussTablePanel::DeleteSelected()
     if (SummaryPanel::Instance())
         SummaryPanel::Instance()->ShowTrussSummary();
 
+    if (RiggingPanel::Instance())
+        RiggingPanel::Instance()->RefreshData();
+
     ResyncRows(oldOrder, {});
 }
 
