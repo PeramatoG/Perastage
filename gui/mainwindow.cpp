@@ -560,6 +560,9 @@ void MainWindow::ResetProject() {
   fixtureSymbolAutoUpdateQueue.clear();
   fixtureSymbolAutoUpdateProcessedKeys.clear();
   fixtureSymbolPendingLibrarySyncUuids.clear();
+  fixtureSymbolAutoUpdateGeneratedTypes.clear();
+  fixtureSymbolAutoUpdateErrors.clear();
+  fixtureSymbolAutoUpdateGeneratedTypeSet.clear();
   fixtureSymbolAutoUpdateRunning = false;
   currentProjectPath.clear();
   if (layoutPanel)
