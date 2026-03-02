@@ -20,7 +20,7 @@
 Viewer2DPrintDialog::Viewer2DPrintDialog(
     wxWindow *parent, const print::Viewer2DPrintSettings &settings,
     bool showOrientation)
-    : wxDialog(parent, wxID_ANY, "Print Viewer 2D", wxDefaultPosition,
+    : wxDialog(parent, wxID_ANY, "Print Setup", wxDefaultPosition,
                wxDefaultSize, wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER),
       showOrientation_(showOrientation),
       initialLandscape_(settings.landscape) {
@@ -49,34 +49,12 @@ Viewer2DPrintDialog::Viewer2DPrintDialog(
                   wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 10);
   }
 
-  includeGridCheck = new wxCheckBox(this, wxID_ANY, "Include grid");
-  topSizer->Add(includeGridCheck, 0, wxLEFT | wxRIGHT | wxBOTTOM, 10);
-
-  wxStaticBoxSizer *elementsSizer =
-      new wxStaticBoxSizer(wxVERTICAL, this, "Elements detail");
-  detailedRadio = new wxRadioButton(this, wxID_ANY, "Detailed",
-                                    wxDefaultPosition, wxDefaultSize,
-                                    wxRB_GROUP);
-  schematicRadio = new wxRadioButton(this, wxID_ANY, "Schematic");
-  elementsSizer->Add(detailedRadio, 0, wxALL, 5);
-  elementsSizer->Add(schematicRadio, 0, wxALL, 5);
-  topSizer->Add(elementsSizer, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 10);
-
   pageSizeA3Radio->SetValue(settings.pageSize == print::PageSize::A3);
   pageSizeA4Radio->SetValue(settings.pageSize == print::PageSize::A4);
   if (showOrientation_) {
     landscapeRadio->SetValue(settings.landscape);
     portraitRadio->SetValue(!settings.landscape);
   }
-  includeGridCheck->SetValue(settings.includeGrid);
-  detailedRadio->SetValue(settings.detailedFootprints);
-  schematicRadio->SetValue(!settings.detailedFootprints);
-
-  detailedRadio->Bind(wxEVT_RADIOBUTTON,
-                      [this](wxCommandEvent &event) {
-                        if (event.IsChecked())
-                          ShowDetailedWarning();
-                      });
 
   topSizer->Add(CreateSeparatedButtonSizer(wxOK | wxCANCEL), 0,
                 wxALL | wxEXPAND, 10);
@@ -90,14 +68,7 @@ print::Viewer2DPrintSettings Viewer2DPrintDialog::GetSettings() const {
   settings.landscape =
       showOrientation_ && landscapeRadio ? landscapeRadio->GetValue()
                                          : initialLandscape_;
-  settings.includeGrid = includeGridCheck->GetValue();
-  settings.detailedFootprints = detailedRadio->GetValue();
+  settings.includeGrid = true;
+  settings.detailedFootprints = false;
   return settings;
-}
-
-void Viewer2DPrintDialog::ShowDetailedWarning() {
-  wxMessageBox(
-      "El modo Detailed tarda mucho más y genera archivos más pesados.\n"
-      "De momento solo lo mantengo para pruebas.",
-      "Print Viewer 2D", wxOK | wxICON_WARNING, this);
 }

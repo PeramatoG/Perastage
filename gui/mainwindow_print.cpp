@@ -115,6 +115,8 @@ void MainWindow::OnPrintViewer2D(wxCommandEvent &WXUNUSED(event)) {
     settings = settingsDialog.GetSettings();
   }
   ui::ApplyBuildDefaultsToViewer2DPrintSettings(settings);
+  settings.includeGrid = true;
+  settings.detailedFootprints = false;
   settings.SaveToConfig(cfg);
 
   wxFileDialog dlg(this, "Save 2D view as", "", "viewer2d.pdf",
@@ -254,12 +256,17 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
       print::Viewer2DPrintSettings::LoadFromConfig(cfg);
   settings.pageSize = layout->pageSetup.pageSize;
   settings.landscape = layout->pageSetup.landscape;
-  Viewer2DPrintDialog settingsDialog(this, settings, false);
-  if (settingsDialog.ShowModal() != wxID_OK)
-    return;
+  if (ui::IsFeatureEnabled(ui::FeatureFlag::PrintViewer2DDialog)) {
+    Viewer2DPrintDialog settingsDialog(this, settings, false);
+    if (settingsDialog.ShowModal() != wxID_OK)
+      return;
 
-  settings = settingsDialog.GetSettings();
+    settings = settingsDialog.GetSettings();
+  }
   settings.landscape = layout->pageSetup.landscape;
+  ui::ApplyBuildDefaultsToViewer2DPrintSettings(settings);
+  settings.includeGrid = true;
+  settings.detailedFootprints = false;
   settings.SaveToConfig(cfg);
 
   wxFileDialog dlg(this, "Save layout as", "", "layout.pdf",
@@ -289,7 +296,7 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
       layoutPageH > 0.0 ? outputPageH / layoutPageH : 1.0;
 
   const bool useSimplifiedFootprints = !settings.detailedFootprints;
-  const bool includeGrid = settings.includeGrid;
+  const bool includeGrid = true;
   std::vector<layouts::Layout2DViewDefinition> layoutViews =
       layout->view2dViews;
   std::vector<LayoutLegendExportData> layoutLegends;
