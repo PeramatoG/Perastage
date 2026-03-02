@@ -40,6 +40,7 @@
 #include "fixture.h"
 #include "fixturetablepanel.h"
 #include "hoisttablepanel.h"
+#include "layoutviewerpanel.h"
 #include "mvrexporter.h"
 #include "mvrimporter.h"
 #include "projectutils.h"
@@ -52,6 +53,50 @@
 #include "viewer2dpanel.h"
 #include "viewer2drenderpanel.h"
 #include "viewer3dpanel.h"
+
+
+namespace {
+class ScopedViewportInteractionLock {
+public:
+  explicit ScopedViewportInteractionLock(MainWindow &window) : window_(window) {
+    window_.LockViewportInteraction();
+  }
+
+  ~ScopedViewportInteractionLock() { window_.UnlockViewportInteraction(); }
+
+private:
+  MainWindow &window_;
+};
+} // namespace
+
+void MainWindow::LockViewportInteraction() {
+  ++viewportInteractionLockDepth;
+  if (viewportInteractionLockDepth > 1)
+    return;
+
+  if (viewportPanel)
+    viewportPanel->Disable();
+  if (viewport2DPanel)
+    viewport2DPanel->Disable();
+  if (layoutViewerPanel)
+    layoutViewerPanel->Disable();
+}
+
+void MainWindow::UnlockViewportInteraction() {
+  if (viewportInteractionLockDepth <= 0)
+    return;
+
+  --viewportInteractionLockDepth;
+  if (viewportInteractionLockDepth > 0)
+    return;
+
+  if (viewportPanel)
+    viewportPanel->Enable();
+  if (viewport2DPanel)
+    viewport2DPanel->Enable();
+  if (layoutViewerPanel)
+    layoutViewerPanel->Enable();
+}
 
 void MainWindow::OnLoad(wxCommandEvent &event) {
   if (!ConfirmSaveIfDirty("loading a project", "Open Project"))
@@ -148,6 +193,7 @@ void MainWindow::OnImportRider(wxCommandEvent &event) {
   std::string pathUtf8 =
       pathBuffer ? std::string(pathBuffer.data(), pathBuffer.length())
                  : dlg.GetPath().ToStdString();
+  ScopedViewportInteractionLock viewportLock(*this);
   if (!RiderImporter::Import(pathUtf8)) {
     wxMessageBox("Failed to import rider.", "Error", wxICON_ERROR);
     if (consolePanel)
@@ -161,6 +207,7 @@ void MainWindow::OnImportRider(wxCommandEvent &event) {
 }
 
 void MainWindow::OnImportRiderText(wxCommandEvent &WXUNUSED(event)) {
+  ScopedViewportInteractionLock viewportLock(*this);
   RiderTextDialog dlg(this);
   if (dlg.ShowModal() != wxID_OK)
     return;

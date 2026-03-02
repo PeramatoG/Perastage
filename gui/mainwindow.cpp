@@ -497,8 +497,11 @@ void MainWindow::OnPaneClose(wxAuiManagerEvent &event) {
 }
 
 bool MainWindow::LoadProjectFromPath(const std::string &path) {
-  if (!GetDefaultGuiConfigServices().LegacyConfigManager().LoadProject(path))
+  LockViewportInteraction();
+  if (!GetDefaultGuiConfigServices().LegacyConfigManager().LoadProject(path)) {
+    UnlockViewportInteraction();
     return false;
+  }
 
 
   Ensure3DViewport();
@@ -547,6 +550,7 @@ bool MainWindow::LoadProjectFromPath(const std::string &path) {
   GetDefaultGuiConfigServices().LegacyConfigManager().MarkSaved();
   StartFixtureSymbolAutoUpdateForLoadedScene();
   UpdateTitle();
+  UnlockViewportInteraction();
   return true;
 }
 
