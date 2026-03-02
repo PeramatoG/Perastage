@@ -118,8 +118,8 @@ void MainWindow::ProcessNextFixtureSymbolAutoUpdate() {
 
   std::string applyError;
   symbol_preview::ApplySymbolsOptions applyOptions;
-  applyOptions.updateSceneCopy = true;
-  applyOptions.updateLibraryCopy = false;
+  applyOptions.updateSceneCopy = false;
+  applyOptions.updateLibraryCopy = true;
   if (symbol_preview::ApplySymbolsToFixtureGdtf(capture.symbols, fixtureUuid,
                                                 applyError, applyOptions)) {
     fixtureSymbolPendingLibrarySyncUuids.insert(fixtureUuid);
