@@ -96,6 +96,8 @@ std::string ResolveExistingPath(const fs::path &path) {
   std::error_code ec;
   if (fs::exists(path, ec))
     return path.string();
+  if (ec && path.is_absolute())
+    return path.string();
 
   const fs::path parent = path.parent_path();
   const fs::path filename = path.filename();
@@ -121,6 +123,8 @@ std::string ResolveExistingPath(const fs::path &path) {
       continue;
     return entry.path().string();
   }
+  if (ec && path.is_absolute())
+    return path.string();
   return {};
 }
 
