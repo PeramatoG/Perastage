@@ -256,8 +256,12 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
     const bool pauseHeavyTasks = ShouldPauseHeavyTasks();
     m_controller.ResetDebugPerFrameCounters();
     m_controller.UpdateFrameStateLightweight();
-    if (!pauseHeavyTasks && !m_cameraMoving)
+    if (m_sceneSyncPending) {
         m_controller.UpdateResourcesIfDirty();
+        m_sceneSyncPending = false;
+    } else if (!pauseHeavyTasks && !m_cameraMoving) {
+        m_controller.UpdateResourcesIfDirty();
+    }
 
     const int updateResourcesCallsPerFrame =
         m_controller.GetDebugUpdateResourcesCallsPerFrame();
@@ -1042,10 +1046,13 @@ void Viewer3DPanel::OnMouseLeave(wxMouseEvent& event)
 // Updates the controller with current scene data
 void Viewer3DPanel::UpdateScene()
 {
+    m_sceneSyncPending = true;
+
     if (ShouldPauseHeavyTasks() || m_cameraMoving)
         return;
 
     m_controller.UpdateResourcesIfDirty();
+    m_sceneSyncPending = false;
     if (Viewer2DPanel::Instance())
         Viewer2DPanel::Instance()->UpdateScene();
 }
@@ -1114,7 +1121,7 @@ bool Viewer3DPanel::ShouldPauseHeavyTasks()
 
     if (fastInteractionMode) {
         m_controller.UpdateResourcesIfDirty();
-        m_controller.RebuildVisibleSetCache();
+        m_sceneSyncPending = false;
         m_mouseMoved = true;
     }
 
