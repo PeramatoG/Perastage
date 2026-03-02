@@ -55,6 +55,26 @@
 #include "viewer2drenderpanel.h"
 #include "viewer3dpanel.h"
 
+namespace {
+
+std::string EnsureProjectFileExtension(const std::string &path) {
+  if (path.empty())
+    return path;
+
+  const std::filesystem::path candidate(path);
+  const std::string ext = candidate.extension().string();
+  const std::string requiredExt = ProjectUtils::PROJECT_EXTENSION;
+  if (ext == requiredExt)
+    return candidate.string();
+  if (!ext.empty())
+    return candidate.string();
+
+  std::filesystem::path withExtension = candidate;
+  withExtension += requiredExt;
+  return withExtension.string();
+}
+
+} // namespace
 
 void MainWindow::LockViewportInteraction() {
   ++viewportInteractionLockDepth;
@@ -150,7 +170,7 @@ void MainWindow::OnSaveAs(wxCommandEvent &event) {
   if (dlg.ShowModal() == wxID_CANCEL)
     return;
 
-  currentProjectPath = dlg.GetPath().ToStdString();
+  currentProjectPath = EnsureProjectFileExtension(dlg.GetPath().ToStdString());
   auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
   // Always sync table edits before saving; each panel now applies only real changes.
   SyncSceneData();
@@ -161,7 +181,8 @@ void MainWindow::OnSaveAs(wxCommandEvent &event) {
   else {
     ProjectUtils::SaveLastProjectPath(currentProjectPath);
     if (consolePanel)
-      consolePanel->AppendMessage("Saved " + dlg.GetPath());
+      consolePanel->AppendMessage("Saved " +
+                                  wxString::FromUTF8(currentProjectPath));
   }
   UpdateTitle();
 }

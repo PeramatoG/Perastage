@@ -16,6 +16,9 @@ namespace fs = std::filesystem;
 
 namespace {
 
+bool MatchesFileNameWithExtensionTolerance(const fs::path &candidate,
+                                           const std::string &fileName);
+
 std::string FindFileRecursive(const std::string &baseDir,
                               const std::string &fileName) {
   if (baseDir.empty())
@@ -33,7 +36,7 @@ std::string FindFileRecursive(const std::string &baseDir,
       ec.clear();
       continue;
     }
-    if (it->path().filename() == fileName)
+    if (MatchesFileNameWithExtensionTolerance(it->path(), fileName))
       return it->path().string();
   }
   return {};
@@ -49,6 +52,19 @@ bool EqualIgnoreCaseAscii(std::string_view lhs, std::string_view rhs) {
       return false;
   }
   return true;
+}
+
+bool MatchesFileNameWithExtensionTolerance(const fs::path &candidate,
+                                           const std::string &fileName) {
+  const fs::path target(fileName);
+  const std::string candidateName = candidate.filename().string();
+  if (candidateName == fileName)
+    return true;
+
+  if (candidate.stem().string() != target.stem().string())
+    return false;
+  return EqualIgnoreCaseAscii(candidate.extension().string(),
+                              target.extension().string());
 }
 
 std::string DecodePathEscapes(const std::string &input) {
