@@ -10,7 +10,8 @@ This map is aligned with the terminology used in `README.md` and `docs/architect
 Perastage/
 ├── main.cpp                     # wxWidgets application entry point.
 ├── CMakeLists.txt               # Root build orchestration and global dependencies.
-├── README.md                    # Product overview and repository layout.
+├── README.md                    # Product overview, features, and build notes.
+├── help.md                      # In-app help content (English/Spanish sections).
 ├── docs/architecture.md         # Architecture and repository conventions.
 ├── core/                        # Shared business logic and cross-cutting services.
 │   ├── layouts/                 # Printable layout/page management.
