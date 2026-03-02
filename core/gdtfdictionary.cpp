@@ -18,6 +18,7 @@
 #include "gdtfdictionary.h"
 #include "json.hpp"
 #include "projectutils.h"
+#include "startup_file_access_gate.h"
 #include <algorithm>
 #include <filesystem>
 #include <fstream>
@@ -49,6 +50,7 @@ static fs::path GetDictFile() {
 }
 
 std::optional<std::unordered_map<std::string, Entry>> Load() {
+  std::lock_guard<std::recursive_mutex> lock(StartupFileAccessGate::Mutex());
   std::unordered_map<std::string, Entry> dict;
   fs::path file = GetDictFile();
   if (file.empty())
@@ -104,6 +106,7 @@ std::optional<std::unordered_map<std::string, Entry>> Load() {
 }
 
 void Save(const std::unordered_map<std::string, Entry> &dict) {
+  std::lock_guard<std::recursive_mutex> lock(StartupFileAccessGate::Mutex());
   fs::path file = GetDictFile();
   if (file.empty())
     return;
@@ -129,6 +132,7 @@ void Save(const std::unordered_map<std::string, Entry> &dict) {
 }
 
 std::optional<Entry> Get(const std::string &type) {
+  std::lock_guard<std::recursive_mutex> lock(StartupFileAccessGate::Mutex());
   auto dictOpt = Load();
   if (!dictOpt)
     return std::nullopt;
@@ -145,6 +149,7 @@ std::optional<Entry> Get(const std::string &type) {
 }
 
 void Update(const std::string &type, const std::string &gdtfPath, const std::string &mode) {
+  std::lock_guard<std::recursive_mutex> lock(StartupFileAccessGate::Mutex());
   if (type.empty() || gdtfPath.empty())
     return;
   fs::path src = fs::u8path(gdtfPath);
