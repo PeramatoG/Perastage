@@ -74,6 +74,21 @@ std::string EnsureProjectFileExtension(const std::string &path) {
   return withExtension.string();
 }
 
+class ScopeExit {
+public:
+  explicit ScopeExit(std::function<void()> fn) : fn_(std::move(fn)) {}
+  ~ScopeExit() {
+    if (fn_)
+      fn_();
+  }
+
+  ScopeExit(const ScopeExit &) = delete;
+  ScopeExit &operator=(const ScopeExit &) = delete;
+
+private:
+  std::function<void()> fn_;
+};
+
 } // namespace
 
 void MainWindow::LockViewportInteraction() {
@@ -202,8 +217,7 @@ void MainWindow::OnImportRider(wxCommandEvent &event) {
       pathBuffer ? std::string(pathBuffer.data(), pathBuffer.length())
                  : dlg.GetPath().ToStdString();
   LockViewportInteraction();
-  auto viewportUnlock = std::unique_ptr<void, std::function<void(void *)>>(
-      nullptr, [this](void *) { UnlockViewportInteraction(); });
+  ScopeExit viewportUnlock([this]() { UnlockViewportInteraction(); });
   if (!RiderImporter::Import(pathUtf8)) {
     wxMessageBox("Failed to import rider.", "Error", wxICON_ERROR);
     if (consolePanel)
@@ -218,8 +232,7 @@ void MainWindow::OnImportRider(wxCommandEvent &event) {
 
 void MainWindow::OnImportRiderText(wxCommandEvent &WXUNUSED(event)) {
   LockViewportInteraction();
-  auto viewportUnlock = std::unique_ptr<void, std::function<void(void *)>>(
-      nullptr, [this](void *) { UnlockViewportInteraction(); });
+  ScopeExit viewportUnlock([this]() { UnlockViewportInteraction(); });
   RiderTextDialog dlg(this);
   if (dlg.ShowModal() != wxID_OK)
     return;
