@@ -74,11 +74,11 @@ std::vector<LayoutLegendItem> BuildLayoutLegendItems() {
 void MainWindow::OnPrintMenu(wxCommandEvent &WXUNUSED(event)) {
   wxArrayString choices;
   choices.Add("Layout");
-  choices.Add("Vista 2D");
-  choices.Add("Tabla");
+  choices.Add("2D View");
+  choices.Add("Table");
 
-  wxSingleChoiceDialog dialog(this, "Selecciona qué quieres imprimir:",
-                              "Imprimir", choices);
+  wxSingleChoiceDialog dialog(this, "Select what to print:",
+                              "Print", choices);
   if (dialog.ShowModal() != wxID_OK)
     return;
 
