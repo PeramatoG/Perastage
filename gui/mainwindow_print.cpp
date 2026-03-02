@@ -74,8 +74,7 @@ std::vector<LayoutLegendItem> BuildLayoutLegendItems() {
 void MainWindow::OnPrintMenu(wxCommandEvent &WXUNUSED(event)) {
   wxArrayString choices;
   choices.Add("Layout");
-  if (ui::IsFeatureEnabled(ui::FeatureFlag::PrintViewer2DDialog))
-    choices.Add("Vista 2D");
+  choices.Add("Vista 2D");
   choices.Add("Tabla");
 
   wxSingleChoiceDialog dialog(this, "Selecciona qué quieres imprimir:",
@@ -87,8 +86,7 @@ void MainWindow::OnPrintMenu(wxCommandEvent &WXUNUSED(event)) {
   const int selection = dialog.GetSelection();
   if (selection == 0) {
     OnPrintLayout(printEvent);
-  } else if (ui::IsFeatureEnabled(ui::FeatureFlag::PrintViewer2DDialog) &&
-             selection == 1) {
+  } else if (selection == 1) {
     OnPrintViewer2D(printEvent);
   } else {
     OnPrintTable(printEvent);
