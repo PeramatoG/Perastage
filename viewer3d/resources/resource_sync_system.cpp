@@ -54,6 +54,12 @@ bool EqualIgnoreCaseAscii(std::string_view lhs, std::string_view rhs) {
   return true;
 }
 
+bool ContainsPath(const std::vector<fs::path> &paths, const fs::path &candidate) {
+  return std::any_of(paths.begin(), paths.end(), [&](const fs::path &p) {
+    return p == candidate;
+  });
+}
+
 bool MatchesFileNameWithExtensionTolerance(const fs::path &candidate,
                                            const std::string &fileName) {
   const fs::path target(fileName);
@@ -129,7 +135,7 @@ std::string ResolveFromLibrarySuffix(const std::string &base,
   fs::path suffix;
   bool foundLibrary = false;
   for (size_t i = 0; i < parts.size(); ++i) {
-    if (parts[i] != "library")
+    if (!EqualIgnoreCaseAscii(parts[i].string(), "library"))
       continue;
     foundLibrary = true;
     for (size_t j = i; j < parts.size(); ++j)
@@ -140,16 +146,22 @@ std::string ResolveFromLibrarySuffix(const std::string &base,
     return {};
 
   std::error_code ec;
-  fs::path root = base.empty() ? fs::current_path(ec) : fs::path(base);
-  if (ec || root.empty())
-    return {};
+  std::vector<fs::path> roots;
+  if (!base.empty())
+    roots.push_back(fs::path(base));
 
-  for (fs::path probe = root; !probe.empty(); probe = probe.parent_path()) {
-    const std::string resolved = ResolveExistingPath(probe / suffix);
-    if (!resolved.empty())
-      return resolved;
-    if (probe == probe.parent_path())
-      break;
+  const fs::path cwd = fs::current_path(ec);
+  if (!ec && !cwd.empty() && !ContainsPath(roots, cwd))
+    roots.push_back(cwd);
+
+  for (const fs::path &root : roots) {
+    for (fs::path probe = root; !probe.empty(); probe = probe.parent_path()) {
+      const std::string resolved = ResolveExistingPath(probe / suffix);
+      if (!resolved.empty())
+        return resolved;
+      if (probe == probe.parent_path())
+        break;
+    }
   }
 
   return {};
