@@ -4,7 +4,7 @@
 
 **Perastage** is a desktop application for lighting designers and technicians built in C++20.  It reads, organises and visualises show data using the **MVR** (My Virtual Rig) format and **GDTF** (General Device Type Format).  The graphical user interface is written with **wxWidgets** and the 3D/2D rendering is performed with **OpenGL**.
 
-> **Status:** this project is in an early beta stage.  Many menu items are only stubs and not all code paths have been fully tested.  Expect incomplete features, placeholder interfaces and potential crashes.  User feedback is very welcome.
+> **Status:** active beta. Core workflows (MVR import/export, editing, layout/printing, and table tooling) are usable and under continuous stabilization. Some advanced and experimental tools remain build-gated or workflow-specific.
 
 ---
 
@@ -61,13 +61,15 @@
 
 ### Printing and export
 
-- **Print Viewer 2D:** print the current 2D view directly to PDF with configurable page size and orientation.
+- **Print Viewer 2D (Debug builds):** print the current 2D view directly to PDF with configurable page size and orientation. In Release builds this dialog is intentionally hidden behind `ui::FeatureFlag::PrintViewer2DDialog`.
 - **Print Layout:** print the active layout to PDF, including 2D views, legends, event tables, text and images.
 - **Print Table:** print any of the data tables (fixtures, trusses, hoists, objects) or export them to CSV via **File → Export CSV**.
 - **Export Fixture/Truss/Object:** export selected items to stand‑alone GDTF/GTRUSS or object files via the Tools menu.
+- **Layout PDF output:** export complete documentation sheets that combine viewport captures, legends, event tables, text, and image elements on named pages.
 
 ### GUI helpers
 
+- **Build-gated tools:** some menu entries are intentionally Debug-only (for example *Print Viewer 2D* and *Generate fixture symbols*) to keep Release builds focused on production-safe workflows.
 - Tables for fixtures, trusses, hoists and objects support multi‑row editing shortcuts: sequential fills, range interpolation (`1 10` / `1 thru 10`), relative edits (`++0.5`, `--15`), etc.
 - Console panel for status messages and command‑line operations (e.g. selecting fixtures or trusses via textual commands).
 - Preferences dialog to set default directories, units and other settings.

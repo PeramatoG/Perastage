@@ -6,7 +6,7 @@
 1. Launch the application.
 2. Use **File > Import MVR...** to load an `.mvr` file.
 3. Use the table tabs (**Fixtures**, **Trusses**, **Hoists**, **Objects**) to inspect data.
-4. Toggle panels via the **View** menu if any pane is hidden.
+4. Toggle panes via the **View** menu if any pane is hidden (Console, Layers, Layouts, Summary, Rigging, 2D Viewer, 3D Viewer, and 2D Render Options).
 
 ## Project Files
 
@@ -18,6 +18,16 @@ Perastage projects (`.psproj`) store the scene, layouts, and user settings.
 - **Load** opens an existing `.psproj` file.
 - **Save** stores changes in the current project file.
 - **Save As...** writes the project under a new name or location.
+
+
+## Build-dependent tools
+
+Some tools are intentionally available only in **Debug** builds:
+
+- **File > Print Viewer 2D...**
+- **Tools > Generate fixture symbols**
+
+Release builds keep these entries hidden to reduce risk in production workflows.
 
 ## Console Commands (complete)
 
@@ -108,7 +118,7 @@ Notes:
 | Shortcut | Action |
 | --- | --- |
 | Delete | Delete selected layout element |
-| Z | Reset layout view to fit |
+| F | Reset layout view to fit |
 
 ## Mouse Shortcuts (complete)
 
