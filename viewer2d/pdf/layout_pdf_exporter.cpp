@@ -594,6 +594,8 @@ Viewer2DExportResult ExportViewer2DToPdf(
                                 const SymbolBounds &bounds) {
     RenderOptions symbolOptions{};
     symbolOptions.includeText = false;
+      // Keep the viewer export path scoped to command-buffer symbols here;
+      // layout-only SVG helpers are resolved in ExportLayoutToPdf.
     symbolOptions.strokeScale = strokeScale;
     std::string symbolContent =
         RenderCommandsToStream(commands, metadata, sources, symbolMapping,
