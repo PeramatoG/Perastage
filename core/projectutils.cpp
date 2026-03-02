@@ -35,6 +35,16 @@ std::string ToUtf8String(const fs::path& path)
     return std::string(utf8.begin(), utf8.end());
 }
 
+
+fs::path WxStringToPath(const wxString& value)
+{
+    const wxScopedCharBuffer utf8 = value.ToUTF8();
+    if (utf8)
+        return fs::u8path(std::string(utf8.data(), utf8.length()));
+
+    return fs::path(value.ToStdString());
+}
+
 void CopyLibrarySubdir(const fs::path& source, const fs::path& destination)
 {
     std::error_code ec;
@@ -75,7 +85,7 @@ std::optional<fs::path> FindExistingPath(const fs::path& start,
 fs::path GetBaseLibraryPath(const std::string& subdir)
 {
     wxFileName exe(wxStandardPaths::Get().GetExecutablePath());
-    fs::path exeBase = fs::path(exe.GetPath().ToStdString());
+    fs::path exeBase = WxStringToPath(exe.GetPath());
     fs::path suffix = fs::path("library") / subdir;
     if (auto found = FindExistingPath(exeBase, suffix))
         return *found;
@@ -87,7 +97,7 @@ fs::path GetBaseLibraryPath(const std::string& subdir)
 fs::path GetResourceRoot()
 {
     wxFileName exe(wxStandardPaths::Get().GetExecutablePath());
-    fs::path exeBase = fs::path(exe.GetPath().ToStdString());
+    fs::path exeBase = WxStringToPath(exe.GetPath());
     fs::path suffix = fs::path("resources");
     if (auto found = FindExistingPath(exeBase, suffix))
         return *found;
@@ -95,7 +105,7 @@ fs::path GetResourceRoot()
         return *found;
     const wxString resourcesDir = wxStandardPaths::Get().GetResourcesDir();
     if (!resourcesDir.empty()) {
-        fs::path resourcesPath = fs::path(resourcesDir.ToStdString());
+        fs::path resourcesPath = WxStringToPath(resourcesDir);
         std::error_code ec;
         if (fs::exists(resourcesPath, ec))
             return resourcesPath;
@@ -108,7 +118,7 @@ std::string GetLastProjectPathFile()
     wxString dir = wxStandardPaths::Get().GetUserDataDir();
     if (dir.empty())
         return {};
-    fs::path p = fs::path(dir.ToStdString());
+    fs::path p = WxStringToPath(dir);
     std::error_code ec;
     fs::create_directories(p, ec);
     if (ec)
@@ -171,7 +181,7 @@ std::optional<std::string> LoadLastProjectPath()
         return ToUtf8String(currentCandidate);
     ec.clear();
     wxFileName exe(wxStandardPaths::Get().GetExecutablePath());
-    fs::path exeBase = fs::path(exe.GetPath().ToStdString());
+    fs::path exeBase = WxStringToPath(exe.GetPath());
     fs::path exeCandidate = fs::absolute(exeBase / candidate, ec);
     if (!ec && isValidFile(exeCandidate))
         return ToUtf8String(exeCandidate);
@@ -192,7 +202,7 @@ std::string GetDefaultLibraryPath(const std::string& subdir)
 
 #ifdef NDEBUG
     fs::path baseLib = GetBaseLibraryPath(subdir);
-    fs::path userLib = fs::path(wxStandardPaths::Get().GetUserDataDir().ToStdString()) /
+    fs::path userLib = WxStringToPath(wxStandardPaths::Get().GetUserDataDir()) /
                       "library" / subdir;
 
     CopyLibrarySubdir(baseLib, userLib);
@@ -208,7 +218,7 @@ std::string GetDefaultLibraryPath(const std::string& subdir)
     if (!ec)
         return baseLib.string();
 
-    fs::path userLib = fs::path(wxStandardPaths::Get().GetUserDataDir().ToStdString()) /
+    fs::path userLib = WxStringToPath(wxStandardPaths::Get().GetUserDataDir()) /
                       "library" / subdir;
     ec.clear();
     fs::create_directories(userLib, ec);

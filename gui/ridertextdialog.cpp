@@ -90,7 +90,10 @@ void RiderTextDialog::OnLoadFromFile(wxCommandEvent &WXUNUSED(event)) {
   if (dlg.ShowModal() == wxID_CANCEL)
     return;
 
-  std::string pathUtf8 = dlg.GetPath().ToStdString();
+  const wxScopedCharBuffer pathBuffer = dlg.GetPath().ToUTF8();
+  std::string pathUtf8 =
+      pathBuffer ? std::string(pathBuffer.data(), pathBuffer.length())
+                 : dlg.GetPath().ToStdString();
   std::string text = RiderImporter::LoadText(pathUtf8);
   if (text.empty()) {
     wxMessageBox("Failed to import rider.", "Error", wxICON_ERROR);

@@ -152,6 +152,12 @@ void LogMissingIcon(const std::filesystem::path &path) {
   wxLogWarning("Main window icon not found at '%s'", path.string().c_str());
 }
 
+wxString PathToWxString(const std::filesystem::path &path) {
+  const std::u8string utf8 = path.u8string();
+  const std::string utf8Str(utf8.begin(), utf8.end());
+  return wxString::FromUTF8(utf8Str.c_str());
+}
+
 wxFont BuildDefaultUiFont() {
   wxFont defaultFont = wxSystemSettings::GetFont(wxSYS_DEFAULT_GUI_FONT);
   const wxString faceName =
@@ -271,7 +277,7 @@ MainWindow::MainWindow(const wxString &title, IGuiConfigServices *services)
     iconPath = resourceRoot / "Perastage.ico";
   std::error_code ec;
   if (!iconPath.empty() && std::filesystem::exists(iconPath, ec)) {
-    icon.LoadFile(iconPath.string(), wxBITMAP_TYPE_ICO);
+    icon.LoadFile(PathToWxString(iconPath), wxBITMAP_TYPE_ICO);
   } else {
     LogMissingIcon(
         iconPath.empty() ? std::filesystem::path("resources/Perastage.ico")

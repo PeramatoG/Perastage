@@ -16,6 +16,12 @@ wxStaticText *g_label = nullptr;
 void LogMissingIcon(const std::filesystem::path &path) {
   wxLogWarning("Splash icon not found at '%s'", path.string().c_str());
 }
+
+wxString PathToWxString(const std::filesystem::path &path) {
+  const std::u8string utf8 = path.u8string();
+  const std::string utf8Str(utf8.begin(), utf8.end());
+  return wxString::FromUTF8(utf8Str.c_str());
+}
 }
 
 void SplashScreen::Show() {
@@ -36,7 +42,7 @@ void SplashScreen::Show() {
     iconPath = resourceRoot / "Perastage.ico";
   std::error_code ec;
   if (!iconPath.empty() && std::filesystem::exists(iconPath, ec)) {
-    bundle.AddIcon(iconPath.string(), wxBITMAP_TYPE_ICO);
+    bundle.AddIcon(PathToWxString(iconPath), wxBITMAP_TYPE_ICO);
   } else {
     LogMissingIcon(
         iconPath.empty() ? std::filesystem::path("resources/Perastage.ico")
