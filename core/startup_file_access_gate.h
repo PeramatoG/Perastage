@@ -4,7 +4,9 @@
 
 namespace StartupFileAccessGate {
 
-std::recursive_mutex &Mutex();
+inline std::recursive_mutex &Mutex() {
+  static std::recursive_mutex mutex;
+  return mutex;
+}
 
 } // namespace StartupFileAccessGate
-
