@@ -210,6 +210,7 @@ private:
                           const wxString &dialogTitle);
   void StartFixtureSymbolAutoUpdateForLoadedScene();
   void ProcessNextFixtureSymbolAutoUpdate();
+  void ScheduleNextFixtureSymbolAutoUpdate(int delayMs = 1);
   void FlushPendingFixtureSymbolLibraryUpdates();
   std::string defaultLayoutPerspective;
   std::string default2DLayoutPerspective;

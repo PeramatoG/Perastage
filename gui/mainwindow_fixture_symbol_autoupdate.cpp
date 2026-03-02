@@ -72,25 +72,6 @@ void ReportFixtureAutoUpdate(MainWindow &window, ConsolePanel *console,
     console->AppendMessage(wxString::FromUTF8(message));
 }
 
-void ScheduleNextFixtureAutoUpdate(MainWindow &window, int delayMs = 1) {
-  static const int kProcessNextTimerId = wxWindow::NewControlId();
-  static std::unordered_map<MainWindow *, std::unique_ptr<wxTimer>> timers;
-
-  auto timerIt = timers.find(&window);
-  if (timerIt == timers.end()) {
-    auto timer = std::make_unique<wxTimer>(&window, kProcessNextTimerId);
-    window.Bind(
-        wxEVT_TIMER,
-        [windowPtr = &window](wxTimerEvent &) {
-          if (windowPtr)
-            windowPtr->ProcessNextFixtureSymbolAutoUpdate();
-        },
-        kProcessNextTimerId);
-    timerIt = timers.emplace(&window, std::move(timer)).first;
-  }
-
-  timerIt->second->StartOnce(delayMs);
-}
 
 } // namespace
 
@@ -124,7 +105,25 @@ void MainWindow::StartFixtureSymbolAutoUpdateForLoadedScene() {
   fixtureSymbolAutoUpdateRunning = true;
   ReportFixtureAutoUpdate(*this, consolePanel,
                           "Fixture symbol auto-update: started.");
-  ScheduleNextFixtureAutoUpdate(*this, 100);
+  ScheduleNextFixtureSymbolAutoUpdate(100);
+}
+
+
+void MainWindow::ScheduleNextFixtureSymbolAutoUpdate(int delayMs) {
+  static const int kProcessNextTimerId = wxWindow::NewControlId();
+  static std::unordered_map<MainWindow *, std::unique_ptr<wxTimer>> timers;
+
+  auto timerIt = timers.find(this);
+  if (timerIt == timers.end()) {
+    auto timer = std::make_unique<wxTimer>(this, kProcessNextTimerId);
+    Bind(
+        wxEVT_TIMER,
+        [this](wxTimerEvent &) { ProcessNextFixtureSymbolAutoUpdate(); },
+        kProcessNextTimerId);
+    timerIt = timers.emplace(this, std::move(timer)).first;
+  }
+
+  timerIt->second->StartOnce(delayMs);
 }
 
 void MainWindow::ProcessNextFixtureSymbolAutoUpdate() {
@@ -151,7 +150,7 @@ void MainWindow::ProcessNextFixtureSymbolAutoUpdate() {
   ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
   const auto fixtureIt = cfg.GetScene().fixtures.find(fixtureUuid);
   if (fixtureIt == cfg.GetScene().fixtures.end()) {
-    ScheduleNextFixtureAutoUpdate(*this);
+    ScheduleNextFixtureSymbolAutoUpdate();
     return;
   }
 
@@ -159,7 +158,7 @@ void MainWindow::ProcessNextFixtureSymbolAutoUpdate() {
   const std::string fixtureLabel = BuildFixtureLabel(fixture);
   const std::string key = BuildFixtureAutoUpdateKey(fixture);
   if (key.empty() || !fixtureSymbolAutoUpdateProcessedKeys.insert(key).second) {
-    ScheduleNextFixtureAutoUpdate(*this);
+    ScheduleNextFixtureSymbolAutoUpdate();
     return;
   }
 
@@ -174,13 +173,13 @@ void MainWindow::ProcessNextFixtureSymbolAutoUpdate() {
               "' (inspection error: " + inspectionError + ").", false);
       ++fixtureSymbolAutoUpdateSkippedCount;
     }
-    ScheduleNextFixtureAutoUpdate(*this);
+    ScheduleNextFixtureSymbolAutoUpdate();
     return;
   }
 
   if (!inspection.requiresSymbolGeneration) {
     ++fixtureSymbolAutoUpdateSkippedCount;
-    ScheduleNextFixtureAutoUpdate(*this);
+    ScheduleNextFixtureSymbolAutoUpdate();
     return;
   }
 
@@ -212,7 +211,7 @@ void MainWindow::ProcessNextFixtureSymbolAutoUpdate() {
             "' (" + (capture.error.empty() ? std::string("unknown capture error")
                                             : capture.error) +
             ").", false);
-    ScheduleNextFixtureAutoUpdate(*this);
+    ScheduleNextFixtureSymbolAutoUpdate();
     return;
   }
 
@@ -227,7 +226,7 @@ void MainWindow::ProcessNextFixtureSymbolAutoUpdate() {
             (calibrationError.empty() ? std::string("unknown calibration error")
                                       : calibrationError) +
             ").", false);
-    ScheduleNextFixtureAutoUpdate(*this);
+    ScheduleNextFixtureSymbolAutoUpdate();
     return;
   }
 
@@ -259,7 +258,7 @@ void MainWindow::ProcessNextFixtureSymbolAutoUpdate() {
             ").", false);
   }
 
-  ScheduleNextFixtureAutoUpdate(*this);
+  ScheduleNextFixtureSymbolAutoUpdate();
 }
 
 void MainWindow::FlushPendingFixtureSymbolLibraryUpdates() {
