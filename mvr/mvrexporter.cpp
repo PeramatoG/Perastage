@@ -186,6 +186,20 @@ static std::string BuildTrussGdtfArchiveName(const Truss &truss) {
   return SanitizeArchiveFileName(baseName, "truss.gdtf");
 }
 
+static std::string BuildTrussTypeKey(const Truss &truss) {
+  std::ostringstream key;
+  key << TrimAscii(truss.gdtfSpec) << '|'
+      << TrimAscii(truss.modelFile) << '|'
+      << TrimAscii(truss.manufacturer) << '|'
+      << TrimAscii(truss.model) << '|'
+      << TrimAscii(truss.crossSection) << '|'
+      << truss.lengthMm << '|'
+      << truss.widthMm << '|'
+      << truss.heightMm << '|'
+      << truss.weightKg;
+  return key.str();
+}
+
 static bool IsValidMvrFileName(const std::string &value) {
   if (value.empty())
     return false;
@@ -714,6 +728,7 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
   std::unordered_map<std::string, std::string> sourceToArchivePath;
   std::unordered_map<std::string, std::string> gdtfArchiveByObjectUuid;
   std::unordered_map<std::string, GdtfOverrides> gdtfOverrides;
+  std::unordered_map<std::string, std::string> trussArchiveByTypeKey;
   std::unordered_set<std::string> reservedArchivePaths;
 
   auto normalizeSourcePath = [&](const std::string &rawPath) {
@@ -1099,22 +1114,33 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     addInt("CustomId", t.customId);
     addInt("CustomIdType", t.customIdType);
 
-    std::string trussSourceGdtf = t.gdtfSpec;
-    if (trussSourceGdtf.empty() && fs::path(t.modelFile).extension() == ".gdtf")
-      trussSourceGdtf = t.modelFile;
+    std::string trussTypeKey = BuildTrussTypeKey(t);
+    std::string trussGdtfArchivePath;
+    auto trussArchiveIt = trussArchiveByTypeKey.find(trussTypeKey);
+    if (trussArchiveIt != trussArchiveByTypeKey.end()) {
+      trussGdtfArchivePath = trussArchiveIt->second;
+      if (!t.uuid.empty())
+        gdtfArchiveByObjectUuid[t.uuid] = trussGdtfArchivePath;
+    } else {
+      std::string trussSourceGdtf = t.gdtfSpec;
+      if (trussSourceGdtf.empty() && fs::path(t.modelFile).extension() == ".gdtf")
+        trussSourceGdtf = t.modelFile;
 
-    if (trussSourceGdtf.empty()) {
-      fs::path tempPath = fs::temp_directory_path() /
-                          ("perastage-truss-export-" + (t.uuid.empty() ? std::string("truss") : t.uuid) + ".gdtf");
-      std::string conversionError;
-      if (BuildTrussGdtfFromInstance(t, tempPath, &conversionError)) {
-        trussSourceGdtf = tempPath.string();
+      if (trussSourceGdtf.empty()) {
+        fs::path tempPath = fs::temp_directory_path() /
+                            ("perastage-truss-export-" + (t.uuid.empty() ? std::string("truss") : t.uuid) + ".gdtf");
+        std::string conversionError;
+        if (BuildTrussGdtfFromInstance(t, tempPath, &conversionError))
+          trussSourceGdtf = tempPath.string();
       }
+
+      std::string trussPreferredName = BuildTrussGdtfArchiveName(t);
+      trussGdtfArchivePath =
+          registerGdtfResource(t.uuid, trussSourceGdtf, trussPreferredName, true);
+      if (!trussGdtfArchivePath.empty())
+        trussArchiveByTypeKey[trussTypeKey] = trussGdtfArchivePath;
     }
 
-    std::string trussPreferredName = BuildTrussGdtfArchiveName(t);
-    std::string trussGdtfArchivePath =
-        registerGdtfResource(t.uuid, trussSourceGdtf, trussPreferredName, false);
     if (!trussGdtfArchivePath.empty()) {
       tinyxml2::XMLElement *e = doc.NewElement("GDTFSpec");
       e->SetText(trussGdtfArchivePath.c_str());
