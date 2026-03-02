@@ -37,6 +37,7 @@ struct ResourceSyncState {
   std::unordered_map<std::string, std::vector<GdtfObject>> loadedGdtf;
   std::unordered_map<std::string, GdtfGeometryTree> loadedGdtfGeometryTrees;
   std::unordered_map<std::string, std::string> failedGdtfReasons;
+  std::unordered_map<std::string, size_t> failedGdtfAttemptCounts;
   std::unordered_map<std::string, size_t> reportedGdtfFailureCounts;
   std::unordered_map<std::string, std::string> reportedGdtfFailureReasons;
   std::unordered_map<std::string, PathResolutionEntry> resolvedGdtfSpecs;

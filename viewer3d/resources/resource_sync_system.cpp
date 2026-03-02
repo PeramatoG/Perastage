@@ -367,6 +367,7 @@ ResourceSyncResult ResourceSyncSystem::Sync(
     state.fixtureNodeRegistry.clear();
     state.fixtureAnchorRegistry.clear();
     state.failedGdtfReasons.clear();
+    state.failedGdtfAttemptCounts.clear();
     state.reportedGdtfFailureCounts.clear();
     state.reportedGdtfFailureReasons.clear();
     state.resolvedGdtfSpecs.clear();
@@ -411,6 +412,7 @@ ResourceSyncResult ResourceSyncSystem::Sync(
     // This prevents stale failure caches when a fixture GDTF path is updated
     // (or a previously invalid file gets replaced) without changing basePath.
     state.failedGdtfReasons.clear();
+    state.failedGdtfAttemptCounts.clear();
     state.reportedGdtfFailureCounts.clear();
     state.reportedGdtfFailureReasons.clear();
   }
@@ -519,9 +521,13 @@ ResourceSyncResult ResourceSyncSystem::Sync(
 
     auto failedIt = state.failedGdtfReasons.find(gdtfPath);
     if (failedIt != state.failedGdtfReasons.end()) {
-      ++gdtfErrorCounts[gdtfPath];
-      gdtfErrorReasons[gdtfPath] = failedIt->second;
-      continue;
+      const size_t attempts = state.failedGdtfAttemptCounts[gdtfPath];
+      if (attempts >= 3) {
+        ++gdtfErrorCounts[gdtfPath];
+        gdtfErrorReasons[gdtfPath] = failedIt->second;
+        continue;
+      }
+      state.failedGdtfReasons.erase(failedIt);
     }
 
     if (!processedGdtfPaths.insert(gdtfPath).second)
@@ -532,6 +538,7 @@ ResourceSyncResult ResourceSyncSystem::Sync(
       std::string gdtfError;
       if (LoadGdtf(gdtfPath, objs, &gdtfError)) {
         state.loadedGdtf[gdtfPath] = std::move(objs);
+        state.failedGdtfAttemptCounts.erase(gdtfPath);
 
         GdtfGeometryTree geometryTree;
         std::string geometryTreeError;
@@ -543,6 +550,7 @@ ResourceSyncResult ResourceSyncSystem::Sync(
       } else {
         std::string reason = gdtfError.empty() ? "Failed to load GDTF" : gdtfError;
         state.failedGdtfReasons[gdtfPath] = reason;
+        ++state.failedGdtfAttemptCounts[gdtfPath];
         ++gdtfErrorCounts[gdtfPath];
         gdtfErrorReasons[gdtfPath] = reason;
         result.assetsChanged = true;
