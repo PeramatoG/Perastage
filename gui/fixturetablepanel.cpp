@@ -53,6 +53,12 @@
 namespace fs = std::filesystem;
 
 namespace {
+
+const wxString &DegreeSymbol() {
+  static const wxString kDegreeSymbol = wxString::FromUTF8("\xC2\xB0");
+  return kDegreeSymbol;
+}
+
 class ConfigManagerSceneAdapter : public FixtureTableEditService::ISceneAdapter {
 public:
   void PushUndoState(const std::string &description) override {
@@ -255,9 +261,9 @@ void FixtureTablePanel::ReloadData() {
     wxString posName = wxString::FromUTF8(fixture->positionName);
 
     auto euler = MatrixUtils::MatrixToEuler(fixture->transform);
-    wxString roll = wxString::Format("%.1f\u00B0", euler[2]);
-    wxString pitch = wxString::Format("%.1f\u00B0", euler[1]);
-    wxString yaw = wxString::Format("%.1f\u00B0", euler[0]);
+    wxString roll = wxString::Format("%.1f", euler[2]) + DegreeSymbol();
+    wxString pitch = wxString::Format("%.1f", euler[1]) + DegreeSymbol();
+    wxString yaw = wxString::Format("%.1f", euler[0]) + DegreeSymbol();
 
     row.push_back(fixtureID);
     row.push_back(name);
@@ -659,7 +665,7 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
         double newVal = curVal + delta;
         wxString out;
         if (col >= 13 && col <= 15)
-          out = wxString::Format("%.1f\u00B0", newVal);
+          out = wxString::Format("%.1f", newVal) + DegreeSymbol();
         else
           out = wxString::Format("%.3f", newVal);
         table->SetValue(wxVariant(out), r, col);
@@ -756,7 +762,7 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
 
           wxString out;
           if (col >= 13 && col <= 15)
-            out = wxString::Format("%.1f\u00B0", val);
+            out = wxString::Format("%.1f", val) + DegreeSymbol();
           else
             out = wxString::Format("%.3f", val);
 
