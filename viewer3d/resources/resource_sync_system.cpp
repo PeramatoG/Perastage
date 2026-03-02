@@ -9,23 +9,13 @@
 #include <cctype>
 #include <cmath>
 #include <filesystem>
+#include <vector>
 
 namespace fs = std::filesystem;
 
 namespace {
 
-std::string FindFileRecursive(const std::string &baseDir,
-                              const std::string &fileName) {
-  if (baseDir.empty())
-    return {};
-  for (auto &p : fs::recursive_directory_iterator(baseDir)) {
-    if (!p.is_regular_file())
-      continue;
-    if (p.path().filename() == fileName)
-      return p.path().string();
-  }
-  return {};
-}
+std::string ResolvePathWithCaseFallback(const fs::path &path);
 
 std::string ToLowerAscii(std::string value) {
   std::transform(value.begin(), value.end(), value.begin(),
@@ -35,6 +25,63 @@ std::string ToLowerAscii(std::string value) {
 
 bool EqualsIgnoreAsciiCase(const std::string &lhs, const std::string &rhs) {
   return ToLowerAscii(lhs) == ToLowerAscii(rhs);
+}
+
+std::string FindFileRecursive(const std::string &baseDir,
+                              const std::string &fileName) {
+  if (baseDir.empty())
+    return {};
+
+  std::error_code ec;
+  fs::recursive_directory_iterator it(baseDir, ec), end;
+  if (ec)
+    return {};
+
+  for (; it != end; it.increment(ec)) {
+    if (ec)
+      break;
+    if (!it->is_regular_file(ec) || ec) {
+      ec.clear();
+      continue;
+    }
+    if (EqualsIgnoreAsciiCase(it->path().filename().string(), fileName))
+      return it->path().string();
+  }
+  return {};
+}
+
+std::string ResolveLibraryRelativePath(const std::string &spec) {
+  fs::path specPath(spec);
+  std::vector<fs::path> parts;
+  for (const auto &part : specPath) {
+    if (!part.empty())
+      parts.push_back(part);
+  }
+
+  for (size_t i = 0; i < parts.size(); ++i) {
+    if (!EqualsIgnoreAsciiCase(parts[i].string(), "library"))
+      continue;
+
+    fs::path suffix;
+    for (size_t j = i; j < parts.size(); ++j)
+      suffix /= parts[j];
+
+    std::error_code ec;
+    const fs::path cwd = fs::current_path(ec);
+    if (ec)
+      return {};
+
+    const std::array<fs::path, 3> roots = {cwd, cwd.parent_path(), cwd.parent_path().parent_path()};
+    for (const fs::path &root : roots) {
+      if (root.empty())
+        continue;
+      const std::string resolved = ResolvePathWithCaseFallback(root / suffix);
+      if (!resolved.empty())
+        return resolved;
+    }
+  }
+
+  return {};
 }
 
 std::string ResolvePathWithCaseFallback(const fs::path &path) {
@@ -171,8 +218,27 @@ std::string ResolveGdtfPath(const std::string &base, const std::string &spec,
     ec.clear();
   }
 
-  if (allowRecursiveFallback)
-    return FindFileRecursive(base, fs::path(cleanSpec).filename().string());
+  const std::string libraryRelativeResolved = ResolveLibraryRelativePath(cleanSpec);
+  if (!libraryRelativeResolved.empty())
+    return libraryRelativeResolved;
+
+  if (allowRecursiveFallback) {
+    const std::string fileName = fs::path(cleanSpec).filename().string();
+    const std::string recursiveInBase = FindFileRecursive(base, fileName);
+    if (!recursiveInBase.empty())
+      return recursiveInBase;
+
+    std::error_code ec;
+    const fs::path cwd = fs::current_path(ec);
+    if (!ec) {
+      const std::array<fs::path, 3> roots = {cwd, cwd.parent_path(), cwd.parent_path().parent_path()};
+      for (const fs::path &root : roots) {
+        const std::string recursive = FindFileRecursive(root.string(), fileName);
+        if (!recursive.empty())
+          return recursive;
+      }
+    }
+  }
   return {};
 }
 
