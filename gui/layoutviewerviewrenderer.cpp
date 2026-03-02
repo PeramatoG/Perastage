@@ -80,7 +80,17 @@ SvgGeometryBounds ComputeSvgGeometryBounds(const PerastageSvgSymbolData &svg) {
 
 Transform2D BuildSvgToSymbolTransform(const PerastageSvgSymbolData &svg,
                                       const SymbolBounds &symbolBounds) {
-  const SvgGeometryBounds svgBounds = ComputeSvgGeometryBounds(svg);
+  SvgGeometryBounds svgBounds;
+  if (svg.viewBoxWidth > 0.0 && svg.viewBoxHeight > 0.0) {
+    svgBounds.minX = svg.offsetXmm;
+    svgBounds.minY = svg.offsetYmm;
+    svgBounds.maxX = svg.offsetXmm + svg.viewBoxWidth;
+    svgBounds.maxY = svg.offsetYmm + svg.viewBoxHeight;
+    svgBounds.valid = true;
+  } else {
+    svgBounds = ComputeSvgGeometryBounds(svg);
+  }
+
   const double srcW = svgBounds.maxX - svgBounds.minX;
   const double srcH = svgBounds.maxY - svgBounds.minY;
   const double dstW = static_cast<double>(symbolBounds.max.x - symbolBounds.min.x);
@@ -276,18 +286,22 @@ void DrawSvgSymbol(wxGCDC &dc, const viewer2d::Viewer2DRenderMapping &mapping,
     gc->FillPath(path, fillRule);
   }
 
-  dc.SetPen(wxPen(*wxBLACK, 1));
+  gc->SetPen(wxPen(*wxBLACK, 1));
   for (const auto &line : svg.strokes) {
     if (line.points.size() < 2)
       continue;
-    std::vector<viewer2d::Viewer2DRenderPoint> mapped;
-    mapped.reserve(line.points.size());
-    for (const auto &point : line.points) {
-      mapped.push_back(MapPoint(mapping, transform,
-                                static_cast<float>(point.x + svg.offsetXmm),
-                                static_cast<float>(point.y + svg.offsetYmm)));
+    wxGraphicsPath path = gc->CreatePath();
+    auto mapped = MapPoint(mapping, transform,
+                           static_cast<float>(line.points.front().x + svg.offsetXmm),
+                           static_cast<float>(line.points.front().y + svg.offsetYmm));
+    path.MoveToPoint(mapped.x, mapped.y);
+    for (size_t i = 1; i < line.points.size(); ++i) {
+      mapped = MapPoint(mapping, transform,
+                        static_cast<float>(line.points[i].x + svg.offsetXmm),
+                        static_cast<float>(line.points[i].y + svg.offsetYmm));
+      path.AddLineToPoint(mapped.x, mapped.y);
     }
-    DrawPolyline(dc, mapped);
+    gc->StrokePath(path);
   }
 }
 
