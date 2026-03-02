@@ -173,7 +173,7 @@ void MainWindow::OnPrintViewer2D(wxCommandEvent &WXUNUSED(event)) {
         if (capturePanel)
           fixtureReport = capturePanel->GetLastFixtureDebugReport();
         if (!fixtureReport.empty()) {
-          wxLogMessage("%s", wxString::FromUTF8(fixtureReport));
+          wxLogMessage(wxString::FromUTF8(fixtureReport));
           if (ConsolePanel::Instance()) {
             ConsolePanel::Instance()->AppendMessage(
                 wxString::FromUTF8(fixtureReport));
@@ -200,8 +200,7 @@ void MainWindow::OnPrintViewer2D(wxCommandEvent &WXUNUSED(event)) {
               wxMessageBox(msg, "Print Viewer 2D", wxOK | wxICON_ERROR, this);
             } else {
               SetPrintStatus(this, "");
-              wxMessageBox(wxString::Format("2D view saved to %s",
-                                            outputPathDisplay),
+              wxMessageBox("2D view saved to " + outputPathDisplay,
                            "Print Viewer 2D", wxOK | wxICON_INFORMATION, this);
             }
           });
@@ -393,8 +392,7 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
                 wxMessageBox(msg, "Print Layout", wxOK | wxICON_ERROR, this);
               } else {
                 SetPrintStatus(this, "");
-                wxString successMessage =
-                    wxString::Format("Layout saved to %s", outputPathDisplay);
+                wxString successMessage = "Layout saved to " + outputPathDisplay;
                 wxMessageBox(successMessage, "Print Layout",
                              wxOK | wxICON_INFORMATION, this);
               }

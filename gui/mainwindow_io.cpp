@@ -57,9 +57,10 @@ void MainWindow::OnLoad(wxCommandEvent &event) {
   if (!ConfirmSaveIfDirty("loading a project", "Open Project"))
     return;
 
-  wxString filter = wxString::Format("Perastage files (*%s)|*%s",
-                                     ProjectUtils::PROJECT_EXTENSION,
-                                     ProjectUtils::PROJECT_EXTENSION);
+  const wxString projectExtension =
+      wxString::FromUTF8(ProjectUtils::PROJECT_EXTENSION);
+  wxString filter = "Perastage files (*" + projectExtension + ")|*" +
+                    projectExtension;
   wxString projDir;
   if (auto last = ProjectUtils::LoadLastProjectPath())
     projDir =
@@ -98,9 +99,10 @@ void MainWindow::OnSave(wxCommandEvent &event) {
 }
 
 void MainWindow::OnSaveAs(wxCommandEvent &event) {
-  wxString filter = wxString::Format("Perastage files (*%s)|*%s",
-                                     ProjectUtils::PROJECT_EXTENSION,
-                                     ProjectUtils::PROJECT_EXTENSION);
+  const wxString projectExtension =
+      wxString::FromUTF8(ProjectUtils::PROJECT_EXTENSION);
+  wxString filter = "Perastage files (*" + projectExtension + ")|*" +
+                    projectExtension;
   wxString projDir;
   if (!currentProjectPath.empty())
     projDir = wxString::FromUTF8(
@@ -142,7 +144,10 @@ void MainWindow::OnImportRider(wxCommandEvent &event) {
   if (dlg.ShowModal() == wxID_CANCEL)
     return;
 
-  std::string pathUtf8 = dlg.GetPath().ToStdString();
+  const wxScopedCharBuffer pathBuffer = dlg.GetPath().ToUTF8();
+  std::string pathUtf8 =
+      pathBuffer ? std::string(pathBuffer.data(), pathBuffer.length())
+                 : dlg.GetPath().ToStdString();
   if (!RiderImporter::Import(pathUtf8)) {
     wxMessageBox("Failed to import rider.", "Error", wxICON_ERROR);
     if (consolePanel)
@@ -269,8 +274,7 @@ void MainWindow::OnExportFixture(wxCommandEvent &WXUNUSED(event)) {
   auto extractZip = [](const std::string &zipPath, const std::string &destDir) {
     if (!fs::exists(zipPath)) {
       if (ConsolePanel::Instance()) {
-        wxString msg = wxString::Format("GDTF: cannot open %s",
-                                        wxString::FromUTF8(zipPath));
+        wxString msg = "GDTF: cannot open " + wxString::FromUTF8(zipPath);
         ConsolePanel::Instance()->AppendMessage(msg);
       }
       return false;
@@ -279,8 +283,7 @@ void MainWindow::OnExportFixture(wxCommandEvent &WXUNUSED(event)) {
     wxFileInputStream input(zipPath);
     if (!input.IsOk()) {
       if (ConsolePanel::Instance()) {
-        wxString msg = wxString::Format("GDTF: cannot open %s",
-                                        wxString::FromUTF8(zipPath));
+        wxString msg = "GDTF: cannot open " + wxString::FromUTF8(zipPath);
         ConsolePanel::Instance()->AppendMessage(msg);
       }
       return false;

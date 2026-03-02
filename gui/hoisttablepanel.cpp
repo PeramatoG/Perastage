@@ -40,6 +40,12 @@
 static HoistTablePanel *s_instance = nullptr;
 
 namespace {
+
+const wxString &DegreeSymbol() {
+  static const wxString kDegreeSymbol = wxString::FromUTF8("\xC2\xB0");
+  return kDegreeSymbol;
+}
+
 struct RangeParts {
   wxArrayString parts;
   bool usedSeparator = false;
@@ -187,9 +193,9 @@ void HoistTablePanel::ReloadData() {
     wxString posZ = wxString::Format("%.3f", posArr[2] / 1000.0f);
 
     auto euler = MatrixUtils::MatrixToEuler(support.transform);
-    wxString roll = wxString::Format("%.1f\u00B0", euler[2]);
-    wxString pitch = wxString::Format("%.1f\u00B0", euler[1]);
-    wxString yaw = wxString::Format("%.1f\u00B0", euler[0]);
+    wxString roll = wxString::Format("%.1f", euler[2]) + DegreeSymbol();
+    wxString pitch = wxString::Format("%.1f", euler[1]) + DegreeSymbol();
+    wxString yaw = wxString::Format("%.1f", euler[0]) + DegreeSymbol();
 
     wxString chainLen = wxString::Format("%.2f", support.chainLength);
     wxString capacity = wxString::Format("%.2f", support.capacityKg);
@@ -354,14 +360,16 @@ void HoistTablePanel::OnContextMenu(wxDataViewEvent &event) {
         wxVariant cv;
         table->GetValue(cv, r, col);
         wxString cur = cv.GetString();
-        if (col >= 9 && col <= 11)
-          cur.Replace("\u00B0", "");
+        if (col >= 9 && col <= 11) {
+          if (!DegreeSymbol().empty())
+            cur.Replace(DegreeSymbol(), "");
+        }
         double curVal = 0.0;
         cur.ToDouble(&curVal);
         double newVal = curVal + delta;
         wxString out;
         if (col >= 9 && col <= 11)
-          out = wxString::Format("%.1f\u00B0", newVal);
+          out = wxString::Format("%.1f", newVal) + DegreeSymbol();
         else
           out = wxString::Format((col == 12) ? "%.2f" : "%.3f", newVal);
         table->SetValue(wxVariant(out), r, col);
@@ -405,7 +413,7 @@ void HoistTablePanel::OnContextMenu(wxDataViewEvent &event) {
 
         wxString out;
         if (col >= 9 && col <= 11)
-          out = wxString::Format("%.1f\u00B0", val);
+          out = wxString::Format("%.1f", val) + DegreeSymbol();
         else
           out = wxString::Format((col == 12) ? "%.2f" : "%.3f", val);
 
@@ -570,19 +578,22 @@ void HoistTablePanel::UpdateSceneData(bool logChanges) {
     table->GetValue(v, i, 9);
     {
       wxString s = v.GetString();
-      s.Replace("°", "");
+      if (!DegreeSymbol().empty())
+            s.Replace(DegreeSymbol(), "");
       s.ToDouble(&roll);
     }
     table->GetValue(v, i, 10);
     {
       wxString s = v.GetString();
-      s.Replace("°", "");
+      if (!DegreeSymbol().empty())
+            s.Replace(DegreeSymbol(), "");
       s.ToDouble(&pitch);
     }
     table->GetValue(v, i, 11);
     {
       wxString s = v.GetString();
-      s.Replace("°", "");
+      if (!DegreeSymbol().empty())
+            s.Replace(DegreeSymbol(), "");
       s.ToDouble(&yaw);
     }
 

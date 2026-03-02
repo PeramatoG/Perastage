@@ -52,7 +52,7 @@ RiderTextDialog::RiderTextDialog(wxWindow *parent,
   wxBoxSizer *headerSizer = new wxBoxSizer(wxHORIZONTAL);
   const wxString sourceTextLabel =
       sourceLabel.empty() ? wxString("No source loaded.")
-                          : wxString::Format("Loaded: %s", sourceLabel);
+                          : wxString("Loaded: ") + sourceLabel;
   sourceText = new wxStaticText(this, wxID_ANY, sourceTextLabel);
   headerSizer->Add(sourceText, 1, wxALIGN_CENTER_VERTICAL | wxRIGHT, 8);
   wxButton *loadButton = new wxButton(this, ID_RiderText_Load, "Load rider...");
@@ -90,7 +90,10 @@ void RiderTextDialog::OnLoadFromFile(wxCommandEvent &WXUNUSED(event)) {
   if (dlg.ShowModal() == wxID_CANCEL)
     return;
 
-  std::string pathUtf8 = dlg.GetPath().ToStdString();
+  const wxScopedCharBuffer pathBuffer = dlg.GetPath().ToUTF8();
+  std::string pathUtf8 =
+      pathBuffer ? std::string(pathBuffer.data(), pathBuffer.length())
+                 : dlg.GetPath().ToStdString();
   std::string text = RiderImporter::LoadText(pathUtf8);
   if (text.empty()) {
     wxMessageBox("Failed to import rider.", "Error", wxICON_ERROR);
@@ -98,7 +101,7 @@ void RiderTextDialog::OnLoadFromFile(wxCommandEvent &WXUNUSED(event)) {
   }
   sourceLabel = dlg.GetFilename();
   if (sourceText)
-    sourceText->SetLabel(wxString::Format("Loaded: %s", sourceLabel));
+    sourceText->SetLabel(wxString("Loaded: ") + sourceLabel);
   textCtrl->ChangeValue(wxString::FromUTF8(text));
   wxMessageBox("Rider imported successfully.", "Success", wxICON_INFORMATION);
 }
@@ -129,15 +132,15 @@ void RiderTextDialog::OnLoadExample(wxCommandEvent &WXUNUSED(event)) {
   textCtrl->ChangeValue(exampleText);
   sourceLabel = "Example text";
   if (sourceText)
-    sourceText->SetLabel(wxString::Format("Loaded: %s", sourceLabel));
+    sourceText->SetLabel(wxString("Loaded: ") + sourceLabel);
 }
 
 void RiderTextDialog::OnApply(wxCommandEvent &WXUNUSED(event)) {
   wxString value = textCtrl->GetValue();
-  std::string text = value.ToStdString(wxConvUTF8);
-  if (text.empty() && !value.empty()) {
-    text = value.ToStdString();
-  }
+  const wxScopedCharBuffer textBuffer = value.ToUTF8();
+  std::string text =
+      textBuffer ? std::string(textBuffer.data(), textBuffer.length())
+                 : value.ToStdString();
   if (text.empty()) {
     wxMessageBox("Rider text is empty.", "Error", wxICON_ERROR);
     return;

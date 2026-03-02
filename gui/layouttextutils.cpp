@@ -71,7 +71,7 @@ wxFont MakeRenderFont(int sizePx, bool bold, bool italic,
   return font;
 }
 
-const char *FormatName(int format) {
+wxString FormatName(int format) {
   switch (static_cast<wxRichTextFileType>(format)) {
     case wxRICHTEXT_TYPE_XML:
       return "XML";
@@ -152,33 +152,33 @@ bool LoadRichTextBufferFromString(wxRichTextBuffer &buffer,
   if (status == RichTextOpStatus::kSuccess)
     return true;
   if (status == RichTextOpStatus::kNoHandler) {
-    wxLogWarning("No rich text handler found for %s format.",
-                 FormatName(wxRICHTEXT_TYPE_XML));
+    wxLogWarning("No rich text handler found for " +
+                 FormatName(wxRICHTEXT_TYPE_XML) + " format.");
   } else {
-    wxLogWarning("Failed to load rich text buffer using %s format.",
-                 FormatName(wxRICHTEXT_TYPE_XML));
+    wxLogWarning("Failed to load rich text buffer using " +
+                 FormatName(wxRICHTEXT_TYPE_XML) + " format.");
   }
 #if defined(wxRICHTEXT_TYPE_RICHTEXT)
   status = LoadBufferFromUtf8(buffer, content, wxRICHTEXT_TYPE_RICHTEXT);
   if (status == RichTextOpStatus::kSuccess)
     return true;
   if (status == RichTextOpStatus::kNoHandler) {
-    wxLogWarning("No rich text handler found for %s format.",
-                 FormatName(wxRICHTEXT_TYPE_RICHTEXT));
+    wxLogWarning("No rich text handler found for " +
+                 FormatName(wxRICHTEXT_TYPE_RICHTEXT) + " format.");
   } else {
-    wxLogWarning("Failed to load rich text buffer using %s format.",
-                 FormatName(wxRICHTEXT_TYPE_RICHTEXT));
+    wxLogWarning("Failed to load rich text buffer using " +
+                 FormatName(wxRICHTEXT_TYPE_RICHTEXT) + " format.");
   }
 #endif
   status = LoadBufferFromUtf8(buffer, content, wxRICHTEXT_TYPE_TEXT);
   if (status == RichTextOpStatus::kSuccess)
     return true;
   if (status == RichTextOpStatus::kNoHandler) {
-    wxLogWarning("No rich text handler found for %s format.",
-                 FormatName(wxRICHTEXT_TYPE_TEXT));
+    wxLogWarning("No rich text handler found for " +
+                 FormatName(wxRICHTEXT_TYPE_TEXT) + " format.");
   } else {
-    wxLogWarning("Failed to load rich text buffer using %s format.",
-                 FormatName(wxRICHTEXT_TYPE_TEXT));
+    wxLogWarning("Failed to load rich text buffer using " +
+                 FormatName(wxRICHTEXT_TYPE_TEXT) + " format.");
   }
   return false;
 }
@@ -189,22 +189,22 @@ wxString SaveRichTextBufferToString(wxRichTextBuffer &buffer) {
   if (output.status == RichTextOpStatus::kSuccess)
     return output.data;
   if (output.status == RichTextOpStatus::kNoHandler) {
-    wxLogWarning("No rich text handler found for %s format.",
-                 FormatName(wxRICHTEXT_TYPE_XML));
+    wxLogWarning("No rich text handler found for " +
+                 FormatName(wxRICHTEXT_TYPE_XML) + " format.");
   } else {
-    wxLogWarning("Failed to save rich text buffer using %s format.",
-                 FormatName(wxRICHTEXT_TYPE_XML));
+    wxLogWarning("Failed to save rich text buffer using " +
+                 FormatName(wxRICHTEXT_TYPE_XML) + " format.");
   }
 #if defined(wxRICHTEXT_TYPE_RICHTEXT)
   output = SaveBufferToUtf8(buffer, wxRICHTEXT_TYPE_RICHTEXT);
   if (output.status == RichTextOpStatus::kSuccess)
     return output.data;
   if (output.status == RichTextOpStatus::kNoHandler) {
-    wxLogWarning("No rich text handler found for %s format.",
-                 FormatName(wxRICHTEXT_TYPE_RICHTEXT));
+    wxLogWarning("No rich text handler found for " +
+                 FormatName(wxRICHTEXT_TYPE_RICHTEXT) + " format.");
   } else {
-    wxLogWarning("Failed to save rich text buffer using %s format.",
-                 FormatName(wxRICHTEXT_TYPE_RICHTEXT));
+    wxLogWarning("Failed to save rich text buffer using " +
+                 FormatName(wxRICHTEXT_TYPE_RICHTEXT) + " format.");
   }
 #endif
   return wxEmptyString;

@@ -207,7 +207,7 @@ void GdtfSearchDialog::UpdateResults()
     wxString b = normalize(manufacturerCtrl->GetValue());
     wxString m = normalize(fixtureCtrl->GetValue());
     if (ConsolePanel::Instance()) {
-        wxString msg = wxString::Format("Filtering manufacturer='%s' fixture='%s'", b, m);
+        wxString msg = "Filtering manufacturer='" + b + "' fixture='" + m + "'";
         ConsolePanel::Instance()->AppendMessage(msg);
     }
     for (size_t i = 0; i < entries.size(); ++i) {

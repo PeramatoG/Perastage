@@ -37,6 +37,12 @@
 static SceneObjectTablePanel* s_instance = nullptr;
 
 namespace {
+
+const wxString &DegreeSymbol() {
+  static const wxString kDegreeSymbol = wxString::FromUTF8("\xC2\xB0");
+  return kDegreeSymbol;
+}
+
 struct RangeParts {
     wxArrayString parts;
     bool usedSeparator = false;
@@ -185,9 +191,9 @@ void SceneObjectTablePanel::ReloadData()
         wxString posZ = wxString::Format("%.3f", posArr[2] / 1000.0f);
 
         auto euler = MatrixUtils::MatrixToEuler(obj.transform);
-        wxString roll = wxString::Format("%.1f\u00B0", euler[2]);
-        wxString pitch = wxString::Format("%.1f\u00B0", euler[1]);
-        wxString yaw = wxString::Format("%.1f\u00B0", euler[0]);
+        wxString roll = wxString::Format("%.1f", euler[2]) + DegreeSymbol();
+        wxString pitch = wxString::Format("%.1f", euler[1]) + DegreeSymbol();
+        wxString yaw = wxString::Format("%.1f", euler[0]) + DegreeSymbol();
 
         row.push_back(name);
         row.push_back(layer);
@@ -308,14 +314,16 @@ void SceneObjectTablePanel::OnContextMenu(wxDataViewEvent& event)
                 wxVariant cv;
                 table->GetValue(cv, r, col);
                 wxString cur = cv.GetString();
-                if (col >= 6)
-                    cur.Replace("\u00B0", "");
+                if (col >= 6) {
+                    if (!DegreeSymbol().empty())
+                        cur.Replace(DegreeSymbol(), "");
+                }
                 double curVal = 0.0;
                 cur.ToDouble(&curVal);
                 double newVal = curVal + delta;
                 wxString out;
                 if (col >= 6)
-                    out = wxString::Format("%.1f\u00B0", newVal);
+                    out = wxString::Format("%.1f", newVal) + DegreeSymbol();
                 else
                     out = wxString::Format("%.3f", newVal);
                 table->SetValue(wxVariant(out), r, col);
@@ -369,7 +377,7 @@ void SceneObjectTablePanel::OnContextMenu(wxDataViewEvent& event)
 
                 wxString out;
                 if (col >= 6)
-                    out = wxString::Format("%.1f\u00B0", val);
+                    out = wxString::Format("%.1f", val) + DegreeSymbol();
                 else
                     out = wxString::Format("%.3f", val);
 
@@ -594,19 +602,22 @@ void SceneObjectTablePanel::UpdateSceneData(bool logChanges)
         table->GetValue(v, i, 6);
         {
             wxString s = v.GetString();
-            s.Replace("°", "");
+            if (!DegreeSymbol().empty())
+            s.Replace(DegreeSymbol(), "");
             s.ToDouble(&roll);
         }
         table->GetValue(v, i, 7);
         {
             wxString s = v.GetString();
-            s.Replace("°", "");
+            if (!DegreeSymbol().empty())
+            s.Replace(DegreeSymbol(), "");
             s.ToDouble(&pitch);
         }
         table->GetValue(v, i, 8);
         {
             wxString s = v.GetString();
-            s.Replace("°", "");
+            if (!DegreeSymbol().empty())
+            s.Replace(DegreeSymbol(), "");
             s.ToDouble(&yaw);
         }
 

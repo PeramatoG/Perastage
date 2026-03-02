@@ -20,7 +20,7 @@
 
 FixturePatchDialog::FixturePatchDialog(wxWindow* parent, const Fixture& fixture)
     : wxDialog(parent, wxID_ANY,
-        wxString::Format("%s", wxString::FromUTF8(fixture.instanceName)),
+        wxString::FromUTF8(fixture.instanceName),
         wxDefaultPosition, wxDefaultSize)
 {
     wxBoxSizer* sizer = new wxBoxSizer(wxVERTICAL);

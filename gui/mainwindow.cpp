@@ -148,8 +148,14 @@ void PersistFixtureTypeAutoColors(ConfigManager &configManager) {
   }
 }
 
+wxString PathToWxString(const std::filesystem::path &path) {
+  const std::u8string utf8 = path.u8string();
+  const std::string utf8Str(utf8.begin(), utf8.end());
+  return wxString::FromUTF8(utf8Str.c_str());
+}
+
 void LogMissingIcon(const std::filesystem::path &path) {
-  wxLogWarning("Main window icon not found at '%s'", path.string().c_str());
+  wxLogWarning("Main window icon not found at '" + PathToWxString(path) + "'");
 }
 
 wxFont BuildDefaultUiFont() {
@@ -271,7 +277,7 @@ MainWindow::MainWindow(const wxString &title, IGuiConfigServices *services)
     iconPath = resourceRoot / "Perastage.ico";
   std::error_code ec;
   if (!iconPath.empty() && std::filesystem::exists(iconPath, ec)) {
-    icon.LoadFile(iconPath.string(), wxBITMAP_TYPE_ICO);
+    icon.LoadFile(PathToWxString(iconPath), wxBITMAP_TYPE_ICO);
   } else {
     LogMissingIcon(
         iconPath.empty() ? std::filesystem::path("resources/Perastage.ico")
@@ -467,7 +473,7 @@ bool MainWindow::ConfirmSaveIfDirty(const wxString &actionLabel,
 
   wxMessageDialog dlg(
       this,
-      wxString::Format("Do you want to save changes before %s?", actionLabel),
+      "Do you want to save changes before " + actionLabel + "?",
       dialogTitle, wxYES_NO | wxCANCEL | wxICON_QUESTION);
 
   int res = dlg.ShowModal();
