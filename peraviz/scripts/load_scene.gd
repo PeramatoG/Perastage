@@ -61,9 +61,10 @@ var _visual_settings := {
 	"beam_anisotropy": 0.62,
 	"beam_noise_amount": 0.06,
 	"beam_noise_scale": 1.4,
-	"volumetric_fog_density": 0.02,
+	# Keep fog globally light and drive visible shafts from per-light volumetric energy.
+	"volumetric_fog_density": 0.0001,
 	"volumetric_fog_fade": 0.1,
-	"light_volumetric_fog_energy": 3.5,
+	"light_volumetric_fog_energy": 400.0,
 	"gobo_scale_ratio": 1.0,
 	"gobo_offset_x": 0.0,
 	"gobo_offset_y": 0.0,
@@ -283,7 +284,7 @@ func _apply_visual_settings(settings: Dictionary) -> void:
 		world_environment.environment.glow_bloom = float(_visual_environment_baseline.get("glow_bloom", 0.05)) * float(_visual_settings.get("bloom_multiplier", 1.0))
 		world_environment.environment.background_color = _visual_settings.get("background_color", _visual_environment_baseline.get("background_color", Color(0.129412, 0.137255, 0.156863, 1.0)))
 		world_environment.environment.volumetric_fog_enabled = true
-		world_environment.environment.volumetric_fog_density = float(_visual_settings.get("volumetric_fog_density", 0.01))
+		world_environment.environment.volumetric_fog_density = float(_visual_settings.get("volumetric_fog_density", 0.0001))
 		if _environment_has_property(world_environment.environment, "volumetric_fog_fade"):
 			world_environment.environment.set("volumetric_fog_fade", float(_visual_settings.get("volumetric_fog_fade", 0.1)))
 		world_environment.environment.volumetric_fog_albedo = Color(1.0, 1.0, 1.0, 1.0)
@@ -387,7 +388,7 @@ func _refresh_existing_beam_material_scalars() -> void:
 func _apply_light_scalars_to_light(light: SpotLight3D) -> void:
 	var base_energy: float = float(light.get_meta("peraviz_base_light_energy", light.light_energy))
 	light.light_energy = base_energy * float(_visual_settings.get("spot_multiplier", 1.0))
-	light.light_volumetric_fog_energy = float(_visual_settings.get("light_volumetric_fog_energy", 1.0))
+	light.light_volumetric_fog_energy = float(_visual_settings.get("light_volumetric_fog_energy", 400.0))
 
 func _update_existing_beam_material_scalars(light: SpotLight3D) -> void:
 	var base_intensity: float = float(light.get_meta("peraviz_beam_base_intensity", 0.0))
@@ -1702,7 +1703,7 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 			float(_visual_settings.get("gobo_offset_y", 0.0))
 		)
 		gobo_changed = _fixture_gobo_projector.apply_gobo_projection(light, gobo_controls)
-	light.light_volumetric_fog_energy = float(_visual_settings.get("light_volumetric_fog_energy", 1.0))
+	light.light_volumetric_fog_energy = float(_visual_settings.get("light_volumetric_fog_energy", 400.0))
 	_update_beam_for_light(light, beam_params)
 	if gobo_changed:
 		# Re-apply beam uniforms immediately when gobo texture changes so volumetric modulation updates without frame delay.
