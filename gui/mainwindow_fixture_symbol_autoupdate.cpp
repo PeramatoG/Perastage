@@ -122,7 +122,6 @@ void MainWindow::ProcessNextFixtureSymbolAutoUpdate() {
   applyOptions.updateLibraryCopy = true;
   if (symbol_preview::ApplySymbolsToFixtureGdtf(capture.symbols, fixtureUuid,
                                                 applyError, applyOptions)) {
-    fixtureSymbolPendingLibrarySyncUuids.insert(fixtureUuid);
     RefreshAfterFixtureSymbolUpdate();
   }
 
