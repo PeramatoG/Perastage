@@ -48,6 +48,7 @@ std::string NormalizePath(const std::string &p) {
   std::string out = p;
   char sep = static_cast<char>(fs::path::preferred_separator);
   std::replace(out.begin(), out.end(), '\\', sep);
+  std::replace(out.begin(), out.end(), '/', sep);
   return out;
 }
 
