@@ -27,10 +27,10 @@ std::string BuildFixtureAutoUpdateKey(const Fixture &fixture) {
 }
 
 std::string BuildFixtureLabel(const Fixture &fixture) {
-  if (!fixture.instanceName.empty())
-    return fixture.instanceName;
   if (!fixture.typeName.empty())
     return fixture.typeName;
+  if (!fixture.instanceName.empty())
+    return fixture.instanceName;
   if (!fixture.gdtfSpec.empty())
     return std::filesystem::path(fixture.gdtfSpec).filename().string();
   return "unknown fixture";
