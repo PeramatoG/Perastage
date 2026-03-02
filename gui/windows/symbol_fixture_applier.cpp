@@ -132,6 +132,19 @@ std::string ResolveLibraryGdtfPath(const Fixture &fixture) {
   const fs::path fixturesLibrary =
       fs::path(ProjectUtils::GetDefaultLibraryPath("fixtures"));
 
+  if (specPath.is_absolute()) {
+    ec.clear();
+    if (fs::exists(specPath, ec) && !ec)
+      return specPath.string();
+  }
+
+  if (!specFileName.empty()) {
+    ec.clear();
+    const fs::path exactPath = fixturesLibrary / specFileName;
+    if (fs::exists(exactPath, ec) && !ec)
+      return exactPath.string();
+  }
+
   auto dictOpt = GdtfDictionary::Load();
   if (dictOpt) {
     const auto &dict = *dictOpt;
@@ -147,8 +160,12 @@ std::string ResolveLibraryGdtfPath(const Fixture &fixture) {
       return it->second.path;
     };
 
-    if (std::string byType = findByKey(fixture.typeName); !byType.empty())
-      return byType;
+    if (std::string byType = findByKey(fixture.typeName); !byType.empty()) {
+      if (specFileName.empty())
+        return byType;
+      if (fs::path(byType).filename() == specFileName)
+        return byType;
+    }
 
     if (!specFileName.empty()) {
       for (const auto &[type, entry] : dict) {
@@ -165,13 +182,6 @@ std::string ResolveLibraryGdtfPath(const Fixture &fixture) {
           return entryPath.string();
       }
     }
-  }
-
-  if (!specFileName.empty()) {
-    ec.clear();
-    const fs::path exactPath = fixturesLibrary / specFileName;
-    if (fs::exists(exactPath, ec) && !ec)
-      return exactPath.string();
   }
 
   return {};
