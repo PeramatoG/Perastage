@@ -5,6 +5,7 @@
 #include "matrixutils.h"
 
 #include <algorithm>
+#include <array>
 #include <cctype>
 #include <cmath>
 #include <filesystem>
@@ -67,14 +68,36 @@ std::string ResolveGdtfPath(const std::string &base, const std::string &spec,
   const std::string cleanSpec = TrimPathRef(spec);
   if (cleanSpec.empty())
     return {};
-  fs::path p(cleanSpec);
-  if (p.is_absolute() && fs::exists(p))
-    return p.string();
-  fs::path candidate = fs::path(base) / p;
-  if (fs::exists(candidate))
-    return candidate.string();
+
+  const std::array<std::string, 2> variants = {cleanSpec,
+                                               NormalizePath(cleanSpec)};
+
+  std::error_code ec;
+  for (const std::string &variant : variants) {
+    fs::path absoluteCandidate = fs::path(variant);
+    if (absoluteCandidate.is_absolute() && fs::exists(absoluteCandidate, ec))
+      return absoluteCandidate.string();
+    ec.clear();
+
+    fs::path relativeCandidate = fs::path(base) / absoluteCandidate;
+    if (fs::exists(relativeCandidate, ec))
+      return relativeCandidate.string();
+    ec.clear();
+
+    fs::path utf8AbsoluteCandidate = fs::u8path(variant);
+    if (utf8AbsoluteCandidate.is_absolute() &&
+        fs::exists(utf8AbsoluteCandidate, ec))
+      return utf8AbsoluteCandidate.string();
+    ec.clear();
+
+    fs::path utf8RelativeCandidate = fs::path(base) / utf8AbsoluteCandidate;
+    if (fs::exists(utf8RelativeCandidate, ec))
+      return utf8RelativeCandidate.string();
+    ec.clear();
+  }
+
   if (allowRecursiveFallback)
-    return FindFileRecursive(base, p.filename().string());
+    return FindFileRecursive(base, fs::path(cleanSpec).filename().string());
   return {};
 }
 
