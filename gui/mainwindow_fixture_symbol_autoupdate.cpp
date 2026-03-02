@@ -59,8 +59,11 @@ void MainWindow::StartFixtureSymbolAutoUpdateForLoadedScene() {
 
   fixtureSymbolAutoUpdateProcessedKeys.clear();
 
-  if (fixtureSymbolAutoUpdateQueue.empty())
+  if (fixtureSymbolAutoUpdateQueue.empty()) {
+    ReportFixtureAutoUpdate(*this, consolePanel,
+                            "Fixture symbol auto-update: no fixtures queued.");
     return;
+  }
 
   fixtureSymbolAutoUpdateRunning = true;
   ReportFixtureAutoUpdate(*this, consolePanel,
