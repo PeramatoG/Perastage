@@ -20,6 +20,7 @@
 
 #include <wx/app.h>
 #include <wx/timer.h>
+#include <wx/weakref.h>
 
 namespace {
 
@@ -101,7 +102,7 @@ void MainWindow::StartFixtureSymbolAutoUpdateForLoadedScene() {
   fixtureSymbolAutoUpdateProcessedKeys.clear();
   fixtureSymbolPendingLibrarySyncUuids.clear();
   fixtureSymbolAutoUpdateRunning = false;
-  fixtureSymbolAutoUpdateWorkerBusy = false;
+  window->fixtureSymbolAutoUpdateWorkerBusy = false;
   fixtureSymbolAutoUpdateGeneratedTypes.clear();
   fixtureSymbolAutoUpdateGeneratedCount = 0;
   fixtureSymbolAutoUpdateFailedCount = 0;
@@ -134,7 +135,11 @@ void MainWindow::StartFixtureSymbolAutoUpdateForLoadedScene() {
 
 void MainWindow::ScheduleNextFixtureSymbolAutoUpdate(int delayMs) {
   if (delayMs <= 1) {
-    CallAfter([this]() { ProcessNextFixtureSymbolAutoUpdate(); });
+    wxWeakRef<MainWindow> weakThis(this);
+    CallAfter([weakThis]() {
+      if (weakThis)
+        weakThis->ProcessNextFixtureSymbolAutoUpdate();
+    });
     return;
   }
 
@@ -146,7 +151,10 @@ void MainWindow::ScheduleNextFixtureSymbolAutoUpdate(int delayMs) {
     auto timer = std::make_unique<wxTimer>(this, kProcessNextTimerId);
     Bind(
         wxEVT_TIMER,
-        [this](wxTimerEvent &) { ProcessNextFixtureSymbolAutoUpdate(); },
+        [weakThis = wxWeakRef<MainWindow>(this)](wxTimerEvent &) {
+          if (weakThis)
+            weakThis->ProcessNextFixtureSymbolAutoUpdate();
+        },
         kProcessNextTimerId);
     timerIt = timers.emplace(this, std::move(timer)).first;
   }
@@ -270,7 +278,8 @@ void MainWindow::ProcessNextFixtureSymbolAutoUpdate() {
   const auto capturedSymbols = capture.symbols;
   const auto inspectionSnapshot = inspection;
 
-  std::thread([this, capturedSymbols, fixtureCopy, sceneSnapshot,
+  wxWeakRef<MainWindow> weakThis(this);
+  std::thread([weakThis, capturedSymbols, fixtureCopy, sceneSnapshot,
                inspectionSnapshot, fixtureLabel]() {
     std::string applyError;
     symbol_preview::ApplySymbolsOptions applyOptions;
@@ -279,10 +288,14 @@ void MainWindow::ProcessNextFixtureSymbolAutoUpdate() {
     const bool applied = symbol_preview::ApplySymbolsToFixtureGdtfForFixture(
         capturedSymbols, fixtureCopy, sceneSnapshot, applyError, applyOptions);
 
-    wxTheApp->CallAfter([this, applied, applyError, inspectionSnapshot,
+    wxTheApp->CallAfter([weakThis, applied, applyError, inspectionSnapshot,
                          fixtureLabel, fixtureType = fixtureCopy.typeName]() {
-      if (!fixtureSymbolAutoUpdateRunning) {
-        fixtureSymbolAutoUpdateWorkerBusy = false;
+      if (!weakThis)
+        return;
+
+      MainWindow *window = weakThis.get();
+      if (!window->fixtureSymbolAutoUpdateRunning) {
+        window->fixtureSymbolAutoUpdateWorkerBusy = false;
         return;
       }
 
@@ -295,18 +308,18 @@ void MainWindow::ProcessNextFixtureSymbolAutoUpdate() {
           locationMessage = "library";
 
         ReportFixtureAutoUpdate(
-            *this, consolePanel,
+            *window, window->consolePanel,
             "Fixture symbol auto-update: symbols generated for '" + fixtureLabel +
                 "' and " + locationMessage + " GDTF updated.",
             false);
-        ++fixtureSymbolAutoUpdateGeneratedCount;
-        fixtureSymbolAutoUpdateGeneratedTypes.insert(
+        ++window->fixtureSymbolAutoUpdateGeneratedCount;
+        window->fixtureSymbolAutoUpdateGeneratedTypes.insert(
             fixtureType.empty() ? fixtureLabel : fixtureType);
-        RefreshAfterFixtureSymbolUpdate();
+        window->RefreshAfterFixtureSymbolUpdate();
       } else {
-        ++fixtureSymbolAutoUpdateFailedCount;
+        ++window->fixtureSymbolAutoUpdateFailedCount;
         ReportFixtureAutoUpdate(
-            *this, consolePanel,
+            *window, window->consolePanel,
             "Fixture symbol auto-update: failed to apply symbols for '" +
                 fixtureLabel + "' (" +
                 (applyError.empty() ? std::string("unknown apply error")
@@ -315,8 +328,8 @@ void MainWindow::ProcessNextFixtureSymbolAutoUpdate() {
             false);
       }
 
-      fixtureSymbolAutoUpdateWorkerBusy = false;
-      ScheduleNextFixtureSymbolAutoUpdate();
+      window->fixtureSymbolAutoUpdateWorkerBusy = false;
+      window->ScheduleNextFixtureSymbolAutoUpdate();
     });
   }).detach();
 
