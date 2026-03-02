@@ -258,7 +258,6 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
     m_controller.UpdateFrameStateLightweight();
     if (m_sceneSyncPending) {
         m_controller.UpdateResourcesIfDirty();
-        m_controller.RebuildVisibleSetCache();
         m_sceneSyncPending = false;
     } else if (!pauseHeavyTasks && !m_cameraMoving) {
         m_controller.UpdateResourcesIfDirty();
@@ -1053,7 +1052,6 @@ void Viewer3DPanel::UpdateScene()
         return;
 
     m_controller.UpdateResourcesIfDirty();
-    m_controller.RebuildVisibleSetCache();
     m_sceneSyncPending = false;
     if (Viewer2DPanel::Instance())
         Viewer2DPanel::Instance()->UpdateScene();
@@ -1123,7 +1121,6 @@ bool Viewer3DPanel::ShouldPauseHeavyTasks()
 
     if (fastInteractionMode) {
         m_controller.UpdateResourcesIfDirty();
-        m_controller.RebuildVisibleSetCache();
         m_sceneSyncPending = false;
         m_mouseMoved = true;
     }
