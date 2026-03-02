@@ -473,9 +473,9 @@ bool RewriteGdtf(const fs::path &sourcePath,
   fs::rename(tempPath, sourcePath, ec);
   if (ec) {
     ec.clear();
-    fs::remove(sourcePath, ec);
-    ec.clear();
-    fs::rename(tempPath, sourcePath, ec);
+    fs::copy_file(tempPath, sourcePath, fs::copy_options::overwrite_existing, ec);
+    if (!ec)
+      fs::remove(tempPath, ec);
   }
   if (ec) {
     errorMessage = "Could not replace the original GDTF file.";
