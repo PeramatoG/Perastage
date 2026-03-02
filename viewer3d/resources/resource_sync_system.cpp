@@ -27,6 +27,69 @@ std::string FindFileRecursive(const std::string &baseDir,
   return {};
 }
 
+std::string ToLowerAscii(std::string value) {
+  std::transform(value.begin(), value.end(), value.begin(),
+                 [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+  return value;
+}
+
+bool EqualsIgnoreAsciiCase(const std::string &lhs, const std::string &rhs) {
+  return ToLowerAscii(lhs) == ToLowerAscii(rhs);
+}
+
+std::string ResolvePathWithCaseFallback(const fs::path &path) {
+  if (path.empty())
+    return {};
+
+  std::error_code ec;
+  if (fs::exists(path, ec))
+    return path.string();
+  ec.clear();
+
+  fs::path current;
+  for (const auto &part : path) {
+    if (part.empty())
+      continue;
+
+    const std::string segment = part.string();
+    if (segment == "/" || segment == "\\") {
+      current /= part;
+      continue;
+    }
+
+    if (current.empty()) {
+      current /= part;
+      continue;
+    }
+
+    fs::path exactPath = current / part;
+    if (fs::exists(exactPath, ec)) {
+      current = exactPath;
+      ec.clear();
+      continue;
+    }
+    ec.clear();
+
+    bool matched = false;
+    for (const auto &entry : fs::directory_iterator(current, ec)) {
+      if (ec)
+        break;
+      if (!EqualsIgnoreAsciiCase(entry.path().filename().string(), segment))
+        continue;
+      current = entry.path();
+      matched = true;
+      break;
+    }
+    if (ec || !matched)
+      return {};
+    ec.clear();
+  }
+
+  if (fs::exists(current, ec))
+    return current.string();
+  return {};
+}
+
 
 std::string TrimPathRef(std::string value) {
   auto isTrim = [](unsigned char c) {
@@ -76,24 +139,35 @@ std::string ResolveGdtfPath(const std::string &base, const std::string &spec,
   std::error_code ec;
   for (const std::string &variant : variants) {
     fs::path absoluteCandidate = fs::path(variant);
-    if (absoluteCandidate.is_absolute() && fs::exists(absoluteCandidate, ec))
-      return absoluteCandidate.string();
+    if (absoluteCandidate.is_absolute()) {
+      const std::string absoluteResolved =
+          ResolvePathWithCaseFallback(absoluteCandidate);
+      if (!absoluteResolved.empty())
+        return absoluteResolved;
+    }
     ec.clear();
 
     fs::path relativeCandidate = fs::path(base) / absoluteCandidate;
-    if (fs::exists(relativeCandidate, ec))
-      return relativeCandidate.string();
+    const std::string relativeResolved =
+        ResolvePathWithCaseFallback(relativeCandidate);
+    if (!relativeResolved.empty())
+      return relativeResolved;
     ec.clear();
 
     fs::path utf8AbsoluteCandidate = fs::u8path(variant);
-    if (utf8AbsoluteCandidate.is_absolute() &&
-        fs::exists(utf8AbsoluteCandidate, ec))
-      return utf8AbsoluteCandidate.string();
+    if (utf8AbsoluteCandidate.is_absolute()) {
+      const std::string utf8AbsoluteResolved =
+          ResolvePathWithCaseFallback(utf8AbsoluteCandidate);
+      if (!utf8AbsoluteResolved.empty())
+        return utf8AbsoluteResolved;
+    }
     ec.clear();
 
     fs::path utf8RelativeCandidate = fs::path(base) / utf8AbsoluteCandidate;
-    if (fs::exists(utf8RelativeCandidate, ec))
-      return utf8RelativeCandidate.string();
+    const std::string utf8RelativeResolved =
+        ResolvePathWithCaseFallback(utf8RelativeCandidate);
+    if (!utf8RelativeResolved.empty())
+      return utf8RelativeResolved;
     ec.clear();
   }
 
