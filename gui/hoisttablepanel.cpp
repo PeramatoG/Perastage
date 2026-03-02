@@ -747,6 +747,9 @@ void HoistTablePanel::DeleteSelected() {
   if (SummaryPanel::Instance())
     SummaryPanel::Instance()->ShowHoistSummary();
 
+  if (RiggingPanel::Instance())
+    RiggingPanel::Instance()->RefreshData();
+
   if (Viewer3DPanel::Instance()) {
     Viewer3DPanel::Instance()->SetSelectedFixtures({});
     Viewer3DPanel::Instance()->UpdateScene();
