@@ -167,6 +167,25 @@ static std::string SanitizeArchiveFileName(const std::string &input,
   return TruncateFileNamePreservingExtension(fallbackName, kMaxArchiveFileNameLength);
 }
 
+static std::string BuildTrussGdtfArchiveName(const Truss &truss) {
+  std::string baseName = TrimAscii(truss.model);
+  if (baseName.empty()) {
+    if (truss.lengthMm > 0.0f) {
+      const int lengthMeters = static_cast<int>(std::lround(truss.lengthMm / 1000.0f));
+      if (lengthMeters > 0)
+        baseName = "truss " + std::to_string(lengthMeters) + "m";
+    }
+  }
+  if (baseName.empty())
+    baseName = "truss";
+
+  fs::path candidate(baseName);
+  if (candidate.extension().empty())
+    baseName += ".gdtf";
+
+  return SanitizeArchiveFileName(baseName, "truss.gdtf");
+}
+
 static bool IsValidMvrFileName(const std::string &value) {
   if (value.empty())
     return false;
@@ -1093,14 +1112,9 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
       }
     }
 
-    std::string trussPreferredName =
-        SanitizeArchiveFileName(trussSourceGdtf, "truss.gdtf");
-    std::string trussUniqueName = SanitizeArchiveFileName(
-        (t.uuid.empty() ? std::string("truss") : t.uuid) + "-" +
-            trussPreferredName,
-        "truss.gdtf");
+    std::string trussPreferredName = BuildTrussGdtfArchiveName(t);
     std::string trussGdtfArchivePath =
-        registerGdtfResource(t.uuid, trussSourceGdtf, trussUniqueName, false);
+        registerGdtfResource(t.uuid, trussSourceGdtf, trussPreferredName, false);
     if (!trussGdtfArchivePath.empty()) {
       tinyxml2::XMLElement *e = doc.NewElement("GDTFSpec");
       e->SetText(trussGdtfArchivePath.c_str());
