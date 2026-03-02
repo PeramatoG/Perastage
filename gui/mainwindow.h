@@ -211,6 +211,7 @@ private:
   void StartFixtureSymbolAutoUpdateForLoadedScene();
   void ProcessNextFixtureSymbolAutoUpdate();
   void FlushPendingFixtureSymbolLibraryUpdates();
+  std::string BuildFixtureSymbolAutoUpdateSummary() const;
   std::string defaultLayoutPerspective;
   std::string default2DLayoutPerspective;
   std::string defaultLayoutModePerspective;
@@ -226,6 +227,9 @@ private:
   std::vector<std::string> fixtureSymbolAutoUpdateQueue;
   std::unordered_set<std::string> fixtureSymbolAutoUpdateProcessedKeys;
   std::unordered_set<std::string> fixtureSymbolPendingLibrarySyncUuids;
+  std::vector<std::string> fixtureSymbolAutoUpdateGeneratedTypes;
+  std::vector<std::string> fixtureSymbolAutoUpdateErrors;
+  std::unordered_set<std::string> fixtureSymbolAutoUpdateGeneratedTypeSet;
   bool fixtureSymbolAutoUpdateRunning = false;
   int viewportInteractionLockDepth = 0;
 
