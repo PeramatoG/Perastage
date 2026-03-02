@@ -10,6 +10,7 @@
 #include <cmath>
 #include <filesystem>
 #include <vector>
+#include <string_view>
 
 namespace fs = std::filesystem;
 
@@ -38,6 +39,33 @@ std::string FindFileRecursive(const std::string &baseDir,
   return {};
 }
 
+bool EqualIgnoreCaseAscii(std::string_view lhs, std::string_view rhs) {
+  if (lhs.size() != rhs.size())
+    return false;
+  for (size_t i = 0; i < lhs.size(); ++i) {
+    const unsigned char a = static_cast<unsigned char>(lhs[i]);
+    const unsigned char b = static_cast<unsigned char>(rhs[i]);
+    if (std::tolower(a) != std::tolower(b))
+      return false;
+  }
+  return true;
+}
+
+std::string DecodePathEscapes(const std::string &input) {
+  std::string out;
+  out.reserve(input.size());
+  for (size_t i = 0; i < input.size(); ++i) {
+    if (i + 2 < input.size() && input[i] == '%' && input[i + 1] == '2' &&
+        (input[i + 2] == '0')) {
+      out.push_back(' ');
+      i += 2;
+      continue;
+    }
+    out.push_back(input[i]);
+  }
+  return out;
+}
+
 std::string ResolveExistingPath(const fs::path &path) {
   if (path.empty())
     return {};
@@ -45,6 +73,31 @@ std::string ResolveExistingPath(const fs::path &path) {
   std::error_code ec;
   if (fs::exists(path, ec))
     return path.string();
+
+  const fs::path parent = path.parent_path();
+  const fs::path filename = path.filename();
+  if (parent.empty() || filename.empty())
+    return {};
+
+  const std::string stem = filename.stem().string();
+  const std::string ext = filename.extension().string();
+  if (stem.empty() || ext.empty())
+    return {};
+
+  for (const auto &entry : fs::directory_iterator(parent, ec)) {
+    if (ec)
+      break;
+    if (!entry.is_regular_file(ec) || ec) {
+      ec.clear();
+      continue;
+    }
+    const fs::path candidate = entry.path().filename();
+    if (candidate.stem().string() != stem)
+      continue;
+    if (!EqualIgnoreCaseAscii(candidate.extension().string(), ext))
+      continue;
+    return entry.path().string();
+  }
   return {};
 }
 
@@ -124,7 +177,7 @@ std::string ResolveCacheKey(const std::string &pathRef) {
 
 std::string ResolveGdtfPath(const std::string &base, const std::string &spec,
                             bool allowRecursiveFallback = false) {
-  const std::string cleanSpec = TrimPathRef(spec);
+  const std::string cleanSpec = DecodePathEscapes(TrimPathRef(spec));
   if (cleanSpec.empty())
     return {};
 
