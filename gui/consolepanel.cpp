@@ -820,12 +820,3 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
     AppendMessage("Error: " + wxString::FromUTF8(e.what()));
   }
 }
-  m_helpButton = new wxButton(this, wxID_ANY, "?", wxDefaultPosition,
-                              wxSize(24, 24), wxBU_EXACTFIT);
-  m_helpButton->SetToolTip(
-      "Show available console commands and examples.");
-  m_helpButton->Bind(wxEVT_BUTTON, &ConsolePanel::OnHelpButton, this);
-
-  wxBoxSizer *inputSizer = new wxBoxSizer(wxHORIZONTAL);
-  inputSizer->Add(m_inputCtrl, 1, wxEXPAND);
-  inputSizer->Add(m_helpButton, 0, wxLEFT, 4);
