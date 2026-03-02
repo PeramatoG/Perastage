@@ -607,13 +607,7 @@ bool LoadPerastageSvgSymbolFromGdtf(const std::string &gdtfPath,
   }
 
   const char *editor = fixtureType->Attribute("Editor");
-  if (!editor || !EqualsNoCase(editor, "Perastage")) {
-    if (errorDetails)
-      *errorDetails =
-          "GDTF archive does not contain Perastage-generated SVG symbols: " +
-          gdtfPath;
-    return false;
-  }
+  const bool editorIsPerastage = editor && EqualsNoCase(editor, "Perastage");
 
   const tinyxml2::XMLElement *model = ResolveTargetModel(fixtureType);
   const std::string baseName = ResolveModelSvgBasename(model);
@@ -683,8 +677,14 @@ bool LoadPerastageSvgSymbolFromGdtf(const std::string &gdtfPath,
   }
 
   if (errorDetails) {
-    *errorDetails = "No valid SVG symbol was found in GDTF archive: " +
-                    gdtfPath;
+    if (editorIsPerastage) {
+      *errorDetails = "No valid SVG symbol was found in GDTF archive: " +
+                      gdtfPath;
+    } else {
+      *errorDetails =
+          "No compatible SVG symbol was found in GDTF archive (Editor is not Perastage): " +
+          gdtfPath;
+    }
   }
 
   return false;
