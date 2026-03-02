@@ -26,6 +26,23 @@ std::string FindFileRecursive(const std::string &baseDir,
   return {};
 }
 
+
+std::string TrimPathRef(std::string value) {
+  auto isTrim = [](unsigned char c) {
+    return std::isspace(c) != 0 || c == '\r' || c == '\n' || c == '\t';
+  };
+
+  while (!value.empty() && isTrim(static_cast<unsigned char>(value.front())))
+    value.erase(value.begin());
+  while (!value.empty() && isTrim(static_cast<unsigned char>(value.back())))
+    value.pop_back();
+
+  if (value.size() >= 2 && value.front() == '"' && value.back() == '"')
+    return value.substr(1, value.size() - 2);
+
+  return value;
+}
+
 std::string NormalizePath(const std::string &p) {
   std::string out = p;
   char sep = static_cast<char>(fs::path::preferred_separator);
@@ -42,14 +59,15 @@ std::string NormalizeModelKey(const std::string &p) {
 }
 
 std::string ResolveCacheKey(const std::string &pathRef) {
-  return NormalizeModelKey(pathRef);
+  return NormalizeModelKey(TrimPathRef(pathRef));
 }
 
 std::string ResolveGdtfPath(const std::string &base, const std::string &spec,
                             bool allowRecursiveFallback = false) {
-  if (spec.empty())
+  const std::string cleanSpec = TrimPathRef(spec);
+  if (cleanSpec.empty())
     return {};
-  fs::path p(spec);
+  fs::path p(cleanSpec);
   if (p.is_absolute() && fs::exists(p))
     return p.string();
   fs::path candidate = fs::path(base) / p;
@@ -205,28 +223,30 @@ ResourceSyncResult ResourceSyncSystem::Sync(
   result.hasSceneSignature = state.hasSceneSignature;
 
   auto ensureGdtfResolvedPath = [&](const std::string &spec) {
-    if (spec.empty())
+    const std::string cleanSpec = TrimPathRef(spec);
+    if (cleanSpec.empty())
       return;
-    const std::string key = ResolveCacheKey(spec);
+    const std::string key = ResolveCacheKey(cleanSpec);
     auto [it, inserted] =
         state.resolvedGdtfSpecs.try_emplace(key, ResourceSyncState::PathResolutionEntry{});
     if (!inserted && it->second.attempted && !it->second.resolvedPath.empty() &&
         fs::exists(fs::u8path(it->second.resolvedPath)))
       return;
-    it->second.resolvedPath = ResolveGdtfPath(basePath, spec, true);
+    it->second.resolvedPath = ResolveGdtfPath(basePath, cleanSpec, true);
     it->second.attempted = true;
   };
 
   auto ensureModelResolvedPath = [&](const std::string &modelRef) {
-    if (modelRef.empty())
+    const std::string cleanModelRef = TrimPathRef(modelRef);
+    if (cleanModelRef.empty())
       return;
-    const std::string key = ResolveCacheKey(modelRef);
+    const std::string key = ResolveCacheKey(cleanModelRef);
     auto [it, inserted] =
         state.resolvedModelRefs.try_emplace(key, ResourceSyncState::PathResolutionEntry{});
     if (!inserted && it->second.attempted && !it->second.resolvedPath.empty() &&
         fs::exists(fs::u8path(it->second.resolvedPath)))
       return;
-    it->second.resolvedPath = ResolveModelPath(basePath, modelRef, true);
+    it->second.resolvedPath = ResolveModelPath(basePath, cleanModelRef, true);
     it->second.attempted = true;
   };
 
