@@ -162,6 +162,8 @@ private:
   void OnNotebookPageChanged(wxBookCtrlEvent &event); // Update summary panel
   void RefreshSummary();                              // Refresh summary counts
   void RefreshAfterSceneChange(bool refreshViewport = true);
+  void LockViewportInteraction();
+  void UnlockViewportInteraction();
   void RefreshRigging();                              // Refresh rigging summary
 
   void OnPreferences(wxCommandEvent &event);        // Show preferences dialog
@@ -225,6 +227,7 @@ private:
   std::unordered_set<std::string> fixtureSymbolAutoUpdateProcessedKeys;
   std::unordered_set<std::string> fixtureSymbolPendingLibrarySyncUuids;
   bool fixtureSymbolAutoUpdateRunning = false;
+  int viewportInteractionLockDepth = 0;
 
   friend class MainWindowIoController;
   friend class MainWindowLayoutController;

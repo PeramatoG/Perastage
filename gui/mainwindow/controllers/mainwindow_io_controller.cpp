@@ -21,7 +21,10 @@ void MainWindowIoController::OnImportMVR(wxCommandEvent &) {
 
   wxString filePath = openFileDialog.GetPath();
   std::string pathUtf8 = filePath.ToUTF8().data();
-  if (!MvrImporter::ImportAndRegister(pathUtf8)) {
+  owner_.LockViewportInteraction();
+  const bool imported = MvrImporter::ImportAndRegister(pathUtf8);
+  owner_.UnlockViewportInteraction();
+  if (!imported) {
     wxMessageBox("Failed to import MVR file.", "Error", wxICON_ERROR);
     if (owner_.consolePanel)
       owner_.consolePanel->AppendMessage("Failed to import " + filePath);
