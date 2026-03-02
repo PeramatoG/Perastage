@@ -21,6 +21,7 @@
 #include <chrono>
 #include <filesystem>
 #include <fstream>
+#include <functional>
 #include <map>
 #include <set>
 #include <string>
@@ -54,20 +55,6 @@
 #include "viewer2drenderpanel.h"
 #include "viewer3dpanel.h"
 
-
-namespace {
-class ScopedViewportInteractionLock {
-public:
-  explicit ScopedViewportInteractionLock(MainWindow &window) : window_(window) {
-    window_.LockViewportInteraction();
-  }
-
-  ~ScopedViewportInteractionLock() { window_.UnlockViewportInteraction(); }
-
-private:
-  MainWindow &window_;
-};
-} // namespace
 
 void MainWindow::LockViewportInteraction() {
   ++viewportInteractionLockDepth;
@@ -193,7 +180,9 @@ void MainWindow::OnImportRider(wxCommandEvent &event) {
   std::string pathUtf8 =
       pathBuffer ? std::string(pathBuffer.data(), pathBuffer.length())
                  : dlg.GetPath().ToStdString();
-  ScopedViewportInteractionLock viewportLock(*this);
+  LockViewportInteraction();
+  auto viewportUnlock = std::unique_ptr<void, std::function<void(void *)>>(
+      nullptr, [this](void *) { UnlockViewportInteraction(); });
   if (!RiderImporter::Import(pathUtf8)) {
     wxMessageBox("Failed to import rider.", "Error", wxICON_ERROR);
     if (consolePanel)
@@ -207,7 +196,9 @@ void MainWindow::OnImportRider(wxCommandEvent &event) {
 }
 
 void MainWindow::OnImportRiderText(wxCommandEvent &WXUNUSED(event)) {
-  ScopedViewportInteractionLock viewportLock(*this);
+  LockViewportInteraction();
+  auto viewportUnlock = std::unique_ptr<void, std::function<void(void *)>>(
+      nullptr, [this](void *) { UnlockViewportInteraction(); });
   RiderTextDialog dlg(this);
   if (dlg.ShowModal() != wxID_OK)
     return;
