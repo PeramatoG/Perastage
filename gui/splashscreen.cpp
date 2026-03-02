@@ -1,9 +1,12 @@
 #include "splashscreen.h"
 #include "projectutils.h"
+#include <algorithm>
 #include <filesystem>
 #include <wx/artprov.h>
+#include <wx/dcmemory.h>
 #include <wx/iconbndl.h>
 #include <wx/log.h>
+#include <wx/region.h>
 #include <wx/sizer.h>
 #include <wx/statbmp.h>
 #include <wx/stattext.h>
@@ -12,6 +15,8 @@
 namespace {
 wxFrame *g_splash = nullptr;
 wxStaticText *g_label = nullptr;
+constexpr int kSplashCornerRadius = 16;
+constexpr int kSplashLogoMaxSize = 180;
 
 wxString PathToWxString(const std::filesystem::path &path) {
   const std::u8string utf8 = path.u8string();
@@ -22,6 +27,50 @@ wxString PathToWxString(const std::filesystem::path &path) {
 void LogMissingIcon(const std::filesystem::path &path) {
   wxLogWarning("Splash icon not found at '" + PathToWxString(path) + "'");
 }
+
+wxBitmap ScaleDownBitmap(const wxBitmap &bitmap, int maxSize) {
+  if (!bitmap.IsOk() || maxSize <= 0)
+    return bitmap;
+
+  const wxSize size = bitmap.GetSize();
+  const int width = size.GetWidth();
+  const int height = size.GetHeight();
+  if (width <= 0 || height <= 0)
+    return bitmap;
+
+  const int largestSide = std::max(width, height);
+  if (largestSide <= maxSize)
+    return bitmap;
+
+  const double scale = static_cast<double>(maxSize) /
+                       static_cast<double>(largestSide);
+  const int targetWidth = std::max(1, static_cast<int>(width * scale));
+  const int targetHeight = std::max(1, static_cast<int>(height * scale));
+  const wxImage scaled = bitmap.ConvertToImage().Scale(
+      targetWidth, targetHeight, wxIMAGE_QUALITY_HIGH);
+  return wxBitmap(scaled);
+}
+
+void ApplyRoundedShape(wxFrame *frame, int radius) {
+  if (!frame)
+    return;
+
+  const wxSize size = frame->GetClientSize();
+  if (size.GetWidth() <= 0 || size.GetHeight() <= 0)
+    return;
+
+  wxBitmap maskBitmap(size.GetWidth(), size.GetHeight());
+  wxMemoryDC dc(maskBitmap);
+  dc.SetBackground(*wxBLACK_BRUSH);
+  dc.Clear();
+  dc.SetBrush(*wxWHITE_BRUSH);
+  dc.SetPen(*wxTRANSPARENT_PEN);
+  dc.DrawRoundedRectangle(0, 0, size.GetWidth(), size.GetHeight(), radius);
+  dc.SelectObject(wxNullBitmap);
+
+  const wxRegion region(maskBitmap, *wxBLACK);
+  frame->SetShape(region);
+}
 }
 
 void SplashScreen::Show() {
@@ -29,7 +78,8 @@ void SplashScreen::Show() {
     return;
 
   g_splash = new wxFrame(nullptr, wxID_ANY, "", wxDefaultPosition, wxDefaultSize,
-                         wxFRAME_NO_TASKBAR | wxSTAY_ON_TOP | wxBORDER_NONE);
+                         wxFRAME_NO_TASKBAR | wxSTAY_ON_TOP | wxBORDER_NONE |
+                             wxFRAME_SHAPED);
 
   wxPanel *panel = new wxPanel(g_splash);
   wxBoxSizer *sizer = new wxBoxSizer(wxVERTICAL);
@@ -65,15 +115,11 @@ void SplashScreen::Show() {
   }
 
   if (!logoBmp.IsOk()) {
-    const std::filesystem::path pngPath = resourceRoot / "perastage3d.png";
-    if (!resourceRoot.empty() && std::filesystem::exists(pngPath, ec)) {
-      logoBmp.LoadFile(PathToWxString(pngPath), wxBITMAP_TYPE_PNG);
-    }
-    if (!logoBmp.IsOk()) {
-      logoBmp = wxArtProvider::GetBitmap(wxART_MISSING_IMAGE, wxART_OTHER,
-                                         wxSize(256, 256));
-    }
+    logoBmp = wxArtProvider::GetBitmap(wxART_MISSING_IMAGE, wxART_OTHER,
+                                       wxSize(256, 256));
   }
+
+  logoBmp = ScaleDownBitmap(logoBmp, kSplashLogoMaxSize);
 
   wxStaticBitmap *logo = new wxStaticBitmap(panel, wxID_ANY, logoBmp);
 
@@ -91,6 +137,7 @@ void SplashScreen::Show() {
   panel->SetSizerAndFit(sizer);
 
   g_splash->SetClientSize(panel->GetBestSize());
+  ApplyRoundedShape(g_splash, kSplashCornerRadius);
   g_splash->CentreOnScreen();
   g_splash->Show();
   g_splash->Raise();
