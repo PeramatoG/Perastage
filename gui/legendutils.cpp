@@ -16,13 +16,55 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "legendutils.h"
+#include "projectutils.h"
 
 #include <algorithm>
+#include <array>
+#include <cctype>
+#include <string_view>
 #include <filesystem>
 
 namespace fs = std::filesystem;
 
 namespace {
+std::string DecodePathEscapes(const std::string &input) {
+  std::string out;
+  out.reserve(input.size());
+  for (size_t i = 0; i < input.size(); ++i) {
+    if (i + 2 < input.size() && input[i] == '%' && input[i + 1] == '2' &&
+        input[i + 2] == '0') {
+      out.push_back(' ');
+      i += 2;
+      continue;
+    }
+    out.push_back(input[i]);
+  }
+  return out;
+}
+
+bool EqualIgnoreCaseAscii(std::string_view lhs, std::string_view rhs) {
+  if (lhs.size() != rhs.size())
+    return false;
+  for (size_t i = 0; i < lhs.size(); ++i) {
+    const unsigned char a = static_cast<unsigned char>(lhs[i]);
+    const unsigned char b = static_cast<unsigned char>(rhs[i]);
+    if (std::tolower(a) != std::tolower(b))
+      return false;
+  }
+  return true;
+}
+
+bool MatchesFileNameWithExtensionTolerance(const fs::path &candidate,
+                                           const std::string &fileName) {
+  if (candidate.filename().string() == fileName)
+    return true;
+  const fs::path target(fileName);
+  if (candidate.stem().string() != target.stem().string())
+    return false;
+  return EqualIgnoreCaseAscii(candidate.extension().string(),
+                              target.extension().string());
+}
+
 std::string FindFileRecursive(const std::string &baseDir,
                               const std::string &fileName) {
   if (baseDir.empty())
@@ -42,7 +84,7 @@ std::string FindFileRecursive(const std::string &baseDir,
       ec.clear();
       continue;
     }
-    if (it->path().filename() == fileName)
+    if (MatchesFileNameWithExtensionTolerance(it->path(), fileName))
       return it->path().string();
   }
   return {};
@@ -63,16 +105,62 @@ std::string NormalizeModelKey(const std::string &path) {
   return NormalizePath(p.string());
 }
 
+std::string ResolveExistingPath(const fs::path &path) {
+  if (path.empty())
+    return {};
+  std::error_code ec;
+  if (fs::exists(path, ec))
+    return path.string();
+
+  const fs::path parent = path.parent_path();
+  const fs::path filename = path.filename();
+  if (parent.empty() || filename.empty())
+    return {};
+
+  for (const auto &entry : fs::directory_iterator(parent, ec)) {
+    if (ec)
+      break;
+    if (!entry.is_regular_file(ec) || ec) {
+      ec.clear();
+      continue;
+    }
+    if (MatchesFileNameWithExtensionTolerance(entry.path(), filename.string()))
+      return entry.path().string();
+  }
+  return {};
+}
+
 std::string ResolveGdtfPath(const std::string &base,
                             const std::string &spec) {
   if (spec.empty())
     return {};
-  std::string norm = NormalizePath(spec);
-  fs::path p = base.empty() ? fs::path(norm) : fs::path(base) / norm;
-  std::error_code ec;
-  if (fs::exists(p, ec) && !ec)
-    return p.string();
-  return FindFileRecursive(base, fs::path(norm).filename().string());
+  const std::string cleanSpec = DecodePathEscapes(spec);
+  const std::string norm = NormalizePath(cleanSpec);
+
+  fs::path absolute = fs::path(norm);
+  if (absolute.is_absolute()) {
+    const std::string resolved = ResolveExistingPath(absolute);
+    if (!resolved.empty())
+      return resolved;
+  }
+
+  const std::string relative = ResolveExistingPath(fs::path(base) / absolute);
+  if (!relative.empty())
+    return relative;
+
+  const std::string fileName = fs::path(norm).filename().string();
+  const std::array<std::string, 1> librarySubdirs = {"fixtures"};
+  for (const std::string &subdir : librarySubdirs) {
+    const fs::path root = fs::u8path(ProjectUtils::GetDefaultLibraryPath(subdir));
+    const std::string direct = ResolveExistingPath(root / fileName);
+    if (!direct.empty())
+      return direct;
+    const std::string recursive = FindFileRecursive(root.string(), fileName);
+    if (!recursive.empty())
+      return recursive;
+  }
+
+  return FindFileRecursive(base, fileName);
 }
 } // namespace
 

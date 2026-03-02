@@ -1,5 +1,11 @@
 #include "windows/symbol_fixture_applier.h"
 
+#ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+#include <windows.h>
+#endif
+
 #include <algorithm>
 #include <cctype>
 #include <filesystem>
@@ -470,13 +476,16 @@ bool RewriteGdtf(const fs::path &sourcePath,
   }
 
   std::error_code ec;
+#ifdef _WIN32
+  const std::wstring tempWide = tempPath.wstring();
+  const std::wstring sourceWide = sourcePath.wstring();
+  const BOOL moved = MoveFileExW(tempWide.c_str(), sourceWide.c_str(),
+                                 MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH);
+  if (!moved)
+    ec = std::error_code(static_cast<int>(GetLastError()), std::system_category());
+#else
   fs::rename(tempPath, sourcePath, ec);
-  if (ec) {
-    ec.clear();
-    fs::remove(sourcePath, ec);
-    ec.clear();
-    fs::rename(tempPath, sourcePath, ec);
-  }
+#endif
   if (ec) {
     errorMessage = "Could not replace the original GDTF file.";
     return false;

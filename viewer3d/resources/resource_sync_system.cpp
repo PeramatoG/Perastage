@@ -3,30 +3,193 @@
 #include "loader3ds.h"
 #include "loaderglb.h"
 #include "matrixutils.h"
+#include "projectutils.h"
 
 #include <algorithm>
 #include <array>
 #include <cctype>
 #include <cmath>
 #include <filesystem>
+#include <vector>
+#include <string_view>
 
 namespace fs = std::filesystem;
 
 namespace {
 
+bool MatchesFileNameWithExtensionTolerance(const fs::path &candidate,
+                                           const std::string &fileName);
+
 std::string FindFileRecursive(const std::string &baseDir,
                               const std::string &fileName) {
   if (baseDir.empty())
     return {};
-  for (auto &p : fs::recursive_directory_iterator(baseDir)) {
-    if (!p.is_regular_file())
+
+  std::error_code ec;
+  fs::recursive_directory_iterator it(baseDir, ec), end;
+  if (ec)
+    return {};
+
+  for (; it != end; it.increment(ec)) {
+    if (ec)
+      break;
+    if (!it->is_regular_file(ec) || ec) {
+      ec.clear();
       continue;
-    if (p.path().filename() == fileName)
-      return p.path().string();
+    }
+    if (MatchesFileNameWithExtensionTolerance(it->path(), fileName))
+      return it->path().string();
   }
   return {};
 }
 
+bool EqualIgnoreCaseAscii(std::string_view lhs, std::string_view rhs) {
+  if (lhs.size() != rhs.size())
+    return false;
+  for (size_t i = 0; i < lhs.size(); ++i) {
+    const unsigned char a = static_cast<unsigned char>(lhs[i]);
+    const unsigned char b = static_cast<unsigned char>(rhs[i]);
+    if (std::tolower(a) != std::tolower(b))
+      return false;
+  }
+  return true;
+}
+
+bool ContainsPath(const std::vector<fs::path> &paths, const fs::path &candidate) {
+  return std::any_of(paths.begin(), paths.end(), [&](const fs::path &p) {
+    return p == candidate;
+  });
+}
+
+bool MatchesFileNameWithExtensionTolerance(const fs::path &candidate,
+                                           const std::string &fileName) {
+  const fs::path target(fileName);
+  const std::string candidateName = candidate.filename().string();
+  if (candidateName == fileName)
+    return true;
+
+  if (candidate.stem().string() != target.stem().string())
+    return false;
+  return EqualIgnoreCaseAscii(candidate.extension().string(),
+                              target.extension().string());
+}
+
+std::string DecodePathEscapes(const std::string &input) {
+  std::string out;
+  out.reserve(input.size());
+  for (size_t i = 0; i < input.size(); ++i) {
+    if (i + 2 < input.size() && input[i] == '%' && input[i + 1] == '2' &&
+        (input[i + 2] == '0')) {
+      out.push_back(' ');
+      i += 2;
+      continue;
+    }
+    out.push_back(input[i]);
+  }
+  return out;
+}
+
+std::string ResolveExistingPath(const fs::path &path) {
+  if (path.empty())
+    return {};
+
+  std::error_code ec;
+  if (fs::exists(path, ec))
+    return path.string();
+  if (ec && path.is_absolute())
+    return path.string();
+
+  const fs::path parent = path.parent_path();
+  const fs::path filename = path.filename();
+  if (parent.empty() || filename.empty())
+    return {};
+
+  const std::string stem = filename.stem().string();
+  const std::string ext = filename.extension().string();
+  if (stem.empty() || ext.empty())
+    return {};
+
+  for (const auto &entry : fs::directory_iterator(parent, ec)) {
+    if (ec)
+      break;
+    if (!entry.is_regular_file(ec) || ec) {
+      ec.clear();
+      continue;
+    }
+    const fs::path candidate = entry.path().filename();
+    if (candidate.stem().string() != stem)
+      continue;
+    if (!EqualIgnoreCaseAscii(candidate.extension().string(), ext))
+      continue;
+    return entry.path().string();
+  }
+  if (ec && path.is_absolute())
+    return path.string();
+  return {};
+}
+
+std::string ResolveFromLibrarySuffix(const std::string &base,
+                                     const std::string &spec) {
+  fs::path specPath(spec);
+  std::vector<fs::path> parts;
+  for (const auto &part : specPath) {
+    if (!part.empty())
+      parts.push_back(part);
+  }
+
+  fs::path suffix;
+  bool foundLibrary = false;
+  for (size_t i = 0; i < parts.size(); ++i) {
+    if (!EqualIgnoreCaseAscii(parts[i].string(), "library"))
+      continue;
+    foundLibrary = true;
+    for (size_t j = i; j < parts.size(); ++j)
+      suffix /= parts[j];
+    break;
+  }
+  if (!foundLibrary || suffix.empty())
+    return {};
+
+  std::error_code ec;
+  std::vector<fs::path> roots;
+  if (!base.empty())
+    roots.push_back(fs::path(base));
+
+  const fs::path cwd = fs::current_path(ec);
+  if (!ec && !cwd.empty() && !ContainsPath(roots, cwd))
+    roots.push_back(cwd);
+
+  for (const fs::path &root : roots) {
+    for (fs::path probe = root; !probe.empty(); probe = probe.parent_path()) {
+      const std::string resolved = ResolveExistingPath(probe / suffix);
+      if (!resolved.empty())
+        return resolved;
+      if (probe == probe.parent_path())
+        break;
+    }
+  }
+
+  return {};
+}
+
+std::string ResolveFromDefaultLibrary(const std::string &fileName) {
+  if (fileName.empty())
+    return {};
+
+  const std::array<std::string, 3> librarySubdirs = {
+      "fixtures", "trusses", "scene_objects"};
+  for (const std::string &subdir : librarySubdirs) {
+    const fs::path root = fs::u8path(ProjectUtils::GetDefaultLibraryPath(subdir));
+    const std::string directResolved = ResolveExistingPath(root / fileName);
+    if (!directResolved.empty())
+      return directResolved;
+
+    const std::string recursiveResolved = FindFileRecursive(root.string(), fileName);
+    if (!recursiveResolved.empty())
+      return recursiveResolved;
+  }
+  return {};
+}
 
 std::string TrimPathRef(std::string value) {
   auto isTrim = [](unsigned char c) {
@@ -66,39 +229,51 @@ std::string ResolveCacheKey(const std::string &pathRef) {
 
 std::string ResolveGdtfPath(const std::string &base, const std::string &spec,
                             bool allowRecursiveFallback = false) {
-  const std::string cleanSpec = TrimPathRef(spec);
+  const std::string cleanSpec = DecodePathEscapes(TrimPathRef(spec));
   if (cleanSpec.empty())
     return {};
 
   const std::array<std::string, 2> variants = {cleanSpec,
                                                NormalizePath(cleanSpec)};
 
-  std::error_code ec;
   for (const std::string &variant : variants) {
     fs::path absoluteCandidate = fs::path(variant);
-    if (absoluteCandidate.is_absolute() && fs::exists(absoluteCandidate, ec))
-      return absoluteCandidate.string();
-    ec.clear();
+    if (absoluteCandidate.is_absolute()) {
+      const std::string absoluteResolved = ResolveExistingPath(absoluteCandidate);
+      if (!absoluteResolved.empty())
+        return absoluteResolved;
+    }
 
-    fs::path relativeCandidate = fs::path(base) / absoluteCandidate;
-    if (fs::exists(relativeCandidate, ec))
-      return relativeCandidate.string();
-    ec.clear();
+    const std::string relativeResolved =
+        ResolveExistingPath(fs::path(base) / absoluteCandidate);
+    if (!relativeResolved.empty())
+      return relativeResolved;
 
     fs::path utf8AbsoluteCandidate = fs::u8path(variant);
-    if (utf8AbsoluteCandidate.is_absolute() &&
-        fs::exists(utf8AbsoluteCandidate, ec))
-      return utf8AbsoluteCandidate.string();
-    ec.clear();
+    if (utf8AbsoluteCandidate.is_absolute()) {
+      const std::string utf8AbsoluteResolved =
+          ResolveExistingPath(utf8AbsoluteCandidate);
+      if (!utf8AbsoluteResolved.empty())
+        return utf8AbsoluteResolved;
+    }
 
-    fs::path utf8RelativeCandidate = fs::path(base) / utf8AbsoluteCandidate;
-    if (fs::exists(utf8RelativeCandidate, ec))
-      return utf8RelativeCandidate.string();
-    ec.clear();
+    const std::string utf8RelativeResolved =
+        ResolveExistingPath(fs::path(base) / utf8AbsoluteCandidate);
+    if (!utf8RelativeResolved.empty())
+      return utf8RelativeResolved;
   }
 
+  const std::string librarySuffixResolved = ResolveFromLibrarySuffix(base, cleanSpec);
+  if (!librarySuffixResolved.empty())
+    return librarySuffixResolved;
+
+  const std::string fileName = fs::path(cleanSpec).filename().string();
+  const std::string defaultLibraryResolved = ResolveFromDefaultLibrary(fileName);
+  if (!defaultLibraryResolved.empty())
+    return defaultLibraryResolved;
+
   if (allowRecursiveFallback)
-    return FindFileRecursive(base, fs::path(cleanSpec).filename().string());
+    return FindFileRecursive(base, fileName);
   return {};
 }
 
@@ -196,6 +371,7 @@ ResourceSyncResult ResourceSyncSystem::Sync(
     state.fixtureNodeRegistry.clear();
     state.fixtureAnchorRegistry.clear();
     state.failedGdtfReasons.clear();
+    state.failedGdtfAttemptCounts.clear();
     state.reportedGdtfFailureCounts.clear();
     state.reportedGdtfFailureReasons.clear();
     state.resolvedGdtfSpecs.clear();
@@ -240,6 +416,7 @@ ResourceSyncResult ResourceSyncSystem::Sync(
     // This prevents stale failure caches when a fixture GDTF path is updated
     // (or a previously invalid file gets replaced) without changing basePath.
     state.failedGdtfReasons.clear();
+    state.failedGdtfAttemptCounts.clear();
     state.reportedGdtfFailureCounts.clear();
     state.reportedGdtfFailureReasons.clear();
   }
@@ -348,9 +525,13 @@ ResourceSyncResult ResourceSyncSystem::Sync(
 
     auto failedIt = state.failedGdtfReasons.find(gdtfPath);
     if (failedIt != state.failedGdtfReasons.end()) {
-      ++gdtfErrorCounts[gdtfPath];
-      gdtfErrorReasons[gdtfPath] = failedIt->second;
-      continue;
+      const size_t attempts = state.failedGdtfAttemptCounts[gdtfPath];
+      if (attempts >= 3) {
+        ++gdtfErrorCounts[gdtfPath];
+        gdtfErrorReasons[gdtfPath] = failedIt->second;
+        continue;
+      }
+      state.failedGdtfReasons.erase(failedIt);
     }
 
     if (!processedGdtfPaths.insert(gdtfPath).second)
@@ -361,6 +542,7 @@ ResourceSyncResult ResourceSyncSystem::Sync(
       std::string gdtfError;
       if (LoadGdtf(gdtfPath, objs, &gdtfError)) {
         state.loadedGdtf[gdtfPath] = std::move(objs);
+        state.failedGdtfAttemptCounts.erase(gdtfPath);
 
         GdtfGeometryTree geometryTree;
         std::string geometryTreeError;
@@ -372,6 +554,7 @@ ResourceSyncResult ResourceSyncSystem::Sync(
       } else {
         std::string reason = gdtfError.empty() ? "Failed to load GDTF" : gdtfError;
         state.failedGdtfReasons[gdtfPath] = reason;
+        ++state.failedGdtfAttemptCounts[gdtfPath];
         ++gdtfErrorCounts[gdtfPath];
         gdtfErrorReasons[gdtfPath] = reason;
         result.assetsChanged = true;

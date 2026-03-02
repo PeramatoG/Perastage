@@ -55,6 +55,41 @@
 #include "viewer2drenderpanel.h"
 #include "viewer3dpanel.h"
 
+namespace {
+
+std::string EnsureProjectFileExtension(const std::string &path) {
+  if (path.empty())
+    return path;
+
+  const std::filesystem::path candidate(path);
+  const std::string ext = candidate.extension().string();
+  const std::string requiredExt = ProjectUtils::PROJECT_EXTENSION;
+  if (ext == requiredExt)
+    return candidate.string();
+  if (!ext.empty())
+    return candidate.string();
+
+  std::filesystem::path withExtension = candidate;
+  withExtension += requiredExt;
+  return withExtension.string();
+}
+
+class ScopeExit {
+public:
+  explicit ScopeExit(std::function<void()> fn) : fn_(std::move(fn)) {}
+  ~ScopeExit() {
+    if (fn_)
+      fn_();
+  }
+
+  ScopeExit(const ScopeExit &) = delete;
+  ScopeExit &operator=(const ScopeExit &) = delete;
+
+private:
+  std::function<void()> fn_;
+};
+
+} // namespace
 
 void MainWindow::LockViewportInteraction() {
   ++viewportInteractionLockDepth;
@@ -150,7 +185,7 @@ void MainWindow::OnSaveAs(wxCommandEvent &event) {
   if (dlg.ShowModal() == wxID_CANCEL)
     return;
 
-  currentProjectPath = dlg.GetPath().ToStdString();
+  currentProjectPath = EnsureProjectFileExtension(dlg.GetPath().ToStdString());
   auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
   // Always sync table edits before saving; each panel now applies only real changes.
   SyncSceneData();
@@ -161,7 +196,8 @@ void MainWindow::OnSaveAs(wxCommandEvent &event) {
   else {
     ProjectUtils::SaveLastProjectPath(currentProjectPath);
     if (consolePanel)
-      consolePanel->AppendMessage("Saved " + dlg.GetPath());
+      consolePanel->AppendMessage("Saved " +
+                                  wxString::FromUTF8(currentProjectPath));
   }
   UpdateTitle();
 }
@@ -181,8 +217,7 @@ void MainWindow::OnImportRider(wxCommandEvent &event) {
       pathBuffer ? std::string(pathBuffer.data(), pathBuffer.length())
                  : dlg.GetPath().ToStdString();
   LockViewportInteraction();
-  auto viewportUnlock = std::unique_ptr<void, std::function<void(void *)>>(
-      nullptr, [this](void *) { UnlockViewportInteraction(); });
+  ScopeExit viewportUnlock([this]() { UnlockViewportInteraction(); });
   if (!RiderImporter::Import(pathUtf8)) {
     wxMessageBox("Failed to import rider.", "Error", wxICON_ERROR);
     if (consolePanel)
@@ -197,8 +232,7 @@ void MainWindow::OnImportRider(wxCommandEvent &event) {
 
 void MainWindow::OnImportRiderText(wxCommandEvent &WXUNUSED(event)) {
   LockViewportInteraction();
-  auto viewportUnlock = std::unique_ptr<void, std::function<void(void *)>>(
-      nullptr, [this](void *) { UnlockViewportInteraction(); });
+  ScopeExit viewportUnlock([this]() { UnlockViewportInteraction(); });
   RiderTextDialog dlg(this);
   if (dlg.ShowModal() != wxID_OK)
     return;
