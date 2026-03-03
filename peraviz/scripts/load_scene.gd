@@ -68,6 +68,7 @@ var _visual_settings := {
 	"gobo_debug_log_parameters": false,
 	"gobo_debug_log_volumetric_details": false,
 	"gobo_projection_mode": "shadow_cookie",
+	"gobo_beam_visibility_mode": "fog_shadow",
 	"volumetric_fog_volume_size": 256,
 	"volumetric_fog_depth": 64.0,
 	"volumetric_fog_use_filter": true,
@@ -389,9 +390,11 @@ func _update_existing_beam_material_scalars(light: SpotLight3D) -> void:
 		return
 	var beam_multiplier: float = float(_visual_settings.get("beam_multiplier", 1.0))
 	beam_params["scaled_intensity"] = clamp(base_intensity * beam_multiplier, 0.0, BEAM_INTENSITY_MAX)
+	var gobo_beam_visibility_mode: String = str(_visual_settings.get("gobo_beam_visibility_mode", "fog_shadow")).to_lower()
 	var use_shadow_cookie_gobo: bool = (
 		int(light.get_meta("peraviz_gobo_projection_mode", 0)) == FixtureGoboProjector.ProjectionMode.SHADOW_COOKIE
 		and light.get_meta("peraviz_gobo_texture", null) != null
+		and gobo_beam_visibility_mode != "geometry_shader"
 	)
 	if use_shadow_cookie_gobo:
 		beam_params["scaled_intensity"] = float(beam_params.get("scaled_intensity", 0.0)) * GOBO_SHADOW_COOKIE_MESH_BEAM_INTENSITY_MULTIPLIER
@@ -1643,7 +1646,8 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 		# Sample-like fallback for gobo readability: keep spotlight range in a tight zoom-linked window.
 		light.spot_range = remap(clamp(beam_angle, 6.0, 50.0), 6.0, 50.0, 60.0, 30.0)
 	var gobo_projection_mode: String = str(_visual_settings.get("gobo_projection_mode", "shadow_cookie"))
-	var use_shadow_cookie_gobo: bool = bool(controls.get("has_gobo", false)) and gobo_projection_mode == "shadow_cookie"
+	var gobo_beam_visibility_mode: String = str(_visual_settings.get("gobo_beam_visibility_mode", "fog_shadow")).to_lower()
+	var use_shadow_cookie_gobo: bool = bool(controls.get("has_gobo", false)) and gobo_projection_mode == "shadow_cookie" and gobo_beam_visibility_mode != "geometry_shader"
 	if use_shadow_cookie_gobo:
 		# Match the #11987 reference setup: tighter angle attenuation + sharp shadows improve in-air beam definition.
 		spot_attenuation = min(spot_attenuation, GOBO_SHADOW_COOKIE_BEAM_ATTENUATION)
@@ -1674,6 +1678,7 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 		"distance_cull_m": BEAM_DISTANCE_CULL_M,
 		"spot_angle_half_deg": light.spot_angle,
 		"spot_range": light.spot_range,
+		"gobo_beam_visibility_mode": gobo_beam_visibility_mode,
 	}
 	if use_shadow_cookie_gobo:
 		# Match the #11987 workaround behavior: keep occluder shadows for native volumetric fog,

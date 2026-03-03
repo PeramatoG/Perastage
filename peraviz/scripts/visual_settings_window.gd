@@ -22,6 +22,7 @@ const DEFAULT_SETTINGS := {
 	"gobo_debug_log_parameters": false,
 	"gobo_debug_log_volumetric_details": false,
 	"gobo_projection_mode": "shadow_cookie",
+	"gobo_beam_visibility_mode": "fog_shadow",
 	"volumetric_fog_volume_size": 256,
 	"volumetric_fog_depth": 64.0,
 	"volumetric_fog_use_filter": true,
@@ -51,6 +52,7 @@ var _background_picker: ColorPickerButton
 var _beam_render_mode_option: OptionButton
 var _beam_quality_option: OptionButton
 var _gobo_projection_option: OptionButton
+var _gobo_beam_visibility_option: OptionButton
 
 func _init() -> void:
 	title = "Visual Settings"
@@ -100,6 +102,7 @@ func _build_ui() -> void:
 	_beam_render_mode_option = _add_option_row(container, "Beam rendering", ["Volumetric (default)", "Lightweight (legacy)"], _on_beam_render_mode_selected)
 	_beam_quality_option = _add_option_row(container, "Beam quality", ["Low", "Medium", "High"], _on_beam_quality_selected)
 	_gobo_projection_option = _add_option_row(container, "Gobo projection", ["Shadow cookie", "Projector cookie"], _on_gobo_projection_selected)
+	_gobo_beam_visibility_option = _add_option_row(container, "Gobo beam visibility", ["Fog shadow (recommended)", "Geometry shader fallback"], _on_gobo_beam_visibility_selected)
 	_add_toggle_row(container, "Debug gobo occluder", "gobo_debug_show_occluder")
 	_add_toggle_row(container, "Log gobo parameters", "gobo_debug_log_parameters")
 	_add_toggle_row(container, "Log volumetric internals", "gobo_debug_log_volumetric_details")
@@ -223,6 +226,8 @@ func _apply_settings_to_controls() -> void:
 	_beam_quality_option.select(clamp(int(_settings.get("beam_quality", 1)), 0, 2))
 	var mode_name: String = str(_settings.get("gobo_projection_mode", "shadow_cookie")).to_lower()
 	_gobo_projection_option.select(1 if mode_name == "projector_cookie" else 0)
+	var gobo_beam_visibility_mode: String = str(_settings.get("gobo_beam_visibility_mode", "fog_shadow")).to_lower()
+	_gobo_beam_visibility_option.select(1 if gobo_beam_visibility_mode == "geometry_shader" else 0)
 	_background_picker.color = _settings.get("background_color", DEFAULT_SETTINGS["background_color"])
 	_update_value_labels()
 
@@ -252,6 +257,10 @@ func _on_beam_quality_selected(index: int) -> void:
 
 func _on_gobo_projection_selected(index: int) -> void:
 	_settings["gobo_projection_mode"] = "projector_cookie" if index == 1 else "shadow_cookie"
+	_emit_settings_changed()
+
+func _on_gobo_beam_visibility_selected(index: int) -> void:
+	_settings["gobo_beam_visibility_mode"] = "geometry_shader" if index == 1 else "fog_shadow"
 	_emit_settings_changed()
 
 func _update_value_labels() -> void:

@@ -7,12 +7,9 @@ const GOBO_OCCLUDER_META_KEY: String = "peraviz_gobo_occluder"
 const GOBO_OCCLUDER_SHADER_MATERIAL_META_KEY: String = "peraviz_gobo_occluder_shader_material"
 const EMITTER_CONE_MAX_BASE_RADIUS_M: float = 10.0
 const VOLUMETRIC_INTENSITY_SCALE: float = 0.75
-const GOBO_OCCLUDER_DISTANCE_M: float = 0.043
-const GOBO_PLANE_BASE_SIZE_M: float = 0.017
-const GOBO_FOOTPRINT_CONE_FILL_RATIO: float = 1.0
-const GOBO_COOKIE_OVERSCAN_RATIO: float = 1.12
 const GOBO_DEBUG_MATERIAL_COLOR: Color = Color(0.1, 0.9, 0.2, 0.3)
 const GOBO_DEBUG_LOG_THROTTLE_MS: int = 400
+const GoboBeamVisibilityPolicyScript = preload("res://scripts/beam_renderers/gobo_beam_visibility_policy.gd")
 
 var _beam_material_template: ShaderMaterial
 var _gobo_occluder_material_template: ShaderMaterial
@@ -20,8 +17,10 @@ var _gobo_occluder_debug_material: StandardMaterial3D
 var _camera: Camera3D
 var _settings: Dictionary = {}
 var _last_gobo_debug_log_ticks_by_light: Dictionary = {}
+var _gobo_visibility_policy: GoboBeamVisibilityPolicy
 
 func _init() -> void:
+	_gobo_visibility_policy = GoboBeamVisibilityPolicyScript.new()
 	_beam_material_template = ShaderMaterial.new()
 	_beam_material_template.shader = load("res://scripts/shaders/volumetric_beam.gdshader")
 	_gobo_occluder_material_template = ShaderMaterial.new()
@@ -59,7 +58,7 @@ func ensure_beam(light: SpotLight3D) -> void:
 
 	if not light.has_meta(GOBO_OCCLUDER_META_KEY):
 		var gobo_mesh := QuadMesh.new()
-		gobo_mesh.size = Vector2(GOBO_PLANE_BASE_SIZE_M, GOBO_PLANE_BASE_SIZE_M)
+		gobo_mesh.size = Vector2(_gobo_visibility_policy.GOBO_PLANE_BASE_SIZE_M, _gobo_visibility_policy.GOBO_PLANE_BASE_SIZE_M)
 		var gobo_occluder := MeshInstance3D.new()
 		gobo_occluder.name = "PeravizGoboOccluder"
 		gobo_occluder.mesh = gobo_mesh
@@ -133,12 +132,7 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	cone.set_instance_shader_parameter("beam_bottom_radius", bottom_radius)
 	cone.set_instance_shader_parameter("beam_height", beam_range)
 
-	_update_gobo_occluder(light, cone, gobo_occluder, beam_angle, beam_range, not prefer_native_shadow_cookie)
-
-func _compute_cone_diameter_at_occluder(beam_angle: float) -> float:
-	var half_angle_rad: float = deg_to_rad(max(beam_angle, 0.1) * 0.5)
-	var cone_radius_at_occluder: float = tan(half_angle_rad) * GOBO_OCCLUDER_DISTANCE_M
-	return max(cone_radius_at_occluder * 2.0, 0.001)
+	_update_gobo_occluder(light, cone, gobo_occluder, beam_angle, beam_range, prefer_native_shadow_cookie)
 
 func cleanup_beam(light: SpotLight3D) -> void:
 	if light.has_meta(BEAM_META_KEY):
@@ -155,7 +149,7 @@ func cleanup_beam(light: SpotLight3D) -> void:
 	if light.has_meta(GOBO_OCCLUDER_SHADER_MATERIAL_META_KEY):
 		light.remove_meta(GOBO_OCCLUDER_SHADER_MATERIAL_META_KEY)
 
-func _update_gobo_occluder(light: SpotLight3D, cone: MeshInstance3D, gobo_occluder: MeshInstance3D, beam_angle: float, beam_range: float, update_cone_shader: bool = true) -> void:
+func _update_gobo_occluder(light: SpotLight3D, cone: MeshInstance3D, gobo_occluder: MeshInstance3D, beam_angle: float, beam_range: float, prefer_native_shadow_cookie: bool = false) -> void:
 	if gobo_occluder == null:
 		return
 
@@ -165,10 +159,9 @@ func _update_gobo_occluder(light: SpotLight3D, cone: MeshInstance3D, gobo_occlud
 
 	var gobo_texture: Texture2D = light.get_meta("peraviz_gobo_texture", null) as Texture2D
 	var gobo_projection_mode: int = int(light.get_meta("peraviz_gobo_projection_mode", 0))
-	if gobo_projection_mode == 1:
-		gobo_occluder.visible = false
-		cone.set_instance_shader_parameter("gobo_enabled", false)
-		return
+	var visibility_mode: int = _gobo_visibility_policy.resolve_visibility_mode(_settings, prefer_native_shadow_cookie, gobo_projection_mode)
+	var use_shadow_occluder: bool = visibility_mode == GoboBeamVisibilityPolicy.BeamVisibilityMode.FOG_SHADOW
+	var update_cone_shader: bool = visibility_mode == GoboBeamVisibilityPolicy.BeamVisibilityMode.GEOMETRY_SHADER
 
 	var gobo_active := gobo_texture != null
 	if not gobo_active:
@@ -182,29 +175,25 @@ func _update_gobo_occluder(light: SpotLight3D, cone: MeshInstance3D, gobo_occlud
 		return
 
 	var gobo_scale_ratio: float = max(float(_settings.get("gobo_scale_ratio", 1.0)), 0.001)
-	var cone_diameter_at_occluder: float = _compute_cone_diameter_at_occluder(beam_angle)
-	var footprint_plane_size: float = cone_diameter_at_occluder * GOBO_FOOTPRINT_CONE_FILL_RATIO
-	# Slight overscan avoids having the cone boundary and cookie boundary collide exactly,
-	# which reduces checker/dither-like borders in volumetric fog froxels.
-	var gobo_plane_size_world: float = max(footprint_plane_size * gobo_scale_ratio * GOBO_COOKIE_OVERSCAN_RATIO, 0.001)
-	var footprint_scale: float = max(gobo_plane_size_world / GOBO_PLANE_BASE_SIZE_M, 0.001)
+	var gobo_plane_size_world: float = _gobo_visibility_policy.compute_occluder_plane_size_world(beam_angle, gobo_scale_ratio)
+	var footprint_scale: float = max(gobo_plane_size_world / _gobo_visibility_policy.GOBO_PLANE_BASE_SIZE_M, 0.001)
 	gobo_occluder.scale = Vector3(footprint_scale, footprint_scale, 1.0)
-	gobo_occluder.position = Vector3(0.0, 0.0, -GOBO_OCCLUDER_DISTANCE_M)
-	gobo_occluder.visible = true
+	gobo_occluder.position = Vector3(0.0, 0.0, -_gobo_visibility_policy.GOBO_OCCLUDER_DISTANCE_M)
+	gobo_occluder.visible = use_shadow_occluder
 	gobo_material.set_shader_parameter("gobo_texture", gobo_texture)
 
 	var gobo_debug_visible: bool = bool(_settings.get("gobo_debug_show_occluder", false))
-	if gobo_debug_visible:
+	if gobo_debug_visible and use_shadow_occluder:
 		gobo_occluder.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
 		gobo_occluder.material_override = _gobo_occluder_debug_material
 	else:
-		gobo_occluder.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY
-		gobo_occluder.material_override = gobo_material
+		gobo_occluder.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY if use_shadow_occluder else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		gobo_occluder.material_override = gobo_material if use_shadow_occluder else null
 
 	if update_cone_shader:
 		cone.set_instance_shader_parameter("gobo_enabled", true)
 		cone.set_instance_shader_parameter("gobo_cutoff", 0.38)
-		cone.set_instance_shader_parameter("gobo_start_ratio", GOBO_OCCLUDER_DISTANCE_M / max(beam_range, 0.001))
+		cone.set_instance_shader_parameter("gobo_start_ratio", _gobo_visibility_policy.GOBO_OCCLUDER_DISTANCE_M / max(beam_range, 0.001))
 		cone.set_instance_shader_parameter("gobo_rotation", 0.0)
 		cone.set_instance_shader_parameter("gobo_size", Vector2(gobo_plane_size_world, gobo_plane_size_world))
 		cone.set_instance_shader_parameter("gobo_axis_sign", 1.0)
