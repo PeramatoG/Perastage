@@ -61,8 +61,8 @@ var _visual_settings := {
 	"beam_anisotropy": 0.62,
 	"beam_noise_amount": 0.06,
 	"beam_noise_scale": 1.4,
-	"volumetric_fog_density": 0.02,
-	"light_volumetric_fog_energy": 3.5,
+	"volumetric_fog_density": 0.007,
+	"light_volumetric_fog_energy": 1.6,
 	"gobo_scale_ratio": 1.0,
 	"gobo_debug_show_occluder": false,
 	"gobo_debug_log_parameters": false,
@@ -70,8 +70,8 @@ var _visual_settings := {
 	"gobo_projection_mode": "shadow_cookie",
 	"gobo_beam_visibility_mode": "fog_shadow",
 	"volumetric_fog_volume_size": 256,
-	"volumetric_fog_depth": 128.0,
-	"volumetric_fog_use_filter": false,
+	"volumetric_fog_depth": 96.0,
+	"volumetric_fog_use_filter": true,
 	"background_color": Color(0.129412, 0.137255, 0.156863, 1.0),
 }
 
@@ -142,7 +142,7 @@ const GOBO_SHADOW_COOKIE_BEAM_ATTENUATION: float = 0.5
 const GOBO_SHADOW_COOKIE_SHADOW_BIAS: float = 0.02
 const GOBO_SHADOW_COOKIE_SHADOW_NORMAL_BIAS: float = 0.8
 const GOBO_SHADOW_COOKIE_SHADOW_BLUR: float = 0.1
-const GOBO_SHADOW_COOKIE_MESH_BEAM_INTENSITY_MULTIPLIER: float = 0.55
+const GOBO_SHADOW_COOKIE_MESH_BEAM_INTENSITY_MULTIPLIER: float = 0.25
 const EMITTER_CONE_FADE_END_RATIO: float = 0.82
 const EMITTER_CONE_NEAR_ALPHA: float = 0.16
 const EMITTER_CONE_FAR_ALPHA: float = 0.004
@@ -281,22 +281,23 @@ func _apply_visual_settings(settings: Dictionary) -> void:
 		world_environment.environment.glow_bloom = float(_visual_environment_baseline.get("glow_bloom", 0.05)) * float(_visual_settings.get("bloom_multiplier", 1.0))
 		world_environment.environment.background_color = _visual_settings.get("background_color", _visual_environment_baseline.get("background_color", Color(0.129412, 0.137255, 0.156863, 1.0)))
 		world_environment.environment.volumetric_fog_enabled = true
-		world_environment.environment.volumetric_fog_density = float(_visual_settings.get("volumetric_fog_density", 0.02))
+		world_environment.environment.volumetric_fog_density = float(_visual_settings.get("volumetric_fog_density", 0.007))
 
 	# Godot volumetric fog froxel controls are renderer-level project settings.
 	# Keep them aligned with visual settings for the #11987 shadow-cookie workflow.
 	var fog_volume_size: int = int(round(float(_visual_settings.get("volumetric_fog_volume_size", 256))))
-	var fog_volume_depth: int = int(round(float(_visual_settings.get("volumetric_fog_depth", 128.0))) )
-	var fog_use_filter: bool = bool(_visual_settings.get("volumetric_fog_use_filter", false))
+	var fog_volume_depth: int = int(round(float(_visual_settings.get("volumetric_fog_depth", 96.0))) )
+	var fog_use_filter: bool = bool(_visual_settings.get("volumetric_fog_use_filter", true))
 	ProjectSettings.set_setting("rendering/environment/volumetric_fog/volume_size", fog_volume_size)
 	ProjectSettings.set_setting("rendering/environment/volumetric_fog/volume_depth", fog_volume_depth)
 	ProjectSettings.set_setting("rendering/environment/volumetric_fog/use_filter", fog_use_filter)
 	if world_environment != null and world_environment.environment != null:
 		_apply_environment_froxel_settings(world_environment.environment, fog_volume_size, fog_volume_depth, fog_use_filter)
+		_refresh_volumetric_fog_environment_binding()
 	# This setting can require a renderer restart in Godot to re-allocate froxel buffers.
 	# Intentionally not persisted to disk in debug workflow.
 	if status_label != null:
-		status_label.text = "Volumetric fog quality changes may require scene reload to fully apply (Godot froxel grid)."
+		status_label.text = "Applied volumetric fog quality and refreshed environment binding."
 
 	_update_beam_renderer_mode(false)
 	_save_visual_settings_to_project()
@@ -336,6 +337,17 @@ func _environment_has_property(environment: Environment, property_name: String) 
 		if str(entry.get("name", "")) == property_name:
 			return true
 	return false
+
+func _refresh_volumetric_fog_environment_binding() -> void:
+	if world_environment == null:
+		return
+	var current_environment: Environment = world_environment.environment
+	if current_environment == null:
+		return
+	# Rebinding the same Environment resource helps force renderer-side refresh
+	# for volumetric fog buffers in some Godot versions.
+	world_environment.environment = null
+	world_environment.environment = current_environment
 
 func _update_beam_renderer_mode(force_refresh: bool) -> void:
 	var requested_mode: int = int(clamp(int(_visual_settings.get("beam_render_mode", BEAM_RENDER_MODE_VOLUMETRIC)), BEAM_RENDER_MODE_VOLUMETRIC, BEAM_RENDER_MODE_LEGACY))
@@ -381,7 +393,7 @@ func _refresh_existing_beam_material_scalars() -> void:
 func _apply_light_scalars_to_light(light: SpotLight3D) -> void:
 	var base_energy: float = float(light.get_meta("peraviz_base_light_energy", light.light_energy))
 	light.light_energy = base_energy * float(_visual_settings.get("spot_multiplier", 1.0))
-	light.light_volumetric_fog_energy = float(_visual_settings.get("light_volumetric_fog_energy", 3.5))
+	light.light_volumetric_fog_energy = float(_visual_settings.get("light_volumetric_fog_energy", 1.6))
 
 func _update_existing_beam_material_scalars(light: SpotLight3D) -> void:
 	var base_intensity: float = float(light.get_meta("peraviz_beam_base_intensity", 0.0))
@@ -1691,7 +1703,7 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 		var gobo_controls: Dictionary = controls.duplicate(true)
 		gobo_controls["gobo_projection_mode"] = str(_visual_settings.get("gobo_projection_mode", "shadow_cookie"))
 		gobo_changed = _fixture_gobo_projector.apply_gobo_projection(light, gobo_controls)
-	light.light_volumetric_fog_energy = float(_visual_settings.get("light_volumetric_fog_energy", 3.5))
+	light.light_volumetric_fog_energy = float(_visual_settings.get("light_volumetric_fog_energy", 1.6))
 	_update_beam_for_light(light, beam_params)
 	if gobo_changed:
 		# Re-apply beam uniforms immediately when gobo texture changes so volumetric modulation updates without frame delay.

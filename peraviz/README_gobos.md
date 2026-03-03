@@ -57,12 +57,12 @@ If the footprint looks correct on the floor but the beam in air looks too soft, 
 
 Peraviz now applies those shadow-cookie defaults when gobos are active in `shadow_cookie` mode, while keeping them user-tunable from Visual Settings.
 
-Current Peraviz defaults are aligned to that recipe:
+Current Peraviz defaults are tuned for balanced readability without overexposing the beam volume:
 
-- `volumetric_fog_density = 0.02`
-- `light_volumetric_fog_energy = 3.5`
+- `volumetric_fog_density = 0.007`
+- `light_volumetric_fog_energy = 1.6`
 - `shadow_blur = 0.1` for active shadow-cookie gobos
-- volumetric fog froxel controls default to `volume_size = 256`, `volume_depth = 128`, `use_filter = false`
+- volumetric fog froxel controls default to `volume_size = 256`, `volume_depth = 96`, `use_filter = true`
 
 
 ### Scale and resolution notes
