@@ -71,14 +71,14 @@ layouts::Layout2DViewFrame BuildDefaultLayout2DFrame(
 }
 
 
-bool IsPaneShown(const wxAuiManager *manager, const char *name) {
+bool IsPaneShown(wxAuiManager *manager, const char *name) {
   if (!manager)
     return false;
   const auto &pane = manager->GetPane(name);
   return pane.IsOk() && pane.IsShown();
 }
 
-bool IsPerspectiveCompatibleWithPreset(const wxAuiManager *manager,
+bool IsPerspectiveCompatibleWithPreset(wxAuiManager *manager,
                                        const LayoutViewPreset &preset) {
   if (!manager)
     return false;
