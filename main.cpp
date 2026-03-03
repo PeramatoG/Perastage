@@ -22,6 +22,7 @@
 #include "projectutils.h"
 #include "splashscreen.h"
 #include <filesystem>
+#include <atomic>
 #include <new>
 #include <thread>
 #include <wx/stackwalk.h>
@@ -40,8 +41,13 @@ public:
   void OnUnhandledException() override;
 
 private:
+  void QueueProjectLoadedEvent(const wxWeakRef<MainWindow> &mainWindowRef,
+                               bool loaded, bool clearLastProject,
+                               const std::string &path = {});
+
   std::string last_event_summary_;
   std::thread project_loader_thread_;
+  std::atomic<bool> project_load_event_sent_{false};
 };
 
 wxIMPLEMENT_APP(MyApp);
@@ -88,7 +94,7 @@ bool MyApp::OnInit() {
 
   if (lastPathOpt) {
     std::string lastPath = *lastPathOpt;
-    project_loader_thread_ = std::thread([mainWindowRef, lastPath]() {
+    project_loader_thread_ = std::thread([this, mainWindowRef, lastPath]() {
       try {
         namespace fs = std::filesystem;
         bool loaded = false;
@@ -105,37 +111,20 @@ bool MyApp::OnInit() {
           if (!loaded)
             clearLastProject = true;
         }
-        if (mainWindowRef) {
-          wxCommandEvent evt(EVT_PROJECT_LOADED);
-          evt.SetInt(loaded ? 1 : 0);
-          evt.SetExtraLong(clearLastProject ? 1 : 0);
-          evt.SetString(path);
-          wxQueueEvent(mainWindowRef.get(), evt.Clone());
-        }
+        this->QueueProjectLoadedEvent(mainWindowRef, loaded, clearLastProject,
+                                      path);
       } catch (const std::exception &ex) {
         Logger::Instance().Log(
             std::string("Failed to load last project: ") + ex.what());
-        if (mainWindowRef) {
-          wxCommandEvent evt(EVT_PROJECT_LOADED);
-          evt.SetInt(0);
-          evt.SetExtraLong(1);
-          wxQueueEvent(mainWindowRef.get(), evt.Clone());
-        }
+        this->QueueProjectLoadedEvent(mainWindowRef, false, true);
       } catch (...) {
         Logger::Instance().Log("Failed to load last project: unknown error.");
-        if (mainWindowRef) {
-          wxCommandEvent evt(EVT_PROJECT_LOADED);
-          evt.SetInt(0);
-          evt.SetExtraLong(1);
-          wxQueueEvent(mainWindowRef.get(), evt.Clone());
-        }
+        this->QueueProjectLoadedEvent(mainWindowRef, false, true);
       }
     });
+
   } else if (mainWindowRef) {
-    wxCommandEvent evt(EVT_PROJECT_LOADED);
-    evt.SetInt(0);
-    evt.SetExtraLong(0);
-    wxQueueEvent(mainWindowRef.get(), evt.Clone());
+    QueueProjectLoadedEvent(mainWindowRef, false, false);
   }
 
   return true;
@@ -146,6 +135,22 @@ int MyApp::OnExit() {
     project_loader_thread_.join();
   }
   return wxApp::OnExit();
+}
+
+void MyApp::QueueProjectLoadedEvent(const wxWeakRef<MainWindow> &mainWindowRef,
+                                    bool loaded, bool clearLastProject,
+                                    const std::string &path) {
+  if (!mainWindowRef)
+    return;
+  bool expected = false;
+  if (!project_load_event_sent_.compare_exchange_strong(expected, true))
+    return;
+
+  wxCommandEvent evt(EVT_PROJECT_LOADED);
+  evt.SetInt(loaded ? 1 : 0);
+  evt.SetExtraLong(clearLastProject ? 1 : 0);
+  evt.SetString(wxString::FromUTF8(path));
+  wxQueueEvent(mainWindowRef.get(), evt.Clone());
 }
 
 int MyApp::FilterEvent(wxEvent &event) {
