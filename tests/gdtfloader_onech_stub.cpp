@@ -27,3 +27,9 @@ bool LoadGdtf(const std::string&, std::vector<GdtfObject>&, std::string*) {
 }
 int GetGdtfModeChannelCount(const std::string&, const std::string&) { return 1; }
 std::string GetGdtfFixtureName(const std::string& gdtfPath) { return gdtfPath; }
+std::string GetGdtfModelColor(const std::string&) { return "#000000"; }
+bool GetGdtfProperties(const std::string&, float &w, float &p) {
+    w = 0.0f;
+    p = 0.0f;
+    return false;
+}
