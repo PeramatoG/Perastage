@@ -315,7 +315,16 @@ bool UserPreferencesStore::SaveToFile(const std::string &path) const {
 std::string UserPreferencesStore::GetUserConfigFile() {
   wxString dir = wxStandardPaths::Get().GetUserDataDir();
   std::filesystem::path p = std::filesystem::path(dir.ToStdString());
-  std::filesystem::create_directories(p);
+  std::error_code ec;
+  std::filesystem::create_directories(p, ec);
+  if (ec) {
+    ec.clear();
+    const wxString tempDir = wxStandardPaths::Get().GetTempDir();
+    p = std::filesystem::path(tempDir.ToStdString()) / "Perastage";
+    std::filesystem::create_directories(p, ec);
+    if (ec)
+      return {};
+  }
   p /= "user_config.json";
   return p.string();
 }

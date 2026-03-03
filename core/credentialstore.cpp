@@ -30,7 +30,15 @@ static std::string GetCredFile()
 {
     wxString dir = wxStandardPaths::Get().GetUserDataDir();
     fs::path p = fs::path(dir.ToStdString());
-    fs::create_directories(p);
+    std::error_code ec;
+    fs::create_directories(p, ec);
+    if (ec) {
+        ec.clear();
+        p = fs::path(wxStandardPaths::Get().GetTempDir().ToStdString()) / "Perastage";
+        fs::create_directories(p, ec);
+        if (ec)
+            return {};
+    }
     p /= "gdtf_credentials.json";
     return p.string();
 }
@@ -40,7 +48,10 @@ bool Save(const Credentials& cred)
     nlohmann::json j;
     j["username"] = cred.username;
     j["password"] = SimpleCrypt::Encode(cred.password);
-    std::ofstream out(GetCredFile());
+    const std::string credFile = GetCredFile();
+    if (credFile.empty())
+        return false;
+    std::ofstream out(credFile);
     if (!out.is_open())
         return false;
     out << j.dump(4);
@@ -49,7 +60,10 @@ bool Save(const Credentials& cred)
 
 std::optional<Credentials> Load()
 {
-    std::ifstream in(GetCredFile());
+    const std::string credFile = GetCredFile();
+    if (credFile.empty())
+        return std::nullopt;
+    std::ifstream in(credFile);
     if (!in.is_open())
         return std::nullopt;
     nlohmann::json j;
@@ -67,4 +81,3 @@ std::optional<Credentials> Load()
 }
 
 } // namespace CredentialStore
-

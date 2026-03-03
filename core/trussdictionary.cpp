@@ -77,7 +77,10 @@ static fs::path GetDictFile() {
   fs::path dir = fs::u8path(ProjectUtils::GetDefaultLibraryPath("trusses"));
   if (dir.empty())
     return {};
-  fs::create_directories(dir);
+  std::error_code ec;
+  fs::create_directories(dir, ec);
+  if (ec)
+    return {};
   fs::path file = dir / "truss_dictionary.json";
   if (!fs::exists(file)) {
     fs::path baseLib = ProjectUtils::GetBaseLibraryPath("trusses");
