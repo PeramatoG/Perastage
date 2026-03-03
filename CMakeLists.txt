@@ -352,9 +352,15 @@ if(CMAKE_CONFIGURATION_TYPES)
     set(PERASTAGE_STAGE_CONFIG --config $<CONFIG>)
     set(PERASTAGE_SYMBOLS_DIR "${CMAKE_SOURCE_DIR}/out/install/$<CONFIG>/symbols")
 else()
-    set(PERASTAGE_STAGE_PREFIX "${CMAKE_INSTALL_PREFIX}")
+    if(NOT CMAKE_BUILD_TYPE)
+        set(_perastage_cfg "Release")
+    else()
+        set(_perastage_cfg "${CMAKE_BUILD_TYPE}")
+    endif()
+
+    set(PERASTAGE_STAGE_PREFIX "${CMAKE_SOURCE_DIR}/out/install/${_perastage_cfg}")
     set(PERASTAGE_STAGE_CONFIG)
-    set(PERASTAGE_SYMBOLS_DIR "${CMAKE_INSTALL_PREFIX}/symbols")
+    set(PERASTAGE_SYMBOLS_DIR "${PERASTAGE_STAGE_PREFIX}/symbols")
 endif()
 
 add_custom_target(perastage_stage
