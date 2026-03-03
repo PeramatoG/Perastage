@@ -83,7 +83,6 @@ void fragment() {
 	float gobo_open = 1.0;
 	if (gobo_enabled) {
 		float axis_pos = (beam_height * 0.5) - (v_local.y * gobo_axis_sign);
-		float axis_dist = clamp(axis_pos, 0.001, beam_height);
 		float gobo_plane_dist = gobo_start_ratio * beam_height;
 		if (axis_pos >= gobo_plane_dist) {
 			float t = axis_pos / beam_height;
@@ -93,8 +92,11 @@ void fragment() {
 				discard;
 			}
 
-			float projection_scale = gobo_plane_dist / axis_dist;
-			vec2 gobo_plane_pos = radial_pos * projection_scale;
+			// Geometry-fallback projection: normalize by beam radius at the current slice
+			// to keep gobo structure visible across the full cone volume.
+			vec2 gobo_plane_pos = radial_pos / max(radius_at_point, 0.001);
+			float gobo_scale = max(gobo_size.x / 0.08, 0.001);
+			gobo_plane_pos /= gobo_scale;
 
 			float sin_rot = sin(gobo_rotation);
 			float cos_rot = cos(gobo_rotation);
@@ -102,22 +104,14 @@ void fragment() {
 				gobo_plane_pos.x * cos_rot - gobo_plane_pos.y * sin_rot,
 				gobo_plane_pos.x * sin_rot + gobo_plane_pos.y * cos_rot
 			);
-			vec2 half_size = max(gobo_size * 0.5, vec2(0.001));
-			vec2 gobo_uv = rotated / half_size + vec2(0.5);
+			vec2 gobo_uv = rotated * 0.5 + vec2(0.5);
 
 			if (gobo_uv.x < 0.0 || gobo_uv.x > 1.0 || gobo_uv.y < 0.0 || gobo_uv.y > 1.0) {
 				gobo_open = 0.0;
 			} else {
-				const int LINE_SAMPLE_COUNT = 2;
-				float gobo_acc = 0.0;
-				for (int i = 0; i < LINE_SAMPLE_COUNT; i++) {
-					float sample_t = (float(i) + 0.5) / float(LINE_SAMPLE_COUNT);
-					vec2 sample_uv = mix(vec2(0.5), gobo_uv, sample_t);
-					vec4 texel = texture(gobo_texture, sample_uv);
-					float luminance = dot(texel.rgb, vec3(0.299, 0.587, 0.114)) * texel.a;
-					gobo_acc += smoothstep(gobo_cutoff - 0.04, gobo_cutoff + 0.04, luminance);
-				}
-				gobo_open = gobo_acc / float(LINE_SAMPLE_COUNT);
+				vec4 texel = texture(gobo_texture, gobo_uv);
+				float luminance = dot(texel.rgb, vec3(0.299, 0.587, 0.114)) * texel.a;
+				gobo_open = smoothstep(gobo_cutoff - 0.05, gobo_cutoff + 0.05, luminance);
 			}
 		} else {
 			gobo_open = 1.0;

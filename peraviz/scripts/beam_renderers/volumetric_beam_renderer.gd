@@ -82,6 +82,9 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	var beam_range: float = max(float(params.get("beam_range", 0.1)), 0.01)
 	var beam_angle: float = max(float(params.get("beam_angle", 1.0)), 0.1)
 	var prefer_native_shadow_cookie: bool = bool(params.get("prefer_native_shadow_cookie_volumetric", false))
+	var gobo_projection_mode: int = int(light.get_meta("peraviz_gobo_projection_mode", 0))
+	var visibility_mode: int = _gobo_visibility_policy.resolve_visibility_mode(_settings, prefer_native_shadow_cookie, gobo_projection_mode)
+	var gobo_active: bool = (light.get_meta("peraviz_gobo_texture", null) as Texture2D) != null
 
 	if not bool(params.get("is_visible", true)):
 		cone.visible = false
@@ -110,7 +113,10 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	# In native shadow-cookie mode keep a subtle non-gobo mesh cone only for beam readability,
 	# while cookie patterning in air still comes from SpotLight shadows in volumetric fog.
 	var mesh_intensity: float = intensity
-	if prefer_native_shadow_cookie:
+	if visibility_mode == GoboBeamVisibilityPolicy.BeamVisibilityMode.FOG_SHADOW and gobo_active:
+		# For coherent fog-shadow gobos avoid washing the footprint/beam with additive cone shading.
+		mesh_intensity = threshold * 1.02
+	if prefer_native_shadow_cookie and not (visibility_mode == GoboBeamVisibilityPolicy.BeamVisibilityMode.FOG_SHADOW and gobo_active):
 		mesh_intensity = max(intensity * 0.35, threshold * 1.1)
 
 	var half_angle_deg: float = beam_angle * 0.5
@@ -132,7 +138,7 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	cone.set_instance_shader_parameter("beam_bottom_radius", bottom_radius)
 	cone.set_instance_shader_parameter("beam_height", beam_range)
 
-	_update_gobo_occluder(light, cone, gobo_occluder, beam_angle, beam_range, prefer_native_shadow_cookie)
+	_update_gobo_occluder(light, cone, gobo_occluder, beam_angle, beam_range, prefer_native_shadow_cookie, visibility_mode)
 
 func cleanup_beam(light: SpotLight3D) -> void:
 	if light.has_meta(BEAM_META_KEY):
@@ -149,7 +155,13 @@ func cleanup_beam(light: SpotLight3D) -> void:
 	if light.has_meta(GOBO_OCCLUDER_SHADER_MATERIAL_META_KEY):
 		light.remove_meta(GOBO_OCCLUDER_SHADER_MATERIAL_META_KEY)
 
-func _update_gobo_occluder(light: SpotLight3D, cone: MeshInstance3D, gobo_occluder: MeshInstance3D, beam_angle: float, beam_range: float, prefer_native_shadow_cookie: bool = false) -> void:
+func _update_gobo_occluder(light: SpotLight3D,
+		cone: MeshInstance3D,
+		gobo_occluder: MeshInstance3D,
+		beam_angle: float,
+		beam_range: float,
+		prefer_native_shadow_cookie: bool = false,
+		visibility_mode_override: int = -1) -> void:
 	if gobo_occluder == null:
 		return
 
@@ -159,7 +171,9 @@ func _update_gobo_occluder(light: SpotLight3D, cone: MeshInstance3D, gobo_occlud
 
 	var gobo_texture: Texture2D = light.get_meta("peraviz_gobo_texture", null) as Texture2D
 	var gobo_projection_mode: int = int(light.get_meta("peraviz_gobo_projection_mode", 0))
-	var visibility_mode: int = _gobo_visibility_policy.resolve_visibility_mode(_settings, prefer_native_shadow_cookie, gobo_projection_mode)
+	var visibility_mode: int = visibility_mode_override
+	if visibility_mode < 0:
+		visibility_mode = _gobo_visibility_policy.resolve_visibility_mode(_settings, prefer_native_shadow_cookie, gobo_projection_mode)
 	var use_shadow_occluder: bool = visibility_mode == GoboBeamVisibilityPolicy.BeamVisibilityMode.FOG_SHADOW
 	var update_cone_shader: bool = visibility_mode == GoboBeamVisibilityPolicy.BeamVisibilityMode.GEOMETRY_SHADER
 
