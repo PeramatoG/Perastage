@@ -21,7 +21,6 @@
 #include "mainwindow.h"
 #include "projectutils.h"
 #include "splashscreen.h"
-#include <chrono>
 #include <filesystem>
 #include <atomic>
 #include <new>
@@ -62,7 +61,7 @@ bool MyApp::OnInit() {
   {
     wxFileName exe(wxStandardPaths::Get().GetExecutablePath());
     if (exe.IsOk()) {
-    wxFileName::SetCwd(exe.GetPath());
+      wxFileName::SetCwd(exe.GetPath());
     }
   }
 
@@ -124,16 +123,6 @@ bool MyApp::OnInit() {
       }
     });
 
-    std::thread([this, mainWindowRef]() {
-      constexpr auto kProjectLoadTimeout = std::chrono::seconds(8);
-      std::this_thread::sleep_for(kProjectLoadTimeout);
-      if (project_load_event_sent_.load())
-        return;
-      Logger::Instance().Log(
-          "Timed out loading last project during startup; opening empty "
-          "project instead.");
-      QueueProjectLoadedEvent(mainWindowRef, false, true);
-    }).detach();
   } else if (mainWindowRef) {
     QueueProjectLoadedEvent(mainWindowRef, false, false);
   }
