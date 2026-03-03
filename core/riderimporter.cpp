@@ -78,6 +78,38 @@ std::string Trim(const std::string &s) {
   return s.substr(start, end - start + 1);
 }
 
+std::string ResolveGdtfPath(const MVRScene &scene,
+                            const std::string &gdtfSpecPath) {
+  if (gdtfSpecPath.empty())
+    return {};
+
+  std::filesystem::path specPath = std::filesystem::u8path(gdtfSpecPath);
+  if (specPath.is_absolute() || scene.basePath.empty())
+    return gdtfSpecPath;
+
+  return (std::filesystem::u8path(scene.basePath) / specPath).string();
+}
+
+void ApplyFixturePhysicalPropertiesFromGdtf(const MVRScene &scene,
+                                            Fixture &fixture) {
+  if (fixture.gdtfSpec.empty())
+    return;
+
+  const std::string gdtfPath = ResolveGdtfPath(scene, fixture.gdtfSpec);
+  if (gdtfPath.empty())
+    return;
+
+  float gdtfWeightKg = 0.0f;
+  float gdtfPowerW = 0.0f;
+  if (!GetGdtfProperties(gdtfPath, gdtfWeightKg, gdtfPowerW))
+    return;
+
+  if (fixture.weightKg <= 0.0f)
+    fixture.weightKg = gdtfWeightKg;
+  if (fixture.powerConsumptionW <= 0.0f)
+    fixture.powerConsumptionW = gdtfPowerW;
+}
+
 bool TryParseFloat(const std::string &text, float &out) {
   if (text.empty())
     return false;
@@ -439,9 +471,11 @@ bool RiderImporter::ImportText(const std::string &text) {
         if (auto dictEntry = GdtfDictionary::Get(f.typeName)) {
           f.gdtfSpec = dictEntry->path;
           f.gdtfMode = dictEntry->mode;
-          std::string parsed = Trim(GetGdtfFixtureName(f.gdtfSpec));
+          const std::string resolvedGdtfPath = ResolveGdtfPath(scene, f.gdtfSpec);
+          std::string parsed = Trim(GetGdtfFixtureName(resolvedGdtfPath));
           if (!parsed.empty())
             f.typeName = parsed;
+          ApplyFixturePhysicalPropertiesFromGdtf(scene, f);
         }
         if (!seenTypes.count(f.typeName)) {
           typeOrder.push_back(f.typeName);
