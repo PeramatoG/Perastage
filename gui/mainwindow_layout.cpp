@@ -21,11 +21,11 @@
 #include <cmath>
 
 #include <wx/notebook.h>
-#include <wx/log.h>
 
 #include "app_version.h"
 #include "configmanager.h"
 #include "guiconfigservices.h"
+#include "logger.h"
 #include "consolepanel.h"
 #include "fixturetablepanel.h"
 #include "hoisttablepanel.h"
@@ -504,10 +504,9 @@ void MainWindow::ApplySavedLayout() {
 
   if (preset && usedSavedPerspective &&
       !IsPerspectiveCompatibleWithPreset(auiManager, *preset)) {
-    wxLogWarning(
-        "Saved layout perspective is incompatible with preset '%s'; "
-        "falling back to default layout.",
-        preset->name.c_str());
+    Logger::Instance().Log(
+        "Saved layout perspective is incompatible with preset '" +
+        preset->name + "'; falling back to default layout.");
     ApplyLayoutPreset(*preset, std::nullopt, savedLayoutMode, false);
     cfg.RemoveKey("layout_perspective");
     cfg.SaveUserConfig();
