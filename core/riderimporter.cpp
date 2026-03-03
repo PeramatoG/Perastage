@@ -78,19 +78,19 @@ std::string Trim(const std::string &s) {
   return s.substr(start, end - start + 1);
 }
 
-std::string ResolveGdtfPath(const MVRScene &scene,
+std::string ResolveGdtfPath(const MvrScene &scene,
                             const std::string &gdtfSpecPath) {
   if (gdtfSpecPath.empty())
     return {};
 
-  std::filesystem::path specPath = std::filesystem::u8path(gdtfSpecPath);
+  std::filesystem::path specPath = std::filesystem::path(gdtfSpecPath);
   if (specPath.is_absolute() || scene.basePath.empty())
     return gdtfSpecPath;
 
-  return (std::filesystem::u8path(scene.basePath) / specPath).string();
+  return (std::filesystem::path(scene.basePath) / specPath).string();
 }
 
-void ApplyFixturePhysicalPropertiesFromGdtf(const MVRScene &scene,
+void ApplyFixturePhysicalPropertiesFromGdtf(const MvrScene &scene,
                                             Fixture &fixture) {
   if (fixture.gdtfSpec.empty())
     return;
