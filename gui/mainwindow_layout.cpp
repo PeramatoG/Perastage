@@ -21,6 +21,7 @@
 #include <cmath>
 
 #include <wx/notebook.h>
+#include <wx/log.h>
 
 #include "app_version.h"
 #include "configmanager.h"
@@ -67,6 +68,40 @@ layouts::Layout2DViewFrame BuildDefaultLayout2DFrame(
       std::max(0, static_cast<int>(std::lround((pageHeight - height) / 2.0)));
 
   return {x, y, width, height};
+}
+
+
+bool IsPaneShown(const wxAuiManager *manager, const char *name) {
+  if (!manager)
+    return false;
+  const auto &pane = manager->GetPane(name);
+  return pane.IsOk() && pane.IsShown();
+}
+
+bool IsPerspectiveCompatibleWithPreset(const wxAuiManager *manager,
+                                       const LayoutViewPreset &preset) {
+  if (!manager)
+    return false;
+
+  if (preset.name == "3d_layout_view") {
+    return IsPaneShown(manager, "3DViewport") &&
+           !IsPaneShown(manager, "2DViewport") &&
+           !IsPaneShown(manager, "LayoutViewer");
+  }
+
+  if (preset.name == "2d_layout_view") {
+    return IsPaneShown(manager, "2DViewport") &&
+           !IsPaneShown(manager, "3DViewport") &&
+           !IsPaneShown(manager, "LayoutViewer");
+  }
+
+  if (preset.name == "layout_mode_view") {
+    return IsPaneShown(manager, "LayoutViewer") &&
+           !IsPaneShown(manager, "3DViewport") &&
+           !IsPaneShown(manager, "2DViewport");
+  }
+
+  return true;
 }
 
 layouts::Layout2DViewFrame BuildDefaultLayoutLegendFrame(
@@ -459,10 +494,24 @@ void MainWindow::ApplySavedLayout() {
   if (!preset)
     preset = LayoutViewPresetRegistry::GetPreset("3d_layout_view");
   const bool savedLayoutMode = preset && preset->name == "layout_mode_view";
-  if (preset && perspective)
+  bool usedSavedPerspective = false;
+  if (preset && perspective) {
     ApplyLayoutPreset(*preset, perspective, savedLayoutMode, false);
-  else if (preset)
+    usedSavedPerspective = true;
+  } else if (preset) {
     ApplyLayoutPreset(*preset, std::nullopt, savedLayoutMode, false);
+  }
+
+  if (preset && usedSavedPerspective &&
+      !IsPerspectiveCompatibleWithPreset(auiManager, *preset)) {
+    wxLogWarning(
+        "Saved layout perspective is incompatible with preset '%s'; "
+        "falling back to default layout.",
+        preset->name.c_str());
+    ApplyLayoutPreset(*preset, std::nullopt, savedLayoutMode, false);
+    cfg.RemoveKey("layout_perspective");
+    cfg.SaveUserConfig();
+  }
 
   // Re-apply hard-coded minimum sizes so they are not overridden by the saved perspective
   auto &dataPane = auiManager->GetPane("DataNotebook");
