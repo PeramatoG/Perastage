@@ -95,7 +95,7 @@ bool MyApp::OnInit() {
 
   if (lastPathOpt) {
     std::string lastPath = *lastPathOpt;
-    project_loader_thread_ = std::thread([mainWindowRef, lastPath]() {
+    project_loader_thread_ = std::thread([this, mainWindowRef, lastPath]() {
       try {
         namespace fs = std::filesystem;
         bool loaded = false;
@@ -112,14 +112,15 @@ bool MyApp::OnInit() {
           if (!loaded)
             clearLastProject = true;
         }
-        QueueProjectLoadedEvent(mainWindowRef, loaded, clearLastProject, path);
+        this->QueueProjectLoadedEvent(mainWindowRef, loaded, clearLastProject,
+                                      path);
       } catch (const std::exception &ex) {
         Logger::Instance().Log(
             std::string("Failed to load last project: ") + ex.what());
-        QueueProjectLoadedEvent(mainWindowRef, false, true);
+        this->QueueProjectLoadedEvent(mainWindowRef, false, true);
       } catch (...) {
         Logger::Instance().Log("Failed to load last project: unknown error.");
-        QueueProjectLoadedEvent(mainWindowRef, false, true);
+        this->QueueProjectLoadedEvent(mainWindowRef, false, true);
       }
     });
 
