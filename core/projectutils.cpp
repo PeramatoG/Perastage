@@ -80,6 +80,29 @@ std::optional<fs::path> FindExistingPath(const fs::path& start,
     return std::nullopt;
 }
 
+std::optional<fs::path> ResolveWritableUserDataDir()
+{
+    wxString dir = wxStandardPaths::Get().GetUserDataDir();
+    fs::path candidate;
+    if (!dir.empty())
+        candidate = WxStringToPath(dir);
+
+    std::error_code ec;
+    if (!candidate.empty()) {
+        fs::create_directories(candidate, ec);
+        if (!ec)
+            return fs::absolute(candidate, ec);
+    }
+
+    ec.clear();
+    wxString tempDir = wxStandardPaths::Get().GetTempDir();
+    fs::path fallback = WxStringToPath(tempDir) / "Perastage";
+    fs::create_directories(fallback, ec);
+    if (ec)
+        return std::nullopt;
+    return fs::absolute(fallback, ec);
+}
+
 } // namespace
 
 fs::path GetBaseLibraryPath(const std::string& subdir)
@@ -115,10 +138,10 @@ fs::path GetResourceRoot()
 
 std::string GetLastProjectPathFile()
 {
-    wxString dir = wxStandardPaths::Get().GetUserDataDir();
-    if (dir.empty())
+    const auto dataDir = ResolveWritableUserDataDir();
+    if (!dataDir)
         return {};
-    fs::path p = WxStringToPath(dir);
+    fs::path p = *dataDir;
     std::error_code ec;
     fs::create_directories(p, ec);
     if (ec)
@@ -202,12 +225,18 @@ std::string GetDefaultLibraryPath(const std::string& subdir)
 
 #ifdef NDEBUG
     fs::path baseLib = GetBaseLibraryPath(subdir);
-    fs::path userLib = WxStringToPath(wxStandardPaths::Get().GetUserDataDir()) /
-                      "library" / subdir;
-
-    CopyLibrarySubdir(baseLib, userLib);
-
-    return userLib.string();
+    if (const auto dataDir = ResolveWritableUserDataDir()) {
+        fs::path userLib = *dataDir / "library" / subdir;
+        std::error_code ec;
+        fs::create_directories(userLib, ec);
+        if (!ec) {
+            CopyLibrarySubdir(baseLib, userLib);
+            return userLib.string();
+        }
+    }
+    if (fs::exists(baseLib))
+        return baseLib.string();
+    return {};
 #else
     fs::path baseLib = GetBaseLibraryPath(subdir);
     if (fs::exists(baseLib))
@@ -218,12 +247,13 @@ std::string GetDefaultLibraryPath(const std::string& subdir)
     if (!ec)
         return baseLib.string();
 
-    fs::path userLib = WxStringToPath(wxStandardPaths::Get().GetUserDataDir()) /
-                      "library" / subdir;
-    ec.clear();
-    fs::create_directories(userLib, ec);
-    if (!ec)
-        return fs::absolute(userLib).string();
+    if (const auto dataDir = ResolveWritableUserDataDir()) {
+        fs::path userLib = *dataDir / "library" / subdir;
+        ec.clear();
+        fs::create_directories(userLib, ec);
+        if (!ec)
+            return fs::absolute(userLib).string();
+    }
 
     return {};
 #endif

@@ -19,12 +19,14 @@
 
 #include <algorithm>
 #include <cmath>
+#include <unordered_set>
 
 #include <wx/notebook.h>
 
 #include "app_version.h"
 #include "configmanager.h"
 #include "guiconfigservices.h"
+#include "logger.h"
 #include "consolepanel.h"
 #include "fixturetablepanel.h"
 #include "hoisttablepanel.h"
@@ -67,6 +69,62 @@ layouts::Layout2DViewFrame BuildDefaultLayout2DFrame(
       std::max(0, static_cast<int>(std::lround((pageHeight - height) / 2.0)));
 
   return {x, y, width, height};
+}
+
+
+bool IsPaneShown(wxAuiManager *manager, const char *name) {
+  if (!manager)
+    return false;
+  const auto &pane = manager->GetPane(name);
+  return pane.IsOk() && pane.IsShown();
+}
+
+bool IsPerspectiveCompatibleWithPreset(wxAuiManager *manager,
+                                       const LayoutViewPreset &preset) {
+  if (!manager)
+    return false;
+
+  if (preset.name == "3d_layout_view") {
+    return IsPaneShown(manager, "3DViewport") &&
+           !IsPaneShown(manager, "2DViewport") &&
+           !IsPaneShown(manager, "LayoutViewer");
+  }
+
+  if (preset.name == "2d_layout_view") {
+    return IsPaneShown(manager, "2DViewport") &&
+           !IsPaneShown(manager, "3DViewport") &&
+           !IsPaneShown(manager, "LayoutViewer");
+  }
+
+  if (preset.name == "layout_mode_view") {
+    return IsPaneShown(manager, "LayoutViewer") &&
+           !IsPaneShown(manager, "3DViewport") &&
+           !IsPaneShown(manager, "2DViewport");
+  }
+
+  return true;
+}
+
+bool PerspectiveHasDuplicatePaneNames(const std::string &perspective) {
+  std::unordered_set<std::string> paneNames;
+  std::size_t offset = 0;
+  while (true) {
+    const std::size_t namePos = perspective.find("name=", offset);
+    if (namePos == std::string::npos)
+      break;
+    const std::size_t valueStart = namePos + 5;
+    const std::size_t valueEnd = perspective.find(';', valueStart);
+    if (valueEnd == std::string::npos)
+      break;
+
+    std::string paneName = perspective.substr(valueStart, valueEnd - valueStart);
+    if (!paneName.empty()) {
+      if (!paneNames.insert(paneName).second)
+        return true;
+    }
+    offset = valueEnd + 1;
+  }
+  return false;
 }
 
 layouts::Layout2DViewFrame BuildDefaultLayoutLegendFrame(
@@ -440,6 +498,15 @@ void MainWindow::ApplySavedLayout() {
   const std::string viewMode = cfg.GetValue("layout_view_mode").value_or("");
   std::optional<std::string> perspective = cfg.GetValue("layout_perspective");
 
+  if (perspective && PerspectiveHasDuplicatePaneNames(*perspective)) {
+    Logger::Instance().Log(
+        "Saved layout perspective contains duplicate pane names; "
+        "falling back to default layout.");
+    cfg.RemoveKey("layout_perspective");
+    cfg.SaveUserConfig();
+    perspective.reset();
+  }
+
   if (perspective) {
     // Ensure viewports exist before loading the saved perspective
     if (perspective->find("3DViewport") != std::string::npos)
@@ -459,10 +526,23 @@ void MainWindow::ApplySavedLayout() {
   if (!preset)
     preset = LayoutViewPresetRegistry::GetPreset("3d_layout_view");
   const bool savedLayoutMode = preset && preset->name == "layout_mode_view";
-  if (preset && perspective)
+  bool usedSavedPerspective = false;
+  if (preset && perspective) {
     ApplyLayoutPreset(*preset, perspective, savedLayoutMode, false);
-  else if (preset)
+    usedSavedPerspective = true;
+  } else if (preset) {
     ApplyLayoutPreset(*preset, std::nullopt, savedLayoutMode, false);
+  }
+
+  if (preset && usedSavedPerspective &&
+      !IsPerspectiveCompatibleWithPreset(auiManager, *preset)) {
+    Logger::Instance().Log(
+        "Saved layout perspective is incompatible with preset '" +
+        preset->name + "'; falling back to default layout.");
+    ApplyLayoutPreset(*preset, std::nullopt, savedLayoutMode, false);
+    cfg.RemoveKey("layout_perspective");
+    cfg.SaveUserConfig();
+  }
 
   // Re-apply hard-coded minimum sizes so they are not overridden by the saved perspective
   auto &dataPane = auiManager->GetPane("DataNotebook");
