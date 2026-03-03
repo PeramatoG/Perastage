@@ -19,6 +19,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <unordered_set>
 
 #include <wx/notebook.h>
 
@@ -102,6 +103,28 @@ bool IsPerspectiveCompatibleWithPreset(wxAuiManager *manager,
   }
 
   return true;
+}
+
+bool PerspectiveHasDuplicatePaneNames(const std::string &perspective) {
+  std::unordered_set<std::string> paneNames;
+  std::size_t offset = 0;
+  while (true) {
+    const std::size_t namePos = perspective.find("name=", offset);
+    if (namePos == std::string::npos)
+      break;
+    const std::size_t valueStart = namePos + 5;
+    const std::size_t valueEnd = perspective.find(';', valueStart);
+    if (valueEnd == std::string::npos)
+      break;
+
+    std::string paneName = perspective.substr(valueStart, valueEnd - valueStart);
+    if (!paneName.empty()) {
+      if (!paneNames.insert(paneName).second)
+        return true;
+    }
+    offset = valueEnd + 1;
+  }
+  return false;
 }
 
 layouts::Layout2DViewFrame BuildDefaultLayoutLegendFrame(
@@ -474,6 +497,15 @@ void MainWindow::ApplySavedLayout() {
   ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
   const std::string viewMode = cfg.GetValue("layout_view_mode").value_or("");
   std::optional<std::string> perspective = cfg.GetValue("layout_perspective");
+
+  if (perspective && PerspectiveHasDuplicatePaneNames(*perspective)) {
+    Logger::Instance().Log(
+        "Saved layout perspective contains duplicate pane names; "
+        "falling back to default layout.");
+    cfg.RemoveKey("layout_perspective");
+    cfg.SaveUserConfig();
+    perspective.reset();
+  }
 
   if (perspective) {
     // Ensure viewports exist before loading the saved perspective
