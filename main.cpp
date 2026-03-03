@@ -30,6 +30,8 @@
 #include <wx/sysopt.h>
 #include <wx/weakref.h>
 #include <wx/wx.h>
+#include <wx/filename.h>
+#include <wx/stdpaths.h>
 
 class MyApp : public wxApp {
 public:
@@ -54,6 +56,15 @@ wxIMPLEMENT_APP(MyApp);
 bool MyApp::OnInit() {
   SetAppName(app::kName);
   SetVendorName("Perasoft");
+
+  // Ensure a stable working directory when launching from Explorer.
+  // This avoids issues caused by relative paths during startup/project load.
+  {
+    wxFileName exe(wxStandardPaths::Get().GetExecutablePath());
+    if (exe.IsOk()) {
+    wxFileName::SetCwd(exe.GetPath());
+    }
+  }
 
   // Enable support for common image formats used by the app
   wxInitAllImageHandlers();
