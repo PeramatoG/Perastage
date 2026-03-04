@@ -59,7 +59,7 @@ void fragment() {
 	float feather_alpha = mix(1.0 - feather_intensity, 1.0, pow(ndotv, feather_sharpness));
 	float gobo_mask = 1.0;
 	if (gobo_enabled) {
-		float projector_depth = max(v_local.y + (cone_height * 0.5), 0.001);
+		float projector_depth = max(abs(v_local.y), 0.001);
 		vec2 radial = v_local.xz / projector_depth;
 		vec2 gobo_uv = (radial / max(gobo_uv_scale, 0.0001)) * 0.5 + vec2(0.5);
 		if (gobo_uv.x >= 0.0 && gobo_uv.x <= 1.0 && gobo_uv.y >= 0.0 && gobo_uv.y <= 1.0) {
