@@ -12,6 +12,7 @@ const EMITTER_CONE_FAR_EMISSION: float = 0.04
 const MAIN_KEY: String = "peraviz_beam_cone"
 const MID_KEY: String = "peraviz_beam_cone_mid"
 const CORE_KEY: String = "peraviz_beam_cone_core"
+const GOBO_TEXTURE_META_KEY: String = "peraviz_gobo_texture"
 
 var _shared_material: ShaderMaterial
 
@@ -66,10 +67,13 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	_update_cone_geometry(mid_cone, lens_radius, bottom_radius, beam_range, 0.7)
 	_update_cone_geometry(core_cone, lens_radius, bottom_radius, beam_range, 0.45)
 
+	var gobo_texture: Texture2D = null
+	if light.has_meta(GOBO_TEXTURE_META_KEY):
+		gobo_texture = light.get_meta(GOBO_TEXTURE_META_KEY) as Texture2D
 	var color_alpha := Color(beam_color.r, beam_color.g, beam_color.b, 1.0)
-	_update_cone_material(cone, color_alpha, scaled_intensity, beam_range, 0.35, 0.16, 0.06, 1.0, 1.0)
-	_update_cone_material(mid_cone, color_alpha, scaled_intensity, beam_range, 0.18, 0.26, 0.04, 1.35, 1.25)
-	_update_cone_material(core_cone, color_alpha, scaled_intensity, beam_range, 0.09, 0.35, 0.02, 1.7, 1.5)
+	_update_cone_material(cone, color_alpha, scaled_intensity, beam_range, 0.35, 0.16, 0.06, 1.0, 1.0, gobo_texture)
+	_update_cone_material(mid_cone, color_alpha, scaled_intensity, beam_range, 0.18, 0.26, 0.04, 1.35, 1.25, gobo_texture)
+	_update_cone_material(core_cone, color_alpha, scaled_intensity, beam_range, 0.09, 0.35, 0.02, 1.7, 1.5, gobo_texture)
 
 func cleanup_beam(light: SpotLight3D) -> void:
 	for meta_key in [MAIN_KEY, MID_KEY, CORE_KEY]:
@@ -111,7 +115,7 @@ func _update_cone_geometry(cone: MeshInstance3D, lens_radius: float, bottom_radi
 	cone_mesh.height = beam_range
 	cone.position = Vector3(0.0, 0.0, -beam_range * 0.5)
 
-func _update_cone_material(cone: MeshInstance3D, beam_color: Color, scaled_intensity: float, beam_range: float, lateral_softness: float, lateral_emission_boost: float, noise_strength: float, alpha_scale: float, emission_scale: float) -> void:
+func _update_cone_material(cone: MeshInstance3D, beam_color: Color, scaled_intensity: float, beam_range: float, lateral_softness: float, lateral_emission_boost: float, noise_strength: float, alpha_scale: float, emission_scale: float, gobo_texture: Texture2D) -> void:
 	if cone == null:
 		return
 	cone.set_instance_shader_parameter("beam_color", beam_color)
@@ -124,3 +128,6 @@ func _update_cone_material(cone: MeshInstance3D, beam_color: Color, scaled_inten
 	cone.set_instance_shader_parameter("lateral_softness", lateral_softness)
 	cone.set_instance_shader_parameter("lateral_emission_boost", lateral_emission_boost)
 	cone.set_instance_shader_parameter("volumetric_noise_strength", noise_strength)
+	cone.set_instance_shader_parameter("use_gobo", gobo_texture != null)
+	if gobo_texture != null:
+		cone.set_instance_shader_parameter("gobo_texture", gobo_texture)

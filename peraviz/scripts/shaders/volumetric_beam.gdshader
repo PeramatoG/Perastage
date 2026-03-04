@@ -17,6 +17,9 @@ uniform float far_fade_end : hint_range(0.1, 100.0) = 80.0;
 instance uniform float max_brightness : hint_range(1.0, 50.0) = 10.0;
 uniform bool depth_feather_enabled = true;
 uniform float depth_fade_distance : hint_range(0.01, 5.0) = 0.5;
+uniform sampler2D gobo_texture : source_color;
+uniform bool use_gobo = false;
+uniform float gobo_contrast : hint_range(0.1, 4.0) = 1.0;
 
 
 varying vec3 v_view;
@@ -71,7 +74,13 @@ void fragment() {
 		discard;
 	}
 
-	ALBEDO = base_color.rgb * brightness;
-	ALPHA = clamp(final_alpha * base_color.a, 0.0, 1.0);
+	float gobo_mask = 1.0;
+	if (use_gobo) {
+		float gobo_luma = texture(gobo_texture, UV).r;
+		gobo_mask = pow(clamp(gobo_luma, 0.0, 1.0), gobo_contrast);
+	}
+
+	ALBEDO = base_color.rgb * brightness * gobo_mask;
+	ALPHA = clamp(final_alpha * base_color.a * gobo_mask, 0.0, 1.0);
 	EMISSION = ALBEDO * ALPHA;
 }
