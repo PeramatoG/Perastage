@@ -64,7 +64,7 @@ func apply_gobo(light: SpotLight3D, gobo_texture: Texture2D, beam_angle_deg: flo
 	light.set_meta(GOBO_TEXTURE_META_KEY, gobo_texture)
 	light.light_projector = null
 	light.shadow_enabled = gobo_texture != null
-	light.shadow_item_cull_mask = light.shadow_item_cull_mask | (1 << GOBO_OCCLUDER_SHADOW_LAYER_BIT)
+	light.shadow_caster_mask = light.shadow_caster_mask | (1 << GOBO_OCCLUDER_SHADOW_LAYER_BIT)
 	light.light_volumetric_fog_energy = float(settings.get("light_volumetric_fog_energy", light.light_volumetric_fog_energy))
 
 	var cone: MeshInstance3D = settings.get("beam_mesh", null) as MeshInstance3D
