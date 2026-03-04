@@ -117,8 +117,8 @@ func cleanup_beam(light: SpotLight3D) -> void:
 	if _gobo_controller != null:
 		_gobo_controller.cleanup_gobo(light)
 
-func _update_local_fog_volume(light: SpotLight3D, gobo_active: bool, beam_range: float, bottom_radius: float, params: Dictionary) -> void:
-	var use_local_fog_volume: bool = bool(params.get("use_local_fog_volume", true)) and gobo_active
+func _update_local_fog_volume(light: SpotLight3D, _gobo_active: bool, beam_range: float, bottom_radius: float, params: Dictionary) -> void:
+	var use_local_fog_volume: bool = bool(params.get("use_local_fog_volume", true))
 	if not use_local_fog_volume:
 		if light.has_meta(LOCAL_FOG_VOLUME_META_KEY):
 			var existing: FogVolume = light.get_meta(LOCAL_FOG_VOLUME_META_KEY) as FogVolume

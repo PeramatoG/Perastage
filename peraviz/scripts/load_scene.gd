@@ -134,7 +134,7 @@ const EMITTER_LIGHT_RANGE_BEAM_RADIUS_MULTIPLIER: float = 500.0
 const EMITTER_LIGHT_ENERGY_SCALE: float = 0.02
 const EMITTER_LIGHT_MAX_BEAM_ANGLE_DEG: float = 180.0
 const BEAM_COLOR_TEMPERATURE_STRENGTH: float = 0.04
-const EMITTER_ZOOM_DEFAULT_MIN_BEAM_ANGLE_DEG: float = 4.0
+const EMITTER_ZOOM_DEFAULT_MIN_BEAM_ANGLE_DEG: float = 6.0
 const EMITTER_ZOOM_DEFAULT_MAX_BEAM_ANGLE_DEG: float = EMITTER_LIGHT_MAX_BEAM_ANGLE_DEG
 const EMITTER_ZOOM_LENS_RANGE_REFERENCE_M: float = 12.0
 const EMITTER_CONE_MAX_BASE_RADIUS_M: float = 10.0
@@ -1650,7 +1650,7 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 	light.spot_range = clamp(cone_range * EMITTER_LIGHT_FOOTPRINT_RANGE_MULTIPLIER, EMITTER_LIGHT_MIN_EFFECTIVE_RANGE_M, EMITTER_LIGHT_MAX_RANGE_M)
 	if bool(controls.get("has_gobo", false)):
 		# Sample-like fallback for gobo readability: keep spotlight range in a tight zoom-linked window.
-		light.spot_range = remap(clamp(beam_angle, 6.0, 50.0), 6.0, 50.0, 30.0, 10.0)
+		light.spot_range = remap(clamp(beam_angle, 6.0, 50.0), 6.0, 50.0, 60.0, 30.0)
 	var use_shadow_cookie_gobo: bool = bool(controls.get("has_gobo", false))
 	if use_shadow_cookie_gobo:
 		# Match the #11987 reference setup: tighter angle attenuation + sharp shadows improve in-air beam definition.
