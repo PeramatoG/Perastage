@@ -12,7 +12,7 @@ config_version=5
 
 config/name="Peraviz"
 run/main_scene="res://test.tscn"
-config/features=PackedStringArray("4.6", "Forward Plus")
+config/features=PackedStringArray("4.5", "Compatibility")
 config/icon="res://icon.svg"
 
 [peraviz]
@@ -25,7 +25,9 @@ peraviz_debug_baseline=false
 
 [rendering]
 
-rendering_device/driver.windows="d3d12"
+renderer/rendering_method="gl_compatibility"
+
+rendering_device/driver.windows="vulkan"
 
 rendering/lights_and_shadows/positional_shadow/atlas_size=4096
 rendering/environment/volumetric_fog/volume_size=128
