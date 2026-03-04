@@ -112,12 +112,15 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 				gobo_occluder.visible = false
 			return
 
-	# In native shadow-cookie mode keep a subtle non-gobo mesh cone only for beam readability,
-	# while cookie patterning in air still comes from SpotLight shadows in volumetric fog.
-	var mesh_intensity: float = intensity
+	# In native shadow-cookie mode keep no additive cone when gobo is active.
+	# This avoids froxel-like square borders and preserves physically-driven fog shadows.
 	if visibility_mode == GoboBeamVisibilityPolicy.BeamVisibilityMode.FOG_SHADOW and gobo_active:
-		# For coherent fog-shadow gobos avoid washing the footprint/beam with additive cone shading.
-		mesh_intensity = threshold * 1.02
+		cone.visible = false
+		_update_gobo_occluder(light, cone, gobo_occluder, beam_angle, beam_range, prefer_native_shadow_cookie, visibility_mode)
+		return
+
+	# In other modes keep a controllable mesh cone.
+	var mesh_intensity: float = intensity
 	if prefer_native_shadow_cookie and not (visibility_mode == GoboBeamVisibilityPolicy.BeamVisibilityMode.FOG_SHADOW and gobo_active):
 		mesh_intensity = max(intensity * 0.35, threshold * 1.1)
 
@@ -173,6 +176,13 @@ func _update_gobo_occluder(light: SpotLight3D,
 
 	var gobo_texture: Texture2D = light.get_meta("peraviz_gobo_texture", null) as Texture2D
 	var gobo_projection_mode: int = int(light.get_meta("peraviz_gobo_projection_mode", 0))
+	if gobo_projection_mode == _gobo_visibility_policy.PROJECTOR_COOKIE_PROJECTION_MODE:
+		# Projector-cookie mode should not mix with occluder or beam-shader gobo masking.
+		gobo_occluder.visible = false
+		gobo_occluder.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		gobo_occluder.material_override = null
+		cone.set_instance_shader_parameter("gobo_enabled", false)
+		return
 	var visibility_mode: int = visibility_mode_override
 	if visibility_mode < 0:
 		visibility_mode = _gobo_visibility_policy.resolve_visibility_mode(_settings, prefer_native_shadow_cookie, gobo_projection_mode)
