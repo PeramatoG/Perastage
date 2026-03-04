@@ -61,8 +61,8 @@ var _visual_settings := {
 	"beam_anisotropy": 0.62,
 	"beam_noise_amount": 0.06,
 	"beam_noise_scale": 1.4,
-	"volumetric_fog_density": 0.012,
-	"light_volumetric_fog_energy": 2.0,
+	"volumetric_fog_density": 0.0,
+	"light_volumetric_fog_energy": 0.0,
 	"volumetric_fog_volume_size": 256,
 	"volumetric_fog_depth": 64.0,
 	"volumetric_fog_use_filter": true,
@@ -143,6 +143,7 @@ const BEAM_RENDER_MODE_LEGACY: int = 1
 const BEAM_INTENSITY_VISIBILITY_THRESHOLD: float = 0.015
 const BEAM_DISTANCE_CULL_M: float = 180.0
 const BEAM_INTENSITY_MAX: float = 8.0
+const USE_GLOBAL_VOLUMETRIC_FOG: bool = false
 
 const ENV_QUALITY_PRESET_SETTING: String = "peraviz_environment_quality"
 const ENV_QUALITY_PRESET_DEFAULT: String = "medium"
@@ -269,23 +270,23 @@ func _apply_visual_settings(settings: Dictionary) -> void:
 		world_environment.environment.ambient_light_energy = float(_visual_environment_baseline.get("ambient_light_energy", 0.2)) * float(_visual_settings.get("ambient_multiplier", 1.0))
 		world_environment.environment.glow_bloom = float(_visual_environment_baseline.get("glow_bloom", 0.05)) * float(_visual_settings.get("bloom_multiplier", 1.0))
 		world_environment.environment.background_color = _visual_settings.get("background_color", _visual_environment_baseline.get("background_color", Color(0.129412, 0.137255, 0.156863, 1.0)))
-		world_environment.environment.volumetric_fog_enabled = true
-		world_environment.environment.volumetric_fog_density = float(_visual_settings.get("volumetric_fog_density", 0.01))
+		world_environment.environment.volumetric_fog_enabled = USE_GLOBAL_VOLUMETRIC_FOG
+		world_environment.environment.volumetric_fog_density = float(_visual_settings.get("volumetric_fog_density", 0.0)) if USE_GLOBAL_VOLUMETRIC_FOG else 0.0
 
-	# Godot volumetric fog froxel controls are renderer-level project settings.
-	# Keep them aligned with visual settings for the #11987 shadow-cookie workflow.
-	var fog_volume_size: int = int(round(float(_visual_settings.get("volumetric_fog_volume_size", 256))))
-	var fog_volume_depth: int = int(round(float(_visual_settings.get("volumetric_fog_depth", 64.0))) )
-	var fog_use_filter: bool = bool(_visual_settings.get("volumetric_fog_use_filter", true))
-	ProjectSettings.set_setting("rendering/environment/volumetric_fog/volume_size", fog_volume_size)
-	ProjectSettings.set_setting("rendering/environment/volumetric_fog/volume_depth", fog_volume_depth)
-	ProjectSettings.set_setting("rendering/environment/volumetric_fog/use_filter", fog_use_filter)
-	if world_environment != null and world_environment.environment != null:
-		_apply_environment_froxel_settings(world_environment.environment, fog_volume_size, fog_volume_depth, fog_use_filter)
-	# This setting can require a renderer restart in Godot to re-allocate froxel buffers.
-	# Intentionally not persisted to disk in debug workflow.
-	if status_label != null:
-		status_label.text = "Volumetric fog quality changes may require scene reload to fully apply (Godot froxel grid)."
+	if USE_GLOBAL_VOLUMETRIC_FOG:
+		# Godot volumetric fog froxel controls are renderer-level project settings.
+		var fog_volume_size: int = int(round(float(_visual_settings.get("volumetric_fog_volume_size", 256))))
+		var fog_volume_depth: int = int(round(float(_visual_settings.get("volumetric_fog_depth", 64.0))) )
+		var fog_use_filter: bool = bool(_visual_settings.get("volumetric_fog_use_filter", true))
+		ProjectSettings.set_setting("rendering/environment/volumetric_fog/volume_size", fog_volume_size)
+		ProjectSettings.set_setting("rendering/environment/volumetric_fog/volume_depth", fog_volume_depth)
+		ProjectSettings.set_setting("rendering/environment/volumetric_fog/use_filter", fog_use_filter)
+		if world_environment != null and world_environment.environment != null:
+			_apply_environment_froxel_settings(world_environment.environment, fog_volume_size, fog_volume_depth, fog_use_filter)
+		if status_label != null:
+			status_label.text = "Global volumetric fog enabled (project-level froxel settings active)."
+	elif status_label != null:
+		status_label.text = "Global volumetric fog disabled; using local beam cookie projection only."
 
 	_update_beam_renderer_mode(false)
 	_save_visual_settings_to_project()
@@ -370,7 +371,12 @@ func _refresh_existing_beam_material_scalars() -> void:
 func _apply_light_scalars_to_light(light: SpotLight3D) -> void:
 	var base_energy: float = float(light.get_meta("peraviz_base_light_energy", light.light_energy))
 	light.light_energy = base_energy * float(_visual_settings.get("spot_multiplier", 1.0))
-	light.light_volumetric_fog_energy = float(_visual_settings.get("light_volumetric_fog_energy", 1.0))
+	light.light_volumetric_fog_energy = _resolve_light_volumetric_fog_energy()
+
+func _resolve_light_volumetric_fog_energy() -> float:
+	if not USE_GLOBAL_VOLUMETRIC_FOG:
+		return 0.0
+	return float(_visual_settings.get("light_volumetric_fog_energy", 1.0))
 
 func _update_existing_beam_material_scalars(light: SpotLight3D) -> void:
 	var base_intensity: float = float(light.get_meta("peraviz_beam_base_intensity", 0.0))
@@ -1657,7 +1663,7 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 		if gobo_texture != null:
 			beam_params["has_gobo"] = true
 			beam_params["gobo_texture"] = gobo_texture
-	light.light_volumetric_fog_energy = float(_visual_settings.get("light_volumetric_fog_energy", 1.0))
+	light.light_volumetric_fog_energy = _resolve_light_volumetric_fog_energy()
 	_update_beam_for_light(light, beam_params)
 
 func _resolve_zoom_beam_limits(light: SpotLight3D, controls: Dictionary) -> Dictionary:

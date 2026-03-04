@@ -84,9 +84,9 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 		cone.set_instance_shader_parameter("has_gobo", has_gobo)
 		cone.set_instance_shader_parameter("gobo_top_radius", top_radius)
 		cone.set_instance_shader_parameter("gobo_bottom_radius", bottom_radius)
-		cone.set_instance_shader_parameter("gobo_contrast", 1.15)
-		cone.set_instance_shader_parameter("gobo_floor", 0.18)
-		cone.set_instance_shader_parameter("gobo_mix", 0.85)
+		cone.set_instance_shader_parameter("gobo_contrast", 1.3)
+		cone.set_instance_shader_parameter("gobo_floor", 0.0)
+		cone.set_instance_shader_parameter("gobo_mix", 1.0)
 
 	var intensity_alpha: float = clamp(intensity * VOLUMETRIC_INTENSITY_SCALE, 0.0, 1.0)
 	cone.set_instance_shader_parameter("base_color", Color(beam_color.r, beam_color.g, beam_color.b, intensity_alpha))

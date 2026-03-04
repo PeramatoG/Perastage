@@ -16,9 +16,9 @@ uniform sampler2D gobo_texture : source_color, filter_linear_mipmap, repeat_disa
 instance uniform bool has_gobo = false;
 instance uniform float gobo_top_radius = 0.02;
 instance uniform float gobo_bottom_radius = 0.8;
-instance uniform float gobo_mix : hint_range(0.0, 1.0) = 0.85;
-instance uniform float gobo_floor : hint_range(0.0, 1.0) = 0.18;
-instance uniform float gobo_contrast : hint_range(0.2, 3.0) = 1.15;
+instance uniform float gobo_mix : hint_range(0.0, 1.0) = 1.0;
+instance uniform float gobo_floor : hint_range(0.0, 1.0) = 0.0;
+instance uniform float gobo_contrast : hint_range(0.2, 3.0) = 1.3;
 
 varying float beam_axial;
 varying vec3 beam_local;
