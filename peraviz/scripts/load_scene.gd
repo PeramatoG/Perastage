@@ -62,9 +62,10 @@ var _visual_settings := {
 	"beam_noise_amount": 0.06,
 	"beam_noise_scale": 1.4,
 	"volumetric_fog_density": 0.012,
-	"light_volumetric_fog_energy": 300.0,
+	"light_volumetric_fog_energy": 120.0,
 	"use_local_fog_volume": true,
-	"local_fog_density": 0.08,
+	"local_fog_density": 0.025,
+	"local_fog_shape": 1,
 	"gobo_scale_ratio": 1.0,
 	"distance_to_occluder_m": 0.043,
 	"base_quad_size_m": 0.017,
@@ -1649,7 +1650,7 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 	light.spot_range = clamp(cone_range * EMITTER_LIGHT_FOOTPRINT_RANGE_MULTIPLIER, EMITTER_LIGHT_MIN_EFFECTIVE_RANGE_M, EMITTER_LIGHT_MAX_RANGE_M)
 	if bool(controls.get("has_gobo", false)):
 		# Sample-like fallback for gobo readability: keep spotlight range in a tight zoom-linked window.
-		light.spot_range = remap(clamp(beam_angle, 6.0, 50.0), 6.0, 50.0, 60.0, 30.0)
+		light.spot_range = remap(clamp(beam_angle, 6.0, 50.0), 6.0, 50.0, 30.0, 10.0)
 	var use_shadow_cookie_gobo: bool = bool(controls.get("has_gobo", false))
 	if use_shadow_cookie_gobo:
 		# Match the #11987 reference setup: tighter angle attenuation + sharp shadows improve in-air beam definition.
@@ -1697,7 +1698,8 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 	beam_params["light_volumetric_fog_energy"] = float(_visual_settings.get("light_volumetric_fog_energy", 1.0))
 	beam_params["render_mesh_for_gobo"] = bool(_visual_settings.get("render_mesh_beam_with_gobo", false))
 	beam_params["use_local_fog_volume"] = bool(_visual_settings.get("use_local_fog_volume", true))
-	beam_params["local_fog_density"] = float(_visual_settings.get("local_fog_density", 0.08))
+	beam_params["local_fog_density"] = float(_visual_settings.get("local_fog_density", 0.025))
+	beam_params["local_fog_shape"] = int(_visual_settings.get("local_fog_shape", 1))
 	_update_beam_for_light(light, beam_params)
 
 func _resolve_zoom_beam_limits(light: SpotLight3D, controls: Dictionary) -> Dictionary:
