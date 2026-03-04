@@ -44,6 +44,7 @@ var _fixture_emissive_cache: Dictionary = {}
 var _fixture_emitter_light_cache: Dictionary = {}
 var _fixture_emitter_photometrics: Dictionary = {}
 var _gobo_beam_controller: GoboBeamController = null
+var _local_haze_volume: FogVolume = null
 var _updating_fixture_controls: bool = false
 var _visual_environment_baseline := {
 	"ambient_light_energy": 0.2,
@@ -62,7 +63,9 @@ var _visual_settings := {
 	"beam_noise_amount": 0.06,
 	"beam_noise_scale": 1.4,
 	"volumetric_fog_density": 0.012,
-	"light_volumetric_fog_energy": 2.0,
+	"light_volumetric_fog_energy": 30.0,
+	"use_local_fog_volume": true,
+	"local_fog_density": 0.08,
 	"gobo_scale_ratio": 1.0,
 	"distance_to_occluder_m": 0.043,
 	"base_quad_size_m": 0.017,
@@ -231,6 +234,7 @@ func _ready() -> void:
 	_load_visual_settings_from_project()
 	_gobo_beam_controller = GoboBeamController.new()
 	_initialize_beam_renderers()
+	camera.cull_mask = camera.cull_mask & ~(1 << 19)
 	visual_settings_window.configure(_visual_settings)
 	_apply_visual_settings(_visual_settings)
 
@@ -283,7 +287,9 @@ func _apply_visual_settings(settings: Dictionary) -> void:
 		world_environment.environment.glow_bloom = float(_visual_environment_baseline.get("glow_bloom", 0.05)) * float(_visual_settings.get("bloom_multiplier", 1.0))
 		world_environment.environment.background_color = _visual_settings.get("background_color", _visual_environment_baseline.get("background_color", Color(0.129412, 0.137255, 0.156863, 1.0)))
 		world_environment.environment.volumetric_fog_enabled = true
-		world_environment.environment.volumetric_fog_density = float(_visual_settings.get("volumetric_fog_density", 0.01))
+		var use_local_fog_volume: bool = bool(_visual_settings.get("use_local_fog_volume", true))
+		world_environment.environment.volumetric_fog_density = 0.0 if use_local_fog_volume else float(_visual_settings.get("volumetric_fog_density", 0.01))
+		_ensure_local_haze_volume()
 
 	# Godot volumetric fog froxel controls are renderer-level project settings.
 	# Keep them aligned with visual settings for the #11987 shadow-cookie workflow.
@@ -434,6 +440,7 @@ func _on_file_selected(path: String) -> void:
 	_sync_selection_state("scene_reload")
 	_rebuild_debug_gizmos()
 	_focus_loaded_scene()
+	_ensure_local_haze_volume()
 	if _debug_asset_cache_enabled:
 		var cache_summary: Dictionary = _asset_cache.debug_summary()
 		var hit_by_kind: Dictionary = cache_summary.get("hits_by_kind", {})
@@ -940,6 +947,9 @@ func _clear_scene() -> void:
 	_fixture_emissive_cache.clear()
 	_fixture_emitter_light_cache.clear()
 	_fixture_emitter_photometrics.clear()
+	if _local_haze_volume != null and is_instance_valid(_local_haze_volume):
+		_local_haze_volume.queue_free()
+	_local_haze_volume = null
 	if _gobo_beam_controller != null:
 		_gobo_beam_controller.clear_cache()
 	_has_loaded_bounds = false
@@ -1690,9 +1700,38 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 	beam_params["gobo_rotation_deg"] = float(_visual_settings.get("gobo_rotation_deg", 0.0))
 	beam_params["invert_gobo"] = bool(_visual_settings.get("invert_gobo", false))
 	beam_params["disable_fog"] = bool(_visual_settings.get("gobo_disable_fog", false))
-	beam_params["light_volumetric_fog_energy"] = max(float(_visual_settings.get("light_volumetric_fog_energy", 1.0)), 200.0) if use_shadow_cookie_gobo else float(_visual_settings.get("light_volumetric_fog_energy", 1.0))
+	beam_params["light_volumetric_fog_energy"] = float(_visual_settings.get("light_volumetric_fog_energy", 1.0))
 	beam_params["render_mesh_for_gobo"] = bool(_visual_settings.get("render_mesh_beam_with_gobo", false))
 	_update_beam_for_light(light, beam_params)
+
+func _ensure_local_haze_volume() -> void:
+	if not bool(_visual_settings.get("use_local_fog_volume", true)):
+		if _local_haze_volume != null and is_instance_valid(_local_haze_volume):
+			_local_haze_volume.queue_free()
+		_local_haze_volume = null
+		return
+
+	if _local_haze_volume == null or not is_instance_valid(_local_haze_volume):
+		_local_haze_volume = FogVolume.new()
+		_local_haze_volume.name = "PeravizLocalHazeVolume"
+		var fog_material := FogMaterial.new()
+		_local_haze_volume.material = fog_material
+		add_child(_local_haze_volume)
+
+	var fog_material_ref: FogMaterial = _local_haze_volume.material as FogMaterial
+	if fog_material_ref != null:
+		fog_material_ref.density = float(_visual_settings.get("local_fog_density", 0.08))
+
+	if _has_loaded_bounds:
+		_local_haze_volume.position = _loaded_bounds.get_center()
+		var size: Vector3 = _loaded_bounds.size
+		size.x = max(size.x * 1.2, 6.0)
+		size.y = max(size.y * 1.1, 4.0)
+		size.z = max(size.z * 1.2, 6.0)
+		_local_haze_volume.size = size
+	else:
+		_local_haze_volume.position = Vector3.ZERO
+		_local_haze_volume.size = Vector3(16.0, 8.0, 16.0)
 
 func _resolve_zoom_beam_limits(light: SpotLight3D, controls: Dictionary) -> Dictionary:
 	# min/max beam angles are kept as full GDTF beam apertures (not half-angle).

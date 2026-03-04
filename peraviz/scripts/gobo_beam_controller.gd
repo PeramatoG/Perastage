@@ -5,6 +5,7 @@ const FAKE_GOBO_TEXTURE_SIZE: int = 1024
 const GOBO_TEXTURE_META_KEY: String = "peraviz_gobo_texture"
 const GOBO_OCCLUDER_META_KEY: String = "peraviz_gobo_occluder"
 const GOBO_OCCLUDER_SHADER_MATERIAL_META_KEY: String = "peraviz_gobo_occluder_shader_material"
+const GOBO_OCCLUDER_SHADOW_LAYER_BIT: int = 19
 const GOBO_DEBUG_LOG_THROTTLE_MS: int = 400
 
 const DEFAULT_DISTANCE_TO_OCCLUDER_M: float = 0.043
@@ -63,6 +64,7 @@ func apply_gobo(light: SpotLight3D, gobo_texture: Texture2D, beam_angle_deg: flo
 	light.set_meta(GOBO_TEXTURE_META_KEY, gobo_texture)
 	light.light_projector = null
 	light.shadow_enabled = gobo_texture != null
+	light.shadow_item_cull_mask = light.shadow_item_cull_mask | (1 << GOBO_OCCLUDER_SHADOW_LAYER_BIT)
 	light.light_volumetric_fog_energy = float(settings.get("light_volumetric_fog_energy", light.light_volumetric_fog_energy))
 
 	var cone: MeshInstance3D = settings.get("beam_mesh", null) as MeshInstance3D
@@ -156,6 +158,7 @@ func _ensure_gobo_occluder(light: SpotLight3D, base_quad_size: float) -> MeshIns
 	var gobo_occluder := MeshInstance3D.new()
 	gobo_occluder.name = "PeravizGoboOccluder"
 	gobo_occluder.mesh = gobo_mesh
+	gobo_occluder.layers = 1 << GOBO_OCCLUDER_SHADOW_LAYER_BIT
 	gobo_occluder.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY
 	gobo_occluder.visible = false
 	gobo_occluder.gi_mode = GeometryInstance3D.GI_MODE_DISABLED
