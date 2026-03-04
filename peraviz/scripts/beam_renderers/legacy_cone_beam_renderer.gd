@@ -1,4 +1,4 @@
-extends BeamRendererBase
+extends RefCounted
 
 class_name LegacyConeBeamRenderer
 

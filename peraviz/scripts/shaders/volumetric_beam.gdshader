@@ -33,6 +33,8 @@ instance uniform float gobo_axis_sign = 1.0;
 instance uniform float beam_height = 8.0;
 instance uniform float beam_top_radius = 0.02;
 instance uniform float beam_bottom_radius = 0.8;
+// Allows disabling fog interaction for this transparent VFX material.
+instance uniform bool disable_fog = false;
 
 varying vec3 v_view;
 varying vec3 v_local;
@@ -133,4 +135,7 @@ void fragment() {
 	ALBEDO = base_color.rgb * brightness;
 	ALPHA = clamp(final_alpha * base_color.a, 0.0, 1.0);
 	EMISSION = ALBEDO * ALPHA;
+	if (disable_fog) {
+		FOG = vec4(0.0);
+	}
 }

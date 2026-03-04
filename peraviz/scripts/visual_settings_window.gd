@@ -18,10 +18,15 @@ const DEFAULT_SETTINGS := {
 	"volumetric_fog_density": 0.012,
 	"light_volumetric_fog_energy": 2.0,
 	"gobo_scale_ratio": 1.0,
-	"gobo_debug_show_occluder": false,
+	"distance_to_occluder_m": 0.043,
+	"base_quad_size_m": 0.017,
+	"gobo_overscan_ratio": 1.12,
+	"gobo_rotation_deg": 0.0,
+	"invert_gobo": false,
+	"gobo_disable_fog": false,
+	"gobo_cutoff": 0.5,
 	"gobo_debug_log_parameters": false,
 	"gobo_debug_log_volumetric_details": false,
-	"gobo_projection_mode": "shadow_cookie",
 	"volumetric_fog_volume_size": 256,
 	"volumetric_fog_depth": 64.0,
 	"volumetric_fog_use_filter": true,
@@ -50,7 +55,6 @@ var _fog_depth_value_label: Label
 var _background_picker: ColorPickerButton
 var _beam_render_mode_option: OptionButton
 var _beam_quality_option: OptionButton
-var _gobo_projection_option: OptionButton
 
 func _init() -> void:
 	title = "Visual Settings"
@@ -97,10 +101,15 @@ func _build_ui() -> void:
 	_fog_depth_slider = _add_slider_row(container, "Fog volume depth", "volumetric_fog_depth", 16.0, 256.0, 4.0)
 	_light_fog_energy_slider = _add_slider_row(container, "Light fog energy", "light_volumetric_fog_energy", 0.0, 8.0, 0.05)
 	_gobo_scale_slider = _add_slider_row(container, "Gobo scale ratio", "gobo_scale_ratio", 0.2, 2.5, 0.01)
+	_add_slider_row(container, "Occluder distance (m)", "distance_to_occluder_m", 0.001, 1.0, 0.001)
+	_add_slider_row(container, "Occluder base quad size (m)", "base_quad_size_m", 0.001, 0.1, 0.001)
+	_add_slider_row(container, "Gobo overscan ratio", "gobo_overscan_ratio", 1.0, 2.0, 0.01)
+	_add_slider_row(container, "Gobo rotation (deg)", "gobo_rotation_deg", -180.0, 180.0, 1.0)
+	_add_slider_row(container, "Gobo cutoff", "gobo_cutoff", 0.0, 1.0, 0.01)
 	_beam_render_mode_option = _add_option_row(container, "Beam rendering", ["Volumetric (default)", "Lightweight (legacy)"], _on_beam_render_mode_selected)
 	_beam_quality_option = _add_option_row(container, "Beam quality", ["Low", "Medium", "High"], _on_beam_quality_selected)
-	_gobo_projection_option = _add_option_row(container, "Gobo projection", ["Shadow cookie", "Projector cookie"], _on_gobo_projection_selected)
-	_add_toggle_row(container, "Debug gobo occluder", "gobo_debug_show_occluder")
+	_add_toggle_row(container, "Invert gobo mask", "invert_gobo")
+	_add_toggle_row(container, "Disable fog in beam material", "gobo_disable_fog")
 	_add_toggle_row(container, "Log gobo parameters", "gobo_debug_log_parameters")
 	_add_toggle_row(container, "Log volumetric internals", "gobo_debug_log_volumetric_details")
 	_add_toggle_row(container, "Volumetric fog Use Filter (ON = less aliasing, less detail)", "volumetric_fog_use_filter")
@@ -221,8 +230,6 @@ func _apply_settings_to_controls() -> void:
 	_gobo_scale_slider.value = float(_settings.get("gobo_scale_ratio", 1.0))
 	_beam_render_mode_option.select(clamp(int(_settings.get("beam_render_mode", 0)), 0, 1))
 	_beam_quality_option.select(clamp(int(_settings.get("beam_quality", 1)), 0, 2))
-	var mode_name: String = str(_settings.get("gobo_projection_mode", "shadow_cookie")).to_lower()
-	_gobo_projection_option.select(1 if mode_name == "projector_cookie" else 0)
 	_background_picker.color = _settings.get("background_color", DEFAULT_SETTINGS["background_color"])
 	_update_value_labels()
 
@@ -250,9 +257,6 @@ func _on_beam_quality_selected(index: int) -> void:
 	_settings["beam_quality"] = clamp(index, 0, 2)
 	_emit_settings_changed()
 
-func _on_gobo_projection_selected(index: int) -> void:
-	_settings["gobo_projection_mode"] = "projector_cookie" if index == 1 else "shadow_cookie"
-	_emit_settings_changed()
 
 func _update_value_labels() -> void:
 	_ambient_value_label.text = "%.2f" % float(_settings.get("ambient_multiplier", 1.0))

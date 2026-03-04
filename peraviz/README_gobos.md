@@ -33,11 +33,6 @@ Peraviz now follows the same principle used in Godot proposal #11987-style setup
 
 This mode is the default because it aligns the in-air volumetric look with the footprint on geometry.
 
-### Alternative mode: projector cookie (optional)
-
-Peraviz keeps `SpotLight3D.light_projector` support as an explicit alternative mode (`projector_cookie`).
-Use it only when intentionally testing projector behavior.
-
 ### Additional notes
 
 - `SpotLight3D.shadow_enabled` must be `true` for shadow-cookie gobos.
@@ -55,7 +50,7 @@ If the footprint looks correct on the floor but the beam in air looks too soft, 
 - `WorldEnvironment.volumetric_fog_density`: values around `0.02` make the in-air pattern much more legible than very low fog density.
 - `SpotLight3D.light_volumetric_fog_energy`: values around `3.0-4.0` help the fog beam read clearly without overexposing the floor footprint.
 
-Peraviz now applies those shadow-cookie defaults when gobos are active in `shadow_cookie` mode, while keeping them user-tunable from Visual Settings.
+Peraviz now applies those shadow-cookie defaults whenever gobos are active, while keeping them user-tunable from Visual Settings.
 
 
 ### Scale and resolution notes

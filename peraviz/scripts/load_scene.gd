@@ -43,7 +43,7 @@ var _fixture_manual_values: Dictionary = {}
 var _fixture_emissive_cache: Dictionary = {}
 var _fixture_emitter_light_cache: Dictionary = {}
 var _fixture_emitter_photometrics: Dictionary = {}
-var _fixture_gobo_projector: FixtureGoboProjector = null
+var _gobo_beam_controller: GoboBeamController = null
 var _updating_fixture_controls: bool = false
 var _visual_environment_baseline := {
 	"ambient_light_energy": 0.2,
@@ -64,10 +64,15 @@ var _visual_settings := {
 	"volumetric_fog_density": 0.012,
 	"light_volumetric_fog_energy": 2.0,
 	"gobo_scale_ratio": 1.0,
-	"gobo_debug_show_occluder": false,
+	"distance_to_occluder_m": 0.043,
+	"base_quad_size_m": 0.017,
+	"gobo_overscan_ratio": 1.12,
+	"gobo_rotation_deg": 0.0,
+	"invert_gobo": false,
+	"gobo_disable_fog": false,
+	"gobo_cutoff": 0.5,
 	"gobo_debug_log_parameters": false,
 	"gobo_debug_log_volumetric_details": false,
-	"gobo_projection_mode": "shadow_cookie",
 	"volumetric_fog_volume_size": 256,
 	"volumetric_fog_depth": 64.0,
 	"volumetric_fog_use_filter": true,
@@ -84,17 +89,15 @@ var _dmx_unbound_preview_label: Label
 var _dmx_fixture_runtime = null
 
 var _beam_renderers: Dictionary = {}
-var _active_beam_renderer: BeamRendererBase
+var _active_beam_renderer: RefCounted
 var _active_beam_mode: int = -1
 
 
 const DmxMonitorWindowScript = preload("res://scripts/dmx_monitor_window.gd")
 const DmxFixtureRuntimeScript = preload("res://scripts/dmx_fixture_runtime.gd")
 
-const BeamRendererBaseScript = preload("res://scripts/beam_renderers/beam_renderer_base.gd")
 const LegacyConeBeamRendererScript = preload("res://scripts/beam_renderers/legacy_cone_beam_renderer.gd")
 const VolumetricBeamRendererScript = preload("res://scripts/beam_renderers/volumetric_beam_renderer.gd")
-const FixtureGoboProjectorScript = preload("res://scripts/fixture_gobo_projector.gd")
 
 const DEBUG_TOGGLE_KEY: Key = KEY_C
 const MANUAL_TEST_FLAG: String = "--peraviz_manual_fixture_test"
@@ -141,7 +144,6 @@ const GOBO_SHADOW_COOKIE_BEAM_ATTENUATION: float = 0.5
 const GOBO_SHADOW_COOKIE_SHADOW_BIAS: float = 0.02
 const GOBO_SHADOW_COOKIE_SHADOW_NORMAL_BIAS: float = 0.8
 const GOBO_SHADOW_COOKIE_SHADOW_BLUR: float = 0.2
-const GOBO_SHADOW_COOKIE_MESH_BEAM_INTENSITY_MULTIPLIER: float = 0.55
 const EMITTER_CONE_FADE_END_RATIO: float = 0.82
 const EMITTER_CONE_NEAR_ALPHA: float = 0.16
 const EMITTER_CONE_FAR_ALPHA: float = 0.004
@@ -226,8 +228,8 @@ func _ready() -> void:
 	_apply_environment_quality_preset()
 	_capture_visual_environment_baseline()
 	_load_visual_settings_from_project()
+	_gobo_beam_controller = GoboBeamController.new()
 	_initialize_beam_renderers()
-	_fixture_gobo_projector = FixtureGoboProjectorScript.new()
 	visual_settings_window.configure(_visual_settings)
 	_apply_visual_settings(_visual_settings)
 
@@ -266,7 +268,7 @@ func _save_visual_settings_to_project() -> void:
 
 func _initialize_beam_renderers() -> void:
 	_beam_renderers[BEAM_RENDER_MODE_LEGACY] = LegacyConeBeamRendererScript.new()
-	_beam_renderers[BEAM_RENDER_MODE_VOLUMETRIC] = VolumetricBeamRendererScript.new()
+	_beam_renderers[BEAM_RENDER_MODE_VOLUMETRIC] = VolumetricBeamRendererScript.new(_gobo_beam_controller)
 	_update_beam_renderer_mode(true)
 
 func _apply_visual_settings(settings: Dictionary) -> void:
@@ -338,7 +340,7 @@ func _environment_has_property(environment: Environment, property_name: String) 
 
 func _update_beam_renderer_mode(force_refresh: bool) -> void:
 	var requested_mode: int = int(clamp(int(_visual_settings.get("beam_render_mode", BEAM_RENDER_MODE_VOLUMETRIC)), BEAM_RENDER_MODE_VOLUMETRIC, BEAM_RENDER_MODE_LEGACY))
-	var requested_renderer: BeamRendererBase = _beam_renderers.get(requested_mode, null)
+	var requested_renderer: RefCounted = _beam_renderers.get(requested_mode, null)
 	if requested_renderer == null:
 		requested_mode = BEAM_RENDER_MODE_LEGACY
 		requested_renderer = _beam_renderers.get(requested_mode, null)
@@ -355,12 +357,12 @@ func _update_beam_renderer_mode(force_refresh: bool) -> void:
 	_active_beam_mode = requested_mode
 	_active_beam_renderer = requested_renderer
 	for renderer in _beam_renderers.values():
-		if renderer is BeamRendererBase:
+		if renderer != null and renderer.has_method("configure"):
 			renderer.configure(camera, _visual_settings)
 
 func _cleanup_light_beam_renderers(light: SpotLight3D) -> void:
 	for renderer in _beam_renderers.values():
-		if renderer is BeamRendererBase:
+		if renderer != null and renderer.has_method("cleanup_beam"):
 			renderer.cleanup_beam(light)
 
 func _refresh_emitter_light_scalars() -> void:
@@ -389,12 +391,13 @@ func _update_existing_beam_material_scalars(light: SpotLight3D) -> void:
 		return
 	var beam_multiplier: float = float(_visual_settings.get("beam_multiplier", 1.0))
 	beam_params["scaled_intensity"] = clamp(base_intensity * beam_multiplier, 0.0, BEAM_INTENSITY_MAX)
-	var use_shadow_cookie_gobo: bool = (
-		int(light.get_meta("peraviz_gobo_projection_mode", 0)) == FixtureGoboProjector.ProjectionMode.SHADOW_COOKIE
-		and light.get_meta("peraviz_gobo_texture", null) != null
-	)
+	var use_shadow_cookie_gobo: bool = light.get_meta("peraviz_gobo_texture", null) != null
 	if use_shadow_cookie_gobo:
-		beam_params["scaled_intensity"] = float(beam_params.get("scaled_intensity", 0.0)) * GOBO_SHADOW_COOKIE_MESH_BEAM_INTENSITY_MULTIPLIER
+		beam_params["gobo_texture"] = light.get_meta("peraviz_gobo_texture", null)
+		beam_params["distance_to_occluder_m"] = float(_visual_settings.get("distance_to_occluder_m", 0.043))
+		beam_params["base_quad_size_m"] = float(_visual_settings.get("base_quad_size_m", 0.017))
+		beam_params["overscan_ratio"] = float(_visual_settings.get("gobo_overscan_ratio", 1.12))
+		beam_params["gobo_cutoff"] = float(_visual_settings.get("gobo_cutoff", 0.5))
 	beam_params["beam_quality"] = int(_visual_settings.get("beam_quality", 1))
 	_update_beam_for_light(light, beam_params)
 
@@ -936,8 +939,8 @@ func _clear_scene() -> void:
 	_fixture_emissive_cache.clear()
 	_fixture_emitter_light_cache.clear()
 	_fixture_emitter_photometrics.clear()
-	if _fixture_gobo_projector != null:
-		_fixture_gobo_projector.clear_cache()
+	if _gobo_beam_controller != null:
+		_gobo_beam_controller.clear_cache()
 	_has_loaded_bounds = false
 	_clear_debug_gizmos()
 
@@ -1642,8 +1645,7 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 	if bool(controls.get("has_gobo", false)):
 		# Sample-like fallback for gobo readability: keep spotlight range in a tight zoom-linked window.
 		light.spot_range = remap(clamp(beam_angle, 6.0, 50.0), 6.0, 50.0, 60.0, 30.0)
-	var gobo_projection_mode: String = str(_visual_settings.get("gobo_projection_mode", "shadow_cookie"))
-	var use_shadow_cookie_gobo: bool = bool(controls.get("has_gobo", false)) and gobo_projection_mode == "shadow_cookie"
+	var use_shadow_cookie_gobo: bool = bool(controls.get("has_gobo", false))
 	if use_shadow_cookie_gobo:
 		# Match the #11987 reference setup: tighter angle attenuation + sharp shadows improve in-air beam definition.
 		spot_attenuation = min(spot_attenuation, GOBO_SHADOW_COOKIE_BEAM_ATTENUATION)
@@ -1675,22 +1677,20 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 		"spot_angle_half_deg": light.spot_angle,
 		"spot_range": light.spot_range,
 	}
-	if use_shadow_cookie_gobo:
-		# Match the #11987 workaround behavior: keep occluder shadows for native volumetric fog,
-		# but disable the additive fake beam mesh to avoid concentric/double cone artifacts.
-		beam_params["prefer_native_shadow_cookie_volumetric"] = true
-		beam_params["scaled_intensity"] = float(beam_params.get("scaled_intensity", 0.0)) * GOBO_SHADOW_COOKIE_MESH_BEAM_INTENSITY_MULTIPLIER
-
-	var gobo_changed: bool = false
-	if _fixture_gobo_projector != null:
-		var gobo_controls: Dictionary = controls.duplicate(true)
-		gobo_controls["gobo_projection_mode"] = str(_visual_settings.get("gobo_projection_mode", "shadow_cookie"))
-		gobo_changed = _fixture_gobo_projector.apply_gobo_projection(light, gobo_controls)
-	light.light_volumetric_fog_energy = float(_visual_settings.get("light_volumetric_fog_energy", 1.0))
+	if use_shadow_cookie_gobo and _gobo_beam_controller != null:
+		beam_params["gobo_texture"] = _gobo_beam_controller.resolve_composed_gobo_texture(controls)
+	else:
+		beam_params["gobo_texture"] = null
+	beam_params["distance_to_occluder_m"] = float(_visual_settings.get("distance_to_occluder_m", 0.043))
+	beam_params["base_quad_size_m"] = float(_visual_settings.get("base_quad_size_m", 0.017))
+	beam_params["overscan_ratio"] = float(_visual_settings.get("gobo_overscan_ratio", 1.12))
+	beam_params["gobo_scale_ratio"] = float(_visual_settings.get("gobo_scale_ratio", 1.0))
+	beam_params["gobo_cutoff"] = float(_visual_settings.get("gobo_cutoff", 0.5))
+	beam_params["gobo_rotation_deg"] = float(_visual_settings.get("gobo_rotation_deg", 0.0))
+	beam_params["invert_gobo"] = bool(_visual_settings.get("invert_gobo", false))
+	beam_params["disable_fog"] = bool(_visual_settings.get("gobo_disable_fog", false))
+	beam_params["light_volumetric_fog_energy"] = float(_visual_settings.get("light_volumetric_fog_energy", 1.0))
 	_update_beam_for_light(light, beam_params)
-	if gobo_changed:
-		# Re-apply beam uniforms immediately when gobo texture changes so volumetric modulation updates without frame delay.
-		_update_beam_for_light(light, beam_params)
 
 func _resolve_zoom_beam_limits(light: SpotLight3D, controls: Dictionary) -> Dictionary:
 	# min/max beam angles are kept as full GDTF beam apertures (not half-angle).
