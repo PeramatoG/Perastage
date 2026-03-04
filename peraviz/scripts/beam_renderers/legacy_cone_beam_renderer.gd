@@ -12,7 +12,6 @@ const EMITTER_CONE_FAR_EMISSION: float = 0.04
 const MAIN_KEY: String = "peraviz_beam_cone"
 const MID_KEY: String = "peraviz_beam_cone_mid"
 const CORE_KEY: String = "peraviz_beam_cone_core"
-const GOBO_TEXTURE_META_KEY: String = "peraviz_gobo_texture"
 
 var _shared_material: ShaderMaterial
 
@@ -55,15 +54,8 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 		core_cone.visible = is_visible
 	if not is_visible:
 		return
-	var native_fog_projector_enabled: bool = bool(params.get("use_native_fog_projector_gobos", true))
-	if native_fog_projector_enabled and light.has_meta(GOBO_TEXTURE_META_KEY):
-		if cone != null:
-			cone.visible = false
-		if mid_cone != null:
-			mid_cone.visible = false
-		if core_cone != null:
-			core_cone.visible = false
-		return
+	# Keep legacy cone beams visible even with native fog-projector gobos enabled.
+	# This preserves beam readability while the spotlight projector handles gobo footprint/fog shading.
 
 
 	var beam_half_angle_deg: float = beam_angle * 0.5

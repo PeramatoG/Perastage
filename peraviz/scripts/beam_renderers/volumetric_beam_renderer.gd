@@ -5,7 +5,6 @@ class_name VolumetricBeamRenderer
 const BEAM_META_KEY: String = "peraviz_volumetric_beam"
 const EMITTER_CONE_MAX_BASE_RADIUS_M: float = 10.0
 const VOLUMETRIC_INTENSITY_SCALE: float = 0.75
-const GOBO_TEXTURE_META_KEY: String = "peraviz_gobo_texture"
 
 var _beam_material_template: ShaderMaterial
 var _camera: Camera3D
@@ -55,10 +54,8 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 		cone.visible = false
 		return
 
-	var native_fog_projector_enabled: bool = bool(_settings.get("use_native_fog_projector_gobos", true))
-	if native_fog_projector_enabled and light.has_meta(GOBO_TEXTURE_META_KEY):
-		cone.visible = false
-		return
+	# Keep debug/preview beam meshes visible even when native fog-projector gobos are enabled.
+	# Native gobo projection controls footprint/fog in renderer, while this cone keeps operator-visible beam feedback.
 
 
 	var beam_color: Color = params.get("beam_color", Color.WHITE)
