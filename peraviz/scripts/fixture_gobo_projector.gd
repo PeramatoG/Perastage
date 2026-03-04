@@ -92,7 +92,7 @@ func _ensure_gobo_plane(light: SpotLight3D) -> MeshInstance3D:
 
 	var gobo_plane := MeshInstance3D.new()
 	gobo_plane.name = "PeravizGoboPlane"
-	gobo_plane.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	gobo_plane.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
 	var quad := QuadMesh.new()
 	quad.size = GOBO_PLANE_MESH_SIZE
 	gobo_plane.mesh = quad

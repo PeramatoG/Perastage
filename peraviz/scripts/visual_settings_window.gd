@@ -16,7 +16,7 @@ const DEFAULT_SETTINGS := {
 	"beam_noise_amount": 0.06,
 	"beam_noise_scale": 1.4,
 	"volumetric_fog_density": 0.012,
-	"light_volumetric_fog_energy": 2.0,
+	"light_volumetric_fog_energy": 8.0,
 	"volumetric_fog_volume_size": 256,
 	"volumetric_fog_depth": 64.0,
 	"volumetric_fog_use_filter": true,
