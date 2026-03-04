@@ -50,6 +50,7 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	var threshold: float = float(params.get("intensity_visibility_threshold", 0.015))
 	var beam_range: float = max(float(params.get("beam_range", 0.1)), 0.01)
 	var beam_angle: float = max(float(params.get("beam_angle", 1.0)), 0.1)
+	var gobo_texture: Texture2D = params.get("gobo_texture", null) as Texture2D
 
 	if not bool(params.get("is_visible", true)) or intensity <= threshold:
 		cone.visible = false
@@ -75,9 +76,13 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 		cone_mesh.bottom_radius = bottom_radius
 		cone_mesh.height = beam_range
 	cone.position = Vector3(0.0, 0.0, -beam_range * 0.5)
-	cone.visible = true
+	var render_mesh_for_gobo: bool = bool(params.get("render_mesh_for_gobo", false))
+	var mesh_visible: bool = (gobo_texture == null) or render_mesh_for_gobo
+	cone.visible = mesh_visible
 
 	var intensity_alpha: float = clamp(intensity * VOLUMETRIC_INTENSITY_SCALE, 0.0, 1.0)
+	if gobo_texture != null and not render_mesh_for_gobo:
+		intensity_alpha = 0.0
 	cone.set_instance_shader_parameter("base_color", Color(beam_color.r, beam_color.g, beam_color.b, intensity_alpha))
 	cone.set_instance_shader_parameter("max_brightness", lerp(1.0, 10.0, intensity))
 	cone.set_instance_shader_parameter("beam_top_radius", max(lens_radius, 0.003))
@@ -94,7 +99,7 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	gobo_settings["beam_mesh"] = cone
 	gobo_settings["light_volumetric_fog_energy"] = params.get("light_volumetric_fog_energy", _settings.get("light_volumetric_fog_energy", 1.0))
 	if _gobo_controller != null:
-		_gobo_controller.apply_gobo(light, params.get("gobo_texture", null) as Texture2D, beam_angle, beam_range, lens_radius, gobo_settings)
+		_gobo_controller.apply_gobo(light, gobo_texture, beam_angle, beam_range, lens_radius, gobo_settings)
 
 func cleanup_beam(light: SpotLight3D) -> void:
 	if light.has_meta(BEAM_META_KEY):

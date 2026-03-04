@@ -25,6 +25,7 @@ const DEFAULT_SETTINGS := {
 	"invert_gobo": false,
 	"gobo_disable_fog": false,
 	"gobo_cutoff": 0.5,
+	"render_mesh_beam_with_gobo": false,
 	"gobo_debug_log_parameters": false,
 	"gobo_debug_log_volumetric_details": false,
 	"volumetric_fog_volume_size": 256,
@@ -99,7 +100,7 @@ func _build_ui() -> void:
 	_fog_density_slider = _add_slider_row(container, "Volumetric fog density", "volumetric_fog_density", 0.0, 0.08, 0.001)
 	_fog_volume_size_slider = _add_slider_row(container, "Fog volume size", "volumetric_fog_volume_size", 64.0, 512.0, 32.0)
 	_fog_depth_slider = _add_slider_row(container, "Fog volume depth", "volumetric_fog_depth", 16.0, 256.0, 4.0)
-	_light_fog_energy_slider = _add_slider_row(container, "Light fog energy", "light_volumetric_fog_energy", 0.0, 8.0, 0.05)
+	_light_fog_energy_slider = _add_slider_row(container, "Light fog energy", "light_volumetric_fog_energy", 0.0, 5000.0, 1.0)
 	_gobo_scale_slider = _add_slider_row(container, "Gobo scale ratio", "gobo_scale_ratio", 0.2, 2.5, 0.01)
 	_add_slider_row(container, "Occluder distance (m)", "distance_to_occluder_m", 0.001, 1.0, 0.001)
 	_add_slider_row(container, "Occluder base quad size (m)", "base_quad_size_m", 0.001, 0.1, 0.001)
@@ -110,6 +111,7 @@ func _build_ui() -> void:
 	_beam_quality_option = _add_option_row(container, "Beam quality", ["Low", "Medium", "High"], _on_beam_quality_selected)
 	_add_toggle_row(container, "Invert gobo mask", "invert_gobo")
 	_add_toggle_row(container, "Disable fog in beam material", "gobo_disable_fog")
+	_add_toggle_row(container, "Render additive mesh beam with gobo (debug)", "render_mesh_beam_with_gobo")
 	_add_toggle_row(container, "Log gobo parameters", "gobo_debug_log_parameters")
 	_add_toggle_row(container, "Log volumetric internals", "gobo_debug_log_volumetric_details")
 	_add_toggle_row(container, "Volumetric fog Use Filter (ON = less aliasing, less detail)", "volumetric_fog_use_filter")

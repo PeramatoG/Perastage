@@ -243,7 +243,7 @@ func _compose_gobo_textures(textures: Array[Texture2D]) -> Texture2D:
 		if image == null:
 			continue
 		if image.get_width() != FAKE_GOBO_TEXTURE_SIZE or image.get_height() != FAKE_GOBO_TEXTURE_SIZE:
-			image.resize(FAKE_GOBO_TEXTURE_SIZE, FAKE_GOBO_TEXTURE_SIZE, Image.INTERPOLATE_LANCZOS)
+			image.resize(FAKE_GOBO_TEXTURE_SIZE, FAKE_GOBO_TEXTURE_SIZE, Image.INTERPOLATE_NEAREST)
 		for y in range(FAKE_GOBO_TEXTURE_SIZE):
 			for x in range(FAKE_GOBO_TEXTURE_SIZE):
 				var dst: Color = composed.get_pixel(x, y)

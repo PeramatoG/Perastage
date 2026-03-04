@@ -71,6 +71,7 @@ var _visual_settings := {
 	"invert_gobo": false,
 	"gobo_disable_fog": false,
 	"gobo_cutoff": 0.5,
+	"render_mesh_beam_with_gobo": false,
 	"gobo_debug_log_parameters": false,
 	"gobo_debug_log_volumetric_details": false,
 	"volumetric_fog_volume_size": 256,
@@ -1689,7 +1690,8 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 	beam_params["gobo_rotation_deg"] = float(_visual_settings.get("gobo_rotation_deg", 0.0))
 	beam_params["invert_gobo"] = bool(_visual_settings.get("invert_gobo", false))
 	beam_params["disable_fog"] = bool(_visual_settings.get("gobo_disable_fog", false))
-	beam_params["light_volumetric_fog_energy"] = float(_visual_settings.get("light_volumetric_fog_energy", 1.0))
+	beam_params["light_volumetric_fog_energy"] = max(float(_visual_settings.get("light_volumetric_fog_energy", 1.0)), 200.0) if use_shadow_cookie_gobo else float(_visual_settings.get("light_volumetric_fog_energy", 1.0))
+	beam_params["render_mesh_for_gobo"] = bool(_visual_settings.get("render_mesh_beam_with_gobo", false))
 	_update_beam_for_light(light, beam_params)
 
 func _resolve_zoom_beam_limits(light: SpotLight3D, controls: Dictionary) -> Dictionary:
