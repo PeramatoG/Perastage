@@ -5,8 +5,10 @@ class_name VolumetricBeamRenderer
 const BEAM_META_KEY: String = "peraviz_volumetric_beam"
 const EMITTER_CONE_MAX_BASE_RADIUS_M: float = 10.0
 const VOLUMETRIC_INTENSITY_SCALE: float = 0.75
-const GOBO_UV_SCALE_MIN: float = 0.1
-const GOBO_UV_SCALE_MAX: float = 12.0
+const GOBO_UV_SCALE_MIN: float = 0.35
+const GOBO_UV_SCALE_MAX: float = 4.0
+const GOBO_DEFAULT_STRENGTH: float = 0.7
+const GOBO_MIN_VISIBILITY: float = 0.22
 
 var _beam_material_template: ShaderMaterial
 var _camera: Camera3D
@@ -87,8 +89,11 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	cone.set_instance_shader_parameter("beam_quality", int(_settings.get("beam_quality", 1)))
 	var gobo_texture: Texture2D = params.get("gobo_texture", null) as Texture2D
 	cone.set_instance_shader_parameter("gobo_texture", gobo_texture)
-	cone.set_instance_shader_parameter("gobo_enabled", gobo_texture != null)
-	cone.set_instance_shader_parameter("gobo_uv_scale", clamp(tan_half_angle, GOBO_UV_SCALE_MIN, GOBO_UV_SCALE_MAX))
+	var has_gobo: bool = gobo_texture != null
+	cone.set_instance_shader_parameter("gobo_enabled", has_gobo)
+	cone.set_instance_shader_parameter("gobo_uv_scale", clamp(tan_half_angle * 2.0, GOBO_UV_SCALE_MIN, GOBO_UV_SCALE_MAX))
+	cone.set_instance_shader_parameter("gobo_strength", GOBO_DEFAULT_STRENGTH if has_gobo else 0.0)
+	cone.set_instance_shader_parameter("gobo_min_visibility", GOBO_MIN_VISIBILITY)
 
 func cleanup_beam(light: SpotLight3D) -> void:
 	if not light.has_meta(BEAM_META_KEY):

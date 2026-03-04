@@ -5,6 +5,8 @@ uniform sampler2D DEPTH_TEXTURE : hint_depth_texture, filter_linear_mipmap;
 uniform sampler2D gobo_texture : source_color, filter_linear_mipmap, repeat_disable;
 instance uniform bool gobo_enabled = false;
 instance uniform float gobo_uv_scale : hint_range(0.1, 12.0) = 1.0;
+instance uniform float gobo_strength : hint_range(0.0, 1.0) = 0.8;
+instance uniform float gobo_min_visibility : hint_range(0.0, 1.0) = 0.25;
 
 instance uniform vec4 base_color : source_color = vec4(1.0, 0.95, 0.85, 0.5);
 uniform float falloff_power : hint_range(0.1, 10.0) = 8.0;
@@ -24,12 +26,10 @@ uniform float depth_fade_distance : hint_range(0.01, 5.0) = 0.5;
 
 varying vec3 v_view;
 varying vec3 v_local;
-varying vec3 v_world_pos;
 
 void vertex() {
 	v_local = VERTEX;
 	v_view = (MODELVIEW_MATRIX * vec4(VERTEX, 1.0)).xyz;
-	v_world_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	POSITION = PROJECTION_MATRIX * vec4(v_view, 1.0);
 }
 
@@ -59,16 +59,14 @@ void fragment() {
 	float feather_alpha = mix(1.0 - feather_intensity, 1.0, pow(ndotv, feather_sharpness));
 	float gobo_mask = 1.0;
 	if (gobo_enabled) {
-		vec3 light_to_point_world = v_world_pos - (MODEL_MATRIX * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
-		vec3 local_light_dir = normalize((inverse(mat3(MODEL_MATRIX)) * light_to_point_world));
-		float dir_z = max(-local_light_dir.z, 0.0001);
-		vec2 gobo_uv = (local_light_dir.xy / dir_z) / max(gobo_uv_scale, 0.0001);
-		gobo_uv = (gobo_uv * 0.5) + vec2(0.5);
-		if (gobo_uv.x < 0.0 || gobo_uv.x > 1.0 || gobo_uv.y < 0.0 || gobo_uv.y > 1.0) {
-			gobo_mask = 0.0;
-		} else {
+		float projector_depth = max(v_local.y + (cone_height * 0.5), 0.001);
+		vec2 radial = v_local.xz / projector_depth;
+		vec2 gobo_uv = (radial / max(gobo_uv_scale, 0.0001)) * 0.5 + vec2(0.5);
+		if (gobo_uv.x >= 0.0 && gobo_uv.x <= 1.0 && gobo_uv.y >= 0.0 && gobo_uv.y <= 1.0) {
 			vec3 gobo_color = texture(gobo_texture, gobo_uv).rgb;
-			gobo_mask = dot(gobo_color, vec3(0.299, 0.587, 0.114));
+			float sampled_luma = dot(gobo_color, vec3(0.299, 0.587, 0.114));
+			float protected_luma = max(sampled_luma, clamp(gobo_min_visibility, 0.0, 1.0));
+			gobo_mask = mix(1.0, protected_luma, clamp(gobo_strength, 0.0, 1.0));
 		}
 	}
 
