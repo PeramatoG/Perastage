@@ -11,7 +11,7 @@ const GOBO_MIN_ANGLE_DEG: float = 4.0
 const GOBO_MAX_ANGLE_DEG: float = 50.0
 const GOBO_MIN_SCALE: float = 0.555
 const GOBO_MAX_SCALE: float = 6.4
-const GOBO_APERTURE_SCALE: float = 1.00
+const GOBO_APERTURE_SCALE: float = 1.05
 
 var _texture_cache: Dictionary = {}
 
