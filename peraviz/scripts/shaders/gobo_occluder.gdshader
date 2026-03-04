@@ -2,7 +2,7 @@ shader_type spatial;
 render_mode blend_mix, depth_draw_opaque, cull_disabled, unshaded;
 
 // Cookie texture used as a shadow-casting occluder near the lens.
-uniform sampler2D gobo_texture : source_color, filter_linear, repeat_disable;
+uniform sampler2D gobo_texture : source_color, filter_nearest, repeat_disable;
 // Invert the default mask interpretation when a fixture/media requires it.
 uniform bool invert_mask = false;
 // Allows matching wheel orientation against fixture conventions.
@@ -19,7 +19,7 @@ void fragment() {
 		centered_uv.x * sin_rot + centered_uv.y * cos_rot
 	) + vec2(0.5);
 
-	vec4 texel = texture(gobo_texture, rotated_uv);
+	vec4 texel = textureLod(gobo_texture, rotated_uv, 0.0);
 	// Gobo media in Peraviz is authored as black = blocked, white = transmitted.
 	// Convert to occluder alpha (white blocks) so footprint and volumetric shadow match.
 	float transmittance = clamp(texel.r * texel.a, 0.0, 1.0);

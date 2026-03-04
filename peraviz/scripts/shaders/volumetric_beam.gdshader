@@ -111,12 +111,12 @@ void fragment() {
 			if (gobo_uv.x < 0.0 || gobo_uv.x > 1.0 || gobo_uv.y < 0.0 || gobo_uv.y > 1.0) {
 				gobo_open = 0.0;
 			} else {
-				vec4 texel = texture(gobo_texture, gobo_uv);
+				vec4 texel = textureLod(gobo_texture, gobo_uv, 0.0);
 				float transmittance = clamp(texel.r * texel.a, 0.0, 1.0);
 				if (gobo_invert) {
 					transmittance = 1.0 - transmittance;
 				}
-				gobo_open = smoothstep(gobo_cutoff - 0.02, gobo_cutoff + 0.02, transmittance);
+				gobo_open = smoothstep(gobo_cutoff - 0.005, gobo_cutoff + 0.005, transmittance);
 			}
 		} else {
 			gobo_open = 1.0;

@@ -100,7 +100,7 @@ func apply_gobo(light: SpotLight3D, gobo_texture: Texture2D, beam_angle_deg: flo
 	gobo_occluder.position = Vector3(0.0, 0.0, -distance_to_occluder)
 	var debug_show_occluder: bool = bool(settings.get("debug_show_occluder", false))
 	gobo_occluder.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON if debug_show_occluder else GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY
-	gobo_occluder.visible = debug_show_occluder
+	gobo_occluder.visible = true
 	gobo_material.set_shader_parameter("gobo_texture", gobo_texture)
 	gobo_material.set_shader_parameter("invert_mask", invert_gobo)
 	gobo_material.set_shader_parameter("rotation_rad", deg_to_rad(gobo_rotation_deg))
