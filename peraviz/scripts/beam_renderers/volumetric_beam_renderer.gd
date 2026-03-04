@@ -5,6 +5,8 @@ class_name VolumetricBeamRenderer
 const BEAM_META_KEY: String = "peraviz_volumetric_beam"
 const EMITTER_CONE_MAX_BASE_RADIUS_M: float = 10.0
 const VOLUMETRIC_INTENSITY_SCALE: float = 0.75
+const GOBO_UV_SCALE_MIN: float = 0.1
+const GOBO_UV_SCALE_MAX: float = 12.0
 
 var _beam_material_template: ShaderMaterial
 var _camera: Camera3D
@@ -83,6 +85,10 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	cone.set_instance_shader_parameter("beam_haze_density", float(_settings.get("beam_haze_density", 0.17)))
 	cone.set_instance_shader_parameter("beam_anisotropy", float(_settings.get("beam_anisotropy", 0.62)))
 	cone.set_instance_shader_parameter("beam_quality", int(_settings.get("beam_quality", 1)))
+	var gobo_texture: Texture2D = params.get("gobo_texture", null) as Texture2D
+	cone.set_instance_shader_parameter("gobo_texture", gobo_texture)
+	cone.set_instance_shader_parameter("gobo_enabled", gobo_texture != null)
+	cone.set_instance_shader_parameter("gobo_uv_scale", clamp(tan_half_angle, GOBO_UV_SCALE_MIN, GOBO_UV_SCALE_MAX))
 
 func cleanup_beam(light: SpotLight3D) -> void:
 	if not light.has_meta(BEAM_META_KEY):

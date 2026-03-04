@@ -1650,6 +1650,8 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 	}
 	if _fixture_gobo_projector != null:
 		_fixture_gobo_projector.apply_gobo_projection(light, controls)
+	if light.has_meta(FixtureGoboProjector.GOBO_TEXTURE_META_KEY):
+		beam_params["gobo_texture"] = light.get_meta(FixtureGoboProjector.GOBO_TEXTURE_META_KEY)
 	light.light_volumetric_fog_energy = float(_visual_settings.get("light_volumetric_fog_energy", 1.0))
 	_update_beam_for_light(light, beam_params)
 

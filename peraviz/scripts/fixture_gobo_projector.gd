@@ -3,6 +3,7 @@ class_name FixtureGoboProjector
 
 const FAKE_GOBO_TEXTURE_SIZE: int = 1024
 const GOBO_TEXTURE_META_KEY: String = "peraviz_gobo_texture"
+const LIGHT_PROJECTOR_PROPERTY_CANDIDATES: PackedStringArray = PackedStringArray(["light_projector", "projector"])
 
 var _texture_cache: Dictionary = {}
 
@@ -16,6 +17,7 @@ func apply_gobo_projection(light: SpotLight3D, controls: Dictionary) -> bool:
 	if light.has_meta(GOBO_TEXTURE_META_KEY):
 		previous_meta_texture = light.get_meta(GOBO_TEXTURE_META_KEY) as Texture2D
 	if not bool(controls.get("has_gobo", false)):
+		_apply_light_projector_texture(light, null)
 		light.set_meta(GOBO_TEXTURE_META_KEY, null)
 		return previous_meta_texture != null
 
@@ -45,12 +47,26 @@ func apply_gobo_projection(light: SpotLight3D, controls: Dictionary) -> bool:
 			active_textures.append(gobo_texture)
 
 	if active_textures.is_empty():
+		_apply_light_projector_texture(light, null)
 		light.set_meta(GOBO_TEXTURE_META_KEY, null)
 		return previous_meta_texture != null
 
 	var composed_gobo: Texture2D = _compose_gobo_textures(active_textures)
+	_apply_light_projector_texture(light, composed_gobo)
 	light.set_meta(GOBO_TEXTURE_META_KEY, composed_gobo)
 	return composed_gobo != previous_meta_texture
+
+func _apply_light_projector_texture(light: SpotLight3D, projector_texture: Texture2D) -> void:
+	for property_name in LIGHT_PROJECTOR_PROPERTY_CANDIDATES:
+		if _has_property(light, property_name):
+			light.set(property_name, projector_texture)
+			return
+
+func _has_property(node: Object, property_name: String) -> bool:
+	for item in node.get_property_list():
+		if item is Dictionary and str(item.get("name", "")) == property_name:
+			return true
+	return false
 
 func _resolve_gobo_raw_8bit(controls: Dictionary) -> int:
 	var gobo_raw: int = int(round(clamp(float(controls.get("gobo_norm", 0.0)), 0.0, 1.0) * 255.0))

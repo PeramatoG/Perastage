@@ -22,9 +22,9 @@ This document summarizes how Peraviz parses and loads gobo data from GDTF fixtur
 
 ## Runtime loading behavior
 
-- Runtime still resolves the active gobo slot from DMX values.
-- Slot textures are loaded and cached for each fixture.
-- When media is missing or invalid, a temporary fallback gobo texture can be generated for DMX/debug validation.
+- Runtime resolves the active gobo slot from DMX values.
+- Slot textures are loaded and cached per fixture.
+- When media is missing or invalid, a temporary fallback gobo texture is generated for DMX/debug validation.
 - When multiple gobo wheels are active, Peraviz composes them into one cached texture by multiplying masks.
-
-> Note: projection/emission logic was intentionally removed from Peraviz runtime. The loaded textures remain available in fixture metadata for upcoming refactors.
+- The composed texture is applied to `SpotLight3D` projector data (engine property detection keeps compatibility across Godot versions).
+- The same texture is also sent to the volumetric beam shader, which performs projector-style UV reconstruction inside the cone to approximate fog gobo projection.
