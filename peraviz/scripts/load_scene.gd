@@ -69,7 +69,7 @@ var _visual_settings := {
 	"gobo_debug_log_volumetric_details": false,
 	"gobo_projection_mode": "shadow_cookie",
 	"gobo_beam_visibility_mode": "fog_shadow",
-	"volumetric_fog_volume_size": 256,
+	"volumetric_fog_volume_size": 512,
 	"volumetric_fog_depth": 96.0,
 	"volumetric_fog_use_filter": true,
 	"background_color": Color(0.129412, 0.137255, 0.156863, 1.0),
@@ -143,6 +143,8 @@ const GOBO_SHADOW_COOKIE_SHADOW_BIAS: float = 0.02
 const GOBO_SHADOW_COOKIE_SHADOW_NORMAL_BIAS: float = 0.25
 const GOBO_SHADOW_COOKIE_SHADOW_BLUR: float = 0.0
 const GOBO_SHADOW_COOKIE_MESH_BEAM_INTENSITY_MULTIPLIER: float = 0.25
+const GOBO_SPOT_RANGE_MIN_M: float = 12.0
+const GOBO_SPOT_RANGE_MAX_M: float = 24.0
 const GOBO_SHADOW_COOKIE_ONLY_CASTER_MASK: int = 1 << 19
 const LIGHT_DEFAULT_SHADOW_CASTER_MASK: int = 0xFFFFF
 const EMITTER_CONE_FADE_END_RATIO: float = 0.82
@@ -395,7 +397,8 @@ func _refresh_existing_beam_material_scalars() -> void:
 func _apply_light_scalars_to_light(light: SpotLight3D) -> void:
 	var base_energy: float = float(light.get_meta("peraviz_base_light_energy", light.light_energy))
 	light.light_energy = base_energy * float(_visual_settings.get("spot_multiplier", 1.0))
-	light.light_volumetric_fog_energy = float(_visual_settings.get("light_volumetric_fog_energy", 1.6))
+	var visual_beam_multiplier: float = float(_visual_settings.get("beam_multiplier", 1.0))
+	light.light_volumetric_fog_energy = float(_visual_settings.get("light_volumetric_fog_energy", 1.6)) * visual_beam_multiplier
 
 func _update_existing_beam_material_scalars(light: SpotLight3D) -> void:
 	var base_intensity: float = float(light.get_meta("peraviz_beam_base_intensity", 0.0))
@@ -1658,7 +1661,7 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 	light.spot_range = clamp(cone_range * EMITTER_LIGHT_FOOTPRINT_RANGE_MULTIPLIER, EMITTER_LIGHT_MIN_EFFECTIVE_RANGE_M, EMITTER_LIGHT_MAX_RANGE_M)
 	if bool(controls.get("has_gobo", false)):
 		# Sample-like fallback for gobo readability: keep spotlight range in a tight zoom-linked window.
-		light.spot_range = remap(clamp(beam_angle, 6.0, 50.0), 6.0, 50.0, 60.0, 30.0)
+		light.spot_range = remap(clamp(beam_angle, 6.0, 50.0), 6.0, 50.0, GOBO_SPOT_RANGE_MAX_M, GOBO_SPOT_RANGE_MIN_M)
 	var gobo_projection_mode: String = str(_visual_settings.get("gobo_projection_mode", "shadow_cookie"))
 	var gobo_beam_visibility_mode: String = str(_visual_settings.get("gobo_beam_visibility_mode", "fog_shadow")).to_lower()
 	var use_shadow_cookie_gobo: bool = bool(controls.get("has_gobo", false)) and gobo_projection_mode == "shadow_cookie" and gobo_beam_visibility_mode != "geometry_shader"
@@ -1714,7 +1717,8 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 			effective_gobo_projection_mode = "beam_only"
 		gobo_controls["gobo_projection_mode"] = effective_gobo_projection_mode
 		gobo_changed = _fixture_gobo_projector.apply_gobo_projection(light, gobo_controls)
-	light.light_volumetric_fog_energy = float(_visual_settings.get("light_volumetric_fog_energy", 1.6))
+	var visual_beam_multiplier: float = float(_visual_settings.get("beam_multiplier", 1.0))
+	light.light_volumetric_fog_energy = float(_visual_settings.get("light_volumetric_fog_energy", 1.6)) * visual_beam_multiplier
 	_update_beam_for_light(light, beam_params)
 	if gobo_changed:
 		# Re-apply beam uniforms immediately when gobo texture changes so volumetric modulation updates without frame delay.

@@ -77,7 +77,10 @@ Current Peraviz defaults are tuned for balanced readability without overexposing
 - `volumetric_fog_density = 0.007`
 - `light_volumetric_fog_energy = 1.6`
 - `shadow_blur = 0.1` for active shadow-cookie gobos
-- volumetric fog froxel controls default to `volume_size = 256`, `volume_depth = 96`, `use_filter = true`
+- volumetric fog froxel controls default to `volume_size = 512`, `volume_depth = 96`, `use_filter = true`
+
+In `fog_shadow` mode, `Beam intensity` also scales `light_volumetric_fog_energy` so the
+control has visible impact on in-air haze brightness even when additive cone rendering is disabled.
 
 
 ### Scale and resolution notes
