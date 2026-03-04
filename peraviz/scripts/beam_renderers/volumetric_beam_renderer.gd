@@ -2,6 +2,7 @@ extends RefCounted
 class_name VolumetricBeamRenderer
 
 const BEAM_META_KEY: String = "peraviz_volumetric_beam"
+const LOCAL_FOG_VOLUME_META_KEY: String = "peraviz_local_fog_volume"
 const EMITTER_CONE_MAX_BASE_RADIUS_M: float = 10.0
 const VOLUMETRIC_INTENSITY_SCALE: float = 0.75
 
@@ -98,6 +99,7 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 			gobo_settings[key] = params[key]
 	gobo_settings["beam_mesh"] = cone
 	gobo_settings["light_volumetric_fog_energy"] = params.get("light_volumetric_fog_energy", _settings.get("light_volumetric_fog_energy", 1.0))
+	_update_local_fog_volume(light, gobo_texture != null, beam_range, bottom_radius, params)
 	if _gobo_controller != null:
 		_gobo_controller.apply_gobo(light, gobo_texture, beam_angle, beam_range, lens_radius, gobo_settings)
 
@@ -107,5 +109,40 @@ func cleanup_beam(light: SpotLight3D) -> void:
 		if cone != null and is_instance_valid(cone):
 			cone.queue_free()
 		light.remove_meta(BEAM_META_KEY)
+	if light.has_meta(LOCAL_FOG_VOLUME_META_KEY):
+		var local_fog: FogVolume = light.get_meta(LOCAL_FOG_VOLUME_META_KEY) as FogVolume
+		if local_fog != null and is_instance_valid(local_fog):
+			local_fog.queue_free()
+		light.remove_meta(LOCAL_FOG_VOLUME_META_KEY)
 	if _gobo_controller != null:
 		_gobo_controller.cleanup_gobo(light)
+
+func _update_local_fog_volume(light: SpotLight3D, gobo_active: bool, beam_range: float, bottom_radius: float, params: Dictionary) -> void:
+	var use_local_fog_volume: bool = bool(params.get("use_local_fog_volume", false)) and gobo_active
+	if not use_local_fog_volume:
+		if light.has_meta(LOCAL_FOG_VOLUME_META_KEY):
+			var existing: FogVolume = light.get_meta(LOCAL_FOG_VOLUME_META_KEY) as FogVolume
+			if existing != null and is_instance_valid(existing):
+				existing.queue_free()
+			light.remove_meta(LOCAL_FOG_VOLUME_META_KEY)
+		return
+
+	var fog_volume: FogVolume = null
+	if light.has_meta(LOCAL_FOG_VOLUME_META_KEY):
+		fog_volume = light.get_meta(LOCAL_FOG_VOLUME_META_KEY) as FogVolume
+	if fog_volume == null or not is_instance_valid(fog_volume):
+		fog_volume = FogVolume.new()
+		fog_volume.name = "PeravizBeamLocalFogVolume"
+		fog_volume.set("shape", 2)
+		var fog_material := FogMaterial.new()
+		fog_volume.material = fog_material
+		light.add_child(fog_volume)
+		light.set_meta(LOCAL_FOG_VOLUME_META_KEY, fog_volume)
+
+	var fog_material_ref: FogMaterial = fog_volume.material as FogMaterial
+	if fog_material_ref != null:
+		fog_material_ref.density = float(params.get("local_fog_density", 0.02))
+
+	fog_volume.position = Vector3(0.0, 0.0, -beam_range * 0.5)
+	var diameter: float = max(bottom_radius * 2.0, 0.05)
+	fog_volume.size = Vector3(diameter, diameter, max(beam_range, 0.1))
