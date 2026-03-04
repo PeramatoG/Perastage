@@ -17,7 +17,7 @@ const GOBO_OCCLUDER_MATERIAL_META_KEY: String = "peraviz_gobo_occluder_material"
 const GOBO_SHADOW_LAYER: int = 1 << 19
 
 const DEFAULT_GOBO_DISTANCE_M: float = 0.043
-const DEFAULT_GOBO_CUTOFF: float = 0.5
+const DEFAULT_GOBO_CUTOFF: float = 0.35
 const DEFAULT_GOBO_SOFTNESS: float = 0.04
 const DEFAULT_GOBO_SCALE_RATIO: float = 1.0
 const DEFAULT_GOBO_ROTATION_RAD: float = 0.0

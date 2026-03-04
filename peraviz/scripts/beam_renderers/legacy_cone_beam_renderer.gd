@@ -118,8 +118,8 @@ func _update_cone_material(cone: MeshInstance3D, beam_color: Color, scaled_inten
 	if material != null:
 		material.set_shader_parameter("gobo_texture", gobo_texture)
 		material.set_shader_parameter("gobo_contrast", 1.3)
-		material.set_shader_parameter("gobo_floor", 0.0)
-		material.set_shader_parameter("gobo_mix", 1.0)
+		material.set_shader_parameter("gobo_floor", 0.35)
+		material.set_shader_parameter("gobo_mix", 0.65)
 	cone.set_instance_shader_parameter("has_gobo", has_gobo)
 	cone.set_instance_shader_parameter("gobo_top_radius", top_radius)
 	cone.set_instance_shader_parameter("gobo_bottom_radius", bottom_radius)

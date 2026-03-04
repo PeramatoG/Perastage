@@ -19,6 +19,8 @@ uniform float far_fade_end : hint_range(0.1, 100.0) = 80.0;
 instance uniform float max_brightness : hint_range(1.0, 50.0) = 10.0;
 uniform bool depth_feather_enabled = true;
 uniform float depth_fade_distance : hint_range(0.01, 5.0) = 0.5;
+uniform float gobo_alpha_influence : hint_range(0.0, 1.0) = 0.55;
+uniform float gobo_min_open : hint_range(0.0, 1.0) = 0.35;
 
 instance uniform bool gobo_enabled = false;
 instance uniform float gobo_cutoff = 0.5;
@@ -115,15 +117,16 @@ void fragment() {
 			vec2 gobo_uv = rotated / half_size + vec2(0.5);
 
 			if (gobo_uv.x < 0.0 || gobo_uv.x > 1.0 || gobo_uv.y < 0.0 || gobo_uv.y > 1.0) {
-				gobo_open = 0.0;
+				gobo_open = 1.0;
 			} else {
 				gobo_open = sample_gobo_open(gobo_uv);
 			}
 		}
 	}
+	float gobo_factor = mix(1.0, max(gobo_open, gobo_min_open), gobo_alpha_influence);
 
-	brightness *= gobo_open;
-	final_alpha *= gobo_open;
+	brightness *= gobo_factor;
+	final_alpha *= gobo_factor;
 
 	if (final_alpha < 0.001) {
 		discard;

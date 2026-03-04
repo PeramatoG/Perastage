@@ -46,7 +46,7 @@ void fragment() {
 		beam_uv = (beam_uv * 0.5) + vec2(0.5);
 		float raw_mask = 0.0;
 		if (beam_uv.x < 0.0 || beam_uv.x > 1.0 || beam_uv.y < 0.0 || beam_uv.y > 1.0) {
-			raw_mask = 0.0;
+			raw_mask = 1.0;
 		} else {
 			vec3 gobo_rgb = texture(gobo_texture, beam_uv).rgb;
 			raw_mask = clamp(dot(gobo_rgb, vec3(0.2126, 0.7152, 0.0722)), 0.0, 1.0);
