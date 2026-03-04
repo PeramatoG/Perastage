@@ -15,6 +15,9 @@ uniform float near_fade_end : hint_range(0.0, 50.0) = 1.0;
 uniform float far_fade_start : hint_range(0.1, 100.0) = 25.0;
 uniform float far_fade_end : hint_range(0.1, 100.0) = 80.0;
 instance uniform float max_brightness : hint_range(1.0, 50.0) = 10.0;
+instance uniform bool gobo_enabled = false;
+uniform sampler2D gobo_texture : source_color, filter_linear_mipmap, repeat_enable;
+uniform float gobo_contrast : hint_range(0.1, 4.0) = 1.0;
 uniform bool depth_feather_enabled = true;
 uniform float depth_fade_distance : hint_range(0.01, 5.0) = 0.5;
 
@@ -64,7 +67,14 @@ void fragment() {
 		}
 	}
 
-	float final_alpha = feather_alpha * depth_mult * dist_fade;
+	float gobo_mask = 1.0;
+	if (gobo_enabled) {
+		vec2 gobo_uv = vec2(fract(UV.x), clamp(1.0 - UV.y, 0.0, 1.0));
+		float gobo_luma = texture(gobo_texture, gobo_uv).r;
+		gobo_mask = pow(clamp(1.0 - gobo_luma, 0.0, 1.0), gobo_contrast);
+	}
+
+	float final_alpha = feather_alpha * depth_mult * dist_fade * gobo_mask;
 	if (final_alpha < 0.001) {
 		discard;
 	}
