@@ -144,7 +144,7 @@ const BEAM_INTENSITY_VISIBILITY_THRESHOLD: float = 0.015
 const BEAM_DISTANCE_CULL_M: float = 180.0
 const BEAM_INTENSITY_MAX: float = 8.0
 const USE_GLOBAL_VOLUMETRIC_FOG: bool = true
-const USE_LOCAL_GOBO_BEAM_FALLBACK: bool = true
+const USE_LOCAL_GOBO_BEAM_FALLBACK: bool = false
 
 const ENV_QUALITY_PRESET_SETTING: String = "peraviz_environment_quality"
 const ENV_QUALITY_PRESET_DEFAULT: String = "medium"
@@ -285,7 +285,7 @@ func _apply_visual_settings(settings: Dictionary) -> void:
 		if world_environment != null and world_environment.environment != null:
 			_apply_environment_froxel_settings(world_environment.environment, fog_volume_size, fog_volume_depth, fog_use_filter)
 		if status_label != null:
-			status_label.text = "Global volumetric fog enabled (project froxels active). Spotlight projector in fog requires an engine build with PR #106395."
+			status_label.text = "Global volumetric fog enabled (project froxels active). Spotlight projector in fog requires an engine build with PR #106395; local gobo mesh fallback is disabled."
 	elif status_label != null:
 		status_label.text = "Global volumetric fog disabled; using local beam cookie projection only."
 
