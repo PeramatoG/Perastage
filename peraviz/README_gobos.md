@@ -27,4 +27,4 @@ This document summarizes how Peraviz parses and loads gobo data from GDTF fixtur
 - When media is missing or invalid, a temporary fallback gobo texture can be generated for DMX/debug validation.
 - When multiple gobo wheels are active, Peraviz composes them into one cached texture by multiplying masks.
 
-> Note: projection/emission logic was intentionally removed from Peraviz runtime. The loaded textures remain available in fixture metadata for upcoming refactors.
+> Note: runtime projection/emission is active again via two modes: `shadow_cookie` (occluder + shadows) and `projector_cookie` (`light_projector`). Both footprint and beam sampling share the same per-light gobo plane metadata.

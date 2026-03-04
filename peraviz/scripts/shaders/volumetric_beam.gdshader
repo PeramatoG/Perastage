@@ -29,6 +29,9 @@ instance uniform vec2 gobo_size = vec2(0.08, 0.08);
 instance uniform float beam_height = 8.0;
 instance uniform float beam_top_radius = 0.02;
 instance uniform float beam_bottom_radius = 0.8;
+instance uniform float beam_haze_density = 0.17;
+instance uniform float beam_noise_amount = 0.06;
+instance uniform float beam_noise_scale = 1.4;
 
 varying vec3 v_view;
 varying vec3 v_local;
@@ -87,6 +90,13 @@ void fragment() {
 	}
 
 	float final_alpha = feather_alpha * depth_mult * dist_fade;
+
+	float axial_factor = clamp((beam_height * 0.5 - v_local.y) / max(beam_height, 0.001), 0.0, 1.0);
+	float haze_scale = mix(0.35, 1.0, beam_haze_density);
+	float noise_phase = (axial_factor * max(beam_noise_scale, 0.001) * 14.0) + (TIME * 0.9);
+	float turbulence = 1.0 + (sin(noise_phase) * beam_noise_amount);
+	brightness *= haze_scale * turbulence;
+	final_alpha *= haze_scale * clamp(turbulence, 0.0, 2.0);
 
 	float gobo_open = 1.0;
 	if (gobo_enabled) {
