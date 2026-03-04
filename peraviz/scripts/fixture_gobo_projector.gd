@@ -16,6 +16,7 @@ func apply_gobo_projection(light: SpotLight3D, controls: Dictionary) -> bool:
 	if light.has_meta(GOBO_TEXTURE_META_KEY):
 		previous_meta_texture = light.get_meta(GOBO_TEXTURE_META_KEY) as Texture2D
 	if not bool(controls.get("has_gobo", false)):
+		_assign_light_projector(light, null)
 		light.set_meta(GOBO_TEXTURE_META_KEY, null)
 		return previous_meta_texture != null
 
@@ -45,12 +46,22 @@ func apply_gobo_projection(light: SpotLight3D, controls: Dictionary) -> bool:
 			active_textures.append(gobo_texture)
 
 	if active_textures.is_empty():
+		_assign_light_projector(light, null)
 		light.set_meta(GOBO_TEXTURE_META_KEY, null)
 		return previous_meta_texture != null
 
 	var composed_gobo: Texture2D = _compose_gobo_textures(active_textures)
+	_assign_light_projector(light, composed_gobo)
 	light.set_meta(GOBO_TEXTURE_META_KEY, composed_gobo)
 	return composed_gobo != previous_meta_texture
+
+func _assign_light_projector(light: SpotLight3D, texture: Texture2D) -> void:
+	if light == null or not is_instance_valid(light):
+		return
+	for property_data in light.get_property_list():
+		if str(property_data.get("name", "")) == "light_projector":
+			light.set("light_projector", texture)
+			return
 
 func _resolve_gobo_raw_8bit(controls: Dictionary) -> int:
 	var gobo_raw: int = int(round(clamp(float(controls.get("gobo_norm", 0.0)), 0.0, 1.0) * 255.0))

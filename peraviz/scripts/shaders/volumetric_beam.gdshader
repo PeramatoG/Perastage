@@ -17,14 +17,17 @@ uniform float far_fade_end : hint_range(0.1, 100.0) = 80.0;
 instance uniform float max_brightness : hint_range(1.0, 50.0) = 10.0;
 uniform bool depth_feather_enabled = true;
 uniform float depth_fade_distance : hint_range(0.01, 5.0) = 0.5;
-
+uniform sampler2D gobo_texture : source_color, filter_linear_mipmap, repeat_disable;
+instance uniform bool has_gobo = false;
 
 varying vec3 v_view;
 varying vec3 v_local;
+varying float v_normalized_y;
 
 void vertex() {
 	v_local = VERTEX;
 	v_view = (MODELVIEW_MATRIX * vec4(VERTEX, 1.0)).xyz;
+	v_normalized_y = clamp(UV.y, 0.0, 1.0);
 	POSITION = PROJECTION_MATRIX * vec4(v_view, 1.0);
 }
 
@@ -64,12 +67,25 @@ void fragment() {
 		}
 	}
 
-	float final_alpha = feather_alpha * depth_mult * dist_fade;
+
+	float gobo_mask = 1.0;
+	if (has_gobo) {
+		float radial_factor = max(1.0 - v_normalized_y, 0.02);
+		vec2 beam_uv = vec2(v_local.x, v_local.z) / radial_factor;
+		beam_uv = (beam_uv * 0.5) + vec2(0.5);
+		if (beam_uv.x < 0.0 || beam_uv.x > 1.0 || beam_uv.y < 0.0 || beam_uv.y > 1.0) {
+			gobo_mask = 0.0;
+		} else {
+			vec3 gobo_rgb = texture(gobo_texture, beam_uv).rgb;
+			gobo_mask = clamp(dot(gobo_rgb, vec3(0.2126, 0.7152, 0.0722)), 0.0, 1.0);
+		}
+	}
+	float final_alpha = feather_alpha * depth_mult * dist_fade * gobo_mask;
 	if (final_alpha < 0.001) {
 		discard;
 	}
 
-	ALBEDO = base_color.rgb * brightness;
+	ALBEDO = base_color.rgb * brightness * gobo_mask;
 	ALPHA = clamp(final_alpha * base_color.a, 0.0, 1.0);
 	EMISSION = ALBEDO * ALPHA;
 }

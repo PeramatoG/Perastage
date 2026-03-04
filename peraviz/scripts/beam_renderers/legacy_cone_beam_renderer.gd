@@ -13,11 +13,10 @@ const MAIN_KEY: String = "peraviz_beam_cone"
 const MID_KEY: String = "peraviz_beam_cone_mid"
 const CORE_KEY: String = "peraviz_beam_cone_core"
 
-var _shared_material: ShaderMaterial
+var _shader: Shader
 
 func _init() -> void:
-	_shared_material = ShaderMaterial.new()
-	_shared_material.shader = load("res://scripts/shaders/legacy_beam_cone.gdshader")
+	_shader = load("res://scripts/shaders/legacy_beam_cone.gdshader")
 
 func ensure_beam(light: SpotLight3D) -> void:
 	if not light.has_meta(MAIN_KEY):
@@ -64,9 +63,11 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	_update_cone_geometry(core_cone, lens_radius, bottom_radius, beam_range, 0.45)
 
 	var color_alpha := Color(beam_color.r, beam_color.g, beam_color.b, 1.0)
-	_update_cone_material(cone, color_alpha, scaled_intensity, beam_range, 0.35, 0.16, 0.06, 1.0, 1.0)
-	_update_cone_material(mid_cone, color_alpha, scaled_intensity, beam_range, 0.18, 0.26, 0.04, 1.35, 1.25)
-	_update_cone_material(core_cone, color_alpha, scaled_intensity, beam_range, 0.09, 0.35, 0.02, 1.7, 1.5)
+	var gobo_texture: Texture2D = params.get("gobo_texture", null) as Texture2D
+	var has_gobo: bool = bool(params.get("has_gobo", false)) and gobo_texture != null
+	_update_cone_material(cone, color_alpha, scaled_intensity, beam_range, 0.35, 0.16, 0.06, 1.0, 1.0, has_gobo, gobo_texture)
+	_update_cone_material(mid_cone, color_alpha, scaled_intensity, beam_range, 0.18, 0.26, 0.04, 1.35, 1.25, has_gobo, gobo_texture)
+	_update_cone_material(core_cone, color_alpha, scaled_intensity, beam_range, 0.09, 0.35, 0.02, 1.7, 1.5, has_gobo, gobo_texture)
 
 func cleanup_beam(light: SpotLight3D) -> void:
 	for meta_key in [MAIN_KEY, MID_KEY, CORE_KEY]:
@@ -92,7 +93,9 @@ func _create_cone(cone_name: String) -> MeshInstance3D:
 	cone.name = cone_name
 	cone.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	cone.mesh = cone_mesh
-	cone.material_override = _shared_material
+	var material := ShaderMaterial.new()
+	material.shader = _shader
+	cone.material_override = material
 	cone.rotation_degrees.x = 90.0
 	cone.visible = false
 	return cone
@@ -108,9 +111,13 @@ func _update_cone_geometry(cone: MeshInstance3D, lens_radius: float, bottom_radi
 	cone_mesh.height = beam_range
 	cone.position = Vector3(0.0, 0.0, -beam_range * 0.5)
 
-func _update_cone_material(cone: MeshInstance3D, beam_color: Color, scaled_intensity: float, beam_range: float, lateral_softness: float, lateral_emission_boost: float, noise_strength: float, alpha_scale: float, emission_scale: float) -> void:
+func _update_cone_material(cone: MeshInstance3D, beam_color: Color, scaled_intensity: float, beam_range: float, lateral_softness: float, lateral_emission_boost: float, noise_strength: float, alpha_scale: float, emission_scale: float, has_gobo: bool, gobo_texture: Texture2D) -> void:
 	if cone == null:
 		return
+	var material: ShaderMaterial = cone.material_override as ShaderMaterial
+	if material != null:
+		material.set_shader_parameter("gobo_texture", gobo_texture)
+	cone.set_instance_shader_parameter("has_gobo", has_gobo)
 	cone.set_instance_shader_parameter("beam_color", beam_color)
 	cone.set_instance_shader_parameter("near_alpha", lerp(0.0, EMITTER_CONE_NEAR_ALPHA * alpha_scale, scaled_intensity))
 	cone.set_instance_shader_parameter("far_alpha", lerp(0.0, EMITTER_CONE_FAR_ALPHA * alpha_scale, scaled_intensity))

@@ -75,6 +75,13 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	cone.position = Vector3(0.0, 0.0, -beam_range * 0.5)
 	cone.visible = true
 
+	var material: ShaderMaterial = cone.material_override as ShaderMaterial
+	if material != null:
+		var gobo_texture: Texture2D = params.get("gobo_texture", null) as Texture2D
+		var has_gobo: bool = bool(params.get("has_gobo", false)) and gobo_texture != null
+		material.set_shader_parameter("gobo_texture", gobo_texture)
+		cone.set_instance_shader_parameter("has_gobo", has_gobo)
+
 	var intensity_alpha: float = clamp(intensity * VOLUMETRIC_INTENSITY_SCALE, 0.0, 1.0)
 	cone.set_instance_shader_parameter("base_color", Color(beam_color.r, beam_color.g, beam_color.b, intensity_alpha))
 	cone.set_instance_shader_parameter("max_brightness", lerp(1.0, 10.0, intensity))

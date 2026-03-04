@@ -1647,9 +1647,16 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 		"distance_cull_m": BEAM_DISTANCE_CULL_M,
 		"spot_angle_half_deg": light.spot_angle,
 		"spot_range": light.spot_range,
+		"has_gobo": false,
+		"gobo_texture": null,
 	}
 	if _fixture_gobo_projector != null:
 		_fixture_gobo_projector.apply_gobo_projection(light, controls)
+	if light.has_meta("peraviz_gobo_texture"):
+		var gobo_texture: Texture2D = light.get_meta("peraviz_gobo_texture") as Texture2D
+		if gobo_texture != null:
+			beam_params["has_gobo"] = true
+			beam_params["gobo_texture"] = gobo_texture
 	light.light_volumetric_fog_energy = float(_visual_settings.get("light_volumetric_fog_energy", 1.0))
 	_update_beam_for_light(light, beam_params)
 
