@@ -19,6 +19,8 @@ instance uniform bool gobo_enabled = false;
 uniform sampler2D gobo_texture : source_color, filter_nearest, repeat_enable;
 uniform float gobo_threshold : hint_range(0.0, 1.0) = 0.5;
 uniform float gobo_softness : hint_range(0.0, 0.2) = 0.0;
+instance uniform float gobo_top_radius : hint_range(0.0001, 5.0) = 0.02;
+instance uniform float gobo_bottom_radius : hint_range(0.0001, 20.0) = 0.8;
 uniform bool depth_feather_enabled = true;
 uniform float depth_fade_distance : hint_range(0.01, 5.0) = 0.5;
 
@@ -70,12 +72,20 @@ void fragment() {
 
 	float gobo_visibility = 1.0;
 	if (gobo_enabled) {
-		vec2 gobo_uv = vec2(fract(UV.x), clamp(1.0 - UV.y, 0.0, 1.0));
-		float gobo_luma = texture(gobo_texture, gobo_uv).r;
-		if (gobo_softness <= 0.0001) {
-			gobo_visibility = step(gobo_threshold, gobo_luma);
+		float axial = clamp(UV.y, 0.0, 1.0);
+		float local_radius = mix(gobo_top_radius, gobo_bottom_radius, axial);
+		local_radius = max(local_radius, 0.0001);
+		vec2 radial = vec2(v_local.x, v_local.z) / local_radius;
+		vec2 gobo_uv = (radial * 0.5) + vec2(0.5);
+		if (gobo_uv.x < 0.0 || gobo_uv.x > 1.0 || gobo_uv.y < 0.0 || gobo_uv.y > 1.0) {
+			gobo_visibility = 0.0;
 		} else {
-			gobo_visibility = smoothstep(gobo_threshold - gobo_softness, gobo_threshold + gobo_softness, gobo_luma);
+			float gobo_luma = texture(gobo_texture, gobo_uv).r;
+			if (gobo_softness <= 0.0001) {
+				gobo_visibility = step(gobo_threshold, gobo_luma);
+			} else {
+				gobo_visibility = smoothstep(gobo_threshold - gobo_softness, gobo_threshold + gobo_softness, gobo_luma);
+			}
 		}
 	}
 

@@ -70,8 +70,9 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	var radius: float = tan_half_angle * beam_range
 	var bottom_radius: float = clamp(radius, 0.03, EMITTER_CONE_MAX_BASE_RADIUS_M)
 	var cone_mesh: CylinderMesh = cone.mesh as CylinderMesh
+	var top_radius: float = max(lens_radius, 0.003)
 	if cone_mesh != null:
-		cone_mesh.top_radius = max(lens_radius, 0.003)
+		cone_mesh.top_radius = top_radius
 		cone_mesh.bottom_radius = bottom_radius
 		cone_mesh.height = beam_range
 	cone.position = Vector3(0.0, 0.0, -beam_range * 0.5)
@@ -85,6 +86,8 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	cone.set_instance_shader_parameter("beam_haze_density", float(_settings.get("beam_haze_density", 0.17)))
 	cone.set_instance_shader_parameter("beam_anisotropy", float(_settings.get("beam_anisotropy", 0.62)))
 	cone.set_instance_shader_parameter("beam_quality", int(_settings.get("beam_quality", 1)))
+	cone.set_instance_shader_parameter("gobo_top_radius", top_radius)
+	cone.set_instance_shader_parameter("gobo_bottom_radius", bottom_radius)
 	var has_gobo: bool = light.has_meta(GOBO_TEXTURE_META_KEY)
 	cone.set_instance_shader_parameter("gobo_enabled", has_gobo)
 	if has_gobo:
