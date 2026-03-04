@@ -71,14 +71,12 @@ Peraviz currently supports two beam rendering modes:
 - **Lightweight (legacy)**  
   A lower-cost cone/mesh approach for maximum FPS on weaker hardware.
 
-### 5) Gobos (shadow cookie + optional projector)
+### 5) Gobos (parsing + runtime texture loading)
 
 - Peraviz reads gobo wheel data from GDTF and maps DMX values to wheel slots.
-- **Default pipeline:** shadow cookie. A `QuadMesh` occluder (alpha scissor) sits near the lens and writes to the spot shadow map, so both floor footprint and volumetric fog use the same mask.
-- **Optional pipeline:** projector cookie. `SpotLight3D.light_projector` can still be enabled as an alternative mode for experiments.
 - Multiple active gobo wheels can be composed into a single gobo mask texture.
 - If gobo media is missing or malformed, Peraviz can generate a simple fake gobo texture to validate DMX bindings.
-- Forward+ rendering is recommended for predictable volumetric/shadow interaction.
+- Projection/emission paths are intentionally disabled while gobo rendering is being refactored.
 
 ### 6) Debug and validation workflow
 

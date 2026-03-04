@@ -3,12 +3,6 @@ class_name FixtureGoboProjector
 
 const FAKE_GOBO_TEXTURE_SIZE: int = 1024
 const GOBO_TEXTURE_META_KEY: String = "peraviz_gobo_texture"
-const GOBO_MODE_META_KEY: String = "peraviz_gobo_projection_mode"
-
-enum ProjectionMode {
-	SHADOW_COOKIE,
-	PROJECTOR_COOKIE,
-}
 
 var _texture_cache: Dictionary = {}
 
@@ -23,9 +17,6 @@ func apply_gobo_projection(light: SpotLight3D, controls: Dictionary) -> bool:
 		previous_meta_texture = light.get_meta(GOBO_TEXTURE_META_KEY) as Texture2D
 	if not bool(controls.get("has_gobo", false)):
 		light.set_meta(GOBO_TEXTURE_META_KEY, null)
-		light.set_meta(GOBO_MODE_META_KEY, ProjectionMode.SHADOW_COOKIE)
-		light.light_projector = null
-		light.shadow_enabled = false
 		return previous_meta_texture != null
 
 	var runtime_bindings: Array = controls.get("gobo_runtime_bindings", [])
@@ -55,29 +46,11 @@ func apply_gobo_projection(light: SpotLight3D, controls: Dictionary) -> bool:
 
 	if active_textures.is_empty():
 		light.set_meta(GOBO_TEXTURE_META_KEY, null)
-		light.set_meta(GOBO_MODE_META_KEY, ProjectionMode.SHADOW_COOKIE)
-		light.light_projector = null
-		light.shadow_enabled = false
 		return previous_meta_texture != null
 
-	light.shadow_enabled = true
 	var composed_gobo: Texture2D = _compose_gobo_textures(active_textures)
 	light.set_meta(GOBO_TEXTURE_META_KEY, composed_gobo)
-	var projection_mode: int = _resolve_projection_mode(controls)
-	light.set_meta(GOBO_MODE_META_KEY, projection_mode)
-	if projection_mode == ProjectionMode.PROJECTOR_COOKIE:
-		_warn_if_projector_unsupported(light)
-		light.light_projector = composed_gobo
-	else:
-		# Keep projector disabled in the sample-like path to avoid double gobo projection.
-		light.light_projector = null
 	return composed_gobo != previous_meta_texture
-
-func _resolve_projection_mode(controls: Dictionary) -> int:
-	var mode_name: String = str(controls.get("gobo_projection_mode", "shadow_cookie")).to_lower()
-	if mode_name == "projector_cookie":
-		return ProjectionMode.PROJECTOR_COOKIE
-	return ProjectionMode.SHADOW_COOKIE
 
 func _resolve_gobo_raw_8bit(controls: Dictionary) -> int:
 	var gobo_raw: int = int(round(clamp(float(controls.get("gobo_norm", 0.0)), 0.0, 1.0) * 255.0))
@@ -193,13 +166,3 @@ func _resolve_fake_gobo_texture(gobo_raw_8bit: int) -> Texture2D:
 	var texture: ImageTexture = ImageTexture.create_from_image(image)
 	_texture_cache[cache_key] = texture
 	return texture
-
-func _warn_if_projector_unsupported(light: SpotLight3D) -> void:
-	if light != null and light.has_meta("peraviz_projector_support_checked"):
-		return
-	if light != null:
-		light.set_meta("peraviz_projector_support_checked", true)
-	if RenderingServer.has_method("get_current_rendering_method"):
-		var rendering_method: String = str(RenderingServer.get_current_rendering_method())
-		if rendering_method == "gl_compatibility":
-			push_warning("Peraviz gobo projector is not supported in Compatibility renderer. Use Forward+ or Mobile.")
