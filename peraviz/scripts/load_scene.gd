@@ -55,7 +55,7 @@ var _visual_settings := {
 	"spot_multiplier": 1.0,
 	"beam_multiplier": 1.0,
 	"bloom_multiplier": 1.0,
-	"beam_render_mode": 1,
+	"beam_render_mode": 0,
 	"beam_quality": 1,
 	"beam_haze_density": 0.17,
 	"beam_anisotropy": 0.62,
@@ -143,8 +143,8 @@ const BEAM_RENDER_MODE_LEGACY: int = 1
 const BEAM_INTENSITY_VISIBILITY_THRESHOLD: float = 0.015
 const BEAM_DISTANCE_CULL_M: float = 180.0
 const BEAM_INTENSITY_MAX: float = 8.0
-const USE_GLOBAL_VOLUMETRIC_FOG: bool = false
-const USE_LOCAL_GOBO_BEAM_FALLBACK: bool = true
+const USE_GLOBAL_VOLUMETRIC_FOG: bool = true
+const USE_LOCAL_GOBO_BEAM_FALLBACK: bool = false
 
 const ENV_QUALITY_PRESET_SETTING: String = "peraviz_environment_quality"
 const ENV_QUALITY_PRESET_DEFAULT: String = "medium"
