@@ -61,8 +61,8 @@ var _visual_settings := {
 	"beam_anisotropy": 0.62,
 	"beam_noise_amount": 0.06,
 	"beam_noise_scale": 1.4,
-	"volumetric_fog_density": 0.012,
-	"light_volumetric_fog_energy": 2.0,
+	"volumetric_fog_density": 0.02,
+	"light_volumetric_fog_energy": 4.0,
 	"volumetric_fog_volume_size": 256,
 	"volumetric_fog_depth": 64.0,
 	"volumetric_fog_use_filter": true,
@@ -284,7 +284,7 @@ func _apply_visual_settings(settings: Dictionary) -> void:
 		if world_environment != null and world_environment.environment != null:
 			_apply_environment_froxel_settings(world_environment.environment, fog_volume_size, fog_volume_depth, fog_use_filter)
 		if status_label != null:
-			status_label.text = "Global volumetric fog enabled (project-level froxel settings active)."
+			status_label.text = "Global volumetric fog enabled (project froxels active). Spotlight projector in fog requires an engine build with PR #106395."
 	elif status_label != null:
 		status_label.text = "Global volumetric fog disabled; using local beam cookie projection only."
 
