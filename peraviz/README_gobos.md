@@ -49,6 +49,10 @@ beam-only mode for gobo visibility in air:
 
 This keeps methods separated and avoids mixed artifacts when comparing approaches.
 
+In `shadow_cookie` mode, Peraviz restricts the spotlight `shadow_caster_mask`
+to the dedicated gobo-occluder layer so dynamic scene/player geometry does not
+erase the gobo pattern when crossing the beam.
+
 ### Additional notes
 
 - `SpotLight3D.shadow_enabled` must be `true` for shadow-cookie gobos.

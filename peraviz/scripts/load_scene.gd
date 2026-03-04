@@ -140,9 +140,11 @@ const EMITTER_LIGHT_SPOT_ATTENUATION_MIN: float = 0.0669
 const EMITTER_LIGHT_SPOT_ATTENUATION_MAX: float = 1.5
 const GOBO_SHADOW_COOKIE_BEAM_ATTENUATION: float = 0.5
 const GOBO_SHADOW_COOKIE_SHADOW_BIAS: float = 0.02
-const GOBO_SHADOW_COOKIE_SHADOW_NORMAL_BIAS: float = 0.8
-const GOBO_SHADOW_COOKIE_SHADOW_BLUR: float = 0.1
+const GOBO_SHADOW_COOKIE_SHADOW_NORMAL_BIAS: float = 0.25
+const GOBO_SHADOW_COOKIE_SHADOW_BLUR: float = 0.0
 const GOBO_SHADOW_COOKIE_MESH_BEAM_INTENSITY_MULTIPLIER: float = 0.25
+const GOBO_SHADOW_COOKIE_ONLY_CASTER_MASK: int = 1 << 19
+const LIGHT_DEFAULT_SHADOW_CASTER_MASK: int = 0xFFFFF
 const EMITTER_CONE_FADE_END_RATIO: float = 0.82
 const EMITTER_CONE_NEAR_ALPHA: float = 0.16
 const EMITTER_CONE_FAR_ALPHA: float = 0.004
@@ -1666,6 +1668,11 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 		light.shadow_bias = GOBO_SHADOW_COOKIE_SHADOW_BIAS
 		light.shadow_normal_bias = GOBO_SHADOW_COOKIE_SHADOW_NORMAL_BIAS
 		light.shadow_blur = GOBO_SHADOW_COOKIE_SHADOW_BLUR
+		# Keep spotlight shadows driven only by the gobo occluder, so player/scene geometry
+		# does not erase gobo detail while moving through the beam.
+		light.shadow_caster_mask = GOBO_SHADOW_COOKIE_ONLY_CASTER_MASK
+	else:
+		light.shadow_caster_mask = LIGHT_DEFAULT_SHADOW_CASTER_MASK
 	light.spot_attenuation = spot_attenuation
 	light.light_color = _derive_emitter_color(photometric, controls)
 	var beam_color: Color = _derive_emitter_color(photometric, controls, BEAM_COLOR_TEMPERATURE_STRENGTH)

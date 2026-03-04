@@ -5,6 +5,7 @@ class_name VolumetricBeamRenderer
 const BEAM_META_KEY: String = "peraviz_volumetric_beam"
 const GOBO_OCCLUDER_META_KEY: String = "peraviz_gobo_occluder"
 const GOBO_OCCLUDER_SHADER_MATERIAL_META_KEY: String = "peraviz_gobo_occluder_shader_material"
+const GOBO_OCCLUDER_SHADOW_LAYER_MASK: int = 1 << 19
 const EMITTER_CONE_MAX_BASE_RADIUS_M: float = 10.0
 const VOLUMETRIC_INTENSITY_SCALE: float = 0.75
 const GOBO_DEBUG_MATERIAL_COLOR: Color = Color(0.1, 0.9, 0.2, 0.3)
@@ -64,6 +65,7 @@ func ensure_beam(light: SpotLight3D) -> void:
 		gobo_occluder.mesh = gobo_mesh
 		var occluder_shader_material: ShaderMaterial = _gobo_occluder_material_template.duplicate(true)
 		gobo_occluder.material_override = occluder_shader_material
+		gobo_occluder.layers = GOBO_OCCLUDER_SHADOW_LAYER_MASK
 		gobo_occluder.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY
 		gobo_occluder.visible = false
 		light.add_child(gobo_occluder)
@@ -206,7 +208,7 @@ func _update_gobo_occluder(light: SpotLight3D,
 
 	if update_cone_shader:
 		cone.set_instance_shader_parameter("gobo_enabled", true)
-		cone.set_instance_shader_parameter("gobo_cutoff", 0.38)
+		cone.set_instance_shader_parameter("gobo_cutoff", 0.72)
 		cone.set_instance_shader_parameter("gobo_start_ratio", _gobo_visibility_policy.GOBO_OCCLUDER_DISTANCE_M / max(beam_range, 0.001))
 		cone.set_instance_shader_parameter("gobo_rotation", 0.0)
 		cone.set_instance_shader_parameter("gobo_size", Vector2(gobo_plane_size_world, gobo_plane_size_world))
