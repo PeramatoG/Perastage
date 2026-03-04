@@ -3,6 +3,14 @@ class_name FixtureGoboProjector
 
 const FAKE_GOBO_TEXTURE_SIZE: int = 1024
 const GOBO_TEXTURE_META_KEY: String = "peraviz_gobo_texture"
+const GOBO_PLANE_META_KEY: String = "peraviz_gobo_plane"
+const GOBO_SHADER_PATH: String = "res://scripts/shaders/gobo_alpha_projector.gdshader"
+const GOBO_PLANE_LOCAL_Z: float = -0.043
+const GOBO_PLANE_MESH_SIZE: Vector2 = Vector2(0.017, 0.017)
+const GOBO_MIN_ANGLE_DEG: float = 4.0
+const GOBO_MAX_ANGLE_DEG: float = 50.0
+const GOBO_MIN_SCALE: float = 0.555
+const GOBO_MAX_SCALE: float = 6.4
 
 var _texture_cache: Dictionary = {}
 
@@ -16,6 +24,7 @@ func apply_gobo_projection(light: SpotLight3D, controls: Dictionary) -> bool:
 	if light.has_meta(GOBO_TEXTURE_META_KEY):
 		previous_meta_texture = light.get_meta(GOBO_TEXTURE_META_KEY) as Texture2D
 	if not bool(controls.get("has_gobo", false)):
+		_clear_gobo_visuals(light)
 		light.set_meta(GOBO_TEXTURE_META_KEY, null)
 		return previous_meta_texture != null
 
@@ -45,12 +54,71 @@ func apply_gobo_projection(light: SpotLight3D, controls: Dictionary) -> bool:
 			active_textures.append(gobo_texture)
 
 	if active_textures.is_empty():
+		_clear_gobo_visuals(light)
 		light.set_meta(GOBO_TEXTURE_META_KEY, null)
 		return previous_meta_texture != null
 
 	var composed_gobo: Texture2D = _compose_gobo_textures(active_textures)
+	_apply_gobo_visuals(light, composed_gobo)
 	light.set_meta(GOBO_TEXTURE_META_KEY, composed_gobo)
 	return composed_gobo != previous_meta_texture
+
+func _apply_gobo_visuals(light: SpotLight3D, gobo_texture: Texture2D) -> void:
+	if light == null or not is_instance_valid(light):
+		return
+	light.set("projector", gobo_texture)
+	if gobo_texture == null:
+		_remove_gobo_plane(light)
+		return
+	var gobo_plane: MeshInstance3D = _ensure_gobo_plane(light)
+	if gobo_plane == null:
+		return
+	if gobo_plane.material_override is ShaderMaterial:
+		var gobo_material: ShaderMaterial = gobo_plane.material_override as ShaderMaterial
+		gobo_material.set_shader_parameter("gobo_texture", gobo_texture)
+	_update_gobo_plane_scale(light, gobo_plane)
+
+func _clear_gobo_visuals(light: SpotLight3D) -> void:
+	if light == null or not is_instance_valid(light):
+		return
+	light.set("projector", null)
+	_remove_gobo_plane(light)
+
+func _ensure_gobo_plane(light: SpotLight3D) -> MeshInstance3D:
+	if light.has_meta(GOBO_PLANE_META_KEY):
+		var existing_plane: MeshInstance3D = light.get_meta(GOBO_PLANE_META_KEY) as MeshInstance3D
+		if existing_plane != null and is_instance_valid(existing_plane):
+			return existing_plane
+
+	var gobo_plane := MeshInstance3D.new()
+	gobo_plane.name = "PeravizGoboPlane"
+	gobo_plane.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var quad := QuadMesh.new()
+	quad.size = GOBO_PLANE_MESH_SIZE
+	gobo_plane.mesh = quad
+	var gobo_material := ShaderMaterial.new()
+	gobo_material.shader = load(GOBO_SHADER_PATH)
+	gobo_plane.material_override = gobo_material
+	gobo_plane.position = Vector3(0.0, 0.0, GOBO_PLANE_LOCAL_Z)
+	light.add_child(gobo_plane)
+	light.set_meta(GOBO_PLANE_META_KEY, gobo_plane)
+	return gobo_plane
+
+func _remove_gobo_plane(light: SpotLight3D) -> void:
+	if not light.has_meta(GOBO_PLANE_META_KEY):
+		return
+	var gobo_plane: MeshInstance3D = light.get_meta(GOBO_PLANE_META_KEY) as MeshInstance3D
+	if gobo_plane != null and is_instance_valid(gobo_plane):
+		gobo_plane.queue_free()
+	light.remove_meta(GOBO_PLANE_META_KEY)
+
+func _update_gobo_plane_scale(light: SpotLight3D, gobo_plane: MeshInstance3D) -> void:
+	if light == null or gobo_plane == null:
+		return
+	var full_spot_angle_deg: float = clamp(light.spot_angle * 2.0, GOBO_MIN_ANGLE_DEG, GOBO_MAX_ANGLE_DEG)
+	var ratio: float = (full_spot_angle_deg - GOBO_MIN_ANGLE_DEG) / max(GOBO_MAX_ANGLE_DEG - GOBO_MIN_ANGLE_DEG, 0.001)
+	var plane_scale: float = lerp(GOBO_MIN_SCALE, GOBO_MAX_SCALE, ratio)
+	gobo_plane.scale = Vector3.ONE * plane_scale
 
 func _resolve_gobo_raw_8bit(controls: Dictionary) -> int:
 	var gobo_raw: int = int(round(clamp(float(controls.get("gobo_norm", 0.0)), 0.0, 1.0) * 255.0))
