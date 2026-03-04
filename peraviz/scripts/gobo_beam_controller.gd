@@ -12,7 +12,7 @@ const DEFAULT_DISTANCE_TO_OCCLUDER_M: float = 0.043
 const DEFAULT_BASE_QUAD_SIZE_M: float = 0.017
 const DEFAULT_OVERSCAN_RATIO: float = 1.12
 const DEFAULT_GOBO_CUTOFF: float = 0.5
-const DEFAULT_ALPHA_SCISSOR_THRESHOLD: float = 0.5
+const DEFAULT_ALPHA_SCISSOR_THRESHOLD: float = 0.35
 
 var _texture_cache: Dictionary = {}
 var _gobo_occluder_material_template: ShaderMaterial
