@@ -3,7 +3,7 @@ class_name FixtureGoboProjector
 
 const FAKE_GOBO_TEXTURE_SIZE: int = 1024
 const GOBO_TEXTURE_META_KEY: String = "peraviz_gobo_texture"
-const LIGHT_PROJECTOR_PROPERTY_CANDIDATES: PackedStringArray = PackedStringArray(["light_projector", "projector"])
+const LIGHT_PROJECTOR_PROPERTY_CANDIDATES: Array[String] = ["light_projector", "projector"]
 
 var _texture_cache: Dictionary = {}
 
