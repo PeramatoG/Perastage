@@ -61,8 +61,8 @@ var _visual_settings := {
 	"beam_anisotropy": 0.62,
 	"beam_noise_amount": 0.06,
 	"beam_noise_scale": 1.4,
-	"volumetric_fog_density": 0.0,
-	"light_volumetric_fog_energy": 0.0,
+	"volumetric_fog_density": 0.012,
+	"light_volumetric_fog_energy": 2.0,
 	"volumetric_fog_volume_size": 256,
 	"volumetric_fog_depth": 64.0,
 	"volumetric_fog_use_filter": true,
@@ -143,7 +143,7 @@ const BEAM_RENDER_MODE_LEGACY: int = 1
 const BEAM_INTENSITY_VISIBILITY_THRESHOLD: float = 0.015
 const BEAM_DISTANCE_CULL_M: float = 180.0
 const BEAM_INTENSITY_MAX: float = 8.0
-const USE_GLOBAL_VOLUMETRIC_FOG: bool = false
+const USE_GLOBAL_VOLUMETRIC_FOG: bool = true
 
 const ENV_QUALITY_PRESET_SETTING: String = "peraviz_environment_quality"
 const ENV_QUALITY_PRESET_DEFAULT: String = "medium"
@@ -392,6 +392,9 @@ func _update_beam_for_light(light: SpotLight3D, beam_params: Dictionary) -> void
 	if _active_beam_renderer == null:
 		return
 	light.set_meta("peraviz_beam_last_params", beam_params.duplicate(true))
+	if USE_GLOBAL_VOLUMETRIC_FOG and _active_beam_mode == BEAM_RENDER_MODE_VOLUMETRIC:
+		_active_beam_renderer.cleanup_beam(light)
+		return
 	_active_beam_renderer.ensure_beam(light)
 	_active_beam_renderer.update_beam(light, beam_params)
 
@@ -1653,16 +1656,9 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 		"distance_cull_m": BEAM_DISTANCE_CULL_M,
 		"spot_angle_half_deg": light.spot_angle,
 		"spot_range": light.spot_range,
-		"has_gobo": false,
-		"gobo_texture": null,
 	}
 	if _fixture_gobo_projector != null:
 		_fixture_gobo_projector.apply_gobo_projection(light, controls)
-	if light.has_meta("peraviz_gobo_texture"):
-		var gobo_texture: Texture2D = light.get_meta("peraviz_gobo_texture") as Texture2D
-		if gobo_texture != null:
-			beam_params["has_gobo"] = true
-			beam_params["gobo_texture"] = gobo_texture
 	light.light_volumetric_fog_energy = _resolve_light_volumetric_fog_energy()
 	_update_beam_for_light(light, beam_params)
 
