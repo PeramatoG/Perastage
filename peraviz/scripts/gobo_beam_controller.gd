@@ -47,7 +47,7 @@ func resolve_composed_gobo_texture(controls: Dictionary) -> Texture2D:
 			"gobo_slots": wheel.get("slots", []),
 		}
 		var gobo_texture: Texture2D = _resolve_gobo_texture_for_slot(wheel_controls, slot_index)
-		if gobo_texture == null:
+		if gobo_texture == null and bool(controls.get("allow_fake_gobo_fallback", false)):
 			gobo_texture = _resolve_fake_gobo_texture(int(wheel.get("raw_8bit", 0)))
 		if gobo_texture != null:
 			active_textures.append(gobo_texture)
@@ -81,7 +81,9 @@ func apply_gobo(light: SpotLight3D, gobo_texture: Texture2D, beam_angle_deg: flo
 	var invert_gobo: bool = bool(settings.get("invert_gobo", false))
 	var alpha_scissor_threshold: float = clamp(float(settings.get("alpha_scissor_threshold", DEFAULT_ALPHA_SCISSOR_THRESHOLD)), 0.01, 0.99)
 	var lens_reference_radius: float = max(float(settings.get("lens_reference_radius_m", 0.03)), 0.0001)
-	var lens_scale: float = max(lens_radius_m / lens_reference_radius, 0.01)
+	var lens_radius_ratio: float = max(lens_radius_m / lens_reference_radius, 0.01)
+	var lens_radius_influence: float = clamp(float(settings.get("lens_radius_influence", 0.0)), 0.0, 1.0)
+	var lens_scale: float = lerp(1.0, lens_radius_ratio, lens_radius_influence)
 
 	var gobo_size_m: float = _compute_cone_diameter_at_distance(beam_angle_deg, distance_to_occluder)
 	gobo_size_m *= overscan_ratio * gobo_scale_ratio * lens_scale
@@ -98,7 +100,7 @@ func apply_gobo(light: SpotLight3D, gobo_texture: Texture2D, beam_angle_deg: flo
 	gobo_occluder.position = Vector3(0.0, 0.0, -distance_to_occluder)
 	var debug_show_occluder: bool = bool(settings.get("debug_show_occluder", false))
 	gobo_occluder.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON if debug_show_occluder else GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY
-	gobo_occluder.visible = true
+	gobo_occluder.visible = debug_show_occluder
 	gobo_material.set_shader_parameter("gobo_texture", gobo_texture)
 	gobo_material.set_shader_parameter("invert_mask", invert_gobo)
 	gobo_material.set_shader_parameter("rotation_rad", deg_to_rad(gobo_rotation_deg))
@@ -110,6 +112,7 @@ func apply_gobo(light: SpotLight3D, gobo_texture: Texture2D, beam_angle_deg: flo
 	cone.set_instance_shader_parameter("gobo_size", Vector2(gobo_size_m, gobo_size_m))
 	cone.set_instance_shader_parameter("gobo_rotation", deg_to_rad(gobo_rotation_deg))
 	cone.set_instance_shader_parameter("gobo_cutoff", float(settings.get("gobo_cutoff", DEFAULT_GOBO_CUTOFF)))
+	cone.set_instance_shader_parameter("gobo_invert", invert_gobo)
 	cone.set_instance_shader_parameter("disable_fog", bool(settings.get("disable_fog", false)))
 	var cone_material: ShaderMaterial = cone.material_override as ShaderMaterial
 	if cone_material != null:
@@ -140,6 +143,7 @@ func _disable_gobo_for_light(light: SpotLight3D, cone: MeshInstance3D) -> void:
 	if cone_material != null:
 		cone_material.set_shader_parameter("gobo_texture", null)
 	cone.set_instance_shader_parameter("gobo_enabled", false)
+	cone.set_instance_shader_parameter("gobo_invert", false)
 
 func _ensure_gobo_occluder(light: SpotLight3D, base_quad_size: float) -> MeshInstance3D:
 	if light.has_meta(GOBO_OCCLUDER_META_KEY):

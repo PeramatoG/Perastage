@@ -25,6 +25,7 @@ uniform float depth_fade_distance : hint_range(0.01, 5.0) = 0.5;
 // Whether to modulate the volumetric beam by the gobo pattern.
 instance uniform bool gobo_enabled = false;
 instance uniform float gobo_cutoff = 0.5;
+instance uniform bool gobo_invert = false;
 instance uniform float gobo_start_ratio = 0.0025;
 instance uniform float gobo_rotation = 0.0;
 // This must match the world-space size used by the gobo occluder mesh for alignment.
@@ -110,16 +111,12 @@ void fragment() {
 			if (gobo_uv.x < 0.0 || gobo_uv.x > 1.0 || gobo_uv.y < 0.0 || gobo_uv.y > 1.0) {
 				gobo_open = 0.0;
 			} else {
-				const int LINE_SAMPLE_COUNT = 2;
-				float gobo_acc = 0.0;
-				for (int i = 0; i < LINE_SAMPLE_COUNT; i++) {
-					float sample_t = (float(i) + 0.5) / float(LINE_SAMPLE_COUNT);
-					vec2 sample_uv = mix(vec2(0.5), gobo_uv, sample_t);
-					vec4 texel = texture(gobo_texture, sample_uv);
-					float luminance = dot(texel.rgb, vec3(0.299, 0.587, 0.114)) * texel.a;
-					gobo_acc += smoothstep(gobo_cutoff - 0.04, gobo_cutoff + 0.04, luminance);
+				vec4 texel = texture(gobo_texture, gobo_uv);
+				float transmittance = clamp(texel.r * texel.a, 0.0, 1.0);
+				if (gobo_invert) {
+					transmittance = 1.0 - transmittance;
 				}
-				gobo_open = gobo_acc / float(LINE_SAMPLE_COUNT);
+				gobo_open = smoothstep(gobo_cutoff - 0.02, gobo_cutoff + 0.02, transmittance);
 			}
 		} else {
 			gobo_open = 1.0;
