@@ -78,15 +78,24 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 
 	var material: ShaderMaterial = cone.material_override as ShaderMaterial
 	if material != null:
-		var gobo_texture: Texture2D = params.get("gobo_texture", null) as Texture2D
-		var has_gobo: bool = bool(params.get("has_gobo", false)) and gobo_texture != null
-		material.set_shader_parameter("gobo_texture", gobo_texture)
-		cone.set_instance_shader_parameter("has_gobo", has_gobo)
-		cone.set_instance_shader_parameter("gobo_top_radius", top_radius)
-		cone.set_instance_shader_parameter("gobo_bottom_radius", bottom_radius)
-		cone.set_instance_shader_parameter("gobo_contrast", 1.3)
-		cone.set_instance_shader_parameter("gobo_floor", 0.0)
-		cone.set_instance_shader_parameter("gobo_mix", 1.0)
+		var gobo_texture: Texture2D = light.get_meta("peraviz_gobo_texture", null) as Texture2D
+		var gobo_size_world: float = float(light.get_meta("peraviz_gobo_plane_size_world", 0.0))
+		var gobo_plane_dist_m: float = float(light.get_meta("peraviz_gobo_plane_distance_m", 0.0))
+		var gobo_cutoff: float = float(light.get_meta("peraviz_gobo_cutoff", 0.5))
+		var gobo_softness: float = float(light.get_meta("peraviz_gobo_softness", 0.04))
+		var gobo_rotation: float = float(light.get_meta("peraviz_gobo_rotation_radians", 0.0))
+		var gobo_enabled: bool = (gobo_texture != null) and (gobo_size_world > 0.001) and (gobo_plane_dist_m > 0.001)
+
+		cone.set_instance_shader_parameter("gobo_enabled", gobo_enabled)
+		cone.set_instance_shader_parameter("gobo_cutoff", gobo_cutoff)
+		cone.set_instance_shader_parameter("gobo_softness", gobo_softness)
+		cone.set_instance_shader_parameter("gobo_rotation", gobo_rotation)
+		cone.set_instance_shader_parameter("gobo_size", Vector2(gobo_size_world, gobo_size_world))
+		cone.set_instance_shader_parameter("gobo_start_ratio", gobo_plane_dist_m / max(beam_range, 0.001))
+		cone.set_instance_shader_parameter("beam_height", beam_range)
+		cone.set_instance_shader_parameter("beam_top_radius", top_radius)
+		cone.set_instance_shader_parameter("beam_bottom_radius", bottom_radius)
+		material.set_shader_parameter("gobo_texture", gobo_texture if gobo_enabled else null)
 
 	var intensity_alpha: float = clamp(intensity * VOLUMETRIC_INTENSITY_SCALE, 0.0, 1.0)
 	cone.set_instance_shader_parameter("base_color", Color(beam_color.r, beam_color.g, beam_color.b, intensity_alpha))

@@ -66,6 +66,12 @@ var _visual_settings := {
 	"volumetric_fog_volume_size": 256,
 	"volumetric_fog_depth": 64.0,
 	"volumetric_fog_use_filter": true,
+	"gobo_projection_mode": "shadow_cookie",
+	"gobo_scale_ratio": 1.0,
+	"gobo_occluder_distance_m": 0.043,
+	"gobo_cutoff": 0.5,
+	"gobo_softness": 0.04,
+	"gobo_debug_show_occluder": false,
 	"background_color": Color(0.129412, 0.137255, 0.156863, 1.0),
 }
 
@@ -1663,7 +1669,7 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 		"gobo_texture": null,
 	}
 	if _fixture_gobo_projector != null:
-		_fixture_gobo_projector.apply_gobo_projection(light, controls)
+		_fixture_gobo_projector.apply_gobo_projection(light, controls, _visual_settings)
 	if light.has_meta("peraviz_gobo_texture"):
 		var gobo_texture: Texture2D = light.get_meta("peraviz_gobo_texture") as Texture2D
 		if gobo_texture != null:
