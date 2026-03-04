@@ -8,6 +8,7 @@ const GOBO_MODE_META_KEY: String = "peraviz_gobo_projection_mode"
 enum ProjectionMode {
 	SHADOW_COOKIE,
 	PROJECTOR_COOKIE,
+	BEAM_ONLY,
 }
 
 var _texture_cache: Dictionary = {}
@@ -68,15 +69,24 @@ func apply_gobo_projection(light: SpotLight3D, controls: Dictionary) -> bool:
 	if projection_mode == ProjectionMode.PROJECTOR_COOKIE:
 		_warn_if_projector_unsupported(light)
 		light.light_projector = composed_gobo
+		light.shadow_enabled = true
+	elif projection_mode == ProjectionMode.BEAM_ONLY:
+		# Geometry fallback mode: feed the beam shader with gobo texture, but keep light projection disabled
+		# to avoid mixing methods (no floor cookie and no shadow-cookie fog path).
+		light.light_projector = null
+		light.shadow_enabled = false
 	else:
 		# Keep projector disabled in the sample-like path to avoid double gobo projection.
 		light.light_projector = null
+		light.shadow_enabled = true
 	return composed_gobo != previous_meta_texture
 
 func _resolve_projection_mode(controls: Dictionary) -> int:
 	var mode_name: String = str(controls.get("gobo_projection_mode", "shadow_cookie")).to_lower()
 	if mode_name == "projector_cookie":
 		return ProjectionMode.PROJECTOR_COOKIE
+	if mode_name == "beam_only":
+		return ProjectionMode.BEAM_ONLY
 	return ProjectionMode.SHADOW_COOKIE
 
 func _resolve_gobo_raw_8bit(controls: Dictionary) -> int:

@@ -38,6 +38,17 @@ This mode is the default because it aligns the in-air volumetric look with the f
 Peraviz keeps `SpotLight3D.light_projector` support as an explicit alternative mode (`projector_cookie`).
 Use it only when intentionally testing projector behavior.
 
+### Geometry fallback mode (beam only, no mixing)
+
+When `Gobo beam visibility` is set to `Geometry shader fallback`, Peraviz now uses a strict
+beam-only mode for gobo visibility in air:
+
+- no shadow-cookie projection path,
+- no `light_projector` footprint projection,
+- gobo texture is applied only inside the volumetric beam shader.
+
+This keeps methods separated and avoids mixed artifacts when comparing approaches.
+
 ### Additional notes
 
 - `SpotLight3D.shadow_enabled` must be `true` for shadow-cookie gobos.

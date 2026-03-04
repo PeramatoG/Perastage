@@ -1701,7 +1701,11 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 	var gobo_changed: bool = false
 	if _fixture_gobo_projector != null:
 		var gobo_controls: Dictionary = controls.duplicate(true)
-		gobo_controls["gobo_projection_mode"] = str(_visual_settings.get("gobo_projection_mode", "shadow_cookie"))
+		var effective_gobo_projection_mode: String = str(_visual_settings.get("gobo_projection_mode", "shadow_cookie"))
+		if gobo_beam_visibility_mode == "geometry_shader":
+			# Strict geometry fallback: do not combine with light projector or shadow-cookie footprint.
+			effective_gobo_projection_mode = "beam_only"
+		gobo_controls["gobo_projection_mode"] = effective_gobo_projection_mode
 		gobo_changed = _fixture_gobo_projector.apply_gobo_projection(light, gobo_controls)
 	light.light_volumetric_fog_energy = float(_visual_settings.get("light_volumetric_fog_energy", 1.6))
 	_update_beam_for_light(light, beam_params)

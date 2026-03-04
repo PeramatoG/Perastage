@@ -17,9 +17,6 @@ enum BeamVisibilityMode {
 func resolve_visibility_mode(settings: Dictionary,
 		prefer_native_shadow_cookie: bool,
 		gobo_projection_mode: int) -> int:
-	if gobo_projection_mode == PROJECTOR_COOKIE_PROJECTION_MODE:
-		return BeamVisibilityMode.GEOMETRY_SHADER
-
 	var mode_name: String = str(settings.get("gobo_beam_visibility_mode", "fog_shadow")).to_lower()
 	if mode_name == "geometry_shader":
 		return BeamVisibilityMode.GEOMETRY_SHADER
@@ -34,4 +31,3 @@ func compute_occluder_plane_size_world(beam_angle: float, gobo_scale_ratio: floa
 	var cone_radius_at_occluder: float = tan(half_angle_rad) * GOBO_OCCLUDER_DISTANCE_M
 	var footprint_plane_size: float = max(cone_radius_at_occluder * 2.0, 0.001) * GOBO_FOOTPRINT_CONE_FILL_RATIO
 	return max(footprint_plane_size * max(gobo_scale_ratio, 0.001) * GOBO_COOKIE_OVERSCAN_RATIO, 0.001)
-
