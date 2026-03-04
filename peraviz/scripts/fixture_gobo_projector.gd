@@ -58,9 +58,15 @@ func apply_gobo_projection(light: SpotLight3D, controls: Dictionary) -> bool:
 func _assign_light_projector(light: SpotLight3D, texture: Texture2D) -> void:
 	if light == null or not is_instance_valid(light):
 		return
-	for property_data in light.get_property_list():
-		if str(property_data.get("name", "")) == "light_projector":
-			light.set("light_projector", texture)
+	# Try known property names across Godot builds/forks.
+	for property_name in ["light_projector", "projector"]:
+		var has_property: bool = false
+		for property_data in light.get_property_list():
+			if str(property_data.get("name", "")) == property_name:
+				has_property = true
+				break
+		if has_property:
+			light.set(property_name, texture)
 			return
 
 func _resolve_gobo_raw_8bit(controls: Dictionary) -> int:
