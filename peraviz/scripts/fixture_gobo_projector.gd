@@ -34,12 +34,12 @@ func apply_gobo_projection(light: SpotLight3D, controls: Dictionary) -> bool:
 		if wheel is not Dictionary:
 			continue
 		var slot_index: int = int(wheel.get("slot_index", 0))
-		if slot_index <= 0:
-			continue
-		var wheel_controls := {
-			"gobo_slots": wheel.get("slots", []),
-		}
-		var gobo_texture: Texture2D = _resolve_gobo_texture_for_slot(wheel_controls, slot_index)
+		var gobo_texture: Texture2D = null
+		if slot_index > 0:
+			var wheel_controls := {
+				"gobo_slots": wheel.get("slots", []),
+			}
+			gobo_texture = _resolve_gobo_texture_for_slot(wheel_controls, slot_index)
 		if gobo_texture == null:
 			gobo_texture = _resolve_fake_gobo_texture(int(wheel.get("raw_8bit", 0)))
 		if gobo_texture != null:

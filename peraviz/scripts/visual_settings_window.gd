@@ -9,7 +9,7 @@ const DEFAULT_SETTINGS := {
 	"spot_multiplier": 1.0,
 	"beam_multiplier": 1.0,
 	"bloom_multiplier": 1.0,
-	"beam_render_mode": 0,
+	"beam_render_mode": 1,
 	"beam_quality": 1,
 	"beam_haze_density": 0.17,
 	"beam_anisotropy": 0.62,
