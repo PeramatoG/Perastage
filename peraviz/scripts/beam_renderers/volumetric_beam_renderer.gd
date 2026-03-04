@@ -90,6 +90,8 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	if has_gobo:
 		var gobo_texture: Texture2D = light.get_meta(GOBO_TEXTURE_META_KEY) as Texture2D
 		cone.set_instance_shader_parameter("gobo_texture", gobo_texture)
+		cone.set_instance_shader_parameter("gobo_threshold", float(_settings.get("gobo_beam_threshold", 0.5)))
+		cone.set_instance_shader_parameter("gobo_softness", float(_settings.get("gobo_beam_softness", 0.0)))
 	else:
 		cone.set_instance_shader_parameter("gobo_texture", null)
 
