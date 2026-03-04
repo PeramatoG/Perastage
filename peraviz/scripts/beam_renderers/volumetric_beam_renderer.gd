@@ -5,6 +5,7 @@ class_name VolumetricBeamRenderer
 const BEAM_META_KEY: String = "peraviz_volumetric_beam"
 const EMITTER_CONE_MAX_BASE_RADIUS_M: float = 10.0
 const VOLUMETRIC_INTENSITY_SCALE: float = 0.75
+const GOBO_TEXTURE_META_KEY: String = "peraviz_gobo_texture"
 
 var _beam_material_template: ShaderMaterial
 var _camera: Camera3D
@@ -54,6 +55,12 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 		cone.visible = false
 		return
 
+	var native_fog_projector_enabled: bool = bool(_settings.get("use_native_fog_projector_gobos", true))
+	if native_fog_projector_enabled and light.has_meta(GOBO_TEXTURE_META_KEY):
+		cone.visible = false
+		return
+
+
 	var beam_color: Color = params.get("beam_color", Color.WHITE)
 	var lens_radius: float = max(float(params.get("lens_radius", 0.03)), 0.005)
 	var distance_limit: float = float(params.get("distance_cull_m", 180.0))
@@ -68,8 +75,9 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	var radius: float = tan_half_angle * beam_range
 	var bottom_radius: float = clamp(radius, 0.03, EMITTER_CONE_MAX_BASE_RADIUS_M)
 	var cone_mesh: CylinderMesh = cone.mesh as CylinderMesh
+	var top_radius: float = max(lens_radius, 0.003)
 	if cone_mesh != null:
-		cone_mesh.top_radius = max(lens_radius, 0.003)
+		cone_mesh.top_radius = top_radius
 		cone_mesh.bottom_radius = bottom_radius
 		cone_mesh.height = beam_range
 	cone.position = Vector3(0.0, 0.0, -beam_range * 0.5)

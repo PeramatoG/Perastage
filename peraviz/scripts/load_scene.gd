@@ -61,11 +61,12 @@ var _visual_settings := {
 	"beam_anisotropy": 0.62,
 	"beam_noise_amount": 0.06,
 	"beam_noise_scale": 1.4,
-	"volumetric_fog_density": 0.012,
-	"light_volumetric_fog_energy": 2.0,
+	"volumetric_fog_density": 0.0,
+	"light_volumetric_fog_energy": 8.0,
 	"volumetric_fog_volume_size": 256,
 	"volumetric_fog_depth": 64.0,
 	"volumetric_fog_use_filter": true,
+	"use_native_fog_projector_gobos": true,
 	"background_color": Color(0.129412, 0.137255, 0.156863, 1.0),
 }
 
@@ -1413,7 +1414,9 @@ func _find_or_create_emitter_light(emitter_node: Node3D) -> SpotLight3D:
 				child.rotation_degrees = EMITTER_LIGHT_DIRECTION_FIX
 			# Keep spotlight footprint behavior stable while pan/tilt moves the fixture.
 			# Self/caster shadows from fixture geometry can clip the floor footprint.
-			child.shadow_enabled = false
+			child.shadow_enabled = true
+			child.shadow_bias = 0.05
+			child.shadow_normal_bias = 1.2
 			child.set_meta("peraviz_lens_radius", lens_radius)
 			return child
 
@@ -1422,7 +1425,9 @@ func _find_or_create_emitter_light(emitter_node: Node3D) -> SpotLight3D:
 	light.position = Vector3.ZERO
 	light.rotation_degrees = EMITTER_LIGHT_DIRECTION_FIX
 	light.light_negative = false
-	light.shadow_enabled = false
+	light.shadow_enabled = true
+	light.shadow_bias = 0.05
+	light.shadow_normal_bias = 1.2
 	light.spot_range = 60.0
 	light.spot_angle = 25.0
 	light.spot_attenuation = 1.0
@@ -1647,9 +1652,12 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 		"distance_cull_m": BEAM_DISTANCE_CULL_M,
 		"spot_angle_half_deg": light.spot_angle,
 		"spot_range": light.spot_range,
+		"use_native_fog_projector_gobos": bool(_visual_settings.get("use_native_fog_projector_gobos", true)),
 	}
 	if _fixture_gobo_projector != null:
-		_fixture_gobo_projector.apply_gobo_projection(light, controls)
+		var gobo_controls: Dictionary = controls.duplicate(true)
+		gobo_controls["prefer_native_fog_projector"] = bool(_visual_settings.get("use_native_fog_projector_gobos", true))
+		_fixture_gobo_projector.apply_gobo_projection(light, gobo_controls)
 	light.light_volumetric_fog_energy = float(_visual_settings.get("light_volumetric_fog_energy", 1.0))
 	_update_beam_for_light(light, beam_params)
 

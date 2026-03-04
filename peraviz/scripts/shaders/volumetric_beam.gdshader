@@ -64,6 +64,8 @@ void fragment() {
 		}
 	}
 
+
+
 	float final_alpha = feather_alpha * depth_mult * dist_fade;
 	if (final_alpha < 0.001) {
 		discard;
