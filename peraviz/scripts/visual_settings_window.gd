@@ -21,6 +21,12 @@ const DEFAULT_SETTINGS := {
 	"volumetric_fog_depth": 64.0,
 	"volumetric_fog_use_filter": true,
 	"background_color": Color(0.129412, 0.137255, 0.156863, 1.0),
+	"gobo_projection_mode": "shadow_cookie",
+	"gobo_scale_ratio": 1.0,
+	"gobo_occluder_distance_m": 0.043,
+	"gobo_cutoff": 0.5,
+	"gobo_softness": 0.04,
+	"gobo_debug_show_occluder": false,
 }
 
 var _settings: Dictionary = DEFAULT_SETTINGS.duplicate(true)
@@ -40,13 +46,23 @@ var _fog_volume_size_slider: HSlider
 var _fog_volume_size_value_label: Label
 var _fog_depth_slider: HSlider
 var _fog_depth_value_label: Label
+var _gobo_scale_slider: HSlider
+var _gobo_scale_value_label: Label
+var _gobo_distance_slider: HSlider
+var _gobo_distance_value_label: Label
+var _gobo_cutoff_slider: HSlider
+var _gobo_cutoff_value_label: Label
+var _gobo_softness_slider: HSlider
+var _gobo_softness_value_label: Label
 var _background_picker: ColorPickerButton
 var _beam_render_mode_option: OptionButton
 var _beam_quality_option: OptionButton
+var _gobo_projection_mode_option: OptionButton
+var _gobo_debug_checkbox: CheckBox
 
 func _init() -> void:
 	title = "Visual Settings"
-	size = Vector2i(540, 560)
+	size = Vector2i(560, 680)
 	unresizable = false
 
 func _ready() -> void:
@@ -80,17 +96,25 @@ func _build_ui() -> void:
 	container.add_theme_constant_override("separation", 10)
 	root.add_child(container)
 
-	_ambient_slider = _add_slider_row(container, "Ambient light", "ambient_multiplier", 0.0, 3.0, 0.01)
-	_spot_slider = _add_slider_row(container, "Spot intensity", "spot_multiplier", 0.0, 3.0, 0.01)
-	_beam_slider = _add_slider_row(container, "Beam intensity", "beam_multiplier", 0.0, 8.0, 0.01)
-	_bloom_slider = _add_slider_row(container, "Bloom", "bloom_multiplier", 0.0, 3.0, 0.01)
-	_fog_density_slider = _add_slider_row(container, "Volumetric fog density", "volumetric_fog_density", 0.0, 0.08, 0.001)
+	_ambient_slider = _add_slider_row(container, "Ambient multiplier", "ambient_multiplier", 0.0, 5.0, 0.01)
+	_spot_slider = _add_slider_row(container, "Spot multiplier", "spot_multiplier", 0.0, 5.0, 0.01)
+	_beam_slider = _add_slider_row(container, "Beam multiplier", "beam_multiplier", 0.0, 5.0, 0.01)
+	_bloom_slider = _add_slider_row(container, "Bloom multiplier", "bloom_multiplier", 0.0, 3.0, 0.01)
+	_fog_density_slider = _add_slider_row(container, "Fog density", "volumetric_fog_density", 0.0, 0.1, 0.001)
+	_light_fog_energy_slider = _add_slider_row(container, "Light fog energy", "light_volumetric_fog_energy", 0.0, 5.0, 0.01)
 	_fog_volume_size_slider = _add_slider_row(container, "Fog volume size", "volumetric_fog_volume_size", 64.0, 512.0, 32.0)
-	_fog_depth_slider = _add_slider_row(container, "Fog volume depth", "volumetric_fog_depth", 16.0, 256.0, 4.0)
-	_light_fog_energy_slider = _add_slider_row(container, "Light fog energy", "light_volumetric_fog_energy", 0.0, 8.0, 0.05)
-	_beam_render_mode_option = _add_option_row(container, "Beam rendering", ["Volumetric (default)", "Lightweight (legacy)"], _on_beam_render_mode_selected)
+	_fog_depth_slider = _add_slider_row(container, "Fog depth", "volumetric_fog_depth", 16.0, 128.0, 1.0)
+	_gobo_scale_slider = _add_slider_row(container, "Gobo scale ratio", "gobo_scale_ratio", 0.1, 4.0, 0.01)
+	_gobo_distance_slider = _add_slider_row(container, "Gobo plane distance", "gobo_occluder_distance_m", 0.002, 0.25, 0.001)
+	_gobo_cutoff_slider = _add_slider_row(container, "Gobo cutoff", "gobo_cutoff", 0.0, 1.0, 0.01)
+	_gobo_softness_slider = _add_slider_row(container, "Gobo softness", "gobo_softness", 0.0, 0.2, 0.001)
+
+	_beam_render_mode_option = _add_option_row(container, "Beam renderer", ["Volumetric", "Legacy"], _on_beam_render_mode_selected)
 	_beam_quality_option = _add_option_row(container, "Beam quality", ["Low", "Medium", "High"], _on_beam_quality_selected)
-	_add_toggle_row(container, "Volumetric fog Use Filter (ON = less aliasing, less detail)", "volumetric_fog_use_filter")
+	_gobo_projection_mode_option = _add_option_row(container, "Gobo projection", ["Shadow cookie", "Projector cookie"], _on_gobo_projection_mode_selected)
+
+	_add_toggle_row(container, "Volumetric fog filtering (performance detail)", "volumetric_fog_use_filter")
+	_gobo_debug_checkbox = _add_toggle_row(container, "Debug: show gobo occluder", "gobo_debug_show_occluder")
 
 	var background_row: HBoxContainer = HBoxContainer.new()
 	background_row.add_theme_constant_override("separation", 8)
@@ -115,12 +139,7 @@ func _build_ui() -> void:
 	reset_button.pressed.connect(_on_reset_pressed)
 	actions_row.add_child(reset_button)
 
-func _add_slider_row(parent: VBoxContainer,
-		label_text: String,
-		key: String,
-		min_value: float,
-		max_value: float,
-		step: float) -> HSlider:
+func _add_slider_row(parent: VBoxContainer, label_text: String, key: String, min_value: float, max_value: float, step: float) -> HSlider:
 	var row: HBoxContainer = HBoxContainer.new()
 	row.add_theme_constant_override("separation", 8)
 	parent.add_child(row)
@@ -162,6 +181,14 @@ func _add_slider_row(parent: VBoxContainer,
 			_fog_depth_value_label = value_label
 		"light_volumetric_fog_energy":
 			_light_fog_energy_value_label = value_label
+		"gobo_scale_ratio":
+			_gobo_scale_value_label = value_label
+		"gobo_occluder_distance_m":
+			_gobo_distance_value_label = value_label
+		"gobo_cutoff":
+			_gobo_cutoff_value_label = value_label
+		"gobo_softness":
+			_gobo_softness_value_label = value_label
 
 	return slider
 
@@ -184,7 +211,7 @@ func _add_option_row(parent: VBoxContainer, label_text: String, options: Array[S
 
 	return option_button
 
-func _add_toggle_row(parent: VBoxContainer, label_text: String, key: String) -> void:
+func _add_toggle_row(parent: VBoxContainer, label_text: String, key: String) -> CheckBox:
 	var toggle: CheckBox = CheckBox.new()
 	toggle.text = label_text
 	toggle.button_pressed = bool(_settings.get(key, false))
@@ -193,6 +220,7 @@ func _add_toggle_row(parent: VBoxContainer, label_text: String, key: String) -> 
 		_emit_settings_changed()
 	)
 	parent.add_child(toggle)
+	return toggle
 
 func _apply_settings_to_controls() -> void:
 	_ambient_slider.value = float(_settings.get("ambient_multiplier", 1.0))
@@ -203,8 +231,15 @@ func _apply_settings_to_controls() -> void:
 	_fog_volume_size_slider.value = float(_settings.get("volumetric_fog_volume_size", 256))
 	_fog_depth_slider.value = float(_settings.get("volumetric_fog_depth", 64.0))
 	_light_fog_energy_slider.value = float(_settings.get("light_volumetric_fog_energy", 1.0))
+	_gobo_scale_slider.value = float(_settings.get("gobo_scale_ratio", 1.0))
+	_gobo_distance_slider.value = float(_settings.get("gobo_occluder_distance_m", 0.043))
+	_gobo_cutoff_slider.value = float(_settings.get("gobo_cutoff", 0.5))
+	_gobo_softness_slider.value = float(_settings.get("gobo_softness", 0.04))
 	_beam_render_mode_option.select(clamp(int(_settings.get("beam_render_mode", 0)), 0, 1))
 	_beam_quality_option.select(clamp(int(_settings.get("beam_quality", 1)), 0, 2))
+	var projection_mode: String = str(_settings.get("gobo_projection_mode", "shadow_cookie"))
+	_gobo_projection_mode_option.select(0 if projection_mode == "shadow_cookie" else 1)
+	_gobo_debug_checkbox.button_pressed = bool(_settings.get("gobo_debug_show_occluder", false))
 	_background_picker.color = _settings.get("background_color", DEFAULT_SETTINGS["background_color"])
 	_update_value_labels()
 
@@ -232,6 +267,10 @@ func _on_beam_quality_selected(index: int) -> void:
 	_settings["beam_quality"] = clamp(index, 0, 2)
 	_emit_settings_changed()
 
+func _on_gobo_projection_mode_selected(index: int) -> void:
+	_settings["gobo_projection_mode"] = "shadow_cookie" if index == 0 else "projector_cookie"
+	_emit_settings_changed()
+
 func _update_value_labels() -> void:
 	_ambient_value_label.text = "%.2f" % float(_settings.get("ambient_multiplier", 1.0))
 	_spot_value_label.text = "%.2f" % float(_settings.get("spot_multiplier", 1.0))
@@ -241,6 +280,10 @@ func _update_value_labels() -> void:
 	_fog_volume_size_value_label.text = "%d" % int(round(float(_settings.get("volumetric_fog_volume_size", 256))))
 	_fog_depth_value_label.text = "%.1f" % float(_settings.get("volumetric_fog_depth", 64.0))
 	_light_fog_energy_value_label.text = "%.2f" % float(_settings.get("light_volumetric_fog_energy", 1.0))
+	_gobo_scale_value_label.text = "%.2f" % float(_settings.get("gobo_scale_ratio", 1.0))
+	_gobo_distance_value_label.text = "%.3f" % float(_settings.get("gobo_occluder_distance_m", 0.043))
+	_gobo_cutoff_value_label.text = "%.2f" % float(_settings.get("gobo_cutoff", 0.5))
+	_gobo_softness_value_label.text = "%.3f" % float(_settings.get("gobo_softness", 0.04))
 
 func _emit_settings_changed() -> void:
 	settings_changed.emit(_settings.duplicate(true))

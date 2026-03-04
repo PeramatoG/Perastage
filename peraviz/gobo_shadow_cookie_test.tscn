@@ -1,0 +1,45 @@
+[gd_scene load_steps=5 format=3 uid="uid://bq3e04b7poa0f"]
+
+[ext_resource type="Shader" path="res://scripts/shaders/gobo_occluder.gdshader" id="1_0k8m8"]
+
+[sub_resource type="Environment" id="Environment_f8i8k"]
+background_mode = 2
+background_color = Color(0.02, 0.02, 0.03, 1)
+volumetric_fog_enabled = true
+volumetric_fog_density = 0.02
+
+[sub_resource type="QuadMesh" id="QuadMesh_1jqgf"]
+size = Vector2(0.09, 0.09)
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_bvl8k"]
+size = Vector2(8, 8)
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_u4j0x"]
+shader = ExtResource("1_0k8m8")
+
+[node name="GoboShadowCookieTest" type="Node3D"]
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_f8i8k")
+
+[node name="Camera3D" type="Camera3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.978148, 0.207912, 0, -0.207912, 0.978148, 0, 1.9, 5.2)
+
+[node name="Floor" type="MeshInstance3D" parent="."]
+mesh = SubResource("PlaneMesh_bvl8k")
+
+[node name="SpotLight3D" type="SpotLight3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.987688, -0.156434, 0, 0.156434, 0.987688, 0, 2.2, 0)
+light_energy = 8.0
+light_volumetric_fog_energy = 2.0
+spot_range = 10.0
+spot_angle = 18.0
+shadow_enabled = true
+shadow_caster_mask = 524288
+
+[node name="PeravizGoboOccluder" type="MeshInstance3D" parent="SpotLight3D"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.043)
+layers = 524288
+cast_shadow = 3
+mesh = SubResource("QuadMesh_1jqgf")
+material_override = SubResource("ShaderMaterial_u4j0x")

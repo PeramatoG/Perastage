@@ -67,6 +67,12 @@ var _visual_settings := {
 	"volumetric_fog_depth": 64.0,
 	"volumetric_fog_use_filter": true,
 	"background_color": Color(0.129412, 0.137255, 0.156863, 1.0),
+	"gobo_projection_mode": "shadow_cookie",
+	"gobo_scale_ratio": 1.0,
+	"gobo_occluder_distance_m": 0.043,
+	"gobo_cutoff": 0.5,
+	"gobo_softness": 0.04,
+	"gobo_debug_show_occluder": false,
 }
 
 var _dmx_receiver = null
@@ -1649,7 +1655,7 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 		"spot_range": light.spot_range,
 	}
 	if _fixture_gobo_projector != null:
-		_fixture_gobo_projector.apply_gobo_projection(light, controls)
+		_fixture_gobo_projector.apply_gobo_projection(light, controls, _visual_settings)
 	light.light_volumetric_fog_energy = float(_visual_settings.get("light_volumetric_fog_energy", 1.0))
 	_update_beam_for_light(light, beam_params)
 
