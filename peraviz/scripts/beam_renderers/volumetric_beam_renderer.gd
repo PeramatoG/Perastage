@@ -112,15 +112,11 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 				gobo_occluder.visible = false
 			return
 
-	# In native shadow-cookie mode keep no additive cone when gobo is active.
-	# This avoids froxel-like square borders and preserves physically-driven fog shadows.
-	if visibility_mode == GoboBeamVisibilityPolicy.BeamVisibilityMode.FOG_SHADOW and gobo_active:
-		cone.visible = false
-		_update_gobo_occluder(light, cone, gobo_occluder, beam_angle, beam_range, prefer_native_shadow_cookie, visibility_mode)
-		return
-
-	# In other modes keep a controllable mesh cone.
+	# Keep a very subtle cone in shadow-cookie mode so the in-air gobo silhouette remains readable
+	# without reintroducing strong additive washout.
 	var mesh_intensity: float = intensity
+	if visibility_mode == GoboBeamVisibilityPolicy.BeamVisibilityMode.FOG_SHADOW and gobo_active:
+		mesh_intensity = threshold * 1.05
 	if prefer_native_shadow_cookie and not (visibility_mode == GoboBeamVisibilityPolicy.BeamVisibilityMode.FOG_SHADOW and gobo_active):
 		mesh_intensity = max(intensity * 0.35, threshold * 1.1)
 
@@ -187,7 +183,8 @@ func _update_gobo_occluder(light: SpotLight3D,
 	if visibility_mode < 0:
 		visibility_mode = _gobo_visibility_policy.resolve_visibility_mode(_settings, prefer_native_shadow_cookie, gobo_projection_mode)
 	var use_shadow_occluder: bool = visibility_mode == GoboBeamVisibilityPolicy.BeamVisibilityMode.FOG_SHADOW
-	var update_cone_shader: bool = visibility_mode == GoboBeamVisibilityPolicy.BeamVisibilityMode.GEOMETRY_SHADER
+	var use_shadow_cookie_cone_assist: bool = visibility_mode == GoboBeamVisibilityPolicy.BeamVisibilityMode.FOG_SHADOW and bool(_settings.get("gobo_shadow_cookie_cone_assist", true))
+	var update_cone_shader: bool = visibility_mode == GoboBeamVisibilityPolicy.BeamVisibilityMode.GEOMETRY_SHADER or use_shadow_cookie_cone_assist
 
 	var gobo_active := gobo_texture != null
 	if not gobo_active:
@@ -218,7 +215,7 @@ func _update_gobo_occluder(light: SpotLight3D,
 
 	if update_cone_shader:
 		cone.set_instance_shader_parameter("gobo_enabled", true)
-		cone.set_instance_shader_parameter("gobo_cutoff", 0.72)
+		cone.set_instance_shader_parameter("gobo_cutoff", 0.45)
 		cone.set_instance_shader_parameter("gobo_start_ratio", _gobo_visibility_policy.GOBO_OCCLUDER_DISTANCE_M / max(beam_range, 0.001))
 		cone.set_instance_shader_parameter("gobo_rotation", 0.0)
 		cone.set_instance_shader_parameter("gobo_size", Vector2(gobo_plane_size_world, gobo_plane_size_world))
