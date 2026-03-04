@@ -60,15 +60,19 @@ func apply_gobo_projection(light: SpotLight3D, controls: Dictionary) -> bool:
 		return previous_meta_texture != null
 
 	var composed_gobo: Texture2D = _compose_gobo_textures(active_textures)
-	_apply_gobo_visuals(light, composed_gobo)
+	_apply_gobo_visuals(light, composed_gobo, controls)
 	light.set_meta(GOBO_TEXTURE_META_KEY, composed_gobo)
 	return composed_gobo != previous_meta_texture
 
-func _apply_gobo_visuals(light: SpotLight3D, gobo_texture: Texture2D) -> void:
+func _apply_gobo_visuals(light: SpotLight3D, gobo_texture: Texture2D, controls: Dictionary = {}) -> void:
 	if light == null or not is_instance_valid(light):
 		return
 	light.set("projector", gobo_texture)
 	if gobo_texture == null:
+		_remove_gobo_plane(light)
+		return
+	var prefer_native_fog_projector: bool = bool(controls.get("prefer_native_fog_projector", true))
+	if prefer_native_fog_projector:
 		_remove_gobo_plane(light)
 		return
 	var gobo_plane: MeshInstance3D = _ensure_gobo_plane(light)

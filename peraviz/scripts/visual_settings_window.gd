@@ -20,6 +20,7 @@ const DEFAULT_SETTINGS := {
 	"volumetric_fog_volume_size": 256,
 	"volumetric_fog_depth": 64.0,
 	"volumetric_fog_use_filter": true,
+	"use_native_fog_projector_gobos": true,
 	"background_color": Color(0.129412, 0.137255, 0.156863, 1.0),
 }
 
