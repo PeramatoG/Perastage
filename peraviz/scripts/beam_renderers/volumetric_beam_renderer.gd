@@ -133,7 +133,9 @@ func _update_local_fog_volume(light: SpotLight3D, gobo_active: bool, beam_range:
 	if fog_volume == null or not is_instance_valid(fog_volume):
 		fog_volume = FogVolume.new()
 		fog_volume.name = "PeravizBeamLocalFogVolume"
-		fog_volume.shape = FogVolume.SHAPE_ELLIPSOID
+		# Use numeric shape assignment for broad Godot 4.x compatibility.
+		# Default 2 keeps a cone-like volume aligned with the spotlight beam.
+		fog_volume.set("shape", int(params.get("local_fog_shape", 2)))
 		var fog_material := FogMaterial.new()
 		fog_volume.material = fog_material
 		light.add_child(fog_volume)
