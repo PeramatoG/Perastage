@@ -200,7 +200,10 @@ func _ready() -> void:
 	dimmer_max_input.value_changed.connect(_on_limit_changed)
 	quick_reset_button.pressed.connect(_on_quick_reset_pressed)
 	visual_settings_button.pressed.connect(_on_visual_settings_pressed)
-	visual_settings_window.settings_changed.connect(_on_visual_settings_changed)
+	if visual_settings_window != null and visual_settings_window.has_signal("settings_changed"):
+		visual_settings_window.connect("settings_changed", Callable(self, "_on_visual_settings_changed"))
+	else:
+		push_warning("VisualSettingsWindow is missing signal 'settings_changed'; live visual updates disabled.")
 	picker.access = FileDialog.ACCESS_FILESYSTEM
 	status_label.text = "Select a .mvr file"
 	_debug_coords_enabled = bool(ProjectSettings.get_setting("peraviz_debug_coords", false))
@@ -711,6 +714,7 @@ func _reparent_fixture_visual_children(geometry_node: Node3D, model_root: Node3D
 		var child_local_before: Transform3D = child_node.transform
 		var child_local_after: Transform3D = model_root_local * child_local_before
 		model_root.remove_child(child_node)
+		child_node.owner = null
 		geometry_node.add_child(child_node)
 		child_node.transform = child_local_after
 		moved_any_child = true
