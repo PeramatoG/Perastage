@@ -18,7 +18,7 @@ const DEFAULT_SETTINGS := {
 	"volumetric_fog_density": 0.012,
 	"light_volumetric_fog_energy": 300.0,
 	"use_local_fog_volume": true,
-	"local_fog_density": 0.015,
+	"local_fog_density": 0.08,
 	"gobo_scale_ratio": 1.0,
 	"distance_to_occluder_m": 0.043,
 	"base_quad_size_m": 0.017,
