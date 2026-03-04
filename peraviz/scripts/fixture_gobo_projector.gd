@@ -11,6 +11,7 @@ const GOBO_MIN_ANGLE_DEG: float = 4.0
 const GOBO_MAX_ANGLE_DEG: float = 50.0
 const GOBO_MIN_SCALE: float = 0.555
 const GOBO_MAX_SCALE: float = 6.4
+const GOBO_APERTURE_SCALE: float = 0.95
 
 var _texture_cache: Dictionary = {}
 
@@ -115,10 +116,13 @@ func _remove_gobo_plane(light: SpotLight3D) -> void:
 func _update_gobo_plane_scale(light: SpotLight3D, gobo_plane: MeshInstance3D) -> void:
 	if light == null or gobo_plane == null:
 		return
-	var full_spot_angle_deg: float = clamp(light.spot_angle * 2.0, GOBO_MIN_ANGLE_DEG, GOBO_MAX_ANGLE_DEG)
-	var ratio: float = (full_spot_angle_deg - GOBO_MIN_ANGLE_DEG) / max(GOBO_MAX_ANGLE_DEG - GOBO_MIN_ANGLE_DEG, 0.001)
-	var plane_scale: float = lerp(GOBO_MIN_SCALE, GOBO_MAX_SCALE, ratio)
-	gobo_plane.scale = Vector3.ONE * plane_scale
+	var half_spot_angle_deg: float = clamp(light.spot_angle, GOBO_MIN_ANGLE_DEG * 0.5, GOBO_MAX_ANGLE_DEG * 0.5)
+	var local_distance: float = abs(GOBO_PLANE_LOCAL_Z)
+	var target_plane_size: float = 2.0 * local_distance * tan(deg_to_rad(half_spot_angle_deg)) * GOBO_APERTURE_SCALE
+	var base_size: float = max(GOBO_PLANE_MESH_SIZE.x, 0.0001)
+	var physical_scale: float = target_plane_size / base_size
+	var clamped_scale: float = clamp(physical_scale, GOBO_MIN_SCALE, GOBO_MAX_SCALE)
+	gobo_plane.scale = Vector3.ONE * clamped_scale
 
 func _resolve_gobo_raw_8bit(controls: Dictionary) -> int:
 	var gobo_raw: int = int(round(clamp(float(controls.get("gobo_norm", 0.0)), 0.0, 1.0) * 255.0))

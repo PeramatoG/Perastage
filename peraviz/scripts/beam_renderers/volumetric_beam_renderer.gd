@@ -5,6 +5,7 @@ class_name VolumetricBeamRenderer
 const BEAM_META_KEY: String = "peraviz_volumetric_beam"
 const EMITTER_CONE_MAX_BASE_RADIUS_M: float = 10.0
 const VOLUMETRIC_INTENSITY_SCALE: float = 0.75
+const GOBO_TEXTURE_META_KEY: String = "peraviz_gobo_texture"
 
 var _beam_material_template: ShaderMaterial
 var _camera: Camera3D
@@ -51,6 +52,10 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	var beam_angle: float = max(float(params.get("beam_angle", 1.0)), 0.1)
 
 	if not bool(params.get("is_visible", true)) or intensity <= threshold:
+		cone.visible = false
+		return
+
+	if light.has_meta(GOBO_TEXTURE_META_KEY):
 		cone.visible = false
 		return
 
