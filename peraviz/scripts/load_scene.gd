@@ -222,7 +222,10 @@ func _ready() -> void:
 	_load_visual_settings_from_project()
 	_initialize_beam_renderers()
 	_fixture_gobo_projector = FixtureGoboProjectorScript.new()
-	visual_settings_window.configure(_visual_settings)
+	if visual_settings_window != null and visual_settings_window.has_method("configure"):
+		visual_settings_window.call("configure", _visual_settings)
+	else:
+		push_warning("VisualSettingsWindow is not ready for configure(); initial visual settings not pushed.")
 	_apply_visual_settings(_visual_settings)
 
 
@@ -394,7 +397,10 @@ func _update_beam_for_light(light: SpotLight3D, beam_params: Dictionary) -> void
 	_active_beam_renderer.update_beam(light, beam_params)
 
 func _on_visual_settings_pressed() -> void:
-	visual_settings_window.popup_settings()
+	if visual_settings_window != null and visual_settings_window.has_method("popup_settings"):
+		visual_settings_window.call("popup_settings")
+	else:
+		push_warning("VisualSettingsWindow is not ready for popup_settings().")
 
 func _on_visual_settings_changed(settings: Dictionary) -> void:
 	_apply_visual_settings(settings)
