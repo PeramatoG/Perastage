@@ -65,9 +65,9 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	var color_alpha := Color(beam_color.r, beam_color.g, beam_color.b, 1.0)
 	var gobo_texture: Texture2D = params.get("gobo_texture", null) as Texture2D
 	var has_gobo: bool = bool(params.get("has_gobo", false)) and gobo_texture != null
-	_update_cone_material(cone, color_alpha, scaled_intensity, beam_range, 0.35, 0.16, 0.06, 1.0, 1.0, has_gobo, gobo_texture)
-	_update_cone_material(mid_cone, color_alpha, scaled_intensity, beam_range, 0.18, 0.26, 0.04, 1.35, 1.25, has_gobo, gobo_texture)
-	_update_cone_material(core_cone, color_alpha, scaled_intensity, beam_range, 0.09, 0.35, 0.02, 1.7, 1.5, has_gobo, gobo_texture)
+	_update_cone_material(cone, color_alpha, scaled_intensity, beam_range, 0.35, 0.16, 0.06, 1.0, 1.0, has_gobo, gobo_texture, max(lens_radius, 0.003), bottom_radius)
+	_update_cone_material(mid_cone, color_alpha, scaled_intensity, beam_range, 0.18, 0.26, 0.04, 1.35, 1.25, has_gobo, gobo_texture, max(lens_radius * 0.7, 0.003), clamp(bottom_radius * 0.7, 0.02, EMITTER_CONE_MAX_BASE_RADIUS_M))
+	_update_cone_material(core_cone, color_alpha, scaled_intensity, beam_range, 0.09, 0.35, 0.02, 1.7, 1.5, has_gobo, gobo_texture, max(lens_radius * 0.45, 0.003), clamp(bottom_radius * 0.45, 0.02, EMITTER_CONE_MAX_BASE_RADIUS_M))
 
 func cleanup_beam(light: SpotLight3D) -> void:
 	for meta_key in [MAIN_KEY, MID_KEY, CORE_KEY]:
@@ -111,13 +111,18 @@ func _update_cone_geometry(cone: MeshInstance3D, lens_radius: float, bottom_radi
 	cone_mesh.height = beam_range
 	cone.position = Vector3(0.0, 0.0, -beam_range * 0.5)
 
-func _update_cone_material(cone: MeshInstance3D, beam_color: Color, scaled_intensity: float, beam_range: float, lateral_softness: float, lateral_emission_boost: float, noise_strength: float, alpha_scale: float, emission_scale: float, has_gobo: bool, gobo_texture: Texture2D) -> void:
+func _update_cone_material(cone: MeshInstance3D, beam_color: Color, scaled_intensity: float, beam_range: float, lateral_softness: float, lateral_emission_boost: float, noise_strength: float, alpha_scale: float, emission_scale: float, has_gobo: bool, gobo_texture: Texture2D, top_radius: float, bottom_radius: float) -> void:
 	if cone == null:
 		return
 	var material: ShaderMaterial = cone.material_override as ShaderMaterial
 	if material != null:
 		material.set_shader_parameter("gobo_texture", gobo_texture)
 	cone.set_instance_shader_parameter("has_gobo", has_gobo)
+	cone.set_instance_shader_parameter("gobo_top_radius", top_radius)
+	cone.set_instance_shader_parameter("gobo_bottom_radius", bottom_radius)
+	cone.set_instance_shader_parameter("gobo_contrast", 1.15)
+	cone.set_instance_shader_parameter("gobo_floor", 0.18)
+	cone.set_instance_shader_parameter("gobo_mix", 0.85)
 	cone.set_instance_shader_parameter("beam_color", beam_color)
 	cone.set_instance_shader_parameter("near_alpha", lerp(0.0, EMITTER_CONE_NEAR_ALPHA * alpha_scale, scaled_intensity))
 	cone.set_instance_shader_parameter("far_alpha", lerp(0.0, EMITTER_CONE_FAR_ALPHA * alpha_scale, scaled_intensity))

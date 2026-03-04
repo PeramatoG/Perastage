@@ -19,6 +19,11 @@ uniform bool depth_feather_enabled = true;
 uniform float depth_fade_distance : hint_range(0.01, 5.0) = 0.5;
 uniform sampler2D gobo_texture : source_color, filter_linear_mipmap, repeat_disable;
 instance uniform bool has_gobo = false;
+instance uniform float gobo_top_radius = 0.02;
+instance uniform float gobo_bottom_radius = 0.8;
+instance uniform float gobo_mix : hint_range(0.0, 1.0) = 0.85;
+instance uniform float gobo_floor : hint_range(0.0, 1.0) = 0.18;
+instance uniform float gobo_contrast : hint_range(0.2, 3.0) = 1.15;
 
 varying vec3 v_view;
 varying vec3 v_local;
@@ -70,15 +75,20 @@ void fragment() {
 
 	float gobo_mask = 1.0;
 	if (has_gobo) {
-		float radial_factor = max(1.0 - v_normalized_y, 0.02);
-		vec2 beam_uv = vec2(v_local.x, v_local.z) / radial_factor;
+		float local_radius = mix(gobo_top_radius, gobo_bottom_radius, v_normalized_y);
+		local_radius = max(local_radius, 0.0001);
+		vec2 beam_uv = vec2(v_local.x, v_local.z) / local_radius;
 		beam_uv = (beam_uv * 0.5) + vec2(0.5);
+		float raw_mask = 0.0;
 		if (beam_uv.x < 0.0 || beam_uv.x > 1.0 || beam_uv.y < 0.0 || beam_uv.y > 1.0) {
-			gobo_mask = 0.0;
+			raw_mask = 0.0;
 		} else {
 			vec3 gobo_rgb = texture(gobo_texture, beam_uv).rgb;
-			gobo_mask = clamp(dot(gobo_rgb, vec3(0.2126, 0.7152, 0.0722)), 0.0, 1.0);
+			raw_mask = clamp(dot(gobo_rgb, vec3(0.2126, 0.7152, 0.0722)), 0.0, 1.0);
 		}
+		raw_mask = pow(raw_mask, gobo_contrast);
+		float softened_mask = mix(gobo_floor, 1.0, raw_mask);
+		gobo_mask = mix(1.0, softened_mask, gobo_mix);
 	}
 	float final_alpha = feather_alpha * depth_mult * dist_fade * gobo_mask;
 	if (final_alpha < 0.001) {
