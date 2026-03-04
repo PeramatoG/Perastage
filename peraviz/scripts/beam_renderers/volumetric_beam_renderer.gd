@@ -118,7 +118,7 @@ func cleanup_beam(light: SpotLight3D) -> void:
 		_gobo_controller.cleanup_gobo(light)
 
 func _update_local_fog_volume(light: SpotLight3D, gobo_active: bool, beam_range: float, bottom_radius: float, params: Dictionary) -> void:
-	var use_local_fog_volume: bool = bool(params.get("use_local_fog_volume", true))
+	var use_local_fog_volume: bool = bool(params.get("use_local_fog_volume", true)) and gobo_active
 	if not use_local_fog_volume:
 		if light.has_meta(LOCAL_FOG_VOLUME_META_KEY):
 			var existing: FogVolume = light.get_meta(LOCAL_FOG_VOLUME_META_KEY) as FogVolume
@@ -133,7 +133,7 @@ func _update_local_fog_volume(light: SpotLight3D, gobo_active: bool, beam_range:
 	if fog_volume == null or not is_instance_valid(fog_volume):
 		fog_volume = FogVolume.new()
 		fog_volume.name = "PeravizBeamLocalFogVolume"
-		fog_volume.set("shape", int(params.get("local_fog_shape", 1)))
+		fog_volume.set("shape", int(params.get("local_fog_shape", 2)))
 		var fog_material := FogMaterial.new()
 		fog_volume.material = fog_material
 		light.add_child(fog_volume)
@@ -141,10 +141,10 @@ func _update_local_fog_volume(light: SpotLight3D, gobo_active: bool, beam_range:
 
 	var fog_material_ref: FogMaterial = fog_volume.material as FogMaterial
 	if fog_material_ref != null:
-		fog_material_ref.density = float(params.get("local_fog_density", 0.025))
+		fog_material_ref.density = float(params.get("local_fog_density", 0.01))
 		fog_material_ref.set("albedo", Color(1.0, 1.0, 1.0, 1.0))
 
 	fog_volume.position = Vector3(0.0, 0.0, -beam_range * 0.5)
-	var diameter: float = clamp(bottom_radius * 1.35, 0.2, 3.5)
-	var haze_length: float = clamp(beam_range * 0.55, 1.0, 18.0)
+	var diameter: float = clamp(bottom_radius * 1.0, 0.08, 1.8)
+	var haze_length: float = clamp(beam_range * 0.9, 1.5, 24.0)
 	fog_volume.size = Vector3(diameter, diameter, haze_length)
