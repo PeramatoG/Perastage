@@ -70,9 +70,9 @@ var _visual_settings := {
 	"beam_noise_amount": 0.06,
 	"beam_noise_scale": 1.4,
 	"ambient_fog_density": 0.0,
-	"volumetric_fog_density": 0.0025,
+	"volumetric_fog_density": 0.0008,
 	"volumetric_fog_fade": 0.02,
-	"light_volumetric_fog_energy": 8.0,
+	"light_volumetric_fog_energy": 20.0,
 	"use_native_fog_projector_gobos": true,
 	"background_color": Color(0.129412, 0.137255, 0.156863, 1.0),
 }
@@ -153,7 +153,7 @@ const BEAM_DISTANCE_CULL_M: float = 180.0
 const BEAM_INTENSITY_MAX: float = 8.0
 const FIXED_VOLUMETRIC_FOG_VOLUME_SIZE: int = 1024
 const FIXED_VOLUMETRIC_FOG_VOLUME_DEPTH: int = 256
-const FIXED_VOLUMETRIC_FOG_USE_FILTER: bool = false
+const FIXED_VOLUMETRIC_FOG_USE_FILTER: bool = true
 
 const ENV_QUALITY_PRESET_SETTING: String = "peraviz_environment_quality"
 const ENV_QUALITY_PRESET_DEFAULT: String = "high"
@@ -305,7 +305,7 @@ func _apply_visual_settings(settings: Dictionary) -> void:
 		if world_environment.environment.fog_enabled:
 			world_environment.environment.fog_density = ambient_fog_density
 		world_environment.environment.volumetric_fog_enabled = true
-		world_environment.environment.volumetric_fog_density = max(float(_visual_settings.get("volumetric_fog_density", 0.0025)), 0.0001)
+		world_environment.environment.volumetric_fog_density = max(float(_visual_settings.get("volumetric_fog_density", 0.0008)), 0.0001)
 		if _environment_has_property(world_environment.environment, "volumetric_fog_fade"):
 			world_environment.environment.volumetric_fog_fade = max(float(_visual_settings.get("volumetric_fog_fade", 0.02)), 0.005)
 
@@ -314,9 +314,9 @@ func _apply_visual_settings(settings: Dictionary) -> void:
 	var fog_volume_size: int = FIXED_VOLUMETRIC_FOG_VOLUME_SIZE
 	var fog_volume_depth: int = FIXED_VOLUMETRIC_FOG_VOLUME_DEPTH
 	var fog_use_filter: bool = FIXED_VOLUMETRIC_FOG_USE_FILTER
-	ProjectSettings.set_setting("rendering/environment/volumetric_fog/volume_size", fog_volume_size)
-	ProjectSettings.set_setting("rendering/environment/volumetric_fog/volume_depth", fog_volume_depth)
-	ProjectSettings.set_setting("rendering/environment/volumetric_fog/use_filter", fog_use_filter)
+	_set_project_setting_if_changed("rendering/environment/volumetric_fog/volume_size", fog_volume_size)
+	_set_project_setting_if_changed("rendering/environment/volumetric_fog/volume_depth", fog_volume_depth)
+	_set_project_setting_if_changed("rendering/environment/volumetric_fog/use_filter", fog_use_filter)
 	if world_environment != null and world_environment.environment != null:
 		_apply_environment_froxel_settings(world_environment.environment, fog_volume_size, fog_volume_depth, fog_use_filter)
 	# This setting can require a renderer restart in Godot to re-allocate froxel buffers.
@@ -333,6 +333,13 @@ func _apply_visual_settings(settings: Dictionary) -> void:
 	if beam_scalar_changed:
 		_refresh_existing_beam_material_scalars()
 
+
+
+func _set_project_setting_if_changed(setting_key: String, value: Variant) -> void:
+	var current_value: Variant = ProjectSettings.get_setting(setting_key, null)
+	if current_value == value:
+		return
+	ProjectSettings.set_setting(setting_key, value)
 
 func _apply_environment_froxel_settings(environment: Environment, fog_volume_size: int, fog_volume_depth: int, fog_use_filter: bool) -> void:
 	if environment == null:
@@ -405,7 +412,7 @@ func _refresh_existing_beam_material_scalars() -> void:
 func _apply_light_scalars_to_light(light: SpotLight3D) -> void:
 	var base_energy: float = float(light.get_meta("peraviz_base_light_energy", light.light_energy))
 	light.light_energy = base_energy * float(_visual_settings.get("spot_multiplier", 1.0))
-	light.light_volumetric_fog_energy = float(_visual_settings.get("light_volumetric_fog_energy", 12.0))
+	light.light_volumetric_fog_energy = float(_visual_settings.get("light_volumetric_fog_energy", 20.0))
 
 func _update_existing_beam_material_scalars(light: SpotLight3D) -> void:
 	var base_intensity: float = float(light.get_meta("peraviz_beam_base_intensity", 0.0))
@@ -1691,13 +1698,13 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 		"spot_angle_half_deg": light.spot_angle,
 		"spot_range": light.spot_range,
 		"use_native_fog_projector_gobos": bool(_visual_settings.get("use_native_fog_projector_gobos", true)),
-		"volumetric_fog_density": float(_visual_settings.get("volumetric_fog_density", 0.006)),
+		"volumetric_fog_density": float(_visual_settings.get("volumetric_fog_density", 0.0008)),
 	}
 	if _fixture_gobo_projector != null:
 		var gobo_controls: Dictionary = controls.duplicate(true)
 		gobo_controls["prefer_native_fog_projector"] = bool(_visual_settings.get("use_native_fog_projector_gobos", true))
 		_fixture_gobo_projector.apply_gobo_projection(light, gobo_controls)
-	light.light_volumetric_fog_energy = float(_visual_settings.get("light_volumetric_fog_energy", 12.0))
+	light.light_volumetric_fog_energy = float(_visual_settings.get("light_volumetric_fog_energy", 20.0))
 	_update_beam_for_light(light, beam_params)
 
 func _resolve_zoom_beam_limits(light: SpotLight3D, controls: Dictionary) -> Dictionary:
