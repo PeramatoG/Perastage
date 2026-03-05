@@ -70,7 +70,7 @@ var _visual_settings := {
 	"beam_noise_amount": 0.06,
 	"beam_noise_scale": 1.4,
 	"ambient_fog_density": 0.0,
-	"volumetric_fog_density": 0.0008,
+	"volumetric_fog_density": 0.0,
 	"volumetric_fog_fade": 0.02,
 	"light_volumetric_fog_energy": 20.0,
 	"use_native_fog_projector_gobos": true,
@@ -304,8 +304,9 @@ func _apply_visual_settings(settings: Dictionary) -> void:
 		world_environment.environment.fog_enabled = ambient_fog_density > 0.0001
 		if world_environment.environment.fog_enabled:
 			world_environment.environment.fog_density = ambient_fog_density
-		world_environment.environment.volumetric_fog_enabled = true
-		world_environment.environment.volumetric_fog_density = max(float(_visual_settings.get("volumetric_fog_density", 0.0008)), 0.0001)
+		var volumetric_fog_density: float = max(float(_visual_settings.get("volumetric_fog_density", 0.0)), 0.0)
+		world_environment.environment.volumetric_fog_enabled = volumetric_fog_density > 0.0001
+		world_environment.environment.volumetric_fog_density = volumetric_fog_density
 		if _environment_has_property(world_environment.environment, "volumetric_fog_fade"):
 			world_environment.environment.volumetric_fog_fade = max(float(_visual_settings.get("volumetric_fog_fade", 0.02)), 0.005)
 
@@ -1663,7 +1664,7 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 		"spot_angle_half_deg": light.spot_angle,
 		"spot_range": light.spot_range,
 		"use_native_fog_projector_gobos": bool(_visual_settings.get("use_native_fog_projector_gobos", true)),
-		"volumetric_fog_density": float(_visual_settings.get("volumetric_fog_density", 0.0008)),
+		"volumetric_fog_density": float(_visual_settings.get("volumetric_fog_density", 0.0)),
 	}
 	if _fixture_gobo_projector != null:
 		var gobo_controls: Dictionary = controls.duplicate(true)

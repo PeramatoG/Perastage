@@ -83,9 +83,9 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 			core_cone.visible = false
 		return
 	var color_alpha := Color(beam_color.r, beam_color.g, beam_color.b, 1.0)
-	_update_cone_material(cone, color_alpha, scaled_intensity, beam_range, 0.35, 0.16, 0.06, 1.0, 1.0, gobo_texture)
-	_update_cone_material(mid_cone, color_alpha, scaled_intensity, beam_range, 0.18, 0.26, 0.04, 1.35, 1.25, gobo_texture)
-	_update_cone_material(core_cone, color_alpha, scaled_intensity, beam_range, 0.09, 0.35, 0.02, 1.7, 1.5, gobo_texture)
+	_update_cone_material(cone, color_alpha, scaled_intensity, beam_range, bottom_radius, 0.35, 0.16, 0.06, 1.0, 1.0, gobo_texture)
+	_update_cone_material(mid_cone, color_alpha, scaled_intensity, beam_range, bottom_radius * 0.7, 0.18, 0.26, 0.04, 1.35, 1.25, gobo_texture)
+	_update_cone_material(core_cone, color_alpha, scaled_intensity, beam_range, bottom_radius * 0.45, 0.09, 0.35, 0.02, 1.7, 1.5, gobo_texture)
 
 func cleanup_beam(light: SpotLight3D) -> void:
 	for meta_key in [MAIN_KEY, MID_KEY, CORE_KEY]:
@@ -127,7 +127,7 @@ func _update_cone_geometry(cone: MeshInstance3D, lens_radius: float, bottom_radi
 	cone_mesh.height = beam_range
 	cone.position = Vector3(0.0, 0.0, -beam_range * 0.5)
 
-func _update_cone_material(cone: MeshInstance3D, beam_color: Color, scaled_intensity: float, beam_range: float, lateral_softness: float, lateral_emission_boost: float, noise_strength: float, alpha_scale: float, emission_scale: float, gobo_texture: Texture2D) -> void:
+func _update_cone_material(cone: MeshInstance3D, beam_color: Color, scaled_intensity: float, beam_range: float, gobo_projection_radius: float, lateral_softness: float, lateral_emission_boost: float, noise_strength: float, alpha_scale: float, emission_scale: float, gobo_texture: Texture2D) -> void:
 	if cone == null:
 		return
 	cone.set_instance_shader_parameter("beam_color", beam_color)
@@ -136,6 +136,7 @@ func _update_cone_material(cone: MeshInstance3D, beam_color: Color, scaled_inten
 	cone.set_instance_shader_parameter("near_emission", lerp(0.0, EMITTER_CONE_NEAR_EMISSION * emission_scale, scaled_intensity))
 	cone.set_instance_shader_parameter("far_emission", lerp(0.0, EMITTER_CONE_FAR_EMISSION * emission_scale, scaled_intensity))
 	cone.set_instance_shader_parameter("cone_height", max(beam_range, 0.001))
+	cone.set_instance_shader_parameter("gobo_projection_radius", max(gobo_projection_radius, 0.001))
 	cone.set_instance_shader_parameter("fade_end_ratio", EMITTER_CONE_FADE_END_RATIO)
 	cone.set_instance_shader_parameter("lateral_softness", lateral_softness)
 	cone.set_instance_shader_parameter("lateral_emission_boost", lateral_emission_boost)
