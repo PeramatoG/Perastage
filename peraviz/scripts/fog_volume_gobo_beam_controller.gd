@@ -46,9 +46,20 @@ func _ensure_volume(light: SpotLight3D) -> FogVolume:
 
 	var fog_volume := FogVolume.new()
 	fog_volume.name = FOG_VOLUME_NODE_NAME
-	fog_volume.shape = FogVolume.SHAPE_CONE
+	_assign_fog_volume_shape(fog_volume)
 	fog_volume.material = ShaderMaterial.new()
 	var fog_material: ShaderMaterial = fog_volume.material as ShaderMaterial
 	fog_material.shader = load(FOG_SHADER_PATH)
 	light.add_child(fog_volume)
 	return fog_volume
+
+func _assign_fog_volume_shape(fog_volume: FogVolume) -> void:
+	if fog_volume == null:
+		return
+	var cone_shape: Variant = ClassDB.instantiate("ConeFogVolumeShape3D")
+	if cone_shape != null:
+		fog_volume.shape = cone_shape
+		return
+	var cylinder_shape: Variant = ClassDB.instantiate("CylinderFogVolumeShape3D")
+	if cylinder_shape != null:
+		fog_volume.shape = cylinder_shape
