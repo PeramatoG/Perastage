@@ -67,7 +67,7 @@ func apply_gobo_projection(light: SpotLight3D, controls: Dictionary) -> bool:
 func _apply_gobo_visuals(light: SpotLight3D, gobo_texture: Texture2D, controls: Dictionary = {}) -> void:
 	if light == null or not is_instance_valid(light):
 		return
-	light.set("projector", gobo_texture)
+	_set_light_projector_texture(light, gobo_texture)
 	if gobo_texture == null:
 		_remove_gobo_plane(light)
 		return
@@ -83,10 +83,27 @@ func _apply_gobo_visuals(light: SpotLight3D, gobo_texture: Texture2D, controls: 
 		gobo_material.set_shader_parameter("gobo_texture", gobo_texture)
 	_update_gobo_plane_scale(light, gobo_plane)
 
+func _set_light_projector_texture(light: SpotLight3D, texture: Texture2D) -> void:
+	if light == null or not is_instance_valid(light):
+		return
+	# Godot custom branches may expose either `projector` or `light_projector`.
+	if _has_property(light, "projector"):
+		light.set("projector", texture)
+	if _has_property(light, "light_projector"):
+		light.set("light_projector", texture)
+
+func _has_property(object: Object, property_name: String) -> bool:
+	if object == null:
+		return false
+	for property_info in object.get_property_list():
+		if str(property_info.get("name", "")) == property_name:
+			return true
+	return false
+
 func _clear_gobo_visuals(light: SpotLight3D) -> void:
 	if light == null or not is_instance_valid(light):
 		return
-	light.set("projector", null)
+	_set_light_projector_texture(light, null)
 	_remove_gobo_plane(light)
 
 func _ensure_gobo_plane(light: SpotLight3D) -> MeshInstance3D:
@@ -174,6 +191,8 @@ func _resolve_gobo_texture_for_slot(controls: Dictionary, slot_index: int) -> Te
 		var load_error: Error = image.load(image_path)
 		if load_error != OK:
 			return null
+		if image.get_format() != Image.FORMAT_RGBA8:
+			image.convert(Image.FORMAT_RGBA8)
 		var texture: ImageTexture = ImageTexture.create_from_image(image)
 		_texture_cache[image_path] = texture
 		return texture
@@ -208,8 +227,9 @@ func _compose_gobo_textures(textures: Array[Texture2D]) -> Texture2D:
 				var dst: Color = composed.get_pixel(x, y)
 				var src: Color = image.get_pixel(x, y)
 				var src_luma: float = (src.r + src.g + src.b) / 3.0
-				var out_luma: float = dst.r * src_luma
-				composed.set_pixel(x, y, Color(out_luma, out_luma, out_luma, 1.0))
+				var src_mask: float = src_luma * src.a
+				var out_luma: float = dst.r * src_mask
+				composed.set_pixel(x, y, Color(out_luma, out_luma, out_luma, out_luma))
 
 	var out_texture: ImageTexture = ImageTexture.create_from_image(composed)
 	_texture_cache[cache_key] = out_texture

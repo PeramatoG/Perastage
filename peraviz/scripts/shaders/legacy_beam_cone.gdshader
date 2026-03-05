@@ -12,6 +12,9 @@ instance uniform float lateral_softness = 0.35;
 instance uniform float lateral_emission_boost = 0.16;
 instance uniform float volumetric_noise_strength = 0.06;
 instance uniform float volumetric_noise_scale = 14.0;
+uniform sampler2D gobo_texture : source_color;
+uniform bool use_gobo = false;
+uniform float gobo_contrast : hint_range(0.1, 4.0) = 1.0;
 
 varying float beam_axial;
 
@@ -29,7 +32,12 @@ void fragment() {
 	float axial_noise = sin((beam_axial * volumetric_noise_scale) + (TIME * 0.9));
 	float beam_noise = 1.0 + (axial_noise * volumetric_noise_strength);
 	float center_boost = (1.0 + (lateral_emission_boost * lateral_fade)) * beam_noise;
-	ALBEDO = beam_color.rgb;
-	ALPHA = mix(far_alpha, near_alpha, near_factor) * end_fade * lateral_fade;
-	EMISSION = beam_color.rgb * (mix(far_emission, near_emission, near_factor) * end_fade * center_boost);
+	float gobo_mask = 1.0;
+	if (use_gobo) {
+		float gobo_luma = texture(gobo_texture, UV).r;
+		gobo_mask = pow(clamp(gobo_luma, 0.0, 1.0), gobo_contrast);
+	}
+	ALBEDO = beam_color.rgb * gobo_mask;
+	ALPHA = mix(far_alpha, near_alpha, near_factor) * end_fade * lateral_fade * gobo_mask;
+	EMISSION = beam_color.rgb * (mix(far_emission, near_emission, near_factor) * end_fade * center_boost * gobo_mask);
 }

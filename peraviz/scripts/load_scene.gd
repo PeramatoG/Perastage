@@ -47,25 +47,32 @@ var _fixture_gobo_projector: FixtureGoboProjector = null
 var _updating_fixture_controls: bool = false
 var _visual_environment_baseline := {
 	"ambient_light_energy": 0.2,
+	"ambient_light_sky_contribution": 0.0,
 	"glow_bloom": 0.05,
+	"glow_intensity": 0.55,
+	"glow_strength": 0.55,
 	"background_color": Color(0.129412, 0.137255, 0.156863, 1.0),
 }
 var _visual_settings := {
-	"ambient_multiplier": 1.0,
+	"ambient_multiplier": 0.08,
 	"spot_multiplier": 1.0,
 	"beam_multiplier": 1.0,
-	"bloom_multiplier": 1.0,
+	"bloom_multiplier": 0.0,
 	"beam_render_mode": 0,
-	"beam_quality": 1,
+	"beam_quality": 2,
+	"use_fog_volume_gobo_beam": false,
+	"fog_volume_density_scale": 1.1,
+	"fog_volume_emission_strength": 0.6,
+	"fog_volume_edge_softness": 0.65,
+	"fog_volume_invert_gobo": false,
 	"beam_haze_density": 0.17,
 	"beam_anisotropy": 0.62,
 	"beam_noise_amount": 0.06,
 	"beam_noise_scale": 1.4,
-	"volumetric_fog_density": 0.0,
-	"light_volumetric_fog_energy": 8.0,
-	"volumetric_fog_volume_size": 256,
-	"volumetric_fog_depth": 64.0,
-	"volumetric_fog_use_filter": true,
+	"ambient_fog_density": 0.0,
+	"volumetric_fog_density": 0.0008,
+	"volumetric_fog_fade": 0.02,
+	"light_volumetric_fog_energy": 20.0,
 	"use_native_fog_projector_gobos": true,
 	"background_color": Color(0.129412, 0.137255, 0.156863, 1.0),
 }
@@ -144,9 +151,12 @@ const BEAM_RENDER_MODE_LEGACY: int = 1
 const BEAM_INTENSITY_VISIBILITY_THRESHOLD: float = 0.015
 const BEAM_DISTANCE_CULL_M: float = 180.0
 const BEAM_INTENSITY_MAX: float = 8.0
+const FIXED_VOLUMETRIC_FOG_VOLUME_SIZE: int = 1024
+const FIXED_VOLUMETRIC_FOG_VOLUME_DEPTH: int = 256
+const FIXED_VOLUMETRIC_FOG_USE_FILTER: bool = true
 
 const ENV_QUALITY_PRESET_SETTING: String = "peraviz_environment_quality"
-const ENV_QUALITY_PRESET_DEFAULT: String = "medium"
+const ENV_QUALITY_PRESET_DEFAULT: String = "high"
 const ENVIRONMENT_QUALITY_PRESETS := {
 	"low": {
 		"ssao_enabled": false,
@@ -200,7 +210,10 @@ func _ready() -> void:
 	dimmer_max_input.value_changed.connect(_on_limit_changed)
 	quick_reset_button.pressed.connect(_on_quick_reset_pressed)
 	visual_settings_button.pressed.connect(_on_visual_settings_pressed)
-	visual_settings_window.settings_changed.connect(_on_visual_settings_changed)
+	if visual_settings_window != null and visual_settings_window.has_signal("settings_changed"):
+		visual_settings_window.connect("settings_changed", Callable(self, "_on_visual_settings_changed"))
+	else:
+		push_warning("VisualSettingsWindow is missing signal 'settings_changed'; live visual updates disabled.")
 	picker.access = FileDialog.ACCESS_FILESYSTEM
 	status_label.text = "Select a .mvr file"
 	_debug_coords_enabled = bool(ProjectSettings.get_setting("peraviz_debug_coords", false))
@@ -219,7 +232,10 @@ func _ready() -> void:
 	_load_visual_settings_from_project()
 	_initialize_beam_renderers()
 	_fixture_gobo_projector = FixtureGoboProjectorScript.new()
-	visual_settings_window.configure(_visual_settings)
+	if visual_settings_window != null and visual_settings_window.has_method("configure"):
+		visual_settings_window.call("configure", _visual_settings)
+	else:
+		push_warning("VisualSettingsWindow is not ready for configure(); initial visual settings not pushed.")
 	_apply_visual_settings(_visual_settings)
 
 
@@ -242,7 +258,11 @@ func _capture_visual_environment_baseline() -> void:
 	if world_environment == null or world_environment.environment == null:
 		return
 	_visual_environment_baseline["ambient_light_energy"] = float(world_environment.environment.ambient_light_energy)
+	if _environment_has_property(world_environment.environment, "ambient_light_sky_contribution"):
+		_visual_environment_baseline["ambient_light_sky_contribution"] = float(world_environment.environment.ambient_light_sky_contribution)
 	_visual_environment_baseline["glow_bloom"] = float(world_environment.environment.glow_bloom)
+	_visual_environment_baseline["glow_intensity"] = float(world_environment.environment.glow_intensity)
+	_visual_environment_baseline["glow_strength"] = float(world_environment.environment.glow_strength)
 	_visual_environment_baseline["background_color"] = world_environment.environment.background_color
 	_visual_settings["background_color"] = _visual_environment_baseline["background_color"]
 
@@ -267,26 +287,30 @@ func _apply_visual_settings(settings: Dictionary) -> void:
 			_visual_settings[key] = settings[key]
 
 	if world_environment != null and world_environment.environment != null:
-		world_environment.environment.ambient_light_energy = float(_visual_environment_baseline.get("ambient_light_energy", 0.2)) * float(_visual_settings.get("ambient_multiplier", 1.0))
-		world_environment.environment.glow_bloom = float(_visual_environment_baseline.get("glow_bloom", 0.05)) * float(_visual_settings.get("bloom_multiplier", 1.0))
+		if _environment_has_property(world_environment.environment, "ambient_light_source"):
+			world_environment.environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+		world_environment.environment.ambient_light_color = Color(1.0, 1.0, 1.0, 1.0)
+		var ambient_multiplier: float = float(_visual_settings.get("ambient_multiplier", 0.08))
+		world_environment.environment.ambient_light_energy = ambient_multiplier
+		if _environment_has_property(world_environment.environment, "ambient_light_sky_contribution"):
+			world_environment.environment.ambient_light_sky_contribution = 0.0
+		var bloom_multiplier: float = float(_visual_settings.get("bloom_multiplier", 0.0))
+		world_environment.environment.glow_enabled = bloom_multiplier > 0.001
+		world_environment.environment.glow_bloom = float(_visual_environment_baseline.get("glow_bloom", 0.05)) * bloom_multiplier
+		world_environment.environment.glow_intensity = float(_visual_environment_baseline.get("glow_intensity", 0.55)) * bloom_multiplier
+		world_environment.environment.glow_strength = float(_visual_environment_baseline.get("glow_strength", 0.55)) * bloom_multiplier
 		world_environment.environment.background_color = _visual_settings.get("background_color", _visual_environment_baseline.get("background_color", Color(0.129412, 0.137255, 0.156863, 1.0)))
+		var ambient_fog_density: float = max(float(_visual_settings.get("ambient_fog_density", 0.0)), 0.0)
+		world_environment.environment.fog_enabled = ambient_fog_density > 0.0001
+		if world_environment.environment.fog_enabled:
+			world_environment.environment.fog_density = ambient_fog_density
 		world_environment.environment.volumetric_fog_enabled = true
-		world_environment.environment.volumetric_fog_density = float(_visual_settings.get("volumetric_fog_density", 0.01))
+		world_environment.environment.volumetric_fog_density = max(float(_visual_settings.get("volumetric_fog_density", 0.0008)), 0.0001)
+		if _environment_has_property(world_environment.environment, "volumetric_fog_fade"):
+			world_environment.environment.volumetric_fog_fade = max(float(_visual_settings.get("volumetric_fog_fade", 0.02)), 0.005)
 
-	# Godot volumetric fog froxel controls are renderer-level project settings.
-	# Keep them aligned with visual settings for the #11987 shadow-cookie workflow.
-	var fog_volume_size: int = int(round(float(_visual_settings.get("volumetric_fog_volume_size", 256))))
-	var fog_volume_depth: int = int(round(float(_visual_settings.get("volumetric_fog_depth", 64.0))) )
-	var fog_use_filter: bool = bool(_visual_settings.get("volumetric_fog_use_filter", true))
-	ProjectSettings.set_setting("rendering/environment/volumetric_fog/volume_size", fog_volume_size)
-	ProjectSettings.set_setting("rendering/environment/volumetric_fog/volume_depth", fog_volume_depth)
-	ProjectSettings.set_setting("rendering/environment/volumetric_fog/use_filter", fog_use_filter)
-	if world_environment != null and world_environment.environment != null:
-		_apply_environment_froxel_settings(world_environment.environment, fog_volume_size, fog_volume_depth, fog_use_filter)
-	# This setting can require a renderer restart in Godot to re-allocate froxel buffers.
-	# Intentionally not persisted to disk in debug workflow.
-	if status_label != null:
-		status_label.text = "Volumetric fog quality changes may require scene reload to fully apply (Godot froxel grid)."
+	# Renderer-level volumetric fog froxel settings are kept static in project.godot.
+	# Do not mutate froxel sizing/filtering at runtime, as it can cause renderer signal churn.
 
 	_update_beam_renderer_mode(false)
 	_save_visual_settings_to_project()
@@ -300,24 +324,6 @@ func _apply_visual_settings(settings: Dictionary) -> void:
 		_refresh_existing_beam_material_scalars()
 
 
-func _apply_environment_froxel_settings(environment: Environment, fog_volume_size: int, fog_volume_depth: int, fog_use_filter: bool) -> void:
-	if environment == null:
-		return
-	var volume_size_candidates: PackedStringArray = PackedStringArray(["volumetric_fog_volume_size", "volume_size"])
-	for property_name in volume_size_candidates:
-		if _environment_has_property(environment, property_name):
-			environment.set(property_name, fog_volume_size)
-			break
-	var volume_depth_candidates: PackedStringArray = PackedStringArray(["volumetric_fog_depth", "volume_depth", "volumetric_fog_length"])
-	for property_name in volume_depth_candidates:
-		if _environment_has_property(environment, property_name):
-			environment.set(property_name, float(fog_volume_depth))
-			break
-	var use_filter_candidates: PackedStringArray = PackedStringArray(["volumetric_fog_filter_active", "use_filter"])
-	for property_name in use_filter_candidates:
-		if _environment_has_property(environment, property_name):
-			environment.set(property_name, fog_use_filter)
-			break
 
 func _environment_has_property(environment: Environment, property_name: String) -> bool:
 	if environment == null:
@@ -371,7 +377,7 @@ func _refresh_existing_beam_material_scalars() -> void:
 func _apply_light_scalars_to_light(light: SpotLight3D) -> void:
 	var base_energy: float = float(light.get_meta("peraviz_base_light_energy", light.light_energy))
 	light.light_energy = base_energy * float(_visual_settings.get("spot_multiplier", 1.0))
-	light.light_volumetric_fog_energy = float(_visual_settings.get("light_volumetric_fog_energy", 1.0))
+	light.light_volumetric_fog_energy = float(_visual_settings.get("light_volumetric_fog_energy", 20.0))
 
 func _update_existing_beam_material_scalars(light: SpotLight3D) -> void:
 	var base_intensity: float = float(light.get_meta("peraviz_beam_base_intensity", 0.0))
@@ -391,7 +397,10 @@ func _update_beam_for_light(light: SpotLight3D, beam_params: Dictionary) -> void
 	_active_beam_renderer.update_beam(light, beam_params)
 
 func _on_visual_settings_pressed() -> void:
-	visual_settings_window.popup_settings()
+	if visual_settings_window != null and visual_settings_window.has_method("popup_settings"):
+		visual_settings_window.call("popup_settings")
+	else:
+		push_warning("VisualSettingsWindow is not ready for popup_settings().")
 
 func _on_visual_settings_changed(settings: Dictionary) -> void:
 	_apply_visual_settings(settings)
@@ -711,6 +720,7 @@ func _reparent_fixture_visual_children(geometry_node: Node3D, model_root: Node3D
 		var child_local_before: Transform3D = child_node.transform
 		var child_local_after: Transform3D = model_root_local * child_local_before
 		model_root.remove_child(child_node)
+		child_node.owner = null
 		geometry_node.add_child(child_node)
 		child_node.transform = child_local_after
 		moved_any_child = true
@@ -1653,12 +1663,13 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 		"spot_angle_half_deg": light.spot_angle,
 		"spot_range": light.spot_range,
 		"use_native_fog_projector_gobos": bool(_visual_settings.get("use_native_fog_projector_gobos", true)),
+		"volumetric_fog_density": float(_visual_settings.get("volumetric_fog_density", 0.0008)),
 	}
 	if _fixture_gobo_projector != null:
 		var gobo_controls: Dictionary = controls.duplicate(true)
 		gobo_controls["prefer_native_fog_projector"] = bool(_visual_settings.get("use_native_fog_projector_gobos", true))
 		_fixture_gobo_projector.apply_gobo_projection(light, gobo_controls)
-	light.light_volumetric_fog_energy = float(_visual_settings.get("light_volumetric_fog_energy", 1.0))
+	light.light_volumetric_fog_energy = float(_visual_settings.get("light_volumetric_fog_energy", 20.0))
 	_update_beam_for_light(light, beam_params)
 
 func _resolve_zoom_beam_limits(light: SpotLight3D, controls: Dictionary) -> Dictionary:

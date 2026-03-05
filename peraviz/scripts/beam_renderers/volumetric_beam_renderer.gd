@@ -55,10 +55,8 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 		cone.visible = false
 		return
 
-	var native_fog_projector_enabled: bool = bool(_settings.get("use_native_fog_projector_gobos", true))
-	if native_fog_projector_enabled and light.has_meta(GOBO_TEXTURE_META_KEY):
-		cone.visible = false
-		return
+	# Keep debug/preview beam meshes visible even when native fog-projector gobos are enabled.
+	# Native gobo projection controls footprint/fog in renderer, while this cone keeps operator-visible beam feedback.
 
 
 	var beam_color: Color = params.get("beam_color", Color.WHITE)
@@ -91,6 +89,20 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	cone.set_instance_shader_parameter("beam_haze_density", float(_settings.get("beam_haze_density", 0.17)))
 	cone.set_instance_shader_parameter("beam_anisotropy", float(_settings.get("beam_anisotropy", 0.62)))
 	cone.set_instance_shader_parameter("beam_quality", int(_settings.get("beam_quality", 1)))
+	var gobo_texture: Texture2D = null
+	if light.has_meta(GOBO_TEXTURE_META_KEY):
+		gobo_texture = light.get_meta(GOBO_TEXTURE_META_KEY) as Texture2D
+	var native_fog_projector_enabled: bool = bool(_settings.get("use_native_fog_projector_gobos", true))
+	var fog_density: float = float(_settings.get("volumetric_fog_density", 0.0))
+	var fog_projection_active: bool = native_fog_projector_enabled and gobo_texture != null and fog_density > 0.0001
+	if fog_projection_active:
+		# Keep native fog projector authoritative only while volumetric fog is active.
+		# Without fog we keep the preview cone so operators still see the beam shape.
+		cone.visible = false
+		return
+	cone.set_instance_shader_parameter("use_gobo", gobo_texture != null)
+	if gobo_texture != null:
+		cone.set_instance_shader_parameter("gobo_texture", gobo_texture)
 
 func cleanup_beam(light: SpotLight3D) -> void:
 	if not light.has_meta(BEAM_META_KEY):
