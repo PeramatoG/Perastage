@@ -30,5 +30,6 @@ renderer/rendering_method="forward_plus"
 rendering_device/driver.windows="vulkan"
 
 rendering/lights_and_shadows/positional_shadow/atlas_size=4096
-rendering/environment/volumetric_fog/volume_size=128
-rendering/environment/volumetric_fog/use_filter=true
+rendering/environment/volumetric_fog/volume_size=512
+rendering/environment/volumetric_fog/volume_depth=128
+rendering/environment/volumetric_fog/use_filter=false
