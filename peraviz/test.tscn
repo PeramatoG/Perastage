@@ -7,7 +7,7 @@
 [sub_resource type="Environment" id="Environment_viewer"]
 background_mode = 1
 background_color = Color(0.129412, 0.137255, 0.156863, 1)
-ambient_light_source = 2
+ambient_light_source = 1
 ambient_light_color = Color(0.176471, 0.188235, 0.211765, 1)
 ambient_light_energy = 0.2
 tonemap_mode = 3

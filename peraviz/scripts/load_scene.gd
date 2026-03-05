@@ -61,7 +61,7 @@ var _visual_settings := {
 	"bloom_multiplier": 1.0,
 	"beam_render_mode": 0,
 	"beam_quality": 2,
-	"use_fog_volume_gobo_beam": true,
+	"use_fog_volume_gobo_beam": false,
 	"fog_volume_density_scale": 2.5,
 	"fog_volume_emission_strength": 2.0,
 	"fog_volume_edge_softness": 0.85,
@@ -73,9 +73,6 @@ var _visual_settings := {
 	"volumetric_fog_density": 0.03,
 	"volumetric_fog_fade": 0.02,
 	"light_volumetric_fog_energy": 50.0,
-	"volumetric_fog_volume_size": 512,
-	"volumetric_fog_depth": 128.0,
-	"volumetric_fog_use_filter": true,
 	"use_native_fog_projector_gobos": true,
 	"background_color": Color(0.129412, 0.137255, 0.156863, 1.0),
 }
@@ -155,6 +152,9 @@ const BEAM_RENDER_MODE_LEGACY: int = 1
 const BEAM_INTENSITY_VISIBILITY_THRESHOLD: float = 0.015
 const BEAM_DISTANCE_CULL_M: float = 180.0
 const BEAM_INTENSITY_MAX: float = 8.0
+const FIXED_VOLUMETRIC_FOG_VOLUME_SIZE: int = 512
+const FIXED_VOLUMETRIC_FOG_VOLUME_DEPTH: int = 128
+const FIXED_VOLUMETRIC_FOG_USE_FILTER: bool = true
 
 const ENV_QUALITY_PRESET_SETTING: String = "peraviz_environment_quality"
 const ENV_QUALITY_PRESET_DEFAULT: String = "high"
@@ -289,6 +289,8 @@ func _apply_visual_settings(settings: Dictionary) -> void:
 			_visual_settings[key] = settings[key]
 
 	if world_environment != null and world_environment.environment != null:
+		if _environment_has_property(world_environment.environment, "ambient_light_source"):
+			world_environment.environment.ambient_light_source = 1
 		var ambient_multiplier: float = float(_visual_settings.get("ambient_multiplier", 0.05))
 		world_environment.environment.ambient_light_energy = float(_visual_environment_baseline.get("ambient_light_energy", 0.2)) * ambient_multiplier
 		if _environment_has_property(world_environment.environment, "ambient_light_sky_contribution"):
@@ -306,9 +308,9 @@ func _apply_visual_settings(settings: Dictionary) -> void:
 
 	# Godot volumetric fog froxel controls are renderer-level project settings.
 	# Keep them aligned with visual settings for the #11987 shadow-cookie workflow.
-	var fog_volume_size: int = int(round(float(_visual_settings.get("volumetric_fog_volume_size", 256))))
-	var fog_volume_depth: int = int(round(float(_visual_settings.get("volumetric_fog_depth", 64.0))) )
-	var fog_use_filter: bool = bool(_visual_settings.get("volumetric_fog_use_filter", true))
+	var fog_volume_size: int = FIXED_VOLUMETRIC_FOG_VOLUME_SIZE
+	var fog_volume_depth: int = FIXED_VOLUMETRIC_FOG_VOLUME_DEPTH
+	var fog_use_filter: bool = FIXED_VOLUMETRIC_FOG_USE_FILTER
 	ProjectSettings.set_setting("rendering/environment/volumetric_fog/volume_size", fog_volume_size)
 	ProjectSettings.set_setting("rendering/environment/volumetric_fog/volume_depth", fog_volume_depth)
 	ProjectSettings.set_setting("rendering/environment/volumetric_fog/use_filter", fog_use_filter)
@@ -316,8 +318,6 @@ func _apply_visual_settings(settings: Dictionary) -> void:
 		_apply_environment_froxel_settings(world_environment.environment, fog_volume_size, fog_volume_depth, fog_use_filter)
 	# This setting can require a renderer restart in Godot to re-allocate froxel buffers.
 	# Intentionally not persisted to disk in debug workflow.
-	if status_label != null:
-		status_label.text = "Volumetric fog quality changes may require scene reload to fully apply (Godot froxel grid)."
 
 	_update_beam_renderer_mode(false)
 	_save_visual_settings_to_project()
