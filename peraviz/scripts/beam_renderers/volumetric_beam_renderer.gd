@@ -93,9 +93,11 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	if light.has_meta(GOBO_TEXTURE_META_KEY):
 		gobo_texture = light.get_meta(GOBO_TEXTURE_META_KEY) as Texture2D
 	var native_fog_projector_enabled: bool = bool(_settings.get("use_native_fog_projector_gobos", true))
-	if native_fog_projector_enabled and gobo_texture != null:
-		# Let Godot native fog-projector path drive volumetric beam pattern.
-		# Avoid overlaying custom beam geometry that can hide the projected gobo in fog.
+	var fog_density: float = float(_settings.get("volumetric_fog_density", 0.0))
+	var fog_projection_active: bool = native_fog_projector_enabled and gobo_texture != null and fog_density > 0.0001
+	if fog_projection_active:
+		# Keep native fog projector authoritative only while volumetric fog is active.
+		# Without fog we keep the preview cone so operators still see the beam shape.
 		cone.visible = false
 		return
 	cone.set_instance_shader_parameter("use_gobo", gobo_texture != null)

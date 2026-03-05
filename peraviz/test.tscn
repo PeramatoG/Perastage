@@ -27,7 +27,6 @@ adjustment_saturation = 1.05
 albedo_color = Color(0.45, 0.45, 0.45, 1)
 metallic_specular = 0.45
 roughness = 0.78
-uv1_scale = Vector3(30, 30, 30)
 
 [sub_resource type="PlaneMesh" id="PlaneMesh_ground"]
 size = Vector2(100, 100)
