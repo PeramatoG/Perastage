@@ -6,7 +6,7 @@ class_name VisualSettingsWindow
 signal settings_changed(settings: Dictionary)
 
 const DEFAULT_SETTINGS := {
-	"ambient_multiplier": 1.0,
+	"ambient_multiplier": 0.0,
 	"spot_multiplier": 1.0,
 	"beam_multiplier": 1.0,
 	"bloom_multiplier": 1.0,
@@ -16,11 +16,11 @@ const DEFAULT_SETTINGS := {
 	"beam_anisotropy": 0.62,
 	"beam_noise_amount": 0.06,
 	"beam_noise_scale": 1.4,
-	"volumetric_fog_density": 0.02,
-	"light_volumetric_fog_energy": 10.0,
-	"volumetric_fog_volume_size": 512,
-	"volumetric_fog_depth": 128.0,
-	"volumetric_fog_use_filter": false,
+	"volumetric_fog_density": 0.01,
+	"light_volumetric_fog_energy": 6.0,
+	"volumetric_fog_volume_size": 256,
+	"volumetric_fog_depth": 64.0,
+	"volumetric_fog_use_filter": true,
 	"use_native_fog_projector_gobos": true,
 	"background_color": Color(0.129412, 0.137255, 0.156863, 1.0),
 }

@@ -47,11 +47,12 @@ var _fixture_gobo_projector: FixtureGoboProjector = null
 var _updating_fixture_controls: bool = false
 var _visual_environment_baseline := {
 	"ambient_light_energy": 0.2,
+	"ambient_light_sky_contribution": 0.0,
 	"glow_bloom": 0.05,
 	"background_color": Color(0.129412, 0.137255, 0.156863, 1.0),
 }
 var _visual_settings := {
-	"ambient_multiplier": 1.0,
+	"ambient_multiplier": 0.0,
 	"spot_multiplier": 1.0,
 	"beam_multiplier": 1.0,
 	"bloom_multiplier": 1.0,
@@ -61,11 +62,11 @@ var _visual_settings := {
 	"beam_anisotropy": 0.62,
 	"beam_noise_amount": 0.06,
 	"beam_noise_scale": 1.4,
-	"volumetric_fog_density": 0.02,
-	"light_volumetric_fog_energy": 10.0,
-	"volumetric_fog_volume_size": 512,
-	"volumetric_fog_depth": 128.0,
-	"volumetric_fog_use_filter": false,
+	"volumetric_fog_density": 0.01,
+	"light_volumetric_fog_energy": 6.0,
+	"volumetric_fog_volume_size": 256,
+	"volumetric_fog_depth": 64.0,
+	"volumetric_fog_use_filter": true,
 	"use_native_fog_projector_gobos": true,
 	"background_color": Color(0.129412, 0.137255, 0.156863, 1.0),
 }
@@ -248,6 +249,8 @@ func _capture_visual_environment_baseline() -> void:
 	if world_environment == null or world_environment.environment == null:
 		return
 	_visual_environment_baseline["ambient_light_energy"] = float(world_environment.environment.ambient_light_energy)
+	if _environment_has_property(world_environment.environment, "ambient_light_sky_contribution"):
+		_visual_environment_baseline["ambient_light_sky_contribution"] = float(world_environment.environment.ambient_light_sky_contribution)
 	_visual_environment_baseline["glow_bloom"] = float(world_environment.environment.glow_bloom)
 	_visual_environment_baseline["background_color"] = world_environment.environment.background_color
 	_visual_settings["background_color"] = _visual_environment_baseline["background_color"]
@@ -273,7 +276,10 @@ func _apply_visual_settings(settings: Dictionary) -> void:
 			_visual_settings[key] = settings[key]
 
 	if world_environment != null and world_environment.environment != null:
-		world_environment.environment.ambient_light_energy = float(_visual_environment_baseline.get("ambient_light_energy", 0.2)) * float(_visual_settings.get("ambient_multiplier", 1.0))
+		var ambient_multiplier: float = float(_visual_settings.get("ambient_multiplier", 0.0))
+		world_environment.environment.ambient_light_energy = float(_visual_environment_baseline.get("ambient_light_energy", 0.2)) * ambient_multiplier
+		if _environment_has_property(world_environment.environment, "ambient_light_sky_contribution"):
+			world_environment.environment.ambient_light_sky_contribution = float(_visual_environment_baseline.get("ambient_light_sky_contribution", 0.0)) * ambient_multiplier
 		world_environment.environment.glow_bloom = float(_visual_environment_baseline.get("glow_bloom", 0.05)) * float(_visual_settings.get("bloom_multiplier", 1.0))
 		world_environment.environment.background_color = _visual_settings.get("background_color", _visual_environment_baseline.get("background_color", Color(0.129412, 0.137255, 0.156863, 1.0)))
 		world_environment.environment.volumetric_fog_enabled = true
