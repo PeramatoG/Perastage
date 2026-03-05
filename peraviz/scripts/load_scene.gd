@@ -314,13 +314,10 @@ func _apply_visual_settings(settings: Dictionary) -> void:
 	var fog_volume_size: int = FIXED_VOLUMETRIC_FOG_VOLUME_SIZE
 	var fog_volume_depth: int = FIXED_VOLUMETRIC_FOG_VOLUME_DEPTH
 	var fog_use_filter: bool = FIXED_VOLUMETRIC_FOG_USE_FILTER
-	_set_project_setting_if_changed("rendering/environment/volumetric_fog/volume_size", fog_volume_size)
-	_set_project_setting_if_changed("rendering/environment/volumetric_fog/volume_depth", fog_volume_depth)
-	_set_project_setting_if_changed("rendering/environment/volumetric_fog/use_filter", fog_use_filter)
 	if world_environment != null and world_environment.environment != null:
 		_apply_environment_froxel_settings(world_environment.environment, fog_volume_size, fog_volume_depth, fog_use_filter)
-	# This setting can require a renderer restart in Godot to re-allocate froxel buffers.
-	# Intentionally not persisted to disk in debug workflow.
+	# Renderer-level volumetric ProjectSettings are kept static in project.godot.
+	# Avoid changing them at runtime to prevent renderer signal churn.
 
 	_update_beam_renderer_mode(false)
 	_save_visual_settings_to_project()
@@ -334,26 +331,6 @@ func _apply_visual_settings(settings: Dictionary) -> void:
 		_refresh_existing_beam_material_scalars()
 
 
-
-func _set_project_setting_if_changed(setting_key: String, value: Variant) -> void:
-	var current_value: Variant = ProjectSettings.get_setting(setting_key, null)
-	if current_value == null:
-		ProjectSettings.set_setting(setting_key, value)
-		return
-
-	if typeof(value) == TYPE_BOOL:
-		if bool(current_value) == bool(value):
-			return
-	elif typeof(value) == TYPE_INT:
-		if int(current_value) == int(value):
-			return
-	elif typeof(value) == TYPE_FLOAT:
-		if is_equal_approx(float(current_value), float(value)):
-			return
-	elif current_value == value:
-		return
-
-	ProjectSettings.set_setting(setting_key, value)
 
 func _apply_environment_froxel_settings(environment: Environment, fog_volume_size: int, fog_volume_depth: int, fog_use_filter: bool) -> void:
 	if environment == null:
