@@ -49,6 +49,8 @@ var _visual_environment_baseline := {
 	"ambient_light_energy": 0.2,
 	"ambient_light_sky_contribution": 0.0,
 	"glow_bloom": 0.05,
+	"glow_intensity": 0.55,
+	"glow_strength": 0.55,
 	"background_color": Color(0.129412, 0.137255, 0.156863, 1.0),
 }
 var _visual_settings := {
@@ -57,7 +59,7 @@ var _visual_settings := {
 	"beam_multiplier": 1.0,
 	"bloom_multiplier": 1.0,
 	"beam_render_mode": 0,
-	"beam_quality": 1,
+	"beam_quality": 2,
 	"beam_haze_density": 0.17,
 	"beam_anisotropy": 0.62,
 	"beam_noise_amount": 0.06,
@@ -148,7 +150,7 @@ const BEAM_DISTANCE_CULL_M: float = 180.0
 const BEAM_INTENSITY_MAX: float = 8.0
 
 const ENV_QUALITY_PRESET_SETTING: String = "peraviz_environment_quality"
-const ENV_QUALITY_PRESET_DEFAULT: String = "medium"
+const ENV_QUALITY_PRESET_DEFAULT: String = "high"
 const ENVIRONMENT_QUALITY_PRESETS := {
 	"low": {
 		"ssao_enabled": false,
@@ -253,6 +255,8 @@ func _capture_visual_environment_baseline() -> void:
 	if _environment_has_property(world_environment.environment, "ambient_light_sky_contribution"):
 		_visual_environment_baseline["ambient_light_sky_contribution"] = float(world_environment.environment.ambient_light_sky_contribution)
 	_visual_environment_baseline["glow_bloom"] = float(world_environment.environment.glow_bloom)
+	_visual_environment_baseline["glow_intensity"] = float(world_environment.environment.glow_intensity)
+	_visual_environment_baseline["glow_strength"] = float(world_environment.environment.glow_strength)
 	_visual_environment_baseline["background_color"] = world_environment.environment.background_color
 	_visual_settings["background_color"] = _visual_environment_baseline["background_color"]
 
@@ -281,7 +285,11 @@ func _apply_visual_settings(settings: Dictionary) -> void:
 		world_environment.environment.ambient_light_energy = float(_visual_environment_baseline.get("ambient_light_energy", 0.2)) * ambient_multiplier
 		if _environment_has_property(world_environment.environment, "ambient_light_sky_contribution"):
 			world_environment.environment.ambient_light_sky_contribution = float(_visual_environment_baseline.get("ambient_light_sky_contribution", 0.0)) * ambient_multiplier
-		world_environment.environment.glow_bloom = float(_visual_environment_baseline.get("glow_bloom", 0.05)) * float(_visual_settings.get("bloom_multiplier", 1.0))
+		var bloom_multiplier: float = float(_visual_settings.get("bloom_multiplier", 1.0))
+		world_environment.environment.glow_enabled = bloom_multiplier > 0.001
+		world_environment.environment.glow_bloom = float(_visual_environment_baseline.get("glow_bloom", 0.05)) * bloom_multiplier
+		world_environment.environment.glow_intensity = float(_visual_environment_baseline.get("glow_intensity", 0.55)) * bloom_multiplier
+		world_environment.environment.glow_strength = float(_visual_environment_baseline.get("glow_strength", 0.55)) * bloom_multiplier
 		world_environment.environment.background_color = _visual_settings.get("background_color", _visual_environment_baseline.get("background_color", Color(0.129412, 0.137255, 0.156863, 1.0)))
 		world_environment.environment.volumetric_fog_enabled = true
 		world_environment.environment.volumetric_fog_density = float(_visual_settings.get("volumetric_fog_density", 0.03))
