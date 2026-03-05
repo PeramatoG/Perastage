@@ -54,10 +54,10 @@ var _visual_environment_baseline := {
 	"background_color": Color(0.129412, 0.137255, 0.156863, 1.0),
 }
 var _visual_settings := {
-	"ambient_multiplier": 0.05,
+	"ambient_multiplier": 0.08,
 	"spot_multiplier": 1.0,
 	"beam_multiplier": 1.0,
-	"bloom_multiplier": 1.0,
+	"bloom_multiplier": 0.0,
 	"beam_render_mode": 0,
 	"beam_quality": 2,
 	"use_fog_volume_gobo_beam": false,
@@ -70,9 +70,9 @@ var _visual_settings := {
 	"beam_noise_amount": 0.06,
 	"beam_noise_scale": 1.4,
 	"ambient_fog_density": 0.0,
-	"volumetric_fog_density": 0.006,
+	"volumetric_fog_density": 0.0025,
 	"volumetric_fog_fade": 0.02,
-	"light_volumetric_fog_energy": 12.0,
+	"light_volumetric_fog_energy": 8.0,
 	"use_native_fog_projector_gobos": true,
 	"background_color": Color(0.129412, 0.137255, 0.156863, 1.0),
 }
@@ -151,9 +151,9 @@ const BEAM_RENDER_MODE_LEGACY: int = 1
 const BEAM_INTENSITY_VISIBILITY_THRESHOLD: float = 0.015
 const BEAM_DISTANCE_CULL_M: float = 180.0
 const BEAM_INTENSITY_MAX: float = 8.0
-const FIXED_VOLUMETRIC_FOG_VOLUME_SIZE: int = 512
-const FIXED_VOLUMETRIC_FOG_VOLUME_DEPTH: int = 128
-const FIXED_VOLUMETRIC_FOG_USE_FILTER: bool = true
+const FIXED_VOLUMETRIC_FOG_VOLUME_SIZE: int = 1024
+const FIXED_VOLUMETRIC_FOG_VOLUME_DEPTH: int = 256
+const FIXED_VOLUMETRIC_FOG_USE_FILTER: bool = false
 
 const ENV_QUALITY_PRESET_SETTING: String = "peraviz_environment_quality"
 const ENV_QUALITY_PRESET_DEFAULT: String = "high"
@@ -288,13 +288,13 @@ func _apply_visual_settings(settings: Dictionary) -> void:
 
 	if world_environment != null and world_environment.environment != null:
 		if _environment_has_property(world_environment.environment, "ambient_light_source"):
-			world_environment.environment.ambient_light_source = 1
+			world_environment.environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 		world_environment.environment.ambient_light_color = Color(1.0, 1.0, 1.0, 1.0)
-		var ambient_multiplier: float = float(_visual_settings.get("ambient_multiplier", 0.05))
+		var ambient_multiplier: float = float(_visual_settings.get("ambient_multiplier", 0.08))
 		world_environment.environment.ambient_light_energy = ambient_multiplier
 		if _environment_has_property(world_environment.environment, "ambient_light_sky_contribution"):
 			world_environment.environment.ambient_light_sky_contribution = 0.0
-		var bloom_multiplier: float = float(_visual_settings.get("bloom_multiplier", 1.0))
+		var bloom_multiplier: float = float(_visual_settings.get("bloom_multiplier", 0.0))
 		world_environment.environment.glow_enabled = bloom_multiplier > 0.001
 		world_environment.environment.glow_bloom = float(_visual_environment_baseline.get("glow_bloom", 0.05)) * bloom_multiplier
 		world_environment.environment.glow_intensity = float(_visual_environment_baseline.get("glow_intensity", 0.55)) * bloom_multiplier
@@ -305,7 +305,7 @@ func _apply_visual_settings(settings: Dictionary) -> void:
 		if world_environment.environment.fog_enabled:
 			world_environment.environment.fog_density = ambient_fog_density
 		world_environment.environment.volumetric_fog_enabled = true
-		world_environment.environment.volumetric_fog_density = max(float(_visual_settings.get("volumetric_fog_density", 0.006)), 0.0001)
+		world_environment.environment.volumetric_fog_density = max(float(_visual_settings.get("volumetric_fog_density", 0.0025)), 0.0001)
 		if _environment_has_property(world_environment.environment, "volumetric_fog_fade"):
 			world_environment.environment.volumetric_fog_fade = max(float(_visual_settings.get("volumetric_fog_fade", 0.02)), 0.005)
 

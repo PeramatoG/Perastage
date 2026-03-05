@@ -7,9 +7,9 @@
 [sub_resource type="Environment" id="Environment_viewer"]
 background_mode = 1
 background_color = Color(0.129412, 0.137255, 0.156863, 1)
-ambient_light_source = 1
+ambient_light_source = 2
 ambient_light_color = Color(0.176471, 0.188235, 0.211765, 1)
-ambient_light_energy = 0.2
+ambient_light_energy = 0.08
 tonemap_mode = 3
 tonemap_white = 8.0
 ssao_enabled = true
@@ -18,7 +18,7 @@ ssao_intensity = 0.35
 glow_enabled = true
 glow_intensity = 0.55
 glow_strength = 0.55
-glow_bloom = 0.05
+glow_bloom = 0.0
 adjustment_enabled = true
 adjustment_contrast = 1.05
 adjustment_saturation = 1.05
