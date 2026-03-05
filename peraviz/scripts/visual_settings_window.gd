@@ -13,17 +13,18 @@ const DEFAULT_SETTINGS := {
 	"beam_render_mode": 0,
 	"beam_quality": 2,
 	"use_fog_volume_gobo_beam": true,
-	"fog_volume_density_scale": 2.5,
-	"fog_volume_emission_strength": 2.0,
-	"fog_volume_edge_softness": 0.85,
+	"fog_volume_density_scale": 1.1,
+	"fog_volume_emission_strength": 0.6,
+	"fog_volume_edge_softness": 0.65,
 	"fog_volume_invert_gobo": false,
 	"beam_haze_density": 0.17,
 	"beam_anisotropy": 0.62,
 	"beam_noise_amount": 0.06,
 	"beam_noise_scale": 1.4,
-	"volumetric_fog_density": 0.03,
+	"ambient_fog_density": 0.0,
+	"volumetric_fog_density": 0.006,
 	"volumetric_fog_fade": 0.02,
-	"light_volumetric_fog_energy": 50.0,
+	"light_volumetric_fog_energy": 12.0,
 	"use_native_fog_projector_gobos": true,
 	"background_color": Color(0.129412, 0.137255, 0.156863, 1.0),
 }
@@ -87,7 +88,8 @@ func _build_ui() -> void:
 	_spot_slider = _add_slider_row(container, "Spot intensity", "spot_multiplier", 0.0, 3.0, 0.01)
 	_beam_slider = _add_slider_row(container, "Beam intensity", "beam_multiplier", 0.0, 8.0, 0.01)
 	_bloom_slider = _add_slider_row(container, "Bloom", "bloom_multiplier", 0.0, 3.0, 0.01)
-	_fog_density_slider = _add_slider_row(container, "Volumetric fog density", "volumetric_fog_density", 0.0, 0.08, 0.001)
+	_add_slider_row(container, "Ambient fog density", "ambient_fog_density", 0.0, 0.05, 0.001)
+	_fog_density_slider = _add_slider_row(container, "Volumetric fog density", "volumetric_fog_density", 0.0, 0.03, 0.001)
 	_fog_fade_slider = _add_slider_row(container, "Volumetric fog fade", "volumetric_fog_fade", 0.0, 0.2, 0.005)
 	_light_fog_energy_slider = _add_slider_row(container, "Light fog energy", "light_volumetric_fog_energy", 0.0, 100.0, 0.5)
 	_beam_render_mode_option = _add_option_row(container, "Beam rendering", ["Volumetric (default)", "Lightweight (legacy)"], _on_beam_render_mode_selected)
@@ -203,15 +205,17 @@ func _apply_settings_to_controls() -> void:
 	_spot_slider.value = float(_settings.get("spot_multiplier", 1.0))
 	_beam_slider.value = float(_settings.get("beam_multiplier", 1.0))
 	_bloom_slider.value = float(_settings.get("bloom_multiplier", 1.0))
-	_fog_density_slider.value = float(_settings.get("volumetric_fog_density", 0.03))
+	_fog_density_slider.value = float(_settings.get("volumetric_fog_density", 0.006))
 	_fog_fade_slider.value = float(_settings.get("volumetric_fog_fade", 0.02))
-	_light_fog_energy_slider.value = float(_settings.get("light_volumetric_fog_energy", 50.0))
+	_light_fog_energy_slider.value = float(_settings.get("light_volumetric_fog_energy", 12.0))
 	_beam_render_mode_option.select(clamp(int(_settings.get("beam_render_mode", 0)), 0, 1))
 	_beam_quality_option.select(clamp(int(_settings.get("beam_quality", 1)), 0, 2))
 	_background_picker.color = _settings.get("background_color", DEFAULT_SETTINGS["background_color"])
 	_update_value_labels()
 
 func _on_slider_changed(key: String, value: float) -> void:
+	if key == "volumetric_fog_fade":
+		value = max(value, 0.005)
 	_settings[key] = value
 	_update_value_labels()
 	_emit_settings_changed()
@@ -238,9 +242,9 @@ func _update_value_labels() -> void:
 	_spot_value_label.text = "%.2f" % float(_settings.get("spot_multiplier", 1.0))
 	_beam_value_label.text = "%.2f" % float(_settings.get("beam_multiplier", 1.0))
 	_bloom_value_label.text = "%.2f" % float(_settings.get("bloom_multiplier", 1.0))
-	_fog_density_value_label.text = "%.3f" % float(_settings.get("volumetric_fog_density", 0.03))
+	_fog_density_value_label.text = "%.3f" % float(_settings.get("volumetric_fog_density", 0.006))
 	_fog_fade_value_label.text = "%.3f" % float(_settings.get("volumetric_fog_fade", 0.02))
-	_light_fog_energy_value_label.text = "%.2f" % float(_settings.get("light_volumetric_fog_energy", 50.0))
+	_light_fog_energy_value_label.text = "%.2f" % float(_settings.get("light_volumetric_fog_energy", 12.0))
 
 func _emit_settings_changed() -> void:
 	settings_changed.emit(_settings.duplicate(true))
