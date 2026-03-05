@@ -292,9 +292,10 @@ func _apply_visual_settings(settings: Dictionary) -> void:
 		if _environment_has_property(world_environment.environment, "ambient_light_source"):
 			world_environment.environment.ambient_light_source = 1
 		var ambient_multiplier: float = float(_visual_settings.get("ambient_multiplier", 0.05))
-		world_environment.environment.ambient_light_energy = float(_visual_environment_baseline.get("ambient_light_energy", 0.2)) * ambient_multiplier
+		# Treat ambient slider as absolute global light energy so changes are immediately visible.
+		world_environment.environment.ambient_light_energy = ambient_multiplier
 		if _environment_has_property(world_environment.environment, "ambient_light_sky_contribution"):
-			world_environment.environment.ambient_light_sky_contribution = float(_visual_environment_baseline.get("ambient_light_sky_contribution", 0.0)) * ambient_multiplier
+			world_environment.environment.ambient_light_sky_contribution = 0.0
 		var bloom_multiplier: float = float(_visual_settings.get("bloom_multiplier", 1.0))
 		world_environment.environment.glow_enabled = bloom_multiplier > 0.001
 		world_environment.environment.glow_bloom = float(_visual_environment_baseline.get("glow_bloom", 0.05)) * bloom_multiplier
