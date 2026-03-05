@@ -6,12 +6,17 @@ class_name VisualSettingsWindow
 signal settings_changed(settings: Dictionary)
 
 const DEFAULT_SETTINGS := {
-	"ambient_multiplier": 0.0,
+	"ambient_multiplier": 0.05,
 	"spot_multiplier": 1.0,
 	"beam_multiplier": 1.0,
 	"bloom_multiplier": 1.0,
 	"beam_render_mode": 0,
 	"beam_quality": 2,
+	"use_fog_volume_gobo_beam": true,
+	"fog_volume_density_scale": 2.5,
+	"fog_volume_emission_strength": 2.0,
+	"fog_volume_edge_softness": 0.85,
+	"fog_volume_invert_gobo": false,
 	"beam_haze_density": 0.17,
 	"beam_anisotropy": 0.62,
 	"beam_noise_amount": 0.06,
@@ -97,6 +102,11 @@ func _build_ui() -> void:
 	_beam_render_mode_option = _add_option_row(container, "Beam rendering", ["Volumetric (default)", "Lightweight (legacy)"], _on_beam_render_mode_selected)
 	_beam_quality_option = _add_option_row(container, "Beam quality", ["Low", "Medium", "High"], _on_beam_quality_selected)
 	_add_toggle_row(container, "Volumetric fog Use Filter (ON = less aliasing, less detail)", "volumetric_fog_use_filter")
+	_add_toggle_row(container, "Use FogVolume gobo beam", "use_fog_volume_gobo_beam")
+	_add_toggle_row(container, "Invert FogVolume gobo", "fog_volume_invert_gobo")
+	_add_slider_row(container, "FogVolume density scale", "fog_volume_density_scale", 0.0, 10.0, 0.1)
+	_add_slider_row(container, "FogVolume emission strength", "fog_volume_emission_strength", 0.0, 10.0, 0.1)
+	_add_slider_row(container, "FogVolume edge softness", "fog_volume_edge_softness", 0.1, 1.0, 0.01)
 
 	var background_row: HBoxContainer = HBoxContainer.new()
 	background_row.add_theme_constant_override("separation", 8)
@@ -203,7 +213,7 @@ func _add_toggle_row(parent: VBoxContainer, label_text: String, key: String) -> 
 	parent.add_child(toggle)
 
 func _apply_settings_to_controls() -> void:
-	_ambient_slider.value = float(_settings.get("ambient_multiplier", 0.0))
+	_ambient_slider.value = float(_settings.get("ambient_multiplier", 0.05))
 	_spot_slider.value = float(_settings.get("spot_multiplier", 1.0))
 	_beam_slider.value = float(_settings.get("beam_multiplier", 1.0))
 	_bloom_slider.value = float(_settings.get("bloom_multiplier", 1.0))
@@ -242,7 +252,7 @@ func _on_beam_quality_selected(index: int) -> void:
 	_emit_settings_changed()
 
 func _update_value_labels() -> void:
-	_ambient_value_label.text = "%.2f" % float(_settings.get("ambient_multiplier", 0.0))
+	_ambient_value_label.text = "%.2f" % float(_settings.get("ambient_multiplier", 0.05))
 	_spot_value_label.text = "%.2f" % float(_settings.get("spot_multiplier", 1.0))
 	_beam_value_label.text = "%.2f" % float(_settings.get("beam_multiplier", 1.0))
 	_bloom_value_label.text = "%.2f" % float(_settings.get("bloom_multiplier", 1.0))
