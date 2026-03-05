@@ -44,7 +44,6 @@ var _fixture_emissive_cache: Dictionary = {}
 var _fixture_emitter_light_cache: Dictionary = {}
 var _fixture_emitter_photometrics: Dictionary = {}
 var _fixture_gobo_projector: FixtureGoboProjector = null
-var _fog_volume_gobo_beam: FogVolumeGoboBeamController = null
 var _updating_fixture_controls: bool = false
 var _visual_environment_baseline := {
 	"ambient_light_energy": 0.2,
@@ -61,7 +60,7 @@ var _visual_settings := {
 	"bloom_multiplier": 1.0,
 	"beam_render_mode": 0,
 	"beam_quality": 2,
-	"use_fog_volume_gobo_beam": true,
+	"use_fog_volume_gobo_beam": false,
 	"fog_volume_density_scale": 1.1,
 	"fog_volume_emission_strength": 0.6,
 	"fog_volume_edge_softness": 0.65,
@@ -99,7 +98,6 @@ const BeamRendererBaseScript = preload("res://scripts/beam_renderers/beam_render
 const LegacyConeBeamRendererScript = preload("res://scripts/beam_renderers/legacy_cone_beam_renderer.gd")
 const VolumetricBeamRendererScript = preload("res://scripts/beam_renderers/volumetric_beam_renderer.gd")
 const FixtureGoboProjectorScript = preload("res://scripts/fixture_gobo_projector.gd")
-const FogVolumeGoboBeamControllerScript = preload("res://scripts/fog_volume_gobo_beam_controller.gd")
 
 const DEBUG_TOGGLE_KEY: Key = KEY_C
 const MANUAL_TEST_FLAG: String = "--peraviz_manual_fixture_test"
@@ -234,7 +232,6 @@ func _ready() -> void:
 	_load_visual_settings_from_project()
 	_initialize_beam_renderers()
 	_fixture_gobo_projector = FixtureGoboProjectorScript.new()
-	_fog_volume_gobo_beam = FogVolumeGoboBeamControllerScript.new()
 	if visual_settings_window != null and visual_settings_window.has_method("configure"):
 		visual_settings_window.call("configure", _visual_settings)
 	else:
@@ -960,11 +957,6 @@ func _clear_scene() -> void:
 	_node_index.clear()
 	_asset_cache.clear()
 	_fixture_emissive_cache.clear()
-	if _fog_volume_gobo_beam != null:
-		for fixture_uuid in _fixture_emitter_light_cache.keys():
-			for light in _fixture_emitter_light_cache.get(fixture_uuid, []):
-				if light is SpotLight3D and is_instance_valid(light):
-					_fog_volume_gobo_beam.clear_for_light(light)
 	_fixture_emitter_light_cache.clear()
 	_fixture_emitter_photometrics.clear()
 	if _fixture_gobo_projector != null:
@@ -1706,12 +1698,7 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 		gobo_controls["prefer_native_fog_projector"] = bool(_visual_settings.get("use_native_fog_projector_gobos", true))
 		_fixture_gobo_projector.apply_gobo_projection(light, gobo_controls)
 	light.light_volumetric_fog_energy = float(_visual_settings.get("light_volumetric_fog_energy", 12.0))
-	var gobo_texture: Texture2D = light.get_meta("peraviz_gobo_texture") as Texture2D if light.has_meta("peraviz_gobo_texture") else null
-	if bool(_visual_settings.get("use_fog_volume_gobo_beam", true)) and _fog_volume_gobo_beam != null:
-		_cleanup_light_beam_renderers(light)
-		_fog_volume_gobo_beam.update_for_light(light, beam_params, gobo_texture, _visual_settings)
-	else:
-		_update_beam_for_light(light, beam_params)
+	_update_beam_for_light(light, beam_params)
 
 func _resolve_zoom_beam_limits(light: SpotLight3D, controls: Dictionary) -> Dictionary:
 	# min/max beam angles are kept as full GDTF beam apertures (not half-angle).
