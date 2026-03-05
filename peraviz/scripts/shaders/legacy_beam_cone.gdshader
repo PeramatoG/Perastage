@@ -16,6 +16,7 @@ instance uniform float gobo_projection_radius = 1.0;
 uniform sampler2D gobo_texture : source_color;
 uniform bool use_gobo = false;
 uniform float gobo_contrast : hint_range(0.1, 4.0) = 1.0;
+uniform bool gobo_invert = true;
 
 varying float beam_axial;
 varying vec3 beam_local;
@@ -35,6 +36,21 @@ vec2 project_gobo_uv(vec3 local_pos) {
 	return vec2(0.5) + (projected / (2.0 * projection_radius));
 }
 
+
+float sample_gobo_mask(vec2 uv) {
+	if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) {
+		return 0.0;
+	}
+	vec4 texel = texture(gobo_texture, uv);
+	float luma = clamp(dot(texel.rgb, vec3(0.299, 0.587, 0.114)), 0.0, 1.0);
+	float alpha = clamp(texel.a, 0.0, 1.0);
+	float open_amount = luma;
+	if (gobo_invert) {
+		open_amount = 1.0 - luma;
+	}
+	return pow(clamp(open_amount * alpha, 0.0, 1.0), gobo_contrast);
+}
+
 void fragment() {
 	float near_factor = beam_axial;
 	float far_progress = 1.0 - beam_axial;
@@ -47,8 +63,7 @@ void fragment() {
 	float gobo_mask = 1.0;
 	if (use_gobo) {
 		vec2 gobo_uv = project_gobo_uv(beam_local);
-		float gobo_luma = texture(gobo_texture, gobo_uv).r;
-		gobo_mask = pow(clamp(gobo_luma, 0.0, 1.0), gobo_contrast);
+		gobo_mask = sample_gobo_mask(gobo_uv);
 	}
 	ALBEDO = beam_color.rgb * gobo_mask;
 	ALPHA = mix(far_alpha, near_alpha, near_factor) * end_fade * lateral_fade * gobo_mask;

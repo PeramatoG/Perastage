@@ -102,9 +102,12 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 		# Without fog we keep the preview cone so operators still see the beam shape.
 		cone.visible = false
 		return
-	cone.set_instance_shader_parameter("use_gobo", gobo_texture != null)
-	if gobo_texture != null:
-		cone.set_instance_shader_parameter("gobo_texture", gobo_texture)
+	var cone_material: ShaderMaterial = cone.material_override as ShaderMaterial
+	if cone_material != null:
+		cone_material.set_shader_parameter("use_gobo", gobo_texture != null)
+		cone_material.set_shader_parameter("gobo_invert", true)
+		if gobo_texture != null:
+			cone_material.set_shader_parameter("gobo_texture", gobo_texture)
 
 func cleanup_beam(light: SpotLight3D) -> void:
 	if not light.has_meta(BEAM_META_KEY):

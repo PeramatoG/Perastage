@@ -14,11 +14,11 @@ const MID_KEY: String = "peraviz_beam_cone_mid"
 const CORE_KEY: String = "peraviz_beam_cone_core"
 const GOBO_TEXTURE_META_KEY: String = "peraviz_gobo_texture"
 
-var _shared_material: ShaderMaterial
+var _material_template: ShaderMaterial
 
 func _init() -> void:
-	_shared_material = ShaderMaterial.new()
-	_shared_material.shader = load("res://scripts/shaders/legacy_beam_cone.gdshader")
+	_material_template = ShaderMaterial.new()
+	_material_template.shader = load("res://scripts/shaders/legacy_beam_cone.gdshader")
 
 func ensure_beam(light: SpotLight3D) -> void:
 	if not light.has_meta(MAIN_KEY):
@@ -111,7 +111,7 @@ func _create_cone(cone_name: String) -> MeshInstance3D:
 	cone.name = cone_name
 	cone.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	cone.mesh = cone_mesh
-	cone.material_override = _shared_material
+	cone.material_override = _material_template.duplicate(true)
 	cone.rotation_degrees.x = 90.0
 	cone.visible = false
 	return cone
@@ -141,6 +141,9 @@ func _update_cone_material(cone: MeshInstance3D, beam_color: Color, scaled_inten
 	cone.set_instance_shader_parameter("lateral_softness", lateral_softness)
 	cone.set_instance_shader_parameter("lateral_emission_boost", lateral_emission_boost)
 	cone.set_instance_shader_parameter("volumetric_noise_strength", noise_strength)
-	cone.set_instance_shader_parameter("use_gobo", gobo_texture != null)
-	if gobo_texture != null:
-		cone.set_instance_shader_parameter("gobo_texture", gobo_texture)
+	var cone_material: ShaderMaterial = cone.material_override as ShaderMaterial
+	if cone_material != null:
+		cone_material.set_shader_parameter("use_gobo", gobo_texture != null)
+		cone_material.set_shader_parameter("gobo_invert", true)
+		if gobo_texture != null:
+			cone_material.set_shader_parameter("gobo_texture", gobo_texture)
