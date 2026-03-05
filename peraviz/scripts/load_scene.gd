@@ -309,15 +309,8 @@ func _apply_visual_settings(settings: Dictionary) -> void:
 		if _environment_has_property(world_environment.environment, "volumetric_fog_fade"):
 			world_environment.environment.volumetric_fog_fade = max(float(_visual_settings.get("volumetric_fog_fade", 0.02)), 0.005)
 
-	# Godot volumetric fog froxel controls are renderer-level project settings.
-	# Keep them aligned with visual settings for the #11987 shadow-cookie workflow.
-	var fog_volume_size: int = FIXED_VOLUMETRIC_FOG_VOLUME_SIZE
-	var fog_volume_depth: int = FIXED_VOLUMETRIC_FOG_VOLUME_DEPTH
-	var fog_use_filter: bool = FIXED_VOLUMETRIC_FOG_USE_FILTER
-	if world_environment != null and world_environment.environment != null:
-		_apply_environment_froxel_settings(world_environment.environment, fog_volume_size, fog_volume_depth, fog_use_filter)
-	# Renderer-level volumetric ProjectSettings are kept static in project.godot.
-	# Avoid changing them at runtime to prevent renderer signal churn.
+	# Renderer-level volumetric fog froxel settings are kept static in project.godot.
+	# Do not mutate froxel sizing/filtering at runtime, as it can cause renderer signal churn.
 
 	_update_beam_renderer_mode(false)
 	_save_visual_settings_to_project()
@@ -331,25 +324,6 @@ func _apply_visual_settings(settings: Dictionary) -> void:
 		_refresh_existing_beam_material_scalars()
 
 
-
-func _apply_environment_froxel_settings(environment: Environment, fog_volume_size: int, fog_volume_depth: int, fog_use_filter: bool) -> void:
-	if environment == null:
-		return
-	var volume_size_candidates: PackedStringArray = PackedStringArray(["volumetric_fog_volume_size", "volume_size"])
-	for property_name in volume_size_candidates:
-		if _environment_has_property(environment, property_name):
-			environment.set(property_name, fog_volume_size)
-			break
-	var volume_depth_candidates: PackedStringArray = PackedStringArray(["volumetric_fog_depth", "volume_depth", "volumetric_fog_length"])
-	for property_name in volume_depth_candidates:
-		if _environment_has_property(environment, property_name):
-			environment.set(property_name, float(fog_volume_depth))
-			break
-	var use_filter_candidates: PackedStringArray = PackedStringArray(["volumetric_fog_filter_active", "use_filter"])
-	for property_name in use_filter_candidates:
-		if _environment_has_property(environment, property_name):
-			environment.set(property_name, fog_use_filter)
-			break
 
 func _environment_has_property(environment: Environment, property_name: String) -> bool:
 	if environment == null:
