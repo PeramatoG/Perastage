@@ -337,8 +337,22 @@ func _apply_visual_settings(settings: Dictionary) -> void:
 
 func _set_project_setting_if_changed(setting_key: String, value: Variant) -> void:
 	var current_value: Variant = ProjectSettings.get_setting(setting_key, null)
-	if current_value == value:
+	if current_value == null:
+		ProjectSettings.set_setting(setting_key, value)
 		return
+
+	if typeof(value) == TYPE_BOOL:
+		if bool(current_value) == bool(value):
+			return
+	elif typeof(value) == TYPE_INT:
+		if int(current_value) == int(value):
+			return
+	elif typeof(value) == TYPE_FLOAT:
+		if is_equal_approx(float(current_value), float(value)):
+			return
+	elif current_value == value:
+		return
+
 	ProjectSettings.set_setting(setting_key, value)
 
 func _apply_environment_froxel_settings(environment: Environment, fog_volume_size: int, fog_volume_depth: int, fog_use_filter: bool) -> void:
