@@ -43,6 +43,8 @@ current = true
 script = ExtResource("2_camera_script")
 
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="." unique_id=426373555]
+visible = false
+light_energy = 0.0
 transform = Transform3D(0.8480481, -0.41758206, 0.32625088, 0, 0.6156615, 0.7880107, -0.52991927, -0.668271, 0.5221106, 0, 0, 0)
 light_angular_distance = 0.35
 shadow_enabled = true

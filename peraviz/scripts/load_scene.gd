@@ -62,10 +62,11 @@ var _visual_settings := {
 	"beam_anisotropy": 0.62,
 	"beam_noise_amount": 0.06,
 	"beam_noise_scale": 1.4,
-	"volumetric_fog_density": 0.01,
-	"light_volumetric_fog_energy": 6.0,
-	"volumetric_fog_volume_size": 256,
-	"volumetric_fog_depth": 64.0,
+	"volumetric_fog_density": 0.03,
+	"volumetric_fog_fade": 0.02,
+	"light_volumetric_fog_energy": 50.0,
+	"volumetric_fog_volume_size": 512,
+	"volumetric_fog_depth": 128.0,
 	"volumetric_fog_use_filter": true,
 	"use_native_fog_projector_gobos": true,
 	"background_color": Color(0.129412, 0.137255, 0.156863, 1.0),
@@ -283,7 +284,9 @@ func _apply_visual_settings(settings: Dictionary) -> void:
 		world_environment.environment.glow_bloom = float(_visual_environment_baseline.get("glow_bloom", 0.05)) * float(_visual_settings.get("bloom_multiplier", 1.0))
 		world_environment.environment.background_color = _visual_settings.get("background_color", _visual_environment_baseline.get("background_color", Color(0.129412, 0.137255, 0.156863, 1.0)))
 		world_environment.environment.volumetric_fog_enabled = true
-		world_environment.environment.volumetric_fog_density = float(_visual_settings.get("volumetric_fog_density", 0.01))
+		world_environment.environment.volumetric_fog_density = float(_visual_settings.get("volumetric_fog_density", 0.03))
+		if _environment_has_property(world_environment.environment, "volumetric_fog_fade"):
+			world_environment.environment.volumetric_fog_fade = float(_visual_settings.get("volumetric_fog_fade", 0.02))
 
 	# Godot volumetric fog froxel controls are renderer-level project settings.
 	# Keep them aligned with visual settings for the #11987 shadow-cookie workflow.
