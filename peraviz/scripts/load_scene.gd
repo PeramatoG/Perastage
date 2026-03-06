@@ -106,6 +106,7 @@ const BeamRendererBaseScript = preload("res://scripts/beam_renderers/beam_render
 const LegacyConeBeamRendererScript = preload("res://scripts/beam_renderers/legacy_cone_beam_renderer.gd")
 const VolumetricBeamRendererScript = preload("res://scripts/beam_renderers/volumetric_beam_renderer.gd")
 const FixtureGoboProjectorScript = preload("res://scripts/fixture_gobo_projector.gd")
+const BeamOpticsControllerScript = preload("res://scripts/beam_optics_controller.gd")
 
 const DEBUG_TOGGLE_KEY: Key = KEY_C
 const MANUAL_TEST_FLAG: String = "--peraviz_manual_fixture_test"
@@ -1657,37 +1658,33 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 		lens_radius = max(source_beam_radius, 0.005)
 	light.set_meta("peraviz_beam_base_intensity", clamp(normalized_dimmer, 0.0, 1.0))
 	light.set_meta("peraviz_beam_angle_source", "gdtf_full_angle_deg")
-	var beam_params := {
-		"beam_angle": beam_angle,
-		"beam_angle_deg": beam_angle,
-		"beam_range": light.spot_range,
-		"beam_angle_source": "gdtf_full_angle_deg",
-		"beam_color": beam_color,
-		"normalized_dimmer": clamp(normalized_dimmer, 0.0, 1.0),
-		"scaled_intensity": clamp(normalized_dimmer * float(_visual_settings.get("beam_multiplier", 1.0)), 0.0, BEAM_INTENSITY_MAX),
-		"lens_radius": lens_radius,
-		"lens_offset_m": float(_visual_settings.get("lens_offset_m", 0.0)),
-		"is_visible": light.visible,
-		"beam_softness": float(_visual_settings.get("beam_softness", 0.35)),
-		"beam_radial_falloff": float(_visual_settings.get("beam_radial_falloff", 1.1)),
-		"beam_longitudinal_falloff": float(_visual_settings.get("beam_longitudinal_falloff", 1.0)),
-		"haze_density_multiplier": float(_visual_settings.get("haze_density_multiplier", 0.35)),
-		"gobo_scale": float(_visual_settings.get("gobo_scale", 1.0)),
-		"gobo_rotation_deg": float(_visual_settings.get("gobo_rotation_deg", 0.0)),
-		"beam_debug_optics": bool(_visual_settings.get("beam_debug_optics", false)),
-		"fade_end_ratio": EMITTER_CONE_FADE_END_RATIO,
-		"intensity_visibility_threshold": BEAM_INTENSITY_VISIBILITY_THRESHOLD,
-		"distance_cull_m": BEAM_DISTANCE_CULL_M,
-		"spot_angle_half_deg": light.spot_angle,
-		"spot_range": light.spot_range,
-		"use_native_fog_projector_gobos": bool(_visual_settings.get("use_native_fog_projector_gobos", true)),
-		"volumetric_fog_density": float(_visual_settings.get("volumetric_fog_density", 0.0)),
+	var scaled_intensity: float = clamp(normalized_dimmer * float(_visual_settings.get("beam_multiplier", 1.0)), 0.0, BEAM_INTENSITY_MAX)
+	var beam_defaults := {
+		"beam_softness": 0.35,
+		"beam_radial_falloff": 1.1,
+		"beam_longitudinal_falloff": 1.0,
+		"haze_density_multiplier": 0.35,
+		"gobo_scale": 1.0,
+		"gobo_rotation_deg": 0.0,
+		"lens_offset_m": 0.0,
 	}
+	var beam_params: Dictionary = BeamOpticsControllerScript.BuildBeamParams(
+		light,
+		beam_angle,
+		beam_color,
+		normalized_dimmer,
+		scaled_intensity,
+		lens_radius,
+		_visual_settings,
+		beam_defaults
+	)
+	beam_params["fade_end_ratio"] = EMITTER_CONE_FADE_END_RATIO
+	beam_params["intensity_visibility_threshold"] = BEAM_INTENSITY_VISIBILITY_THRESHOLD
+	beam_params["distance_cull_m"] = BEAM_DISTANCE_CULL_M
+	beam_params["use_native_fog_projector_gobos"] = bool(_visual_settings.get("use_native_fog_projector_gobos", true))
+	beam_params["volumetric_fog_density"] = float(_visual_settings.get("volumetric_fog_density", 0.0))
 	if _fixture_gobo_projector != null:
-		var gobo_controls: Dictionary = controls.duplicate(true)
-		gobo_controls["prefer_native_fog_projector"] = bool(_visual_settings.get("use_native_fog_projector_gobos", true))
-		gobo_controls["gobo_scale"] = float(_visual_settings.get("gobo_scale", 1.0))
-		gobo_controls["gobo_rotation_deg"] = float(_visual_settings.get("gobo_rotation_deg", 0.0))
+		var gobo_controls: Dictionary = BeamOpticsControllerScript.BuildGoboControls(controls, _visual_settings, beam_defaults)
 		_fixture_gobo_projector.apply_gobo_projection(light, gobo_controls)
 	light.light_volumetric_fog_energy = float(_visual_settings.get("light_volumetric_fog_energy", 20.0)) * float(_visual_settings.get("haze_density_multiplier", 0.35))
 	_update_beam_for_light(light, beam_params)

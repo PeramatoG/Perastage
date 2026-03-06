@@ -33,7 +33,7 @@ void vertex() {
 
 vec2 project_gobo_uv(vec3 local_pos) {
 	float source_y = 0.5 * cone_height;
-	float axial_dist = max(source_y - local_pos.y, 0.001);
+	float axial_dist = max(abs(source_y - local_pos.y), 0.001);
 	float projection_scale = cone_height / axial_dist;
 	float projection_radius = max(gobo_projection_radius, 0.001);
 	vec2 projected = local_pos.xz * projection_scale;
@@ -51,7 +51,7 @@ vec2 project_gobo_uv(vec3 local_pos) {
 
 float radial_profile_from_local(vec3 local_pos) {
 	float source_y = 0.5 * cone_height;
-	float axial_dist = max(source_y - local_pos.y, 0.001);
+	float axial_dist = max(abs(source_y - local_pos.y), 0.001);
 	float projection_scale = cone_height / axial_dist;
 	float projection_radius = max(gobo_projection_radius, 0.001);
 	float local_radius = projection_radius / max(projection_scale, 0.0001);
