@@ -39,6 +39,9 @@ Peraviz keeps one optical parameter set in `load_scene.gd` and shares it with bo
 - `gobo_rotation_deg`
 - `gobo_scale`
 - `lens_offset_m`
+- `near_offset`
+- `lens_shift_x`
+- `lens_shift_y`
 - `beam_softness`
 - `beam_radial_falloff`
 - `beam_longitudinal_falloff`
@@ -72,3 +75,5 @@ This keeps zoom/angle and gobo scaling behavior aligned with footprint projectio
 - Volumetric renderer uses a stronger internal intensity scale and non-squared alpha path so the cone remains visible while preserving gobo modulation.
 
 - Volumetric and legacy radial attenuation now use cone-local geometric radius (not a single UV axis), avoiding directional over-fade that could hide the beam.
+
+- Beam mesh node rotation uses `-90°` around X so cone local axis aligns with fixture local `-Z` (same emission direction as spotlight).

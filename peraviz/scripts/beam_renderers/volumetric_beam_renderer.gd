@@ -35,7 +35,7 @@ func ensure_beam(light: SpotLight3D) -> void:
 	cone.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	cone.mesh = cone_mesh
 	cone.material_override = _beam_material_template.duplicate(true)
-	cone.rotation_degrees.x = 90.0
+	cone.rotation_degrees.x = -90.0
 	cone.visible = false
 	light.add_child(cone)
 	light.set_meta(BEAM_META_KEY, cone)
@@ -80,8 +80,10 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 		cone_mesh.top_radius = top_radius
 		cone_mesh.bottom_radius = bottom_radius
 		cone_mesh.height = beam_range
-	var lens_offset_m: float = max(float(params.get("lens_offset_m", 0.0)), 0.0)
-	cone.position = Vector3(0.0, 0.0, -(beam_range * 0.5 + lens_offset_m))
+	var lens_offset_m: float = max(float(params.get("lens_offset_m", params.get("near_offset", 0.0))), 0.0)
+	var lens_shift_x: float = float(params.get("lens_shift_x", 0.0))
+	var lens_shift_y: float = float(params.get("lens_shift_y", 0.0))
+	cone.position = Vector3(lens_shift_x, lens_shift_y, -(beam_range * 0.5 + lens_offset_m))
 	cone.visible = true
 
 	var intensity_alpha: float = clamp(intensity * VOLUMETRIC_INTENSITY_SCALE, 0.0, 2.5)

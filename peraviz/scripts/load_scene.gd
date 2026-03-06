@@ -76,6 +76,9 @@ var _visual_settings := {
 	"gobo_scale": 1.0,
 	"gobo_rotation_deg": 0.0,
 	"lens_offset_m": 0.0,
+	"near_offset": 0.0,
+	"lens_shift_x": 0.0,
+	"lens_shift_y": 0.0,
 	"beam_debug_optics": false,
 	"ambient_fog_density": 0.0,
 	"volumetric_fog_density": 0.0,
@@ -1667,6 +1670,9 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 		"gobo_scale": 1.0,
 		"gobo_rotation_deg": 0.0,
 		"lens_offset_m": 0.0,
+		"near_offset": 0.0,
+		"lens_shift_x": 0.0,
+		"lens_shift_y": 0.0,
 	}
 	var beam_params: Dictionary = BeamOpticsControllerScript.BuildBeamParams(
 		light,

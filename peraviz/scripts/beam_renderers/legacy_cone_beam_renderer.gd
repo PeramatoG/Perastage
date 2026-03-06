@@ -65,10 +65,12 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	if bool(params.get("beam_debug_optics", false)):
 		print("[PeravizBeamOptics] angle_deg=", beam_angle, " range_m=", beam_range, " radius_end_m=", bottom_radius)
 
-	var lens_offset_m: float = max(float(params.get("lens_offset_m", 0.0)), 0.0)
-	_update_cone_geometry(cone, lens_radius, bottom_radius, beam_range, lens_offset_m, 1.0)
-	_update_cone_geometry(mid_cone, lens_radius, bottom_radius, beam_range, lens_offset_m, 0.7)
-	_update_cone_geometry(core_cone, lens_radius, bottom_radius, beam_range, lens_offset_m, 0.45)
+	var lens_offset_m: float = max(float(params.get("lens_offset_m", params.get("near_offset", 0.0))), 0.0)
+	var lens_shift_x: float = float(params.get("lens_shift_x", 0.0))
+	var lens_shift_y: float = float(params.get("lens_shift_y", 0.0))
+	_update_cone_geometry(cone, lens_radius, bottom_radius, beam_range, lens_offset_m, lens_shift_x, lens_shift_y, 1.0)
+	_update_cone_geometry(mid_cone, lens_radius, bottom_radius, beam_range, lens_offset_m, lens_shift_x, lens_shift_y, 0.7)
+	_update_cone_geometry(core_cone, lens_radius, bottom_radius, beam_range, lens_offset_m, lens_shift_x, lens_shift_y, 0.45)
 
 	var gobo_texture: Texture2D = null
 	if light.has_meta(GOBO_TEXTURE_META_KEY):
@@ -115,11 +117,11 @@ func _create_cone(cone_name: String) -> MeshInstance3D:
 	cone.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	cone.mesh = cone_mesh
 	cone.material_override = _material_template.duplicate(true)
-	cone.rotation_degrees.x = 90.0
+	cone.rotation_degrees.x = -90.0
 	cone.visible = false
 	return cone
 
-func _update_cone_geometry(cone: MeshInstance3D, lens_radius: float, bottom_radius: float, beam_range: float, lens_offset_m: float, radius_scale: float) -> void:
+func _update_cone_geometry(cone: MeshInstance3D, lens_radius: float, bottom_radius: float, beam_range: float, lens_offset_m: float, lens_shift_x: float, lens_shift_y: float, radius_scale: float) -> void:
 	if cone == null:
 		return
 	var cone_mesh: CylinderMesh = cone.mesh as CylinderMesh
@@ -128,7 +130,7 @@ func _update_cone_geometry(cone: MeshInstance3D, lens_radius: float, bottom_radi
 	cone_mesh.top_radius = max(lens_radius * radius_scale, 0.003)
 	cone_mesh.bottom_radius = clamp(bottom_radius * radius_scale, 0.02, EMITTER_CONE_MAX_BASE_RADIUS_M)
 	cone_mesh.height = beam_range
-	cone.position = Vector3(0.0, 0.0, -(beam_range * 0.5 + lens_offset_m))
+	cone.position = Vector3(lens_shift_x, lens_shift_y, -(beam_range * 0.5 + lens_offset_m))
 
 func _update_cone_material(cone: MeshInstance3D, beam_color: Color, scaled_intensity: float, beam_range: float, gobo_projection_radius: float, lateral_softness: float, lateral_emission_boost: float, noise_strength: float, alpha_scale: float, emission_scale: float, radial_falloff: float, longitudinal_falloff: float, gobo_scale: float, gobo_rotation_deg: float, gobo_texture: Texture2D) -> void:
 	if cone == null:
