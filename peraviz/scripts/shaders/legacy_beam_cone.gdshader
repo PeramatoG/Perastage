@@ -49,6 +49,16 @@ vec2 project_gobo_uv(vec3 local_pos) {
 }
 
 
+float radial_profile_from_local(vec3 local_pos) {
+	float source_y = 0.5 * cone_height;
+	float axial_dist = max(source_y - local_pos.y, 0.001);
+	float projection_scale = cone_height / axial_dist;
+	float projection_radius = max(gobo_projection_radius, 0.001);
+	float local_radius = projection_radius / max(projection_scale, 0.0001);
+	float radius_norm = length(local_pos.xz) / max(local_radius, 0.0001);
+	return pow(clamp(1.0 - radius_norm, 0.0, 1.0), max(radial_falloff, 0.05));
+}
+
 float sample_gobo_mask(vec2 uv) {
 	vec2 safe_uv = clamp(uv, vec2(0.0), vec2(1.0));
 	vec4 texel = texture(gobo_texture, safe_uv);
@@ -66,7 +76,9 @@ void fragment() {
 	float far_progress = 1.0 - beam_axial;
 	float end_fade = pow(1.0 - smoothstep(clamp(fade_end_ratio, 0.0, 0.99), 1.0, far_progress), max(longitudinal_falloff, 0.05));
 	float view_alignment = abs(dot(normalize(NORMAL), normalize(VIEW)));
-	float lateral_fade = pow(smoothstep(0.0, clamp(lateral_softness, 0.02, 1.0), view_alignment), max(radial_falloff, 0.05));
+	float view_fade = smoothstep(0.0, clamp(lateral_softness, 0.02, 1.0), view_alignment);
+	float radial_fade = radial_profile_from_local(beam_local);
+	float lateral_fade = view_fade * radial_fade;
 	float axial_noise = sin((beam_axial * volumetric_noise_scale) + (TIME * 0.9));
 	float beam_noise = 1.0 + (axial_noise * volumetric_noise_strength);
 	float center_boost = (1.0 + (lateral_emission_boost * lateral_fade)) * beam_noise;

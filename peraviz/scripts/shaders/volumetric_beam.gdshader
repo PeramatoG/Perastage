@@ -51,6 +51,16 @@ vec2 project_gobo_uv(vec3 local_pos) {
 }
 
 
+float radial_profile_from_local(vec3 local_pos) {
+	float source_y = 0.5 * cone_height;
+	float axial_dist = max(source_y - local_pos.y, 0.001);
+	float projection_scale = cone_height / axial_dist;
+	float projection_radius = max(gobo_projection_radius, 0.001);
+	float local_radius = projection_radius / max(projection_scale, 0.0001);
+	float radius_norm = length(local_pos.xz) / max(local_radius, 0.0001);
+	return pow(clamp(1.0 - radius_norm, 0.0, 1.0), max(beam_softness, 0.02));
+}
+
 float sample_gobo_mask(vec2 uv) {
 	vec2 safe_uv = clamp(uv, vec2(0.0), vec2(1.0));
 	vec4 texel = texture(gobo_texture, safe_uv);
@@ -93,7 +103,7 @@ void fragment() {
 
 	float brightness = min(base_brightness * facing_multiplier, max_brightness);
 	float feather_alpha = mix(1.0 - feather_intensity, 1.0, pow(ndotv, feather_sharpness * max(radial_falloff, 0.05)));
-	float radial_profile = pow(clamp(1.0 - abs((UV.x * 2.0) - 1.0), 0.0, 1.0), max(beam_softness, 0.02));
+	float radial_profile = radial_profile_from_local(v_local);
 
 	float depth_mult = 1.0;
 	if (depth_feather_enabled) {

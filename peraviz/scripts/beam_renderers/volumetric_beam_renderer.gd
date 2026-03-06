@@ -4,7 +4,7 @@ class_name VolumetricBeamRenderer
 
 const BEAM_META_KEY: String = "peraviz_volumetric_beam"
 const EMITTER_CONE_MAX_BASE_RADIUS_M: float = 10.0
-const VOLUMETRIC_INTENSITY_SCALE: float = 1.15
+const VOLUMETRIC_INTENSITY_SCALE: float = 1.9
 const GOBO_TEXTURE_META_KEY: String = "peraviz_gobo_texture"
 
 var _beam_material_template: ShaderMaterial
@@ -46,7 +46,7 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	if cone == null:
 		return
 
-	var intensity: float = clamp(float(params.get("scaled_intensity", 0.0)), 0.0, 12.0)
+	var intensity: float = clamp(float(params.get("scaled_intensity", 0.0)), 0.0, 20.0)
 	var threshold: float = float(params.get("intensity_visibility_threshold", 0.015))
 	var beam_range: float = max(float(params.get("beam_range", 0.1)), 0.01)
 	var beam_angle: float = max(float(params.get("beam_angle", 1.0)), 0.1)
@@ -84,9 +84,9 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	cone.position = Vector3(0.0, 0.0, -(beam_range * 0.5 + lens_offset_m))
 	cone.visible = true
 
-	var intensity_alpha: float = clamp(intensity * VOLUMETRIC_INTENSITY_SCALE, 0.0, 1.0)
+	var intensity_alpha: float = clamp(intensity * VOLUMETRIC_INTENSITY_SCALE, 0.0, 2.5)
 	cone.set_instance_shader_parameter("base_color", Color(beam_color.r, beam_color.g, beam_color.b, intensity_alpha))
-	cone.set_instance_shader_parameter("max_brightness", lerp(2.0, 18.0, intensity / 12.0))
+	cone.set_instance_shader_parameter("max_brightness", lerp(2.0, 24.0, intensity / 20.0))
 	cone.set_instance_shader_parameter("beam_noise_amount", float(_settings.get("beam_noise_amount", 0.06)))
 	cone.set_instance_shader_parameter("beam_noise_scale", float(_settings.get("beam_noise_scale", 1.4)))
 	cone.set_instance_shader_parameter("beam_haze_density", float(_settings.get("beam_haze_density", 0.17)) * float(params.get("haze_density_multiplier", 0.35)))
