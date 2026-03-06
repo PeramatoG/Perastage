@@ -29,3 +29,38 @@ Shader shaping uses:
 
 - **Axial factor** from local mesh Y to control near-lens intensity and far-end fade.
 - **Radial factor** from local XZ distance to keep the center denser than edges.
+
+## Optical single-source parameters
+
+Peraviz keeps one optical parameter set in `load_scene.gd` and shares it with both branches:
+
+- `beam_angle_deg`
+- `beam_range`
+- `gobo_rotation_deg`
+- `gobo_scale`
+- `lens_offset_m`
+- `beam_softness`
+- `beam_radial_falloff`
+- `beam_longitudinal_falloff`
+- `beam_intensity` (`scaled_intensity`)
+- `haze_density_multiplier`
+
+The same `gobo_texture` (already transformed with rotation/scale in `FixtureGoboProjector`) is sent to:
+
+1. `SpotLight3D.projector` for footprint projection.
+2. Beam cone shaders for visible in-air pattern.
+
+### Geometry coherence
+
+Beam mesh aperture is derived from spotlight optics:
+
+- `radius_at_distance = tan(beam_angle_deg * 0.5) * distance`
+- `bottom_radius = tan(beam_angle_deg * 0.5) * beam_range`
+
+Beam length matches `beam_range`, and center offset uses `lens_offset_m`.
+
+### Gobo projection in beam shader
+
+Beam shaders do not rely on mesh UV unwrapping for gobo sizing. They project from cone local coordinates and normalize by projected cone radius at each depth sample.
+
+This keeps zoom/angle and gobo scaling behavior aligned with footprint projection.

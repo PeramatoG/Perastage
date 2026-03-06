@@ -23,6 +23,11 @@ uniform float gobo_contrast : hint_range(0.1, 4.0) = 1.0;
 uniform bool gobo_invert = false;
 instance uniform float cone_height = 15.0;
 instance uniform float gobo_projection_radius = 1.0;
+instance uniform float radial_falloff = 1.1;
+instance uniform float longitudinal_falloff = 1.0;
+instance uniform float beam_softness = 0.35;
+instance uniform float gobo_scale = 1.0;
+instance uniform float gobo_rotation_deg = 0.0;
 
 
 varying vec3 v_view;
@@ -34,7 +39,15 @@ vec2 project_gobo_uv(vec3 local_pos) {
 	float projection_scale = cone_height / axial_dist;
 	float projection_radius = max(gobo_projection_radius, 0.001);
 	vec2 projected = local_pos.xz * projection_scale;
-	return vec2(0.5) + (projected / (2.0 * projection_radius));
+	float rotation_rad = radians(gobo_rotation_deg);
+	float cos_r = cos(rotation_rad);
+	float sin_r = sin(rotation_rad);
+	vec2 rotated = vec2(
+		(projected.x * cos_r) - (projected.y * sin_r),
+		(projected.x * sin_r) + (projected.y * cos_r)
+	);
+	float safe_scale = max(gobo_scale, 0.05);
+	return vec2(0.5) + ((rotated / safe_scale) / (2.0 * projection_radius));
 }
 
 
@@ -69,7 +82,7 @@ void fragment() {
 		discard;
 	}
 
-	float apex_fade = pow(max(1.0 - UV.y, 0.001), falloff_power);
+	float apex_fade = pow(max(1.0 - UV.y, 0.001), max(falloff_power * longitudinal_falloff, 0.1));
 	float base_brightness = base_color.a * apex_fade;
 
 	vec3 n = normalize(NORMAL);
@@ -79,7 +92,8 @@ void fragment() {
 	float facing_multiplier = 1.0 + (facing_boost * location_weight * pow(ndotv, facing_power));
 
 	float brightness = min(base_brightness * facing_multiplier, max_brightness);
-	float feather_alpha = mix(1.0 - feather_intensity, 1.0, pow(ndotv, feather_sharpness));
+	float feather_alpha = mix(1.0 - feather_intensity, 1.0, pow(ndotv, feather_sharpness * max(radial_falloff, 0.05)));
+	float radial_profile = pow(clamp(1.0 - abs((UV.x * 2.0) - 1.0), 0.0, 1.0), max(beam_softness, 0.02));
 
 	float depth_mult = 1.0;
 	if (depth_feather_enabled) {
@@ -94,7 +108,7 @@ void fragment() {
 
 
 
-	float final_alpha = feather_alpha * depth_mult * dist_fade;
+	float final_alpha = feather_alpha * radial_profile * depth_mult * dist_fade;
 	if (final_alpha < 0.001) {
 		discard;
 	}

@@ -78,7 +78,8 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 		cone_mesh.top_radius = top_radius
 		cone_mesh.bottom_radius = bottom_radius
 		cone_mesh.height = beam_range
-	cone.position = Vector3(0.0, 0.0, -beam_range * 0.5)
+	var lens_offset_m: float = max(float(params.get("lens_offset_m", 0.0)), 0.0)
+	cone.position = Vector3(0.0, 0.0, -(beam_range * 0.5 + lens_offset_m))
 	cone.visible = true
 
 	var intensity_alpha: float = clamp(intensity * VOLUMETRIC_INTENSITY_SCALE, 0.0, 1.0)
@@ -86,17 +87,19 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	cone.set_instance_shader_parameter("max_brightness", lerp(1.0, 10.0, intensity))
 	cone.set_instance_shader_parameter("beam_noise_amount", float(_settings.get("beam_noise_amount", 0.06)))
 	cone.set_instance_shader_parameter("beam_noise_scale", float(_settings.get("beam_noise_scale", 1.4)))
-	cone.set_instance_shader_parameter("beam_haze_density", float(_settings.get("beam_haze_density", 0.17)))
+	cone.set_instance_shader_parameter("beam_haze_density", float(_settings.get("beam_haze_density", 0.17)) * float(params.get("haze_density_multiplier", 0.35)))
 	cone.set_instance_shader_parameter("beam_anisotropy", float(_settings.get("beam_anisotropy", 0.62)))
 	cone.set_instance_shader_parameter("beam_quality", int(_settings.get("beam_quality", 1)))
+	cone.set_instance_shader_parameter("radial_falloff", max(float(params.get("beam_radial_falloff", 1.1)), 0.05))
+	cone.set_instance_shader_parameter("longitudinal_falloff", max(float(params.get("beam_longitudinal_falloff", 1.0)), 0.05))
+	cone.set_instance_shader_parameter("beam_softness", clamp(float(params.get("beam_softness", 0.35)), 0.02, 1.0))
+	cone.set_instance_shader_parameter("gobo_scale", max(float(params.get("gobo_scale", 1.0)), 0.05))
+	cone.set_instance_shader_parameter("gobo_rotation_deg", float(params.get("gobo_rotation_deg", 0.0)))
 	cone.set_instance_shader_parameter("cone_height", max(beam_range, 0.001))
 	cone.set_instance_shader_parameter("gobo_projection_radius", max(bottom_radius, 0.001))
 	var gobo_texture: Texture2D = null
 	if light.has_meta(GOBO_TEXTURE_META_KEY):
 		gobo_texture = light.get_meta(GOBO_TEXTURE_META_KEY) as Texture2D
-	var native_fog_projector_enabled: bool = bool(_settings.get("use_native_fog_projector_gobos", true))
-	var fog_density: float = float(_settings.get("volumetric_fog_density", 0.0))
-	var _fog_projection_active: bool = native_fog_projector_enabled and gobo_texture != null and fog_density > 0.0001
 	# Keep cone beam visible in all modes; native projector may still affect footprint/fog.
 	var cone_material: ShaderMaterial = cone.material_override as ShaderMaterial
 	if cone_material != null:

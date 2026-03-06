@@ -13,6 +13,10 @@ instance uniform float lateral_emission_boost = 0.16;
 instance uniform float volumetric_noise_strength = 0.06;
 instance uniform float volumetric_noise_scale = 14.0;
 instance uniform float gobo_projection_radius = 1.0;
+instance uniform float radial_falloff = 1.1;
+instance uniform float longitudinal_falloff = 1.0;
+instance uniform float gobo_scale = 1.0;
+instance uniform float gobo_rotation_deg = 0.0;
 uniform sampler2D gobo_texture : source_color;
 uniform bool use_gobo = false;
 uniform float gobo_contrast : hint_range(0.1, 4.0) = 1.0;
@@ -33,7 +37,15 @@ vec2 project_gobo_uv(vec3 local_pos) {
 	float projection_scale = cone_height / axial_dist;
 	float projection_radius = max(gobo_projection_radius, 0.001);
 	vec2 projected = local_pos.xz * projection_scale;
-	return vec2(0.5) + (projected / (2.0 * projection_radius));
+	float rotation_rad = radians(gobo_rotation_deg);
+	float cos_r = cos(rotation_rad);
+	float sin_r = sin(rotation_rad);
+	vec2 rotated = vec2(
+		(projected.x * cos_r) - (projected.y * sin_r),
+		(projected.x * sin_r) + (projected.y * cos_r)
+	);
+	float safe_scale = max(gobo_scale, 0.05);
+	return vec2(0.5) + ((rotated / safe_scale) / (2.0 * projection_radius));
 }
 
 
@@ -52,9 +64,9 @@ float sample_gobo_mask(vec2 uv) {
 void fragment() {
 	float near_factor = beam_axial;
 	float far_progress = 1.0 - beam_axial;
-	float end_fade = 1.0 - smoothstep(clamp(fade_end_ratio, 0.0, 0.99), 1.0, far_progress);
+	float end_fade = pow(1.0 - smoothstep(clamp(fade_end_ratio, 0.0, 0.99), 1.0, far_progress), max(longitudinal_falloff, 0.05));
 	float view_alignment = abs(dot(normalize(NORMAL), normalize(VIEW)));
-	float lateral_fade = smoothstep(0.0, clamp(lateral_softness, 0.02, 1.0), view_alignment);
+	float lateral_fade = pow(smoothstep(0.0, clamp(lateral_softness, 0.02, 1.0), view_alignment), max(radial_falloff, 0.05));
 	float axial_noise = sin((beam_axial * volumetric_noise_scale) + (TIME * 0.9));
 	float beam_noise = 1.0 + (axial_noise * volumetric_noise_strength);
 	float center_boost = (1.0 + (lateral_emission_boost * lateral_fade)) * beam_noise;
