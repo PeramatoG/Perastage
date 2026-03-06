@@ -53,7 +53,7 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	var beam_range: float = max(float(params.get("beam_range", 0.1)), 0.01)
 	var beam_angle: float = max(float(params.get("beam_angle", 1.0)), 0.1)
 
-	if not bool(params.get("beam_visible", params.get("is_visible", true))) or intensity <= threshold:
+	if not bool(params.get("is_visible", true)) or intensity <= threshold:
 		cone.visible = false
 		var hidden_axis: MeshInstance3D = _ensure_debug_axis(light)
 		if hidden_axis != null:

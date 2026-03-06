@@ -399,7 +399,6 @@ func _update_existing_beam_material_scalars(light: SpotLight3D) -> void:
 		return
 	var beam_multiplier: float = float(_visual_settings.get("beam_multiplier", 1.0))
 	beam_params["scaled_intensity"] = clamp(base_intensity * beam_multiplier, 0.0, BEAM_INTENSITY_MAX)
-	beam_params["beam_visible"] = bool(beam_params.get("is_visible", true)) or float(beam_params["scaled_intensity"]) > BEAM_INTENSITY_VISIBILITY_THRESHOLD
 	beam_params["beam_quality"] = int(_visual_settings.get("beam_quality", 1))
 	_update_beam_for_light(light, beam_params)
 
