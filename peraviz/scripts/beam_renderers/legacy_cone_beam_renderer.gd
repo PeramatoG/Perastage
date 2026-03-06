@@ -13,6 +13,7 @@ const MAIN_KEY: String = "peraviz_beam_cone"
 const MID_KEY: String = "peraviz_beam_cone_mid"
 const CORE_KEY: String = "peraviz_beam_cone_core"
 const GOBO_TEXTURE_META_KEY: String = "peraviz_gobo_texture"
+const DEBUG_AXIS_KEY: String = "peraviz_beam_debug_axis"
 
 var _material_template: ShaderMaterial
 
@@ -54,7 +55,13 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	if core_cone != null:
 		core_cone.visible = is_visible
 	if not is_visible:
+		var hidden_axis: MeshInstance3D = _ensure_debug_axis(light)
+		if hidden_axis != null:
+			hidden_axis.visible = false
 		return
+	var debug_axis: MeshInstance3D = _ensure_debug_axis(light)
+	if debug_axis != null:
+		debug_axis.visible = bool(params.get("beam_debug_optics", false))
 	# Keep legacy cone beams visible even with native fog-projector gobos enabled.
 	# This preserves beam readability while the spotlight projector handles gobo footprint/fog shading.
 
@@ -117,7 +124,7 @@ func _create_cone(cone_name: String) -> MeshInstance3D:
 	cone.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	cone.mesh = cone_mesh
 	cone.material_override = _material_template.duplicate(true)
-	cone.rotation_degrees.x = -90.0
+	cone.rotation_degrees.x = 90.0
 	cone.visible = false
 	return cone
 
@@ -156,3 +163,25 @@ func _update_cone_material(cone: MeshInstance3D, beam_color: Color, scaled_inten
 		cone_material.set_shader_parameter("gobo_invert", false)
 		if gobo_texture != null:
 			cone_material.set_shader_parameter("gobo_texture", gobo_texture)
+
+
+func _ensure_debug_axis(light: SpotLight3D) -> MeshInstance3D:
+	if light.has_meta(DEBUG_AXIS_KEY):
+		var existing: MeshInstance3D = light.get_meta(DEBUG_AXIS_KEY) as MeshInstance3D
+		if existing != null and is_instance_valid(existing):
+			return existing
+	var axis := MeshInstance3D.new()
+	axis.name = "PeravizBeamDebugAxis"
+	axis.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var mesh := BoxMesh.new()
+	mesh.size = Vector3(0.03, 0.03, 2.0)
+	axis.mesh = mesh
+	var material := StandardMaterial3D.new()
+	material.albedo_color = Color(1.0, 0.1, 0.1, 0.95)
+	material.emission_enabled = true
+	material.emission = Color(1.0, 0.0, 0.0, 1.0)
+	axis.material_override = material
+	axis.position = Vector3(0.0, 0.0, -1.0)
+	light.add_child(axis)
+	light.set_meta(DEBUG_AXIS_KEY, axis)
+	return axis

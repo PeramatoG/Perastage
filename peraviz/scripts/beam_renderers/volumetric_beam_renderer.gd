@@ -6,6 +6,7 @@ const BEAM_META_KEY: String = "peraviz_volumetric_beam"
 const EMITTER_CONE_MAX_BASE_RADIUS_M: float = 10.0
 const VOLUMETRIC_INTENSITY_SCALE: float = 1.9
 const GOBO_TEXTURE_META_KEY: String = "peraviz_gobo_texture"
+const DEBUG_AXIS_KEY: String = "peraviz_beam_debug_axis"
 
 var _beam_material_template: ShaderMaterial
 var _camera: Camera3D
@@ -35,10 +36,11 @@ func ensure_beam(light: SpotLight3D) -> void:
 	cone.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	cone.mesh = cone_mesh
 	cone.material_override = _beam_material_template.duplicate(true)
-	cone.rotation_degrees.x = -90.0
+	cone.rotation_degrees.x = 90.0
 	cone.visible = false
 	light.add_child(cone)
 	light.set_meta(BEAM_META_KEY, cone)
+	_ensure_debug_axis(light)
 
 func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	ensure_beam(light)
@@ -53,7 +55,13 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 
 	if not bool(params.get("is_visible", true)) or intensity <= threshold:
 		cone.visible = false
+		var hidden_axis: MeshInstance3D = _ensure_debug_axis(light)
+		if hidden_axis != null:
+			hidden_axis.visible = false
 		return
+	var debug_axis: MeshInstance3D = _ensure_debug_axis(light)
+	if debug_axis != null:
+		debug_axis.visible = bool(params.get("beam_debug_optics", false))
 
 	# Keep debug/preview beam meshes visible even when native fog-projector gobos are enabled.
 	# Native gobo projection controls footprint/fog in renderer, while this cone keeps operator-visible beam feedback.
@@ -119,3 +127,25 @@ func cleanup_beam(light: SpotLight3D) -> void:
 	if cone != null and is_instance_valid(cone):
 		cone.queue_free()
 	light.remove_meta(BEAM_META_KEY)
+
+
+func _ensure_debug_axis(light: SpotLight3D) -> MeshInstance3D:
+	if light.has_meta(DEBUG_AXIS_KEY):
+		var existing: MeshInstance3D = light.get_meta(DEBUG_AXIS_KEY) as MeshInstance3D
+		if existing != null and is_instance_valid(existing):
+			return existing
+	var axis := MeshInstance3D.new()
+	axis.name = "PeravizBeamDebugAxis"
+	axis.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var mesh := BoxMesh.new()
+	mesh.size = Vector3(0.03, 0.03, 2.0)
+	axis.mesh = mesh
+	var material := StandardMaterial3D.new()
+	material.albedo_color = Color(1.0, 0.1, 0.1, 0.95)
+	material.emission_enabled = true
+	material.emission = Color(1.0, 0.0, 0.0, 1.0)
+	axis.material_override = material
+	axis.position = Vector3(0.0, 0.0, -1.0)
+	light.add_child(axis)
+	light.set_meta(DEBUG_AXIS_KEY, axis)
+	return axis
