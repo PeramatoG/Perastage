@@ -106,3 +106,10 @@ This keeps zoom/angle and gobo scaling behavior aligned with footprint projectio
 - `haze_density_multiplier`
 
 These are intended as the single optical truth for both footprint and visible beam.
+
+
+### Visibility safeguard for in-air beam
+
+To avoid fully disappearing beams when a gobo texture has mostly dark/opaque pixels (or projection UVs spend significant area outside the projected region), beam shaders now keep a small transmissive floor (`gobo_min_transmission`) and blend strength (`gobo_contribution`).
+
+This preserves the gobo pattern while ensuring the beam remains readable as a translucent conic volume in both Volumetric and Legacy modes.

@@ -83,12 +83,6 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	if light.has_meta(GOBO_TEXTURE_META_KEY):
 		gobo_texture = light.get_meta(GOBO_TEXTURE_META_KEY) as Texture2D
 	# Keep cone beam visible in all modes; native projector may still affect footprint/fog.
-	var gobo_active: bool = gobo_texture != null
-	if gobo_active:
-		if mid_cone != null:
-			mid_cone.visible = false
-		if core_cone != null:
-			core_cone.visible = false
 	var color_alpha := Color(beam_color.r, beam_color.g, beam_color.b, 1.0)
 	var beam_softness: float = clamp(float(params.get("beam_softness", 0.35)), 0.02, 1.0)
 	var radial_falloff: float = max(float(params.get("beam_radial_falloff", 1.1)), 0.05)
