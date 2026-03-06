@@ -17,6 +17,7 @@ instance uniform float radial_falloff = 1.1;
 instance uniform float longitudinal_falloff = 1.0;
 instance uniform float gobo_scale = 1.0;
 instance uniform float gobo_rotation_deg = 0.0;
+instance uniform float haze_density = 0.35;
 uniform sampler2D gobo_texture : source_color;
 uniform bool use_gobo = false;
 uniform float gobo_contrast : hint_range(0.1, 4.0) = 1.0;
@@ -88,6 +89,7 @@ void fragment() {
 		gobo_mask = sample_gobo_mask(gobo_uv);
 	}
 	ALBEDO = beam_color.rgb * gobo_mask;
-	ALPHA = mix(far_alpha, near_alpha, near_factor) * end_fade * lateral_fade * gobo_mask;
-	EMISSION = beam_color.rgb * (mix(far_emission, near_emission, near_factor) * end_fade * center_boost * gobo_mask);
+	float beam_alpha = mix(far_alpha, near_alpha, near_factor) * end_fade * lateral_fade * gobo_mask * max(haze_density, 0.05);
+	ALPHA = max(beam_alpha, 0.02);
+	EMISSION = beam_color.rgb * (mix(far_emission, near_emission, near_factor) * end_fade * center_boost * gobo_mask * max(haze_density, 0.05));
 }

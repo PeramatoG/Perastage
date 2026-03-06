@@ -95,9 +95,10 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	var longitudinal_falloff: float = max(float(params.get("beam_longitudinal_falloff", 1.0)), 0.05)
 	var gobo_scale: float = 1.0
 	var gobo_rotation_deg: float = 0.0
-	_update_cone_material(cone, color_alpha, scaled_intensity, beam_range, bottom_radius, beam_softness, 0.16, 0.06, 1.0, 1.0, radial_falloff, longitudinal_falloff, gobo_scale, gobo_rotation_deg, gobo_texture)
-	_update_cone_material(mid_cone, color_alpha, scaled_intensity, beam_range, bottom_radius * 0.7, beam_softness * 0.7, 0.26, 0.04, 1.35, 1.25, radial_falloff, longitudinal_falloff, gobo_scale, gobo_rotation_deg, gobo_texture)
-	_update_cone_material(core_cone, color_alpha, scaled_intensity, beam_range, bottom_radius * 0.45, beam_softness * 0.45, 0.35, 0.02, 1.7, 1.5, radial_falloff, longitudinal_falloff, gobo_scale, gobo_rotation_deg, gobo_texture)
+	var haze_density: float = max(float(params.get("haze_density", params.get("haze_density_multiplier", 0.35))), 0.05)
+	_update_cone_material(cone, color_alpha, scaled_intensity, beam_range, bottom_radius, beam_softness, 0.16, 0.06, 1.0, 1.0, radial_falloff, longitudinal_falloff, haze_density, gobo_scale, gobo_rotation_deg, gobo_texture)
+	_update_cone_material(mid_cone, color_alpha, scaled_intensity, beam_range, bottom_radius * 0.7, beam_softness * 0.7, 0.26, 0.04, 1.35, 1.25, radial_falloff, longitudinal_falloff, haze_density, gobo_scale, gobo_rotation_deg, gobo_texture)
+	_update_cone_material(core_cone, color_alpha, scaled_intensity, beam_range, bottom_radius * 0.45, beam_softness * 0.45, 0.35, 0.02, 1.7, 1.5, radial_falloff, longitudinal_falloff, haze_density, gobo_scale, gobo_rotation_deg, gobo_texture)
 
 func cleanup_beam(light: SpotLight3D) -> void:
 	for meta_key in [MAIN_KEY, MID_KEY, CORE_KEY]:
@@ -139,7 +140,7 @@ func _update_cone_geometry(cone: MeshInstance3D, lens_radius: float, bottom_radi
 	cone_mesh.height = beam_range
 	cone.position = Vector3(lens_shift_x, -(beam_range * 0.5 + lens_offset_m), lens_shift_y)
 
-func _update_cone_material(cone: MeshInstance3D, beam_color: Color, scaled_intensity: float, beam_range: float, gobo_projection_radius: float, lateral_softness: float, lateral_emission_boost: float, noise_strength: float, alpha_scale: float, emission_scale: float, radial_falloff: float, longitudinal_falloff: float, gobo_scale: float, gobo_rotation_deg: float, gobo_texture: Texture2D) -> void:
+func _update_cone_material(cone: MeshInstance3D, beam_color: Color, scaled_intensity: float, beam_range: float, gobo_projection_radius: float, lateral_softness: float, lateral_emission_boost: float, noise_strength: float, alpha_scale: float, emission_scale: float, radial_falloff: float, longitudinal_falloff: float, haze_density: float, gobo_scale: float, gobo_rotation_deg: float, gobo_texture: Texture2D) -> void:
 	if cone == null:
 		return
 	cone.set_instance_shader_parameter("beam_color", beam_color)
@@ -157,6 +158,7 @@ func _update_cone_material(cone: MeshInstance3D, beam_color: Color, scaled_inten
 	cone.set_instance_shader_parameter("longitudinal_falloff", longitudinal_falloff)
 	cone.set_instance_shader_parameter("gobo_scale", gobo_scale)
 	cone.set_instance_shader_parameter("gobo_rotation_deg", gobo_rotation_deg)
+	cone.set_instance_shader_parameter("haze_density", haze_density)
 	var cone_material: ShaderMaterial = cone.material_override as ShaderMaterial
 	if cone_material != null:
 		cone_material.set_shader_parameter("use_gobo", gobo_texture != null)

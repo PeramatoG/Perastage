@@ -28,6 +28,7 @@ instance uniform float longitudinal_falloff = 1.0;
 instance uniform float beam_softness = 0.35;
 instance uniform float gobo_scale = 1.0;
 instance uniform float gobo_rotation_deg = 0.0;
+instance uniform float haze_density = 0.35;
 
 
 varying vec3 v_view;
@@ -118,7 +119,7 @@ void fragment() {
 
 
 
-	float final_alpha = feather_alpha * radial_profile * depth_mult * dist_fade;
+	float final_alpha = feather_alpha * radial_profile * depth_mult * dist_fade * max(haze_density, 0.05);
 	if (final_alpha < 0.001) {
 		discard;
 	}
@@ -130,6 +131,6 @@ void fragment() {
 	}
 
 	ALBEDO = base_color.rgb * brightness * gobo_mask;
-	ALPHA = clamp(final_alpha * gobo_mask, 0.0, 1.0);
+	ALPHA = clamp(max(final_alpha * gobo_mask, 0.02), 0.0, 1.0);
 	EMISSION = ALBEDO * max(ALPHA, 0.15);
 }

@@ -69,12 +69,6 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 
 	var beam_color: Color = params.get("beam_color", Color.WHITE)
 	var lens_radius: float = max(float(params.get("lens_radius", 0.03)), 0.005)
-	var distance_limit: float = float(params.get("distance_cull_m", 180.0))
-	if _camera != null:
-		var cam_distance: float = _camera.global_position.distance_to(light.global_position)
-		if cam_distance > distance_limit:
-			cone.visible = false
-			return
 
 	var half_angle_deg: float = beam_angle * 0.5
 	var tan_half_angle: float = tan(deg_to_rad(half_angle_deg))
@@ -99,7 +93,9 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	cone.set_instance_shader_parameter("max_brightness", lerp(2.0, 24.0, intensity / 20.0))
 	cone.set_instance_shader_parameter("beam_noise_amount", float(_settings.get("beam_noise_amount", 0.06)))
 	cone.set_instance_shader_parameter("beam_noise_scale", float(_settings.get("beam_noise_scale", 1.4)))
-	cone.set_instance_shader_parameter("beam_haze_density", float(_settings.get("beam_haze_density", 0.17)) * float(params.get("haze_density_multiplier", 0.35)))
+	var haze_density: float = max(float(params.get("haze_density", params.get("haze_density_multiplier", 0.35))), 0.05)
+	cone.set_instance_shader_parameter("beam_haze_density", float(_settings.get("beam_haze_density", 0.17)) * haze_density)
+	cone.set_instance_shader_parameter("haze_density", haze_density)
 	cone.set_instance_shader_parameter("beam_anisotropy", float(_settings.get("beam_anisotropy", 0.62)))
 	cone.set_instance_shader_parameter("beam_quality", int(_settings.get("beam_quality", 1)))
 	cone.set_instance_shader_parameter("radial_falloff", max(float(params.get("beam_radial_falloff", 1.1)), 0.05))
