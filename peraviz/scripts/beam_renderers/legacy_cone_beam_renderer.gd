@@ -10,8 +10,6 @@ const EMITTER_CONE_NEAR_EMISSION: float = 0.45
 const EMITTER_CONE_FAR_EMISSION: float = 0.04
 
 const MAIN_KEY: String = "peraviz_beam_cone"
-const MID_KEY: String = "peraviz_beam_cone_mid"
-const CORE_KEY: String = "peraviz_beam_cone_core"
 const GOBO_TEXTURE_META_KEY: String = "peraviz_gobo_texture"
 const DEBUG_AXIS_KEY: String = "peraviz_beam_debug_axis"
 
@@ -24,36 +22,30 @@ func _init() -> void:
 func ensure_beam(light: SpotLight3D) -> void:
 	if not light.has_meta(MAIN_KEY):
 		light.set_meta(MAIN_KEY, _create_cone("PeravizBeamCone"))
-	if not light.has_meta(MID_KEY):
-		light.set_meta(MID_KEY, _create_cone("PeravizBeamMidCone"))
-	if not light.has_meta(CORE_KEY):
-		light.set_meta(CORE_KEY, _create_cone("PeravizBeamCoreCone"))
+	# Cleanup legacy multi-cone nodes from previous runs.
+	for stale_key in ["peraviz_beam_cone_mid", "peraviz_beam_cone_core"]:
+		if not light.has_meta(stale_key):
+			continue
+		var stale: MeshInstance3D = light.get_meta(stale_key) as MeshInstance3D
+		if stale != null and is_instance_valid(stale):
+			stale.queue_free()
+		light.remove_meta(stale_key)
 
 func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	ensure_beam(light)
 	var cone: MeshInstance3D = light.get_meta(MAIN_KEY) as MeshInstance3D
-	var mid_cone: MeshInstance3D = light.get_meta(MID_KEY) as MeshInstance3D
-	var core_cone: MeshInstance3D = light.get_meta(CORE_KEY) as MeshInstance3D
-	if cone == null and mid_cone == null and core_cone == null:
+	if cone == null:
 		return
 	_attach_if_needed(light, cone)
-	_attach_if_needed(light, mid_cone)
-	_attach_if_needed(light, core_cone)
 
-	var intensity: float = clamp(float(params.get("normalized_dimmer", 0.0)), 0.0, 1.0)
 	var scaled_intensity: float = clamp(float(params.get("scaled_intensity", 0.0)), 0.0, 20.0)
 	var beam_range: float = max(float(params.get("beam_range", 0.1)), 0.01)
 	var beam_angle: float = max(float(params.get("beam_angle", 1.0)), 0.1)
 	var beam_color: Color = params.get("beam_color", Color.WHITE)
 	var lens_radius: float = max(float(params.get("lens_radius", 0.03)), 0.005)
-	var is_visible: bool = bool(params.get("is_visible", true)) and intensity > 0.015
+	var is_visible: bool = bool(params.get("beam_visible", params.get("is_visible", true))) and scaled_intensity > 0.015
 
-	if cone != null:
-		cone.visible = is_visible
-	if mid_cone != null:
-		mid_cone.visible = is_visible
-	if core_cone != null:
-		core_cone.visible = is_visible
+	cone.visible = is_visible
 	if not is_visible:
 		var hidden_axis: MeshInstance3D = _ensure_debug_axis(light)
 		if hidden_axis != null:
@@ -76,8 +68,6 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	var lens_shift_x: float = float(params.get("lens_shift_x", 0.0))
 	var lens_shift_y: float = float(params.get("lens_shift_y", 0.0))
 	_update_cone_geometry(cone, lens_radius, bottom_radius, beam_range, lens_offset_m, lens_shift_x, lens_shift_y, 1.0)
-	_update_cone_geometry(mid_cone, lens_radius, bottom_radius, beam_range, lens_offset_m, lens_shift_x, lens_shift_y, 0.7)
-	_update_cone_geometry(core_cone, lens_radius, bottom_radius, beam_range, lens_offset_m, lens_shift_x, lens_shift_y, 0.45)
 
 	var gobo_texture: Texture2D = null
 	if light.has_meta(GOBO_TEXTURE_META_KEY):
@@ -90,12 +80,10 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	var gobo_scale: float = max(float(params.get("gobo_scale", 1.0)), 0.05)
 	var gobo_rotation_deg: float = float(params.get("gobo_rotation_deg", 0.0))
 	var haze_density: float = max(float(params.get("haze_density", params.get("haze_density_multiplier", 0.22))), 0.01)
-	_update_cone_material(cone, color_alpha, scaled_intensity, beam_range, bottom_radius, beam_softness, 0.16, 0.06, 1.0, 1.0, radial_falloff, longitudinal_falloff, haze_density, gobo_scale, gobo_rotation_deg, gobo_texture)
-	_update_cone_material(mid_cone, color_alpha, scaled_intensity, beam_range, bottom_radius * 0.7, beam_softness * 0.7, 0.26, 0.04, 1.35, 1.25, radial_falloff, longitudinal_falloff, haze_density, gobo_scale, gobo_rotation_deg, gobo_texture)
-	_update_cone_material(core_cone, color_alpha, scaled_intensity, beam_range, bottom_radius * 0.45, beam_softness * 0.45, 0.35, 0.02, 1.7, 1.5, radial_falloff, longitudinal_falloff, haze_density, gobo_scale, gobo_rotation_deg, gobo_texture)
+	_update_cone_material(cone, color_alpha, scaled_intensity, beam_range, bottom_radius, beam_softness, 0.22, 0.05, 1.2, 1.2, radial_falloff, longitudinal_falloff, haze_density, gobo_scale, gobo_rotation_deg, gobo_texture)
 
 func cleanup_beam(light: SpotLight3D) -> void:
-	for meta_key in [MAIN_KEY, MID_KEY, CORE_KEY]:
+	for meta_key in [MAIN_KEY, "peraviz_beam_cone_mid", "peraviz_beam_cone_core"]:
 		if not light.has_meta(meta_key):
 			continue
 		var cone: MeshInstance3D = light.get_meta(meta_key) as MeshInstance3D
