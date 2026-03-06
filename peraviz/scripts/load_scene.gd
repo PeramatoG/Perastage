@@ -69,21 +69,21 @@ var _visual_settings := {
 	"beam_anisotropy": 0.62,
 	"beam_noise_amount": 0.06,
 	"beam_noise_scale": 1.4,
-	"beam_softness": 0.35,
-	"beam_radial_falloff": 1.1,
-	"beam_longitudinal_falloff": 1.0,
-	"haze_density_multiplier": 0.35,
+	"beam_softness": 0.32,
+	"beam_radial_falloff": 1.25,
+	"beam_longitudinal_falloff": 1.1,
+	"haze_density_multiplier": 0.22,
 	"gobo_scale": 1.0,
 	"gobo_rotation_deg": 0.0,
-	"lens_offset_m": 0.0,
-	"near_offset": 0.0,
+	"lens_offset_m": 0.015,
+	"near_offset": 0.015,
 	"lens_shift_x": 0.0,
 	"lens_shift_y": 0.0,
 	"beam_debug_optics": false,
 	"ambient_fog_density": 0.0,
 	"volumetric_fog_density": 0.0,
 	"volumetric_fog_fade": 0.02,
-	"light_volumetric_fog_energy": 20.0,
+	"light_volumetric_fog_energy": 12.0,
 	"use_native_fog_projector_gobos": true,
 	"background_color": Color(0.129412, 0.137255, 0.156863, 1.0),
 }
@@ -390,7 +390,7 @@ func _refresh_existing_beam_material_scalars() -> void:
 func _apply_light_scalars_to_light(light: SpotLight3D) -> void:
 	var base_energy: float = float(light.get_meta("peraviz_base_light_energy", light.light_energy))
 	light.light_energy = base_energy * float(_visual_settings.get("spot_multiplier", 1.0))
-	light.light_volumetric_fog_energy = float(_visual_settings.get("light_volumetric_fog_energy", 20.0))
+	light.light_volumetric_fog_energy = float(_visual_settings.get("light_volumetric_fog_energy", 12.0))
 
 func _update_existing_beam_material_scalars(light: SpotLight3D) -> void:
 	var base_intensity: float = float(light.get_meta("peraviz_beam_base_intensity", 0.0))
@@ -1662,18 +1662,7 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 	light.set_meta("peraviz_beam_base_intensity", clamp(normalized_dimmer, 0.0, 1.0))
 	light.set_meta("peraviz_beam_angle_source", "gdtf_full_angle_deg")
 	var scaled_intensity: float = clamp(normalized_dimmer * float(_visual_settings.get("beam_multiplier", 1.0)), 0.0, BEAM_INTENSITY_MAX)
-	var beam_defaults := {
-		"beam_softness": 0.35,
-		"beam_radial_falloff": 1.1,
-		"beam_longitudinal_falloff": 1.0,
-		"haze_density_multiplier": 0.35,
-		"gobo_scale": 1.0,
-		"gobo_rotation_deg": 0.0,
-		"lens_offset_m": 0.0,
-		"near_offset": 0.0,
-		"lens_shift_x": 0.0,
-		"lens_shift_y": 0.0,
-	}
+	var beam_defaults: Dictionary = BeamOpticsControllerScript.BuildDefaultMasterOptics()
 	var beam_params: Dictionary = BeamOpticsControllerScript.BuildBeamParams(
 		light,
 		beam_angle,
@@ -1692,7 +1681,7 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 	if _fixture_gobo_projector != null:
 		var gobo_controls: Dictionary = BeamOpticsControllerScript.BuildGoboControls(controls, _visual_settings, beam_defaults)
 		_fixture_gobo_projector.apply_gobo_projection(light, gobo_controls)
-	light.light_volumetric_fog_energy = float(_visual_settings.get("light_volumetric_fog_energy", 20.0)) * float(_visual_settings.get("haze_density_multiplier", 0.35))
+	light.light_volumetric_fog_energy = float(_visual_settings.get("light_volumetric_fog_energy", 12.0)) * float(_visual_settings.get("haze_density_multiplier", 0.22))
 	_update_beam_for_light(light, beam_params)
 
 func _resolve_zoom_beam_limits(light: SpotLight3D, controls: Dictionary) -> Dictionary:
