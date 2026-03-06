@@ -76,4 +76,33 @@ This keeps zoom/angle and gobo scaling behavior aligned with footprint projectio
 
 - Volumetric and legacy radial attenuation now use cone-local geometric radius (not a single UV axis), avoiding directional over-fade that could hide the beam.
 
-- Beam mesh node rotation uses `-90°` around X so cone local axis aligns with fixture local `-Z` (same emission direction as spotlight).
+- Beam mesh node rotation uses `+90°` around X so cone local axis aligns with fixture local `-Z` (same emission direction as spotlight).
+
+## Optical control traceability (gobo footprint + in-air beam)
+
+### Runtime ownership map
+
+- **Master optical parameters**: `BeamOpticsController.BuildBeamParams()` and `BuildDefaultMasterOptics()`.
+- **Surface footprint projection**: `FixtureGoboProjector.apply_gobo_projection()` sets the same gobo texture into `SpotLight3D.projector/light_projector`.
+- **Visible beam in air**:
+  - Volumetric beam path: `beam_renderers/volumetric_beam_renderer.gd` + `shaders/volumetric_beam.gdshader`.
+  - Legacy beam path: `beam_renderers/legacy_cone_beam_renderer.gd` + `shaders/legacy_beam_cone.gdshader`.
+- **Optional atmospheric support**: `FogVolumeGoboBeamController` + `shaders/fog_volume_gobo_beam.gdshader`.
+
+### Fixed mismatches addressed
+
+- Beam renderers now consume `gobo_scale` and `gobo_rotation_deg` from master optics instead of hardcoded `1.0/0.0`.
+- Beam shaders sample gobo outside-UV as zero (no clamped edge stretching), removing square border artifacts.
+- Haze defaults were lowered to keep gobo detail visible in-beam; volumetric fog is now supplemental, not the primary detail source.
+
+### Tunable master parameters
+
+- `beam_angle_deg`, `beam_range`
+- `gobo_rotation_deg`, `gobo_scale`
+- `lens_offset_m` / `near_offset`
+- `beam_softness`
+- `beam_radial_falloff`, `beam_longitudinal_falloff`
+- `beam_intensity` (`scaled_intensity`)
+- `haze_density_multiplier`
+
+These are intended as the single optical truth for both footprint and visible beam.

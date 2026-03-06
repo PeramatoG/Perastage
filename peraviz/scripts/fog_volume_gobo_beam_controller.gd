@@ -27,10 +27,15 @@ func update_for_light(light: SpotLight3D, beam_params: Dictionary, gobo_texture:
 		return
 	fog_material.set_shader_parameter("gobo_texture", gobo_texture)
 	fog_material.set_shader_parameter("light_color", Color(beam_params.get("beam_color", Color.WHITE)))
-	fog_material.set_shader_parameter("density_scale", float(visual_settings.get("fog_volume_density_scale", 2.5)))
-	fog_material.set_shader_parameter("emission_strength", float(visual_settings.get("fog_volume_emission_strength", 2.0)))
-	fog_material.set_shader_parameter("edge_softness", float(visual_settings.get("fog_volume_edge_softness", 0.85)))
+	var haze_density: float = max(float(beam_params.get("haze_density_multiplier", 0.22)), 0.01)
+	fog_material.set_shader_parameter("density_scale", float(visual_settings.get("fog_volume_density_scale", 0.9)) * haze_density)
+	fog_material.set_shader_parameter("emission_strength", float(visual_settings.get("fog_volume_emission_strength", 0.55)))
+	fog_material.set_shader_parameter("edge_softness", float(visual_settings.get("fog_volume_edge_softness", 0.72)))
 	fog_material.set_shader_parameter("invert_gobo", bool(visual_settings.get("fog_volume_invert_gobo", false)))
+	fog_material.set_shader_parameter("gobo_scale", max(float(beam_params.get("gobo_scale", 1.0)), 0.05))
+	fog_material.set_shader_parameter("gobo_rotation_deg", float(beam_params.get("gobo_rotation_deg", 0.0)))
+	fog_material.set_shader_parameter("radial_falloff", max(float(beam_params.get("beam_radial_falloff", 1.25)), 0.05))
+	fog_material.set_shader_parameter("longitudinal_falloff", max(float(beam_params.get("beam_longitudinal_falloff", 1.1)), 0.05))
 
 func clear_for_light(light: SpotLight3D) -> void:
 	if light == null or not is_instance_valid(light):

@@ -93,9 +93,9 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	var beam_softness: float = clamp(float(params.get("beam_softness", 0.35)), 0.02, 1.0)
 	var radial_falloff: float = max(float(params.get("beam_radial_falloff", 1.1)), 0.05)
 	var longitudinal_falloff: float = max(float(params.get("beam_longitudinal_falloff", 1.0)), 0.05)
-	var gobo_scale: float = 1.0
-	var gobo_rotation_deg: float = 0.0
-	var haze_density: float = max(float(params.get("haze_density", params.get("haze_density_multiplier", 0.35))), 0.05)
+	var gobo_scale: float = max(float(params.get("gobo_scale", 1.0)), 0.05)
+	var gobo_rotation_deg: float = float(params.get("gobo_rotation_deg", 0.0))
+	var haze_density: float = max(float(params.get("haze_density", params.get("haze_density_multiplier", 0.22))), 0.01)
 	_update_cone_material(cone, color_alpha, scaled_intensity, beam_range, bottom_radius, beam_softness, 0.16, 0.06, 1.0, 1.0, radial_falloff, longitudinal_falloff, haze_density, gobo_scale, gobo_rotation_deg, gobo_texture)
 	_update_cone_material(mid_cone, color_alpha, scaled_intensity, beam_range, bottom_radius * 0.7, beam_softness * 0.7, 0.26, 0.04, 1.35, 1.25, radial_falloff, longitudinal_falloff, haze_density, gobo_scale, gobo_rotation_deg, gobo_texture)
 	_update_cone_material(core_cone, color_alpha, scaled_intensity, beam_range, bottom_radius * 0.45, beam_softness * 0.45, 0.35, 0.02, 1.7, 1.5, radial_falloff, longitudinal_falloff, haze_density, gobo_scale, gobo_rotation_deg, gobo_texture)

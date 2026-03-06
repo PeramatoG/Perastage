@@ -16,21 +16,21 @@ const DEFAULT_SETTINGS := {
 	"beam_anisotropy": 0.62,
 	"beam_noise_amount": 0.06,
 	"beam_noise_scale": 1.4,
-	"beam_softness": 0.35,
-	"beam_radial_falloff": 1.1,
-	"beam_longitudinal_falloff": 1.0,
-	"haze_density_multiplier": 0.35,
+	"beam_softness": 0.32,
+	"beam_radial_falloff": 1.25,
+	"beam_longitudinal_falloff": 1.1,
+	"haze_density_multiplier": 0.22,
 	"gobo_scale": 1.0,
 	"gobo_rotation_deg": 0.0,
-	"lens_offset_m": 0.0,
-	"near_offset": 0.0,
+	"lens_offset_m": 0.015,
+	"near_offset": 0.015,
 	"lens_shift_x": 0.0,
 	"lens_shift_y": 0.0,
 	"beam_debug_optics": false,
 	"ambient_fog_density": 0.0,
 	"volumetric_fog_density": 0.0,
 	"volumetric_fog_fade": 0.02,
-	"light_volumetric_fog_energy": 20.0,
+	"light_volumetric_fog_energy": 12.0,
 	"use_native_fog_projector_gobos": true,
 	"background_color": Color(0.129412, 0.137255, 0.156863, 1.0),
 }
@@ -208,7 +208,7 @@ func _apply_settings_to_controls() -> void:
 	_bloom_slider.value = float(_settings.get("bloom_multiplier", 0.0))
 	_fog_density_slider.value = float(_settings.get("volumetric_fog_density", 0.0))
 	_fog_fade_slider.value = float(_settings.get("volumetric_fog_fade", 0.02))
-	_light_fog_energy_slider.value = float(_settings.get("light_volumetric_fog_energy", 20.0))
+	_light_fog_energy_slider.value = float(_settings.get("light_volumetric_fog_energy", 12.0))
 	_beam_render_mode_option.select(clamp(int(_settings.get("beam_render_mode", 0)), 0, 1))
 	_beam_quality_option.select(clamp(int(_settings.get("beam_quality", 1)), 0, 2))
 	_background_picker.color = _settings.get("background_color", DEFAULT_SETTINGS["background_color"])
@@ -245,7 +245,7 @@ func _update_value_labels() -> void:
 	_bloom_value_label.text = "%.2f" % float(_settings.get("bloom_multiplier", 0.0))
 	_fog_density_value_label.text = "%.4f" % float(_settings.get("volumetric_fog_density", 0.0))
 	_fog_fade_value_label.text = "%.3f" % float(_settings.get("volumetric_fog_fade", 0.02))
-	_light_fog_energy_value_label.text = "%.2f" % float(_settings.get("light_volumetric_fog_energy", 20.0))
+	_light_fog_energy_value_label.text = "%.2f" % float(_settings.get("light_volumetric_fog_energy", 12.0))
 
 func _emit_settings_changed() -> void:
 	settings_changed.emit(_settings.duplicate(true))
