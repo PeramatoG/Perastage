@@ -9,7 +9,7 @@ background_mode = 1
 background_color = Color(0.129412, 0.137255, 0.156863, 1)
 ambient_light_source = 2
 ambient_light_color = Color(0.176471, 0.188235, 0.211765, 1)
-ambient_light_energy = 0.2
+ambient_light_energy = 0.08
 tonemap_mode = 3
 tonemap_white = 8.0
 ssao_enabled = true
@@ -18,7 +18,7 @@ ssao_intensity = 0.35
 glow_enabled = true
 glow_intensity = 0.55
 glow_strength = 0.55
-glow_bloom = 0.05
+glow_bloom = 0.0
 adjustment_enabled = true
 adjustment_contrast = 1.05
 adjustment_saturation = 1.05
@@ -27,7 +27,6 @@ adjustment_saturation = 1.05
 albedo_color = Color(0.45, 0.45, 0.45, 1)
 metallic_specular = 0.45
 roughness = 0.78
-uv1_scale = Vector3(30, 30, 30)
 
 [sub_resource type="PlaneMesh" id="PlaneMesh_ground"]
 size = Vector2(100, 100)
@@ -44,6 +43,8 @@ current = true
 script = ExtResource("2_camera_script")
 
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="." unique_id=426373555]
+visible = false
+light_energy = 0.0
 transform = Transform3D(0.8480481, -0.41758206, 0.32625088, 0, 0.6156615, 0.7880107, -0.52991927, -0.668271, 0.5221106, 0, 0, 0)
 light_angular_distance = 0.35
 shadow_enabled = true

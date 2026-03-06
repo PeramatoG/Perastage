@@ -17,10 +17,62 @@ uniform float far_fade_end : hint_range(0.1, 100.0) = 80.0;
 instance uniform float max_brightness : hint_range(1.0, 50.0) = 10.0;
 uniform bool depth_feather_enabled = true;
 uniform float depth_fade_distance : hint_range(0.01, 5.0) = 0.5;
+uniform sampler2D gobo_texture : source_color;
+uniform bool use_gobo = false;
+uniform float gobo_contrast : hint_range(0.1, 4.0) = 1.0;
+uniform bool gobo_invert = false;
+instance uniform float cone_height = 15.0;
+instance uniform float gobo_projection_radius = 1.0;
+instance uniform float radial_falloff = 1.1;
+instance uniform float longitudinal_falloff = 1.0;
+instance uniform float beam_softness = 0.35;
+instance uniform float gobo_scale = 1.0;
+instance uniform float gobo_rotation_deg = 0.0;
+instance uniform float haze_density = 0.35;
 
 
 varying vec3 v_view;
 varying vec3 v_local;
+
+vec2 project_gobo_uv(vec3 local_pos) {
+	float source_y = 0.5 * cone_height;
+	float axial_dist = max(abs(source_y - local_pos.y), 0.001);
+	float projection_scale = cone_height / axial_dist;
+	float projection_radius = max(gobo_projection_radius, 0.001);
+	vec2 projected = local_pos.xz * projection_scale;
+	float rotation_rad = radians(gobo_rotation_deg);
+	float cos_r = cos(rotation_rad);
+	float sin_r = sin(rotation_rad);
+	vec2 rotated = vec2(
+		(projected.x * cos_r) - (projected.y * sin_r),
+		(projected.x * sin_r) + (projected.y * cos_r)
+	);
+	float safe_scale = max(gobo_scale, 0.05);
+	return vec2(0.5) + ((rotated / safe_scale) / (2.0 * projection_radius));
+}
+
+
+float radial_profile_from_local(vec3 local_pos) {
+	float source_y = 0.5 * cone_height;
+	float axial_dist = max(abs(source_y - local_pos.y), 0.001);
+	float projection_scale = cone_height / axial_dist;
+	float projection_radius = max(gobo_projection_radius, 0.001);
+	float local_radius = projection_radius / max(projection_scale, 0.0001);
+	float radius_norm = length(local_pos.xz) / max(local_radius, 0.0001);
+	return pow(clamp(1.0 - radius_norm, 0.0, 1.0), max(beam_softness, 0.02));
+}
+
+float sample_gobo_mask(vec2 uv) {
+	vec2 safe_uv = clamp(uv, vec2(0.0), vec2(1.0));
+	vec4 texel = texture(gobo_texture, safe_uv);
+	float luma = clamp(dot(texel.rgb, vec3(0.299, 0.587, 0.114)), 0.0, 1.0);
+	float alpha = clamp(texel.a, 0.0, 1.0);
+	float open_amount = luma;
+	if (gobo_invert) {
+		open_amount = 1.0 - luma;
+	}
+	return max(pow(clamp(open_amount * alpha, 0.0, 1.0), gobo_contrast), 0.06);
+}
 
 void vertex() {
 	v_local = VERTEX;
@@ -41,7 +93,7 @@ void fragment() {
 		discard;
 	}
 
-	float apex_fade = pow(max(1.0 - UV.y, 0.001), falloff_power);
+	float apex_fade = pow(max(1.0 - UV.y, 0.001), max(falloff_power * longitudinal_falloff, 0.1));
 	float base_brightness = base_color.a * apex_fade;
 
 	vec3 n = normalize(NORMAL);
@@ -51,7 +103,8 @@ void fragment() {
 	float facing_multiplier = 1.0 + (facing_boost * location_weight * pow(ndotv, facing_power));
 
 	float brightness = min(base_brightness * facing_multiplier, max_brightness);
-	float feather_alpha = mix(1.0 - feather_intensity, 1.0, pow(ndotv, feather_sharpness));
+	float feather_alpha = mix(1.0 - feather_intensity, 1.0, pow(ndotv, feather_sharpness * max(radial_falloff, 0.05)));
+	float radial_profile = radial_profile_from_local(v_local);
 
 	float depth_mult = 1.0;
 	if (depth_feather_enabled) {
@@ -66,12 +119,18 @@ void fragment() {
 
 
 
-	float final_alpha = feather_alpha * depth_mult * dist_fade;
+	float final_alpha = feather_alpha * radial_profile * depth_mult * dist_fade * max(haze_density, 0.05);
 	if (final_alpha < 0.001) {
 		discard;
 	}
 
-	ALBEDO = base_color.rgb * brightness;
-	ALPHA = clamp(final_alpha * base_color.a, 0.0, 1.0);
-	EMISSION = ALBEDO * ALPHA;
+	float gobo_mask = 1.0;
+	if (use_gobo) {
+		vec2 gobo_uv = project_gobo_uv(v_local);
+		gobo_mask = sample_gobo_mask(gobo_uv);
+	}
+
+	ALBEDO = base_color.rgb * brightness * gobo_mask;
+	ALPHA = clamp(max(final_alpha * gobo_mask, 0.02), 0.0, 1.0);
+	EMISSION = ALBEDO * max(ALPHA, 0.15);
 }

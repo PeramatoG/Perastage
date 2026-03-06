@@ -1,3 +1,4 @@
+@tool
 extends Window
 
 class_name VisualSettingsWindow
@@ -5,21 +6,31 @@ class_name VisualSettingsWindow
 signal settings_changed(settings: Dictionary)
 
 const DEFAULT_SETTINGS := {
-	"ambient_multiplier": 1.0,
+	"ambient_multiplier": 0.08,
 	"spot_multiplier": 1.0,
 	"beam_multiplier": 1.0,
-	"bloom_multiplier": 1.0,
+	"bloom_multiplier": 0.0,
 	"beam_render_mode": 0,
-	"beam_quality": 1,
+	"beam_quality": 2,
 	"beam_haze_density": 0.17,
 	"beam_anisotropy": 0.62,
 	"beam_noise_amount": 0.06,
 	"beam_noise_scale": 1.4,
+	"beam_softness": 0.35,
+	"beam_radial_falloff": 1.1,
+	"beam_longitudinal_falloff": 1.0,
+	"haze_density_multiplier": 0.35,
+	"gobo_scale": 1.0,
+	"gobo_rotation_deg": 0.0,
+	"lens_offset_m": 0.0,
+	"near_offset": 0.0,
+	"lens_shift_x": 0.0,
+	"lens_shift_y": 0.0,
+	"beam_debug_optics": false,
+	"ambient_fog_density": 0.0,
 	"volumetric_fog_density": 0.0,
-	"light_volumetric_fog_energy": 8.0,
-	"volumetric_fog_volume_size": 256,
-	"volumetric_fog_depth": 64.0,
-	"volumetric_fog_use_filter": true,
+	"volumetric_fog_fade": 0.02,
+	"light_volumetric_fog_energy": 20.0,
 	"use_native_fog_projector_gobos": true,
 	"background_color": Color(0.129412, 0.137255, 0.156863, 1.0),
 }
@@ -35,12 +46,10 @@ var _bloom_slider: HSlider
 var _bloom_value_label: Label
 var _fog_density_slider: HSlider
 var _fog_density_value_label: Label
+var _fog_fade_slider: HSlider
+var _fog_fade_value_label: Label
 var _light_fog_energy_slider: HSlider
 var _light_fog_energy_value_label: Label
-var _fog_volume_size_slider: HSlider
-var _fog_volume_size_value_label: Label
-var _fog_depth_slider: HSlider
-var _fog_depth_value_label: Label
 var _background_picker: ColorPickerButton
 var _beam_render_mode_option: OptionButton
 var _beam_quality_option: OptionButton
@@ -83,15 +92,14 @@ func _build_ui() -> void:
 
 	_ambient_slider = _add_slider_row(container, "Ambient light", "ambient_multiplier", 0.0, 3.0, 0.01)
 	_spot_slider = _add_slider_row(container, "Spot intensity", "spot_multiplier", 0.0, 3.0, 0.01)
-	_beam_slider = _add_slider_row(container, "Beam intensity", "beam_multiplier", 0.0, 8.0, 0.01)
+	_beam_slider = _add_slider_row(container, "Beam intensity", "beam_multiplier", 0.0, 20.0, 0.01)
 	_bloom_slider = _add_slider_row(container, "Bloom", "bloom_multiplier", 0.0, 3.0, 0.01)
-	_fog_density_slider = _add_slider_row(container, "Volumetric fog density", "volumetric_fog_density", 0.0, 0.08, 0.001)
-	_fog_volume_size_slider = _add_slider_row(container, "Fog volume size", "volumetric_fog_volume_size", 64.0, 512.0, 32.0)
-	_fog_depth_slider = _add_slider_row(container, "Fog volume depth", "volumetric_fog_depth", 16.0, 256.0, 4.0)
-	_light_fog_energy_slider = _add_slider_row(container, "Light fog energy", "light_volumetric_fog_energy", 0.0, 8.0, 0.05)
+	_add_slider_row(container, "Ambient fog density", "ambient_fog_density", 0.0, 0.05, 0.001)
+	_fog_density_slider = _add_slider_row(container, "Volumetric fog density", "volumetric_fog_density", 0.0, 0.01, 0.0001)
+	_fog_fade_slider = _add_slider_row(container, "Volumetric fog fade", "volumetric_fog_fade", 0.0, 0.2, 0.005)
+	_light_fog_energy_slider = _add_slider_row(container, "Light fog energy", "light_volumetric_fog_energy", 0.0, 100.0, 0.5)
 	_beam_render_mode_option = _add_option_row(container, "Beam rendering", ["Volumetric (default)", "Lightweight (legacy)"], _on_beam_render_mode_selected)
 	_beam_quality_option = _add_option_row(container, "Beam quality", ["Low", "Medium", "High"], _on_beam_quality_selected)
-	_add_toggle_row(container, "Volumetric fog Use Filter (ON = less aliasing, less detail)", "volumetric_fog_use_filter")
 
 	var background_row: HBoxContainer = HBoxContainer.new()
 	background_row.add_theme_constant_override("separation", 8)
@@ -157,10 +165,8 @@ func _add_slider_row(parent: VBoxContainer,
 			_bloom_value_label = value_label
 		"volumetric_fog_density":
 			_fog_density_value_label = value_label
-		"volumetric_fog_volume_size":
-			_fog_volume_size_value_label = value_label
-		"volumetric_fog_depth":
-			_fog_depth_value_label = value_label
+		"volumetric_fog_fade":
+			_fog_fade_value_label = value_label
 		"light_volumetric_fog_energy":
 			_light_fog_energy_value_label = value_label
 
@@ -196,22 +202,21 @@ func _add_toggle_row(parent: VBoxContainer, label_text: String, key: String) -> 
 	parent.add_child(toggle)
 
 func _apply_settings_to_controls() -> void:
-	_ambient_slider.value = float(_settings.get("ambient_multiplier", 1.0))
+	_ambient_slider.value = float(_settings.get("ambient_multiplier", 0.08))
 	_spot_slider.value = float(_settings.get("spot_multiplier", 1.0))
 	_beam_slider.value = float(_settings.get("beam_multiplier", 1.0))
-	_bloom_slider.value = float(_settings.get("bloom_multiplier", 1.0))
-	_fog_density_slider.value = float(_settings.get("volumetric_fog_density", 0.01))
-	_fog_volume_size_slider.value = float(_settings.get("volumetric_fog_volume_size", 256))
-	_fog_depth_slider.value = float(_settings.get("volumetric_fog_depth", 64.0))
-	_light_fog_energy_slider.value = float(_settings.get("light_volumetric_fog_energy", 1.0))
+	_bloom_slider.value = float(_settings.get("bloom_multiplier", 0.0))
+	_fog_density_slider.value = float(_settings.get("volumetric_fog_density", 0.0))
+	_fog_fade_slider.value = float(_settings.get("volumetric_fog_fade", 0.02))
+	_light_fog_energy_slider.value = float(_settings.get("light_volumetric_fog_energy", 20.0))
 	_beam_render_mode_option.select(clamp(int(_settings.get("beam_render_mode", 0)), 0, 1))
 	_beam_quality_option.select(clamp(int(_settings.get("beam_quality", 1)), 0, 2))
 	_background_picker.color = _settings.get("background_color", DEFAULT_SETTINGS["background_color"])
 	_update_value_labels()
 
 func _on_slider_changed(key: String, value: float) -> void:
-	if key == "volumetric_fog_volume_size":
-		value = float(int(round(value / 32.0)) * 32)
+	if key == "volumetric_fog_fade":
+		value = max(value, 0.005)
 	_settings[key] = value
 	_update_value_labels()
 	_emit_settings_changed()
@@ -234,14 +239,13 @@ func _on_beam_quality_selected(index: int) -> void:
 	_emit_settings_changed()
 
 func _update_value_labels() -> void:
-	_ambient_value_label.text = "%.2f" % float(_settings.get("ambient_multiplier", 1.0))
+	_ambient_value_label.text = "%.2f" % float(_settings.get("ambient_multiplier", 0.08))
 	_spot_value_label.text = "%.2f" % float(_settings.get("spot_multiplier", 1.0))
 	_beam_value_label.text = "%.2f" % float(_settings.get("beam_multiplier", 1.0))
-	_bloom_value_label.text = "%.2f" % float(_settings.get("bloom_multiplier", 1.0))
-	_fog_density_value_label.text = "%.3f" % float(_settings.get("volumetric_fog_density", 0.01))
-	_fog_volume_size_value_label.text = "%d" % int(round(float(_settings.get("volumetric_fog_volume_size", 256))))
-	_fog_depth_value_label.text = "%.1f" % float(_settings.get("volumetric_fog_depth", 64.0))
-	_light_fog_energy_value_label.text = "%.2f" % float(_settings.get("light_volumetric_fog_energy", 1.0))
+	_bloom_value_label.text = "%.2f" % float(_settings.get("bloom_multiplier", 0.0))
+	_fog_density_value_label.text = "%.4f" % float(_settings.get("volumetric_fog_density", 0.0))
+	_fog_fade_value_label.text = "%.3f" % float(_settings.get("volumetric_fog_fade", 0.02))
+	_light_fog_energy_value_label.text = "%.2f" % float(_settings.get("light_volumetric_fog_energy", 20.0))
 
 func _emit_settings_changed() -> void:
 	settings_changed.emit(_settings.duplicate(true))

@@ -25,8 +25,11 @@ peraviz_debug_baseline=false
 
 [rendering]
 
-rendering_device/driver.windows="d3d12"
+renderer/rendering_method="forward_plus"
+
+rendering_device/driver.windows="vulkan"
 
 rendering/lights_and_shadows/positional_shadow/atlas_size=4096
-rendering/environment/volumetric_fog/volume_size=128
+rendering/environment/volumetric_fog/volume_size=1024
+rendering/environment/volumetric_fog/volume_depth=256
 rendering/environment/volumetric_fog/use_filter=true

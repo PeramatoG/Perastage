@@ -12,6 +12,8 @@ const GOBO_MAX_ANGLE_DEG: float = 50.0
 const GOBO_MIN_SCALE: float = 0.555
 const GOBO_MAX_SCALE: float = 6.4
 const GOBO_APERTURE_SCALE: float = 1.05
+const GOBO_DEFAULT_SCALE: float = 1.0
+const GOBO_DEFAULT_ROTATION_DEG: float = 0.0
 
 var _texture_cache: Dictionary = {}
 
@@ -60,14 +62,17 @@ func apply_gobo_projection(light: SpotLight3D, controls: Dictionary) -> bool:
 		return previous_meta_texture != null
 
 	var composed_gobo: Texture2D = _compose_gobo_textures(active_textures)
-	_apply_gobo_visuals(light, composed_gobo, controls)
-	light.set_meta(GOBO_TEXTURE_META_KEY, composed_gobo)
-	return composed_gobo != previous_meta_texture
+	var gobo_scale: float = max(float(controls.get("gobo_scale", GOBO_DEFAULT_SCALE)), 0.05)
+	var gobo_rotation_deg: float = float(controls.get("gobo_rotation_deg", GOBO_DEFAULT_ROTATION_DEG))
+	var projected_gobo: Texture2D = _transform_gobo_texture(composed_gobo, gobo_rotation_deg, gobo_scale)
+	_apply_gobo_visuals(light, projected_gobo, controls)
+	light.set_meta(GOBO_TEXTURE_META_KEY, projected_gobo)
+	return projected_gobo != previous_meta_texture
 
 func _apply_gobo_visuals(light: SpotLight3D, gobo_texture: Texture2D, controls: Dictionary = {}) -> void:
 	if light == null or not is_instance_valid(light):
 		return
-	light.set("projector", gobo_texture)
+	_set_light_projector_texture(light, gobo_texture)
 	if gobo_texture == null:
 		_remove_gobo_plane(light)
 		return
@@ -83,10 +88,27 @@ func _apply_gobo_visuals(light: SpotLight3D, gobo_texture: Texture2D, controls: 
 		gobo_material.set_shader_parameter("gobo_texture", gobo_texture)
 	_update_gobo_plane_scale(light, gobo_plane)
 
+func _set_light_projector_texture(light: SpotLight3D, texture: Texture2D) -> void:
+	if light == null or not is_instance_valid(light):
+		return
+	# Godot custom branches may expose either `projector` or `light_projector`.
+	if _has_property(light, "projector"):
+		light.set("projector", texture)
+	if _has_property(light, "light_projector"):
+		light.set("light_projector", texture)
+
+func _has_property(object: Object, property_name: String) -> bool:
+	if object == null:
+		return false
+	for property_info in object.get_property_list():
+		if str(property_info.get("name", "")) == property_name:
+			return true
+	return false
+
 func _clear_gobo_visuals(light: SpotLight3D) -> void:
 	if light == null or not is_instance_valid(light):
 		return
-	light.set("projector", null)
+	_set_light_projector_texture(light, null)
 	_remove_gobo_plane(light)
 
 func _ensure_gobo_plane(light: SpotLight3D) -> MeshInstance3D:
@@ -174,6 +196,8 @@ func _resolve_gobo_texture_for_slot(controls: Dictionary, slot_index: int) -> Te
 		var load_error: Error = image.load(image_path)
 		if load_error != OK:
 			return null
+		if image.get_format() != Image.FORMAT_RGBA8:
+			image.convert(Image.FORMAT_RGBA8)
 		var texture: ImageTexture = ImageTexture.create_from_image(image)
 		_texture_cache[image_path] = texture
 		return texture
@@ -208,12 +232,54 @@ func _compose_gobo_textures(textures: Array[Texture2D]) -> Texture2D:
 				var dst: Color = composed.get_pixel(x, y)
 				var src: Color = image.get_pixel(x, y)
 				var src_luma: float = (src.r + src.g + src.b) / 3.0
-				var out_luma: float = dst.r * src_luma
-				composed.set_pixel(x, y, Color(out_luma, out_luma, out_luma, 1.0))
+				var src_mask: float = src_luma * src.a
+				var out_luma: float = dst.r * src_mask
+				composed.set_pixel(x, y, Color(out_luma, out_luma, out_luma, out_luma))
 
 	var out_texture: ImageTexture = ImageTexture.create_from_image(composed)
 	_texture_cache[cache_key] = out_texture
 	return out_texture
+
+
+func _transform_gobo_texture(base_texture: Texture2D, rotation_deg: float, scale_factor: float) -> Texture2D:
+	if base_texture == null:
+		return null
+	var normalized_rotation: float = wrapf(rotation_deg, 0.0, 360.0)
+	var clamped_scale: float = clamp(scale_factor, 0.05, 8.0)
+	if abs(normalized_rotation) < 0.001 and is_equal_approx(clamped_scale, 1.0):
+		return base_texture
+	var cache_key: String = "__transformed_gobo_%d_%.3f_%.3f" % [base_texture.get_rid().get_id(), normalized_rotation, clamped_scale]
+	if _texture_cache.has(cache_key):
+		return _texture_cache[cache_key] as Texture2D
+	var src_image: Image = base_texture.get_image()
+	if src_image == null:
+		return base_texture
+	if src_image.get_format() != Image.FORMAT_RGBA8:
+		src_image.convert(Image.FORMAT_RGBA8)
+	if src_image.get_width() != FAKE_GOBO_TEXTURE_SIZE or src_image.get_height() != FAKE_GOBO_TEXTURE_SIZE:
+		src_image.resize(FAKE_GOBO_TEXTURE_SIZE, FAKE_GOBO_TEXTURE_SIZE, Image.INTERPOLATE_LANCZOS)
+	var out_image: Image = Image.create(FAKE_GOBO_TEXTURE_SIZE, FAKE_GOBO_TEXTURE_SIZE, false, Image.FORMAT_RGBA8)
+	out_image.fill(Color(0.0, 0.0, 0.0, 0.0))
+	var center: Vector2 = Vector2(float(FAKE_GOBO_TEXTURE_SIZE - 1), float(FAKE_GOBO_TEXTURE_SIZE - 1)) * 0.5
+	var inv_scale: float = 1.0 / clamped_scale
+	var rotation_rad: float = deg_to_rad(normalized_rotation)
+	var cos_r: float = cos(rotation_rad)
+	var sin_r: float = sin(rotation_rad)
+	for y in range(FAKE_GOBO_TEXTURE_SIZE):
+		for x in range(FAKE_GOBO_TEXTURE_SIZE):
+			var dst: Vector2 = Vector2(float(x), float(y)) - center
+			var scaled: Vector2 = dst * inv_scale
+			var src_local := Vector2(
+				(cos_r * scaled.x) + (sin_r * scaled.y),
+				(-sin_r * scaled.x) + (cos_r * scaled.y)
+			)
+			var src_pos: Vector2 = src_local + center
+			if src_pos.x < 0.0 or src_pos.y < 0.0 or src_pos.x >= float(FAKE_GOBO_TEXTURE_SIZE) or src_pos.y >= float(FAKE_GOBO_TEXTURE_SIZE):
+				continue
+			out_image.set_pixel(x, y, src_image.get_pixel(int(src_pos.x), int(src_pos.y)))
+	var texture: ImageTexture = ImageTexture.create_from_image(out_image)
+	_texture_cache[cache_key] = texture
+	return texture
 
 func _resolve_fake_gobo_texture(gobo_raw_8bit: int) -> Texture2D:
 	var fake_bucket: int = gobo_raw_8bit >> 3
