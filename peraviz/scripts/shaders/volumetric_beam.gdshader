@@ -120,6 +120,6 @@ void fragment() {
 	}
 
 	ALBEDO = base_color.rgb * brightness * gobo_mask;
-	ALPHA = clamp(final_alpha * base_color.a * gobo_mask, 0.0, 1.0);
-	EMISSION = ALBEDO * ALPHA;
+	ALPHA = clamp(final_alpha * gobo_mask, 0.0, 1.0);
+	EMISSION = ALBEDO * max(ALPHA, 0.15);
 }

@@ -64,3 +64,9 @@ Beam length matches `beam_range`, and center offset uses `lens_offset_m`.
 Beam shaders do not rely on mesh UV unwrapping for gobo sizing. They project from cone local coordinates and normalize by projected cone radius at each depth sample.
 
 This keeps zoom/angle and gobo scaling behavior aligned with footprint projection.
+
+
+### Defaults and tuning notes
+
+- Beam intensity range: `beam_multiplier` now supports `0.0 .. 12.0` to recover volumetric beam visibility in large scenes.
+- Volumetric renderer uses a stronger internal intensity scale and non-squared alpha path so the cone remains visible while preserving gobo modulation.
