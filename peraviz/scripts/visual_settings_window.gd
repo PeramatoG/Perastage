@@ -23,6 +23,7 @@ const DEFAULT_SETTINGS := {
 	"gobo_scale": 1.0,
 	"gobo_rotation_deg": 0.0,
 	"lens_offset_m": 0.0,
+	"beam_debug_optics": false,
 	"ambient_fog_density": 0.0,
 	"volumetric_fog_density": 0.0,
 	"volumetric_fog_fade": 0.02,

@@ -46,7 +46,7 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	if cone == null:
 		return
 
-	var intensity: float = clamp(float(params.get("scaled_intensity", 0.0)), 0.0, 8.0)
+	var intensity: float = clamp(float(params.get("scaled_intensity", 0.0)), 0.0, 12.0)
 	var threshold: float = float(params.get("intensity_visibility_threshold", 0.015))
 	var beam_range: float = max(float(params.get("beam_range", 0.1)), 0.01)
 	var beam_angle: float = max(float(params.get("beam_angle", 1.0)), 0.1)
@@ -64,7 +64,7 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	var distance_limit: float = float(params.get("distance_cull_m", 180.0))
 	if _camera != null:
 		var cam_distance: float = _camera.global_position.distance_to(light.global_position)
-		if cam_distance > distance_limit or _camera.is_position_behind(light.global_position):
+		if cam_distance > distance_limit:
 			cone.visible = false
 			return
 
@@ -72,6 +72,8 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	var tan_half_angle: float = tan(deg_to_rad(half_angle_deg))
 	var radius: float = tan_half_angle * beam_range
 	var bottom_radius: float = clamp(radius, 0.03, EMITTER_CONE_MAX_BASE_RADIUS_M)
+	if bool(params.get("beam_debug_optics", false)):
+		print("[PeravizBeamOptics] angle_deg=", beam_angle, " range_m=", beam_range, " radius_end_m=", bottom_radius)
 	var cone_mesh: CylinderMesh = cone.mesh as CylinderMesh
 	var top_radius: float = max(lens_radius, 0.003)
 	if cone_mesh != null:
@@ -84,7 +86,7 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 
 	var intensity_alpha: float = clamp(intensity * VOLUMETRIC_INTENSITY_SCALE, 0.0, 1.0)
 	cone.set_instance_shader_parameter("base_color", Color(beam_color.r, beam_color.g, beam_color.b, intensity_alpha))
-	cone.set_instance_shader_parameter("max_brightness", lerp(1.0, 14.0, intensity / 12.0))
+	cone.set_instance_shader_parameter("max_brightness", lerp(2.0, 18.0, intensity / 12.0))
 	cone.set_instance_shader_parameter("beam_noise_amount", float(_settings.get("beam_noise_amount", 0.06)))
 	cone.set_instance_shader_parameter("beam_noise_scale", float(_settings.get("beam_noise_scale", 1.4)))
 	cone.set_instance_shader_parameter("beam_haze_density", float(_settings.get("beam_haze_density", 0.17)) * float(params.get("haze_density_multiplier", 0.35)))
@@ -93,8 +95,8 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	cone.set_instance_shader_parameter("radial_falloff", max(float(params.get("beam_radial_falloff", 1.1)), 0.05))
 	cone.set_instance_shader_parameter("longitudinal_falloff", max(float(params.get("beam_longitudinal_falloff", 1.0)), 0.05))
 	cone.set_instance_shader_parameter("beam_softness", clamp(float(params.get("beam_softness", 0.35)), 0.02, 1.0))
-	cone.set_instance_shader_parameter("gobo_scale", max(float(params.get("gobo_scale", 1.0)), 0.05))
-	cone.set_instance_shader_parameter("gobo_rotation_deg", float(params.get("gobo_rotation_deg", 0.0)))
+	cone.set_instance_shader_parameter("gobo_scale", 1.0)
+	cone.set_instance_shader_parameter("gobo_rotation_deg", 0.0)
 	cone.set_instance_shader_parameter("cone_height", max(beam_range, 0.001))
 	cone.set_instance_shader_parameter("gobo_projection_radius", max(bottom_radius, 0.001))
 	var gobo_texture: Texture2D = null

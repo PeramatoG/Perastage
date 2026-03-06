@@ -40,7 +40,7 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	_attach_if_needed(light, core_cone)
 
 	var intensity: float = clamp(float(params.get("normalized_dimmer", 0.0)), 0.0, 1.0)
-	var scaled_intensity: float = clamp(float(params.get("scaled_intensity", 0.0)), 0.0, 8.0)
+	var scaled_intensity: float = clamp(float(params.get("scaled_intensity", 0.0)), 0.0, 12.0)
 	var beam_range: float = max(float(params.get("beam_range", 0.1)), 0.01)
 	var beam_angle: float = max(float(params.get("beam_angle", 1.0)), 0.1)
 	var beam_color: Color = params.get("beam_color", Color.WHITE)
@@ -62,6 +62,8 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	var beam_half_angle_deg: float = beam_angle * 0.5
 	var radius: float = tan(deg_to_rad(beam_half_angle_deg)) * beam_range
 	var bottom_radius: float = clamp(radius, 0.03, EMITTER_CONE_MAX_BASE_RADIUS_M)
+	if bool(params.get("beam_debug_optics", false)):
+		print("[PeravizBeamOptics] angle_deg=", beam_angle, " range_m=", beam_range, " radius_end_m=", bottom_radius)
 
 	var lens_offset_m: float = max(float(params.get("lens_offset_m", 0.0)), 0.0)
 	_update_cone_geometry(cone, lens_radius, bottom_radius, beam_range, lens_offset_m, 1.0)
@@ -72,12 +74,18 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	if light.has_meta(GOBO_TEXTURE_META_KEY):
 		gobo_texture = light.get_meta(GOBO_TEXTURE_META_KEY) as Texture2D
 	# Keep cone beam visible in all modes; native projector may still affect footprint/fog.
+	var gobo_active: bool = gobo_texture != null
+	if gobo_active:
+		if mid_cone != null:
+			mid_cone.visible = false
+		if core_cone != null:
+			core_cone.visible = false
 	var color_alpha := Color(beam_color.r, beam_color.g, beam_color.b, 1.0)
 	var beam_softness: float = clamp(float(params.get("beam_softness", 0.35)), 0.02, 1.0)
 	var radial_falloff: float = max(float(params.get("beam_radial_falloff", 1.1)), 0.05)
 	var longitudinal_falloff: float = max(float(params.get("beam_longitudinal_falloff", 1.0)), 0.05)
-	var gobo_scale: float = max(float(params.get("gobo_scale", 1.0)), 0.05)
-	var gobo_rotation_deg: float = float(params.get("gobo_rotation_deg", 0.0))
+	var gobo_scale: float = 1.0
+	var gobo_rotation_deg: float = 0.0
 	_update_cone_material(cone, color_alpha, scaled_intensity, beam_range, bottom_radius, beam_softness, 0.16, 0.06, 1.0, 1.0, radial_falloff, longitudinal_falloff, gobo_scale, gobo_rotation_deg, gobo_texture)
 	_update_cone_material(mid_cone, color_alpha, scaled_intensity, beam_range, bottom_radius * 0.7, beam_softness * 0.7, 0.26, 0.04, 1.35, 1.25, radial_falloff, longitudinal_falloff, gobo_scale, gobo_rotation_deg, gobo_texture)
 	_update_cone_material(core_cone, color_alpha, scaled_intensity, beam_range, bottom_radius * 0.45, beam_softness * 0.45, 0.35, 0.02, 1.7, 1.5, radial_falloff, longitudinal_falloff, gobo_scale, gobo_rotation_deg, gobo_texture)
