@@ -595,7 +595,7 @@ func _create_emitter_direction_gizmo(length: float) -> MeshInstance3D:
 	beam_material.emission_energy_multiplier = 2.0
 	immediate.surface_begin(Mesh.PRIMITIVE_LINES, beam_material)
 	immediate.surface_add_vertex(Vector3.ZERO)
-	immediate.surface_add_vertex(Vector3.BACK * (length * 1.8))
+	immediate.surface_add_vertex(Vector3.DOWN * (length * 1.8))
 	immediate.surface_end()
 
 	var beam := MeshInstance3D.new()
@@ -644,7 +644,7 @@ func _update_debug_legend() -> void:
 		print("[PeravizCoordDebugLegend] disabled (press C to enable)")
 		return
 
-	print("[PeravizCoordDebugLegend] X=Red Y=Green Z=Blue scene_root_origin=Magenta mvr_instance_root_origin=Yellow gdtf_axis_origin=Cyan emitter_origin=Orange beam_expected_local=-Z")
+	print("[PeravizCoordDebugLegend] X=Red Y=Green Z=Blue scene_root_origin=Magenta mvr_instance_root_origin=Yellow gdtf_axis_origin=Cyan emitter_origin=Orange beam_expected_local=-Y")
 
 func _build_node_tree(nodes: Array) -> void:
 	_node_index.clear()
