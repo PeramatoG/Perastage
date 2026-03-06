@@ -17,7 +17,7 @@ instance uniform float radial_falloff = 1.1;
 instance uniform float longitudinal_falloff = 1.0;
 instance uniform float gobo_scale = 1.0;
 instance uniform float gobo_rotation_deg = 0.0;
-instance uniform float haze_density = 0.35;
+uniform float haze_density = 0.35;
 uniform sampler2D gobo_texture : source_color;
 uniform bool use_gobo = false;
 uniform float gobo_contrast : hint_range(0.1, 4.0) = 1.0;
