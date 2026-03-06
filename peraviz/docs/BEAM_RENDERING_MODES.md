@@ -22,8 +22,8 @@ Peraviz now provides two beam rendering modes in **Visual Settings**:
 The volumetric and legacy cone meshes follow the same axis convention:
 
 - Cone geometry is authored along **local +Y/-Y** (`CylinderMesh.height` axis).
-- Runtime rotates the beam mesh by **+90° on X** so the cone projects along fixture **local -Z** (same direction as `SpotLight3D`).
-- Runtime places the beam center at `position = Vector3(0, 0, -beam_range * 0.5)` so the cone starts near the lens and extends forward.
+- Beam mesh keeps the authored Y axis and projects along fixture **local -Y** (validated in runtime with debug axis).
+- Runtime places the beam center at `position = Vector3(lens_shift_x, -(beam_range * 0.5 + near_offset), lens_shift_y)` so the cone starts near the lens and extends forward along `-Y`.
 
 Shader shaping uses:
 
