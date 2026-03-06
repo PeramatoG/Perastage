@@ -125,7 +125,7 @@ func _create_cone(cone_name: String) -> MeshInstance3D:
 	cone.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	cone.mesh = cone_mesh
 	cone.material_override = _material_template.duplicate(true)
-	cone.rotation_degrees = Vector3.ZERO
+	cone.rotation_degrees.x = 90.0
 	cone.visible = false
 	return cone
 
@@ -138,7 +138,7 @@ func _update_cone_geometry(cone: MeshInstance3D, lens_radius: float, bottom_radi
 	cone_mesh.top_radius = max(lens_radius * radius_scale, 0.003)
 	cone_mesh.bottom_radius = clamp(bottom_radius * radius_scale, 0.02, EMITTER_CONE_MAX_BASE_RADIUS_M)
 	cone_mesh.height = beam_range
-	cone.position = Vector3(lens_shift_x, -(beam_range * 0.5 + lens_offset_m), lens_shift_y)
+	cone.position = Vector3(lens_shift_x, lens_shift_y, -(beam_range * 0.5 + lens_offset_m))
 
 func _update_cone_material(cone: MeshInstance3D, beam_color: Color, scaled_intensity: float, beam_range: float, gobo_projection_radius: float, lateral_softness: float, lateral_emission_boost: float, noise_strength: float, alpha_scale: float, emission_scale: float, radial_falloff: float, longitudinal_falloff: float, haze_density: float, gobo_scale: float, gobo_rotation_deg: float, gobo_texture: Texture2D) -> void:
 	if cone == null:
@@ -176,14 +176,14 @@ func _ensure_debug_axis(light: SpotLight3D) -> MeshInstance3D:
 	axis.name = "PeravizBeamDebugAxis"
 	axis.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	var mesh := BoxMesh.new()
-	mesh.size = Vector3(0.03, 2.0, 0.03)
+	mesh.size = Vector3(0.03, 0.03, 2.0)
 	axis.mesh = mesh
 	var material := StandardMaterial3D.new()
 	material.albedo_color = Color(1.0, 0.1, 0.1, 0.95)
 	material.emission_enabled = true
 	material.emission = Color(1.0, 0.0, 0.0, 1.0)
 	axis.material_override = material
-	axis.position = Vector3(0.0, -1.0, 0.0)
+	axis.position = Vector3(0.0, 0.0, -1.0)
 	light.add_child(axis)
 	light.set_meta(DEBUG_AXIS_KEY, axis)
 	return axis

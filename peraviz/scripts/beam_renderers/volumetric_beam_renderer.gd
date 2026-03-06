@@ -36,7 +36,7 @@ func ensure_beam(light: SpotLight3D) -> void:
 	cone.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	cone.mesh = cone_mesh
 	cone.material_override = _beam_material_template.duplicate(true)
-	cone.rotation_degrees = Vector3.ZERO
+	cone.rotation_degrees.x = 90.0
 	cone.visible = false
 	light.add_child(cone)
 	light.set_meta(BEAM_META_KEY, cone)
@@ -85,7 +85,7 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	var lens_offset_m: float = max(float(params.get("lens_offset_m", params.get("near_offset", 0.0))), 0.0)
 	var lens_shift_x: float = float(params.get("lens_shift_x", 0.0))
 	var lens_shift_y: float = float(params.get("lens_shift_y", 0.0))
-	cone.position = Vector3(lens_shift_x, -(beam_range * 0.5 + lens_offset_m), lens_shift_y)
+	cone.position = Vector3(lens_shift_x, lens_shift_y, -(beam_range * 0.5 + lens_offset_m))
 	cone.visible = true
 
 	var intensity_alpha: float = clamp(intensity * VOLUMETRIC_INTENSITY_SCALE, 0.0, 2.5)
@@ -134,14 +134,14 @@ func _ensure_debug_axis(light: SpotLight3D) -> MeshInstance3D:
 	axis.name = "PeravizBeamDebugAxis"
 	axis.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	var mesh := BoxMesh.new()
-	mesh.size = Vector3(0.03, 2.0, 0.03)
+	mesh.size = Vector3(0.03, 0.03, 2.0)
 	axis.mesh = mesh
 	var material := StandardMaterial3D.new()
 	material.albedo_color = Color(1.0, 0.1, 0.1, 0.95)
 	material.emission_enabled = true
 	material.emission = Color(1.0, 0.0, 0.0, 1.0)
 	axis.material_override = material
-	axis.position = Vector3(0.0, -1.0, 0.0)
+	axis.position = Vector3(0.0, 0.0, -1.0)
 	light.add_child(axis)
 	light.set_meta(DEBUG_AXIS_KEY, axis)
 	return axis
