@@ -72,16 +72,8 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 		gobo_texture = light.get_meta(GOBO_TEXTURE_META_KEY) as Texture2D
 	var native_fog_projector_enabled: bool = bool(params.get("use_native_fog_projector_gobos", true))
 	var fog_density: float = float(params.get("volumetric_fog_density", 0.0))
-	var fog_projection_active: bool = native_fog_projector_enabled and gobo_texture != null and fog_density > 0.0001
-	if fog_projection_active:
-		# Keep engine fog projection authoritative only while volumetric fog is active.
-		if cone != null:
-			cone.visible = false
-		if mid_cone != null:
-			mid_cone.visible = false
-		if core_cone != null:
-			core_cone.visible = false
-		return
+	var _fog_projection_active: bool = native_fog_projector_enabled and gobo_texture != null and fog_density > 0.0001
+	# Keep cone beam visible in all modes; native projector may still affect footprint/fog.
 	var color_alpha := Color(beam_color.r, beam_color.g, beam_color.b, 1.0)
 	_update_cone_material(cone, color_alpha, scaled_intensity, beam_range, bottom_radius, 0.35, 0.16, 0.06, 1.0, 1.0, gobo_texture)
 	_update_cone_material(mid_cone, color_alpha, scaled_intensity, beam_range, bottom_radius * 0.7, 0.18, 0.26, 0.04, 1.35, 1.25, gobo_texture)
@@ -144,6 +136,6 @@ func _update_cone_material(cone: MeshInstance3D, beam_color: Color, scaled_inten
 	var cone_material: ShaderMaterial = cone.material_override as ShaderMaterial
 	if cone_material != null:
 		cone_material.set_shader_parameter("use_gobo", gobo_texture != null)
-		cone_material.set_shader_parameter("gobo_invert", true)
+		cone_material.set_shader_parameter("gobo_invert", false)
 		if gobo_texture != null:
 			cone_material.set_shader_parameter("gobo_texture", gobo_texture)

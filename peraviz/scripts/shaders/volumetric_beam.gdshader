@@ -20,7 +20,7 @@ uniform float depth_fade_distance : hint_range(0.01, 5.0) = 0.5;
 uniform sampler2D gobo_texture : source_color;
 uniform bool use_gobo = false;
 uniform float gobo_contrast : hint_range(0.1, 4.0) = 1.0;
-uniform bool gobo_invert = true;
+uniform bool gobo_invert = false;
 instance uniform float cone_height = 15.0;
 instance uniform float gobo_projection_radius = 1.0;
 
@@ -39,17 +39,15 @@ vec2 project_gobo_uv(vec3 local_pos) {
 
 
 float sample_gobo_mask(vec2 uv) {
-	if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) {
-		return 0.0;
-	}
-	vec4 texel = texture(gobo_texture, uv);
+	vec2 safe_uv = clamp(uv, vec2(0.0), vec2(1.0));
+	vec4 texel = texture(gobo_texture, safe_uv);
 	float luma = clamp(dot(texel.rgb, vec3(0.299, 0.587, 0.114)), 0.0, 1.0);
 	float alpha = clamp(texel.a, 0.0, 1.0);
 	float open_amount = luma;
 	if (gobo_invert) {
 		open_amount = 1.0 - luma;
 	}
-	return pow(clamp(open_amount * alpha, 0.0, 1.0), gobo_contrast);
+	return max(pow(clamp(open_amount * alpha, 0.0, 1.0), gobo_contrast), 0.06);
 }
 
 void vertex() {
