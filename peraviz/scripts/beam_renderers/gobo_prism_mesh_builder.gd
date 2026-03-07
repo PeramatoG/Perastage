@@ -75,7 +75,7 @@ func _vectorize_gobo(gobo_texture: Texture2D, gobo_scale: float, gobo_rotation_d
 				(local.x * sin_r) + (local.y * cos_r)
 			)
 			transformed.append(Vector2(rotated.x, -rotated.y))
-		var area: float = abs(Geometry2D.poly_area(transformed))
+		var area: float = abs(_signed_polygon_area(transformed))
 		if area < MIN_POLYGON_AREA:
 			continue
 		normalized.append({"polygon": transformed, "area": area})
@@ -89,6 +89,18 @@ func _vectorize_gobo(gobo_texture: Texture2D, gobo_scale: float, gobo_rotation_d
 	for index in range(min(MAX_POLYGON_COUNT, normalized.size())):
 		output.append(normalized[index].get("polygon", PackedVector2Array()) as PackedVector2Array)
 	return output
+
+
+func _signed_polygon_area(polygon: PackedVector2Array) -> float:
+	var count: int = polygon.size()
+	if count < 3:
+		return 0.0
+	var area: float = 0.0
+	for i in range(count):
+		var current: Vector2 = polygon[i]
+		var next: Vector2 = polygon[(i + 1) % count]
+		area += (current.x * next.y) - (next.x * current.y)
+	return 0.5 * area
 
 func _build_fallback_circle() -> PackedVector2Array:
 	var polygon := PackedVector2Array()

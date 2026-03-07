@@ -15,15 +15,13 @@ const DEBUG_AXIS_KEY: String = "peraviz_beam_debug_axis"
 const LEGACY_MID_KEY: String = "peraviz_beam_cone_mid"
 const LEGACY_CORE_KEY: String = "peraviz_beam_cone_core"
 
-const GoboPrismMeshBuilderScript = preload("res://scripts/beam_renderers/gobo_prism_mesh_builder.gd")
-
 var _material_template: ShaderMaterial
 var _mesh_builder: GoboPrismMeshBuilder
 
 func _init() -> void:
 	_material_template = ShaderMaterial.new()
 	_material_template.shader = load("res://scripts/shaders/legacy_beam_cone.gdshader")
-	_mesh_builder = GoboPrismMeshBuilderScript.new()
+	_mesh_builder = GoboPrismMeshBuilder.new()
 
 func ensure_beam(light: SpotLight3D) -> void:
 	_cleanup_legacy_cones(light)
