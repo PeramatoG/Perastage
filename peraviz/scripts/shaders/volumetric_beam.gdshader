@@ -68,8 +68,9 @@ float radial_profile_from_local(vec3 local_pos) {
 	float local_radius = projection_radius / max(projection_scale, 0.0001);
 	float radius_norm = length(local_pos.xz) / max(local_radius, 0.0001);
 	float radial_core = pow(clamp(1.0 - radius_norm, 0.0, 1.0), max(beam_softness, 0.02));
-	float edge_gradient = 1.0 - smoothstep(0.82, 1.0, radius_norm);
-	return radial_core * mix(1.0, edge_gradient, 0.25);
+	float edge_gradient = 1.0 - smoothstep(0.68, 1.0, radius_norm);
+	edge_gradient = pow(max(edge_gradient, 0.0), 1.5);
+	return radial_core * mix(1.0, edge_gradient, 0.55);
 }
 
 float sample_gobo_mask(vec2 uv) {
