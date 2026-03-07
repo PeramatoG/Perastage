@@ -11,6 +11,7 @@ const EMITTER_CONE_FAR_EMISSION: float = 0.04
 const LEGACY_INTENSITY_RESPONSE_EXPONENT: float = 2.2
 const INTENSITY_REFERENCE_MAX: float = 20.0
 const LEGACY_OVERDRIVE_GAIN_MAX: float = 5.0
+const OPEN_GOBO_RADIAL_FLOOR: float = 0.16
 
 const MAIN_KEY: String = "peraviz_beam_prism"
 const GOBO_TEXTURE_META_KEY: String = "peraviz_gobo_texture"
@@ -91,7 +92,7 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	var radial_falloff: float = max(float(params.get("beam_radial_falloff", 1.1)), 0.05)
 	var longitudinal_falloff: float = max(float(params.get("beam_longitudinal_falloff", 1.0)), 0.05)
 	var haze_density: float = max(float(params.get("haze_density", params.get("haze_density_multiplier", 0.22))), 0.01)
-	_update_prism_material(prism, color_alpha, scaled_intensity, intensity_max, beam_range, bottom_radius, beam_softness, radial_falloff, longitudinal_falloff, haze_density)
+	_update_prism_material(prism, color_alpha, scaled_intensity, intensity_max, beam_range, bottom_radius, beam_softness, radial_falloff, longitudinal_falloff, haze_density, has_active_gobo_media)
 
 func cleanup_beam(light: SpotLight3D) -> void:
 	if light.has_meta(MAIN_KEY):
@@ -125,7 +126,7 @@ func _create_prism(prism_name: String) -> MeshInstance3D:
 	prism.visible = false
 	return prism
 
-func _update_prism_material(prism: MeshInstance3D, beam_color: Color, scaled_intensity: float, intensity_max: float, beam_range: float, gobo_projection_radius: float, lateral_softness: float, radial_falloff: float, longitudinal_falloff: float, haze_density: float) -> void:
+func _update_prism_material(prism: MeshInstance3D, beam_color: Color, scaled_intensity: float, intensity_max: float, beam_range: float, gobo_projection_radius: float, lateral_softness: float, radial_falloff: float, longitudinal_falloff: float, haze_density: float, has_active_gobo_media: bool) -> void:
 	if prism == null:
 		return
 	var reference_max: float = max(INTENSITY_REFERENCE_MAX, 0.01)
@@ -147,6 +148,7 @@ func _update_prism_material(prism: MeshInstance3D, beam_color: Color, scaled_int
 	prism.set_instance_shader_parameter("lateral_emission_boost", 0.22)
 	prism.set_instance_shader_parameter("volumetric_noise_strength", 0.06)
 	prism.set_instance_shader_parameter("radial_falloff", radial_falloff)
+	prism.set_instance_shader_parameter("radial_floor", 0.0 if has_active_gobo_media else OPEN_GOBO_RADIAL_FLOOR)
 	prism.set_instance_shader_parameter("longitudinal_falloff", longitudinal_falloff)
 	prism.set_instance_shader_parameter("haze_density", haze_density)
 	var prism_material: ShaderMaterial = prism.material_override as ShaderMaterial

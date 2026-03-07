@@ -14,6 +14,7 @@ instance uniform float volumetric_noise_strength = 0.06;
 instance uniform float volumetric_noise_scale = 14.0;
 instance uniform float gobo_projection_radius = 1.0;
 instance uniform float radial_falloff = 1.1;
+instance uniform float radial_floor = 0.0;
 instance uniform float longitudinal_falloff = 1.0;
 instance uniform float gobo_scale = 1.0;
 instance uniform float gobo_rotation_deg = 0.0;
@@ -59,7 +60,8 @@ float radial_profile_from_local(vec3 local_pos) {
 	float projection_radius = max(gobo_projection_radius, 0.001);
 	float local_radius = projection_radius / max(projection_scale, 0.0001);
 	float radius_norm = length(local_pos.xz) / max(local_radius, 0.0001);
-	return pow(clamp(1.0 - radius_norm, 0.0, 1.0), max(radial_falloff, 0.05));
+	var radial = pow(clamp(1.0 - radius_norm, 0.0, 1.0), max(radial_falloff, 0.05));
+	return max(radial, clamp(radial_floor, 0.0, 0.35));
 }
 
 float sample_gobo_mask(vec2 uv) {
