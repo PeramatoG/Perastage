@@ -31,6 +31,8 @@ instance uniform float beam_softness = 0.35;
 instance uniform float gobo_scale = 1.0;
 instance uniform float gobo_rotation_deg = 0.0;
 instance uniform float haze_density = 0.35;
+instance uniform float beam_intensity : hint_range(0.0, 1.0) = 1.0;
+uniform bool gobo_mirror_x = true;
 
 
 varying vec3 v_view;
@@ -42,6 +44,9 @@ vec2 project_gobo_uv(vec3 local_pos) {
 	float projection_scale = cone_height / axial_dist;
 	float projection_radius = max(gobo_projection_radius, 0.001);
 	vec2 projected = local_pos.xz * projection_scale;
+	if (gobo_mirror_x) {
+		projected.x = -projected.x;
+	}
 	float rotation_rad = radians(gobo_rotation_deg);
 	float cos_r = cos(rotation_rad);
 	float sin_r = sin(rotation_rad);
@@ -98,17 +103,20 @@ void fragment() {
 		discard;
 	}
 
-	float apex_fade = pow(max(1.0 - UV.y, 0.001), max(falloff_power * longitudinal_falloff, 0.1));
+	float source_y = 0.5 * cone_height;
+	float axial_progress = clamp((source_y - v_local.y) / max(cone_height, 0.0001), 0.0, 1.0);
+	float apex_fade = pow(max(1.0 - axial_progress, 0.001), max(falloff_power * longitudinal_falloff, 0.1));
 	float base_brightness = base_color.a * apex_fade;
 
 	vec3 n = normalize(NORMAL);
 	vec3 v = normalize(-v_view);
-	float ndotv = max(0.0, dot(n, v));
-	float location_weight = pow(max(1.0 - UV.y, 0.0), boost_along_y);
+	float ndotv = abs(dot(n, v));
+	float location_weight = pow(max(1.0 - axial_progress, 0.0), boost_along_y);
 	float facing_multiplier = 1.0 + (facing_boost * location_weight * pow(ndotv, facing_power));
 
 	float brightness = min(base_brightness * facing_multiplier, max_brightness);
-	float feather_alpha = mix(1.0 - feather_intensity, 1.0, pow(ndotv, feather_sharpness * max(radial_falloff, 0.05)));
+	float feather_alpha = mix(1.0 - feather_intensity, 1.0, pow(clamp(ndotv, 0.0, 1.0), feather_sharpness * max(radial_falloff, 0.05)));
+	feather_alpha = max(feather_alpha, 0.08);
 	float radial_profile = radial_profile_from_local(v_local);
 
 	float depth_mult = 1.0;
@@ -124,8 +132,9 @@ void fragment() {
 
 
 
-	float final_alpha = feather_alpha * radial_profile * depth_mult * dist_fade * max(haze_density, 0.01);
-	if (final_alpha < 0.001) {
+	float intensity_alpha = mix(0.2, 1.0, clamp(beam_intensity, 0.0, 1.0));
+	float final_alpha = feather_alpha * radial_profile * depth_mult * dist_fade * max(haze_density, 0.01) * intensity_alpha;
+	if (final_alpha < 0.0001) {
 		discard;
 	}
 

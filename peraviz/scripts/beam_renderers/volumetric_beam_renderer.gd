@@ -7,6 +7,7 @@ const EMITTER_CONE_MAX_BASE_RADIUS_M: float = 10.0
 const VOLUMETRIC_INTENSITY_SCALE: float = 1.9
 const GOBO_TEXTURE_META_KEY: String = "peraviz_gobo_texture"
 const DEBUG_AXIS_KEY: String = "peraviz_beam_debug_axis"
+const MIRROR_BEAM_SHAPE_X: bool = true
 
 var _beam_material_template: ShaderMaterial
 var _camera: Camera3D
@@ -49,6 +50,8 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 		return
 
 	var intensity: float = clamp(float(params.get("scaled_intensity", 0.0)), 0.0, 20.0)
+	var normalized_intensity: float = clamp(float(params.get("normalized_dimmer", 0.0)), 0.0, 1.0)
+	var beam_intensity_norm: float = clamp(intensity / 20.0, 0.0, 1.0)
 	var threshold: float = float(params.get("intensity_visibility_threshold", 0.015))
 	var beam_range: float = max(float(params.get("beam_range", 0.1)), 0.01)
 	var beam_angle: float = max(float(params.get("beam_angle", 1.0)), 0.1)
@@ -76,6 +79,12 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	var bottom_radius: float = clamp(radius, 0.03, EMITTER_CONE_MAX_BASE_RADIUS_M)
 	if bool(params.get("beam_debug_optics", false)):
 		print("[PeravizBeamOptics] angle_deg=", beam_angle, " range_m=", beam_range, " radius_end_m=", bottom_radius)
+	var gobo_texture: Texture2D = null
+	if light.has_meta(GOBO_TEXTURE_META_KEY):
+		gobo_texture = light.get_meta(GOBO_TEXTURE_META_KEY) as Texture2D
+	var gobo_scale: float = max(float(params.get("gobo_scale", 1.0)), 0.05)
+	var gobo_rotation_deg: float = float(params.get("gobo_rotation_deg", 0.0))
+	var beam_rotation_deg: float = wrapf(gobo_rotation_deg + 180.0, 0.0, 360.0)
 	var cone_mesh: CylinderMesh = cone.mesh as CylinderMesh
 	var top_radius: float = max(lens_radius, 0.003)
 	if cone_mesh != null:
@@ -86,6 +95,7 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	var lens_shift_x: float = float(params.get("lens_shift_x", 0.0))
 	var lens_shift_y: float = float(params.get("lens_shift_y", 0.0))
 	cone.position = Vector3(lens_shift_x, lens_shift_y, -(beam_range * 0.5 + lens_offset_m))
+	cone.scale = Vector3.ONE
 	cone.visible = true
 
 	var intensity_alpha: float = clamp(intensity * VOLUMETRIC_INTENSITY_SCALE, 0.0, 2.5)
@@ -101,18 +111,21 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	cone.set_instance_shader_parameter("radial_falloff", max(float(params.get("beam_radial_falloff", 1.1)), 0.05))
 	cone.set_instance_shader_parameter("longitudinal_falloff", max(float(params.get("beam_longitudinal_falloff", 1.0)), 0.05))
 	cone.set_instance_shader_parameter("beam_softness", clamp(float(params.get("beam_softness", 0.35)), 0.02, 1.0))
-	cone.set_instance_shader_parameter("gobo_scale", max(float(params.get("gobo_scale", 1.0)), 0.05))
-	cone.set_instance_shader_parameter("gobo_rotation_deg", float(params.get("gobo_rotation_deg", 0.0)))
+	cone.set_instance_shader_parameter("gobo_scale", gobo_scale)
+	cone.set_instance_shader_parameter("gobo_rotation_deg", beam_rotation_deg)
 	cone.set_instance_shader_parameter("cone_height", max(beam_range, 0.001))
 	cone.set_instance_shader_parameter("gobo_projection_radius", max(bottom_radius, 0.001))
-	var gobo_texture: Texture2D = null
-	if light.has_meta(GOBO_TEXTURE_META_KEY):
-		gobo_texture = light.get_meta(GOBO_TEXTURE_META_KEY) as Texture2D
-	# Keep cone beam visible in all modes; native projector may still affect footprint/fog.
+	cone.set_instance_shader_parameter("beam_intensity", max(normalized_intensity, beam_intensity_norm))
+	var far_fade_end: float = max(400.0, beam_range * 12.0)
 	var cone_material: ShaderMaterial = cone.material_override as ShaderMaterial
 	if cone_material != null:
+		cone_material.set_shader_parameter("near_fade_end", max(2.0, beam_range * 0.2))
+		cone_material.set_shader_parameter("far_fade_start", far_fade_end * 0.6)
+		cone_material.set_shader_parameter("far_fade_end", far_fade_end)
 		cone_material.set_shader_parameter("use_gobo", gobo_texture != null)
 		cone_material.set_shader_parameter("gobo_invert", false)
+		cone_material.set_shader_parameter("gobo_mirror_x", MIRROR_BEAM_SHAPE_X)
+		cone_material.set_shader_parameter("depth_feather_enabled", false)
 		if gobo_texture != null:
 			cone_material.set_shader_parameter("gobo_texture", gobo_texture)
 
