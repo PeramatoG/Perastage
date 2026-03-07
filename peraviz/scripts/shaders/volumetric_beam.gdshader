@@ -66,12 +66,12 @@ float radial_profile_from_local(vec3 local_pos) {
 	float projection_scale = cone_height / axial_dist;
 	float projection_radius = max(gobo_projection_radius, 0.001);
 	float local_radius = projection_radius / max(projection_scale, 0.0001);
-	float radius_norm = length(local_pos.xz) / max(local_radius, 0.0001);
-	float radial_core = pow(clamp(1.0 - radius_norm, 0.0, 1.0), max(beam_softness, 0.02));
-	float edge_t = smoothstep(0.75, 1.0, radius_norm);
-	float edge_sine = 0.5 - (0.5 * cos(edge_t * 3.14159265));
-	float edge_gradient = 1.0 - edge_sine;
-	return radial_core * mix(1.0, edge_gradient, 0.75);
+	float radius_norm = clamp(length(local_pos.xz) / max(local_radius, 0.0001), 0.0, 1.0);
+	float radial_core = pow(1.0 - radius_norm, max(beam_softness, 0.02));
+	float rim_t = smoothstep(0.72, 1.0, radius_norm);
+	float rim_s_curve = rim_t * rim_t * rim_t * (rim_t * ((rim_t * 6.0) - 15.0) + 10.0);
+	float rim_falloff = 1.0 - rim_s_curve;
+	return radial_core * mix(1.0, rim_falloff, 0.88);
 }
 
 float sample_gobo_mask(vec2 uv) {
@@ -139,7 +139,8 @@ void fragment() {
 	float intensity_alpha = mix(0.2, 1.0, clamp(beam_intensity, 0.0, 1.0));
 	float visibility = clamp(beam_visibility, 0.0, 1.0);
 	float physical_alpha = feather_alpha * radial_profile * depth_mult * dist_fade * max(haze_density, 0.2) * intensity_alpha * visibility;
-	float final_alpha = max(physical_alpha, 0.08 * visibility);
+	float radial_alpha_floor = 0.08 * visibility * mix(0.12, 1.0, radial_profile);
+	float final_alpha = max(physical_alpha, radial_alpha_floor);
 
 	float gobo_mask = 1.0;
 	if (use_gobo) {
