@@ -1674,7 +1674,6 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 		_visual_settings,
 		beam_defaults
 	)
-	beam_params["has_gobo"] = bool(controls.get("has_gobo", false))
 	beam_params["fade_end_ratio"] = EMITTER_CONE_FADE_END_RATIO
 	beam_params["intensity_visibility_threshold"] = BEAM_INTENSITY_VISIBILITY_THRESHOLD
 	beam_params["distance_cull_m"] = BEAM_DISTANCE_CULL_M
@@ -1684,6 +1683,7 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 	if _fixture_gobo_projector != null:
 		var gobo_controls: Dictionary = BeamOpticsControllerScript.BuildGoboControls(controls, _visual_settings, beam_defaults)
 		_fixture_gobo_projector.apply_gobo_projection(light, gobo_controls)
+	beam_params["open_aperture_gobo"] = bool(light.get_meta("peraviz_open_aperture_gobo", false))
 	light.light_volumetric_fog_energy = float(_visual_settings.get("light_volumetric_fog_energy", 12.0)) * float(_visual_settings.get("haze_density_multiplier", 0.22))
 	_update_beam_for_light(light, beam_params)
 
