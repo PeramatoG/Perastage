@@ -1,12 +1,12 @@
 shader_type spatial;
-render_mode unshaded, blend_add, cull_disabled, depth_draw_never;
+render_mode unshaded, blend_add, cull_disabled, depth_prepass_alpha, shadows_disabled;
 
 uniform sampler2D DEPTH_TEXTURE : hint_depth_texture, filter_linear_mipmap;
 
 instance uniform vec4 base_color : source_color = vec4(1.0, 0.95, 0.85, 0.5);
-uniform float falloff_power : hint_range(0.1, 10.0) = 8.0;
-uniform float facing_boost : hint_range(0.0, 10.0) = 1.5;
-uniform float facing_power : hint_range(0.1, 20.0) = 4.0;
+uniform float falloff_power : hint_range(0.1, 10.0) = 2.2;
+uniform float facing_boost : hint_range(0.0, 10.0) = 2.2;
+uniform float facing_power : hint_range(0.1, 20.0) = 1.8;
 uniform float boost_along_y : hint_range(0.0, 10.0) = 1.0;
 uniform float feather_sharpness : hint_range(0.1, 20.0) = 4.0;
 uniform float feather_intensity : hint_range(0.0, 1.0) = 1.0;
@@ -32,7 +32,7 @@ instance uniform float gobo_scale = 1.0;
 instance uniform float gobo_rotation_deg = 0.0;
 instance uniform float haze_density = 0.35;
 instance uniform float beam_intensity : hint_range(0.0, 1.0) = 1.0;
-instance uniform bool beam_visible = true;
+instance uniform float beam_visibility : hint_range(0.0, 1.0) = 1.0;
 uniform bool gobo_mirror_x = true;
 
 
@@ -96,7 +96,7 @@ float get_linear_depth(float raw_depth, mat4 inv_proj_mat) {
 }
 
 void fragment() {
-	if (!beam_visible) {
+	if (beam_visibility <= 0.001) {
 		discard;
 	}
 	float dist = length(v_view);
@@ -136,8 +136,9 @@ void fragment() {
 
 
 
-	float intensity_alpha = mix(0.2, 1.0, clamp(beam_intensity, 0.0, 1.0));
-	float final_alpha = feather_alpha * radial_profile * depth_mult * dist_fade * max(haze_density, 0.01) * intensity_alpha;
+	float intensity_alpha = mix(0.05, 1.0, clamp(beam_intensity, 0.0, 1.0));
+	float visibility_floor = mix(0.015, 1.0, clamp(beam_intensity, 0.0, 1.0));
+	float final_alpha = feather_alpha * radial_profile * depth_mult * dist_fade * max(haze_density, 0.01) * intensity_alpha * visibility_floor * clamp(beam_visibility, 0.0, 1.0);
 	if (final_alpha < 0.0001) {
 		discard;
 	}
@@ -150,5 +151,5 @@ void fragment() {
 
 	ALBEDO = base_color.rgb * brightness * gobo_mask;
 	ALPHA = clamp(final_alpha * gobo_mask, 0.0, 1.0);
-	EMISSION = ALBEDO * max(ALPHA, 0.15);
+	EMISSION = ALBEDO * (0.25 + 1.75 * clamp(beam_intensity, 0.0, 1.0));
 }
