@@ -4,10 +4,10 @@ class_name VolumetricBeamRenderer
 
 const BEAM_META_KEY: String = "peraviz_volumetric_beam"
 const EMITTER_CONE_MAX_BASE_RADIUS_M: float = 10.0
-const VOLUMETRIC_INTENSITY_SCALE: float = 1.9
+const VOLUMETRIC_INTENSITY_SCALE: float = 4.0
 const VOLUMETRIC_INTENSITY_RESPONSE_EXPONENT: float = 2.2
 const INTENSITY_REFERENCE_MAX: float = 20.0
-const VOLUMETRIC_OVERDRIVE_BRIGHTNESS_MAX: float = 3.0
+const VOLUMETRIC_OVERDRIVE_BRIGHTNESS_MAX: float = 8.0
 const GOBO_TEXTURE_META_KEY: String = "peraviz_gobo_texture"
 const DEBUG_AXIS_KEY: String = "peraviz_beam_debug_axis"
 const MIRROR_BEAM_SHAPE_X: bool = true
@@ -111,7 +111,7 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	cone.set_instance_shader_parameter("base_color", Color(beam_color.r, beam_color.g, beam_color.b, intensity_alpha))
 	cone.set_instance_shader_parameter("beam_visibility", 1.0)
 	var overdrive_brightness_gain: float = lerp(1.0, VOLUMETRIC_OVERDRIVE_BRIGHTNESS_MAX, overdrive_norm)
-	cone.set_instance_shader_parameter("max_brightness", lerp(2.5, 40.0, beam_intensity_norm) * overdrive_brightness_gain)
+	cone.set_instance_shader_parameter("max_brightness", lerp(8.0, 120.0, beam_intensity_norm) * overdrive_brightness_gain)
 	cone.set_instance_shader_parameter("beam_noise_amount", float(_settings.get("beam_noise_amount", 0.06)))
 	cone.set_instance_shader_parameter("beam_noise_scale", float(_settings.get("beam_noise_scale", 1.4)))
 	var haze_density: float = max(float(params.get("haze_density", params.get("haze_density_multiplier", 0.22))), 0.01)

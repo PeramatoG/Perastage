@@ -10,7 +10,7 @@ const EMITTER_CONE_NEAR_EMISSION: float = 0.45
 const EMITTER_CONE_FAR_EMISSION: float = 0.04
 const LEGACY_INTENSITY_RESPONSE_EXPONENT: float = 2.2
 const INTENSITY_REFERENCE_MAX: float = 20.0
-const LEGACY_OVERDRIVE_GAIN_MAX: float = 2.0
+const LEGACY_OVERDRIVE_GAIN_MAX: float = 5.0
 
 const MAIN_KEY: String = "peraviz_beam_prism"
 const GOBO_TEXTURE_META_KEY: String = "peraviz_gobo_texture"

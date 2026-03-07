@@ -14,7 +14,7 @@ uniform float near_fade_start : hint_range(0.0, 50.0) = 0.01;
 uniform float near_fade_end : hint_range(0.0, 50.0) = 1.0;
 uniform float far_fade_start : hint_range(0.1, 100.0) = 25.0;
 uniform float far_fade_end : hint_range(0.1, 100.0) = 80.0;
-instance uniform float max_brightness : hint_range(1.0, 50.0) = 10.0;
+instance uniform float max_brightness : hint_range(1.0, 500.0) = 10.0;
 uniform bool depth_feather_enabled = true;
 uniform float depth_fade_distance : hint_range(0.01, 5.0) = 0.5;
 uniform sampler2D gobo_texture : source_color;
@@ -101,10 +101,7 @@ void fragment() {
 	float dist = length(v_view);
 	float near_alpha = smoothstep(near_fade_start, near_fade_end, dist);
 	float far_alpha = 1.0 - smoothstep(far_fade_start, far_fade_end, dist);
-	float dist_fade = near_alpha * far_alpha;
-	if (dist_fade < 0.001) {
-		discard;
-	}
+	float dist_fade = max(near_alpha * far_alpha, 0.35);
 
 	float source_y = 0.5 * cone_height;
 	float axial_progress = clamp((source_y - v_local.y) / max(cone_height, 0.0001), 0.0, 1.0);
@@ -135,11 +132,10 @@ void fragment() {
 
 
 
-	float intensity_alpha = mix(0.1, 1.0, clamp(beam_intensity, 0.0, 1.0));
-	float final_alpha = feather_alpha * radial_profile * depth_mult * dist_fade * max(haze_density, 0.2) * intensity_alpha * clamp(beam_visibility, 0.0, 1.0);
-	if (final_alpha < 0.0001) {
-		discard;
-	}
+	float intensity_alpha = mix(0.2, 1.0, clamp(beam_intensity, 0.0, 1.0));
+	float visibility = clamp(beam_visibility, 0.0, 1.0);
+	float physical_alpha = feather_alpha * radial_profile * depth_mult * dist_fade * max(haze_density, 0.2) * intensity_alpha * visibility;
+	float final_alpha = max(physical_alpha, 0.08 * visibility);
 
 	float gobo_mask = 1.0;
 	if (use_gobo) {
@@ -148,6 +144,6 @@ void fragment() {
 	}
 
 	ALBEDO = base_color.rgb * brightness * gobo_mask;
-	ALPHA = clamp(max(final_alpha * gobo_mask, 0.03 * clamp(beam_visibility, 0.0, 1.0)), 0.0, 1.0);
-	EMISSION = ALBEDO * (0.25 + 1.75 * clamp(beam_intensity, 0.0, 1.0));
+	ALPHA = clamp(final_alpha * max(gobo_mask, 0.8), 0.0, 1.0);
+	EMISSION = ALBEDO * (1.2 + 6.0 * clamp(beam_intensity, 0.0, 1.0));
 }
