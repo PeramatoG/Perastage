@@ -8,6 +8,7 @@ const EMITTER_CONE_NEAR_ALPHA: float = 0.16
 const EMITTER_CONE_FAR_ALPHA: float = 0.004
 const EMITTER_CONE_NEAR_EMISSION: float = 0.45
 const EMITTER_CONE_FAR_EMISSION: float = 0.04
+const LEGACY_INTENSITY_RESPONSE_EXPONENT: float = 2.2
 
 const MAIN_KEY: String = "peraviz_beam_prism"
 const GOBO_TEXTURE_META_KEY: String = "peraviz_gobo_texture"
@@ -120,11 +121,12 @@ func _update_prism_material(prism: MeshInstance3D, beam_color: Color, scaled_int
 	if prism == null:
 		return
 	var normalized_scaled_intensity: float = clamp(scaled_intensity / 20.0, 0.0, 1.0)
+	var perceptual_intensity: float = pow(normalized_scaled_intensity, LEGACY_INTENSITY_RESPONSE_EXPONENT)
 	prism.set_instance_shader_parameter("beam_color", beam_color)
-	prism.set_instance_shader_parameter("near_alpha", lerp(0.0, EMITTER_CONE_NEAR_ALPHA, normalized_scaled_intensity))
-	prism.set_instance_shader_parameter("far_alpha", lerp(0.0, EMITTER_CONE_FAR_ALPHA, normalized_scaled_intensity))
-	prism.set_instance_shader_parameter("near_emission", lerp(0.0, EMITTER_CONE_NEAR_EMISSION, normalized_scaled_intensity))
-	prism.set_instance_shader_parameter("far_emission", lerp(0.0, EMITTER_CONE_FAR_EMISSION, normalized_scaled_intensity))
+	prism.set_instance_shader_parameter("near_alpha", lerp(0.0, EMITTER_CONE_NEAR_ALPHA, perceptual_intensity))
+	prism.set_instance_shader_parameter("far_alpha", lerp(0.0, EMITTER_CONE_FAR_ALPHA, perceptual_intensity))
+	prism.set_instance_shader_parameter("near_emission", lerp(0.0, EMITTER_CONE_NEAR_EMISSION, perceptual_intensity))
+	prism.set_instance_shader_parameter("far_emission", lerp(0.0, EMITTER_CONE_FAR_EMISSION, perceptual_intensity))
 	prism.set_instance_shader_parameter("cone_height", max(beam_range, 0.001))
 	prism.set_instance_shader_parameter("gobo_projection_radius", max(gobo_projection_radius, 0.001))
 	prism.set_instance_shader_parameter("fade_end_ratio", EMITTER_CONE_FADE_END_RATIO)

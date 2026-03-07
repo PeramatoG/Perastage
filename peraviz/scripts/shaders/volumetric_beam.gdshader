@@ -32,6 +32,7 @@ instance uniform float gobo_scale = 1.0;
 instance uniform float gobo_rotation_deg = 0.0;
 instance uniform float haze_density = 0.35;
 instance uniform float beam_intensity : hint_range(0.0, 1.0) = 1.0;
+instance uniform bool beam_visible = true;
 uniform bool gobo_mirror_x = true;
 
 
@@ -95,6 +96,9 @@ float get_linear_depth(float raw_depth, mat4 inv_proj_mat) {
 }
 
 void fragment() {
+	if (!beam_visible) {
+		discard;
+	}
 	float dist = length(v_view);
 	float near_alpha = smoothstep(near_fade_start, near_fade_end, dist);
 	float far_alpha = 1.0 - smoothstep(far_fade_start, far_fade_end, dist);
@@ -145,6 +149,6 @@ void fragment() {
 	}
 
 	ALBEDO = base_color.rgb * brightness * gobo_mask;
-	ALPHA = clamp(max(final_alpha * gobo_mask, 0.02), 0.0, 1.0);
+	ALPHA = clamp(final_alpha * gobo_mask, 0.0, 1.0);
 	EMISSION = ALBEDO * max(ALPHA, 0.15);
 }

@@ -5,6 +5,7 @@ class_name VolumetricBeamRenderer
 const BEAM_META_KEY: String = "peraviz_volumetric_beam"
 const EMITTER_CONE_MAX_BASE_RADIUS_M: float = 10.0
 const VOLUMETRIC_INTENSITY_SCALE: float = 1.9
+const VOLUMETRIC_INTENSITY_RESPONSE_EXPONENT: float = 2.2
 const GOBO_TEXTURE_META_KEY: String = "peraviz_gobo_texture"
 const DEBUG_AXIS_KEY: String = "peraviz_beam_debug_axis"
 const MIRROR_BEAM_SHAPE_X: bool = true
@@ -51,12 +52,14 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 
 	var intensity: float = clamp(float(params.get("scaled_intensity", 0.0)), 0.0, 20.0)
 	var beam_intensity_norm: float = clamp(intensity / 20.0, 0.0, 1.0)
+	var perceptual_intensity: float = pow(beam_intensity_norm, VOLUMETRIC_INTENSITY_RESPONSE_EXPONENT)
 	var threshold: float = float(params.get("intensity_visibility_threshold", 0.015))
 	var beam_range: float = max(float(params.get("beam_range", 0.1)), 0.01)
 	var beam_angle: float = max(float(params.get("beam_angle", 1.0)), 0.1)
 
 	if not bool(params.get("is_visible", true)) or intensity <= threshold:
 		cone.visible = false
+		cone.set_instance_shader_parameter("beam_visible", false)
 		var hidden_axis: MeshInstance3D = _ensure_debug_axis(light)
 		if hidden_axis != null:
 			hidden_axis.visible = false
@@ -99,6 +102,7 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 
 	var intensity_alpha: float = clamp(intensity * VOLUMETRIC_INTENSITY_SCALE, 0.0, 2.5)
 	cone.set_instance_shader_parameter("base_color", Color(beam_color.r, beam_color.g, beam_color.b, intensity_alpha))
+	cone.set_instance_shader_parameter("beam_visible", true)
 	cone.set_instance_shader_parameter("max_brightness", lerp(2.0, 24.0, intensity / 20.0))
 	cone.set_instance_shader_parameter("beam_noise_amount", float(_settings.get("beam_noise_amount", 0.06)))
 	cone.set_instance_shader_parameter("beam_noise_scale", float(_settings.get("beam_noise_scale", 1.4)))
@@ -114,7 +118,7 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	cone.set_instance_shader_parameter("gobo_rotation_deg", beam_rotation_deg)
 	cone.set_instance_shader_parameter("cone_height", max(beam_range, 0.001))
 	cone.set_instance_shader_parameter("gobo_projection_radius", max(bottom_radius, 0.001))
-	cone.set_instance_shader_parameter("beam_intensity", beam_intensity_norm)
+	cone.set_instance_shader_parameter("beam_intensity", perceptual_intensity)
 	var far_fade_end: float = max(400.0, beam_range * 12.0)
 	var cone_material: ShaderMaterial = cone.material_override as ShaderMaterial
 	if cone_material != null:

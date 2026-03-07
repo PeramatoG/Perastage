@@ -95,6 +95,9 @@ void fragment() {
 	}
 	ALBEDO = beam_color.rgb * gobo_mask;
 	float beam_alpha = mix(far_alpha, near_alpha, near_factor) * end_fade * lateral_fade * gobo_mask * max(haze_density, 0.01);
-	ALPHA = max(beam_alpha, 0.02);
+	if (beam_alpha < 0.0001) {
+		discard;
+	}
+	ALPHA = clamp(beam_alpha, 0.0, 1.0);
 	EMISSION = beam_color.rgb * (mix(far_emission, near_emission, near_factor) * end_fade * center_boost * gobo_mask * max(haze_density, 0.05));
 }
