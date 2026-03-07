@@ -14,6 +14,7 @@ const LEGACY_OVERDRIVE_GAIN_MAX: float = 5.0
 
 const MAIN_KEY: String = "peraviz_beam_prism"
 const GOBO_TEXTURE_META_KEY: String = "peraviz_gobo_texture"
+const GOBO_ACTIVE_MEDIA_META_KEY: String = "peraviz_gobo_has_active_media"
 const DEBUG_AXIS_KEY: String = "peraviz_beam_debug_axis"
 const LEGACY_MID_KEY: String = "peraviz_beam_cone_mid"
 const LEGACY_CORE_KEY: String = "peraviz_beam_cone_core"
@@ -71,8 +72,12 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	var gobo_texture: Texture2D = null
 	if light.has_meta(GOBO_TEXTURE_META_KEY):
 		gobo_texture = light.get_meta(GOBO_TEXTURE_META_KEY) as Texture2D
+	var has_active_gobo_media: bool = bool(light.get_meta(GOBO_ACTIVE_MEDIA_META_KEY, false))
 	var gobo_scale: float = max(float(params.get("gobo_scale", 1.0)), 0.05)
 	var gobo_rotation_deg: float = float(params.get("gobo_rotation_deg", 0.0))
+	if not has_active_gobo_media:
+		gobo_scale = 1.0
+		gobo_rotation_deg = 0.0
 	var beam_rotation_deg: float = wrapf(gobo_rotation_deg + 180.0, 0.0, 360.0)
 	var prism_mesh: ArrayMesh = _mesh_builder.build_beam_mesh(gobo_texture, lens_radius, bottom_radius, beam_range, gobo_scale, beam_rotation_deg)
 	if prism_mesh != null:
