@@ -28,8 +28,9 @@ func apply_gobo_projection(light: SpotLight3D, controls: Dictionary) -> bool:
 		previous_meta_texture = light.get_meta(GOBO_TEXTURE_META_KEY) as Texture2D
 	if not bool(controls.get("has_gobo", false)):
 		_clear_gobo_visuals(light)
-		light.set_meta(GOBO_TEXTURE_META_KEY, null)
-		return previous_meta_texture != null
+		var open_gobo: Texture2D = _resolve_open_gobo_texture()
+		light.set_meta(GOBO_TEXTURE_META_KEY, open_gobo)
+		return previous_meta_texture != open_gobo
 
 	var runtime_bindings: Array = controls.get("gobo_runtime_bindings", [])
 	if runtime_bindings.is_empty():
@@ -59,8 +60,9 @@ func apply_gobo_projection(light: SpotLight3D, controls: Dictionary) -> bool:
 
 	if active_textures.is_empty():
 		_clear_gobo_visuals(light)
-		light.set_meta(GOBO_TEXTURE_META_KEY, null)
-		return previous_meta_texture != null
+		var open_gobo: Texture2D = _resolve_open_gobo_texture()
+		light.set_meta(GOBO_TEXTURE_META_KEY, open_gobo)
+		return previous_meta_texture != open_gobo
 
 	var composed_gobo: Texture2D = _compose_gobo_textures(active_textures)
 	var gobo_scale: float = max(float(controls.get("gobo_scale", GOBO_DEFAULT_SCALE)), 0.05)
@@ -214,6 +216,12 @@ func _slot_declares_media(controls: Dictionary, slot_index: int) -> bool:
 		var image_path: String = str(item.get("image_path", "")).strip_edges()
 		return not image_path.is_empty()
 	return false
+
+
+func _resolve_open_gobo_texture() -> Texture2D:
+	# Keep no-gobo behavior as full transmission while preserving a valid beam-shape
+	# texture for legacy cone/prism mesh generation.
+	return _resolve_fake_gobo_texture(0)
 
 func _compose_gobo_textures(textures: Array[Texture2D]) -> Texture2D:
 	if textures.is_empty():
