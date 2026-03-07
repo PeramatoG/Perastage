@@ -127,6 +127,7 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	cone.set_instance_shader_parameter("cone_height", max(beam_range, 0.001))
 	cone.set_instance_shader_parameter("gobo_projection_radius", max(bottom_radius, 0.001))
 	cone.set_instance_shader_parameter("beam_intensity", perceptual_intensity)
+	cone.set_instance_shader_parameter("beam_overdrive", overdrive_norm)
 	var far_fade_end: float = max(400.0, beam_range * 12.0)
 	var cone_material: ShaderMaterial = cone.material_override as ShaderMaterial
 	if cone_material != null:

@@ -32,6 +32,7 @@ instance uniform float gobo_scale = 1.0;
 instance uniform float gobo_rotation_deg = 0.0;
 instance uniform float haze_density = 0.35;
 instance uniform float beam_intensity : hint_range(0.0, 1.0) = 1.0;
+instance uniform float beam_overdrive : hint_range(0.0, 1.0) = 0.0;
 instance uniform float beam_visibility : hint_range(0.0, 1.0) = 1.0;
 uniform bool gobo_mirror_x = true;
 
@@ -140,9 +141,11 @@ void fragment() {
 
 
 
-	float intensity_alpha = mix(0.2, 1.0, clamp(beam_intensity, 0.0, 1.0));
+	float boosted_intensity = clamp(beam_intensity + (0.65 * beam_overdrive), 0.0, 1.0);
+	float intensity_alpha = mix(0.2, 1.0, boosted_intensity);
 	float visibility = clamp(beam_visibility, 0.0, 1.0);
-	float physical_alpha = feather_alpha * radial_profile * depth_mult * dist_fade * max(haze_density, 0.2) * intensity_alpha * visibility;
+	float overdrive_alpha_gain = 1.0 + (1.15 * beam_overdrive);
+	float physical_alpha = feather_alpha * radial_profile * depth_mult * dist_fade * max(haze_density, 0.2) * intensity_alpha * overdrive_alpha_gain * visibility;
 	float radial_alpha_floor = 0.026 * visibility * pow(clamp(radial_profile, 0.0, 1.0), 2.3);
 	float final_alpha = max(physical_alpha, radial_alpha_floor);
 
@@ -154,5 +157,5 @@ void fragment() {
 
 	ALBEDO = base_color.rgb * brightness * gobo_mask;
 	ALPHA = clamp(final_alpha * max(gobo_mask, 0.8), 0.0, 1.0);
-	EMISSION = ALBEDO * (1.2 + 6.0 * clamp(beam_intensity, 0.0, 1.0));
+	EMISSION = ALBEDO * (1.2 + (6.0 * clamp(beam_intensity, 0.0, 1.0)) + (8.0 * beam_overdrive));
 }
