@@ -28,14 +28,7 @@ func apply_gobo_projection(light: SpotLight3D, controls: Dictionary) -> bool:
 	if light.has_meta(GOBO_TEXTURE_META_KEY):
 		previous_meta_texture = light.get_meta(GOBO_TEXTURE_META_KEY) as Texture2D
 	if not bool(controls.get("has_gobo", false)):
-		var open_aperture_texture: Texture2D = _resolve_open_aperture_texture()
-		if open_aperture_texture == null:
-			_clear_gobo_visuals(light)
-			light.set_meta(GOBO_TEXTURE_META_KEY, null)
-			return previous_meta_texture != null
-		_apply_gobo_visuals(light, open_aperture_texture)
-		light.set_meta(GOBO_TEXTURE_META_KEY, open_aperture_texture)
-		return open_aperture_texture != previous_meta_texture
+		return _apply_open_aperture_gobo(light, previous_meta_texture, controls)
 
 	var runtime_bindings: Array = controls.get("gobo_runtime_bindings", [])
 	if runtime_bindings.is_empty():
@@ -63,9 +56,7 @@ func apply_gobo_projection(light: SpotLight3D, controls: Dictionary) -> bool:
 			active_textures.append(gobo_texture)
 
 	if active_textures.is_empty():
-		_clear_gobo_visuals(light)
-		light.set_meta(GOBO_TEXTURE_META_KEY, null)
-		return previous_meta_texture != null
+		return _apply_open_aperture_gobo(light, previous_meta_texture, controls)
 
 	var composed_gobo: Texture2D = _compose_gobo_textures(active_textures)
 	var gobo_scale: float = max(float(controls.get("gobo_scale", GOBO_DEFAULT_SCALE)), 0.05)
@@ -332,3 +323,13 @@ func _resolve_open_aperture_texture() -> Texture2D:
 	var texture: ImageTexture = ImageTexture.create_from_image(image)
 	_texture_cache[OPEN_APERTURE_CACHE_KEY] = texture
 	return texture
+
+func _apply_open_aperture_gobo(light: SpotLight3D, previous_meta_texture: Texture2D, controls: Dictionary) -> bool:
+	var open_aperture_texture: Texture2D = _resolve_open_aperture_texture()
+	if open_aperture_texture == null:
+		_clear_gobo_visuals(light)
+		light.set_meta(GOBO_TEXTURE_META_KEY, null)
+		return previous_meta_texture != null
+	_apply_gobo_visuals(light, open_aperture_texture, controls)
+	light.set_meta(GOBO_TEXTURE_META_KEY, open_aperture_texture)
+	return open_aperture_texture != previous_meta_texture
