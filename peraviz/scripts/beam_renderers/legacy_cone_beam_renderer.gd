@@ -38,11 +38,12 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 
 	var intensity: float = clamp(float(params.get("normalized_dimmer", 0.0)), 0.0, 1.0)
 	var scaled_intensity: float = clamp(float(params.get("scaled_intensity", 0.0)), 0.0, 20.0)
+	var threshold: float = float(params.get("intensity_visibility_threshold", 0.015))
 	var beam_range: float = max(float(params.get("beam_range", 0.1)), 0.01)
 	var beam_angle: float = max(float(params.get("beam_angle", 1.0)), 0.1)
 	var beam_color: Color = params.get("beam_color", Color.WHITE)
 	var lens_radius: float = max(float(params.get("lens_radius", 0.03)), 0.005)
-	var is_visible: bool = bool(params.get("is_visible", true)) and intensity > 0.015
+	var is_visible: bool = bool(params.get("is_visible", true)) and scaled_intensity > threshold
 
 	prism.visible = is_visible
 	if not is_visible:
@@ -118,11 +119,12 @@ func _create_prism(prism_name: String) -> MeshInstance3D:
 func _update_prism_material(prism: MeshInstance3D, beam_color: Color, scaled_intensity: float, beam_range: float, gobo_projection_radius: float, lateral_softness: float, radial_falloff: float, longitudinal_falloff: float, haze_density: float) -> void:
 	if prism == null:
 		return
+	var normalized_scaled_intensity: float = clamp(scaled_intensity / 20.0, 0.0, 1.0)
 	prism.set_instance_shader_parameter("beam_color", beam_color)
-	prism.set_instance_shader_parameter("near_alpha", lerp(0.0, EMITTER_CONE_NEAR_ALPHA, scaled_intensity))
-	prism.set_instance_shader_parameter("far_alpha", lerp(0.0, EMITTER_CONE_FAR_ALPHA, scaled_intensity))
-	prism.set_instance_shader_parameter("near_emission", lerp(0.0, EMITTER_CONE_NEAR_EMISSION, scaled_intensity))
-	prism.set_instance_shader_parameter("far_emission", lerp(0.0, EMITTER_CONE_FAR_EMISSION, scaled_intensity))
+	prism.set_instance_shader_parameter("near_alpha", lerp(0.0, EMITTER_CONE_NEAR_ALPHA, normalized_scaled_intensity))
+	prism.set_instance_shader_parameter("far_alpha", lerp(0.0, EMITTER_CONE_FAR_ALPHA, normalized_scaled_intensity))
+	prism.set_instance_shader_parameter("near_emission", lerp(0.0, EMITTER_CONE_NEAR_EMISSION, normalized_scaled_intensity))
+	prism.set_instance_shader_parameter("far_emission", lerp(0.0, EMITTER_CONE_FAR_EMISSION, normalized_scaled_intensity))
 	prism.set_instance_shader_parameter("cone_height", max(beam_range, 0.001))
 	prism.set_instance_shader_parameter("gobo_projection_radius", max(gobo_projection_radius, 0.001))
 	prism.set_instance_shader_parameter("fade_end_ratio", EMITTER_CONE_FADE_END_RATIO)
