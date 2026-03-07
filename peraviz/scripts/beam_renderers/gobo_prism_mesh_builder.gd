@@ -156,14 +156,64 @@ func _simplify_closed_polygon(polygon: PackedVector2Array, epsilon: float) -> Pa
 
 	var closed_path := PackedVector2Array(polygon)
 	closed_path.append(polygon[0])
-	var simplified_path: PackedVector2Array = Geometry2D.simplify_polyline(closed_path, epsilon)
-	if simplified_path.size() < 4:
+	var kept_indices: PackedInt32Array = _rdp_keep_indices(closed_path, epsilon)
+	if kept_indices.size() < 4:
 		return polygon
+
+	var simplified_path := PackedVector2Array()
+	for index in kept_indices:
+		simplified_path.append(closed_path[index])
 	if simplified_path[0].distance_to(simplified_path[simplified_path.size() - 1]) <= 0.0001:
 		simplified_path.remove_at(simplified_path.size() - 1)
 	if simplified_path.size() < 3:
 		return polygon
 	return simplified_path
+
+func _rdp_keep_indices(path: PackedVector2Array, epsilon: float) -> PackedInt32Array:
+	var count: int = path.size()
+	if count < 2:
+		return PackedInt32Array()
+	var keep: Array[bool] = []
+	keep.resize(count)
+	for i in range(count):
+		keep[i] = false
+	keep[0] = true
+	keep[count - 1] = true
+	_rdp_mark(path, 0, count - 1, epsilon, keep)
+
+	var indices := PackedInt32Array()
+	for i in range(count):
+		if keep[i]:
+			indices.append(i)
+	return indices
+
+func _rdp_mark(path: PackedVector2Array, start_index: int, end_index: int, epsilon: float, keep: Array[bool]) -> void:
+	if (end_index - start_index) <= 1:
+		return
+	var segment_start: Vector2 = path[start_index]
+	var segment_end: Vector2 = path[end_index]
+	var max_distance: float = -1.0
+	var split_index: int = -1
+	for i in range(start_index + 1, end_index):
+		var distance: float = _distance_point_to_segment(path[i], segment_start, segment_end)
+		if distance > max_distance:
+			max_distance = distance
+			split_index = i
+	if split_index == -1:
+		return
+	if max_distance > epsilon:
+		keep[split_index] = true
+		_rdp_mark(path, start_index, split_index, epsilon, keep)
+		_rdp_mark(path, split_index, end_index, epsilon, keep)
+
+func _distance_point_to_segment(point: Vector2, segment_start: Vector2, segment_end: Vector2) -> float:
+	var segment: Vector2 = segment_end - segment_start
+	var segment_length_squared: float = segment.length_squared()
+	if segment_length_squared <= 0.0000001:
+		return point.distance_to(segment_start)
+	var t: float = clamp((point - segment_start).dot(segment) / segment_length_squared, 0.0, 1.0)
+	var projection: Vector2 = segment_start + (segment * t)
+	return point.distance_to(projection)
 
 func _prepare_binary_mask_image(image: Image) -> void:
 	var width: int = image.get_width()
