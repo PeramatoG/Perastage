@@ -68,11 +68,9 @@ float radial_profile_from_local(vec3 local_pos) {
 	float local_radius = projection_radius / max(projection_scale, 0.0001);
 	float radius_norm = clamp(length(local_pos.xz) / max(local_radius, 0.0001), 0.0, 1.0);
 	float radial_core = pow(1.0 - radius_norm, max(beam_softness, 0.02));
-	float center_preserve = 1.0 - smoothstep(0.0, 0.78, radius_norm);
-	radial_core = mix(radial_core, 1.0, center_preserve);
-	float rim_t = smoothstep(0.78, 1.0, radius_norm);
-	float rim_falloff = cos(rim_t * 1.57079633);
-	return radial_core * mix(1.0, rim_falloff, 0.95);
+	float rim_t = smoothstep(0.82, 1.0, radius_norm);
+	float rim_falloff = 1.0 - (rim_t * rim_t * (3.0 - (2.0 * rim_t)));
+	return mix(radial_core, 1.0, 0.85) * mix(1.0, rim_falloff, 0.45);
 }
 
 float sample_gobo_mask(vec2 uv) {
@@ -122,7 +120,9 @@ void fragment() {
 	float brightness = min(base_brightness * facing_multiplier, max_brightness);
 	float feather_alpha = mix(1.0 - feather_intensity, 1.0, pow(clamp(ndotv, 0.0, 1.0), feather_sharpness * max(radial_falloff, 0.05)));
 	feather_alpha = max(feather_alpha, 0.08);
-	float radial_profile = radial_profile_from_local(v_local);
+	float local_radial_profile = radial_profile_from_local(v_local);
+	float shell_radial_profile = pow(clamp(ndotv, 0.0, 1.0), 0.65);
+	float radial_profile = max(local_radial_profile, shell_radial_profile);
 
 	float depth_mult = 1.0;
 	if (depth_feather_enabled) {
@@ -140,7 +140,7 @@ void fragment() {
 	float intensity_alpha = mix(0.2, 1.0, clamp(beam_intensity, 0.0, 1.0));
 	float visibility = clamp(beam_visibility, 0.0, 1.0);
 	float physical_alpha = feather_alpha * radial_profile * depth_mult * dist_fade * max(haze_density, 0.2) * intensity_alpha * visibility;
-	float radial_alpha_floor = 0.04 * visibility * pow(clamp(radial_profile, 0.0, 1.0), 2.4);
+	float radial_alpha_floor = 0.06 * visibility * mix(0.25, 1.0, clamp(radial_profile, 0.0, 1.0));
 	float final_alpha = max(physical_alpha, radial_alpha_floor);
 
 	float gobo_mask = 1.0;
