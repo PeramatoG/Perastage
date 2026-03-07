@@ -6,6 +6,8 @@ const BEAM_META_KEY: String = "peraviz_volumetric_beam"
 const EMITTER_CONE_MAX_BASE_RADIUS_M: float = 10.0
 const VOLUMETRIC_INTENSITY_SCALE: float = 1.9
 const VOLUMETRIC_INTENSITY_RESPONSE_EXPONENT: float = 2.2
+const INTENSITY_REFERENCE_MAX: float = 20.0
+const VOLUMETRIC_OVERDRIVE_BRIGHTNESS_MAX: float = 3.0
 const GOBO_TEXTURE_META_KEY: String = "peraviz_gobo_texture"
 const DEBUG_AXIS_KEY: String = "peraviz_beam_debug_axis"
 const MIRROR_BEAM_SHAPE_X: bool = true
@@ -52,8 +54,12 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 
 	var intensity_max: float = max(float(params.get("intensity_max", 80.0)), 0.01)
 	var intensity: float = clamp(float(params.get("scaled_intensity", 0.0)), 0.0, intensity_max)
-	var beam_intensity_norm: float = clamp(intensity / intensity_max, 0.0, 1.0)
+	var reference_max: float = max(INTENSITY_REFERENCE_MAX, 0.01)
+	var beam_intensity_norm: float = clamp(intensity / reference_max, 0.0, 1.0)
 	var perceptual_intensity: float = pow(beam_intensity_norm, VOLUMETRIC_INTENSITY_RESPONSE_EXPONENT)
+	var overdrive_norm: float = 0.0
+	if intensity_max > reference_max:
+		overdrive_norm = clamp((intensity - reference_max) / (intensity_max - reference_max), 0.0, 1.0)
 	var threshold: float = float(params.get("intensity_visibility_threshold", 0.015))
 	var beam_range: float = max(float(params.get("beam_range", 0.1)), 0.01)
 	var beam_angle: float = max(float(params.get("beam_angle", 1.0)), 0.1)
@@ -101,15 +107,16 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	cone.scale = Vector3.ONE
 	cone.visible = true
 
-	var intensity_alpha: float = clamp(intensity * VOLUMETRIC_INTENSITY_SCALE, 0.0, 2.5)
+	var intensity_alpha: float = clamp((intensity / reference_max) * VOLUMETRIC_INTENSITY_SCALE, 0.0, 2.5)
 	cone.set_instance_shader_parameter("base_color", Color(beam_color.r, beam_color.g, beam_color.b, intensity_alpha))
 	cone.set_instance_shader_parameter("beam_visibility", 1.0)
-	cone.set_instance_shader_parameter("max_brightness", lerp(2.5, 40.0, beam_intensity_norm))
+	var overdrive_brightness_gain: float = lerp(1.0, VOLUMETRIC_OVERDRIVE_BRIGHTNESS_MAX, overdrive_norm)
+	cone.set_instance_shader_parameter("max_brightness", lerp(2.5, 40.0, beam_intensity_norm) * overdrive_brightness_gain)
 	cone.set_instance_shader_parameter("beam_noise_amount", float(_settings.get("beam_noise_amount", 0.06)))
 	cone.set_instance_shader_parameter("beam_noise_scale", float(_settings.get("beam_noise_scale", 1.4)))
 	var haze_density: float = max(float(params.get("haze_density", params.get("haze_density_multiplier", 0.22))), 0.01)
 	cone.set_instance_shader_parameter("beam_haze_density", float(_settings.get("beam_haze_density", 0.17)) * haze_density)
-	cone.set_instance_shader_parameter("haze_density", haze_density)
+	cone.set_instance_shader_parameter("haze_density", max(haze_density, 0.08))
 	cone.set_instance_shader_parameter("beam_anisotropy", float(_settings.get("beam_anisotropy", 0.62)))
 	cone.set_instance_shader_parameter("beam_quality", int(_settings.get("beam_quality", 1)))
 	cone.set_instance_shader_parameter("radial_falloff", max(float(params.get("beam_radial_falloff", 1.1)), 0.05))

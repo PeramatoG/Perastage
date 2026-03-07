@@ -9,6 +9,8 @@ const EMITTER_CONE_FAR_ALPHA: float = 0.004
 const EMITTER_CONE_NEAR_EMISSION: float = 0.45
 const EMITTER_CONE_FAR_EMISSION: float = 0.04
 const LEGACY_INTENSITY_RESPONSE_EXPONENT: float = 2.2
+const INTENSITY_REFERENCE_MAX: float = 20.0
+const LEGACY_OVERDRIVE_GAIN_MAX: float = 2.0
 
 const MAIN_KEY: String = "peraviz_beam_prism"
 const GOBO_TEXTURE_META_KEY: String = "peraviz_gobo_texture"
@@ -120,13 +122,18 @@ func _create_prism(prism_name: String) -> MeshInstance3D:
 func _update_prism_material(prism: MeshInstance3D, beam_color: Color, scaled_intensity: float, intensity_max: float, beam_range: float, gobo_projection_radius: float, lateral_softness: float, radial_falloff: float, longitudinal_falloff: float, haze_density: float) -> void:
 	if prism == null:
 		return
-	var normalized_scaled_intensity: float = clamp(scaled_intensity / max(intensity_max, 0.01), 0.0, 1.0)
+	var reference_max: float = max(INTENSITY_REFERENCE_MAX, 0.01)
+	var normalized_scaled_intensity: float = clamp(scaled_intensity / reference_max, 0.0, 1.0)
 	var perceptual_intensity: float = pow(normalized_scaled_intensity, LEGACY_INTENSITY_RESPONSE_EXPONENT)
+	var overdrive_norm: float = 0.0
+	if intensity_max > reference_max:
+		overdrive_norm = clamp((scaled_intensity - reference_max) / (intensity_max - reference_max), 0.0, 1.0)
+	var overdrive_gain: float = lerp(1.0, LEGACY_OVERDRIVE_GAIN_MAX, overdrive_norm)
 	prism.set_instance_shader_parameter("beam_color", beam_color)
-	prism.set_instance_shader_parameter("near_alpha", lerp(0.0, EMITTER_CONE_NEAR_ALPHA, perceptual_intensity))
-	prism.set_instance_shader_parameter("far_alpha", lerp(0.0, EMITTER_CONE_FAR_ALPHA, perceptual_intensity))
-	prism.set_instance_shader_parameter("near_emission", lerp(0.0, EMITTER_CONE_NEAR_EMISSION, perceptual_intensity))
-	prism.set_instance_shader_parameter("far_emission", lerp(0.0, EMITTER_CONE_FAR_EMISSION, perceptual_intensity))
+	prism.set_instance_shader_parameter("near_alpha", lerp(0.0, EMITTER_CONE_NEAR_ALPHA, perceptual_intensity) * overdrive_gain)
+	prism.set_instance_shader_parameter("far_alpha", lerp(0.0, EMITTER_CONE_FAR_ALPHA, perceptual_intensity) * overdrive_gain)
+	prism.set_instance_shader_parameter("near_emission", lerp(0.0, EMITTER_CONE_NEAR_EMISSION, perceptual_intensity) * overdrive_gain)
+	prism.set_instance_shader_parameter("far_emission", lerp(0.0, EMITTER_CONE_FAR_EMISSION, perceptual_intensity) * overdrive_gain)
 	prism.set_instance_shader_parameter("cone_height", max(beam_range, 0.001))
 	prism.set_instance_shader_parameter("gobo_projection_radius", max(gobo_projection_radius, 0.001))
 	prism.set_instance_shader_parameter("fade_end_ratio", EMITTER_CONE_FADE_END_RATIO)
