@@ -1,5 +1,5 @@
 shader_type spatial;
-render_mode unshaded, blend_add, cull_disabled, depth_prepass_alpha, shadows_disabled;
+render_mode unshaded, blend_add, cull_disabled, depth_draw_never, shadows_disabled;
 
 uniform sampler2D DEPTH_TEXTURE : hint_depth_texture, filter_linear_mipmap;
 
@@ -88,7 +88,6 @@ float sample_gobo_mask(vec2 uv) {
 void vertex() {
 	v_local = VERTEX;
 	v_view = (MODELVIEW_MATRIX * vec4(VERTEX, 1.0)).xyz;
-	POSITION = PROJECTION_MATRIX * vec4(v_view, 1.0);
 }
 
 float get_linear_depth(float raw_depth, mat4 inv_proj_mat) {
@@ -136,9 +135,8 @@ void fragment() {
 
 
 
-	float intensity_alpha = mix(0.05, 1.0, clamp(beam_intensity, 0.0, 1.0));
-	float visibility_floor = mix(0.015, 1.0, clamp(beam_intensity, 0.0, 1.0));
-	float final_alpha = feather_alpha * radial_profile * depth_mult * dist_fade * max(haze_density, 0.01) * intensity_alpha * visibility_floor * clamp(beam_visibility, 0.0, 1.0);
+	float intensity_alpha = mix(0.1, 1.0, clamp(beam_intensity, 0.0, 1.0));
+	float final_alpha = feather_alpha * radial_profile * depth_mult * dist_fade * max(haze_density, 0.2) * intensity_alpha * clamp(beam_visibility, 0.0, 1.0);
 	if (final_alpha < 0.0001) {
 		discard;
 	}
@@ -150,6 +148,6 @@ void fragment() {
 	}
 
 	ALBEDO = base_color.rgb * brightness * gobo_mask;
-	ALPHA = clamp(final_alpha * gobo_mask, 0.0, 1.0);
+	ALPHA = clamp(max(final_alpha * gobo_mask, 0.03 * clamp(beam_visibility, 0.0, 1.0)), 0.0, 1.0);
 	EMISSION = ALBEDO * (0.25 + 1.75 * clamp(beam_intensity, 0.0, 1.0));
 }

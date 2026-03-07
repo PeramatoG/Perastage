@@ -39,7 +39,7 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 		return
 	_attach_if_needed(light, prism)
 
-	var intensity_max: float = max(float(params.get("intensity_max", 80.0)), 0.01)
+	var intensity_max: float = max(float(params.get("intensity_max", 100.0)), 0.01)
 	var scaled_intensity: float = clamp(float(params.get("scaled_intensity", 0.0)), 0.0, intensity_max)
 	var threshold: float = float(params.get("intensity_visibility_threshold", 0.015))
 	var beam_range: float = max(float(params.get("beam_range", 0.1)), 0.01)

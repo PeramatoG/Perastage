@@ -52,7 +52,7 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	if cone == null:
 		return
 
-	var intensity_max: float = max(float(params.get("intensity_max", 80.0)), 0.01)
+	var intensity_max: float = max(float(params.get("intensity_max", 100.0)), 0.01)
 	var intensity: float = clamp(float(params.get("scaled_intensity", 0.0)), 0.0, intensity_max)
 	var reference_max: float = max(INTENSITY_REFERENCE_MAX, 0.01)
 	var beam_intensity_norm: float = clamp(intensity / reference_max, 0.0, 1.0)
@@ -116,7 +116,7 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	cone.set_instance_shader_parameter("beam_noise_scale", float(_settings.get("beam_noise_scale", 1.4)))
 	var haze_density: float = max(float(params.get("haze_density", params.get("haze_density_multiplier", 0.22))), 0.01)
 	cone.set_instance_shader_parameter("beam_haze_density", float(_settings.get("beam_haze_density", 0.17)) * haze_density)
-	cone.set_instance_shader_parameter("haze_density", max(haze_density, 0.08))
+	cone.set_instance_shader_parameter("haze_density", max(haze_density, 0.2))
 	cone.set_instance_shader_parameter("beam_anisotropy", float(_settings.get("beam_anisotropy", 0.62)))
 	cone.set_instance_shader_parameter("beam_quality", int(_settings.get("beam_quality", 1)))
 	cone.set_instance_shader_parameter("radial_falloff", max(float(params.get("beam_radial_falloff", 1.1)), 0.05))
