@@ -68,7 +68,7 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 		gobo_texture = light.get_meta(GOBO_TEXTURE_META_KEY) as Texture2D
 	var gobo_scale: float = max(float(params.get("gobo_scale", 1.0)), 0.05)
 	var gobo_rotation_deg: float = float(params.get("gobo_rotation_deg", 0.0))
-	var beam_rotation_deg: float = wrapf(gobo_rotation_deg + 180.0, 0.0, 360.0)
+	var beam_rotation_deg: float = wrapf(gobo_rotation_deg, 0.0, 360.0)
 	var prism_mesh: ArrayMesh = _mesh_builder.build_beam_mesh(gobo_texture, lens_radius, bottom_radius, beam_range, gobo_scale, beam_rotation_deg)
 	if prism_mesh != null:
 		prism.mesh = prism_mesh
