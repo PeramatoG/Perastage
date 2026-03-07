@@ -50,7 +50,6 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 		return
 
 	var intensity: float = clamp(float(params.get("scaled_intensity", 0.0)), 0.0, 20.0)
-	var normalized_intensity: float = clamp(float(params.get("normalized_dimmer", 0.0)), 0.0, 1.0)
 	var beam_intensity_norm: float = clamp(intensity / 20.0, 0.0, 1.0)
 	var threshold: float = float(params.get("intensity_visibility_threshold", 0.015))
 	var beam_range: float = max(float(params.get("beam_range", 0.1)), 0.01)
@@ -115,14 +114,16 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	cone.set_instance_shader_parameter("gobo_rotation_deg", beam_rotation_deg)
 	cone.set_instance_shader_parameter("cone_height", max(beam_range, 0.001))
 	cone.set_instance_shader_parameter("gobo_projection_radius", max(bottom_radius, 0.001))
-	cone.set_instance_shader_parameter("beam_intensity", max(normalized_intensity, beam_intensity_norm))
+	cone.set_instance_shader_parameter("beam_intensity", beam_intensity_norm)
 	var far_fade_end: float = max(400.0, beam_range * 12.0)
 	var cone_material: ShaderMaterial = cone.material_override as ShaderMaterial
 	if cone_material != null:
 		cone_material.set_shader_parameter("near_fade_end", max(2.0, beam_range * 0.2))
 		cone_material.set_shader_parameter("far_fade_start", far_fade_end * 0.6)
 		cone_material.set_shader_parameter("far_fade_end", far_fade_end)
-		cone_material.set_shader_parameter("use_gobo", gobo_texture != null)
+		# Keep the volumetric cone independent from the projector footprint.
+		# SpotLight projector textures can define floor footprint only, while this cone simulates haze volume.
+		cone_material.set_shader_parameter("use_gobo", false)
 		cone_material.set_shader_parameter("gobo_invert", false)
 		cone_material.set_shader_parameter("gobo_mirror_x", MIRROR_BEAM_SHAPE_X)
 		cone_material.set_shader_parameter("depth_feather_enabled", false)
