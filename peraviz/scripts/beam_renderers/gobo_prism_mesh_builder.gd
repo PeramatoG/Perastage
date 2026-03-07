@@ -13,7 +13,6 @@ const APERTURE_BORDER_RATIO: float = 0.985
 const POINT_REDUCTION_EPSILON_START: float = 0.001
 const POINT_REDUCTION_EPSILON_MULTIPLIER: float = 1.35
 const POINT_REDUCTION_EPSILON_MAX: float = 0.25
-const APPLY_FOOTPRINT_MIRROR_X: bool = true
 
 var _mesh_cache: Dictionary = {}
 
@@ -83,8 +82,7 @@ func _vectorize_gobo(gobo_texture: Texture2D, gobo_scale: float, gobo_rotation_d
 				(local.x * cos_r) - (local.y * sin_r),
 				(local.x * sin_r) + (local.y * cos_r)
 			)
-			var mirrored_x: float = -rotated.x if APPLY_FOOTPRINT_MIRROR_X else rotated.x
-			transformed.append(Vector2(mirrored_x, -rotated.y))
+			transformed.append(Vector2(rotated.x, -rotated.y))
 		var area: float = abs(_signed_polygon_area(transformed))
 		if area < MIN_POLYGON_AREA:
 			continue
