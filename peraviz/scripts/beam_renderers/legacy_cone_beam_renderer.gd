@@ -14,6 +14,7 @@ const LEGACY_OVERDRIVE_GAIN_MAX: float = 5.0
 
 const MAIN_KEY: String = "peraviz_beam_prism"
 const GOBO_TEXTURE_META_KEY: String = "peraviz_gobo_texture"
+const OPEN_APERTURE_META_KEY: String = "peraviz_open_aperture_gobo"
 const DEBUG_AXIS_KEY: String = "peraviz_beam_debug_axis"
 const LEGACY_MID_KEY: String = "peraviz_beam_cone_mid"
 const LEGACY_CORE_KEY: String = "peraviz_beam_cone_core"
@@ -71,6 +72,10 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	var gobo_texture: Texture2D = null
 	if light.has_meta(GOBO_TEXTURE_META_KEY):
 		gobo_texture = light.get_meta(GOBO_TEXTURE_META_KEY) as Texture2D
+	# Open aperture should keep the beam cone as a full circular shell.
+	# Bypass gobo texture vectorization/corrections and use mesh-builder fallback circle.
+	if bool(light.get_meta(OPEN_APERTURE_META_KEY, false)):
+		gobo_texture = null
 	var gobo_scale: float = max(float(params.get("gobo_scale", 1.0)), 0.05)
 	var gobo_rotation_deg: float = float(params.get("gobo_rotation_deg", 0.0))
 	var beam_rotation_deg: float = wrapf(gobo_rotation_deg + 180.0, 0.0, 360.0)

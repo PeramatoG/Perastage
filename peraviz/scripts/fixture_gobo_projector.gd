@@ -3,6 +3,7 @@ class_name FixtureGoboProjector
 
 const FAKE_GOBO_TEXTURE_SIZE: int = 1024
 const GOBO_TEXTURE_META_KEY: String = "peraviz_gobo_texture"
+const OPEN_APERTURE_META_KEY: String = "peraviz_open_aperture_gobo"
 const GOBO_PLANE_META_KEY: String = "peraviz_gobo_plane"
 const GOBO_SHADER_PATH: String = "res://scripts/shaders/gobo_alpha_projector.gdshader"
 const GOBO_PLANE_LOCAL_Z: float = -0.043
@@ -64,6 +65,7 @@ func apply_gobo_projection(light: SpotLight3D, controls: Dictionary) -> bool:
 	var projected_gobo: Texture2D = _transform_gobo_texture(composed_gobo, gobo_rotation_deg, gobo_scale)
 	_apply_gobo_visuals(light, projected_gobo, controls)
 	light.set_meta(GOBO_TEXTURE_META_KEY, projected_gobo)
+	light.set_meta(OPEN_APERTURE_META_KEY, false)
 	return projected_gobo != previous_meta_texture
 
 func _apply_gobo_visuals(light: SpotLight3D, gobo_texture: Texture2D, controls: Dictionary = {}) -> void:
@@ -329,7 +331,9 @@ func _apply_open_aperture_gobo(light: SpotLight3D, previous_meta_texture: Textur
 	if open_aperture_texture == null:
 		_clear_gobo_visuals(light)
 		light.set_meta(GOBO_TEXTURE_META_KEY, null)
+		light.set_meta(OPEN_APERTURE_META_KEY, false)
 		return previous_meta_texture != null
 	_apply_gobo_visuals(light, open_aperture_texture, controls)
 	light.set_meta(GOBO_TEXTURE_META_KEY, open_aperture_texture)
+	light.set_meta(OPEN_APERTURE_META_KEY, true)
 	return open_aperture_texture != previous_meta_texture
