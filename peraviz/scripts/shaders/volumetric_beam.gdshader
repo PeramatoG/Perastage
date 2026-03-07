@@ -121,6 +121,7 @@ void fragment() {
 	float feather_alpha = mix(1.0 - feather_intensity, 1.0, pow(clamp(ndotv, 0.0, 1.0), feather_sharpness * max(radial_falloff, 0.05)));
 	feather_alpha = max(feather_alpha, 0.08);
 	float radial_profile = radial_profile_from_local(v_local);
+	float radial_luminance = mix(0.2, 1.0, radial_profile);
 
 	float depth_mult = 1.0;
 	if (depth_feather_enabled) {
@@ -138,7 +139,8 @@ void fragment() {
 	float intensity_alpha = mix(0.2, 1.0, clamp(beam_intensity, 0.0, 1.0));
 	float visibility = clamp(beam_visibility, 0.0, 1.0);
 	float physical_alpha = feather_alpha * radial_profile * depth_mult * dist_fade * max(haze_density, 0.2) * intensity_alpha * visibility;
-	float final_alpha = max(physical_alpha, 0.08 * visibility);
+	float radial_floor = 0.08 * visibility * radial_luminance;
+	float final_alpha = max(physical_alpha, radial_floor);
 
 	float gobo_mask = 1.0;
 	if (use_gobo) {
@@ -146,7 +148,7 @@ void fragment() {
 		gobo_mask = sample_gobo_mask(gobo_uv);
 	}
 
-	ALBEDO = base_color.rgb * brightness * gobo_mask;
+	ALBEDO = base_color.rgb * brightness * radial_luminance * gobo_mask;
 	ALPHA = clamp(final_alpha * max(gobo_mask, 0.8), 0.0, 1.0);
 	EMISSION = ALBEDO * (1.2 + 6.0 * clamp(beam_intensity, 0.0, 1.0));
 }
