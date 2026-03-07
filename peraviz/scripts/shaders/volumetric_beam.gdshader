@@ -1,12 +1,12 @@
 shader_type spatial;
-render_mode unshaded, blend_add, cull_disabled, depth_draw_never;
+render_mode unshaded, blend_add, cull_disabled, depth_draw_never, shadows_disabled;
 
 uniform sampler2D DEPTH_TEXTURE : hint_depth_texture, filter_linear_mipmap;
 
 instance uniform vec4 base_color : source_color = vec4(1.0, 0.95, 0.85, 0.5);
-uniform float falloff_power : hint_range(0.1, 10.0) = 8.0;
-uniform float facing_boost : hint_range(0.0, 10.0) = 1.5;
-uniform float facing_power : hint_range(0.1, 20.0) = 4.0;
+uniform float falloff_power : hint_range(0.1, 10.0) = 2.2;
+uniform float facing_boost : hint_range(0.0, 10.0) = 2.2;
+uniform float facing_power : hint_range(0.1, 20.0) = 1.8;
 uniform float boost_along_y : hint_range(0.0, 10.0) = 1.0;
 uniform float feather_sharpness : hint_range(0.1, 20.0) = 4.0;
 uniform float feather_intensity : hint_range(0.0, 1.0) = 1.0;
@@ -14,7 +14,7 @@ uniform float near_fade_start : hint_range(0.0, 50.0) = 0.01;
 uniform float near_fade_end : hint_range(0.0, 50.0) = 1.0;
 uniform float far_fade_start : hint_range(0.1, 100.0) = 25.0;
 uniform float far_fade_end : hint_range(0.1, 100.0) = 80.0;
-instance uniform float max_brightness : hint_range(1.0, 50.0) = 10.0;
+instance uniform float max_brightness : hint_range(1.0, 500.0) = 10.0;
 uniform bool depth_feather_enabled = true;
 uniform float depth_fade_distance : hint_range(0.01, 5.0) = 0.5;
 uniform sampler2D gobo_texture : source_color;
@@ -32,6 +32,7 @@ instance uniform float gobo_scale = 1.0;
 instance uniform float gobo_rotation_deg = 0.0;
 instance uniform float haze_density = 0.35;
 instance uniform float beam_intensity : hint_range(0.0, 1.0) = 1.0;
+instance uniform float beam_visibility : hint_range(0.0, 1.0) = 1.0;
 uniform bool gobo_mirror_x = true;
 
 
@@ -87,7 +88,6 @@ float sample_gobo_mask(vec2 uv) {
 void vertex() {
 	v_local = VERTEX;
 	v_view = (MODELVIEW_MATRIX * vec4(VERTEX, 1.0)).xyz;
-	POSITION = PROJECTION_MATRIX * vec4(v_view, 1.0);
 }
 
 float get_linear_depth(float raw_depth, mat4 inv_proj_mat) {
@@ -95,13 +95,13 @@ float get_linear_depth(float raw_depth, mat4 inv_proj_mat) {
 }
 
 void fragment() {
+	if (beam_visibility <= 0.001) {
+		discard;
+	}
 	float dist = length(v_view);
 	float near_alpha = smoothstep(near_fade_start, near_fade_end, dist);
 	float far_alpha = 1.0 - smoothstep(far_fade_start, far_fade_end, dist);
-	float dist_fade = near_alpha * far_alpha;
-	if (dist_fade < 0.001) {
-		discard;
-	}
+	float dist_fade = max(near_alpha * far_alpha, 0.35);
 
 	float source_y = 0.5 * cone_height;
 	float axial_progress = clamp((source_y - v_local.y) / max(cone_height, 0.0001), 0.0, 1.0);
@@ -133,10 +133,9 @@ void fragment() {
 
 
 	float intensity_alpha = mix(0.2, 1.0, clamp(beam_intensity, 0.0, 1.0));
-	float final_alpha = feather_alpha * radial_profile * depth_mult * dist_fade * max(haze_density, 0.01) * intensity_alpha;
-	if (final_alpha < 0.0001) {
-		discard;
-	}
+	float visibility = clamp(beam_visibility, 0.0, 1.0);
+	float physical_alpha = feather_alpha * radial_profile * depth_mult * dist_fade * max(haze_density, 0.2) * intensity_alpha * visibility;
+	float final_alpha = max(physical_alpha, 0.08 * visibility);
 
 	float gobo_mask = 1.0;
 	if (use_gobo) {
@@ -145,6 +144,6 @@ void fragment() {
 	}
 
 	ALBEDO = base_color.rgb * brightness * gobo_mask;
-	ALPHA = clamp(max(final_alpha * gobo_mask, 0.02), 0.0, 1.0);
-	EMISSION = ALBEDO * max(ALPHA, 0.15);
+	ALPHA = clamp(final_alpha * max(gobo_mask, 0.8), 0.0, 1.0);
+	EMISSION = ALBEDO * (1.2 + 6.0 * clamp(beam_intensity, 0.0, 1.0));
 }

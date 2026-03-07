@@ -8,7 +8,7 @@ signal settings_changed(settings: Dictionary)
 const DEFAULT_SETTINGS := {
 	"ambient_multiplier": 0.08,
 	"spot_multiplier": 1.0,
-	"beam_multiplier": 1.0,
+	"beam_multiplier": 20.0,
 	"bloom_multiplier": 0.0,
 	"beam_render_mode": 0,
 	"beam_quality": 2,
@@ -92,7 +92,7 @@ func _build_ui() -> void:
 
 	_ambient_slider = _add_slider_row(container, "Ambient light", "ambient_multiplier", 0.0, 3.0, 0.01)
 	_spot_slider = _add_slider_row(container, "Spot intensity", "spot_multiplier", 0.0, 3.0, 0.01)
-	_beam_slider = _add_slider_row(container, "Beam intensity", "beam_multiplier", 0.0, 20.0, 0.01)
+	_beam_slider = _add_slider_row(container, "Beam intensity", "beam_multiplier", 0.0, 100.0, 0.01)
 	_bloom_slider = _add_slider_row(container, "Bloom", "bloom_multiplier", 0.0, 3.0, 0.01)
 	_add_slider_row(container, "Ambient fog density", "ambient_fog_density", 0.0, 0.05, 0.001)
 	_fog_density_slider = _add_slider_row(container, "Volumetric fog density", "volumetric_fog_density", 0.0, 0.01, 0.0001)
@@ -204,7 +204,7 @@ func _add_toggle_row(parent: VBoxContainer, label_text: String, key: String) -> 
 func _apply_settings_to_controls() -> void:
 	_ambient_slider.value = float(_settings.get("ambient_multiplier", 0.08))
 	_spot_slider.value = float(_settings.get("spot_multiplier", 1.0))
-	_beam_slider.value = float(_settings.get("beam_multiplier", 1.0))
+	_beam_slider.value = float(_settings.get("beam_multiplier", 20.0))
 	_bloom_slider.value = float(_settings.get("bloom_multiplier", 0.0))
 	_fog_density_slider.value = float(_settings.get("volumetric_fog_density", 0.0))
 	_fog_fade_slider.value = float(_settings.get("volumetric_fog_fade", 0.02))
@@ -241,7 +241,7 @@ func _on_beam_quality_selected(index: int) -> void:
 func _update_value_labels() -> void:
 	_ambient_value_label.text = "%.2f" % float(_settings.get("ambient_multiplier", 0.08))
 	_spot_value_label.text = "%.2f" % float(_settings.get("spot_multiplier", 1.0))
-	_beam_value_label.text = "%.2f" % float(_settings.get("beam_multiplier", 1.0))
+	_beam_value_label.text = "%.2f" % float(_settings.get("beam_multiplier", 20.0))
 	_bloom_value_label.text = "%.2f" % float(_settings.get("bloom_multiplier", 0.0))
 	_fog_density_value_label.text = "%.4f" % float(_settings.get("volumetric_fog_density", 0.0))
 	_fog_fade_value_label.text = "%.3f" % float(_settings.get("volumetric_fog_fade", 0.02))

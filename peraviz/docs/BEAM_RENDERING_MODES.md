@@ -71,8 +71,8 @@ This keeps zoom/angle and gobo scaling behavior aligned with footprint projectio
 
 ### Defaults and tuning notes
 
-- Beam intensity range: `beam_multiplier` now supports `0.0 .. 20.0` to recover volumetric beam visibility in large scenes.
-- Volumetric renderer uses a stronger internal intensity scale and non-squared alpha path so the cone remains visible while preserving gobo modulation.
+- Beam intensity range: `beam_multiplier` supports `0.0 .. 100.0` with default `20.0`. The first `0..20` span preserves previous visual calibration, while `20..100` adds overdrive headroom for large scenes.
+- Volumetric renderer uses a stronger internal intensity scale, aggressive overdrive gain above 20, and a non-zero visibility floor so the cone remains visible in low-haze scenes.
 
 - Volumetric and legacy radial attenuation now use cone-local geometric radius (not a single UV axis), avoiding directional over-fade that could hide the beam.
 

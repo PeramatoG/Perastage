@@ -56,7 +56,7 @@ var _visual_environment_baseline := {
 var _visual_settings := {
 	"ambient_multiplier": 0.08,
 	"spot_multiplier": 1.0,
-	"beam_multiplier": 1.0,
+	"beam_multiplier": 20.0,
 	"bloom_multiplier": 0.0,
 	"beam_render_mode": 0,
 	"beam_quality": 2,
@@ -162,7 +162,7 @@ const BEAM_RENDER_MODE_VOLUMETRIC: int = 0
 const BEAM_RENDER_MODE_LEGACY: int = 1
 const BEAM_INTENSITY_VISIBILITY_THRESHOLD: float = 0.015
 const BEAM_DISTANCE_CULL_M: float = 180.0
-const BEAM_INTENSITY_MAX: float = 20.0
+const BEAM_INTENSITY_MAX: float = 100.0
 const FIXED_VOLUMETRIC_FOG_VOLUME_SIZE: int = 1024
 const FIXED_VOLUMETRIC_FOG_VOLUME_DEPTH: int = 256
 const FIXED_VOLUMETRIC_FOG_USE_FILTER: bool = true
@@ -330,7 +330,7 @@ func _apply_visual_settings(settings: Dictionary) -> void:
 	_refresh_emitter_light_scalars()
 
 	var beam_scalar_changed: bool = (
-		not is_equal_approx(float(previous_settings.get("beam_multiplier", 1.0)), float(_visual_settings.get("beam_multiplier", 1.0)))
+		not is_equal_approx(float(previous_settings.get("beam_multiplier", 20.0)), float(_visual_settings.get("beam_multiplier", 20.0)))
 		or int(previous_settings.get("beam_quality", 1)) != int(_visual_settings.get("beam_quality", 1))
 	)
 	if beam_scalar_changed:
@@ -397,9 +397,10 @@ func _update_existing_beam_material_scalars(light: SpotLight3D) -> void:
 	var beam_params: Dictionary = light.get_meta("peraviz_beam_last_params", {}) if light.has_meta("peraviz_beam_last_params") else {}
 	if beam_params.is_empty():
 		return
-	var beam_multiplier: float = float(_visual_settings.get("beam_multiplier", 1.0))
+	var beam_multiplier: float = float(_visual_settings.get("beam_multiplier", 20.0))
 	beam_params["scaled_intensity"] = clamp(base_intensity * beam_multiplier, 0.0, BEAM_INTENSITY_MAX)
 	beam_params["beam_quality"] = int(_visual_settings.get("beam_quality", 1))
+	beam_params["intensity_max"] = BEAM_INTENSITY_MAX
 	_update_beam_for_light(light, beam_params)
 
 func _update_beam_for_light(light: SpotLight3D, beam_params: Dictionary) -> void:
@@ -1661,7 +1662,7 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 		lens_radius = max(source_beam_radius, 0.005)
 	light.set_meta("peraviz_beam_base_intensity", clamp(normalized_dimmer, 0.0, 1.0))
 	light.set_meta("peraviz_beam_angle_source", "gdtf_full_angle_deg")
-	var scaled_intensity: float = clamp(normalized_dimmer * float(_visual_settings.get("beam_multiplier", 1.0)), 0.0, BEAM_INTENSITY_MAX)
+	var scaled_intensity: float = clamp(normalized_dimmer * float(_visual_settings.get("beam_multiplier", 20.0)), 0.0, BEAM_INTENSITY_MAX)
 	var beam_defaults: Dictionary = BeamOpticsControllerScript.BuildDefaultMasterOptics()
 	var beam_params: Dictionary = BeamOpticsControllerScript.BuildBeamParams(
 		light,
@@ -1678,6 +1679,7 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 	beam_params["distance_cull_m"] = BEAM_DISTANCE_CULL_M
 	beam_params["use_native_fog_projector_gobos"] = bool(_visual_settings.get("use_native_fog_projector_gobos", true))
 	beam_params["volumetric_fog_density"] = float(_visual_settings.get("volumetric_fog_density", 0.0))
+	beam_params["intensity_max"] = BEAM_INTENSITY_MAX
 	if _fixture_gobo_projector != null:
 		var gobo_controls: Dictionary = BeamOpticsControllerScript.BuildGoboControls(controls, _visual_settings, beam_defaults)
 		_fixture_gobo_projector.apply_gobo_projection(light, gobo_controls)
@@ -1856,7 +1858,7 @@ func _update_emitter_beam_cone(light: SpotLight3D, beam_angle: float, beam_range
 	if core_cone != null:
 		core_cone.visible = beam_is_visible
 
-	var beam_multiplier: float = float(_visual_settings.get("beam_multiplier", 1.0))
+	var beam_multiplier: float = float(_visual_settings.get("beam_multiplier", 20.0))
 	var scaled_intensity: float = clamp(intensity * beam_multiplier, 0.0, BEAM_INTENSITY_MAX)
 	var beam_half_angle_deg: float = beam_angle * 0.5
 	var radius: float = tan(deg_to_rad(beam_half_angle_deg)) * beam_range
