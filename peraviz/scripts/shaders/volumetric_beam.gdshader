@@ -68,12 +68,13 @@ float radial_profile_from_local(vec3 local_pos) {
 	float local_radius = projection_radius / max(projection_scale, 0.0001);
 	float radius_norm = clamp(length(local_pos.xz) / max(local_radius, 0.0001), 0.0, 1.0);
 	float radial_core = pow(1.0 - radius_norm, max(beam_softness, 0.02));
-	float center_lift = 1.0 - smoothstep(0.0, 0.9, radius_norm);
-	float radial_shaped = mix(radial_core, 1.0, 0.78 * center_lift);
-	float rim_t = smoothstep(0.8, 1.0, radius_norm);
+	float center_lift = 1.0 - smoothstep(0.0, 0.93, radius_norm);
+	float radial_shaped = mix(radial_core, 1.0, 0.88 * center_lift);
+	float rim_t = smoothstep(0.72, 1.0, radius_norm);
 	float rim_blur = 1.0 - (rim_t * rim_t * (3.0 - (2.0 * rim_t)));
-	float rim_darkening = mix(1.0, 0.12, rim_t * rim_t);
-	return radial_shaped * mix(1.0, rim_blur * rim_darkening, 0.28);
+	float rim_soft_dark = mix(1.0, 0.16, pow(rim_t, 1.8));
+	float rim_outer_dark = mix(1.0, 0.05, pow(rim_t, 3.2));
+	return radial_shaped * mix(1.0, rim_blur * rim_soft_dark * rim_outer_dark, 0.4);
 }
 
 float sample_gobo_mask(vec2 uv) {
@@ -125,7 +126,7 @@ void fragment() {
 	feather_alpha = max(feather_alpha, 0.08);
 	float local_radial_profile = radial_profile_from_local(v_local);
 	float shell_radial_profile = pow(clamp(ndotv, 0.0, 1.0), 0.65);
-	float radial_profile = smoothstep(0.03, 1.0, mix(local_radial_profile, shell_radial_profile, 0.35));
+	float radial_profile = smoothstep(0.01, 1.0, mix(local_radial_profile, shell_radial_profile, 0.28));
 
 	float depth_mult = 1.0;
 	if (depth_feather_enabled) {
@@ -143,7 +144,7 @@ void fragment() {
 	float intensity_alpha = mix(0.2, 1.0, clamp(beam_intensity, 0.0, 1.0));
 	float visibility = clamp(beam_visibility, 0.0, 1.0);
 	float physical_alpha = feather_alpha * radial_profile * depth_mult * dist_fade * max(haze_density, 0.2) * intensity_alpha * visibility;
-	float radial_alpha_floor = 0.038 * visibility * mix(0.2, 1.0, pow(clamp(radial_profile, 0.0, 1.0), 1.6));
+	float radial_alpha_floor = 0.034 * visibility * mix(0.18, 1.0, pow(clamp(radial_profile, 0.0, 1.0), 1.9));
 	float final_alpha = max(physical_alpha, radial_alpha_floor);
 
 	float gobo_mask = 1.0;
