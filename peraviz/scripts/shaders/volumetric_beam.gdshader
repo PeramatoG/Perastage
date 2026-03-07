@@ -32,6 +32,7 @@ instance uniform float gobo_scale = 1.0;
 instance uniform float gobo_rotation_deg = 0.0;
 instance uniform float haze_density = 0.35;
 instance uniform float beam_intensity : hint_range(0.0, 1.0) = 1.0;
+instance uniform float beam_overdrive : hint_range(0.0, 1.0) = 0.0;
 instance uniform float beam_visibility : hint_range(0.0, 1.0) = 1.0;
 uniform bool gobo_mirror_x = true;
 
@@ -66,8 +67,16 @@ float radial_profile_from_local(vec3 local_pos) {
 	float projection_scale = cone_height / axial_dist;
 	float projection_radius = max(gobo_projection_radius, 0.001);
 	float local_radius = projection_radius / max(projection_scale, 0.0001);
-	float radius_norm = length(local_pos.xz) / max(local_radius, 0.0001);
-	return pow(clamp(1.0 - radius_norm, 0.0, 1.0), max(beam_softness, 0.02));
+	float radius_norm = clamp(length(local_pos.xz) / max(local_radius, 0.0001), 0.0, 1.0);
+
+	// Keep a wider bright center and apply most softening near the outer rim only.
+	float broad_core = 1.0 - smoothstep(0.0, 0.78, radius_norm);
+	float shoulder_profile = 1.0 - smoothstep(0.52, 0.92, radius_norm);
+	float radial_profile = mix(shoulder_profile, 1.0, 0.92 * broad_core);
+
+	// Outer feather only in the final rim band to avoid inner-cone look.
+	float edge_feather = 1.0 - smoothstep(0.9, 1.0, radius_norm);
+	return radial_profile * mix(1.0, edge_feather, 0.82);
 }
 
 float sample_gobo_mask(vec2 uv) {
@@ -132,10 +141,13 @@ void fragment() {
 
 
 
-	float intensity_alpha = mix(0.2, 1.0, clamp(beam_intensity, 0.0, 1.0));
+	float boosted_intensity = clamp(beam_intensity + (1.25 * beam_overdrive), 0.0, 2.0);
+	float intensity_alpha = 0.25 + (0.9 * clamp(beam_intensity, 0.0, 1.0)) + (0.95 * beam_overdrive);
 	float visibility = clamp(beam_visibility, 0.0, 1.0);
-	float physical_alpha = feather_alpha * radial_profile * depth_mult * dist_fade * max(haze_density, 0.2) * intensity_alpha * visibility;
-	float final_alpha = max(physical_alpha, 0.08 * visibility);
+	float overdrive_alpha_gain = 1.0 + (2.6 * beam_overdrive);
+	float physical_alpha = feather_alpha * radial_profile * depth_mult * dist_fade * max(haze_density, 0.2) * intensity_alpha * overdrive_alpha_gain * visibility;
+	float radial_alpha_floor = 0.04 * visibility * mix(0.25, 1.0, pow(clamp(radial_profile, 0.0, 1.0), 1.2)) * mix(1.0, 1.6, beam_overdrive);
+	float final_alpha = max(physical_alpha, radial_alpha_floor);
 
 	float gobo_mask = 1.0;
 	if (use_gobo) {
@@ -145,5 +157,5 @@ void fragment() {
 
 	ALBEDO = base_color.rgb * brightness * gobo_mask;
 	ALPHA = clamp(final_alpha * max(gobo_mask, 0.8), 0.0, 1.0);
-	EMISSION = ALBEDO * (1.2 + 6.0 * clamp(beam_intensity, 0.0, 1.0));
+	EMISSION = ALBEDO * (1.6 + (8.0 * clamp(beam_intensity, 0.0, 1.0)) + (34.0 * beam_overdrive));
 }
