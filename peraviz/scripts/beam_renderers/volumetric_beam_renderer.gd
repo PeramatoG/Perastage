@@ -7,7 +7,7 @@ const EMITTER_CONE_MAX_BASE_RADIUS_M: float = 10.0
 const VOLUMETRIC_INTENSITY_SCALE: float = 4.0
 const VOLUMETRIC_INTENSITY_RESPONSE_EXPONENT: float = 2.2
 const INTENSITY_REFERENCE_MAX: float = 20.0
-const VOLUMETRIC_OVERDRIVE_BRIGHTNESS_MAX: float = 8.0
+const VOLUMETRIC_OVERDRIVE_BRIGHTNESS_MAX: float = 14.0
 const GOBO_TEXTURE_META_KEY: String = "peraviz_gobo_texture"
 const DEBUG_AXIS_KEY: String = "peraviz_beam_debug_axis"
 const MIRROR_BEAM_SHAPE_X: bool = true
@@ -107,7 +107,7 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	cone.scale = Vector3.ONE
 	cone.visible = true
 
-	var intensity_alpha: float = clamp((intensity / reference_max) * VOLUMETRIC_INTENSITY_SCALE, 0.0, 2.5)
+	var intensity_alpha: float = clamp((intensity / reference_max) * VOLUMETRIC_INTENSITY_SCALE, 0.0, 3.6)
 	cone.set_instance_shader_parameter("base_color", Color(beam_color.r, beam_color.g, beam_color.b, intensity_alpha))
 	cone.set_instance_shader_parameter("beam_visibility", 1.0)
 	var overdrive_brightness_gain: float = lerp(1.0, VOLUMETRIC_OVERDRIVE_BRIGHTNESS_MAX, overdrive_norm)
