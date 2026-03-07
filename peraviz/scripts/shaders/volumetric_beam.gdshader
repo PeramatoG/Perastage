@@ -98,13 +98,15 @@ void fragment() {
 		discard;
 	}
 
-	float apex_fade = pow(max(1.0 - UV.y, 0.001), max(falloff_power * longitudinal_falloff, 0.1));
+	float source_y = 0.5 * cone_height;
+	float axial_progress = clamp((source_y - v_local.y) / max(cone_height, 0.0001), 0.0, 1.0);
+	float apex_fade = pow(max(1.0 - axial_progress, 0.001), max(falloff_power * longitudinal_falloff, 0.1));
 	float base_brightness = base_color.a * apex_fade;
 
 	vec3 n = normalize(NORMAL);
 	vec3 v = normalize(-v_view);
 	float ndotv = max(0.0, dot(n, v));
-	float location_weight = pow(max(1.0 - UV.y, 0.0), boost_along_y);
+	float location_weight = pow(max(1.0 - axial_progress, 0.0), boost_along_y);
 	float facing_multiplier = 1.0 + (facing_boost * location_weight * pow(ndotv, facing_power));
 
 	float brightness = min(base_brightness * facing_multiplier, max_brightness);
