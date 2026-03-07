@@ -26,11 +26,7 @@ func apply_gobo_projection(light: SpotLight3D, controls: Dictionary) -> bool:
 	var previous_meta_texture: Texture2D = null
 	if light.has_meta(GOBO_TEXTURE_META_KEY):
 		previous_meta_texture = light.get_meta(GOBO_TEXTURE_META_KEY) as Texture2D
-	if not bool(controls.get("has_gobo", false)):
-		_clear_gobo_visuals(light)
-		var open_gobo: Texture2D = _resolve_open_gobo_texture()
-		light.set_meta(GOBO_TEXTURE_META_KEY, open_gobo)
-		return previous_meta_texture != open_gobo
+	var has_gobo_control: bool = bool(controls.get("has_gobo", false))
 
 	var runtime_bindings: Array = controls.get("gobo_runtime_bindings", [])
 	if runtime_bindings.is_empty():
@@ -58,17 +54,15 @@ func apply_gobo_projection(light: SpotLight3D, controls: Dictionary) -> bool:
 		if gobo_texture != null:
 			active_textures.append(gobo_texture)
 
-	if active_textures.is_empty():
-		_clear_gobo_visuals(light)
-		var open_gobo: Texture2D = _resolve_open_gobo_texture()
-		light.set_meta(GOBO_TEXTURE_META_KEY, open_gobo)
-		return previous_meta_texture != open_gobo
-
-	var composed_gobo: Texture2D = _compose_gobo_textures(active_textures)
+	var using_open_gobo_for_beam: bool = (not has_gobo_control) or active_textures.is_empty()
+	var composed_gobo: Texture2D = _resolve_open_gobo_texture() if using_open_gobo_for_beam else _compose_gobo_textures(active_textures)
 	var gobo_scale: float = max(float(controls.get("gobo_scale", GOBO_DEFAULT_SCALE)), 0.05)
 	var gobo_rotation_deg: float = float(controls.get("gobo_rotation_deg", GOBO_DEFAULT_ROTATION_DEG))
 	var projected_gobo: Texture2D = _transform_gobo_texture(composed_gobo, gobo_rotation_deg, gobo_scale)
-	_apply_gobo_visuals(light, projected_gobo, controls)
+	if using_open_gobo_for_beam:
+		_clear_gobo_visuals(light)
+	else:
+		_apply_gobo_visuals(light, projected_gobo, controls)
 	light.set_meta(GOBO_TEXTURE_META_KEY, projected_gobo)
 	return projected_gobo != previous_meta_texture
 
