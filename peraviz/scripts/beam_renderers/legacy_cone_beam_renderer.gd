@@ -148,11 +148,11 @@ func _update_prism_material(prism: MeshInstance3D, beam_color: Color, scaled_int
 	prism.set_instance_shader_parameter("lateral_emission_boost", 0.22)
 	prism.set_instance_shader_parameter("volumetric_noise_strength", 0.06)
 	prism.set_instance_shader_parameter("radial_falloff", radial_falloff)
-	prism.set_instance_shader_parameter("radial_floor", 0.0 if has_active_gobo_media else OPEN_GOBO_RADIAL_FLOOR)
 	prism.set_instance_shader_parameter("longitudinal_falloff", longitudinal_falloff)
 	prism.set_instance_shader_parameter("haze_density", haze_density)
 	var prism_material: ShaderMaterial = prism.material_override as ShaderMaterial
 	if prism_material != null:
+		prism_material.set_shader_parameter("radial_floor", 0.0 if has_active_gobo_media else OPEN_GOBO_RADIAL_FLOOR)
 		prism_material.set_shader_parameter("use_gobo", false)
 		prism_material.set_shader_parameter("gobo_invert", false)
 
