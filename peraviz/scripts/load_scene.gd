@@ -1674,6 +1674,7 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 		_visual_settings,
 		beam_defaults
 	)
+	beam_params["has_gobo"] = bool(controls.get("has_gobo", false))
 	beam_params["fade_end_ratio"] = EMITTER_CONE_FADE_END_RATIO
 	beam_params["intensity_visibility_threshold"] = BEAM_INTENSITY_VISIBILITY_THRESHOLD
 	beam_params["distance_cull_m"] = BEAM_DISTANCE_CULL_M

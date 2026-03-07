@@ -74,7 +74,7 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 		gobo_texture = light.get_meta(GOBO_TEXTURE_META_KEY) as Texture2D
 	# Open aperture should keep the beam cone as a full circular shell.
 	# Bypass gobo texture vectorization/corrections and use mesh-builder fallback circle.
-	if bool(light.get_meta(OPEN_APERTURE_META_KEY, false)):
+	if bool(light.get_meta(OPEN_APERTURE_META_KEY, false)) and not bool(params.get("has_gobo", false)):
 		gobo_texture = null
 	var gobo_scale: float = max(float(params.get("gobo_scale", 1.0)), 0.05)
 	var gobo_rotation_deg: float = float(params.get("gobo_rotation_deg", 0.0))

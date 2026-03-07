@@ -28,6 +28,8 @@ func apply_gobo_projection(light: SpotLight3D, controls: Dictionary) -> bool:
 	var previous_meta_texture: Texture2D = null
 	if light.has_meta(GOBO_TEXTURE_META_KEY):
 		previous_meta_texture = light.get_meta(GOBO_TEXTURE_META_KEY) as Texture2D
+	# Reset per-frame and re-enable only when we explicitly apply open-aperture behavior.
+	light.set_meta(OPEN_APERTURE_META_KEY, false)
 	if not bool(controls.get("has_gobo", false)):
 		return _apply_open_aperture_gobo(light, previous_meta_texture, controls)
 
