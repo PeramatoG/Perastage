@@ -7,6 +7,9 @@ const VECTORIZATION_EPSILON: float = 1.6
 const MAX_POLYGON_COUNT: int = 6
 const MIN_POLYGON_AREA: float = 0.00004
 const FALLBACK_SEGMENTS: int = 36
+const BINARY_LUMA_THRESHOLD: float = 0.5
+const OUTER_BORDER_PIXELS: int = 1
+const APERTURE_BORDER_RATIO: float = 0.985
 
 var _mesh_cache: Dictionary = {}
 
@@ -45,6 +48,8 @@ func _vectorize_gobo(gobo_texture: Texture2D, gobo_scale: float, gobo_rotation_d
 		var target_width: int = max(8, int(round(float(image.get_width()) * float(VECTORIZATION_MAX_SIZE) / float(longest_size))))
 		var target_height: int = max(8, int(round(float(image.get_height()) * float(VECTORIZATION_MAX_SIZE) / float(longest_size))))
 		image.resize(target_width, target_height, Image.INTERPOLATE_BILINEAR)
+	_prepare_binary_mask_image(image)
+
 	var bitmap := BitMap.new()
 	bitmap.create_from_image_alpha(image, VECTORIZATION_ALPHA_THRESHOLD)
 	var all_polygons: Array = bitmap.opaque_to_polygons(Rect2i(0, 0, image.get_width(), image.get_height()), VECTORIZATION_EPSILON)
@@ -90,6 +95,26 @@ func _vectorize_gobo(gobo_texture: Texture2D, gobo_scale: float, gobo_rotation_d
 		output.append(normalized[index].get("polygon", PackedVector2Array()) as PackedVector2Array)
 	return output
 
+func _prepare_binary_mask_image(image: Image) -> void:
+	var width: int = image.get_width()
+	var height: int = image.get_height()
+	if width <= 0 or height <= 0:
+		return
+	var center := Vector2((float(width) - 1.0) * 0.5, (float(height) - 1.0) * 0.5)
+	var aperture_radius: float = (min(float(width), float(height)) * 0.5) * APERTURE_BORDER_RATIO
+	for y in range(height):
+		for x in range(width):
+			if x < OUTER_BORDER_PIXELS or y < OUTER_BORDER_PIXELS or x >= (width - OUTER_BORDER_PIXELS) or y >= (height - OUTER_BORDER_PIXELS):
+				image.set_pixel(x, y, Color(0.0, 0.0, 0.0, 0.0))
+				continue
+			var pos := Vector2(float(x), float(y))
+			if pos.distance_to(center) >= aperture_radius:
+				image.set_pixel(x, y, Color(0.0, 0.0, 0.0, 0.0))
+				continue
+			var sample: Color = image.get_pixel(x, y)
+			var luma: float = (sample.r * 0.299) + (sample.g * 0.587) + (sample.b * 0.114)
+			var binary: float = 1.0 if (luma * sample.a) >= BINARY_LUMA_THRESHOLD else 0.0
+			image.set_pixel(x, y, Color(binary, binary, binary, binary))
 
 func _signed_polygon_area(polygon: PackedVector2Array) -> float:
 	var count: int = polygon.size()
