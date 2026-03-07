@@ -153,10 +153,17 @@ func _count_polygon_points(polygons: Array[PackedVector2Array]) -> int:
 func _simplify_closed_polygon(polygon: PackedVector2Array, epsilon: float) -> PackedVector2Array:
 	if polygon.size() < 4 or epsilon <= 0.0:
 		return polygon
-	var simplified: PackedVector2Array = Geometry2D.simplify_polyline(polygon, epsilon)
-	if simplified.size() < 3:
+
+	var closed_path := PackedVector2Array(polygon)
+	closed_path.append(polygon[0])
+	var simplified_path: PackedVector2Array = Geometry2D.simplify_polyline(closed_path, epsilon)
+	if simplified_path.size() < 4:
 		return polygon
-	return simplified
+	if simplified_path[0].distance_to(simplified_path[simplified_path.size() - 1]) <= 0.0001:
+		simplified_path.remove_at(simplified_path.size() - 1)
+	if simplified_path.size() < 3:
+		return polygon
+	return simplified_path
 
 func _prepare_binary_mask_image(image: Image) -> void:
 	var width: int = image.get_width()
