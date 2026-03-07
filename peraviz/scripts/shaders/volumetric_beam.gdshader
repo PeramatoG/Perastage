@@ -31,6 +31,8 @@ instance uniform float beam_softness = 0.35;
 instance uniform float gobo_scale = 1.0;
 instance uniform float gobo_rotation_deg = 0.0;
 instance uniform float haze_density = 0.35;
+instance uniform float beam_intensity : hint_range(0.0, 1.0) = 1.0;
+uniform bool gobo_mirror_x = true;
 
 
 varying vec3 v_view;
@@ -42,6 +44,9 @@ vec2 project_gobo_uv(vec3 local_pos) {
 	float projection_scale = cone_height / axial_dist;
 	float projection_radius = max(gobo_projection_radius, 0.001);
 	vec2 projected = local_pos.xz * projection_scale;
+	if (gobo_mirror_x) {
+		projected.x = -projected.x;
+	}
 	float rotation_rad = radians(gobo_rotation_deg);
 	float cos_r = cos(rotation_rad);
 	float sin_r = sin(rotation_rad);
@@ -126,7 +131,8 @@ void fragment() {
 
 
 
-	float final_alpha = feather_alpha * radial_profile * depth_mult * dist_fade * max(haze_density, 0.01);
+	float intensity_alpha = mix(0.05, 1.0, clamp(beam_intensity, 0.0, 1.0));
+	float final_alpha = feather_alpha * radial_profile * depth_mult * dist_fade * max(haze_density, 0.01) * intensity_alpha;
 	if (final_alpha < 0.001) {
 		discard;
 	}

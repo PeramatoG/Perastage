@@ -12,12 +12,10 @@ const MIRROR_BEAM_SHAPE_X: bool = true
 var _beam_material_template: ShaderMaterial
 var _camera: Camera3D
 var _settings: Dictionary = {}
-var _mesh_builder: GoboPrismMeshBuilder
 
 func _init() -> void:
 	_beam_material_template = ShaderMaterial.new()
 	_beam_material_template.shader = load("res://scripts/shaders/volumetric_beam.gdshader")
-	_mesh_builder = GoboPrismMeshBuilder.new()
 
 func configure(view_camera: Camera3D, settings: Dictionary) -> void:
 	_camera = view_camera
@@ -85,15 +83,17 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	var gobo_scale: float = max(float(params.get("gobo_scale", 1.0)), 0.05)
 	var gobo_rotation_deg: float = float(params.get("gobo_rotation_deg", 0.0))
 	var beam_rotation_deg: float = wrapf(gobo_rotation_deg + 180.0, 0.0, 360.0)
+	var cone_mesh: CylinderMesh = cone.mesh as CylinderMesh
 	var top_radius: float = max(lens_radius, 0.003)
-	var prism_mesh: ArrayMesh = _mesh_builder.build_beam_mesh(gobo_texture, top_radius, bottom_radius, beam_range, gobo_scale, beam_rotation_deg)
-	if prism_mesh != null:
-		cone.mesh = prism_mesh
+	if cone_mesh != null:
+		cone_mesh.top_radius = top_radius
+		cone_mesh.bottom_radius = bottom_radius
+		cone_mesh.height = beam_range
 	var lens_offset_m: float = max(float(params.get("lens_offset_m", params.get("near_offset", 0.0))), 0.0)
 	var lens_shift_x: float = float(params.get("lens_shift_x", 0.0))
 	var lens_shift_y: float = float(params.get("lens_shift_y", 0.0))
 	cone.position = Vector3(lens_shift_x, lens_shift_y, -(beam_range * 0.5 + lens_offset_m))
-	cone.scale = Vector3(-1.0 if MIRROR_BEAM_SHAPE_X else 1.0, 1.0, 1.0)
+	cone.scale = Vector3.ONE
 	cone.visible = true
 
 	var intensity_alpha: float = clamp(intensity * VOLUMETRIC_INTENSITY_SCALE, 0.0, 2.5)
@@ -110,14 +110,17 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	cone.set_instance_shader_parameter("longitudinal_falloff", max(float(params.get("beam_longitudinal_falloff", 1.0)), 0.05))
 	cone.set_instance_shader_parameter("beam_softness", clamp(float(params.get("beam_softness", 0.35)), 0.02, 1.0))
 	cone.set_instance_shader_parameter("gobo_scale", gobo_scale)
-	cone.set_instance_shader_parameter("gobo_rotation_deg", gobo_rotation_deg)
+	cone.set_instance_shader_parameter("gobo_rotation_deg", beam_rotation_deg)
 	cone.set_instance_shader_parameter("cone_height", max(beam_range, 0.001))
 	cone.set_instance_shader_parameter("gobo_projection_radius", max(bottom_radius, 0.001))
-	# Gobo shaping is inherited from legacy mesh vectorization to keep the aperture response aligned.
+	cone.set_instance_shader_parameter("beam_intensity", intensity / 20.0)
 	var cone_material: ShaderMaterial = cone.material_override as ShaderMaterial
 	if cone_material != null:
-		cone_material.set_shader_parameter("use_gobo", false)
+		cone_material.set_shader_parameter("use_gobo", gobo_texture != null)
 		cone_material.set_shader_parameter("gobo_invert", false)
+		cone_material.set_shader_parameter("gobo_mirror_x", MIRROR_BEAM_SHAPE_X)
+		if gobo_texture != null:
+			cone_material.set_shader_parameter("gobo_texture", gobo_texture)
 
 func cleanup_beam(light: SpotLight3D) -> void:
 	if not light.has_meta(BEAM_META_KEY):
@@ -126,8 +129,6 @@ func cleanup_beam(light: SpotLight3D) -> void:
 	if cone != null and is_instance_valid(cone):
 		cone.queue_free()
 	light.remove_meta(BEAM_META_KEY)
-	if _mesh_builder != null:
-		_mesh_builder.clear_cache()
 
 
 func _ensure_debug_axis(light: SpotLight3D) -> MeshInstance3D:
