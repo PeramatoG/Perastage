@@ -157,5 +157,5 @@ void fragment() {
 
 	ALBEDO = base_color.rgb * brightness * gobo_mask;
 	ALPHA = clamp(final_alpha * max(gobo_mask, 0.8), 0.0, 1.0);
-	EMISSION = ALBEDO * (1.2 + (6.0 * clamp(beam_intensity, 0.0, 1.0)) + (14.0 * beam_overdrive));
+	EMISSION = ALBEDO * (1.2 + (6.0 * clamp(beam_intensity, 0.0, 1.0)) + (30.0 * beam_overdrive));
 }
