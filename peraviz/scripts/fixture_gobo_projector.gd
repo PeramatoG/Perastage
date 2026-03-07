@@ -27,8 +27,6 @@ func apply_gobo_projection(light: SpotLight3D, controls: Dictionary) -> bool:
 	var previous_meta_texture: Texture2D = null
 	if light.has_meta(GOBO_TEXTURE_META_KEY):
 		previous_meta_texture = light.get_meta(GOBO_TEXTURE_META_KEY) as Texture2D
-	var has_gobo_control: bool = bool(controls.get("has_gobo", false))
-
 	var runtime_bindings: Array = controls.get("gobo_runtime_bindings", [])
 	if runtime_bindings.is_empty():
 		var fallback_raw_8bit: int = _resolve_gobo_raw_8bit(controls)
@@ -55,7 +53,7 @@ func apply_gobo_projection(light: SpotLight3D, controls: Dictionary) -> bool:
 		if gobo_texture != null:
 			active_textures.append(gobo_texture)
 
-	var using_open_gobo_for_beam: bool = (not has_gobo_control) or active_textures.is_empty()
+	var using_open_gobo_for_beam: bool = active_textures.is_empty()
 	var composed_gobo: Texture2D = _resolve_open_gobo_texture() if using_open_gobo_for_beam else _compose_gobo_textures(active_textures)
 	var gobo_scale: float = max(float(controls.get("gobo_scale", GOBO_DEFAULT_SCALE)), 0.05)
 	var gobo_rotation_deg: float = float(controls.get("gobo_rotation_deg", GOBO_DEFAULT_ROTATION_DEG))
