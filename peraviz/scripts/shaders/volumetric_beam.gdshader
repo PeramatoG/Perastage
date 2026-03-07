@@ -110,12 +110,13 @@ void fragment() {
 
 	vec3 n = normalize(NORMAL);
 	vec3 v = normalize(-v_view);
-	float ndotv = max(0.0, dot(n, v));
+	float ndotv = abs(dot(n, v));
 	float location_weight = pow(max(1.0 - axial_progress, 0.0), boost_along_y);
 	float facing_multiplier = 1.0 + (facing_boost * location_weight * pow(ndotv, facing_power));
 
 	float brightness = min(base_brightness * facing_multiplier, max_brightness);
-	float feather_alpha = mix(1.0 - feather_intensity, 1.0, pow(ndotv, feather_sharpness * max(radial_falloff, 0.05)));
+	float feather_alpha = mix(1.0 - feather_intensity, 1.0, pow(clamp(ndotv, 0.0, 1.0), feather_sharpness * max(radial_falloff, 0.05)));
+	feather_alpha = max(feather_alpha, 0.08);
 	float radial_profile = radial_profile_from_local(v_local);
 
 	float depth_mult = 1.0;

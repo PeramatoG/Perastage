@@ -137,3 +137,5 @@ This keeps volumetric beam volume readable while retaining legacy-consistent gob
 When a renderer path uses shader-side gobo masking, keep a minimum transmission floor (`gobo_min_transmission`) and blend control (`gobo_contribution`) to avoid full beam disappearance with dark gobos.
 
 For volumetric beams, also ensure beam alpha is explicitly intensity-aware so beam visibility tracks dimmer/beam intensity changes.
+
+For two-sided volumetric cones (`cull_disabled`), view alignment should use absolute normal alignment (`abs(dot(NORMAL, VIEW))`) to avoid face-orientation cancellations that can make the beam disappear from many camera angles.
