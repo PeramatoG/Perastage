@@ -4,12 +4,15 @@ class_name GoboPrismMeshBuilder
 const VECTORIZATION_MAX_SIZE: int = 192
 const VECTORIZATION_ALPHA_THRESHOLD: float = 0.5
 const VECTORIZATION_EPSILON: float = 1.6
-const MAX_POLYGON_COUNT: int = 6
+const MAX_TOTAL_VECTOR_POINTS: int = 280
 const MIN_POLYGON_AREA: float = 0.00004
 const FALLBACK_SEGMENTS: int = 36
 const BINARY_LUMA_THRESHOLD: float = 0.5
 const OUTER_BORDER_PIXELS: int = 1
 const APERTURE_BORDER_RATIO: float = 0.985
+const POINT_REDUCTION_EPSILON_START: float = 0.001
+const POINT_REDUCTION_EPSILON_MULTIPLIER: float = 1.35
+const POINT_REDUCTION_EPSILON_MAX: float = 0.25
 
 var _mesh_cache: Dictionary = {}
 
@@ -91,9 +94,69 @@ func _vectorize_gobo(gobo_texture: Texture2D, gobo_scale: float, gobo_rotation_d
 		return float(a.get("area", 0.0)) > float(b.get("area", 0.0))
 	)
 	var output: Array[PackedVector2Array] = []
-	for index in range(min(MAX_POLYGON_COUNT, normalized.size())):
-		output.append(normalized[index].get("polygon", PackedVector2Array()) as PackedVector2Array)
-	return output
+	for item in normalized:
+		output.append(item.get("polygon", PackedVector2Array()) as PackedVector2Array)
+	return _reduce_polygon_point_count(output, MAX_TOTAL_VECTOR_POINTS)
+
+func _reduce_polygon_point_count(polygons: Array[PackedVector2Array], max_points: int) -> Array[PackedVector2Array]:
+	if polygons.is_empty():
+		return []
+	if _count_polygon_points(polygons) <= max_points:
+		return polygons
+
+	var reduced: Array[PackedVector2Array] = polygons.duplicate(true)
+	var epsilon: float = POINT_REDUCTION_EPSILON_START
+	while _count_polygon_points(reduced) > max_points and epsilon <= POINT_REDUCTION_EPSILON_MAX:
+		var iteration: Array[PackedVector2Array] = []
+		for polygon in reduced:
+			var simplified: PackedVector2Array = _simplify_closed_polygon(polygon, epsilon)
+			if simplified.size() < 3:
+				continue
+			if abs(_signed_polygon_area(simplified)) < MIN_POLYGON_AREA:
+				continue
+			iteration.append(simplified)
+		reduced = iteration
+		epsilon *= POINT_REDUCTION_EPSILON_MULTIPLIER
+
+	if reduced.is_empty():
+		return []
+	if _count_polygon_points(reduced) <= max_points:
+		return reduced
+
+	var sorted: Array[Dictionary] = []
+	for polygon in reduced:
+		sorted.append({"polygon": polygon, "area": abs(_signed_polygon_area(polygon))})
+	sorted.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		return float(a.get("area", 0.0)) > float(b.get("area", 0.0))
+	)
+
+	var final_polygons: Array[PackedVector2Array] = []
+	var total_points: int = 0
+	for item in sorted:
+		var polygon: PackedVector2Array = item.get("polygon", PackedVector2Array()) as PackedVector2Array
+		var polygon_points: int = polygon.size()
+		if final_polygons.size() > 0 and (total_points + polygon_points) > max_points:
+			continue
+		final_polygons.append(polygon)
+		total_points += polygon_points
+
+	if final_polygons.is_empty():
+		final_polygons.append(sorted[0].get("polygon", PackedVector2Array()) as PackedVector2Array)
+	return final_polygons
+
+func _count_polygon_points(polygons: Array[PackedVector2Array]) -> int:
+	var total: int = 0
+	for polygon in polygons:
+		total += polygon.size()
+	return total
+
+func _simplify_closed_polygon(polygon: PackedVector2Array, epsilon: float) -> PackedVector2Array:
+	if polygon.size() < 4 or epsilon <= 0.0:
+		return polygon
+	var simplified: PackedVector2Array = Geometry2D.simplify_polyline(polygon, epsilon)
+	if simplified.size() < 3:
+		return polygon
+	return simplified
 
 func _prepare_binary_mask_image(image: Image) -> void:
 	var width: int = image.get_width()
