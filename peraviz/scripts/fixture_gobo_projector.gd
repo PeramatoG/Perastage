@@ -14,6 +14,7 @@ const GOBO_MAX_SCALE: float = 6.4
 const GOBO_APERTURE_SCALE: float = 1.05
 const GOBO_DEFAULT_SCALE: float = 1.0
 const GOBO_DEFAULT_ROTATION_DEG: float = 0.0
+const OPEN_APERTURE_CACHE_KEY: String = "__open_aperture_gobo"
 
 var _texture_cache: Dictionary = {}
 
@@ -27,9 +28,14 @@ func apply_gobo_projection(light: SpotLight3D, controls: Dictionary) -> bool:
 	if light.has_meta(GOBO_TEXTURE_META_KEY):
 		previous_meta_texture = light.get_meta(GOBO_TEXTURE_META_KEY) as Texture2D
 	if not bool(controls.get("has_gobo", false)):
-		_clear_gobo_visuals(light)
-		light.set_meta(GOBO_TEXTURE_META_KEY, null)
-		return previous_meta_texture != null
+		var open_aperture_texture: Texture2D = _resolve_open_aperture_texture()
+		if open_aperture_texture == null:
+			_clear_gobo_visuals(light)
+			light.set_meta(GOBO_TEXTURE_META_KEY, null)
+			return previous_meta_texture != null
+		_apply_gobo_visuals(light, open_aperture_texture)
+		light.set_meta(GOBO_TEXTURE_META_KEY, open_aperture_texture)
+		return open_aperture_texture != previous_meta_texture
 
 	var runtime_bindings: Array = controls.get("gobo_runtime_bindings", [])
 	if runtime_bindings.is_empty():
@@ -307,4 +313,22 @@ func _resolve_fake_gobo_texture(gobo_raw_8bit: int) -> Texture2D:
 
 	var texture: ImageTexture = ImageTexture.create_from_image(image)
 	_texture_cache[cache_key] = texture
+	return texture
+
+func _resolve_open_aperture_texture() -> Texture2D:
+	if _texture_cache.has(OPEN_APERTURE_CACHE_KEY):
+		return _texture_cache[OPEN_APERTURE_CACHE_KEY] as Texture2D
+
+	var image := Image.create(FAKE_GOBO_TEXTURE_SIZE, FAKE_GOBO_TEXTURE_SIZE, false, Image.FORMAT_RGBA8)
+	image.fill(Color(0.0, 0.0, 0.0, 1.0))
+	var center: Vector2 = Vector2(float(FAKE_GOBO_TEXTURE_SIZE), float(FAKE_GOBO_TEXTURE_SIZE)) * 0.5
+	var aperture_radius: float = float(FAKE_GOBO_TEXTURE_SIZE) * 0.48
+	for y in range(FAKE_GOBO_TEXTURE_SIZE):
+		for x in range(FAKE_GOBO_TEXTURE_SIZE):
+			var distance_to_center: float = Vector2(float(x), float(y)).distance_to(center)
+			if distance_to_center <= aperture_radius:
+				image.set_pixel(x, y, Color(1.0, 1.0, 1.0, 1.0))
+
+	var texture: ImageTexture = ImageTexture.create_from_image(image)
+	_texture_cache[OPEN_APERTURE_CACHE_KEY] = texture
 	return texture
