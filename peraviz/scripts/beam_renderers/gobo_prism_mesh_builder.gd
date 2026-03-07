@@ -7,6 +7,7 @@ const VECTORIZATION_EPSILON: float = 1.6
 const MAX_TOTAL_VECTOR_POINTS: int = 280
 const MIN_POLYGON_AREA: float = 0.00004
 const FALLBACK_SEGMENTS: int = 36
+const FALLBACK_RING_RADII: Array[float] = [1.0, 0.82, 0.64, 0.46, 0.28]
 const BINARY_LUMA_THRESHOLD: float = 0.5
 const OUTER_BORDER_PIXELS: int = 1
 const APERTURE_BORDER_RATIO: float = 0.985
@@ -27,7 +28,7 @@ func build_beam_mesh(gobo_texture: Texture2D, near_radius: float, far_radius: fl
 
 	var polygons: Array[PackedVector2Array] = _vectorize_gobo(gobo_texture, gobo_scale, gobo_rotation_deg)
 	if polygons.is_empty():
-		polygons = [_build_fallback_circle()]
+		polygons = _build_fallback_concentric_circles()
 
 	var mesh: ArrayMesh = _build_extruded_mesh(polygons, max(near_radius, 0.001), max(far_radius, 0.001), max(beam_height, 0.001))
 	_mesh_cache[geometry_key] = mesh
@@ -247,11 +248,18 @@ func _signed_polygon_area(polygon: PackedVector2Array) -> float:
 		area += (current.x * next.y) - (next.x * current.y)
 	return 0.5 * area
 
-func _build_fallback_circle() -> PackedVector2Array:
+func _build_fallback_concentric_circles() -> Array[PackedVector2Array]:
+	var polygons: Array[PackedVector2Array] = []
+	for radius in FALLBACK_RING_RADII:
+		polygons.append(_build_fallback_circle(float(radius)))
+	return polygons
+
+func _build_fallback_circle(radius: float = 1.0) -> PackedVector2Array:
 	var polygon := PackedVector2Array()
+	var safe_radius: float = max(radius, 0.05)
 	for i in range(FALLBACK_SEGMENTS):
 		var angle: float = TAU * float(i) / float(FALLBACK_SEGMENTS)
-		polygon.append(Vector2(cos(angle), sin(angle)))
+		polygon.append(Vector2(cos(angle), sin(angle)) * safe_radius)
 	return polygon
 
 func _build_extruded_mesh(polygons: Array[PackedVector2Array], near_radius: float, far_radius: float, beam_height: float) -> ArrayMesh:
