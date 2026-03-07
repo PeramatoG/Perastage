@@ -108,8 +108,32 @@ This keeps zoom/angle and gobo scaling behavior aligned with footprint projectio
 These are intended as the single optical truth for both footprint and visible beam.
 
 
-### Visibility safeguard for in-air beam
+### Legacy gobo baseline contract (do not break)
 
-To avoid fully disappearing beams when a gobo texture has mostly dark/opaque pixels (or projection UVs spend significant area outside the projected region), beam shaders now keep a small transmissive floor (`gobo_min_transmission`) and blend strength (`gobo_contribution`).
+Legacy mode currently provides the reference gobo look and must remain unchanged unless a dedicated regression pass is included.
 
-This preserves the gobo pattern while ensuring the beam remains readable as a translucent conic volume in both Volumetric and Legacy modes.
+Baseline behavior in legacy (`legacy_cone_beam_renderer.gd` + `gobo_prism_mesh_builder.gd`):
+
+- Uses vectorized gobo aperture geometry (`GoboPrismMeshBuilder.build_beam_mesh`) instead of a pure texture mask over a generic cone.
+- Applies the same transformed gobo texture prepared by `FixtureGoboProjector` (`peraviz_gobo_texture` metadata).
+- Keeps orientation compatibility with:
+  - `beam_rotation_deg = gobo_rotation_deg + 180°`
+  - `MIRROR_BEAM_SHAPE_X = true`
+- Uses shared optics from `BeamOpticsController` (`beam_range`, `beam_angle`, `gobo_scale`, `gobo_rotation_deg`, `lens_offset_m`, `lens_shift_x`, `lens_shift_y`).
+
+Any future refactor should preserve those four points to avoid visual regressions in fixture gobos.
+
+## Volumetric gobo status
+
+- Problem observed: volumetric beams could lose readable gobo pattern even when legacy looked correct.
+- Current fix approach: volumetric now reuses the same vectorized gobo beam mesh path as legacy (`GoboPrismMeshBuilder`) to align aperture shape and rotation behavior.
+- For this path, volumetric shader-side gobo sampling is disabled (`use_gobo = false`) to avoid double-masking and keep stability while validating the mesh-based solution.
+- Surface footprint projection remains unchanged and still comes from `FixtureGoboProjector` through spotlight projector texture.
+
+This means volumetric currently inherits legacy’s proven gobo geometry projection logic, while keeping its own volumetric shading model (haze, anisotropy, depth fade, etc.).
+
+## Visibility safeguard for shader-masked paths
+
+When a renderer path uses shader-side gobo masking, keep a minimum transmission floor (`gobo_min_transmission`) and blend control (`gobo_contribution`) to avoid full beam disappearance with dark gobos.
+
+Current preferred path for fixture gobos is mesh-shaped projection (legacy baseline and volumetric fallback described above).
