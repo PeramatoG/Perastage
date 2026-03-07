@@ -14,6 +14,7 @@ const GOBO_TEXTURE_META_KEY: String = "peraviz_gobo_texture"
 const DEBUG_AXIS_KEY: String = "peraviz_beam_debug_axis"
 const LEGACY_MID_KEY: String = "peraviz_beam_cone_mid"
 const LEGACY_CORE_KEY: String = "peraviz_beam_cone_core"
+const MIRROR_BEAM_SHAPE_X: bool = true
 
 var _material_template: ShaderMaterial
 var _mesh_builder: GoboPrismMeshBuilder
@@ -73,6 +74,7 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	if prism_mesh != null:
 		prism.mesh = prism_mesh
 	prism.position = Vector3(lens_shift_x, lens_shift_y, -(beam_range * 0.5 + lens_offset_m))
+	prism.scale = Vector3(-1.0 if MIRROR_BEAM_SHAPE_X else 1.0, 1.0, 1.0)
 
 	var color_alpha := Color(beam_color.r, beam_color.g, beam_color.b, 1.0)
 	var beam_softness: float = clamp(float(params.get("beam_softness", 0.35)), 0.02, 1.0)
