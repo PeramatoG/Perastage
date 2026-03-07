@@ -131,9 +131,9 @@ void fragment() {
 
 
 
-	float intensity_alpha = mix(0.05, 1.0, clamp(beam_intensity, 0.0, 1.0));
+	float intensity_alpha = mix(0.2, 1.0, clamp(beam_intensity, 0.0, 1.0));
 	float final_alpha = feather_alpha * radial_profile * depth_mult * dist_fade * max(haze_density, 0.01) * intensity_alpha;
-	if (final_alpha < 0.001) {
+	if (final_alpha < 0.0001) {
 		discard;
 	}
 
