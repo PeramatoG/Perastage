@@ -116,12 +116,12 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	cone.set_instance_shader_parameter("cone_height", max(beam_range, 0.001))
 	cone.set_instance_shader_parameter("gobo_projection_radius", max(bottom_radius, 0.001))
 	cone.set_instance_shader_parameter("beam_intensity", max(normalized_intensity, beam_intensity_norm))
-	cone.set_instance_shader_parameter("near_fade_end", max(2.0, beam_range * 0.2))
 	var far_fade_end: float = max(400.0, beam_range * 12.0)
-	cone.set_instance_shader_parameter("far_fade_start", far_fade_end * 0.6)
-	cone.set_instance_shader_parameter("far_fade_end", far_fade_end)
 	var cone_material: ShaderMaterial = cone.material_override as ShaderMaterial
 	if cone_material != null:
+		cone_material.set_shader_parameter("near_fade_end", max(2.0, beam_range * 0.2))
+		cone_material.set_shader_parameter("far_fade_start", far_fade_end * 0.6)
+		cone_material.set_shader_parameter("far_fade_end", far_fade_end)
 		cone_material.set_shader_parameter("use_gobo", gobo_texture != null)
 		cone_material.set_shader_parameter("gobo_invert", false)
 		cone_material.set_shader_parameter("gobo_mirror_x", MIRROR_BEAM_SHAPE_X)
