@@ -15,6 +15,7 @@ const GOBO_MAX_SCALE: float = 6.4
 const GOBO_APERTURE_SCALE: float = 1.05
 const GOBO_DEFAULT_SCALE: float = 1.0
 const GOBO_DEFAULT_ROTATION_DEG: float = 0.0
+const VECTOR_FALLBACK_GOBO_CACHE_KEY: String = "__vector_fallback_gobo"
 
 var _texture_cache: Dictionary = {}
 
@@ -29,10 +30,7 @@ func apply_gobo_projection(light: SpotLight3D, controls: Dictionary) -> bool:
 		previous_meta_texture = light.get_meta(GOBO_TEXTURE_META_KEY) as Texture2D
 	light.set_meta(ACTIVE_GOBO_META_KEY, false)
 	if not bool(controls.get("has_gobo", false)):
-		_clear_gobo_visuals(light)
-		light.set_meta(GOBO_TEXTURE_META_KEY, null)
-		light.set_meta(ACTIVE_GOBO_META_KEY, false)
-		return previous_meta_texture != null
+		return _apply_vector_fallback_gobo(light, previous_meta_texture, controls)
 
 	var runtime_bindings: Array = controls.get("gobo_runtime_bindings", [])
 	if runtime_bindings.is_empty():
@@ -58,10 +56,7 @@ func apply_gobo_projection(light: SpotLight3D, controls: Dictionary) -> bool:
 			active_textures.append(gobo_texture)
 
 	if active_textures.is_empty():
-		_clear_gobo_visuals(light)
-		light.set_meta(GOBO_TEXTURE_META_KEY, null)
-		light.set_meta(ACTIVE_GOBO_META_KEY, false)
-		return previous_meta_texture != null
+		return _apply_vector_fallback_gobo(light, previous_meta_texture, controls)
 
 	var composed_gobo: Texture2D = _compose_gobo_textures(active_textures)
 	var gobo_scale: float = max(float(controls.get("gobo_scale", GOBO_DEFAULT_SCALE)), 0.05)
@@ -207,6 +202,38 @@ func _resolve_gobo_texture_for_slot(controls: Dictionary, slot_index: int) -> Te
 	return null
 
 
+
+func _apply_vector_fallback_gobo(light: SpotLight3D, previous_meta_texture: Texture2D, controls: Dictionary) -> bool:
+	var fallback_texture: Texture2D = _resolve_vector_fallback_gobo_texture()
+	if fallback_texture == null:
+		_clear_gobo_visuals(light)
+		light.set_meta(GOBO_TEXTURE_META_KEY, null)
+		light.set_meta(ACTIVE_GOBO_META_KEY, false)
+		return previous_meta_texture != null
+	_apply_gobo_visuals(light, fallback_texture, controls)
+	light.set_meta(GOBO_TEXTURE_META_KEY, fallback_texture)
+	light.set_meta(ACTIVE_GOBO_META_KEY, true)
+	return fallback_texture != previous_meta_texture
+
+func _resolve_vector_fallback_gobo_texture() -> Texture2D:
+	if _texture_cache.has(VECTOR_FALLBACK_GOBO_CACHE_KEY):
+		return _texture_cache[VECTOR_FALLBACK_GOBO_CACHE_KEY] as Texture2D
+	var image := Image.create(FAKE_GOBO_TEXTURE_SIZE, FAKE_GOBO_TEXTURE_SIZE, false, Image.FORMAT_RGBA8)
+	image.fill(Color(0.0, 0.0, 0.0, 1.0))
+	var center: Vector2 = Vector2(float(FAKE_GOBO_TEXTURE_SIZE - 1), float(FAKE_GOBO_TEXTURE_SIZE - 1)) * 0.5
+	var outer_radius: float = float(FAKE_GOBO_TEXTURE_SIZE) * 0.48
+	var border_width: float = max(2.0, float(FAKE_GOBO_TEXTURE_SIZE) * 0.015)
+	var inner_radius: float = max(0.0, outer_radius - border_width)
+	for y in range(FAKE_GOBO_TEXTURE_SIZE):
+		for x in range(FAKE_GOBO_TEXTURE_SIZE):
+			var distance_to_center: float = Vector2(float(x), float(y)).distance_to(center)
+			if distance_to_center <= inner_radius:
+				image.set_pixel(x, y, Color(1.0, 1.0, 1.0, 1.0))
+			elif distance_to_center <= outer_radius:
+				image.set_pixel(x, y, Color(0.0, 0.0, 0.0, 1.0))
+	var texture: ImageTexture = ImageTexture.create_from_image(image)
+	_texture_cache[VECTOR_FALLBACK_GOBO_CACHE_KEY] = texture
+	return texture
 
 func _compose_gobo_textures(textures: Array[Texture2D]) -> Texture2D:
 	if textures.is_empty():
