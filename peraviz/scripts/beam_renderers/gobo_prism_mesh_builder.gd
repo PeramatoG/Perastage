@@ -13,10 +13,6 @@ const APERTURE_BORDER_RATIO: float = 0.985
 const POINT_REDUCTION_EPSILON_START: float = 0.001
 const POINT_REDUCTION_EPSILON_MULTIPLIER: float = 1.35
 const POINT_REDUCTION_EPSILON_MAX: float = 0.25
-const OPEN_APERTURE_LUMA_MEAN_MIN: float = 0.985
-const OPEN_APERTURE_LUMA_VARIATION_MAX: float = 0.02
-const OPEN_APERTURE_ALPHA_MIN: float = 0.985
-const OPEN_APERTURE_SAMPLE_GRID: int = 8
 
 var _mesh_cache: Dictionary = {}
 
@@ -64,7 +60,7 @@ func _vectorize_gobo(gobo_texture: Texture2D, gobo_scale: float, gobo_rotation_d
 		var target_width: int = max(8, int(round(float(image.get_width()) * float(VECTORIZATION_MAX_SIZE) / float(longest_size))))
 		var target_height: int = max(8, int(round(float(image.get_height()) * float(VECTORIZATION_MAX_SIZE) / float(longest_size))))
 		image.resize(target_width, target_height, Image.INTERPOLATE_BILINEAR)
-	if apply_edge_mask_correction and _should_apply_edge_mask_correction(image):
+	if apply_edge_mask_correction:
 		_prepare_binary_mask_image(image)
 
 	var bitmap := BitMap.new()
@@ -229,38 +225,6 @@ func _distance_point_to_segment(point: Vector2, segment_start: Vector2, segment_
 	var projection: Vector2 = segment_start + (segment * t)
 	return point.distance_to(projection)
 
-func _should_apply_edge_mask_correction(image: Image) -> bool:
-	if image == null:
-		return false
-	var width: int = image.get_width()
-	var height: int = image.get_height()
-	if width <= 0 or height <= 0:
-		return false
-	var sample_grid: int = max(2, OPEN_APERTURE_SAMPLE_GRID)
-	var min_luma_alpha: float = 1.0
-	var max_luma_alpha: float = 0.0
-	var accum_luma_alpha: float = 0.0
-	var accum_alpha: float = 0.0
-	var samples: int = 0
-	for y_step in range(sample_grid):
-		for x_step in range(sample_grid):
-			var x: int = int(round((float(width - 1) * float(x_step)) / float(sample_grid - 1)))
-			var y: int = int(round((float(height - 1) * float(y_step)) / float(sample_grid - 1)))
-			var pixel: Color = image.get_pixel(x, y)
-			var luma: float = (pixel.r * 0.299) + (pixel.g * 0.587) + (pixel.b * 0.114)
-			var luma_alpha: float = luma * pixel.a
-			min_luma_alpha = min(min_luma_alpha, luma_alpha)
-			max_luma_alpha = max(max_luma_alpha, luma_alpha)
-			accum_luma_alpha += luma_alpha
-			accum_alpha += pixel.a
-			samples += 1
-	if samples <= 0:
-		return false
-	var mean_luma_alpha: float = accum_luma_alpha / float(samples)
-	var mean_alpha: float = accum_alpha / float(samples)
-	var variation: float = max_luma_alpha - min_luma_alpha
-	var looks_open_aperture: bool = mean_luma_alpha >= OPEN_APERTURE_LUMA_MEAN_MIN and mean_alpha >= OPEN_APERTURE_ALPHA_MIN and variation <= OPEN_APERTURE_LUMA_VARIATION_MAX
-	return not looks_open_aperture
 
 func _prepare_binary_mask_image(image: Image) -> void:
 	var width: int = image.get_width()
