@@ -15,6 +15,10 @@ const GOBO_MAX_SCALE: float = 6.4
 const GOBO_APERTURE_SCALE: float = 1.05
 const GOBO_DEFAULT_SCALE: float = 1.0
 const GOBO_DEFAULT_ROTATION_DEG: float = 0.0
+const OPEN_APERTURE_LUMA_MEAN_MIN: float = 0.985
+const OPEN_APERTURE_LUMA_VARIATION_MAX: float = 0.02
+const OPEN_APERTURE_ALPHA_MIN: float = 0.985
+const OPEN_APERTURE_SAMPLE_GRID: int = 8
 
 var _texture_cache: Dictionary = {}
 
@@ -54,7 +58,7 @@ func apply_gobo_projection(light: SpotLight3D, controls: Dictionary) -> bool:
 			"gobo_slots": wheel.get("slots", []),
 		}
 		var gobo_texture: Texture2D = _resolve_gobo_texture_for_slot(wheel_controls, slot_index)
-		if gobo_texture != null:
+		if gobo_texture != null and _has_effective_gobo_pattern(gobo_texture):
 			active_textures.append(gobo_texture)
 
 	if active_textures.is_empty():
@@ -206,6 +210,44 @@ func _resolve_gobo_texture_for_slot(controls: Dictionary, slot_index: int) -> Te
 		return texture
 	return null
 
+
+func _has_effective_gobo_pattern(texture: Texture2D) -> bool:
+	if texture == null:
+		return false
+	var image: Image = texture.get_image()
+	if image == null:
+		return false
+	if image.get_format() != Image.FORMAT_RGBA8:
+		image.convert(Image.FORMAT_RGBA8)
+	var width: int = image.get_width()
+	var height: int = image.get_height()
+	if width <= 0 or height <= 0:
+		return false
+	var sample_grid: int = max(2, OPEN_APERTURE_SAMPLE_GRID)
+	var min_luma_alpha: float = 1.0
+	var max_luma_alpha: float = 0.0
+	var accum_luma_alpha: float = 0.0
+	var accum_alpha: float = 0.0
+	var samples: int = 0
+	for y_step in range(sample_grid):
+		for x_step in range(sample_grid):
+			var x: int = int(round((float(width - 1) * float(x_step)) / float(sample_grid - 1)))
+			var y: int = int(round((float(height - 1) * float(y_step)) / float(sample_grid - 1)))
+			var pixel: Color = image.get_pixel(x, y)
+			var luma: float = (pixel.r * 0.299) + (pixel.g * 0.587) + (pixel.b * 0.114)
+			var luma_alpha: float = luma * pixel.a
+			min_luma_alpha = min(min_luma_alpha, luma_alpha)
+			max_luma_alpha = max(max_luma_alpha, luma_alpha)
+			accum_luma_alpha += luma_alpha
+			accum_alpha += pixel.a
+			samples += 1
+	if samples <= 0:
+		return false
+	var mean_luma_alpha: float = accum_luma_alpha / float(samples)
+	var mean_alpha: float = accum_alpha / float(samples)
+	var variation: float = max_luma_alpha - min_luma_alpha
+	var looks_open_aperture: bool = mean_luma_alpha >= OPEN_APERTURE_LUMA_MEAN_MIN and mean_alpha >= OPEN_APERTURE_ALPHA_MIN and variation <= OPEN_APERTURE_LUMA_VARIATION_MAX
+	return not looks_open_aperture
 
 func _compose_gobo_textures(textures: Array[Texture2D]) -> Texture2D:
 	if textures.is_empty():
