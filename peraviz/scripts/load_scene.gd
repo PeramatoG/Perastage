@@ -1683,7 +1683,13 @@ func _apply_emitter_light_state(light: SpotLight3D, photometric: Dictionary, nor
 	if _fixture_gobo_projector != null:
 		var gobo_controls: Dictionary = BeamOpticsControllerScript.BuildGoboControls(controls, _visual_settings, beam_defaults)
 		_fixture_gobo_projector.apply_gobo_projection(light, gobo_controls)
-	beam_params["has_active_gobo"] = bool(light.get_meta("peraviz_has_active_gobo_texture", false))
+	var resolved_gobo_texture: Texture2D = null
+	if light.has_meta("peraviz_gobo_texture"):
+		resolved_gobo_texture = light.get_meta("peraviz_gobo_texture") as Texture2D
+	var has_active_gobo: bool = resolved_gobo_texture != null
+	if light.has_meta("peraviz_has_active_gobo_texture"):
+		has_active_gobo = has_active_gobo and bool(light.get_meta("peraviz_has_active_gobo_texture", false))
+	beam_params["has_active_gobo"] = has_active_gobo
 	light.light_volumetric_fog_energy = float(_visual_settings.get("light_volumetric_fog_energy", 12.0)) * float(_visual_settings.get("haze_density_multiplier", 0.22))
 	_update_beam_for_light(light, beam_params)
 

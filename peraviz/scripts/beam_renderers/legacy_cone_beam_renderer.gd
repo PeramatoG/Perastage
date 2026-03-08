@@ -73,6 +73,8 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	if light.has_meta(GOBO_TEXTURE_META_KEY):
 		gobo_texture = light.get_meta(GOBO_TEXTURE_META_KEY) as Texture2D
 	var has_active_gobo: bool = bool(params.get("has_active_gobo", light.get_meta(ACTIVE_GOBO_META_KEY, false)))
+	if gobo_texture == null:
+		has_active_gobo = false
 	if not has_active_gobo:
 		gobo_texture = null
 	var prism_mesh: ArrayMesh = null
