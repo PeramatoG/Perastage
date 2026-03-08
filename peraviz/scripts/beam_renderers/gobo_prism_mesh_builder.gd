@@ -37,6 +37,15 @@ func build_beam_mesh(gobo_texture: Texture2D, near_radius: float, far_radius: fl
 	_mesh_cache[geometry_key] = mesh
 	return mesh
 
+func build_open_beam_mesh(near_radius: float, far_radius: float, beam_height: float) -> ArrayMesh:
+	var geometry_key: String = "__open_%.4f_%.4f_%.4f" % [near_radius, far_radius, beam_height]
+	if _mesh_cache.has(geometry_key):
+		return _mesh_cache[geometry_key] as ArrayMesh
+	var polygons: Array[PackedVector2Array] = [_build_fallback_circle()]
+	var mesh: ArrayMesh = _build_extruded_mesh(polygons, max(near_radius, 0.001), max(far_radius, 0.001), max(beam_height, 0.001))
+	_mesh_cache[geometry_key] = mesh
+	return mesh
+
 func _shape_cache_key(gobo_texture: Texture2D, gobo_scale: float, gobo_rotation_deg: float) -> String:
 	if gobo_texture == null:
 		return "__fallback_shape"
