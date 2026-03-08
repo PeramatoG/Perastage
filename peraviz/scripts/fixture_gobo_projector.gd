@@ -51,7 +51,7 @@ func apply_gobo_projection(light: SpotLight3D, controls: Dictionary) -> bool:
 			"gobo_slots": wheel.get("slots", []),
 		}
 		var gobo_texture: Texture2D = _resolve_gobo_texture_for_slot(wheel_controls, slot_index)
-		if gobo_texture == null:
+		if gobo_texture == null and _can_apply_missing_texture_fallback(wheel_controls, slot_index):
 			gobo_texture = _resolve_fake_gobo_texture(int(wheel.get("raw_8bit", 0)))
 		if gobo_texture != null:
 			active_textures.append(gobo_texture)
@@ -202,6 +202,17 @@ func _resolve_gobo_texture_for_slot(controls: Dictionary, slot_index: int) -> Te
 		_texture_cache[image_path] = texture
 		return texture
 	return null
+
+func _can_apply_missing_texture_fallback(controls: Dictionary, slot_index: int) -> bool:
+	var gobo_slots: Array = controls.get("gobo_slots", [])
+	for item in gobo_slots:
+		if item is not Dictionary:
+			continue
+		if int(item.get("slot_index", -1)) != slot_index:
+			continue
+		var image_path: String = str(item.get("image_path", ""))
+		return not image_path.is_empty()
+	return true
 
 func _compose_gobo_textures(textures: Array[Texture2D]) -> Texture2D:
 	if textures.is_empty():
