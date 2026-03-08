@@ -37,6 +37,8 @@
 #include "layoutviewerpanel_shared.h"
 #include "layoutlegenditems.h"
 #include "LayoutManager.h"
+#include "guiconfigservices.h"
+#include "configmanager.h"
 #include "symbols/PerastageSvgSymbol.h"
 #include "viewer2dcommandrenderer.h"
 #include <wx/dcgraph.h>
@@ -605,6 +607,8 @@ void LayoutViewerPanel::OnDeleteLegend(wxCommandEvent &) {
     return;
   const int legendId = legend->id;
   if (!currentLayout.name.empty()) {
+    auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
+    cfg.PushUndoState("delete layout legend");
     if (layouts::LayoutManager::Get().RemoveLayoutLegend(currentLayout.name,
                                                         legendId)) {
       auto &legends = currentLayout.legendViews;
