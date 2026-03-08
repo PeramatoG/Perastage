@@ -38,6 +38,7 @@
 #include "layoutlegenditems.h"
 #include "LayoutManager.h"
 #include "guiconfigservices.h"
+#include "configmanager.h"
 #include "symbols/PerastageSvgSymbol.h"
 #include "viewer2dcommandrenderer.h"
 #include <wx/dcgraph.h>

@@ -37,6 +37,7 @@
 #include "layoutviewerpanel_shared.h"
 #include "LayoutManager.h"
 #include "guiconfigservices.h"
+#include "configmanager.h"
 
 layouts::LayoutTextDefinition *LayoutViewerPanel::GetSelectedText() {
   if (currentLayout.textViews.empty())

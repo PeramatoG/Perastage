@@ -35,6 +35,7 @@
 #include "layoutviewerpanel_shared.h"
 #include "LayoutManager.h"
 #include "guiconfigservices.h"
+#include "configmanager.h"
 #include <wx/dcgraph.h>
 
 namespace {

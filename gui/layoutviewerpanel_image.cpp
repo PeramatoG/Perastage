@@ -36,6 +36,7 @@
 #include "layoutimageutils.h"
 #include "LayoutManager.h"
 #include "guiconfigservices.h"
+#include "configmanager.h"
 
 namespace {
 constexpr int kMinFrameSize = 24;
