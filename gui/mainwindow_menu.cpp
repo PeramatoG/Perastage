@@ -56,6 +56,7 @@
 #include "gdtfsearchdialog.h"
 #include "hoisttablepanel.h"
 #include "layerpanel.h"
+#include "layoutpanel.h"
 #include "layoutviewerpanel.h"
 #include "logindialog.h"
 #include "markdown.h"
