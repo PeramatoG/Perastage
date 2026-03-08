@@ -36,6 +36,7 @@
 #include "layouttextutils.h"
 #include "layoutviewerpanel_shared.h"
 #include "LayoutManager.h"
+#include "guiconfigservices.h"
 
 layouts::LayoutTextDefinition *LayoutViewerPanel::GetSelectedText() {
   if (currentLayout.textViews.empty())
@@ -151,6 +152,8 @@ void LayoutViewerPanel::OnDeleteText(wxCommandEvent &) {
     return;
   const int textId = text->id;
   if (!currentLayout.name.empty()) {
+    auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
+    cfg.PushUndoState("delete layout text");
     if (layouts::LayoutManager::Get().RemoveLayoutText(currentLayout.name,
                                                        textId)) {
       auto &texts = currentLayout.textViews;

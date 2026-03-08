@@ -34,6 +34,7 @@
 #include "layouteventtabledialog.h"
 #include "layoutviewerpanel_shared.h"
 #include "LayoutManager.h"
+#include "guiconfigservices.h"
 #include <wx/dcgraph.h>
 
 namespace {
@@ -137,6 +138,8 @@ void LayoutViewerPanel::OnDeleteEventTable(wxCommandEvent &) {
     return;
   const int tableId = table->id;
   if (!currentLayout.name.empty()) {
+    auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
+    cfg.PushUndoState("delete layout event table");
     if (layouts::LayoutManager::Get().RemoveLayoutEventTable(
             currentLayout.name, tableId)) {
       auto &tables = currentLayout.eventTables;
