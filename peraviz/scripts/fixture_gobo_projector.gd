@@ -51,8 +51,6 @@ func apply_gobo_projection(light: SpotLight3D, controls: Dictionary) -> bool:
 			"gobo_slots": wheel.get("slots", []),
 		}
 		var gobo_texture: Texture2D = _resolve_gobo_texture_for_slot(wheel_controls, slot_index)
-		if gobo_texture == null and _can_apply_missing_texture_fallback(wheel_controls, slot_index):
-			gobo_texture = _resolve_fake_gobo_texture(int(wheel.get("raw_8bit", 0)))
 		if gobo_texture != null:
 			active_textures.append(gobo_texture)
 
@@ -203,16 +201,6 @@ func _resolve_gobo_texture_for_slot(controls: Dictionary, slot_index: int) -> Te
 		return texture
 	return null
 
-func _can_apply_missing_texture_fallback(controls: Dictionary, slot_index: int) -> bool:
-	var gobo_slots: Array = controls.get("gobo_slots", [])
-	for item in gobo_slots:
-		if item is not Dictionary:
-			continue
-		if int(item.get("slot_index", -1)) != slot_index:
-			continue
-		var image_path: String = str(item.get("image_path", ""))
-		return not image_path.is_empty()
-	return true
 
 func _compose_gobo_textures(textures: Array[Texture2D]) -> Texture2D:
 	if textures.is_empty():
@@ -292,30 +280,3 @@ func _transform_gobo_texture(base_texture: Texture2D, rotation_deg: float, scale
 	_texture_cache[cache_key] = texture
 	return texture
 
-func _resolve_fake_gobo_texture(gobo_raw_8bit: int) -> Texture2D:
-	var fake_bucket: int = gobo_raw_8bit >> 3
-	var cache_key: String = "__fake_gobo_%d" % fake_bucket
-	if _texture_cache.has(cache_key):
-		return _texture_cache[cache_key] as Texture2D
-
-	var image := Image.create(FAKE_GOBO_TEXTURE_SIZE, FAKE_GOBO_TEXTURE_SIZE, false, Image.FORMAT_RGBA8)
-	image.fill(Color(1.0, 1.0, 1.0, 1.0))
-	if fake_bucket > 0:
-		var step: int = max(4, int(4 + (fake_bucket % 6) * 2))
-		var center: Vector2 = Vector2(FAKE_GOBO_TEXTURE_SIZE, FAKE_GOBO_TEXTURE_SIZE) * 0.5
-		var max_radius: float = float(FAKE_GOBO_TEXTURE_SIZE) * 0.48
-		for y in range(FAKE_GOBO_TEXTURE_SIZE):
-			for x in range(FAKE_GOBO_TEXTURE_SIZE):
-				var uv: Vector2 = Vector2(float(x), float(y)) - center
-				var dist: float = uv.length()
-				if dist > max_radius:
-					continue
-				var x_cell: int = int(floor(float(x) / float(step)))
-				var y_cell: int = int(floor(float(y) / float(step)))
-				var checker: bool = (((x_cell + y_cell) + fake_bucket) % 2) == 0
-				if checker:
-					image.set_pixel(x, y, Color(0.0, 0.0, 0.0, 1.0))
-
-	var texture: ImageTexture = ImageTexture.create_from_image(image)
-	_texture_cache[cache_key] = texture
-	return texture
