@@ -33,6 +33,7 @@
 
 namespace {
 constexpr const char *kHiddenLayersConfigKey = "view_hidden_layers";
+constexpr const char *kLayoutsConfigKey = "layouts_collection";
 
 std::string SerializeHiddenLayerChecks(
     const std::unordered_set<std::string> &hiddenLayers) {
@@ -458,7 +459,7 @@ bool ConfigManager::SaveUserConfig() const {
 
 void ConfigManager::PushUndoState(const std::string &description) {
   historyManager.PushUndoState(projectSession.GetScene(), selectionState,
-                               description);
+                               description, GetValue(kLayoutsConfigKey));
   projectSession.Touch();
 }
 
@@ -467,12 +468,34 @@ bool ConfigManager::CanUndo() const { return historyManager.CanUndo(); }
 bool ConfigManager::CanRedo() const { return historyManager.CanRedo(); }
 
 std::string ConfigManager::Undo() {
-  return historyManager.Undo(projectSession.GetScene(), selectionState);
+  std::optional<std::string> layoutsCollection;
+  std::string action =
+      historyManager.Undo(projectSession.GetScene(), selectionState,
+                          &layoutsCollection);
+  if (!action.empty() || layoutsCollection.has_value()) {
+    if (layoutsCollection.has_value())
+      SetValue(kLayoutsConfigKey, *layoutsCollection);
+    else
+      RemoveKey(kLayoutsConfigKey);
+    layouts::LayoutManager::Get().LoadFromConfig(*this);
+  }
+  return action;
 }
 
 std::string ConfigManager::Redo() {
   projectSession.Touch();
-  return historyManager.Redo(projectSession.GetScene(), selectionState);
+  std::optional<std::string> layoutsCollection;
+  std::string action =
+      historyManager.Redo(projectSession.GetScene(), selectionState,
+                          &layoutsCollection);
+  if (!action.empty() || layoutsCollection.has_value()) {
+    if (layoutsCollection.has_value())
+      SetValue(kLayoutsConfigKey, *layoutsCollection);
+    else
+      RemoveKey(kLayoutsConfigKey);
+    layouts::LayoutManager::Get().LoadFromConfig(*this);
+  }
+  return action;
 }
 
 void ConfigManager::ClearHistory() { historyManager.ClearHistory(); }

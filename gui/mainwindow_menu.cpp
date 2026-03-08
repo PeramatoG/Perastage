@@ -887,6 +887,10 @@ void MainWindow::OnUndo(wxCommandEvent &WXUNUSED(event)) {
     sceneObjPanel->ReloadData();
     sceneObjPanel->SelectByUuid(cfg.GetSelectedSceneObjects());
   }
+  if (layoutPanel)
+    layoutPanel->ReloadLayouts();
+  if (!activeLayoutName.empty())
+    ActivateLayoutView(activeLayoutName);
   if (viewportPanel) {
     viewportPanel->UpdateScene();
     if (fixturePanel && fixturePanel->IsActivePage())
@@ -927,6 +931,10 @@ void MainWindow::OnRedo(wxCommandEvent &WXUNUSED(event)) {
     sceneObjPanel->ReloadData();
     sceneObjPanel->SelectByUuid(cfg.GetSelectedSceneObjects());
   }
+  if (layoutPanel)
+    layoutPanel->ReloadLayouts();
+  if (!activeLayoutName.empty())
+    ActivateLayoutView(activeLayoutName);
   if (viewportPanel) {
     viewportPanel->UpdateScene();
     if (fixturePanel && fixturePanel->IsActivePage())
