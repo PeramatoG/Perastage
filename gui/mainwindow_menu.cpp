@@ -56,6 +56,7 @@
 #include "gdtfsearchdialog.h"
 #include "hoisttablepanel.h"
 #include "layerpanel.h"
+#include "layoutviewerpanel.h"
 #include "logindialog.h"
 #include "markdown.h"
 #include "preferencesdialog.h"
@@ -1307,6 +1308,11 @@ void MainWindow::OnAddSceneObject(wxCommandEvent &WXUNUSED(event)) {
 
 void MainWindow::OnDelete(wxCommandEvent &WXUNUSED(event)) {
   ConfigManager &cfg = guiConfigServices->LegacyConfigManager();
+
+  if (layoutViewerPanel && layoutViewerPanel->HasFocus() &&
+      layoutViewerPanel->DeleteSelectedElement()) {
+    return;
+  }
 
   auto ensureFixtureSelection = [&]() {
     if (fixturePanel && fixturePanel->GetSelectedUuids().empty())
