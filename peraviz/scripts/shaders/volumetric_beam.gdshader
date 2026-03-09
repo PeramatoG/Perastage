@@ -79,6 +79,13 @@ float radial_profile_from_local(vec3 local_pos) {
 	return radial_profile * mix(1.0, edge_feather, 0.82);
 }
 
+float axial_visibility_from_local(vec3 local_pos) {
+	float source_y = 0.5 * cone_height;
+	float axial_progress = clamp((source_y - local_pos.y) / max(cone_height, 0.0001), 0.0, 1.0);
+	float core = 1.0 - smoothstep(0.0, 0.95, axial_progress);
+	return max(core, 0.08);
+}
+
 float sample_gobo_mask(vec2 uv) {
 	if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) {
 		return 0.0;
@@ -120,11 +127,14 @@ void fragment() {
 	vec3 n = normalize(NORMAL);
 	vec3 v = normalize(-v_view);
 	float ndotv = abs(dot(n, v));
+	float normal_influence = pow(clamp(ndotv, 0.0, 1.0), facing_power);
 	float location_weight = pow(max(1.0 - axial_progress, 0.0), boost_along_y);
-	float facing_multiplier = 1.0 + (facing_boost * location_weight * pow(ndotv, facing_power));
+	float facing_multiplier = 1.0 + (facing_boost * location_weight * (0.35 * normal_influence));
 
 	float brightness = min(base_brightness * facing_multiplier, max_brightness);
-	float feather_alpha = mix(1.0 - feather_intensity, 1.0, pow(clamp(ndotv, 0.0, 1.0), feather_sharpness * max(radial_falloff, 0.05)));
+	float stable_shape = clamp((0.7 * radial_profile_from_local(v_local)) + (0.3 * axial_visibility_from_local(v_local)), 0.0, 1.0);
+	float feather_mix = (0.75 * stable_shape) + (0.25 * pow(clamp(ndotv, 0.0, 1.0), feather_sharpness * max(radial_falloff, 0.05)));
+	float feather_alpha = mix(1.0 - feather_intensity, 1.0, feather_mix);
 	feather_alpha = max(feather_alpha, 0.08);
 	float radial_profile = radial_profile_from_local(v_local);
 

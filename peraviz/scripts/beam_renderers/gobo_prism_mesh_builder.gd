@@ -289,16 +289,37 @@ func _add_caps(st: SurfaceTool, polygon: PackedVector2Array, near_radius: float,
 
 func _add_sides(st: SurfaceTool, polygon: PackedVector2Array, near_radius: float, far_radius: float, half_height: float) -> void:
 	var point_count: int = polygon.size()
+	if point_count < 2:
+		return
+
+	var near_indices := PackedInt32Array()
+	var far_indices := PackedInt32Array()
+	near_indices.resize(point_count)
+	far_indices.resize(point_count)
+
 	for i in range(point_count):
-		var current: Vector2 = polygon[i]
-		var next: Vector2 = polygon[(i + 1) % point_count]
-		var near_current := Vector3(current.x * near_radius, half_height, current.y * near_radius)
-		var near_next := Vector3(next.x * near_radius, half_height, next.y * near_radius)
-		var far_current := Vector3(current.x * far_radius, -half_height, current.y * far_radius)
-		var far_next := Vector3(next.x * far_radius, -half_height, next.y * far_radius)
-		st.add_vertex(near_current)
-		st.add_vertex(near_next)
-		st.add_vertex(far_next)
-		st.add_vertex(near_current)
-		st.add_vertex(far_next)
-		st.add_vertex(far_current)
+		var point: Vector2 = polygon[i]
+		var near_vertex := Vector3(point.x * near_radius, half_height, point.y * near_radius)
+		var far_vertex := Vector3(point.x * far_radius, -half_height, point.y * far_radius)
+
+		# Using one smooth group across the full side ring enables real normal smoothing.
+		# If hard edges are needed, assign unique smooth groups per edge before adding vertices.
+		st.set_smooth_group(0)
+		near_indices[i] = st.get_vertex_count()
+		st.add_vertex(near_vertex)
+		st.set_smooth_group(0)
+		far_indices[i] = st.get_vertex_count()
+		st.add_vertex(far_vertex)
+
+	for i in range(point_count):
+		var next_i: int = (i + 1) % point_count
+		var near_current_index: int = near_indices[i]
+		var near_next_index: int = near_indices[next_i]
+		var far_current_index: int = far_indices[i]
+		var far_next_index: int = far_indices[next_i]
+		st.add_index(near_current_index)
+		st.add_index(near_next_index)
+		st.add_index(far_next_index)
+		st.add_index(near_current_index)
+		st.add_index(far_next_index)
+		st.add_index(far_current_index)
