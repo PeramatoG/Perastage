@@ -14,7 +14,6 @@ const LEGACY_OVERDRIVE_GAIN_MAX: float = 5.0
 
 const MAIN_KEY: String = "peraviz_beam_prism"
 const GOBO_TEXTURE_META_KEY: String = "peraviz_gobo_texture"
-const ACTIVE_GOBO_META_KEY: String = "peraviz_has_active_gobo_texture"
 const DEBUG_AXIS_KEY: String = "peraviz_beam_debug_axis"
 const LEGACY_MID_KEY: String = "peraviz_beam_cone_mid"
 const LEGACY_CORE_KEY: String = "peraviz_beam_cone_core"
@@ -72,19 +71,10 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	var gobo_texture: Texture2D = null
 	if light.has_meta(GOBO_TEXTURE_META_KEY):
 		gobo_texture = light.get_meta(GOBO_TEXTURE_META_KEY) as Texture2D
-	var has_active_gobo: bool = bool(params.get("has_active_gobo", light.get_meta(ACTIVE_GOBO_META_KEY, false)))
-	if gobo_texture == null:
-		has_active_gobo = false
-	if not has_active_gobo:
-		gobo_texture = null
-	var prism_mesh: ArrayMesh = null
-	if has_active_gobo:
-		var gobo_scale: float = max(float(params.get("gobo_scale", 1.0)), 0.05)
-		var gobo_rotation_deg: float = float(params.get("gobo_rotation_deg", 0.0))
-		var beam_rotation_deg: float = wrapf(gobo_rotation_deg + 180.0, 0.0, 360.0)
-		prism_mesh = _mesh_builder.build_beam_mesh(gobo_texture, lens_radius, bottom_radius, beam_range, gobo_scale, beam_rotation_deg, true)
-	else:
-		prism_mesh = _mesh_builder.build_open_beam_mesh(lens_radius, bottom_radius, beam_range)
+	var gobo_scale: float = max(float(params.get("gobo_scale", 1.0)), 0.05)
+	var gobo_rotation_deg: float = float(params.get("gobo_rotation_deg", 0.0))
+	var beam_rotation_deg: float = wrapf(gobo_rotation_deg + 180.0, 0.0, 360.0)
+	var prism_mesh: ArrayMesh = _mesh_builder.build_beam_mesh(gobo_texture, lens_radius, bottom_radius, beam_range, gobo_scale, beam_rotation_deg, true)
 	if prism_mesh != null:
 		prism.mesh = prism_mesh
 	prism.position = Vector3(lens_shift_x, lens_shift_y, -(beam_range * 0.5 + lens_offset_m))
