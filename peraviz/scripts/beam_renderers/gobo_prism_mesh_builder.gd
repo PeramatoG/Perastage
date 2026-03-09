@@ -19,13 +19,13 @@ var _mesh_cache: Dictionary = {}
 func clear_cache() -> void:
 	_mesh_cache.clear()
 
-func build_beam_mesh(gobo_texture: Texture2D, near_radius: float, far_radius: float, beam_height: float, gobo_scale: float, gobo_rotation_deg: float) -> ArrayMesh:
+func build_beam_mesh(gobo_texture: Texture2D, near_radius: float, far_radius: float, beam_height: float, gobo_scale: float, gobo_rotation_deg: float, apply_edge_mask_correction: bool = true) -> ArrayMesh:
 	var shape_key: String = _shape_cache_key(gobo_texture, gobo_scale, gobo_rotation_deg)
-	var geometry_key: String = "%s_%.4f_%.4f_%.4f" % [shape_key, near_radius, far_radius, beam_height]
+	var geometry_key: String = "%s_%.4f_%.4f_%.4f_%s" % [shape_key, near_radius, far_radius, beam_height, str(apply_edge_mask_correction)]
 	if _mesh_cache.has(geometry_key):
 		return _mesh_cache[geometry_key] as ArrayMesh
 
-	var polygons: Array[PackedVector2Array] = _vectorize_gobo(gobo_texture, gobo_scale, gobo_rotation_deg)
+	var polygons: Array[PackedVector2Array] = _vectorize_gobo(gobo_texture, gobo_scale, gobo_rotation_deg, apply_edge_mask_correction)
 	if polygons.is_empty():
 		polygons = [_build_fallback_circle()]
 
@@ -33,12 +33,13 @@ func build_beam_mesh(gobo_texture: Texture2D, near_radius: float, far_radius: fl
 	_mesh_cache[geometry_key] = mesh
 	return mesh
 
+
 func _shape_cache_key(gobo_texture: Texture2D, gobo_scale: float, gobo_rotation_deg: float) -> String:
 	if gobo_texture == null:
 		return "__fallback_shape"
 	return "__shape_%d_%.3f_%.3f" % [gobo_texture.get_rid().get_id(), gobo_scale, wrapf(gobo_rotation_deg, 0.0, 360.0)]
 
-func _vectorize_gobo(gobo_texture: Texture2D, gobo_scale: float, gobo_rotation_deg: float) -> Array[PackedVector2Array]:
+func _vectorize_gobo(gobo_texture: Texture2D, gobo_scale: float, gobo_rotation_deg: float, apply_edge_mask_correction: bool = true) -> Array[PackedVector2Array]:
 	if gobo_texture == null:
 		return []
 	var image: Image = gobo_texture.get_image()
@@ -51,7 +52,8 @@ func _vectorize_gobo(gobo_texture: Texture2D, gobo_scale: float, gobo_rotation_d
 		var target_width: int = max(8, int(round(float(image.get_width()) * float(VECTORIZATION_MAX_SIZE) / float(longest_size))))
 		var target_height: int = max(8, int(round(float(image.get_height()) * float(VECTORIZATION_MAX_SIZE) / float(longest_size))))
 		image.resize(target_width, target_height, Image.INTERPOLATE_BILINEAR)
-	_prepare_binary_mask_image(image)
+	if apply_edge_mask_correction:
+		_prepare_binary_mask_image(image)
 
 	var bitmap := BitMap.new()
 	bitmap.create_from_image_alpha(image, VECTORIZATION_ALPHA_THRESHOLD)
@@ -214,6 +216,7 @@ func _distance_point_to_segment(point: Vector2, segment_start: Vector2, segment_
 	var t: float = clamp((point - segment_start).dot(segment) / segment_length_squared, 0.0, 1.0)
 	var projection: Vector2 = segment_start + (segment * t)
 	return point.distance_to(projection)
+
 
 func _prepare_binary_mask_image(image: Image) -> void:
 	var width: int = image.get_width()
