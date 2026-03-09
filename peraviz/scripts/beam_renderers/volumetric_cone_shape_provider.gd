@@ -6,7 +6,7 @@ const EMITTER_CONE_MAX_BASE_RADIUS_M: float = 10.0
 func shape_mode() -> String:
 	return "cone"
 
-func apply_shape(beam: MeshInstance3D, light: SpotLight3D, params: Dictionary) -> Dictionary:
+func apply_shape(beam: MeshInstance3D, _light: SpotLight3D, params: Dictionary) -> Dictionary:
 	var beam_range: float = max(float(params.get("beam_range", 0.1)), 0.01)
 	var beam_angle: float = max(float(params.get("beam_angle", 1.0)), 0.1)
 	var lens_radius: float = max(float(params.get("lens_radius", 0.03)), 0.005)
