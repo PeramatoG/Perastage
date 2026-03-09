@@ -217,17 +217,10 @@ func _resolve_vector_fallback_gobo_texture() -> Texture2D:
 	image.fill(Color(0.0, 0.0, 0.0, 1.0))
 	var center: Vector2 = Vector2(float(FAKE_GOBO_TEXTURE_SIZE - 1), float(FAKE_GOBO_TEXTURE_SIZE - 1)) * 0.5
 	var outer_radius: float = float(FAKE_GOBO_TEXTURE_SIZE) * 0.48
-	var ring_width: float = max(2.0, float(FAKE_GOBO_TEXTURE_SIZE) * 0.012)
-	var white_fill_radius: float = max(0.0, outer_radius - (ring_width * 2.0))
-	var black_ring_outer_radius: float = max(white_fill_radius, outer_radius - ring_width)
 	for y in range(FAKE_GOBO_TEXTURE_SIZE):
 		for x in range(FAKE_GOBO_TEXTURE_SIZE):
 			var distance_to_center: float = Vector2(float(x), float(y)).distance_to(center)
-			if distance_to_center <= white_fill_radius:
-				image.set_pixel(x, y, Color(1.0, 1.0, 1.0, 1.0))
-			elif distance_to_center <= black_ring_outer_radius:
-				image.set_pixel(x, y, Color(0.0, 0.0, 0.0, 1.0))
-			elif distance_to_center <= outer_radius:
+			if distance_to_center <= outer_radius:
 				image.set_pixel(x, y, Color(1.0, 1.0, 1.0, 1.0))
 	var texture: ImageTexture = ImageTexture.create_from_image(image)
 	_texture_cache[VECTOR_FALLBACK_GOBO_CACHE_KEY] = texture
