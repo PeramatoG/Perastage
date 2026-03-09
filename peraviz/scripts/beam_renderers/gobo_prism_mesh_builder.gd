@@ -261,18 +261,19 @@ func _build_extruded_mesh(polygons: Array[PackedVector2Array], near_radius: floa
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	var half_height: float = beam_height * 0.5
+	var vertex_offset: int = 0
 	for polygon in polygons:
 		if polygon.size() < 3:
 			continue
-		_add_caps(st, polygon, near_radius, far_radius, half_height)
-		_add_sides(st, polygon, near_radius, far_radius, half_height)
+		vertex_offset = _add_caps(st, polygon, near_radius, far_radius, half_height, vertex_offset)
+		vertex_offset = _add_sides(st, polygon, near_radius, far_radius, half_height, vertex_offset)
 	st.generate_normals()
 	return st.commit()
 
-func _add_caps(st: SurfaceTool, polygon: PackedVector2Array, near_radius: float, far_radius: float, half_height: float) -> void:
+func _add_caps(st: SurfaceTool, polygon: PackedVector2Array, near_radius: float, far_radius: float, half_height: float, vertex_offset: int) -> int:
 	var indices: PackedInt32Array = Geometry2D.triangulate_polygon(polygon)
 	if indices.is_empty():
-		return
+		return vertex_offset
 	for i in range(0, indices.size(), 3):
 		var ia: int = indices[i]
 		var ib: int = indices[i + 1]
@@ -286,11 +287,19 @@ func _add_caps(st: SurfaceTool, polygon: PackedVector2Array, near_radius: float,
 		st.add_vertex(Vector3(c.x * far_radius, -half_height, c.y * far_radius))
 		st.add_vertex(Vector3(b.x * far_radius, -half_height, b.y * far_radius))
 		st.add_vertex(Vector3(a.x * far_radius, -half_height, a.y * far_radius))
+		st.add_index(vertex_offset)
+		st.add_index(vertex_offset + 1)
+		st.add_index(vertex_offset + 2)
+		st.add_index(vertex_offset + 3)
+		st.add_index(vertex_offset + 4)
+		st.add_index(vertex_offset + 5)
+		vertex_offset += 6
+	return vertex_offset
 
-func _add_sides(st: SurfaceTool, polygon: PackedVector2Array, near_radius: float, far_radius: float, half_height: float) -> void:
+func _add_sides(st: SurfaceTool, polygon: PackedVector2Array, near_radius: float, far_radius: float, half_height: float, vertex_offset: int) -> int:
 	var point_count: int = polygon.size()
 	if point_count < 2:
-		return
+		return vertex_offset
 
 	var near_indices := PackedInt32Array()
 	var far_indices := PackedInt32Array()
@@ -305,11 +314,13 @@ func _add_sides(st: SurfaceTool, polygon: PackedVector2Array, near_radius: float
 		# Using one smooth group across the full side ring enables real normal smoothing.
 		# If hard edges are needed, assign unique smooth groups per edge before adding vertices.
 		st.set_smooth_group(0)
-		near_indices[i] = st.get_vertex_count()
+		near_indices[i] = vertex_offset
 		st.add_vertex(near_vertex)
+		vertex_offset += 1
 		st.set_smooth_group(0)
-		far_indices[i] = st.get_vertex_count()
+		far_indices[i] = vertex_offset
 		st.add_vertex(far_vertex)
+		vertex_offset += 1
 
 	for i in range(point_count):
 		var next_i: int = (i + 1) % point_count
@@ -323,3 +334,4 @@ func _add_sides(st: SurfaceTool, polygon: PackedVector2Array, near_radius: float
 		st.add_index(near_current_index)
 		st.add_index(far_next_index)
 		st.add_index(far_current_index)
+	return vertex_offset
