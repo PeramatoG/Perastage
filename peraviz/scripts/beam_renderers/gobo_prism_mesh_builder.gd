@@ -12,7 +12,13 @@ const OUTER_BORDER_PIXELS: int = 1
 const APERTURE_BORDER_RATIO: float = 0.985
 const POINT_REDUCTION_EPSILON_START: float = 0.001
 const POINT_REDUCTION_EPSILON_MULTIPLIER: float = 1.35
-const POINT_REDUCTION_EPSILON_MAX: float = 0.25
+const POINT_REDUCTION_EPSILON_MAX: float = 0.08
+const GOBO_VECTOR_POLYGONS_META_KEY: String = "peraviz_gobo_vector_polygons"
+const GOBO_VECTOR_WIDTH_META_KEY: String = "peraviz_gobo_vector_width"
+const GOBO_VECTOR_HEIGHT_META_KEY: String = "peraviz_gobo_vector_height"
+const DEBUG_GOBO_VECTORIZATION: bool = false
+
+const GoboPolygonCleanupScript = preload("res://scripts/beam_renderers/gobo_polygon_cleanup.gd")
 
 var _mesh_cache: Dictionary = {}
 
@@ -42,6 +48,15 @@ func _shape_cache_key(gobo_texture: Texture2D, gobo_scale: float, gobo_rotation_
 func _vectorize_gobo(gobo_texture: Texture2D, gobo_scale: float, gobo_rotation_deg: float, apply_edge_mask_correction: bool = true) -> Array[PackedVector2Array]:
 	if gobo_texture == null:
 		return []
+
+	var native_polygons: Array[PackedVector2Array] = _vectorize_from_texture_metadata(gobo_texture, gobo_scale, gobo_rotation_deg)
+	if not native_polygons.is_empty():
+		var cleaned_native: Array[PackedVector2Array] = GoboPolygonCleanupScript.sanitize_polygons(native_polygons, MIN_POLYGON_AREA)
+		if not cleaned_native.is_empty():
+			if DEBUG_GOBO_VECTORIZATION:
+				print("[PeravizGoboVectorization] source=metadata polygons=", cleaned_native.size(), " points=", _count_polygon_points(cleaned_native))
+			return _reduce_polygon_point_count(cleaned_native, MAX_TOTAL_VECTOR_POINTS)
+
 	var image: Image = gobo_texture.get_image()
 	if image == null:
 		return []
@@ -54,6 +69,9 @@ func _vectorize_gobo(gobo_texture: Texture2D, gobo_scale: float, gobo_rotation_d
 		image.resize(target_width, target_height, Image.INTERPOLATE_BILINEAR)
 	if apply_edge_mask_correction:
 		_prepare_binary_mask_image(image)
+
+	if DEBUG_GOBO_VECTORIZATION:
+		print("[PeravizGoboVectorization] source=raster texture=", gobo_texture.get_rid().get_id())
 
 	var bitmap := BitMap.new()
 	bitmap.create_from_image_alpha(image, VECTORIZATION_ALPHA_THRESHOLD)
@@ -98,7 +116,59 @@ func _vectorize_gobo(gobo_texture: Texture2D, gobo_scale: float, gobo_rotation_d
 	var output: Array[PackedVector2Array] = []
 	for item in normalized:
 		output.append(item.get("polygon", PackedVector2Array()) as PackedVector2Array)
-	return _reduce_polygon_point_count(output, MAX_TOTAL_VECTOR_POINTS)
+	var cleaned_output: Array[PackedVector2Array] = GoboPolygonCleanupScript.sanitize_polygons(output, MIN_POLYGON_AREA)
+	if cleaned_output.is_empty():
+		return []
+	return _reduce_polygon_point_count(cleaned_output, MAX_TOTAL_VECTOR_POINTS)
+
+
+func _vectorize_from_texture_metadata(gobo_texture: Texture2D, gobo_scale: float, gobo_rotation_deg: float) -> Array[PackedVector2Array]:
+	if gobo_texture == null or not gobo_texture.has_meta(GOBO_VECTOR_POLYGONS_META_KEY):
+		return []
+	var raw_polygons: Array = gobo_texture.get_meta(GOBO_VECTOR_POLYGONS_META_KEY, [])
+	var source_width: int = int(gobo_texture.get_meta(GOBO_VECTOR_WIDTH_META_KEY, 0))
+	var source_height: int = int(gobo_texture.get_meta(GOBO_VECTOR_HEIGHT_META_KEY, 0))
+	if source_width <= 0 or source_height <= 0 or raw_polygons.is_empty():
+		return []
+
+	var inv_width: float = 1.0 / max(float(source_width), 1.0)
+	var inv_height: float = 1.0 / max(float(source_height), 1.0)
+	var center := Vector2(0.5, 0.5)
+	var rotation_rad: float = deg_to_rad(wrapf(gobo_rotation_deg, 0.0, 360.0))
+	var cos_r: float = cos(rotation_rad)
+	var sin_r: float = sin(rotation_rad)
+	var safe_scale: float = max(gobo_scale, 0.05)
+
+	var normalized: Array[Dictionary] = []
+	for polygon_variant in raw_polygons:
+		if polygon_variant is not PackedVector2Array:
+			continue
+		var polygon: PackedVector2Array = polygon_variant as PackedVector2Array
+		if polygon.size() < 3:
+			continue
+		var transformed := PackedVector2Array()
+		for point in polygon:
+			var uv := Vector2(point.x * inv_width, point.y * inv_height)
+			var local := (uv - center) * (2.0 / safe_scale)
+			var rotated := Vector2(
+				(local.x * cos_r) - (local.y * sin_r),
+				(local.x * sin_r) + (local.y * cos_r)
+			)
+			transformed.append(Vector2(rotated.x, -rotated.y))
+		var area: float = abs(_signed_polygon_area(transformed))
+		if area < MIN_POLYGON_AREA:
+			continue
+		normalized.append({"polygon": transformed, "area": area})
+
+	if normalized.is_empty():
+		return []
+	normalized.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		return float(a.get("area", 0.0)) > float(b.get("area", 0.0))
+	)
+	var output: Array[PackedVector2Array] = []
+	for item in normalized:
+		output.append(item.get("polygon", PackedVector2Array()) as PackedVector2Array)
+	return GoboPolygonCleanupScript.sanitize_polygons(output, MIN_POLYGON_AREA)
 
 func _reduce_polygon_point_count(polygons: Array[PackedVector2Array], max_points: int) -> Array[PackedVector2Array]:
 	if polygons.is_empty():
@@ -114,9 +184,11 @@ func _reduce_polygon_point_count(polygons: Array[PackedVector2Array], max_points
 			var simplified: PackedVector2Array = _simplify_closed_polygon(polygon, epsilon)
 			if simplified.size() < 3:
 				continue
-			if abs(_signed_polygon_area(simplified)) < MIN_POLYGON_AREA:
+			var cleaned_simplified: Array[PackedVector2Array] = GoboPolygonCleanupScript.sanitize_polygons([simplified], MIN_POLYGON_AREA)
+			if cleaned_simplified.is_empty():
+				iteration.append(polygon)
 				continue
-			iteration.append(simplified)
+			iteration.append(cleaned_simplified[0])
 		reduced = iteration
 		epsilon *= POINT_REDUCTION_EPSILON_MULTIPLIER
 
@@ -144,7 +216,8 @@ func _reduce_polygon_point_count(polygons: Array[PackedVector2Array], max_points
 
 	if final_polygons.is_empty():
 		final_polygons.append(sorted[0].get("polygon", PackedVector2Array()) as PackedVector2Array)
-	return final_polygons
+	var final_cleaned: Array[PackedVector2Array] = GoboPolygonCleanupScript.sanitize_polygons(final_polygons, MIN_POLYGON_AREA)
+	return final_cleaned if not final_cleaned.is_empty() else final_polygons
 
 func _count_polygon_points(polygons: Array[PackedVector2Array]) -> int:
 	var total: int = 0
