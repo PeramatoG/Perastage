@@ -59,5 +59,41 @@ static func BuildGoboControls(controls: Dictionary, visual_settings: Dictionary,
 	var gobo_controls: Dictionary = controls.duplicate(true)
 	gobo_controls["prefer_native_fog_projector"] = bool(visual_settings.get("use_native_fog_projector_gobos", true))
 	gobo_controls["gobo_scale"] = float(visual_settings.get("gobo_scale", merged_defaults.get("gobo_scale", 1.0)))
-	gobo_controls["gobo_rotation_deg"] = float(visual_settings.get("gobo_rotation_deg", merged_defaults.get("gobo_rotation_deg", 0.0)))
+	var base_rotation: float = float(visual_settings.get("gobo_rotation_deg", merged_defaults.get("gobo_rotation_deg", 0.0)))
+	if bool(controls.get("has_gobo_index", false)):
+		base_rotation = _resolve_index_rotation_deg_from_controls(controls, base_rotation)
+	if bool(controls.get("has_gobo_rotation", false)):
+		base_rotation += _resolve_continuous_rotation_deg_from_controls(controls)
+	gobo_controls["gobo_rotation_deg"] = base_rotation
 	return gobo_controls
+
+static func _resolve_index_rotation_deg_from_controls(controls: Dictionary, default_rotation: float) -> float:
+	var norm_value: float = -1.0
+	if controls.has("gobo_index_norm"):
+		norm_value = clamp(float(controls.get("gobo_index_norm", 0.0)), 0.0, 1.0)
+	if controls.has("gobo_runtime_bindings"):
+		var runtime_bindings: Array = controls.get("gobo_runtime_bindings", [])
+		for item in runtime_bindings:
+			if item is not Dictionary:
+				continue
+			var binding_norm: float = float(item.get("index_norm", -1.0))
+			if binding_norm >= 0.0:
+				norm_value = clamp(binding_norm, 0.0, 1.0)
+				break
+	if norm_value < 0.0:
+		return default_rotation
+	return lerp(0.0, 360.0, norm_value)
+
+static func _resolve_continuous_rotation_deg_from_controls(controls: Dictionary) -> float:
+	var norm_value: float = clamp(float(controls.get("gobo_rotation_norm", 0.5)), 0.0, 1.0)
+	if controls.has("gobo_runtime_bindings"):
+		var runtime_bindings: Array = controls.get("gobo_runtime_bindings", [])
+		for item in runtime_bindings:
+			if item is not Dictionary:
+				continue
+			var binding_norm: float = float(item.get("rotation_norm", -1.0))
+			if binding_norm >= 0.0:
+				norm_value = clamp(binding_norm, 0.0, 1.0)
+				break
+	# Center value (0.5) means no movement, below is one direction, above opposite direction.
+	return (norm_value - 0.5) * 360.0

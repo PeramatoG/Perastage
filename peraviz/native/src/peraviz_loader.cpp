@@ -191,6 +191,12 @@ Dictionary PeravizLoader::build_fixture_dimmer_bindings(int universe_offset) con
         item["gobo_channel_index_0"] = binding.gobo.coarse_dmx_channel_index_0;
         item["gobo_fine_channel_index_0"] = binding.gobo.fine_dmx_channel_index_0;
         item["gobo_ultra_fine_channel_index_0"] = binding.gobo.ultra_fine_dmx_channel_index_0;
+        item["gobo_index_channel_index_0"] = binding.gobo_index.coarse_dmx_channel_index_0;
+        item["gobo_index_fine_channel_index_0"] = binding.gobo_index.fine_dmx_channel_index_0;
+        item["gobo_index_ultra_fine_channel_index_0"] = binding.gobo_index.ultra_fine_dmx_channel_index_0;
+        item["gobo_rotation_channel_index_0"] = binding.gobo_rotation.coarse_dmx_channel_index_0;
+        item["gobo_rotation_fine_channel_index_0"] = binding.gobo_rotation.fine_dmx_channel_index_0;
+        item["gobo_rotation_ultra_fine_channel_index_0"] = binding.gobo_rotation.ultra_fine_dmx_channel_index_0;
         item["gobo_wheel_number"] = binding.gobo_wheel_number;
         item["gobo_wheel_name"] = String(binding.gobo_wheel_name.c_str());
 
@@ -234,6 +240,12 @@ Dictionary PeravizLoader::build_fixture_dimmer_bindings(int universe_offset) con
             wheel_item["channel_index_0"] = wheel.channel.coarse_dmx_channel_index_0;
             wheel_item["fine_channel_index_0"] = wheel.channel.fine_dmx_channel_index_0;
             wheel_item["ultra_fine_channel_index_0"] = wheel.channel.ultra_fine_dmx_channel_index_0;
+            wheel_item["index_channel_index_0"] = wheel.index_channel.coarse_dmx_channel_index_0;
+            wheel_item["index_fine_channel_index_0"] = wheel.index_channel.fine_dmx_channel_index_0;
+            wheel_item["index_ultra_fine_channel_index_0"] = wheel.index_channel.ultra_fine_dmx_channel_index_0;
+            wheel_item["rotation_channel_index_0"] = wheel.rotation_channel.coarse_dmx_channel_index_0;
+            wheel_item["rotation_fine_channel_index_0"] = wheel.rotation_channel.fine_dmx_channel_index_0;
+            wheel_item["rotation_ultra_fine_channel_index_0"] = wheel.rotation_channel.ultra_fine_dmx_channel_index_0;
 
             Array wheel_slots;
             wheel_slots.resize(static_cast<int64_t>(wheel.slots.size()));

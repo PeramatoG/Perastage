@@ -140,6 +140,8 @@ enum class AttributeRole {
     kMagenta,
     kYellow,
     kGobo,
+    kGoboIndex,
+    kGoboRotation,
 };
 
 struct ParsedAttribute {
@@ -280,6 +282,17 @@ bool matches_gobo_attribute(const std::string &leaf) {
     return references_wheel && references_selector;
 }
 
+bool matches_gobo_index_attribute(const std::string &leaf) {
+    return leaf.find("gobo") != std::string::npos &&
+           (leaf.find("pos") != std::string::npos || leaf.find("index") != std::string::npos);
+}
+
+bool matches_gobo_rotation_attribute(const std::string &leaf) {
+    return leaf.find("gobo") != std::string::npos &&
+           (leaf.find("posrotate") != std::string::npos || leaf.find("spin") != std::string::npos ||
+            leaf.find("wheelspin") != std::string::npos);
+}
+
 ParsedAttribute parse_attribute_name(const std::string &raw_attribute) {
     ParsedAttribute parsed;
     const std::string lower = lower_ascii(trim_ascii(raw_attribute));
@@ -333,6 +346,14 @@ ParsedAttribute parse_attribute_name(const std::string &raw_attribute) {
                starts_with_role_token(leaf, "colorrgb_yellow", byte_index)) {
         parsed.role = AttributeRole::kYellow;
         parsed.byte_index = byte_index;
+    } else if (matches_gobo_rotation_attribute(leaf)) {
+        parsed.role = AttributeRole::kGoboRotation;
+        parsed.byte_index = byte_index;
+        parsed.gobo_wheel_number = parse_gobo_wheel_number(leaf);
+    } else if (matches_gobo_index_attribute(leaf)) {
+        parsed.role = AttributeRole::kGoboIndex;
+        parsed.byte_index = byte_index;
+        parsed.gobo_wheel_number = parse_gobo_wheel_number(leaf);
     } else if (matches_gobo_attribute(leaf)) {
         parsed.role = AttributeRole::kGobo;
         parsed.byte_index = byte_index;
@@ -915,6 +936,40 @@ void consume_channel_offsets(tinyxml2::XMLElement *dmx_channel,
                 consume_gobo_channel_sets(channel_function, wheel_catalog, *wheel);
                 break;
             }
+            case AttributeRole::kGoboIndex: {
+                const std::string wheel_name = lower_ascii(read_attr_ci(channel_function, "Wheel", "wheel"));
+                int wheel_number = parsed_attribute.gobo_wheel_number;
+                if (wheel_number <= 0) {
+                    wheel_number = parse_last_number_token(wheel_name);
+                }
+                peraviz::dmx::FixtureGoboWheelOffset *wheel =
+                    find_or_create_gobo_wheel_offset(out_offsets, wheel_number, wheel_name);
+                if (!wheel) {
+                    break;
+                }
+                consume_offsets(offsets, parsed_attribute.is_fine, parsed_attribute.byte_index,
+                                wheel->index_coarse_offset_1_based,
+                                wheel->index_fine_offset_1_based,
+                                wheel->index_ultra_fine_offset_1_based);
+                break;
+            }
+            case AttributeRole::kGoboRotation: {
+                const std::string wheel_name = lower_ascii(read_attr_ci(channel_function, "Wheel", "wheel"));
+                int wheel_number = parsed_attribute.gobo_wheel_number;
+                if (wheel_number <= 0) {
+                    wheel_number = parse_last_number_token(wheel_name);
+                }
+                peraviz::dmx::FixtureGoboWheelOffset *wheel =
+                    find_or_create_gobo_wheel_offset(out_offsets, wheel_number, wheel_name);
+                if (!wheel) {
+                    break;
+                }
+                consume_offsets(offsets, parsed_attribute.is_fine, parsed_attribute.byte_index,
+                                wheel->rotation_coarse_offset_1_based,
+                                wheel->rotation_fine_offset_1_based,
+                                wheel->rotation_ultra_fine_offset_1_based);
+                break;
+            }
             }
         }
     }
@@ -1027,6 +1082,12 @@ DimmerResolveCacheEntry resolve_uncached(const std::string &gdtf_path,
         out.offsets.gobo_coarse_offset_1_based = primary_wheel->coarse_offset_1_based;
         out.offsets.gobo_fine_offset_1_based = primary_wheel->fine_offset_1_based;
         out.offsets.gobo_ultra_fine_offset_1_based = primary_wheel->ultra_fine_offset_1_based;
+        out.offsets.gobo_index_coarse_offset_1_based = primary_wheel->index_coarse_offset_1_based;
+        out.offsets.gobo_index_fine_offset_1_based = primary_wheel->index_fine_offset_1_based;
+        out.offsets.gobo_index_ultra_fine_offset_1_based = primary_wheel->index_ultra_fine_offset_1_based;
+        out.offsets.gobo_rotation_coarse_offset_1_based = primary_wheel->rotation_coarse_offset_1_based;
+        out.offsets.gobo_rotation_fine_offset_1_based = primary_wheel->rotation_fine_offset_1_based;
+        out.offsets.gobo_rotation_ultra_fine_offset_1_based = primary_wheel->rotation_ultra_fine_offset_1_based;
         out.offsets.gobo_wheel_number = primary_wheel->wheel_number;
         out.offsets.gobo_wheel_name = primary_wheel->wheel_name;
         out.offsets.gobo_slots = primary_wheel->slots;

@@ -1355,7 +1355,7 @@ func _apply_dmx_controls_to_fixture(fixture_uuid: String, controls: Dictionary) 
 		var tilt_degrees: float = lerp(tilt_min, tilt_max, clamp(float(controls.get("tilt_norm", 0.0)), 0.0, 1.0))
 		_apply_pan_tilt_components_to_fixture(fixture_uuid, has_pan, pan_degrees, has_tilt, tilt_degrees)
 
-	if controls.get("has_dimmer", false) or controls.get("has_zoom", false) or controls.get("has_cyan", false) or controls.get("has_magenta", false) or controls.get("has_yellow", false) or controls.get("has_gobo", false):
+	if controls.get("has_dimmer", false) or controls.get("has_zoom", false) or controls.get("has_cyan", false) or controls.get("has_magenta", false) or controls.get("has_yellow", false) or controls.get("has_gobo", false) or controls.get("has_gobo_index", false) or controls.get("has_gobo_rotation", false):
 		var dimmer_percent: float = float(MANUAL_DEFAULTS["dimmer"])
 		if controls.get("has_dimmer", false):
 			dimmer_percent = clamp(float(controls.get("dimmer_norm", 0.0)), 0.0, 1.0) * 100.0
