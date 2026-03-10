@@ -16,6 +16,9 @@ const GOBO_APERTURE_SCALE: float = 1.05
 const GOBO_DEFAULT_SCALE: float = 1.0
 const GOBO_DEFAULT_ROTATION_DEG: float = 0.0
 const VECTOR_FALLBACK_GOBO_CACHE_KEY: String = "__vector_fallback_gobo"
+const GOBO_VECTOR_POLYGONS_META_KEY: String = "peraviz_gobo_vector_polygons"
+const GOBO_VECTOR_WIDTH_META_KEY: String = "peraviz_gobo_vector_width"
+const GOBO_VECTOR_HEIGHT_META_KEY: String = "peraviz_gobo_vector_height"
 
 var _texture_cache: Dictionary = {}
 
@@ -197,6 +200,7 @@ func _resolve_gobo_texture_for_slot(controls: Dictionary, slot_index: int) -> Te
 		if image.get_format() != Image.FORMAT_RGBA8:
 			image.convert(Image.FORMAT_RGBA8)
 		var texture: ImageTexture = ImageTexture.create_from_image(image)
+		_apply_vector_metadata_from_slot(texture, item)
 		_texture_cache[image_path] = texture
 		return texture
 	return null
@@ -263,6 +267,8 @@ func _compose_gobo_textures(textures: Array[Texture2D]) -> Texture2D:
 				composed.set_pixel(x, y, Color(out_luma, out_luma, out_luma, out_luma))
 
 	var out_texture: ImageTexture = ImageTexture.create_from_image(composed)
+	if textures.size() == 1:
+		_copy_vector_metadata(out_texture, textures[0])
 	_texture_cache[cache_key] = out_texture
 	return out_texture
 
@@ -304,6 +310,27 @@ func _transform_gobo_texture(base_texture: Texture2D, rotation_deg: float, scale
 				continue
 			out_image.set_pixel(x, y, src_image.get_pixel(int(src_pos.x), int(src_pos.y)))
 	var texture: ImageTexture = ImageTexture.create_from_image(out_image)
+	_copy_vector_metadata(texture, base_texture)
 	_texture_cache[cache_key] = texture
 	return texture
+
+func _apply_vector_metadata_from_slot(texture: Texture2D, slot: Dictionary) -> void:
+	if texture == null:
+		return
+	if slot.has("vector_polygons"):
+		texture.set_meta(GOBO_VECTOR_POLYGONS_META_KEY, slot.get("vector_polygons", []))
+	if slot.has("vector_width"):
+		texture.set_meta(GOBO_VECTOR_WIDTH_META_KEY, int(slot.get("vector_width", 0)))
+	if slot.has("vector_height"):
+		texture.set_meta(GOBO_VECTOR_HEIGHT_META_KEY, int(slot.get("vector_height", 0)))
+
+func _copy_vector_metadata(target_texture: Texture2D, source_texture: Texture2D) -> void:
+	if target_texture == null or source_texture == null:
+		return
+	if source_texture.has_meta(GOBO_VECTOR_POLYGONS_META_KEY):
+		target_texture.set_meta(GOBO_VECTOR_POLYGONS_META_KEY, source_texture.get_meta(GOBO_VECTOR_POLYGONS_META_KEY))
+	if source_texture.has_meta(GOBO_VECTOR_WIDTH_META_KEY):
+		target_texture.set_meta(GOBO_VECTOR_WIDTH_META_KEY, source_texture.get_meta(GOBO_VECTOR_WIDTH_META_KEY))
+	if source_texture.has_meta(GOBO_VECTOR_HEIGHT_META_KEY):
+		target_texture.set_meta(GOBO_VECTOR_HEIGHT_META_KEY, source_texture.get_meta(GOBO_VECTOR_HEIGHT_META_KEY))
 
