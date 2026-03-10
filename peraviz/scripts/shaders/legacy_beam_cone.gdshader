@@ -24,6 +24,7 @@ uniform float gobo_contrast : hint_range(0.1, 4.0) = 1.0;
 uniform bool gobo_invert = false;
 uniform float gobo_min_transmission : hint_range(0.0, 1.0) = 0.12;
 uniform float gobo_contribution : hint_range(0.0, 1.0) = 0.85;
+uniform float beam_alpha_floor : hint_range(0.0, 0.2) = 0.03;
 
 varying float beam_axial;
 varying vec3 beam_local;
@@ -95,6 +96,7 @@ void fragment() {
 	}
 	ALBEDO = beam_color.rgb * gobo_mask;
 	float beam_alpha = mix(far_alpha, near_alpha, near_factor) * end_fade * lateral_fade * gobo_mask * max(haze_density, 0.01);
+	beam_alpha = max(beam_alpha, beam_alpha_floor * max(haze_density, 0.01));
 	if (beam_alpha < 0.0001) {
 		discard;
 	}

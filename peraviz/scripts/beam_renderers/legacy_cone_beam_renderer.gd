@@ -14,6 +14,7 @@ const LEGACY_OVERDRIVE_GAIN_MAX: float = 5.0
 
 const MAIN_KEY: String = "peraviz_beam_prism"
 const GOBO_TEXTURE_META_KEY: String = "peraviz_gobo_texture"
+const FALLBACK_GOBO_META_KEY: String = "peraviz_is_vector_fallback_gobo"
 const DEBUG_AXIS_KEY: String = "peraviz_beam_debug_axis"
 const LEGACY_MID_KEY: String = "peraviz_beam_cone_mid"
 const LEGACY_CORE_KEY: String = "peraviz_beam_cone_core"
@@ -74,7 +75,9 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	var gobo_scale: float = max(float(params.get("gobo_scale", 1.0)), 0.05)
 	var gobo_rotation_deg: float = float(params.get("gobo_rotation_deg", 0.0))
 	var beam_rotation_deg: float = wrapf(gobo_rotation_deg + 180.0, 0.0, 360.0)
-	var prism_mesh: ArrayMesh = _mesh_builder.build_beam_mesh(gobo_texture, lens_radius, bottom_radius, beam_range, gobo_scale, beam_rotation_deg, true)
+	var is_vector_fallback_gobo: bool = bool(light.get_meta(FALLBACK_GOBO_META_KEY, false))
+	var apply_edge_mask_correction: bool = not is_vector_fallback_gobo
+	var prism_mesh: ArrayMesh = _mesh_builder.build_beam_mesh(gobo_texture, lens_radius, bottom_radius, beam_range, gobo_scale, beam_rotation_deg, apply_edge_mask_correction)
 	if prism_mesh != null:
 		prism.mesh = prism_mesh
 	prism.position = Vector3(lens_shift_x, lens_shift_y, -(beam_range * 0.5 + lens_offset_m))
