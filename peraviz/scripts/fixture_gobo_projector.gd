@@ -219,7 +219,7 @@ func _resolve_vector_fallback_gobo_texture() -> Texture2D:
 	if _texture_cache.has(VECTOR_FALLBACK_GOBO_CACHE_KEY):
 		return _texture_cache[VECTOR_FALLBACK_GOBO_CACHE_KEY] as Texture2D
 	var image := Image.create(FAKE_GOBO_TEXTURE_SIZE, FAKE_GOBO_TEXTURE_SIZE, false, Image.FORMAT_RGBA8)
-	image.fill(Color(0.0, 0.0, 0.0, 1.0))
+	image.fill(Color(0.0, 0.0, 0.0, 0.0))
 	var center: Vector2 = Vector2(float(FAKE_GOBO_TEXTURE_SIZE - 1), float(FAKE_GOBO_TEXTURE_SIZE - 1)) * 0.5
 	var outer_radius: float = float(FAKE_GOBO_TEXTURE_SIZE) * 0.48
 	for y in range(FAKE_GOBO_TEXTURE_SIZE):
