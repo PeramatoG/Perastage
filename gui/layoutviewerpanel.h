@@ -43,6 +43,7 @@ public:
   void SetLayoutDefinition(const layouts::LayoutDefinition &layout);
   layouts::Layout2DViewDefinition *GetEditableView();
   const layouts::Layout2DViewDefinition *GetEditableView() const;
+  bool DeleteSelectedElement();
   void RefreshLegendData();
   void RefreshAfterFixtureSymbolUpdate();
 

@@ -35,6 +35,8 @@
 
 #include "layoutimageutils.h"
 #include "LayoutManager.h"
+#include "guiconfigservices.h"
+#include "configmanager.h"
 
 namespace {
 constexpr int kMinFrameSize = 24;
@@ -161,6 +163,8 @@ void LayoutViewerPanel::OnDeleteImage(wxCommandEvent &) {
     return;
   const int imageId = image->id;
   if (!currentLayout.name.empty()) {
+    auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
+    cfg.PushUndoState("delete layout image");
     if (layouts::LayoutManager::Get().RemoveLayoutImage(currentLayout.name,
                                                         imageId)) {
       auto &images = currentLayout.imageViews;

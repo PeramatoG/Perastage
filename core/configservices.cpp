@@ -377,15 +377,17 @@ void SelectionState::Clear() {
   selectedSceneObjects.clear();
 }
 
-void HistoryManager::PushUndoState(const MvrScene &scene,
-                                   const SelectionState &selection,
-                                   const std::string &description) {
+void HistoryManager::PushUndoState(
+    const MvrScene &scene, const SelectionState &selection,
+    const std::string &description,
+    const std::optional<std::string> &layoutsCollection) {
   Snapshot snap{scene,
                 selection.GetSelectedFixtures(),
                 selection.GetSelectedTrusses(),
                 selection.GetSelectedSupports(),
                 selection.GetSelectedSceneObjects(),
-                description};
+                description,
+                layoutsCollection};
   undoStack.push_back(std::move(snap));
   if (undoStack.size() > maxHistory)
     undoStack.erase(undoStack.begin());
@@ -396,7 +398,9 @@ bool HistoryManager::CanUndo() const { return !undoStack.empty(); }
 
 bool HistoryManager::CanRedo() const { return !redoStack.empty(); }
 
-std::string HistoryManager::Undo(MvrScene &scene, SelectionState &selection) {
+std::string HistoryManager::Undo(
+    MvrScene &scene, SelectionState &selection,
+    std::optional<std::string> *layoutsCollection) {
   if (undoStack.empty())
     return {};
   const Snapshot snap = undoStack.back();
@@ -405,8 +409,11 @@ std::string HistoryManager::Undo(MvrScene &scene, SelectionState &selection) {
                        selection.GetSelectedTrusses(),
                        selection.GetSelectedSupports(),
                        selection.GetSelectedSceneObjects(),
-                       snap.description});
+                       snap.description,
+                       snap.layoutsCollection});
   scene = snap.scene;
+  if (layoutsCollection)
+    *layoutsCollection = snap.layoutsCollection;
   selection.SetSelectedFixtures(snap.selFixtures);
   selection.SetSelectedTrusses(snap.selTrusses);
   selection.SetSelectedSupports(snap.selSupports);
@@ -415,7 +422,9 @@ std::string HistoryManager::Undo(MvrScene &scene, SelectionState &selection) {
   return snap.description;
 }
 
-std::string HistoryManager::Redo(MvrScene &scene, SelectionState &selection) {
+std::string HistoryManager::Redo(
+    MvrScene &scene, SelectionState &selection,
+    std::optional<std::string> *layoutsCollection) {
   if (redoStack.empty())
     return {};
   const Snapshot snap = redoStack.back();
@@ -424,8 +433,11 @@ std::string HistoryManager::Redo(MvrScene &scene, SelectionState &selection) {
                        selection.GetSelectedTrusses(),
                        selection.GetSelectedSupports(),
                        selection.GetSelectedSceneObjects(),
-                       snap.description});
+                       snap.description,
+                       snap.layoutsCollection});
   scene = snap.scene;
+  if (layoutsCollection)
+    *layoutsCollection = snap.layoutsCollection;
   selection.SetSelectedFixtures(snap.selFixtures);
   selection.SetSelectedTrusses(snap.selTrusses);
   selection.SetSelectedSupports(snap.selSupports);

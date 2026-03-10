@@ -56,6 +56,8 @@
 #include "gdtfsearchdialog.h"
 #include "hoisttablepanel.h"
 #include "layerpanel.h"
+#include "layoutpanel.h"
+#include "layoutviewerpanel.h"
 #include "logindialog.h"
 #include "markdown.h"
 #include "preferencesdialog.h"
@@ -886,6 +888,10 @@ void MainWindow::OnUndo(wxCommandEvent &WXUNUSED(event)) {
     sceneObjPanel->ReloadData();
     sceneObjPanel->SelectByUuid(cfg.GetSelectedSceneObjects());
   }
+  if (layoutPanel)
+    layoutPanel->ReloadLayouts();
+  if (!activeLayoutName.empty())
+    ActivateLayoutView(activeLayoutName);
   if (viewportPanel) {
     viewportPanel->UpdateScene();
     if (fixturePanel && fixturePanel->IsActivePage())
@@ -926,6 +932,10 @@ void MainWindow::OnRedo(wxCommandEvent &WXUNUSED(event)) {
     sceneObjPanel->ReloadData();
     sceneObjPanel->SelectByUuid(cfg.GetSelectedSceneObjects());
   }
+  if (layoutPanel)
+    layoutPanel->ReloadLayouts();
+  if (!activeLayoutName.empty())
+    ActivateLayoutView(activeLayoutName);
   if (viewportPanel) {
     viewportPanel->UpdateScene();
     if (fixturePanel && fixturePanel->IsActivePage())
@@ -1307,6 +1317,11 @@ void MainWindow::OnAddSceneObject(wxCommandEvent &WXUNUSED(event)) {
 
 void MainWindow::OnDelete(wxCommandEvent &WXUNUSED(event)) {
   ConfigManager &cfg = guiConfigServices->LegacyConfigManager();
+
+  if (layoutViewerPanel && layoutViewerPanel->HasFocus() &&
+      layoutViewerPanel->DeleteSelectedElement()) {
+    return;
+  }
 
   auto ensureFixtureSelection = [&]() {
     if (fixturePanel && fixturePanel->GetSelectedUuids().empty())

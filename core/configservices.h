@@ -84,14 +84,19 @@ public:
     std::vector<std::string> selSupports;
     std::vector<std::string> selSceneObjects;
     std::string description;
+    std::optional<std::string> layoutsCollection;
   };
 
   void PushUndoState(const MvrScene &scene, const SelectionState &selection,
-                     const std::string &description = "");
+                     const std::string &description = "",
+                     const std::optional<std::string> &layoutsCollection =
+                         std::nullopt);
   bool CanUndo() const;
   bool CanRedo() const;
-  std::string Undo(MvrScene &scene, SelectionState &selection);
-  std::string Redo(MvrScene &scene, SelectionState &selection);
+  std::string Undo(MvrScene &scene, SelectionState &selection,
+                   std::optional<std::string> *layoutsCollection = nullptr);
+  std::string Redo(MvrScene &scene, SelectionState &selection,
+                   std::optional<std::string> *layoutsCollection = nullptr);
   void ClearHistory();
 
 private:
