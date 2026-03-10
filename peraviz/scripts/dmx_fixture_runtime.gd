@@ -8,16 +8,20 @@ const DMX_16BIT_STEPS: int = 65536
 const DMX_24BIT_STEPS: int = 16777216
 const FORCE_COARSE_ONLY_DMX_READ: bool = false
 
+const GoboVectorizationCacheScript = preload("res://scripts/gobo_vectorization/gobo_vectorization_cache.gd")
+
 var _loader = null
 var _scene_registry: SceneRegistry = null
 var _bindings: Array = []
 var _unbound: Array = []
 var _fixture_nodes: Dictionary = {}
 var _used_universes: Dictionary = {}
+var _gobo_vectorization_cache: GoboVectorizationCache = null
 
 func configure(loader, scene_registry: SceneRegistry) -> void:
 	_loader = loader
 	_scene_registry = scene_registry
+	_gobo_vectorization_cache = GoboVectorizationCacheScript.new()
 
 func rebuild(universe_offset: int) -> Dictionary:
 	_bindings.clear()
@@ -35,6 +39,9 @@ func rebuild(universe_offset: int) -> Dictionary:
 	var result: Dictionary = _loader.build_fixture_dimmer_bindings(universe_offset)
 	_bindings = result.get("bindings", [])
 	_unbound = result.get("unbound", [])
+
+	if _gobo_vectorization_cache != null:
+		_gobo_vectorization_cache.enrich_bindings_with_vector_gobos(_bindings)
 
 	for binding in _bindings:
 		if binding is not Dictionary:

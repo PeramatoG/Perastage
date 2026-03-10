@@ -79,6 +79,7 @@ add_library(peraviz_native SHARED
     src/gdtf_scene_builder.cpp
     src/mvr_scene_loader.cpp
     src/peraviz_loader.cpp
+    src/gobo_vectorizer.cpp
     src/register_types.cpp
     src/entry.cpp
 )

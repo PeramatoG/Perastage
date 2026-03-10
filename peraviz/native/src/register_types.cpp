@@ -2,6 +2,7 @@
 
 #include "hello_world.h"
 #include "peraviz_loader.h"
+#include "gobo_vectorizer.h"
 
 #ifdef PERAVIZ_ENABLE_DMX
 #include "peraviz_dmx_receiver.h"
@@ -14,6 +15,7 @@ void initialize_peraviz_module(godot::ModuleInitializationLevel p_level) {
 
     godot::ClassDB::register_class<godot::HelloWorld>();
     godot::ClassDB::register_class<godot::PeravizLoader>();
+    godot::ClassDB::register_class<godot::PeravizGoboVectorizer>();
 #ifdef PERAVIZ_ENABLE_DMX
     godot::ClassDB::register_class<godot::PeravizDmxReceiver>();
 #endif
