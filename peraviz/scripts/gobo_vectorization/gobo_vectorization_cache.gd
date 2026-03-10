@@ -4,6 +4,8 @@ class_name GoboVectorizationCache
 const VECTOR_POLYGONS_KEY: String = "vector_polygons"
 const VECTOR_WIDTH_KEY: String = "vector_width"
 const VECTOR_HEIGHT_KEY: String = "vector_height"
+const VECTORIZATION_MAX_SIZE: int = 512
+const VECTORIZATION_LUMA_ALPHA_THRESHOLD: float = 0.5
 
 var _native_vectorizer: Object = null
 var _cache_by_image_path: Dictionary = {}
@@ -64,6 +66,6 @@ func _enrich_slots(raw_slots: Array) -> Array:
 func _get_or_create_vector_entry(image_path: String) -> Dictionary:
 	if _cache_by_image_path.has(image_path):
 		return _cache_by_image_path[image_path] as Dictionary
-	var result: Dictionary = _native_vectorizer.call("vectorize_image", image_path, 192, 0.5, true)
+	var result: Dictionary = _native_vectorizer.call("vectorize_image", image_path, VECTORIZATION_MAX_SIZE, VECTORIZATION_LUMA_ALPHA_THRESHOLD, true)
 	_cache_by_image_path[image_path] = result
 	return result
