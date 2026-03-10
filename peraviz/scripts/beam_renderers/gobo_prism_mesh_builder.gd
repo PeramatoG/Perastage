@@ -17,6 +17,8 @@ const GOBO_VECTOR_POLYGONS_META_KEY: String = "peraviz_gobo_vector_polygons"
 const GOBO_VECTOR_WIDTH_META_KEY: String = "peraviz_gobo_vector_width"
 const GOBO_VECTOR_HEIGHT_META_KEY: String = "peraviz_gobo_vector_height"
 
+const GoboPolygonCleanupScript = preload("res://scripts/beam_renderers/gobo_polygon_cleanup.gd")
+
 var _mesh_cache: Dictionary = {}
 
 func clear_cache() -> void:
@@ -60,7 +62,9 @@ func _vectorize_gobo(gobo_texture: Texture2D, gobo_scale: float, gobo_rotation_d
 
 	var native_polygons: Array[PackedVector2Array] = _vectorize_from_texture_metadata(gobo_texture, gobo_scale, gobo_rotation_deg)
 	if not native_polygons.is_empty():
-		return _reduce_polygon_point_count(native_polygons, MAX_TOTAL_VECTOR_POINTS)
+		var cleaned_native: Array[PackedVector2Array] = GoboPolygonCleanupScript.sanitize_polygons(native_polygons, MIN_POLYGON_AREA)
+		if not cleaned_native.is_empty():
+			return _reduce_polygon_point_count(cleaned_native, MAX_TOTAL_VECTOR_POINTS)
 
 	var bitmap := BitMap.new()
 	bitmap.create_from_image_alpha(image, VECTORIZATION_ALPHA_THRESHOLD)
@@ -105,7 +109,10 @@ func _vectorize_gobo(gobo_texture: Texture2D, gobo_scale: float, gobo_rotation_d
 	var output: Array[PackedVector2Array] = []
 	for item in normalized:
 		output.append(item.get("polygon", PackedVector2Array()) as PackedVector2Array)
-	return _reduce_polygon_point_count(output, MAX_TOTAL_VECTOR_POINTS)
+	var cleaned_output: Array[PackedVector2Array] = GoboPolygonCleanupScript.sanitize_polygons(output, MIN_POLYGON_AREA)
+	if cleaned_output.is_empty():
+		return []
+	return _reduce_polygon_point_count(cleaned_output, MAX_TOTAL_VECTOR_POINTS)
 
 
 func _vectorize_from_texture_metadata(gobo_texture: Texture2D, gobo_scale: float, gobo_rotation_deg: float) -> Array[PackedVector2Array]:
@@ -154,7 +161,7 @@ func _vectorize_from_texture_metadata(gobo_texture: Texture2D, gobo_scale: float
 	var output: Array[PackedVector2Array] = []
 	for item in normalized:
 		output.append(item.get("polygon", PackedVector2Array()) as PackedVector2Array)
-	return output
+	return GoboPolygonCleanupScript.sanitize_polygons(output, MIN_POLYGON_AREA)
 
 func _reduce_polygon_point_count(polygons: Array[PackedVector2Array], max_points: int) -> Array[PackedVector2Array]:
 	if polygons.is_empty():
