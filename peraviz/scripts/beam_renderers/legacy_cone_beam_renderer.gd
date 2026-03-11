@@ -80,7 +80,7 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 		prism.mesh = prism_mesh
 	prism.position = Vector3(lens_shift_x, lens_shift_y, -(beam_range * 0.5 + lens_offset_m))
 	prism.scale = Vector3(-1.0 if MIRROR_BEAM_SHAPE_X else 1.0, 1.0, 1.0)
-	prism.rotation_degrees = Vector3(90.0, 0.0, beam_rotation_deg)
+	_apply_beam_axis_rotation(prism, beam_rotation_deg)
 
 	var color_alpha := Color(beam_color.r, beam_color.g, beam_color.b, 1.0)
 	var beam_softness: float = clamp(float(params.get("beam_softness", 0.35)), 0.02, 1.0)
@@ -88,6 +88,14 @@ func update_beam(light: SpotLight3D, params: Dictionary) -> void:
 	var longitudinal_falloff: float = max(float(params.get("beam_longitudinal_falloff", 1.0)), 0.05)
 	var haze_density: float = max(float(params.get("haze_density", params.get("haze_density_multiplier", 0.22))), 0.01)
 	_update_prism_material(prism, color_alpha, scaled_intensity, intensity_max, beam_range, bottom_radius, beam_softness, radial_falloff, longitudinal_falloff, haze_density)
+
+
+func _apply_beam_axis_rotation(node: Node3D, beam_rotation_deg: float) -> void:
+	if node == null:
+		return
+	var base_basis: Basis = Basis(Vector3.RIGHT, deg_to_rad(90.0))
+	var beam_axis: Vector3 = (base_basis * Vector3.FORWARD).normalized()
+	node.basis = Basis(beam_axis, deg_to_rad(beam_rotation_deg)) * base_basis
 
 func cleanup_beam(light: SpotLight3D) -> void:
 	if light.has_meta(MAIN_KEY):
