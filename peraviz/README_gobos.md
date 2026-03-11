@@ -16,9 +16,9 @@ This document summarizes how Peraviz parses and loads gobo data from GDTF fixtur
 
 Per GDTF, `WheelSlotIndex` is normalized to wheel slot order. Fixtures may also
 repeat the same slot across different DMX windows (for example to reuse one gobo
-with index/spin/shake behaviors). Runtime range matching therefore resolves the
-best matching range for the current DMX value instead of assuming each value maps
-to a unique non-overlapping row.
+with index/spin/shake behaviors). Runtime range matching therefore keeps fixture
+`ChannelSet` declaration precedence: when more than one range matches the DMX
+value, the latest matching row wins.
 
 ## DMX binding rules
 
