@@ -644,6 +644,7 @@ std::string ensure_gobo_media_extracted(const std::string &gdtf_path,
 }
 
 struct GoboWheelDefinition {
+    std::vector<int> declared_slot_order;
     std::unordered_set<int> declared_slots;
     std::unordered_map<int, std::string> slot_images;
 };
@@ -683,7 +684,9 @@ GoboWheelCatalog build_gobo_wheel_catalog(const std::string &gdtf_path, tinyxml2
             implicit_index = std::max(implicit_index, slot_index + 1);
 
             GoboWheelDefinition &wheel_definition = out[wheel_name];
-            wheel_definition.declared_slots.insert(slot_index);
+            if (wheel_definition.declared_slots.insert(slot_index).second) {
+                wheel_definition.declared_slot_order.push_back(slot_index);
+            }
 
             const std::string media_file = read_attr_ci(slot_node, "MediaFileName", "mediafilename");
             if (media_file.empty()) {
@@ -701,7 +704,9 @@ GoboWheelCatalog build_gobo_wheel_catalog(const std::string &gdtf_path, tinyxml2
 }
 
 
-int normalize_gobo_slot_index(int slot_index, const std::unordered_set<int> &known_slots) {
+int normalize_gobo_slot_index(int slot_index,
+                              const std::unordered_set<int> &known_slots,
+                              const std::vector<int> &known_slot_order) {
     if (slot_index <= 0) {
         return -1;
     }
@@ -709,24 +714,15 @@ int normalize_gobo_slot_index(int slot_index, const std::unordered_set<int> &kno
         return slot_index;
     }
 
-    if (known_slots.empty()) {
+    if (known_slot_order.empty()) {
         return -1;
     }
-
-    const auto [min_it, max_it] = std::minmax_element(known_slots.begin(), known_slots.end());
-    const int min_slot = *min_it;
-    const int max_slot = *max_it;
-    const int slot_count = static_cast<int>(known_slots.size());
 
     // Compatibility fallback for fixtures that encode repeated gobo cycles with
     // out-of-range WheelSlotIndex values (e.g. 1..N then N+1..2N).
-    const bool contiguous_one_based =
-        min_slot == 1 && max_slot == slot_count;
-    if (!contiguous_one_based) {
-        return -1;
-    }
-
-    const int wrapped_slot = ((slot_index - 1) % slot_count) + 1;
+    // Use fixture-declared slot order instead of assuming contiguous 1..N indices.
+    const int wrapped_index = (slot_index - 1) % static_cast<int>(known_slot_order.size());
+    const int wrapped_slot = known_slot_order[wrapped_index];
     if (known_slots.find(wrapped_slot) != known_slots.end()) {
         return wrapped_slot;
     }
@@ -752,6 +748,7 @@ void consume_gobo_channel_sets(tinyxml2::XMLElement *channel_function,
 
     out_wheel.wheel_name = wheel_name;
 
+    const std::vector<int> &known_slot_order = wheel_it->second.declared_slot_order;
     std::unordered_set<int> known_slots = wheel_it->second.declared_slots;
     for (const auto &[slot_index, image_path] : wheel_it->second.slot_images) {
         if (slot_index <= 0 || image_path.empty()) {
@@ -785,7 +782,7 @@ void consume_gobo_channel_sets(tinyxml2::XMLElement *channel_function,
         if (slot_index <= 0) {
             slot_index = last_slot_index;
         }
-        slot_index = normalize_gobo_slot_index(slot_index, known_slots);
+        slot_index = normalize_gobo_slot_index(slot_index, known_slots, known_slot_order);
         if (slot_index <= 0) {
             continue;
         }
