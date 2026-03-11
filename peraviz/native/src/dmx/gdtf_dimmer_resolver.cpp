@@ -335,15 +335,19 @@ peraviz::dmx::FixtureGoboRangeBehavior parse_gobo_range_behavior(const std::stri
     if (lower_name.find("shake") != std::string::npos) {
         return peraviz::dmx::FixtureGoboRangeBehavior::kShake;
     }
+    // Keep explicit spin/rotation detection ahead of generic "pos" matching,
+    // because names like "Gobo1PosRotate" include both tokens.
+    if (lower_name.find("posrotate") != std::string::npos ||
+        lower_name.find("wheelspin") != std::string::npos ||
+        lower_name.find("spin") != std::string::npos ||
+        lower_name.find("rotate") != std::string::npos) {
+        return peraviz::dmx::FixtureGoboRangeBehavior::kRotation;
+    }
     // Prioritize explicit index/position semantics over generic rotate tokens,
     // because some fixture libraries include both terms in index range names.
     if (lower_name.find("index") != std::string::npos ||
         lower_name.find("pos") != std::string::npos) {
         return peraviz::dmx::FixtureGoboRangeBehavior::kIndex;
-    }
-    if (lower_name.find("spin") != std::string::npos ||
-        lower_name.find("rotate") != std::string::npos) {
-        return peraviz::dmx::FixtureGoboRangeBehavior::kRotation;
     }
     return peraviz::dmx::FixtureGoboRangeBehavior::kFixed;
 }
