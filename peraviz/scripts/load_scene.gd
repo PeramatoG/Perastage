@@ -96,6 +96,7 @@ var _dmx_timer: Timer
 var _dmx_universe_offset_input: SpinBox
 var _dmx_unbound_preview_label: Label
 var _dmx_fixture_runtime = null
+var _last_dmx_tick_msec: int = 0
 
 var _beam_renderers: Dictionary = {}
 var _active_beam_renderer: BeamRendererBase
@@ -1344,6 +1345,8 @@ func _find_axis_for_role(axis_nodes: Array, role: String) -> Node3D:
 	return axis_nodes[0]
 
 func _apply_dmx_controls_to_fixture(fixture_uuid: String, controls: Dictionary) -> void:
+	controls["fixture_uuid"] = fixture_uuid
+	controls["frame_delta_sec"] = max(float(controls.get("frame_delta_sec", 0.0)), 0.0)
 	if controls.get("has_pan", false) or controls.get("has_tilt", false):
 		var has_pan: bool = bool(controls.get("has_pan", false))
 		var has_tilt: bool = bool(controls.get("has_tilt", false))
@@ -2229,8 +2232,17 @@ func _on_dmx_timer_timeout() -> void:
 		_refresh_dmx_monitor_window(false)
 		return
 
+	var now_msec: int = Time.get_ticks_msec()
+	var delta_sec: float = 0.0
+	if _last_dmx_tick_msec > 0:
+		delta_sec = max(float(now_msec - _last_dmx_tick_msec) * 0.001, 0.0)
+	_last_dmx_tick_msec = now_msec
+
 	if _dmx_fixture_runtime != null:
-		_dmx_fixture_runtime.apply_dmx(_dmx_receiver, Callable(self, "_apply_dmx_controls_to_fixture"))
+		_dmx_fixture_runtime.apply_dmx(_dmx_receiver, func(fixture_uuid: String, controls: Dictionary) -> void:
+			controls["frame_delta_sec"] = delta_sec
+			_apply_dmx_controls_to_fixture(fixture_uuid, controls)
+		)
 
 	var stats: Dictionary = _dmx_receiver.get_stats()
 	var active_universes: PackedInt32Array = _dmx_receiver.get_active_universes(2000)
