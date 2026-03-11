@@ -20,6 +20,10 @@ with index/spin/shake behaviors). Runtime range matching therefore keeps fixture
 `ChannelSet` declaration precedence: when more than one range matches the DMX
 value, the latest matching row wins.
 
+Peraviz accepts both common `ChannelSet` DMX encodings found in real GDTF files:
+values authored as absolute DMX positions and values authored relative to the
+parent `ChannelFunction` DMX window.
+
 ## DMX binding rules
 
 - Gobo binding focuses on selector channels (`Gobo1`, `Gobo1Pos`, etc.).

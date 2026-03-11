@@ -775,13 +775,27 @@ void consume_gobo_channel_sets(tinyxml2::XMLElement *channel_function,
     }
 
     struct ParsedGoboSet {
-        int rel_dmx_from = 0;
-        int rel_dmx_to = -1;
+        int dmx_from = 0;
+        int dmx_to = -1;
         int slot_index = -1;
         peraviz::dmx::FixtureGoboRangeBehavior behavior =
             peraviz::dmx::FixtureGoboRangeBehavior::kFixed;
     };
     std::vector<ParsedGoboSet> parsed_sets;
+
+    const int clamped_function_from = std::clamp(function_dmx_from, 0, 255);
+    const int clamped_function_to = std::clamp(function_dmx_to, clamped_function_from, 255);
+
+    const auto resolve_channel_set_dmx =
+        [clamped_function_from, clamped_function_to](int raw_value) -> int {
+        // GDTF libraries may encode ChannelSet DMX values either as absolute
+        // channel values or as values relative to the parent ChannelFunction.
+        if (raw_value >= clamped_function_from && raw_value <= 255) {
+            return std::clamp(raw_value, clamped_function_from, clamped_function_to);
+        }
+        const int relative_value = clamped_function_from + std::max(0, raw_value);
+        return std::clamp(relative_value, clamped_function_from, clamped_function_to);
+    };
 
     int last_slot_index = -1;
     for (tinyxml2::XMLElement *channel_set = channel_function->FirstChildElement(); channel_set;
@@ -805,23 +819,25 @@ void consume_gobo_channel_sets(tinyxml2::XMLElement *channel_function,
         }
         last_slot_index = slot_index;
 
-        int rel_dmx_from = parse_dmx_value_8bit(channel_set->Attribute("DMXFrom"));
-        if (rel_dmx_from < 0) {
-            rel_dmx_from = parse_dmx_value_8bit(channel_set->Attribute("dmxfrom"));
+        int raw_dmx_from = parse_dmx_value_8bit(channel_set->Attribute("DMXFrom"));
+        if (raw_dmx_from < 0) {
+            raw_dmx_from = parse_dmx_value_8bit(channel_set->Attribute("dmxfrom"));
         }
-        if (rel_dmx_from < 0) {
-            rel_dmx_from = 0;
+        if (raw_dmx_from < 0) {
+            raw_dmx_from = 0;
         }
+        const int dmx_from = resolve_channel_set_dmx(raw_dmx_from);
 
-        int rel_dmx_to = parse_dmx_value_8bit(channel_set->Attribute("DMXTo"));
-        if (rel_dmx_to < 0) {
-            rel_dmx_to = parse_dmx_value_8bit(channel_set->Attribute("dmxto"));
+        int raw_dmx_to = parse_dmx_value_8bit(channel_set->Attribute("DMXTo"));
+        if (raw_dmx_to < 0) {
+            raw_dmx_to = parse_dmx_value_8bit(channel_set->Attribute("dmxto"));
         }
+        const int dmx_to = raw_dmx_to < 0 ? -1 : resolve_channel_set_dmx(raw_dmx_to);
 
         const std::string channel_set_name = read_attr_ci(channel_set, "Name", "name");
         const peraviz::dmx::FixtureGoboRangeBehavior behavior =
             parse_gobo_range_behavior(channel_set_name);
-        parsed_sets.push_back({rel_dmx_from, rel_dmx_to, slot_index, behavior});
+        parsed_sets.push_back({dmx_from, dmx_to, slot_index, behavior});
     }
 
     if (parsed_sets.empty()) {
@@ -830,32 +846,25 @@ void consume_gobo_channel_sets(tinyxml2::XMLElement *channel_function,
 
     std::stable_sort(parsed_sets.begin(), parsed_sets.end(),
                      [](const ParsedGoboSet &a, const ParsedGoboSet &b) {
-                         return a.rel_dmx_from < b.rel_dmx_from;
+                         return a.dmx_from < b.dmx_from;
                      });
-
-    const int clamped_function_from = std::clamp(function_dmx_from, 0, 255);
-    const int clamped_function_to = std::clamp(function_dmx_to, clamped_function_from, 255);
-    const int function_span_max = std::max(0, clamped_function_to - clamped_function_from);
 
     for (size_t i = 0; i < parsed_sets.size(); ++i) {
         ParsedGoboSet &row = parsed_sets[i];
-        if (row.rel_dmx_to < 0) {
+        if (row.dmx_to < 0) {
             if (i + 1 < parsed_sets.size()) {
-                row.rel_dmx_to = std::max(row.rel_dmx_from, parsed_sets[i + 1].rel_dmx_from - 1);
+                row.dmx_to = std::max(row.dmx_from, parsed_sets[i + 1].dmx_from - 1);
             } else {
-                row.rel_dmx_to = function_span_max;
+                row.dmx_to = clamped_function_to;
             }
         }
-        row.rel_dmx_from = std::clamp(row.rel_dmx_from, 0, function_span_max);
-        row.rel_dmx_to = std::clamp(row.rel_dmx_to, 0, function_span_max);
-        if (row.rel_dmx_to < row.rel_dmx_from) {
-            std::swap(row.rel_dmx_from, row.rel_dmx_to);
+        row.dmx_from = std::clamp(row.dmx_from, clamped_function_from, clamped_function_to);
+        row.dmx_to = std::clamp(row.dmx_to, clamped_function_from, clamped_function_to);
+        if (row.dmx_to < row.dmx_from) {
+            std::swap(row.dmx_from, row.dmx_to);
         }
 
-        const int dmx_from = std::clamp(clamped_function_from + row.rel_dmx_from, 0, 255);
-        const int dmx_to = std::clamp(clamped_function_from + row.rel_dmx_to, 0, 255);
-
-        out_wheel.ranges.push_back({dmx_from, dmx_to, row.slot_index, row.behavior});
+        out_wheel.ranges.push_back({row.dmx_from, row.dmx_to, row.slot_index, row.behavior});
     }
 }
 
