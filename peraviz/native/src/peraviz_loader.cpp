@@ -226,6 +226,9 @@ Dictionary PeravizLoader::build_fixture_dimmer_bindings(int universe_offset) con
             range_item["dmx_to"] = range.dmx_to;
             range_item["slot_index"] = range.slot_index;
             range_item["behavior"] = static_cast<int>(range.behavior);
+            range_item["has_physical_limits"] = range.has_physical_limits;
+            range_item["physical_from"] = range.physical_from;
+            range_item["physical_to"] = range.physical_to;
             gobo_ranges[range_index] = range_item;
         }
         item["gobo_ranges"] = gobo_ranges;
@@ -274,6 +277,9 @@ Dictionary PeravizLoader::build_fixture_dimmer_bindings(int universe_offset) con
                 range_item["dmx_to"] = range.dmx_to;
                 range_item["slot_index"] = range.slot_index;
                 range_item["behavior"] = static_cast<int>(range.behavior);
+                range_item["has_physical_limits"] = range.has_physical_limits;
+                range_item["physical_from"] = range.physical_from;
+                range_item["physical_to"] = range.physical_to;
                 wheel_ranges[range_index] = range_item;
             }
             wheel_item["ranges"] = wheel_ranges;

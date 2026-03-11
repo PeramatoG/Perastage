@@ -279,6 +279,9 @@ func _build_runtime_gobo_bindings(binding: Dictionary, frame: PackedByteArray) -
 			supports_rotation = has_rotation_channel
 		var index_norm: float = -1.0
 		var rotation_norm: float = -1.0
+		var has_range_physical_limits: bool = bool(active_range.get("has_physical_limits", false))
+		var range_physical_from: float = float(active_range.get("physical_from", 0.0))
+		var range_physical_to: float = float(active_range.get("physical_to", 0.0))
 		if supports_index:
 			index_norm = _read_optional_control_norm(frame, int(item.get("index_channel_index_0", -1)), int(item.get("index_fine_channel_index_0", -1)), int(item.get("index_ultra_fine_channel_index_0", -1)))
 			if index_norm < 0.0 and range_behavior == GOBO_BEHAVIOR_INDEX:
@@ -287,6 +290,9 @@ func _build_runtime_gobo_bindings(binding: Dictionary, frame: PackedByteArray) -
 			rotation_norm = _read_optional_control_norm(frame, int(item.get("rotation_channel_index_0", -1)), int(item.get("rotation_fine_channel_index_0", -1)), int(item.get("rotation_ultra_fine_channel_index_0", -1)))
 			if rotation_norm < 0.0 and (range_behavior == GOBO_BEHAVIOR_ROTATION or range_behavior == GOBO_BEHAVIOR_SHAKE):
 				rotation_norm = _resolve_norm_from_active_range(raw_8bit, active_range)
+				if has_range_physical_limits:
+					range_physical_from = _resolve_physical_from_active_range(int(active_range.get("dmx_from", raw_8bit)), active_range, range_physical_from)
+					range_physical_to = _resolve_physical_from_active_range(int(active_range.get("dmx_to", raw_8bit)), active_range, range_physical_to)
 		runtime_bindings.append({
 			"wheel_number": int(item.get("wheel_number", 0)),
 			"wheel_name": str(item.get("wheel_name", "")),
@@ -301,6 +307,9 @@ func _build_runtime_gobo_bindings(binding: Dictionary, frame: PackedByteArray) -
 			"has_rotation_physical_limits": bool(item.get("has_rotation_physical_limits", false)),
 			"rotation_physical_min": float(item.get("rotation_physical_min", 0.0)),
 			"rotation_physical_max": float(item.get("rotation_physical_max", 0.0)),
+			"has_range_physical_limits": has_range_physical_limits,
+			"range_physical_from": range_physical_from,
+			"range_physical_to": range_physical_to,
 			"index_norm": index_norm,
 			"rotation_norm": rotation_norm,
 			"slots": item.get("slots", []),
@@ -310,6 +319,26 @@ func _build_runtime_gobo_bindings(binding: Dictionary, frame: PackedByteArray) -
 
 func _has_control_channel(binding: Dictionary, coarse_key: String, fine_key: String, ultra_fine_key: String) -> bool:
 	return int(binding.get(coarse_key, -1)) >= 0 or int(binding.get(fine_key, -1)) >= 0 or int(binding.get(ultra_fine_key, -1)) >= 0
+
+func _resolve_physical_from_active_range(raw_8bit: int, active_range: Dictionary, fallback_value: float = 0.0) -> float:
+	if not bool(active_range.get("has_physical_limits", false)):
+		return fallback_value
+	var dmx_from: int = int(active_range.get("dmx_from", 0))
+	var dmx_to: int = int(active_range.get("dmx_to", dmx_from))
+	var physical_from: float = float(active_range.get("physical_from", fallback_value))
+	var physical_to: float = float(active_range.get("physical_to", fallback_value))
+	if dmx_to < dmx_from:
+		var swap_dmx: int = dmx_from
+		dmx_from = dmx_to
+		dmx_to = swap_dmx
+		var swap_physical: float = physical_from
+		physical_from = physical_to
+		physical_to = swap_physical
+	if dmx_to <= dmx_from:
+		return physical_from
+	var clamped_raw: int = clampi(raw_8bit, dmx_from, dmx_to)
+	var norm: float = float(clamped_raw - dmx_from) / float(dmx_to - dmx_from)
+	return lerp(physical_from, physical_to, clamp(norm, 0.0, 1.0))
 
 func _resolve_norm_from_active_range(raw_8bit: int, active_range: Dictionary) -> float:
 	var dmx_from: int = int(active_range.get("dmx_from", 0))

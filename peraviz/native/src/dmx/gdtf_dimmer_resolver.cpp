@@ -830,6 +830,9 @@ void consume_gobo_channel_sets(tinyxml2::XMLElement *channel_function,
         int slot_index = -1;
         peraviz::dmx::FixtureGoboRangeBehavior behavior =
             peraviz::dmx::FixtureGoboRangeBehavior::kFixed;
+        bool has_physical_limits = false;
+        float physical_from = 0.0F;
+        float physical_to = 0.0F;
     };
     std::vector<ParsedGoboSet> parsed_sets;
 
@@ -897,7 +900,14 @@ void consume_gobo_channel_sets(tinyxml2::XMLElement *channel_function,
             // In that case, inherit the function behavior for all rows.
             behavior = function_behavior_hint;
         }
-        parsed_sets.push_back({dmx_from, dmx_to, slot_index, behavior});
+        float physical_from = 0.0F;
+        float physical_to = 0.0F;
+        const bool has_physical_from = parse_float_attr_ci(channel_set, "PhysicalFrom", "physicalfrom", physical_from);
+        const bool has_physical_to = parse_float_attr_ci(channel_set, "PhysicalTo", "physicalto", physical_to);
+        const bool has_physical_limits = has_physical_from && has_physical_to;
+
+        parsed_sets.push_back({dmx_from, dmx_to, slot_index, behavior,
+                               has_physical_limits, physical_from, physical_to});
     }
 
     if (parsed_sets.empty()) {
@@ -924,7 +934,15 @@ void consume_gobo_channel_sets(tinyxml2::XMLElement *channel_function,
             std::swap(row.dmx_from, row.dmx_to);
         }
 
-        out_wheel.ranges.push_back({row.dmx_from, row.dmx_to, row.slot_index, row.behavior});
+        peraviz::dmx::FixtureGoboRange range;
+        range.dmx_from = row.dmx_from;
+        range.dmx_to = row.dmx_to;
+        range.slot_index = row.slot_index;
+        range.behavior = row.behavior;
+        range.has_physical_limits = row.has_physical_limits;
+        range.physical_from = row.physical_from;
+        range.physical_to = row.physical_to;
+        out_wheel.ranges.push_back(range);
     }
 }
 

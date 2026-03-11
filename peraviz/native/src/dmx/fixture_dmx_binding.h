@@ -37,6 +37,9 @@ struct FixtureGoboRange {
     int dmx_to = 255;
     int slot_index = -1;
     FixtureGoboRangeBehavior behavior = FixtureGoboRangeBehavior::kFixed;
+    bool has_physical_limits = false;
+    float physical_from = 0.0F;
+    float physical_to = 0.0F;
 };
 
 struct FixtureGoboWheelBinding {

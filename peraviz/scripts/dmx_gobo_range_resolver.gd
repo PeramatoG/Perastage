@@ -28,6 +28,9 @@ static func resolve_active_range(raw_8bit: int, ranges: Array) -> Dictionary:
 			"behavior": int(range_item.get("behavior", GOBO_BEHAVIOR_FIXED)),
 			"dmx_from": dmx_from,
 			"dmx_to": dmx_to,
+			"has_physical_limits": bool(range_item.get("has_physical_limits", false)),
+			"physical_from": float(range_item.get("physical_from", 0.0)),
+			"physical_to": float(range_item.get("physical_to", 0.0)),
 		}
 		has_match = true
 
@@ -35,5 +38,8 @@ static func resolve_active_range(raw_8bit: int, ranges: Array) -> Dictionary:
 		return {
 			"slot_index": 0,
 			"behavior": GOBO_BEHAVIOR_FIXED,
+			"has_physical_limits": false,
+			"physical_from": 0.0,
+			"physical_to": 0.0,
 		}
 	return active_match
