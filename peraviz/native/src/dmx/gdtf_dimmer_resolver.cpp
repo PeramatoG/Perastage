@@ -574,18 +574,38 @@ int parse_dmx_value_8bit(const char *raw_value) {
         return -1;
     }
 
+    int resolution_bytes = 1;
     size_t slash = value.find('/');
     if (slash != std::string::npos) {
-        value = value.substr(0, slash);
+        const std::string value_part = trim_ascii(value.substr(0, slash));
+        const std::string resolution_part = trim_ascii(value.substr(slash + 1));
+        value = value_part;
+        if (!resolution_part.empty()) {
+            char *resolution_end = nullptr;
+            const long parsed_resolution = std::strtol(resolution_part.c_str(), &resolution_end, 10);
+            if (resolution_end != resolution_part.c_str() && parsed_resolution > 0L) {
+                resolution_bytes = static_cast<int>(std::clamp(parsed_resolution, 1L, 3L));
+            }
+        }
     }
-    value = trim_ascii(value);
 
     char *end = nullptr;
     const long parsed = std::strtol(value.c_str(), &end, 10);
-    if (end == value.c_str()) {
+    if (end == value.c_str() || parsed < 0L) {
         return -1;
     }
-    return static_cast<int>(std::clamp(parsed, 0L, 255L));
+
+    long max_value = 255L;
+    if (resolution_bytes == 2) {
+        max_value = 65535L;
+    } else if (resolution_bytes == 3) {
+        max_value = 16777215L;
+    }
+    const long clamped = std::clamp(parsed, 0L, max_value);
+    if (max_value == 255L) {
+        return static_cast<int>(clamped);
+    }
+    return static_cast<int>((clamped * 255L) / max_value);
 }
 
 std::string read_attr_ci(tinyxml2::XMLElement *node, const char *name_a, const char *name_b) {
@@ -786,6 +806,9 @@ void consume_gobo_channel_sets(tinyxml2::XMLElement *channel_function,
     }
 
     out_wheel.wheel_name = wheel_name;
+    const std::string function_name = read_attr_ci(channel_function, "Name", "name");
+    const peraviz::dmx::FixtureGoboRangeBehavior function_behavior_hint =
+        parse_gobo_range_behavior(function_name);
 
     const std::vector<int> &known_slot_order = wheel_it->second.declared_slot_order;
     std::unordered_set<int> known_slots = wheel_it->second.declared_slots;
@@ -857,8 +880,12 @@ void consume_gobo_channel_sets(tinyxml2::XMLElement *channel_function,
         const int dmx_to = raw_dmx_to < 0 ? -1 : resolve_channel_set_dmx(raw_dmx_to);
 
         const std::string channel_set_name = read_attr_ci(channel_set, "Name", "name");
-        const peraviz::dmx::FixtureGoboRangeBehavior behavior =
+        peraviz::dmx::FixtureGoboRangeBehavior behavior =
             parse_gobo_range_behavior(channel_set_name);
+        if (behavior == peraviz::dmx::FixtureGoboRangeBehavior::kFixed &&
+            function_behavior_hint != peraviz::dmx::FixtureGoboRangeBehavior::kFixed) {
+            behavior = function_behavior_hint;
+        }
         parsed_sets.push_back({dmx_from, dmx_to, slot_index, behavior});
     }
 
