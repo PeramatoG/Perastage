@@ -22,6 +22,7 @@ const GOBO_VECTOR_HEIGHT_META_KEY: String = "peraviz_gobo_vector_height"
 const GOBO_WHEEL_SPIN_META_KEY: String = "peraviz_gobo_wheel_spin"
 const GOBO_LAST_UPDATE_MSEC_META_KEY: String = "peraviz_gobo_last_update_msec"
 const GOBO_APPLIED_ROTATION_DEG_META_KEY: String = "peraviz_gobo_applied_rotation_deg"
+const GOBO_WHEEL_MODE_META_KEY: String = "peraviz_gobo_wheel_mode"
 const GOBO_INDEX_MAX_DEG: float = 360.0
 const GOBO_ROTATION_MAX_DEG_PER_SEC: float = 720.0
 
@@ -118,6 +119,8 @@ func _resolve_wheel_rotation_deg(light: SpotLight3D, controls: Dictionary, wheel
 	var behavior: int = int(wheel.get("behavior", GOBO_BEHAVIOR_FIXED))
 	var supports_index: bool = bool(wheel.get("supports_index", false)) or behavior == GOBO_BEHAVIOR_INDEX
 	var supports_rotation: bool = bool(wheel.get("supports_rotation", false)) or behavior == GOBO_BEHAVIOR_ROTATION or behavior == GOBO_BEHAVIOR_SHAKE
+	var effect_mode: int = _resolve_wheel_effect_mode(behavior, supports_index, supports_rotation)
+	_handle_wheel_mode_transition(light, wheel_key, effect_mode)
 
 	var index_norm: float = float(wheel.get("index_norm", -1.0))
 	if supports_index and index_norm < 0.0 and bool(controls.get("has_gobo_index", false)):
@@ -174,6 +177,35 @@ func _wheel_owns_rotation_control(wheel: Dictionary) -> bool:
 	if rotation_norm >= 0.0:
 		return true
 	return false
+
+func _resolve_wheel_effect_mode(behavior: int, supports_index: bool, supports_rotation: bool) -> int:
+	if behavior == GOBO_BEHAVIOR_SHAKE:
+		return GOBO_BEHAVIOR_SHAKE
+	if behavior == GOBO_BEHAVIOR_ROTATION:
+		return GOBO_BEHAVIOR_ROTATION
+	if behavior == GOBO_BEHAVIOR_INDEX:
+		return GOBO_BEHAVIOR_INDEX
+	if supports_rotation:
+		return GOBO_BEHAVIOR_ROTATION
+	if supports_index:
+		return GOBO_BEHAVIOR_INDEX
+	return GOBO_BEHAVIOR_FIXED
+
+func _handle_wheel_mode_transition(light: SpotLight3D, wheel_key: String, effect_mode: int) -> void:
+	var wheel_mode_state: Dictionary = light.get_meta(GOBO_WHEEL_MODE_META_KEY, {})
+	if wheel_mode_state is not Dictionary:
+		wheel_mode_state = {}
+	var previous_mode: int = int(wheel_mode_state.get(wheel_key, GOBO_BEHAVIOR_FIXED))
+	if previous_mode == effect_mode:
+		return
+	wheel_mode_state[wheel_key] = effect_mode
+	light.set_meta(GOBO_WHEEL_MODE_META_KEY, wheel_mode_state)
+	if effect_mode == GOBO_BEHAVIOR_INDEX:
+		var wheel_spin_state: Dictionary = light.get_meta(GOBO_WHEEL_SPIN_META_KEY, {})
+		if wheel_spin_state is not Dictionary:
+			wheel_spin_state = {}
+		wheel_spin_state[wheel_key] = 0.0
+		light.set_meta(GOBO_WHEEL_SPIN_META_KEY, wheel_spin_state)
 
 func _resolve_wheel_cache_key(wheel: Dictionary) -> String:
 	var wheel_number: int = int(wheel.get("wheel_number", 0))
@@ -235,6 +267,8 @@ func _clear_gobo_visuals(light: SpotLight3D) -> void:
 	_remove_gobo_plane(light)
 	_apply_gobo_rotation_to_light(light, GOBO_DEFAULT_ROTATION_DEG)
 	light.set_meta(GOBO_APPLIED_ROTATION_DEG_META_KEY, GOBO_DEFAULT_ROTATION_DEG)
+	light.remove_meta(GOBO_WHEEL_SPIN_META_KEY)
+	light.remove_meta(GOBO_WHEEL_MODE_META_KEY)
 
 func _ensure_gobo_plane(light: SpotLight3D) -> MeshInstance3D:
 	if light.has_meta(GOBO_PLANE_META_KEY):
