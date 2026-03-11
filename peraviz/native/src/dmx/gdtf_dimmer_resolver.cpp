@@ -256,7 +256,17 @@ bool starts_with_role_token(const std::string &attribute,
     return false;
 }
 
+bool matches_gobo_select_with_embedded_motion(const std::string &leaf) {
+    return leaf.find("selectspin") != std::string::npos ||
+           leaf.find("selectshake") != std::string::npos ||
+           leaf.find("selecteffects") != std::string::npos;
+}
+
 bool matches_gobo_attribute(const std::string &leaf) {
+    if (matches_gobo_select_with_embedded_motion(leaf)) {
+        return true;
+    }
+
     const std::array<std::string, 9> non_projector_tokens = {
         "spin", "shake", "audio", "random", "time", "mspeed", "speed", "reset", "rotate"};
     for (const std::string &token : non_projector_tokens) {
@@ -283,14 +293,26 @@ bool matches_gobo_attribute(const std::string &leaf) {
 }
 
 bool matches_gobo_index_attribute(const std::string &leaf) {
-    return leaf.find("gobo") != std::string::npos &&
-           (leaf.find("pos") != std::string::npos || leaf.find("index") != std::string::npos);
+    if (leaf.find("gobo") == std::string::npos) {
+        return false;
+    }
+    if (leaf.find("rotate") != std::string::npos || leaf.find("spin") != std::string::npos) {
+        return false;
+    }
+    return leaf.find("pos") != std::string::npos || leaf.find("index") != std::string::npos;
 }
 
 bool matches_gobo_rotation_attribute(const std::string &leaf) {
-    return leaf.find("gobo") != std::string::npos &&
-           (leaf.find("posrotate") != std::string::npos || leaf.find("spin") != std::string::npos ||
-            leaf.find("wheelspin") != std::string::npos);
+    if (leaf.find("gobo") == std::string::npos) {
+        return false;
+    }
+    if (matches_gobo_select_with_embedded_motion(leaf)) {
+        return false;
+    }
+    return leaf.find("posrotate") != std::string::npos ||
+           leaf.find("wheelspin") != std::string::npos ||
+           leaf.find("spin") != std::string::npos ||
+           leaf.find("rotate") != std::string::npos;
 }
 
 ParsedAttribute parse_attribute_name(const std::string &raw_attribute) {
