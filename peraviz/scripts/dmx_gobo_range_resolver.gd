@@ -26,6 +26,8 @@ static func resolve_active_range(raw_8bit: int, ranges: Array) -> Dictionary:
 		active_match = {
 			"slot_index": int(range_item.get("slot_index", 0)),
 			"behavior": int(range_item.get("behavior", GOBO_BEHAVIOR_FIXED)),
+			"dmx_from": dmx_from,
+			"dmx_to": dmx_to,
 		}
 		has_match = true
 
