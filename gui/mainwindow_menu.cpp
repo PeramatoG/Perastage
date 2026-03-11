@@ -648,6 +648,10 @@ void MainWindow::OnConvertToHoist(wxCommandEvent &WXUNUSED(event)) {
     s.layer = fixture.layer;
     s.capacityKg = 0.0f;
     s.weightKg = fixture.weightKg;
+    s.motorName = fixture.instanceName.empty() ? fixture.typeName : fixture.instanceName;
+    s.motorModel = fixture.gdtfMode;
+    s.motorFixtureUuid = fixture.uuid;
+    s.hoistDataSource = "Manual";
     s.hoistFunction = NormalizeHoistFunction(s.function);
     s.transform = fixture.transform;
 
