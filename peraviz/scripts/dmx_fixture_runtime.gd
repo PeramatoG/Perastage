@@ -14,6 +14,7 @@ const GOBO_BEHAVIOR_ROTATION: int = 2
 const GOBO_BEHAVIOR_SHAKE: int = 3
 
 const GoboVectorizationCacheScript = preload("res://scripts/gobo_vectorization/gobo_vectorization_cache.gd")
+const DmxGoboRangeResolverScript = preload("res://scripts/dmx_gobo_range_resolver.gd")
 
 var _loader = null
 var _scene_registry: SceneRegistry = null
@@ -299,24 +300,7 @@ func _resolve_raw_to_8bit(raw_value: int, resolution_bits: int) -> int:
 	return clampi(raw_value, 0, 255)
 
 func _resolve_gobo_range(raw_8bit: int, ranges: Array) -> Dictionary:
-	for item in ranges:
-		if item is not Dictionary:
-			continue
-		var dmx_from: int = int(item.get("dmx_from", 0))
-		var dmx_to: int = int(item.get("dmx_to", dmx_from))
-		if dmx_to < dmx_from:
-			var temp: int = dmx_from
-			dmx_from = dmx_to
-			dmx_to = temp
-		if raw_8bit >= dmx_from and raw_8bit <= dmx_to:
-			return {
-				"slot_index": int(item.get("slot_index", 0)),
-				"behavior": int(item.get("behavior", GOBO_BEHAVIOR_FIXED)),
-			}
-	return {
-		"slot_index": 0,
-		"behavior": GOBO_BEHAVIOR_FIXED,
-	}
+	return DmxGoboRangeResolverScript.resolve_active_range(raw_8bit, ranges)
 
 func _resolve_gobo_slot_from_ranges(raw_8bit: int, ranges: Array) -> int:
 	return int(_resolve_gobo_range(raw_8bit, ranges).get("slot_index", 0))
