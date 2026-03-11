@@ -843,6 +843,9 @@ void consume_gobo_channel_sets(tinyxml2::XMLElement *channel_function,
     };
 
     int last_slot_index = -1;
+    if (!out_wheel.ranges.empty()) {
+        last_slot_index = out_wheel.ranges.back().slot_index;
+    }
     for (tinyxml2::XMLElement *channel_set = channel_function->FirstChildElement(); channel_set;
          channel_set = channel_set->NextSiblingElement()) {
         if (lower_ascii(channel_set->Name()) != "channelset") {

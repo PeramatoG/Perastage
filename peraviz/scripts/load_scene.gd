@@ -1346,7 +1346,10 @@ func _find_axis_for_role(axis_nodes: Array, role: String) -> Node3D:
 
 func _apply_dmx_controls_to_fixture(fixture_uuid: String, controls: Dictionary) -> void:
 	controls["fixture_uuid"] = fixture_uuid
-	controls["frame_delta_sec"] = max(float(controls.get("frame_delta_sec", 0.0)), 0.0)
+	if not controls.has("frame_delta_sec"):
+		controls["frame_delta_sec"] = get_process_delta_time()
+	else:
+		controls["frame_delta_sec"] = max(float(controls.get("frame_delta_sec", 0.0)), 0.0)
 	if controls.get("has_pan", false) or controls.get("has_tilt", false):
 		var has_pan: bool = bool(controls.get("has_pan", false))
 		var has_tilt: bool = bool(controls.get("has_tilt", false))
