@@ -133,6 +133,7 @@ add_executable(save_load_roundtrip_test save_load_roundtrip_test.cpp
                ../core/trussloader.cpp
                ../core/truss_gdtf_builder.cpp
                ../core/uuidutils.cpp
+               ../core/dummyprofilelibrary.cpp
                ../mvr/mvrimporter.cpp
                ../mvr/mvrexporter.cpp
                ../core/logger.cpp
@@ -181,6 +182,7 @@ add_executable(rider_truss_dictionary_normalization_test
                ../core/trussdictionary.cpp
                ../core/trussloader.cpp
                ../core/truss_gdtf_builder.cpp
+               ../core/dummyprofilelibrary.cpp
                ../mvr/mvrimporter.cpp
                ../mvr/mvrexporter.cpp
                ../core/logger.cpp
@@ -205,6 +207,7 @@ add_executable(mvr_dmx_address_test mvr_dmx_address_test.cpp
                ../core/trussloader.cpp
                ../core/truss_gdtf_builder.cpp
                ../core/uuidutils.cpp
+               ../core/dummyprofilelibrary.cpp
                ../mvr/mvrimporter.cpp
                ../core/logger.cpp
                gdtfloader_stub.cpp
@@ -231,6 +234,7 @@ add_executable(mvr_exporter_compliance_test mvr_exporter_compliance_test.cpp
                ../core/trussloader.cpp
                ../core/truss_gdtf_builder.cpp
                ../core/uuidutils.cpp
+               ../core/dummyprofilelibrary.cpp
                ../mvr/mvrimporter.cpp
                ../mvr/mvrexporter.cpp
                ../core/logger.cpp
@@ -264,6 +268,7 @@ add_executable(rider_save_roundtrip_test rider_save_roundtrip_test.cpp
                ../core/trussdictionary.cpp
                ../core/trussloader.cpp
                ../core/truss_gdtf_builder.cpp
+               ../core/dummyprofilelibrary.cpp
                ../mvr/mvrimporter.cpp
                ../mvr/mvrexporter.cpp
                ../core/logger.cpp
@@ -501,4 +506,3 @@ add_executable(support_resolution_test
                support_resolution_test.cpp)
 target_include_directories(support_resolution_test PRIVATE ../models)
 add_test(NAME SupportResolution COMMAND support_resolution_test)
-

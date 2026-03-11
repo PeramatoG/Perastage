@@ -3,6 +3,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/configmanager.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/configservices.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/credentialstore.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/dummyprofilelibrary.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtfdictionary.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtfnet.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/geometry/RdpSimplifier.cpp

@@ -17,6 +17,7 @@
  */
 #include "mvrimporter.h"
 #include "configmanager.h"
+#include "dummyprofilelibrary.h"
 #include "gdtfdictionary.h"
 #include "gdtfloader.h"
 #include "matrixutils.h"
@@ -1178,12 +1179,22 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                 if (const char *txt = dp->GetText())
                   support.dummyPreset = Trim(txt);
               }
+              if (tinyxml2::XMLElement *dpi = info->FirstChildElement("DummyProfileId")) {
+                if (const char *txt = dpi->GetText())
+                  support.dummyProfileId = Trim(txt);
+              }
               if (tinyxml2::XMLElement *ds = info->FirstChildElement("DataSource")) {
                 if (const char *txt = ds->GetText())
                   support.hoistDataSource = NormalizeHoistDataSource(Trim(txt));
               }
             }
           }
+        }
+
+        if (support.dummyProfileId.empty() && !support.dummyPreset.empty()) {
+          const auto profile = DummyProfileLibrary::FindByDisplayName(support.dummyPreset);
+          if (profile.has_value())
+            support.dummyProfileId = profile->id;
         }
 
         if (support.hoistFunction.empty())

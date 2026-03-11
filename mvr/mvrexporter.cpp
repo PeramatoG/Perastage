@@ -17,6 +17,7 @@
  */
 #include "mvrexporter.h"
 #include "configmanager.h"
+#include "dummyprofilelibrary.h"
 #include "matrixutils.h"
 #include "support.h"
 #include "uuidutils.h"
@@ -1312,6 +1313,7 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
                    !s.hoistFunction.empty() || !s.motorName.empty() ||
                    !s.motorManufacturer.empty() || !s.motorModel.empty() ||
                    !s.motorFixtureUuid.empty() || !s.useMotorDefaults ||
+                   !s.dummyProfileId.empty() ||
                    !s.dummyPreset.empty() ||
                    NormalizeHoistDataSource(s.hoistDataSource) != "Inherited";
     if (hasMeta) {
@@ -1365,10 +1367,22 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
         defaultsNode->SetText("false");
         info->InsertEndChild(defaultsNode);
       }
+      if (!s.dummyProfileId.empty()) {
+        tinyxml2::XMLElement *profileIdNode = doc.NewElement("DummyProfileId");
+        profileIdNode->SetText(s.dummyProfileId.c_str());
+        info->InsertEndChild(profileIdNode);
+      }
       if (!s.dummyPreset.empty()) {
         tinyxml2::XMLElement *presetNode = doc.NewElement("DummyPreset");
         presetNode->SetText(s.dummyPreset.c_str());
         info->InsertEndChild(presetNode);
+      } else if (!s.dummyProfileId.empty()) {
+        const auto profile = DummyProfileLibrary::FindById(s.dummyProfileId);
+        if (profile.has_value()) {
+          tinyxml2::XMLElement *presetNode = doc.NewElement("DummyPreset");
+          presetNode->SetText(profile->displayName.c_str());
+          info->InsertEndChild(presetNode);
+        }
       }
       tinyxml2::XMLElement *sourceNode = doc.NewElement("DataSource");
       const std::string source = NormalizeHoistDataSource(s.hoistDataSource);
