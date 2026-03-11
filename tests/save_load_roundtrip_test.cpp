@@ -56,12 +56,12 @@ int main() {
     SceneObject o; o.uuid = "obj1"; o.name = "Object"; o.layer = layer.name; scene.sceneObjects[o.uuid] = o;
 
     Support sManual; sManual.uuid = "sup-manual"; sManual.name = "Manual Hoist"; sManual.layer = layer.name;
-    sManual.motorName = "ChainMaster D8+"; sManual.dummyPreset = "D8+ 1000kg";
+    sManual.motorName = "ChainMaster D8+"; sManual.motorManufacturer = "ChainMaster"; sManual.motorModel = "D8+"; sManual.dummyPreset = "D8+ 1000kg";
     sManual.hoistDataSource = "Manual"; sManual.hoistFunction = "Audio";
     sManual.capacityKg = 700.0f; sManual.weightKg = 40.0f; scene.supports[sManual.uuid] = sManual;
 
     Support sInherited; sInherited.uuid = "sup-inherited"; sInherited.name = "Inherited Hoist"; sInherited.layer = layer.name;
-    sInherited.motorName = "CM Lodestar"; sInherited.dummyPreset = "Lodestar 500kg";
+    sInherited.motorName = "CM Lodestar"; sInherited.motorFixtureUuid = "fx1"; sInherited.useMotorDefaults = false; sInherited.dummyPreset = "Lodestar 500kg";
     sInherited.hoistDataSource = "Inherited"; scene.supports[sInherited.uuid] = sInherited;
 
     std::filesystem::path temp = std::filesystem::temp_directory_path() / "roundtrip_test.pera";
@@ -88,6 +88,8 @@ int main() {
 
     const auto &loadedManual = scene2.supports.at("sup-manual");
     assert(loadedManual.motorName == "ChainMaster D8+");
+    assert(loadedManual.motorManufacturer == "ChainMaster");
+    assert(loadedManual.motorModel == "D8+");
     assert(loadedManual.dummyPreset == "D8+ 1000kg");
     assert(loadedManual.hoistDataSource == "Manual");
     assert(loadedManual.capacityKg == 700.0f);
@@ -95,6 +97,8 @@ int main() {
 
     const auto &loadedInherited = scene2.supports.at("sup-inherited");
     assert(loadedInherited.motorName == "CM Lodestar");
+    assert(loadedInherited.motorFixtureUuid == "fx1");
+    assert(!loadedInherited.useMotorDefaults);
     assert(loadedInherited.dummyPreset == "Lodestar 500kg");
     assert(loadedInherited.hoistDataSource == "Inherited");
 

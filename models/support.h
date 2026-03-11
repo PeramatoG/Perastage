@@ -23,7 +23,9 @@
 #include <charconv>
 #include <optional>
 #include <string>
+
 #include "types.h"
+#include "fixture.h"
 
 // Represents a hoist parsed from MVR
 struct Support {
@@ -40,6 +42,12 @@ struct Support {
     float capacityKg = 0.0f;
     float weightKg = 0.0f;
     std::string motorName;
+    std::string motorManufacturer;
+    std::string motorModel;
+    // Stable fixture UUID linked to this hoist motor metadata.
+    std::string motorFixtureUuid;
+    // Enables inheriting missing values from linked fixture/preset defaults.
+    bool useMotorDefaults = true;
     std::string dummyPreset;
     // Defines whether values come from library defaults or user overrides.
     std::string hoistDataSource = "Inherited";
@@ -116,37 +124,97 @@ inline bool IsManualHoistDataSource(const std::string &source) {
 }
 
 struct HoistPresetDefaults {
+    std::string motorName;
+    std::string motorManufacturer;
+    std::string motorModel;
+    float capacityKg = 0.0f;
+    float weightKg = 0.0f;
+    std::string hoistFunction;
+};
+
+struct HoistFixtureDefaults {
+    std::string motorName;
+    std::string motorManufacturer;
+    std::string motorModel;
     float capacityKg = 0.0f;
     float weightKg = 0.0f;
     std::string hoistFunction;
 };
 
 struct EffectiveSupportData {
+    std::string motorName;
+    std::string motorManufacturer;
+    std::string motorModel;
     float capacityKg = 0.0f;
     float weightKg = 0.0f;
     std::string hoistFunction = "Lighting";
     std::string dataSource = "Inherited";
 };
 
+
+
+inline HoistFixtureDefaults BuildHoistFixtureDefaults(const Fixture &fixture) {
+    HoistFixtureDefaults defaults;
+    defaults.motorName = fixture.typeName;
+    defaults.motorManufacturer = "";
+    defaults.motorModel = fixture.gdtfMode;
+    defaults.capacityKg = 0.0f;
+    defaults.weightKg = fixture.weightKg;
+    defaults.hoistFunction = NormalizeHoistFunction(fixture.function);
+    return defaults;
+}
+
+inline bool HasManualNumeric(float value) { return value > 0.0f; }
+
+inline bool HasManualText(const std::string &value) { return !value.empty(); }
+
 inline EffectiveSupportData ResolveEffectiveSupportData(
     const Support &support,
-    const std::optional<HoistPresetDefaults> &presetDefaults = std::nullopt) {
+    const std::optional<HoistPresetDefaults> &presetDefaults = std::nullopt,
+    const std::optional<HoistFixtureDefaults> &fixtureDefaults = std::nullopt) {
     EffectiveSupportData resolved;
-    resolved.dataSource = NormalizeHoistDataSource(support.hoistDataSource);
+    const std::string normalizedSource = NormalizeHoistDataSource(support.hoistDataSource);
+    resolved.dataSource = normalizedSource;
 
-    if (resolved.dataSource == "Inherited" && presetDefaults.has_value()) {
-        resolved.capacityKg = presetDefaults->capacityKg;
-        resolved.weightKg = presetDefaults->weightKg;
-        const std::string inheritedFunction =
-            presetDefaults->hoistFunction.empty() ? support.hoistFunction
-                                                  : presetDefaults->hoistFunction;
-        resolved.hoistFunction = NormalizeHoistFunction(inheritedFunction);
-        return resolved;
-    }
-
+    resolved.motorName = support.motorName;
+    resolved.motorManufacturer = support.motorManufacturer;
+    resolved.motorModel = support.motorModel;
     resolved.capacityKg = support.capacityKg;
     resolved.weightKg = support.weightKg;
     resolved.hoistFunction = NormalizeHoistFunction(
         support.hoistFunction.empty() ? support.function : support.hoistFunction);
+
+    if (normalizedSource == "Manual")
+        return resolved;
+
+    if (!support.useMotorDefaults)
+        return resolved;
+
+    auto applyDefaults = [&](const auto &defaults, const char *sourceLabel) {
+        if (!HasManualText(resolved.motorName) && HasManualText(defaults.motorName))
+            resolved.motorName = defaults.motorName;
+        if (!HasManualText(resolved.motorManufacturer) &&
+            HasManualText(defaults.motorManufacturer)) {
+            resolved.motorManufacturer = defaults.motorManufacturer;
+        }
+        if (!HasManualText(resolved.motorModel) && HasManualText(defaults.motorModel))
+            resolved.motorModel = defaults.motorModel;
+        if (!HasManualNumeric(resolved.capacityKg) && HasManualNumeric(defaults.capacityKg))
+            resolved.capacityKg = defaults.capacityKg;
+        if (!HasManualNumeric(resolved.weightKg) && HasManualNumeric(defaults.weightKg))
+            resolved.weightKg = defaults.weightKg;
+        if (NormalizeHoistFunction(resolved.hoistFunction) == "Lighting" &&
+            HasManualText(defaults.hoistFunction)) {
+            resolved.hoistFunction = NormalizeHoistFunction(defaults.hoistFunction);
+        }
+        resolved.dataSource = sourceLabel;
+    };
+
+    if (fixtureDefaults.has_value())
+        applyDefaults(*fixtureDefaults, "Fixture");
+
+    if (presetDefaults.has_value())
+        applyDefaults(*presetDefaults, "Inherited");
+
     return resolved;
 }
