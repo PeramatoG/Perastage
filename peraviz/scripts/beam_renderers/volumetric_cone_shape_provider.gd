@@ -42,5 +42,5 @@ func apply_shape(beam: MeshInstance3D, _light: SpotLight3D, params: Dictionary) 
 func _apply_beam_axis_rotation(node: Node3D, beam_rotation_deg: float) -> void:
 	if node == null:
 		return
-	var base_basis: Basis = Basis(Vector3.RIGHT, deg_to_rad(90.0))
-	node.basis = base_basis * Basis(Vector3.FORWARD, deg_to_rad(beam_rotation_deg))
+	node.rotation = Vector3(deg_to_rad(90.0), 0.0, 0.0)
+	node.rotate_object_local(Vector3.FORWARD, deg_to_rad(beam_rotation_deg))
