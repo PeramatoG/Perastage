@@ -495,3 +495,10 @@ add_executable(project_session_io_test
 target_include_directories(project_session_io_test PRIVATE ../core ../third_party ../models)
 target_link_libraries(project_session_io_test PRIVATE ${wxWidgets_LIBRARIES})
 add_test(NAME ProjectSessionIO COMMAND project_session_io_test)
+
+
+add_executable(support_resolution_test
+               support_resolution_test.cpp)
+target_include_directories(support_resolution_test PRIVATE ../models)
+add_test(NAME SupportResolution COMMAND support_resolution_test)
+

@@ -1310,6 +1310,8 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
 
     bool hasMeta = s.capacityKg != 0.0f || s.weightKg != 0.0f ||
                    !s.hoistFunction.empty() || !s.motorName.empty() ||
+                   !s.motorManufacturer.empty() || !s.motorModel.empty() ||
+                   !s.motorFixtureUuid.empty() || !s.useMotorDefaults ||
                    !s.dummyPreset.empty() ||
                    NormalizeHoistDataSource(s.hoistDataSource) != "Inherited";
     if (hasMeta) {
@@ -1342,6 +1344,26 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
         tinyxml2::XMLElement *motorNode = doc.NewElement("MotorName");
         motorNode->SetText(s.motorName.c_str());
         info->InsertEndChild(motorNode);
+      }
+      if (!s.motorManufacturer.empty()) {
+        tinyxml2::XMLElement *manufacturerNode = doc.NewElement("MotorManufacturer");
+        manufacturerNode->SetText(s.motorManufacturer.c_str());
+        info->InsertEndChild(manufacturerNode);
+      }
+      if (!s.motorModel.empty()) {
+        tinyxml2::XMLElement *modelNode = doc.NewElement("MotorModel");
+        modelNode->SetText(s.motorModel.c_str());
+        info->InsertEndChild(modelNode);
+      }
+      if (!s.motorFixtureUuid.empty()) {
+        tinyxml2::XMLElement *fixtureNode = doc.NewElement("MotorFixtureUuid");
+        fixtureNode->SetText(s.motorFixtureUuid.c_str());
+        info->InsertEndChild(fixtureNode);
+      }
+      if (!s.useMotorDefaults) {
+        tinyxml2::XMLElement *defaultsNode = doc.NewElement("UseMotorDefaults");
+        defaultsNode->SetText("false");
+        info->InsertEndChild(defaultsNode);
       }
       if (!s.dummyPreset.empty()) {
         tinyxml2::XMLElement *presetNode = doc.NewElement("DummyPreset");

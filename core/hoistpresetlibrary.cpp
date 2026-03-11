@@ -54,6 +54,8 @@ std::vector<HoistPreset> LoadPresets() {
     preset.id = entry.value("id", "");
     preset.name = entry.value("name", "");
     preset.motorName = entry.value("motorName", "");
+    preset.motorManufacturer = entry.value("motorManufacturer", "");
+    preset.motorModel = entry.value("motorModel", "");
     preset.dummyPreset = entry.value("dummyPreset", "");
     preset.capacityKg = ReadFloat(entry, "capacityKg");
     preset.weightKg = ReadFloat(entry, "weightKg");

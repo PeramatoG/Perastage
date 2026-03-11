@@ -205,6 +205,10 @@ int main() {
   sup.name = "Hoist 1";
   sup.gdtfSpec = (tempDir / "A" / "Same.gdtf").generic_string();
   sup.motorName = "ChainMaster D8+";
+  sup.motorManufacturer = "ChainMaster";
+  sup.motorModel = "D8+";
+  sup.motorFixtureUuid = "fx-1";
+  sup.useMotorDefaults = false;
   sup.dummyPreset = "D8+ 1000kg";
   sup.hoistDataSource = "Manual";
   sup.hoistFunction = "Lighting";
@@ -278,6 +282,18 @@ int main() {
             auto *motorNode = info->FirstChildElement("MotorName");
             assert(motorNode != nullptr && motorNode->GetText() != nullptr);
             assert(std::string(motorNode->GetText()) == "ChainMaster D8+");
+            auto *manufacturerNode = info->FirstChildElement("MotorManufacturer");
+            assert(manufacturerNode != nullptr && manufacturerNode->GetText() != nullptr);
+            assert(std::string(manufacturerNode->GetText()) == "ChainMaster");
+            auto *modelNode = info->FirstChildElement("MotorModel");
+            assert(modelNode != nullptr && modelNode->GetText() != nullptr);
+            assert(std::string(modelNode->GetText()) == "D8+");
+            auto *fixtureNode = info->FirstChildElement("MotorFixtureUuid");
+            assert(fixtureNode != nullptr && fixtureNode->GetText() != nullptr);
+            assert(std::string(fixtureNode->GetText()) == "fx-1");
+            auto *defaultsNode = info->FirstChildElement("UseMotorDefaults");
+            assert(defaultsNode != nullptr && defaultsNode->GetText() != nullptr);
+            assert(std::string(defaultsNode->GetText()) == "false");
 
             auto *dummyNode = info->FirstChildElement("DummyPreset");
             assert(dummyNode != nullptr && dummyNode->GetText() != nullptr);

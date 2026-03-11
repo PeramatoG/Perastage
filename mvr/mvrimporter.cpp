@@ -75,6 +75,13 @@ static std::string Trim(const std::string &s) {
   return s.substr(start, end - start + 1);
 }
 
+
+static std::string ToLowerCopy(std::string s) {
+  std::transform(s.begin(), s.end(), s.begin(),
+                 [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+  return s;
+}
+
 static std::string NormalizeSlashes(std::string path) {
   std::replace(path.begin(), path.end(), '\\', '/');
   return path;
@@ -1148,6 +1155,24 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
               if (tinyxml2::XMLElement *mn = info->FirstChildElement("MotorName")) {
                 if (const char *txt = mn->GetText())
                   support.motorName = Trim(txt);
+              }
+              if (tinyxml2::XMLElement *mm = info->FirstChildElement("MotorManufacturer")) {
+                if (const char *txt = mm->GetText())
+                  support.motorManufacturer = Trim(txt);
+              }
+              if (tinyxml2::XMLElement *model = info->FirstChildElement("MotorModel")) {
+                if (const char *txt = model->GetText())
+                  support.motorModel = Trim(txt);
+              }
+              if (tinyxml2::XMLElement *mfu = info->FirstChildElement("MotorFixtureUuid")) {
+                if (const char *txt = mfu->GetText())
+                  support.motorFixtureUuid = Trim(txt);
+              }
+              if (tinyxml2::XMLElement *umd = info->FirstChildElement("UseMotorDefaults")) {
+                if (const char *txt = umd->GetText()) {
+                  const std::string value = ToLowerCopy(Trim(txt));
+                  support.useMotorDefaults = !(value == "false" || value == "0" || value == "no");
+                }
               }
               if (tinyxml2::XMLElement *dp = info->FirstChildElement("DummyPreset")) {
                 if (const char *txt = dp->GetText())

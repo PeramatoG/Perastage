@@ -67,10 +67,24 @@ std::optional<HoistPresetDefaults> FindPresetDefaults(const std::string &dummyPr
   if (!preset.has_value())
     return std::nullopt;
   HoistPresetDefaults defaults;
+  defaults.motorName = preset->motorName;
+  defaults.motorManufacturer = preset->motorManufacturer;
+  defaults.motorModel = preset->motorModel;
   defaults.capacityKg = preset->capacityKg;
   defaults.weightKg = preset->weightKg;
   defaults.hoistFunction = preset->hoistFunction;
   return defaults;
+}
+
+
+std::optional<HoistFixtureDefaults> FindFixtureDefaults(const MvrScene &scene,
+                                                       const Support &support) {
+  if (support.motorFixtureUuid.empty())
+    return std::nullopt;
+  auto it = scene.fixtures.find(support.motorFixtureUuid);
+  if (it == scene.fixtures.end())
+    return std::nullopt;
+  return BuildHoistFixtureDefaults(it->second);
 }
 
 wxArrayString BuildDummyPresetChoices() {
@@ -180,6 +194,7 @@ void HoistTablePanel::InitializeTable() {
 void HoistTablePanel::ReloadData() {
   table->DeleteAllItems();
   rowUuids.clear();
+  const MvrScene &scene = guiConfigServices->LegacyConfigManager().GetScene();
   auto &supports = guiConfigServices->LegacyConfigManager().GetScene().supports;
 
   std::vector<std::pair<std::string, Support *>> sorted;
@@ -208,10 +223,11 @@ void HoistTablePanel::ReloadData() {
     wxString type = wxString::FromUTF8(support.function);
     support.hoistDataSource = NormalizeHoistDataSource(support.hoistDataSource);
     const auto effective =
-        ResolveEffectiveSupportData(support, FindPresetDefaults(support.dummyPreset));
+        ResolveEffectiveSupportData(support, FindPresetDefaults(support.dummyPreset),
+                                    FindFixtureDefaults(scene, support));
     support.hoistFunction = NormalizeHoistFunction(support.hoistFunction);
     wxString hoistFunction = wxString::FromUTF8(effective.hoistFunction);
-    wxString motorName = wxString::FromUTF8(support.motorName);
+    wxString motorName = wxString::FromUTF8(effective.motorName);
     wxString dummyPreset = wxString::FromUTF8(support.dummyPreset);
     wxString dataSource = wxString::FromUTF8(support.hoistDataSource);
     wxString layer = support.layer == DEFAULT_LAYER_NAME
@@ -728,7 +744,9 @@ void HoistTablePanel::UpdateSceneData(bool logChanges) {
 
     if (!IsManualHoistDataSource(next.hoistDataSource)) {
       const auto effective =
-          ResolveEffectiveSupportData(next, FindPresetDefaults(next.dummyPreset));
+          ResolveEffectiveSupportData(next, FindPresetDefaults(next.dummyPreset),
+                                      FindFixtureDefaults(scene, next));
+      next.motorName = effective.motorName;
       next.capacityKg = effective.capacityKg;
       next.weightKg = effective.weightKg;
       next.hoistFunction = effective.hoistFunction;
