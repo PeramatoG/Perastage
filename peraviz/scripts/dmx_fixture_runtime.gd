@@ -279,6 +279,7 @@ func _build_runtime_gobo_bindings(binding: Dictionary, frame: PackedByteArray) -
 			supports_rotation = has_rotation_channel
 		var index_norm: float = -1.0
 		var rotation_norm: float = -1.0
+		var rotation_from_range: bool = false
 		var has_range_physical_limits: bool = bool(active_range.get("has_physical_limits", false))
 		var range_physical_from: float = float(active_range.get("physical_from", 0.0))
 		var range_physical_to: float = float(active_range.get("physical_to", 0.0))
@@ -289,6 +290,7 @@ func _build_runtime_gobo_bindings(binding: Dictionary, frame: PackedByteArray) -
 		if supports_rotation:
 			rotation_norm = _read_optional_control_norm(frame, int(item.get("rotation_channel_index_0", -1)), int(item.get("rotation_fine_channel_index_0", -1)), int(item.get("rotation_ultra_fine_channel_index_0", -1)))
 			if rotation_norm < 0.0 and (range_behavior == GOBO_BEHAVIOR_ROTATION or range_behavior == GOBO_BEHAVIOR_SHAKE):
+				rotation_from_range = true
 				rotation_norm = _resolve_norm_from_active_range(raw_8bit, active_range)
 				if has_range_physical_limits:
 					range_physical_from = _resolve_physical_from_active_range(int(active_range.get("dmx_from", raw_8bit)), active_range, range_physical_from)
@@ -307,6 +309,7 @@ func _build_runtime_gobo_bindings(binding: Dictionary, frame: PackedByteArray) -
 			"has_rotation_physical_limits": bool(item.get("has_rotation_physical_limits", false)),
 			"rotation_physical_min": float(item.get("rotation_physical_min", 0.0)),
 			"rotation_physical_max": float(item.get("rotation_physical_max", 0.0)),
+			"rotation_from_range": rotation_from_range,
 			"has_range_physical_limits": has_range_physical_limits,
 			"range_physical_from": range_physical_from,
 			"range_physical_to": range_physical_to,
