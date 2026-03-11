@@ -335,15 +335,20 @@ peraviz::dmx::FixtureGoboRangeBehavior parse_gobo_range_behavior(const std::stri
     if (lower_name.find("shake") != std::string::npos) {
         return peraviz::dmx::FixtureGoboRangeBehavior::kShake;
     }
+    // Keep explicit spin/rotation detection ahead of generic "pos" matching,
+    // because names like "Gobo1PosRotate" include both tokens.
+    if (lower_name.find("posrotate") != std::string::npos ||
+        lower_name.find("wheelspin") != std::string::npos ||
+        lower_name.find("spin") != std::string::npos ||
+        lower_name.find("rotation") != std::string::npos ||
+        lower_name.find("rotate") != std::string::npos) {
+        return peraviz::dmx::FixtureGoboRangeBehavior::kRotation;
+    }
     // Prioritize explicit index/position semantics over generic rotate tokens,
     // because some fixture libraries include both terms in index range names.
     if (lower_name.find("index") != std::string::npos ||
         lower_name.find("pos") != std::string::npos) {
         return peraviz::dmx::FixtureGoboRangeBehavior::kIndex;
-    }
-    if (lower_name.find("spin") != std::string::npos ||
-        lower_name.find("rotate") != std::string::npos) {
-        return peraviz::dmx::FixtureGoboRangeBehavior::kRotation;
     }
     return peraviz::dmx::FixtureGoboRangeBehavior::kFixed;
 }
@@ -856,7 +861,6 @@ void consume_gobo_channel_sets(tinyxml2::XMLElement *channel_function,
         if (slot_index <= 0) {
             slot_index = parse_positive_int(channel_set->Attribute("wheelslotindex"));
         }
-        const int declared_slot_index = slot_index;
         // GDTF ChannelSet may omit WheelSlotIndex in motion ranges (index/spin/shake).
         // Reuse the previous valid slot so behavior is tied to the selected gobo slot.
         if (slot_index <= 0) {
@@ -886,10 +890,11 @@ void consume_gobo_channel_sets(tinyxml2::XMLElement *channel_function,
         const std::string channel_set_name = read_attr_ci(channel_set, "Name", "name");
         peraviz::dmx::FixtureGoboRangeBehavior behavior =
             parse_gobo_range_behavior(channel_set_name);
-        const bool allow_function_hint = declared_slot_index <= 0 || channel_set_name.empty();
         if (behavior == peraviz::dmx::FixtureGoboRangeBehavior::kFixed &&
-            function_behavior_hint != peraviz::dmx::FixtureGoboRangeBehavior::kFixed &&
-            allow_function_hint) {
+            function_behavior_hint != peraviz::dmx::FixtureGoboRangeBehavior::kFixed) {
+            // GDTF libraries often encode the motion semantic at ChannelFunction level
+            // (e.g. "Gobo 1 Rotation") while ChannelSet rows only carry slot names.
+            // In that case, inherit the function behavior for all rows.
             behavior = function_behavior_hint;
         }
         parsed_sets.push_back({dmx_from, dmx_to, slot_index, behavior});
