@@ -643,7 +643,12 @@ std::string ensure_gobo_media_extracted(const std::string &gdtf_path,
     return {};
 }
 
-typedef std::unordered_map<std::string, std::unordered_map<int, std::string>> GoboWheelCatalog;
+struct GoboWheelDefinition {
+    std::unordered_set<int> declared_slots;
+    std::unordered_map<int, std::string> slot_images;
+};
+
+typedef std::unordered_map<std::string, GoboWheelDefinition> GoboWheelCatalog;
 
 GoboWheelCatalog build_gobo_wheel_catalog(const std::string &gdtf_path, tinyxml2::XMLElement *root) {
     GoboWheelCatalog out;
@@ -677,6 +682,9 @@ GoboWheelCatalog build_gobo_wheel_catalog(const std::string &gdtf_path, tinyxml2
             }
             implicit_index = std::max(implicit_index, slot_index + 1);
 
+            GoboWheelDefinition &wheel_definition = out[wheel_name];
+            wheel_definition.declared_slots.insert(slot_index);
+
             const std::string media_file = read_attr_ci(slot_node, "MediaFileName", "mediafilename");
             if (media_file.empty()) {
                 continue;
@@ -684,7 +692,7 @@ GoboWheelCatalog build_gobo_wheel_catalog(const std::string &gdtf_path, tinyxml2
 
             const std::string extracted = ensure_gobo_media_extracted(gdtf_path, cache, media_file);
             if (!extracted.empty()) {
-                out[wheel_name][slot_index] = extracted;
+                wheel_definition.slot_images[slot_index] = extracted;
             }
         }
     }
@@ -711,12 +719,11 @@ void consume_gobo_channel_sets(tinyxml2::XMLElement *channel_function,
 
     out_wheel.wheel_name = wheel_name;
 
-    std::unordered_set<int> known_slots;
-    for (const auto &[slot_index, image_path] : wheel_it->second) {
+    std::unordered_set<int> known_slots = wheel_it->second.declared_slots;
+    for (const auto &[slot_index, image_path] : wheel_it->second.slot_images) {
         if (slot_index <= 0 || image_path.empty()) {
             continue;
         }
-        known_slots.insert(slot_index);
         out_wheel.slots.push_back({slot_index, image_path});
     }
 
