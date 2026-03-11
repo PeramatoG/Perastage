@@ -63,6 +63,7 @@ func apply_gobo_projection(light: SpotLight3D, controls: Dictionary) -> bool:
 	var source_textures: Array[Texture2D] = []
 	var global_rotation_deg: float = float(controls.get("gobo_rotation_deg", GOBO_DEFAULT_ROTATION_DEG))
 	var projected_rotation_deg: float = global_rotation_deg
+	var has_bound_wheel_rotation: bool = false
 
 	for wheel in runtime_bindings:
 		if wheel is not Dictionary:
@@ -76,7 +77,13 @@ func apply_gobo_projection(light: SpotLight3D, controls: Dictionary) -> bool:
 		var gobo_texture: Texture2D = _resolve_gobo_texture_for_slot(wheel_controls, slot_index)
 		if gobo_texture == null:
 			continue
-		projected_rotation_deg = _resolve_wheel_rotation_deg(light, controls, wheel, global_rotation_deg, delta_sec)
+
+		var wheel_rotation_deg: float = _resolve_wheel_rotation_deg(light, controls, wheel, global_rotation_deg, delta_sec)
+		if _wheel_owns_rotation_control(wheel):
+			projected_rotation_deg = wheel_rotation_deg
+			has_bound_wheel_rotation = true
+		elif not has_bound_wheel_rotation:
+			projected_rotation_deg = wheel_rotation_deg
 		source_textures.append(gobo_texture)
 
 	if source_textures.is_empty():
@@ -152,6 +159,21 @@ func _resolve_wheel_rotation_deg(light: SpotLight3D, controls: Dictionary, wheel
 		return base_rotation_deg
 
 	return base_rotation_deg + spin_angle_deg
+
+
+func _wheel_owns_rotation_control(wheel: Dictionary) -> bool:
+	if wheel.is_empty():
+		return false
+	var behavior: int = int(wheel.get("behavior", GOBO_BEHAVIOR_FIXED))
+	if behavior == GOBO_BEHAVIOR_INDEX or behavior == GOBO_BEHAVIOR_ROTATION or behavior == GOBO_BEHAVIOR_SHAKE:
+		return true
+	var index_norm: float = float(wheel.get("index_norm", -1.0))
+	if index_norm >= 0.0:
+		return true
+	var rotation_norm: float = float(wheel.get("rotation_norm", -1.0))
+	if rotation_norm >= 0.0:
+		return true
+	return bool(wheel.get("supports_index", false)) or bool(wheel.get("supports_rotation", false))
 
 func _resolve_wheel_cache_key(wheel: Dictionary) -> String:
 	var wheel_number: int = int(wheel.get("wheel_number", 0))
