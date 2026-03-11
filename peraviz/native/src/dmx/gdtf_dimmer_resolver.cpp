@@ -727,6 +727,7 @@ void consume_gobo_channel_sets(tinyxml2::XMLElement *channel_function,
     };
     std::vector<ParsedGoboSet> parsed_sets;
 
+    int last_slot_index = -1;
     for (tinyxml2::XMLElement *channel_set = channel_function->FirstChildElement(); channel_set;
          channel_set = channel_set->NextSiblingElement()) {
         if (lower_ascii(channel_set->Name()) != "channelset") {
@@ -737,9 +738,15 @@ void consume_gobo_channel_sets(tinyxml2::XMLElement *channel_function,
         if (slot_index <= 0) {
             slot_index = parse_positive_int(channel_set->Attribute("wheelslotindex"));
         }
+        // GDTF ChannelSet may omit WheelSlotIndex in motion ranges (index/spin/shake).
+        // Reuse the previous valid slot so behavior is tied to the selected gobo slot.
+        if (slot_index <= 0) {
+            slot_index = last_slot_index;
+        }
         if (slot_index <= 0 || known_slots.find(slot_index) == known_slots.end()) {
             continue;
         }
+        last_slot_index = slot_index;
 
         int dmx_from = parse_dmx_value_8bit(channel_set->Attribute("DMXFrom"));
         if (dmx_from < 0) {
