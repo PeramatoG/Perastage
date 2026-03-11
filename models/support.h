@@ -48,6 +48,9 @@ struct Support {
     std::string motorFixtureUuid;
     // Enables inheriting missing values from linked fixture/preset defaults.
     bool useMotorDefaults = true;
+    // Stable ID for a dummy hoist profile from library/hoists/dummy_profiles.json.
+    std::string dummyProfileId;
+    // Legacy display label kept for backward compatibility with older files.
     std::string dummyPreset;
     // Defines whether values come from library defaults or user overrides.
     std::string hoistDataSource = "Inherited";

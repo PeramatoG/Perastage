@@ -22,7 +22,7 @@
 #include "configmanager.h"
 #include "guiconfigservices.h"
 #include "layerpanel.h"
-#include "hoistpresetlibrary.h"
+#include "dummyprofilelibrary.h"
 #include "matrixutils.h"
 #include "riggingpanel.h"
 #include "stringutils.h"
@@ -60,19 +60,22 @@ bool IsNumChar(char c) {
 }
 
 
-std::optional<HoistPresetDefaults> FindPresetDefaults(const std::string &dummyPreset) {
-  if (dummyPreset.empty())
+std::optional<HoistPresetDefaults> FindPresetDefaults(const Support &support) {
+  std::optional<DummyHoistProfile> profile;
+  if (!support.dummyProfileId.empty())
+    profile = DummyProfileLibrary::FindById(support.dummyProfileId);
+  if (!profile.has_value() && !support.dummyPreset.empty())
+    profile = DummyProfileLibrary::FindByDisplayName(support.dummyPreset);
+  if (!profile.has_value())
     return std::nullopt;
-  auto preset = HoistPresetLibrary::FindByDummyPreset(dummyPreset);
-  if (!preset.has_value())
-    return std::nullopt;
+
   HoistPresetDefaults defaults;
-  defaults.motorName = preset->motorName;
-  defaults.motorManufacturer = preset->motorManufacturer;
-  defaults.motorModel = preset->motorModel;
-  defaults.capacityKg = preset->capacityKg;
-  defaults.weightKg = preset->weightKg;
-  defaults.hoistFunction = preset->hoistFunction;
+  defaults.motorName = profile->motorName;
+  defaults.motorManufacturer = profile->motorManufacturer;
+  defaults.motorModel = profile->motorModel;
+  defaults.capacityKg = profile->capacityKg;
+  defaults.weightKg = profile->weightKg;
+  defaults.hoistFunction = profile->hoistFunction;
   return defaults;
 }
 
@@ -90,10 +93,19 @@ std::optional<HoistFixtureDefaults> FindFixtureDefaults(const MvrScene &scene,
 wxArrayString BuildDummyPresetChoices() {
   wxArrayString choices;
   choices.push_back("");
-  const auto presets = HoistPresetLibrary::LoadPresets();
-  for (const auto &preset : presets)
-    choices.push_back(wxString::FromUTF8(preset.dummyPreset));
+  const auto profiles = DummyProfileLibrary::LoadProfiles();
+  for (const auto &profile : profiles)
+    choices.push_back(wxString::FromUTF8(profile.displayName));
   return choices;
+}
+
+std::string ResolveDummyProfileDisplayName(const Support &support) {
+  if (!support.dummyProfileId.empty()) {
+    const auto profile = DummyProfileLibrary::FindById(support.dummyProfileId);
+    if (profile.has_value())
+      return profile->displayName;
+  }
+  return support.dummyPreset;
 }
 
 RangeParts SplitRangeParts(const wxString &value) {
@@ -223,12 +235,12 @@ void HoistTablePanel::ReloadData() {
     wxString type = wxString::FromUTF8(support.function);
     support.hoistDataSource = NormalizeHoistDataSource(support.hoistDataSource);
     const auto effective =
-        ResolveEffectiveSupportData(support, FindPresetDefaults(support.dummyPreset),
+        ResolveEffectiveSupportData(support, FindPresetDefaults(support),
                                     FindFixtureDefaults(scene, support));
     support.hoistFunction = NormalizeHoistFunction(support.hoistFunction);
     wxString hoistFunction = wxString::FromUTF8(effective.hoistFunction);
     wxString motorName = wxString::FromUTF8(effective.motorName);
-    wxString dummyPreset = wxString::FromUTF8(support.dummyPreset);
+    wxString dummyPreset = wxString::FromUTF8(ResolveDummyProfileDisplayName(support));
     wxString dataSource = wxString::FromUTF8(support.hoistDataSource);
     wxString layer = support.layer == DEFAULT_LAYER_NAME
                          ? wxString()
@@ -356,16 +368,37 @@ void HoistTablePanel::OnContextMenu(wxDataViewEvent &event) {
   }
 
   if (col == 5) {
+    ConfigManager &cfg = guiConfigServices->LegacyConfigManager();
+    const auto &supports = cfg.GetScene().supports;
+
     wxArrayString choices = BuildDummyPresetChoices();
     wxSingleChoiceDialog sdlg(this, "Select dummy preset", "Dummy Preset", choices);
     if (sdlg.ShowModal() != wxID_OK)
       return;
+
     wxString sel = sdlg.GetStringSelection();
+    bool updatedAnyRow = false;
     for (const auto &itSel : selections) {
       int r = table->ItemToRow(itSel);
-      if (r != wxNOT_FOUND)
-        table->SetValue(wxVariant(sel), r, col);
+      if (r == wxNOT_FOUND || static_cast<size_t>(r) >= rowUuids.size())
+        continue;
+
+      auto supportIt = supports.find(rowUuids[static_cast<size_t>(r)]);
+      if (supportIt == supports.end())
+        continue;
+      if (!supportIt->second.motorFixtureUuid.empty())
+        continue;
+
+      table->SetValue(wxVariant(sel), r, col);
+      updatedAnyRow = true;
     }
+
+    if (!updatedAnyRow) {
+      wxMessageBox("Dummy preset can only be assigned when there is no linked motor fixture.",
+                   "Dummy Preset", wxOK | wxICON_INFORMATION, this);
+      return;
+    }
+
     ResyncRows(oldOrder, selectedUuids);
     UpdateSceneData();
     if (Viewer3DPanel::Instance()) {
@@ -659,6 +692,12 @@ void HoistTablePanel::UpdateSceneData(bool logChanges) {
 
     table->GetValue(v, i, 5);
     next.dummyPreset = std::string(v.GetString().ToUTF8());
+    if (next.dummyPreset.empty()) {
+      next.dummyProfileId.clear();
+    } else {
+      const auto profile = DummyProfileLibrary::FindByDisplayName(next.dummyPreset);
+      next.dummyProfileId = profile.has_value() ? profile->id : "";
+    }
 
     table->GetValue(v, i, 6);
     next.hoistDataSource =
@@ -744,7 +783,7 @@ void HoistTablePanel::UpdateSceneData(bool logChanges) {
 
     if (!IsManualHoistDataSource(next.hoistDataSource)) {
       const auto effective =
-          ResolveEffectiveSupportData(next, FindPresetDefaults(next.dummyPreset),
+          ResolveEffectiveSupportData(next, FindPresetDefaults(next),
                                       FindFixtureDefaults(scene, next));
       next.motorName = effective.motorName;
       next.capacityKg = effective.capacityKg;
@@ -755,6 +794,7 @@ void HoistTablePanel::UpdateSceneData(bool logChanges) {
     const bool supportChanged = old.name != next.name || old.function != next.function ||
                                 old.hoistFunction != next.hoistFunction ||
                                 old.motorName != next.motorName ||
+                                old.dummyProfileId != next.dummyProfileId ||
                                 old.dummyPreset != next.dummyPreset ||
                                 NormalizeHoistDataSource(old.hoistDataSource) !=
                                     NormalizeHoistDataSource(next.hoistDataSource) ||

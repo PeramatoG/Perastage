@@ -1,0 +1,32 @@
+[
+  {
+    "id": "dummy_standard_500kg",
+    "displayName": "Standard Dummy 500 kg",
+    "motorName": "Standard Dummy Motor 500",
+    "motorManufacturer": "Perastage",
+    "motorModel": "DUMMY-500",
+    "capacityKg": 500.0,
+    "weightKg": 25.0,
+    "hoistFunction": "Lighting"
+  },
+  {
+    "id": "dummy_standard_1000kg",
+    "displayName": "Standard Dummy 1000 kg",
+    "motorName": "Standard Dummy Motor 1000",
+    "motorManufacturer": "Perastage",
+    "motorModel": "DUMMY-1000",
+    "capacityKg": 1000.0,
+    "weightKg": 40.0,
+    "hoistFunction": "Lighting"
+  },
+  {
+    "id": "dummy_standard_2000kg",
+    "displayName": "Standard Dummy 2000 kg",
+    "motorName": "Standard Dummy Motor 2000",
+    "motorManufacturer": "Perastage",
+    "motorModel": "DUMMY-2000",
+    "capacityKg": 2000.0,
+    "weightKg": 65.0,
+    "hoistFunction": "Lighting"
+  }
+]
