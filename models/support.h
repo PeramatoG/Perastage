@@ -54,6 +54,12 @@ struct Support {
     std::string dummyPreset;
     // Defines whether values come from library defaults or user overrides.
     std::string hoistDataSource = "Inherited";
+    std::string motorNameSource = "Inherited";
+    std::string motorManufacturerSource = "Inherited";
+    std::string motorModelSource = "Inherited";
+    std::string capacitySource = "Inherited";
+    std::string weightSource = "Inherited";
+    std::string hoistFunctionSource = "Inherited";
     // Hoist function/category. Defaults to values returned by GetHoistFunctionOptions().
     std::string hoistFunction = "Lighting";
 
@@ -126,6 +132,14 @@ inline bool IsManualHoistDataSource(const std::string &source) {
     return NormalizeHoistDataSource(source) == "Manual";
 }
 
+inline std::string ResolveHoistFieldDataSource(const std::string &fieldSource,
+                                               const std::string &globalSource) {
+    const std::string normalizedField = NormalizeHoistDataSource(fieldSource);
+    if (!fieldSource.empty())
+        return normalizedField;
+    return NormalizeHoistDataSource(globalSource);
+}
+
 struct HoistPresetDefaults {
     std::string motorName;
     std::string motorManufacturer;
@@ -152,6 +166,12 @@ struct EffectiveSupportData {
     float weightKg = 0.0f;
     std::string hoistFunction = "Lighting";
     std::string dataSource = "Inherited";
+    std::string motorNameSource = "Inherited";
+    std::string motorManufacturerSource = "Inherited";
+    std::string motorModelSource = "Inherited";
+    std::string capacitySource = "Inherited";
+    std::string weightSource = "Inherited";
+    std::string hoistFunctionSource = "Inherited";
 };
 
 
@@ -178,6 +198,18 @@ inline EffectiveSupportData ResolveEffectiveSupportData(
     EffectiveSupportData resolved;
     const std::string normalizedSource = NormalizeHoistDataSource(support.hoistDataSource);
     resolved.dataSource = normalizedSource;
+    resolved.motorNameSource =
+        ResolveHoistFieldDataSource(support.motorNameSource, normalizedSource);
+    resolved.motorManufacturerSource = ResolveHoistFieldDataSource(
+        support.motorManufacturerSource, normalizedSource);
+    resolved.motorModelSource =
+        ResolveHoistFieldDataSource(support.motorModelSource, normalizedSource);
+    resolved.capacitySource =
+        ResolveHoistFieldDataSource(support.capacitySource, normalizedSource);
+    resolved.weightSource =
+        ResolveHoistFieldDataSource(support.weightSource, normalizedSource);
+    resolved.hoistFunctionSource = ResolveHoistFieldDataSource(
+        support.hoistFunctionSource, normalizedSource);
 
     resolved.motorName = support.motorName;
     resolved.motorManufacturer = support.motorManufacturer;
@@ -187,30 +219,51 @@ inline EffectiveSupportData ResolveEffectiveSupportData(
     resolved.hoistFunction = NormalizeHoistFunction(
         support.hoistFunction.empty() ? support.function : support.hoistFunction);
 
-    if (normalizedSource == "Manual")
-        return resolved;
-
     if (!support.useMotorDefaults)
         return resolved;
 
     auto applyDefaults = [&](const auto &defaults, const char *sourceLabel) {
-        if (!HasManualText(resolved.motorName) && HasManualText(defaults.motorName))
+        if (!IsManualHoistDataSource(resolved.motorNameSource) &&
+            !HasManualText(resolved.motorName) && HasManualText(defaults.motorName)) {
             resolved.motorName = defaults.motorName;
-        if (!HasManualText(resolved.motorManufacturer) &&
+            resolved.motorNameSource = sourceLabel;
+        }
+        if (!IsManualHoistDataSource(resolved.motorManufacturerSource) &&
+            !HasManualText(resolved.motorManufacturer) &&
             HasManualText(defaults.motorManufacturer)) {
             resolved.motorManufacturer = defaults.motorManufacturer;
+            resolved.motorManufacturerSource = sourceLabel;
         }
-        if (!HasManualText(resolved.motorModel) && HasManualText(defaults.motorModel))
+        if (!IsManualHoistDataSource(resolved.motorModelSource) &&
+            !HasManualText(resolved.motorModel) && HasManualText(defaults.motorModel)) {
             resolved.motorModel = defaults.motorModel;
-        if (!HasManualNumeric(resolved.capacityKg) && HasManualNumeric(defaults.capacityKg))
+            resolved.motorModelSource = sourceLabel;
+        }
+        if (!IsManualHoistDataSource(resolved.capacitySource) &&
+            !HasManualNumeric(resolved.capacityKg) &&
+            HasManualNumeric(defaults.capacityKg)) {
             resolved.capacityKg = defaults.capacityKg;
-        if (!HasManualNumeric(resolved.weightKg) && HasManualNumeric(defaults.weightKg))
+            resolved.capacitySource = sourceLabel;
+        }
+        if (!IsManualHoistDataSource(resolved.weightSource) &&
+            !HasManualNumeric(resolved.weightKg) && HasManualNumeric(defaults.weightKg)) {
             resolved.weightKg = defaults.weightKg;
-        if (NormalizeHoistFunction(resolved.hoistFunction) == "Lighting" &&
+            resolved.weightSource = sourceLabel;
+        }
+        if (!IsManualHoistDataSource(resolved.hoistFunctionSource) &&
+            NormalizeHoistFunction(resolved.hoistFunction) == "Lighting" &&
             HasManualText(defaults.hoistFunction)) {
             resolved.hoistFunction = NormalizeHoistFunction(defaults.hoistFunction);
+            resolved.hoistFunctionSource = sourceLabel;
         }
-        resolved.dataSource = sourceLabel;
+        if (resolved.motorNameSource == sourceLabel ||
+            resolved.motorManufacturerSource == sourceLabel ||
+            resolved.motorModelSource == sourceLabel ||
+            resolved.capacitySource == sourceLabel ||
+            resolved.weightSource == sourceLabel ||
+            resolved.hoistFunctionSource == sourceLabel) {
+            resolved.dataSource = sourceLabel;
+        }
     };
 
     if (fixtureDefaults.has_value())

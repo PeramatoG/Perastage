@@ -301,6 +301,18 @@ static void ApplySupportHoistInfoDefaults(Support &support) {
   support.hoistFunction = NormalizeHoistFunction(
       support.hoistFunction.empty() ? support.function : support.hoistFunction);
   support.hoistDataSource = NormalizeHoistDataSource(support.hoistDataSource);
+  support.motorNameSource =
+      ResolveHoistFieldDataSource(support.motorNameSource, support.hoistDataSource);
+  support.motorManufacturerSource = ResolveHoistFieldDataSource(
+      support.motorManufacturerSource, support.hoistDataSource);
+  support.motorModelSource =
+      ResolveHoistFieldDataSource(support.motorModelSource, support.hoistDataSource);
+  support.capacitySource =
+      ResolveHoistFieldDataSource(support.capacitySource, support.hoistDataSource);
+  support.weightSource =
+      ResolveHoistFieldDataSource(support.weightSource, support.hoistDataSource);
+  support.hoistFunctionSource = ResolveHoistFieldDataSource(
+      support.hoistFunctionSource, support.hoistDataSource);
   if (support.function.empty())
     support.function = support.hoistFunction;
 }
@@ -376,6 +388,37 @@ static void ReadSupportHoistInfoFromUserData(tinyxml2::XMLElement *supportNode,
       source = readText("DataSource"); // Legacy key.
     if (!source.empty())
       support.hoistDataSource = NormalizeHoistDataSource(source);
+
+    const std::string motorNameSource = readText("MotorNameSource");
+    if (!motorNameSource.empty())
+      support.motorNameSource = NormalizeHoistDataSource(motorNameSource);
+
+    const std::string motorManufacturerSource =
+        readText("MotorManufacturerSource");
+    if (!motorManufacturerSource.empty()) {
+      support.motorManufacturerSource =
+          NormalizeHoistDataSource(motorManufacturerSource);
+    }
+
+    const std::string motorModelSource = readText("MotorModelSource");
+    if (!motorModelSource.empty())
+      support.motorModelSource = NormalizeHoistDataSource(motorModelSource);
+
+    const std::string capacitySource = readText("CapacitySource");
+    if (!capacitySource.empty())
+      support.capacitySource = NormalizeHoistDataSource(capacitySource);
+
+    const std::string weightSource = readText("WeightSource");
+    if (!weightSource.empty())
+      support.weightSource = NormalizeHoistDataSource(weightSource);
+
+    std::string hoistFunctionSource = readText("RiggingPointSource");
+    if (hoistFunctionSource.empty())
+      hoistFunctionSource = readText("FunctionSource");
+    if (!hoistFunctionSource.empty()) {
+      support.hoistFunctionSource =
+          NormalizeHoistDataSource(hoistFunctionSource);
+    }
   }
 }
 bool MvrImporter::ImportFromFile(const std::string &filePath,

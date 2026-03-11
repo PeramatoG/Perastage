@@ -33,6 +33,7 @@
 #include "viewer3dpanel.h"
 #include <algorithm>
 #include <cctype>
+#include <cmath>
 #include <optional>
 #include <wx/choicdlg.h>
 #include <wx/notebook.h>
@@ -59,6 +60,47 @@ bool IsNumChar(char c) {
          c == '+';
 }
 
+inline bool NearlyEqualFloat(float a, float b) {
+  return std::abs(a - b) < 0.0001f;
+}
+
+void MarkTextFieldManualIfEdited(const std::string &editedValue,
+                                 const std::string &oldEffectiveValue,
+                                 std::string &fieldSource,
+                                 const std::string &oldFieldValue,
+                                 std::string &fieldValue) {
+  if (editedValue != oldEffectiveValue) {
+    fieldSource = "Manual";
+    fieldValue = editedValue;
+    return;
+  }
+
+  if (!IsManualHoistDataSource(fieldSource))
+    fieldValue = oldFieldValue;
+}
+
+void MarkNumericFieldManualIfEdited(float editedValue, float oldEffectiveValue,
+                                    std::string &fieldSource,
+                                    float oldFieldValue, float &fieldValue) {
+  if (!NearlyEqualFloat(editedValue, oldEffectiveValue)) {
+    fieldSource = "Manual";
+    fieldValue = editedValue;
+    return;
+  }
+
+  if (!IsManualHoistDataSource(fieldSource))
+    fieldValue = oldFieldValue;
+}
+
+void SetAllHoistFieldSources(Support &support, const std::string &source) {
+  const std::string normalized = NormalizeHoistDataSource(source);
+  support.motorNameSource = normalized;
+  support.motorManufacturerSource = normalized;
+  support.motorModelSource = normalized;
+  support.capacitySource = normalized;
+  support.weightSource = normalized;
+  support.hoistFunctionSource = normalized;
+}
 
 std::optional<HoistPresetDefaults> FindPresetDefaults(const Support &support) {
   std::optional<DummyHoistProfile> profile;
@@ -234,6 +276,18 @@ void HoistTablePanel::ReloadData() {
     wxString name = wxString::FromUTF8(support.name);
     wxString type = wxString::FromUTF8(support.function);
     support.hoistDataSource = NormalizeHoistDataSource(support.hoistDataSource);
+    support.motorNameSource =
+        ResolveHoistFieldDataSource(support.motorNameSource, support.hoistDataSource);
+    support.motorManufacturerSource = ResolveHoistFieldDataSource(
+        support.motorManufacturerSource, support.hoistDataSource);
+    support.motorModelSource =
+        ResolveHoistFieldDataSource(support.motorModelSource, support.hoistDataSource);
+    support.capacitySource =
+        ResolveHoistFieldDataSource(support.capacitySource, support.hoistDataSource);
+    support.weightSource =
+        ResolveHoistFieldDataSource(support.weightSource, support.hoistDataSource);
+    support.hoistFunctionSource = ResolveHoistFieldDataSource(
+        support.hoistFunctionSource, support.hoistDataSource);
     const auto effective =
         ResolveEffectiveSupportData(support, FindPresetDefaults(support),
                                     FindFixtureDefaults(scene, support));
@@ -684,11 +738,18 @@ void HoistTablePanel::UpdateSceneData(bool logChanges) {
     table->GetValue(v, i, 2);
     next.function = std::string(v.GetString().ToUTF8());
 
+    const auto oldEffective =
+        ResolveEffectiveSupportData(old, FindPresetDefaults(old),
+                                    FindFixtureDefaults(scene, old));
+
     table->GetValue(v, i, 3);
-    next.hoistFunction = NormalizeHoistFunction(std::string(v.GetString().ToUTF8()));
+    const std::string editedHoistFunction =
+        NormalizeHoistFunction(std::string(v.GetString().ToUTF8()));
+    next.hoistFunction = editedHoistFunction;
 
     table->GetValue(v, i, 4);
-    next.motorName = std::string(v.GetString().ToUTF8());
+    const std::string editedMotorName = std::string(v.GetString().ToUTF8());
+    next.motorName = editedMotorName;
 
     table->GetValue(v, i, 5);
     next.dummyPreset = std::string(v.GetString().ToUTF8());
@@ -702,6 +763,10 @@ void HoistTablePanel::UpdateSceneData(bool logChanges) {
     table->GetValue(v, i, 6);
     next.hoistDataSource =
         NormalizeHoistDataSource(std::string(v.GetString().ToUTF8()));
+    if (IsManualHoistDataSource(next.hoistDataSource))
+      SetAllHoistFieldSources(next, "Manual");
+    else if (NormalizeHoistDataSource(old.hoistDataSource) != "Inherited")
+      SetAllHoistFieldSources(next, "Inherited");
 
     table->GetValue(v, i, 7);
     std::string layerStr = std::string(v.GetString().ToUTF8());
@@ -774,24 +839,36 @@ void HoistTablePanel::UpdateSceneData(bool logChanges) {
     table->GetValue(v, i, 16);
     double capacity = 0.0;
     v.GetString().ToDouble(&capacity);
-    next.capacityKg = static_cast<float>(capacity);
+    const float editedCapacityKg = static_cast<float>(capacity);
+    next.capacityKg = editedCapacityKg;
 
     table->GetValue(v, i, 17);
     double weight = 0.0;
     v.GetString().ToDouble(&weight);
-    next.weightKg = static_cast<float>(weight);
+    const float editedWeightKg = static_cast<float>(weight);
+    next.weightKg = editedWeightKg;
 
-    if (!IsManualHoistDataSource(next.hoistDataSource)) {
-      const auto effective =
-          ResolveEffectiveSupportData(next, FindPresetDefaults(next),
-                                      FindFixtureDefaults(scene, next));
-      next.motorName = effective.motorName;
-      next.motorManufacturer = effective.motorManufacturer;
-      next.motorModel = effective.motorModel;
-      next.capacityKg = effective.capacityKg;
-      next.weightKg = effective.weightKg;
-      next.hoistFunction = effective.hoistFunction;
-    }
+    next.motorNameSource =
+        ResolveHoistFieldDataSource(next.motorNameSource, next.hoistDataSource);
+    next.capacitySource =
+        ResolveHoistFieldDataSource(next.capacitySource, next.hoistDataSource);
+    next.weightSource =
+        ResolveHoistFieldDataSource(next.weightSource, next.hoistDataSource);
+    next.hoistFunctionSource = ResolveHoistFieldDataSource(
+        next.hoistFunctionSource, next.hoistDataSource);
+
+    MarkTextFieldManualIfEdited(editedMotorName, oldEffective.motorName,
+                                next.motorNameSource, old.motorName,
+                                next.motorName);
+    MarkNumericFieldManualIfEdited(editedCapacityKg, oldEffective.capacityKg,
+                                   next.capacitySource, old.capacityKg,
+                                   next.capacityKg);
+    MarkNumericFieldManualIfEdited(editedWeightKg, oldEffective.weightKg,
+                                   next.weightSource, old.weightKg,
+                                   next.weightKg);
+    MarkTextFieldManualIfEdited(editedHoistFunction, oldEffective.hoistFunction,
+                                next.hoistFunctionSource, old.hoistFunction,
+                                next.hoistFunction);
 
     const bool supportChanged = old.name != next.name || old.function != next.function ||
                                 old.hoistFunction != next.hoistFunction ||
@@ -806,7 +883,19 @@ void HoistTablePanel::UpdateSceneData(bool logChanges) {
                                 old.positionName != next.positionName || transformChanged ||
                                 old.chainLength != next.chainLength ||
                                 old.capacityKg != next.capacityKg ||
-                                old.weightKg != next.weightKg;
+                                old.weightKg != next.weightKg ||
+                                NormalizeHoistDataSource(old.motorNameSource) !=
+                                    NormalizeHoistDataSource(next.motorNameSource) ||
+                                NormalizeHoistDataSource(old.motorManufacturerSource) !=
+                                    NormalizeHoistDataSource(next.motorManufacturerSource) ||
+                                NormalizeHoistDataSource(old.motorModelSource) !=
+                                    NormalizeHoistDataSource(next.motorModelSource) ||
+                                NormalizeHoistDataSource(old.capacitySource) !=
+                                    NormalizeHoistDataSource(next.capacitySource) ||
+                                NormalizeHoistDataSource(old.weightSource) !=
+                                    NormalizeHoistDataSource(next.weightSource) ||
+                                NormalizeHoistDataSource(old.hoistFunctionSource) !=
+                                    NormalizeHoistDataSource(next.hoistFunctionSource);
     if (!supportChanged)
       continue;
 

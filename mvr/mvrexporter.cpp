@@ -506,7 +506,13 @@ static bool ShouldExportSupportHoistInfo(const Support &support) {
          !support.motorManufacturer.empty() || !support.motorModel.empty() ||
          !support.motorFixtureUuid.empty() || !support.useMotorDefaults ||
          !support.dummyProfileId.empty() || !support.dummyPreset.empty() ||
-         NormalizeHoistDataSource(support.hoistDataSource) != "Inherited";
+         NormalizeHoistDataSource(support.hoistDataSource) != "Inherited" ||
+         NormalizeHoistDataSource(support.motorNameSource) != "Inherited" ||
+         NormalizeHoistDataSource(support.motorManufacturerSource) != "Inherited" ||
+         NormalizeHoistDataSource(support.motorModelSource) != "Inherited" ||
+         NormalizeHoistDataSource(support.capacitySource) != "Inherited" ||
+         NormalizeHoistDataSource(support.weightSource) != "Inherited" ||
+         NormalizeHoistDataSource(support.hoistFunctionSource) != "Inherited";
 }
 
 static void AppendSupportHoistInfoUserData(tinyxml2::XMLDocument &doc,
@@ -565,6 +571,21 @@ static void AppendSupportHoistInfoUserData(tinyxml2::XMLDocument &doc,
   const std::string source = NormalizeHoistDataSource(support.hoistDataSource);
   addText("ValueSource", source);
   addText("DataSource", source); // Compatibility alias for older builds.
+
+  addText("MotorNameSource",
+          ResolveHoistFieldDataSource(support.motorNameSource, source));
+  addText("MotorManufacturerSource",
+          ResolveHoistFieldDataSource(support.motorManufacturerSource, source));
+  addText("MotorModelSource",
+          ResolveHoistFieldDataSource(support.motorModelSource, source));
+  addText("CapacitySource",
+          ResolveHoistFieldDataSource(support.capacitySource, source));
+  addText("WeightSource",
+          ResolveHoistFieldDataSource(support.weightSource, source));
+  const std::string hoistFunctionSource =
+      ResolveHoistFieldDataSource(support.hoistFunctionSource, source);
+  addText("RiggingPointSource", hoistFunctionSource);
+  addText("FunctionSource", hoistFunctionSource); // Compatibility alias.
 
   data->InsertEndChild(info);
   ud->InsertEndChild(data);
