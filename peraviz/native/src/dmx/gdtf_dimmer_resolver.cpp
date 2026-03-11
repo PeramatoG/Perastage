@@ -333,6 +333,36 @@ peraviz::dmx::FixtureGoboRangeBehavior parse_gobo_range_behavior(const std::stri
     return peraviz::dmx::FixtureGoboRangeBehavior::kFixed;
 }
 
+int parse_gobo_slot_index_from_channel_set_name(const std::string &channel_set_name) {
+    const std::string lower_name = lower_ascii(channel_set_name);
+    if (lower_name.find("gobo") == std::string::npos) {
+        return -1;
+    }
+
+    int value = 0;
+    bool found = false;
+    int current = 0;
+    bool in_digits = false;
+    for (char ch : lower_name) {
+        if (std::isdigit(static_cast<unsigned char>(ch)) != 0) {
+            in_digits = true;
+            current = (current * 10) + (ch - '0');
+            continue;
+        }
+        if (in_digits) {
+            value = current;
+            found = true;
+            current = 0;
+            in_digits = false;
+        }
+    }
+    if (in_digits) {
+        value = current;
+        found = true;
+    }
+    return found ? value : -1;
+}
+
 ParsedAttribute parse_attribute_name(const std::string &raw_attribute) {
     ParsedAttribute parsed;
     const std::string lower = lower_ascii(trim_ascii(raw_attribute));
@@ -773,9 +803,16 @@ void consume_gobo_channel_sets(tinyxml2::XMLElement *channel_function,
             continue;
         }
 
+        const std::string channel_set_name = read_attr_ci(channel_set, "Name", "name");
+
         int slot_index = parse_positive_int(channel_set->Attribute("WheelSlotIndex"));
         if (slot_index <= 0) {
             slot_index = parse_positive_int(channel_set->Attribute("wheelslotindex"));
+        }
+        // Some fixtures omit WheelSlotIndex but keep gobo numbering in Name
+        // (e.g. "Gobo 1", "Gobo 2" in repeated banks). Infer it when possible.
+        if (slot_index <= 0) {
+            slot_index = parse_gobo_slot_index_from_channel_set_name(channel_set_name);
         }
         // GDTF ChannelSet may omit WheelSlotIndex in motion ranges (index/spin/shake).
         // Reuse the previous valid slot so behavior is tied to the selected gobo slot.
@@ -801,7 +838,6 @@ void consume_gobo_channel_sets(tinyxml2::XMLElement *channel_function,
             dmx_to = parse_dmx_value_8bit(channel_set->Attribute("dmxto"));
         }
 
-        const std::string channel_set_name = read_attr_ci(channel_set, "Name", "name");
         const peraviz::dmx::FixtureGoboRangeBehavior behavior =
             parse_gobo_range_behavior(channel_set_name);
         parsed_sets.push_back({dmx_from, dmx_to, slot_index, behavior});
