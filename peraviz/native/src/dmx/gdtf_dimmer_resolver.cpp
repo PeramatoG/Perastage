@@ -866,17 +866,17 @@ void dedupe_and_sort_gobo_wheel(peraviz::dmx::FixtureGoboWheelOffset &wheel) {
                     }),
         wheel.slots.end());
 
-    std::sort(wheel.ranges.begin(), wheel.ranges.end(),
-              [](const peraviz::dmx::FixtureGoboRange &a,
-                 const peraviz::dmx::FixtureGoboRange &b) {
-                  if (a.dmx_from != b.dmx_from) {
-                      return a.dmx_from < b.dmx_from;
-                  }
-                  if (a.dmx_to != b.dmx_to) {
-                      return a.dmx_to < b.dmx_to;
-                  }
-                  return a.slot_index < b.slot_index;
-              });
+    // Keep fixture-authored order for ranges sharing the same DMXFrom, because
+    // some libraries use repeated slot entries at identical boundaries to
+    // encode different behaviors (index/spin/shake) for the same gobo slot.
+    std::stable_sort(wheel.ranges.begin(), wheel.ranges.end(),
+                     [](const peraviz::dmx::FixtureGoboRange &a,
+                        const peraviz::dmx::FixtureGoboRange &b) {
+                         if (a.dmx_from != b.dmx_from) {
+                             return a.dmx_from < b.dmx_from;
+                         }
+                         return a.dmx_to < b.dmx_to;
+                     });
     wheel.ranges.erase(
         std::unique(wheel.ranges.begin(), wheel.ranges.end(),
                     [](const peraviz::dmx::FixtureGoboRange &a,
