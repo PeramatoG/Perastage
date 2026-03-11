@@ -315,6 +315,24 @@ bool matches_gobo_rotation_attribute(const std::string &leaf) {
            leaf.find("rotate") != std::string::npos;
 }
 
+peraviz::dmx::FixtureGoboRangeBehavior parse_gobo_range_behavior(const std::string &channel_set_name) {
+    const std::string lower_name = lower_ascii(channel_set_name);
+    if (lower_name.find("shake") != std::string::npos) {
+        return peraviz::dmx::FixtureGoboRangeBehavior::kShake;
+    }
+    // Prioritize explicit index/position semantics over generic rotate tokens,
+    // because some fixture libraries include both terms in index range names.
+    if (lower_name.find("index") != std::string::npos ||
+        lower_name.find("pos") != std::string::npos) {
+        return peraviz::dmx::FixtureGoboRangeBehavior::kIndex;
+    }
+    if (lower_name.find("spin") != std::string::npos ||
+        lower_name.find("rotate") != std::string::npos) {
+        return peraviz::dmx::FixtureGoboRangeBehavior::kRotation;
+    }
+    return peraviz::dmx::FixtureGoboRangeBehavior::kFixed;
+}
+
 ParsedAttribute parse_attribute_name(const std::string &raw_attribute) {
     ParsedAttribute parsed;
     const std::string lower = lower_ascii(trim_ascii(raw_attribute));
@@ -625,7 +643,13 @@ std::string ensure_gobo_media_extracted(const std::string &gdtf_path,
     return {};
 }
 
-typedef std::unordered_map<std::string, std::unordered_map<int, std::string>> GoboWheelCatalog;
+struct GoboWheelDefinition {
+    std::vector<int> declared_slot_order;
+    std::unordered_set<int> declared_slots;
+    std::unordered_map<int, std::string> slot_images;
+};
+
+typedef std::unordered_map<std::string, GoboWheelDefinition> GoboWheelCatalog;
 
 GoboWheelCatalog build_gobo_wheel_catalog(const std::string &gdtf_path, tinyxml2::XMLElement *root) {
     GoboWheelCatalog out;
@@ -659,6 +683,11 @@ GoboWheelCatalog build_gobo_wheel_catalog(const std::string &gdtf_path, tinyxml2
             }
             implicit_index = std::max(implicit_index, slot_index + 1);
 
+            GoboWheelDefinition &wheel_definition = out[wheel_name];
+            if (wheel_definition.declared_slots.insert(slot_index).second) {
+                wheel_definition.declared_slot_order.push_back(slot_index);
+            }
+
             const std::string media_file = read_attr_ci(slot_node, "MediaFileName", "mediafilename");
             if (media_file.empty()) {
                 continue;
@@ -666,12 +695,38 @@ GoboWheelCatalog build_gobo_wheel_catalog(const std::string &gdtf_path, tinyxml2
 
             const std::string extracted = ensure_gobo_media_extracted(gdtf_path, cache, media_file);
             if (!extracted.empty()) {
-                out[wheel_name][slot_index] = extracted;
+                wheel_definition.slot_images[slot_index] = extracted;
             }
         }
     }
 
     return out;
+}
+
+
+int normalize_gobo_slot_index(int slot_index,
+                              const std::unordered_set<int> &known_slots,
+                              const std::vector<int> &known_slot_order) {
+    if (slot_index <= 0) {
+        return -1;
+    }
+    if (known_slots.find(slot_index) != known_slots.end()) {
+        return slot_index;
+    }
+
+    if (known_slot_order.empty()) {
+        return -1;
+    }
+
+    // Compatibility fallback for fixtures that encode repeated gobo cycles with
+    // out-of-range WheelSlotIndex values (e.g. 1..N then N+1..2N).
+    // Use fixture-declared slot order instead of assuming contiguous 1..N indices.
+    const int wrapped_index = (slot_index - 1) % static_cast<int>(known_slot_order.size());
+    const int wrapped_slot = known_slot_order[wrapped_index];
+    if (known_slots.find(wrapped_slot) != known_slots.end()) {
+        return wrapped_slot;
+    }
+    return -1;
 }
 
 void consume_gobo_channel_sets(tinyxml2::XMLElement *channel_function,
@@ -693,12 +748,12 @@ void consume_gobo_channel_sets(tinyxml2::XMLElement *channel_function,
 
     out_wheel.wheel_name = wheel_name;
 
-    std::unordered_set<int> known_slots;
-    for (const auto &[slot_index, image_path] : wheel_it->second) {
+    const std::vector<int> &known_slot_order = wheel_it->second.declared_slot_order;
+    std::unordered_set<int> known_slots = wheel_it->second.declared_slots;
+    for (const auto &[slot_index, image_path] : wheel_it->second.slot_images) {
         if (slot_index <= 0 || image_path.empty()) {
             continue;
         }
-        known_slots.insert(slot_index);
         out_wheel.slots.push_back({slot_index, image_path});
     }
 
@@ -706,9 +761,12 @@ void consume_gobo_channel_sets(tinyxml2::XMLElement *channel_function,
         int dmx_from = 0;
         int dmx_to = -1;
         int slot_index = -1;
+        peraviz::dmx::FixtureGoboRangeBehavior behavior =
+            peraviz::dmx::FixtureGoboRangeBehavior::kFixed;
     };
     std::vector<ParsedGoboSet> parsed_sets;
 
+    int last_slot_index = -1;
     for (tinyxml2::XMLElement *channel_set = channel_function->FirstChildElement(); channel_set;
          channel_set = channel_set->NextSiblingElement()) {
         if (lower_ascii(channel_set->Name()) != "channelset") {
@@ -719,9 +777,16 @@ void consume_gobo_channel_sets(tinyxml2::XMLElement *channel_function,
         if (slot_index <= 0) {
             slot_index = parse_positive_int(channel_set->Attribute("wheelslotindex"));
         }
-        if (slot_index <= 0 || known_slots.find(slot_index) == known_slots.end()) {
+        // GDTF ChannelSet may omit WheelSlotIndex in motion ranges (index/spin/shake).
+        // Reuse the previous valid slot so behavior is tied to the selected gobo slot.
+        if (slot_index <= 0) {
+            slot_index = last_slot_index;
+        }
+        slot_index = normalize_gobo_slot_index(slot_index, known_slots, known_slot_order);
+        if (slot_index <= 0) {
             continue;
         }
+        last_slot_index = slot_index;
 
         int dmx_from = parse_dmx_value_8bit(channel_set->Attribute("DMXFrom"));
         if (dmx_from < 0) {
@@ -735,20 +800,21 @@ void consume_gobo_channel_sets(tinyxml2::XMLElement *channel_function,
         if (dmx_to < 0) {
             dmx_to = parse_dmx_value_8bit(channel_set->Attribute("dmxto"));
         }
-        parsed_sets.push_back({dmx_from, dmx_to, slot_index});
+
+        const std::string channel_set_name = read_attr_ci(channel_set, "Name", "name");
+        const peraviz::dmx::FixtureGoboRangeBehavior behavior =
+            parse_gobo_range_behavior(channel_set_name);
+        parsed_sets.push_back({dmx_from, dmx_to, slot_index, behavior});
     }
 
     if (parsed_sets.empty()) {
         return;
     }
 
-    std::sort(parsed_sets.begin(), parsed_sets.end(),
-              [](const ParsedGoboSet &a, const ParsedGoboSet &b) {
-                  if (a.dmx_from != b.dmx_from) {
-                      return a.dmx_from < b.dmx_from;
-                  }
-                  return a.slot_index < b.slot_index;
-              });
+    std::stable_sort(parsed_sets.begin(), parsed_sets.end(),
+                     [](const ParsedGoboSet &a, const ParsedGoboSet &b) {
+                         return a.dmx_from < b.dmx_from;
+                     });
 
     for (size_t i = 0; i < parsed_sets.size(); ++i) {
         ParsedGoboSet &row = parsed_sets[i];
@@ -765,7 +831,7 @@ void consume_gobo_channel_sets(tinyxml2::XMLElement *channel_function,
             std::swap(row.dmx_from, row.dmx_to);
         }
 
-        out_wheel.ranges.push_back({row.dmx_from, row.dmx_to, row.slot_index});
+        out_wheel.ranges.push_back({row.dmx_from, row.dmx_to, row.slot_index, row.behavior});
     }
 }
 
@@ -838,23 +904,23 @@ void dedupe_and_sort_gobo_wheel(peraviz::dmx::FixtureGoboWheelOffset &wheel) {
                     }),
         wheel.slots.end());
 
-    std::sort(wheel.ranges.begin(), wheel.ranges.end(),
-              [](const peraviz::dmx::FixtureGoboRange &a,
-                 const peraviz::dmx::FixtureGoboRange &b) {
-                  if (a.dmx_from != b.dmx_from) {
-                      return a.dmx_from < b.dmx_from;
-                  }
-                  if (a.dmx_to != b.dmx_to) {
-                      return a.dmx_to < b.dmx_to;
-                  }
-                  return a.slot_index < b.slot_index;
-              });
+    // Keep fixture-authored order for ranges sharing the same DMXFrom, because
+    // some libraries use repeated slot entries at identical boundaries to
+    // encode different behaviors (index/spin/shake) for the same gobo slot.
+    std::stable_sort(wheel.ranges.begin(), wheel.ranges.end(),
+                     [](const peraviz::dmx::FixtureGoboRange &a,
+                        const peraviz::dmx::FixtureGoboRange &b) {
+                         if (a.dmx_from != b.dmx_from) {
+                             return a.dmx_from < b.dmx_from;
+                         }
+                         return a.dmx_to < b.dmx_to;
+                     });
     wheel.ranges.erase(
         std::unique(wheel.ranges.begin(), wheel.ranges.end(),
                     [](const peraviz::dmx::FixtureGoboRange &a,
                        const peraviz::dmx::FixtureGoboRange &b) {
                         return a.dmx_from == b.dmx_from && a.dmx_to == b.dmx_to &&
-                               a.slot_index == b.slot_index;
+                               a.slot_index == b.slot_index && a.behavior == b.behavior;
                     }),
         wheel.ranges.end());
 }

@@ -21,7 +21,14 @@ const GOBO_VECTOR_WIDTH_META_KEY: String = "peraviz_gobo_vector_width"
 const GOBO_VECTOR_HEIGHT_META_KEY: String = "peraviz_gobo_vector_height"
 const GOBO_WHEEL_SPIN_META_KEY: String = "peraviz_gobo_wheel_spin"
 const GOBO_LAST_UPDATE_MSEC_META_KEY: String = "peraviz_gobo_last_update_msec"
-const GOBO_SPIN_MAX_DEG_PER_SEC: float = 720.0
+const GOBO_APPLIED_ROTATION_DEG_META_KEY: String = "peraviz_gobo_applied_rotation_deg"
+const GOBO_INDEX_MAX_DEG: float = 360.0
+const GOBO_ROTATION_MAX_DEG_PER_SEC: float = 720.0
+
+const GOBO_BEHAVIOR_FIXED: int = 0
+const GOBO_BEHAVIOR_INDEX: int = 1
+const GOBO_BEHAVIOR_ROTATION: int = 2
+const GOBO_BEHAVIOR_SHAKE: int = 3
 
 var _texture_cache: Dictionary = {}
 
@@ -36,6 +43,9 @@ func apply_gobo_projection(light: SpotLight3D, controls: Dictionary) -> bool:
 		previous_meta_texture = light.get_meta(GOBO_TEXTURE_META_KEY) as Texture2D
 	light.set_meta(FALLBACK_GOBO_META_KEY, false)
 	if not bool(controls.get("has_gobo", false)):
+		var fallback_rotation_deg: float = float(controls.get("gobo_rotation_deg", GOBO_DEFAULT_ROTATION_DEG))
+		_apply_gobo_rotation_to_light(light, fallback_rotation_deg)
+		light.set_meta(GOBO_APPLIED_ROTATION_DEG_META_KEY, fallback_rotation_deg)
 		return _apply_vector_fallback_gobo(light, previous_meta_texture, controls)
 
 	var runtime_bindings: Array = controls.get("gobo_runtime_bindings", [])
@@ -48,9 +58,9 @@ func apply_gobo_projection(light: SpotLight3D, controls: Dictionary) -> bool:
 		}]
 
 	var delta_sec: float = _resolve_elapsed_seconds(light, controls)
-	var transformed_textures: Array[Texture2D] = []
-	var gobo_scale: float = max(float(controls.get("gobo_scale", GOBO_DEFAULT_SCALE)), 0.05)
+	var source_textures: Array[Texture2D] = []
 	var global_rotation_deg: float = float(controls.get("gobo_rotation_deg", GOBO_DEFAULT_ROTATION_DEG))
+	var projected_rotation_deg: float = global_rotation_deg
 
 	for wheel in runtime_bindings:
 		if wheel is not Dictionary:
@@ -64,16 +74,18 @@ func apply_gobo_projection(light: SpotLight3D, controls: Dictionary) -> bool:
 		var gobo_texture: Texture2D = _resolve_gobo_texture_for_slot(wheel_controls, slot_index)
 		if gobo_texture == null:
 			continue
-		var wheel_rotation_deg: float = _resolve_wheel_rotation_deg(light, controls, wheel, global_rotation_deg, delta_sec)
-		transformed_textures.append(_transform_gobo_texture(gobo_texture, wheel_rotation_deg, gobo_scale))
+		projected_rotation_deg = _resolve_wheel_rotation_deg(light, controls, wheel, global_rotation_deg, delta_sec)
+		source_textures.append(gobo_texture)
 
-	if transformed_textures.is_empty():
+	if source_textures.is_empty():
 		return _apply_vector_fallback_gobo(light, previous_meta_texture, controls)
 
-	var projected_gobo: Texture2D = _compose_gobo_textures(transformed_textures)
+	var projected_gobo: Texture2D = _compose_gobo_textures(source_textures)
 	_apply_gobo_visuals(light, projected_gobo, controls)
 	light.set_meta(GOBO_TEXTURE_META_KEY, projected_gobo)
 	light.set_meta(FALLBACK_GOBO_META_KEY, false)
+	_apply_gobo_rotation_to_light(light, projected_rotation_deg)
+	light.set_meta(GOBO_APPLIED_ROTATION_DEG_META_KEY, projected_rotation_deg)
 	return projected_gobo != previous_meta_texture
 
 func _resolve_elapsed_seconds(light: SpotLight3D, controls: Dictionary) -> float:
@@ -94,23 +106,37 @@ func _resolve_wheel_rotation_deg(light: SpotLight3D, controls: Dictionary, wheel
 	if wheel_spin_state is not Dictionary:
 		wheel_spin_state = {}
 
+	var behavior: int = int(wheel.get("behavior", GOBO_BEHAVIOR_FIXED))
+	var supports_index: bool = behavior == GOBO_BEHAVIOR_INDEX
+	var supports_rotation: bool = behavior == GOBO_BEHAVIOR_ROTATION or behavior == GOBO_BEHAVIOR_SHAKE
+
 	var index_norm: float = float(wheel.get("index_norm", -1.0))
-	if index_norm < 0.0 and bool(controls.get("has_gobo_index", false)):
+	if supports_index and index_norm < 0.0 and bool(controls.get("has_gobo_index", false)):
 		index_norm = clamp(float(controls.get("gobo_index_norm", 0.0)), 0.0, 1.0)
 	var base_rotation_deg: float = global_rotation_deg
 	if index_norm >= 0.0:
-		base_rotation_deg = lerp(0.0, 360.0, clamp(index_norm, 0.0, 1.0))
+		base_rotation_deg = lerp(0.0, GOBO_INDEX_MAX_DEG, clamp(index_norm, 0.0, 1.0))
 
 	var rotation_norm: float = float(wheel.get("rotation_norm", -1.0))
-	if rotation_norm < 0.0 and bool(controls.get("has_gobo_rotation", false)):
+	if supports_rotation and index_norm < 0.0 and rotation_norm < 0.0 and bool(controls.get("has_gobo_rotation", false)):
 		rotation_norm = clamp(float(controls.get("gobo_rotation_norm", 0.5)), 0.0, 1.0)
 
 	var spin_angle_deg: float = float(wheel_spin_state.get(wheel_key, 0.0))
-	if rotation_norm >= 0.0 and delta_sec > 0.0:
-		var speed_deg_per_sec: float = (clamp(rotation_norm, 0.0, 1.0) - 0.5) * GOBO_SPIN_MAX_DEG_PER_SEC
+	if index_norm >= 0.0:
+		wheel_spin_state[wheel_key] = 0.0
+		light.set_meta(GOBO_WHEEL_SPIN_META_KEY, wheel_spin_state)
+		return base_rotation_deg
+
+	if supports_rotation and rotation_norm >= 0.0 and delta_sec > 0.0:
+		var speed_deg_per_sec: float = (clamp(rotation_norm, 0.0, 1.0) - 0.5) * GOBO_ROTATION_MAX_DEG_PER_SEC
 		spin_angle_deg = wrapf(spin_angle_deg + (speed_deg_per_sec * delta_sec), -360000.0, 360000.0)
 		wheel_spin_state[wheel_key] = spin_angle_deg
 		light.set_meta(GOBO_WHEEL_SPIN_META_KEY, wheel_spin_state)
+
+	if not supports_rotation:
+		wheel_spin_state[wheel_key] = 0.0
+		light.set_meta(GOBO_WHEEL_SPIN_META_KEY, wheel_spin_state)
+		return base_rotation_deg
 
 	return base_rotation_deg + spin_angle_deg
 
@@ -142,6 +168,14 @@ func _apply_gobo_visuals(light: SpotLight3D, gobo_texture: Texture2D, controls: 
 		gobo_material.set_shader_parameter("gobo_texture", gobo_texture)
 	_update_gobo_plane_scale(light, gobo_plane)
 
+
+func _apply_gobo_rotation_to_light(light: SpotLight3D, gobo_rotation_deg: float) -> void:
+	if light == null or not is_instance_valid(light):
+		return
+	var updated_rotation: Vector3 = light.rotation_degrees
+	updated_rotation.z = wrapf(gobo_rotation_deg, -180.0, 180.0)
+	light.rotation_degrees = updated_rotation
+
 func _set_light_projector_texture(light: SpotLight3D, texture: Texture2D) -> void:
 	if light == null or not is_instance_valid(light):
 		return
@@ -164,6 +198,8 @@ func _clear_gobo_visuals(light: SpotLight3D) -> void:
 		return
 	_set_light_projector_texture(light, null)
 	_remove_gobo_plane(light)
+	_apply_gobo_rotation_to_light(light, GOBO_DEFAULT_ROTATION_DEG)
+	light.set_meta(GOBO_APPLIED_ROTATION_DEG_META_KEY, GOBO_DEFAULT_ROTATION_DEG)
 
 func _ensure_gobo_plane(light: SpotLight3D) -> MeshInstance3D:
 	if light.has_meta(GOBO_PLANE_META_KEY):
@@ -266,7 +302,10 @@ func _apply_vector_fallback_gobo(light: SpotLight3D, previous_meta_texture: Text
 		_clear_gobo_visuals(light)
 		light.set_meta(GOBO_TEXTURE_META_KEY, null)
 		return previous_meta_texture != null
+	var fallback_rotation_deg: float = float(controls.get("gobo_rotation_deg", GOBO_DEFAULT_ROTATION_DEG))
 	_apply_gobo_visuals(light, fallback_texture, controls)
+	_apply_gobo_rotation_to_light(light, fallback_rotation_deg)
+	light.set_meta(GOBO_APPLIED_ROTATION_DEG_META_KEY, fallback_rotation_deg)
 	light.set_meta(GOBO_TEXTURE_META_KEY, fallback_texture)
 	return fallback_texture != previous_meta_texture
 
@@ -326,46 +365,6 @@ func _compose_gobo_textures(textures: Array[Texture2D]) -> Texture2D:
 	return out_texture
 
 
-func _transform_gobo_texture(base_texture: Texture2D, rotation_deg: float, scale_factor: float) -> Texture2D:
-	if base_texture == null:
-		return null
-	var normalized_rotation: float = wrapf(rotation_deg, 0.0, 360.0)
-	var clamped_scale: float = clamp(scale_factor, 0.05, 8.0)
-	if abs(normalized_rotation) < 0.001 and is_equal_approx(clamped_scale, 1.0):
-		return base_texture
-	var cache_key: String = "__transformed_gobo_%d_%.3f_%.3f" % [base_texture.get_rid().get_id(), normalized_rotation, clamped_scale]
-	if _texture_cache.has(cache_key):
-		return _texture_cache[cache_key] as Texture2D
-	var src_image: Image = base_texture.get_image()
-	if src_image == null:
-		return base_texture
-	if src_image.get_format() != Image.FORMAT_RGBA8:
-		src_image.convert(Image.FORMAT_RGBA8)
-	if src_image.get_width() != FAKE_GOBO_TEXTURE_SIZE or src_image.get_height() != FAKE_GOBO_TEXTURE_SIZE:
-		src_image.resize(FAKE_GOBO_TEXTURE_SIZE, FAKE_GOBO_TEXTURE_SIZE, Image.INTERPOLATE_LANCZOS)
-	var out_image: Image = Image.create(FAKE_GOBO_TEXTURE_SIZE, FAKE_GOBO_TEXTURE_SIZE, false, Image.FORMAT_RGBA8)
-	out_image.fill(Color(0.0, 0.0, 0.0, 0.0))
-	var center: Vector2 = Vector2(float(FAKE_GOBO_TEXTURE_SIZE - 1), float(FAKE_GOBO_TEXTURE_SIZE - 1)) * 0.5
-	var inv_scale: float = 1.0 / clamped_scale
-	var rotation_rad: float = deg_to_rad(normalized_rotation)
-	var cos_r: float = cos(rotation_rad)
-	var sin_r: float = sin(rotation_rad)
-	for y in range(FAKE_GOBO_TEXTURE_SIZE):
-		for x in range(FAKE_GOBO_TEXTURE_SIZE):
-			var dst: Vector2 = Vector2(float(x), float(y)) - center
-			var scaled: Vector2 = dst * inv_scale
-			var src_local := Vector2(
-				(cos_r * scaled.x) + (sin_r * scaled.y),
-				(-sin_r * scaled.x) + (cos_r * scaled.y)
-			)
-			var src_pos: Vector2 = src_local + center
-			if src_pos.x < 0.0 or src_pos.y < 0.0 or src_pos.x >= float(FAKE_GOBO_TEXTURE_SIZE) or src_pos.y >= float(FAKE_GOBO_TEXTURE_SIZE):
-				continue
-			out_image.set_pixel(x, y, src_image.get_pixel(int(src_pos.x), int(src_pos.y)))
-	var texture: ImageTexture = ImageTexture.create_from_image(out_image)
-	_copy_vector_metadata(texture, base_texture)
-	_texture_cache[cache_key] = texture
-	return texture
 
 func _apply_vector_metadata_from_slot(texture: Texture2D, slot: Dictionary) -> void:
 	if texture == null:
