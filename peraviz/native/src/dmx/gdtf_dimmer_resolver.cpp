@@ -700,6 +700,39 @@ GoboWheelCatalog build_gobo_wheel_catalog(const std::string &gdtf_path, tinyxml2
     return out;
 }
 
+
+int normalize_gobo_slot_index(int slot_index, const std::unordered_set<int> &known_slots) {
+    if (slot_index <= 0) {
+        return -1;
+    }
+    if (known_slots.find(slot_index) != known_slots.end()) {
+        return slot_index;
+    }
+
+    if (known_slots.empty()) {
+        return -1;
+    }
+
+    const auto [min_it, max_it] = std::minmax_element(known_slots.begin(), known_slots.end());
+    const int min_slot = *min_it;
+    const int max_slot = *max_it;
+    const int slot_count = static_cast<int>(known_slots.size());
+
+    // Compatibility fallback for fixtures that encode repeated gobo cycles with
+    // out-of-range WheelSlotIndex values (e.g. 1..N then N+1..2N).
+    const bool contiguous_one_based =
+        min_slot == 1 && max_slot == slot_count;
+    if (!contiguous_one_based) {
+        return -1;
+    }
+
+    const int wrapped_slot = ((slot_index - 1) % slot_count) + 1;
+    if (known_slots.find(wrapped_slot) != known_slots.end()) {
+        return wrapped_slot;
+    }
+    return -1;
+}
+
 void consume_gobo_channel_sets(tinyxml2::XMLElement *channel_function,
                                const GoboWheelCatalog &wheel_catalog,
                                peraviz::dmx::FixtureGoboWheelOffset &out_wheel) {
@@ -752,7 +785,8 @@ void consume_gobo_channel_sets(tinyxml2::XMLElement *channel_function,
         if (slot_index <= 0) {
             slot_index = last_slot_index;
         }
-        if (slot_index <= 0 || known_slots.find(slot_index) == known_slots.end()) {
+        slot_index = normalize_gobo_slot_index(slot_index, known_slots);
+        if (slot_index <= 0) {
             continue;
         }
         last_slot_index = slot_index;
