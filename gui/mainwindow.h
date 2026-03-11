@@ -25,6 +25,7 @@
 #include <memory>
 #include <optional>
 #include <array>
+#include <functional>
 #include <unordered_set>
 #include <vector>
 
@@ -32,6 +33,7 @@ wxDECLARE_EVENT(EVT_PROJECT_LOADED, wxCommandEvent);
 
 // Forward declarations for GUI components
 class wxNotebook;
+class wxIdleEvent;
 class FixtureTablePanel;
 class TrussTablePanel;
 class HoistTablePanel;
@@ -210,6 +212,9 @@ private:
                           const wxString &dialogTitle);
   void StartFixtureSymbolAutoUpdateForLoadedScene();
   void ProcessNextFixtureSymbolAutoUpdate();
+  void CompleteStartupSplashInitialization();
+  void RequestStartupSplashCompletion();
+  void OnStartupSplashCloseIdle(wxIdleEvent &event);
   void FlushPendingFixtureSymbolLibraryUpdates();
   std::string BuildFixtureSymbolAutoUpdateSummary() const;
   std::string defaultLayoutPerspective;
@@ -231,6 +236,9 @@ private:
   std::vector<std::string> fixtureSymbolAutoUpdateErrors;
   std::unordered_set<std::string> fixtureSymbolAutoUpdateGeneratedTypeSet;
   bool fixtureSymbolAutoUpdateRunning = false;
+  std::function<void()> fixtureSymbolAutoUpdateCompletionCallback;
+  bool startupSplashInitializationPending = true;
+  bool startupSplashCloseRequested = false;
   int viewportInteractionLockDepth = 0;
 
   friend class MainWindowIoController;

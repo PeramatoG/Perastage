@@ -304,6 +304,8 @@ MainWindow::MainWindow(const wxString &title, IGuiConfigServices *services)
   if (layoutPanel)
     layoutPanel->ReloadLayouts();
 
+  Bind(wxEVT_IDLE, &MainWindow::OnStartupSplashCloseIdle, this);
+
   UpdateTitle();
 }
 
@@ -564,6 +566,8 @@ void MainWindow::ResetProject() {
   fixtureSymbolAutoUpdateErrors.clear();
   fixtureSymbolAutoUpdateGeneratedTypeSet.clear();
   fixtureSymbolAutoUpdateRunning = false;
+  fixtureSymbolAutoUpdateCompletionCallback = nullptr;
+  startupSplashCloseRequested = false;
   currentProjectPath.clear();
   if (layoutPanel)
     layoutPanel->ReloadLayouts();
@@ -919,6 +923,7 @@ void MainWindow::OnProjectLoaded(wxCommandEvent &event) {
       layoutPanel->ReloadLayouts();
     if (consolePanel)
       consolePanel->AppendMessage("Loaded " + wxString::FromUTF8(path));
+    SplashScreen::SetMessage("Loading tables...");
     if (fixturePanel)
       fixturePanel->ReloadData();
     if (trussPanel)
@@ -950,16 +955,20 @@ void MainWindow::OnProjectLoaded(wxCommandEvent &event) {
       viewport2DRenderPanel->ApplyConfig();
     if (layerPanel)
       layerPanel->ReloadLayers();
+    SplashScreen::SetMessage("Refreshing panels...");
     RefreshSummary();
     RefreshRigging();
     GetDefaultGuiConfigServices().LegacyConfigManager().MarkSaved();
+    SplashScreen::SetMessage("Creating fixture symbols...");
+    fixtureSymbolAutoUpdateCompletionCallback = [this]() {
+      RequestStartupSplashCompletion();
+    };
     StartFixtureSymbolAutoUpdateForLoadedScene();
     UpdateTitle();
   } else {
     ResetProject();
+    RequestStartupSplashCompletion();
   }
-  SplashScreen::SetMessage("Ready");
-  SplashScreen::Hide();
 }
 
 void MainWindow::OnNotebookPageChanged(wxBookCtrlEvent &event) {
