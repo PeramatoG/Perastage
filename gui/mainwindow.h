@@ -25,6 +25,7 @@
 #include <memory>
 #include <optional>
 #include <array>
+#include <functional>
 #include <unordered_set>
 #include <vector>
 
@@ -210,6 +211,7 @@ private:
                           const wxString &dialogTitle);
   void StartFixtureSymbolAutoUpdateForLoadedScene();
   void ProcessNextFixtureSymbolAutoUpdate();
+  void CompleteStartupSplashInitialization();
   void FlushPendingFixtureSymbolLibraryUpdates();
   std::string BuildFixtureSymbolAutoUpdateSummary() const;
   std::string defaultLayoutPerspective;
@@ -231,6 +233,8 @@ private:
   std::vector<std::string> fixtureSymbolAutoUpdateErrors;
   std::unordered_set<std::string> fixtureSymbolAutoUpdateGeneratedTypeSet;
   bool fixtureSymbolAutoUpdateRunning = false;
+  std::function<void()> fixtureSymbolAutoUpdateCompletionCallback;
+  bool startupSplashInitializationPending = true;
   int viewportInteractionLockDepth = 0;
 
   friend class MainWindowIoController;

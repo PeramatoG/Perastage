@@ -564,6 +564,7 @@ void MainWindow::ResetProject() {
   fixtureSymbolAutoUpdateErrors.clear();
   fixtureSymbolAutoUpdateGeneratedTypeSet.clear();
   fixtureSymbolAutoUpdateRunning = false;
+  fixtureSymbolAutoUpdateCompletionCallback = nullptr;
   currentProjectPath.clear();
   if (layoutPanel)
     layoutPanel->ReloadLayouts();
@@ -919,6 +920,7 @@ void MainWindow::OnProjectLoaded(wxCommandEvent &event) {
       layoutPanel->ReloadLayouts();
     if (consolePanel)
       consolePanel->AppendMessage("Loaded " + wxString::FromUTF8(path));
+    SplashScreen::SetMessage("Loading tables...");
     if (fixturePanel)
       fixturePanel->ReloadData();
     if (trussPanel)
@@ -953,13 +955,16 @@ void MainWindow::OnProjectLoaded(wxCommandEvent &event) {
     RefreshSummary();
     RefreshRigging();
     GetDefaultGuiConfigServices().LegacyConfigManager().MarkSaved();
+    SplashScreen::SetMessage("Creating fixture symbols...");
+    fixtureSymbolAutoUpdateCompletionCallback = [this]() {
+      CompleteStartupSplashInitialization();
+    };
     StartFixtureSymbolAutoUpdateForLoadedScene();
     UpdateTitle();
   } else {
     ResetProject();
+    CompleteStartupSplashInitialization();
   }
-  SplashScreen::SetMessage("Ready");
-  SplashScreen::Hide();
 }
 
 void MainWindow::OnNotebookPageChanged(wxBookCtrlEvent &event) {

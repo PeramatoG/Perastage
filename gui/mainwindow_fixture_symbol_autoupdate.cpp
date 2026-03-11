@@ -11,6 +11,7 @@
 #include "fixture.h"
 #include "guiconfigservices.h"
 #include "opaque_pass_utils.h"
+#include "splashscreen.h"
 #include "tools/scene_model_symbol_capture_service.h"
 #include "tools/symbol_physical_calibration.h"
 #include "windows/symbol_fixture_applier.h"
@@ -137,6 +138,11 @@ void MainWindow::StartFixtureSymbolAutoUpdateForLoadedScene() {
                             false);
     ReportFixtureAutoUpdate(*this, consolePanel,
                             "Fixture symbol auto-update summary: no fixtures queued.");
+    if (fixtureSymbolAutoUpdateCompletionCallback) {
+      auto completionCallback = fixtureSymbolAutoUpdateCompletionCallback;
+      fixtureSymbolAutoUpdateCompletionCallback = nullptr;
+      completionCallback();
+    }
     return;
   }
 
@@ -156,6 +162,11 @@ void MainWindow::ProcessNextFixtureSymbolAutoUpdate() {
                             "Fixture symbol auto-update: completed.", false);
     ReportFixtureAutoUpdate(*this, consolePanel,
                             BuildFixtureSymbolAutoUpdateSummary());
+    if (fixtureSymbolAutoUpdateCompletionCallback) {
+      auto completionCallback = fixtureSymbolAutoUpdateCompletionCallback;
+      fixtureSymbolAutoUpdateCompletionCallback = nullptr;
+      completionCallback();
+    }
     return;
   }
 
@@ -214,6 +225,11 @@ void MainWindow::ProcessNextFixtureSymbolAutoUpdate() {
         "Stopped: offscreen renderer unavailable");
     ReportFixtureAutoUpdate(*this, consolePanel,
                             BuildFixtureSymbolAutoUpdateSummary());
+    if (fixtureSymbolAutoUpdateCompletionCallback) {
+      auto completionCallback = fixtureSymbolAutoUpdateCompletionCallback;
+      fixtureSymbolAutoUpdateCompletionCallback = nullptr;
+      completionCallback();
+    }
     return;
   }
 
@@ -305,4 +321,14 @@ void MainWindow::FlushPendingFixtureSymbolLibraryUpdates() {
                                                    syncError);
   }
   fixtureSymbolPendingLibrarySyncUuids.clear();
+}
+
+
+void MainWindow::CompleteStartupSplashInitialization() {
+  if (!startupSplashInitializationPending)
+    return;
+
+  startupSplashInitializationPending = false;
+  SplashScreen::SetMessage("Ready");
+  SplashScreen::Hide();
 }
