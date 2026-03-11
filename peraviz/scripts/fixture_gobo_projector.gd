@@ -30,6 +30,8 @@ const GOBO_BEHAVIOR_INDEX: int = 1
 const GOBO_BEHAVIOR_ROTATION: int = 2
 const GOBO_BEHAVIOR_SHAKE: int = 3
 
+const DmxGoboRangeResolverScript = preload("res://scripts/dmx_gobo_range_resolver.gd")
+
 var _texture_cache: Dictionary = {}
 
 func clear_cache() -> void:
@@ -256,19 +258,7 @@ func _resolve_active_gobo_slot_index(controls: Dictionary, gobo_raw_8bit: int) -
 	var gobo_ranges: Array = controls.get("gobo_ranges", [])
 	if gobo_ranges.is_empty():
 		return -1
-
-	for item in gobo_ranges:
-		if item is not Dictionary:
-			continue
-		var dmx_from: int = int(item.get("dmx_from", 0))
-		var dmx_to: int = int(item.get("dmx_to", dmx_from))
-		if dmx_to < dmx_from:
-			var swap_value: int = dmx_from
-			dmx_from = dmx_to
-			dmx_to = swap_value
-		if gobo_raw_8bit >= dmx_from and gobo_raw_8bit <= dmx_to:
-			return int(item.get("slot_index", -1))
-	return -1
+	return int(DmxGoboRangeResolverScript.resolve_active_range(gobo_raw_8bit, gobo_ranges).get("slot_index", -1))
 
 func _resolve_gobo_texture_for_slot(controls: Dictionary, slot_index: int) -> Texture2D:
 	var gobo_slots: Array = controls.get("gobo_slots", [])
@@ -385,4 +375,3 @@ func _copy_vector_metadata(target_texture: Texture2D, source_texture: Texture2D)
 		target_texture.set_meta(GOBO_VECTOR_WIDTH_META_KEY, source_texture.get_meta(GOBO_VECTOR_WIDTH_META_KEY))
 	if source_texture.has_meta(GOBO_VECTOR_HEIGHT_META_KEY):
 		target_texture.set_meta(GOBO_VECTOR_HEIGHT_META_KEY, source_texture.get_meta(GOBO_VECTOR_HEIGHT_META_KEY))
-

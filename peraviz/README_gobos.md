@@ -14,6 +14,16 @@ This document summarizes how Peraviz parses and loads gobo data from GDTF fixtur
   - `ChannelSet/@DMXTo` (optional, inferred from next range when missing)
   - `ChannelSet/@WheelSlotIndex`
 
+Per GDTF, `WheelSlotIndex` is normalized to wheel slot order. Fixtures may also
+repeat the same slot across different DMX windows (for example to reuse one gobo
+with index/spin/shake behaviors). Runtime range matching therefore keeps fixture
+`ChannelSet` declaration precedence: when more than one range matches the DMX
+value, the latest matching row wins.
+
+Peraviz accepts both common `ChannelSet` DMX encodings found in real GDTF files:
+values authored as absolute DMX positions and values authored relative to the
+parent `ChannelFunction` DMX window.
+
 ## DMX binding rules
 
 - Gobo binding focuses on selector channels (`Gobo1`, `Gobo1Pos`, etc.).

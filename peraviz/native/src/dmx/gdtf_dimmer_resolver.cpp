@@ -99,6 +99,21 @@ std::vector<tinyxml2::XMLElement *> collect_elements_by_name(tinyxml2::XMLElemen
     return result;
 }
 
+std::vector<tinyxml2::XMLElement *> collect_direct_children_by_name(tinyxml2::XMLElement *root,
+                                                                    const std::string &name_lower) {
+    std::vector<tinyxml2::XMLElement *> result;
+    if (!root) {
+        return result;
+    }
+    for (tinyxml2::XMLElement *child = root->FirstChildElement(); child;
+         child = child->NextSiblingElement()) {
+        if (lower_ascii(child->Name()) == name_lower) {
+            result.push_back(child);
+        }
+    }
+    return result;
+}
+
 std::vector<int> parse_offsets(const char *raw_offset) {
     std::vector<int> offsets;
     if (!raw_offset) {
@@ -731,7 +746,9 @@ int normalize_gobo_slot_index(int slot_index,
 
 void consume_gobo_channel_sets(tinyxml2::XMLElement *channel_function,
                                const GoboWheelCatalog &wheel_catalog,
-                               peraviz::dmx::FixtureGoboWheelOffset &out_wheel) {
+                               peraviz::dmx::FixtureGoboWheelOffset &out_wheel,
+                               int function_dmx_from,
+                               int function_dmx_to) {
     if (!channel_function) {
         return;
     }
@@ -766,6 +783,20 @@ void consume_gobo_channel_sets(tinyxml2::XMLElement *channel_function,
     };
     std::vector<ParsedGoboSet> parsed_sets;
 
+    const int clamped_function_from = std::clamp(function_dmx_from, 0, 255);
+    const int clamped_function_to = std::clamp(function_dmx_to, clamped_function_from, 255);
+
+    const auto resolve_channel_set_dmx =
+        [clamped_function_from, clamped_function_to](int raw_value) -> int {
+        // GDTF libraries may encode ChannelSet DMX values either as absolute
+        // channel values or as values relative to the parent ChannelFunction.
+        if (raw_value >= clamped_function_from && raw_value <= 255) {
+            return std::clamp(raw_value, clamped_function_from, clamped_function_to);
+        }
+        const int relative_value = clamped_function_from + std::max(0, raw_value);
+        return std::clamp(relative_value, clamped_function_from, clamped_function_to);
+    };
+
     int last_slot_index = -1;
     for (tinyxml2::XMLElement *channel_set = channel_function->FirstChildElement(); channel_set;
          channel_set = channel_set->NextSiblingElement()) {
@@ -788,18 +819,20 @@ void consume_gobo_channel_sets(tinyxml2::XMLElement *channel_function,
         }
         last_slot_index = slot_index;
 
-        int dmx_from = parse_dmx_value_8bit(channel_set->Attribute("DMXFrom"));
-        if (dmx_from < 0) {
-            dmx_from = parse_dmx_value_8bit(channel_set->Attribute("dmxfrom"));
+        int raw_dmx_from = parse_dmx_value_8bit(channel_set->Attribute("DMXFrom"));
+        if (raw_dmx_from < 0) {
+            raw_dmx_from = parse_dmx_value_8bit(channel_set->Attribute("dmxfrom"));
         }
-        if (dmx_from < 0) {
-            dmx_from = 0;
+        if (raw_dmx_from < 0) {
+            raw_dmx_from = 0;
         }
+        const int dmx_from = resolve_channel_set_dmx(raw_dmx_from);
 
-        int dmx_to = parse_dmx_value_8bit(channel_set->Attribute("DMXTo"));
-        if (dmx_to < 0) {
-            dmx_to = parse_dmx_value_8bit(channel_set->Attribute("dmxto"));
+        int raw_dmx_to = parse_dmx_value_8bit(channel_set->Attribute("DMXTo"));
+        if (raw_dmx_to < 0) {
+            raw_dmx_to = parse_dmx_value_8bit(channel_set->Attribute("dmxto"));
         }
+        const int dmx_to = raw_dmx_to < 0 ? -1 : resolve_channel_set_dmx(raw_dmx_to);
 
         const std::string channel_set_name = read_attr_ci(channel_set, "Name", "name");
         const peraviz::dmx::FixtureGoboRangeBehavior behavior =
@@ -822,11 +855,11 @@ void consume_gobo_channel_sets(tinyxml2::XMLElement *channel_function,
             if (i + 1 < parsed_sets.size()) {
                 row.dmx_to = std::max(row.dmx_from, parsed_sets[i + 1].dmx_from - 1);
             } else {
-                row.dmx_to = 255;
+                row.dmx_to = clamped_function_to;
             }
         }
-        row.dmx_from = std::clamp(row.dmx_from, 0, 255);
-        row.dmx_to = std::clamp(row.dmx_to, 0, 255);
+        row.dmx_from = std::clamp(row.dmx_from, clamped_function_from, clamped_function_to);
+        row.dmx_to = std::clamp(row.dmx_to, clamped_function_from, clamped_function_to);
         if (row.dmx_to < row.dmx_from) {
             std::swap(row.dmx_from, row.dmx_to);
         }
@@ -937,15 +970,37 @@ void consume_channel_offsets(tinyxml2::XMLElement *dmx_channel,
         return;
     }
 
-    const std::vector<tinyxml2::XMLElement *> logical_channels = collect_elements_by_name(dmx_channel, "logicalchannel");
+    const std::vector<tinyxml2::XMLElement *> logical_channels = collect_direct_children_by_name(dmx_channel, "logicalchannel");
     for (tinyxml2::XMLElement *logical_channel : logical_channels) {
         const char *logical_attribute = logical_channel->Attribute("Attribute");
         if (!logical_attribute) {
             logical_attribute = logical_channel->Attribute("attribute");
         }
 
-        const std::vector<tinyxml2::XMLElement *> channel_functions = collect_elements_by_name(logical_channel, "channelfunction");
+        const std::vector<tinyxml2::XMLElement *> channel_functions = collect_direct_children_by_name(logical_channel, "channelfunction");
+        std::vector<int> function_dmx_from_values;
+        function_dmx_from_values.reserve(channel_functions.size());
         for (tinyxml2::XMLElement *channel_function : channel_functions) {
+            int function_dmx_from = parse_dmx_value_8bit(channel_function->Attribute("DMXFrom"));
+            if (function_dmx_from < 0) {
+                function_dmx_from = parse_dmx_value_8bit(channel_function->Attribute("dmxfrom"));
+            }
+            if (function_dmx_from < 0) {
+                function_dmx_from = 0;
+            }
+            function_dmx_from_values.push_back(std::clamp(function_dmx_from, 0, 255));
+        }
+
+        for (size_t channel_function_index = 0;
+             channel_function_index < channel_functions.size();
+             ++channel_function_index) {
+            tinyxml2::XMLElement *channel_function = channel_functions[channel_function_index];
+            const int function_dmx_from = function_dmx_from_values[channel_function_index];
+            int function_dmx_to = 255;
+            if (channel_function_index + 1 < channel_functions.size()) {
+                function_dmx_to = function_dmx_from_values[channel_function_index + 1] - 1;
+            }
+            function_dmx_to = std::clamp(function_dmx_to, function_dmx_from, 255);
             const char *attribute = channel_function->Attribute("Attribute");
             if (!attribute) {
                 attribute = channel_function->Attribute("attribute");
@@ -1021,7 +1076,8 @@ void consume_channel_offsets(tinyxml2::XMLElement *dmx_channel,
                                 wheel->coarse_offset_1_based,
                                 wheel->fine_offset_1_based,
                                 wheel->ultra_fine_offset_1_based);
-                consume_gobo_channel_sets(channel_function, wheel_catalog, *wheel);
+                consume_gobo_channel_sets(channel_function, wheel_catalog, *wheel,
+                                          function_dmx_from, function_dmx_to);
                 break;
             }
             case AttributeRole::kGoboIndex: {
