@@ -856,6 +856,7 @@ void consume_gobo_channel_sets(tinyxml2::XMLElement *channel_function,
         if (slot_index <= 0) {
             slot_index = parse_positive_int(channel_set->Attribute("wheelslotindex"));
         }
+        const int declared_slot_index = slot_index;
         // GDTF ChannelSet may omit WheelSlotIndex in motion ranges (index/spin/shake).
         // Reuse the previous valid slot so behavior is tied to the selected gobo slot.
         if (slot_index <= 0) {
@@ -885,8 +886,10 @@ void consume_gobo_channel_sets(tinyxml2::XMLElement *channel_function,
         const std::string channel_set_name = read_attr_ci(channel_set, "Name", "name");
         peraviz::dmx::FixtureGoboRangeBehavior behavior =
             parse_gobo_range_behavior(channel_set_name);
+        const bool allow_function_hint = declared_slot_index <= 0 || channel_set_name.empty();
         if (behavior == peraviz::dmx::FixtureGoboRangeBehavior::kFixed &&
-            function_behavior_hint != peraviz::dmx::FixtureGoboRangeBehavior::kFixed) {
+            function_behavior_hint != peraviz::dmx::FixtureGoboRangeBehavior::kFixed &&
+            allow_function_hint) {
             behavior = function_behavior_hint;
         }
         parsed_sets.push_back({dmx_from, dmx_to, slot_index, behavior});
