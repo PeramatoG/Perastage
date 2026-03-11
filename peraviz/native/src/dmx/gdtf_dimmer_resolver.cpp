@@ -429,6 +429,11 @@ ParsedAttribute parse_attribute_name(const std::string &raw_attribute) {
 void consume_zoom_physical_range(tinyxml2::XMLElement *channel_function,
                                  peraviz::dmx::FixtureControlOffsets &out_offsets);
 
+void consume_gobo_physical_range(tinyxml2::XMLElement *channel_function,
+                                 bool &has_limits,
+                                 float &out_min,
+                                 float &out_max);
+
 bool parse_float_attr_ci(tinyxml2::XMLElement *node,
                          const char *attr_name,
                          const char *attr_name_alt,
@@ -473,6 +478,23 @@ void consume_zoom_physical_range(tinyxml2::XMLElement *channel_function,
         std::min(out_offsets.zoom_physical_min_degrees, min_value);
     out_offsets.zoom_physical_max_degrees =
         std::max(out_offsets.zoom_physical_max_degrees, max_value);
+}
+
+void consume_gobo_physical_range(tinyxml2::XMLElement *channel_function,
+                                 bool &has_limits,
+                                 float &out_min,
+                                 float &out_max) {
+    float physical_from = 0.0F;
+    float physical_to = 0.0F;
+    const bool has_physical_from = parse_float_attr_ci(channel_function, "PhysicalFrom", "physicalfrom", physical_from);
+    const bool has_physical_to = parse_float_attr_ci(channel_function, "PhysicalTo", "physicalto", physical_to);
+    if (!has_physical_from || !has_physical_to) {
+        return;
+    }
+
+    has_limits = true;
+    out_min = physical_from;
+    out_max = physical_to;
 }
 
 void consume_offsets(const std::vector<int> &offsets,
@@ -1095,6 +1117,10 @@ void consume_channel_offsets(tinyxml2::XMLElement *dmx_channel,
                                 wheel->index_coarse_offset_1_based,
                                 wheel->index_fine_offset_1_based,
                                 wheel->index_ultra_fine_offset_1_based);
+                consume_gobo_physical_range(channel_function,
+                                            wheel->has_index_physical_limits,
+                                            wheel->index_physical_min,
+                                            wheel->index_physical_max);
                 break;
             }
             case AttributeRole::kGoboRotation: {
@@ -1112,6 +1138,10 @@ void consume_channel_offsets(tinyxml2::XMLElement *dmx_channel,
                                 wheel->rotation_coarse_offset_1_based,
                                 wheel->rotation_fine_offset_1_based,
                                 wheel->rotation_ultra_fine_offset_1_based);
+                consume_gobo_physical_range(channel_function,
+                                            wheel->has_rotation_physical_limits,
+                                            wheel->rotation_physical_min,
+                                            wheel->rotation_physical_max);
                 break;
             }
             }

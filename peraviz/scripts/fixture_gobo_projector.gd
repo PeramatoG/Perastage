@@ -109,15 +109,20 @@ func _resolve_wheel_rotation_deg(light: SpotLight3D, controls: Dictionary, wheel
 		wheel_spin_state = {}
 
 	var behavior: int = int(wheel.get("behavior", GOBO_BEHAVIOR_FIXED))
-	var supports_index: bool = behavior == GOBO_BEHAVIOR_INDEX
-	var supports_rotation: bool = behavior == GOBO_BEHAVIOR_ROTATION or behavior == GOBO_BEHAVIOR_SHAKE
+	var supports_index: bool = bool(wheel.get("supports_index", false)) or behavior == GOBO_BEHAVIOR_INDEX
+	var supports_rotation: bool = bool(wheel.get("supports_rotation", false)) or behavior == GOBO_BEHAVIOR_ROTATION or behavior == GOBO_BEHAVIOR_SHAKE
 
 	var index_norm: float = float(wheel.get("index_norm", -1.0))
 	if supports_index and index_norm < 0.0 and bool(controls.get("has_gobo_index", false)):
 		index_norm = clamp(float(controls.get("gobo_index_norm", 0.0)), 0.0, 1.0)
 	var base_rotation_deg: float = global_rotation_deg
 	if index_norm >= 0.0:
-		base_rotation_deg = lerp(0.0, GOBO_INDEX_MAX_DEG, clamp(index_norm, 0.0, 1.0))
+		if bool(wheel.get("has_index_physical_limits", false)):
+			var index_physical_min: float = float(wheel.get("index_physical_min", 0.0))
+			var index_physical_max: float = float(wheel.get("index_physical_max", 0.0))
+			base_rotation_deg = lerp(index_physical_min, index_physical_max, clamp(index_norm, 0.0, 1.0))
+		else:
+			base_rotation_deg = lerp(0.0, GOBO_INDEX_MAX_DEG, clamp(index_norm, 0.0, 1.0))
 
 	var rotation_norm: float = float(wheel.get("rotation_norm", -1.0))
 	if supports_rotation and index_norm < 0.0 and rotation_norm < 0.0 and bool(controls.get("has_gobo_rotation", false)):
@@ -130,7 +135,13 @@ func _resolve_wheel_rotation_deg(light: SpotLight3D, controls: Dictionary, wheel
 		return base_rotation_deg
 
 	if supports_rotation and rotation_norm >= 0.0 and delta_sec > 0.0:
-		var speed_deg_per_sec: float = (clamp(rotation_norm, 0.0, 1.0) - 0.5) * GOBO_ROTATION_MAX_DEG_PER_SEC
+		var speed_deg_per_sec: float = 0.0
+		if bool(wheel.get("has_rotation_physical_limits", false)):
+			var rotation_physical_min: float = float(wheel.get("rotation_physical_min", -GOBO_ROTATION_MAX_DEG_PER_SEC * 0.5))
+			var rotation_physical_max: float = float(wheel.get("rotation_physical_max", GOBO_ROTATION_MAX_DEG_PER_SEC * 0.5))
+			speed_deg_per_sec = lerp(rotation_physical_min, rotation_physical_max, clamp(rotation_norm, 0.0, 1.0))
+		else:
+			speed_deg_per_sec = (clamp(rotation_norm, 0.0, 1.0) - 0.5) * GOBO_ROTATION_MAX_DEG_PER_SEC
 		spin_angle_deg = wrapf(spin_angle_deg + (speed_deg_per_sec * delta_sec), -360000.0, 360000.0)
 		wheel_spin_state[wheel_key] = spin_angle_deg
 		light.set_meta(GOBO_WHEEL_SPIN_META_KEY, wheel_spin_state)
