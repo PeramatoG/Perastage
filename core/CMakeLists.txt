@@ -7,6 +7,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtfnet.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/geometry/RdpSimplifier.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/guiconfigservices.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/hoistpresetlibrary.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/layouts/LayoutCollection.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/layouts/LayoutManager.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/layouts/LayoutTemplateSerializer.cpp

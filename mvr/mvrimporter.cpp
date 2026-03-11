@@ -1137,10 +1137,25 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
               };
               readFloat("Capacity", support.capacityKg);
               readFloat("Weight", support.weightKg);
-              if (tinyxml2::XMLElement *rp =
-                      info->FirstChildElement("RiggingPoint")) {
+              if (tinyxml2::XMLElement *fn = info->FirstChildElement("Function")) {
+                if (const char *txt = fn->GetText())
+                  support.hoistFunction = NormalizeHoistFunction(Trim(txt));
+              } else if (tinyxml2::XMLElement *rp =
+                             info->FirstChildElement("RiggingPoint")) {
                 if (const char *txt = rp->GetText())
                   support.hoistFunction = NormalizeHoistFunction(Trim(txt));
+              }
+              if (tinyxml2::XMLElement *mn = info->FirstChildElement("MotorName")) {
+                if (const char *txt = mn->GetText())
+                  support.motorName = Trim(txt);
+              }
+              if (tinyxml2::XMLElement *dp = info->FirstChildElement("DummyPreset")) {
+                if (const char *txt = dp->GetText())
+                  support.dummyPreset = Trim(txt);
+              }
+              if (tinyxml2::XMLElement *ds = info->FirstChildElement("DataSource")) {
+                if (const char *txt = ds->GetText())
+                  support.hoistDataSource = NormalizeHoistDataSource(Trim(txt));
               }
             }
           }
@@ -1149,6 +1164,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         if (support.hoistFunction.empty())
           support.hoistFunction = NormalizeHoistFunction(support.function);
 
+        support.hoistDataSource = NormalizeHoistDataSource(support.hoistDataSource);
         if (support.function.empty())
           support.function = support.hoistFunction;
         auto posIt = scene.positions.find(support.position);

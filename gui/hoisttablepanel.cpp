@@ -22,6 +22,7 @@
 #include "configmanager.h"
 #include "guiconfigservices.h"
 #include "layerpanel.h"
+#include "hoistpresetlibrary.h"
 #include "matrixutils.h"
 #include "riggingpanel.h"
 #include "stringutils.h"
@@ -32,6 +33,7 @@
 #include "viewer3dpanel.h"
 #include <algorithm>
 #include <cctype>
+#include <optional>
 #include <wx/choicdlg.h>
 #include <wx/notebook.h>
 #include <wx/wupdlock.h> // freeze/thaw UI during batch edits
@@ -55,6 +57,29 @@ struct RangeParts {
 bool IsNumChar(char c) {
   return std::isdigit(static_cast<unsigned char>(c)) || c == '.' || c == '-' ||
          c == '+';
+}
+
+
+std::optional<HoistPresetDefaults> FindPresetDefaults(const std::string &dummyPreset) {
+  if (dummyPreset.empty())
+    return std::nullopt;
+  auto preset = HoistPresetLibrary::FindByDummyPreset(dummyPreset);
+  if (!preset.has_value())
+    return std::nullopt;
+  HoistPresetDefaults defaults;
+  defaults.capacityKg = preset->capacityKg;
+  defaults.weightKg = preset->weightKg;
+  defaults.hoistFunction = preset->hoistFunction;
+  return defaults;
+}
+
+wxArrayString BuildDummyPresetChoices() {
+  wxArrayString choices;
+  choices.push_back("");
+  const auto presets = HoistPresetLibrary::LoadPresets();
+  for (const auto &preset : presets)
+    choices.push_back(wxString::FromUTF8(preset.dummyPreset));
+  return choices;
 }
 
 RangeParts SplitRangeParts(const wxString &value) {
@@ -136,12 +161,13 @@ HoistTablePanel::HoistTablePanel(wxWindow *parent, IGuiConfigServices *services)
 HoistTablePanel::~HoistTablePanel() { store = nullptr; }
 
 void HoistTablePanel::InitializeTable() {
-  columnLabels = {"Hoist ID",    "Name",       "Type",      "Function",
-                  "Layer",       "Hang Pos",   "Pos X",     "Pos Y",
-                  "Pos Z",       "Roll (X)",   "Pitch (Y)", "Yaw (Z)",
+  columnLabels = {"Hoist ID",      "Name",          "Type",      "Function",
+                  "Motor",         "Dummy Preset",  "Data Source", "Layer",
+                  "Hang Pos",      "Pos X",         "Pos Y",     "Pos Z",
+                  "Roll (X)",      "Pitch (Y)",     "Yaw (Z)",
                   "Chain Length (m)", "Capacity (kg)", "Weight (kg)"};
-  std::vector<int> widths = {70,  150, 120, 120, 100, 120, 80,  80,
-                             80,  80,  80,  80,  110, 110, 100};
+  std::vector<int> widths = {70, 150, 120, 120, 130, 150, 110, 100, 120,
+                             80, 80, 80, 80, 80, 80, 110, 110, 100};
   for (size_t i = 0; i < columnLabels.size(); ++i)
     table->AppendColumn(new wxDataViewColumn(
         columnLabels[i], new ColorfulTextRenderer(wxDATAVIEW_CELL_INERT,
@@ -180,8 +206,14 @@ void HoistTablePanel::ReloadData() {
     row.push_back(wxVariant(hoistId));
     wxString name = wxString::FromUTF8(support.name);
     wxString type = wxString::FromUTF8(support.function);
+    support.hoistDataSource = NormalizeHoistDataSource(support.hoistDataSource);
+    const auto effective =
+        ResolveEffectiveSupportData(support, FindPresetDefaults(support.dummyPreset));
     support.hoistFunction = NormalizeHoistFunction(support.hoistFunction);
-    wxString hoistFunction = wxString::FromUTF8(support.hoistFunction);
+    wxString hoistFunction = wxString::FromUTF8(effective.hoistFunction);
+    wxString motorName = wxString::FromUTF8(support.motorName);
+    wxString dummyPreset = wxString::FromUTF8(support.dummyPreset);
+    wxString dataSource = wxString::FromUTF8(support.hoistDataSource);
     wxString layer = support.layer == DEFAULT_LAYER_NAME
                          ? wxString()
                          : wxString::FromUTF8(support.layer);
@@ -198,12 +230,15 @@ void HoistTablePanel::ReloadData() {
     wxString yaw = wxString::Format("%.1f", euler[0]) + DegreeSymbol();
 
     wxString chainLen = wxString::Format("%.2f", support.chainLength);
-    wxString capacity = wxString::Format("%.2f", support.capacityKg);
-    wxString weight = wxString::Format("%.2f", support.weightKg);
+    wxString capacity = wxString::Format("%.2f", effective.capacityKg);
+    wxString weight = wxString::Format("%.2f", effective.weightKg);
 
     row.push_back(name);
     row.push_back(type);
     row.push_back(hoistFunction);
+    row.push_back(motorName);
+    row.push_back(dummyPreset);
+    row.push_back(dataSource);
     row.push_back(layer);
     row.push_back(posName);
     row.push_back(posX);
@@ -304,7 +339,54 @@ void HoistTablePanel::OnContextMenu(wxDataViewEvent &event) {
     return;
   }
 
-  if (col == 4) {
+  if (col == 5) {
+    wxArrayString choices = BuildDummyPresetChoices();
+    wxSingleChoiceDialog sdlg(this, "Select dummy preset", "Dummy Preset", choices);
+    if (sdlg.ShowModal() != wxID_OK)
+      return;
+    wxString sel = sdlg.GetStringSelection();
+    for (const auto &itSel : selections) {
+      int r = table->ItemToRow(itSel);
+      if (r != wxNOT_FOUND)
+        table->SetValue(wxVariant(sel), r, col);
+    }
+    ResyncRows(oldOrder, selectedUuids);
+    UpdateSceneData();
+    if (Viewer3DPanel::Instance()) {
+      Viewer3DPanel::Instance()->UpdateScene();
+      Viewer3DPanel::Instance()->Refresh();
+    } else if (Viewer2DPanel::Instance()) {
+      Viewer2DPanel::Instance()->UpdateScene();
+    }
+    return;
+  }
+
+  if (col == 6) {
+    wxArrayString choices;
+    choices.push_back("Inherited");
+    choices.push_back("Manual");
+    wxSingleChoiceDialog sdlg(this, "Select data source", "Data Source", choices);
+    if (sdlg.ShowModal() != wxID_OK)
+      return;
+    wxString sel = sdlg.GetStringSelection();
+    for (const auto &itSel : selections) {
+      int r = table->ItemToRow(itSel);
+      if (r != wxNOT_FOUND)
+        table->SetValue(wxVariant(sel), r, col);
+    }
+    ResyncRows(oldOrder, selectedUuids);
+    UpdateSceneData();
+    ReloadData();
+    if (Viewer3DPanel::Instance()) {
+      Viewer3DPanel::Instance()->UpdateScene();
+      Viewer3DPanel::Instance()->Refresh();
+    } else if (Viewer2DPanel::Instance()) {
+      Viewer2DPanel::Instance()->UpdateScene();
+    }
+    return;
+  }
+
+  if (col == 7) {
     auto layers = guiConfigServices->LegacyConfigManager().GetLayerNames();
     wxArrayString choices;
     for (const auto &n : layers)
@@ -338,10 +420,10 @@ void HoistTablePanel::OnContextMenu(wxDataViewEvent &event) {
 
   wxString value = dlg.GetValue().Trim(true).Trim(false);
 
-  bool numericCol = (col >= 6);
+  bool numericCol = (col >= 9);
   bool relative = false;
   double delta = 0.0;
-  if (numericCol && col <= 14 &&
+  if (numericCol && col <= 17 &&
       (value.StartsWith("++") || value.StartsWith("--"))) {
     wxString numStr = value.Mid(2);
     if (numStr.ToDouble(&delta)) {
@@ -360,7 +442,7 @@ void HoistTablePanel::OnContextMenu(wxDataViewEvent &event) {
         wxVariant cv;
         table->GetValue(cv, r, col);
         wxString cur = cv.GetString();
-        if (col >= 9 && col <= 11) {
+        if (col >= 12 && col <= 14) {
           if (!DegreeSymbol().empty())
             cur.Replace(DegreeSymbol(), "");
         }
@@ -368,10 +450,10 @@ void HoistTablePanel::OnContextMenu(wxDataViewEvent &event) {
         cur.ToDouble(&curVal);
         double newVal = curVal + delta;
         wxString out;
-        if (col >= 9 && col <= 11)
+        if (col >= 12 && col <= 14)
           out = wxString::Format("%.1f", newVal) + DegreeSymbol();
         else
-          out = wxString::Format((col == 12) ? "%.2f" : "%.3f", newVal);
+          out = wxString::Format((col == 15) ? "%.2f" : "%.3f", newVal);
         table->SetValue(wxVariant(out), r, col);
       }
     } else {
@@ -412,10 +494,10 @@ void HoistTablePanel::OnContextMenu(wxDataViewEvent &event) {
           val = v1 + static_cast<double>(i);
 
         wxString out;
-        if (col >= 9 && col <= 11)
+        if (col >= 12 && col <= 14)
           out = wxString::Format("%.1f", val) + DegreeSymbol();
         else
-          out = wxString::Format((col == 12) ? "%.2f" : "%.3f", val);
+          out = wxString::Format((col == 15) ? "%.2f" : "%.3f", val);
 
         int r = table->ItemToRow(selections[i]);
         if (r != wxNOT_FOUND)
@@ -557,39 +639,49 @@ void HoistTablePanel::UpdateSceneData(bool logChanges) {
     next.hoistFunction = NormalizeHoistFunction(std::string(v.GetString().ToUTF8()));
 
     table->GetValue(v, i, 4);
+    next.motorName = std::string(v.GetString().ToUTF8());
+
+    table->GetValue(v, i, 5);
+    next.dummyPreset = std::string(v.GetString().ToUTF8());
+
+    table->GetValue(v, i, 6);
+    next.hoistDataSource =
+        NormalizeHoistDataSource(std::string(v.GetString().ToUTF8()));
+
+    table->GetValue(v, i, 7);
     std::string layerStr = std::string(v.GetString().ToUTF8());
     if (layerStr.empty())
       next.layer.clear();
     else
       next.layer = layerStr;
 
-    table->GetValue(v, i, 5);
+    table->GetValue(v, i, 8);
     next.positionName = std::string(v.GetString().ToUTF8());
 
     double x = 0, y = 0, z = 0;
-    table->GetValue(v, i, 6);
+    table->GetValue(v, i, 9);
     v.GetString().ToDouble(&x);
-    table->GetValue(v, i, 7);
+    table->GetValue(v, i, 10);
     v.GetString().ToDouble(&y);
-    table->GetValue(v, i, 8);
+    table->GetValue(v, i, 11);
     v.GetString().ToDouble(&z);
 
     double roll = 0, pitch = 0, yaw = 0;
-    table->GetValue(v, i, 9);
+    table->GetValue(v, i, 12);
     {
       wxString s = v.GetString();
       if (!DegreeSymbol().empty())
             s.Replace(DegreeSymbol(), "");
       s.ToDouble(&roll);
     }
-    table->GetValue(v, i, 10);
+    table->GetValue(v, i, 13);
     {
       wxString s = v.GetString();
       if (!DegreeSymbol().empty())
             s.Replace(DegreeSymbol(), "");
       s.ToDouble(&pitch);
     }
-    table->GetValue(v, i, 11);
+    table->GetValue(v, i, 14);
     {
       wxString s = v.GetString();
       if (!DegreeSymbol().empty())
@@ -619,23 +711,35 @@ void HoistTablePanel::UpdateSceneData(bool logChanges) {
            static_cast<float>(z * 1000.0)});
     }
 
-    table->GetValue(v, i, 12);
+    table->GetValue(v, i, 15);
     double chainLen = 0.0;
     v.GetString().ToDouble(&chainLen);
     next.chainLength = static_cast<float>(chainLen);
 
-    table->GetValue(v, i, 13);
+    table->GetValue(v, i, 16);
     double capacity = 0.0;
     v.GetString().ToDouble(&capacity);
     next.capacityKg = static_cast<float>(capacity);
 
-    table->GetValue(v, i, 14);
+    table->GetValue(v, i, 17);
     double weight = 0.0;
     v.GetString().ToDouble(&weight);
     next.weightKg = static_cast<float>(weight);
 
+    if (!IsManualHoistDataSource(next.hoistDataSource)) {
+      const auto effective =
+          ResolveEffectiveSupportData(next, FindPresetDefaults(next.dummyPreset));
+      next.capacityKg = effective.capacityKg;
+      next.weightKg = effective.weightKg;
+      next.hoistFunction = effective.hoistFunction;
+    }
+
     const bool supportChanged = old.name != next.name || old.function != next.function ||
                                 old.hoistFunction != next.hoistFunction ||
+                                old.motorName != next.motorName ||
+                                old.dummyPreset != next.dummyPreset ||
+                                NormalizeHoistDataSource(old.hoistDataSource) !=
+                                    NormalizeHoistDataSource(next.hoistDataSource) ||
                                 old.layer != next.layer ||
                                 old.positionName != next.positionName || transformChanged ||
                                 old.chainLength != next.chainLength ||

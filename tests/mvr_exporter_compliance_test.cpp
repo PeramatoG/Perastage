@@ -204,6 +204,12 @@ int main() {
   sup.uuid = "sup-1";
   sup.name = "Hoist 1";
   sup.gdtfSpec = (tempDir / "A" / "Same.gdtf").generic_string();
+  sup.motorName = "ChainMaster D8+";
+  sup.dummyPreset = "D8+ 1000kg";
+  sup.hoistDataSource = "Manual";
+  sup.hoistFunction = "Lighting";
+  sup.capacityKg = 1000.0f;
+  sup.weightKg = 42.0f;
   scene.supports[sup.uuid] = sup;
 
   MvrExporter exporter;
@@ -260,6 +266,30 @@ int main() {
           assert(value > 0);
           assert(fixtureIdText == std::to_string(value));
           assert(numericIds.insert(value).second);
+
+          if (std::string(cur->Name()) == "Support") {
+            auto *ud = cur->FirstChildElement("UserData");
+            assert(ud != nullptr);
+            auto *data = ud->FirstChildElement("Data");
+            assert(data != nullptr);
+            auto *info = data->FirstChildElement("HoistInfo");
+            assert(info != nullptr);
+
+            auto *motorNode = info->FirstChildElement("MotorName");
+            assert(motorNode != nullptr && motorNode->GetText() != nullptr);
+            assert(std::string(motorNode->GetText()) == "ChainMaster D8+");
+
+            auto *dummyNode = info->FirstChildElement("DummyPreset");
+            assert(dummyNode != nullptr && dummyNode->GetText() != nullptr);
+            assert(std::string(dummyNode->GetText()) == "D8+ 1000kg");
+
+            auto *sourceNode = info->FirstChildElement("DataSource");
+            assert(sourceNode != nullptr && sourceNode->GetText() != nullptr);
+            assert(std::string(sourceNode->GetText()) == "Manual");
+
+            auto *legacyNode = info->FirstChildElement("RiggingPoint");
+            assert(legacyNode == nullptr);
+          }
 
           if (std::string(cur->Name()) == "Fixture") {
             const char *uuidAttr = cur->Attribute("uuid");
