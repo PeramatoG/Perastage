@@ -340,6 +340,7 @@ peraviz::dmx::FixtureGoboRangeBehavior parse_gobo_range_behavior(const std::stri
     if (lower_name.find("posrotate") != std::string::npos ||
         lower_name.find("wheelspin") != std::string::npos ||
         lower_name.find("spin") != std::string::npos ||
+        lower_name.find("rotation") != std::string::npos ||
         lower_name.find("rotate") != std::string::npos) {
         return peraviz::dmx::FixtureGoboRangeBehavior::kRotation;
     }
