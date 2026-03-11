@@ -267,9 +267,14 @@ func _build_runtime_gobo_bindings(binding: Dictionary, frame: PackedByteArray) -
 		var range_behavior: int = int(active_range.get("behavior", GOBO_BEHAVIOR_FIXED))
 		var has_index_channel: bool = _has_control_channel(item, "index_channel_index_0", "index_fine_channel_index_0", "index_ultra_fine_channel_index_0")
 		var has_rotation_channel: bool = _has_control_channel(item, "rotation_channel_index_0", "rotation_fine_channel_index_0", "rotation_ultra_fine_channel_index_0")
+		var has_behavior_ranges: bool = not ranges.is_empty()
 		var supports_index: bool = range_behavior == GOBO_BEHAVIOR_INDEX
 		var supports_rotation: bool = range_behavior == GOBO_BEHAVIOR_ROTATION or range_behavior == GOBO_BEHAVIOR_SHAKE
-		if range_behavior == GOBO_BEHAVIOR_FIXED:
+		# Respect GDTF hierarchy: gobo select ChannelSet behavior decides whether
+		# index/rotation channels are active for the currently selected slot.
+		# Only fall back to direct channel availability when the fixture exposes
+		# no ChannelSet behavior ranges at all.
+		if not has_behavior_ranges:
 			supports_index = has_index_channel
 			supports_rotation = has_rotation_channel
 		var index_norm: float = -1.0

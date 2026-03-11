@@ -173,7 +173,7 @@ func _wheel_owns_rotation_control(wheel: Dictionary) -> bool:
 	var rotation_norm: float = float(wheel.get("rotation_norm", -1.0))
 	if rotation_norm >= 0.0:
 		return true
-	return bool(wheel.get("supports_index", false)) or bool(wheel.get("supports_rotation", false))
+	return false
 
 func _resolve_wheel_cache_key(wheel: Dictionary) -> String:
 	var wheel_number: int = int(wheel.get("wheel_number", 0))
