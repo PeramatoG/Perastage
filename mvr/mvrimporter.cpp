@@ -289,6 +289,95 @@ PromptGdtfConflicts(const std::vector<GdtfConflict> &conflicts) {
   return chosen;
 }
 
+
+
+static void ApplySupportHoistInfoDefaults(Support &support) {
+  if (support.dummyProfileId.empty() && !support.dummyPreset.empty()) {
+    const auto profile = DummyProfileLibrary::FindByDisplayName(support.dummyPreset);
+    if (profile.has_value())
+      support.dummyProfileId = profile->id;
+  }
+
+  support.hoistFunction = NormalizeHoistFunction(
+      support.hoistFunction.empty() ? support.function : support.hoistFunction);
+  support.hoistDataSource = NormalizeHoistDataSource(support.hoistDataSource);
+  if (support.function.empty())
+    support.function = support.hoistFunction;
+}
+
+static void ReadSupportHoistInfoFromUserData(tinyxml2::XMLElement *supportNode,
+                                             Support &support) {
+  tinyxml2::XMLElement *ud = supportNode->FirstChildElement("UserData");
+  if (!ud)
+    return;
+
+  for (tinyxml2::XMLElement *data = ud->FirstChildElement("Data"); data;
+       data = data->NextSiblingElement("Data")) {
+    tinyxml2::XMLElement *info = data->FirstChildElement("HoistInfo");
+    if (!info)
+      info = data->FirstChildElement("MotorInfo"); // Legacy block name.
+    if (!info)
+      continue;
+
+    auto readFloat = [&](const char *name, float &out) {
+      if (tinyxml2::XMLElement *el = info->FirstChildElement(name)) {
+        if (const char *txt = el->GetText()) {
+          float parsed = 0.0f;
+          if (TryParseFloat(txt, parsed))
+            out = parsed;
+        }
+      }
+    };
+    auto readText = [&](const char *name) -> std::string {
+      if (tinyxml2::XMLElement *el = info->FirstChildElement(name)) {
+        if (const char *txt = el->GetText())
+          return Trim(txt);
+      }
+      return {};
+    };
+
+    readFloat("Capacity", support.capacityKg);
+    readFloat("Weight", support.weightKg);
+
+    std::string hoistFunction = readText("RiggingPoint"); // Canonical in new schema.
+    if (hoistFunction.empty())
+      hoistFunction = readText("Function");
+    if (!hoistFunction.empty())
+      support.hoistFunction = NormalizeHoistFunction(hoistFunction);
+
+    const std::string motorName = readText("MotorName");
+    if (!motorName.empty())
+      support.motorName = motorName;
+    const std::string manufacturer = readText("MotorManufacturer");
+    if (!manufacturer.empty())
+      support.motorManufacturer = manufacturer;
+    const std::string model = readText("MotorModel");
+    if (!model.empty())
+      support.motorModel = model;
+    const std::string fixtureUuid = readText("MotorFixtureUuid");
+    if (!fixtureUuid.empty())
+      support.motorFixtureUuid = fixtureUuid;
+
+    const std::string useDefaults = ToLowerCopy(readText("UseMotorDefaults"));
+    if (!useDefaults.empty()) {
+      support.useMotorDefaults =
+          !(useDefaults == "false" || useDefaults == "0" || useDefaults == "no");
+    }
+
+    const std::string dummyPreset = readText("DummyPreset");
+    if (!dummyPreset.empty())
+      support.dummyPreset = dummyPreset;
+    const std::string dummyProfileId = readText("DummyProfileId");
+    if (!dummyProfileId.empty())
+      support.dummyProfileId = dummyProfileId;
+
+    std::string source = readText("ValueSource");
+    if (source.empty())
+      source = readText("DataSource"); // Legacy key.
+    if (!source.empty())
+      support.hoistDataSource = NormalizeHoistDataSource(source);
+  }
+}
 bool MvrImporter::ImportFromFile(const std::string &filePath,
                                  bool promptConflicts,
                                  bool applyDictionary) {
@@ -1127,82 +1216,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         support.position = readText("Position");
         support.positionName = ensurePositionEntry(support.position);
 
-        if (tinyxml2::XMLElement *ud = node->FirstChildElement("UserData")) {
-          for (tinyxml2::XMLElement *data = ud->FirstChildElement("Data"); data;
-               data = data->NextSiblingElement("Data")) {
-            tinyxml2::XMLElement *info = data->FirstChildElement("HoistInfo");
-            if (!info)
-              info = data->FirstChildElement("MotorInfo"); // Legacy name
-            if (info) {
-              auto readFloat = [&](const char *name, float &out) {
-                if (tinyxml2::XMLElement *e = info->FirstChildElement(name)) {
-                  if (const char *txt = e->GetText()) {
-                    float parsed = 0.0f;
-                    if (TryParseFloat(txt, parsed))
-                      out = parsed;
-                  }
-                }
-              };
-              readFloat("Capacity", support.capacityKg);
-              readFloat("Weight", support.weightKg);
-              if (tinyxml2::XMLElement *fn = info->FirstChildElement("Function")) {
-                if (const char *txt = fn->GetText())
-                  support.hoistFunction = NormalizeHoistFunction(Trim(txt));
-              } else if (tinyxml2::XMLElement *rp =
-                             info->FirstChildElement("RiggingPoint")) {
-                if (const char *txt = rp->GetText())
-                  support.hoistFunction = NormalizeHoistFunction(Trim(txt));
-              }
-              if (tinyxml2::XMLElement *mn = info->FirstChildElement("MotorName")) {
-                if (const char *txt = mn->GetText())
-                  support.motorName = Trim(txt);
-              }
-              if (tinyxml2::XMLElement *mm = info->FirstChildElement("MotorManufacturer")) {
-                if (const char *txt = mm->GetText())
-                  support.motorManufacturer = Trim(txt);
-              }
-              if (tinyxml2::XMLElement *model = info->FirstChildElement("MotorModel")) {
-                if (const char *txt = model->GetText())
-                  support.motorModel = Trim(txt);
-              }
-              if (tinyxml2::XMLElement *mfu = info->FirstChildElement("MotorFixtureUuid")) {
-                if (const char *txt = mfu->GetText())
-                  support.motorFixtureUuid = Trim(txt);
-              }
-              if (tinyxml2::XMLElement *umd = info->FirstChildElement("UseMotorDefaults")) {
-                if (const char *txt = umd->GetText()) {
-                  const std::string value = ToLowerCopy(Trim(txt));
-                  support.useMotorDefaults = !(value == "false" || value == "0" || value == "no");
-                }
-              }
-              if (tinyxml2::XMLElement *dp = info->FirstChildElement("DummyPreset")) {
-                if (const char *txt = dp->GetText())
-                  support.dummyPreset = Trim(txt);
-              }
-              if (tinyxml2::XMLElement *dpi = info->FirstChildElement("DummyProfileId")) {
-                if (const char *txt = dpi->GetText())
-                  support.dummyProfileId = Trim(txt);
-              }
-              if (tinyxml2::XMLElement *ds = info->FirstChildElement("DataSource")) {
-                if (const char *txt = ds->GetText())
-                  support.hoistDataSource = NormalizeHoistDataSource(Trim(txt));
-              }
-            }
-          }
-        }
-
-        if (support.dummyProfileId.empty() && !support.dummyPreset.empty()) {
-          const auto profile = DummyProfileLibrary::FindByDisplayName(support.dummyPreset);
-          if (profile.has_value())
-            support.dummyProfileId = profile->id;
-        }
-
-        if (support.hoistFunction.empty())
-          support.hoistFunction = NormalizeHoistFunction(support.function);
-
-        support.hoistDataSource = NormalizeHoistDataSource(support.hoistDataSource);
-        if (support.function.empty())
-          support.function = support.hoistFunction;
+        ReadSupportHoistInfoFromUserData(node, support);
+        ApplySupportHoistInfoDefaults(support);
         auto posIt = scene.positions.find(support.position);
         if (posIt != scene.positions.end())
           support.positionName = posIt->second;

@@ -225,6 +225,35 @@ target_link_libraries(mvr_dmx_address_test PRIVATE
 add_test(NAME MvrDmxAddressConversion COMMAND mvr_dmx_address_test)
 set_library_env(MvrDmxAddressConversion)
 
+
+add_executable(mvr_support_userdata_roundtrip_test mvr_support_userdata_roundtrip_test.cpp
+               ../core/configmanager.cpp
+               ../core/configservices.cpp
+               ../core/projectutils.cpp
+               ../core/gdtfdictionary.cpp
+               ../core/trussdictionary.cpp
+               ../core/trussloader.cpp
+               ../core/truss_gdtf_builder.cpp
+               ../core/uuidutils.cpp
+               ../core/dummyprofilelibrary.cpp
+               ../mvr/mvrimporter.cpp
+               ../mvr/mvrexporter.cpp
+               ../core/logger.cpp
+               gdtfloader_stub.cpp
+               consolepanel_stub.cpp
+               ../models/mvrscene.cpp
+               ../models/fixture.cpp
+               ../models/truss.cpp
+               ../models/sceneobject.cpp
+               ../models/layer.cpp
+               ${LAYOUT_SOURCES})
+target_include_directories(mvr_support_userdata_roundtrip_test PRIVATE
+                           . ../core ../models ../mvr ../gui ../third_party)
+target_link_libraries(mvr_support_userdata_roundtrip_test PRIVATE
+                      ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
+add_test(NAME MvrSupportUserDataRoundtrip COMMAND mvr_support_userdata_roundtrip_test)
+set_library_env(MvrSupportUserDataRoundtrip)
+
 add_executable(mvr_exporter_compliance_test mvr_exporter_compliance_test.cpp
                ../core/configmanager.cpp
                ../core/configservices.cpp

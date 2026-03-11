@@ -299,12 +299,16 @@ int main() {
             assert(dummyNode != nullptr && dummyNode->GetText() != nullptr);
             assert(std::string(dummyNode->GetText()) == "D8+ 1000kg");
 
-            auto *sourceNode = info->FirstChildElement("DataSource");
+            auto *sourceNode = info->FirstChildElement("ValueSource");
             assert(sourceNode != nullptr && sourceNode->GetText() != nullptr);
             assert(std::string(sourceNode->GetText()) == "Manual");
+            auto *sourceAliasNode = info->FirstChildElement("DataSource");
+            assert(sourceAliasNode != nullptr && sourceAliasNode->GetText() != nullptr);
+            assert(std::string(sourceAliasNode->GetText()) == "Manual");
 
-            auto *legacyNode = info->FirstChildElement("RiggingPoint");
-            assert(legacyNode == nullptr);
+            auto *riggingPointNode = info->FirstChildElement("RiggingPoint");
+            assert(riggingPointNode != nullptr && riggingPointNode->GetText() != nullptr);
+            assert(std::string(riggingPointNode->GetText()) == "Lighting");
           }
 
           if (std::string(cur->Name()) == "Fixture") {

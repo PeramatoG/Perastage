@@ -75,6 +75,11 @@ static bool ParseMvrAddressNodeText(const std::string &text, int &universeOut,
 static bool TryComputeAbsoluteDmx(int universe1Based, int address1Based,
                                   int &absoluteOut);
 
+static bool ShouldExportSupportHoistInfo(const Support &support);
+static void AppendSupportHoistInfoUserData(tinyxml2::XMLDocument &doc,
+                                           tinyxml2::XMLElement *supportNode,
+                                           const Support &support);
+
 static constexpr const char *kMvrProvider = "Perastage";
 static constexpr const char *kMvrProviderVersion = "1.0";
 
@@ -493,6 +498,77 @@ static bool ParseMvrAddressNodeText(const std::string &text, int &universeOut,
 
 int ComputeAbsoluteDmx(int universe1Based, int address1Based) {
   return ((universe1Based - 1) * 512) + address1Based;
+}
+
+static bool ShouldExportSupportHoistInfo(const Support &support) {
+  return support.capacityKg != 0.0f || support.weightKg != 0.0f ||
+         !support.hoistFunction.empty() || !support.motorName.empty() ||
+         !support.motorManufacturer.empty() || !support.motorModel.empty() ||
+         !support.motorFixtureUuid.empty() || !support.useMotorDefaults ||
+         !support.dummyProfileId.empty() || !support.dummyPreset.empty() ||
+         NormalizeHoistDataSource(support.hoistDataSource) != "Inherited";
+}
+
+static void AppendSupportHoistInfoUserData(tinyxml2::XMLDocument &doc,
+                                           tinyxml2::XMLElement *supportNode,
+                                           const Support &support) {
+  tinyxml2::XMLElement *ud = doc.NewElement("UserData");
+  tinyxml2::XMLElement *data = doc.NewElement("Data");
+  data->SetAttribute("provider", kMvrProvider);
+  data->SetAttribute("ver", kMvrProviderVersion);
+  tinyxml2::XMLElement *info = doc.NewElement("HoistInfo");
+  info->SetAttribute("uuid", support.uuid.c_str());
+
+  auto addText = [&](const char *name, const std::string &value) {
+    if (value.empty())
+      return;
+    tinyxml2::XMLElement *node = doc.NewElement(name);
+    node->SetText(value.c_str());
+    info->InsertEndChild(node);
+  };
+
+  auto addNum = [&](const char *name, float value, const char *unit) {
+    if (value == 0.0f)
+      return;
+    tinyxml2::XMLElement *node = doc.NewElement(name);
+    node->SetAttribute("unit", unit);
+    node->SetText(std::to_string(value).c_str());
+    info->InsertEndChild(node);
+  };
+
+  addNum("Capacity", support.capacityKg, "kg");
+  addNum("Weight", support.weightKg, "kg");
+
+  const std::string hoistFunction = NormalizeHoistFunction(support.hoistFunction);
+  if (!hoistFunction.empty()) {
+    addText("RiggingPoint", hoistFunction);
+    addText("Function", hoistFunction); // Compatibility alias for older builds.
+  }
+
+  addText("MotorName", support.motorName);
+  addText("MotorManufacturer", support.motorManufacturer);
+  addText("MotorModel", support.motorModel);
+  addText("MotorFixtureUuid", support.motorFixtureUuid);
+
+  if (!support.useMotorDefaults)
+    addText("UseMotorDefaults", "false");
+
+  addText("DummyProfileId", support.dummyProfileId);
+  if (!support.dummyPreset.empty()) {
+    addText("DummyPreset", support.dummyPreset);
+  } else if (!support.dummyProfileId.empty()) {
+    const auto profile = DummyProfileLibrary::FindById(support.dummyProfileId);
+    if (profile.has_value())
+      addText("DummyPreset", profile->displayName);
+  }
+
+  const std::string source = NormalizeHoistDataSource(support.hoistDataSource);
+  addText("ValueSource", source);
+  addText("DataSource", source); // Compatibility alias for older builds.
+
+  data->InsertEndChild(info);
+  ud->InsertEndChild(data);
+  supportNode->InsertEndChild(ud);
 }
 
 static bool TryComputeAbsoluteDmx(int universe1Based, int address1Based,
@@ -1309,90 +1385,8 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     mat->SetText(mstr.c_str());
     se->InsertEndChild(mat);
 
-    bool hasMeta = s.capacityKg != 0.0f || s.weightKg != 0.0f ||
-                   !s.hoistFunction.empty() || !s.motorName.empty() ||
-                   !s.motorManufacturer.empty() || !s.motorModel.empty() ||
-                   !s.motorFixtureUuid.empty() || !s.useMotorDefaults ||
-                   !s.dummyProfileId.empty() ||
-                   !s.dummyPreset.empty() ||
-                   NormalizeHoistDataSource(s.hoistDataSource) != "Inherited";
-    if (hasMeta) {
-      tinyxml2::XMLElement *ud = doc.NewElement("UserData");
-      tinyxml2::XMLElement *data = doc.NewElement("Data");
-      data->SetAttribute("provider", "Perastage");
-      data->SetAttribute("ver", "1.0");
-      tinyxml2::XMLElement *info = doc.NewElement("HoistInfo");
-      info->SetAttribute("uuid", s.uuid.c_str());
-
-      auto addNum = [&](const char *n, float v, const char *unit) {
-        if (v != 0.0f) {
-          tinyxml2::XMLElement *e = doc.NewElement(n);
-          e->SetAttribute("unit", unit);
-          e->SetText(std::to_string(v).c_str());
-          info->InsertEndChild(e);
-        }
-      };
-
-      addNum("Capacity", s.capacityKg, "kg");
-      addNum("Weight", s.weightKg, "kg");
-
-      if (!s.hoistFunction.empty()) {
-        tinyxml2::XMLElement *functionNode = doc.NewElement("Function");
-        std::string hoistFunction = NormalizeHoistFunction(s.hoistFunction);
-        functionNode->SetText(hoistFunction.c_str());
-        info->InsertEndChild(functionNode);
-      }
-      if (!s.motorName.empty()) {
-        tinyxml2::XMLElement *motorNode = doc.NewElement("MotorName");
-        motorNode->SetText(s.motorName.c_str());
-        info->InsertEndChild(motorNode);
-      }
-      if (!s.motorManufacturer.empty()) {
-        tinyxml2::XMLElement *manufacturerNode = doc.NewElement("MotorManufacturer");
-        manufacturerNode->SetText(s.motorManufacturer.c_str());
-        info->InsertEndChild(manufacturerNode);
-      }
-      if (!s.motorModel.empty()) {
-        tinyxml2::XMLElement *modelNode = doc.NewElement("MotorModel");
-        modelNode->SetText(s.motorModel.c_str());
-        info->InsertEndChild(modelNode);
-      }
-      if (!s.motorFixtureUuid.empty()) {
-        tinyxml2::XMLElement *fixtureNode = doc.NewElement("MotorFixtureUuid");
-        fixtureNode->SetText(s.motorFixtureUuid.c_str());
-        info->InsertEndChild(fixtureNode);
-      }
-      if (!s.useMotorDefaults) {
-        tinyxml2::XMLElement *defaultsNode = doc.NewElement("UseMotorDefaults");
-        defaultsNode->SetText("false");
-        info->InsertEndChild(defaultsNode);
-      }
-      if (!s.dummyProfileId.empty()) {
-        tinyxml2::XMLElement *profileIdNode = doc.NewElement("DummyProfileId");
-        profileIdNode->SetText(s.dummyProfileId.c_str());
-        info->InsertEndChild(profileIdNode);
-      }
-      if (!s.dummyPreset.empty()) {
-        tinyxml2::XMLElement *presetNode = doc.NewElement("DummyPreset");
-        presetNode->SetText(s.dummyPreset.c_str());
-        info->InsertEndChild(presetNode);
-      } else if (!s.dummyProfileId.empty()) {
-        const auto profile = DummyProfileLibrary::FindById(s.dummyProfileId);
-        if (profile.has_value()) {
-          tinyxml2::XMLElement *presetNode = doc.NewElement("DummyPreset");
-          presetNode->SetText(profile->displayName.c_str());
-          info->InsertEndChild(presetNode);
-        }
-      }
-      tinyxml2::XMLElement *sourceNode = doc.NewElement("DataSource");
-      const std::string source = NormalizeHoistDataSource(s.hoistDataSource);
-      sourceNode->SetText(source.c_str());
-      info->InsertEndChild(sourceNode);
-
-      data->InsertEndChild(info);
-      ud->InsertEndChild(data);
-      se->InsertEndChild(ud);
-    }
+    if (ShouldExportSupportHoistInfo(s))
+      AppendSupportHoistInfoUserData(doc, se, s);
 
     parent->InsertEndChild(se);
   };
