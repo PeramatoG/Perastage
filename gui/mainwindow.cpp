@@ -952,18 +952,19 @@ void MainWindow::OnProjectLoaded(wxCommandEvent &event) {
       viewport2DRenderPanel->ApplyConfig();
     if (layerPanel)
       layerPanel->ReloadLayers();
+    SplashScreen::SetMessage("Refreshing panels...");
     RefreshSummary();
     RefreshRigging();
     GetDefaultGuiConfigServices().LegacyConfigManager().MarkSaved();
     SplashScreen::SetMessage("Creating fixture symbols...");
     fixtureSymbolAutoUpdateCompletionCallback = [this]() {
-      CompleteStartupSplashInitialization();
+      RequestStartupSplashCompletion();
     };
     StartFixtureSymbolAutoUpdateForLoadedScene();
     UpdateTitle();
   } else {
     ResetProject();
-    CompleteStartupSplashInitialization();
+    RequestStartupSplashCompletion();
   }
 }
 

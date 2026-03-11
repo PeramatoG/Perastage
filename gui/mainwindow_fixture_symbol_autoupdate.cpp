@@ -324,6 +324,12 @@ void MainWindow::FlushPendingFixtureSymbolLibraryUpdates() {
 }
 
 
+
+void MainWindow::RequestStartupSplashCompletion() {
+  CallAfter([this]() { CompleteStartupSplashInitialization(); });
+}
+
+
 void MainWindow::CompleteStartupSplashInitialization() {
   if (!startupSplashInitializationPending)
     return;

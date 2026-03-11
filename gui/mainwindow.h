@@ -212,6 +212,7 @@ private:
   void StartFixtureSymbolAutoUpdateForLoadedScene();
   void ProcessNextFixtureSymbolAutoUpdate();
   void CompleteStartupSplashInitialization();
+  void RequestStartupSplashCompletion();
   void FlushPendingFixtureSymbolLibraryUpdates();
   std::string BuildFixtureSymbolAutoUpdateSummary() const;
   std::string defaultLayoutPerspective;
