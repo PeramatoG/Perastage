@@ -43,4 +43,4 @@ func _apply_beam_axis_rotation(node: Node3D, beam_rotation_deg: float) -> void:
 	if node == null:
 		return
 	node.rotation = Vector3(deg_to_rad(90.0), 0.0, 0.0)
-	node.rotate_object_local(Vector3.FORWARD, deg_to_rad(beam_rotation_deg))
+	node.rotate_object_local(Vector3.UP, deg_to_rad(beam_rotation_deg))
