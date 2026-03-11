@@ -21,6 +21,7 @@ const GOBO_VECTOR_WIDTH_META_KEY: String = "peraviz_gobo_vector_width"
 const GOBO_VECTOR_HEIGHT_META_KEY: String = "peraviz_gobo_vector_height"
 const GOBO_WHEEL_SPIN_META_KEY: String = "peraviz_gobo_wheel_spin"
 const GOBO_LAST_UPDATE_MSEC_META_KEY: String = "peraviz_gobo_last_update_msec"
+const GOBO_APPLIED_ROTATION_DEG_META_KEY: String = "peraviz_gobo_applied_rotation_deg"
 const GOBO_INDEX_MAX_DEG: float = 360.0
 const GOBO_ROTATION_MAX_DEG_PER_SEC: float = 720.0
 
@@ -37,6 +38,9 @@ func apply_gobo_projection(light: SpotLight3D, controls: Dictionary) -> bool:
 		previous_meta_texture = light.get_meta(GOBO_TEXTURE_META_KEY) as Texture2D
 	light.set_meta(FALLBACK_GOBO_META_KEY, false)
 	if not bool(controls.get("has_gobo", false)):
+		var fallback_rotation_deg: float = float(controls.get("gobo_rotation_deg", GOBO_DEFAULT_ROTATION_DEG))
+		_apply_gobo_rotation_to_light(light, fallback_rotation_deg)
+		light.set_meta(GOBO_APPLIED_ROTATION_DEG_META_KEY, fallback_rotation_deg)
 		return _apply_vector_fallback_gobo(light, previous_meta_texture, controls)
 
 	var runtime_bindings: Array = controls.get("gobo_runtime_bindings", [])
@@ -73,9 +77,11 @@ func apply_gobo_projection(light: SpotLight3D, controls: Dictionary) -> bool:
 		return _apply_vector_fallback_gobo(light, previous_meta_texture, controls)
 
 	var projected_gobo: Texture2D = _compose_gobo_textures(source_textures)
-	_apply_gobo_visuals(light, projected_gobo, controls, projected_rotation_deg, gobo_scale)
+	_apply_gobo_visuals(light, projected_gobo, controls)
 	light.set_meta(GOBO_TEXTURE_META_KEY, projected_gobo)
 	light.set_meta(FALLBACK_GOBO_META_KEY, false)
+	_apply_gobo_rotation_to_light(light, projected_rotation_deg)
+	light.set_meta(GOBO_APPLIED_ROTATION_DEG_META_KEY, projected_rotation_deg)
 	return projected_gobo != previous_meta_texture
 
 func _resolve_elapsed_seconds(light: SpotLight3D, controls: Dictionary) -> float:
@@ -130,7 +136,7 @@ func _resolve_wheel_cache_key(wheel: Dictionary) -> String:
 		return "name_%s" % wheel_name.to_lower()
 	return "default"
 
-func _apply_gobo_visuals(light: SpotLight3D, gobo_texture: Texture2D, controls: Dictionary = {}, gobo_rotation_deg: float = GOBO_DEFAULT_ROTATION_DEG, gobo_scale: float = GOBO_DEFAULT_SCALE) -> void:
+func _apply_gobo_visuals(light: SpotLight3D, gobo_texture: Texture2D, controls: Dictionary = {}) -> void:
 	if light == null or not is_instance_valid(light):
 		return
 	_set_light_projector_texture(light, gobo_texture)
@@ -147,9 +153,15 @@ func _apply_gobo_visuals(light: SpotLight3D, gobo_texture: Texture2D, controls: 
 	if gobo_plane.material_override is ShaderMaterial:
 		var gobo_material: ShaderMaterial = gobo_plane.material_override as ShaderMaterial
 		gobo_material.set_shader_parameter("gobo_texture", gobo_texture)
-		gobo_material.set_shader_parameter("gobo_rotation_deg", wrapf(gobo_rotation_deg, -360.0, 360.0))
-		gobo_material.set_shader_parameter("gobo_scale", clamp(gobo_scale, 0.05, 8.0))
 	_update_gobo_plane_scale(light, gobo_plane)
+
+
+func _apply_gobo_rotation_to_light(light: SpotLight3D, gobo_rotation_deg: float) -> void:
+	if light == null or not is_instance_valid(light):
+		return
+	var updated_rotation: Vector3 = light.rotation_degrees
+	updated_rotation.z = wrapf(gobo_rotation_deg, -180.0, 180.0)
+	light.rotation_degrees = updated_rotation
 
 func _set_light_projector_texture(light: SpotLight3D, texture: Texture2D) -> void:
 	if light == null or not is_instance_valid(light):
@@ -173,6 +185,8 @@ func _clear_gobo_visuals(light: SpotLight3D) -> void:
 		return
 	_set_light_projector_texture(light, null)
 	_remove_gobo_plane(light)
+	_apply_gobo_rotation_to_light(light, GOBO_DEFAULT_ROTATION_DEG)
+	light.set_meta(GOBO_APPLIED_ROTATION_DEG_META_KEY, GOBO_DEFAULT_ROTATION_DEG)
 
 func _ensure_gobo_plane(light: SpotLight3D) -> MeshInstance3D:
 	if light.has_meta(GOBO_PLANE_META_KEY):
@@ -275,7 +289,10 @@ func _apply_vector_fallback_gobo(light: SpotLight3D, previous_meta_texture: Text
 		_clear_gobo_visuals(light)
 		light.set_meta(GOBO_TEXTURE_META_KEY, null)
 		return previous_meta_texture != null
+	var fallback_rotation_deg: float = float(controls.get("gobo_rotation_deg", GOBO_DEFAULT_ROTATION_DEG))
 	_apply_gobo_visuals(light, fallback_texture, controls)
+	_apply_gobo_rotation_to_light(light, fallback_rotation_deg)
+	light.set_meta(GOBO_APPLIED_ROTATION_DEG_META_KEY, fallback_rotation_deg)
 	light.set_meta(GOBO_TEXTURE_META_KEY, fallback_texture)
 	return fallback_texture != previous_meta_texture
 
