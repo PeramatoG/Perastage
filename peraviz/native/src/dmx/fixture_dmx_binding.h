@@ -25,10 +25,18 @@ struct FixtureGoboSlot {
     std::string image_path;
 };
 
+enum class FixtureGoboRangeBehavior {
+    kFixed = 0,
+    kIndex = 1,
+    kRotation = 2,
+    kShake = 3,
+};
+
 struct FixtureGoboRange {
     int dmx_from = 0;
     int dmx_to = 255;
     int slot_index = -1;
+    FixtureGoboRangeBehavior behavior = FixtureGoboRangeBehavior::kFixed;
 };
 
 struct FixtureGoboWheelBinding {

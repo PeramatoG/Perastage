@@ -8,6 +8,11 @@ const DMX_16BIT_STEPS: int = 65536
 const DMX_24BIT_STEPS: int = 16777216
 const FORCE_COARSE_ONLY_DMX_READ: bool = false
 
+const GOBO_BEHAVIOR_FIXED: int = 0
+const GOBO_BEHAVIOR_INDEX: int = 1
+const GOBO_BEHAVIOR_ROTATION: int = 2
+const GOBO_BEHAVIOR_SHAKE: int = 3
+
 const GoboVectorizationCacheScript = preload("res://scripts/gobo_vectorization/gobo_vectorization_cache.gd")
 
 var _loader = null
@@ -254,15 +259,29 @@ func _build_runtime_gobo_bindings(binding: Dictionary, frame: PackedByteArray) -
 			continue
 		var value: Dictionary = _read_control_value(frame, coarse_index, int(item.get("fine_channel_index_0", -1)), int(item.get("ultra_fine_channel_index_0", -1)))
 		var raw_8bit: int = _resolve_raw_to_8bit(int(value.get("raw", 0)), int(value.get("resolution_bits", 8)))
+		var ranges: Array = item.get("ranges", [])
+		var active_range: Dictionary = _resolve_gobo_range(raw_8bit, ranges)
+		# GDTF ChannelSet ranges define the active wheel function (fixed/index/spin/shake)
+		# for the current DMX value on the gobo select channel.
+		var range_behavior: int = int(active_range.get("behavior", GOBO_BEHAVIOR_FIXED))
+		var supports_index: bool = range_behavior == GOBO_BEHAVIOR_INDEX
+		var supports_rotation: bool = range_behavior == GOBO_BEHAVIOR_ROTATION or range_behavior == GOBO_BEHAVIOR_SHAKE
+		var index_norm: float = -1.0
+		var rotation_norm: float = -1.0
+		if supports_index:
+			index_norm = _read_optional_control_norm(frame, int(item.get("index_channel_index_0", -1)), int(item.get("index_fine_channel_index_0", -1)), int(item.get("index_ultra_fine_channel_index_0", -1)))
+		if supports_rotation:
+			rotation_norm = _read_optional_control_norm(frame, int(item.get("rotation_channel_index_0", -1)), int(item.get("rotation_fine_channel_index_0", -1)), int(item.get("rotation_ultra_fine_channel_index_0", -1)))
 		runtime_bindings.append({
 			"wheel_number": int(item.get("wheel_number", 0)),
 			"wheel_name": str(item.get("wheel_name", "")),
 			"raw_8bit": raw_8bit,
-			"slot_index": _resolve_gobo_slot_from_ranges(raw_8bit, item.get("ranges", [])),
-			"index_norm": _read_optional_control_norm(frame, int(item.get("index_channel_index_0", -1)), int(item.get("index_fine_channel_index_0", -1)), int(item.get("index_ultra_fine_channel_index_0", -1))),
-			"rotation_norm": _read_optional_control_norm(frame, int(item.get("rotation_channel_index_0", -1)), int(item.get("rotation_fine_channel_index_0", -1)), int(item.get("rotation_ultra_fine_channel_index_0", -1))),
+			"slot_index": int(active_range.get("slot_index", 0)),
+			"behavior": range_behavior,
+			"index_norm": index_norm,
+			"rotation_norm": rotation_norm,
 			"slots": item.get("slots", []),
-			"ranges": item.get("ranges", []),
+			"ranges": ranges,
 		})
 	return runtime_bindings
 
@@ -279,7 +298,7 @@ func _resolve_raw_to_8bit(raw_value: int, resolution_bits: int) -> int:
 		return clampi(raw_value >> 8, 0, 255)
 	return clampi(raw_value, 0, 255)
 
-func _resolve_gobo_slot_from_ranges(raw_8bit: int, ranges: Array) -> int:
+func _resolve_gobo_range(raw_8bit: int, ranges: Array) -> Dictionary:
 	for item in ranges:
 		if item is not Dictionary:
 			continue
@@ -290,5 +309,14 @@ func _resolve_gobo_slot_from_ranges(raw_8bit: int, ranges: Array) -> int:
 			dmx_from = dmx_to
 			dmx_to = temp
 		if raw_8bit >= dmx_from and raw_8bit <= dmx_to:
-			return int(item.get("slot_index", 0))
-	return 0
+			return {
+				"slot_index": int(item.get("slot_index", 0)),
+				"behavior": int(item.get("behavior", GOBO_BEHAVIOR_FIXED)),
+			}
+	return {
+		"slot_index": 0,
+		"behavior": GOBO_BEHAVIOR_FIXED,
+	}
+
+func _resolve_gobo_slot_from_ranges(raw_8bit: int, ranges: Array) -> int:
+	return int(_resolve_gobo_range(raw_8bit, ranges).get("slot_index", 0))

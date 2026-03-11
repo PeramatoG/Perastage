@@ -264,7 +264,7 @@ bool matches_gobo_select_with_embedded_motion(const std::string &leaf) {
 
 bool matches_gobo_attribute(const std::string &leaf) {
     if (matches_gobo_select_with_embedded_motion(leaf)) {
-        return false;
+        return true;
     }
 
     const std::array<std::string, 9> non_projector_tokens = {
@@ -307,12 +307,28 @@ bool matches_gobo_rotation_attribute(const std::string &leaf) {
         return false;
     }
     if (matches_gobo_select_with_embedded_motion(leaf)) {
-        return true;
+        return false;
     }
     return leaf.find("posrotate") != std::string::npos ||
            leaf.find("wheelspin") != std::string::npos ||
            leaf.find("spin") != std::string::npos ||
            leaf.find("rotate") != std::string::npos;
+}
+
+peraviz::dmx::FixtureGoboRangeBehavior parse_gobo_range_behavior(const std::string &channel_set_name) {
+    const std::string lower_name = lower_ascii(channel_set_name);
+    if (lower_name.find("shake") != std::string::npos) {
+        return peraviz::dmx::FixtureGoboRangeBehavior::kShake;
+    }
+    if (lower_name.find("spin") != std::string::npos ||
+        lower_name.find("rotate") != std::string::npos) {
+        return peraviz::dmx::FixtureGoboRangeBehavior::kRotation;
+    }
+    if (lower_name.find("index") != std::string::npos ||
+        lower_name.find("pos") != std::string::npos) {
+        return peraviz::dmx::FixtureGoboRangeBehavior::kIndex;
+    }
+    return peraviz::dmx::FixtureGoboRangeBehavior::kFixed;
 }
 
 ParsedAttribute parse_attribute_name(const std::string &raw_attribute) {
@@ -706,6 +722,8 @@ void consume_gobo_channel_sets(tinyxml2::XMLElement *channel_function,
         int dmx_from = 0;
         int dmx_to = -1;
         int slot_index = -1;
+        peraviz::dmx::FixtureGoboRangeBehavior behavior =
+            peraviz::dmx::FixtureGoboRangeBehavior::kFixed;
     };
     std::vector<ParsedGoboSet> parsed_sets;
 
@@ -735,7 +753,11 @@ void consume_gobo_channel_sets(tinyxml2::XMLElement *channel_function,
         if (dmx_to < 0) {
             dmx_to = parse_dmx_value_8bit(channel_set->Attribute("dmxto"));
         }
-        parsed_sets.push_back({dmx_from, dmx_to, slot_index});
+
+        const std::string channel_set_name = read_attr_ci(channel_set, "Name", "name");
+        const peraviz::dmx::FixtureGoboRangeBehavior behavior =
+            parse_gobo_range_behavior(channel_set_name);
+        parsed_sets.push_back({dmx_from, dmx_to, slot_index, behavior});
     }
 
     if (parsed_sets.empty()) {
@@ -765,7 +787,7 @@ void consume_gobo_channel_sets(tinyxml2::XMLElement *channel_function,
             std::swap(row.dmx_from, row.dmx_to);
         }
 
-        out_wheel.ranges.push_back({row.dmx_from, row.dmx_to, row.slot_index});
+        out_wheel.ranges.push_back({row.dmx_from, row.dmx_to, row.slot_index, row.behavior});
     }
 }
 
@@ -854,7 +876,7 @@ void dedupe_and_sort_gobo_wheel(peraviz::dmx::FixtureGoboWheelOffset &wheel) {
                     [](const peraviz::dmx::FixtureGoboRange &a,
                        const peraviz::dmx::FixtureGoboRange &b) {
                         return a.dmx_from == b.dmx_from && a.dmx_to == b.dmx_to &&
-                               a.slot_index == b.slot_index;
+                               a.slot_index == b.slot_index && a.behavior == b.behavior;
                     }),
         wheel.ranges.end());
 }

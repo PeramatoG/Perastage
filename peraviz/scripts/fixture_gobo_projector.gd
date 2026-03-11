@@ -54,7 +54,6 @@ func apply_gobo_projection(light: SpotLight3D, controls: Dictionary) -> bool:
 
 	var delta_sec: float = _resolve_elapsed_seconds(light, controls)
 	var source_textures: Array[Texture2D] = []
-	var gobo_scale: float = max(float(controls.get("gobo_scale", GOBO_DEFAULT_SCALE)), 0.05)
 	var global_rotation_deg: float = float(controls.get("gobo_rotation_deg", GOBO_DEFAULT_ROTATION_DEG))
 	var projected_rotation_deg: float = global_rotation_deg
 
