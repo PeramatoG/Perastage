@@ -326,9 +326,19 @@ void MainWindow::FlushPendingFixtureSymbolLibraryUpdates() {
 
 
 void MainWindow::RequestStartupSplashCompletion() {
-  CallAfter([this]() { CompleteStartupSplashInitialization(); });
+  if (!startupSplashInitializationPending)
+    return;
+  startupSplashCloseRequested = true;
 }
 
+void MainWindow::OnStartupSplashCloseIdle(wxIdleEvent &event) {
+  event.Skip();
+  if (!startupSplashCloseRequested)
+    return;
+
+  startupSplashCloseRequested = false;
+  CompleteStartupSplashInitialization();
+}
 
 void MainWindow::CompleteStartupSplashInitialization() {
   if (!startupSplashInitializationPending)

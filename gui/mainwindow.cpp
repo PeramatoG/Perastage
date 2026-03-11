@@ -304,6 +304,8 @@ MainWindow::MainWindow(const wxString &title, IGuiConfigServices *services)
   if (layoutPanel)
     layoutPanel->ReloadLayouts();
 
+  Bind(wxEVT_IDLE, &MainWindow::OnStartupSplashCloseIdle, this);
+
   UpdateTitle();
 }
 
@@ -565,6 +567,7 @@ void MainWindow::ResetProject() {
   fixtureSymbolAutoUpdateGeneratedTypeSet.clear();
   fixtureSymbolAutoUpdateRunning = false;
   fixtureSymbolAutoUpdateCompletionCallback = nullptr;
+  startupSplashCloseRequested = false;
   currentProjectPath.clear();
   if (layoutPanel)
     layoutPanel->ReloadLayouts();

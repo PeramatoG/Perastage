@@ -33,6 +33,7 @@ wxDECLARE_EVENT(EVT_PROJECT_LOADED, wxCommandEvent);
 
 // Forward declarations for GUI components
 class wxNotebook;
+class wxIdleEvent;
 class FixtureTablePanel;
 class TrussTablePanel;
 class HoistTablePanel;
@@ -213,6 +214,7 @@ private:
   void ProcessNextFixtureSymbolAutoUpdate();
   void CompleteStartupSplashInitialization();
   void RequestStartupSplashCompletion();
+  void OnStartupSplashCloseIdle(wxIdleEvent &event);
   void FlushPendingFixtureSymbolLibraryUpdates();
   std::string BuildFixtureSymbolAutoUpdateSummary() const;
   std::string defaultLayoutPerspective;
@@ -236,6 +238,7 @@ private:
   bool fixtureSymbolAutoUpdateRunning = false;
   std::function<void()> fixtureSymbolAutoUpdateCompletionCallback;
   bool startupSplashInitializationPending = true;
+  bool startupSplashCloseRequested = false;
   int viewportInteractionLockDepth = 0;
 
   friend class MainWindowIoController;
