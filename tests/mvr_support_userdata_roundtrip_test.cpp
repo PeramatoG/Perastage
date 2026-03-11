@@ -39,6 +39,7 @@ int main() {
   motorFixture.layer = layer.name;
   motorFixture.typeName = "MotorType";
   motorFixture.gdtfSpec = "fixture.gdtf";
+  motorFixture.gdtfMode = "ChainMode";
   scene.fixtures[motorFixture.uuid] = motorFixture;
 
   Support linked;
@@ -58,6 +59,26 @@ int main() {
   dummy.dummyProfileId = "d8plus_1000kg";
   dummy.hoistFunction = "Video";
   scene.supports[dummy.uuid] = dummy;
+
+  Support inheritedDefaults;
+  inheritedDefaults.uuid = "sup-inherited-defaults";
+  inheritedDefaults.name = "Inherited Defaults";
+  inheritedDefaults.layer = layer.name;
+  inheritedDefaults.motorFixtureUuid = motorFixture.uuid;
+  inheritedDefaults.dummyProfileId = "d8plus_1000kg";
+  inheritedDefaults.hoistDataSource = "Inherited";
+  inheritedDefaults.useMotorDefaults = true;
+  HoistPresetDefaults inheritedPreset;
+  inheritedPreset.motorManufacturer = "Perastage";
+  inheritedPreset.capacityKg = 1000.0f;
+  inheritedPreset.weightKg = 40.0f;
+  inheritedPreset.hoistFunction = "Lighting";
+
+  const auto effectiveInherited = ResolveEffectiveSupportData(
+      inheritedDefaults, inheritedPreset, BuildHoistFixtureDefaults(motorFixture));
+  inheritedDefaults.motorManufacturer = effectiveInherited.motorManufacturer;
+  inheritedDefaults.motorModel = effectiveInherited.motorModel;
+  scene.supports[inheritedDefaults.uuid] = inheritedDefaults;
 
   Support manual;
   manual.uuid = "sup-manual";
@@ -79,7 +100,7 @@ int main() {
   assert(importer.ImportFromFile(mvrPath.string(), false, false));
 
   const auto &loaded = cfg.GetScene().supports;
-  assert(loaded.size() == 3);
+  assert(loaded.size() == 4);
 
   const auto &loadedLinked = loaded.at("sup-linked");
   assert(loadedLinked.motorFixtureUuid == "fx-motor");
@@ -95,6 +116,12 @@ int main() {
   assert(loadedManual.weightKg == 61.0f);
   assert(loadedManual.hoistFunction == "Audio");
 
+
+  const auto &loadedInheritedDefaults = loaded.at("sup-inherited-defaults");
+  assert(loadedInheritedDefaults.hoistDataSource == "Inherited");
+  assert(loadedInheritedDefaults.useMotorDefaults);
+  assert(loadedInheritedDefaults.motorManufacturer == "Perastage");
+  assert(loadedInheritedDefaults.motorModel == "ChainMode");
   std::filesystem::remove_all(tempDir);
   std::filesystem::remove(ProjectUtils::GetDefaultLibraryPath("fixtures") + "/fixture.gdtf");
   return 0;
