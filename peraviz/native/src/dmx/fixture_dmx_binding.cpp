@@ -126,6 +126,18 @@ FixtureBindingBuildResult build_dimmer_bindings(
             to_channel_index_0(patch, offsets.gobo_fine_offset_1_based);
         binding.gobo.ultra_fine_dmx_channel_index_0 =
             to_channel_index_0(patch, offsets.gobo_ultra_fine_offset_1_based);
+        binding.gobo_index.coarse_dmx_channel_index_0 =
+            to_channel_index_0(patch, offsets.gobo_index_coarse_offset_1_based);
+        binding.gobo_index.fine_dmx_channel_index_0 =
+            to_channel_index_0(patch, offsets.gobo_index_fine_offset_1_based);
+        binding.gobo_index.ultra_fine_dmx_channel_index_0 =
+            to_channel_index_0(patch, offsets.gobo_index_ultra_fine_offset_1_based);
+        binding.gobo_rotation.coarse_dmx_channel_index_0 =
+            to_channel_index_0(patch, offsets.gobo_rotation_coarse_offset_1_based);
+        binding.gobo_rotation.fine_dmx_channel_index_0 =
+            to_channel_index_0(patch, offsets.gobo_rotation_fine_offset_1_based);
+        binding.gobo_rotation.ultra_fine_dmx_channel_index_0 =
+            to_channel_index_0(patch, offsets.gobo_rotation_ultra_fine_offset_1_based);
         binding.gobo_wheel_number = offsets.gobo_wheel_number;
         binding.gobo_wheel_name = offsets.gobo_wheel_name;
         binding.gobo_slots = offsets.gobo_slots;
@@ -137,6 +149,14 @@ FixtureBindingBuildResult build_dimmer_bindings(
                                                        wheel.coarse_offset_1_based,
                                                        wheel.fine_offset_1_based,
                                                        wheel.ultra_fine_offset_1_based);
+            wheel_binding.index_channel = to_channel_binding(patch,
+                                                             wheel.index_coarse_offset_1_based,
+                                                             wheel.index_fine_offset_1_based,
+                                                             wheel.index_ultra_fine_offset_1_based);
+            wheel_binding.rotation_channel = to_channel_binding(patch,
+                                                                wheel.rotation_coarse_offset_1_based,
+                                                                wheel.rotation_fine_offset_1_based,
+                                                                wheel.rotation_ultra_fine_offset_1_based);
             wheel_binding.wheel_number = wheel.wheel_number;
             wheel_binding.wheel_name = wheel.wheel_name;
             wheel_binding.slots = wheel.slots;
@@ -224,8 +244,12 @@ FixtureBindingBuildResult build_dimmer_bindings(
             binding.yellow.ultra_fine_dmx_channel_index_0 = -1;
         }
         sanitize_channel_binding(binding.gobo);
+        sanitize_channel_binding(binding.gobo_index);
+        sanitize_channel_binding(binding.gobo_rotation);
         for (FixtureGoboWheelBinding &wheel_binding : binding.gobo_wheels) {
             sanitize_channel_binding(wheel_binding.channel);
+            sanitize_channel_binding(wheel_binding.index_channel);
+            sanitize_channel_binding(wheel_binding.rotation_channel);
         }
 
         result.bindings.push_back(binding);

@@ -102,6 +102,10 @@ func apply_dmx(receiver, apply_fixture_callback: Callable) -> void:
 			"yellow_norm": 0.0,
 			"has_gobo": false,
 			"gobo_norm": 0.0,
+			"has_gobo_index": false,
+			"gobo_index_norm": 0.0,
+			"has_gobo_rotation": false,
+			"gobo_rotation_norm": 0.0,
 		}
 
 		_read_control(binding, frame, "dimmer_channel_index_0", "dimmer_fine_channel_index_0", "dimmer_ultra_fine_channel_index_0", controls, "has_dimmer", "dimmer_norm")
@@ -114,6 +118,9 @@ func apply_dmx(receiver, apply_fixture_callback: Callable) -> void:
 		_read_control(binding, frame, "gobo1_channel_index_0", "gobo1_fine_channel_index_0", "gobo1_ultra_fine_channel_index_0", controls, "has_gobo", "gobo_norm")
 		if not controls["has_gobo"]:
 			_read_control(binding, frame, "gobo_channel_index_0", "gobo_fine_channel_index_0", "gobo_ultra_fine_channel_index_0", controls, "has_gobo", "gobo_norm")
+
+		_read_control(binding, frame, "gobo_index_channel_index_0", "gobo_index_fine_channel_index_0", "gobo_index_ultra_fine_channel_index_0", controls, "has_gobo_index", "gobo_index_norm")
+		_read_control(binding, frame, "gobo_rotation_channel_index_0", "gobo_rotation_fine_channel_index_0", "gobo_rotation_ultra_fine_channel_index_0", controls, "has_gobo_rotation", "gobo_rotation_norm")
 
 		if controls["has_zoom"]:
 			controls["has_zoom_physical_limits"] = bool(binding.get("has_zoom_physical_limits", false))
@@ -131,7 +138,7 @@ func apply_dmx(receiver, apply_fixture_callback: Callable) -> void:
 			controls["has_gobo"] = true
 			controls["gobo_runtime_bindings"] = gobo_runtime_bindings
 
-		if not controls["has_dimmer"] and not controls["has_pan"] and not controls["has_tilt"] and not controls["has_zoom"] and not controls["has_cyan"] and not controls["has_magenta"] and not controls["has_yellow"] and not controls["has_gobo"]:
+		if not controls["has_dimmer"] and not controls["has_pan"] and not controls["has_tilt"] and not controls["has_zoom"] and not controls["has_cyan"] and not controls["has_magenta"] and not controls["has_yellow"] and not controls["has_gobo"] and not controls["has_gobo_index"] and not controls["has_gobo_rotation"]:
 			continue
 		apply_fixture_callback.call(fixture_uuid, controls)
 
@@ -252,10 +259,18 @@ func _build_runtime_gobo_bindings(binding: Dictionary, frame: PackedByteArray) -
 			"wheel_name": str(item.get("wheel_name", "")),
 			"raw_8bit": raw_8bit,
 			"slot_index": _resolve_gobo_slot_from_ranges(raw_8bit, item.get("ranges", [])),
+			"index_norm": _read_optional_control_norm(frame, int(item.get("index_channel_index_0", -1)), int(item.get("index_fine_channel_index_0", -1)), int(item.get("index_ultra_fine_channel_index_0", -1))),
+			"rotation_norm": _read_optional_control_norm(frame, int(item.get("rotation_channel_index_0", -1)), int(item.get("rotation_fine_channel_index_0", -1)), int(item.get("rotation_ultra_fine_channel_index_0", -1))),
 			"slots": item.get("slots", []),
 			"ranges": item.get("ranges", []),
 		})
 	return runtime_bindings
+
+func _read_optional_control_norm(frame: PackedByteArray, coarse_index: int, fine_index: int, ultra_fine_index: int) -> float:
+	if not _is_valid_channel_index(frame, coarse_index):
+		return -1.0
+	var value: Dictionary = _read_control_value(frame, coarse_index, fine_index, ultra_fine_index)
+	return clamp(float(value.get("norm", 0.0)), 0.0, 1.0)
 
 func _resolve_raw_to_8bit(raw_value: int, resolution_bits: int) -> int:
 	if resolution_bits >= 24:

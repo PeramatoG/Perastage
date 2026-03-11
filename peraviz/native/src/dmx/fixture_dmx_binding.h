@@ -33,6 +33,8 @@ struct FixtureGoboRange {
 
 struct FixtureGoboWheelBinding {
     FixtureAttributeChannel channel;
+    FixtureAttributeChannel index_channel;
+    FixtureAttributeChannel rotation_channel;
     int wheel_number = 0;
     std::string wheel_name;
     std::vector<FixtureGoboSlot> slots;
@@ -50,6 +52,8 @@ struct FixtureControlBinding {
     FixtureAttributeChannel magenta;
     FixtureAttributeChannel yellow;
     FixtureAttributeChannel gobo;
+    FixtureAttributeChannel gobo_index;
+    FixtureAttributeChannel gobo_rotation;
     int gobo_wheel_number = 0;
     std::string gobo_wheel_name;
     std::vector<FixtureGoboSlot> gobo_slots;
@@ -75,6 +79,12 @@ struct FixtureGoboWheelOffset {
     int coarse_offset_1_based = -1;
     int fine_offset_1_based = -1;
     int ultra_fine_offset_1_based = -1;
+    int index_coarse_offset_1_based = -1;
+    int index_fine_offset_1_based = -1;
+    int index_ultra_fine_offset_1_based = -1;
+    int rotation_coarse_offset_1_based = -1;
+    int rotation_fine_offset_1_based = -1;
+    int rotation_ultra_fine_offset_1_based = -1;
     int wheel_number = 0;
     std::string wheel_name;
     std::vector<FixtureGoboSlot> slots;
@@ -106,6 +116,12 @@ struct FixtureControlOffsets {
     int gobo_coarse_offset_1_based = -1;
     int gobo_fine_offset_1_based = -1;
     int gobo_ultra_fine_offset_1_based = -1;
+    int gobo_index_coarse_offset_1_based = -1;
+    int gobo_index_fine_offset_1_based = -1;
+    int gobo_index_ultra_fine_offset_1_based = -1;
+    int gobo_rotation_coarse_offset_1_based = -1;
+    int gobo_rotation_fine_offset_1_based = -1;
+    int gobo_rotation_ultra_fine_offset_1_based = -1;
     int gobo_wheel_number = 0;
     std::string gobo_wheel_name;
     std::vector<FixtureGoboSlot> gobo_slots;
@@ -119,7 +135,8 @@ struct FixtureControlOffsets {
         return dimmer_coarse_offset_1_based > 0 || pan_coarse_offset_1_based > 0 ||
                tilt_coarse_offset_1_based > 0 || zoom_coarse_offset_1_based > 0 ||
                cyan_coarse_offset_1_based > 0 || magenta_coarse_offset_1_based > 0 ||
-               gobo_coarse_offset_1_based > 0 || yellow_coarse_offset_1_based > 0 ||
+               gobo_coarse_offset_1_based > 0 || gobo_index_coarse_offset_1_based > 0 ||
+               gobo_rotation_coarse_offset_1_based > 0 || yellow_coarse_offset_1_based > 0 ||
                !gobo_wheels.empty();
     }
 };
