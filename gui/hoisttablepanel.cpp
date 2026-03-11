@@ -786,6 +786,8 @@ void HoistTablePanel::UpdateSceneData(bool logChanges) {
           ResolveEffectiveSupportData(next, FindPresetDefaults(next),
                                       FindFixtureDefaults(scene, next));
       next.motorName = effective.motorName;
+      next.motorManufacturer = effective.motorManufacturer;
+      next.motorModel = effective.motorModel;
       next.capacityKg = effective.capacityKg;
       next.weightKg = effective.weightKg;
       next.hoistFunction = effective.hoistFunction;
@@ -794,6 +796,8 @@ void HoistTablePanel::UpdateSceneData(bool logChanges) {
     const bool supportChanged = old.name != next.name || old.function != next.function ||
                                 old.hoistFunction != next.hoistFunction ||
                                 old.motorName != next.motorName ||
+                                old.motorManufacturer != next.motorManufacturer ||
+                                old.motorModel != next.motorModel ||
                                 old.dummyProfileId != next.dummyProfileId ||
                                 old.dummyPreset != next.dummyPreset ||
                                 NormalizeHoistDataSource(old.hoistDataSource) !=
