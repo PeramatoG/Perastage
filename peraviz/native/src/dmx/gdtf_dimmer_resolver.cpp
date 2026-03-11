@@ -264,7 +264,7 @@ bool matches_gobo_select_with_embedded_motion(const std::string &leaf) {
 
 bool matches_gobo_attribute(const std::string &leaf) {
     if (matches_gobo_select_with_embedded_motion(leaf)) {
-        return true;
+        return false;
     }
 
     const std::array<std::string, 9> non_projector_tokens = {
@@ -307,7 +307,7 @@ bool matches_gobo_rotation_attribute(const std::string &leaf) {
         return false;
     }
     if (matches_gobo_select_with_embedded_motion(leaf)) {
-        return false;
+        return true;
     }
     return leaf.find("posrotate") != std::string::npos ||
            leaf.find("wheelspin") != std::string::npos ||
