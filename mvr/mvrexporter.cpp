@@ -1309,7 +1309,9 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     se->InsertEndChild(mat);
 
     bool hasMeta = s.capacityKg != 0.0f || s.weightKg != 0.0f ||
-                   !s.hoistFunction.empty();
+                   !s.hoistFunction.empty() || !s.motorName.empty() ||
+                   !s.dummyPreset.empty() ||
+                   NormalizeHoistDataSource(s.hoistDataSource) != "Inherited";
     if (hasMeta) {
       tinyxml2::XMLElement *ud = doc.NewElement("UserData");
       tinyxml2::XMLElement *data = doc.NewElement("Data");
@@ -1331,11 +1333,25 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
       addNum("Weight", s.weightKg, "kg");
 
       if (!s.hoistFunction.empty()) {
-        tinyxml2::XMLElement *rp = doc.NewElement("RiggingPoint");
+        tinyxml2::XMLElement *functionNode = doc.NewElement("Function");
         std::string hoistFunction = NormalizeHoistFunction(s.hoistFunction);
-        rp->SetText(hoistFunction.c_str());
-        info->InsertEndChild(rp);
+        functionNode->SetText(hoistFunction.c_str());
+        info->InsertEndChild(functionNode);
       }
+      if (!s.motorName.empty()) {
+        tinyxml2::XMLElement *motorNode = doc.NewElement("MotorName");
+        motorNode->SetText(s.motorName.c_str());
+        info->InsertEndChild(motorNode);
+      }
+      if (!s.dummyPreset.empty()) {
+        tinyxml2::XMLElement *presetNode = doc.NewElement("DummyPreset");
+        presetNode->SetText(s.dummyPreset.c_str());
+        info->InsertEndChild(presetNode);
+      }
+      tinyxml2::XMLElement *sourceNode = doc.NewElement("DataSource");
+      const std::string source = NormalizeHoistDataSource(s.hoistDataSource);
+      sourceNode->SetText(source.c_str());
+      info->InsertEndChild(sourceNode);
 
       data->InsertEndChild(info);
       ud->InsertEndChild(data);

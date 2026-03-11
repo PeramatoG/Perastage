@@ -1,0 +1,20 @@
+[
+  {
+    "id": "dummy_chainmaster_d8plus_1000",
+    "name": "ChainMaster D8+ 1000kg",
+    "motorName": "ChainMaster D8+",
+    "dummyPreset": "D8+ 1000kg",
+    "capacityKg": 1000.0,
+    "weightKg": 42.0,
+    "hoistFunction": "Lighting"
+  },
+  {
+    "id": "dummy_lodestar_500",
+    "name": "CM Lodestar 500kg",
+    "motorName": "CM Lodestar",
+    "dummyPreset": "Lodestar 500kg",
+    "capacityKg": 500.0,
+    "weightKg": 31.5,
+    "hoistFunction": "Audio"
+  }
+]

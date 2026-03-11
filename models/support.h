@@ -21,6 +21,7 @@
 #include <array>
 #include <cctype>
 #include <charconv>
+#include <optional>
 #include <string>
 #include "types.h"
 
@@ -38,6 +39,10 @@ struct Support {
 
     float capacityKg = 0.0f;
     float weightKg = 0.0f;
+    std::string motorName;
+    std::string dummyPreset;
+    // Defines whether values come from library defaults or user overrides.
+    std::string hoistDataSource = "Inherited";
     // Hoist function/category. Defaults to values returned by GetHoistFunctionOptions().
     std::string hoistFunction = "Lighting";
 
@@ -84,4 +89,64 @@ inline std::string NormalizeHoistFunction(const std::string &rawValue) {
     }
 
     return trimmed;
+}
+
+inline std::string NormalizeHoistDataSource(const std::string &rawValue) {
+    auto trimmed = rawValue;
+    auto trimSpaces = [](std::string &s) {
+        auto notSpace = [](unsigned char ch) { return !std::isspace(ch); };
+        s.erase(s.begin(), std::find_if(s.begin(), s.end(), notSpace));
+        s.erase(std::find_if(s.rbegin(), s.rend(), notSpace).base(), s.end());
+    };
+    trimSpaces(trimmed);
+    if (trimmed.empty())
+        return "Inherited";
+
+    std::transform(trimmed.begin(), trimmed.end(), trimmed.begin(),
+                   [](unsigned char c) { return std::tolower(c); });
+    if (trimmed == "manual")
+        return "Manual";
+    if (trimmed == "inherited")
+        return "Inherited";
+    return "Inherited";
+}
+
+inline bool IsManualHoistDataSource(const std::string &source) {
+    return NormalizeHoistDataSource(source) == "Manual";
+}
+
+struct HoistPresetDefaults {
+    float capacityKg = 0.0f;
+    float weightKg = 0.0f;
+    std::string hoistFunction;
+};
+
+struct EffectiveSupportData {
+    float capacityKg = 0.0f;
+    float weightKg = 0.0f;
+    std::string hoistFunction = "Lighting";
+    std::string dataSource = "Inherited";
+};
+
+inline EffectiveSupportData ResolveEffectiveSupportData(
+    const Support &support,
+    const std::optional<HoistPresetDefaults> &presetDefaults = std::nullopt) {
+    EffectiveSupportData resolved;
+    resolved.dataSource = NormalizeHoistDataSource(support.hoistDataSource);
+
+    if (resolved.dataSource == "Inherited" && presetDefaults.has_value()) {
+        resolved.capacityKg = presetDefaults->capacityKg;
+        resolved.weightKg = presetDefaults->weightKg;
+        const std::string inheritedFunction =
+            presetDefaults->hoistFunction.empty() ? support.hoistFunction
+                                                  : presetDefaults->hoistFunction;
+        resolved.hoistFunction = NormalizeHoistFunction(inheritedFunction);
+        return resolved;
+    }
+
+    resolved.capacityKg = support.capacityKg;
+    resolved.weightKg = support.weightKg;
+    resolved.hoistFunction = NormalizeHoistFunction(
+        support.hoistFunction.empty() ? support.function : support.hoistFunction);
+    return resolved;
 }
