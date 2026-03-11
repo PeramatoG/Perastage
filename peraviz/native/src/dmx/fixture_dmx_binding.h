@@ -43,6 +43,12 @@ struct FixtureGoboWheelBinding {
     FixtureAttributeChannel channel;
     FixtureAttributeChannel index_channel;
     FixtureAttributeChannel rotation_channel;
+    bool has_index_physical_limits = false;
+    float index_physical_min = 0.0F;
+    float index_physical_max = 0.0F;
+    bool has_rotation_physical_limits = false;
+    float rotation_physical_min = 0.0F;
+    float rotation_physical_max = 0.0F;
     int wheel_number = 0;
     std::string wheel_name;
     std::vector<FixtureGoboSlot> slots;
@@ -93,6 +99,12 @@ struct FixtureGoboWheelOffset {
     int rotation_coarse_offset_1_based = -1;
     int rotation_fine_offset_1_based = -1;
     int rotation_ultra_fine_offset_1_based = -1;
+    bool has_index_physical_limits = false;
+    float index_physical_min = 0.0F;
+    float index_physical_max = 0.0F;
+    bool has_rotation_physical_limits = false;
+    float rotation_physical_min = 0.0F;
+    float rotation_physical_max = 0.0F;
     int wheel_number = 0;
     std::string wheel_name;
     std::vector<FixtureGoboSlot> slots;

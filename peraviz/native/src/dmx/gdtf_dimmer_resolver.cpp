@@ -429,6 +429,11 @@ ParsedAttribute parse_attribute_name(const std::string &raw_attribute) {
 void consume_zoom_physical_range(tinyxml2::XMLElement *channel_function,
                                  peraviz::dmx::FixtureControlOffsets &out_offsets);
 
+void consume_gobo_physical_range(tinyxml2::XMLElement *channel_function,
+                                 bool &has_limits,
+                                 float &out_min,
+                                 float &out_max);
+
 bool parse_float_attr_ci(tinyxml2::XMLElement *node,
                          const char *attr_name,
                          const char *attr_name_alt,
@@ -473,6 +478,23 @@ void consume_zoom_physical_range(tinyxml2::XMLElement *channel_function,
         std::min(out_offsets.zoom_physical_min_degrees, min_value);
     out_offsets.zoom_physical_max_degrees =
         std::max(out_offsets.zoom_physical_max_degrees, max_value);
+}
+
+void consume_gobo_physical_range(tinyxml2::XMLElement *channel_function,
+                                 bool &has_limits,
+                                 float &out_min,
+                                 float &out_max) {
+    float physical_from = 0.0F;
+    float physical_to = 0.0F;
+    const bool has_physical_from = parse_float_attr_ci(channel_function, "PhysicalFrom", "physicalfrom", physical_from);
+    const bool has_physical_to = parse_float_attr_ci(channel_function, "PhysicalTo", "physicalto", physical_to);
+    if (!has_physical_from || !has_physical_to) {
+        return;
+    }
+
+    has_limits = true;
+    out_min = physical_from;
+    out_max = physical_to;
 }
 
 void consume_offsets(const std::vector<int> &offsets,
@@ -552,18 +574,38 @@ int parse_dmx_value_8bit(const char *raw_value) {
         return -1;
     }
 
+    int resolution_bytes = 1;
     size_t slash = value.find('/');
     if (slash != std::string::npos) {
-        value = value.substr(0, slash);
+        const std::string value_part = trim_ascii(value.substr(0, slash));
+        const std::string resolution_part = trim_ascii(value.substr(slash + 1));
+        value = value_part;
+        if (!resolution_part.empty()) {
+            char *resolution_end = nullptr;
+            const long parsed_resolution = std::strtol(resolution_part.c_str(), &resolution_end, 10);
+            if (resolution_end != resolution_part.c_str() && parsed_resolution > 0L) {
+                resolution_bytes = static_cast<int>(std::clamp(parsed_resolution, 1L, 3L));
+            }
+        }
     }
-    value = trim_ascii(value);
 
     char *end = nullptr;
     const long parsed = std::strtol(value.c_str(), &end, 10);
-    if (end == value.c_str()) {
+    if (end == value.c_str() || parsed < 0L) {
         return -1;
     }
-    return static_cast<int>(std::clamp(parsed, 0L, 255L));
+
+    long max_value = 255L;
+    if (resolution_bytes == 2) {
+        max_value = 65535L;
+    } else if (resolution_bytes == 3) {
+        max_value = 16777215L;
+    }
+    const long clamped = std::clamp(parsed, 0L, max_value);
+    if (max_value == 255L) {
+        return static_cast<int>(clamped);
+    }
+    return static_cast<int>((clamped * 255L) / max_value);
 }
 
 std::string read_attr_ci(tinyxml2::XMLElement *node, const char *name_a, const char *name_b) {
@@ -764,6 +806,9 @@ void consume_gobo_channel_sets(tinyxml2::XMLElement *channel_function,
     }
 
     out_wheel.wheel_name = wheel_name;
+    const std::string function_name = read_attr_ci(channel_function, "Name", "name");
+    const peraviz::dmx::FixtureGoboRangeBehavior function_behavior_hint =
+        parse_gobo_range_behavior(function_name);
 
     const std::vector<int> &known_slot_order = wheel_it->second.declared_slot_order;
     std::unordered_set<int> known_slots = wheel_it->second.declared_slots;
@@ -798,6 +843,9 @@ void consume_gobo_channel_sets(tinyxml2::XMLElement *channel_function,
     };
 
     int last_slot_index = -1;
+    if (!out_wheel.ranges.empty()) {
+        last_slot_index = out_wheel.ranges.back().slot_index;
+    }
     for (tinyxml2::XMLElement *channel_set = channel_function->FirstChildElement(); channel_set;
          channel_set = channel_set->NextSiblingElement()) {
         if (lower_ascii(channel_set->Name()) != "channelset") {
@@ -808,6 +856,7 @@ void consume_gobo_channel_sets(tinyxml2::XMLElement *channel_function,
         if (slot_index <= 0) {
             slot_index = parse_positive_int(channel_set->Attribute("wheelslotindex"));
         }
+        const int declared_slot_index = slot_index;
         // GDTF ChannelSet may omit WheelSlotIndex in motion ranges (index/spin/shake).
         // Reuse the previous valid slot so behavior is tied to the selected gobo slot.
         if (slot_index <= 0) {
@@ -835,8 +884,14 @@ void consume_gobo_channel_sets(tinyxml2::XMLElement *channel_function,
         const int dmx_to = raw_dmx_to < 0 ? -1 : resolve_channel_set_dmx(raw_dmx_to);
 
         const std::string channel_set_name = read_attr_ci(channel_set, "Name", "name");
-        const peraviz::dmx::FixtureGoboRangeBehavior behavior =
+        peraviz::dmx::FixtureGoboRangeBehavior behavior =
             parse_gobo_range_behavior(channel_set_name);
+        const bool allow_function_hint = declared_slot_index <= 0 || channel_set_name.empty();
+        if (behavior == peraviz::dmx::FixtureGoboRangeBehavior::kFixed &&
+            function_behavior_hint != peraviz::dmx::FixtureGoboRangeBehavior::kFixed &&
+            allow_function_hint) {
+            behavior = function_behavior_hint;
+        }
         parsed_sets.push_back({dmx_from, dmx_to, slot_index, behavior});
     }
 
@@ -1095,6 +1150,10 @@ void consume_channel_offsets(tinyxml2::XMLElement *dmx_channel,
                                 wheel->index_coarse_offset_1_based,
                                 wheel->index_fine_offset_1_based,
                                 wheel->index_ultra_fine_offset_1_based);
+                consume_gobo_physical_range(channel_function,
+                                            wheel->has_index_physical_limits,
+                                            wheel->index_physical_min,
+                                            wheel->index_physical_max);
                 break;
             }
             case AttributeRole::kGoboRotation: {
@@ -1112,6 +1171,10 @@ void consume_channel_offsets(tinyxml2::XMLElement *dmx_channel,
                                 wheel->rotation_coarse_offset_1_based,
                                 wheel->rotation_fine_offset_1_based,
                                 wheel->rotation_ultra_fine_offset_1_based);
+                consume_gobo_physical_range(channel_function,
+                                            wheel->has_rotation_physical_limits,
+                                            wheel->rotation_physical_min,
+                                            wheel->rotation_physical_max);
                 break;
             }
             }

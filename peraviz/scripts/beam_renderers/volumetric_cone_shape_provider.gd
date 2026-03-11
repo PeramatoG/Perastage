@@ -31,8 +31,16 @@ func apply_shape(beam: MeshInstance3D, _light: SpotLight3D, params: Dictionary) 
 	beam.position = Vector3(lens_shift_x, lens_shift_y, -(beam_range * 0.5 + lens_offset_m))
 	beam.scale = Vector3.ONE
 	var gobo_rotation_deg: float = float(params.get("gobo_rotation_deg", 0.0))
+	var beam_rotation_deg: float = wrapf(gobo_rotation_deg + 180.0, 0.0, 360.0)
+	_apply_beam_axis_rotation(beam, beam_rotation_deg)
 	return {
 		"gobo_projection_radius": max(bottom_radius, 0.001),
-		"beam_rotation_deg": wrapf(gobo_rotation_deg + 180.0, 0.0, 360.0),
+		"beam_rotation_deg": beam_rotation_deg,
 		"mirror_x": true,
 	}
+
+func _apply_beam_axis_rotation(node: Node3D, beam_rotation_deg: float) -> void:
+	if node == null:
+		return
+	node.rotation = Vector3(deg_to_rad(90.0), 0.0, 0.0)
+	node.rotate_object_local(Vector3.UP, deg_to_rad(-beam_rotation_deg))

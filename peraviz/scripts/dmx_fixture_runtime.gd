@@ -265,26 +265,58 @@ func _build_runtime_gobo_bindings(binding: Dictionary, frame: PackedByteArray) -
 		# GDTF ChannelSet ranges define the active wheel function (fixed/index/spin/shake)
 		# for the current DMX value on the gobo select channel.
 		var range_behavior: int = int(active_range.get("behavior", GOBO_BEHAVIOR_FIXED))
+		var has_index_channel: bool = _has_control_channel(item, "index_channel_index_0", "index_fine_channel_index_0", "index_ultra_fine_channel_index_0")
+		var has_rotation_channel: bool = _has_control_channel(item, "rotation_channel_index_0", "rotation_fine_channel_index_0", "rotation_ultra_fine_channel_index_0")
 		var supports_index: bool = range_behavior == GOBO_BEHAVIOR_INDEX
 		var supports_rotation: bool = range_behavior == GOBO_BEHAVIOR_ROTATION or range_behavior == GOBO_BEHAVIOR_SHAKE
+		if range_behavior == GOBO_BEHAVIOR_FIXED:
+			supports_index = has_index_channel
+			supports_rotation = has_rotation_channel
 		var index_norm: float = -1.0
 		var rotation_norm: float = -1.0
 		if supports_index:
 			index_norm = _read_optional_control_norm(frame, int(item.get("index_channel_index_0", -1)), int(item.get("index_fine_channel_index_0", -1)), int(item.get("index_ultra_fine_channel_index_0", -1)))
+			if index_norm < 0.0 and range_behavior == GOBO_BEHAVIOR_INDEX:
+				index_norm = _resolve_norm_from_active_range(raw_8bit, active_range)
 		if supports_rotation:
 			rotation_norm = _read_optional_control_norm(frame, int(item.get("rotation_channel_index_0", -1)), int(item.get("rotation_fine_channel_index_0", -1)), int(item.get("rotation_ultra_fine_channel_index_0", -1)))
+			if rotation_norm < 0.0 and (range_behavior == GOBO_BEHAVIOR_ROTATION or range_behavior == GOBO_BEHAVIOR_SHAKE):
+				rotation_norm = _resolve_norm_from_active_range(raw_8bit, active_range)
 		runtime_bindings.append({
 			"wheel_number": int(item.get("wheel_number", 0)),
 			"wheel_name": str(item.get("wheel_name", "")),
 			"raw_8bit": raw_8bit,
 			"slot_index": int(active_range.get("slot_index", 0)),
 			"behavior": range_behavior,
+			"supports_index": supports_index,
+			"supports_rotation": supports_rotation,
+			"has_index_physical_limits": bool(item.get("has_index_physical_limits", false)),
+			"index_physical_min": float(item.get("index_physical_min", 0.0)),
+			"index_physical_max": float(item.get("index_physical_max", 0.0)),
+			"has_rotation_physical_limits": bool(item.get("has_rotation_physical_limits", false)),
+			"rotation_physical_min": float(item.get("rotation_physical_min", 0.0)),
+			"rotation_physical_max": float(item.get("rotation_physical_max", 0.0)),
 			"index_norm": index_norm,
 			"rotation_norm": rotation_norm,
 			"slots": item.get("slots", []),
 			"ranges": ranges,
 		})
 	return runtime_bindings
+
+func _has_control_channel(binding: Dictionary, coarse_key: String, fine_key: String, ultra_fine_key: String) -> bool:
+	return int(binding.get(coarse_key, -1)) >= 0 or int(binding.get(fine_key, -1)) >= 0 or int(binding.get(ultra_fine_key, -1)) >= 0
+
+func _resolve_norm_from_active_range(raw_8bit: int, active_range: Dictionary) -> float:
+	var dmx_from: int = int(active_range.get("dmx_from", 0))
+	var dmx_to: int = int(active_range.get("dmx_to", dmx_from))
+	if dmx_to < dmx_from:
+		var swap_value: int = dmx_from
+		dmx_from = dmx_to
+		dmx_to = swap_value
+	if dmx_to <= dmx_from:
+		return 0.0
+	var clamped_raw: int = clampi(raw_8bit, dmx_from, dmx_to)
+	return float(clamped_raw - dmx_from) / float(dmx_to - dmx_from)
 
 func _read_optional_control_norm(frame: PackedByteArray, coarse_index: int, fine_index: int, ultra_fine_index: int) -> float:
 	if not _is_valid_channel_index(frame, coarse_index):
