@@ -320,13 +320,15 @@ peraviz::dmx::FixtureGoboRangeBehavior parse_gobo_range_behavior(const std::stri
     if (lower_name.find("shake") != std::string::npos) {
         return peraviz::dmx::FixtureGoboRangeBehavior::kShake;
     }
-    if (lower_name.find("spin") != std::string::npos ||
-        lower_name.find("rotate") != std::string::npos) {
-        return peraviz::dmx::FixtureGoboRangeBehavior::kRotation;
-    }
+    // Prioritize explicit index/position semantics over generic rotate tokens,
+    // because some fixture libraries include both terms in index range names.
     if (lower_name.find("index") != std::string::npos ||
         lower_name.find("pos") != std::string::npos) {
         return peraviz::dmx::FixtureGoboRangeBehavior::kIndex;
+    }
+    if (lower_name.find("spin") != std::string::npos ||
+        lower_name.find("rotate") != std::string::npos) {
+        return peraviz::dmx::FixtureGoboRangeBehavior::kRotation;
     }
     return peraviz::dmx::FixtureGoboRangeBehavior::kFixed;
 }
@@ -771,13 +773,10 @@ void consume_gobo_channel_sets(tinyxml2::XMLElement *channel_function,
         return;
     }
 
-    std::sort(parsed_sets.begin(), parsed_sets.end(),
-              [](const ParsedGoboSet &a, const ParsedGoboSet &b) {
-                  if (a.dmx_from != b.dmx_from) {
-                      return a.dmx_from < b.dmx_from;
-                  }
-                  return a.slot_index < b.slot_index;
-              });
+    std::stable_sort(parsed_sets.begin(), parsed_sets.end(),
+                     [](const ParsedGoboSet &a, const ParsedGoboSet &b) {
+                         return a.dmx_from < b.dmx_from;
+                     });
 
     for (size_t i = 0; i < parsed_sets.size(); ++i) {
         ParsedGoboSet &row = parsed_sets[i];
