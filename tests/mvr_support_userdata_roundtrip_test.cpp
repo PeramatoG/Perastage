@@ -9,6 +9,8 @@
 #include "configmanager.h"
 #include "fixture.h"
 #include "layer.h"
+#include "mvrexporter.h"
+#include "mvrimporter.h"
 #include "projectutils.h"
 #include "support.h"
 
@@ -69,10 +71,12 @@ int main() {
   scene.supports[manual.uuid] = manual;
 
   const std::filesystem::path mvrPath = tempDir / "support_roundtrip.mvr";
-  assert(cfg.ExportMVR(mvrPath.string()));
+  MvrExporter exporter;
+  assert(exporter.ExportToFile(mvrPath.string()));
 
   cfg.Reset();
-  assert(cfg.ImportMVR(mvrPath.string(), false, false));
+  MvrImporter importer;
+  assert(importer.ImportFromFile(mvrPath.string(), false, false));
 
   const auto &loaded = cfg.GetScene().supports;
   assert(loaded.size() == 3);
