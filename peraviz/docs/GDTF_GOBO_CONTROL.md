@@ -26,16 +26,25 @@ For multi-wheel fixtures, each wheel in `gobo_wheels` also includes:
 - `index_*` channels.
 - `rotation_*` channels.
 
+When the GDTF channel functions define `PhysicalFrom`/`PhysicalTo`, those
+limits are also propagated for index and rotation controls. Runtime uses these
+physical ranges to interpret values with fixture-accurate behavior instead of a
+generic normalization.
+
 ## Control interpretation in Godot
 
-`BeamOpticsController.BuildGoboControls(...)` now computes `gobo_rotation_deg`
-using this order:
+Peraviz runtime applies gobo controls with this behavior:
 
 1. Base rotation from visual settings.
-2. Override by `gobo_index_norm` (or wheel-specific `index_norm`) as
-   `0..360°` index angle.
-3. Add continuous rotation offset from `gobo_rotation_norm` (or wheel-specific
-   `rotation_norm`) around a center stop value at `0.5`.
+2. If `gobo_index`/`index` is present (`Gobo(n)Pos`), map DMX value to a
+   **fixed angular position** relative to initial orientation.
+3. If `gobo_rotation`/`rotation` is present (`Gobo(n)PosRotate`), map DMX value
+   to **angular speed** (including direction) and integrate over time.
+
+Index and rotation are treated as different semantics:
+
+- **Index**: target angle (static position).
+- **Rotation/Spin**: speed command (continuous motion).
 
 This keeps backward compatibility for fixtures without explicit
 `Gobo(n)Pos`/`Gobo(n)PosRotate` channels while enabling dedicated controls when
