@@ -277,12 +277,13 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
     s_lastCameraUpdate = now;
     m_camera.Update(dt);
 
+    Render();
+
+    // Ensure the OpenGL context is current before drawing overlays
+    SetCurrent(*m_glContext);
+
     int w, h;
     GetClientSize(&w, &h);
-
-    // Resolve hover first so the highlight UUID is already active for this frame render.
-    SetCurrent(*m_glContext);
-    ApplyCameraMatrices(w, h);
 
     wxString newLabel;
     wxPoint newPos;
@@ -356,11 +357,6 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
         m_controller.SetHighlightUuid("");
     }
     m_mouseMoved = false;
-
-    Render();
-
-    // Ensure the OpenGL context is current before drawing overlays
-    SetCurrent(*m_glContext);
 
     // Draw labels before swapping buffers to avoid losing them.
     if (!pauseHeavyTasks && !skipLabelWork) {
