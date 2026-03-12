@@ -279,6 +279,9 @@ func _build_runtime_gobo_bindings(binding: Dictionary, frame: PackedByteArray) -
 			supports_rotation = has_rotation_channel
 		var index_norm: float = -1.0
 		var rotation_norm: float = -1.0
+		var rotation_raw_8bit: int = -1
+		var rotation_speed_hz: float = 0.0
+		var has_rotation_speed_hz: bool = false
 		var rotation_from_range: bool = false
 		var has_range_physical_limits: bool = bool(active_range.get("has_physical_limits", false))
 		var range_physical_from: float = float(active_range.get("physical_from", 0.0))
@@ -288,7 +291,13 @@ func _build_runtime_gobo_bindings(binding: Dictionary, frame: PackedByteArray) -
 			if index_norm < 0.0 and range_behavior == GOBO_BEHAVIOR_INDEX:
 				index_norm = _resolve_norm_from_active_range(raw_8bit, active_range)
 		if supports_rotation:
-			rotation_norm = _read_optional_control_norm(frame, int(item.get("rotation_channel_index_0", -1)), int(item.get("rotation_fine_channel_index_0", -1)), int(item.get("rotation_ultra_fine_channel_index_0", -1)))
+			var rotation_value: Dictionary = _read_optional_control_value(frame, int(item.get("rotation_channel_index_0", -1)), int(item.get("rotation_fine_channel_index_0", -1)), int(item.get("rotation_ultra_fine_channel_index_0", -1)))
+			rotation_norm = float(rotation_value.get("norm", -1.0))
+			rotation_raw_8bit = int(rotation_value.get("raw_8bit", -1))
+			if rotation_raw_8bit >= 0:
+				var rotation_speed: Dictionary = _resolve_physical_from_ranges(rotation_raw_8bit, item.get("rotation_ranges", []))
+				has_rotation_speed_hz = bool(rotation_speed.get("has_value", false))
+				rotation_speed_hz = float(rotation_speed.get("value", 0.0))
 			if rotation_norm < 0.0 and (range_behavior == GOBO_BEHAVIOR_ROTATION or range_behavior == GOBO_BEHAVIOR_SHAKE):
 				rotation_from_range = true
 				rotation_norm = _resolve_norm_from_active_range(raw_8bit, active_range)
@@ -315,6 +324,9 @@ func _build_runtime_gobo_bindings(binding: Dictionary, frame: PackedByteArray) -
 			"range_physical_to": range_physical_to,
 			"index_norm": index_norm,
 			"rotation_norm": rotation_norm,
+			"rotation_raw_8bit": rotation_raw_8bit,
+			"has_rotation_speed_hz": has_rotation_speed_hz,
+			"rotation_speed_hz": rotation_speed_hz,
 			"slots": item.get("slots", []),
 			"ranges": ranges,
 		})
@@ -360,6 +372,38 @@ func _read_optional_control_norm(frame: PackedByteArray, coarse_index: int, fine
 		return -1.0
 	var value: Dictionary = _read_control_value(frame, coarse_index, fine_index, ultra_fine_index)
 	return clamp(float(value.get("norm", 0.0)), 0.0, 1.0)
+
+func _read_optional_control_value(frame: PackedByteArray, coarse_index: int, fine_index: int, ultra_fine_index: int) -> Dictionary:
+	if not _is_valid_channel_index(frame, coarse_index):
+		return {"norm": -1.0, "raw_8bit": -1}
+	var value: Dictionary = _read_control_value(frame, coarse_index, fine_index, ultra_fine_index)
+	return {
+		"norm": clamp(float(value.get("norm", 0.0)), 0.0, 1.0),
+		"raw_8bit": _resolve_raw_to_8bit(int(value.get("raw", 0)), int(value.get("resolution_bits", 8))),
+	}
+
+func _resolve_physical_from_ranges(raw_8bit: int, ranges: Array) -> Dictionary:
+	for range_item in ranges:
+		if range_item is not Dictionary:
+			continue
+		var dmx_from: int = int(range_item.get("dmx_from", 0))
+		var dmx_to: int = int(range_item.get("dmx_to", dmx_from))
+		var physical_from: float = float(range_item.get("physical_from", 0.0))
+		var physical_to: float = float(range_item.get("physical_to", 0.0))
+		if dmx_to < dmx_from:
+			var swap_dmx: int = dmx_from
+			dmx_from = dmx_to
+			dmx_to = swap_dmx
+			var swap_physical: float = physical_from
+			physical_from = physical_to
+			physical_to = swap_physical
+		if raw_8bit < dmx_from or raw_8bit > dmx_to:
+			continue
+		if dmx_to <= dmx_from:
+			return {"has_value": true, "value": physical_from}
+		var norm: float = float(raw_8bit - dmx_from) / float(dmx_to - dmx_from)
+		return {"has_value": true, "value": lerp(physical_from, physical_to, clamp(norm, 0.0, 1.0))}
+	return {"has_value": false, "value": 0.0}
 
 func _resolve_raw_to_8bit(raw_value: int, resolution_bits: int) -> int:
 	if resolution_bits >= 24:

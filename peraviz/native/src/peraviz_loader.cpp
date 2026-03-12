@@ -283,6 +283,19 @@ Dictionary PeravizLoader::build_fixture_dimmer_bindings(int universe_offset) con
                 wheel_ranges[range_index] = range_item;
             }
             wheel_item["ranges"] = wheel_ranges;
+
+            Array rotation_ranges;
+            rotation_ranges.resize(static_cast<int64_t>(wheel.rotation_ranges.size()));
+            for (int64_t range_index = 0; range_index < static_cast<int64_t>(wheel.rotation_ranges.size()); ++range_index) {
+                const auto &range = wheel.rotation_ranges[static_cast<size_t>(range_index)];
+                Dictionary range_item;
+                range_item["dmx_from"] = range.dmx_from;
+                range_item["dmx_to"] = range.dmx_to;
+                range_item["physical_from"] = range.physical_from;
+                range_item["physical_to"] = range.physical_to;
+                rotation_ranges[range_index] = range_item;
+            }
+            wheel_item["rotation_ranges"] = rotation_ranges;
             gobo_wheels[wheel_index] = wheel_item;
         }
         item["gobo_wheels"] = gobo_wheels;

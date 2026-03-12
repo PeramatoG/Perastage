@@ -439,6 +439,13 @@ void consume_gobo_physical_range(tinyxml2::XMLElement *channel_function,
                                  float &out_min,
                                  float &out_max);
 
+void consume_gobo_rotation_channel_sets(tinyxml2::XMLElement *channel_function,
+                                        std::vector<peraviz::dmx::FixtureGoboPhysicalRange> &out_ranges,
+                                        int function_dmx_from,
+                                        int function_dmx_to);
+
+int parse_dmx_value_8bit(const char *raw_value);
+
 bool parse_float_attr_ci(tinyxml2::XMLElement *node,
                          const char *attr_name,
                          const char *attr_name_alt,
@@ -500,6 +507,94 @@ void consume_gobo_physical_range(tinyxml2::XMLElement *channel_function,
     has_limits = true;
     out_min = physical_from;
     out_max = physical_to;
+}
+
+void consume_gobo_rotation_channel_sets(tinyxml2::XMLElement *channel_function,
+                                        std::vector<peraviz::dmx::FixtureGoboPhysicalRange> &out_ranges,
+                                        int function_dmx_from,
+                                        int function_dmx_to) {
+    if (!channel_function) {
+        return;
+    }
+
+    const int clamped_function_from = std::clamp(function_dmx_from, 0, 255);
+    const int clamped_function_to = std::clamp(function_dmx_to, clamped_function_from, 255);
+    const auto resolve_channel_set_dmx =
+        [clamped_function_from, clamped_function_to](int raw_value) -> int {
+        if (raw_value >= clamped_function_from && raw_value <= 255) {
+            return std::clamp(raw_value, clamped_function_from, clamped_function_to);
+        }
+        const int relative_value = clamped_function_from + std::max(0, raw_value);
+        return std::clamp(relative_value, clamped_function_from, clamped_function_to);
+    };
+
+    struct ParsedRotationSet {
+        int dmx_from = 0;
+        int dmx_to = -1;
+        float physical_from = 0.0F;
+        float physical_to = 0.0F;
+    };
+    std::vector<ParsedRotationSet> parsed_sets;
+
+    for (tinyxml2::XMLElement *channel_set = channel_function->FirstChildElement(); channel_set;
+         channel_set = channel_set->NextSiblingElement()) {
+        if (lower_ascii(channel_set->Name()) != "channelset") {
+            continue;
+        }
+
+        float physical_from = 0.0F;
+        float physical_to = 0.0F;
+        const bool has_physical_from = parse_float_attr_ci(channel_set, "PhysicalFrom", "physicalfrom", physical_from);
+        const bool has_physical_to = parse_float_attr_ci(channel_set, "PhysicalTo", "physicalto", physical_to);
+        if (!has_physical_from || !has_physical_to) {
+            continue;
+        }
+
+        int raw_dmx_from = parse_dmx_value_8bit(channel_set->Attribute("DMXFrom"));
+        if (raw_dmx_from < 0) {
+            raw_dmx_from = parse_dmx_value_8bit(channel_set->Attribute("dmxfrom"));
+        }
+        if (raw_dmx_from < 0) {
+            raw_dmx_from = 0;
+        }
+        const int dmx_from = resolve_channel_set_dmx(raw_dmx_from);
+
+        int raw_dmx_to = parse_dmx_value_8bit(channel_set->Attribute("DMXTo"));
+        if (raw_dmx_to < 0) {
+            raw_dmx_to = parse_dmx_value_8bit(channel_set->Attribute("dmxto"));
+        }
+        const int dmx_to = raw_dmx_to < 0 ? -1 : resolve_channel_set_dmx(raw_dmx_to);
+
+        parsed_sets.push_back({dmx_from, dmx_to, physical_from, physical_to});
+    }
+
+    if (parsed_sets.empty()) {
+        return;
+    }
+
+    std::stable_sort(parsed_sets.begin(), parsed_sets.end(),
+                     [](const ParsedRotationSet &a, const ParsedRotationSet &b) {
+                         return a.dmx_from < b.dmx_from;
+                     });
+
+    for (size_t i = 0; i < parsed_sets.size(); ++i) {
+        ParsedRotationSet &row = parsed_sets[i];
+        if (row.dmx_to < 0) {
+            if (i + 1 < parsed_sets.size()) {
+                row.dmx_to = std::max(row.dmx_from, parsed_sets[i + 1].dmx_from - 1);
+            } else {
+                row.dmx_to = clamped_function_to;
+            }
+        }
+        row.dmx_from = std::clamp(row.dmx_from, clamped_function_from, clamped_function_to);
+        row.dmx_to = std::clamp(row.dmx_to, clamped_function_from, clamped_function_to);
+        if (row.dmx_to < row.dmx_from) {
+            std::swap(row.dmx_from, row.dmx_to);
+            std::swap(row.physical_from, row.physical_to);
+        }
+
+        out_ranges.push_back({row.dmx_from, row.dmx_to, row.physical_from, row.physical_to});
+    }
 }
 
 void consume_offsets(const std::vector<int> &offsets,
@@ -1198,6 +1293,10 @@ void consume_channel_offsets(tinyxml2::XMLElement *dmx_channel,
                                             wheel->has_rotation_physical_limits,
                                             wheel->rotation_physical_min,
                                             wheel->rotation_physical_max);
+                consume_gobo_rotation_channel_sets(channel_function,
+                                                  wheel->rotation_ranges,
+                                                  function_dmx_from,
+                                                  function_dmx_to);
                 break;
             }
             }

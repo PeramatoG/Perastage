@@ -167,6 +167,7 @@ FixtureBindingBuildResult build_dimmer_bindings(
             wheel_binding.wheel_name = wheel.wheel_name;
             wheel_binding.slots = wheel.slots;
             wheel_binding.ranges = wheel.ranges;
+            wheel_binding.rotation_ranges = wheel.rotation_ranges;
             binding.gobo_wheels.push_back(std::move(wheel_binding));
         }
         binding.has_zoom_physical_limits = offsets.has_zoom_physical_limits;

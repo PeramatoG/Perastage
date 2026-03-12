@@ -42,6 +42,13 @@ struct FixtureGoboRange {
     float physical_to = 0.0F;
 };
 
+struct FixtureGoboPhysicalRange {
+    int dmx_from = 0;
+    int dmx_to = 255;
+    float physical_from = 0.0F;
+    float physical_to = 0.0F;
+};
+
 struct FixtureGoboWheelBinding {
     FixtureAttributeChannel channel;
     FixtureAttributeChannel index_channel;
@@ -56,6 +63,7 @@ struct FixtureGoboWheelBinding {
     std::string wheel_name;
     std::vector<FixtureGoboSlot> slots;
     std::vector<FixtureGoboRange> ranges;
+    std::vector<FixtureGoboPhysicalRange> rotation_ranges;
 };
 
 struct FixtureControlBinding {
@@ -112,6 +120,7 @@ struct FixtureGoboWheelOffset {
     std::string wheel_name;
     std::vector<FixtureGoboSlot> slots;
     std::vector<FixtureGoboRange> ranges;
+    std::vector<FixtureGoboPhysicalRange> rotation_ranges;
 };
 
 struct FixtureControlOffsets {

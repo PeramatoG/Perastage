@@ -148,7 +148,9 @@ func _resolve_wheel_rotation_deg(light: SpotLight3D, controls: Dictionary, wheel
 	if supports_rotation and rotation_norm >= 0.0 and delta_sec > 0.0:
 		var speed_deg_per_sec: float = 0.0
 		var rotation_from_range: bool = bool(wheel.get("rotation_from_range", false))
-		if rotation_from_range and bool(wheel.get("has_range_physical_limits", false)):
+		if bool(wheel.get("has_rotation_speed_hz", false)):
+			speed_deg_per_sec = float(wheel.get("rotation_speed_hz", 0.0)) * GOBO_FREQUENCY_TO_DEG_PER_SEC
+		elif rotation_from_range and bool(wheel.get("has_range_physical_limits", false)):
 			var range_physical_from_hz: float = float(wheel.get("range_physical_from", 0.0))
 			var range_physical_to_hz: float = float(wheel.get("range_physical_to", 0.0))
 			var speed_hz: float = lerp(range_physical_from_hz, range_physical_to_hz, clamp(rotation_norm, 0.0, 1.0))
