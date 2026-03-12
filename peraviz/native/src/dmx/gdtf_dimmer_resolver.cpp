@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <array>
 #include <cctype>
+#include <cmath>
 #include <filesystem>
 #include <cstdlib>
 #include <mutex>
@@ -1043,6 +1044,22 @@ void consume_gobo_channel_sets(tinyxml2::XMLElement *channel_function,
 }
 
 
+
+bool has_non_zero_rotation_physical_value(float value) {
+    return std::fabs(value) > 0.0001F;
+}
+
+bool has_motion_in_rotation_ranges(const std::vector<peraviz::dmx::FixtureGoboPhysicalRange> &ranges) {
+    for (const auto &range : ranges) {
+        if (has_non_zero_rotation_physical_value(range.physical_from) ||
+            has_non_zero_rotation_physical_value(range.physical_to) ||
+            std::fabs(range.physical_to - range.physical_from) > 0.0001F) {
+            return true;
+        }
+    }
+    return false;
+}
+
 int parse_last_number_token(const std::string &text) {
     int value = 0;
     bool found = false;
@@ -1293,10 +1310,45 @@ void consume_channel_offsets(tinyxml2::XMLElement *dmx_channel,
                 consume_offsets(offsets, parsed_attribute.is_fine, parsed_attribute.byte_index,
                                 candidate_coarse, candidate_fine, candidate_ultra_fine);
 
+                bool candidate_has_limits = false;
+                float candidate_min = 0.0F;
+                float candidate_max = 0.0F;
+                consume_gobo_physical_range(channel_function,
+                                            candidate_has_limits,
+                                            candidate_min,
+                                            candidate_max);
+
+                std::vector<peraviz::dmx::FixtureGoboPhysicalRange> candidate_ranges;
+                consume_gobo_rotation_channel_sets(channel_function,
+                                                  candidate_ranges,
+                                                  function_dmx_from,
+                                                  function_dmx_to);
+
+                const bool candidate_has_motion =
+                    has_motion_in_rotation_ranges(candidate_ranges) ||
+                    (candidate_has_limits &&
+                     (has_non_zero_rotation_physical_value(candidate_min) ||
+                      has_non_zero_rotation_physical_value(candidate_max) ||
+                      std::fabs(candidate_max - candidate_min) > 0.0001F));
+
                 const bool has_existing_rotation_source = wheel->rotation_coarse_offset_1_based > 0;
-                const bool should_select_candidate =
-                    !has_existing_rotation_source ||
-                    (candidate_coarse > 0 && candidate_coarse < wheel->rotation_coarse_offset_1_based);
+                const bool existing_has_motion =
+                    has_motion_in_rotation_ranges(wheel->rotation_ranges) ||
+                    (wheel->has_rotation_physical_limits &&
+                     (has_non_zero_rotation_physical_value(wheel->rotation_physical_min) ||
+                      has_non_zero_rotation_physical_value(wheel->rotation_physical_max) ||
+                      std::fabs(wheel->rotation_physical_max - wheel->rotation_physical_min) > 0.0001F));
+
+                bool should_select_candidate = !has_existing_rotation_source;
+                if (!should_select_candidate && candidate_coarse > 0 &&
+                    candidate_coarse < wheel->rotation_coarse_offset_1_based) {
+                    should_select_candidate = true;
+                }
+                if (!should_select_candidate && candidate_coarse == wheel->rotation_coarse_offset_1_based &&
+                    candidate_has_motion && !existing_has_motion) {
+                    should_select_candidate = true;
+                }
+
                 if (!should_select_candidate) {
                     break;
                 }
@@ -1304,20 +1356,10 @@ void consume_channel_offsets(tinyxml2::XMLElement *dmx_channel,
                 wheel->rotation_coarse_offset_1_based = candidate_coarse;
                 wheel->rotation_fine_offset_1_based = candidate_fine;
                 wheel->rotation_ultra_fine_offset_1_based = candidate_ultra_fine;
-
-                wheel->has_rotation_physical_limits = false;
-                wheel->rotation_physical_min = 0.0F;
-                wheel->rotation_physical_max = 0.0F;
-                consume_gobo_physical_range(channel_function,
-                                            wheel->has_rotation_physical_limits,
-                                            wheel->rotation_physical_min,
-                                            wheel->rotation_physical_max);
-
-                wheel->rotation_ranges.clear();
-                consume_gobo_rotation_channel_sets(channel_function,
-                                                  wheel->rotation_ranges,
-                                                  function_dmx_from,
-                                                  function_dmx_to);
+                wheel->has_rotation_physical_limits = candidate_has_limits;
+                wheel->rotation_physical_min = candidate_min;
+                wheel->rotation_physical_max = candidate_max;
+                wheel->rotation_ranges = std::move(candidate_ranges);
                 break;
             }
             }
