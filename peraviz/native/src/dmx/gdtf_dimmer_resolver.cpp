@@ -1286,14 +1286,34 @@ void consume_channel_offsets(tinyxml2::XMLElement *dmx_channel,
                 if (!wheel) {
                     break;
                 }
+
+                int candidate_coarse = -1;
+                int candidate_fine = -1;
+                int candidate_ultra_fine = -1;
                 consume_offsets(offsets, parsed_attribute.is_fine, parsed_attribute.byte_index,
-                                wheel->rotation_coarse_offset_1_based,
-                                wheel->rotation_fine_offset_1_based,
-                                wheel->rotation_ultra_fine_offset_1_based);
+                                candidate_coarse, candidate_fine, candidate_ultra_fine);
+
+                const bool has_existing_rotation_source = wheel->rotation_coarse_offset_1_based > 0;
+                const bool should_select_candidate =
+                    !has_existing_rotation_source ||
+                    (candidate_coarse > 0 && candidate_coarse < wheel->rotation_coarse_offset_1_based);
+                if (!should_select_candidate) {
+                    break;
+                }
+
+                wheel->rotation_coarse_offset_1_based = candidate_coarse;
+                wheel->rotation_fine_offset_1_based = candidate_fine;
+                wheel->rotation_ultra_fine_offset_1_based = candidate_ultra_fine;
+
+                wheel->has_rotation_physical_limits = false;
+                wheel->rotation_physical_min = 0.0F;
+                wheel->rotation_physical_max = 0.0F;
                 consume_gobo_physical_range(channel_function,
                                             wheel->has_rotation_physical_limits,
                                             wheel->rotation_physical_min,
                                             wheel->rotation_physical_max);
+
+                wheel->rotation_ranges.clear();
                 consume_gobo_rotation_channel_sets(channel_function,
                                                   wheel->rotation_ranges,
                                                   function_dmx_from,
