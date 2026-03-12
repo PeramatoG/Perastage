@@ -53,6 +53,7 @@ private:
     wxDataViewListCtrl* table;
     std::vector<wxString> columnLabels;
     std::vector<std::string> rowUuids;
+    std::string highlightedUuid;
     bool dragSelecting = false;
     int startRow = -1;
     IGuiConfigServices *guiConfigServices = nullptr;

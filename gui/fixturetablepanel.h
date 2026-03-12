@@ -57,6 +57,7 @@ private:
     std::vector<wxString> columnLabels;
     std::vector<wxString> gdtfPaths; // Stores full GDTF paths per row
     std::vector<std::string> rowUuids;
+    std::string highlightedUuid;
 
     bool dragSelecting = false;
     int startRow = -1;
