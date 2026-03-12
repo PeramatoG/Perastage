@@ -21,6 +21,7 @@
 #include <algorithm>
 #include <array>
 #include <cfloat>
+#include <cmath>
 #include <cstdio>
 #include <unordered_set>
 
@@ -37,6 +38,11 @@ struct ProjectionSnapshot {
   double model[16]{};
   double projection[16]{};
   int viewport[4]{};
+};
+
+struct Ray {
+  std::array<double, 3> origin{0.0, 0.0, 0.0};
+  std::array<double, 3> direction{0.0, 0.0, 1.0};
 };
 
 std::unordered_set<std::string> SnapshotHiddenLayers(const ConfigManager &cfg) {
@@ -119,6 +125,94 @@ bool ProjectBoundingBox(const ISelectionContext::BoundingBox &bb,
   return visible;
 }
 
+bool BuildMouseRay(int mouseX, int mouseY, int screenHeight,
+                   const ProjectionSnapshot &projection, Ray &outRay) {
+  const double winX = static_cast<double>(mouseX);
+  const double winY = static_cast<double>(screenHeight - mouseY);
+
+  double nearX = 0.0;
+  double nearY = 0.0;
+  double nearZ = 0.0;
+  double farX = 0.0;
+  double farY = 0.0;
+  double farZ = 0.0;
+
+  if (gluUnProject(winX, winY, 0.0, projection.model, projection.projection,
+                   projection.viewport, &nearX, &nearY, &nearZ) != GL_TRUE) {
+    return false;
+  }
+  if (gluUnProject(winX, winY, 1.0, projection.model, projection.projection,
+                   projection.viewport, &farX, &farY, &farZ) != GL_TRUE) {
+    return false;
+  }
+
+  const double dirX = farX - nearX;
+  const double dirY = farY - nearY;
+  const double dirZ = farZ - nearZ;
+  const double dirLen = std::sqrt(dirX * dirX + dirY * dirY + dirZ * dirZ);
+  if (dirLen <= 1e-12)
+    return false;
+
+  outRay.origin = {nearX, nearY, nearZ};
+  outRay.direction = {dirX / dirLen, dirY / dirLen, dirZ / dirLen};
+  return true;
+}
+
+bool IntersectRayWithAabb(const Ray &ray, const ISelectionContext::BoundingBox &bb,
+                          double &outHitDistance) {
+  constexpr double kEpsilon = 1e-9;
+  double tMin = 0.0;
+  double tMax = DBL_MAX;
+
+  for (int axis = 0; axis < 3; ++axis) {
+    const double origin = ray.origin[axis];
+    const double direction = ray.direction[axis];
+    const double minBound = bb.min[axis];
+    const double maxBound = bb.max[axis];
+
+    if (std::abs(direction) <= kEpsilon) {
+      if (origin < minBound || origin > maxBound)
+        return false;
+      continue;
+    }
+
+    const double invDirection = 1.0 / direction;
+    double t1 = (minBound - origin) * invDirection;
+    double t2 = (maxBound - origin) * invDirection;
+    if (t1 > t2)
+      std::swap(t1, t2);
+
+    tMin = std::max(tMin, t1);
+    tMax = std::min(tMax, t2);
+    if (tMin > tMax)
+      return false;
+  }
+
+  outHitDistance = tMin;
+  return true;
+}
+
+bool ProjectBoundingBoxCenter(const ISelectionContext::BoundingBox &bb,
+                              const ProjectionSnapshot &projection,
+                              int screenHeight, wxPoint &outPos) {
+  const double centerX = 0.5 * static_cast<double>(bb.min[0] + bb.max[0]);
+  const double centerY = 0.5 * static_cast<double>(bb.min[1] + bb.max[1]);
+  const double centerZ = 0.5 * static_cast<double>(bb.min[2] + bb.max[2]);
+
+  double sx = 0.0;
+  double sy = 0.0;
+  double sz = 0.0;
+  if (gluProject(centerX, centerY, centerZ, projection.model,
+                 projection.projection, projection.viewport, &sx, &sy,
+                 &sz) != GL_TRUE) {
+    return false;
+  }
+
+  outPos.x = static_cast<int>(sx);
+  outPos.y = static_cast<int>(screenHeight - sy);
+  return true;
+}
+
 std::string FormatMeters(float mm) {
   const float meters = mm / 1000.0f;
   char buffer[32];
@@ -145,6 +239,9 @@ bool SelectionSystem::GetFixtureLabelAt(int mouseX, int mouseY, int width,
     return false;
 
   const ProjectionSnapshot projection = CaptureProjectionSnapshot();
+  Ray mouseRay;
+  if (!BuildMouseRay(mouseX, mouseY, height, projection, mouseRay))
+    return false;
   const auto hiddenLayers = SnapshotHiddenLayers(cfg);
   bool showName = cfg.GetFloat("label_show_name") != 0.0f;
   bool showId = cfg.GetFloat("label_show_id") != 0.0f;
@@ -153,7 +250,7 @@ bool SelectionSystem::GetFixtureLabelAt(int mouseX, int mouseY, int width,
   const auto &fixtures = SceneDataManager::Instance().GetFixtures();
 
   bool found = false;
-  double bestDepth = DBL_MAX;
+  double bestHitDistance = DBL_MAX;
   wxString bestLabel;
   wxPoint bestPos;
   std::string bestUuid;
@@ -175,37 +272,37 @@ bool SelectionSystem::GetFixtureLabelAt(int mouseX, int mouseY, int width,
     if (!bbPtr)
       continue;
 
-    ScreenRect rect;
-    double minDepth = DBL_MAX;
-    if (!ProjectBoundingBox(*bbPtr, projection, height, rect, &minDepth))
+    double hitDistance = DBL_MAX;
+    if (!IntersectRayWithAabb(mouseRay, *bbPtr, hitDistance))
       continue;
 
-    if (mouseX >= rect.minX && mouseX <= rect.maxX && mouseY >= rect.minY &&
-        mouseY <= rect.maxY) {
-      if (minDepth < bestDepth) {
-        wxString label;
-        if (showName)
-          label = f.instanceName.empty() ? wxString::FromUTF8(uuid)
-                                         : wxString::FromUTF8(f.instanceName);
-        if (showId) {
-          if (!label.empty())
-            label += "\n";
-          label += "ID: " + wxString::Format("%d", f.fixtureId);
-        }
-        if (showDmx && !f.address.empty()) {
-          if (!label.empty())
-            label += "\n";
-          label += wxString::FromUTF8(f.address);
-        }
-        if (label.empty())
-          continue;
-        bestDepth = minDepth;
-        bestPos.x = static_cast<int>((rect.minX + rect.maxX) * 0.5);
-        bestPos.y = static_cast<int>((rect.minY + rect.maxY) * 0.5);
-        bestLabel = label;
-        bestUuid = uuid;
-        found = true;
+    if (hitDistance < bestHitDistance) {
+      wxString label;
+      if (showName)
+        label = f.instanceName.empty() ? wxString::FromUTF8(uuid)
+                                       : wxString::FromUTF8(f.instanceName);
+      if (showId) {
+        if (!label.empty())
+          label += "\n";
+        label += "ID: " + wxString::Format("%d", f.fixtureId);
       }
+      if (showDmx && !f.address.empty()) {
+        if (!label.empty())
+          label += "\n";
+        label += wxString::FromUTF8(f.address);
+      }
+      if (label.empty())
+        continue;
+
+      wxPoint projectedCenter;
+      if (!ProjectBoundingBoxCenter(*bbPtr, projection, height, projectedCenter))
+        continue;
+
+      bestHitDistance = hitDistance;
+      bestPos = projectedCenter;
+      bestLabel = label;
+      bestUuid = uuid;
+      found = true;
     }
   }
 
@@ -227,6 +324,9 @@ bool SelectionSystem::GetTrussLabelAt(int mouseX, int mouseY, int width,
     return false;
 
   const ProjectionSnapshot projection = CaptureProjectionSnapshot();
+  Ray mouseRay;
+  if (!BuildMouseRay(mouseX, mouseY, height, projection, mouseRay))
+    return false;
 
   const auto hiddenLayers = SnapshotHiddenLayers(cfg);
   const auto &trusses = SceneDataManager::Instance().GetTrusses();
@@ -235,7 +335,7 @@ bool SelectionSystem::GetTrussLabelAt(int mouseX, int mouseY, int width,
   const ISelectionContext::VisibleSet &visibleSet =
       m_controller.GetVisibleSet(frustum, hiddenLayers, true, 0.0f);
   bool found = false;
-  double bestDepth = DBL_MAX;
+  double bestHitDistance = DBL_MAX;
   wxString bestLabel;
   wxPoint bestPos;
   std::string bestUuid;
@@ -251,25 +351,24 @@ bool SelectionSystem::GetTrussLabelAt(int mouseX, int mouseY, int width,
     if (!bbPtr)
       continue;
 
-    ScreenRect rect;
-    double minDepth = DBL_MAX;
-    if (!ProjectBoundingBox(*bbPtr, projection, height, rect, &minDepth))
+    double hitDistance = DBL_MAX;
+    if (!IntersectRayWithAabb(mouseRay, *bbPtr, hitDistance))
       continue;
 
-    if (mouseX >= rect.minX && mouseX <= rect.maxX && mouseY >= rect.minY &&
-        mouseY <= rect.maxY) {
-      if (minDepth < bestDepth) {
-        bestDepth = minDepth;
-        bestPos.x = static_cast<int>((rect.minX + rect.maxX) * 0.5);
-        bestPos.y = static_cast<int>((rect.minY + rect.maxY) * 0.5);
-        bestLabel = t.name.empty() ? wxString::FromUTF8(uuid)
-                                   : wxString::FromUTF8(t.name);
-        float baseHeight = t.transform.o[2] - t.heightMm * 0.5f;
-        std::string hStr = FormatMeters(baseHeight);
-        bestLabel += wxString::Format("\nh = %s m", hStr.c_str());
-        bestUuid = uuid;
-        found = true;
-      }
+    if (hitDistance < bestHitDistance) {
+      wxPoint projectedCenter;
+      if (!ProjectBoundingBoxCenter(*bbPtr, projection, height, projectedCenter))
+        continue;
+
+      bestHitDistance = hitDistance;
+      bestPos = projectedCenter;
+      bestLabel = t.name.empty() ? wxString::FromUTF8(uuid)
+                                 : wxString::FromUTF8(t.name);
+      float baseHeight = t.transform.o[2] - t.heightMm * 0.5f;
+      std::string hStr = FormatMeters(baseHeight);
+      bestLabel += wxString::Format("\nh = %s m", hStr.c_str());
+      bestUuid = uuid;
+      found = true;
     }
   }
 
@@ -291,6 +390,9 @@ bool SelectionSystem::GetSceneObjectLabelAt(int mouseX, int mouseY, int width,
     return false;
 
   const ProjectionSnapshot projection = CaptureProjectionSnapshot();
+  Ray mouseRay;
+  if (!BuildMouseRay(mouseX, mouseY, height, projection, mouseRay))
+    return false;
 
   const auto hiddenLayers = SnapshotHiddenLayers(cfg);
   const auto &objs = SceneDataManager::Instance().GetSceneObjects();
@@ -299,7 +401,7 @@ bool SelectionSystem::GetSceneObjectLabelAt(int mouseX, int mouseY, int width,
   const ISelectionContext::VisibleSet &visibleSet =
       m_controller.GetVisibleSet(frustum, hiddenLayers, true, 0.0f);
   bool found = false;
-  double bestDepth = DBL_MAX;
+  double bestHitDistance = DBL_MAX;
   wxString bestLabel;
   wxPoint bestPos;
   std::string bestUuid;
@@ -315,22 +417,21 @@ bool SelectionSystem::GetSceneObjectLabelAt(int mouseX, int mouseY, int width,
     if (!bbPtr)
       continue;
 
-    ScreenRect rect;
-    double minDepth = DBL_MAX;
-    if (!ProjectBoundingBox(*bbPtr, projection, height, rect, &minDepth))
+    double hitDistance = DBL_MAX;
+    if (!IntersectRayWithAabb(mouseRay, *bbPtr, hitDistance))
       continue;
 
-    if (mouseX >= rect.minX && mouseX <= rect.maxX && mouseY >= rect.minY &&
-        mouseY <= rect.maxY) {
-      if (minDepth < bestDepth) {
-        bestDepth = minDepth;
-        bestPos.x = static_cast<int>((rect.minX + rect.maxX) * 0.5);
-        bestPos.y = static_cast<int>((rect.minY + rect.maxY) * 0.5);
-        bestLabel = o.name.empty() ? wxString::FromUTF8(uuid)
-                                   : wxString::FromUTF8(o.name);
-        bestUuid = uuid;
-        found = true;
-      }
+    if (hitDistance < bestHitDistance) {
+      wxPoint projectedCenter;
+      if (!ProjectBoundingBoxCenter(*bbPtr, projection, height, projectedCenter))
+        continue;
+
+      bestHitDistance = hitDistance;
+      bestPos = projectedCenter;
+      bestLabel = o.name.empty() ? wxString::FromUTF8(uuid)
+                                 : wxString::FromUTF8(o.name);
+      bestUuid = uuid;
+      found = true;
     }
   }
 
