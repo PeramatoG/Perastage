@@ -640,46 +640,6 @@ void consume_offsets(const std::vector<int> &offsets,
 }
 
 
-int count_valid_channel_bytes(int coarse, int fine, int ultra_fine) {
-    int count = 0;
-    if (coarse > 0) {
-        ++count;
-    }
-    if (fine > 0) {
-        ++count;
-    }
-    if (ultra_fine > 0) {
-        ++count;
-    }
-    return count;
-}
-
-void consume_offsets_prefer_higher_resolution(const std::vector<int> &offsets,
-                                              bool is_fine,
-                                              int byte_index,
-                                              int &coarse,
-                                              int &fine,
-                                              int &ultra_fine) {
-    int candidate_coarse = -1;
-    int candidate_fine = -1;
-    int candidate_ultra_fine = -1;
-    consume_offsets(offsets, is_fine, byte_index,
-                    candidate_coarse, candidate_fine, candidate_ultra_fine);
-
-    const int current_resolution = count_valid_channel_bytes(coarse, fine, ultra_fine);
-    const int candidate_resolution =
-        count_valid_channel_bytes(candidate_coarse, candidate_fine, candidate_ultra_fine);
-
-    if (candidate_resolution <= 0) {
-        return;
-    }
-    if (candidate_resolution > current_resolution || current_resolution <= 0) {
-        coarse = candidate_coarse;
-        fine = candidate_fine;
-        ultra_fine = candidate_ultra_fine;
-    }
-}
-
 int parse_positive_int(const char *raw) {
     if (!raw) {
         return -1;
@@ -1326,12 +1286,10 @@ void consume_channel_offsets(tinyxml2::XMLElement *dmx_channel,
                 if (!wheel) {
                     break;
                 }
-                consume_offsets_prefer_higher_resolution(offsets,
-                                                         parsed_attribute.is_fine,
-                                                         parsed_attribute.byte_index,
-                                                         wheel->rotation_coarse_offset_1_based,
-                                                         wheel->rotation_fine_offset_1_based,
-                                                         wheel->rotation_ultra_fine_offset_1_based);
+                consume_offsets(offsets, parsed_attribute.is_fine, parsed_attribute.byte_index,
+                                wheel->rotation_coarse_offset_1_based,
+                                wheel->rotation_fine_offset_1_based,
+                                wheel->rotation_ultra_fine_offset_1_based);
                 consume_gobo_physical_range(channel_function,
                                             wheel->has_rotation_physical_limits,
                                             wheel->rotation_physical_min,
