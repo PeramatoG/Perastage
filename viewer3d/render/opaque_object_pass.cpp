@@ -20,6 +20,8 @@
 #include "scenedatamanager.h"
 #include "viewer3dcontroller.h"
 
+#include <algorithm>
+#include <vector>
 
 void OpaqueObjectPass::Render(
     Viewer3DController &controller, const RenderFrameContext &context,
@@ -36,7 +38,18 @@ void OpaqueObjectPass::Render(
   const auto &sceneObjects = SceneDataManager::Instance().GetSceneObjects();
 
   glShadeModel(GL_FLAT);
-  for (const auto &uuid : visibleSet.objectUuids) {
+  std::vector<std::string> drawObjectUuids = visibleSet.objectUuids;
+  if (!controller.m_highlightUuid.empty()) {
+    const bool highlightAlreadyVisible =
+        std::find(drawObjectUuids.begin(), drawObjectUuids.end(),
+                  controller.m_highlightUuid) != drawObjectUuids.end();
+    if (!highlightAlreadyVisible &&
+        sceneObjects.find(controller.m_highlightUuid) != sceneObjects.end()) {
+      drawObjectUuids.push_back(controller.m_highlightUuid);
+    }
+  }
+
+  for (const auto &uuid : drawObjectUuids) {
     auto sceneIt = sceneObjects.find(uuid);
     if (sceneIt == sceneObjects.end())
       continue;
