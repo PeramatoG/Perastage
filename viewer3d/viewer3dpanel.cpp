@@ -339,8 +339,10 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
         else if (SceneObjectTablePanel::Instance() && SceneObjectTablePanel::Instance()->IsActivePage())
             SceneObjectTablePanel::Instance()->HighlightObject(std::string(m_hoverUuid));
     }
-    else if (!skipLabelWork && (!m_hasHover || m_mouseMoved)) {
+    else if (!skipLabelWork) {
         m_hasHover = false;
+        m_hoverUuid.clear();
+        m_hoverText.clear();
         m_controller.SetHighlightUuid("");
         if (FixtureTablePanel::Instance())
             FixtureTablePanel::Instance()->HighlightFixture(std::string());
@@ -389,8 +391,18 @@ void Viewer3DPanel::Render()
     int width, height;
     GetClientSize(&width, &height);
 
-    glViewport(0, 0, width, height);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    ApplyCameraMatrices(width, height);
+
+    m_controller.SetCameraMoving(m_cameraMoving);
+    m_controller.RenderScene();
+
+    glFlush();
+}
+
+void Viewer3DPanel::ApplyCameraMatrices(int width, int height)
+{
+    glViewport(0, 0, width, height);
 
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
@@ -402,12 +414,7 @@ void Viewer3DPanel::Render()
 
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
-    m_camera.Apply(); // Camera view
-
-    m_controller.SetCameraMoving(m_cameraMoving);
-    m_controller.RenderScene();
-
-    glFlush();
+    m_camera.Apply();
 }
 
 // Handles mouse button press

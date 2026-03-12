@@ -427,7 +427,18 @@ void OpaqueFixturePass::Render(
     if (depthEnabled)
       glDisable(GL_DEPTH_TEST);
   }
-  for (const auto &uuid : visibleSet.fixtureUuids) {
+  std::vector<std::string> drawFixtureUuids = visibleSet.fixtureUuids;
+  if (!controller.m_highlightUuid.empty()) {
+    const bool highlightAlreadyVisible =
+        std::find(drawFixtureUuids.begin(), drawFixtureUuids.end(),
+                  controller.m_highlightUuid) != drawFixtureUuids.end();
+    if (!highlightAlreadyVisible &&
+        fixtures.find(controller.m_highlightUuid) != fixtures.end()) {
+      drawFixtureUuids.push_back(controller.m_highlightUuid);
+    }
+  }
+
+  for (const auto &uuid : drawFixtureUuids) {
     auto fixtureIt = fixtures.find(uuid);
     if (fixtureIt == fixtures.end())
       continue;

@@ -20,7 +20,9 @@
 #include "scenedatamanager.h"
 #include "viewer3dcontroller.h"
 
+#include <algorithm>
 #include <sstream>
+#include <vector>
 
 void OpaqueTrussPass::Render(
     Viewer3DController &controller, const RenderFrameContext &context,
@@ -35,7 +37,18 @@ void OpaqueTrussPass::Render(
   const auto &trusses = SceneDataManager::Instance().GetTrusses();
 
   glShadeModel(GL_SMOOTH);
-  for (const auto &uuid : visibleSet.trussUuids) {
+  std::vector<std::string> drawTrussUuids = visibleSet.trussUuids;
+  if (!controller.m_highlightUuid.empty()) {
+    const bool highlightAlreadyVisible =
+        std::find(drawTrussUuids.begin(), drawTrussUuids.end(),
+                  controller.m_highlightUuid) != drawTrussUuids.end();
+    if (!highlightAlreadyVisible &&
+        trusses.find(controller.m_highlightUuid) != trusses.end()) {
+      drawTrussUuids.push_back(controller.m_highlightUuid);
+    }
+  }
+
+  for (const auto &uuid : drawTrussUuids) {
     auto trussIt = trusses.find(uuid);
     if (trussIt == trusses.end())
       continue;

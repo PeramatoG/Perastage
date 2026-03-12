@@ -53,6 +53,7 @@ private:
     wxDataViewListCtrl* table;
     std::vector<wxString> columnLabels;
     std::vector<std::string> rowUuids;
+    std::string highlightedUuid;
     std::vector<wxString> modelPaths;  // Displayed model file paths (.gtruss if any)
     std::vector<wxString> symbolPaths; // Resolved geometry file paths
     bool dragSelecting = false;

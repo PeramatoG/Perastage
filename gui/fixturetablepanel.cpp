@@ -839,14 +839,30 @@ bool FixtureTablePanel::IsActivePage() const {
 }
 
 void FixtureTablePanel::HighlightFixture(const std::string &uuid) {
-  size_t count =
-      std::min(rowUuids.size(), static_cast<size_t>(table->GetItemCount()));
-  for (size_t i = 0; i < count; ++i) {
-    if (!uuid.empty() && rowUuids[i] == uuid)
-      store->SetRowBackgroundColour(i, wxColour(0, 200, 0));
-    else
-      store->ClearRowBackground(i);
-  }
+  if (uuid == highlightedUuid)
+    return;
+
+  auto findRow = [&](const std::string &candidate) -> int {
+    if (candidate.empty())
+      return wxNOT_FOUND;
+    auto it = std::find(rowUuids.begin(), rowUuids.end(), candidate);
+    if (it == rowUuids.end())
+      return wxNOT_FOUND;
+    int row = static_cast<int>(std::distance(rowUuids.begin(), it));
+    if (row < 0 || row >= static_cast<int>(table->GetItemCount()))
+      return wxNOT_FOUND;
+    return row;
+  };
+
+  const int previousRow = findRow(highlightedUuid);
+  if (previousRow != wxNOT_FOUND)
+    store->ClearRowBackground(previousRow);
+
+  const int currentRow = findRow(uuid);
+  if (currentRow != wxNOT_FOUND)
+    store->SetRowBackgroundColour(currentRow, wxColour(0, 200, 0));
+
+  highlightedUuid = uuid;
   table->Refresh();
 }
 
