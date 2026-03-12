@@ -115,6 +115,7 @@ private:
 
     // Renders the full scene
     void Render();
+    void ApplyCameraMatrices(int width, int height);
 
     // Hovered fixture label state
     bool m_hasHover = false;
