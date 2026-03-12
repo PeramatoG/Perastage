@@ -95,6 +95,41 @@ static std::string ToLowerAscii(std::string text) {
   return text;
 }
 
+static bool IsNearlyEqualRelative(float a, float b, float relEps) {
+  if (!std::isfinite(a) || !std::isfinite(b))
+    return false;
+  const float scale = std::max(std::max(std::fabs(a), std::fabs(b)), 1.0e-6f);
+  return std::fabs(a - b) <= relEps * scale;
+}
+
+static bool IsGeometryMatrixContext(const std::string &contextTag) {
+  if (contextTag == "SceneObject/Geometry3D" || contextTag == "Truss/Geometry3D" ||
+      contextTag == "Symbol") {
+    return true;
+  }
+  return contextTag.find("Geometry3D") != std::string::npos;
+}
+
+static std::string JoinMatrixContextCounts(const std::unordered_map<std::string, size_t> &counts) {
+  if (counts.empty())
+    return "none";
+
+  std::vector<std::pair<std::string, size_t>> sorted(counts.begin(), counts.end());
+  std::sort(sorted.begin(), sorted.end(), [](const auto &lhs, const auto &rhs) {
+    if (lhs.second != rhs.second)
+      return lhs.second > rhs.second;
+    return lhs.first < rhs.first;
+  });
+
+  std::ostringstream oss;
+  for (size_t i = 0; i < sorted.size(); ++i) {
+    if (i > 0)
+      oss << ", ";
+    oss << sorted[i].first << "=" << sorted[i].second;
+  }
+  return oss.str();
+}
+
 static std::string GenerateShortToken(size_t length = 10) {
   static constexpr char kAlphabet[] = "0123456789abcdefghijklmnopqrstuvwxyz";
   std::random_device rd;
@@ -749,11 +784,25 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
     }
   }
 
+  constexpr float kTinyScaleMaxNorm = 0.01f;
+  constexpr float kUniformScaleRelativeTolerance = 0.05f;
+  constexpr float kMinOutlierNorm = 0.1f;
+  constexpr float kMaxOutlierNorm = 10.0f;
+  constexpr size_t kMaxSuspiciousExamples = 10;
+
+  struct MatrixScaleAggregation {
+    size_t acceptedTinyUniformScaleCount = 0;
+    size_t suspiciousMatrixCount = 0;
+    std::unordered_map<std::string, size_t> acceptedByContext;
+    std::unordered_map<std::string, size_t> suspiciousByContext;
+    std::vector<std::string> suspiciousExamples;
+  } matrixScaleAggregation;
+
   auto parseMatrixOrIdentity = [&](tinyxml2::XMLElement *parent,
                                    const char *elementName,
                                    const std::string &contextTag,
                                    Matrix &out,
-                                   bool logScale = false) {
+                                   bool inspectScale = false) {
     out = MatrixUtils::Identity();
     if (!parent)
       return;
@@ -766,21 +815,43 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
           return;
         }
 
-        if (logScale) {
-          auto norm = [](const std::array<float, 3> &v) {
-            return std::sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
-          };
-          float nu = norm(out.u);
-          float nv = norm(out.v);
-          float nw = norm(out.w);
-          auto extreme = [](float n) { return n < 0.1f || n > 10.0f; };
-          if (extreme(nu) || extreme(nv) || extreme(nw)) {
-            std::ostringstream oss;
-            oss << "Matrix basis norm outlier in " << contextTag
-                << " (|u|=" << nu << ", |v|=" << nv << ", |w|=" << nw
-                << ")";
-            LogMessage(oss.str());
-          }
+        if (!inspectScale)
+          return;
+
+        auto norm = [](const std::array<float, 3> &v) {
+          return std::sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
+        };
+
+        const float nu = norm(out.u);
+        const float nv = norm(out.v);
+        const float nw = norm(out.w);
+        const float minNorm = std::min({nu, nv, nw});
+        const float maxNorm = std::max({nu, nv, nw});
+
+        const bool finiteNorms = std::isfinite(nu) && std::isfinite(nv) && std::isfinite(nw);
+        const bool strictlyPositiveNorms = minNorm > 0.0f;
+        const bool isUniformScale = IsNearlyEqualRelative(nu, nv, kUniformScaleRelativeTolerance) &&
+                                    IsNearlyEqualRelative(nu, nw, kUniformScaleRelativeTolerance);
+        const bool isTinyUniformGeometryScale =
+            finiteNorms && strictlyPositiveNorms && maxNorm <= kTinyScaleMaxNorm &&
+            isUniformScale && IsGeometryMatrixContext(contextTag);
+        if (isTinyUniformGeometryScale) {
+          ++matrixScaleAggregation.acceptedTinyUniformScaleCount;
+          ++matrixScaleAggregation.acceptedByContext[contextTag];
+          return;
+        }
+
+        const bool hasInvalidNorm = !finiteNorms || !strictlyPositiveNorms;
+        const bool hasOutlierNorm = minNorm < kMinOutlierNorm || maxNorm > kMaxOutlierNorm;
+        if (!hasInvalidNorm && !hasOutlierNorm)
+          return;
+
+        ++matrixScaleAggregation.suspiciousMatrixCount;
+        ++matrixScaleAggregation.suspiciousByContext[contextTag];
+        if (matrixScaleAggregation.suspiciousExamples.size() < kMaxSuspiciousExamples) {
+          std::ostringstream oss;
+          oss << contextTag << " (|u|=" << nu << ", |v|=" << nv << ", |w|=" << nw << ")";
+          matrixScaleAggregation.suspiciousExamples.push_back(oss.str());
         }
       }
     }
@@ -1464,6 +1535,26 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
     l.uuid = "layer_default";
     l.name = DEFAULT_LAYER_NAME;
     scene.layers[l.uuid] = l;
+  }
+
+  if (matrixScaleAggregation.acceptedTinyUniformScaleCount > 0) {
+    std::ostringstream oss;
+    oss << "MVR import matrix summary: accepted "
+        << matrixScaleAggregation.acceptedTinyUniformScaleCount
+        << " tiny uniform geometry scales without warning. Contexts: "
+        << JoinMatrixContextCounts(matrixScaleAggregation.acceptedByContext);
+    LogMessage(Logger::Level::Info, oss.str());
+  }
+
+  if (matrixScaleAggregation.suspiciousMatrixCount > 0) {
+    std::ostringstream oss;
+    oss << "MVR import matrix anomalies: " << matrixScaleAggregation.suspiciousMatrixCount
+        << " suspicious matrices detected. Contexts: "
+        << JoinMatrixContextCounts(matrixScaleAggregation.suspiciousByContext);
+    LogMessage(Logger::Level::Warn, oss.str());
+
+    for (const std::string &example : matrixScaleAggregation.suspiciousExamples)
+      LogMessage(Logger::Level::Warn, "MVR import suspicious matrix example: " + example);
   }
 
   std::string summary =
