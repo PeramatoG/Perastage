@@ -277,11 +277,13 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
     s_lastCameraUpdate = now;
     m_camera.Update(dt);
 
+    Render();
+
+    // Ensure the OpenGL context is current before drawing overlays
+    SetCurrent(*m_glContext);
+
     int w, h;
     GetClientSize(&w, &h);
-
-    // Ensure the OpenGL context is current before hover picking and overlays.
-    SetCurrent(*m_glContext);
 
     wxString newLabel;
     wxPoint newPos;
@@ -292,9 +294,6 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
         ConfigManager::Get().GetFloat("viewer3d_skip_labels_when_moving") >= 0.5f;
     const bool skipLabelWork = m_cameraMoving &&
         (IsFastInteractionModeEnabled() || skipLabelsWhenMoving);
-
-    if (!skipLabelWork)
-        ApplyCameraMatrices(w, h);
 
     if (!skipLabelWork && FixtureTablePanel::Instance() && FixtureTablePanel::Instance()->IsActivePage()) {
         found = m_controller.GetFixtureLabelAt(m_lastMousePos.x, m_lastMousePos.y,
@@ -358,11 +357,6 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
         m_controller.SetHighlightUuid("");
     }
     m_mouseMoved = false;
-
-    Render();
-
-    // Ensure the OpenGL context is current before drawing overlays
-    SetCurrent(*m_glContext);
 
     // Draw labels before swapping buffers to avoid losing them.
     if (!pauseHeavyTasks && !skipLabelWork) {
