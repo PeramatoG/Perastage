@@ -33,6 +33,12 @@ struct ScreenRect {
   double maxY = -DBL_MAX;
 };
 
+struct ProjectionSnapshot {
+  double model[16]{};
+  double projection[16]{};
+  int viewport[4]{};
+};
+
 std::unordered_set<std::string> SnapshotHiddenLayers(const ConfigManager &cfg) {
   return cfg.GetHiddenLayers();
 }
@@ -46,6 +52,71 @@ bool IsLayerVisibleCached(const std::unordered_set<std::string> &hidden,
 
 bool IsFastInteractionModeEnabled(const ConfigManager &cfg) {
   return cfg.GetFloat("viewer3d_fast_interaction_mode") >= 0.5f;
+}
+
+ProjectionSnapshot CaptureProjectionSnapshot() {
+  ProjectionSnapshot snapshot;
+  glGetDoublev(GL_MODELVIEW_MATRIX, snapshot.model);
+  glGetDoublev(GL_PROJECTION_MATRIX, snapshot.projection);
+  glGetIntegerv(GL_VIEWPORT, snapshot.viewport);
+  return snapshot;
+}
+
+ISelectionContext::ViewFrustumSnapshot BuildFrustumSnapshot(
+    const ProjectionSnapshot &snapshot) {
+  ISelectionContext::ViewFrustumSnapshot frustum{};
+  std::copy(std::begin(snapshot.viewport), std::end(snapshot.viewport),
+            std::begin(frustum.viewport));
+  std::copy(std::begin(snapshot.model), std::end(snapshot.model),
+            std::begin(frustum.model));
+  std::copy(std::begin(snapshot.projection), std::end(snapshot.projection),
+            std::begin(frustum.projection));
+  return frustum;
+}
+
+bool ProjectBoundingBox(const ISelectionContext::BoundingBox &bb,
+                       const ProjectionSnapshot &projection, int screenHeight,
+                       ScreenRect &outRect, double *outMinDepth = nullptr) {
+  outRect = ScreenRect{};
+  bool visible = false;
+  double minDepth = DBL_MAX;
+
+  const std::array<std::array<float, 3>, 8> corners = {
+      std::array<float, 3>{bb.min[0], bb.min[1], bb.min[2]},
+      {bb.max[0], bb.min[1], bb.min[2]},
+      {bb.min[0], bb.max[1], bb.min[2]},
+      {bb.max[0], bb.max[1], bb.min[2]},
+      {bb.min[0], bb.min[1], bb.max[2]},
+      {bb.max[0], bb.min[1], bb.max[2]},
+      {bb.min[0], bb.max[1], bb.max[2]},
+      {bb.max[0], bb.max[1], bb.max[2]}};
+
+  for (const auto &corner : corners) {
+    double sx = 0.0;
+    double sy = 0.0;
+    double sz = 0.0;
+    if (gluProject(corner[0], corner[1], corner[2], projection.model,
+                   projection.projection, projection.viewport, &sx, &sy,
+                   &sz) != GL_TRUE) {
+      continue;
+    }
+
+    outRect.minX = std::min(outRect.minX, sx);
+    outRect.maxX = std::max(outRect.maxX, sx);
+    const double projectedY = screenHeight - sy;
+    outRect.minY = std::min(outRect.minY, projectedY);
+    outRect.maxY = std::max(outRect.maxY, projectedY);
+
+    if (sz >= 0.0 && sz <= 1.0) {
+      visible = true;
+      minDepth = std::min(minDepth, sz);
+    }
+  }
+
+  if (visible && outMinDepth)
+    *outMinDepth = minDepth;
+
+  return visible;
 }
 
 std::string FormatMeters(float mm) {
@@ -73,12 +144,7 @@ bool SelectionSystem::GetFixtureLabelAt(int mouseX, int mouseY, int width,
   if (m_controller.IsCameraMoving() && IsFastInteractionModeEnabled(cfg))
     return false;
 
-  double model[16];
-  double proj[16];
-  int viewport[4];
-  glGetDoublev(GL_MODELVIEW_MATRIX, model);
-  glGetDoublev(GL_PROJECTION_MATRIX, proj);
-  glGetIntegerv(GL_VIEWPORT, viewport);
+  const ProjectionSnapshot projection = CaptureProjectionSnapshot();
   const auto hiddenLayers = SnapshotHiddenLayers(cfg);
   bool showName = cfg.GetFloat("label_show_name") != 0.0f;
   bool showId = cfg.GetFloat("label_show_id") != 0.0f;
@@ -92,7 +158,16 @@ bool SelectionSystem::GetFixtureLabelAt(int mouseX, int mouseY, int width,
   wxPoint bestPos;
   std::string bestUuid;
 
-  for (const auto &[uuid, f] : fixtures) {
+  const ISelectionContext::ViewFrustumSnapshot frustum =
+      BuildFrustumSnapshot(projection);
+  const ISelectionContext::VisibleSet &visibleSet =
+      m_controller.GetVisibleSet(frustum, hiddenLayers, true, 0.0f);
+
+  for (const auto &uuid : visibleSet.fixtureUuids) {
+    auto fixtureIt = fixtures.find(uuid);
+    if (fixtureIt == fixtures.end())
+      continue;
+    const auto &f = fixtureIt->second;
     if (!IsLayerVisibleCached(hiddenLayers, f.layer))
       continue;
     const ISelectionContext::BoundingBox *bbPtr =
@@ -100,37 +175,9 @@ bool SelectionSystem::GetFixtureLabelAt(int mouseX, int mouseY, int width,
     if (!bbPtr)
       continue;
 
-    const ISelectionContext::BoundingBox &bb = *bbPtr;
-    std::array<std::array<float, 3>, 8> corners = {
-        std::array<float, 3>{bb.min[0], bb.min[1], bb.min[2]},
-        {bb.max[0], bb.min[1], bb.min[2]},
-        {bb.min[0], bb.max[1], bb.min[2]},
-        {bb.max[0], bb.max[1], bb.min[2]},
-        {bb.min[0], bb.min[1], bb.max[2]},
-        {bb.max[0], bb.min[1], bb.max[2]},
-        {bb.min[0], bb.max[1], bb.max[2]},
-        {bb.max[0], bb.max[1], bb.max[2]}};
-
     ScreenRect rect;
     double minDepth = DBL_MAX;
-    bool visible = false;
-    for (const auto &c : corners) {
-      double sx, sy, sz;
-      if (gluProject(c[0], c[1], c[2], model, proj, viewport, &sx, &sy, &sz) ==
-          GL_TRUE) {
-        rect.minX = std::min(rect.minX, sx);
-        rect.maxX = std::max(rect.maxX, sx);
-        double sy2 = height - sy;
-        rect.minY = std::min(rect.minY, sy2);
-        rect.maxY = std::max(rect.maxY, sy2);
-        if (sz >= 0.0 && sz <= 1.0) {
-          visible = true;
-          minDepth = std::min(minDepth, sz);
-        }
-      }
-    }
-
-    if (!visible)
+    if (!ProjectBoundingBox(*bbPtr, projection, height, rect, &minDepth))
       continue;
 
     if (mouseX >= rect.minX && mouseX <= rect.maxX && mouseY >= rect.minY &&
@@ -179,21 +226,24 @@ bool SelectionSystem::GetTrussLabelAt(int mouseX, int mouseY, int width,
   if (m_controller.IsCameraMoving() && IsFastInteractionModeEnabled(cfg))
     return false;
 
-  double model[16];
-  double proj[16];
-  int viewport[4];
-  glGetDoublev(GL_MODELVIEW_MATRIX, model);
-  glGetDoublev(GL_PROJECTION_MATRIX, proj);
-  glGetIntegerv(GL_VIEWPORT, viewport);
+  const ProjectionSnapshot projection = CaptureProjectionSnapshot();
 
   const auto hiddenLayers = SnapshotHiddenLayers(cfg);
   const auto &trusses = SceneDataManager::Instance().GetTrusses();
+  const ISelectionContext::ViewFrustumSnapshot frustum =
+      BuildFrustumSnapshot(projection);
+  const ISelectionContext::VisibleSet &visibleSet =
+      m_controller.GetVisibleSet(frustum, hiddenLayers, true, 0.0f);
   bool found = false;
   double bestDepth = DBL_MAX;
   wxString bestLabel;
   wxPoint bestPos;
   std::string bestUuid;
-  for (const auto &[uuid, t] : trusses) {
+  for (const auto &uuid : visibleSet.trussUuids) {
+    auto trussIt = trusses.find(uuid);
+    if (trussIt == trusses.end())
+      continue;
+    const auto &t = trussIt->second;
     if (!IsLayerVisibleCached(hiddenLayers, t.layer))
       continue;
     const ISelectionContext::BoundingBox *bbPtr =
@@ -201,37 +251,9 @@ bool SelectionSystem::GetTrussLabelAt(int mouseX, int mouseY, int width,
     if (!bbPtr)
       continue;
 
-    const ISelectionContext::BoundingBox &bb = *bbPtr;
-    std::array<std::array<float, 3>, 8> corners = {
-        std::array<float, 3>{bb.min[0], bb.min[1], bb.min[2]},
-        {bb.max[0], bb.min[1], bb.min[2]},
-        {bb.min[0], bb.max[1], bb.min[2]},
-        {bb.max[0], bb.max[1], bb.min[2]},
-        {bb.min[0], bb.min[1], bb.max[2]},
-        {bb.max[0], bb.min[1], bb.max[2]},
-        {bb.min[0], bb.max[1], bb.max[2]},
-        {bb.max[0], bb.max[1], bb.max[2]}};
-
     ScreenRect rect;
     double minDepth = DBL_MAX;
-    bool visible = false;
-    for (const auto &c : corners) {
-      double sx, sy, sz;
-      if (gluProject(c[0], c[1], c[2], model, proj, viewport, &sx, &sy, &sz) ==
-          GL_TRUE) {
-        rect.minX = std::min(rect.minX, sx);
-        rect.maxX = std::max(rect.maxX, sx);
-        double sy2 = height - sy;
-        rect.minY = std::min(rect.minY, sy2);
-        rect.maxY = std::max(rect.maxY, sy2);
-        if (sz >= 0.0 && sz <= 1.0) {
-          visible = true;
-          minDepth = std::min(minDepth, sz);
-        }
-      }
-    }
-
-    if (!visible)
+    if (!ProjectBoundingBox(*bbPtr, projection, height, rect, &minDepth))
       continue;
 
     if (mouseX >= rect.minX && mouseX <= rect.maxX && mouseY >= rect.minY &&
@@ -268,21 +290,24 @@ bool SelectionSystem::GetSceneObjectLabelAt(int mouseX, int mouseY, int width,
   if (m_controller.IsCameraMoving() && IsFastInteractionModeEnabled(cfg))
     return false;
 
-  double model[16];
-  double proj[16];
-  int viewport[4];
-  glGetDoublev(GL_MODELVIEW_MATRIX, model);
-  glGetDoublev(GL_PROJECTION_MATRIX, proj);
-  glGetIntegerv(GL_VIEWPORT, viewport);
+  const ProjectionSnapshot projection = CaptureProjectionSnapshot();
 
   const auto hiddenLayers = SnapshotHiddenLayers(cfg);
   const auto &objs = SceneDataManager::Instance().GetSceneObjects();
+  const ISelectionContext::ViewFrustumSnapshot frustum =
+      BuildFrustumSnapshot(projection);
+  const ISelectionContext::VisibleSet &visibleSet =
+      m_controller.GetVisibleSet(frustum, hiddenLayers, true, 0.0f);
   bool found = false;
   double bestDepth = DBL_MAX;
   wxString bestLabel;
   wxPoint bestPos;
   std::string bestUuid;
-  for (const auto &[uuid, o] : objs) {
+  for (const auto &uuid : visibleSet.objectUuids) {
+    auto objectIt = objs.find(uuid);
+    if (objectIt == objs.end())
+      continue;
+    const auto &o = objectIt->second;
     if (!IsLayerVisibleCached(hiddenLayers, o.layer))
       continue;
     const ISelectionContext::BoundingBox *bbPtr =
@@ -290,37 +315,9 @@ bool SelectionSystem::GetSceneObjectLabelAt(int mouseX, int mouseY, int width,
     if (!bbPtr)
       continue;
 
-    const ISelectionContext::BoundingBox &bb = *bbPtr;
-    std::array<std::array<float, 3>, 8> corners = {
-        std::array<float, 3>{bb.min[0], bb.min[1], bb.min[2]},
-        {bb.max[0], bb.min[1], bb.min[2]},
-        {bb.min[0], bb.max[1], bb.min[2]},
-        {bb.max[0], bb.max[1], bb.min[2]},
-        {bb.min[0], bb.min[1], bb.max[2]},
-        {bb.max[0], bb.min[1], bb.max[2]},
-        {bb.min[0], bb.max[1], bb.max[2]},
-        {bb.max[0], bb.max[1], bb.max[2]}};
-
     ScreenRect rect;
     double minDepth = DBL_MAX;
-    bool visible = false;
-    for (const auto &c : corners) {
-      double sx, sy, sz;
-      if (gluProject(c[0], c[1], c[2], model, proj, viewport, &sx, &sy, &sz) ==
-          GL_TRUE) {
-        rect.minX = std::min(rect.minX, sx);
-        rect.maxX = std::max(rect.maxX, sx);
-        double sy2 = height - sy;
-        rect.minY = std::min(rect.minY, sy2);
-        rect.maxY = std::max(rect.maxY, sy2);
-        if (sz >= 0.0 && sz <= 1.0) {
-          visible = true;
-          minDepth = std::min(minDepth, sz);
-        }
-      }
-    }
-
-    if (!visible)
+    if (!ProjectBoundingBox(*bbPtr, projection, height, rect, &minDepth))
       continue;
 
     if (mouseX >= rect.minX && mouseX <= rect.maxX && mouseY >= rect.minY &&
@@ -349,12 +346,7 @@ bool SelectionSystem::GetSceneObjectLabelAt(int mouseX, int mouseY, int width,
 std::vector<std::string> SelectionSystem::GetFixturesInScreenRect(
     int x1, int y1, int x2, int y2, int width, int height) const {
   ConfigManager &cfg = ConfigManager::Get();
-  double model[16];
-  double proj[16];
-  int viewport[4];
-  glGetDoublev(GL_MODELVIEW_MATRIX, model);
-  glGetDoublev(GL_PROJECTION_MATRIX, proj);
-  glGetIntegerv(GL_VIEWPORT, viewport);
+  const ProjectionSnapshot projection = CaptureProjectionSnapshot();
 
   const auto hiddenLayers = SnapshotHiddenLayers(cfg);
 
@@ -369,39 +361,9 @@ std::vector<std::string> SelectionSystem::GetFixturesInScreenRect(
              rect.maxY < selectionRect.minY || rect.minY > selectionRect.maxY);
   };
 
-  auto projectBounds = [&](const ISelectionContext::BoundingBox &bb, ScreenRect &rect) {
-    rect = ScreenRect{};
-    bool visible = false;
-    std::array<std::array<float, 3>, 8> corners = {
-        std::array<float, 3>{bb.min[0], bb.min[1], bb.min[2]},
-        {bb.max[0], bb.min[1], bb.min[2]},
-        {bb.min[0], bb.max[1], bb.min[2]},
-        {bb.max[0], bb.max[1], bb.min[2]},
-        {bb.min[0], bb.min[1], bb.max[2]},
-        {bb.max[0], bb.min[1], bb.max[2]},
-        {bb.min[0], bb.max[1], bb.max[2]},
-        {bb.max[0], bb.max[1], bb.max[2]}};
-    for (const auto &c : corners) {
-      double sx, sy, sz;
-      if (gluProject(c[0], c[1], c[2], model, proj, viewport, &sx, &sy, &sz) ==
-          GL_TRUE) {
-        rect.minX = std::min(rect.minX, sx);
-        rect.maxX = std::max(rect.maxX, sx);
-        double sy2 = height - sy;
-        rect.minY = std::min(rect.minY, sy2);
-        rect.maxY = std::max(rect.maxY, sy2);
-        if (sz >= 0.0 && sz <= 1.0)
-          visible = true;
-      }
-    }
-    return visible;
-  };
-
   std::vector<std::string> selection;
-  ISelectionContext::ViewFrustumSnapshot frustum{};
-  std::copy(std::begin(viewport), std::end(viewport), std::begin(frustum.viewport));
-  std::copy(std::begin(model), std::end(model), std::begin(frustum.model));
-  std::copy(std::begin(proj), std::end(proj), std::begin(frustum.projection));
+  const ISelectionContext::ViewFrustumSnapshot frustum =
+      BuildFrustumSnapshot(projection);
   const ISelectionContext::VisibleSet &visibleSet =
       m_controller.GetVisibleSet(frustum, hiddenLayers, true, 0.0f);
   for (const auto &uuid : visibleSet.fixtureUuids) {
@@ -410,7 +372,7 @@ std::vector<std::string> SelectionSystem::GetFixturesInScreenRect(
     if (!bbPtr)
       continue;
     ScreenRect rect;
-    if (!projectBounds(*bbPtr, rect))
+    if (!ProjectBoundingBox(*bbPtr, projection, height, rect))
       continue;
     if (intersects(rect))
       selection.push_back(uuid);
@@ -422,12 +384,7 @@ std::vector<std::string> SelectionSystem::GetFixturesInScreenRect(
 std::vector<std::string> SelectionSystem::GetTrussesInScreenRect(
     int x1, int y1, int x2, int y2, int width, int height) const {
   ConfigManager &cfg = ConfigManager::Get();
-  double model[16];
-  double proj[16];
-  int viewport[4];
-  glGetDoublev(GL_MODELVIEW_MATRIX, model);
-  glGetDoublev(GL_PROJECTION_MATRIX, proj);
-  glGetIntegerv(GL_VIEWPORT, viewport);
+  const ProjectionSnapshot projection = CaptureProjectionSnapshot();
 
   const auto hiddenLayers = SnapshotHiddenLayers(cfg);
 
@@ -442,39 +399,9 @@ std::vector<std::string> SelectionSystem::GetTrussesInScreenRect(
              rect.maxY < selectionRect.minY || rect.minY > selectionRect.maxY);
   };
 
-  auto projectBounds = [&](const ISelectionContext::BoundingBox &bb, ScreenRect &rect) {
-    rect = ScreenRect{};
-    bool visible = false;
-    std::array<std::array<float, 3>, 8> corners = {
-        std::array<float, 3>{bb.min[0], bb.min[1], bb.min[2]},
-        {bb.max[0], bb.min[1], bb.min[2]},
-        {bb.min[0], bb.max[1], bb.min[2]},
-        {bb.max[0], bb.max[1], bb.min[2]},
-        {bb.min[0], bb.min[1], bb.max[2]},
-        {bb.max[0], bb.min[1], bb.max[2]},
-        {bb.min[0], bb.max[1], bb.max[2]},
-        {bb.max[0], bb.max[1], bb.max[2]}};
-    for (const auto &c : corners) {
-      double sx, sy, sz;
-      if (gluProject(c[0], c[1], c[2], model, proj, viewport, &sx, &sy, &sz) ==
-          GL_TRUE) {
-        rect.minX = std::min(rect.minX, sx);
-        rect.maxX = std::max(rect.maxX, sx);
-        double sy2 = height - sy;
-        rect.minY = std::min(rect.minY, sy2);
-        rect.maxY = std::max(rect.maxY, sy2);
-        if (sz >= 0.0 && sz <= 1.0)
-          visible = true;
-      }
-    }
-    return visible;
-  };
-
   std::vector<std::string> selection;
-  ISelectionContext::ViewFrustumSnapshot frustum{};
-  std::copy(std::begin(viewport), std::end(viewport), std::begin(frustum.viewport));
-  std::copy(std::begin(model), std::end(model), std::begin(frustum.model));
-  std::copy(std::begin(proj), std::end(proj), std::begin(frustum.projection));
+  const ISelectionContext::ViewFrustumSnapshot frustum =
+      BuildFrustumSnapshot(projection);
   const ISelectionContext::VisibleSet &visibleSet =
       m_controller.GetVisibleSet(frustum, hiddenLayers, true, 0.0f);
   for (const auto &uuid : visibleSet.trussUuids) {
@@ -483,7 +410,7 @@ std::vector<std::string> SelectionSystem::GetTrussesInScreenRect(
     if (!bbPtr)
       continue;
     ScreenRect rect;
-    if (!projectBounds(*bbPtr, rect))
+    if (!ProjectBoundingBox(*bbPtr, projection, height, rect))
       continue;
     if (intersects(rect))
       selection.push_back(uuid);
@@ -495,12 +422,7 @@ std::vector<std::string> SelectionSystem::GetTrussesInScreenRect(
 std::vector<std::string> SelectionSystem::GetSceneObjectsInScreenRect(
     int x1, int y1, int x2, int y2, int width, int height) const {
   ConfigManager &cfg = ConfigManager::Get();
-  double model[16];
-  double proj[16];
-  int viewport[4];
-  glGetDoublev(GL_MODELVIEW_MATRIX, model);
-  glGetDoublev(GL_PROJECTION_MATRIX, proj);
-  glGetIntegerv(GL_VIEWPORT, viewport);
+  const ProjectionSnapshot projection = CaptureProjectionSnapshot();
 
   const auto hiddenLayers = SnapshotHiddenLayers(cfg);
 
@@ -515,39 +437,9 @@ std::vector<std::string> SelectionSystem::GetSceneObjectsInScreenRect(
              rect.maxY < selectionRect.minY || rect.minY > selectionRect.maxY);
   };
 
-  auto projectBounds = [&](const ISelectionContext::BoundingBox &bb, ScreenRect &rect) {
-    rect = ScreenRect{};
-    bool visible = false;
-    std::array<std::array<float, 3>, 8> corners = {
-        std::array<float, 3>{bb.min[0], bb.min[1], bb.min[2]},
-        {bb.max[0], bb.min[1], bb.min[2]},
-        {bb.min[0], bb.max[1], bb.min[2]},
-        {bb.max[0], bb.max[1], bb.min[2]},
-        {bb.min[0], bb.min[1], bb.max[2]},
-        {bb.max[0], bb.min[1], bb.max[2]},
-        {bb.min[0], bb.max[1], bb.max[2]},
-        {bb.max[0], bb.max[1], bb.max[2]}};
-    for (const auto &c : corners) {
-      double sx, sy, sz;
-      if (gluProject(c[0], c[1], c[2], model, proj, viewport, &sx, &sy, &sz) ==
-          GL_TRUE) {
-        rect.minX = std::min(rect.minX, sx);
-        rect.maxX = std::max(rect.maxX, sx);
-        double sy2 = height - sy;
-        rect.minY = std::min(rect.minY, sy2);
-        rect.maxY = std::max(rect.maxY, sy2);
-        if (sz >= 0.0 && sz <= 1.0)
-          visible = true;
-      }
-    }
-    return visible;
-  };
-
   std::vector<std::string> selection;
-  ISelectionContext::ViewFrustumSnapshot frustum{};
-  std::copy(std::begin(viewport), std::end(viewport), std::begin(frustum.viewport));
-  std::copy(std::begin(model), std::end(model), std::begin(frustum.model));
-  std::copy(std::begin(proj), std::end(proj), std::begin(frustum.projection));
+  const ISelectionContext::ViewFrustumSnapshot frustum =
+      BuildFrustumSnapshot(projection);
   const ISelectionContext::VisibleSet &visibleSet =
       m_controller.GetVisibleSet(frustum, hiddenLayers, true, 0.0f);
   for (const auto &uuid : visibleSet.objectUuids) {
@@ -556,7 +448,7 @@ std::vector<std::string> SelectionSystem::GetSceneObjectsInScreenRect(
     if (!bbPtr)
       continue;
     ScreenRect rect;
-    if (!projectBounds(*bbPtr, rect))
+    if (!ProjectBoundingBox(*bbPtr, projection, height, rect))
       continue;
     if (intersects(rect))
       selection.push_back(uuid);
