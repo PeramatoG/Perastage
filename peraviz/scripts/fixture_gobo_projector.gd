@@ -145,26 +145,33 @@ func _resolve_wheel_rotation_deg(light: SpotLight3D, controls: Dictionary, wheel
 		light.set_meta(GOBO_WHEEL_SPIN_META_KEY, wheel_spin_state)
 		return base_rotation_deg
 
-	if supports_rotation and rotation_norm >= 0.0 and delta_sec > 0.0:
+	if supports_rotation and delta_sec > 0.0:
 		var speed_deg_per_sec: float = 0.0
+		var has_speed_command: bool = false
 		var rotation_from_range: bool = bool(wheel.get("rotation_from_range", false))
 		if bool(wheel.get("has_rotation_speed_hz", false)):
+			has_speed_command = true
 			speed_deg_per_sec = float(wheel.get("rotation_speed_hz", 0.0)) * GOBO_FREQUENCY_TO_DEG_PER_SEC
-		elif rotation_from_range and bool(wheel.get("has_range_physical_limits", false)):
+		elif rotation_from_range and bool(wheel.get("has_range_physical_limits", false)) and rotation_norm >= 0.0:
+			has_speed_command = true
 			var range_physical_from_hz: float = float(wheel.get("range_physical_from", 0.0))
 			var range_physical_to_hz: float = float(wheel.get("range_physical_to", 0.0))
 			var speed_hz: float = lerp(range_physical_from_hz, range_physical_to_hz, clamp(rotation_norm, 0.0, 1.0))
 			speed_deg_per_sec = speed_hz * GOBO_FREQUENCY_TO_DEG_PER_SEC
-		elif bool(wheel.get("has_rotation_physical_limits", false)):
+		elif bool(wheel.get("has_rotation_physical_limits", false)) and rotation_norm >= 0.0:
+			has_speed_command = true
 			var rotation_physical_min_hz: float = float(wheel.get("rotation_physical_min", -GOBO_ROTATION_MAX_DEG_PER_SEC * 0.5 / GOBO_FREQUENCY_TO_DEG_PER_SEC))
 			var rotation_physical_max_hz: float = float(wheel.get("rotation_physical_max", GOBO_ROTATION_MAX_DEG_PER_SEC * 0.5 / GOBO_FREQUENCY_TO_DEG_PER_SEC))
 			var speed_hz: float = lerp(rotation_physical_min_hz, rotation_physical_max_hz, clamp(rotation_norm, 0.0, 1.0))
 			speed_deg_per_sec = speed_hz * GOBO_FREQUENCY_TO_DEG_PER_SEC
-		else:
+		elif rotation_norm >= 0.0:
+			has_speed_command = true
 			speed_deg_per_sec = (clamp(rotation_norm, 0.0, 1.0) - 0.5) * GOBO_ROTATION_MAX_DEG_PER_SEC
-		spin_angle_deg = wrapf(spin_angle_deg + (speed_deg_per_sec * delta_sec), -360000.0, 360000.0)
-		wheel_spin_state[wheel_key] = spin_angle_deg
-		light.set_meta(GOBO_WHEEL_SPIN_META_KEY, wheel_spin_state)
+
+		if has_speed_command:
+			spin_angle_deg = wrapf(spin_angle_deg + (speed_deg_per_sec * delta_sec), -360000.0, 360000.0)
+			wheel_spin_state[wheel_key] = spin_angle_deg
+			light.set_meta(GOBO_WHEEL_SPIN_META_KEY, wheel_spin_state)
 
 	if not supports_rotation:
 		wheel_spin_state[wheel_key] = 0.0

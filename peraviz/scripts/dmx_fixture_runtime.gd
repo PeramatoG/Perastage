@@ -374,15 +374,28 @@ func _read_optional_control_norm(frame: PackedByteArray, coarse_index: int, fine
 	return clamp(float(value.get("norm", 0.0)), 0.0, 1.0)
 
 func _read_optional_control_value(frame: PackedByteArray, coarse_index: int, fine_index: int, ultra_fine_index: int) -> Dictionary:
-	if not _is_valid_channel_index(frame, coarse_index):
-		return {"norm": -1.0, "raw_8bit": -1}
-	var value: Dictionary = _read_control_value(frame, coarse_index, fine_index, ultra_fine_index)
+	var resolved_coarse: int = coarse_index
+	var resolved_fine: int = fine_index
+	var resolved_ultra_fine: int = ultra_fine_index
+	if not _is_valid_channel_index(frame, resolved_coarse):
+		if _is_valid_channel_index(frame, fine_index):
+			resolved_coarse = fine_index
+			resolved_fine = -1
+			resolved_ultra_fine = -1
+		elif _is_valid_channel_index(frame, ultra_fine_index):
+			resolved_coarse = ultra_fine_index
+			resolved_fine = -1
+			resolved_ultra_fine = -1
+		else:
+			return {"norm": -1.0, "raw_8bit": -1}
+	var value: Dictionary = _read_control_value(frame, resolved_coarse, resolved_fine, resolved_ultra_fine)
 	return {
 		"norm": clamp(float(value.get("norm", 0.0)), 0.0, 1.0),
 		"raw_8bit": _resolve_raw_to_8bit(int(value.get("raw", 0)), int(value.get("resolution_bits", 8))),
 	}
 
 func _resolve_physical_from_ranges(raw_8bit: int, ranges: Array) -> Dictionary:
+	var active_match: Dictionary = {"has_value": false, "value": 0.0}
 	for range_item in ranges:
 		if range_item is not Dictionary:
 			continue
@@ -400,10 +413,11 @@ func _resolve_physical_from_ranges(raw_8bit: int, ranges: Array) -> Dictionary:
 		if raw_8bit < dmx_from or raw_8bit > dmx_to:
 			continue
 		if dmx_to <= dmx_from:
-			return {"has_value": true, "value": physical_from}
+			active_match = {"has_value": true, "value": physical_from}
+			continue
 		var norm: float = float(raw_8bit - dmx_from) / float(dmx_to - dmx_from)
-		return {"has_value": true, "value": lerp(physical_from, physical_to, clamp(norm, 0.0, 1.0))}
-	return {"has_value": false, "value": 0.0}
+		active_match = {"has_value": true, "value": lerp(physical_from, physical_to, clamp(norm, 0.0, 1.0))}
+	return active_match
 
 func _resolve_raw_to_8bit(raw_value: int, resolution_bits: int) -> int:
 	if resolution_bits >= 24:
