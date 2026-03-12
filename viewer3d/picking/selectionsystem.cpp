@@ -158,6 +158,52 @@ bool BuildMouseRay(int mouseX, int mouseY, int screenHeight,
   return true;
 }
 
+bool ReadWorldPointFromDepth(int mouseX, int mouseY, int screenHeight,
+                             const ProjectionSnapshot &projection,
+                             std::array<double, 3> &outWorldPoint) {
+  const int sampleY = screenHeight - mouseY;
+  float depth = 1.0f;
+  glReadPixels(mouseX, sampleY, 1, 1, GL_DEPTH_COMPONENT, GL_FLOAT, &depth);
+  if (depth >= 1.0f)
+    return false;
+
+  const double winX = static_cast<double>(mouseX);
+  const double winY = static_cast<double>(sampleY);
+  double worldX = 0.0;
+  double worldY = 0.0;
+  double worldZ = 0.0;
+  if (gluUnProject(winX, winY, static_cast<double>(depth), projection.model,
+                   projection.projection, projection.viewport, &worldX,
+                   &worldY, &worldZ) != GL_TRUE) {
+    return false;
+  }
+
+  outWorldPoint = {worldX, worldY, worldZ};
+  return true;
+}
+
+bool PointInAabb(const std::array<double, 3> &point,
+                 const ISelectionContext::BoundingBox &bb,
+                 double epsilon = 1e-4) {
+  return point[0] >= static_cast<double>(bb.min[0]) - epsilon &&
+         point[0] <= static_cast<double>(bb.max[0]) + epsilon &&
+         point[1] >= static_cast<double>(bb.min[1]) - epsilon &&
+         point[1] <= static_cast<double>(bb.max[1]) + epsilon &&
+         point[2] >= static_cast<double>(bb.min[2]) - epsilon &&
+         point[2] <= static_cast<double>(bb.max[2]) + epsilon;
+}
+
+double DistanceSquaredToAabbCenter(const std::array<double, 3> &point,
+                                   const ISelectionContext::BoundingBox &bb) {
+  const double cx = 0.5 * static_cast<double>(bb.min[0] + bb.max[0]);
+  const double cy = 0.5 * static_cast<double>(bb.min[1] + bb.max[1]);
+  const double cz = 0.5 * static_cast<double>(bb.min[2] + bb.max[2]);
+  const double dx = point[0] - cx;
+  const double dy = point[1] - cy;
+  const double dz = point[2] - cz;
+  return dx * dx + dy * dy + dz * dz;
+}
+
 bool IntersectRayWithAabb(const Ray &ray, const ISelectionContext::BoundingBox &bb,
                           double &outHitDistance) {
   constexpr double kEpsilon = 1e-9;
@@ -242,6 +288,9 @@ bool SelectionSystem::GetFixtureLabelAt(int mouseX, int mouseY, int width,
   Ray mouseRay;
   if (!BuildMouseRay(mouseX, mouseY, height, projection, mouseRay))
     return false;
+  std::array<double, 3> depthWorldPoint{};
+  const bool hasDepthWorldPoint =
+      ReadWorldPointFromDepth(mouseX, mouseY, height, projection, depthWorldPoint);
   const auto hiddenLayers = SnapshotHiddenLayers(cfg);
   bool showName = cfg.GetFloat("label_show_name") != 0.0f;
   bool showId = cfg.GetFloat("label_show_id") != 0.0f;
@@ -272,11 +321,21 @@ bool SelectionSystem::GetFixtureLabelAt(int mouseX, int mouseY, int width,
     if (!bbPtr)
       continue;
 
+    const bool depthContainsPoint =
+        hasDepthWorldPoint && PointInAabb(depthWorldPoint, *bbPtr);
+    if (hasDepthWorldPoint && !depthContainsPoint)
+      continue;
+
     double hitDistance = DBL_MAX;
     if (!IntersectRayWithAabb(mouseRay, *bbPtr, hitDistance))
       continue;
 
-    if (hitDistance < bestHitDistance) {
+    const double candidateScore = hasDepthWorldPoint
+                                      ? DistanceSquaredToAabbCenter(depthWorldPoint,
+                                                                    *bbPtr)
+                                      : hitDistance;
+
+    if (candidateScore < bestHitDistance) {
       wxString label;
       if (showName)
         label = f.instanceName.empty() ? wxString::FromUTF8(uuid)
@@ -298,7 +357,7 @@ bool SelectionSystem::GetFixtureLabelAt(int mouseX, int mouseY, int width,
       if (!ProjectBoundingBoxCenter(*bbPtr, projection, height, projectedCenter))
         continue;
 
-      bestHitDistance = hitDistance;
+      bestHitDistance = candidateScore;
       bestPos = projectedCenter;
       bestLabel = label;
       bestUuid = uuid;
@@ -327,6 +386,9 @@ bool SelectionSystem::GetTrussLabelAt(int mouseX, int mouseY, int width,
   Ray mouseRay;
   if (!BuildMouseRay(mouseX, mouseY, height, projection, mouseRay))
     return false;
+  std::array<double, 3> depthWorldPoint{};
+  const bool hasDepthWorldPoint =
+      ReadWorldPointFromDepth(mouseX, mouseY, height, projection, depthWorldPoint);
 
   const auto hiddenLayers = SnapshotHiddenLayers(cfg);
   const auto &trusses = SceneDataManager::Instance().GetTrusses();
@@ -351,16 +413,26 @@ bool SelectionSystem::GetTrussLabelAt(int mouseX, int mouseY, int width,
     if (!bbPtr)
       continue;
 
+    const bool depthContainsPoint =
+        hasDepthWorldPoint && PointInAabb(depthWorldPoint, *bbPtr);
+    if (hasDepthWorldPoint && !depthContainsPoint)
+      continue;
+
     double hitDistance = DBL_MAX;
     if (!IntersectRayWithAabb(mouseRay, *bbPtr, hitDistance))
       continue;
 
-    if (hitDistance < bestHitDistance) {
+    const double candidateScore = hasDepthWorldPoint
+                                      ? DistanceSquaredToAabbCenter(depthWorldPoint,
+                                                                    *bbPtr)
+                                      : hitDistance;
+
+    if (candidateScore < bestHitDistance) {
       wxPoint projectedCenter;
       if (!ProjectBoundingBoxCenter(*bbPtr, projection, height, projectedCenter))
         continue;
 
-      bestHitDistance = hitDistance;
+      bestHitDistance = candidateScore;
       bestPos = projectedCenter;
       bestLabel = t.name.empty() ? wxString::FromUTF8(uuid)
                                  : wxString::FromUTF8(t.name);
@@ -393,6 +465,9 @@ bool SelectionSystem::GetSceneObjectLabelAt(int mouseX, int mouseY, int width,
   Ray mouseRay;
   if (!BuildMouseRay(mouseX, mouseY, height, projection, mouseRay))
     return false;
+  std::array<double, 3> depthWorldPoint{};
+  const bool hasDepthWorldPoint =
+      ReadWorldPointFromDepth(mouseX, mouseY, height, projection, depthWorldPoint);
 
   const auto hiddenLayers = SnapshotHiddenLayers(cfg);
   const auto &objs = SceneDataManager::Instance().GetSceneObjects();
@@ -417,16 +492,26 @@ bool SelectionSystem::GetSceneObjectLabelAt(int mouseX, int mouseY, int width,
     if (!bbPtr)
       continue;
 
+    const bool depthContainsPoint =
+        hasDepthWorldPoint && PointInAabb(depthWorldPoint, *bbPtr);
+    if (hasDepthWorldPoint && !depthContainsPoint)
+      continue;
+
     double hitDistance = DBL_MAX;
     if (!IntersectRayWithAabb(mouseRay, *bbPtr, hitDistance))
       continue;
 
-    if (hitDistance < bestHitDistance) {
+    const double candidateScore = hasDepthWorldPoint
+                                      ? DistanceSquaredToAabbCenter(depthWorldPoint,
+                                                                    *bbPtr)
+                                      : hitDistance;
+
+    if (candidateScore < bestHitDistance) {
       wxPoint projectedCenter;
       if (!ProjectBoundingBoxCenter(*bbPtr, projection, height, projectedCenter))
         continue;
 
-      bestHitDistance = hitDistance;
+      bestHitDistance = candidateScore;
       bestPos = projectedCenter;
       bestLabel = o.name.empty() ? wxString::FromUTF8(uuid)
                                  : wxString::FromUTF8(o.name);
