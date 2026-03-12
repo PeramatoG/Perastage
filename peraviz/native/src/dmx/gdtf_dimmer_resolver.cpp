@@ -1049,6 +1049,21 @@ bool has_non_zero_rotation_physical_value(float value) {
     return std::fabs(value) > 0.0001F;
 }
 
+int rotation_source_priority_from_attribute(const std::string &raw_attribute) {
+    const std::string lower = lower_ascii(raw_attribute);
+    const std::string leaf = last_attribute_segment(lower);
+    if (leaf.find("posrotate") != std::string::npos) {
+        return 3;
+    }
+    if (leaf.find("wheelspin") != std::string::npos) {
+        return 2;
+    }
+    if (leaf.find("spin") != std::string::npos || leaf.find("rotate") != std::string::npos) {
+        return 1;
+    }
+    return 0;
+}
+
 bool has_motion_in_rotation_ranges(const std::vector<peraviz::dmx::FixtureGoboPhysicalRange> &ranges) {
     for (const auto &range : ranges) {
         if (has_non_zero_rotation_physical_value(range.physical_from) ||
@@ -1331,6 +1346,8 @@ void consume_channel_offsets(tinyxml2::XMLElement *dmx_channel,
                       has_non_zero_rotation_physical_value(candidate_max) ||
                       std::fabs(candidate_max - candidate_min) > 0.0001F));
 
+                const int candidate_priority =
+                    rotation_source_priority_from_attribute(read_attr_ci(channel_function, "Attribute", "attribute"));
                 const bool has_existing_rotation_source = wheel->rotation_coarse_offset_1_based > 0;
                 const bool existing_has_motion =
                     has_motion_in_rotation_ranges(wheel->rotation_ranges) ||
@@ -1340,11 +1357,15 @@ void consume_channel_offsets(tinyxml2::XMLElement *dmx_channel,
                       std::fabs(wheel->rotation_physical_max - wheel->rotation_physical_min) > 0.0001F));
 
                 bool should_select_candidate = !has_existing_rotation_source;
-                if (!should_select_candidate && candidate_coarse > 0 &&
-                    candidate_coarse < wheel->rotation_coarse_offset_1_based) {
+                if (!should_select_candidate && candidate_priority > wheel->rotation_source_priority) {
                     should_select_candidate = true;
                 }
-                if (!should_select_candidate && candidate_coarse == wheel->rotation_coarse_offset_1_based &&
+                if (!should_select_candidate && candidate_priority == wheel->rotation_source_priority &&
+                    candidate_coarse > 0 && candidate_coarse < wheel->rotation_coarse_offset_1_based) {
+                    should_select_candidate = true;
+                }
+                if (!should_select_candidate && candidate_priority == wheel->rotation_source_priority &&
+                    candidate_coarse == wheel->rotation_coarse_offset_1_based &&
                     candidate_has_motion && !existing_has_motion) {
                     should_select_candidate = true;
                 }
@@ -1356,6 +1377,7 @@ void consume_channel_offsets(tinyxml2::XMLElement *dmx_channel,
                 wheel->rotation_coarse_offset_1_based = candidate_coarse;
                 wheel->rotation_fine_offset_1_based = candidate_fine;
                 wheel->rotation_ultra_fine_offset_1_based = candidate_ultra_fine;
+                wheel->rotation_source_priority = candidate_priority;
                 wheel->has_rotation_physical_limits = candidate_has_limits;
                 wheel->rotation_physical_min = candidate_min;
                 wheel->rotation_physical_max = candidate_max;
