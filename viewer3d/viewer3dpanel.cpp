@@ -339,8 +339,10 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
         else if (SceneObjectTablePanel::Instance() && SceneObjectTablePanel::Instance()->IsActivePage())
             SceneObjectTablePanel::Instance()->HighlightObject(std::string(m_hoverUuid));
     }
-    else if (!skipLabelWork && (!m_hasHover || m_mouseMoved)) {
+    else if (!skipLabelWork) {
         m_hasHover = false;
+        m_hoverUuid.clear();
+        m_hoverText.clear();
         m_controller.SetHighlightUuid("");
         if (FixtureTablePanel::Instance())
             FixtureTablePanel::Instance()->HighlightFixture(std::string());
