@@ -280,8 +280,8 @@ func _build_runtime_gobo_bindings(binding: Dictionary, frame: PackedByteArray) -
 		var index_norm: float = -1.0
 		var rotation_norm: float = -1.0
 		var rotation_raw_8bit: int = -1
-		var rotation_speed_hz: float = 0.0
-		var has_rotation_speed_hz: bool = false
+		var rotation_speed_deg_per_sec: float = 0.0
+		var has_rotation_speed_deg_per_sec: bool = false
 		var rotation_from_range: bool = false
 		var has_range_physical_limits: bool = bool(active_range.get("has_physical_limits", false))
 		var range_physical_from: float = float(active_range.get("physical_from", 0.0))
@@ -296,8 +296,8 @@ func _build_runtime_gobo_bindings(binding: Dictionary, frame: PackedByteArray) -
 			rotation_raw_8bit = int(rotation_value.get("raw_8bit", -1))
 			if rotation_raw_8bit >= 0:
 				var rotation_speed: Dictionary = _resolve_physical_from_ranges(rotation_raw_8bit, item.get("rotation_ranges", []))
-				has_rotation_speed_hz = bool(rotation_speed.get("has_value", false))
-				rotation_speed_hz = float(rotation_speed.get("value", 0.0))
+				has_rotation_speed_deg_per_sec = bool(rotation_speed.get("has_value", false))
+				rotation_speed_deg_per_sec = float(rotation_speed.get("value", 0.0))
 			if rotation_norm < 0.0 and (range_behavior == GOBO_BEHAVIOR_ROTATION or range_behavior == GOBO_BEHAVIOR_SHAKE):
 				rotation_from_range = true
 				rotation_norm = _resolve_norm_from_active_range(raw_8bit, active_range)
@@ -325,8 +325,8 @@ func _build_runtime_gobo_bindings(binding: Dictionary, frame: PackedByteArray) -
 			"index_norm": index_norm,
 			"rotation_norm": rotation_norm,
 			"rotation_raw_8bit": rotation_raw_8bit,
-			"has_rotation_speed_hz": has_rotation_speed_hz,
-			"rotation_speed_hz": rotation_speed_hz,
+			"has_rotation_speed_deg_per_sec": has_rotation_speed_deg_per_sec,
+			"rotation_speed_deg_per_sec": rotation_speed_deg_per_sec,
 			"slots": item.get("slots", []),
 			"ranges": ranges,
 		})

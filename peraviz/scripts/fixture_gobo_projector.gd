@@ -25,7 +25,6 @@ const GOBO_APPLIED_ROTATION_DEG_META_KEY: String = "peraviz_gobo_applied_rotatio
 const GOBO_WHEEL_MODE_META_KEY: String = "peraviz_gobo_wheel_mode"
 const GOBO_INDEX_MAX_DEG: float = 360.0
 const GOBO_ROTATION_MAX_DEG_PER_SEC: float = 720.0
-const GOBO_FREQUENCY_TO_DEG_PER_SEC: float = 360.0
 
 const GOBO_BEHAVIOR_FIXED: int = 0
 const GOBO_BEHAVIOR_INDEX: int = 1
@@ -149,21 +148,19 @@ func _resolve_wheel_rotation_deg(light: SpotLight3D, controls: Dictionary, wheel
 		var speed_deg_per_sec: float = 0.0
 		var has_speed_command: bool = false
 		var rotation_from_range: bool = bool(wheel.get("rotation_from_range", false))
-		if bool(wheel.get("has_rotation_speed_hz", false)):
+		if bool(wheel.get("has_rotation_speed_deg_per_sec", false)):
 			has_speed_command = true
-			speed_deg_per_sec = float(wheel.get("rotation_speed_hz", 0.0)) * GOBO_FREQUENCY_TO_DEG_PER_SEC
+			speed_deg_per_sec = float(wheel.get("rotation_speed_deg_per_sec", 0.0))
 		elif rotation_from_range and bool(wheel.get("has_range_physical_limits", false)) and rotation_norm >= 0.0:
 			has_speed_command = true
-			var range_physical_from_hz: float = float(wheel.get("range_physical_from", 0.0))
-			var range_physical_to_hz: float = float(wheel.get("range_physical_to", 0.0))
-			var speed_hz: float = lerp(range_physical_from_hz, range_physical_to_hz, clamp(rotation_norm, 0.0, 1.0))
-			speed_deg_per_sec = speed_hz * GOBO_FREQUENCY_TO_DEG_PER_SEC
+			var range_physical_from_deg_per_sec: float = float(wheel.get("range_physical_from", 0.0))
+			var range_physical_to_deg_per_sec: float = float(wheel.get("range_physical_to", 0.0))
+			speed_deg_per_sec = lerp(range_physical_from_deg_per_sec, range_physical_to_deg_per_sec, clamp(rotation_norm, 0.0, 1.0))
 		elif bool(wheel.get("has_rotation_physical_limits", false)) and rotation_norm >= 0.0:
 			has_speed_command = true
-			var rotation_physical_min_hz: float = float(wheel.get("rotation_physical_min", -GOBO_ROTATION_MAX_DEG_PER_SEC * 0.5 / GOBO_FREQUENCY_TO_DEG_PER_SEC))
-			var rotation_physical_max_hz: float = float(wheel.get("rotation_physical_max", GOBO_ROTATION_MAX_DEG_PER_SEC * 0.5 / GOBO_FREQUENCY_TO_DEG_PER_SEC))
-			var speed_hz: float = lerp(rotation_physical_min_hz, rotation_physical_max_hz, clamp(rotation_norm, 0.0, 1.0))
-			speed_deg_per_sec = speed_hz * GOBO_FREQUENCY_TO_DEG_PER_SEC
+			var rotation_physical_min_deg_per_sec: float = float(wheel.get("rotation_physical_min", -GOBO_ROTATION_MAX_DEG_PER_SEC * 0.5))
+			var rotation_physical_max_deg_per_sec: float = float(wheel.get("rotation_physical_max", GOBO_ROTATION_MAX_DEG_PER_SEC * 0.5))
+			speed_deg_per_sec = lerp(rotation_physical_min_deg_per_sec, rotation_physical_max_deg_per_sec, clamp(rotation_norm, 0.0, 1.0))
 		elif rotation_norm >= 0.0:
 			has_speed_command = true
 			speed_deg_per_sec = (clamp(rotation_norm, 0.0, 1.0) - 0.5) * GOBO_ROTATION_MAX_DEG_PER_SEC
