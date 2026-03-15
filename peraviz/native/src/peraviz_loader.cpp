@@ -224,6 +224,8 @@ Dictionary PeravizLoader::build_fixture_dimmer_bindings(int universe_offset) con
             Dictionary range_item;
             range_item["dmx_from"] = range.dmx_from;
             range_item["dmx_to"] = range.dmx_to;
+            range_item["mode_from_8bit"] = range.mode_from_8bit;
+            range_item["mode_to_8bit"] = range.mode_to_8bit;
             range_item["slot_index"] = range.slot_index;
             range_item["behavior"] = static_cast<int>(range.behavior);
             gobo_ranges[range_index] = range_item;
@@ -261,6 +263,8 @@ Dictionary PeravizLoader::build_fixture_dimmer_bindings(int universe_offset) con
                 Dictionary rotation_range_item;
                 rotation_range_item["dmx_start"] = rotation_range.dmx_start;
                 rotation_range_item["dmx_end"] = rotation_range.dmx_end;
+                rotation_range_item["mode_from_8bit"] = rotation_range.mode_from_8bit;
+                rotation_range_item["mode_to_8bit"] = rotation_range.mode_to_8bit;
                 rotation_range_item["physical_from"] = rotation_range.physical_from;
                 rotation_range_item["physical_to"] = rotation_range.physical_to;
                 rotation_range_item["is_stop_range"] = rotation_range.is_stop_range;
@@ -286,6 +290,8 @@ Dictionary PeravizLoader::build_fixture_dimmer_bindings(int universe_offset) con
                 Dictionary range_item;
                 range_item["dmx_from"] = range.dmx_from;
                 range_item["dmx_to"] = range.dmx_to;
+                range_item["mode_from_8bit"] = range.mode_from_8bit;
+                range_item["mode_to_8bit"] = range.mode_to_8bit;
                 range_item["slot_index"] = range.slot_index;
                 range_item["behavior"] = static_cast<int>(range.behavior);
                 wheel_ranges[range_index] = range_item;

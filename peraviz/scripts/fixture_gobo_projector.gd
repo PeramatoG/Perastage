@@ -146,21 +146,23 @@ func _resolve_wheel_rotation_deg(light: SpotLight3D, controls: Dictionary, wheel
 
 	if supports_rotation and delta_sec > 0.0:
 		var speed_deg_per_sec: float = 0.0
-		var has_rotation_physical_ranges: bool = bool(wheel.get("has_rotation_physical_ranges", false))
-		var has_rotation_physical_value: bool = bool(wheel.get("has_rotation_physical_value", false))
-		if has_rotation_physical_ranges and has_rotation_physical_value:
-			speed_deg_per_sec = float(wheel.get("rotation_physical", 0.0))
-		elif rotation_norm >= 0.0 and bool(wheel.get("has_rotation_physical_limits", false)):
-			var rotation_physical_min: float = float(wheel.get("rotation_physical_min", -GOBO_ROTATION_MAX_DEG_PER_SEC * 0.5))
-			var rotation_physical_max: float = float(wheel.get("rotation_physical_max", GOBO_ROTATION_MAX_DEG_PER_SEC * 0.5))
-			if rotation_physical_min < 0.0 and rotation_physical_max > 0.0:
-				speed_deg_per_sec = _resolve_symmetric_rotation_speed(rotation_norm, rotation_physical_min, rotation_physical_max)
-			else:
-				speed_deg_per_sec = lerp(rotation_physical_min, rotation_physical_max, clamp(rotation_norm, 0.0, 1.0))
-		elif rotation_norm >= 0.0:
-			speed_deg_per_sec = _resolve_symmetric_rotation_speed(rotation_norm, -GOBO_ROTATION_MAX_DEG_PER_SEC, GOBO_ROTATION_MAX_DEG_PER_SEC)
+		var has_native_speed: bool = bool(wheel.get("has_rotation_physical_value", false))
+		if has_native_speed:
+			speed_deg_per_sec = float(wheel.get("rotation_speed_deg_per_sec", wheel.get("rotation_physical", 0.0)))
+		else:
+			# Symmetric fallback only when native-resolved speed is unavailable.
+			if rotation_norm >= 0.0 and bool(wheel.get("has_rotation_physical_limits", false)):
+				var rotation_physical_min: float = float(wheel.get("rotation_physical_min", -GOBO_ROTATION_MAX_DEG_PER_SEC * 0.5))
+				var rotation_physical_max: float = float(wheel.get("rotation_physical_max", GOBO_ROTATION_MAX_DEG_PER_SEC * 0.5))
+				if rotation_physical_min < 0.0 and rotation_physical_max > 0.0:
+					speed_deg_per_sec = _resolve_symmetric_rotation_speed(rotation_norm, rotation_physical_min, rotation_physical_max)
+				else:
+					speed_deg_per_sec = lerp(rotation_physical_min, rotation_physical_max, clamp(rotation_norm, 0.0, 1.0))
+			elif rotation_norm >= 0.0:
+				speed_deg_per_sec = _resolve_symmetric_rotation_speed(rotation_norm, -GOBO_ROTATION_MAX_DEG_PER_SEC, GOBO_ROTATION_MAX_DEG_PER_SEC)
 
-		if has_rotation_physical_ranges and absf(speed_deg_per_sec) <= 0.0001:
+		var is_stop: bool = bool(wheel.get("is_stop", false)) if has_native_speed else absf(speed_deg_per_sec) <= 0.0001
+		if is_stop:
 			spin_angle_deg = 0.0
 		else:
 			spin_angle_deg = wrapf(spin_angle_deg + (speed_deg_per_sec * delta_sec), -360000.0, 360000.0)
