@@ -146,12 +146,17 @@ func _resolve_wheel_rotation_deg(light: SpotLight3D, controls: Dictionary, wheel
 
 	if supports_rotation and rotation_norm >= 0.0 and delta_sec > 0.0:
 		var speed_deg_per_sec: float = 0.0
-		if bool(wheel.get("has_rotation_physical_limits", false)):
+		if bool(wheel.get("has_rotation_physical_ranges", false)) and bool(wheel.get("has_rotation_physical_value", false)):
+			speed_deg_per_sec = float(wheel.get("rotation_physical", 0.0))
+		elif bool(wheel.get("has_rotation_physical_limits", false)):
 			var rotation_physical_min: float = float(wheel.get("rotation_physical_min", -GOBO_ROTATION_MAX_DEG_PER_SEC * 0.5))
 			var rotation_physical_max: float = float(wheel.get("rotation_physical_max", GOBO_ROTATION_MAX_DEG_PER_SEC * 0.5))
-			speed_deg_per_sec = lerp(rotation_physical_min, rotation_physical_max, clamp(rotation_norm, 0.0, 1.0))
+			if rotation_physical_min < 0.0 and rotation_physical_max > 0.0:
+				speed_deg_per_sec = _resolve_symmetric_rotation_speed(rotation_norm, rotation_physical_min, rotation_physical_max)
+			else:
+				speed_deg_per_sec = lerp(rotation_physical_min, rotation_physical_max, clamp(rotation_norm, 0.0, 1.0))
 		else:
-			speed_deg_per_sec = (clamp(rotation_norm, 0.0, 1.0) - 0.5) * GOBO_ROTATION_MAX_DEG_PER_SEC
+			speed_deg_per_sec = _resolve_symmetric_rotation_speed(rotation_norm, -GOBO_ROTATION_MAX_DEG_PER_SEC, GOBO_ROTATION_MAX_DEG_PER_SEC)
 		spin_angle_deg = wrapf(spin_angle_deg + (speed_deg_per_sec * delta_sec), -360000.0, 360000.0)
 		wheel_spin_state[wheel_key] = spin_angle_deg
 		light.set_meta(GOBO_WHEEL_SPIN_META_KEY, wheel_spin_state)
@@ -163,6 +168,17 @@ func _resolve_wheel_rotation_deg(light: SpotLight3D, controls: Dictionary, wheel
 
 	return base_rotation_deg + spin_angle_deg
 
+
+
+func _resolve_symmetric_rotation_speed(rotation_norm: float, speed_min: float, speed_max: float) -> float:
+	var normalized: float = clamp(rotation_norm, 0.0, 1.0)
+	if normalized < 0.49:
+		var negative_ratio: float = normalized / 0.49
+		return lerp(speed_min, 0.0, negative_ratio)
+	if normalized <= 0.51:
+		return 0.0
+	var positive_ratio: float = (normalized - 0.51) / 0.49
+	return lerp(0.0, speed_max, positive_ratio)
 
 func _wheel_owns_rotation_control(wheel: Dictionary) -> bool:
 	if wheel.is_empty():

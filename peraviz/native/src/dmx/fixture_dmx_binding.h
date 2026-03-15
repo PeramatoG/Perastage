@@ -39,6 +39,14 @@ struct FixtureGoboRange {
     FixtureGoboRangeBehavior behavior = FixtureGoboRangeBehavior::kFixed;
 };
 
+struct FixtureGoboRotationRange {
+    int dmx_start = 0;
+    int dmx_end = 255;
+    float physical_from = 0.0F;
+    float physical_to = 0.0F;
+    bool is_stop_range = false;
+};
+
 struct FixtureGoboWheelBinding {
     FixtureAttributeChannel channel;
     FixtureAttributeChannel index_channel;
@@ -49,6 +57,7 @@ struct FixtureGoboWheelBinding {
     bool has_rotation_physical_limits = false;
     float rotation_physical_min = 0.0F;
     float rotation_physical_max = 0.0F;
+    std::vector<FixtureGoboRotationRange> rotation_ranges;
     int wheel_number = 0;
     std::string wheel_name;
     std::vector<FixtureGoboSlot> slots;
@@ -105,6 +114,7 @@ struct FixtureGoboWheelOffset {
     bool has_rotation_physical_limits = false;
     float rotation_physical_min = 0.0F;
     float rotation_physical_max = 0.0F;
+    std::vector<FixtureGoboRotationRange> rotation_ranges;
     int wheel_number = 0;
     std::string wheel_name;
     std::vector<FixtureGoboSlot> slots;

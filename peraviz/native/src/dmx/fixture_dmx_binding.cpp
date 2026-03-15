@@ -163,6 +163,7 @@ FixtureBindingBuildResult build_dimmer_bindings(
             wheel_binding.has_rotation_physical_limits = wheel.has_rotation_physical_limits;
             wheel_binding.rotation_physical_min = wheel.rotation_physical_min;
             wheel_binding.rotation_physical_max = wheel.rotation_physical_max;
+            wheel_binding.rotation_ranges = wheel.rotation_ranges;
             wheel_binding.wheel_number = wheel.wheel_number;
             wheel_binding.wheel_name = wheel.wheel_name;
             wheel_binding.slots = wheel.slots;

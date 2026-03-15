@@ -254,6 +254,20 @@ Dictionary PeravizLoader::build_fixture_dimmer_bindings(int universe_offset) con
             wheel_item["rotation_physical_min"] = wheel.rotation_physical_min;
             wheel_item["rotation_physical_max"] = wheel.rotation_physical_max;
 
+            Array rotation_ranges;
+            rotation_ranges.resize(static_cast<int64_t>(wheel.rotation_ranges.size()));
+            for (int64_t rotation_range_index = 0; rotation_range_index < static_cast<int64_t>(wheel.rotation_ranges.size()); ++rotation_range_index) {
+                const auto &rotation_range = wheel.rotation_ranges[static_cast<size_t>(rotation_range_index)];
+                Dictionary rotation_range_item;
+                rotation_range_item["dmx_start"] = rotation_range.dmx_start;
+                rotation_range_item["dmx_end"] = rotation_range.dmx_end;
+                rotation_range_item["physical_from"] = rotation_range.physical_from;
+                rotation_range_item["physical_to"] = rotation_range.physical_to;
+                rotation_range_item["is_stop_range"] = rotation_range.is_stop_range;
+                rotation_ranges[rotation_range_index] = rotation_range_item;
+            }
+            wheel_item["rotation_ranges"] = rotation_ranges;
+
             Array wheel_slots;
             wheel_slots.resize(static_cast<int64_t>(wheel.slots.size()));
             for (int64_t slot_index = 0; slot_index < static_cast<int64_t>(wheel.slots.size()); ++slot_index) {
