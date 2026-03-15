@@ -49,8 +49,8 @@ bool ImportTrussFile(const std::string &, std::string &, std::string &) { return
 
 bool LoadTrussArchive(const std::string &, Truss &) { return false; }
 
-bool MvrImporter::ImportFromFile(const std::string &, bool, bool) { return false; }
-bool MvrImporter::ImportAndRegister(const std::string &, bool, bool) { return false; }
+bool MvrImporter::ImportFromFile(const std::string &, bool, bool, ProgressCallback) { return false; }
+bool MvrImporter::ImportAndRegister(const std::string &, bool, bool, ProgressCallback) { return false; }
 bool MvrExporter::ExportToFile(const std::string &) { return false; }
 
 
