@@ -445,6 +445,8 @@ void consume_gobo_rotation_channel_sets(tinyxml2::XMLElement *channel_function,
                                         int function_dmx_from,
                                         int function_dmx_to);
 
+int parse_dmx_value_8bit(const char *raw_value);
+
 bool parse_float_attr_ci(tinyxml2::XMLElement *node,
                          const char *attr_name,
                          const char *attr_name_alt,
