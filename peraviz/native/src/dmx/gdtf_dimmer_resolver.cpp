@@ -1159,16 +1159,40 @@ void consume_channel_offsets(tinyxml2::XMLElement *dmx_channel,
 
         const std::vector<tinyxml2::XMLElement *> channel_functions = collect_direct_children_by_name(logical_channel, "channelfunction");
         std::vector<int> function_dmx_from_values;
+        std::vector<int> function_dmx_to_values;
         function_dmx_from_values.reserve(channel_functions.size());
+        function_dmx_to_values.reserve(channel_functions.size());
         for (tinyxml2::XMLElement *channel_function : channel_functions) {
-            int function_dmx_from = parse_dmx_value_8bit(channel_function->Attribute("DMXFrom"));
+            int function_dmx_from = parse_dmx_value_8bit(channel_function->Attribute("ModeFrom"));
             if (function_dmx_from < 0) {
-                function_dmx_from = parse_dmx_value_8bit(channel_function->Attribute("dmxfrom"));
+                function_dmx_from = parse_dmx_value_8bit(channel_function->Attribute("modefrom"));
             }
+            int function_dmx_to = parse_dmx_value_8bit(channel_function->Attribute("ModeTo"));
+            if (function_dmx_to < 0) {
+                function_dmx_to = parse_dmx_value_8bit(channel_function->Attribute("modeto"));
+            }
+
+            if (function_dmx_from < 0) {
+                function_dmx_from = parse_dmx_value_8bit(channel_function->Attribute("DMXFrom"));
+                if (function_dmx_from < 0) {
+                    function_dmx_from = parse_dmx_value_8bit(channel_function->Attribute("dmxfrom"));
+                }
+            }
+
             if (function_dmx_from < 0) {
                 function_dmx_from = 0;
             }
-            function_dmx_from_values.push_back(std::clamp(function_dmx_from, 0, 255));
+
+            function_dmx_from = std::clamp(function_dmx_from, 0, 255);
+            if (function_dmx_to >= 0) {
+                function_dmx_to = std::clamp(function_dmx_to, 0, 255);
+                if (function_dmx_to < function_dmx_from) {
+                    std::swap(function_dmx_to, function_dmx_from);
+                }
+            }
+
+            function_dmx_from_values.push_back(function_dmx_from);
+            function_dmx_to_values.push_back(function_dmx_to);
         }
 
         for (size_t channel_function_index = 0;
@@ -1176,9 +1200,12 @@ void consume_channel_offsets(tinyxml2::XMLElement *dmx_channel,
              ++channel_function_index) {
             tinyxml2::XMLElement *channel_function = channel_functions[channel_function_index];
             const int function_dmx_from = function_dmx_from_values[channel_function_index];
-            int function_dmx_to = 255;
-            if (channel_function_index + 1 < channel_functions.size()) {
-                function_dmx_to = function_dmx_from_values[channel_function_index + 1] - 1;
+            int function_dmx_to = function_dmx_to_values[channel_function_index];
+            if (function_dmx_to < 0) {
+                function_dmx_to = 255;
+                if (channel_function_index + 1 < channel_functions.size()) {
+                    function_dmx_to = function_dmx_from_values[channel_function_index + 1] - 1;
+                }
             }
             function_dmx_to = std::clamp(function_dmx_to, function_dmx_from, 255);
             const char *attribute = channel_function->Attribute("Attribute");
