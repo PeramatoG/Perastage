@@ -702,17 +702,17 @@ int parse_dmx_value_8bit(const char *raw_value) {
         return -1;
     }
 
-    long max_value = 255L;
+    if (resolution_bytes <= 1) {
+        return static_cast<int>(std::clamp(parsed, 0L, 255L));
+    }
+
     if (resolution_bytes == 2) {
-        max_value = 65535L;
-    } else if (resolution_bytes == 3) {
-        max_value = 16777215L;
+        const long clamped_16 = std::clamp(parsed, 0L, 65535L);
+        return static_cast<int>(clamped_16 >> 8);
     }
-    const long clamped = std::clamp(parsed, 0L, max_value);
-    if (max_value == 255L) {
-        return static_cast<int>(clamped);
-    }
-    return static_cast<int>((clamped * 255L) / max_value);
+
+    const long clamped_24 = std::clamp(parsed, 0L, 16777215L);
+    return static_cast<int>(clamped_24 >> 16);
 }
 
 std::string read_attr_ci(tinyxml2::XMLElement *node, const char *name_a, const char *name_b) {
