@@ -597,6 +597,8 @@ void consume_gobo_rotation_channel_sets(tinyxml2::XMLElement *channel_function,
         peraviz::dmx::FixtureGoboRotationRange range;
         range.dmx_start = row.dmx_start;
         range.dmx_end = row.dmx_end;
+        range.mode_from_8bit = clamped_function_from;
+        range.mode_to_8bit = clamped_function_to;
         range.physical_from = row.physical_from;
         range.physical_to = row.physical_to;
         range.is_stop_range = std::fabs(row.physical_from) < 0.0001F && std::fabs(row.physical_to) < 0.0001F;
@@ -1026,7 +1028,7 @@ void consume_gobo_channel_sets(tinyxml2::XMLElement *channel_function,
             std::swap(row.dmx_from, row.dmx_to);
         }
 
-        out_wheel.ranges.push_back({row.dmx_from, row.dmx_to, row.slot_index, row.behavior});
+        out_wheel.ranges.push_back({row.dmx_from, row.dmx_to, clamped_function_from, clamped_function_to, row.slot_index, row.behavior});
     }
 }
 
@@ -1115,6 +1117,8 @@ void dedupe_and_sort_gobo_wheel(peraviz::dmx::FixtureGoboWheelOffset &wheel) {
                     [](const peraviz::dmx::FixtureGoboRange &a,
                        const peraviz::dmx::FixtureGoboRange &b) {
                         return a.dmx_from == b.dmx_from && a.dmx_to == b.dmx_to &&
+                               a.mode_from_8bit == b.mode_from_8bit &&
+                               a.mode_to_8bit == b.mode_to_8bit &&
                                a.slot_index == b.slot_index && a.behavior == b.behavior;
                     }),
         wheel.ranges.end());
@@ -1132,6 +1136,8 @@ void dedupe_and_sort_gobo_wheel(peraviz::dmx::FixtureGoboWheelOffset &wheel) {
                     [](const peraviz::dmx::FixtureGoboRotationRange &a,
                        const peraviz::dmx::FixtureGoboRotationRange &b) {
                         return a.dmx_start == b.dmx_start && a.dmx_end == b.dmx_end &&
+                               a.mode_from_8bit == b.mode_from_8bit &&
+                               a.mode_to_8bit == b.mode_to_8bit &&
                                a.physical_from == b.physical_from &&
                                a.physical_to == b.physical_to;
                     }),

@@ -289,7 +289,7 @@ func _build_runtime_gobo_bindings(binding: Dictionary, frame: PackedByteArray) -
 		var rotation_raw: int = raw_8bit
 		var rotation_has_value: bool = false
 		var rotation_ranges: Array = item.get("rotation_ranges", [])
-		var rotation_physical: float = 0.0
+		var resolved_rotation: Dictionary = {}
 		if supports_index:
 			index_norm = _read_optional_control_norm(frame, int(item.get("index_channel_index_0", -1)), int(item.get("index_fine_channel_index_0", -1)), int(item.get("index_ultra_fine_channel_index_0", -1)))
 			if index_norm < 0.0 and range_behavior == GOBO_BEHAVIOR_INDEX:
@@ -310,12 +310,16 @@ func _build_runtime_gobo_bindings(binding: Dictionary, frame: PackedByteArray) -
 				rotation_raw = raw_8bit
 				rotation_has_value = true
 			if rotation_has_value and not rotation_ranges.is_empty():
-				rotation_physical = _resolve_rotation_physical(rotation_raw, rotation_ranges)
+				resolved_rotation = _resolve_rotation_runtime(rotation_raw, rotation_ranges)
+		var active_mode_from_8bit: int = int(active_range.get("mode_from_8bit", 0))
+		var active_mode_to_8bit: int = int(active_range.get("mode_to_8bit", 255))
 		runtime_bindings.append({
 			"wheel_number": int(item.get("wheel_number", 0)),
 			"wheel_name": str(item.get("wheel_name", "")),
 			"raw_8bit": raw_8bit,
 			"slot_index": int(active_range.get("slot_index", 0)),
+			"mode_from_8bit": active_mode_from_8bit,
+			"mode_to_8bit": active_mode_to_8bit,
 			"behavior": range_behavior,
 			"supports_index": supports_index,
 			"supports_rotation": supports_rotation,
@@ -326,8 +330,13 @@ func _build_runtime_gobo_bindings(binding: Dictionary, frame: PackedByteArray) -
 			"rotation_physical_min": float(item.get("rotation_physical_min", 0.0)),
 			"rotation_physical_max": float(item.get("rotation_physical_max", 0.0)),
 			"has_rotation_physical_ranges": not rotation_ranges.is_empty(),
-			"has_rotation_physical_value": not rotation_ranges.is_empty() and rotation_has_value,
-			"rotation_physical": rotation_physical,
+			"has_rotation_physical_value": not resolved_rotation.is_empty(),
+			"rotation_physical": float(resolved_rotation.get("rotation_speed_deg_per_sec", 0.0)),
+			"rotation_speed_deg_per_sec": float(resolved_rotation.get("rotation_speed_deg_per_sec", 0.0)),
+			"rotation_direction_sign": int(resolved_rotation.get("direction_sign", 0)),
+			"is_stop": bool(resolved_rotation.get("is_stop", false)),
+			"has_resolved_rotation_range": bool(resolved_rotation.get("has_range", false)),
+			"rotation_resolved_range": resolved_rotation.get("range", {}),
 			"rotation_raw": rotation_raw,
 			"rotation_raw_value": rotation_raw,
 			"rotation_active_range": active_range,
@@ -355,7 +364,7 @@ func _resolve_norm_from_active_range(raw_8bit: int, active_range: Dictionary) ->
 	return float(clamped_raw - dmx_from) / float(dmx_to - dmx_from)
 
 
-func _resolve_rotation_physical(dmx_val: float, ranges: Array) -> float:
+func _resolve_rotation_runtime(raw_8bit: int, ranges: Array) -> Dictionary:
 	for item in ranges:
 		if item is not Dictionary:
 			continue
@@ -366,15 +375,42 @@ func _resolve_rotation_physical(dmx_val: float, ranges: Array) -> float:
 			var swap_value: int = dmx_start
 			dmx_start = dmx_end
 			dmx_end = swap_value
-		if dmx_val < float(dmx_start) or dmx_val > float(dmx_end):
+		if raw_8bit < dmx_start or raw_8bit > dmx_end:
 			continue
-		if bool(range_data.get("is_stop_range", false)):
-			return 0.0
-		if dmx_end <= dmx_start:
-			return float(range_data.get("physical_to", range_data.get("physical_from", 0.0)))
-		var ratio: float = (dmx_val - float(dmx_start)) / float(dmx_end - dmx_start)
-		return lerp(float(range_data.get("physical_from", 0.0)), float(range_data.get("physical_to", 0.0)), ratio)
-	return 0.0
+
+		var speed_deg_per_sec: float = 0.0
+		var is_stop: bool = bool(range_data.get("is_stop_range", false))
+		if not is_stop:
+			if dmx_end <= dmx_start:
+				speed_deg_per_sec = float(range_data.get("physical_to", range_data.get("physical_from", 0.0)))
+			else:
+				var ratio: float = float(raw_8bit - dmx_start) / float(dmx_end - dmx_start)
+				speed_deg_per_sec = lerp(float(range_data.get("physical_from", 0.0)), float(range_data.get("physical_to", 0.0)), ratio)
+		if absf(speed_deg_per_sec) <= 0.0001:
+			is_stop = true
+			speed_deg_per_sec = 0.0
+
+		var direction_sign: int = 0
+		if speed_deg_per_sec > 0.0:
+			direction_sign = 1
+		elif speed_deg_per_sec < 0.0:
+			direction_sign = -1
+
+		return {
+			"has_range": true,
+			"range": range_data,
+			"rotation_speed_deg_per_sec": speed_deg_per_sec,
+			"direction_sign": direction_sign,
+			"is_stop": is_stop,
+		}
+
+	return {
+		"has_range": false,
+		"range": {},
+		"rotation_speed_deg_per_sec": 0.0,
+		"direction_sign": 0,
+		"is_stop": false,
+	}
 
 
 

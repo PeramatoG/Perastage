@@ -35,6 +35,8 @@ enum class FixtureGoboRangeBehavior {
 struct FixtureGoboRange {
     int dmx_from = 0;
     int dmx_to = 255;
+    int mode_from_8bit = 0;
+    int mode_to_8bit = 255;
     int slot_index = -1;
     FixtureGoboRangeBehavior behavior = FixtureGoboRangeBehavior::kFixed;
 };
@@ -42,6 +44,8 @@ struct FixtureGoboRange {
 struct FixtureGoboRotationRange {
     int dmx_start = 0;
     int dmx_end = 255;
+    int mode_from_8bit = 0;
+    int mode_to_8bit = 255;
     float physical_from = 0.0F;
     float physical_to = 0.0F;
     bool is_stop_range = false;
