@@ -287,6 +287,7 @@ func _build_runtime_gobo_bindings(binding: Dictionary, frame: PackedByteArray) -
 		var index_norm: float = -1.0
 		var rotation_norm: float = -1.0
 		var rotation_raw: int = raw_8bit
+		var rotation_has_value: bool = false
 		var rotation_ranges: Array = item.get("rotation_ranges", [])
 		var rotation_physical: float = 0.0
 		if supports_index:
@@ -299,13 +300,16 @@ func _build_runtime_gobo_bindings(binding: Dictionary, frame: PackedByteArray) -
 				if not rotation_value.is_empty():
 					rotation_norm = clamp(float(rotation_value.get("norm", 0.0)), 0.0, 1.0)
 					rotation_raw = _resolve_raw_to_8bit(int(rotation_value.get("raw", 0)), int(rotation_value.get("resolution_bits", 8)))
+					rotation_has_value = true
 			if uses_range_rotation:
 				rotation_norm = _resolve_norm_from_active_range(raw_8bit, active_range)
 				rotation_raw = raw_8bit
+				rotation_has_value = true
 			elif rotation_norm < 0.0 and is_rotation_behavior:
 				rotation_norm = _resolve_norm_from_active_range(raw_8bit, active_range)
 				rotation_raw = raw_8bit
-			if rotation_norm >= 0.0 and not rotation_ranges.is_empty():
+				rotation_has_value = true
+			if rotation_has_value and not rotation_ranges.is_empty():
 				rotation_physical = _resolve_rotation_physical(rotation_raw, rotation_ranges)
 		runtime_bindings.append({
 			"wheel_number": int(item.get("wheel_number", 0)),
@@ -318,11 +322,11 @@ func _build_runtime_gobo_bindings(binding: Dictionary, frame: PackedByteArray) -
 			"has_index_physical_limits": bool(item.get("has_index_physical_limits", false)),
 			"index_physical_min": float(item.get("index_physical_min", 0.0)),
 			"index_physical_max": float(item.get("index_physical_max", 0.0)),
-			"has_rotation_physical_limits": bool(item.get("has_rotation_physical_limits", false)) or not rotation_ranges.is_empty(),
+			"has_rotation_physical_limits": bool(item.get("has_rotation_physical_limits", false)),
 			"rotation_physical_min": float(item.get("rotation_physical_min", 0.0)),
 			"rotation_physical_max": float(item.get("rotation_physical_max", 0.0)),
 			"has_rotation_physical_ranges": not rotation_ranges.is_empty(),
-			"has_rotation_physical_value": not rotation_ranges.is_empty() and rotation_norm >= 0.0,
+			"has_rotation_physical_value": not rotation_ranges.is_empty() and rotation_has_value,
 			"rotation_physical": rotation_physical,
 			"rotation_raw": rotation_raw,
 			"rotation_raw_value": rotation_raw,
