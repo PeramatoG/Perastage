@@ -268,6 +268,8 @@ func _build_runtime_gobo_bindings(binding: Dictionary, frame: PackedByteArray) -
 		var has_index_channel: bool = _has_control_channel(item, "index_channel_index_0", "index_fine_channel_index_0", "index_ultra_fine_channel_index_0")
 		var has_rotation_channel: bool = _has_control_channel(item, "rotation_channel_index_0", "rotation_fine_channel_index_0", "rotation_ultra_fine_channel_index_0")
 		var has_behavior_ranges: bool = not ranges.is_empty()
+		var is_rotation_behavior: bool = range_behavior == GOBO_BEHAVIOR_ROTATION or range_behavior == GOBO_BEHAVIOR_SHAKE
+		var uses_range_rotation: bool = is_rotation_behavior and not has_rotation_channel
 		var supports_index: bool = false
 		var supports_rotation: bool = false
 		if has_behavior_ranges:
@@ -275,13 +277,17 @@ func _build_runtime_gobo_bindings(binding: Dictionary, frame: PackedByteArray) -
 			# dedicated index/rotation channels still drive the wheel. Keep channel
 			# authority enabled, but prevent conflicting index+spin by honoring
 			# explicit index ranges as spin-disabled segments.
-			supports_index = (range_behavior == GOBO_BEHAVIOR_INDEX) or (has_index_channel and range_behavior != GOBO_BEHAVIOR_ROTATION and range_behavior != GOBO_BEHAVIOR_SHAKE)
-			supports_rotation = (range_behavior == GOBO_BEHAVIOR_ROTATION or range_behavior == GOBO_BEHAVIOR_SHAKE) or (has_rotation_channel and range_behavior != GOBO_BEHAVIOR_INDEX)
+			supports_index = (range_behavior == GOBO_BEHAVIOR_INDEX) or (has_index_channel and not is_rotation_behavior)
+			supports_rotation = is_rotation_behavior or (has_rotation_channel and range_behavior != GOBO_BEHAVIOR_INDEX)
 		else:
 			supports_index = has_index_channel
 			supports_rotation = has_rotation_channel
+		if uses_range_rotation:
+			supports_rotation = true
 		var index_norm: float = -1.0
 		var rotation_norm: float = -1.0
+		var rotation_raw: int = raw_8bit
+		var rotation_has_value: bool = false
 		var rotation_ranges: Array = item.get("rotation_ranges", [])
 		var rotation_physical: float = 0.0
 		if supports_index:
@@ -289,11 +295,22 @@ func _build_runtime_gobo_bindings(binding: Dictionary, frame: PackedByteArray) -
 			if index_norm < 0.0 and range_behavior == GOBO_BEHAVIOR_INDEX:
 				index_norm = _resolve_norm_from_active_range(raw_8bit, active_range)
 		if supports_rotation:
-			rotation_norm = _read_optional_control_norm(frame, int(item.get("rotation_channel_index_0", -1)), int(item.get("rotation_fine_channel_index_0", -1)), int(item.get("rotation_ultra_fine_channel_index_0", -1)))
-			if rotation_norm < 0.0 and (range_behavior == GOBO_BEHAVIOR_ROTATION or range_behavior == GOBO_BEHAVIOR_SHAKE):
+			if has_rotation_channel:
+				var rotation_value: Dictionary = _read_optional_control_value(frame, int(item.get("rotation_channel_index_0", -1)), int(item.get("rotation_fine_channel_index_0", -1)), int(item.get("rotation_ultra_fine_channel_index_0", -1)))
+				if not rotation_value.is_empty():
+					rotation_norm = clamp(float(rotation_value.get("norm", 0.0)), 0.0, 1.0)
+					rotation_raw = _resolve_raw_to_8bit(int(rotation_value.get("raw", 0)), int(rotation_value.get("resolution_bits", 8)))
+					rotation_has_value = true
+			if uses_range_rotation:
 				rotation_norm = _resolve_norm_from_active_range(raw_8bit, active_range)
-			if rotation_norm >= 0.0 and not rotation_ranges.is_empty():
-				rotation_physical = _resolve_rotation_physical(rotation_norm * DMX_8BIT_MAX_VALUE, rotation_ranges)
+				rotation_raw = raw_8bit
+				rotation_has_value = true
+			elif rotation_norm < 0.0 and is_rotation_behavior:
+				rotation_norm = _resolve_norm_from_active_range(raw_8bit, active_range)
+				rotation_raw = raw_8bit
+				rotation_has_value = true
+			if rotation_has_value and not rotation_ranges.is_empty():
+				rotation_physical = _resolve_rotation_physical(rotation_raw, rotation_ranges)
 		runtime_bindings.append({
 			"wheel_number": int(item.get("wheel_number", 0)),
 			"wheel_name": str(item.get("wheel_name", "")),
@@ -305,12 +322,15 @@ func _build_runtime_gobo_bindings(binding: Dictionary, frame: PackedByteArray) -
 			"has_index_physical_limits": bool(item.get("has_index_physical_limits", false)),
 			"index_physical_min": float(item.get("index_physical_min", 0.0)),
 			"index_physical_max": float(item.get("index_physical_max", 0.0)),
-			"has_rotation_physical_limits": bool(item.get("has_rotation_physical_limits", false)) or not rotation_ranges.is_empty(),
+			"has_rotation_physical_limits": bool(item.get("has_rotation_physical_limits", false)),
 			"rotation_physical_min": float(item.get("rotation_physical_min", 0.0)),
 			"rotation_physical_max": float(item.get("rotation_physical_max", 0.0)),
 			"has_rotation_physical_ranges": not rotation_ranges.is_empty(),
-			"has_rotation_physical_value": not rotation_ranges.is_empty() and rotation_norm >= 0.0,
+			"has_rotation_physical_value": not rotation_ranges.is_empty() and rotation_has_value,
 			"rotation_physical": rotation_physical,
+			"rotation_raw": rotation_raw,
+			"rotation_raw_value": rotation_raw,
+			"rotation_active_range": active_range,
 			"rotation_ranges": rotation_ranges,
 			"index_norm": index_norm,
 			"rotation_norm": rotation_norm,
@@ -356,6 +376,12 @@ func _resolve_rotation_physical(dmx_val: float, ranges: Array) -> float:
 		return lerp(float(range_data.get("physical_from", 0.0)), float(range_data.get("physical_to", 0.0)), ratio)
 	return 0.0
 
+
+
+func _read_optional_control_value(frame: PackedByteArray, coarse_index: int, fine_index: int, ultra_fine_index: int) -> Dictionary:
+	if not _is_valid_channel_index(frame, coarse_index):
+		return {}
+	return _read_control_value(frame, coarse_index, fine_index, ultra_fine_index)
 
 func _read_optional_control_norm(frame: PackedByteArray, coarse_index: int, fine_index: int, ultra_fine_index: int) -> float:
 	if not _is_valid_channel_index(frame, coarse_index):
