@@ -313,6 +313,7 @@ PromptGdtfConflicts(const std::vector<GdtfConflict> &conflicts) {
   topSizer->Add(dlg.CreateSeparatedButtonSizer(wxOK | wxCANCEL), 0,
                 wxEXPAND | wxALL, 10);
   dlg.SetSizerAndFit(topSizer);
+  dlg.CentreOnScreen();
 
   if (dlg.ShowModal() != wxID_OK)
     return chosen;
@@ -458,7 +459,8 @@ static void ReadSupportHoistInfoFromUserData(tinyxml2::XMLElement *supportNode,
 }
 bool MvrImporter::ImportFromFile(const std::string &filePath,
                                  bool promptConflicts,
-                                 bool applyDictionary) {
+                                 bool applyDictionary,
+                                 ProgressCallback progressCallback) {
   pathRemap.clear();
   // Treat the incoming path as UTF-8 to preserve any non-ASCII characters
   fs::path path = fs::u8path(filePath);
@@ -466,6 +468,9 @@ bool MvrImporter::ImportFromFile(const std::string &filePath,
   std::string ext = path.extension().string();
   std::transform(ext.begin(), ext.end(), ext.begin(),
                  [](unsigned char c) { return std::tolower(c); });
+
+  if (progressCallback)
+    progressCallback("Preparing import...");
 
   if (!fs::exists(path)) {
     LogMessage("MVR file does not exist: " + filePath);
@@ -475,6 +480,9 @@ bool MvrImporter::ImportFromFile(const std::string &filePath,
     LogMessage("MVR file has invalid extension: " + ext);
     return false;
   }
+
+  if (progressCallback)
+    progressCallback("Extracting package resources...");
 
   std::string tempDir = CreateTemporaryDirectory();
   std::string mvrPath = ToString(path.u8string());
@@ -507,7 +515,9 @@ bool MvrImporter::ImportFromFile(const std::string &filePath,
   }
 
   std::string scenePath = ToString(sceneFile.u8string());
-  return ParseSceneXml(scenePath, promptConflicts, applyDictionary);
+  if (progressCallback)
+    progressCallback("Parsing scene data...");
+  return ParseSceneXml(scenePath, promptConflicts, applyDictionary, progressCallback);
 }
 
 std::string MvrImporter::NormalizeArchivePath(const std::string &archivePath) const {
@@ -644,7 +654,8 @@ bool MvrImporter::ExtractMvrZip(const std::string &mvrPath,
 // the scene model
 bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                                 bool promptConflicts,
-                                bool applyDictionary) {
+                                bool applyDictionary,
+                                ProgressCallback progressCallback) {
   tinyxml2::XMLDocument doc;
   tinyxml2::XMLError result = doc.LoadFile(sceneXmlPath.c_str());
   if (result != tinyxml2::XML_SUCCESS) {
@@ -1493,7 +1504,13 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
     }
     if (!gdtfConflicts.empty()) {
       if (promptConflicts) {
+        if (progressCallback)
+          progressCallback("Conflict dialog:show");
         auto choices = PromptGdtfConflicts(gdtfConflicts);
+        if (progressCallback)
+          progressCallback("Conflict dialog:hide");
+        if (progressCallback)
+          progressCallback("Applying GDTF conflict selection...");
         for (auto &[uid, f] : scene.fixtures) {
           auto typeKey = f.typeName;
           auto it = choices.find(typeKey);
@@ -1522,6 +1539,9 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
       }
     }
   }
+
+  if (progressCallback)
+    progressCallback("Building fixtures, trusses, and objects...");
 
   bool hasDefaultLayer = false;
   for (const auto &[uid, layer] : scene.layers) {
@@ -1568,7 +1588,9 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
 
 bool MvrImporter::ImportAndRegister(const std::string &filePath,
                                     bool promptConflicts,
-                                    bool applyDictionary) {
+                                    bool applyDictionary,
+                                    ProgressCallback progressCallback) {
   MvrImporter importer;
-  return importer.ImportFromFile(filePath, promptConflicts, applyDictionary);
+  return importer.ImportFromFile(filePath, promptConflicts, applyDictionary,
+                                 progressCallback);
 }

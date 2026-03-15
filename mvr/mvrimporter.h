@@ -17,6 +17,7 @@
  */
 #pragma once
 
+#include <functional>
 #include <unordered_map>
 #include <string>
 
@@ -27,16 +28,20 @@ public:
     // Imports and parses a .mvr file and stores the data into ConfigManager
     // Set promptConflicts=false to skip showing the dictionary conflict dialog
     // Set applyDictionary=true to resolve GDTF conflicts using the dictionary
+    using ProgressCallback = std::function<void(const std::string& stage)>;
+
     bool ImportFromFile(const std::string& filePath,
                         bool promptConflicts = true,
-                        bool applyDictionary = true);
+                        bool applyDictionary = true,
+                        ProgressCallback progressCallback = {});
 
     // Static interface for use outside the import module (e.g. GUI)
     // Allows the caller to decide whether dictionary conflicts should prompt
     // or whether the dictionary should be applied at all
     static bool ImportAndRegister(const std::string& filePath,
                                   bool promptConflicts = true,
-                                  bool applyDictionary = true);
+                                  bool applyDictionary = true,
+                                  ProgressCallback progressCallback = {});
 
 private:
     std::unordered_map<std::string, std::string> pathRemap;
@@ -51,7 +56,8 @@ private:
     // When promptConflicts is true, the user is asked to resolve GDTF conflicts
     // If applyDictionary is false, existing GDTF assignments are kept intact
     bool ParseSceneXml(const std::string& sceneXmlPath, bool promptConflicts,
-                       bool applyDictionary);
+                       bool applyDictionary,
+                       ProgressCallback progressCallback);
 
     std::string NormalizeArchivePath(const std::string& archivePath) const;
     std::string RemapArchivePathIfNeeded(const std::string& archivePath) const;
