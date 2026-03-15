@@ -268,6 +268,8 @@ func _build_runtime_gobo_bindings(binding: Dictionary, frame: PackedByteArray) -
 		var has_index_channel: bool = _has_control_channel(item, "index_channel_index_0", "index_fine_channel_index_0", "index_ultra_fine_channel_index_0")
 		var has_rotation_channel: bool = _has_control_channel(item, "rotation_channel_index_0", "rotation_fine_channel_index_0", "rotation_ultra_fine_channel_index_0")
 		var has_behavior_ranges: bool = not ranges.is_empty()
+		var is_rotation_behavior: bool = range_behavior == GOBO_BEHAVIOR_ROTATION or range_behavior == GOBO_BEHAVIOR_SHAKE
+		var uses_range_rotation: bool = is_rotation_behavior and not has_rotation_channel
 		var supports_index: bool = false
 		var supports_rotation: bool = false
 		if has_behavior_ranges:
@@ -275,13 +277,16 @@ func _build_runtime_gobo_bindings(binding: Dictionary, frame: PackedByteArray) -
 			# dedicated index/rotation channels still drive the wheel. Keep channel
 			# authority enabled, but prevent conflicting index+spin by honoring
 			# explicit index ranges as spin-disabled segments.
-			supports_index = (range_behavior == GOBO_BEHAVIOR_INDEX) or (has_index_channel and range_behavior != GOBO_BEHAVIOR_ROTATION and range_behavior != GOBO_BEHAVIOR_SHAKE)
-			supports_rotation = (range_behavior == GOBO_BEHAVIOR_ROTATION or range_behavior == GOBO_BEHAVIOR_SHAKE) or (has_rotation_channel and range_behavior != GOBO_BEHAVIOR_INDEX)
+			supports_index = (range_behavior == GOBO_BEHAVIOR_INDEX) or (has_index_channel and not is_rotation_behavior)
+			supports_rotation = is_rotation_behavior or (has_rotation_channel and range_behavior != GOBO_BEHAVIOR_INDEX)
 		else:
 			supports_index = has_index_channel
 			supports_rotation = has_rotation_channel
+		if uses_range_rotation:
+			supports_rotation = true
 		var index_norm: float = -1.0
 		var rotation_norm: float = -1.0
+		var rotation_raw: int = raw_8bit
 		var rotation_ranges: Array = item.get("rotation_ranges", [])
 		var rotation_physical: float = 0.0
 		if supports_index:
@@ -289,11 +294,14 @@ func _build_runtime_gobo_bindings(binding: Dictionary, frame: PackedByteArray) -
 			if index_norm < 0.0 and range_behavior == GOBO_BEHAVIOR_INDEX:
 				index_norm = _resolve_norm_from_active_range(raw_8bit, active_range)
 		if supports_rotation:
-			rotation_norm = _read_optional_control_norm(frame, int(item.get("rotation_channel_index_0", -1)), int(item.get("rotation_fine_channel_index_0", -1)), int(item.get("rotation_ultra_fine_channel_index_0", -1)))
-			if rotation_norm < 0.0 and (range_behavior == GOBO_BEHAVIOR_ROTATION or range_behavior == GOBO_BEHAVIOR_SHAKE):
+			if has_rotation_channel:
+				rotation_norm = _read_optional_control_norm(frame, int(item.get("rotation_channel_index_0", -1)), int(item.get("rotation_fine_channel_index_0", -1)), int(item.get("rotation_ultra_fine_channel_index_0", -1)))
+			if uses_range_rotation:
+				rotation_norm = _resolve_norm_from_active_range(raw_8bit, active_range)
+			elif rotation_norm < 0.0 and is_rotation_behavior:
 				rotation_norm = _resolve_norm_from_active_range(raw_8bit, active_range)
 			if rotation_norm >= 0.0 and not rotation_ranges.is_empty():
-				rotation_physical = _resolve_rotation_physical(rotation_norm * DMX_8BIT_MAX_VALUE, rotation_ranges)
+				rotation_physical = _resolve_rotation_physical(rotation_raw, rotation_ranges)
 		runtime_bindings.append({
 			"wheel_number": int(item.get("wheel_number", 0)),
 			"wheel_name": str(item.get("wheel_name", "")),
@@ -311,6 +319,9 @@ func _build_runtime_gobo_bindings(binding: Dictionary, frame: PackedByteArray) -
 			"has_rotation_physical_ranges": not rotation_ranges.is_empty(),
 			"has_rotation_physical_value": not rotation_ranges.is_empty() and rotation_norm >= 0.0,
 			"rotation_physical": rotation_physical,
+			"rotation_raw": rotation_raw,
+			"rotation_raw_value": rotation_raw,
+			"rotation_active_range": active_range,
 			"rotation_ranges": rotation_ranges,
 			"index_norm": index_norm,
 			"rotation_norm": rotation_norm,

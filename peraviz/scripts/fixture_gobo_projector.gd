@@ -146,7 +146,9 @@ func _resolve_wheel_rotation_deg(light: SpotLight3D, controls: Dictionary, wheel
 
 	if supports_rotation and rotation_norm >= 0.0 and delta_sec > 0.0:
 		var speed_deg_per_sec: float = 0.0
-		if bool(wheel.get("has_rotation_physical_ranges", false)) and bool(wheel.get("has_rotation_physical_value", false)):
+		var has_rotation_physical_ranges: bool = bool(wheel.get("has_rotation_physical_ranges", false))
+		var has_rotation_physical_value: bool = bool(wheel.get("has_rotation_physical_value", false))
+		if has_rotation_physical_ranges and has_rotation_physical_value:
 			speed_deg_per_sec = float(wheel.get("rotation_physical", 0.0))
 		elif bool(wheel.get("has_rotation_physical_limits", false)):
 			var rotation_physical_min: float = float(wheel.get("rotation_physical_min", -GOBO_ROTATION_MAX_DEG_PER_SEC * 0.5))
@@ -157,7 +159,11 @@ func _resolve_wheel_rotation_deg(light: SpotLight3D, controls: Dictionary, wheel
 				speed_deg_per_sec = lerp(rotation_physical_min, rotation_physical_max, clamp(rotation_norm, 0.0, 1.0))
 		else:
 			speed_deg_per_sec = _resolve_symmetric_rotation_speed(rotation_norm, -GOBO_ROTATION_MAX_DEG_PER_SEC, GOBO_ROTATION_MAX_DEG_PER_SEC)
-		spin_angle_deg = wrapf(spin_angle_deg + (speed_deg_per_sec * delta_sec), -360000.0, 360000.0)
+
+		if has_rotation_physical_ranges and absf(speed_deg_per_sec) <= 0.0001:
+			spin_angle_deg = 0.0
+		else:
+			spin_angle_deg = wrapf(spin_angle_deg + (speed_deg_per_sec * delta_sec), -360000.0, 360000.0)
 		wheel_spin_state[wheel_key] = spin_angle_deg
 		light.set_meta(GOBO_WHEEL_SPIN_META_KEY, wheel_spin_state)
 
