@@ -305,8 +305,12 @@ func _build_runtime_gobo_bindings(binding: Dictionary, frame: PackedByteArray) -
 		var rotation_raw_fine: int = -1
 		var rotation_raw_8bit: int = raw_8bit
 		var rotation_source_channel: String = "select"
-		var rotation_mode_window_from: int = int(active_range.get("mode_from_8bit", 0))
-		var rotation_mode_window_to: int = int(active_range.get("mode_to_8bit", 255))
+		# Dedicated rotation channels should not inherit mode window limits from the
+		# active gobo select range, otherwise speed resolution may vary by slot.
+		# Keep a wide window by default and only scope to select-range mode windows
+		# when rotation is sourced from the select channel itself.
+		var rotation_mode_window_from: int = 0
+		var rotation_mode_window_to: int = 255
 		var rotation_has_value: bool = false
 		var rotation_ranges: Array = item.get("rotation_ranges", [])
 		var resolved_rotation: Dictionary = {}
@@ -333,6 +337,8 @@ func _build_runtime_gobo_bindings(binding: Dictionary, frame: PackedByteArray) -
 				rotation_raw = raw_8bit
 				rotation_raw_8bit = raw_8bit
 				rotation_source_channel = "select"
+				rotation_mode_window_from = int(active_range.get("mode_from_8bit", 0))
+				rotation_mode_window_to = int(active_range.get("mode_to_8bit", 255))
 				rotation_raw_coarse = raw_8bit
 				rotation_raw_fine = -1
 				rotation_has_value = true
@@ -341,6 +347,8 @@ func _build_runtime_gobo_bindings(binding: Dictionary, frame: PackedByteArray) -
 				rotation_raw = raw_8bit
 				rotation_raw_8bit = raw_8bit
 				rotation_source_channel = "select"
+				rotation_mode_window_from = int(active_range.get("mode_from_8bit", 0))
+				rotation_mode_window_to = int(active_range.get("mode_to_8bit", 255))
 				rotation_raw_coarse = raw_8bit
 				rotation_raw_fine = -1
 				rotation_has_value = true
