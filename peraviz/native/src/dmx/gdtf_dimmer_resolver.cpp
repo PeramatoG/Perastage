@@ -693,7 +693,7 @@ int parse_dmx_value_8bit(const char *raw_value) {
             char *resolution_end = nullptr;
             const long parsed_resolution = std::strtol(resolution_part.c_str(), &resolution_end, 10);
             if (resolution_end != resolution_part.c_str() && parsed_resolution > 0L) {
-                resolution_bytes = static_cast<int>(std::clamp(parsed_resolution, 1L, 3L));
+                resolution_bytes = static_cast<int>(std::clamp(parsed_resolution, 1L, 4L));
             }
         }
     }
@@ -713,8 +713,17 @@ int parse_dmx_value_8bit(const char *raw_value) {
         return static_cast<int>(clamped_16 >> 8);
     }
 
-    const long clamped_24 = std::clamp(parsed, 0L, 16777215L);
-    return static_cast<int>(clamped_24 >> 16);
+    if (resolution_bytes == 3) {
+        const long clamped_24 = std::clamp(parsed, 0L, 16777215L);
+        return static_cast<int>(clamped_24 >> 16);
+    }
+
+    const long long parsed_64 = std::strtoll(value.c_str(), &end, 10);
+    if (end == value.c_str() || parsed_64 < 0LL) {
+        return -1;
+    }
+    const long long clamped_32 = std::clamp(parsed_64, 0LL, 4294967295LL);
+    return static_cast<int>(clamped_32 >> 24);
 }
 
 std::string read_attr_ci(tinyxml2::XMLElement *node, const char *name_a, const char *name_b) {
