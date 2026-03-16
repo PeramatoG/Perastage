@@ -25,6 +25,8 @@ const GOBO_APPLIED_ROTATION_DEG_META_KEY: String = "peraviz_gobo_applied_rotatio
 const GOBO_WHEEL_MODE_META_KEY: String = "peraviz_gobo_wheel_mode"
 const GOBO_INDEX_MAX_DEG: float = 360.0
 const GOBO_ROTATION_MAX_DEG_PER_SEC: float = 720.0
+const GOBO_ROTATION_DEBUG_SETTING_KEY: String = "peraviz_debug_gobo_rotation"
+const GOBO_ROTATION_DEBUG_DEFAULT: bool = false
 
 const GOBO_BEHAVIOR_FIXED: int = 0
 const GOBO_BEHAVIOR_INDEX: int = 1
@@ -174,8 +176,35 @@ func _resolve_wheel_rotation_deg(light: SpotLight3D, controls: Dictionary, wheel
 		light.set_meta(GOBO_WHEEL_SPIN_META_KEY, wheel_spin_state)
 		return base_rotation_deg
 
+	_log_rotation_debug_if_enabled(wheel, wheel_key, behavior, rotation_norm, delta_sec)
 	return base_rotation_deg + spin_angle_deg
 
+
+
+func _log_rotation_debug_if_enabled(wheel: Dictionary, wheel_key: String, behavior: int, rotation_norm: float, delta_sec: float) -> void:
+	if not bool(ProjectSettings.get_setting(GOBO_ROTATION_DEBUG_SETTING_KEY, GOBO_ROTATION_DEBUG_DEFAULT)):
+		return
+	print("[PeravizGoboRotation] wheel_key=%s wheel_number=%d wheel_name=%s behavior=%d source=%s raw_coarse=%d raw_fine=%d raw_8bit=%d mode_window=%d-%d matched_range=%d-%d matched_physical=%.4f->%.4f stop=%s dir=%d speed_dps=%.4f norm=%.4f dt=%.4f" % [
+		wheel_key,
+		int(wheel.get("wheel_number", 0)),
+		str(wheel.get("wheel_name", "")),
+		behavior,
+		str(wheel.get("rotation_source_channel", "")),
+		int(wheel.get("rotation_raw_coarse", -1)),
+		int(wheel.get("rotation_raw_fine", -1)),
+		int(wheel.get("rotation_raw_8bit", -1)),
+		int(wheel.get("rotation_mode_window_from", -1)),
+		int(wheel.get("rotation_mode_window_to", -1)),
+		int(wheel.get("rotation_matched_range_start", -1)),
+		int(wheel.get("rotation_matched_range_end", -1)),
+		float(wheel.get("rotation_matched_physical_from", 0.0)),
+		float(wheel.get("rotation_matched_physical_to", 0.0)),
+		str(bool(wheel.get("rotation_is_stop_range", false))),
+		int(wheel.get("rotation_direction_sign", 0)),
+		float(wheel.get("rotation_speed_deg_per_sec", wheel.get("rotation_physical", 0.0))),
+		rotation_norm,
+		delta_sec,
+	])
 
 
 func _resolve_symmetric_rotation_speed(rotation_norm: float, speed_min: float, speed_max: float) -> float:

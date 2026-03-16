@@ -255,6 +255,17 @@ Dictionary PeravizLoader::build_fixture_dimmer_bindings(int universe_offset) con
             wheel_item["has_rotation_physical_limits"] = wheel.has_rotation_physical_limits;
             wheel_item["rotation_physical_min"] = wheel.rotation_physical_min;
             wheel_item["rotation_physical_max"] = wheel.rotation_physical_max;
+            wheel_item["rotation_source_channel"] = String("select");
+            wheel_item["rotation_raw_coarse"] = -1;
+            wheel_item["rotation_raw_fine"] = -1;
+            wheel_item["rotation_raw_8bit"] = -1;
+            wheel_item["rotation_mode_window_from"] = -1;
+            wheel_item["rotation_mode_window_to"] = -1;
+            wheel_item["rotation_matched_range_start"] = -1;
+            wheel_item["rotation_matched_range_end"] = -1;
+            wheel_item["rotation_matched_physical_from"] = 0.0;
+            wheel_item["rotation_matched_physical_to"] = 0.0;
+            wheel_item["rotation_is_stop_range"] = false;
 
             Array rotation_ranges;
             rotation_ranges.resize(static_cast<int64_t>(wheel.rotation_ranges.size()));
