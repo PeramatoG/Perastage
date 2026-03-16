@@ -141,16 +141,25 @@ func _resolve_wheel_rotation_deg(light: SpotLight3D, controls: Dictionary, wheel
 		rotation_norm = clamp(float(controls.get("gobo_rotation_norm", 0.5)), 0.0, 1.0)
 
 	var spin_angle_deg: float = float(wheel_spin_state.get(wheel_key, 0.0))
-	if index_norm >= 0.0:
+	var has_native_speed: bool = bool(wheel.get("has_rotation_physical_value", false))
+	var native_speed_deg_per_sec: float = float(wheel.get("rotation_speed_deg_per_sec", wheel.get("rotation_physical", 0.0)))
+	var native_is_stop: bool = bool(wheel.get("is_stop", false))
+	var has_active_rotation_command: bool = false
+	if supports_rotation:
+		if has_native_speed:
+			has_active_rotation_command = not native_is_stop and absf(native_speed_deg_per_sec) > 0.0001
+		elif rotation_norm >= 0.0:
+			has_active_rotation_command = absf(rotation_norm - 0.5) > 0.01
+
+	if index_norm >= 0.0 and not has_active_rotation_command:
 		wheel_spin_state[wheel_key] = 0.0
 		light.set_meta(GOBO_WHEEL_SPIN_META_KEY, wheel_spin_state)
 		return base_rotation_deg
 
 	if supports_rotation and delta_sec > 0.0:
 		var speed_deg_per_sec: float = 0.0
-		var has_native_speed: bool = bool(wheel.get("has_rotation_physical_value", false))
 		if has_native_speed:
-			speed_deg_per_sec = float(wheel.get("rotation_speed_deg_per_sec", wheel.get("rotation_physical", 0.0)))
+			speed_deg_per_sec = native_speed_deg_per_sec
 		else:
 			# Symmetric fallback only when native-resolved speed is unavailable.
 			if rotation_norm >= 0.0 and bool(wheel.get("has_rotation_physical_limits", false)):
