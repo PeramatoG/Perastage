@@ -1225,20 +1225,25 @@ void consume_channel_offsets(tinyxml2::XMLElement *dmx_channel,
                 function_dmx_to = parse_dmx_value_8bit(channel_function->Attribute("dmxto"));
             }
 
-            int function_mode_from = parse_dmx_value_8bit(channel_function->Attribute("ModeFrom"));
-            if (function_mode_from < 0) {
-                function_mode_from = parse_dmx_value_8bit(channel_function->Attribute("modefrom"));
-            }
-            if (function_mode_from < 0) {
-                function_mode_from = function_dmx_from;
+            const bool has_mode_master =
+                channel_function->Attribute("ModeMaster") != nullptr ||
+                channel_function->Attribute("modemaster") != nullptr;
+
+            int parsed_mode_from = parse_dmx_value_8bit(channel_function->Attribute("ModeFrom"));
+            if (parsed_mode_from < 0) {
+                parsed_mode_from = parse_dmx_value_8bit(channel_function->Attribute("modefrom"));
             }
 
-            int function_mode_to = parse_dmx_value_8bit(channel_function->Attribute("ModeTo"));
-            if (function_mode_to < 0) {
-                function_mode_to = parse_dmx_value_8bit(channel_function->Attribute("modeto"));
+            int parsed_mode_to = parse_dmx_value_8bit(channel_function->Attribute("ModeTo"));
+            if (parsed_mode_to < 0) {
+                parsed_mode_to = parse_dmx_value_8bit(channel_function->Attribute("modeto"));
             }
-            if (function_mode_to < 0) {
-                function_mode_to = 255;
+
+            int function_mode_from = 0;
+            int function_mode_to = 255;
+            if (has_mode_master || parsed_mode_from >= 0 || parsed_mode_to >= 0) {
+                function_mode_from = parsed_mode_from >= 0 ? parsed_mode_from : 0;
+                function_mode_to = parsed_mode_to >= 0 ? parsed_mode_to : 255;
             }
 
             function_dmx_from = std::clamp(function_dmx_from, 0, 255);
