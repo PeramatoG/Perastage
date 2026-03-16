@@ -157,12 +157,18 @@ func _read_control(binding: Dictionary,
 					   has_key: String,
 					   value_key: String) -> void:
 	var coarse_index: int = int(binding.get(coarse_key, -1))
-	if not _is_valid_channel_index(frame, coarse_index):
-		return
-
 	var fine_index: int = int(binding.get(fine_key, -1))
 	var ultra_fine_index: int = int(binding.get(ultra_fine_key, -1))
-	var value: Dictionary = _read_control_value(frame, coarse_index, fine_index, ultra_fine_index)
+	var resolved_indices: Dictionary = _resolve_control_indices(frame, coarse_index, fine_index, ultra_fine_index)
+	if not bool(resolved_indices.get("has_value", false)):
+		return
+
+	var value: Dictionary = _read_control_value(
+		frame,
+		int(resolved_indices.get("coarse", -1)),
+		int(resolved_indices.get("fine", -1)),
+		int(resolved_indices.get("ultra_fine", -1))
+	)
 
 	controls[has_key] = true
 	controls[value_key] = value.get("norm", 0.0)
@@ -256,9 +262,17 @@ func _build_runtime_gobo_bindings(binding: Dictionary, frame: PackedByteArray) -
 		if item is not Dictionary:
 			continue
 		var coarse_index: int = int(item.get("channel_index_0", -1))
-		if not _is_valid_channel_index(frame, coarse_index):
+		var fine_index: int = int(item.get("fine_channel_index_0", -1))
+		var ultra_fine_index: int = int(item.get("ultra_fine_channel_index_0", -1))
+		var resolved_indices: Dictionary = _resolve_control_indices(frame, coarse_index, fine_index, ultra_fine_index)
+		if not bool(resolved_indices.get("has_value", false)):
 			continue
-		var value: Dictionary = _read_control_value(frame, coarse_index, int(item.get("fine_channel_index_0", -1)), int(item.get("ultra_fine_channel_index_0", -1)))
+		var value: Dictionary = _read_control_value(
+			frame,
+			int(resolved_indices.get("coarse", -1)),
+			int(resolved_indices.get("fine", -1)),
+			int(resolved_indices.get("ultra_fine", -1))
+		)
 		var raw_8bit: int = _resolve_raw_to_8bit(int(value.get("raw", 0)), int(value.get("resolution_bits", 8)))
 		var ranges: Array = item.get("ranges", [])
 		var active_range: Dictionary = _resolve_gobo_range(raw_8bit, ranges)
@@ -453,17 +467,60 @@ func _resolve_rotation_runtime(raw_8bit: int, ranges: Array) -> Dictionary:
 
 
 func _read_optional_control_value(frame: PackedByteArray, coarse_index: int, fine_index: int, ultra_fine_index: int) -> Dictionary:
-	if not _is_valid_channel_index(frame, coarse_index):
+	var resolved_indices: Dictionary = _resolve_control_indices(frame, coarse_index, fine_index, ultra_fine_index)
+	if not bool(resolved_indices.get("has_value", false)):
 		return {}
-	return _read_control_value(frame, coarse_index, fine_index, ultra_fine_index)
+	return _read_control_value(
+		frame,
+		int(resolved_indices.get("coarse", -1)),
+		int(resolved_indices.get("fine", -1)),
+		int(resolved_indices.get("ultra_fine", -1))
+	)
 
 func _read_optional_control_norm(frame: PackedByteArray, coarse_index: int, fine_index: int, ultra_fine_index: int) -> float:
-	if not _is_valid_channel_index(frame, coarse_index):
+	var resolved_indices: Dictionary = _resolve_control_indices(frame, coarse_index, fine_index, ultra_fine_index)
+	if not bool(resolved_indices.get("has_value", false)):
 		return -1.0
-	var value: Dictionary = _read_control_value(frame, coarse_index, fine_index, ultra_fine_index)
+	var value: Dictionary = _read_control_value(
+		frame,
+		int(resolved_indices.get("coarse", -1)),
+		int(resolved_indices.get("fine", -1)),
+		int(resolved_indices.get("ultra_fine", -1))
+	)
 	return clamp(float(value.get("norm", 0.0)), 0.0, 1.0)
 
+func _resolve_control_indices(frame: PackedByteArray, coarse_index: int, fine_index: int, ultra_fine_index: int) -> Dictionary:
+	if _is_valid_channel_index(frame, coarse_index):
+		return {
+			"has_value": true,
+			"coarse": coarse_index,
+			"fine": fine_index,
+			"ultra_fine": ultra_fine_index,
+		}
+
+	if _is_valid_channel_index(frame, fine_index):
+		return {
+			"has_value": true,
+			"coarse": fine_index,
+			"fine": ultra_fine_index,
+			"ultra_fine": -1,
+		}
+
+	if _is_valid_channel_index(frame, ultra_fine_index):
+		return {
+			"has_value": true,
+			"coarse": ultra_fine_index,
+			"fine": -1,
+			"ultra_fine": -1,
+		}
+
+	return {
+		"has_value": false,
+	}
+
 func _resolve_raw_to_8bit(raw_value: int, resolution_bits: int) -> int:
+	if resolution_bits >= 32:
+		return clampi(raw_value >> 24, 0, 255)
 	if resolution_bits >= 24:
 		return clampi(raw_value >> 16, 0, 255)
 	if resolution_bits >= 16:
