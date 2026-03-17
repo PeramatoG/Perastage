@@ -1454,10 +1454,35 @@ void consume_channel_offsets(tinyxml2::XMLElement *dmx_channel,
                 if (!wheel) {
                     break;
                 }
+
+                int candidate_rotation_coarse = -1;
+                int candidate_rotation_fine = -1;
+                int candidate_rotation_ultra_fine = -1;
                 consume_offsets(offsets, parsed_attribute.is_fine, parsed_attribute.byte_index,
-                                wheel->rotation_coarse_offset_1_based,
-                                wheel->rotation_fine_offset_1_based,
-                                wheel->rotation_ultra_fine_offset_1_based);
+                                candidate_rotation_coarse,
+                                candidate_rotation_fine,
+                                candidate_rotation_ultra_fine);
+
+                const std::string attribute_lower = lower_ascii(trim_ascii(attribute));
+                const bool has_mode_master =
+                    channel_function->Attribute("ModeMaster") != nullptr ||
+                    channel_function->Attribute("modemaster") != nullptr;
+                const bool prefers_position_rotation_channel =
+                    attribute_lower.find("posrotate") != std::string::npos ||
+                    attribute_lower.find("posrotation") != std::string::npos ||
+                    (attribute_lower.find("gobo") != std::string::npos &&
+                     attribute_lower.find("pos") != std::string::npos &&
+                     attribute_lower.find("rotate") != std::string::npos);
+                const bool should_replace_rotation_channel =
+                    wheel->rotation_coarse_offset_1_based <= 0 ||
+                    (candidate_rotation_coarse > 0 && candidate_rotation_coarse < wheel->rotation_coarse_offset_1_based) ||
+                    (candidate_rotation_coarse > 0 && (has_mode_master || prefers_position_rotation_channel));
+                if (should_replace_rotation_channel) {
+                    wheel->rotation_coarse_offset_1_based = candidate_rotation_coarse;
+                    wheel->rotation_fine_offset_1_based = candidate_rotation_fine;
+                    wheel->rotation_ultra_fine_offset_1_based = candidate_rotation_ultra_fine;
+                }
+
                 consume_gobo_physical_range(channel_function,
                                             wheel->has_rotation_physical_limits,
                                             wheel->rotation_physical_min,
