@@ -298,8 +298,7 @@ func _build_runtime_gobo_bindings(binding: Dictionary, frame: PackedByteArray) -
 		var rotation_has_value: bool = false
 		var rotation_ranges: Array = item.get("rotation_ranges", [])
 		var resolved_rotation: Dictionary = {}
-		var active_mode_from_8bit: int = int(active_range.get("mode_from_8bit", 0))
-		var active_mode_to_8bit: int = int(active_range.get("mode_to_8bit", 255))
+		var mode_master_value_8bit: int = raw_8bit
 
 		if has_index_channel and supports_index:
 			var index_coarse_index: int = int(item.get("index_channel_index_0", -1))
@@ -357,7 +356,7 @@ func _build_runtime_gobo_bindings(binding: Dictionary, frame: PackedByteArray) -
 				rotation_has_value = true
 
 		if rotation_has_value and not rotation_ranges.is_empty():
-			resolved_rotation = _resolve_rotation_runtime(rotation_raw_8bit, rotation_ranges, active_mode_from_8bit, active_mode_to_8bit)
+			resolved_rotation = _resolve_rotation_runtime(rotation_raw_8bit, rotation_ranges, mode_master_value_8bit)
 		var has_resolved_rotation_range: bool = bool(resolved_rotation.get("has_range", false))
 		var matched_range: Dictionary = resolved_rotation.get("range", {})
 		var rotation_matched_range_start: int = int(matched_range.get("dmx_from", -1))
@@ -370,8 +369,8 @@ func _build_runtime_gobo_bindings(binding: Dictionary, frame: PackedByteArray) -
 			"wheel_name": str(item.get("wheel_name", "")),
 			"raw_8bit": raw_8bit,
 			"slot_index": int(active_range.get("slot_index", 0)),
-			"mode_from_8bit": active_mode_from_8bit,
-			"mode_to_8bit": active_mode_to_8bit,
+			"mode_from_8bit": int(active_range.get("mode_from_8bit", 0)),
+			"mode_to_8bit": int(active_range.get("mode_to_8bit", 255)),
 			"behavior": range_behavior,
 			"supports_index": supports_index,
 			"supports_rotation": supports_rotation,
@@ -390,8 +389,8 @@ func _build_runtime_gobo_bindings(binding: Dictionary, frame: PackedByteArray) -
 			"rotation_raw_coarse": rotation_raw_coarse,
 			"rotation_raw_fine": rotation_raw_fine,
 			"rotation_raw_8bit": rotation_raw_8bit,
-			"rotation_mode_window_from": active_mode_from_8bit,
-			"rotation_mode_window_to": active_mode_to_8bit,
+			"rotation_mode_window_from": mode_master_value_8bit,
+			"rotation_mode_window_to": mode_master_value_8bit,
 			"rotation_matched_range_start": rotation_matched_range_start,
 			"rotation_matched_range_end": rotation_matched_range_end,
 			"rotation_matched_physical_from": rotation_matched_physical_from,
@@ -423,7 +422,7 @@ func _resolve_norm_from_active_range(raw_8bit: int, active_range: Dictionary) ->
 	return float(clamped_raw - dmx_from) / float(dmx_to - dmx_from)
 
 
-func _resolve_rotation_runtime(raw_8bit: int, ranges: Array, active_mode_from: int, active_mode_to: int) -> Dictionary:
+func _resolve_rotation_runtime(raw_8bit: int, ranges: Array, mode_master_value_8bit: int) -> Dictionary:
 	for item in ranges:
 		if item is not Dictionary:
 			continue
@@ -434,7 +433,7 @@ func _resolve_rotation_runtime(raw_8bit: int, ranges: Array, active_mode_from: i
 			var mode_swap: int = range_mode_from
 			range_mode_from = range_mode_to
 			range_mode_to = mode_swap
-		if range_mode_from > active_mode_to or range_mode_to < active_mode_from:
+		if mode_master_value_8bit < range_mode_from or mode_master_value_8bit > range_mode_to:
 			continue
 
 		var dmx_from: int = int(range_data.get("dmx_from", 0))
