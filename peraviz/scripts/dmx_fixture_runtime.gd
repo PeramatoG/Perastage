@@ -299,6 +299,10 @@ func _build_runtime_gobo_bindings(binding: Dictionary, frame: PackedByteArray) -
 		if uses_range_rotation:
 			supports_rotation = true
 		var index_norm: float = -1.0
+		var index_raw: int = -1
+		var index_raw_8bit: int = -1
+		var index_raw_coarse: int = -1
+		var index_raw_fine: int = -1
 		var rotation_norm: float = -1.0
 		var rotation_raw: int = raw_8bit
 		var rotation_raw_coarse: int = raw_8bit
@@ -315,7 +319,16 @@ func _build_runtime_gobo_bindings(binding: Dictionary, frame: PackedByteArray) -
 		var rotation_ranges: Array = item.get("rotation_ranges", [])
 		var resolved_rotation: Dictionary = {}
 		if supports_index:
-			index_norm = _read_optional_control_norm(frame, int(item.get("index_channel_index_0", -1)), int(item.get("index_fine_channel_index_0", -1)), int(item.get("index_ultra_fine_channel_index_0", -1)))
+			var index_coarse_index: int = int(item.get("index_channel_index_0", -1))
+			var index_fine_index: int = int(item.get("index_fine_channel_index_0", -1))
+			var index_ultra_fine_index: int = int(item.get("index_ultra_fine_channel_index_0", -1))
+			var index_value: Dictionary = _read_optional_control_value(frame, index_coarse_index, index_fine_index, index_ultra_fine_index)
+			if not index_value.is_empty():
+				index_norm = clamp(float(index_value.get("norm", 0.0)), 0.0, 1.0)
+				index_raw = int(index_value.get("raw", 0))
+				index_raw_8bit = _resolve_raw_to_8bit(index_raw, int(index_value.get("resolution_bits", 8)))
+				index_raw_coarse = int(frame[index_coarse_index]) if _is_valid_channel_index(frame, index_coarse_index) else index_raw_8bit
+				index_raw_fine = int(frame[index_fine_index]) if _is_valid_channel_index(frame, index_fine_index) else -1
 			if index_norm < 0.0 and range_behavior == GOBO_BEHAVIOR_INDEX:
 				index_norm = _resolve_norm_from_active_range(raw_8bit, active_range)
 		if supports_rotation:
@@ -332,7 +345,17 @@ func _build_runtime_gobo_bindings(binding: Dictionary, frame: PackedByteArray) -
 					rotation_raw_coarse = int(frame[rotation_coarse_index]) if _is_valid_channel_index(frame, rotation_coarse_index) else rotation_raw_8bit
 					rotation_raw_fine = int(frame[rotation_fine_index]) if _is_valid_channel_index(frame, rotation_fine_index) else -1
 					rotation_has_value = true
-			if uses_range_rotation:
+			if not has_rotation_channel and has_index_channel and is_rotation_behavior and index_norm >= 0.0:
+				rotation_norm = index_norm
+				rotation_raw_8bit = index_raw_8bit if index_raw_8bit >= 0 else raw_8bit
+				rotation_raw = rotation_raw_8bit
+				rotation_source_channel = "index"
+				rotation_mode_window_from = int(active_range.get("mode_from_8bit", 0))
+				rotation_mode_window_to = int(active_range.get("mode_to_8bit", 255))
+				rotation_raw_coarse = index_raw_coarse if index_raw_coarse >= 0 else rotation_raw_8bit
+				rotation_raw_fine = index_raw_fine
+				rotation_has_value = true
+			if uses_range_rotation and not rotation_has_value:
 				rotation_norm = _resolve_norm_from_active_range(raw_8bit, active_range)
 				rotation_raw = raw_8bit
 				rotation_raw_8bit = raw_8bit
