@@ -1336,7 +1336,10 @@ void consume_channel_offsets(tinyxml2::XMLElement *dmx_channel,
             if (function_dmx_to < 0) {
                 function_dmx_to = 255;
                 if (channel_function_index + 1 < channel_functions.size()) {
-                    function_dmx_to = function_dmx_from_values[channel_function_index + 1] - 1;
+                    const int next_function_dmx_from = function_dmx_from_values[channel_function_index + 1];
+                    if (next_function_dmx_from > function_dmx_from) {
+                        function_dmx_to = next_function_dmx_from - 1;
+                    }
                 }
             }
             function_dmx_to = std::clamp(function_dmx_to, function_dmx_from, 255);
