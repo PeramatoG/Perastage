@@ -527,6 +527,8 @@ void consume_gobo_rotation_channel_sets(tinyxml2::XMLElement *channel_function,
 
     const int clamped_function_from = std::clamp(function_dmx_from, 0, 255);
     const int clamped_function_to = std::clamp(function_dmx_to, clamped_function_from, 255);
+    const int clamped_mode_from = std::clamp(mode_window_from, 0, 255);
+    const int clamped_mode_to = std::clamp(mode_window_to, clamped_mode_from, 255);
     const auto resolve_channel_set_dmx =
         [clamped_function_from, clamped_function_to](int raw_value) -> int {
             if (raw_value >= clamped_function_from && raw_value <= 255) {
@@ -575,9 +577,6 @@ void consume_gobo_rotation_channel_sets(tinyxml2::XMLElement *channel_function,
 
         parsed_ranges.push_back({dmx_start, dmx_end, physical_from, physical_to});
     }
-
-    const int clamped_mode_from = std::clamp(mode_window_from, 0, 255);
-    const int clamped_mode_to = std::clamp(mode_window_to, clamped_mode_from, 255);
 
     if (parsed_ranges.empty()) {
         float function_physical_from = 0.0F;
@@ -938,7 +937,9 @@ void consume_gobo_channel_sets(tinyxml2::XMLElement *channel_function,
                                const GoboWheelCatalog &wheel_catalog,
                                peraviz::dmx::FixtureGoboWheelOffset &out_wheel,
                                int function_dmx_from,
-                               int function_dmx_to) {
+                               int function_dmx_to,
+                               int mode_window_from,
+                               int mode_window_to) {
     if (!channel_function) {
         return;
     }
@@ -973,11 +974,16 @@ void consume_gobo_channel_sets(tinyxml2::XMLElement *channel_function,
         int slot_index = -1;
         peraviz::dmx::FixtureGoboRangeBehavior behavior =
             peraviz::dmx::FixtureGoboRangeBehavior::kFixed;
+        bool has_physical = false;
+        float physical_from = 0.0F;
+        float physical_to = 0.0F;
     };
     std::vector<ParsedGoboSet> parsed_sets;
 
     const int clamped_function_from = std::clamp(function_dmx_from, 0, 255);
     const int clamped_function_to = std::clamp(function_dmx_to, clamped_function_from, 255);
+    const int clamped_mode_from = std::clamp(mode_window_from, 0, 255);
+    const int clamped_mode_to = std::clamp(mode_window_to, clamped_mode_from, 255);
 
     const auto resolve_channel_set_dmx =
         [clamped_function_from, clamped_function_to](int raw_value) -> int {
@@ -1040,7 +1046,12 @@ void consume_gobo_channel_sets(tinyxml2::XMLElement *channel_function,
             // In that case, inherit the function behavior for all rows.
             behavior = function_behavior_hint;
         }
-        parsed_sets.push_back({dmx_from, dmx_to, slot_index, behavior});
+        float physical_from = 0.0F;
+        float physical_to = 0.0F;
+        const bool has_physical_from = parse_float_attr_ci(channel_set, "PhysicalFrom", "physicalfrom", physical_from);
+        const bool has_physical_to = parse_float_attr_ci(channel_set, "PhysicalTo", "physicalto", physical_to);
+        const bool has_physical = has_physical_from && has_physical_to;
+        parsed_sets.push_back({dmx_from, dmx_to, slot_index, behavior, has_physical, physical_from, physical_to});
     }
 
     if (parsed_sets.empty()) {
@@ -1067,7 +1078,21 @@ void consume_gobo_channel_sets(tinyxml2::XMLElement *channel_function,
             std::swap(row.dmx_from, row.dmx_to);
         }
 
-        out_wheel.ranges.push_back({row.dmx_from, row.dmx_to, clamped_function_from, clamped_function_to, row.slot_index, row.behavior});
+        out_wheel.ranges.push_back({row.dmx_from, row.dmx_to, clamped_mode_from, clamped_mode_to, row.slot_index, row.behavior});
+
+        if ((row.behavior == peraviz::dmx::FixtureGoboRangeBehavior::kRotation ||
+             row.behavior == peraviz::dmx::FixtureGoboRangeBehavior::kShake) &&
+            row.has_physical) {
+            peraviz::dmx::FixtureGoboRotationRange rotation_range;
+            rotation_range.dmx_start = row.dmx_from;
+            rotation_range.dmx_end = row.dmx_to;
+            rotation_range.mode_from_8bit = clamped_mode_from;
+            rotation_range.mode_to_8bit = clamped_mode_to;
+            rotation_range.physical_from = row.physical_from;
+            rotation_range.physical_to = row.physical_to;
+            rotation_range.is_stop_range = std::fabs(row.physical_from) < 0.0001F && std::fabs(row.physical_to) < 0.0001F;
+            out_wheel.rotation_ranges.push_back(rotation_range);
+        }
     }
 }
 
@@ -1357,7 +1382,8 @@ void consume_channel_offsets(tinyxml2::XMLElement *dmx_channel,
                                 wheel->fine_offset_1_based,
                                 wheel->ultra_fine_offset_1_based);
                 consume_gobo_channel_sets(channel_function, wheel_catalog, *wheel,
-                                          function_dmx_from, function_dmx_to);
+                                          function_dmx_from, function_dmx_to,
+                                          function_mode_from, function_mode_to);
                 break;
             }
             case AttributeRole::kGoboIndex: {
