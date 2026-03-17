@@ -973,6 +973,16 @@ void consume_gobo_channel_sets(tinyxml2::XMLElement *channel_function,
 
     const int clamped_function_from = std::clamp(function_dmx_from, 0, 255);
     const int clamped_function_to = std::clamp(function_dmx_to, clamped_function_from, 255);
+    const int clamped_mode_from = std::clamp(mode_window_from, 0, 255);
+    const int clamped_mode_to = std::clamp(mode_window_to, clamped_mode_from, 255);
+
+    float function_physical_from = 0.0F;
+    float function_physical_to = 0.0F;
+    const bool has_function_physical_from =
+        parse_float_attr_ci(channel_function, "PhysicalFrom", "physicalfrom", function_physical_from);
+    const bool has_function_physical_to =
+        parse_float_attr_ci(channel_function, "PhysicalTo", "physicalto", function_physical_to);
+    const bool has_function_physical = has_function_physical_from && has_function_physical_to;
 
     const auto resolve_channel_set_dmx =
         [clamped_function_from, clamped_function_to](int raw_value) -> int {
