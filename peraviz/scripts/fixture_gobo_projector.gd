@@ -24,7 +24,6 @@ const GOBO_LAST_UPDATE_MSEC_META_KEY: String = "peraviz_gobo_last_update_msec"
 const GOBO_APPLIED_ROTATION_DEG_META_KEY: String = "peraviz_gobo_applied_rotation_deg"
 const GOBO_WHEEL_MODE_META_KEY: String = "peraviz_gobo_wheel_mode"
 const GOBO_INDEX_MAX_DEG: float = 360.0
-const GOBO_ROTATION_MAX_DEG_PER_SEC: float = 720.0
 const GOBO_ROTATION_DEBUG_SETTING_KEY: String = "peraviz_debug_gobo_rotation"
 const GOBO_ROTATION_DEBUG_DEFAULT: bool = false
 
@@ -136,20 +135,11 @@ func _resolve_wheel_rotation_deg(light: SpotLight3D, controls: Dictionary, wheel
 		else:
 			base_rotation_deg = lerp(0.0, GOBO_INDEX_MAX_DEG, clamp(index_norm, 0.0, 1.0))
 
-	var rotation_norm: float = float(wheel.get("rotation_norm", -1.0))
-	if supports_rotation and index_norm < 0.0 and rotation_norm < 0.0 and bool(controls.get("has_gobo_rotation", false)):
-		rotation_norm = clamp(float(controls.get("gobo_rotation_norm", 0.5)), 0.0, 1.0)
-
 	var spin_angle_deg: float = float(wheel_spin_state.get(wheel_key, 0.0))
 	var has_native_speed: bool = bool(wheel.get("has_rotation_physical_value", false))
 	var native_speed_deg_per_sec: float = float(wheel.get("rotation_speed_deg_per_sec", wheel.get("rotation_physical", 0.0)))
 	var native_is_stop: bool = bool(wheel.get("is_stop", false))
-	var has_active_rotation_command: bool = false
-	if supports_rotation:
-		if has_native_speed:
-			has_active_rotation_command = not native_is_stop and absf(native_speed_deg_per_sec) > 0.0001
-		elif rotation_norm >= 0.0:
-			has_active_rotation_command = absf(rotation_norm - 0.5) > 0.01
+	var has_active_rotation_command: bool = supports_rotation and has_native_speed and not native_is_stop and absf(native_speed_deg_per_sec) > 0.0001
 
 	if index_norm >= 0.0 and not has_active_rotation_command:
 		wheel_spin_state[wheel_key] = 0.0
@@ -157,22 +147,12 @@ func _resolve_wheel_rotation_deg(light: SpotLight3D, controls: Dictionary, wheel
 		return base_rotation_deg
 
 	if supports_rotation and delta_sec > 0.0:
-		var speed_deg_per_sec: float = 0.0
-		if has_native_speed:
-			speed_deg_per_sec = native_speed_deg_per_sec
-		else:
-			# Symmetric fallback only when native-resolved speed is unavailable.
-			if rotation_norm >= 0.0 and bool(wheel.get("has_rotation_physical_limits", false)):
-				var rotation_physical_min: float = float(wheel.get("rotation_physical_min", -GOBO_ROTATION_MAX_DEG_PER_SEC * 0.5))
-				var rotation_physical_max: float = float(wheel.get("rotation_physical_max", GOBO_ROTATION_MAX_DEG_PER_SEC * 0.5))
-				if rotation_physical_min < 0.0 and rotation_physical_max > 0.0:
-					speed_deg_per_sec = _resolve_symmetric_rotation_speed(rotation_norm, rotation_physical_min, rotation_physical_max)
-				else:
-					speed_deg_per_sec = lerp(rotation_physical_min, rotation_physical_max, clamp(rotation_norm, 0.0, 1.0))
-			elif rotation_norm >= 0.0:
-				speed_deg_per_sec = _resolve_symmetric_rotation_speed(rotation_norm, -GOBO_ROTATION_MAX_DEG_PER_SEC, GOBO_ROTATION_MAX_DEG_PER_SEC)
-
-		var is_stop: bool = bool(wheel.get("is_stop", false)) if has_native_speed else absf(speed_deg_per_sec) <= 0.0001
+		if not has_native_speed:
+			wheel_spin_state[wheel_key] = 0.0
+			light.set_meta(GOBO_WHEEL_SPIN_META_KEY, wheel_spin_state)
+			return base_rotation_deg
+		var speed_deg_per_sec: float = native_speed_deg_per_sec
+		var is_stop: bool = bool(wheel.get("is_stop", false))
 		if is_stop:
 			spin_angle_deg = 0.0
 		else:
@@ -185,15 +165,15 @@ func _resolve_wheel_rotation_deg(light: SpotLight3D, controls: Dictionary, wheel
 		light.set_meta(GOBO_WHEEL_SPIN_META_KEY, wheel_spin_state)
 		return base_rotation_deg
 
-	_log_rotation_debug_if_enabled(wheel, wheel_key, behavior, rotation_norm, delta_sec)
+	_log_rotation_debug_if_enabled(wheel, wheel_key, behavior, delta_sec)
 	return base_rotation_deg + spin_angle_deg
 
 
 
-func _log_rotation_debug_if_enabled(wheel: Dictionary, wheel_key: String, behavior: int, rotation_norm: float, delta_sec: float) -> void:
+func _log_rotation_debug_if_enabled(wheel: Dictionary, wheel_key: String, behavior: int, delta_sec: float) -> void:
 	if not bool(ProjectSettings.get_setting(GOBO_ROTATION_DEBUG_SETTING_KEY, GOBO_ROTATION_DEBUG_DEFAULT)):
 		return
-	print("[PeravizGoboRotation] wheel_key=%s wheel_number=%d wheel_name=%s behavior=%d source=%s raw_coarse=%d raw_fine=%d raw_8bit=%d mode_window=%d-%d matched_range=%d-%d matched_physical=%.4f->%.4f stop=%s dir=%d speed_dps=%.4f norm=%.4f dt=%.4f" % [
+	print("[PeravizGoboRotation] wheel_key=%s wheel_number=%d wheel_name=%s behavior=%d source=%s raw_coarse=%d raw_fine=%d raw_8bit=%d mode_window=%d-%d matched_range=%d-%d matched_physical=%.4f->%.4f stop=%s dir=%d speed_dps=%.4f dt=%.4f" % [
 		wheel_key,
 		int(wheel.get("wheel_number", 0)),
 		str(wheel.get("wheel_name", "")),
@@ -211,20 +191,9 @@ func _log_rotation_debug_if_enabled(wheel: Dictionary, wheel_key: String, behavi
 		str(bool(wheel.get("rotation_is_stop_range", false))),
 		int(wheel.get("rotation_direction_sign", 0)),
 		float(wheel.get("rotation_speed_deg_per_sec", wheel.get("rotation_physical", 0.0))),
-		rotation_norm,
 		delta_sec,
 	])
 
-
-func _resolve_symmetric_rotation_speed(rotation_norm: float, speed_min: float, speed_max: float) -> float:
-	var normalized: float = clamp(rotation_norm, 0.0, 1.0)
-	if normalized < 0.49:
-		var negative_ratio: float = normalized / 0.49
-		return lerp(speed_min, 0.0, negative_ratio)
-	if normalized <= 0.51:
-		return 0.0
-	var positive_ratio: float = (normalized - 0.51) / 0.49
-	return lerp(0.0, speed_max, positive_ratio)
 
 func _wheel_owns_rotation_control(wheel: Dictionary) -> bool:
 	if wheel.is_empty():
@@ -234,9 +203,6 @@ func _wheel_owns_rotation_control(wheel: Dictionary) -> bool:
 		return true
 	var index_norm: float = float(wheel.get("index_norm", -1.0))
 	if index_norm >= 0.0:
-		return true
-	var rotation_norm: float = float(wheel.get("rotation_norm", -1.0))
-	if rotation_norm >= 0.0:
 		return true
 	return false
 

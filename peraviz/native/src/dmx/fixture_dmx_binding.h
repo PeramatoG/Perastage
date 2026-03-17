@@ -42,10 +42,8 @@ struct FixtureGoboRange {
 };
 
 struct FixtureGoboRotationRange {
-    int dmx_start = 0;
-    int dmx_end = 255;
-    int mode_from_8bit = 0;
-    int mode_to_8bit = 255;
+    int dmx_from = 0;
+    int dmx_to = 255;
     float physical_from = 0.0F;
     float physical_to = 0.0F;
     bool is_stop_range = false;
@@ -55,12 +53,11 @@ struct FixtureGoboWheelBinding {
     FixtureAttributeChannel channel;
     FixtureAttributeChannel index_channel;
     FixtureAttributeChannel rotation_channel;
+    bool supports_index = false;
+    bool supports_rotation = false;
     bool has_index_physical_limits = false;
     float index_physical_min = 0.0F;
     float index_physical_max = 0.0F;
-    bool has_rotation_physical_limits = false;
-    float rotation_physical_min = 0.0F;
-    float rotation_physical_max = 0.0F;
     std::vector<FixtureGoboRotationRange> rotation_ranges;
     int wheel_number = 0;
     std::string wheel_name;
@@ -112,12 +109,11 @@ struct FixtureGoboWheelOffset {
     int rotation_coarse_offset_1_based = -1;
     int rotation_fine_offset_1_based = -1;
     int rotation_ultra_fine_offset_1_based = -1;
+    bool supports_index = false;
+    bool supports_rotation = false;
     bool has_index_physical_limits = false;
     float index_physical_min = 0.0F;
     float index_physical_max = 0.0F;
-    bool has_rotation_physical_limits = false;
-    float rotation_physical_min = 0.0F;
-    float rotation_physical_max = 0.0F;
     std::vector<FixtureGoboRotationRange> rotation_ranges;
     int wheel_number = 0;
     std::string wheel_name;

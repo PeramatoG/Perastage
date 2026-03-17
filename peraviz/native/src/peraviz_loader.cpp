@@ -249,12 +249,11 @@ Dictionary PeravizLoader::build_fixture_dimmer_bindings(int universe_offset) con
             wheel_item["rotation_channel_index_0"] = wheel.rotation_channel.coarse_dmx_channel_index_0;
             wheel_item["rotation_fine_channel_index_0"] = wheel.rotation_channel.fine_dmx_channel_index_0;
             wheel_item["rotation_ultra_fine_channel_index_0"] = wheel.rotation_channel.ultra_fine_dmx_channel_index_0;
+            wheel_item["supports_index"] = wheel.supports_index;
+            wheel_item["supports_rotation"] = wheel.supports_rotation;
             wheel_item["has_index_physical_limits"] = wheel.has_index_physical_limits;
             wheel_item["index_physical_min"] = wheel.index_physical_min;
             wheel_item["index_physical_max"] = wheel.index_physical_max;
-            wheel_item["has_rotation_physical_limits"] = wheel.has_rotation_physical_limits;
-            wheel_item["rotation_physical_min"] = wheel.rotation_physical_min;
-            wheel_item["rotation_physical_max"] = wheel.rotation_physical_max;
             wheel_item["rotation_source_channel"] = String("select");
             wheel_item["rotation_raw_coarse"] = -1;
             wheel_item["rotation_raw_fine"] = -1;
@@ -272,10 +271,8 @@ Dictionary PeravizLoader::build_fixture_dimmer_bindings(int universe_offset) con
             for (int64_t rotation_range_index = 0; rotation_range_index < static_cast<int64_t>(wheel.rotation_ranges.size()); ++rotation_range_index) {
                 const auto &rotation_range = wheel.rotation_ranges[static_cast<size_t>(rotation_range_index)];
                 Dictionary rotation_range_item;
-                rotation_range_item["dmx_start"] = rotation_range.dmx_start;
-                rotation_range_item["dmx_end"] = rotation_range.dmx_end;
-                rotation_range_item["mode_from_8bit"] = rotation_range.mode_from_8bit;
-                rotation_range_item["mode_to_8bit"] = rotation_range.mode_to_8bit;
+                rotation_range_item["dmx_from"] = rotation_range.dmx_from;
+                rotation_range_item["dmx_to"] = rotation_range.dmx_to;
                 rotation_range_item["physical_from"] = rotation_range.physical_from;
                 rotation_range_item["physical_to"] = rotation_range.physical_to;
                 rotation_range_item["is_stop_range"] = rotation_range.is_stop_range;
