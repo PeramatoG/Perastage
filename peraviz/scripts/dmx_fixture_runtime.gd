@@ -318,7 +318,8 @@ func _build_runtime_gobo_bindings(binding: Dictionary, frame: PackedByteArray) -
 		var rotation_has_value: bool = false
 		var rotation_ranges: Array = item.get("rotation_ranges", [])
 		var resolved_rotation: Dictionary = {}
-		if supports_index:
+		var should_read_index_channel: bool = has_index_channel and (supports_index or (supports_rotation and not has_rotation_channel))
+		if should_read_index_channel:
 			var index_coarse_index: int = int(item.get("index_channel_index_0", -1))
 			var index_fine_index: int = int(item.get("index_fine_channel_index_0", -1))
 			var index_ultra_fine_index: int = int(item.get("index_ultra_fine_channel_index_0", -1))
@@ -329,8 +330,8 @@ func _build_runtime_gobo_bindings(binding: Dictionary, frame: PackedByteArray) -
 				index_raw_8bit = _resolve_raw_to_8bit(index_raw, int(index_value.get("resolution_bits", 8)))
 				index_raw_coarse = int(frame[index_coarse_index]) if _is_valid_channel_index(frame, index_coarse_index) else index_raw_8bit
 				index_raw_fine = int(frame[index_fine_index]) if _is_valid_channel_index(frame, index_fine_index) else -1
-			if index_norm < 0.0 and range_behavior == GOBO_BEHAVIOR_INDEX:
-				index_norm = _resolve_norm_from_active_range(raw_8bit, active_range)
+		if supports_index and index_norm < 0.0 and range_behavior == GOBO_BEHAVIOR_INDEX:
+			index_norm = _resolve_norm_from_active_range(raw_8bit, active_range)
 		if supports_rotation:
 			if has_rotation_channel:
 				var rotation_coarse_index: int = int(item.get("rotation_channel_index_0", -1))
