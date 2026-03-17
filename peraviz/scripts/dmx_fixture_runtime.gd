@@ -299,21 +299,39 @@ func _build_runtime_gobo_bindings(binding: Dictionary, frame: PackedByteArray) -
 		if uses_range_rotation:
 			supports_rotation = true
 		var index_norm: float = -1.0
+		var index_raw: int = -1
+		var index_raw_8bit: int = -1
+		var index_raw_coarse: int = -1
+		var index_raw_fine: int = -1
 		var rotation_norm: float = -1.0
 		var rotation_raw: int = raw_8bit
 		var rotation_raw_coarse: int = raw_8bit
 		var rotation_raw_fine: int = -1
 		var rotation_raw_8bit: int = raw_8bit
 		var rotation_source_channel: String = "select"
-		var rotation_mode_window_from: int = int(active_range.get("mode_from_8bit", 0))
-		var rotation_mode_window_to: int = int(active_range.get("mode_to_8bit", 255))
+		# Dedicated rotation channels should not inherit mode window limits from the
+		# active gobo select range, otherwise speed resolution may vary by slot.
+		# Keep a wide window by default and only scope to select-range mode windows
+		# when rotation is sourced from the select channel itself.
+		var rotation_mode_window_from: int = 0
+		var rotation_mode_window_to: int = 255
 		var rotation_has_value: bool = false
 		var rotation_ranges: Array = item.get("rotation_ranges", [])
 		var resolved_rotation: Dictionary = {}
-		if supports_index:
-			index_norm = _read_optional_control_norm(frame, int(item.get("index_channel_index_0", -1)), int(item.get("index_fine_channel_index_0", -1)), int(item.get("index_ultra_fine_channel_index_0", -1)))
-			if index_norm < 0.0 and range_behavior == GOBO_BEHAVIOR_INDEX:
-				index_norm = _resolve_norm_from_active_range(raw_8bit, active_range)
+		var should_read_index_channel: bool = has_index_channel and (supports_index or (supports_rotation and not has_rotation_channel))
+		if should_read_index_channel:
+			var index_coarse_index: int = int(item.get("index_channel_index_0", -1))
+			var index_fine_index: int = int(item.get("index_fine_channel_index_0", -1))
+			var index_ultra_fine_index: int = int(item.get("index_ultra_fine_channel_index_0", -1))
+			var index_value: Dictionary = _read_optional_control_value(frame, index_coarse_index, index_fine_index, index_ultra_fine_index)
+			if not index_value.is_empty():
+				index_norm = clamp(float(index_value.get("norm", 0.0)), 0.0, 1.0)
+				index_raw = int(index_value.get("raw", 0))
+				index_raw_8bit = _resolve_raw_to_8bit(index_raw, int(index_value.get("resolution_bits", 8)))
+				index_raw_coarse = int(frame[index_coarse_index]) if _is_valid_channel_index(frame, index_coarse_index) else index_raw_8bit
+				index_raw_fine = int(frame[index_fine_index]) if _is_valid_channel_index(frame, index_fine_index) else -1
+		if supports_index and index_norm < 0.0 and range_behavior == GOBO_BEHAVIOR_INDEX:
+			index_norm = _resolve_norm_from_active_range(raw_8bit, active_range)
 		if supports_rotation:
 			if has_rotation_channel:
 				var rotation_coarse_index: int = int(item.get("rotation_channel_index_0", -1))
@@ -328,11 +346,23 @@ func _build_runtime_gobo_bindings(binding: Dictionary, frame: PackedByteArray) -
 					rotation_raw_coarse = int(frame[rotation_coarse_index]) if _is_valid_channel_index(frame, rotation_coarse_index) else rotation_raw_8bit
 					rotation_raw_fine = int(frame[rotation_fine_index]) if _is_valid_channel_index(frame, rotation_fine_index) else -1
 					rotation_has_value = true
-			if uses_range_rotation:
+			if not has_rotation_channel and has_index_channel and is_rotation_behavior and index_norm >= 0.0:
+				rotation_norm = index_norm
+				rotation_raw_8bit = index_raw_8bit if index_raw_8bit >= 0 else raw_8bit
+				rotation_raw = rotation_raw_8bit
+				rotation_source_channel = "index"
+				rotation_mode_window_from = int(active_range.get("mode_from_8bit", 0))
+				rotation_mode_window_to = int(active_range.get("mode_to_8bit", 255))
+				rotation_raw_coarse = index_raw_coarse if index_raw_coarse >= 0 else rotation_raw_8bit
+				rotation_raw_fine = index_raw_fine
+				rotation_has_value = true
+			if uses_range_rotation and not rotation_has_value:
 				rotation_norm = _resolve_norm_from_active_range(raw_8bit, active_range)
 				rotation_raw = raw_8bit
 				rotation_raw_8bit = raw_8bit
 				rotation_source_channel = "select"
+				rotation_mode_window_from = int(active_range.get("mode_from_8bit", 0))
+				rotation_mode_window_to = int(active_range.get("mode_to_8bit", 255))
 				rotation_raw_coarse = raw_8bit
 				rotation_raw_fine = -1
 				rotation_has_value = true
@@ -341,13 +371,16 @@ func _build_runtime_gobo_bindings(binding: Dictionary, frame: PackedByteArray) -
 				rotation_raw = raw_8bit
 				rotation_raw_8bit = raw_8bit
 				rotation_source_channel = "select"
+				rotation_mode_window_from = int(active_range.get("mode_from_8bit", 0))
+				rotation_mode_window_to = int(active_range.get("mode_to_8bit", 255))
 				rotation_raw_coarse = raw_8bit
 				rotation_raw_fine = -1
 				rotation_has_value = true
 			if rotation_has_value and not rotation_ranges.is_empty():
-				resolved_rotation = _resolve_rotation_runtime(rotation_raw, rotation_ranges)
+				resolved_rotation = _resolve_rotation_runtime(rotation_raw_8bit, rotation_ranges, rotation_mode_window_from, rotation_mode_window_to)
 		var active_mode_from_8bit: int = int(active_range.get("mode_from_8bit", 0))
 		var active_mode_to_8bit: int = int(active_range.get("mode_to_8bit", 255))
+		var has_resolved_rotation_range: bool = bool(resolved_rotation.get("has_range", false))
 		var matched_range: Dictionary = resolved_rotation.get("range", {})
 		var rotation_matched_range_start: int = int(matched_range.get("dmx_start", -1))
 		var rotation_matched_range_end: int = int(matched_range.get("dmx_end", -1))
@@ -371,12 +404,12 @@ func _build_runtime_gobo_bindings(binding: Dictionary, frame: PackedByteArray) -
 			"rotation_physical_min": float(item.get("rotation_physical_min", 0.0)),
 			"rotation_physical_max": float(item.get("rotation_physical_max", 0.0)),
 			"has_rotation_physical_ranges": not rotation_ranges.is_empty(),
-			"has_rotation_physical_value": not resolved_rotation.is_empty(),
+			"has_rotation_physical_value": has_resolved_rotation_range,
 			"rotation_physical": float(resolved_rotation.get("rotation_speed_deg_per_sec", 0.0)),
 			"rotation_speed_deg_per_sec": float(resolved_rotation.get("rotation_speed_deg_per_sec", 0.0)),
 			"rotation_direction_sign": int(resolved_rotation.get("direction_sign", 0)),
-			"is_stop": bool(resolved_rotation.get("is_stop", false)),
-			"has_resolved_rotation_range": bool(resolved_rotation.get("has_range", false)),
+			"is_stop": bool(resolved_rotation.get("is_stop", true)),
+			"has_resolved_rotation_range": has_resolved_rotation_range,
 			"rotation_resolved_range": resolved_rotation.get("range", {}),
 			"rotation_source_channel": rotation_source_channel,
 			"rotation_raw_coarse": rotation_raw_coarse,
@@ -416,11 +449,27 @@ func _resolve_norm_from_active_range(raw_8bit: int, active_range: Dictionary) ->
 	return float(clamped_raw - dmx_from) / float(dmx_to - dmx_from)
 
 
-func _resolve_rotation_runtime(raw_8bit: int, ranges: Array) -> Dictionary:
+func _resolve_rotation_runtime(raw_8bit: int, ranges: Array, active_mode_from: int, active_mode_to: int) -> Dictionary:
+	var mode_from: int = active_mode_from
+	var mode_to: int = active_mode_to
+	if mode_to < mode_from:
+		var active_mode_swap: int = mode_from
+		mode_from = mode_to
+		mode_to = active_mode_swap
+
 	for item in ranges:
 		if item is not Dictionary:
 			continue
 		var range_data: Dictionary = item
+		var range_mode_from: int = int(range_data.get("mode_from_8bit", 0))
+		var range_mode_to: int = int(range_data.get("mode_to_8bit", 255))
+		if range_mode_to < range_mode_from:
+			var mode_swap_value: int = range_mode_from
+			range_mode_from = range_mode_to
+			range_mode_to = mode_swap_value
+		if range_mode_from > mode_to or range_mode_to < mode_from:
+			continue
+
 		var dmx_start: int = int(range_data.get("dmx_start", 0))
 		var dmx_end: int = int(range_data.get("dmx_end", dmx_start))
 		if dmx_end < dmx_start:
@@ -461,7 +510,7 @@ func _resolve_rotation_runtime(raw_8bit: int, ranges: Array) -> Dictionary:
 		"range": {},
 		"rotation_speed_deg_per_sec": 0.0,
 		"direction_sign": 0,
-		"is_stop": false,
+		"is_stop": true,
 	}
 
 
