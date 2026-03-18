@@ -702,33 +702,36 @@ void consume_gobo_rotation_channel_sets(tinyxml2::XMLElement *channel_function,
             std::swap(row.dmx_start, row.dmx_end);
         }
 
+        const std::string lower_name = lower_ascii(row.name);
+        const bool is_named_stop = lower_name.find("no rotation") != std::string::npos ||
+                                   lower_name.find("stop") != std::string::npos;
+        // Named stop ranges have priority even if fixture files carry inconsistent
+        // non-zero physical values in those rows.
+        if (is_named_stop) {
+            row.physical_from = 0.0F;
+            row.physical_to = 0.0F;
+            row.has_physical = true;
+        }
+
         // Fill in proportional physical values for ChannelSets that don't carry
         // their own, using the parent ChannelFunction's physical range as reference.
         if (!row.has_physical && has_function_physical) {
-            const std::string lower_name = lower_ascii(row.name);
-            const bool is_named_stop = lower_name.find("no rotation") != std::string::npos ||
-                                       lower_name.find("stop") != std::string::npos;
-            if (is_named_stop) {
-                row.physical_from = 0.0F;
-                row.physical_to = 0.0F;
+            const float fn_range =
+                static_cast<float>(clamped_function_to - clamped_function_from);
+            if (fn_range > 0.0F) {
+                const float t_from = std::clamp(
+                    static_cast<float>(row.dmx_start - clamped_function_from) / fn_range,
+                    0.0F, 1.0F);
+                const float t_to = std::clamp(
+                    static_cast<float>(row.dmx_end - clamped_function_from) / fn_range,
+                    0.0F, 1.0F);
+                row.physical_from = function_physical_from +
+                    t_from * (function_physical_to - function_physical_from);
+                row.physical_to = function_physical_from +
+                    t_to * (function_physical_to - function_physical_from);
             } else {
-                const float fn_range =
-                    static_cast<float>(clamped_function_to - clamped_function_from);
-                if (fn_range > 0.0F) {
-                    const float t_from = std::clamp(
-                        static_cast<float>(row.dmx_start - clamped_function_from) / fn_range,
-                        0.0F, 1.0F);
-                    const float t_to = std::clamp(
-                        static_cast<float>(row.dmx_end - clamped_function_from) / fn_range,
-                        0.0F, 1.0F);
-                    row.physical_from = function_physical_from +
-                        t_from * (function_physical_to - function_physical_from);
-                    row.physical_to = function_physical_from +
-                        t_to * (function_physical_to - function_physical_from);
-                } else {
-                    row.physical_from = function_physical_from;
-                    row.physical_to = function_physical_to;
-                }
+                row.physical_from = function_physical_from;
+                row.physical_to = function_physical_to;
             }
             row.has_physical = true;
         }
@@ -1226,7 +1229,7 @@ void consume_gobo_channel_sets(tinyxml2::XMLElement *channel_function,
             const std::string lower_name = lower_ascii(row.name);
             const bool is_named_stop = lower_name.find("no rotation") != std::string::npos ||
                                        lower_name.find("stop") != std::string::npos;
-            if (!has_rotation_physical && is_named_stop) {
+            if (is_named_stop) {
                 rotation_physical_from = 0.0F;
                 rotation_physical_to = 0.0F;
                 has_rotation_physical = true;

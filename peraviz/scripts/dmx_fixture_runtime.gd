@@ -299,6 +299,7 @@ func _build_runtime_gobo_bindings(binding: Dictionary, frame: PackedByteArray) -
 		var rotation_ranges: Array = item.get("rotation_ranges", [])
 		var resolved_rotation: Dictionary = {}
 		var mode_master_value_8bit: int = raw_8bit
+		var rotation_control_norm: float = -1.0
 
 		if has_index_channel and supports_index:
 			var index_coarse_index: int = int(item.get("index_channel_index_0", -1))
@@ -327,6 +328,7 @@ func _build_runtime_gobo_bindings(binding: Dictionary, frame: PackedByteArray) -
 				rotation_source_channel = "rotation"
 				rotation_raw_coarse = int(frame[rotation_coarse_index]) if _is_valid_channel_index(frame, rotation_coarse_index) else rotation_raw_8bit
 				rotation_raw_fine = int(frame[rotation_fine_index]) if _is_valid_channel_index(frame, rotation_fine_index) else -1
+				rotation_control_norm = rotation_value_norm
 
 		if supports_index and index_norm < 0.0 and range_behavior == GOBO_BEHAVIOR_INDEX:
 			if not has_index_channel and rotation_value_available:
@@ -347,6 +349,7 @@ func _build_runtime_gobo_bindings(binding: Dictionary, frame: PackedByteArray) -
 				rotation_raw_coarse = index_raw_coarse if index_raw_coarse >= 0 else rotation_raw_8bit
 				rotation_raw_fine = index_raw_fine
 				rotation_has_value = true
+				rotation_control_norm = clamp(index_norm, 0.0, 1.0)
 			elif uses_range_rotation:
 				rotation_raw = raw_8bit
 				rotation_raw_8bit = raw_8bit
@@ -354,9 +357,10 @@ func _build_runtime_gobo_bindings(binding: Dictionary, frame: PackedByteArray) -
 				rotation_raw_coarse = raw_8bit
 				rotation_raw_fine = -1
 				rotation_has_value = true
+				rotation_control_norm = float(rotation_raw_8bit) / 255.0
 
 		if rotation_has_value and not rotation_ranges.is_empty():
-			resolved_rotation = _resolve_rotation_runtime(rotation_raw_8bit, rotation_ranges, mode_master_value_8bit, rotation_source_channel == "rotation")
+			resolved_rotation = _resolve_rotation_runtime(rotation_raw_8bit, rotation_control_norm, rotation_ranges, mode_master_value_8bit, rotation_source_channel == "rotation")
 		var has_resolved_rotation_range: bool = bool(resolved_rotation.get("has_range", false))
 		var matched_range: Dictionary = resolved_rotation.get("range", {})
 		var rotation_matched_range_start: int = int(matched_range.get("dmx_from", -1))
@@ -422,7 +426,7 @@ func _resolve_norm_from_active_range(raw_8bit: int, active_range: Dictionary) ->
 	return float(clamped_raw - dmx_from) / float(dmx_to - dmx_from)
 
 
-func _resolve_rotation_runtime(raw_8bit: int, ranges: Array, mode_master_value_8bit: int, prefer_rotation_channel_ranges: bool) -> Dictionary:
+func _resolve_rotation_runtime(raw_8bit: int, control_norm: float, ranges: Array, mode_master_value_8bit: int, prefer_rotation_channel_ranges: bool) -> Dictionary:
 	for pass_index in range(2):
 		for item in ranges:
 			if item is not Dictionary:
@@ -459,6 +463,12 @@ func _resolve_rotation_runtime(raw_8bit: int, ranges: Array, mode_master_value_8
 					speed_deg_per_sec = float(range_data.get("physical_to", range_data.get("physical_from", 0.0)))
 				else:
 					var ratio: float = float(raw_8bit - dmx_from) / float(dmx_to - dmx_from)
+					if control_norm >= 0.0:
+						var range_norm_from: float = float(dmx_from) / 255.0
+						var range_norm_to: float = float(dmx_to) / 255.0
+						var range_norm_span: float = range_norm_to - range_norm_from
+						if range_norm_span > 0.0:
+							ratio = clamp((control_norm - range_norm_from) / range_norm_span, 0.0, 1.0)
 					speed_deg_per_sec = lerp(float(range_data.get("physical_from", 0.0)), float(range_data.get("physical_to", 0.0)), ratio)
 			if absf(speed_deg_per_sec) <= 0.0001:
 				is_stop = true
