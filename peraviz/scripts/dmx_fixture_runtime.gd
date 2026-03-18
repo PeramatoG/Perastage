@@ -423,6 +423,19 @@ func _resolve_norm_from_active_range(raw_8bit: int, active_range: Dictionary) ->
 
 
 func _resolve_rotation_runtime(raw_8bit: int, ranges: Array, mode_master_value_8bit: int, prefer_rotation_channel_ranges: bool) -> Dictionary:
+	var resolved_with_mode: Dictionary = _resolve_rotation_runtime_internal(raw_8bit, ranges, mode_master_value_8bit, prefer_rotation_channel_ranges, true)
+	if bool(resolved_with_mode.get("has_range", false)):
+		return resolved_with_mode
+	# Some fixture libraries don't populate ModeMaster windows consistently for
+	# gobo spin ChannelSets. Fallback to raw DMX matching only.
+	return _resolve_rotation_runtime_internal(raw_8bit, ranges, mode_master_value_8bit, prefer_rotation_channel_ranges, false)
+
+
+func _resolve_rotation_runtime_internal(raw_8bit: int,
+		ranges: Array,
+		mode_master_value_8bit: int,
+		prefer_rotation_channel_ranges: bool,
+		require_mode_window_match: bool) -> Dictionary:
 	for pass_index in range(2):
 		for item in ranges:
 			if item is not Dictionary:
@@ -440,7 +453,7 @@ func _resolve_rotation_runtime(raw_8bit: int, ranges: Array, mode_master_value_8
 				var mode_swap: int = range_mode_from
 				range_mode_from = range_mode_to
 				range_mode_to = mode_swap
-			if mode_master_value_8bit < range_mode_from or mode_master_value_8bit > range_mode_to:
+			if require_mode_window_match and (mode_master_value_8bit < range_mode_from or mode_master_value_8bit > range_mode_to):
 				continue
 
 			var dmx_from: int = int(range_data.get("dmx_from", 0))
