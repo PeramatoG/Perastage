@@ -1450,7 +1450,10 @@ void consume_channel_offsets(tinyxml2::XMLElement *dmx_channel,
 
             int function_mode_from = 0;
             int function_mode_to = 255;
-            if (has_mode_master || parsed_mode_from >= 0 || parsed_mode_to >= 0) {
+            // Per GDTF spec, ModeFrom/ModeTo are only meaningful when ModeMaster
+            // is present. Treat stray ModeFrom/ModeTo values without ModeMaster
+            // as non-authoritative and keep the default full 0..255 window.
+            if (has_mode_master) {
                 function_mode_from = parsed_mode_from >= 0 ? parsed_mode_from : 0;
                 function_mode_to = parsed_mode_to >= 0 ? parsed_mode_to : 255;
             }
