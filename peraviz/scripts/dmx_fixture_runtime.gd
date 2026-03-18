@@ -333,7 +333,10 @@ func _build_runtime_gobo_bindings(binding: Dictionary, frame: PackedByteArray) -
 				rotation_control_norm = rotation_value_norm
 
 		if supports_index and index_norm < 0.0 and range_behavior == GOBO_BEHAVIOR_INDEX:
-			if not has_index_channel and rotation_value_available:
+			# Reuse rotation value as index only when there is no dedicated
+			# rotation support for the current wheel context.
+			var can_reuse_rotation_as_index: bool = not has_index_channel and rotation_value_available and not supports_rotation
+			if can_reuse_rotation_as_index:
 				index_norm = rotation_value_norm
 				index_raw_8bit = rotation_raw_8bit
 				index_raw_coarse = rotation_raw_coarse
