@@ -66,6 +66,7 @@ func apply_gobo_projection(light: SpotLight3D, controls: Dictionary) -> bool:
 	var global_rotation_deg: float = float(controls.get("gobo_rotation_deg", GOBO_DEFAULT_ROTATION_DEG))
 	var projected_rotation_deg: float = global_rotation_deg
 	var has_bound_wheel_rotation: bool = false
+	var has_fallback_rotation: bool = false
 
 	for wheel in runtime_bindings:
 		if wheel is not Dictionary:
@@ -84,8 +85,9 @@ func apply_gobo_projection(light: SpotLight3D, controls: Dictionary) -> bool:
 		if _wheel_owns_rotation_control(wheel):
 			projected_rotation_deg = wheel_rotation_deg
 			has_bound_wheel_rotation = true
-		elif not has_bound_wheel_rotation:
+		elif not has_bound_wheel_rotation and not has_fallback_rotation:
 			projected_rotation_deg = wheel_rotation_deg
+			has_fallback_rotation = true
 		source_textures.append(gobo_texture)
 
 	if source_textures.is_empty():
@@ -199,10 +201,17 @@ func _wheel_owns_rotation_control(wheel: Dictionary) -> bool:
 	if wheel.is_empty():
 		return false
 	var behavior: int = int(wheel.get("behavior", GOBO_BEHAVIOR_FIXED))
-	if behavior == GOBO_BEHAVIOR_INDEX or behavior == GOBO_BEHAVIOR_ROTATION or behavior == GOBO_BEHAVIOR_SHAKE:
+	if behavior == GOBO_BEHAVIOR_ROTATION or behavior == GOBO_BEHAVIOR_SHAKE:
 		return true
-	var index_norm: float = float(wheel.get("index_norm", -1.0))
-	if index_norm >= 0.0:
+	var supports_rotation: bool = bool(wheel.get("supports_rotation", false))
+	if not supports_rotation:
+		return false
+	var has_rotation_ranges: bool = bool(wheel.get("has_rotation_physical_ranges", false))
+	var has_rotation_value: bool = bool(wheel.get("has_rotation_physical_value", false))
+	if has_rotation_ranges or has_rotation_value:
+		return true
+	var rotation_ranges: Array = wheel.get("rotation_ranges", [])
+	if not rotation_ranges.is_empty():
 		return true
 	return false
 
