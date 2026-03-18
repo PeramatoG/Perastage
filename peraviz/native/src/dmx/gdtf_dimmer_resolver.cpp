@@ -598,6 +598,7 @@ void consume_gobo_rotation_channel_sets(tinyxml2::XMLElement *channel_function,
         range.physical_to = function_physical_to;
         range.is_stop_range = std::fabs(function_physical_from) < 0.0001F &&
                               std::fabs(function_physical_to) < 0.0001F;
+        range.is_rotation_channel_range = true;
         out_ranges.push_back(range);
         return;
     }
@@ -631,6 +632,7 @@ void consume_gobo_rotation_channel_sets(tinyxml2::XMLElement *channel_function,
         range.physical_from = row.physical_from;
         range.physical_to = row.physical_to;
         range.is_stop_range = std::fabs(row.physical_from) < 0.0001F && std::fabs(row.physical_to) < 0.0001F;
+        range.is_rotation_channel_range = true;
         out_ranges.push_back(range);
     }
 }
@@ -986,6 +988,14 @@ void consume_gobo_channel_sets(tinyxml2::XMLElement *channel_function,
     const int clamped_mode_from = std::clamp(mode_window_from, 0, 255);
     const int clamped_mode_to = std::clamp(mode_window_to, clamped_mode_from, 255);
 
+    float function_physical_from = 0.0F;
+    float function_physical_to = 0.0F;
+    const bool has_function_physical_from =
+        parse_float_attr_ci(channel_function, "PhysicalFrom", "physicalfrom", function_physical_from);
+    const bool has_function_physical_to =
+        parse_float_attr_ci(channel_function, "PhysicalTo", "physicalto", function_physical_to);
+    const bool has_function_physical = has_function_physical_from && has_function_physical_to;
+
     const auto resolve_channel_set_dmx =
         [clamped_function_from, clamped_function_to](int raw_value) -> int {
         // GDTF libraries may encode ChannelSet DMX values either as absolute
@@ -1087,10 +1097,37 @@ void consume_gobo_channel_sets(tinyxml2::XMLElement *channel_function,
 
         if (row.behavior == peraviz::dmx::FixtureGoboRangeBehavior::kRotation ||
             row.behavior == peraviz::dmx::FixtureGoboRangeBehavior::kShake) {
-            // Rotation ranges must come from dedicated Gobo(n)PosRotate channel
-            // functions, because gobo select ranges only describe active slot
-            // behavior and not the DMX speed curve for the rotation channel.
             out_wheel.supports_rotation = true;
+            float rotation_physical_from = row.physical_from;
+            float rotation_physical_to = row.physical_to;
+            bool has_rotation_physical = row.has_physical;
+            if (!has_rotation_physical && has_function_physical) {
+                rotation_physical_from = function_physical_from;
+                rotation_physical_to = function_physical_to;
+                has_rotation_physical = true;
+            }
+
+            const std::string lower_name = lower_ascii(row.name);
+            const bool is_named_stop = lower_name.find("no rotation") != std::string::npos ||
+                                       lower_name.find("stop") != std::string::npos;
+            if (!has_rotation_physical && is_named_stop) {
+                rotation_physical_from = 0.0F;
+                rotation_physical_to = 0.0F;
+                has_rotation_physical = true;
+            }
+
+            if (has_rotation_physical) {
+                peraviz::dmx::FixtureGoboRotationRange rotation_range;
+                rotation_range.dmx_from = row.dmx_from;
+                rotation_range.dmx_to = row.dmx_to;
+                rotation_range.mode_from_8bit = clamped_mode_from;
+                rotation_range.mode_to_8bit = clamped_mode_to;
+                rotation_range.physical_from = rotation_physical_from;
+                rotation_range.physical_to = rotation_physical_to;
+                rotation_range.is_stop_range = std::fabs(rotation_physical_from) < 0.0001F && std::fabs(rotation_physical_to) < 0.0001F;
+                rotation_range.is_rotation_channel_range = false;
+                out_wheel.rotation_ranges.push_back(rotation_range);
+            }
         }
     }
 }
@@ -1202,7 +1239,8 @@ void dedupe_and_sort_gobo_wheel(peraviz::dmx::FixtureGoboWheelOffset &wheel) {
                                a.mode_from_8bit == b.mode_from_8bit &&
                                a.mode_to_8bit == b.mode_to_8bit &&
                                a.physical_from == b.physical_from &&
-                               a.physical_to == b.physical_to;
+                               a.physical_to == b.physical_to &&
+                               a.is_rotation_channel_range == b.is_rotation_channel_range;
                     }),
         wheel.rotation_ranges.end());
 }

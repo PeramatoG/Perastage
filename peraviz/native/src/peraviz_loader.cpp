@@ -278,6 +278,7 @@ Dictionary PeravizLoader::build_fixture_dimmer_bindings(int universe_offset) con
                 rotation_range_item["physical_from"] = rotation_range.physical_from;
                 rotation_range_item["physical_to"] = rotation_range.physical_to;
                 rotation_range_item["is_stop_range"] = rotation_range.is_stop_range;
+                rotation_range_item["is_rotation_channel_range"] = rotation_range.is_rotation_channel_range;
                 rotation_ranges[rotation_range_index] = rotation_range_item;
             }
             wheel_item["rotation_ranges"] = rotation_ranges;

@@ -356,7 +356,7 @@ func _build_runtime_gobo_bindings(binding: Dictionary, frame: PackedByteArray) -
 				rotation_has_value = true
 
 		if rotation_has_value and not rotation_ranges.is_empty():
-			resolved_rotation = _resolve_rotation_runtime(rotation_raw_8bit, rotation_ranges, mode_master_value_8bit)
+			resolved_rotation = _resolve_rotation_runtime(rotation_raw_8bit, rotation_ranges, mode_master_value_8bit, rotation_source_channel == "rotation")
 		var has_resolved_rotation_range: bool = bool(resolved_rotation.get("has_range", false))
 		var matched_range: Dictionary = resolved_rotation.get("range", {})
 		var rotation_matched_range_start: int = int(matched_range.get("dmx_from", -1))
@@ -422,54 +422,61 @@ func _resolve_norm_from_active_range(raw_8bit: int, active_range: Dictionary) ->
 	return float(clamped_raw - dmx_from) / float(dmx_to - dmx_from)
 
 
-func _resolve_rotation_runtime(raw_8bit: int, ranges: Array, mode_master_value_8bit: int) -> Dictionary:
-	for item in ranges:
-		if item is not Dictionary:
-			continue
-		var range_data: Dictionary = item
-		var range_mode_from: int = int(range_data.get("mode_from_8bit", 0))
-		var range_mode_to: int = int(range_data.get("mode_to_8bit", 255))
-		if range_mode_to < range_mode_from:
-			var mode_swap: int = range_mode_from
-			range_mode_from = range_mode_to
-			range_mode_to = mode_swap
-		if mode_master_value_8bit < range_mode_from or mode_master_value_8bit > range_mode_to:
-			continue
+func _resolve_rotation_runtime(raw_8bit: int, ranges: Array, mode_master_value_8bit: int, prefer_rotation_channel_ranges: bool) -> Dictionary:
+	for pass_index in range(2):
+		for item in ranges:
+			if item is not Dictionary:
+				continue
+			var range_data: Dictionary = item
+			var is_rotation_channel_range: bool = bool(range_data.get("is_rotation_channel_range", false))
+			if pass_index == 0 and is_rotation_channel_range != prefer_rotation_channel_ranges:
+				continue
+			if pass_index == 1 and is_rotation_channel_range == prefer_rotation_channel_ranges:
+				continue
 
-		var dmx_from: int = int(range_data.get("dmx_from", 0))
-		var dmx_to: int = int(range_data.get("dmx_to", dmx_from))
-		if dmx_to < dmx_from:
-			var swap_value: int = dmx_from
-			dmx_from = dmx_to
-			dmx_to = swap_value
-		if raw_8bit < dmx_from or raw_8bit > dmx_to:
-			continue
+			var range_mode_from: int = int(range_data.get("mode_from_8bit", 0))
+			var range_mode_to: int = int(range_data.get("mode_to_8bit", 255))
+			if range_mode_to < range_mode_from:
+				var mode_swap: int = range_mode_from
+				range_mode_from = range_mode_to
+				range_mode_to = mode_swap
+			if mode_master_value_8bit < range_mode_from or mode_master_value_8bit > range_mode_to:
+				continue
 
-		var is_stop: bool = bool(range_data.get("is_stop_range", false))
-		var speed_deg_per_sec: float = 0.0
-		if not is_stop:
-			if dmx_to <= dmx_from:
-				speed_deg_per_sec = float(range_data.get("physical_to", range_data.get("physical_from", 0.0)))
-			else:
-				var ratio: float = float(raw_8bit - dmx_from) / float(dmx_to - dmx_from)
-				speed_deg_per_sec = lerp(float(range_data.get("physical_from", 0.0)), float(range_data.get("physical_to", 0.0)), ratio)
-		if absf(speed_deg_per_sec) <= 0.0001:
-			is_stop = true
-			speed_deg_per_sec = 0.0
+			var dmx_from: int = int(range_data.get("dmx_from", 0))
+			var dmx_to: int = int(range_data.get("dmx_to", dmx_from))
+			if dmx_to < dmx_from:
+				var swap_value: int = dmx_from
+				dmx_from = dmx_to
+				dmx_to = swap_value
+			if raw_8bit < dmx_from or raw_8bit > dmx_to:
+				continue
 
-		var direction_sign: int = 0
-		if speed_deg_per_sec > 0.0:
-			direction_sign = 1
-		elif speed_deg_per_sec < 0.0:
-			direction_sign = -1
+			var is_stop: bool = bool(range_data.get("is_stop_range", false))
+			var speed_deg_per_sec: float = 0.0
+			if not is_stop:
+				if dmx_to <= dmx_from:
+					speed_deg_per_sec = float(range_data.get("physical_to", range_data.get("physical_from", 0.0)))
+				else:
+					var ratio: float = float(raw_8bit - dmx_from) / float(dmx_to - dmx_from)
+					speed_deg_per_sec = lerp(float(range_data.get("physical_from", 0.0)), float(range_data.get("physical_to", 0.0)), ratio)
+			if absf(speed_deg_per_sec) <= 0.0001:
+				is_stop = true
+				speed_deg_per_sec = 0.0
 
-		return {
-			"has_range": true,
-			"range": range_data,
-			"rotation_speed_deg_per_sec": speed_deg_per_sec,
-			"direction_sign": direction_sign,
-			"is_stop": is_stop,
-		}
+			var direction_sign: int = 0
+			if speed_deg_per_sec > 0.0:
+				direction_sign = 1
+			elif speed_deg_per_sec < 0.0:
+				direction_sign = -1
+
+			return {
+				"has_range": true,
+				"range": range_data,
+				"rotation_speed_deg_per_sec": speed_deg_per_sec,
+				"direction_sign": direction_sign,
+				"is_stop": is_stop,
+			}
 
 	return {
 		"has_range": false,

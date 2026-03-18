@@ -49,6 +49,7 @@ struct FixtureGoboRotationRange {
     float physical_from = 0.0F;
     float physical_to = 0.0F;
     bool is_stop_range = false;
+    bool is_rotation_channel_range = false;
 };
 
 struct FixtureGoboWheelBinding {
