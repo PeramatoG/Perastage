@@ -28,6 +28,7 @@
 #include "matrixutils.h"
 #include "configmanager.h"
 #include "opaque_pass_utils.h"
+#include "universe_color.h"
 #include "perastage_svg_symbol_builder.h"
 #include "scenedatamanager.h"
 #include "symbols/PerastageSvgSymbol.h"
@@ -307,6 +308,21 @@ std::array<float, 3> BuildSvgVertexForView(float x, float y, Viewer2DView view) 
   }
 }
 
+static int ParseUniverseFromAddress(const std::string &address) {
+  if (address.empty())
+    return -1;
+  const size_t dot = address.find('.');
+  if (dot == std::string::npos)
+    return -1;
+  int u = 0;
+  for (size_t i = 0; i < dot; ++i) {
+    if (address[i] < '0' || address[i] > '9')
+      return -1;
+    u = u * 10 + (address[i] - '0');
+  }
+  return u > 0 ? u : -1;
+}
+
 bool DrawPerastageSvgInFixturePass(const PerastageSvgSymbolData &svg,
                                    Viewer2DView view, float fillR, float fillG,
                                    float fillB) {
@@ -482,6 +498,11 @@ void OpaqueFixturePass::Render(
         b = c[2];
       } else if (mode == Viewer2DRenderMode::ByLayer) {
         auto c = getLayerColor(f.layer);
+        r = c[0];
+        g = c[1];
+        b = c[2];
+      } else if (mode == Viewer2DRenderMode::ByUniverse) {
+        auto c = GetUniverseColor(ParseUniverseFromAddress(f.address));
         r = c[0];
         g = c[1];
         b = c[2];

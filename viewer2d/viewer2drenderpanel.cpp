@@ -46,9 +46,9 @@ Viewer2DRenderPanel::Viewer2DRenderPanel(wxWindow *parent)
                        wxVSCROLL) {
   SetInstance(this);
   ConfigManager &cfg = ConfigManager::Get();
-  wxString choices[] = {"Wireframe", "White", "By device type", "By layer"};
+  wxString choices[] = {"Wireframe", "White", "By device type", "By layer", "By universe"};
   m_radio = new wxRadioBox(this, wxID_ANY, "Render mode", wxDefaultPosition,
-                           wxDefaultSize, 4, choices, 1, wxRA_SPECIFY_COLS);
+                           wxDefaultSize, 5, choices, 1, wxRA_SPECIFY_COLS);
   m_radio->SetSelection(static_cast<int>(cfg.GetFloat("view2d_render_mode")));
   m_radio->Bind(wxEVT_RADIOBOX, &Viewer2DRenderPanel::OnRadio, this);
 

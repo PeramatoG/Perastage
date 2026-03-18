@@ -14,7 +14,8 @@ enum class Viewer2DRenderMode {
   Wireframe = 0,
   White,
   ByFixtureType,
-  ByLayer
+  ByLayer,
+  ByUniverse
 };
 
 // Available orientations for the 2D viewer
@@ -77,6 +78,7 @@ struct RenderFrameContext {
 
   bool colorByFixtureType = false;
   bool colorByLayer = false;
+  bool colorByUniverse = false;
 
   std::unordered_set<std::string> hiddenLayers;
 };

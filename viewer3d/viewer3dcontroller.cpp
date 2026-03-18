@@ -961,6 +961,8 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
   const bool isByFixtureTypeMode =
       context.mode == Viewer2DRenderMode::ByFixtureType;
   const bool isByLayerMode = context.mode == Viewer2DRenderMode::ByLayer;
+  const bool isByUniverseMode =
+      context.mode == Viewer2DRenderMode::ByUniverse;
 
   context.useLighting = !context.wireframe;
   context.useAmbientOcclusion =
@@ -978,6 +980,7 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
   context.colorByFixtureType =
       context.wireframe && isByFixtureTypeMode;
   context.colorByLayer = context.wireframe && isByLayerMode;
+  context.colorByUniverse = context.wireframe && isByUniverseMode;
 
   // Keep explicit mode flags local to the context build step to avoid
   // branching logic in the render execution code path.
