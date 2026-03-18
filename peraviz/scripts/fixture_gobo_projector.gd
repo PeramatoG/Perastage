@@ -65,7 +65,9 @@ func apply_gobo_projection(light: SpotLight3D, controls: Dictionary) -> bool:
 	var source_textures: Array[Texture2D] = []
 	var global_rotation_deg: float = float(controls.get("gobo_rotation_deg", GOBO_DEFAULT_ROTATION_DEG))
 	var projected_rotation_deg: float = global_rotation_deg
-	var selected_rotation_priority: int = -1
+	var has_fallback_rotation: bool = false
+	var has_active_wheel_rotation: bool = false
+	var accumulated_wheel_spin_deg: float = 0.0
 
 	for wheel in runtime_bindings:
 		if wheel is not Dictionary:
@@ -81,14 +83,19 @@ func apply_gobo_projection(light: SpotLight3D, controls: Dictionary) -> bool:
 			continue
 
 		var wheel_rotation_deg: float = _resolve_wheel_rotation_deg(light, controls, wheel, global_rotation_deg, delta_sec)
-		var wheel_rotation_priority: int = _resolve_wheel_rotation_priority(wheel)
-		if wheel_rotation_priority > selected_rotation_priority:
+		var wheel_base_rotation_deg: float = _resolve_wheel_base_rotation_deg(controls, wheel, global_rotation_deg)
+		if _wheel_has_active_rotation_command(wheel):
+			has_active_wheel_rotation = true
+			accumulated_wheel_spin_deg += wheel_rotation_deg - wheel_base_rotation_deg
+		elif not has_fallback_rotation:
 			projected_rotation_deg = wheel_rotation_deg
-			selected_rotation_priority = wheel_rotation_priority
+			has_fallback_rotation = true
 		source_textures.append(gobo_texture)
 
 	if source_textures.is_empty():
 		return _apply_vector_fallback_gobo(light, previous_meta_texture, controls)
+	if has_active_wheel_rotation:
+		projected_rotation_deg = wrapf(global_rotation_deg + accumulated_wheel_spin_deg, -360000.0, 360000.0)
 
 	var projected_gobo: Texture2D = _compose_gobo_textures(source_textures)
 	_apply_gobo_visuals(light, projected_gobo, controls)
@@ -122,17 +129,8 @@ func _resolve_wheel_rotation_deg(light: SpotLight3D, controls: Dictionary, wheel
 	var effect_mode: int = _resolve_wheel_effect_mode(behavior, supports_index, supports_rotation)
 	_handle_wheel_mode_transition(light, wheel_key, effect_mode)
 
-	var index_norm: float = float(wheel.get("index_norm", -1.0))
-	if supports_index and index_norm < 0.0 and bool(controls.get("has_gobo_index", false)):
-		index_norm = clamp(float(controls.get("gobo_index_norm", 0.0)), 0.0, 1.0)
-	var base_rotation_deg: float = global_rotation_deg
-	if index_norm >= 0.0:
-		if bool(wheel.get("has_index_physical_limits", false)):
-			var index_physical_min: float = float(wheel.get("index_physical_min", 0.0))
-			var index_physical_max: float = float(wheel.get("index_physical_max", 0.0))
-			base_rotation_deg = lerp(index_physical_min, index_physical_max, clamp(index_norm, 0.0, 1.0))
-		else:
-			base_rotation_deg = lerp(0.0, GOBO_INDEX_MAX_DEG, clamp(index_norm, 0.0, 1.0))
+	var index_norm: float = _resolve_wheel_index_norm(controls, wheel, supports_index)
+	var base_rotation_deg: float = _resolve_wheel_base_rotation_deg(controls, wheel, global_rotation_deg)
 
 	var spin_angle_deg: float = float(wheel_spin_state.get(wheel_key, 0.0))
 	var has_native_speed: bool = bool(wheel.get("has_rotation_physical_value", false))
@@ -168,6 +166,27 @@ func _resolve_wheel_rotation_deg(light: SpotLight3D, controls: Dictionary, wheel
 	return base_rotation_deg + spin_angle_deg
 
 
+func _resolve_wheel_index_norm(controls: Dictionary, wheel: Dictionary, supports_index: bool) -> float:
+	var index_norm: float = float(wheel.get("index_norm", -1.0))
+	if supports_index and index_norm < 0.0 and bool(controls.get("has_gobo_index", false)):
+		index_norm = clamp(float(controls.get("gobo_index_norm", 0.0)), 0.0, 1.0)
+	return index_norm
+
+
+func _resolve_wheel_base_rotation_deg(controls: Dictionary, wheel: Dictionary, global_rotation_deg: float) -> float:
+	var behavior: int = int(wheel.get("behavior", GOBO_BEHAVIOR_FIXED))
+	var supports_index: bool = bool(wheel.get("supports_index", false)) or behavior == GOBO_BEHAVIOR_INDEX
+	var index_norm: float = _resolve_wheel_index_norm(controls, wheel, supports_index)
+	var base_rotation_deg: float = global_rotation_deg
+	if index_norm < 0.0:
+		return base_rotation_deg
+	if bool(wheel.get("has_index_physical_limits", false)):
+		var index_physical_min: float = float(wheel.get("index_physical_min", 0.0))
+		var index_physical_max: float = float(wheel.get("index_physical_max", 0.0))
+		return lerp(index_physical_min, index_physical_max, clamp(index_norm, 0.0, 1.0))
+	return lerp(0.0, GOBO_INDEX_MAX_DEG, clamp(index_norm, 0.0, 1.0))
+
+
 
 func _log_rotation_debug_if_enabled(wheel: Dictionary, wheel_key: String, behavior: int, delta_sec: float) -> void:
 	if not bool(ProjectSettings.get_setting(GOBO_ROTATION_DEBUG_SETTING_KEY, GOBO_ROTATION_DEBUG_DEFAULT)):
@@ -194,39 +213,13 @@ func _log_rotation_debug_if_enabled(wheel: Dictionary, wheel_key: String, behavi
 	])
 
 
-func _resolve_wheel_rotation_priority(wheel: Dictionary) -> int:
+func _wheel_has_active_rotation_command(wheel: Dictionary) -> bool:
 	if wheel.is_empty():
-		return -1
+		return false
 	var supports_rotation: bool = bool(wheel.get("supports_rotation", false))
 	if not supports_rotation:
-		return 0
-
-	var behavior: int = int(wheel.get("behavior", GOBO_BEHAVIOR_FIXED))
-	if behavior == GOBO_BEHAVIOR_ROTATION or behavior == GOBO_BEHAVIOR_SHAKE:
-		if bool(wheel.get("has_rotation_physical_value", false)):
-			if bool(wheel.get("is_stop", false)):
-				return 90
-			return 100
-		return 70
-
-	var has_rotation_value: bool = bool(wheel.get("has_rotation_physical_value", false))
-	if has_rotation_value:
-		if bool(wheel.get("is_stop", false)):
-			return 80
-		return 95
-
-	var has_rotation_ranges: bool = bool(wheel.get("has_rotation_physical_ranges", false))
-	if has_rotation_ranges:
-		return 60
-
-	if bool(wheel.get("has_rotation_channel", false)):
-		return 50
-
-	var rotation_ranges: Array = wheel.get("rotation_ranges", [])
-	if not rotation_ranges.is_empty():
-		return 40
-
-	return 10
+		return false
+	return bool(wheel.get("has_rotation_physical_value", false))
 
 func _resolve_wheel_effect_mode(behavior: int, supports_index: bool, supports_rotation: bool) -> int:
 	if behavior == GOBO_BEHAVIOR_SHAKE:
