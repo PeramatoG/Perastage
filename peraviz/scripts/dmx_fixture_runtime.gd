@@ -450,8 +450,12 @@ func _resolve_rotation_runtime(raw_8bit: int, control_norm: float, ranges: Array
 				var mode_swap: int = range_mode_from
 				range_mode_from = range_mode_to
 				range_mode_to = mode_swap
-			if mode_master_value_8bit < range_mode_from or mode_master_value_8bit > range_mode_to:
-				continue
+			# Rotation channel ranges may carry ModeFrom/ModeTo metadata that depends on
+			# external ModeMaster context not currently available in runtime. Applying
+			# that gate to the gobo select value can incorrectly lock speed/direction.
+			if not is_rotation_channel_range:
+				if mode_master_value_8bit < range_mode_from or mode_master_value_8bit > range_mode_to:
+					continue
 
 			var dmx_from: int = int(range_data.get("dmx_from", 0))
 			var dmx_to: int = int(range_data.get("dmx_to", dmx_from))
