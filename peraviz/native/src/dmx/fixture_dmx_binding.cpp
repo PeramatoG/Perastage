@@ -157,12 +157,11 @@ FixtureBindingBuildResult build_dimmer_bindings(
                                                                 wheel.rotation_coarse_offset_1_based,
                                                                 wheel.rotation_fine_offset_1_based,
                                                                 wheel.rotation_ultra_fine_offset_1_based);
+            wheel_binding.supports_index = wheel.supports_index;
+            wheel_binding.supports_rotation = wheel.supports_rotation;
             wheel_binding.has_index_physical_limits = wheel.has_index_physical_limits;
             wheel_binding.index_physical_min = wheel.index_physical_min;
             wheel_binding.index_physical_max = wheel.index_physical_max;
-            wheel_binding.has_rotation_physical_limits = wheel.has_rotation_physical_limits;
-            wheel_binding.rotation_physical_min = wheel.rotation_physical_min;
-            wheel_binding.rotation_physical_max = wheel.rotation_physical_max;
             wheel_binding.rotation_ranges = wheel.rotation_ranges;
             wheel_binding.wheel_number = wheel.wheel_number;
             wheel_binding.wheel_name = wheel.wheel_name;
