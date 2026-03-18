@@ -538,25 +538,27 @@ void consume_gobo_rotation_channel_sets(tinyxml2::XMLElement *channel_function,
             return std::clamp(relative_value, clamped_function_from, clamped_function_to);
         };
 
+    float function_physical_from = 0.0F;
+    float function_physical_to = 0.0F;
+    const bool has_function_physical_from =
+        parse_float_attr_ci(channel_function, "PhysicalFrom", "physicalfrom", function_physical_from);
+    const bool has_function_physical_to =
+        parse_float_attr_ci(channel_function, "PhysicalTo", "physicalto", function_physical_to);
+    const bool has_function_physical = has_function_physical_from && has_function_physical_to;
+
     struct ParsedRange {
         int dmx_start = 0;
         int dmx_end = -1;
         float physical_from = 0.0F;
         float physical_to = 0.0F;
+        bool has_physical = false;
+        std::string name;
     };
     std::vector<ParsedRange> parsed_ranges;
 
     for (tinyxml2::XMLElement *channel_set = channel_function->FirstChildElement(); channel_set;
          channel_set = channel_set->NextSiblingElement()) {
         if (lower_ascii(channel_set->Name()) != "channelset") {
-            continue;
-        }
-
-        float physical_from = 0.0F;
-        float physical_to = 0.0F;
-        const bool has_physical_from = parse_float_attr_ci(channel_set, "PhysicalFrom", "physicalfrom", physical_from);
-        const bool has_physical_to = parse_float_attr_ci(channel_set, "PhysicalTo", "physicalto", physical_to);
-        if (!has_physical_from || !has_physical_to) {
             continue;
         }
 
@@ -575,17 +577,22 @@ void consume_gobo_rotation_channel_sets(tinyxml2::XMLElement *channel_function,
         }
         const int dmx_end = raw_dmx_to < 0 ? -1 : resolve_channel_set_dmx(raw_dmx_to);
 
-        parsed_ranges.push_back({dmx_start, dmx_end, physical_from, physical_to});
+        float physical_from = 0.0F;
+        float physical_to = 0.0F;
+        const bool has_physical_from = parse_float_attr_ci(channel_set, "PhysicalFrom", "physicalfrom", physical_from);
+        const bool has_physical_to = parse_float_attr_ci(channel_set, "PhysicalTo", "physicalto", physical_to);
+        const bool has_physical = has_physical_from && has_physical_to;
+
+        const char *name_attr = channel_set->Attribute("Name");
+        if (!name_attr) {
+            name_attr = channel_set->Attribute("name");
+        }
+        const std::string set_name = name_attr ? name_attr : "";
+        parsed_ranges.push_back({dmx_start, dmx_end, physical_from, physical_to, has_physical, set_name});
     }
 
     if (parsed_ranges.empty()) {
-        float function_physical_from = 0.0F;
-        float function_physical_to = 0.0F;
-        const bool has_function_physical_from =
-            parse_float_attr_ci(channel_function, "PhysicalFrom", "physicalfrom", function_physical_from);
-        const bool has_function_physical_to =
-            parse_float_attr_ci(channel_function, "PhysicalTo", "physicalto", function_physical_to);
-        if (!has_function_physical_from || !has_function_physical_to) {
+        if (!has_function_physical) {
             return;
         }
 
@@ -622,6 +629,42 @@ void consume_gobo_rotation_channel_sets(tinyxml2::XMLElement *channel_function,
         row.dmx_end = std::clamp(row.dmx_end, clamped_function_from, clamped_function_to);
         if (row.dmx_end < row.dmx_start) {
             std::swap(row.dmx_start, row.dmx_end);
+        }
+
+        // Fill in proportional physical values for ChannelSets that don't carry
+        // their own, using the parent ChannelFunction's physical range as reference.
+        if (!row.has_physical && has_function_physical) {
+            const std::string lower_name = lower_ascii(row.name);
+            const bool is_named_stop = lower_name.find("no rotation") != std::string::npos ||
+                                       lower_name.find("stop") != std::string::npos;
+            if (is_named_stop) {
+                row.physical_from = 0.0F;
+                row.physical_to = 0.0F;
+            } else {
+                const float fn_range =
+                    static_cast<float>(clamped_function_to - clamped_function_from);
+                if (fn_range > 0.0F) {
+                    const float t_from = std::clamp(
+                        static_cast<float>(row.dmx_start - clamped_function_from) / fn_range,
+                        0.0F, 1.0F);
+                    const float t_to = std::clamp(
+                        static_cast<float>(row.dmx_end - clamped_function_from) / fn_range,
+                        0.0F, 1.0F);
+                    row.physical_from = function_physical_from +
+                        t_from * (function_physical_to - function_physical_from);
+                    row.physical_to = function_physical_from +
+                        t_to * (function_physical_to - function_physical_from);
+                } else {
+                    row.physical_from = function_physical_from;
+                    row.physical_to = function_physical_to;
+                }
+            }
+            row.has_physical = true;
+        }
+
+        if (!row.has_physical) {
+            // No physical data available at all; skip this range.
+            continue;
         }
 
         peraviz::dmx::FixtureGoboRotationRange range;
@@ -1101,18 +1144,39 @@ void consume_gobo_channel_sets(tinyxml2::XMLElement *channel_function,
             float rotation_physical_from = row.physical_from;
             float rotation_physical_to = row.physical_to;
             bool has_rotation_physical = row.has_physical;
-            if (!has_rotation_physical && has_function_physical) {
-                rotation_physical_from = function_physical_from;
-                rotation_physical_to = function_physical_to;
-                has_rotation_physical = true;
-            }
 
+            // Named stop ranges take priority: treat them as zero-speed regardless of
+            // any function-level physical values.
             const std::string lower_name = lower_ascii(row.name);
             const bool is_named_stop = lower_name.find("no rotation") != std::string::npos ||
                                        lower_name.find("stop") != std::string::npos;
             if (!has_rotation_physical && is_named_stop) {
                 rotation_physical_from = 0.0F;
                 rotation_physical_to = 0.0F;
+                has_rotation_physical = true;
+            } else if (!has_rotation_physical && has_function_physical) {
+                // Compute proportional physical values for this ChannelSet's position
+                // within the parent ChannelFunction's DMX range.  Assigning the full
+                // function physical range to every sub-range is wrong: GDScript then
+                // interpolates each sub-range against the full physical span, producing
+                // incorrect speeds and reversed directions for split CCW/CW bands.
+                const float fn_range =
+                    static_cast<float>(clamped_function_to - clamped_function_from);
+                if (fn_range > 0.0F) {
+                    const float t_from = std::clamp(
+                        static_cast<float>(row.dmx_from - clamped_function_from) / fn_range,
+                        0.0F, 1.0F);
+                    const float t_to = std::clamp(
+                        static_cast<float>(row.dmx_to - clamped_function_from) / fn_range,
+                        0.0F, 1.0F);
+                    rotation_physical_from = function_physical_from +
+                        t_from * (function_physical_to - function_physical_from);
+                    rotation_physical_to = function_physical_from +
+                        t_to * (function_physical_to - function_physical_from);
+                } else {
+                    rotation_physical_from = function_physical_from;
+                    rotation_physical_to = function_physical_to;
+                }
                 has_rotation_physical = true;
             }
 
