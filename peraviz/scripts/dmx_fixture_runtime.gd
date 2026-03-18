@@ -433,7 +433,18 @@ func _resolve_norm_from_active_range(raw_8bit: int, active_range: Dictionary) ->
 
 
 func _resolve_rotation_runtime(raw_8bit: int, control_norm: float, ranges: Array, mode_master_value_8bit: int, prefer_rotation_channel_ranges: bool) -> Dictionary:
+	var has_dedicated_rotation_ranges: bool = false
+	if prefer_rotation_channel_ranges:
+		for item in ranges:
+			if item is Dictionary and bool(item.get("is_rotation_channel_range", false)):
+				has_dedicated_rotation_ranges = true
+				break
+
 	for pass_index in range(2):
+		if pass_index == 1 and prefer_rotation_channel_ranges and has_dedicated_rotation_ranges:
+			# When dedicated rotation ranges exist and we are reading a dedicated
+			# rotation channel, do not fall back to select-channel ranges.
+			break
 		for item in ranges:
 			if item is not Dictionary:
 				continue
