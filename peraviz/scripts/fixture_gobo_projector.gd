@@ -65,8 +65,7 @@ func apply_gobo_projection(light: SpotLight3D, controls: Dictionary) -> bool:
 	var source_textures: Array[Texture2D] = []
 	var global_rotation_deg: float = float(controls.get("gobo_rotation_deg", GOBO_DEFAULT_ROTATION_DEG))
 	var projected_rotation_deg: float = global_rotation_deg
-	var has_bound_wheel_rotation: bool = false
-	var has_fallback_rotation: bool = false
+	var selected_rotation_priority: int = -1
 
 	for wheel in runtime_bindings:
 		if wheel is not Dictionary:
@@ -82,12 +81,10 @@ func apply_gobo_projection(light: SpotLight3D, controls: Dictionary) -> bool:
 			continue
 
 		var wheel_rotation_deg: float = _resolve_wheel_rotation_deg(light, controls, wheel, global_rotation_deg, delta_sec)
-		if _wheel_owns_rotation_control(wheel):
+		var wheel_rotation_priority: int = _resolve_wheel_rotation_priority(wheel)
+		if wheel_rotation_priority > selected_rotation_priority:
 			projected_rotation_deg = wheel_rotation_deg
-			has_bound_wheel_rotation = true
-		elif not has_bound_wheel_rotation and not has_fallback_rotation:
-			projected_rotation_deg = wheel_rotation_deg
-			has_fallback_rotation = true
+			selected_rotation_priority = wheel_rotation_priority
 		source_textures.append(gobo_texture)
 
 	if source_textures.is_empty():
@@ -197,23 +194,39 @@ func _log_rotation_debug_if_enabled(wheel: Dictionary, wheel_key: String, behavi
 	])
 
 
-func _wheel_owns_rotation_control(wheel: Dictionary) -> bool:
+func _resolve_wheel_rotation_priority(wheel: Dictionary) -> int:
 	if wheel.is_empty():
-		return false
-	var behavior: int = int(wheel.get("behavior", GOBO_BEHAVIOR_FIXED))
-	if behavior == GOBO_BEHAVIOR_ROTATION or behavior == GOBO_BEHAVIOR_SHAKE:
-		return true
+		return -1
 	var supports_rotation: bool = bool(wheel.get("supports_rotation", false))
 	if not supports_rotation:
-		return false
-	var has_rotation_ranges: bool = bool(wheel.get("has_rotation_physical_ranges", false))
+		return 0
+
+	var behavior: int = int(wheel.get("behavior", GOBO_BEHAVIOR_FIXED))
+	if behavior == GOBO_BEHAVIOR_ROTATION or behavior == GOBO_BEHAVIOR_SHAKE:
+		if bool(wheel.get("has_rotation_physical_value", false)):
+			if bool(wheel.get("is_stop", false)):
+				return 90
+			return 100
+		return 70
+
 	var has_rotation_value: bool = bool(wheel.get("has_rotation_physical_value", false))
-	if has_rotation_ranges or has_rotation_value:
-		return true
+	if has_rotation_value:
+		if bool(wheel.get("is_stop", false)):
+			return 80
+		return 95
+
+	var has_rotation_ranges: bool = bool(wheel.get("has_rotation_physical_ranges", false))
+	if has_rotation_ranges:
+		return 60
+
+	if bool(wheel.get("has_rotation_channel", false)):
+		return 50
+
 	var rotation_ranges: Array = wheel.get("rotation_ranges", [])
 	if not rotation_ranges.is_empty():
-		return true
-	return false
+		return 40
+
+	return 10
 
 func _resolve_wheel_effect_mode(behavior: int, supports_index: bool, supports_rotation: bool) -> int:
 	if behavior == GOBO_BEHAVIOR_SHAKE:

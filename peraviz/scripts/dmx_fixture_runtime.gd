@@ -284,7 +284,9 @@ func _build_runtime_gobo_bindings(binding: Dictionary, frame: PackedByteArray) -
 		var is_rotation_behavior: bool = range_behavior == GOBO_BEHAVIOR_ROTATION or range_behavior == GOBO_BEHAVIOR_SHAKE
 		var uses_range_rotation: bool = is_rotation_behavior and not has_rotation_channel
 		var supports_index: bool = (range_behavior == GOBO_BEHAVIOR_INDEX) or (has_index_channel and not is_rotation_behavior)
-		var supports_rotation: bool = is_rotation_behavior or (has_rotation_channel and range_behavior != GOBO_BEHAVIOR_INDEX)
+		# Dedicated Gobo(n)PosRotate channels must stay active even when the
+		# select channel reports index behavior for the current slot/range.
+		var supports_rotation: bool = is_rotation_behavior or has_rotation_channel
 		var index_norm: float = -1.0
 		var index_raw: int = -1
 		var index_raw_8bit: int = -1
@@ -378,6 +380,7 @@ func _build_runtime_gobo_bindings(binding: Dictionary, frame: PackedByteArray) -
 			"behavior": range_behavior,
 			"supports_index": supports_index,
 			"supports_rotation": supports_rotation,
+			"has_rotation_channel": has_rotation_channel,
 			"has_index_physical_limits": bool(item.get("has_index_physical_limits", false)),
 			"index_physical_min": float(item.get("index_physical_min", 0.0)),
 			"index_physical_max": float(item.get("index_physical_max", 0.0)),
