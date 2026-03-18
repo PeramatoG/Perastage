@@ -334,6 +334,60 @@ bool matches_gobo_rotation_attribute(const std::string &leaf) {
            leaf.find("rotate") != std::string::npos;
 }
 
+bool name_indicates_continuous_rotation(const std::string &lower_name) {
+    if (lower_name.find("no rotation") != std::string::npos ||
+        lower_name.find("no spin") != std::string::npos) {
+        return true;
+    }
+    if (lower_name.find("spin") != std::string::npos ||
+        lower_name.find("rotation") != std::string::npos ||
+        lower_name.find("rotate") != std::string::npos ||
+        lower_name.find("posrotate") != std::string::npos ||
+        lower_name.find("wheelspin") != std::string::npos) {
+        return true;
+    }
+    if (lower_name.find("counterclockwise") != std::string::npos ||
+        lower_name.find("counter clockwise") != std::string::npos ||
+        lower_name.find("counter-clockwise") != std::string::npos ||
+        lower_name.find("anticlockwise") != std::string::npos ||
+        lower_name.find("anti clockwise") != std::string::npos ||
+        lower_name.find("anti-clockwise") != std::string::npos) {
+        return true;
+    }
+    if (lower_name.find("clockwise") != std::string::npos) {
+        return true;
+    }
+    if (lower_name.find("ccw") != std::string::npos) {
+        return true;
+    }
+    // Detect standalone "cw" (not part of "ccw" or other words).  Accept "cw"
+    // preceded by a space/start and followed by a space/end/punctuation.
+    {
+        size_t search_pos = 0;
+        while (search_pos < lower_name.size()) {
+            const size_t pos = lower_name.find("cw", search_pos);
+            if (pos == std::string::npos) {
+                break;
+            }
+            // Reject if preceded by 'c' (part of "ccw").
+            if (pos > 0 && lower_name[pos - 1] == 'c') {
+                search_pos = pos + 2;
+                continue;
+            }
+            // Accept if preceded by start-of-string, space, or punctuation.
+            const bool ok_before = (pos == 0) ||
+                !std::isalnum(static_cast<unsigned char>(lower_name[pos - 1]));
+            const bool ok_after = (pos + 2 >= lower_name.size()) ||
+                !std::isalnum(static_cast<unsigned char>(lower_name[pos + 2]));
+            if (ok_before && ok_after) {
+                return true;
+            }
+            search_pos = pos + 2;
+        }
+    }
+    return false;
+}
+
 peraviz::dmx::FixtureGoboRangeBehavior parse_gobo_range_behavior(const std::string &channel_set_name) {
     const std::string lower_name = lower_ascii(channel_set_name);
     if (lower_name.find("shake") != std::string::npos) {
@@ -341,11 +395,7 @@ peraviz::dmx::FixtureGoboRangeBehavior parse_gobo_range_behavior(const std::stri
     }
     // Keep explicit spin/rotation detection ahead of generic "pos" matching,
     // because names like "Gobo1PosRotate" include both tokens.
-    if (lower_name.find("posrotate") != std::string::npos ||
-        lower_name.find("wheelspin") != std::string::npos ||
-        lower_name.find("spin") != std::string::npos ||
-        lower_name.find("rotation") != std::string::npos ||
-        lower_name.find("rotate") != std::string::npos) {
+    if (name_indicates_continuous_rotation(lower_name)) {
         return peraviz::dmx::FixtureGoboRangeBehavior::kRotation;
     }
     // Prioritize explicit index/position semantics over generic rotate tokens,
@@ -712,22 +762,66 @@ void consume_gobo_rotation_channel_sets(tinyxml2::XMLElement *channel_function,
                 row.physical_from = 0.0F;
                 row.physical_to = 0.0F;
             } else {
-                const float fn_range =
-                    static_cast<float>(clamped_function_to - clamped_function_from);
-                if (fn_range > 0.0F) {
-                    const float t_from = std::clamp(
-                        static_cast<float>(row.dmx_start - clamped_function_from) / fn_range,
-                        0.0F, 1.0F);
-                    const float t_to = std::clamp(
-                        static_cast<float>(row.dmx_end - clamped_function_from) / fn_range,
-                        0.0F, 1.0F);
-                    row.physical_from = function_physical_from +
-                        t_from * (function_physical_to - function_physical_from);
-                    row.physical_to = function_physical_from +
-                        t_to * (function_physical_to - function_physical_from);
+                // When the ChannelSet name indicates a clear direction (CW/CCW),
+                // use direction-aware physical values from the parent function's
+                // range instead of blind proportional interpolation.  This prevents
+                // the CCW sub-range from starting with CW (negative) physical
+                // values when the function spans CW-Stop-CCW.
+                const bool fn_physical_spans_zero =
+                    (function_physical_from < 0.0F && function_physical_to > 0.0F) ||
+                    (function_physical_from > 0.0F && function_physical_to < 0.0F);
+                float inferred_from = 0.0F;
+                float inferred_to = 0.0F;
+                const bool has_name_inference = infer_rotation_physical_from_name(
+                    row.name, inferred_from, inferred_to);
+                if (fn_physical_spans_zero && has_name_inference) {
+                    // Determine direction sign from the inferred values.
+                    const float inferred_sign = (std::fabs(inferred_from) > std::fabs(inferred_to))
+                        ? (inferred_from > 0.0F ? 1.0F : -1.0F)
+                        : (inferred_to > 0.0F ? 1.0F : -1.0F);
+                    // Select the matching half of the parent function's physical range.
+                    const float fn_min = std::min(function_physical_from, function_physical_to);
+                    const float fn_max = std::max(function_physical_from, function_physical_to);
+                    // Determine sub-range position within this half.
+                    const float fn_range =
+                        static_cast<float>(clamped_function_to - clamped_function_from);
+                    const float t_from = fn_range > 0.0F
+                        ? std::clamp(static_cast<float>(row.dmx_start - clamped_function_from) / fn_range, 0.0F, 1.0F)
+                        : 0.0F;
+                    const float t_to = fn_range > 0.0F
+                        ? std::clamp(static_cast<float>(row.dmx_end - clamped_function_from) / fn_range, 0.0F, 1.0F)
+                        : 0.0F;
+                    // Proportional values from the full function.
+                    float prop_from = function_physical_from + t_from * (function_physical_to - function_physical_from);
+                    float prop_to = function_physical_from + t_to * (function_physical_to - function_physical_from);
+                    // Clamp to the correct direction half.
+                    if (inferred_sign > 0.0F) {
+                        prop_from = std::clamp(prop_from, 0.0F, fn_max);
+                        prop_to = std::clamp(prop_to, 0.0F, fn_max);
+                    } else {
+                        prop_from = std::clamp(prop_from, fn_min, 0.0F);
+                        prop_to = std::clamp(prop_to, fn_min, 0.0F);
+                    }
+                    row.physical_from = prop_from;
+                    row.physical_to = prop_to;
                 } else {
-                    row.physical_from = function_physical_from;
-                    row.physical_to = function_physical_to;
+                    const float fn_range =
+                        static_cast<float>(clamped_function_to - clamped_function_from);
+                    if (fn_range > 0.0F) {
+                        const float t_from = std::clamp(
+                            static_cast<float>(row.dmx_start - clamped_function_from) / fn_range,
+                            0.0F, 1.0F);
+                        const float t_to = std::clamp(
+                            static_cast<float>(row.dmx_end - clamped_function_from) / fn_range,
+                            0.0F, 1.0F);
+                        row.physical_from = function_physical_from +
+                            t_from * (function_physical_to - function_physical_from);
+                        row.physical_to = function_physical_from +
+                            t_to * (function_physical_to - function_physical_from);
+                    } else {
+                        row.physical_from = function_physical_from;
+                        row.physical_to = function_physical_to;
+                    }
                 }
             }
             row.has_physical = true;
@@ -1077,8 +1171,19 @@ void consume_gobo_channel_sets(tinyxml2::XMLElement *channel_function,
 
     out_wheel.wheel_name = wheel_name;
     const std::string function_name = read_attr_ci(channel_function, "Name", "name");
-    const peraviz::dmx::FixtureGoboRangeBehavior function_behavior_hint =
+    peraviz::dmx::FixtureGoboRangeBehavior function_behavior_hint =
         parse_gobo_range_behavior(function_name);
+    // Also check the ChannelFunction Attribute for rotation semantics.
+    // GoboSelectSpin-type attributes clearly indicate rotation behavior even
+    // when the function Name is generic (e.g. "Gobo 1").
+    if (function_behavior_hint == peraviz::dmx::FixtureGoboRangeBehavior::kFixed) {
+        const std::string function_attribute = lower_ascii(read_attr_ci(channel_function, "Attribute", "attribute"));
+        const peraviz::dmx::FixtureGoboRangeBehavior attribute_hint =
+            parse_gobo_range_behavior(function_attribute);
+        if (attribute_hint != peraviz::dmx::FixtureGoboRangeBehavior::kFixed) {
+            function_behavior_hint = attribute_hint;
+        }
+    }
 
     const std::vector<int> &known_slot_order = wheel_it->second.declared_slot_order;
     std::unordered_set<int> known_slots = wheel_it->second.declared_slots;
@@ -1232,13 +1337,42 @@ void consume_gobo_channel_sets(tinyxml2::XMLElement *channel_function,
                 has_rotation_physical = true;
             } else if (!has_rotation_physical && has_function_physical) {
                 // Compute proportional physical values for this ChannelSet's position
-                // within the parent ChannelFunction's DMX range.  Assigning the full
-                // function physical range to every sub-range is wrong: GDScript then
-                // interpolates each sub-range against the full physical span, producing
-                // incorrect speeds and reversed directions for split CCW/CW bands.
+                // within the parent ChannelFunction's DMX range.  When the function's
+                // physical range spans zero (CW-to-CCW), use direction-aware clamping
+                // so that each sub-range stays in the correct direction half.
+                const bool fn_physical_spans_zero =
+                    (function_physical_from < 0.0F && function_physical_to > 0.0F) ||
+                    (function_physical_from > 0.0F && function_physical_to < 0.0F);
+                float inferred_from = 0.0F;
+                float inferred_to = 0.0F;
+                const bool has_name_inference = infer_rotation_physical_from_name(
+                    row.name, inferred_from, inferred_to);
                 const float fn_range =
                     static_cast<float>(clamped_function_to - clamped_function_from);
-                if (fn_range > 0.0F) {
+                if (fn_physical_spans_zero && has_name_inference) {
+                    const float inferred_sign = (std::fabs(inferred_from) > std::fabs(inferred_to))
+                        ? (inferred_from > 0.0F ? 1.0F : -1.0F)
+                        : (inferred_to > 0.0F ? 1.0F : -1.0F);
+                    const float fn_min = std::min(function_physical_from, function_physical_to);
+                    const float fn_max = std::max(function_physical_from, function_physical_to);
+                    const float t_from = fn_range > 0.0F
+                        ? std::clamp(static_cast<float>(row.dmx_from - clamped_function_from) / fn_range, 0.0F, 1.0F)
+                        : 0.0F;
+                    const float t_to = fn_range > 0.0F
+                        ? std::clamp(static_cast<float>(row.dmx_to - clamped_function_from) / fn_range, 0.0F, 1.0F)
+                        : 0.0F;
+                    float prop_from = function_physical_from + t_from * (function_physical_to - function_physical_from);
+                    float prop_to = function_physical_from + t_to * (function_physical_to - function_physical_from);
+                    if (inferred_sign > 0.0F) {
+                        prop_from = std::clamp(prop_from, 0.0F, fn_max);
+                        prop_to = std::clamp(prop_to, 0.0F, fn_max);
+                    } else {
+                        prop_from = std::clamp(prop_from, fn_min, 0.0F);
+                        prop_to = std::clamp(prop_to, fn_min, 0.0F);
+                    }
+                    rotation_physical_from = prop_from;
+                    rotation_physical_to = prop_to;
+                } else if (fn_range > 0.0F) {
                     const float t_from = std::clamp(
                         static_cast<float>(row.dmx_from - clamped_function_from) / fn_range,
                         0.0F, 1.0F);
