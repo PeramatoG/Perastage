@@ -583,7 +583,11 @@ void consume_gobo_rotation_channel_sets(tinyxml2::XMLElement *channel_function,
         const bool has_physical_to = parse_float_attr_ci(channel_set, "PhysicalTo", "physicalto", physical_to);
         const bool has_physical = has_physical_from && has_physical_to;
 
-        const std::string set_name = read_attr_ci(channel_set, "Name", "name");
+        const char *name_attr = channel_set->Attribute("Name");
+        if (!name_attr) {
+            name_attr = channel_set->Attribute("name");
+        }
+        const std::string set_name = name_attr ? name_attr : "";
         parsed_ranges.push_back({dmx_start, dmx_end, physical_from, physical_to, has_physical, set_name});
     }
 
