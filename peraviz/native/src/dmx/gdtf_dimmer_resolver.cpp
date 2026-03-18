@@ -357,6 +357,77 @@ peraviz::dmx::FixtureGoboRangeBehavior parse_gobo_range_behavior(const std::stri
     return peraviz::dmx::FixtureGoboRangeBehavior::kFixed;
 }
 
+bool infer_rotation_physical_from_name(const std::string &range_name,
+                                       float &out_physical_from,
+                                       float &out_physical_to) {
+    const std::string lower_name = lower_ascii(range_name);
+    if (lower_name.empty()) {
+        return false;
+    }
+
+    const bool is_stop =
+        lower_name.find("no rotation") != std::string::npos ||
+        lower_name.find("stop") != std::string::npos;
+    if (is_stop) {
+        out_physical_from = 0.0F;
+        out_physical_to = 0.0F;
+        return true;
+    }
+
+    const bool is_ccw =
+        lower_name.find("ccw") != std::string::npos ||
+        lower_name.find("counterclockwise") != std::string::npos ||
+        lower_name.find("counter clockwise") != std::string::npos ||
+        lower_name.find("anticlockwise") != std::string::npos ||
+        lower_name.find("anti clockwise") != std::string::npos;
+    const bool is_cw =
+        lower_name.find("cw") != std::string::npos ||
+        lower_name.find("clockwise") != std::string::npos;
+
+    int direction_sign = 0;
+    if (is_ccw && !is_cw) {
+        direction_sign = -1;
+    } else if (is_cw && !is_ccw) {
+        direction_sign = 1;
+    }
+    if (direction_sign == 0) {
+        return false;
+    }
+
+    constexpr float kDefaultMaxAngularSpeedDegPerSec = 540.0F;
+    constexpr float kDefaultMinAngularSpeedDegPerSec = 20.0F;
+    const float min_speed = kDefaultMinAngularSpeedDegPerSec * static_cast<float>(direction_sign);
+    const float max_speed = kDefaultMaxAngularSpeedDegPerSec * static_cast<float>(direction_sign);
+
+    const size_t fast_pos = lower_name.find("fast");
+    const size_t slow_pos = lower_name.find("slow");
+    if (fast_pos != std::string::npos && slow_pos != std::string::npos) {
+        if (fast_pos < slow_pos) {
+            out_physical_from = max_speed;
+            out_physical_to = min_speed;
+        } else {
+            out_physical_from = min_speed;
+            out_physical_to = max_speed;
+        }
+        return true;
+    }
+
+    if (fast_pos != std::string::npos) {
+        out_physical_from = max_speed;
+        out_physical_to = max_speed;
+        return true;
+    }
+    if (slow_pos != std::string::npos) {
+        out_physical_from = min_speed;
+        out_physical_to = min_speed;
+        return true;
+    }
+
+    out_physical_from = min_speed;
+    out_physical_to = max_speed;
+    return true;
+}
+
 ParsedAttribute parse_attribute_name(const std::string &raw_attribute) {
     ParsedAttribute parsed;
     const std::string lower = lower_ascii(trim_ascii(raw_attribute));
@@ -631,12 +702,12 @@ void consume_gobo_rotation_channel_sets(tinyxml2::XMLElement *channel_function,
             std::swap(row.dmx_start, row.dmx_end);
         }
 
+        const std::string lower_name = lower_ascii(row.name);
+        const bool is_named_stop = lower_name.find("no rotation") != std::string::npos ||
+                                   lower_name.find("stop") != std::string::npos;
         // Fill in proportional physical values for ChannelSets that don't carry
         // their own, using the parent ChannelFunction's physical range as reference.
         if (!row.has_physical && has_function_physical) {
-            const std::string lower_name = lower_ascii(row.name);
-            const bool is_named_stop = lower_name.find("no rotation") != std::string::npos ||
-                                       lower_name.find("stop") != std::string::npos;
             if (is_named_stop) {
                 row.physical_from = 0.0F;
                 row.physical_to = 0.0F;
@@ -659,6 +730,11 @@ void consume_gobo_rotation_channel_sets(tinyxml2::XMLElement *channel_function,
                     row.physical_to = function_physical_to;
                 }
             }
+            row.has_physical = true;
+        }
+
+        if (!row.has_physical &&
+            infer_rotation_physical_from_name(row.name, row.physical_from, row.physical_to)) {
             row.has_physical = true;
         }
 
@@ -1180,6 +1256,13 @@ void consume_gobo_channel_sets(tinyxml2::XMLElement *channel_function,
                 has_rotation_physical = true;
             }
 
+            if (!has_rotation_physical &&
+                infer_rotation_physical_from_name(row.name,
+                                                  rotation_physical_from,
+                                                  rotation_physical_to)) {
+                has_rotation_physical = true;
+            }
+
             if (has_rotation_physical) {
                 peraviz::dmx::FixtureGoboRotationRange rotation_range;
                 rotation_range.dmx_from = row.dmx_from;
@@ -1367,7 +1450,10 @@ void consume_channel_offsets(tinyxml2::XMLElement *dmx_channel,
 
             int function_mode_from = 0;
             int function_mode_to = 255;
-            if (has_mode_master || parsed_mode_from >= 0 || parsed_mode_to >= 0) {
+            // Per GDTF spec, ModeFrom/ModeTo are only meaningful when ModeMaster
+            // is present. Treat stray ModeFrom/ModeTo values without ModeMaster
+            // as non-authoritative and keep the default full 0..255 window.
+            if (has_mode_master) {
                 function_mode_from = parsed_mode_from >= 0 ? parsed_mode_from : 0;
                 function_mode_to = parsed_mode_to >= 0 ? parsed_mode_to : 255;
             }
