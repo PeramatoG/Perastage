@@ -162,15 +162,36 @@ static std::string EnsureUniqueArchivePath(const std::string &proposed,
 static std::string SanitizeArchiveFileName(const std::string &input,
                                            const std::string &fallbackName) {
   constexpr size_t kMaxArchiveFileNameLength = 120;
+  auto sanitizeSingleFileName = [](std::string fileName,
+                                   const std::string &fallback) {
+    if (fileName.empty())
+      fileName = fallback;
+
+    for (char &ch : fileName) {
+      const unsigned char uch = static_cast<unsigned char>(ch);
+      if (uch < 32 || ch == ':' || ch == '\\' || ch == '/' || ch == '*' ||
+          ch == '?' || ch == '"' || ch == '<' || ch == '>' || ch == '|') {
+        ch = '_';
+      }
+    }
+
+    if (fileName.empty())
+      fileName = fallback;
+    return fileName;
+  };
+
   std::string candidate = TrimAscii(input);
   std::replace(candidate.begin(), candidate.end(), '\\', '/');
   if (candidate.empty())
-    return TruncateFileNamePreservingExtension(fallbackName, kMaxArchiveFileNameLength);
+    return TruncateFileNamePreservingExtension(
+        sanitizeSingleFileName("", fallbackName), kMaxArchiveFileNameLength);
 
   const std::string fileName = fs::path(candidate).filename().generic_string();
   if (!fileName.empty())
-    return TruncateFileNamePreservingExtension(fileName, kMaxArchiveFileNameLength);
-  return TruncateFileNamePreservingExtension(fallbackName, kMaxArchiveFileNameLength);
+    return TruncateFileNamePreservingExtension(
+        sanitizeSingleFileName(fileName, fallbackName), kMaxArchiveFileNameLength);
+  return TruncateFileNamePreservingExtension(
+      sanitizeSingleFileName("", fallbackName), kMaxArchiveFileNameLength);
 }
 
 static std::string BuildTrussGdtfArchiveName(const Truss &truss) {
