@@ -303,7 +303,8 @@ func _build_runtime_gobo_bindings(binding: Dictionary, frame: PackedByteArray) -
 		var mode_master_value_8bit: int = raw_8bit
 		var rotation_control_norm: float = -1.0
 
-		if has_index_channel and supports_index:
+		var should_read_index_channel: bool = has_index_channel and (supports_index or (is_rotation_behavior and not has_rotation_channel))
+		if should_read_index_channel:
 			var index_coarse_index: int = int(item.get("index_channel_index_0", -1))
 			var index_fine_index: int = int(item.get("index_fine_channel_index_0", -1))
 			var index_ultra_fine_index: int = int(item.get("index_ultra_fine_channel_index_0", -1))
