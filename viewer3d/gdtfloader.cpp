@@ -500,6 +500,164 @@ static void ParseModes(tinyxml2::XMLElement* ft,
                 }
                 return std::string{};
             };
+            auto parseDmxEndpointValue = [&](const char* rawValue) {
+                if (!rawValue || !*rawValue)
+                    return std::string{};
+                std::string value = rawValue;
+                trim(value);
+                if (value.empty())
+                    return std::string{};
+                const size_t separatorPos = value.find_first_of("/.");
+                if (separatorPos != std::string::npos)
+                    value = value.substr(0, separatorPos);
+                int parsed = 0;
+                if (!TryParseInt(value, parsed))
+                    return std::string{};
+                return std::to_string(parsed);
+            };
+            auto parseChannelSetsSummary =
+                [&](tinyxml2::XMLElement* channelFunction) {
+                    std::vector<std::string> channelSets;
+                    if (!channelFunction)
+                        return channelSets;
+                    for (tinyxml2::XMLElement* channelSet = channelFunction->FirstChildElement("ChannelSet");
+                         channelSet;
+                         channelSet = channelSet->NextSiblingElement("ChannelSet")) {
+                        std::string label;
+                        if (const char* name = channelSet->Attribute("Name"))
+                            label = name;
+                        if (label.empty()) {
+                            if (const char* wheelSlot = channelSet->Attribute("WheelSlotIndex")) {
+                                label = "WheelSlot ";
+                                label += wheelSlot;
+                            }
+                        }
+                        const std::string dmxFrom =
+                            parseDmxEndpointValue(channelSet->Attribute("DMXFrom"));
+                        if (!dmxFrom.empty()) {
+                            if (!label.empty())
+                                label += "@";
+                            label += dmxFrom;
+                        }
+                        if (label.empty())
+                            label = "unnamed";
+                        channelSets.push_back(std::move(label));
+                    }
+                    return channelSets;
+                };
+            auto tryResolveModeMasterReference =
+                [&](const std::unordered_map<std::string, std::string>& modeMasterNameByReference,
+                    const std::string& reference) {
+                    if (reference.empty())
+                        return std::string{};
+                    auto it = modeMasterNameByReference.find(reference);
+                    if (it == modeMasterNameByReference.end())
+                        return reference;
+                    return it->second;
+                };
+            auto buildFunctionSummary =
+                [&](tinyxml2::XMLElement* dmxChannel) {
+                    if (!dmxChannel)
+                        return std::string{};
+
+                    std::unordered_map<std::string, std::string> modeMasterNameByReference;
+                    for (tinyxml2::XMLElement* lc = dmxChannel->FirstChildElement("LogicalChannel");
+                         lc; lc = lc->NextSiblingElement("LogicalChannel")) {
+                        for (tinyxml2::XMLElement* cf = lc->FirstChildElement("ChannelFunction");
+                             cf; cf = cf->NextSiblingElement("ChannelFunction")) {
+                            const char* name = cf->Attribute("Name");
+                            const char* attr = cf->Attribute("Attribute");
+                            if (!attr)
+                                attr = cf->Attribute("attribute");
+                            if (name && *name && attr && *attr)
+                                modeMasterNameByReference[name] = attr;
+                            if (attr && *attr)
+                                modeMasterNameByReference[attr] = attr;
+                        }
+                    }
+
+                    std::vector<std::string> summaries;
+                    for (tinyxml2::XMLElement* lc = dmxChannel->FirstChildElement("LogicalChannel");
+                         lc; lc = lc->NextSiblingElement("LogicalChannel")) {
+                        std::string logicalAttribute;
+                        if (const char* attr = lc->Attribute("Attribute"))
+                            logicalAttribute = attr;
+                        if (logicalAttribute.empty()) {
+                            if (const char* attr = lc->Attribute("attribute"))
+                                logicalAttribute = attr;
+                        }
+
+                        bool logicalChannelHadFunction = false;
+                        for (tinyxml2::XMLElement* cf = lc->FirstChildElement("ChannelFunction");
+                             cf; cf = cf->NextSiblingElement("ChannelFunction")) {
+                            logicalChannelHadFunction = true;
+                            std::string attribute = logicalAttribute;
+                            if (const char* attr = cf->Attribute("Attribute"))
+                                attribute = attr;
+                            if (attribute.empty()) {
+                                if (const char* attr = cf->Attribute("attribute"))
+                                    attribute = attr;
+                            }
+                            std::string summary = attribute;
+                            if (summary.empty()) {
+                                if (const char* name = cf->Attribute("Name"))
+                                    summary = name;
+                            }
+                            if (summary.empty())
+                                summary = "Function";
+
+                            const std::vector<std::string> channelSets =
+                                parseChannelSetsSummary(cf);
+                            if (!channelSets.empty()) {
+                                summary += " [sets: ";
+                                for (size_t index = 0; index < channelSets.size(); ++index) {
+                                    if (index > 0)
+                                        summary += ", ";
+                                    summary += channelSets[index];
+                                }
+                                summary += "]";
+                            }
+
+                            const char* modeMasterRaw = cf->Attribute("ModeMaster");
+                            if (modeMasterRaw && *modeMasterRaw) {
+                                const std::string modeMaster =
+                                    tryResolveModeMasterReference(modeMasterNameByReference,
+                                                                  modeMasterRaw);
+                                std::string range;
+                                const std::string modeFrom =
+                                    parseDmxEndpointValue(cf->Attribute("ModeFrom"));
+                                const std::string modeTo =
+                                    parseDmxEndpointValue(cf->Attribute("ModeTo"));
+                                if (!modeFrom.empty() || !modeTo.empty()) {
+                                    range = " ";
+                                    range += modeFrom.empty() ? "?" : modeFrom;
+                                    range += "-";
+                                    range += modeTo.empty() ? "?" : modeTo;
+                                }
+                                summary += " [mode master: ";
+                                summary += modeMaster.empty() ? std::string(modeMasterRaw) : modeMaster;
+                                summary += range;
+                                summary += "]";
+                            }
+
+                            summaries.push_back(std::move(summary));
+                        }
+
+                        if (!logicalChannelHadFunction && !logicalAttribute.empty())
+                            summaries.push_back(std::move(logicalAttribute));
+                    }
+
+                    if (summaries.empty())
+                        return extractFunctionName(dmxChannel);
+
+                    std::string merged;
+                    for (size_t index = 0; index < summaries.size(); ++index) {
+                        if (index > 0)
+                            merged += " | ";
+                        merged += summaries[index];
+                    }
+                    return merged;
+                };
             auto suffixForByte = [](size_t byteIndex) {
                 if (byteIndex == 1)
                     return std::string(" (fine)");
@@ -512,7 +670,7 @@ static void ParseModes(tinyxml2::XMLElement* ft,
                  c; c = c->NextSiblingElement("DMXChannel"))
             {
                 const std::vector<int> offsets = parseOffsets(c->Attribute("Offset"));
-                const std::string baseFunction = extractFunctionName(c);
+                const std::string baseFunction = buildFunctionSummary(c);
 
                 if (!offsets.empty()) {
                     for (size_t i = 0; i < offsets.size(); ++i) {
