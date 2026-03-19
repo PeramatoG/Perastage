@@ -471,6 +471,18 @@ target_link_libraries(gdtfloader_primitive_test PRIVATE ${wxWidgets_LIBRARIES} t
 add_test(NAME GdtfLoaderPrimitiveFallback COMMAND gdtfloader_primitive_test)
 set_library_env(GdtfLoaderPrimitiveFallback)
 
+add_executable(gdtfloader_channel_modes_test gdtfloader_channel_modes_test.cpp
+               ../viewer3d/gdtfloader.cpp
+               ../viewer3d/loader3ds.cpp
+               ../viewer3d/loaderglb.cpp
+               ../viewer3d/meshprimitives.cpp
+               consolepanel_stub.cpp)
+target_include_directories(gdtfloader_channel_modes_test PRIVATE
+                           . ../viewer3d ../models ../gui ../third_party)
+target_link_libraries(gdtfloader_channel_modes_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
+add_test(NAME GdtfLoaderChannelModeSummaries COMMAND gdtfloader_channel_modes_test)
+set_library_env(GdtfLoaderChannelModeSummaries)
+
 
 add_executable(user_preferences_store_test
                user_preferences_store_test.cpp
