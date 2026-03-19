@@ -284,7 +284,12 @@ func _build_runtime_gobo_bindings(binding: Dictionary, frame: PackedByteArray) -
 		var is_rotation_behavior: bool = range_behavior == GOBO_BEHAVIOR_ROTATION or range_behavior == GOBO_BEHAVIOR_SHAKE
 		var uses_range_rotation: bool = is_rotation_behavior and not has_rotation_channel
 		var supports_index: bool = (range_behavior == GOBO_BEHAVIOR_INDEX) or (has_index_channel and not is_rotation_behavior)
-		var supports_rotation: bool = is_rotation_behavior or (has_rotation_channel and range_behavior != GOBO_BEHAVIOR_INDEX)
+		# A wheel supports rotation when: the gobo select says rotation/shake,
+		# OR when a dedicated rotation channel exists (regardless of the select
+		# channel behavior – the mode-master filter in _resolve_rotation_runtime
+		# will decide whether rotation ranges are applicable for the current
+		# gobo selection).
+		var supports_rotation: bool = is_rotation_behavior or has_rotation_channel
 		var index_norm: float = -1.0
 		var index_raw: int = -1
 		var index_raw_8bit: int = -1
@@ -315,7 +320,14 @@ func _build_runtime_gobo_bindings(binding: Dictionary, frame: PackedByteArray) -
 
 		var rotation_value_available: bool = false
 		var rotation_value_norm: float = -1.0
-		if has_rotation_channel and (supports_rotation or (supports_index and not has_index_channel)):
+		# Always read the dedicated rotation channel when it exists.  The mode-
+		# master filter inside _resolve_rotation_runtime will decide whether
+		# the resolved rotation range is applicable for the current gobo slot.
+		# Previously, this read was gated on supports_rotation which depended
+		# on the gobo select behavior, causing rotation_raw_8bit to keep the
+		# gobo select value and making the rotation speed depend on which gobo
+		# was selected instead of the rotation fader position.
+		if has_rotation_channel:
 			var rotation_coarse_index: int = int(item.get("rotation_channel_index_0", -1))
 			var rotation_fine_index: int = int(item.get("rotation_fine_channel_index_0", -1))
 			var rotation_ultra_fine_index: int = int(item.get("rotation_ultra_fine_channel_index_0", -1))
@@ -340,7 +352,7 @@ func _build_runtime_gobo_bindings(binding: Dictionary, frame: PackedByteArray) -
 				index_norm = _resolve_norm_from_active_range(raw_8bit, active_range)
 
 		if supports_rotation:
-			if has_rotation_channel and rotation_value_available:
+			if rotation_value_available:
 				rotation_has_value = true
 			elif not has_rotation_channel and has_index_channel and is_rotation_behavior and index_norm >= 0.0:
 				rotation_raw_8bit = index_raw_8bit if index_raw_8bit >= 0 else raw_8bit
@@ -457,19 +469,33 @@ func _resolve_rotation_runtime(raw_8bit: int, control_norm: float, ranges: Array
 				continue
 
 			var is_stop: bool = bool(range_data.get("is_stop_range", false))
+			var physical_from: float = float(range_data.get("physical_from", 0.0))
+			var physical_to: float = float(range_data.get("physical_to", 0.0))
 			var speed_deg_per_sec: float = 0.0
 			if not is_stop:
 				if dmx_to <= dmx_from:
-					speed_deg_per_sec = float(range_data.get("physical_to", range_data.get("physical_from", 0.0)))
+					speed_deg_per_sec = physical_to if absf(physical_to) > 0.0001 else physical_from
 				else:
-					var ratio: float = float(raw_8bit - dmx_from) / float(dmx_to - dmx_from)
-					if control_norm >= 0.0:
-						var range_norm_from: float = float(dmx_from) / 255.0
-						var range_norm_to: float = float(dmx_to) / 255.0
-						var range_norm_span: float = range_norm_to - range_norm_from
-						if range_norm_span > 0.0:
-							ratio = clamp((control_norm - range_norm_from) / range_norm_span, 0.0, 1.0)
-					speed_deg_per_sec = lerp(float(range_data.get("physical_from", 0.0)), float(range_data.get("physical_to", 0.0)), ratio)
+					# Compute ratio from the 8-bit raw value first (matches the
+					# 8-bit range boundaries exactly).
+					var dmx_span: int = dmx_to - dmx_from
+					var coarse_ratio: float = float(raw_8bit - dmx_from) / float(dmx_span)
+					# When a higher-resolution control_norm is available, add
+					# sub-coarse-step precision WITHOUT the coordinate-space
+					# mismatch that occurred when converting 8-bit range boundaries
+					# to a 0..1 norm (x/255 vs x*256/65535).
+					if control_norm >= 0.0 and dmx_span > 0:
+						# control_norm spans [0..1] over the entire channel.
+						# Map the 8-bit boundaries into the same resolution by
+						# treating each coarse step as 1/256 of the full channel
+						# (which matches how 16-bit norm = coarse*256/65535
+						# aligns with coarse/256 at fine=0).
+						var range_norm_from_hr: float = float(dmx_from) / 256.0
+						var range_norm_to_hr: float = float(dmx_to + 1) / 256.0
+						var range_norm_span_hr: float = range_norm_to_hr - range_norm_from_hr
+						if range_norm_span_hr > 0.0:
+							coarse_ratio = clamp((control_norm - range_norm_from_hr) / range_norm_span_hr, 0.0, 1.0)
+					speed_deg_per_sec = lerp(physical_from, physical_to, coarse_ratio)
 			if absf(speed_deg_per_sec) <= 0.0001:
 				is_stop = true
 				speed_deg_per_sec = 0.0

@@ -204,6 +204,12 @@ func _wheel_owns_rotation_control(wheel: Dictionary) -> bool:
 	var index_norm: float = float(wheel.get("index_norm", -1.0))
 	if index_norm >= 0.0:
 		return true
+	# A wheel also owns rotation control when its dedicated rotation channel
+	# has resolved a non-stop speed, even if the gobo select behavior is FIXED.
+	if bool(wheel.get("has_rotation_physical_value", false)) and not bool(wheel.get("is_stop", true)):
+		var speed: float = float(wheel.get("rotation_speed_deg_per_sec", 0.0))
+		if absf(speed) > 0.0001:
+			return true
 	return false
 
 func _resolve_wheel_effect_mode(behavior: int, supports_index: bool, supports_rotation: bool) -> int:

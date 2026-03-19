@@ -836,6 +836,80 @@ void consume_gobo_rotation_channel_sets(tinyxml2::XMLElement *channel_function,
             // No physical data available at all; skip this range.
             continue;
         }
+    }
+
+    // Post-process: detect bidirectional rotation channels whose ChannelSet
+    // physical values are all same-sign (commonly all-positive).  Many GDTF
+    // files encode the first half as one direction and the second half as the
+    // other, but only use unsigned angular speed values.  When a stop range
+    // divides the channel and all non-stop physical values share the same sign
+    // we negate the first half to restore the correct CW/CCW direction.
+    {
+        int first_stop_range_index = -1;
+        bool has_positive = false;
+        bool has_negative = false;
+        for (size_t ri = 0; ri < parsed_ranges.size(); ++ri) {
+            const ParsedRange &row = parsed_ranges[ri];
+            if (!row.has_physical) {
+                continue;
+            }
+            const bool is_stop =
+                std::fabs(row.physical_from) < 0.0001F &&
+                std::fabs(row.physical_to) < 0.0001F;
+            if (is_stop) {
+                if (first_stop_range_index < 0 && ri > 0) {
+                    first_stop_range_index = static_cast<int>(ri);
+                }
+                continue;
+            }
+            if (row.physical_from > 0.0001F || row.physical_to > 0.0001F) {
+                has_positive = true;
+            }
+            if (row.physical_from < -0.0001F || row.physical_to < -0.0001F) {
+                has_negative = true;
+            }
+        }
+        // Only apply correction when ALL non-stop physical values are same-sign
+        // AND there is a stop range dividing the channel into two halves.
+        if (first_stop_range_index > 0 && has_positive && !has_negative) {
+            // All positive -- negate the first half (before the stop range).
+            for (int ri = 0; ri < first_stop_range_index; ++ri) {
+                ParsedRange &row = parsed_ranges[static_cast<size_t>(ri)];
+                if (!row.has_physical) {
+                    continue;
+                }
+                const bool is_stop =
+                    std::fabs(row.physical_from) < 0.0001F &&
+                    std::fabs(row.physical_to) < 0.0001F;
+                if (!is_stop) {
+                    row.physical_from = -row.physical_from;
+                    row.physical_to = -row.physical_to;
+                }
+            }
+        } else if (first_stop_range_index > 0 && has_negative && !has_positive) {
+            // All negative -- negate the second half (after the stop range).
+            for (size_t ri = static_cast<size_t>(first_stop_range_index) + 1;
+                 ri < parsed_ranges.size(); ++ri) {
+                ParsedRange &row = parsed_ranges[ri];
+                if (!row.has_physical) {
+                    continue;
+                }
+                const bool is_stop =
+                    std::fabs(row.physical_from) < 0.0001F &&
+                    std::fabs(row.physical_to) < 0.0001F;
+                if (!is_stop) {
+                    row.physical_from = -row.physical_from;
+                    row.physical_to = -row.physical_to;
+                }
+            }
+        }
+    }
+
+    for (size_t index = 0; index < parsed_ranges.size(); ++index) {
+        const ParsedRange &row = parsed_ranges[index];
+        if (!row.has_physical) {
+            continue;
+        }
 
         peraviz::dmx::FixtureGoboRotationRange range;
         range.dmx_from = row.dmx_start;
@@ -1231,6 +1305,10 @@ void consume_gobo_channel_sets(tinyxml2::XMLElement *channel_function,
         return std::clamp(relative_value, clamped_function_from, clamped_function_to);
     };
 
+    // Track where new rotation ranges start so the post-processing sign
+    // correction only applies to the ranges added by this ChannelFunction.
+    const size_t rotation_range_start_index = out_wheel.rotation_ranges.size();
+
     int last_slot_index = -1;
     if (!out_wheel.ranges.empty()) {
         last_slot_index = out_wheel.ranges.back().slot_index;
@@ -1408,6 +1486,52 @@ void consume_gobo_channel_sets(tinyxml2::XMLElement *channel_function,
                 rotation_range.is_stop_range = std::fabs(rotation_physical_from) < 0.0001F && std::fabs(rotation_physical_to) < 0.0001F;
                 rotation_range.is_rotation_channel_range = false;
                 out_wheel.rotation_ranges.push_back(rotation_range);
+            }
+        }
+    }
+
+    // Post-process: apply bidirectional sign correction to the rotation ranges
+    // that were just added from this gobo select ChannelFunction.  Same logic
+    // as in consume_gobo_rotation_channel_sets – when all non-stop physical
+    // values share the same sign and there is a stop range dividing the
+    // channel, negate the first half to restore CW/CCW direction.
+    if (rotation_range_start_index < out_wheel.rotation_ranges.size()) {
+        int first_stop_range_index = -1;
+        bool has_positive = false;
+        bool has_negative = false;
+        for (size_t ri = rotation_range_start_index; ri < out_wheel.rotation_ranges.size(); ++ri) {
+            const auto &rr = out_wheel.rotation_ranges[ri];
+            if (rr.is_stop_range) {
+                if (first_stop_range_index < 0 &&
+                    ri > rotation_range_start_index) {
+                    first_stop_range_index = static_cast<int>(ri);
+                }
+                continue;
+            }
+            if (rr.physical_from > 0.0001F || rr.physical_to > 0.0001F) {
+                has_positive = true;
+            }
+            if (rr.physical_from < -0.0001F || rr.physical_to < -0.0001F) {
+                has_negative = true;
+            }
+        }
+        if (first_stop_range_index > 0 && has_positive && !has_negative) {
+            for (size_t ri = rotation_range_start_index;
+                 ri < static_cast<size_t>(first_stop_range_index); ++ri) {
+                auto &rr = out_wheel.rotation_ranges[ri];
+                if (!rr.is_stop_range) {
+                    rr.physical_from = -rr.physical_from;
+                    rr.physical_to = -rr.physical_to;
+                }
+            }
+        } else if (first_stop_range_index > 0 && has_negative && !has_positive) {
+            for (size_t ri = static_cast<size_t>(first_stop_range_index) + 1;
+                 ri < out_wheel.rotation_ranges.size(); ++ri) {
+                auto &rr = out_wheel.rotation_ranges[ri];
+                if (!rr.is_stop_range) {
+                    rr.physical_from = -rr.physical_from;
+                    rr.physical_to = -rr.physical_to;
+                }
             }
         }
     }
