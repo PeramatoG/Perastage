@@ -59,5 +59,10 @@ static func BuildGoboControls(controls: Dictionary, visual_settings: Dictionary,
 	var gobo_controls: Dictionary = controls.duplicate(true)
 	gobo_controls["prefer_native_fog_projector"] = bool(visual_settings.get("use_native_fog_projector_gobos", true))
 	gobo_controls["gobo_scale"] = float(visual_settings.get("gobo_scale", merged_defaults.get("gobo_scale", 1.0)))
-	gobo_controls["gobo_rotation_deg"] = float(visual_settings.get("gobo_rotation_deg", merged_defaults.get("gobo_rotation_deg", 0.0)))
+	var runtime_bindings: Array = gobo_controls.get("gobo_runtime_bindings", [])
+	var has_runtime_rotation: bool = bool(gobo_controls.get("has_gobo_rotation", false)) or not runtime_bindings.is_empty()
+	if not has_runtime_rotation:
+		gobo_controls["gobo_rotation_deg"] = float(visual_settings.get("gobo_rotation_deg", merged_defaults.get("gobo_rotation_deg", 0.0)))
+	elif not gobo_controls.has("gobo_rotation_deg"):
+		gobo_controls["gobo_rotation_deg"] = float(merged_defaults.get("gobo_rotation_deg", 0.0))
 	return gobo_controls
