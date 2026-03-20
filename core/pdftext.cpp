@@ -81,6 +81,36 @@ std::string TryExtractWithPodofoTxtextract(const std::string &path) {
   return ss.str();
 }
 
+std::string ExtractAsciiRunsFromPdfBytes(const std::vector<char> &bytes) {
+  std::string out;
+  std::string run;
+  run.reserve(128);
+
+  auto flushRun = [&]() {
+    if (run.size() >= 4) {
+      if (!out.empty() && out.back() != '\n')
+        out.push_back('\n');
+      out += run;
+    }
+    run.clear();
+  };
+
+  for (unsigned char c : bytes) {
+    const bool printable = (c >= 32 && c <= 126);
+    if (printable) {
+      run.push_back(static_cast<char>(c));
+      continue;
+    }
+    if (c == '\n' || c == '\r') {
+      flushRun();
+      continue;
+    }
+    flushRun();
+  }
+  flushRun();
+  return out;
+}
+
 void AppendEntriesToText(const std::vector<PdfTextEntry> &entries,
                          std::string &out) {
   double lastY = std::numeric_limits<double>::quiet_NaN();
@@ -108,6 +138,7 @@ void AppendEntriesToText(const std::vector<PdfTextEntry> &entries,
 std::string ExtractPdfText(const std::string &path) {
   try {
     PdfMemDocument doc;
+    std::vector<char> pdfBytes;
 #if PODOFO_VERSION >= PODOFO_MAKE_VERSION(0, 10, 0)
     std::ifstream pdfFile(path, std::ios::binary);
     if (!pdfFile) {
@@ -122,7 +153,7 @@ std::string ExtractPdfText(const std::string &path) {
       return {};
     }
     pdfFile.seekg(0, std::ios::beg);
-    std::vector<char> pdfBytes(static_cast<size_t>(size));
+    pdfBytes.resize(static_cast<size_t>(size));
     if (!pdfFile.read(pdfBytes.data(), size)) {
       std::cerr << "Failed reading PDF bytes for import: '" << path << "'."
                 << std::endl;
@@ -250,6 +281,15 @@ std::string ExtractPdfText(const std::string &path) {
         std::cerr << "PDF import fallback via podofotxtextract succeeded for '"
                   << path << "'." << std::endl;
         return toolText;
+      }
+      if (!pdfBytes.empty()) {
+        const std::string asciiText = ExtractAsciiRunsFromPdfBytes(pdfBytes);
+        if (HasVisibleText(asciiText)) {
+          std::cerr
+              << "PDF import fallback via ASCII run extraction succeeded for '"
+              << path << "'." << std::endl;
+          return asciiText;
+        }
       }
       std::cerr << "PDF import produced no visible text for '" << path << "'."
                 << std::endl;
