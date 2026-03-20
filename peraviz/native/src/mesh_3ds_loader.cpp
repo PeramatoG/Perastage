@@ -37,7 +37,7 @@ bool read_chunk(std::ifstream &file, Chunk &chunk) {
     return true;
 }
 
-void ensure_outward_winding(MeshData &mesh) {
+void ensure_godot_clockwise_winding(MeshData &mesh) {
     if (mesh.indices.size() < 3 || mesh.vertices.size() < 3) {
         return;
     }
@@ -107,7 +107,10 @@ void ensure_outward_winding(MeshData &mesh) {
         return;
     }
 
-    if (orientation_score < 0.0F) {
+    // Godot's ArrayMesh expects clockwise triangles as front faces.
+    // Positive score means a globally CCW-oriented closed mesh in this RH basis.
+    // Flip those meshes so culling works consistently in Godot.
+    if (orientation_score > 0.0F) {
         for (size_t i = 0; i + 2 < mesh.indices.size(); i += 3) {
             std::swap(mesh.indices[i + 1], mesh.indices[i + 2]);
         }
@@ -146,9 +149,12 @@ void compute_normals(MeshData &mesh) {
         const float vy = v2y - v0y;
         const float vz = v2z - v0z;
 
-        const float nx = uy * vz - uz * vy;
-        const float ny = uz * vx - ux * vz;
-        const float nz = ux * vy - uy * vx;
+        // 3DS content arrives with clockwise winding for Godot front faces.
+        // Use the opposite cross-product orientation so accumulated normals
+        // still point outward.
+        const float nx = -(uy * vz - uz * vy);
+        const float ny = -(uz * vx - ux * vz);
+        const float nz = -(ux * vy - uy * vx);
 
         mesh.normals[i0 * 3] += nx;
         mesh.normals[i0 * 3 + 1] += ny;
@@ -292,7 +298,7 @@ bool load_3ds(const std::string &path, MeshData &mesh) {
         return false;
     }
 
-    ensure_outward_winding(mesh);
+    ensure_godot_clockwise_winding(mesh);
     compute_normals(mesh);
     return true;
 }
