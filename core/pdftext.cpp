@@ -324,35 +324,59 @@ std::string ExtractPdfText(const std::string &path) {
           << " chars, " << totalEntries << " text entries.";
       std::cerr << oss.str() << std::endl;
     }
-    if (!HasVisibleText(out)) {
+    std::string bestText = out;
+    const bool baseVisible = HasVisibleText(out);
+    std::cerr << "PDF import base extraction visibility for '" << path
+              << "': " << (baseVisible ? "visible" : "not visible")
+              << ", chars=" << out.size() << "." << std::endl;
+
+    if (!baseVisible) {
       const std::string toolText = TryExtractWithPodofoTxtextract(path);
+      std::cerr << "PDF import podofotxtextract fallback chars for '" << path
+                << "': " << toolText.size() << "." << std::endl;
       if (HasVisibleText(toolText)) {
         std::cerr << "PDF import fallback via podofotxtextract succeeded for '"
                   << path << "'." << std::endl;
         return toolText;
       }
+      if (bestText.empty() && !toolText.empty())
+        bestText = toolText;
+
       if (!pdfBytes.empty()) {
         const std::string asciiText = ExtractAsciiRunsFromPdfBytes(pdfBytes);
+        std::cerr << "PDF import ASCII fallback chars for '" << path
+                  << "': " << asciiText.size() << "." << std::endl;
         if (HasVisibleText(asciiText)) {
           std::cerr
               << "PDF import fallback via ASCII run extraction succeeded for '"
               << path << "'." << std::endl;
           return asciiText;
         }
+        if (bestText.empty() && !asciiText.empty())
+          bestText = asciiText;
+
         const std::string utf16AsciiText =
             ExtractUtf16AsciiRunsFromPdfBytes(pdfBytes);
+        std::cerr << "PDF import UTF16-ASCII fallback chars for '" << path
+                  << "': " << utf16AsciiText.size() << "." << std::endl;
         if (HasVisibleText(utf16AsciiText)) {
           std::cerr << "PDF import fallback via UTF16-ASCII run extraction "
                        "succeeded for '"
                     << path << "'." << std::endl;
           return utf16AsciiText;
         }
+        if (bestText.empty() && !utf16AsciiText.empty())
+          bestText = utf16AsciiText;
       }
-      std::cerr << "PDF import produced no visible text for '" << path << "'."
-                << std::endl;
-      return {};
+      if (bestText.empty()) {
+        std::cerr << "PDF import produced no extractable text for '" << path
+                  << "'." << std::endl;
+        return {};
+      }
+      std::cerr << "PDF import returning non-visible fallback text for '" << path
+                << "' with chars=" << bestText.size() << "." << std::endl;
     }
-    return out;
+    return bestText;
   } catch (const PdfError &e) {
     std::cerr << "PoDoFo failed to extract text from '" << path
               << "': " << e.what() << std::endl;
