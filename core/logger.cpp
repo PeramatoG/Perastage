@@ -63,6 +63,8 @@ Logger::Logger() {
       if (!file_.is_open()) {
         std::cerr << "Warning: Unable to open log file at " << logPath.string()
                   << "; logging only to stderr." << std::endl;
+      } else {
+        file_path_ = logPath.string();
       }
     } else {
       std::cerr << "Warning: Unable to create log directory " << logDir.string()
@@ -108,6 +110,11 @@ void Logger::SetMinLevel(Level level) {
 Logger::Level Logger::GetMinLevel() const {
   std::lock_guard<std::mutex> lock(mutex_);
   return min_level_;
+}
+
+std::string Logger::GetLogFilePath() const {
+  std::lock_guard<std::mutex> lock(mutex_);
+  return file_path_;
 }
 
 void Logger::Worker() {

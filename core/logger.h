@@ -44,6 +44,7 @@ public:
   // Runtime minimum level filter. Messages below this level are discarded.
   void SetMinLevel(Level level);
   Level GetMinLevel() const;
+  std::string GetLogFilePath() const;
 
 private:
   Logger();
@@ -69,6 +70,7 @@ private:
   // Default to most-verbose so level filtering is opt-in and does not
   // accidentally suppress Debug logs unless explicitly configured.
   Level min_level_ = Level::Debug;
+  std::string file_path_;
   bool done_ = false;
   std::thread worker_;
 };

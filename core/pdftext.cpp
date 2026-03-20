@@ -16,9 +16,9 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "pdftext.h"
+#include "logger.h"
 
 #include <string>
-#include <wx/log.h>
 
 #include <podofo/podofo.h>
 #include <algorithm>
@@ -26,6 +26,7 @@
 #include <cmath>
 #include <filesystem>
 #include <limits>
+#include <sstream>
 #include <vector>
 
 using namespace PoDoFo;
@@ -175,18 +176,23 @@ std::string ExtractPdfText(const std::string &path) {
     out.erase(std::remove(out.begin(), out.end(), '\0'), out.end());
     if (!out.empty() && out.back() == '\n')
       out.pop_back();
-    wxLogMessage("PDF import: '" + wxString::FromUTF8(path) + "' -> " +
-                 wxString::Format("%zu chars, %zu text entries", out.size(),
-                                  totalEntries));
+    {
+      std::ostringstream oss;
+      oss << "PDF import: '" << path << "' -> " << out.size()
+          << " chars, " << totalEntries << " text entries.";
+      Logger::Instance().Log(Logger::Level::Info, oss.str());
+    }
     if (!HasVisibleText(out)) {
-      wxLogWarning("PDF import produced no visible text for '" +
-                   wxString::FromUTF8(path) + "'");
+      Logger::Instance().Log(Logger::Level::Warn,
+                             "PDF import produced no visible text for '" +
+                                 path + "'.");
       return {};
     }
     return out;
   } catch (const PdfError &e) {
-    wxLogError("PoDoFo failed to extract text from '" +
-               wxString::FromUTF8(path) + "': " + wxString::FromUTF8(e.what()));
+    Logger::Instance().Log(Logger::Level::Error,
+                           "PoDoFo failed to extract text from '" + path +
+                               "': " + std::string(e.what()));
   }
   return {};
 }

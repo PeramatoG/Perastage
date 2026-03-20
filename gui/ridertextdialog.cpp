@@ -26,6 +26,8 @@
 #include <wx/textctrl.h>
 
 #include "projectutils.h"
+#include "consolepanel.h"
+#include "logger.h"
 #include "riderimporter.h"
 
 enum {
@@ -95,9 +97,28 @@ void RiderTextDialog::OnLoadFromFile(wxCommandEvent &WXUNUSED(event)) {
       pathBuffer ? std::string(pathBuffer.data(), pathBuffer.length())
                  : dlg.GetPath().ToStdString();
   std::string text = RiderImporter::LoadText(pathUtf8);
+  if (ConsolePanel *console = ConsolePanel::Instance()) {
+    static bool logPathShown = false;
+    if (!logPathShown) {
+      const std::string logPath = Logger::Instance().GetLogFilePath();
+      if (!logPath.empty()) {
+        console->AppendMessage("Log file: " + wxString::FromUTF8(logPath));
+      }
+      logPathShown = true;
+    }
+  }
   if (text.empty()) {
+    if (ConsolePanel *console = ConsolePanel::Instance()) {
+      console->AppendMessage("Rider import: no visible text extracted from " +
+                             dlg.GetFilename());
+    }
     wxMessageBox("Failed to import rider.", "Error", wxICON_ERROR);
     return;
+  }
+  if (ConsolePanel *console = ConsolePanel::Instance()) {
+    console->AppendMessage("Rider import: extracted " +
+                           wxString::Format("%zu", text.size()) + " chars from " +
+                           dlg.GetFilename());
   }
   sourceLabel = dlg.GetFilename();
   if (sourceText)
