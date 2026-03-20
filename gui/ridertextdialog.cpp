@@ -131,10 +131,10 @@ void RiderTextDialog::OnLoadFromFile(wxCommandEvent &WXUNUSED(event)) {
       console->AppendMessage("Rider import: no visible text extracted from " +
                              dlg.GetFilename());
       const std::string report = GetLastPdfTextExtractionReport();
-      if (!report.empty() &&
-          dlg.GetFilename().Lower().EndsWith(".pdf")) {
-        console->AppendMessage(wxString::FromUTF8(report));
-      }
+      console->AppendMessage("Rider import report: " +
+                             (report.empty()
+                                  ? wxString("(empty)")
+                                  : wxString::FromUTF8(report)));
     }
     wxMessageBox("Failed to import rider.", "Error", wxICON_ERROR);
     return;

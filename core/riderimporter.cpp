@@ -353,10 +353,16 @@ std::string RiderImporter::LoadText(const std::string &path) {
     ext = path.substr(dotPos);
   for (auto &c : ext)
     c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+  Logger::Instance().Log(Logger::Level::Info,
+                         "RiderImporter::LoadText path='" + path +
+                             "' ext='" + ext + "'");
   if (ext == ".txt")
     return ReadTextFile(path);
   if (ext == ".pdf")
     return ExtractPdfText(path);
+  Logger::Instance().Log(Logger::Level::Warn,
+                         "RiderImporter::LoadText unsupported extension for '" +
+                             path + "'");
   return {};
 }
 
