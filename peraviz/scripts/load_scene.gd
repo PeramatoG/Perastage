@@ -789,15 +789,63 @@ func _build_visual_node(data: Dictionary, item_type: String, item_class: String,
 		var loaded: Variant = _load_3d_asset(asset_path, asset_kind)
 		if loaded is Node3D:
 			var loaded_node: Node3D = loaded
+			_force_double_sided_materials(loaded_node)
 			return loaded_node
 		print("[Peraviz] Asset fallback for missing/invalid model: ", asset_path, " type=", item_type, " class=", item_class, " asset_kind=", asset_kind)
 
 	if item_type == "fixture" or item_type == "fixture_geometry":
 		if asset_kind == "primitive":
-			return _create_gdtf_primitive_mesh(data)
+			var primitive_mesh: Node3D = _create_gdtf_primitive_mesh(data)
+			_force_double_sided_materials(primitive_mesh)
+			return primitive_mesh
 		return null
 
-	return _create_dummy_mesh(is_fixture, visual_scale_hint)
+	var dummy_mesh: Node3D = _create_dummy_mesh(is_fixture, visual_scale_hint)
+	_force_double_sided_materials(dummy_mesh)
+	return dummy_mesh
+
+func _force_double_sided_materials(root: Node) -> void:
+	if root == null:
+		return
+
+	if root is MeshInstance3D:
+		_apply_double_sided_to_mesh_instance(root as MeshInstance3D)
+
+	for child in root.get_children():
+		_force_double_sided_materials(child)
+
+func _apply_double_sided_to_mesh_instance(mesh_instance: MeshInstance3D) -> void:
+	if mesh_instance == null:
+		return
+
+	if mesh_instance.material_override != null:
+		mesh_instance.material_override = _duplicate_as_double_sided(mesh_instance.material_override)
+
+	if mesh_instance.mesh == null:
+		return
+
+	var surface_count: int = mesh_instance.mesh.get_surface_count()
+	for surface_index in range(surface_count):
+		var override_material: Material = mesh_instance.get_surface_override_material(surface_index)
+		if override_material != null:
+			mesh_instance.set_surface_override_material(surface_index, _duplicate_as_double_sided(override_material))
+			continue
+
+		var surface_material: Material = mesh_instance.mesh.surface_get_material(surface_index)
+		if surface_material != null:
+			mesh_instance.set_surface_override_material(surface_index, _duplicate_as_double_sided(surface_material))
+
+func _duplicate_as_double_sided(material: Material) -> Material:
+	if material is not BaseMaterial3D:
+		return material
+
+	var base_material: BaseMaterial3D = material as BaseMaterial3D
+	if base_material.cull_mode == BaseMaterial3D.CULL_DISABLED:
+		return material
+
+	var duplicated_material: BaseMaterial3D = base_material.duplicate(true)
+	duplicated_material.cull_mode = BaseMaterial3D.CULL_DISABLED
+	return duplicated_material
 
 func _extract_visual_scale_hint(data: Dictionary) -> float:
 	if bool(data.get("has_basis", false)):
