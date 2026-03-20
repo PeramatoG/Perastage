@@ -810,6 +810,8 @@ func _force_double_sided_materials(root: Node) -> void:
 
 	if root is MeshInstance3D:
 		_apply_double_sided_to_mesh_instance(root as MeshInstance3D)
+	elif root is MultiMeshInstance3D:
+		_apply_double_sided_to_multimesh_instance(root as MultiMeshInstance3D)
 
 	for child in root.get_children():
 		_force_double_sided_materials(child)
@@ -821,19 +823,34 @@ func _apply_double_sided_to_mesh_instance(mesh_instance: MeshInstance3D) -> void
 	if mesh_instance.material_override != null:
 		mesh_instance.material_override = _duplicate_as_double_sided(mesh_instance.material_override)
 
-	if mesh_instance.mesh == null:
+	_apply_double_sided_to_mesh_surfaces(mesh_instance, mesh_instance.mesh)
+
+func _apply_double_sided_to_multimesh_instance(multimesh_instance: MultiMeshInstance3D) -> void:
+	if multimesh_instance == null:
 		return
 
-	var surface_count: int = mesh_instance.mesh.get_surface_count()
+	if multimesh_instance.material_override != null:
+		multimesh_instance.material_override = _duplicate_as_double_sided(multimesh_instance.material_override)
+
+	var mesh: Mesh = multimesh_instance.multimesh.mesh if multimesh_instance.multimesh != null else null
+	_apply_double_sided_to_mesh_surfaces(multimesh_instance, mesh)
+
+func _apply_double_sided_to_mesh_surfaces(geometry_instance: GeometryInstance3D, mesh: Mesh) -> void:
+	if geometry_instance == null or mesh == null:
+		return
+
+	var surface_count: int = mesh.get_surface_count()
 	for surface_index in range(surface_count):
-		var override_material: Material = mesh_instance.get_surface_override_material(surface_index)
+		var override_material: Material = geometry_instance.get_surface_override_material(surface_index)
 		if override_material != null:
-			mesh_instance.set_surface_override_material(surface_index, _duplicate_as_double_sided(override_material))
+			geometry_instance.set_surface_override_material(surface_index, _duplicate_as_double_sided(override_material))
 			continue
 
-		var surface_material: Material = mesh_instance.mesh.surface_get_material(surface_index)
+		var surface_material: Material = mesh.surface_get_material(surface_index)
 		if surface_material != null:
-			mesh_instance.set_surface_override_material(surface_index, _duplicate_as_double_sided(surface_material))
+			geometry_instance.set_surface_override_material(surface_index, _duplicate_as_double_sided(surface_material))
+		else:
+			geometry_instance.set_surface_override_material(surface_index, _create_default_double_sided_material())
 
 func _duplicate_as_double_sided(material: Material) -> Material:
 	if material is not BaseMaterial3D:
@@ -846,6 +863,11 @@ func _duplicate_as_double_sided(material: Material) -> Material:
 	var duplicated_material: BaseMaterial3D = base_material.duplicate(true)
 	duplicated_material.cull_mode = BaseMaterial3D.CULL_DISABLED
 	return duplicated_material
+
+func _create_default_double_sided_material() -> StandardMaterial3D:
+	var material := StandardMaterial3D.new()
+	material.cull_mode = BaseMaterial3D.CULL_DISABLED
+	return material
 
 func _extract_visual_scale_hint(data: Dictionary) -> float:
 	if bool(data.get("has_basis", false)):
