@@ -22,6 +22,7 @@
 
 #include <podofo/podofo.h>
 #include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <filesystem>
 #include <limits>
@@ -30,6 +31,14 @@
 using namespace PoDoFo;
 
 namespace {
+
+bool HasVisibleText(const std::string &text) {
+  for (unsigned char ch : text) {
+    if (!std::isspace(ch))
+      return true;
+  }
+  return false;
+}
 
 void AppendEntriesToText(const std::vector<PdfTextEntry> &entries,
                          std::string &out) {
@@ -61,6 +70,7 @@ std::string ExtractPdfText(const std::string &path) {
     PdfMemDocument doc;
     doc.Load(nativePath.string().c_str());
     std::string out;
+    size_t totalEntries = 0;
 #if PODOFO_VERSION >= PODOFO_MAKE_VERSION(0, 10, 0)
     auto &pages = doc.GetPages();
     for (unsigned i = 0; i < pages.GetCount(); ++i) {
@@ -75,6 +85,7 @@ std::string ExtractPdfText(const std::string &path) {
         PdfTextExtractParams defaultParams;
         page.ExtractTextTo(entries, defaultParams);
       }
+      totalEntries += entries.size();
       std::sort(entries.begin(), entries.end(), [](const PdfTextEntry &a,
                                                    const PdfTextEntry &b) {
         if (std::fabs(a.Y - b.Y) > 2.0)
@@ -161,8 +172,17 @@ std::string ExtractPdfText(const std::string &path) {
       out += '\n';
     }
 #endif
+    out.erase(std::remove(out.begin(), out.end(), '\0'), out.end());
     if (!out.empty() && out.back() == '\n')
       out.pop_back();
+    wxLogMessage("PDF import: '" + wxString::FromUTF8(path) + "' -> " +
+                 wxString::Format("%zu chars, %zu text entries", out.size(),
+                                  totalEntries));
+    if (!HasVisibleText(out)) {
+      wxLogWarning("PDF import produced no visible text for '" +
+                   wxString::FromUTF8(path) + "'");
+      return {};
+    }
     return out;
   } catch (const PdfError &e) {
     wxLogError("PoDoFo failed to extract text from '" +
