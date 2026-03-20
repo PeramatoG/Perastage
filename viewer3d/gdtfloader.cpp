@@ -232,23 +232,6 @@ static bool IsPrimitiveTypeDefined(const std::string& primitiveType)
     return ToLower(primitiveType) != "undefined";
 }
 
-static void SuppressPrimitiveFallbackMeshesWhenModelExists(GdtfGeometryTree& tree)
-{
-    const bool hasModelFileMesh = std::any_of(
-        tree.nodes.begin(), tree.nodes.end(), [](const GdtfNode3D& node) {
-            return node.hasMesh && node.meshFromModelFile;
-        });
-    if (!hasModelFileMesh)
-        return;
-
-    for (GdtfNode3D& node : tree.nodes) {
-        if (!node.hasMesh || !node.meshFromPrimitiveFallback)
-            continue;
-        node.hasMesh = false;
-        node.mesh = Mesh{};
-    }
-}
-
 static void ApplyModelDimensions(Mesh& mesh, const GdtfModelInfo& modelInfo)
 {
     if (mesh.vertices.empty())
@@ -1051,8 +1034,6 @@ static void ParseGeometry(tinyxml2::XMLElement* node,
             const GdtfModelInfo& modelInfo = it->second;
             Mesh mesh;
             bool haveMesh = false;
-            bool meshFromModelFile = false;
-            bool meshFromPrimitiveFallback = false;
 
             if (!modelInfo.file.empty()) {
                 std::string path = FindModelFile(baseDir, modelInfo.file);
@@ -1085,7 +1066,6 @@ static void ParseGeometry(tinyxml2::XMLElement* node,
                     if (mit != meshCache.end()) {
                         mesh = mit->second;
                         haveMesh = true;
-                        meshFromModelFile = true;
                     }
                 } else if (ConsolePanel::Instance()) {
                     std::string key = baseDir + "|" + modelInfo.file;
@@ -1103,15 +1083,12 @@ static void ParseGeometry(tinyxml2::XMLElement* node,
                 if (BuildPrimitiveMesh(modelInfo.primitiveType, mesh)) {
                     ApplyModelDimensions(mesh, modelInfo);
                     haveMesh = true;
-                    meshFromPrimitiveFallback = !modelInfo.file.empty();
                 }
             }
 
             if (haveMesh) {
                 node3d.mesh = mesh;
                 node3d.hasMesh = true;
-                node3d.meshFromModelFile = meshFromModelFile;
-                node3d.meshFromPrimitiveFallback = meshFromPrimitiveFallback;
             }
         }
     }
@@ -1203,8 +1180,6 @@ bool LoadGdtfGeometryTree(const std::string& gdtfPath,
                           -1, nullptr, false);
         }
     }
-
-    SuppressPrimitiveFallbackMeshesWhenModelExists(outTree);
 
     return !outTree.nodes.empty();
 }
@@ -1304,8 +1279,6 @@ bool LoadGdtf(const std::string& gdtfPath,
                           meshCache, geometryTree, missingModels, failedModelLoads, -1);
         }
     }
-
-    SuppressPrimitiveFallbackMeshesWhenModelExists(geometryTree);
 
     for (const GdtfNode3D& node : geometryTree.nodes) {
         if (node.hasMesh)

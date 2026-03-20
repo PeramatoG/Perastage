@@ -312,6 +312,7 @@ std::vector<SceneNode> build_fixture_geometry_nodes(const GdtfBuildRequest &requ
     }
 
     int local_counter = 0;
+    std::vector<size_t> primitive_fallback_indices;
     std::function<void(tinyxml2::XMLElement *, const std::string &, const Matrix &, const char *,
                        const Matrix *, bool)>
         append_geometry;
@@ -400,9 +401,11 @@ std::vector<SceneNode> build_fixture_geometry_nodes(const GdtfBuildRequest &requ
         if (!model_name) {
             model_name = geometry->Attribute("model");
         }
+        bool model_declares_file = false;
         if (model_name) {
             auto model_it = model_visual_by_name.find(model_name);
             if (model_it != model_visual_by_name.end()) {
+                model_declares_file = !model_it->second.file.empty();
                 if (!model_it->second.file.empty()) {
                     node.asset_path = gdtf_cache.ensure_gdtf_model_extracted(model_it->second.file);
                 }
@@ -417,7 +420,14 @@ std::vector<SceneNode> build_fixture_geometry_nodes(const GdtfBuildRequest &requ
             node.asset_kind = "primitive";
         }
 
+        const bool isPrimitiveFallbackFromMissingFile =
+            (node.asset_kind == "primitive" && model_declares_file && node.asset_path.empty());
+
+        const size_t inserted_index = nodes.size();
         nodes.push_back(node);
+        if (isPrimitiveFallbackFromMissingFile) {
+            primitive_fallback_indices.push_back(inserted_index);
+        }
 
         for (tinyxml2::XMLElement *child = geometry->FirstChildElement(); child;
              child = child->NextSiblingElement()) {
@@ -430,6 +440,22 @@ std::vector<SceneNode> build_fixture_geometry_nodes(const GdtfBuildRequest &requ
     };
 
     append_geometry(root_geometry, parent_id, parent_world, nullptr, nullptr, false);
+    const bool hasFileBackedGeometry = std::any_of(
+        nodes.begin(), nodes.end(), [](const SceneNode &node) {
+            return node.type == "fixture_geometry" &&
+                   (node.asset_kind == "mesh" || node.asset_kind == "scene");
+        });
+    if (hasFileBackedGeometry) {
+        for (const size_t node_index : primitive_fallback_indices) {
+            if (node_index >= nodes.size()) {
+                continue;
+            }
+            SceneNode &fallbackNode = nodes[node_index];
+            fallbackNode.asset_kind = "none";
+            fallbackNode.primitive_type.clear();
+        }
+    }
+
     extracted_asset_count += gdtf_cache.extracted_assets();
     return nodes;
 }

@@ -43,8 +43,6 @@ struct GdtfNode3D {
     Matrix worldTransform = Matrix{};
     bool isLens = false;
     bool hasMesh = false;
-    bool meshFromModelFile = false;
-    bool meshFromPrimitiveFallback = false;
     Mesh mesh;
 };
 
