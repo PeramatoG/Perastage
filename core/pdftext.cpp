@@ -16,7 +16,6 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "pdftext.h"
-#include "logger.h"
 
 #include <string>
 
@@ -25,6 +24,7 @@
 #include <cctype>
 #include <cmath>
 #include <filesystem>
+#include <iostream>
 #include <limits>
 #include <sstream>
 #include <vector>
@@ -180,19 +180,17 @@ std::string ExtractPdfText(const std::string &path) {
       std::ostringstream oss;
       oss << "PDF import: '" << path << "' -> " << out.size()
           << " chars, " << totalEntries << " text entries.";
-      Logger::Instance().Log(Logger::Level::Info, oss.str());
+      std::cerr << oss.str() << std::endl;
     }
     if (!HasVisibleText(out)) {
-      Logger::Instance().Log(Logger::Level::Warn,
-                             "PDF import produced no visible text for '" +
-                                 path + "'.");
+      std::cerr << "PDF import produced no visible text for '" << path << "'."
+                << std::endl;
       return {};
     }
     return out;
   } catch (const PdfError &e) {
-    Logger::Instance().Log(Logger::Level::Error,
-                           "PoDoFo failed to extract text from '" + path +
-                               "': " + std::string(e.what()));
+    std::cerr << "PoDoFo failed to extract text from '" << path
+              << "': " << e.what() << std::endl;
   }
   return {};
 }
