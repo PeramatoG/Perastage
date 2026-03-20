@@ -24,6 +24,8 @@
 #include <algorithm>
 #include <cctype>
 #include <cmath>
+#include <filesystem>
+#include <fstream>
 #include <limits>
 #include <mutex>
 #include <sstream>
@@ -109,7 +111,26 @@ std::string ExtractPdfText(const std::string &path) {
   try {
     PdfMemDocument doc;
 #if PODOFO_VERSION >= PODOFO_MAKE_VERSION(0, 10, 0)
-    doc.Load(path.c_str());
+    std::ifstream pdfFile(std::filesystem::u8path(path), std::ios::binary);
+    if (!pdfFile) {
+      LogPdfError("PoDoFo input file could not be opened: '" + path + "'.");
+      return {};
+    }
+    pdfFile.seekg(0, std::ios::end);
+    const std::streamsize size = pdfFile.tellg();
+    if (size <= 0) {
+      LogPdfWarn("PoDoFo input file is empty: '" + path + "'.");
+      return {};
+    }
+    pdfFile.seekg(0, std::ios::beg);
+    std::vector<char> bytes(static_cast<size_t>(size));
+    if (!pdfFile.read(bytes.data(), size)) {
+      LogPdfError("PoDoFo input file read failed: '" + path + "'.");
+      return {};
+    }
+    LogPdfInfo("PoDoFo input bytes loaded: " + std::to_string(bytes.size()) +
+               " bytes from '" + path + "'.");
+    doc.LoadFromBuffer(bufferview(bytes.data(), bytes.size()));
 #else
     doc.Load(path.c_str());
 #endif
