@@ -33,6 +33,21 @@ const DEFAULT_SETTINGS := {
 	"light_volumetric_fog_energy": 12.0,
 	"use_native_fog_projector_gobos": true,
 	"background_color": Color(0.129412, 0.137255, 0.156863, 1.0),
+	"environment_enabled": true,
+	"environment_use_continuous_cycle": false,
+	"environment_current_preset": 1,
+	"environment_time_of_day": 0.4,
+	"environment_auto_advance": false,
+	"environment_cycle_speed": 0.02,
+	"environment_allow_blackout_night": true,
+	"environment_day_light_intensity": 0.7,
+	"environment_dusk_light_intensity": 0.18,
+	"environment_night_light_intensity": 0.02,
+	"environment_moon_light_intensity": 0.012,
+	"environment_ambient_energy_day": 0.08,
+	"environment_ambient_energy_night": 0.008,
+	"environment_horizon_warmth": 0.6,
+	"environment_horizon_intensity": 1.0,
 }
 
 var _settings: Dictionary = DEFAULT_SETTINGS.duplicate(true)
@@ -53,10 +68,16 @@ var _light_fog_energy_value_label: Label
 var _background_picker: ColorPickerButton
 var _beam_render_mode_option: OptionButton
 var _beam_quality_option: OptionButton
+var _environment_preset_option: OptionButton
+var _environment_time_slider: HSlider
+var _environment_time_value_label: Label
+var _environment_cycle_speed_slider: HSlider
+var _environment_cycle_speed_value_label: Label
+var _toggle_controls: Dictionary = {}
 
 func _init() -> void:
 	title = "Visual Settings"
-	size = Vector2i(540, 560)
+	size = Vector2i(560, 760)
 	unresizable = false
 
 func _ready() -> void:
@@ -86,10 +107,18 @@ func _build_ui() -> void:
 	root.add_theme_constant_override("margin_bottom", 12)
 	add_child(root)
 
-	var container: VBoxContainer = VBoxContainer.new()
-	container.add_theme_constant_override("separation", 10)
-	root.add_child(container)
+	var scroll: ScrollContainer = ScrollContainer.new()
+	scroll.set_anchors_preset(Control.PRESET_FULL_RECT)
+	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	root.add_child(scroll)
 
+	var container: VBoxContainer = VBoxContainer.new()
+	container.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	container.add_theme_constant_override("separation", 10)
+	scroll.add_child(container)
+
+	_add_section_label(container, "Renderer")
 	_ambient_slider = _add_slider_row(container, "Ambient light", "ambient_multiplier", 0.0, 3.0, 0.01)
 	_spot_slider = _add_slider_row(container, "Spot intensity", "spot_multiplier", 0.0, 3.0, 0.01)
 	_beam_slider = _add_slider_row(container, "Beam intensity", "beam_multiplier", 0.0, 100.0, 0.01)
@@ -101,13 +130,30 @@ func _build_ui() -> void:
 	_beam_render_mode_option = _add_option_row(container, "Beam rendering", ["Volumetric (default)", "Lightweight (legacy)"], _on_beam_render_mode_selected)
 	_beam_quality_option = _add_option_row(container, "Beam quality", ["Low", "Medium", "High"], _on_beam_quality_selected)
 
+	_add_section_label(container, "Environment")
+	_add_toggle_row(container, "Enable environment controller", "environment_enabled")
+	_add_toggle_row(container, "Use continuous cycle", "environment_use_continuous_cycle")
+	_environment_preset_option = _add_option_row(container, "Environment preset", ["Dawn", "Day", "Dusk", "Night", "BlackoutNight"], _on_environment_preset_selected)
+	_environment_time_slider = _add_slider_row(container, "Time of day", "environment_time_of_day", 0.0, 1.0, 0.001)
+	_add_toggle_row(container, "Auto advance cycle", "environment_auto_advance")
+	_environment_cycle_speed_slider = _add_slider_row(container, "Cycle speed", "environment_cycle_speed", 0.0, 0.2, 0.0005)
+	_add_toggle_row(container, "Allow blackout night", "environment_allow_blackout_night")
+	_add_slider_row(container, "Day light intensity", "environment_day_light_intensity", 0.0, 2.0, 0.01)
+	_add_slider_row(container, "Dusk light intensity", "environment_dusk_light_intensity", 0.0, 1.0, 0.01)
+	_add_slider_row(container, "Night light intensity", "environment_night_light_intensity", 0.0, 0.3, 0.001)
+	_add_slider_row(container, "Moon light intensity", "environment_moon_light_intensity", 0.0, 0.2, 0.001)
+	_add_slider_row(container, "Ambient day energy", "environment_ambient_energy_day", 0.0, 0.3, 0.001)
+	_add_slider_row(container, "Ambient night energy", "environment_ambient_energy_night", 0.0, 0.1, 0.001)
+	_add_slider_row(container, "Horizon warmth", "environment_horizon_warmth", 0.0, 1.0, 0.01)
+	_add_slider_row(container, "Horizon intensity", "environment_horizon_intensity", 0.0, 2.0, 0.01)
+
 	var background_row: HBoxContainer = HBoxContainer.new()
 	background_row.add_theme_constant_override("separation", 8)
 	container.add_child(background_row)
 
 	var background_label: Label = Label.new()
 	background_label.text = "Background color"
-	background_label.custom_minimum_size = Vector2(150, 0)
+	background_label.custom_minimum_size = Vector2(170, 0)
 	background_row.add_child(background_label)
 
 	_background_picker = ColorPickerButton.new()
@@ -124,6 +170,12 @@ func _build_ui() -> void:
 	reset_button.pressed.connect(_on_reset_pressed)
 	actions_row.add_child(reset_button)
 
+func _add_section_label(parent: VBoxContainer, title_text: String) -> void:
+	var section_label: Label = Label.new()
+	section_label.text = title_text
+	section_label.add_theme_font_size_override("font_size", 16)
+	parent.add_child(section_label)
+
 func _add_slider_row(parent: VBoxContainer,
 		label_text: String,
 		key: String,
@@ -136,7 +188,7 @@ func _add_slider_row(parent: VBoxContainer,
 
 	var setting_label: Label = Label.new()
 	setting_label.text = label_text
-	setting_label.custom_minimum_size = Vector2(150, 0)
+	setting_label.custom_minimum_size = Vector2(170, 0)
 	row.add_child(setting_label)
 
 	var slider: HSlider = HSlider.new()
@@ -150,7 +202,7 @@ func _add_slider_row(parent: VBoxContainer,
 	row.add_child(slider)
 
 	var value_label: Label = Label.new()
-	value_label.custom_minimum_size = Vector2(56, 0)
+	value_label.custom_minimum_size = Vector2(64, 0)
 	value_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	row.add_child(value_label)
 
@@ -169,6 +221,10 @@ func _add_slider_row(parent: VBoxContainer,
 			_fog_fade_value_label = value_label
 		"light_volumetric_fog_energy":
 			_light_fog_energy_value_label = value_label
+		"environment_time_of_day":
+			_environment_time_value_label = value_label
+		"environment_cycle_speed":
+			_environment_cycle_speed_value_label = value_label
 
 	return slider
 
@@ -179,7 +235,7 @@ func _add_option_row(parent: VBoxContainer, label_text: String, options: Array[S
 
 	var setting_label: Label = Label.new()
 	setting_label.text = label_text
-	setting_label.custom_minimum_size = Vector2(150, 0)
+	setting_label.custom_minimum_size = Vector2(170, 0)
 	row.add_child(setting_label)
 
 	var option_button: OptionButton = OptionButton.new()
@@ -200,6 +256,7 @@ func _add_toggle_row(parent: VBoxContainer, label_text: String, key: String) -> 
 		_emit_settings_changed()
 	)
 	parent.add_child(toggle)
+	_toggle_controls[key] = toggle
 
 func _apply_settings_to_controls() -> void:
 	_ambient_slider.value = float(_settings.get("ambient_multiplier", 0.08))
@@ -211,6 +268,13 @@ func _apply_settings_to_controls() -> void:
 	_light_fog_energy_slider.value = float(_settings.get("light_volumetric_fog_energy", 12.0))
 	_beam_render_mode_option.select(clamp(int(_settings.get("beam_render_mode", 0)), 0, 1))
 	_beam_quality_option.select(clamp(int(_settings.get("beam_quality", 1)), 0, 2))
+	_environment_preset_option.select(clamp(int(_settings.get("environment_current_preset", 1)), 0, 4))
+	_environment_time_slider.value = clamp(float(_settings.get("environment_time_of_day", 0.4)), 0.0, 1.0)
+	_environment_cycle_speed_slider.value = max(float(_settings.get("environment_cycle_speed", 0.02)), 0.0)
+	for key in _toggle_controls.keys():
+		var toggle: CheckBox = _toggle_controls[key]
+		if toggle != null:
+			toggle.button_pressed = bool(_settings.get(key, false))
 	_background_picker.color = _settings.get("background_color", DEFAULT_SETTINGS["background_color"])
 	_update_value_labels()
 
@@ -238,6 +302,10 @@ func _on_beam_quality_selected(index: int) -> void:
 	_settings["beam_quality"] = clamp(index, 0, 2)
 	_emit_settings_changed()
 
+func _on_environment_preset_selected(index: int) -> void:
+	_settings["environment_current_preset"] = clamp(index, 0, 4)
+	_emit_settings_changed()
+
 func _update_value_labels() -> void:
 	_ambient_value_label.text = "%.2f" % float(_settings.get("ambient_multiplier", 0.08))
 	_spot_value_label.text = "%.2f" % float(_settings.get("spot_multiplier", 1.0))
@@ -246,6 +314,8 @@ func _update_value_labels() -> void:
 	_fog_density_value_label.text = "%.4f" % float(_settings.get("volumetric_fog_density", 0.0))
 	_fog_fade_value_label.text = "%.3f" % float(_settings.get("volumetric_fog_fade", 0.02))
 	_light_fog_energy_value_label.text = "%.2f" % float(_settings.get("light_volumetric_fog_energy", 12.0))
+	_environment_time_value_label.text = "%.3f" % float(_settings.get("environment_time_of_day", 0.4))
+	_environment_cycle_speed_value_label.text = "%.4f" % float(_settings.get("environment_cycle_speed", 0.02))
 
 func _emit_settings_changed() -> void:
 	settings_changed.emit(_settings.duplicate(true))

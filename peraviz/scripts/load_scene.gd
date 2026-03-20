@@ -6,6 +6,7 @@ extends Node3D
 @onready var picker: FileDialog = $HUD/FileDialog
 @onready var camera: Camera3D = $Camera3D
 @onready var world_environment: WorldEnvironment = $WorldEnvironment
+@onready var day_night_environment_controller: DayNightEnvironmentController = $DayNightEnvironmentController
 @onready var manual_fixture_toggle: CheckButton = $HUD/ManualFixtureToggle
 @onready var fixture_debug_panel: PanelContainer = $HUD/FixtureDebugPanel
 @onready var fixture_list: ItemList = $HUD/FixtureDebugPanel/Margin/VBox/FixtureList
@@ -86,6 +87,21 @@ var _visual_settings := {
 	"light_volumetric_fog_energy": 12.0,
 	"use_native_fog_projector_gobos": true,
 	"background_color": Color(0.129412, 0.137255, 0.156863, 1.0),
+	"environment_enabled": true,
+	"environment_use_continuous_cycle": false,
+	"environment_current_preset": 1,
+	"environment_time_of_day": 0.4,
+	"environment_auto_advance": false,
+	"environment_cycle_speed": 0.02,
+	"environment_allow_blackout_night": true,
+	"environment_day_light_intensity": 0.7,
+	"environment_dusk_light_intensity": 0.18,
+	"environment_night_light_intensity": 0.02,
+	"environment_moon_light_intensity": 0.012,
+	"environment_ambient_energy_day": 0.08,
+	"environment_ambient_energy_night": 0.008,
+	"environment_horizon_warmth": 0.6,
+	"environment_horizon_intensity": 1.0,
 }
 
 var _dmx_receiver = null
@@ -250,6 +266,7 @@ func _ready() -> void:
 	else:
 		push_warning("VisualSettingsWindow is not ready for configure(); initial visual settings not pushed.")
 	_apply_visual_settings(_visual_settings)
+	_refresh_day_night_environment_controller()
 
 
 func _apply_imported_content_scale() -> void:
@@ -336,6 +353,7 @@ func _apply_visual_settings(settings: Dictionary) -> void:
 	)
 	if beam_scalar_changed:
 		_refresh_existing_beam_material_scalars()
+	_refresh_day_night_environment_controller()
 
 
 
@@ -346,6 +364,29 @@ func _environment_has_property(environment: Environment, property_name: String) 
 		if str(entry.get("name", "")) == property_name:
 			return true
 	return false
+
+func _refresh_day_night_environment_controller() -> void:
+	if day_night_environment_controller == null:
+		return
+	_apply_day_night_settings_from_visual_controls()
+	day_night_environment_controller.apply_now()
+
+func _apply_day_night_settings_from_visual_controls() -> void:
+	day_night_environment_controller.enabled = bool(_visual_settings.get("environment_enabled", true))
+	day_night_environment_controller.use_continuous_cycle = bool(_visual_settings.get("environment_use_continuous_cycle", false))
+	day_night_environment_controller.current_preset = int(clamp(int(_visual_settings.get("environment_current_preset", 1)), 0, 4))
+	day_night_environment_controller.time_of_day = clampf(float(_visual_settings.get("environment_time_of_day", 0.4)), 0.0, 1.0)
+	day_night_environment_controller.auto_advance = bool(_visual_settings.get("environment_auto_advance", false))
+	day_night_environment_controller.cycle_speed = max(float(_visual_settings.get("environment_cycle_speed", 0.02)), 0.0)
+	day_night_environment_controller.allow_blackout_night = bool(_visual_settings.get("environment_allow_blackout_night", true))
+	day_night_environment_controller.day_light_intensity = max(float(_visual_settings.get("environment_day_light_intensity", 0.7)), 0.0)
+	day_night_environment_controller.dusk_light_intensity = max(float(_visual_settings.get("environment_dusk_light_intensity", 0.18)), 0.0)
+	day_night_environment_controller.night_light_intensity = max(float(_visual_settings.get("environment_night_light_intensity", 0.02)), 0.0)
+	day_night_environment_controller.moon_light_intensity = max(float(_visual_settings.get("environment_moon_light_intensity", 0.012)), 0.0)
+	day_night_environment_controller.ambient_energy_day = max(float(_visual_settings.get("environment_ambient_energy_day", 0.08)), 0.0)
+	day_night_environment_controller.ambient_energy_night = max(float(_visual_settings.get("environment_ambient_energy_night", 0.008)), 0.0)
+	day_night_environment_controller.horizon_warmth = clampf(float(_visual_settings.get("environment_horizon_warmth", 0.6)), 0.0, 1.0)
+	day_night_environment_controller.horizon_intensity = clampf(float(_visual_settings.get("environment_horizon_intensity", 1.0)), 0.0, 2.0)
 
 func _update_beam_renderer_mode(force_refresh: bool) -> void:
 	var requested_mode: int = int(clamp(int(_visual_settings.get("beam_render_mode", BEAM_RENDER_MODE_VOLUMETRIC)), BEAM_RENDER_MODE_VOLUMETRIC, BEAM_RENDER_MODE_LEGACY))
