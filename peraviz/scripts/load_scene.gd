@@ -709,7 +709,56 @@ func _build_node_tree(nodes: Array) -> void:
 			if not parent_id.is_empty() and _node_index.has(parent_id):
 				parent_node = _node_index[parent_id]
 			parent_node.add_child(node)
-			_expand_loaded_bounds_from_node(node)
+
+	_remove_redundant_dummy_meshes(proxies_root)
+	_rebuild_loaded_bounds()
+
+func _remove_redundant_dummy_meshes(root: Node) -> void:
+	if root == null:
+		return
+
+	for child in root.get_children():
+		_remove_redundant_dummy_meshes(child)
+
+	if root is not Node3D:
+		return
+
+	var root_node: Node3D = root
+	var placeholders_to_remove: Array[Node] = []
+	for child in root_node.get_children():
+		if child is MeshInstance3D and bool(child.get_meta("peraviz_dummy_placeholder", false)):
+			placeholders_to_remove.push_back(child)
+
+	if placeholders_to_remove.is_empty():
+		return
+
+	var has_real_visual: bool = _node_has_real_visual_descendants(root_node, placeholders_to_remove)
+	if not has_real_visual:
+		return
+
+	for placeholder in placeholders_to_remove:
+		placeholder.queue_free()
+
+func _node_has_real_visual_descendants(root: Node, ignored_nodes: Array[Node]) -> bool:
+	if root is MeshInstance3D:
+		if not bool(root.get_meta("peraviz_dummy_placeholder", false)):
+			return true
+	elif root is MultiMeshInstance3D:
+		return true
+
+	for child in root.get_children():
+		if ignored_nodes.has(child):
+			continue
+		if _node_has_real_visual_descendants(child, ignored_nodes):
+			return true
+
+	return false
+
+func _rebuild_loaded_bounds() -> void:
+	_has_loaded_bounds = false
+	for child in proxies_root.get_children():
+		if child is Node3D:
+			_expand_loaded_bounds_from_node(child)
 
 func _create_scene_node(data: Dictionary) -> Node3D:
 	var item_type: String = str(data.get("type", "scene_object"))
@@ -986,6 +1035,7 @@ func _build_3ds_mesh(mesh_data: Dictionary) -> ArrayMesh:
 
 func _create_dummy_mesh(is_fixture: bool, visual_scale_hint: float) -> Node3D:
 	var mesh_instance := MeshInstance3D.new()
+	mesh_instance.set_meta("peraviz_dummy_placeholder", true)
 	var world_target_size: float = 0.35
 	var normalized_scale: float = max(visual_scale_hint, 0.0001)
 	var local_size_multiplier: float = world_target_size / normalized_scale
