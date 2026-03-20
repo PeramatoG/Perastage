@@ -4,6 +4,7 @@
 
 #include <godot_cpp/variant/vector3.hpp>
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstdint>
@@ -34,6 +35,83 @@ bool read_chunk(std::ifstream &file, Chunk &chunk) {
         return false;
     }
     return true;
+}
+
+void ensure_outward_winding(MeshData &mesh) {
+    if (mesh.indices.size() < 3 || mesh.vertices.size() < 3) {
+        return;
+    }
+
+    const size_t vertex_count = mesh.vertices.size() / 3;
+    float cx = 0.0F;
+    float cy = 0.0F;
+    float cz = 0.0F;
+    for (size_t i = 0; i < vertex_count; ++i) {
+        cx += mesh.vertices[i * 3];
+        cy += mesh.vertices[i * 3 + 1];
+        cz += mesh.vertices[i * 3 + 2];
+    }
+    const float inv_vertex_count = 1.0F / static_cast<float>(vertex_count);
+    cx *= inv_vertex_count;
+    cy *= inv_vertex_count;
+    cz *= inv_vertex_count;
+
+    float orientation_score = 0.0F;
+    float total_area = 0.0F;
+
+    for (size_t i = 0; i + 2 < mesh.indices.size(); i += 3) {
+        const uint32_t i0 = mesh.indices[i];
+        const uint32_t i1 = mesh.indices[i + 1];
+        const uint32_t i2 = mesh.indices[i + 2];
+        if (i0 >= vertex_count || i1 >= vertex_count || i2 >= vertex_count) {
+            continue;
+        }
+
+        const float v0x = mesh.vertices[i0 * 3];
+        const float v0y = mesh.vertices[i0 * 3 + 1];
+        const float v0z = mesh.vertices[i0 * 3 + 2];
+
+        const float v1x = mesh.vertices[i1 * 3];
+        const float v1y = mesh.vertices[i1 * 3 + 1];
+        const float v1z = mesh.vertices[i1 * 3 + 2];
+
+        const float v2x = mesh.vertices[i2 * 3];
+        const float v2y = mesh.vertices[i2 * 3 + 1];
+        const float v2z = mesh.vertices[i2 * 3 + 2];
+
+        const float ux = v1x - v0x;
+        const float uy = v1y - v0y;
+        const float uz = v1z - v0z;
+
+        const float vx = v2x - v0x;
+        const float vy = v2y - v0y;
+        const float vz = v2z - v0z;
+
+        const float nx = uy * vz - uz * vy;
+        const float ny = uz * vx - ux * vz;
+        const float nz = ux * vy - uy * vx;
+        const float area = std::sqrt(nx * nx + ny * ny + nz * nz);
+        if (area <= 1e-8F) {
+            continue;
+        }
+
+        const float tx = (v0x + v1x + v2x) / 3.0F;
+        const float ty = (v0y + v1y + v2y) / 3.0F;
+        const float tz = (v0z + v1z + v2z) / 3.0F;
+
+        orientation_score += nx * (tx - cx) + ny * (ty - cy) + nz * (tz - cz);
+        total_area += area;
+    }
+
+    if (total_area <= 1e-8F || std::abs(orientation_score) <= total_area * 1e-4F) {
+        return;
+    }
+
+    if (orientation_score < 0.0F) {
+        for (size_t i = 0; i + 2 < mesh.indices.size(); i += 3) {
+            std::swap(mesh.indices[i + 1], mesh.indices[i + 2]);
+        }
+    }
 }
 
 void compute_normals(MeshData &mesh) {
@@ -68,11 +146,9 @@ void compute_normals(MeshData &mesh) {
         const float vy = v2y - v0y;
         const float vz = v2z - v0z;
 
-        // 3DS triangles are wound clockwise for our import path, so invert the
-        // face normal to keep outward-facing normals in Godot.
-        const float nx = -(uy * vz - uz * vy);
-        const float ny = -(uz * vx - ux * vz);
-        const float nz = -(ux * vy - uy * vx);
+        const float nx = uy * vz - uz * vy;
+        const float ny = uz * vx - ux * vz;
+        const float nz = ux * vy - uy * vx;
 
         mesh.normals[i0 * 3] += nx;
         mesh.normals[i0 * 3 + 1] += ny;
@@ -216,6 +292,7 @@ bool load_3ds(const std::string &path, MeshData &mesh) {
         return false;
     }
 
+    ensure_outward_winding(mesh);
     compute_normals(mesh);
     return true;
 }
