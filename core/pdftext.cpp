@@ -18,15 +18,41 @@
 #include "pdftext.h"
 
 #include <string>
-#include <wx/log.h>
 
 #include <podofo/podofo.h>
 #include <algorithm>
 #include <cmath>
-#include <vector>
+#include <iostream>
 #include <limits>
+#include <vector>
 
 using namespace PoDoFo;
+
+namespace {
+
+void AppendEntriesToText(const std::vector<PdfTextEntry> &entries,
+                         std::string &out) {
+  double lastY = std::numeric_limits<double>::quiet_NaN();
+  double lastX = 0.0;
+  for (const auto &entry : entries) {
+    double x = entry.BoundingBox ? entry.BoundingBox->GetLeft() : entry.X;
+    double y = entry.BoundingBox ? entry.BoundingBox->GetBottom() : entry.Y;
+    double right =
+        entry.BoundingBox ? entry.BoundingBox->GetRight() : x + entry.Length;
+    if (!std::isnan(lastY)) {
+      if (std::fabs(y - lastY) > 2.0) {
+        out += '\n';
+      } else if (x - lastX > 2.0) {
+        out += ' ';
+      }
+    }
+    out += entry.Text;
+    lastY = y;
+    lastX = right;
+  }
+}
+
+} // namespace
 
 std::string ExtractPdfText(const std::string &path) {
   try {
@@ -38,32 +64,15 @@ std::string ExtractPdfText(const std::string &path) {
     for (unsigned i = 0; i < pages.GetCount(); ++i) {
       auto &page = pages.GetPageAt(i);
       PdfTextExtractParams params;
-      params.Flags = PdfTextExtractFlags::ComputeBoundingBox;
       std::vector<PdfTextEntry> entries;
-      page.ExtractTextTo(entries, params);
+      page.ExtractTextTo(entries, std::string_view{}, params);
       std::sort(entries.begin(), entries.end(),
                 [](const PdfTextEntry &a, const PdfTextEntry &b) {
                   if (std::fabs(a.Y - b.Y) > 2.0)
                     return a.Y > b.Y; // top to bottom
                   return a.X < b.X;
                 });
-      double lastY = std::numeric_limits<double>::quiet_NaN();
-      double lastX = 0.0;
-      for (const auto &e : entries) {
-        double x = e.BoundingBox ? e.BoundingBox->GetLeft() : e.X;
-        double y = e.BoundingBox ? e.BoundingBox->GetBottom() : e.Y;
-        double right = e.BoundingBox ? e.BoundingBox->GetRight() : x + e.Length;
-        if (!std::isnan(lastY)) {
-          if (std::fabs(y - lastY) > 2.0) {
-            out += '\n';
-          } else if (x - lastX > 2.0) {
-            out += ' ';
-          }
-        }
-        out += e.Text;
-        lastY = y;
-        lastX = right;
-      }
+      AppendEntriesToText(entries, out);
       out += '\n';
     }
 #else
@@ -143,12 +152,13 @@ std::string ExtractPdfText(const std::string &path) {
       out += '\n';
     }
 #endif
+    out.erase(std::remove(out.begin(), out.end(), '\0'), out.end());
     if (!out.empty() && out.back() == '\n')
       out.pop_back();
     return out;
   } catch (const PdfError &e) {
-    wxLogError("PoDoFo failed to extract text from '" +
-               wxString::FromUTF8(path) + "': " + wxString::FromUTF8(e.what()));
+    std::cerr << "PoDoFo failed to extract text from '" << path
+              << "': " << e.what() << std::endl;
   }
   return {};
 }

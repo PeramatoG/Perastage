@@ -347,11 +347,12 @@ BuildTrussDictionaryLookupKeys(const std::string &modelToken,
 } // namespace
 
 std::string RiderImporter::LoadText(const std::string &path) {
-  if (path.size() < 4)
-    return {};
-  std::string ext = path.substr(path.size() - 4);
+  std::string ext;
+  const size_t dotPos = path.find_last_of('.');
+  if (dotPos != std::string::npos)
+    ext = path.substr(dotPos);
   for (auto &c : ext)
-    c = static_cast<char>(std::tolower(c));
+    c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
   if (ext == ".txt")
     return ReadTextFile(path);
   if (ext == ".pdf")
