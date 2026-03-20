@@ -57,6 +57,12 @@ After source vector remap:
 
 This is done with the documented intent to preserve parent/child composition correctness (`C * R * C^-1` mapping path).
 
+### Runtime application rule for imported basis
+- When native data provides `has_basis=true`, `load_scene.gd` now applies that basis
+  directly to `Node3D.transform` (without multiplying by a second scale).
+- Rationale: imported basis vectors already encode the original local scale/mirroring,
+  so re-applying an extra scale can distort mirrored model instances.
+
 ## 3) Runtime axis convention (up and forward)
 
 Peraviz runtime uses Godot conventions:
