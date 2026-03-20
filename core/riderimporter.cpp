@@ -22,7 +22,6 @@
 #include <cctype>
 #include <charconv>
 #include <cmath>
-#include <cwctype>
 #include <fstream>
 #include <functional>
 #include <iomanip>
@@ -240,7 +239,7 @@ bool ContainsCaseInsensitive(std::string_view haystack,
 }
 
 std::string ReadTextFile(const std::string &path) {
-  std::ifstream ifs(std::filesystem::u8path(path));
+  std::ifstream ifs(path);
   if (!ifs)
     return {};
   std::ostringstream ss;
@@ -348,12 +347,15 @@ BuildTrussDictionaryLookupKeys(const std::string &modelToken,
 } // namespace
 
 std::string RiderImporter::LoadText(const std::string &path) {
-  std::wstring ext = std::filesystem::u8path(path).extension().wstring();
+  std::string ext;
+  const size_t dotPos = path.find_last_of('.');
+  if (dotPos != std::string::npos)
+    ext = path.substr(dotPos);
   for (auto &c : ext)
-    c = static_cast<wchar_t>(std::towlower(c));
-  if (ext == L".txt")
+    c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+  if (ext == ".txt")
     return ReadTextFile(path);
-  if (ext == L".pdf")
+  if (ext == ".pdf")
     return ExtractPdfText(path);
   return {};
 }

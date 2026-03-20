@@ -70,7 +70,7 @@ std::string ExtractPdfText(const std::string &path) {
   try {
     PdfMemDocument doc;
 #if PODOFO_VERSION >= PODOFO_MAKE_VERSION(0, 10, 0)
-    std::ifstream pdfFile(std::filesystem::u8path(path), std::ios::binary);
+    std::ifstream pdfFile(path, std::ios::binary);
     if (!pdfFile) {
       std::cerr << "Failed to open PDF file for import: '" << path << "'."
                 << std::endl;
