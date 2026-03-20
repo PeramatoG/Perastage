@@ -24,6 +24,7 @@
 #include <wx/stattext.h>
 #include <wx/strconv.h>
 #include <wx/textctrl.h>
+#include <exception>
 
 #include "projectutils.h"
 #include "consolepanel.h"
@@ -96,7 +97,24 @@ void RiderTextDialog::OnLoadFromFile(wxCommandEvent &WXUNUSED(event)) {
   std::string pathUtf8 =
       pathBuffer ? std::string(pathBuffer.data(), pathBuffer.length())
                  : dlg.GetPath().ToStdString();
-  std::string text = RiderImporter::LoadText(pathUtf8);
+  std::string text;
+  try {
+    text = RiderImporter::LoadText(pathUtf8);
+  } catch (const std::exception &ex) {
+    if (ConsolePanel *console = ConsolePanel::Instance()) {
+      console->AppendMessage("Rider import exception: " +
+                             wxString::FromUTF8(ex.what()));
+    }
+    wxMessageBox("Unexpected error while loading rider file.", "Error",
+                 wxICON_ERROR);
+    return;
+  } catch (...) {
+    if (ConsolePanel *console = ConsolePanel::Instance())
+      console->AppendMessage("Rider import exception: unknown error.");
+    wxMessageBox("Unexpected unknown error while loading rider file.", "Error",
+                 wxICON_ERROR);
+    return;
+  }
   if (ConsolePanel *console = ConsolePanel::Instance()) {
     static bool logPathShown = false;
     if (!logPathShown) {
@@ -115,6 +133,19 @@ void RiderTextDialog::OnLoadFromFile(wxCommandEvent &WXUNUSED(event)) {
     wxMessageBox("Failed to import rider.", "Error", wxICON_ERROR);
     return;
   }
+  wxString loadedText = wxString::FromUTF8(text.data(), text.size());
+  if (loadedText.empty() && !text.empty()) {
+    loadedText = wxString::From8BitData(text.data(), text.size());
+  }
+  if (loadedText.empty()) {
+    if (ConsolePanel *console = ConsolePanel::Instance()) {
+      console->AppendMessage("Rider import: extracted text could not be "
+                             "decoded for " + dlg.GetFilename());
+    }
+    wxMessageBox("Loaded rider text could not be decoded.", "Error",
+                 wxICON_ERROR);
+    return;
+  }
   if (ConsolePanel *console = ConsolePanel::Instance()) {
     console->AppendMessage("Rider import: extracted " +
                            wxString::Format("%zu", text.size()) + " chars from " +
@@ -123,7 +154,7 @@ void RiderTextDialog::OnLoadFromFile(wxCommandEvent &WXUNUSED(event)) {
   sourceLabel = dlg.GetFilename();
   if (sourceText)
     sourceText->SetLabel(wxString("Loaded: ") + sourceLabel);
-  textCtrl->ChangeValue(wxString::FromUTF8(text));
+  textCtrl->ChangeValue(loadedText);
   wxMessageBox("Rider imported successfully.", "Success", wxICON_INFORMATION);
 }
 
