@@ -20,4 +20,4 @@
 #include <string>
 
 std::string ExtractPdfText(const std::string &path);
-
+std::string GetLastPdfTextExtractionReport();

@@ -25,12 +25,43 @@
 #include <cctype>
 #include <cmath>
 #include <limits>
+#include <mutex>
 #include <sstream>
 #include <vector>
 
 using namespace PoDoFo;
 
 namespace {
+std::mutex g_pdfReportMutex;
+std::string g_pdfReport;
+
+void ResetPdfReport(const std::string &path) {
+  std::lock_guard<std::mutex> lock(g_pdfReportMutex);
+  g_pdfReport = "PDF extraction report for '" + path + "'";
+}
+
+void AppendPdfReportLine(const std::string &line) {
+  std::lock_guard<std::mutex> lock(g_pdfReportMutex);
+  if (!g_pdfReport.empty())
+    g_pdfReport += "\n";
+  g_pdfReport += line;
+}
+
+void LogPdfInfo(const std::string &line) {
+  Logger::Instance().Log(Logger::Level::Info, line);
+  AppendPdfReportLine(line);
+}
+
+void LogPdfWarn(const std::string &line) {
+  Logger::Instance().Log(Logger::Level::Warn, line);
+  AppendPdfReportLine(line);
+}
+
+void LogPdfError(const std::string &line) {
+  Logger::Instance().Log(Logger::Level::Error, line);
+  AppendPdfReportLine(line);
+}
+
 
 bool HasVisibleText(const std::string &text) {
   for (unsigned char ch : text) {
@@ -74,6 +105,7 @@ void AppendEntriesToText(const std::vector<PdfTextEntry> &entries,
 } // namespace
 
 std::string ExtractPdfText(const std::string &path) {
+  ResetPdfReport(path);
   try {
     PdfMemDocument doc;
 #if PODOFO_VERSION >= PODOFO_MAKE_VERSION(0, 10, 0)
@@ -116,7 +148,7 @@ std::string ExtractPdfText(const std::string &path) {
               << " pageTextChars=" << pageText.size()
               << " visible=" << (HasVisibleText(pageText) ? "yes" : "no")
               << " preview=\"" << BuildPreview(pageText) << "\"";
-      Logger::Instance().Log(Logger::Level::Info, pageLog.str());
+      LogPdfInfo(pageLog.str());
     }
 #else
     for (int i = 0; i < doc.GetPageCount(); ++i) {
@@ -202,19 +234,21 @@ std::string ExtractPdfText(const std::string &path) {
       std::ostringstream oss;
       oss << "PDF import: '" << path << "' -> " << out.size()
           << " chars, " << totalEntries << " text entries.";
-      Logger::Instance().Log(Logger::Level::Info, oss.str());
+      LogPdfInfo(oss.str());
     }
     if (!HasVisibleText(out)) {
-      Logger::Instance().Log(
-          Logger::Level::Warn,
-          "PDF import produced no extractable text for '" + path + "'.");
+      LogPdfWarn("PDF import produced no extractable text for '" + path + "'.");
       return {};
     }
     return out;
   } catch (const PdfError &e) {
-    Logger::Instance().Log(Logger::Level::Error,
-                           "PoDoFo failed to extract text from '" + path +
-                               "': " + std::string(e.what()));
+    LogPdfError("PoDoFo failed to extract text from '" + path +
+                "': " + std::string(e.what()));
   }
   return {};
+}
+
+std::string GetLastPdfTextExtractionReport() {
+  std::lock_guard<std::mutex> lock(g_pdfReportMutex);
+  return g_pdfReport;
 }
