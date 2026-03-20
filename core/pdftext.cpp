@@ -24,6 +24,7 @@
 #include <cctype>
 #include <cmath>
 #include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <limits>
 #include <sstream>
@@ -68,7 +69,30 @@ void AppendEntriesToText(const std::vector<PdfTextEntry> &entries,
 std::string ExtractPdfText(const std::string &path) {
   try {
     PdfMemDocument doc;
+#if PODOFO_VERSION >= PODOFO_MAKE_VERSION(0, 10, 0)
+    std::ifstream pdfFile(std::filesystem::u8path(path), std::ios::binary);
+    if (!pdfFile) {
+      std::cerr << "Failed to open PDF file for import: '" << path << "'."
+                << std::endl;
+      return {};
+    }
+    pdfFile.seekg(0, std::ios::end);
+    const std::streamsize size = pdfFile.tellg();
+    if (size <= 0) {
+      std::cerr << "PDF file is empty: '" << path << "'." << std::endl;
+      return {};
+    }
+    pdfFile.seekg(0, std::ios::beg);
+    std::vector<char> pdfBytes(static_cast<size_t>(size));
+    if (!pdfFile.read(pdfBytes.data(), size)) {
+      std::cerr << "Failed reading PDF bytes for import: '" << path << "'."
+                << std::endl;
+      return {};
+    }
+    doc.LoadFromBuffer(bufferview(pdfBytes.data(), pdfBytes.size()));
+#else
     doc.Load(path.c_str());
+#endif
     std::string out;
     size_t totalEntries = 0;
 #if PODOFO_VERSION >= PODOFO_MAKE_VERSION(0, 10, 0)
