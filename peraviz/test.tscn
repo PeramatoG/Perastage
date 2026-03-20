@@ -3,6 +3,7 @@
 [ext_resource type="Script" uid="uid://dk2vq6261dj54" path="res://scripts/load_scene.gd" id="1_script"]
 [ext_resource type="Script" uid="uid://c1syjijru4ah" path="res://scripts/editor_camera.gd" id="2_camera_script"]
 [ext_resource type="Script" uid="uid://bq8n5oubm8j8u" path="res://scripts/visual_settings_window.gd" id="3_visual_settings"]
+[ext_resource type="Script" path="res://scripts/day_night_environment_controller.gd" id="4_day_night_environment"]
 
 [sub_resource type="Environment" id="Environment_viewer"]
 background_mode = 1
@@ -55,6 +56,25 @@ directional_shadow_split_3 = 0.45
 directional_shadow_blend_splits = true
 directional_shadow_fade_start = 0.85
 directional_shadow_max_distance = 72.0
+
+[node name="DayNightEnvironmentController" type="Node3D" parent="." unique_id=364114672]
+script = ExtResource("4_day_night_environment")
+use_continuous_cycle = false
+current_preset = 1
+time_of_day = 0.4
+auto_advance = false
+cycle_speed = 0.02
+day_light_intensity = 0.7
+dusk_light_intensity = 0.18
+night_light_intensity = 0.02
+moon_light_intensity = 0.012
+ambient_energy_day = 0.08
+ambient_energy_night = 0.008
+horizon_warmth = 0.6
+horizon_intensity = 1.0
+allow_blackout_night = true
+world_environment_path = NodePath("../WorldEnvironment")
+directional_light_path = NodePath("../DirectionalLight3D")
 
 [node name="Ground" type="MeshInstance3D" parent="." unique_id=168744331]
 material_override = SubResource("StandardMaterial3D_ground")
