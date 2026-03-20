@@ -93,7 +93,10 @@ set(LAYOUT_SOURCES
     ../core/layouts/LayoutTemplateSerializer.cpp)
 
 if(TARGET podofo::podofo)
-    add_executable(pdf_text_test pdf_text_test.cpp ../core/pdftext.cpp)
+    add_executable(pdf_text_test
+                   pdf_text_test.cpp
+                   ../core/pdftext.cpp
+                   ../core/logger.cpp)
     target_link_libraries(pdf_text_test PRIVATE podofo::podofo ${wxWidgets_LIBRARIES})
     target_include_directories(pdf_text_test PRIVATE ../core)
     add_test(NAME PdfTextComparison

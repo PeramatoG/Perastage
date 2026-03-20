@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "pdftext.h"
+#include "logger.h"
 
 #include <string>
 
@@ -23,7 +24,6 @@
 #include <algorithm>
 #include <cctype>
 #include <cmath>
-#include <iostream>
 #include <limits>
 #include <sstream>
 #include <vector>
@@ -108,14 +108,15 @@ std::string ExtractPdfText(const std::string &path) {
       AppendEntriesToText(entries, pageText);
       if (!pageText.empty())
         out += pageText + '\n';
-      std::cerr << "PDF import page " << (i + 1) << "/" << pages.GetCount()
-                << " entries=" << entries.size()
-                << " nonEmptyEntries=" << nonEmptyEntries
-                << " entryChars=" << entryChars
-                << " pageTextChars=" << pageText.size()
-                << " visible=" << (HasVisibleText(pageText) ? "yes" : "no")
-                << " preview=\"" << BuildPreview(pageText) << "\""
-                << std::endl;
+      std::ostringstream pageLog;
+      pageLog << "PDF import page " << (i + 1) << "/" << pages.GetCount()
+              << " entries=" << entries.size()
+              << " nonEmptyEntries=" << nonEmptyEntries
+              << " entryChars=" << entryChars
+              << " pageTextChars=" << pageText.size()
+              << " visible=" << (HasVisibleText(pageText) ? "yes" : "no")
+              << " preview=\"" << BuildPreview(pageText) << "\"";
+      Logger::Instance().Log(Logger::Level::Info, pageLog.str());
     }
 #else
     for (int i = 0; i < doc.GetPageCount(); ++i) {
@@ -201,17 +202,19 @@ std::string ExtractPdfText(const std::string &path) {
       std::ostringstream oss;
       oss << "PDF import: '" << path << "' -> " << out.size()
           << " chars, " << totalEntries << " text entries.";
-      std::cerr << oss.str() << std::endl;
+      Logger::Instance().Log(Logger::Level::Info, oss.str());
     }
     if (!HasVisibleText(out)) {
-      std::cerr << "PDF import produced no extractable text for '" << path
-                << "'." << std::endl;
+      Logger::Instance().Log(
+          Logger::Level::Warn,
+          "PDF import produced no extractable text for '" + path + "'.");
       return {};
     }
     return out;
   } catch (const PdfError &e) {
-    std::cerr << "PoDoFo failed to extract text from '" << path
-              << "': " << e.what() << std::endl;
+    Logger::Instance().Log(Logger::Level::Error,
+                           "PoDoFo failed to extract text from '" + path +
+                               "': " + std::string(e.what()));
   }
   return {};
 }
