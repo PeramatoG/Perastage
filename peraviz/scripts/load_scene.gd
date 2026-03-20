@@ -6,6 +6,7 @@ extends Node3D
 @onready var picker: FileDialog = $HUD/FileDialog
 @onready var camera: Camera3D = $Camera3D
 @onready var world_environment: WorldEnvironment = $WorldEnvironment
+@onready var day_night_environment_controller: DayNightEnvironmentController = $DayNightEnvironmentController
 @onready var manual_fixture_toggle: CheckButton = $HUD/ManualFixtureToggle
 @onready var fixture_debug_panel: PanelContainer = $HUD/FixtureDebugPanel
 @onready var fixture_list: ItemList = $HUD/FixtureDebugPanel/Margin/VBox/FixtureList
@@ -250,6 +251,7 @@ func _ready() -> void:
 	else:
 		push_warning("VisualSettingsWindow is not ready for configure(); initial visual settings not pushed.")
 	_apply_visual_settings(_visual_settings)
+	_refresh_day_night_environment_controller()
 
 
 func _apply_imported_content_scale() -> void:
@@ -336,6 +338,7 @@ func _apply_visual_settings(settings: Dictionary) -> void:
 	)
 	if beam_scalar_changed:
 		_refresh_existing_beam_material_scalars()
+	_refresh_day_night_environment_controller()
 
 
 
@@ -346,6 +349,11 @@ func _environment_has_property(environment: Environment, property_name: String) 
 		if str(entry.get("name", "")) == property_name:
 			return true
 	return false
+
+func _refresh_day_night_environment_controller() -> void:
+	if day_night_environment_controller == null:
+		return
+	day_night_environment_controller.apply_now()
 
 func _update_beam_renderer_mode(force_refresh: bool) -> void:
 	var requested_mode: int = int(clamp(int(_visual_settings.get("beam_render_mode", BEAM_RENDER_MODE_VOLUMETRIC)), BEAM_RENDER_MODE_VOLUMETRIC, BEAM_RENDER_MODE_LEGACY))
