@@ -29,8 +29,6 @@
 
 #include "projectutils.h"
 #include "consolepanel.h"
-#include "logger.h"
-#include "pdftext.h"
 #include "riderimporter.h"
 
 enum {
@@ -116,25 +114,10 @@ void RiderTextDialog::OnLoadFromFile(wxCommandEvent &WXUNUSED(event)) {
                  wxICON_ERROR);
     return;
   }
-  if (ConsolePanel *console = ConsolePanel::Instance()) {
-    static bool logPathShown = false;
-    if (!logPathShown) {
-      const std::string logPath = Logger::Instance().GetLogFilePath();
-      if (!logPath.empty()) {
-        console->AppendMessage("Log file: " + wxString::FromUTF8(logPath));
-      }
-      logPathShown = true;
-    }
-  }
   if (text.empty()) {
     if (ConsolePanel *console = ConsolePanel::Instance()) {
       console->AppendMessage("Rider import: no visible text extracted from " +
                              dlg.GetFilename());
-      const std::string report = GetLastPdfTextExtractionReport();
-      console->AppendMessage("Rider import report: " +
-                             (report.empty()
-                                  ? wxString("(empty)")
-                                  : wxString::FromUTF8(report)));
     }
     wxMessageBox("Failed to import rider.", "Error", wxICON_ERROR);
     return;
@@ -151,11 +134,6 @@ void RiderTextDialog::OnLoadFromFile(wxCommandEvent &WXUNUSED(event)) {
     wxMessageBox("Loaded rider text could not be decoded.", "Error",
                  wxICON_ERROR);
     return;
-  }
-  if (ConsolePanel *console = ConsolePanel::Instance()) {
-    console->AppendMessage("Rider import: extracted " +
-                           wxString::Format("%zu", text.size()) + " chars from " +
-                           dlg.GetFilename());
   }
   sourceLabel = dlg.GetFilename();
   if (sourceText)

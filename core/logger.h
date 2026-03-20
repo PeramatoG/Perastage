@@ -44,7 +44,6 @@ public:
   // Runtime minimum level filter. Messages below this level are discarded.
   void SetMinLevel(Level level);
   Level GetMinLevel() const;
-  std::string GetLogFilePath() const;
 
 private:
   Logger();
@@ -55,7 +54,7 @@ private:
   void Worker();
 
   // Flush policy: flush after every kFlushInterval messages or during shutdown.
-  static constexpr std::size_t kFlushInterval = 1;
+  static constexpr std::size_t kFlushInterval = 32;
   // Limit batch sizes to avoid large memory spikes when the queue grows.
   static constexpr std::size_t kMaxBatchSize = 256;
 
@@ -70,7 +69,6 @@ private:
   // Default to most-verbose so level filtering is opt-in and does not
   // accidentally suppress Debug logs unless explicitly configured.
   Level min_level_ = Level::Debug;
-  std::string file_path_;
   bool done_ = false;
   std::thread worker_;
 };
