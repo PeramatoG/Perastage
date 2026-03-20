@@ -31,6 +31,11 @@ Keep Perastage clean and modular while continuing to deliver new features, follo
    - All new/updated code must be written in English.
    - All code comments and documentation updates should be written in English.
 
+7. **Text-to-scene rule documentation policy**
+   - Any change that affects rider/text parsing or scene-generation behavior
+     must update `docs/text_to_scene_rules.md` in the same PR.
+   - If behavior becomes user-visible, also update Help/README references.
+
 ## Current hotspots (watch for growth)
 - `gui/layoutviewerpanel.cpp`
 - `viewer2d/viewer2dpanel.cpp`
