@@ -68,9 +68,11 @@ void compute_normals(MeshData &mesh) {
         const float vy = v2y - v0y;
         const float vz = v2z - v0z;
 
-        const float nx = uy * vz - uz * vy;
-        const float ny = uz * vx - ux * vz;
-        const float nz = ux * vy - uy * vx;
+        // 3DS triangles are wound clockwise for our import path, so invert the
+        // face normal to keep outward-facing normals in Godot.
+        const float nx = -(uy * vz - uz * vy);
+        const float ny = -(uz * vx - ux * vz);
+        const float nz = -(ux * vy - uy * vx);
 
         mesh.normals[i0 * 3] += nx;
         mesh.normals[i0 * 3 + 1] += ny;
