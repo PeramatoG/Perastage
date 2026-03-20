@@ -34,3 +34,13 @@ This document describes the built-in day/night environment baseline used by Pera
 ## Integration note
 
 `load_scene.gd` now re-applies the controller after visual-settings updates so fixture tuning UI does not permanently override day/night sky and ambient states.
+
+## Visual Settings controls
+
+The Visual Settings window now includes a dedicated **Environment** section with basic controls for:
+
+- Enabling/disabling the environment controller.
+- Preset selection (`Dawn`, `Day`, `Dusk`, `Night`, `BlackoutNight`).
+- Continuous cycle controls (`time_of_day`, `auto_advance`, `cycle_speed`).
+- Blackout-night permission toggle.
+- Core environment tuning (light intensities, ambient day/night, horizon warmth/intensity).
