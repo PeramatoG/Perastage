@@ -67,9 +67,8 @@ void AppendEntriesToText(const std::vector<PdfTextEntry> &entries,
 
 std::string ExtractPdfText(const std::string &path) {
   try {
-    const std::filesystem::path nativePath = std::filesystem::u8path(path);
     PdfMemDocument doc;
-    doc.Load(nativePath.string().c_str());
+    doc.Load(path.c_str());
     std::string out;
     size_t totalEntries = 0;
 #if PODOFO_VERSION >= PODOFO_MAKE_VERSION(0, 10, 0)

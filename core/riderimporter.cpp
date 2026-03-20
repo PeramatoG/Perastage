@@ -22,6 +22,7 @@
 #include <cctype>
 #include <charconv>
 #include <cmath>
+#include <cwctype>
 #include <fstream>
 #include <functional>
 #include <iomanip>
@@ -347,12 +348,12 @@ BuildTrussDictionaryLookupKeys(const std::string &modelToken,
 } // namespace
 
 std::string RiderImporter::LoadText(const std::string &path) {
-  std::string ext = std::filesystem::u8path(path).extension().string();
+  std::wstring ext = std::filesystem::u8path(path).extension().wstring();
   for (auto &c : ext)
-    c = static_cast<char>(std::tolower(c));
-  if (ext == ".txt")
+    c = static_cast<wchar_t>(std::towlower(c));
+  if (ext == L".txt")
     return ReadTextFile(path);
-  if (ext == ".pdf")
+  if (ext == L".pdf")
     return ExtractPdfText(path);
   return {};
 }
