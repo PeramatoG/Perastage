@@ -40,6 +40,15 @@ bool HasVisibleText(const std::string &text) {
   return false;
 }
 
+std::string BuildPreview(const std::string &text, size_t maxLen = 120) {
+  std::string preview = text.substr(0, std::min(text.size(), maxLen));
+  for (char &ch : preview) {
+    if (ch == '\n' || ch == '\r' || ch == '\t')
+      ch = ' ';
+  }
+  return preview;
+}
+
 void AppendEntriesToText(const std::vector<PdfTextEntry> &entries,
                          std::string &out) {
   double lastY = std::numeric_limits<double>::quiet_NaN();
@@ -80,16 +89,33 @@ std::string ExtractPdfText(const std::string &path) {
       auto &page = pages.GetPageAt(i);
       PdfTextExtractParams params;
       std::vector<PdfTextEntry> entries;
-      page.ExtractTextTo(entries, params);
+      page.ExtractTextTo(entries, std::string_view{}, params);
       totalEntries += entries.size();
+      size_t nonEmptyEntries = 0;
+      size_t entryChars = 0;
+      for (const auto &entry : entries) {
+        entryChars += entry.Text.size();
+        if (!entry.Text.empty())
+          ++nonEmptyEntries;
+      }
       std::sort(entries.begin(), entries.end(), [](const PdfTextEntry &a,
                                                    const PdfTextEntry &b) {
         if (std::fabs(a.Y - b.Y) > 2.0)
           return a.Y > b.Y; // top to bottom
         return a.X < b.X;
       });
-      AppendEntriesToText(entries, out);
-      out += '\n';
+      std::string pageText;
+      AppendEntriesToText(entries, pageText);
+      if (!pageText.empty())
+        out += pageText + '\n';
+      std::cerr << "PDF import page " << (i + 1) << "/" << pages.GetCount()
+                << " entries=" << entries.size()
+                << " nonEmptyEntries=" << nonEmptyEntries
+                << " entryChars=" << entryChars
+                << " pageTextChars=" << pageText.size()
+                << " visible=" << (HasVisibleText(pageText) ? "yes" : "no")
+                << " preview=\"" << BuildPreview(pageText) << "\""
+                << std::endl;
     }
 #else
     for (int i = 0; i < doc.GetPageCount(); ++i) {
