@@ -121,6 +121,9 @@ void MainWindow::UnlockViewportInteraction() {
 }
 
 void MainWindow::OnLoad(wxCommandEvent &event) {
+  if (!GuardStartupProjectLoadAction("opening another project"))
+    return;
+
   if (!ConfirmSaveIfDirty("loading a project", "Open Project"))
     return;
 
