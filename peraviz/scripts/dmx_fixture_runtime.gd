@@ -359,8 +359,36 @@ func _build_runtime_gobo_bindings(binding: Dictionary, frame: PackedByteArray) -
 				rotation_has_value = true
 				rotation_control_norm = float(rotation_raw_8bit) / 255.0
 
-		if rotation_has_value and not rotation_ranges.is_empty():
-			resolved_rotation = _resolve_rotation_runtime(rotation_raw_8bit, rotation_control_norm, rotation_ranges, mode_master_value_8bit, rotation_source_channel == "rotation")
+		var dedicated_rotation_ranges: Array = []
+		var non_dedicated_rotation_ranges: Array = []
+		for rotation_range in rotation_ranges:
+			if rotation_range is not Dictionary:
+				continue
+			if bool(rotation_range.get("is_rotation_channel_range", false)):
+				dedicated_rotation_ranges.append(rotation_range)
+			else:
+				non_dedicated_rotation_ranges.append(rotation_range)
+
+		# Dedicated gobo rotation channels (e.g. Gobo2PosRotate mode-mastered by
+		# Gobo2 selector windows) must drive speed only from their own ranges.
+		# Falling back to selector-derived ranges can make selected gobos alter
+		# rotation speed, which is incorrect when a dedicated control exists.
+		var resolver_ranges: Array = rotation_ranges
+		var prefer_rotation_channel_ranges: bool = rotation_source_channel == "rotation"
+		if prefer_rotation_channel_ranges and not dedicated_rotation_ranges.is_empty():
+			resolver_ranges = dedicated_rotation_ranges
+			prefer_rotation_channel_ranges = false
+		elif prefer_rotation_channel_ranges and non_dedicated_rotation_ranges.is_empty():
+			prefer_rotation_channel_ranges = false
+
+		if rotation_has_value and not resolver_ranges.is_empty():
+			resolved_rotation = _resolve_rotation_runtime(
+				rotation_raw_8bit,
+				rotation_control_norm,
+				resolver_ranges,
+				mode_master_value_8bit,
+				prefer_rotation_channel_ranges
+			)
 		var has_resolved_rotation_range: bool = bool(resolved_rotation.get("has_range", false))
 		var matched_range: Dictionary = resolved_rotation.get("range", {})
 		var rotation_matched_range_start: int = int(matched_range.get("dmx_from", -1))

@@ -1629,14 +1629,27 @@ void consume_channel_offsets(tinyxml2::XMLElement *dmx_channel,
                     (attribute_lower.find("gobo") != std::string::npos &&
                      attribute_lower.find("pos") != std::string::npos &&
                      attribute_lower.find("rotate") != std::string::npos);
+                int candidate_priority = 0;
+                if (has_mode_master && prefers_position_rotation_channel) {
+                    candidate_priority = 3;
+                } else if (has_mode_master) {
+                    candidate_priority = 2;
+                } else if (prefers_position_rotation_channel) {
+                    candidate_priority = 1;
+                }
+
+                const bool has_valid_candidate_channel = candidate_rotation_coarse > 0;
                 const bool should_replace_rotation_channel =
-                    wheel->rotation_coarse_offset_1_based <= 0 ||
-                    (candidate_rotation_coarse > 0 && candidate_rotation_coarse < wheel->rotation_coarse_offset_1_based) ||
-                    (candidate_rotation_coarse > 0 && (has_mode_master || prefers_position_rotation_channel));
+                    has_valid_candidate_channel &&
+                    (wheel->rotation_coarse_offset_1_based <= 0 ||
+                     candidate_priority > wheel->rotation_channel_priority ||
+                     (candidate_priority == wheel->rotation_channel_priority &&
+                      candidate_rotation_coarse < wheel->rotation_coarse_offset_1_based));
                 if (should_replace_rotation_channel) {
                     wheel->rotation_coarse_offset_1_based = candidate_rotation_coarse;
                     wheel->rotation_fine_offset_1_based = candidate_rotation_fine;
                     wheel->rotation_ultra_fine_offset_1_based = candidate_rotation_ultra_fine;
+                    wheel->rotation_channel_priority = candidate_priority;
                 }
 
                 consume_gobo_rotation_channel_sets(channel_function,

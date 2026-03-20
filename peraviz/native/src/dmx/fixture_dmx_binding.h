@@ -112,6 +112,7 @@ struct FixtureGoboWheelOffset {
     int rotation_coarse_offset_1_based = -1;
     int rotation_fine_offset_1_based = -1;
     int rotation_ultra_fine_offset_1_based = -1;
+    int rotation_channel_priority = -1;
     bool supports_index = false;
     bool supports_rotation = false;
     bool has_index_physical_limits = false;
