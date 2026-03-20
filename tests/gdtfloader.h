@@ -21,8 +21,13 @@
 #include "mesh.h"
 #include "types.h"
 struct GdtfObject { Mesh mesh; Matrix transform; };
+struct GdtfChannelInfo {
+    int channel = 0;
+    std::string function;
+};
 bool LoadGdtf(const std::string&, std::vector<GdtfObject>&, std::string* outError = nullptr);
 int GetGdtfModeChannelCount(const std::string&, const std::string&);
+std::vector<GdtfChannelInfo> GetGdtfModeChannels(const std::string&, const std::string&);
 std::string GetGdtfFixtureName(const std::string& gdtfPath);
 std::string GetGdtfModelColor(const std::string& gdtfPath);
 bool GetGdtfProperties(const std::string& gdtfPath,
