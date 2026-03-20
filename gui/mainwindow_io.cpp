@@ -215,10 +215,9 @@ void MainWindow::OnImportRider(wxCommandEvent &event) {
   if (dlg.ShowModal() == wxID_CANCEL)
     return;
 
-  const wxScopedCharBuffer pathBuffer = dlg.GetPath().ToUTF8();
-  std::string pathUtf8 =
-      pathBuffer ? std::string(pathBuffer.data(), pathBuffer.length())
-                 : dlg.GetPath().ToStdString();
+  const std::filesystem::path selectedPath(dlg.GetPath().ToStdWstring());
+  const auto pathU8 = selectedPath.u8string();
+  const std::string pathUtf8(pathU8.begin(), pathU8.end());
   LockViewportInteraction();
   ScopeExit viewportUnlock([this]() { UnlockViewportInteraction(); });
   if (!RiderImporter::Import(pathUtf8)) {
