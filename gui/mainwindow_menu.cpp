@@ -405,6 +405,9 @@ void MainWindow::CreateMenuBar() {
 }
 
 void MainWindow::OnNew(wxCommandEvent &WXUNUSED(event)) {
+  if (!GuardStartupProjectLoadAction("creating a new project"))
+    return;
+
   if (!ConfirmSaveIfDirty("creating a new project", "New Project"))
     return;
 

@@ -208,6 +208,8 @@ private:
   bool HasActiveLayout2DView() const;
   void SyncSceneData();
   void SyncLayerVisibilityPanels();
+  void SetStartupProjectLoadPending(bool pending);
+  bool GuardStartupProjectLoadAction(const wxString &actionLabel);
   bool ConfirmSaveIfDirty(const wxString &actionLabel,
                           const wxString &dialogTitle);
   void StartFixtureSymbolAutoUpdateForLoadedScene();
@@ -239,6 +241,7 @@ private:
   std::function<void()> fixtureSymbolAutoUpdateCompletionCallback;
   bool startupSplashInitializationPending = true;
   bool startupSplashCloseRequested = false;
+  bool startupProjectLoadPending = true;
   int viewportInteractionLockDepth = 0;
 
   friend class MainWindowIoController;

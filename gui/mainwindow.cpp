@@ -306,6 +306,7 @@ MainWindow::MainWindow(const wxString &title, IGuiConfigServices *services)
 
   Bind(wxEVT_IDLE, &MainWindow::OnStartupSplashCloseIdle, this);
 
+  SetStartupProjectLoadPending(true);
   UpdateTitle();
 }
 
@@ -496,6 +497,32 @@ bool MainWindow::ConfirmSaveIfDirty(const wxString &actionLabel,
 void MainWindow::OnPaneClose(wxAuiManagerEvent &event) {
   event.Skip();
   CallAfter(&MainWindow::UpdateViewMenuChecks);
+}
+
+void MainWindow::SetStartupProjectLoadPending(bool pending) {
+  startupProjectLoadPending = pending;
+
+  wxMenuBar *menuBar = GetMenuBar();
+  if (menuBar) {
+    menuBar->Enable(ID_File_New, !pending);
+    menuBar->Enable(ID_File_Load, !pending);
+  }
+
+  if (fileToolBar) {
+    fileToolBar->EnableTool(ID_File_New, !pending);
+    fileToolBar->EnableTool(ID_File_Load, !pending);
+    fileToolBar->Refresh();
+  }
+}
+
+bool MainWindow::GuardStartupProjectLoadAction(const wxString &actionLabel) {
+  if (!startupProjectLoadPending)
+    return true;
+
+  wxMessageBox("Please wait until the startup project loading finishes before " +
+                   actionLabel + ".",
+               "Perastage is still loading", wxOK | wxICON_INFORMATION, this);
+  return false;
 }
 
 bool MainWindow::LoadProjectFromPath(const std::string &path) {
@@ -969,6 +996,7 @@ void MainWindow::OnProjectLoaded(wxCommandEvent &event) {
     ResetProject();
     RequestStartupSplashCompletion();
   }
+  SetStartupProjectLoadPending(false);
 }
 
 void MainWindow::OnNotebookPageChanged(wxBookCtrlEvent &event) {
