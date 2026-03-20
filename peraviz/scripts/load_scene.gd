@@ -729,11 +729,9 @@ func _create_scene_node(data: Dictionary) -> Node3D:
 	var node_position: Vector3 = _safe_position(data.get("pos", Vector3.ZERO), "create_scene_node:" + root.name)
 	if bool(data.get("has_basis", false)):
 		var node_basis: Basis = _safe_basis_from_data(data)
-		var safe_scale: Vector3 = _safe_scale_from_data(data, "create_scene_node_basis:" + root.name)
-		node_basis = node_basis.scaled(safe_scale)
 		if not _is_basis_valid(node_basis):
-			print("[PeravizCoordDebug] event=scaled_basis_invalid_fallback node=", root.name, " scale=", safe_scale)
-			node_basis = Basis.IDENTITY.scaled(safe_scale)
+			print("[PeravizCoordDebug] event=basis_invalid_fallback node=", root.name)
+			node_basis = Basis.IDENTITY
 		root.transform = Transform3D(node_basis, node_position)
 	else:
 		root.position = node_position
