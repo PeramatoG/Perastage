@@ -23,6 +23,7 @@
 #include <podofo/podofo.h>
 #include <algorithm>
 #include <cmath>
+#include <filesystem>
 #include <limits>
 #include <vector>
 
@@ -56,8 +57,9 @@ void AppendEntriesToText(const std::vector<PdfTextEntry> &entries,
 
 std::string ExtractPdfText(const std::string &path) {
   try {
+    const std::filesystem::path nativePath = std::filesystem::u8path(path);
     PdfMemDocument doc;
-    doc.Load(path.c_str());
+    doc.Load(nativePath.string().c_str());
     std::string out;
 #if PODOFO_VERSION >= PODOFO_MAKE_VERSION(0, 10, 0)
     auto &pages = doc.GetPages();

@@ -239,7 +239,7 @@ bool ContainsCaseInsensitive(std::string_view haystack,
 }
 
 std::string ReadTextFile(const std::string &path) {
-  std::ifstream ifs(path);
+  std::ifstream ifs(std::filesystem::u8path(path));
   if (!ifs)
     return {};
   std::ostringstream ss;
@@ -347,9 +347,7 @@ BuildTrussDictionaryLookupKeys(const std::string &modelToken,
 } // namespace
 
 std::string RiderImporter::LoadText(const std::string &path) {
-  if (path.size() < 4)
-    return {};
-  std::string ext = path.substr(path.size() - 4);
+  std::string ext = std::filesystem::u8path(path).extension().string();
   for (auto &c : ext)
     c = static_cast<char>(std::tolower(c));
   if (ext == ".txt")
