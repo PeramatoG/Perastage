@@ -170,3 +170,7 @@ When changing any text-to-scene parsing or placement behavior:
 ## Suggested user-doc excerpt
 
 Perastage parses rider text by identifying sections, hang positions, fixture lines, and truss declarations, then generates fixtures/trusses with predictable layer, placement, numbering, and auto-patch rules. PDF riders are first converted to text and parsed using the same rule set.
+
+## Peraviz MVR/GDTF visual fallback rule
+
+When loading MVR/GDTF content in Peraviz, dummy placeholder meshes must only be rendered if no real visual geometry exists for that node subtree. If a valid model (mesh/scene) is present in descendants, placeholder cubes/cones are removed to avoid double drawing.
