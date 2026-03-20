@@ -789,15 +789,85 @@ func _build_visual_node(data: Dictionary, item_type: String, item_class: String,
 		var loaded: Variant = _load_3d_asset(asset_path, asset_kind)
 		if loaded is Node3D:
 			var loaded_node: Node3D = loaded
+			_force_double_sided_materials(loaded_node)
 			return loaded_node
 		print("[Peraviz] Asset fallback for missing/invalid model: ", asset_path, " type=", item_type, " class=", item_class, " asset_kind=", asset_kind)
 
 	if item_type == "fixture" or item_type == "fixture_geometry":
 		if asset_kind == "primitive":
-			return _create_gdtf_primitive_mesh(data)
+			var primitive_mesh: Node3D = _create_gdtf_primitive_mesh(data)
+			_force_double_sided_materials(primitive_mesh)
+			return primitive_mesh
 		return null
 
-	return _create_dummy_mesh(is_fixture, visual_scale_hint)
+	var dummy_mesh: Node3D = _create_dummy_mesh(is_fixture, visual_scale_hint)
+	_force_double_sided_materials(dummy_mesh)
+	return dummy_mesh
+
+func _force_double_sided_materials(root: Node) -> void:
+	if root == null:
+		return
+
+	if root is MeshInstance3D:
+		_apply_double_sided_to_mesh_instance(root as MeshInstance3D)
+	elif root is MultiMeshInstance3D:
+		_apply_double_sided_to_multimesh_instance(root as MultiMeshInstance3D)
+
+	for child in root.get_children():
+		_force_double_sided_materials(child)
+
+func _apply_double_sided_to_mesh_instance(mesh_instance: MeshInstance3D) -> void:
+	if mesh_instance == null:
+		return
+
+	if mesh_instance.material_override != null:
+		mesh_instance.material_override = _duplicate_as_double_sided(mesh_instance.material_override)
+
+	_apply_double_sided_to_mesh_surfaces(mesh_instance, mesh_instance.mesh)
+
+func _apply_double_sided_to_multimesh_instance(multimesh_instance: MultiMeshInstance3D) -> void:
+	if multimesh_instance == null:
+		return
+
+	if multimesh_instance.material_override != null:
+		multimesh_instance.material_override = _duplicate_as_double_sided(multimesh_instance.material_override)
+
+	var mesh: Mesh = multimesh_instance.multimesh.mesh if multimesh_instance.multimesh != null else null
+	_apply_double_sided_to_mesh_surfaces(multimesh_instance, mesh)
+
+func _apply_double_sided_to_mesh_surfaces(geometry_instance: GeometryInstance3D, mesh: Mesh) -> void:
+	if geometry_instance == null or mesh == null:
+		return
+
+	var surface_count: int = mesh.get_surface_count()
+	for surface_index in range(surface_count):
+		var override_material: Material = geometry_instance.get_surface_override_material(surface_index)
+		if override_material != null:
+			geometry_instance.set_surface_override_material(surface_index, _duplicate_as_double_sided(override_material))
+			continue
+
+		var surface_material: Material = mesh.surface_get_material(surface_index)
+		if surface_material != null:
+			geometry_instance.set_surface_override_material(surface_index, _duplicate_as_double_sided(surface_material))
+		else:
+			geometry_instance.set_surface_override_material(surface_index, _create_default_double_sided_material())
+
+func _duplicate_as_double_sided(material: Material) -> Material:
+	if material is not BaseMaterial3D:
+		return material
+
+	var base_material: BaseMaterial3D = material as BaseMaterial3D
+	if base_material.cull_mode == BaseMaterial3D.CULL_DISABLED:
+		return material
+
+	var duplicated_material: BaseMaterial3D = base_material.duplicate(true)
+	duplicated_material.cull_mode = BaseMaterial3D.CULL_DISABLED
+	return duplicated_material
+
+func _create_default_double_sided_material() -> StandardMaterial3D:
+	var material := StandardMaterial3D.new()
+	material.cull_mode = BaseMaterial3D.CULL_DISABLED
+	return material
 
 func _extract_visual_scale_hint(data: Dictionary) -> float:
 	if bool(data.get("has_basis", false)):
