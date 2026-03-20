@@ -22,7 +22,9 @@
 #include <podofo/podofo.h>
 #include <algorithm>
 #include <cctype>
+#include <chrono>
 #include <cmath>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -40,6 +42,43 @@ bool HasVisibleText(const std::string &text) {
       return true;
   }
   return false;
+}
+
+std::string TryExtractWithPodofoTxtextract(const std::string &path) {
+  namespace fs = std::filesystem;
+  std::error_code ec;
+  const fs::path tempDir = fs::temp_directory_path(ec);
+  if (ec)
+    return {};
+
+  const auto token =
+      std::chrono::steady_clock::now().time_since_epoch().count();
+  fs::path outPath = tempDir / ("perastage_rider_extract_" +
+                                std::to_string(token) + ".txt");
+
+#if defined(_WIN32)
+  const std::string command = "podofotxtextract.exe \"" + path + "\" \"" +
+                              outPath.string() + "\"";
+#else
+  const std::string command =
+      "podofotxtextract \"" + path + "\" \"" + outPath.string() + "\"";
+#endif
+  const int rc = std::system(command.c_str());
+  if (rc != 0) {
+    fs::remove(outPath, ec);
+    return {};
+  }
+
+  std::ifstream in(outPath, std::ios::binary);
+  if (!in) {
+    fs::remove(outPath, ec);
+    return {};
+  }
+
+  std::ostringstream ss;
+  ss << in.rdbuf();
+  fs::remove(outPath, ec);
+  return ss.str();
 }
 
 void AppendEntriesToText(const std::vector<PdfTextEntry> &entries,
@@ -206,6 +245,12 @@ std::string ExtractPdfText(const std::string &path) {
       std::cerr << oss.str() << std::endl;
     }
     if (!HasVisibleText(out)) {
+      const std::string toolText = TryExtractWithPodofoTxtextract(path);
+      if (HasVisibleText(toolText)) {
+        std::cerr << "PDF import fallback via podofotxtextract succeeded for '"
+                  << path << "'." << std::endl;
+        return toolText;
+      }
       std::cerr << "PDF import produced no visible text for '" << path << "'."
                 << std::endl;
       return {};
