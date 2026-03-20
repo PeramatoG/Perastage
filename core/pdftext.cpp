@@ -111,6 +111,55 @@ std::string ExtractAsciiRunsFromPdfBytes(const std::vector<char> &bytes) {
   return out;
 }
 
+std::string ExtractUtf16AsciiRunsFromPdfBytes(const std::vector<char> &bytes) {
+  std::string out;
+  auto appendRun = [&](const std::string &run) {
+    if (run.size() < 4)
+      return;
+    if (!out.empty() && out.back() != '\n')
+      out.push_back('\n');
+    out += run;
+  };
+
+  const auto isPrintableAscii = [](unsigned char c) {
+    return c >= 32 && c <= 126;
+  };
+
+  for (size_t i = 0; i + 1 < bytes.size();) {
+    std::string run;
+    size_t j = i;
+
+    // UTF-16BE-like ASCII pattern: 00 xx 00 yy ...
+    while (j + 1 < bytes.size() && bytes[j] == 0 &&
+           isPrintableAscii(static_cast<unsigned char>(bytes[j + 1]))) {
+      run.push_back(bytes[j + 1]);
+      j += 2;
+    }
+    appendRun(run);
+    if (!run.empty()) {
+      i = j;
+      continue;
+    }
+
+    // UTF-16LE-like ASCII pattern: xx 00 yy 00 ...
+    while (j + 1 < bytes.size() &&
+           isPrintableAscii(static_cast<unsigned char>(bytes[j])) &&
+           bytes[j + 1] == 0) {
+      run.push_back(bytes[j]);
+      j += 2;
+    }
+    appendRun(run);
+    if (!run.empty()) {
+      i = j;
+      continue;
+    }
+
+    ++i;
+  }
+
+  return out;
+}
+
 void AppendEntriesToText(const std::vector<PdfTextEntry> &entries,
                          std::string &out) {
   double lastY = std::numeric_limits<double>::quiet_NaN();
@@ -289,6 +338,14 @@ std::string ExtractPdfText(const std::string &path) {
               << "PDF import fallback via ASCII run extraction succeeded for '"
               << path << "'." << std::endl;
           return asciiText;
+        }
+        const std::string utf16AsciiText =
+            ExtractUtf16AsciiRunsFromPdfBytes(pdfBytes);
+        if (HasVisibleText(utf16AsciiText)) {
+          std::cerr << "PDF import fallback via UTF16-ASCII run extraction "
+                       "succeeded for '"
+                    << path << "'." << std::endl;
+          return utf16AsciiText;
         }
       }
       std::cerr << "PDF import produced no visible text for '" << path << "'."
