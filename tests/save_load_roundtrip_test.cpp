@@ -58,7 +58,7 @@ int main() {
     Support sManual; sManual.uuid = "sup-manual"; sManual.name = "Manual Hoist"; sManual.layer = layer.name;
     sManual.motorName = "ChainMaster D8+"; sManual.motorManufacturer = "ChainMaster"; sManual.motorModel = "D8+"; sManual.dummyPreset = "D8+ 1000kg";
     sManual.hoistDataSource = "Manual"; sManual.hoistFunction = "Audio";
-    sManual.capacityKg = 700.0f; sManual.weightKg = 40.0f; scene.supports[sManual.uuid] = sManual;
+    sManual.capacityKg = 700.0f; sManual.weightKg = 40.0f; sManual.loadKg = 325.0f; scene.supports[sManual.uuid] = sManual;
 
     Support sInherited; sInherited.uuid = "sup-inherited"; sInherited.name = "Inherited Hoist"; sInherited.layer = layer.name;
     sInherited.motorName = "CM Lodestar"; sInherited.motorFixtureUuid = "fx1"; sInherited.useMotorDefaults = false; sInherited.dummyPreset = "Lodestar 500kg";
@@ -94,6 +94,7 @@ int main() {
     assert(loadedManual.hoistDataSource == "Manual");
     assert(loadedManual.capacityKg == 700.0f);
     assert(loadedManual.weightKg == 40.0f);
+    assert(loadedManual.loadKg == 325.0f);
 
     const auto &loadedInherited = scene2.supports.at("sup-inherited");
     assert(loadedInherited.motorName == "CM Lodestar");

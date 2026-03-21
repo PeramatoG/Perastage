@@ -89,6 +89,7 @@ int main() {
   manual.hoistDataSource = "Manual";
   manual.capacityKg = 1250.0f;
   manual.weightKg = 61.0f;
+  manual.loadKg = 410.0f;
   manual.hoistFunction = "Audio";
   manual.motorName = "ChainMaster D8+";
   scene.supports[manual.uuid] = manual;
@@ -120,6 +121,7 @@ int main() {
   assert(loadedManual.hoistDataSource == "Manual");
   assert(loadedManual.capacityKg == 1250.0f);
   assert(loadedManual.weightKg == 61.0f);
+  assert(loadedManual.loadKg == 410.0f);
   assert(loadedManual.hoistFunction == "Audio");
 
 

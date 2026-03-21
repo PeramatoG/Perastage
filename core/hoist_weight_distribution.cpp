@@ -133,7 +133,7 @@ BuildMissingWeightMapByHangPosition(const MvrScene &scene) {
   for (const auto &[uuid, support] : scene.supports) {
     (void)uuid;
     const std::string pos = NormalizePosition(support.positionName);
-    if (support.weightKg <= 0.0f)
+    if (support.loadKg <= 0.0f)
       hasMissingWeightByPosition[pos] = true;
     else
       hasMissingWeightByPosition.try_emplace(pos, false);
@@ -160,7 +160,7 @@ BuildRoundedRiggingTotalByHangPosition(const MvrScene &scene) {
   }
   for (const auto &[uuid, support] : scene.supports) {
     (void)uuid;
-    accumulateWeight(support.positionName, support.weightKg);
+    accumulateWeight(support.positionName, support.loadKg);
   }
 
   for (auto &[positionName, total] : roundedTotals)
@@ -218,8 +218,7 @@ void ApplyForImportedSupports(MvrScene &scene,
 
       for (size_t i = 0; i < supports.size(); ++i) {
         const float share = roundedTotal * ((*percentages)[i] / 100.0f);
-        supports[i]->weightKg = RoundUpToNextFiveKg(share);
-        supports[i]->weightSource = "Manual";
+        supports[i]->loadKg = RoundUpToNextFiveKg(share);
       }
       continue;
     }
@@ -227,8 +226,7 @@ void ApplyForImportedSupports(MvrScene &scene,
     const float split = roundedTotal / static_cast<float>(supports.size());
     const float roundedSplit = RoundUpToNextFiveKg(split);
     for (Support *support : supports) {
-      support->weightKg = roundedSplit;
-      support->weightSource = "Manual";
+      support->loadKg = roundedSplit;
     }
   }
 }

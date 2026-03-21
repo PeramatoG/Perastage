@@ -24,7 +24,7 @@ Truss MakeTruss(const std::string &position, float weightKg) {
 }
 
 Support MakeHoist(const std::string &uuid, const std::string &position,
-                  float x, float y, float z, float weightKg = 0.0f) {
+                  float x, float y, float z, float loadKg = 0.0f) {
   Support support;
   support.uuid = uuid;
   support.positionName = position;
@@ -32,7 +32,7 @@ Support MakeHoist(const std::string &uuid, const std::string &position,
   support.transform.o[0] = x;
   support.transform.o[1] = y;
   support.transform.o[2] = z;
-  support.weightKg = weightKg;
+  support.loadKg = loadKg;
   return support;
 }
 
@@ -55,8 +55,8 @@ int main() {
     HoistWeightDistribution::ApplyForImportedSupports(scene, {"h1", "h2"},
                                                       roundedTotals);
 
-    assert(NearlyEquals(scene.supports["h1"].weightKg, 80.0f));
-    assert(NearlyEquals(scene.supports["h2"].weightKg, 80.0f));
+    assert(NearlyEquals(scene.supports["h1"].loadKg, 80.0f));
+    assert(NearlyEquals(scene.supports["h2"].loadKg, 80.0f));
   }
 
   {
@@ -71,9 +71,9 @@ int main() {
     HoistWeightDistribution::ApplyForImportedSupports(scene, {"h1", "h2", "h3"},
                                                       roundedTotals);
 
-    assert(NearlyEquals(scene.supports["h1"].weightKg, 40.0f));
-    assert(NearlyEquals(scene.supports["h2"].weightKg, 135.0f));
-    assert(NearlyEquals(scene.supports["h3"].weightKg, 40.0f));
+    assert(NearlyEquals(scene.supports["h1"].loadKg, 40.0f));
+    assert(NearlyEquals(scene.supports["h2"].loadKg, 135.0f));
+    assert(NearlyEquals(scene.supports["h3"].loadKg, 40.0f));
   }
 
   {

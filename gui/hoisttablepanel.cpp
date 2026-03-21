@@ -233,9 +233,10 @@ void HoistTablePanel::InitializeTable() {
                   "Motor",         "Dummy Preset",  "Data Source", "Layer",
                   "Hang Pos",      "Pos X",         "Pos Y",     "Pos Z",
                   "Roll (X)",      "Pitch (Y)",     "Yaw (Z)",
-                  "Chain Length (m)", "Capacity (kg)", "Weight (kg)"};
+                  "Chain Length (m)", "Capacity (kg)", "Weight (kg)",
+                  "Load (kg)"};
   std::vector<int> widths = {70, 150, 120, 120, 130, 150, 110, 100, 120,
-                             80, 80, 80, 80, 80, 80, 110, 110, 100};
+                             80, 80, 80, 80, 80, 80, 110, 110, 100, 100};
   for (size_t i = 0; i < columnLabels.size(); ++i)
     table->AppendColumn(new wxDataViewColumn(
         columnLabels[i], new ColorfulTextRenderer(wxDATAVIEW_CELL_INERT,
@@ -314,6 +315,7 @@ void HoistTablePanel::ReloadData() {
     wxString chainLen = wxString::Format("%.2f", support.chainLength);
     wxString capacity = wxString::Format("%.2f", effective.capacityKg);
     wxString weight = wxString::Format("%.2f", effective.weightKg);
+    wxString load = wxString::Format("%.2f", support.loadKg);
 
     row.push_back(name);
     row.push_back(type);
@@ -332,6 +334,7 @@ void HoistTablePanel::ReloadData() {
     row.push_back(chainLen);
     row.push_back(capacity);
     row.push_back(weight);
+    row.push_back(load);
 
     store->AppendItem(row, rowUuids.size());
     rowUuids.push_back(uuid);
@@ -526,7 +529,7 @@ void HoistTablePanel::OnContextMenu(wxDataViewEvent &event) {
   bool numericCol = (col >= 9);
   bool relative = false;
   double delta = 0.0;
-  if (numericCol && col <= 17 &&
+  if (numericCol && col <= 18 &&
       (value.StartsWith("++") || value.StartsWith("--"))) {
     wxString numStr = value.Mid(2);
     if (numStr.ToDouble(&delta)) {
@@ -556,7 +559,7 @@ void HoistTablePanel::OnContextMenu(wxDataViewEvent &event) {
         if (col >= 12 && col <= 14)
           out = wxString::Format("%.1f", newVal) + DegreeSymbol();
         else
-          out = wxString::Format((col == 15) ? "%.2f" : "%.3f", newVal);
+          out = wxString::Format((col >= 15) ? "%.2f" : "%.3f", newVal);
         table->SetValue(wxVariant(out), r, col);
       }
     } else {
@@ -600,7 +603,7 @@ void HoistTablePanel::OnContextMenu(wxDataViewEvent &event) {
         if (col >= 12 && col <= 14)
           out = wxString::Format("%.1f", val) + DegreeSymbol();
         else
-          out = wxString::Format((col == 15) ? "%.2f" : "%.3f", val);
+          out = wxString::Format((col >= 15) ? "%.2f" : "%.3f", val);
 
         int r = table->ItemToRow(selections[i]);
         if (r != wxNOT_FOUND)
@@ -848,6 +851,11 @@ void HoistTablePanel::UpdateSceneData(bool logChanges) {
     const float editedWeightKg = static_cast<float>(weight);
     next.weightKg = editedWeightKg;
 
+    table->GetValue(v, i, 18);
+    double load = 0.0;
+    v.GetString().ToDouble(&load);
+    next.loadKg = static_cast<float>(load);
+
     next.motorNameSource =
         ResolveHoistFieldDataSource(next.motorNameSource, next.hoistDataSource);
     next.capacitySource =
@@ -884,6 +892,7 @@ void HoistTablePanel::UpdateSceneData(bool logChanges) {
                                 old.chainLength != next.chainLength ||
                                 old.capacityKg != next.capacityKg ||
                                 old.weightKg != next.weightKg ||
+                                old.loadKg != next.loadKg ||
                                 NormalizeHoistDataSource(old.motorNameSource) !=
                                     NormalizeHoistDataSource(next.motorNameSource) ||
                                 NormalizeHoistDataSource(old.motorManufacturerSource) !=

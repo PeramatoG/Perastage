@@ -214,6 +214,7 @@ int main() {
   sup.hoistFunction = "Lighting";
   sup.capacityKg = 1000.0f;
   sup.weightKg = 42.0f;
+  sup.loadKg = 600.0f;
   scene.supports[sup.uuid] = sup;
 
   MvrExporter exporter;
@@ -309,6 +310,8 @@ int main() {
             auto *riggingPointNode = info->FirstChildElement("RiggingPoint");
             assert(riggingPointNode != nullptr && riggingPointNode->GetText() != nullptr);
             assert(std::string(riggingPointNode->GetText()) == "Lighting");
+            auto *loadNode = info->FirstChildElement("Load");
+            assert(loadNode != nullptr && loadNode->GetText() != nullptr);
           }
 
           if (std::string(cur->Name()) == "Fixture") {
