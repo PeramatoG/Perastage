@@ -30,11 +30,13 @@ int main() {
 
   std::map<std::string, int> countByPosition;
   std::map<std::string, int> countByCapacity;
+  std::map<std::string, int> countByFunction;
   for (const auto &[uuid, support] : scene.supports) {
     (void)uuid;
     countByPosition[support.positionName]++;
     const int cap = static_cast<int>(support.capacityKg + 0.5f);
     countByCapacity[std::to_string(cap)]++;
+    countByFunction[support.positionName + ":" + support.hoistFunction]++;
   }
 
   assert(countByPosition["P.A."] == 4);
@@ -47,6 +49,12 @@ int main() {
   assert(countByCapacity["2000"] == 4);
   assert(countByCapacity["1000"] == 4);
   assert(countByCapacity["500"] == 8);
+  assert(countByFunction["P.A.:Audio"] == 4);
+  assert(countByFunction["SIDEFILL:Audio"] == 2);
+  assert(countByFunction["SCREEN:Video"] == 4);
+  assert(countByFunction["LX1:Lighting"] == 2);
+  assert(countByFunction["LX2:Lighting"] == 2);
+  assert(countByFunction["LX3:Lighting"] == 2);
 
   return 0;
 }

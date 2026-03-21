@@ -181,7 +181,10 @@ Created hoists:
 - Use capacity in kilograms.
 - Are assigned one of the default dummy hoist profile ids by capacity range:
   `dummy_standard_500kg`, `dummy_standard_1000kg`, or `dummy_standard_2000kg`.
-- Use `Lighting` as default hoist function.
+- Hoist function defaults by target:
+  - `PA`, `P.A.`, `SIDEFILL`, `OUTFILL` => `Audio`
+  - `SCREEN`, `LEDSCREEN`, `VIDEO` => `Video`
+  - Any other target => `Lighting`
 
 ## Layer assignment rules
 

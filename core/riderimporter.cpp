@@ -336,6 +336,17 @@ bool TryParseHoistLine(const std::string &line, const std::string &currentHang,
   return true;
 }
 
+std::string ResolveHoistFunctionForTarget(const std::string &target) {
+  const std::string normalized = NormalizeHangName(target);
+  if (normalized == "PA" || normalized == "P.A." ||
+      normalized == "SIDEFILL" || normalized == "OUTFILL")
+    return "Audio";
+  if (normalized == "SCREEN" || normalized == "LEDSCREEN" ||
+      normalized == "VIDEO")
+    return "Video";
+  return "Lighting";
+}
+
 // Performs a case-insensitive substring search without lowercasing the entire
 // haystack. This keeps the per-line processing in Import() cheap while still
 // matching section headers regardless of their capitalization.
@@ -1340,7 +1351,8 @@ bool RiderImporter::ImportText(const std::string &text) {
   }
 
   auto placeHoist = [&](float x, float y, float z, float capacityKg,
-                        const std::string &positionName) {
+                        const std::string &positionName,
+                        const std::string &hoistFunction) {
     Support support;
     support.uuid = GenerateUuid();
     support.positionName = positionName;
@@ -1349,7 +1361,7 @@ bool RiderImporter::ImportText(const std::string &text) {
     support.transform.o[1] = y;
     support.transform.o[2] = z;
     support.capacityKg = capacityKg;
-    support.hoistFunction = "Lighting";
+    support.hoistFunction = NormalizeHoistFunction(hoistFunction);
     support.function = support.hoistFunction;
     support.hoistDataSource = "Manual";
     support.capacitySource = "Manual";
@@ -1375,7 +1387,8 @@ bool RiderImporter::ImportText(const std::string &text) {
   };
 
   auto distributeAcrossTruss = [&](const std::string &positionName, int quantity,
-                                   float capacityKg, float marginMm) {
+                                   float capacityKg, float marginMm,
+                                   const std::string &hoistFunction) {
     if (quantity <= 0)
       return;
     TrussInfo info;
@@ -1390,11 +1403,13 @@ bool RiderImporter::ImportText(const std::string &text) {
     const float y = info.found ? info.y : getHangPos(positionName);
     const float z = info.found ? info.z : getHangHeight(positionName);
     for (int i = 0; i < quantity; ++i)
-      placeHoist(startX + step * i, y, z, capacityKg, positionName);
+      placeHoist(startX + step * i, y, z, capacityKg, positionName,
+                 hoistFunction);
   };
 
   auto distributePaOrSidefill = [&](const std::string &positionName, int quantity,
-                                     float capacityKg, bool sidefill) {
+                                     float capacityKg, bool sidefill,
+                                     const std::string &hoistFunction) {
     if (quantity <= 0)
       return;
     const TrussInfo lxInfo = trussInfo.count("LX1") ? trussInfo["LX1"] : TrussInfo{};
@@ -1417,7 +1432,7 @@ bool RiderImporter::ImportText(const std::string &text) {
         for (int row = 0; row < rows && placed < count; ++row) {
           float x = anchorX + xDirection * col * 1000.0f;
           float yPlaced = y + (rows == 1 ? 0.0f : (row - (rows - 1) * 0.5f) * 1000.0f);
-          placeHoist(x, yPlaced, z, capacityKg, positionName);
+          placeHoist(x, yPlaced, z, capacityKg, positionName, hoistFunction);
           ++placed;
         }
       }
@@ -1428,6 +1443,7 @@ bool RiderImporter::ImportText(const std::string &text) {
   };
 
   for (const HoistRequest &request : hoistRequests) {
+    const std::string hoistFunction = ResolveHoistFunctionForTarget(request.target);
     if (request.target == "LX") {
       std::vector<std::string> lxNames;
       for (const auto &[name, info] : trussInfo) {
@@ -1443,16 +1459,21 @@ bool RiderImporter::ImportText(const std::string &text) {
       int rem = request.quantity % static_cast<int>(lxNames.size());
       for (size_t i = 0; i < lxNames.size(); ++i) {
         int qty = base + (static_cast<int>(i) < rem ? 1 : 0);
-        distributeAcrossTruss(lxNames[i], qty, request.capacityKg, 2000.0f);
+        distributeAcrossTruss(lxNames[i], qty, request.capacityKg, 2000.0f,
+                              hoistFunction);
       }
     } else if (request.target == "PA") {
-      distributePaOrSidefill("P.A.", request.quantity, request.capacityKg, false);
+      distributePaOrSidefill("P.A.", request.quantity, request.capacityKg, false,
+                             hoistFunction);
     } else if (request.target == "SIDEFILL") {
-      distributePaOrSidefill("SIDEFILL", request.quantity, request.capacityKg, true);
+      distributePaOrSidefill("SIDEFILL", request.quantity, request.capacityKg, true,
+                             hoistFunction);
     } else if (request.target == "SCREEN") {
-      distributeAcrossTruss("SCREEN", request.quantity, request.capacityKg, 0.0f);
+      distributeAcrossTruss("SCREEN", request.quantity, request.capacityKg, 0.0f,
+                            hoistFunction);
     } else {
-      distributeAcrossTruss(request.target, request.quantity, request.capacityKg, 2000.0f);
+      distributeAcrossTruss(request.target, request.quantity, request.capacityKg,
+                            2000.0f, hoistFunction);
     }
   }
 
