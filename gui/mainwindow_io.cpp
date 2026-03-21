@@ -28,7 +28,9 @@
 #include <vector>
 
 #include <tinyxml2.h>
+#include <wx/busyinfo.h>
 #include <wx/log.h>
+#include <wx/utils.h>
 #include <wx/wfstream.h>
 #include <wx/zipstrm.h>
 
@@ -218,6 +220,12 @@ void MainWindow::OnImportRider(wxCommandEvent &event) {
   const std::filesystem::path selectedPath(dlg.GetPath().ToStdWstring());
   const auto pathU8 = selectedPath.u8string();
   const std::string pathUtf8(pathU8.begin(), pathU8.end());
+  std::unique_ptr<wxWindowDisabler> importDisabler =
+      std::make_unique<wxWindowDisabler>();
+  std::unique_ptr<wxBusyInfo> importOverlay =
+      std::make_unique<wxBusyInfo>("Creating scene from rider...");
+  wxYieldIfNeeded();
+
   LockViewportInteraction();
   ScopeExit viewportUnlock([this]() { UnlockViewportInteraction(); });
   if (!RiderImporter::Import(pathUtf8)) {
@@ -225,9 +233,14 @@ void MainWindow::OnImportRider(wxCommandEvent &event) {
     if (consolePanel)
       consolePanel->AppendMessage("[ERROR] Failed to import " + dlg.GetPath());
   } else {
+    importOverlay.reset();
+    importDisabler.reset();
     wxMessageBox("Rider imported successfully.", "Success", wxICON_INFORMATION);
     if (consolePanel)
       consolePanel->AppendMessage("[INFO] Imported " + dlg.GetPath());
+    importDisabler = std::make_unique<wxWindowDisabler>();
+    importOverlay = std::make_unique<wxBusyInfo>("Refreshing scene view...");
+    wxYieldIfNeeded();
     RefreshAfterSceneChange();
   }
 }
@@ -238,6 +251,12 @@ void MainWindow::OnImportRiderText(wxCommandEvent &WXUNUSED(event)) {
   RiderTextDialog dlg(this);
   if (dlg.ShowModal() != wxID_OK)
     return;
+
+  std::unique_ptr<wxWindowDisabler> createDisabler =
+      std::make_unique<wxWindowDisabler>();
+  std::unique_ptr<wxBusyInfo> createOverlay =
+      std::make_unique<wxBusyInfo>("Generating scene from text...");
+  wxYieldIfNeeded();
 
   if (consolePanel)
     consolePanel->AppendMessage("[INFO] Imported rider from text.");
