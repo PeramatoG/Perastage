@@ -34,12 +34,14 @@
 enum {
   ID_RiderText_Load = wxID_HIGHEST + 4200,
   ID_RiderText_Example,
+  ID_RiderText_ApplyFilter,
   ID_RiderText_Apply
 };
 
 wxBEGIN_EVENT_TABLE(RiderTextDialog, wxDialog)
 EVT_BUTTON(ID_RiderText_Load, RiderTextDialog::OnLoadFromFile)
 EVT_BUTTON(ID_RiderText_Example, RiderTextDialog::OnLoadExample)
+EVT_BUTTON(ID_RiderText_ApplyFilter, RiderTextDialog::OnApplyFilter)
 EVT_BUTTON(ID_RiderText_Apply, RiderTextDialog::OnApply)
 wxEND_EVENT_TABLE()
 
@@ -72,9 +74,12 @@ RiderTextDialog::RiderTextDialog(wxWindow *parent,
   mainSizer->Add(textCtrl, 1, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 8);
 
   wxBoxSizer *buttonSizer = new wxBoxSizer(wxHORIZONTAL);
-  wxButton *applyButton = new wxButton(this, ID_RiderText_Apply, "Apply");
+  wxButton *filterButton =
+      new wxButton(this, ID_RiderText_ApplyFilter, "Apply filter");
+  wxButton *applyButton = new wxButton(this, ID_RiderText_Apply, "Create");
   wxButton *cancelButton = new wxButton(this, wxID_CANCEL, "Cancel");
   buttonSizer->AddStretchSpacer();
+  buttonSizer->Add(filterButton, 0, wxRIGHT, 8);
   buttonSizer->Add(applyButton, 0, wxRIGHT, 8);
   buttonSizer->Add(cancelButton, 0);
   mainSizer->Add(buttonSizer, 0, wxEXPAND | wxALL, 8);
@@ -169,6 +174,36 @@ void RiderTextDialog::OnLoadExample(wxCommandEvent &WXUNUSED(event)) {
   sourceLabel = "Example text";
   if (sourceText)
     sourceText->SetLabel(wxString("Loaded: ") + sourceLabel);
+}
+
+void RiderTextDialog::OnApplyFilter(wxCommandEvent &WXUNUSED(event)) {
+  wxString value = textCtrl->GetValue();
+  const wxScopedCharBuffer textBuffer = value.ToUTF8();
+  std::string text =
+      textBuffer ? std::string(textBuffer.data(), textBuffer.length())
+                 : value.ToStdString();
+  if (text.empty()) {
+    wxMessageBox("Rider text is empty.", "Error", wxICON_ERROR);
+    return;
+  }
+
+  const std::string filtered = RiderImporter::BuildFixtureFilterPreview(text);
+  if (filtered.empty()) {
+    wxMessageBox("No fixture lines were detected with the current parser "
+                 "rules after filtering.",
+                 "Apply filter", wxICON_INFORMATION);
+    return;
+  }
+
+  wxString filteredText = wxString::FromUTF8(filtered.data(), filtered.size());
+  if (filteredText.empty() && !filtered.empty())
+    filteredText = wxString::From8BitData(filtered.data(), filtered.size());
+  if (filteredText.empty()) {
+    wxMessageBox("Filtered text could not be decoded.", "Error",
+                 wxICON_ERROR);
+    return;
+  }
+  textCtrl->ChangeValue(filteredText);
 }
 
 void RiderTextDialog::OnApply(wxCommandEvent &WXUNUSED(event)) {

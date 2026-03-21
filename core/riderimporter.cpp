@@ -64,11 +64,14 @@ static const std::regex kTrussRe(
 static const std::regex kFixtureLineRe("^\\s*(?:[-*]\\s*)?(\\d+)\\s+(.+)$",
                                        std::regex::icase);
 static const std::regex kQuantityOnlyRe("^\\s*(?:[-*]\\s*)?(\\d+)\\s*$");
-static const std::regex kHangLineRe("^\\s*(LX\\d+|floor|efectos?)\\s*:?\\s*$",
+static const std::regex kHangLineRe(
+    "^\\s*(LX\\d+|floor|efectos?|calle(?:s)?\\s+a\\s+suelo|ground\\s+lanes?)\\s*:?\\s*$",
+    std::regex::icase);
+static const std::regex kHangFindRe(
+    "(LX\\d+|floor|efectos?|calle(?:s)?\\s+a\\s+suelo|ground\\s+lanes?)",
                                     std::regex::icase);
-static const std::regex kHangFindRe("(LX\\d+|floor|efectos?)",
-                                    std::regex::icase);
-static const std::regex kHangOnlyRe("^\\s*(LX\\d+|floor|efectos?)\\s*$",
+static const std::regex kHangOnlyRe(
+    "^\\s*(LX\\d+|floor|efectos?|calle(?:s)?\\s+a\\s+suelo|ground\\s+lanes?)\\s*$",
                                     std::regex::icase);
 std::string Trim(const std::string &s) {
   size_t start = s.find_first_not_of(" \t\r\n");
@@ -238,6 +241,16 @@ bool ContainsCaseInsensitive(std::string_view haystack,
   return it != haystack.end();
 }
 
+bool IsFloorAlias(std::string_view value) {
+  const bool effectAlias = ContainsCaseInsensitive(value, "efecto");
+  const bool floorAlias = ContainsCaseInsensitive(value, "floor");
+  const bool streetToFloorAlias = ContainsCaseInsensitive(value, "calle") &&
+                                  ContainsCaseInsensitive(value, "suelo");
+  const bool groundLaneAlias = ContainsCaseInsensitive(value, "ground") &&
+                               ContainsCaseInsensitive(value, "lane");
+  return effectAlias || floorAlias || streetToFloorAlias || groundLaneAlias;
+}
+
 std::string ReadTextFile(const std::string &path) {
   std::ifstream ifs(path);
   if (!ifs)
@@ -365,6 +378,235 @@ bool RiderImporter::Import(const std::string &path) {
   if (text.empty())
     return false;
   return ImportText(text);
+}
+
+std::string RiderImporter::BuildFixtureFilterPreview(const std::string &text) {
+  if (text.empty())
+    return {};
+
+  std::istringstream iss(text);
+  std::string line;
+  bool inFixtures = false;
+  bool inRigging = false;
+  bool inControl = false;
+  bool havePending = false;
+  int pendingQuantity = 0;
+  std::string currentHang;
+  std::vector<std::string> hangOrder;
+  std::unordered_map<std::string, std::vector<std::string>> fixturesByHang;
+  std::vector<std::string> riggingLines;
+
+  auto normalizeHangName = [](const std::string &raw) {
+    std::string hang = Trim(raw);
+    if (IsFloorAlias(hang))
+      return std::string("FLOOR");
+    std::transform(hang.begin(), hang.end(), hang.begin(), [](unsigned char c) {
+      return static_cast<char>(std::toupper(c));
+    });
+    if (hang.rfind("PUENTES ", 0) == 0)
+      hang = Trim(hang.substr(8));
+    else if (hang.rfind("PUENTE ", 0) == 0)
+      hang = Trim(hang.substr(7));
+    if (hang == "PANTALLA")
+      return std::string("SCREEN");
+    return hang;
+  };
+
+  auto normalizeFixtureToken = [](const std::string &token) {
+    std::string normalized = token;
+    normalized = std::regex_replace(normalized, std::regex("\\([^\\)]*\\)"), "");
+    normalized = std::regex_replace(normalized, std::regex("\\s*[-]\\s*"), "-");
+    normalized = std::regex_replace(normalized, std::regex("\\s+"), " ");
+    return Trim(normalized);
+  };
+
+  auto appendFixtureLines = [&](int baseQuantity, const std::string &descRaw) {
+    const std::string hang = currentHang.empty() ? "UNASSIGNED" : currentHang;
+    auto parts = SplitPlus(descRaw);
+    for (const auto &partRaw : parts) {
+      std::smatch pm;
+      std::string part = partRaw;
+      int quantity = baseQuantity;
+      if (std::regex_match(partRaw, pm, kFixtureLineRe)) {
+        if (!TryParseInt(pm[1].str(), quantity))
+          quantity = baseQuantity;
+        part = Trim(pm[2]);
+      }
+      part = normalizeFixtureToken(part);
+      if (part.empty())
+        continue;
+
+      auto &bucket = fixturesByHang[hang];
+      if (bucket.empty())
+        hangOrder.push_back(hang);
+      bucket.push_back(std::to_string(quantity) + " " + part);
+    }
+  };
+
+  auto formatLengthM = [](float meters) {
+    std::ostringstream oss;
+    oss << std::fixed << std::setprecision(2) << meters;
+    std::string length = oss.str();
+    length.erase(length.find_last_not_of('0') + 1, std::string::npos);
+    if (!length.empty() && length.back() == '.')
+      length.pop_back();
+    return length;
+  };
+
+  while (std::getline(iss, line)) {
+    line.erase(std::remove(line.begin(), line.end(), '\r'), line.end());
+    if (ContainsCaseInsensitive(line, "sonido") ||
+        ContainsCaseInsensitive(line, "audio") ||
+        ContainsCaseInsensitive(line, "control de p.a.") ||
+        ContainsCaseInsensitive(line, "monitores") ||
+        ContainsCaseInsensitive(line, "microfon") ||
+        ContainsCaseInsensitive(line, "video") ||
+        ContainsCaseInsensitive(line, "realizacion") ||
+        ContainsCaseInsensitive(line, "control")) {
+      inFixtures = false;
+      inRigging = false;
+      inControl = ContainsCaseInsensitive(line, "control");
+      havePending = false;
+      continue;
+    }
+    if (ContainsCaseInsensitive(line, "rigging")) {
+      inFixtures = false;
+      inRigging = true;
+      inControl = false;
+      havePending = false;
+      continue;
+    }
+    if (!inControl && (ContainsCaseInsensitive(line, "ilumin") ||
+                       ContainsCaseInsensitive(line, "robotica") ||
+                       ContainsCaseInsensitive(line, "convencion"))) {
+      inFixtures = true;
+      inRigging = false;
+      havePending = false;
+      continue;
+    }
+
+    std::smatch m;
+    std::smatch hm;
+    if (std::regex_match(line, hm, kHangLineRe)) {
+      havePending = false;
+      std::string captured = hm[1];
+      if (IsFloorAlias(captured)) {
+        currentHang = "FLOOR";
+      } else {
+        currentHang = captured;
+        std::transform(
+            currentHang.begin(), currentHang.end(), currentHang.begin(),
+            [](unsigned char c) { return static_cast<char>(std::toupper(c)); });
+      }
+      if (!inRigging && !inFixtures)
+        inFixtures = true;
+      continue;
+    }
+
+    if (havePending && inFixtures) {
+      const std::string desc = Trim(line);
+      if (!desc.empty())
+        appendFixtureLines(pendingQuantity, desc);
+      havePending = false;
+      continue;
+    }
+
+    if (std::regex_match(line, m, kTrussLineRe)) {
+      int quantity = 0;
+      if (!TryParseInt(m[1].str(), quantity) || quantity <= 0)
+        continue;
+      std::string model = Trim(m[2]);
+      float lengthM = 0.0f;
+      if (!TryParseFloat(m[3].str(), lengthM))
+        continue;
+      std::string hang = currentHang;
+      if (m.size() > 4 && m[4].matched) {
+        hang = m[4].str();
+      } else if (std::regex_match(model, kHangOnlyRe)) {
+        hang = model;
+        model.clear();
+      }
+      hang = normalizeHangName(hang);
+
+      // Do not keep floor trusses in filtered output because those are not
+      // useful for the target lighting rigging workflow.
+      if (hang == "FLOOR")
+        continue;
+
+      const std::string lenText = formatLengthM(lengthM) + "m";
+      auto buildLine = [&](const std::string &targetHang) {
+        std::string out = "1 TRUSS";
+        if (!model.empty())
+          out += " " + model;
+        out += " " + lenText;
+        if (!targetHang.empty())
+          out += " " + targetHang;
+        riggingLines.push_back(out);
+      };
+
+      if (hang == "LX") {
+        for (int i = 0; i < quantity; ++i)
+          buildLine("LX" + std::to_string(i + 1));
+      } else {
+        for (int i = 0; i < quantity; ++i)
+          buildLine(hang);
+      }
+      continue;
+    }
+
+    if (std::regex_search(line, m, kTrussRe)) {
+      float lengthM = 0.0f;
+      if (!TryParseFloat(m[1].str(), lengthM))
+        continue;
+      std::string hang = normalizeHangName(currentHang);
+      if (std::regex_search(line, hm, kHangFindRe))
+        hang = normalizeHangName(hm[1].str());
+      if (hang == "FLOOR")
+        continue;
+      std::string out = "1 TRUSS " + formatLengthM(lengthM) + "m";
+      if (!hang.empty())
+        out += " " + hang;
+      riggingLines.push_back(out);
+      continue;
+    }
+
+    if (inFixtures && std::regex_match(line, m, kFixtureLineRe)) {
+      int baseQuantity = 0;
+      if (!TryParseInt(m[1].str(), baseQuantity))
+        continue;
+      appendFixtureLines(baseQuantity, Trim(m[2]));
+      continue;
+    }
+
+    if (inFixtures && std::regex_match(line, m, kQuantityOnlyRe)) {
+      if (!TryParseInt(m[1].str(), pendingQuantity))
+        continue;
+      havePending = true;
+    }
+  }
+
+  std::ostringstream preview;
+  bool firstSection = true;
+  for (const std::string &hang : hangOrder) {
+    auto it = fixturesByHang.find(hang);
+    if (it == fixturesByHang.end() || it->second.empty())
+      continue;
+    if (!firstSection)
+      preview << "\n\n";
+    preview << hang;
+    for (const std::string &fixtureLine : it->second)
+      preview << "\n" << fixtureLine;
+    firstSection = false;
+  }
+  if (!riggingLines.empty()) {
+    if (!preview.str().empty())
+      preview << "\n\n";
+    preview << "RIGGING";
+    for (const std::string &rigLine : riggingLines)
+      preview << "\n" << rigLine;
+  }
+
+  return preview.str();
 }
 
 bool RiderImporter::ImportText(const std::string &text) {
@@ -539,7 +781,7 @@ bool RiderImporter::ImportText(const std::string &text) {
     if (std::regex_match(line, hm, kHangLineRe)) {
       havePending = false;
       std::string captured = hm[1];
-      if (ContainsCaseInsensitive(captured, "efecto")) {
+      if (IsFloorAlias(captured)) {
         currentHang = "FLOOR";
       } else {
         currentHang = captured;
@@ -590,10 +832,16 @@ bool RiderImporter::ImportText(const std::string &text) {
       std::transform(
           hang.begin(), hang.end(), hang.begin(),
           [](unsigned char c) { return static_cast<char>(std::toupper(c)); });
+      if (IsFloorAlias(hang))
+        hang = "FLOOR";
       if (hang.rfind("PUENTES ", 0) == 0)
         hang = Trim(hang.substr(8));
       else if (hang.rfind("PUENTE ", 0) == 0)
         hang = Trim(hang.substr(7));
+      if (hang == "PANTALLA")
+        hang = "SCREEN";
+      if (hang == "FLOOR")
+        continue;
 
       auto formatLength = [](float mm) {
         std::ostringstream oss;
@@ -702,10 +950,19 @@ bool RiderImporter::ImportText(const std::string &text) {
       std::string hang = currentHang;
       if (std::regex_search(line, hm, kHangFindRe)) {
         hang = hm[1];
-        std::transform(
-            hang.begin(), hang.end(), hang.begin(),
-            [](unsigned char c) { return static_cast<char>(std::toupper(c)); });
+        if (IsFloorAlias(hang)) {
+          hang = "FLOOR";
+        } else {
+          std::transform(hang.begin(), hang.end(), hang.begin(),
+                         [](unsigned char c) {
+                           return static_cast<char>(std::toupper(c));
+                         });
+        }
       }
+      if (hang == "PANTALLA")
+        hang = "SCREEN";
+      if (hang == "FLOOR")
+        continue;
 
       auto formatLength = [](float mm) {
         std::ostringstream oss;

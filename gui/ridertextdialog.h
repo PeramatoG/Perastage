@@ -31,6 +31,7 @@ public:
 private:
   void OnLoadFromFile(wxCommandEvent &event);
   void OnLoadExample(wxCommandEvent &event);
+  void OnApplyFilter(wxCommandEvent &event);
   void OnApply(wxCommandEvent &event);
 
   wxTextCtrl *textCtrl = nullptr;
