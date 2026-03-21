@@ -15,7 +15,6 @@
 
 #include "configmanager.h"
 #include "support.h"
-#include "viewer3dcontroller.h"
 
 #include <algorithm>
 #include <array>
@@ -78,14 +77,14 @@ HoistShape ResolveHoistShape(float capacityKg) {
 
 std::array<float, 3> MakePoint(float x, float y, float z) { return {x, y, z}; }
 
-void DrawFillPolygon(Viewer3DController &controller,
+void DrawFillPolygon(IRenderContext &renderContext,
                      const std::vector<std::array<float, 3>> &points,
                      const RgbColor &color) {
   if (points.size() < 3)
     return;
 
-  if (!controller.IsCaptureOnly()) {
-    controller.SetGLColor(color.r, color.g, color.b);
+  if (!renderContext.IsCaptureOnly()) {
+    renderContext.SetGLColor(color.r, color.g, color.b);
     glBegin(GL_TRIANGLE_FAN);
     for (const auto &p : points)
       glVertex3f(p[0], p[1], p[2]);
@@ -97,18 +96,18 @@ void DrawFillPolygon(Viewer3DController &controller,
   stroke.color = {color.r, color.g, color.b, 1.0f};
   CanvasFill fill;
   fill.color = {color.r, color.g, color.b, 1.0f};
-  controller.RecordPolygon(points, stroke, &fill);
+  renderContext.RecordPolygon(points, stroke, &fill);
 }
 
-void DrawOutlineLoop(Viewer3DController &controller,
+void DrawOutlineLoop(IRenderContext &renderContext,
                      const std::vector<std::array<float, 3>> &points,
                      const RgbColor &color) {
   if (points.size() < 2)
     return;
 
-  if (!controller.IsCaptureOnly()) {
+  if (!renderContext.IsCaptureOnly()) {
     glLineWidth(kLineWidth);
-    controller.SetGLColor(color.r, color.g, color.b);
+    renderContext.SetGLColor(color.r, color.g, color.b);
     glBegin(GL_LINE_LOOP);
     for (const auto &p : points)
       glVertex3f(p[0], p[1], p[2]);
@@ -120,14 +119,14 @@ void DrawOutlineLoop(Viewer3DController &controller,
   stroke.width = kLineWidth;
   stroke.color = {color.r, color.g, color.b, 1.0f};
   for (size_t i = 0; i < points.size(); ++i)
-    controller.RecordLine(points[i], points[(i + 1) % points.size()], stroke);
+    renderContext.RecordLine(points[i], points[(i + 1) % points.size()], stroke);
 }
 
-void DrawSegment(Viewer3DController &controller, const std::array<float, 3> &a,
+void DrawSegment(IRenderContext &renderContext, const std::array<float, 3> &a,
                  const std::array<float, 3> &b, const RgbColor &color) {
-  if (!controller.IsCaptureOnly()) {
+  if (!renderContext.IsCaptureOnly()) {
     glLineWidth(kLineWidth);
-    controller.SetGLColor(color.r, color.g, color.b);
+    renderContext.SetGLColor(color.r, color.g, color.b);
     glBegin(GL_LINES);
     glVertex3f(a[0], a[1], a[2]);
     glVertex3f(b[0], b[1], b[2]);
@@ -138,10 +137,10 @@ void DrawSegment(Viewer3DController &controller, const std::array<float, 3> &a,
   CanvasStroke stroke;
   stroke.width = kLineWidth;
   stroke.color = {color.r, color.g, color.b, 1.0f};
-  controller.RecordLine(a, b, stroke);
+  renderContext.RecordLine(a, b, stroke);
 }
 
-void DrawSquareSymbol(Viewer3DController &controller, float cx, float cy,
+void DrawSquareSymbol(IRenderContext &renderContext, float cx, float cy,
                       float z, const RgbColor &color) {
   const float minX = cx - kHalfSizeMeters;
   const float maxX = cx + kHalfSizeMeters;
@@ -150,24 +149,24 @@ void DrawSquareSymbol(Viewer3DController &controller, float cx, float cy,
   const float midX = cx;
   const float midY = cy;
 
-  DrawFillPolygon(controller,
+  DrawFillPolygon(renderContext,
                   {MakePoint(midX, midY, z), MakePoint(maxX, midY, z),
                    MakePoint(maxX, maxY, z), MakePoint(midX, maxY, z)},
                   color);
-  DrawFillPolygon(controller,
+  DrawFillPolygon(renderContext,
                   {MakePoint(minX, minY, z), MakePoint(midX, minY, z),
                    MakePoint(midX, midY, z), MakePoint(minX, midY, z)},
                   color);
 
-  DrawOutlineLoop(controller,
+  DrawOutlineLoop(renderContext,
                   {MakePoint(minX, minY, z), MakePoint(maxX, minY, z),
                    MakePoint(maxX, maxY, z), MakePoint(minX, maxY, z)},
                   color);
-  DrawSegment(controller, MakePoint(cx, minY, z), MakePoint(cx, maxY, z), color);
-  DrawSegment(controller, MakePoint(minX, cy, z), MakePoint(maxX, cy, z), color);
+  DrawSegment(renderContext, MakePoint(cx, minY, z), MakePoint(cx, maxY, z), color);
+  DrawSegment(renderContext, MakePoint(minX, cy, z), MakePoint(maxX, cy, z), color);
 }
 
-void DrawDiamondSymbol(Viewer3DController &controller, float cx, float cy,
+void DrawDiamondSymbol(IRenderContext &renderContext, float cx, float cy,
                        float z, const RgbColor &color) {
   const auto top = MakePoint(cx, cy + kHalfSizeMeters, z);
   const auto right = MakePoint(cx + kHalfSizeMeters, cy, z);
@@ -175,14 +174,14 @@ void DrawDiamondSymbol(Viewer3DController &controller, float cx, float cy,
   const auto left = MakePoint(cx - kHalfSizeMeters, cy, z);
   const auto center = MakePoint(cx, cy, z);
 
-  DrawFillPolygon(controller, {center, right, top}, color);
-  DrawFillPolygon(controller, {center, left, bottom}, color);
-  DrawOutlineLoop(controller, {top, right, bottom, left}, color);
-  DrawSegment(controller, left, right, color);
-  DrawSegment(controller, bottom, top, color);
+  DrawFillPolygon(renderContext, {center, right, top}, color);
+  DrawFillPolygon(renderContext, {center, left, bottom}, color);
+  DrawOutlineLoop(renderContext, {top, right, bottom, left}, color);
+  DrawSegment(renderContext, left, right, color);
+  DrawSegment(renderContext, bottom, top, color);
 }
 
-void DrawCircleSymbol(Viewer3DController &controller, float cx, float cy,
+void DrawCircleSymbol(IRenderContext &renderContext, float cx, float cy,
                       float z, const RgbColor &color) {
   constexpr int kSegments = 40;
   std::vector<std::array<float, 3>> ring;
@@ -216,34 +215,34 @@ void DrawCircleSymbol(Viewer3DController &controller, float cx, float cy,
                                    cy + std::sin(t) * kHalfSizeMeters, z));
   }
 
-  DrawFillPolygon(controller, topRight, color);
-  DrawFillPolygon(controller, bottomLeft, color);
-  DrawOutlineLoop(controller, ring, color);
-  DrawSegment(controller, MakePoint(cx - kHalfSizeMeters, cy, z),
+  DrawFillPolygon(renderContext, topRight, color);
+  DrawFillPolygon(renderContext, bottomLeft, color);
+  DrawOutlineLoop(renderContext, ring, color);
+  DrawSegment(renderContext, MakePoint(cx - kHalfSizeMeters, cy, z),
               MakePoint(cx + kHalfSizeMeters, cy, z), color);
-  DrawSegment(controller, MakePoint(cx, cy - kHalfSizeMeters, z),
+  DrawSegment(renderContext, MakePoint(cx, cy - kHalfSizeMeters, z),
               MakePoint(cx, cy + kHalfSizeMeters, z), color);
 }
 
-void DrawTriangleSymbol(Viewer3DController &controller, float cx, float cy,
+void DrawTriangleSymbol(IRenderContext &renderContext, float cx, float cy,
                         float z, const RgbColor &color) {
   const auto top = MakePoint(cx, cy + kHalfSizeMeters, z);
   const auto left = MakePoint(cx - kHalfSizeMeters, cy - kHalfSizeMeters, z);
   const auto right = MakePoint(cx + kHalfSizeMeters, cy - kHalfSizeMeters, z);
   const auto center = MakePoint(cx, cy - kHalfSizeMeters / 6.0f, z);
 
-  DrawFillPolygon(controller, {top, MakePoint(cx - 0.06f, cy + 0.03f, z), center},
+  DrawFillPolygon(renderContext, {top, MakePoint(cx - 0.06f, cy + 0.03f, z), center},
                   color);
-  DrawFillPolygon(controller, {left, MakePoint(cx - 0.08f, cy - 0.05f, z), center},
+  DrawFillPolygon(renderContext, {left, MakePoint(cx - 0.08f, cy - 0.05f, z), center},
                   color);
 
-  DrawOutlineLoop(controller, {top, right, left}, color);
-  DrawSegment(controller, top, center, color);
-  DrawSegment(controller, left, center, color);
-  DrawSegment(controller, right, center, color);
+  DrawOutlineLoop(renderContext, {top, right, left}, color);
+  DrawSegment(renderContext, top, center, color);
+  DrawSegment(renderContext, left, center, color);
+  DrawSegment(renderContext, right, center, color);
 }
 
-void DrawPentagonSymbol(Viewer3DController &controller, float cx, float cy,
+void DrawPentagonSymbol(IRenderContext &renderContext, float cx, float cy,
                         float z, const RgbColor &color) {
   const auto top = MakePoint(cx, cy + kHalfSizeMeters, z);
   const auto rightTop = MakePoint(cx + kHalfSizeMeters * 0.85f,
@@ -256,18 +255,18 @@ void DrawPentagonSymbol(Viewer3DController &controller, float cx, float cy,
       MakePoint(cx - kHalfSizeMeters * 0.85f, cy + kHalfSizeMeters * 0.25f, z);
   const auto center = MakePoint(cx, cy - kHalfSizeMeters * 0.15f, z);
 
-  DrawFillPolygon(controller, {top, rightTop, center}, color);
-  DrawFillPolygon(controller, {leftBottom, rightBottom, center}, color);
+  DrawFillPolygon(renderContext, {top, rightTop, center}, color);
+  DrawFillPolygon(renderContext, {leftBottom, rightBottom, center}, color);
 
-  DrawOutlineLoop(controller, {top, rightTop, rightBottom, leftBottom, leftTop}, color);
-  DrawSegment(controller, top, center, color);
-  DrawSegment(controller, leftTop, center, color);
-  DrawSegment(controller, rightTop, center, color);
-  DrawSegment(controller, leftBottom, center, color);
-  DrawSegment(controller, rightBottom, center, color);
+  DrawOutlineLoop(renderContext, {top, rightTop, rightBottom, leftBottom, leftTop}, color);
+  DrawSegment(renderContext, top, center, color);
+  DrawSegment(renderContext, leftTop, center, color);
+  DrawSegment(renderContext, rightTop, center, color);
+  DrawSegment(renderContext, leftBottom, center, color);
+  DrawSegment(renderContext, rightBottom, center, color);
 }
 
-void DrawHoistSymbol(Viewer3DController &controller, const Support &support,
+void DrawHoistSymbol(IRenderContext &renderContext, const Support &support,
                      const RgbColor &color) {
   const HoistShape shape = ResolveHoistShape(support.capacityKg);
   const float cx = support.transform.o[0] * RENDER_SCALE;
@@ -276,26 +275,26 @@ void DrawHoistSymbol(Viewer3DController &controller, const Support &support,
 
   switch (shape) {
   case HoistShape::Ton2:
-    DrawSquareSymbol(controller, cx, cy, z, color);
+    DrawSquareSymbol(renderContext, cx, cy, z, color);
     break;
   case HoistShape::Ton1:
-    DrawCircleSymbol(controller, cx, cy, z, color);
+    DrawCircleSymbol(renderContext, cx, cy, z, color);
     break;
   case HoistShape::TonHalf:
-    DrawTriangleSymbol(controller, cx, cy, z, color);
+    DrawTriangleSymbol(renderContext, cx, cy, z, color);
     break;
   case HoistShape::TonQuarter:
-    DrawDiamondSymbol(controller, cx, cy, z, color);
+    DrawDiamondSymbol(renderContext, cx, cy, z, color);
     break;
   case HoistShape::TonEighth:
-    DrawPentagonSymbol(controller, cx, cy, z, color);
+    DrawPentagonSymbol(renderContext, cx, cy, z, color);
     break;
   }
 }
 
 } // namespace
 
-void Render(Viewer3DController &controller, const RenderFrameContext &context) {
+void Render(IRenderContext &renderContext, const RenderFrameContext &context) {
   if (!context.is2DViewer)
     return;
   if (context.view != Viewer2DView::Top && context.view != Viewer2DView::Bottom)
@@ -309,7 +308,7 @@ void Render(Viewer3DController &controller, const RenderFrameContext &context) {
 
     const std::string functionValue =
         support.hoistFunction.empty() ? support.function : support.hoistFunction;
-    DrawHoistSymbol(controller, support, ResolveHoistFunctionColor(functionValue));
+    DrawHoistSymbol(renderContext, support, ResolveHoistFunctionColor(functionValue));
   }
 }
 

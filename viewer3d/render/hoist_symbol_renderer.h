@@ -1,11 +1,10 @@
 #pragma once
 
+#include "irendercontext.h"
 #include "viewer3d_types.h"
-
-class Viewer3DController;
 
 namespace HoistSymbolRenderer {
 
-void Render(Viewer3DController &controller, const RenderFrameContext &context);
+void Render(IRenderContext &renderContext, const RenderFrameContext &context);
 
 } // namespace HoistSymbolRenderer
