@@ -20,6 +20,8 @@ int main() {
       "GROUND LANES:\n"
       "2 LED BAR\n"
       "RIGGING Y ESTRUCTURAS\n"
+      "3 MOTOR 500Kg + ESLINGAS PARA PUENTES LX\n"
+      "2 MOTOR 1TO + ESLINGAS PARA PA\n"
       "3 TRUSS 40X40 PRO 14m PARA PUENTES LX\n"
       "1 TRUSS 40X40 PRO 14m PARA PUENTE PANTALLA\n";
 
@@ -37,6 +39,10 @@ int main() {
       "\n"
       "\n"
       "RIGGING\n"
+      "1 MOTOR 500Kg PARA LX1\n"
+      "1 MOTOR 500Kg PARA LX2\n"
+      "1 MOTOR 500Kg PARA LX3\n"
+      "2 MOTOR 1000Kg PARA P.A.\n"
       "1 TRUSS 40X40 PRO 14m LX1\n"
       "1 TRUSS 40X40 PRO 14m LX2\n"
       "1 TRUSS 40X40 PRO 14m LX3\n"

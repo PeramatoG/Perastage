@@ -463,6 +463,13 @@ std::string RiderImporter::BuildFixtureFilterPreview(const std::string &text) {
   std::vector<std::string> hangOrder;
   std::unordered_map<std::string, std::vector<std::string>> fixturesByHang;
   std::vector<std::string> riggingLines;
+  struct HoistPreviewRequest {
+    int quantity = 0;
+    float capacityKg = 0.0f;
+    std::string target;
+  };
+  std::vector<HoistPreviewRequest> hoistRequests;
+  std::vector<std::string> lxTargetsInRigging;
 
   auto normalizeFixtureToken = [](const std::string &token) {
     std::string normalized = token;
@@ -591,6 +598,11 @@ std::string RiderImporter::BuildFixtureFilterPreview(const std::string &text) {
         if (!targetHang.empty())
           out += " " + targetHang;
         riggingLines.push_back(out);
+        if (targetHang.rfind("LX", 0) == 0 &&
+            std::find(lxTargetsInRigging.begin(), lxTargetsInRigging.end(),
+                      targetHang) == lxTargetsInRigging.end()) {
+          lxTargetsInRigging.push_back(targetHang);
+        }
       };
 
       if (hang == "LX") {
@@ -616,6 +628,30 @@ std::string RiderImporter::BuildFixtureFilterPreview(const std::string &text) {
       if (!hang.empty())
         out += " " + hang;
       riggingLines.push_back(out);
+      if (hang.rfind("LX", 0) == 0 &&
+          std::find(lxTargetsInRigging.begin(), lxTargetsInRigging.end(), hang) ==
+              lxTargetsInRigging.end()) {
+        lxTargetsInRigging.push_back(hang);
+      }
+      continue;
+    }
+
+    if (std::regex_match(line, m, kHoistLineRe)) {
+      int quantity = 0;
+      if (!TryParseInt(m[1].str(), quantity) || quantity <= 0)
+        continue;
+      const float capacityKg = ParseHoistCapacityKg(m[2].str());
+      if (capacityKg <= 0.0f)
+        continue;
+      std::string hang = currentHang;
+      if (m.size() > 3 && m[3].matched)
+        hang = m[3].str();
+      hang = NormalizeHangName(hang);
+      if (hang.empty())
+        hang = "LX";
+      if (hang == "FLOOR")
+        continue;
+      hoistRequests.push_back({quantity, capacityKg, hang});
       continue;
     }
 
@@ -647,10 +683,46 @@ std::string RiderImporter::BuildFixtureFilterPreview(const std::string &text) {
       preview << "\n" << fixtureLine;
     firstSection = false;
   }
-  if (!riggingLines.empty()) {
+  if (!riggingLines.empty() || !hoistRequests.empty()) {
+    std::sort(lxTargetsInRigging.begin(), lxTargetsInRigging.end(),
+              [](const std::string &a, const std::string &b) {
+                return ParseTrailingNumber(a) < ParseTrailingNumber(b);
+              });
+    if (lxTargetsInRigging.empty())
+      lxTargetsInRigging.push_back("LX1");
+
+    std::vector<std::string> hoistLines;
+    auto addHoistLine = [&](int quantity, float capacityKg,
+                            const std::string &target) {
+      if (quantity <= 0)
+        return;
+      std::ostringstream capText;
+      capText << std::fixed << std::setprecision(0) << std::round(capacityKg);
+      hoistLines.push_back("MOTOR " + capText.str());
+      hoistLines.back() =
+          std::to_string(quantity) + " " + hoistLines.back() + "Kg PARA " + target;
+    };
+    for (const HoistPreviewRequest &request : hoistRequests) {
+      if (request.target == "LX") {
+        const int base =
+            request.quantity / static_cast<int>(lxTargetsInRigging.size());
+        const int remainder =
+            request.quantity % static_cast<int>(lxTargetsInRigging.size());
+        for (size_t i = 0; i < lxTargetsInRigging.size(); ++i)
+          addHoistLine(base + (static_cast<int>(i) < remainder ? 1 : 0),
+                       request.capacityKg, lxTargetsInRigging[i]);
+      } else if (request.target == "PA") {
+        addHoistLine(request.quantity, request.capacityKg, "P.A.");
+      } else {
+        addHoistLine(request.quantity, request.capacityKg, request.target);
+      }
+    }
+
     if (!preview.str().empty())
       preview << "\n\n";
     preview << "RIGGING";
+    for (const std::string &hoistLine : hoistLines)
+      preview << "\n" << hoistLine;
     for (const std::string &rigLine : riggingLines)
       preview << "\n" << rigLine;
   }
