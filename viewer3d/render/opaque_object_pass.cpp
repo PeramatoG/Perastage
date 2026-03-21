@@ -195,9 +195,20 @@ void OpaqueObjectPass::Render(
               glPopMatrix();
             }
           } else {
+            // Fallback scene objects are rendered as cubes that may be
+            // non-uniformly scaled through the object's transform matrix.
+            // Render these as double-sided geometry to avoid apparent
+            // transparency artifacts on thin objects (for example LED
+            // screens), while preserving regular culling state for the rest of
+            // the frame.
+            const GLboolean cullEnabled = glIsEnabled(GL_CULL_FACE);
+            if (cullEnabled)
+              glDisable(GL_CULL_FACE);
             controller.DrawCubeWithOutline(0.3f, r, g, b, isHighlighted,
                                            isSelected, cx, cy, cz, wireframe,
                                            mode, captureTransformFn);
+            if (cullEnabled)
+              glEnable(GL_CULL_FACE);
           }
         };
 
