@@ -36,6 +36,7 @@ int main() {
   std::map<std::string, int> countByFunction;
   std::map<std::string, int> countByLayer;
   std::map<std::string, std::vector<float>> xByPosition;
+  std::map<std::string, int> nameCounts;
   for (const auto &[uuid, support] : scene.supports) {
     (void)uuid;
     countByPosition[support.positionName]++;
@@ -44,6 +45,7 @@ int main() {
     countByFunction[support.positionName + ":" + support.hoistFunction]++;
     countByLayer[support.layer]++;
     xByPosition[support.positionName].push_back(support.transform.o[0]);
+    nameCounts[support.name]++;
   }
 
   assert(countByPosition["P.A."] == 4);
@@ -91,6 +93,23 @@ int main() {
   assert(std::abs(xByPosition["SCREEN"][1] - (-1400.0f)) < 0.001f);
   assert(std::abs(xByPosition["SCREEN"][2] - 1400.0f) < 0.001f);
   assert(std::abs(xByPosition["SCREEN"][3] - 4200.0f) < 0.001f);
+
+  assert(nameCounts["LX1 1"] == 1);
+  assert(nameCounts["LX1 2"] == 1);
+  assert(nameCounts["LX2 1"] == 1);
+  assert(nameCounts["LX2 2"] == 1);
+  assert(nameCounts["LX3 1"] == 1);
+  assert(nameCounts["LX3 2"] == 1);
+  assert(nameCounts["SCR 1"] == 1);
+  assert(nameCounts["SCR 2"] == 1);
+  assert(nameCounts["SCR 3"] == 1);
+  assert(nameCounts["SCR 4"] == 1);
+  assert(nameCounts["SF L"] == 1);
+  assert(nameCounts["SF R"] == 1);
+  assert(nameCounts["PA L 1"] == 1);
+  assert(nameCounts["PA L 2"] == 1);
+  assert(nameCounts["PA R 1"] == 1);
+  assert(nameCounts["PA R 2"] == 1);
 
   bool foundScreenTruss = false;
   for (const auto &[uuid, truss] : scene.trusses) {
