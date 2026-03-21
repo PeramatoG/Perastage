@@ -368,6 +368,9 @@ InferenceResult InferFromGdtf(const std::string &gdtfPath) {
   const bool strongWashCapability = s.hasFrost || washBeamType || wideZoomRange ||
                                   (narrowBeam && wideBeam);
 
+  if (!s.hasGobo)
+    return {kWash, "moving without gobo"};
+
   if (HasNameKeyword(s.normalizedName, {"profile", "followspot"}) && hasSpotOptics &&
       !strongWashCapability)
     return {kSpot, "profile optics"};
