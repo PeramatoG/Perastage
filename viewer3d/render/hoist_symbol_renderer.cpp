@@ -77,6 +77,8 @@ HoistShape ResolveHoistShape(float capacityKg) {
 
 std::array<float, 3> MakePoint(float x, float y, float z) { return {x, y, z}; }
 
+RgbColor WhiteColor() { return {1.0f, 1.0f, 1.0f}; }
+
 void DrawFillPolygon(IRenderContext &renderContext,
                      const std::vector<std::array<float, 3>> &points,
                      const RgbColor &color) {
@@ -150,6 +152,10 @@ void DrawSquareSymbol(IRenderContext &renderContext, float cx, float cy,
   const float midY = cy;
 
   DrawFillPolygon(renderContext,
+                  {MakePoint(minX, minY, z), MakePoint(maxX, minY, z),
+                   MakePoint(maxX, maxY, z), MakePoint(minX, maxY, z)},
+                  WhiteColor());
+  DrawFillPolygon(renderContext,
                   {MakePoint(midX, midY, z), MakePoint(maxX, midY, z),
                    MakePoint(maxX, maxY, z), MakePoint(midX, maxY, z)},
                   color);
@@ -174,6 +180,7 @@ void DrawDiamondSymbol(IRenderContext &renderContext, float cx, float cy,
   const auto left = MakePoint(cx - kHalfSizeMeters, cy, z);
   const auto center = MakePoint(cx, cy, z);
 
+  DrawFillPolygon(renderContext, {top, right, bottom, left}, WhiteColor());
   DrawFillPolygon(renderContext, {center, right, top}, color);
   DrawFillPolygon(renderContext, {center, left, bottom}, color);
   DrawOutlineLoop(renderContext, {top, right, bottom, left}, color);
@@ -215,6 +222,7 @@ void DrawCircleSymbol(IRenderContext &renderContext, float cx, float cy,
                                    cy + std::sin(t) * kHalfSizeMeters, z));
   }
 
+  DrawFillPolygon(renderContext, ring, WhiteColor());
   DrawFillPolygon(renderContext, topRight, color);
   DrawFillPolygon(renderContext, bottomLeft, color);
   DrawOutlineLoop(renderContext, ring, color);
@@ -229,22 +237,29 @@ void DrawTriangleSymbol(IRenderContext &renderContext, float cx, float cy,
   const auto top = MakePoint(cx, cy + kHalfSizeMeters, z);
   const auto left = MakePoint(cx - kHalfSizeMeters, cy - kHalfSizeMeters, z);
   const auto right = MakePoint(cx + kHalfSizeMeters, cy - kHalfSizeMeters, z);
-  const auto leftMid =
-      MakePoint((top[0] + left[0]) * 0.5f, (top[1] + left[1]) * 0.5f, z);
-  const auto rightMid =
-      MakePoint((top[0] + right[0]) * 0.5f, (top[1] + right[1]) * 0.5f, z);
   const auto center = MakePoint(cx, cy - kHalfSizeMeters * 0.05f, z);
   const auto baseMid = MakePoint(cx, cy - kHalfSizeMeters, z);
+  const float crossY = center[1];
 
-  // Match the 1/2-Ton reference: red apex triangle + red lower-left block.
-  DrawFillPolygon(renderContext, {top, leftMid, rightMid}, color);
-  DrawFillPolygon(renderContext, {left, leftMid, center, baseMid}, color);
+  const auto pointOnEdgeAtY = [z](const std::array<float, 3> &a,
+                                  const std::array<float, 3> &b, float y) {
+    const float dy = b[1] - a[1];
+    if (std::fabs(dy) < 1e-6f)
+      return MakePoint(a[0], y, z);
+    const float t = (y - a[1]) / dy;
+    return MakePoint(a[0] + (b[0] - a[0]) * t, y, z);
+  };
+  const auto leftCross = pointOnEdgeAtY(top, left, crossY);
+  const auto rightCross = pointOnEdgeAtY(top, right, crossY);
+
+  DrawFillPolygon(renderContext, {top, right, left}, WhiteColor());
+  // Same fill pattern for all symbols: top-right + bottom-left.
+  DrawFillPolygon(renderContext, {top, rightCross, center}, color);
+  DrawFillPolygon(renderContext, {leftCross, left, baseMid, center}, color);
 
   DrawOutlineLoop(renderContext, {top, right, left}, color);
-  DrawSegment(renderContext, leftMid, rightMid, color);
-  DrawSegment(renderContext, leftMid, center, color);
-  DrawSegment(renderContext, rightMid, center, color);
-  DrawSegment(renderContext, center, baseMid, color);
+  DrawSegment(renderContext, leftCross, rightCross, color);
+  DrawSegment(renderContext, top, baseMid, color);
 }
 
 void DrawPentagonSymbol(IRenderContext &renderContext, float cx, float cy,
@@ -259,16 +274,29 @@ void DrawPentagonSymbol(IRenderContext &renderContext, float cx, float cy,
   const auto leftTop =
       MakePoint(cx - kHalfSizeMeters * 0.85f, cy + kHalfSizeMeters * 0.25f, z);
   const auto center = MakePoint(cx, cy - kHalfSizeMeters * 0.15f, z);
+  const auto bottomMid =
+      MakePoint((leftBottom[0] + rightBottom[0]) * 0.5f,
+                (leftBottom[1] + rightBottom[1]) * 0.5f, z);
 
-  DrawFillPolygon(renderContext, {top, rightTop, center}, color);
-  DrawFillPolygon(renderContext, {leftBottom, rightBottom, center}, color);
+  const auto pointOnEdgeAtY = [z](const std::array<float, 3> &a,
+                                  const std::array<float, 3> &b, float y) {
+    const float dy = b[1] - a[1];
+    if (std::fabs(dy) < 1e-6f)
+      return MakePoint(a[0], y, z);
+    const float t = (y - a[1]) / dy;
+    return MakePoint(a[0] + (b[0] - a[0]) * t, y, z);
+  };
+  const auto leftCross = pointOnEdgeAtY(leftTop, leftBottom, center[1]);
+  const auto rightCross = pointOnEdgeAtY(rightTop, rightBottom, center[1]);
+
+  DrawFillPolygon(renderContext, {top, rightTop, rightBottom, leftBottom, leftTop},
+                  WhiteColor());
+  DrawFillPolygon(renderContext, {top, rightTop, rightCross, center}, color);
+  DrawFillPolygon(renderContext, {leftCross, leftBottom, bottomMid, center}, color);
 
   DrawOutlineLoop(renderContext, {top, rightTop, rightBottom, leftBottom, leftTop}, color);
-  DrawSegment(renderContext, top, center, color);
-  DrawSegment(renderContext, leftTop, center, color);
-  DrawSegment(renderContext, rightTop, center, color);
-  DrawSegment(renderContext, leftBottom, center, color);
-  DrawSegment(renderContext, rightBottom, center, color);
+  DrawSegment(renderContext, leftCross, rightCross, color);
+  DrawSegment(renderContext, top, bottomMid, color);
 }
 
 void DrawHoistSymbol(IRenderContext &renderContext, const Support &support,
