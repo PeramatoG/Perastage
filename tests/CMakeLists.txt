@@ -478,6 +478,18 @@ add_test(NAME RiderLayerMode COMMAND rider_layer_mode_test
          ${CMAKE_CURRENT_SOURCE_DIR}/data/rider_layer_mode.txt)
 set_library_env(RiderLayerMode)
 
+add_executable(hoist_weight_distribution_test hoist_weight_distribution_test.cpp
+               ../core/hoist_weight_distribution.cpp
+               ../models/mvrscene.cpp
+               ../models/fixture.cpp
+               ../models/truss.cpp
+               ../models/sceneobject.cpp
+               ../models/layer.cpp)
+target_include_directories(hoist_weight_distribution_test PRIVATE
+                           ../core ../models ../third_party)
+target_link_libraries(hoist_weight_distribution_test PRIVATE ${wxWidgets_LIBRARIES})
+add_test(NAME HoistWeightDistribution COMMAND hoist_weight_distribution_test)
+
 add_executable(rider_filter_preview_test rider_filter_preview_test.cpp
                riderimporter_stubs.cpp
                gdtfloader_stub.cpp

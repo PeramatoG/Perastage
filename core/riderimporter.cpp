@@ -44,6 +44,7 @@
 #include "fixture.h"
 #include "gdtfdictionary.h"
 #include "gdtfloader.h"
+#include "hoist_weight_distribution.h"
 #include "layer.h"
 #include "logger.h"
 #include "support.h"
@@ -1753,6 +1754,10 @@ bool RiderImporter::ImportText(const std::string &text) {
     importedSupports.push_back(&it->second);
   }
   AssignImportedHoistNames(importedSupports);
+  const auto roundedRiggingTotalsByPosition =
+      HoistWeightDistribution::BuildRoundedRiggingTotalByHangPosition(scene);
+  HoistWeightDistribution::ApplyForImportedSupports(
+      scene, importedSupportUuids, roundedRiggingTotalsByPosition);
 
   std::unordered_map<std::string, std::vector<Fixture *>> fixturesByPos;
   fixturesByPos.reserve(importedFixtureUuids.size());
