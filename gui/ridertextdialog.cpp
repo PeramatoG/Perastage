@@ -144,7 +144,6 @@ void RiderTextDialog::OnLoadFromFile(wxCommandEvent &WXUNUSED(event)) {
   if (sourceText)
     sourceText->SetLabel(wxString("Loaded: ") + sourceLabel);
   textCtrl->ChangeValue(loadedText);
-  wxMessageBox("Rider imported successfully.", "Success", wxICON_INFORMATION);
 }
 
 void RiderTextDialog::OnLoadExample(wxCommandEvent &WXUNUSED(event)) {
