@@ -64,11 +64,14 @@ static const std::regex kTrussRe(
 static const std::regex kFixtureLineRe("^\\s*(?:[-*]\\s*)?(\\d+)\\s+(.+)$",
                                        std::regex::icase);
 static const std::regex kQuantityOnlyRe("^\\s*(?:[-*]\\s*)?(\\d+)\\s*$");
-static const std::regex kHangLineRe("^\\s*(LX\\d+|floor|efectos?)\\s*:?\\s*$",
+static const std::regex kHangLineRe(
+    "^\\s*(LX\\d+|floor|efectos?|calle(?:s)?\\s+a\\s+suelo|ground\\s+lanes?)\\s*:?\\s*$",
+    std::regex::icase);
+static const std::regex kHangFindRe(
+    "(LX\\d+|floor|efectos?|calle(?:s)?\\s+a\\s+suelo|ground\\s+lanes?)",
                                     std::regex::icase);
-static const std::regex kHangFindRe("(LX\\d+|floor|efectos?)",
-                                    std::regex::icase);
-static const std::regex kHangOnlyRe("^\\s*(LX\\d+|floor|efectos?)\\s*$",
+static const std::regex kHangOnlyRe(
+    "^\\s*(LX\\d+|floor|efectos?|calle(?:s)?\\s+a\\s+suelo|ground\\s+lanes?)\\s*$",
                                     std::regex::icase);
 std::string Trim(const std::string &s) {
   size_t start = s.find_first_not_of(" \t\r\n");
@@ -236,6 +239,16 @@ bool ContainsCaseInsensitive(std::string_view haystack,
                                  std::tolower(static_cast<unsigned char>(b));
                         });
   return it != haystack.end();
+}
+
+bool IsFloorAlias(std::string_view value) {
+  const bool effectAlias = ContainsCaseInsensitive(value, "efecto");
+  const bool floorAlias = ContainsCaseInsensitive(value, "floor");
+  const bool streetToFloorAlias = ContainsCaseInsensitive(value, "calle") &&
+                                  ContainsCaseInsensitive(value, "suelo");
+  const bool groundLaneAlias = ContainsCaseInsensitive(value, "ground") &&
+                               ContainsCaseInsensitive(value, "lane");
+  return effectAlias || floorAlias || streetToFloorAlias || groundLaneAlias;
 }
 
 std::string ReadTextFile(const std::string &path) {
@@ -450,7 +463,7 @@ std::string RiderImporter::BuildFixtureFilterPreview(const std::string &text) {
     if (std::regex_match(line, hm, kHangLineRe)) {
       havePending = false;
       std::string captured = hm[1];
-      if (ContainsCaseInsensitive(captured, "efecto")) {
+      if (IsFloorAlias(captured)) {
         currentHang = "FLOOR";
       } else {
         currentHang = captured;
@@ -675,7 +688,7 @@ bool RiderImporter::ImportText(const std::string &text) {
     if (std::regex_match(line, hm, kHangLineRe)) {
       havePending = false;
       std::string captured = hm[1];
-      if (ContainsCaseInsensitive(captured, "efecto")) {
+      if (IsFloorAlias(captured)) {
         currentHang = "FLOOR";
       } else {
         currentHang = captured;
@@ -726,6 +739,8 @@ bool RiderImporter::ImportText(const std::string &text) {
       std::transform(
           hang.begin(), hang.end(), hang.begin(),
           [](unsigned char c) { return static_cast<char>(std::toupper(c)); });
+      if (IsFloorAlias(hang))
+        hang = "FLOOR";
       if (hang.rfind("PUENTES ", 0) == 0)
         hang = Trim(hang.substr(8));
       else if (hang.rfind("PUENTE ", 0) == 0)
@@ -838,9 +853,14 @@ bool RiderImporter::ImportText(const std::string &text) {
       std::string hang = currentHang;
       if (std::regex_search(line, hm, kHangFindRe)) {
         hang = hm[1];
-        std::transform(
-            hang.begin(), hang.end(), hang.begin(),
-            [](unsigned char c) { return static_cast<char>(std::toupper(c)); });
+        if (IsFloorAlias(hang)) {
+          hang = "FLOOR";
+        } else {
+          std::transform(hang.begin(), hang.end(), hang.begin(),
+                         [](unsigned char c) {
+                           return static_cast<char>(std::toupper(c));
+                         });
+        }
       }
 
       auto formatLength = [](float mm) {

@@ -20,24 +20,29 @@ Implementation entry points:
 - `RiderImporter::Import(path)`
 - `RiderImporter::ImportText(text)`
 - `RiderImporter::LoadText(path)`
-- `RiderImporter::BuildFixtureFilterPreview(text)` (UI preview before apply)
+- `RiderImporter::BuildFixtureFilterPreview(text)` (UI filter pass before create)
 
-## Filter preview in "Create from text"
+## Text filter step in "Create from text"
 
-The dialog includes a **Preview filter** button that runs the same line
-selection rules used by fixture parsing, without creating scene objects yet.
+The dialog includes an **Apply filter** button that runs the same line
+selection rules used by fixture parsing, and replaces the editor content with
+the filtered result before scene creation.
 
-Preview behavior:
+Filter behavior:
 
 1. Keeps only lines interpreted as fixture entries in fixture sections.
 2. Groups output by detected hang (`LX1`, `LX2`, `FLOOR`, ...).
-3. Normalizes `efecto(s)` hang names to `FLOOR`.
+3. Normalizes floor aliases to `FLOOR`:
+   - `floor`
+   - `efecto` / `efectos`
+   - `calle a suelo` / `calles a suelo`
+   - `ground lane` / `ground lanes`
 4. Expands `+` compound lines into individual fixture lines.
 5. Supports quantity-only lines (`N` followed by description on next line).
 6. Removes parenthesized notes from fixture tokens to reduce rider noise.
 
-From the preview modal, the user can copy the filtered result back into the
-main editor and manually adjust it before pressing **Apply**.
+After applying the filter, users can manually adjust the filtered text and then
+press **Create**.
 
 ## Input normalization
 
@@ -66,11 +71,14 @@ Recognized hang labels:
 - `LX<number>` (for example `LX1`, `LX2`, ...)
 - `floor`
 - `efecto` / `efectos`
+- `calle a suelo` / `calles a suelo`
+- `ground lane` / `ground lanes`
 
 Behavior:
 
 - Hang labels are normalized to uppercase (`LX1`, `FLOOR`, ...).
-- `efecto(s)` is normalized to `FLOOR`.
+- Floor aliases (`floor`, `efecto(s)`, `calle(s) a suelo`, `ground lane(s)`)
+  are normalized to `FLOOR`.
 - The active hang affects fixture/truss layer naming and default placement (`Y/Z`).
 
 ## Fixture parsing rules
