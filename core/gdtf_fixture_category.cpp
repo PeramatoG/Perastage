@@ -250,8 +250,13 @@ Signals ExtractSignals(const std::string &xml) {
 
 bool HasNameKeyword(const std::string &name, std::initializer_list<const char *> keys) {
   for (const char *key : keys) {
-    if (ContainsWord(name, key) || ContainsKeyword(name, key))
+    const std::string pattern = ToLowerCopy(key);
+    if (pattern.find(' ') != std::string::npos) {
+      if (ContainsKeyword(name, pattern.c_str()))
+        return true;
+    } else if (ContainsWord(name, pattern.c_str())) {
       return true;
+    }
   }
   return false;
 }
@@ -321,8 +326,9 @@ InferenceResult InferFromGdtf(const std::string &gdtfPath) {
     return {kHoist, "support geometry"};
   }
 
-  if (s.hasFog || s.hasHaze || s.hasBlower ||
-      HasNameKeyword(s.normalizedName, {"haze", "hazer", "fog", "smoke"})) {
+  if (!hasMovement &&
+      (s.hasFog || s.hasHaze || s.hasBlower ||
+       HasNameKeyword(s.normalizedName, {"haze", "hazer", "fog", "smoke"}))) {
     return {kSmoke, "fog/haze signals"};
   }
 
@@ -338,11 +344,16 @@ InferenceResult InferFromGdtf(const std::string &gdtfPath) {
   }
 
   if (!hasMovement) {
-    if ((s.hasStrobe || HasNameKeyword(s.normalizedName, {"strobe", "blinder", "flash"})) &&
-        !s.hasGobo && !s.hasIris && !s.hasFraming && !s.hasFocus)
+    const bool looksLikeLedUnit =
+        HasNameKeyword(s.normalizedName, {"pixel", "bar", "strip", "panel", "par", "blinder"});
+    const bool looksLikeStrobeName =
+        HasNameKeyword(s.normalizedName, {"strobe", "flash", "q-7", "q7"});
+
+    if ((s.hasStrobe || (s.hasShutter && looksLikeStrobeName) || looksLikeStrobeName) &&
+        !s.hasGobo && !s.hasIris && !s.hasFraming && !s.hasFocus && !looksLikeLedUnit) {
       return {kStrobe, "static strobe profile"};
-    if (s.hasPixelControl &&
-        HasNameKeyword(s.normalizedName, {"pixel", "bar", "strip", "panel", "blinder"})) {
+    }
+    if (s.hasPixelControl || (s.lampTypeIsLed && looksLikeLedUnit)) {
       return {kLed, "pixel/led profile"};
     }
     return {kConventional, "static fallback"};

@@ -1001,6 +1001,13 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
   };
 
   std::unordered_set<std::string> usedStableUuids;
+
+  struct CachedCategory {
+    std::string category;
+    std::string source;
+    std::string reason;
+  };
+  std::unordered_map<std::string, CachedCategory> categoryByTypeKey;
   auto buildStableIdSeed = [&](const char *kind, tinyxml2::XMLElement *node,
                                const std::string &layerName,
                                const Matrix &nodeTransform,
@@ -1115,6 +1122,9 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         }
 
         ReadFixtureCategoryFromUserData(node, fixture);
+        const std::string categoryKey =
+            !fixture.typeName.empty() ? fixture.typeName : fixture.gdtfSpec;
+
         if (fixture.category.empty() && !fixture.typeName.empty()) {
           if (auto entry = GdtfDictionary::Get(fixture.typeName))
             fixture.category = GdtfFixtureCategory::NormalizeCategory(entry->category);
@@ -1122,8 +1132,13 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
             fixture.categorySource = GdtfFixtureCategory::kManualSource;
         }
 
-        if (!fixture.category.empty() && !fixture.typeName.empty())
-          GdtfDictionary::UpdateCategory(fixture.typeName, fixture.category);
+        if (fixture.category.empty() && !categoryKey.empty()) {
+          auto cacheIt = categoryByTypeKey.find(categoryKey);
+          if (cacheIt != categoryByTypeKey.end()) {
+            fixture.category = cacheIt->second.category;
+            fixture.categorySource = cacheIt->second.source;
+          }
+        }
 
         if (fixture.category.empty() && !fixture.gdtfSpec.empty()) {
           const auto inferred = GdtfFixtureCategory::InferFromGdtf(fixture.gdtfSpec);
@@ -1131,13 +1146,24 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
           if (fixture.category.empty())
             fixture.category = GdtfFixtureCategory::kUnknown;
           fixture.categorySource = GdtfFixtureCategory::kAutoFallbackSource;
-          if (!fixture.typeName.empty())
-            GdtfDictionary::UpdateCategory(fixture.typeName, fixture.category);
+          if (!categoryKey.empty()) {
+            categoryByTypeKey[categoryKey] =
+                {fixture.category, fixture.categorySource, inferred.reason};
+          }
           LogMessage(Logger::Level::Info,
                      "Auto category fallback: " + fixture.instanceName + " -> " +
                          fixture.category + " [" + inferred.reason + "]");
+        } else if (!fixture.category.empty() && !categoryKey.empty()) {
+          categoryByTypeKey[categoryKey] =
+              {fixture.category, fixture.categorySource.empty()
+                                     ? GdtfFixtureCategory::kManualSource
+                                     : fixture.categorySource,
+               "cached"};
         }
-      auto posIt = scene.positions.find(fixture.position);
+
+        if (!fixture.category.empty() && !fixture.typeName.empty())
+          GdtfDictionary::UpdateCategory(fixture.typeName, fixture.category);
+        auto posIt = scene.positions.find(fixture.position);
         if (posIt != scene.positions.end())
           fixture.positionName = posIt->second;
 
