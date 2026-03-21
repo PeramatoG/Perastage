@@ -803,6 +803,12 @@ bool RiderImporter::ImportText(const std::string &text) {
   if (text.empty())
     return false;
 
+  // Keep scene creation consistent with the dialog preview flow:
+  // import always consumes the same normalized text produced by the
+  // filter pass used by "Apply filter".
+  const std::string filteredText = BuildFixtureFilterPreview(text);
+  const std::string &textToImport = filteredText.empty() ? text : filteredText;
+
   ConfigManager &cfg = ConfigManager::Get();
   cfg.PushUndoState("import rider");
   auto &scene = cfg.GetScene();
@@ -891,7 +897,7 @@ bool RiderImporter::ImportText(const std::string &text) {
     layerPtr->childUUIDs.push_back(uid);
   };
 
-  std::istringstream iss(text);
+  std::istringstream iss(textToImport);
   std::string line;
   bool inFixtures = false;
   bool inRigging = false;

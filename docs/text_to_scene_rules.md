@@ -28,6 +28,10 @@ The dialog includes an **Apply filter** button that runs the same line
 selection rules used by fixture parsing, and replaces the editor content with
 the filtered result before scene creation.
 
+`Create` also runs that same filter pass internally. This keeps scene creation
+deterministic whether users click **Create** directly after loading text or
+click **Apply filter** first and then **Create**.
+
 Filter behavior:
 
 1. Keeps only lines interpreted as fixture entries in fixture sections.
@@ -52,7 +56,8 @@ Filter behavior:
     `SCREEN` (re-applying **Apply filter** keeps those lines).
 
 After applying the filter, users can manually adjust the filtered text and then
-press **Create**.
+press **Create**; the same normalization rules are still applied at creation
+time.
 
 ## Input normalization
 
