@@ -88,7 +88,7 @@ std::optional<std::unordered_map<std::string, Entry>> Load() {
       fs::path p = fs::u8path(it.value().get<std::string>());
       if (!p.is_absolute())
         p = dir / p;
-      dict[it.key()] = {p.string(), ""};
+      dict[it.key()] = {p.string(), "", ""};
     } else if (it.value().is_object()) {
       Entry e;
       std::string fname;
@@ -96,12 +96,16 @@ std::optional<std::unordered_map<std::string, Entry>> Load() {
         fname = it.value()["file"].get<std::string>();
       else if (it.value().contains("path") && it.value()["path"].is_string())
         fname = it.value()["path"].get<std::string>();
+      if (fname.empty())
+        continue;
       fs::path p = fs::u8path(fname);
       if (!p.is_absolute())
         p = dir / p;
       e.path = p.string();
       if (it.value().contains("mode") && it.value()["mode"].is_string())
         e.mode = it.value()["mode"].get<std::string>();
+      if (it.value().contains("category") && it.value()["category"].is_string())
+        e.category = it.value()["category"].get<std::string>();
       dict[it.key()] = e;
     }
   }
@@ -121,11 +125,18 @@ void Save(const std::unordered_map<std::string, Entry> &dict) {
   std::sort(keys.begin(), keys.end());
   for (const auto &type : keys) {
     const auto &entry = dict.at(type);
+    if (entry.path.empty())
+      continue;
     nlohmann::json obj;
     fs::path p = fs::u8path(entry.path);
-    obj["file"] = p.filename().string();
+    const std::string fileName = p.filename().string();
+    if (fileName.empty())
+      continue;
+    obj["file"] = fileName;
     if (!entry.mode.empty())
       obj["mode"] = entry.mode;
+    if (!entry.category.empty())
+      obj["category"] = entry.category;
     j[type] = obj;
   }
   std::ofstream out(file);
@@ -151,7 +162,7 @@ std::optional<Entry> Get(const std::string &type) {
   return it->second;
 }
 
-void Update(const std::string &type, const std::string &gdtfPath, const std::string &mode) {
+void Update(const std::string &type, const std::string &gdtfPath, const std::string &mode, const std::string &category) {
   std::lock_guard<std::recursive_mutex> lock(StartupFileAccessGate::Mutex());
   if (type.empty() || gdtfPath.empty())
     return;
@@ -179,7 +190,25 @@ void Update(const std::string &type, const std::string &gdtfPath, const std::str
   e.path = dest.string();
   if (!mode.empty())
     e.mode = mode;
+  if (!category.empty())
+    e.category = category;
   dict[type] = e;
+  Save(dict);
+}
+
+
+void UpdateCategory(const std::string &type, const std::string &category) {
+  std::lock_guard<std::recursive_mutex> lock(StartupFileAccessGate::Mutex());
+  if (type.empty())
+    return;
+  auto dictOpt = Load();
+  if (!dictOpt)
+    return;
+  auto &dict = *dictOpt;
+  auto it = dict.find(type);
+  if (it == dict.end())
+    return;
+  it->second.category = category;
   Save(dict);
 }
 

@@ -69,6 +69,14 @@ target_include_directories(fixture_table_parser_test PRIVATE .. ../gui)
 target_link_libraries(fixture_table_parser_test PRIVATE ${wxWidgets_LIBRARIES})
 add_test(NAME FixtureTableParser COMMAND fixture_table_parser_test)
 
+
+add_executable(gdtf_fixture_category_test
+               gdtf_fixture_category_test.cpp
+               ../core/gdtf_fixture_category.cpp)
+target_include_directories(gdtf_fixture_category_test PRIVATE ../core)
+target_link_libraries(gdtf_fixture_category_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
+add_test(NAME GdtfFixtureCategoryFallback COMMAND gdtf_fixture_category_test)
+
 add_executable(layout_template_serializer_test
                layout_template_serializer_test.cpp
                ../core/layouts/LayoutTemplateSerializer.cpp)
@@ -129,6 +137,7 @@ add_executable(save_load_roundtrip_test save_load_roundtrip_test.cpp
                ../core/configservices.cpp
                ../core/projectutils.cpp
                ../core/gdtfdictionary.cpp
+               ../core/gdtf_fixture_category.cpp
                ../core/trussdictionary.cpp
                ../core/trussloader.cpp
                ../core/truss_gdtf_builder.cpp
@@ -179,6 +188,7 @@ add_executable(rider_truss_dictionary_normalization_test
                ../core/configservices.cpp
                ../core/projectutils.cpp
                ../core/gdtfdictionary.cpp
+               ../core/gdtf_fixture_category.cpp
                ../core/trussdictionary.cpp
                ../core/trussloader.cpp
                ../core/truss_gdtf_builder.cpp
@@ -203,6 +213,7 @@ add_executable(mvr_dmx_address_test mvr_dmx_address_test.cpp
                ../core/configservices.cpp
                ../core/projectutils.cpp
                ../core/gdtfdictionary.cpp
+               ../core/gdtf_fixture_category.cpp
                ../core/trussdictionary.cpp
                ../core/trussloader.cpp
                ../core/truss_gdtf_builder.cpp
@@ -231,6 +242,7 @@ add_executable(mvr_support_userdata_roundtrip_test mvr_support_userdata_roundtri
                ../core/configservices.cpp
                ../core/projectutils.cpp
                ../core/gdtfdictionary.cpp
+               ../core/gdtf_fixture_category.cpp
                ../core/trussdictionary.cpp
                ../core/trussloader.cpp
                ../core/truss_gdtf_builder.cpp
@@ -254,11 +266,42 @@ target_link_libraries(mvr_support_userdata_roundtrip_test PRIVATE
 add_test(NAME MvrSupportUserDataRoundtrip COMMAND mvr_support_userdata_roundtrip_test)
 set_library_env(MvrSupportUserDataRoundtrip)
 
+
+add_executable(mvr_fixture_category_roundtrip_test mvr_fixture_category_roundtrip_test.cpp
+               ../core/configmanager.cpp
+               ../core/configservices.cpp
+               ../core/projectutils.cpp
+               ../core/gdtfdictionary.cpp
+               ../core/gdtf_fixture_category.cpp
+               ../core/trussdictionary.cpp
+               ../core/trussloader.cpp
+               ../core/truss_gdtf_builder.cpp
+               ../core/uuidutils.cpp
+               ../core/dummyprofilelibrary.cpp
+               ../mvr/mvrimporter.cpp
+               ../mvr/mvrexporter.cpp
+               ../core/logger.cpp
+               gdtfloader_stub.cpp
+               consolepanel_stub.cpp
+               ../models/mvrscene.cpp
+               ../models/fixture.cpp
+               ../models/truss.cpp
+               ../models/sceneobject.cpp
+               ../models/layer.cpp
+               ${LAYOUT_SOURCES})
+target_include_directories(mvr_fixture_category_roundtrip_test PRIVATE
+                           . ../core ../models ../mvr ../gui ../third_party)
+target_link_libraries(mvr_fixture_category_roundtrip_test PRIVATE
+                      ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
+add_test(NAME MvrFixtureCategoryRoundtrip COMMAND mvr_fixture_category_roundtrip_test)
+set_library_env(MvrFixtureCategoryRoundtrip)
+
 add_executable(mvr_exporter_compliance_test mvr_exporter_compliance_test.cpp
                ../core/configmanager.cpp
                ../core/configservices.cpp
                ../core/projectutils.cpp
                ../core/gdtfdictionary.cpp
+               ../core/gdtf_fixture_category.cpp
                ../core/trussdictionary.cpp
                ../core/trussloader.cpp
                ../core/truss_gdtf_builder.cpp
@@ -294,6 +337,7 @@ add_executable(rider_save_roundtrip_test rider_save_roundtrip_test.cpp
                ../core/configservices.cpp
                ../core/projectutils.cpp
                ../core/gdtfdictionary.cpp
+               ../core/gdtf_fixture_category.cpp
                ../core/trussdictionary.cpp
                ../core/trussloader.cpp
                ../core/truss_gdtf_builder.cpp

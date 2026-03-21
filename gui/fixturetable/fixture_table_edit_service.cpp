@@ -3,6 +3,8 @@
 #include "consolepanel.h"
 #include "../dataview_edit_commit.h"
 #include "matrixutils.h"
+#include "gdtfdictionary.h"
+#include "gdtf_fixture_category.h"
 
 #include <algorithm>
 #include <unordered_map>
@@ -32,10 +34,10 @@ std::vector<int> BuildOrderedRows(const std::vector<int> &selectedRows,
 
 void PropagateTypeValues(wxDataViewListCtrl *table,
                          const wxDataViewItemArray &selections, int col) {
-  if (col != 16 && col != 17 && col != 18)
+  if (col != 16 && col != 17 && col != 18 && col != 19)
     return;
 
-  if (col == 18)
+  if (col == 19)
     return;
 
   std::unordered_map<std::string, wxString> typeValues;
@@ -189,6 +191,11 @@ void UpdateSceneData(ISceneAdapter &adapter, wxDataViewListCtrl *table,
     next.weightKg = static_cast<float>(wt);
 
     table->GetValue(v, i, 18);
+    next.category = GdtfFixtureCategory::NormalizeCategory(std::string(v.GetString().ToUTF8()));
+    if (!next.category.empty())
+      next.categorySource = GdtfFixtureCategory::kManualSource;
+
+    table->GetValue(v, i, 19);
     if (v.GetType() == "wxDataViewIconText") {
       wxDataViewIconText icon;
       icon << v;
@@ -212,6 +219,7 @@ void UpdateSceneData(ISceneAdapter &adapter, wxDataViewListCtrl *table,
                                 transformChanged ||
                                 old.powerConsumptionW != next.powerConsumptionW ||
                                 old.weightKg != next.weightKg ||
+                                old.category != next.category ||
                                 old.color != next.color;
     if (!fixtureChanged)
       continue;
@@ -219,6 +227,8 @@ void UpdateSceneData(ISceneAdapter &adapter, wxDataViewListCtrl *table,
     pushUndoIfNeeded();
     anyChanged = true;
     it->second = next;
+    if (!next.typeName.empty() && !next.category.empty())
+      GdtfDictionary::UpdateCategory(next.typeName, next.category);
     if (!it->second.position.empty())
       scene.positions[it->second.position] = it->second.positionName;
 

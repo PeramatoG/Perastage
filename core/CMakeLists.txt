@@ -5,6 +5,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/credentialstore.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/dummyprofilelibrary.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtfdictionary.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_fixture_category.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtfnet.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/geometry/RdpSimplifier.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/guiconfigservices.cpp

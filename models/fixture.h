@@ -52,6 +52,9 @@ struct Fixture {
     float powerConsumptionW = 0.0f; // Power consumption in watts
     float weightKg = 0.0f;          // Fixture weight in kilograms
 
+    std::string category;         // Fixture category (Spot, Wash, etc.)
+    std::string categorySource;   // Category source (Manual, AutoFallback, ...)
+
     // Convenience method to access translation as array
     std::array<float,3> GetPosition() const { return transform.o; }
 };

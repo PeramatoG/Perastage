@@ -252,7 +252,7 @@ void DictionaryEditDialog::SaveFixtures() {
   std::unordered_map<std::string, GdtfDictionary::Entry> dict;
   dict.reserve(rows.size());
   for (const auto &row : rows)
-    dict[row.name] = {row.path, row.mode};
+    dict[row.name] = {row.path, row.mode, ""};
   GdtfDictionary::Save(dict);
 
   LoadFixtures();

@@ -40,6 +40,8 @@ int main() {
   motorFixture.typeName = "MotorType";
   motorFixture.gdtfSpec = "fixture.gdtf";
   motorFixture.gdtfMode = "ChainMode";
+  motorFixture.category = "Spot";
+  motorFixture.categorySource = "Manual";
   scene.fixtures[motorFixture.uuid] = motorFixture;
 
   Support linked;
@@ -98,6 +100,10 @@ int main() {
   cfg.Reset();
   MvrImporter importer;
   assert(importer.ImportFromFile(mvrPath.string(), false, false));
+
+  const auto &loadedFixtures = cfg.GetScene().fixtures;
+  assert(loadedFixtures.size() == 1);
+  assert(loadedFixtures.at("fx-motor").category == "Spot");
 
   const auto &loaded = cfg.GetScene().supports;
   assert(loaded.size() == 4);
