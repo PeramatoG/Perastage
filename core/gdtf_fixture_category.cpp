@@ -109,6 +109,7 @@ struct Signals {
   bool hasBlower = false;
   bool hasLaser = false;
   bool hasVideo = false;
+  bool hasDisplayOrMediaGeometry = false;
   bool hasPixelControl = false;
   bool hasSupport = false;
   bool supportLooksLikeHoist = false;
@@ -130,8 +131,10 @@ void ParseGeometrySignals(const tinyxml2::XMLElement *node, Signals &signals) {
     if (nodeName.find("laser") != std::string::npos)
       signals.hasLaser = true;
     if (nodeName.find("display") != std::string::npos ||
-        nodeName.find("media") != std::string::npos)
+        nodeName.find("media") != std::string::npos) {
       signals.hasVideo = true;
+      signals.hasDisplayOrMediaGeometry = true;
+    }
     if (nodeName.find("support") != std::string::npos)
       signals.hasSupport = true;
 
@@ -335,8 +338,11 @@ InferenceResult InferFromGdtf(const std::string &gdtfPath) {
   if (s.hasLaser || HasNameKeyword(s.normalizedName, {"laser"}))
     return {kLaser, "laser signals"};
 
-  if (s.hasVideo || HasNameKeyword(s.normalizedName, {"video", "media server", "display"}))
+  if ((s.hasDisplayOrMediaGeometry ||
+       (!hasMovement && s.hasVideo && !s.hasBeamGeometry)) &&
+      !HasNameKeyword(s.normalizedName, {"wash", "spot", "beam", "profile"})) {
     return {kVideo, "video signals"};
+  }
 
   if (!s.hasBeamGeometry && !hasMovement &&
       HasNameKeyword(s.normalizedName, {"pyro", "confetti", "snow", "bubble", "flame"})) {
@@ -359,7 +365,14 @@ InferenceResult InferFromGdtf(const std::string &gdtfPath) {
     return {kConventional, "static fallback"};
   }
 
-  if (hasSpotOptics && (canDoWash || wideZoomRange || (narrowBeam && wideBeam)))
+  const bool strongWashCapability = s.hasFrost || washBeamType || wideZoomRange ||
+                                  (narrowBeam && wideBeam);
+
+  if (HasNameKeyword(s.normalizedName, {"profile", "followspot"}) && hasSpotOptics &&
+      !strongWashCapability)
+    return {kSpot, "profile optics"};
+
+  if (hasSpotOptics && strongWashCapability)
     return {kHybrid, "hybrid profile"};
 
   if (narrowBeam && !canDoWash)
