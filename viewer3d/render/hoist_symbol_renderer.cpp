@@ -229,17 +229,22 @@ void DrawTriangleSymbol(IRenderContext &renderContext, float cx, float cy,
   const auto top = MakePoint(cx, cy + kHalfSizeMeters, z);
   const auto left = MakePoint(cx - kHalfSizeMeters, cy - kHalfSizeMeters, z);
   const auto right = MakePoint(cx + kHalfSizeMeters, cy - kHalfSizeMeters, z);
-  const auto center = MakePoint(cx, cy - kHalfSizeMeters / 6.0f, z);
+  const auto leftMid =
+      MakePoint((top[0] + left[0]) * 0.5f, (top[1] + left[1]) * 0.5f, z);
+  const auto rightMid =
+      MakePoint((top[0] + right[0]) * 0.5f, (top[1] + right[1]) * 0.5f, z);
+  const auto center = MakePoint(cx, cy - kHalfSizeMeters * 0.05f, z);
+  const auto baseMid = MakePoint(cx, cy - kHalfSizeMeters, z);
 
-  DrawFillPolygon(renderContext, {top, MakePoint(cx - 0.06f, cy + 0.03f, z), center},
-                  color);
-  DrawFillPolygon(renderContext, {left, MakePoint(cx - 0.08f, cy - 0.05f, z), center},
-                  color);
+  // Match the 1/2-Ton reference: red apex triangle + red lower-left block.
+  DrawFillPolygon(renderContext, {top, leftMid, rightMid}, color);
+  DrawFillPolygon(renderContext, {left, leftMid, center, baseMid}, color);
 
   DrawOutlineLoop(renderContext, {top, right, left}, color);
-  DrawSegment(renderContext, top, center, color);
-  DrawSegment(renderContext, left, center, color);
-  DrawSegment(renderContext, right, center, color);
+  DrawSegment(renderContext, leftMid, rightMid, color);
+  DrawSegment(renderContext, leftMid, center, color);
+  DrawSegment(renderContext, rightMid, center, color);
+  DrawSegment(renderContext, center, baseMid, color);
 }
 
 void DrawPentagonSymbol(IRenderContext &renderContext, float cx, float cy,
