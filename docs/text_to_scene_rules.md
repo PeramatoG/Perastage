@@ -133,6 +133,52 @@ Special case:
 
 - If hang is exactly `LX`, quantity `N` expands to `LX1..LXN`.
 
+## Hoist (motor) parsing and placement rules
+
+Supported hoist syntax includes:
+
+- `N MOTOR <capacity><unit> [ ... ] PARA <hang>`
+- `N HOIST <capacity><unit> [ ... ] PARA <hang>`
+- Optional list bullets (`-` or `*`) before quantity are accepted.
+
+Capacity parsing:
+
+1. Recognizes case-insensitive mass units and compact forms (`500Kg`, `2TO`, `1 t`).
+2. Accepted kilogram aliases: `kg`, `kgs`, `kilo`, `kilogramos`.
+3. Accepted ton aliases: `t`, `to`, `tn`, `ton`, `tons`, `toneladas`.
+4. Ton values are converted to kilograms (`2TO` => `2000 kg`).
+
+Hang normalization for hoists:
+
+- `PA`, `P.A`, `P.A.` => `PA` group behavior (position name is stored as `P.A.`).
+- `SIDE FILL` => `SIDEFILL`.
+- `PANTALLA` => `SCREEN`.
+- `PUENTE(S) LX` => `LX` distribution mode.
+
+Placement defaults:
+
+1. **PA/P.A. hoists**
+   - Split into left/right groups around `LX1`.
+   - Anchored 1 m outside `LX1` truss span (`X`), same `Y/Z` as `LX1`.
+   - Group internals use 1 m spacing; if needed, additional items form a grid.
+2. **SIDEFILL hoists**
+   - Split left/right around `LX1` truss span with 1 m outside offset in `X`.
+   - Placed 2 m behind `LX1` on `Y`.
+3. **LX hoists (`PUENTES LX`)**
+   - Quantity is distributed across detected `LX*` trusses (`LX1`, `LX2`, ...).
+   - Each per-LX set is placed on that truss at the same `Y/Z`, using a 2 m
+     margin from truss ends in `X`.
+4. **SCREEN hoists**
+   - Distributed equidistantly along the `SCREEN` truss span.
+
+Created hoists:
+
+- Are stored as `Support` objects.
+- Use capacity in kilograms.
+- Are assigned dummy hoist profiles from `library/hoists/dummy_profiles.json`
+  choosing the closest capacity profile.
+- Use `Lighting` as default hoist function.
+
 ## Layer assignment rules
 
 Driven by config key `rider_layer_mode`:

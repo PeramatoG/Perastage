@@ -40,11 +40,13 @@
 
 #include "autopatcher.h"
 #include "configmanager.h"
+#include "dummyprofilelibrary.h"
 #include "fixture.h"
 #include "gdtfdictionary.h"
 #include "gdtfloader.h"
 #include "layer.h"
 #include "logger.h"
+#include "support.h"
 #include "truss.h"
 #include "trussdictionary.h"
 #include "trussloader.h"
@@ -60,6 +62,12 @@ static const std::regex kTrussLineRe(
     std::regex::icase);
 static const std::regex kTrussRe(
     "(?:truss)[^\\n]*?(\\d+(?:\\.\\d+)?)\\s*(?:m|metros?|meters?)\\b",
+    std::regex::icase);
+static const std::regex kHoistLineRe(
+    "^\\s*(?:[-*]\\s*)?(\\d+)\\s+(?:motor|hoist)\\b([^\\n]*?)(?:\\s+para\\s+(.+))?\\s*$",
+    std::regex::icase);
+static const std::regex kHoistCapacityRe(
+    "(\\d+(?:[\\.,]\\d+)?)\\s*(kg|kgs?|kilogramos?|kilos?|t|to|tn|ton|tons?|toneladas?)\\b",
     std::regex::icase);
 static const std::regex kFixtureLineRe("^\\s*(?:[-*]\\s*)?(\\d+)\\s+(.+)$",
                                        std::regex::icase);
@@ -226,6 +234,78 @@ std::vector<std::string> SplitPlus(const std::string &s) {
       out.push_back(item);
   }
   return out;
+}
+
+bool IsFloorAlias(std::string_view value);
+
+std::string NormalizeHangName(const std::string &raw) {
+  std::string hang = Trim(raw);
+  if (hang.empty())
+    return {};
+  if (IsFloorAlias(hang))
+    return "FLOOR";
+  std::transform(hang.begin(), hang.end(), hang.begin(), [](unsigned char c) {
+    return static_cast<char>(std::toupper(c));
+  });
+  if (hang.rfind("PUENTES ", 0) == 0)
+    hang = Trim(hang.substr(8));
+  else if (hang.rfind("PUENTE ", 0) == 0)
+    hang = Trim(hang.substr(7));
+  if (hang == "PANTALLA")
+    return "SCREEN";
+  if (hang == "SIDE FILL")
+    return "SIDEFILL";
+  if (hang == "P.A." || hang == "P.A" || hang == "PA")
+    return "PA";
+  return hang;
+}
+
+float ParseHoistCapacityKg(const std::string &text) {
+  std::smatch match;
+  if (!std::regex_search(text, match, kHoistCapacityRe))
+    return 0.0f;
+
+  std::string number = match[1].str();
+  std::replace(number.begin(), number.end(), ',', '.');
+  float value = 0.0f;
+  if (!TryParseFloat(number, value))
+    return 0.0f;
+
+  std::string unit = match[2].str();
+  std::transform(unit.begin(), unit.end(), unit.begin(), [](unsigned char c) {
+    return static_cast<char>(std::tolower(c));
+  });
+  const bool tons = unit == "t" || unit == "to" || unit == "tn" ||
+                    unit == "ton" || unit == "tons" || unit == "toneladas";
+  return tons ? value * 1000.0f : value;
+}
+
+std::string BuildHoistName(float capacityKg, const std::string &positionName) {
+  int rounded = static_cast<int>(std::round(capacityKg));
+  std::ostringstream oss;
+  oss << "Motor " << rounded << " Kg";
+  if (!positionName.empty())
+    oss << " " << positionName;
+  return oss.str();
+}
+
+std::string PickDummyHoistProfileId(float capacityKg) {
+  const auto profiles = DummyProfileLibrary::LoadProfiles();
+  if (profiles.empty())
+    return {};
+
+  std::string profileId = profiles.front().id;
+  float bestDelta = std::numeric_limits<float>::max();
+  for (const DummyHoistProfile &profile : profiles) {
+    if (profile.id.empty() || profile.capacityKg <= 0.0f)
+      continue;
+    const float delta = std::abs(profile.capacityKg - capacityKg);
+    if (delta < bestDelta) {
+      bestDelta = delta;
+      profileId = profile.id;
+    }
+  }
+  return profileId;
 }
 
 // Performs a case-insensitive substring search without lowercasing the entire
@@ -396,22 +476,6 @@ std::string RiderImporter::BuildFixtureFilterPreview(const std::string &text) {
   std::unordered_map<std::string, std::vector<std::string>> fixturesByHang;
   std::vector<std::string> riggingLines;
 
-  auto normalizeHangName = [](const std::string &raw) {
-    std::string hang = Trim(raw);
-    if (IsFloorAlias(hang))
-      return std::string("FLOOR");
-    std::transform(hang.begin(), hang.end(), hang.begin(), [](unsigned char c) {
-      return static_cast<char>(std::toupper(c));
-    });
-    if (hang.rfind("PUENTES ", 0) == 0)
-      hang = Trim(hang.substr(8));
-    else if (hang.rfind("PUENTE ", 0) == 0)
-      hang = Trim(hang.substr(7));
-    if (hang == "PANTALLA")
-      return std::string("SCREEN");
-    return hang;
-  };
-
   auto normalizeFixtureToken = [](const std::string &token) {
     std::string normalized = token;
     normalized = std::regex_replace(normalized, std::regex("\\([^\\)]*\\)"), "");
@@ -493,10 +557,7 @@ std::string RiderImporter::BuildFixtureFilterPreview(const std::string &text) {
       if (IsFloorAlias(captured)) {
         currentHang = "FLOOR";
       } else {
-        currentHang = captured;
-        std::transform(
-            currentHang.begin(), currentHang.end(), currentHang.begin(),
-            [](unsigned char c) { return static_cast<char>(std::toupper(c)); });
+        currentHang = NormalizeHangName(captured);
       }
       if (!inRigging && !inFixtures)
         inFixtures = true;
@@ -526,7 +587,7 @@ std::string RiderImporter::BuildFixtureFilterPreview(const std::string &text) {
         hang = model;
         model.clear();
       }
-      hang = normalizeHangName(hang);
+      hang = NormalizeHangName(hang);
 
       // Do not keep floor trusses in filtered output because those are not
       // useful for the target lighting rigging workflow.
@@ -558,9 +619,9 @@ std::string RiderImporter::BuildFixtureFilterPreview(const std::string &text) {
       float lengthM = 0.0f;
       if (!TryParseFloat(m[1].str(), lengthM))
         continue;
-      std::string hang = normalizeHangName(currentHang);
+      std::string hang = NormalizeHangName(currentHang);
       if (std::regex_search(line, hm, kHangFindRe))
-        hang = normalizeHangName(hm[1].str());
+        hang = NormalizeHangName(hm[1].str());
       if (hang == "FLOOR")
         continue;
       std::string out = "1 TRUSS " + formatLengthM(lengthM) + "m";
@@ -691,6 +752,12 @@ bool RiderImporter::ImportText(const std::string &text) {
   std::unordered_set<std::string> seenTypes;
   std::vector<std::string> importedTrussUuids;
   std::vector<std::string> importedFixtureUuids;
+  struct HoistRequest {
+    int quantity = 0;
+    float capacityKg = 0.0f;
+    std::string target;
+  };
+  std::vector<HoistRequest> hoistRequests;
   int pendingQuantity = 0;
   bool havePending = false;
 
@@ -741,6 +808,22 @@ bool RiderImporter::ImportText(const std::string &text) {
         addToLayer(f.layer, f.uuid);
       }
     }
+  };
+  auto addHoistRequest = [&](int quantity, const std::string &desc,
+                             const std::string &lineHang) {
+    if (quantity <= 0)
+      return;
+    const float capacityKg = ParseHoistCapacityKg(desc);
+    if (capacityKg <= 0.0f)
+      return;
+    std::string target = NormalizeHangName(lineHang);
+    if (target.empty())
+      target = NormalizeHangName(currentHang);
+    if (target.empty())
+      target = "LX";
+    if (target == "FLOOR")
+      return;
+    hoistRequests.push_back({quantity, capacityKg, target});
   };
   while (std::getline(iss, line)) {
     // Remove Windows carriage returns to allow regexes anchored with '$' to
@@ -800,6 +883,13 @@ bool RiderImporter::ImportText(const std::string &text) {
       if (!desc.empty())
         addFixtures(pendingQuantity, desc);
       havePending = false;
+    } else if (std::regex_match(line, m, kHoistLineRe)) {
+      int quantity = 0;
+      if (!TryParseInt(m[1].str(), quantity))
+        continue;
+      std::string description = Trim(m[2]);
+      std::string targetHang = m.size() > 3 && m[3].matched ? Trim(m[3].str()) : "";
+      addHoistRequest(quantity, description, targetHang);
     } else if (std::regex_match(line, m, kTrussLineRe)) {
       int quantity = 0;
       if (!TryParseInt(m[1].str(), quantity))
@@ -829,17 +919,7 @@ bool RiderImporter::ImportText(const std::string &text) {
         hang = model;
         model.clear();
       }
-      std::transform(
-          hang.begin(), hang.end(), hang.begin(),
-          [](unsigned char c) { return static_cast<char>(std::toupper(c)); });
-      if (IsFloorAlias(hang))
-        hang = "FLOOR";
-      if (hang.rfind("PUENTES ", 0) == 0)
-        hang = Trim(hang.substr(8));
-      else if (hang.rfind("PUENTE ", 0) == 0)
-        hang = Trim(hang.substr(7));
-      if (hang == "PANTALLA")
-        hang = "SCREEN";
+      hang = NormalizeHangName(hang);
       if (hang == "FLOOR")
         continue;
 
@@ -950,17 +1030,8 @@ bool RiderImporter::ImportText(const std::string &text) {
       std::string hang = currentHang;
       if (std::regex_search(line, hm, kHangFindRe)) {
         hang = hm[1];
-        if (IsFloorAlias(hang)) {
-          hang = "FLOOR";
-        } else {
-          std::transform(hang.begin(), hang.end(), hang.begin(),
-                         [](unsigned char c) {
-                           return static_cast<char>(std::toupper(c));
-                         });
-        }
+        hang = NormalizeHangName(hang);
       }
-      if (hang == "PANTALLA")
-        hang = "SCREEN";
       if (hang == "FLOOR")
         continue;
 
@@ -1194,6 +1265,136 @@ bool RiderImporter::ImportText(const std::string &text) {
     } else {
       info.startX = std::min(info.startX, start);
       info.endX = std::max(info.endX, end);
+    }
+  }
+
+  auto placeHoist = [&](float x, float y, float z, float capacityKg,
+                        const std::string &positionName) {
+    Support support;
+    support.uuid = GenerateUuid();
+    support.positionName = positionName;
+    support.position = positionName;
+    support.transform.o[0] = x;
+    support.transform.o[1] = y;
+    support.transform.o[2] = z;
+    support.capacityKg = capacityKg;
+    support.hoistFunction = "Lighting";
+    support.function = support.hoistFunction;
+    support.hoistDataSource = "Manual";
+    support.capacitySource = "Manual";
+    support.hoistFunctionSource = "Manual";
+    support.name = BuildHoistName(capacityKg, positionName);
+    support.dummyProfileId = PickDummyHoistProfileId(capacityKg);
+
+    if (auto profile = DummyProfileLibrary::FindById(support.dummyProfileId)) {
+      support.dummyPreset = profile->displayName;
+      support.motorName = profile->motorName;
+      support.motorManufacturer = profile->motorManufacturer;
+      support.motorModel = profile->motorModel;
+      support.weightKg = profile->weightKg;
+      support.motorNameSource = "Inherited";
+      support.motorManufacturerSource = "Inherited";
+      support.motorModelSource = "Inherited";
+      support.weightSource = "Inherited";
+    } else {
+      support.motorName = support.name;
+      support.motorNameSource = "Manual";
+      support.motorManufacturerSource = "Manual";
+      support.motorModelSource = "Manual";
+      support.weightSource = "Manual";
+    }
+
+    std::string layerName = defaultLayer;
+    if (layerByType && !positionName.empty())
+      layerName = "hoist " + positionName;
+    else if (!layerByType && !positionName.empty())
+      layerName = "pos " + positionName;
+    support.layer = layerName;
+
+    const std::string supportUuid = support.uuid;
+    scene.supports[supportUuid] = support;
+    addToLayer(layerName, supportUuid);
+  };
+
+  auto distributeAcrossTruss = [&](const std::string &positionName, int quantity,
+                                   float capacityKg, float marginMm) {
+    if (quantity <= 0)
+      return;
+    TrussInfo info;
+    auto infoIt = trussInfo.find(positionName);
+    if (infoIt != trussInfo.end())
+      info = infoIt->second;
+    float startX = info.found ? info.startX + marginMm : -500.0f * (quantity - 1);
+    float endX = info.found ? info.endX - marginMm : 500.0f * (quantity - 1);
+    if (endX < startX)
+      std::swap(startX, endX);
+    const float step = quantity > 1 ? (endX - startX) / static_cast<float>(quantity - 1) : 0.0f;
+    const float y = info.found ? info.y : getHangPos(positionName);
+    const float z = info.found ? info.z : getHangHeight(positionName);
+    for (int i = 0; i < quantity; ++i)
+      placeHoist(startX + step * i, y, z, capacityKg, positionName);
+  };
+
+  auto distributePaOrSidefill = [&](const std::string &positionName, int quantity,
+                                     float capacityKg, bool sidefill) {
+    if (quantity <= 0)
+      return;
+    const TrussInfo lxInfo = trussInfo.count("LX1") ? trussInfo["LX1"] : TrussInfo{};
+    const float baseY = lxInfo.found ? lxInfo.y : getHangPos("LX1");
+    const float z = lxInfo.found ? lxInfo.z : getHangHeight("LX1");
+    const float spanLeft = lxInfo.found ? lxInfo.startX : -3000.0f;
+    const float spanRight = lxInfo.found ? lxInfo.endX : 3000.0f;
+    const float offsetX = sidefill ? 1000.0f : 1000.0f;
+    const float y = sidefill ? baseY + 2000.0f : baseY;
+
+    const int leftCount = quantity / 2 + quantity % 2;
+    const int rightCount = quantity / 2;
+    auto placeGroup = [&](int count, float anchorX, float xDirection) {
+      if (count <= 0)
+        return;
+      const int rows = count <= 2 ? count : static_cast<int>(std::ceil(std::sqrt(count)));
+      const int cols = static_cast<int>(std::ceil(static_cast<float>(count) / rows));
+      int placed = 0;
+      for (int col = 0; col < cols && placed < count; ++col) {
+        for (int row = 0; row < rows && placed < count; ++row) {
+          float x = anchorX + xDirection * col * 1000.0f;
+          float yPlaced = y + (rows == 1 ? 0.0f : (row - (rows - 1) * 0.5f) * 1000.0f);
+          placeHoist(x, yPlaced, z, capacityKg, positionName);
+          ++placed;
+        }
+      }
+    };
+
+    placeGroup(leftCount, spanLeft - offsetX, -1.0f);
+    placeGroup(rightCount, spanRight + offsetX, 1.0f);
+  };
+
+  for (const HoistRequest &request : hoistRequests) {
+    if (request.target == "LX") {
+      std::vector<std::string> lxNames;
+      for (const auto &[name, info] : trussInfo) {
+        if (info.found && name.rfind("LX", 0) == 0)
+          lxNames.push_back(name);
+      }
+      std::sort(lxNames.begin(), lxNames.end(), [](const std::string &a, const std::string &b) {
+        return ParseTrailingNumber(a) < ParseTrailingNumber(b);
+      });
+      if (lxNames.empty())
+        lxNames.push_back("LX1");
+      int base = request.quantity / static_cast<int>(lxNames.size());
+      int rem = request.quantity % static_cast<int>(lxNames.size());
+      for (size_t i = 0; i < lxNames.size(); ++i) {
+        int qty = base + (static_cast<int>(i) < rem ? 1 : 0);
+        distributeAcrossTruss(lxNames[i], qty, request.capacityKg, 2000.0f);
+      }
+    } else if (request.target == "PA") {
+      distributePaOrSidefill("P.A.", request.quantity, request.capacityKg, false);
+    } else if (request.target == "SIDEFILL") {
+      distributePaOrSidefill("SIDEFILL", request.quantity, request.capacityKg, true);
+    } else if (request.target == "SCREEN") {
+      distributeAcrossTruss("SCREEN", request.quantity, request.capacityKg, 0.0f);
+    } else {
+      distributeAcrossTruss(request.target, request.quantity, request.capacityKg, 2000.0f);
     }
   }
 
