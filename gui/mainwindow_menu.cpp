@@ -33,6 +33,7 @@
 #include <wx/aboutdlg.h>
 #include <wx/artprov.h>
 #include <wx/choice.h>
+#include <wx/choicdlg.h>
 #include <wx/filename.h>
 #include <wx/filefn.h>
 #include <wx/html/htmlwin.h>
@@ -54,6 +55,7 @@
 #include "gdtfloader.h"
 #include "gdtfnet.h"
 #include "gdtfsearchdialog.h"
+#include "hoist_weight_distribution.h"
 #include "hoisttablepanel.h"
 #include "layerpanel.h"
 #include "layoutpanel.h"
@@ -381,6 +383,8 @@ void MainWindow::CreateMenuBar() {
   toolsMenu->Append(ID_Tools_DownloadGdtf, "Download GDTF fixture...");
   toolsMenu->Append(ID_Tools_EditDictionaries, "Edit dictionaries...");
   toolsMenu->Append(ID_Tools_ImportRiderText, "Create from text...");
+  toolsMenu->Append(ID_Tools_DistributeHoistWeights,
+                    "Distribute hoist weights...");
   toolsMenu->Append(ID_Tools_ExportFixture, "Export Fixture...");
   toolsMenu->Append(ID_Tools_ExportTruss, "Export Truss...");
   toolsMenu->Append(ID_Tools_ExportSceneObject, "Export Scene Object...");
@@ -533,6 +537,65 @@ void MainWindow::OnAutoPatch(wxCommandEvent &WXUNUSED(event)) {
   ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
   cfg.PushUndoState("auto patch");
   AutoPatcher::AutoPatch(cfg.GetScene());
+  RefreshAfterSceneChange();
+}
+
+void MainWindow::OnDistributeHoistWeights(wxCommandEvent &WXUNUSED(event)) {
+  SyncSceneData();
+  ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
+  auto &scene = cfg.GetScene();
+
+  auto normalizePosition = [](const std::string &positionName) {
+    return positionName.empty() ? std::string("Unassigned") : positionName;
+  };
+
+  std::set<std::string> hoistPositions;
+  for (const auto &[uuid, support] : scene.supports) {
+    (void)uuid;
+    hoistPositions.insert(normalizePosition(support.positionName));
+  }
+
+  if (hoistPositions.empty()) {
+    wxMessageBox("No hoists available for weight distribution.",
+                 "Distribute hoist weights", wxOK | wxICON_INFORMATION);
+    return;
+  }
+
+  wxArrayString choices;
+  choices.Add("All positions");
+  for (const std::string &positionName : hoistPositions)
+    choices.Add(wxString::FromUTF8(positionName));
+
+  wxSingleChoiceDialog dialog(this, "Select hang position(s) to distribute hoist weights.",
+                              "Distribute hoist weights", choices);
+  dialog.SetSelection(0);
+  if (dialog.ShowModal() != wxID_OK)
+    return;
+
+  const wxString selectedChoice = dialog.GetStringSelection();
+  const bool applyAllPositions = selectedChoice == "All positions";
+  const std::string selectedPosition = WxToUtf8(selectedChoice);
+
+  std::vector<std::string> selectedSupportUuids;
+  selectedSupportUuids.reserve(scene.supports.size());
+  for (const auto &[uuid, support] : scene.supports) {
+    if (applyAllPositions ||
+        normalizePosition(support.positionName) == selectedPosition) {
+      selectedSupportUuids.push_back(uuid);
+    }
+  }
+
+  if (selectedSupportUuids.empty()) {
+    wxMessageBox("No hoists found for the selected position.",
+                 "Distribute hoist weights", wxOK | wxICON_INFORMATION);
+    return;
+  }
+
+  cfg.PushUndoState("distribute hoist weights");
+  const auto roundedTotalsByPosition =
+      HoistWeightDistribution::BuildRoundedRiggingTotalByHangPosition(scene);
+  HoistWeightDistribution::ApplyForImportedSupports(
+      scene, selectedSupportUuids, roundedTotalsByPosition);
   RefreshAfterSceneChange();
 }
 

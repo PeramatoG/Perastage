@@ -127,6 +127,7 @@ private:
   void
   OnImportRider(wxCommandEvent &event);    // Import fixtures/trusses from rider
   void OnImportRiderText(wxCommandEvent &event); // Import rider from text editor
+  void OnDistributeHoistWeights(wxCommandEvent &event); // Recalculate hoist weights by position
   void OnImportMVR(wxCommandEvent &event); // Handle the Import MVR action
   void OnExportMVR(wxCommandEvent &event); // Handle the Export MVR action
   void OnExportTruss(wxCommandEvent &event);       // Export truss metadata
