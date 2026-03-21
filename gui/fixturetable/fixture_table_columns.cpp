@@ -10,13 +10,13 @@ std::vector<wxString> DefaultLabels() {
           "Hang Pos",   "Universe",    "Channel",   "Mode",
           "Ch Count",   "Model file",  "Pos X",     "Pos Y",
           "Pos Z",      "Roll (X)",    "Pitch (Y)", "Yaw (Z)",
-          "Power (W)",  "Weight (kg)", "Color"};
+          "Power (W)",  "Weight (kg)", "Category", "Color"};
 }
 
 void ConfigureColumns(wxDataViewListCtrl *table,
                       const std::vector<wxString> &columnLabels) {
   std::vector<int> widths = {90, 150, 180, 100, 120, 80, 80,  120, 80, 180,
-                             80, 80,  80,  80,  80,  80, 100, 100, 80};
+                             80, 80,  80,  80,  80,  80, 100, 100, 120, 80};
   int flags = wxDATAVIEW_COL_RESIZABLE | wxDATAVIEW_COL_SORTABLE;
 
   auto *idRenderer =

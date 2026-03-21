@@ -88,7 +88,7 @@ std::optional<std::unordered_map<std::string, Entry>> Load() {
       fs::path p = fs::u8path(it.value().get<std::string>());
       if (!p.is_absolute())
         p = dir / p;
-      dict[it.key()] = {p.string(), ""};
+      dict[it.key()] = {p.string(), "", ""};
     } else if (it.value().is_object()) {
       Entry e;
       std::string fname;
@@ -102,6 +102,8 @@ std::optional<std::unordered_map<std::string, Entry>> Load() {
       e.path = p.string();
       if (it.value().contains("mode") && it.value()["mode"].is_string())
         e.mode = it.value()["mode"].get<std::string>();
+      if (it.value().contains("category") && it.value()["category"].is_string())
+        e.category = it.value()["category"].get<std::string>();
       dict[it.key()] = e;
     }
   }
@@ -126,6 +128,8 @@ void Save(const std::unordered_map<std::string, Entry> &dict) {
     obj["file"] = p.filename().string();
     if (!entry.mode.empty())
       obj["mode"] = entry.mode;
+    if (!entry.category.empty())
+      obj["category"] = entry.category;
     j[type] = obj;
   }
   std::ofstream out(file);
@@ -151,7 +155,7 @@ std::optional<Entry> Get(const std::string &type) {
   return it->second;
 }
 
-void Update(const std::string &type, const std::string &gdtfPath, const std::string &mode) {
+void Update(const std::string &type, const std::string &gdtfPath, const std::string &mode, const std::string &category) {
   std::lock_guard<std::recursive_mutex> lock(StartupFileAccessGate::Mutex());
   if (type.empty() || gdtfPath.empty())
     return;
@@ -179,6 +183,26 @@ void Update(const std::string &type, const std::string &gdtfPath, const std::str
   e.path = dest.string();
   if (!mode.empty())
     e.mode = mode;
+  if (!category.empty())
+    e.category = category;
+  dict[type] = e;
+  Save(dict);
+}
+
+
+void UpdateCategory(const std::string &type, const std::string &category) {
+  std::lock_guard<std::recursive_mutex> lock(StartupFileAccessGate::Mutex());
+  if (type.empty())
+    return;
+  auto dictOpt = Load();
+  if (!dictOpt)
+    return;
+  auto &dict = *dictOpt;
+  Entry e;
+  auto it = dict.find(type);
+  if (it != dict.end())
+    e = it->second;
+  e.category = category;
   dict[type] = e;
   Save(dict);
 }

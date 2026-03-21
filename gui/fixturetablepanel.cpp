@@ -283,8 +283,10 @@ void FixtureTablePanel::ReloadData() {
     row.push_back(yaw);
     wxString power = wxString::Format("%.1f", fixture->powerConsumptionW);
     wxString weight = wxString::Format("%.2f", fixture->weightKg);
+    wxString category = wxString::FromUTF8(fixture->category);
     row.push_back(power);
     row.push_back(weight);
+    row.push_back(category);
     wxString color = wxString::FromUTF8(fixture->color);
     if (!color.IsEmpty()) {
       wxColour col(color);
@@ -587,6 +589,37 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
   table->GetValue(current, baseRow, col);
 
   if (col == 18) {
+    const wxArrayString choices = {
+        "Unknown", "Hoist", "Smoke", "Laser", "Video", "FX", "Strobe",
+        "LED", "Conventional", "Wash", "Spot", "Beam", "Hybrid"};
+    wxSingleChoiceDialog dlg(this, "Select category", "Category", choices);
+    if (!current.GetString().empty()) {
+      int sel = choices.Index(current.GetString());
+      if (sel != wxNOT_FOUND)
+        dlg.SetSelection(sel);
+    }
+    if (dlg.ShowModal() != wxID_OK)
+      return;
+    const wxString value = dlg.GetStringSelection();
+    for (const auto &it : selections) {
+      int r = table->ItemToRow(it);
+      if (r != wxNOT_FOUND)
+        table->SetValue(wxVariant(value), r, col);
+    }
+    PropagateTypeValues(selections, col);
+    ResyncRows(oldOrder, selectedUuids);
+    UpdateSceneData();
+    HighlightDuplicateFixtureIds();
+    if (Viewer3DPanel::Instance()) {
+      Viewer3DPanel::Instance()->UpdateScene();
+      Viewer3DPanel::Instance()->Refresh();
+    } else if (Viewer2DPanel::Instance()) {
+      Viewer2DPanel::Instance()->UpdateScene();
+    }
+    return;
+  }
+
+  if (col == 19) {
     wxColourData data;
     data.SetChooseFull(true);
     wxColour initial(current.GetString());

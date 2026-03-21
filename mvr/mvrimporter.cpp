@@ -20,6 +20,7 @@
 #include "dummyprofilelibrary.h"
 #include "gdtfdictionary.h"
 #include "gdtfloader.h"
+#include "gdtf_fixture_category.h"
 #include "matrixutils.h"
 #include "sceneobject.h"
 #include "support.h"
@@ -351,6 +352,37 @@ static void ApplySupportHoistInfoDefaults(Support &support) {
       support.hoistFunctionSource, support.hoistDataSource);
   if (support.function.empty())
     support.function = support.hoistFunction;
+}
+
+static void ReadFixtureCategoryFromUserData(tinyxml2::XMLElement *fixtureNode,
+                                            Fixture &fixture) {
+  if (!fixtureNode)
+    return;
+
+  tinyxml2::XMLElement *ud = fixtureNode->FirstChildElement("UserData");
+  if (!ud)
+    return;
+
+  for (tinyxml2::XMLElement *data = ud->FirstChildElement("Data"); data;
+       data = data->NextSiblingElement("Data")) {
+    tinyxml2::XMLElement *info = data->FirstChildElement("FixtureInfo");
+    if (!info)
+      continue;
+
+    if (tinyxml2::XMLElement *categoryNode = info->FirstChildElement("Category")) {
+      if (const char *txt = categoryNode->GetText())
+        fixture.category = GdtfFixtureCategory::NormalizeCategory(Trim(txt));
+    }
+
+    if (tinyxml2::XMLElement *sourceNode = info->FirstChildElement("CategorySource")) {
+      if (const char *txt = sourceNode->GetText())
+        fixture.categorySource = Trim(txt);
+    }
+
+    if (!fixture.category.empty() && fixture.categorySource.empty())
+      fixture.categorySource = GdtfFixtureCategory::kManualSource;
+    return;
+  }
 }
 
 static void ReadSupportHoistInfoFromUserData(tinyxml2::XMLElement *supportNode,
@@ -1071,16 +1103,40 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                   : fs::u8path(scene.basePath) / fs::u8path(fixture.gdtfSpec);
           std::string gdtfPath = ToString(p.u8string());
           fixture.typeName = Trim(GetGdtfFixtureName(gdtfPath));
-        if (!fixture.typeName.empty())
-          fixture.gdtfSpec = gdtfPath;
-        float gw = 0.0f, gp = 0.0f;
-        if (GetGdtfProperties(gdtfPath, gw, gp)) {
-          if (fixture.weightKg == 0.0f)
-            fixture.weightKg = gw;
-          if (fixture.powerConsumptionW == 0.0f)
-            fixture.powerConsumptionW = gp;
+          if (!fixture.typeName.empty())
+            fixture.gdtfSpec = gdtfPath;
+          float gw = 0.0f, gp = 0.0f;
+          if (GetGdtfProperties(gdtfPath, gw, gp)) {
+            if (fixture.weightKg == 0.0f)
+              fixture.weightKg = gw;
+            if (fixture.powerConsumptionW == 0.0f)
+              fixture.powerConsumptionW = gp;
+          }
         }
-      }
+
+        ReadFixtureCategoryFromUserData(node, fixture);
+        if (fixture.category.empty() && !fixture.typeName.empty()) {
+          if (auto entry = GdtfDictionary::Get(fixture.typeName))
+            fixture.category = GdtfFixtureCategory::NormalizeCategory(entry->category);
+          if (!fixture.category.empty())
+            fixture.categorySource = GdtfFixtureCategory::kManualSource;
+        }
+
+        if (!fixture.category.empty() && !fixture.typeName.empty())
+          GdtfDictionary::UpdateCategory(fixture.typeName, fixture.category);
+
+        if (fixture.category.empty() && !fixture.gdtfSpec.empty()) {
+          const auto inferred = GdtfFixtureCategory::InferFromGdtf(fixture.gdtfSpec);
+          fixture.category = GdtfFixtureCategory::NormalizeCategory(inferred.category);
+          if (fixture.category.empty())
+            fixture.category = GdtfFixtureCategory::kUnknown;
+          fixture.categorySource = GdtfFixtureCategory::kAutoFallbackSource;
+          if (!fixture.typeName.empty())
+            GdtfDictionary::UpdateCategory(fixture.typeName, fixture.category);
+          LogMessage(Logger::Level::Info,
+                     "Auto category fallback: " + fixture.instanceName + " -> " +
+                         fixture.category + " [" + inferred.reason + "]");
+        }
       auto posIt = scene.positions.find(fixture.position);
         if (posIt != scene.positions.end())
           fixture.positionName = posIt->second;

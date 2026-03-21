@@ -21,6 +21,7 @@
 #include "gdtfdictionary.h"
 #include "gdtfloader.h"
 #include "projectutils.h"
+#include "gdtf_fixture_category.h"
 #include "viewer3dpanel.h"
 #include <wx/filedlg.h>
 #include <wx/filename.h>
@@ -78,6 +79,18 @@ FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
       ctrls[i] = modelCtrl;
       grid->Add(hs, 1, wxEXPAND);
     } else if (i == 18) {
+      auto *category = new wxChoice(this, wxID_ANY);
+      const wxArrayString values = {
+          "Unknown", "Hoist", "Smoke", "Laser", "Video", "FX", "Strobe",
+          "LED", "Conventional", "Wash", "Spot", "Beam", "Hybrid"};
+      for (const auto &entry : values)
+        category->Append(entry);
+      int selection = category->FindString(v.GetString());
+      if (selection != wxNOT_FOUND)
+        category->SetSelection(selection);
+      ctrls[i] = category;
+      grid->Add(category, 1, wxEXPAND);
+    } else if (i == 19) {
       wxString colorString;
       if (v.GetType() == "wxDataViewIconText") {
         wxDataViewIconText icon;
@@ -233,6 +246,10 @@ void FixtureEditDialog::ApplyChanges() {
         panel->gdtfPaths.resize(row + 1);
       panel->gdtfPaths[row] = gdtfPath;
     } else if (i == 18) {
+      auto *category = wxDynamicCast(ctrls[i], wxChoice);
+      if (category)
+        table->SetValue(wxVariant(category->GetStringSelection()), row, i);
+    } else if (i == 19) {
       auto *picker = wxDynamicCast(ctrls[i], wxColourPickerCtrl);
       if (picker) {
         wxColour selectedColor = picker->GetColour();
@@ -267,8 +284,12 @@ void FixtureEditDialog::ApplyChanges() {
     std::string mode =
         modeChoice ? std::string(modeChoice->GetStringSelection().ToUTF8()) :
                      std::string();
+    wxVariant categoryVar;
+    table->GetValue(categoryVar, row, 18);
+    const std::string category =
+        GdtfFixtureCategory::NormalizeCategory(std::string(categoryVar.GetString().ToUTF8()));
     GdtfDictionary::Update(std::string(originalType.ToUTF8()),
-                           std::string(gdtfPath.ToUTF8()), mode);
+                           std::string(gdtfPath.ToUTF8()), mode, category);
     panel->ApplyModeForGdtf(gdtfPath, wxString::FromUTF8(mode));
   }
   panel->ResyncRows(oldOrder, selectedUuids);

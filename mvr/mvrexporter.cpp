@@ -1195,6 +1195,17 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
       info->InsertEndChild(instanceName);
     }
 
+    if (!f.category.empty()) {
+      tinyxml2::XMLElement *category = doc.NewElement("Category");
+      category->SetText(f.category.c_str());
+      info->InsertEndChild(category);
+    }
+    if (!f.categorySource.empty()) {
+      tinyxml2::XMLElement *categorySource = doc.NewElement("CategorySource");
+      categorySource->SetText(f.categorySource.c_str());
+      info->InsertEndChild(categorySource);
+    }
+
     data->InsertEndChild(info);
     ud->InsertEndChild(data);
     fe->InsertEndChild(ud);
