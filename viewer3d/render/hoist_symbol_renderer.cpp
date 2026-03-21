@@ -14,7 +14,6 @@
 #endif
 
 #include "configmanager.h"
-#include "hoist_weight_distribution.h"
 #include "support.h"
 
 #include <algorithm>
@@ -62,6 +61,53 @@ RgbColor ResolveHoistFunctionColor(const std::string &hoistFunctionRaw) {
   if (hoistFunction == "Other")
     return {0.78f, 0.64f, 0.78f};
   return {1.0f, 0.0f, 1.0f}; // Lighting (default)
+}
+
+int HexNibbleValue(char c) {
+  if (c >= '0' && c <= '9')
+    return c - '0';
+  if (c >= 'a' && c <= 'f')
+    return 10 + (c - 'a');
+  if (c >= 'A' && c <= 'F')
+    return 10 + (c - 'A');
+  return -1;
+}
+
+bool TryParseHexColor(const std::string &hex, RgbColor &out) {
+  if (hex.size() != 7 || hex[0] != '#')
+    return false;
+
+  const int rHi = HexNibbleValue(hex[1]);
+  const int rLo = HexNibbleValue(hex[2]);
+  const int gHi = HexNibbleValue(hex[3]);
+  const int gLo = HexNibbleValue(hex[4]);
+  const int bHi = HexNibbleValue(hex[5]);
+  const int bLo = HexNibbleValue(hex[6]);
+  if (rHi < 0 || rLo < 0 || gHi < 0 || gLo < 0 || bHi < 0 || bLo < 0)
+    return false;
+
+  const float inv255 = 1.0f / 255.0f;
+  out.r = static_cast<float>((rHi << 4) | rLo) * inv255;
+  out.g = static_cast<float>((gHi << 4) | gLo) * inv255;
+  out.b = static_cast<float>((bHi << 4) | bLo) * inv255;
+  return true;
+}
+
+RgbColor ResolveHoistLayerColor(const MvrScene &scene, const Support &support) {
+  const std::string normalizedLayer = NormalizedLayerName(support.layer);
+  for (const auto &[layerUuid, layer] : scene.layers) {
+    (void)layerUuid;
+    if (layer.name != normalizedLayer)
+      continue;
+    RgbColor parsed;
+    if (TryParseHexColor(layer.color, parsed))
+      return parsed;
+    break;
+  }
+
+  const std::string functionValue =
+      support.hoistFunction.empty() ? support.function : support.hoistFunction;
+  return ResolveHoistFunctionColor(functionValue);
 }
 
 HoistShape ResolveHoistShape(float capacityKg) {
@@ -335,24 +381,13 @@ void Render(IRenderContext &renderContext, const RenderFrameContext &context) {
     return;
 
   const MvrScene &scene = ConfigManager::Get().GetScene();
-  const auto missingWeightByPosition =
-      HoistWeightDistribution::BuildMissingWeightMapByHangPosition(scene);
-
   const auto &supports = scene.supports;
   for (const auto &[uuid, support] : supports) {
     (void)uuid;
     if (!IsLayerVisible(context.hiddenLayers, support.layer))
       continue;
 
-    const std::string functionValue =
-        support.hoistFunction.empty() ? support.function : support.hoistFunction;
-
-    RgbColor color = ResolveHoistFunctionColor(functionValue);
-    const std::string positionName =
-        support.positionName.empty() ? std::string("Unassigned") : support.positionName;
-    auto missingIt = missingWeightByPosition.find(positionName);
-    if (missingIt != missingWeightByPosition.end() && missingIt->second)
-      color = {1.0f, 0.0f, 0.0f};
+    const RgbColor color = ResolveHoistLayerColor(scene, support);
 
     DrawHoistSymbol(renderContext, support, color);
   }
