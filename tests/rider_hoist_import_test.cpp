@@ -1,4 +1,5 @@
 #include <cassert>
+#include <cmath>
 #include <map>
 #include <string>
 #include <wx/init.h>
@@ -55,6 +56,17 @@ int main() {
   assert(countByFunction["LX1:Lighting"] == 2);
   assert(countByFunction["LX2:Lighting"] == 2);
   assert(countByFunction["LX3:Lighting"] == 2);
+
+  bool foundScreenTruss = false;
+  for (const auto &[uuid, truss] : scene.trusses) {
+    (void)uuid;
+    if (truss.positionName != "SCREEN")
+      continue;
+    foundScreenTruss = true;
+    assert(std::abs(truss.transform.o[1] - 5000.0f) < 0.001f);
+    assert(std::abs(truss.transform.o[2] - 8500.0f) < 0.001f);
+  }
+  assert(foundScreenTruss);
 
   return 0;
 }

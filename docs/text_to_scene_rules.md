@@ -48,6 +48,8 @@ Filter behavior:
 10. Expands `+` compound lines into individual fixture lines.
 11. Supports quantity-only lines (`N` followed by description on next line).
 12. Removes parenthesized notes from fixture tokens to reduce rider noise.
+13. The filter pass is idempotent for normalized truss lines ending in
+    `SCREEN` (re-applying **Apply filter** keeps those lines).
 
 After applying the filter, users can manually adjust the filtered text and then
 press **Create**.
@@ -77,6 +79,7 @@ The importer keeps parsing state with sections (fixtures/rigging/control):
 Recognized hang labels:
 
 - `LX<number>` (for example `LX1`, `LX2`, ...)
+- `screen` / `pantalla` / `led screen`
 - `floor`
 - `efecto` / `efectos`
 - `calle a suelo` / `calles a suelo`
@@ -87,6 +90,8 @@ Behavior:
 - Hang labels are normalized to uppercase (`LX1`, `FLOOR`, ...).
 - Floor aliases (`floor`, `efecto(s)`, `calle(s) a suelo`, `ground lane(s)`)
   are normalized to `FLOOR`.
+- Screen aliases (`screen`, `pantalla`, `led screen`) are normalized to
+  `SCREEN`.
 - The active hang affects fixture/truss layer naming and default placement (`Y/Z`).
 
 ## Fixture parsing rules
@@ -136,6 +141,11 @@ Key truss behaviors:
 Special case:
 
 - If hang is exactly `LX`, quantity `N` expands to `LX1..LXN`.
+- If hang is `SCREEN` and there is no dedicated screen config key, trusses are
+  placed from the last created LX truss reference, with `Y = last_lx_y + 1m`
+  and `Z = last_lx_z - 0.5m`. If no LX truss has been created yet, importer
+  falls back to the highest configured LX (`height > 0`) using the same
+  offsets.
 
 ## Hoist (motor) parsing and placement rules
 

@@ -57,5 +57,15 @@ int main() {
     return 1;
   }
 
+  const std::string previewSecondPass =
+      RiderImporter::BuildFixtureFilterPreview(preview);
+  if (previewSecondPass != expected) {
+    std::cerr << "Filtered preview is not idempotent.\n"
+              << "Expected:\n"
+              << expected << "\n\nGot after second pass:\n"
+              << previewSecondPass << "\n";
+    return 1;
+  }
+
   return 0;
 }
