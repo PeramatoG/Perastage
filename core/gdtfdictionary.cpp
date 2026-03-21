@@ -96,6 +96,8 @@ std::optional<std::unordered_map<std::string, Entry>> Load() {
         fname = it.value()["file"].get<std::string>();
       else if (it.value().contains("path") && it.value()["path"].is_string())
         fname = it.value()["path"].get<std::string>();
+      if (fname.empty())
+        continue;
       fs::path p = fs::u8path(fname);
       if (!p.is_absolute())
         p = dir / p;
@@ -123,9 +125,14 @@ void Save(const std::unordered_map<std::string, Entry> &dict) {
   std::sort(keys.begin(), keys.end());
   for (const auto &type : keys) {
     const auto &entry = dict.at(type);
+    if (entry.path.empty())
+      continue;
     nlohmann::json obj;
     fs::path p = fs::u8path(entry.path);
-    obj["file"] = p.filename().string();
+    const std::string fileName = p.filename().string();
+    if (fileName.empty())
+      continue;
+    obj["file"] = fileName;
     if (!entry.mode.empty())
       obj["mode"] = entry.mode;
     if (!entry.category.empty())
@@ -198,12 +205,10 @@ void UpdateCategory(const std::string &type, const std::string &category) {
   if (!dictOpt)
     return;
   auto &dict = *dictOpt;
-  Entry e;
   auto it = dict.find(type);
-  if (it != dict.end())
-    e = it->second;
-  e.category = category;
-  dict[type] = e;
+  if (it == dict.end())
+    return;
+  it->second.category = category;
   Save(dict);
 }
 

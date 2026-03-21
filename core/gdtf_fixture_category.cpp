@@ -6,6 +6,7 @@
 #include <set>
 #include <sstream>
 #include <string>
+#include <vector>
 
 #include <tinyxml2.h>
 #include <wx/wfstream.h>
@@ -30,6 +31,28 @@ std::string Trim(const std::string &value) {
 
 bool ContainsKeyword(const std::string &haystack, const char *needle) {
   return haystack.find(needle) != std::string::npos;
+}
+
+std::vector<std::string> TokenizeWords(const std::string &text) {
+  std::vector<std::string> tokens;
+  std::string current;
+  for (unsigned char c : text) {
+    if (std::isalnum(c)) {
+      current.push_back(static_cast<char>(std::tolower(c)));
+    } else if (!current.empty()) {
+      tokens.push_back(current);
+      current.clear();
+    }
+  }
+  if (!current.empty())
+    tokens.push_back(current);
+  return tokens;
+}
+
+bool ContainsWord(const std::string &haystack, const char *needle) {
+  const std::string target = ToLowerCopy(needle);
+  const auto tokens = TokenizeWords(haystack);
+  return std::find(tokens.begin(), tokens.end(), target) != tokens.end();
 }
 
 bool ReadDescriptionXmlFromGdtf(const std::string &gdtfPath, std::string &xmlOut) {
@@ -80,6 +103,7 @@ struct Signals {
   bool hasAnimationWheel = false;
   bool hasFraming = false;
   bool hasStrobe = false;
+  bool hasShutter = false;
   bool hasFog = false;
   bool hasHaze = false;
   bool hasBlower = false;
@@ -165,13 +189,15 @@ void ParseAttributeSignals(const tinyxml2::XMLElement *node, Signals &signals) {
     if (ContainsKeyword(combined, "blade") || ContainsKeyword(combined, "shaper") ||
         ContainsKeyword(combined, "keystone"))
       signals.hasFraming = true;
-    if (ContainsKeyword(combined, "strobe") || ContainsKeyword(combined, "shutter"))
+    if (ContainsKeyword(combined, "strobe"))
       signals.hasStrobe = true;
-    if (ContainsKeyword(combined, "fog"))
+    if (ContainsKeyword(combined, "shutter"))
+      signals.hasShutter = true;
+    if (ContainsWord(combined, "fog"))
       signals.hasFog = true;
-    if (ContainsKeyword(combined, "haze"))
+    if (ContainsWord(combined, "haze"))
       signals.hasHaze = true;
-    if (ContainsKeyword(combined, "blower") || ContainsKeyword(combined, "fan"))
+    if (ContainsWord(combined, "blower") || ContainsWord(combined, "fan"))
       signals.hasBlower = true;
     if (ContainsKeyword(combined, "video") || ContainsKeyword(combined, "inputsource") ||
         ContainsKeyword(combined, "fov"))
@@ -224,7 +250,7 @@ Signals ExtractSignals(const std::string &xml) {
 
 bool HasNameKeyword(const std::string &name, std::initializer_list<const char *> keys) {
   for (const char *key : keys) {
-    if (ContainsKeyword(name, key))
+    if (ContainsWord(name, key) || ContainsKeyword(name, key))
       return true;
   }
   return false;
@@ -312,7 +338,8 @@ InferenceResult InferFromGdtf(const std::string &gdtfPath) {
   }
 
   if (!hasMovement) {
-    if (s.hasStrobe && !s.hasGobo && !s.hasIris && !s.hasFraming && !s.hasFocus)
+    if ((s.hasStrobe || HasNameKeyword(s.normalizedName, {"strobe", "blinder", "flash"})) &&
+        !s.hasGobo && !s.hasIris && !s.hasFraming && !s.hasFocus)
       return {kStrobe, "static strobe profile"};
     if (s.hasPixelControl &&
         HasNameKeyword(s.normalizedName, {"pixel", "bar", "strip", "panel", "blinder"})) {
