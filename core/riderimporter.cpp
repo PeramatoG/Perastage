@@ -781,6 +781,8 @@ bool RiderImporter::ImportText(const std::string &text) {
   std::string defaultLayer = cfg.GetCurrentLayer();
   auto modeVal = cfg.GetValue("rider_layer_mode");
   bool layerByType = modeVal && *modeVal == "type";
+  std::optional<float> lastLightingTrussPosY;
+  std::optional<float> lastLightingTrussPosZ;
 
   auto getHangHeight = [&](const std::string &posName) {
     if (posName.rfind("LX", 0) == 0) {
@@ -792,11 +794,13 @@ bool RiderImporter::ImportText(const std::string &text) {
       }
     }
     if (posName == "SCREEN") {
+      if (lastLightingTrussPosZ)
+        return *lastLightingTrussPosZ - 500.0f;
       for (int idx = 6; idx >= 1; --idx) {
         const float configuredHeight =
             cfg.GetFloat("rider_lx" + std::to_string(idx) + "_height");
         if (configuredHeight > 0.0f)
-          return configuredHeight * 1000.0f;
+          return configuredHeight * 1000.0f - 500.0f;
       }
     }
     return 0.0f;
@@ -812,6 +816,8 @@ bool RiderImporter::ImportText(const std::string &text) {
       }
     }
     if (posName == "SCREEN") {
+      if (lastLightingTrussPosY)
+        return *lastLightingTrussPosY - 1000.0f;
       for (int idx = 6; idx >= 1; --idx) {
         const float configuredPos =
             cfg.GetFloat("rider_lx" + std::to_string(idx) + "_pos");
@@ -1110,6 +1116,10 @@ bool RiderImporter::ImportText(const std::string &text) {
             scene.trusses.emplace(trussUuid, std::move(t));
             importedTrussUuids.push_back(trussUuid);
             addToLayer(trussLayer, trussUuid);
+            if (posName.rfind("LX", 0) == 0) {
+              lastLightingTrussPosY = getHangPos(posName);
+              lastLightingTrussPosZ = getHangHeight(posName);
+            }
             x += s;
           }
         };
@@ -1209,6 +1219,10 @@ bool RiderImporter::ImportText(const std::string &text) {
           scene.trusses.emplace(trussUuid, std::move(t));
           importedTrussUuids.push_back(trussUuid);
           addToLayer(trussLayer, trussUuid);
+          if (hang.rfind("LX", 0) == 0) {
+            lastLightingTrussPosY = getHangPos(hang);
+            lastLightingTrussPosZ = getHangHeight(hang);
+          }
           x += s;
         }
       } else if (inFixtures && std::regex_match(line, m, kFixtureLineRe)) {

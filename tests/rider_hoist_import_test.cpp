@@ -64,7 +64,7 @@ int main() {
       continue;
     foundScreenTruss = true;
     assert(std::abs(truss.transform.o[1] - 3000.0f) < 0.001f);
-    assert(std::abs(truss.transform.o[2] - 9000.0f) < 0.001f);
+    assert(std::abs(truss.transform.o[2] - 8500.0f) < 0.001f);
   }
   assert(foundScreenTruss);
 

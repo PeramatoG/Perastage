@@ -142,8 +142,10 @@ Special case:
 
 - If hang is exactly `LX`, quantity `N` expands to `LX1..LXN`.
 - If hang is `SCREEN` and there is no dedicated screen config key, trusses are
-  placed at the same `Z` as the last configured LX (highest LX index with
-  height > 0), and at `Y = last_lx_pos - 1m`.
+  placed from the last created LX truss reference, with `Y = last_lx_y - 1m`
+  and `Z = last_lx_z - 0.5m`. If no LX truss has been created yet, importer
+  falls back to the highest configured LX (`height > 0`) using the same
+  offsets.
 
 ## Hoist (motor) parsing and placement rules
 
