@@ -310,13 +310,112 @@ float ParseHoistCapacityKg(const std::string &text) {
   return tons ? value * 1000.0f : value;
 }
 
-std::string BuildHoistName(float capacityKg, const std::string &positionName) {
-  int rounded = static_cast<int>(std::round(capacityKg));
-  std::ostringstream oss;
-  oss << "Motor " << rounded << " Kg";
-  if (!positionName.empty())
-    oss << " " << positionName;
-  return oss.str();
+bool IsLxHangName(const std::string &positionName) {
+  if (positionName.size() < 3 || positionName.rfind("LX", 0) != 0)
+    return false;
+  for (size_t i = 2; i < positionName.size(); ++i) {
+    if (!std::isdigit(static_cast<unsigned char>(positionName[i])))
+      return false;
+  }
+  return true;
+}
+
+std::string BuildIndexedName(const std::string &prefix, int index,
+                             bool omitIndexForSingle) {
+  if (omitIndexForSingle && index == 1)
+    return prefix;
+  return prefix + " " + std::to_string(index);
+}
+
+void AssignImportedHoistNames(std::vector<Support *> &supports) {
+  if (supports.empty())
+    return;
+
+  auto sortByX = [](Support *a, Support *b) {
+    if (a->transform.o[0] != b->transform.o[0])
+      return a->transform.o[0] < b->transform.o[0];
+    return a->uuid < b->uuid;
+  };
+
+  std::map<std::string, std::vector<Support *>> lxByPosition;
+  std::vector<Support *> screenSupports;
+  std::vector<Support *> sidefillSupports;
+  std::vector<Support *> paSupports;
+  std::vector<Support *> otherSupports;
+
+  for (Support *support : supports) {
+    if (!support)
+      continue;
+    const std::string position = NormalizeHangName(support->positionName);
+    if (IsLxHangName(position)) {
+      lxByPosition[position].push_back(support);
+    } else if (position == "SCREEN") {
+      screenSupports.push_back(support);
+    } else if (position == "SIDEFILL") {
+      sidefillSupports.push_back(support);
+    } else if (position == "PA" || position == "P.A.") {
+      paSupports.push_back(support);
+    } else {
+      otherSupports.push_back(support);
+    }
+  }
+
+  for (auto &[position, items] : lxByPosition) {
+    std::sort(items.begin(), items.end(), sortByX);
+    for (size_t i = 0; i < items.size(); ++i) {
+      Support *support = items[i];
+      support->name = position + " " + std::to_string(i + 1);
+      support->motorName = support->name;
+    }
+  }
+
+  std::sort(screenSupports.begin(), screenSupports.end(), sortByX);
+  for (size_t i = 0; i < screenSupports.size(); ++i) {
+    Support *support = screenSupports[i];
+    support->name = "SCR " + std::to_string(i + 1);
+    support->motorName = support->name;
+  }
+
+  auto assignLeftRightNames = [&](std::vector<Support *> &items,
+                                  const std::string &leftPrefix,
+                                  const std::string &rightPrefix,
+                                  bool omitIndexForSingle) {
+    std::vector<Support *> left;
+    std::vector<Support *> right;
+    for (Support *support : items) {
+      if (!support)
+        continue;
+      if (support->transform.o[0] <= 0.0f)
+        left.push_back(support);
+      else
+        right.push_back(support);
+    }
+    std::sort(left.begin(), left.end(), sortByX);
+    std::sort(right.begin(), right.end(), sortByX);
+
+    for (size_t i = 0; i < left.size(); ++i) {
+      Support *support = left[i];
+      support->name =
+          BuildIndexedName(leftPrefix, static_cast<int>(i + 1), omitIndexForSingle);
+      support->motorName = support->name;
+    }
+    for (size_t i = 0; i < right.size(); ++i) {
+      Support *support = right[i];
+      support->name =
+          BuildIndexedName(rightPrefix, static_cast<int>(i + 1), omitIndexForSingle);
+      support->motorName = support->name;
+    }
+  };
+
+  assignLeftRightNames(sidefillSupports, "SF L", "SF R", true);
+  assignLeftRightNames(paSupports, "PA L", "PA R", false);
+
+  std::sort(otherSupports.begin(), otherSupports.end(), sortByX);
+  for (size_t i = 0; i < otherSupports.size(); ++i) {
+    Support *support = otherSupports[i];
+    support->name = "RP " + std::to_string(i + 1);
+    support->motorName = support->name;
+  }
 }
 
 std::string PickDummyHoistProfileId(float capacityKg) {
@@ -1500,6 +1599,7 @@ bool RiderImporter::ImportText(const std::string &text) {
     addToLayer(screenObject.layer, screenObject.uuid);
   }
 
+  std::vector<std::string> importedSupportUuids;
   auto placeHoist = [&](float x, float y, float z, float capacityKg,
                         const std::string &positionName,
                         const std::string &hoistFunction) {
@@ -1516,7 +1616,7 @@ bool RiderImporter::ImportText(const std::string &text) {
     support.hoistDataSource = "Manual";
     support.capacitySource = "Manual";
     support.hoistFunctionSource = "Manual";
-    support.name = BuildHoistName(capacityKg, positionName);
+    support.name = "HOIST";
     support.dummyProfileId = PickDummyHoistProfileId(capacityKg);
     support.motorName = support.name;
     support.motorNameSource = "Manual";
@@ -1530,6 +1630,7 @@ bool RiderImporter::ImportText(const std::string &text) {
 
     const std::string supportUuid = support.uuid;
     scene.supports[supportUuid] = support;
+    importedSupportUuids.push_back(supportUuid);
     addToLayer(layerName, supportUuid, ResolveHoistLayerColor(normalizedFunction));
   };
 
@@ -1632,10 +1733,21 @@ bool RiderImporter::ImportText(const std::string &text) {
         placeHoist(x, y, z, request.capacityKg, "SCREEN", hoistFunction);
       }
     } else {
+      const float marginMm = IsLxHangName(request.target) ? 1000.0f : 2000.0f;
       distributeAcrossTruss(request.target, request.quantity, request.capacityKg,
-                            2000.0f, hoistFunction);
+                            marginMm, hoistFunction);
     }
   }
+
+  std::vector<Support *> importedSupports;
+  importedSupports.reserve(importedSupportUuids.size());
+  for (const std::string &uuid : importedSupportUuids) {
+    auto it = scene.supports.find(uuid);
+    if (it == scene.supports.end())
+      continue;
+    importedSupports.push_back(&it->second);
+  }
+  AssignImportedHoistNames(importedSupports);
 
   std::unordered_map<std::string, std::vector<Fixture *>> fixturesByPos;
   fixturesByPos.reserve(importedFixtureUuids.size());

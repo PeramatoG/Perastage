@@ -201,6 +201,7 @@ Placement defaults:
    - Quantity is distributed across detected `LX*` trusses (`LX1`, `LX2`, ...).
    - Each per-LX set is placed on that truss at the same `Y/Z`, using a 1 m
      margin from truss ends in `X`.
+   - Direct `LX<number>` hoist targets also use a 1 m margin from truss ends.
 4. **SCREEN hoists**
    - Distributed using internal truss divisions (for `N` hoists, truss span is
      split into `N+1` equal parts and hoists are placed on internal cuts).
@@ -215,6 +216,12 @@ Created hoists:
   - `PA`, `P.A.`, `SIDEFILL`, `OUTFILL` => `Audio`
   - `SCREEN`, `LEDSCREEN`, `VIDEO` => `Video`
   - Any other target => `Lighting`
+- Hoist naming defaults (ordered left-to-right on `X`):
+  - `LX*` targets => `<position> <index>` (`LX1 1`, `LX1 2`, ...).
+  - `SCREEN`/video targets => `SCR <index>`.
+  - `SIDEFILL` => `SF L`, `SF R` (adds index when side has more than one hoist).
+  - `PA`/`P.A.` => `PA L <index>`, `PA R <index>`.
+  - Fallback targets => `RP <index>` (Rigging Point).
 - Hoists are assigned to rig layers by function:
    - `rig Audio`, `rig Video`, `rig Lighting`, etc.
    - Missing rig layers are created automatically.
