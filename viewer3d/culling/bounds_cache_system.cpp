@@ -386,8 +386,12 @@ void BoundsCacheSystem::RebuildIfDirty(
           {half, -half, half},
           {-half, half, half},
           {half, half, half}};
+      Matrix fallbackTm = tm;
+      fallbackTm.o[0] *= RENDER_SCALE;
+      fallbackTm.o[1] *= RENDER_SCALE;
+      fallbackTm.o[2] *= RENDER_SCALE;
       for (const auto &c : corners) {
-        auto p = TransformPoint(tm, c);
+        auto p = TransformPoint(fallbackTm, c);
         bb.min[0] = std::min(bb.min[0], p[0]);
         bb.min[1] = std::min(bb.min[1], p[1]);
         bb.min[2] = std::min(bb.min[2], p[2]);
