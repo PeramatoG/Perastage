@@ -56,6 +56,7 @@
 #include "scenerenderer.h"
 #include "render_pipeline.h"
 #include "opaque_fixture_pass.h"
+#include "hoist_symbol_renderer.h"
 #include "opaque_object_pass.h"
 #include "opaque_truss_pass.h"
 #include "bounds_cache_system.h"
@@ -1110,6 +1111,7 @@ void Viewer3DController::RenderOpaqueFrame(const RenderFrameContext &context,
                           resolveSymbolView);
   OpaqueFixturePass::Render(*this, context, visibleSet, getTypeColor,
                             getLayerColor, resolveSymbolView);
+  HoistSymbolRenderer::Render(*this, context);
 }
 
 void Viewer3DController::RenderOverlayFrame(const RenderFrameContext &context,
