@@ -228,6 +228,17 @@ Created hoists:
    - Newly created rig layers receive the same color used by hoist symbols:
      `Audio=#FF0000`, `Video=#00FF00`, `Scenic=#0000FF`, `Extra=#8F00FF`,
      `Other=#C7A3C7`, `Lighting=#FF00FF`.
+- Hoist loads are auto-distributed after import for each hang position that
+  received newly created hoists:
+  - Position total uses the same rigging table rule: sum of fixture+truss+hoist
+    weights in the hang, then `+5%`, then rounded up to the next 5 kg.
+  - If hoists in that hang are not collinear, total is split equally by hoist
+    count and each share is rounded up to the next 5 kg.
+  - If hoists are collinear and count is `2..8`, the importer applies standard
+    percentage factors (`2: 50/50`, `3: 19/62/19`, ... , `8: 6/16/14/14/14/14/16/6`),
+    then rounds each hoist load up to the next 5 kg.
+  - If any fixture/truss/hoist in a hang has missing weight (`<= 0`), hoists in
+    that hang are shown in red in 2D to highlight incomplete pipeline data.
 
 ## Layer assignment rules
 

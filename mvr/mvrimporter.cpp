@@ -418,6 +418,7 @@ static void ReadSupportHoistInfoFromUserData(tinyxml2::XMLElement *supportNode,
 
     readFloat("Capacity", support.capacityKg);
     readFloat("Weight", support.weightKg);
+    readFloat("Load", support.loadKg);
 
     std::string hoistFunction = readText("RiggingPoint"); // Canonical in new schema.
     if (hoistFunction.empty())

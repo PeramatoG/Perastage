@@ -14,6 +14,7 @@
 #endif
 
 #include "configmanager.h"
+#include "hoist_weight_distribution.h"
 #include "support.h"
 
 #include <algorithm>
@@ -333,7 +334,11 @@ void Render(IRenderContext &renderContext, const RenderFrameContext &context) {
   if (context.view != Viewer2DView::Top && context.view != Viewer2DView::Bottom)
     return;
 
-  const auto &supports = ConfigManager::Get().GetScene().supports;
+  const MvrScene &scene = ConfigManager::Get().GetScene();
+  const auto missingWeightByPosition =
+      HoistWeightDistribution::BuildMissingWeightMapByHangPosition(scene);
+
+  const auto &supports = scene.supports;
   for (const auto &[uuid, support] : supports) {
     (void)uuid;
     if (!IsLayerVisible(context.hiddenLayers, support.layer))
@@ -341,7 +346,15 @@ void Render(IRenderContext &renderContext, const RenderFrameContext &context) {
 
     const std::string functionValue =
         support.hoistFunction.empty() ? support.function : support.hoistFunction;
-    DrawHoistSymbol(renderContext, support, ResolveHoistFunctionColor(functionValue));
+
+    RgbColor color = ResolveHoistFunctionColor(functionValue);
+    const std::string positionName =
+        support.positionName.empty() ? std::string("Unassigned") : support.positionName;
+    auto missingIt = missingWeightByPosition.find(positionName);
+    if (missingIt != missingWeightByPosition.end() && missingIt->second)
+      color = {1.0f, 0.0f, 0.0f};
+
+    DrawHoistSymbol(renderContext, support, color);
   }
 }
 

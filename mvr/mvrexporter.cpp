@@ -523,6 +523,7 @@ int ComputeAbsoluteDmx(int universe1Based, int address1Based) {
 
 static bool ShouldExportSupportHoistInfo(const Support &support) {
   return support.capacityKg != 0.0f || support.weightKg != 0.0f ||
+         support.loadKg != 0.0f ||
          !support.hoistFunction.empty() || !support.motorName.empty() ||
          !support.motorManufacturer.empty() || !support.motorModel.empty() ||
          !support.motorFixtureUuid.empty() || !support.useMotorDefaults ||
@@ -565,6 +566,7 @@ static void AppendSupportHoistInfoUserData(tinyxml2::XMLDocument &doc,
 
   addNum("Capacity", support.capacityKg, "kg");
   addNum("Weight", support.weightKg, "kg");
+  addNum("Load", support.loadKg, "kg");
 
   const std::string hoistFunction = NormalizeHoistFunction(support.hoistFunction);
   if (!hoistFunction.empty()) {
