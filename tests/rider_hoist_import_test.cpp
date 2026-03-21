@@ -63,7 +63,7 @@ int main() {
     if (truss.positionName != "SCREEN")
       continue;
     foundScreenTruss = true;
-    assert(std::abs(truss.transform.o[1] - 3000.0f) < 0.001f);
+    assert(std::abs(truss.transform.o[1] - 5000.0f) < 0.001f);
     assert(std::abs(truss.transform.o[2] - 8500.0f) < 0.001f);
   }
   assert(foundScreenTruss);

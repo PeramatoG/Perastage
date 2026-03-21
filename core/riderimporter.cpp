@@ -817,12 +817,12 @@ bool RiderImporter::ImportText(const std::string &text) {
     }
     if (posName == "SCREEN") {
       if (lastLightingTrussPosY)
-        return *lastLightingTrussPosY - 1000.0f;
+        return *lastLightingTrussPosY + 1000.0f;
       for (int idx = 6; idx >= 1; --idx) {
         const float configuredPos =
             cfg.GetFloat("rider_lx" + std::to_string(idx) + "_pos");
         if (configuredPos != 0.0f || idx == 1)
-          return configuredPos * 1000.0f - 1000.0f;
+          return configuredPos * 1000.0f + 1000.0f;
       }
     }
     return 0.0f;
