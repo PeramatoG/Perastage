@@ -37,6 +37,21 @@
 
 namespace {
 
+bool IsErrorMessage(const wxString &message) {
+  const wxString lower = message.Lower();
+  return lower.Contains("error") || lower.Contains("failed");
+}
+
+void AppendStyledConsoleLine(wxTextCtrl *textCtrl, const wxString &line) {
+  if (!textCtrl)
+    return;
+
+  const wxColour messageColour =
+      IsErrorMessage(line) ? wxColour(255, 80, 80) : wxColour(0, 255, 0);
+  textCtrl->SetDefaultStyle(wxTextAttr(messageColour));
+  textCtrl->AppendText(line + "\n");
+}
+
 wxString ReadUtf8File(const wxString &path) {
   std::ifstream in(path.ToStdString());
   if (!in)
@@ -125,7 +140,8 @@ wxString BuildConsoleHelpContent() {
 ConsolePanel::ConsolePanel(wxWindow *parent) : wxPanel(parent, wxID_ANY) {
   wxBoxSizer *sizer = new wxBoxSizer(wxVERTICAL);
   m_textCtrl = new wxTextCtrl(this, wxID_ANY, "", wxDefaultPosition,
-                              wxDefaultSize, wxTE_MULTILINE | wxTE_READONLY);
+                              wxDefaultSize,
+                              wxTE_MULTILINE | wxTE_READONLY | wxTE_RICH2);
   m_textCtrl->SetBackgroundColour(*wxBLACK);
   m_textCtrl->SetForegroundColour(wxColour(0, 255, 0));
   wxFont font(10, wxFONTFAMILY_TELETYPE, wxFONTSTYLE_NORMAL,
@@ -205,12 +221,12 @@ void ConsolePanel::AppendMessage(const wxString &msg) {
     long endPos = m_textCtrl->GetLastPosition();
     if (m_lastLineStart < endPos)
       m_textCtrl->Remove(m_lastLineStart, endPos);
-    m_textCtrl->AppendText(combined + "\n");
+    AppendStyledConsoleLine(m_textCtrl, combined);
   } else {
     m_lastMessage = safeMsg;
     m_repeatCount = 1;
     m_lastLineStart = m_textCtrl->GetLastPosition();
-    m_textCtrl->AppendText(safeMsg + "\n");
+    AppendStyledConsoleLine(m_textCtrl, safeMsg);
   }
   if (m_autoScroll)
     m_textCtrl->ShowPosition(m_textCtrl->GetLastPosition());
