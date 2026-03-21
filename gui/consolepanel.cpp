@@ -37,17 +37,55 @@
 
 namespace {
 
-bool IsErrorMessage(const wxString &message) {
-  const wxString lower = message.Lower();
-  return lower.Contains("error") || lower.Contains("failed");
+enum class ConsoleMessageKind {
+  Default,
+  Error,
+  Warning,
+  Command,
+  Info,
+};
+
+ConsoleMessageKind DetectMessageKind(const wxString &message) {
+  if (!message.StartsWith("["))
+    return ConsoleMessageKind::Default;
+
+  const int closing = message.Find(']');
+  if (closing == wxNOT_FOUND || closing <= 1)
+    return ConsoleMessageKind::Default;
+
+  const wxString tag = message.Mid(1, closing - 1).Upper();
+  if (tag == "ERROR")
+    return ConsoleMessageKind::Error;
+  if (tag == "WARNING")
+    return ConsoleMessageKind::Warning;
+  if (tag == "CMD")
+    return ConsoleMessageKind::Command;
+  if (tag == "INFO")
+    return ConsoleMessageKind::Info;
+
+  return ConsoleMessageKind::Default;
+}
+
+wxColour ColorForMessageKind(ConsoleMessageKind kind) {
+  switch (kind) {
+  case ConsoleMessageKind::Error:
+    return wxColour(255, 80, 80);
+  case ConsoleMessageKind::Warning:
+    return wxColour(255, 180, 60);
+  case ConsoleMessageKind::Command:
+    return wxColour(235, 235, 235);
+  case ConsoleMessageKind::Info:
+  case ConsoleMessageKind::Default:
+  default:
+    return wxColour(0, 255, 0);
+  }
 }
 
 void AppendStyledConsoleLine(wxTextCtrl *textCtrl, const wxString &line) {
   if (!textCtrl)
     return;
 
-  const wxColour messageColour =
-      IsErrorMessage(line) ? wxColour(255, 80, 80) : wxColour(0, 255, 0);
+  const wxColour messageColour = ColorForMessageKind(DetectMessageKind(line));
   textCtrl->SetDefaultStyle(wxTextAttr(messageColour));
   textCtrl->AppendText(line + "\n");
 }
@@ -435,7 +473,7 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
   if (cmd.empty())
     return;
 
-  AppendMessage(cmdWx);
+  AppendMessage("[CMD] " + cmdWx);
 
   try {
     std::string lower = cmd;
@@ -453,14 +491,15 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
                                : cfg.GetSelectedTrusses());
       auto parseId = [&](const std::string &token, int &value) {
         if (token.empty()) {
-          AppendMessage("Invalid selection id: empty token");
+          AppendMessage("[ERROR] Invalid selection id: empty token");
           return false;
         }
         auto begin = token.data();
         auto end = token.data() + token.size();
         auto result = std::from_chars(begin, end, value);
         if (result.ec != std::errc{} || result.ptr != end) {
-          AppendMessage("Invalid selection id: " + wxString::FromUTF8(token));
+          AppendMessage("[ERROR] Invalid selection id: " +
+                        wxString::FromUTF8(token));
           return false;
         }
         return true;
@@ -820,14 +859,14 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
                                      tokens.begin() + j);
         handleSelection(false, true, sub);
       } else {
-        AppendMessage("Syntax error");
+        AppendMessage("[ERROR] Syntax error");
         return;
       }
       i = j;
     }
 
-    AppendMessage("OK");
+    AppendMessage("[INFO] OK");
   } catch (const std::exception &e) {
-    AppendMessage("Error: " + wxString::FromUTF8(e.what()));
+    AppendMessage("[ERROR] " + wxString::FromUTF8(e.what()));
   }
 }

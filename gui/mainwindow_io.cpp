@@ -163,7 +163,7 @@ void MainWindow::OnSave(wxCommandEvent &event) {
   else {
     ProjectUtils::SaveLastProjectPath(currentProjectPath);
     if (consolePanel)
-      consolePanel->AppendMessage("Saved " +
+      consolePanel->AppendMessage("[INFO] Saved " +
                                   wxString::FromUTF8(currentProjectPath));
   }
 }
@@ -199,7 +199,7 @@ void MainWindow::OnSaveAs(wxCommandEvent &event) {
   else {
     ProjectUtils::SaveLastProjectPath(currentProjectPath);
     if (consolePanel)
-      consolePanel->AppendMessage("Saved " +
+      consolePanel->AppendMessage("[INFO] Saved " +
                                   wxString::FromUTF8(currentProjectPath));
   }
   UpdateTitle();
@@ -223,11 +223,11 @@ void MainWindow::OnImportRider(wxCommandEvent &event) {
   if (!RiderImporter::Import(pathUtf8)) {
     wxMessageBox("Failed to import rider.", "Error", wxICON_ERROR);
     if (consolePanel)
-      consolePanel->AppendMessage("Failed to import " + dlg.GetPath());
+      consolePanel->AppendMessage("[ERROR] Failed to import " + dlg.GetPath());
   } else {
     wxMessageBox("Rider imported successfully.", "Success", wxICON_INFORMATION);
     if (consolePanel)
-      consolePanel->AppendMessage("Imported " + dlg.GetPath());
+      consolePanel->AppendMessage("[INFO] Imported " + dlg.GetPath());
     RefreshAfterSceneChange();
   }
 }
@@ -240,7 +240,7 @@ void MainWindow::OnImportRiderText(wxCommandEvent &WXUNUSED(event)) {
     return;
 
   if (consolePanel)
-    consolePanel->AppendMessage("Imported rider from text.");
+    consolePanel->AppendMessage("[INFO] Imported rider from text.");
   RefreshAfterSceneChange();
 }
 
@@ -267,12 +267,12 @@ void MainWindow::OnExportMVR(wxCommandEvent &event) {
   if (!exporter.ExportToFile(path.ToStdString())) {
     wxMessageBox("Failed to export MVR file.", "Error", wxICON_ERROR);
     if (consolePanel)
-      consolePanel->AppendMessage("Failed to export " + path);
+      consolePanel->AppendMessage("[ERROR] Failed to export " + path);
   } else {
     wxMessageBox("MVR file exported successfully.", "Success",
                  wxICON_INFORMATION);
     if (consolePanel)
-      consolePanel->AppendMessage("Exported " + path);
+      consolePanel->AppendMessage("[INFO] Exported " + path);
   }
 }
 
