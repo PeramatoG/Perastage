@@ -26,6 +26,7 @@
 #include <functional>
 #include <iomanip>
 #include <limits>
+#include <map>
 #include <numeric>
 #include <optional>
 #include <regex>
@@ -360,7 +361,11 @@ void AssignImportedHoistNames(std::vector<Support *> &supports) {
     }
   }
 
-  for (auto &[position, items] : lxByPosition) {
+  for (std::map<std::string, std::vector<Support *> >::iterator it =
+           lxByPosition.begin();
+       it != lxByPosition.end(); ++it) {
+    const std::string &position = it->first;
+    std::vector<Support *> &items = it->second;
     std::sort(items.begin(), items.end(), sortByX);
     for (size_t i = 0; i < items.size(); ++i) {
       Support *support = items[i];
