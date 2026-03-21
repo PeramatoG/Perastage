@@ -133,7 +133,7 @@ BuildMissingWeightMapByHangPosition(const MvrScene &scene) {
   for (const auto &[uuid, support] : scene.supports) {
     (void)uuid;
     const std::string pos = NormalizePosition(support.positionName);
-    if (support.loadKg <= 0.0f)
+    if (support.weightKg <= 0.0f)
       hasMissingWeightByPosition[pos] = true;
     else
       hasMissingWeightByPosition.try_emplace(pos, false);
@@ -160,7 +160,7 @@ BuildRoundedRiggingTotalByHangPosition(const MvrScene &scene) {
   }
   for (const auto &[uuid, support] : scene.supports) {
     (void)uuid;
-    accumulateWeight(support.positionName, support.loadKg);
+    accumulateWeight(support.positionName, support.weightKg);
   }
 
   for (auto &[positionName, total] : roundedTotals)

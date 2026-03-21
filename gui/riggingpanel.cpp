@@ -144,7 +144,7 @@ RiggingPanel::RiggingPanel(wxWindow *parent) : wxPanel(parent, wxID_ANY) {
   table->AppendTextColumn("Truss Weight (kg)", wxDATAVIEW_CELL_INERT,
                           wxCOL_WIDTH_AUTOSIZE, wxALIGN_RIGHT,
                           wxDATAVIEW_COL_RESIZABLE);
-  table->AppendTextColumn("Hoists Load (kg)", wxDATAVIEW_CELL_INERT,
+  table->AppendTextColumn("Hoists Weight (kg)", wxDATAVIEW_CELL_INERT,
                           wxCOL_WIDTH_AUTOSIZE, wxALIGN_RIGHT,
                           wxDATAVIEW_COL_RESIZABLE);
   table->AppendTextColumn("Total Weight (kg)", wxDATAVIEW_CELL_INERT,
@@ -219,8 +219,8 @@ void RiggingPanel::RefreshData() {
                                                    : support.positionName;
     auto &entry = rows[pos];
     entry.hoists++;
-    entry.hoistWeight += support.loadKg;
-    if (support.loadKg <= 0.0f)
+    entry.hoistWeight += support.weightKg;
+    if (support.weightKg <= 0.0f)
       entry.hasZeroWeightHoist = true;
   }
 
