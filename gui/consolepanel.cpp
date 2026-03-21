@@ -127,7 +127,7 @@ ConsolePanel::ConsolePanel(wxWindow *parent) : wxPanel(parent, wxID_ANY) {
   m_textCtrl = new wxTextCtrl(this, wxID_ANY, "", wxDefaultPosition,
                               wxDefaultSize, wxTE_MULTILINE | wxTE_READONLY);
   m_textCtrl->SetBackgroundColour(*wxBLACK);
-  m_textCtrl->SetForegroundColour(wxColour(200, 200, 200));
+  m_textCtrl->SetForegroundColour(wxColour(0, 255, 0));
   wxFont font(10, wxFONTFAMILY_TELETYPE, wxFONTSTYLE_NORMAL,
               wxFONTWEIGHT_NORMAL);
   m_textCtrl->SetFont(font);
