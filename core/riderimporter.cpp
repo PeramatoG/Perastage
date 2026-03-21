@@ -175,6 +175,34 @@ bool TryParseInt(std::string_view text, int &out) {
   return false;
 }
 
+bool TryParseScreenDimensionsMm(const std::string &text, float &widthMm,
+                                float &heightMm) {
+  static const std::regex kScreenDimensionRe(
+      "(\\d+(?:[\\.,]\\d+)?)\\s*(?:m|metros?)?\\s*[xX]\\s*(\\d+(?:[\\.,]\\d+)?)\\s*(?:m|metros?)?",
+      std::regex::icase);
+  std::smatch matches;
+  if (!std::regex_search(text, matches, kScreenDimensionRe))
+    return false;
+
+  auto parseMetricValue = [](std::string value, float &outMeters) {
+    std::replace(value.begin(), value.end(), ',', '.');
+    if (!TryParseFloat(value, outMeters))
+      return false;
+    return outMeters > 0.0f;
+  };
+
+  float widthMeters = 0.0f;
+  float heightMeters = 0.0f;
+  if (!parseMetricValue(matches[1].str(), widthMeters) ||
+      !parseMetricValue(matches[2].str(), heightMeters)) {
+    return false;
+  }
+
+  widthMm = widthMeters * 1000.0f;
+  heightMm = heightMeters * 1000.0f;
+  return true;
+}
+
 int ParseTrailingNumber(const std::string &text) {
   const size_t space = text.find_last_of(' ');
   if (space == std::string::npos || space + 1 >= text.size())
@@ -875,6 +903,14 @@ bool RiderImporter::ImportText(const std::string &text) {
   std::unordered_set<std::string> seenTypes;
   std::vector<std::string> importedTrussUuids;
   std::vector<std::string> importedFixtureUuids;
+  struct ScreenObjectRequest {
+    std::string name;
+    std::string layer;
+    std::string positionName;
+    float widthMm = 8000.0f;
+    float heightMm = 5000.0f;
+  };
+  std::vector<ScreenObjectRequest> screenObjectRequests;
   struct HoistRequest {
     int quantity = 0;
     float capacityKg = 0.0f;
@@ -894,6 +930,30 @@ bool RiderImporter::ImportText(const std::string &text) {
         if (!TryParseInt(pm[1].str(), quantity))
           quantity = baseQuantity;
         part = Trim(pm[2]);
+      }
+      const bool isScreenHang = NormalizeHangName(currentHang) == "SCREEN";
+      const bool isScreenDescription =
+          ContainsCaseInsensitive(part, "pantalla") ||
+          ContainsCaseInsensitive(part, "screen");
+      if (isScreenHang && isScreenDescription) {
+        float screenWidthMm = 8000.0f;
+        float screenHeightMm = 5000.0f;
+        TryParseScreenDimensionsMm(part, screenWidthMm, screenHeightMm);
+        int &counter = nameCounters[part];
+        for (int i = 0; i < quantity; ++i) {
+          ScreenObjectRequest request;
+          request.name = part + " " + std::to_string(++counter);
+          request.positionName = currentHang;
+          request.widthMm = screenWidthMm;
+          request.heightMm = screenHeightMm;
+          if (layerByType)
+            request.layer = "obj " + currentHang;
+          else
+            request.layer = currentHang.empty() ? defaultLayer
+                                                : "pos " + currentHang;
+          screenObjectRequests.push_back(std::move(request));
+        }
+        continue;
       }
       int &counter = nameCounters[part];
       for (int i = 0; i < quantity; ++i) {
@@ -1380,6 +1440,38 @@ bool RiderImporter::ImportText(const std::string &text) {
       info.startX = std::min(info.startX, start);
       info.endX = std::max(info.endX, end);
     }
+  }
+
+  constexpr float kScreenThicknessMm = 100.0f;
+  constexpr float kFallbackCubeMeters = 0.3f;
+  for (const ScreenObjectRequest &request : screenObjectRequests) {
+    TrussInfo info;
+    auto infoIt = trussInfo.find(request.positionName);
+    if (infoIt != trussInfo.end())
+      info = infoIt->second;
+
+    const float centerX = info.found ? (info.startX + info.endX) * 0.5f : 0.0f;
+    const float centerY =
+        info.found ? info.y : getHangPos(request.positionName);
+    const float trussZ =
+        info.found ? info.z : getHangHeight(request.positionName);
+    const float centerZ = trussZ - 200.0f - request.heightMm * 0.5f;
+
+    SceneObject screenObject;
+    screenObject.uuid = GenerateUuid();
+    screenObject.name = request.name;
+    screenObject.layer = request.layer;
+    screenObject.transform.u = {
+        request.widthMm / (kFallbackCubeMeters * 1000.0f), 0.0f, 0.0f};
+    screenObject.transform.v = {
+        0.0f, kScreenThicknessMm / (kFallbackCubeMeters * 1000.0f), 0.0f};
+    screenObject.transform.w = {
+        0.0f, 0.0f, request.heightMm / (kFallbackCubeMeters * 1000.0f)};
+    screenObject.transform.o[0] = centerX;
+    screenObject.transform.o[1] = centerY;
+    screenObject.transform.o[2] = centerZ;
+    scene.sceneObjects[screenObject.uuid] = screenObject;
+    addToLayer(screenObject.layer, screenObject.uuid);
   }
 
   auto placeHoist = [&](float x, float y, float z, float capacityKg,

@@ -120,6 +120,20 @@ For each fixture created:
 4. `positionName` is set from current hang.
 5. Initial hang coordinates are injected (`Y`, `Z`) and later refined by distribution logic.
 
+Special screen-object handling:
+
+- When current hang is `SCREEN` and a fixture line contains `screen` or
+  `pantalla`, the importer creates **scene objects** instead of fixtures.
+- Size parsing looks for `<width>x<height>` values in meters (accepted forms
+  include `8x5`, `8x5m`, `8m x 5m`).
+- Parsed screen dimensions are applied as:
+  - X (width) = parsed width
+  - Z (height) = parsed height
+  - Y (thickness) = fixed `0.1 m`
+- If no valid size is found, importer falls back to `8.0 x 5.0 m`.
+- Screen objects are centered on the associated screen truss span and placed so
+  their top edge sits `0.2 m` below the truss.
+
 ## Truss parsing rules
 
 Supported truss syntax includes:
