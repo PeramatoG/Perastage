@@ -82,7 +82,7 @@ FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
       auto *category = new wxChoice(this, wxID_ANY);
       const wxArrayString values = {
           "Unknown", "Hoist", "Smoke", "Laser", "Video", "FX", "Strobe",
-          "LED", "Conventional", "Wash", "Spot", "Beam", "Hybrid"};
+          "LED", "Blinder", "Conventional", "Wash", "Spot", "Beam", "Hybrid"};
       for (const auto &entry : values)
         category->Append(entry);
       int selection = category->FindString(v.GetString());

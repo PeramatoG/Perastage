@@ -591,7 +591,7 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
   if (col == 18) {
     const wxArrayString choices = {
         "Unknown", "Hoist", "Smoke", "Laser", "Video", "FX", "Strobe",
-        "LED", "Conventional", "Wash", "Spot", "Beam", "Hybrid"};
+        "LED", "Blinder", "Conventional", "Wash", "Spot", "Beam", "Hybrid"};
     wxSingleChoiceDialog dlg(this, "Select category", "Category", choices);
     if (!current.GetString().empty()) {
       int sel = choices.Index(current.GetString());

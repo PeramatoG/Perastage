@@ -293,6 +293,8 @@ std::string NormalizeCategory(const std::string &category) {
     return kStrobe;
   if (lowered == "led")
     return kLed;
+  if (lowered == "blinder" || lowered == "cegadora" || lowered == "molefay")
+    return kBlinder;
   if (lowered == "conventional")
     return kConventional;
   if (lowered == "wash")
@@ -350,6 +352,9 @@ InferenceResult InferFromGdtf(const std::string &gdtfPath) {
   }
 
   if (!hasMovement) {
+    if (HasNameKeyword(s.normalizedName, {"blinder", "cegadora", "molefay"}))
+      return {kBlinder, "blinder keyword fallback"};
+
     const bool looksLikeLedUnit =
         HasNameKeyword(s.normalizedName, {"pixel", "bar", "strip", "panel", "par", "blinder"});
     const bool looksLikeStrobeName =

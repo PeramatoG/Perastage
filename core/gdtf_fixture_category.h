@@ -12,6 +12,7 @@ inline constexpr const char *kVideo = "Video";
 inline constexpr const char *kFx = "FX";
 inline constexpr const char *kStrobe = "Strobe";
 inline constexpr const char *kLed = "LED";
+inline constexpr const char *kBlinder = "Blinder";
 inline constexpr const char *kConventional = "Conventional";
 inline constexpr const char *kWash = "Wash";
 inline constexpr const char *kSpot = "Spot";
