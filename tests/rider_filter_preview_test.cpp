@@ -18,7 +18,10 @@ int main() {
       "EFECTOS\n"
       "4 TOUR HAZER II + TURBINA\n"
       "GROUND LANES:\n"
-      "2 LED BAR\n";
+      "2 LED BAR\n"
+      "RIGGING Y ESTRUCTURAS\n"
+      "3 TRUSS 40X40 PRO 14m PARA PUENTES LX\n"
+      "1 TRUSS 40X40 PRO 14m PARA PUENTE PANTALLA\n";
 
   const std::string expected =
       "LX1\n"
@@ -30,7 +33,14 @@ int main() {
       "4 LITELEE B-EYE L10R\n"
       "4 TOUR HAZER II\n"
       "4 TURBINA\n"
-      "2 LED BAR";
+      "2 LED BAR\n"
+      "\n"
+      "\n"
+      "RIGGING\n"
+      "1 TRUSS 40X40 PRO 14m LX1\n"
+      "1 TRUSS 40X40 PRO 14m LX2\n"
+      "1 TRUSS 40X40 PRO 14m LX3\n"
+      "1 TRUSS 40X40 PRO 14m SCREEN";
 
   const std::string preview = RiderImporter::BuildFixtureFilterPreview(input);
   if (preview != expected) {

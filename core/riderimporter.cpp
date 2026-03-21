@@ -394,6 +394,23 @@ std::string RiderImporter::BuildFixtureFilterPreview(const std::string &text) {
   std::string currentHang;
   std::vector<std::string> hangOrder;
   std::unordered_map<std::string, std::vector<std::string>> fixturesByHang;
+  std::vector<std::string> riggingLines;
+
+  auto normalizeHangName = [](const std::string &raw) {
+    std::string hang = Trim(raw);
+    if (IsFloorAlias(hang))
+      return std::string("FLOOR");
+    std::transform(hang.begin(), hang.end(), hang.begin(), [](unsigned char c) {
+      return static_cast<char>(std::toupper(c));
+    });
+    if (hang.rfind("PUENTES ", 0) == 0)
+      hang = Trim(hang.substr(8));
+    else if (hang.rfind("PUENTE ", 0) == 0)
+      hang = Trim(hang.substr(7));
+    if (hang == "PANTALLA")
+      return std::string("SCREEN");
+    return hang;
+  };
 
   auto normalizeFixtureToken = [](const std::string &token) {
     std::string normalized = token;
@@ -424,6 +441,16 @@ std::string RiderImporter::BuildFixtureFilterPreview(const std::string &text) {
         hangOrder.push_back(hang);
       bucket.push_back(std::to_string(quantity) + " " + part);
     }
+  };
+
+  auto formatLengthM = [](float meters) {
+    std::ostringstream oss;
+    oss << std::fixed << std::setprecision(2) << meters;
+    std::string length = oss.str();
+    length.erase(length.find_last_not_of('0') + 1, std::string::npos);
+    if (!length.empty() && length.back() == '.')
+      length.pop_back();
+    return length;
   };
 
   while (std::getline(iss, line)) {
@@ -484,6 +511,65 @@ std::string RiderImporter::BuildFixtureFilterPreview(const std::string &text) {
       continue;
     }
 
+    if (std::regex_match(line, m, kTrussLineRe)) {
+      int quantity = 0;
+      if (!TryParseInt(m[1].str(), quantity) || quantity <= 0)
+        continue;
+      std::string model = Trim(m[2]);
+      float lengthM = 0.0f;
+      if (!TryParseFloat(m[3].str(), lengthM))
+        continue;
+      std::string hang = currentHang;
+      if (m.size() > 4 && m[4].matched) {
+        hang = m[4].str();
+      } else if (std::regex_match(model, kHangOnlyRe)) {
+        hang = model;
+        model.clear();
+      }
+      hang = normalizeHangName(hang);
+
+      // Do not keep floor trusses in filtered output because those are not
+      // useful for the target lighting rigging workflow.
+      if (hang == "FLOOR")
+        continue;
+
+      const std::string lenText = formatLengthM(lengthM) + "m";
+      auto buildLine = [&](const std::string &targetHang) {
+        std::string out = "1 TRUSS";
+        if (!model.empty())
+          out += " " + model;
+        out += " " + lenText;
+        if (!targetHang.empty())
+          out += " " + targetHang;
+        riggingLines.push_back(out);
+      };
+
+      if (hang == "LX") {
+        for (int i = 0; i < quantity; ++i)
+          buildLine("LX" + std::to_string(i + 1));
+      } else {
+        for (int i = 0; i < quantity; ++i)
+          buildLine(hang);
+      }
+      continue;
+    }
+
+    if (std::regex_search(line, m, kTrussRe)) {
+      float lengthM = 0.0f;
+      if (!TryParseFloat(m[1].str(), lengthM))
+        continue;
+      std::string hang = normalizeHangName(currentHang);
+      if (std::regex_search(line, hm, kHangFindRe))
+        hang = normalizeHangName(hm[1].str());
+      if (hang == "FLOOR")
+        continue;
+      std::string out = "1 TRUSS " + formatLengthM(lengthM) + "m";
+      if (!hang.empty())
+        out += " " + hang;
+      riggingLines.push_back(out);
+      continue;
+    }
+
     if (inFixtures && std::regex_match(line, m, kFixtureLineRe)) {
       int baseQuantity = 0;
       if (!TryParseInt(m[1].str(), baseQuantity))
@@ -511,6 +597,13 @@ std::string RiderImporter::BuildFixtureFilterPreview(const std::string &text) {
     for (const std::string &fixtureLine : it->second)
       preview << "\n" << fixtureLine;
     firstSection = false;
+  }
+  if (!riggingLines.empty()) {
+    if (!preview.str().empty())
+      preview << "\n\n";
+    preview << "RIGGING";
+    for (const std::string &rigLine : riggingLines)
+      preview << "\n" << rigLine;
   }
 
   return preview.str();
@@ -745,6 +838,10 @@ bool RiderImporter::ImportText(const std::string &text) {
         hang = Trim(hang.substr(8));
       else if (hang.rfind("PUENTE ", 0) == 0)
         hang = Trim(hang.substr(7));
+      if (hang == "PANTALLA")
+        hang = "SCREEN";
+      if (hang == "FLOOR")
+        continue;
 
       auto formatLength = [](float mm) {
         std::ostringstream oss;
@@ -862,6 +959,10 @@ bool RiderImporter::ImportText(const std::string &text) {
                          });
         }
       }
+      if (hang == "PANTALLA")
+        hang = "SCREEN";
+      if (hang == "FLOOR")
+        continue;
 
       auto formatLength = [](float mm) {
         std::ostringstream oss;

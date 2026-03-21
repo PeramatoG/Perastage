@@ -31,15 +31,19 @@ the filtered result before scene creation.
 Filter behavior:
 
 1. Keeps only lines interpreted as fixture entries in fixture sections.
-2. Groups output by detected hang (`LX1`, `LX2`, `FLOOR`, ...).
-3. Normalizes floor aliases to `FLOOR`:
+2. Keeps truss/rigging lines and emits a normalized `RIGGING` block.
+3. Groups fixture output by detected hang (`LX1`, `LX2`, `FLOOR`, ...).
+4. Normalizes floor aliases to `FLOOR`:
    - `floor`
    - `efecto` / `efectos`
    - `calle a suelo` / `calles a suelo`
    - `ground lane` / `ground lanes`
-4. Expands `+` compound lines into individual fixture lines.
-5. Supports quantity-only lines (`N` followed by description on next line).
-6. Removes parenthesized notes from fixture tokens to reduce rider noise.
+5. Truss lines using `PUENTES LX` are expanded as `LX1`, `LX2`, `LX3`, ...
+6. Truss hang alias `PANTALLA` is normalized to `SCREEN`.
+7. Truss lines normalized to `FLOOR` are skipped in filtered output/import.
+8. Expands `+` compound lines into individual fixture lines.
+9. Supports quantity-only lines (`N` followed by description on next line).
+10. Removes parenthesized notes from fixture tokens to reduce rider noise.
 
 After applying the filter, users can manually adjust the filtered text and then
 press **Create**.
