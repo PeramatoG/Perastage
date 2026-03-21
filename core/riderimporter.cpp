@@ -40,7 +40,6 @@
 
 #include "autopatcher.h"
 #include "configmanager.h"
-#include "dummyprofilelibrary.h"
 #include "fixture.h"
 #include "gdtfdictionary.h"
 #include "gdtfloader.h"
@@ -290,22 +289,11 @@ std::string BuildHoistName(float capacityKg, const std::string &positionName) {
 }
 
 std::string PickDummyHoistProfileId(float capacityKg) {
-  const auto profiles = DummyProfileLibrary::LoadProfiles();
-  if (profiles.empty())
-    return {};
-
-  std::string profileId = profiles.front().id;
-  float bestDelta = std::numeric_limits<float>::max();
-  for (const DummyHoistProfile &profile : profiles) {
-    if (profile.id.empty() || profile.capacityKg <= 0.0f)
-      continue;
-    const float delta = std::abs(profile.capacityKg - capacityKg);
-    if (delta < bestDelta) {
-      bestDelta = delta;
-      profileId = profile.id;
-    }
-  }
-  return profileId;
+  if (capacityKg >= 1500.0f)
+    return "dummy_standard_2000kg";
+  if (capacityKg >= 750.0f)
+    return "dummy_standard_1000kg";
+  return "dummy_standard_500kg";
 }
 
 // Performs a case-insensitive substring search without lowercasing the entire
@@ -1285,24 +1273,11 @@ bool RiderImporter::ImportText(const std::string &text) {
     support.hoistFunctionSource = "Manual";
     support.name = BuildHoistName(capacityKg, positionName);
     support.dummyProfileId = PickDummyHoistProfileId(capacityKg);
-
-    if (auto profile = DummyProfileLibrary::FindById(support.dummyProfileId)) {
-      support.dummyPreset = profile->displayName;
-      support.motorName = profile->motorName;
-      support.motorManufacturer = profile->motorManufacturer;
-      support.motorModel = profile->motorModel;
-      support.weightKg = profile->weightKg;
-      support.motorNameSource = "Inherited";
-      support.motorManufacturerSource = "Inherited";
-      support.motorModelSource = "Inherited";
-      support.weightSource = "Inherited";
-    } else {
-      support.motorName = support.name;
-      support.motorNameSource = "Manual";
-      support.motorManufacturerSource = "Manual";
-      support.motorModelSource = "Manual";
-      support.weightSource = "Manual";
-    }
+    support.motorName = support.name;
+    support.motorNameSource = "Manual";
+    support.motorManufacturerSource = "Manual";
+    support.motorModelSource = "Manual";
+    support.weightSource = "Manual";
 
     std::string layerName = defaultLayer;
     if (layerByType && !positionName.empty())

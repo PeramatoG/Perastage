@@ -175,8 +175,8 @@ Created hoists:
 
 - Are stored as `Support` objects.
 - Use capacity in kilograms.
-- Are assigned dummy hoist profiles from `library/hoists/dummy_profiles.json`
-  choosing the closest capacity profile.
+- Are assigned one of the default dummy hoist profile ids by capacity range:
+  `dummy_standard_500kg`, `dummy_standard_1000kg`, or `dummy_standard_2000kg`.
 - Use `Lighting` as default hoist function.
 
 ## Layer assignment rules
