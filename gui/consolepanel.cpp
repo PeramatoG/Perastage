@@ -37,6 +37,59 @@
 
 namespace {
 
+enum class ConsoleMessageKind {
+  Default,
+  Error,
+  Warning,
+  Command,
+  Info,
+};
+
+ConsoleMessageKind DetectMessageKind(const wxString &message) {
+  if (!message.StartsWith("["))
+    return ConsoleMessageKind::Default;
+
+  const int closing = message.Find(']');
+  if (closing == wxNOT_FOUND || closing <= 1)
+    return ConsoleMessageKind::Default;
+
+  const wxString tag = message.Mid(1, closing - 1).Upper();
+  if (tag == "ERROR")
+    return ConsoleMessageKind::Error;
+  if (tag == "WARNING")
+    return ConsoleMessageKind::Warning;
+  if (tag == "CMD")
+    return ConsoleMessageKind::Command;
+  if (tag == "INFO")
+    return ConsoleMessageKind::Info;
+
+  return ConsoleMessageKind::Default;
+}
+
+wxColour ColorForMessageKind(ConsoleMessageKind kind) {
+  switch (kind) {
+  case ConsoleMessageKind::Error:
+    return wxColour(255, 80, 80);
+  case ConsoleMessageKind::Warning:
+    return wxColour(255, 180, 60);
+  case ConsoleMessageKind::Command:
+    return wxColour(235, 235, 235);
+  case ConsoleMessageKind::Info:
+  case ConsoleMessageKind::Default:
+  default:
+    return wxColour(0, 255, 0);
+  }
+}
+
+void AppendStyledConsoleLine(wxTextCtrl *textCtrl, const wxString &line) {
+  if (!textCtrl)
+    return;
+
+  const wxColour messageColour = ColorForMessageKind(DetectMessageKind(line));
+  textCtrl->SetDefaultStyle(wxTextAttr(messageColour));
+  textCtrl->AppendText(line + "\n");
+}
+
 wxString ReadUtf8File(const wxString &path) {
   std::ifstream in(path.ToStdString());
   if (!in)
@@ -125,7 +178,8 @@ wxString BuildConsoleHelpContent() {
 ConsolePanel::ConsolePanel(wxWindow *parent) : wxPanel(parent, wxID_ANY) {
   wxBoxSizer *sizer = new wxBoxSizer(wxVERTICAL);
   m_textCtrl = new wxTextCtrl(this, wxID_ANY, "", wxDefaultPosition,
-                              wxDefaultSize, wxTE_MULTILINE | wxTE_READONLY);
+                              wxDefaultSize,
+                              wxTE_MULTILINE | wxTE_READONLY | wxTE_RICH2);
   m_textCtrl->SetBackgroundColour(*wxBLACK);
   m_textCtrl->SetForegroundColour(wxColour(0, 255, 0));
   wxFont font(10, wxFONTFAMILY_TELETYPE, wxFONTSTYLE_NORMAL,
@@ -205,12 +259,12 @@ void ConsolePanel::AppendMessage(const wxString &msg) {
     long endPos = m_textCtrl->GetLastPosition();
     if (m_lastLineStart < endPos)
       m_textCtrl->Remove(m_lastLineStart, endPos);
-    m_textCtrl->AppendText(combined + "\n");
+    AppendStyledConsoleLine(m_textCtrl, combined);
   } else {
     m_lastMessage = safeMsg;
     m_repeatCount = 1;
     m_lastLineStart = m_textCtrl->GetLastPosition();
-    m_textCtrl->AppendText(safeMsg + "\n");
+    AppendStyledConsoleLine(m_textCtrl, safeMsg);
   }
   if (m_autoScroll)
     m_textCtrl->ShowPosition(m_textCtrl->GetLastPosition());
@@ -419,7 +473,7 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
   if (cmd.empty())
     return;
 
-  AppendMessage(cmdWx);
+  AppendMessage("[CMD] " + cmdWx);
 
   try {
     std::string lower = cmd;
@@ -437,14 +491,15 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
                                : cfg.GetSelectedTrusses());
       auto parseId = [&](const std::string &token, int &value) {
         if (token.empty()) {
-          AppendMessage("Invalid selection id: empty token");
+          AppendMessage("[ERROR] Invalid selection id: empty token");
           return false;
         }
         auto begin = token.data();
         auto end = token.data() + token.size();
         auto result = std::from_chars(begin, end, value);
         if (result.ec != std::errc{} || result.ptr != end) {
-          AppendMessage("Invalid selection id: " + wxString::FromUTF8(token));
+          AppendMessage("[ERROR] Invalid selection id: " +
+                        wxString::FromUTF8(token));
           return false;
         }
         return true;
@@ -804,14 +859,14 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
                                      tokens.begin() + j);
         handleSelection(false, true, sub);
       } else {
-        AppendMessage("Syntax error");
+        AppendMessage("[ERROR] Syntax error");
         return;
       }
       i = j;
     }
 
-    AppendMessage("OK");
+    AppendMessage("[INFO] OK");
   } catch (const std::exception &e) {
-    AppendMessage("Error: " + wxString::FromUTF8(e.what()));
+    AppendMessage("[ERROR] " + wxString::FromUTF8(e.what()));
   }
 }

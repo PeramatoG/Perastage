@@ -451,28 +451,28 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
   std::string cookieFile = WxToUtf8(cookieFileWx);
   long httpCode = 0;
   if (consolePanel)
-    consolePanel->AppendMessage("Logging into GDTF Share using libcurl");
+    consolePanel->AppendMessage("[INFO] Logging into GDTF Share using libcurl");
   if (!GdtfLogin(WxToUtf8(username), WxToUtf8(password),
                  cookieFile, httpCode)) {
     wxMessageBox("Failed to connect to GDTF Share.", "Login Error",
                  wxOK | wxICON_ERROR);
     if (consolePanel)
-      consolePanel->AppendMessage("Login connection failed");
+      consolePanel->AppendMessage("[ERROR] Login connection failed");
     return;
   }
   if (consolePanel)
-    consolePanel->AppendMessage(
-        wxString::Format("Login HTTP code: %ld", httpCode));
+    consolePanel->AppendMessage(wxString::Format("[INFO] Login HTTP code: %ld",
+                                                 httpCode));
   if (httpCode != 200) {
     wxMessageBox("Login failed.", "Login Error", wxOK | wxICON_ERROR);
     if (consolePanel)
-      consolePanel->AppendMessage("Login failed with code " +
+      consolePanel->AppendMessage("[ERROR] Login failed with code " +
                                   wxString::Format("%ld", httpCode));
     return;
   }
 
   if (consolePanel)
-    consolePanel->AppendMessage("Retrieving fixture list via libcurl");
+    consolePanel->AppendMessage("[INFO] Retrieving fixture list via libcurl");
   std::string listData;
   if (!GdtfGetList(cookieFile, listData)) {
     wxMessageBox("Failed to retrieve fixture list.", "Error",
@@ -481,8 +481,8 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
   }
 
   if (consolePanel)
-    consolePanel->AppendMessage(
-        wxString::Format("Retrieved list size: %zu bytes", listData.size()));
+    consolePanel->AppendMessage(wxString::Format(
+        "[INFO] Retrieved list size: %zu bytes", listData.size()));
 
   GetDefaultGuiConfigServices().LegacyConfigManager().SetValue("gdtf_fixture_list", listData);
 
@@ -500,13 +500,14 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
       wxString dest = saveDlg.GetPath();
       if (!rid.empty()) {
         if (consolePanel)
-          consolePanel->AppendMessage("Downloading via libcurl rid=" + rid);
+          consolePanel->AppendMessage("[INFO] Downloading via libcurl rid=" +
+                                      rid);
         long dlCode = 0;
         bool ok = GdtfDownload(WxToUtf8(rid),
                                WxToUtf8(dest), cookieFile, dlCode);
         if (consolePanel)
           consolePanel->AppendMessage(
-              wxString::Format("Download HTTP code: %ld", dlCode));
+              wxString::Format("[INFO] Download HTTP code: %ld", dlCode));
         if (ok && dlCode == 200)
           wxMessageBox("GDTF downloaded.", "Success",
                        wxOK | wxICON_INFORMATION);
