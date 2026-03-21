@@ -199,10 +199,11 @@ Placement defaults:
    - Placed 2 m behind `LX1` on `Y`.
 3. **LX hoists (`PUENTES LX`)**
    - Quantity is distributed across detected `LX*` trusses (`LX1`, `LX2`, ...).
-   - Each per-LX set is placed on that truss at the same `Y/Z`, using a 2 m
+   - Each per-LX set is placed on that truss at the same `Y/Z`, using a 1 m
      margin from truss ends in `X`.
 4. **SCREEN hoists**
-   - Distributed equidistantly along the `SCREEN` truss span.
+   - Distributed using internal truss divisions (for `N` hoists, truss span is
+     split into `N+1` equal parts and hoists are placed on internal cuts).
 
 Created hoists:
 
@@ -214,6 +215,12 @@ Created hoists:
   - `PA`, `P.A.`, `SIDEFILL`, `OUTFILL` => `Audio`
   - `SCREEN`, `LEDSCREEN`, `VIDEO` => `Video`
   - Any other target => `Lighting`
+- Hoists are assigned to rig layers by function:
+   - `rig Audio`, `rig Video`, `rig Lighting`, etc.
+   - Missing rig layers are created automatically.
+   - Newly created rig layers receive the same color used by hoist symbols:
+     `Audio=#FF0000`, `Video=#00FF00`, `Scenic=#0000FF`, `Extra=#8F00FF`,
+     `Other=#C7A3C7`, `Lighting=#FF00FF`.
 
 ## Layer assignment rules
 
@@ -225,6 +232,7 @@ Driven by config key `rider_layer_mode`:
 - `type` mode:
   - Fixtures: `fix <fixture type>`
   - Trusses: `truss <hang>`
+- Hoists (both modes): `rig <hoist function>`
 
 Missing/empty names fall back to the default scene layer.
 
