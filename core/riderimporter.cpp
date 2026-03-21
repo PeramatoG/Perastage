@@ -910,7 +910,8 @@ bool RiderImporter::ImportText(const std::string &text) {
           scene.layers.emplace(l.uuid, std::move(l));
       layerPtr = &insertedIt->second;
       layerLookup.emplace(layerPtr->name, layerPtr);
-    } else if (!layerColor.empty() && layerPtr->color.empty()) {
+    }
+    if (!layerColor.empty() && layerPtr->color.empty()) {
       layerPtr->color = layerColor;
     }
     layerPtr->childUUIDs.push_back(uid);
