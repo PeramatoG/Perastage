@@ -32,18 +32,22 @@ Filter behavior:
 
 1. Keeps only lines interpreted as fixture entries in fixture sections.
 2. Keeps truss/rigging lines and emits a normalized `RIGGING` block.
-3. Groups fixture output by detected hang (`LX1`, `LX2`, `FLOOR`, ...).
-4. Normalizes floor aliases to `FLOOR`:
+3. Keeps motor/hoist lines found in rigging and normalizes them as
+   `N MOTOR <capacity>Kg PARA <hang>`.
+4. Groups fixture output by detected hang (`LX1`, `LX2`, `FLOOR`, ...).
+5. Normalizes floor aliases to `FLOOR`:
    - `floor`
    - `efecto` / `efectos`
    - `calle a suelo` / `calles a suelo`
    - `ground lane` / `ground lanes`
-5. Truss lines using `PUENTES LX` are expanded as `LX1`, `LX2`, `LX3`, ...
-6. Truss hang alias `PANTALLA` is normalized to `SCREEN`.
-7. Truss lines normalized to `FLOOR` are skipped in filtered output/import.
-8. Expands `+` compound lines into individual fixture lines.
-9. Supports quantity-only lines (`N` followed by description on next line).
-10. Removes parenthesized notes from fixture tokens to reduce rider noise.
+6. Truss lines using `PUENTES LX` are expanded as `LX1`, `LX2`, `LX3`, ...
+7. Hoist lines using `PUENTES LX` are expanded and distributed over detected
+   `LX*` targets in the same filtered rigging block.
+8. Truss hang alias `PANTALLA` is normalized to `SCREEN`.
+9. Truss lines normalized to `FLOOR` are skipped in filtered output/import.
+10. Expands `+` compound lines into individual fixture lines.
+11. Supports quantity-only lines (`N` followed by description on next line).
+12. Removes parenthesized notes from fixture tokens to reduce rider noise.
 
 After applying the filter, users can manually adjust the filtered text and then
 press **Create**.
@@ -132,6 +136,55 @@ Key truss behaviors:
 Special case:
 
 - If hang is exactly `LX`, quantity `N` expands to `LX1..LXN`.
+
+## Hoist (motor) parsing and placement rules
+
+Supported hoist syntax includes:
+
+- `N MOTOR <capacity><unit> [ ... ] PARA <hang>`
+- `N HOIST <capacity><unit> [ ... ] PARA <hang>`
+- Optional list bullets (`-` or `*`) before quantity are accepted.
+
+Capacity parsing:
+
+1. Recognizes case-insensitive mass units and compact forms (`500Kg`, `2TO`, `1 t`).
+2. Accepted kilogram aliases: `kg`, `kgs`, `kilo`, `kilogramos`.
+3. Accepted ton aliases: `t`, `to`, `tn`, `ton`, `tons`, `toneladas`.
+4. Ton values are converted to kilograms (`2TO` => `2000 kg`).
+
+Hang normalization for hoists:
+
+- `PA`, `P.A`, `P.A.` => `PA` group behavior (position name is stored as `P.A.`).
+- `SIDE FILL` => `SIDEFILL`.
+- `PANTALLA` => `SCREEN`.
+- `PUENTE(S) LX` => `LX` distribution mode.
+
+Placement defaults:
+
+1. **PA/P.A. hoists**
+   - Split into left/right groups around `LX1`.
+   - Anchored 1 m outside `LX1` truss span (`X`), same `Y/Z` as `LX1`.
+   - Group internals use 1 m spacing; if needed, additional items form a grid.
+2. **SIDEFILL hoists**
+   - Split left/right around `LX1` truss span with 1 m outside offset in `X`.
+   - Placed 2 m behind `LX1` on `Y`.
+3. **LX hoists (`PUENTES LX`)**
+   - Quantity is distributed across detected `LX*` trusses (`LX1`, `LX2`, ...).
+   - Each per-LX set is placed on that truss at the same `Y/Z`, using a 2 m
+     margin from truss ends in `X`.
+4. **SCREEN hoists**
+   - Distributed equidistantly along the `SCREEN` truss span.
+
+Created hoists:
+
+- Are stored as `Support` objects.
+- Use capacity in kilograms.
+- Are assigned one of the default dummy hoist profile ids by capacity range:
+  `dummy_standard_500kg`, `dummy_standard_1000kg`, or `dummy_standard_2000kg`.
+- Hoist function defaults by target:
+  - `PA`, `P.A.`, `SIDEFILL`, `OUTFILL` => `Audio`
+  - `SCREEN`, `LEDSCREEN`, `VIDEO` => `Video`
+  - Any other target => `Lighting`
 
 ## Layer assignment rules
 
