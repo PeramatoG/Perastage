@@ -26,6 +26,9 @@ public:
     static bool Import(const std::string& path);
     // Load rider file into text. Returns empty string on failure.
     static std::string LoadText(const std::string& path);
+    // Build a filtered text preview that keeps only fixture lines that would be
+    // considered during text-to-scene import.
+    static std::string BuildFixtureFilterPreview(const std::string& text);
     // Import from raw rider text. Returns true on success.
     static bool ImportText(const std::string& text);
 };

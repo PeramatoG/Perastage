@@ -20,23 +20,13 @@
 #include <wx/dialog.h>
 
 class wxTextCtrl;
-class wxStaticText;
 
-class RiderTextDialog : public wxDialog {
+class RiderTextPreviewDialog : public wxDialog {
 public:
-  explicit RiderTextDialog(wxWindow *parent,
-                           const wxString &initialText = wxEmptyString,
-                           const wxString &initialSource = wxEmptyString);
+  RiderTextPreviewDialog(wxWindow *parent, const wxString &previewText);
+
+  wxString GetPreviewText() const;
 
 private:
-  void OnLoadFromFile(wxCommandEvent &event);
-  void OnLoadExample(wxCommandEvent &event);
-  void OnPreviewFilter(wxCommandEvent &event);
-  void OnApply(wxCommandEvent &event);
-
-  wxTextCtrl *textCtrl = nullptr;
-  wxStaticText *sourceText = nullptr;
-  wxString sourceLabel;
-
-  wxDECLARE_EVENT_TABLE();
+  wxTextCtrl *previewCtrl = nullptr;
 };

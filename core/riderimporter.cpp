@@ -367,6 +367,142 @@ bool RiderImporter::Import(const std::string &path) {
   return ImportText(text);
 }
 
+std::string RiderImporter::BuildFixtureFilterPreview(const std::string &text) {
+  if (text.empty())
+    return {};
+
+  std::istringstream iss(text);
+  std::string line;
+  bool inFixtures = false;
+  bool inRigging = false;
+  bool inControl = false;
+  bool havePending = false;
+  int pendingQuantity = 0;
+  std::string currentHang;
+  std::vector<std::string> hangOrder;
+  std::unordered_map<std::string, std::vector<std::string>> fixturesByHang;
+
+  auto normalizeFixtureToken = [](const std::string &token) {
+    std::string normalized = token;
+    normalized = std::regex_replace(normalized, std::regex("\\([^\\)]*\\)"), "");
+    normalized = std::regex_replace(normalized, std::regex("\\s*[-]\\s*"), "-");
+    normalized = std::regex_replace(normalized, std::regex("\\s+"), " ");
+    return Trim(normalized);
+  };
+
+  auto appendFixtureLines = [&](int baseQuantity, const std::string &descRaw) {
+    const std::string hang = currentHang.empty() ? "UNASSIGNED" : currentHang;
+    auto parts = SplitPlus(descRaw);
+    for (const auto &partRaw : parts) {
+      std::smatch pm;
+      std::string part = partRaw;
+      int quantity = baseQuantity;
+      if (std::regex_match(partRaw, pm, kFixtureLineRe)) {
+        if (!TryParseInt(pm[1].str(), quantity))
+          quantity = baseQuantity;
+        part = Trim(pm[2]);
+      }
+      part = normalizeFixtureToken(part);
+      if (part.empty())
+        continue;
+
+      auto &bucket = fixturesByHang[hang];
+      if (bucket.empty())
+        hangOrder.push_back(hang);
+      bucket.push_back(std::to_string(quantity) + " " + part);
+    }
+  };
+
+  while (std::getline(iss, line)) {
+    line.erase(std::remove(line.begin(), line.end(), '\r'), line.end());
+    if (ContainsCaseInsensitive(line, "sonido") ||
+        ContainsCaseInsensitive(line, "audio") ||
+        ContainsCaseInsensitive(line, "control de p.a.") ||
+        ContainsCaseInsensitive(line, "monitores") ||
+        ContainsCaseInsensitive(line, "microfon") ||
+        ContainsCaseInsensitive(line, "video") ||
+        ContainsCaseInsensitive(line, "realizacion") ||
+        ContainsCaseInsensitive(line, "control")) {
+      inFixtures = false;
+      inRigging = false;
+      inControl = ContainsCaseInsensitive(line, "control");
+      havePending = false;
+      continue;
+    }
+    if (ContainsCaseInsensitive(line, "rigging")) {
+      inFixtures = false;
+      inRigging = true;
+      inControl = false;
+      havePending = false;
+      continue;
+    }
+    if (!inControl && (ContainsCaseInsensitive(line, "ilumin") ||
+                       ContainsCaseInsensitive(line, "robotica") ||
+                       ContainsCaseInsensitive(line, "convencion"))) {
+      inFixtures = true;
+      inRigging = false;
+      havePending = false;
+      continue;
+    }
+
+    std::smatch m;
+    std::smatch hm;
+    if (std::regex_match(line, hm, kHangLineRe)) {
+      havePending = false;
+      std::string captured = hm[1];
+      if (ContainsCaseInsensitive(captured, "efecto")) {
+        currentHang = "FLOOR";
+      } else {
+        currentHang = captured;
+        std::transform(
+            currentHang.begin(), currentHang.end(), currentHang.begin(),
+            [](unsigned char c) { return static_cast<char>(std::toupper(c)); });
+      }
+      if (!inRigging && !inFixtures)
+        inFixtures = true;
+      continue;
+    }
+
+    if (havePending && inFixtures) {
+      const std::string desc = Trim(line);
+      if (!desc.empty())
+        appendFixtureLines(pendingQuantity, desc);
+      havePending = false;
+      continue;
+    }
+
+    if (inFixtures && std::regex_match(line, m, kFixtureLineRe)) {
+      int baseQuantity = 0;
+      if (!TryParseInt(m[1].str(), baseQuantity))
+        continue;
+      appendFixtureLines(baseQuantity, Trim(m[2]));
+      continue;
+    }
+
+    if (inFixtures && std::regex_match(line, m, kQuantityOnlyRe)) {
+      if (!TryParseInt(m[1].str(), pendingQuantity))
+        continue;
+      havePending = true;
+    }
+  }
+
+  std::ostringstream preview;
+  bool firstSection = true;
+  for (const std::string &hang : hangOrder) {
+    auto it = fixturesByHang.find(hang);
+    if (it == fixturesByHang.end() || it->second.empty())
+      continue;
+    if (!firstSection)
+      preview << "\n\n";
+    preview << hang;
+    for (const std::string &fixtureLine : it->second)
+      preview << "\n" << fixtureLine;
+    firstSection = false;
+  }
+
+  return preview.str();
+}
+
 bool RiderImporter::ImportText(const std::string &text) {
   if (text.empty())
     return false;

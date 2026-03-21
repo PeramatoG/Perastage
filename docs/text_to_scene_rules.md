@@ -20,6 +20,24 @@ Implementation entry points:
 - `RiderImporter::Import(path)`
 - `RiderImporter::ImportText(text)`
 - `RiderImporter::LoadText(path)`
+- `RiderImporter::BuildFixtureFilterPreview(text)` (UI preview before apply)
+
+## Filter preview in "Create from text"
+
+The dialog includes a **Preview filter** button that runs the same line
+selection rules used by fixture parsing, without creating scene objects yet.
+
+Preview behavior:
+
+1. Keeps only lines interpreted as fixture entries in fixture sections.
+2. Groups output by detected hang (`LX1`, `LX2`, `FLOOR`, ...).
+3. Normalizes `efecto(s)` hang names to `FLOOR`.
+4. Expands `+` compound lines into individual fixture lines.
+5. Supports quantity-only lines (`N` followed by description on next line).
+6. Removes parenthesized notes from fixture tokens to reduce rider noise.
+
+From the preview modal, the user can copy the filtered result back into the
+main editor and manually adjust it before pressing **Apply**.
 
 ## Input normalization
 

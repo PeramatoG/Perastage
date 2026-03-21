@@ -54,6 +54,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/mainwindow_print.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/preferencesdialog.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/ridertextdialog.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/ridertextpreviewdialog.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/riggingpanel.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/sceneobjecttablepanel.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/selectfixturetypedialog.cpp
