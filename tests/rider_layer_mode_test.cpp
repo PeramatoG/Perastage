@@ -23,6 +23,7 @@
 #include "configmanager.h"
 #include "riderimporter.h"
 #include "fixture.h"
+#include "support.h"
 #include "truss.h"
 
 int main(int argc, char **argv) {
@@ -48,6 +49,10 @@ int main(int argc, char **argv) {
     if (!t.positionName.empty())
       assert(t.layer == std::string("pos ") + t.positionName);
   }
+  for (const auto &p : scenePos.supports) {
+    const Support &s = p.second;
+    assert(s.layer == std::string("rig ") + NormalizeHoistFunction(s.hoistFunction));
+  }
 
   // Layers by fixture type (trusses still by position)
   cfg.Reset();
@@ -62,6 +67,10 @@ int main(int argc, char **argv) {
     const Truss &t = p.second;
     if (!t.positionName.empty())
       assert(t.layer == std::string("truss ") + t.positionName);
+  }
+  for (const auto &p : sceneType.supports) {
+    const Support &s = p.second;
+    assert(s.layer == std::string("rig ") + NormalizeHoistFunction(s.hoistFunction));
   }
   return 0;
 }

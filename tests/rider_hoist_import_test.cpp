@@ -1,7 +1,9 @@
 #include <cassert>
 #include <cmath>
 #include <map>
+#include <algorithm>
 #include <string>
+#include <vector>
 #include <wx/init.h>
 
 #include "configmanager.h"
@@ -32,12 +34,16 @@ int main() {
   std::map<std::string, int> countByPosition;
   std::map<std::string, int> countByCapacity;
   std::map<std::string, int> countByFunction;
+  std::map<std::string, int> countByLayer;
+  std::map<std::string, std::vector<float>> xByPosition;
   for (const auto &[uuid, support] : scene.supports) {
     (void)uuid;
     countByPosition[support.positionName]++;
     const int cap = static_cast<int>(support.capacityKg + 0.5f);
     countByCapacity[std::to_string(cap)]++;
     countByFunction[support.positionName + ":" + support.hoistFunction]++;
+    countByLayer[support.layer]++;
+    xByPosition[support.positionName].push_back(support.transform.o[0]);
   }
 
   assert(countByPosition["P.A."] == 4);
@@ -56,6 +62,35 @@ int main() {
   assert(countByFunction["LX1:Lighting"] == 2);
   assert(countByFunction["LX2:Lighting"] == 2);
   assert(countByFunction["LX3:Lighting"] == 2);
+  assert(countByLayer["rig Audio"] == 6);
+  assert(countByLayer["rig Video"] == 4);
+  assert(countByLayer["rig Lighting"] == 6);
+  bool audioLayerColorOk = false;
+  bool videoLayerColorOk = false;
+  bool lightingLayerColorOk = false;
+  for (const auto &[uuid, layer] : scene.layers) {
+    (void)uuid;
+    if (layer.name == "rig Audio")
+      audioLayerColorOk = (layer.color == "#FF0000");
+    if (layer.name == "rig Video")
+      videoLayerColorOk = (layer.color == "#00FF00");
+    if (layer.name == "rig Lighting")
+      lightingLayerColorOk = (layer.color == "#FF00FF");
+  }
+  assert(audioLayerColorOk);
+  assert(videoLayerColorOk);
+  assert(lightingLayerColorOk);
+
+  for (auto &[positionName, values] : xByPosition) {
+    (void)positionName;
+    std::sort(values.begin(), values.end());
+  }
+  assert(std::abs(xByPosition["LX1"][0] - (-6000.0f)) < 0.001f);
+  assert(std::abs(xByPosition["LX1"][1] - 6000.0f) < 0.001f);
+  assert(std::abs(xByPosition["SCREEN"][0] - (-4200.0f)) < 0.001f);
+  assert(std::abs(xByPosition["SCREEN"][1] - (-1400.0f)) < 0.001f);
+  assert(std::abs(xByPosition["SCREEN"][2] - 1400.0f) < 0.001f);
+  assert(std::abs(xByPosition["SCREEN"][3] - 4200.0f) < 0.001f);
 
   bool foundScreenTruss = false;
   for (const auto &[uuid, truss] : scene.trusses) {

@@ -377,6 +377,21 @@ std::string ResolveHoistFunctionForTarget(const std::string &target) {
   return "Lighting";
 }
 
+std::string ResolveHoistLayerColor(const std::string &hoistFunctionRaw) {
+  const std::string hoistFunction = NormalizeHoistFunction(hoistFunctionRaw);
+  if (hoistFunction == "Audio")
+    return "#FF0000";
+  if (hoistFunction == "Video")
+    return "#00FF00";
+  if (hoistFunction == "Scenic")
+    return "#0000FF";
+  if (hoistFunction == "Extra")
+    return "#8F00FF";
+  if (hoistFunction == "Other")
+    return "#C7A3C7";
+  return "#FF00FF"; // Lighting (default).
+}
+
 // Performs a case-insensitive substring search without lowercasing the entire
 // haystack. This keeps the per-line processing in Import() cheap while still
 // matching section headers regardless of their capitalization.
@@ -879,7 +894,8 @@ bool RiderImporter::ImportText(const std::string &text) {
   for (auto &[id, layer] : scene.layers)
     layerLookup.emplace(layer.name, &layer);
 
-  auto addToLayer = [&](const std::string &lname, const std::string &uid) {
+  auto addToLayer = [&](const std::string &lname, const std::string &uid,
+                        const std::string &layerColor = std::string()) {
     std::string name = lname.empty() ? DEFAULT_LAYER_NAME : lname;
     Layer *layerPtr = nullptr;
     auto it = layerLookup.find(name);
@@ -889,10 +905,13 @@ bool RiderImporter::ImportText(const std::string &text) {
       Layer l;
       l.uuid = name == DEFAULT_LAYER_NAME ? "layer_default" : GenerateUuid();
       l.name = name;
+      l.color = layerColor;
       auto [insertedIt, inserted] =
           scene.layers.emplace(l.uuid, std::move(l));
       layerPtr = &insertedIt->second;
       layerLookup.emplace(layerPtr->name, layerPtr);
+    } else if (!layerColor.empty() && layerPtr->color.empty()) {
+      layerPtr->color = layerColor;
     }
     layerPtr->childUUIDs.push_back(uid);
   };
@@ -1504,16 +1523,13 @@ bool RiderImporter::ImportText(const std::string &text) {
     support.motorModelSource = "Manual";
     support.weightSource = "Manual";
 
-    std::string layerName = defaultLayer;
-    if (layerByType && !positionName.empty())
-      layerName = "hoist " + positionName;
-    else if (!layerByType && !positionName.empty())
-      layerName = "pos " + positionName;
+    const std::string normalizedFunction = NormalizeHoistFunction(hoistFunction);
+    std::string layerName = "rig " + normalizedFunction;
     support.layer = layerName;
 
     const std::string supportUuid = support.uuid;
     scene.supports[supportUuid] = support;
-    addToLayer(layerName, supportUuid);
+    addToLayer(layerName, supportUuid, ResolveHoistLayerColor(normalizedFunction));
   };
 
   auto distributeAcrossTruss = [&](const std::string &positionName, int quantity,
@@ -1589,7 +1605,7 @@ bool RiderImporter::ImportText(const std::string &text) {
       int rem = request.quantity % static_cast<int>(lxNames.size());
       for (size_t i = 0; i < lxNames.size(); ++i) {
         int qty = base + (static_cast<int>(i) < rem ? 1 : 0);
-        distributeAcrossTruss(lxNames[i], qty, request.capacityKg, 2000.0f,
+        distributeAcrossTruss(lxNames[i], qty, request.capacityKg, 1000.0f,
                               hoistFunction);
       }
     } else if (request.target == "PA") {
@@ -1599,8 +1615,21 @@ bool RiderImporter::ImportText(const std::string &text) {
       distributePaOrSidefill("SIDEFILL", request.quantity, request.capacityKg, true,
                              hoistFunction);
     } else if (request.target == "SCREEN") {
-      distributeAcrossTruss("SCREEN", request.quantity, request.capacityKg, 0.0f,
-                            hoistFunction);
+      if (request.quantity <= 0)
+        continue;
+      TrussInfo info;
+      auto infoIt = trussInfo.find("SCREEN");
+      if (infoIt != trussInfo.end())
+        info = infoIt->second;
+      const float y = info.found ? info.y : getHangPos("SCREEN");
+      const float z = info.found ? info.z : getHangHeight("SCREEN");
+      const float span = info.found ? (info.endX - info.startX) : (1000.0f * request.quantity);
+      const float part = span / static_cast<float>(request.quantity + 1);
+      const float startX = info.found ? info.startX : (-0.5f * span);
+      for (int i = 0; i < request.quantity; ++i) {
+        const float x = startX + part * static_cast<float>(i + 1);
+        placeHoist(x, y, z, request.capacityKg, "SCREEN", hoistFunction);
+      }
     } else {
       distributeAcrossTruss(request.target, request.quantity, request.capacityKg,
                             2000.0f, hoistFunction);
