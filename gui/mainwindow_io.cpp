@@ -235,8 +235,6 @@ void MainWindow::OnImportRider(wxCommandEvent &event) {
   } else {
     importOverlay.reset();
     importDisabler.reset();
-    if (GetStatusBar())
-      SetStatusText("Rider imported successfully.", 0);
     if (consolePanel)
       consolePanel->AppendMessage("[INFO] Imported " + dlg.GetPath());
     importDisabler = std::make_unique<wxWindowDisabler>();
