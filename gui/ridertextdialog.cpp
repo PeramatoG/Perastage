@@ -19,7 +19,7 @@
 
 #include <wx/button.h>
 #include <wx/filedlg.h>
-#include <wx/log.h>
+#include <wx/frame.h>
 #include <wx/msgdlg.h>
 #include <wx/sizer.h>
 #include <wx/stattext.h>
@@ -145,7 +145,12 @@ void RiderTextDialog::OnLoadFromFile(wxCommandEvent &WXUNUSED(event)) {
   if (sourceText)
     sourceText->SetLabel(wxString("Loaded: ") + sourceLabel);
   textCtrl->ChangeValue(loadedText);
-  wxLogStatus(this, "Rider imported successfully.");
+  if (wxWindow *topLevelParent = wxGetTopLevelParent(this)) {
+    if (wxFrame *topLevelFrame = wxDynamicCast(topLevelParent, wxFrame)) {
+      if (topLevelFrame->GetStatusBar())
+        topLevelFrame->SetStatusText("Rider imported successfully.", 0);
+    }
+  }
 }
 
 void RiderTextDialog::OnLoadExample(wxCommandEvent &WXUNUSED(event)) {
