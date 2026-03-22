@@ -95,7 +95,7 @@ const tinyxml2::XMLElement *ResolveFixtureType(const tinyxml2::XMLDocument &doc)
 struct Signals {
   bool hasPan = false;
   bool hasTilt = false;
-  bool hasMovingGeometry = false;
+  bool hasAnyAttributeDefinition = false;
   bool hasZoom = false;
   bool hasFocus = false;
   bool hasIris = false;
@@ -126,19 +126,9 @@ void ParseGeometrySignals(const tinyxml2::XMLElement *node, Signals &signals) {
   for (const tinyxml2::XMLElement *child = node->FirstChildElement(); child;
        child = child->NextSiblingElement()) {
     const std::string nodeName = ToLowerCopy(child->Name());
-    const std::string geometryName =
-        ToLowerCopy(child->Attribute("Name") ? child->Attribute("Name") : "");
 
     if (nodeName.find("beam") != std::string::npos)
       signals.hasBeamGeometry = true;
-    if (nodeName.find("yoke") != std::string::npos ||
-        nodeName.find("head") != std::string::npos ||
-        nodeName.find("scanner") != std::string::npos ||
-        geometryName.find("yoke") != std::string::npos ||
-        geometryName.find("head") != std::string::npos ||
-        geometryName.find("scanner") != std::string::npos) {
-      signals.hasMovingGeometry = true;
-    }
     if (nodeName.find("laser") != std::string::npos)
       signals.hasLaser = true;
     if (nodeName.find("display") != std::string::npos ||
@@ -180,6 +170,7 @@ void ParseGeometrySignals(const tinyxml2::XMLElement *node, Signals &signals) {
 void ParseAttributeSignals(const tinyxml2::XMLElement *node, Signals &signals) {
   for (const tinyxml2::XMLElement *child = node->FirstChildElement(); child;
        child = child->NextSiblingElement()) {
+    signals.hasAnyAttributeDefinition = true;
     const std::string name = ToLowerCopy(child->Attribute("Name") ? child->Attribute("Name") : "");
     const std::string pretty = ToLowerCopy(child->Attribute("Pretty") ? child->Attribute("Pretty") : "");
     const std::string combined = name + " " + pretty;
@@ -275,6 +266,45 @@ bool HasNameKeyword(const std::string &name, std::initializer_list<const char *>
   return false;
 }
 
+InferenceResult InferFromNameHints(const std::string &normalizedName) {
+  if (normalizedName.empty())
+    return {std::string(), "no name hints"};
+
+  if (HasNameKeyword(
+          normalizedName,
+          {"hazer", "haze", "smoke", "humo", "fan", "turbina", "ventilador",
+           "turbine", "fog"})) {
+    return {GdtfFixtureCategory::kSmoke, "name hint smoke"};
+  }
+
+  if (HasNameKeyword(normalizedName, {"strobe", "estrobo", "flash"}))
+    return {GdtfFixtureCategory::kStrobe, "name hint strobe"};
+
+  const bool beam = HasNameKeyword(normalizedName, {"beam"});
+  const bool spot = HasNameKeyword(normalizedName, {"spot", "profile"});
+  const bool wash = HasNameKeyword(normalizedName, {"wash"});
+  const int movingFamilies = (beam ? 1 : 0) + (spot ? 1 : 0) + (wash ? 1 : 0);
+  if (movingFamilies >= 2)
+    return {GdtfFixtureCategory::kHybrid, "name hint hybrid"};
+  if (beam)
+    return {GdtfFixtureCategory::kBeam, "name hint beam"};
+  if (spot)
+    return {GdtfFixtureCategory::kSpot, "name hint spot/profile"};
+  if (wash)
+    return {GdtfFixtureCategory::kWash, "name hint wash"};
+
+  if (HasNameKeyword(
+          normalizedName,
+          {"fresnel", "fresnell", "pc", "par", "par64", "convencional"})) {
+    return {GdtfFixtureCategory::kConventional, "name hint conventional"};
+  }
+
+  if (HasNameKeyword(normalizedName, {"blinder", "cegadora", "molefay"}))
+    return {GdtfFixtureCategory::kBlinder, "name hint blinder"};
+
+  return {std::string(), "no name hints"};
+}
+
 } // namespace
 
 namespace GdtfFixtureCategory {
@@ -325,15 +355,24 @@ InferenceResult InferFromGdtf(const std::string &gdtfPath) {
     return {kUnknown, "missing description.xml"};
 
   Signals s = ExtractSignals(xml);
-  const bool hasMovement = (s.hasPan && s.hasTilt) || s.hasMovingGeometry;
+  if (const auto fromName = InferFromNameHints(s.normalizedName);
+      !fromName.category.empty()) {
+    return fromName;
+  }
+
+  if (!s.hasAnyAttributeDefinition)
+    return {kUnknown, "empty attribute definitions"};
+
+  const bool hasMovement = s.hasPan && s.hasTilt;
   const bool narrowBeam = s.minBeamAngle > 0.0f && s.minBeamAngle <= 8.0f;
   const bool wideBeam = s.maxBeamAngle >= 20.0f;
   const bool wideZoomRange = s.minBeamAngle > 0.0f && s.maxBeamAngle > 0.0f &&
                              (s.maxBeamAngle - s.minBeamAngle) >= 15.0f;
   const bool hasSpotOptics = s.hasGobo || s.hasAnimationWheel || s.hasIris ||
                              s.hasFocus || s.hasFraming;
-  const bool washBeamType = s.beamTypes.contains("wash") || s.beamTypes.contains("pc") ||
-                            s.beamTypes.contains("fresnel") || s.beamTypes.contains("glow");
+  const bool washBeamType = s.beamTypes.contains("wash") || s.beamTypes.contains("glow");
+  const bool conventionalBeamType =
+      s.beamTypes.contains("pc") || s.beamTypes.contains("fresnel");
   const bool spotBeamType = s.beamTypes.contains("spot") || s.beamTypes.contains("rectangle");
   const bool canDoWash = s.hasFrost || washBeamType || wideBeam;
 
@@ -378,7 +417,13 @@ InferenceResult InferFromGdtf(const std::string &gdtfPath) {
     if (s.hasPixelControl || (s.lampTypeIsLed && looksLikeLedUnit)) {
       return {kLed, "pixel/led profile"};
     }
-    return {kConventional, "static fallback"};
+    if (conventionalBeamType ||
+        (s.hasBeamGeometry && !s.hasVideo && !s.hasLaser && !s.hasFog &&
+         !s.hasHaze && !s.hasGobo && !s.hasAnimationWheel && !s.hasFraming &&
+         !s.hasIris && !s.hasFocus && !s.hasZoom)) {
+      return {kConventional, "static conventional profile"};
+    }
+    return {kUnknown, "static ambiguous"};
   }
 
   const bool strongWashCapability = s.hasFrost || washBeamType || wideZoomRange ||
