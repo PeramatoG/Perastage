@@ -95,6 +95,7 @@ const tinyxml2::XMLElement *ResolveFixtureType(const tinyxml2::XMLDocument &doc)
 struct Signals {
   bool hasPan = false;
   bool hasTilt = false;
+  bool hasAnyAttributeDefinition = false;
   bool hasZoom = false;
   bool hasFocus = false;
   bool hasIris = false;
@@ -169,6 +170,7 @@ void ParseGeometrySignals(const tinyxml2::XMLElement *node, Signals &signals) {
 void ParseAttributeSignals(const tinyxml2::XMLElement *node, Signals &signals) {
   for (const tinyxml2::XMLElement *child = node->FirstChildElement(); child;
        child = child->NextSiblingElement()) {
+    signals.hasAnyAttributeDefinition = true;
     const std::string name = ToLowerCopy(child->Attribute("Name") ? child->Attribute("Name") : "");
     const std::string pretty = ToLowerCopy(child->Attribute("Pretty") ? child->Attribute("Pretty") : "");
     const std::string combined = name + " " + pretty;
@@ -264,6 +266,49 @@ bool HasNameKeyword(const std::string &name, std::initializer_list<const char *>
   return false;
 }
 
+GdtfFixtureCategory::InferenceResult
+InferFromNameHints(const std::string &normalizedName) {
+  if (normalizedName.empty())
+    return {std::string(), "no name hints"};
+
+  if (HasNameKeyword(
+          normalizedName,
+          {"hazer", "haze", "smoke", "humo", "fan", "turbina", "ventilador",
+           "turbine", "fog"})) {
+    return {GdtfFixtureCategory::kSmoke, "name hint smoke"};
+  }
+
+  if (HasNameKeyword(normalizedName, {"strobe", "estrobo", "flash"}))
+    return {GdtfFixtureCategory::kStrobe, "name hint strobe"};
+
+  if (HasNameKeyword(normalizedName, {"hybrid", "hibrido", "híbrido"}))
+    return {GdtfFixtureCategory::kHybrid, "name hint hybrid keyword"};
+
+  const bool beam = HasNameKeyword(normalizedName, {"beam"});
+  const bool spot = HasNameKeyword(normalizedName, {"spot", "profile"});
+  const bool wash = HasNameKeyword(normalizedName, {"wash"});
+  const int movingFamilies = (beam ? 1 : 0) + (spot ? 1 : 0) + (wash ? 1 : 0);
+  if (movingFamilies >= 2)
+    return {GdtfFixtureCategory::kHybrid, "name hint hybrid"};
+  if (beam)
+    return {GdtfFixtureCategory::kBeam, "name hint beam"};
+  if (spot)
+    return {GdtfFixtureCategory::kSpot, "name hint spot/profile"};
+  if (wash)
+    return {GdtfFixtureCategory::kWash, "name hint wash"};
+
+  if (HasNameKeyword(
+          normalizedName,
+          {"fresnel", "fresnell", "pc", "par", "par64", "convencional"})) {
+    return {GdtfFixtureCategory::kConventional, "name hint conventional"};
+  }
+
+  if (HasNameKeyword(normalizedName, {"blinder", "cegadora", "molefay"}))
+    return {GdtfFixtureCategory::kBlinder, "name hint blinder"};
+
+  return {std::string(), "no name hints"};
+}
+
 } // namespace
 
 namespace GdtfFixtureCategory {
@@ -308,12 +353,28 @@ std::string NormalizeCategory(const std::string &category) {
   return {};
 }
 
+InferenceResult InferFromName(const std::string &fixtureName) {
+  const std::string normalizedName = ToLowerCopy(Trim(fixtureName));
+  const auto inferred = InferFromNameHints(normalizedName);
+  if (!inferred.category.empty())
+    return inferred;
+  return {kUnknown, "name hints unavailable"};
+}
+
 InferenceResult InferFromGdtf(const std::string &gdtfPath) {
   std::string xml;
   if (!ReadDescriptionXmlFromGdtf(gdtfPath, xml))
     return {kUnknown, "missing description.xml"};
 
   Signals s = ExtractSignals(xml);
+  if (const auto fromName = InferFromNameHints(s.normalizedName);
+      !fromName.category.empty()) {
+    return fromName;
+  }
+
+  if (!s.hasAnyAttributeDefinition)
+    return {kUnknown, "empty attribute definitions"};
+
   const bool hasMovement = s.hasPan && s.hasTilt;
   const bool narrowBeam = s.minBeamAngle > 0.0f && s.minBeamAngle <= 8.0f;
   const bool wideBeam = s.maxBeamAngle >= 20.0f;
@@ -321,8 +382,9 @@ InferenceResult InferFromGdtf(const std::string &gdtfPath) {
                              (s.maxBeamAngle - s.minBeamAngle) >= 15.0f;
   const bool hasSpotOptics = s.hasGobo || s.hasAnimationWheel || s.hasIris ||
                              s.hasFocus || s.hasFraming;
-  const bool washBeamType = s.beamTypes.contains("wash") || s.beamTypes.contains("pc") ||
-                            s.beamTypes.contains("fresnel") || s.beamTypes.contains("glow");
+  const bool washBeamType = s.beamTypes.contains("wash") || s.beamTypes.contains("glow");
+  const bool conventionalBeamType =
+      s.beamTypes.contains("pc") || s.beamTypes.contains("fresnel");
   const bool spotBeamType = s.beamTypes.contains("spot") || s.beamTypes.contains("rectangle");
   const bool canDoWash = s.hasFrost || washBeamType || wideBeam;
 
@@ -367,7 +429,13 @@ InferenceResult InferFromGdtf(const std::string &gdtfPath) {
     if (s.hasPixelControl || (s.lampTypeIsLed && looksLikeLedUnit)) {
       return {kLed, "pixel/led profile"};
     }
-    return {kConventional, "static fallback"};
+    if (conventionalBeamType ||
+        (s.hasBeamGeometry && !s.hasVideo && !s.hasLaser && !s.hasFog &&
+         !s.hasHaze && !s.hasGobo && !s.hasAnimationWheel && !s.hasFraming &&
+         !s.hasIris && !s.hasFocus && !s.hasZoom)) {
+      return {kConventional, "static conventional profile"};
+    }
+    return {kUnknown, "static ambiguous"};
   }
 
   const bool strongWashCapability = s.hasFrost || washBeamType || wideZoomRange ||

@@ -27,6 +27,7 @@ enum class FeatureFlag {
   PrintViewer2DDialog,
   PrintViewer2DElementsDetail,
   GenerateFixtureSymbols,
+  AssignSelectedFixtureCategory,
 };
 
 bool IsFeatureEnabled(FeatureFlag flag);

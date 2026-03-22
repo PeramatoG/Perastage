@@ -29,6 +29,7 @@ struct InferenceResult {
 
 bool IsValidCategory(const std::string &category);
 std::string NormalizeCategory(const std::string &category);
+InferenceResult InferFromName(const std::string &fixtureName);
 InferenceResult InferFromGdtf(const std::string &gdtfPath);
 
 } // namespace GdtfFixtureCategory

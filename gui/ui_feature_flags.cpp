@@ -37,6 +37,7 @@ bool IsFeatureEnabled(FeatureFlag flag) {
   case FeatureFlag::PrintViewer2DDialog:
   case FeatureFlag::PrintViewer2DElementsDetail:
   case FeatureFlag::GenerateFixtureSymbols:
+  case FeatureFlag::AssignSelectedFixtureCategory:
     return kIsDebugBuild;
   }
 
