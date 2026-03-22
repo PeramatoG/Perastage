@@ -124,6 +124,29 @@ void ApplyFixturePhysicalPropertiesFromGdtf(const MvrScene &scene,
     fixture.powerConsumptionW = gdtfPowerW;
 }
 
+void EnsureFixtureCategoryForImport(const MvrScene &scene, Fixture &fixture) {
+  if (fixture.category.empty()) {
+    const auto inferredByName = GdtfFixtureCategory::InferFromName(fixture.typeName);
+    fixture.category =
+        GdtfFixtureCategory::NormalizeCategory(inferredByName.category);
+  }
+
+  if (fixture.category.empty() && !fixture.gdtfSpec.empty()) {
+    const std::string resolvedGdtfPath =
+        ResolveGdtfPath(scene, fixture.gdtfSpec);
+    const auto inferredFromGdtf =
+        GdtfFixtureCategory::InferFromGdtf(resolvedGdtfPath);
+    fixture.category =
+        GdtfFixtureCategory::NormalizeCategory(inferredFromGdtf.category);
+  }
+
+  if (fixture.category.empty())
+    fixture.category = GdtfFixtureCategory::kUnknown;
+
+  if (fixture.categorySource.empty())
+    fixture.categorySource = GdtfFixtureCategory::kAutoFallbackSource;
+}
+
 bool TryParseFloat(const std::string &text, float &out) {
   if (text.empty())
     return false;
@@ -1107,21 +1130,7 @@ bool RiderImporter::ImportText(const std::string &text) {
             f.typeName = parsed;
           ApplyFixturePhysicalPropertiesFromGdtf(scene, f);
         }
-        if (f.category.empty()) {
-          const auto inferredByName = GdtfFixtureCategory::InferFromName(f.typeName);
-          f.category = GdtfFixtureCategory::NormalizeCategory(inferredByName.category);
-        }
-        if (f.category.empty() && !f.gdtfSpec.empty()) {
-          const std::string resolvedGdtfPath = ResolveGdtfPath(scene, f.gdtfSpec);
-          const auto inferredFromGdtf = GdtfFixtureCategory::InferFromGdtf(resolvedGdtfPath);
-          f.category = GdtfFixtureCategory::NormalizeCategory(inferredFromGdtf.category);
-        }
-        if (f.category.empty()) {
-          f.category = GdtfFixtureCategory::kUnknown;
-          f.categorySource = GdtfFixtureCategory::kAutoFallbackSource;
-        } else if (f.categorySource.empty()) {
-          f.categorySource = GdtfFixtureCategory::kAutoFallbackSource;
-        }
+        EnsureFixtureCategoryForImport(scene, f);
         if (!seenTypes.count(f.typeName)) {
           typeOrder.push_back(f.typeName);
           seenTypes.insert(f.typeName);
@@ -1779,6 +1788,15 @@ bool RiderImporter::ImportText(const std::string &text) {
       HoistWeightDistribution::BuildRoundedRiggingTotalByHangPosition(scene);
   HoistWeightDistribution::ApplyForImportedSupports(
       scene, importedSupportUuids, roundedRiggingTotalsByPosition);
+
+  // Categories must be resolved before fixture distribution/positioning so any
+  // downstream placement strategy can rely on category values.
+  for (const std::string &uuid : importedFixtureUuids) {
+    auto fixtureIt = scene.fixtures.find(uuid);
+    if (fixtureIt == scene.fixtures.end())
+      continue;
+    EnsureFixtureCategoryForImport(scene, fixtureIt->second);
+  }
 
   std::unordered_map<std::string, std::vector<Fixture *>> fixturesByPos;
   fixturesByPos.reserve(importedFixtureUuids.size());
