@@ -1108,7 +1108,18 @@ bool RiderImporter::ImportText(const std::string &text) {
           ApplyFixturePhysicalPropertiesFromGdtf(scene, f);
         }
         if (f.category.empty()) {
+          const auto inferredByName = GdtfFixtureCategory::InferFromName(f.typeName);
+          f.category = GdtfFixtureCategory::NormalizeCategory(inferredByName.category);
+        }
+        if (f.category.empty() && !f.gdtfSpec.empty()) {
+          const std::string resolvedGdtfPath = ResolveGdtfPath(scene, f.gdtfSpec);
+          const auto inferredFromGdtf = GdtfFixtureCategory::InferFromGdtf(resolvedGdtfPath);
+          f.category = GdtfFixtureCategory::NormalizeCategory(inferredFromGdtf.category);
+        }
+        if (f.category.empty()) {
           f.category = GdtfFixtureCategory::kUnknown;
+          f.categorySource = GdtfFixtureCategory::kAutoFallbackSource;
+        } else if (f.categorySource.empty()) {
           f.categorySource = GdtfFixtureCategory::kAutoFallbackSource;
         }
         if (!seenTypes.count(f.typeName)) {

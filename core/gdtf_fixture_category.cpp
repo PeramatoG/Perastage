@@ -350,6 +350,14 @@ std::string NormalizeCategory(const std::string &category) {
   return {};
 }
 
+InferenceResult InferFromName(const std::string &fixtureName) {
+  const std::string normalizedName = ToLowerCopy(Trim(fixtureName));
+  const auto inferred = InferFromNameHints(normalizedName);
+  if (!inferred.category.empty())
+    return inferred;
+  return {kUnknown, "name hints unavailable"};
+}
+
 InferenceResult InferFromGdtf(const std::string &gdtfPath) {
   std::string xml;
   if (!ReadDescriptionXmlFromGdtf(gdtfPath, xml))

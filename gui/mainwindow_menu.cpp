@@ -399,7 +399,7 @@ void MainWindow::CreateMenuBar() {
   if (ui::IsFeatureEnabled(
           ui::FeatureFlag::AssignSelectedFixtureCategory)) {
     toolsMenu->Append(ID_Tools_AssignSelectedFixtureCategory,
-                      "Assign category to selected fixtures...");
+                      "Auto-assign categories to selected fixtures...");
   }
 
   menuBar->Append(toolsMenu, "&Tools");

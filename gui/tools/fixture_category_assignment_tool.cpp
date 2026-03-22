@@ -1,11 +1,9 @@
 #include "tools/fixture_category_assignment_tool.h"
 
-#include <algorithm>
+#include <filesystem>
 #include <set>
 #include <string>
-#include <vector>
 
-#include <wx/choicdlg.h>
 #include <wx/msgdlg.h>
 
 #include "configmanager.h"
@@ -16,89 +14,82 @@
 #include "mainwindow.h"
 
 namespace tools {
-namespace {
-
-const std::vector<std::string> &CategoryChoices() {
-  static const std::vector<std::string> kChoices = {
-      GdtfFixtureCategory::kUnknown,      GdtfFixtureCategory::kHoist,
-      GdtfFixtureCategory::kSmoke,        GdtfFixtureCategory::kLaser,
-      GdtfFixtureCategory::kVideo,        GdtfFixtureCategory::kFx,
-      GdtfFixtureCategory::kStrobe,       GdtfFixtureCategory::kLed,
-      GdtfFixtureCategory::kBlinder,      GdtfFixtureCategory::kConventional,
-      GdtfFixtureCategory::kWash,         GdtfFixtureCategory::kSpot,
-      GdtfFixtureCategory::kBeam,         GdtfFixtureCategory::kHybrid};
-  return kChoices;
-}
-
-} // namespace
 
 void RunFixtureCategoryAssignment(MainWindow &window) {
   ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
   const std::vector<std::string> selectedUuids = cfg.GetSelectedFixtures();
   if (selectedUuids.empty()) {
     wxMessageBox("Select at least one fixture first.",
-                 "Assign fixture category", wxOK | wxICON_INFORMATION, &window);
+                 "Auto-assign fixture categories", wxOK | wxICON_INFORMATION,
+                 &window);
     return;
   }
-
-  wxArrayString choices;
-  for (const auto &category : CategoryChoices())
-    choices.Add(wxString::FromUTF8(category));
-
-  wxSingleChoiceDialog dialog(&window,
-                              "Select the category to assign to all selected fixtures.",
-                              "Assign fixture category", choices);
-  if (dialog.ShowModal() != wxID_OK)
-    return;
-
-  const std::string selectedCategory = GdtfFixtureCategory::NormalizeCategory(
-      std::string(dialog.GetStringSelection().ToUTF8()));
-  if (selectedCategory.empty())
-    return;
 
   auto &scene = cfg.GetScene();
   bool changed = false;
   bool undoPushed = false;
-  std::set<std::string> updatedTypes;
+  std::set<std::pair<std::string, std::string>> updatedTypeCategories;
   std::size_t updatedCount = 0;
+  std::size_t unknownCount = 0;
   for (const std::string &uuid : selectedUuids) {
     auto it = scene.fixtures.find(uuid);
     if (it == scene.fixtures.end())
       continue;
 
     Fixture &fixture = it->second;
-    if (fixture.category == selectedCategory &&
-        fixture.categorySource == GdtfFixtureCategory::kManualSource) {
+    const std::string preferredName =
+        fixture.typeName.empty() ? fixture.instanceName : fixture.typeName;
+    auto inferred = GdtfFixtureCategory::InferFromName(preferredName);
+
+    if (inferred.category == GdtfFixtureCategory::kUnknown &&
+        !fixture.gdtfSpec.empty() &&
+        std::filesystem::exists(fixture.gdtfSpec)) {
+      inferred = GdtfFixtureCategory::InferFromGdtf(fixture.gdtfSpec);
+    }
+
+    std::string inferredCategory =
+        GdtfFixtureCategory::NormalizeCategory(inferred.category);
+    if (inferredCategory.empty())
+      inferredCategory = GdtfFixtureCategory::kUnknown;
+    if (inferredCategory == GdtfFixtureCategory::kUnknown)
+      ++unknownCount;
+
+    if (fixture.category == inferredCategory &&
+        fixture.categorySource == GdtfFixtureCategory::kAutoFallbackSource) {
       continue;
     }
 
     if (!undoPushed) {
-      cfg.PushUndoState("assign fixture category");
+      cfg.PushUndoState("auto assign fixture categories");
       undoPushed = true;
     }
-    fixture.category = selectedCategory;
-    fixture.categorySource = GdtfFixtureCategory::kManualSource;
-    if (!fixture.typeName.empty())
-      updatedTypes.insert(fixture.typeName);
+    fixture.category = inferredCategory;
+    fixture.categorySource = GdtfFixtureCategory::kAutoFallbackSource;
+    if (!fixture.typeName.empty() &&
+        inferredCategory != GdtfFixtureCategory::kUnknown) {
+      updatedTypeCategories.insert({fixture.typeName, inferredCategory});
+    }
     ++updatedCount;
     changed = true;
   }
 
   if (!changed) {
-    wxMessageBox("Selected fixtures already have this category.",
-                 "Assign fixture category", wxOK | wxICON_INFORMATION, &window);
+    wxMessageBox("Selected fixtures are already up to date.",
+                 "Auto-assign fixture categories", wxOK | wxICON_INFORMATION,
+                 &window);
     return;
   }
 
-  for (const auto &typeName : updatedTypes)
-    GdtfDictionary::UpdateCategory(typeName, selectedCategory);
+  for (const auto &[typeName, category] : updatedTypeCategories)
+    GdtfDictionary::UpdateCategory(typeName, category);
 
   window.RefreshAfterToolSceneUpdate();
 
-  wxMessageBox(
-      wxString::Format("Assigned category '%s' to %zu fixture(s).",
-                       wxString::FromUTF8(selectedCategory), updatedCount),
-      "Assign fixture category", wxOK | wxICON_INFORMATION, &window);
+  wxMessageBox(wxString::Format(
+                   "Auto-assigned categories to %zu fixture(s). Unknown: %zu.",
+                   updatedCount, unknownCount),
+               "Auto-assign fixture categories", wxOK | wxICON_INFORMATION,
+               &window);
 }
 
 } // namespace tools
