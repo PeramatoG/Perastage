@@ -1927,20 +1927,27 @@ bool RiderImporter::ImportText(const std::string &text) {
     }
   };
 
-  auto isTopFrontCategory = [](const Fixture &fixture) {
-    const std::string normalized =
-        GdtfFixtureCategory::NormalizeCategory(fixture.category);
-    return normalized == GdtfFixtureCategory::NormalizeCategory(
-                             GdtfFixtureCategory::kBlinder) ||
-           normalized == GdtfFixtureCategory::NormalizeCategory(
-                             GdtfFixtureCategory::kStrobe);
+  auto normalizeCategory = [](std::string category) {
+    std::transform(category.begin(), category.end(), category.begin(),
+                   [](unsigned char c) {
+                     return static_cast<char>(std::tolower(c));
+                   });
+    return category;
   };
 
-  auto isBackBottomCategory = [](const Fixture &fixture) {
-    const std::string normalized =
-        GdtfFixtureCategory::NormalizeCategory(fixture.category);
-    return normalized ==
-           GdtfFixtureCategory::NormalizeCategory(GdtfFixtureCategory::kWash);
+  const std::string blinderCategory =
+      normalizeCategory(GdtfFixtureCategory::kBlinder);
+  const std::string strobeCategory =
+      normalizeCategory(GdtfFixtureCategory::kStrobe);
+  const std::string washCategory = normalizeCategory(GdtfFixtureCategory::kWash);
+
+  auto isTopFrontCategory = [&](const Fixture &fixture) {
+    const std::string normalized = normalizeCategory(fixture.category);
+    return normalized == blinderCategory || normalized == strobeCategory;
+  };
+
+  auto isBackBottomCategory = [&](const Fixture &fixture) {
+    return normalizeCategory(fixture.category) == washCategory;
   };
 
   for (auto &[pos, fixturesVec] : fixturesByPos) {
