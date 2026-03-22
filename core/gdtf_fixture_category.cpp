@@ -266,7 +266,8 @@ bool HasNameKeyword(const std::string &name, std::initializer_list<const char *>
   return false;
 }
 
-InferenceResult InferFromNameHints(const std::string &normalizedName) {
+GdtfFixtureCategory::InferenceResult
+InferFromNameHints(const std::string &normalizedName) {
   if (normalizedName.empty())
     return {std::string(), "no name hints"};
 
