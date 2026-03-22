@@ -125,19 +125,42 @@ void ApplyFixturePhysicalPropertiesFromGdtf(const MvrScene &scene,
 }
 
 void EnsureFixtureCategoryForImport(const MvrScene &scene, Fixture &fixture) {
+  auto containsWord = [](std::string value, const std::string &needle) {
+    std::transform(value.begin(), value.end(), value.begin(),
+                   [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+    return value.find(needle) != std::string::npos;
+  };
+  auto inferCategoryFromName = [&](const std::string &name) {
+    if (name.empty())
+      return std::string();
+    if (containsWord(name, "blinder") || containsWord(name, "cegadora"))
+      return std::string(GdtfFixtureCategory::kBlinder);
+    if (containsWord(name, "strobe") || containsWord(name, "estrobo"))
+      return std::string(GdtfFixtureCategory::kStrobe);
+    if (containsWord(name, "beam"))
+      return std::string(GdtfFixtureCategory::kBeam);
+    if (containsWord(name, "spot") || containsWord(name, "profile"))
+      return std::string(GdtfFixtureCategory::kSpot);
+    if (containsWord(name, "wash"))
+      return std::string(GdtfFixtureCategory::kWash);
+    if (containsWord(name, "fresnel") || containsWord(name, "fresnell") ||
+        containsWord(name, "pc") || containsWord(name, "par"))
+      return std::string(GdtfFixtureCategory::kConventional);
+    if (containsWord(name, "haze") || containsWord(name, "hazer") ||
+        containsWord(name, "smoke") || containsWord(name, "humo"))
+      return std::string(GdtfFixtureCategory::kSmoke);
+    return std::string();
+  };
+
   if (fixture.category.empty()) {
-    const auto inferredByName = GdtfFixtureCategory::InferFromName(fixture.typeName);
-    fixture.category =
-        GdtfFixtureCategory::NormalizeCategory(inferredByName.category);
+    fixture.category = inferCategoryFromName(fixture.typeName);
   }
 
   if (fixture.category.empty() && !fixture.gdtfSpec.empty()) {
     const std::string resolvedGdtfPath =
         ResolveGdtfPath(scene, fixture.gdtfSpec);
-    const auto inferredFromGdtf =
-        GdtfFixtureCategory::InferFromGdtf(resolvedGdtfPath);
-    fixture.category =
-        GdtfFixtureCategory::NormalizeCategory(inferredFromGdtf.category);
+    const std::filesystem::path gdtfPath(resolvedGdtfPath);
+    fixture.category = inferCategoryFromName(gdtfPath.stem().string());
   }
 
   if (fixture.category.empty())
