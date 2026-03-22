@@ -95,6 +95,7 @@ const tinyxml2::XMLElement *ResolveFixtureType(const tinyxml2::XMLDocument &doc)
 struct Signals {
   bool hasPan = false;
   bool hasTilt = false;
+  bool hasMovingGeometry = false;
   bool hasZoom = false;
   bool hasFocus = false;
   bool hasIris = false;
@@ -125,9 +126,19 @@ void ParseGeometrySignals(const tinyxml2::XMLElement *node, Signals &signals) {
   for (const tinyxml2::XMLElement *child = node->FirstChildElement(); child;
        child = child->NextSiblingElement()) {
     const std::string nodeName = ToLowerCopy(child->Name());
+    const std::string geometryName =
+        ToLowerCopy(child->Attribute("Name") ? child->Attribute("Name") : "");
 
     if (nodeName.find("beam") != std::string::npos)
       signals.hasBeamGeometry = true;
+    if (nodeName.find("yoke") != std::string::npos ||
+        nodeName.find("head") != std::string::npos ||
+        nodeName.find("scanner") != std::string::npos ||
+        geometryName.find("yoke") != std::string::npos ||
+        geometryName.find("head") != std::string::npos ||
+        geometryName.find("scanner") != std::string::npos) {
+      signals.hasMovingGeometry = true;
+    }
     if (nodeName.find("laser") != std::string::npos)
       signals.hasLaser = true;
     if (nodeName.find("display") != std::string::npos ||
@@ -314,7 +325,7 @@ InferenceResult InferFromGdtf(const std::string &gdtfPath) {
     return {kUnknown, "missing description.xml"};
 
   Signals s = ExtractSignals(xml);
-  const bool hasMovement = s.hasPan && s.hasTilt;
+  const bool hasMovement = (s.hasPan && s.hasTilt) || s.hasMovingGeometry;
   const bool narrowBeam = s.minBeamAngle > 0.0f && s.minBeamAngle <= 8.0f;
   const bool wideBeam = s.maxBeamAngle >= 20.0f;
   const bool wideZoomRange = s.minBeamAngle > 0.0f && s.maxBeamAngle > 0.0f &&

@@ -2,7 +2,7 @@
 
 #include "tools_ids.h"
 
-inline constexpr int ID_Help_Help = ID_Tools_GenerateFixtureSymbols + 1;
+inline constexpr int ID_Help_Help = ID_Tools_AssignSelectedFixtureCategory + 1;
 inline constexpr int ID_Help_About = ID_Help_Help + 1;
 inline constexpr int ID_Select_Fixtures = ID_Help_About + 1;
 inline constexpr int ID_Select_Trusses = ID_Select_Fixtures + 1;

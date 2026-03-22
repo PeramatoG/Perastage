@@ -72,6 +72,7 @@
 #include "support.h"
 #include "trussloader.h"
 #include "tools/fixture_symbol_generation_tool.h"
+#include "tools/fixture_category_assignment_tool.h"
 #include "trusstablepanel.h"
 #include "viewer2dpanel.h"
 #include "viewer3dpanel.h"
@@ -394,6 +395,11 @@ void MainWindow::CreateMenuBar() {
   if (ui::IsFeatureEnabled(ui::FeatureFlag::GenerateFixtureSymbols)) {
     toolsMenu->Append(ID_Tools_GenerateFixtureSymbols,
                       "Generate Fixture Symbols...");
+  }
+  if (ui::IsFeatureEnabled(
+          ui::FeatureFlag::AssignSelectedFixtureCategory)) {
+    toolsMenu->Append(ID_Tools_AssignSelectedFixtureCategory,
+                      "Assign category to selected fixtures...");
   }
 
   menuBar->Append(toolsMenu, "&Tools");
@@ -755,6 +761,16 @@ void MainWindow::OnGenerateFixtureSymbols(wxCommandEvent &WXUNUSED(event)) {
     return;
 
   tools::RunFixtureSymbolGeneration(*this);
+}
+
+void MainWindow::OnAssignSelectedFixtureCategory(
+    wxCommandEvent &WXUNUSED(event)) {
+  if (!ui::IsFeatureEnabled(
+          ui::FeatureFlag::AssignSelectedFixtureCategory)) {
+    return;
+  }
+
+  tools::RunFixtureCategoryAssignment(*this);
 }
 
 void MainWindow::OnClose(wxCommandEvent &event) {
