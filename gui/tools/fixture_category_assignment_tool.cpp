@@ -93,7 +93,7 @@ void RunFixtureCategoryAssignment(MainWindow &window) {
   for (const auto &typeName : updatedTypes)
     GdtfDictionary::UpdateCategory(typeName, selectedCategory);
 
-  window.RefreshAfterSceneChange();
+  window.RefreshAfterToolSceneUpdate();
 
   wxMessageBox(
       wxString::Format("Assigned category '%s' to %zu fixture(s).",

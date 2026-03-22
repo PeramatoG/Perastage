@@ -1047,3 +1047,5 @@ void MainWindow::RefreshAfterFixtureSymbolUpdate() {
   if (layoutViewerPanel)
     layoutViewerPanel->RefreshAfterFixtureSymbolUpdate();
 }
+
+void MainWindow::RefreshAfterToolSceneUpdate() { RefreshAfterSceneChange(); }
