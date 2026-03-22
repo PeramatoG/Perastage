@@ -17,15 +17,17 @@ int main() {
                                 "LX1\n"
                                 "2 Spot\n"
                                 "1 Blinder\n"
-                                "1 Turbina FX\n";
+                                "1 Turbina FX\n"
+                                "1 Hybrid 300\n";
   assert(RiderImporter::ImportText(riderText));
 
   const auto &fixtures = cfg.GetScene().fixtures;
-  assert(fixtures.size() == 4);
+  assert(fixtures.size() == 5);
 
   int spotCount = 0;
   int blinderCount = 0;
   int smokeCount = 0;
+  int hybridCount = 0;
   for (const auto &[uuid, fixture] : fixtures) {
     (void)uuid;
     if (fixture.typeName == "Spot") {
@@ -37,6 +39,9 @@ int main() {
     } else if (fixture.typeName == "Turbina FX") {
       ++smokeCount;
       assert(fixture.category == GdtfFixtureCategory::kSmoke);
+    } else if (fixture.typeName == "Hybrid 300") {
+      ++hybridCount;
+      assert(fixture.category == GdtfFixtureCategory::kHybrid);
     } else {
       assert(false && "Unexpected fixture type in rider import test");
     }
@@ -45,6 +50,7 @@ int main() {
   assert(spotCount == 2);
   assert(blinderCount == 1);
   assert(smokeCount == 1);
+  assert(hybridCount == 1);
 
   return 0;
 }

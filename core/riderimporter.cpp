@@ -137,6 +137,9 @@ void EnsureFixtureCategoryForImport(const MvrScene &scene, Fixture &fixture) {
       return std::string(GdtfFixtureCategory::kBlinder);
     if (containsWord(name, "strobe") || containsWord(name, "estrobo"))
       return std::string(GdtfFixtureCategory::kStrobe);
+    if (containsWord(name, "hybrid") || containsWord(name, "hibrido") ||
+        containsWord(name, "híbrido"))
+      return std::string(GdtfFixtureCategory::kHybrid);
     if (containsWord(name, "beam"))
       return std::string(GdtfFixtureCategory::kBeam);
     if (containsWord(name, "spot") || containsWord(name, "profile"))

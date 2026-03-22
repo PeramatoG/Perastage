@@ -281,6 +281,9 @@ InferFromNameHints(const std::string &normalizedName) {
   if (HasNameKeyword(normalizedName, {"strobe", "estrobo", "flash"}))
     return {GdtfFixtureCategory::kStrobe, "name hint strobe"};
 
+  if (HasNameKeyword(normalizedName, {"hybrid", "hibrido", "híbrido"}))
+    return {GdtfFixtureCategory::kHybrid, "name hint hybrid keyword"};
+
   const bool beam = HasNameKeyword(normalizedName, {"beam"});
   const bool spot = HasNameKeyword(normalizedName, {"spot", "profile"});
   const bool wash = HasNameKeyword(normalizedName, {"wash"});
