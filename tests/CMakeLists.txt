@@ -364,7 +364,6 @@ add_executable(riderimporter_fixtureid_test rider_import_fixtureid_test.cpp
                riderimporter_stubs.cpp
                gdtfloader_stub.cpp
                ../core/riderimporter.cpp
-               ../core/gdtf_fixture_category.cpp
                ../core/hoist_weight_distribution.cpp
                ../core/uuidutils.cpp
                ../core/autopatcher.cpp
@@ -391,7 +390,6 @@ add_executable(rider_import_order_test rider_import_order_test.cpp
                riderimporter_stubs.cpp
                gdtfloader_stub.cpp
                ../core/riderimporter.cpp
-               ../core/gdtf_fixture_category.cpp
                ../core/hoist_weight_distribution.cpp
                ../core/uuidutils.cpp
                ../core/autopatcher.cpp
@@ -417,7 +415,6 @@ add_executable(rider_import_preserve_existing_test rider_import_preserve_existin
                riderimporter_stubs.cpp
                gdtfloader_stub.cpp
                ../core/riderimporter.cpp
-               ../core/gdtf_fixture_category.cpp
                ../core/hoist_weight_distribution.cpp
                ../core/uuidutils.cpp
                ../core/autopatcher.cpp
@@ -442,7 +439,6 @@ add_executable(rider_import_category_test rider_import_category_test.cpp
                riderimporter_stubs.cpp
                gdtfloader_stub.cpp
                ../core/riderimporter.cpp
-               ../core/gdtf_fixture_category.cpp
                ../core/hoist_weight_distribution.cpp
                ../core/uuidutils.cpp
                ../core/autopatcher.cpp
@@ -467,7 +463,6 @@ add_executable(rider_autopatch_test rider_autopatch_test.cpp
                riderimporter_stubs.cpp
                gdtfloader_onech_stub.cpp
                ../core/riderimporter.cpp
-               ../core/gdtf_fixture_category.cpp
                ../core/hoist_weight_distribution.cpp
                ../core/uuidutils.cpp
                ../core/autopatcher.cpp
@@ -493,7 +488,6 @@ add_executable(rider_layer_mode_test rider_layer_mode_test.cpp
                riderimporter_stubs.cpp
                gdtfloader_stub.cpp
                ../core/riderimporter.cpp
-               ../core/gdtf_fixture_category.cpp
                ../core/hoist_weight_distribution.cpp
                ../core/uuidutils.cpp
                ../core/autopatcher.cpp
@@ -531,7 +525,6 @@ add_executable(rider_filter_preview_test rider_filter_preview_test.cpp
                riderimporter_stubs.cpp
                gdtfloader_stub.cpp
                ../core/riderimporter.cpp
-               ../core/gdtf_fixture_category.cpp
                ../core/hoist_weight_distribution.cpp
                ../core/uuidutils.cpp
                ../core/autopatcher.cpp
@@ -556,7 +549,6 @@ add_executable(rider_led_screen_object_test rider_led_screen_object_test.cpp
                riderimporter_stubs.cpp
                gdtfloader_stub.cpp
                ../core/riderimporter.cpp
-               ../core/gdtf_fixture_category.cpp
                ../core/hoist_weight_distribution.cpp
                ../core/uuidutils.cpp
                ../core/autopatcher.cpp
@@ -581,7 +573,6 @@ add_executable(rider_hoist_import_test rider_hoist_import_test.cpp
                riderimporter_stubs.cpp
                gdtfloader_stub.cpp
                ../core/riderimporter.cpp
-               ../core/gdtf_fixture_category.cpp
                ../core/hoist_weight_distribution.cpp
                ../core/uuidutils.cpp
                ../core/autopatcher.cpp
@@ -607,7 +598,6 @@ add_executable(rider_import_benchmark rider_import_benchmark.cpp
                riderimporter_stubs.cpp
                gdtfloader_stub.cpp
                ../core/riderimporter.cpp
-               ../core/gdtf_fixture_category.cpp
                ../core/hoist_weight_distribution.cpp
                ../core/uuidutils.cpp
                ../core/autopatcher.cpp

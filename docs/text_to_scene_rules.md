@@ -120,16 +120,13 @@ For each fixture created:
 2. `typeName` is set from parsed text and may be refined through the GDTF dictionary.
 3. If dictionary entry exists:
    - `gdtfSpec` and `gdtfMode` are assigned.
-   - If dictionary category is defined and valid, it is copied into fixture `category`
+   - If dictionary category is defined, it is copied into fixture `category`
      with source `Manual`.
    - Fixture display/type name can be replaced by the parsed GDTF fixture name when available.
    - Physical properties (weight/power) are filled from GDTF when missing.
 4. `positionName` is set from current hang.
 5. Initial hang coordinates are injected (`Y`, `Z`) and later refined by distribution logic.
-6. If fixture category is still empty but fixture has a resolved `gdtfSpec`,
-   importer runs the same GDTF inference fallback used in scene imports and
-   stores the inferred category with source `AutoFallback`.
-7. Importer falls back to category `Unknown` only when category is still empty
+6. Importer falls back to category `Unknown` only when category is still empty
    after the above steps (for example, dummy fixtures without usable GDTF data).
 
 Special screen-object handling:
