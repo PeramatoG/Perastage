@@ -147,7 +147,10 @@ void EnsureFixtureCategoryForImport(const MvrScene &scene, Fixture &fixture) {
         containsWord(name, "pc") || containsWord(name, "par"))
       return std::string(GdtfFixtureCategory::kConventional);
     if (containsWord(name, "haze") || containsWord(name, "hazer") ||
-        containsWord(name, "smoke") || containsWord(name, "humo"))
+        containsWord(name, "smoke") || containsWord(name, "humo") ||
+        containsWord(name, "fog") || containsWord(name, "niebla") ||
+        containsWord(name, "fan") || containsWord(name, "turbina") ||
+        containsWord(name, "turbine") || containsWord(name, "ventilador"))
       return std::string(GdtfFixtureCategory::kSmoke);
     return std::string();
   };
