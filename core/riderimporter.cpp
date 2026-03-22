@@ -43,6 +43,7 @@
 #include "configmanager.h"
 #include "fixture.h"
 #include "gdtfdictionary.h"
+#include "gdtf_fixture_category.h"
 #include "gdtfloader.h"
 #include "hoist_weight_distribution.h"
 #include "layer.h"
@@ -1095,11 +1096,20 @@ bool RiderImporter::ImportText(const std::string &text) {
         if (auto dictEntry = GdtfDictionary::Get(f.typeName)) {
           f.gdtfSpec = dictEntry->path;
           f.gdtfMode = dictEntry->mode;
+          const std::string dictionaryCategory = Trim(dictEntry->category);
+          if (!dictionaryCategory.empty()) {
+            f.category = dictionaryCategory;
+            f.categorySource = GdtfFixtureCategory::kManualSource;
+          }
           const std::string resolvedGdtfPath = ResolveGdtfPath(scene, f.gdtfSpec);
           std::string parsed = Trim(GetGdtfFixtureName(resolvedGdtfPath));
           if (!parsed.empty())
             f.typeName = parsed;
           ApplyFixturePhysicalPropertiesFromGdtf(scene, f);
+        }
+        if (f.category.empty()) {
+          f.category = GdtfFixtureCategory::kUnknown;
+          f.categorySource = GdtfFixtureCategory::kAutoFallbackSource;
         }
         if (!seenTypes.count(f.typeName)) {
           typeOrder.push_back(f.typeName);

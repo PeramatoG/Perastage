@@ -435,6 +435,30 @@ target_link_libraries(rider_import_preserve_existing_test PRIVATE ${wxWidgets_LI
 add_test(NAME RiderImportPreserveExisting COMMAND rider_import_preserve_existing_test)
 set_library_env(RiderImportPreserveExisting)
 
+add_executable(rider_import_category_test rider_import_category_test.cpp
+               riderimporter_stubs.cpp
+               gdtfloader_stub.cpp
+               ../core/riderimporter.cpp
+               ../core/hoist_weight_distribution.cpp
+               ../core/uuidutils.cpp
+               ../core/autopatcher.cpp
+               ../core/patchmanager.cpp
+               ../core/configmanager.cpp
+               ../core/configservices.cpp
+               ../core/projectutils.cpp
+               ../core/logger.cpp
+               ../models/mvrscene.cpp
+               ../models/fixture.cpp
+               ../models/truss.cpp
+               ../models/sceneobject.cpp
+               ../models/layer.cpp
+               ${LAYOUT_SOURCES})
+target_include_directories(rider_import_category_test PRIVATE
+                           . ../core ../models ../mvr ../gui ../third_party)
+target_link_libraries(rider_import_category_test PRIVATE ${wxWidgets_LIBRARIES})
+add_test(NAME RiderImportCategory COMMAND rider_import_category_test)
+set_library_env(RiderImportCategory)
+
 add_executable(rider_autopatch_test rider_autopatch_test.cpp
                riderimporter_stubs.cpp
                gdtfloader_onech_stub.cpp
