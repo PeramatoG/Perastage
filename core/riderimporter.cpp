@@ -1096,7 +1096,8 @@ bool RiderImporter::ImportText(const std::string &text) {
         if (auto dictEntry = GdtfDictionary::Get(f.typeName)) {
           f.gdtfSpec = dictEntry->path;
           f.gdtfMode = dictEntry->mode;
-          const std::string dictionaryCategory = Trim(dictEntry->category);
+          const std::string dictionaryCategory =
+              GdtfFixtureCategory::NormalizeCategory(Trim(dictEntry->category));
           if (!dictionaryCategory.empty()) {
             f.category = dictionaryCategory;
             f.categorySource = GdtfFixtureCategory::kManualSource;
@@ -1106,6 +1107,13 @@ bool RiderImporter::ImportText(const std::string &text) {
           if (!parsed.empty())
             f.typeName = parsed;
           ApplyFixturePhysicalPropertiesFromGdtf(scene, f);
+        }
+        if (f.category.empty() && !f.gdtfSpec.empty()) {
+          const std::string resolvedGdtfPath = ResolveGdtfPath(scene, f.gdtfSpec);
+          const auto inferred = GdtfFixtureCategory::InferFromGdtf(resolvedGdtfPath);
+          f.category = GdtfFixtureCategory::NormalizeCategory(inferred.category);
+          if (!f.category.empty())
+            f.categorySource = GdtfFixtureCategory::kAutoFallbackSource;
         }
         if (f.category.empty()) {
           f.category = GdtfFixtureCategory::kUnknown;
