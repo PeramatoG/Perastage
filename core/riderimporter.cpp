@@ -1836,11 +1836,11 @@ bool RiderImporter::ImportText(const std::string &text) {
     fixturesByPos[fixtureIt->second.positionName].push_back(&fixtureIt->second);
   }
 
-  for (auto &[pos, fixturesVec] : fixturesByPos) {
+  auto buildSymmetricOrder = [](const std::vector<Fixture *> &fixturesVec) {
+    std::vector<Fixture *> ordered;
     if (fixturesVec.empty())
-      continue;
+      return ordered;
 
-    // Count fixtures by type
     std::unordered_map<std::string, int> counts;
     std::vector<std::string> types;
     for (Fixture *f : fixturesVec) {
@@ -1849,13 +1849,12 @@ bool RiderImporter::ImportText(const std::string &text) {
       counts[f->typeName]++;
     }
 
-    // Build ordering ensuring odd counts place one fixture at the center
     int total = static_cast<int>(fixturesVec.size());
     std::vector<std::string> center;
     for (const std::string &t : types) {
       if (counts[t] % 2 == 1) {
         center.push_back(t);
-        counts[t]--; // leave an even number for pairing
+        counts[t]--;
       }
     }
 
@@ -1866,7 +1865,7 @@ bool RiderImporter::ImportText(const std::string &text) {
       const std::string &t = types[idx % types.size()];
       if (counts[t] > 0) {
         left.push_back(t);
-        counts[t] -= 2; // use one pair of this type
+        counts[t] -= 2;
       }
       ++idx;
     }
@@ -1877,14 +1876,12 @@ bool RiderImporter::ImportText(const std::string &text) {
     std::reverse(right.begin(), right.end());
     order.insert(order.end(), right.begin(), right.end());
 
-    // Map fixtures by type for assignment
     std::unordered_map<std::string, std::vector<Fixture *>> byType;
     for (Fixture *f : fixturesVec)
       byType[f->typeName].push_back(f);
     for (auto &[type, vec] : byType)
       std::reverse(vec.begin(), vec.end());
 
-    std::vector<Fixture *> ordered;
     ordered.reserve(total);
     for (const std::string &t : order) {
       auto &vec = byType[t];
@@ -1893,6 +1890,20 @@ bool RiderImporter::ImportText(const std::string &text) {
       ordered.push_back(vec.back());
       vec.pop_back();
     }
+    return ordered;
+  };
+
+  auto placeFixtureGroup = [&](const std::string &pos,
+                               const std::vector<Fixture *> &fixturesVec,
+                               const std::function<void(Fixture &, float, float,
+                                                        float, float)> &applyPlacement) {
+    if (fixturesVec.empty())
+      return;
+
+    const std::vector<Fixture *> ordered = buildSymmetricOrder(fixturesVec);
+    const int total = static_cast<int>(ordered.size());
+    if (total <= 0)
+      return;
 
     TrussInfo info;
     auto it = trussInfo.find(pos);
@@ -1908,12 +1919,64 @@ bool RiderImporter::ImportText(const std::string &text) {
     float width = info.found ? info.width : 400.0f;
     float step = (total > 1) ? (endX - startX) / (total - 1) : 0.0f;
 
-    for (int i = 0; i < total && i < static_cast<int>(ordered.size()); ++i) {
-      Fixture *f = ordered[i];
-      f->transform.o[0] = startX + i * step;
-      f->transform.o[1] = baseY - width * 0.5f;
-      f->transform.o[2] = baseZ;
+    for (int i = 0; i < total; ++i) {
+      Fixture *f = ordered[static_cast<size_t>(i)];
+      if (!f)
+        continue;
+      applyPlacement(*f, startX + i * step, baseY, baseZ, width);
     }
+  };
+
+  auto isTopFrontCategory = [](const Fixture &fixture) {
+    const std::string normalized =
+        GdtfFixtureCategory::NormalizeCategory(fixture.category);
+    return normalized == GdtfFixtureCategory::NormalizeCategory(
+                             GdtfFixtureCategory::kBlinder) ||
+           normalized == GdtfFixtureCategory::NormalizeCategory(
+                             GdtfFixtureCategory::kStrobe);
+  };
+
+  auto isBackBottomCategory = [](const Fixture &fixture) {
+    const std::string normalized =
+        GdtfFixtureCategory::NormalizeCategory(fixture.category);
+    return normalized ==
+           GdtfFixtureCategory::NormalizeCategory(GdtfFixtureCategory::kWash);
+  };
+
+  for (auto &[pos, fixturesVec] : fixturesByPos) {
+    if (fixturesVec.empty())
+      continue;
+
+    std::vector<Fixture *> bottomFixtures;
+    std::vector<Fixture *> topFrontFixtures;
+    bottomFixtures.reserve(fixturesVec.size());
+    topFrontFixtures.reserve(fixturesVec.size());
+    for (Fixture *f : fixturesVec) {
+      if (!f)
+        continue;
+      if (isTopFrontCategory(*f))
+        topFrontFixtures.push_back(f);
+      else
+        bottomFixtures.push_back(f);
+    }
+
+    placeFixtureGroup(pos, bottomFixtures,
+                      [&](Fixture &fixture, float x, float baseY, float baseZ,
+                          float width) {
+                        fixture.transform.o[0] = x;
+                        fixture.transform.o[1] =
+                            isBackBottomCategory(fixture) ? baseY + width * 0.5f
+                                                           : baseY - width * 0.5f;
+                        fixture.transform.o[2] = baseZ;
+                      });
+
+    placeFixtureGroup(pos, topFrontFixtures,
+                      [&](Fixture &fixture, float x, float baseY, float baseZ,
+                          float width) {
+                        fixture.transform.o[0] = x;
+                        fixture.transform.o[1] = baseY - width * 0.5f;
+                        fixture.transform.o[2] = baseZ + width * 0.5f;
+                      });
   }
 
   // Assign fixture IDs and instance names to imported fixtures only.

@@ -269,10 +269,26 @@ After parsing, imported fixtures are distributed per hang:
 4. Ordering alternates fixture types symmetrically:
    - odd counts place a center fixture,
    - remaining fixtures are paired left/right.
-5. Final fixture transform:
-   - `x`: evenly spaced from start to end,
-   - `y`: front side of truss (`baseY - trussWidth/2`),
-   - `z`: hang height.
+5. Fixtures are split into placement groups:
+   - **Bottom group**: all categories except `Wash`, `Blinder`, `Strobe`.
+   - **Bottom-back override**: `Wash` is placed on the back side.
+   - **Top-front group**: `Blinder` and `Strobe` are placed on top-front.
+6. `x` spacing is computed independently per group:
+   - Bottom fixtures share one spacing/order pass.
+   - Top-front fixtures use a separate spacing/order pass and do not affect bottom spacing.
+7. Final fixture transform by group:
+   - Bottom-front:
+     - `x`: evenly spaced from start to end (bottom group),
+     - `y`: `baseY - trussWidth/2`,
+     - `z`: `baseZ`.
+   - Bottom-back (`Wash`):
+     - `x`: from bottom group spacing,
+     - `y`: `baseY + trussWidth/2`,
+     - `z`: `baseZ`.
+   - Top-front (`Blinder`, `Strobe`):
+     - `x`: evenly spaced from start to end (top group),
+     - `y`: `baseY - trussWidth/2`,
+     - `z`: `baseZ + trussWidth/2`.
 
 ## Numbering and identity rules
 
