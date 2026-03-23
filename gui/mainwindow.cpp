@@ -532,17 +532,21 @@ bool MainWindow::GuardStartupProjectLoadAction(const wxString &actionLabel) {
 bool MainWindow::LoadProjectFromPath(const std::string &path) {
   std::unique_ptr<wxWindowDisabler> loadDisabler =
       std::make_unique<wxWindowDisabler>();
-  ScopeExit enableWindows([&loadDisabler]() { loadDisabler.reset(); });
   SplashScreen::Options splashOptions;
   splashOptions.showLogo = false;
   SplashScreen::Show(splashOptions);
   SplashScreen::SetMessage("Loading project file...");
   wxYieldIfNeeded();
-  ScopeExit splashHide([]() { SplashScreen::Hide(); });
 
   LockViewportInteraction();
-  ScopeExit viewportUnlock([this]() { UnlockViewportInteraction(); });
+  auto finishLoad = [this, &loadDisabler]() {
+    UnlockViewportInteraction();
+    SplashScreen::Hide();
+    loadDisabler.reset();
+  };
+
   if (!GetDefaultGuiConfigServices().LegacyConfigManager().LoadProject(path)) {
+    finishLoad();
     return false;
   }
 
@@ -595,6 +599,7 @@ bool MainWindow::LoadProjectFromPath(const std::string &path) {
   SplashScreen::SetMessage("Creating fixture symbols...");
   StartFixtureSymbolAutoUpdateForLoadedScene();
   UpdateTitle();
+  finishLoad();
   return true;
 }
 
