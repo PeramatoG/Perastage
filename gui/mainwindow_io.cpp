@@ -150,6 +150,12 @@ void MainWindow::OnLoad(wxCommandEvent &event) {
     wxMessageBox("Failed to load project.", "Error", wxICON_ERROR);
 }
 
+bool MainWindow::OpenPathFromCommandLine(const std::string &path) {
+  if (!ioController)
+    return false;
+  return ioController->OpenPathFromCommandLine(path);
+}
+
 void MainWindow::OnSave(wxCommandEvent &event) {
   if (currentProjectPath.empty()) {
     OnSaveAs(event);
