@@ -710,8 +710,51 @@ func _build_node_tree(nodes: Array) -> void:
 				parent_node = _node_index[parent_id]
 			parent_node.add_child(node)
 
+	_apply_mesh_orientation_corrections(proxies_root, false)
 	_remove_redundant_dummy_meshes(proxies_root)
 	_rebuild_loaded_bounds()
+
+func _apply_mesh_orientation_corrections(node: Node3D, inherited_flip: bool) -> void:
+	if node == null:
+		return
+
+	var node_flip: bool = node.transform.basis.determinant() < 0.0
+	var global_flip: bool = inherited_flip != node_flip
+	if node is MeshInstance3D:
+		_rebuild_mesh_instance_for_orientation(node as MeshInstance3D, global_flip)
+
+	for child in node.get_children():
+		if child is Node3D:
+			_apply_mesh_orientation_corrections(child as Node3D, global_flip)
+
+func _rebuild_mesh_instance_for_orientation(mesh_instance: MeshInstance3D, flip_orientation: bool) -> void:
+	if mesh_instance == null:
+		return
+
+	if not mesh_instance.has_meta("peraviz_asset_path"):
+		return
+
+	var asset_path: String = str(mesh_instance.get_meta("peraviz_asset_path", ""))
+	if asset_path.is_empty():
+		return
+
+	var mesh_cache_key: String = asset_path
+	if flip_orientation:
+		mesh_cache_key = "%s#flipped" % asset_path
+
+	var cached_mesh: Mesh = _asset_cache.get_mesh(mesh_cache_key)
+	if cached_mesh == null:
+		var mesh_data: Dictionary = _loader.load_3ds_mesh_data(asset_path)
+		if not bool(mesh_data.get("ok", false)):
+			return
+		var rebuilt_mesh: ArrayMesh = _build_3ds_mesh(mesh_data, flip_orientation)
+		if rebuilt_mesh == null:
+			return
+		_asset_cache.store_mesh(mesh_cache_key, rebuilt_mesh)
+		cached_mesh = rebuilt_mesh
+
+	mesh_instance.mesh = cached_mesh
+	mesh_instance.set_meta("peraviz_flip_orientation_applied", flip_orientation)
 
 func _remove_redundant_dummy_meshes(root: Node) -> void:
 	if root == null:
@@ -768,6 +811,7 @@ func _create_scene_node(data: Dictionary) -> Node3D:
 	var is_emitter: bool = bool(data.get("is_emitter", false))
 	var is_lens: bool = bool(data.get("is_lens", false))
 	var node_name: String = str(data.get("name", item_type))
+	var flip_orientation: bool = false
 
 	var root := Node3D.new()
 	root.name = "%s_%s" % [item_class, node_name]
@@ -781,11 +825,13 @@ func _create_scene_node(data: Dictionary) -> Node3D:
 		if not _is_basis_valid(node_basis):
 			print("[PeravizCoordDebug] event=basis_invalid_fallback node=", root.name)
 			node_basis = Basis.IDENTITY
+		flip_orientation = node_basis.determinant() < 0.0
 		root.transform = Transform3D(node_basis, node_position)
 	else:
 		root.position = node_position
 		root.rotation_degrees = data.get("rot", Vector3.ZERO)
 		root.scale = _safe_scale_from_data(data, "create_scene_node_euler:" + root.name)
+		flip_orientation = root.transform.basis.determinant() < 0.0
 
 	if is_axis:
 		var pivot := Node3D.new()
@@ -798,7 +844,7 @@ func _create_scene_node(data: Dictionary) -> Node3D:
 		root.add_child(emitter)
 
 	var visual_scale_hint: float = _extract_visual_scale_hint(data)
-	var model_node: Node3D = _build_visual_node(data, item_type, item_class, is_fixture, visual_scale_hint)
+	var model_node: Node3D = _build_visual_node(data, item_type, item_class, is_fixture, visual_scale_hint, flip_orientation)
 	if model_node != null:
 		root.add_child(model_node)
 		if item_type == "fixture_geometry":
@@ -831,11 +877,11 @@ func _reparent_fixture_visual_children(geometry_node: Node3D, model_root: Node3D
 	if moved_any_child:
 		model_root.queue_free()
 
-func _build_visual_node(data: Dictionary, item_type: String, item_class: String, is_fixture: bool, visual_scale_hint: float) -> Node3D:
+func _build_visual_node(data: Dictionary, item_type: String, item_class: String, is_fixture: bool, visual_scale_hint: float, flip_orientation: bool = false) -> Node3D:
 	var asset_path: String = str(data.get("asset_path", ""))
 	var asset_kind: String = _extract_asset_kind(data, asset_path)
 	if not asset_path.is_empty():
-		var loaded: Variant = _load_3d_asset(asset_path, asset_kind)
+		var loaded: Variant = _load_3d_asset(asset_path, asset_kind, flip_orientation)
 		if loaded is Node3D:
 			var loaded_node: Node3D = loaded
 			_force_double_sided_materials(loaded_node)
@@ -932,30 +978,39 @@ func _extract_visual_scale_hint(data: Dictionary) -> float:
 		return 1.0
 	return max(average_scale, 0.0001)
 
-func _load_3d_asset(asset_path: String, asset_kind_hint: String = "") -> Variant:
+func _load_3d_asset(asset_path: String, asset_kind_hint: String = "", flip_orientation: bool = false) -> Variant:
 	var resolved_asset_kind: String = asset_kind_hint.to_lower()
 	if resolved_asset_kind.is_empty() or resolved_asset_kind == "none":
 		resolved_asset_kind = _infer_asset_kind_from_extension(asset_path)
 
 	var extension: String = asset_path.get_extension().to_lower()
 	if resolved_asset_kind == "mesh" or extension == "3ds":
-		var cached_mesh: Mesh = _asset_cache.get_mesh(asset_path)
+		var mesh_cache_key: String = asset_path
+		if flip_orientation:
+			mesh_cache_key = "%s#flipped" % asset_path
+		var cached_mesh: Mesh = _asset_cache.get_mesh(mesh_cache_key)
 		if cached_mesh != null:
 			var cached_mesh_instance := MeshInstance3D.new()
 			cached_mesh_instance.mesh = cached_mesh
+			cached_mesh_instance.set_meta("peraviz_asset_path", asset_path)
+			cached_mesh_instance.set_meta("peraviz_asset_kind", "mesh")
+			cached_mesh_instance.set_meta("peraviz_flip_orientation_applied", flip_orientation)
 			return cached_mesh_instance
 
 		var mesh_data: Dictionary = _loader.load_3ds_mesh_data(asset_path)
 		if not bool(mesh_data.get("ok", false)):
 			_asset_cache.mark_failed(asset_path)
 			return null
-		var mesh: ArrayMesh = _build_3ds_mesh(mesh_data)
+		var mesh: ArrayMesh = _build_3ds_mesh(mesh_data, flip_orientation)
 		if mesh == null:
 			_asset_cache.mark_failed(asset_path)
 			return null
-		_asset_cache.store_mesh(asset_path, mesh)
+		_asset_cache.store_mesh(mesh_cache_key, mesh)
 		var mesh_instance := MeshInstance3D.new()
 		mesh_instance.mesh = mesh
+		mesh_instance.set_meta("peraviz_asset_path", asset_path)
+		mesh_instance.set_meta("peraviz_asset_kind", "mesh")
+		mesh_instance.set_meta("peraviz_flip_orientation_applied", flip_orientation)
 		return mesh_instance
 
 	if resolved_asset_kind == "scene" or extension == "glb" or extension == "gltf":
@@ -1015,12 +1070,21 @@ func _infer_asset_kind_from_extension(asset_path: String) -> String:
 	return "none"
 
 
-func _build_3ds_mesh(mesh_data: Dictionary) -> ArrayMesh:
+func _build_3ds_mesh(mesh_data: Dictionary, flip_orientation: bool = false) -> ArrayMesh:
 	var vertices: PackedVector3Array = mesh_data.get("vertices", PackedVector3Array())
 	var normals: PackedVector3Array = mesh_data.get("normals", PackedVector3Array())
 	var indices: PackedInt32Array = mesh_data.get("indices", PackedInt32Array())
 	if vertices.is_empty() or indices.is_empty():
 		return null
+
+	if flip_orientation:
+		if (indices.size() % 3) != 0:
+			push_warning("[Peraviz] 3DS mesh index count is not divisible by 3; skipping orientation flip.")
+		else:
+			for i in range(0, indices.size(), 3):
+				var tmp: int = indices[i + 1]
+				indices[i + 1] = indices[i + 2]
+				indices[i + 2] = tmp
 
 	var arrays: Array = []
 	arrays.resize(Mesh.ARRAY_MAX)
