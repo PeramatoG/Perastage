@@ -22,8 +22,12 @@
 #include "projectutils.h"
 #include "splashscreen.h"
 #include <filesystem>
+#include <algorithm>
 #include <atomic>
+#include <cctype>
 #include <new>
+#include <optional>
+#include <string>
 #include <thread>
 #include <wx/stackwalk.h>
 #include <wx/sysopt.h>
@@ -49,6 +53,41 @@ private:
   std::thread project_loader_thread_;
   std::atomic<bool> project_load_event_sent_{false};
 };
+
+namespace {
+std::string ToLowerAscii(std::string text) {
+  std::transform(text.begin(), text.end(), text.begin(), [](unsigned char c) {
+    return static_cast<char>(std::tolower(c));
+  });
+  return text;
+}
+
+std::optional<std::string> GetStartupPathFromArgs(int argc, wxChar **argv) {
+  namespace fs = std::filesystem;
+  for (int i = 1; i < argc; ++i) {
+    const std::string rawPath = wxString(argv[i]).ToStdString();
+    if (rawPath.empty())
+      continue;
+
+    const fs::path candidate = fs::u8path(rawPath);
+    const std::u8string extensionU8 = candidate.extension().u8string();
+    const std::string extension(extensionU8.begin(), extensionU8.end());
+    const std::string normalizedExtension = ToLowerAscii(extension);
+    if (normalizedExtension != ".psproj" && normalizedExtension != ".mvr")
+      continue;
+
+    std::error_code ec;
+    fs::path absolutePath = fs::absolute(candidate, ec);
+    if (ec)
+      return rawPath;
+    const std::u8string absoluteU8 = absolutePath.u8string();
+    if (absoluteU8.empty())
+      return rawPath;
+    return std::string(absoluteU8.begin(), absoluteU8.end());
+  }
+  return std::nullopt;
+}
+} // namespace
 
 wxIMPLEMENT_APP(MyApp);
 
@@ -88,11 +127,22 @@ bool MyApp::OnInit() {
   // Start maximized so minimize and restore buttons remain available
   mainWindow->Maximize(true);
 
+  const std::optional<std::string> startupPathOpt =
+      GetStartupPathFromArgs(argc, argv);
+
   SplashScreen::SetMessage("Loading last project...");
   wxWeakRef<MainWindow> mainWindowRef(mainWindow);
   auto lastPathOpt = ProjectUtils::LoadLastProjectPath();
 
-  if (lastPathOpt) {
+  if (startupPathOpt && mainWindowRef) {
+    QueueProjectLoadedEvent(mainWindowRef, false, false);
+    const std::string startupPath = *startupPathOpt;
+    mainWindow->CallAfter([mainWindowRef, startupPath]() {
+      if (!mainWindowRef)
+        return;
+      mainWindowRef->OpenPathFromCommandLine(startupPath);
+    });
+  } else if (lastPathOpt) {
     std::string lastPath = *lastPathOpt;
     project_loader_thread_ = std::thread([this, mainWindowRef, lastPath]() {
       try {

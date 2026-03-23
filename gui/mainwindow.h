@@ -63,6 +63,7 @@ public:
   ~MainWindow();
 
   bool LoadProjectFromPath(const std::string &path); // Load given project
+  bool OpenPathFromCommandLine(const std::string &path);
   void ResetProject();                               // Clear current project
 
   static MainWindow *Instance();
