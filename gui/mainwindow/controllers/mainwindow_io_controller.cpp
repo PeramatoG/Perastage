@@ -90,7 +90,19 @@ void MainWindowIoController::OnImportMVR(wxCommandEvent &) {
 
   const wxString filePath = openFileDialog.GetPath();
   const std::string pathUtf8 = filePath.ToUTF8().data();
-  (void)ImportMvrFromPath(pathUtf8);
+  (void)ImportMvrWithOfficialPolicy(pathUtf8);
+}
+
+
+bool MainWindowIoController::ImportMvrWithOfficialPolicy(
+    const std::string &pathUtf8) {
+  if (!owner_.ConfirmSaveIfDirty(kMvrOpenAction, kMvrOpenTitle))
+    return false;
+
+  // Official policy for .mvr open/import actions:
+  // reset application scene state and then import the selected package.
+  // MvrImporter::ImportFromFile() performs the reset via ConfigManager.
+  return ImportMvrFromPath(pathUtf8);
 }
 
 bool MainWindowIoController::OpenPathFromCommandLine(
@@ -121,11 +133,8 @@ bool MainWindowIoController::OpenPathFromCommandLine(
     return true;
   }
 
-  if (extension == "mvr") {
-    if (!owner_.ConfirmSaveIfDirty("importing an MVR file", "Import MVR"))
-      return false;
-    return ImportMvrFromPath(pathUtf8);
-  }
+  if (extension == "mvr")
+    return ImportMvrWithOfficialPolicy(pathUtf8);
 
   if (owner_.GetStatusBar())
     owner_.SetStatusText("Unsupported startup file format.", 0);

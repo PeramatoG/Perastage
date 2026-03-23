@@ -25,6 +25,7 @@
 ### MVR & GDTF support
 
 - **Import MVR 1.6** scenes: read fixtures, trusses, hoists and generic objects from `.mvr` files and build the internal scene graph.
+- **Official `.mvr` open policy (menu import and OS double-click):** Perastage first asks to save unsaved changes, then opens the `.mvr` using a clean-scene reset + import flow (not merge). The same progress UI/locking behavior is used in both entry points (`wxWindowDisabler` + `wxBusyInfo`) so the workflow remains consistent.
 - **Export MVR**: write the current scene back to a new `.mvr` file so it can be opened in other lighting software.
 - **GDTF integration**:
   - A built‑in fixture dictionary maps textual fixture descriptions to GDTF files stored in the `library/` directory.
