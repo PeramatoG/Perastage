@@ -71,22 +71,12 @@ void ApplyRoundedShape(wxFrame *frame, int radius) {
   const wxRegion region(maskBitmap, *wxBLACK);
   frame->SetShape(region);
 }
-}
 
-void SplashScreen::Show() {
-  if (g_splash)
-    return;
-
-  g_splash = new wxFrame(nullptr, wxID_ANY, "", wxDefaultPosition, wxDefaultSize,
-                         wxFRAME_NO_TASKBAR | wxSTAY_ON_TOP | wxBORDER_NONE |
-                             wxFRAME_SHAPED);
-
-  wxPanel *panel = new wxPanel(g_splash);
-  wxBoxSizer *sizer = new wxBoxSizer(wxVERTICAL);
-
+wxBitmap BuildSplashBitmap() {
   wxBitmap logoBmp;
   const std::filesystem::path resourceRoot = ProjectUtils::GetResourceRoot();
-  const std::filesystem::path splashLogoPath = resourceRoot / "Perastage_logo.png";
+  const std::filesystem::path splashLogoPath =
+      resourceRoot / "Perastage_logo.png";
   std::error_code ec;
   if (!resourceRoot.empty() && std::filesystem::exists(splashLogoPath, ec)) {
     logoBmp.LoadFile(PathToWxString(splashLogoPath), wxBITMAP_TYPE_PNG);
@@ -119,8 +109,22 @@ void SplashScreen::Show() {
                                        wxSize(256, 256));
   }
 
-  logoBmp = ScaleDownBitmap(logoBmp, kSplashLogoMaxSize);
+  return ScaleDownBitmap(logoBmp, kSplashLogoMaxSize);
+}
+}
 
+void SplashScreen::Show() {
+  if (g_splash)
+    return;
+
+  g_splash = new wxFrame(nullptr, wxID_ANY, "", wxDefaultPosition, wxDefaultSize,
+                         wxFRAME_NO_TASKBAR | wxSTAY_ON_TOP | wxBORDER_NONE |
+                             wxFRAME_SHAPED);
+
+  wxPanel *panel = new wxPanel(g_splash);
+  wxBoxSizer *sizer = new wxBoxSizer(wxVERTICAL);
+
+  wxBitmap logoBmp = BuildSplashBitmap();
   wxStaticBitmap *logo = new wxStaticBitmap(panel, wxID_ANY, logoBmp);
 
   g_label =

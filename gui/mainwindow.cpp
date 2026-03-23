@@ -41,6 +41,7 @@
 #include <wx/aboutdlg.h>
 #include <wx/app.h>
 #include <wx/artprov.h>
+#include <wx/busyinfo.h>
 #include <wx/event.h>
 #include <wx/filefn.h>
 #include <wx/filename.h>
@@ -56,6 +57,7 @@
 #include <wx/settings.h>
 #include <wx/textctrl.h>
 #include <wx/tokenzr.h>
+#include <wx/utils.h>
 #include <wx/wfstream.h>
 class wxZipStreamLink;
 #include <wx/log.h>
@@ -529,13 +531,26 @@ bool MainWindow::GuardStartupProjectLoadAction(const wxString &actionLabel) {
 }
 
 bool MainWindow::LoadProjectFromPath(const std::string &path) {
+  std::unique_ptr<wxWindowDisabler> loadDisabler =
+      std::make_unique<wxWindowDisabler>();
+  std::unique_ptr<wxBusyInfo> loadOverlay =
+      std::make_unique<wxBusyInfo>("Loading project file...");
+  wxYieldIfNeeded();
+
   LockViewportInteraction();
-  if (!GetDefaultGuiConfigServices().LegacyConfigManager().LoadProject(path)) {
+  auto finishLoad = [this, &loadOverlay, &loadDisabler]() {
     UnlockViewportInteraction();
+    loadOverlay.reset();
+    loadDisabler.reset();
+  };
+
+  if (!GetDefaultGuiConfigServices().LegacyConfigManager().LoadProject(path)) {
+    finishLoad();
     return false;
   }
 
-
+  loadOverlay = std::make_unique<wxBusyInfo>("Building scene...");
+  wxYieldIfNeeded();
   Ensure3DViewport();
 
   currentProjectPath = path;
@@ -577,12 +592,16 @@ bool MainWindow::LoadProjectFromPath(const std::string &path) {
     viewport2DRenderPanel->ApplyConfig();
   if (layerPanel)
     layerPanel->ReloadLayers();
+  loadOverlay = std::make_unique<wxBusyInfo>("Refreshing panels...");
+  wxYieldIfNeeded();
   RefreshSummary();
   RefreshRigging();
   GetDefaultGuiConfigServices().LegacyConfigManager().MarkSaved();
+  loadOverlay = std::make_unique<wxBusyInfo>("Creating fixture symbols...");
+  wxYieldIfNeeded();
   StartFixtureSymbolAutoUpdateForLoadedScene();
   UpdateTitle();
-  UnlockViewportInteraction();
+  finishLoad();
   return true;
 }
 
