@@ -274,7 +274,7 @@ func _apply_environment_dict(state: Dictionary) -> void:
 		_directional_light.visible = directional_energy > 0.0005
 		_directional_light.light_energy = directional_energy
 		_directional_light.light_color = state["directional_color"]
-		_directional_light.rotation_degrees = Vector3(float(state["sun_elevation_deg"]), -45.0, 0.0)
+		_directional_light.rotation_degrees = Vector3(-float(state["sun_elevation_deg"]), -45.0, 0.0)
 
 
 func _warm_horizon_color(base_intensity: float, dusk_factor: float) -> Color:
