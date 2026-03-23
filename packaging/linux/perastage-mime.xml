@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
+  <mime-type type="application/x-perastage-mvr">
+    <comment>My Virtual Rig file</comment>
+    <glob pattern="*.mvr"/>
+  </mime-type>
+  <mime-type type="application/x-perastage-project">
+    <comment>Perastage project archive</comment>
+    <glob pattern="*.psproj"/>
+  </mime-type>
+</mime-info>
