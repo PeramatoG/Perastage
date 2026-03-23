@@ -5,7 +5,7 @@ project(Perastage VERSION 0.1.0 LANGUAGES CXX)
 
 set(PERASTAGE_APP_VERSION "${PROJECT_VERSION}")
 set(PERASTAGE_APP_VERSION_DISPLAY "beta ${PROJECT_VERSION}")
-option(PERASTAGE_ASSOCIATE_PSPROJ "Register .psproj file association during packaging/installation where supported" ON)
+option(PERASTAGE_ASSOCIATE_PSTG "Register .pstg file association during packaging/installation where supported" ON)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -477,16 +477,16 @@ if(WIN32)
         "DeleteRegKey HKCR 'Perastage.MVR'\\n"
         "DeleteRegValue HKCR '.mvr' ''\\n"
     )
-    if(PERASTAGE_ASSOCIATE_PSPROJ)
+    if(PERASTAGE_ASSOCIATE_PSTG)
         string(APPEND CPACK_NSIS_EXTRA_INSTALL_COMMANDS
-            "WriteRegStr HKCR '.psproj' '' 'Perastage.Project'\\n"
+            "WriteRegStr HKCR '.pstg' '' 'Perastage.Project'\\n"
             "WriteRegStr HKCR 'Perastage.Project' '' 'Perastage Project'\\n"
             "WriteRegStr HKCR 'Perastage.Project\\\\DefaultIcon' '' '$INSTDIR\\\\Perastage.exe,0'\\n"
             "WriteRegStr HKCR 'Perastage.Project\\\\shell\\\\open\\\\command' '' '\\\"$INSTDIR\\\\Perastage.exe\\\" \\\"%1\\\"'\\n"
         )
         string(APPEND CPACK_NSIS_EXTRA_UNINSTALL_COMMANDS
             "DeleteRegKey HKCR 'Perastage.Project'\\n"
-            "DeleteRegValue HKCR '.psproj' ''\\n"
+            "DeleteRegValue HKCR '.pstg' ''\\n"
         )
     endif()
 endif()

@@ -12,7 +12,7 @@
 
 ### Project management
 
-- Open and save Perastage projects (`*.psproj`) with support for multiple named pages/layouts.
+- Open and save Perastage projects (`*.pstg`) with support for multiple named pages/layouts.
 - Group fixtures, trusses, hoists and scene objects into layers and toggle their visibility/selection per layer.
 - Save and restore user preferences (window layout, last used directories, view mode, etc.).
 
@@ -135,7 +135,7 @@ These options are considered experimental and are not required for the core Pera
 
 ### Project file format
 
-Perastage project files (`*.psproj`) are standard ZIP archives. A project typically contains a `config.json` file storing user preferences and layout settings and a `scene.mvr` file storing the show data in MVR format. You can inspect or extract these files with any ZIP utility. When Perastage saves a project, it writes the updated `config.json` and `scene.mvr` back into the archive.
+Perastage project files (`*.pstg`) are standard ZIP archives. A project typically contains a `config.json` file storing user preferences and layout settings and a `scene.mvr` file storing the show data in MVR format. You can inspect or extract these files with any ZIP utility. When Perastage saves a project, it writes the updated `config.json` and `scene.mvr` back into the archive.
 
 ---
 
@@ -157,7 +157,7 @@ These checks validate that per-instance normal transformation and mirrored-trans
 
 1. Build the Release configuration.
 2. Run the `perastage_stage` target to populate the staging directory (`out/install/<CONFIG>`, for example `out/install/Release`).
-3. Generate an installer with CPack (`cpack -G NSIS` in the build directory) or use another installer tool if needed. The NSIS package writes file associations for `.mvr` (and `.psproj` when `-DPERASTAGE_ASSOCIATE_PSPROJ=ON`) using ProgID entries, icon registration, and open commands.
+3. Generate an installer with CPack (`cpack -G NSIS` in the build directory) or use another installer tool if needed. The NSIS package writes file associations for `.mvr` (and `.pstg` when `-DPERASTAGE_ASSOCIATE_PSTG=ON`) using ProgID entries, icon registration, and open commands.
 4. Optionally provide a portable ZIP archive for users who prefer not to run an installer.
 
 ## Linux desktop integration
@@ -165,7 +165,7 @@ These checks validate that per-instance normal transformation and mirrored-trans
 Linux installs now include:
 
 - `share/applications/perastage.desktop` with `MimeType=application/x-perastage-mvr;application/x-perastage-project;`
-- `share/mime/packages/perastage-mime.xml` with glob rules for `*.mvr` and `*.psproj`
+- `share/mime/packages/perastage-mime.xml` with glob rules for `*.mvr` and `*.pstg`
 - `share/icons/hicolor/1024x1024/apps/perastage.png`
 
 During `cmake --install`, Perastage also attempts to refresh MIME and desktop databases (`update-mime-database` and `update-desktop-database`) so new associations are visible without manual cache refresh.

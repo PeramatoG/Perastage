@@ -110,8 +110,12 @@ bool MainWindowIoController::OpenPathFromCommandLine(
   std::string extension = wxFileName(wxString::FromUTF8(pathUtf8)).GetExt()
                               .Lower()
                               .ToStdString();
+  std::string projectExtension = wxString::FromUTF8(ProjectUtils::PROJECT_EXTENSION)
+                                     .AfterFirst('.')
+                                     .Lower()
+                                     .ToStdString();
 
-  if (extension == "psproj") {
+  if (extension == projectExtension) {
     if (!owner_.ConfirmSaveIfDirty("loading a project", "Open Project"))
       return false;
 
@@ -142,7 +146,9 @@ bool MainWindowIoController::OpenPathFromCommandLine(
     owner_.consolePanel->AppendMessage("Unsupported startup file: " +
                                        wxString::FromUTF8(pathUtf8));
   }
-  wxMessageBox("Unsupported startup file. Use .psproj or .mvr files.",
+  wxMessageBox("Unsupported startup file. Use " +
+                   wxString::FromUTF8(ProjectUtils::PROJECT_EXTENSION) +
+                   " or .mvr files.",
                "Unsupported file", wxICON_WARNING);
   return false;
 }
