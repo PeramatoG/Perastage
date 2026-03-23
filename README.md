@@ -156,8 +156,22 @@ These checks validate that per-instance normal transformation and mirrored-trans
 
 1. Build the Release configuration.
 2. Run the `perastage_stage` target to populate the staging directory (`out/install/<CONFIG>`, for example `out/install/Release`).
-3. Use an installer tool such as **Inno Setup** to create a self‑extracting installer and uninstaller.  The staging directory already contains the executable, DLLs, help files, library data and resources.
+3. Generate an installer with CPack (`cpack -G NSIS` in the build directory) or use another installer tool if needed. The NSIS package writes file associations for `.mvr` (and `.psproj` when `-DPERASTAGE_ASSOCIATE_PSPROJ=ON`) using ProgID entries, icon registration, and open commands.
 4. Optionally provide a portable ZIP archive for users who prefer not to run an installer.
+
+## Linux desktop integration
+
+Linux installs now include:
+
+- `share/applications/perastage.desktop` with `MimeType=application/x-perastage-mvr;application/x-perastage-project;`
+- `share/mime/packages/perastage-mime.xml` with glob rules for `*.mvr` and `*.psproj`
+- `share/icons/hicolor/1024x1024/apps/perastage.png`
+
+During `cmake --install`, Perastage also attempts to refresh MIME and desktop databases (`update-mime-database` and `update-desktop-database`) so new associations are visible without manual cache refresh.
+
+## macOS document association
+
+On macOS, Perastage builds as an app bundle with `CFBundleDocumentTypes` and UTI declarations for `.mvr`, so Finder can route `.mvr` files to Perastage.
 
 ---
 

@@ -5,6 +5,7 @@ project(Perastage VERSION 0.1.0 LANGUAGES CXX)
 
 set(PERASTAGE_APP_VERSION "${PROJECT_VERSION}")
 set(PERASTAGE_APP_VERSION_DISPLAY "beta ${PROJECT_VERSION}")
+option(PERASTAGE_ASSOCIATE_PSPROJ "Register .psproj file association during packaging/installation where supported" ON)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -123,6 +124,21 @@ add_executable(${PROJECT_NAME} main.cpp
     mvr/mvrexporter.cpp
 )
 
+if(APPLE)
+    set(PERASTAGE_MACOS_INFO_PLIST "${CMAKE_BINARY_DIR}/PerastageInfo.plist")
+    set(EXECUTABLE_NAME "${PROJECT_NAME}")
+    set(PERASTAGE_VERSION "${PROJECT_VERSION}")
+    configure_file(
+        "${CMAKE_SOURCE_DIR}/cmake/PerastageInfo.plist.in"
+        "${PERASTAGE_MACOS_INFO_PLIST}"
+        @ONLY
+    )
+    set_target_properties(${PROJECT_NAME} PROPERTIES
+        MACOSX_BUNDLE TRUE
+        MACOSX_BUNDLE_INFO_PLIST "${PERASTAGE_MACOS_INFO_PLIST}"
+    )
+endif()
+
 target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_20)
 target_compile_definitions(${PROJECT_NAME} PRIVATE
     PERASTAGE_APP_VERSION="${PERASTAGE_APP_VERSION}"
@@ -146,6 +162,38 @@ endif()
 set_target_properties(${PROJECT_NAME} PROPERTIES WIN32_EXECUTABLE TRUE)
 
 install(TARGETS ${PROJECT_NAME} RUNTIME DESTINATION .)
+
+if(UNIX AND NOT APPLE)
+    configure_file(
+        "${CMAKE_SOURCE_DIR}/packaging/linux/perastage.desktop.in"
+        "${CMAKE_BINARY_DIR}/perastage.desktop"
+        @ONLY
+    )
+    install(FILES "${CMAKE_BINARY_DIR}/perastage.desktop"
+        DESTINATION share/applications
+    )
+    install(FILES "${CMAKE_SOURCE_DIR}/packaging/linux/perastage-mime.xml"
+        DESTINATION share/mime/packages
+    )
+    install(FILES "${CMAKE_SOURCE_DIR}/resources/Perastage_logo_1024.png"
+        DESTINATION share/icons/hicolor/1024x1024/apps
+        RENAME perastage.png
+    )
+    install(CODE [[
+        execute_process(
+            COMMAND update-mime-database "${CMAKE_INSTALL_PREFIX}/share/mime"
+            RESULT_VARIABLE perastage_mime_result
+            OUTPUT_QUIET
+            ERROR_QUIET
+        )
+        execute_process(
+            COMMAND update-desktop-database "${CMAKE_INSTALL_PREFIX}/share/applications"
+            RESULT_VARIABLE perastage_desktop_result
+            OUTPUT_QUIET
+            ERROR_QUIET
+        )
+    ]])
+endif()
 
 # Include project directories
 target_include_directories(${PROJECT_NAME} PRIVATE
@@ -408,3 +456,39 @@ foreach(subdir IN LISTS LIBRARY_SUBDIRS)
         )
     endif()
 endforeach()
+
+set(CPACK_PACKAGE_NAME "Perastage")
+set(CPACK_PACKAGE_VENDOR "Perastage")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Perastage lighting plot editor")
+set(CPACK_PACKAGE_VERSION "${PROJECT_VERSION}")
+
+if(WIN32)
+    set(CPACK_GENERATOR "NSIS")
+    set(CPACK_NSIS_ENABLE_UNINSTALL_BEFORE_INSTALL ON)
+    set(CPACK_NSIS_DISPLAY_NAME "Perastage")
+    set(CPACK_NSIS_PACKAGE_NAME "Perastage")
+    string(CONCAT CPACK_NSIS_EXTRA_INSTALL_COMMANDS
+        "WriteRegStr HKCR '.mvr' '' 'Perastage.MVR'\\n"
+        "WriteRegStr HKCR 'Perastage.MVR' '' 'MVR Scene'\\n"
+        "WriteRegStr HKCR 'Perastage.MVR\\\\DefaultIcon' '' '$INSTDIR\\\\Perastage.exe,0'\\n"
+        "WriteRegStr HKCR 'Perastage.MVR\\\\shell\\\\open\\\\command' '' '\\\"$INSTDIR\\\\Perastage.exe\\\" \\\"%1\\\"'\\n"
+    )
+    string(CONCAT CPACK_NSIS_EXTRA_UNINSTALL_COMMANDS
+        "DeleteRegKey HKCR 'Perastage.MVR'\\n"
+        "DeleteRegValue HKCR '.mvr' ''\\n"
+    )
+    if(PERASTAGE_ASSOCIATE_PSPROJ)
+        string(APPEND CPACK_NSIS_EXTRA_INSTALL_COMMANDS
+            "WriteRegStr HKCR '.psproj' '' 'Perastage.Project'\\n"
+            "WriteRegStr HKCR 'Perastage.Project' '' 'Perastage Project'\\n"
+            "WriteRegStr HKCR 'Perastage.Project\\\\DefaultIcon' '' '$INSTDIR\\\\Perastage.exe,0'\\n"
+            "WriteRegStr HKCR 'Perastage.Project\\\\shell\\\\open\\\\command' '' '\\\"$INSTDIR\\\\Perastage.exe\\\" \\\"%1\\\"'\\n"
+        )
+        string(APPEND CPACK_NSIS_EXTRA_UNINSTALL_COMMANDS
+            "DeleteRegKey HKCR 'Perastage.Project'\\n"
+            "DeleteRegValue HKCR '.psproj' ''\\n"
+        )
+    endif()
+endif()
+
+include(CPack)

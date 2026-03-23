@@ -29,6 +29,12 @@ Some tools are intentionally available only in **Debug** builds:
 
 Release builds keep these entries hidden to reduce risk in production workflows.
 
+## File associations by operating system
+
+- **Windows installer (NSIS/CPack):** registers `.mvr` with a dedicated ProgID, icon, and open command. `.psproj` can also be associated when packaging enables `PERASTAGE_ASSOCIATE_PSPROJ`.
+- **Linux install:** deploys a desktop entry plus MIME XML declarations for `*.mvr` and `*.psproj`, then refreshes MIME/desktop caches when the relevant tools are available.
+- **macOS bundle:** exports `CFBundleDocumentTypes` for `.mvr` so files can be opened from Finder.
+
 ## Console Commands (complete)
 
 The console works on the current selection. If fixtures are selected, position

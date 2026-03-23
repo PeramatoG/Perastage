@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Perastage
+Comment=Lighting plot editor and MVR viewer
+Exec=Perastage %f
+Icon=perastage
+Terminal=false
+Categories=Graphics;Utility;
+MimeType=application/x-perastage-mvr;application/x-perastage-project;
+StartupNotify=true
