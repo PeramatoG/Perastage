@@ -71,22 +71,15 @@ void ApplyRoundedShape(wxFrame *frame, int radius) {
   const wxRegion region(maskBitmap, *wxBLACK);
   frame->SetShape(region);
 }
-}
 
-void SplashScreen::Show() {
-  if (g_splash)
-    return;
-
-  g_splash = new wxFrame(nullptr, wxID_ANY, "", wxDefaultPosition, wxDefaultSize,
-                         wxFRAME_NO_TASKBAR | wxSTAY_ON_TOP | wxBORDER_NONE |
-                             wxFRAME_SHAPED);
-
-  wxPanel *panel = new wxPanel(g_splash);
-  wxBoxSizer *sizer = new wxBoxSizer(wxVERTICAL);
+wxBitmap BuildSplashBitmap(bool showLogo) {
+  if (!showLogo)
+    return wxBitmap();
 
   wxBitmap logoBmp;
   const std::filesystem::path resourceRoot = ProjectUtils::GetResourceRoot();
-  const std::filesystem::path splashLogoPath = resourceRoot / "Perastage_logo.png";
+  const std::filesystem::path splashLogoPath =
+      resourceRoot / "Perastage_logo.png";
   std::error_code ec;
   if (!resourceRoot.empty() && std::filesystem::exists(splashLogoPath, ec)) {
     logoBmp.LoadFile(PathToWxString(splashLogoPath), wxBITMAP_TYPE_PNG);
@@ -119,9 +112,33 @@ void SplashScreen::Show() {
                                        wxSize(256, 256));
   }
 
-  logoBmp = ScaleDownBitmap(logoBmp, kSplashLogoMaxSize);
+  return ScaleDownBitmap(logoBmp, kSplashLogoMaxSize);
+}
+}
 
-  wxStaticBitmap *logo = new wxStaticBitmap(panel, wxID_ANY, logoBmp);
+void SplashScreen::Show() {
+  Show(Options{});
+}
+
+void SplashScreen::Show(const Options &options) {
+  if (g_splash)
+    return;
+
+  g_splash = new wxFrame(nullptr, wxID_ANY, "", wxDefaultPosition, wxDefaultSize,
+                         wxFRAME_NO_TASKBAR | wxSTAY_ON_TOP | wxBORDER_NONE |
+                             wxFRAME_SHAPED);
+
+  wxPanel *panel = new wxPanel(g_splash);
+  wxBoxSizer *sizer = new wxBoxSizer(wxVERTICAL);
+
+  if (const wxBitmap logoBmp = BuildSplashBitmap(options.showLogo);
+      logoBmp.IsOk()) {
+    wxStaticBitmap *logo = new wxStaticBitmap(panel, wxID_ANY, logoBmp);
+    sizer->AddStretchSpacer(1);
+    sizer->Add(logo, 0, wxALIGN_CENTER | wxALL, 10);
+  } else {
+    sizer->AddStretchSpacer(1);
+  }
 
   g_label =
       new wxStaticText(panel, wxID_ANY, "Loading Perastage...", wxDefaultPosition,
@@ -130,8 +147,6 @@ void SplashScreen::Show() {
   font.MakeBold();
   g_label->SetFont(font);
 
-  sizer->AddStretchSpacer(1);
-  sizer->Add(logo, 0, wxALIGN_CENTER | wxALL, 10);
   sizer->Add(g_label, 0, wxALIGN_CENTER | wxBOTTOM, 20);
   sizer->AddStretchSpacer(1);
   panel->SetSizerAndFit(sizer);

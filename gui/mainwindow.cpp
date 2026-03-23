@@ -56,6 +56,7 @@
 #include <wx/settings.h>
 #include <wx/textctrl.h>
 #include <wx/tokenzr.h>
+#include <wx/utils.h>
 #include <wx/wfstream.h>
 class wxZipStreamLink;
 #include <wx/log.h>
@@ -529,13 +530,23 @@ bool MainWindow::GuardStartupProjectLoadAction(const wxString &actionLabel) {
 }
 
 bool MainWindow::LoadProjectFromPath(const std::string &path) {
+  std::unique_ptr<wxWindowDisabler> loadDisabler =
+      std::make_unique<wxWindowDisabler>();
+  ScopeExit enableWindows([&loadDisabler]() { loadDisabler.reset(); });
+  SplashScreen::Options splashOptions;
+  splashOptions.showLogo = false;
+  SplashScreen::Show(splashOptions);
+  SplashScreen::SetMessage("Loading project file...");
+  wxYieldIfNeeded();
+  ScopeExit splashHide([]() { SplashScreen::Hide(); });
+
   LockViewportInteraction();
+  ScopeExit viewportUnlock([this]() { UnlockViewportInteraction(); });
   if (!GetDefaultGuiConfigServices().LegacyConfigManager().LoadProject(path)) {
-    UnlockViewportInteraction();
     return false;
   }
 
-
+  SplashScreen::SetMessage("Building scene...");
   Ensure3DViewport();
 
   currentProjectPath = path;
@@ -577,12 +588,13 @@ bool MainWindow::LoadProjectFromPath(const std::string &path) {
     viewport2DRenderPanel->ApplyConfig();
   if (layerPanel)
     layerPanel->ReloadLayers();
+  SplashScreen::SetMessage("Refreshing panels...");
   RefreshSummary();
   RefreshRigging();
   GetDefaultGuiConfigServices().LegacyConfigManager().MarkSaved();
+  SplashScreen::SetMessage("Creating fixture symbols...");
   StartFixtureSymbolAutoUpdateForLoadedScene();
   UpdateTitle();
-  UnlockViewportInteraction();
   return true;
 }
 
