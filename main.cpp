@@ -64,6 +64,7 @@ std::string ToLowerAscii(std::string text) {
 
 std::optional<std::string> GetStartupPathFromArgs(int argc, wxChar **argv) {
   namespace fs = std::filesystem;
+  const std::string projectExtension = ToLowerAscii(ProjectUtils::PROJECT_EXTENSION);
   for (int i = 1; i < argc; ++i) {
     const std::string rawPath = wxString(argv[i]).ToStdString();
     if (rawPath.empty())
@@ -73,7 +74,7 @@ std::optional<std::string> GetStartupPathFromArgs(int argc, wxChar **argv) {
     const std::u8string extensionU8 = candidate.extension().u8string();
     const std::string extension(extensionU8.begin(), extensionU8.end());
     const std::string normalizedExtension = ToLowerAscii(extension);
-    if (normalizedExtension != ".psproj" && normalizedExtension != ".mvr")
+    if (normalizedExtension != projectExtension && normalizedExtension != ".mvr")
       continue;
 
     std::error_code ec;

@@ -6,6 +6,6 @@
   </mime-type>
   <mime-type type="application/x-perastage-project">
     <comment>Perastage project archive</comment>
-    <glob pattern="*.psproj"/>
+    <glob pattern="*.pstg"/>
   </mime-type>
 </mime-info>

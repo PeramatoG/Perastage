@@ -10,12 +10,12 @@
 
 ## Project Files
 
-Perastage projects (`.psproj`) store the scene, layouts, and user settings.
+Perastage projects (`.pstg`) store the scene, layouts, and user settings.
 
 **File > New / Load / Save / Save As...**
 
 - **New** creates a blank project.
-- **Load** opens an existing `.psproj` file.
+- **Load** opens an existing `.pstg` file.
 - **Save** stores changes in the current project file.
 - **Save As...** writes the project under a new name or location.
 
@@ -31,8 +31,8 @@ Release builds keep these entries hidden to reduce risk in production workflows.
 
 ## File associations by operating system
 
-- **Windows installer (NSIS/CPack):** registers `.mvr` with a dedicated ProgID, icon, and open command. `.psproj` can also be associated when packaging enables `PERASTAGE_ASSOCIATE_PSPROJ`.
-- **Linux install:** deploys a desktop entry plus MIME XML declarations for `*.mvr` and `*.psproj`, then refreshes MIME/desktop caches when the relevant tools are available.
+- **Windows installer (NSIS/CPack):** registers `.mvr` with a dedicated ProgID, icon, and open command. `.pstg` can also be associated when packaging enables `PERASTAGE_ASSOCIATE_PSTG`.
+- **Linux install:** deploys a desktop entry plus MIME XML declarations for `*.mvr` and `*.pstg`, then refreshes MIME/desktop caches when the relevant tools are available.
 - **macOS bundle:** exports `CFBundleDocumentTypes` for `.mvr` so files can be opened from Finder.
 
 ## Console Commands (complete)
@@ -183,12 +183,12 @@ Notes:
 
 ## Archivos de proyecto
 
-Los proyectos de Perastage (`.psproj`) guardan la escena, los layouts y la configuración del usuario.
+Los proyectos de Perastage (`.pstg`) guardan la escena, los layouts y la configuración del usuario.
 
 **File > New / Load / Save / Save As...**
 
 - **Nuevo** crea un proyecto en blanco.
-- **Cargar** abre un `.psproj` existente.
+- **Cargar** abre un `.pstg` existente.
 - **Guardar** guarda los cambios en el proyecto actual.
 - **Guardar como...** guarda el proyecto con otro nombre o en otra ubicación.
 
