@@ -72,10 +72,7 @@ void ApplyRoundedShape(wxFrame *frame, int radius) {
   frame->SetShape(region);
 }
 
-wxBitmap BuildSplashBitmap(bool showLogo) {
-  if (!showLogo)
-    return wxBitmap();
-
+wxBitmap BuildSplashBitmap() {
   wxBitmap logoBmp;
   const std::filesystem::path resourceRoot = ProjectUtils::GetResourceRoot();
   const std::filesystem::path splashLogoPath =
@@ -117,10 +114,6 @@ wxBitmap BuildSplashBitmap(bool showLogo) {
 }
 
 void SplashScreen::Show() {
-  Show(Options{});
-}
-
-void SplashScreen::Show(const Options &options) {
   if (g_splash)
     return;
 
@@ -131,14 +124,8 @@ void SplashScreen::Show(const Options &options) {
   wxPanel *panel = new wxPanel(g_splash);
   wxBoxSizer *sizer = new wxBoxSizer(wxVERTICAL);
 
-  if (const wxBitmap logoBmp = BuildSplashBitmap(options.showLogo);
-      logoBmp.IsOk()) {
-    wxStaticBitmap *logo = new wxStaticBitmap(panel, wxID_ANY, logoBmp);
-    sizer->AddStretchSpacer(1);
-    sizer->Add(logo, 0, wxALIGN_CENTER | wxALL, 10);
-  } else {
-    sizer->AddStretchSpacer(1);
-  }
+  wxBitmap logoBmp = BuildSplashBitmap();
+  wxStaticBitmap *logo = new wxStaticBitmap(panel, wxID_ANY, logoBmp);
 
   g_label =
       new wxStaticText(panel, wxID_ANY, "Loading Perastage...", wxDefaultPosition,
@@ -147,6 +134,8 @@ void SplashScreen::Show(const Options &options) {
   font.MakeBold();
   g_label->SetFont(font);
 
+  sizer->AddStretchSpacer(1);
+  sizer->Add(logo, 0, wxALIGN_CENTER | wxALL, 10);
   sizer->Add(g_label, 0, wxALIGN_CENTER | wxBOTTOM, 20);
   sizer->AddStretchSpacer(1);
   panel->SetSizerAndFit(sizer);
