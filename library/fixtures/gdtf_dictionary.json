@@ -11,6 +11,10 @@
         "file": "BLINDER 2 PRO.gdtf",
         "mode": "2ch d001"
     },
+    "BLINDER 4 PRO": {
+        "file": "BLINDER 4 PRO.gdtf",
+        "mode": "4ch d001"
+    },
     "BMFL WashBeam (Bulb=HTI 1700W_PS Lok-it_)": {
         "file": "Robin BMFL WashBeam.gdtf",
         "mode": "Mode 1 - Standard 16 bit"
@@ -47,6 +51,10 @@
         "file": "BLINDER 4 PRO.gdtf",
         "mode": "8ch A001"
     },
+    "LITELEE B-EYE L10R": {
+        "file": "Aleda B-EYE K10.gdtf",
+        "mode": "Shapes"
+    },
     "LITELEES B-EYE L10R (LIBRERÍA K10)": {
         "file": "Aleda B-EYE K10.gdtf",
         "mode": "Shapes"
@@ -79,6 +87,10 @@
         "file": "MAC Axiom Hybrid.gdtf",
         "mode": "Basic"
     },
+    "MARTIN MAC QUANTUM PROFILE": {
+        "file": "MAC Quantum Profile.gdtf",
+        "mode": "Basic"
+    },
     "MARTIN MAC QUANTUM WASH": {
         "file": "MAC Quantum Wash.gdtf",
         "mode": "Basic"
@@ -102,6 +114,10 @@
     "PROLIGHT BLINDER 2 PRO": {
         "file": "BLINDER 2 PRO.gdtf",
         "mode": "2ch d001"
+    },
+    "PROLIGHT BLINDER 4 PRO": {
+        "file": "BLINDER 4 PRO.gdtf",
+        "mode": "4ch d001"
     },
     "PROLIGHT PIXEL STROBE 400 RGB": {
         "file": "PIXEL STROBE 400 RGB.gdtf",
@@ -147,17 +163,21 @@
         "file": "Robin iSpiiderX.gdtf",
         "mode": "Mode 3 - Advanced"
     },
+    "S-K15 LIROLITE": {
+        "file": "Aleda B-EYE K10.gdtf",
+        "mode": "Shapes"
+    },
     "Sharpy": {
         "file": "Sharpy.gdtf",
         "mode": "Vector"
     },
     "Spiider": {
         "file": "Robin Spiider.gdtf",
-        "mode": "Mode 10 - Pattern full RGBW"
+        "mode": "Mode 3 - Advanced"
     },
     "Spiider (Bulb=LED)": {
         "file": "Robin Spiider.gdtf",
-        "mode": "Mode 10 - Pattern full RGBW"
+        "mode": "Mode 3 - Advanced"
     },
     "Strike Array 2 (Bulb=LED)": {
         "file": "BLINDER 2 PRO.gdtf",
@@ -179,17 +199,13 @@
         "file": "Tour Hazer II.gdtf",
         "mode": "Default"
     },
-    "XBEAM 17 CMY": {
-        "file": "BLINDER 2 PRO.gdtf",
-        "mode": "6ch A001"
-    },
     "cegadoras": {
         "file": "Sunrise2IP.gdtf",
         "mode": "STANDARD"
     },
     "quantum spot": {
         "file": "MAC Quantum Profile.gdtf",
-        "mode": "Basic"
+        "mode": "Extended"
     },
     "quantum wash": {
         "file": "MAC Quantum Wash.gdtf",
@@ -197,6 +213,6 @@
     },
     "sharpy": {
         "file": "Sharpy.gdtf",
-        "mode": "Standard"
+        "mode": "Vector"
     }
 }
