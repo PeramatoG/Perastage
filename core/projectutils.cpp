@@ -17,6 +17,7 @@
  */
 #include "projectutils.h"
 #include <cstdlib>
+#include <iostream>
 #include <filesystem>
 #include <fstream>
 #include <optional>
@@ -48,14 +49,20 @@ fs::path WxStringToPath(const wxString& value)
 void CopyLibrarySubdir(const fs::path& source, const fs::path& destination)
 {
     std::error_code ec;
+    bool sourceExists = fs::exists(source, ec);
+    if (ec || !sourceExists)
+        return;
+
     bool destinationExists = fs::exists(destination, ec);
+    if (ec || !ProjectUtils::IsDirectoryWritable(destination))
+        return;
+
     ec.clear();
     bool destinationEmpty = destinationExists ? fs::is_empty(destination, ec) : true;
+    if (ec)
+        return;
 
-    if (!destinationExists)
-        fs::create_directories(destination, ec);
-
-    if ((destinationEmpty || !destinationExists) && fs::exists(source)) {
+    if (destinationEmpty || !destinationExists) {
         ec.clear();
         fs::copy(source, destination,
                  fs::copy_options::recursive | fs::copy_options::update_existing, ec);
@@ -104,6 +111,27 @@ std::optional<fs::path> ResolveWritableUserDataDir()
 }
 
 } // namespace
+
+bool IsDirectoryWritable(const fs::path& dir)
+{
+    if (dir.empty())
+        return false;
+
+    std::error_code ec;
+    fs::create_directories(dir, ec);
+    if (ec)
+        return false;
+
+    const fs::path probePath = dir / ".perastage_write_test.tmp";
+    {
+        std::ofstream probe(probePath, std::ios::out | std::ios::trunc);
+        if (!probe.is_open())
+            return false;
+    }
+
+    fs::remove(probePath, ec);
+    return true;
+}
 
 fs::path GetBaseLibraryPath(const std::string& subdir)
 {
@@ -213,50 +241,46 @@ std::optional<std::string> LoadLastProjectPath()
 
 std::string GetDefaultLibraryPath(const std::string& subdir)
 {
+    auto absoluteUtf8 = [](const fs::path& path) -> std::string {
+        std::error_code ec;
+        fs::path absolutePath = fs::absolute(path, ec);
+        if (ec)
+            return {};
+        return ToUtf8String(absolutePath);
+    };
+
     if (const char* envPath = std::getenv("PERASTAGE_LIBRARY_PATH")) {
         if (*envPath != '\0') {
-            fs::path envBase = fs::u8path(envPath) / subdir;
+            fs::path envRoot = fs::u8path(envPath);
             std::error_code ec;
-            fs::create_directories(envBase, ec);
-            if (!ec)
-                return fs::absolute(envBase).string();
+            const bool envRootExists = fs::exists(envRoot, ec);
+            const bool envRootIsDir = !ec && fs::is_directory(envRoot, ec);
+            if (!ec && envRootExists && envRootIsDir) {
+                fs::path envLibraryPath = envRoot / subdir;
+                if (IsDirectoryWritable(envLibraryPath))
+                    return absoluteUtf8(envLibraryPath);
+            }
         }
     }
 
-#ifdef NDEBUG
     fs::path baseLib = GetBaseLibraryPath(subdir);
-    if (const auto dataDir = ResolveWritableUserDataDir()) {
-        fs::path userLib = *dataDir / "library" / subdir;
-        std::error_code ec;
-        fs::create_directories(userLib, ec);
-        if (!ec) {
-            CopyLibrarySubdir(baseLib, userLib);
-            return userLib.string();
-        }
-    }
-    if (fs::exists(baseLib))
-        return baseLib.string();
-    return {};
-#else
-    fs::path baseLib = GetBaseLibraryPath(subdir);
-    if (fs::exists(baseLib))
-        return baseLib.string();
-
     std::error_code ec;
-    fs::create_directories(baseLib, ec);
-    if (!ec)
-        return baseLib.string();
+    if (fs::exists(baseLib, ec) && !ec && fs::is_directory(baseLib, ec) && !ec)
+        return absoluteUtf8(baseLib);
 
     if (const auto dataDir = ResolveWritableUserDataDir()) {
         fs::path userLib = *dataDir / "library" / subdir;
-        ec.clear();
-        fs::create_directories(userLib, ec);
-        if (!ec)
-            return fs::absolute(userLib).string();
+        if (IsDirectoryWritable(userLib)) {
+            CopyLibrarySubdir(baseLib, userLib);
+            return absoluteUtf8(userLib);
+        }
     }
 
+    std::cerr << "ProjectUtils::GetDefaultLibraryPath failed for subdir '" << subdir
+              << "'. Checked PERASTAGE_LIBRARY_PATH, base library path, and user data "
+                 "library fallback."
+              << std::endl;
     return {};
-#endif
 }
 
 } // namespace ProjectUtils

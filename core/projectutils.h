@@ -34,6 +34,9 @@ namespace ProjectUtils {
     // Path containing the built-in resources shipped with the executable.
     std::filesystem::path GetResourceRoot();
 
+    // Returns true when a directory exists (or can be created) and accepts writes.
+    bool IsDirectoryWritable(const std::filesystem::path& dir);
+
     // Returns the path to a library subdirectory if it exists, otherwise empty.
     std::string GetDefaultLibraryPath(const std::string& subdir);
 }
