@@ -1,9 +1,11 @@
 {
     "Aleda B-EYE K10": {
+        "category": "Unknown",
         "file": "Aleda B-EYE K10.gdtf",
         "mode": "Shapes"
     },
     "Aleda K10 B-EYE (Bulb=LED)": {
+        "category": "Unknown",
         "file": "Aleda B-EYE K10.gdtf",
         "mode": "Shapes"
     },
@@ -12,6 +14,7 @@
         "mode": "2ch d001"
     },
     "BLINDER 4 PRO": {
+        "category": "Blinder",
         "file": "BLINDER 4 PRO.gdtf",
         "mode": "4ch d001"
     },
@@ -39,13 +42,25 @@
         "file": "ERA 800 Performance.gdtf",
         "mode": "Basic"
     },
+    "HY B-EYE K15 (Bulb=LED)": {
+        "file": "Aleda B-EYE K10.gdtf",
+        "mode": "Shapes"
+    },
     "Impression X4 Bar 20 (Bulb=LED) (Lens=Standard)": {
         "file": "impression X4 Bar 20.gdtf",
         "mode": "Norm"
     },
+    "Intella Storm 1000 RGB (Bulb=LED)": {
+        "file": "PIXEL STROBE 400 RGB.gdtf",
+        "mode": "8ch"
+    },
     "JDC-1": {
         "file": "JDC-1.gdtf",
         "mode": "DMX Mode 1 (Compressed Pro)"
+    },
+    "JNR BLinder 4x100C (Bulb=LED 3200K)": {
+        "file": "BLINDER 4 PRO.gdtf",
+        "mode": "8ch A001"
     },
     "LED-BL4 (Bulb=LED)": {
         "file": "BLINDER 4 PRO.gdtf",
@@ -64,6 +79,7 @@
         "mode": "Basic"
     },
     "MAC Quantum Profile": {
+        "category": "Spot",
         "file": "MAC Quantum Profile.gdtf",
         "mode": "Extended"
     },
@@ -108,6 +124,7 @@
         "mode": "Mode 1 - Standard 16 - bit"
     },
     "PIXEL STROBE 400 RGB": {
+        "category": "Unknown",
         "file": "PIXEL STROBE 400 RGB.gdtf",
         "mode": "2ch d001"
     },
@@ -132,6 +149,7 @@
         "mode": "6 Channel RAW"
     },
     "RoHS 18x10 LED Par RGBWA (Bulb=LED) (Lens=30 deg)": {
+        "category": "Conventional",
         "file": "PAR PRO 270 5-in-1.gdtf",
         "mode": "8ch"
     },
@@ -196,8 +214,13 @@
         "mode": "Default"
     },
     "Tour Hazer 2": {
+        "category": "Smoke",
         "file": "Tour Hazer II.gdtf",
         "mode": "Default"
+    },
+    "XBeam 17 CMY (Bulb=Sirius HRI 440W)": {
+        "file": "XBEAM 17 CMY.gdtf",
+        "mode": "25ch"
     },
     "cegadoras": {
         "file": "Sunrise2IP.gdtf",
