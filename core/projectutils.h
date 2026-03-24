@@ -18,15 +18,15 @@
 #pragma once
 
 #include <filesystem>
-#include <optional>
+#include "optional_compat.h"
 #include <string>
 
 namespace ProjectUtils {
-    inline constexpr const char* PROJECT_EXTENSION = ".pstg";
+    constexpr const char* PROJECT_EXTENSION = ".pstg";
 
     std::string GetLastProjectPathFile();
     bool SaveLastProjectPath(const std::string& path);
-    std::optional<std::string> LoadLastProjectPath();
+    perastage::Optional<std::string> LoadLastProjectPath();
 
     // Path containing the built-in library shipped with the executable.
     std::filesystem::path GetBaseLibraryPath(const std::string& subdir);
