@@ -18,6 +18,7 @@
 #include "truss_gdtf_builder.h"
 
 #include "json.hpp"
+#include "uuidutils.h"
 
 #include <tinyxml2.h>
 #include <wx/filename.h>
@@ -28,6 +29,7 @@
 #include <cctype>
 #include <fstream>
 #include <memory>
+#include <sstream>
 
 namespace fs = std::filesystem;
 using nlohmann::json;
@@ -43,6 +45,7 @@ struct TrussSourceData {
   float weightKg = 0.0f;
   fs::path geometryPath;
   fs::path symbolPath;
+  std::string typeKey;
 };
 
 static std::string Trim(std::string value) {
@@ -205,6 +208,15 @@ static bool ReadLegacyGtruss(const fs::path &gtrussPath, TrussSourceData &out,
   return true;
 }
 
+static std::string BuildStableFixtureTypeId(const TrussSourceData &data) {
+  std::ostringstream seed;
+  seed << "perastage-truss-type:" << data.manufacturer << '|'
+       << data.model << '|' << data.lengthMm << '|' << data.widthMm << '|'
+       << data.heightMm << '|' << data.weightKg << '|'
+       << data.typeKey;
+  return DeriveDeterministicUuid(seed.str());
+}
+
 static std::string BuildDescriptionXml(const TrussSourceData &data) {
   tinyxml2::XMLDocument doc;
   auto *decl = doc.NewDeclaration("xml version=\"1.0\" encoding=\"UTF-8\"");
@@ -219,7 +231,7 @@ static std::string BuildDescriptionXml(const TrussSourceData &data) {
   fixtureType->SetAttribute("Name", fixtureName.c_str());
   fixtureType->SetAttribute("ShortName", fixtureName.c_str());
   fixtureType->SetAttribute("Manufacturer", data.manufacturer.c_str());
-  fixtureType->SetAttribute("FixtureTypeID", "00000000-0000-0000-0000-000000000001");
+  fixtureType->SetAttribute("FixtureTypeID", BuildStableFixtureTypeId(data).c_str());
   root->InsertEndChild(fixtureType);
 
   auto *attributes = doc.NewElement("AttributeDefinitions");
@@ -339,6 +351,7 @@ bool BuildTrussGdtfFromInstance(const Truss &truss, const fs::path &outGdtfPath,
   source.widthMm = truss.widthMm;
   source.heightMm = truss.heightMm;
   source.weightKg = truss.weightKg;
+  source.typeKey = truss.perastageTypeKey;
 
   auto pickGeometry = [&](const std::string &path) {
     fs::path p = fs::u8path(path);

@@ -39,8 +39,7 @@ const std::unordered_map<std::string, SceneObject>& SceneDataManager::GetSceneOb
     return ConfigManager::Get().GetScene().sceneObjects;
 }
 
-const std::unordered_map<std::string, SceneObject>& SceneDataManager::GetGroupObjects() const
+const std::unordered_map<std::string, GroupObject>& SceneDataManager::GetGroupObjects() const
 {
-    static std::unordered_map<std::string, SceneObject> empty;
-    return empty;
+    return ConfigManager::Get().GetScene().groupObjects;
 }

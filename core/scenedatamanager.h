@@ -22,6 +22,7 @@
 #include "fixture.h"
 #include "truss.h"
 #include "sceneobject.h"
+#include "groupobject.h"
 
 // Simple singleton wrapper providing access to the scene data
 class SceneDataManager {
@@ -32,7 +33,7 @@ public:
     const std::unordered_map<std::string, Truss>& GetTrusses() const;
     const std::unordered_map<std::string, SceneObject>& GetSceneObjects() const;
     // Currently no group objects are stored, return empty map
-    const std::unordered_map<std::string, SceneObject>& GetGroupObjects() const;
+    const std::unordered_map<std::string, GroupObject>& GetGroupObjects() const;
 
 private:
     SceneDataManager() = default;

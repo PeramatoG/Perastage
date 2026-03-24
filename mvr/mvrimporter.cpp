@@ -24,6 +24,7 @@
 #include "matrixutils.h"
 #include "sceneobject.h"
 #include "support.h"
+#include "groupobject.h"
 #include "uuidutils.h"
 #include "trussloader.h"
 
@@ -207,6 +208,20 @@ static std::string DescribeTrussForLog(const Truss &truss) {
       << truss.model << "', modelFile='" << truss.modelFile << "', gdtfSpec='"
       << truss.gdtfSpec << "', symbolFile='" << truss.symbolFile << "'";
   return oss.str();
+}
+
+static Truss::GeometryRepresentation ParseTrussRepresentation(
+    const std::string &value) {
+  const std::string lower = ToLowerCopy(Trim(value));
+  if (lower == "symbolsymdef")
+    return Truss::GeometryRepresentation::SymbolSymdef;
+  if (lower == "geometry3d")
+    return Truss::GeometryRepresentation::Geometry3D;
+  if (lower == "publicgdtf")
+    return Truss::GeometryRepresentation::PublicGdtf;
+  if (lower == "nativeperastage")
+    return Truss::GeometryRepresentation::NativePerastage;
+  return Truss::GeometryRepresentation::Unknown;
 }
 
 static std::string CieToHex(const std::string &cie) {
@@ -759,6 +774,33 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
       numericOut = std::atoi(textOut.c_str());
   };
 
+  std::unordered_map<std::string, std::string> perastageTypeToGdtfPath;
+  std::unordered_map<std::string, std::string> perastageInstanceToTypeKey;
+  if (tinyxml2::XMLElement *sceneUserData = sceneNode->FirstChildElement("UserData")) {
+    for (tinyxml2::XMLElement *data = sceneUserData->FirstChildElement("Data"); data;
+         data = data->NextSiblingElement("Data")) {
+      const std::string provider = ToLowerCopy(Trim(data->Attribute("provider") ? data->Attribute("provider") : ""));
+      if (provider != "perastage")
+        continue;
+      if (tinyxml2::XMLElement *manifest = data->FirstChildElement("TrussSidecarManifest")) {
+        for (tinyxml2::XMLElement *type = manifest->FirstChildElement("Type"); type;
+             type = type->NextSiblingElement("Type")) {
+          const char *key = type->Attribute("key");
+          const char *path = type->Attribute("gdtf");
+          if (key && path)
+            perastageTypeToGdtfPath[Trim(key)] = RemapArchivePathIfNeeded(path);
+        }
+        for (tinyxml2::XMLElement *inst = manifest->FirstChildElement("Instance"); inst;
+             inst = inst->NextSiblingElement("Instance")) {
+          const char *uuid = inst->Attribute("uuid");
+          const char *key = inst->Attribute("typeKey");
+          if (uuid && key)
+            perastageInstanceToTypeKey[CanonicalizeUuid(Trim(uuid))] = Trim(key);
+        }
+      }
+    }
+  }
+
   // ---- Parse AUXData for Symdefs and Positions ----
   if (tinyxml2::XMLElement *auxNode = sceneNode->FirstChildElement("AUXData")) {
     for (tinyxml2::XMLElement *pos = auxNode->FirstChildElement("Position");
@@ -984,7 +1026,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
   };
 
   // ---- Helper lambdas for object parsing ----
-  std::function<void(tinyxml2::XMLElement *, const std::string &, const Matrix &)>
+  std::function<void(tinyxml2::XMLElement *, const std::string &, const Matrix &, const std::string &)>
       parseChildList;
 
   auto ensurePositionEntry = [&](const std::string &positionId)
@@ -1055,6 +1097,19 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
 
     usedStableUuids.insert(stableUuid);
     return stableUuid;
+  };
+
+  auto referenceUuidForNode = [&](const char *kind, tinyxml2::XMLElement *node,
+                                  const std::string &layerName,
+                                  const Matrix &nodeTransform) {
+    const char *uuidAttr = node->Attribute("uuid");
+    std::string rawUuid = uuidAttr ? Trim(uuidAttr) : std::string{};
+    std::string stableUuid = CanonicalizeUuid(rawUuid);
+    if (!stableUuid.empty())
+      return stableUuid;
+    const std::string seed =
+        buildStableIdSeed(kind, node, layerName, nodeTransform, rawUuid);
+    return DeriveDeterministicUuid(seed);
   };
 
   std::function<void(tinyxml2::XMLElement *, const std::string &, const Matrix &)>
@@ -1214,14 +1269,19 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         scene.fixtures[fixture.uuid] = fixture;
       };
 
-  std::function<void(tinyxml2::XMLElement *, const std::string &, const Matrix &)> parseTruss =
+  std::function<void(tinyxml2::XMLElement *, const std::string &, const Matrix &, const Matrix &, const std::string &)> parseTruss =
       [&](tinyxml2::XMLElement *node, const std::string &layerName,
-          const Matrix &nodeTransform) {
+          const Matrix &nodeTransform, const Matrix &localTransform, const std::string &parentGroupUuid) {
         Truss truss;
         truss.uuid =
             resolveStableUuid("Truss", node, layerName, nodeTransform);
         truss.layer = layerName;
         truss.transform = nodeTransform;
+        truss.localTransform = localTransform;
+        truss.hasLocalTransform = true;
+        truss.parentGroupUuid = parentGroupUuid;
+        truss.sourceSymbolMatrix = MatrixUtils::Identity();
+        truss.sourceGeometryMatrix = MatrixUtils::Identity();
         if (const char *nameAttr = node->Attribute("name"))
           truss.name = nameAttr;
 
@@ -1237,6 +1297,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
 
         bool gdtfLoadFailed = false;
         if (!truss.gdtfSpec.empty()) {
+          truss.sourceRepresentation = Truss::GeometryRepresentation::PublicGdtf;
           truss.gdtfSpec = RemapArchivePathIfNeeded(truss.gdtfSpec);
           fs::path gdtfPath = scene.basePath.empty()
                                   ? fs::u8path(truss.gdtfSpec)
@@ -1272,18 +1333,27 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                 node->FirstChildElement("Geometries")) {
           if (tinyxml2::XMLElement *g3d =
                   geos->FirstChildElement("Geometry3D")) {
+            truss.sourceRepresentation = Truss::GeometryRepresentation::Geometry3D;
             const char *file = g3d->Attribute("fileName");
             if (file)
               truss.symbolFile = normalizeAndResolveGeometryFileName(file);
             Matrix geoMatrix = MatrixUtils::Identity();
             parseMatrixOrIdentity(g3d, "Matrix", "Truss/Geometry3D", geoMatrix, true);
+            truss.sourceGeometryMatrix = geoMatrix;
+            if (const char *type = g3d->Attribute("geometryType"))
+              truss.sourceGeometryType = Trim(type);
             truss.transform = MatrixUtils::Multiply(nodeTransform, geoMatrix);
           } else if (tinyxml2::XMLElement *sym =
                          geos->FirstChildElement("Symbol")) {
+            truss.sourceRepresentation = Truss::GeometryRepresentation::SymbolSymdef;
             std::vector<SymdefGeometry> symGeometries;
             std::string symType;
             Matrix symMatrix = MatrixUtils::Identity();
             resolveSymdefReference(sym, symGeometries, symType, symMatrix);
+            if (const char *symdef = sym->Attribute("symdef"))
+              truss.sourceSymdefUuid = Trim(symdef);
+            truss.sourceSymbolMatrix = symMatrix;
+            truss.sourceGeometryType = symType;
             Matrix symLocal = symMatrix;
             if (!symGeometries.empty()) {
               truss.symbolFile =
@@ -1292,6 +1362,9 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                                                symGeometries.front().transform);
             }
             truss.transform = MatrixUtils::Multiply(nodeTransform, symLocal);
+            LogMessage(Logger::Level::Info,
+                       "MVR import truss preserves Symbol/Symdef representation for uuid='" +
+                           truss.uuid + "', symdef='" + truss.sourceSymdefUuid + "'");
           }
         }
 
@@ -1353,7 +1426,43 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
               if (tinyxml2::XMLElement *hp = info->FirstChildElement("HangPos"))
                 if (hp->GetText())
                   truss.positionName = Trim(hp->GetText());
+              if (tinyxml2::XMLElement *rep = info->FirstChildElement("Representation"))
+                if (rep->GetText())
+                  truss.sourceRepresentation = ParseTrussRepresentation(rep->GetText());
+              if (tinyxml2::XMLElement *tk = info->FirstChildElement("TypeKey"))
+                if (tk->GetText())
+                  truss.perastageTypeKey = Trim(tk->GetText());
+              if (tinyxml2::XMLElement *ag = info->FirstChildElement("AuxGdtf"))
+                if (ag->GetText())
+                  truss.perastageAuxGdtfArchivePath = RemapArchivePathIfNeeded(Trim(ag->GetText()));
               break;
+            }
+          }
+        }
+
+        auto manifestIt = perastageInstanceToTypeKey.find(truss.uuid);
+        if (manifestIt != perastageInstanceToTypeKey.end()) {
+          truss.perastageTypeKey = manifestIt->second;
+          auto typeIt = perastageTypeToGdtfPath.find(truss.perastageTypeKey);
+          if (typeIt != perastageTypeToGdtfPath.end()) {
+            truss.perastageAuxGdtfArchivePath = typeIt->second;
+            fs::path auxPath = scene.basePath.empty()
+                                   ? fs::u8path(typeIt->second)
+                                   : fs::u8path(scene.basePath) / fs::u8path(typeIt->second);
+            Truss sidecar;
+            if (LoadTrussDefinition(ToString(auxPath.u8string()), sidecar)) {
+              if (truss.manufacturer.empty())
+                truss.manufacturer = sidecar.manufacturer;
+              if (truss.model.empty())
+                truss.model = sidecar.model;
+              if (truss.lengthMm <= 0.0f)
+                truss.lengthMm = sidecar.lengthMm;
+              if (truss.widthMm <= 0.0f)
+                truss.widthMm = sidecar.widthMm;
+              if (truss.heightMm <= 0.0f)
+                truss.heightMm = sidecar.heightMm;
+              if (truss.weightKg <= 0.0f)
+                truss.weightKg = sidecar.weightKg;
             }
           }
         }
@@ -1433,10 +1542,10 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         scene.supports[support.uuid] = support;
       };
 
-  std::function<void(tinyxml2::XMLElement *, const std::string &, const Matrix &)>
+  std::function<void(tinyxml2::XMLElement *, const std::string &, const Matrix &, const Matrix &, const std::string &)>
       parseSceneObj = [&](tinyxml2::XMLElement *node,
                           const std::string &layerName,
-                          const Matrix &nodeTransform) {
+                          const Matrix &nodeTransform, const Matrix &localTransform, const std::string &parentGroupUuid) {
         SceneObject obj;
         obj.uuid =
             resolveStableUuid("SceneObject", node, layerName, nodeTransform);
@@ -1511,7 +1620,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
       };
 
   parseChildList = [&](tinyxml2::XMLElement *cl, const std::string &layerName,
-                       const Matrix &parentTransform) {
+                       const Matrix &parentTransform, const std::string &parentGroupUuid) {
     for (tinyxml2::XMLElement *child = cl->FirstChildElement(); child;
          child = child->NextSiblingElement()) {
       const char *name = child->Name();
@@ -1525,16 +1634,52 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
       std::string nodeName = name;
       if (nodeName == "Fixture") {
         parseFixture(child, layerName, nodeTransform);
+        if (!parentGroupUuid.empty()) {
+          scene.groupObjects[parentGroupUuid].children.push_back(
+              {MvrNodeType::Fixture, referenceUuidForNode("Fixture", child, layerName, nodeTransform)});
+        }
       } else if (nodeName == "Truss") {
-        parseTruss(child, layerName, nodeTransform);
+        parseTruss(child, layerName, nodeTransform, local, parentGroupUuid);
+        if (!parentGroupUuid.empty()) {
+          scene.groupObjects[parentGroupUuid].children.push_back(
+              {MvrNodeType::Truss, referenceUuidForNode("Truss", child, layerName, nodeTransform)});
+        }
       } else if (nodeName == "Support") {
         parseSupport(child, layerName, nodeTransform);
+        if (!parentGroupUuid.empty()) {
+          scene.groupObjects[parentGroupUuid].children.push_back(
+              {MvrNodeType::Support, referenceUuidForNode("Support", child, layerName, nodeTransform)});
+        }
       } else if (nodeName == "SceneObject") {
-        parseSceneObj(child, layerName, nodeTransform);
+        parseSceneObj(child, layerName, nodeTransform, local, parentGroupUuid);
+        if (!parentGroupUuid.empty()) {
+          scene.groupObjects[parentGroupUuid].children.push_back(
+              {MvrNodeType::SceneObject,
+               referenceUuidForNode("SceneObject", child, layerName, nodeTransform)});
+        }
+      } else if (nodeName == "GroupObject") {
+        GroupObject group;
+        group.uuid = resolveStableUuid("GroupObject", child, layerName, nodeTransform);
+        group.layer = layerName;
+        group.transform = nodeTransform;
+        group.localTransform = local;
+        group.parentGroupUuid = parentGroupUuid;
+        if (const char *nameAttr = child->Attribute("name"))
+          group.name = nameAttr;
+        scene.groupObjects[group.uuid] = group;
+        if (!parentGroupUuid.empty()) {
+          scene.groupObjects[parentGroupUuid].children.push_back(
+              {MvrNodeType::GroupObject, group.uuid});
+        }
+        LogMessage(Logger::Level::Info,
+                   "MVR import preserved GroupObject uuid='" + group.uuid + "'");
+        if (tinyxml2::XMLElement *inner = child->FirstChildElement("ChildList"))
+          parseChildList(inner, layerName, nodeTransform, group.uuid);
+        continue;
       }
 
       if (tinyxml2::XMLElement *inner = child->FirstChildElement("ChildList"))
-        parseChildList(inner, layerName, nodeTransform);
+        parseChildList(inner, layerName, nodeTransform, parentGroupUuid);
     }
   };
   tinyxml2::XMLElement *layersNode = sceneNode->FirstChildElement("Layers");
@@ -1543,7 +1688,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
 
   for (tinyxml2::XMLElement *cl = layersNode->FirstChildElement("ChildList");
        cl; cl = cl->NextSiblingElement("ChildList")) {
-    parseChildList(cl, DEFAULT_LAYER_NAME, MatrixUtils::Identity());
+    parseChildList(cl, DEFAULT_LAYER_NAME, MatrixUtils::Identity(), "");
   }
 
   for (tinyxml2::XMLElement *layer = layersNode->FirstChildElement("Layer");
@@ -1555,7 +1700,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
     tinyxml2::XMLElement *childList = layer->FirstChildElement("ChildList");
     if (childList)
       parseChildList(childList, isDefaultLayer ? DEFAULT_LAYER_NAME : layerStr,
-                     MatrixUtils::Identity());
+                     MatrixUtils::Identity(), "");
 
     if (!isDefaultLayer) {
       Layer l;

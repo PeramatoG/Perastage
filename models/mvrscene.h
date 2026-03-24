@@ -23,6 +23,7 @@
 #include "fixture.h"
 #include "truss.h"
 #include "sceneobject.h"
+#include "groupobject.h"
 #include "support.h"
 #include "layer.h"
 
@@ -45,6 +46,7 @@ public:
     std::unordered_map<std::string, Truss> trusses;
     std::unordered_map<std::string, Support> supports;
     std::unordered_map<std::string, SceneObject> sceneObjects;
+    std::unordered_map<std::string, GroupObject> groupObjects;
     std::unordered_map<std::string, Layer> layers;
     // Lookup tables for additional references
     std::unordered_map<std::string, std::string> positions;   // uuid -> name
