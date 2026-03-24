@@ -15,23 +15,32 @@
  * You should have received a copy of the GNU General Public License
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
-#include "mvrscene.h"
+#pragma once
 
-void MvrScene::Clear() {
-    fixtures.clear();
-    trusses.clear();
-    supports.clear();
-    sceneObjects.clear();
-    groupObjects.clear();
-    layers.clear();
-    positions.clear();
-    symdefFiles.clear();
-    symdefTypes.clear();
-    symdefMatrices.clear();
-    symdefGeometries.clear();
-    provider.clear();
-    providerVersion.clear();
-    basePath.clear();
-    versionMajor = 1;
-    versionMinor = 6;
-}
+#include <string>
+#include <vector>
+
+#include "types.h"
+
+enum class MvrNodeType {
+  Fixture,
+  Truss,
+  Support,
+  SceneObject,
+  GroupObject,
+};
+
+struct GroupObjectChildRef {
+  MvrNodeType type = MvrNodeType::SceneObject;
+  std::string uuid;
+};
+
+struct GroupObject {
+  std::string uuid;
+  std::string name;
+  std::string layer;
+  std::string parentGroupUuid;
+  Matrix transform{};
+  Matrix localTransform{};
+  std::vector<GroupObjectChildRef> children;
+};

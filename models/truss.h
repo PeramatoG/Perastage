@@ -22,6 +22,14 @@
 
 // Represents a truss object parsed from MVR
 struct Truss {
+    enum class GeometryRepresentation {
+        Unknown = 0,
+        SymbolSymdef,
+        Geometry3D,
+        PublicGdtf,
+        NativePerastage
+    };
+
     std::string uuid;
     std::string name;
     std::string gdtfSpec;
@@ -49,4 +57,15 @@ struct Truss {
     int customIdType = 0;
 
     Matrix transform;
+    Matrix localTransform;
+    Matrix sourceSymbolMatrix;
+    Matrix sourceGeometryMatrix;
+    bool hasLocalTransform = false;
+
+    GeometryRepresentation sourceRepresentation = GeometryRepresentation::Unknown;
+    std::string sourceSymdefUuid;
+    std::string sourceGeometryType;
+    std::string parentGroupUuid;
+    std::string perastageTypeKey;
+    std::string perastageAuxGdtfArchivePath;
 };

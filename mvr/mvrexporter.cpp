@@ -227,6 +227,21 @@ static std::string BuildTrussTypeKey(const Truss &truss) {
   return key.str();
 }
 
+static const char *ToRepresentationText(Truss::GeometryRepresentation representation) {
+  switch (representation) {
+  case Truss::GeometryRepresentation::SymbolSymdef:
+    return "SymbolSymdef";
+  case Truss::GeometryRepresentation::Geometry3D:
+    return "Geometry3D";
+  case Truss::GeometryRepresentation::PublicGdtf:
+    return "PublicGdtf";
+  case Truss::GeometryRepresentation::NativePerastage:
+    return "NativePerastage";
+  default:
+    return "Unknown";
+  }
+}
+
 static bool IsValidMvrFileName(const std::string &value) {
   if (value.empty())
     return false;
@@ -850,6 +865,7 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
   std::unordered_map<std::string, std::string> gdtfArchiveByObjectUuid;
   std::unordered_map<std::string, GdtfOverrides> gdtfOverrides;
   std::unordered_map<std::string, std::string> trussArchiveByTypeKey;
+  std::unordered_map<std::string, std::string> trussInstanceToTypeKey;
   std::unordered_set<std::string> reservedArchivePaths;
 
   auto normalizeSourcePath = [&](const std::string &rawPath) {
@@ -1266,12 +1282,14 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
           trussSourceGdtf = tempPath.string();
       }
 
-      std::string trussPreferredName = BuildTrussGdtfArchiveName(t);
+      std::string trussPreferredName = "Perastage/truss_types/" + BuildTrussGdtfArchiveName(t);
       trussGdtfArchivePath =
           registerGdtfResource(t.uuid, trussSourceGdtf, trussPreferredName, true);
       if (!trussGdtfArchivePath.empty())
         trussArchiveByTypeKey[trussTypeKey] = trussGdtfArchivePath;
     }
+    if (!trussTypeKey.empty())
+      trussInstanceToTypeKey[t.uuid] = trussTypeKey;
 
     if (!trussGdtfArchivePath.empty()) {
       tinyxml2::XMLElement *e = doc.NewElement("GDTFSpec");
@@ -1314,28 +1332,48 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
       }
     }
 
-    if (trussGeometryAuthority == TrussGeometryAuthority::MvrGeometry && !t.symbolFile.empty()) {
-      std::string ext = fs::path(t.symbolFile).extension().string();
-      std::transform(ext.begin(), ext.end(), ext.begin(),
-                     [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-      if (ext == ".3ds" || ext == ".glb") {
+    if (trussGeometryAuthority == TrussGeometryAuthority::MvrGeometry) {
+      if (t.sourceRepresentation == Truss::GeometryRepresentation::SymbolSymdef &&
+          !t.sourceSymdefUuid.empty()) {
         tinyxml2::XMLElement *geos = doc.NewElement("Geometries");
-        tinyxml2::XMLElement *g3d = doc.NewElement("Geometry3D");
-        std::string symbolArchivePath = registerResource(
-            t.symbolFile,
-            SanitizeArchiveFileName(t.symbolFile, "truss.3ds"));
-        g3d->SetAttribute("fileName", symbolArchivePath.c_str());
-        geos->InsertEndChild(g3d);
+        tinyxml2::XMLElement *sym = doc.NewElement("Symbol");
+        sym->SetAttribute("symdef", t.sourceSymdefUuid.c_str());
+        tinyxml2::XMLElement *symMat = doc.NewElement("Matrix");
+        symMat->SetText(MatrixUtils::FormatMatrix(t.sourceSymbolMatrix).c_str());
+        sym->InsertEndChild(symMat);
+        geos->InsertEndChild(sym);
         te->InsertEndChild(geos);
+        wxLogMessage("MVR export truss keeps Symbol/Symdef uuid=%s symdef=%s",
+                     t.uuid.c_str(), t.sourceSymdefUuid.c_str());
+      } else if (!t.symbolFile.empty()) {
+        std::string ext = fs::path(t.symbolFile).extension().string();
+        std::transform(ext.begin(), ext.end(), ext.begin(),
+                       [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+        if (ext == ".3ds" || ext == ".glb") {
+          tinyxml2::XMLElement *geos = doc.NewElement("Geometries");
+          tinyxml2::XMLElement *g3d = doc.NewElement("Geometry3D");
+          std::string symbolArchivePath = registerResource(
+              t.symbolFile,
+              SanitizeArchiveFileName(t.symbolFile, "truss.3ds"));
+          g3d->SetAttribute("fileName", symbolArchivePath.c_str());
+          if (!t.sourceGeometryType.empty())
+            g3d->SetAttribute("geometryType", t.sourceGeometryType.c_str());
+          tinyxml2::XMLElement *geoMat = doc.NewElement("Matrix");
+          geoMat->SetText(MatrixUtils::FormatMatrix(t.sourceGeometryMatrix).c_str());
+          g3d->InsertEndChild(geoMat);
+          geos->InsertEndChild(g3d);
+          te->InsertEndChild(geos);
+          wxLogMessage("MVR export truss uses direct Geometry3D uuid=%s", t.uuid.c_str());
+        }
       }
     }
-    std::string mstr = MatrixUtils::FormatMatrix(t.transform);
+    const Matrix matrixToWrite = t.hasLocalTransform ? t.localTransform : t.transform;
+    std::string mstr = MatrixUtils::FormatMatrix(matrixToWrite);
     tinyxml2::XMLElement *mat = doc.NewElement("Matrix");
     mat->SetText(mstr.c_str());
     te->InsertEndChild(mat);
 
-    const bool shouldWriteMvrTrussMetadata = trussGdtfArchivePath.empty();
-    bool hasMeta = shouldWriteMvrTrussMetadata &&
+    bool hasMeta =
                    (!t.manufacturer.empty() || !t.model.empty() ||
                     t.lengthMm != 0.0f || t.widthMm != 0.0f ||
                     t.heightMm != 0.0f || t.weightKg != 0.0f ||
@@ -1372,6 +1410,9 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
       addTxt("CrossSection", t.crossSection);
       addTxt("ModelFile", t.modelFile);
       addTxt("HangPos", t.positionName);
+      addTxt("Representation", ToRepresentationText(t.sourceRepresentation));
+      addTxt("TypeKey", trussTypeKey);
+      addTxt("AuxGdtf", trussGdtfArchivePath);
       data->InsertEndChild(info);
       ud->InsertEndChild(data);
       te->InsertEndChild(ud);
@@ -1500,6 +1541,47 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     parent->InsertEndChild(oe);
   };
 
+  auto exportGroupObject = [&](auto &&self, tinyxml2::XMLElement *parent,
+                               const GroupObject &group) -> void {
+    tinyxml2::XMLElement *go = doc.NewElement("GroupObject");
+    go->SetAttribute("uuid", group.uuid.c_str());
+    if (!group.name.empty())
+      go->SetAttribute("name", group.name.c_str());
+    tinyxml2::XMLElement *mat = doc.NewElement("Matrix");
+    mat->SetText(MatrixUtils::FormatMatrix(group.localTransform).c_str());
+    go->InsertEndChild(mat);
+
+    tinyxml2::XMLElement *childList = doc.NewElement("ChildList");
+    for (const auto &childRef : group.children) {
+      if (childRef.type == MvrNodeType::Truss) {
+        auto it = scene.trusses.find(childRef.uuid);
+        if (it != scene.trusses.end())
+          exportTruss(childList, it->second);
+      } else if (childRef.type == MvrNodeType::SceneObject) {
+        auto it = scene.sceneObjects.find(childRef.uuid);
+        if (it != scene.sceneObjects.end())
+          exportSceneObject(childList, it->second);
+      } else if (childRef.type == MvrNodeType::Fixture) {
+        auto it = scene.fixtures.find(childRef.uuid);
+        if (it != scene.fixtures.end())
+          exportFixture(childList, it->second);
+      } else if (childRef.type == MvrNodeType::Support) {
+        auto it = scene.supports.find(childRef.uuid);
+        if (it != scene.supports.end())
+          exportSupport(childList, it->second);
+      } else if (childRef.type == MvrNodeType::GroupObject) {
+        auto it = scene.groupObjects.find(childRef.uuid);
+        if (it != scene.groupObjects.end())
+          self(self, childList, it->second);
+      }
+    }
+
+    if (childList->FirstChild())
+      go->InsertEndChild(childList);
+    parent->InsertEndChild(go);
+    wxLogMessage("MVR export preserved GroupObject uuid=%s", group.uuid.c_str());
+  };
+
   for (const auto &[layerUuid, layer] : scene.layers) {
     if (layer.name == DEFAULT_LAYER_NAME)
       continue;
@@ -1519,8 +1601,25 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
 
     tinyxml2::XMLElement *childList = doc.NewElement("ChildList");
 
+    for (const auto &[uid, group] : scene.groupObjects) {
+      if (group.layer != layer.name || !group.parentGroupUuid.empty())
+        continue;
+      exportGroupObject(exportGroupObject, childList, group);
+    }
+
     for (const auto &[uid, f] : scene.fixtures) {
       if (f.layer != layer.name)
+        continue;
+      bool grouped = false;
+      for (const auto &[gid, g] : scene.groupObjects) {
+        if (std::any_of(g.children.begin(), g.children.end(), [&](const GroupObjectChildRef &r) {
+              return r.type == MvrNodeType::Fixture && r.uuid == uid;
+            })) {
+          grouped = true;
+          break;
+        }
+      }
+      if (grouped)
         continue;
       exportFixture(childList, f);
     }
@@ -1528,17 +1627,41 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     for (const auto &[uid, t] : scene.trusses) {
       if (t.layer != layer.name)
         continue;
+      if (!t.parentGroupUuid.empty())
+        continue;
       exportTruss(childList, t);
     }
 
     for (const auto &[uid, s] : scene.supports) {
       if (s.layer != layer.name)
         continue;
+      bool grouped = false;
+      for (const auto &[gid, g] : scene.groupObjects) {
+        if (std::any_of(g.children.begin(), g.children.end(), [&](const GroupObjectChildRef &r) {
+              return r.type == MvrNodeType::Support && r.uuid == uid;
+            })) {
+          grouped = true;
+          break;
+        }
+      }
+      if (grouped)
+        continue;
       exportSupport(childList, s);
     }
 
     for (const auto &[uid, obj] : scene.sceneObjects) {
       if (obj.layer != layer.name)
+        continue;
+      bool grouped = false;
+      for (const auto &[gid, g] : scene.groupObjects) {
+        if (std::any_of(g.children.begin(), g.children.end(), [&](const GroupObjectChildRef &r) {
+              return r.type == MvrNodeType::SceneObject && r.uuid == uid;
+            })) {
+          grouped = true;
+          break;
+        }
+      }
+      if (grouped)
         continue;
       exportSceneObject(childList, obj);
     }
@@ -1551,26 +1674,91 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
 
   // Objects with no layer
   tinyxml2::XMLElement *rootChildList = doc.NewElement("ChildList");
+  for (const auto &[uid, group] : scene.groupObjects) {
+    if (!(group.layer == DEFAULT_LAYER_NAME || group.layer.empty()) || !group.parentGroupUuid.empty())
+      continue;
+    exportGroupObject(exportGroupObject, rootChildList, group);
+  }
   for (const auto &[uid, f] : scene.fixtures) {
-    if (f.layer == DEFAULT_LAYER_NAME || f.layer.empty())
+    if (!(f.layer == DEFAULT_LAYER_NAME || f.layer.empty()))
+      continue;
+    bool grouped = false;
+    for (const auto &[gid, g] : scene.groupObjects) {
+      if (std::any_of(g.children.begin(), g.children.end(), [&](const GroupObjectChildRef &r) {
+            return r.type == MvrNodeType::Fixture && r.uuid == uid;
+          })) {
+        grouped = true;
+        break;
+      }
+    }
+    if (!grouped)
       exportFixture(rootChildList, f);
   }
   for (const auto &[uid, t] : scene.trusses) {
-    if (t.layer == DEFAULT_LAYER_NAME || t.layer.empty())
+    if ((t.layer == DEFAULT_LAYER_NAME || t.layer.empty()) && t.parentGroupUuid.empty())
       exportTruss(rootChildList, t);
   }
   for (const auto &[uid, s] : scene.supports) {
-    if (s.layer == DEFAULT_LAYER_NAME || s.layer.empty())
+    if (!(s.layer == DEFAULT_LAYER_NAME || s.layer.empty()))
+      continue;
+    bool grouped = false;
+    for (const auto &[gid, g] : scene.groupObjects) {
+      if (std::any_of(g.children.begin(), g.children.end(), [&](const GroupObjectChildRef &r) {
+            return r.type == MvrNodeType::Support && r.uuid == uid;
+          })) {
+        grouped = true;
+        break;
+      }
+    }
+    if (!grouped)
       exportSupport(rootChildList, s);
   }
   for (const auto &[uid, obj] : scene.sceneObjects) {
-    if (obj.layer == DEFAULT_LAYER_NAME || obj.layer.empty())
+    if (!(obj.layer == DEFAULT_LAYER_NAME || obj.layer.empty()))
+      continue;
+    bool grouped = false;
+    for (const auto &[gid, g] : scene.groupObjects) {
+      if (std::any_of(g.children.begin(), g.children.end(), [&](const GroupObjectChildRef &r) {
+            return r.type == MvrNodeType::SceneObject && r.uuid == uid;
+          })) {
+        grouped = true;
+        break;
+      }
+    }
+    if (!grouped)
       exportSceneObject(rootChildList, obj);
   }
   if (rootChildList->FirstChild())
     layersNode->InsertEndChild(rootChildList);
 
   sceneNode->InsertEndChild(layersNode);
+
+  if (!trussArchiveByTypeKey.empty()) {
+    tinyxml2::XMLElement *sceneUserData = doc.NewElement("UserData");
+    tinyxml2::XMLElement *data = doc.NewElement("Data");
+    data->SetAttribute("provider", "Perastage");
+    data->SetAttribute("ver", "1.0");
+    tinyxml2::XMLElement *manifest = doc.NewElement("TrussSidecarManifest");
+    for (const auto &[typeKey, archivePath] : trussArchiveByTypeKey) {
+      tinyxml2::XMLElement *typeNode = doc.NewElement("Type");
+      typeNode->SetAttribute("key", typeKey.c_str());
+      typeNode->SetAttribute("gdtf", archivePath.c_str());
+      manifest->InsertEndChild(typeNode);
+      wxLogMessage("MVR export generated truss sidecar GDTF typeKey=%s archive=%s",
+                   typeKey.c_str(), archivePath.c_str());
+    }
+    for (const auto &[uuid, typeKey] : trussInstanceToTypeKey) {
+      tinyxml2::XMLElement *instNode = doc.NewElement("Instance");
+      instNode->SetAttribute("uuid", uuid.c_str());
+      instNode->SetAttribute("typeKey", typeKey.c_str());
+      manifest->InsertEndChild(instNode);
+      wxLogMessage("MVR export linked truss instance to sidecar uuid=%s typeKey=%s",
+                   uuid.c_str(), typeKey.c_str());
+    }
+    data->InsertEndChild(manifest);
+    sceneUserData->InsertEndChild(data);
+    sceneNode->InsertEndChild(sceneUserData);
+  }
 
   std::unordered_map<std::string, int> plannedArchiveEntries;
   plannedArchiveEntries["GeneralSceneDescription.xml"] = 1;
