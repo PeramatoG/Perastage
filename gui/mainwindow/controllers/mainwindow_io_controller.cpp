@@ -67,8 +67,7 @@ bool MainWindowIoController::ImportMvrFromPath(const std::string &pathUtf8) {
   if (owner_.consolePanel)
     owner_.consolePanel->AppendMessage("Imported " + filePath);
   owner_.currentProjectPath.clear();
-  owner_.currentProjectDisplayName =
-      wxFileName(filePath).GetName().ToStdString();
+  owner_.currentProjectDisplayName = wxFileName(filePath).GetName();
   ProjectUtils::SaveLastProjectPath("");
   owner_.UpdateTitle();
   owner_.RefreshAfterSceneChange();

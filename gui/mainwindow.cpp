@@ -697,8 +697,8 @@ void MainWindow::UpdateTitle() {
   if (!currentProjectPath.empty()) {
     wxFileName fn(wxString::FromUTF8(currentProjectPath));
     title += " - " + fn.GetName();
-  } else if (!currentProjectDisplayName.empty()) {
-    title += " - " + wxString::FromUTF8(currentProjectDisplayName);
+  } else if (!currentProjectDisplayName.IsEmpty()) {
+    title += " - " + currentProjectDisplayName;
   } else {
     title += " - Untitled";
   }
