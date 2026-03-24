@@ -16,7 +16,6 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "app_version.h"
-#include "configmanager.h"
 #include "logger.h"
 #include "mainwindow.h"
 #include "projectutils.h"
@@ -28,7 +27,6 @@
 #include <new>
 #include <optional>
 #include <string>
-#include <thread>
 #include <wx/stackwalk.h>
 #include <wx/sysopt.h>
 #include <wx/weakref.h>
@@ -50,7 +48,6 @@ private:
                                const std::string &path = {});
 
   std::string last_event_summary_;
-  std::thread project_loader_thread_;
   std::atomic<bool> project_load_event_sent_{false};
 };
 
@@ -145,33 +142,10 @@ bool MyApp::OnInit() {
     });
   } else if (lastPathOpt) {
     std::string lastPath = *lastPathOpt;
-    project_loader_thread_ = std::thread([this, mainWindowRef, lastPath]() {
-      try {
-        namespace fs = std::filesystem;
-        bool loaded = false;
-        bool clearLastProject = false;
-        std::string path = lastPath;
-        std::error_code ec;
-        fs::path lastFsPath = fs::u8path(path);
-        bool isFile = fs::is_regular_file(lastFsPath, ec);
-        if (ec || !isFile) {
-          clearLastProject = true;
-          path.clear();
-        } else {
-          loaded = ConfigManager::Get().LoadProject(path);
-          if (!loaded)
-            clearLastProject = true;
-        }
-        this->QueueProjectLoadedEvent(mainWindowRef, loaded, clearLastProject,
-                                      path);
-      } catch (const std::exception &ex) {
-        Logger::Instance().Log(
-            std::string("Failed to load last project: ") + ex.what());
-        this->QueueProjectLoadedEvent(mainWindowRef, false, true);
-      } catch (...) {
-        Logger::Instance().Log("Failed to load last project: unknown error.");
-        this->QueueProjectLoadedEvent(mainWindowRef, false, true);
-      }
+    mainWindow->CallAfter([mainWindowRef, lastPath]() {
+      if (!mainWindowRef)
+        return;
+      mainWindowRef->LoadStartupProjectFromPath(lastPath);
     });
 
   } else if (mainWindowRef) {
@@ -182,9 +156,6 @@ bool MyApp::OnInit() {
 }
 
 int MyApp::OnExit() {
-  if (project_loader_thread_.joinable()) {
-    project_loader_thread_.join();
-  }
   return wxApp::OnExit();
 }
 

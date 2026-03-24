@@ -62,7 +62,9 @@ public:
   explicit MainWindow(const wxString &title, IGuiConfigServices *services = nullptr);
   ~MainWindow();
 
-  bool LoadProjectFromPath(const std::string &path); // Load given project
+  bool LoadProjectFromPath(const std::string &path,
+                           bool showBlockingLoadUi = true); // Load given project
+  void LoadStartupProjectFromPath(const std::string &path);
   bool OpenPathFromCommandLine(const std::string &path);
   void ResetProject();                               // Clear current project
 
