@@ -553,6 +553,7 @@ bool MainWindow::LoadProjectFromPath(const std::string &path,
     wxYieldIfNeeded();
   } else {
     SplashScreen::SetMessage("Building scene...");
+    wxYieldIfNeeded();
   }
   Ensure3DViewport();
 
@@ -600,6 +601,7 @@ bool MainWindow::LoadProjectFromPath(const std::string &path,
     wxYieldIfNeeded();
   } else {
     SplashScreen::SetMessage("Refreshing panels...");
+    wxYieldIfNeeded();
   }
   RefreshSummary();
   RefreshRigging();
@@ -609,6 +611,7 @@ bool MainWindow::LoadProjectFromPath(const std::string &path,
     wxYieldIfNeeded();
   } else {
     SplashScreen::SetMessage("Creating fixture symbols...");
+    wxYieldIfNeeded();
   }
   StartFixtureSymbolAutoUpdateForLoadedScene();
   UpdateTitle();
@@ -634,6 +637,7 @@ void MainWindow::LoadStartupProjectFromPath(const std::string &path) {
   };
 
   SplashScreen::SetMessage("Loading project file...");
+  wxYieldIfNeeded();
   if (!LoadProjectFromPath(path, false)) {
     fixtureSymbolAutoUpdateCompletionCallback = nullptr;
     ProjectUtils::SaveLastProjectPath("");
