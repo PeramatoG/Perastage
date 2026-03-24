@@ -66,6 +66,11 @@ bool MainWindowIoController::ImportMvrFromPath(const std::string &pathUtf8) {
   setImportStatus("MVR import: refreshing panels...");
   if (owner_.consolePanel)
     owner_.consolePanel->AppendMessage("Imported " + filePath);
+  owner_.currentProjectPath.clear();
+  owner_.currentProjectDisplayName =
+      wxFileName(filePath).GetName().ToStdString();
+  ProjectUtils::SaveLastProjectPath("");
+  owner_.UpdateTitle();
   owner_.RefreshAfterSceneChange();
 
   importOverlay.reset();

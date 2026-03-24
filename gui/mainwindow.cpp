@@ -558,6 +558,7 @@ bool MainWindow::LoadProjectFromPath(const std::string &path,
   Ensure3DViewport();
 
   currentProjectPath = path;
+  currentProjectDisplayName.clear();
   ProjectUtils::SaveLastProjectPath(currentProjectPath);
 
   ApplySavedLayout();
@@ -661,6 +662,7 @@ void MainWindow::ResetProject() {
   fixtureSymbolAutoUpdateCompletionCallback = nullptr;
   startupSplashCloseRequested = false;
   currentProjectPath.clear();
+  currentProjectDisplayName.clear();
   if (layoutPanel)
     layoutPanel->ReloadLayouts();
   if (fixturePanel)
@@ -695,6 +697,8 @@ void MainWindow::UpdateTitle() {
   if (!currentProjectPath.empty()) {
     wxFileName fn(wxString::FromUTF8(currentProjectPath));
     title += " - " + fn.GetName();
+  } else if (!currentProjectDisplayName.empty()) {
+    title += " - " + wxString::FromUTF8(currentProjectDisplayName);
   } else {
     title += " - Untitled";
   }
@@ -1009,6 +1013,7 @@ void MainWindow::OnProjectLoaded(wxCommandEvent &event) {
     ProjectUtils::SaveLastProjectPath("");
   if (loaded && !path.empty()) {
     currentProjectPath = path;
+    currentProjectDisplayName.clear();
     ProjectUtils::SaveLastProjectPath(currentProjectPath);
     ApplySavedLayout();
     if (layoutPanel)
