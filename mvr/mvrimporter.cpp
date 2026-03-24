@@ -398,9 +398,13 @@ PromptGdtfConflicts(const std::vector<GdtfConflict> &conflicts) {
   wxButton *selectAllAppButton = new wxButton(&dlg, wxID_ANY, "Select all App");
   wxButton *selectAllMvrButton = new wxButton(&dlg, wxID_ANY, "Select all MVR");
   selectAllAppButton->Bind(wxEVT_BUTTON,
-                           [&appBtns](wxCommandEvent &) { selectAll(appBtns); });
+                           [&appBtns, &selectAll](wxCommandEvent &) {
+                             selectAll(appBtns);
+                           });
   selectAllMvrButton->Bind(wxEVT_BUTTON,
-                           [&mvrBtns](wxCommandEvent &) { selectAll(mvrBtns); });
+                           [&mvrBtns, &selectAll](wxCommandEvent &) {
+                             selectAll(mvrBtns);
+                           });
   batchSelectionSizer->Add(selectAllAppButton, 0, wxRIGHT, 5);
   batchSelectionSizer->Add(selectAllMvrButton, 0);
 
