@@ -84,7 +84,7 @@ static bool IsCanonicalUuidString(const std::string &value);
 
 static constexpr const char *kMvrProvider = "Perastage";
 static constexpr const char *kMvrProviderVersion = "1.0";
-static constexpr const char *kFallbackFixtureGdtfFileName = "PAR PRO 270 5-in-1.gdtf";
+static constexpr const char *kFallbackFixtureGdtfFileName = "Generic 1ch.gdtf";
 
 enum class TrussGeometryAuthority {
   MvrGeometry = 0,
