@@ -155,10 +155,25 @@ These checks validate that per-instance normal transformation and mirrored-trans
 
 ## Windows packaging
 
+The **official Windows installer** is Inno Setup and the repository script is:
+
+- `packaging/windows/Perastage.iss`
+
+Packaging flow:
+
 1. Build the Release configuration.
 2. Run the `perastage_stage` target to populate the staging directory (`out/install/<CONFIG>`, for example `out/install/Release`).
-3. Generate an installer with CPack (`cpack -G NSIS` in the build directory) or use another installer tool if needed. The NSIS package writes file associations for `.mvr` (and `.pstg` when `-DPERASTAGE_ASSOCIATE_PSTG=ON`) using ProgID entries, icon registration, and open commands.
-4. Optionally provide a portable ZIP archive for users who prefer not to run an installer.
+3. Compile `packaging/windows/Perastage.iss` with Inno Setup.
+4. In the installer task page, choose optional file associations:
+   - `.pstg` (Perastage project files)
+   - `.mvr` (`assoc_mvr`, optional import-oriented double-click flow)
+5. Optionally provide a portable ZIP archive for users who prefer not to run an installer.
+
+Notes:
+
+- The installer writes associations under `Software\Classes` using ProgID/OpenWith entries and `ChangesAssociations=yes`.
+- Uninstall is intentionally conservative for extension ownership: it removes Perastage OpenWith/ProgID entries without forcing aggressive global cleanup of extension owners.
+- Legacy CPack/NSIS wiring is kept only as a compatibility path and is not the official installer workflow.
 
 ## Linux desktop integration
 
