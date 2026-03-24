@@ -390,12 +390,21 @@ static bool ValidateMvr16Export(
       }
 
       if (std::string(cur->Name()) == "Position") {
-        const std::string positionRef = TrimAscii(cur->GetText() ? cur->GetText() : "");
-        if (positionRef.empty() || !IsCanonicalUuidString(positionRef)) {
-          wxLogError("MVR export validation failed: Position reference '%s' is not canonical", positionRef);
-          return false;
+        const tinyxml2::XMLElement *parent = cur->Parent() ? cur->Parent()->ToElement() : nullptr;
+        const std::string parentName = parent ? std::string(parent->Name()) : std::string{};
+        const bool isObjectPositionRef =
+            parentName == "Fixture" || parentName == "Truss" || parentName == "Support" ||
+            parentName == "VideoScreen" || parentName == "Projector";
+        if (isObjectPositionRef) {
+          const std::string positionRef = TrimAscii(cur->GetText() ? cur->GetText() : "");
+          if (positionRef.empty())
+            continue;
+          if (!IsCanonicalUuidString(positionRef)) {
+            wxLogError("MVR export validation failed: Position reference '%s' is not canonical", positionRef);
+            return false;
+          }
+          referencedPositionUuids.insert(positionRef);
         }
-        referencedPositionUuids.insert(positionRef);
       }
 
       for (tinyxml2::XMLElement *child = cur->FirstChildElement(); child;
