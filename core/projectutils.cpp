@@ -265,7 +265,10 @@ std::string GetDefaultLibraryPath(const std::string& subdir)
 
     fs::path baseLib = GetBaseLibraryPath(subdir);
     std::error_code ec;
-    if (fs::exists(baseLib, ec) && !ec && fs::is_directory(baseLib, ec) && !ec)
+    const bool baseExists = fs::exists(baseLib, ec);
+    const bool baseIsDir = !ec && fs::is_directory(baseLib, ec);
+    const bool baseWritable = baseExists && baseIsDir && IsDirectoryWritable(baseLib);
+    if (!ec && baseWritable)
         return absoluteUtf8(baseLib);
 
     if (const auto dataDir = ResolveWritableUserDataDir()) {
@@ -277,8 +280,8 @@ std::string GetDefaultLibraryPath(const std::string& subdir)
     }
 
     std::cerr << "ProjectUtils::GetDefaultLibraryPath failed for subdir '" << subdir
-              << "'. Checked PERASTAGE_LIBRARY_PATH, base library path, and user data "
-                 "library fallback."
+              << "'. Checked PERASTAGE_LIBRARY_PATH, writable base library path, and "
+                 "user data library fallback."
               << std::endl;
     return {};
 }
