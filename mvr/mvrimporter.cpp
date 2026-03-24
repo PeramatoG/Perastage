@@ -41,6 +41,7 @@
 #include <functional>
 #include <iomanip>
 #include <iostream>
+#include <optional>
 #include <random>
 #include <sstream>
 #include <string>
@@ -95,6 +96,67 @@ static std::string ToLowerAscii(std::string text) {
     return static_cast<char>(std::tolower(c));
   });
   return text;
+}
+
+static std::string ExtractDigitSignature(const std::string &text) {
+  std::string digits;
+  digits.reserve(text.size());
+  for (unsigned char c : text) {
+    if (std::isdigit(c))
+      digits.push_back(static_cast<char>(c));
+  }
+  if (digits.empty())
+    return digits;
+
+  const size_t firstNonZero = digits.find_first_not_of('0');
+  if (firstNonZero == std::string::npos)
+    return "0";
+  return digits.substr(firstNonZero);
+}
+
+static std::string ResolveExistingGdtfMode(const std::string &gdtfPath,
+                                           const std::string &requestedMode,
+                                           std::optional<int> channelCountHint) {
+  const std::vector<std::string> modes = GetGdtfModes(gdtfPath);
+  if (modes.empty())
+    return requestedMode;
+
+  const std::string normalizedRequested = ToLowerAscii(Trim(requestedMode));
+  if (!normalizedRequested.empty()) {
+    for (const std::string &mode : modes) {
+      if (ToLowerAscii(Trim(mode)) == normalizedRequested)
+        return mode;
+    }
+  }
+
+  const std::string requestedDigitSignature =
+      ExtractDigitSignature(normalizedRequested);
+  if (!requestedDigitSignature.empty()) {
+    for (const std::string &mode : modes) {
+      const std::string modeDigitSignature =
+          ExtractDigitSignature(ToLowerAscii(Trim(mode)));
+      if (!modeDigitSignature.empty() &&
+          modeDigitSignature == requestedDigitSignature) {
+        return mode;
+      }
+    }
+  }
+
+  if (channelCountHint.has_value() && channelCountHint.value() > 0) {
+    for (const std::string &mode : modes) {
+      const int modeChannelCount = GetGdtfModeChannelCount(gdtfPath, mode);
+      if (modeChannelCount == channelCountHint.value())
+        return mode;
+    }
+  }
+
+  for (const std::string &mode : modes) {
+    const std::string normalized = ToLowerAscii(Trim(mode));
+    if (normalized == "default" || normalized == "standard")
+      return mode;
+  }
+
+  return modes.front();
 }
 
 static bool IsNearlyEqualRelative(float a, float b, float relEps) {
@@ -1867,6 +1929,10 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
           auto typeKey = f.typeName;
           auto it = choices.find(typeKey);
           if (it != choices.end()) {
+            const int previousChannelCount =
+                (!f.gdtfSpec.empty() && !f.gdtfMode.empty())
+                    ? GetGdtfModeChannelCount(f.gdtfSpec, f.gdtfMode)
+                    : -1;
             f.gdtfSpec = it->second;
             std::string parsed = Trim(GetGdtfFixtureName(f.gdtfSpec));
             if (!parsed.empty())
@@ -1875,14 +1941,26 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
               if (f.gdtfMode.empty())
                 f.gdtfMode = dictEntry->mode;
             }
+            f.gdtfMode = ResolveExistingGdtfMode(
+                f.gdtfSpec, f.gdtfMode,
+                previousChannelCount > 0 ? std::optional<int>(previousChannelCount)
+                                         : std::nullopt);
           }
         }
       } else {
         for (auto &[uid, f] : scene.fixtures) {
           if (auto dictEntry = GdtfDictionary::Get(f.typeName)) {
+            const int previousChannelCount =
+                (!f.gdtfSpec.empty() && !f.gdtfMode.empty())
+                    ? GetGdtfModeChannelCount(f.gdtfSpec, f.gdtfMode)
+                    : -1;
             f.gdtfSpec = dictEntry->path;
             if (f.gdtfMode.empty())
               f.gdtfMode = dictEntry->mode;
+            f.gdtfMode = ResolveExistingGdtfMode(
+                f.gdtfSpec, f.gdtfMode,
+                previousChannelCount > 0 ? std::optional<int>(previousChannelCount)
+                                         : std::nullopt);
             std::string parsed = Trim(GetGdtfFixtureName(f.gdtfSpec));
             if (!parsed.empty())
               f.typeName = parsed;
@@ -1894,6 +1972,19 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
 
   if (progressCallback)
     progressCallback("Building fixtures, trusses, and objects...");
+
+  for (auto &[uid, fixture] : scene.fixtures) {
+    if (fixture.gdtfSpec.empty())
+      continue;
+    const int currentChannelCount =
+        (!fixture.gdtfMode.empty())
+            ? GetGdtfModeChannelCount(fixture.gdtfSpec, fixture.gdtfMode)
+            : -1;
+    fixture.gdtfMode = ResolveExistingGdtfMode(
+        fixture.gdtfSpec, fixture.gdtfMode,
+        currentChannelCount > 0 ? std::optional<int>(currentChannelCount)
+                                : std::nullopt);
+  }
 
   bool hasDefaultLayer = false;
   for (const auto &[uid, layer] : scene.layers) {
