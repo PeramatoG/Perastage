@@ -27,6 +27,7 @@ struct GdtfChannelInfo {
 };
 bool LoadGdtf(const std::string&, std::vector<GdtfObject>&, std::string* outError = nullptr);
 int GetGdtfModeChannelCount(const std::string&, const std::string&);
+std::vector<std::string> GetGdtfModes(const std::string&);
 std::vector<GdtfChannelInfo> GetGdtfModeChannels(const std::string&, const std::string&);
 std::string GetGdtfFixtureName(const std::string& gdtfPath);
 std::string GetGdtfModelColor(const std::string& gdtfPath);
