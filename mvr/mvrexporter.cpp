@@ -19,6 +19,7 @@
 #include "configmanager.h"
 #include "dummyprofilelibrary.h"
 #include "matrixutils.h"
+#include "projectutils.h"
 #include "support.h"
 #include "uuidutils.h"
 #include "truss_gdtf_builder.h"
@@ -83,6 +84,7 @@ static bool IsCanonicalUuidString(const std::string &value);
 
 static constexpr const char *kMvrProvider = "Perastage";
 static constexpr const char *kMvrProviderVersion = "1.0";
+static constexpr const char *kFallbackFixtureGdtfFileName = "PAR PRO 270 5-in-1.gdtf";
 
 enum class TrussGeometryAuthority {
   MvrGeometry = 0,
@@ -121,6 +123,18 @@ static std::string TruncateFileNamePreservingExtension(const std::string &fileNa
   if (truncatedStem.empty())
     return fileName.substr(0, maxLength);
   return truncatedStem + extension;
+}
+
+static std::string ResolveFallbackFixtureGdtfPath() {
+  static const std::string resolvedPath = []() {
+    const fs::path fallbackPath =
+        ProjectUtils::GetBaseLibraryPath("fixtures") / kFallbackFixtureGdtfFileName;
+    std::error_code ec;
+    if (fs::exists(fallbackPath, ec) && !ec && fs::is_regular_file(fallbackPath, ec) && !ec)
+      return fallbackPath.generic_string();
+    return std::string{};
+  }();
+  return resolvedPath;
 }
 
 static std::string EnsureUniqueArchivePath(const std::string &proposed,
@@ -1261,10 +1275,24 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
       addInt("UnitNumber", f.unitNumber);
     addInt("CustomId", f.customId);
     addInt("CustomIdType", f.customIdType);
-    std::string fixtureName = SanitizeArchiveFileName(f.gdtfSpec, "fixture.gdtf");
-    std::string fixtureGdtfArchivePath = registerGdtfResource(f.uuid, f.gdtfSpec, fixtureName);
+    std::string fixtureSourceGdtf = f.gdtfSpec;
+    if (fixtureSourceGdtf.empty()) {
+      fixtureSourceGdtf = ResolveFallbackFixtureGdtfPath();
+      if (fixtureSourceGdtf.empty()) {
+        wxLogWarning(
+            "Fixture '%s' (uuid=%s) has no GDTF and fallback '%s' is not available.",
+            fixtureExportName.c_str(), f.uuid.c_str(), kFallbackFixtureGdtfFileName);
+      } else {
+        wxLogMessage(
+            "Fixture '%s' (uuid=%s) has no GDTF. Using fallback '%s' for MVR export.",
+            fixtureExportName.c_str(), f.uuid.c_str(), kFallbackFixtureGdtfFileName);
+      }
+    }
+    std::string fixtureName = SanitizeArchiveFileName(fixtureSourceGdtf, "fixture.gdtf");
+    std::string fixtureGdtfArchivePath =
+        registerGdtfResource(f.uuid, fixtureSourceGdtf, fixtureName);
     addStr("GDTFSpec", fixtureGdtfArchivePath);
-    if (!f.gdtfSpec.empty() &&
+    if (!fixtureSourceGdtf.empty() &&
         (!f.color.empty() || f.weightKg != 0.0f ||
          f.powerConsumptionW != 0.0f)) {
       auto &ov = gdtfOverrides[fixtureGdtfArchivePath];
