@@ -1,11 +1,9 @@
 {
     "Aleda B-EYE K10": {
-        "category": "Unknown",
         "file": "Aleda B-EYE K10.gdtf",
         "mode": "Shapes"
     },
     "Aleda K10 B-EYE (Bulb=LED)": {
-        "category": "Unknown",
         "file": "Aleda B-EYE K10.gdtf",
         "mode": "Shapes"
     },
@@ -14,7 +12,6 @@
         "mode": "2ch d001"
     },
     "BLINDER 4 PRO": {
-        "category": "Blinder",
         "file": "BLINDER 4 PRO.gdtf",
         "mode": "4ch d001"
     },
@@ -43,7 +40,6 @@
         "mode": "Basic"
     },
     "HY B-EYE K15 (Bulb=LED)": {
-        "category": "Unknown",
         "file": "Aleda B-EYE K10.gdtf",
         "mode": "Shapes"
     },
@@ -52,7 +48,6 @@
         "mode": "Norm"
     },
     "Intella Storm 1000 RGB (Bulb=LED)": {
-        "category": "Unknown",
         "file": "PIXEL STROBE 400 RGB.gdtf",
         "mode": "8ch"
     },
@@ -61,7 +56,6 @@
         "mode": "DMX Mode 1 (Compressed Pro)"
     },
     "JNR BLinder 4x100C (Bulb=LED 3200K)": {
-        "category": "Blinder",
         "file": "BLINDER 4 PRO.gdtf",
         "mode": "8ch A001"
     },
@@ -82,7 +76,6 @@
         "mode": "Basic"
     },
     "MAC Quantum Profile": {
-        "category": "Spot",
         "file": "MAC Quantum Profile.gdtf",
         "mode": "Extended"
     },
@@ -127,12 +120,10 @@
         "mode": "Mode 1 - Standard 16 - bit"
     },
     "PAR PRO 270 5-IN-1": {
-        "category": "Conventional",
         "file": "PAR PRO 270 5-in-1.gdtf",
         "mode": "8ch"
     },
     "PIXEL STROBE 400 RGB": {
-        "category": "Unknown",
         "file": "PIXEL STROBE 400 RGB.gdtf",
         "mode": "8ch"
     },
@@ -157,7 +148,6 @@
         "mode": "6 Channel RAW"
     },
     "RoHS 18x10 LED Par RGBWA (Bulb=LED) (Lens=30 deg)": {
-        "category": "Conventional",
         "file": "PAR PRO 270 5-in-1.gdtf",
         "mode": "8ch"
     },
@@ -193,6 +183,10 @@
         "file": "Aleda B-EYE K10.gdtf",
         "mode": "Shapes"
     },
+    "SGM Q7": {
+        "file": "Q-7.gdtf",
+        "mode": "3 Channel RAW"
+    },
     "Sharpy": {
         "file": "Sharpy.gdtf",
         "mode": "Vector"
@@ -222,17 +216,14 @@
         "mode": "Default"
     },
     "Tour Hazer 2": {
-        "category": "Smoke",
         "file": "Tour Hazer II.gdtf",
         "mode": "Default"
     },
     "XBEAM 17 CMY": {
-        "category": "Unknown",
         "file": "XBEAM 17 CMY.gdtf",
         "mode": "25ch"
     },
     "XBeam 17 CMY (Bulb=Sirius HRI 440W)": {
-        "category": "Unknown",
         "file": "XBEAM 17 CMY.gdtf",
         "mode": "25ch"
     },
