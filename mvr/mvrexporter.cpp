@@ -875,7 +875,42 @@ static std::string CreatePatchedGdtf(const std::string &gdtfPath,
 bool MvrExporter::ExportToFile(const std::string &filePath) {
   const auto &scene = ConfigManager::Get().GetScene();
   const TrussGeometryAuthority trussGeometryAuthority = GetTrussGeometryAuthoritySetting();
-  auto positions = scene.positions;
+  std::unordered_map<std::string, std::string> positions;
+  std::unordered_map<std::string, std::string> legacyPositionIdToCanonical;
+  std::unordered_set<std::string> usedPositionUuids;
+
+  auto reserveCanonicalPositionUuid = [&](const std::string &candidate,
+                                          const std::string &seedBase) {
+    std::string out = CanonicalizeUuid(candidate);
+    if (out.empty() || usedPositionUuids.contains(out)) {
+      int suffix = 0;
+      do {
+        out = DeriveDeterministicUuid(seedBase + "#" + std::to_string(suffix++));
+      } while (usedPositionUuids.contains(out));
+    }
+    usedPositionUuids.insert(out);
+    return out;
+  };
+
+  for (const auto &[rawUuid, rawName] : scene.positions) {
+    const std::string name = TrimAscii(rawName);
+    const std::string canonical = CanonicalizeUuid(rawUuid);
+    if (!canonical.empty()) {
+      const std::string stable = reserveCanonicalPositionUuid(
+          canonical, "mvr:position:canonical:" + canonical + ":" + name);
+      positions[stable] = name;
+      if (stable != rawUuid)
+        legacyPositionIdToCanonical[rawUuid] = stable;
+      continue;
+    }
+
+    const std::string seed = "mvr:position:legacy:" + rawUuid + ":" + name;
+    const std::string generated = reserveCanonicalPositionUuid({}, seed);
+    positions[generated] = name.empty() ? rawUuid : name;
+    legacyPositionIdToCanonical[rawUuid] = generated;
+    wxLogWarning("MVR export converted legacy Position uuid '%s' to canonical '%s' (name='%s')",
+                 rawUuid.c_str(), generated.c_str(), positions[generated].c_str());
+  }
 
   std::unordered_map<std::string, std::string> positionByName;
   for (const auto &[uuid, name] : positions) {
@@ -885,6 +920,16 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
 
   auto ensurePositionEntry = [&](const std::string &positionId,
                                  const std::string &nameHint) {
+    auto legacyIt = legacyPositionIdToCanonical.find(positionId);
+    if (legacyIt != legacyPositionIdToCanonical.end()) {
+      auto existing = positions.find(legacyIt->second);
+      if (existing != positions.end() && !nameHint.empty() && existing->second != nameHint)
+        existing->second = nameHint;
+      if (!nameHint.empty())
+        positionByName[nameHint] = legacyIt->second;
+      return;
+    }
+
     const std::string canonicalId = CanonicalizeUuid(positionId);
     if (!canonicalId.empty()) {
       auto it = positions.find(canonicalId);
@@ -906,7 +951,7 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     if (byName != positionByName.end())
       return;
 
-    std::string newUuid = CanonicalizeUuid(GenerateUuid());
+    std::string newUuid = reserveCanonicalPositionUuid({}, "mvr:position:name:" + nameHint);
     positions[newUuid] = nameHint;
     positionByName[nameHint] = newUuid;
     if (!positionId.empty()) {
@@ -924,6 +969,10 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
 
   auto resolvePositionReference = [&](const std::string &positionId,
                                       const std::string &nameHint) -> std::string {
+    auto legacyIt = legacyPositionIdToCanonical.find(positionId);
+    if (legacyIt != legacyPositionIdToCanonical.end())
+      return legacyIt->second;
+
     const std::string canonicalId = CanonicalizeUuid(positionId);
     if (!canonicalId.empty() && positions.contains(canonicalId))
       return canonicalId;
@@ -931,7 +980,7 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     if (!nameHint.empty()) {
       auto byName = positionByName.find(nameHint);
       if (byName != positionByName.end()) {
-        if (!positionId.empty()) {
+        if (!positionId.empty() && byName->second != positionId) {
           wxLogMessage("MVR export remapped non-canonical Position '%s' to '%s' by name '%s'",
                        positionId.c_str(), byName->second.c_str(), nameHint.c_str());
         }
