@@ -32,6 +32,7 @@
 #include <thread>
 #include <wx/stackwalk.h>
 #include <wx/sysopt.h>
+#include <wx/timer.h>
 #include <wx/weakref.h>
 #include <wx/wx.h>
 #include <wx/filename.h>
@@ -49,10 +50,15 @@ private:
   void QueueProjectLoadedEvent(const wxWeakRef<MainWindow> &mainWindowRef,
                                bool loaded, bool clearLastProject,
                                const std::string &path = {});
+  void ArmStartupProjectLoadTimeout(const wxWeakRef<MainWindow> &mainWindowRef);
+  void CancelStartupProjectLoadTimeout();
+  void OnStartupProjectLoadTimeout(wxTimerEvent &event);
 
   std::string last_event_summary_;
   std::thread project_loader_thread_;
   std::atomic<bool> project_load_event_sent_{false};
+  wxTimer startup_project_timeout_timer_;
+  wxWeakRef<MainWindow> startup_timeout_main_window_ref_;
 };
 
 namespace {
@@ -227,6 +233,7 @@ bool MyApp::OnInit() {
       mainWindowRef->OpenPathFromCommandLine(startupPath);
     });
   } else if (lastPathOpt) {
+    ArmStartupProjectLoadTimeout(mainWindowRef);
     std::string lastPath = *lastPathOpt;
     project_loader_thread_ = std::thread([this, mainWindowRef, lastPath]() {
       try {
@@ -265,6 +272,7 @@ bool MyApp::OnInit() {
 }
 
 int MyApp::OnExit() {
+  CancelStartupProjectLoadTimeout();
   if (project_loader_thread_.joinable()) {
     project_loader_thread_.join();
   }
@@ -279,12 +287,48 @@ void MyApp::QueueProjectLoadedEvent(const wxWeakRef<MainWindow> &mainWindowRef,
   bool expected = false;
   if (!project_load_event_sent_.compare_exchange_strong(expected, true))
     return;
+  CancelStartupProjectLoadTimeout();
 
   wxCommandEvent evt(EVT_PROJECT_LOADED);
   evt.SetInt(loaded ? 1 : 0);
   evt.SetExtraLong(clearLastProject ? 1 : 0);
   evt.SetString(wxString::FromUTF8(path));
   wxQueueEvent(mainWindowRef.get(), evt.Clone());
+}
+
+void MyApp::ArmStartupProjectLoadTimeout(
+    const wxWeakRef<MainWindow> &mainWindowRef) {
+  startup_timeout_main_window_ref_ = mainWindowRef;
+  if (!startup_project_timeout_timer_.GetOwner()) {
+    constexpr int kStartupProjectTimeoutTimerId = wxID_HIGHEST + 712;
+    startup_project_timeout_timer_.SetOwner(this, kStartupProjectTimeoutTimerId);
+    Bind(wxEVT_TIMER, &MyApp::OnStartupProjectLoadTimeout, this,
+         kStartupProjectTimeoutTimerId);
+  }
+  constexpr int kStartupProjectLoadTimeoutMs = 12000;
+  startup_project_timeout_timer_.StartOnce(kStartupProjectLoadTimeoutMs);
+}
+
+void MyApp::CancelStartupProjectLoadTimeout() {
+  if (startup_project_timeout_timer_.IsRunning())
+    startup_project_timeout_timer_.Stop();
+}
+
+void MyApp::OnStartupProjectLoadTimeout(wxTimerEvent &WXUNUSED(event)) {
+  bool expected = false;
+  if (!project_load_event_sent_.compare_exchange_strong(expected, true))
+    return;
+
+  Logger::Instance().Log(
+      Logger::Level::Warn,
+      "Startup last-project load timed out after 12000ms. Continuing without loading the last project.");
+  if (!startup_timeout_main_window_ref_)
+    return;
+  wxCommandEvent evt(EVT_PROJECT_LOADED);
+  evt.SetInt(0);
+  evt.SetExtraLong(1);
+  evt.SetString("");
+  wxQueueEvent(startup_timeout_main_window_ref_.get(), evt.Clone());
 }
 
 int MyApp::FilterEvent(wxEvent &event) {
