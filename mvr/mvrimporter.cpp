@@ -98,6 +98,22 @@ static std::string ToLowerAscii(std::string text) {
   return text;
 }
 
+static std::string ExtractDigitSignature(const std::string &text) {
+  std::string digits;
+  digits.reserve(text.size());
+  for (unsigned char c : text) {
+    if (std::isdigit(c))
+      digits.push_back(static_cast<char>(c));
+  }
+  if (digits.empty())
+    return digits;
+
+  const size_t firstNonZero = digits.find_first_not_of('0');
+  if (firstNonZero == std::string::npos)
+    return "0";
+  return digits.substr(firstNonZero);
+}
+
 static std::string ResolveExistingGdtfMode(const std::string &gdtfPath,
                                            const std::string &requestedMode,
                                            std::optional<int> channelCountHint) {
@@ -110,6 +126,19 @@ static std::string ResolveExistingGdtfMode(const std::string &gdtfPath,
     for (const std::string &mode : modes) {
       if (ToLowerAscii(Trim(mode)) == normalizedRequested)
         return mode;
+    }
+  }
+
+  const std::string requestedDigitSignature =
+      ExtractDigitSignature(normalizedRequested);
+  if (!requestedDigitSignature.empty()) {
+    for (const std::string &mode : modes) {
+      const std::string modeDigitSignature =
+          ExtractDigitSignature(ToLowerAscii(Trim(mode)));
+      if (!modeDigitSignature.empty() &&
+          modeDigitSignature == requestedDigitSignature) {
+        return mode;
+      }
     }
   }
 
