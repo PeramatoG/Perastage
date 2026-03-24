@@ -300,10 +300,6 @@ MainWindow::MainWindow(const wxString &title, IGuiConfigServices *services)
 
   ApplySavedLayout();
 
-  // Apply camera settings after layout and config are ready
-  if (viewportPanel)
-    viewportPanel->LoadCameraFromConfig();
-
   if (layerPanel)
     layerPanel->ReloadLayers();
   if (layoutPanel)

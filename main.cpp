@@ -28,7 +28,6 @@
 #include <new>
 #include <optional>
 #include <string>
-#include <thread>
 #include <wx/stackwalk.h>
 #include <wx/sysopt.h>
 #include <wx/weakref.h>
@@ -50,7 +49,6 @@ private:
                                const std::string &path = {});
 
   std::string last_event_summary_;
-  std::thread project_loader_thread_;
   std::atomic<bool> project_load_event_sent_{false};
 };
 
@@ -145,9 +143,10 @@ bool MyApp::OnInit() {
     });
   } else if (lastPathOpt) {
     std::string lastPath = *lastPathOpt;
-    project_loader_thread_ = std::thread([this, mainWindowRef, lastPath]() {
+    mainWindow->CallAfter([this, mainWindowRef, lastPath]() {
       try {
         namespace fs = std::filesystem;
+        Logger::Instance().Log("Startup: loading last project path.");
         bool loaded = false;
         bool clearLastProject = false;
         std::string path = lastPath;
@@ -162,6 +161,8 @@ bool MyApp::OnInit() {
           if (!loaded)
             clearLastProject = true;
         }
+        Logger::Instance().Log(loaded ? "Startup: last project loaded."
+                                      : "Startup: last project load failed.");
         this->QueueProjectLoadedEvent(mainWindowRef, loaded, clearLastProject,
                                       path);
       } catch (const std::exception &ex) {
@@ -182,9 +183,6 @@ bool MyApp::OnInit() {
 }
 
 int MyApp::OnExit() {
-  if (project_loader_thread_.joinable()) {
-    project_loader_thread_.join();
-  }
   return wxApp::OnExit();
 }
 
