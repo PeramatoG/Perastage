@@ -526,12 +526,15 @@ bool MainWindow::GuardStartupProjectLoadAction(const wxString &actionLabel) {
   return false;
 }
 
-bool MainWindow::LoadProjectFromPath(const std::string &path) {
-  std::unique_ptr<wxWindowDisabler> loadDisabler =
-      std::make_unique<wxWindowDisabler>();
-  std::unique_ptr<wxBusyInfo> loadOverlay =
-      std::make_unique<wxBusyInfo>("Loading project file...");
-  wxYieldIfNeeded();
+bool MainWindow::LoadProjectFromPath(const std::string &path,
+                                     bool showBlockingLoadUi) {
+  std::unique_ptr<wxWindowDisabler> loadDisabler;
+  std::unique_ptr<wxBusyInfo> loadOverlay;
+  if (showBlockingLoadUi) {
+    loadDisabler = std::make_unique<wxWindowDisabler>();
+    loadOverlay = std::make_unique<wxBusyInfo>("Loading project file...");
+    wxYieldIfNeeded();
+  }
 
   LockViewportInteraction();
   auto finishLoad = [this, &loadOverlay, &loadDisabler]() {
@@ -545,8 +548,12 @@ bool MainWindow::LoadProjectFromPath(const std::string &path) {
     return false;
   }
 
-  loadOverlay = std::make_unique<wxBusyInfo>("Building scene...");
-  wxYieldIfNeeded();
+  if (showBlockingLoadUi) {
+    loadOverlay = std::make_unique<wxBusyInfo>("Building scene...");
+    wxYieldIfNeeded();
+  } else {
+    SplashScreen::SetMessage("Building scene...");
+  }
   Ensure3DViewport();
 
   currentProjectPath = path;
@@ -588,13 +595,21 @@ bool MainWindow::LoadProjectFromPath(const std::string &path) {
     viewport2DRenderPanel->ApplyConfig();
   if (layerPanel)
     layerPanel->ReloadLayers();
-  loadOverlay = std::make_unique<wxBusyInfo>("Refreshing panels...");
-  wxYieldIfNeeded();
+  if (showBlockingLoadUi) {
+    loadOverlay = std::make_unique<wxBusyInfo>("Refreshing panels...");
+    wxYieldIfNeeded();
+  } else {
+    SplashScreen::SetMessage("Refreshing panels...");
+  }
   RefreshSummary();
   RefreshRigging();
   GetDefaultGuiConfigServices().LegacyConfigManager().MarkSaved();
-  loadOverlay = std::make_unique<wxBusyInfo>("Creating fixture symbols...");
-  wxYieldIfNeeded();
+  if (showBlockingLoadUi) {
+    loadOverlay = std::make_unique<wxBusyInfo>("Creating fixture symbols...");
+    wxYieldIfNeeded();
+  } else {
+    SplashScreen::SetMessage("Creating fixture symbols...");
+  }
   StartFixtureSymbolAutoUpdateForLoadedScene();
   UpdateTitle();
   finishLoad();
@@ -618,7 +633,8 @@ void MainWindow::LoadStartupProjectFromPath(const std::string &path) {
     RequestStartupSplashCompletion();
   };
 
-  if (!LoadProjectFromPath(path)) {
+  SplashScreen::SetMessage("Loading project file...");
+  if (!LoadProjectFromPath(path, false)) {
     fixtureSymbolAutoUpdateCompletionCallback = nullptr;
     ProjectUtils::SaveLastProjectPath("");
     ResetProject();
