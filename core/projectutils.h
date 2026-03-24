@@ -22,7 +22,7 @@
 #include <string>
 
 namespace ProjectUtils {
-    inline constexpr const char* PROJECT_EXTENSION = ".pstg";
+    constexpr const char* PROJECT_EXTENSION = ".pstg";
 
     std::string GetLastProjectPathFile();
     bool SaveLastProjectPath(const std::string& path);

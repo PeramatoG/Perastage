@@ -19,7 +19,7 @@
 
 namespace app {
 
-inline constexpr const char *kName = "Perastage";
+constexpr const char *kName = "Perastage";
 
 #ifndef PERASTAGE_APP_VERSION
 #define PERASTAGE_APP_VERSION "0.1.0"
@@ -29,7 +29,7 @@ inline constexpr const char *kName = "Perastage";
 #define PERASTAGE_APP_VERSION_DISPLAY "beta 0.1.0"
 #endif
 
-inline constexpr const char *kVersion = PERASTAGE_APP_VERSION;
-inline constexpr const char *kVersionDisplay = PERASTAGE_APP_VERSION_DISPLAY;
+constexpr const char *kVersion = PERASTAGE_APP_VERSION;
+constexpr const char *kVersionDisplay = PERASTAGE_APP_VERSION_DISPLAY;
 
 } // namespace app
