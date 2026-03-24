@@ -95,6 +95,7 @@ private:
   void OnProjectLoaded(wxCommandEvent &event);
 
   std::string currentProjectPath;
+  wxString currentProjectDisplayName;
   IGuiConfigServices *guiConfigServices = nullptr;
   wxNotebook *notebook = nullptr;
   FixtureTablePanel *fixturePanel = nullptr;
