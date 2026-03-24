@@ -31,7 +31,7 @@ Release builds keep these entries hidden to reduce risk in production workflows.
 
 ## File associations by operating system
 
-- **Windows installer (NSIS/CPack):** registers `.mvr` with a dedicated ProgID, icon, and open command. `.pstg` can also be associated when packaging enables `PERASTAGE_ASSOCIATE_PSTG`.
+- **Windows installer (official: Inno Setup):** `packaging/windows/Perastage.iss` registers ProgID/icon/open-command entries for `.pstg`, plus an optional installer task (`assoc_mvr`) to associate `.mvr` for double-click import flow.
 - **Linux install:** deploys a desktop entry plus MIME XML declarations for `*.mvr` and `*.pstg`, then refreshes MIME/desktop caches when the relevant tools are available.
 - **macOS bundle:** exports `CFBundleDocumentTypes` for `.mvr` so files can be opened from Finder.
 
