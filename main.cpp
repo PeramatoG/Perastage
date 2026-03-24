@@ -17,6 +17,7 @@
  */
 #include "app_version.h"
 #include "configmanager.h"
+#include "gdtfdictionary.h"
 #include "logger.h"
 #include "mainwindow.h"
 #include "projectutils.h"
@@ -88,6 +89,84 @@ std::optional<std::string> GetStartupPathFromArgs(int argc, wxChar **argv) {
   }
   return std::nullopt;
 }
+
+class GdtfDictionaryStartupDialog : public wxDialog {
+public:
+  GdtfDictionaryStartupDialog(wxWindow *parent, const std::string &fallbackPath)
+      : wxDialog(parent, wxID_ANY, "Dictionary access issue",
+                 wxDefaultPosition, wxDefaultSize,
+                 wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER),
+        fallbackPath_(fallbackPath) {
+    wxBoxSizer *topSizer = new wxBoxSizer(wxVERTICAL);
+    infoLabel_ = new wxStaticText(this, wxID_ANY, "");
+    infoLabel_->Wrap(560);
+    topSizer->Add(infoLabel_, 1, wxALL | wxEXPAND, 12);
+
+    wxBoxSizer *buttonSizer = new wxBoxSizer(wxHORIZONTAL);
+    continueButton_ = new wxButton(this, wxID_CANCEL, "Continue read-only");
+    retryButton_ = new wxButton(this, wxID_REFRESH, "Retry");
+    buttonSizer->Add(continueButton_, 0, wxRIGHT, 8);
+    buttonSizer->Add(retryButton_, 0);
+    topSizer->Add(buttonSizer, 0, wxALIGN_RIGHT | wxLEFT | wxRIGHT | wxBOTTOM,
+                  12);
+
+    SetSizerAndFit(topSizer);
+    SetMinSize(wxSize(640, 260));
+
+    continueButton_->Bind(wxEVT_BUTTON, [this](wxCommandEvent &) { Destroy(); });
+    retryButton_->Bind(wxEVT_BUTTON,
+                       &GdtfDictionaryStartupDialog::OnRetry, this);
+  }
+
+  void UpdateIssue(const GdtfDictionary::AccessIssue &issue) {
+    const wxString message = wxString::Format(
+        "The application could not access the GDTF dictionary.\n\n"
+        "Attempted path:\n%s\n\n"
+        "Operation: %s\n"
+        "Cause: %s\n\n"
+        "Suggestion: move the dictionary to your user fixtures folder:\n%s\n\n"
+        "You can continue in read-only mode or retry after fixing permissions/path.",
+        wxString::FromUTF8(issue.attemptedPath), wxString::FromUTF8(issue.operation),
+        wxString::FromUTF8(issue.cause), wxString::FromUTF8(fallbackPath_));
+    infoLabel_->SetLabel(message);
+    Layout();
+  }
+
+private:
+  void OnRetry(wxCommandEvent &) {
+    auto dict = GdtfDictionary::Load();
+    if (dict) {
+      Destroy();
+      return;
+    }
+    const GdtfDictionary::AccessIssue issue =
+        GdtfDictionary::ConsumeLastAccessIssue().value_or(
+            GdtfDictionary::AccessIssue{
+                "", "open/read",
+                "dictionary is still unavailable after retry"});
+    UpdateIssue(issue);
+  }
+
+  wxStaticText *infoLabel_ = nullptr;
+  wxButton *continueButton_ = nullptr;
+  wxButton *retryButton_ = nullptr;
+  std::string fallbackPath_;
+};
+
+void ShowGdtfDictionaryStartupIssue(wxWindow *parent) {
+  // Startup dictionary search anchor: "gdtf_dictionary.json" and GdtfDictionary::Load.
+  auto issueOpt = GdtfDictionary::ConsumeLastAccessIssue();
+  if (!issueOpt)
+    return;
+  const std::string fallbackPath =
+      ProjectUtils::GetDefaultLibraryPath("fixtures");
+  Logger::Instance().Log(
+      Logger::Level::Warn,
+      "Starting with non-editable GDTF dictionary (controlled degradation).");
+  auto *dialog = new GdtfDictionaryStartupDialog(parent, fallbackPath);
+  dialog->UpdateIssue(*issueOpt);
+  dialog->Show();
+}
 } // namespace
 
 wxIMPLEMENT_APP(MyApp);
@@ -127,6 +206,10 @@ bool MyApp::OnInit() {
   mainWindow->Show(true);
   // Start maximized so minimize and restore buttons remain available
   mainWindow->Maximize(true);
+
+  if (!GdtfDictionary::Load()) {
+    ShowGdtfDictionaryStartupIssue(mainWindow);
+  }
 
   const std::optional<std::string> startupPathOpt =
       GetStartupPathFromArgs(argc, argv);

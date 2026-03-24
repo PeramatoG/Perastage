@@ -28,6 +28,12 @@ namespace GdtfDictionary {
         std::string category;
     };
 
+    struct AccessIssue {
+        std::string attemptedPath;
+        std::string operation;
+        std::string cause;
+    };
+
     // Loads the dictionary file into a map of type -> {gdtf path in library, default mode}
     std::optional<std::unordered_map<std::string, Entry>> Load();
     // Saves the dictionary map back to disk
@@ -38,4 +44,5 @@ namespace GdtfDictionary {
     // Copies the gdtf file into the fixtures library and updates the dictionary
     void Update(const std::string& type, const std::string& gdtfPath, const std::string& mode = {}, const std::string& category = {});
     void UpdateCategory(const std::string& type, const std::string& category);
+    std::optional<AccessIssue> ConsumeLastAccessIssue();
 }

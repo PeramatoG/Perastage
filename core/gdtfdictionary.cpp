@@ -17,25 +17,64 @@
  */
 #include "gdtfdictionary.h"
 #include "json.hpp"
+#include "logger.h"
 #include "projectutils.h"
 #include "startup_file_access_gate.h"
 #include <algorithm>
+#include <cerrno>
+#include <cstring>
 #include <filesystem>
 #include <fstream>
+#include <mutex>
 #include <vector>
 
 namespace fs = std::filesystem;
 
 namespace GdtfDictionary {
 
+namespace {
+std::mutex g_issueMutex;
+std::optional<AccessIssue> g_lastAccessIssue;
+
+std::string ErrnoMessage() {
+  const int errorValue = errno;
+  if (errorValue == 0)
+    return "unknown filesystem error";
+  return std::string(std::strerror(errorValue));
+}
+
+void SetLastAccessIssue(const fs::path &path, const std::string &operation,
+                        const std::string &cause) {
+  AccessIssue issue{path.string(), operation, cause};
+  {
+    std::lock_guard<std::mutex> lock(g_issueMutex);
+    g_lastAccessIssue = issue;
+  }
+  Logger::Instance().Log(
+      Logger::Level::Error,
+      "GdtfDictionary file access failed (" + operation + ") at '" +
+          issue.attemptedPath + "': " + issue.cause);
+}
+
+void ClearLastAccessIssue() {
+  std::lock_guard<std::mutex> lock(g_issueMutex);
+  g_lastAccessIssue.reset();
+}
+} // namespace
+
 static fs::path GetDictFile() {
   fs::path dir = fs::u8path(ProjectUtils::GetDefaultLibraryPath("fixtures"));
-  if (dir.empty())
+  if (dir.empty()) {
+    SetLastAccessIssue(dir, "resolve directory",
+                       "default fixtures library path is empty");
     return {};
+  }
   std::error_code ec;
   fs::create_directories(dir, ec);
-  if (ec)
+  if (ec) {
+    SetLastAccessIssue(dir, "create directories", ec.message());
     return {};
+  }
   fs::path file = dir / "gdtf_dictionary.json";
   if (!fs::exists(file)) {
     fs::path baseLib = ProjectUtils::GetBaseLibraryPath("fixtures");
@@ -43,10 +82,18 @@ static fs::path GetDictFile() {
     std::error_code ec;
     if (fs::exists(baseFile))
       fs::copy_file(baseFile, file, fs::copy_options::overwrite_existing, ec);
+    if (ec) {
+      SetLastAccessIssue(file, "copy base dictionary", ec.message());
+      return {};
+    }
     if (!fs::exists(file)) {
       std::ofstream create(file);
-      if (create.is_open())
+      if (create.is_open()) {
         create << "{}";
+      } else {
+        SetLastAccessIssue(file, "create file", ErrnoMessage());
+        return {};
+      }
     }
   }
   return file;
@@ -59,12 +106,17 @@ std::optional<std::unordered_map<std::string, Entry>> Load() {
   if (file.empty())
     return std::nullopt;
   std::ifstream in(file);
-  if (!in.is_open())
+  if (!in.is_open()) {
+    SetLastAccessIssue(file, "open for read", ErrnoMessage());
     return std::nullopt;
+  }
   if (in.peek() == std::ifstream::traits_type::eof()) {
     std::ofstream out(file);
-    if (out.is_open())
+    if (out.is_open()) {
       out << "{}";
+    } else {
+      SetLastAccessIssue(file, "open for write", ErrnoMessage());
+    }
     return dict;
   }
   nlohmann::json j;
@@ -72,14 +124,20 @@ std::optional<std::unordered_map<std::string, Entry>> Load() {
     in >> j;
   } catch (...) {
     std::ofstream out(file);
-    if (out.is_open())
+    if (out.is_open()) {
       out << "{}";
+    } else {
+      SetLastAccessIssue(file, "rewrite invalid json", ErrnoMessage());
+    }
     return dict;
   }
   if (!j.is_object()) {
     std::ofstream out(file);
-    if (out.is_open())
+    if (out.is_open()) {
       out << "{}";
+    } else {
+      SetLastAccessIssue(file, "rewrite non-object json", ErrnoMessage());
+    }
     return dict;
   }
   fs::path dir = file.parent_path();
@@ -109,6 +167,7 @@ std::optional<std::unordered_map<std::string, Entry>> Load() {
       dict[it.key()] = e;
     }
   }
+  ClearLastAccessIssue();
   return dict;
 }
 
@@ -140,9 +199,12 @@ void Save(const std::unordered_map<std::string, Entry> &dict) {
     j[type] = obj;
   }
   std::ofstream out(file);
-  if (!out.is_open())
+  if (!out.is_open()) {
+    SetLastAccessIssue(file, "open for write", ErrnoMessage());
     return;
+  }
   out << j.dump(4);
+  ClearLastAccessIssue();
 }
 
 std::optional<Entry> Get(const std::string &type) {
@@ -210,6 +272,13 @@ void UpdateCategory(const std::string &type, const std::string &category) {
     return;
   it->second.category = category;
   Save(dict);
+}
+
+std::optional<AccessIssue> ConsumeLastAccessIssue() {
+  std::lock_guard<std::mutex> lock(g_issueMutex);
+  std::optional<AccessIssue> issue = g_lastAccessIssue;
+  g_lastAccessIssue.reset();
+  return issue;
 }
 
 } // namespace GdtfDictionary
