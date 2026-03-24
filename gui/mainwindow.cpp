@@ -601,6 +601,33 @@ bool MainWindow::LoadProjectFromPath(const std::string &path) {
   return true;
 }
 
+void MainWindow::LoadStartupProjectFromPath(const std::string &path) {
+  namespace fs = std::filesystem;
+
+  std::error_code ec;
+  const fs::path projectPath = fs::u8path(path);
+  if (!fs::is_regular_file(projectPath, ec)) {
+    ProjectUtils::SaveLastProjectPath("");
+    ResetProject();
+    SetStartupProjectLoadPending(false);
+    RequestStartupSplashCompletion();
+    return;
+  }
+
+  fixtureSymbolAutoUpdateCompletionCallback = [this]() {
+    RequestStartupSplashCompletion();
+  };
+
+  if (!LoadProjectFromPath(path)) {
+    fixtureSymbolAutoUpdateCompletionCallback = nullptr;
+    ProjectUtils::SaveLastProjectPath("");
+    ResetProject();
+    RequestStartupSplashCompletion();
+  }
+
+  SetStartupProjectLoadPending(false);
+}
+
 void MainWindow::ResetProject() {
   GetDefaultGuiConfigServices().LegacyConfigManager().Reset();
   GetDefaultGuiConfigServices().LegacyConfigManager().MarkSaved();
