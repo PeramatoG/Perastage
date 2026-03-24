@@ -21,6 +21,7 @@
 #include "mainwindow.h"
 #include "projectutils.h"
 #include "splashscreen.h"
+#include "viewer3dpanel.h"
 #include <filesystem>
 #include <algorithm>
 #include <atomic>
@@ -135,7 +136,17 @@ bool MyApp::OnInit() {
   wxWeakRef<MainWindow> mainWindowRef(mainWindow);
   auto lastPathOpt = ProjectUtils::LoadLastProjectPath();
 
+  // Tell the 3D viewport to skip resource sync while the background loader
+  // is active.  This prevents the paint handler from reading scene data that
+  // the loader thread is mutating, which otherwise causes a data race that
+  // can block the main thread on recursive file searches (the "Loading last
+  // project..." freeze observed when double-clicking the .exe from Explorer).
+  if (Viewer3DPanel::Instance())
+    Viewer3DPanel::Instance()->SetStartupLoadPending(true);
+
   if (startupPathOpt && mainWindowRef) {
+    if (Viewer3DPanel::Instance())
+      Viewer3DPanel::Instance()->SetStartupLoadPending(false);
     QueueProjectLoadedEvent(mainWindowRef, false, false);
     const std::string startupPath = *startupPathOpt;
     mainWindow->CallAfter([mainWindowRef, startupPath]() {
@@ -175,6 +186,8 @@ bool MyApp::OnInit() {
     });
 
   } else if (mainWindowRef) {
+    if (Viewer3DPanel::Instance())
+      Viewer3DPanel::Instance()->SetStartupLoadPending(false);
     QueueProjectLoadedEvent(mainWindowRef, false, false);
   }
 

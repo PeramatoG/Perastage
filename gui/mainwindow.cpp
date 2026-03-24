@@ -962,6 +962,8 @@ void MainWindow::OnProjectLoaded(wxCommandEvent &event) {
   bool clearLastProject = event.GetExtraLong() != 0;
   std::string path = event.GetString().ToStdString();
   Ensure3DViewport();
+  if (viewportPanel)
+    viewportPanel->SetStartupLoadPending(false);
   if (clearLastProject)
     ProjectUtils::SaveLastProjectPath("");
   if (loaded && !path.empty()) {

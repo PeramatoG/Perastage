@@ -253,14 +253,17 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
     }
     InitGL();
 
+    const bool startupLoading = m_startupLoadPending.load();
     const bool pauseHeavyTasks = ShouldPauseHeavyTasks();
     m_controller.ResetDebugPerFrameCounters();
     m_controller.UpdateFrameStateLightweight();
-    if (m_sceneSyncPending) {
-        m_controller.UpdateResourcesIfDirty();
-        m_sceneSyncPending = false;
-    } else if (!pauseHeavyTasks && !m_cameraMoving) {
-        m_controller.UpdateResourcesIfDirty();
+    if (!startupLoading) {
+        if (m_sceneSyncPending) {
+            m_controller.UpdateResourcesIfDirty();
+            m_sceneSyncPending = false;
+        } else if (!pauseHeavyTasks && !m_cameraMoving) {
+            m_controller.UpdateResourcesIfDirty();
+        }
     }
 
     const int updateResourcesCallsPerFrame =

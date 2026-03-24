@@ -67,6 +67,13 @@ public:
     bool ShouldPauseHeavyTasks();
     bool IsCameraMoving() const { return m_cameraMoving; }
 
+    // Pause resource sync while a background project load is in progress.
+    // This prevents the paint handler from reading scene data that is being
+    // modified by the loader thread, which otherwise causes a data race that
+    // can block the main thread on heavy recursive file searches.
+    void SetStartupLoadPending(bool pending) { m_startupLoadPending.store(pending); }
+    bool IsStartupLoadPending() const { return m_startupLoadPending.load(); }
+
 private:
     wxGLContext* m_glContext;
     Viewer3DCamera m_camera;
@@ -134,6 +141,7 @@ private:
 
     Viewer3DController m_controller;
 
+    std::atomic<bool> m_startupLoadPending{false};
     std::atomic<bool> m_threadRunning{false};
     std::thread m_refreshThread;
     void RefreshLoop();
