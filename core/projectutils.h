@@ -18,7 +18,7 @@
 #pragma once
 
 #include <filesystem>
-#include "optional_compat.h"
+#include <optional>
 #include <string>
 
 namespace ProjectUtils {
@@ -26,7 +26,7 @@ namespace ProjectUtils {
 
     std::string GetLastProjectPathFile();
     bool SaveLastProjectPath(const std::string& path);
-    perastage::Optional<std::string> LoadLastProjectPath();
+    std::optional<std::string> LoadLastProjectPath();
 
     // Path containing the built-in library shipped with the executable.
     std::filesystem::path GetBaseLibraryPath(const std::string& subdir);

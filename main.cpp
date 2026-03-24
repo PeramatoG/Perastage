@@ -25,7 +25,7 @@
 #include <atomic>
 #include <cctype>
 #include <new>
-#include "optional_compat.h"
+#include <optional>
 #include <string>
 #include <wx/stackwalk.h>
 #include <wx/sysopt.h>
@@ -59,7 +59,7 @@ std::string ToLowerAscii(std::string text) {
   return text;
 }
 
-perastage::Optional<std::string> GetStartupPathFromArgs(int argc, wxChar **argv) {
+std::optional<std::string> GetStartupPathFromArgs(int argc, wxChar **argv) {
   namespace fs = std::filesystem;
   const std::string projectExtension = ToLowerAscii(ProjectUtils::PROJECT_EXTENSION);
   for (int i = 1; i < argc; ++i) {
@@ -83,7 +83,7 @@ perastage::Optional<std::string> GetStartupPathFromArgs(int argc, wxChar **argv)
       return rawPath;
     return std::string(absoluteU8.begin(), absoluteU8.end());
   }
-  return perastage::nullopt;
+  return std::nullopt;
 }
 } // namespace
 
@@ -125,7 +125,7 @@ bool MyApp::OnInit() {
   // Start maximized so minimize and restore buttons remain available
   mainWindow->Maximize(true);
 
-  const perastage::Optional<std::string> startupPathOpt =
+  const std::optional<std::string> startupPathOpt =
       GetStartupPathFromArgs(argc, argv);
 
   SplashScreen::SetMessage("Loading last project...");
