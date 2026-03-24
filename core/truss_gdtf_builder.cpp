@@ -18,16 +18,19 @@
 #include "truss_gdtf_builder.h"
 
 #include "json.hpp"
-#include "uuidutils.h"
 
 #include <tinyxml2.h>
 #include <wx/filename.h>
+#include <wx/log.h>
 #include <wx/wfstream.h>
 #include <wx/zipstrm.h>
 
 #include <algorithm>
+#include <array>
 #include <cctype>
+#include <cstdint>
 #include <fstream>
+#include <iomanip>
 #include <memory>
 #include <sstream>
 
@@ -35,6 +38,41 @@ namespace fs = std::filesystem;
 using nlohmann::json;
 
 namespace {
+
+uint64_t Fnv1a64(const std::string &value, uint64_t seed) {
+  uint64_t hash = 1469598103934665603ull ^ seed;
+  for (unsigned char c : value) {
+    hash ^= static_cast<uint64_t>(c);
+    hash *= 1099511628211ull;
+  }
+  return hash;
+}
+
+std::string BytesToUuid(const std::array<uint8_t, 16> &bytes) {
+  static constexpr char kHex[] = "0123456789abcdef";
+  std::string out;
+  out.reserve(36);
+  for (size_t i = 0; i < bytes.size(); ++i) {
+    if (i == 4 || i == 6 || i == 8 || i == 10)
+      out.push_back('-');
+    out.push_back(kHex[(bytes[i] >> 4) & 0x0F]);
+    out.push_back(kHex[bytes[i] & 0x0F]);
+  }
+  return out;
+}
+
+std::string BuildDeterministicUuid(const std::string &seed) {
+  const uint64_t a = Fnv1a64(seed, 0x9e3779b97f4a7c15ull);
+  const uint64_t b = Fnv1a64(seed, 0xc2b2ae3d27d4eb4full);
+  std::array<uint8_t, 16> bytes{};
+  for (int i = 0; i < 8; ++i)
+    bytes[i] = static_cast<uint8_t>((a >> (56 - i * 8)) & 0xFFu);
+  for (int i = 0; i < 8; ++i)
+    bytes[8 + i] = static_cast<uint8_t>((b >> (56 - i * 8)) & 0xFFu);
+  bytes[6] = static_cast<uint8_t>((bytes[6] & 0x0Fu) | 0x50u);
+  bytes[8] = static_cast<uint8_t>((bytes[8] & 0x3Fu) | 0x80u);
+  return BytesToUuid(bytes);
+}
 
 struct TrussSourceData {
   std::string manufacturer;
@@ -210,11 +248,19 @@ static bool ReadLegacyGtruss(const fs::path &gtrussPath, TrussSourceData &out,
 
 static std::string BuildStableFixtureTypeId(const TrussSourceData &data) {
   std::ostringstream seed;
-  seed << "perastage-truss-type:" << data.manufacturer << '|'
-       << data.model << '|' << data.lengthMm << '|' << data.widthMm << '|'
-       << data.heightMm << '|' << data.weightKg << '|'
-       << data.typeKey;
-  return DeriveDeterministicUuid(seed.str());
+  seed << "perastage-truss-type:v2|" << data.typeKey << '|'
+       << Slug(data.manufacturer, "manufacturer") << '|'
+       << Slug(data.model, "model") << '|'
+       << Slug(data.geometryPath.generic_string(), "geometry") << '|'
+       << Slug(data.symbolPath.generic_string(), "symbol") << '|'
+       << std::fixed << std::setprecision(3) << data.lengthMm << '|'
+       << std::fixed << std::setprecision(3) << data.widthMm << '|'
+       << std::fixed << std::setprecision(3) << data.heightMm << '|'
+       << std::fixed << std::setprecision(3) << data.weightKg;
+  const std::string fixtureTypeId = BuildDeterministicUuid(seed.str());
+  wxLogMessage("Truss GDTF FixtureTypeID generated typeKey='%s' fixtureTypeId='%s'",
+               data.typeKey.c_str(), fixtureTypeId.c_str());
+  return fixtureTypeId;
 }
 
 static std::string BuildDescriptionXml(const TrussSourceData &data) {
