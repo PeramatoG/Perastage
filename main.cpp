@@ -39,8 +39,10 @@ public:
   virtual bool OnInit() override;
   int OnExit() override;
   int FilterEvent(wxEvent &event) override;
+#if wxUSE_EXCEPTIONS
   bool OnExceptionInMainLoop() override;
   void OnUnhandledException() override;
+#endif
 
 private:
   void QueueProjectLoadedEvent(const wxWeakRef<MainWindow> &mainWindowRef,
@@ -233,6 +235,7 @@ void LogExceptionWithStack(const std::exception &ex,
 }
 } // namespace
 
+#if wxUSE_EXCEPTIONS
 bool MyApp::OnExceptionInMainLoop() {
   try {
     throw;
@@ -275,3 +278,4 @@ void MyApp::OnUnhandledException() {
     Logger::Instance().Log("Unhandled exception: unknown error.");
   }
 }
+#endif
