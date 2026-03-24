@@ -776,13 +776,19 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
 
   std::unordered_map<std::string, std::string> perastageTypeToGdtfPath;
   std::unordered_map<std::string, std::string> perastageInstanceToTypeKey;
-  if (tinyxml2::XMLElement *sceneUserData = sceneNode->FirstChildElement("UserData")) {
-    for (tinyxml2::XMLElement *data = sceneUserData->FirstChildElement("Data"); data;
+  auto parsePerastageManifest = [&](tinyxml2::XMLElement *userDataNode,
+                                    const char *originLabel) {
+    if (!userDataNode)
+      return false;
+    bool found = false;
+    for (tinyxml2::XMLElement *data = userDataNode->FirstChildElement("Data"); data;
          data = data->NextSiblingElement("Data")) {
-      const std::string provider = ToLowerCopy(Trim(data->Attribute("provider") ? data->Attribute("provider") : ""));
+      const std::string provider = ToLowerCopy(
+          Trim(data->Attribute("provider") ? data->Attribute("provider") : ""));
       if (provider != "perastage")
         continue;
       if (tinyxml2::XMLElement *manifest = data->FirstChildElement("TrussSidecarManifest")) {
+        found = true;
         for (tinyxml2::XMLElement *type = manifest->FirstChildElement("Type"); type;
              type = type->NextSiblingElement("Type")) {
           const char *key = type->Attribute("key");
@@ -799,16 +805,46 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         }
       }
     }
+    if (found) {
+      LogMessage(Logger::Level::Info,
+                 std::string("MVR import loaded Perastage sidecar manifest from ") +
+                     originLabel);
+    }
+    return found;
+  };
+
+  const bool hasRootManifest =
+      parsePerastageManifest(root->FirstChildElement("UserData"), "GeneralSceneDescription/UserData");
+  if (!hasRootManifest &&
+      parsePerastageManifest(sceneNode->FirstChildElement("UserData"), "legacy Scene/UserData")) {
+    LogMessage(Logger::Level::Warn,
+               "MVR import used legacy Scene/UserData fallback for Perastage sidecar manifest");
   }
 
   // ---- Parse AUXData for Symdefs and Positions ----
+  std::unordered_map<std::string, std::string> legacyPositionIdToCanonical;
   if (tinyxml2::XMLElement *auxNode = sceneNode->FirstChildElement("AUXData")) {
     for (tinyxml2::XMLElement *pos = auxNode->FirstChildElement("Position");
          pos; pos = pos->NextSiblingElement("Position")) {
-      const char *uid = pos->Attribute("uuid");
+      const std::string rawUid =
+          Trim(pos->Attribute("uuid") ? pos->Attribute("uuid") : "");
       const char *name = pos->Attribute("name");
-      if (uid)
-        scene.positions[uid] = name ? name : "";
+      const std::string canonicalUid = CanonicalizeUuid(rawUid);
+      if (canonicalUid.empty()) {
+        if (rawUid.empty())
+          continue;
+        std::string seed = "mvr:legacy-position:" + rawUid + ":" + (name ? Trim(name) : "");
+        const std::string generated = DeriveDeterministicUuid(seed);
+        legacyPositionIdToCanonical[rawUid] = generated;
+        scene.positions[generated] = name ? name : rawUid;
+        LogMessage(Logger::Level::Warn,
+                   "MVR import migrated non-canonical Position uuid '" + rawUid + "' -> '" +
+                       generated + "'");
+      } else {
+        if (canonicalUid != rawUid)
+          legacyPositionIdToCanonical[rawUid] = canonicalUid;
+        scene.positions[canonicalUid] = name ? name : "";
+      }
     }
 
     std::function<void(tinyxml2::XMLElement *, const Matrix &, std::vector<SymdefGeometry> &)> parseSymdefChildList;
@@ -1034,12 +1070,26 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
     if (positionId.empty())
       return {};
 
-    auto it = scene.positions.find(positionId);
+    auto legacyIt = legacyPositionIdToCanonical.find(positionId);
+    const std::string remappedId =
+        legacyIt != legacyPositionIdToCanonical.end() ? legacyIt->second : positionId;
+    const std::string canonicalId = CanonicalizeUuid(remappedId);
+    const std::string normalizedId = canonicalId.empty() ? remappedId : canonicalId;
+
+    auto it = scene.positions.find(normalizedId);
     if (it != scene.positions.end())
       return it->second;
 
     // Create a placeholder entry so the position is preserved on export.
-    scene.positions[positionId] = positionId;
+    std::string generated = normalizedId;
+    if (generated.empty()) {
+      generated = DeriveDeterministicUuid("mvr:position-ref:" + positionId);
+      legacyPositionIdToCanonical[positionId] = generated;
+      LogMessage(Logger::Level::Warn,
+                 "MVR import generated canonical Position uuid '" + generated +
+                     "' for unresolved reference '" + positionId + "'");
+    }
+    scene.positions[generated] = positionId;
     return positionId;
   };
 
@@ -1135,8 +1185,13 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         fixture.gdtfMode = textOf(node, "GDTFMode");
         fixture.focus = textOf(node, "Focus");
         fixture.function = textOf(node, "Function");
-        fixture.position = textOf(node, "Position");
+        fixture.position = CanonicalizeUuid(textOf(node, "Position"));
+        if (fixture.position.empty())
+          fixture.position = textOf(node, "Position");
         fixture.positionName = ensurePositionEntry(fixture.position);
+        auto fixturePosIt = legacyPositionIdToCanonical.find(fixture.position);
+        if (fixturePosIt != legacyPositionIdToCanonical.end())
+          fixture.position = fixturePosIt->second;
         if (tinyxml2::XMLElement *colorNode =
                 node->FirstChildElement("Color")) {
           if (const char *txt = colorNode->GetText())
@@ -1292,8 +1347,13 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         truss.gdtfSpec = textOf(node, "GDTFSpec");
         truss.gdtfMode = textOf(node, "GDTFMode");
         truss.function = textOf(node, "Function");
-        truss.position = textOf(node, "Position");
+        truss.position = CanonicalizeUuid(textOf(node, "Position"));
+        if (truss.position.empty())
+          truss.position = textOf(node, "Position");
         truss.positionName = ensurePositionEntry(truss.position);
+        auto trussPosIt = legacyPositionIdToCanonical.find(truss.position);
+        if (trussPosIt != legacyPositionIdToCanonical.end())
+          truss.position = trussPosIt->second;
 
         bool gdtfLoadFailed = false;
         if (!truss.gdtfSpec.empty()) {
@@ -1530,8 +1590,13 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
             support.chainLength = 0.0f;
         }
 
-        support.position = readText("Position");
+        support.position = CanonicalizeUuid(readText("Position"));
+        if (support.position.empty())
+          support.position = readText("Position");
         support.positionName = ensurePositionEntry(support.position);
+        auto supportPosIt = legacyPositionIdToCanonical.find(support.position);
+        if (supportPosIt != legacyPositionIdToCanonical.end())
+          support.position = supportPosIt->second;
 
         ReadSupportHoistInfoFromUserData(node, support);
         ApplySupportHoistInfoDefaults(support);
@@ -1613,6 +1678,65 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
           support.name = obj.name;
           support.layer = obj.layer;
           support.transform = obj.transform;
+          if (tinyxml2::XMLElement *ud = node->FirstChildElement("UserData")) {
+            for (tinyxml2::XMLElement *data = ud->FirstChildElement("Data"); data;
+                 data = data->NextSiblingElement("Data")) {
+              const std::string provider = ToLowerCopy(
+                  Trim(data->Attribute("provider") ? data->Attribute("provider") : ""));
+              if (provider != "perastage")
+                continue;
+              if (tinyxml2::XMLElement *info = data->FirstChildElement("SupportInfo")) {
+                if (tinyxml2::XMLElement *n = info->FirstChildElement("GDTFSpec");
+                    n && n->GetText()) {
+                  support.gdtfSpec = RemapArchivePathIfNeeded(Trim(n->GetText()));
+                }
+                if (tinyxml2::XMLElement *n = info->FirstChildElement("GDTFMode");
+                    n && n->GetText()) {
+                  support.gdtfMode = Trim(n->GetText());
+                }
+                if (tinyxml2::XMLElement *n = info->FirstChildElement("Function");
+                    n && n->GetText()) {
+                  support.function = Trim(n->GetText());
+                }
+                if (tinyxml2::XMLElement *n = info->FirstChildElement("HoistFunction");
+                    n && n->GetText()) {
+                  support.hoistFunction = NormalizeHoistFunction(Trim(n->GetText()));
+                }
+                if (tinyxml2::XMLElement *n = info->FirstChildElement("ChainLength");
+                    n && n->GetText()) {
+                  float parsed = 0.0f;
+                  if (TryParseFloat(Trim(n->GetText()), parsed))
+                    support.chainLength = parsed;
+                }
+                if (tinyxml2::XMLElement *n = info->FirstChildElement("Position");
+                    n && n->GetText()) {
+                  support.position = Trim(n->GetText());
+                }
+                if (tinyxml2::XMLElement *n = info->FirstChildElement("PositionName");
+                    n && n->GetText()) {
+                  support.positionName = Trim(n->GetText());
+                }
+                LogMessage(Logger::Level::Info,
+                           "MVR import reconstructed Support from SceneObject fallback uuid='" +
+                               support.uuid + "'");
+              }
+            }
+          }
+          if (!support.position.empty()) {
+            auto posIt = legacyPositionIdToCanonical.find(support.position);
+            if (posIt != legacyPositionIdToCanonical.end())
+              support.position = posIt->second;
+            support.positionName = ensurePositionEntry(support.position);
+          } else if (!support.positionName.empty()) {
+            for (const auto &[positionUuid, positionName] : scene.positions) {
+              if (positionName == support.positionName) {
+                support.position = positionUuid;
+                break;
+              }
+            }
+          }
+          ReadSupportHoistInfoFromUserData(node, support);
+          ApplySupportHoistInfoDefaults(support);
           scene.supports[support.uuid] = support;
         } else {
           scene.sceneObjects[obj.uuid] = obj;

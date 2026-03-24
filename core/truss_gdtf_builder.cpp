@@ -22,12 +22,14 @@
 
 #include <tinyxml2.h>
 #include <wx/filename.h>
+#include <wx/log.h>
 #include <wx/wfstream.h>
 #include <wx/zipstrm.h>
 
 #include <algorithm>
 #include <cctype>
 #include <fstream>
+#include <iomanip>
 #include <memory>
 #include <sstream>
 
@@ -210,11 +212,19 @@ static bool ReadLegacyGtruss(const fs::path &gtrussPath, TrussSourceData &out,
 
 static std::string BuildStableFixtureTypeId(const TrussSourceData &data) {
   std::ostringstream seed;
-  seed << "perastage-truss-type:" << data.manufacturer << '|'
-       << data.model << '|' << data.lengthMm << '|' << data.widthMm << '|'
-       << data.heightMm << '|' << data.weightKg << '|'
-       << data.typeKey;
-  return DeriveDeterministicUuid(seed.str());
+  seed << "perastage-truss-type:v2|" << data.typeKey << '|'
+       << Slug(data.manufacturer, "manufacturer") << '|'
+       << Slug(data.model, "model") << '|'
+       << Slug(data.geometryPath, "geometry") << '|'
+       << Slug(data.symbolPath, "symbol") << '|'
+       << std::fixed << std::setprecision(3) << data.lengthMm << '|'
+       << std::fixed << std::setprecision(3) << data.widthMm << '|'
+       << std::fixed << std::setprecision(3) << data.heightMm << '|'
+       << std::fixed << std::setprecision(3) << data.weightKg;
+  const std::string fixtureTypeId = DeriveDeterministicUuid(seed.str());
+  wxLogMessage("Truss GDTF FixtureTypeID generated typeKey='%s' fixtureTypeId='%s'",
+               data.typeKey.c_str(), fixtureTypeId.c_str());
+  return fixtureTypeId;
 }
 
 static std::string BuildDescriptionXml(const TrussSourceData &data) {

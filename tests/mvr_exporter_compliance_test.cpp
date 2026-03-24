@@ -18,9 +18,11 @@
 
 #include "configmanager.h"
 #include "mvrexporter.h"
+#include "mvrimporter.h"
 #include "fixture.h"
 #include "truss.h"
 #include "support.h"
+#include "uuidutils.h"
 
 namespace fs = std::filesystem;
 
@@ -113,6 +115,20 @@ static bool GdtfHasRenderable3DModel(const fs::path &gdtfPath) {
   return false;
 }
 
+static std::string ReadFixtureTypeIdFromGdtf(const fs::path &gdtfPath) {
+  const auto gdtfEntries = ReadArchiveTextEntries(gdtfPath);
+  auto descriptionIt = gdtfEntries.find("description.xml");
+  assert(descriptionIt != gdtfEntries.end());
+
+  tinyxml2::XMLDocument gdtfDoc;
+  assert(gdtfDoc.Parse(descriptionIt->second.c_str()) == tinyxml2::XML_SUCCESS);
+  tinyxml2::XMLElement *fixtureType = FindFixtureType(gdtfDoc);
+  assert(fixtureType != nullptr);
+  const char *id = fixtureType->Attribute("FixtureTypeID");
+  assert(id != nullptr);
+  return id;
+}
+
 int main() {
   wxInitializer initializer;
   assert(initializer.IsOk());
@@ -144,6 +160,9 @@ int main() {
   scene.providerVersion.clear();
   scene.versionMajor = 1;
   scene.versionMinor = 6;
+  scene.positions["LX1"] = "LX1";
+  scene.positions["P.A."] = "P.A.";
+  scene.positions["SCREEN"] = "SCREEN";
 
   Fixture f1;
   f1.uuid = "fx-1";
@@ -153,6 +172,8 @@ int main() {
   f1.fixtureIdNumeric = 0;
   f1.unitNumber = 101;
   f1.address = "1.1";
+  f1.position = "LX1";
+  f1.positionName = "LX1";
   scene.fixtures[f1.uuid] = f1;
 
   Fixture f2;
@@ -191,6 +212,9 @@ int main() {
   tr.name = "Main Truss";
   tr.symbolFile = "mesh.3ds";
   tr.modelFile = (tempDir / "models" / "truss_model.3ds").string();
+  tr.lengthMm = 2000.0f;
+  tr.position = "P.A.";
+  tr.positionName = "P.A.";
   scene.trusses[tr.uuid] = tr;
 
   Truss trNonNumeric;
@@ -198,7 +222,15 @@ int main() {
   trNonNumeric.name = "TRUSS 2M";
   trNonNumeric.symbolFile = "mesh.3ds";
   trNonNumeric.modelFile = (tempDir / "models" / "truss_model.3ds").string();
+  trNonNumeric.lengthMm = 2000.0f;
+  trNonNumeric.positionName = "P.A.";
   scene.trusses[trNonNumeric.uuid] = trNonNumeric;
+
+  Truss trDifferentType = trNonNumeric;
+  trDifferentType.uuid = "tr-3";
+  trDifferentType.name = "TRUSS 3M";
+  trDifferentType.lengthMm = 3000.0f;
+  scene.trusses[trDifferentType.uuid] = trDifferentType;
 
   Support sup;
   sup.uuid = "sup-1";
@@ -215,6 +247,8 @@ int main() {
   sup.capacityKg = 1000.0f;
   sup.weightKg = 42.0f;
   sup.loadKg = 600.0f;
+  sup.position = "SCREEN";
+  sup.positionName = "SCREEN";
   scene.supports[sup.uuid] = sup;
 
   MvrExporter exporter;
@@ -252,7 +286,8 @@ int main() {
   int mvrGeometryTrussCount = 0;
   int mvrGeometryTrussesWithGeometry3d = 0;
   int mvrGeometryTrussesWithRenderableGdtf = 0;
-  for (const char *tagName : {"Fixture", "Truss", "Support"}) {
+  std::unordered_map<std::string, std::string> trussGdtfByUuid;
+  for (const char *tagName : {"Fixture", "Truss"}) {
     for (tinyxml2::XMLElement *node = root->FirstChildElement(); node;
          node = node->NextSiblingElement()) {
       std::vector<tinyxml2::XMLElement *> stack{node};
@@ -271,48 +306,6 @@ int main() {
           assert(value > 0);
           assert(fixtureIdText == std::to_string(value));
           assert(numericIds.insert(value).second);
-
-          if (std::string(cur->Name()) == "Support") {
-            auto *ud = cur->FirstChildElement("UserData");
-            assert(ud != nullptr);
-            auto *data = ud->FirstChildElement("Data");
-            assert(data != nullptr);
-            auto *info = data->FirstChildElement("HoistInfo");
-            assert(info != nullptr);
-
-            auto *motorNode = info->FirstChildElement("MotorName");
-            assert(motorNode != nullptr && motorNode->GetText() != nullptr);
-            assert(std::string(motorNode->GetText()) == "ChainMaster D8+");
-            auto *manufacturerNode = info->FirstChildElement("MotorManufacturer");
-            assert(manufacturerNode != nullptr && manufacturerNode->GetText() != nullptr);
-            assert(std::string(manufacturerNode->GetText()) == "ChainMaster");
-            auto *modelNode = info->FirstChildElement("MotorModel");
-            assert(modelNode != nullptr && modelNode->GetText() != nullptr);
-            assert(std::string(modelNode->GetText()) == "D8+");
-            auto *fixtureNode = info->FirstChildElement("MotorFixtureUuid");
-            assert(fixtureNode != nullptr && fixtureNode->GetText() != nullptr);
-            assert(std::string(fixtureNode->GetText()) == "fx-1");
-            auto *defaultsNode = info->FirstChildElement("UseMotorDefaults");
-            assert(defaultsNode != nullptr && defaultsNode->GetText() != nullptr);
-            assert(std::string(defaultsNode->GetText()) == "false");
-
-            auto *dummyNode = info->FirstChildElement("DummyPreset");
-            assert(dummyNode != nullptr && dummyNode->GetText() != nullptr);
-            assert(std::string(dummyNode->GetText()) == "D8+ 1000kg");
-
-            auto *sourceNode = info->FirstChildElement("ValueSource");
-            assert(sourceNode != nullptr && sourceNode->GetText() != nullptr);
-            assert(std::string(sourceNode->GetText()) == "Manual");
-            auto *sourceAliasNode = info->FirstChildElement("DataSource");
-            assert(sourceAliasNode != nullptr && sourceAliasNode->GetText() != nullptr);
-            assert(std::string(sourceAliasNode->GetText()) == "Manual");
-
-            auto *riggingPointNode = info->FirstChildElement("RiggingPoint");
-            assert(riggingPointNode != nullptr && riggingPointNode->GetText() != nullptr);
-            assert(std::string(riggingPointNode->GetText()) == "Lighting");
-            auto *loadNode = info->FirstChildElement("Load");
-            assert(loadNode != nullptr && loadNode->GetText() != nullptr);
-          }
 
           if (std::string(cur->Name()) == "Fixture") {
             const char *uuidAttr = cur->Attribute("uuid");
@@ -375,6 +368,9 @@ int main() {
             auto *gdtfSpec = cur->FirstChildElement("GDTFSpec");
             assert(gdtfSpec != nullptr && gdtfSpec->GetText() != nullptr);
             std::string trussGdtfSpec = gdtfSpec->GetText();
+            const char *trussUuidAttr = cur->Attribute("uuid");
+            assert(trussUuidAttr != nullptr);
+            trussGdtfByUuid[trussUuidAttr] = trussGdtfSpec;
             auto *geometries = cur->FirstChildElement("Geometries");
             assert(geometries != nullptr);
             assert(geometries->FirstChildElement("Geometry3D") != nullptr);
@@ -433,6 +429,69 @@ int main() {
   for (const auto &name : entries) {
     assert(name.rfind("gdtf/", 0) != 0);
   }
+
+  tinyxml2::XMLElement *sceneNode = root->FirstChildElement("Scene");
+  assert(sceneNode != nullptr);
+  assert(sceneNode->FirstChildElement("UserData") == nullptr);
+  tinyxml2::XMLElement *rootUserData = root->FirstChildElement("UserData");
+  assert(rootUserData != nullptr);
+
+  tinyxml2::XMLElement *auxNode = sceneNode->FirstChildElement("AUXData");
+  assert(auxNode != nullptr);
+  for (tinyxml2::XMLElement *pos = auxNode->FirstChildElement("Position"); pos;
+       pos = pos->NextSiblingElement("Position")) {
+    const char *uuidAttr = pos->Attribute("uuid");
+    assert(uuidAttr != nullptr);
+    assert(CanonicalizeUuid(uuidAttr) == std::string(uuidAttr));
+  }
+
+  tinyxml2::XMLElement *supportSceneObject = nullptr;
+  for (tinyxml2::XMLElement *node = root->FirstChildElement(); node;
+       node = node->NextSiblingElement()) {
+    std::vector<tinyxml2::XMLElement *> stack{node};
+    while (!stack.empty()) {
+      tinyxml2::XMLElement *cur = stack.back();
+      stack.pop_back();
+      if (std::string(cur->Name()) == "Support") {
+        assert(false && "Support node must not be emitted when schema is incomplete");
+      }
+      if (std::string(cur->Name()) == "SceneObject" &&
+          cur->Attribute("uuid") != nullptr &&
+          std::string(cur->Attribute("uuid")) == sup.uuid) {
+        supportSceneObject = cur;
+      }
+      for (tinyxml2::XMLElement *child = cur->FirstChildElement(); child;
+           child = child->NextSiblingElement()) {
+        stack.push_back(child);
+      }
+    }
+  }
+  assert(supportSceneObject != nullptr);
+  assert(std::string(supportSceneObject->Attribute("geometryType")) == "support");
+  auto *supportUserData = supportSceneObject->FirstChildElement("UserData");
+  assert(supportUserData != nullptr);
+  auto *supportData = supportUserData->FirstChildElement("Data");
+  assert(supportData != nullptr);
+  auto *supportInfo = supportData->FirstChildElement("SupportInfo");
+  assert(supportInfo != nullptr);
+  auto *supportPositionNode = supportInfo->FirstChildElement("Position");
+  assert(supportPositionNode != nullptr && supportPositionNode->GetText() != nullptr);
+  assert(CanonicalizeUuid(supportPositionNode->GetText()) ==
+         std::string(supportPositionNode->GetText()));
+
+  std::unordered_map<std::string, std::string> fixtureTypeIdByTrussUuid;
+  for (const auto &[trussUuid, gdtfSpec] : trussGdtfByUuid) {
+    assert(mvrGeometryEntries.count(gdtfSpec) == 1);
+    const fs::path trussGdtfPath = tempDir / ("ftid_" + trussUuid + ".gdtf");
+    std::ofstream gdtfOut(trussGdtfPath, std::ios::binary);
+    assert(gdtfOut.is_open());
+    gdtfOut << mvrGeometryEntries.at(gdtfSpec);
+    gdtfOut.close();
+    fixtureTypeIdByTrussUuid[trussUuid] = ReadFixtureTypeIdFromGdtf(trussGdtfPath);
+  }
+  assert(fixtureTypeIdByTrussUuid.at(tr.uuid) == fixtureTypeIdByTrussUuid.at(trNonNumeric.uuid));
+  assert(fixtureTypeIdByTrussUuid.at(tr.uuid) !=
+         fixtureTypeIdByTrussUuid.at(trDifferentType.uuid));
 
 
   cfg.SetFloat("mvr_truss_geometry_authority", 1.0f);
@@ -493,6 +552,42 @@ int main() {
   assert(gdtfAuthorityTrussCount == static_cast<int>(scene.trusses.size()));
   assert(gdtfAuthorityTrussesWithGeometry3d == 0);
   assert(gdtfAuthorityTrussesWithRenderableGdtf == gdtfAuthorityTrussCount);
+
+  const fs::path legacyMvrPath = tempDir / "legacy_positions.mvr";
+  {
+    wxFileOutputStream legacyOut(legacyMvrPath.generic_string());
+    assert(legacyOut.IsOk());
+    wxZipOutputStream legacyZip(legacyOut);
+    const std::string legacyXml =
+        "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+        "<GeneralSceneDescription verMajor=\"1\" verMinor=\"6\" provider=\"Perastage\" providerVersion=\"1.0\">"
+        "<UserData><Data provider=\"Perastage\" ver=\"1.0\"><TrussSidecarManifest/></Data></UserData>"
+        "<Scene>"
+        "<AUXData><Position uuid=\"LX1\" name=\"LX 1\"/></AUXData>"
+        "<Layers><Layer name=\"Default\"><ChildList>"
+        "<Fixture uuid=\"fixture-legacy\" name=\"Fixture\">"
+        "<FixtureID>1</FixtureID><FixtureIDNumeric>1</FixtureIDNumeric>"
+        "<GDTFSpec>fixture.gdtf</GDTFSpec><Position>LX1</Position>"
+        "</Fixture>"
+        "</ChildList></Layer></Layers>"
+        "</Scene></GeneralSceneDescription>";
+    assert(legacyZip.PutNextEntry("GeneralSceneDescription.xml"));
+    legacyZip.Write(legacyXml.data(), legacyXml.size());
+    assert(legacyZip.PutNextEntry("fixture.gdtf"));
+    legacyZip.Write("dummy", 5);
+    legacyZip.Close();
+  }
+
+  MvrImporter importer;
+  assert(importer.ImportFromFile(legacyMvrPath.generic_string(), false, false));
+  const MvrScene &importedScene = ConfigManager::Get().GetScene();
+  assert(!importedScene.fixtures.empty());
+  const Fixture &legacyFixture = importedScene.fixtures.begin()->second;
+  assert(!legacyFixture.position.empty());
+  assert(legacyFixture.position != "LX1");
+  assert(CanonicalizeUuid(legacyFixture.position) == legacyFixture.position);
+  assert(importedScene.positions.count(legacyFixture.position) == 1);
+
   fs::remove_all(tempDir);
   return 0;
 }

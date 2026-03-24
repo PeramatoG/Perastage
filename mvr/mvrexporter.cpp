@@ -79,6 +79,7 @@ static bool ShouldExportSupportHoistInfo(const Support &support);
 static void AppendSupportHoistInfoUserData(tinyxml2::XMLDocument &doc,
                                            tinyxml2::XMLElement *supportNode,
                                            const Support &support);
+static bool IsCanonicalUuidString(const std::string &value);
 
 static constexpr const char *kMvrProvider = "Perastage";
 static constexpr const char *kMvrProviderVersion = "1.0";
@@ -257,6 +258,12 @@ static bool IsValidMvrFileName(const std::string &value) {
          value.find('>') == std::string::npos && value.find('|') == std::string::npos;
 }
 
+static bool IsCanonicalUuidString(const std::string &value) {
+  if (value.empty())
+    return false;
+  return CanonicalizeUuid(value) == value;
+}
+
 static bool ValidateMvr16Export(
     tinyxml2::XMLDocument &doc,
     const std::unordered_map<std::string, std::string> &gdtfPathsByUuid,
@@ -282,6 +289,26 @@ static bool ValidateMvr16Export(
 
   std::unordered_set<int> numericIds;
   std::vector<std::string> referencedFiles;
+  std::unordered_set<std::string> positionUuids;
+  std::unordered_set<std::string> referencedPositionUuids;
+
+  if (tinyxml2::XMLElement *scene = root->FirstChildElement("Scene")) {
+    if (scene->FirstChildElement("UserData")) {
+      wxLogError("MVR export validation failed: Scene/UserData is not valid in MVR 1.6");
+      return false;
+    }
+    if (tinyxml2::XMLElement *aux = scene->FirstChildElement("AUXData")) {
+      for (tinyxml2::XMLElement *pos = aux->FirstChildElement("Position"); pos;
+           pos = pos->NextSiblingElement("Position")) {
+        const std::string uuid = TrimAscii(pos->Attribute("uuid") ? pos->Attribute("uuid") : "");
+        if (!IsCanonicalUuidString(uuid)) {
+          wxLogError("MVR export validation failed: Position uuid '%s' is not canonical", uuid);
+          return false;
+        }
+        positionUuids.insert(uuid);
+      }
+    }
+  }
 
   std::vector<tinyxml2::XMLElement *> stack;
   for (tinyxml2::XMLElement *node = root->FirstChildElement(); node;
@@ -295,7 +322,7 @@ static bool ValidateMvr16Export(
     while (!stack.empty()) {
       tinyxml2::XMLElement *cur = stack.back();
       stack.pop_back();
-      if (std::string(cur->Name()) == "Fixture") {
+        if (std::string(cur->Name()) == "Fixture") {
         auto *idNode = cur->FirstChildElement("FixtureID");
         auto *numNode = cur->FirstChildElement("FixtureIDNumeric");
         const std::string fixtureUuid = cur->Attribute("uuid") ? cur->Attribute("uuid") : "(missing uuid)";
@@ -360,6 +387,15 @@ static bool ValidateMvr16Export(
 
           }
         }
+      }
+
+      if (std::string(cur->Name()) == "Position") {
+        const std::string positionRef = TrimAscii(cur->GetText() ? cur->GetText() : "");
+        if (positionRef.empty() || !IsCanonicalUuidString(positionRef)) {
+          wxLogError("MVR export validation failed: Position reference '%s' is not canonical", positionRef);
+          return false;
+        }
+        referencedPositionUuids.insert(positionRef);
       }
 
       for (tinyxml2::XMLElement *child = cur->FirstChildElement(); child;
@@ -439,6 +475,26 @@ static bool ValidateMvr16Export(
               return false;
             }
           }
+
+          if (std::string(tagName) == "Support") {
+            if (!cur->FirstChildElement("Geometries")) {
+              wxLogError("MVR export validation failed: Support uuid '%s' has no Geometries",
+                         cur->Attribute("uuid") ? cur->Attribute("uuid") : "");
+              return false;
+            }
+            if (!cur->FirstChildElement("ChainLength")) {
+              wxLogError("MVR export validation failed: Support uuid '%s' has no ChainLength",
+                         cur->Attribute("uuid") ? cur->Attribute("uuid") : "");
+              return false;
+            }
+            const bool hasGdtfSpec = cur->FirstChildElement("GDTFSpec") != nullptr;
+            const bool hasGdtfMode = cur->FirstChildElement("GDTFMode") != nullptr;
+            if (hasGdtfSpec != hasGdtfMode) {
+              wxLogError("MVR export validation failed: Support uuid '%s' has inconsistent GDTFSpec/GDTFMode",
+                         cur->Attribute("uuid") ? cur->Attribute("uuid") : "");
+              return false;
+            }
+          }
         }
 
         for (tinyxml2::XMLElement *child = cur->FirstChildElement(); child;
@@ -468,6 +524,13 @@ static bool ValidateMvr16Export(
     }
     if (count != 1) {
       wxLogError("MVR export validation failed: duplicate ZIP entry '%s'", archivePath);
+      return false;
+    }
+  }
+
+  for (const auto &positionRef : referencedPositionUuids) {
+    if (!positionUuids.contains(positionRef)) {
+      wxLogError("MVR export validation failed: Position reference '%s' has no AUXData/Position definition", positionRef);
       return false;
     }
   }
@@ -822,16 +885,17 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
 
   auto ensurePositionEntry = [&](const std::string &positionId,
                                  const std::string &nameHint) {
-    if (!positionId.empty()) {
-      auto it = positions.find(positionId);
+    const std::string canonicalId = CanonicalizeUuid(positionId);
+    if (!canonicalId.empty()) {
+      auto it = positions.find(canonicalId);
       if (it == positions.end()) {
-        positions[positionId] = nameHint;
+        positions[canonicalId] = nameHint;
       } else if (!nameHint.empty() && it->second != nameHint) {
         // Refresh the stored name so Hang Position edits are preserved on export.
         it->second = nameHint;
       }
       if (!nameHint.empty())
-        positionByName.try_emplace(nameHint, positionId);
+        positionByName.try_emplace(nameHint, canonicalId);
       return;
     }
 
@@ -842,9 +906,13 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     if (byName != positionByName.end())
       return;
 
-    std::string newUuid = GenerateUuid();
+    std::string newUuid = CanonicalizeUuid(GenerateUuid());
     positions[newUuid] = nameHint;
     positionByName[nameHint] = newUuid;
+    if (!positionId.empty()) {
+      wxLogWarning("MVR export normalized legacy Position uuid '%s' -> '%s' (name='%s')",
+                   positionId.c_str(), newUuid.c_str(), nameHint.c_str());
+    }
   };
 
   for (const auto &[uid, fixture] : scene.fixtures)
@@ -853,6 +921,25 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     ensurePositionEntry(truss.position, truss.positionName);
   for (const auto &[uid, support] : scene.supports)
     ensurePositionEntry(support.position, support.positionName);
+
+  auto resolvePositionReference = [&](const std::string &positionId,
+                                      const std::string &nameHint) -> std::string {
+    const std::string canonicalId = CanonicalizeUuid(positionId);
+    if (!canonicalId.empty() && positions.contains(canonicalId))
+      return canonicalId;
+
+    if (!nameHint.empty()) {
+      auto byName = positionByName.find(nameHint);
+      if (byName != positionByName.end()) {
+        if (!positionId.empty()) {
+          wxLogMessage("MVR export remapped non-canonical Position '%s' to '%s' by name '%s'",
+                       positionId.c_str(), byName->second.c_str(), nameHint.c_str());
+        }
+        return byName->second;
+      }
+    }
+    return {};
+  };
 
   wxFileOutputStream output(filePath);
   if (!output.IsOk())
@@ -1137,16 +1224,8 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     addStr("GDTFMode", f.gdtfMode);
     addStr("Focus", f.focus);
     addStr("Function", f.function);
-    if (!f.position.empty()) {
-      addStr("Position", f.position);
-    } else if (!f.positionName.empty()) {
-      for (const auto &[puuid, pname] : positions) {
-        if (pname == f.positionName) {
-          addStr("Position", puuid);
-          break;
-        }
-      }
-    }
+    if (!f.position.empty() || !f.positionName.empty())
+      addStr("Position", resolvePositionReference(f.position, f.positionName));
 
     addNum("PowerConsumption", f.powerConsumptionW, "W");
     addNum("Weight", f.weightKg, "kg");
@@ -1317,18 +1396,13 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
       e->SetText(t.function.c_str());
       te->InsertEndChild(e);
     }
-    if (!t.position.empty()) {
-      tinyxml2::XMLElement *e = doc.NewElement("Position");
-      e->SetText(t.position.c_str());
-      te->InsertEndChild(e);
-    } else if (!t.positionName.empty()) {
-      for (const auto &[puuid, pname] : positions) {
-        if (pname == t.positionName) {
-          tinyxml2::XMLElement *e = doc.NewElement("Position");
-          e->SetText(puuid.c_str());
-          te->InsertEndChild(e);
-          break;
-        }
+    {
+      const std::string positionRef =
+          resolvePositionReference(t.position, t.positionName);
+      if (!positionRef.empty()) {
+        tinyxml2::XMLElement *e = doc.NewElement("Position");
+        e->SetText(positionRef.c_str());
+        te->InsertEndChild(e);
       }
     }
 
@@ -1422,59 +1496,50 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
   };
 
   auto exportSupport = [&](tinyxml2::XMLElement *parent, const Support &s) {
-    tinyxml2::XMLElement *se = doc.NewElement("Support");
+    wxLogMessage(
+        "MVR export support uuid=%s uses SceneObject fallback to keep XML MVR 1.6-compliant",
+        s.uuid.c_str());
+    tinyxml2::XMLElement *se = doc.NewElement("SceneObject");
     se->SetAttribute("uuid", s.uuid.c_str());
+    se->SetAttribute("geometryType", "support");
     if (!s.name.empty())
       se->SetAttribute("name", s.name.c_str());
 
-    auto addStr = [&](const char *n, const std::string &v) {
+    auto addSupportInfo = [&](const char *n, const std::string &v,
+                              tinyxml2::XMLElement *info) {
       if (!v.empty()) {
         tinyxml2::XMLElement *e = doc.NewElement(n);
         e->SetText(v.c_str());
-        se->InsertEndChild(e);
+        info->InsertEndChild(e);
       }
     };
-    auto addInt = [&](const char *n, int v) {
-      if (v != 0) {
+    auto addSupportNum = [&](const char *n, float v,
+                             tinyxml2::XMLElement *info) {
+      if (v > 0.0f) {
         tinyxml2::XMLElement *e = doc.NewElement(n);
         e->SetText(std::to_string(v).c_str());
-        se->InsertEndChild(e);
+        info->InsertEndChild(e);
       }
     };
 
-    auto idIt = assignedIds.find(s.uuid);
-    int fixtureNumericId = (idIt != assignedIds.end()) ? idIt->second.second : 0;
-    std::string fixtureId =
-        (idIt != assignedIds.end()) ? idIt->second.first : std::to_string(fixtureNumericId);
-    if (fixtureId.empty())
-      fixtureId = std::to_string(fixtureNumericId);
-    addStr("FixtureID", fixtureId);
-    addInt("FixtureIDNumeric", fixtureNumericId);
-
+    tinyxml2::XMLElement *ud = doc.NewElement("UserData");
+    tinyxml2::XMLElement *data = doc.NewElement("Data");
+    data->SetAttribute("provider", kMvrProvider);
+    data->SetAttribute("ver", kMvrProviderVersion);
+    tinyxml2::XMLElement *info = doc.NewElement("SupportInfo");
+    info->SetAttribute("uuid", s.uuid.c_str());
     std::string supportGdtfArchivePath = registerGdtfResource(s.uuid, s.gdtfSpec, "");
-    if (!supportGdtfArchivePath.empty())
-      addStr("GDTFSpec", supportGdtfArchivePath);
-    addStr("GDTFMode", s.gdtfMode);
-    std::string functionValue = s.hoistFunction.empty() ? s.function : s.hoistFunction;
-    addStr("Function", functionValue);
-
-    if (s.chainLength > 0.0f) {
-      tinyxml2::XMLElement *len = doc.NewElement("ChainLength");
-      len->SetAttribute("unit", "m");
-      len->SetText(s.chainLength);
-      se->InsertEndChild(len);
-    }
-
-    if (!s.position.empty()) {
-      addStr("Position", s.position);
-    } else if (!s.positionName.empty()) {
-      for (const auto &[puuid, pname] : positions) {
-        if (pname == s.positionName) {
-          addStr("Position", puuid);
-          break;
-        }
-      }
-    }
+    addSupportInfo("GDTFSpec", supportGdtfArchivePath, info);
+    addSupportInfo("GDTFMode", s.gdtfMode, info);
+    addSupportInfo("Function", s.function, info);
+    addSupportInfo("HoistFunction", s.hoistFunction, info);
+    addSupportNum("ChainLength", s.chainLength, info);
+    addSupportInfo("Position", resolvePositionReference(s.position, s.positionName), info);
+    addSupportInfo("PositionName", s.positionName, info);
+    if (info->FirstChild())
+      data->InsertEndChild(info);
+    ud->InsertEndChild(data);
+    se->InsertEndChild(ud);
 
     std::string mstr = MatrixUtils::FormatMatrix(s.transform);
     tinyxml2::XMLElement *mat = doc.NewElement("Matrix");
@@ -1734,7 +1799,7 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
   sceneNode->InsertEndChild(layersNode);
 
   if (!trussArchiveByTypeKey.empty()) {
-    tinyxml2::XMLElement *sceneUserData = doc.NewElement("UserData");
+    tinyxml2::XMLElement *rootUserData = doc.NewElement("UserData");
     tinyxml2::XMLElement *data = doc.NewElement("Data");
     data->SetAttribute("provider", "Perastage");
     data->SetAttribute("ver", "1.0");
@@ -1756,8 +1821,8 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
                    uuid.c_str(), typeKey.c_str());
     }
     data->InsertEndChild(manifest);
-    sceneUserData->InsertEndChild(data);
-    sceneNode->InsertEndChild(sceneUserData);
+    rootUserData->InsertEndChild(data);
+    root->InsertEndChild(rootUserData);
   }
 
   std::unordered_map<std::string, int> plannedArchiveEntries;
