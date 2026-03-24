@@ -365,6 +365,13 @@ PromptGdtfConflicts(const std::vector<GdtfConflict> &conflicts) {
   if (conflicts.empty())
     return chosen;
 
+  auto selectAll = [](const std::vector<wxRadioButton *> &buttons) {
+    for (wxRadioButton *button : buttons) {
+      if (button)
+        button->SetValue(true);
+    }
+  };
+
   wxDialog dlg(nullptr, wxID_ANY, "GDTF conflicts");
   wxBoxSizer *topSizer = new wxBoxSizer(wxVERTICAL);
   wxFlexGridSizer *grid = new wxFlexGridSizer(3, 5, 5);
@@ -380,13 +387,24 @@ PromptGdtfConflicts(const std::vector<GdtfConflict> &conflicts) {
     wxRadioButton *mvr = new wxRadioButton(
         &dlg, wxID_ANY, "", wxDefaultPosition, wxDefaultSize, wxRB_GROUP);
     wxRadioButton *app = new wxRadioButton(&dlg, wxID_ANY, "");
-    mvr->SetValue(true);
+    app->SetValue(true);
     grid->Add(mvr, 0, wxALIGN_CENTER);
     grid->Add(app, 0, wxALIGN_CENTER);
     mvrBtns.push_back(mvr);
     appBtns.push_back(app);
   }
 
+  wxBoxSizer *batchSelectionSizer = new wxBoxSizer(wxHORIZONTAL);
+  wxButton *selectAllAppButton = new wxButton(&dlg, wxID_ANY, "Select all App");
+  wxButton *selectAllMvrButton = new wxButton(&dlg, wxID_ANY, "Select all MVR");
+  selectAllAppButton->Bind(wxEVT_BUTTON,
+                           [&appBtns](wxCommandEvent &) { selectAll(appBtns); });
+  selectAllMvrButton->Bind(wxEVT_BUTTON,
+                           [&mvrBtns](wxCommandEvent &) { selectAll(mvrBtns); });
+  batchSelectionSizer->Add(selectAllAppButton, 0, wxRIGHT, 5);
+  batchSelectionSizer->Add(selectAllMvrButton, 0);
+
+  topSizer->Add(batchSelectionSizer, 0, wxLEFT | wxRIGHT | wxTOP, 10);
   topSizer->Add(grid, 1, wxALL, 10);
   topSizer->Add(dlg.CreateSeparatedButtonSizer(wxOK | wxCANCEL), 0,
                 wxEXPAND | wxALL, 10);
