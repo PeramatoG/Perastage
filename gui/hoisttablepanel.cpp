@@ -29,6 +29,7 @@
 #include "summarypanel.h"
 #include "dataview_edit_commit.h"
 #include "support.h"
+#include "ui_unit_utils.h"
 #include "viewer2dpanel.h"
 #include "viewer3dpanel.h"
 #include <algorithm>
@@ -47,6 +48,16 @@ namespace {
 const wxString &DegreeSymbol() {
   static const wxString kDegreeSymbol = wxString::FromUTF8("\xC2\xB0");
   return kDegreeSymbol;
+}
+
+UiUnitUtils::DistanceUnitSystem ResolveDistanceUnitSystem() {
+  auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
+  return UiUnitUtils::ParseDistanceUnitSystem(cfg.GetValue("ui_distance_unit_system"));
+}
+
+UiUnitUtils::WeightUnitSystem ResolveWeightUnitSystem() {
+  auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
+  return UiUnitUtils::ParseWeightUnitSystem(cfg.GetValue("ui_weight_unit_system"));
 }
 
 struct RangeParts {
@@ -229,12 +240,16 @@ HoistTablePanel::HoistTablePanel(wxWindow *parent, IGuiConfigServices *services)
 HoistTablePanel::~HoistTablePanel() { store = nullptr; }
 
 void HoistTablePanel::InitializeTable() {
+  const auto distanceUnit = ResolveDistanceUnitSystem();
+  const auto weightUnit = ResolveWeightUnitSystem();
+  const wxString distanceSuffix = wxString::FromUTF8(UiUnitUtils::DistanceUnitSuffix(distanceUnit));
+  const wxString weightSuffix = wxString::FromUTF8(UiUnitUtils::WeightUnitSuffix(weightUnit));
   columnLabels = {"Hoist ID",      "Name",          "Type",      "Function",
                   "Motor",         "Dummy Preset",  "Data Source", "Layer",
-                  "Hang Pos",      "Pos X",         "Pos Y",     "Pos Z",
+                  "Hang Pos",      "Pos X (" + distanceSuffix + ")",         "Pos Y (" + distanceSuffix + ")",     "Pos Z (" + distanceSuffix + ")",
                   "Roll (X)",      "Pitch (Y)",     "Yaw (Z)",
-                  "Chain Length (m)", "Capacity (kg)", "Weight (kg)",
-                  "Load (kg)"};
+                  "Chain Length (m)", "Capacity (" + weightSuffix + ")", "Weight (" + weightSuffix + ")",
+                  "Load (" + weightSuffix + ")"};
   std::vector<int> widths = {70, 150, 120, 120, 130, 150, 110, 100, 120,
                              80, 80, 80, 80, 80, 80, 110, 110, 100, 100};
   for (size_t i = 0; i < columnLabels.size(); ++i)
@@ -302,10 +317,15 @@ void HoistTablePanel::ReloadData() {
                          : wxString::FromUTF8(support.layer);
     wxString posName = wxString::FromUTF8(support.positionName);
 
+    const auto distanceUnit = ResolveDistanceUnitSystem();
+    const auto weightUnit = ResolveWeightUnitSystem();
     auto posArr = support.transform.o;
-    wxString posX = wxString::Format("%.3f", posArr[0] / 1000.0f);
-    wxString posY = wxString::Format("%.3f", posArr[1] / 1000.0f);
-    wxString posZ = wxString::Format("%.3f", posArr[2] / 1000.0f);
+    wxString posX = wxString::FromUTF8(UiUnitUtils::FormatDistanceFromMillimeters(
+        posArr[0], distanceUnit, UiUnitUtils::ValueFormatContext::Table));
+    wxString posY = wxString::FromUTF8(UiUnitUtils::FormatDistanceFromMillimeters(
+        posArr[1], distanceUnit, UiUnitUtils::ValueFormatContext::Table));
+    wxString posZ = wxString::FromUTF8(UiUnitUtils::FormatDistanceFromMillimeters(
+        posArr[2], distanceUnit, UiUnitUtils::ValueFormatContext::Table));
 
     auto euler = MatrixUtils::MatrixToEuler(support.transform);
     wxString roll = wxString::Format("%.1f", euler[2]) + DegreeSymbol();
@@ -313,9 +333,12 @@ void HoistTablePanel::ReloadData() {
     wxString yaw = wxString::Format("%.1f", euler[0]) + DegreeSymbol();
 
     wxString chainLen = wxString::Format("%.2f", support.chainLength);
-    wxString capacity = wxString::Format("%.2f", effective.capacityKg);
-    wxString weight = wxString::Format("%.2f", effective.weightKg);
-    wxString load = wxString::Format("%.2f", support.loadKg);
+    wxString capacity = wxString::FromUTF8(UiUnitUtils::FormatWeightFromKilograms(
+        effective.capacityKg, weightUnit, UiUnitUtils::ValueFormatContext::Table));
+    wxString weight = wxString::FromUTF8(UiUnitUtils::FormatWeightFromKilograms(
+        effective.weightKg, weightUnit, UiUnitUtils::ValueFormatContext::Table));
+    wxString load = wxString::FromUTF8(UiUnitUtils::FormatWeightFromKilograms(
+        support.loadKg, weightUnit, UiUnitUtils::ValueFormatContext::Table));
 
     row.push_back(name);
     row.push_back(type);
@@ -801,13 +824,18 @@ void HoistTablePanel::UpdateSceneData(bool logChanges) {
     table->GetValue(v, i, 8);
     next.positionName = std::string(v.GetString().ToUTF8());
 
-    double x = 0, y = 0, z = 0;
+    const auto distanceUnit = ResolveDistanceUnitSystem();
+    const auto weightUnit = ResolveWeightUnitSystem();
+    double xMm = old.transform.o[0], yMm = old.transform.o[1], zMm = old.transform.o[2];
     table->GetValue(v, i, 9);
-    v.GetString().ToDouble(&x);
+    if (const auto parsed = UiUnitUtils::ParseDistanceToMillimeters(std::string(v.GetString().ToUTF8()), distanceUnit); parsed.has_value())
+      xMm = *parsed;
     table->GetValue(v, i, 10);
-    v.GetString().ToDouble(&y);
+    if (const auto parsed = UiUnitUtils::ParseDistanceToMillimeters(std::string(v.GetString().ToUTF8()), distanceUnit); parsed.has_value())
+      yMm = *parsed;
     table->GetValue(v, i, 11);
-    v.GetString().ToDouble(&z);
+    if (const auto parsed = UiUnitUtils::ParseDistanceToMillimeters(std::string(v.GetString().ToUTF8()), distanceUnit); parsed.has_value())
+      zMm = *parsed;
 
     double roll = 0, pitch = 0, yaw = 0;
     table->GetValue(v, i, 12);
@@ -834,15 +862,12 @@ void HoistTablePanel::UpdateSceneData(bool logChanges) {
 
     const auto currentEuler = MatrixUtils::MatrixToEuler(old.transform);
     const bool transformChanged =
-        wxString::Format("%.3f", old.transform.o[0] / 1000.0f) !=
-            wxString::Format("%.3f", x) ||
-        wxString::Format("%.3f", old.transform.o[1] / 1000.0f) !=
-            wxString::Format("%.3f", y) ||
-        wxString::Format("%.3f", old.transform.o[2] / 1000.0f) !=
-            wxString::Format("%.3f", z) ||
-        wxString::Format("%.1f", currentEuler[2]) != wxString::Format("%.1f", roll) ||
-        wxString::Format("%.1f", currentEuler[1]) != wxString::Format("%.1f", pitch) ||
-        wxString::Format("%.1f", currentEuler[0]) != wxString::Format("%.1f", yaw);
+        !UiUnitUtils::NearlyEqualDistanceMillimeters(old.transform.o[0], xMm, 0.5) ||
+        !UiUnitUtils::NearlyEqualDistanceMillimeters(old.transform.o[1], yMm, 0.5) ||
+        !UiUnitUtils::NearlyEqualDistanceMillimeters(old.transform.o[2], zMm, 0.5) ||
+        std::abs(static_cast<double>(currentEuler[2]) - roll) > 0.05 ||
+        std::abs(static_cast<double>(currentEuler[1]) - pitch) > 0.05 ||
+        std::abs(static_cast<double>(currentEuler[0]) - yaw) > 0.05;
 
     if (transformChanged) {
       Matrix rot = MatrixUtils::EulerToMatrix(static_cast<float>(yaw),
@@ -850,8 +875,8 @@ void HoistTablePanel::UpdateSceneData(bool logChanges) {
                                               static_cast<float>(roll));
       next.transform = MatrixUtils::ApplyRotationPreservingScale(
           old.transform, rot,
-          {static_cast<float>(x * 1000.0), static_cast<float>(y * 1000.0),
-           static_cast<float>(z * 1000.0)});
+          {static_cast<float>(xMm), static_cast<float>(yMm),
+           static_cast<float>(zMm)});
     }
 
     table->GetValue(v, i, 15);
@@ -860,21 +885,22 @@ void HoistTablePanel::UpdateSceneData(bool logChanges) {
     next.chainLength = static_cast<float>(chainLen);
 
     table->GetValue(v, i, 16);
-    double capacity = 0.0;
-    v.GetString().ToDouble(&capacity);
-    const float editedCapacityKg = static_cast<float>(capacity);
-    next.capacityKg = editedCapacityKg;
+    float editedCapacityKg = old.capacityKg;
+    if (const auto parsed = UiUnitUtils::ParseWeightToKilograms(std::string(v.GetString().ToUTF8()), weightUnit); parsed.has_value()) {
+      editedCapacityKg = static_cast<float>(*parsed);
+      next.capacityKg = editedCapacityKg;
+    }
 
     table->GetValue(v, i, 17);
-    double weight = 0.0;
-    v.GetString().ToDouble(&weight);
-    const float editedWeightKg = static_cast<float>(weight);
-    next.weightKg = editedWeightKg;
+    float editedWeightKg = old.weightKg;
+    if (const auto parsed = UiUnitUtils::ParseWeightToKilograms(std::string(v.GetString().ToUTF8()), weightUnit); parsed.has_value()) {
+      editedWeightKg = static_cast<float>(*parsed);
+      next.weightKg = editedWeightKg;
+    }
 
     table->GetValue(v, i, 18);
-    double load = 0.0;
-    v.GetString().ToDouble(&load);
-    next.loadKg = static_cast<float>(load);
+    if (const auto parsed = UiUnitUtils::ParseWeightToKilograms(std::string(v.GetString().ToUTF8()), weightUnit); parsed.has_value())
+      next.loadKg = static_cast<float>(*parsed);
 
     next.motorNameSource =
         ResolveHoistFieldDataSource(next.motorNameSource, next.hoistDataSource);
@@ -910,9 +936,9 @@ void HoistTablePanel::UpdateSceneData(bool logChanges) {
                                 old.layer != next.layer ||
                                 old.positionName != next.positionName || transformChanged ||
                                 old.chainLength != next.chainLength ||
-                                old.capacityKg != next.capacityKg ||
-                                old.weightKg != next.weightKg ||
-                                old.loadKg != next.loadKg ||
+                                !UiUnitUtils::NearlyEqualWeightKilograms(old.capacityKg, next.capacityKg, 0.001) ||
+                                !UiUnitUtils::NearlyEqualWeightKilograms(old.weightKg, next.weightKg, 0.001) ||
+                                !UiUnitUtils::NearlyEqualWeightKilograms(old.loadKg, next.loadKg, 0.001) ||
                                 NormalizeHoistDataSource(old.motorNameSource) !=
                                     NormalizeHoistDataSource(next.motorNameSource) ||
                                 NormalizeHoistDataSource(old.motorManufacturerSource) !=
