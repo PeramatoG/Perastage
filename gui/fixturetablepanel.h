@@ -22,6 +22,7 @@
 #include <wx/time.h>
 #include <vector>
 #include <string>
+#include <unordered_set>
 #include "colorstore.h"
 #include "positionvalueupdate.h"
 
@@ -62,6 +63,7 @@ private:
     bool dragSelecting = false;
     int startRow = -1;
     std::vector<int> selectionOrder;
+    std::unordered_set<std::string> manualCategoryUuidsPending;
     IGuiConfigServices *guiConfigServices = nullptr;
 
     void InitializeTable(); // Set up columns
@@ -83,6 +85,7 @@ private:
     void ApplyModeForGdtf(const wxString& path, const wxString& preferredMode = wxString());
     void HighlightDuplicateFixtureIds();
     void HighlightPatchConflicts();
+    void HighlightAutoFallbackCategories();
 
     wxString activeHoverTooltip;
 };

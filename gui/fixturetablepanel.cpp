@@ -24,6 +24,7 @@
 #include "fixturetable/fixture_table_columns.h"
 #include "fixturetable/fixture_table_edit_service.h"
 #include "fixturetable/fixture_table_parser.h"
+#include "gdtf_fixture_category.h"
 #include "gdtfdictionary.h"
 #include "gdtfloader.h"
 #include "layerpanel.h"
@@ -150,6 +151,17 @@ wxString BuildFixtureTooltipForColumn(int modelColumn) {
   if (modelColumn == 5 || modelColumn == 6)
     return "DMX patch conflict detected. Universe and channel overlap with another fixture.";
   return wxString();
+}
+
+wxString BuildCategoryFallbackTooltip(const Fixture &fixture) {
+  if (fixture.categorySource != GdtfFixtureCategory::kAutoFallbackSource)
+    return wxString();
+  if (!fixture.categorySourceReason.empty()) {
+    return wxString::Format(
+        "Category auto-assigned by fallback: %s.",
+        wxString::FromUTF8(fixture.categorySourceReason).c_str());
+  }
+  return "Category auto-assigned by fallback.";
 }
 } // namespace
 
@@ -659,12 +671,26 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
     if (dlg.ShowModal() != wxID_OK)
       return;
     const wxString value = dlg.GetStringSelection();
+    std::unordered_set<std::string> selectedTypes;
     for (const auto &it : selections) {
       int r = table->ItemToRow(it);
-      if (r != wxNOT_FOUND)
+      if (r != wxNOT_FOUND) {
         table->SetValue(wxVariant(value), r, col);
+        wxVariant typeValue;
+        table->GetValue(typeValue, r, 2);
+        selectedTypes.insert(std::string(typeValue.GetString().ToUTF8()));
+      }
     }
     PropagateTypeValues(selections, col);
+    for (unsigned int row = 0; row < table->GetItemCount() &&
+                               row < rowUuids.size();
+         ++row) {
+      wxVariant typeValue;
+      table->GetValue(typeValue, row, 2);
+      const std::string typeName = std::string(typeValue.GetString().ToUTF8());
+      if (selectedTypes.find(typeName) != selectedTypes.end())
+        manualCategoryUuidsPending.insert(rowUuids[row]);
+    }
     ResyncRows(oldOrder, selectedUuids);
     UpdateSceneData();
     HighlightDuplicateFixtureIds();
@@ -1190,8 +1216,18 @@ void FixtureTablePanel::UpdateHoverTooltip(const wxPoint &position) {
   if (item.IsOk() && column) {
     int row = table->ItemToRow(item);
     int modelColumn = column->GetModelColumn();
-    if (IsRedCell(store, row, modelColumn))
-      tooltip = BuildFixtureTooltipForColumn(modelColumn);
+    if (IsRedCell(store, row, modelColumn)) {
+      if (modelColumn == 18 && row >= 0 &&
+          static_cast<size_t>(row) < rowUuids.size()) {
+        const auto &fixtures =
+            guiConfigServices->LegacyConfigManager().GetScene().fixtures;
+        auto it = fixtures.find(rowUuids[static_cast<size_t>(row)]);
+        if (it != fixtures.end())
+          tooltip = BuildCategoryFallbackTooltip(it->second);
+      } else {
+        tooltip = BuildFixtureTooltipForColumn(modelColumn);
+      }
+    }
   }
 
   if (tooltip == activeHoverTooltip)
@@ -1308,7 +1344,9 @@ void FixtureTablePanel::PropagateTypeValues(
 void FixtureTablePanel::UpdateSceneData(bool logChanges) {
   ConfigManagerSceneAdapter adapter;
   FixtureTableEditService::UpdateSceneData(adapter, table, rowUuids, gdtfPaths,
-                                         logChanges);
+                                           &manualCategoryUuidsPending,
+                                           logChanges);
+  manualCategoryUuidsPending.clear();
 
   HighlightDuplicateFixtureIds();
 
@@ -1402,7 +1440,26 @@ void FixtureTablePanel::HighlightDuplicateFixtureIds() {
   }
 
   HighlightPatchConflicts();
+  HighlightAutoFallbackCategories();
   table->Refresh();
+}
+
+void FixtureTablePanel::HighlightAutoFallbackCategories() {
+  auto &fixtures = guiConfigServices->LegacyConfigManager().GetScene().fixtures;
+  for (unsigned i = 0; i < table->GetItemCount(); ++i) {
+    store->ClearCellTextColour(i, 18);
+
+    if (i >= rowUuids.size())
+      continue;
+    auto it = fixtures.find(rowUuids[i]);
+    if (it == fixtures.end())
+      continue;
+
+    const Fixture &fixture = it->second;
+    if (fixture.categorySource == GdtfFixtureCategory::kAutoFallbackSource) {
+      store->SetCellTextColour(i, 18, *wxRED);
+    }
+  }
 }
 
 void FixtureTablePanel::ResyncRows(

@@ -54,6 +54,7 @@ struct Fixture {
 
     std::string category;         // Fixture category (Spot, Wash, etc.)
     std::string categorySource;   // Category source (Manual, AutoFallback, ...)
+    std::string categorySourceReason; // Why category fallback was applied
 
     // Convenience method to access translation as array
     std::array<float,3> GetPosition() const { return transform.o; }

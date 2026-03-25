@@ -65,6 +65,7 @@ void RunFixtureCategoryAssignment(MainWindow &window) {
     }
     fixture.category = inferredCategory;
     fixture.categorySource = GdtfFixtureCategory::kAutoFallbackSource;
+    fixture.categorySourceReason = inferred.reason;
     if (!fixture.typeName.empty() &&
         inferredCategory != GdtfFixtureCategory::kUnknown) {
       updatedTypeCategories.insert({fixture.typeName, inferredCategory});
@@ -80,8 +81,7 @@ void RunFixtureCategoryAssignment(MainWindow &window) {
     return;
   }
 
-  for (const auto &[typeName, category] : updatedTypeCategories)
-    GdtfDictionary::UpdateCategory(typeName, category);
+  (void)updatedTypeCategories;
 
   window.RefreshAfterToolSceneUpdate();
 
