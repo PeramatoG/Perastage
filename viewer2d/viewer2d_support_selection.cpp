@@ -16,6 +16,7 @@
 #endif
 
 #include "support.h"
+#include "configmanager.h"
 #include "configservices.h"
 #include "units/units.h"
 #include "viewer3d_types.h"
@@ -62,15 +63,25 @@ bool ProjectSupportCenter(const Support &support, int viewportHeight,
 }
 
 wxString BuildHoistLabel(const std::string &uuid, const Support &support) {
-  auto &cfg = GetDefaultConfigServices().Config();
+  auto &cfg = ConfigManager::Get();
   const auto distanceUnitSystem =
       Units::ParseDistanceUnitSystem(cfg.GetValue("ui_distance_unit_system"));
+  const auto weightUnitSystem =
+      Units::ParseWeightUnitSystem(cfg.GetValue("ui_weight_unit_system"));
   const std::string unitSuffix = Units::DistanceUnitSuffix(distanceUnitSystem);
+  const std::string weightSuffix = Units::WeightUnitSuffix(weightUnitSystem);
   wxString label = support.name.empty() ? wxString::FromUTF8(uuid)
                                         : wxString::FromUTF8(support.name);
   const std::string height = Units::FormatDistanceFromMillimeters(
       support.transform.o[2], distanceUnitSystem, Units::ValueFormatContext::Label);
+  const auto effectiveData = ResolveEffectiveSupportData(support);
+  const std::string capacity = Units::FormatWeightFromKilograms(
+      effectiveData.capacityKg, weightUnitSystem, Units::ValueFormatContext::Label);
+  const std::string load = Units::FormatWeightFromKilograms(
+      support.loadKg, weightUnitSystem, Units::ValueFormatContext::Label);
   label += wxString::Format("\nh = %s %s", height.c_str(), unitSuffix.c_str());
+  label += wxString::Format("\ncapacity = %s %s", capacity.c_str(), weightSuffix.c_str());
+  label += wxString::Format("\nload = %s %s", load.c_str(), weightSuffix.c_str());
   return label;
 }
 
