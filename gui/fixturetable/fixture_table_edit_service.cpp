@@ -205,8 +205,10 @@ void UpdateSceneData(ISceneAdapter &adapter, wxDataViewListCtrl *table,
 
     table->GetValue(v, i, 18);
     next.category = GdtfFixtureCategory::NormalizeCategory(std::string(v.GetString().ToUTF8()));
-    if (!next.category.empty())
+    if (!next.category.empty()) {
       next.categorySource = GdtfFixtureCategory::kManualSource;
+      next.categorySourceReason.clear();
+    }
 
     table->GetValue(v, i, 19);
     if (v.GetType() == "wxDataViewIconText") {

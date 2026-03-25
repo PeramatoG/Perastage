@@ -83,6 +83,7 @@ private:
     void ApplyModeForGdtf(const wxString& path, const wxString& preferredMode = wxString());
     void HighlightDuplicateFixtureIds();
     void HighlightPatchConflicts();
+    void HighlightAutoFallbackCategories();
 
     wxString activeHoverTooltip;
 };

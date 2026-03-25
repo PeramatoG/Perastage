@@ -477,9 +477,15 @@ static void ReadFixtureCategoryFromUserData(tinyxml2::XMLElement *fixtureNode,
       if (const char *txt = sourceNode->GetText())
         fixture.categorySource = Trim(txt);
     }
+    if (tinyxml2::XMLElement *reasonNode = info->FirstChildElement("CategoryReason")) {
+      if (const char *txt = reasonNode->GetText())
+        fixture.categorySourceReason = Trim(txt);
+    }
 
     if (!fixture.category.empty() && fixture.categorySource.empty())
       fixture.categorySource = GdtfFixtureCategory::kManualSource;
+    if (fixture.categorySource == GdtfFixtureCategory::kManualSource)
+      fixture.categorySourceReason.clear();
     return;
   }
 }
@@ -1322,8 +1328,10 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         if (fixture.category.empty() && !fixture.typeName.empty()) {
           if (auto entry = GdtfDictionary::Get(fixture.typeName))
             fixture.category = GdtfFixtureCategory::NormalizeCategory(entry->category);
-          if (!fixture.category.empty())
+          if (!fixture.category.empty()) {
             fixture.categorySource = GdtfFixtureCategory::kManualSource;
+            fixture.categorySourceReason.clear();
+          }
         }
 
         if (fixture.category.empty() && !categoryKey.empty()) {
@@ -1331,6 +1339,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
           if (cacheIt != categoryByTypeKey.end()) {
             fixture.category = cacheIt->second.category;
             fixture.categorySource = cacheIt->second.source;
+            fixture.categorySourceReason = cacheIt->second.reason;
           }
         }
 
@@ -1340,6 +1349,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
           if (fixture.category.empty())
             fixture.category = GdtfFixtureCategory::kUnknown;
           fixture.categorySource = GdtfFixtureCategory::kAutoFallbackSource;
+          fixture.categorySourceReason = inferred.reason;
           if (!categoryKey.empty()) {
             categoryByTypeKey[categoryKey] =
                 {fixture.category, fixture.categorySource, inferred.reason};
@@ -1352,7 +1362,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
               {fixture.category, fixture.categorySource.empty()
                                      ? GdtfFixtureCategory::kManualSource
                                      : fixture.categorySource,
-               "cached"};
+               fixture.categorySourceReason.empty() ? "cached"
+                                                   : fixture.categorySourceReason};
         }
 
         if (!fixture.category.empty() && !fixture.typeName.empty())
