@@ -133,7 +133,7 @@ public:
 private:
   enum class DragMode { None, View, Selection, RectSelection };
   enum class DragAxis { None, Horizontal, Vertical };
-  enum class DragTarget { None, Fixtures, Trusses, SceneObjects };
+  enum class DragTarget { None, Fixtures, Trusses, Supports, SceneObjects };
 
   void InitGL();
   void Render();

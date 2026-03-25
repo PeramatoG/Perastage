@@ -691,6 +691,8 @@ void HoistTablePanel::OnSelectionChanged(wxDataViewEvent &evt) {
   }
   if (Viewer3DPanel::Instance())
     Viewer3DPanel::Instance()->SetSelectedFixtures(uuids);
+  if (Viewer2DPanel::Instance())
+    Viewer2DPanel::Instance()->SetSelectedUuids(uuids);
   UpdateSelectionHighlight();
   evt.Skip();
 }
@@ -706,6 +708,24 @@ void HoistTablePanel::UpdateSelectionHighlight() {
       selectedRows[r] = true;
   }
   store->SetSelectedRows(selectedRows);
+}
+
+void HoistTablePanel::ApplyPositionValueUpdates(
+    const std::vector<PositionValueUpdate> &updates) {
+  if (!table)
+    return;
+
+  wxWindowUpdateLocker locker(table);
+  for (const auto &update : updates) {
+    auto pos = std::find(rowUuids.begin(), rowUuids.end(), update.uuid);
+    if (pos == rowUuids.end())
+      continue;
+
+    int row = static_cast<int>(pos - rowUuids.begin());
+    table->SetValue(wxVariant(wxString::FromUTF8(update.posX)), row, 9);
+    table->SetValue(wxVariant(wxString::FromUTF8(update.posY)), row, 10);
+    table->SetValue(wxVariant(wxString::FromUTF8(update.posZ)), row, 11);
+  }
 }
 
 void HoistTablePanel::UpdateSceneData(bool logChanges) {

@@ -45,11 +45,13 @@
 #include "canvas2d.h"
 #include "fixturetablepanel.h"
 #include "fixturepatchdialog.h"
+#include "hoisttablepanel.h"
 #include "logger.h"
 #include "positionvalueupdate.h"
 #include "sceneobjecttablepanel.h"
 #include "trusstablepanel.h"
 #include "viewer3dpanel.h"
+#include "viewer2d_support_selection.h"
 #include "viewer2dviewfit.h"
 #include <wx/app.h>
 #include <wx/utils.h>
@@ -320,6 +322,9 @@ void Viewer2DPanel::UpdateScene(bool reload) {
     } else if (TrussTablePanel::Instance() &&
                TrussTablePanel::Instance()->IsActivePage()) {
       selection = cfg.GetSelectedTrusses();
+    } else if (HoistTablePanel::Instance() &&
+               HoistTablePanel::Instance()->IsActivePage()) {
+      selection = cfg.GetSelectedSupports();
     } else if (SceneObjectTablePanel::Instance() &&
                SceneObjectTablePanel::Instance()->IsActivePage()) {
       selection = cfg.GetSelectedSceneObjects();
@@ -873,6 +878,20 @@ void Viewer2DPanel::OnPaint(wxPaintEvent &WXUNUSED(event)) {
       if (SceneObjectTablePanel::Instance())
         SceneObjectTablePanel::Instance()->HighlightObject(std::string());
     }
+  } else if (!skipLabelWork && HoistTablePanel::Instance() &&
+             HoistTablePanel::Instance()->IsActivePage()) {
+    const auto hiddenLayers = ConfigManager::Get().GetHiddenLayers();
+    found = Viewer2DSupportSelection::FindHoistAtScreenPoint(
+        m_lastMousePos.x, m_lastMousePos.y, h, ConfigManager::Get().GetScene(),
+        hiddenLayers, newUuid, newPos, newLabel);
+    if (found) {
+      if (FixtureTablePanel::Instance())
+        FixtureTablePanel::Instance()->HighlightFixture(std::string());
+      if (TrussTablePanel::Instance())
+        TrussTablePanel::Instance()->HighlightTruss(std::string());
+      if (SceneObjectTablePanel::Instance())
+        SceneObjectTablePanel::Instance()->HighlightObject(std::string());
+    }
   } else if (!skipLabelWork && SceneObjectTablePanel::Instance() &&
              SceneObjectTablePanel::Instance()->IsActivePage()) {
     found = m_controller.GetSceneObjectLabelAt(m_lastMousePos.x,
@@ -898,6 +917,9 @@ void Viewer2DPanel::OnPaint(wxPaintEvent &WXUNUSED(event)) {
     else if (TrussTablePanel::Instance() &&
              TrussTablePanel::Instance()->IsActivePage())
       TrussTablePanel::Instance()->HighlightTruss(std::string(m_hoverUuid));
+    else if (HoistTablePanel::Instance() &&
+             HoistTablePanel::Instance()->IsActivePage())
+      HoistTablePanel::Instance()->HighlightHoist(std::string(m_hoverUuid));
     else if (SceneObjectTablePanel::Instance() &&
              SceneObjectTablePanel::Instance()->IsActivePage())
       SceneObjectTablePanel::Instance()->HighlightObject(std::string(m_hoverUuid));
@@ -910,6 +932,8 @@ void Viewer2DPanel::OnPaint(wxPaintEvent &WXUNUSED(event)) {
       FixtureTablePanel::Instance()->HighlightFixture(std::string());
     if (TrussTablePanel::Instance())
       TrussTablePanel::Instance()->HighlightTruss(std::string());
+    if (HoistTablePanel::Instance())
+      HoistTablePanel::Instance()->HighlightHoist(std::string());
     if (SceneObjectTablePanel::Instance())
       SceneObjectTablePanel::Instance()->HighlightObject(std::string());
   } else if (skipLabelWork) {
@@ -977,6 +1001,10 @@ void Viewer2DPanel::ApplySelectionDelta(
     applyDelta(scene.trusses);
     ScheduleDragTableUpdate();
     break;
+  case DragTarget::Supports:
+    applyDelta(scene.supports);
+    ScheduleDragTableUpdate();
+    break;
   case DragTarget::SceneObjects:
     applyDelta(scene.sceneObjects);
     ScheduleDragTableUpdate();
@@ -1002,6 +1030,13 @@ void Viewer2DPanel::FinalizeSelectionDrag() {
       auto selection = cfg.GetSelectedTrusses();
       TrussTablePanel::Instance()->ReloadData();
       TrussTablePanel::Instance()->SelectByUuid(selection);
+    }
+    break;
+  case DragTarget::Supports:
+    if (HoistTablePanel::Instance()) {
+      auto selection = cfg.GetSelectedSupports();
+      HoistTablePanel::Instance()->ReloadData();
+      HoistTablePanel::Instance()->SelectByUuid(selection);
     }
     break;
   case DragTarget::SceneObjects:
@@ -1067,6 +1102,20 @@ void Viewer2DPanel::ApplyRectangleSelection(const wxPoint &start,
       TrussTablePanel::Instance()->ClearSelection();
     else
       TrussTablePanel::Instance()->SelectByUuid(selection);
+  } else if (HoistTablePanel::Instance() &&
+             HoistTablePanel::Instance()->IsActivePage()) {
+    auto selection = Viewer2DSupportSelection::GetHoistsInScreenRect(
+        start.x, start.y, end.x, end.y, w, h, cfg.GetScene(),
+        cfg.GetHiddenLayers());
+    if (selection != cfg.GetSelectedSupports()) {
+      cfg.PushUndoState("support selection");
+      cfg.SetSelectedSupports(selection);
+    }
+    m_controller.SetSelectedUuids(selection);
+    if (selection.empty())
+      HoistTablePanel::Instance()->ClearSelection();
+    else
+      HoistTablePanel::Instance()->SelectByUuid(selection);
   } else if (SceneObjectTablePanel::Instance() &&
              SceneObjectTablePanel::Instance()->IsActivePage()) {
     auto selection = m_controller.GetSceneObjectsInScreenRect(
@@ -1218,6 +1267,10 @@ void Viewer2DPanel::StartDragTableUpdateWorker() {
           if (TrussTablePanel::Instance())
             TrussTablePanel::Instance()->ApplyPositionValueUpdates(updates);
           break;
+        case DragTarget::Supports:
+          if (HoistTablePanel::Instance())
+            HoistTablePanel::Instance()->ApplyPositionValueUpdates(updates);
+          break;
         case DragTarget::SceneObjects:
           if (SceneObjectTablePanel::Instance())
             SceneObjectTablePanel::Instance()->ApplyPositionValueUpdates(
@@ -1275,6 +1328,15 @@ Viewer2DPanel::BuildDragTablePositionSnapshots(
     for (const auto &uuid : uuids) {
       auto it = scene.sceneObjects.find(uuid);
       if (it == scene.sceneObjects.end())
+        continue;
+      auto posArr = it->second.transform.o;
+      snapshots.push_back({uuid, posArr[0], posArr[1], posArr[2]});
+    }
+    break;
+  case DragTarget::Supports:
+    for (const auto &uuid : uuids) {
+      auto it = scene.supports.find(uuid);
+      if (it == scene.supports.end())
         continue;
       auto posArr = it->second.transform.o;
       snapshots.push_back({uuid, posArr[0], posArr[1], posArr[2]});
@@ -1371,6 +1433,12 @@ void Viewer2DPanel::OnMouseDown(wxMouseEvent &event) {
       found = m_controller.GetTrussLabelAt(event.GetX(), event.GetY(), w, h,
                                            label, pos, &uuid);
       target = DragTarget::Trusses;
+    } else if (HoistTablePanel::Instance() &&
+               HoistTablePanel::Instance()->IsActivePage()) {
+      found = Viewer2DSupportSelection::FindHoistAtScreenPoint(
+          event.GetX(), event.GetY(), h, ConfigManager::Get().GetScene(),
+          ConfigManager::Get().GetHiddenLayers(), uuid, pos, label);
+      target = DragTarget::Supports;
     } else if (SceneObjectTablePanel::Instance() &&
                SceneObjectTablePanel::Instance()->IsActivePage()) {
       found = m_controller.GetSceneObjectLabelAt(event.GetX(), event.GetY(), w,
@@ -1387,6 +1455,9 @@ void Viewer2DPanel::OnMouseDown(wxMouseEvent &event) {
         break;
       case DragTarget::Trusses:
         selection = cfg.GetSelectedTrusses();
+        break;
+      case DragTarget::Supports:
+        selection = cfg.GetSelectedSupports();
         break;
       case DragTarget::SceneObjects:
         selection = cfg.GetSelectedSceneObjects();
@@ -1498,6 +1569,11 @@ void Viewer2DPanel::OnMouseUp(wxMouseEvent &event) {
              TrussTablePanel::Instance()->IsActivePage())
       found = m_controller.GetTrussLabelAt(event.GetX(), event.GetY(), w, h,
                                            label, pos, &uuid);
+    else if (HoistTablePanel::Instance() &&
+             HoistTablePanel::Instance()->IsActivePage())
+      found = Viewer2DSupportSelection::FindHoistAtScreenPoint(
+          event.GetX(), event.GetY(), h, ConfigManager::Get().GetScene(),
+          ConfigManager::Get().GetHiddenLayers(), uuid, pos, label);
     else if (SceneObjectTablePanel::Instance() &&
              SceneObjectTablePanel::Instance()->IsActivePage())
       found = m_controller.GetSceneObjectLabelAt(event.GetX(), event.GetY(), w,
@@ -1545,6 +1621,25 @@ void Viewer2DPanel::OnMouseUp(wxMouseEvent &event) {
         }
         m_controller.SetSelectedUuids(selection);
         TrussTablePanel::Instance()->SelectByUuid(selection);
+      } else if (HoistTablePanel::Instance() &&
+                 HoistTablePanel::Instance()->IsActivePage()) {
+        if (additive)
+          selection = HoistTablePanel::Instance()->GetSelectedUuids();
+        if (additive) {
+          auto it = std::find(selection.begin(), selection.end(), uuid);
+          if (it != selection.end())
+            selection.erase(it);
+          else
+            selection.push_back(uuid);
+        } else {
+          selection = {uuid};
+        }
+        if (selection != cfg.GetSelectedSupports()) {
+          cfg.PushUndoState("support selection");
+          cfg.SetSelectedSupports(selection);
+        }
+        m_controller.SetSelectedUuids(selection);
+        HoistTablePanel::Instance()->SelectByUuid(selection);
       } else if (SceneObjectTablePanel::Instance() &&
                  SceneObjectTablePanel::Instance()->IsActivePage()) {
         if (additive)
@@ -1582,6 +1677,14 @@ void Viewer2DPanel::OnMouseUp(wxMouseEvent &event) {
         }
         m_controller.SetSelectedUuids({});
         TrussTablePanel::Instance()->ClearSelection();
+      } else if (HoistTablePanel::Instance() &&
+                 HoistTablePanel::Instance()->IsActivePage()) {
+        if (!cfg.GetSelectedSupports().empty()) {
+          cfg.PushUndoState("support selection");
+          cfg.SetSelectedSupports({});
+        }
+        m_controller.SetSelectedUuids({});
+        HoistTablePanel::Instance()->ClearSelection();
       } else if (SceneObjectTablePanel::Instance() &&
                  SceneObjectTablePanel::Instance()->IsActivePage()) {
         if (!cfg.GetSelectedSceneObjects().empty()) {
@@ -1905,6 +2008,8 @@ void Viewer2DPanel::OnMouseLeave(wxMouseEvent &event) {
       FixtureTablePanel::Instance()->HighlightFixture(std::string());
     if (TrussTablePanel::Instance())
       TrussTablePanel::Instance()->HighlightTruss(std::string());
+    if (HoistTablePanel::Instance())
+      HoistTablePanel::Instance()->HighlightHoist(std::string());
     if (SceneObjectTablePanel::Instance())
       SceneObjectTablePanel::Instance()->HighlightObject(std::string());
     Refresh();
