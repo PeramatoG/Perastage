@@ -676,6 +676,8 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
       if (r != wxNOT_FOUND)
         table->SetValue(wxVariant(value), r, col);
     }
+    for (const auto &uuid : selectedUuids)
+      manualCategoryUuidsPending.insert(uuid);
     PropagateTypeValues(selections, col);
     ResyncRows(oldOrder, selectedUuids);
     UpdateSceneData();
@@ -1330,7 +1332,9 @@ void FixtureTablePanel::PropagateTypeValues(
 void FixtureTablePanel::UpdateSceneData(bool logChanges) {
   ConfigManagerSceneAdapter adapter;
   FixtureTableEditService::UpdateSceneData(adapter, table, rowUuids, gdtfPaths,
-                                         logChanges);
+                                           &manualCategoryUuidsPending,
+                                           logChanges);
+  manualCategoryUuidsPending.clear();
 
   HighlightDuplicateFixtureIds();
 
