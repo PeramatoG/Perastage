@@ -118,6 +118,7 @@ using json = nlohmann::json;
 #include "viewer2dpdfexporter.h"
 #include "print_diagnostics.h"
 #include "support.h"
+#include "ui_unit_utils.h"
 #include "trussloader.h"
 #include "trusstablepanel.h"
 #include "viewer2dpanel.h"
@@ -139,26 +140,6 @@ MainWindow *MainWindow::Instance() { return s_instance; }
 void MainWindow::SetInstance(MainWindow *inst) { s_instance = inst; }
 
 namespace {
-enum class UiUnitSystem { Metric, Imperial };
-
-UiUnitSystem ResolveDistanceUnitSystem(ConfigManager &cfg) {
-  const auto value = cfg.GetValue("ui_distance_unit_system");
-  if (value && *value == "imperial")
-    return UiUnitSystem::Imperial;
-  return UiUnitSystem::Metric;
-}
-
-double ConvertMetersToDistanceUnit(double meters, UiUnitSystem unitSystem) {
-  if (unitSystem == UiUnitSystem::Imperial) {
-    constexpr double kMetersToFeet = 3.280839895;
-    return meters * kMetersToFeet;
-  }
-  return meters;
-}
-
-const char *DistanceUnitSuffix(UiUnitSystem unitSystem) {
-  return unitSystem == UiUnitSystem::Imperial ? "ft" : "m";
-}
 
 void PersistFixtureTypeAutoColors(ConfigManager &configManager) {
   auto &scene = configManager.GetScene();
@@ -465,15 +446,23 @@ void MainWindow::UpdateCursorWorldPositionInStatusBar(
   }
 
   ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
-  const UiUnitSystem unitSystem = ResolveDistanceUnitSystem(cfg);
+  const auto distanceUnitSystem = UiUnitUtils::ParseDistanceUnitSystem(
+      cfg.GetValue("ui_distance_unit_system"));
+  const std::string unitSuffix = UiUnitUtils::DistanceUnitSuffix(distanceUnitSystem);
   std::ostringstream stream;
-  stream << std::fixed << std::setprecision(2) << "X: "
-         << ConvertMetersToDistanceUnit((*positionMeters)[0], unitSystem) << " "
-         << DistanceUnitSuffix(unitSystem) << "  Y: "
-         << ConvertMetersToDistanceUnit((*positionMeters)[1], unitSystem) << " "
-         << DistanceUnitSuffix(unitSystem) << "  Z: "
-         << ConvertMetersToDistanceUnit((*positionMeters)[2], unitSystem) << " "
-         << DistanceUnitSuffix(unitSystem);
+  stream << "X: "
+         << UiUnitUtils::FormatDistanceFromMillimeters(
+                static_cast<double>((*positionMeters)[0]) * 1000.0,
+                distanceUnitSystem, UiUnitUtils::ValueFormatContext::Label)
+         << " " << unitSuffix << "  Y: "
+         << UiUnitUtils::FormatDistanceFromMillimeters(
+                static_cast<double>((*positionMeters)[1]) * 1000.0,
+                distanceUnitSystem, UiUnitUtils::ValueFormatContext::Label)
+         << " " << unitSuffix << "  Z: "
+         << UiUnitUtils::FormatDistanceFromMillimeters(
+                static_cast<double>((*positionMeters)[2]) * 1000.0,
+                distanceUnitSystem, UiUnitUtils::ValueFormatContext::Label)
+         << " " << unitSuffix;
   SetStatusText(wxString::FromUTF8(stream.str()), 1);
 }
 
@@ -481,10 +470,12 @@ void MainWindow::ClearCursorWorldPositionInStatusBar() {
   if (!GetStatusBar())
     return;
   ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
-  const char *unitSuffix = DistanceUnitSuffix(ResolveDistanceUnitSystem(cfg));
+  const auto distanceUnitSystem = UiUnitUtils::ParseDistanceUnitSystem(
+      cfg.GetValue("ui_distance_unit_system"));
+  const std::string unitSuffix = UiUnitUtils::DistanceUnitSuffix(distanceUnitSystem);
   SetStatusText(
-      wxString::Format("X: -- %s  Y: -- %s  Z: -- %s", unitSuffix, unitSuffix,
-                       unitSuffix),
+      wxString::Format("X: -- %s  Y: -- %s  Z: -- %s", unitSuffix.c_str(), unitSuffix.c_str(),
+                       unitSuffix.c_str()),
       1);
 }
 

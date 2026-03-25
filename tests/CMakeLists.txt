@@ -70,6 +70,12 @@ target_link_libraries(fixture_table_parser_test PRIVATE ${wxWidgets_LIBRARIES})
 add_test(NAME FixtureTableParser COMMAND fixture_table_parser_test)
 
 
+add_executable(ui_unit_utils_test
+               ui_unit_utils_test.cpp
+               ../core/ui_unit_utils.cpp)
+target_include_directories(ui_unit_utils_test PRIVATE ../core)
+add_test(NAME UiUnitUtilsRoundTrip COMMAND ui_unit_utils_test)
+
 add_executable(gdtf_fixture_category_test
                gdtf_fixture_category_test.cpp
                ../core/gdtf_fixture_category.cpp)
