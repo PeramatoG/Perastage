@@ -20,6 +20,7 @@
 #include "configmanager.h"
 #include "logger.h"
 #include "scenedatamanager.h"
+#include "support.h"
 
 #include <algorithm>
 #include <array>
@@ -42,6 +43,13 @@ struct LabelLine2D {
   std::string text;
   float size;
   std::string fontFamily;
+};
+
+struct SupportLabelText {
+  std::string name;
+  std::string coordinates;
+  std::string capacity;
+  std::string load;
 };
 
 struct CullingSettings {
@@ -209,6 +217,33 @@ std::string FormatMeters(float mm) {
   return s;
 }
 
+std::string FormatMetersOneDecimal(float mm) {
+  std::ostringstream oss;
+  oss << std::fixed << std::setprecision(1) << mm / 1000.0f;
+  return oss.str();
+}
+
+std::string FormatKilograms(float kg) {
+  std::ostringstream oss;
+  if (std::fabs(kg - std::round(kg)) < 0.05f)
+    oss << static_cast<int>(std::lround(kg));
+  else
+    oss << std::fixed << std::setprecision(1) << kg;
+  return oss.str();
+}
+
+SupportLabelText BuildSupportLabelText(const Support &support,
+                                       const std::string &fallbackUuid) {
+  SupportLabelText text;
+  text.name = support.name.empty() ? fallbackUuid : support.name;
+  text.coordinates = "X: " + FormatMetersOneDecimal(support.transform.o[0]) +
+                     "m, Y: " + FormatMetersOneDecimal(support.transform.o[1]) +
+                     "m";
+  text.capacity = "Capacity: " + FormatKilograms(support.capacityKg) + " kg";
+  text.load = "Load: " + FormatKilograms(support.loadKg) + " kg";
+  return text;
+}
+
 wxString WrapEveryTwoWords(const wxString &text) {
   wxStringTokenizer tk(text, " ");
   wxString result;
@@ -300,7 +335,7 @@ void DrawText2D(NVGcontext *vg, int font, const std::string &text, int x, int y,
 }
 
 void DrawLabelLines2D(NVGcontext *vg, const std::vector<LabelLine2D> &lines,
-                      int x, int y,
+                      int x, int y, int horizontalAlign = NVG_ALIGN_CENTER,
                       NVGcolor textColor = nvgRGBAf(1.f, 1.f, 1.f, 1.f),
                       NVGcolor outlineColor = nvgRGBAf(0.f, 0.f, 0.f, 1.f),
                       bool outline = false) {
@@ -317,7 +352,7 @@ void DrawLabelLines2D(NVGcontext *vg, const std::vector<LabelLine2D> &lines,
   for (size_t i = 0; i < lines.size(); ++i) {
     nvgFontSize(vg, lines[i].size);
     nvgFontFaceId(vg, lines[i].font);
-    nvgTextAlign(vg, NVG_ALIGN_CENTER | NVG_ALIGN_TOP);
+    nvgTextAlign(vg, horizontalAlign | NVG_ALIGN_TOP);
     float bounds[4];
     nvgTextBounds(vg, 0.f, 0.f, lines[i].text.c_str(), nullptr, bounds);
     heights[i] = bounds[3] - bounds[1];
@@ -334,7 +369,7 @@ void DrawLabelLines2D(NVGcontext *vg, const std::vector<LabelLine2D> &lines,
   for (size_t i = 0; i < lines.size(); ++i) {
     nvgFontSize(vg, lines[i].size);
     nvgFontFaceId(vg, lines[i].font);
-    nvgTextAlign(vg, NVG_ALIGN_CENTER | NVG_ALIGN_TOP);
+    nvgTextAlign(vg, horizontalAlign | NVG_ALIGN_TOP);
     if (outline) {
       nvgFillColor(vg, outlineColor);
       const std::array<std::array<float, 2>, 8> offsets = {
@@ -674,6 +709,122 @@ void LabelRenderSystem::DrawAllFixtureLabels(int width, int height,
                                 : nvgRGBAf(1.f, 1.f, 1.f, 1.f);
     DrawLabelLines2D(m_controller.GetNanoVGContext(), lines, x, y, textColor, outlineColor,
                      true);
+  }
+
+  const auto &supports = cfg.GetScene().supports;
+  constexpr const char *kRegularFamily = "sans";
+  constexpr float kSupportNameSizePx = 28.0f;
+  constexpr float kSupportBodySizePx = 20.0f;
+  constexpr float kSupportTopGapPx = 34.0f;
+  constexpr float kSupportBottomGapPx = 34.0f;
+  constexpr float kSupportRightGapPx = 90.0f;
+  constexpr float kSupportInfoTopGapPx = 20.0f;
+  constexpr float kSupportLineSpacingPx = 2.0f;
+
+  for (const auto &[uuid, support] : supports) {
+    if (!IsLayerVisibleCached(hiddenLayers, support.layer))
+      continue;
+
+    const double wx = support.transform.o[0] * RENDER_SCALE;
+    const double wy = support.transform.o[1] * RENDER_SCALE;
+    const double wz = support.transform.o[2] * RENDER_SCALE;
+
+    int x = 0;
+    int y = 0;
+    if (!ProjectLabelAnchor(projection, wx, wy, wz, x, y))
+      continue;
+
+    const SupportLabelText text = BuildSupportLabelText(support, uuid);
+    const float pxToWorld = 1.0f / (PIXELS_PER_METER * zoom);
+
+    std::vector<LabelLine2D> titleLines = {
+        {m_controller.GetLabelBoldFont() >= 0 ? m_controller.GetLabelBoldFont()
+                                              : m_controller.GetLabelFont(),
+         text.name, kSupportNameSizePx * zoom, kRegularFamily}};
+    std::vector<LabelLine2D> coordLines = {
+        {m_controller.GetLabelFont(), text.coordinates, kSupportBodySizePx * zoom,
+         kRegularFamily}};
+    std::vector<LabelLine2D> infoLines = {
+        {m_controller.GetLabelFont(), text.capacity, kSupportBodySizePx * zoom,
+         kRegularFamily},
+        {m_controller.GetLabelFont(), text.load, kSupportBodySizePx * zoom,
+         kRegularFamily}};
+
+    if (m_controller.GetCaptureCanvas()) {
+      std::string labelSourceKey = "support-label:" + uuid;
+      m_controller.GetCaptureCanvas()->SetSourceKey(labelSourceKey);
+
+      auto toPlan2D = [](double px, double py, double pz, Viewer2DView labelView) {
+        switch (labelView) {
+        case Viewer2DView::Top:
+        case Viewer2DView::Bottom:
+          return std::array<float, 2>{static_cast<float>(px), static_cast<float>(py)};
+        case Viewer2DView::Front:
+          return std::array<float, 2>{static_cast<float>(px), static_cast<float>(pz)};
+        case Viewer2DView::Side:
+          return std::array<float, 2>{static_cast<float>(-py), static_cast<float>(pz)};
+        }
+        return std::array<float, 2>{static_cast<float>(px), static_cast<float>(py)};
+      };
+
+      auto recordSingleLine = [&](const std::string &value, float worldX, float worldY,
+                                  float sizePx,
+                                  CanvasTextStyle::HorizontalAlign hAlign) {
+        CanvasTextStyle style;
+        style.fontFamily = kRegularFamily;
+        style.fontSize = sizePx * pxToWorld;
+        nvgFontSize(m_controller.GetNanoVGContext(), sizePx * zoom);
+        nvgFontFaceId(m_controller.GetNanoVGContext(), m_controller.GetLabelFont());
+        float ascender = 0.0f;
+        float descender = 0.0f;
+        float lineh = 0.0f;
+        nvgTextMetrics(m_controller.GetNanoVGContext(), &ascender, &descender, &lineh);
+        style.ascent = ascender * pxToWorld;
+        style.descent = -descender * pxToWorld;
+        style.lineHeight = lineh * pxToWorld;
+        style.extraLineSpacing = kSupportLineSpacingPx * pxToWorld;
+        style.color = {0.0f, 0.0f, 0.0f, 1.0f};
+        style.outlineColor = {1.0f, 1.0f, 1.0f, 1.0f};
+        style.outlineWidth = pxToWorld * 0.5f;
+        style.hAlign = hAlign;
+        style.vAlign = CanvasTextStyle::VerticalAlign::Baseline;
+        m_controller.RecordText(worldX, worldY, value, style);
+      };
+
+      const auto canvasAnchor = toPlan2D(wx, wy, wz, view);
+      const float titleBaseline = canvasAnchor[1] + kSupportTopGapPx * pxToWorld;
+      const float coordBaseline = canvasAnchor[1] - kSupportBottomGapPx * pxToWorld;
+      const float infoX = canvasAnchor[0] + kSupportRightGapPx * pxToWorld;
+      const float infoTop = canvasAnchor[1] + kSupportInfoTopGapPx * pxToWorld;
+
+      recordSingleLine(text.name, canvasAnchor[0], titleBaseline, kSupportNameSizePx,
+                       CanvasTextStyle::HorizontalAlign::Center);
+      recordSingleLine(text.coordinates, canvasAnchor[0], coordBaseline, kSupportBodySizePx,
+                       CanvasTextStyle::HorizontalAlign::Center);
+      recordSingleLine(text.capacity, infoX, infoTop, kSupportBodySizePx,
+                       CanvasTextStyle::HorizontalAlign::Left);
+      recordSingleLine(text.load, infoX,
+                       infoTop - (kSupportBodySizePx + kSupportLineSpacingPx) * pxToWorld,
+                       kSupportBodySizePx, CanvasTextStyle::HorizontalAlign::Left);
+    }
+
+    NVGcolor textColor =
+        m_controller.IsDarkMode() ? nvgRGBAf(1.f, 1.f, 1.f, 1.f)
+                                  : nvgRGBAf(0.f, 0.f, 0.f, 1.f);
+    NVGcolor outlineColor =
+        m_controller.IsDarkMode() ? nvgRGBAf(0.f, 0.f, 0.f, 1.f)
+                                  : nvgRGBAf(1.f, 1.f, 1.f, 1.f);
+    DrawLabelLines2D(m_controller.GetNanoVGContext(), titleLines, x,
+                     static_cast<int>(std::lround(y - kSupportTopGapPx * zoom)),
+                     NVG_ALIGN_CENTER, textColor, outlineColor, true);
+    DrawLabelLines2D(m_controller.GetNanoVGContext(), coordLines, x,
+                     static_cast<int>(std::lround(y + kSupportBottomGapPx * zoom)),
+                     NVG_ALIGN_CENTER, textColor, outlineColor, true);
+    DrawLabelLines2D(
+        m_controller.GetNanoVGContext(), infoLines,
+        static_cast<int>(std::lround(x + kSupportRightGapPx * zoom)),
+        static_cast<int>(std::lround(y - kSupportInfoTopGapPx * zoom)), NVG_ALIGN_LEFT,
+        textColor, outlineColor, true);
   }
 }
 
