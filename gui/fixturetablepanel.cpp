@@ -671,14 +671,26 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
     if (dlg.ShowModal() != wxID_OK)
       return;
     const wxString value = dlg.GetStringSelection();
+    std::unordered_set<std::string> selectedTypes;
     for (const auto &it : selections) {
       int r = table->ItemToRow(it);
-      if (r != wxNOT_FOUND)
+      if (r != wxNOT_FOUND) {
         table->SetValue(wxVariant(value), r, col);
+        wxVariant typeValue;
+        table->GetValue(typeValue, r, 2);
+        selectedTypes.insert(std::string(typeValue.GetString().ToUTF8()));
+      }
     }
-    for (const auto &uuid : selectedUuids)
-      manualCategoryUuidsPending.insert(uuid);
     PropagateTypeValues(selections, col);
+    for (unsigned int row = 0; row < table->GetItemCount() &&
+                               row < rowUuids.size();
+         ++row) {
+      wxVariant typeValue;
+      table->GetValue(typeValue, row, 2);
+      const std::string typeName = std::string(typeValue.GetString().ToUTF8());
+      if (selectedTypes.find(typeName) != selectedTypes.end())
+        manualCategoryUuidsPending.insert(rowUuids[row]);
+    }
     ResyncRows(oldOrder, selectedUuids);
     UpdateSceneData();
     HighlightDuplicateFixtureIds();
