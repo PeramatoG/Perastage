@@ -111,6 +111,12 @@ static std::string TrimAscii(std::string value) {
   return value;
 }
 
+static std::string ToLowerAscii(std::string value) {
+  std::transform(value.begin(), value.end(), value.begin(),
+                 [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+  return value;
+}
+
 static void LogLegacyPositionUuidWarning(const std::string &message) {
   Logger::Instance().Log(Logger::Level::Warn, message);
 }
@@ -657,7 +663,7 @@ static tinyxml2::XMLElement *FindFirstPerastageUserData(tinyxml2::XMLElement *no
          data = data->NextSiblingElement("Data")) {
       const std::string provider = TrimAscii(
           data->Attribute("provider") ? data->Attribute("provider") : "");
-      if (provider.empty() || ToLowerCopy(provider) == "perastage")
+      if (provider.empty() || ToLowerAscii(provider) == "perastage")
         return ud;
     }
   }
@@ -677,7 +683,7 @@ static tinyxml2::XMLElement *FindOrCreatePerastageDataNode(tinyxml2::XMLDocument
        data = data->NextSiblingElement("Data")) {
     const std::string provider =
         TrimAscii(data->Attribute("provider") ? data->Attribute("provider") : "");
-    if (provider.empty() || ToLowerCopy(provider) == "perastage")
+    if (provider.empty() || ToLowerAscii(provider) == "perastage")
       return data;
   }
 
