@@ -29,10 +29,15 @@ public:
 private:
   bool ApplyPreferences();
   void NotifyUnitsChanged();
+  void RefreshRiderImportDistanceLabels();
+  void ConvertRiderImportDistanceFields();
 
   std::array<wxTextCtrl *, 6> lxHeightCtrls{};
   std::array<wxTextCtrl *, 6> lxPosCtrls{};
   std::array<wxTextCtrl *, 6> lxMarginCtrls{};
+  std::array<wxStaticText *, 6> lxHeightLabels{};
+  std::array<wxStaticText *, 6> lxPosLabels{};
+  std::array<wxStaticText *, 6> lxMarginLabels{};
   wxCheckBox *autopatchCheck = nullptr;
   wxRadioButton *layerPosRadio = nullptr;
   wxRadioButton *layerTypeRadio = nullptr;
