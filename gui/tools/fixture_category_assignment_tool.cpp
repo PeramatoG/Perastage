@@ -82,7 +82,9 @@ void RunFixtureCategoryAssignment(MainWindow &window) {
   }
 
   for (const auto &[typeName, category] : updatedTypeCategories)
-    GdtfDictionary::UpdateCategory(typeName, category);
+    GdtfDictionary::UpdateCategory(typeName, category,
+                                   GdtfFixtureCategory::kAutoFallbackSource,
+                                   "batch assignment tool");
 
   window.RefreshAfterToolSceneUpdate();
 

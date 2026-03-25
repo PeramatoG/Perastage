@@ -1159,8 +1159,12 @@ bool RiderImporter::ImportText(const std::string &text) {
           const std::string dictionaryCategory = Trim(dictEntry->category);
           if (!dictionaryCategory.empty()) {
             f.category = dictionaryCategory;
-            f.categorySource = GdtfFixtureCategory::kManualSource;
-            f.categorySourceReason.clear();
+            f.categorySource = dictEntry->categorySource.empty()
+                                   ? GdtfFixtureCategory::kManualSource
+                                   : dictEntry->categorySource;
+            f.categorySourceReason = dictEntry->categoryReason;
+            if (f.categorySource == GdtfFixtureCategory::kManualSource)
+              f.categorySourceReason.clear();
           }
           const std::string resolvedGdtfPath = ResolveGdtfPath(scene, f.gdtfSpec);
           std::string parsed = Trim(GetGdtfFixtureName(resolvedGdtfPath));

@@ -88,7 +88,7 @@ std::optional<std::unordered_map<std::string, Entry>> Load() {
       fs::path p = fs::u8path(it.value().get<std::string>());
       if (!p.is_absolute())
         p = dir / p;
-      dict[it.key()] = {p.string(), "", ""};
+      dict[it.key()] = {p.string(), "", "", "", ""};
     } else if (it.value().is_object()) {
       Entry e;
       std::string fname;
@@ -106,7 +106,16 @@ std::optional<std::unordered_map<std::string, Entry>> Load() {
         e.mode = it.value()["mode"].get<std::string>();
       if (it.value().contains("category") && it.value()["category"].is_string())
         e.category = it.value()["category"].get<std::string>();
-      if (e.path.empty() && e.mode.empty() && e.category.empty())
+      if (it.value().contains("categorySource") &&
+          it.value()["categorySource"].is_string()) {
+        e.categorySource = it.value()["categorySource"].get<std::string>();
+      }
+      if (it.value().contains("categoryReason") &&
+          it.value()["categoryReason"].is_string()) {
+        e.categoryReason = it.value()["categoryReason"].get<std::string>();
+      }
+      if (e.path.empty() && e.mode.empty() && e.category.empty() &&
+          e.categorySource.empty() && e.categoryReason.empty())
         continue;
       dict[it.key()] = e;
     }
@@ -127,7 +136,8 @@ void Save(const std::unordered_map<std::string, Entry> &dict) {
   std::sort(keys.begin(), keys.end());
   for (const auto &type : keys) {
     const auto &entry = dict.at(type);
-    if (entry.path.empty() && entry.mode.empty() && entry.category.empty())
+    if (entry.path.empty() && entry.mode.empty() && entry.category.empty() &&
+        entry.categorySource.empty() && entry.categoryReason.empty())
       continue;
     nlohmann::json obj;
     if (!entry.path.empty()) {
@@ -140,6 +150,10 @@ void Save(const std::unordered_map<std::string, Entry> &dict) {
       obj["mode"] = entry.mode;
     if (!entry.category.empty())
       obj["category"] = entry.category;
+    if (!entry.categorySource.empty())
+      obj["categorySource"] = entry.categorySource;
+    if (!entry.categoryReason.empty())
+      obj["categoryReason"] = entry.categoryReason;
     if (obj.empty())
       continue;
     j[type] = obj;
@@ -202,7 +216,9 @@ void Update(const std::string &type, const std::string &gdtfPath, const std::str
 }
 
 
-void UpdateCategory(const std::string &type, const std::string &category) {
+void UpdateCategory(const std::string &type, const std::string &category,
+                    const std::string &categorySource,
+                    const std::string &categoryReason) {
   std::lock_guard<std::recursive_mutex> lock(StartupFileAccessGate::Mutex());
   if (type.empty())
     return;
@@ -214,9 +230,13 @@ void UpdateCategory(const std::string &type, const std::string &category) {
   if (it == dict.end()) {
     Entry e;
     e.category = category;
+    e.categorySource = categorySource;
+    e.categoryReason = categoryReason;
     dict[type] = e;
   } else {
     it->second.category = category;
+    it->second.categorySource = categorySource;
+    it->second.categoryReason = categoryReason;
   }
   Save(dict);
 }

@@ -26,6 +26,8 @@ namespace GdtfDictionary {
         std::string path; // optional absolute path inside fixtures library
         std::string mode;
         std::string category;
+        std::string categorySource;
+        std::string categoryReason;
     };
 
     // Loads the dictionary file into a map of type -> {gdtf path in library, default mode}
@@ -37,5 +39,7 @@ namespace GdtfDictionary {
     std::optional<Entry> Get(const std::string& type);
     // Copies the gdtf file into the fixtures library and updates the dictionary
     void Update(const std::string& type, const std::string& gdtfPath, const std::string& mode = {}, const std::string& category = {});
-    void UpdateCategory(const std::string& type, const std::string& category);
+    void UpdateCategory(const std::string& type, const std::string& category,
+                        const std::string& categorySource = {},
+                        const std::string& categoryReason = {});
 }

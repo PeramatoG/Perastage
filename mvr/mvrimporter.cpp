@@ -1326,11 +1326,16 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
             !fixture.typeName.empty() ? fixture.typeName : fixture.gdtfSpec;
 
         if (fixture.category.empty() && !fixture.typeName.empty()) {
-          if (auto entry = GdtfDictionary::Get(fixture.typeName))
+          if (auto entry = GdtfDictionary::Get(fixture.typeName)) {
             fixture.category = GdtfFixtureCategory::NormalizeCategory(entry->category);
+            fixture.categorySource = entry->categorySource;
+            fixture.categorySourceReason = entry->categoryReason;
+          }
           if (!fixture.category.empty()) {
-            fixture.categorySource = GdtfFixtureCategory::kManualSource;
-            fixture.categorySourceReason.clear();
+            if (fixture.categorySource.empty())
+              fixture.categorySource = GdtfFixtureCategory::kManualSource;
+            if (fixture.categorySource == GdtfFixtureCategory::kManualSource)
+              fixture.categorySourceReason.clear();
           }
         }
 
@@ -1367,7 +1372,9 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         }
 
         if (!fixture.category.empty() && !fixture.typeName.empty())
-          GdtfDictionary::UpdateCategory(fixture.typeName, fixture.category);
+          GdtfDictionary::UpdateCategory(fixture.typeName, fixture.category,
+                                         fixture.categorySource,
+                                         fixture.categorySourceReason);
         auto posIt = scene.positions.find(fixture.position);
         if (posIt != scene.positions.end())
           fixture.positionName = posIt->second;

@@ -36,7 +36,8 @@ std::optional<std::unordered_map<std::string, Entry>> Load() { return std::unord
 void Save(const std::unordered_map<std::string, Entry> &) {}
 std::optional<Entry> Get(const std::string &) { return std::nullopt; }
 void Update(const std::string &, const std::string &, const std::string &, const std::string &) {}
-void UpdateCategory(const std::string &, const std::string &) {}
+void UpdateCategory(const std::string &, const std::string &,
+                    const std::string &, const std::string &) {}
 }
 
 namespace TrussDictionary {

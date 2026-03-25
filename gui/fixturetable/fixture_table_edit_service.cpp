@@ -251,7 +251,9 @@ void UpdateSceneData(ISceneAdapter &adapter, wxDataViewListCtrl *table,
     anyChanged = true;
     it->second = next;
     if (!next.typeName.empty() && !next.category.empty())
-      GdtfDictionary::UpdateCategory(next.typeName, next.category);
+      GdtfDictionary::UpdateCategory(next.typeName, next.category,
+                                     next.categorySource,
+                                     next.categorySourceReason);
     if (!it->second.position.empty())
       scene.positions[it->second.position] = it->second.positionName;
 
