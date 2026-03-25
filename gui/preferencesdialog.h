@@ -20,15 +20,24 @@
 #include <array>
 #include <wx/wx.h>
 
+wxDECLARE_EVENT(EVT_UI_UNITS_CHANGED, wxCommandEvent);
+
 class PreferencesDialog : public wxDialog {
 public:
   PreferencesDialog(wxWindow *parent);
 
 private:
+  bool ApplyPreferences();
+  void NotifyUnitsChanged();
+
   std::array<wxTextCtrl *, 6> lxHeightCtrls{};
   std::array<wxTextCtrl *, 6> lxPosCtrls{};
   std::array<wxTextCtrl *, 6> lxMarginCtrls{};
   wxCheckBox *autopatchCheck = nullptr;
   wxRadioButton *layerPosRadio = nullptr;
   wxRadioButton *layerTypeRadio = nullptr;
+  wxChoice *distanceUnitChoice = nullptr;
+  wxChoice *weightUnitChoice = nullptr;
+  wxString initialDistanceUnit;
+  wxString initialWeightUnit;
 };

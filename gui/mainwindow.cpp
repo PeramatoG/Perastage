@@ -139,6 +139,27 @@ MainWindow *MainWindow::Instance() { return s_instance; }
 void MainWindow::SetInstance(MainWindow *inst) { s_instance = inst; }
 
 namespace {
+enum class UiUnitSystem { Metric, Imperial };
+
+UiUnitSystem ResolveDistanceUnitSystem(ConfigManager &cfg) {
+  const auto value = cfg.GetValue("ui_distance_unit_system");
+  if (value && *value == "imperial")
+    return UiUnitSystem::Imperial;
+  return UiUnitSystem::Metric;
+}
+
+double ConvertMetersToDistanceUnit(double meters, UiUnitSystem unitSystem) {
+  if (unitSystem == UiUnitSystem::Imperial) {
+    constexpr double kMetersToFeet = 3.280839895;
+    return meters * kMetersToFeet;
+  }
+  return meters;
+}
+
+const char *DistanceUnitSuffix(UiUnitSystem unitSystem) {
+  return unitSystem == UiUnitSystem::Imperial ? "ft" : "m";
+}
+
 void PersistFixtureTypeAutoColors(ConfigManager &configManager) {
   auto &scene = configManager.GetScene();
   for (auto &[uuid, fixture] : scene.fixtures) {
@@ -261,6 +282,7 @@ EVT_MENU(ID_Select_Supports, MainWindow::OnSelectSupports)
 EVT_MENU(ID_Select_Objects, MainWindow::OnSelectObjects)
 EVT_MENU(ID_Edit_Preferences, MainWindow::OnPreferences)
 EVT_COMMAND(wxID_ANY, EVT_PROJECT_LOADED, MainWindow::OnProjectLoaded)
+EVT_COMMAND(wxID_ANY, EVT_UI_UNITS_CHANGED, MainWindow::OnUiUnitsChanged)
 EVT_COMMAND(wxID_ANY, EVT_LAYOUT_SELECTED, MainWindow::OnLayoutSelected)
 EVT_COMMAND(wxID_ANY, EVT_LAYOUT_VIEW_EDIT, MainWindow::OnLayoutViewEdit)
 EVT_COMMAND(wxID_ANY, EVT_LAYOUT_VIEW_SELECTED, MainWindow::OnLayoutViewSelected)
@@ -442,17 +464,28 @@ void MainWindow::UpdateCursorWorldPositionInStatusBar(
     return;
   }
 
+  ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
+  const UiUnitSystem unitSystem = ResolveDistanceUnitSystem(cfg);
   std::ostringstream stream;
-  stream << std::fixed << std::setprecision(2) << "X: " << (*positionMeters)[0]
-         << " m  Y: " << (*positionMeters)[1] << " m  Z: "
-         << (*positionMeters)[2] << " m";
+  stream << std::fixed << std::setprecision(2) << "X: "
+         << ConvertMetersToDistanceUnit((*positionMeters)[0], unitSystem) << " "
+         << DistanceUnitSuffix(unitSystem) << "  Y: "
+         << ConvertMetersToDistanceUnit((*positionMeters)[1], unitSystem) << " "
+         << DistanceUnitSuffix(unitSystem) << "  Z: "
+         << ConvertMetersToDistanceUnit((*positionMeters)[2], unitSystem) << " "
+         << DistanceUnitSuffix(unitSystem);
   SetStatusText(wxString::FromUTF8(stream.str()), 1);
 }
 
 void MainWindow::ClearCursorWorldPositionInStatusBar() {
   if (!GetStatusBar())
     return;
-  SetStatusText("X: -- m  Y: -- m  Z: -- m", 1);
+  ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
+  const char *unitSuffix = DistanceUnitSuffix(ResolveDistanceUnitSystem(cfg));
+  SetStatusText(
+      wxString::Format("X: -- %s  Y: -- %s  Z: -- %s", unitSuffix, unitSuffix,
+                       unitSuffix),
+      1);
 }
 
 void MainWindow::Ensure2DViewportAvailable() { Ensure2DViewport(); }
@@ -1072,6 +1105,10 @@ void MainWindow::OnProjectLoaded(wxCommandEvent &event) {
   SetStartupProjectLoadPending(false);
 }
 
+void MainWindow::OnUiUnitsChanged(wxCommandEvent &WXUNUSED(event)) {
+  RefreshAfterUnitSystemChange();
+}
+
 void MainWindow::OnNotebookPageChanged(wxBookCtrlEvent &event) {
   RefreshSummary();
   event.Skip();
@@ -1119,3 +1156,12 @@ void MainWindow::RefreshAfterFixtureSymbolUpdate() {
 }
 
 void MainWindow::RefreshAfterToolSceneUpdate() { RefreshAfterSceneChange(); }
+
+void MainWindow::RefreshAfterUnitSystemChange() {
+  RefreshAfterSceneChange();
+  if (layoutViewerPanel) {
+    layoutViewerPanel->RefreshLegendData();
+    layoutViewerPanel->Refresh();
+  }
+  ClearCursorWorldPositionInStatusBar();
+}
