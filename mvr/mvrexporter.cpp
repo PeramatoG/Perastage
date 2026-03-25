@@ -78,8 +78,11 @@ static bool TryComputeAbsoluteDmx(int universe1Based, int address1Based,
                                   int &absoluteOut);
 
 static bool ShouldExportSupportHoistInfo(const Support &support);
+static tinyxml2::XMLElement *FindFirstPerastageUserData(tinyxml2::XMLElement *node);
+static tinyxml2::XMLElement *FindOrCreatePerastageDataNode(tinyxml2::XMLDocument &doc,
+                                                            tinyxml2::XMLElement *node);
 static void AppendSupportHoistInfoUserData(tinyxml2::XMLDocument &doc,
-                                           tinyxml2::XMLElement *supportNode,
+                                           tinyxml2::XMLElement *supportData,
                                            const Support &support);
 static bool IsCanonicalUuidString(const std::string &value);
 static void LogLegacyPositionUuidWarning(const std::string &message);
@@ -644,13 +647,50 @@ static bool ShouldExportSupportHoistInfo(const Support &support) {
          NormalizeHoistDataSource(support.hoistFunctionSource) != "Inherited";
 }
 
-static void AppendSupportHoistInfoUserData(tinyxml2::XMLDocument &doc,
-                                           tinyxml2::XMLElement *supportNode,
-                                           const Support &support) {
-  tinyxml2::XMLElement *ud = doc.NewElement("UserData");
+static tinyxml2::XMLElement *FindFirstPerastageUserData(tinyxml2::XMLElement *node) {
+  if (!node)
+    return nullptr;
+
+  for (tinyxml2::XMLElement *ud = node->FirstChildElement("UserData"); ud;
+       ud = ud->NextSiblingElement("UserData")) {
+    for (tinyxml2::XMLElement *data = ud->FirstChildElement("Data"); data;
+         data = data->NextSiblingElement("Data")) {
+      const std::string provider = TrimAscii(
+          data->Attribute("provider") ? data->Attribute("provider") : "");
+      if (provider.empty() || ToLowerCopy(provider) == "perastage")
+        return ud;
+    }
+  }
+
+  return nullptr;
+}
+
+static tinyxml2::XMLElement *FindOrCreatePerastageDataNode(tinyxml2::XMLDocument &doc,
+                                                            tinyxml2::XMLElement *node) {
+  tinyxml2::XMLElement *ud = FindFirstPerastageUserData(node);
+  if (!ud) {
+    ud = doc.NewElement("UserData");
+    node->InsertEndChild(ud);
+  }
+
+  for (tinyxml2::XMLElement *data = ud->FirstChildElement("Data"); data;
+       data = data->NextSiblingElement("Data")) {
+    const std::string provider =
+        TrimAscii(data->Attribute("provider") ? data->Attribute("provider") : "");
+    if (provider.empty() || ToLowerCopy(provider) == "perastage")
+      return data;
+  }
+
   tinyxml2::XMLElement *data = doc.NewElement("Data");
   data->SetAttribute("provider", kMvrProvider);
   data->SetAttribute("ver", kMvrProviderVersion);
+  ud->InsertEndChild(data);
+  return data;
+}
+
+static void AppendSupportHoistInfoUserData(tinyxml2::XMLDocument &doc,
+                                           tinyxml2::XMLElement *supportData,
+                                           const Support &support) {
   tinyxml2::XMLElement *info = doc.NewElement("HoistInfo");
   info->SetAttribute("uuid", support.uuid.c_str());
 
@@ -717,9 +757,7 @@ static void AppendSupportHoistInfoUserData(tinyxml2::XMLDocument &doc,
   addText("RiggingPointSource", hoistFunctionSource);
   addText("FunctionSource", hoistFunctionSource); // Compatibility alias.
 
-  data->InsertEndChild(info);
-  ud->InsertEndChild(data);
-  supportNode->InsertEndChild(ud);
+  supportData->InsertEndChild(info);
 }
 
 static bool TryComputeAbsoluteDmx(int universe1Based, int address1Based,
@@ -1645,10 +1683,7 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
       }
     };
 
-    tinyxml2::XMLElement *ud = doc.NewElement("UserData");
-    tinyxml2::XMLElement *data = doc.NewElement("Data");
-    data->SetAttribute("provider", kMvrProvider);
-    data->SetAttribute("ver", kMvrProviderVersion);
+    tinyxml2::XMLElement *data = FindOrCreatePerastageDataNode(doc, se);
     tinyxml2::XMLElement *info = doc.NewElement("SupportInfo");
     info->SetAttribute("uuid", s.uuid.c_str());
     std::string supportGdtfArchivePath = registerGdtfResource(s.uuid, s.gdtfSpec, "");
@@ -1661,8 +1696,6 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     addSupportInfo("PositionName", s.positionName, info);
     if (info->FirstChild())
       data->InsertEndChild(info);
-    ud->InsertEndChild(data);
-    se->InsertEndChild(ud);
 
     std::string mstr = MatrixUtils::FormatMatrix(s.transform);
     tinyxml2::XMLElement *mat = doc.NewElement("Matrix");
@@ -1670,7 +1703,7 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     se->InsertEndChild(mat);
 
     if (ShouldExportSupportHoistInfo(s))
-      AppendSupportHoistInfoUserData(doc, se, s);
+      AppendSupportHoistInfoUserData(doc, data, s);
 
     parent->InsertEndChild(se);
   };

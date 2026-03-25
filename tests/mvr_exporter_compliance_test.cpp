@@ -470,10 +470,16 @@ int main() {
   assert(std::string(supportSceneObject->Attribute("geometryType")) == "support");
   auto *supportUserData = supportSceneObject->FirstChildElement("UserData");
   assert(supportUserData != nullptr);
+  assert(supportUserData->NextSiblingElement("UserData") == nullptr);
   auto *supportData = supportUserData->FirstChildElement("Data");
   assert(supportData != nullptr);
   auto *supportInfo = supportData->FirstChildElement("SupportInfo");
   assert(supportInfo != nullptr);
+  auto *hoistInfo = supportData->FirstChildElement("HoistInfo");
+  assert(hoistInfo != nullptr);
+  auto *capacityNode = hoistInfo->FirstChildElement("Capacity");
+  assert(capacityNode != nullptr && capacityNode->GetText() != nullptr &&
+         std::string(capacityNode->GetText()) == "1000.000000");
   auto *supportPositionNode = supportInfo->FirstChildElement("Position");
   assert(supportPositionNode != nullptr && supportPositionNode->GetText() != nullptr);
   assert(CanonicalizeUuid(supportPositionNode->GetText()) ==

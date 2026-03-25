@@ -92,6 +92,14 @@ int main() {
   manual.loadKg = 410.0f;
   manual.hoistFunction = "Audio";
   manual.motorName = "ChainMaster D8+";
+  manual.motorNameSource = "Manual";
+  manual.motorManufacturer = "ChainMaster";
+  manual.motorManufacturerSource = "Manual";
+  manual.motorModel = "D8+";
+  manual.motorModelSource = "Manual";
+  manual.capacitySource = "Manual";
+  manual.weightSource = "Manual";
+  manual.hoistFunctionSource = "Manual";
   scene.supports[manual.uuid] = manual;
 
   const std::filesystem::path mvrPath = tempDir / "support_roundtrip.mvr";
@@ -123,6 +131,15 @@ int main() {
   assert(loadedManual.weightKg == 61.0f);
   assert(loadedManual.loadKg == 410.0f);
   assert(loadedManual.hoistFunction == "Audio");
+  assert(loadedManual.motorName == "ChainMaster D8+");
+  assert(loadedManual.motorManufacturer == "ChainMaster");
+  assert(loadedManual.motorModel == "D8+");
+  assert(loadedManual.motorNameSource == "Manual");
+  assert(loadedManual.motorManufacturerSource == "Manual");
+  assert(loadedManual.motorModelSource == "Manual");
+  assert(loadedManual.capacitySource == "Manual");
+  assert(loadedManual.weightSource == "Manual");
+  assert(loadedManual.hoistFunctionSource == "Manual");
 
 
   const auto &loadedInheritedDefaults = loaded.at("sup-inherited-defaults");

@@ -486,106 +486,105 @@ static void ReadFixtureCategoryFromUserData(tinyxml2::XMLElement *fixtureNode,
 
 static void ReadSupportHoistInfoFromUserData(tinyxml2::XMLElement *supportNode,
                                              Support &support) {
-  tinyxml2::XMLElement *ud = supportNode->FirstChildElement("UserData");
-  if (!ud)
-    return;
+  for (tinyxml2::XMLElement *ud = supportNode->FirstChildElement("UserData"); ud;
+       ud = ud->NextSiblingElement("UserData")) {
+    for (tinyxml2::XMLElement *data = ud->FirstChildElement("Data"); data;
+         data = data->NextSiblingElement("Data")) {
+      tinyxml2::XMLElement *info = data->FirstChildElement("HoistInfo");
+      if (!info)
+        info = data->FirstChildElement("MotorInfo"); // Legacy block name.
+      if (!info)
+        continue;
 
-  for (tinyxml2::XMLElement *data = ud->FirstChildElement("Data"); data;
-       data = data->NextSiblingElement("Data")) {
-    tinyxml2::XMLElement *info = data->FirstChildElement("HoistInfo");
-    if (!info)
-      info = data->FirstChildElement("MotorInfo"); // Legacy block name.
-    if (!info)
-      continue;
-
-    auto readFloat = [&](const char *name, float &out) {
-      if (tinyxml2::XMLElement *el = info->FirstChildElement(name)) {
-        if (const char *txt = el->GetText()) {
-          float parsed = 0.0f;
-          if (TryParseFloat(txt, parsed))
-            out = parsed;
+      auto readFloat = [&](const char *name, float &out) {
+        if (tinyxml2::XMLElement *el = info->FirstChildElement(name)) {
+          if (const char *txt = el->GetText()) {
+            float parsed = 0.0f;
+            if (TryParseFloat(txt, parsed))
+              out = parsed;
+          }
         }
+      };
+      auto readText = [&](const char *name) -> std::string {
+        if (tinyxml2::XMLElement *el = info->FirstChildElement(name)) {
+          if (const char *txt = el->GetText())
+            return Trim(txt);
+        }
+        return {};
+      };
+
+      readFloat("Capacity", support.capacityKg);
+      readFloat("Weight", support.weightKg);
+      readFloat("Load", support.loadKg);
+
+      std::string hoistFunction = readText("RiggingPoint"); // Canonical in new schema.
+      if (hoistFunction.empty())
+        hoistFunction = readText("Function");
+      if (!hoistFunction.empty())
+        support.hoistFunction = NormalizeHoistFunction(hoistFunction);
+
+      const std::string motorName = readText("MotorName");
+      if (!motorName.empty())
+        support.motorName = motorName;
+      const std::string manufacturer = readText("MotorManufacturer");
+      if (!manufacturer.empty())
+        support.motorManufacturer = manufacturer;
+      const std::string model = readText("MotorModel");
+      if (!model.empty())
+        support.motorModel = model;
+      const std::string fixtureUuid = readText("MotorFixtureUuid");
+      if (!fixtureUuid.empty())
+        support.motorFixtureUuid = fixtureUuid;
+
+      const std::string useDefaults = ToLowerCopy(readText("UseMotorDefaults"));
+      if (!useDefaults.empty()) {
+        support.useMotorDefaults =
+            !(useDefaults == "false" || useDefaults == "0" || useDefaults == "no");
       }
-    };
-    auto readText = [&](const char *name) -> std::string {
-      if (tinyxml2::XMLElement *el = info->FirstChildElement(name)) {
-        if (const char *txt = el->GetText())
-          return Trim(txt);
+
+      const std::string dummyPreset = readText("DummyPreset");
+      if (!dummyPreset.empty())
+        support.dummyPreset = dummyPreset;
+      const std::string dummyProfileId = readText("DummyProfileId");
+      if (!dummyProfileId.empty())
+        support.dummyProfileId = dummyProfileId;
+
+      std::string source = readText("ValueSource");
+      if (source.empty())
+        source = readText("DataSource"); // Legacy key.
+      if (!source.empty())
+        support.hoistDataSource = NormalizeHoistDataSource(source);
+
+      const std::string motorNameSource = readText("MotorNameSource");
+      if (!motorNameSource.empty())
+        support.motorNameSource = NormalizeHoistDataSource(motorNameSource);
+
+      const std::string motorManufacturerSource =
+          readText("MotorManufacturerSource");
+      if (!motorManufacturerSource.empty()) {
+        support.motorManufacturerSource =
+            NormalizeHoistDataSource(motorManufacturerSource);
       }
-      return {};
-    };
 
-    readFloat("Capacity", support.capacityKg);
-    readFloat("Weight", support.weightKg);
-    readFloat("Load", support.loadKg);
+      const std::string motorModelSource = readText("MotorModelSource");
+      if (!motorModelSource.empty())
+        support.motorModelSource = NormalizeHoistDataSource(motorModelSource);
 
-    std::string hoistFunction = readText("RiggingPoint"); // Canonical in new schema.
-    if (hoistFunction.empty())
-      hoistFunction = readText("Function");
-    if (!hoistFunction.empty())
-      support.hoistFunction = NormalizeHoistFunction(hoistFunction);
+      const std::string capacitySource = readText("CapacitySource");
+      if (!capacitySource.empty())
+        support.capacitySource = NormalizeHoistDataSource(capacitySource);
 
-    const std::string motorName = readText("MotorName");
-    if (!motorName.empty())
-      support.motorName = motorName;
-    const std::string manufacturer = readText("MotorManufacturer");
-    if (!manufacturer.empty())
-      support.motorManufacturer = manufacturer;
-    const std::string model = readText("MotorModel");
-    if (!model.empty())
-      support.motorModel = model;
-    const std::string fixtureUuid = readText("MotorFixtureUuid");
-    if (!fixtureUuid.empty())
-      support.motorFixtureUuid = fixtureUuid;
+      const std::string weightSource = readText("WeightSource");
+      if (!weightSource.empty())
+        support.weightSource = NormalizeHoistDataSource(weightSource);
 
-    const std::string useDefaults = ToLowerCopy(readText("UseMotorDefaults"));
-    if (!useDefaults.empty()) {
-      support.useMotorDefaults =
-          !(useDefaults == "false" || useDefaults == "0" || useDefaults == "no");
-    }
-
-    const std::string dummyPreset = readText("DummyPreset");
-    if (!dummyPreset.empty())
-      support.dummyPreset = dummyPreset;
-    const std::string dummyProfileId = readText("DummyProfileId");
-    if (!dummyProfileId.empty())
-      support.dummyProfileId = dummyProfileId;
-
-    std::string source = readText("ValueSource");
-    if (source.empty())
-      source = readText("DataSource"); // Legacy key.
-    if (!source.empty())
-      support.hoistDataSource = NormalizeHoistDataSource(source);
-
-    const std::string motorNameSource = readText("MotorNameSource");
-    if (!motorNameSource.empty())
-      support.motorNameSource = NormalizeHoistDataSource(motorNameSource);
-
-    const std::string motorManufacturerSource =
-        readText("MotorManufacturerSource");
-    if (!motorManufacturerSource.empty()) {
-      support.motorManufacturerSource =
-          NormalizeHoistDataSource(motorManufacturerSource);
-    }
-
-    const std::string motorModelSource = readText("MotorModelSource");
-    if (!motorModelSource.empty())
-      support.motorModelSource = NormalizeHoistDataSource(motorModelSource);
-
-    const std::string capacitySource = readText("CapacitySource");
-    if (!capacitySource.empty())
-      support.capacitySource = NormalizeHoistDataSource(capacitySource);
-
-    const std::string weightSource = readText("WeightSource");
-    if (!weightSource.empty())
-      support.weightSource = NormalizeHoistDataSource(weightSource);
-
-    std::string hoistFunctionSource = readText("RiggingPointSource");
-    if (hoistFunctionSource.empty())
-      hoistFunctionSource = readText("FunctionSource");
-    if (!hoistFunctionSource.empty()) {
-      support.hoistFunctionSource =
-          NormalizeHoistDataSource(hoistFunctionSource);
+      std::string hoistFunctionSource = readText("RiggingPointSource");
+      if (hoistFunctionSource.empty())
+        hoistFunctionSource = readText("FunctionSource");
+      if (!hoistFunctionSource.empty()) {
+        support.hoistFunctionSource =
+            NormalizeHoistDataSource(hoistFunctionSource);
+      }
     }
   }
 }
@@ -1762,7 +1761,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
           support.name = obj.name;
           support.layer = obj.layer;
           support.transform = obj.transform;
-          if (tinyxml2::XMLElement *ud = node->FirstChildElement("UserData")) {
+          for (tinyxml2::XMLElement *ud = node->FirstChildElement("UserData"); ud;
+               ud = ud->NextSiblingElement("UserData")) {
             for (tinyxml2::XMLElement *data = ud->FirstChildElement("Data"); data;
                  data = data->NextSiblingElement("Data")) {
               const std::string provider = ToLowerCopy(
