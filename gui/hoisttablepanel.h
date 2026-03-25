@@ -22,6 +22,7 @@
 #include <string>
 #include <vector>
 #include "colorstore.h"
+#include "positionvalueupdate.h"
 
 class IGuiConfigServices;
 
@@ -37,6 +38,7 @@ public:
   void SelectByUuid(const std::vector<std::string> &uuids);
   bool IsActivePage() const;
   void DeleteSelected();
+  void ApplyPositionValueUpdates(const std::vector<PositionValueUpdate> &updates);
   wxDataViewListCtrl *GetTableCtrl() const { return table; }
 
   static HoistTablePanel *Instance();

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "canvas2d.h"
+#include <string>
 
 class IRenderContext {
 public:
@@ -10,6 +11,8 @@ public:
   virtual bool UseAdaptiveLineProfile() const = 0;
   virtual bool SkipOutlinesForCurrentFrame() const = 0;
   virtual bool IsSelectionOutlineEnabled2D() const = 0;
+  virtual bool IsUuidHighlighted(const std::string &uuid) const = 0;
+  virtual bool IsUuidSelected(const std::string &uuid) const = 0;
   virtual bool IsCaptureOnly() const = 0;
   virtual ICanvas2D *GetCaptureCanvas() const = 0;
   virtual bool CaptureIncludesGrid() const = 0;

@@ -1565,6 +1565,15 @@ bool Viewer3DController::IsSelectionOutlineEnabled2D() const {
   return m_impl->showSelectionOutline2D;
 }
 
+bool Viewer3DController::IsUuidHighlighted(const std::string &uuid) const {
+  return !uuid.empty() && m_impl->highlightUuid == uuid;
+}
+
+bool Viewer3DController::IsUuidSelected(const std::string &uuid) const {
+  return !uuid.empty() &&
+         m_impl->selectedUuids.find(uuid) != m_impl->selectedUuids.end();
+}
+
 bool Viewer3DController::IsCaptureOnly() const { return m_impl->captureOnly; }
 
 ICanvas2D *Viewer3DController::GetCaptureCanvas() const {
