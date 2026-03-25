@@ -19,6 +19,27 @@ Perastage projects (`.pstg`) store the scene, layouts, and user settings.
 - **Save** stores changes in the current project file.
 - **Save As...** writes the project under a new name or location.
 
+## Units (Metric/Imperial)
+
+Set unit systems in **Edit > Preferences > Units**:
+
+- **Distance system:** Metric (`m`) or Imperial (`ft`)
+- **Weight system:** Metric (`kg`) or Imperial (`lb`)
+
+Behavior:
+
+- Internal canonical values remain in **mm** (distance) and **kg** (weight).
+- The unit preference changes **display labels** and **plain-number input interpretation**.
+- Inputs with explicit suffixes (`m`, `ft`, `in`, `kg`, `lb`) are accepted regardless of active system.
+
+Examples:
+
+- Metric distance active: entering `6.2` means `6.2 m`.
+- Imperial distance active: entering `6.2` means `6.2 ft`.
+- Entering `5' 6"` always parses as feet/inches distance.
+- Metric weight active: entering `120` means `120 kg`; imperial means `120 lb`.
+
+Formatting precision depends on UI context (table/label/inspector). See [`docs/ui_unit_systems.md`](docs/ui_unit_systems.md) for complete parsing and rounding rules.
 
 ## Build-dependent tools
 
@@ -191,6 +212,28 @@ Los proyectos de Perastage (`.pstg`) guardan la escena, los layouts y la configu
 - **Cargar** abre un `.pstg` existente.
 - **Guardar** guarda los cambios en el proyecto actual.
 - **Guardar como...** guarda el proyecto con otro nombre o en otra ubicación.
+
+## Unidades (Métrico/Imperial)
+
+Configura las unidades en **Edit > Preferences > Units**:
+
+- **Distance system:** Metric (`m`) o Imperial (`ft`)
+- **Weight system:** Metric (`kg`) o Imperial (`lb`)
+
+Comportamiento:
+
+- Internamente los valores canónicos siguen en **mm** (distancia) y **kg** (peso).
+- La preferencia cambia las **etiquetas de visualización** y cómo se interpreta una entrada numérica sin sufijo.
+- Entradas con sufijo explícito (`m`, `ft`, `in`, `kg`, `lb`) funcionan en cualquier sistema activo.
+
+Ejemplos:
+
+- Distancia en metric: `6.2` se interpreta como `6.2 m`.
+- Distancia en imperial: `6.2` se interpreta como `6.2 ft`.
+- `5' 6"` siempre se interpreta como pies/pulgadas.
+- Peso en metric: `120` se interpreta como `120 kg`; en imperial como `120 lb`.
+
+La precisión de redondeo/formato depende del contexto (tabla/label/inspector). Consulta [`docs/ui_unit_systems.md`](docs/ui_unit_systems.md) para reglas completas de parseo y redondeo.
 
 ## Comandos de consola (completo)
 

@@ -76,6 +76,7 @@
 - Tables for fixtures, trusses, hoists and objects support multi‑row editing shortcuts: sequential fills, range interpolation (`1 10` / `1 thru 10`), relative edits (`++0.5`, `--15`), etc.
 - Console panel for status messages and command‑line operations (e.g. selecting fixtures or trusses via textual commands).
 - Preferences dialog to set default directories, units and other settings.
+- UI units can be switched independently for distance and weight (**Edit → Preferences → Units**). Internally, distances remain canonical in **mm** and weights in **kg**; metric/imperial affects input parsing and display/labels only. See [`docs/ui_unit_systems.md`](docs/ui_unit_systems.md).
 - Login dialog stores encrypted credentials for GDTF‑Share downloads.
 
 ---
