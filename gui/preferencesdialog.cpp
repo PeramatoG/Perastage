@@ -18,12 +18,23 @@
 #include "preferencesdialog.h"
 #include "configmanager.h"
 #include "guiconfigservices.h"
+#include "units/units.h"
 #include <wx/checkbox.h>
 #include <wx/choice.h>
 #include <wx/notebook.h>
 #include <wx/radiobut.h>
 
 wxDEFINE_EVENT(EVT_UI_UNITS_CHANGED, wxCommandEvent);
+
+namespace {
+
+Units::DistanceUnitSystem DistanceUnitSystemFromChoice(const wxChoice *choice) {
+  if (choice && choice->GetSelection() == 1)
+    return Units::DistanceUnitSystem::Imperial;
+  return Units::DistanceUnitSystem::Metric;
+}
+
+} // namespace
 
 PreferencesDialog::PreferencesDialog(wxWindow *parent)
     : wxDialog(parent, wxID_ANY, "Preferences", wxDefaultPosition,
@@ -57,30 +68,41 @@ PreferencesDialog::PreferencesDialog(wxWindow *parent)
   grid->AddGrowableCol(1, 1);
   grid->AddGrowableCol(3, 1);
   grid->AddGrowableCol(5, 1);
+  const auto riderDistanceUnit =
+      Units::ParseDistanceUnitSystem(cfg.GetValue("ui_distance_unit_system"));
 
   for (int i = 0; i < 6; ++i) {
-    wxString labelH = wxString::Format("LX%d height (m):", i + 1);
-    grid->Add(new wxStaticText(riderPanel, wxID_ANY, labelH), 0,
-              wxALIGN_CENTER_VERTICAL);
-    double valH = cfg.GetFloat("rider_lx" + std::to_string(i + 1) + "_height");
+    lxHeightLabels[i] =
+        new wxStaticText(riderPanel, wxID_ANY, wxString::Format("LX%d height:", i + 1));
+    grid->Add(lxHeightLabels[i], 0, wxALIGN_CENTER_VERTICAL);
+    const double valH = static_cast<double>(
+        cfg.GetFloat("rider_lx" + std::to_string(i + 1) + "_height"));
     lxHeightCtrls[i] = new wxTextCtrl(riderPanel, wxID_ANY,
-                                      wxString::Format("%.2f", valH));
+                                      wxString::FromUTF8(Units::FormatDistanceFromMillimeters(
+                                          valH * 1000.0, riderDistanceUnit,
+                                          Units::ValueFormatContext::Label)));
     grid->Add(lxHeightCtrls[i], 1, wxEXPAND);
 
-    wxString labelP = wxString::Format("LX%d position (m):", i + 1);
-    grid->Add(new wxStaticText(riderPanel, wxID_ANY, labelP), 0,
-              wxALIGN_CENTER_VERTICAL);
-    double valP = cfg.GetFloat("rider_lx" + std::to_string(i + 1) + "_pos");
+    lxPosLabels[i] =
+        new wxStaticText(riderPanel, wxID_ANY, wxString::Format("LX%d position:", i + 1));
+    grid->Add(lxPosLabels[i], 0, wxALIGN_CENTER_VERTICAL);
+    const double valP =
+        static_cast<double>(cfg.GetFloat("rider_lx" + std::to_string(i + 1) + "_pos"));
     lxPosCtrls[i] = new wxTextCtrl(riderPanel, wxID_ANY,
-                                   wxString::Format("%.2f", valP));
+                                   wxString::FromUTF8(Units::FormatDistanceFromMillimeters(
+                                       valP * 1000.0, riderDistanceUnit,
+                                       Units::ValueFormatContext::Label)));
     grid->Add(lxPosCtrls[i], 1, wxEXPAND);
 
-    wxString labelM = wxString::Format("LX%d margin (m):", i + 1);
-    grid->Add(new wxStaticText(riderPanel, wxID_ANY, labelM), 0,
-              wxALIGN_CENTER_VERTICAL);
-    double valM = cfg.GetFloat("rider_lx" + std::to_string(i + 1) + "_margin");
+    lxMarginLabels[i] =
+        new wxStaticText(riderPanel, wxID_ANY, wxString::Format("LX%d margin:", i + 1));
+    grid->Add(lxMarginLabels[i], 0, wxALIGN_CENTER_VERTICAL);
+    const double valM = static_cast<double>(
+        cfg.GetFloat("rider_lx" + std::to_string(i + 1) + "_margin"));
     lxMarginCtrls[i] = new wxTextCtrl(riderPanel, wxID_ANY,
-                                      wxString::Format("%.2f", valM));
+                                      wxString::FromUTF8(Units::FormatDistanceFromMillimeters(
+                                          valM * 1000.0, riderDistanceUnit,
+                                          Units::ValueFormatContext::Label)));
     grid->Add(lxMarginCtrls[i], 1, wxEXPAND);
   }
   riderSizer->Add(grid, 1, wxALL | wxEXPAND, 10);
@@ -102,6 +124,11 @@ PreferencesDialog::PreferencesDialog(wxWindow *parent)
   const bool hasImperialDistance =
       distanceUnitValue && *distanceUnitValue == "imperial";
   distanceUnitChoice->SetSelection(hasImperialDistance ? 1 : 0);
+  RefreshRiderImportDistanceLabels();
+  distanceUnitChoice->Bind(wxEVT_CHOICE, [this](wxCommandEvent &) {
+    ConvertRiderImportDistanceFields();
+    RefreshRiderImportDistanceLabels();
+  });
   initialDistanceUnit = distanceUnitChoice->GetStringSelection();
   unitsGrid->Add(distanceUnitChoice, 1, wxEXPAND);
 
@@ -138,17 +165,21 @@ PreferencesDialog::PreferencesDialog(wxWindow *parent)
 
 bool PreferencesDialog::ApplyPreferences() {
   ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
+  const auto distanceUnitSystem = DistanceUnitSystemFromChoice(distanceUnitChoice);
   for (int i = 0; i < 6; ++i) {
-    double v = 0.0;
-    lxHeightCtrls[i]->GetValue().ToDouble(&v);
+    const auto heightMm = Units::ParseDistanceToMillimeters(
+        std::string(lxHeightCtrls[i]->GetValue().ToUTF8()), distanceUnitSystem);
+    const double v = heightMm.has_value() ? (*heightMm / 1000.0) : 0.0;
     cfg.SetFloat("rider_lx" + std::to_string(i + 1) + "_height",
                  static_cast<float>(v));
-    double p = 0.0;
-    lxPosCtrls[i]->GetValue().ToDouble(&p);
+    const auto posMm = Units::ParseDistanceToMillimeters(
+        std::string(lxPosCtrls[i]->GetValue().ToUTF8()), distanceUnitSystem);
+    const double p = posMm.has_value() ? (*posMm / 1000.0) : 0.0;
     cfg.SetFloat("rider_lx" + std::to_string(i + 1) + "_pos",
                  static_cast<float>(p));
-    double m = 0.0;
-    lxMarginCtrls[i]->GetValue().ToDouble(&m);
+    const auto marginMm = Units::ParseDistanceToMillimeters(
+        std::string(lxMarginCtrls[i]->GetValue().ToUTF8()), distanceUnitSystem);
+    const double m = marginMm.has_value() ? (*marginMm / 1000.0) : 0.0;
     cfg.SetFloat("rider_lx" + std::to_string(i + 1) + "_margin",
                  static_cast<float>(m));
   }
@@ -162,6 +193,43 @@ bool PreferencesDialog::ApplyPreferences() {
   cfg.SetValue("ui_weight_unit_system",
                weightUnitChoice->GetSelection() == 1 ? "imperial" : "metric");
   return cfg.SaveUserConfig();
+}
+
+void PreferencesDialog::RefreshRiderImportDistanceLabels() {
+  const auto unitSystem = DistanceUnitSystemFromChoice(distanceUnitChoice);
+  const wxString unitSuffix = wxString::FromUTF8(Units::DistanceUnitSuffix(unitSystem));
+  for (int i = 0; i < 6; ++i) {
+    if (lxHeightLabels[i])
+      lxHeightLabels[i]->SetLabel(wxString::Format("LX%d height (%s):", i + 1, unitSuffix));
+    if (lxPosLabels[i])
+      lxPosLabels[i]->SetLabel(wxString::Format("LX%d position (%s):", i + 1, unitSuffix));
+    if (lxMarginLabels[i])
+      lxMarginLabels[i]->SetLabel(wxString::Format("LX%d margin (%s):", i + 1, unitSuffix));
+  }
+}
+
+void PreferencesDialog::ConvertRiderImportDistanceFields() {
+  const auto targetUnit = DistanceUnitSystemFromChoice(distanceUnitChoice);
+  const auto sourceUnit = targetUnit == Units::DistanceUnitSystem::Imperial
+                              ? Units::DistanceUnitSystem::Metric
+                              : Units::DistanceUnitSystem::Imperial;
+
+  auto convertCtrl = [&](wxTextCtrl *ctrl) {
+    if (!ctrl)
+      return;
+    const auto parsed = Units::ParseDistanceToMillimeters(
+        std::string(ctrl->GetValue().ToUTF8()), sourceUnit);
+    if (!parsed.has_value())
+      return;
+    ctrl->SetValue(wxString::FromUTF8(Units::FormatDistanceFromMillimeters(
+        *parsed, targetUnit, Units::ValueFormatContext::Label)));
+  };
+
+  for (int i = 0; i < 6; ++i) {
+    convertCtrl(lxHeightCtrls[i]);
+    convertCtrl(lxPosCtrls[i]);
+    convertCtrl(lxMarginCtrls[i]);
+  }
 }
 
 void PreferencesDialog::NotifyUnitsChanged() {

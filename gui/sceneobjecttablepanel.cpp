@@ -27,7 +27,8 @@
 #include "dataview_edit_commit.h"
 #include "viewer2dpanel.h"
 #include "viewer3dpanel.h"
-#include "ui_unit_utils.h"
+#include "units/unit_label_utils.h"
+#include "units/units.h"
 #include <algorithm>
 #include <cctype>
 #include <cmath>
@@ -45,9 +46,9 @@ const wxString &DegreeSymbol() {
   return kDegreeSymbol;
 }
 
-UiUnitUtils::DistanceUnitSystem ResolveDistanceUnitSystem() {
+Units::DistanceUnitSystem ResolveDistanceUnitSystem() {
     auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
-    return UiUnitUtils::ParseDistanceUnitSystem(cfg.GetValue("ui_distance_unit_system"));
+    return Units::ParseDistanceUnitSystem(cfg.GetValue("ui_distance_unit_system"));
 }
 
 struct RangeParts {
@@ -152,9 +153,9 @@ SceneObjectTablePanel::~SceneObjectTablePanel()
 void SceneObjectTablePanel::InitializeTable()
 {
     const auto distanceUnit = ResolveDistanceUnitSystem();
-    const wxString distanceSuffix = wxString::FromUTF8(UiUnitUtils::DistanceUnitSuffix(distanceUnit));
+    const wxString distanceSuffix = wxString::FromUTF8(Units::DistanceUnitSuffix(distanceUnit));
     columnLabels = {"Name", "Layer", "Model File",
-                    "Pos X (" + distanceSuffix + ")", "Pos Y (" + distanceSuffix + ")", "Pos Z (" + distanceSuffix + ")",
+                    wxString::FromUTF8(Units::LabelWithUnit("Pos X", std::string(distanceSuffix.ToUTF8()))), wxString::FromUTF8(Units::LabelWithUnit("Pos Y", std::string(distanceSuffix.ToUTF8()))), wxString::FromUTF8(Units::LabelWithUnit("Pos Z", std::string(distanceSuffix.ToUTF8()))),
                     "Roll (X)", "Pitch (Y)", "Yaw (Z)"};
     std::vector<int> widths = {150, 100, 180,
                                80, 80, 80,
@@ -172,10 +173,10 @@ void SceneObjectTablePanel::ReloadData()
 {
     const auto distanceUnit = ResolveDistanceUnitSystem();
     const wxString distanceSuffix =
-        wxString::FromUTF8(UiUnitUtils::DistanceUnitSuffix(distanceUnit));
-    columnLabels[3] = "Pos X (" + distanceSuffix + ")";
-    columnLabels[4] = "Pos Y (" + distanceSuffix + ")";
-    columnLabels[5] = "Pos Z (" + distanceSuffix + ")";
+        wxString::FromUTF8(Units::DistanceUnitSuffix(distanceUnit));
+    columnLabels[3] = wxString::FromUTF8(Units::LabelWithUnit("Pos X", std::string(distanceSuffix.ToUTF8())));
+    columnLabels[4] = wxString::FromUTF8(Units::LabelWithUnit("Pos Y", std::string(distanceSuffix.ToUTF8())));
+    columnLabels[5] = wxString::FromUTF8(Units::LabelWithUnit("Pos Z", std::string(distanceSuffix.ToUTF8())));
     for (size_t i = 0; i < columnLabels.size(); ++i) {
         if (auto *column = table->GetColumn(static_cast<unsigned int>(i)))
             column->SetTitle(columnLabels[i]);
@@ -206,12 +207,12 @@ void SceneObjectTablePanel::ReloadData()
         wxString model = wxString::FromUTF8(obj.modelFile);
 
         auto posArr = obj.transform.o;
-        wxString posX = wxString::FromUTF8(UiUnitUtils::FormatDistanceFromMillimeters(
-            posArr[0], distanceUnit, UiUnitUtils::ValueFormatContext::Table));
-        wxString posY = wxString::FromUTF8(UiUnitUtils::FormatDistanceFromMillimeters(
-            posArr[1], distanceUnit, UiUnitUtils::ValueFormatContext::Table));
-        wxString posZ = wxString::FromUTF8(UiUnitUtils::FormatDistanceFromMillimeters(
-            posArr[2], distanceUnit, UiUnitUtils::ValueFormatContext::Table));
+        wxString posX = wxString::FromUTF8(Units::FormatDistanceFromMillimeters(
+            posArr[0], distanceUnit, Units::ValueFormatContext::Table));
+        wxString posY = wxString::FromUTF8(Units::FormatDistanceFromMillimeters(
+            posArr[1], distanceUnit, Units::ValueFormatContext::Table));
+        wxString posZ = wxString::FromUTF8(Units::FormatDistanceFromMillimeters(
+            posArr[2], distanceUnit, Units::ValueFormatContext::Table));
 
         auto euler = MatrixUtils::MatrixToEuler(obj.transform);
         wxString roll = wxString::Format("%.1f", euler[2]) + DegreeSymbol();
@@ -616,13 +617,13 @@ void SceneObjectTablePanel::UpdateSceneData(bool logChanges)
         const auto distanceUnit = ResolveDistanceUnitSystem();
         double xMm = old.transform.o[0], yMm = old.transform.o[1], zMm = old.transform.o[2];
         table->GetValue(v, i, 3);
-        if (const auto parsed = UiUnitUtils::ParseDistanceToMillimeters(std::string(v.GetString().ToUTF8()), distanceUnit); parsed.has_value())
+        if (const auto parsed = Units::ParseDistanceToMillimeters(std::string(v.GetString().ToUTF8()), distanceUnit); parsed.has_value())
             xMm = *parsed;
         table->GetValue(v, i, 4);
-        if (const auto parsed = UiUnitUtils::ParseDistanceToMillimeters(std::string(v.GetString().ToUTF8()), distanceUnit); parsed.has_value())
+        if (const auto parsed = Units::ParseDistanceToMillimeters(std::string(v.GetString().ToUTF8()), distanceUnit); parsed.has_value())
             yMm = *parsed;
         table->GetValue(v, i, 5);
-        if (const auto parsed = UiUnitUtils::ParseDistanceToMillimeters(std::string(v.GetString().ToUTF8()), distanceUnit); parsed.has_value())
+        if (const auto parsed = Units::ParseDistanceToMillimeters(std::string(v.GetString().ToUTF8()), distanceUnit); parsed.has_value())
             zMm = *parsed;
 
         double roll = 0, pitch = 0, yaw = 0;
@@ -650,9 +651,9 @@ void SceneObjectTablePanel::UpdateSceneData(bool logChanges)
 
         const auto currentEuler = MatrixUtils::MatrixToEuler(old.transform);
         const bool transformChanged =
-            !UiUnitUtils::NearlyEqualDistanceMillimeters(old.transform.o[0], xMm, 0.5) ||
-            !UiUnitUtils::NearlyEqualDistanceMillimeters(old.transform.o[1], yMm, 0.5) ||
-            !UiUnitUtils::NearlyEqualDistanceMillimeters(old.transform.o[2], zMm, 0.5) ||
+            !Units::NearlyEqualDistanceMillimeters(old.transform.o[0], xMm, 0.5) ||
+            !Units::NearlyEqualDistanceMillimeters(old.transform.o[1], yMm, 0.5) ||
+            !Units::NearlyEqualDistanceMillimeters(old.transform.o[2], zMm, 0.5) ||
             std::abs(static_cast<double>(currentEuler[2]) - roll) > 0.05 ||
             std::abs(static_cast<double>(currentEuler[1]) - pitch) > 0.05 ||
             std::abs(static_cast<double>(currentEuler[0]) - yaw) > 0.05;

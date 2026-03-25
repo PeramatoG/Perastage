@@ -1,33 +1,26 @@
 #pragma once
 
-#include <optional>
-#include <string>
+#include "units/units.h"
 
 namespace UiUnitUtils {
 
-enum class DistanceUnitSystem { Metric, Imperial };
-enum class WeightUnitSystem { Metric, Imperial };
-enum class ValueFormatContext { Table, Label, Inspector };
+using DistanceUnitSystem = Units::DistanceUnitSystem;
+using WeightUnitSystem = Units::WeightUnitSystem;
+using ValueFormatContext = Units::ValueFormatContext;
 
-DistanceUnitSystem ParseDistanceUnitSystem(const std::optional<std::string> &rawValue);
-WeightUnitSystem ParseWeightUnitSystem(const std::optional<std::string> &rawValue);
-
-std::string DistanceUnitSuffix(DistanceUnitSystem unitSystem);
-std::string WeightUnitSuffix(WeightUnitSystem unitSystem);
-
-std::string FormatDistanceFromMillimeters(double valueMm,
-                                          DistanceUnitSystem unitSystem,
-                                          ValueFormatContext context);
-std::string FormatWeightFromKilograms(double valueKg,
-                                      WeightUnitSystem unitSystem,
-                                      ValueFormatContext context);
-
-std::optional<double> ParseDistanceToMillimeters(const std::string &rawValue,
-                                                 DistanceUnitSystem unitSystem);
-std::optional<double> ParseWeightToKilograms(const std::string &rawValue,
-                                             WeightUnitSystem unitSystem);
-
-bool NearlyEqualDistanceMillimeters(double lhsMm, double rhsMm, double toleranceMm);
-bool NearlyEqualWeightKilograms(double lhsKg, double rhsKg, double toleranceKg);
+using Units::DistanceDisplayToMillimeters;
+using Units::DistanceMillimetersToDisplay;
+using Units::DistanceUnitSuffix;
+using Units::FormatDistanceFromMillimeters;
+using Units::FormatWeightFromKilograms;
+using Units::NearlyEqualDistanceMillimeters;
+using Units::NearlyEqualWeightKilograms;
+using Units::ParseDistanceToMillimeters;
+using Units::ParseDistanceUnitSystem;
+using Units::ParseWeightToKilograms;
+using Units::ParseWeightUnitSystem;
+using Units::WeightDisplayToKilograms;
+using Units::WeightKilogramsToDisplay;
+using Units::WeightUnitSuffix;
 
 } // namespace UiUnitUtils

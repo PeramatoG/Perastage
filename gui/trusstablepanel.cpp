@@ -30,7 +30,8 @@
 #include "dataview_edit_commit.h"
 #include "trussdictionary.h"
 #include "trussloader.h"
-#include "ui_unit_utils.h"
+#include "units/unit_label_utils.h"
+#include "units/units.h"
 #include "viewer2dpanel.h"
 #include "viewer3dpanel.h"
 #include <cctype>
@@ -57,14 +58,14 @@ const wxString &DegreeSymbol() {
 }
 
 
-UiUnitUtils::DistanceUnitSystem ResolveDistanceUnitSystem() {
+Units::DistanceUnitSystem ResolveDistanceUnitSystem() {
     auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
-    return UiUnitUtils::ParseDistanceUnitSystem(cfg.GetValue("ui_distance_unit_system"));
+    return Units::ParseDistanceUnitSystem(cfg.GetValue("ui_distance_unit_system"));
 }
 
-UiUnitUtils::WeightUnitSystem ResolveWeightUnitSystem() {
+Units::WeightUnitSystem ResolveWeightUnitSystem() {
     auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
-    return UiUnitUtils::ParseWeightUnitSystem(cfg.GetValue("ui_weight_unit_system"));
+    return Units::ParseWeightUnitSystem(cfg.GetValue("ui_weight_unit_system"));
 }
 
 struct RangeParts {
@@ -193,13 +194,13 @@ void TrussTablePanel::InitializeTable()
 {
     const auto distanceUnit = ResolveDistanceUnitSystem();
     const auto weightUnit = ResolveWeightUnitSystem();
-    const wxString distanceSuffix = wxString::FromUTF8(UiUnitUtils::DistanceUnitSuffix(distanceUnit));
-    const wxString weightSuffix = wxString::FromUTF8(UiUnitUtils::WeightUnitSuffix(weightUnit));
+    const wxString distanceSuffix = wxString::FromUTF8(Units::DistanceUnitSuffix(distanceUnit));
+    const wxString weightSuffix = wxString::FromUTF8(Units::WeightUnitSuffix(weightUnit));
     columnLabels = {"Name", "Layer", "Model File", "Hang Pos",
-                    "Pos X (" + distanceSuffix + ")", "Pos Y (" + distanceSuffix + ")", "Pos Z (" + distanceSuffix + ")",
+                    wxString::FromUTF8(Units::LabelWithUnit("Pos X", std::string(distanceSuffix.ToUTF8()))), wxString::FromUTF8(Units::LabelWithUnit("Pos Y", std::string(distanceSuffix.ToUTF8()))), wxString::FromUTF8(Units::LabelWithUnit("Pos Z", std::string(distanceSuffix.ToUTF8()))),
                     "Roll (X)", "Pitch (Y)", "Yaw (Z)",
                     "Manufacturer", "Model",
-                    "Length (" + distanceSuffix + ")", "Width (" + distanceSuffix + ")", "Height (" + distanceSuffix + ")", "Weight (" + weightSuffix + ")"};
+                    wxString::FromUTF8(Units::LabelWithUnit("Length", std::string(distanceSuffix.ToUTF8()))), wxString::FromUTF8(Units::LabelWithUnit("Width", std::string(distanceSuffix.ToUTF8()))), wxString::FromUTF8(Units::LabelWithUnit("Height", std::string(distanceSuffix.ToUTF8()))), wxString::FromUTF8(Units::LabelWithUnit("Weight", std::string(weightSuffix.ToUTF8())))};
     std::vector<int> widths = {150, 100, 180, 120,
                                80, 80, 80,
                                80, 80, 80,
@@ -219,16 +220,16 @@ void TrussTablePanel::ReloadData()
     const auto distanceUnit = ResolveDistanceUnitSystem();
     const auto weightUnit = ResolveWeightUnitSystem();
     const wxString distanceSuffix =
-        wxString::FromUTF8(UiUnitUtils::DistanceUnitSuffix(distanceUnit));
+        wxString::FromUTF8(Units::DistanceUnitSuffix(distanceUnit));
     const wxString weightSuffix =
-        wxString::FromUTF8(UiUnitUtils::WeightUnitSuffix(weightUnit));
-    columnLabels[4] = "Pos X (" + distanceSuffix + ")";
-    columnLabels[5] = "Pos Y (" + distanceSuffix + ")";
-    columnLabels[6] = "Pos Z (" + distanceSuffix + ")";
-    columnLabels[12] = "Length (" + distanceSuffix + ")";
-    columnLabels[13] = "Width (" + distanceSuffix + ")";
-    columnLabels[14] = "Height (" + distanceSuffix + ")";
-    columnLabels[15] = "Weight (" + weightSuffix + ")";
+        wxString::FromUTF8(Units::WeightUnitSuffix(weightUnit));
+    columnLabels[4] = wxString::FromUTF8(Units::LabelWithUnit("Pos X", std::string(distanceSuffix.ToUTF8())));
+    columnLabels[5] = wxString::FromUTF8(Units::LabelWithUnit("Pos Y", std::string(distanceSuffix.ToUTF8())));
+    columnLabels[6] = wxString::FromUTF8(Units::LabelWithUnit("Pos Z", std::string(distanceSuffix.ToUTF8())));
+    columnLabels[12] = wxString::FromUTF8(Units::LabelWithUnit("Length", std::string(distanceSuffix.ToUTF8())));
+    columnLabels[13] = wxString::FromUTF8(Units::LabelWithUnit("Width", std::string(distanceSuffix.ToUTF8())));
+    columnLabels[14] = wxString::FromUTF8(Units::LabelWithUnit("Height", std::string(distanceSuffix.ToUTF8())));
+    columnLabels[15] = wxString::FromUTF8(Units::LabelWithUnit("Weight", std::string(weightSuffix.ToUTF8())));
     for (size_t i = 0; i < columnLabels.size(); ++i) {
         if (auto *column = table->GetColumn(static_cast<unsigned int>(i)))
             column->SetTitle(columnLabels[i]);
@@ -287,12 +288,12 @@ void TrussTablePanel::ReloadData()
         wxString model = wxFileName(modelFull).GetFullName();
 
         auto posArr = truss.transform.o;
-        wxString posX = wxString::FromUTF8(UiUnitUtils::FormatDistanceFromMillimeters(
-            posArr[0], distanceUnit, UiUnitUtils::ValueFormatContext::Table));
-        wxString posY = wxString::FromUTF8(UiUnitUtils::FormatDistanceFromMillimeters(
-            posArr[1], distanceUnit, UiUnitUtils::ValueFormatContext::Table));
-        wxString posZ = wxString::FromUTF8(UiUnitUtils::FormatDistanceFromMillimeters(
-            posArr[2], distanceUnit, UiUnitUtils::ValueFormatContext::Table));
+        wxString posX = wxString::FromUTF8(Units::FormatDistanceFromMillimeters(
+            posArr[0], distanceUnit, Units::ValueFormatContext::Table));
+        wxString posY = wxString::FromUTF8(Units::FormatDistanceFromMillimeters(
+            posArr[1], distanceUnit, Units::ValueFormatContext::Table));
+        wxString posZ = wxString::FromUTF8(Units::FormatDistanceFromMillimeters(
+            posArr[2], distanceUnit, Units::ValueFormatContext::Table));
 
         auto euler = MatrixUtils::MatrixToEuler(truss.transform);
         wxString roll = wxString::Format("%.1f", euler[2]) + DegreeSymbol();
@@ -312,20 +313,20 @@ void TrussTablePanel::ReloadData()
         row.push_back(yaw);
         wxString manuf = wxString::FromUTF8(truss.manufacturer);
         wxString modelName = wxString::FromUTF8(truss.model);
-        wxString len = wxString::FromUTF8(UiUnitUtils::FormatDistanceFromMillimeters(
-            truss.lengthMm, distanceUnit, UiUnitUtils::ValueFormatContext::Table));
+        wxString len = wxString::FromUTF8(Units::FormatDistanceFromMillimeters(
+            truss.lengthMm, distanceUnit, Units::ValueFormatContext::Table));
         wxString wid = truss.widthMm > 0.0f
-                           ? wxString::FromUTF8(UiUnitUtils::FormatDistanceFromMillimeters(
+                           ? wxString::FromUTF8(Units::FormatDistanceFromMillimeters(
                                  truss.widthMm, distanceUnit,
-                                 UiUnitUtils::ValueFormatContext::Table))
+                                 Units::ValueFormatContext::Table))
                            : wxString();
         wxString hei = truss.heightMm > 0.0f
-                            ? wxString::FromUTF8(UiUnitUtils::FormatDistanceFromMillimeters(
+                            ? wxString::FromUTF8(Units::FormatDistanceFromMillimeters(
                                   truss.heightMm, distanceUnit,
-                                  UiUnitUtils::ValueFormatContext::Table))
+                                  Units::ValueFormatContext::Table))
                             : wxString();
-        wxString weight = wxString::FromUTF8(UiUnitUtils::FormatWeightFromKilograms(
-            truss.weightKg, weightUnit, UiUnitUtils::ValueFormatContext::Table));
+        wxString weight = wxString::FromUTF8(Units::FormatWeightFromKilograms(
+            truss.weightKg, weightUnit, Units::ValueFormatContext::Table));
         row.push_back(manuf);
         row.push_back(modelName);
         row.push_back(len);
@@ -868,13 +869,13 @@ void TrussTablePanel::UpdateSceneData(bool logChanges)
         const auto weightUnit = ResolveWeightUnitSystem();
         double xMm = old.transform.o[0], yMm = old.transform.o[1], zMm = old.transform.o[2];
         table->GetValue(v, i, 4);
-        if (const auto parsed = UiUnitUtils::ParseDistanceToMillimeters(std::string(v.GetString().ToUTF8()), distanceUnit); parsed.has_value())
+        if (const auto parsed = Units::ParseDistanceToMillimeters(std::string(v.GetString().ToUTF8()), distanceUnit); parsed.has_value())
             xMm = *parsed;
         table->GetValue(v, i, 5);
-        if (const auto parsed = UiUnitUtils::ParseDistanceToMillimeters(std::string(v.GetString().ToUTF8()), distanceUnit); parsed.has_value())
+        if (const auto parsed = Units::ParseDistanceToMillimeters(std::string(v.GetString().ToUTF8()), distanceUnit); parsed.has_value())
             yMm = *parsed;
         table->GetValue(v, i, 6);
-        if (const auto parsed = UiUnitUtils::ParseDistanceToMillimeters(std::string(v.GetString().ToUTF8()), distanceUnit); parsed.has_value())
+        if (const auto parsed = Units::ParseDistanceToMillimeters(std::string(v.GetString().ToUTF8()), distanceUnit); parsed.has_value())
             zMm = *parsed;
 
         double roll = 0, pitch = 0, yaw = 0;
@@ -902,9 +903,9 @@ void TrussTablePanel::UpdateSceneData(bool logChanges)
 
         const auto currentEuler = MatrixUtils::MatrixToEuler(old.transform);
         const bool transformChanged =
-            !UiUnitUtils::NearlyEqualDistanceMillimeters(old.transform.o[0], xMm, 0.5) ||
-            !UiUnitUtils::NearlyEqualDistanceMillimeters(old.transform.o[1], yMm, 0.5) ||
-            !UiUnitUtils::NearlyEqualDistanceMillimeters(old.transform.o[2], zMm, 0.5) ||
+            !Units::NearlyEqualDistanceMillimeters(old.transform.o[0], xMm, 0.5) ||
+            !Units::NearlyEqualDistanceMillimeters(old.transform.o[1], yMm, 0.5) ||
+            !Units::NearlyEqualDistanceMillimeters(old.transform.o[2], zMm, 0.5) ||
             std::abs(static_cast<double>(currentEuler[2]) - roll) > 0.05 ||
             std::abs(static_cast<double>(currentEuler[1]) - pitch) > 0.05 ||
             std::abs(static_cast<double>(currentEuler[0]) - yaw) > 0.05;
@@ -927,22 +928,22 @@ void TrussTablePanel::UpdateSceneData(bool logChanges)
         next.model = std::string(v.GetString().mb_str());
 
         table->GetValue(v, i, 12);
-        if (const auto parsed = UiUnitUtils::ParseDistanceToMillimeters(
+        if (const auto parsed = Units::ParseDistanceToMillimeters(
                 std::string(v.GetString().ToUTF8()), distanceUnit);
             parsed.has_value())
             next.lengthMm = static_cast<float>(*parsed);
         table->GetValue(v, i, 13);
-        if (const auto parsed = UiUnitUtils::ParseDistanceToMillimeters(
+        if (const auto parsed = Units::ParseDistanceToMillimeters(
                 std::string(v.GetString().ToUTF8()), distanceUnit);
             parsed.has_value())
             next.widthMm = static_cast<float>(*parsed);
         table->GetValue(v, i, 14);
-        if (const auto parsed = UiUnitUtils::ParseDistanceToMillimeters(
+        if (const auto parsed = Units::ParseDistanceToMillimeters(
                 std::string(v.GetString().ToUTF8()), distanceUnit);
             parsed.has_value())
             next.heightMm = static_cast<float>(*parsed);
         table->GetValue(v, i, 15);
-        if (const auto parsed = UiUnitUtils::ParseWeightToKilograms(
+        if (const auto parsed = Units::ParseWeightToKilograms(
                 std::string(v.GetString().ToUTF8()), weightUnit);
             parsed.has_value())
             next.weightKg = static_cast<float>(*parsed);
@@ -956,10 +957,10 @@ void TrussTablePanel::UpdateSceneData(bool logChanges)
             transformChanged ||
             old.manufacturer != next.manufacturer ||
             old.model != next.model ||
-            !UiUnitUtils::NearlyEqualDistanceMillimeters(old.lengthMm, next.lengthMm, 0.5) ||
-            !UiUnitUtils::NearlyEqualDistanceMillimeters(old.widthMm, next.widthMm, 0.5) ||
-            !UiUnitUtils::NearlyEqualDistanceMillimeters(old.heightMm, next.heightMm, 0.5) ||
-            !UiUnitUtils::NearlyEqualWeightKilograms(old.weightKg, next.weightKg, 0.001);
+            !Units::NearlyEqualDistanceMillimeters(old.lengthMm, next.lengthMm, 0.5) ||
+            !Units::NearlyEqualDistanceMillimeters(old.widthMm, next.widthMm, 0.5) ||
+            !Units::NearlyEqualDistanceMillimeters(old.heightMm, next.heightMm, 0.5) ||
+            !Units::NearlyEqualWeightKilograms(old.weightKg, next.weightKg, 0.001);
 
         if (trussChanged)
         {

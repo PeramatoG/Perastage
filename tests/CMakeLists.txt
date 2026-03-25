@@ -72,7 +72,8 @@ add_test(NAME FixtureTableParser COMMAND fixture_table_parser_test)
 
 add_executable(ui_unit_utils_test
                ui_unit_utils_test.cpp
-               ../core/ui_unit_utils.cpp)
+               ../core/units/units.cpp
+               ../core/units/unit_label_utils.cpp)
 target_include_directories(ui_unit_utils_test PRIVATE ../core)
 add_test(NAME UiUnitUtilsRoundTrip COMMAND ui_unit_utils_test)
 

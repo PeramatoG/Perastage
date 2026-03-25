@@ -118,7 +118,7 @@ using json = nlohmann::json;
 #include "viewer2dpdfexporter.h"
 #include "print_diagnostics.h"
 #include "support.h"
-#include "ui_unit_utils.h"
+#include "units/units.h"
 #include "trussloader.h"
 #include "trusstablepanel.h"
 #include "viewer2dpanel.h"
@@ -446,22 +446,22 @@ void MainWindow::UpdateCursorWorldPositionInStatusBar(
   }
 
   ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
-  const auto distanceUnitSystem = UiUnitUtils::ParseDistanceUnitSystem(
+  const auto distanceUnitSystem = Units::ParseDistanceUnitSystem(
       cfg.GetValue("ui_distance_unit_system"));
-  const std::string unitSuffix = UiUnitUtils::DistanceUnitSuffix(distanceUnitSystem);
+  const std::string unitSuffix = Units::DistanceUnitSuffix(distanceUnitSystem);
   std::ostringstream stream;
   stream << "X: "
-         << UiUnitUtils::FormatDistanceFromMillimeters(
+         << Units::FormatDistanceFromMillimeters(
                 static_cast<double>((*positionMeters)[0]) * 1000.0,
-                distanceUnitSystem, UiUnitUtils::ValueFormatContext::Label)
+                distanceUnitSystem, Units::ValueFormatContext::Label)
          << " " << unitSuffix << "  Y: "
-         << UiUnitUtils::FormatDistanceFromMillimeters(
+         << Units::FormatDistanceFromMillimeters(
                 static_cast<double>((*positionMeters)[1]) * 1000.0,
-                distanceUnitSystem, UiUnitUtils::ValueFormatContext::Label)
+                distanceUnitSystem, Units::ValueFormatContext::Label)
          << " " << unitSuffix << "  Z: "
-         << UiUnitUtils::FormatDistanceFromMillimeters(
+         << Units::FormatDistanceFromMillimeters(
                 static_cast<double>((*positionMeters)[2]) * 1000.0,
-                distanceUnitSystem, UiUnitUtils::ValueFormatContext::Label)
+                distanceUnitSystem, Units::ValueFormatContext::Label)
          << " " << unitSuffix;
   SetStatusText(wxString::FromUTF8(stream.str()), 1);
 }
@@ -470,9 +470,9 @@ void MainWindow::ClearCursorWorldPositionInStatusBar() {
   if (!GetStatusBar())
     return;
   ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
-  const auto distanceUnitSystem = UiUnitUtils::ParseDistanceUnitSystem(
+  const auto distanceUnitSystem = Units::ParseDistanceUnitSystem(
       cfg.GetValue("ui_distance_unit_system"));
-  const std::string unitSuffix = UiUnitUtils::DistanceUnitSuffix(distanceUnitSystem);
+  const std::string unitSuffix = Units::DistanceUnitSuffix(distanceUnitSystem);
   SetStatusText(
       wxString::Format("X: -- %s  Y: -- %s  Z: -- %s", unitSuffix.c_str(), unitSuffix.c_str(),
                        unitSuffix.c_str()),

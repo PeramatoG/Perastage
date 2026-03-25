@@ -21,6 +21,7 @@
 #include "logger.h"
 #include "scenedatamanager.h"
 #include "support.h"
+#include "units/units.h"
 
 #include <algorithm>
 #include <array>
@@ -217,30 +218,33 @@ std::string FormatMeters(float mm) {
   return s;
 }
 
-std::string FormatMetersOneDecimal(float mm) {
-  std::ostringstream oss;
-  oss << std::fixed << std::setprecision(1) << mm / 1000.0f;
-  return oss.str();
-}
-
-std::string FormatKilograms(float kg) {
-  std::ostringstream oss;
-  if (std::fabs(kg - std::round(kg)) < 0.05f)
-    oss << static_cast<int>(std::lround(kg));
-  else
-    oss << std::fixed << std::setprecision(1) << kg;
-  return oss.str();
-}
-
 SupportLabelText BuildSupportLabelText(const Support &support,
-                                       const std::string &fallbackUuid) {
+                                       const std::string &fallbackUuid,
+                                       Units::DistanceUnitSystem distanceUnit,
+                                       Units::WeightUnitSystem weightUnit) {
   SupportLabelText text;
+  const std::string distanceSuffix = Units::DistanceUnitSuffix(distanceUnit);
+  const std::string weightSuffix = Units::WeightUnitSuffix(weightUnit);
+  const auto effectiveData = ResolveEffectiveSupportData(support);
   text.name = support.name.empty() ? fallbackUuid : support.name;
-  text.coordinates = "X: " + FormatMetersOneDecimal(support.transform.o[0]) +
-                     "m, Y: " + FormatMetersOneDecimal(support.transform.o[1]) +
-                     "m";
-  text.capacity = "Capacity: " + FormatKilograms(support.capacityKg) + " kg";
-  text.load = "Load: " + FormatKilograms(support.loadKg) + " kg";
+  text.coordinates = "X: " +
+                     Units::FormatDistanceFromMillimeters(
+                         support.transform.o[0], distanceUnit,
+                         Units::ValueFormatContext::Label) +
+                     " " + distanceSuffix + ", Y: " +
+                     Units::FormatDistanceFromMillimeters(
+                         support.transform.o[1], distanceUnit,
+                         Units::ValueFormatContext::Label) +
+                     " " + distanceSuffix;
+  text.capacity = "Capacity: " +
+                  Units::FormatWeightFromKilograms(
+                      effectiveData.capacityKg, weightUnit,
+                      Units::ValueFormatContext::Label) +
+                  " " + weightSuffix;
+  text.load = "Load: " +
+              Units::FormatWeightFromKilograms(
+                  support.loadKg, weightUnit, Units::ValueFormatContext::Label) +
+              " " + weightSuffix;
   return text;
 }
 
@@ -469,6 +473,10 @@ void LabelRenderSystem::DrawFixtureLabels(int width, int height) {
 void LabelRenderSystem::DrawAllFixtureLabels(int width, int height,
                                              Viewer2DView view, float zoom) {
   ConfigManager &cfg = ConfigManager::Get();
+  const auto distanceUnitSystem =
+      Units::ParseDistanceUnitSystem(cfg.GetValue("ui_distance_unit_system"));
+  const auto weightUnitSystem =
+      Units::ParseWeightUnitSystem(cfg.GetValue("ui_weight_unit_system"));
   ProjectionContext projection;
   FillProjectionContext(width, height, projection);
 
@@ -735,7 +743,8 @@ void LabelRenderSystem::DrawAllFixtureLabels(int width, int height,
     if (!ProjectLabelAnchor(projection, wx, wy, wz, x, y))
       continue;
 
-    const SupportLabelText text = BuildSupportLabelText(support, uuid);
+    const SupportLabelText text = BuildSupportLabelText(
+        support, uuid, distanceUnitSystem, weightUnitSystem);
     const float pxToWorld = 1.0f / (PIXELS_PER_METER * zoom);
 
     std::vector<LabelLine2D> titleLines = {
