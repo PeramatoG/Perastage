@@ -17,6 +17,7 @@
 
 #include "support.h"
 #include "configservices.h"
+#include "units/units.h"
 #include "viewer3d_types.h"
 #include <algorithm>
 #include <cmath>
@@ -61,9 +62,15 @@ bool ProjectSupportCenter(const Support &support, int viewportHeight,
 }
 
 wxString BuildHoistLabel(const std::string &uuid, const Support &support) {
+  auto &cfg = GetDefaultConfigServices().Config();
+  const auto distanceUnitSystem =
+      Units::ParseDistanceUnitSystem(cfg.GetValue("ui_distance_unit_system"));
+  const std::string unitSuffix = Units::DistanceUnitSuffix(distanceUnitSystem);
   wxString label = support.name.empty() ? wxString::FromUTF8(uuid)
                                         : wxString::FromUTF8(support.name);
-  label += wxString::Format("\nh = %.2f m", support.transform.o[2] / 1000.0f);
+  const std::string height = Units::FormatDistanceFromMillimeters(
+      support.transform.o[2], distanceUnitSystem, Units::ValueFormatContext::Label);
+  label += wxString::Format("\nh = %s %s", height.c_str(), unitSuffix.c_str());
   return label;
 }
 
