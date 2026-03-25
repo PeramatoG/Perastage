@@ -707,8 +707,8 @@ void LabelRenderSystem::DrawAllFixtureLabels(int width, int height,
     NVGcolor outlineColor =
         m_controller.IsDarkMode() ? nvgRGBAf(0.f, 0.f, 0.f, 1.f)
                                 : nvgRGBAf(1.f, 1.f, 1.f, 1.f);
-    DrawLabelLines2D(m_controller.GetNanoVGContext(), lines, x, y, textColor, outlineColor,
-                     true);
+    DrawLabelLines2D(m_controller.GetNanoVGContext(), lines, x, y, NVG_ALIGN_CENTER,
+                     textColor, outlineColor, true);
   }
 
   const auto &supports = cfg.GetScene().supports;
