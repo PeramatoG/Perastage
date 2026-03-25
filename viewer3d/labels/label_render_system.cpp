@@ -716,9 +716,9 @@ void LabelRenderSystem::DrawAllFixtureLabels(int width, int height,
   // Keep default support label sizing aligned with fixture labels at Size = 3.
   constexpr float kSupportNameSizePx = 3.0f;
   constexpr float kSupportBodySizePx = 3.0f;
-  constexpr float kSupportTopGapPx = 5.0f;
-  constexpr float kSupportBottomGapPx = 5.0f;
-  constexpr float kSupportRightGapPx = 14.0f;
+  constexpr float kSupportTopGapPx = 8.0f;
+  constexpr float kSupportBottomGapPx = 8.0f;
+  constexpr float kSupportRightGapPx = 8.0f;
   constexpr float kSupportInfoTopGapPx = 3.0f;
   constexpr float kSupportLineSpacingPx = 2.0f;
 
