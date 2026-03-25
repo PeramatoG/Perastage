@@ -18,6 +18,7 @@
 #include "mvrexporter.h"
 #include "configmanager.h"
 #include "dummyprofilelibrary.h"
+#include "logger.h"
 #include "matrixutils.h"
 #include "projectutils.h"
 #include "support.h"
@@ -81,6 +82,7 @@ static void AppendSupportHoistInfoUserData(tinyxml2::XMLDocument &doc,
                                            tinyxml2::XMLElement *supportNode,
                                            const Support &support);
 static bool IsCanonicalUuidString(const std::string &value);
+static void LogLegacyPositionUuidWarning(const std::string &message);
 
 static constexpr const char *kMvrProvider = "Perastage";
 static constexpr const char *kMvrProviderVersion = "1.0";
@@ -104,6 +106,10 @@ static std::string TrimAscii(std::string value) {
                            [&](unsigned char c) { return !isSpace(c); }).base(),
               value.end());
   return value;
+}
+
+static void LogLegacyPositionUuidWarning(const std::string &message) {
+  Logger::Instance().Log(Logger::Level::Warn, message);
 }
 
 static std::string TruncateFileNamePreservingExtension(const std::string &fileName,
@@ -931,8 +937,9 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     const std::string generated = reserveCanonicalPositionUuid({}, seed);
     positions[generated] = name.empty() ? rawUuid : name;
     legacyPositionIdToCanonical[rawUuid] = generated;
-    wxLogWarning("MVR export converted legacy Position uuid '%s' to canonical '%s' (name='%s')",
-                 rawUuid.c_str(), generated.c_str(), positions[generated].c_str());
+    LogLegacyPositionUuidWarning(
+        "MVR export converted legacy Position uuid '" + rawUuid +
+        "' to canonical '" + generated + "' (name='" + positions[generated] + "')");
   }
 
   std::unordered_map<std::string, std::string> positionByName;
@@ -978,8 +985,9 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     positions[newUuid] = nameHint;
     positionByName[nameHint] = newUuid;
     if (!positionId.empty()) {
-      wxLogWarning("MVR export normalized legacy Position uuid '%s' -> '%s' (name='%s')",
-                   positionId.c_str(), newUuid.c_str(), nameHint.c_str());
+      LogLegacyPositionUuidWarning(
+          "MVR export normalized legacy Position uuid '" + positionId + "' -> '" +
+          newUuid + "' (name='" + nameHint + "')");
     }
   };
 

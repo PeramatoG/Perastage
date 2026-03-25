@@ -1,4 +1,5 @@
 #include "splashscreen.h"
+#include "logger.h"
 #include "projectutils.h"
 #include <algorithm>
 #include <filesystem>
@@ -25,7 +26,9 @@ wxString PathToWxString(const std::filesystem::path &path) {
 }
 
 void LogMissingIcon(const std::filesystem::path &path) {
-  wxLogWarning("Splash icon not found at '" + PathToWxString(path) + "'");
+  const wxString message =
+      "Splash icon not found at '" + PathToWxString(path) + "'";
+  Logger::Instance().Log(Logger::Level::Warn, message.ToStdString());
 }
 
 wxBitmap ScaleDownBitmap(const wxBitmap &bitmap, int maxSize) {

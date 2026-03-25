@@ -103,6 +103,7 @@ using json = nlohmann::json;
 #include "mvrimporter.h"
 #include "preferencesdialog.h"
 #include "projectutils.h"
+#include "logger.h"
 #include "riggingpanel.h"
 #include "riderimporter.h"
 #include "ridertextdialog.h"
@@ -157,7 +158,9 @@ wxString PathToWxString(const std::filesystem::path &path) {
 }
 
 void LogMissingIcon(const std::filesystem::path &path) {
-  wxLogWarning("Main window icon not found at '" + PathToWxString(path) + "'");
+  const wxString message =
+      "Main window icon not found at '" + PathToWxString(path) + "'";
+  Logger::Instance().Log(Logger::Level::Warn, message.ToStdString());
 }
 
 wxFont BuildDefaultUiFont() {
