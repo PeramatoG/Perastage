@@ -239,6 +239,8 @@ private:
   bool UseAdaptiveLineProfile() const override;
   bool SkipOutlinesForCurrentFrame() const override;
   bool IsSelectionOutlineEnabled2D() const override;
+  bool IsUuidHighlighted(const std::string &uuid) const override;
+  bool IsUuidSelected(const std::string &uuid) const override;
   bool IsCaptureOnly() const override;
   ICanvas2D *GetCaptureCanvas() const override;
   bool CaptureIncludesGrid() const override;
