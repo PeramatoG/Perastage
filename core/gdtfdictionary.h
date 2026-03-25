@@ -23,7 +23,7 @@
 
 namespace GdtfDictionary {
     struct Entry {
-        std::string path; // absolute path inside fixtures library
+        std::string path; // optional absolute path inside fixtures library
         std::string mode;
         std::string category;
     };

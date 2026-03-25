@@ -96,16 +96,18 @@ std::optional<std::unordered_map<std::string, Entry>> Load() {
         fname = it.value()["file"].get<std::string>();
       else if (it.value().contains("path") && it.value()["path"].is_string())
         fname = it.value()["path"].get<std::string>();
-      if (fname.empty())
-        continue;
-      fs::path p = fs::u8path(fname);
-      if (!p.is_absolute())
-        p = dir / p;
-      e.path = p.string();
+      if (!fname.empty()) {
+        fs::path p = fs::u8path(fname);
+        if (!p.is_absolute())
+          p = dir / p;
+        e.path = p.string();
+      }
       if (it.value().contains("mode") && it.value()["mode"].is_string())
         e.mode = it.value()["mode"].get<std::string>();
       if (it.value().contains("category") && it.value()["category"].is_string())
         e.category = it.value()["category"].get<std::string>();
+      if (e.path.empty() && e.mode.empty() && e.category.empty())
+        continue;
       dict[it.key()] = e;
     }
   }
@@ -125,18 +127,21 @@ void Save(const std::unordered_map<std::string, Entry> &dict) {
   std::sort(keys.begin(), keys.end());
   for (const auto &type : keys) {
     const auto &entry = dict.at(type);
-    if (entry.path.empty())
+    if (entry.path.empty() && entry.mode.empty() && entry.category.empty())
       continue;
     nlohmann::json obj;
-    fs::path p = fs::u8path(entry.path);
-    const std::string fileName = p.filename().string();
-    if (fileName.empty())
-      continue;
-    obj["file"] = fileName;
+    if (!entry.path.empty()) {
+      fs::path p = fs::u8path(entry.path);
+      const std::string fileName = p.filename().string();
+      if (!fileName.empty())
+        obj["file"] = fileName;
+    }
     if (!entry.mode.empty())
       obj["mode"] = entry.mode;
     if (!entry.category.empty())
       obj["category"] = entry.category;
+    if (obj.empty())
+      continue;
     j[type] = obj;
   }
   std::ofstream out(file);
@@ -154,7 +159,7 @@ std::optional<Entry> Get(const std::string &type) {
   auto it = dict.find(type);
   if (it == dict.end())
     return std::nullopt;
-  if (!fs::exists(it->second.path)) {
+  if (!it->second.path.empty() && !fs::exists(it->second.path)) {
     dict.erase(it);
     Save(dict);
     return std::nullopt;
@@ -206,9 +211,13 @@ void UpdateCategory(const std::string &type, const std::string &category) {
     return;
   auto &dict = *dictOpt;
   auto it = dict.find(type);
-  if (it == dict.end())
-    return;
-  it->second.category = category;
+  if (it == dict.end()) {
+    Entry e;
+    e.category = category;
+    dict[type] = e;
+  } else {
+    it->second.category = category;
+  }
   Save(dict);
 }
 
