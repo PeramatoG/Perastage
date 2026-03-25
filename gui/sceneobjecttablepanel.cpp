@@ -27,8 +27,10 @@
 #include "dataview_edit_commit.h"
 #include "viewer2dpanel.h"
 #include "viewer3dpanel.h"
+#include "ui_unit_utils.h"
 #include <algorithm>
 #include <cctype>
+#include <cmath>
 #include <wx/notebook.h>
 #include <wx/choicdlg.h>
 #include <wx/wupdlock.h> // freeze/thaw UI during batch edits
@@ -41,6 +43,11 @@ namespace {
 const wxString &DegreeSymbol() {
   static const wxString kDegreeSymbol = wxString::FromUTF8("\xC2\xB0");
   return kDegreeSymbol;
+}
+
+UiUnitUtils::DistanceUnitSystem ResolveDistanceUnitSystem() {
+    auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
+    return UiUnitUtils::ParseDistanceUnitSystem(cfg.GetValue("ui_distance_unit_system"));
 }
 
 struct RangeParts {
@@ -144,8 +151,10 @@ SceneObjectTablePanel::~SceneObjectTablePanel()
 
 void SceneObjectTablePanel::InitializeTable()
 {
+    const auto distanceUnit = ResolveDistanceUnitSystem();
+    const wxString distanceSuffix = wxString::FromUTF8(UiUnitUtils::DistanceUnitSuffix(distanceUnit));
     columnLabels = {"Name", "Layer", "Model File",
-                    "Pos X", "Pos Y", "Pos Z",
+                    "Pos X (" + distanceSuffix + ")", "Pos Y (" + distanceSuffix + ")", "Pos Z (" + distanceSuffix + ")",
                     "Roll (X)", "Pitch (Y)", "Yaw (Z)"};
     std::vector<int> widths = {150, 100, 180,
                                80, 80, 80,
@@ -161,6 +170,17 @@ void SceneObjectTablePanel::InitializeTable()
 
 void SceneObjectTablePanel::ReloadData()
 {
+    const auto distanceUnit = ResolveDistanceUnitSystem();
+    const wxString distanceSuffix =
+        wxString::FromUTF8(UiUnitUtils::DistanceUnitSuffix(distanceUnit));
+    columnLabels[3] = "Pos X (" + distanceSuffix + ")";
+    columnLabels[4] = "Pos Y (" + distanceSuffix + ")";
+    columnLabels[5] = "Pos Z (" + distanceSuffix + ")";
+    for (size_t i = 0; i < columnLabels.size(); ++i) {
+        if (auto *column = table->GetColumn(static_cast<unsigned int>(i)))
+            column->SetTitle(columnLabels[i]);
+    }
+
     table->DeleteAllItems();
     rowUuids.clear();
     const auto& objs = guiConfigServices->LegacyConfigManager().GetScene().sceneObjects;
@@ -186,9 +206,12 @@ void SceneObjectTablePanel::ReloadData()
         wxString model = wxString::FromUTF8(obj.modelFile);
 
         auto posArr = obj.transform.o;
-        wxString posX = wxString::Format("%.3f", posArr[0] / 1000.0f);
-        wxString posY = wxString::Format("%.3f", posArr[1] / 1000.0f);
-        wxString posZ = wxString::Format("%.3f", posArr[2] / 1000.0f);
+        wxString posX = wxString::FromUTF8(UiUnitUtils::FormatDistanceFromMillimeters(
+            posArr[0], distanceUnit, UiUnitUtils::ValueFormatContext::Table));
+        wxString posY = wxString::FromUTF8(UiUnitUtils::FormatDistanceFromMillimeters(
+            posArr[1], distanceUnit, UiUnitUtils::ValueFormatContext::Table));
+        wxString posZ = wxString::FromUTF8(UiUnitUtils::FormatDistanceFromMillimeters(
+            posArr[2], distanceUnit, UiUnitUtils::ValueFormatContext::Table));
 
         auto euler = MatrixUtils::MatrixToEuler(obj.transform);
         wxString roll = wxString::Format("%.1f", euler[2]) + DegreeSymbol();
@@ -590,13 +613,17 @@ void SceneObjectTablePanel::UpdateSceneData(bool logChanges)
         else
             next.layer = layerStr;
 
-        double x = 0, y = 0, z = 0;
+        const auto distanceUnit = ResolveDistanceUnitSystem();
+        double xMm = old.transform.o[0], yMm = old.transform.o[1], zMm = old.transform.o[2];
         table->GetValue(v, i, 3);
-        v.GetString().ToDouble(&x);
+        if (const auto parsed = UiUnitUtils::ParseDistanceToMillimeters(std::string(v.GetString().ToUTF8()), distanceUnit); parsed.has_value())
+            xMm = *parsed;
         table->GetValue(v, i, 4);
-        v.GetString().ToDouble(&y);
+        if (const auto parsed = UiUnitUtils::ParseDistanceToMillimeters(std::string(v.GetString().ToUTF8()), distanceUnit); parsed.has_value())
+            yMm = *parsed;
         table->GetValue(v, i, 5);
-        v.GetString().ToDouble(&z);
+        if (const auto parsed = UiUnitUtils::ParseDistanceToMillimeters(std::string(v.GetString().ToUTF8()), distanceUnit); parsed.has_value())
+            zMm = *parsed;
 
         double roll = 0, pitch = 0, yaw = 0;
         table->GetValue(v, i, 6);
@@ -623,18 +650,12 @@ void SceneObjectTablePanel::UpdateSceneData(bool logChanges)
 
         const auto currentEuler = MatrixUtils::MatrixToEuler(old.transform);
         const bool transformChanged =
-            wxString::Format("%.3f", old.transform.o[0] / 1000.0f) !=
-                wxString::Format("%.3f", x) ||
-            wxString::Format("%.3f", old.transform.o[1] / 1000.0f) !=
-                wxString::Format("%.3f", y) ||
-            wxString::Format("%.3f", old.transform.o[2] / 1000.0f) !=
-                wxString::Format("%.3f", z) ||
-            wxString::Format("%.1f", currentEuler[2]) !=
-                wxString::Format("%.1f", roll) ||
-            wxString::Format("%.1f", currentEuler[1]) !=
-                wxString::Format("%.1f", pitch) ||
-            wxString::Format("%.1f", currentEuler[0]) !=
-                wxString::Format("%.1f", yaw);
+            !UiUnitUtils::NearlyEqualDistanceMillimeters(old.transform.o[0], xMm, 0.5) ||
+            !UiUnitUtils::NearlyEqualDistanceMillimeters(old.transform.o[1], yMm, 0.5) ||
+            !UiUnitUtils::NearlyEqualDistanceMillimeters(old.transform.o[2], zMm, 0.5) ||
+            std::abs(static_cast<double>(currentEuler[2]) - roll) > 0.05 ||
+            std::abs(static_cast<double>(currentEuler[1]) - pitch) > 0.05 ||
+            std::abs(static_cast<double>(currentEuler[0]) - yaw) > 0.05;
 
         if (transformChanged)
         {
@@ -643,9 +664,9 @@ void SceneObjectTablePanel::UpdateSceneData(bool logChanges)
                                                     static_cast<float>(roll));
             next.transform = MatrixUtils::ApplyRotationPreservingScale(
                 old.transform, rot,
-                {static_cast<float>(x * 1000.0),
-                 static_cast<float>(y * 1000.0),
-                 static_cast<float>(z * 1000.0)});
+                {static_cast<float>(xMm),
+                 static_cast<float>(yMm),
+                 static_cast<float>(zMm)});
         }
 
         const bool objectChanged = old.layer != next.layer || transformChanged;

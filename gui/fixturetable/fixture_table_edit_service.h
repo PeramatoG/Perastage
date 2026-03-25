@@ -1,6 +1,7 @@
 #pragma once
 
 #include "mvrscene.h"
+#include "ui_unit_utils.h"
 #include <string>
 #include <unordered_set>
 #include <vector>
@@ -15,6 +16,8 @@ public:
   virtual ~ISceneAdapter() = default;
   virtual void PushUndoState(const std::string &description) = 0;
   virtual MvrScene &GetScene() = 0;
+  virtual UiUnitUtils::DistanceUnitSystem GetDistanceUnitSystem() const = 0;
+  virtual UiUnitUtils::WeightUnitSystem GetWeightUnitSystem() const = 0;
 };
 
 std::vector<int> BuildOrderedRows(const std::vector<int> &selectedRows,

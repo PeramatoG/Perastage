@@ -32,6 +32,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/trussdictionary.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/truss_gdtf_builder.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/trussloader.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/ui_unit_utils.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/uuidutils.cpp
 )
 

@@ -7,6 +7,7 @@
 #include "gdtf_fixture_category.h"
 
 #include <algorithm>
+#include <cmath>
 #include <unordered_map>
 
 namespace FixtureTableEditService {
@@ -70,6 +71,8 @@ void UpdateSceneData(ISceneAdapter &adapter, wxDataViewListCtrl *table,
     DataViewEditCommit::CommitPendingEdit(table);
 
   auto &scene = adapter.GetScene();
+  const auto distanceUnitSystem = adapter.GetDistanceUnitSystem();
+  const auto weightUnitSystem = adapter.GetWeightUnitSystem();
 
   size_t updatedCount = 0;
   wxString firstName, firstUuid;
@@ -124,13 +127,24 @@ void UpdateSceneData(ISceneAdapter &adapter, wxDataViewListCtrl *table,
     else
       next.address.clear();
 
-    double x = 0, y = 0, z = 0;
+    double xMm = old.transform.o[0];
+    double yMm = old.transform.o[1];
+    double zMm = old.transform.o[2];
     table->GetValue(v, i, 10);
-    v.GetString().ToDouble(&x);
+    if (const auto parsed = UiUnitUtils::ParseDistanceToMillimeters(
+            std::string(v.GetString().ToUTF8()), distanceUnitSystem);
+        parsed.has_value())
+      xMm = *parsed;
     table->GetValue(v, i, 11);
-    v.GetString().ToDouble(&y);
+    if (const auto parsed = UiUnitUtils::ParseDistanceToMillimeters(
+            std::string(v.GetString().ToUTF8()), distanceUnitSystem);
+        parsed.has_value())
+      yMm = *parsed;
     table->GetValue(v, i, 12);
-    v.GetString().ToDouble(&z);
+    if (const auto parsed = UiUnitUtils::ParseDistanceToMillimeters(
+            std::string(v.GetString().ToUTF8()), distanceUnitSystem);
+        parsed.has_value())
+      zMm = *parsed;
 
     double roll = 0, pitch = 0, yaw = 0;
     table->GetValue(v, i, 13);
@@ -157,18 +171,15 @@ void UpdateSceneData(ISceneAdapter &adapter, wxDataViewListCtrl *table,
 
     const auto currentEuler = MatrixUtils::MatrixToEuler(old.transform);
     const bool transformChanged =
-        wxString::Format("%.3f", old.transform.o[0] / 1000.0f) !=
-            wxString::Format("%.3f", x) ||
-        wxString::Format("%.3f", old.transform.o[1] / 1000.0f) !=
-            wxString::Format("%.3f", y) ||
-        wxString::Format("%.3f", old.transform.o[2] / 1000.0f) !=
-            wxString::Format("%.3f", z) ||
-        wxString::Format("%.1f", currentEuler[2]) !=
-            wxString::Format("%.1f", roll) ||
-        wxString::Format("%.1f", currentEuler[1]) !=
-            wxString::Format("%.1f", pitch) ||
-        wxString::Format("%.1f", currentEuler[0]) !=
-            wxString::Format("%.1f", yaw);
+        !UiUnitUtils::NearlyEqualDistanceMillimeters(old.transform.o[0], xMm,
+                                                     0.5) ||
+        !UiUnitUtils::NearlyEqualDistanceMillimeters(old.transform.o[1], yMm,
+                                                     0.5) ||
+        !UiUnitUtils::NearlyEqualDistanceMillimeters(old.transform.o[2], zMm,
+                                                     0.5) ||
+        std::abs(static_cast<double>(currentEuler[2]) - roll) > 0.05 ||
+        std::abs(static_cast<double>(currentEuler[1]) - pitch) > 0.05 ||
+        std::abs(static_cast<double>(currentEuler[0]) - yaw) > 0.05;
 
     if (transformChanged) {
       Matrix rot = MatrixUtils::EulerToMatrix(
@@ -176,8 +187,8 @@ void UpdateSceneData(ISceneAdapter &adapter, wxDataViewListCtrl *table,
           static_cast<float>(roll));
       next.transform = MatrixUtils::ApplyRotationPreservingScale(
           old.transform, rot,
-          {static_cast<float>(x * 1000.0), static_cast<float>(y * 1000.0),
-           static_cast<float>(z * 1000.0)});
+          {static_cast<float>(xMm), static_cast<float>(yMm),
+           static_cast<float>(zMm)});
     }
 
     table->GetValue(v, i, 16);
@@ -186,9 +197,11 @@ void UpdateSceneData(ISceneAdapter &adapter, wxDataViewListCtrl *table,
     next.powerConsumptionW = static_cast<float>(pw);
 
     table->GetValue(v, i, 17);
-    double wt = 0.0;
-    v.GetString().ToDouble(&wt);
-    next.weightKg = static_cast<float>(wt);
+    if (const auto parsedWeightKg = UiUnitUtils::ParseWeightToKilograms(
+            std::string(v.GetString().ToUTF8()), weightUnitSystem);
+        parsedWeightKg.has_value()) {
+      next.weightKg = static_cast<float>(*parsedWeightKg);
+    }
 
     table->GetValue(v, i, 18);
     next.category = GdtfFixtureCategory::NormalizeCategory(std::string(v.GetString().ToUTF8()));
@@ -218,7 +231,8 @@ void UpdateSceneData(ISceneAdapter &adapter, wxDataViewListCtrl *table,
                                 old.gdtfMode != next.gdtfMode ||
                                 transformChanged ||
                                 old.powerConsumptionW != next.powerConsumptionW ||
-                                old.weightKg != next.weightKg ||
+                                !UiUnitUtils::NearlyEqualWeightKilograms(old.weightKg, next.weightKg,
+                                                                 0.001) ||
                                 old.category != next.category ||
                                 old.color != next.color;
     if (!fixtureChanged)
