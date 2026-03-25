@@ -160,6 +160,8 @@ void EnsureFixtureCategoryForImport(const MvrScene &scene, Fixture &fixture) {
 
   if (fixture.category.empty()) {
     fixture.category = inferCategoryFromName(fixture.typeName);
+    if (!fixture.category.empty())
+      fixture.categorySourceReason = "name hint typeName";
   }
 
   if (fixture.category.empty() && !fixture.gdtfSpec.empty()) {
@@ -167,13 +169,19 @@ void EnsureFixtureCategoryForImport(const MvrScene &scene, Fixture &fixture) {
         ResolveGdtfPath(scene, fixture.gdtfSpec);
     const std::filesystem::path gdtfPath(resolvedGdtfPath);
     fixture.category = inferCategoryFromName(gdtfPath.stem().string());
+    if (!fixture.category.empty())
+      fixture.categorySourceReason = "name hint gdtf filename";
   }
 
-  if (fixture.category.empty())
+  if (fixture.category.empty()) {
     fixture.category = GdtfFixtureCategory::kUnknown;
+    fixture.categorySourceReason = "no hints";
+  }
 
   if (fixture.categorySource.empty())
     fixture.categorySource = GdtfFixtureCategory::kAutoFallbackSource;
+  if (fixture.categorySource == GdtfFixtureCategory::kManualSource)
+    fixture.categorySourceReason.clear();
 }
 
 bool TryParseFloat(const std::string &text, float &out) {
@@ -1152,6 +1160,7 @@ bool RiderImporter::ImportText(const std::string &text) {
           if (!dictionaryCategory.empty()) {
             f.category = dictionaryCategory;
             f.categorySource = GdtfFixtureCategory::kManualSource;
+            f.categorySourceReason.clear();
           }
           const std::string resolvedGdtfPath = ResolveGdtfPath(scene, f.gdtfSpec);
           std::string parsed = Trim(GetGdtfFixtureName(resolvedGdtfPath));

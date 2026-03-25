@@ -49,6 +49,11 @@ int main() {
 
     // Dictionary entry that should NOT be applied on load
     GdtfDictionary::Update("FixtureType", (tempDir / "dict.gdtf").string(), "");
+    GdtfDictionary::UpdateCategory("TextOnlyType", "Spot");
+    auto textOnlyEntry = GdtfDictionary::Get("TextOnlyType");
+    assert(textOnlyEntry.has_value());
+    assert(textOnlyEntry->category == "Spot");
+    assert(textOnlyEntry->path.empty());
 
     Fixture f; f.uuid = "fx1"; f.instanceName = "Fixture"; f.layer = layer.name; f.typeName = "FixtureType"; f.gdtfSpec = "orig.gdtf"; f.color = "#445566"; f.fixtureIdText = "S101A"; f.fixtureIdNumeric = 101; f.fixtureId = 101; scene.fixtures[f.uuid] = f;
     Fixture f2; f2.uuid = "fx2"; f2.instanceName = "Fixture 2"; f2.layer = layer.name; f2.typeName = "FixtureType"; f2.gdtfSpec = "orig.gdtf"; f2.fixtureIdText = "S101B"; f2.fixtureIdNumeric = 101; f2.fixtureId = 101; scene.fixtures[f2.uuid] = f2;

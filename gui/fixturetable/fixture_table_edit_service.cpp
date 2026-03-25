@@ -65,6 +65,7 @@ void PropagateTypeValues(wxDataViewListCtrl *table,
 void UpdateSceneData(ISceneAdapter &adapter, wxDataViewListCtrl *table,
                      const std::vector<std::string> &rowUuids,
                      const std::vector<wxString> &gdtfPaths,
+                     const std::unordered_set<std::string> *manualCategoryUuids,
                      bool logChanges) {
   // Ensure in-place cell editors commit pending values before reading table rows.
   if (table)
@@ -94,6 +95,9 @@ void UpdateSceneData(ISceneAdapter &adapter, wxDataViewListCtrl *table,
 
     const Fixture old = it->second;
     Fixture next = old;
+    const bool forceManualCategory =
+        manualCategoryUuids &&
+        manualCategoryUuids->find(rowUuids[i]) != manualCategoryUuids->end();
 
     if (i < gdtfPaths.size())
       next.gdtfSpec = std::string(gdtfPaths[i].ToUTF8());
@@ -205,8 +209,11 @@ void UpdateSceneData(ISceneAdapter &adapter, wxDataViewListCtrl *table,
 
     table->GetValue(v, i, 18);
     next.category = GdtfFixtureCategory::NormalizeCategory(std::string(v.GetString().ToUTF8()));
-    if (!next.category.empty())
+    if (!next.category.empty() &&
+        (forceManualCategory || next.category != old.category)) {
       next.categorySource = GdtfFixtureCategory::kManualSource;
+      next.categorySourceReason.clear();
+    }
 
     table->GetValue(v, i, 19);
     if (v.GetType() == "wxDataViewIconText") {
@@ -234,6 +241,8 @@ void UpdateSceneData(ISceneAdapter &adapter, wxDataViewListCtrl *table,
                                 !Units::NearlyEqualWeightKilograms(old.weightKg, next.weightKg,
                                                                  0.001) ||
                                 old.category != next.category ||
+                                old.categorySource != next.categorySource ||
+                                old.categorySourceReason != next.categorySourceReason ||
                                 old.color != next.color;
     if (!fixtureChanged)
       continue;
@@ -241,8 +250,10 @@ void UpdateSceneData(ISceneAdapter &adapter, wxDataViewListCtrl *table,
     pushUndoIfNeeded();
     anyChanged = true;
     it->second = next;
-    if (!next.typeName.empty() && !next.category.empty())
+    if (!next.typeName.empty() && !next.category.empty() &&
+        next.categorySource == GdtfFixtureCategory::kManualSource) {
       GdtfDictionary::UpdateCategory(next.typeName, next.category);
+    }
     if (!it->second.position.empty())
       scene.positions[it->second.position] = it->second.positionName;
 
