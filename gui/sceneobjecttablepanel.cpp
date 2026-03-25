@@ -170,6 +170,17 @@ void SceneObjectTablePanel::InitializeTable()
 
 void SceneObjectTablePanel::ReloadData()
 {
+    const auto distanceUnit = ResolveDistanceUnitSystem();
+    const wxString distanceSuffix =
+        wxString::FromUTF8(UiUnitUtils::DistanceUnitSuffix(distanceUnit));
+    columnLabels[3] = "Pos X (" + distanceSuffix + ")";
+    columnLabels[4] = "Pos Y (" + distanceSuffix + ")";
+    columnLabels[5] = "Pos Z (" + distanceSuffix + ")";
+    for (size_t i = 0; i < columnLabels.size(); ++i) {
+        if (auto *column = table->GetColumn(static_cast<unsigned int>(i)))
+            column->SetTitle(columnLabels[i]);
+    }
+
     table->DeleteAllItems();
     rowUuids.clear();
     const auto& objs = guiConfigServices->LegacyConfigManager().GetScene().sceneObjects;
@@ -194,7 +205,6 @@ void SceneObjectTablePanel::ReloadData()
                                                           : wxString::FromUTF8(obj.layer);
         wxString model = wxString::FromUTF8(obj.modelFile);
 
-        const auto distanceUnit = ResolveDistanceUnitSystem();
         auto posArr = obj.transform.o;
         wxString posX = wxString::FromUTF8(UiUnitUtils::FormatDistanceFromMillimeters(
             posArr[0], distanceUnit, UiUnitUtils::ValueFormatContext::Table));

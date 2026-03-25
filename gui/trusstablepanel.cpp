@@ -216,6 +216,24 @@ void TrussTablePanel::InitializeTable()
 
 void TrussTablePanel::ReloadData()
 {
+    const auto distanceUnit = ResolveDistanceUnitSystem();
+    const auto weightUnit = ResolveWeightUnitSystem();
+    const wxString distanceSuffix =
+        wxString::FromUTF8(UiUnitUtils::DistanceUnitSuffix(distanceUnit));
+    const wxString weightSuffix =
+        wxString::FromUTF8(UiUnitUtils::WeightUnitSuffix(weightUnit));
+    columnLabels[4] = "Pos X (" + distanceSuffix + ")";
+    columnLabels[5] = "Pos Y (" + distanceSuffix + ")";
+    columnLabels[6] = "Pos Z (" + distanceSuffix + ")";
+    columnLabels[12] = "Length (" + distanceSuffix + ")";
+    columnLabels[13] = "Width (" + distanceSuffix + ")";
+    columnLabels[14] = "Height (" + distanceSuffix + ")";
+    columnLabels[15] = "Weight (" + weightSuffix + ")";
+    for (size_t i = 0; i < columnLabels.size(); ++i) {
+        if (auto *column = table->GetColumn(static_cast<unsigned int>(i)))
+            column->SetTitle(columnLabels[i]);
+    }
+
     table->DeleteAllItems();
     rowUuids.clear();
     modelPaths.clear();
@@ -268,8 +286,6 @@ void TrussTablePanel::ReloadData()
         symbolPaths.push_back(wxString::FromUTF8(symbolFullPath));
         wxString model = wxFileName(modelFull).GetFullName();
 
-        const auto distanceUnit = ResolveDistanceUnitSystem();
-        const auto weightUnit = ResolveWeightUnitSystem();
         auto posArr = truss.transform.o;
         wxString posX = wxString::FromUTF8(UiUnitUtils::FormatDistanceFromMillimeters(
             posArr[0], distanceUnit, UiUnitUtils::ValueFormatContext::Table));

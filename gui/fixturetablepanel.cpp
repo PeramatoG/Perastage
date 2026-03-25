@@ -216,6 +216,24 @@ void FixtureTablePanel::InitializeTable() {
 }
 
 void FixtureTablePanel::ReloadData() {
+  auto &cfg = guiConfigServices->LegacyConfigManager();
+  const auto distanceUnit = UiUnitUtils::ParseDistanceUnitSystem(
+      cfg.GetValue("ui_distance_unit_system"));
+  const auto weightUnit = UiUnitUtils::ParseWeightUnitSystem(
+      cfg.GetValue("ui_weight_unit_system"));
+  const wxString distanceSuffix =
+      wxString::FromUTF8(UiUnitUtils::DistanceUnitSuffix(distanceUnit));
+  const wxString weightSuffix =
+      wxString::FromUTF8(UiUnitUtils::WeightUnitSuffix(weightUnit));
+  columnLabels[10] = "Pos X (" + distanceSuffix + ")";
+  columnLabels[11] = "Pos Y (" + distanceSuffix + ")";
+  columnLabels[12] = "Pos Z (" + distanceSuffix + ")";
+  columnLabels[17] = "Weight (" + weightSuffix + ")";
+  for (size_t i = 0; i < columnLabels.size(); ++i) {
+    if (auto *column = table->GetColumn(static_cast<unsigned int>(i)))
+      column->SetTitle(columnLabels[i]);
+  }
+
   store->DeleteAllItems();
   gdtfPaths.clear();
   rowUuids.clear();
@@ -281,11 +299,6 @@ void FixtureTablePanel::ReloadData() {
         chCount >= 0 ? wxString::Format("%d", chCount) : wxString();
 
     auto posArr = fixture->GetPosition();
-    auto &cfg = guiConfigServices->LegacyConfigManager();
-    const auto distanceUnit = UiUnitUtils::ParseDistanceUnitSystem(
-        cfg.GetValue("ui_distance_unit_system"));
-    const auto weightUnit = UiUnitUtils::ParseWeightUnitSystem(
-        cfg.GetValue("ui_weight_unit_system"));
     wxString posX = wxString::FromUTF8(UiUnitUtils::FormatDistanceFromMillimeters(
         posArr[0], distanceUnit, UiUnitUtils::ValueFormatContext::Table));
     wxString posY = wxString::FromUTF8(UiUnitUtils::FormatDistanceFromMillimeters(

@@ -208,6 +208,16 @@ void RiggingPanel::RefreshData() {
 
   std::map<std::string, Totals> rows;
   const auto weightUnit = ResolveWeightUnitSystem();
+  const wxString weightSuffix =
+      wxString::FromUTF8(UiUnitUtils::WeightUnitSuffix(weightUnit));
+  if (table->GetColumnCount() >= 9) {
+    table->GetColumn(4)->SetTitle("Fixture Weight (" + weightSuffix + ")");
+    table->GetColumn(5)->SetTitle("Truss Weight (" + weightSuffix + ")");
+    table->GetColumn(6)->SetTitle("Hoists Weight (" + weightSuffix + ")");
+    table->GetColumn(7)->SetTitle("Total Weight (" + weightSuffix + ")");
+    table->GetColumn(8)->SetTitle("Rounded Total Weight +5% (" + weightSuffix +
+                                  ")");
+  }
   const auto &scene = GetDefaultGuiConfigServices().LegacyConfigManager().GetScene();
   for (const auto &[uuid, fixture] : scene.fixtures) {
     std::string pos = fixture.positionName.empty() ? UNASSIGNED_POSITION

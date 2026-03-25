@@ -262,6 +262,23 @@ void HoistTablePanel::InitializeTable() {
 }
 
 void HoistTablePanel::ReloadData() {
+  const auto distanceUnit = ResolveDistanceUnitSystem();
+  const auto weightUnit = ResolveWeightUnitSystem();
+  const wxString distanceSuffix =
+      wxString::FromUTF8(UiUnitUtils::DistanceUnitSuffix(distanceUnit));
+  const wxString weightSuffix =
+      wxString::FromUTF8(UiUnitUtils::WeightUnitSuffix(weightUnit));
+  columnLabels[9] = "Pos X (" + distanceSuffix + ")";
+  columnLabels[10] = "Pos Y (" + distanceSuffix + ")";
+  columnLabels[11] = "Pos Z (" + distanceSuffix + ")";
+  columnLabels[16] = "Capacity (" + weightSuffix + ")";
+  columnLabels[17] = "Weight (" + weightSuffix + ")";
+  columnLabels[18] = "Load (" + weightSuffix + ")";
+  for (size_t i = 0; i < columnLabels.size(); ++i) {
+    if (auto *column = table->GetColumn(static_cast<unsigned int>(i)))
+      column->SetTitle(columnLabels[i]);
+  }
+
   table->DeleteAllItems();
   rowUuids.clear();
   const MvrScene &scene = guiConfigServices->LegacyConfigManager().GetScene();
@@ -317,8 +334,6 @@ void HoistTablePanel::ReloadData() {
                          : wxString::FromUTF8(support.layer);
     wxString posName = wxString::FromUTF8(support.positionName);
 
-    const auto distanceUnit = ResolveDistanceUnitSystem();
-    const auto weightUnit = ResolveWeightUnitSystem();
     auto posArr = support.transform.o;
     wxString posX = wxString::FromUTF8(UiUnitUtils::FormatDistanceFromMillimeters(
         posArr[0], distanceUnit, UiUnitUtils::ValueFormatContext::Table));
