@@ -18,6 +18,7 @@
 #include "mvrexporter.h"
 #include "configmanager.h"
 #include "dummyprofilelibrary.h"
+#include "logger.h"
 #include "matrixutils.h"
 #include "projectutils.h"
 #include "support.h"
@@ -81,6 +82,7 @@ static void AppendSupportHoistInfoUserData(tinyxml2::XMLDocument &doc,
                                            tinyxml2::XMLElement *supportNode,
                                            const Support &support);
 static bool IsCanonicalUuidString(const std::string &value);
+static void LogLegacyPositionUuidWarning(const std::string &message);
 
 static constexpr const char *kMvrProvider = "Perastage";
 static constexpr const char *kMvrProviderVersion = "1.0";
@@ -104,6 +106,10 @@ static std::string TrimAscii(std::string value) {
                            [&](unsigned char c) { return !isSpace(c); }).base(),
               value.end());
   return value;
+}
+
+static void LogLegacyPositionUuidWarning(const std::string &message) {
+  Logger::Instance().Log(Logger::Level::Warn, message);
 }
 
 static std::string TruncateFileNamePreservingExtension(const std::string &fileName,
@@ -931,8 +937,9 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     const std::string generated = reserveCanonicalPositionUuid({}, seed);
     positions[generated] = name.empty() ? rawUuid : name;
     legacyPositionIdToCanonical[rawUuid] = generated;
-    wxLogWarning("MVR export converted legacy Position uuid '%s' to canonical '%s' (name='%s')",
-                 rawUuid.c_str(), generated.c_str(), positions[generated].c_str());
+    LogLegacyPositionUuidWarning(
+        "MVR export converted legacy Position uuid '" + rawUuid +
+        "' to canonical '" + generated + "' (name='" + positions[generated] + "')");
   }
 
   std::unordered_map<std::string, std::string> positionByName;
@@ -978,8 +985,9 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     positions[newUuid] = nameHint;
     positionByName[nameHint] = newUuid;
     if (!positionId.empty()) {
-      wxLogWarning("MVR export normalized legacy Position uuid '%s' -> '%s' (name='%s')",
-                   positionId.c_str(), newUuid.c_str(), nameHint.c_str());
+      LogLegacyPositionUuidWarning(
+          "MVR export normalized legacy Position uuid '" + positionId + "' -> '" +
+          newUuid + "' (name='" + nameHint + "')");
     }
   };
 
@@ -1004,8 +1012,12 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
       auto byName = positionByName.find(nameHint);
       if (byName != positionByName.end()) {
         if (!positionId.empty() && byName->second != positionId) {
-          wxLogMessage("MVR export remapped non-canonical Position '%s' to '%s' by name '%s'",
-                       positionId.c_str(), byName->second.c_str(), nameHint.c_str());
+          Logger::Instance().Log(
+              Logger::Level::Info,
+              wxString::Format(
+                  "MVR export remapped non-canonical Position '%s' to '%s' by name '%s'",
+                  positionId.c_str(), byName->second.c_str(), nameHint.c_str())
+                  .ToStdString());
         }
         return byName->second;
       }
@@ -1213,15 +1225,21 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
                              f.instanceName + ":" +
                              MatrixUtils::FormatMatrix(f.transform);
     if (stableUuid.empty()) {
-      wxLogWarning(
-          "Fixture '%s' has non-canonical UUID '%s'. Applying deterministic fallback UUID for export.",
-          f.instanceName.c_str(), f.uuid.c_str());
+      Logger::Instance().Log(
+          Logger::Level::Warn,
+          wxString::Format(
+              "Fixture '%s' has non-canonical UUID '%s'. Applying deterministic fallback UUID for export.",
+              f.instanceName.c_str(), f.uuid.c_str())
+              .ToStdString());
       stableUuid = DeriveDeterministicUuid(seed);
     }
     if (usedFixtureUuids.contains(stableUuid)) {
-      wxLogWarning(
-          "Fixture UUID collision detected during export for '%s' (uuid=%s). Applying controlled fallback UUID.",
-          f.instanceName.c_str(), stableUuid.c_str());
+      Logger::Instance().Log(
+          Logger::Level::Warn,
+          wxString::Format(
+              "Fixture UUID collision detected during export for '%s' (uuid=%s). Applying controlled fallback UUID.",
+              f.instanceName.c_str(), stableUuid.c_str())
+              .ToStdString());
       int suffix = 1;
       std::string candidate;
       do {
@@ -1279,13 +1297,19 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     if (fixtureSourceGdtf.empty()) {
       fixtureSourceGdtf = ResolveFallbackFixtureGdtfPath();
       if (fixtureSourceGdtf.empty()) {
-        wxLogWarning(
-            "Fixture '%s' (uuid=%s) has no GDTF and fallback '%s' is not available.",
-            fixtureExportName.c_str(), f.uuid.c_str(), kFallbackFixtureGdtfFileName);
+        Logger::Instance().Log(
+            Logger::Level::Warn,
+            wxString::Format(
+                "Fixture '%s' (uuid=%s) has no GDTF and fallback '%s' is not available.",
+                fixtureExportName.c_str(), f.uuid.c_str(), kFallbackFixtureGdtfFileName)
+                .ToStdString());
       } else {
-        wxLogMessage(
-            "Fixture '%s' (uuid=%s) has no GDTF. Using fallback '%s' for MVR export.",
-            fixtureExportName.c_str(), f.uuid.c_str(), kFallbackFixtureGdtfFileName);
+        Logger::Instance().Log(
+            Logger::Level::Info,
+            wxString::Format(
+                "Fixture '%s' (uuid=%s) has no GDTF. Using fallback '%s' for MVR export.",
+                fixtureExportName.c_str(), f.uuid.c_str(), kFallbackFixtureGdtfFileName)
+                .ToStdString());
       }
     }
     std::string fixtureName = SanitizeArchiveFileName(fixtureSourceGdtf, "fixture.gdtf");
@@ -1346,9 +1370,12 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
         addresses->InsertEndChild(addr);
         fe->InsertEndChild(addresses);
       } else {
-        wxLogWarning(
-            "Skipping invalid DMX patch for fixture '%s' (uuid=%s): '%s' (expected Universe.Address with universe >= 1 and address in [1,512])",
-            f.instanceName.c_str(), f.uuid.c_str(), trimmedAddress.c_str());
+        Logger::Instance().Log(
+            Logger::Level::Warn,
+            wxString::Format(
+                "Skipping invalid DMX patch for fixture '%s' (uuid=%s): '%s' (expected Universe.Address with universe >= 1 and address in [1,512])",
+                f.instanceName.c_str(), f.uuid.c_str(), trimmedAddress.c_str())
+                .ToStdString());
       }
     }
 
@@ -1503,8 +1530,11 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
         sym->InsertEndChild(symMat);
         geos->InsertEndChild(sym);
         te->InsertEndChild(geos);
-        wxLogMessage("MVR export truss keeps Symbol/Symdef uuid=%s symdef=%s",
-                     t.uuid.c_str(), t.sourceSymdefUuid.c_str());
+        Logger::Instance().Log(
+            Logger::Level::Info,
+            wxString::Format("MVR export truss keeps Symbol/Symdef uuid=%s symdef=%s",
+                             t.uuid.c_str(), t.sourceSymdefUuid.c_str())
+                .ToStdString());
       } else if (!t.symbolFile.empty()) {
         std::string ext = fs::path(t.symbolFile).extension().string();
         std::transform(ext.begin(), ext.end(), ext.begin(),
@@ -1523,7 +1553,11 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
           g3d->InsertEndChild(geoMat);
           geos->InsertEndChild(g3d);
           te->InsertEndChild(geos);
-          wxLogMessage("MVR export truss uses direct Geometry3D uuid=%s", t.uuid.c_str());
+          Logger::Instance().Log(
+              Logger::Level::Info,
+              wxString::Format("MVR export truss uses direct Geometry3D uuid=%s",
+                               t.uuid.c_str())
+                  .ToStdString());
         }
       }
     }
@@ -1582,9 +1616,12 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
   };
 
   auto exportSupport = [&](tinyxml2::XMLElement *parent, const Support &s) {
-    wxLogMessage(
-        "MVR export support uuid=%s uses SceneObject fallback to keep XML MVR 1.6-compliant",
-        s.uuid.c_str());
+    Logger::Instance().Log(
+        Logger::Level::Info,
+        wxString::Format(
+            "MVR export support uuid=%s uses SceneObject fallback to keep XML MVR 1.6-compliant",
+            s.uuid.c_str())
+            .ToStdString());
     tinyxml2::XMLElement *se = doc.NewElement("SceneObject");
     se->SetAttribute("uuid", s.uuid.c_str());
     se->SetAttribute("geometryType", "support");
@@ -1730,7 +1767,11 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
     if (childList->FirstChild())
       go->InsertEndChild(childList);
     parent->InsertEndChild(go);
-    wxLogMessage("MVR export preserved GroupObject uuid=%s", group.uuid.c_str());
+    Logger::Instance().Log(
+        Logger::Level::Info,
+        wxString::Format("MVR export preserved GroupObject uuid=%s",
+                         group.uuid.c_str())
+            .ToStdString());
   };
 
   for (const auto &[layerUuid, layer] : scene.layers) {
@@ -1895,16 +1936,22 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
       typeNode->SetAttribute("key", typeKey.c_str());
       typeNode->SetAttribute("gdtf", archivePath.c_str());
       manifest->InsertEndChild(typeNode);
-      wxLogMessage("MVR export generated truss sidecar GDTF typeKey=%s archive=%s",
-                   typeKey.c_str(), archivePath.c_str());
+      Logger::Instance().Log(
+          Logger::Level::Info,
+          wxString::Format("MVR export generated truss sidecar GDTF typeKey=%s archive=%s",
+                           typeKey.c_str(), archivePath.c_str())
+              .ToStdString());
     }
     for (const auto &[uuid, typeKey] : trussInstanceToTypeKey) {
       tinyxml2::XMLElement *instNode = doc.NewElement("Instance");
       instNode->SetAttribute("uuid", uuid.c_str());
       instNode->SetAttribute("typeKey", typeKey.c_str());
       manifest->InsertEndChild(instNode);
-      wxLogMessage("MVR export linked truss instance to sidecar uuid=%s typeKey=%s",
-                   uuid.c_str(), typeKey.c_str());
+      Logger::Instance().Log(
+          Logger::Level::Info,
+          wxString::Format("MVR export linked truss instance to sidecar uuid=%s typeKey=%s",
+                           uuid.c_str(), typeKey.c_str())
+              .ToStdString());
     }
     data->InsertEndChild(manifest);
     rootUserData->InsertEndChild(data);
