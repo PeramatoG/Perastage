@@ -236,6 +236,8 @@ void UpdateSceneData(ISceneAdapter &adapter, wxDataViewListCtrl *table,
                                 !Units::NearlyEqualWeightKilograms(old.weightKg, next.weightKg,
                                                                  0.001) ||
                                 old.category != next.category ||
+                                old.categorySource != next.categorySource ||
+                                old.categorySourceReason != next.categorySourceReason ||
                                 old.color != next.color;
     if (!fixtureChanged)
       continue;
