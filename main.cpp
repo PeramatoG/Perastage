@@ -29,7 +29,6 @@
 #include <string>
 #include <wx/stackwalk.h>
 #include <wx/sysopt.h>
-#include <wx/log.h>
 #include <wx/weakref.h>
 #include <wx/wx.h>
 #include <wx/filename.h>
@@ -53,30 +52,6 @@ private:
 };
 
 namespace {
-class PerastageWxLogTarget final : public wxLog {
-public:
-  void DoLogTextAtLevel(wxLogLevel level, const wxString &msg) override {
-    Logger::Level loggerLevel = Logger::Level::Info;
-    switch (level) {
-    case wxLOG_Error:
-    case wxLOG_FatalError:
-      loggerLevel = Logger::Level::Error;
-      break;
-    case wxLOG_Warning:
-      loggerLevel = Logger::Level::Warn;
-      break;
-    case wxLOG_Info:
-    case wxLOG_Message:
-      loggerLevel = Logger::Level::Info;
-      break;
-    default:
-      loggerLevel = Logger::Level::Debug;
-      break;
-    }
-    Logger::Instance().Log(loggerLevel, msg.ToStdString());
-  }
-};
-
 std::string ToLowerAscii(std::string text) {
   std::transform(text.begin(), text.end(), text.begin(), [](unsigned char c) {
     return static_cast<char>(std::tolower(c));
@@ -143,9 +118,6 @@ bool MyApp::OnInit() {
 
   // Initialize logging system (overwrites log file each launch)
   Logger::Instance();
-  if (wxLog *previousTarget = wxLog::SetActiveTarget(new PerastageWxLogTarget())) {
-    delete previousTarget;
-  }
 
   SplashScreen::SetMessage("Creating main window...");
   MainWindow *mainWindow = new MainWindow(app::kName);
