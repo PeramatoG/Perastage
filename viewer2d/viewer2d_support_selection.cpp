@@ -16,6 +16,7 @@
 #endif
 
 #include "support.h"
+#include "configservices.h"
 #include "viewer3d_types.h"
 #include <algorithm>
 #include <cmath>
