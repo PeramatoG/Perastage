@@ -33,7 +33,8 @@
 #include "riggingpanel.h"
 #include "stringutils.h"
 #include "summarypanel.h"
-#include "ui_unit_utils.h"
+#include "units/unit_label_utils.h"
+#include "units/units.h"
 #include "viewer2dpanel.h"
 #include "viewer3dpanel.h"
 #include <algorithm>
@@ -68,15 +69,15 @@ public:
 
   MvrScene &GetScene() override { return GetDefaultGuiConfigServices().LegacyConfigManager().GetScene(); }
 
-  UiUnitUtils::DistanceUnitSystem GetDistanceUnitSystem() const override {
+  Units::DistanceUnitSystem GetDistanceUnitSystem() const override {
     const auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
-    return UiUnitUtils::ParseDistanceUnitSystem(
+    return Units::ParseDistanceUnitSystem(
         cfg.GetValue("ui_distance_unit_system"));
   }
 
-  UiUnitUtils::WeightUnitSystem GetWeightUnitSystem() const override {
+  Units::WeightUnitSystem GetWeightUnitSystem() const override {
     const auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
-    return UiUnitUtils::ParseWeightUnitSystem(
+    return Units::ParseWeightUnitSystem(
         cfg.GetValue("ui_weight_unit_system"));
   }
 };
@@ -200,35 +201,43 @@ FixtureTablePanel::~FixtureTablePanel() {
 void FixtureTablePanel::InitializeTable() {
   columnLabels = FixtureTableColumns::DefaultLabels();
   auto &cfg = guiConfigServices->LegacyConfigManager();
-  const auto distanceUnit = UiUnitUtils::ParseDistanceUnitSystem(
+  const auto distanceUnit = Units::ParseDistanceUnitSystem(
       cfg.GetValue("ui_distance_unit_system"));
-  const auto weightUnit = UiUnitUtils::ParseWeightUnitSystem(
+  const auto weightUnit = Units::ParseWeightUnitSystem(
       cfg.GetValue("ui_weight_unit_system"));
   const wxString distanceSuffix =
-      wxString::FromUTF8(UiUnitUtils::DistanceUnitSuffix(distanceUnit));
+      wxString::FromUTF8(Units::DistanceUnitSuffix(distanceUnit));
   const wxString weightSuffix =
-      wxString::FromUTF8(UiUnitUtils::WeightUnitSuffix(weightUnit));
-  columnLabels[10] = "Pos X (" + distanceSuffix + ")";
-  columnLabels[11] = "Pos Y (" + distanceSuffix + ")";
-  columnLabels[12] = "Pos Z (" + distanceSuffix + ")";
-  columnLabels[17] = "Weight (" + weightSuffix + ")";
+      wxString::FromUTF8(Units::WeightUnitSuffix(weightUnit));
+  columnLabels[10] = wxString::FromUTF8(
+      Units::LabelWithUnit("Pos X", std::string(distanceSuffix.ToUTF8())));
+  columnLabels[11] = wxString::FromUTF8(
+      Units::LabelWithUnit("Pos Y", std::string(distanceSuffix.ToUTF8())));
+  columnLabels[12] = wxString::FromUTF8(
+      Units::LabelWithUnit("Pos Z", std::string(distanceSuffix.ToUTF8())));
+  columnLabels[17] = wxString::FromUTF8(
+      Units::LabelWithUnit("Weight", std::string(weightSuffix.ToUTF8())));
   FixtureTableColumns::ConfigureColumns(table, columnLabels);
 }
 
 void FixtureTablePanel::ReloadData() {
   auto &cfg = guiConfigServices->LegacyConfigManager();
-  const auto distanceUnit = UiUnitUtils::ParseDistanceUnitSystem(
+  const auto distanceUnit = Units::ParseDistanceUnitSystem(
       cfg.GetValue("ui_distance_unit_system"));
-  const auto weightUnit = UiUnitUtils::ParseWeightUnitSystem(
+  const auto weightUnit = Units::ParseWeightUnitSystem(
       cfg.GetValue("ui_weight_unit_system"));
   const wxString distanceSuffix =
-      wxString::FromUTF8(UiUnitUtils::DistanceUnitSuffix(distanceUnit));
+      wxString::FromUTF8(Units::DistanceUnitSuffix(distanceUnit));
   const wxString weightSuffix =
-      wxString::FromUTF8(UiUnitUtils::WeightUnitSuffix(weightUnit));
-  columnLabels[10] = "Pos X (" + distanceSuffix + ")";
-  columnLabels[11] = "Pos Y (" + distanceSuffix + ")";
-  columnLabels[12] = "Pos Z (" + distanceSuffix + ")";
-  columnLabels[17] = "Weight (" + weightSuffix + ")";
+      wxString::FromUTF8(Units::WeightUnitSuffix(weightUnit));
+  columnLabels[10] = wxString::FromUTF8(
+      Units::LabelWithUnit("Pos X", std::string(distanceSuffix.ToUTF8())));
+  columnLabels[11] = wxString::FromUTF8(
+      Units::LabelWithUnit("Pos Y", std::string(distanceSuffix.ToUTF8())));
+  columnLabels[12] = wxString::FromUTF8(
+      Units::LabelWithUnit("Pos Z", std::string(distanceSuffix.ToUTF8())));
+  columnLabels[17] = wxString::FromUTF8(
+      Units::LabelWithUnit("Weight", std::string(weightSuffix.ToUTF8())));
   for (size_t i = 0; i < columnLabels.size(); ++i) {
     if (auto *column = table->GetColumn(static_cast<unsigned int>(i)))
       column->SetTitle(columnLabels[i]);
@@ -299,12 +308,12 @@ void FixtureTablePanel::ReloadData() {
         chCount >= 0 ? wxString::Format("%d", chCount) : wxString();
 
     auto posArr = fixture->GetPosition();
-    wxString posX = wxString::FromUTF8(UiUnitUtils::FormatDistanceFromMillimeters(
-        posArr[0], distanceUnit, UiUnitUtils::ValueFormatContext::Table));
-    wxString posY = wxString::FromUTF8(UiUnitUtils::FormatDistanceFromMillimeters(
-        posArr[1], distanceUnit, UiUnitUtils::ValueFormatContext::Table));
-    wxString posZ = wxString::FromUTF8(UiUnitUtils::FormatDistanceFromMillimeters(
-        posArr[2], distanceUnit, UiUnitUtils::ValueFormatContext::Table));
+    wxString posX = wxString::FromUTF8(Units::FormatDistanceFromMillimeters(
+        posArr[0], distanceUnit, Units::ValueFormatContext::Table));
+    wxString posY = wxString::FromUTF8(Units::FormatDistanceFromMillimeters(
+        posArr[1], distanceUnit, Units::ValueFormatContext::Table));
+    wxString posZ = wxString::FromUTF8(Units::FormatDistanceFromMillimeters(
+        posArr[2], distanceUnit, Units::ValueFormatContext::Table));
     wxString posName = wxString::FromUTF8(fixture->positionName);
 
     auto euler = MatrixUtils::MatrixToEuler(fixture->transform);
@@ -329,8 +338,8 @@ void FixtureTablePanel::ReloadData() {
     row.push_back(pitch);
     row.push_back(yaw);
     wxString power = wxString::Format("%.1f", fixture->powerConsumptionW);
-    wxString weight = wxString::FromUTF8(UiUnitUtils::FormatWeightFromKilograms(
-        fixture->weightKg, weightUnit, UiUnitUtils::ValueFormatContext::Table));
+    wxString weight = wxString::FromUTF8(Units::FormatWeightFromKilograms(
+        fixture->weightKg, weightUnit, Units::ValueFormatContext::Table));
     wxString category = wxString::FromUTF8(fixture->category);
     row.push_back(power);
     row.push_back(weight);

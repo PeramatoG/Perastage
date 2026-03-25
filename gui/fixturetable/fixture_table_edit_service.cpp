@@ -131,17 +131,17 @@ void UpdateSceneData(ISceneAdapter &adapter, wxDataViewListCtrl *table,
     double yMm = old.transform.o[1];
     double zMm = old.transform.o[2];
     table->GetValue(v, i, 10);
-    if (const auto parsed = UiUnitUtils::ParseDistanceToMillimeters(
+    if (const auto parsed = Units::ParseDistanceToMillimeters(
             std::string(v.GetString().ToUTF8()), distanceUnitSystem);
         parsed.has_value())
       xMm = *parsed;
     table->GetValue(v, i, 11);
-    if (const auto parsed = UiUnitUtils::ParseDistanceToMillimeters(
+    if (const auto parsed = Units::ParseDistanceToMillimeters(
             std::string(v.GetString().ToUTF8()), distanceUnitSystem);
         parsed.has_value())
       yMm = *parsed;
     table->GetValue(v, i, 12);
-    if (const auto parsed = UiUnitUtils::ParseDistanceToMillimeters(
+    if (const auto parsed = Units::ParseDistanceToMillimeters(
             std::string(v.GetString().ToUTF8()), distanceUnitSystem);
         parsed.has_value())
       zMm = *parsed;
@@ -171,11 +171,11 @@ void UpdateSceneData(ISceneAdapter &adapter, wxDataViewListCtrl *table,
 
     const auto currentEuler = MatrixUtils::MatrixToEuler(old.transform);
     const bool transformChanged =
-        !UiUnitUtils::NearlyEqualDistanceMillimeters(old.transform.o[0], xMm,
+        !Units::NearlyEqualDistanceMillimeters(old.transform.o[0], xMm,
                                                      0.5) ||
-        !UiUnitUtils::NearlyEqualDistanceMillimeters(old.transform.o[1], yMm,
+        !Units::NearlyEqualDistanceMillimeters(old.transform.o[1], yMm,
                                                      0.5) ||
-        !UiUnitUtils::NearlyEqualDistanceMillimeters(old.transform.o[2], zMm,
+        !Units::NearlyEqualDistanceMillimeters(old.transform.o[2], zMm,
                                                      0.5) ||
         std::abs(static_cast<double>(currentEuler[2]) - roll) > 0.05 ||
         std::abs(static_cast<double>(currentEuler[1]) - pitch) > 0.05 ||
@@ -197,7 +197,7 @@ void UpdateSceneData(ISceneAdapter &adapter, wxDataViewListCtrl *table,
     next.powerConsumptionW = static_cast<float>(pw);
 
     table->GetValue(v, i, 17);
-    if (const auto parsedWeightKg = UiUnitUtils::ParseWeightToKilograms(
+    if (const auto parsedWeightKg = Units::ParseWeightToKilograms(
             std::string(v.GetString().ToUTF8()), weightUnitSystem);
         parsedWeightKg.has_value()) {
       next.weightKg = static_cast<float>(*parsedWeightKg);
@@ -231,7 +231,7 @@ void UpdateSceneData(ISceneAdapter &adapter, wxDataViewListCtrl *table,
                                 old.gdtfMode != next.gdtfMode ||
                                 transformChanged ||
                                 old.powerConsumptionW != next.powerConsumptionW ||
-                                !UiUnitUtils::NearlyEqualWeightKilograms(old.weightKg, next.weightKg,
+                                !Units::NearlyEqualWeightKilograms(old.weightKg, next.weightKg,
                                                                  0.001) ||
                                 old.category != next.category ||
                                 old.color != next.color;

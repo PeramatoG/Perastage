@@ -25,7 +25,8 @@
 #include "columnutils.h"
 #include "configmanager.h"
 #include "guiconfigservices.h"
-#include "ui_unit_utils.h"
+#include "units/unit_label_utils.h"
+#include "units/units.h"
 
 namespace {
 constexpr const char *UNASSIGNED_POSITION = "Unassigned";
@@ -53,9 +54,9 @@ bool IsRedCell(const ColorfulDataViewListStore *store, int row, int col) {
   return attr.HasColour() && attr.GetColour() == *wxRED;
 }
 
-UiUnitUtils::WeightUnitSystem ResolveWeightUnitSystem() {
+Units::WeightUnitSystem ResolveWeightUnitSystem() {
   auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
-  return UiUnitUtils::ParseWeightUnitSystem(cfg.GetValue("ui_weight_unit_system"));
+  return Units::ParseWeightUnitSystem(cfg.GetValue("ui_weight_unit_system"));
 }
 
 wxString BuildRiggingTooltipForColumn(int modelColumn) {
@@ -138,7 +139,7 @@ RiggingPanel::RiggingPanel(wxWindow *parent) : wxPanel(parent, wxID_ANY) {
   });
   const auto weightUnit = ResolveWeightUnitSystem();
   const wxString weightSuffix =
-      wxString::FromUTF8(UiUnitUtils::WeightUnitSuffix(weightUnit));
+      wxString::FromUTF8(Units::WeightUnitSuffix(weightUnit));
   table->AppendTextColumn("Position", wxDATAVIEW_CELL_INERT, wxCOL_WIDTH_AUTOSIZE,
                           wxALIGN_LEFT, wxDATAVIEW_COL_RESIZABLE);
   table->AppendTextColumn("Fixtures", wxDATAVIEW_CELL_INERT, wxCOL_WIDTH_AUTOSIZE,
@@ -209,7 +210,7 @@ void RiggingPanel::RefreshData() {
   std::map<std::string, Totals> rows;
   const auto weightUnit = ResolveWeightUnitSystem();
   const wxString weightSuffix =
-      wxString::FromUTF8(UiUnitUtils::WeightUnitSuffix(weightUnit));
+      wxString::FromUTF8(Units::WeightUnitSuffix(weightUnit));
   if (table->GetColumnCount() >= 9) {
     table->GetColumn(4)->SetTitle("Fixture Weight (" + weightSuffix + ")");
     table->GetColumn(5)->SetTitle("Truss Weight (" + weightSuffix + ")");
@@ -262,17 +263,17 @@ void RiggingPanel::RefreshData() {
     row.push_back(wxString::Format("%d", totals.fixtures));
     row.push_back(wxString::Format("%d", totals.trusses));
     row.push_back(wxString::Format("%d", totals.hoists));
-    row.push_back(wxString::FromUTF8(UiUnitUtils::FormatWeightFromKilograms(
-        totals.fixtureWeight, weightUnit, UiUnitUtils::ValueFormatContext::Table)));
-    row.push_back(wxString::FromUTF8(UiUnitUtils::FormatWeightFromKilograms(
-        totals.trussWeight, weightUnit, UiUnitUtils::ValueFormatContext::Table)));
-    row.push_back(wxString::FromUTF8(UiUnitUtils::FormatWeightFromKilograms(
-        totals.hoistWeight, weightUnit, UiUnitUtils::ValueFormatContext::Table)));
-    row.push_back(wxString::FromUTF8(UiUnitUtils::FormatWeightFromKilograms(
-        totalWeight, weightUnit, UiUnitUtils::ValueFormatContext::Table)));
-    row.push_back(wxString::FromUTF8(UiUnitUtils::FormatWeightFromKilograms(
+    row.push_back(wxString::FromUTF8(Units::FormatWeightFromKilograms(
+        totals.fixtureWeight, weightUnit, Units::ValueFormatContext::Table)));
+    row.push_back(wxString::FromUTF8(Units::FormatWeightFromKilograms(
+        totals.trussWeight, weightUnit, Units::ValueFormatContext::Table)));
+    row.push_back(wxString::FromUTF8(Units::FormatWeightFromKilograms(
+        totals.hoistWeight, weightUnit, Units::ValueFormatContext::Table)));
+    row.push_back(wxString::FromUTF8(Units::FormatWeightFromKilograms(
+        totalWeight, weightUnit, Units::ValueFormatContext::Table)));
+    row.push_back(wxString::FromUTF8(Units::FormatWeightFromKilograms(
         roundedFivePercentIncrease, weightUnit,
-        UiUnitUtils::ValueFormatContext::Table)));
+        Units::ValueFormatContext::Table)));
     unsigned int rowIndex = table->GetItemCount();
     table->AppendItem(row);
 

@@ -29,7 +29,8 @@
 #include "summarypanel.h"
 #include "dataview_edit_commit.h"
 #include "support.h"
-#include "ui_unit_utils.h"
+#include "units/unit_label_utils.h"
+#include "units/units.h"
 #include "viewer2dpanel.h"
 #include "viewer3dpanel.h"
 #include <algorithm>
@@ -50,14 +51,14 @@ const wxString &DegreeSymbol() {
   return kDegreeSymbol;
 }
 
-UiUnitUtils::DistanceUnitSystem ResolveDistanceUnitSystem() {
+Units::DistanceUnitSystem ResolveDistanceUnitSystem() {
   auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
-  return UiUnitUtils::ParseDistanceUnitSystem(cfg.GetValue("ui_distance_unit_system"));
+  return Units::ParseDistanceUnitSystem(cfg.GetValue("ui_distance_unit_system"));
 }
 
-UiUnitUtils::WeightUnitSystem ResolveWeightUnitSystem() {
+Units::WeightUnitSystem ResolveWeightUnitSystem() {
   auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
-  return UiUnitUtils::ParseWeightUnitSystem(cfg.GetValue("ui_weight_unit_system"));
+  return Units::ParseWeightUnitSystem(cfg.GetValue("ui_weight_unit_system"));
 }
 
 struct RangeParts {
@@ -242,14 +243,14 @@ HoistTablePanel::~HoistTablePanel() { store = nullptr; }
 void HoistTablePanel::InitializeTable() {
   const auto distanceUnit = ResolveDistanceUnitSystem();
   const auto weightUnit = ResolveWeightUnitSystem();
-  const wxString distanceSuffix = wxString::FromUTF8(UiUnitUtils::DistanceUnitSuffix(distanceUnit));
-  const wxString weightSuffix = wxString::FromUTF8(UiUnitUtils::WeightUnitSuffix(weightUnit));
+  const wxString distanceSuffix = wxString::FromUTF8(Units::DistanceUnitSuffix(distanceUnit));
+  const wxString weightSuffix = wxString::FromUTF8(Units::WeightUnitSuffix(weightUnit));
   columnLabels = {"Hoist ID",      "Name",          "Type",      "Function",
                   "Motor",         "Dummy Preset",  "Data Source", "Layer",
-                  "Hang Pos",      "Pos X (" + distanceSuffix + ")",         "Pos Y (" + distanceSuffix + ")",     "Pos Z (" + distanceSuffix + ")",
+                  "Hang Pos",      wxString::FromUTF8(Units::LabelWithUnit("Pos X", std::string(distanceSuffix.ToUTF8()))),         wxString::FromUTF8(Units::LabelWithUnit("Pos Y", std::string(distanceSuffix.ToUTF8()))),     wxString::FromUTF8(Units::LabelWithUnit("Pos Z", std::string(distanceSuffix.ToUTF8()))),
                   "Roll (X)",      "Pitch (Y)",     "Yaw (Z)",
-                  "Chain Length (m)", "Capacity (" + weightSuffix + ")", "Weight (" + weightSuffix + ")",
-                  "Load (" + weightSuffix + ")"};
+                  "Chain Length (m)", wxString::FromUTF8(Units::LabelWithUnit("Capacity", std::string(weightSuffix.ToUTF8()))), wxString::FromUTF8(Units::LabelWithUnit("Weight", std::string(weightSuffix.ToUTF8()))),
+                  wxString::FromUTF8(Units::LabelWithUnit("Load", std::string(weightSuffix.ToUTF8())))};
   std::vector<int> widths = {70, 150, 120, 120, 130, 150, 110, 100, 120,
                              80, 80, 80, 80, 80, 80, 110, 110, 100, 100};
   for (size_t i = 0; i < columnLabels.size(); ++i)
@@ -265,15 +266,15 @@ void HoistTablePanel::ReloadData() {
   const auto distanceUnit = ResolveDistanceUnitSystem();
   const auto weightUnit = ResolveWeightUnitSystem();
   const wxString distanceSuffix =
-      wxString::FromUTF8(UiUnitUtils::DistanceUnitSuffix(distanceUnit));
+      wxString::FromUTF8(Units::DistanceUnitSuffix(distanceUnit));
   const wxString weightSuffix =
-      wxString::FromUTF8(UiUnitUtils::WeightUnitSuffix(weightUnit));
-  columnLabels[9] = "Pos X (" + distanceSuffix + ")";
-  columnLabels[10] = "Pos Y (" + distanceSuffix + ")";
-  columnLabels[11] = "Pos Z (" + distanceSuffix + ")";
-  columnLabels[16] = "Capacity (" + weightSuffix + ")";
-  columnLabels[17] = "Weight (" + weightSuffix + ")";
-  columnLabels[18] = "Load (" + weightSuffix + ")";
+      wxString::FromUTF8(Units::WeightUnitSuffix(weightUnit));
+  columnLabels[9] = wxString::FromUTF8(Units::LabelWithUnit("Pos X", std::string(distanceSuffix.ToUTF8())));
+  columnLabels[10] = wxString::FromUTF8(Units::LabelWithUnit("Pos Y", std::string(distanceSuffix.ToUTF8())));
+  columnLabels[11] = wxString::FromUTF8(Units::LabelWithUnit("Pos Z", std::string(distanceSuffix.ToUTF8())));
+  columnLabels[16] = wxString::FromUTF8(Units::LabelWithUnit("Capacity", std::string(weightSuffix.ToUTF8())));
+  columnLabels[17] = wxString::FromUTF8(Units::LabelWithUnit("Weight", std::string(weightSuffix.ToUTF8())));
+  columnLabels[18] = wxString::FromUTF8(Units::LabelWithUnit("Load", std::string(weightSuffix.ToUTF8())));
   for (size_t i = 0; i < columnLabels.size(); ++i) {
     if (auto *column = table->GetColumn(static_cast<unsigned int>(i)))
       column->SetTitle(columnLabels[i]);
@@ -335,12 +336,12 @@ void HoistTablePanel::ReloadData() {
     wxString posName = wxString::FromUTF8(support.positionName);
 
     auto posArr = support.transform.o;
-    wxString posX = wxString::FromUTF8(UiUnitUtils::FormatDistanceFromMillimeters(
-        posArr[0], distanceUnit, UiUnitUtils::ValueFormatContext::Table));
-    wxString posY = wxString::FromUTF8(UiUnitUtils::FormatDistanceFromMillimeters(
-        posArr[1], distanceUnit, UiUnitUtils::ValueFormatContext::Table));
-    wxString posZ = wxString::FromUTF8(UiUnitUtils::FormatDistanceFromMillimeters(
-        posArr[2], distanceUnit, UiUnitUtils::ValueFormatContext::Table));
+    wxString posX = wxString::FromUTF8(Units::FormatDistanceFromMillimeters(
+        posArr[0], distanceUnit, Units::ValueFormatContext::Table));
+    wxString posY = wxString::FromUTF8(Units::FormatDistanceFromMillimeters(
+        posArr[1], distanceUnit, Units::ValueFormatContext::Table));
+    wxString posZ = wxString::FromUTF8(Units::FormatDistanceFromMillimeters(
+        posArr[2], distanceUnit, Units::ValueFormatContext::Table));
 
     auto euler = MatrixUtils::MatrixToEuler(support.transform);
     wxString roll = wxString::Format("%.1f", euler[2]) + DegreeSymbol();
@@ -348,12 +349,12 @@ void HoistTablePanel::ReloadData() {
     wxString yaw = wxString::Format("%.1f", euler[0]) + DegreeSymbol();
 
     wxString chainLen = wxString::Format("%.2f", support.chainLength);
-    wxString capacity = wxString::FromUTF8(UiUnitUtils::FormatWeightFromKilograms(
-        effective.capacityKg, weightUnit, UiUnitUtils::ValueFormatContext::Table));
-    wxString weight = wxString::FromUTF8(UiUnitUtils::FormatWeightFromKilograms(
-        effective.weightKg, weightUnit, UiUnitUtils::ValueFormatContext::Table));
-    wxString load = wxString::FromUTF8(UiUnitUtils::FormatWeightFromKilograms(
-        support.loadKg, weightUnit, UiUnitUtils::ValueFormatContext::Table));
+    wxString capacity = wxString::FromUTF8(Units::FormatWeightFromKilograms(
+        effective.capacityKg, weightUnit, Units::ValueFormatContext::Table));
+    wxString weight = wxString::FromUTF8(Units::FormatWeightFromKilograms(
+        effective.weightKg, weightUnit, Units::ValueFormatContext::Table));
+    wxString load = wxString::FromUTF8(Units::FormatWeightFromKilograms(
+        support.loadKg, weightUnit, Units::ValueFormatContext::Table));
 
     row.push_back(name);
     row.push_back(type);
@@ -843,13 +844,13 @@ void HoistTablePanel::UpdateSceneData(bool logChanges) {
     const auto weightUnit = ResolveWeightUnitSystem();
     double xMm = old.transform.o[0], yMm = old.transform.o[1], zMm = old.transform.o[2];
     table->GetValue(v, i, 9);
-    if (const auto parsed = UiUnitUtils::ParseDistanceToMillimeters(std::string(v.GetString().ToUTF8()), distanceUnit); parsed.has_value())
+    if (const auto parsed = Units::ParseDistanceToMillimeters(std::string(v.GetString().ToUTF8()), distanceUnit); parsed.has_value())
       xMm = *parsed;
     table->GetValue(v, i, 10);
-    if (const auto parsed = UiUnitUtils::ParseDistanceToMillimeters(std::string(v.GetString().ToUTF8()), distanceUnit); parsed.has_value())
+    if (const auto parsed = Units::ParseDistanceToMillimeters(std::string(v.GetString().ToUTF8()), distanceUnit); parsed.has_value())
       yMm = *parsed;
     table->GetValue(v, i, 11);
-    if (const auto parsed = UiUnitUtils::ParseDistanceToMillimeters(std::string(v.GetString().ToUTF8()), distanceUnit); parsed.has_value())
+    if (const auto parsed = Units::ParseDistanceToMillimeters(std::string(v.GetString().ToUTF8()), distanceUnit); parsed.has_value())
       zMm = *parsed;
 
     double roll = 0, pitch = 0, yaw = 0;
@@ -877,9 +878,9 @@ void HoistTablePanel::UpdateSceneData(bool logChanges) {
 
     const auto currentEuler = MatrixUtils::MatrixToEuler(old.transform);
     const bool transformChanged =
-        !UiUnitUtils::NearlyEqualDistanceMillimeters(old.transform.o[0], xMm, 0.5) ||
-        !UiUnitUtils::NearlyEqualDistanceMillimeters(old.transform.o[1], yMm, 0.5) ||
-        !UiUnitUtils::NearlyEqualDistanceMillimeters(old.transform.o[2], zMm, 0.5) ||
+        !Units::NearlyEqualDistanceMillimeters(old.transform.o[0], xMm, 0.5) ||
+        !Units::NearlyEqualDistanceMillimeters(old.transform.o[1], yMm, 0.5) ||
+        !Units::NearlyEqualDistanceMillimeters(old.transform.o[2], zMm, 0.5) ||
         std::abs(static_cast<double>(currentEuler[2]) - roll) > 0.05 ||
         std::abs(static_cast<double>(currentEuler[1]) - pitch) > 0.05 ||
         std::abs(static_cast<double>(currentEuler[0]) - yaw) > 0.05;
@@ -901,20 +902,20 @@ void HoistTablePanel::UpdateSceneData(bool logChanges) {
 
     table->GetValue(v, i, 16);
     float editedCapacityKg = old.capacityKg;
-    if (const auto parsed = UiUnitUtils::ParseWeightToKilograms(std::string(v.GetString().ToUTF8()), weightUnit); parsed.has_value()) {
+    if (const auto parsed = Units::ParseWeightToKilograms(std::string(v.GetString().ToUTF8()), weightUnit); parsed.has_value()) {
       editedCapacityKg = static_cast<float>(*parsed);
       next.capacityKg = editedCapacityKg;
     }
 
     table->GetValue(v, i, 17);
     float editedWeightKg = old.weightKg;
-    if (const auto parsed = UiUnitUtils::ParseWeightToKilograms(std::string(v.GetString().ToUTF8()), weightUnit); parsed.has_value()) {
+    if (const auto parsed = Units::ParseWeightToKilograms(std::string(v.GetString().ToUTF8()), weightUnit); parsed.has_value()) {
       editedWeightKg = static_cast<float>(*parsed);
       next.weightKg = editedWeightKg;
     }
 
     table->GetValue(v, i, 18);
-    if (const auto parsed = UiUnitUtils::ParseWeightToKilograms(std::string(v.GetString().ToUTF8()), weightUnit); parsed.has_value())
+    if (const auto parsed = Units::ParseWeightToKilograms(std::string(v.GetString().ToUTF8()), weightUnit); parsed.has_value())
       next.loadKg = static_cast<float>(*parsed);
 
     next.motorNameSource =
@@ -951,9 +952,9 @@ void HoistTablePanel::UpdateSceneData(bool logChanges) {
                                 old.layer != next.layer ||
                                 old.positionName != next.positionName || transformChanged ||
                                 old.chainLength != next.chainLength ||
-                                !UiUnitUtils::NearlyEqualWeightKilograms(old.capacityKg, next.capacityKg, 0.001) ||
-                                !UiUnitUtils::NearlyEqualWeightKilograms(old.weightKg, next.weightKg, 0.001) ||
-                                !UiUnitUtils::NearlyEqualWeightKilograms(old.loadKg, next.loadKg, 0.001) ||
+                                !Units::NearlyEqualWeightKilograms(old.capacityKg, next.capacityKg, 0.001) ||
+                                !Units::NearlyEqualWeightKilograms(old.weightKg, next.weightKg, 0.001) ||
+                                !Units::NearlyEqualWeightKilograms(old.loadKg, next.loadKg, 0.001) ||
                                 NormalizeHoistDataSource(old.motorNameSource) !=
                                     NormalizeHoistDataSource(next.motorNameSource) ||
                                 NormalizeHoistDataSource(old.motorManufacturerSource) !=
