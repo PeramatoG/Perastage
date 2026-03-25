@@ -713,12 +713,13 @@ void LabelRenderSystem::DrawAllFixtureLabels(int width, int height,
 
   const auto &supports = cfg.GetScene().supports;
   constexpr const char *kRegularFamily = "sans";
-  constexpr float kSupportNameSizePx = 28.0f;
-  constexpr float kSupportBodySizePx = 20.0f;
-  constexpr float kSupportTopGapPx = 34.0f;
-  constexpr float kSupportBottomGapPx = 34.0f;
-  constexpr float kSupportRightGapPx = 90.0f;
-  constexpr float kSupportInfoTopGapPx = 20.0f;
+  // Keep default support label sizing aligned with fixture labels at Size = 3.
+  constexpr float kSupportNameSizePx = 3.0f;
+  constexpr float kSupportBodySizePx = 3.0f;
+  constexpr float kSupportTopGapPx = 5.0f;
+  constexpr float kSupportBottomGapPx = 5.0f;
+  constexpr float kSupportRightGapPx = 14.0f;
+  constexpr float kSupportInfoTopGapPx = 3.0f;
   constexpr float kSupportLineSpacingPx = 2.0f;
 
   for (const auto &[uuid, support] : supports) {
