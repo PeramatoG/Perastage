@@ -18,9 +18,12 @@
 #include "preferencesdialog.h"
 #include "configmanager.h"
 #include "guiconfigservices.h"
-#include <wx/notebook.h>
 #include <wx/checkbox.h>
+#include <wx/choice.h>
+#include <wx/notebook.h>
 #include <wx/radiobut.h>
+
+wxDEFINE_EVENT(EVT_UI_UNITS_CHANGED, wxCommandEvent);
 
 PreferencesDialog::PreferencesDialog(wxWindow *parent)
     : wxDialog(parent, wxID_ANY, "Preferences", wxDefaultPosition,
@@ -82,8 +85,40 @@ PreferencesDialog::PreferencesDialog(wxWindow *parent)
   }
   riderSizer->Add(grid, 1, wxALL | wxEXPAND, 10);
   riderPanel->SetSizer(riderSizer);
-
   book->AddPage(riderPanel, "Rider Import");
+
+  // Units page
+  wxPanel *unitsPanel = new wxPanel(book);
+  wxBoxSizer *unitsSizer = new wxBoxSizer(wxVERTICAL);
+  wxFlexGridSizer *unitsGrid = new wxFlexGridSizer(2, 2, 10, 10);
+  unitsGrid->AddGrowableCol(1, 1);
+
+  unitsGrid->Add(new wxStaticText(unitsPanel, wxID_ANY, "Distance system:"), 0,
+                 wxALIGN_CENTER_VERTICAL);
+  distanceUnitChoice = new wxChoice(unitsPanel, wxID_ANY);
+  distanceUnitChoice->Append("Metric");
+  distanceUnitChoice->Append("Imperial");
+  auto distanceUnitValue = cfg.GetValue("ui_distance_unit_system");
+  const bool hasImperialDistance =
+      distanceUnitValue && *distanceUnitValue == "imperial";
+  distanceUnitChoice->SetSelection(hasImperialDistance ? 1 : 0);
+  initialDistanceUnit = distanceUnitChoice->GetStringSelection();
+  unitsGrid->Add(distanceUnitChoice, 1, wxEXPAND);
+
+  unitsGrid->Add(new wxStaticText(unitsPanel, wxID_ANY, "Weight system:"), 0,
+                 wxALIGN_CENTER_VERTICAL);
+  weightUnitChoice = new wxChoice(unitsPanel, wxID_ANY);
+  weightUnitChoice->Append("Metric");
+  weightUnitChoice->Append("Imperial");
+  auto weightUnitValue = cfg.GetValue("ui_weight_unit_system");
+  const bool hasImperialWeight = weightUnitValue && *weightUnitValue == "imperial";
+  weightUnitChoice->SetSelection(hasImperialWeight ? 1 : 0);
+  initialWeightUnit = weightUnitChoice->GetStringSelection();
+  unitsGrid->Add(weightUnitChoice, 1, wxEXPAND);
+
+  unitsSizer->Add(unitsGrid, 0, wxALL | wxEXPAND, 10);
+  unitsPanel->SetSizer(unitsSizer);
+  book->AddPage(unitsPanel, "Units");
 
   topSizer->Add(book, 1, wxEXPAND | wxALL, 5);
   topSizer->Add(CreateSeparatedButtonSizer(wxOK | wxCANCEL | wxAPPLY), 0,
@@ -93,26 +128,52 @@ PreferencesDialog::PreferencesDialog(wxWindow *parent)
 
   Bind(wxEVT_BUTTON, [this](wxCommandEvent &evt) {
     if (evt.GetId() == wxID_OK || evt.GetId() == wxID_APPLY) {
-      ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
-      for (int i = 0; i < 6; ++i) {
-        double v = 0.0;
-        lxHeightCtrls[i]->GetValue().ToDouble(&v);
-        cfg.SetFloat("rider_lx" + std::to_string(i + 1) + "_height",
-                     static_cast<float>(v));
-        double p = 0.0;
-        lxPosCtrls[i]->GetValue().ToDouble(&p);
-        cfg.SetFloat("rider_lx" + std::to_string(i + 1) + "_pos",
-                     static_cast<float>(p));
-        double m = 0.0;
-        lxMarginCtrls[i]->GetValue().ToDouble(&m);
-        cfg.SetFloat("rider_lx" + std::to_string(i + 1) + "_margin",
-                     static_cast<float>(m));
+      if (ApplyPreferences()) {
+        NotifyUnitsChanged();
       }
-      cfg.SetValue("rider_autopatch", autopatchCheck->GetValue() ? "1" : "0");
-      cfg.SetValue("rider_layer_mode",
-                   layerTypeRadio->GetValue() ? "type" : "position");
-
     }
     evt.Skip();
   });
+}
+
+bool PreferencesDialog::ApplyPreferences() {
+  ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
+  for (int i = 0; i < 6; ++i) {
+    double v = 0.0;
+    lxHeightCtrls[i]->GetValue().ToDouble(&v);
+    cfg.SetFloat("rider_lx" + std::to_string(i + 1) + "_height",
+                 static_cast<float>(v));
+    double p = 0.0;
+    lxPosCtrls[i]->GetValue().ToDouble(&p);
+    cfg.SetFloat("rider_lx" + std::to_string(i + 1) + "_pos",
+                 static_cast<float>(p));
+    double m = 0.0;
+    lxMarginCtrls[i]->GetValue().ToDouble(&m);
+    cfg.SetFloat("rider_lx" + std::to_string(i + 1) + "_margin",
+                 static_cast<float>(m));
+  }
+
+  cfg.SetValue("rider_autopatch", autopatchCheck->GetValue() ? "1" : "0");
+  cfg.SetValue("rider_layer_mode", layerTypeRadio->GetValue() ? "type"
+                                                               : "position");
+  cfg.SetValue("ui_distance_unit_system",
+               distanceUnitChoice->GetSelection() == 1 ? "imperial"
+                                                       : "metric");
+  cfg.SetValue("ui_weight_unit_system",
+               weightUnitChoice->GetSelection() == 1 ? "imperial" : "metric");
+  return cfg.SaveUserConfig();
+}
+
+void PreferencesDialog::NotifyUnitsChanged() {
+  const wxString currentDistanceUnit = distanceUnitChoice->GetStringSelection();
+  const wxString currentWeightUnit = weightUnitChoice->GetStringSelection();
+  if (currentDistanceUnit == initialDistanceUnit &&
+      currentWeightUnit == initialWeightUnit) {
+    return;
+  }
+
+  initialDistanceUnit = currentDistanceUnit;
+  initialWeightUnit = currentWeightUnit;
+  wxCommandEvent event(EVT_UI_UNITS_CHANGED);
+  wxPostEvent(GetParent(), event);
 }

@@ -948,9 +948,7 @@ void MainWindow::OnSelectObjects(wxCommandEvent &WXUNUSED(event)) {
 
 void MainWindow::OnPreferences(wxCommandEvent &WXUNUSED(event)) {
   PreferencesDialog dlg(this);
-  if (dlg.ShowModal() == wxID_OK) {
-    GetDefaultGuiConfigServices().LegacyConfigManager().SaveUserConfig();
-  }
+  dlg.ShowModal();
 }
 
 void MainWindow::OnUndo(wxCommandEvent &WXUNUSED(event)) {

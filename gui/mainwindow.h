@@ -93,6 +93,7 @@ private:
   void Ensure3DViewport();
   void Ensure2DViewport();
   void OnProjectLoaded(wxCommandEvent &event);
+  void OnUiUnitsChanged(wxCommandEvent &event);
 
   std::string currentProjectPath;
   wxString currentProjectDisplayName;
@@ -171,6 +172,7 @@ private:
   void OnNotebookPageChanged(wxBookCtrlEvent &event); // Update summary panel
   void RefreshSummary();                              // Refresh summary counts
   void RefreshAfterSceneChange(bool refreshViewport = true);
+  void RefreshAfterUnitSystemChange();
   void LockViewportInteraction();
   void UnlockViewportInteraction();
   void RefreshRigging();                              // Refresh rigging summary

@@ -165,6 +165,10 @@ ConfigManager::ConfigManager() {
   RegisterVariable("label_max_trusses", "float", 150.0f, 0.0f, 5000.0f);
   RegisterVariable("label_max_objects", "float", 150.0f, 0.0f, 5000.0f);
   LoadUserConfig();
+  if (!HasKey("ui_distance_unit_system"))
+    SetValue("ui_distance_unit_system", "metric");
+  if (!HasKey("ui_weight_unit_system"))
+    SetValue("ui_weight_unit_system", "metric");
   if (!HasKey("rider_autopatch"))
     SetValue("rider_autopatch", "1");
   if (!HasKey("rider_layer_mode"))
@@ -435,6 +439,10 @@ void ConfigManager::Reset() {
   RevisionGuard guard(*this);
   preferencesStore.ClearValues();
   projectSession.GetScene().Clear();
+  if (!HasKey("ui_distance_unit_system"))
+    SetValue("ui_distance_unit_system", "metric");
+  if (!HasKey("ui_weight_unit_system"))
+    SetValue("ui_weight_unit_system", "metric");
   if (!HasKey("rider_autopatch"))
     SetValue("rider_autopatch", "1");
   ApplyDefaults();
