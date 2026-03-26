@@ -54,6 +54,7 @@ class IGuiConfigServices;
 class MainWindowLayoutController;
 class MainWindowPrintController;
 class MainWindowViewController;
+enum class Viewer2DView;
 
 
 // Main application window for GUI components
@@ -181,6 +182,9 @@ private:
   void OnApplyDefaultLayout(wxCommandEvent &event); // Reset to default layout
   void OnApply2DLayout(wxCommandEvent &event);      // Apply 2D layout
   void OnApplyLayoutModeLayout(wxCommandEvent &event); // Apply layout mode
+  void OnViewportTopView(wxCommandEvent &event);
+  void OnViewportFrontView(wxCommandEvent &event);
+  void OnViewportSideView(wxCommandEvent &event);
 
   void OnUndo(wxCommandEvent &event);           // Undo action placeholder
   void OnRedo(wxCommandEvent &event);           // Redo action placeholder
@@ -214,6 +218,7 @@ private:
   void ActivateLayoutView(const std::string &layoutName);
   void ShowLayoutLoadingIndicator(const wxString &message);
   void ClearLayoutLoadingIndicator();
+  void ApplyViewportShortcut(Viewer2DView view);
   bool HasActiveLayout2DView() const;
   void SyncSceneData();
   void SyncLayerVisibilityPanels();

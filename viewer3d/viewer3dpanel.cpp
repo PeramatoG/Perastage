@@ -983,13 +983,13 @@ void Viewer3DPanel::OnKeyDown(wxKeyEvent& event)
                 m_camera.targetPitch = std::clamp(m_camera.targetPitch - 5.0f, -89.0f, 89.0f);
             break;
         case WXK_NUMPAD1: // Front
-            m_camera.SetOrientation(0.0f, 0.0f);
+            SetStandardView(Viewer2DView::Front);
             break;
         case WXK_NUMPAD3: // Right
-            m_camera.SetOrientation(90.0f, 0.0f);
+            SetStandardView(Viewer2DView::Side);
             break;
         case WXK_NUMPAD7: // Top
-            m_camera.SetOrientation(0.0f, 89.0f);
+            SetStandardView(Viewer2DView::Top);
             break;
         case WXK_NUMPAD5: // Reset/isometric
             m_camera.Reset();
@@ -1024,6 +1024,23 @@ void Viewer3DPanel::OnKeyDown(wxKeyEvent& event)
             return;
     }
 
+    Refresh();
+}
+
+void Viewer3DPanel::SetStandardView(Viewer2DView view) {
+    switch (view) {
+        case Viewer2DView::Top:
+            m_camera.SetOrientation(0.0f, 89.0f);
+            break;
+        case Viewer2DView::Front:
+            m_camera.SetOrientation(0.0f, 0.0f);
+            break;
+        case Viewer2DView::Side:
+            m_camera.SetOrientation(90.0f, 0.0f);
+            break;
+        default:
+            return;
+    }
     Refresh();
 }
 

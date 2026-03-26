@@ -51,6 +51,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/mainwindow/controllers/mainwindow_view_controller.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mainwindow_io.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mainwindow_layout.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/mainwindow_view_shortcuts.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mainwindow_menu.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mainwindow_print.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/preferencesdialog.cpp

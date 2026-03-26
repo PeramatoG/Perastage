@@ -19,3 +19,6 @@ constexpr int ID_View_Layout_Legend = ID_View_Layout_2DView + 1;
 constexpr int ID_View_Layout_EventTable = ID_View_Layout_Legend + 1;
 constexpr int ID_View_Layout_Text = ID_View_Layout_EventTable + 1;
 constexpr int ID_View_Layout_Image = ID_View_Layout_Text + 1;
+constexpr int ID_View_Viewport_Top = ID_View_Layout_Image + 1;
+constexpr int ID_View_Viewport_Front = ID_View_Viewport_Top + 1;
+constexpr int ID_View_Viewport_Side = ID_View_Viewport_Front + 1;

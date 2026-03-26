@@ -19,6 +19,7 @@
 
 #include "configmanager.h"
 #include "mainwindow.h"
+#include <algorithm>
 #include <array>
 
 namespace {
@@ -268,6 +269,10 @@ void Viewer2DRenderPanel::SetInstance(Viewer2DRenderPanel *p) {
   s_instance = p;
 }
 
+void Viewer2DRenderPanel::SetViewSelection(Viewer2DView view) {
+  ApplyViewSelection(static_cast<int>(view));
+}
+
 void Viewer2DRenderPanel::ApplyConfig() {
   ConfigManager &cfg = ConfigManager::Get();
   m_radio->SetSelection(static_cast<int>(cfg.GetFloat("view2d_render_mode")));
@@ -436,10 +441,16 @@ void Viewer2DRenderPanel::OnLabelOffsetAngle(wxSpinEvent &evt) {
 }
 
 void Viewer2DRenderPanel::OnView(wxCommandEvent &evt) {
+  ApplyViewSelection(m_view->GetSelection());
+  evt.Skip();
+}
+
+void Viewer2DRenderPanel::ApplyViewSelection(int selection) {
   ConfigManager &cfg = ConfigManager::Get();
   if (auto *mw = MainWindow::Instance(); mw && mw->IsLayout2DViewEditing())
     mw->PersistLayout2DViewState();
-  int sel = m_view->GetSelection();
+  const int sel = std::clamp(selection, 0, static_cast<int>(DIST_KEYS.size()) - 1);
+  m_view->SetSelection(sel);
   cfg.SetFloat("view2d_view", static_cast<float>(sel));
   m_labelOffsetDistance->SetValue(cfg.GetFloat(DIST_KEYS[sel]));
   m_labelOffsetAngle->SetValue(static_cast<int>(cfg.GetFloat(ANGLE_KEYS[sel])));
@@ -450,7 +461,6 @@ void Viewer2DRenderPanel::OnView(wxCommandEvent &evt) {
     vp->SetView(static_cast<Viewer2DView>(sel));
     vp->UpdateScene(false);
   }
-  evt.Skip();
 }
 
 void Viewer2DRenderPanel::OnBeginTextEdit(wxFocusEvent &evt) {
