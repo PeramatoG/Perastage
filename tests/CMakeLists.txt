@@ -596,6 +596,7 @@ add_executable(rider_filter_preview_test rider_filter_preview_test.cpp
                riderimporter_stubs.cpp
                gdtfloader_stub.cpp
                ../core/riderimporter.cpp
+               ../core/gdtf_fixture_category.cpp
                ../core/hoist_weight_distribution.cpp
                ../core/uuidutils.cpp
                ../core/autopatcher.cpp
@@ -612,7 +613,7 @@ add_executable(rider_filter_preview_test rider_filter_preview_test.cpp
                ${LAYOUT_SOURCES})
 target_include_directories(rider_filter_preview_test PRIVATE
                            . ../core ../models ../mvr ../gui ../third_party)
-target_link_libraries(rider_filter_preview_test PRIVATE ${wxWidgets_LIBRARIES})
+target_link_libraries(rider_filter_preview_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
 add_test(NAME RiderFilterPreview COMMAND rider_filter_preview_test)
 set_library_env(RiderFilterPreview)
 
@@ -620,6 +621,7 @@ add_executable(rider_led_screen_object_test rider_led_screen_object_test.cpp
                riderimporter_stubs.cpp
                gdtfloader_stub.cpp
                ../core/riderimporter.cpp
+               ../core/gdtf_fixture_category.cpp
                ../core/hoist_weight_distribution.cpp
                ../core/uuidutils.cpp
                ../core/autopatcher.cpp
@@ -636,7 +638,7 @@ add_executable(rider_led_screen_object_test rider_led_screen_object_test.cpp
                ${LAYOUT_SOURCES})
 target_include_directories(rider_led_screen_object_test PRIVATE
                            . ../core ../models ../mvr ../gui ../third_party)
-target_link_libraries(rider_led_screen_object_test PRIVATE ${wxWidgets_LIBRARIES})
+target_link_libraries(rider_led_screen_object_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
 add_test(NAME RiderLedScreenObject COMMAND rider_led_screen_object_test)
 set_library_env(RiderLedScreenObject)
 
@@ -644,6 +646,7 @@ add_executable(rider_hoist_import_test rider_hoist_import_test.cpp
                riderimporter_stubs.cpp
                gdtfloader_stub.cpp
                ../core/riderimporter.cpp
+               ../core/gdtf_fixture_category.cpp
                ../core/hoist_weight_distribution.cpp
                ../core/uuidutils.cpp
                ../core/autopatcher.cpp
@@ -661,7 +664,7 @@ add_executable(rider_hoist_import_test rider_hoist_import_test.cpp
                ${LAYOUT_SOURCES})
 target_include_directories(rider_hoist_import_test PRIVATE
                            . ../core ../models ../mvr ../gui ../third_party)
-target_link_libraries(rider_hoist_import_test PRIVATE ${wxWidgets_LIBRARIES})
+target_link_libraries(rider_hoist_import_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
 add_test(NAME RiderHoistImport COMMAND rider_hoist_import_test)
 set_library_env(RiderHoistImport)
 
@@ -669,6 +672,7 @@ add_executable(rider_import_benchmark rider_import_benchmark.cpp
                riderimporter_stubs.cpp
                gdtfloader_stub.cpp
                ../core/riderimporter.cpp
+               ../core/gdtf_fixture_category.cpp
                ../core/hoist_weight_distribution.cpp
                ../core/uuidutils.cpp
                ../core/autopatcher.cpp
