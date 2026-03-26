@@ -429,6 +429,7 @@ add_executable(riderimporter_fixtureid_test rider_import_fixtureid_test.cpp
                riderimporter_stubs.cpp
                gdtfloader_stub.cpp
                ../core/riderimporter.cpp
+               ../core/gdtf_fixture_category.cpp
                ../core/hoist_weight_distribution.cpp
                ../core/uuidutils.cpp
                ../core/autopatcher.cpp
@@ -445,7 +446,7 @@ add_executable(riderimporter_fixtureid_test rider_import_fixtureid_test.cpp
                ${LAYOUT_SOURCES})
 target_include_directories(riderimporter_fixtureid_test PRIVATE
                            . ../core ../models ../mvr ../gui ../third_party)
-target_link_libraries(riderimporter_fixtureid_test PRIVATE ${wxWidgets_LIBRARIES})
+target_link_libraries(riderimporter_fixtureid_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
 add_test(NAME RiderImporterFixtureIds COMMAND riderimporter_fixtureid_test
          ${CMAKE_CURRENT_SOURCE_DIR}/data/rider_fixtureid_basic.txt
          ${CMAKE_CURRENT_SOURCE_DIR}/data/rider_fixtureid_over100.txt)
@@ -455,6 +456,7 @@ add_executable(rider_import_order_test rider_import_order_test.cpp
                riderimporter_stubs.cpp
                gdtfloader_stub.cpp
                ../core/riderimporter.cpp
+               ../core/gdtf_fixture_category.cpp
                ../core/hoist_weight_distribution.cpp
                ../core/uuidutils.cpp
                ../core/autopatcher.cpp
@@ -471,7 +473,7 @@ add_executable(rider_import_order_test rider_import_order_test.cpp
                ${LAYOUT_SOURCES})
 target_include_directories(rider_import_order_test PRIVATE
                            . ../core ../models ../mvr ../gui ../third_party)
-target_link_libraries(rider_import_order_test PRIVATE ${wxWidgets_LIBRARIES})
+target_link_libraries(rider_import_order_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
 add_test(NAME RiderImportOrder COMMAND rider_import_order_test
          ${CMAKE_CURRENT_SOURCE_DIR}/data/rider_fixture_order.txt)
 set_library_env(RiderImportOrder)
@@ -480,6 +482,7 @@ add_executable(rider_import_preserve_existing_test rider_import_preserve_existin
                riderimporter_stubs.cpp
                gdtfloader_stub.cpp
                ../core/riderimporter.cpp
+               ../core/gdtf_fixture_category.cpp
                ../core/hoist_weight_distribution.cpp
                ../core/uuidutils.cpp
                ../core/autopatcher.cpp
@@ -496,7 +499,7 @@ add_executable(rider_import_preserve_existing_test rider_import_preserve_existin
                ${LAYOUT_SOURCES})
 target_include_directories(rider_import_preserve_existing_test PRIVATE
                            . ../core ../models ../mvr ../gui ../third_party)
-target_link_libraries(rider_import_preserve_existing_test PRIVATE ${wxWidgets_LIBRARIES})
+target_link_libraries(rider_import_preserve_existing_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
 add_test(NAME RiderImportPreserveExisting COMMAND rider_import_preserve_existing_test)
 set_library_env(RiderImportPreserveExisting)
 
@@ -504,6 +507,7 @@ add_executable(rider_import_category_test rider_import_category_test.cpp
                riderimporter_stubs.cpp
                gdtfloader_stub.cpp
                ../core/riderimporter.cpp
+               ../core/gdtf_fixture_category.cpp
                ../core/hoist_weight_distribution.cpp
                ../core/uuidutils.cpp
                ../core/autopatcher.cpp
@@ -520,7 +524,7 @@ add_executable(rider_import_category_test rider_import_category_test.cpp
                ${LAYOUT_SOURCES})
 target_include_directories(rider_import_category_test PRIVATE
                            . ../core ../models ../mvr ../gui ../third_party)
-target_link_libraries(rider_import_category_test PRIVATE ${wxWidgets_LIBRARIES})
+target_link_libraries(rider_import_category_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
 add_test(NAME RiderImportCategory COMMAND rider_import_category_test)
 set_library_env(RiderImportCategory)
 
@@ -528,6 +532,7 @@ add_executable(rider_autopatch_test rider_autopatch_test.cpp
                riderimporter_stubs.cpp
                gdtfloader_onech_stub.cpp
                ../core/riderimporter.cpp
+               ../core/gdtf_fixture_category.cpp
                ../core/hoist_weight_distribution.cpp
                ../core/uuidutils.cpp
                ../core/autopatcher.cpp
@@ -544,7 +549,7 @@ add_executable(rider_autopatch_test rider_autopatch_test.cpp
                ${LAYOUT_SOURCES})
 target_include_directories(rider_autopatch_test PRIVATE
                            . ../core ../models ../mvr ../gui ../third_party)
-target_link_libraries(rider_autopatch_test PRIVATE ${wxWidgets_LIBRARIES})
+target_link_libraries(rider_autopatch_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
 add_test(NAME RiderAutoPatch COMMAND rider_autopatch_test
          ${CMAKE_CURRENT_SOURCE_DIR}/data/rider_fixtureid_basic.txt)
 set_library_env(RiderAutoPatch)
@@ -553,6 +558,7 @@ add_executable(rider_layer_mode_test rider_layer_mode_test.cpp
                riderimporter_stubs.cpp
                gdtfloader_stub.cpp
                ../core/riderimporter.cpp
+               ../core/gdtf_fixture_category.cpp
                ../core/hoist_weight_distribution.cpp
                ../core/uuidutils.cpp
                ../core/autopatcher.cpp
@@ -569,7 +575,7 @@ add_executable(rider_layer_mode_test rider_layer_mode_test.cpp
                ${LAYOUT_SOURCES})
 target_include_directories(rider_layer_mode_test PRIVATE
                            . ../core ../models ../mvr ../gui ../third_party)
-target_link_libraries(rider_layer_mode_test PRIVATE ${wxWidgets_LIBRARIES})
+target_link_libraries(rider_layer_mode_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
 add_test(NAME RiderLayerMode COMMAND rider_layer_mode_test
          ${CMAKE_CURRENT_SOURCE_DIR}/data/rider_layer_mode.txt)
 set_library_env(RiderLayerMode)
