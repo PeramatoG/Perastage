@@ -16,12 +16,14 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "gdtfdictionary.h"
+#include "dictionary_json_contract.h"
 #include "json.hpp"
 #include "projectutils.h"
 #include "startup_file_access_gate.h"
 #include <algorithm>
 #include <filesystem>
 #include <fstream>
+#include <iostream>
 #include <vector>
 
 namespace fs = std::filesystem;
@@ -46,7 +48,7 @@ static fs::path GetDictFile() {
     if (!fs::exists(file)) {
       std::ofstream create(file);
       if (create.is_open())
-        create << "{}";
+        create << DictionaryJsonContract::MakeRoot("fixtures", nlohmann::json::object()).dump(4);
     }
   }
   return file;
@@ -64,52 +66,103 @@ std::optional<std::unordered_map<std::string, Entry>> Load() {
   if (in.peek() == std::ifstream::traits_type::eof()) {
     std::ofstream out(file);
     if (out.is_open())
-      out << "{}";
+      out << DictionaryJsonContract::MakeRoot("fixtures", nlohmann::json::object()).dump(4);
     return dict;
   }
-  nlohmann::json j;
+  nlohmann::json root;
   try {
-    in >> j;
-  } catch (...) {
-    std::ofstream out(file);
-    if (out.is_open())
-      out << "{}";
-    return dict;
+    in >> root;
+  } catch (const std::exception &ex) {
+    std::cerr << "Invalid fixtures dictionary JSON in '" << file.string()
+              << "': parse error: " << ex.what() << std::endl;
+    return std::nullopt;
   }
-  if (!j.is_object()) {
-    std::ofstream out(file);
-    if (out.is_open())
-      out << "{}";
-    return dict;
+
+  std::string contractError;
+  auto entriesOpt = DictionaryJsonContract::GetEntriesForType(
+      root, "fixtures", contractError);
+  if (!entriesOpt) {
+    std::cerr << "Invalid fixtures dictionary JSON in '" << file.string()
+              << "': " << contractError << std::endl;
+    return std::nullopt;
   }
+
+  const nlohmann::json &entries = **entriesOpt;
   fs::path dir = file.parent_path();
-  for (auto it = j.begin(); it != j.end(); ++it) {
-    if (it.value().is_string()) {
-      fs::path p = fs::u8path(it.value().get<std::string>());
+  auto parseEntryValue = [&dir](const nlohmann::json &value, Entry &entry,
+                                std::string &entryError) -> bool {
+    if (value.is_string()) {
+      fs::path p = fs::u8path(value.get<std::string>());
       if (!p.is_absolute())
         p = dir / p;
-      dict[it.key()] = {p.string(), "", ""};
-    } else if (it.value().is_object()) {
-      Entry e;
-      std::string fname;
-      if (it.value().contains("file") && it.value()["file"].is_string())
-        fname = it.value()["file"].get<std::string>();
-      else if (it.value().contains("path") && it.value()["path"].is_string())
-        fname = it.value()["path"].get<std::string>();
-      if (!fname.empty()) {
-        fs::path p = fs::u8path(fname);
-        if (!p.is_absolute())
-          p = dir / p;
-        e.path = p.string();
-      }
-      if (it.value().contains("mode") && it.value()["mode"].is_string())
-        e.mode = it.value()["mode"].get<std::string>();
-      if (it.value().contains("category") && it.value()["category"].is_string())
-        e.category = it.value()["category"].get<std::string>();
-      if (e.path.empty() && e.mode.empty() && e.category.empty())
-        continue;
-      dict[it.key()] = e;
+      entry.path = p.string();
+      return true;
     }
+    if (!value.is_object()) {
+      entryError = "entry must be string or object";
+      return false;
+    }
+
+    std::string fname;
+    if (value.contains("file") && value["file"].is_string())
+      fname = value["file"].get<std::string>();
+    else if (value.contains("path") && value["path"].is_string())
+      fname = value["path"].get<std::string>();
+
+    if (!fname.empty()) {
+      fs::path p = fs::u8path(fname);
+      if (!p.is_absolute())
+        p = dir / p;
+      entry.path = p.string();
+    }
+    if (value.contains("mode") && value["mode"].is_string())
+      entry.mode = value["mode"].get<std::string>();
+    if (value.contains("category") && value["category"].is_string())
+      entry.category = value["category"].get<std::string>();
+    if (entry.path.empty() && entry.mode.empty() && entry.category.empty()) {
+      entryError = "entry object must include at least one of file/path/mode/category";
+      return false;
+    }
+    return true;
+  };
+
+  if (entries.is_object()) {
+    for (auto it = entries.begin(); it != entries.end(); ++it) {
+      Entry entry;
+      std::string entryError;
+      if (!parseEntryValue(it.value(), entry, entryError)) {
+        std::cerr << "Invalid fixtures dictionary JSON in '" << file.string()
+                  << "': invalid entry '" << it.key() << "': " << entryError
+                  << std::endl;
+        return std::nullopt;
+      }
+      dict[it.key()] = entry;
+    }
+    return dict;
+  }
+
+  for (size_t idx = 0; idx < entries.size(); ++idx) {
+    const nlohmann::json &entryJson = entries[idx];
+    if (!entryJson.is_object()) {
+      std::cerr << "Invalid fixtures dictionary JSON in '" << file.string()
+                << "': entries[" << idx << "] must be an object" << std::endl;
+      return std::nullopt;
+    }
+    if (!entryJson.contains("name") || !entryJson["name"].is_string()) {
+      std::cerr << "Invalid fixtures dictionary JSON in '" << file.string()
+                << "': entries[" << idx << "] missing string 'name'" << std::endl;
+      return std::nullopt;
+    }
+
+    Entry entry;
+    std::string entryError;
+    if (!parseEntryValue(entryJson, entry, entryError)) {
+      std::cerr << "Invalid fixtures dictionary JSON in '" << file.string()
+                << "': entries[" << idx << "] " << entryError << std::endl;
+      return std::nullopt;
+    }
+
+    dict[entryJson["name"].get<std::string>()] = entry;
   }
   return dict;
 }
@@ -119,7 +172,7 @@ void Save(const std::unordered_map<std::string, Entry> &dict) {
   fs::path file = GetDictFile();
   if (file.empty())
     return;
-  nlohmann::json j;
+  nlohmann::json entries = nlohmann::json::object();
   std::vector<std::string> keys;
   keys.reserve(dict.size());
   for (const auto &[type, entry] : dict)
@@ -142,12 +195,14 @@ void Save(const std::unordered_map<std::string, Entry> &dict) {
       obj["category"] = entry.category;
     if (obj.empty())
       continue;
-    j[type] = obj;
+    entries[type] = obj;
   }
+
+  const nlohmann::json root = DictionaryJsonContract::MakeRoot("fixtures", std::move(entries));
   std::ofstream out(file);
   if (!out.is_open())
     return;
-  out << j.dump(4);
+  out << root.dump(4);
 }
 
 std::optional<Entry> Get(const std::string &type) {

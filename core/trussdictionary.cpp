@@ -17,6 +17,7 @@
  */
 #include "trussdictionary.h"
 
+#include "dictionary_json_contract.h"
 #include "json.hpp"
 #include "projectutils.h"
 #include "truss_gdtf_builder.h"
@@ -27,6 +28,7 @@
 #include <cctype>
 #include <filesystem>
 #include <fstream>
+#include <iostream>
 #include <regex>
 #include <vector>
 
@@ -91,7 +93,7 @@ static fs::path GetDictFile() {
     if (!fs::exists(file)) {
       std::ofstream create(file);
       if (create.is_open())
-        create << "{}";
+        create << DictionaryJsonContract::MakeRoot("trusses", nlohmann::json::object()).dump(4);
     }
   }
   return file;
@@ -192,52 +194,111 @@ std::optional<std::unordered_map<std::string, std::string>> Load() {
   if (in.peek() == std::ifstream::traits_type::eof()) {
     std::ofstream out(file);
     if (out.is_open())
-      out << "{}";
+      out << DictionaryJsonContract::MakeRoot("trusses", nlohmann::json::object()).dump(4);
     return dict;
   }
 
-  nlohmann::json j;
+  nlohmann::json root;
   try {
-    in >> j;
-  } catch (...) {
-    std::ofstream out(file);
-    if (out.is_open())
-      out << "{}";
-    return dict;
+    in >> root;
+  } catch (const std::exception &ex) {
+    std::cerr << "Invalid truss dictionary JSON in '" << file.string()
+              << "': parse error: " << ex.what() << std::endl;
+    return std::nullopt;
   }
 
-  if (!j.is_object()) {
-    std::ofstream out(file);
-    if (out.is_open())
-      out << "{}";
-    return dict;
+  std::string contractError;
+  auto entriesOpt = DictionaryJsonContract::GetEntriesForType(
+      root, "trusses", contractError);
+  if (!entriesOpt) {
+    std::cerr << "Invalid truss dictionary JSON in '" << file.string()
+              << "': " << contractError << std::endl;
+    return std::nullopt;
   }
 
+  const nlohmann::json &entries = **entriesOpt;
   fs::path dir = file.parent_path();
   bool changed = false;
 
-  for (auto it = j.begin(); it != j.end(); ++it) {
-    if (!it.value().is_string())
-      continue;
+  auto resolveEntryPath = [&dir](const nlohmann::json &value, fs::path &entryPath,
+                                 std::string &entryError) -> bool {
+    std::string pathValue;
+    if (value.is_string()) {
+      pathValue = value.get<std::string>();
+    } else if (value.is_object()) {
+      if (value.contains("file") && value["file"].is_string())
+        pathValue = value["file"].get<std::string>();
+      else if (value.contains("path") && value["path"].is_string())
+        pathValue = value["path"].get<std::string>();
+      else {
+        entryError = "entry object must include string 'file' or 'path'";
+        return false;
+      }
+    } else {
+      entryError = "entry must be string or object";
+      return false;
+    }
 
-    const std::string normalizedKey = NormalizeModelKey(it.key());
-    if (normalizedKey.empty())
-      continue;
+    entryPath = fs::u8path(pathValue);
+    if (!entryPath.is_absolute())
+      entryPath = dir / entryPath;
+    return true;
+  };
 
-    fs::path path = fs::u8path(it.value().get<std::string>());
-    if (!path.is_absolute())
-      path = dir / path;
+  auto processEntry = [&](const std::string &rawKey, const nlohmann::json &value,
+                          const std::string &sourceLabel) -> bool {
+    const std::string normalizedKey = NormalizeModelKey(rawKey);
+    if (normalizedKey.empty()) {
+      std::cerr << "Invalid truss dictionary JSON in '" << file.string()
+                << "': " << sourceLabel << " has an empty model name" << std::endl;
+      return false;
+    }
+
+    fs::path path;
+    std::string entryError;
+    if (!resolveEntryPath(value, path, entryError)) {
+      std::cerr << "Invalid truss dictionary JSON in '" << file.string()
+                << "': " << sourceLabel << " " << entryError << std::endl;
+      return false;
+    }
+
     if (!fs::exists(path))
-      continue;
+      return true;
 
-    std::string error;
+    std::string migrationError;
     fs::path migrated = path;
-    if (!EnsureMigratedToGdtf(migrated, error))
-      continue;
+    if (!EnsureMigratedToGdtf(migrated, migrationError))
+      return true;
 
-    if (migrated != path || normalizedKey != it.key())
+    if (migrated != path || normalizedKey != rawKey)
       changed = true;
     dict[normalizedKey] = ToUtf8String(migrated);
+    return true;
+  };
+
+  if (entries.is_object()) {
+    for (auto it = entries.begin(); it != entries.end(); ++it) {
+      if (!processEntry(it.key(), it.value(), "entry '" + it.key() + "'"))
+        return std::nullopt;
+    }
+  } else {
+    for (size_t idx = 0; idx < entries.size(); ++idx) {
+      const nlohmann::json &entryJson = entries[idx];
+      if (!entryJson.is_object()) {
+        std::cerr << "Invalid truss dictionary JSON in '" << file.string()
+                  << "': entries[" << idx << "] must be an object" << std::endl;
+        return std::nullopt;
+      }
+      if (!entryJson.contains("name") || !entryJson["name"].is_string()) {
+        std::cerr << "Invalid truss dictionary JSON in '" << file.string()
+                  << "': entries[" << idx << "] missing string 'name'" << std::endl;
+        return std::nullopt;
+      }
+      if (!processEntry(entryJson["name"].get<std::string>(), entryJson,
+                        "entries[" + std::to_string(idx) + "]")) {
+        return std::nullopt;
+      }
+    }
   }
 
   if (changed)
@@ -251,7 +312,7 @@ void Save(const std::unordered_map<std::string, std::string> &dict) {
   if (file.empty())
     return;
 
-  nlohmann::json j;
+  nlohmann::json entries = nlohmann::json::object();
   std::unordered_map<std::string, std::string> normalizedDict;
   normalizedDict.reserve(dict.size());
   for (const auto &[model, path] : dict) {
@@ -271,12 +332,13 @@ void Save(const std::unordered_map<std::string, std::string> &dict) {
     fs::path forced = p;
     if (forced.extension() != ".gdtf")
       forced.replace_extension(".gdtf");
-    j[model] = forced.filename().string();
+    entries[model] = forced.filename().string();
   }
 
+  const nlohmann::json root = DictionaryJsonContract::MakeRoot("trusses", std::move(entries));
   std::ofstream out(file);
   if (out.is_open())
-    out << j.dump(4);
+    out << root.dump(4);
 }
 
 std::optional<std::string> Get(const std::string &model) {
