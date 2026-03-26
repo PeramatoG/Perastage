@@ -111,16 +111,21 @@ void RunFixtureCategoryAssignment(MainWindow &window) {
 
     const std::string resolvedGdtfPath =
         ResolveFixtureGdtfPath(scene.basePath, fixture.gdtfSpec);
+    const bool washFromChannels = !resolvedGdtfPath.empty() &&
+                                  LooksLikeWashFromChannels(resolvedGdtfPath,
+                                                            fixture.gdtfMode);
     if (inferred.category == GdtfFixtureCategory::kUnknown &&
         !resolvedGdtfPath.empty()) {
       inferred = GdtfFixtureCategory::InferFromGdtf(resolvedGdtfPath);
     }
 
-    if (inferred.category == GdtfFixtureCategory::kUnknown &&
-        !resolvedGdtfPath.empty() &&
-        LooksLikeWashFromChannels(resolvedGdtfPath, fixture.gdtfMode)) {
+    if (washFromChannels &&
+        (inferred.category == GdtfFixtureCategory::kUnknown ||
+         inferred.category == GdtfFixtureCategory::kHybrid)) {
       inferred = {GdtfFixtureCategory::kWash,
-                  "channel hints: pan+tilt without gobo"};
+                  inferred.category == GdtfFixtureCategory::kHybrid
+                      ? "channel hints override hybrid: pan+tilt without gobo"
+                      : "channel hints: pan+tilt without gobo"};
     }
 
     std::string inferredCategory =

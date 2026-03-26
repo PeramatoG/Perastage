@@ -198,6 +198,9 @@ void EnsureFixtureCategoryForImport(const MvrScene &scene, Fixture &fixture) {
     const std::string resolvedGdtfPath =
         ResolveGdtfPath(scene, fixture.gdtfSpec);
     const std::filesystem::path gdtfPath(resolvedGdtfPath);
+    const bool washFromChannels =
+        std::filesystem::exists(gdtfPath) &&
+        looksLikeWashFromChannels(resolvedGdtfPath, fixture.gdtfMode);
     fixture.category = inferCategoryFromName(gdtfPath.stem().string());
     if (!fixture.category.empty())
       fixture.categorySourceReason = "name hint gdtf filename";
@@ -210,10 +213,16 @@ void EnsureFixtureCategoryForImport(const MvrScene &scene, Fixture &fixture) {
       }
     }
 
-    if (fixture.category.empty() && std::filesystem::exists(gdtfPath) &&
-        looksLikeWashFromChannels(resolvedGdtfPath, fixture.gdtfMode)) {
+    if (washFromChannels &&
+        (fixture.category.empty() ||
+         fixture.category == GdtfFixtureCategory::kHybrid)) {
+      const bool overridingHybrid =
+          fixture.category == GdtfFixtureCategory::kHybrid;
       fixture.category = GdtfFixtureCategory::kWash;
-      fixture.categorySourceReason = "channel hints: pan+tilt without gobo";
+      fixture.categorySourceReason =
+          overridingHybrid
+              ? "channel hints override hybrid: pan+tilt without gobo"
+              : "channel hints: pan+tilt without gobo";
     }
   }
 
