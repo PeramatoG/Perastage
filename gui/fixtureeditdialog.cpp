@@ -203,6 +203,10 @@ void FixtureEditDialog::UpdateChannels() {
   wxString msg;
   for (const auto &ch : channels) {
     wxString func = wxString::FromUTF8(ch.function);
+    const int sectionStart = func.Find('[');
+    if (sectionStart != wxNOT_FOUND)
+      func = func.Left(static_cast<size_t>(sectionStart));
+    func.Trim(true).Trim(false);
     if (func.empty())
       func = "-";
     msg += wxString::Format("%d: ", ch.channel) + func + "\n";
