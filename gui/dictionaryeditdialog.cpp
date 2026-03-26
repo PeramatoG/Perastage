@@ -18,14 +18,17 @@
 #include "dictionaryeditdialog.h"
 
 #include "columnutils.h"
+#include "dictionary_json_contract.h"
 #include "gdtfdictionary.h"
 #include "gdtfloader.h"
+#include "json.hpp"
 #include "mainwindow.h"
 #include "projectutils.h"
 #include "trussdictionary.h"
 
 #include <algorithm>
 #include <filesystem>
+#include <fstream>
 #include <sstream>
 #include <vector>
 
@@ -129,6 +132,79 @@ bool AskImportPolicy(wxWindow *parent, DictionaryImportPolicy &policyOut) {
     policyOut = DictionaryImportPolicy::ReplaceAll;
   return true;
 }
+
+bool ConfirmReplaceAllOperation(wxWindow *parent, const wxString &dictionaryName) {
+  const wxString message =
+      "This will replace all current entries in " + dictionaryName +
+      " dictionary.\nThis action is destructive.\n\nContinue?";
+  return wxMessageBox(message, "Confirm replace all",
+                      wxYES_NO | wxNO_DEFAULT | wxICON_WARNING,
+                      parent) == wxYES;
+}
+
+bool SaveFixturesSnapshotToFile(const std::string &outputPath,
+                                const std::unordered_map<std::string, GdtfDictionary::Entry> &dict) {
+  std::vector<std::string> keys;
+  keys.reserve(dict.size());
+  for (const auto &[name, _] : dict)
+    keys.push_back(name);
+  std::sort(keys.begin(), keys.end());
+
+  nlohmann::json entries = nlohmann::json::object();
+  for (const auto &name : keys) {
+    const auto &entry = dict.at(name);
+    if (entry.path.empty() && entry.mode.empty() && entry.category.empty())
+      continue;
+    nlohmann::json obj;
+    if (!entry.path.empty()) {
+      const std::string fileName = std::filesystem::path(entry.path).filename().string();
+      if (!fileName.empty())
+        obj["file"] = fileName;
+    }
+    if (!entry.mode.empty())
+      obj["mode"] = entry.mode;
+    if (!entry.category.empty())
+      obj["category"] = entry.category;
+    if (!obj.empty())
+      entries[name] = obj;
+  }
+
+  const nlohmann::json root =
+      DictionaryJsonContract::MakeRoot("fixtures", std::move(entries));
+  std::ofstream out(outputPath);
+  if (!out.is_open())
+    return false;
+  out << root.dump(4);
+  return true;
+}
+
+bool SaveTrussesSnapshotToFile(const std::string &outputPath,
+                               const std::unordered_map<std::string, std::string> &dict) {
+  std::vector<std::string> keys;
+  keys.reserve(dict.size());
+  for (const auto &[name, _] : dict)
+    keys.push_back(name);
+  std::sort(keys.begin(), keys.end());
+
+  nlohmann::json entries = nlohmann::json::object();
+  for (const auto &name : keys) {
+    const auto &path = dict.at(name);
+    if (path.empty())
+      continue;
+    const std::string fileName = std::filesystem::path(path).filename().string();
+    if (fileName.empty())
+      continue;
+    entries[name] = nlohmann::json{ {"file", fileName} };
+  }
+
+  const nlohmann::json root =
+      DictionaryJsonContract::MakeRoot("trusses", std::move(entries));
+  std::ofstream out(outputPath);
+  if (!out.is_open())
+    return false;
+  out << root.dump(4);
+  return true;
+}
 } // namespace
 
 DictionaryEditDialog::DictionaryEditDialog(wxWindow *parent)
@@ -181,6 +257,9 @@ void DictionaryEditDialog::BuildLayout() {
   deleteBtn = new wxButton(this, wxID_DELETE, "Delete");
   downloadBtn = new wxButton(this, wxID_ANY, "Download GDTF");
   importBtn = new wxButton(this, wxID_ANY, "Import dictionary...");
+  exportBtn = new wxButton(this, wxID_ANY, "Export JSON...");
+  loadBtn = new wxButton(this, wxID_ANY, "Load...");
+  resetBtn = new wxButton(this, wxID_ANY, "Reset to default");
   okBtn = new wxButton(this, wxID_OK, "OK");
   cancelBtn = new wxButton(this, wxID_CANCEL, "Cancel");
 
@@ -188,6 +267,9 @@ void DictionaryEditDialog::BuildLayout() {
   btnSizer->Add(deleteBtn, 0, wxRIGHT, 5);
   btnSizer->Add(downloadBtn, 0, wxRIGHT, 10);
   btnSizer->Add(importBtn, 0, wxRIGHT, 10);
+  btnSizer->Add(exportBtn, 0, wxRIGHT, 5);
+  btnSizer->Add(loadBtn, 0, wxRIGHT, 5);
+  btnSizer->Add(resetBtn, 0, wxRIGHT, 10);
   btnSizer->AddStretchSpacer(1);
   btnSizer->Add(okBtn, 0, wxRIGHT, 5);
   btnSizer->Add(cancelBtn, 0);
@@ -200,6 +282,9 @@ void DictionaryEditDialog::BuildLayout() {
   deleteBtn->Bind(wxEVT_BUTTON, &DictionaryEditDialog::OnDelete, this);
   downloadBtn->Bind(wxEVT_BUTTON, &DictionaryEditDialog::OnDownloadGdtf, this);
   importBtn->Bind(wxEVT_BUTTON, &DictionaryEditDialog::OnImportDictionary, this);
+  exportBtn->Bind(wxEVT_BUTTON, &DictionaryEditDialog::OnExportDictionary, this);
+  loadBtn->Bind(wxEVT_BUTTON, &DictionaryEditDialog::OnLoadDictionary, this);
+  resetBtn->Bind(wxEVT_BUTTON, &DictionaryEditDialog::OnResetDictionary, this);
   okBtn->Bind(wxEVT_BUTTON, &DictionaryEditDialog::OnOk, this);
   fixtureTable->Bind(wxEVT_DATAVIEW_ITEM_ACTIVATED,
                      &DictionaryEditDialog::OnItemActivated, this);
@@ -494,6 +579,10 @@ bool DictionaryEditDialog::ImportFixturesDictionary() {
   DictionaryImportPolicy policy = DictionaryImportPolicy::AddMissing;
   if (!AskImportPolicy(this, policy))
     return false;
+  if (policy == DictionaryImportPolicy::ReplaceAll &&
+      !ConfirmReplaceAllOperation(this, "fixtures")) {
+    return false;
+  }
 
   const std::string importPath = std::string(fileDialog.GetPath().ToUTF8());
   const auto preview = GdtfDictionary::PreviewImportFromFile(importPath, policy);
@@ -523,6 +612,10 @@ bool DictionaryEditDialog::ImportTrussesDictionary() {
   DictionaryImportPolicy policy = DictionaryImportPolicy::AddMissing;
   if (!AskImportPolicy(this, policy))
     return false;
+  if (policy == DictionaryImportPolicy::ReplaceAll &&
+      !ConfirmReplaceAllOperation(this, "trusses")) {
+    return false;
+  }
 
   const std::string importPath = std::string(fileDialog.GetPath().ToUTF8());
   const auto preview = TrussDictionary::PreviewImportFromFile(importPath, policy);
@@ -539,6 +632,178 @@ bool DictionaryEditDialog::ImportTrussesDictionary() {
   wxMessageBox("Trusses dictionary import completed.\n\n" +
                    BuildSummaryText(result),
                "Trusses dictionary import", wxOK | wxICON_INFORMATION, this);
+  return !result.HasErrors();
+}
+
+void DictionaryEditDialog::OnExportDictionary(wxCommandEvent &WXUNUSED(event)) {
+  if (IsFixturesPage()) {
+    (void)ExportFixturesDictionary();
+    return;
+  }
+  (void)ExportTrussesDictionary();
+}
+
+void DictionaryEditDialog::OnLoadDictionary(wxCommandEvent &WXUNUSED(event)) {
+  if (IsFixturesPage()) {
+    (void)LoadFixturesDictionaryFromFile();
+    return;
+  }
+  (void)LoadTrussesDictionaryFromFile();
+}
+
+void DictionaryEditDialog::OnResetDictionary(wxCommandEvent &WXUNUSED(event)) {
+  if (IsFixturesPage()) {
+    (void)ResetFixturesDictionaryToDefault();
+    return;
+  }
+  (void)ResetTrussesDictionaryToDefault();
+}
+
+bool DictionaryEditDialog::ExportFixturesDictionary() {
+  auto dictOpt = GdtfDictionary::Load();
+  if (!dictOpt) {
+    wxMessageBox("Could not load fixtures dictionary for export.",
+                 "Export fixtures dictionary", wxICON_ERROR | wxOK, this);
+    return false;
+  }
+
+  wxFileDialog fileDialog(this, "Export fixtures dictionary", wxEmptyString,
+                          "gdtf_dictionary_snapshot.json",
+                          "JSON files (*.json)|*.json",
+                          wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
+  if (fileDialog.ShowModal() != wxID_OK)
+    return false;
+
+  const std::string outputPath = std::string(fileDialog.GetPath().ToUTF8());
+  if (!SaveFixturesSnapshotToFile(outputPath, *dictOpt)) {
+    wxMessageBox("Could not write fixtures dictionary snapshot.",
+                 "Export fixtures dictionary", wxICON_ERROR | wxOK, this);
+    return false;
+  }
+  wxMessageBox("Fixtures dictionary snapshot exported successfully.",
+               "Export fixtures dictionary", wxICON_INFORMATION | wxOK, this);
+  return true;
+}
+
+bool DictionaryEditDialog::ExportTrussesDictionary() {
+  auto dictOpt = TrussDictionary::Load();
+  if (!dictOpt) {
+    wxMessageBox("Could not load trusses dictionary for export.",
+                 "Export trusses dictionary", wxICON_ERROR | wxOK, this);
+    return false;
+  }
+
+  wxFileDialog fileDialog(this, "Export trusses dictionary", wxEmptyString,
+                          "truss_dictionary_snapshot.json",
+                          "JSON files (*.json)|*.json",
+                          wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
+  if (fileDialog.ShowModal() != wxID_OK)
+    return false;
+
+  const std::string outputPath = std::string(fileDialog.GetPath().ToUTF8());
+  if (!SaveTrussesSnapshotToFile(outputPath, *dictOpt)) {
+    wxMessageBox("Could not write trusses dictionary snapshot.",
+                 "Export trusses dictionary", wxICON_ERROR | wxOK, this);
+    return false;
+  }
+  wxMessageBox("Trusses dictionary snapshot exported successfully.",
+               "Export trusses dictionary", wxICON_INFORMATION | wxOK, this);
+  return true;
+}
+
+bool DictionaryEditDialog::LoadFixturesDictionaryFromFile() {
+  wxFileDialog fileDialog(this, "Load fixtures dictionary", wxEmptyString,
+                          wxEmptyString, "JSON files (*.json)|*.json",
+                          wxFD_OPEN | wxFD_FILE_MUST_EXIST);
+  if (fileDialog.ShowModal() != wxID_OK)
+    return false;
+
+  const std::string path = std::string(fileDialog.GetPath().ToUTF8());
+  if (!ConfirmReplaceAllOperation(this, "fixtures"))
+    return false;
+
+  const auto preview =
+      GdtfDictionary::PreviewImportFromFile(path, DictionaryImportPolicy::ReplaceAll);
+  if (preview.HasErrors()) {
+    wxMessageBox("Cannot load fixtures dictionary.\n\n" + BuildSummaryText(preview),
+                 "Load fixtures dictionary", wxICON_ERROR | wxOK, this);
+    return false;
+  }
+
+  const auto result =
+      GdtfDictionary::ApplyImportFromFile(path, DictionaryImportPolicy::ReplaceAll);
+  LoadFixtures();
+  wxMessageBox("Fixtures dictionary loaded.\n\n" + BuildSummaryText(result),
+               "Load fixtures dictionary", wxICON_INFORMATION | wxOK, this);
+  return true;
+}
+
+bool DictionaryEditDialog::LoadTrussesDictionaryFromFile() {
+  wxFileDialog fileDialog(this, "Load trusses dictionary", wxEmptyString,
+                          wxEmptyString, "JSON files (*.json)|*.json",
+                          wxFD_OPEN | wxFD_FILE_MUST_EXIST);
+  if (fileDialog.ShowModal() != wxID_OK)
+    return false;
+
+  const std::string path = std::string(fileDialog.GetPath().ToUTF8());
+  if (!ConfirmReplaceAllOperation(this, "trusses"))
+    return false;
+
+  const auto preview =
+      TrussDictionary::PreviewImportFromFile(path, DictionaryImportPolicy::ReplaceAll);
+  if (preview.HasErrors()) {
+    wxMessageBox("Cannot load trusses dictionary.\n\n" + BuildSummaryText(preview),
+                 "Load trusses dictionary", wxICON_ERROR | wxOK, this);
+    return false;
+  }
+
+  const auto result =
+      TrussDictionary::ApplyImportFromFile(path, DictionaryImportPolicy::ReplaceAll);
+  LoadTrusses();
+  wxMessageBox("Trusses dictionary loaded.\n\n" + BuildSummaryText(result),
+               "Load trusses dictionary", wxICON_INFORMATION | wxOK, this);
+  return true;
+}
+
+bool DictionaryEditDialog::ResetFixturesDictionaryToDefault() {
+  if (wxMessageBox(
+          "Reset fixtures dictionary to application defaults?\n"
+          "Current entries will be replaced.",
+          "Reset fixtures dictionary",
+          wxYES_NO | wxNO_DEFAULT | wxICON_WARNING,
+          this) != wxYES) {
+    return false;
+  }
+
+  const std::filesystem::path basePath =
+      ProjectUtils::GetBaseLibraryPath("fixtures") / "gdtf_dictionary.json";
+  const auto result = GdtfDictionary::ApplyImportFromFile(
+      basePath.string(), DictionaryImportPolicy::ReplaceAll);
+  LoadFixtures();
+  wxMessageBox("Fixtures dictionary restored to defaults.\n\n" +
+                   BuildSummaryText(result),
+               "Reset fixtures dictionary", wxICON_INFORMATION | wxOK, this);
+  return !result.HasErrors();
+}
+
+bool DictionaryEditDialog::ResetTrussesDictionaryToDefault() {
+  if (wxMessageBox(
+          "Reset trusses dictionary to application defaults?\n"
+          "Current entries will be replaced.",
+          "Reset trusses dictionary",
+          wxYES_NO | wxNO_DEFAULT | wxICON_WARNING,
+          this) != wxYES) {
+    return false;
+  }
+
+  const std::filesystem::path basePath =
+      ProjectUtils::GetBaseLibraryPath("trusses") / "truss_dictionary.json";
+  const auto result = TrussDictionary::ApplyImportFromFile(
+      basePath.string(), DictionaryImportPolicy::ReplaceAll);
+  LoadTrusses();
+  wxMessageBox("Trusses dictionary restored to defaults.\n\n" +
+                   BuildSummaryText(result),
+               "Reset trusses dictionary", wxICON_INFORMATION | wxOK, this);
   return !result.HasErrors();
 }
 
