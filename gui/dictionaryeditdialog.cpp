@@ -209,7 +209,7 @@ bool SaveTrussesSnapshotToFile(const std::string &outputPath,
 
 DictionaryEditDialog::DictionaryEditDialog(wxWindow *parent)
     : wxDialog(parent, wxID_ANY, "Dictionary editor", wxDefaultPosition,
-               wxSize(760, 520), wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER) {
+               wxSize(920, 520), wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER) {
   BuildLayout();
   LoadFixtures();
   LoadTrusses();
