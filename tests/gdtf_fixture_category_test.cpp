@@ -85,7 +85,7 @@ int main() {
        WrapDescription("Beam Wash 380",
                        "<Geometry Name=\"Root\"/>",
                        ""),
-       "Hybrid"},
+       "Wash"},
       {"name_hint_hybrid_keyword.gdtf",
        WrapDescription("Hybrid 330",
                        "<Geometry Name=\"Root\"/>",
