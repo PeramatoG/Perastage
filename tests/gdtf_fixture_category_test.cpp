@@ -14,7 +14,8 @@ namespace fs = std::filesystem;
 static std::string WrapDescription(const std::string &name,
                                    const std::string &geometries,
                                    const std::string &attributes,
-                                   const std::string &emitters = "") {
+                                   const std::string &emitters = "",
+                                   const std::string &extraFixtureContent = "") {
   return "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
          "<GDTF DataVersion=\"1.2\">"
          "<FixtureType Name=\"" +
@@ -24,7 +25,8 @@ static std::string WrapDescription(const std::string &name,
          "<AttributeDefinitions><Attributes>" +
          attributes +
          "</Attributes></AttributeDefinitions>"
-         "<Geometries>" + geometries + "</Geometries>"
+         "<Geometries>" + geometries + "</Geometries>" +
+         extraFixtureContent +
          "<PhysicalDescriptions><Emitters>" + emitters +
          "</Emitters></PhysicalDescriptions>"
          "</FixtureType></GDTF>";
@@ -99,6 +101,28 @@ int main() {
                        "<Geometry Name=\"Base\"/><Geometry Name=\"Yoke\"/><Geometry Name=\"Head\"/><Beam Name=\"Beam\" BeamType=\"Spot\" BeamAngle=\"12\"/>",
                        ""),
        "Unknown"},
+      {"moving_wash_from_dmx_channels.gdtf",
+       WrapDescription("Mover 440",
+                       "<Geometry Name=\"Root\"/><Beam Name=\"Beam\" BeamType=\"Wash\" BeamAngle=\"30\"/>",
+                       "",
+                       "",
+                       "<DMXModes><DMXMode Name=\"8ch\"><DMXChannels>"
+                       "<DMXChannel Offset=\"1,1\"><LogicalChannel Attribute=\"Pan\"/></DMXChannel>"
+                       "<DMXChannel Offset=\"2,1\"><LogicalChannel Attribute=\"Tilt\"/></DMXChannel>"
+                       "<DMXChannel Offset=\"3,1\"><LogicalChannel Attribute=\"Zoom\"/></DMXChannel>"
+                       "</DMXChannels></DMXMode></DMXModes>"),
+       "Wash"},
+      {"moving_wash_from_channel_function_attributes.gdtf",
+       WrapDescription("Mover 441",
+                       "<Geometry Name=\"Root\"/><Beam Name=\"Beam\" BeamType=\"Wash\" BeamAngle=\"28\"/>",
+                       "",
+                       "",
+                       "<DMXModes><DMXMode Name=\"8ch\"><DMXChannels>"
+                       "<DMXChannel Offset=\"1,1\"><LogicalChannel><ChannelFunction Attribute=\"Pan\"/></LogicalChannel></DMXChannel>"
+                       "<DMXChannel Offset=\"2,1\"><LogicalChannel><ChannelFunction Attribute=\"Tilt\"/></LogicalChannel></DMXChannel>"
+                       "<DMXChannel Offset=\"3,1\"><LogicalChannel><ChannelFunction Attribute=\"Zoom\"/></LogicalChannel></DMXChannel>"
+                       "</DMXChannels></DMXMode></DMXModes>"),
+       "Wash"},
       {"static_conventional.gdtf",
        WrapDescription("Fresnel 2k",
                        "<Geometry Name=\"Root\"/><Beam Name=\"Beam\" BeamType=\"Fresnel\" BeamAngle=\"35\"/>",

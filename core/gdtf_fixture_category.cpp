@@ -167,50 +167,89 @@ void ParseGeometrySignals(const tinyxml2::XMLElement *node, Signals &signals) {
   }
 }
 
+void ApplyAttributeNameSignals(const char *attributeName, Signals &signals);
+
 void ParseAttributeSignals(const tinyxml2::XMLElement *node, Signals &signals) {
   for (const tinyxml2::XMLElement *child = node->FirstChildElement(); child;
        child = child->NextSiblingElement()) {
-    signals.hasAnyAttributeDefinition = true;
-    const std::string name = ToLowerCopy(child->Attribute("Name") ? child->Attribute("Name") : "");
-    const std::string pretty = ToLowerCopy(child->Attribute("Pretty") ? child->Attribute("Pretty") : "");
-    const std::string combined = name + " " + pretty;
-
-    if (ContainsKeyword(combined, "pan"))
-      signals.hasPan = true;
-    if (ContainsKeyword(combined, "tilt"))
-      signals.hasTilt = true;
-    if (ContainsKeyword(combined, "zoom"))
-      signals.hasZoom = true;
-    if (ContainsKeyword(combined, "focus"))
-      signals.hasFocus = true;
-    if (ContainsKeyword(combined, "iris"))
-      signals.hasIris = true;
-    if (ContainsKeyword(combined, "frost"))
-      signals.hasFrost = true;
-    if (ContainsKeyword(combined, "gobo"))
-      signals.hasGobo = true;
-    if (ContainsKeyword(combined, "animation"))
-      signals.hasAnimationWheel = true;
-    if (ContainsKeyword(combined, "blade") || ContainsKeyword(combined, "shaper") ||
-        ContainsKeyword(combined, "keystone"))
-      signals.hasFraming = true;
-    if (ContainsKeyword(combined, "strobe"))
-      signals.hasStrobe = true;
-    if (ContainsKeyword(combined, "shutter"))
-      signals.hasShutter = true;
-    if (ContainsWord(combined, "fog"))
-      signals.hasFog = true;
-    if (ContainsWord(combined, "haze"))
-      signals.hasHaze = true;
-    if (ContainsWord(combined, "blower") || ContainsWord(combined, "fan"))
-      signals.hasBlower = true;
-    if (ContainsKeyword(combined, "video") || ContainsKeyword(combined, "inputsource") ||
-        ContainsKeyword(combined, "fov"))
-      signals.hasVideo = true;
-    if (ContainsKeyword(combined, "pixel") || ContainsKeyword(combined, "ledzonemode"))
-      signals.hasPixelControl = true;
+    const std::string attributeName =
+        std::string(child->Attribute("Name") ? child->Attribute("Name") : "") +
+        " " +
+        std::string(child->Attribute("Pretty") ? child->Attribute("Pretty") : "");
+    ApplyAttributeNameSignals(attributeName.c_str(), signals);
 
     ParseAttributeSignals(child, signals);
+  }
+}
+
+void ApplyAttributeNameSignals(const char *attributeName, Signals &signals) {
+  if (!attributeName)
+    return;
+
+  signals.hasAnyAttributeDefinition = true;
+  const std::string combined = ToLowerCopy(attributeName);
+
+  if (ContainsKeyword(combined, "pan"))
+    signals.hasPan = true;
+  if (ContainsKeyword(combined, "tilt"))
+    signals.hasTilt = true;
+  if (ContainsKeyword(combined, "zoom"))
+    signals.hasZoom = true;
+  if (ContainsKeyword(combined, "focus"))
+    signals.hasFocus = true;
+  if (ContainsKeyword(combined, "iris"))
+    signals.hasIris = true;
+  if (ContainsKeyword(combined, "frost"))
+    signals.hasFrost = true;
+  if (ContainsKeyword(combined, "gobo"))
+    signals.hasGobo = true;
+  if (ContainsKeyword(combined, "animation"))
+    signals.hasAnimationWheel = true;
+  if (ContainsKeyword(combined, "blade") || ContainsKeyword(combined, "shaper") ||
+      ContainsKeyword(combined, "keystone"))
+    signals.hasFraming = true;
+  if (ContainsKeyword(combined, "strobe"))
+    signals.hasStrobe = true;
+  if (ContainsKeyword(combined, "shutter"))
+    signals.hasShutter = true;
+  if (ContainsWord(combined, "fog"))
+    signals.hasFog = true;
+  if (ContainsWord(combined, "haze"))
+    signals.hasHaze = true;
+  if (ContainsWord(combined, "blower") || ContainsWord(combined, "fan"))
+    signals.hasBlower = true;
+  if (ContainsKeyword(combined, "video") || ContainsKeyword(combined, "inputsource") ||
+      ContainsKeyword(combined, "fov"))
+    signals.hasVideo = true;
+  if (ContainsKeyword(combined, "pixel") || ContainsKeyword(combined, "ledzonemode"))
+    signals.hasPixelControl = true;
+}
+
+void ParseDmxModeSignals(const tinyxml2::XMLElement *fixtureType, Signals &signals) {
+  const tinyxml2::XMLElement *dmxModes = fixtureType->FirstChildElement("DMXModes");
+  if (!dmxModes)
+    return;
+
+  for (const tinyxml2::XMLElement *dmxMode = dmxModes->FirstChildElement("DMXMode");
+       dmxMode; dmxMode = dmxMode->NextSiblingElement("DMXMode")) {
+    const tinyxml2::XMLElement *dmxChannels = dmxMode->FirstChildElement("DMXChannels");
+    if (!dmxChannels)
+      continue;
+
+    for (const tinyxml2::XMLElement *dmxChannel = dmxChannels->FirstChildElement("DMXChannel");
+         dmxChannel; dmxChannel = dmxChannel->NextSiblingElement("DMXChannel")) {
+      for (const tinyxml2::XMLElement *logical =
+               dmxChannel->FirstChildElement("LogicalChannel");
+           logical; logical = logical->NextSiblingElement("LogicalChannel")) {
+        ApplyAttributeNameSignals(logical->Attribute("Attribute"), signals);
+        for (const tinyxml2::XMLElement *channelFunction =
+                 logical->FirstChildElement("ChannelFunction");
+             channelFunction;
+             channelFunction = channelFunction->NextSiblingElement("ChannelFunction")) {
+          ApplyAttributeNameSignals(channelFunction->Attribute("Attribute"), signals);
+        }
+      }
+    }
   }
 }
 
@@ -249,6 +288,7 @@ Signals ExtractSignals(const std::string &xml) {
 
   if (const tinyxml2::XMLElement *defs = fixtureType->FirstChildElement("AttributeDefinitions"))
     ParseAttributeSignals(defs, signals);
+  ParseDmxModeSignals(fixtureType, signals);
 
   return signals;
 }

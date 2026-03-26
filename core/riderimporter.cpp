@@ -130,6 +130,44 @@ void EnsureFixtureCategoryForImport(const MvrScene &scene, Fixture &fixture) {
                    [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
     return value.find(needle) != std::string::npos;
   };
+  auto looksLikeWashFromChannels = [&](const std::string &gdtfPath,
+                                       const std::string &modeName) {
+    struct ModeSignals {
+      bool hasChannels = false;
+      bool looksWash = false;
+    };
+    auto evaluateMode = [&](const std::string &mode) -> ModeSignals {
+      const std::vector<GdtfChannelInfo> channels =
+          GetGdtfModeChannels(gdtfPath, mode);
+      bool hasPan = false;
+      bool hasTilt = false;
+      bool hasGobo = false;
+      const bool hasAnyChannel = !channels.empty();
+      for (const GdtfChannelInfo &channel : channels) {
+        const std::string function = channel.function;
+        if (containsWord(function, "pan"))
+          hasPan = true;
+        if (containsWord(function, "tilt"))
+          hasTilt = true;
+        if (containsWord(function, "gobo"))
+          hasGobo = true;
+      }
+      return {hasAnyChannel, hasPan && hasTilt && !hasGobo};
+    };
+
+    if (!modeName.empty()) {
+      const ModeSignals selectedMode = evaluateMode(modeName);
+      if (selectedMode.hasChannels)
+        return selectedMode.looksWash;
+    }
+
+    const std::vector<std::string> modes = GetGdtfModes(gdtfPath);
+    for (const std::string &mode : modes) {
+      if (evaluateMode(mode).looksWash)
+        return true;
+    }
+    return false;
+  };
   auto inferCategoryFromName = [&](const std::string &name) {
     if (name.empty())
       return std::string();
@@ -168,9 +206,32 @@ void EnsureFixtureCategoryForImport(const MvrScene &scene, Fixture &fixture) {
     const std::string resolvedGdtfPath =
         ResolveGdtfPath(scene, fixture.gdtfSpec);
     const std::filesystem::path gdtfPath(resolvedGdtfPath);
+    const bool washFromChannels =
+        std::filesystem::exists(gdtfPath) &&
+        looksLikeWashFromChannels(resolvedGdtfPath, fixture.gdtfMode);
     fixture.category = inferCategoryFromName(gdtfPath.stem().string());
     if (!fixture.category.empty())
       fixture.categorySourceReason = "name hint gdtf filename";
+
+    if (fixture.category.empty() && std::filesystem::exists(gdtfPath)) {
+      const auto inferred = GdtfFixtureCategory::InferFromGdtf(resolvedGdtfPath);
+      if (inferred.category != GdtfFixtureCategory::kUnknown) {
+        fixture.category = inferred.category;
+        fixture.categorySourceReason = inferred.reason;
+      }
+    }
+
+    if (washFromChannels &&
+        (fixture.category.empty() ||
+         fixture.category == GdtfFixtureCategory::kHybrid)) {
+      const bool overridingHybrid =
+          fixture.category == GdtfFixtureCategory::kHybrid;
+      fixture.category = GdtfFixtureCategory::kWash;
+      fixture.categorySourceReason =
+          overridingHybrid
+              ? "channel hints override hybrid: pan+tilt without gobo"
+              : "channel hints: pan+tilt without gobo";
+    }
   }
 
   if (fixture.category.empty()) {
