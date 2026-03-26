@@ -274,7 +274,7 @@ void DictionaryEditDialog::BuildLayout() {
   topSizer->Add(btnSizer, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 8);
 
   SetSizer(topSizer);
-  SetMinSize(wxSize(640, 420));
+  SetMinSize(wxSize(920, 420));
 
   addBtn->Bind(wxEVT_BUTTON, &DictionaryEditDialog::OnAdd, this);
   deleteBtn->Bind(wxEVT_BUTTON, &DictionaryEditDialog::OnDelete, this);
