@@ -26,6 +26,7 @@
 
 #include <algorithm>
 #include <filesystem>
+#include <sstream>
 #include <vector>
 
 #include <wx/filename.h>
@@ -84,6 +85,50 @@ void SortTrussRows(std::vector<TrussRow> &rows) {
     return a.name < b.name;
   });
 }
+
+wxString BuildSummaryText(const DictionaryImportSummary &summary) {
+  std::ostringstream oss;
+  oss << "added_count: " << summary.added_count << "\n";
+  oss << "overwritten_count: " << summary.overwritten_count << "\n";
+  oss << "skipped_count: " << summary.skipped_count << "\n";
+  oss << "errors: " << summary.errors.size();
+  if (!summary.errors.empty()) {
+    for (const auto &error : summary.errors)
+      oss << "\n- " << error;
+  }
+  return wxString::FromUTF8(oss.str());
+}
+
+wxString GetPolicyDescription(DictionaryImportPolicy policy) {
+  switch (policy) {
+  case DictionaryImportPolicy::AddMissing:
+    return "AddMissing: insert only missing keys";
+  case DictionaryImportPolicy::AddAndOverwrite:
+    return "AddAndOverwrite: insert new keys and overwrite matches";
+  case DictionaryImportPolicy::ReplaceAll:
+    return "ReplaceAll: discard current dictionary and use imported one";
+  }
+  return "Unknown policy";
+}
+
+bool AskImportPolicy(wxWindow *parent, DictionaryImportPolicy &policyOut) {
+  wxArrayString choices;
+  choices.push_back("AddMissing");
+  choices.push_back("AddAndOverwrite");
+  choices.push_back("ReplaceAll");
+  wxSingleChoiceDialog policyDlg(parent, "Select import policy",
+                                 "Dictionary import", choices);
+  if (policyDlg.ShowModal() != wxID_OK)
+    return false;
+  const int selection = policyDlg.GetSelection();
+  if (selection == 0)
+    policyOut = DictionaryImportPolicy::AddMissing;
+  else if (selection == 1)
+    policyOut = DictionaryImportPolicy::AddAndOverwrite;
+  else
+    policyOut = DictionaryImportPolicy::ReplaceAll;
+  return true;
+}
 } // namespace
 
 DictionaryEditDialog::DictionaryEditDialog(wxWindow *parent)
@@ -135,12 +180,14 @@ void DictionaryEditDialog::BuildLayout() {
   addBtn = new wxButton(this, wxID_ADD, "Add");
   deleteBtn = new wxButton(this, wxID_DELETE, "Delete");
   downloadBtn = new wxButton(this, wxID_ANY, "Download GDTF");
+  importBtn = new wxButton(this, wxID_ANY, "Import dictionary...");
   okBtn = new wxButton(this, wxID_OK, "OK");
   cancelBtn = new wxButton(this, wxID_CANCEL, "Cancel");
 
   btnSizer->Add(addBtn, 0, wxRIGHT, 5);
   btnSizer->Add(deleteBtn, 0, wxRIGHT, 5);
   btnSizer->Add(downloadBtn, 0, wxRIGHT, 10);
+  btnSizer->Add(importBtn, 0, wxRIGHT, 10);
   btnSizer->AddStretchSpacer(1);
   btnSizer->Add(okBtn, 0, wxRIGHT, 5);
   btnSizer->Add(cancelBtn, 0);
@@ -152,6 +199,7 @@ void DictionaryEditDialog::BuildLayout() {
   addBtn->Bind(wxEVT_BUTTON, &DictionaryEditDialog::OnAdd, this);
   deleteBtn->Bind(wxEVT_BUTTON, &DictionaryEditDialog::OnDelete, this);
   downloadBtn->Bind(wxEVT_BUTTON, &DictionaryEditDialog::OnDownloadGdtf, this);
+  importBtn->Bind(wxEVT_BUTTON, &DictionaryEditDialog::OnImportDictionary, this);
   okBtn->Bind(wxEVT_BUTTON, &DictionaryEditDialog::OnOk, this);
   fixtureTable->Bind(wxEVT_DATAVIEW_ITEM_ACTIVATED,
                      &DictionaryEditDialog::OnItemActivated, this);
@@ -426,6 +474,72 @@ void DictionaryEditDialog::OnOk(wxCommandEvent &WXUNUSED(event)) {
   SaveFixtures();
   SaveTrusses();
   EndModal(wxID_OK);
+}
+
+void DictionaryEditDialog::OnImportDictionary(wxCommandEvent &WXUNUSED(event)) {
+  if (IsFixturesPage()) {
+    (void)ImportFixturesDictionary();
+    return;
+  }
+  (void)ImportTrussesDictionary();
+}
+
+bool DictionaryEditDialog::ImportFixturesDictionary() {
+  wxFileDialog fileDialog(this, "Import fixtures dictionary", wxEmptyString,
+                          wxEmptyString, "JSON files (*.json)|*.json",
+                          wxFD_OPEN | wxFD_FILE_MUST_EXIST);
+  if (fileDialog.ShowModal() != wxID_OK)
+    return false;
+
+  DictionaryImportPolicy policy = DictionaryImportPolicy::AddMissing;
+  if (!AskImportPolicy(this, policy))
+    return false;
+
+  const std::string importPath = std::string(fileDialog.GetPath().ToUTF8());
+  const auto preview = GdtfDictionary::PreviewImportFromFile(importPath, policy);
+  wxString confirmText = "Policy:\n" + GetPolicyDescription(policy) +
+                         "\n\nPreview summary:\n" + BuildSummaryText(preview) +
+                         "\n\nApply import?";
+  if (wxMessageBox(confirmText, "Confirm fixtures dictionary import",
+                   wxYES_NO | wxICON_QUESTION, this) != wxYES) {
+    return false;
+  }
+
+  const auto result = GdtfDictionary::ApplyImportFromFile(importPath, policy);
+  LoadFixtures();
+  wxMessageBox("Fixtures dictionary import completed.\n\n" +
+                   BuildSummaryText(result),
+               "Fixtures dictionary import", wxOK | wxICON_INFORMATION, this);
+  return !result.HasErrors();
+}
+
+bool DictionaryEditDialog::ImportTrussesDictionary() {
+  wxFileDialog fileDialog(this, "Import trusses dictionary", wxEmptyString,
+                          wxEmptyString, "JSON files (*.json)|*.json",
+                          wxFD_OPEN | wxFD_FILE_MUST_EXIST);
+  if (fileDialog.ShowModal() != wxID_OK)
+    return false;
+
+  DictionaryImportPolicy policy = DictionaryImportPolicy::AddMissing;
+  if (!AskImportPolicy(this, policy))
+    return false;
+
+  const std::string importPath = std::string(fileDialog.GetPath().ToUTF8());
+  const auto preview = TrussDictionary::PreviewImportFromFile(importPath, policy);
+  wxString confirmText = "Policy:\n" + GetPolicyDescription(policy) +
+                         "\n\nPreview summary:\n" + BuildSummaryText(preview) +
+                         "\n\nApply import?";
+  if (wxMessageBox(confirmText, "Confirm trusses dictionary import",
+                   wxYES_NO | wxICON_QUESTION, this) != wxYES) {
+    return false;
+  }
+
+  const auto result = TrussDictionary::ApplyImportFromFile(importPath, policy);
+  LoadTrusses();
+  wxMessageBox("Trusses dictionary import completed.\n\n" +
+                   BuildSummaryText(result),
+               "Trusses dictionary import", wxOK | wxICON_INFORMATION, this);
+  return !result.HasErrors();
 }
 
 void DictionaryEditDialog::OnItemActivated(wxDataViewEvent &event) {

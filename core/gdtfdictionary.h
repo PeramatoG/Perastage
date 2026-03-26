@@ -17,6 +17,8 @@
  */
 #pragma once
 
+#include "dictionary_import.h"
+
 #include <string>
 #include <optional>
 #include <unordered_map>
@@ -44,4 +46,8 @@ namespace GdtfDictionary {
     // Copies the gdtf file into the fixtures library and updates the dictionary
     void Update(const std::string& type, const std::string& gdtfPath, const std::string& mode = {}, const std::string& category = {});
     void UpdateCategory(const std::string& type, const std::string& category);
+    DictionaryImportSummary PreviewImportFromFile(
+        const std::string &filePath, DictionaryImportPolicy policy);
+    DictionaryImportSummary ApplyImportFromFile(
+        const std::string &filePath, DictionaryImportPolicy policy);
 }

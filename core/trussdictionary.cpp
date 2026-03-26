@@ -142,58 +142,8 @@ static bool EnsureMigratedToGdtf(fs::path &pathInOut, std::string &error) {
   return false;
 }
 
-} // namespace
-
-std::string NormalizeModelKey(const std::string &model) {
-  std::string normalized = CollapseAsciiWhitespace(TrimAsciiWhitespace(model));
-  std::transform(normalized.begin(), normalized.end(), normalized.begin(),
-                 [](unsigned char c) {
-                   return static_cast<char>(std::toupper(c));
-                 });
-
-  static const std::regex kDimensionSeparator("(\\d)\\s*[xX]\\s*(\\d)");
-  normalized = std::regex_replace(normalized, kDimensionSeparator, "$1X$2");
-  return normalized;
-}
-
-bool ImportTrussFile(const std::string &inputPath, std::string &storedPath,
-                     std::string &error) {
-  std::lock_guard<std::recursive_mutex> lock(StartupFileAccessGate::Mutex());
-  storedPath.clear();
-  fs::path src = fs::u8path(inputPath);
-  if (!fs::exists(src)) {
-    error = "Truss file does not exist";
-    return false;
-  }
-
-  fs::path dictFile = GetUserDictFile();
-  if (dictFile.empty()) {
-    error = "Truss dictionary is not available";
-    return false;
-  }
-
-  fs::path dir = dictFile.parent_path();
-  fs::path working = src;
-  if (!EnsureMigratedToGdtf(working, error))
-    return false;
-
-  fs::path dest = dir / working.filename();
-  std::error_code ec;
-  fs::copy_file(working, dest, fs::copy_options::overwrite_existing, ec);
-  if (ec) {
-    error = "Failed to copy truss file into library";
-    return false;
-  }
-
-  storedPath = ToUtf8String(dest);
-  return true;
-}
-
-std::optional<std::unordered_map<std::string, std::string>> Load() {
-  std::lock_guard<std::recursive_mutex> lock(StartupFileAccessGate::Mutex());
-  g_lastLoadStatus = {};
-  auto loadFromFile = [](const fs::path &file, std::string &error)
-      -> std::optional<std::unordered_map<std::string, std::string>> {
+static std::optional<std::unordered_map<std::string, std::string>>
+LoadFromFile(const fs::path &file, std::string &error) {
   std::unordered_map<std::string, std::string> dict;
   if (file.empty()) {
     error = "Dictionary file path is empty";
@@ -307,12 +257,108 @@ std::optional<std::unordered_map<std::string, std::string>> Load() {
   if (changed)
     Save(dict);
   return dict;
-  };
+}
+
+DictionaryImportSummary MergeDictionaryEntries(
+    std::unordered_map<std::string, std::string> &current,
+    const std::unordered_map<std::string, std::string> &imported,
+    DictionaryImportPolicy policy, bool applyChanges) {
+  DictionaryImportSummary summary;
+
+  if (policy == DictionaryImportPolicy::ReplaceAll) {
+    if (applyChanges)
+      current.clear();
+    for (const auto &[key, value] : imported) {
+      if (applyChanges)
+        current[key] = value;
+      ++summary.added_count;
+    }
+    return summary;
+  }
+
+  for (const auto &[rawKey, value] : imported) {
+    const std::string key = NormalizeModelKey(rawKey);
+    if (key.empty()) {
+      ++summary.skipped_count;
+      continue;
+    }
+
+    const auto it = current.find(key);
+    if (it == current.end()) {
+      if (applyChanges)
+        current[key] = value;
+      ++summary.added_count;
+      continue;
+    }
+
+    if (policy == DictionaryImportPolicy::AddAndOverwrite) {
+      if (applyChanges)
+        it->second = value;
+      ++summary.overwritten_count;
+      continue;
+    }
+
+    ++summary.skipped_count;
+  }
+
+  return summary;
+}
+
+} // namespace
+
+std::string NormalizeModelKey(const std::string &model) {
+  std::string normalized = CollapseAsciiWhitespace(TrimAsciiWhitespace(model));
+  std::transform(normalized.begin(), normalized.end(), normalized.begin(),
+                 [](unsigned char c) {
+                   return static_cast<char>(std::toupper(c));
+                 });
+
+  static const std::regex kDimensionSeparator("(\\d)\\s*[xX]\\s*(\\d)");
+  normalized = std::regex_replace(normalized, kDimensionSeparator, "$1X$2");
+  return normalized;
+}
+
+bool ImportTrussFile(const std::string &inputPath, std::string &storedPath,
+                     std::string &error) {
+  std::lock_guard<std::recursive_mutex> lock(StartupFileAccessGate::Mutex());
+  storedPath.clear();
+  fs::path src = fs::u8path(inputPath);
+  if (!fs::exists(src)) {
+    error = "Truss file does not exist";
+    return false;
+  }
+
+  fs::path dictFile = GetUserDictFile();
+  if (dictFile.empty()) {
+    error = "Truss dictionary is not available";
+    return false;
+  }
+
+  fs::path dir = dictFile.parent_path();
+  fs::path working = src;
+  if (!EnsureMigratedToGdtf(working, error))
+    return false;
+
+  fs::path dest = dir / working.filename();
+  std::error_code ec;
+  fs::copy_file(working, dest, fs::copy_options::overwrite_existing, ec);
+  if (ec) {
+    error = "Failed to copy truss file into library";
+    return false;
+  }
+
+  storedPath = ToUtf8String(dest);
+  return true;
+}
+
+std::optional<std::unordered_map<std::string, std::string>> Load() {
+  std::lock_guard<std::recursive_mutex> lock(StartupFileAccessGate::Mutex());
+  g_lastLoadStatus = {};
 
   const fs::path userFile = GetUserDictFile();
   const fs::path baseFile = GetBaseDictFile();
   std::string userError;
-  if (auto userDict = loadFromFile(userFile, userError))
+  if (auto userDict = LoadFromFile(userFile, userError))
     return userDict;
 
   std::cerr << "Warning: failed to load user truss dictionary '" << userFile.string()
@@ -320,7 +366,7 @@ std::optional<std::unordered_map<std::string, std::string>> Load() {
             << std::endl;
 
   std::string baseError;
-  if (auto baseDict = loadFromFile(baseFile, baseError)) {
+  if (auto baseDict = LoadFromFile(baseFile, baseError)) {
     g_lastLoadStatus.usedDefaultDictionary = true;
     RecreateUserDictionaryFromBase(userFile, baseFile);
     return baseDict;
@@ -416,6 +462,54 @@ void Update(const std::string &model, const std::string &modelPath) {
   auto &dict = *dictOpt;
   dict[normalizedModel] = storedPath;
   Save(dict);
+}
+
+DictionaryImportSummary PreviewImportFromFile(const std::string &filePath,
+                                              DictionaryImportPolicy policy) {
+  std::lock_guard<std::recursive_mutex> lock(StartupFileAccessGate::Mutex());
+  DictionaryImportSummary summary;
+
+  std::string importError;
+  const fs::path importPath = fs::u8path(filePath);
+  auto importedOpt = LoadFromFile(importPath, importError);
+  if (!importedOpt) {
+    summary.errors.push_back("Failed to load import file: " + importError);
+    return summary;
+  }
+
+  auto currentOpt = Load();
+  if (!currentOpt) {
+    summary.errors.push_back("Failed to load current dictionary");
+    return summary;
+  }
+
+  auto current = *currentOpt;
+  return MergeDictionaryEntries(current, *importedOpt, policy, false);
+}
+
+DictionaryImportSummary ApplyImportFromFile(const std::string &filePath,
+                                            DictionaryImportPolicy policy) {
+  std::lock_guard<std::recursive_mutex> lock(StartupFileAccessGate::Mutex());
+  DictionaryImportSummary summary;
+
+  std::string importError;
+  const fs::path importPath = fs::u8path(filePath);
+  auto importedOpt = LoadFromFile(importPath, importError);
+  if (!importedOpt) {
+    summary.errors.push_back("Failed to load import file: " + importError);
+    return summary;
+  }
+
+  auto currentOpt = Load();
+  if (!currentOpt) {
+    summary.errors.push_back("Failed to load current dictionary");
+    return summary;
+  }
+
+  auto current = *currentOpt;
+  summary = MergeDictionaryEntries(current, *importedOpt, policy, true);
+  Save(current);
+  return summary;
 }
 
 } // namespace TrussDictionary

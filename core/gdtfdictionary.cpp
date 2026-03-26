@@ -173,6 +173,45 @@ LoadFromFile(const fs::path &file, std::string &error) {
   return dict;
 }
 
+DictionaryImportSummary MergeDictionaryEntries(
+    std::unordered_map<std::string, Entry> &current,
+    const std::unordered_map<std::string, Entry> &imported,
+    DictionaryImportPolicy policy, bool applyChanges) {
+  DictionaryImportSummary summary;
+
+  if (policy == DictionaryImportPolicy::ReplaceAll) {
+    if (applyChanges)
+      current.clear();
+    for (const auto &[key, value] : imported) {
+      if (applyChanges)
+        current[key] = value;
+      ++summary.added_count;
+    }
+    return summary;
+  }
+
+  for (const auto &[key, value] : imported) {
+    const auto it = current.find(key);
+    if (it == current.end()) {
+      if (applyChanges)
+        current[key] = value;
+      ++summary.added_count;
+      continue;
+    }
+
+    if (policy == DictionaryImportPolicy::AddAndOverwrite) {
+      if (applyChanges)
+        it->second = value;
+      ++summary.overwritten_count;
+      continue;
+    }
+
+    ++summary.skipped_count;
+  }
+
+  return summary;
+}
+
 } // namespace
 
 std::optional<std::unordered_map<std::string, Entry>> Load() {
@@ -317,6 +356,54 @@ void UpdateCategory(const std::string &type, const std::string &category) {
     it->second.category = category;
   }
   Save(dict);
+}
+
+DictionaryImportSummary PreviewImportFromFile(const std::string &filePath,
+                                              DictionaryImportPolicy policy) {
+  std::lock_guard<std::recursive_mutex> lock(StartupFileAccessGate::Mutex());
+  DictionaryImportSummary summary;
+
+  std::string importError;
+  const fs::path importPath = fs::u8path(filePath);
+  auto importedOpt = LoadFromFile(importPath, importError);
+  if (!importedOpt) {
+    summary.errors.push_back("Failed to load import file: " + importError);
+    return summary;
+  }
+
+  auto currentOpt = Load();
+  if (!currentOpt) {
+    summary.errors.push_back("Failed to load current dictionary");
+    return summary;
+  }
+
+  auto current = *currentOpt;
+  return MergeDictionaryEntries(current, *importedOpt, policy, false);
+}
+
+DictionaryImportSummary ApplyImportFromFile(const std::string &filePath,
+                                            DictionaryImportPolicy policy) {
+  std::lock_guard<std::recursive_mutex> lock(StartupFileAccessGate::Mutex());
+  DictionaryImportSummary summary;
+
+  std::string importError;
+  const fs::path importPath = fs::u8path(filePath);
+  auto importedOpt = LoadFromFile(importPath, importError);
+  if (!importedOpt) {
+    summary.errors.push_back("Failed to load import file: " + importError);
+    return summary;
+  }
+
+  auto currentOpt = Load();
+  if (!currentOpt) {
+    summary.errors.push_back("Failed to load current dictionary");
+    return summary;
+  }
+
+  auto current = *currentOpt;
+  summary = MergeDictionaryEntries(current, *importedOpt, policy, true);
+  Save(current);
+  return summary;
 }
 
 } // namespace GdtfDictionary

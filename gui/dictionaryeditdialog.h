@@ -37,8 +37,11 @@ private:
   void OnAdd(wxCommandEvent &event);
   void OnDelete(wxCommandEvent &event);
   void OnDownloadGdtf(wxCommandEvent &event);
+  void OnImportDictionary(wxCommandEvent &event);
   void OnOk(wxCommandEvent &event);
   void OnItemActivated(wxDataViewEvent &event);
+  bool ImportFixturesDictionary();
+  bool ImportTrussesDictionary();
 
   wxNotebook *notebook = nullptr;
   wxDataViewListCtrl *fixtureTable = nullptr;
@@ -46,6 +49,7 @@ private:
   wxButton *addBtn = nullptr;
   wxButton *deleteBtn = nullptr;
   wxButton *downloadBtn = nullptr;
+  wxButton *importBtn = nullptr;
   wxButton *okBtn = nullptr;
   wxButton *cancelBtn = nullptr;
 
