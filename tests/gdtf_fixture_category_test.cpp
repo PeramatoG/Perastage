@@ -25,7 +25,7 @@ static std::string WrapDescription(const std::string &name,
          "<AttributeDefinitions><Attributes>" +
          attributes +
          "</Attributes></AttributeDefinitions>"
-         "<Geometries>" + geometries + "</Geometries>"
+         "<Geometries>" + geometries + "</Geometries>" +
          extraFixtureContent +
          "<PhysicalDescriptions><Emitters>" + emitters +
          "</Emitters></PhysicalDescriptions>"
