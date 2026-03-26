@@ -38,6 +38,8 @@ namespace TrussDictionary {
 
 namespace {
 
+LoadStatus g_lastLoadStatus;
+
 static std::string ToUtf8String(const fs::path &path) {
   std::u8string utf8 = path.u8string();
   return std::string(utf8.begin(), utf8.end());
@@ -75,7 +77,7 @@ static std::string CollapseAsciiWhitespace(const std::string &text) {
   return collapsed;
 }
 
-static fs::path GetDictFile() {
+static fs::path GetUserDictFile() {
   fs::path dir = fs::u8path(ProjectUtils::GetDefaultLibraryPath("trusses"));
   if (dir.empty())
     return {};
@@ -83,20 +85,27 @@ static fs::path GetDictFile() {
   fs::create_directories(dir, ec);
   if (ec)
     return {};
-  fs::path file = dir / "truss_dictionary.json";
-  if (!fs::exists(file)) {
-    fs::path baseLib = ProjectUtils::GetBaseLibraryPath("trusses");
-    fs::path baseFile = baseLib / "truss_dictionary.json";
-    std::error_code ec;
-    if (fs::exists(baseFile))
-      fs::copy_file(baseFile, file, fs::copy_options::overwrite_existing, ec);
-    if (!fs::exists(file)) {
-      std::ofstream create(file);
-      if (create.is_open())
-        create << DictionaryJsonContract::MakeRoot("trusses", nlohmann::json::object()).dump(4);
-    }
-  }
-  return file;
+  return dir / "truss_dictionary.json";
+}
+
+static fs::path GetBaseDictFile() {
+  return ProjectUtils::GetBaseLibraryPath("trusses") / "truss_dictionary.json";
+}
+
+static bool RecreateUserDictionaryFromBase(const fs::path &userFile,
+                                           const fs::path &baseFile) {
+  if (userFile.empty() || baseFile.empty() || !fs::exists(baseFile))
+    return false;
+  std::error_code ec;
+  fs::copy_file(baseFile, userFile, fs::copy_options::overwrite_existing, ec);
+  if (!ec)
+    return true;
+  std::ofstream create(userFile);
+  if (!create.is_open())
+    return false;
+  create << DictionaryJsonContract::MakeRoot("trusses", nlohmann::json::object())
+                .dump(4);
+  return true;
 }
 
 static bool EnsureMigratedToGdtf(fs::path &pathInOut, std::string &error) {
@@ -157,7 +166,7 @@ bool ImportTrussFile(const std::string &inputPath, std::string &storedPath,
     return false;
   }
 
-  fs::path dictFile = GetDictFile();
+  fs::path dictFile = GetUserDictFile();
   if (dictFile.empty()) {
     error = "Truss dictionary is not available";
     return false;
@@ -182,19 +191,22 @@ bool ImportTrussFile(const std::string &inputPath, std::string &storedPath,
 
 std::optional<std::unordered_map<std::string, std::string>> Load() {
   std::lock_guard<std::recursive_mutex> lock(StartupFileAccessGate::Mutex());
+  g_lastLoadStatus = {};
+  auto loadFromFile = [](const fs::path &file, std::string &error)
+      -> std::optional<std::unordered_map<std::string, std::string>> {
   std::unordered_map<std::string, std::string> dict;
-  fs::path file = GetDictFile();
-  if (file.empty())
+  if (file.empty()) {
+    error = "Dictionary file path is empty";
     return std::nullopt;
+  }
 
   std::ifstream in(file);
-  if (!in.is_open())
+  if (!in.is_open()) {
+    error = "Cannot open dictionary file";
     return std::nullopt;
+  }
 
   if (in.peek() == std::ifstream::traits_type::eof()) {
-    std::ofstream out(file);
-    if (out.is_open())
-      out << DictionaryJsonContract::MakeRoot("trusses", nlohmann::json::object()).dump(4);
     return dict;
   }
 
@@ -202,17 +214,12 @@ std::optional<std::unordered_map<std::string, std::string>> Load() {
   try {
     in >> root;
   } catch (const std::exception &ex) {
-    std::cerr << "Invalid truss dictionary JSON in '" << file.string()
-              << "': parse error: " << ex.what() << std::endl;
+    error = "Parse error: " + std::string(ex.what());
     return std::nullopt;
   }
 
-  std::string contractError;
-  auto entriesOpt = DictionaryJsonContract::GetEntriesForType(
-      root, "trusses", contractError);
+  auto entriesOpt = DictionaryJsonContract::GetEntriesForType(root, "trusses", error);
   if (!entriesOpt) {
-    std::cerr << "Invalid truss dictionary JSON in '" << file.string()
-              << "': " << contractError << std::endl;
     return std::nullopt;
   }
 
@@ -249,16 +256,14 @@ std::optional<std::unordered_map<std::string, std::string>> Load() {
                           const std::string &sourceLabel) -> bool {
     const std::string normalizedKey = NormalizeModelKey(rawKey);
     if (normalizedKey.empty()) {
-      std::cerr << "Invalid truss dictionary JSON in '" << file.string()
-                << "': " << sourceLabel << " has an empty model name" << std::endl;
+      error = sourceLabel + " has an empty model name";
       return false;
     }
 
     fs::path path;
     std::string entryError;
     if (!resolveEntryPath(value, path, entryError)) {
-      std::cerr << "Invalid truss dictionary JSON in '" << file.string()
-                << "': " << sourceLabel << " " << entryError << std::endl;
+      error = sourceLabel + " " + entryError;
       return false;
     }
 
@@ -285,13 +290,11 @@ std::optional<std::unordered_map<std::string, std::string>> Load() {
     for (size_t idx = 0; idx < entries.size(); ++idx) {
       const nlohmann::json &entryJson = entries[idx];
       if (!entryJson.is_object()) {
-        std::cerr << "Invalid truss dictionary JSON in '" << file.string()
-                  << "': entries[" << idx << "] must be an object" << std::endl;
+        error = "entries[" + std::to_string(idx) + "] must be an object";
         return std::nullopt;
       }
       if (!entryJson.contains("name") || !entryJson["name"].is_string()) {
-        std::cerr << "Invalid truss dictionary JSON in '" << file.string()
-                  << "': entries[" << idx << "] missing string 'name'" << std::endl;
+        error = "entries[" + std::to_string(idx) + "] missing string 'name'";
         return std::nullopt;
       }
       if (!processEntry(entryJson["name"].get<std::string>(), entryJson,
@@ -304,11 +307,41 @@ std::optional<std::unordered_map<std::string, std::string>> Load() {
   if (changed)
     Save(dict);
   return dict;
+  };
+
+  const fs::path userFile = GetUserDictFile();
+  const fs::path baseFile = GetBaseDictFile();
+  std::string userError;
+  if (auto userDict = loadFromFile(userFile, userError))
+    return userDict;
+
+  std::cerr << "Warning: failed to load user truss dictionary '" << userFile.string()
+            << "': " << userError << ". Falling back to base dictionary."
+            << std::endl;
+
+  std::string baseError;
+  if (auto baseDict = loadFromFile(baseFile, baseError)) {
+    g_lastLoadStatus.usedDefaultDictionary = true;
+    RecreateUserDictionaryFromBase(userFile, baseFile);
+    return baseDict;
+  }
+
+  g_lastLoadStatus.error =
+      "Failed to load user truss dictionary ('" + userFile.string() +
+      "'): " + userError + ". Failed to load base truss dictionary ('" +
+      baseFile.string() + "'): " + baseError;
+  std::cerr << "Error: " << g_lastLoadStatus.error << std::endl;
+  return std::nullopt;
+}
+
+LoadStatus GetLastLoadStatus() {
+  std::lock_guard<std::recursive_mutex> lock(StartupFileAccessGate::Mutex());
+  return g_lastLoadStatus;
 }
 
 void Save(const std::unordered_map<std::string, std::string> &dict) {
   std::lock_guard<std::recursive_mutex> lock(StartupFileAccessGate::Mutex());
-  fs::path file = GetDictFile();
+  fs::path file = GetUserDictFile();
   if (file.empty())
     return;
 

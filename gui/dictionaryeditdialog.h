@@ -31,6 +31,7 @@ private:
   void LoadTrusses();
   void SaveFixtures();
   void SaveTrusses();
+  void ShowDictionaryLoadStatusMessages();
   bool IsFixturesPage() const;
 
   void OnAdd(wxCommandEvent &event);
