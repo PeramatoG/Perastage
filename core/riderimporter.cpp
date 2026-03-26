@@ -130,6 +130,36 @@ void EnsureFixtureCategoryForImport(const MvrScene &scene, Fixture &fixture) {
                    [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
     return value.find(needle) != std::string::npos;
   };
+  auto looksLikeWashFromChannels = [&](const std::string &gdtfPath,
+                                       const std::string &modeName) {
+    auto evaluateMode = [&](const std::string &mode) {
+      const std::vector<GdtfChannelInfo> channels =
+          GetGdtfModeChannels(gdtfPath, mode);
+      bool hasPan = false;
+      bool hasTilt = false;
+      bool hasGobo = false;
+      for (const GdtfChannelInfo &channel : channels) {
+        const std::string function = channel.function;
+        if (containsWord(function, "pan"))
+          hasPan = true;
+        if (containsWord(function, "tilt"))
+          hasTilt = true;
+        if (containsWord(function, "gobo"))
+          hasGobo = true;
+      }
+      return hasPan && hasTilt && !hasGobo;
+    };
+
+    if (!modeName.empty())
+      return evaluateMode(modeName);
+
+    const std::vector<std::string> modes = GetGdtfModes(gdtfPath);
+    for (const std::string &mode : modes) {
+      if (evaluateMode(mode))
+        return true;
+    }
+    return false;
+  };
   auto inferCategoryFromName = [&](const std::string &name) {
     if (name.empty())
       return std::string();
@@ -171,6 +201,20 @@ void EnsureFixtureCategoryForImport(const MvrScene &scene, Fixture &fixture) {
     fixture.category = inferCategoryFromName(gdtfPath.stem().string());
     if (!fixture.category.empty())
       fixture.categorySourceReason = "name hint gdtf filename";
+
+    if (fixture.category.empty() && std::filesystem::exists(gdtfPath)) {
+      const auto inferred = GdtfFixtureCategory::InferFromGdtf(resolvedGdtfPath);
+      if (inferred.category != GdtfFixtureCategory::kUnknown) {
+        fixture.category = inferred.category;
+        fixture.categorySourceReason = inferred.reason;
+      }
+    }
+
+    if (fixture.category.empty() && std::filesystem::exists(gdtfPath) &&
+        looksLikeWashFromChannels(resolvedGdtfPath, fixture.gdtfMode)) {
+      fixture.category = GdtfFixtureCategory::kWash;
+      fixture.categorySourceReason = "channel hints: pan+tilt without gobo";
+    }
   }
 
   if (fixture.category.empty()) {
