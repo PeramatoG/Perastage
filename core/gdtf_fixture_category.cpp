@@ -242,6 +242,12 @@ void ParseDmxModeSignals(const tinyxml2::XMLElement *fixtureType, Signals &signa
                dmxChannel->FirstChildElement("LogicalChannel");
            logical; logical = logical->NextSiblingElement("LogicalChannel")) {
         ApplyAttributeNameSignals(logical->Attribute("Attribute"), signals);
+        for (const tinyxml2::XMLElement *channelFunction =
+                 logical->FirstChildElement("ChannelFunction");
+             channelFunction;
+             channelFunction = channelFunction->NextSiblingElement("ChannelFunction")) {
+          ApplyAttributeNameSignals(channelFunction->Attribute("Attribute"), signals);
+        }
       }
     }
   }
