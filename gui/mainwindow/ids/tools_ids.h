@@ -2,7 +2,7 @@
 
 #include "view_ids.h"
 
-constexpr int ID_Tools_DownloadGdtf = ID_View_Layout_Image + 1;
+constexpr int ID_Tools_DownloadGdtf = ID_View_Viewport_Side + 1;
 constexpr int ID_Tools_EditDictionaries = ID_Tools_DownloadGdtf + 1;
 constexpr int ID_Tools_ImportRiderText = ID_Tools_EditDictionaries + 1;
 constexpr int ID_Tools_DistributeHoistWeights =

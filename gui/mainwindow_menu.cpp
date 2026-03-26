@@ -261,6 +261,19 @@ void MainWindow::CreateToolBars() {
                               loadToolbarIcon("square-asterisk",
                                               wxART_MISSING_IMAGE),
                               "Switch to Layout Mode View");
+  layoutViewsToolBar->AddSeparator();
+  layoutViewsToolBar->AddTool(ID_View_Viewport_Top, "Top View",
+                              loadToolbarIcon("cube-view-top",
+                                              wxART_MISSING_IMAGE),
+                              "Apply top view to active viewport");
+  layoutViewsToolBar->AddTool(ID_View_Viewport_Front, "Front View",
+                              loadToolbarIcon("cube-view-front",
+                                              wxART_MISSING_IMAGE),
+                              "Apply front view to active viewport");
+  layoutViewsToolBar->AddTool(ID_View_Viewport_Side, "Side View",
+                              loadToolbarIcon("cube-view-side",
+                                              wxART_MISSING_IMAGE),
+                              "Apply side view to active viewport");
   layoutViewsToolBar->Realize();
   auiManager->AddPane(
       layoutViewsToolBar, wxAuiPaneInfo()

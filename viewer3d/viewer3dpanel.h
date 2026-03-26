@@ -66,6 +66,7 @@ public:
     const Viewer3DCamera& GetCamera() const { return m_camera; }
     bool ShouldPauseHeavyTasks();
     bool IsCameraMoving() const { return m_cameraMoving; }
+    void SetStandardView(Viewer2DView view);
 
 private:
     wxGLContext* m_glContext;

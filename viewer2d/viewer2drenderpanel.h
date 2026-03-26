@@ -29,6 +29,7 @@ public:
   ~Viewer2DRenderPanel() override;
 
   void ApplyConfig();
+  void SetViewSelection(Viewer2DView view);
 
   static Viewer2DRenderPanel *Instance();
   static void SetInstance(Viewer2DRenderPanel *p);
@@ -54,6 +55,7 @@ private:
   void OnEndTextEdit(wxFocusEvent &evt);
   void OnTextChange(wxCommandEvent &evt);
   void OnTextEnter(wxCommandEvent &evt);
+  void ApplyViewSelection(int selection);
 
   wxRadioBox *m_radio = nullptr;
   wxCheckBox *m_darkMode = nullptr;
