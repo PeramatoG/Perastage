@@ -54,6 +54,7 @@ class IGuiConfigServices;
 class MainWindowLayoutController;
 class MainWindowPrintController;
 class MainWindowViewController;
+enum class Viewer2DView;
 
 
 // Main application window for GUI components
