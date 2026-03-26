@@ -54,11 +54,16 @@ std::string ResolveFixtureGdtfPath(const std::string &basePath,
 
 bool LooksLikeWashFromChannels(const std::string &gdtfPath,
                                const std::string &modeName) {
-  const auto evaluateMode = [&](const std::string &mode) {
+  struct ModeSignals {
+    bool hasChannels = false;
+    bool looksWash = false;
+  };
+  const auto evaluateMode = [&](const std::string &mode) -> ModeSignals {
     const std::vector<GdtfChannelInfo> channels = GetGdtfModeChannels(gdtfPath, mode);
     bool hasPan = false;
     bool hasTilt = false;
     bool hasGobo = false;
+    bool hasAnyChannel = !channels.empty();
     for (const GdtfChannelInfo &channel : channels) {
       const std::string functionLower = ToLowerCopy(channel.function);
       if (ContainsToken(functionLower, "pan"))
@@ -68,14 +73,17 @@ bool LooksLikeWashFromChannels(const std::string &gdtfPath,
       if (ContainsToken(functionLower, "gobo"))
         hasGobo = true;
     }
-    return hasPan && hasTilt && !hasGobo;
+    return {hasAnyChannel, hasPan && hasTilt && !hasGobo};
   };
 
-  if (!modeName.empty())
-    return evaluateMode(modeName);
+  if (!modeName.empty()) {
+    const ModeSignals selectedMode = evaluateMode(modeName);
+    if (selectedMode.hasChannels)
+      return selectedMode.looksWash;
+  }
 
   for (const std::string &mode : GetGdtfModes(gdtfPath)) {
-    if (evaluateMode(mode))
+    if (evaluateMode(mode).looksWash)
       return true;
   }
   return false;

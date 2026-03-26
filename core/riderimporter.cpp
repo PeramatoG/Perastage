@@ -132,12 +132,17 @@ void EnsureFixtureCategoryForImport(const MvrScene &scene, Fixture &fixture) {
   };
   auto looksLikeWashFromChannels = [&](const std::string &gdtfPath,
                                        const std::string &modeName) {
-    auto evaluateMode = [&](const std::string &mode) {
+    struct ModeSignals {
+      bool hasChannels = false;
+      bool looksWash = false;
+    };
+    auto evaluateMode = [&](const std::string &mode) -> ModeSignals {
       const std::vector<GdtfChannelInfo> channels =
           GetGdtfModeChannels(gdtfPath, mode);
       bool hasPan = false;
       bool hasTilt = false;
       bool hasGobo = false;
+      const bool hasAnyChannel = !channels.empty();
       for (const GdtfChannelInfo &channel : channels) {
         const std::string function = channel.function;
         if (containsWord(function, "pan"))
@@ -147,15 +152,18 @@ void EnsureFixtureCategoryForImport(const MvrScene &scene, Fixture &fixture) {
         if (containsWord(function, "gobo"))
           hasGobo = true;
       }
-      return hasPan && hasTilt && !hasGobo;
+      return {hasAnyChannel, hasPan && hasTilt && !hasGobo};
     };
 
-    if (!modeName.empty())
-      return evaluateMode(modeName);
+    if (!modeName.empty()) {
+      const ModeSignals selectedMode = evaluateMode(modeName);
+      if (selectedMode.hasChannels)
+        return selectedMode.looksWash;
+    }
 
     const std::vector<std::string> modes = GetGdtfModes(gdtfPath);
     for (const std::string &mode : modes) {
-      if (evaluateMode(mode))
+      if (evaluateMode(mode).looksWash)
         return true;
     }
     return false;

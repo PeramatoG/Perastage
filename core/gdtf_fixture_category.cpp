@@ -327,12 +327,15 @@ InferFromNameHints(const std::string &normalizedName) {
   const bool beam = HasNameKeyword(normalizedName, {"beam"});
   const bool spot = HasNameKeyword(normalizedName, {"spot", "profile"});
   const bool wash = HasNameKeyword(normalizedName, {"wash"});
-  if (wash)
-    return {GdtfFixtureCategory::kWash, "name hint wash"};
-  if (spot)
-    return {GdtfFixtureCategory::kSpot, "name hint spot/profile"};
+  const int movingFamilies = (beam ? 1 : 0) + (spot ? 1 : 0) + (wash ? 1 : 0);
+  if (movingFamilies >= 2)
+    return {GdtfFixtureCategory::kHybrid, "name hint hybrid"};
   if (beam)
     return {GdtfFixtureCategory::kBeam, "name hint beam"};
+  if (spot)
+    return {GdtfFixtureCategory::kSpot, "name hint spot/profile"};
+  if (wash)
+    return {GdtfFixtureCategory::kWash, "name hint wash"};
 
   if (HasNameKeyword(
           normalizedName,
