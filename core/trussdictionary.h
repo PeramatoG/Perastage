@@ -17,6 +17,8 @@
  */
 #pragma once
 
+#include "dictionary_import.h"
+
 #include <optional>
 #include <string>
 #include <unordered_map>
@@ -35,4 +37,8 @@ std::optional<std::string> Get(const std::string &model);
 void Update(const std::string &model, const std::string &modelPath);
 bool ImportTrussFile(const std::string &inputPath, std::string &storedPath,
                      std::string &error);
+DictionaryImportSummary PreviewImportFromFile(
+    const std::string &filePath, DictionaryImportPolicy policy);
+DictionaryImportSummary ApplyImportFromFile(
+    const std::string &filePath, DictionaryImportPolicy policy);
 } // namespace TrussDictionary
