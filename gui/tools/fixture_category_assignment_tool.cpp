@@ -1,8 +1,11 @@
 #include "tools/fixture_category_assignment_tool.h"
 
+#include <algorithm>
+#include <cctype>
 #include <filesystem>
 #include <set>
 #include <string>
+#include <vector>
 
 #include <wx/msgdlg.h>
 
@@ -10,10 +13,75 @@
 #include "fixture.h"
 #include "gdtf_fixture_category.h"
 #include "gdtfdictionary.h"
+#include "gdtfloader.h"
 #include "guiconfigservices.h"
 #include "mainwindow.h"
 
 namespace tools {
+
+namespace {
+
+std::string ToLowerCopy(std::string value) {
+  std::transform(value.begin(), value.end(), value.begin(),
+                 [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+  return value;
+}
+
+bool ContainsToken(const std::string &text, const char *needle) {
+  return text.find(needle) != std::string::npos;
+}
+
+std::string ResolveFixtureGdtfPath(const std::string &basePath,
+                                   const std::string &gdtfSpec) {
+  if (gdtfSpec.empty())
+    return {};
+
+  const std::filesystem::path specPath = std::filesystem::u8path(gdtfSpec);
+  if (specPath.is_absolute() && std::filesystem::exists(specPath))
+    return specPath.string();
+
+  if (!basePath.empty()) {
+    const std::filesystem::path joined = std::filesystem::u8path(basePath) / specPath;
+    if (std::filesystem::exists(joined))
+      return joined.string();
+  }
+
+  if (std::filesystem::exists(specPath))
+    return specPath.string();
+
+  return {};
+}
+
+bool LooksLikeWashFromChannels(const std::string &gdtfPath,
+                               const std::string &modeName) {
+  const auto evaluateMode = [&](const std::string &mode) {
+    const std::vector<GdtfChannelInfo> channels = GetGdtfModeChannels(gdtfPath, mode);
+    bool hasPan = false;
+    bool hasTilt = false;
+    bool hasGobo = false;
+    for (const GdtfChannelInfo &channel : channels) {
+      const std::string functionLower = ToLowerCopy(channel.function);
+      if (ContainsToken(functionLower, "pan"))
+        hasPan = true;
+      if (ContainsToken(functionLower, "tilt"))
+        hasTilt = true;
+      if (ContainsToken(functionLower, "gobo"))
+        hasGobo = true;
+    }
+    return hasPan && hasTilt && !hasGobo;
+  };
+
+  if (!modeName.empty())
+    return evaluateMode(modeName);
+
+  for (const std::string &mode : GetGdtfModes(gdtfPath)) {
+    if (evaluateMode(mode))
+      return true;
+  }
+  return false;
+}
+
+} // namespace
 
 void RunFixtureCategoryAssignment(MainWindow &window) {
   ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
@@ -41,10 +109,18 @@ void RunFixtureCategoryAssignment(MainWindow &window) {
         fixture.typeName.empty() ? fixture.instanceName : fixture.typeName;
     auto inferred = GdtfFixtureCategory::InferFromName(preferredName);
 
+    const std::string resolvedGdtfPath =
+        ResolveFixtureGdtfPath(scene.basePath, fixture.gdtfSpec);
     if (inferred.category == GdtfFixtureCategory::kUnknown &&
-        !fixture.gdtfSpec.empty() &&
-        std::filesystem::exists(fixture.gdtfSpec)) {
-      inferred = GdtfFixtureCategory::InferFromGdtf(fixture.gdtfSpec);
+        !resolvedGdtfPath.empty()) {
+      inferred = GdtfFixtureCategory::InferFromGdtf(resolvedGdtfPath);
+    }
+
+    if (inferred.category == GdtfFixtureCategory::kUnknown &&
+        !resolvedGdtfPath.empty() &&
+        LooksLikeWashFromChannels(resolvedGdtfPath, fixture.gdtfMode)) {
+      inferred = {GdtfFixtureCategory::kWash,
+                  "channel hints: pan+tilt without gobo"};
     }
 
     std::string inferredCategory =
