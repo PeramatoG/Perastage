@@ -92,6 +92,7 @@ DictionaryEditDialog::DictionaryEditDialog(wxWindow *parent)
   BuildLayout();
   LoadFixtures();
   LoadTrusses();
+  ShowDictionaryLoadStatusMessages();
 }
 
 void DictionaryEditDialog::BuildLayout() {
@@ -219,6 +220,42 @@ void DictionaryEditDialog::LoadTrusses() {
     items.push_back(wxString::FromUTF8(std::filesystem::path(row.path).filename().string()));
     trussTable->AppendItem(items);
     trussPaths.push_back(row.path);
+  }
+}
+
+void DictionaryEditDialog::ShowDictionaryLoadStatusMessages() {
+  bool shouldShowFallbackMessage = false;
+  std::string errorMessage;
+
+  const GdtfDictionary::LoadStatus fixturesStatus =
+      GdtfDictionary::GetLastLoadStatus();
+  if (fixturesStatus.usedDefaultDictionary)
+    shouldShowFallbackMessage = true;
+  if (!fixturesStatus.error.empty())
+    errorMessage = fixturesStatus.error;
+
+  const TrussDictionary::LoadStatus trussStatus =
+      TrussDictionary::GetLastLoadStatus();
+  if (trussStatus.usedDefaultDictionary)
+    shouldShowFallbackMessage = true;
+  if (errorMessage.empty() && !trussStatus.error.empty())
+    errorMessage = trussStatus.error;
+
+  if (!errorMessage.empty()) {
+    wxMessageBox(
+        wxString::FromUTF8(errorMessage),
+        "Dictionary load error",
+        wxICON_ERROR | wxOK,
+        this);
+    return;
+  }
+
+  if (shouldShowFallbackMessage) {
+    wxMessageBox(
+        "Se cargó diccionario por defecto debido a error en el archivo de usuario",
+        "Dictionary warning",
+        wxICON_WARNING | wxOK,
+        this);
   }
 }
 

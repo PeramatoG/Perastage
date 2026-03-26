@@ -22,6 +22,11 @@
 #include <unordered_map>
 
 namespace GdtfDictionary {
+    struct LoadStatus {
+        bool usedDefaultDictionary = false;
+        std::string error;
+    };
+
     struct Entry {
         std::string path; // optional absolute path inside fixtures library
         std::string mode;
@@ -30,6 +35,7 @@ namespace GdtfDictionary {
 
     // Loads the dictionary file into a map of type -> {gdtf path in library, default mode}
     std::optional<std::unordered_map<std::string, Entry>> Load();
+    LoadStatus GetLastLoadStatus();
     // Saves the dictionary map back to disk
     void Save(const std::unordered_map<std::string, Entry>& dict);
     // Returns the stored entry for a given type if it exists and file exists.

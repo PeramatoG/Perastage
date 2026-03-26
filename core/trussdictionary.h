@@ -22,8 +22,14 @@
 #include <unordered_map>
 
 namespace TrussDictionary {
+struct LoadStatus {
+  bool usedDefaultDictionary = false;
+  std::string error;
+};
+
 std::string NormalizeModelKey(const std::string &model);
 std::optional<std::unordered_map<std::string, std::string>> Load();
+LoadStatus GetLastLoadStatus();
 void Save(const std::unordered_map<std::string, std::string> &dict);
 std::optional<std::string> Get(const std::string &model);
 void Update(const std::string &model, const std::string &modelPath);

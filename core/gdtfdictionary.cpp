@@ -30,7 +30,11 @@ namespace fs = std::filesystem;
 
 namespace GdtfDictionary {
 
-static fs::path GetDictFile() {
+namespace {
+
+LoadStatus g_lastLoadStatus;
+
+fs::path GetUserDictFile() {
   fs::path dir = fs::u8path(ProjectUtils::GetDefaultLibraryPath("fixtures"));
   if (dir.empty())
     return {};
@@ -38,52 +42,59 @@ static fs::path GetDictFile() {
   fs::create_directories(dir, ec);
   if (ec)
     return {};
-  fs::path file = dir / "gdtf_dictionary.json";
-  if (!fs::exists(file)) {
-    fs::path baseLib = ProjectUtils::GetBaseLibraryPath("fixtures");
-    fs::path baseFile = baseLib / "gdtf_dictionary.json";
-    std::error_code ec;
-    if (fs::exists(baseFile))
-      fs::copy_file(baseFile, file, fs::copy_options::overwrite_existing, ec);
-    if (!fs::exists(file)) {
-      std::ofstream create(file);
-      if (create.is_open())
-        create << DictionaryJsonContract::MakeRoot("fixtures", nlohmann::json::object()).dump(4);
-    }
-  }
-  return file;
+  return dir / "gdtf_dictionary.json";
 }
 
-std::optional<std::unordered_map<std::string, Entry>> Load() {
-  std::lock_guard<std::recursive_mutex> lock(StartupFileAccessGate::Mutex());
+fs::path GetBaseDictFile() {
+  return ProjectUtils::GetBaseLibraryPath("fixtures") / "gdtf_dictionary.json";
+}
+
+bool RecreateUserDictionaryFromBase(const fs::path &userFile,
+                                    const fs::path &baseFile) {
+  if (userFile.empty() || baseFile.empty() || !fs::exists(baseFile))
+    return false;
+  std::error_code ec;
+  fs::copy_file(baseFile, userFile, fs::copy_options::overwrite_existing, ec);
+  if (!ec)
+    return true;
+  std::ofstream create(userFile);
+  if (!create.is_open())
+    return false;
+  create << DictionaryJsonContract::MakeRoot("fixtures",
+                                             nlohmann::json::object())
+                .dump(4);
+  return true;
+}
+
+std::optional<std::unordered_map<std::string, Entry>>
+LoadFromFile(const fs::path &file, std::string &error) {
   std::unordered_map<std::string, Entry> dict;
-  fs::path file = GetDictFile();
-  if (file.empty())
+  if (file.empty()) {
+    error = "Dictionary file path is empty";
     return std::nullopt;
+  }
+
   std::ifstream in(file);
-  if (!in.is_open())
+  if (!in.is_open()) {
+    error = "Cannot open dictionary file";
     return std::nullopt;
+  }
+
   if (in.peek() == std::ifstream::traits_type::eof()) {
-    std::ofstream out(file);
-    if (out.is_open())
-      out << DictionaryJsonContract::MakeRoot("fixtures", nlohmann::json::object()).dump(4);
     return dict;
   }
+
   nlohmann::json root;
   try {
     in >> root;
   } catch (const std::exception &ex) {
-    std::cerr << "Invalid fixtures dictionary JSON in '" << file.string()
-              << "': parse error: " << ex.what() << std::endl;
+    error = "Parse error: " + std::string(ex.what());
     return std::nullopt;
   }
 
-  std::string contractError;
-  auto entriesOpt = DictionaryJsonContract::GetEntriesForType(
-      root, "fixtures", contractError);
+  auto entriesOpt =
+      DictionaryJsonContract::GetEntriesForType(root, "fixtures", error);
   if (!entriesOpt) {
-    std::cerr << "Invalid fixtures dictionary JSON in '" << file.string()
-              << "': " << contractError << std::endl;
     return std::nullopt;
   }
 
@@ -131,9 +142,7 @@ std::optional<std::unordered_map<std::string, Entry>> Load() {
       Entry entry;
       std::string entryError;
       if (!parseEntryValue(it.value(), entry, entryError)) {
-        std::cerr << "Invalid fixtures dictionary JSON in '" << file.string()
-                  << "': invalid entry '" << it.key() << "': " << entryError
-                  << std::endl;
+        error = "Invalid entry '" + it.key() + "': " + entryError;
         return std::nullopt;
       }
       dict[it.key()] = entry;
@@ -144,21 +153,18 @@ std::optional<std::unordered_map<std::string, Entry>> Load() {
   for (size_t idx = 0; idx < entries.size(); ++idx) {
     const nlohmann::json &entryJson = entries[idx];
     if (!entryJson.is_object()) {
-      std::cerr << "Invalid fixtures dictionary JSON in '" << file.string()
-                << "': entries[" << idx << "] must be an object" << std::endl;
+      error = "entries[" + std::to_string(idx) + "] must be an object";
       return std::nullopt;
     }
     if (!entryJson.contains("name") || !entryJson["name"].is_string()) {
-      std::cerr << "Invalid fixtures dictionary JSON in '" << file.string()
-                << "': entries[" << idx << "] missing string 'name'" << std::endl;
+      error = "entries[" + std::to_string(idx) + "] missing string 'name'";
       return std::nullopt;
     }
 
     Entry entry;
     std::string entryError;
     if (!parseEntryValue(entryJson, entry, entryError)) {
-      std::cerr << "Invalid fixtures dictionary JSON in '" << file.string()
-                << "': entries[" << idx << "] " << entryError << std::endl;
+      error = "entries[" + std::to_string(idx) + "] " + entryError;
       return std::nullopt;
     }
 
@@ -167,9 +173,46 @@ std::optional<std::unordered_map<std::string, Entry>> Load() {
   return dict;
 }
 
+} // namespace
+
+std::optional<std::unordered_map<std::string, Entry>> Load() {
+  std::lock_guard<std::recursive_mutex> lock(StartupFileAccessGate::Mutex());
+  g_lastLoadStatus = {};
+
+  const fs::path userFile = GetUserDictFile();
+  const fs::path baseFile = GetBaseDictFile();
+
+  std::string userError;
+  if (auto userDict = LoadFromFile(userFile, userError))
+    return userDict;
+
+  std::cerr << "Warning: failed to load user fixtures dictionary '"
+            << userFile.string() << "': " << userError
+            << ". Falling back to base dictionary." << std::endl;
+
+  std::string baseError;
+  if (auto baseDict = LoadFromFile(baseFile, baseError)) {
+    g_lastLoadStatus.usedDefaultDictionary = true;
+    RecreateUserDictionaryFromBase(userFile, baseFile);
+    return baseDict;
+  }
+
+  g_lastLoadStatus.error =
+      "Failed to load user fixtures dictionary ('" + userFile.string() +
+      "'): " + userError + ". Failed to load base fixtures dictionary ('" +
+      baseFile.string() + "'): " + baseError;
+  std::cerr << "Error: " << g_lastLoadStatus.error << std::endl;
+  return std::nullopt;
+}
+
+LoadStatus GetLastLoadStatus() {
+  std::lock_guard<std::recursive_mutex> lock(StartupFileAccessGate::Mutex());
+  return g_lastLoadStatus;
+}
+
 void Save(const std::unordered_map<std::string, Entry> &dict) {
   std::lock_guard<std::recursive_mutex> lock(StartupFileAccessGate::Mutex());
-  fs::path file = GetDictFile();
+  fs::path file = GetUserDictFile();
   if (file.empty())
     return;
   nlohmann::json entries = nlohmann::json::object();
@@ -229,7 +272,7 @@ void Update(const std::string &type, const std::string &gdtfPath, const std::str
   fs::path src = fs::u8path(gdtfPath);
   if (!fs::exists(src))
     return;
-  fs::path file = GetDictFile();
+  fs::path file = GetUserDictFile();
   if (file.empty())
     return;
   fs::path dir = file.parent_path();
