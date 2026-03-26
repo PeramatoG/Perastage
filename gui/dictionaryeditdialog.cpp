@@ -257,8 +257,7 @@ void DictionaryEditDialog::BuildLayout() {
   deleteBtn = new wxButton(this, wxID_DELETE, "Delete");
   downloadBtn = new wxButton(this, wxID_ANY, "Download GDTF");
   importBtn = new wxButton(this, wxID_ANY, "Import dictionary...");
-  exportBtn = new wxButton(this, wxID_ANY, "Export JSON...");
-  loadBtn = new wxButton(this, wxID_ANY, "Load...");
+  exportBtn = new wxButton(this, wxID_ANY, "Export dictionary...");
   resetBtn = new wxButton(this, wxID_ANY, "Reset to default");
   okBtn = new wxButton(this, wxID_OK, "OK");
   cancelBtn = new wxButton(this, wxID_CANCEL, "Cancel");
@@ -268,7 +267,6 @@ void DictionaryEditDialog::BuildLayout() {
   btnSizer->Add(downloadBtn, 0, wxRIGHT, 10);
   btnSizer->Add(importBtn, 0, wxRIGHT, 10);
   btnSizer->Add(exportBtn, 0, wxRIGHT, 5);
-  btnSizer->Add(loadBtn, 0, wxRIGHT, 5);
   btnSizer->Add(resetBtn, 0, wxRIGHT, 10);
   btnSizer->AddStretchSpacer(1);
   btnSizer->Add(okBtn, 0, wxRIGHT, 5);
@@ -283,7 +281,6 @@ void DictionaryEditDialog::BuildLayout() {
   downloadBtn->Bind(wxEVT_BUTTON, &DictionaryEditDialog::OnDownloadGdtf, this);
   importBtn->Bind(wxEVT_BUTTON, &DictionaryEditDialog::OnImportDictionary, this);
   exportBtn->Bind(wxEVT_BUTTON, &DictionaryEditDialog::OnExportDictionary, this);
-  loadBtn->Bind(wxEVT_BUTTON, &DictionaryEditDialog::OnLoadDictionary, this);
   resetBtn->Bind(wxEVT_BUTTON, &DictionaryEditDialog::OnResetDictionary, this);
   okBtn->Bind(wxEVT_BUTTON, &DictionaryEditDialog::OnOk, this);
   fixtureTable->Bind(wxEVT_DATAVIEW_ITEM_ACTIVATED,
@@ -575,6 +572,15 @@ bool DictionaryEditDialog::ImportFixturesDictionary() {
                           wxFD_OPEN | wxFD_FILE_MUST_EXIST);
   if (fileDialog.ShowModal() != wxID_OK)
     return false;
+  const std::string importPath = std::string(fileDialog.GetPath().ToUTF8());
+  const auto validationPreview =
+      GdtfDictionary::PreviewImportFromFile(importPath, DictionaryImportPolicy::AddMissing);
+  if (validationPreview.HasErrors()) {
+    wxMessageBox("Invalid fixtures dictionary file.\n\n" +
+                     BuildSummaryText(validationPreview),
+                 "Import fixtures dictionary", wxOK | wxICON_ERROR, this);
+    return false;
+  }
 
   DictionaryImportPolicy policy = DictionaryImportPolicy::AddMissing;
   if (!AskImportPolicy(this, policy))
@@ -584,7 +590,6 @@ bool DictionaryEditDialog::ImportFixturesDictionary() {
     return false;
   }
 
-  const std::string importPath = std::string(fileDialog.GetPath().ToUTF8());
   const auto preview = GdtfDictionary::PreviewImportFromFile(importPath, policy);
   wxString confirmText = "Policy:\n" + GetPolicyDescription(policy) +
                          "\n\nPreview summary:\n" + BuildSummaryText(preview) +
@@ -608,6 +613,15 @@ bool DictionaryEditDialog::ImportTrussesDictionary() {
                           wxFD_OPEN | wxFD_FILE_MUST_EXIST);
   if (fileDialog.ShowModal() != wxID_OK)
     return false;
+  const std::string importPath = std::string(fileDialog.GetPath().ToUTF8());
+  const auto validationPreview =
+      TrussDictionary::PreviewImportFromFile(importPath, DictionaryImportPolicy::AddMissing);
+  if (validationPreview.HasErrors()) {
+    wxMessageBox("Invalid trusses dictionary file.\n\n" +
+                     BuildSummaryText(validationPreview),
+                 "Import trusses dictionary", wxOK | wxICON_ERROR, this);
+    return false;
+  }
 
   DictionaryImportPolicy policy = DictionaryImportPolicy::AddMissing;
   if (!AskImportPolicy(this, policy))
@@ -617,7 +631,6 @@ bool DictionaryEditDialog::ImportTrussesDictionary() {
     return false;
   }
 
-  const std::string importPath = std::string(fileDialog.GetPath().ToUTF8());
   const auto preview = TrussDictionary::PreviewImportFromFile(importPath, policy);
   wxString confirmText = "Policy:\n" + GetPolicyDescription(policy) +
                          "\n\nPreview summary:\n" + BuildSummaryText(preview) +
@@ -641,14 +654,6 @@ void DictionaryEditDialog::OnExportDictionary(wxCommandEvent &WXUNUSED(event)) {
     return;
   }
   (void)ExportTrussesDictionary();
-}
-
-void DictionaryEditDialog::OnLoadDictionary(wxCommandEvent &WXUNUSED(event)) {
-  if (IsFixturesPage()) {
-    (void)LoadFixturesDictionaryFromFile();
-    return;
-  }
-  (void)LoadTrussesDictionaryFromFile();
 }
 
 void DictionaryEditDialog::OnResetDictionary(wxCommandEvent &WXUNUSED(event)) {
@@ -708,60 +713,6 @@ bool DictionaryEditDialog::ExportTrussesDictionary() {
   }
   wxMessageBox("Trusses dictionary snapshot exported successfully.",
                "Export trusses dictionary", wxICON_INFORMATION | wxOK, this);
-  return true;
-}
-
-bool DictionaryEditDialog::LoadFixturesDictionaryFromFile() {
-  wxFileDialog fileDialog(this, "Load fixtures dictionary", wxEmptyString,
-                          wxEmptyString, "JSON files (*.json)|*.json",
-                          wxFD_OPEN | wxFD_FILE_MUST_EXIST);
-  if (fileDialog.ShowModal() != wxID_OK)
-    return false;
-
-  const std::string path = std::string(fileDialog.GetPath().ToUTF8());
-  if (!ConfirmReplaceAllOperation(this, "fixtures"))
-    return false;
-
-  const auto preview =
-      GdtfDictionary::PreviewImportFromFile(path, DictionaryImportPolicy::ReplaceAll);
-  if (preview.HasErrors()) {
-    wxMessageBox("Cannot load fixtures dictionary.\n\n" + BuildSummaryText(preview),
-                 "Load fixtures dictionary", wxICON_ERROR | wxOK, this);
-    return false;
-  }
-
-  const auto result =
-      GdtfDictionary::ApplyImportFromFile(path, DictionaryImportPolicy::ReplaceAll);
-  LoadFixtures();
-  wxMessageBox("Fixtures dictionary loaded.\n\n" + BuildSummaryText(result),
-               "Load fixtures dictionary", wxICON_INFORMATION | wxOK, this);
-  return true;
-}
-
-bool DictionaryEditDialog::LoadTrussesDictionaryFromFile() {
-  wxFileDialog fileDialog(this, "Load trusses dictionary", wxEmptyString,
-                          wxEmptyString, "JSON files (*.json)|*.json",
-                          wxFD_OPEN | wxFD_FILE_MUST_EXIST);
-  if (fileDialog.ShowModal() != wxID_OK)
-    return false;
-
-  const std::string path = std::string(fileDialog.GetPath().ToUTF8());
-  if (!ConfirmReplaceAllOperation(this, "trusses"))
-    return false;
-
-  const auto preview =
-      TrussDictionary::PreviewImportFromFile(path, DictionaryImportPolicy::ReplaceAll);
-  if (preview.HasErrors()) {
-    wxMessageBox("Cannot load trusses dictionary.\n\n" + BuildSummaryText(preview),
-                 "Load trusses dictionary", wxICON_ERROR | wxOK, this);
-    return false;
-  }
-
-  const auto result =
-      TrussDictionary::ApplyImportFromFile(path, DictionaryImportPolicy::ReplaceAll);
-  LoadTrusses();
-  wxMessageBox("Trusses dictionary loaded.\n\n" + BuildSummaryText(result),
-               "Load trusses dictionary", wxICON_INFORMATION | wxOK, this);
   return true;
 }
 

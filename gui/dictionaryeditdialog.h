@@ -39,7 +39,6 @@ private:
   void OnDownloadGdtf(wxCommandEvent &event);
   void OnImportDictionary(wxCommandEvent &event);
   void OnExportDictionary(wxCommandEvent &event);
-  void OnLoadDictionary(wxCommandEvent &event);
   void OnResetDictionary(wxCommandEvent &event);
   void OnOk(wxCommandEvent &event);
   void OnItemActivated(wxDataViewEvent &event);
@@ -47,8 +46,6 @@ private:
   bool ImportTrussesDictionary();
   bool ExportFixturesDictionary();
   bool ExportTrussesDictionary();
-  bool LoadFixturesDictionaryFromFile();
-  bool LoadTrussesDictionaryFromFile();
   bool ResetFixturesDictionaryToDefault();
   bool ResetTrussesDictionaryToDefault();
 
@@ -60,7 +57,6 @@ private:
   wxButton *downloadBtn = nullptr;
   wxButton *importBtn = nullptr;
   wxButton *exportBtn = nullptr;
-  wxButton *loadBtn = nullptr;
   wxButton *resetBtn = nullptr;
   wxButton *okBtn = nullptr;
   wxButton *cancelBtn = nullptr;
