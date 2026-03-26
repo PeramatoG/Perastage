@@ -22,11 +22,17 @@
 
 struct GdtfObject { Mesh mesh; Matrix transform; };
 
+struct GdtfChannelInfo {
+    int channel = 0;
+    std::string function;
+};
+
 bool LoadGdtf(const std::string&, std::vector<GdtfObject>&, std::string*) {
     return false;
 }
 int GetGdtfModeChannelCount(const std::string&, const std::string&) { return 0; }
 std::vector<std::string> GetGdtfModes(const std::string&) { return {}; }
+std::vector<GdtfChannelInfo> GetGdtfModeChannels(const std::string&, const std::string&) { return {}; }
 std::string GetGdtfFixtureName(const std::string& gdtfPath) { return gdtfPath; }
 std::string GetGdtfModelColor(const std::string& gdtfPath) { return "#000000"; }
 bool SetGdtfModelColor(const std::string&, const std::string&) { return true; }
