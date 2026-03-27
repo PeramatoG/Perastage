@@ -106,15 +106,15 @@ bool ConfirmExportReferences(wxWindow *parent, const wxString &title,
                              const ExportPathStatusSummary &summary) {
   wxMessageDialog confirmDialog(
       parent,
-      "Se encontraron referencias en el diccionario cargado.\n\n"
-      "Total de entradas: " + wxString::Format("%zu", summary.total_entries) + "\n" +
-          "Entradas con archivo encontrado: " +
+      "Found file references in the loaded dictionary.\n\n"
+      "Total entries: " + wxString::Format("%zu", summary.total_entries) + "\n" +
+          "Entries with file found: " +
           wxString::Format("%zu", summary.found_entries) + "\n" +
-          "Entradas con archivo ausente: " +
+          "Entries with missing file: " +
           wxString::Format("%zu", summary.missing_entries) +
-          "\n\n¿Deseas exportar solo referencias?",
+          "\n\nDo you want to export references only?",
       title, wxOK | wxCANCEL | wxICON_WARNING);
-  confirmDialog.SetOKCancelLabels("Exportar solo referencias", "Cancelar");
+  confirmDialog.SetOKCancelLabels("Export references only", "Cancel");
   return confirmDialog.ShowModal() == wxID_OK;
 }
 
@@ -621,7 +621,7 @@ void DictionaryEditDialog::ShowDictionaryLoadStatusMessages() {
 
   if (shouldShowFallbackMessage) {
     wxMessageBox(
-        "Se cargó diccionario por defecto debido a error en el archivo de usuario",
+        "Loaded default dictionary because the user dictionary file had an error.",
         "Dictionary warning",
         wxICON_WARNING | wxOK,
         this);
